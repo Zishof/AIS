@@ -1823,7 +1823,6 @@ public class AktifitasPerkuliahanHelper {
 
 		final MyTabConfig tabLaporan = new MyTabConfig("Lap.", "/img/print.png");
 		tabLaporan.setParent(tabs);
-		tabLaporan.setVisible(bolehMelihatLaporanKelas());
 
 		/*
 		 * PERINGATAN ZK 5 — JANGAN HAPUS tabpanel.setVisible(true) DI TIAP onClick
@@ -2107,10 +2106,6 @@ public class AktifitasPerkuliahanHelper {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				if (!bolehMelihatLaporanKelas()) {
-					tampilkanPenolakanLaporanKelas();
-					return;
-				}
 				tabLaporan.setSelected(true);           // sinkronisasi state; sembunyikan panel lain
 				tabpanelLaporan.setVisible(true);       // WAJIB: ZK5 tidak auto-show panel dari onClick
 				if (tabpanelLaporan.getChildren().size() == 0) {
@@ -2311,6 +2306,10 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							if (!bolehMelihatLaporanKelas()) {
+								tampilkanPenolakanLaporanKelas();
+								return;
+							}
 							tabbox.setSelectedTab(tabRekapitulasKehadiran);
 							tabpanelRekapitulasKehadiran.setVisible(true);
 							tabpanelRekapitulasKehadiran.setWidth("100%");
@@ -2448,6 +2447,10 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							if (!bolehMelihatLaporanKelas()) {
+								tampilkanPenolakanLaporanKelas();
+								return;
+							}
 							tabbox.setSelectedTab(tabRekapitulasNilai);
 							tabpanelRekapitulasNilai.setVisible(true);
 							tabpanelRekapitulasNilai.setWidth("100%");
@@ -2468,6 +2471,10 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							if (!bolehMelihatLaporanKelas()) {
+								tampilkanPenolakanLaporanKelas();
+								return;
+							}
 							tabRekapitulasKehadiranNilai.setSelected(true);
 							tabpanelRekapitulasKehadiranNilai.setVisible(true);
 							if (tabpanelRekapitulasKehadiranNilai.getChildren().isEmpty()) {
@@ -2487,6 +2494,10 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							if (!bolehMelihatLaporanKelas()) {
+								tampilkanPenolakanLaporanKelas();
+								return;
+							}
 							tabRekapitulasKetidakhadiran.setSelected(true);
 							tabpanelRekapitulasKetidakhadiran.setVisible(true);
 							if (tabpanelRekapitulasKetidakhadiran.getChildren().isEmpty()) {

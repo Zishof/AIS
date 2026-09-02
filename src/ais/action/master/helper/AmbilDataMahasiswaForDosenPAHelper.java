@@ -50,9 +50,9 @@ import ais.ui.util.MyWindow;
  * SENGAJA tidak difilter berdasarkan Dosen PA yang sudah dimiliki mahasiswa — mahasiswa
  * yang masih menunjuk PA lama tetap dapat ditemukan (kolom "Dosen PA" menampilkan PA
  * saat ini) agar dapat dialihkan ke dosen tujuan lewat menu yang sama. Bila
- * {@code dosen} yang dipilih memiliki jurusan/fakultas, pencarian mahasiswa dibatasi ke
- * lingkup organisasi dosen tersebut sebagai penjaga backend (relevan ketika tombol ini
- * diberikan ke operator fakultas/prodi yang hanya memiliki privilege baca pada menu).
+ * Lingkup kandidat ditentukan oleh filter Fakultas/Prodi yang terlihat pada dialog, bukan
+ * diam-diam mengikuti homebase dosen tujuan. Dengan begitu pencarian NIM tetap deterministik
+ * dan dosen lintas prodi tetap dapat dipakai bila memang dipilih operator.
  * Menyimpan mengubah baik {@code mahasiswa.dosen} (referensi langsung) maupun
  * {@link KrsMahasiswa#getDosenPa()} (via {@link Common#singkronkanKrsMahasiswa}).
  */
@@ -62,8 +62,9 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 	private MyGrid grid;
 
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
-	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/* Penetapan PA lazim dilakukan massal; lima baris per halaman terlalu sedikit. */
+	private final ais.ui.util.AmbilDataPagingHelper pagingHelper =
+			new ais.ui.util.AmbilDataPagingHelper(Common.ROWS_COUNT_ON_PAGE_100);
 	private Textbox nim;
 	private Textbox nama;
 	private Decimalbox tahunangkatan;
@@ -106,8 +107,11 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 			new Label(mahasiswa.getNim()).setParent(arg0);
 			new Label(mahasiswa.getNama()).setParent(arg0);
 			new Label(mahasiswa.getTahunangkatan() + "").setParent(arg0);
-			new Label(krsMahasiswa.getDosenPa() == null ? "" : krsMahasiswa.getDosenPa().getNama()).setParent(arg0);
-			new Label(krsMahasiswa.getKelas()).setParent(arg0);
+			new Label(krsMahasiswa == null || krsMahasiswa.getDosenPa() == null ? ""
+					: krsMahasiswa.getDosenPa().getNama()).setParent(arg0);
+			new Label(krsMahasiswa == null || krsMahasiswa.getKelas() == null
+					? (mahasiswa.getKelas() == null ? "" : mahasiswa.getKelas())
+					: krsMahasiswa.getKelas()).setParent(arg0);
 		}
 
 	}
@@ -264,13 +268,19 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 		row.appendChild(searchkelas = new AmbilDataKelasBanbox());
 		searchkelas.setWidth("90%");
 
-		searchkelas.setEventListener(new EventListener() {
+		final EventListener eventCariDariAwal = pagingHelper.buatEventCari(new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				onSearchDefault(null);
 			}
 		});
+		searchkelas.setEventListener(eventCariDariAwal);
+		nim.addEventListener(Events.ON_OK, eventCariDariAwal);
+		nama.addEventListener(Events.ON_OK, eventCariDariAwal);
+		dariNim.addEventListener(Events.ON_OK, eventCariDariAwal);
+		sampaiNim.addEventListener(Events.ON_OK, eventCariDariAwal);
+		tahunangkatan.addEventListener(Events.ON_OK, eventCariDariAwal);
 
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");
@@ -284,12 +294,7 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cari", "/img/svg/search.svg");
 		button.setTooltiptext("Cari kandidat mahasiswa sesuai filter");
-		button.addEventListener("onClick", new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				onSearchDefault(null);
-			}
-		});
+		button.addEventListener("onClick", eventCariDariAwal);
 		button.setParent(toolbar);
 
 		grid = new MyGrid();// grid.setOddRowSclass("non-odd");
@@ -429,16 +434,22 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 
 	/**
 	 * Membangun kriteria pencarian mahasiswa aktif sesuai seluruh filter form
-	 * (kelas/nama/NIM/rentang NIM/tahun angkatan/prodi/fakultas). Bila {@link #dosen}
-	 * yang dipilih memiliki jurusan atau fakultas, pencarian dibatasi tambahan ke
-	 * lingkup organisasi dosen tersebut (penjaga backend untuk operator dengan akses
-	 * terbatas).
+	 * (kelas/nama/NIM/rentang NIM/tahun angkatan/prodi/fakultas). Tidak ada pembatas
+	 * tersembunyi dari homebase dosen; pembatas organisasi hanya berasal dari filter
+	 * Fakultas dan Prodi yang dapat dilihat serta diubah operator.
 	 *
 	 * @param order tambahkan pengurutan (tahun angkatan menurun, lalu NIM menaik) bila {@code true}
 	 * @return kriteria Hibernate atas {@link Mahasiswa}
 	 */
 	public Criteria initCriteria(boolean order) {
 		Kelas kelas = (Kelas) (searchkelas.getAttribute("kelas"));
+		String nimDari = dariNim.getValue() == null ? "" : dariNim.getValue().trim();
+		String nimSampai = sampaiNim.getValue() == null ? "" : sampaiNim.getValue().trim();
+		if (!nimDari.isEmpty() && !nimSampai.isEmpty() && nimDari.compareToIgnoreCase(nimSampai) > 0) {
+			String temp = nimDari;
+			nimDari = nimSampai;
+			nimSampai = temp;
+		}
 
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Mahasiswa.class)
@@ -463,25 +474,16 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 				.add(searchjurusan.getSelectedItem() == null || searchjurusan.getSelectedItem().getValue() == null
 						|| searchjurusan.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
 								: CommonSearchFilterHelper.eqSelectedWithId("jurusan", searchjurusan, false))
-				.add(dariNim.getValue().equals("") ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.ge("nim", dariNim.getValue()))
-				.add(sampaiNim.getValue().equals("") ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.le("nim", sampaiNim.getValue()))
+				.add(nimDari.isEmpty() ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.ge("nim", nimDari))
+				.add(nimSampai.isEmpty() ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.le("nim", nimSampai))
 
 				.createAlias("jurusan", "jurusan", Criteria.LEFT_JOIN)
 
 				.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
 						|| searchfakultas.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
 								: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false));
-
-		// Pengambilan mahasiswa Dosen PA wajib tetap berada pada lingkup organisasi
-		// dosen yang dipilih. Ini menjadi penjaga backend ketika tombol diberikan
-		// kepada operator fakultas/prodi yang hanya memiliki privilege READ menu.
-		if (dosen != null && dosen.getJurusan() != null) {
-			criteria.add(Restrictions.eq("jurusan.id", dosen.getJurusan().getId()));
-		} else if (dosen != null && dosen.getFakultas() != null) {
-			criteria.add(Restrictions.eq("jurusan.fakultas", dosen.getFakultas()));
-		}
 
 		if (order)
 			criteria.addOrder(Order.desc("tahunangkatan")).addOrder(Order.asc("nim"));

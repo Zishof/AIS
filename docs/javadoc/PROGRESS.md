@@ -1,5 +1,65 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 28 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/JenisPengaduan.java`** (r83498) — 175→704 baris,
+  100% (35 anggota). **TEMUAN SANGAT SIGNIFIKAN untuk `task_18d52b8b`**:
+  entity ini sendiri TIDAK berkontribusi pada bug routing whistleblower
+  (tidak punya field penerima sama sekali — rute 100% dari rantai atasan
+  pelapor). TAPI ditemukan jalur KEDUA kebocoran identitas pelapor yang
+  TERPISAH: layar `LaporanPengaduan` (dipicu `PengaduanAction#onLaporan`)
+  NOL pemeriksaan hak akses DAN nol scoping atasan-bawahan — siapa pun
+  bisa menarik keluar SELURUH aduan suatu jenis + identitas pelapor lengkap
+  cukup dengan memilih combo. Direkomendasikan perluas `task_18d52b8b`
+  mencakup `LaporanPengaduan`.
+- **`ais/database/model/Penghasilan.java`** (r83494) — 175→522 baris, 100%
+  (35 anggota). Contoh positif keamanan. Bug: `getNama()` selalu
+  membangkitkan ulang label dari rentang angka dan menimpa isian manual
+  — render daftar saja memicu UPDATE. Dashboard turunannya
+  (`DashboardMahasiswaPenghasilanOrtu`) mengekspos PII lengkap (nama+
+  alamat+RT/RW+penghasilan 3 ortu) tanpa gerbang sendiri — masuk
+  `task_44ea51dd`.
+- **`ais/database/model/Investor.java`** (r83495) — 173→554 baris, 100%
+  (37 anggota). **PENEMUAN BARU PENTING**: entity ini bagian dari lini
+  produk TERPISAH "ebisnis.id" (SaaS POS/ERP multi-tenant) yang menumpang
+  codebase & session factory AIS yang sama — bukan modul akademik.
+  Jalur dashboard-nya sendiri CONTOH POSITIF terbaik (scoping via session
+  server, bukan parameter klien). Tapi tabel `investor`/`akun_manajemen`
+  menyimpan PASSWORD PLAINTEXT yang terjangkau via `/Api dataRinci`
+  (`task_493423ef`) — menaikkan severity task itu (password langsung
+  pakai, bukan ciphertext).
+- **`ais/database/model/PenilaianAsesor.java`** (r83497) — 171→529 baris,
+  100% (46 anggota). Broken access control: parameter URL `?pegawai=<id>`
+  tanpa cek kepemilikan + gerbang edit TAUTOLOGIS (membandingkan objek
+  dengan dirinya sendiri, selalu true) — siapa pun bisa menulis ulang
+  rekomendasi hasil asesmen BKD (dampak ke tunjangan/pelaporan) dosen
+  manapun. Dua jalur ke data sama: satu benar (Helper), satu salah
+  (Action) — pola berulang.
+- **`ais/database/model/KelasPunyaMahasiswaTemporary.java`** (r83496) —
+  161→469 baris, 100% (34 anggota). **BUG DATA KORUPSI NYATA**: proses
+  batch penempatan kelas (`JamPerkuliahanSyncrhonizerProcessor.
+  procesKelas()`) justru MENGOSONGKAN `Mahasiswa.kelas` karena
+  `getNama()` mengembalikan `null` (properti warisan `GeneralValueObject`
+  tak terpetakan) — konsekuensi NYATA dari kuirk "keharusan teknis" yang
+  selama ini cuma dicatat sebagai catatan arsitektural. Bug kembar di
+  `procesDosenPa()` (pakai PK baris antrean sebagai id dosen).
+
+**Pola baru penting**: `KelasPunyaMahasiswaTemporary` adalah kasus PERTAMA
+di mana kuirk `GeneralValueObject` bukan `@MappedSuperclass` (dicatat
+ratusan kali sebagai "keharusan teknis, bukan bug") benar-benar
+MENYEBABKAN bug data korupsi nyata di production — karena entity ini,
+tidak seperti kebanyakan entity lain, TIDAK mendeklarasikan ulang properti
+warisan yang justru dipakai kode pemanggil (`getNama()`). **Pelajaran**:
+saat entity TIDAK mendeklarasikan ulang field warisan yang biasanya
+di-override (nama/keterangan/kode), cek apakah ada kode pemanggil yang
+mengasumsikan properti itu ada — potensi bug tersembunyi.
+
+Total akumulasi 28 sesi: **318 file** dari 7.401 (~4,3%).
+
 ## Batch 27 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi

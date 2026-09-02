@@ -53,7 +53,25 @@ public final class NewUiCourseComponentController {
             Set<SatuanKerja> units = SekolahUtil.ambilSatuanKerjas();
             Tbmuser user = Common.getCurrentUser(req);
             NewUiCourseComponentService service = new NewUiCourseComponentService();
-            if ("list".equals(action)) encode(json, service.load(type, req.getParameter("q"), id(req.getParameter("unitId")), !"false".equals(req.getParameter("active")), integer(req.getParameter("page"), 0), Math.min(100, Math.max(10, integer(req.getParameter("size"), 20))), units));
+            if ("meta".equals(action)) {
+                // Tanpa aksi ini layar Komponen Produk tidak dapat menulis sama
+                // sekali: postCsrf menuntut atribut sesi newUiCsrfToken, dan
+                // tidak ada satu pun aksi di controller ini yang pernah
+                // menerbitkannya. Sebelumnya token itu hanya ada bila pengguna
+                // kebetulan sempat membuka salah satu dari lima layar lain yang
+                // mencetaknya -- ketergantungan antarlayar yang tidak pernah
+                // dinyatakan, dan tidak berlaku pada klien native yang membuka
+                // menu ini langsung.
+                json.put("jenis", type == null ? "" : type)
+                        .put("berkas", fileType(type))
+                        .put("batasHalaman", 20)
+                        .put("csrfHeader", "X-CSRF-Token")
+                        .put("csrfToken", csrfToken(req))
+                        .put("bolehTambah", NewUiRouteGuard.isActionAuthorized(req, "kursus", page, "create"))
+                        .put("bolehUbah", NewUiRouteGuard.isActionAuthorized(req, "kursus", page, "update"))
+                        .put("bolehHapus", NewUiRouteGuard.isActionAuthorized(req, "kursus", page, "delete"));
+            }
+            else if ("list".equals(action)) encode(json, service.load(type, req.getParameter("q"), id(req.getParameter("unitId")), !"false".equals(req.getParameter("active")), integer(req.getParameter("page"), 0), Math.min(100, Math.max(10, integer(req.getParameter("size"), 20))), units));
             else if ("get".equals(action)) json.put("row", row(service.get(requiredId(req.getParameter("id")), type, units)));
             else if ("meetings".equals(action)) json.put("meetings", meetings(service.meetings(requiredId(req.getParameter("id")), type, units, false)));
             else if ("history".equals(action)) json.put("history", history(service.history(requiredId(req.getParameter("id")), type, units)));
@@ -132,6 +150,14 @@ public final class NewUiCourseComponentController {
     private static JSONArray history(List<History> values) throws Exception { JSONArray out=new JSONArray();for(History value:values)out.put(new JSONObject().put("revision",value.revision).put("type",value.type).put("timestamp",value.timestamp).put("by",value.by).put("code",value.code).put("name",value.name).put("componentType",value.componentType).put("price",value.price).put("active",value.active).put("note",value.note));return out; }
     private static boolean fileType(String type){return KomponenProdukKursus.VIDEO.equals(type)||KomponenProdukKursus.EBOOK.equals(type);}
     private static String validType(String value){if(clean(value)==null)return null;for(String type:KomponenProdukKursus.s)if(type.equals(value))return type;throw new IllegalArgumentException("Jenis komponen tidak valid.");}
+    /** Terbitkan token CSRF sekali per sesi, idiom yang sama dengan NewUiPembelianController. */
+    private static String csrfToken(HttpServletRequest req) {
+        String token = ais.common.newui.NewUiCsrfUtil.getToken(req.getSession(true));
+        if (req.getSession().getAttribute("newUiCsrfToken") == null) {
+            req.getSession().setAttribute("newUiCsrfToken", token);
+        }
+        return String.valueOf(req.getSession().getAttribute("newUiCsrfToken"));
+    }
     private static void postCsrf(HttpServletRequest req){if(!"POST".equalsIgnoreCase(req.getMethod()))throw new SecurityException("Metode HTTP tidak valid.");Object expected=req.getSession().getAttribute("newUiCsrfToken");String value=req.getHeader("X-CSRF-Token");if(expected==null||value==null||!String.valueOf(expected).equals(value))throw new SecurityException("Token CSRF tidak valid.");}
     private static Long requiredId(String value){Long id=id(value);if(id==null)throw new IllegalArgumentException("ID wajib diisi.");return id;}
     private static Long id(String value){if(clean(value)==null)return null;try{return Long.valueOf(value);}catch(Exception e){throw new IllegalArgumentException("ID tidak valid.");}}
