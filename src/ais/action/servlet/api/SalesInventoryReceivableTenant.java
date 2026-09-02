@@ -49,7 +49,8 @@ final class SalesInventoryReceivableTenant {
 				|| "receivableAgingCustomer".equals(aksi)
 				|| "receivableAgingSales".equals(aksi)
 				|| "salesOrderDetail".equals(aksi) || "salesOrderStatus".equals(aksi)
-				|| "collectionReceipt".equals(aksi);
+				|| "collectionReceipt".equals(aksi) || "salesOrderSimpan".equals(aksi)
+				|| "salesOrderInvoice".equals(aksi);
 	}
 
 	// ------------------------------------------------------------------ kosakata status
@@ -370,5 +371,186 @@ final class SalesInventoryReceivableTenant {
 				+ " FROM " + skema + "alokasi_penerimaan_piutang a"
 				+ " JOIN " + skema + "piutang_customer d ON a.piutang_customer_id = d.id"
 				+ " WHERE a.penerimaan_piutang_id = ? ORDER BY a.id ASC";
+	}
+	// ------------------------------------------------------------------ penyaring status
+
+	/**
+	 * Ekspresi status untuk dipakai pada klausa {@code WHERE}.
+	 *
+	 * <p>Penyaring {@code salesOrderList} membandingkan status kiriman klien terhadap kolomnya
+	 * secara mentah. Klien mengirim {@code DRAFT} (kosakata legacy) sedangkan kolom tenant
+	 * berisi {@code DRAF}, sehingga saringan "hanya draf" mengembalikan <b>kosong</b> — bukan
+	 * salah tampil, melainkan order yang hilang dari daftar.</p>
+	 *
+	 * <p>Sama seperti pada pembacaan, yang dinormalkan adalah sisi basis datanya.</p>
+	 */
+	static String syaratStatusOrder() {
+		return " AND " + statusOrder("o") + " = ?";
+	}
+
+	// ------------------------------------------------------------------ simpan sales order
+
+	/**
+	 * <h4>Tiga hal jalur legacy yang TIDAK punya tempat pada model tenant</h4>
+	 *
+	 * <p><b>1. Satuan jual (konversi UoM).</b> Legacy menurunkan jumlah dasar dari
+	 * {@code qty_input × faktor} lewat {@code KantinHelper.faktorUomInputKeDasar}, dan menegaskan
+	 * jumlah kiriman klien hanya pratinjau. Katalog tenant tidak punya tabel {@code satuan_produk}
+	 * maupun kolom penampung {@code satuan_jual}/{@code qty_input}/{@code faktor_ke_dasar} pada
+	 * baris order. Permintaan yang menyertakan {@code satuan_jual_id} karena itu <b>ditolak</b>:
+	 * menerimanya berarti membiarkan angka pratinjau klien menjadi angka resmi, dan itu justru
+	 * yang dijaga jalur legacy.</p>
+	 *
+	 * <p><b>2. Salinan nama produk.</b> Baris order tenant tidak menyimpannya; namanya ditarik
+	 * lewat join saat dibaca. Produk yang berganti nama tampil dengan nama sekarang.</p>
+	 *
+	 * <p><b>3. Snapshot HPP per baris.</b> Legacy membekukan harga beli pada tiap baris order
+	 * untuk perhitungan margin. Model tenant menaruh biaya pada {@code faktur_penjualan.hpp} —
+	 * di tingkat faktur, bukan baris, dan pada saat pemfakturan, bukan pemesanan. Itu perbedaan
+	 * rancangan, dan akibatnya margin per baris order tidak dapat dihitung mundur. Dicatat
+	 * sebagai celah C-12; tidak ada kueri tenant yang membacanya saat ini.</p>
+	 */
+	static String cariOrderByKunci(String skema) {
+		return "SELECT id, COALESCE(nomor_dokumen,'') FROM " + skema + "sales_order"
+				+ " WHERE idempotency_key = ? LIMIT 1";
+	}
+
+	/** Keberadaan satu baris induk; dipakai menggantikan {@code session.get(...)} jalur legacy. */
+	static String adaBaris(String skema, String tabel) {
+		return "SELECT 1 FROM " + skema + tabel + " WHERE id = ?";
+	}
+
+	/**
+	 * SEBELAS kolom; tujuh parameter: tanggal, customerId, salespersonId, tokoId, keterangan,
+	 * idempotencyKey, oleh.
+	 *
+	 * <p>{@code nomor_dokumen} disisipkan kosong lalu ditimpa setelah id-nya diketahui, persis
+	 * seperti jalur legacy yang menyimpan dulu baru memanggil {@code setNomor}. Aman karena
+	 * indeks nomor pada {@code sales_order} tidak unik.</p>
+	 *
+	 * <p>{@code tanggal} tenant berstatus {@code NOT NULL} sedangkan legacy membolehkannya
+	 * kosong; bila permintaan tidak menyertakannya, dipakai tanggal server hari ini.</p>
+	 */
+	static String sisipOrder(String skema) {
+		return "INSERT INTO " + skema + "sales_order (nomor_dokumen, tanggal, customer_id,"
+				+ " salesperson_id, toko_id, total, keterangan, idempotency_key, status,"
+				+ " dibuat_pada, oleh)"
+				+ " VALUES ('', ?, ?, ?, ?, 0, ?, ?, 'DRAF', now(), ?)";
+	}
+
+	/** TUJUH parameter: orderId, barisKe, produkId, kuantitas, hargaSatuan, total, oleh. */
+	static String sisipOrderBaris(String skema) {
+		return "INSERT INTO " + skema + "sales_order_detail (sales_order_id, baris_ke, produk_id,"
+				+ " kuantitas, harga_satuan, total, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, now(), ?)";
+	}
+
+	/** Menimpa nomor dan total setelah seluruh barisnya tersisip. */
+	static String finalisasiOrder(String skema) {
+		return "UPDATE " + skema + "sales_order SET nomor_dokumen = ?, total = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/** EMPAT kolom: status (ternormalkan), salespersonId, tokoId, nomor. */
+	static String orderUntukUbah(String skema) {
+		return "SELECT " + statusOrder("o") + ", o.salesperson_id, o.toko_id,"
+				+ " COALESCE(o.nomor_dokumen,'') FROM " + skema + "sales_order o WHERE o.id = ?";
+	}
+
+	static String hapusOrderBaris(String skema) {
+		return "DELETE FROM " + skema + "sales_order_detail WHERE sales_order_id = ?";
+	}
+
+	/** LIMA parameter: tanggal (boleh NULL), keterangan, total, oleh, id. */
+	static String perbaruiOrder(String skema) {
+		return "UPDATE " + skema + "sales_order SET tanggal = COALESCE(?, tanggal),"
+				+ " keterangan = ?, total = ?, oleh = ?, tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	// ------------------------------------------------------------------ terbitkan faktur
+
+	/**
+	 * <h4>Satu dokumen legacy menjadi DUA dokumen tenant</h4>
+	 *
+	 * <p>Legacy menerbitkan satu {@code PiutangCustomerDoc} yang sekaligus berperan sebagai
+	 * faktur dan sebagai piutang. Model tenant memisahkannya: {@code faktur_penjualan} adalah
+	 * dokumen penjualannya (memegang {@code toko_id}, {@code sales_order_id}, nomor, total),
+	 * dan {@code piutang_customer} adalah tagihannya (memegang jatuh tempo dan nilai).</p>
+	 *
+	 * <p>Keduanya WAJIB lahir dalam satu transaksi. Faktur tanpa piutang berarti barang terjual
+	 * yang tidak pernah ditagih; piutang tanpa faktur memutus seluruh penelusuran ke ordernya —
+	 * termasuk saringan lingkup toko, yang pada model tenant memang ditempuh lewat faktur.</p>
+	 *
+	 * <p><b>{@code dibayar_awal} ditolak.</b> Legacy menyimpannya sebagai kolom pada dokumen
+	 * piutang. Pada model tenant uang muka bukan kolom melainkan <b>alokasi penerimaan</b>,
+	 * sehingga menghormatinya berarti ikut menerbitkan dokumen penerimaan uang — jauh melampaui
+	 * "menerbitkan faktur", dan menyentuh kas yang celahnya masih terbuka (C-11). Ditolak
+	 * daripada diam-diam dibuang.</p>
+	 */
+	static String orderUntukFaktur(String skema) {
+		return "SELECT " + statusOrder("o") + ", o.salesperson_id, o.toko_id, o.customer_id,"
+				+ " COALESCE(o.total,0), COALESCE(o.nomor_dokumen,'')"
+				+ " FROM " + skema + "sales_order o WHERE o.id = ?";
+	}
+
+	/** DUA kolom: piutangId dan nomornya; dipakai penjaga idempotensi pemfakturan. */
+	static String cariPiutangOrder(String skema) {
+		return "SELECT d.id, COALESCE(d.nomor_faktur,'')"
+				+ " FROM " + skema + "piutang_customer d"
+				+ " JOIN " + skema + "faktur_penjualan f ON d.faktur_penjualan_id = f.id"
+				+ " WHERE f.sales_order_id = ? ORDER BY d.id LIMIT 1";
+	}
+
+	/**
+	 * Termin pembayaran customer.
+	 *
+	 * <p>Legacy menyaring profil yang {@code aktif}; profil tenant tidak punya kolom itu dan
+	 * dibatasi {@code UNIQUE (customer_id)} — satu customer tepat satu profil, sehingga tidak
+	 * ada yang perlu disaring.</p>
+	 */
+	static String terminCustomer(String skema) {
+		return "SELECT COALESCE(syarat_bayar_hari,0) FROM " + skema + "customer_profile"
+				+ " WHERE customer_id = ?";
+	}
+
+	/**
+	 * TIGA BELAS parameter: nomorSementara (dua kali), tanggal, jatuhTempo, customerId,
+	 * salespersonId, salesOrderId, tokoId, subtotal, total, keterangan, idempotencyKey, oleh.
+	 *
+	 * <p>Nomornya disisipkan dengan nilai <b>sementara yang sudah unik per order</b>, bukan
+	 * kosong: {@code faktur_penjualan} dibatasi {@code UNIQUE (customer_id, nomor_faktur,
+	 * tanggal)}, sehingga dua faktur berkode kosong untuk customer yang sama pada hari yang sama
+	 * akan bertabrakan.</p>
+	 */
+	static String sisipFaktur(String skema) {
+		return "INSERT INTO " + skema + "faktur_penjualan (nomor_dokumen, nomor_faktur, tanggal,"
+				+ " jatuh_tempo, customer_id, salesperson_id, sales_order_id, toko_id, subtotal,"
+				+ " total, keterangan, idempotency_key, status, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AKTIF', now(), ?)";
+	}
+
+	static String finalisasiFaktur(String skema) {
+		return "UPDATE " + skema + "faktur_penjualan SET nomor_dokumen = ?, nomor_faktur = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/**
+	 * SEMBILAN parameter: customerId, salespersonId, fakturId, nomor, tanggal, jatuhTempo,
+	 * nilai, sisa, oleh.
+	 *
+	 * <p>{@code terbayar} dan {@code sisa} diisi konsisten sejak awal walaupun seluruh pembacaan
+	 * tenant menghitung ulang sisa dari alokasinya. Membiarkannya nol pada dokumen yang bernilai
+	 * membuat kolom ringkasan berbohong sejak baris pertama.</p>
+	 */
+	static String sisipPiutang(String skema) {
+		return "INSERT INTO " + skema + "piutang_customer (customer_id, salesperson_id,"
+				+ " faktur_penjualan_id, nomor_faktur, tanggal, jatuh_tempo, nilai, terbayar,"
+				+ " sisa, status, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'TERBUKA', now(), ?)";
+	}
+
+	static String tandaiSiapTagih(String skema) {
+		return "UPDATE " + skema + "sales_order SET status = 'SIAP_TAGIH', oleh = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
 	}
 }

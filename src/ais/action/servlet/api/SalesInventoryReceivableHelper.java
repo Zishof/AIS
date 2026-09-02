@@ -122,13 +122,6 @@ public final class SalesInventoryReceivableHelper {
 
 	public static void salesOrderSimpan(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil, boolean update) throws Exception {
-		if (SalesInventoryReceivableTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// collectionCreate, MENULIS penerimaan uang -- ke schema BERSAMA. Ditolak sampai
-			// jalur tenantnya ditulis beserta uji kesetaraannya.
-			tolak(hasil, "Aksi ini belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehAksi("penjualan_sales", update ? "update" : "create")) {
 			tolak(hasil, "Akun Anda tidak berhak " + (update ? "mengubah" : "membuat") + " sales order.");
 			return;
@@ -141,6 +134,10 @@ public final class SalesInventoryReceivableHelper {
 		}
 		if (items == null || items.length() == 0) {
 			tolak(hasil, "Order minimal berisi satu item.");
+			return;
+		}
+		if (SalesInventoryReceivableTenant.aktif(ctx)) {
+			salesOrderSimpanTenant(ctx, tbmuser, request, hasil, update, customerId, items);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -348,7 +345,13 @@ public final class SalesInventoryReceivableHelper {
 		try {
 			boolean jalurTenant = SalesInventoryReceivableTenant.aktif(ctx);
 			StringBuilder where = new StringBuilder(" WHERE 1=1");
-			if (!status.isEmpty()) where.append(" AND o.status = ?");
+			if (!status.isEmpty()) {
+				// Kosakata status berbeda: klien mengirim DRAFT, kolom tenant berisi DRAF.
+				// Membandingkan mentah membuat saringan "hanya draf" mengembalikan kosong.
+				where.append(jalurTenant
+						? SalesInventoryReceivableTenant.syaratStatusOrder()
+						: " AND o.status = ?");
+			}
 			if (customerId != null) {
 				where.append(jalurTenant ? " AND o.customer_id = ?" : " AND o.customer = ?");
 			}
@@ -639,13 +642,6 @@ public final class SalesInventoryReceivableHelper {
 	/** TERKIRIM -> SIAP_TAGIH + terbitkan {@link PiutangCustomerDoc} (idempoten per order). */
 	public static void salesOrderInvoice(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryReceivableTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// collectionCreate, MENULIS penerimaan uang -- ke schema BERSAMA. Ditolak sampai
-			// jalur tenantnya ditulis beserta uji kesetaraannya.
-			tolak(hasil, "Aksi ini belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehAksi("penjualan_sales", "update") && !ctx.bolehAksi("piutang", "create")) {
 			tolak(hasil, "Akun Anda tidak berhak menerbitkan faktur piutang.");
 			return;
@@ -653,6 +649,10 @@ public final class SalesInventoryReceivableHelper {
 		Long orderId = optLong(request, "order_id");
 		if (orderId == null) {
 			tolak(hasil, "order_id wajib diisi.");
+			return;
+		}
+		if (SalesInventoryReceivableTenant.aktif(ctx)) {
+			salesOrderInvoiceTenant(ctx, tbmuser, orderId, request, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -1732,6 +1732,490 @@ public final class SalesInventoryReceivableHelper {
 			j.put("alokasi", arr);
 			hasil.put("status", "00");
 			hasil.put("data", j);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+	// =============================================================================================
+	// Jalur schema tenant -- simpan order dan terbitkan faktur
+	// =============================================================================================
+
+	/** Keberadaan satu baris induk pada schema tenant. */
+	private static boolean adaTenant(Session session, String skema, String tabel, Long id)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryReceivableTenant.adaBaris(skema, tabel));
+		ps.setLong(1, id.longValue());
+		java.sql.ResultSet rs = ps.executeQuery();
+		boolean ada = rs.next();
+		rs.close();
+		ps.close();
+		return ada;
+	}
+
+	/**
+	 * Menyisipkan seluruh baris order dan mengembalikan totalnya; {@code null} bila ada baris
+	 * yang ditolak (pesannya sudah ditaruh pada {@code hasil}).
+	 */
+	private static BigDecimal sisipBarisOrderTenant(Session session, String skema, long orderId,
+			JSONArray items, String oleh, JSONObject hasil) throws Exception {
+		BigDecimal total = BigDecimal.ZERO;
+		for (int i = 0; i < items.length(); i++) {
+			JSONObject it = items.getJSONObject(i);
+			Long produkId = optLong(it, "produk_id");
+			BigDecimal jumlah = optBigDecimal(it, "jumlah");
+			BigDecimal harga = optBigDecimal(it, "harga");
+			if (produkId == null || jumlah == null || jumlah.signum() <= 0 || harga == null
+					|| harga.signum() < 0) {
+				tolak(hasil, "Item ke-" + (i + 1) + " tidak valid (produk_id/jumlah>0/harga>=0).");
+				return null;
+			}
+			// Satuan jual: jalur legacy MENURUNKAN jumlah dasar dari qty_input x faktor dan
+			// memperlakukan jumlah kiriman klien sebagai pratinjau belaka. Model tenant tidak
+			// punya tabel satuan produk maupun kolom penampungnya, sehingga menerima permintaan
+			// ini berarti menjadikan angka pratinjau klien sebagai angka resmi.
+			if (optLong(it, "satuan_jual_id") != null) {
+				tolak(hasil, "Item ke-" + (i + 1) + ": satuan jual belum tersedia pada schema"
+						+ " tenant; kirim jumlah dalam satuan dasar.");
+				return null;
+			}
+			if (!adaTenant(session, skema, "produk", produkId)) {
+				tolak(hasil, "Produk " + produkId + " tidak ditemukan.");
+				return null;
+			}
+			BigDecimal sub = harga.multiply(jumlah);
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.sisipOrderBaris(skema));
+			ins.setLong(1, orderId);
+			ins.setInt(2, i + 1);
+			ins.setLong(3, produkId.longValue());
+			ins.setBigDecimal(4, jumlah);
+			ins.setBigDecimal(5, harga);
+			ins.setBigDecimal(6, sub);
+			ins.setString(7, oleh);
+			ins.executeUpdate();
+			ins.close();
+			total = total.add(sub);
+		}
+		return total;
+	}
+
+	/**
+	 * Simpan/ubah sales order pada schema tenant.
+	 *
+	 * <p>Alur dan seluruh penjaganya disalin dari jalur legacy: idempotensi lewat kode unik,
+	 * order hanya boleh diubah selama DRAFT/PESAN, sales lapangan hanya boleh menyentuh ordernya
+	 * sendiri, dan nomor dokumen dibentuk setelah id-nya diketahui.</p>
+	 *
+	 * <p>Idempotensinya kini benar-benar mengikat: indeks unik parsial pada
+	 * {@code sales_order.idempotency_key} dari migrasi v11 menutup dua permintaan bersamaan yang
+	 * lolos pemeriksaan di muka. Pelanggaran batasannya diperlakukan sebagai pengulangan yang
+	 * sah, sama seperti jalur legacy memperlakukan {@code ConstraintViolationException}.</p>
+	 */
+	private static void salesOrderSimpanTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, boolean update, Long customerId,
+			JSONArray items) throws Exception {
+		String skema = SalesInventoryReceivableTenant.skema(ctx);
+		String oleh = tbmuser.getUserId();
+		Date tanggal = optTanggal(request, "tanggal");
+		String keterangan = request.optString("keterangan", "").trim();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			if (update) {
+				Long orderId = optLong(request, "order_id");
+				if (orderId == null) {
+					tolak(hasil, "order_id wajib diisi.");
+					return;
+				}
+				java.sql.PreparedStatement ps = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.orderUntukUbah(skema));
+				ps.setLong(1, orderId.longValue());
+				java.sql.ResultSet rs = ps.executeQuery();
+				if (!rs.next()) {
+					rs.close();
+					ps.close();
+					tolak(hasil, "Sales order tidak ditemukan.");
+					return;
+				}
+				String st = str(rs.getString(1));
+				Long salesId = rs.getObject(2) == null ? null : Long.valueOf(rs.getLong(2));
+				String nomor = str(rs.getString(4));
+				rs.close();
+				ps.close();
+				if (!SalesOrderLapangan.STATUS_DRAFT.equals(st)
+						&& !SalesOrderLapangan.STATUS_PESAN.equals(st)) {
+					tolak(hasil, "Order berstatus " + st + " tidak bisa diubah (hanya DRAFT/PESAN).");
+					return;
+				}
+				if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+						|| !ctx.salesId.equals(salesId))) {
+					tolak(hasil, "Order ini bukan milik sales Anda.");
+					return;
+				}
+				tx = session.beginTransaction();
+				java.sql.PreparedStatement psH = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.hapusOrderBaris(skema));
+				psH.setLong(1, orderId.longValue());
+				psH.executeUpdate();
+				psH.close();
+				BigDecimal total = sisipBarisOrderTenant(session, skema, orderId.longValue(),
+						items, oleh, hasil);
+				if (total == null) {
+					tx.rollback();
+					return;
+				}
+				java.sql.PreparedStatement psU = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.perbaruiOrder(skema));
+				if (tanggal == null) {
+					psU.setNull(1, java.sql.Types.DATE);
+				} else {
+					psU.setDate(1, new java.sql.Date(tanggal.getTime()));
+				}
+				psU.setString(2, keterangan);
+				psU.setBigDecimal(3, total);
+				psU.setString(4, oleh);
+				psU.setLong(5, orderId.longValue());
+				psU.executeUpdate();
+				psU.close();
+				tx.commit();
+				hasil.put("status", "00");
+				hasil.put("id", orderId);
+				hasil.put("nomor", nomor);
+				hasil.put("total", total.doubleValue());
+				return;
+			}
+
+			// ---------- pembuatan ----------
+			String kodeUnik = request.optString("kode_unik", "").trim();
+			if (!kodeUnik.isEmpty()) {
+				java.sql.PreparedStatement psC = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.cariOrderByKunci(skema));
+				psC.setString(1, kodeUnik);
+				java.sql.ResultSet rsC = psC.executeQuery();
+				boolean ada = rsC.next();
+				long idAda = ada ? rsC.getLong(1) : 0;
+				String nomorAda = ada ? str(rsC.getString(2)) : "";
+				rsC.close();
+				psC.close();
+				if (ada) {
+					hasil.put("status", "00");
+					hasil.put("id", idAda);
+					hasil.put("nomor", nomorAda);
+					hasil.put("idempotentReplay", true);
+					return;
+				}
+			}
+			if (!adaTenant(session, skema, "customer", customerId)) {
+				tolak(hasil, "Customer tidak ditemukan.");
+				return;
+			}
+			Long tokoId = ctx.tokoId;
+			if (ctx.admin && optLong(request, "toko_id") != null) {
+				tokoId = optLong(request, "toko_id");
+			}
+			if (tokoId == null) {
+				tolak(hasil, "Scope toko tidak dapat ditentukan untuk akun ini.");
+				return;
+			}
+			if (!adaTenant(session, skema, "toko", tokoId)) {
+				tolak(hasil, "Toko tidak ditemukan.");
+				return;
+			}
+			Long salesId = aktorSales(ctx) ? ctx.salesId : optLong(request, "sales_id");
+			if (aktorSales(ctx) && salesId == null) {
+				tolak(hasil, "Akun sales Anda belum punya profil sales aktif.");
+				return;
+			}
+			if (salesId != null && !adaTenant(session, skema, "salesperson", salesId)) {
+				tolak(hasil, "Profil sales tidak ditemukan.");
+				return;
+			}
+			// tanggal tenant NOT NULL; legacy membolehkannya kosong.
+			Date tanggalBaru = tanggal == null ? ais.ui.util.WaktuUtil.getDate() : tanggal;
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.sisipOrder(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			ins.setDate(1, new java.sql.Date(tanggalBaru.getTime()));
+			ins.setLong(2, customerId.longValue());
+			if (salesId == null) {
+				ins.setNull(3, java.sql.Types.BIGINT);
+			} else {
+				ins.setLong(3, salesId.longValue());
+			}
+			ins.setLong(4, tokoId.longValue());
+			ins.setString(5, keterangan);
+			if (kodeUnik.isEmpty()) {
+				ins.setNull(6, java.sql.Types.VARCHAR);
+			} else {
+				ins.setString(6, kodeUnik);
+			}
+			ins.setString(7, oleh);
+			ins.executeUpdate();
+			long orderId = 0;
+			java.sql.ResultSet gk = ins.getGeneratedKeys();
+			if (gk.next()) {
+				orderId = gk.getLong(1);
+			}
+			gk.close();
+			ins.close();
+			if (orderId <= 0) {
+				tx.rollback();
+				tolak(hasil, "Sales order gagal disimpan.");
+				return;
+			}
+			BigDecimal total = sisipBarisOrderTenant(session, skema, orderId, items, oleh, hasil);
+			if (total == null) {
+				tx.rollback();
+				return;
+			}
+			String nomor = fmtNomor("SO", tokoId, Long.valueOf(orderId));
+			java.sql.PreparedStatement psF = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.finalisasiOrder(skema));
+			psF.setString(1, nomor);
+			psF.setBigDecimal(2, total);
+			psF.setLong(3, orderId);
+			psF.executeUpdate();
+			psF.close();
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", orderId);
+			hasil.put("nomor", nomor);
+			hasil.put("total", total.doubleValue());
+		} catch (java.sql.SQLException dup) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			if (dup.getSQLState() != null && dup.getSQLState().startsWith("23")) {
+				hasil.put("status", "00");
+				hasil.put("idempotentReplay", true);
+			} else {
+				throw dup;
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Menerbitkan faktur piutang dari sales order pada schema tenant.
+	 *
+	 * <p>Satu dokumen legacy menjadi dua dokumen tenant: {@code faktur_penjualan} (dokumen
+	 * penjualannya) dan {@code piutang_customer} (tagihannya). Keduanya lahir dalam SATU
+	 * transaksi bersama pemutakhiran status ordernya — faktur tanpa piutang berarti barang
+	 * terjual yang tak pernah ditagih.</p>
+	 *
+	 * <p>Nomornya diturunkan dari id fakturnya, sebab nomor itu memang nomor faktur. Yang
+	 * dikembalikan sebagai {@code piutangDocId} tetap id piutangnya, sesuai yang dibaca kembali
+	 * oleh {@code salesOrderDetail}.</p>
+	 */
+	private static void salesOrderInvoiceTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long orderId, JSONObject request, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryReceivableTenant.skema(ctx);
+		String oleh = tbmuser.getUserId();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.orderUntukFaktur(skema));
+			ps.setLong(1, orderId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Sales order tidak ditemukan.");
+				return;
+			}
+			String status = str(rs.getString(1));
+			Long salesId = rs.getObject(2) == null ? null : Long.valueOf(rs.getLong(2));
+			Long tokoId = rs.getObject(3) == null ? null : Long.valueOf(rs.getLong(3));
+			long customerId = rs.getLong(4);
+			BigDecimal total = rs.getBigDecimal(5);
+			String nomorOrder = str(rs.getString(6));
+			rs.close();
+			ps.close();
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				tolak(hasil, "Order ini bukan milik sales Anda.");
+				return;
+			}
+			java.sql.PreparedStatement psA = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.cariPiutangOrder(skema));
+			psA.setLong(1, orderId.longValue());
+			java.sql.ResultSet rsA = psA.executeQuery();
+			boolean sudah = rsA.next();
+			long idSudah = sudah ? rsA.getLong(1) : 0;
+			String nomorSudah = sudah ? str(rsA.getString(2)) : "";
+			rsA.close();
+			psA.close();
+			if (sudah) {
+				hasil.put("status", "00");
+				hasil.put("piutangDocId", idSudah);
+				hasil.put("nomor", nomorSudah);
+				hasil.put("idempotentReplay", true);
+				return;
+			}
+			if (!SalesOrderLapangan.STATUS_TERKIRIM.equals(status)) {
+				tolak(hasil, "Hanya order TERKIRIM yang bisa difakturkan (status sekarang: "
+						+ status + ").");
+				return;
+			}
+			if (total == null || total.signum() <= 0) {
+				tolak(hasil, "Total order 0 -- tidak ada yang difakturkan.");
+				return;
+			}
+			// Uang muka pada model tenant bukan kolom melainkan alokasi penerimaan; menghormatinya
+			// berarti ikut menerbitkan dokumen penerimaan uang. Ditolak daripada dibuang diam-diam.
+			BigDecimal dibayarAwal = optBigDecimal(request, "dibayar_awal");
+			if (dibayarAwal != null && dibayarAwal.signum() > 0) {
+				tolak(hasil, "dibayar_awal belum tersedia pada schema tenant: uang muka di sini"
+						+ " berupa alokasi penerimaan, jadi harus dicatat sebagai penagihan"
+						+ " tersendiri.");
+				return;
+			}
+			int termin = 0;
+			java.sql.PreparedStatement psT = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.terminCustomer(skema));
+			psT.setLong(1, customerId);
+			java.sql.ResultSet rsT = psT.executeQuery();
+			if (rsT.next()) {
+				termin = rsT.getInt(1);
+			}
+			rsT.close();
+			psT.close();
+			if (!request.isNull("termin_hari")) {
+				termin = Math.max(0, request.optInt("termin_hari", termin));
+			}
+			Date tanggal = ais.ui.util.WaktuUtil.getDate();
+			java.util.Calendar cal = java.util.Calendar.getInstance();
+			cal.setTime(tanggal);
+			cal.add(java.util.Calendar.DAY_OF_MONTH, termin);
+			Date jatuhTempo = cal.getTime();
+			String idem = "SO-INV-" + orderId;
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement insF = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.sisipFaktur(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			insF.setString(1, idem);
+			insF.setString(2, idem);
+			insF.setDate(3, new java.sql.Date(tanggal.getTime()));
+			insF.setDate(4, new java.sql.Date(jatuhTempo.getTime()));
+			insF.setLong(5, customerId);
+			if (salesId == null) {
+				insF.setNull(6, java.sql.Types.BIGINT);
+			} else {
+				insF.setLong(6, salesId.longValue());
+			}
+			insF.setLong(7, orderId.longValue());
+			if (tokoId == null) {
+				insF.setNull(8, java.sql.Types.BIGINT);
+			} else {
+				insF.setLong(8, tokoId.longValue());
+			}
+			insF.setBigDecimal(9, total);
+			insF.setBigDecimal(10, total);
+			insF.setString(11, "Faktur dari sales order " + nomorOrder);
+			insF.setString(12, idem);
+			insF.setString(13, oleh);
+			insF.executeUpdate();
+			long fakturId = 0;
+			java.sql.ResultSet gkF = insF.getGeneratedKeys();
+			if (gkF.next()) {
+				fakturId = gkF.getLong(1);
+			}
+			gkF.close();
+			insF.close();
+			if (fakturId <= 0) {
+				tx.rollback();
+				tolak(hasil, "Faktur gagal disimpan.");
+				return;
+			}
+			String nomorInv = fmtNomor("INV", tokoId, Long.valueOf(fakturId));
+			java.sql.PreparedStatement psFn = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.finalisasiFaktur(skema));
+			psFn.setString(1, nomorInv);
+			psFn.setString(2, nomorInv);
+			psFn.setLong(3, fakturId);
+			psFn.executeUpdate();
+			psFn.close();
+
+			java.sql.PreparedStatement insP = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.sisipPiutang(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			insP.setLong(1, customerId);
+			if (salesId == null) {
+				insP.setNull(2, java.sql.Types.BIGINT);
+			} else {
+				insP.setLong(2, salesId.longValue());
+			}
+			insP.setLong(3, fakturId);
+			insP.setString(4, nomorInv);
+			insP.setDate(5, new java.sql.Date(tanggal.getTime()));
+			insP.setDate(6, new java.sql.Date(jatuhTempo.getTime()));
+			insP.setBigDecimal(7, total);
+			insP.setBigDecimal(8, total);
+			insP.setString(9, oleh);
+			insP.executeUpdate();
+			long piutangId = 0;
+			java.sql.ResultSet gkP = insP.getGeneratedKeys();
+			if (gkP.next()) {
+				piutangId = gkP.getLong(1);
+			}
+			gkP.close();
+			insP.close();
+			if (piutangId <= 0) {
+				tx.rollback();
+				tolak(hasil, "Dokumen piutang gagal disimpan.");
+				return;
+			}
+
+			java.sql.PreparedStatement psS = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.tandaiSiapTagih(skema));
+			psS.setString(1, oleh);
+			psS.setLong(2, orderId.longValue());
+			psS.executeUpdate();
+			psS.close();
+
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("piutangDocId", piutangId);
+			hasil.put("nomor", nomorInv);
+			hasil.put("jatuhTempo", str(jatuhTempo));
+		} catch (java.sql.SQLException dup) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			if (dup.getSQLState() != null && dup.getSQLState().startsWith("23")) {
+				hasil.put("status", "00");
+				hasil.put("idempotentReplay", true);
+			} else {
+				throw dup;
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
