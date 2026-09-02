@@ -694,6 +694,61 @@ lain yang belum tersentuh sama sekali.
 
 ## ais/database/model/
 
+- [lengkap] `BiodataCalonMahasiswa.java` — entity PENDAFTAR PMB (sebelum jadi
+  `Mahasiswa` resmi). **388/388 method (100%)**, 3799 → 6792 baris.
+  r82997/83005/83011/83021/83025/83028 + sisa chunk terakhir tersapu ke revisi
+  gabungan sesi paralel r83033/83035/83037/83041 (pesan kosong — verifikasi via
+  `svn diff -c`, `svn diff -r HEAD` bersih). Kompilasi Java 7 `-implicit:none`
+  lulus; EOL dinormalkan ke CRLF murni (52 baris LF sisa sesi sebelumnya ikut
+  dirapikan).
+
+  Yang didokumentasikan (rangkuman untuk sesi berikutnya):
+  - **Alur PMB 6 tahap** dikonfirmasi dari kode, bukan asumsi: pendaftaran
+    (`FormBiodataCalonMahasiswaAction`/`UploadBiodataCalonMahasiswa`) → bayar
+    registrasi (`Kegiatan` jenis `ConstantUtil.PENDAFTARAN_CALON_MAHASISWA`) →
+    seleksi (jawaban DISERIALISASI ke kolom teks `parameterTambahan`, skor
+    dihitung ulang tiap dibaca) → penetapan kelulusan (`prodiLulus` +
+    `statusLulus`) → generate NIM (`ais.action.master.pmb.nim.NimGenerator`
+    per institusi) + konversi lewat `CommonPMB.saveMahasiswa` → daftar ulang.
+  - **Relasi ke `Mahasiswa`: DISALIN *dan* DITAUTKAN.** `CommonPMB.saveMahasiswa`
+    menyalin nilai ke `Mahasiswa` + `BiodataMahasiswa` (perubahan biodata calon
+    SETELAH konversi tidak merambat), sekaligus menautkan dua arah
+    (`calon.mahasiswa` ↔ `Mahasiswa.biodata_calon_mahasiswa_long`, UNIQUE).
+    Sesudah tertaut, `getNim()`/`getNama()`/`getProdiLulus()`/`getTanggalMasuk()`
+    berbalik jadi CERMIN mahasiswa resmi.
+  - **Getter di kelas ini TIDAK murni** — memutasi field, menarik nilai dari
+    entity lain, bahkan MEMBUKA session Hibernate & MENULIS baris master baru
+    (`getPropinsiCalon` → `findOrCreatePropinsi`). Karena sekaligus properti
+    Hibernate, hasil turunannya IKUT DITULIS ke kolom saat flush. Session khusus
+    (`openSession`, bukan thread-local) wajib di situ karena getter dieksekusi di
+    tengah INSERT entity lain.
+  - **Pola "fallback alumni"**: puluhan getter biodata mengisi field kosong dari
+    `mahasiswaAlumni.ambilBiodata()`. Bedakan tiga relasi `Mahasiswa` di kelas ini:
+    `mahasiswa` (diri sendiri setelah konversi), `mahasiswaAlumni` (diri sendiri
+    sebagai alumni kampus yang sama), `afiliasiMahasiswa` (ORANG LAIN dasar afiliasi).
+  - **Pola "nilai saat diterima mengalahkan nilai saat mendaftar"** pada tiga
+    pasangan: `gelombangPendaftaran`/`gelombangPendaftaranDiterima`,
+    `jenisSeleksi`/`jenisSeleksiDipilih`, `statusAwalMahasiswa`/`statusAwalDiterima`.
+  - **Format serialisasi `parameterTambahan`** (baris `\n`, ruas `<=>`:
+    label/nilai/url/nomorUrut/idParameter/idKelompok/keterangan; label =
+    `namaKelompok->labelInputan`), plus kembarannya `parameterTambahanInds`
+    berbasis id agar tahan ganti nama.
+
+  Temuan (DICATAT di Javadoc, TIDAK diperbaiki — perlu task terpisah):
+  - **BUG `getKelurahanCalon()`**: cabang fallback alumni MENGUJI
+    `ambilBiodata().getKelurahan()` tetapi MENGAMBIL `getNoIdentitas()`, sehingga
+    kolom kelurahan bisa terisi NOMOR IDENTITAS dan nilai salah itu ikut tersimpan
+    saat flush. Butuh pembersihan data lama juga.
+  - `getRincianSkor()` tidak memakai `ekstrakSkorDariTeks` untuk nilai non-angka
+    (langsung 0) sedangkan `getTotalSkor()` memakainya → jumlah rincian bisa
+    BERBEDA dari total (mis. jawaban "1. 450 Watt": total 1, rincian 0).
+  - `getStatusLulus()` memaksa 0 saat `mundur`/`ditolak` TANPA menulis balik ke
+    kolom → kolom mentah bisa tetap 1. Jangan baca kolom langsung.
+  - Javadoc `ekstrakSkorDariTeks` sebelumnya salah tempat (di depan konstanta
+    `POLA_ANGKA`) → dipindahkan agar melekat ke method; isi tidak diubah.
+  - Ternary pada `setDisposisiSop` efektif mati (kondisinya sudah dijamin tidak
+    mungkin oleh guard di baris sebelumnya).
+
 - [referensi] `GeneralValueObject.java` — **target leverage TERTINGGI sejauh ini**:
   kelas dasar **1.456 file** (`grep -rl "extends GeneralValueObject"`), mencakup
   hampir seluruh entity Hibernate AIS (Mahasiswa, Dosen, Perkuliahan, Tagihan,

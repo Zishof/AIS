@@ -8491,6 +8491,26 @@ public class Pertemuan extends Tugas {
 		setParameterTambahan(parameterTambahanStr);
 	}
 
+	/**
+	 * Nilai isian dinamis pertemuan ini dalam bentuk BERBASIS ID.
+	 *
+	 * <p>Kembaran {@link #getParameterTambahan()} yang memakai id alih-alih label, sehingga tetap
+	 * dapat dibaca walau administrator mengganti nama kelompok atau label inputan. Inilah string
+	 * yang dibaca kembali oleh {@link #populateParameterTambahan(java.util.List)} untuk mengambil
+	 * nilai lama.</p>
+	 *
+	 * <p><b>Format:</b> baris dipisah baris baru, kolom dipisah {@code "<=>"}:</p>
+	 * <pre>
+	 * 0 kunci       "idKelompok-&gt;idParameter", atau bertingkat
+	 *               "idKelompok-&gt;idParameter2-&gt;idParameter"
+	 * 1 nilai       teks biasa, atau JSON objek berkunci id pertemuan/peserta
+	 * 2 url         tautan lampiran
+	 * 3 keterangan  teks biasa, atau JSON objek berkunci id pertemuan/peserta
+	 * </pre>
+	 *
+	 * @return string parameter tambahan berbasis id; string kosong bila belum ada
+	 * @see #getParameterTambahan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahanInds() {
 		if (parameterTambahanInds == null) {
@@ -8499,10 +8519,30 @@ public class Pertemuan extends Tugas {
 		return parameterTambahanInds;
 	}
 
+	/**
+	 * Setel string parameter tambahan berbasis id.
+	 *
+	 * <p>Normalnya diisi oleh {@link #populateParameterTambahan(java.util.List)}.</p>
+	 *
+	 * @param parameterTambahanInds string berformat {@code "<=>"} berbasis id
+	 */
 	public void setParameterTambahanInds(String parameterTambahanInds) {
 		this.parameterTambahanInds = parameterTambahanInds;
 	}
 
+	/**
+	 * Daftar id peserta yang diberi izin MENGUNGGAH ULANG tugas pertemuan ini.
+	 *
+	 * <p>Memakai format dan mekanisme normalisasi yang sama persis dengan
+	 * {@link #getMhsYgTidakIkut()}: teks {@code ",id1,id2,"} berpembungkus koma, dirakit ulang dan
+	 * ditulis balik ke field setiap kali getter dipanggil.</p>
+	 *
+	 * <p>Biasanya dipakai untuk memberi kelonggaran kepada peserta tertentu yang salah unggah,
+	 * tanpa membuka unggah ulang bagi seluruh kelas.</p>
+	 *
+	 * @return daftar id berpembatas koma, atau string kosong; tidak pernah {@code null}
+	 * @see #getMhsYgTidakIkut()
+	 */
 	@Column(columnDefinition = "text")
 	public String getMhsBolehUploadUlang() {
 		mhsBolehUploadUlang = (mhsBolehUploadUlang == null || mhsBolehUploadUlang.trim().equalsIgnoreCase(",") ? ""
@@ -8519,10 +8559,25 @@ public class Pertemuan extends Tugas {
 		return mhsBolehUploadUlang == null ? "" : mhsBolehUploadUlang.trim();
 	}
 
+	/**
+	 * Setel daftar id peserta yang boleh mengunggah ulang tugas.
+	 *
+	 * @param mhsBolehUploadUlang daftar id berpembatas koma
+	 * @see #getMhsBolehUploadUlang()
+	 */
 	public void setMhsBolehUploadUlang(String mhsBolehUploadUlang) {
 		this.mhsBolehUploadUlang = mhsBolehUploadUlang;
 	}
 
+	/**
+	 * Tautan pertemuan daring memakai layanan LAIN yang tidak punya kolom sendiri.
+	 *
+	 * <p>Penampung serbaguna untuk {@link #LAIN}; mengikuti pola pemungutan URL yang dijelaskan
+	 * pada {@link #getZoomLink()}.</p>
+	 *
+	 * @return URL layanan lain, atau {@code null} bila belum diisi
+	 * @see #getOnlineMenggunakan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getLainLink() {
 //		if (lainLink == null || lainLink.trim().isEmpty()) {
@@ -8544,10 +8599,30 @@ public class Pertemuan extends Tugas {
 		return lainLink == null || lainLink.trim().isEmpty() ? null : lainLink.trim();
 	}
 
+	/**
+	 * Setel tautan layanan daring lain.
+	 *
+	 * @param lainLink URL layanan lain
+	 * @see #getLainLink()
+	 */
 	public void setLainLink(String lainLink) {
 		this.lainLink = lainLink;
 	}
 
+	/**
+	 * Bolehkah dosen mengisi absensi dengan swafoto (bukti kehadiran berupa foto)?
+	 *
+	 * <p><b>Getter ini mengubah keadaan objek dan menerapkan aturan "yang paling ketat
+	 * menang".</b> Bila {@link Perkuliahan} induk MELARANG absen berfoto, nilai di pertemuan ini
+	 * dipaksa {@code false} dan ditulis ke field. Sebaliknya bila perkuliahan MENGIZINKAN, nilai
+	 * pertemuan tidak diubah — jadi pertemuan dapat lebih ketat daripada perkuliahannya, tetapi
+	 * tidak dapat lebih longgar.</p>
+	 *
+	 * <p>Nilai bawaannya {@code true}.</p>
+	 *
+	 * @return {@code true} bila dosen boleh absen memakai foto; tidak pernah {@code null}
+	 * @see #getMahasiswaBolehAbsenMenggunakanFoto()
+	 */
 	public Boolean getDosenBolehAbsenMenggunakanFoto() {
 
 		perkuliahan = getPerkuliahan();
@@ -8558,10 +8633,30 @@ public class Pertemuan extends Tugas {
 		return dosenBolehAbsenMenggunakanFoto == null ? true : dosenBolehAbsenMenggunakanFoto;
 	}
 
+	/**
+	 * Setel izin dosen mengisi absensi dengan swafoto.
+	 *
+	 * <p>Nilai {@code true} dapat ditimpa kembali menjadi {@code false} oleh
+	 * {@link #getDosenBolehAbsenMenggunakanFoto()} bila perkuliahan induk melarangnya.</p>
+	 *
+	 * @param dosenBolehAbsenMenggunakanFoto {@code true} bila diizinkan
+	 */
 	public void setDosenBolehAbsenMenggunakanFoto(Boolean dosenBolehAbsenMenggunakanFoto) {
 		this.dosenBolehAbsenMenggunakanFoto = dosenBolehAbsenMenggunakanFoto;
 	}
 
+	/**
+	 * Bolehkah mahasiswa mengisi absensi dengan swafoto?
+	 *
+	 * <p>Berlaku aturan "yang paling ketat menang" yang sama seperti
+	 * {@link #getDosenBolehAbsenMenggunakanFoto()}: larangan di tingkat {@link Perkuliahan}
+	 * memaksa nilai di sini menjadi {@code false}.</p>
+	 *
+	 * <p>Nilai bawaannya {@code true}.</p>
+	 *
+	 * @return {@code true} bila mahasiswa boleh absen memakai foto; tidak pernah {@code null}
+	 * @see #getDosenBolehAbsenMenggunakanFoto()
+	 */
 	public Boolean getMahasiswaBolehAbsenMenggunakanFoto() {
 
 		perkuliahan = getPerkuliahan();
@@ -8572,10 +8667,32 @@ public class Pertemuan extends Tugas {
 		return mahasiswaBolehAbsenMenggunakanFoto == null ? true : mahasiswaBolehAbsenMenggunakanFoto;
 	}
 
+	/**
+	 * Setel izin mahasiswa mengisi absensi dengan swafoto.
+	 *
+	 * @param mahasiswaBolehAbsenMenggunakanFoto {@code true} bila diizinkan
+	 * @see #getMahasiswaBolehAbsenMenggunakanFoto()
+	 */
 	public void setMahasiswaBolehAbsenMenggunakanFoto(Boolean mahasiswaBolehAbsenMenggunakanFoto) {
 		this.mahasiswaBolehAbsenMenggunakanFoto = mahasiswaBolehAbsenMenggunakanFoto;
 	}
 
+	/**
+	 * Berapa menit SEBELUM jam mulai absensi sudah boleh diisi.
+	 *
+	 * <p>Bersama {@link #getBolehAbsenSetelahWaktuMulaiDalamMenit()} membentuk jendela waktu
+	 * absensi di sekitar jam mulai pertemuan.</p>
+	 *
+	 * <p><b>Getter ini mengubah keadaan objek:</b> bila {@link Perkuliahan} induk mengaktifkan
+	 * {@code bolehAbsenWaktuIkutiPerkuliahan}, nilai dari perkuliahan MENIMPA nilai pertemuan dan
+	 * ditulis ke field. Berbeda dari saklar swafoto, di sini yang berlaku adalah "perkuliahan
+	 * menang", bukan "yang paling ketat menang".</p>
+	 *
+	 * <p>Nilai bawaannya {@code 30} menit.</p>
+	 *
+	 * @return toleransi menit sebelum jam mulai; tidak pernah {@code null}
+	 * @see #getBolehAbsenSetelahWaktuMulaiDalamMenit()
+	 */
 	public Integer getBolehAbsenSebelumWaktuMulaiDalamMenit() {
 		perkuliahan = getPerkuliahan();
 		if (perkuliahan != null && perkuliahan.getBolehAbsenWaktuIkutiPerkuliahan()) {
@@ -8584,10 +8701,31 @@ public class Pertemuan extends Tugas {
 		return bolehAbsenSebelumWaktuMulaiDalamMenit == null ? 30 : bolehAbsenSebelumWaktuMulaiDalamMenit;
 	}
 
+	/**
+	 * Setel toleransi menit sebelum jam mulai untuk pengisian absensi.
+	 *
+	 * @param mahasiswaBolehAbsenSebelumWaktuMulaiDalamMenit toleransi dalam menit
+	 * @see #getBolehAbsenSebelumWaktuMulaiDalamMenit()
+	 */
 	public void setBolehAbsenSebelumWaktuMulaiDalamMenit(Integer mahasiswaBolehAbsenSebelumWaktuMulaiDalamMenit) {
 		this.bolehAbsenSebelumWaktuMulaiDalamMenit = mahasiswaBolehAbsenSebelumWaktuMulaiDalamMenit;
 	}
 
+	/**
+	 * Berapa menit SETELAH jam mulai absensi masih boleh diisi.
+	 *
+	 * <p>Pasangan {@link #getBolehAbsenSebelumWaktuMulaiDalamMenit()}, dengan penimpaan dari
+	 * {@link Perkuliahan} yang serupa dan nilai bawaan {@code 30} menit.</p>
+	 *
+	 * <p><b>Ketidakselarasan yang dicatat:</b> berbeda dari pasangannya, method ini menguji field
+	 * {@code perkuliahan} secara LANGSUNG tanpa memanggil {@link #getPerkuliahan()} lebih dahulu.
+	 * Bila proxy perkuliahan belum terinisialisasi, penimpaan dari perkuliahan TERLEWAT di sini
+	 * padahal terjadi pada pasangannya — sehingga jendela sebelum dan sesudah bisa berasal dari
+	 * sumber yang berbeda.</p>
+	 *
+	 * @return toleransi menit setelah jam mulai; tidak pernah {@code null}
+	 * @see #getBolehAbsenSebelumWaktuMulaiDalamMenit()
+	 */
 	public Integer getBolehAbsenSetelahWaktuMulaiDalamMenit() {
 		if (perkuliahan != null && perkuliahan.getBolehAbsenWaktuIkutiPerkuliahan()) {
 			bolehAbsenSetelahWaktuMulaiDalamMenit = perkuliahan.getBolehAbsenSetelahWaktuMulaiDalamMenit();
@@ -8595,14 +8733,35 @@ public class Pertemuan extends Tugas {
 		return bolehAbsenSetelahWaktuMulaiDalamMenit == null ? 30 : bolehAbsenSetelahWaktuMulaiDalamMenit;
 	}
 
+	/**
+	 * Setel toleransi menit setelah jam mulai untuk pengisian absensi.
+	 *
+	 * @param bolehAbsenSetelahWaktuMulaiDalamMenit toleransi dalam menit
+	 * @see #getBolehAbsenSetelahWaktuMulaiDalamMenit()
+	 */
 	public void setBolehAbsenSetelahWaktuMulaiDalamMenit(Integer bolehAbsenSetelahWaktuMulaiDalamMenit) {
 		this.bolehAbsenSetelahWaktuMulaiDalamMenit = bolehAbsenSetelahWaktuMulaiDalamMenit;
 	}
 
+	/**
+	 * Tetapkan wisuda sebagai induk pertemuan ini.
+	 *
+	 * @param wisuda wisuda; boleh {@code null}
+	 * @see #getWisuda()
+	 */
 	public void setWisuda(Wisuda wisuda) {
 		this.wisuda = wisuda;
 	}
 
+	/**
+	 * Wisuda yang menjadi induk pertemuan ini.
+	 *
+	 * <p>Salah satu jenis induk yang dipakai {@link #warna()}, {@link #info()}, dan
+	 * {@link #ambilVOPembelajaran()} tetapi TIDAK punya cabang di {@link #untuk()} — sehingga
+	 * pertemuan wisuda menghasilkan {@code null} dari method itu.</p>
+	 *
+	 * @return {@link Wisuda} induk, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "wisuda", nullable = true)
 	public Wisuda getWisuda() {
@@ -8610,20 +8769,62 @@ public class Pertemuan extends Tugas {
 		return wisuda;
 	}
 
+	/**
+	 * Syarat akses pertemuan ini sebagai teks JSON.
+	 *
+	 * <p>Nilai kosong dikembalikan sebagai JSON objek kosong ({@code "{}"}) sehingga pemanggil
+	 * selalu aman mem-parsingnya.</p>
+	 *
+	 * @return teks JSON syarat akses; {@code "{}"} bila belum ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getSyaratAkses() {
 		return syaratAkses == null || syaratAkses.trim().isEmpty() ? new JSONObject().toString() : syaratAkses;
 	}
 
+	/**
+	 * Setel syarat akses pertemuan ini.
+	 *
+	 * @param syaratAkses teks JSON syarat akses
+	 * @see #getSyaratAkses()
+	 */
 	public void setSyaratAkses(String syaratAkses) {
 		this.syaratAkses = syaratAkses;
 	}
 
+	/**
+	 * Catatan konfirmasi kehadiran peserta OLEH DOSEN, sebagai satu string berformat khusus.
+	 *
+	 * <p>Kolom ini adalah lapisan kedua di atas {@link #getAbsensi()}: peserta (atau sistem)
+	 * mencatat kehadiran di {@code absensi}, lalu dosen MENGONFIRMASI catatan itu di sini.</p>
+	 *
+	 * <p>Tata letaknya sembilan slot yang SAMA dengan {@code absensi} (baris dipisah {@code ';'},
+	 * slot dipisah {@code ','}), dengan satu perbedaan penting: <b>slot 4 berisi {@code dosen.id}
+	 * dosen yang mengonfirmasi</b>, bukan id pengajuan izin. Karena itu pencarian barisnya memakai
+	 * PASANGAN (ref, dosen) — satu peserta dapat punya beberapa baris konfirmasi dari dosen
+	 * berbeda.</p>
+	 *
+	 * <p>Jangan mengurai string ini sendiri; pakai keluarga
+	 * {@code retreiveAbsensiXxxKonfirmasi(Long, Dosen)}.</p>
+	 *
+	 * @return string konfirmasi mentah yang sudah di-{@code trim}; string kosong bila belum ada
+	 * @see #populateKonfirmasi(Long, Statusabsensi, String, String, String, String, Dosen)
+	 * @see #getAbsensi()
+	 */
 	@Column(columnDefinition = "text")
 	public String getKeteranganKonfirmasi() {
 		return keteranganKonfirmasi == null ? "" : keteranganKonfirmasi.trim();
 	}
 
+	/**
+	 * Timpa SELURUH string konfirmasi kehadiran pertemuan ini.
+	 *
+	 * <p>Untuk mengubah konfirmasi satu peserta, pakai
+	 * {@link #populateKonfirmasi(Long, Statusabsensi, String, String, String, String, Dosen)}
+	 * yang menjaga baris lain tetap utuh.</p>
+	 *
+	 * @param keteranganKonfirmasi string konfirmasi berformat sembilan slot
+	 */
 	public void setKeteranganKonfirmasi(String keteranganKonfirmasi) {
 		this.keteranganKonfirmasi = keteranganKonfirmasi;
 	}

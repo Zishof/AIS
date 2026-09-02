@@ -133,6 +133,11 @@ diambil dari metadata — muatannya tidak pernah dimuat ke memori.
 Impor Excel (`impor_excel_produk`, `so_impor_excel`) tidak punya batas ukuran sama sekali di
 sisi server. Bukan soal gambar, tetapi lubang memori yang sejenis — belum ditangani.
 
+**Sudah ditangani**: ketiga situs impor kini memanggil `periksaPanjangBase64` sebelum
+`decode()`. Rinciannya, berikut batas kejujurannya (muatan JSON-nya sendiri sudah di memori
+sebelum sampai ke pemeriksa), ada di
+[76-impor-excel-tanpa-batas-dan-anotasi-ganda.md](76-impor-excel-tanpa-batas-dan-anotasi-ganda.md).
+
 ## Penjaganya
 
 `apps/ebisnis/test/lampiran_gambar_test.dart` — delapan uji: ambang tepat 500 KB, gambar besar
