@@ -1823,8 +1823,65 @@ public final class HotelApiHelper {
 	}
 
 	/** Dispatcher: setiap aksi berawalan {@code hotel_} diarahkan ke sini (lihat PosApi). */
+	/**
+	 * Kunci menu yang memayungi sebuah aksi {@code hotel_*_list}.
+	 *
+	 * <p>Diturunkan dari nama aksinya, bukan didaftar satu per satu: modul ini masih
+	 * tumbuh, dan daftar manual akan meninggalkan aksi baru tanpa hak tanpa ada yang
+	 * menyadarinya. Yang tidak punya kunci sendiri -- mis. daftar tamu dan tipe kamar --
+	 * memang tidak digerbangi CRUD terpisah, jadi dikembalikan null dan tidak dikirimi
+	 * hak sama sekali (lebih jujur daripada mengarang kunci).</p>
+	 */
+	private static String kunciMenuHotel(String action) {
+		if (action == null) {
+			return null;
+		}
+		if (action.startsWith("hotel_properti")) return "hotel_properti";
+		if (action.startsWith("hotel_kamar")) return "hotel_kamar";
+		if (action.startsWith("hotel_reservasi")) return "hotel_reservasi";
+		if (action.startsWith("hotel_menginap")) return "hotel_checkin";
+		if (action.startsWith("hotel_folio")) return "hotel_folio";
+		if (action.startsWith("hotel_kitchen_ticket")) return "hotel_tiket_dapur";
+		if (action.startsWith("hotel_kontrak_pemilik")) return "hotel_kontrak_pemilik";
+		if (action.startsWith("hotel_laporan_pemilik")) return "hotel_laporan_pemilik";
+		return null;
+	}
+
+	/**
+	 * Hak per aksi untuk satu kunci menu Hotel, dikirim bersama balasan daftar supaya
+	 * layar dapat MEMADAMKAN tombol yang pasti ditolak.
+	 *
+	 * <p>Bukan gerbang: gerbang sebenarnya tetap {@link #boleh(Tbmuser, String, String)}
+	 * pada tiap aksi tulis.</p>
+	 */
+	private static JSONObject hakAksesJson(Tbmuser tbmuser, String kunci) throws Exception {
+		JSONObject j = new JSONObject();
+		j.put("create", boleh(tbmuser, kunci, "create"));
+		j.put("update", boleh(tbmuser, kunci, "update"));
+		j.put("delete", boleh(tbmuser, kunci, "delete"));
+		return j;
+	}
+
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
+		boolean tertangani = prosesAksi(action, tbmuser, request, hasil);
+		// Hanya aksi DAFTAR yang dibebani hak: di layar, tombolnya dirender setelah
+		// daftarnya tampil, jadi di situlah tempat paling awal memberitahukannya.
+		if (tertangani && action != null && action.endsWith("_list") && !hasil.has("hak")) {
+			String kunci = kunciMenuHotel(action);
+			if (kunci != null) {
+				hasil.put("hak", hakAksesJson(tbmuser, kunci));
+				// Kunci menunya ikut dikirim supaya klien tidak perlu menyalin tabel
+				// pemetaan aksi->kunci di sisinya sendiri -- dua salinan pemetaan yang
+				// sama pasti berbeda begitu salah satunya diubah.
+				hasil.put("hakKunci", kunci);
+			}
+		}
+		return tertangani;
+	}
+
+	private static boolean prosesAksi(String action, Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
 		if ("hotel_properti_list".equals(action)) { propertiList(tbmuser, request, hasil); return true; }
 		if ("hotel_properti_simpan".equals(action)) { propertiSimpan(tbmuser, request, hasil); return true; }
 		if ("hotel_tipe_kamar_list".equals(action)) { tipeKamarList(tbmuser, request, hasil); return true; }

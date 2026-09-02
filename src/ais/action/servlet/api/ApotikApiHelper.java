@@ -505,6 +505,21 @@ public final class ApotikApiHelper {
 			if (!request.isNull("keterangan")) {
 				p.setKeterangan(request.optString("keterangan", "").trim());
 			}
+			// IR-01: atribut pembeda & penanda risiko. Pola sama seperti lasa --
+			// hanya disentuh bila field DIKIRIM, sehingga klien lama yang tidak
+			// mengenal field ini tidak menghapus nilai yang sudah diisi.
+			if (!request.isNull("bentuk_sediaan")) {
+				p.setBentukSediaan(request.optString("bentuk_sediaan", "").trim());
+			}
+			if (!request.isNull("kekuatan")) {
+				p.setKekuatan(request.optString("kekuatan", "").trim());
+			}
+			if (!request.isNull("high_alert")) {
+				p.setHighAlert(Boolean.valueOf(request.optBoolean("high_alert", false)));
+			}
+			if (!request.isNull("cold_chain")) {
+				p.setColdChain(Boolean.valueOf(request.optBoolean("cold_chain", false)));
+			}
 			p.setOleh(tbmuser.getUserId());
 			p.setOlehId(tbmuser.getUserId());
 			session.saveOrUpdate(p);

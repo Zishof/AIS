@@ -2974,6 +2974,45 @@ public class MahasiswaRequestTugasAkhir extends VOPembelajaran implements VOPese
 		return skr;
 	}
 
+	/**
+	 * Menautkan pengajuan ini ke sebuah {@link Skripsi} dengan menyimpan id skripsi sebagai teks.
+	 *
+	 * <h4>SIAPA yang memanggil ini — inti mekanisme {@code skr}</h4>
+	 * <p>Pemanggil utamanya BUKAN kode pengajuan, melainkan getter di sisi seberang:
+	 * {@link Skripsi#getMahasiswaRequestTugasAkhir()} memanggil {@code setSkr(getId())} setiap kali
+	 * ia mengembalikan pengajuan yang tertaut. Artinya membuka layar/laporan skripsi — operasi yang
+	 * terasa "hanya membaca" — akan <b>menulis</b> ke entity pengajuan ini. Bila pengajuan masih
+	 * terpasang pada session, Hibernate menandainya kotor dan menerbitkan
+	 * {@code UPDATE mahasiswa_request_tugas_akhir} pada flush berikutnya, dan {@code put(...)} di
+	 * dalam setter ini menulis satu berkas cache. Inilah alasan tautan balik pengajuan &rarr;
+	 * skripsi umumnya terisi sendiri tanpa ada layar yang secara eksplisit mengisinya.</p>
+	 *
+	 * <h4>Apa yang ditulis</h4>
+	 * <ul>
+	 *   <li>Ke <b>berkas cache</b> lewat {@code put(skr, "skr")} — HANYA bila {@code skr} berupa
+	 *   angka ({@code Common.isNumber}). Penulisan berkas dilewati selama startup aplikasi (lihat
+	 *   {@link ais.database.model.GeneralValueObject#put(String, String)}).</li>
+	 *   <li>Ke <b>field/kolom</b> {@code filelocation} — SELALU, apa pun isinya, termasuk
+	 *   {@code null} dan teks bukan angka.</li>
+	 * </ul>
+	 *
+	 * <h4>Konsekuensi asimetri di atas</h4>
+	 * <p>Menyetel nilai bukan angka (atau {@code null}) tidak menghapus berkas cache lama, padahal
+	 * {@link #getSkr()} mengutamakan berkas. Jadi tautan skripsi <b>tidak bisa dilepas</b> lewat
+	 * setter ini selama berkas cache-nya masih ada — pembacaan berikutnya akan mengembalikan id
+	 * lama. Perilaku ini dicatat apa adanya, tidak diperbaiki.</p>
+	 *
+	 * <p>Karena setter ini dipetakan Hibernate (getter-nya ber-{@code @Column}), Hibernate juga
+	 * memanggilnya saat hidrasi entity; penjaga startup pada {@code put(...)} ada justru untuk
+	 * mencegah ribuan tulis-berkas pada saat itu.</p>
+	 *
+	 * <p>Galat penulisan berkas ditelan (dicetak + dicatat ke audit); field tetap disetel.</p>
+	 *
+	 * @param skr id skripsi sebagai teks; nilai bukan angka hanya mengubah kolom, tidak berkas
+	 * @see #getSkr()
+	 * @see Skripsi#getMahasiswaRequestTugasAkhir()
+	 * @see ais.database.model.GeneralValueObject#put(String, String)
+	 */
 	public void setSkr(String skr) {
 		try {
 			if (Common.isNumber(skr)) {
@@ -2985,35 +3024,81 @@ public class MahasiswaRequestTugasAkhir extends VOPembelajaran implements VOPese
 		this.skr = skr;
 	}
 
+	/**
+	 * Mengembalikan lokasi/ruang pelaksanaan seminar proposal, sudah di-{@code trim()}.
+	 *
+	 * @return lokasi ujian; {@code ""} bila belum diisi, tidak pernah {@code null}
+	 */
 	public String getLokasiUjian() {
 		return lokasiUjian == null ? "" : lokasiUjian.trim();
 	}
 
+	/**
+	 * Menyetel lokasi/ruang pelaksanaan seminar proposal.
+	 *
+	 * @param lokasiUjian lokasi/ruang
+	 */
 	public void setLokasiUjian(String lokasiUjian) {
 		this.lokasiUjian = lokasiUjian;
 	}
 
+	/**
+	 * Menyatakan apakah nilai seminar proposal disembunyikan dari mahasiswa; {@code false} bila
+	 * belum diisi.
+	 *
+	 * @return {@code true} bila nilai disembunyikan; tidak pernah {@code null}
+	 */
 	public Boolean getSembunyikanNilaiKemahasiswa() {
 		return sembunyikanNilaiKemahasiswa == null ? false : sembunyikanNilaiKemahasiswa;
 	}
 
+	/**
+	 * Menyetel penanda penyembunyian nilai dari mahasiswa.
+	 *
+	 * @param sembunyikanNilaiKemahasiswa {@code true} untuk menyembunyikan nilai
+	 */
 	public void setSembunyikanNilaiKemahasiswa(Boolean sembunyikanNilaiKemahasiswa) {
 		this.sembunyikanNilaiKemahasiswa = sembunyikanNilaiKemahasiswa;
 	}
 
+	/**
+	 * Implementasi {@link VOPembelajaran}: menyatakan apakah pertemuan bimbingan diurutkan
+	 * otomatis; {@code true} bila belum diisi.
+	 *
+	 * @return {@code true} bila pengurutan otomatis aktif; tidak pernah {@code null}
+	 */
 	@Override
 	public Boolean getUrutkanotomatis() {
 		// TODO Auto-generated method stub
 		return urutkanotomatis == null ? true : urutkanotomatis;
 	}
 
+	/**
+	 * Implementasi {@link VOPembelajaran}: menyetel penanda pengurutan pertemuan otomatis.
+	 *
+	 * @param urutkanotomatis {@code true} untuk mengurutkan otomatis
+	 */
 	@Override
 	public void setUrutkanotomatis(Boolean urutkanotomatis) {
 		this.urutkanotomatis = urutkanotomatis;
 	}
 
+	/**
+	 * Disposisi SOP yang menaungi pengajuan ini. <b>Field bayangan</b>: {@link VOPembelajaran}
+	 * sudah punya field {@code disposisiSop} beserta accessor identik — deklarasi ulang di sini
+	 * hanya membuat salinan induk selamanya {@code null}.
+	 */
 	private DisposisiSop disposisiSop;
 
+	/**
+	 * Mengembalikan disposisi SOP yang menaungi pengajuan ini (kolom {@code disposisi_sop}).
+	 *
+	 * <p><b>Duplikat verbatim</b> dari {@code VOPembelajaran.getDisposisiSop()}; perilakunya sama
+	 * persis (nilai dilewatkan {@code check(...)}). Yang berbeda hanyalah field yang dibaca —
+	 * lihat catatan field bayangan di atas.</p>
+	 *
+	 * @return disposisi SOP, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -3021,6 +3106,18 @@ public class MahasiswaRequestTugasAkhir extends VOPembelajaran implements VOPese
 		return disposisiSop;
 	}
 
+	/**
+	 * Menyetel disposisi SOP, dengan penjaga: nilai {@code null} atau yang belum punya id
+	 * <b>diabaikan diam-diam</b> (method langsung {@code return}), sehingga disposisi yang sudah
+	 * terpasang tidak bisa dilepas lewat setter ini.
+	 *
+	 * <p>Ekspresi ternary setelah penjaga itu sudah tidak pernah memilih cabang pertamanya —
+	 * kondisi {@code disposisiSop == null || disposisiSop.getId() == null} mustahil bernilai
+	 * {@code true} di titik tersebut. Sisa kode mati ini disalin apa adanya dari
+	 * {@code VOPembelajaran.setDisposisiSop(DisposisiSop)}; dicatat, tidak diubah.</p>
+	 *
+	 * @param disposisiSop disposisi SOP baru; diabaikan bila {@code null} atau belum tersimpan
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
@@ -3030,10 +3127,23 @@ public class MahasiswaRequestTugasAkhir extends VOPembelajaran implements VOPese
 				: disposisiSop;
 	}
 
+	/**
+	 * Menyatakan apakah baris pengajuan ini masih aktif/berlaku; {@code true} bila belum diisi.
+	 *
+	 * <p>Berbeda dari {@link #getStatus()}, penanda ini murni data (tanpa logika turunan) dan
+	 * dipakai untuk menyembunyikan baris dari daftar tanpa menghapusnya.</p>
+	 *
+	 * @return {@code true} bila baris masih aktif; tidak pernah {@code null}
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menyetel penanda aktif/berlaku baris pengajuan ini.
+	 *
+	 * @param aktif {@code true} bila masih aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}

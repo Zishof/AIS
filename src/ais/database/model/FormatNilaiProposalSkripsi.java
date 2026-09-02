@@ -200,17 +200,51 @@ import ais.database.hibernate.HibernateUtil;
 public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 
 	/**
-	 * 
+	 * Versi serialisasi Java. Nilainya tetap sejak class digenerate; jangan diubah agar object
+	 * yang mungkin ter-serialisasi di sesi ZK/cache lama tetap bisa dibaca.
 	 */
 	private static final long serialVersionUID = -8713937809725960837L;
+
+	/**
+	 * Primary key, dipetakan lewat {@link #getId()}.
+	 *
+	 * <p><b>Shadow field</b>: {@link GeneralValueObject} juga punya field {@code id} sendiri.
+	 * Yang dipakai Hibernate untuk entity ini adalah field lokal ini (karena getter lokal
+	 * meng-{@code override} getter induk), sementara field induk tetap {@code null}. Lihat
+	 * catatan lengkap pada {@link #getOleh()}.</p>
+	 */
 	private Long id;
+
+	/** Nama pengguna terakhir yang mengubah baris ini; lihat {@link #getOleh()}. */
 	private String oleh;
+
+	/** Id pengguna terakhir yang mengubah baris ini; lihat {@link #getOlehId()}. */
 	private String olehId;
 
+	/**
+	 * Mengembalikan id pengguna yang terakhir mengubah baris format ini.
+	 *
+	 * <p>Nilai diisi lapisan penyimpanan (interceptor audit / helper simpan), bukan oleh form
+	 * master. Bisa {@code null} untuk baris lama atau baris hasil proses batch.</p>
+	 *
+	 * @return id pengguna pengubah terakhir, atau {@code null} bila tidak tercatat
+	 * @see GeneralValueObject#getOlehId()
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi id pengguna pengubah.
+	 *
+	 * <p><b>Setter ini diam-diam mengabaikan nilai kosong</b>: {@code null} atau string yang
+	 * hanya berisi spasi <i>tidak</i> menimpa nilai lama. Jadi identitas pengubah terakhir tidak
+	 * bisa dihapus lewat setter, dan jalur simpan yang kebetulan tidak membawa informasi
+	 * pengguna tidak merusak jejak audit yang sudah ada.</p>
+	 *
+	 * @param olehId id pengguna pengubah; diabaikan bila {@code null} atau kosong
+	 * @see GeneralValueObject#setOlehId(String)
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -218,6 +252,14 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Mengisi nama pengguna pengubah. Bersifat "abaikan bila kosong", persis seperti
+	 * {@link #setOlehId(String)}.
+	 *
+	 * @param oleh nama pengguna pengubah; diabaikan bila {@code null} atau kosong
+	 * @see #setOlehId(String)
+	 * @see GeneralValueObject#setOleh(String)
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -225,31 +267,110 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama pengguna yang terakhir mengubah baris format ini.
+	 *
+	 * <p><b>Pola shadow field audit (dikonfirmasi ada di entity ini).</b> Trio
+	 * {@code oleh}/{@code olehId}/{@code tanggal_dirubah} — beserta {@code id} — dideklarasikan
+	 * ULANG di class ini padahal {@link GeneralValueObject} sudah memiliki field dengan nama dan
+	 * perilaku yang sama persis (termasuk setter "abaikan bila kosong" dan
+	 * {@code @PreUpdate}-nya). Yang aktif untuk entity ini adalah pasangan field+getter LOKAL;
+	 * field milik induk tidak pernah terisi. Implikasi praktis:</p>
+	 * <ul>
+	 *   <li>Kode yang meng-<i>upcast</i> ke {@link GeneralValueObject} tetap membaca nilai yang
+	 *       benar, karena pemanggilan getter bersifat polimorfik.</li>
+	 *   <li>Kode yang mengakses field induk lewat refleksi (mis. utilitas salin/riwayat generik)
+	 *       akan membaca {@code null}, bukan nilai sebenarnya.</li>
+	 *   <li>Ini pola berulang di seluruh paket {@code ais.database.model} — ditemukan konsisten
+	 *       pada sepuluh entity yang sudah diaudit sebelumnya, jadi bukan kekhasan file ini.</li>
+	 * </ul>
+	 *
+	 * @return nama pengguna pengubah terakhir, atau {@code null} bila tidak tercatat
+	 * @see GeneralValueObject#getOleh()
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: dipanggil otomatis oleh provider persistence tepat sebelum
+	 * baris ini di-{@code UPDATE}, untuk memperbarui stempel waktu &amp; identitas pengubah lewat
+	 * {@code AuditTimestampInterceptor.ubah(this)}.
+	 *
+	 * <p>Jangan dipanggil manual. Perhatikan bahwa callback ini <b>tidak</b> berjalan pada
+	 * {@code INSERT} pertama (hanya {@code @PreUpdate}); nilai awal {@code tanggal_dirubah}
+	 * datang dari inisialisasi field.</p>
+	 *
+	 * @see ais.database.hibernate.AuditTimestampInterceptor
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * Waktu perubahan terakhir. Diinisialisasi ke waktu pembuatan object (waktu server aplikasi
+	 * lewat {@code WaktuUtil.getDate()}), lalu diperbarui {@link #onUpdate()} pada setiap
+	 * {@code UPDATE}. Termasuk shadow field audit — lihat {@link #getOleh()}.
+	 */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Mengisi waktu perubahan terakhir secara manual.
+	 *
+	 * <p>Berbeda dari {@link #setOleh(String)}/{@link #setOlehId(String)}, setter ini
+	 * <b>tidak</b> menyaring {@code null} — memanggilnya dengan {@code null} benar-benar
+	 * mengosongkan stempel waktu. Umumnya tidak perlu dipanggil karena {@link #onUpdate()}
+	 * sudah mengurusnya.</p>
+	 *
+	 * @param tanggal_dirubah waktu perubahan terakhir; boleh {@code null}
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan waktu perubahan terakhir baris format ini (presisi {@code TIMESTAMP}).
+	 *
+	 * @return waktu perubahan terakhir; tidak pernah {@code null} kecuali sengaja dikosongkan
+	 *         lewat {@link #setTanggal_dirubah(Date)}
+	 * @see #onUpdate()
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks ringkas untuk keperluan log/debug: id, nama, dan sebagian bobot dosen.
+	 *
+	 * <p><b>Perhatian — implementasi ini cacat salin-tempel</b> (dibiarkan apa adanya karena hanya
+	 * dipakai untuk log, tidak untuk logika bisnis maupun tampilan):</p>
+	 * <ul>
+	 *   <li>{@code prosentasiNilaiPembimbing3} <b>tidak pernah ikut dicetak</b>;</li>
+	 *   <li>{@code prosentasiNilaiPenguji1} dicetak <b>dua kali</b>;</li>
+	 *   <li>pemisah {@code "-"} antara {@code prosentasiNilaiPembimbing2} dan
+	 *       {@code prosentasiNilaiPenguji1} yang pertama <b>hilang</b>, sehingga kedua angka
+	 *       menempel (mis. {@code "30.040.0"}).</li>
+	 * </ul>
+	 *
+	 * <p>Method ini membaca FIELD langsung, bukan getter, sehingga menampilkan nilai mentah
+	 * ({@code null} tetap tercetak sebagai {@code "null"}) — berbeda dari nilai yang dilihat
+	 * aplikasi lewat getter yang memberi default.</p>
+	 *
+	 * @return teks debug dengan format
+	 *         {@code id-nama-pembimbing1-pembimbing2penguji1-penguji1-penguji2-penguji3}
+	 */
 	public String toString() {
 		return id + "-" + nama + "-" + prosentasiNilaiPembimbing1 + "-" + prosentasiNilaiPembimbing2
 				+ prosentasiNilaiPenguji1 + "-" + prosentasiNilaiPenguji1 + "-" + prosentasiNilaiPenguji2 + "-"
 				+ prosentasiNilaiPenguji3;
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// Identitas format, prasyarat pengambilan, dan bobot tahapan.
+	// Semua dibaca lewat getter yang memberi nilai default bila kolomnya NULL — lihat masing-masing.
+	// ---------------------------------------------------------------------------------------
 
 	private String nama;
 	private String kodeMatakuliah;
@@ -266,6 +387,12 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 	private Double prosentasiNilaiPenguji2 = 0.0;
 	private Double prosentasiNilaiPenguji3 = 0.0;
 	private Double prosentasiNilaiPenguji4 = 0.0;
+
+	// ---------------------------------------------------------------------------------------
+	// Enam slot peran penilai. dosenN = LABEL peran (bukan referensi ke entity Dosen; dosen
+	// sesungguhnya disimpan di MahasiswaRequestTugasAkhir.dosen1..dosen6). dosenNAktif = apakah
+	// slot ditampilkan/dinilai. Pemetaan slot -> bobot ada di Javadoc class.
+	// ---------------------------------------------------------------------------------------
 
 	private String dosen1;
 	private String dosen2;
@@ -303,6 +430,13 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 
 	private Long alurSebelumnya;
 	private FormatNilaiSkripsi formatNilaiSkripsi;
+
+	// ---------------------------------------------------------------------------------------
+	// Dua puluh slot berkas unggahan. Tiga larik sejajar yang HARUS dibaca per indeks yang sama:
+	//   uploadLampiranN      -> label slot; KOSONG berarti slot tidak dipakai (baris disembunyikan)
+	//   uploadLampiranNWajib -> unggahan wajib atau opsional
+	//   tipeItemN            -> id TipeItem (kategori berkas) untuk slot tersebut
+	// ---------------------------------------------------------------------------------------
 
 	private String uploadLampiran1;
 	private String uploadLampiran2;
@@ -379,61 +513,211 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 	private JenisNilaiHurufMatakuliah jenisNilaiHuruf;
 	private JenisKegiatanMahasiswa jenisKegiatanMahasiswa;
 
+	/**
+	 * Label peran penilai slot 1 — <b>method rujukan untuk seluruh pola {@code getDosenN()}</b>.
+	 *
+	 * <p>Yang dikembalikan adalah NAMA PERAN yang tampil di UI dan cetakan (mis. "Pembimbing I",
+	 * "Ketua Sidang", "Reviewer"), <b>bukan</b> nama dosennya. Dosen yang benar-benar mengisi
+	 * peran ini disimpan pada baris transaksi
+	 * {@code MahasiswaRequestTugasAkhir.getDosen1()}.</p>
+	 *
+	 * <p><b>Tidak pernah mengembalikan kosong</b>: bila kolomnya {@code null} atau hanya berisi
+	 * spasi, dikembalikan default {@code "Pembimbing I"}. Konsekuensinya, UI selalu punya teks
+	 * untuk ditampilkan, tetapi pemanggil <b>tidak bisa membedakan</b> "belum diisi" dari
+	 * "sengaja diisi persis 'Pembimbing I'". Perhatikan pula nilai yang dikembalikan
+	 * <b>tidak di-{@code trim()}</b> bila kolom terisi — spasi di ujung ikut terbawa, dan itu
+	 * penting karena:</p>
+	 *
+	 * <p><b>Label ini dipakai sebagai KUNCI PENCOCOKAN, bukan sekadar hiasan.</b> Di banyak
+	 * tempat pemetaan "peran → bobot" dan "peran → nilai" dikerjakan dengan membandingkan string
+	 * ({@code jenis.equals(fmt.getDosen1())}) — lihat
+	 * {@code MahasiswaRequestTugasAkhir.dataDosen(boolean)},
+	 * {@code MahasiswaRequestTugasAkhir.cariNilaiDariDosen(...)},
+	 * {@code PenilaianProposalSkripsiHelper.dashPersenDosen(...)}. Karena itu:</p>
+	 * <ul>
+	 *   <li><b>Mengganti label pada format yang sudah dipakai berisiko</b> — pencocokan ke nilai
+	 *       yang terlanjur tersimpan bisa putus.</li>
+	 *   <li><b>Dua slot tidak boleh berlabel sama</b> — pencocokan {@code if/else if} akan selalu
+	 *       jatuh ke slot bernomor terkecil.</li>
+	 *   <li>Ekspor Feeder ({@code EksporPesertaDosenBimbinganFeeder}) menebak kategori dosen dari
+	 *       label: label yang mengandung kata "penguji" (tidak peka huruf besar/kecil) dianggap
+	 *       penguji, selain itu dianggap pembimbing — lihat {@link #getKode1()}.</li>
+	 * </ul>
+	 *
+	 * @return label peran slot 1; tidak pernah {@code null}, default {@code "Pembimbing I"}
+	 * @see #getProsentasiNilaiPembimbing1()
+	 * @see #getDosen1Aktif()
+	 * @see #getKode1()
+	 */
 	public String getDosen1() {
 		return dosen1 == null || dosen1.trim().isEmpty() ? "Pembimbing I" : dosen1;
 	}
 
+	/**
+	 * Mengisi label peran slot 1 — <b>setter rujukan untuk seluruh pola {@code setDosenN()}</b>.
+	 *
+	 * <p>Menyimpan apa adanya (tanpa {@code trim}, tanpa validasi keunikan antar slot).
+	 * Mengisi {@code null}/kosong berarti mengembalikan slot ke label default. Baca peringatan
+	 * pada {@link #getDosen1()} sebelum mengubah label format yang sudah dipakai transaksi.</p>
+	 *
+	 * @param dosen1 label peran baru; {@code null}/kosong berarti pakai default
+	 * @see #getDosen1()
+	 */
 	public void setDosen1(String dosen1) {
 		this.dosen1 = dosen1;
 	}
 
+	/**
+	 * Label peran penilai slot 2; default {@code "Pembimbing II"}. Bobotnya
+	 * {@link #getProsentasiNilaiPembimbing2()}.
+	 *
+	 * @return label peran slot 2; tidak pernah {@code null}
+	 * @see #getDosen1()
+	 */
 	public String getDosen2() {
 		return dosen2 == null || dosen2.trim().isEmpty() ? "Pembimbing II" : dosen2;
 	}
 
+	/**
+	 * Mengisi label peran slot 2.
+	 *
+	 * @param dosen2 label peran baru; {@code null}/kosong berarti pakai default
+	 * @see #setDosen1(String)
+	 */
 	public void setDosen2(String dosen2) {
 		this.dosen2 = dosen2;
 	}
 
+	/**
+	 * Label peran penilai slot 3; default {@code "Pembimbing III"}. Bobotnya
+	 * {@link #getProsentasiNilaiPembimbing3()}.
+	 *
+	 * @return label peran slot 3; tidak pernah {@code null}
+	 * @see #getDosen1()
+	 */
 	public String getDosen3() {
 		return dosen3 == null || dosen3.trim().isEmpty() ? "Pembimbing III" : dosen3;
 	}
 
+	/**
+	 * Mengisi label peran slot 3.
+	 *
+	 * @param dosen3 label peran baru; {@code null}/kosong berarti pakai default
+	 * @see #setDosen1(String)
+	 */
 	public void setDosen3(String dosen3) {
 		this.dosen3 = dosen3;
 	}
 
+	/**
+	 * Label peran penilai slot 4; default {@code "Penguji I"} — <b>slot pertama yang secara
+	 * default dihitung sebagai penguji</b> oleh ekspor Feeder. Bobotnya
+	 * {@link #getProsentasiNilaiPenguji1()}.
+	 *
+	 * @return label peran slot 4; tidak pernah {@code null}
+	 * @see #getDosen1()
+	 */
 	public String getDosen4() {
 		return dosen4 == null || dosen4.trim().isEmpty() ? "Penguji I" : dosen4;
 	}
 
+	/**
+	 * Mengisi label peran slot 4.
+	 *
+	 * @param dosen4 label peran baru; {@code null}/kosong berarti pakai default
+	 * @see #setDosen1(String)
+	 */
 	public void setDosen4(String dosen4) {
 		this.dosen4 = dosen4;
 	}
 
+	/**
+	 * Label peran penilai slot 5; default {@code "Penguji II"}. Bobotnya
+	 * {@link #getProsentasiNilaiPenguji2()}.
+	 *
+	 * @return label peran slot 5; tidak pernah {@code null}
+	 * @see #getDosen1()
+	 */
 	public String getDosen5() {
 		return dosen5 == null || dosen5.trim().isEmpty() ? "Penguji II" : dosen5;
 	}
 
+	/**
+	 * Mengisi label peran slot 5.
+	 *
+	 * @param dosen5 label peran baru; {@code null}/kosong berarti pakai default
+	 * @see #setDosen1(String)
+	 */
 	public void setDosen5(String dosen5) {
 		this.dosen5 = dosen5;
 	}
 
+	/**
+	 * Label peran penilai slot 6 (slot terakhir yang dipakai entity ini); default
+	 * {@code "Penguji III"}. Bobotnya {@link #getProsentasiNilaiPenguji3()} —
+	 * <b>bukan</b> {@code getProsentasiNilaiPenguji4()}, berbeda dari
+	 * {@link FormatNilaiSkripsi} yang untuk slot 6 memakai bobot Penguji IV.
+	 *
+	 * @return label peran slot 6; tidak pernah {@code null}
+	 * @see #getDosen1()
+	 */
 	public String getDosen6() {
 		return dosen6 == null || dosen6.trim().isEmpty() ? "Penguji III" : dosen6;
 	}
 
+	/**
+	 * Mengisi label peran slot 6.
+	 *
+	 * @param dosen6 label peran baru; {@code null}/kosong berarti pakai default
+	 * @see #setDosen1(String)
+	 */
 	public void setDosen6(String dosen6) {
 		this.dosen6 = dosen6;
 	}
 
+	/**
+	 * Konstruktor kosong wajib bagi Hibernate/JPA dan bagi pembuatan baris baru di form master.
+	 *
+	 * <p>Semua field {@code prosentasiNilai*} sudah terinisialisasi {@code 0.0} lewat inisialisasi
+	 * field, sedangkan flag {@code Boolean} dibiarkan {@code null} sehingga getter-nya
+	 * mengembalikan default masing-masing.</p>
+	 */
 	public FormatNilaiProposalSkripsi() {
 	}
 
+	/**
+	 * Konstruktor "referensi ringan": membuat instance yang hanya berisi id.
+	 *
+	 * <p>Dipakai luas oleh lapisan UI ZK untuk mencocokkan item combobox tanpa memuat baris dari
+	 * database — mekanisme kesetaraan/perbandingan {@link GeneralValueObject} hanya melihat id,
+	 * sehingga object ringan ini setara dengan object utuh ber-id sama (lihat mis.
+	 * {@code Common.selectComboItem(alurSebelumnya, new FormatNilaiProposalSkripsi(...))} di
+	 * {@code FormatNilaiProposalSkripsiAction}).</p>
+	 *
+	 * <p><b>Jangan disimpan lewat {@code session.update(...)}</b>: seluruh field lain masih
+	 * {@code null}, sehingga penyimpanan akan menghapus isi baris aslinya.</p>
+	 *
+	 * @param id primary key baris format yang dirujuk
+	 * @see GeneralValueObject
+	 */
 	public FormatNilaiProposalSkripsi(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Primary key baris format ini.
+	 *
+	 * <p>Dibangkitkan database ({@code IDENTITY}/{@code serial}) dan {@code insertable = false},
+	 * jadi nilai yang diisi manual sebelum {@code INSERT} akan diabaikan. Baris yang belum
+	 * tersimpan mengembalikan {@code null}.</p>
+	 *
+	 * <p>Adanya {@code @Id} pada GETTER inilah yang membuat Hibernate memakai <b>property
+	 * access</b> untuk seluruh entity ini — dasar dari semua efek samping getter yang
+	 * didokumentasikan di Javadoc class.</p>
+	 *
+	 * @return id baris, atau {@code null} bila belum tersimpan
+	 * @see GeneralValueObject
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -441,75 +725,263 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi primary key.
+	 *
+	 * <p>Dipakai konstruktor {@link #FormatNilaiProposalSkripsi(Long)} dan lapisan persistence.
+	 * Jangan mengubah id object yang sudah <i>persistent</i>.</p>
+	 *
+	 * @param id primary key baris
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Nama tahapan pengajuan yang tampil di seluruh UI, cetakan, dan pesan validasi
+	 * (mis. "Seminar Proposal", "Pengajuan Judul").
+	 *
+	 * <p><b>Dua perilaku non-obvious:</b></p>
+	 * <ol>
+	 *   <li>Nilai dikembalikan sudah di-{@code trim()}.</li>
+	 *   <li><b>Nama {@code "Format Nilai Standard"} diterjemahkan menjadi
+	 *       {@code "Pengajuan Proposal"}</b> (perbandingan tidak peka huruf besar/kecil), begitu
+	 *       pula {@code null}. Ini penyeragaman untuk data warisan: baris seed lama memakai nama
+	 *       generik "Format Nilai Standard" yang tidak informatif bagi mahasiswa. Akibatnya
+	 *       laporan yang menyaring berdasarkan teks nama tidak akan pernah menemukan
+	 *       "Format Nilai Standard" lewat entity, walaupun teks itu masih tersimpan di
+	 *       database.</li>
+	 * </ol>
+	 *
+	 * <p>Nama ini juga muncul di pesan prasyarat berantai — lihat {@link #ambilSebelumnya()}.</p>
+	 *
+	 * @return nama tahapan; tidak pernah {@code null} maupun kosong
+	 */
 	public String getNama() {
 		return nama == null || nama.trim().equalsIgnoreCase("Format Nilai Standard") ? "Pengajuan Proposal"
 				: nama.trim();
 	}
 
+	/**
+	 * Mengisi nama tahapan pengajuan. Disimpan apa adanya (tanpa {@code trim}); penormalan
+	 * dilakukan saat dibaca oleh {@link #getNama()}.
+	 *
+	 * @param nama nama tahapan; {@code null} berarti pakai nama default
+	 * @see #getNama()
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengisi bobot persen untuk slot 4 ({@link #getDosen4()}, default "Penguji I").
+	 *
+	 * <p>Satuannya <b>persen</b> (0..100), bukan pecahan — pemakainya membagi dengan 100.
+	 * Mengisi {@code null} sah dan berarti "belum diatur", tetapi lihat peringatan pada
+	 * {@link #getProsentasiNilaiPenguji1()} soal {@code NullPointerException}.</p>
+	 *
+	 * @param prosentasiNilaiPenguji1 bobot persen slot 4
+	 * @see #getProsentasiNilaiPenguji1()
+	 */
 	public void setProsentasiNilaiPenguji1(Double prosentasiNilaiPenguji1) {
 		this.prosentasiNilaiPenguji1 = prosentasiNilaiPenguji1;
 	}
 
+	/**
+	 * Bobot persen nilai dari slot 4 ({@link #getDosen4()}, default "Penguji I") —
+	 * <b>method rujukan untuk seluruh pola {@code getProsentasiNilai*()}</b>.
+	 *
+	 * <p>Dipakai untuk menimbang nilai yang diberi dosen pada slot bersangkutan:</p>
+	 * <pre>
+	 *   nilaiTerbobot = nilaiDosen4 * getProsentasiNilaiPenguji1() / 100.0
+	 * </pre>
+	 * <p>Total nilai proposal adalah jumlah seluruh slot yang terbobot; lihat
+	 * {@code PenilaianProposalSkripsiHelper} dan
+	 * {@code MahasiswaRequestTugasAkhir.hitungTotalNilai(...)}. Idealnya bobot enam slot aktif
+	 * berjumlah 100, tetapi <b>tidak ada validasi apa pun yang memaksanya</b> — baik di entity
+	 * ini maupun di form master. Format dengan total 90 atau 130 akan tersimpan dan menghasilkan
+	 * nilai akhir yang timpang tanpa peringatan.</p>
+	 *
+	 * <p><b>Berbeda dari mayoritas getter di class ini, empat getter
+	 * {@code getProsentasiNilaiPenguji1..4()} TIDAK memberi default</b> — nilainya dikembalikan
+	 * apa adanya, termasuk {@code null}. Field-nya memang diinisialisasi {@code 0.0} di
+	 * deklarasi, tetapi inisialisasi itu <b>tertimpa {@code null}</b> saat Hibernate memuat baris
+	 * lama yang kolomnya {@code NULL}. Perkalian pada rumus di atas kemudian melempar
+	 * {@link NullPointerException} akibat <i>auto-unboxing</i>. Bandingkan dengan
+	 * {@code FormatNilaiSkripsi.getProsentasiNilaiKetuaSidang()} yang memakai pola
+	 * {@code == null ? 0.0 : ...} sehingga aman.</p>
+	 *
+	 * @return bobot persen slot 4 (0..100), <b>bisa {@code null}</b> pada data lama
+	 * @see #getDosen4()
+	 * @see #getDosen4Aktif()
+	 * @see #getBobot()
+	 */
 	@Column(name = "prosentasi_nilai_penguji_1", nullable = true, precision = 15)
 	public Double getProsentasiNilaiPenguji1() {
 		return prosentasiNilaiPenguji1;
 	}
 
+	/**
+	 * Mengisi bobot persen untuk slot 5 ({@link #getDosen5()}, default "Penguji II").
+	 *
+	 * @param prosentasiNilaiPenguji2 bobot persen slot 5
+	 * @see #setProsentasiNilaiPenguji1(Double)
+	 */
 	public void setProsentasiNilaiPenguji2(Double prosentasiNilaiPenguji2) {
 		this.prosentasiNilaiPenguji2 = prosentasiNilaiPenguji2;
 	}
 
+	/**
+	 * Bobot persen nilai dari slot 5 ({@link #getDosen5()}, default "Penguji II").
+	 * Bisa {@code null} — lihat peringatan pada {@link #getProsentasiNilaiPenguji1()}.
+	 *
+	 * @return bobot persen slot 5 (0..100), bisa {@code null}
+	 * @see #getProsentasiNilaiPenguji1()
+	 */
 	@Column(name = "prosentasi_nilai_penguji_2", nullable = true, precision = 15)
 	public Double getProsentasiNilaiPenguji2() {
 		return prosentasiNilaiPenguji2;
 	}
 
+	/**
+	 * Mengisi bobot persen untuk slot 6 ({@link #getDosen6()}, default "Penguji III").
+	 *
+	 * @param prosentasiNilaiPenguji3 bobot persen slot 6
+	 * @see #setProsentasiNilaiPenguji1(Double)
+	 */
 	public void setProsentasiNilaiPenguji3(Double prosentasiNilaiPenguji3) {
 		this.prosentasiNilaiPenguji3 = prosentasiNilaiPenguji3;
 	}
 
+	/**
+	 * Bobot persen nilai dari slot 6 ({@link #getDosen6()}, default "Penguji III") — slot
+	 * <b>terakhir yang benar-benar dipakai</b> entity ini.
+	 * Bisa {@code null} — lihat peringatan pada {@link #getProsentasiNilaiPenguji1()}.
+	 *
+	 * @return bobot persen slot 6 (0..100), bisa {@code null}
+	 * @see #getProsentasiNilaiPenguji1()
+	 */
 	@Column(name = "prosentasi_nilai_penguji_3", nullable = true, precision = 15)
 	public Double getProsentasiNilaiPenguji3() {
 		return prosentasiNilaiPenguji3;
 	}
 
+	/**
+	 * Mengisi kolom {@code prosentasi_nilai_penguji_4}.
+	 *
+	 * <p><b>Tidak ada pemanggil aktif</b> — lihat {@link #getProsentasiNilaiPenguji4()}.</p>
+	 *
+	 * @param prosentasiNilaiPenguji4 bobot persen yang tidak terpakai
+	 */
 	public void setProsentasiNilaiPenguji4(Double prosentasiNilaiPenguji4) {
 		this.prosentasiNilaiPenguji4 = prosentasiNilaiPenguji4;
 	}
 
+	/**
+	 * <b>Kolom mati.</b> Bobot persen "Penguji IV" yang <b>tidak dipakai sama sekali</b> pada alur
+	 * proposal.
+	 *
+	 * <p>Entity ini hanya menyediakan enam slot dosen ({@code dosen1}..{@code dosen6}) dan slot
+	 * ke-6 sudah memakai {@link #getProsentasiNilaiPenguji3()}. Satu-satunya baris kode yang
+	 * pernah menulis kolom ini — di {@code FormatNilaiProposalSkripsiAction} — kini berupa
+	 * komentar, sehingga nilainya hanya bisa berubah lewat SQL langsung. Kolomnya tetap
+	 * dipertahankan agar skema tabel sejajar dengan {@code format_nilai_skripsi}, tempat
+	 * {@code prosentasi_nilai_penguji_4} memang dipakai untuk slot "Penguji IV".</p>
+	 *
+	 * <p>Jangan dijadikan acuan perhitungan apa pun; jangan pula dihapus tanpa migrasi skema.</p>
+	 *
+	 * @return isi kolom {@code prosentasi_nilai_penguji_4} apa adanya; bisa {@code null}
+	 * @see FormatNilaiSkripsi#getProsentasiNilaiPenguji4()
+	 */
 	@Column(name = "prosentasi_nilai_penguji_4", nullable = true, precision = 15)
 	public Double getProsentasiNilaiPenguji4() {
 		return prosentasiNilaiPenguji4;
 	}
 
+	/**
+	 * Bobot persen nilai dari slot 1 ({@link #getDosen1()}, default "Pembimbing I").
+	 * Bisa {@code null} pada data lama — lihat peringatan pada
+	 * {@link #getProsentasiNilaiPenguji1()}.
+	 *
+	 * <p>Nilai ini juga menjadi <b>penentu default</b> apakah slot 1 ditampilkan, lewat
+	 * {@link #getDosen1Aktif()}.</p>
+	 *
+	 * @return bobot persen slot 1 (0..100), bisa {@code null}
+	 * @see #getProsentasiNilaiPenguji1()
+	 */
 	public Double getProsentasiNilaiPembimbing1() {
 		return prosentasiNilaiPembimbing1;
 	}
 
+	/**
+	 * Mengisi bobot persen untuk slot 1 ({@link #getDosen1()}, default "Pembimbing I").
+	 *
+	 * @param prosentasiNilaiPembimbing1 bobot persen slot 1
+	 * @see #setProsentasiNilaiPenguji1(Double)
+	 */
 	public void setProsentasiNilaiPembimbing1(Double prosentasiNilaiPembimbing1) {
 		this.prosentasiNilaiPembimbing1 = prosentasiNilaiPembimbing1;
 	}
 
+	/**
+	 * Bobot persen nilai dari slot 2 ({@link #getDosen2()}, default "Pembimbing II").
+	 * Bisa {@code null} — lihat peringatan pada {@link #getProsentasiNilaiPenguji1()}.
+	 *
+	 * @return bobot persen slot 2 (0..100), bisa {@code null}
+	 * @see #getProsentasiNilaiPenguji1()
+	 */
 	public Double getProsentasiNilaiPembimbing2() {
 		return prosentasiNilaiPembimbing2;
 	}
 
+	/**
+	 * Mengisi bobot persen untuk slot 2 ({@link #getDosen2()}, default "Pembimbing II").
+	 *
+	 * @param prosentasiNilaiPembimbing2 bobot persen slot 2
+	 * @see #setProsentasiNilaiPenguji1(Double)
+	 */
 	public void setProsentasiNilaiPembimbing2(Double prosentasiNilaiPembimbing2) {
 		this.prosentasiNilaiPembimbing2 = prosentasiNilaiPembimbing2;
 	}
 
+	/**
+	 * Mengisi jurusan/program studi pemilik format ini.
+	 *
+	 * @param jurusan jurusan pemilik; {@code null} berarti format berlaku lintas jurusan
+	 * @see #getJurusan()
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Jurusan/program studi pemilik format ini — <b>method rujukan untuk seluruh getter relasi
+	 * {@code @ManyToOne} di class ini</b>.
+	 *
+	 * <p>Bagian dari penyaring ruang lingkup: format hanya ditawarkan kepada mahasiswa yang
+	 * jurusannya cocok. {@code null} berarti <b>berlaku untuk semua jurusan</b> (bukan berarti
+	 * "tidak berlaku"), lihat {@code MahasiswaRequestTugasAkhirAction.samaData(...)}.</p>
+	 *
+	 * <p><b>Pola {@code check(...)} — WAJIB dipahami.</b> Getter ini memanggil
+	 * {@link GeneralValueObject#check(Object)} lalu <b>menugaskan ulang hasilnya ke field</b>.
+	 * {@code check(...)} bertugas menyelamatkan proxy Hibernate yang sudah <i>detached</i> (sesi
+	 * pemuatnya tertutup): berturut-turut mencoba inisialisasi proxy, membaca cache
+	 * {@code ConstantValues}, lalu memuat ulang lewat sesi baru — dan dirancang tidak pernah
+	 * melempar exception. Dua konsekuensi:</p>
+	 * <ul>
+	 *   <li>Getter ini <b>mengubah state object</b> (mengganti proxy dengan instance nyata).
+	 *       Karena entity ini memakai <i>property access</i>, penugasan ulang tersebut terlihat
+	 *       oleh <i>dirty checking</i> Hibernate; secara praktis tidak memicu {@code UPDATE}
+	 *       karena identitas barisnya sama, tetapi jangan berasumsi getter ini bebas efek
+	 *       samping.</li>
+	 *   <li>Getter ini <b>berpotensi menyentuh database</b> (tahap ketiga {@code check}). Hindari
+	 *       memanggilnya berulang di dalam perulangan besar tanpa cache.</li>
+	 * </ul>
+	 *
+	 * @return jurusan pemilik format, atau {@code null} bila berlaku lintas jurusan
+	 * @see GeneralValueObject#check(Object)
+	 * @see Jurusan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -517,10 +989,29 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return jurusan;
 	}
 
+	/**
+	 * Mengisi fakultas pemilik format ini.
+	 *
+	 * @param fakultas fakultas pemilik; {@code null} berarti berlaku lintas fakultas
+	 * @see #getFakultas()
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		this.fakultas = fakultas;
 	}
 
+	/**
+	 * Fakultas pemilik format ini; {@code null} berarti berlaku lintas fakultas.
+	 *
+	 * <p>Penyaring ruang lingkup yang lebih luas daripada {@link #getJurusan()}. Tidak ada
+	 * validasi konsistensi antara keduanya — format bisa saja menyebut fakultas A sekaligus
+	 * jurusan yang bernaung di fakultas B; penyaringan menerapkan keduanya secara terpisah.</p>
+	 *
+	 * <p>Menerapkan pola {@code check(...)} yang sama seperti {@link #getJurusan()}.</p>
+	 *
+	 * @return fakultas pemilik format, atau {@code null}
+	 * @see #getJurusan()
+	 * @see Fakultas
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "fakultas", nullable = true)
 	public Fakultas getFakultas() {
@@ -528,19 +1019,60 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return fakultas;
 	}
 
+	/**
+	 * Mengisi jenjang/program pemilik format. Disimpan apa adanya; penormalan dilakukan
+	 * {@link #getProgram()}.
+	 *
+	 * @param program kode jenjang (mis. {@code "S1"}); {@code null}/kosong berarti semua jenjang
+	 * @see #getProgram()
+	 */
 	public void setProgram(String program) {
 		this.program = program;
 	}
 
+	/**
+	 * Jenjang/program pendidikan yang boleh memakai format ini (mis. {@code "S1"}, {@code "S2"},
+	 * {@code "D3"}); panjang maksimum 50 karakter.
+	 *
+	 * <p><b>Mengembalikan {@code null} — bukan string kosong — untuk kolom kosong.</b> Pola ini
+	 * kebalikan dari sebagian besar getter {@code String} lain di class ini (mis.
+	 * {@link #getTahunAngkatan()} dan {@link #getKodeItemBiaya()} justru mengembalikan
+	 * {@code ""}). {@code null} di sini berarti "berlaku untuk semua jenjang"; lihat
+	 * {@code MahasiswaRequestTugasAkhirAction.samaProgram(...)}.</p>
+	 *
+	 * @return kode jenjang yang sudah di-{@code trim()}, atau {@code null} bila berlaku untuk
+	 *         semua jenjang
+	 */
 	@Column(name = "program", length = 50)
 	public String getProgram() {
 		return program == null || program.trim().isEmpty() ? null : program.trim();
 	}
 
+	/**
+	 * Mengisi status awal mahasiswa yang boleh memakai format ini.
+	 *
+	 * @param statusAwalMahasiswa status awal (baru/pindahan/alih jenjang/dsb.); {@code null}
+	 *                            berarti semua status
+	 * @see #getStatusAwalMahasiswa()
+	 */
 	public void setStatusAwalMahasiswa(StatusAwalMahasiswa statusAwalMahasiswa) {
 		this.statusAwalMahasiswa = statusAwalMahasiswa;
 	}
 
+	/**
+	 * Status awal mahasiswa (baru, pindahan, alih jenjang, dan seterusnya) yang boleh memakai
+	 * format ini; {@code null} berarti semua status.
+	 *
+	 * <p>Penyaring ruang lingkup ketiga, dipakai berdampingan dengan {@link #getJurusan()},
+	 * {@link #getProgram()}, dan {@link #getTahunAngkatan()}. Berguna misalnya untuk memberi
+	 * mahasiswa alih jenjang tahapan proposal yang berbeda dari mahasiswa reguler.</p>
+	 *
+	 * <p>Menerapkan pola {@code check(...)} yang sama seperti {@link #getJurusan()}.</p>
+	 *
+	 * @return status awal yang disyaratkan, atau {@code null}
+	 * @see #getJurusan()
+	 * @see StatusAwalMahasiswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_awal_mahasiswa", nullable = true)
 	public StatusAwalMahasiswa getStatusAwalMahasiswa() {
@@ -548,18 +1080,52 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return statusAwalMahasiswa;
 	}
 
+	/**
+	 * Apakah format ini masih aktif dan boleh dipilih.
+	 *
+	 * <p><b>Default {@code true} bila kolomnya {@code NULL}</b> — artinya seluruh baris warisan
+	 * yang belum pernah menyentuh kolom ini dianggap AKTIF. Menonaktifkan format harus dilakukan
+	 * secara eksplisit dengan {@code setAktif(false)}; format lama tidak akan "hilang sendiri".</p>
+	 *
+	 * <p>Bedakan dari {@link #getTidakBolehDipilihMahasiswa()}: {@code aktif} mematikan format
+	 * bagi <b>semua</b> pengguna, sedangkan yang satunya hanya menyembunyikannya dari mahasiswa
+	 * tetapi tetap bisa dipakai operator.</p>
+	 *
+	 * @return {@code true} bila format aktif; tidak pernah {@code null}
+	 * @see #getTidakBolehDipilihMahasiswa()
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Mengaktifkan/menonaktifkan format ini.
+	 *
+	 * @param aktif {@code false} untuk menonaktifkan; {@code null} berarti kembali ke default
+	 *              ({@code true})
+	 * @see #getAktif()
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Bobot persen nilai dari slot 3 ({@link #getDosen3()}, default "Pembimbing III").
+	 * Bisa {@code null} — lihat peringatan pada {@link #getProsentasiNilaiPenguji1()}.
+	 *
+	 * @return bobot persen slot 3 (0..100), bisa {@code null}
+	 * @see #getProsentasiNilaiPenguji1()
+	 */
 	public Double getProsentasiNilaiPembimbing3() {
 		return prosentasiNilaiPembimbing3;
 	}
 
+	/**
+	 * Mengisi bobot persen untuk slot 3 ({@link #getDosen3()}, default "Pembimbing III").
+	 *
+	 * @param prosentasiNilaiPembimbing3 bobot persen slot 3
+	 * @see #setProsentasiNilaiPenguji1(Double)
+	 */
 	public void setProsentasiNilaiPembimbing3(Double prosentasiNilaiPembimbing3) {
 		this.prosentasiNilaiPembimbing3 = prosentasiNilaiPembimbing3;
 	}

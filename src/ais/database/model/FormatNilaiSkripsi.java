@@ -2859,182 +2859,549 @@ public class FormatNilaiSkripsi extends GeneralValueObject {
 		this.tipeItem20 = tipeItem20;
 	}
 
+	/**
+	 * Mengembalikan bobot persentase nilai slot dosen {@code dosen21} ({@link #getDosen21()}, label
+	 * default "Pembimbing III"), null-safe ke {@code 0.0}. Berpasangan dengan kolom
+	 * {@code skripsi.nilai_pembimbing3}; penamaan slot ini sudah lurus, tidak ikut tergeser seperti
+	 * slot 1 dan 2.
+	 *
+	 * @return bobot dalam persen; {@code 0.0} bila belum pernah diisi
+	 * @see #getProsentasiNilaiKetuaSidang()
+	 */
 	public Double getProsentasiNilaiPembimbing3() {
 		return prosentasiNilaiPembimbing3 == null ? 0.0 : prosentasiNilaiPembimbing3;
 	}
 
+	/**
+	 * Menyetel bobot persentase nilai slot dosen {@code dosen21} (Pembimbing III).
+	 *
+	 * @param prosentasiNilaiPembimbing3 bobot dalam persen; {@code null} diterima
+	 * @see #setProsentasiNilaiKetuaSidang(Double)
+	 */
 	public void setProsentasiNilaiPembimbing3(Double prosentasiNilaiPembimbing3) {
 		this.prosentasiNilaiPembimbing3 = prosentasiNilaiPembimbing3;
 	}
 
+	/**
+	 * Mengembalikan label peran slot dosen {@code dosen21}, default {@code "Pembimbing III"}.
+	 *
+	 * <p><b>Penomorannya bukan "slot ke-21".</b> Slot ini ditambahkan belakangan sebagai sisipan
+	 * antara {@code dosen2} dan {@code dosen3} agar penomoran kolom lama tidak perlu digeser,
+	 * sehingga urutan logisnya adalah {@code dosen1}, {@code dosen2}, <b>{@code dosen21}</b>,
+	 * {@code dosen3} .. {@code dosen7} — persis urutan yang dipakai
+	 * {@code Skripsi.dataDosen(boolean)}.</p>
+	 *
+	 * <p><b>Jebakan:</b> {@code PenilaianSkripsiHelper.populateKomponen(String)} tidak punya cabang
+	 * untuk label ini, sehingga Pembimbing III jatuh ke nilai awal {@code "dosen1"} dan melihat
+	 * daftar komponen penilaian milik slot 1. Dicatat apa adanya, tidak diperbaiki. Method lain
+	 * ({@code nilaiDosen}, {@code persenDosen}, {@code sinkronkanRequestTugasAkhir}) sudah
+	 * mengenali slot ini dengan benar.</p>
+	 *
+	 * @return label peran slot {@code dosen21}; tidak pernah {@code null}
+	 * @see #getDosen1()
+	 */
 	public String getDosen21() {
 		return dosen21 == null || dosen21.trim().isEmpty() ? "Pembimbing III" : dosen21;
 	}
 
+	/**
+	 * Menyetel label peran slot dosen {@code dosen21} (Pembimbing III).
+	 *
+	 * @param dosen21 label peran slot {@code dosen21}
+	 * @see #getDosen21()
+	 */
 	public void setDosen21(String dosen21) {
 		this.dosen21 = dosen21;
 	}
 
+	/**
+	 * Menyatakan bahwa format ini <b>tidak boleh dipilih sendiri oleh mahasiswa</b> dan hanya dapat
+	 * ditetapkan oleh petugas dari layar administrasi. Null-safe ke {@code false}, jadi format
+	 * lama otomatis boleh dipilih mahasiswa.
+	 *
+	 * <p>Dipakai untuk format khusus — misalnya sidang ulang, jalur tanpa biaya, atau format
+	 * transisi — yang tidak semestinya muncul di menu pengajuan mandiri.</p>
+	 *
+	 * @return {@code true} bila format hanya untuk penetapan oleh petugas
+	 */
 	public Boolean getTidakBolehDipilihMahasiswa() {
 		return tidakBolehDipilihMahasiswa == null ? false : tidakBolehDipilihMahasiswa;
 	}
 
+	/**
+	 * Menyetel pembatasan "hanya boleh ditetapkan petugas".
+	 *
+	 * @param tidakBolehDipilihMahasiswa {@code true} untuk menyembunyikan format dari mahasiswa
+	 * @see #getTidakBolehDipilihMahasiswa()
+	 */
 	public void setTidakBolehDipilihMahasiswa(Boolean tidakBolehDipilihMahasiswa) {
 		this.tidakBolehDipilihMahasiswa = tidakBolehDipilihMahasiswa;
 	}
 
+	/**
+	 * Mengembalikan bobot persentase nilai slot dosen {@code dosen7} ({@link #getDosen7()}, label
+	 * default "Penguji V"), null-safe ke {@code 0.0}. Slot terakhir; tidak dimiliki entity sejenis
+	 * {@link FormatNilaiProposalSkripsi}.
+	 *
+	 * @return bobot dalam persen; {@code 0.0} bila belum pernah diisi
+	 * @see #getProsentasiNilaiPenguji1()
+	 */
 	public Double getProsentasiNilaiPenguji5() {
 		return prosentasiNilaiPenguji5 == null ? 0.0 : prosentasiNilaiPenguji5;
 	}
 
+	/**
+	 * Menyetel bobot persentase nilai slot dosen {@code dosen7} (Penguji V).
+	 *
+	 * @param prosentasiNilaiPenguji5 bobot dalam persen; {@code null} diterima
+	 * @see #setProsentasiNilaiKetuaSidang(Double)
+	 */
 	public void setProsentasiNilaiPenguji5(Double prosentasiNilaiPenguji5) {
 		this.prosentasiNilaiPenguji5 = prosentasiNilaiPenguji5;
 	}
 
+	/**
+	 * Mengembalikan label peran slot dosen {@code dosen7}, default {@code "Penguji V"}.
+	 * Berpasangan dengan {@link #getProsentasiNilaiPenguji5()}, {@link #getDosen7Aktif()} dan
+	 * {@link #getKode7()}.
+	 *
+	 * @return label peran slot {@code dosen7}; tidak pernah {@code null}
+	 * @see #getDosen1()
+	 */
 	public String getDosen7() {
 		return dosen7 == null || dosen7.trim().isEmpty() ? "Penguji V" : dosen7;
 	}
 
+	/**
+	 * Menyetel label peran slot dosen {@code dosen7}.
+	 *
+	 * @param dosen7 label peran slot {@code dosen7}
+	 * @see #getDosen1()
+	 */
 	public void setDosen7(String dosen7) {
 		this.dosen7 = dosen7;
 	}
 
+	/**
+	 * Menyatakan apakah slot dosen pertama dipakai pada format ini — yakni apakah ada baris
+	 * "Pembimbing I" pada layar penetapan dosen, layar penilaian, berita acara, dan ekspor Feeder
+	 * ({@code Skripsi.dataDosen(boolean)} melewati slot yang tidak aktif).
+	 *
+	 * <p><b>Nilai {@code null} punya arti tersendiri</b> — berbeda dari bendera {@code Boolean}
+	 * lain di class ini yang sekadar null-safe ke {@code false}. Bila bendera belum pernah diisi,
+	 * keaktifan <i>disimpulkan dari bobot nilainya</i>: slot dianggap aktif bila
+	 * {@link #getProsentasiNilaiKetuaSidang()} melebihi {@code 0.1}. Dengan begitu format lama yang
+	 * dibuat sebelum kolom bendera ada tetap berperilaku benar: slot yang diberi bobot berarti
+	 * dipakai. Ambang {@code 0.1} (bukan {@code 0}) dipakai untuk menghindari galat pembulatan
+	 * bilangan pecahan.</p>
+	 *
+	 * <p>Begitu bendera diisi eksplisit, bobot tidak lagi berpengaruh: slot dapat dinyatakan aktif
+	 * walau berbobot nol (mis. penguji yang hadir tetapi tidak memberi nilai), atau dinonaktifkan
+	 * walau bobotnya masih tersimpan.</p>
+	 *
+	 * <p>Pasangan bobot &harr; bendera inilah bukti paling jelas bahwa {@code prosentasi_nilai_
+	 * ketua_sidang} memang milik slot {@code dosen1} yang berlabel default "Pembimbing I" — lihat
+	 * pembahasan penamaan tertukar pada Javadoc class dan pada {@link Skripsi}.</p>
+	 *
+	 * <p>Acuan pola bagi seluruh {@code getDosenNAktif()} lainnya.</p>
+	 *
+	 * @return {@code true} bila slot {@code dosen1} dipakai
+	 * @see #getDosen1()
+	 * @see #getProsentasiNilaiKetuaSidang()
+	 */
 	public Boolean getDosen1Aktif() {
 		return dosen1Aktif == null ? getProsentasiNilaiKetuaSidang() > 0.1 : dosen1Aktif;
 	}
 
+	/**
+	 * Menyetel bendera keaktifan slot {@code dosen1} secara eksplisit. Menyimpan {@code null}
+	 * mengembalikan perilaku "simpulkan dari bobot" yang dijelaskan di
+	 * {@link #getDosen1Aktif()}.
+	 *
+	 * @param dosen1Aktif {@code true}/{@code false} eksplisit, atau {@code null} untuk kembali ke
+	 *                    penyimpulan dari bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen1Aktif(Boolean dosen1Aktif) {
 		this.dosen1Aktif = dosen1Aktif;
 	}
 
+	/**
+	 * Menyatakan apakah slot dosen {@code dosen2} dipakai. Perilakunya identik dengan
+	 * {@link #getDosen1Aktif()}, hanya bobot acuannya {@link #getProsentasiNilaiPembimbing()}.
+	 *
+	 * @return {@code true} bila slot {@code dosen2} dipakai
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen2Aktif() {
 		return dosen2Aktif == null ? getProsentasiNilaiPembimbing() > 0.1 : dosen2Aktif;
 	}
 
+	/**
+	 * Menyetel bendera keaktifan slot {@code dosen2}.
+	 *
+	 * @param dosen2Aktif bendera keaktifan, atau {@code null} untuk penyimpulan dari bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen2Aktif(Boolean dosen2Aktif) {
 		this.dosen2Aktif = dosen2Aktif;
 	}
 
+	/**
+	 * Menyatakan apakah slot dosen {@code dosen21} (Pembimbing III) dipakai. Perilakunya identik
+	 * dengan {@link #getDosen1Aktif()}, dengan bobot acuan
+	 * {@link #getProsentasiNilaiPembimbing3()}.
+	 *
+	 * @return {@code true} bila slot {@code dosen21} dipakai
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen21Aktif() {
 		return dosen21Aktif == null ? getProsentasiNilaiPembimbing3() > 0.1 : dosen21Aktif;
 	}
 
+	/**
+	 * Menyetel bendera keaktifan slot {@code dosen21}.
+	 *
+	 * @param dosen21Aktif bendera keaktifan, atau {@code null} untuk penyimpulan dari bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen21Aktif(Boolean dosen21Aktif) {
 		this.dosen21Aktif = dosen21Aktif;
 	}
 
+	/**
+	 * Menyatakan apakah slot dosen {@code dosen3} (Penguji I) dipakai. Perilakunya identik dengan
+	 * {@link #getDosen1Aktif()}, dengan bobot acuan {@link #getProsentasiNilaiPenguji1()}.
+	 *
+	 * @return {@code true} bila slot {@code dosen3} dipakai
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen3Aktif() {
 		return dosen3Aktif == null ? getProsentasiNilaiPenguji1() > 0.1 : dosen3Aktif;
 	}
 
+	/**
+	 * Menyetel bendera keaktifan slot {@code dosen3}.
+	 *
+	 * @param dosen3Aktif bendera keaktifan, atau {@code null} untuk penyimpulan dari bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen3Aktif(Boolean dosen3Aktif) {
 		this.dosen3Aktif = dosen3Aktif;
 	}
 
+	/**
+	 * Menyatakan apakah slot dosen {@code dosen4} (Penguji II) dipakai. Perilakunya identik dengan
+	 * {@link #getDosen1Aktif()}, dengan bobot acuan {@link #getProsentasiNilaiPenguji2()}.
+	 *
+	 * @return {@code true} bila slot {@code dosen4} dipakai
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen4Aktif() {
 		return dosen4Aktif == null ? getProsentasiNilaiPenguji2() > 0.1 : dosen4Aktif;
 	}
 
+	/**
+	 * Menyetel bendera keaktifan slot {@code dosen4}.
+	 *
+	 * @param dosen4Aktif bendera keaktifan, atau {@code null} untuk penyimpulan dari bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen4Aktif(Boolean dosen4Aktif) {
 		this.dosen4Aktif = dosen4Aktif;
 	}
 
+	/**
+	 * Menyatakan apakah slot dosen {@code dosen5} (Penguji III) dipakai. Perilakunya identik dengan
+	 * {@link #getDosen1Aktif()}, dengan bobot acuan {@link #getProsentasiNilaiPenguji3()}.
+	 *
+	 * @return {@code true} bila slot {@code dosen5} dipakai
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen5Aktif() {
 		return dosen5Aktif == null ? getProsentasiNilaiPenguji3() > 0.1 : dosen5Aktif;
 	}
 
+	/**
+	 * Menyetel bendera keaktifan slot {@code dosen5}.
+	 *
+	 * @param dosen5Aktif bendera keaktifan, atau {@code null} untuk penyimpulan dari bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen5Aktif(Boolean dosen5Aktif) {
 		this.dosen5Aktif = dosen5Aktif;
 	}
 
+	/**
+	 * Menyatakan apakah slot dosen {@code dosen6} (Penguji IV) dipakai. Perilakunya identik dengan
+	 * {@link #getDosen1Aktif()}, dengan bobot acuan {@link #getProsentasiNilaiPenguji4()}.
+	 *
+	 * @return {@code true} bila slot {@code dosen6} dipakai
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen6Aktif() {
 		return dosen6Aktif == null ? getProsentasiNilaiPenguji4() > 0.1 : dosen6Aktif;
 	}
 
+	/**
+	 * Menyetel bendera keaktifan slot {@code dosen6}.
+	 *
+	 * @param dosen6Aktif bendera keaktifan, atau {@code null} untuk penyimpulan dari bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen6Aktif(Boolean dosen6Aktif) {
 		this.dosen6Aktif = dosen6Aktif;
 	}
 
+	/**
+	 * Menyatakan apakah slot dosen {@code dosen7} (Penguji V) dipakai. Perilakunya identik dengan
+	 * {@link #getDosen1Aktif()}, dengan bobot acuan {@link #getProsentasiNilaiPenguji5()}.
+	 *
+	 * @return {@code true} bila slot {@code dosen7} dipakai
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen7Aktif() {
 		return dosen7Aktif == null ? getProsentasiNilaiPenguji5() > 0.1 : dosen7Aktif;
 	}
 
+	/**
+	 * Menyetel bendera keaktifan slot {@code dosen7}.
+	 *
+	 * @param dosen7Aktif bendera keaktifan, atau {@code null} untuk penyimpulan dari bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen7Aktif(Boolean dosen7Aktif) {
 		this.dosen7Aktif = dosen7Aktif;
 	}
 
+	/**
+	 * Mengembalikan <b>kode peran</b> slot dosen pertama — pendamping teknis bagi label
+	 * {@link #getDosen1()}, dipakai saat suatu keluaran memerlukan kode singkat/baku alih-alih
+	 * teks bebas (mis. kode jabatan pada berita acara, SK penguji, atau pemetaan ke sistem lain).
+	 *
+	 * <p>{@code Skripsi.dataDosen(boolean)} mengemas kode ini sebagai argumen keempat
+	 * {@code CommonVO} berdampingan dengan label dan object {@code Dosen}-nya. Berbeda dari label,
+	 * kode <b>tidak</b> dipakai sebagai kunci pencocokan peran dan <b>tidak</b> punya nilai
+	 * default: getter ini mengembalikan isi kolom apa adanya, termasuk {@code null} dan spasi di
+	 * ujung. Pemanggil harus siap menerima {@code null}.</p>
+	 *
+	 * <p>Acuan pola bagi {@code getKode2()}, {@code getKode21()}, dan {@code getKode3()} sampai
+	 * {@code getKode7()} — seluruhnya berperilaku sama, hanya slotnya yang berbeda.</p>
+	 *
+	 * @return kode peran slot {@code dosen1}, boleh {@code null}
+	 * @see #getDosen1()
+	 */
 	public String getKode1() {
 		return kode1;
 	}
 
+	/**
+	 * Menyetel kode peran slot {@code dosen1}, apa adanya. Acuan pola bagi seluruh
+	 * {@code setKodeN(String)}.
+	 *
+	 * @param kode1 kode peran; {@code null} diterima
+	 * @see #getKode1()
+	 */
 	public void setKode1(String kode1) {
 		this.kode1 = kode1;
 	}
 
+	/**
+	 * Mengembalikan kode peran slot {@code dosen2}; perilakunya identik dengan
+	 * {@link #getKode1()}.
+	 *
+	 * @return kode peran slot {@code dosen2}, boleh {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode2() {
 		return kode2;
 	}
 
+	/**
+	 * Menyetel kode peran slot {@code dosen2}.
+	 *
+	 * @param kode2 kode peran; {@code null} diterima
+	 * @see #getKode1()
+	 */
 	public void setKode2(String kode2) {
 		this.kode2 = kode2;
 	}
 
+	/**
+	 * Mengembalikan kode peran slot {@code dosen21} (Pembimbing III); perilakunya identik dengan
+	 * {@link #getKode1()}.
+	 *
+	 * @return kode peran slot {@code dosen21}, boleh {@code null}
+	 * @see #getKode1()
+	 * @see #getDosen21()
+	 */
 	public String getKode21() {
 		return kode21;
 	}
 
+	/**
+	 * Menyetel kode peran slot {@code dosen21}.
+	 *
+	 * @param kode21 kode peran; {@code null} diterima
+	 * @see #getKode1()
+	 */
 	public void setKode21(String kode21) {
 		this.kode21 = kode21;
 	}
 
+	/**
+	 * Mengembalikan kode peran slot {@code dosen3} (Penguji I); perilakunya identik dengan
+	 * {@link #getKode1()}.
+	 *
+	 * @return kode peran slot {@code dosen3}, boleh {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode3() {
 		return kode3;
 	}
 
+	/**
+	 * Menyetel kode peran slot {@code dosen3}.
+	 *
+	 * @param kode3 kode peran; {@code null} diterima
+	 * @see #getKode1()
+	 */
 	public void setKode3(String kode3) {
 		this.kode3 = kode3;
 	}
 
+	/**
+	 * Mengembalikan kode peran slot {@code dosen4} (Penguji II); perilakunya identik dengan
+	 * {@link #getKode1()}.
+	 *
+	 * @return kode peran slot {@code dosen4}, boleh {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode4() {
 		return kode4;
 	}
 
+	/**
+	 * Menyetel kode peran slot {@code dosen4}.
+	 *
+	 * @param kode4 kode peran; {@code null} diterima
+	 * @see #getKode1()
+	 */
 	public void setKode4(String kode4) {
 		this.kode4 = kode4;
 	}
 
+	/**
+	 * Mengembalikan kode peran slot {@code dosen5} (Penguji III); perilakunya identik dengan
+	 * {@link #getKode1()}.
+	 *
+	 * @return kode peran slot {@code dosen5}, boleh {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode5() {
 		return kode5;
 	}
 
+	/**
+	 * Menyetel kode peran slot {@code dosen5}.
+	 *
+	 * @param kode5 kode peran; {@code null} diterima
+	 * @see #getKode1()
+	 */
 	public void setKode5(String kode5) {
 		this.kode5 = kode5;
 	}
 
+	/**
+	 * Mengembalikan kode peran slot {@code dosen6} (Penguji IV); perilakunya identik dengan
+	 * {@link #getKode1()}.
+	 *
+	 * @return kode peran slot {@code dosen6}, boleh {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode6() {
 		return kode6;
 	}
 
+	/**
+	 * Menyetel kode peran slot {@code dosen6}.
+	 *
+	 * @param kode6 kode peran; {@code null} diterima
+	 * @see #getKode1()
+	 */
 	public void setKode6(String kode6) {
 		this.kode6 = kode6;
 	}
 
+	/**
+	 * Mengembalikan kode peran slot {@code dosen7} (Penguji V); perilakunya identik dengan
+	 * {@link #getKode1()}.
+	 *
+	 * @return kode peran slot {@code dosen7}, boleh {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode7() {
 		return kode7;
 	}
 
+	/**
+	 * Menyetel kode peran slot {@code dosen7}.
+	 *
+	 * @param kode7 kode peran; {@code null} diterima
+	 * @see #getKode1()
+	 */
 	public void setKode7(String kode7) {
 		this.kode7 = kode7;
 	}
 
+	/**
+	 * Mengembalikan <b>kode jenis kegiatan mahasiswa versi lama</b> dalam bentuk teks, apa adanya
+	 * (tanpa {@code trim}, boleh {@code null}).
+	 *
+	 * <p>Field ini adalah peninggalan sebelum {@link JenisKegiatanMahasiswa} menjadi entity
+	 * tersendiri. Sekarang perannya hanya sebagai sumber migrasi: {@link #getJenisKegiatanMahasiswa()}
+	 * membaca nilainya, mencari {@code JenisKegiatanMahasiswa} yang kodenya sama, lalu mengisi
+	 * relasi yang sebenarnya. Tidak ada lagi kode aplikasi yang membaca {@code jenis} untuk
+	 * keperluan lain, dan combo pada layar penyuntingan pun sudah dialihkan ke relasi (baris
+	 * pemilihan berbasis {@code jenis} disisakan sebagai komentar di
+	 * {@code FormatNilaiSkripsiAction}).</p>
+	 *
+	 * @return kode jenis kegiatan versi lama, boleh {@code null}
+	 * @see #getJenisKegiatanMahasiswa()
+	 */
 	public String getJenis() {
 		return jenis;
 	}
 
+	/**
+	 * Menyetel kode jenis kegiatan versi lama, apa adanya. Praktis tidak dipanggil lagi oleh kode
+	 * baru; isi {@link #setJenisKegiatanMahasiswa(JenisKegiatanMahasiswa)} sebagai gantinya.
+	 *
+	 * @param jenis kode jenis kegiatan versi lama; {@code null} diterima
+	 * @see #getJenis()
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
 
+	/**
+	 * Mengembalikan skala nilai huruf khusus format ini; {@code null} berarti memakai skala bawaan
+	 * mata kuliah.
+	 *
+	 * <p>Dipakai {@code Skripsi.getNilaiHuruf()}: skala diambil dari
+	 * {@code Matakuliah.getJenisNilaiHuruf()}, lalu <b>ditimpa</b> oleh nilai getter ini bila tidak
+	 * {@code null}. Gunanya agar sidang tugas akhir dapat memakai tabel konversi angka&rarr;huruf
+	 * yang berbeda dari mata kuliah biasa (mis. hanya A/B/TIDAK LULUS) tanpa mengubah master mata
+	 * kuliah.</p>
+	 *
+	 * <p>Perhatikan bahwa penggantian ini <b>tidak berlaku surut</b>: nilai huruf yang sudah
+	 * tersimpan pada baris skripsi lama tidak dihitung ulang saat skala diubah.</p>
+	 *
+	 * <p>Berefek samping lewat {@link GeneralValueObject#check(Object)}, sama seperti
+	 * {@link #getJurusan()}.</p>
+	 *
+	 * @return skala nilai huruf khusus, atau {@code null} bila mengikuti mata kuliah
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_nilai_huruf", nullable = true)
 	public JenisNilaiHurufMatakuliah getJenisNilaiHuruf() {
@@ -3042,20 +3409,78 @@ public class FormatNilaiSkripsi extends GeneralValueObject {
 		return jenisNilaiHuruf;
 	}
 
+	/**
+	 * Menyetel skala nilai huruf khusus format ini.
+	 *
+	 * @param jenisNilaiHuruf skala nilai huruf, atau {@code null} untuk mengikuti skala mata
+	 *                        kuliah
+	 * @see #getJenisNilaiHuruf()
+	 */
 	public void setJenisNilaiHuruf(JenisNilaiHurufMatakuliah jenisNilaiHuruf) {
 		this.jenisNilaiHuruf = jenisNilaiHuruf;
 	}
 
+	/**
+	 * Menyatakan apakah mahasiswa boleh mengubah sendiri agenda/jadwal bimbingan tugas akhirnya,
+	 * atau hanya dosen/petugas yang boleh.
+	 *
+	 * <p><b>Default-nya {@code true}</b> (bukan {@code false} seperti kebanyakan bendera lain di
+	 * class ini), sehingga format lama yang kolomnya masih kosong tetap mengizinkan mahasiswa
+	 * mengatur jadwal bimbingannya. {@code PenjadwalanSkripsiHelper} membaca bendera ini lewat
+	 * format nilai milik skripsi bersangkutan; skripsi yang belum punya format dianggap
+	 * mengizinkan.</p>
+	 *
+	 * @return {@code true} bila mahasiswa boleh mengubah agenda/jadwal bimbingan
+	 */
 	public Boolean getMahasiswaBolehMengubahAgendaAtauJadwalBimbingan() {
 		return mahasiswaBolehMengubahAgendaAtauJadwalBimbingan == null ? true
 				: mahasiswaBolehMengubahAgendaAtauJadwalBimbingan;
 	}
 
+	/**
+	 * Menyetel izin mahasiswa mengubah agenda/jadwal bimbingan. Menyimpan {@code null} berarti
+	 * kembali ke default {@code true} — untuk melarang, kolomnya harus diisi {@code false}
+	 * eksplisit.
+	 *
+	 * @param mahasiswaBolehMengubahAgendaAtauJadwalBimbingan izin mengubah jadwal; {@code null}
+	 *                                                       dibaca sebagai {@code true}
+	 * @see #getMahasiswaBolehMengubahAgendaAtauJadwalBimbingan()
+	 */
 	public void setMahasiswaBolehMengubahAgendaAtauJadwalBimbingan(
 			Boolean mahasiswaBolehMengubahAgendaAtauJadwalBimbingan) {
 		this.mahasiswaBolehMengubahAgendaAtauJadwalBimbingan = mahasiswaBolehMengubahAgendaAtauJadwalBimbingan;
 	}
 
+	/**
+	 * Mengembalikan jenis kegiatan mahasiswa (kategori aktivitas tugas akhir) yang mewakili format
+	 * ini pada pelaporan PDDikti/Feeder — {@code EksporAktifitasSkripsiFeeder},
+	 * {@code EksporPesertaDosenSkripsiFeeder}, {@code EksporPesertaMahasiswaSkripsiFeeder} dan
+	 * {@code FeederExporter} semuanya mengambil {@code getKode()} dari relasi ini sebagai jenis
+	 * aktivitas yang dikirim.
+	 *
+	 * <p><b>Getter ini bekerja jauh lebih banyak daripada namanya menyiratkan</b> dan
+	 * <b>berefek samping</b>:</p>
+	 * <ol>
+	 * <li>memanggil {@link GeneralValueObject#check(Object)} yang, bila entity detached, dapat
+	 * membuka session Hibernate sendiri untuk memuat ulang proxy;</li>
+	 * <li>bila relasinya masih {@code null} sedangkan {@link #getJenis()} terisi, ia melakukan
+	 * <b>migrasi data on-the-fly</b>: seluruh {@code JenisKegiatanMahasiswa} dibaca dari cache
+	 * {@code ConstantValues.ambilBerdasarClass(...)}, dicari yang {@code getKode()}-nya sama
+	 * dengan {@code jenis} (tanpa peduli besar-kecil huruf), lalu hasilnya <b>disimpan ke field
+	 * relasi</b>. Karena field berubah, entity dapat dianggap kotor oleh Hibernate dan
+	 * ter-{@code UPDATE} saat flush walau pemanggil hanya "membaca".</li>
+	 * </ol>
+	 *
+	 * <p>Seluruh proses dibungkus dua lapis {@code try/catch} yang hanya mencatat error (penanda
+	 * {@code auto-audit} berasal dari inisiatif audit blok {@code catch} kosong, bukan dari
+	 * pekerjaan Javadoc ini), sehingga kegagalan pencarian tidak pernah membatalkan pembacaan
+	 * property — paling jauh mengembalikan {@code null}. Perhatikan pula bahwa kedua penanda
+	 * {@code auto-audit} menyebut nomor baris versi lama file ini dan sudah tidak akurat.</p>
+	 *
+	 * @return jenis kegiatan mahasiswa untuk pelaporan, atau {@code null} bila belum ditetapkan dan
+	 *         tidak ada padanan untuk {@link #getJenis()}
+	 * @see #getJenis()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_kegiatan_mahasiswa", nullable = true)
 	public JenisKegiatanMahasiswa getJenisKegiatanMahasiswa() {
@@ -3080,6 +3505,14 @@ public class FormatNilaiSkripsi extends GeneralValueObject {
 		return jenisKegiatanMahasiswa;
 	}
 
+	/**
+	 * Menyetel jenis kegiatan mahasiswa untuk pelaporan Feeder. Tidak menyentuh field warisan
+	 * {@link #getJenis()}, sehingga keduanya dapat berbeda; yang dipakai pelaporan adalah relasi
+	 * ini.
+	 *
+	 * @param jenisKegiatanMahasiswa jenis kegiatan, atau {@code null}
+	 * @see #getJenisKegiatanMahasiswa()
+	 */
 	public void setJenisKegiatanMahasiswa(JenisKegiatanMahasiswa jenisKegiatanMahasiswa) {
 		this.jenisKegiatanMahasiswa = jenisKegiatanMahasiswa;
 	}

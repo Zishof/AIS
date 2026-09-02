@@ -329,6 +329,96 @@ public final class ApotikPersediaanHelper {
 	// apotik_batch_monitor -- batch terdekat kedaluwarsa lintas item (padanan MonitorKadaluarsa)
 	// =============================================================================================
 
+	/**
+	 * IR-02 sisi TULIS: mengubah status lot (karantina / recall / rusak /
+	 * ditahan / kembali layak).
+	 *
+	 * <p>Aturan yang ditegakkan server:</p>
+	 * <ul>
+	 *   <li>status wajib salah satu konstanta {@code Kadaluarsa.LOT_*};</li>
+	 *   <li>ALASAN WAJIB saat lot ditahan -- menahan stok berdampak pada
+	 *       ketersediaan obat, jadi harus dapat ditelusuri siapa dan mengapa;</li>
+	 *   <li>alasan disimpan pada {@code keterangan} lot (append, bukan timpa)
+	 *       sehingga riwayatnya terbaca; perubahan sendiri terekam Envers.</li>
+	 * </ul>
+	 */
+	public static void batchStatusUbah(ais.database.model.Tbmuser tbmuser,
+			JSONObject request, JSONObject hasil) throws Exception {
+		if (tbmuser == null || tbmuser.getUserId() == null) {
+			tolak(hasil, "Sesi tidak dikenali.");
+			return;
+		}
+		Long kadaluarsaId = optLong(request, "kadaluarsa_id");
+		String status = request == null ? "" : request.optString("status", "").trim().toUpperCase();
+		String alasan = request == null ? "" : request.optString("alasan", "").trim();
+		if (kadaluarsaId == null || status.isEmpty()) {
+			tolak(hasil, "kadaluarsa_id dan status wajib diisi.");
+			return;
+		}
+		boolean statusSah = ais.database.model.sirs.Kadaluarsa.LOT_ELIGIBLE.equals(status)
+				|| ais.database.model.sirs.Kadaluarsa.LOT_HELD.equals(status)
+				|| ais.database.model.sirs.Kadaluarsa.LOT_QUARANTINE.equals(status)
+				|| ais.database.model.sirs.Kadaluarsa.LOT_RECALL.equals(status)
+				|| ais.database.model.sirs.Kadaluarsa.LOT_DAMAGED.equals(status);
+		if (!statusSah) {
+			tolak(hasil, "Status lot tidak dikenal: " + status);
+			return;
+		}
+		boolean menahan = !ais.database.model.sirs.Kadaluarsa.LOT_ELIGIBLE.equals(status);
+		if (menahan && alasan.length() < 5) {
+			tolak(hasil, "Alasan wajib diisi (minimal 5 karakter) saat menahan lot -- "
+					+ "penahanan stok harus dapat ditelusuri.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.sirs.Kadaluarsa k = (ais.database.model.sirs.Kadaluarsa)
+					session.get(ais.database.model.sirs.Kadaluarsa.class, kadaluarsaId);
+			if (k == null) {
+				tolak(hasil, "Batch tidak ditemukan.");
+				return;
+			}
+			String lama = k.getStatusLot();
+			if (lama.equals(status)) {
+				hasil.put("status", "00");
+				hasil.put("idempotent", true);
+				hasil.put("statusLot", status);
+				hasil.put("description", "Status lot sudah " + status + ".");
+				return;
+			}
+			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+			StringBuilder jejak = new StringBuilder();
+			if (k.getKeterangan() != null && !k.getKeterangan().trim().isEmpty()) {
+				jejak.append(k.getKeterangan().trim()).append(System.getProperty("line.separator"));
+			}
+			jejak.append("[").append(fmt.format(new java.util.Date())).append("] ")
+					.append(lama).append(" -> ").append(status)
+					.append(" oleh ").append(tbmuser.getUserId());
+			if (!alasan.isEmpty()) jejak.append(": ").append(alasan);
+			k.setStatusLot(status);
+			k.setKeterangan(jejak.toString());
+			k.setOleh(tbmuser.getUserId());
+			session.beginTransaction();
+			session.saveOrUpdate(k);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("statusLot", status);
+			hasil.put("lotLayak", ais.database.model.sirs.Kadaluarsa.lotLayak(status));
+			hasil.put("description", "Status lot diubah " + lama + " -> " + status + ".");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "batchStatusUbah rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	public static void batchMonitor(JSONObject request, JSONObject hasil) throws Exception {
 		int hariKeDepan = request == null ? 90 : request.optInt("hari_ke_depan", 90);
 		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));

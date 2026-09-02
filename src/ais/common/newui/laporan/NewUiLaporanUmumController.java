@@ -73,6 +73,28 @@ public final class NewUiLaporanUmumController {
         final String nama, label, tipe, entity, propertiNama, paramNamaBawaan;
         String tergantungPada;
         boolean cari;
+        /**
+         * Nama parameter tambahan berisi tanggal yang sama dalam format
+         * tampilan ({@code dateFormat5}).
+         *
+         * <p>Kontrak ini biasanya mengirim {@code label_<nama>}, tetapi
+         * sebagian template menuntut nama lain — {@code akunting/laporan_akun}
+         * memakai {@code mulai_1} dan {@code sampai_1}. Menamainya salah tidak
+         * menggagalkan laporan: Jasper hanya mencetak kop tanggal kosong,
+         * sehingga kekeliruannya tidak terlihat sampai ada yang membandingkan
+         * dengan cetakan lama.</p>
+         */
+        String paramTanggalTampilan;
+        /**
+         * Kirim id relasi sebagai String, bukan Long.
+         *
+         * <p>Beberapa template mendeklarasikan parameter relasinya
+         * {@code java.lang.String} — mis. {@code program} pada
+         * {@code Rekapitulasi_alumni_jurusan}. Mengirim Long ke parameter
+         * String membuat Jasper menolak atau menyaring dengan nilai yang tidak
+         * pernah cocok.</p>
+         */
+        boolean idSebagaiTeks;
         final boolean wajib;
         /**
          * Bila diisi, controller ikut mengirim parameter bernama ini berisi
@@ -113,6 +135,10 @@ public final class NewUiLaporanUmumController {
             return new Filter(nama, label, TIPE_RELASI_BANYAK, wajib, entity);
         }
         Filter tergantung(String namaFilter) { tergantungPada = namaFilter; return this; }
+        /** Kirim juga tanggal berformat tampilan pada parameter bernama ini. */
+        Filter tanggalTampilan(String namaParam) { paramTanggalTampilan = namaParam; return this; }
+        /** Kirim id relasi sebagai String karena template mendeklarasikannya String. */
+        Filter idTeks() { idSebagaiTeks = true; return this; }
         Filter cari() { cari = true; return this; }
         static Filter teks(String nama, String label) { return new Filter(nama, label, TIPE_TEKS, false, null); }
     }
@@ -269,6 +295,27 @@ public final class NewUiLaporanUmumController {
                         Filter.teks("judul", "Judul"),
                         Filter.teks("klasifikasi", "Klasifikasi")));
 
+        // Laporan Akun melayani tiga menu sekaligus (74012, 182348, 777365223).
+        // Template menuntut rentang tanggal dalam DUA format: mulai/sampai
+        // berformat basis data untuk penyaringan, dan mulai_1/sampai_1
+        // berformat tampilan untuk kop laporan.
+        REGISTRI.put("akunting_laporan_akun",
+                new Laporan("Laporan Akun", "akunting/laporan_akun",
+                        Filter.mulai().tanggalTampilan("mulai_1"),
+                        Filter.sampai().tanggalTampilan("sampai_1"),
+                        Filter.relasi("satuan_kerja", "Satuan Kerja",
+                                "ais.database.model.rab.SatuanKerja", false)));
+
+        // program dideklarasikan java.lang.String pada jrxml-nya, jadi id-nya
+        // dikirim sebagai teks. dari/sampai adalah TAHUN (Integer), bukan
+        // tanggal -- layar ZK memakai spinner tahun.
+        REGISTRI.put("akademik_rekap_alumni_jurusan",
+                new Laporan("Laporan Rekapitulasi Alumni", "Rekapitulasi_alumni_jurusan",
+                        new Filter("dari", "Tahun Mulai", TIPE_TAHUN, true, null),
+                        new Filter("sampai", "Tahun Sampai", TIPE_TAHUN, true, null),
+                        Filter.relasi("program", "Program",
+                                "ais.database.model.Program", false).idTeks()));
+
         // --- Anggaran (RAB) --------------------------------------------------
         REGISTRI.put("rab_realisasi_per_jenis",
                 new Laporan("Realisasi Anggaran Per Jenis Item",
@@ -309,6 +356,18 @@ public final class NewUiLaporanUmumController {
     /** Daftar kunci laporan; dipakai self-test agar registri tidak menyimpang. */
     public static String[] semuaLaporan() {
         return REGISTRI.keySet().toArray(new String[0]);
+    }
+
+    /** Filter sebuah laporan; dipakai self-test kecocokan tipe dengan jrxml. */
+    static List<Filter> filterUntuk(String kunci) {
+        Laporan l = REGISTRI.get(kunci);
+        return l == null ? null : l.filter;
+    }
+
+    /** Judul sebuah laporan; dipakai self-test. */
+    static String judulUntuk(String kunci) {
+        Laporan l = REGISTRI.get(kunci);
+        return l == null ? null : l.judul;
     }
 
     /** Template Jasper sebuah laporan; dipakai self-test. */
@@ -556,7 +615,8 @@ public final class NewUiLaporanUmumController {
                 if (f.wajib) throw new IllegalArgumentException(f.label + " wajib diisi.");
                 // Tidak dipilih: id relasi dikirim -1 seperti ZK; filter lain dilewati.
                 if (TIPE_RELASI.equals(f.tipe)) {
-                    parameters.put(f.nama, Long.valueOf(-1L));
+                    parameters.put(f.nama,
+                            f.idSebagaiTeks ? (Object) "-1" : (Object) Long.valueOf(-1L));
                     if (f.paramNama != null) parameters.put(f.paramNama, f.paramNamaBawaan);
                 } else if (TIPE_RELASI_BANYAK.equals(f.tipe)) {
                     List<Long> kosong = new ArrayList<Long>();
@@ -579,10 +639,14 @@ public final class NewUiLaporanUmumController {
                 if (tanggal == null) throw new IllegalArgumentException(f.label + " bukan tanggal yang sah.");
                 parameters.put(f.nama, Common.databaseDateFormat.get().format(tanggal));
                 parameters.put("label_" + f.nama, Common.dateFormat4.get().format(tanggal));
+                if (f.paramTanggalTampilan != null) {
+                    parameters.put(f.paramTanggalTampilan,
+                            Common.dateFormat5.get().format(tanggal));
+                }
             } else if (TIPE_RELASI.equals(f.tipe)) {
                 Long id = id(mentah);
                 if (id == null) throw new IllegalArgumentException(f.label + " tidak sah.");
-                parameters.put(f.nama, id);
+                parameters.put(f.nama, f.idSebagaiTeks ? (Object) String.valueOf(id) : (Object) id);
                 if (f.paramNama != null) {
                     // Nama diambil dari basis data, bukan dari klien, supaya
                     // kop laporan tidak dapat dipalsukan lewat parameter.

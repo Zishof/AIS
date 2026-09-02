@@ -2261,7 +2261,7 @@ public class KantinHelper {
 		// Dikunci admin: SELALU memblokir, terlepas dari sakelar global. Itulah gunanya
 		// override per-produk -- barang mahal/gampang basi tidak boleh ikut terbuka
 		// hanya karena kebijakan umum toko dilonggarkan.
-		if (!Boolean.TRUE.equals(izinkanJualMinusStok)) {
+		if (Boolean.FALSE.equals(izinkanJualMinusStok)) {
 			return true;
 		}
 		// Selalu boleh dijual minus: tidak pernah memblokir.

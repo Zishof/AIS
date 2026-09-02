@@ -80,6 +80,8 @@ public final class ApotikApiDispatcher {
 			ApotikPersediaanHelper.opnameSimpan(tbmuser, payload, hasil);
 		} else if ("apotik_retur_simpan".equals(action)) {
 			ApotikPersediaanHelper.returSimpan(tbmuser, payload, hasil);
+		} else if ("apotik_batch_status_ubah".equals(action)) {
+			ApotikPersediaanHelper.batchStatusUbah(tbmuser, payload, hasil);
 		} else if ("apotik_batch_monitor".equals(action)) {
 			ApotikPersediaanHelper.batchMonitor(payload, hasil);
 		} else if ("apotik_laporan_penjualan".equals(action)) {

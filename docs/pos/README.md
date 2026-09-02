@@ -93,6 +93,62 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [80-satu-saluran-peringatan-pasca-transaksi.md](80-satu-saluran-peringatan-pasca-transaksi.md) | Enam peringatan lepas jadi satu saluran; biaya menambah peringatan berikutnya turun dari 9 titik jadi 1 |
 | [81-lima-salinan-payload-jadi-satu.md](81-lima-salinan-payload-jadi-satu.md) | Lima salinan payload bayar yang sudah menyebabkan tiga cacat, disatukan; payloadnya diverifikasi dijalankan, bukan dibaca |
 
+| [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
+| [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
+| [53-fase-c-reordering-lengkap.md](53-fase-c-reordering-lengkap.md) | 53. Fase C — Reordering Lengkap (Min-Max, Rute BELI/PRODUKSI) |
+| [53-posting-jurnal-umum.md](53-posting-jurnal-umum.md) | Posting Massal "Jurnal Umum" dari Dasbor Draft Jurnal POS |
+| [54-fase-d-reservasi-kekurangan-unbuild.md](54-fase-d-reservasi-kekurangan-unbuild.md) | 54. Fase D — Reservasi Komponen, Kekurangan → Pengajuan, UNBUILD |
+| [54-posting-pengembalian-uang-muka.md](54-posting-pengembalian-uang-muka.md) | Posting Massal "Pengembalian Uang Muka" + Perbaikan Hitung Dasbor Bendera-Null |
+| [55-fase-e-mto-dan-qc.md](55-fase-e-mto-dan-qc.md) | 55. Fase E — MTO (Make-To-Order) dan QC Hasil Produksi |
+| [55-posting-trio-pembayaran-vendor.md](55-posting-trio-pembayaran-vendor.md) | Posting Massal Trio Pembayaran Vendor (Tagihan / DP / Termin) |
+| [56-posting-perjanjian-kerjasama.md](56-posting-perjanjian-kerjasama.md) | Posting Massal "Perjanjian Kerjasama" (DP Kerjasama Aset) |
+| [56-ringkasan-fase-0-e-untuk-pemilik.md](56-ringkasan-fase-0-e-untuk-pemilik.md) | 56. Ringkasan Program UOM–Packaging–Manufaktur (Fase 0–E) — untuk Pemilik Sistem |
+| [57-fase-penutup-pratinjau-grosir-web-dan-reservasi.md](57-fase-penutup-pratinjau-grosir-web-dan-reservasi.md) | 57. Fase Penutup — Pratinjau Grosir Kanal Web + Tampilan Reservasi WO |
+| [57-posting-payroll-pegawai-penggajian.md](57-posting-payroll-pegawai-penggajian.md) | Posting Massal Payroll: Transaksi Pegawai + Penggajian Pegawai |
+| [57-posting-pembayaran-vendor.md](57-posting-pembayaran-vendor.md) | Posting Massal Trio Pembayaran Vendor (Tagihan, DP, Termin) |
+| [58-pindah-skema-produksi-distribusi-ke-koperasi.md](58-pindah-skema-produksi-distribusi-ke-koperasi.md) | 58. Tabel Produksi & Distribusi Pindah ke Skema `koperasi` |
+| [58-posting-saldo-awal-kas-kecil.md](58-posting-saldo-awal-kas-kecil.md) | Posting Massal Saldo Awal Kas Kecil |
+| [59-posting-kantin-dasbor.md](59-posting-kantin-dasbor.md) | Dasbor Draft Jurnal: Keluarga Kantin/Toko (HPP, Penjualan, 4 Posting Toko) |
+| [59-stok-uom-pengadaan-pr-po-bast.md](59-stok-uom-pengadaan-pr-po-bast.md) | 59. PDF "stok & uom" — Rantai Pengadaan (PR→PO→BAST) Sadar-UOM |
+| [60-audit-silang-kantin-kaskecil.md](60-audit-silang-kantin-kaskecil.md) | Audit Silang Dok 58–59: Empat Cacat Ditemukan & Diperbaiki |
+| [60-metode2-kelipatan-reservasi-galat-foto-label.md](60-metode2-kelipatan-reservasi-galat-foto-label.md) | 60. Butir Terbuka Dituntaskan — Metode 2, Kelipatan Wajib, Saklar Reservasi, Galat, Foto Member, Label PR/PO |
+| [61-gap-analysis-posting.md](61-gap-analysis-posting.md) | Gap Analysis Posting: Transaksi Keuangan yang BELUM Punya Jalur Jurnal |
+| [61-settingan-pack-combo.md](61-settingan-pack-combo.md) | 61. Settingan Pack/Combo — Jual per Pack dengan Harga Tetap |
+| [62-posting-simpan-pinjam-koperasi.md](62-posting-simpan-pinjam-koperasi.md) | Posting Simpan-Pinjam Koperasi: Kerangka Yatim Akhirnya Dilengkapi |
+| [62-umpan-balik-layar-grosir-satuan-bast.md](62-umpan-balik-layar-grosir-satuan-bast.md) | 62. Umpan Balik Layar (31-08) — Editor Grosir Dapat Diedit, Nominal Satuan Jual, Hasil Sinkron BAST |
+| [63-gap-analysis-zk-vs-pos.md](63-gap-analysis-zk-vs-pos.md) | Gap Analysis Posting: Hub ZKoss "Posting Jurnal" vs Dasbor Draft Jurnal POS Flutter |
+| [63-rapikan-master-uom-per-kategori.md](63-rapikan-master-uom-per-kategori.md) | 63. Merapikan Master UOM per Kategori |
+| [64-jurnal-balik-pembatalan-kantin.md](64-jurnal-balik-pembatalan-kantin.md) | Jurnal Balik Pembatalan Kantin |
+| [64-rincian-produk-terjual-laporan-kasir.md](64-rincian-produk-terjual-laporan-kasir.md) | 64. Rincian Produk Terjual pada Laporan Kasir |
+| [65-perbaikan-laporan-penjualan-web-dan-rekap-produk.md](65-perbaikan-laporan-penjualan-web-dan-rekap-produk.md) | 65. Perbaikan Laporan Penjualan Web, Filter, dan Rekap Produk |
+| [65-posting-penghapusan-aset.md](65-posting-penghapusan-aset.md) | Posting Penghapusan Aset: Pasangan Akun Jenis Penghapusan Akhirnya Dipakai |
+| [66-laporan-keuangan-standar-yayasan.md](66-laporan-keuangan-standar-yayasan.md) | Gap Analysis Laporan Keuangan: Paket Standar Yayasan vs AIS/POS |
+| [66-uji-internal-1-34-17-apk-debug.md](66-uji-internal-1-34-17-apk-debug.md) | 66. Uji Internal 1.34.17 — APK Bertanda Tangan Debug |
+| [67-konsistensi-angka-laporan-dan-filter-lanjutan.md](67-konsistensi-angka-laporan-dan-filter-lanjutan.md) | 67. Konsistensi Angka Laporan, Satuan Jual, dan Filter Lanjutan |
+| [67-laporan-aktivitas-dan-pemilih-unit.md](67-laporan-aktivitas-dan-pemilih-unit.md) | Laporan Aktivitas (Surplus/Defisit) & Pemilih Unit pada Laporan Keuangan |
+| [68-batas-baris-laporan-selftest-dan-nilai-dashboard.md](68-batas-baris-laporan-selftest-dan-nilai-dashboard.md) | 68. Batas Baris Laporan, Self-Test Aturan SQL, dan Nilai Dashboard |
+| [68-posting-dana-anggota-koperasi.md](68-posting-dana-anggota-koperasi.md) | Posting Dana Anggota Koperasi (dok 61 butir B) |
+| [69-audit-tombol-zk-menyeluruh.md](69-audit-tombol-zk-menyeluruh.md) | Audit Menyeluruh Tombol Posting Layar ZK (47 Layar) + Penutupan Celah Hub |
+| [69-panel-ringkasan-menyaring-baris-dibatalkan.md](69-panel-ringkasan-menyaring-baris-dibatalkan.md) | 69. Panel Ringkasan Ikut Menyaring Baris Penjualan yang Dibatalkan |
+| [69-penutup-peta-posting.md](69-penutup-peta-posting.md) | Penutup Peta Posting & Laporan: Butir E, Buku Kas Umum, dan Diagnosa Aktivitas |
+| [70-audit-dokumen-berkaki-ganda.md](70-audit-dokumen-berkaki-ganda.md) | Audit Dokumen Ber-Kaki Posting Ganda: Tiga Cacat Pembatalan |
+| [70-permukaan-sql-klien-dan-penjaganya.md](70-permukaan-sql-klien-dan-penjaganya.md) | 70. Permukaan SQL dari Klien dan Penjaganya |
+| [71-sql-tulis-anonim-ditutup.md](71-sql-tulis-anonim-ditutup.md) | 71. Jalur SQL Tulis Anonim pada `/Data` Ditutup |
+| [71-tabrakan-kodeunik-antar-kaki.md](71-tabrakan-kodeunik-antar-kaki.md) | Tabrakan `kodeUnik` Antar-Kaki Jurnal: Mekanisme Terbukti, Kaki Siswa Diperbaiki |
+| [72-blokir-kolom-kredensial-tanpa-syarat.md](72-blokir-kolom-kredensial-tanpa-syarat.md) | 72. Blokir Kolom Kredensial dari Endpoint SQL Klien — Tanpa Syarat |
+| [72-jurnal-tak-seimbang-dan-tanggal.md](72-jurnal-tak-seimbang-dan-tanggal.md) | Dua Kelas Sisa: Jurnal Tak Seimbang dan Tanggal Jurnal di Luar Rentang |
+| [73-amankan-resolusi-kelas-unggahan.md](73-amankan-resolusi-kelas-unggahan.md) | 73. Amankan Resolusi Kelas pada Unggahan Berkas |
+| [81-satu-klik-membalik-sebatch.md](81-satu-klik-membalik-sebatch.md) | Satu klik membalik status se-batch, dan kompilasi penuh sebagai alat |
+| [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
+| [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
+| [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |
+| [ZUL-GRID-FULL-WIDTH-2026-08-26.md](ZUL-GRID-FULL-WIDTH-2026-08-26.md) | Normalisasi Grid/Tabel ZUL Full Width |
+
+> **Dicocokkan ulang dengan isi folder.** Lima puluh dokumen di atas sudah ada di
+> direktori ini tetapi belum pernah masuk daftar isi, sehingga praktis tidak dapat
+> ditemukan dari pintu depan. Ringkasannya diambil apa adanya dari judul H1 masing-masing
+> dokumen -- kata penulisnya sendiri, bukan tafsiran ulang.
+
 > Catatan penomoran: ada **dua** berkas bernomor 10 — `10-pengadaan.md` dan
 > `10-pesan-galat-dan-detail-error.md` — karena ditulis dua sesi kerja yang berjalan
 > bersamaan. Isinya berbeda dan keduanya berlaku; penomorannya saja yang berbenturan.

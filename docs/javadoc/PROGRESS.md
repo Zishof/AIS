@@ -1,5 +1,63 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/MahasiswaRequestTugasAkhir.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **pengajuan judul & pembimbing tugas akhir** — tahap SEBELUM `Skripsi`
+resmi terbentuk. 1472 → 3150 baris, **145/145 method ber-Javadoc (100%)**
+(diaudit skrip, 0 tersisa). Revisi: **r83110** (tersapu ke revisi gabungan sesi
+paralel berpesan kosong; isi diverifikasi lewat penanda teks di HEAD). Mirror
+`java/` diverifikasi byte-identik dengan `cmp`.
+
+**Struktur**: `extends VOPembelajaran extends VoKunci extends sop.DataSop extends
+GeneralValueObject`, sekaligus `implements VOPesertaPembelajaran` (mengembalikan
+dirinya sendiri sebagai objek pembelajaran — pola sama dengan `Skripsi`). Alur:
+`Pengajuan` → `Disetujui` → `Seminar/Proses Bimbingan` → `Sidang`, dengan cabang
+`Mengulang`/`Ditolak`. `getStatus()` adalah mesin status yang menaikkan DAN
+menurunkan status sendiri berdasarkan `JadwalSeminarTugasAkhir`, tanggal
+bimbingan, dan `Skripsi.getTelahSidang()`.
+
+**Mekanisme `skr`/`setSkr` (temuan utama)**: arah pengajuan → `Skripsi` BUKAN
+foreign key. Id skripsi disimpan sebagai TEKS pada properti `skr` yang dipetakan
+ke kolom bernama **`filelocation`** (nama peninggalan; isinya id skripsi).
+Pengisinya adalah getter di sisi seberang — `Skripsi.getMahasiswaRequestTugasAkhir()`
+memanggil `setSkr(getId())` tiap kali dipanggil, jadi membuka layar skripsi
+MENULIS ke entity pengajuan. `setSkr` menulis dua tempat: berkas cache lewat
+`put(nilai,"skr")` **hanya bila nilainya angka**, dan field/kolom **selalu**;
+`getSkr()` membaca berkas lebih dulu dan isinya MENIMPA field. Asimetri ini
+berarti tautan skripsi **tidak bisa dilepas** lewat setter selama berkas
+cache-nya masih ada. `ambilSkripsi()` memuat entity lewat `DataUtil.ambilData()`
+(cache → DB), bukan join — berpotensi N+1 karena `getStatus()` memanggilnya.
+
+**Temuan lain (dicatat, TIDAK diperbaiki)**:
+- `getDosen1()`..`getDosen6()` menyetel field dosen jadi `null` bila slotnya
+  dinonaktifkan di `FormatNilaiProposalSkripsi`; `null` itu ikut tersimpan ke
+  kolom `dosenN` saat flush → mengubah master format nilai dapat **menghapus**
+  penetapan dosen pengajuan lama hanya dengan membacanya.
+- `retreiveDetailVerifikasiNilai` membandingkan id
+  `ProposalSkripsiPunyaKomponenPenilaianProposalSkripsi` dengan kolom pertama
+  `detailNilai` yang selalu berisi id `KomponenPenilaianProposalSkripsi` — **bug
+  id anak vs id induk**, identik dengan yang sudah dicatat di `Skripsi.java` dan
+  sepola dengan `Pertemuan.java`. Dampak terbatas: satu-satunya pemanggil sudah
+  tidak dipakai.
+- `getTotalNilai()`: penjaga masuk hanya memeriksa slot 1..5, **slot 6 terlewat**
+  → nilai yang hanya berasal dari slot 6 tak pernah memicu hitung ulang. Nama
+  variabel lokal bergeser satu langkah dari makna slot, TAPI pemetaan slot ke
+  kolom prosentase **konsisten** dengan master — tidak ada pertukaran slot
+  seperti pada `Skripsi.java`.
+- `reloadProposalSkripsiPunya...` menimpa `detailNilai` seluruhnya → entri dosen
+  lain hilang. `bersihkanNilaiKeDefault(List)` tak membungkus parsernya dengan
+  try/catch.
+- **Field audit di-shadow**: `id`, `oleh`, `olehId`, `tanggal_dirubah`, `nama`,
+  `keterangan` — pola 100% konsisten, kini 10 entity berturut-turut. Bonus:
+  `disposisiSop` + getter/setter-nya **duplikat verbatim** dari `VOPembelajaran`
+  (termasuk cabang ternary yang mati).
+- Getter menulis balik ke field: `semester`, `tahunAkademik`, `status`, `judul`,
+  `tanggalAwal/AkhirBimbingan`, `waktuSeminar`, `waktuSampaiSeminar`,
+  `catatanSeminar` (migrasi teks default lama → baru), `totalNilai`,
+  `nilaiHuruf`, `lulus`, `skr`.
+- Kuintet "peta lokasi berkas JSON" (`ambilLokasi/tulisLokasi/...`) **TIDAK ada**
+  di file ini; yang ada hanya pemakaian `put`/`retreive` untuk `skr`.
+
 ## `ais/database/model/PembombotanNilai.java` — SELESAI 100% (2 Sep 2026)
 
 Master **format/skema pembobotan nilai** perkuliahan. 1295 → 2642 baris,
