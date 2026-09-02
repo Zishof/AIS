@@ -1121,447 +1121,1303 @@ public class FormatNilaiSkripsi extends GeneralValueObject {
 		return kodeMatakuliah;
 	}
 
+	/**
+	 * Menyetel daftar kode/nama mata kuliah tugas akhir berelasi ATAU, apa adanya. Normalisasi
+	 * koma baru terjadi saat dibaca lewat {@link #getKodeMatakuliah()}.
+	 *
+	 * @param kodeMatakuliah daftar kode/nama dipisah koma; {@code null} diterima
+	 * @see #getKodeMatakuliah()
+	 */
 	public void setKodeMatakuliah(String kodeMatakuliah) {
 		this.kodeMatakuliah = kodeMatakuliah;
 	}
 
+	/**
+	 * Mengembalikan jumlah SKS minimal yang harus sudah diperoleh mahasiswa untuk boleh mendaftar
+	 * sidang, null-safe ke {@code 0} (artinya tanpa syarat SKS).
+	 *
+	 * <p>Dibandingkan oleh {@code SkripsiAction} dengan {@code KrsMahasiswa.getSksk()} — SKS
+	 * kumulatif hasil sinkronisasi KRS, bukan SKS semester berjalan. Bila kurang, pengajuan
+	 * ditolak dengan pesan yang menyebutkan angka minimal dan angka yang sudah dicapai.</p>
+	 *
+	 * @return SKS minimal; {@code 0} bila tidak disyaratkan
+	 */
 	public Integer getMinimalSks() {
 		return minimalSks == null ? 0 : minimalSks;
 	}
 
+	/**
+	 * Menyetel jumlah SKS minimal untuk mendaftar sidang.
+	 *
+	 * @param minimalSks SKS minimal; {@code null} diterima dan dibaca sebagai {@code 0}
+	 * @see #getMinimalSks()
+	 */
 	public void setMinimalSks(Integer minimalSks) {
 		this.minimalSks = minimalSks;
 	}
 
+	/**
+	 * Mengembalikan IPK minimal yang harus dicapai untuk boleh mendaftar sidang, null-safe ke
+	 * {@code 0.0} (tanpa syarat). Dibandingkan dengan {@code KrsMahasiswa.getIpk()}.
+	 *
+	 * @return IPK minimal; {@code 0.0} bila tidak disyaratkan
+	 * @see #getMinimalSks()
+	 */
 	public Double getMinimalIpk() {
 		return minimalIpk == null ? 0.0 : minimalIpk;
 	}
 
+	/**
+	 * Menyetel IPK minimal untuk mendaftar sidang.
+	 *
+	 * @param minimalIpk IPK minimal; {@code null} diterima dan dibaca sebagai {@code 0.0}
+	 * @see #getMinimalIpk()
+	 */
 	public void setMinimalIpk(Double minimalIpk) {
 		this.minimalIpk = minimalIpk;
 	}
 
+	/**
+	 * Mengembalikan angka kredit kegiatan kemahasiswaan minimal (poin SKPI/keaktifan, dihitung
+	 * {@code Common.hitungAngkaKredit(Mahasiswa)}) yang harus dikumpulkan untuk boleh mendaftar
+	 * sidang, null-safe ke {@code 0.0}.
+	 *
+	 * @return angka kredit minimal; {@code 0.0} bila tidak disyaratkan
+	 * @see #getMinimalSks()
+	 */
 	public Double getMinimalAngkaKredit() {
 		return minimalAngkaKredit == null ? 0.0 : minimalAngkaKredit;
 	}
 
+	/**
+	 * Menyetel angka kredit kegiatan kemahasiswaan minimal untuk mendaftar sidang.
+	 *
+	 * @param minimalAngkaKredit angka kredit minimal; {@code null} diterima
+	 * @see #getMinimalAngkaKredit()
+	 */
 	public void setMinimalAngkaKredit(Double minimalAngkaKredit) {
 		this.minimalAngkaKredit = minimalAngkaKredit;
 	}
 
+	/**
+	 * Mengembalikan daftar mata kuliah yang harus <b>sudah LULUS</b> sebelum mahasiswa boleh
+	 * mendaftar sidang — berbeda dari {@link #getKodeMatakuliah()} yang hanya menuntut mata kuliah
+	 * tugas akhir <i>diambil</i> di KRS.
+	 *
+	 * <p>Formatnya daftar dipisah koma berisi kode <i>atau</i> nama mata kuliah. {@code SkripsiAction}
+	 * mengumpulkan seluruh {@code Detailperkuliahan} mahasiswa yang berstatus lulus, memasukkan
+	 * kode dan nama mata kuliahnya (huruf besar) ke sebuah himpunan, lalu menolak pengajuan sambil
+	 * menyebutkan token mana saja yang belum terpenuhi. Mata kuliah konversi ikut dihitung.</p>
+	 *
+	 * <p>Berbeda dengan kebanyakan getter di class ini, yang satu ini <b>tidak null-safe</b>:
+	 * ia mengembalikan {@code null} apa adanya (pemanggil memang sudah memeriksanya). Kolomnya
+	 * dipetakan sebagai {@code text} sehingga daftarnya boleh sangat panjang. Kosong berarti tanpa
+	 * prasyarat mata kuliah.</p>
+	 *
+	 * @return daftar kode/nama mata kuliah prasyarat lulus dipisah koma, atau {@code null}
+	 */
 	@javax.persistence.Column(columnDefinition = "text")
 	public String getMatkulPrasyaratLulus() {
 		return matkulPrasyaratLulus;
 	}
 
+	/**
+	 * Menyetel daftar mata kuliah prasyarat lulus, apa adanya (tanpa {@code trim} dan tanpa
+	 * validasi bahwa kode/nama-nya benar-benar ada).
+	 *
+	 * @param matkulPrasyaratLulus daftar kode/nama dipisah koma; {@code null}/kosong berarti tanpa
+	 *                             prasyarat
+	 * @see #getMatkulPrasyaratLulus()
+	 */
 	public void setMatkulPrasyaratLulus(String matkulPrasyaratLulus) {
 		this.matkulPrasyaratLulus = matkulPrasyaratLulus;
 	}
 
+	/**
+	 * Saklar utama syarat keuangan: bila {@code true}, mahasiswa hanya boleh mendaftar sidang
+	 * setelah memenuhi ambang pelunasan {@link #getProsentaseLunas()}. Null-safe ke {@code false}.
+	 *
+	 * <p>Perhatikan pembagian tugas yang agak berbelit antara kedua field: {@code SkripsiAction}
+	 * lebih dulu memeriksa {@code getProsentaseLunas() > 0.1} sebagai gerbang, baru memanggil
+	 * {@code Common.checkStatusPembayaranMahasiswaPengajuanSidang(...)} yang <i>di dalamnya</i>
+	 * memeriksa {@code getHarusLunas()}. Akibatnya syarat pembayaran baru benar-benar aktif bila
+	 * <b>kedua</b> field terisi: {@code harusLunas = true} DAN {@code prosentaseLunas > 0.1}.
+	 * Pemeriksaan itu sendiri masih dilewati untuk semester awal mahasiswa (semester 1 atau
+	 * semester-semester pertama setelah pindah kampus).</p>
+	 *
+	 * @return {@code true} bila pelunasan biaya menjadi syarat pendaftaran
+	 * @see #getProsentaseLunas()
+	 */
 	public Boolean getHarusLunas() {
 		return harusLunas == null ? false : harusLunas;
 	}
 
+	/**
+	 * Menyetel saklar syarat pelunasan biaya.
+	 *
+	 * @param harusLunas {@code true} bila pelunasan menjadi syarat; {@code null} dibaca sebagai
+	 *                   {@code false}
+	 * @see #getHarusLunas()
+	 */
 	public void setHarusLunas(Boolean harusLunas) {
 		this.harusLunas = harusLunas;
 	}
 
+	/**
+	 * Mengembalikan ambang persentase pelunasan biaya perkuliahan semester berjalan yang harus
+	 * dicapai untuk boleh mendaftar sidang, null-safe ke {@code 0.0}.
+	 *
+	 * <p>Nilai {@code <= 0.1} berarti syarat ini dilewati sama sekali (lihat penjelasan pada
+	 * {@link #getHarusLunas()}). Angka ini juga ikut disebut apa adanya di pesan penolakan yang
+	 * ditampilkan ke pengguna.</p>
+	 *
+	 * @return ambang pelunasan dalam persen; {@code 0.0} bila tidak disyaratkan
+	 * @see #getHarusLunas()
+	 */
 	public Double getProsentaseLunas() {
 		return prosentaseLunas == null ? 0.0 : prosentaseLunas;
 	}
 
+	/**
+	 * Menyetel ambang persentase pelunasan biaya.
+	 *
+	 * @param prosentaseLunas ambang dalam persen; {@code null} diterima
+	 * @see #getProsentaseLunas()
+	 */
 	public void setProsentaseLunas(Double prosentaseLunas) {
 		this.prosentaseLunas = prosentaseLunas;
 	}
 
+	/**
+	 * Menyatakan apakah mahasiswa wajib sudah mengembalikan seluruh pinjaman perpustakaan sebelum
+	 * boleh mendaftar sidang, null-safe ke {@code false}.
+	 *
+	 * <p>Bila {@code true}, {@code SkripsiAction} mencari semua
+	 * {@code PeminjamanPengadaanItemDetail} milik mahasiswa yang belum ada baris pengembaliannya
+	 * dan menolak pengajuan sambil merinci judul item beserta jumlah hari keterlambatannya. Semua
+	 * pinjaman yang belum kembali menghalangi, tidak hanya yang terlambat.</p>
+	 *
+	 * @return {@code true} bila bebas pustaka menjadi syarat pendaftaran
+	 */
 	public Boolean getHarusMengembalikanBukuPerpustakaan() {
 		return harusMengembalikanBukuPerpustakaan == null ? false : harusMengembalikanBukuPerpustakaan;
 	}
 
+	/**
+	 * Menyetel syarat bebas pinjaman perpustakaan.
+	 *
+	 * @param harusMengembalikanBukuPerpustakaan {@code true} bila menjadi syarat; {@code null}
+	 *                                           dibaca sebagai {@code false}
+	 * @see #getHarusMengembalikanBukuPerpustakaan()
+	 */
 	public void setHarusMengembalikanBukuPerpustakaan(Boolean harusMengembalikanBukuPerpustakaan) {
 		this.harusMengembalikanBukuPerpustakaan = harusMengembalikanBukuPerpustakaan;
 	}
 
+	/**
+	 * Mengembalikan daftar kode {@code ItemBiaya} (dipisah koma) yang harus sudah dibayar untuk
+	 * biaya sidang, sudah di-{@code trim} dan null-safe ke string kosong.
+	 *
+	 * <p>Untuk setiap kode, {@code SkripsiAction} mencari {@code ItemBiaya} yang cocok lalu
+	 * memanggil {@code Mahasiswa.hitungTotalCicilanPembayaran(semester, }{@link #getSekaliBayar()}{@code ,
+	 * null, kode)}; bila totalnya nol (belum ada pembayaran sama sekali) dan mahasiswa tidak punya
+	 * dispensasi "baypass", pengajuan ditolak. Kode yang tidak ditemukan di master biaya diabaikan
+	 * diam-diam.</p>
+	 *
+	 * <p>Berbeda dari {@link #getKodeMatakuliah()}, getter ini <b>tidak</b> menulis balik ke field
+	 * dan tidak menambahkan koma pembungkus.</p>
+	 *
+	 * @return daftar kode item biaya dipisah koma, atau string kosong; tidak pernah {@code null}
+	 * @see #getSekaliBayar()
+	 */
 	public String getKodeItemBiaya() {
 		return kodeItemBiaya == null ? "" : kodeItemBiaya.trim();
 	}
 
+	/**
+	 * Menyetel daftar kode item biaya sidang, apa adanya.
+	 *
+	 * @param kodeItemBiaya daftar kode dipisah koma; {@code null} diterima
+	 * @see #getKodeItemBiaya()
+	 */
 	public void setKodeItemBiaya(String kodeItemBiaya) {
 		this.kodeItemBiaya = kodeItemBiaya;
 	}
 
+	/**
+	 * Mengembalikan bobot format ini terhadap nilai akhir mata kuliah tugas akhir, dengan
+	 * <b>default {@code 100.0}</b> (bukan {@code 0.0} seperti bobot per dosen) — sehingga format
+	 * yang belum dikonfigurasi otomatis menyumbang penuh.
+	 *
+	 * <p>Bobot ini dipakai ketika satu mata kuliah tugas akhir dinilai dari <b>beberapa format
+	 * sekaligus</b>, misalnya nilai seminar proposal ({@link FormatNilaiProposalSkripsi}) digabung
+	 * dengan nilai sidang akhir. {@code GradingHelper} menjumlahkan bobot semua format yang punya
+	 * nilai untuk mahasiswa tersebut menjadi {@code totalPersen}, lalu tiap total nilai dikalikan
+	 * bobotnya dan dibagi {@code totalPersen}. Karena penyebutnya dihitung dari format yang
+	 * <i>benar-benar bernilai</i>, bobot tidak wajib berjumlah 100 dan format yang belum dinilai
+	 * tidak menyeret rata-rata ke bawah.</p>
+	 *
+	 * <p>Jangan tertukar dengan {@code KomponenPenilaianSkripsi.getBobot()} (bobot butir penilaian
+	 * di dalam satu format) maupun dengan bobot per slot dosen
+	 * ({@code getProsentasiNilai*()}).</p>
+	 *
+	 * @return bobot format dalam persen; {@code 100.0} bila belum pernah diisi
+	 */
 	public Double getBobot() {
 		return bobot == null ? 100.0 : bobot;
 	}
 
+	/**
+	 * Menyetel bobot format terhadap nilai mata kuliah tugas akhir. Menyimpan {@code null}
+	 * membuat getter mengembalikan {@code 100.0}, bukan {@code 0.0}.
+	 *
+	 * @param bobot bobot dalam persen; {@code null} diterima
+	 * @see #getBobot()
+	 */
 	public void setBobot(Double bobot) {
 		this.bobot = bobot;
 	}
 
+	/**
+	 * Menyatakan bahwa format ini tidak menuntut mata kuliah tugas akhir tertentu ada di KRS,
+	 * null-safe ke {@code false}.
+	 *
+	 * <p><b>Efeknya destruktif, bukan sekadar mengabaikan.</b> Ketika bernilai {@code true},
+	 * {@link #getKodeMatakuliah()} dan {@link #getKodeMatakuliahDan()} <i>mengosongkan field
+	 * masing-masing</i> saat dibaca, sehingga daftar mata kuliah yang pernah dikonfigurasi akan
+	 * hilang dari database begitu entity ini ter-flush. Mencentang opsi ini lalu membatalkannya
+	 * kembali tidak memulihkan daftar lama.</p>
+	 *
+	 * @return {@code true} bila syarat mata kuliah di KRS ditiadakan
+	 * @see #getKodeMatakuliah()
+	 */
 	public Boolean getTidakWajibMengambilMkTertentu() {
 		return tidakWajibMengambilMkTertentu == null ? false : tidakWajibMengambilMkTertentu;
 	}
 
+	/**
+	 * Menyetel opsi "tidak wajib mengambil mata kuliah tertentu". Perhatikan efek pengosongan
+	 * daftar mata kuliah yang dijelaskan pada {@link #getTidakWajibMengambilMkTertentu()}.
+	 *
+	 * @param tidakWajibMengambilMkTertentu {@code true} untuk meniadakan syarat mata kuliah
+	 * @see #getTidakWajibMengambilMkTertentu()
+	 */
 	public void setTidakWajibMengambilMkTertentu(Boolean tidakWajibMengambilMkTertentu) {
 		this.tidakWajibMengambilMkTertentu = tidakWajibMengambilMkTertentu;
 	}
 
+	/**
+	 * Mengembalikan <b>judul</b> slot lampiran ke-1 — teks yang dilihat mahasiswa sebagai nama
+	 * berkas yang harus diunggah (mis. "Naskah Skripsi", "Lembar Persetujuan"). Sudah di-{@code
+	 * trim} dan null-safe ke string kosong.
+	 *
+	 * <p>Judul kosong berarti <b>slot tidak dipakai</b>: {@code SkripsiAction} dan
+	 * {@code MahasiswaRequestTugasAkhirAction} melewati slot berjudul kosong sehingga barisnya
+	 * tidak dirender sama sekali. Bila slot dipakai dan
+	 * {@link #getUploadLampiran1Wajib()} bernilai {@code true}, pengajuan diblokir dengan pesan
+	 * "&lt;judul&gt; wajib diupload !" selama berkasnya belum ada. Judul yang sama juga dipakai
+	 * {@code LibraryUtil} sebagai nama item pustaka bila slot ditautkan lewat
+	 * {@link #getTipeItem1()}.</p>
+	 *
+	 * <p>Sepuluh slot pertama, lalu 11-15 dan 16-20, dideklarasikan dalam tiga gelombang
+	 * berbeda di file ini; perilaku ketiganya identik. Getter ini adalah acuan pola untuk
+	 * {@code getUploadLampiran2()} sampai {@code getUploadLampiran20()}.</p>
+	 *
+	 * @return judul slot lampiran ke-1, atau string kosong bila slot tidak dipakai; tidak pernah
+	 *         {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getTipeItem1()
+	 */
 	public String getUploadLampiran1() {
 		return uploadLampiran1 == null ? "" : uploadLampiran1.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-1, apa adanya (tanpa {@code trim}). Mengosongkannya membuat
+	 * slot tidak lagi ditampilkan. Acuan pola bagi seluruh {@code setUploadLampiranN(String)}.
+	 *
+	 * @param uploadLampiran1 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran1(String uploadLampiran1) {
 		this.uploadLampiran1 = uploadLampiran1;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-2. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-2, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran2() {
 		return uploadLampiran2 == null ? "" : uploadLampiran2.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-2, apa adanya.
+	 *
+	 * @param uploadLampiran2 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran2(String uploadLampiran2) {
 		this.uploadLampiran2 = uploadLampiran2;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-3. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-3, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran3() {
 		return uploadLampiran3 == null ? "" : uploadLampiran3.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-3, apa adanya.
+	 *
+	 * @param uploadLampiran3 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran3(String uploadLampiran3) {
 		this.uploadLampiran3 = uploadLampiran3;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-4. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-4, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran4() {
 		return uploadLampiran4 == null ? "" : uploadLampiran4.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-4, apa adanya.
+	 *
+	 * @param uploadLampiran4 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran4(String uploadLampiran4) {
 		this.uploadLampiran4 = uploadLampiran4;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-5. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-5, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran5() {
 		return uploadLampiran5 == null ? "" : uploadLampiran5.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-5, apa adanya.
+	 *
+	 * @param uploadLampiran5 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran5(String uploadLampiran5) {
 		this.uploadLampiran5 = uploadLampiran5;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-6. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-6, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran6() {
 		return uploadLampiran6 == null ? "" : uploadLampiran6.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-6, apa adanya.
+	 *
+	 * @param uploadLampiran6 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran6(String uploadLampiran6) {
 		this.uploadLampiran6 = uploadLampiran6;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-7. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-7, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran7() {
 		return uploadLampiran7 == null ? "" : uploadLampiran7.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-7, apa adanya.
+	 *
+	 * @param uploadLampiran7 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran7(String uploadLampiran7) {
 		this.uploadLampiran7 = uploadLampiran7;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-8. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-8, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran8() {
 		return uploadLampiran8 == null ? "" : uploadLampiran8.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-8, apa adanya.
+	 *
+	 * @param uploadLampiran8 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran8(String uploadLampiran8) {
 		this.uploadLampiran8 = uploadLampiran8;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-9. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-9, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran9() {
 		return uploadLampiran9 == null ? "" : uploadLampiran9.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-9, apa adanya.
+	 *
+	 * @param uploadLampiran9 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran9(String uploadLampiran9) {
 		this.uploadLampiran9 = uploadLampiran9;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-10. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-10, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran10() {
 		return uploadLampiran10 == null ? "" : uploadLampiran10.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-10, apa adanya.
+	 *
+	 * @param uploadLampiran10 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran10(String uploadLampiran10) {
 		this.uploadLampiran10 = uploadLampiran10;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-1 <b>wajib</b> diunggah sebelum pengajuan sidang boleh
+	 * disimpan, null-safe ke {@code false}.
+	 *
+	 * <p>Bendera ini hanya bermakna bila slotnya memang dipakai, yaitu {@link #getUploadLampiran1()}
+	 * tidak kosong. Saat wajib dan berkasnya belum ada, layar pengajuan
+	 * ({@code SkripsiAction} untuk sidang, {@code MahasiswaRequestTugasAkhirAction} untuk pengajuan
+	 * judul) menolak penyimpanan dengan pesan "&lt;judul lampiran&gt; wajib diupload !", dan pada
+	 * form judul slotnya diberi tanda bintang. Yang diperiksa hanya <b>keberadaan</b> berkas — bukan
+	 * jenis, ukuran, maupun isinya.</p>
+	 *
+	 * <p>Acuan pola bagi {@code getUploadLampiran2Wajib()} sampai
+	 * {@code getUploadLampiran20Wajib()}.</p>
+	 *
+	 * @return {@code true} bila lampiran slot ke-1 wajib diunggah
+	 * @see #getUploadLampiran1()
+	 */
 	public Boolean getUploadLampiran1Wajib() {
 		return uploadLampiran1Wajib == null ? false : uploadLampiran1Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-1.
+	 *
+	 * @param uploadLampiran1Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran1Wajib(Boolean uploadLampiran1Wajib) {
 		this.uploadLampiran1Wajib = uploadLampiran1Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-2 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-2 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran2Wajib() {
 		return uploadLampiran2Wajib == null ? false : uploadLampiran2Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-2.
+	 *
+	 * @param uploadLampiran2Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran2Wajib(Boolean uploadLampiran2Wajib) {
 		this.uploadLampiran2Wajib = uploadLampiran2Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-3 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-3 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran3Wajib() {
 		return uploadLampiran3Wajib == null ? false : uploadLampiran3Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-3.
+	 *
+	 * @param uploadLampiran3Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran3Wajib(Boolean uploadLampiran3Wajib) {
 		this.uploadLampiran3Wajib = uploadLampiran3Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-4 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-4 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran4Wajib() {
 		return uploadLampiran4Wajib == null ? false : uploadLampiran4Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-4.
+	 *
+	 * @param uploadLampiran4Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran4Wajib(Boolean uploadLampiran4Wajib) {
 		this.uploadLampiran4Wajib = uploadLampiran4Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-5 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-5 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran5Wajib() {
 		return uploadLampiran5Wajib == null ? false : uploadLampiran5Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-5.
+	 *
+	 * @param uploadLampiran5Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran5Wajib(Boolean uploadLampiran5Wajib) {
 		this.uploadLampiran5Wajib = uploadLampiran5Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-6 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-6 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran6Wajib() {
 		return uploadLampiran6Wajib == null ? false : uploadLampiran6Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-6.
+	 *
+	 * @param uploadLampiran6Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran6Wajib(Boolean uploadLampiran6Wajib) {
 		this.uploadLampiran6Wajib = uploadLampiran6Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-7 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-7 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran7Wajib() {
 		return uploadLampiran7Wajib == null ? false : uploadLampiran7Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-7.
+	 *
+	 * @param uploadLampiran7Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran7Wajib(Boolean uploadLampiran7Wajib) {
 		this.uploadLampiran7Wajib = uploadLampiran7Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-8 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-8 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran8Wajib() {
 		return uploadLampiran8Wajib == null ? false : uploadLampiran8Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-8.
+	 *
+	 * @param uploadLampiran8Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran8Wajib(Boolean uploadLampiran8Wajib) {
 		this.uploadLampiran8Wajib = uploadLampiran8Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-9 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-9 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran9Wajib() {
 		return uploadLampiran9Wajib == null ? false : uploadLampiran9Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-9.
+	 *
+	 * @param uploadLampiran9Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran9Wajib(Boolean uploadLampiran9Wajib) {
 		this.uploadLampiran9Wajib = uploadLampiran9Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-10 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-10 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran10Wajib() {
 		return uploadLampiran10Wajib == null ? false : uploadLampiran10Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-10.
+	 *
+	 * @param uploadLampiran10Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran10Wajib(Boolean uploadLampiran10Wajib) {
 		this.uploadLampiran10Wajib = uploadLampiran10Wajib;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-11. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-11, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran11() {
 		return uploadLampiran11 == null ? "" : uploadLampiran11.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-11, apa adanya.
+	 *
+	 * @param uploadLampiran11 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran11(String uploadLampiran11) {
 		this.uploadLampiran11 = uploadLampiran11;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-12. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-12, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran12() {
 		return uploadLampiran12 == null ? "" : uploadLampiran12.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-12, apa adanya.
+	 *
+	 * @param uploadLampiran12 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran12(String uploadLampiran12) {
 		this.uploadLampiran12 = uploadLampiran12;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-13. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-13, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran13() {
 		return uploadLampiran13 == null ? "" : uploadLampiran13.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-13, apa adanya.
+	 *
+	 * @param uploadLampiran13 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran13(String uploadLampiran13) {
 		this.uploadLampiran13 = uploadLampiran13;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-14. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-14, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran14() {
 		return uploadLampiran14 == null ? "" : uploadLampiran14.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-14, apa adanya.
+	 *
+	 * @param uploadLampiran14 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran14(String uploadLampiran14) {
 		this.uploadLampiran14 = uploadLampiran14;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-15. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-15, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran15() {
 		return uploadLampiran15 == null ? "" : uploadLampiran15.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-15, apa adanya.
+	 *
+	 * @param uploadLampiran15 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran15(String uploadLampiran15) {
 		this.uploadLampiran15 = uploadLampiran15;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-11 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-11 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran11Wajib() {
 		return uploadLampiran11Wajib == null ? false : uploadLampiran11Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-11.
+	 *
+	 * @param uploadLampiran11Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran11Wajib(Boolean uploadLampiran11Wajib) {
 		this.uploadLampiran11Wajib = uploadLampiran11Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-12 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-12 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran12Wajib() {
 		return uploadLampiran12Wajib == null ? false : uploadLampiran12Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-12.
+	 *
+	 * @param uploadLampiran12Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran12Wajib(Boolean uploadLampiran12Wajib) {
 		this.uploadLampiran12Wajib = uploadLampiran12Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-13 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-13 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran13Wajib() {
 		return uploadLampiran13Wajib == null ? false : uploadLampiran13Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-13.
+	 *
+	 * @param uploadLampiran13Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran13Wajib(Boolean uploadLampiran13Wajib) {
 		this.uploadLampiran13Wajib = uploadLampiran13Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-14 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-14 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran14Wajib() {
 		return uploadLampiran14Wajib == null ? false : uploadLampiran14Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-14.
+	 *
+	 * @param uploadLampiran14Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran14Wajib(Boolean uploadLampiran14Wajib) {
 		this.uploadLampiran14Wajib = uploadLampiran14Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-15 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-15 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran15Wajib() {
 		return uploadLampiran15Wajib == null ? false : uploadLampiran15Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-15.
+	 *
+	 * @param uploadLampiran15Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran15Wajib(Boolean uploadLampiran15Wajib) {
 		this.uploadLampiran15Wajib = uploadLampiran15Wajib;
 	}
 
+	/**
+	 * Mengembalikan <b>id</b> {@code TipeItem} (jenis koleksi perpustakaan) yang ditautkan ke slot
+	 * lampiran ke-1, atau {@code null} bila slot itu tidak ditautkan ke perpustakaan.
+	 *
+	 * <p>Nilainya disimpan sebagai {@code Long} mentah, <b>bukan</b> relasi {@code @ManyToOne}:
+	 * tidak ada foreign key, tidak ada cascade, dan id yang menunjuk ke baris {@code TipeItem} yang
+	 * sudah dihapus baru ketahuan salah ketika dipakai. {@code FormatNilaiSkripsiAction} hanya
+	 * membungkusnya kembali menjadi {@code new TipeItem(id)} untuk memilih item combo.</p>
+	 *
+	 * <p>Pemakai sesungguhnya adalah {@code LibraryUtil}, yang untuk tiap slot memanggil
+	 * {@code checkSkripsiForItem(skripsi, tipeItemN, uploadLampiranN, N)} sehingga berkas yang
+	 * diunggah mahasiswa otomatis terdaftar sebagai item pustaka bertipe tersebut. Slot tanpa tipe
+	 * item tetap boleh diunggah, hanya tidak masuk katalog perpustakaan.</p>
+	 *
+	 * <p>Berbeda dari mayoritas getter di class ini, getter ini <b>tidak null-safe</b>: {@code null}
+	 * dikembalikan apa adanya karena {@code null} memang bermakna "tidak ditautkan".</p>
+	 *
+	 * <p>Acuan pola bagi {@code getTipeItem2()} sampai {@code getTipeItem20()}.</p>
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-1, atau {@code null}
+	 * @see #getUploadLampiran1()
+	 */
 	public Long getTipeItem1() {
 		return tipeItem1;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-1; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem1 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem1(Long tipeItem1) {
 		this.tipeItem1 = tipeItem1;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-2; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-2, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem2() {
 		return tipeItem2;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-2; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem2 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem2(Long tipeItem2) {
 		this.tipeItem2 = tipeItem2;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-3; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-3, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem3() {
 		return tipeItem3;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-3; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem3 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem3(Long tipeItem3) {
 		this.tipeItem3 = tipeItem3;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-4; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-4, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem4() {
 		return tipeItem4;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-4; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem4 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem4(Long tipeItem4) {
 		this.tipeItem4 = tipeItem4;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-5; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-5, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem5() {
 		return tipeItem5;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-5; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem5 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem5(Long tipeItem5) {
 		this.tipeItem5 = tipeItem5;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-6; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-6, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem6() {
 		return tipeItem6;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-6; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem6 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem6(Long tipeItem6) {
 		this.tipeItem6 = tipeItem6;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-7; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-7, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem7() {
 		return tipeItem7;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-7; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem7 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem7(Long tipeItem7) {
 		this.tipeItem7 = tipeItem7;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-8; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-8, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem8() {
 		return tipeItem8;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-8; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem8 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem8(Long tipeItem8) {
 		this.tipeItem8 = tipeItem8;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-9; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-9, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem9() {
 		return tipeItem9;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-9; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem9 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem9(Long tipeItem9) {
 		this.tipeItem9 = tipeItem9;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-10; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-10, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem10() {
 		return tipeItem10;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-10; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem10 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem10(Long tipeItem10) {
 		this.tipeItem10 = tipeItem10;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-11; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-11, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem11() {
 		return tipeItem11;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-11; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem11 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem11(Long tipeItem11) {
 		this.tipeItem11 = tipeItem11;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-12; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-12, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem12() {
 		return tipeItem12;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-12; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem12 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem12(Long tipeItem12) {
 		this.tipeItem12 = tipeItem12;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-13; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-13, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem13() {
 		return tipeItem13;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-13; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem13 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem13(Long tipeItem13) {
 		this.tipeItem13 = tipeItem13;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-14; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-14, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem14() {
 		return tipeItem14;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-14; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem14 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem14(Long tipeItem14) {
 		this.tipeItem14 = tipeItem14;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-15; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-15, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem15() {
 		return tipeItem15;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-15; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem15 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem15(Long tipeItem15) {
 		this.tipeItem15 = tipeItem15;
 	}
@@ -1611,122 +2467,327 @@ public class FormatNilaiSkripsi extends GeneralValueObject {
 		this.sekaliBayar = sekaliBayar;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-16. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-16, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran16() {
 		return uploadLampiran16 == null ? "" : uploadLampiran16.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-16, apa adanya.
+	 *
+	 * @param uploadLampiran16 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran16(String uploadLampiran16) {
 		this.uploadLampiran16 = uploadLampiran16;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-17. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-17, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran17() {
 		return uploadLampiran17 == null ? "" : uploadLampiran17.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-17, apa adanya.
+	 *
+	 * @param uploadLampiran17 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran17(String uploadLampiran17) {
 		this.uploadLampiran17 = uploadLampiran17;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-18. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-18, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran18() {
 		return uploadLampiran18 == null ? "" : uploadLampiran18.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-18, apa adanya.
+	 *
+	 * @param uploadLampiran18 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran18(String uploadLampiran18) {
 		this.uploadLampiran18 = uploadLampiran18;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-19. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-19, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran19() {
 		return uploadLampiran19 == null ? "" : uploadLampiran19.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-19, apa adanya.
+	 *
+	 * @param uploadLampiran19 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran19(String uploadLampiran19) {
 		this.uploadLampiran19 = uploadLampiran19;
 	}
 
+	/**
+	 * Mengembalikan judul slot lampiran ke-20. Arti "judul kosong berarti slot tidak dipakai",
+	 * pemangkasan spasi, dan sifat null-safe-nya identik dengan {@link #getUploadLampiran1()}.
+	 *
+	 * @return judul slot lampiran ke-20, atau string kosong bila slot tidak dipakai
+	 * @see #getUploadLampiran1()
+	 */
 	public String getUploadLampiran20() {
 		return uploadLampiran20 == null ? "" : uploadLampiran20.trim();
 	}
 
+	/**
+	 * Menyetel judul slot lampiran ke-20, apa adanya.
+	 *
+	 * @param uploadLampiran20 judul slot lampiran; {@code null}/kosong menonaktifkan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran20(String uploadLampiran20) {
 		this.uploadLampiran20 = uploadLampiran20;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-16 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-16 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran16Wajib() {
 		return uploadLampiran16Wajib == null ? false : uploadLampiran16Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-16.
+	 *
+	 * @param uploadLampiran16Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran16Wajib(Boolean uploadLampiran16Wajib) {
 		this.uploadLampiran16Wajib = uploadLampiran16Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-17 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-17 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran17Wajib() {
 		return uploadLampiran17Wajib == null ? false : uploadLampiran17Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-17.
+	 *
+	 * @param uploadLampiran17Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran17Wajib(Boolean uploadLampiran17Wajib) {
 		this.uploadLampiran17Wajib = uploadLampiran17Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-18 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-18 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran18Wajib() {
 		return uploadLampiran18Wajib == null ? false : uploadLampiran18Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-18.
+	 *
+	 * @param uploadLampiran18Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran18Wajib(Boolean uploadLampiran18Wajib) {
 		this.uploadLampiran18Wajib = uploadLampiran18Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-19 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-19 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran19Wajib() {
 		return uploadLampiran19Wajib == null ? false : uploadLampiran19Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-19.
+	 *
+	 * @param uploadLampiran19Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran19Wajib(Boolean uploadLampiran19Wajib) {
 		this.uploadLampiran19Wajib = uploadLampiran19Wajib;
 	}
 
+	/**
+	 * Menyatakan apakah lampiran slot ke-20 wajib diunggah; perilakunya identik dengan
+	 * {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila lampiran slot ke-20 wajib diunggah
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public Boolean getUploadLampiran20Wajib() {
 		return uploadLampiran20Wajib == null ? false : uploadLampiran20Wajib;
 	}
 
+	/**
+	 * Menyetel bendera wajib untuk lampiran slot ke-20.
+	 *
+	 * @param uploadLampiran20Wajib {@code true} bila wajib diunggah; {@code null} dibaca sebagai
+	 *                              {@code false}
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran20Wajib(Boolean uploadLampiran20Wajib) {
 		this.uploadLampiran20Wajib = uploadLampiran20Wajib;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-16; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-16, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem16() {
 		return tipeItem16;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-16; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem16 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem16(Long tipeItem16) {
 		this.tipeItem16 = tipeItem16;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-17; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-17, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem17() {
 		return tipeItem17;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-17; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem17 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem17(Long tipeItem17) {
 		this.tipeItem17 = tipeItem17;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-18; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-18, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem18() {
 		return tipeItem18;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-18; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem18 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem18(Long tipeItem18) {
 		this.tipeItem18 = tipeItem18;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-19; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-19, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem19() {
 		return tipeItem19;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-19; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem19 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem19(Long tipeItem19) {
 		this.tipeItem19 = tipeItem19;
 	}
 
+	/**
+	 * Mengembalikan id {@code TipeItem} yang ditautkan ke slot lampiran ke-20; perilakunya identik
+	 * dengan {@link #getTipeItem1()}, termasuk sifatnya yang tidak null-safe.
+	 *
+	 * @return id {@code TipeItem} untuk slot lampiran ke-20, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public Long getTipeItem20() {
 		return tipeItem20;
 	}
 
+	/**
+	 * Menyetel id {@code TipeItem} untuk slot lampiran ke-20; {@code null} berarti slot tidak
+	 * ditautkan ke koleksi perpustakaan.
+	 *
+	 * @param tipeItem20 id {@code TipeItem}, atau {@code null}
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem20(Long tipeItem20) {
 		this.tipeItem20 = tipeItem20;
 	}

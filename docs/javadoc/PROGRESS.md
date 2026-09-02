@@ -1,5 +1,81 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/BiodataDosen.java` — SELESAI 100% (2 Sep 2026)
+
+Entity biodata pribadi dosen (tabel `public.biodata_dosen`), pasangan
+`BiodataPegawai`/`BiodataMahasiswa` yang sudah selesai sesi lalu. 729 → 1828 baris,
+**125/125 method ber-Javadoc (100%)** (diaudit skrip, 0 tersisa). Revisi: **r83101**
+(pesan tersapu ke revisi gabungan sesi paralel — isi diverifikasi lewat
+`svn diff -c 83101`, 1102 baris ditambahkan). Mirror `java/` diverifikasi
+byte-identik dengan `cmp`. Kompilasi `-implicit:none` lulus.
+
+**Struktur**: `BiodataDosen extends GeneralValueObject`. Seluruh isinya pasangan
+getter/setter properti Hibernate — tidak ada method bisnis, query statis, maupun
+helper UI. Satu relasi wajib (`dosen`, `nullable=false`, TIDAK unique) dan delapan
+relasi `@ManyToOne` opsional (Agama, Negara, Wilayah kecamatan, Kota, Propinsi, dan
+tiga `PekerjaanOrangTua` untuk ayah/ibu/pasangan).
+
+**Jalur pembuatan instance**: `Dosen.ambilBiodata()` — cache → Criteria kolom
+`dosen` (ID terbesar) → **membuat + commit baris `biodata_dosen` baru** bila belum
+ada, lalu `HibernateUtil.closeSession()`. Dipanggil luas, termasuk dari SELURUH
+getter `BiodataPegawai` lewat `Pegawai.getDosen().ambilBiodata()`, jadi membuka
+layar biodata pegawai bisa menambah baris `biodata_dosen`.
+
+**Verifikasi pola berulang (jawaban eksplisit)**:
+- *Getter yang menulis baris master baru ke DB* (`findOrCreatePropinsi`/
+  `findOrCreateKota` + Levenshtein seperti di `BiodataMahasiswa`): **TIDAK ADA**.
+  `getKecamatan()`/`getKota()` murni `check()`; `getPropinsi()` hanya menurunkan
+  propinsi dari kota **di memori**. Ini perbedaan nyata dari `BiodataMahasiswa`.
+- *Getter yang menutup session Hibernate pemanggil*: **TIDAK ADA**. Tidak satu pun
+  method di file ini membuka `Session`, memulai transaksi, atau memanggil
+  `HibernateUtil.closeSession()`. Efek itu seluruhnya datang dari
+  `Dosen.ambilBiodata()` di luar file ini.
+- *Field audit yang di-shadow ulang*: **ADA** — `id`, `oleh`, `olehId`,
+  `tanggal_dirubah` dideklarasikan ulang menutupi `GeneralValueObject`. Pola ini
+  kini 100% konsisten di seluruh entity yang sudah digarap.
+- *Getter berefek samping ke DB secara umum*: **ADA**, dalam bentuk lain — 11 getter
+  menulis balik ke field-nya sendiri saat dibaca (5 menyalin dari `Dosen`:
+  alamat/noKtp/noIdentitas/teleponRumah/hp; 6 menulis nilai default:
+  tinggiBadan/beratBadan/statusNikah=0, kewarganegaraan=WNI, kelurahan="-",
+  kewarganegaraanFeeder="ID"). Karena `dynamicUpdate=true`, membaca = menulis saat
+  flush. Menguatkan kesimpulan lintas batch: polanya universal, bentuknya beda-beda.
+
+**Temuan/kuirk (didokumentasikan, TIDAK diperbaiki)**:
+- `getAlamat()` dan `getNoKtp()` menimpa dari `Dosen` **tanpa penjagaan null** —
+  membaca getter dapat MENGOSONGKAN data yang sudah tersimpan. `getNoIdentitas()`,
+  `getTeleponRumah()`, `getHp()` yang membaca sumber sama justru dijaga.
+- **Dua validasi wajib yang tidak pernah bisa gagal**: `checkBiodataDosen()`
+  mewajibkan 10 properti terisi via `Common.checkIsNull`, yang membaca lewat
+  `ClassMetadata.getPropertyValue` — yaitu lewat getter. Karena `getKelurahan()`
+  selalu minimal `"-"` dan `getStatusNikah()` selalu minimal `0`, pemeriksaan
+  "kelurahan" dan "statusNikah" mati. Efek lanjutan: ekspor Feeder `ds_kel` bisa
+  berisi `"-"`, bukan nama kelurahan sebenarnya.
+- `@Column(name="alamat_asal_s2")` terpasang di **setter**, bukan getter. Pemetaan
+  property-access mengabaikannya → kolom jatuh ke default `alamatAsalS2`
+  (camelCase), padahal saudaranya `alamat_asal_s1`/`alamat_asal_s3`. **Bug kembar
+  persis dengan `BiodataPegawai`.**
+- **10 properti tanpa `@Column`** (rt, rw, kodepos, kelurahan, noIdentitas, dusun,
+  namaSuamiIstri, nipSuamiIstri, kewarganegaraanFeeder, alamatAsalS2). Karena
+  `MyNamingStrategy extends DefaultNamingStrategy` (nama kolom = nama properti apa
+  adanya, TIDAK konversi snake_case), gaya kolom tabel ini bercampur: `no_ktp`
+  bersebelahan dengan `noIdentitas`. Wajib diperhatikan pada SQL ad-hoc/laporan.
+- `toString()` membaca field `dosen` langsung (bukan `getDosen()`) → tidak lewat
+  `check()` → bisa melempar `LazyInitializationException`, termasuk dari logging
+  atau debugger.
+- `noKtp` dan `noIdentitas` duplikat isi (dua kolom, satu sumber `Dosen.getKtp()`);
+  yang dipakai formulir & validasi adalah `noIdentitas`.
+- `getNegara()` satu-satunya getter berdefault yang TIDAK menulis field (fallback
+  `ConstantValues.INDONESIA` hanya dikembalikan) — dan bisa tetap `null` sebelum
+  inisialisasi data aplikasi berjalan.
+- `getAsalSma/Smp/Sd()` membuang tanda kutip tunggal dan ganda pada nilai yang
+  dikembalikan tanpa menulis balik → getter asimetris terhadap setter; isyarat masih
+  ada perangkaian SQL/CSV berbasis penyambungan string di lapisan laporan.
+- Salah eja properti/kolom `keahliah1..keahliah5` (properti slot 1 `keahliah1`,
+  slot 2-5 `keahlian2..5`; kolom konsisten salah eja semua).
+- `serialVersionUID` identik dengan `BiodataPegawai` (salin-tempel).
+- `setOleh()`/`setOlehId()` tidak bisa mengosongkan nilai (langsung `return` bila
+  null/kosong).
+
 ## Batch "5 entity moderat" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
 
 Lanjutan langsung batch 4-entity-besar sebelumnya. Semua 5 file TUNTAS 100%
