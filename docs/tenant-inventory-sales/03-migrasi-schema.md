@@ -685,6 +685,34 @@ pembalikan itu sudah tersedia sejak v11–v13, sehingga v17 melengkapi bagian te
 Katalog v1–v17 bersih. Self-test LULUS — 19 migrasi, versi `v17-status-giro`, checksum
 `f105ced42e36`.
 
+## Bundel v18 — jenis pembayaran dan termin per hutang
+
+Dua kolom pada `hutang_supplier`: `jenis_pembayaran` dan `termin_hari`.
+
+### Legacy memakai tabel terpisah; tenant tidak memerlukannya
+
+Jalur legacy menyimpan syarat pembayaran pada `payable_faktur_info`, satu-ke-satu dengan faktur
+pengadaan, memuat empat hal: jenis, termin, jatuh tempo, dan uang muka.
+
+Pada model tenant tiga dari empat sudah punya rumah. `jatuh_tempo` memang sudah ada pada
+`hutang_supplier` sejak awal, dan uang muka bukan kolom melainkan dokumen. Yang benar-benar kurang
+hanya dua, dan keduanya keterangan tentang hutang yang sama — membuat tabel satu-ke-satu untuk dua
+kolom hanya menambah join tanpa menambah apa pun.
+
+### `dibayarAwal` sengaja tidak dibuatkan kolom
+
+Keputusan yang sama dengan sisi piutang, dan alasannya sama. Sisa hutang dihitung
+`nilai − Σalokasi` — satu sumber, dan setiap pembayaran adalah dokumen dengan alokasinya sendiri.
+
+Kolom uang muka akan memperkenalkan **pengurang kedua yang tidak berasal dari dokumen mana pun**:
+sisa hutang berkurang tanpa ada pembayaran yang dapat ditunjuk, dan rekonsiliasi terhadap kas
+kehilangan pasangannya. Pada model tenant uang muka **adalah** pembayaran.
+
+### Diverifikasi pada PostgreSQL 16
+
+Katalog v1–v18 bersih. Self-test LULUS — 20 migrasi, versi `v18-termin-hutang`, checksum
+`1390c5cd9981`.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema

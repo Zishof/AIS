@@ -1880,6 +1880,48 @@ Blok terakhir memeriksa hal yang mudah terlewat: dokumen asal menjadi DIBATALKAN
 `status_bg` tetap TOLAK. Sebab pembatalannya harus tetap terbaca; dokumen yang dibatalkan tanpa
 keterangan mengapa adalah catatan yang setengah.
 
+## `purchaseTermsSave` — helper Payable TUNTAS 7 dari 7
+
+Pada jalur tenant `faktur_id` berarti id `hutang_supplier`, sama seperti pada pencatatan
+pembayaran yang juga mengunci hutangnya lewat id itu.
+
+### `dibayar_awal` ditolak, dan itu bukan kekurangan
+
+Menerimanya berarti memperkenalkan pengurang kedua atas sisa hutang yang tidak berasal dari
+dokumen mana pun. Pada model tenant uang muka adalah pembayaran, dan penolakannya menunjuk ke aksi
+pembayaran hutang.
+
+Untuk jenis CASH, jalur legacy diam-diam menyetel uang muka sebesar total fakturnya — artinya
+faktur dianggap lunas seketika. Di sini pelunasannya juga harus berupa dokumen, sehingga terminnya
+disimpan dan pemanggil diberi tahu lewat medan aditif `peringatan` bahwa pembayarannya masih perlu
+dicatat. Jujur, dan tidak memindahkan uang diam-diam.
+
+### Verifikasi
+
+SQL yang benar-benar dikeluarkan Java dijalankan ke basis data v1–v18: hutang bertanggal
+2026-12-01 senilai 1.000.000, disimpan CREDIT dengan termin 30 hari.
+
+| | hasil |
+|---|---|
+| jenis / termin | CREDIT / 30 |
+| jatuh tempo | **2026-12-31** (tanggal + termin) |
+| sisa hutang | **1.000.000 — tidak tersentuh** |
+
+Baris terakhir itu yang paling penting: menyimpan termin tidak menyentuh rumus sisa, yang tetap
+bersumber tunggal pada alokasi.
+
+### Catatan: pohon kerja sedang tidak dapat dikompilasi utuh
+
+Kompilasi seluruh pohon saat ini gagal dengan empat galat pada `OnlineBmtUtil.java` dan
+`KantinHelper.java` — keduanya bukan berkas pemindahan ini, dan keduanya tidak tersunting pada
+working copy, yang berarti keadaan itu datang dari pekerjaan sesi lain yang sedang berjalan.
+
+Bahwa galat itu bukan milik perubahan ini dibuktikan dua kali: `SalesInventoryTripHelper`, yang
+dikompilasi bersih pada batch sebelumnya dan tidak disentuh batch ini, kini menghasilkan **empat
+galat yang sama persis**; dan sebuah galat sengaja yang disisipkan sementara ke
+`SalesInventoryPayableTenant` **dilaporkan javac**, membuktikan berkas batch ini memang ikut
+diperiksa dan bersih. Berkas itu dipulihkan utuh sesudahnya.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
