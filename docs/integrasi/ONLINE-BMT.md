@@ -30,6 +30,8 @@ Validasi dilakukan sebelum logika keuangan: metode HTTP harus POST, fitur global
 
 `INQUIRY` mencari `NO_INVOICE`, memastikan invoice memang milik Online BMT, memeriksa sakelar tenant, status lunas, dan kedaluwarsa. Respons mengembalikan identitas pemilik ringkas dan nominal yang harus dibayar, yaitu total invoice ditambah biaya administrasi. `PAYMENT` menambahkan validasi `NOMINAL`, `NO_TRANSAKSI_BMT`, dan `CHANNEL_BMT`. Channel yang diterima dibatasi pada daftar dari kontrak: `TELLER`, `MOBILE_NASABAH`, `MOBILE_PETUGAS`, `MOBILE_AGEN`, dan `VIRTUAL_ACCOUNT`. `CHECK_STATUS_PAYMENT` membaca ledger server; ia tidak menebak keberhasilan hanya dari data yang dikirim klien.
 
+Lookup invoice tidak mensyaratkan `BankHost` tertentu. Sebagian generator bank-online lama masih mengisi relasi `BankHost` karena menggunakan struktur bersama Smartlink, sedangkan callback Online BMT datang tanpa objek host internal eCampus. Lookup tetap memakai nomor invoice persis dan sesudah ditemukan wajib melewati validasi `bank = Online BMT` serta sakelar tenant. Dengan urutan ini invoice BMT lama maupun baru tetap dapat ditemukan tanpa memperluas akses ke invoice kanal lain.
+
 ## Idempotensi dan konsistensi
 
 Tabel `online_bmt_nonce` melindungi dari replay payload. Nonce memiliki primary key dan hanya dapat dipakai sekali, termasuk bila request pertama gagal pada validasi bisnis. Tabel `online_bmt_request_guard` menjadi ledger nomor transaksi BMT. Unique index pada `no_transaksi_bmt` memungkinkan `ON CONFLICT` bekerja tanpa race. Index `(no_invoice, status, id DESC)` mempercepat pemeriksaan status invoice. Startup memakai DDL `IF NOT EXISTS`, sehingga aman pada deployment berulang dan beberapa node aplikasi.

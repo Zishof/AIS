@@ -29,6 +29,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.binary.Base64;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -293,7 +294,12 @@ public class OnlineBmt extends HttpServlet {
 	}
 
 	private static VirtualAccountBank findInvoice(String invoiceNo) throws ApiException {
-		VirtualAccountBank invoice = VirtualAccountBank.ambilVa(invoiceNo, null);
+		/* Generator bank-online lama dapat tetap mengisi bankHost walaupun Online BMT
+		 * bersifat inbound dan tidak mempunyai BankHost pemanggil. Pencarian pertama
+		 * mempertahankan jalur kanonik; criterion cadangan mencari nomor yang sama
+		 * tanpa membatasi host. Kepemilikan kanal tetap diverifikasi setelah lookup. */
+		VirtualAccountBank invoice = VirtualAccountBank.ambilVa(invoiceNo, null, null,
+				Restrictions.eq("kode", invoiceNo));
 		if (invoice == null) {
 			throw new ApiException(404, "01", "No Invoice tidak ditemukan.");
 		}
