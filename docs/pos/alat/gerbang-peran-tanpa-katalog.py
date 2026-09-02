@@ -44,8 +44,15 @@ CAKUPAN, diukur bukan ditebak:
 
      58  deklarasi gerbang boleh*() di pohon servlet
      17  di antaranya punya parameter kunci menu
-     31  kunci literal berhasil ditelusuri di titik pemanggilan
-    113  pemanggilan berkunci VARIABEL -- di luar jangkauan alat ini
+     39  kunci berhasil diresolusi di titik pemanggilan (literal + konstanta kelas)
+     30  pemanggilan yang kuncinya masih di luar jangkauan
+
+Angka terakhir sempat tertulis 113, dan itu salah: pola pemanggilan juga cocok
+dengan DEKLARASI method itu sendiri, sehingga 17 deklarasi terhitung sebagai
+"pemanggilan tak terjangkau", dan 68 lainnya sebenarnya memakai konstanta kelas
+yang kini diresolusi. Yang benar-benar tersisa: 28 variabel pass-through
+(parameter yang diteruskan dari pemanggil di berkas lain) dan 2 kunci rakitan
+("posting_" + jenis). Lihat docs/pos/90.
 
 Alat ini MELAPORKAN dan memvonis: keluar dengan kode 1 bila ada pelanggaran.
 
@@ -69,6 +76,10 @@ ENTRI = re.compile(r'new Entri\(\s*[A-Z_]+\s*,\s*"([^"]+)"')
 DEKLARASI = re.compile(r'boolean\s+(boleh[A-Za-z]*)\s*\(([^)]*)\)')
 PANGGIL = re.compile(r'(?:([A-Z][A-Za-z0-9_]*)\.)?(boleh[A-Za-z]*)\s*\(')
 NAMA_KUNCI = ('kunciMenu', 'kunci', 'menuKey', 'kunciAkuntansi')
+# Konstanta kelas: PengadaanPosApiHelper menaruh kuncinya di KUNCI_PO, KUNCI_BAST,
+# dst. lalu meneruskannya ke gerbang. Tanpa meresolusinya, 68 pemanggilan --
+# mayoritas populasi -- luput dari kedua invarian (docs/pos/90).
+KONSTANTA = re.compile(r'static\s+final\s+String\s+([A-Z][A-Z0-9_]*)\s*=\s*"([^"]+)"')
 
 
 def tanpa_komentar(t):
@@ -148,6 +159,12 @@ def main():
 
     sumber = berkas(akar_repo.AIS_SERVLET, ('.java',))
 
+    konstanta = {}
+    for p, t in sumber:
+        kelas = os.path.basename(p)[:-5]
+        konstanta[kelas] = dict(
+            (m.group(1), m.group(2)) for m in KONSTANTA.finditer(t))
+
     posisi = {}
     for p, t in sumber:
         kelas = os.path.basename(p)[:-5]
@@ -164,7 +181,16 @@ def main():
     dipakai, variabel = {}, 0
     for p, t in sumber:
         kelas_ini = os.path.basename(p)[:-5]
+        # Rentang DEKLARASI harus dikecualikan: `boolean bolehAksi(Tbmuser tbmuser,
+        # String kunciMenu, String aksi)` juga cocok dengan pola pemanggilan, dan
+        # argumen ke-idx-nya adalah "String kunciMenu" -- bukan kunci variabel.
+        # Tanpa ini, 17 deklarasi ikut terhitung sebagai pemanggilan tak
+        # terjangkau, dan angka cakupan alat ini sendiri menjadi salah
+        # (docs/pos/90).
+        rentang = [(d.start(), d.end()) for d in DEKLARASI.finditer(t)]
         for c in PANGGIL.finditer(t):
+            if any(a <= c.start() < b for a, b in rentang):
+                continue
             idx = posisi.get((c.group(1) or kelas_ini, c.group(2)))
             if idx is None:
                 continue
@@ -172,10 +198,13 @@ def main():
             if idx >= len(arg):
                 continue
             lit = re.match(r'^"([A-Za-z0-9_]+)"$', arg[idx])
-            if not lit:
+            if lit:
+                kunci = lit.group(1)
+            elif arg[idx] in konstanta.get(kelas_ini, {}):
+                kunci = konstanta[kelas_ini][arg[idx]]
+            else:
                 variabel += 1
                 continue
-            kunci = lit.group(1)
             aksi = None
             if idx + 1 < len(arg):
                 a = re.match(r'^"([A-Za-z0-9_]+)"$', arg[idx + 1])

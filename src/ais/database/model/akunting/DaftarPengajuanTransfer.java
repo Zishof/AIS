@@ -3040,10 +3040,26 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return transfer == null ? false : transfer;
 	}
 
+	/**
+	 * Menyetel penanda transfer secara manual.
+	 *
+	 * @param transfer {@code true} bila baris diselesaikan lewat transfer bank; ingat
+	 *                 {@link #getTransfer()} dapat menyalakannya kembali begitu batch
+	 *                 direalisasikan
+	 */
 	public void setTransfer(Boolean transfer) {
 		this.transfer = transfer;
 	}
 
+	/**
+	 * Mengembalikan jejak <b>posting jurnal</b> untuk pembayaran baris ini.
+	 *
+	 * <p>Terisi setelah transfer direalisasikan dan jurnalnya diposting; selama {@code null},
+	 * pembayaran ini belum masuk buku besar. Dipakai mesin posting/pembatalan posting akunting
+	 * untuk mengenali apa yang sudah dan belum dijurnal. Getter relasi polos.</p>
+	 *
+	 * @return riwayat posting jurnal, atau {@code null} bila belum diposting
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3052,10 +3068,40 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return postingHistory;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah riwayat posting jurnal.
+	 *
+	 * @param postingHistory riwayat posting; {@code null} menandakan belum/batal diposting
+	 */
 	public void setPostingHistory(PostingHistory postingHistory) {
 		this.postingHistory = postingHistory;
 	}
 
+	/**
+	 * Mengembalikan <b>tanggal acuan</b> baris ini — tanggal yang dipakai kolom tanggal di
+	 * daftar pembayaran <b>dan</b> oleh filter rentang tanggal di level SQL
+	 * ({@code date(this_.waktu) between ...}).
+	 *
+	 * <p><b>Getter turunan yang menulis balik</b>: setiap pembacaan menurunkan tanggal dari
+	 * dokumen sumber lewat rantai {@code if / else if} atas 15 tipe, lalu menugaskannya ke
+	 * field sehingga tersimpan ke kolom {@code waktu}. Tanggal yang diambil berbeda-beda
+	 * sesuai makna dokumennya: tanggal <i>persetujuan</i> untuk tagihan pengadaan, tanggal
+	 * <i>pembuatan</i> untuk uang muka/kas besar/kas kecil/dana talangan/pertanggungjawaban,
+	 * tanggal <i>dibayar</i> untuk detail pembayaran pengadaan/termin/DP, tanggal tagihan
+	 * untuk diskon, dan tanggal <i>jatuh tempo</i> untuk pengajuan transaksi pegawai.</p>
+	 *
+	 * <p><b>Perbaikan yang jangan diregresi:</b> cabang pajak dulu bersyarat
+	 * {@code getSatuanKerja() != null}. Akibatnya baris pajak TERMIN — yang tertaut lewat
+	 * {@code keyData} tanpa relasi saldo awal, sehingga tidak punya satuan kerja — berakhir
+	 * dengan {@code waktu} kosong dan <b>tersaring keluar</b> dari filter tanggal, alias hilang
+	 * dari daftar pembayaran. Sekarang tanggal Pajak selalu dipakai apa adanya.</p>
+	 *
+	 * <p>Bila tidak ada cabang yang cocok, method mengembalikan <b>waktu server saat ini</b>
+	 * ({@code WaktuUtil.getDate()}) alih-alih {@code null} — perhatikan nilai jatuh-tempo ini
+	 * membuat baris tanpa dokumen sumber selalu tampak "hari ini".</p>
+	 *
+	 * @return tanggal acuan baris; tidak pernah {@code null}
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getWaktu() {
 
@@ -3126,10 +3172,38 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return waktu == null ? WaktuUtil.getDate() : waktu;
 	}
 
+	/**
+	 * Menyetel tanggal acuan secara manual. Akan ditimpa oleh {@link #getWaktu()} bila dokumen
+	 * sumbernya punya cabang penurunan.
+	 *
+	 * @param waktu tanggal acuan
+	 */
 	public void setWaktu(Date waktu) {
 		this.waktu = waktu;
 	}
 
+	/**
+	 * Menghitung <b>satuan kerja</b> (unit pemilik anggaran) baris ini dari dokumen sumbernya.
+	 *
+	 * <p>Berbeda dari getter turunan lain di class ini, method ini <b>murni</b>: hasilnya
+	 * disimpan di variabel lokal dan <b>tidak</b> ditugaskan ke field, sehingga tidak
+	 * menimbulkan efek samping penyimpanan. Penulisan ke field terjadi di
+	 * {@link #getSatuanKerja()} yang membungkusnya. Penamaan {@code ambilXxx} (bukan
+	 * {@code getXxx}) juga sengaja dipakai agar Hibernate tidak memperlakukannya sebagai
+	 * properti kedua untuk kolom yang sama.</p>
+	 *
+	 * <p>Rantai {@code if / else if} atas 15 tipe dokumen sumber, sebagian menyelam ke induk:
+	 * pembayaran pengadaan lewat penerimaan barang, termin dan DP lewat pemesanan (PO),
+	 * diskon siswa lewat pengaturan biaya → sekolah.</p>
+	 *
+	 * <p>Satuan kerja dipakai untuk pembatasan hak akses dan pengelompokan laporan, jadi
+	 * baris yang mengembalikan {@code null} berpotensi tidak terlihat oleh petugas yang
+	 * daftarnya disaring per unit.</p>
+	 *
+	 * @return satuan kerja pemilik anggaran, atau {@code null} bila tidak ada cabang yang
+	 *         cocok atau dokumen sumbernya memang tidak berunit
+	 * @see #getSatuanKerja()
+	 */
 	public SatuanKerja ambilSatuanKerja() {
 		SatuanKerja satuanKerja = null;
 
@@ -3201,6 +3275,24 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return satuanKerja;
 	}
 
+	/**
+	 * Mengembalikan penanda bahwa baris ini diselesaikan lewat mekanisme <b>transitori</b>
+	 * (rekening/pos perantara), bukan transfer bank langsung.
+	 *
+	 * <p><b>Flag satu-arah ketiga di class ini</b>: bila field {@code transfer} bernilai
+	 * {@code true}, {@code transitori} ditugaskan {@code false} — dan tidak ada cabang yang
+	 * pernah menugaskan {@code true}. Penugasan itu terjadi di dalam getter properti Hibernate,
+	 * jadi tersimpan permanen. Efeknya kedua flag dijaga saling eksklusif dengan
+	 * {@code transfer} sebagai pemenang.</p>
+	 *
+	 * <p><b>Jangan ubah menjadi {@code getTransfer()}</b>: baris pemeriksaan sengaja membaca
+	 * <b>field</b> {@code transfer} secara langsung. {@link #getTransfer()} memanggil method
+	 * ini, sehingga memakai getter di sini akan menciptakan rekursi tak berujung.</p>
+	 *
+	 * @return {@code true} bila baris diselesaikan lewat transitori, {@code false} bila tidak
+	 *         atau belum diketahui
+	 * @see #getTransfer()
+	 */
 	public Boolean getTransitori() {
 		if (transfer != null && transfer) {
 			transitori = false;
@@ -3208,10 +3300,24 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return transitori == null ? false : transitori;
 	}
 
+	/**
+	 * Menyetel penanda transitori secara manual.
+	 *
+	 * @param transitori {@code true} bila baris diselesaikan lewat pos perantara; ingat
+	 *                   {@link #getTransitori()} akan memadamkannya bila {@code transfer}
+	 *                   bernilai {@code true}
+	 */
 	public void setTransitori(Boolean transitori) {
 		this.transitori = transitori;
 	}
 
+	/**
+	 * Mengembalikan tagihan siswa yang memuat diskon tidak langsung — dokumen sumber baris
+	 * bertipe diskon. Getter relasi polos.
+	 *
+	 * @return tagihan siswa, atau {@code null} bila baris ini bertipe lain
+	 * @see #simpanDiskonPembayaran(Tagihan)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3220,10 +3326,20 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return diskonTagihan;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah tagihan siswa berdiskon tidak langsung.
+	 *
+	 * @param diskonTagihan dokumen sumber; boleh {@code null}
+	 */
 	public void setDiskonTagihan(Tagihan diskonTagihan) {
 		this.diskonTagihan = diskonTagihan;
 	}
 
+	/**
+	 * Mengembalikan dokumen kas besar yang menjadi sumber baris ini. Getter relasi polos.
+	 *
+	 * @return dokumen kas besar, atau {@code null} bila baris ini bertipe lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3232,10 +3348,25 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return kasBesar;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen kas besar.
+	 *
+	 * @param kasBesar dokumen sumber; boleh {@code null}
+	 */
 	public void setKasBesar(KasBesar kasBesar) {
 		this.kasBesar = kasBesar;
 	}
 
+	/**
+	 * Mengembalikan data transitori bila pembayaran baris ini ditempuh lewat pos perantara.
+	 *
+	 * <p>Berbeda dari relasi lain di class ini, ini <b>bukan</b> dokumen sumber melainkan
+	 * dokumen <i>penyelesaian</i> — sejajar peran {@link #getProsesTransfer()} pada jalur
+	 * transfer bank. Getter relasi polos.</p>
+	 *
+	 * @return data transitori, atau {@code null} bila baris tidak melalui jalur transitori
+	 * @see #getTransitori()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3244,10 +3375,22 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return transitoriData;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah data transitori.
+	 *
+	 * @param transitoriData dokumen penyelesaian transitori; boleh {@code null}
+	 */
 	public void setTransitoriData(Transitori transitoriData) {
 		this.transitoriData = transitoriData;
 	}
 
+	/**
+	 * Mengembalikan dokumen pertanggungjawaban kas besar yang menjadi sumber baris ini
+	 * (baris tersebut mewakili pengembalian sisa dana). Getter relasi polos.
+	 *
+	 * @return dokumen pertanggungjawaban kas besar, atau {@code null} bila baris ini bertipe
+	 *         lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3256,10 +3399,28 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return pertangungjawabanKasBesar;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen pertanggungjawaban kas besar.
+	 *
+	 * @param pertangungjawabanKasBesar dokumen sumber; boleh {@code null}
+	 */
 	public void setPertangungjawabanKasBesar(PertangungjawabanKasBesar pertangungjawabanKasBesar) {
 		this.pertangungjawabanKasBesar = pertangungjawabanKasBesar;
 	}
 
+	/**
+	 * Mengembalikan satuan kerja pemilik anggaran baris ini.
+	 *
+	 * <p><b>Getter turunan yang menulis balik</b>, namun perhitungannya seluruhnya
+	 * didelegasikan ke {@link #ambilSatuanKerja()}. Bagian yang penting di sini adalah
+	 * penugasan hasilnya ke field: karena ini getter properti Hibernate, satuan kerja hasil
+	 * turunan itulah yang tersimpan ke kolom {@code satuan_kerja} pada flush berikutnya.
+	 * Konsekuensinya nilai yang pernah disetel manual lewat {@link #setSatuanKerja(SatuanKerja)}
+	 * <b>tidak bertahan</b>.</p>
+	 *
+	 * @return satuan kerja pemilik anggaran, atau {@code null} bila tidak bisa diturunkan
+	 * @see #ambilSatuanKerja()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
@@ -3267,10 +3428,23 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return satuanKerja;
 	}
 
+	/**
+	 * Menyetel satuan kerja secara manual. Akan ditimpa oleh {@link #getSatuanKerja()} pada
+	 * pembacaan berikutnya.
+	 *
+	 * @param satuanKerja satuan kerja; boleh {@code null}
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Mengembalikan entitas pajak (PPh) yang menjadi sumber baris ini — baris tersebut mewakili
+	 * setoran pajak yang dipotong dari pembayaran vendor. Getter relasi polos.
+	 *
+	 * @return entitas pajak, atau {@code null} bila baris ini bertipe lain
+	 * @see #simpanPajak(Pajak)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3279,10 +3453,26 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return pajak;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah entitas pajak.
+	 *
+	 * @param pajak dokumen sumber; boleh {@code null}
+	 */
 	public void setPajak(Pajak pajak) {
 		this.pajak = pajak;
 	}
 
+	/**
+	 * Mengembalikan tagihan pengadaan aset dari penyedia yang menjadi sumber baris ini. Getter
+	 * relasi polos.
+	 *
+	 * <p>Tipe dokumen ini paling banyak diperlakukan khusus di class ini: ia menempati cabang
+	 * <b>pertama</b> pada hampir semua getter turunan, dan satu-satunya yang nominalnya
+	 * dipotong PPh lewat {@link #hitungTotalPphSaldoAwal(SaldoAwalMasterAsset)}.</p>
+	 *
+	 * @return tagihan pengadaan, atau {@code null} bila baris ini bertipe lain
+	 * @see #simpanSaldoAwalMasterAsset(SaldoAwalMasterAsset)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3291,10 +3481,23 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return saldoAwalMasterAsset;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah tagihan pengadaan aset.
+	 *
+	 * @param saldoAwalMasterAsset dokumen sumber; boleh {@code null}
+	 */
 	public void setSaldoAwalMasterAsset(SaldoAwalMasterAsset saldoAwalMasterAsset) {
 		this.saldoAwalMasterAsset = saldoAwalMasterAsset;
 	}
 
+	/**
+	 * Mengembalikan dokumen pengajuan transaksi pegawai (modul payroll) yang menjadi sumber
+	 * baris ini. Getter relasi polos.
+	 *
+	 * @return dokumen pengajuan transaksi pegawai, atau {@code null} bila baris ini bertipe
+	 *         lain
+	 * @see #simpanPengajuanTransaksiPegawai(PengajuanTransaksiPegawai)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3303,10 +3506,28 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return pengajuanTransaksiPegawai;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen pengajuan transaksi pegawai.
+	 *
+	 * @param pengajuanTransaksiPegawai dokumen sumber; boleh {@code null}
+	 */
 	public void setPengajuanTransaksiPegawai(PengajuanTransaksiPegawai pengajuanTransaksiPegawai) {
 		this.pengajuanTransaksiPegawai = pengajuanTransaksiPegawai;
 	}
 
+	/**
+	 * Mendaftarkan <b>pengajuan transaksi pegawai</b> (modul payroll) ke kolam antrean
+	 * pembayaran.
+	 *
+	 * <p>Resep {@code simpanXxx} standar tanpa gerbang tambahan. Perhatikan tanggal acuan
+	 * untuk tipe ini diambil dari <b>jatuh tempo</b> pengajuan, bukan tanggal pembuatannya
+	 * (lihat {@link #getWaktu()}).</p>
+	 *
+	 * @param pengajuanTransaksiPegawai dokumen pengajuan transaksi pegawai; diabaikan bila
+	 *                                  sudah punya baris DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanPengajuanTransaksiPegawai(PengajuanTransaksiPegawai pengajuanTransaksiPegawai) {
 
 		if (pengajuanTransaksiPegawai != null && pengajuanTransaksiPegawai.getDaftarPengajuanTransfer() != null) {
@@ -3340,6 +3561,29 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan <b>transaksi koperasi</b> ke kolam antrean pembayaran — <b>hanya untuk
+	 * produk bertipe PINJAMAN</b>.
+	 *
+	 * <p>Gerbang penyaringnya berlapis: transaksi harus punya produk koperasi, produk itu harus
+	 * punya tipe, konstanta {@code ConstantValues.PINJAMAN} harus sudah termuat, dan ID
+	 * tipenya harus sama dengan ID konstanta itu. Hanya pinjaman yang berarti uang keluar dari
+	 * koperasi ke anggota; simpanan dan penjualan tidak melewati kolam pembayaran ini.</p>
+	 *
+	 * <p><b>Perbedaan struktur dari saudaranya:</b> pembukaan session, seluruh penyimpanan,
+	 * dan penutupan session semuanya berada <b>di dalam</b> blok {@code if} tipe pinjaman —
+	 * jadi untuk tipe lain tidak ada session yang dibuka sama sekali (bukan dibuka lalu
+	 * ditinggalkan). Selebihnya resep {@code simpanXxx} standar dengan dua transaksi.</p>
+	 *
+	 * <p><i>Kuirk:</i> gerbang idempotensi di baris pertama meloloskan argumen {@code null},
+	 * dan pemeriksaan berikutnya langsung memanggil {@code transaksiKoperasi.getProdukKoperasi()}
+	 * — argumen {@code null} akan memicu {@code NullPointerException}.</p>
+	 *
+	 * @param transaksiKoperasi transaksi koperasi; diabaikan bila sudah punya baris DPT atau
+	 *                          bukan produk pinjaman
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanTransaksiKoperasi(TransaksiKoperasi transaksiKoperasi) {
 
 		if (transaksiKoperasi != null && transaksiKoperasi.getDaftarPengajuanTransfer() != null) {
@@ -3377,6 +3621,13 @@ public class DaftarPengajuanTransfer extends DataSop {
 		}
 	}
 
+	/**
+	 * Mengembalikan transaksi koperasi yang menjadi sumber baris ini (selalu berupa pencairan
+	 * pinjaman). Getter relasi polos.
+	 *
+	 * @return transaksi koperasi, atau {@code null} bila baris ini bertipe lain
+	 * @see #simpanTransaksiKoperasi(TransaksiKoperasi)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -3385,6 +3636,11 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return transaksiKoperasi;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah transaksi koperasi.
+	 *
+	 * @param transaksiKoperasi dokumen sumber; boleh {@code null}
+	 */
 	public void setTransaksiKoperasi(TransaksiKoperasi transaksiKoperasi) {
 		this.transaksiKoperasi = transaksiKoperasi;
 	}
