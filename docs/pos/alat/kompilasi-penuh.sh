@@ -43,6 +43,14 @@ if [ "$galat" -gt 0 ]; then
     echo "log lengkap: $LOG"
     exit 1
 fi
+# Jumlah kelas ikut diperiksa: javac bisa gagal sebelum sempat mengompilasi dan
+# keluarannya tidak memuat satu pun baris "error:", sehingga hitungan galat nol
+# dan gerbangnya melaporkan bersih. Nol kelas berarti tidak ada yang dikerjakan.
+if [ "$(find "$KELUAR" -name '*.class' | wc -l)" -eq 0 ]; then
+    echo "tidak satu kelas pun dihasilkan; kompilasinya tidak benar-benar berjalan."
+    head -5 "$LOG"
+    exit 1
+fi
 [ $kode -ne 0 ] && { echo "javac keluar dgn kode $kode; lihat $LOG"; exit 1; }
 echo "BERSIH"
 exit 0

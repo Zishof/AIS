@@ -9,7 +9,7 @@
 # saja disunting, jadi keduanya akan tertangkap di sini.
 #
 # Pakai:
-#   sh kompilasi-berubah.sh              # sejak kemarin
+#   sh kompilasi-berubah.sh              # sejak awal hari ini
 #   sh kompilasi-berubah.sh 2026-09-01   # sejak tanggal
 #   sh kompilasi-berubah.sh 83000        # sejak revisi
 #
@@ -21,7 +21,7 @@
 
 AKAR="${AKAR:-/c/opt/AIS/ais/src/main/java}"
 LIB='C:\opt\AIS\ais\src\main\webapp\WEB-INF\lib\*'
-SEJAK="${1:-$(date -d yesterday +%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)}"
+SEJAK="${1:-$(date +%Y-%m-%d)}"
 KERJA="${TMPDIR:-/tmp}/kompilasi-berubah"
 
 # Revisi ditulis apa adanya; tanggal dibungkus kurung kurawal spt sintaks SVN.
@@ -30,7 +30,11 @@ case "$SEJAK" in
     *)                  SPEK="$SEJAK"   ;;
 esac
 
-rm -rf "$KERJA" && mkdir -p "$KERJA" || exit 1
+# Direktori keluaran WAJIB dibuat: javac -d menolak direktori yang belum ada,
+# dan gagalnya berupa "directory not found" TANPA baris "error:" -- penghitung
+# galat membaca nol dan gerbangnya melaporkan BERSIH padahal tidak satu berkas
+# pun dikompilasi. Jebakan itu sudah termakan sekali di sini.
+rm -rf "$KERJA" && mkdir -p "$KERJA/kelas" || exit 1
 cd "$AKAR" || exit 1
 
 # Berkas yang berubah menurut repositori, DITAMBAH yang masih tersunting lokal
@@ -38,7 +42,7 @@ cd "$AKAR" || exit 1
 {
     svn diff --summarize -r "$SPEK:HEAD" . 2>/dev/null | sed 's/^........//'
     svn status . 2>/dev/null | grep '^[MA]' | sed 's/^........//'
-} | tr '\' '/' | grep '\.java$' | sort -u > "$KERJA/berubah.txt"
+} | sed 's#\\#/#g' | grep '\.java$' | sort -u > "$KERJA/berubah.txt"
 
 # Yang sudah dihapus tidak bisa dikompilasi.
 : > "$KERJA/daftar.txt"
@@ -56,9 +60,29 @@ echo "berkas diuji  : $jml"
 javac -source 1.7 -target 1.7 -encoding UTF-8 -nowarn -J-Xmx2g \
       -sourcepath . -cp "$LIB" -d "$KERJA/kelas" "@$KERJA/daftar.txt" \
       > "$KERJA/galat.log" 2>&1
+kode=$?
 
-galat=$(grep -c 'error:' "$KERJA/galat.log" 2>/dev/null || echo 0)
+galat=$(grep -c 'error:' "$KERJA/galat.log" 2>/dev/null)
+[ -z "$galat" ] && galat=0
 echo "galat         : $galat"
+kelas=$(find "$KERJA/kelas" -name '*.class' 2>/dev/null | wc -l)
+echo "kelas         : $kelas"
+
+# Tiga syarat, bukan satu. Menghitung baris "error:" saja tidak cukup: javac bisa
+# gagal SEBELUM sempat mengompilasi (opsi salah, classpath tak terbaca) dan
+# keluarannya tidak memuat satu pun baris "error:".
+if [ "$kode" -ne 0 ] && [ "$galat" -eq 0 ]; then
+    echo
+    echo "javac gagal TANPA galat kompilasi -- kemungkinan salah pemanggilan:"
+    head -5 "$KERJA/galat.log"
+    exit 1
+fi
+if [ "$kelas" -eq 0 ]; then
+    echo
+    echo "tidak satu kelas pun dihasilkan; kompilasinya tidak benar-benar berjalan."
+    head -5 "$KERJA/galat.log"
+    exit 1
+fi
 if [ "$galat" -gt 0 ]; then
     echo
     grep 'error:' "$KERJA/galat.log" | head -20

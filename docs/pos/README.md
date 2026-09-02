@@ -140,6 +140,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [72-jurnal-tak-seimbang-dan-tanggal.md](72-jurnal-tak-seimbang-dan-tanggal.md) | Dua Kelas Sisa: Jurnal Tak Seimbang dan Tanggal Jurnal di Luar Rentang |
 | [73-amankan-resolusi-kelas-unggahan.md](73-amankan-resolusi-kelas-unggahan.md) | 73. Amankan Resolusi Kelas pada Unggahan Berkas |
 | [81-satu-klik-membalik-sebatch.md](81-satu-klik-membalik-sebatch.md) | Satu klik membalik status se-batch, dan kompilasi penuh sebagai alat |
+| [82-gerbang-yang-hampir-berbohong.md](82-gerbang-yang-hampir-berbohong.md) | Gerbang kompilasi cepat (hanya berkas berubah), dan cacat pada gerbang itu sendiri yang melaporkan BERSIH tanpa mengompilasi apa pun |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |

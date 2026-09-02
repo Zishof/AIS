@@ -1203,13 +1203,10 @@ public class InitIndex {
 		String[] ddlBerurutan = new String[] {
 				"CREATE INDEX IF NOT EXISTS idx_cicilan_kegiatan_id_cover "
 						+ "ON public.cicilan_pembayaran (kegiatan, id)",
-				"DO $$ BEGIN "
-						+ "IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n "
-						+ "ON n.oid = c.relnamespace WHERE n.nspname = 'public' "
-						+ "AND c.relname = 'idx_cicilan_kegiatan_id_cover' AND c.relkind = 'i') THEN "
-						+ "DROP INDEX IF EXISTS public.idx_cp_kegiatan; "
-						+ "END IF; END $$" };
-		eksekusiKelompokDdlBerurutan(ddlBerurutan);
+				"DROP INDEX IF EXISTS public.idx_cp_kegiatan" };
+		// Kelompok ini berhenti bila CREATE gagal, sehingga index lama tidak dihapus
+		// sebelum index penggantinya benar-benar tersedia.
+		eksekusiKelompokDdlBerurutan(ddlBerurutan, true);
 	}
 
 	private static void initIndexDepositTabunganSuperFast() {
@@ -2595,6 +2592,22 @@ public class InitIndex {
 	 * Menjadwalkan CREATE dan ALTER satu per satu ke pool membuat ALTER dapat menang
 	 * balapan sebelum CREATE selesai. */
 	private static void eksekusiKelompokDdlBerurutan(final String[] sqls) {
+		eksekusiKelompokDdlBerurutan(sqls, false);
+	}
+
+	/**
+	 * Menjalankan DDL yang saling bergantung dalam satu worker dan mempertahankan
+	 * urutan array. Gunakan {@code berhentiSaatGagal=true} untuk rangkaian migrasi
+	 * penggantian index: {@code CREATE INDEX IF NOT EXISTS} harus berhasil lebih
+	 * dahulu, baru {@code DROP INDEX IF EXISTS} terhadap index redundan dijalankan.
+	 * Dengan demikian optimasi tidak pernah menghapus index lama bila pembuatan
+	 * penggantinya gagal karena izin, lock, ruang disk, atau ketidakcocokan skema.
+	 *
+	 * @param sqls statement DDL dalam urutan eksekusi yang wajib dipertahankan
+	 * @param berhentiSaatGagal bila {@code true}, statement setelah kegagalan dilewati
+	 */
+	private static void eksekusiKelompokDdlBerurutan(final String[] sqls,
+			final boolean berhentiSaatGagal) {
 		submitDdl(new Runnable() {
 			@Override
 			public void run() {
@@ -2602,9 +2615,17 @@ public class InitIndex {
 					try {
 						String sql = sqlKompatibelIndexIfNotExistsPostgresLama(
 								sqlKompatibelPostgresLama(sqls[i]));
-						if (bolehEksekusiSqlIndex(sql)) ais.common.Common.updateSql(sql, 600, true);
+						if (bolehEksekusiSqlIndex(sql)) {
+							ais.common.Common.updateSql(sql, 600, true);
+						} else if (berhentiSaatGagal) {
+							break;
+						}
 					} catch (Throwable e) {
-						ais.common.ErrorAuditUtil.record(e, "init grup aturan diskon (DDL ke-" + (i + 1) + ")");
+						ais.common.ErrorAuditUtil.record(e,
+								"InitIndex.eksekusiKelompokDdlBerurutan DDL ke-" + (i + 1));
+						if (berhentiSaatGagal) {
+							break;
+						}
 					}
 				}
 			}

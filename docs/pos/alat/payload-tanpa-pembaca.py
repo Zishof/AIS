@@ -34,12 +34,14 @@ import os
 import re
 import sys
 
-AKAR_REPO_AIS = r'C:\opt\AIS\ais\src\main'
-AKAR_REPO_POS = r'C:\opt\CodeBaseDesktopDanMobile'
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import akar_repo  # noqa: E402  -- perlu sys.path di atas
 
-AKAR_KLIEN_DART = os.path.join(AKAR_REPO_POS, r'apps\ebisnis\lib')
-AKAR_KLIEN_JSP = os.path.join(AKAR_REPO_AIS, r'webapp\WEB-INF\baru\modul\kantin')
-AKAR_SERVER = os.path.join(AKAR_REPO_AIS, r'src\ais\action\servlet')
+AKAR_REPO_POS = akar_repo.repo_pos()
+
+AKAR_KLIEN_DART = os.path.join(AKAR_REPO_POS, 'apps', 'ebisnis', 'lib')
+AKAR_KLIEN_JSP = akar_repo.KANTIN_JSP
+AKAR_SERVER = akar_repo.AIS_SERVLET
 
 DILEWATI = {'build', '.dart_tool', 'node_modules', '.git', 'generated', 'ephemeral',
             'pods', 'test', 'integration_test'}
@@ -131,6 +133,7 @@ def potong_payload(sumber, pola_panggil):
 
 
 def main():
+    akar_repo.pastikan_lengkap(perlu_pos=True)
     for akar in (AKAR_KLIEN_DART, AKAR_KLIEN_JSP, AKAR_SERVER):
         if not os.path.isdir(akar):
             print('AKAR TIDAK KETEMU: ' + akar)

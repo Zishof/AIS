@@ -26,7 +26,10 @@ import os
 import re
 import sys
 
-BAWAAN = (r'C:\opt\AIS\ais\src\main\src\ais\action\servlet\api\KantinHelper.java')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import akar_repo  # noqa: E402  -- perlu sys.path di atas
+
+BAWAAN = akar_repo.KANTIN_HELPER
 
 gagal = []
 
@@ -38,6 +41,7 @@ def cek(kondisi, pesan):
 
 
 def main():
+    akar_repo.pastikan_lengkap()
     src = sys.argv[1] if len(sys.argv) > 1 else BAWAAN
     if not os.path.isfile(src):
         print('sumber tidak ketemu: ' + src)

@@ -35,23 +35,25 @@ import os
 import re
 import sys
 
-AKAR_REPO_AIS = r'C:\opt\AIS\ais\src\main'
-AKAR_REPO_POS = r'C:\opt\CodeBaseDesktopDanMobile'
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import akar_repo  # noqa: E402  -- perlu sys.path di atas
+
+AKAR_REPO_POS = akar_repo.repo_pos()
 
 SUMBER_SERVER = [
-    os.path.join(AKAR_REPO_AIS, r'src\ais\action\servlet\api\KantinHelper.java'),
-    os.path.join(AKAR_REPO_AIS, r'src\ais\action\servlet\api\DraftJurnalApiHelper.java'),
+    akar_repo.KANTIN_HELPER,
+    akar_repo.DRAFT_JURNAL_HELPER,
 ]
 
 AKAR_PEMBACA = [
-    os.path.join(AKAR_REPO_AIS, r'webapp\WEB-INF'),
+    os.path.join(akar_repo.AIS_WEBAPP, 'WEB-INF'),
     os.path.join(AKAR_REPO_POS, 'apps'),
     os.path.join(AKAR_REPO_POS, 'packages'),
     # Lapisan servlet ikut dihitung sbg pembaca -- lihat catatan di atas. Sengaja
     # HANYA lapisan ini, bukan seluruh pohon ais/: memindai semuanya (105 MB)
     # membuat nama field bertabrakan dgn variabel lokal mana pun yang kebetulan
     # bernama sama. Selisihnya terukur: seluruh pohon 15 yatim, lapisan servlet 16.
-    os.path.join(AKAR_REPO_AIS, r'src\ais\action\servlet'),
+    akar_repo.AIS_SERVLET,
 ]
 
 EKSTENSI = ('.dart', '.jsp', '.js', '.java')
@@ -134,6 +136,7 @@ def kumpulkan(akar):
 
 
 def main():
+    akar_repo.pastikan_lengkap(perlu_pos=True)
     dikirim = []
     for jalur in SUMBER_SERVER:
         if not os.path.isfile(jalur):

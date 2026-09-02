@@ -26,8 +26,10 @@ import re
 import subprocess
 import sys
 
-DEFAULT_BARU = (r'C:\opt\AIS\ais\src\main\webapp\WEB-INF\baru\modul\kantin'
-                r'\pesanan\_draft_pesanan_anggota.jsp')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import akar_repo  # noqa: E402  -- perlu sys.path di atas
+
+DEFAULT_BARU = akar_repo.PESANAN_JSP
 if len(sys.argv) < 2:
     print(__doc__)
     sys.exit(2)

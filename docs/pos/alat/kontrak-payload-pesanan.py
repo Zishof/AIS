@@ -27,8 +27,10 @@ Pakai:  python kontrak-payload-pesanan.py [berkas.jsp]
 import os
 import sys
 
-JSP_BAWAAN = (r'C:\opt\AIS\ais\src\main\webapp\WEB-INF\baru\modul\kantin'
-              r'\pesanan\_draft_pesanan_anggota.jsp')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import akar_repo  # noqa: E402  -- perlu sys.path di atas
+
+JSP_BAWAAN = akar_repo.PESANAN_JSP
 
 gagal = []
 
@@ -40,6 +42,7 @@ def cek(kondisi, pesan):
 
 
 def main():
+    akar_repo.pastikan_lengkap()
     jsp = sys.argv[1] if len(sys.argv) > 1 else JSP_BAWAAN
     if not os.path.isfile(jsp):
         print('JSP tidak ketemu: ' + jsp)

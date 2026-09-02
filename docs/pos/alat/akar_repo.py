@@ -70,3 +70,41 @@ def ringkas(path):
         return os.path.relpath(path, AIS_MAIN)
     except ValueError:
         return path
+
+
+# Berkas yang WAJIB ada sebelum hasil pemindaian boleh dipercaya.
+#
+# Ditemukan lewat uji "checkout di jalur lain" (docs/pos/83): pada pohon yang tidak
+# lengkap, field-tanpa-pembaca.py menuduh `memerlukanPersetujuanLimit` yatim --
+# padahal ia dibaca PosApi.java, yang kebetulan tidak ikut tersalin. Alat yang
+# memindai pohon setengah jadi menghasilkan tuduhan palsu TANPA satu pun tanda, dan
+# tuduhan palsu adalah cara tercepat membuat sebuah penjaga berhenti dipercaya.
+#
+# Kelengkapannya diperiksa dengan MENYEBUT berkas yang memang harus ada, bukan
+# sekadar mengukur besar korpus: pohon palsu itu pun sudah 7,4 juta karakter --
+# "besar" tidak berarti "lengkap".
+_WAJIB_ADA = [
+    ('PosApi.java (pembaca respons sisi server)',
+     os.path.join(AIS_SERVLET, 'PosApi.java')),
+    ('KantinHelper.java', KANTIN_HELPER),
+    ('halaman Pesanan (JSP)', PESANAN_JSP),
+]
+
+
+def pastikan_lengkap(perlu_pos=False):
+    """Berhenti dengan pesan jelas bila pohon sumbernya tidak lengkap."""
+    kurang = [nama for nama, jalur in _WAJIB_ADA if not os.path.exists(jalur)]
+    if perlu_pos:
+        pos = repo_pos(wajib=False)
+        if pos is None or not os.path.isdir(os.path.join(pos, 'apps')):
+            kurang.append('repositori POS (set POS_REPO)')
+    if kurang:
+        # Pesannya dirakit sebagai daftar baris lalu disambung, bukan memakai
+        # escape di dalam literal: berkas ini beberapa kali ditulis lewat
+        # heredoc, dan heredoc menelan backslash tanpa memberi tanda apa pun.
+        pesan = [
+            'Pohon sumber TIDAK LENGKAP -- hasilnya akan menuduh yang tidak bersalah.',
+            'Tidak ketemu: ' + '; '.join(kurang),
+            'Akar AIS yang dipakai: ' + AIS_MAIN,
+        ]
+        raise SystemExit(os.linesep.join(pesan))
