@@ -145,8 +145,21 @@ public final class SapuKlienProbe {
             File f = cariSumber(new File(SUMBER), nama[i] + ".java");
             if (f == null) continue;
             String isi = baca(f.getAbsolutePath());
-            if (isi.indexOf("put(\"success\", true)") >= 0) adaGenerik = true;
-            else adaFlat = true;
+            // Amplop generik dapat dibangun dengan dua cara, dan menghitung
+            // hanya cara pertama membuat sapuan ini berbohong: controller yang
+            // memakai GenericCrudResult atau meneruskan ke Generic CRUD juga
+            // mengeluarkan {success, data}, tetapi tidak pernah menulis
+            // put("success", true) sendiri. Pengumuman Akademis dan Pengaturan
+            // Bahasa sempat terhitung ok-flat karena itu, padahal keduanya
+            // memang sudah terbaca renderer generik.
+            if (isi.indexOf("put(\"success\", true)") >= 0
+                    || isi.indexOf("GenericCrudResult") >= 0
+                    || isi.indexOf("delegateGeneric") >= 0
+                    || isi.indexOf("GenericCrudHttpController") >= 0) {
+                adaGenerik = true;
+            } else {
+                adaFlat = true;
+            }
         }
         if (adaGenerik && adaFlat) return "campuran";
         if (adaGenerik) return "generik";
