@@ -846,10 +846,25 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 	/** Identitas (user id) pengguna yang terakhir mengubah baris ini (field audit). */
 	private String olehId;
 
+	/**
+	 * Identitas pengguna yang terakhir mengubah baris ini.
+	 *
+	 * @return user id pembuat/pengubah terakhir, atau {@code null} bila belum pernah diisi
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel identitas pengguna pengubah terakhir.
+	 *
+	 * <p><b>Menolak diam-diam nilai kosong.</b> Bila {@code olehId} {@code null} atau hanya
+	 * berisi spasi, method langsung {@code return} tanpa mengubah apa pun — nilai lama
+	 * TETAP dipertahankan. Jadi memanggil {@code setOlehId("")} bukan cara menghapus jejak
+	 * audit, dan pemanggil tidak boleh mengandalkan method ini untuk mengosongkan field.</p>
+	 *
+	 * @param olehId user id pengubah; {@code null}/kosong diabaikan
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -857,6 +872,17 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Menyetel nama tampil pengguna pengubah terakhir.
+	 *
+	 * <p>Berperilaku sama dengan {@link #setOlehId(String)}: nilai {@code null}/kosong
+	 * diabaikan diam-diam sehingga isi lama tidak tertimpa. Nilainya diisi oleh
+	 * {@code FileFotoLain.createFileFotoLain} lewat {@code getNamaOleh(Tbmuser)}, yang
+	 * memilih nama mahasiswa/dosen/pegawai bila ada dan jatuh ke {@code "external_update"}
+	 * bila tidak ada pengguna login.</p>
+	 *
+	 * @param oleh nama tampil pengubah; {@code null}/kosong diabaikan
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -864,40 +890,127 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Nama tampil pengguna yang terakhir mengubah baris ini.
+	 *
+	 * @return nama pengubah terakhir, atau {@code null} bila belum pernah diisi
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA yang dijalankan tepat sebelum {@code UPDATE} baris ini, meneruskan ke
+	 * {@code AuditTimestampInterceptor.ubah(this)} agar stempel waktu perubahan diperbarui
+	 * secara terpusat.
+	 *
+	 * <p><b>Perhatikan tata letak barisnya:</b> deklarasi field {@code tanggal_dirubah}
+	 * ditulis pada BARIS YANG SAMA dengan method ini (pola yang dipakai konsisten di seluruh
+	 * entity AIS, hasil penyisipan otomatis). Jangan menyisipkan Javadoc atau baris baru di
+	 * antara keduanya tanpa memisahkan deklarasinya terlebih dahulu.</p>
+	 *
+	 * <p>Field {@code tanggal_dirubah} diinisialisasi ke waktu sekarang lewat
+	 * {@code WaktuUtil.getDate()} sehingga objek baru selalu punya stempel waktu meski
+	 * pemanggil lupa menyetelnya.</p>
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menyetel stempel waktu perubahan terakhir.
+	 *
+	 * @param tanggal_dirubah waktu perubahan
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Stempel waktu perubahan terakhir baris ini.
+	 *
+	 * @return waktu perubahan (tidak pernah {@code null} untuk objek yang baru dibuat)
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks baris ini, yaitu nama berkasnya.
+	 *
+	 * <p><b>Sengaja membaca field {@code nama} langsung, bukan {@link #getNama()}.</b>
+	 * Bedanya nyata: {@code getNama()} punya efek samping (menempelkan awalan {@code
+	 * "<id>_"}, mengisi nilai dari {@code copyDari}, atau memberi label untuk dokumen
+	 * berupa link), sedangkan method ini murni. Karena {@code toString()} dipanggil di
+	 * banyak tempat tak terduga — logging, debugger, komponen ZK — membaca field langsung
+	 * mencegah efek samping tak sengaja. Konsekuensinya method ini dapat mengembalikan
+	 * {@code null}.</p>
+	 *
+	 * @return nama berkas apa adanya, bisa {@code null}
+	 */
 	public String toString() {
 		return nama;
 	}
 
+	/** Nama berkas (termasuk ekstensi). Lihat {@link #getNama()} soal awalan {@code "<id>_"}. */
 	private String nama;
+	/** Keterangan singkat lampiran, biasanya label kolom pada layar unggah. */
 	private String keterangan;
+	/** URL dokumen eksternal, dipakai bila lampiran hanya berupa tautan tanpa berkas. */
 	private String link;
+	/** Deskripsi panjang lampiran (kolom {@code text}). */
 	private String deskripsi;
+	/**
+	 * Acuan ke baris pemilik: separuh kunci pencarian bersama {@link #jenis}.
+	 *
+	 * <p>Berisi primary key baris pemilik (bukan foreign key, tanpa constraint), atau salah
+	 * satu konstanta acuan sintetis negatif di kelas ini untuk aset milik instansi. Lihat
+	 * Javadoc kelas untuk konsekuensi keamanannya.</p>
+	 */
 	private Long ref;
+	/** Isi berkas sebagai PostgreSQL Large Object ({@code oid}). Lihat {@link #getFoto()}. */
 	private Blob foto;
+	/**
+	 * Penanda "lampiran yang mana": separuh kunci pencarian bersama {@link #ref}.
+	 * Nilainya bisa konstanta di kelas ini, nama kelas Java pemilik, atau label bebas.
+	 */
 	private String jenis;
+	/** File-id Google Drive bila isi berkas disimpan di Drive, bukan di basis data. */
 	private String gdrive;
+	/** Akun Google yang dipakai saat mengunggah ke Drive. */
 	private String gdriveUsername;
 
+	/**
+	 * Baris lampiran SUMBER yang isinya dipinjam baris ini.
+	 *
+	 * <p>Bukan sekadar jejak: bila terisi, hampir seluruh getter di kelas ini membaca nilai
+	 * dari baris sumber dan <b>menimpa</b> nilai lokal. Lihat {@link #getCopyDari()}.</p>
+	 */
 	private LampiranLain copyDari;
 
+	/**
+	 * Konstruktor kosong wajib Hibernate.
+	 *
+	 * <p>Dipakai juga oleh {@code FileFotoLain.createFileFotoLain} dan
+	 * {@code FileFotoLain.performDelete} lewat {@code clazz.newInstance()}, sehingga
+	 * konstruktor ini <b>tidak boleh</b> diberi parameter atau dihapus.</p>
+	 */
 	public LampiranLain() {
 	}
 
+	/**
+	 * Primary key baris lampiran ini.
+	 *
+	 * <p>Dihasilkan basis data dengan strategi {@code IDENTITY} sehingga <b>berurutan</b>;
+	 * {@code insertable = false} berarti nilai yang disetel manual lewat {@link #setId(Long)}
+	 * TIDAK ikut dikirim saat {@code INSERT} — nilainya selalu ditentukan basis data.</p>
+	 *
+	 * <p><b>Implikasi keamanan.</b> Sifat berurutan inilah yang membuat enumerasi mungkin:
+	 * {@code /al?usingId=true&ref=<N>} memetakan {@code N} langsung ke primary key ini
+	 * (lihat {@link #ambil(Boolean, Long, String)}). Lihat pula Javadoc kelas dan
+	 * {@code task_b82b25d2}.</p>
+	 *
+	 * @return primary key, atau {@code null} untuk objek yang belum tersimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -905,10 +1018,44 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key. Umumnya hanya dipanggil Hibernate saat menghidrasi entity atau
+	 * oleh {@code Common.convertToObject} saat merekonstruksi objek dari cache JSON.
+	 *
+	 * @param id primary key
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Nama berkas lampiran — <b>getter dengan efek samping, bukan pembaca murni</b>.
+	 *
+	 * <p>Tiga perilaku menulis-balik terjadi berurutan sebelum nilai dikembalikan:</p>
+	 * <ol>
+	 *   <li>Bila {@link #getCopyDari() copyDari} terisi, field {@code nama} <b>ditimpa</b>
+	 *       dengan nama baris sumber (dibaca dari field langsung, bukan lewat getter, agar
+	 *       tidak memicu penambahan awalan berantai pada baris sumber).</li>
+	 *   <li>Bila {@code nama} kosong tetapi {@link #getLink()} tidak kosong, {@code nama}
+	 *       diisi label baku {@code "Data / dokumen berupa link"} — penanda bahwa lampiran
+	 *       ini hanya tautan, tanpa berkas fisik.</li>
+	 *   <li>Bila {@code nama} sudah ada dan {@link #getId()} sudah ada tetapi nama belum
+	 *       berawalan {@code "<id>_"}, awalan itu <b>ditempelkan permanen</b> ke field.</li>
+	 * </ol>
+	 *
+	 * <p><b>Konsekuensi yang mudah mengejutkan.</b> Ini adalah properti terpetakan dengan
+	 * <i>property access</i>, sehingga Hibernate memanggil method ini saat dirty-check.
+	 * Untuk objek yang masih terkelola dalam satu session, sekadar <b>membaca</b> nama
+	 * lampiran dapat menghasilkan {@code UPDATE} nyata ke kolom {@code nama} — dan karena
+	 * kelas ini {@code @Audited}, satu revisi Envers ikut tercatat. Awalan {@code "<id>_"}
+	 * itu sendiri disengaja: ia dipakai sebagai penanda kepemilikan berkas fisik
+	 * (lihat {@code FileFoto.ambilFile()} yang menolak berkas milik baris lain), dan
+	 * {@code FileFotoLain.createDownloadUpload} membuang kembali awalan tersebut saat
+	 * menampilkan label tombol.</p>
+	 *
+	 * @return nama berkas yang sudah dinormalisasi dan di-{@code trim}, atau {@code null}
+	 *         bila memang belum pernah diisi dan tidak ada link
+	 */
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
 		if (copyDari != null) {
@@ -924,10 +1071,34 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Menyetel nama berkas apa adanya, tanpa normalisasi.
+	 *
+	 * <p>Awalan {@code "<id>_"} TIDAK ditambahkan di sini — penambahan itu baru terjadi saat
+	 * {@link #getNama()} dipanggil.</p>
+	 *
+	 * @param nama nama berkas beserta ekstensinya
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Keterangan singkat lampiran (label kolom pada layar unggah, mis. "Ijazah", "KTP").
+	 *
+	 * <p><b>Menulis balik.</b> Bila {@link #getCopyDari() copyDari} terisi, field
+	 * {@code keterangan} ditimpa dengan keterangan baris sumber sebelum dikembalikan.</p>
+	 *
+	 * <p><b>Membalik kontrak kelas induk:</b> {@link ais.database.model.GeneralValueObject}
+	 * menjanjikan keterangan non-{@code null}, sedangkan kolom di sini {@code nullable = true}
+	 * dan method ini memang dapat mengembalikan {@code null}. Pemanggil wajib menjaga
+	 * kemungkinan {@code null}. Nilai keterangan ikut dipakai sebagai nama berkas tujuan pada
+	 * jalur unduh {@code .jrxml}/{@code .xml}
+	 * ({@code FileFotoLain.setupDownloadButtonAction} memanggil
+	 * {@code Filedownload.save(file, getKeterangan())}).</p>
+	 *
+	 * @return keterangan lampiran, dapat {@code null}
+	 */
 	@Column(name = "keterangan", nullable = true)
 	public String getKeterangan() {
 		if (copyDari != null) {
@@ -936,6 +1107,11 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return this.keterangan;
 	}
 
+	/**
+	 * Menyetel keterangan singkat lampiran.
+	 *
+	 * @param keterangan keterangan lampiran
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -947,6 +1123,21 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 	// Di dalam class ais.database.model.file.LampiranLain
 
 	// 1. Ubah parameter dari Blob ke Object sementara waktu
+	/**
+	 * Menyetel isi berkas sebagai {@link Blob}.
+	 *
+	 * <p>Pemanggil utama adalah {@code FileFotoLain.createFileFotoLain}, yang membungkus isi
+	 * berkas dengan {@code Hibernate.createBlob(byte[])}. Kolom targetnya PostgreSQL Large
+	 * Object ({@code oid}) sehingga penyimpanannya <b>wajib</b> berada di dalam transaksi
+	 * non-autocommit — lihat catatan panjang pada {@code createFileFotoLain} tentang koneksi
+	 * khusus yang diambil dari {@code ConnectionProvider} untuk keperluan ini.</p>
+	 *
+	 * <p>Blok yang dikomentari di dalam badan method adalah sisa perkakas penelusuran
+	 * (mencetak stack trace pemanggil) yang dipakai saat mengusut dari mana isi berkas
+	 * disetel; sengaja dipertahankan sebagai jejak investigasi, tidak aktif.</p>
+	 *
+	 * @param foto isi berkas; boleh {@code null} bila isi disimpan di Google Drive
+	 */
 	public void setFoto(Blob foto) {
 
 //		try {
@@ -968,20 +1159,81 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		this.foto = foto;
 	}
 
+	/**
+	 * Isi berkas sebagai {@link Blob}, dengan dua aturan pemilihan sumber.
+	 *
+	 * <p><b>Pertama</b>, bila field {@link #gdrive} terisi maka method mengembalikan
+	 * {@code null} secara sengaja: isinya ada di Google Drive, bukan di basis data, sehingga
+	 * mengembalikan blob lama justru menyesatkan. Perhatikan pemeriksaan ini memakai
+	 * <b>field langsung</b> ({@code gdrive}), bukan {@link #getGdrive()} — jadi nilai
+	 * warisan dari {@code copyDari} maupun nilai yang tersimpan di berkas samping
+	 * (lihat {@link #getGdrive()}) TIDAK dipertimbangkan di sini. Akibatnya baris yang
+	 * file-id Drive-nya hanya ada di berkas samping tetap mengembalikan blob lokal.</p>
+	 *
+	 * <p><b>Kedua</b>, bila blob lokal kosong, isi dipinjam dari
+	 * {@link #getCopyDari() copyDari} — lagi-lagi lewat field langsung
+	 * ({@code copyDari.foto}) sehingga rantai pinjam-meminjam hanya sedalam satu tingkat
+	 * dan tidak menimpa apa pun.</p>
+	 *
+	 * <p>Ditandai {@code @NotAudited} supaya Envers tidak menyalin isi berkas ke tabel
+	 * revisi setiap kali baris berubah. Untuk membaca isinya dengan aman gunakan
+	 * {@code FileFotoLain.ambilIsiBlob(...)}, karena Large Object hanya boleh dibaca di
+	 * dalam transaksi.</p>
+	 *
+	 * @return isi berkas, atau {@code null} bila disimpan di Drive/tidak ada
+	 */
 	@NotAudited
 	public Blob getFoto() {
 		return gdrive != null && !gdrive.trim().isEmpty() ? null : (foto != null ? foto : (copyDari == null ? null : copyDari.foto));
 	}
 
+	/**
+	 * Menyetel acuan ke baris pemilik lampiran.
+	 *
+	 * <p>Isilah dengan primary key baris pemilik (mis. {@code mahasiswa.getId()}) atau salah
+	 * satu konstanta acuan sintetis negatif di kelas ini. <b>Jangan</b> mengisi dengan angka
+	 * positif acak sebagai acuan sementara — gunakan {@code Common.refSementara()} yang
+	 * dijamin negatif; acuan positif acak pernah menyebabkan berkas baru menimpa lampiran
+	 * milik data lain (lihat catatan pada {@code FileFotoLain.createFileFotoLain}).</p>
+	 *
+	 * @param ref acuan baris pemilik
+	 */
 	public void setRef(Long ref) {
 		this.ref = ref;
 	}
 
+	/**
+	 * Acuan ke baris pemilik lampiran — separuh kunci pencarian bersama
+	 * {@link #getJenis() jenis}.
+	 *
+	 * <p>Kolom biasa, <b>bukan foreign key</b>: tidak ada constraint apa pun yang menjamin
+	 * baris pemilik masih ada, apalagi bahwa ia bertipe yang diharapkan pemanggil. Nilai
+	 * {@code ref} dari tabel pemilik berbeda bertabrakan di ruang angka yang sama dan hanya
+	 * dibedakan oleh {@code jenis}. Pembaca murni, tanpa efek samping.</p>
+	 *
+	 * @return acuan baris pemilik, atau {@code null}
+	 */
 	@Column(name = "ref", nullable = true)
 	public Long getRef() {
 		return ref;
 	}
 
+	/**
+	 * Penanda "lampiran yang mana" — separuh kunci pencarian bersama {@link #getRef() ref}.
+	 *
+	 * <p><b>Menulis balik, tetapi hanya sebagai fallback:</b> berbeda dari
+	 * {@link #getKeterangan()} atau {@link #getDeskripsi()} yang selalu ditimpa nilai
+	 * {@code copyDari}, di sini nilai dari baris sumber baru diambil bila {@code jenis}
+	 * lokal masih kosong. Nilai lokal yang sudah ada dipertahankan — memang harus begitu,
+	 * karena {@code jenis} adalah bagian kunci: menimpanya akan memindahkan baris ini ke
+	 * kunci pencarian yang lain.</p>
+	 *
+	 * <p>Perhatikan bahwa pencocokannya di {@code FileFotoLain.ambil(...)} memakai
+	 * {@code Restrictions.eq} — <b>persis, case-sensitive, tanpa {@code trim}</b>. Spasi
+	 * berlebih atau beda huruf besar-kecil membuat lampiran "hilang" tanpa pesan error.</p>
+	 *
+	 * @return nilai {@code jenis}, dapat {@code null}
+	 */
 	public String getJenis() {
 		if (jenis == null || jenis.trim().isEmpty()) {
 			if (copyDari != null) {
@@ -991,10 +1243,29 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return jenis;
 	}
 
+	/**
+	 * Menyetel penanda {@code jenis}.
+	 *
+	 * <p>Gunakan salah satu konstanta di kelas ini bila tersedia, atau
+	 * {@code NamaKelasPemilik.class.getName()} untuk mengikuti pola modul kepegawaian.
+	 * Mengubah nilai ini pada baris yang sudah tersimpan sama dengan memindahkannya ke kunci
+	 * pencarian lain sehingga layar asalnya tidak lagi menemukannya.</p>
+	 *
+	 * @param jenis penanda jenis lampiran
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
 
+	/**
+	 * Deskripsi panjang lampiran (kolom {@code text}).
+	 *
+	 * <p><b>Menulis balik:</b> bila {@link #getCopyDari() copyDari} terisi, field
+	 * {@code deskripsi} selalu ditimpa dengan deskripsi baris sumber — nilai lokal yang
+	 * sudah diisi pengguna akan hilang begitu getter ini dipanggil.</p>
+	 *
+	 * @return deskripsi lampiran, dapat {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getDeskripsi() {
 		if (copyDari != null) {
@@ -1003,10 +1274,40 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return deskripsi;
 	}
 
+	/**
+	 * Menyetel deskripsi panjang lampiran.
+	 *
+	 * @param deskripsi deskripsi lampiran
+	 */
 	public void setDeskripsi(String deskripsi) {
 		this.deskripsi = deskripsi;
 	}
 
+	/**
+	 * Baris lampiran SUMBER yang isinya dipinjam baris ini — satu-satunya relasi objek pada
+	 * entity ini, dan ke tabel yang sama (self-reference).
+	 *
+	 * <p><b>Bukan sekadar jejak duplikasi.</b> Bila terisi, hampir seluruh getter di kelas
+	 * ini membaca dari baris sumber: {@link #getNama()}, {@link #getKeterangan()},
+	 * {@link #getDeskripsi()}, {@link #getLink()}, {@link #getGdrive()},
+	 * {@link #getGdriveUsername()} <b>menimpa</b> field lokal dengan nilai sumber, sementara
+	 * {@link #getJenis()} dan {@link #getFoto()} hanya memakainya sebagai cadangan. Jadi
+	 * mengisi {@code copyDari} membuat baris ini menjadi semacam alias hidup dari baris
+	 * sumber, bukan salinan mati.</p>
+	 *
+	 * <p>Pemetaannya sengaja longgar: {@code @NotFound(IGNORE)} membuat baris sumber yang
+	 * sudah dihapus tidak melempar {@code EntityNotFoundException} melainkan menjadi
+	 * {@code null}, dan {@code @Fetch(SELECT)} menghindari join yang memaksa Hibernate
+	 * memuat blob sumber. Cascade dibatasi ke {@code PERSIST}/{@code MERGE} — <b>tidak</b>
+	 * termasuk {@code REMOVE}, sehingga menghapus baris ini tidak ikut menghapus sumbernya.</p>
+	 *
+	 * <p>Nilainya diisi secara reflektif oleh {@code FileFotoLain.createFileFotoLain} lewat
+	 * {@code clazz.getMethod("setCopyDari", clazz)}; kegagalan pencarian method itu ditelan
+	 * diam-diam, jadi entity lampiran yang tidak punya {@code setCopyDari} tetap berfungsi
+	 * tanpa peringatan.</p>
+	 *
+	 * @return baris lampiran sumber, atau {@code null} bila baris ini berdiri sendiri
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@NotFound(action = NotFoundAction.IGNORE)
@@ -1015,10 +1316,44 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return copyDari;
 	}
 
+	/**
+	 * Menyetel baris lampiran sumber.
+	 *
+	 * <p>Perhatikan efeknya: setelah dipanggil, sebagian besar getter kelas ini akan
+	 * menimpa field lokal dengan nilai baris sumber. Jangan memakainya sekadar untuk
+	 * mencatat asal-usul data.</p>
+	 *
+	 * @param copyDari baris lampiran sumber; {@code null} untuk melepas keterkaitan
+	 */
 	public void setCopyDari(LampiranLain copyDari) {
 		this.copyDari = copyDari;
 	}
 
+	/**
+	 * URL dokumen eksternal untuk lampiran yang berupa tautan, bukan berkas terunggah —
+	 * <b>getter dengan efek samping</b>.
+	 *
+	 * <p>Dua penulisan-balik terjadi sebelum nilai dikembalikan:</p>
+	 * <ol>
+	 *   <li>Bila {@link #getCopyDari() copyDari} terisi, field {@code link} <b>ditimpa</b>
+	 *       dengan link baris sumber.</li>
+	 *   <li>Bila {@code link} kosong tetapi field {@code nama} diawali {@code "http"}
+	 *       (tanpa memedulikan huruf besar-kecil), {@code nama} <b>disalin</b> menjadi
+	 *       {@code link}. Ini menangani data lama yang menyimpan URL di kolom nama berkas.
+	 *       Perhatikan pemeriksaannya memakai field {@code nama} langsung, bukan
+	 *       {@link #getNama()}, sehingga awalan {@code "<id>_"} yang mungkin sudah
+	 *       ditempelkan getter nama TIDAK menghalangi deteksi ini pada pemanggilan pertama —
+	 *       tetapi bila {@link #getNama()} sempat dipanggil lebih dulu, nama sudah berawalan
+	 *       {@code "<id>_"} dan pemeriksaan {@code startsWith("http")} tidak lagi cocok.
+	 *       Urutan pemanggilan getter jadi menentukan hasil.</li>
+	 * </ol>
+	 *
+	 * <p><b>Kontrak nilai balik berbeda dari getter lain di kelas ini:</b> method ini tidak
+	 * pernah mengembalikan {@code null}, melainkan string kosong. {@link #getNama()}
+	 * bergantung pada sifat ini ({@code !getLink().isEmpty()}).</p>
+	 *
+	 * @return URL dokumen yang sudah di-{@code trim}, atau string kosong bila tidak ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getLink() {
 		if (copyDari != null) {
@@ -1034,10 +1369,41 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return link == null ? "" : link.trim();
 	}
 
+	/**
+	 * Menyetel URL dokumen eksternal.
+	 *
+	 * @param link URL dokumen; {@code null} berarti lampiran memakai berkas, bukan tautan
+	 */
 	public void setLink(String link) {
 		this.link = link;
 	}
 
+	/**
+	 * File-id Google Drive tempat isi berkas disimpan — <b>getter dengan efek samping DAN
+	 * pembacaan berkas samping</b>.
+	 *
+	 * <p>Alurnya tiga langkah:</p>
+	 * <ol>
+	 *   <li>Bila {@link #getCopyDari() copyDari} terisi, field {@code gdrive} <b>ditimpa</b>
+	 *       dengan nilai baris sumber (field langsung, bukan getter).</li>
+	 *   <li>Bila nilai lokal kosong, dicoba dibaca dari <b>berkas samping</b> lewat
+	 *       {@code retreive("gdrive")} — mekanisme cache berkas milik
+	 *       {@link ais.database.model.GeneralValueObject} yang menyimpan nilai per
+	 *       kelas+id+sufiks di sistem berkas server, di luar kolom basis data.</li>
+	 *   <li>Nilai berkas samping dipakai bila tidak kosong; selain itu dikembalikan nilai
+	 *       kolom.</li>
+	 * </ol>
+	 *
+	 * <p><b>Konsekuensi.</b> Nilai yang dikembalikan bisa berbeda dari isi kolom basis data,
+	 * dan berbeda antar-server bila berkas samping tidak ikut disalin. Hasilnya menentukan
+	 * perilaku besar: {@link #getFoto()} menolak mengembalikan blob bila field {@code gdrive}
+	 * terisi, dan {@code createLinkUri()} langsung mengembalikan URL Google Drive tanpa
+	 * menyentuh berkas lokal. Pemanggil yang membandingkan "apakah berkas ada di Drive"
+	 * harus konsisten memilih getter ini atau field langsung — keduanya tidak selalu
+	 * sepakat.</p>
+	 *
+	 * @return file-id Google Drive, atau {@code null}/kosong bila isi berkas ada di basis data
+	 */
 	public String getGdrive() {
 		if (copyDari != null) {
 			gdrive = copyDari.gdrive;
@@ -1046,6 +1412,24 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return s != null && !s.trim().isEmpty() ? s : gdrive;
 	}
 
+	/**
+	 * Menyetel file-id Google Drive, sekaligus <b>menulis berkas ke disk</b>.
+	 *
+	 * <p>Setter ini tidak murni: untuk nilai non-kosong ia memanggil {@code put(gdrive,
+	 * "gdrive")} yang menulis satu berkas samping di sistem berkas server (mekanisme
+	 * {@link ais.database.model.GeneralValueObject}) sebelum menyetel field. Karena Hibernate
+	 * memanggil setter properti terpetakan saat menghidrasi entity, <b>memuat</b> baris
+	 * lampiran pun ikut memicu penulisan berkas — kecuali saat startup aplikasi, yang
+	 * dijaga oleh {@code AppStartupListener.isStartupInProgress()} di dalam {@code put(...)}
+	 * (penjaga itu ditambahkan setelah insiden startup macet karena ribuan tulis-berkas).</p>
+	 *
+	 * <p>Nilai {@code null}/kosong TIDAK menulis berkas samping, tetapi TETAP disetel ke
+	 * field. Akibatnya berkas samping lama tidak ikut terhapus, sehingga
+	 * {@link #getGdrive()} masih dapat memunculkan file-id lama meski kolom sudah
+	 * dikosongkan.</p>
+	 *
+	 * @param gdrive file-id Google Drive; {@code null}/kosong berarti isi berkas di basis data
+	 */
 	public void setGdrive(String gdrive) {
 		if (gdrive != null && !gdrive.trim().isEmpty()) {
 			put(gdrive, "gdrive");
@@ -1053,6 +1437,15 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		this.gdrive = gdrive;
 	}
 
+	/**
+	 * Akun Google yang dipakai saat mengunggah berkas ke Drive.
+	 *
+	 * <p><b>Menulis balik:</b> bila {@link #getCopyDari() copyDari} terisi, field ini ditimpa
+	 * dengan nilai baris sumber. Berbeda dari {@link #getGdrive()}, tidak ada pembacaan
+	 * berkas samping di sini.</p>
+	 *
+	 * @return nama akun Google pengunggah, atau {@code null}
+	 */
 	public String getGdriveUsername() {
 		if (copyDari != null) {
 			gdriveUsername = copyDari.gdriveUsername;
@@ -1060,6 +1453,11 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return gdriveUsername;
 	}
 
+	/**
+	 * Menyetel akun Google pengunggah.
+	 *
+	 * @param gdriveUsername nama akun Google
+	 */
 	public void setGdriveUsername(String gdriveUsername) {
 		this.gdriveUsername = gdriveUsername;
 	}
