@@ -18,6 +18,7 @@ import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Div;
 
 import ais.action.master.koperasi.helper.BungaSimpananUtil;
+import ais.action.master.koperasi.helper.SimpanPinjamReportService;
 import ais.action.master.koperasi.helper.SimpanPinjamUiUtil;
 import ais.action.master.koperasi.helper.SuratTeguranHelper;
 import ais.common.Common;
@@ -106,59 +107,18 @@ public class LaporanSimpanPinjamAction extends GenericAutowireComposer {
 	 * {@link SuratTeguranHelper}. Pengguna cukup menekan Ctrl+P di peramban untuk mencetak. Memakai
 	 * {@link HibernateUtil#currentSession()} (ditutup otomatis) dan agregasi per anggota di memori.
 	 */
-	@SuppressWarnings("unchecked")
 	public void onSuratTeguran(Event event) throws Exception {
 		if (suratWindow == null) {
 			return;
 		}
-		Long tipePinjaman = ConstantValues.PINJAMAN != null ? ConstantValues.PINJAMAN.getId() : null;
-		StringBuilder isi = new StringBuilder();
-		int jumlahSurat = 0;
+		SimpanPinjamReportService.Surat hasil = null;
 		try {
-			if (tipePinjaman != null) {
-				Session session = HibernateUtil.currentSession();
-				Date now = ais.ui.util.WaktuUtil.getDate();
-				List<TransaksiKoperasiDetail> nunggak = session.createQuery(
-						"select distinct d from TransaksiKoperasiDetail d left join fetch d.transaksiKoperasi t "
-								+ "left join fetch t.anggotaKoperasi a where d.pembayaranAnggotaKoperasiDetail is null "
-								+ "and d.tanggal < :now and t.produkKoperasi.tipeProdukKoperasi.id = :tipe "
-								+ "order by t.anggotaKoperasi.id, d.tanggal")
-						.setParameter("now", now).setParameter("tipe", tipePinjaman).list();
-
-				LinkedHashMap<Long, List<TransaksiKoperasiDetail>> perAnggota = new LinkedHashMap<Long, List<TransaksiKoperasiDetail>>();
-				Map<Long, AnggotaKoperasi> anggotaMap = new HashMap<Long, AnggotaKoperasi>();
-				for (TransaksiKoperasiDetail d : nunggak) {
-					try {
-						TransaksiKoperasi t = d.getTransaksiKoperasi();
-						AnggotaKoperasi a = t == null ? null : t.getAnggotaKoperasi();
-						if (a == null || a.getId() == null) {
-							continue;
-						}
-						List<TransaksiKoperasiDetail> list = perAnggota.get(a.getId());
-						if (list == null) {
-							list = new ArrayList<TransaksiKoperasiDetail>();
-							perAnggota.put(a.getId(), list);
-							anggotaMap.put(a.getId(), a);
-						}
-						list.add(d);
-					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e);
-					}
-				}
-
-				boolean pertama = true;
-				for (Map.Entry<Long, List<TransaksiKoperasiDetail>> e : perAnggota.entrySet()) {
-					if (!pertama) {
-						isi.append(SuratTeguranHelper.pemisahHalaman());
-					}
-					isi.append(SuratTeguranHelper.buildSurat(anggotaMap.get(e.getKey()), e.getValue(), now));
-					pertama = false;
-					jumlahSurat++;
-				}
-			}
+			hasil = SimpanPinjamReportService.suratTeguran(
+					HibernateUtil.currentSession(), ais.ui.util.WaktuUtil.getDate());
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
+		int jumlahSurat = hasil == null ? 0 : hasil.jumlah;
 
 		Common.clear(suratWindow);
 		suratWindow.setTitle("Surat Teguran (" + jumlahSurat + " anggota)");
@@ -172,7 +132,7 @@ public class LaporanSimpanPinjamAction extends GenericAutowireComposer {
 			host.appendChild(DashboardUiKit.html(DashboardUiKit
 					.descChip("Tidak ada anggota yang menunggak — tidak ada surat teguran yang perlu dibuat.")));
 		} else {
-			host.appendChild(DashboardUiKit.html(isi.toString()));
+			host.appendChild(DashboardUiKit.html(hasil == null ? "" : hasil.html));
 		}
 		suratWindow.setVisible(true);
 		suratWindow.onModal();
@@ -192,138 +152,17 @@ public class LaporanSimpanPinjamAction extends GenericAutowireComposer {
 	 * otomatis) dan seluruh agregasi dilakukan di memori secara aman-null.
 	 * </p>
 	 */
-	@SuppressWarnings("unchecked")
 	public void onBungaSimpanan(Event event) throws Exception {
 		if (dashHost == null) {
 			return;
 		}
 		dashHost.getChildren().clear();
-
-		Long tipeSimpanan = ConstantValues.SIMPANAN != null ? ConstantValues.SIMPANAN.getId() : null;
-
-		Date now = ais.ui.util.WaktuUtil.getDate();
-		Calendar c = ais.ui.util.WaktuUtil.getCalendar();
-		c.setTime(now);
-		int tahun = c.get(Calendar.YEAR);
-		int bulan = c.get(Calendar.MONTH);
-		int jumlahHari = c.getActualMaximum(Calendar.DAY_OF_MONTH);
-		Calendar cAwal = ais.ui.util.WaktuUtil.getCalendar();
-		cAwal.clear();
-		cAwal.set(tahun, bulan, 1, 0, 0, 0);
-		Date awalBulan = cAwal.getTime();
-		Calendar cAkhir = ais.ui.util.WaktuUtil.getCalendar();
-		cAkhir.clear();
-		cAkhir.set(tahun, bulan, 1, 0, 0, 0);
-		cAkhir.add(Calendar.MONTH, 1);
-		Date awalBulanBerikut = cAkhir.getTime();
-
-		final List<Object[]> rows = new ArrayList<Object[]>();
-		double totalBunga = 0.0;
-		boolean adaTanpaBunga = false;
 		try {
-			if (tipeSimpanan != null) {
-				List<TransaksiKoperasi> simp = HibernateUtil.currentSession().createQuery(
-						"select distinct t from TransaksiKoperasi t left join fetch t.anggotaKoperasi a "
-								+ "left join fetch t.produkKoperasi p where p.tipeProdukKoperasi.id = :tipe")
-						.setParameter("tipe", tipeSimpanan).list();
-
-				// Kelompokkan mutasi simpanan per (anggota, produk).
-				LinkedHashMap<String, AkumSimpanan> peta = new LinkedHashMap<String, AkumSimpanan>();
-				for (TransaksiKoperasi t : simp) {
-					try {
-						ProdukKoperasi p = t.getProdukKoperasi();
-						AnggotaKoperasi a = t.getAnggotaKoperasi();
-						if (p == null || p.getId() == null || a == null || a.getId() == null) {
-							continue;
-						}
-						String nm = p.getNama() == null ? "" : p.getNama().toLowerCase();
-						if (nm.contains("pokok") || nm.contains("wajib")) {
-							continue; // modal, bukan simpanan berbunga
-						}
-						Date tgl = t.getTanggalTransaksi() != null ? t.getTanggalTransaksi() : t.getTanggal();
-						if (tgl == null || !tgl.before(awalBulanBerikut)) {
-							continue; // tanpa tanggal, atau transaksi bulan berikutnya/masa depan → abaikan
-						}
-						String key = a.getId() + "#" + p.getId();
-						AkumSimpanan ak = peta.get(key);
-						if (ak == null) {
-							ak = new AkumSimpanan();
-							ak.namaAnggota = a.getNama() == null ? "-" : a.getNama();
-							ak.namaProduk = p.getNama() == null ? "-" : p.getNama();
-							ak.metode = p.getMetodeBungaSimpanan();
-							ak.bungaPersen = p.getBungaSimpananPersen() == null ? 0.0 : p.getBungaSimpananPersen();
-							peta.put(key, ak);
-						}
-						double nilai = t.getNilai() == null ? 0.0 : t.getNilai();
-						if (tgl.before(awalBulan)) {
-							ak.saldoAwal += nilai; // sudah mengendap sebelum bulan ini
-						} else {
-							Calendar ch = ais.ui.util.WaktuUtil.getCalendar();
-							ch.setTime(tgl);
-							ak.hari.add(Integer.valueOf(ch.get(Calendar.DAY_OF_MONTH)));
-							ak.nominal.add(Double.valueOf(nilai));
-						}
-					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e);
-					}
-				}
-
-				for (AkumSimpanan ak : peta.values()) {
-					try {
-						int[] hariArr = new int[ak.hari.size()];
-						double[] nomArr = new double[ak.nominal.size()];
-						for (int i = 0; i < hariArr.length; i++) {
-							hariArr[i] = ak.hari.get(i).intValue();
-							nomArr[i] = ak.nominal.get(i).doubleValue();
-						}
-						double[] saldoHarian = BungaSimpananUtil.saldoHarian(ak.saldoAwal, jumlahHari, hariArr, nomArr);
-						double terendah = BungaSimpananUtil.saldoTerendah(saldoHarian);
-						double rataRata = BungaSimpananUtil.saldoRataRata(saldoHarian);
-						double bunga = BungaSimpananUtil.hitungBunga(ak.metode, saldoHarian, ak.bungaPersen);
-						if (ak.bungaPersen <= 0) {
-							adaTanpaBunga = true;
-						}
-						totalBunga += bunga;
-						rows.add(new Object[] { ak.namaAnggota, ak.namaProduk, BungaSimpananUtil.label(ak.metode),
-								Double.valueOf(ak.bungaPersen), Double.valueOf(terendah), Double.valueOf(rataRata),
-								Double.valueOf(bunga) });
-					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e);
-					}
-				}
-
-				Collections.sort(rows, new Comparator<Object[]>() {
-					@Override
-					public int compare(Object[] x, Object[] y) {
-						return String.valueOf(x[0]).compareToIgnoreCase(String.valueOf(y[0]));
-					}
-				});
-			}
+			renderBagian(SimpanPinjamReportService.bangun(HibernateUtil.currentSession(),
+					SimpanPinjamReportService.BUNGA_SIMPANAN, ais.ui.util.WaktuUtil.getDate()));
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
-
-		SimpleDateFormat sdfBulan = new SimpleDateFormat("MMMM yyyy");
-		dashHost.appendChild(DashboardUiKit.html("<div style='font-size:16px;font-weight:800;color:#0f172a;"
-				+ "margin:6px 0 2px;'>Bunga Simpanan &mdash; " + DashboardUiKit.esc(sdfBulan.format(now)) + "</div>"));
-		dashHost.appendChild(DashboardUiKit.html(DashboardUiKit.descChip(
-				"Perkiraan jasa (bunga) simpanan bulan berjalan untuk tiap anggota, dihitung dari saldo simpanannya "
-						+ "sesuai metode yang ditetapkan pada masing-masing produk. Total bunga bulan ini: Rp "
-						+ DashboardUiKit.money(totalBunga) + ".")));
-		if (adaTanpaBunga) {
-			dashHost.appendChild(DashboardUiKit.html(DashboardUiKit.descChip(
-					"Sebagian produk simpanan belum diisi suku bunganya sehingga bunganya Rp 0 — atur \"Bunga "
-							+ "Simpanan (%/th)\" dan \"Metode Bunga Simpanan\" pada data produk simpanan.")));
-		}
-		SimpanPinjamUiUtil.appendRekapGrid(dashHost, "Rincian Bunga Simpanan per Anggota",
-				"Saldo terendah dan rata-rata ditampilkan sebagai bahan telusur perhitungan.", "Bunga Simpanan",
-				"bunga_simpanan",
-				new String[] { "Anggota", "Produk", "Metode", "Bunga %/th", "Saldo Terendah", "Saldo Rata-rata",
-						"Bunga Bulan Ini" },
-				new int[] { SimpanPinjamUiUtil.TEKS, SimpanPinjamUiUtil.TEKS, SimpanPinjamUiUtil.TEKS,
-						SimpanPinjamUiUtil.ANGKA, SimpanPinjamUiUtil.RUPIAH, SimpanPinjamUiUtil.RUPIAH,
-						SimpanPinjamUiUtil.RUPIAH },
-				rows);
 	}
 
 	/** Rangkai ulang kedua buku ke dalam kontainer {@code dashHost}. */
@@ -334,17 +173,57 @@ public class LaporanSimpanPinjamAction extends GenericAutowireComposer {
 		dashHost.getChildren().clear();
 
 		Session session = HibernateUtil.currentSession();
-		Long tipePinjaman = ConstantValues.PINJAMAN != null ? ConstantValues.PINJAMAN.getId() : null;
-		Long tipeSimpanan = ConstantValues.SIMPANAN != null ? ConstantValues.SIMPANAN.getId() : null;
+		Date sekarang = ais.ui.util.WaktuUtil.getDate();
+		for (SimpanPinjamReportService.Bagian metadata : SimpanPinjamReportService.katalog()) {
+			if (SimpanPinjamReportService.BUNGA_SIMPANAN.equals(metadata.kunci)) continue;
+			try {
+				renderBagian(SimpanPinjamReportService.bangun(session, metadata.kunci, sekarang));
+			} catch (Exception e) {
+				// Sama dengan ketahanan layar lama: kegagalan satu buku tidak
+				// menghilangkan tujuh buku lain yang masih dapat disusun.
+				Common.tampilErrorJikaAdmin(e);
+			}
+		}
+	}
 
-		buildBukuSimpanPinjam(session, tipePinjaman);
-		buildJurnalKasMasuk(session, tipeSimpanan, tipePinjaman);
-		buildJurnalKasKeluar(session, tipePinjaman);
-		buildBukuKas(session, tipePinjaman);
-		buildDaftarTunggakan(session, tipePinjaman);
-		buildSimpananBerjangka(session, tipeSimpanan);
-		buildBukuAnggota(session);
-		buildPromosiEkonomiAnggota(session, tipeSimpanan, tipePinjaman);
+	/** Penyaji ZK untuk struktur yang sama dengan kontrak native. */
+	private void renderBagian(SimpanPinjamReportService.Bagian bagian) {
+		if (!bagian.grafik.isEmpty()) {
+			dashHost.appendChild(DashboardUiKit.html(DashboardUiKit.barList(bagian.judul + " (per Kategori)",
+					bagian.deskripsi, bagian.grafik,
+					SimpanPinjamReportService.JURNAL_KAS_KELUAR.equals(bagian.kunci)
+							? DashboardUiKit.BAD : DashboardUiKit.GOOD,
+					"", true, "Belum ada data.")));
+		}
+		if (SimpanPinjamReportService.PROMOSI_EKONOMI.equals(bagian.kunci)) {
+			List<DashboardUiKit.Stat> kartu = new ArrayList<DashboardUiKit.Stat>();
+			kartu.add(new DashboardUiKit.Stat("Anggota Terlayani",
+					String.valueOf(bagian.ringkasan.get("anggotaTerlayani")), "menerima manfaat", DashboardUiKit.PRIMARY));
+			kartu.add(new DashboardUiKit.Stat("Total Simpanan Anggota", "Rp "
+					+ DashboardUiKit.money(angkaRingkasan(bagian, "totalSimpanan")), "dana yang dititipkan", DashboardUiKit.GOOD));
+			kartu.add(new DashboardUiKit.Stat("Total Pinjaman Diterima", "Rp "
+					+ DashboardUiKit.money(angkaRingkasan(bagian, "totalPinjaman")), "modal yang dipinjamkan", DashboardUiKit.ACCENT));
+			kartu.add(new DashboardUiKit.Stat("Total SHU Dikembalikan", "Rp "
+					+ DashboardUiKit.money(angkaRingkasan(bagian, "totalShu")), "keuntungan untuk anggota", DashboardUiKit.WARN));
+			dashHost.appendChild(DashboardUiKit.html(DashboardUiKit.cards(kartu)));
+		} else if (SimpanPinjamReportService.BUNGA_SIMPANAN.equals(bagian.kunci)) {
+			dashHost.appendChild(DashboardUiKit.html(DashboardUiKit.descChip(
+					"Total bunga bulan ini: Rp " + DashboardUiKit.money(angkaRingkasan(bagian, "totalBunga")) + ".")));
+			if (Boolean.TRUE.equals(bagian.ringkasan.get("produkTanpaBunga"))) {
+				dashHost.appendChild(DashboardUiKit.html(DashboardUiKit.descChip(
+						"Sebagian produk simpanan belum diisi suku bunganya sehingga bunganya Rp 0.")));
+			}
+		}
+		if (bagian.catatan != null && bagian.catatan.length() > 0) {
+			dashHost.appendChild(DashboardUiKit.html(DashboardUiKit.descChip(bagian.catatan)));
+		}
+		SimpanPinjamUiUtil.appendRekapGrid(dashHost, bagian.judul, bagian.deskripsi,
+				bagian.sheet, bagian.namaBerkas, bagian.header, bagian.jenisKolom, bagian.baris);
+	}
+
+	private static double angkaRingkasan(SimpanPinjamReportService.Bagian bagian, String kunci) {
+		Object nilai = bagian.ringkasan.get(kunci);
+		return nilai instanceof Number ? ((Number) nilai).doubleValue() : 0.0;
 	}
 
 	// ════════════════════════════════════════════════════════════════════════════════════════
