@@ -140,33 +140,6 @@ public class KantinHelper {
 	}
 
 	/**
-	 * Menjumlahkan total tagihan, total diskon, dan total cashback dari seluruh baris {@code transaksi}
-	 * — logika yang SEBELUMNYA ditulis dua kali secara identik (karakter demi karakter) di
-	 * {@link #bayar} dan {@link #draft_bayar}, kini disatukan di sini supaya perubahan rumus
-	 * (mis. menambah komponen biaya baru) cukup dilakukan sekali dan otomatis berlaku di kedua jalur
-	 * checkout tanpa risiko salah satu salinan lupa diperbarui (drift).
-	 *
-	 * <p>{@code total} DIAWALI dari nominal pajak (PPN) di {@code jsonObject.pajak} bila dikirim POS
-	 * (bukan dari nol) — nama variabel "total" di sini berarti "total tagihan akhir", bukan "total
-	 * harga barang saja"; pajak ditambahkan LEBIH DULU, baru tiap baris item menambah
-	 * {@code (harga &times; jumlah) − diskon} di atasnya. Baris item yang gagal diparse (mis. field
-	 * numerik tidak valid) DILEWATI dan dicatat ke audit log — tidak menggagalkan seluruh perhitungan,
-	 * karena satu baris keranjang yang cacat tidak boleh membatalkan transaksi kasir yang sedang
-	 * berjalan di depan pembeli.</p>
-	 *
-	 * @param jsonObject     payload permintaan, dibaca field {@code pajak}-nya sebagai nilai awal total.
-	 * @param transaksi      array baris item ({@code {harga, jumlah, diskon, cashback}}), tidak boleh
-	 *                       null (pemanggil sudah memastikan ini lewat {@code jsonObject.getJSONArray}).
-	 * @param auditTagSuffix akhiran label unik untuk {@code ErrorAuditUtil} agar log baris gagal parse
-	 *                       bisa dibedakan asalnya (dipanggil dari {@link #bayar} atau
-	 *                       {@link #draft_bayar}).
-	 * @return {@link TotalHitung} berisi total/totalDiskon/totalCashback yang terakumulasi.
-	 * @throws Exception merambat HANYA dari pembacaan {@code jsonObject.pajak} sebelum loop (mis.
-	 *         {@code JSONException} bila field itu ada tapi tipenya tidak bisa dibaca) — kegagalan di
-	 *         DALAM loop per baris item TIDAK merambat (ditangkap &amp; dicatat per baris, lihat di
-	 *         atas), konsisten dengan perilaku method aslinya sebelum diekstrak.
-	 */
-	/**
 	 * Gap-closure "Produk Ekstra" -- meratakan {@code transaksi} (yang tiap itemnya BOLEH punya key
 	 * opsional {@code ekstra}: array {@code {id,kode,nama,harga,jumlah}}, {@code jumlah} = pengali
 	 * PER-UNIT induk) jadi {@code JSONArray} BARU berisi baris flat sejajar dgn baris induknya,
@@ -225,6 +198,33 @@ public class KantinHelper {
 		return hasil;
 	}
 
+	/**
+	 * Menjumlahkan total tagihan, total diskon, dan total cashback dari seluruh baris {@code transaksi}
+	 * — logika yang SEBELUMNYA ditulis dua kali secara identik (karakter demi karakter) di
+	 * {@link #bayar} dan {@link #draft_bayar}, kini disatukan di sini supaya perubahan rumus
+	 * (mis. menambah komponen biaya baru) cukup dilakukan sekali dan otomatis berlaku di kedua jalur
+	 * checkout tanpa risiko salah satu salinan lupa diperbarui (drift).
+	 *
+	 * <p>{@code total} DIAWALI dari nominal pajak (PPN) di {@code jsonObject.pajak} bila dikirim POS
+	 * (bukan dari nol) — nama variabel "total" di sini berarti "total tagihan akhir", bukan "total
+	 * harga barang saja"; pajak ditambahkan LEBIH DULU, baru tiap baris item menambah
+	 * {@code (harga &times; jumlah) − diskon} di atasnya. Baris item yang gagal diparse (mis. field
+	 * numerik tidak valid) DILEWATI dan dicatat ke audit log — tidak menggagalkan seluruh perhitungan,
+	 * karena satu baris keranjang yang cacat tidak boleh membatalkan transaksi kasir yang sedang
+	 * berjalan di depan pembeli.</p>
+	 *
+	 * @param jsonObject     payload permintaan, dibaca field {@code pajak}-nya sebagai nilai awal total.
+	 * @param transaksi      array baris item ({@code {harga, jumlah, diskon, cashback}}), tidak boleh
+	 *                       null (pemanggil sudah memastikan ini lewat {@code jsonObject.getJSONArray}).
+	 * @param auditTagSuffix akhiran label unik untuk {@code ErrorAuditUtil} agar log baris gagal parse
+	 *                       bisa dibedakan asalnya (dipanggil dari {@link #bayar} atau
+	 *                       {@link #draft_bayar}).
+	 * @return {@link TotalHitung} berisi total/totalDiskon/totalCashback yang terakumulasi.
+	 * @throws Exception merambat HANYA dari pembacaan {@code jsonObject.pajak} sebelum loop (mis.
+	 *         {@code JSONException} bila field itu ada tapi tipenya tidak bisa dibaca) — kegagalan di
+	 *         DALAM loop per baris item TIDAK merambat (ditangkap &amp; dicatat per baris, lihat di
+	 *         atas), konsisten dengan perilaku method aslinya sebelum diekstrak.
+	 */
 	private static TotalHitung hitungTotalDiskonCashback(JSONObject jsonObject, JSONArray transaksi,
 			String auditTagSuffix) throws Exception {
 		double pajak = jsonObject.isNull("pajak") ? 0.0
@@ -302,62 +302,6 @@ public class KantinHelper {
 		session.getTransaction().commit();
 	}
 
-	/**
-	 * <h3>Checkout final POS Kantin: simpan transaksi penjualan sekaligus seluruh efek sampingnya.</h3>
-	 *
-	 * <p>Method inti alur kasir. Untuk satu payload {@code jsonObject} berisi keranjang belanja
-	 * ({@code transaksi}), metode pembayaran, dan info toko/pembeli, method ini secara berurutan:</p>
-	 * <ol>
-	 *   <li>Memvalidasi field wajib (idToko, waktu, transaksi, caraBayar) dan menolak diam-diam
-	 *       (tidak melakukan apa pun) bila salah satu tidak ada — pemanggil di front-end sudah
-	 *       memastikan field ini terisi sebelum mengirim, jadi ini adalah lapisan pertahanan kedua,
-	 *       bukan validasi utama.</li>
-	 *   <li>Mengecek kecukupan stok server-side (lihat {@link #validasiStokCukupDenganLock}) — HANYA
-	 *       untuk keperluan audit log sejak 2026-07-20 (tidak lagi memblokir transaksi).</li>
-	 *   <li>Menghitung total tagihan/diskon/cashback lewat {@link #hitungTotalDiskonCashback}.</li>
-	 *   <li>Menyimpan/memperbarui baris {@code Lokasi} toko (dibuat otomatis bila toko ini belum pernah
-	 *       punya lokasi aktif — happens-once per toko, transparan bagi kasir).</li>
-	 *   <li>Menyimpan header {@code PembelianAnggotaKoperasi} — TIGA kemungkinan jalur: (a) MENYELESAIKAN
-	 *       draft yang sudah pernah dibayar-lunas-kan sebelumnya (baris {@code draftPembelianAnggotaKoperasi.getLunas()}
-	 *       sudah ada), (b) memperbarui transaksi existing berdasarkan {@code id} yang dikirim, atau
-	 *       (c) membuat transaksi baru sepenuhnya.</li>
-	 *   <li>Menulis ulang baris {@code koperasi.pembelian} (hapus baris lama milik header ini, lalu
-	 *       tulis ulang lewat {@code PembelianAnggotaKoperasi.simpanRinci}) — pola hapus-lalu-tulis-ulang
-	 *       ini membuat method aman dipanggil ulang untuk transaksi {@code id} yang sama (idempoten
-	 *       dari sisi baris item, walau bukan dari sisi efek samping stok/bahan-baku/aset di bawah).</li>
-	 *   <li>Memicu TIGA efek samping fail-safe independen: pemakaian bahan baku resep
-	 *       ({@link ais.action.master.inventory.BahanBakuUtil#konsumsiBahanBaku}) + recompute stok
-	 *       bahan baku yang terpakai; recompute stok produk yang DIJUAL LANGSUNG (Fase 1, menutup celah
-	 *       lama di mana hanya bahan baku yang direcompute); dan sinkron stok keluar ke modul Aset
-	 *       ({@link ais.action.master.inventory.KantinAssetSyncUtil#konsumsiPenjualanKeAset}, di balik
-	 *       gerbang konfigurasi, default mati).</li>
-	 *   <li>Menandai draft asal (bila ada) sebagai {@code lunas} — menautkannya ke header yang baru
-	 *       saja disimpan, sehingga UI "Keranjang Tertahan" tahu draft ini sudah selesai diproses.</li>
-	 * </ol>
-	 *
-	 * <p><b>Kompatibilitas jalur offline-first:</b> method ini adalah target akhir baik dari checkout
-	 * ONLINE langsung (kasir terhubung internet) MAUPUN dari flush antrian OFFLINE
-	 * ({@code pos_offline_service.jsp} memanggil method ini untuk tiap transaksi yang sempat tertunda
-	 * di IndexedDB perangkat kasir) — {@code kodeUnik} yang dikirim klien menjamin idempotensi lintas
-	 * kedua jalur (percobaan kirim ulang transaksi yang sama tidak menggandakan baris).</p>
-	 *
-	 * @param tbmuser    pengguna (kasir) yang login, dicatat sebagai pemilik transaksi.
-	 * @param jsonObject payload permintaan lengkap dari front-end kasir (JSP maupun ZK).
-	 * @param hasil      objek keluaran yang DIISI oleh method ini ({@code status}, {@code description},
-	 *                   {@code data}, {@code pembelianAnggotaKoperasi}) — bukan nilai kembali biasa,
-	 *                   mengikuti konvensi seluruh servlet API {@code /Data} di aplikasi ini.
-	 * @throws Exception hanya merambat untuk kegagalan di LUAR blok try/catch internal (mis. parsing
-	 *                    field wajib yang gagal sebelum session dibuka) — kegagalan SETELAH session
-	 *                    terbuka selalu ditangkap dan diterjemahkan menjadi {@code hasil.status = "91"},
-	 *                    tidak pernah merambat sebagai exception mentah ke pemanggil.
-	 */
-	/**
-	 * Hasil parse payload split-pembayaran (field opsional {@code caraBayarTambahan}, array berisi
-	 * s/d 4 objek {@code {caraBayar, nominal}} -- slot 2-5; slot 1 tetap dari field {@code caraBayar}
-	 * lama). Dipisah dari {@link #bayar(Tbmuser, JSONObject, JSONObject)} supaya method itu tidak
-	 * makin gemuk dan supaya validasi "total semua slot != totalBiaya" hanya ditulis SEKALI, dipakai
-	 * di kedua cabang if/else (draft vs baru) yang sebelumnya duplikat identik.
-	 */
 	/**
 	 * <h3>Jaring pengaman: isi nilai bayar yang tidak pernah ditulis klien.</h3>
 	 *
@@ -644,6 +588,13 @@ public class KantinHelper {
 		}
 	}
 
+	/**
+	 * Hasil parse payload split-pembayaran (field opsional {@code caraBayarTambahan}, array berisi
+	 * s/d 4 objek {@code {caraBayar, nominal}} -- slot 2-5; slot 1 tetap dari field {@code caraBayar}
+	 * lama). Dipisah dari {@link #bayar(Tbmuser, JSONObject, JSONObject)} supaya method itu tidak
+	 * makin gemuk dan supaya validasi "total semua slot != totalBiaya" hanya ditulis SEKALI, dipakai
+	 * di kedua cabang if/else (draft vs baru) yang sebelumnya duplikat identik.
+	 */
 	private static SplitPembayaran resolveSplitPembayaran(JSONObject jsonObject, Double totalBiaya) {
 		SplitPembayaran hasil = new SplitPembayaran();
 		if (jsonObject.isNull("caraBayarTambahan")) {
@@ -1077,6 +1028,55 @@ public class KantinHelper {
 		return faktor;
 	}
 
+	/**
+	 * <h3>Checkout final POS Kantin: simpan transaksi penjualan sekaligus seluruh efek sampingnya.</h3>
+	 *
+	 * <p>Method inti alur kasir. Untuk satu payload {@code jsonObject} berisi keranjang belanja
+	 * ({@code transaksi}), metode pembayaran, dan info toko/pembeli, method ini secara berurutan:</p>
+	 * <ol>
+	 *   <li>Memvalidasi field wajib (idToko, waktu, transaksi, caraBayar) dan menolak diam-diam
+	 *       (tidak melakukan apa pun) bila salah satu tidak ada — pemanggil di front-end sudah
+	 *       memastikan field ini terisi sebelum mengirim, jadi ini adalah lapisan pertahanan kedua,
+	 *       bukan validasi utama.</li>
+	 *   <li>Mengecek kecukupan stok server-side (lihat {@link #validasiStokCukupDenganLock}) — HANYA
+	 *       untuk keperluan audit log sejak 2026-07-20 (tidak lagi memblokir transaksi).</li>
+	 *   <li>Menghitung total tagihan/diskon/cashback lewat {@link #hitungTotalDiskonCashback}.</li>
+	 *   <li>Menyimpan/memperbarui baris {@code Lokasi} toko (dibuat otomatis bila toko ini belum pernah
+	 *       punya lokasi aktif — happens-once per toko, transparan bagi kasir).</li>
+	 *   <li>Menyimpan header {@code PembelianAnggotaKoperasi} — TIGA kemungkinan jalur: (a) MENYELESAIKAN
+	 *       draft yang sudah pernah dibayar-lunas-kan sebelumnya (baris {@code draftPembelianAnggotaKoperasi.getLunas()}
+	 *       sudah ada), (b) memperbarui transaksi existing berdasarkan {@code id} yang dikirim, atau
+	 *       (c) membuat transaksi baru sepenuhnya.</li>
+	 *   <li>Menulis ulang baris {@code koperasi.pembelian} (hapus baris lama milik header ini, lalu
+	 *       tulis ulang lewat {@code PembelianAnggotaKoperasi.simpanRinci}) — pola hapus-lalu-tulis-ulang
+	 *       ini membuat method aman dipanggil ulang untuk transaksi {@code id} yang sama (idempoten
+	 *       dari sisi baris item, walau bukan dari sisi efek samping stok/bahan-baku/aset di bawah).</li>
+	 *   <li>Memicu TIGA efek samping fail-safe independen: pemakaian bahan baku resep
+	 *       ({@link ais.action.master.inventory.BahanBakuUtil#konsumsiBahanBaku}) + recompute stok
+	 *       bahan baku yang terpakai; recompute stok produk yang DIJUAL LANGSUNG (Fase 1, menutup celah
+	 *       lama di mana hanya bahan baku yang direcompute); dan sinkron stok keluar ke modul Aset
+	 *       ({@link ais.action.master.inventory.KantinAssetSyncUtil#konsumsiPenjualanKeAset}, di balik
+	 *       gerbang konfigurasi, default mati).</li>
+	 *   <li>Menandai draft asal (bila ada) sebagai {@code lunas} — menautkannya ke header yang baru
+	 *       saja disimpan, sehingga UI "Keranjang Tertahan" tahu draft ini sudah selesai diproses.</li>
+	 * </ol>
+	 *
+	 * <p><b>Kompatibilitas jalur offline-first:</b> method ini adalah target akhir baik dari checkout
+	 * ONLINE langsung (kasir terhubung internet) MAUPUN dari flush antrian OFFLINE
+	 * ({@code pos_offline_service.jsp} memanggil method ini untuk tiap transaksi yang sempat tertunda
+	 * di IndexedDB perangkat kasir) — {@code kodeUnik} yang dikirim klien menjamin idempotensi lintas
+	 * kedua jalur (percobaan kirim ulang transaksi yang sama tidak menggandakan baris).</p>
+	 *
+	 * @param tbmuser    pengguna (kasir) yang login, dicatat sebagai pemilik transaksi.
+	 * @param jsonObject payload permintaan lengkap dari front-end kasir (JSP maupun ZK).
+	 * @param hasil      objek keluaran yang DIISI oleh method ini ({@code status}, {@code description},
+	 *                   {@code data}, {@code pembelianAnggotaKoperasi}) — bukan nilai kembali biasa,
+	 *                   mengikuti konvensi seluruh servlet API {@code /Data} di aplikasi ini.
+	 * @throws Exception hanya merambat untuk kegagalan di LUAR blok try/catch internal (mis. parsing
+	 *                    field wajib yang gagal sebelum session dibuka) — kegagalan SETELAH session
+	 *                    terbuka selalu ditangkap dan diterjemahkan menjadi {@code hasil.status = "91"},
+	 *                    tidak pernah merambat sebagai exception mentah ke pemanggil.
+	 */
 	public static void bayar(Tbmuser tbmuser, JSONObject jsonObject, JSONObject hasil) throws Exception {
 		if (!jsonObject.isNull("kodeUnik") && !jsonObject.isNull("idToko") && !jsonObject.isNull("waktu")
 				&& !jsonObject.isNull("transaksi") && !jsonObject.isNull("caraBayar")

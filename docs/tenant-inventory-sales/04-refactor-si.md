@@ -710,10 +710,58 @@ tidak akan terlihat dari blok 1 maupun 2.
 Blok 1 juga membuktikan dua turunan bekerja: kendaraan ditarik dari trip (di model tenant ia
 melekat pada trip, bukan SPJ), dan toko diturunkan dari gudangnya.
 
-### BELUM: empat belas aksi sisanya
+### Kelompok trip non-uang: 7 dari 19 aksi
 
-Termasuk keenam aksi bermuatan uang. Ujinya wajib ditulis **bersamaan** dengan
-pemindahannya, bukan sesudahnya.
+`tripStart` dan `tripBarangUpdate` menyusul. Dua aksi lain dalam kelompok ini **tetap
+ditolak**, dan alasannya bukan kekurangan waktu:
+
+**`tripNotaResult` beroperasi pada konsep yang tidak ada.** Ia memperbarui hasil kunjungan
+pada `spj_sales_nota` — nota kunjungan per SPJ. Sebagaimana dicatat di kelompok SPJ, model
+tenant tidak mengenalnya.
+
+**`tripDetail` menjumlahkan dua hal tanpa padanan.** Biaya dan setoran punya padanan, tetapi
+pembelian selama trip (`nota_sales_pembelian`) tidak punya tabel, dan penerimaan piutang
+tidak punya kaitan ke trip. Menyajikan sebagiannya sebagai total akan memberi angka yang
+lebih kecil dari sebenarnya — tanpa tanda apa pun bahwa ada yang hilang.
+
+### Uang muka operasional: perbedaan rancangan, bukan medan yang hilang
+
+Jalur legacy memulai trip dengan `saldoKasAwal` yang disalin dari `spj.uangMukaOperasional`
+— kas mengambang yang diperhitungkan saat rekonsiliasi.
+
+Model tenant tidak punya keduanya, dan rekonsiliasinya **memang tidak memakainya**:
+`sales_trip_rekonsiliasi` menimbang nilai barang bawa, barang kembali, penjualan, biaya, dan
+setoran. Jadi `tripStart` pada jalur tenant memulai trip tanpa saldo kas awal, dan itu benar
+untuk model ini.
+
+### Rencana dan hasil dipisah, dan itu lebih baik
+
+Legacy menyimpan rencana **dan** hasil pada satu baris `spj_sales_barang`: `qty_rencana`,
+`qty_dimuat`, lalu `qty_terjual`/`qty_kembali`/`qty_rusak`/`qty_hilang` menimpanya seiring
+trip berjalan.
+
+Model tenant memisahkannya: `sales_trip_barang` (yang dibawa) dan `sales_trip_hasil` (yang
+terjadi). Berapa yang dibawa tetap terbaca sesudah trip ditutup.
+
+`qty_hilang` dipetakan ke `selisih` — keduanya menyatakan kuantitas yang tidak kembali dan
+tidak terjual.
+
+### Uji kesetaraan: `uji-kesetaraan-trip-nonuang.sql`
+
+| Blok | Hasil |
+|---|---|
+| Barang yang dibawa (salinan rencana SPJ) | **SETARA** |
+| Hasil barang: terjual / kembali / rusak / hilang→selisih | **SETARA** |
+| **Keseimbangan: bawa = terjual + kembali + rusak + hilang** | **SETARA & SEIMBANG** |
+
+Blok 3 yang terpenting: ia membuktikan pemisahan menjadi dua tabel **tidak merusak
+keseimbangan kuantitas**. Kesalahan pemetaan `hilang`→`selisih` akan terlihat di sini
+sebagai ketidakseimbangan, bukan sekadar angka berbeda.
+
+### BELUM: dua belas aksi sisanya
+
+Termasuk keenam aksi bermuatan uang, dan dua aksi kelompok ini yang tertahan pada celah
+model. Ujinya wajib ditulis **bersamaan** dengan pemindahannya, bukan sesudahnya.
 
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 

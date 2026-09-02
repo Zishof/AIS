@@ -74,7 +74,8 @@ final class SalesInventoryTripTenant {
 	static boolean dukungAksi(String aksi) {
 		return "spjList".equals(aksi) || "tripList".equals(aksi)
 				|| "spjSimpan".equals(aksi) || "spjDetail".equals(aksi)
-				|| "spjStatus".equals(aksi);
+				|| "spjStatus".equals(aksi) || "tripStart".equals(aksi)
+				|| "tripBarangUpdate".equals(aksi);
 	}
 
 	/**
@@ -283,5 +284,121 @@ final class SalesInventoryTripTenant {
 	static String ubahStatusSpj(String skema) {
 		return "UPDATE " + skema + "surat_perintah_sales SET status = ?, tanggal_dirubah = now(),"
 				+ " oleh = ? WHERE id = ?";
+	}
+
+	// ------------------------------------------------------------------ kelompok trip non-uang
+
+	/**
+	 * <h4>Uang muka operasional: bukan celah, melainkan perbedaan rancangan</h4>
+	 *
+	 * <p>Jalur legacy memulai trip dengan {@code saldoKasAwal} yang disalin dari
+	 * {@code spj.uangMukaOperasional} — kas mengambang yang dibawa sales dan diperhitungkan saat
+	 * rekonsiliasi.</p>
+	 *
+	 * <p>Model tenant tidak punya keduanya, dan rekonsiliasinya memang <b>tidak memakainya</b>:
+	 * {@code sales_trip_rekonsiliasi} menimbang nilai barang bawa, barang kembali, penjualan,
+	 * biaya, dan setoran — tanpa kas mengambang. Jadi ini bukan medan yang hilang, melainkan
+	 * cara rekonsiliasi yang berbeda.</p>
+	 *
+	 * <p>Karena itu {@code tripStart} pada jalur tenant memulai trip tanpa saldo kas awal, dan
+	 * itu benar untuk model ini.</p>
+	 */
+	static boolean dukungUangMukaTrip() {
+		return false;
+	}
+
+	/**
+	 * Benar bila model tenant mengenal nota kunjungan per SPJ.
+	 *
+	 * <p>{@code tripNotaResult} memperbarui hasil kunjungan pada {@code spj_sales_nota} —
+	 * konsep yang, sebagaimana dicatat pada {@link #dukungNotaSpj()}, tidak ada di model tenant.
+	 * Aksinya tetap ditolak.</p>
+	 */
+	static boolean dukungHasilKunjungan() {
+		return false;
+	}
+
+	/**
+	 * Benar bila model tenant mencatat pembelian yang dilakukan selama trip.
+	 *
+	 * <p>Tidak ada tabel padanan {@code nota_sales_pembelian}. Karena {@code tripDetail}
+	 * menjumlahkannya bersama penerimaan piutang — yang juga tidak punya kaitan ke trip —
+	 * aksinya tetap ditolak sampai kedua jalurnya diputuskan.</p>
+	 */
+	static boolean dukungPembelianTrip() {
+		return false;
+	}
+
+	/** Status dan kepemilikan SPJ beserta gudangnya, untuk memulai trip. */
+	static String spjUntukMulai(String skema) {
+		return "SELECT COALESCE(j.status,''), j.salesperson_id, j.gudang_id, j.tanggal"
+				+ " FROM " + skema + "surat_perintah_sales j WHERE j.id = ?";
+	}
+
+	/** Trip yang sudah lahir dari SPJ ini; satu SPJ hanya boleh satu trip. */
+	static String tripDariSpj(String skema) {
+		return "SELECT COUNT(*) FROM " + skema + "sales_trip WHERE surat_perintah_sales_id = ?";
+	}
+
+	static String sisipTrip(String skema) {
+		return "INSERT INTO " + skema + "sales_trip (nomor_dokumen, surat_perintah_sales_id,"
+				+ " salesperson_id, gudang_id, tanggal_berangkat, status, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, 'ACTIVE', now(), ?)";
+	}
+
+	static String ubahNomorTrip(String skema) {
+		return "UPDATE " + skema + "sales_trip SET nomor_dokumen = ? WHERE id = ?";
+	}
+
+	/**
+	 * Menyalin barang rencana SPJ menjadi barang yang dibawa trip.
+	 *
+	 * <p>Legacy menyimpan rencana dan hasil pada <b>satu</b> baris {@code spj_sales_barang};
+	 * model tenant memisahkannya menjadi {@code sales_trip_barang} (yang dibawa) dan
+	 * {@code sales_trip_hasil} (yang terjadi). Pemisahan itu membuat rencana tidak tertimpa
+	 * hasil — riwayat berapa yang dibawa tetap terbaca sesudah trip ditutup.</p>
+	 */
+	static String salinBarangTrip(String skema) {
+		return "INSERT INTO " + skema + "sales_trip_barang (sales_trip_id, produk_id,"
+				+ " kuantitas_bawa, dibuat_pada, oleh)"
+				+ " SELECT ?, d.produk_id, d.kuantitas, now(), ?"
+				+ " FROM " + skema + "surat_perintah_sales_detail d"
+				+ " WHERE d.surat_perintah_sales_id = ?";
+	}
+
+	static String ubahStatusSpjJadiAktif(String skema) {
+		return "UPDATE " + skema + "surat_perintah_sales SET status = 'ACTIVE',"
+				+ " tanggal_dirubah = now(), oleh = ? WHERE id = ?";
+	}
+
+	// ---------- hasil barang ----------
+
+	/** Barang trip beserta status tripnya, untuk memeriksa wewenang sebelum memperbarui. */
+	static String barangTrip(String skema) {
+		return "SELECT b.sales_trip_id, b.produk_id, COALESCE(t.status,'')"
+				+ " FROM " + skema + "sales_trip_barang b"
+				+ " JOIN " + skema + "sales_trip t ON b.sales_trip_id = t.id"
+				+ " WHERE b.id = ?";
+	}
+
+	static String adaHasil(String skema) {
+		return "SELECT id FROM " + skema + "sales_trip_hasil"
+				+ " WHERE sales_trip_id = ? AND produk_id = ? LIMIT 1";
+	}
+
+	/**
+	 * Hasil barang per produk. {@code qty_hilang} legacy dipetakan ke {@code selisih}: keduanya
+	 * menyatakan kuantitas yang tidak kembali dan tidak terjual.
+	 */
+	static String sisipHasil(String skema) {
+		return "INSERT INTO " + skema + "sales_trip_hasil (sales_trip_id, produk_id,"
+				+ " kuantitas_terjual, kuantitas_kembali, kuantitas_rusak, selisih,"
+				+ " dibuat_pada, oleh) VALUES (?, ?, ?, ?, ?, ?, now(), ?)";
+	}
+
+	static String ubahHasil(String skema) {
+		return "UPDATE " + skema + "sales_trip_hasil SET kuantitas_terjual = ?,"
+				+ " kuantitas_kembali = ?, kuantitas_rusak = ?, selisih = ?,"
+				+ " tanggal_dirubah = now(), oleh = ? WHERE id = ?";
 	}
 }
