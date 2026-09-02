@@ -2626,10 +2626,45 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return kodeUnik;
 	}
 
+	/**
+	 * Menyetel kode unik secara manual, melewati pembangkitan otomatis.
+	 *
+	 * @param kodeUnik kode unik/barcode; harus benar-benar unik karena kolomnya berconstraint
+	 *                 {@code UNIQUE}
+	 */
 	public void setKodeUnik(String kodeUnik) {
 		this.kodeUnik = kodeUnik;
 	}
 
+	/**
+	 * Mengembalikan <b>disposisi SOP</b> yang mengendalikan status persetujuan baris ini —
+	 * implementasi kontrak abstrak {@link DataSop#getDisposisiSop()}.
+	 *
+	 * <p><b>Getter turunan yang menulis balik.</b> Baris DPT tidak menjalani alur SOP-nya
+	 * sendiri: ia <b>meminjam</b> disposisi milik dokumen sumbernya. Setiap pembacaan
+	 * meresolusi proxy lazy lewat {@code check(...)}, lalu menelusuri rantai
+	 * {@code if / else if} atas 14 tipe dokumen sumber dan menugaskan disposisi yang ditemukan
+	 * ke field — nilai itu ikut tersimpan ke kolom {@code disposisi_sop}.</p>
+	 *
+	 * <p>Karena selalu diambil ulang dari sumber, nilai yang dikembalikan <b>mengikuti keadaan
+	 * terkini</b> dokumen sumber: bila dokumen diajukan ulang dan mendapat disposisi baru,
+	 * method ini langsung mengembalikan disposisi baru itu. Perlu diingat hal ini
+	 * <b>tidak</b> memulihkan flag {@link #getAktif()} yang sudah terlanjur {@code false} —
+	 * lihat penjelasan pola satu-arah di sana.</p>
+	 *
+	 * <p><i>Kuirk urutan cabang:</i> untuk pembayaran termin ada <b>dua</b> cabang berurutan —
+	 * disposisi dokumen pembayaran termin lebih diutamakan, dan bila tidak ada barulah
+	 * disposisi pemesanan (PO) induknya dipakai sebagai cadangan.</p>
+	 *
+	 * <p>Cabang pertama (saldo awal aset) tidak memeriksa {@code null} pada hasilnya, sehingga
+	 * tagihan pengadaan tanpa disposisi akan menghasilkan {@code null} — bukan jatuh ke cabang
+	 * berikutnya. Cabang-cabang lain memeriksa {@code null} lebih dulu.</p>
+	 *
+	 * @return disposisi SOP terkini dari dokumen sumber, atau {@code null} bila dokumen
+	 *         sumbernya belum menjalani alur SOP
+	 * @see #getAktif()
+	 * @see #setDisposisiSop(DisposisiSop)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -2709,6 +2744,27 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menyetel disposisi SOP baris ini — implementasi kontrak abstrak
+	 * {@link DataSop#setDisposisiSop(DisposisiSop)}.
+	 *
+	 * <p><b>Setter defensif, bukan setter polos.</b> Argumen {@code null} atau disposisi yang
+	 * belum tersimpan ({@code getId() == null}) <b>diabaikan diam-diam</b>: field lama
+	 * dipertahankan. Tujuannya melindungi tautan disposisi yang sudah benar dari tertimpa
+	 * object setengah jadi — situasi yang mudah terjadi karena Hibernate juga memanggil setter
+	 * ini saat memuat baris dari database.</p>
+	 *
+	 * <p><i>Kuirk — logika mati:</i> penugasan di bawah ditulis sebagai ternary
+	 * {@code (this.disposisiSop != null && (disposisiSop == null || disposisiSop.getId() ==
+	 * null)) ? this.disposisiSop : disposisiSop}. Karena gerbang di atas sudah memulangkan
+	 * semua kasus {@code null}/tanpa-ID, syarat di dalam tanda kurung <b>tidak pernah</b>
+	 * bernilai benar; seluruh ternary itu setara dengan {@code this.disposisiSop =
+	 * disposisiSop;}. Dibiarkan apa adanya (dokumentasi ini hanya mencatat, tidak mengubah
+	 * logika).</p>
+	 *
+	 * @param disposisiSop disposisi SOP yang hendak ditautkan; {@code null} atau yang belum
+	 *                     ber-ID diabaikan
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
@@ -2718,6 +2774,43 @@ public class DaftarPengajuanTransfer extends DataSop {
 				: disposisiSop;
 	}
 
+	/**
+	 * Mengembalikan <b>akun buku besar lawan</b> yang dipakai saat pembayaran ini dijurnal —
+	 * umumnya akun utang yang akan didebet ketika uang keluar.
+	 *
+	 * <p><b>Getter turunan yang menulis balik</b>: {@code check(...)} lebih dulu, lalu rantai
+	 * {@code if / else if} atas 15 tipe dokumen sumber, dan hasilnya ditugaskan ke field
+	 * sehingga ikut tersimpan ke kolom {@code akun}.</p>
+	 *
+	 * <p>Tiga pola penurunan yang dipakai:</p>
+	 * <ul>
+	 *   <li><b>Utang penyedia</b> — untuk pengadaan: {@code jenisPenerimaanBarang
+	 *   .akunHutangPenyedia}, dengan {@code penyedia.akunUtang} sebagai cadangan bila
+	 *   penerimaan barangnya belum ada.</li>
+	 *   <li><b>Utang DP</b> — untuk termin dan DP pemesanan:
+	 *   {@code jenisPemesananPengadaanAsset.akunUtangDp}.</li>
+	 *   <li><b>Akun jenis dokumen</b> — untuk uang muka, kas besar, kas kecil, dana talangan,
+	 *   pajak, transaksi pegawai, dan transaksi koperasi: akun yang menempel pada data master
+	 *   "jenis"-nya masing-masing. Diskon siswa memakai {@code akunUtangDiskon} item biaya.</li>
+	 * </ul>
+	 * <p>Cabang reimbursement mendahulukan {@code getAkun()} dokumen (yang di sisi sana sudah
+	 * menurunkan akun anggaran/workspace atau akun tetap jenis reimbursement), dengan
+	 * {@code akunBiaya} lama sebagai cadangan; dibungkus {@code try/catch} yang mencatat
+	 * kegagalan ke {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p>Perhatikan beberapa cabang sengaja <b>menugaskan {@code null}</b> (bukan meneruskan ke
+	 * cabang berikutnya) ketika rantai relasinya tidak lengkap — mis. pengadaan tanpa jenis
+	 * penerimaan barang. Blok besar yang dikomentari di dalam cabang pembayaran pengadaan
+	 * adalah percobaan lama pemilihan akun DP berdasarkan formula termin ber-JSON; dibiarkan
+	 * sebagai jejak sejarah.</p>
+	 *
+	 * <p><i>Celah yang perlu diketahui:</i> tidak ada cabang untuk
+	 * {@link #getPembayaranHutangSupplier()} maupun {@link #getSaldoAwalMasterAsset()} tanpa
+	 * penerimaan/penyedia.</p>
+	 *
+	 * @return akun buku besar lawan, atau {@code null} bila tidak ada cabang yang cocok atau
+	 *         rantai relasinya tidak lengkap
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "akun", nullable = true)
 	public Akun getAkun() {
@@ -2879,10 +2972,25 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return akun;
 	}
 
+	/**
+	 * Menyetel akun buku besar lawan secara manual. Akan ditimpa oleh {@link #getAkun()} bila
+	 * dokumen sumbernya punya cabang penurunan.
+	 *
+	 * @param akun akun buku besar; boleh {@code null}
+	 */
 	public void setAkun(Akun akun) {
 		this.akun = akun;
 	}
 
+	/**
+	 * Mengembalikan data master jenis kas kecil yang menjadi sumber baris ini (baris tersebut
+	 * mewakili penyerahan saldo awal kas kecil).
+	 *
+	 * <p>Memanggil {@code check(...)} untuk meresolusi proxy lazy, tanpa logika turunan.</p>
+	 *
+	 * @return jenis kas kecil, atau {@code null} bila baris ini bertipe lain
+	 * @see #simpanJenisKasKecil(JenisKasKecil)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_kas_kecil", nullable = true)
 	public JenisKasKecil getJenisKasKecil() {
@@ -2890,10 +2998,39 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return jenisKasKecil;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah data master jenis kas kecil.
+	 *
+	 * @param jenisKasKecil data master sumber; boleh {@code null}
+	 */
 	public void setJenisKasKecil(JenisKasKecil jenisKasKecil) {
 		this.jenisKasKecil = jenisKasKecil;
 	}
 
+	/**
+	 * Mengembalikan penanda bahwa baris ini diselesaikan lewat <b>transfer bank</b> (bukan
+	 * mekanisme transitori).
+	 *
+	 * <p><b>Flag satu-arah kedua di class ini</b>, kembar pola dengan {@link #getAktif()}
+	 * namun berlawanan arah: begitu batch transfer pemiliknya sudah <b>direalisasikan</b>
+	 * ({@code prosesTransfer.getRealisasikanOleh() != null}) dan baris bukan transitori, field
+	 * {@code transfer} ditugaskan {@code true} — dan <b>tidak ada cabang yang pernah
+	 * menugaskan {@code false}</b>. Karena penugasan terjadi di dalam getter properti
+	 * Hibernate, nilai {@code true} itu tersimpan permanen ke database.</p>
+	 *
+	 * <p><i>Kejanggalan nilai bawaan:</i> field diinisialisasi {@code true} pada object baru,
+	 * tetapi method ini mengembalikan <b>{@code false}</b> bila field bernilai {@code null}
+	 * (baris lama hasil migrasi). Jadi "belum diketahui" dibaca sebagai bukan-transfer,
+	 * sementara object baru langsung dianggap transfer.</p>
+	 *
+	 * <p>Method ini memanggil {@link #getTransitori()}, yang membaca <b>field</b>
+	 * {@code transfer} secara langsung dan bukan getter ini — itulah yang mencegah rekursi
+	 * tak berujung di antara keduanya. Jangan ubah salah satunya menjadi pemanggilan getter.</p>
+	 *
+	 * @return {@code true} bila baris diselesaikan lewat transfer bank, {@code false} bila
+	 *         tidak atau belum diketahui
+	 * @see #getTransitori()
+	 */
 	public Boolean getTransfer() {
 
 		if (getProsesTransfer() != null && getProsesTransfer().getRealisasikanOleh() != null && !getTransitori()) {

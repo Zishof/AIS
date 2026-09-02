@@ -2405,6 +2405,15 @@ public class PosApi extends HttpServlet {
 					|| menu.optBoolean("apotik_racikan", false)
 					|| menu.optBoolean("apotik_kasir", false);
 		}
+		// IR-10: metrik dasbor adalah rangkuman angka yang sudah dilihat lewat
+		// layar masing-masing, jadi cukup salah satu haknya -- bukan hak laporan
+		// penuh, supaya kasir tetap melihat dasbornya.
+		if ("apotik_metrik_operasional".equals(action)) {
+			return menu.optBoolean("apotik_kasir", false)
+					|| menu.optBoolean("apotik_resep", false)
+					|| menu.optBoolean("apotik_batch", false)
+					|| menu.optBoolean("apotik_laporan", false);
+		}
 		// IR-07: daftar metode pembayaran hanya berguna bagi kasir apotik.
 		if ("apotik_cara_bayar_list".equals(action)) {
 			return menu.optBoolean("apotik_kasir", false);
