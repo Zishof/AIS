@@ -371,6 +371,7 @@ public final class PsbCalonApi {
 							? null : tagihan.getPengaturanBiaya().getJenisBiayaSekolah().getNama());
 			ApiHelperSupport.put(item, "item",
 					tagihan.getItemBiayaSekolah() == null ? null : tagihan.getItemBiayaSekolah().getNama());
+			TagihanApiGrupUtil.putGrup(item, tagihan);
 			ApiHelperSupport.put(item, "nominal", tagihan.getNominal());
 			ApiHelperSupport.put(item, "dibayar", dibayar);
 			keluaran.put(item);

@@ -4,6 +4,8 @@ import java.io.File;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -82,6 +84,7 @@ import ais.database.model.sekolah.AkunPembayaranSiswa;
 import ais.database.model.sekolah.CalonSiswa;
 import ais.database.model.sekolah.DepositSiswa;
 import ais.database.model.sekolah.DiskonSiswa;
+import ais.database.model.sekolah.GrupItemBiayaSekolah;
 import ais.database.model.sekolah.JenisBiayaSekolah;
 import ais.database.model.sekolah.NominalBiaya;
 import ais.database.model.sekolah.PembayaranSiswa;
@@ -3144,8 +3147,21 @@ public class PembayaranOnline extends GenericAutowireComposer {
 					}
 					Calendar cal = null;
 					JenisBiayaSekolah jbs = pb.getJenisBiayaSekolah();
+					List<Tagihan> listTagihanTampil = new ArrayList<Tagihan>(listTagihanLokal);
+					Collections.sort(listTagihanTampil, new Comparator<Tagihan>() {
+						@Override public int compare(Tagihan kiri, Tagihan kanan) {
+							GrupItemBiayaSekolah gKiri = kiri == null || kiri.getItemBiayaSekolah() == null
+									? null : kiri.getItemBiayaSekolah().getGrupItemBiayaSekolah();
+							GrupItemBiayaSekolah gKanan = kanan == null || kanan.getItemBiayaSekolah() == null
+									? null : kanan.getItemBiayaSekolah().getGrupItemBiayaSekolah();
+							String kKiri = gKiri == null ? "\uffff" : gKiri.getLabelTampilan().toLowerCase();
+							String kKanan = gKanan == null ? "\uffff" : gKanan.getLabelTampilan().toLowerCase();
+							return kKiri.compareTo(kKanan);
+						}
+					});
+					Long grupItemTerakhir = null;
 
-					for (final Tagihan tagihan : listTagihanLokal) {
+					for (final Tagihan tagihan : listTagihanTampil) {
 						if (((tagihan.getAktif() && (pilihBukanTagihan.isChecked() || !tagihan.ambilBukanTagihanData()))
 								&& !tagihan.getNominalBiaya().getBukanTagihan())
 								&& tagihan.getPembayaranSiswaDetail() == null) {
@@ -3169,6 +3185,15 @@ public class PembayaranOnline extends GenericAutowireComposer {
 							}
 
 							if (tagihan.getPembayaranSiswaDetail() == null) {
+								GrupItemBiayaSekolah grupItem = tagihan.getItemBiayaSekolah() == null ? null
+										: tagihan.getItemBiayaSekolah().getGrupItemBiayaSekolah();
+								if (grupItem != null && grupItem.getId() != null
+										&& !grupItem.getId().equals(grupItemTerakhir)) {
+									MyGroupConfig kepalaGrupItem = new MyGroupConfig(grupItem.getLabelTampilan());
+									kepalaGrupItem.setStyle("background:#0f4c5c;color:white;font-weight:bold;");
+									kepalaGrupItem.setParent(rowsDetailBiaya);
+									grupItemTerakhir = grupItem.getId();
+								}
 								MyFormRow row = new MyFormRow();
 								row.setValign("top");
 								row.setParent(rowsDetailBiaya);

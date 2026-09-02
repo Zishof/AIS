@@ -160,11 +160,7 @@ public class TagihanSiswa {
 							JSONObject js = new JSONObject();
 							js.put("wajibPilih", tagihan.tagihanLainWajib(tagihans));
 							js.put("id", tagihan.getId());
-							js.put("grup_kode",
-									tagihan.getPengaturanBiaya().getJenisBiayaSekolah().getKode());
-							js.put("grup_nama", tagihan.getPengaturanBiaya().toString());
-							js.put("grup_ta", tagihan.getPengaturanBiaya().getNama() + "-"
-									+ tagihan.getPengaturanBiaya().getTahunAjaran());
+							TagihanApiGrupUtil.putGrup(js, tagihan);
 							js.put("item_id", tagihan.getItemBiayaSekolah().getId());
 							js.put("nama", tagihan.getItemBiayaSekolah().getNama());
 							js.put("kode", tagihan.getItemBiayaSekolah().getKode());
@@ -422,11 +418,7 @@ public class TagihanSiswa {
 								}
 
 								js.put("id", tagihan.getId());
-								js.put("grup_kode", tagihan.getPengaturanBiaya()
-										.getJenisBiayaSekolah().getKode());
-								js.put("grup_nama", tagihan.getPengaturanBiaya().toString());
-								js.put("grup_ta", tagihan.getPengaturanBiaya().getNama() + "-"
-										+ tagihan.getPengaturanBiaya().getTahunAjaran());
+								TagihanApiGrupUtil.putGrup(js, tagihan);
 								js.put("item_id", tagihan.getItemBiayaSekolah().getId());
 								js.put("nama", tagihan.getItemBiayaSekolah().getNama());
 								js.put("kode", tagihan.getItemBiayaSekolah().getKode());
@@ -668,10 +660,7 @@ public class TagihanSiswa {
 											js.put("wajibPilih", tagihan.tagihanLainWajib(tagihans));
 											js.put("id", tagihan.getId());
 											js.put("grup_id", pengaturanBiaya.getId());
-											js.put("grup_kode", pengaturanBiaya.getJenisBiayaSekolah().getKode());
-											js.put("grup_nama", pengaturanBiaya.toString());
-											js.put("grup_ta", pengaturanBiaya.getJenisBiayaSekolah().getNama() + "-"
-													+ pengaturanBiaya.getTahunAjaran());
+											TagihanApiGrupUtil.putGrup(js, tagihan);
 											js.put("item_id", tagihan.getItemBiayaSekolah().getId());
 											js.put("nama", tagihan.getItemBiayaSekolah().getNama());
 											js.put("kode", tagihan.getItemBiayaSekolah().getKode());
@@ -1007,10 +996,7 @@ public class TagihanSiswa {
 							js.put("wajibPilih", tagihan.tagihanLainWajib(tagihans));
 							js.put("id", tagihan.getId());
 							js.put("grup_id", pengaturanBiaya.getId());
-							js.put("grup_kode", pengaturanBiaya.getJenisBiayaSekolah().getKode());
-							js.put("grup_nama", pengaturanBiaya.toString());
-							js.put("grup_ta", pengaturanBiaya.getJenisBiayaSekolah().getNama() + "-"
-									+ pengaturanBiaya.getTahunAjaran());
+							TagihanApiGrupUtil.putGrup(js, tagihan);
 							js.put("item_id", tagihan.getItemBiayaSekolah().getId());
 							js.put("nama", tagihan.getItemBiayaSekolah().getNama());
 							js.put("kode", tagihan.getItemBiayaSekolah().getKode());
@@ -1173,11 +1159,7 @@ public class TagihanSiswa {
 							PembayaranSiswaDetail pembayaranSiswaDetail = tagihan.getPembayaranSiswaDetail();
 
 							js.put("id", pembayaranSiswaDetail.getId());
-							js.put("grup_kode",
-									tagihan.getPengaturanBiaya().getJenisBiayaSekolah().getKode());
-							js.put("grup_nama", tagihan.getPengaturanBiaya().toString());
-							js.put("grup_ta", tagihan.getPengaturanBiaya().getNama() + "-"
-									+ tagihan.getPengaturanBiaya().getTahunAjaran());
+							TagihanApiGrupUtil.putGrup(js, tagihan);
 							js.put("nama", pembayaranSiswaDetail.getItemBiayaSekolah().getNama());
 							js.put("kode", pembayaranSiswaDetail.getItemBiayaSekolah().getKode());
 							js.put("nominal", pembayaranSiswaDetail.getNominal());
@@ -1533,12 +1515,7 @@ public class TagihanSiswa {
 										JSONObject js = new JSONObject();
 										js.put("wajibPilih", tagihan.tagihanLainWajib(tagihans));
 										js.put("id", tagihan.getId());
-										js.put("grup_kode", tagihan.getPengaturanBiaya()
-												.getJenisBiayaSekolah().getKode());
-										js.put("grup_nama", tagihan.getPengaturanBiaya().toString());
-										js.put("grup_ta", tagihan.getPengaturanBiaya()
-												.getJenisBiayaSekolah().getNama() + "-"
-												+ tagihan.getPengaturanBiaya().getTahunAjaran());
+										TagihanApiGrupUtil.putGrup(js, tagihan);
 										js.put("item_id", tagihan.getItemBiayaSekolah().getId());
 										js.put("nama", tagihan.getItemBiayaSekolah().getNama());
 										js.put("kode", tagihan.getItemBiayaSekolah().getKode());

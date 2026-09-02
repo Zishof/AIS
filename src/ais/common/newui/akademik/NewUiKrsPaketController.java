@@ -49,18 +49,17 @@ import ais.database.model.Tbmuser;
  * dari layar akademik lain akan menyembunyikan semester yang seharusnya dapat
  * dilihat mahasiswa lama.</p>
  *
- * <h3>Pengambilan paket belum tersedia di sini</h3>
- * <p>Tombol "Ambil Paket Perkuliahan" pada layar lama menjalankan rangkaian
- * validasi berlapis — tahapan, peringatan akademik, keharusan punya dosen
- * pembimbing akademik, status pembayaran, dan status keaktifan mahasiswa —
- * sebelum membuka {@code AmbilDataPaketPerkuliahanHelper}. Rangkaian itu belum
- * dipindahkan, dan {@code meta} menyatakannya secara eksplisit lewat
- * {@code ambilPaketTersedia: false} beserta alasannya.</p>
+ * <h3>Pengambilan paket</h3>
+ * <p>Tersedia lewat aksi {@code create}, dan keempat gerbangnya — syarat ujian
+ * ber-KRS, dosen pembimbing akademik, pembayaran, serta status keaktifan —
+ * dievaluasi ulang di dalamnya, bukan dipercayakan pada pemanggilan
+ * {@code options} sebelumnya.</p>
  *
- * <p>Menyediakannya setengah jadi lebih berbahaya daripada tidak menyediakannya:
- * satu gerbang yang terlewat berarti mahasiswa mengambil paket yang seharusnya
- * ditolak — pada masa pengisian KRS, dan tanpa gejala sampai ada yang
- * memeriksa.</p>
+ * <p>Satu jalur masih ditutup: bila konfigurasi pembuatan jadwal otomatis
+ * menyala, layar lama membuat jadwal kosong lebih dulu, dan jalur itu belum
+ * dipindahkan. Permintaannya ditolak seluruhnya, dan {@code meta} menyatakannya
+ * lewat {@code ambilPaketTersedia: false} beserta alasannya. Mengambil sebagian
+ * paket akan tampak berhasil dan meninggalkan KRS yang kurang.</p>
  */
 public final class NewUiKrsPaketController {
 
@@ -246,6 +245,13 @@ public final class NewUiKrsPaketController {
         j.put("totalSks", totalSks);
         j.put("semester", semester);
         j.put("ditulisKeBasisData", keDatabase);
+        // Tahun ajaran semester ini. Tanpa ini pengambilan paket tidak dapat
+        // dipakai sama sekali: aksi `create` mewajibkan tahunAjaran, sedangkan
+        // tidak ada aksi lain yang pernah memberitahukannya kepada klien.
+        // Memakai helper yang sama dengan Ikut Perkuliahan supaya kedua layar
+        // menurunkannya dari sumber yang sama.
+        j.put("tahunAjaran", NewUiIkutPerkuliahanController.tahunAjaran(
+                mahasiswa, semester, semesterPendek));
         if (krs != null) {
             // Ringkasan KRS memakai field yang benar-benar ada pada
             // KrsMahasiswa: sks yang diambil dan keterangannya.
@@ -459,6 +465,10 @@ public final class NewUiKrsPaketController {
         j.put("gerbang", daftar);
         j.put("bolehAmbilPaket", semuaLolos);
         j.put("semester", semester);
+        // Ikut diumumkan di sini juga: klien yang memeriksa gerbang lebih dulu
+        // sudah memegang semua yang dibutuhkan untuk memanggil `create`.
+        j.put("tahunAjaran", NewUiIkutPerkuliahanController.tahunAjaran(
+                mahasiswa, semester, semesterPendek));
     }
 
     // ------------------------------------------------------------ ambil paket
