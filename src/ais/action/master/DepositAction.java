@@ -202,6 +202,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	private Mahasiswa mhs;
 	private Siswa sis;
 	private Map<Long, Double> saldoDepositCache = new HashMap<Long, Double>();
+	private boolean modeTopupSiswa;
 
 	/** Memeriksa keamanan sesi sebelum komponen ZK mulai dibangun. */
 	@Override
@@ -223,23 +224,28 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	 * administratif ini.
 	 */
 	private boolean bolehMenampilkanTopupSiswa() {
-		return ya && add != null && add.isVisible() && !isLoginPenabungTerbatas()
-				&& Common.bolehKonfigurasi("tampilkan_tabungan_siswa");
+		return add != null && add.isVisible() && bolehEntryTopupSiswaAktif();
 	}
 
-	/** Membuka alur Pembayaran Siswa dalam mode topup-only. */
-	private void tampilTopupSiswa() throws Exception {
-		final MyWindow topupWindow = new MyWindow("Topup Tabungan Siswa", "none", false);
-		tabMutasiPanel.getPage().getFirstRoot().appendChild(topupWindow);
-		topupWindow.setHeight("90%");
-		topupWindow.setWidth("95%");
+	private boolean bolehEntryTopupSiswaAktif() {
+		return ya && tbmuser != null && !isLoginPenabungTerbatas()
+				&& Common.bolehKonfigurasi("tampilkan_tabungan_siswa")
+				&& tbmuser.bolehEntryTopupAktif();
+	}
 
-		MyInclude include = new MyInclude(
-				"/pages/master/sekolah/pem_online.zul?lbl_siswa=true&modetopup=1");
-		include.setHeight("100%");
-		include.setWidth("100%");
-		include.setParent(topupWindow);
-		topupWindow.onModal();
+	/** Membuka form topup langsung, mengikuti alur manajemen topup pada modul Kantin. */
+	private void tampilTopupSiswa() throws Exception {
+		if (!bolehEntryTopupSiswaAktif()) {
+			PesanFormalHelper.tampilkanGagal("membuka topup tabungan siswa",
+					"Bapak/Ibu tidak memiliki hak aktif untuk menambah saldo tabungan siswa.",
+					new String[] { "Minta administrator memeriksa hak Entry Topup pada role yang digunakan." });
+			return;
+		}
+
+		modeTopupSiswa = true;
+		init(new Deposit());
+		addWindow.setVisible(true);
+		addWindow.onModal();
 	}
 
 	private Long getLoginMahasiswaId() {
@@ -513,7 +519,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 		MyToolbarbuttonConfig btnTopup = new MyToolbarbuttonConfig("Topup", "/img/svg/payments.svg");
 		btnTopup.setTooltiptext(
-				"Membuat pembayaran topup siswa. Saldo tabungan bertambah otomatis setelah pembayaran berhasil.");
+				"Menambah saldo tabungan siswa secara langsung seperti topup pada modul Kantin.");
 		btnTopup.setVisible(bolehMenampilkanTopupSiswa());
 		btnTopup.addEventListener("onClick", new EventListener() {
 			@Override
@@ -1997,6 +2003,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 	/** Membuka dialog tambah {@link Deposit} baru. */
 	public void onAdd(Event event) throws Exception {
+		modeTopupSiswa = false;
 		init(new Deposit());
 		addWindow.setVisible(true);
 		addWindow.onModal();
@@ -2005,6 +2012,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	/** Implementasi {@link DataInitDefault}: membuka dialog ubah untuk {@code obj} (harus berupa {@link Deposit}). */
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
+		modeTopupSiswa = false;
 		deposit = (Deposit) obj;
 		init(deposit);
 		addWindow.setVisible(true);
@@ -2014,11 +2022,17 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	/** Membangun form tambah/ubah {@link Deposit}: pemilih penabung (mahasiswa/calon mahasiswa untuk mode perguruan tinggi, siswa/calon siswa untuk mode sekolah, atau anggota koperasi), nominal, waktu, tanggal kedaluwarsa, jenis pembayaran/tabungan, dan keterangan. */
 	private void init(Deposit deposit) throws Exception {
 		this.deposit = deposit;
-		addWindow.setTitle(deposit.getId() == null ? "Tambah Tabungan" : "Ubah Tabungan");
+		final boolean formTopupSiswa = modeTopupSiswa;
+		addWindow.setTitle(formTopupSiswa ? "Topup Tabungan Siswa"
+				: deposit.getId() == null ? "Tambah Tabungan" : "Ubah Tabungan");
+		addWindow.setWidth(Common.isAsliMobile() ? "96%" : "650px");
+		addWindow.setHeight(Common.isAsliMobile() ? "90%" : "560px");
+		addWindow.setContentStyle("overflow:hidden;box-sizing:border-box;");
 		Common.clear(addWindow);
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 		Center center = new Center();
 		center.setParent(borderlayout);
+		center.setAutoscroll(true);
 		ais.ui.util.ZkCompat.setFlex(center, true);
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");
@@ -2082,7 +2096,8 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		calonSiswa.setAttribute("calonSiswa", deposit.getCalonSiswa());
 		calonSiswa.setWidth("90%");
 
-		final boolean memberTampilDiDeposit = Common.bolehKonfigurasi("member_tampil_di_deposit");
+		final boolean memberTampilDiDeposit = !formTopupSiswa
+				&& Common.bolehKonfigurasi("member_tampil_di_deposit");
 		row = new MyFormRow();
 		row.setVisible(memberTampilDiDeposit);
 		row.setParent(rows);
@@ -2139,13 +2154,14 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 		row = new MyFormRow();
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Nominal *"));
+		row.appendChild(new ais.ui.util.MyLabelConfig(formTopupSiswa ? "Nominal Pengisian *" : "Nominal *"));
 		row.appendChild(nominal = new MyDoublebox(deposit.getNominal()));
 
 		row = new MyFormRow();
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Tanggal/Waktu *"));
-		row.appendChild(waktu = new MyDatebox(deposit.getWaktu()));
+		row.appendChild(new ais.ui.util.MyLabelConfig(formTopupSiswa ? "Waktu Transaksi *" : "Tanggal/Waktu *"));
+		row.appendChild(waktu = new MyDatebox(
+				formTopupSiswa && deposit.getWaktu() == null ? new Date() : deposit.getWaktu()));
 		waktu.setFormat(Common.dateFormat.get().toPattern());
 		waktu.setReadonly(true);
 		waktu.setWidth("90%");
@@ -2163,7 +2179,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 		row = new MyFormRow();
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Cara Pembayaran *"));
+		row.appendChild(new ais.ui.util.MyLabelConfig(formTopupSiswa ? "Jenis Pembayaran *" : "Cara Pembayaran *"));
 
 		if (deposit != null && deposit.getJenisPembayaran() == null) {
 			JenisPembayaran jenisPembayaranDefault = (JenisPembayaran) HibernateUtil.currentSession()
@@ -2184,6 +2200,14 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Jenis Tabungan *"));
+
+		if (deposit != null && deposit.getJenisTabungan() == null) {
+			JenisTabungan jenisTabunganDefault = (JenisTabungan) HibernateUtil.currentSession()
+					.createCriteria(JenisTabungan.class).add(Restrictions.eq("defaultTabungan", true))
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setMaxResults(1)
+					.uniqueResult();
+			deposit.setJenisTabungan(jenisTabunganDefault);
+		}
 
 		Common.insertCombo(jenisTabungan = new Combobox(), "nama", "akun", JenisTabungan.class,
 				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
@@ -2211,19 +2235,25 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 			@Override
 			public void onEvent(Event event) throws Exception {
 				addWindow.setVisible(false);
+				modeTopupSiswa = false;
 			}
 		});
 		cancel.setParent(toolbar);
 		MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
-		save.setVisible((add != null && add.isVisible()) && edit && delete && tbmuser != null && !isLoginPenabungTerbatas()
-				&& tbmuser.getBiodataCalonMahasiswa() == null);
+		save.setVisible(formTopupSiswa ? bolehMenampilkanTopupSiswa()
+				: (add != null && add.isVisible()) && edit && delete && tbmuser != null
+						&& !isLoginPenabungTerbatas() && tbmuser.getBiodataCalonMahasiswa() == null);
 		save.setTooltiptext("Simpan");
 		save.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
 				if (onSave(event)) {
 					onSearchDefault(null);
+					if (formTopupSiswa) {
+						initMutasiTabungan("");
+					}
 					addWindow.setVisible(false);
+					modeTopupSiswa = false;
 				}
 			}
 		});
@@ -2250,6 +2280,13 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
 	 */
 	public boolean onSave(Event event) throws Exception {
+		if (modeTopupSiswa && !bolehEntryTopupSiswaAktif()) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan topup tabungan siswa",
+					"Hak Entry Topup tidak lagi aktif sehingga data tidak dapat disimpan.",
+					new String[] { "Minta administrator memeriksa hak Entry Topup pada role yang digunakan." });
+			return false;
+		}
+
 		Object attrMahasiswa = getAttributeQuietly(mahasiswa, "mahasiswa");
 		Object attrCalonMahasiswa = getAttributeQuietly(calonMahasiswa, "calonMahasiswa");
 		Object attrAnggotaKoperasi = getAttributeQuietly(anggotaKoperasi, "anggotaKoperasi");
@@ -2265,9 +2302,12 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 					});
 			return false;
 		}
-		if (nominal.getValue() == null || Math.abs(nominal.getValue().doubleValue()) < 0.1) {
+		if (nominal.getValue() == null || (modeTopupSiswa ? nominal.getValue().doubleValue() < 0.1
+				: Math.abs(nominal.getValue().doubleValue()) < 0.1)) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Nominal",
-					"Kolom Nominal belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
+					modeTopupSiswa
+							? "Nominal topup harus diisi dengan nilai lebih besar dari nol."
+							: "Kolom Nominal belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 					new String[] {
 							"Isi/pilih terlebih dahulu Nominal.",
 							"Ulangi proses penyimpanan setelah kolom tersebut terisi."

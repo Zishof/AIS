@@ -58,8 +58,12 @@ import ais.ui.util.WaktuUtil;
  * advisory transaction lock berdasarkan {@code NO_TRANSAKSI_BMT}; ledger
  * transaksi menyimpan pasangan transaksi-invoice-nominal. Retry transaksi yang
  * sama mengembalikan sukses yang sama, sedangkan penggunaan nomor transaksi
- * untuk invoice/nominal berbeda ditolak. Saldo/tagihan baru diposting melalui
- * mesin kanonik {@link VirtualAccountBank}, bukan melalui SQL saldo langsung.</p>
+ * untuk invoice/nominal berbeda ditolak. Lock memakai tingkat session supaya
+ * tetap dipegang ketika ledger PROCESSING di-commit dan mesin posting membuka
+ * transaksi terpisah. Urutan commit ini memungkinkan retry memulihkan SUCCESS
+ * bila proses terputus setelah bukti pembayaran terbentuk, tanpa posting ganda.
+ * Saldo/tagihan baru diposting melalui mesin kanonik {@link VirtualAccountBank},
+ * bukan melalui SQL saldo langsung.</p>
  *
  * <h3>Aturan nominal</h3>
  * <p>NOMINAL harus sama dengan {@code total + biayaAdmin} invoice, dengan
