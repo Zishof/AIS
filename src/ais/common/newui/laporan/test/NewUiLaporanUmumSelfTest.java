@@ -80,6 +80,33 @@ public final class NewUiLaporanUmumSelfTest {
         check("penelitiandanpengabdian/Rekap_Artikel".equals(
                         NewUiLaporanUmumController.templateUntuk("penelitian_rekap_artikel")),
                 "Rekap Publikasi/Jurnal harus tetap memakai template legacy yang tepat");
+        check("library/tracking_stok_item".equals(
+                        NewUiLaporanUmumController.templateUntuk("library_tracking_stok_item")),
+                "Tracking Stok Item harus memakai template perpustakaan, bukan template SIRS");
+
+        Object tracking = peta.get("library_tracking_stok_item");
+        Field trackingFilterField = tracking.getClass().getDeclaredField("filter");
+        trackingFilterField.setAccessible(true);
+        boolean banyakItem = false;
+        boolean tergantungPerpustakaan = false;
+        for (Object f : (List<Object>) trackingFilterField.get(tracking)) {
+            Field namaField = f.getClass().getDeclaredField("nama");
+            namaField.setAccessible(true);
+            if (!"items".equals(namaField.get(f))) continue;
+            Field tipeField = f.getClass().getDeclaredField("tipe");
+            tipeField.setAccessible(true);
+            banyakItem = "relasi_banyak".equals(tipeField.get(f));
+            Field tergantungField = f.getClass().getDeclaredField("tergantungPada");
+            tergantungField.setAccessible(true);
+            tergantungPerpustakaan = "perpustakaan".equals(tergantungField.get(f));
+        }
+        Field mundurField = tracking.getClass().getDeclaredField("mulaiBulanMundur");
+        mundurField.setAccessible(true);
+        check(banyakItem, "Tracking Stok Item harus menerima pilihan banyak item");
+        check(tergantungPerpustakaan,
+                "Pilihan item Tracking Stok harus mengikuti perpustakaan terpilih");
+        check(((Number) mundurField.get(tracking)).intValue() == 3,
+                "Periode awal Tracking Stok Item harus tiga bulan ke belakang");
 
         // TipePenelitianDanPengabdian berbeda dari relasi lazim: labelnya ada
         // pada properti `isi`, bukan `nama`. Default ketika tidak dipilih juga

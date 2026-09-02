@@ -59,11 +59,13 @@ public final class NewUiLaporanUmumController {
     static final String TIPE_BULAN = "bulan";
     static final String TIPE_TANGGAL = "tanggal";
     static final String TIPE_RELASI = "relasi";
+    static final String TIPE_RELASI_BANYAK = "relasi_banyak";
     static final String TIPE_TEKS = "teks";
 
     /** Satu filter laporan: nama parameter Jasper + cara klien memintanya. */
     static final class Filter {
         final String nama, label, tipe, entity, propertiNama, paramNamaBawaan;
+        String tergantungPada;
         final boolean wajib;
         /**
          * Bila diisi, controller ikut mengirim parameter bernama ini berisi
@@ -100,6 +102,10 @@ public final class NewUiLaporanUmumController {
         static Filter relasi(String nama, String label, String entity, boolean wajib) {
             return new Filter(nama, label, TIPE_RELASI, wajib, entity);
         }
+        static Filter relasiBanyak(String nama, String label, String entity, boolean wajib) {
+            return new Filter(nama, label, TIPE_RELASI_BANYAK, wajib, entity);
+        }
+        Filter tergantung(String namaFilter) { tergantungPada = namaFilter; return this; }
         static Filter teks(String nama, String label) { return new Filter(nama, label, TIPE_TEKS, false, null); }
     }
 
@@ -114,12 +120,14 @@ public final class NewUiLaporanUmumController {
          * {@code Calendar.getMaximum(DAY_OF_MONTH)}.
          */
         final Map<String, String> tetap = new LinkedHashMap<String, String>();
+        int mulaiBulanMundur;
         Laporan(String judul, String template, Filter... filter) {
             this.judul = judul; this.template = template;
             this.filter = new ArrayList<Filter>();
             for (int i = 0; i < filter.length; i++) this.filter.add(filter[i]);
         }
         Laporan tetap(String nama, String nilai) { tetap.put(nama, nilai); return this; }
+        Laporan mulaiBulanMundur(int bulan) { mulaiBulanMundur = bulan; return this; }
     }
 
     private static final Map<String, Laporan> REGISTRI = new LinkedHashMap<String, Laporan>();
@@ -178,6 +186,13 @@ public final class NewUiLaporanUmumController {
                         perpustakaan(),
                         Filter.relasi("item", "Item", "ais.database.model.library.Item", false),
                         Filter.mulai(), Filter.sampai()));
+        REGISTRI.put("library_tracking_stok_item",
+                new Laporan("Laporan Tracking Stok Item", "library/tracking_stok_item",
+                        perpustakaan(),
+                        Filter.relasiBanyak("items", "Item", "ais.database.model.library.Item", true)
+                                .tergantung("perpustakaan"),
+                        Filter.mulai(), Filter.sampai())
+                        .mulaiBulanMundur(3));
 
         // --- Akuntansi ------------------------------------------------------
         REGISTRI.put("akunting_arus_kas",
@@ -270,7 +285,7 @@ public final class NewUiLaporanUmumController {
             Tbmuser user = Common.getCurrentUser(request);
             if (user == null) throw new SecurityException("Sesi tidak dikenal.");
             if ("meta".equals(action)) meta(json, laporan);
-            else if ("lookup".equals(action)) lookup(json, request, laporan);
+            else if ("lookup".equals(action)) lookup(json, request, laporan, kunci);
             else if ("export".equals(action) || "export_pdf".equals(action)) cetak(json, request, laporan, kunci);
             else throw new IllegalArgumentException("Aksi tidak dikenal.");
             json.put("ok", true);
@@ -293,6 +308,8 @@ public final class NewUiLaporanUmumController {
             JSONObject d = new JSONObject();
             d.put("nama", f.nama).put("label", f.label).put("tipe", f.tipe).put("wajib", f.wajib);
             if (f.entity != null) d.put("entity", f.entity);
+            if (f.tergantungPada != null) d.put("tergantungPada", f.tergantungPada);
+            if (TIPE_RELASI_BANYAK.equals(f.tipe)) d.put("cari", true);
             arr.put(d);
         }
         j.put("filter", arr);
@@ -306,7 +323,10 @@ public final class NewUiLaporanUmumController {
             bulan.put(new JSONObject().put("nilai", i + 1).put("nama", Common.BULAN[i]));
         }
         j.put("pilihanBulan", bulan);
-        j.put("mulaiBawaan", Common.databaseDateFormat.get().format(awalBulan()));
+        j.put("mulaiBawaan", Common.databaseDateFormat.get().format(
+                laporan.mulaiBulanMundur > 0
+                        ? bulanSebelumnya(laporan.mulaiBulanMundur)
+                        : awalBulan()));
         j.put("sampaiBawaan", Common.databaseDateFormat.get().format(new Date()));
     }
 
@@ -316,13 +336,23 @@ public final class NewUiLaporanUmumController {
      * dideklarasikan laporan ini, sehingga endpoint tidak bisa dipakai
      * membaca entity sembarangan.
      */
-    private static void lookup(JSONObject j, HttpServletRequest r, Laporan laporan) throws Exception {
+    private static void lookup(JSONObject j, HttpServletRequest r, Laporan laporan,
+            String kunci) throws Exception {
         String nama = text(r.getParameter("filter"), "");
         Filter dipilih = null;
         for (Filter f : laporan.filter) {
-            if (f.nama.equals(nama) && TIPE_RELASI.equals(f.tipe)) { dipilih = f; break; }
+            if (f.nama.equals(nama)
+                    && (TIPE_RELASI.equals(f.tipe) || TIPE_RELASI_BANYAK.equals(f.tipe))) {
+                dipilih = f;
+                break;
+            }
         }
         if (dipilih == null) throw new IllegalArgumentException("Filter relasi tidak dikenal.");
+
+        if ("library_tracking_stok_item".equals(kunci) && "items".equals(dipilih.nama)) {
+            lookupItemPerpustakaan(j, r, dipilih);
+            return;
+        }
 
         String q = text(r.getParameter("q"), "");
         JSONArray arr = new JSONArray();
@@ -339,7 +369,47 @@ public final class NewUiLaporanUmumController {
                                 getter(dipilih.propertiNama)))));
             }
         } finally { s.close(); }
-        j.put("pilihan", arr).put("filter", nama).put("total", arr.length());
+        j.put("pilihan", arr).put("filter", nama).put("total", arr.length()).put("batas", 50);
+    }
+
+    /**
+     * Pilihan item Tracking Stok harus berasal dari transaksi stok pada
+     * perpustakaan terpilih. Master item global dapat berisi judul milik unit
+     * lain; menampilkannya menghasilkan laporan kosong yang membingungkan.
+     */
+    @SuppressWarnings("unchecked")
+    private static void lookupItemPerpustakaan(JSONObject j, HttpServletRequest r,
+            Filter filter) throws Exception {
+        Long perpustakaan = id(text(r.getParameter(filter.tergantungPada), ""));
+        JSONArray arr = new JSONArray();
+        if (perpustakaan == null || perpustakaan.longValue() <= 0L) {
+            j.put("pilihan", arr).put("filter", filter.nama).put("total", 0).put("batas", 50);
+            return;
+        }
+
+        String kata = text(r.getParameter("q"), "").toLowerCase();
+        Session s = HibernateUtil.openSession();
+        try {
+            String sql = "select distinct c.id, c.nama, c.isbn "
+                    + "from library.item c "
+                    + "inner join library.detail_transaksi d on d.item=c.id "
+                    + "where d.perpustakaan=:perpustakaan "
+                    + "and (c.aktif is null or c.aktif=true) "
+                    + "and (lower(c.nama) like :kata or lower(coalesce(c.isbn,'')) like :kata) "
+                    + "order by c.nama asc limit 50";
+            List<Object[]> rows = s.createSQLQuery(sql)
+                    .setLong("perpustakaan", perpustakaan.longValue())
+                    .setString("kata", "%" + kata + "%")
+                    .list();
+            for (Object[] row : rows) {
+                String isbn = row[2] == null ? "" : String.valueOf(row[2]).trim();
+                String nama = row[1] == null ? "" : String.valueOf(row[1]).trim();
+                arr.put(new JSONObject()
+                        .put("id", ((Number) row[0]).longValue())
+                        .put("nama", isbn.length() == 0 ? nama : isbn + " — " + nama));
+            }
+        } finally { s.close(); }
+        j.put("pilihan", arr).put("filter", filter.nama).put("total", arr.length()).put("batas", 50);
     }
 
     /** Nama entity untuk parameter turunan; string kosong bila tidak ditemukan. */
@@ -379,6 +449,10 @@ public final class NewUiLaporanUmumController {
                 if (TIPE_RELASI.equals(f.tipe)) {
                     parameters.put(f.nama, Long.valueOf(-1L));
                     if (f.paramNama != null) parameters.put(f.paramNama, f.paramNamaBawaan);
+                } else if (TIPE_RELASI_BANYAK.equals(f.tipe)) {
+                    List<Long> kosong = new ArrayList<Long>();
+                    kosong.add(Long.valueOf(-1234567899999999999L));
+                    parameters.put(f.nama, kosong);
                 }
                 continue;
             }
@@ -405,6 +479,10 @@ public final class NewUiLaporanUmumController {
                     // kop laporan tidak dapat dipalsukan lewat parameter.
                     parameters.put(f.paramNama, namaEntity(f.entity, id, f.propertiNama));
                 }
+            } else if (TIPE_RELASI_BANYAK.equals(f.tipe)) {
+                List<Long> ids = daftarId(mentah, f.label);
+                if (ids.size() == 0) throw new IllegalArgumentException(f.label + " wajib dipilih.");
+                parameters.put(f.nama, ids);
             } else {
                 parameters.put(f.nama, mentah);
             }
@@ -423,6 +501,32 @@ public final class NewUiLaporanUmumController {
         Calendar c = Calendar.getInstance();
         c.set(Calendar.DAY_OF_MONTH, 1);
         return c.getTime();
+    }
+
+    /** Tanggal yang sama sejumlah bulan ke belakang, sama seperti layar ZK. */
+    private static Date bulanSebelumnya(int bulan) {
+        Calendar c = Calendar.getInstance();
+        c.set(Calendar.MONTH, c.get(Calendar.MONTH) - bulan);
+        return c.getTime();
+    }
+
+    /** CSV id dari klien menjadi daftar Long yang aman untuk parameter Jasper. */
+    private static List<Long> daftarId(String value, String label) {
+        List<Long> hasil = new ArrayList<Long>();
+        String[] bagian = value.split(",");
+        for (int i = 0; i < bagian.length; i++) {
+            String teks = bagian[i] == null ? "" : bagian[i].trim();
+            if (teks.length() == 0) continue;
+            Long nilai = id(teks);
+            if (nilai == null || nilai.longValue() <= 0L) {
+                throw new IllegalArgumentException(label + " memuat pilihan yang tidak sah.");
+            }
+            if (!hasil.contains(nilai)) hasil.add(nilai);
+            if (hasil.size() > 200) {
+                throw new IllegalArgumentException(label + " maksimal 200 pilihan.");
+            }
+        }
+        return hasil;
     }
 
     private static Date tanggal(String v) {
