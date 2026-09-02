@@ -1497,9 +1497,22 @@ public class DaftarPengajuanTransfer extends DataSop {
 		}
 	}
 
+	/**
+	 * Konstruktor kosong wajib bagi Hibernate/JPA. Baris DPT yang dibuat lewat konstruktor ini
+	 * belum punya dokumen sumber; pengisiannya dilakukan oleh method {@code simpanXxx(...)}
+	 * yang bersangkutan.
+	 */
 	public DaftarPengajuanTransfer() {
 	}
 
+	/**
+	 * Mengembalikan primary key baris ini.
+	 *
+	 * <p>Kolom {@code id} dipetakan {@code insertable = false} karena nilainya dibangkitkan
+	 * database ({@code IDENTITY}/sequence), bukan dikirim aplikasi saat {@code INSERT}.</p>
+	 *
+	 * @return ID baris, atau {@code null} bila object belum pernah disimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -1507,10 +1520,45 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key. Umumnya hanya dipanggil Hibernate setelah {@code INSERT}.
+	 *
+	 * @param id ID baris
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan <b>kode dokumen sumber</b> untuk ditampilkan di kolom "Kode" daftar
+	 * pembayaran.
+	 *
+	 * <p><b>Getter turunan yang menulis balik.</b> Nilainya tidak dibaca dari kolom
+	 * {@code kode}, melainkan dihitung ulang setiap pemanggilan lewat rantai
+	 * {@code if / else if} atas 15 tipe dokumen sumber, lalu <b>ditugaskan ke field</b>
+	 * sehingga ikut ter-flush ke database (lihat pembahasan di Javadoc class).</p>
+	 *
+	 * <p>Urutan pemeriksaannya menentukan prioritas bila (secara tidak semestinya) lebih dari
+	 * satu relasi terisi. Sebagian besar cabang meneruskan kode dokumen sumber apa adanya;
+	 * tiga tipe tidak punya kode sendiri sehingga kodenya <b>dibangkitkan</b>:</p>
+	 * <ul>
+	 *   <li>saldo awal kas kecil → {@code "SKK-<id jenis kas kecil>"};</li>
+	 *   <li>diskon siswa → {@code "DISKON-<id tagihan>"};</li>
+	 *   <li>setoran pajak → {@code "PAJAK-<id pajak>"}.</li>
+	 * </ul>
+	 * <p>Beberapa cabang menyelam dua tingkat (mis. penggantian kas kecil memakai kode
+	 * <i>kas kecil</i>-nya, bukan kode dokumen penggantian; pembayaran pengadaan/termin/DP
+	 * memakai kode dokumen pembayaran induknya).</p>
+	 *
+	 * <p><b>Kegagalan senyap:</b> seluruh rantai dibungkus {@code try/catch} yang menelan
+	 * exception (dicatat ke {@code ErrorAuditUtil}, dengan sisa penanda {@code // TODO: handle
+	 * exception}). Bila sebuah relasi memicu {@code LazyInitializationException} di tengah
+	 * jalan, method tetap mengembalikan nilai {@code kode} yang tersimpan sebelumnya —
+	 * bisa jadi basi atau {@code null}.</p>
+	 *
+	 * @return kode dokumen sumber, kode buatan untuk tiga tipe di atas, atau {@code null} bila
+	 *         tidak ada relasi yang cocok
+	 */
 	public String getKode() {
 		try {
 			if (getSaldoAwalMasterAsset() != null) {
@@ -1567,28 +1615,113 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return kode;
 	}
 
+	/**
+	 * Menyetel kode secara manual.
+	 *
+	 * <p><b>Perhatikan:</b> nilai yang disetel di sini akan <b>ditimpa</b> pada pemanggilan
+	 * {@link #getKode()} berikutnya bila ada dokumen sumber yang terisi. Setter ini efektif
+	 * hanya untuk baris yang tidak punya dokumen sumber sama sekali.</p>
+	 *
+	 * @param kode kode dokumen
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengembalikan uraian baris untuk kolom "Nama"/"Uraian" di daftar pembayaran, sudah
+	 * di-{@code trim} dari spasi berlebih.
+	 *
+	 * <p>Berbeda dari properti turunan lain, {@code nama} adalah data <b>tersimpan</b> yang
+	 * diisi sekali oleh method {@code simpanXxx(...)} pembuat baris dan tidak pernah dihitung
+	 * ulang. Dipetakan sebagai kolom {@code text} dan {@code nullable = false}.</p>
+	 *
+	 * @return uraian baris tanpa spasi tepi, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "nama", nullable = false, columnDefinition = "text")
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Menyetel uraian baris. Dipanggil oleh method {@code simpanXxx(...)} saat baris dibentuk.
+	 *
+	 * @param nama uraian baris (kolom {@code NOT NULL} — jangan diisi {@code null})
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan keterangan tambahan yang diketik petugas.
+	 *
+	 * <p>Satu-satunya properti teks di class ini yang murni data masukan: tidak diturunkan dari
+	 * dokumen sumber dan tidak pernah ditimpa oleh getter mana pun.</p>
+	 *
+	 * @return keterangan bebas, atau {@code null}
+	 */
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * Menyetel keterangan tambahan.
+	 *
+	 * @param keterangan keterangan bebas; boleh {@code null}
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan status <b>apakah baris ini masih layak muncul di daftar pembayaran</b>.
+	 *
+	 * <p>Ini <b>method paling penting untuk dipahami di class ini</b>, dan sumber pola "flag
+	 * aktif satu-arah" yang diverifikasi lintas class akunting. Mekanismenya:</p>
+	 * <ol>
+	 *   <li>Disposisi SOP terkini diambil ulang lewat {@link #getDisposisiSop()} (yang sendiri
+	 *   merupakan getter turunan — ia membaca disposisi dari dokumen sumber, bukan dari kolom
+	 *   tersimpan) dan hasilnya ditugaskan ke field {@code disposisiSop}.</li>
+	 *   <li>Bila disposisi itu <b>tidak aktif</b> ({@code disposisiSop.getAktif() == false},
+	 *   yaitu pengajuannya dibatalkan) → {@code aktif = false}.</li>
+	 *   <li>Bila alur SOP <b>berakhir di titik penolakan</b>
+	 *   ({@code disposisiEnd.alurSop.getPenolakanAdaDiSini() == true}, yaitu pengajuannya
+	 *   ditolak) → {@code aktif = false}.</li>
+	 *   <li>Nilai dikembalikan dengan konvensi <b>{@code null} berarti aktif</b>.</li>
+	 * </ol>
+	 *
+	 * <h4>Verifikasi pola "satu-arah" (dilakukan langsung atas kode ini)</h4>
+	 * <ul>
+	 *   <li><b>TERKONFIRMASI:</b> di seluruh badan method ini {@code aktif} hanya pernah
+	 *   ditugaskan nilai {@code false}. Tidak ada cabang, {@code else}, maupun jalur pemulih
+	 *   yang mengembalikannya menjadi {@code true}.</li>
+	 *   <li><b>Nilai {@code false} itu tersimpan permanen.</b> Class ini memakai property
+	 *   access, jadi penugasan di dalam getter terbaca oleh <i>dirty checking</i> Hibernate dan
+	 *   ikut ter-{@code UPDATE} pada flush berikutnya. Kolom {@code aktif} memang dipakai di
+	 *   level SQL — filter baku daftar DPC adalah
+	 *   {@code Restrictions.or(isNull("aktif"), eq("aktif", true))} — sehingga begitu
+	 *   {@code false} tersimpan, baris hilang dari daftar tanpa perlu logika Java apa pun.</li>
+	 *   <li><b>Satu-satunya jalur pemulih</b> ada di luar class ini:
+	 *   {@code ais.action.master.asset.helper.BreakdownTagihanVendorHelper} memanggil
+	 *   {@link #setAktif(Boolean)} dengan {@code true} saat mode "breakdown tagihan vendor"
+	 *   dimatikan. Jalur itu hanya menyentuh baris DPT bertipe {@link Pajak}; untuk 16 tipe
+	 *   dokumen sumber lainnya tidak ada pemulih sama sekali.</li>
+	 *   <li><b>Konsekuensi yang perlu diwaspadai:</b> dokumen yang pernah ditolak lalu diajukan
+	 *   ulang dengan disposisi baru yang sehat tidak akan dinonaktifkan lagi oleh method ini —
+	 *   tetapi {@code false} lama yang sudah tersimpan tetap dikembalikan apa adanya, sehingga
+	 *   barisnya <b>tetap tidak muncul</b> di daftar pembayaran. Dicatat sebagai kuirk, tidak
+	 *   diperbaiki di sini.</li>
+	 * </ul>
+	 *
+	 * <p><b>Efek samping:</b> menulis field {@code disposisiSop} dan berpotensi {@code aktif};
+	 * memicu resolusi relasi (dan query) lewat {@link #getDisposisiSop()}.</p>
+	 *
+	 * @return {@code true} bila baris masih layak dibayar (termasuk saat kolomnya {@code null}),
+	 *         {@code false} bila pengajuannya dibatalkan atau ditolak
+	 * @see #setAktif(Boolean)
+	 * @see #getDisposisiSop()
+	 */
 	public Boolean getAktif() {
 		disposisiSop = getDisposisiSop();
 		if (disposisiSop != null && !disposisiSop.getAktif()) {
@@ -1604,6 +1737,21 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menyetel flag aktif secara eksplisit.
+	 *
+	 * <p>Ini <b>satu-satunya cara mengembalikan baris yang sudah dinonaktifkan</b> menjadi
+	 * aktif kembali, karena {@link #getAktif()} tidak pernah menugaskan {@code true}. Dalam
+	 * seluruh basis kode, pemanggil yang menyetel {@code true} hanya
+	 * {@code ais.action.master.asset.helper.BreakdownTagihanVendorHelper}, dan hanya untuk
+	 * baris DPT bertipe {@link Pajak}.</p>
+	 *
+	 * <p>Perlu diingat {@link #getAktif()} dapat menimpa nilai yang disetel di sini pada
+	 * pembacaan berikutnya, bila disposisi SOP-nya memang batal/ditolak.</p>
+	 *
+	 * @param aktif {@code true} agar baris muncul lagi di daftar pembayaran, {@code false}
+	 *              untuk menyembunyikannya; {@code null} diperlakukan sebagai aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}

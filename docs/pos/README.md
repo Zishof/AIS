@@ -152,6 +152,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [85-gerbang-keempat-dan-koreksi-doc-84.md](85-gerbang-keempat-dan-koreksi-doc-84.md) | Gerbang scriptlet JSP; koreksi klaim doc 84 yang salah; tiga halaman rusak lagi |
 | [86-mengejar-hantu-pohon-kelas-basi.md](86-mengejar-hantu-pohon-kelas-basi.md) | Empat halaman diperbaiki; sebagian galat ternyata hantu dari pohon kelas basi; tiga halaman menunjuk kelas yang sudah lenyap |
 | [87-pohon-kelas-basi-dalam-satu-menit.md](87-pohon-kelas-basi-dalam-satu-menit.md) | Pohon kelas basi satu menit sesudah dibangun; gerbang kini mengukur kesegarannya sendiri |
+| [88-kanal-zul-tanpa-gerbang.md](88-kanal-zul-tanpa-gerbang.md) | 1.557 berkas ZUL tak pernah diperiksa; 15 rujukan kelas menggantung, dua diperbaiki, delapan halaman mati masih dirujuk |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |
