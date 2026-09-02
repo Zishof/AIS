@@ -3798,6 +3798,35 @@ public class Pertemuan extends Tugas {
 
 	// ------ PENGAJUAN IZIN
 
+	/**
+	 * Baca "peta lokasi" pengajuan izin tidak masuk milik pertemuan ini.
+	 *
+	 * <p><b>Ini method rujukan untuk seluruh pola {@code ambilLokasiXxx()} di kelas ini</b>
+	 * (diskusi, ujian, lampiran, video, audio, tugas, tugas kelompok, kelompok parameter
+	 * tambahan) — kuintet lainnya bekerja persis sama dan hanya menautkan balik ke sini.</p>
+	 *
+	 * <h4>Apa itu "peta lokasi"</h4>
+	 * <p>Koleksi anak {@link Pertemuan} TIDAK dipetakan sebagai {@code @OneToMany}. Sebagai
+	 * gantinya, tiap jenis anak punya satu berkas JSON di disk (letaknya ditentukan
+	 * {@code Common.getFileLocation(this, namaBerkas)}) yang isinya peta {@code "id" -> "id"} —
+	 * atau, untuk jenis anak yang isinya ikut di-cache ke berkas, {@code "id" -> "path berkas"}.
+	 * Peta itulah yang dibaca alih-alih menjalankan query, sehingga menampilkan daftar pertemuan
+	 * beserta jumlah anaknya tidak berubah menjadi ledakan query N+1.</p>
+	 *
+	 * <p>Berkas yang belum ada, kosong, atau gagal dibaca menghasilkan {@code VOMahasiswa.dataJSON}
+	 * (JSON kosong) — bukan {@code null} dan bukan exception. Karena itu pemanggil tidak dapat
+	 * membedakan "belum pernah dibangun" dari "sudah dibangun tetapi memang tidak ada isinya";
+	 * yang membedakan keduanya adalah penanda {@code udah("PengajuanIzinTidakMasukPerkuliahan")}
+	 * dari {@link GeneralValueObject}.</p>
+	 *
+	 * <p><b>Perhatian:</b> {@code getId()} dipanggil tanpa penjagaan {@code null}, jadi memanggil
+	 * method ini pada pertemuan yang belum tersimpan melempar {@link NullPointerException}.
+	 * Bandingkan dengan {@link #ambilLokasiPertemuanPunyaDiskusi()} yang sudah menjaganya.</p>
+	 *
+	 * @return isi peta lokasi sebagai teks JSON; JSON kosong bila belum ada
+	 * @see #tulisLokasiPengajuanIzinTidakMasukPerkuliahan(String)
+	 * @see #reInitPengajuanIzinTidakMasukPerkuliahan(Session)
+	 */
 	public String ambilLokasiPengajuanIzinTidakMasukPerkuliahan() {
 		File file = Common.getFileLocation(this, "pengajuan_izin_tidak_masuk_perkuliahan_" + getId().toString());
 		try {
@@ -3809,17 +3838,60 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi pengajuan izin milik pertemuan ini.
+	 *
+	 * <p>Menimpa berkas, bukan menambahkan. Pemanggil yang ingin menambah/menghapus SATU entri
+	 * harus membaca peta lebih dulu (lewat {@link #jsonObjekUntukTulis(String)}), mengubahnya, lalu
+	 * menulis kembali — persis yang dilakukan
+	 * {@link #populatePengajuanIzinTidakMasukPerkuliahan(Long)} dan
+	 * {@link #removePengajuanIzinTidakMasukPerkuliahan(Serializable)}.</p>
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 * @see #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void tulisLokasiPengajuanIzinTidakMasukPerkuliahan(String data) {
 		File file = Common.getFileLocation(this, "pengajuan_izin_tidak_masuk_perkuliahan_" + getId().toString());
 		ais.common.BacaTulisUtil.tulis(file, data);
 	}
 
+	/**
+	 * Hapus berkas peta lokasi pengajuan izin milik pertemuan ini.
+	 *
+	 * <p>Dipanggil di awal {@link #reInitPengajuanIzinTidakMasukPerkuliahan(Session)} sebelum peta
+	 * dibangun ulang, dan oleh {@link #refreshData()}. Peta yang hilang akan dibangun ulang
+	 * otomatis pada akses berikutnya.</p>
+	 *
+	 * @see #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan() {
 		File file = Common.getFileLocation(this, "pengajuan_izin_tidak_masuk_perkuliahan_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "pengajuan_izin_tidak_masuk_perkuliahan");
 
 	}
 
+	/**
+	 * Bangun ulang peta lokasi pengajuan izin dari basis data.
+	 *
+	 * <p><b>Ini method rujukan untuk seluruh pola {@code reInitXxx(Session)} di kelas ini.</b>
+	 * Alurnya selalu: jalankan satu query proyeksi id anak yang menunjuk ke pertemuan ini (terurut
+	 * menurut id), hapus peta lama, tulis peta kosong, lalu masukkan tiap id lewat
+	 * {@code populateXxx(...)}.</p>
+	 *
+	 * <p><b>Mahal, dan hanya boleh dijalankan bila perlu.</b> Pemanggil di kelas ini selalu
+	 * membungkusnya dengan pemeriksaan {@code if (!udah("PengajuanIzinTidakMasukPerkuliahan"))}
+	 * sehingga pembangunan ulang hanya terjadi sekali, sampai penanda itu dibatalkan dengan
+	 * {@code belum(...)}. Salah menuliskan nama penanda berarti peta dibangun ulang pada SETIAP
+	 * akses.</p>
+	 *
+	 * <p>Varian ini menulis berkas berkali-kali (sekali per anak) karena
+	 * {@link #populatePengajuanIzinTidakMasukPerkuliahan(Long)} membaca-ubah-tulis setiap kali.
+	 * Bandingkan dengan {@link #reInitPertemuanPunyaDiskusi(Session)} yang sudah dioptimalkan
+	 * merakit JSON di memori dan menulis SEKALI saja.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @see #ambilPengajuanIzinTidakMasukPerkuliahanTotal()
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPengajuanIzinTidakMasukPerkuliahan(Session session) {
 		List<Long> pengajuanIzinTidakMasukPerkuliahans = session
@@ -3833,6 +3905,25 @@ public class Pertemuan extends Tugas {
 		pengajuanIzinTidakMasukPerkuliahans = null;
 	}
 
+	/**
+	 * Tandai satu pengajuan izin sebagai TIDAK ADA lagi di peta lokasi pertemuan ini.
+	 *
+	 * <p><b>Ini method rujukan untuk seluruh pola {@code removeXxx(...)} di kelas ini.</b>
+	 * Perhatikan bahwa entri tidak benar-benar dibuang dari peta: nilainya diganti string KOSONG.
+	 * Semua pembaca memang melewati entri bernilai kosong, jadi hasil akhirnya sama, tetapi
+	 * berkas peta terus membesar seiring waktu dan baru menyusut ketika {@code reInitXxx(...)}
+	 * membangunnya ulang.</p>
+	 *
+	 * <p>Method ini hanya menyentuh peta lokasi; ia TIDAK menghapus baris anaknya dari basis data.
+	 * Penghapusan baris adalah tanggung jawab pemanggil.</p>
+	 *
+	 * <p>Peta yang isinya rusak menyebabkan {@link #jsonObjekUntukTulis(String)} melempar, dan
+	 * exception itu tertangkap di sini sehingga penyimpanan DIBATALKAN — peta lama sengaja
+	 * dibiarkan utuh agar tidak tertimpa peta baru yang kosong.</p>
+	 *
+	 * @param id id anak yang dikeluarkan dari peta
+	 * @see #populatePengajuanIzinTidakMasukPerkuliahan(Long)
+	 */
 	public void removePengajuanIzinTidakMasukPerkuliahan(Serializable id) {
 		try {
 			JSONObject c = jsonObjekUntukTulis(ambilLokasiPengajuanIzinTidakMasukPerkuliahan());
@@ -3843,6 +3934,21 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu pengajuan izin ke peta lokasi pertemuan ini.
+	 *
+	 * <p><b>Ini method rujukan untuk seluruh pola {@code populateXxx(...)} di kelas ini.</b>
+	 * Membaca peta, menambahkan pasangan {@code "id" -> "id"}, lalu menulisnya kembali. Id yang
+	 * sudah ada akan tertulis ulang dengan nilai yang sama, jadi memanggilnya berulang aman.</p>
+	 *
+	 * <p>Argumen {@code null} membuat method langsung berhenti tanpa mengubah apa pun. Kegagalan
+	 * apa pun ditelan sehingga pemanggil tidak akan tahu bila pendaftaran gagal — akibatnya anak
+	 * yang baru tersimpan bisa "tidak terlihat" sampai peta dibangun ulang.</p>
+	 *
+	 * @param pengajuanIzinTidakMasukPerkuliahan id pengajuan izin yang didaftarkan; {@code null}
+	 *                                           diabaikan
+	 * @see #removePengajuanIzinTidakMasukPerkuliahan(Serializable)
+	 */
 	public void populatePengajuanIzinTidakMasukPerkuliahan(Long pengajuanIzinTidakMasukPerkuliahan) {
 		try {
 			if (pengajuanIzinTidakMasukPerkuliahan == null) {
@@ -3856,6 +3962,16 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Adakah setidaknya satu pengajuan izin tidak masuk pada pertemuan ini?
+	 *
+	 * <p><b>Tidak hemat:</b> dijawab dengan memuat SELURUH daftar lewat
+	 * {@link #ambilPengajuanIzinTidakMasukPerkuliahanTotal()} lalu memeriksa ukurannya. Bila yang
+	 * dibutuhkan hanya jumlah, {@link #ambilJumlahPengajuanIzinTidakMasukPerkuliahan()} lebih
+	 * murah karena tidak memuat objeknya.</p>
+	 *
+	 * @return {@code true} bila ada minimal satu pengajuan izin
+	 */
 	public boolean punyaPengajuanIzinTidakMasukPerkuliahan() {
 		List<PengajuanIzinTidakMasukPerkuliahan> pengajuanIzinTidakMasukPerkuliahansa = ambilPengajuanIzinTidakMasukPerkuliahanTotal();
 		int ada = pengajuanIzinTidakMasukPerkuliahansa.size();
@@ -3863,10 +3979,36 @@ public class Pertemuan extends Tugas {
 		return ada > 0;
 	}
 
+	/**
+	 * Jumlah SELURUH pengajuan izin tidak masuk pada pertemuan ini.
+	 *
+	 * @return banyaknya pengajuan izin
+	 * @see #ambilJumlahPengajuanIzinTidakMasukPerkuliahan(Mahasiswa)
+	 */
 	public int ambilJumlahPengajuanIzinTidakMasukPerkuliahan() {
 		return ambilJumlahPengajuanIzinTidakMasukPerkuliahan(null);
 	}
 
+	/**
+	 * Jumlah pengajuan izin tidak masuk pada pertemuan ini, dengan penyaring mahasiswa opsional.
+	 *
+	 * <p>Membangun ulang peta lokasi lebih dulu bila penandanya belum ada. Setelah itu peta
+	 * ditelusuri:</p>
+	 * <ul>
+	 *   <li>{@code mahasiswa == null} — tiap entri yang tidak kosong dihitung LANGSUNG dari peta,
+	 *       tanpa memuat objek anaknya. Ini jalur yang murah.</li>
+	 *   <li>{@code mahasiswa != null} — tiap entri dimuat objeknya lewat {@code ambilData(...)}
+	 *       untuk membandingkan pemiliknya. Jauh lebih mahal, dan {@code NullPointerException}
+	 *       akan terjadi (lalu ditelan, sehingga entri itu terlewat) bila objek anaknya sudah
+	 *       tidak ada.</li>
+	 * </ul>
+	 *
+	 * <p>Setiap anak yang dimuat di-{@code setPertemuan(this)} agar tidak perlu memuat ulang
+	 * induknya dari basis data.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang disaring; {@code null} berarti hitung semua
+	 * @return banyaknya pengajuan izin yang cocok
+	 */
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahPengajuanIzinTidakMasukPerkuliahan(Mahasiswa mahasiswa) {
 		if (!udah("PengajuanIzinTidakMasukPerkuliahan")) {
@@ -3906,6 +4048,21 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Cari pengajuan izin tidak masuk milik seorang SISWA pada pertemuan ini.
+	 *
+	 * <p>Menelusuri peta lokasi (dibangun ulang lebih dulu bila perlu), memuat tiap anak, dan
+	 * berhenti pada yang pertama cocok.</p>
+	 *
+	 * <p><b>Perhatikan:</b> bila {@code siswa} bernilai {@code null}, seluruh badan perulangan
+	 * dilewati sehingga hasilnya selalu {@code null} — bukan "ambil sembarang". Ini berbeda dari
+	 * konvensi {@code null == semua} yang dipakai
+	 * {@link #ambilJumlahPengajuanIzinTidakMasukPerkuliahan(Mahasiswa)}.</p>
+	 *
+	 * @param siswa siswa yang dicari izinnya
+	 * @return pengajuan izin milik siswa itu, atau {@code null} bila tidak ada
+	 * @see #ambilPengajuanIzinTidakMasukPerkuliahan(VOMahasiswa)
+	 */
 	@SuppressWarnings("unchecked")
 	public PengajuanIzinTidakMasukPerkuliahan ambilPengajuanIzinTidakMasukPerkuliahan(Siswa siswa) {
 
@@ -3945,6 +4102,16 @@ public class Pertemuan extends Tugas {
 		return pengajuanIzinTidakMasukPerkuliahanMahasiswa;
 	}
 
+	/**
+	 * Cari pengajuan izin tidak masuk milik seorang MAHASISWA pada pertemuan ini.
+	 *
+	 * <p>Kembaran {@link #ambilPengajuanIzinTidakMasukPerkuliahan(Siswa)} untuk jenjang perguruan
+	 * tinggi, dengan alur dan keterbatasan yang sama (termasuk: {@code null} menghasilkan
+	 * {@code null}, bukan "ambil sembarang").</p>
+	 *
+	 * @param mahasiswa mahasiswa yang dicari izinnya
+	 * @return pengajuan izin milik mahasiswa itu, atau {@code null} bila tidak ada
+	 */
 	@SuppressWarnings("unchecked")
 	public PengajuanIzinTidakMasukPerkuliahan ambilPengajuanIzinTidakMasukPerkuliahan(VOMahasiswa mahasiswa) {
 
@@ -3985,6 +4152,17 @@ public class Pertemuan extends Tugas {
 		return pengajuanIzinTidakMasukPerkuliahanMahasiswa;
 	}
 
+	/**
+	 * Seluruh pengajuan izin tidak masuk pada pertemuan ini.
+	 *
+	 * <p>Mengumpulkan lebih dulu seluruh kunci dari peta lokasi, lalu memuat objeknya SEKALIGUS
+	 * lewat {@code ambilDataBanyak(...)} — bukan satu per satu di dalam perulangan. Ini pola yang
+	 * lebih baik daripada beberapa pembaca lain di kelas ini dan sebaiknya ditiru bila menambah
+	 * koleksi anak baru.</p>
+	 *
+	 * @return daftar pengajuan izin; kosong bila tidak ada
+	 * @see #punyaPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	@SuppressWarnings("unchecked")
 	public List<PengajuanIzinTidakMasukPerkuliahan> ambilPengajuanIzinTidakMasukPerkuliahanTotal() {
 		if (!udah("PengajuanIzinTidakMasukPerkuliahan")) {
@@ -4015,6 +4193,17 @@ public class Pertemuan extends Tugas {
 
 	// ------ PENGAJUAN IZIN
 
+	/**
+	 * Baca peta lokasi diskusi ({@link PertemuanPunyaDiskusi}) milik pertemuan ini.
+	 *
+	 * <p>Mengikuti pola yang dijelaskan lengkap pada
+	 * {@link #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()}, dengan satu perbaikan penting:
+	 * pertemuan yang belum punya id langsung mengembalikan JSON kosong alih-alih melempar
+	 * {@link NullPointerException}.</p>
+	 *
+	 * @return isi peta lokasi diskusi sebagai teks JSON; JSON kosong bila belum ada
+	 * @see #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public String ambilLokasiPertemuanPunyaDiskusi() {
 		if (getId() == null) {
 			return VOMahasiswa.dataJSON;
@@ -4030,16 +4219,38 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi diskusi milik pertemuan ini.
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 * @see #tulisLokasiPengajuanIzinTidakMasukPerkuliahan(String)
+	 */
 	public void tulisLokasiPertemuanPunyaDiskusi(String data) {
 		File file = Common.getFileLocation(this, "pertemuan_punya_diskusi_" + getId().toString());
 		BacaTulisUtil.tulis(file, data);
 	}
 
+	/**
+	 * Hapus berkas peta lokasi diskusi milik pertemuan ini.
+	 *
+	 * @see #bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiPertemuanPunyaDiskusi() {
 		File file = Common.getFileLocation(this, "pertemuan_punya_diskusi_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "pertemuan_punya_diskusi");
 	}
 
+	/**
+	 * Bangun ulang peta lokasi diskusi dari basis data.
+	 *
+	 * <p>Varian yang <b>sudah dioptimalkan</b>: berbeda dari
+	 * {@link #reInitPengajuanIzinTidakMasukPerkuliahan(Session)} yang menulis berkas sekali per
+	 * anak, method ini merakit seluruh {@link JSONObject} di memori lalu menulis ke disk SATU KALI
+	 * saja. Pola inilah yang sebaiknya diikuti bila menambah/memperbaiki kuintet lain.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @see #reInitPengajuanIzinTidakMasukPerkuliahan(Session)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPertemuanPunyaDiskusi(Session session) {
 		List<Long> pertemuanPunyaDiskusis = session.createCriteria(PertemuanPunyaDiskusi.class)
@@ -4065,6 +4276,16 @@ public class Pertemuan extends Tugas {
 		pertemuanPunyaDiskusis = null;
 	}
 
+	/**
+	 * Keluarkan satu diskusi dari peta lokasi pertemuan ini.
+	 *
+	 * <p>Sedikit lebih rapi daripada {@link #removePengajuanIzinTidakMasukPerkuliahan(Serializable)}:
+	 * berkas hanya ditulis ulang bila kuncinya memang ada di peta, dan {@code id} bernilai
+	 * {@code null} ditolak lebih dahulu.</p>
+	 *
+	 * @param id id diskusi yang dikeluarkan; {@code null} diabaikan
+	 * @see #removePengajuanIzinTidakMasukPerkuliahan(Serializable)
+	 */
 	public void removePertemuanPunyaDiskusi(Serializable id) {
 		if (id == null)
 			return;
@@ -4078,6 +4299,17 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu diskusi ke peta lokasi pertemuan ini.
+	 *
+	 * <p><b>Parameter {@code tulisUlang} TIDAK DIPAKAI sama sekali</b> di badan method — peta
+	 * selalu ditulis ulang. Parameter itu ada demi keseragaman tanda tangan dengan
+	 * {@code populateXxx(...)} lain di kelas ini; jangan berharap nilainya mengubah perilaku.</p>
+	 *
+	 * @param pertemuanPunyaDiskusiid id diskusi yang didaftarkan; {@code null} diabaikan
+	 * @param tulisUlang              tidak dipakai
+	 * @see #populatePengajuanIzinTidakMasukPerkuliahan(Long)
+	 */
 	public void populatePertemuanPunyaDiskusi(Long pertemuanPunyaDiskusiid, boolean tulisUlang) {
 		if (pertemuanPunyaDiskusiid == null)
 			return;
@@ -4089,6 +4321,16 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Adakah setidaknya satu diskusi pada pertemuan ini?
+	 *
+	 * <p>Memuat himpunan id diskusi lewat {@link #ambilPertemuanPunyaDiskusiTotal(boolean)} lalu
+	 * memeriksa apakah kosong. Perhatikan bahwa method itu, bila peta lokasi menyimpan id yang
+	 * belum ada di cache, akan MEMBUKA SESSION dan menjalankan query — jadi pertanyaan yang
+	 * terdengar sepele ini bisa menyentuh basis data.</p>
+	 *
+	 * @return {@code true} bila ada minimal satu diskusi
+	 */
 	public boolean punyaDiskusi() {
 		TreeSet<Long> pertemuanPunyaDiskusisa = ambilPertemuanPunyaDiskusiTotal(false);
 		boolean ada = (pertemuanPunyaDiskusisa != null && !pertemuanPunyaDiskusisa.isEmpty());
@@ -4096,10 +4338,44 @@ public class Pertemuan extends Tugas {
 		return ada;
 	}
 
+	/**
+	 * Jumlah SELURUH diskusi pada pertemuan ini.
+	 *
+	 * @return banyaknya diskusi
+	 * @see #ambilJumlahPertemuanPunyaDiskusi(Mahasiswa, Dosen)
+	 */
 	public int ambilJumlahPertemuanPunyaDiskusi() {
 		return ambilJumlahPertemuanPunyaDiskusi(null, null);
 	}
 
+	/**
+	 * Jumlah diskusi pada pertemuan ini, dengan penyaring penulis opsional.
+	 *
+	 * <p>Menghitung dalam dua tahap:</p>
+	 * <ol>
+	 *   <li><b>Dari cache.</b> Peta lokasi ditelusuri; untuk tiap kunci, objek diskusinya dicari di
+	 *       cache lewat {@code ambilData(...)}. Bila ketemu, pemiliknya dibandingkan dengan
+	 *       penyaring. Bila TIDAK ketemu, id-nya dikumpulkan ke daftar {@code idsBelumAda}.</li>
+	 *   <li><b>Susulan ke basis data.</b> Bila {@code idsBelumAda} tidak kosong, satu session baru
+	 *       dibuka dan diskusi yang belum ter-cache diambil dengan klausa {@code IN}, DIPOTONG per
+	 *       999 id. Pemotongan ini disengaja untuk menghindari batas jumlah item klausa {@code IN}
+	 *       pada basis data (komentar di kode menyebut ORA-01795). Hasilnya dimasukkan ke cache
+	 *       lewat {@code masukkanData(...)} agar pemanggilan berikutnya tidak perlu query lagi.</li>
+	 * </ol>
+	 *
+	 * <p>Bila kedua penyaring {@code null} (hitung semua), tahap dua tetap dijalankan untuk id yang
+	 * belum ter-cache tetapi hasilnya TIDAK menambah hitungan — karena penambahan hanya terjadi di
+	 * dalam cabang {@code mahasiswa != null}/{@code dosen != null}. Padahal pada tahap satu, entri
+	 * peta yang tidak kosong sudah dihitung lebih dulu, sehingga totalnya tetap benar; query
+	 * susulannya sendiri menjadi pekerjaan yang mubazir untuk kasus ini.</p>
+	 *
+	 * <p>Pertemuan yang belum punya id langsung menghasilkan {@code 0}. Session susulan selalu
+	 * ditutup di blok {@code finally}.</p>
+	 *
+	 * @param mahasiswa mahasiswa penulis yang disaring; {@code null} berarti tidak menyaring
+	 * @param dosen     dosen penulis yang disaring; {@code null} berarti tidak menyaring
+	 * @return banyaknya diskusi yang cocok
+	 */
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahPertemuanPunyaDiskusi(Mahasiswa mahasiswa, Dosen dosen) {
 		if (getId() == null) {
@@ -4194,6 +4470,33 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Kumpulkan id seluruh diskusi dari BANYAK pertemuan sekaligus, sambil melaporkan kemajuannya
+	 * ke sebuah label ZK.
+	 *
+	 * <p>Satu-satunya method statis pada keluarga diskusi. Dipakai halaman yang menampilkan forum
+	 * gabungan lintas pertemuan (mis. seluruh pertemuan satu kelas kuliah), sehingga peta lokasi
+	 * tiap pertemuan dibaca berurutan dan hasilnya digabung ke satu himpunan.</p>
+	 *
+	 * <p>Sama seperti {@link #ambilJumlahPertemuanPunyaDiskusi(Mahasiswa, Dosen)}, id yang belum
+	 * ada di cache dikumpulkan dan diambil menyusul dengan klausa {@code IN} yang dipotong per 999.
+	 * Pada tahap susulan itu ada satu perbedaan yang mudah terlewat: diskusi hanya dimasukkan bila
+	 * {@code getIsi()} TIDAK kosong, sedangkan pada tahap pembacaan cache semua diskusi dimasukkan
+	 * tanpa memeriksa isinya. Jadi diskusi berisi kosong bisa ikut atau tidak ikut tergantung
+	 * kebetulan sudah ter-cache atau belum.</p>
+	 *
+	 * <p>Bila {@code label} diberikan, teks kemajuan ({@code "Ambil data NN%"}) ditulis ke label
+	 * itu pada setiap pertemuan. Karena method ini menyentuh komponen ZK, ia hanya aman dipanggil
+	 * dari thread yang memang memegang desktop ZK tersebut.</p>
+	 *
+	 * @param urutkan    {@code true} untuk urutan id menaik; {@code false} untuk menurun
+	 *                   (yang terbaru lebih dulu)
+	 * @param pertemuans id pertemuan yang dijelajahi; {@code null}/kosong menghasilkan himpunan
+	 *                   kosong
+	 * @param label      label ZK penampil kemajuan; boleh {@code null}
+	 * @return himpunan id diskusi, terurut sesuai {@code urutkan}
+	 * @see #ambilPertemuanPunyaDiskusiTotal(boolean)
+	 */
 	@SuppressWarnings("unchecked")
 	public static TreeSet<Long> ambilPertemuanPunyaDiskusiTotalSemua(boolean urutkan, Collection<Long> pertemuans,
 			Label label) {
@@ -4279,6 +4582,25 @@ public class Pertemuan extends Tugas {
 		return pertemuanPunyaDiskusisa;
 	}
 
+	/**
+	 * Kumpulkan id seluruh diskusi pada pertemuan INI.
+	 *
+	 * <p>Versi satu-pertemuan dari
+	 * {@link #ambilPertemuanPunyaDiskusiTotalSemua(boolean, Collection, Label)}, dengan strategi
+	 * dua tahap yang sama (baca cache, lalu ambil susulan per 999 id) dan ketidakselarasan
+	 * penyaringan {@code getIsi()} yang sama.</p>
+	 *
+	 * <p>Berbeda dari versi statisnya, tiap diskusi yang ditemukan di-{@code setPertemuan(this)}
+	 * sehingga induknya tidak perlu dimuat ulang.</p>
+	 *
+	 * <p><b>Catatan:</b> method ini TIDAK memeriksa {@code udah("...")} maupun memanggil
+	 * {@link #reInitPertemuanPunyaDiskusi(Session)}. Peta lokasi yang belum pernah dibangun
+	 * menghasilkan himpunan kosong — pembangunannya diserahkan ke {@link #refreshData()} atau ke
+	 * alur yang menambah diskusi.</p>
+	 *
+	 * @param urutkan {@code true} untuk urutan id menaik; {@code false} untuk menurun
+	 * @return himpunan id diskusi
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeSet<Long> ambilPertemuanPunyaDiskusiTotal(boolean urutkan) {
 		TreeSet<Long> pertemuanPunyaDiskusisa = urutkan ? new TreeSet<Long>()
@@ -4342,6 +4664,31 @@ public class Pertemuan extends Tugas {
 		return pertemuanPunyaDiskusisa;
 	}
 
+	/**
+	 * Saring satu tingkat hierarki diskusi lalu potong satu halaman darinya.
+	 *
+	 * <p>Diskusi tersusun sebagai pohon: diskusi akar tidak punya {@code parent}, balasan
+	 * menunjuk ke diskusi induknya. Method ini menyaring himpunan id yang sudah dikumpulkan
+	 * {@link #ambilPertemuanPunyaDiskusiTotal(boolean)} menjadi satu tingkat saja:</p>
+	 * <ul>
+	 *   <li>{@code parent == null} — ambil diskusi AKAR (yang {@code parent}-nya juga
+	 *       {@code null});</li>
+	 *   <li>{@code parent != null} — ambil balasan LANGSUNG dari diskusi itu.</li>
+	 * </ul>
+	 *
+	 * <p>Penomoran halaman dihitung SETELAH penyaringan, sehingga {@code mulai} mengacu pada
+	 * urutan di dalam tingkat yang bersangkutan, bukan pada seluruh himpunan.</p>
+	 *
+	 * <p>Yang dikembalikan adalah daftar ID, bukan objeknya — pemanggil memuat sendiri objek yang
+	 * benar-benar ditampilkan.</p>
+	 *
+	 * @param parent                  diskusi induk; {@code null} berarti ambil tingkat akar
+	 * @param pertemuanPunyaDiskusisa himpunan id yang akan disaring; {@code null}/kosong
+	 *                                menghasilkan daftar kosong
+	 * @param mulai                   indeks awal halaman (berbasis nol) di dalam tingkat itu
+	 * @param banyak                  banyaknya entri per halaman
+	 * @return daftar id diskusi pada halaman yang diminta
+	 */
 	public List<Long> ambilPertemuanPunyaDiskusi(PertemuanPunyaDiskusi parent, TreeSet<Long> pertemuanPunyaDiskusisa,
 			int mulai, int banyak) {
 		int index = 0;
@@ -4376,6 +4723,26 @@ public class Pertemuan extends Tugas {
 		return pertemuanPunyaDiskusis;
 	}
 
+	/**
+	 * Cabut pertemuan ini dari peta lokasi milik SETIAP dosen yang berkaitan dengannya.
+	 *
+	 * <p>Pasangan {@link #tambahPertemuan()}. Selain punya peta lokasi anak sendiri, {@link Dosen}
+	 * juga memelihara peta lokasi berisi pertemuan-pertemuan miliknya (dipakai untuk menampilkan
+	 * agenda dosen tanpa query). Method ini menjaga peta di sisi dosen tetap selaras ketika sebuah
+	 * pertemuan dihapus.</p>
+	 *
+	 * <p>Kumpulan dosen ditentukan dari jenis induk, dengan rantai yang MIRIP tetapi TIDAK SAMA
+	 * dengan {@link #ambilDosen()}: di sini dipakai {@code populateDosen().values()} untuk
+	 * bimbingan/skripsi/KKN/PKL, dan {@code pertemuanPunyaGrupPertemuan} maupun
+	 * {@code formulirKegiatan} TIDAK punya cabangnya. Akibatnya, pertemuan pada grup pertemuan atau
+	 * formulir kegiatan tidak pernah tercabut dari peta lokasi dosennya — peta itu akan menyimpan
+	 * id pertemuan yang sudah tiada sampai dibangun ulang.</p>
+	 *
+	 * <p>Method ini TIDAK menghapus baris pertemuan dari basis data; penghapusan itu tanggung
+	 * jawab pemanggil.</p>
+	 *
+	 * @see #tambahPertemuan()
+	 */
 	public void hapusPertemuan() {
 		Collection<Dosen> dosens = null;
 		if (getPerkuliahan() != null) {
@@ -4400,6 +4767,21 @@ public class Pertemuan extends Tugas {
 		dosens = null;
 	}
 
+	/**
+	 * Daftarkan pertemuan ini ke peta lokasi milik SETIAP dosen yang berkaitan dengannya.
+	 *
+	 * <p>Pasangan {@link #hapusPertemuan()}, dengan rantai penentuan dosen yang sama persis
+	 * (termasuk ketidaklengkapan yang sama untuk grup pertemuan dan formulir kegiatan).</p>
+	 *
+	 * <p>Berbeda dari {@link #hapusPertemuan()}, setiap pendaftaran dibungkus {@code try/catch}
+	 * sendiri sehingga kegagalan pada satu dosen tidak menghentikan pendaftaran ke dosen lain —
+	 * tetapi juga tidak dilaporkan ke pemanggil.</p>
+	 *
+	 * <p>Panggil setelah pertemuan tersimpan dan sudah punya id, karena yang didaftarkan adalah
+	 * objek pertemuan itu sendiri.</p>
+	 *
+	 * @see #hapusPertemuan()
+	 */
 	public void tambahPertemuan() {
 		Collection<Dosen> dosens = null;
 		if (getPerkuliahan() != null) {
@@ -4428,6 +4810,19 @@ public class Pertemuan extends Tugas {
 		dosens = null;
 	}
 
+	/**
+	 * Baca peta lokasi ujian ({@link PertemuanPunyaUjian}) milik pertemuan ini.
+	 *
+	 * <p>Mengikuti pola pada {@link #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()}.</p>
+	 *
+	 * <p><b>Awas huruf besar.</b> Nama berkasnya {@code "pertemuan_punya_Ujian_<id>"} dengan huruf
+	 * U BESAR, dan penanda {@code udah(...)}/{@code belum(...)} untuk jenis ini juga
+	 * {@code "pertemuan_punya_Ujian"}. Menuliskannya dengan huruf kecil akan menunjuk peta yang
+	 * berbeda, sehingga peta dibangun ulang pada setiap akses.</p>
+	 *
+	 * @return isi peta lokasi ujian sebagai teks JSON; JSON kosong bila belum ada
+	 * @see #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public String ambilLokasiPertemuanPunyaUjian() {
 		File file = Common.getFileLocation(this, "pertemuan_punya_Ujian_" + getId().toString());
 		try {
@@ -4439,6 +4834,14 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi ujian milik pertemuan ini.
+	 *
+	 * <p>Berbeda dari {@link #tulisLokasiPengajuanIzinTidakMasukPerkuliahan(String)}, kegagalan
+	 * penulisan di sini ditelan sehingga pemanggil tidak akan tahu bila peta gagal disimpan.</p>
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 */
 	public void tulisLokasiPertemuanPunyaUjian(String data) {
 		File file = Common.getFileLocation(this, "pertemuan_punya_Ujian_" + getId().toString());
 		try {
@@ -4449,12 +4852,32 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Hapus berkas peta lokasi ujian milik pertemuan ini.
+	 *
+	 * @see #bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiPertemuanPunyaUjian() {
 		File file = Common.getFileLocation(this, "pertemuan_punya_Ujian_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "pertemuan_punya_Ujian");
 
 	}
 
+	/**
+	 * Bangun ulang peta lokasi ujian dari basis data.
+	 *
+	 * <p>Berbeda dari {@code reInitXxx(...)} lain, urutannya bukan sekadar menurut id melainkan
+	 * menurut NAMA UJIAN lebih dulu (lewat {@code createAlias("ujian", "ujian")}), baru id.
+	 * Karena {@link #ambilPertemuanPunyaUjianTotal(String, Tbmuser)} pada akhirnya mengumpulkan
+	 * hasilnya ke {@link TreeMap} berkunci id, urutan itu praktis tidak terlihat lagi di
+	 * hasil akhir.</p>
+	 *
+	 * <p>Pertemuan yang belum punya id menghasilkan daftar kosong (bukan exception), sehingga peta
+	 * tetap ditulis dalam keadaan kosong.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @see #reInitPengajuanIzinTidakMasukPerkuliahan(Session)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPertemuanPunyaUjian(Session session) {
 		List<Long> pertemuanPunyaUjians = this.getId() == null ? new ArrayList<Long>()
@@ -4469,6 +4892,12 @@ public class Pertemuan extends Tugas {
 		pertemuanPunyaUjians = null;
 	}
 
+	/**
+	 * Keluarkan satu ujian dari peta lokasi pertemuan ini.
+	 *
+	 * @param id id ujian yang dikeluarkan
+	 * @see #removePengajuanIzinTidakMasukPerkuliahan(Serializable)
+	 */
 	public void removePertemuanPunyaUjian(Serializable id) {
 		try {
 			JSONObject c = jsonObjekUntukTulis(ambilLokasiPertemuanPunyaUjian());
@@ -4479,6 +4908,16 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu ujian ke peta lokasi pertemuan ini.
+	 *
+	 * <p>Seperti {@link #populatePertemuanPunyaDiskusi(Long, boolean)}, parameter {@code tulisUlang}
+	 * TIDAK dipakai di badan method.</p>
+	 *
+	 * @param pertemuanPunyaUjianid id ujian yang didaftarkan; {@code null} diabaikan
+	 * @param tulisUlang            tidak dipakai
+	 * @see #populatePengajuanIzinTidakMasukPerkuliahan(Long)
+	 */
 	public void populatePertemuanPunyaUjian(Long pertemuanPunyaUjianid, boolean tulisUlang) {
 		try {
 			if (pertemuanPunyaUjianid == null) {
@@ -4492,6 +4931,21 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Adakah ujian dengan nama tertentu yang TERLIHAT oleh pengguna ini pada pertemuan ini?
+	 *
+	 * <p>Perhatikan bahwa jawabannya bergantung pada {@code tbmuser}: bagi peserta didik,
+	 * {@link #ambilPertemuanPunyaUjianTotal(String, Tbmuser)} menyembunyikan ujian yang jendela
+	 * waktunya sudah lewat. Jadi pertanyaan "apakah pertemuan ini punya ujian X" dapat dijawab
+	 * berbeda untuk dosen dan mahasiswa pada saat yang sama.</p>
+	 *
+	 * @param namaUjian nama ujian yang dicari (pencocokan sebagian, tidak peka huruf besar/kecil);
+	 *                  kosong berarti ujian apa pun
+	 * @param tbmuser   pengguna yang menjadi sudut pandang penyaringan; {@code null} berarti tanpa
+	 *                  penyaringan waktu
+	 * @return {@code true} bila ada ujian yang cocok dan terlihat
+	 * @see #ambilPertemuanPunyaUjianTotal(String, Tbmuser)
+	 */
 	public boolean punyaUjian(String namaUjian, Tbmuser tbmuser) {
 		TreeMap<Long, PertemuanPunyaUjian> pertemuanPunyaUjiansa = ambilPertemuanPunyaUjianTotal(namaUjian, tbmuser);
 		int ada = pertemuanPunyaUjiansa.size();
@@ -4499,10 +4953,40 @@ public class Pertemuan extends Tugas {
 		return ada > 0;
 	}
 
+	/**
+	 * Jumlah SELURUH ujian pada pertemuan ini.
+	 *
+	 * @return banyaknya ujian
+	 * @see #ambilJumlahPertemuanPunyaUjian(Mahasiswa, BiodataCalonMahasiswa)
+	 */
 	public int ambilJumlahPertemuanPunyaUjian() {
 		return ambilJumlahPertemuanPunyaUjian(null, null);
 	}
 
+	/**
+	 * Jumlah ujian pada pertemuan ini — <b>atau</b> jumlah HASIL ujian milik satu peserta.
+	 *
+	 * <p>Arti angka yang dikembalikan BERUBAH tergantung argumennya, jadi bacalah dengan saksama:</p>
+	 * <ul>
+	 *   <li>kedua argumen {@code null} — yang dihitung adalah banyaknya UJIAN pada pertemuan ini,
+	 *       langsung dari peta lokasi tanpa memuat objek apa pun;</li>
+	 *   <li>salah satu argumen terisi — untuk tiap ujian, method memuat objeknya lalu MENJUMLAHKAN
+	 *       banyaknya HASIL ujian ({@code ambilHasilUjianMahasiswa(...)}) milik peserta itu. Jadi
+	 *       hasilnya bisa jauh lebih besar daripada jumlah ujian, dan artinya "berapa kali peserta
+	 *       ini sudah mengerjakan".</li>
+	 * </ul>
+	 *
+	 * <p>Kedua cabang berargumen memanggil {@code ambilHasilUjianMahasiswa(mahasiswa,
+	 * biodataCalonMahasiswa, true)} dengan argumen yang persis sama, sehingga isinya sebenarnya
+	 * duplikat — pemisahan cabangnya tidak mengubah apa pun.</p>
+	 *
+	 * <p>Peta lokasi dibangun ulang lebih dulu bila penanda {@code "pertemuan_punya_Ujian"} belum
+	 * ada; session yang dipakai untuk itu ditutup lewat {@code HibernateUtil.closeSession()}.</p>
+	 *
+	 * @param mahasiswa             mahasiswa yang hasil ujiannya dihitung; boleh {@code null}
+	 * @param biodataCalonMahasiswa calon mahasiswa yang hasil ujiannya dihitung; boleh {@code null}
+	 * @return banyaknya ujian, atau banyaknya hasil ujian peserta (lihat penjelasan di atas)
+	 */
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahPertemuanPunyaUjian(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		if (!udah("pertemuan_punya_Ujian")) {
@@ -4555,10 +5039,48 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Seluruh ujian pada pertemuan ini yang terlihat oleh {@code tbmuser}.
+	 *
+	 * @param tbmuser pengguna yang menjadi sudut pandang penyaringan
+	 * @return peta {@code id -> ujian}
+	 * @see #ambilPertemuanPunyaUjianTotal(String, Tbmuser)
+	 */
 	public TreeMap<Long, PertemuanPunyaUjian> ambilPertemuanPunyaUjianTotal(Tbmuser tbmuser) {
 		return ambilPertemuanPunyaUjianTotal("", tbmuser);
 	}
 
+	/**
+	 * Ujian pada pertemuan ini, disaring menurut nama dan menurut hak lihat pengguna.
+	 *
+	 * <h4>Penyaringan menurut peran</h4>
+	 * <p>Pengguna yang BUKAN peserta didik (bukan mahasiswa, siswa, calon mahasiswa, atau calon
+	 * siswa) — dan juga {@code tbmuser} bernilai {@code null} — melihat SEMUA ujian. Peserta didik
+	 * hanya melihat ujian yang tidak bertanda
+	 * {@code tidakDitampilkanJikaWaktuSudahTerlewat}, atau yang saat ini masih berada dalam
+	 * rentang {@code mulaiUjian}..{@code sampaiUjian}.</p>
+	 *
+	 * <h4>Dua sumber data</h4>
+	 * <p>Untuk tiap entri peta lokasi, objek ujian dicari lebih dulu di cache. Bila tidak ada, nilai
+	 * entri diperlakukan sebagai PATH BERKAS dan isinya dibaca sebagai JSON lalu diubah menjadi
+	 * objek. Jalur cadangan inilah yang membuat daftar ujian tetap tampil walau cache sudah
+	 * kosong.</p>
+	 *
+	 * <p><b>Ketidakselarasan yang perlu diketahui:</b> penyaring {@code nama} hanya diterapkan pada
+	 * jalur BERKAS, tidak pada jalur cache. Akibatnya, memanggil method ini dengan nama tertentu
+	 * dapat mengembalikan ujian yang namanya tidak cocok, tergantung ujian itu kebetulan sudah
+	 * ter-cache atau belum.</p>
+	 *
+	 * <p>Berkas yang ada tetapi isinya bukan JSON objek dilewati diam-diam lewat
+	 * {@link #bacaJsonObjekAman(String)} — sengaja, agar log tidak dibanjiri pada tiap siklus
+	 * warmup cache.</p>
+	 *
+	 * @param nama    penggalan nama ujian yang dicari (tidak peka huruf besar/kecil);
+	 *                {@code null}/kosong berarti tanpa penyaringan nama
+	 * @param tbmuser pengguna yang menjadi sudut pandang; {@code null} berarti melihat semua
+	 * @return peta {@code id -> ujian}, terurut menaik menurut id; kosong bila pertemuan belum
+	 *         punya id
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, PertemuanPunyaUjian> ambilPertemuanPunyaUjianTotal(String nama, Tbmuser tbmuser) {
 		TreeMap<Long, PertemuanPunyaUjian> pertemuanPunyaUjiansa = new TreeMap<Long, PertemuanPunyaUjian>();
@@ -4644,6 +5166,20 @@ public class Pertemuan extends Tugas {
 		return pertemuanPunyaUjiansa;
 	}
 
+	/**
+	 * Potong satu halaman dari peta ujian yang sudah dikumpulkan.
+	 *
+	 * <p>Bentuk paling umum dari pola {@code ambilXxx(map, mulai, banyak)} di kelas ini: menelusuri
+	 * peta menurut urutan kuncinya dan mengambil entri pada rentang
+	 * {@code [mulai, mulai + banyak)}. Seluruh peta tetap ditelusuri sampai habis walau halaman
+	 * yang diminta sudah penuh.</p>
+	 *
+	 * @param pertemuanPunyaUjiansa peta hasil {@link #ambilPertemuanPunyaUjianTotal(String, Tbmuser)};
+	 *                              {@code null} melempar {@link NullPointerException}
+	 * @param mulai                 indeks awal halaman (berbasis nol)
+	 * @param banyak                banyaknya entri per halaman
+	 * @return daftar ujian pada halaman yang diminta
+	 */
 	public List<PertemuanPunyaUjian> ambilPertemuanPunyaUjian(TreeMap<Long, PertemuanPunyaUjian> pertemuanPunyaUjiansa,
 			int mulai, int banyak) {
 

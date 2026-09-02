@@ -3789,10 +3789,41 @@ public class Pegawai extends Karyawan {
 	 */
 	public static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
+	/**
+	 * Masa kerja sebagai <b>pegawai tetap</b> dalam satuan tahun penuh, dihitung dari
+	 * {@link #getTanggalmasuk()} sampai {@link #getTanggalkeluar()} (atau sampai hari ini bila
+	 * belum keluar).
+	 *
+	 * <p>Ini rentang keempat dari empat rentang masa kerja paralel; masing-masing punya pasangan
+	 * {@code ambilMasaKerjaTahun*}/{@code ambilMasaKerjaBulan*} sendiri. Karena
+	 * {@link #getTanggalmasuk()} disaring oleh {@link #getTipeMasaKerja()}, pegawai yang belum
+	 * berstatus tetap selalu menghasilkan {@code 0} di sini.</p>
+	 *
+	 * <p>Dipakai antara lain oleh {@link #ambilJatahCuti()} dan
+	 * {@link #ambilKeseuaianGajiPokok(Date)}.</p>
+	 *
+	 * @return jumlah tahun penuh masa kerja tetap; {@code 0} bila tanggal masuk tidak tersedia
+	 * @see #ambilMasaKerjaBulan()
+	 */
 	public Integer ambilMasaKerjaTahun() {
 		return ambilMasaKerjaTahun(getTanggalmasuk(), getTanggalkeluar());
 	}
 
+	/**
+	 * Menghitung selisih <b>tahun penuh</b> antara dua tanggal memakai {@link java.time.Period}.
+	 *
+	 * <p>Kedua tanggal diformat dulu ke {@code yyyy-MM-dd} lewat {@code Common.databaseDateFormat}
+	 * sebelum di-parse menjadi {@link java.time.LocalDate}, sehingga komponen jam/menit dibuang dan
+	 * perhitungan bebas dari pengaruh zona waktu.</p>
+	 *
+	 * <p><b>Perhatikan:</b> hasilnya hanya komponen <i>tahun</i> dari {@code Period}, bukan total
+	 * bulan dibagi 12. Untuk sisa bulannya panggil {@link #ambilMasaKerjaBulan(Date, Date)} — dua
+	 * angka itu memang dimaksudkan untuk ditampilkan berdampingan ("3 tahun 7 bulan").</p>
+	 *
+	 * @param tgl       tanggal mulai; bila {@code null} hasilnya {@code 0}
+	 * @param tglSampai tanggal akhir; {@code null} berarti sampai hari ini
+	 * @return jumlah tahun penuh
+	 */
 	public Integer ambilMasaKerjaTahun(Date tgl, Date tglSampai) {
 		Integer masaKerjaTahun = 0;
 		if (tgl != null) {
@@ -3810,10 +3841,25 @@ public class Pegawai extends Karyawan {
 		return masaKerjaTahun;
 	}
 
+	/**
+	 * <b>Sisa bulan</b> masa kerja tetap setelah tahun penuh — pelengkap
+	 * {@link #ambilMasaKerjaTahun()}, bukan total bulan.
+	 *
+	 * @return sisa bulan (0–11); {@code 0} bila tanggal masuk tidak tersedia
+	 */
 	public Integer ambilMasaKerjaBulan() {
 		return ambilMasaKerjaBulan(getTanggalmasuk(), getTanggalkeluar());
 	}
 
+	/**
+	 * Menghitung <b>sisa bulan</b> (komponen {@code getMonths()} dari {@link java.time.Period})
+	 * antara dua tanggal. Sama seperti {@link #ambilMasaKerjaTahun(Date, Date)}, tanggal
+	 * dinormalkan lebih dulu ke {@code yyyy-MM-dd}.
+	 *
+	 * @param tgl       tanggal mulai; bila {@code null} hasilnya {@code 0}
+	 * @param tglSampai tanggal akhir; {@code null} berarti sampai hari ini
+	 * @return sisa bulan setelah tahun penuh (0–11)
+	 */
 	public Integer ambilMasaKerjaBulan(Date tgl, Date tglSampai) {
 		Integer masaKerjaBulan = 0;
 		if (tgl != null) {
@@ -3831,10 +3877,28 @@ public class Pegawai extends Karyawan {
 		return masaKerjaBulan;
 	}
 
+	/**
+	 * Masa <b>pengalaman kerja sebelum masuk institusi</b> dalam tahun penuh — rentang pertama dari
+	 * empat rentang paralel, dihitung dari {@code tanggalMulaiPengalanKerja} sampai
+	 * {@code tanggalSampaiPengalanKerja}.
+	 *
+	 * <p>Berbeda dari tiga rentang lain, pasangan tanggal ini <b>tidak</b> disaring oleh
+	 * {@link #getTipeMasaKerja()} sehingga selalu terbaca apa adanya.</p>
+	 *
+	 * @return jumlah tahun penuh pengalaman kerja sebelumnya; {@code 0} bila tanggal mulai kosong
+	 * @see #ambilMasaKerjaBulanPengalamanKerja()
+	 */
 	public Integer ambilMasaKerjaTahunPengalamanKerja() {
 		return ambilMasaKerjaTahunPengalamanKerja(getTanggalMulaiPengalanKerja(), getTanggalSampaiPengalanKerja());
 	}
 
+	/**
+	 * Varian {@link #ambilMasaKerjaTahunPengalamanKerja()} dengan rentang tanggal bebas.
+	 *
+	 * @param tgl       tanggal mulai; bila {@code null} hasilnya {@code 0}
+	 * @param tglSampai tanggal akhir; {@code null} berarti sampai hari ini
+	 * @return jumlah tahun penuh
+	 */
 	public Integer ambilMasaKerjaTahunPengalamanKerja(Date tgl, Date tglSampai) {
 		Integer masaKerja = 0;
 		if (tgl != null) {
@@ -3852,10 +3916,23 @@ public class Pegawai extends Karyawan {
 		return masaKerja;
 	}
 
+	/**
+	 * Sisa bulan pengalaman kerja sebelum masuk institusi — pelengkap
+	 * {@link #ambilMasaKerjaTahunPengalamanKerja()}.
+	 *
+	 * @return sisa bulan (0–11)
+	 */
 	public Integer ambilMasaKerjaBulanPengalamanKerja() {
 		return ambilMasaKerjaBulanPengalamanKerja(getTanggalMulaiPengalanKerja(), getTanggalSampaiPengalanKerja());
 	}
 
+	/**
+	 * Varian {@link #ambilMasaKerjaBulanPengalamanKerja()} dengan rentang tanggal bebas.
+	 *
+	 * @param tgl       tanggal mulai; bila {@code null} hasilnya {@code 0}
+	 * @param tglSampai tanggal akhir; {@code null} berarti sampai hari ini
+	 * @return sisa bulan (0–11)
+	 */
 	public Integer ambilMasaKerjaBulanPengalamanKerja(Date tgl, Date tglSampai) {
 		Integer masaKerja = 0;
 		if (tgl != null) {
@@ -3873,10 +3950,28 @@ public class Pegawai extends Karyawan {
 		return masaKerja;
 	}
 
+	/**
+	 * Masa kerja sebagai <b>honorer</b> dalam tahun penuh — rentang kedua dari empat rentang
+	 * paralel.
+	 *
+	 * <p>Karena {@link #getTanggalmasukHonorer()} disaring oleh {@link #getTipeMasaKerja()},
+	 * rentang ini terbaca untuk pegawai bertipe Honorer, Semi Tetap, maupun Tetap (riwayat honorer
+	 * ikut terbawa naik jenjang).</p>
+	 *
+	 * @return jumlah tahun penuh masa honorer; {@code 0} bila tanggal masuk honorer tidak tersedia
+	 * @see #ambilMasaKerjaBulanHonorer()
+	 */
 	public Integer ambilMasaKerjaTahunHonorer() {
 		return ambilMasaKerjaTahunHonorer(getTanggalmasukHonorer(), getTanggalkeluarHonorer());
 	}
 
+	/**
+	 * Varian {@link #ambilMasaKerjaTahunHonorer()} dengan rentang tanggal bebas.
+	 *
+	 * @param tgl       tanggal mulai; bila {@code null} hasilnya {@code 0}
+	 * @param tglSampai tanggal akhir; {@code null} berarti sampai hari ini
+	 * @return jumlah tahun penuh
+	 */
 	public Integer ambilMasaKerjaTahunHonorer(Date tgl, Date tglSampai) {
 		Integer masaKerja = 0;
 		if (tgl != null) {
@@ -3894,10 +3989,22 @@ public class Pegawai extends Karyawan {
 		return masaKerja;
 	}
 
+	/**
+	 * Sisa bulan masa kerja honorer — pelengkap {@link #ambilMasaKerjaTahunHonorer()}.
+	 *
+	 * @return sisa bulan (0–11)
+	 */
 	public Integer ambilMasaKerjaBulanHonorer() {
 		return ambilMasaKerjaBulanHonorer(getTanggalmasukHonorer(), getTanggalkeluarHonorer());
 	}
 
+	/**
+	 * Varian {@link #ambilMasaKerjaBulanHonorer()} dengan rentang tanggal bebas.
+	 *
+	 * @param tgl       tanggal mulai; bila {@code null} hasilnya {@code 0}
+	 * @param tglSampai tanggal akhir; {@code null} berarti sampai hari ini
+	 * @return sisa bulan (0–11)
+	 */
 	public Integer ambilMasaKerjaBulanHonorer(Date tgl, Date tglSampai) {
 		Integer masaKerja = 0;
 		if (tgl != null) {
@@ -3915,10 +4022,24 @@ public class Pegawai extends Karyawan {
 		return masaKerja;
 	}
 
+	/**
+	 * Masa kerja pada jenjang <b>semi tetap</b> dalam tahun penuh — rentang ketiga dari empat
+	 * rentang paralel. Terbaca untuk pegawai bertipe Semi Tetap maupun Tetap.
+	 *
+	 * @return jumlah tahun penuh masa semi tetap; {@code 0} bila tanggalnya tidak tersedia
+	 * @see #ambilMasaKerjaBulanSemiTetap()
+	 */
 	public Integer ambilMasaKerjaTahunSemiTetap() {
 		return ambilMasaKerjaTahunSemiTetap(getTanggalmasukSemiTetap(), getTanggalkeluarSemiTetap());
 	}
 
+	/**
+	 * Varian {@link #ambilMasaKerjaTahunSemiTetap()} dengan rentang tanggal bebas.
+	 *
+	 * @param tgl       tanggal mulai; bila {@code null} hasilnya {@code 0}
+	 * @param tglSampai tanggal akhir; {@code null} berarti sampai hari ini
+	 * @return jumlah tahun penuh
+	 */
 	public Integer ambilMasaKerjaTahunSemiTetap(Date tgl, Date tglSampai) {
 		Integer masaKerja = 0;
 		if (tgl != null) {
@@ -3936,10 +4057,22 @@ public class Pegawai extends Karyawan {
 		return masaKerja;
 	}
 
+	/**
+	 * Sisa bulan masa kerja semi tetap — pelengkap {@link #ambilMasaKerjaTahunSemiTetap()}.
+	 *
+	 * @return sisa bulan (0–11)
+	 */
 	public Integer ambilMasaKerjaBulanSemiTetap() {
 		return ambilMasaKerjaBulanSemiTetap(getTanggalmasukSemiTetap(), getTanggalkeluarSemiTetap());
 	}
 
+	/**
+	 * Varian {@link #ambilMasaKerjaBulanSemiTetap()} dengan rentang tanggal bebas.
+	 *
+	 * @param tgl       tanggal mulai; bila {@code null} hasilnya {@code 0}
+	 * @param tglSampai tanggal akhir; {@code null} berarti sampai hari ini
+	 * @return sisa bulan (0–11)
+	 */
 	public Integer ambilMasaKerjaBulanSemiTetap(Date tgl, Date tglSampai) {
 		Integer masaKerja = 0;
 		if (tgl != null) {
@@ -3957,6 +4090,26 @@ public class Pegawai extends Karyawan {
 		return masaKerja;
 	}
 
+	/**
+	 * Mengumpulkan seluruh entri master {@link GajiPokok} yang <b>sesuai</b> untuk pegawai ini pada
+	 * tanggal tertentu: tanggal efektifnya sudah berlaku dan masa kerjanya tidak melebihi masa
+	 * kerja pegawai ({@link #ambilMasaKerjaTahun()} {@code >=} masa kerja entri). Hasilnya diurutkan
+	 * <b>menurun</b> ({@code Collections.reverseOrder()}) sehingga entri paling tinggi ada di
+	 * depan.
+	 *
+	 * <p>Berbeda dari {@link #ambilGajiPokok(Date)} yang memilih <i>satu</i> nilai definitif,
+	 * method ini menghasilkan <i>daftar kandidat</i> — bentuk yang cocok untuk mengisi combo
+	 * pilihan gaji pokok pada layar kenaikan pangkat.</p>
+	 *
+	 * <p><b>Catatan:</b> tidak menyaring berdasarkan golongan sama sekali, dan pada saat
+	 * dokumentasi ini ditulis <b>tidak ada pemanggil</b> di pohon sumber — kemungkinan sisa fitur
+	 * yang dibatalkan. Nama methodnya juga salah eja ("Keseuaian" alih-alih "Kesesuaian");
+	 * dibiarkan apa adanya karena mengubah nama publik berisiko.</p>
+	 *
+	 * @param sekarang tanggal acuan keberlakuan tanggal efektif; tidak boleh {@code null}
+	 * @return daftar gaji pokok yang sesuai, terurut menurun; kosong bila tidak ada
+	 * @see #ambilGajiPokok(Date)
+	 */
 	public List<GajiPokok> ambilKeseuaianGajiPokok(Date sekarang) {
 
 		List<GajiPokok> gajiPokoks = new ArrayList<GajiPokok>();
@@ -3976,6 +4129,23 @@ public class Pegawai extends Karyawan {
 		return gajiPokoks;
 	}
 
+	/**
+	 * Mencari <b>format KPI</b> (indikator kinerja) yang berlaku bagi pegawai ini pada tanggal
+	 * tertentu.
+	 *
+	 * <p>Memindai cache {@code ConstantValues} untuk {@link FormatKpiDetail}, menyaring yang
+	 * pegawainya sama, berstatus aktif, dan tanggal efektifnya sudah berlaku pada
+	 * {@code sekarang}; hasilnya diurutkan menurut urutan alami {@code FormatKpiDetail} lalu
+	 * <b>entri pertama</b> yang dikembalikan.</p>
+	 *
+	 * <p><b>Kuirk:</b> penyaringan memanggil {@code formatKpiDetail.getPegawai().getId()} tanpa
+	 * penjagaan null dan tanpa {@code try/catch}, sehingga satu baris {@code FormatKpiDetail}
+	 * yatim (tanpa pegawai) di cache akan melempar {@link NullPointerException} ke pemanggil.</p>
+	 *
+	 * @param sekarang tanggal acuan keberlakuan
+	 * @return format KPI yang berlaku, atau {@code null} bila tidak ada
+	 * @see #getPersenKpiDefault()
+	 */
 	public FormatKpiDetail ambilFormatKpiDetail(Date sekarang) {
 		List<FormatKpiDetail> formatKpiDetails = new ArrayList<FormatKpiDetail>();
 		String s = Common.dateFormat1.get().format(sekarang);
@@ -3995,6 +4165,19 @@ public class Pegawai extends Karyawan {
 		return formatKpiDetail;
 	}
 
+	/**
+	 * Mengambil {@link JabatanStruktural} <b>pertama</b> yang ditemukan pada daftar SK kenaikan
+	 * pangkat yang sudah disaring.
+	 *
+	 * <p>Karena daftar masukan sudah diurutkan oleh {@link #ambilKenaikanPangkat(Date, Collection)},
+	 * "pertama" di sini berarti SK yang paling relevan. Method ini murni — tidak menyentuh basis
+	 * data maupun cache.</p>
+	 *
+	 * @param kenaikanPangkats daftar SK yang berlaku; tidak boleh {@code null}
+	 * @return jabatan struktural pertama yang ditemukan, atau {@code null}
+	 * @see #getJabatanStruktural()
+	 * @see #ambilJabatanStrukturals(List)
+	 */
 	public JabatanStruktural ambilJabatanStruktural(List<KenaikanPangkat> kenaikanPangkats) {
 		for (KenaikanPangkat kenaikanPangkat : kenaikanPangkats) {
 			if (kenaikanPangkat.getJabatanStruktural() != null) {
@@ -4004,6 +4187,14 @@ public class Pegawai extends Karyawan {
 		return null;
 	}
 
+	/**
+	 * Mengambil {@link JabatanFungsional} <b>pertama</b> yang ditemukan pada daftar SK kenaikan
+	 * pangkat yang sudah disaring. Padanan {@link #ambilJabatanStruktural(List)}.
+	 *
+	 * @param kenaikanPangkats daftar SK yang berlaku; tidak boleh {@code null}
+	 * @return jabatan fungsional pertama yang ditemukan, atau {@code null}
+	 * @see #getJabatanFungsional()
+	 */
 	public JabatanFungsional ambilJabatanFungsional(List<KenaikanPangkat> kenaikanPangkats) {
 		for (KenaikanPangkat kenaikanPangkat : kenaikanPangkats) {
 			if (kenaikanPangkat.getJabatanFungsional() != null) {
@@ -4013,6 +4204,15 @@ public class Pegawai extends Karyawan {
 		return null;
 	}
 
+	/**
+	 * Mengambil {@link Jabatan} umum <b>pertama</b> yang ditemukan pada daftar SK kenaikan pangkat.
+	 * Berbeda dari jabatan struktural/fungsional, {@code Jabatan} di sini adalah master jabatan
+	 * generik yang dipakai lintas modul.
+	 *
+	 * @param kenaikanPangkats daftar SK yang berlaku; tidak boleh {@code null}
+	 * @return jabatan pertama yang ditemukan, atau {@code null}
+	 * @see #ambilJabatans(List)
+	 */
 	public Jabatan ambilJabatan(List<KenaikanPangkat> kenaikanPangkats) {
 
 		for (KenaikanPangkat kenaikanPangkat : kenaikanPangkats) {
@@ -4023,6 +4223,14 @@ public class Pegawai extends Karyawan {
 		return null;
 	}
 
+	/**
+	 * Mengumpulkan <b>seluruh</b> {@link JabatanStruktural} dari daftar SK kenaikan pangkat —
+	 * bentuk jamak {@link #ambilJabatanStruktural(List)}, untuk kasus pegawai yang merangkap
+	 * beberapa jabatan struktural sekaligus.
+	 *
+	 * @param kenaikanPangkats daftar SK yang berlaku; tidak boleh {@code null}
+	 * @return daftar jabatan struktural (boleh kosong), tidak pernah {@code null}
+	 */
 	public List<JabatanStruktural> ambilJabatanStrukturals(List<KenaikanPangkat> kenaikanPangkats) {
 		List<JabatanStruktural> jabatanStrukturals = new ArrayList<JabatanStruktural>();
 		for (KenaikanPangkat kenaikanPangkat : kenaikanPangkats) {
@@ -4033,6 +4241,12 @@ public class Pegawai extends Karyawan {
 		return jabatanStrukturals;
 	}
 
+	/**
+	 * Mengumpulkan <b>seluruh</b> {@link JabatanFungsional} dari daftar SK kenaikan pangkat.
+	 *
+	 * @param kenaikanPangkats daftar SK yang berlaku; tidak boleh {@code null}
+	 * @return daftar jabatan fungsional (boleh kosong), tidak pernah {@code null}
+	 */
 	public List<JabatanFungsional> ambilJabatanFungsionals(List<KenaikanPangkat> kenaikanPangkats) {
 		List<JabatanFungsional> fungsionals = new ArrayList<JabatanFungsional>();
 		for (KenaikanPangkat kenaikanPangkat : kenaikanPangkats) {
@@ -4043,6 +4257,12 @@ public class Pegawai extends Karyawan {
 		return fungsionals;
 	}
 
+	/**
+	 * Mengumpulkan <b>seluruh</b> {@link Jabatan} umum dari daftar SK kenaikan pangkat.
+	 *
+	 * @param kenaikanPangkats daftar SK yang berlaku; tidak boleh {@code null}
+	 * @return daftar jabatan (boleh kosong), tidak pernah {@code null}
+	 */
 	public List<Jabatan> ambilJabatans(List<KenaikanPangkat> kenaikanPangkats) {
 		List<Jabatan> jabatans = new ArrayList<Jabatan>();
 		for (KenaikanPangkat kenaikanPangkat : kenaikanPangkats) {
@@ -4053,12 +4273,32 @@ public class Pegawai extends Karyawan {
 		return jabatans;
 	}
 
+	/**
+	 * Alias dari {@link #ambilKenaikanPangkat(Date)} — badan keduanya identik, kata "Data" pada
+	 * namanya tidak membedakan apa pun. Dipertahankan demi pemanggil lama.
+	 *
+	 * @param sekarang tanggal acuan keberlakuan SK
+	 * @return daftar SK kenaikan pangkat yang berlaku, terurut; boleh kosong
+	 * @see #ambilKenaikanPangkat(Date)
+	 */
 	@SuppressWarnings("rawtypes")
 	public List<KenaikanPangkat> ambilKenaikanPangkatData(Date sekarang) {
 		Collection pangkats = ambilKoleksiKenaikanPangkatAman();
 		return ambilKenaikanPangkat(sekarang, pangkats);
 	}
 
+	/**
+	 * Mengambil daftar SK {@link KenaikanPangkat} milik pegawai ini yang <b>berlaku</b> pada
+	 * tanggal tertentu. Ini pintu masuk yang dipakai seluruh method penggajian
+	 * ({@link #ambilGajiPokok(Date)} dan kawan-kawan) serta getter jabatan turunan.
+	 *
+	 * <p>Sumber datanya adalah <b>cache {@code ConstantValues}</b> (MapDB), bukan query Hibernate —
+	 * lihat {@link #ambilKoleksiKenaikanPangkatAman()} untuk penjelasan ketahanannya.</p>
+	 *
+	 * @param sekarang tanggal acuan keberlakuan SK
+	 * @return daftar SK yang berlaku, sudah terurut; boleh kosong, tidak pernah {@code null}
+	 * @see #ambilKenaikanPangkat(Date, Collection)
+	 */
 	@SuppressWarnings("rawtypes")
 	public List<KenaikanPangkat> ambilKenaikanPangkat(Date sekarang) {
 		Collection pangkats = ambilKoleksiKenaikanPangkatAman();
@@ -4071,6 +4311,13 @@ public class Pegawai extends Karyawan {
 	 * melempar {@code IllegalAccessError "DB has been closed"} (Error, bukan Exception). Karena
 	 * method ini dipakai dari getter yang dipanggil Hibernate saat flush, kegagalan tidak boleh
 	 * menggagalkan flush → kembalikan koleksi kosong.
+	 *
+	 * <p>Perhatikan {@code catch (Throwable)}, bukan {@code catch (Exception)}: yang dilempar MapDB
+	 * adalah {@link Error}, yang tidak tertangkap oleh {@code catch (Exception)}.</p>
+	 *
+	 * @return koleksi seluruh {@link KenaikanPangkat} dari cache, atau koleksi kosong bila cache
+	 *         tidak tersedia
+	 * @see #ambilKenaikanPangkat(Date, Collection)
 	 */
 	@SuppressWarnings("rawtypes")
 	private Collection ambilKoleksiKenaikanPangkatAman() {
@@ -4082,6 +4329,42 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
+	/**
+	 * Inti penyaringan SK {@link KenaikanPangkat}: dari koleksi {@code pangkats} yang diberikan,
+	 * pilih SK milik pegawai ini yang berlaku pada {@code sekarang}.
+	 *
+	 * <p>Sebuah SK dianggap berlaku bila memenuhi <b>salah satu</b> dari dua pola:</p>
+	 * <ol>
+	 * <li><b>SK terbuka</b> — {@code menjabat} dan {@code status} keduanya benar, dan
+	 * {@code sekarang} sudah melewati (atau tepat pada) tanggal {@code mulai}. Tidak ada batas
+	 * akhir.</li>
+	 * <li><b>SK bertenggat</b> — {@code mulai} dan {@code sampai} keduanya terisi dan
+	 * {@code sekarang} berada di dalam rentang itu (inklusif di kedua ujung, dibandingkan pada
+	 * tingkat tanggal lewat {@code Common.dateFormat1}).</li>
+	 * </ol>
+	 * <p>Hasilnya diurutkan menurut urutan alami {@code KenaikanPangkat}, sehingga pemanggil bisa
+	 * mengambil elemen ke-0 sebagai SK yang paling relevan.</p>
+	 *
+	 * <p><b>Ketahanan berlapis (penting, jangan disederhanakan):</b></p>
+	 * <ul>
+	 * <li>Setiap item dibungkus {@code try/catch} sendiri, sehingga satu baris SK rusak
+	 * (mis. {@code getPegawai()} null) tidak menggagalkan seluruh penyaringan.</li>
+	 * <li><b>Seluruh iterasi</b> dibungkus {@code catch (Throwable)} karena {@code pangkats} bisa
+	 * berupa koleksi yang didukung MapDB: saat shutdown/redeploy cache bisa sudah ditutup sementara
+	 * thread latar masih berjalan, dan iteratornya melempar
+	 * {@code IllegalAccessError "DB has been closed"} — sebuah {@link Error}, bukan
+	 * {@link Exception}, sehingga catch per-item tidak menangkapnya. Getter ini dipanggil Hibernate
+	 * saat mengambil snapshot properti (flush); bila melempar, flush gagal dan <b>data tidak
+	 * tersimpan</b>. Karena itu bila cache tertutup, hasil parsial yang sudah terkumpul
+	 * dikembalikan begitu saja.</li>
+	 * <li>Pengurutan juga dibungkus {@code try/catch} dengan alasan yang sama.</li>
+	 * </ul>
+	 *
+	 * @param sekarang tanggal acuan keberlakuan; {@code null} menghasilkan daftar kosong
+	 * @param pangkats koleksi kandidat SK (biasanya isi cache); {@code null} menghasilkan daftar
+	 *                 kosong
+	 * @return daftar SK yang berlaku, terurut; boleh kosong, tidak pernah {@code null}
+	 */
 	@SuppressWarnings("rawtypes")
 	public List<KenaikanPangkat> ambilKenaikanPangkat(Date sekarang, Collection pangkats) {
 		List<KenaikanPangkat> kenaikanPangkats = new ArrayList<KenaikanPangkat>();
@@ -4125,6 +4408,20 @@ public class Pegawai extends Karyawan {
 		return kenaikanPangkats;
 	}
 
+	/**
+	 * Mengumpulkan kelima slot {@link FormatItemGaji} pegawai ({@code formatItemGaji} sampai
+	 * {@code formatItemGaji5}) menjadi satu daftar, <b>melewati slot yang kosong</b>.
+	 *
+	 * <p>Urutan daftar inilah yang menentukan pemetaan slot pada {@link #ambilBank(FormatItemGaji)}
+	 * dan {@link #ambilNoRek(FormatItemGaji)}, jadi jangan diurutkan ulang oleh pemanggil.</p>
+	 *
+	 * <p><b>Dipanggil dari:</b> layar pembayaran gaji ({@code BayarGajiPegawaiAction},
+	 * {@code PembayaranGajiPunyaPegawaiAction}, {@code GajiPegawaiAction}) untuk mengisi pilihan
+	 * format gaji yang tersedia bagi pegawai.</p>
+	 *
+	 * @return daftar format item gaji yang terisi; boleh kosong, tidak pernah {@code null}
+	 * @see #ambilFormatItemGajisId()
+	 */
 	public List<FormatItemGaji> ambilFormatItemGajis() {
 		List<FormatItemGaji> formatItemGajis = new ArrayList<FormatItemGaji>();
 		if (getFormatItemGaji() != null) {
@@ -4145,6 +4442,13 @@ public class Pegawai extends Karyawan {
 		return formatItemGajis;
 	}
 
+	/**
+	 * Versi "hanya ID" dari {@link #ambilFormatItemGajis()}, dengan urutan slot yang sama.
+	 * Dipakai {@link #ambilBank(FormatItemGaji)} dan {@link #ambilNoRek(FormatItemGaji)} untuk
+	 * mencari posisi sebuah format gaji tanpa perlu membandingkan objek.
+	 *
+	 * @return daftar ID format item gaji yang terisi; boleh kosong, tidak pernah {@code null}
+	 */
 	public List<Long> ambilFormatItemGajisId() {
 		List<Long> formatItemGajis = new ArrayList<Long>();
 		if (getFormatItemGaji() != null) {
@@ -4165,6 +4469,33 @@ public class Pegawai extends Karyawan {
 		return formatItemGajis;
 	}
 
+	/**
+	 * Memilih <b>bank tujuan transfer</b> yang tepat untuk sebuah {@link FormatItemGaji}.
+	 *
+	 * <p>Inilah yang menghubungkan lima slot format gaji dengan lima slot rekening: posisi
+	 * {@code formatItemGaji} di dalam {@link #ambilFormatItemGajisId()} menentukan bank keberapa
+	 * yang dipakai (posisi 1 → {@link #getBank()}, posisi 2 → {@link #getBank2()}, dan
+	 * seterusnya). Dengan begitu satu pegawai bisa menerima gaji pokok di satu rekening dan
+	 * tunjangan di rekening lain.</p>
+	 *
+	 * <p>Bila {@code formatItemGaji} {@code null} atau belum punya ID, langsung dikembalikan
+	 * {@link #getBank()}.</p>
+	 *
+	 * <p><b>Kuirk yang perlu diwaspadai:</b> pencarian posisi memakai penghitung yang naik untuk
+	 * setiap elemen yang <i>tidak</i> cocok, tanpa penanda "ketemu". Bila format gaji yang dicari
+	 * <b>tidak ada</b> dalam daftar slot pegawai ini, penghitung berakhir pada
+	 * {@code jumlah slot + 1} — sehingga pegawai dengan 3 slot bisa mengembalikan
+	 * {@link #getBank4()} (biasanya {@code null}) alih-alih jatuh ke bank utama. Masih ada
+	 * {@code System.out.println} peninggalan debug di jalur ini.</p>
+	 *
+	 * <p><b>Dipanggil dari:</b> {@code PembayaranGajiPunyaPegawaiAction},
+	 * {@code PembayaranGajiPunyaPegawaiPerBankAction}, {@code PembayaranGajiPunyaPegawaiHelper},
+	 * dan proses transfer <i>standing instruction</i> di modul akunting.</p>
+	 *
+	 * @param formatItemGaji format item gaji yang sedang dibayarkan; boleh {@code null}
+	 * @return bank tujuan untuk slot yang sesuai, atau {@code null} bila slot itu kosong
+	 * @see #ambilNoRek(FormatItemGaji)
+	 */
 	public Bank ambilBank(FormatItemGaji formatItemGaji) {
 		if (formatItemGaji == null || formatItemGaji.getId() == null) {
 			return getBank();
@@ -4196,6 +4527,15 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
+	/**
+	 * Memilih <b>nomor rekening</b> yang tepat untuk sebuah {@link FormatItemGaji} — pasangan
+	 * {@link #ambilBank(FormatItemGaji)} dengan aturan pemetaan slot yang sama persis (dan kuirk
+	 * penghitung posisi yang sama).
+	 *
+	 * @param formatItemGaji format item gaji yang sedang dibayarkan; boleh {@code null}
+	 * @return nomor rekening untuk slot yang sesuai, atau {@code null} bila slot itu kosong
+	 * @see #ambilBank(FormatItemGaji)
+	 */
 	public String ambilNoRek(FormatItemGaji formatItemGaji) {
 		if (formatItemGaji == null || formatItemGaji.getId() == null) {
 			return getNorek();
@@ -4226,16 +4566,35 @@ public class Pegawai extends Karyawan {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	/**
+	 * Format item gaji untuk <b>slot pembayaran pertama</b> — menentukan komponen gaji apa saja
+	 * yang dibayarkan ke rekening slot 1.
+	 *
+	 * @return format item gaji slot 1, atau {@code null}
+	 * @see #ambilFormatItemGajis()
+	 * @see #ambilBank(FormatItemGaji)
+	 */
 	@JoinColumn(name = "format_item_gaji", nullable = true)
 	public FormatItemGaji getFormatItemGaji() {
 		formatItemGaji = check(formatItemGaji);
 		return formatItemGaji;
 	}
 
+	/**
+	 * Mengisi format item gaji slot 1.
+	 *
+	 * @param formatItemGaji format item gaji
+	 */
 	public void setFormatItemGaji(FormatItemGaji formatItemGaji) {
 		this.formatItemGaji = formatItemGaji;
 	}
 
+	/**
+	 * Format item gaji untuk slot pembayaran kedua.
+	 *
+	 * @return format item gaji slot 2, atau {@code null}
+	 * @see #getFormatItemGaji()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "format_item_gaji2", nullable = true)
 	public FormatItemGaji getFormatItemGaji2() {
@@ -4243,10 +4602,21 @@ public class Pegawai extends Karyawan {
 		return formatItemGaji2;
 	}
 
+	/**
+	 * Mengisi format item gaji slot 2.
+	 *
+	 * @param formatItemGaji2 format item gaji
+	 */
 	public void setFormatItemGaji2(FormatItemGaji formatItemGaji2) {
 		this.formatItemGaji2 = formatItemGaji2;
 	}
 
+	/**
+	 * Format item gaji untuk slot pembayaran ketiga.
+	 *
+	 * @return format item gaji slot 3, atau {@code null}
+	 * @see #getFormatItemGaji()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "format_item_gaji3", nullable = true)
 	public FormatItemGaji getFormatItemGaji3() {
@@ -4254,10 +4624,32 @@ public class Pegawai extends Karyawan {
 		return formatItemGaji3;
 	}
 
+	/**
+	 * Mengisi format item gaji slot 3.
+	 *
+	 * @param formatItemGaji3 format item gaji
+	 */
 	public void setFormatItemGaji3(FormatItemGaji formatItemGaji3) {
 		this.formatItemGaji3 = formatItemGaji3;
 	}
 
+	/**
+	 * Jabatan fungsional yang sedang diemban — <b>bukan pembacaan kolom biasa</b>: nilainya
+	 * dihitung ulang setiap kali dari SK {@link KenaikanPangkat} yang berlaku <i>kemarin</i>
+	 * ({@code WaktuUtil.kemarin()}), lewat {@link #ambilJabatanFungsional(List)}, lalu hasilnya
+	 * ditulis ke field.
+	 *
+	 * <p><b>Konsekuensi:</b> kolom {@code jabatan_fungsional} di basis data efektif hanya
+	 * "cerminan" hasil hitung, dan nilai yang di-set lewat {@link #setJabatanFungsional} akan
+	 * tertimpa pada pembacaan berikutnya. Pemakaian {@code kemarin()} (bukan hari ini) membuat SK
+	 * yang mulai berlaku <i>hari ini</i> belum terbaca.</p>
+	 *
+	 * <p><b>Biaya:</b> memindai seluruh cache {@link KenaikanPangkat} setiap pemanggilan; ikut
+	 * terpanggil dari {@link #getJabatan()}.</p>
+	 *
+	 * @return jabatan fungsional yang berlaku, atau {@code null}
+	 * @see #getJabatanStruktural()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jabatan_fungsional", nullable = true)
 	public JabatanFungsional getJabatanFungsional() {
@@ -4267,10 +4659,26 @@ public class Pegawai extends Karyawan {
 		return jabatanFungsional;
 	}
 
+	/**
+	 * Mengisi jabatan fungsional. Praktis hanya berguna bagi Hibernate — nilai ini akan ditimpa
+	 * hasil hitung {@link #getJabatanFungsional()} pada pembacaan berikutnya.
+	 *
+	 * @param jabatanFungsional jabatan fungsional
+	 */
 	public void setJabatanFungsional(JabatanFungsional jabatanFungsional) {
 		this.jabatanFungsional = jabatanFungsional;
 	}
 
+	/**
+	 * Jabatan struktural yang sedang diemban — sama seperti {@link #getJabatanFungsional()},
+	 * dihitung ulang dari SK {@link KenaikanPangkat} yang berlaku <i>kemarin</i>, bukan dibaca dari
+	 * kolomnya.
+	 *
+	 * <p>Menjadi sumber prioritas tertinggi nama jabatan pada {@link #getJabatan()}.</p>
+	 *
+	 * @return jabatan struktural yang berlaku, atau {@code null}
+	 * @see #ambilJabatanStruktural(List)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jabatan_struktural", nullable = true)
 	public JabatanStruktural getJabatanStruktural() {
@@ -4280,36 +4688,91 @@ public class Pegawai extends Karyawan {
 		return jabatanStruktural;
 	}
 
+	/**
+	 * Mengisi jabatan struktural. Seperti {@link #setJabatanFungsional(JabatanFungsional)}, nilai
+	 * ini akan ditimpa hasil hitung pada pembacaan berikutnya.
+	 *
+	 * @param jabatanStruktural jabatan struktural
+	 */
 	public void setJabatanStruktural(JabatanStruktural jabatanStruktural) {
 		this.jabatanStruktural = jabatanStruktural;
 	}
 
+	/**
+	 * ID baris pelamar/calon pegawai asal, bila pegawai ini hasil pengangkatan dari proses
+	 * rekrutmen. Disimpan sebagai {@link Long} biasa, <b>bukan relasi Hibernate</b>, sehingga tidak
+	 * ada penjaminan integritas referensial.
+	 *
+	 * @return ID calon pegawai, atau {@code null}
+	 */
 	public Long getCalonPegawai() {
 		return calonPegawai;
 	}
 
+	/**
+	 * Mengisi ID calon pegawai asal.
+	 *
+	 * @param calonPegawai ID baris calon pegawai
+	 */
 	public void setCalonPegawai(Long calonPegawai) {
 		this.calonPegawai = calonPegawai;
 	}
 
+	/**
+	 * Tanggal mulai <b>pengalaman kerja sebelum masuk institusi</b>. Berbeda dari tiga rentang masa
+	 * kerja lain, pasangan tanggal ini tidak disaring {@link #getTipeMasaKerja()}.
+	 *
+	 * <p>Nama field/method salah eja sejak awal: "Pengalan" seharusnya "Pengalaman". Dibiarkan
+	 * karena mengubahnya berarti mengubah nama properti Hibernate dan seluruh pemanggil.</p>
+	 *
+	 * @return tanggal mulai pengalaman kerja, atau {@code null}
+	 * @see #ambilMasaKerjaTahunPengalamanKerja()
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalMulaiPengalanKerja() {
 		return tanggalMulaiPengalanKerja;
 	}
 
+	/**
+	 * Mengisi tanggal mulai pengalaman kerja sebelum masuk institusi.
+	 *
+	 * @param tanggalMulaiPengalanKerja tanggal mulai
+	 */
 	public void setTanggalMulaiPengalanKerja(Date tanggalMulaiPengalanKerja) {
 		this.tanggalMulaiPengalanKerja = tanggalMulaiPengalanKerja;
 	}
 
+	/**
+	 * Tanggal berakhir pengalaman kerja sebelum masuk institusi. {@code null} berarti perhitungan
+	 * masa kerja memakai tanggal hari ini.
+	 *
+	 * @return tanggal akhir pengalaman kerja, atau {@code null}
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalSampaiPengalanKerja() {
 		return tanggalSampaiPengalanKerja;
 	}
 
+	/**
+	 * Mengisi tanggal berakhir pengalaman kerja sebelum masuk institusi.
+	 *
+	 * @param tanggalSampaiPengalanKerja tanggal akhir
+	 */
 	public void setTanggalSampaiPengalanKerja(Date tanggalSampaiPengalanKerja) {
 		this.tanggalSampaiPengalanKerja = tanggalSampaiPengalanKerja;
 	}
 
+	/**
+	 * Tanggal mulai berstatus <b>semi tetap</b> — rentang ketiga dari empat rentang masa kerja.
+	 *
+	 * <p>Disaring {@link #getTipeMasaKerja()}: hanya tampil bila tipe pegawai {@code Tetap} atau
+	 * {@code Semi_Tetap} (pegawai tetap tetap boleh melihat riwayat semi tetapnya). Untuk tipe
+	 * {@code Honorer} hasilnya {@code null} meski kolomnya berisi. Bila master {@code TipeMasaKerja}
+	 * belum terinisialisasi, kolom dikembalikan apa adanya.</p>
+	 *
+	 * @return tanggal masuk semi tetap, atau {@code null}
+	 * @see #ambilMasaKerjaTahunSemiTetap()
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalmasukSemiTetap() {
 		if (getTipeMasaKerja() != null && TipeMasaKerja.Tetap != null && TipeMasaKerja.Semi_Tetap != null
@@ -4325,10 +4788,21 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
+	/**
+	 * Mengisi tanggal mulai berstatus semi tetap.
+	 *
+	 * @param tanggalmasukSemiTetap tanggal masuk semi tetap
+	 */
 	public void setTanggalmasukSemiTetap(Date tanggalmasukSemiTetap) {
 		this.tanggalmasukSemiTetap = tanggalmasukSemiTetap;
 	}
 
+	/**
+	 * Tanggal berakhirnya masa semi tetap, dengan penyaringan tipe masa kerja yang sama seperti
+	 * {@link #getTanggalmasukSemiTetap()}.
+	 *
+	 * @return tanggal keluar semi tetap, atau {@code null}
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalkeluarSemiTetap() {
 		if (getTipeMasaKerja() != null && TipeMasaKerja.Tetap != null && TipeMasaKerja.Semi_Tetap != null
@@ -4344,10 +4818,27 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
+	/**
+	 * Mengisi tanggal berakhirnya masa semi tetap.
+	 *
+	 * @param tanggalkeluarSemiTetap tanggal keluar semi tetap
+	 */
 	public void setTanggalkeluarSemiTetap(Date tanggalkeluarSemiTetap) {
 		this.tanggalkeluarSemiTetap = tanggalkeluarSemiTetap;
 	}
 
+	/**
+	 * Tanggal mulai berstatus <b>honorer</b> — rentang kedua (paling awal di dalam institusi) dari
+	 * empat rentang masa kerja.
+	 *
+	 * <p>Disaring {@link #getTipeMasaKerja()} dengan syarat paling longgar: tampil untuk tipe
+	 * {@code Tetap}, {@code Semi_Tetap}, <b>dan</b> {@code Honorer} — karena riwayat honorer ikut
+	 * terbawa saat pegawai naik jenjang.</p>
+	 *
+	 * @return tanggal masuk honorer, atau {@code null}
+	 * @see #ambilMasaKerjaTahunHonorer()
+	 * @see #getAwalmasuk()
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalmasukHonorer() {
 		if (getTipeMasaKerja() != null && TipeMasaKerja.Tetap != null && TipeMasaKerja.Honorer != null
@@ -4367,10 +4858,21 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
+	/**
+	 * Mengisi tanggal mulai berstatus honorer.
+	 *
+	 * @param tanggalmasukHonorer tanggal masuk honorer
+	 */
 	public void setTanggalmasukHonorer(Date tanggalmasukHonorer) {
 		this.tanggalmasukHonorer = tanggalmasukHonorer;
 	}
 
+	/**
+	 * Tanggal berakhirnya masa honorer, dengan penyaringan tipe masa kerja yang sama seperti
+	 * {@link #getTanggalmasukHonorer()}.
+	 *
+	 * @return tanggal keluar honorer, atau {@code null}
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalkeluarHonorer() {
 		if (getTipeMasaKerja() != null && TipeMasaKerja.Tetap != null && TipeMasaKerja.Honorer != null
@@ -4390,6 +4892,11 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
+	/**
+	 * Mengisi tanggal berakhirnya masa honorer.
+	 *
+	 * @param tanggalkeluarHonorer tanggal keluar honorer
+	 */
 	public void setTanggalkeluarHonorer(Date tanggalkeluarHonorer) {
 		this.tanggalkeluarHonorer = tanggalkeluarHonorer;
 	}
