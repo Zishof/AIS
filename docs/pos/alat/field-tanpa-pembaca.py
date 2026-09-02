@@ -1,0 +1,168 @@
+# -*- coding: utf-8 -*-
+"""Cari field respons yang DIKIRIM server tetapi tidak dibaca kanal mana pun.
+
+Cacat berbentuk ini sudah berulang lima kali dengan wajah berbeda -- lihat
+docs/pos/45, 46, 75, 76. Tidak satu pun menghasilkan galat kompilasi maupun uji
+merah: sistem ini punya tiga kanal (JSP, POS Desktop/Android, ZK), dan
+menyambungkan field baru di satu kanal terasa seperti selesai.
+
+Yang dicari: `hasil.put("nama")` pada helper API, lalu nama itu dicari di seluruh
+sumber kanal klien DAN di lapisan servlet server. Rantainya bisa
+server -> server -> klien; penjaga yang hanya melihat ujung terakhir akan menuduh
+yang tidak bersalah (itu terjadi: 37 tuduhan, 22 di antaranya palsu).
+
+Pembacaan sengaja dicari sebagai LITERAL "nama", bukan lewat daftar nama method
+pengakses. Selama helper seperti `Common.angkaAtauNull(request, "kunci")` boleh
+ditulis siapa saja, tidak ada daftar method yang bisa lengkap. Konsekuensinya
+disadari: nama yang kebetulan sama dengan string lain akan lolos.
+
+Dua daftar di bawah punya arti BERBEDA:
+
+  DIIZINKAN -- field yang memang wajar tidak dibaca per nama (ditangani lapisan
+               umum). Tetap.
+  UTANG     -- yatim yang sudah ada sebelum alat ini dibuat. HANYA BOLEH MENGECIL;
+               alat ini menolak nama di daftar ini yang ternyata sudah dibaca,
+               supaya baseline-nya tidak membusuk jadi daftar yang tidak benar.
+
+Alat ini MELAPORKAN saja, tidak menyunting apa pun.
+
+Keluar dengan kode 1 bila ada yatim BARU atau ada utang yang sudah lunas tetapi
+masih terdaftar -- sehingga bisa dipakai langsung sebagai gerbang.
+
+Pakai:  python field-tanpa-pembaca.py
+"""
+import os
+import re
+import sys
+
+AKAR_REPO_AIS = r'C:\opt\AIS\ais\src\main'
+AKAR_REPO_POS = r'C:\opt\CodeBaseDesktopDanMobile'
+
+SUMBER_SERVER = [
+    os.path.join(AKAR_REPO_AIS, r'src\ais\action\servlet\api\KantinHelper.java'),
+    os.path.join(AKAR_REPO_AIS, r'src\ais\action\servlet\api\DraftJurnalApiHelper.java'),
+]
+
+AKAR_PEMBACA = [
+    os.path.join(AKAR_REPO_AIS, r'webapp\WEB-INF'),
+    os.path.join(AKAR_REPO_POS, 'apps'),
+    os.path.join(AKAR_REPO_POS, 'packages'),
+    # Lapisan servlet ikut dihitung sbg pembaca -- lihat catatan di atas. Sengaja
+    # HANYA lapisan ini, bukan seluruh pohon ais/: memindai semuanya (105 MB)
+    # membuat nama field bertabrakan dgn variabel lokal mana pun yang kebetulan
+    # bernama sama. Selisihnya terukur: seluruh pohon 15 yatim, lapisan servlet 16.
+    os.path.join(AKAR_REPO_AIS, r'src\ais\action\servlet'),
+]
+
+EKSTENSI = ('.dart', '.jsp', '.js', '.java')
+
+# Berkas uji BUKAN pembaca: menyebut nama field di dalam uji tidak membuat field
+# itu sampai ke mata pengguna mana pun.
+DILEWATI = {'build', '.dart_tool', 'node_modules', '.git', 'generated', 'ephemeral',
+            'pods', 'test', 'integration_test'}
+
+DIIZINKAN = {
+    'status': 'ditangani lapisan umum ApiClient/fetchDataAPI',
+    'description': 'idem -- pesan galat/sukses generik',
+    'message': 'idem',
+    'teknis': 'hanya utk manusia yang membaca respons mentah',
+    'referensi': 'id jejak, dibaca lapisan galat umum',
+    'kode': 'terlalu umum -- dipakai puluhan konteks berbeda',
+    'data': 'amplop generik daftar',
+    'solusi': 'dirender panel galat umum',
+    'judul': 'idem',
+    'statusAsli': 'idem',
+}
+
+UTANG = {
+    # Peringatan pasca-transaksi yang lahir tanpa pembaca -- bentuk yang sama
+    # dengan peringatanStok sebelum dok. 76. Belum dibayar: kejadiannya jarang,
+    # isinya sudah tercatat permanen di Error Log server lewat ErrorAuditUtil
+    # berikut jejak tumpukannya, dan yang perlu menindaklanjuti adalah
+    # administrator/keuangan, bukan kasir di depan layar.
+    'peringatanPengajuanLimit',
+    # Sesi kas -- penanda diagnostik rekonsiliasi sesi.
+    'sesi_kas_tidak_dikenal', 'sesi_kas_direkonsiliasi', 'sesi_kas_sudah_tutup',
+    'sesi_kas_asal', 'idSesiKas',
+    # Id/angka pendamping yang klien memilih memakai jalur lain.
+    # versiStok sempat dicurigai penjaga lost-update karena namanya; diperiksa,
+    # isinya hanya so.getId() yang juga sudah dikirim sbg "id".
+    'pengajuanLimitId', 'satuanDasarId', 'waktuHargaBeliTerakhir', 'versiStok',
+    # Ringkasan hasil proses massal.
+    'draftDiperbarui', 'ringkasanBerjalan', 'siapDisimpan', 'totalGrup',
+    'totalTerjualBersih', 'statusRincian',
+}
+
+POLA_KIRIM = re.compile(r'hasil\.put\("([A-Za-z0-9_]+)"')
+
+
+def baca(path):
+    with open(path, 'rb') as f:
+        return f.read().decode('utf-8', 'replace')
+
+
+def kumpulkan(akar):
+    potongan = []
+    for dirpath, dirnames, filenames in os.walk(akar):
+        dirnames[:] = [d for d in dirnames if d.lower() not in DILEWATI]
+        for nama in filenames:
+            if nama.lower().endswith(EKSTENSI):
+                potongan.append(baca(os.path.join(dirpath, nama)))
+    return '\n'.join(potongan)
+
+
+def main():
+    dikirim = []
+    for jalur in SUMBER_SERVER:
+        if not os.path.isfile(jalur):
+            print('SUMBER TIDAK KETEMU: ' + jalur)
+            return 1
+        for nama in POLA_KIRIM.findall(baca(jalur)):
+            if nama not in dikirim:
+                dikirim.append(nama)
+
+    pembaca = []
+    for akar in AKAR_PEMBACA:
+        if not os.path.isdir(akar):
+            print('AKAR PEMBACA TIDAK KETEMU: ' + akar)
+            return 1
+        pembaca.append(kumpulkan(akar))
+    semua = '\n'.join(pembaca)
+    # Penulisannya sendiri dibuang, supaya hasil.put("x") tidak dihitung sbg
+    # pembacaan atas "x".
+    semua = POLA_KIRIM.sub('', semua)
+
+    print('field yang dikirim server : %d' % len(dikirim))
+    print('sumber pembaca terbaca    : %d karakter' % len(semua))
+
+    yatim = [f for f in dikirim if f not in DIIZINKAN and f not in semua]
+    baru = [f for f in yatim if f not in UTANG]
+    basi = sorted(u for u in UTANG if u not in yatim)
+
+    print('')
+    print('== Utang lama (dibekukan): %d ==' % (len(yatim) - len(baru)))
+    print('== Yatim BARU (belum ada di daftar utang) ==')
+    if baru:
+        for f in baru:
+            print('   - ' + f)
+    else:
+        print('   (tidak ada) -- inilah yang dijaga alat ini')
+
+    print('')
+    print('== Utang yang sudah LUNAS tetapi masih terdaftar ==')
+    if basi:
+        for f in basi:
+            print('   - %s  <- keluarkan dari daftar UTANG' % f)
+    else:
+        print('   (tidak ada)')
+
+    print('')
+    if baru or basi:
+        print('PERIKSA LAGI: %d yatim baru, %d utang basi' % (len(baru), len(basi)))
+        return 1
+    print('BERSIH')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

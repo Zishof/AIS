@@ -106,7 +106,16 @@ dibandingkan, dan bagaimana `null` diperlakukan terhadap string kosong.
 
 ## 3. Hasil uji
 
-`TesPayloadTanpaPembaca` — **9 dari 9 lulus**.
+Penjaganya: [`alat/payload-tanpa-pembaca.py`](alat/payload-tanpa-pembaca.py).
+
+```
+python payload-tanpa-pembaca.py
+```
+
+Keluar dengan kode **1** bila ada kunci baru tanpa pembaca ATAU ada utang yang sudah
+lunas tetapi masih terdaftar — dapat dipakai langsung sebagai gerbang.
+
+**9 dari 9 lulus.**
 
 ```
 kunci payload yang dikirim klien : 255
@@ -149,8 +158,8 @@ Dua penjaga sekarang berdiri berpasangan:
 
 | Penjaga | Arah | Utang beku |
 |---|---|---|
-| `TesFieldTanpaPembaca` | server → klien | 16 |
-| `TesPayloadTanpaPembaca` | klien → server | 2 |
+| [`alat/field-tanpa-pembaca.py`](alat/field-tanpa-pembaca.py) | server → klien | 16 |
+| [`alat/payload-tanpa-pembaca.py`](alat/payload-tanpa-pembaca.py) | klien → server | 2 |
 
 Keduanya dibangun sesudah cacat yang sama berulang **lima kali**. Dan keduanya, pada
 percobaan pertamanya, **menuduh yang tidak bersalah** — 37 dan 40-an tuduhan yang ternyata

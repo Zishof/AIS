@@ -164,6 +164,7 @@ sebuah baseline berubah menjadi tempat sampah.
 |---|---|
 | `ais/action/servlet/api/KantinHelper.java` | `wajibDiblokirKarenaStok(Boolean, boolean)`; gerbang `KANTIN_POS_CEGAH_OVERSELL` dibaca; JavaDoc jujur |
 | `ais/action/master/koperasi/PosKantinAction.java` | default disamakan jadi MATI |
+| `docs/pos/alat/field-tanpa-pembaca.py` | **baru** — penjaganya, dapat dijalankan siapa saja |
 
 ---
 
@@ -178,7 +179,17 @@ kalimat penenang — ia diperiksa.
 Bagian 4 tetap membandingkan rumus lama vs baru berdampingan dan menuntut **tepat satu**
 nilai berubah pada default.
 
-### 4.2 `TesFieldTanpaPembaca` — 12 dari 12 lulus
+### 4.2 Penjaganya: [`alat/field-tanpa-pembaca.py`](alat/field-tanpa-pembaca.py)
+
+```
+python field-tanpa-pembaca.py
+```
+
+Keluar dengan kode **1** bila ada yatim baru ATAU ada utang yang sudah lunas tetapi masih
+terdaftar — jadi dapat dipakai langsung sebagai gerbang. Terbukti: bersih → 0, disisipi
+pelanggaran → 1, dikembalikan → 0.
+
+Hasil hari ini — 12 dari 12 periksaan lulus:
 
 ```
 sumber klien terbaca      : 37.732.318 karakter
