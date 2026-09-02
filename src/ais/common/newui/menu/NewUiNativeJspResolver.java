@@ -68,6 +68,15 @@ public final class NewUiNativeJspResolver {
             String composer = composerRoute(context, existingRoute);
             if (composer.length() > 0) result = resolveFromPaths(composer, service, paths);
         }
+        if (result == null) {
+            // Menu laporan yang kolom url-nya berisi nama laporan, bukan path
+            // maupun nama kelas. Menu semacam itu dilayani rantai else-if di
+            // Common.launchMenu yang membuat kelas *Window sendiri, sehingga
+            // dua pencarian di atas tidak pernah menemukannya -- padahal
+            // halaman native-nya sudah ada, hanya dinamai menurut kelas itu.
+            String window = NewUiLaporanAliasRegistry.windowUntuk(existingRoute);
+            if (window != null) result = resolveFromPaths(window, service, paths);
+        }
         if (result == null) return null;
         try {
             URL found = context.getResource(result.getTarget());

@@ -9512,23 +9512,100 @@ public class Pertemuan extends Tugas {
 		return kelasLesSiswa;
 	}
 
+	/**
+	 * Tetapkan kelas les siswa sebagai induk pertemuan ini.
+	 *
+	 * @param kelasLesSiswa kelas les siswa; boleh {@code null}
+	 */
 	public void setKelasLesSiswa(KelasLesSiswa kelasLesSiswa) {
 		this.kelasLesSiswa = kelasLesSiswa;
 	}
 
+	/**
+	 * Penilaian "apakah materi yang diajarkan SESUAI RPS" oleh dosen, sebagai satu string
+	 * berformat khusus.
+	 *
+	 * <p>Kolom ketiga dari keluarga berformat sembilan slot di kelas ini (setelah
+	 * {@link #getAbsensi()} dan {@link #getKeteranganKonfirmasi()}). Tata letaknya sama, dengan
+	 * slot 4 berisi {@code dosen.id} seperti pada konfirmasi kehadiran, tetapi ARTI slot 1-3
+	 * berubah:</p>
+	 * <pre>
+	 * 0 ref     id acuan penilaian
+	 * 1 status  1 = Sesuai, 2 = Tidak Sesuai, selain itu Belum Ditentukan
+	 * 2 status  DUPLIKAT slot 1 (nilai yang sama persis ditulis dua kali)
+	 * 3 nama    "Sesuai" | "Tidak Sesuai" | "Belum Ditentukan"
+	 * 4 dosen.id
+	 * 5 keterangan
+	 * 6 mulai
+	 * 7 sampai
+	 * 8 jenis
+	 * </pre>
+	 * <p>Slot 1 dan 2 sengaja diisi nilai yang sama agar tata letaknya tetap sejajar dengan kolom
+	 * absensi (yang di slot 1 menyimpan id dan di slot 2 menyimpan kode) — pemetaan yang menjaga
+	 * keluarga pembacanya dapat ditulis dengan pola yang sama.</p>
+	 *
+	 * @return string penilaian RPS mentah yang sudah di-{@code trim}; string kosong bila belum ada
+	 * @see #populateKonfirmasiRps(Long, Long, String, String, String, String, Dosen)
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	@Column(columnDefinition = "text")
 	public String getKeteranganSesuaiDenganRps() {
 		return keteranganSesuaiDenganRps == null ? "" : keteranganSesuaiDenganRps.trim();
 	}
 
+	/**
+	 * Timpa SELURUH string penilaian kesesuaian RPS pertemuan ini.
+	 *
+	 * <p>Untuk mengubah satu baris, pakai
+	 * {@link #populateKonfirmasiRps(Long, Long, String, String, String, String, Dosen)}.</p>
+	 *
+	 * @param keteranganSesuaiDenganRps string berformat sembilan slot
+	 */
 	public void setKeteranganSesuaiDenganRps(String keteranganSesuaiDenganRps) {
 		this.keteranganSesuaiDenganRps = keteranganSesuaiDenganRps;
 	}
 
+	/**
+	 * Catat penilaian kesesuaian RPS oleh dosen — bentuk ringkas tanpa keterangan.
+	 *
+	 * @param ref    id acuan penilaian
+	 * @param status {@code 1L} Sesuai, {@code 2L} Tidak Sesuai, selain itu Belum Ditentukan
+	 * @param mulai  jam mulai
+	 * @param sampai jam selesai
+	 * @param jenis  jenis acuan
+	 * @param dosen  dosen yang menilai; tidak boleh {@code null}
+	 * @see #populateKonfirmasiRps(Long, Long, String, String, String, String, Dosen)
+	 */
 	public void populateKonfirmasiRps(Long ref, Long status, String mulai, String sampai, String jenis, Dosen dosen) {
 		populateKonfirmasiRps(ref, status, null, mulai, sampai, jenis, dosen);
 	}
 
+	/**
+	 * Catat/ubah penilaian "materi sesuai RPS" oleh dosen tertentu.
+	 *
+	 * <p>Sejajar {@link #populateKonfirmasi(Long, Statusabsensi, String, String, String, String,
+	 * Dosen)} tetapi bekerja pada kolom {@link #getKeteranganSesuaiDenganRps()}, dan alih-alih
+	 * menerima {@link Statusabsensi} ia menerima {@code status} berupa {@link Long} yang
+	 * diterjemahkan menjadi nama: {@code 1L} &rarr; {@code "Sesuai"}, {@code 2L} &rarr;
+	 * {@code "Tidak Sesuai"}, nilai lain &rarr; {@code "Belum Ditentukan"}.</p>
+	 *
+	 * <p>Baris dicari dengan pasangan (ref, dosen); {@code null} pada parameter opsional berarti
+	 * "pertahankan nilai lama" seperti pada keluarga populate lainnya.</p>
+	 *
+	 * <p><b>Ketidakselarasan yang dicatat:</b> {@code ref} bertipe {@link Long} di sini, sedangkan
+	 * pada {@link #populateOlehAkademik(String, Long, String, String, String, String, Dosen)} yang
+	 * hampir identik ia bertipe {@link String}. Kedua kolom itu karenanya tidak dapat dibaca
+	 * dengan pemanggilan yang sama.</p>
+	 *
+	 * @param ref        id acuan penilaian; {@code null} membatalkan operasi
+	 * @param status     kode kesesuaian; {@code null} membatalkan operasi
+	 * @param keterangan keterangan bebas; {@code null} berarti pertahankan nilai lama
+	 * @param mulai      jam mulai; {@code null} berarti pertahankan nilai lama
+	 * @param sampai     jam selesai; {@code null} berarti pertahankan nilai lama
+	 * @param jenis      jenis acuan; {@code null} berarti pertahankan nilai lama
+	 * @param dosen      dosen yang menilai; tidak boleh {@code null}
+	 * @see #getKeteranganSesuaiDenganRps()
+	 */
 	public void populateKonfirmasiRps(Long ref, Long status, String keterangan, String mulai, String sampai,
 			String jenis, Dosen dosen) {
 		if (ref != null && status != null) {
@@ -9588,6 +9665,15 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Ambil kode kesesuaian (slot 1) dari baris penilaian RPS milik pasangan (ref, dosen).
+	 *
+	 * @param ref   id acuan yang dicari
+	 * @param dosen dosen yang menilai
+	 * @return kode kesesuaian ({@code 1L} Sesuai, {@code 2L} Tidak Sesuai), atau {@code -1L} bila belum dinilai dosen itu
+	 * @see #getKeteranganSesuaiDenganRps()
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public Long retreiveAbsensiIdKonfirmasiRps(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9612,6 +9698,19 @@ public class Pertemuan extends Tugas {
 		return -1L;
 	}
 
+	/**
+	 * Ambil isi slot 4 dari baris penilaian RPS milik pasangan (ref, dosen).
+	 *
+	 * <p><b>Nama method ini menyesatkan, sama seperti {@link #retreivePengajuanIzinIdKonfirmasi(Long, Dosen)}:</b>
+	 * slot 4 pada kolom ini berisi id DOSEN, bukan id pengajuan izin. Karena slot itu juga yang
+	 * dicocokkan, hasilnya selalu sama dengan {@code dosen.getId()} bila barisnya ketemu.</p>
+	 *
+	 * @param ref   id acuan yang dicari
+	 * @param dosen dosen yang menilai
+	 * @return id dosen bila barisnya ada, atau {@code -1L}
+	 * @see #getKeteranganSesuaiDenganRps()
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public Long retreivePengajuanIzinIdKonfirmasiRps(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9636,6 +9735,19 @@ public class Pertemuan extends Tugas {
 		return -1L;
 	}
 
+	/**
+	 * Ambil DUPLIKAT kode kesesuaian (slot 2) dari baris penilaian RPS milik pasangan (ref, dosen).
+	 *
+	 * <p>Slot 2 sengaja berisi nilai yang sama dengan slot 1 agar tata letaknya sejajar dengan kolom
+	 * absensi — lihat {@link #getKeteranganSesuaiDenganRps()}. Jadi hasilnya setara dengan
+	 * {@link #retreiveAbsensiIdKonfirmasiRps(Long, Dosen)}, hanya bertipe teks.</p>
+	 *
+	 * @param ref   id acuan yang dicari
+	 * @param dosen dosen yang menilai
+	 * @return kode kesesuaian sebagai teks, atau {@code "-"} bila belum dinilai
+	 * @see #getKeteranganSesuaiDenganRps()
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiKodeKonfirmasiRps(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9660,6 +9772,15 @@ public class Pertemuan extends Tugas {
 		return "-";
 	}
 
+	/**
+	 * Ambil NAMA kesesuaian (slot 3) dari baris penilaian RPS milik pasangan (ref, dosen).
+	 *
+	 * @param ref   id acuan yang dicari
+	 * @param dosen dosen yang menilai
+	 * @return {@code "Sesuai"}, {@code "Tidak Sesuai"}, {@code "Belum Ditentukan"}, atau {@code "-"} bila belum dinilai
+	 * @see #getKeteranganSesuaiDenganRps()
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiNamaKonfirmasiRps(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9684,6 +9805,18 @@ public class Pertemuan extends Tugas {
 		return "-";
 	}
 
+	/**
+	 * Ambil KETERANGAN penilaian RPS (slot 5) untuk pasangan (ref, dosen).
+	 *
+	 * <p>Perhatikan bahwa penamaannya menyimpang dari pola keluarganya: bukan
+	 * {@code retreiveAbsensiKeteranganKonfirmasiRps} seperti yang diharapkan.</p>
+	 *
+	 * @param ref   id acuan yang dicari
+	 * @param dosen dosen yang menilai
+	 * @return keterangan penilaian, atau string kosong
+	 * @see #getKeteranganSesuaiDenganRps()
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiKeteranganSesuaiDenganRps(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9708,6 +9841,15 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JAM MULAI (slot 6) dari baris penilaian RPS milik pasangan (ref, dosen).
+	 *
+	 * @param ref   id acuan yang dicari
+	 * @param dosen dosen yang menilai
+	 * @return jam mulai, atau string kosong
+	 * @see #getKeteranganSesuaiDenganRps()
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiMulaiKonfirmasiRps(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9732,6 +9874,15 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JAM SELESAI (slot 7) dari baris penilaian RPS milik pasangan (ref, dosen).
+	 *
+	 * @param ref   id acuan yang dicari
+	 * @param dosen dosen yang menilai
+	 * @return jam selesai, atau string kosong
+	 * @see #getKeteranganSesuaiDenganRps()
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiSampaiKonfirmasiRps(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9756,6 +9907,15 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JENIS acuan (slot 8) dari baris penilaian RPS milik pasangan (ref, dosen).
+	 *
+	 * @param ref   id acuan yang dicari
+	 * @param dosen dosen yang menilai
+	 * @return jenis acuan, atau string kosong
+	 * @see #getKeteranganSesuaiDenganRps()
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiJenisKonfirmasiRps(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9780,14 +9940,45 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Kesimpulan ringkas apakah pertemuan ini dinilai sesuai RPS.
+	 *
+	 * <p>Penanda tunggal untuk seluruh pertemuan, terpisah dari rincian per-dosen yang tersimpan
+	 * di {@link #getKeteranganSesuaiDenganRps()}. Nilai bawaannya {@code false}.</p>
+	 *
+	 * <p>Kelas ini tidak pernah menghitung {@code sesuai} dari rincian itu — penyelarasan keduanya
+	 * adalah tanggung jawab alur pemanggil, sehingga keduanya dapat berbeda.</p>
+	 *
+	 * @return {@code true} bila pertemuan dinilai sesuai RPS; tidak pernah {@code null}
+	 * @see #getKeteranganSesuaiDenganRps()
+	 */
 	public Boolean getSesuai() {
 		return sesuai == null ? false : sesuai;
 	}
 
+	/**
+	 * Setel kesimpulan kesesuaian RPS pertemuan ini.
+	 *
+	 * @param sesuai {@code true} bila sesuai RPS
+	 * @see #getSesuai()
+	 */
 	public void setSesuai(Boolean sesuai) {
 		this.sesuai = sesuai;
 	}
 
+	/**
+	 * Nomor pertemuan yang diketik sendiri oleh pengguna.
+	 *
+	 * <p>Cermin {@link #getPertemuanKe()}: bila saklar {@code urutkanotomatis} pada induk
+	 * AKTIF, getter ini mengambil alih nilai dari {@link #getPertemuanKe()} dan menulisnya ke
+	 * field. Jadi kedua getter saling menyalin pada cabang yang berlawanan — tidak terjadi
+	 * rekursi tak berujung.</p>
+	 *
+	 * <p>Bila keduanya kosong, nilai yang dilaporkan {@code 1}.</p>
+	 *
+	 * @return nomor pertemuan manual; tidak pernah {@code null}
+	 * @see #getPertemuanKe()
+	 */
 	public Integer getPertemuanManual() {
 		VOPembelajaran pembelajaran = ambilVOPembelajaran();
 		if (pembelajaran != null && pembelajaran.getUrutkanotomatis()) {
@@ -9796,23 +9987,90 @@ public class Pertemuan extends Tugas {
 		return pertemuanManual == null ? (pertemuanKe == null ? 1 : pertemuanKe) : pertemuanManual;
 	}
 
+	/**
+	 * Setel nomor pertemuan manual.
+	 *
+	 * <p>Nilai ini hanya bertahan bila penomoran otomatis pada induk DIMATIKAN; bila aktif,
+	 * {@link #getPertemuanManual()} menimpanya dengan nomor otomatis.</p>
+	 *
+	 * @param pertemuanManual nomor pertemuan yang diketik pengguna
+	 * @see #getPertemuanManual()
+	 */
 	public void setPertemuanManual(Integer pertemuanManual) {
 		this.pertemuanManual = pertemuanManual;
 	}
 
+	/**
+	 * Verifikasi kesesuaian materi OLEH BAGIAN AKADEMIK, sebagai satu string berformat khusus.
+	 *
+	 * <p>Kolom keempat dan terakhir dari keluarga berformat sembilan slot di kelas ini. Isinya
+	 * lapisan verifikasi di atas {@link #getKeteranganSesuaiDenganRps()}: dosen menilai sendiri
+	 * materinya sesuai RPS, lalu bagian akademik memverifikasi penilaian itu.</p>
+	 *
+	 * <p>Tata letak slotnya sama persis dengan {@link #getKeteranganSesuaiDenganRps()} (termasuk
+	 * duplikasi status di slot 1 dan 2, serta {@code dosen.id} di slot 4), dengan SATU perbedaan
+	 * penting: <b>slot 0 ({@code ref}) diperlakukan sebagai {@link String}, bukan {@link Long}</b>.
+	 * Karena itu seluruh keluarga pembacanya menerima {@code String ref}, dan pencocokannya
+	 * memakai perbandingan teks — bukan angka. Nilai {@code "01"} dan {@code "1"} karenanya
+	 * dianggap BERBEDA di kolom ini, padahal sama di ketiga kolom lainnya.</p>
+	 *
+	 * @return string verifikasi akademik mentah yang sudah di-{@code trim}; string kosong bila
+	 *         belum ada
+	 * @see #populateOlehAkademik(String, Long, String, String, String, String, Dosen)
+	 * @see #getKeteranganSesuaiDenganRps()
+	 */
 	@Column(columnDefinition = "text")
 	public String getKeteranganSesuaiOlehAkademik() {
 		return keteranganSesuaiOlehAkademik == null ? "" : keteranganSesuaiOlehAkademik.trim();
 	}
 
+	/**
+	 * Timpa SELURUH string verifikasi akademik pertemuan ini.
+	 *
+	 * @param keteranganSesuaiOlehAkademik string berformat sembilan slot
+	 * @see #populateOlehAkademik(String, Long, String, String, String, String, Dosen)
+	 */
 	public void setKeteranganSesuaiOlehAkademik(String keteranganSesuaiOlehAkademik) {
 		this.keteranganSesuaiOlehAkademik = keteranganSesuaiOlehAkademik;
 	}
 
+	/**
+	 * Catat verifikasi akademik — bentuk ringkas tanpa keterangan.
+	 *
+	 * @param ref    acuan verifikasi (bertipe teks, lihat {@link #getKeteranganSesuaiOlehAkademik()})
+	 * @param status {@code 1L} Sesuai, {@code 2L} Tidak Sesuai, selain itu Belum Ditentukan
+	 * @param mulai  jam mulai
+	 * @param sampai jam selesai
+	 * @param jenis  jenis acuan
+	 * @param dosen  dosen acuan verifikasi; tidak boleh {@code null}
+	 * @see #populateOlehAkademik(String, Long, String, String, String, String, Dosen)
+	 */
 	public void populateOlehAkademik(String ref, Long status, String mulai, String sampai, String jenis, Dosen dosen) {
 		populateOlehAkademik(ref, status, null, mulai, sampai, jenis, dosen);
 	}
 
+	/**
+	 * Catat/ubah verifikasi kesesuaian materi oleh bagian akademik.
+	 *
+	 * <p>Salinan {@link #populateKonfirmasiRps(Long, Long, String, String, String, String, Dosen)}
+	 * yang bekerja pada kolom {@link #getKeteranganSesuaiOlehAkademik()}, dengan perbedaan tunggal
+	 * bahwa {@code ref} bertipe {@link String} sehingga pencocokan barisnya memakai
+	 * {@code String.equals} alih-alih perbandingan angka.</p>
+	 *
+	 * <p>Perilaku lainnya identik: penerjemahan {@code status} menjadi nama
+	 * ({@code "Sesuai"}/{@code "Tidak Sesuai"}/{@code "Belum Ditentukan"}), pencarian baris dengan
+	 * pasangan (ref, dosen), arti {@code null} sebagai "pertahankan nilai lama", dan penggantian
+	 * {@code ';'}/{@code ','} pada keterangan.</p>
+	 *
+	 * @param ref        acuan verifikasi; {@code null} membatalkan operasi
+	 * @param status     kode kesesuaian; {@code null} membatalkan operasi
+	 * @param keterangan keterangan bebas; {@code null} berarti pertahankan nilai lama
+	 * @param mulai      jam mulai; {@code null} berarti pertahankan nilai lama
+	 * @param sampai     jam selesai; {@code null} berarti pertahankan nilai lama
+	 * @param jenis      jenis acuan; {@code null} berarti pertahankan nilai lama
+	 * @param dosen      dosen acuan verifikasi; tidak boleh {@code null}
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public void populateOlehAkademik(String ref, Long status, String keterangan, String mulai, String sampai,
 			String jenis, Dosen dosen) {
 		if (ref != null && status != null) {
@@ -9872,6 +10130,18 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Ambil kode kesesuaian hasil verifikasi akademik (slot 1) untuk pasangan (ref, dosen).
+	 *
+	 * <p>Berbeda dari keluarga konfirmasi/RPS, penjagaan panjang array di keluarga ini dilakukan
+	 * dengan {@code if (s.length < N) continue;} yang ambangnya NAIK sesuai slot yang diambil —
+	 * pola yang lebih rapi daripada dua keluarga sebelumnya.</p>
+	 *
+	 * @param ref   acuan verifikasi (teks, bukan angka)
+	 * @param dosen dosen acuan verifikasi
+	 * @return kode kesesuaian, atau {@code -1L} bila belum diverifikasi
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public Long retreiveAbsensiIdOlehAkademik(String ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9894,6 +10164,22 @@ public class Pertemuan extends Tugas {
 		return -1L;
 	}
 
+	/**
+	 * Ambil isi slot 4 dari baris verifikasi akademik untuk pasangan (ref, dosen).
+	 *
+	 * <p><b>Nama method ini menyesatkan</b>, sama seperti dua padanannya di keluarga konfirmasi dan
+	 * RPS: slot 4 berisi id DOSEN, bukan id pengajuan izin, dan slot itu juga yang dicocokkan —
+	 * sehingga hasilnya selalu sama dengan {@code dosen.getId()} bila barisnya ketemu.</p>
+	 *
+	 * <p>Berbeda dari keluarga konfirmasi/RPS, penjagaan panjang array di keluarga ini dilakukan
+	 * dengan {@code if (s.length < N) continue;} yang ambangnya NAIK sesuai slot yang diambil —
+	 * pola yang lebih rapi daripada dua keluarga sebelumnya.</p>
+	 *
+	 * @param ref   acuan verifikasi (teks, bukan angka)
+	 * @param dosen dosen acuan verifikasi
+	 * @return id dosen bila barisnya ada, atau {@code -1L}
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public Long retreivePengajuanIzinIdOlehAkademik(String ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9916,6 +10202,18 @@ public class Pertemuan extends Tugas {
 		return -1L;
 	}
 
+	/**
+	 * Ambil DUPLIKAT kode kesesuaian (slot 2) dari baris verifikasi akademik.
+	 *
+	 * <p>Berbeda dari keluarga konfirmasi/RPS, penjagaan panjang array di keluarga ini dilakukan
+	 * dengan {@code if (s.length < N) continue;} yang ambangnya NAIK sesuai slot yang diambil —
+	 * pola yang lebih rapi daripada dua keluarga sebelumnya.</p>
+	 *
+	 * @param ref   acuan verifikasi (teks, bukan angka)
+	 * @param dosen dosen acuan verifikasi
+	 * @return kode kesesuaian sebagai teks, atau {@code "-"} bila belum diverifikasi
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public String retreiveAbsensiKodeOlehAkademik(String ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9938,6 +10236,18 @@ public class Pertemuan extends Tugas {
 		return "-";
 	}
 
+	/**
+	 * Ambil NAMA kesesuaian (slot 3) dari baris verifikasi akademik.
+	 *
+	 * <p>Berbeda dari keluarga konfirmasi/RPS, penjagaan panjang array di keluarga ini dilakukan
+	 * dengan {@code if (s.length < N) continue;} yang ambangnya NAIK sesuai slot yang diambil —
+	 * pola yang lebih rapi daripada dua keluarga sebelumnya.</p>
+	 *
+	 * @param ref   acuan verifikasi (teks, bukan angka)
+	 * @param dosen dosen acuan verifikasi
+	 * @return {@code "Sesuai"}, {@code "Tidak Sesuai"}, {@code "Belum Ditentukan"}, atau {@code "-"}
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public String retreiveAbsensiNamaOlehAkademik(String ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9960,6 +10270,18 @@ public class Pertemuan extends Tugas {
 		return "-";
 	}
 
+	/**
+	 * Ambil KETERANGAN verifikasi akademik (slot 5) untuk pasangan (ref, dosen).
+	 *
+	 * <p>Berbeda dari keluarga konfirmasi/RPS, penjagaan panjang array di keluarga ini dilakukan
+	 * dengan {@code if (s.length < N) continue;} yang ambangnya NAIK sesuai slot yang diambil —
+	 * pola yang lebih rapi daripada dua keluarga sebelumnya.</p>
+	 *
+	 * @param ref   acuan verifikasi (teks, bukan angka)
+	 * @param dosen dosen acuan verifikasi
+	 * @return keterangan verifikasi, atau string kosong
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public String retreiveAbsensiKeteranganSesuaiOlehAkademik(String ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9982,6 +10304,18 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JAM MULAI (slot 6) dari baris verifikasi akademik.
+	 *
+	 * <p>Berbeda dari keluarga konfirmasi/RPS, penjagaan panjang array di keluarga ini dilakukan
+	 * dengan {@code if (s.length < N) continue;} yang ambangnya NAIK sesuai slot yang diambil —
+	 * pola yang lebih rapi daripada dua keluarga sebelumnya.</p>
+	 *
+	 * @param ref   acuan verifikasi (teks, bukan angka)
+	 * @param dosen dosen acuan verifikasi
+	 * @return jam mulai, atau string kosong
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public String retreiveAbsensiMulaiOlehAkademik(String ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -10004,6 +10338,18 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JAM SELESAI (slot 7) dari baris verifikasi akademik.
+	 *
+	 * <p>Berbeda dari keluarga konfirmasi/RPS, penjagaan panjang array di keluarga ini dilakukan
+	 * dengan {@code if (s.length < N) continue;} yang ambangnya NAIK sesuai slot yang diambil —
+	 * pola yang lebih rapi daripada dua keluarga sebelumnya.</p>
+	 *
+	 * @param ref   acuan verifikasi (teks, bukan angka)
+	 * @param dosen dosen acuan verifikasi
+	 * @return jam selesai, atau string kosong
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public String retreiveAbsensiSampaiOlehAkademik(String ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -10026,6 +10372,18 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JENIS acuan (slot 8) dari baris verifikasi akademik.
+	 *
+	 * <p>Berbeda dari keluarga konfirmasi/RPS, penjagaan panjang array di keluarga ini dilakukan
+	 * dengan {@code if (s.length < N) continue;} yang ambangnya NAIK sesuai slot yang diambil —
+	 * pola yang lebih rapi daripada dua keluarga sebelumnya.</p>
+	 *
+	 * @param ref   acuan verifikasi (teks, bukan angka)
+	 * @param dosen dosen acuan verifikasi
+	 * @return jenis acuan, atau string kosong
+	 * @see #getKeteranganSesuaiOlehAkademik()
+	 */
 	public String retreiveAbsensiJenisOlehAkademik(String ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -10048,47 +10406,153 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Tanggal pengganti yang MENIMPA {@link #getTanggal()} bila diisi.
+	 *
+	 * <p>Dipakai untuk menggeser jadwal satu pertemuan tanpa mengubah tanggal aslinya: begitu
+	 * kolom ini terisi, {@link #getTanggal()} selalu mengembalikan nilainya dan menuliskannya ke
+	 * field {@code tanggal}. Untuk mengembalikan pertemuan ke tanggal semula, kosongkan kolom
+	 * ini.</p>
+	 *
+	 * <p>Berbeda dari {@link #getTanggal()} dan {@link #getTanggalRealisasi()}, nilai di sini
+	 * TIDAK disaring {@link #bersihkanTanggalRusak(Date)} — tanggal rusak yang tersimpan di sini
+	 * akan menular ke {@link #getTanggal()}, walaupun di sana akhirnya tersaring saat
+	 * dikembalikan.</p>
+	 *
+	 * @return tanggal pengganti, atau {@code null} bila jadwal tidak digeser
+	 * @see #getTanggal()
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalEdit() {
 		return tanggalEdit;
 	}
 
+	/**
+	 * Setel tanggal pengganti yang menimpa tanggal jadwal.
+	 *
+	 * @param tanggalEdit tanggal pengganti; {@code null} untuk kembali ke tanggal asli
+	 * @see #getTanggalEdit()
+	 */
 	public void setTanggalEdit(Date tanggalEdit) {
 		this.tanggalEdit = tanggalEdit;
 	}
 
+	/**
+	 * Nilai bawaan untuk kolom formula penilaian: sebuah JSON objek kosong.
+	 *
+	 * <p>Seperti {@link #warnas} dan konstanta layanan daring, field ini {@code public static}
+	 * tanpa {@code final}, sehingga nilainya dapat diubah dari mana saja.</p>
+	 *
+	 * @see #getKeteranganNilaiLama()
+	 */
 	public static String DEFAULT_FORMULA = new JSONObject().toString();
 
+	/**
+	 * Formula/keterangan penilaian versi LAMA, tersimpan di kolom {@code keterangannilai}.
+	 *
+	 * <p>Dipertahankan demi kompatibilitas data lama. Pembacaan yang benar dilakukan lewat
+	 * {@link #getKeteranganNilai()}, yang memakai kolom baru bila terisi dan jatuh ke kolom ini
+	 * bila tidak.</p>
+	 *
+	 * <p>Nilai kosong dikembalikan sebagai {@link #DEFAULT_FORMULA} (JSON objek kosong) sehingga
+	 * pemanggil selalu aman mem-parsingnya.</p>
+	 *
+	 * @return teks JSON formula penilaian lama; {@code "{}"} bila belum ada
+	 * @see #getKeteranganNilai()
+	 */
 	@Column(columnDefinition = "text", name = "keterangannilai")
 	public String getKeteranganNilaiLama() {
 		return keteranganNilaiLama == null || keteranganNilaiLama.trim().isEmpty() ? DEFAULT_FORMULA
 				: keteranganNilaiLama;
 	}
 
+	/**
+	 * Setel formula penilaian versi lama.
+	 *
+	 * <p>Kode baru sebaiknya memakai {@link #setKeteranganNilai(String)}.</p>
+	 *
+	 * @param keteranganNilaiLama teks JSON formula penilaian
+	 * @see #getKeteranganNilaiLama()
+	 */
 	public void setKeteranganNilaiLama(String keteranganNilaiLama) {
 		this.keteranganNilaiLama = keteranganNilaiLama;
 	}
 
+	/**
+	 * Formula/keterangan penilaian yang BERLAKU untuk pertemuan ini.
+	 *
+	 * <p>Menyembunyikan perpindahan kolom: nilai diambil dari kolom baru
+	 * {@code keterangan_nilai_baru} bila terisi, dan jatuh ke kolom lama
+	 * ({@link #getKeteranganNilaiLama()}) bila tidak. Dengan begitu data yang belum dimigrasikan
+	 * tetap terbaca tanpa perubahan di sisi pemanggil.</p>
+	 *
+	 * <p>Menimpa properti bernama sama dari kelas induk.</p>
+	 *
+	 * @return teks JSON formula penilaian yang berlaku; {@code "{}"} bila keduanya kosong
+	 * @see #getKeteranganNilaiLama()
+	 */
 	@Override
 	@Column(columnDefinition = "text", name = "keterangan_nilai_baru")
 	public String getKeteranganNilai() {
 		return keteranganNilai == null || keteranganNilai.trim().isEmpty() ? getKeteranganNilaiLama() : keteranganNilai;
 	}
 
+	/**
+	 * Setel formula penilaian pada kolom BARU.
+	 *
+	 * <p>Kolom lama tidak ikut diubah, sehingga nilai lamanya tetap tersimpan sebagai cadangan.</p>
+	 *
+	 * @param keteranganNilai teks JSON formula penilaian
+	 * @see #getKeteranganNilai()
+	 */
 	@Override
 	public void setKeteranganNilai(String keteranganNilai) {
 		this.keteranganNilai = keteranganNilai;
 	}
 
+	/**
+	 * Daftar format nilai yang dipakai pertemuan ini sebagai teks JSON.
+	 *
+	 * <p>Implementasi properti abstrak milik {@link Tugas}; melengkapi
+	 * {@link #getFormatNilai()} yang hanya menampung SATU format. Nilai kosong dikembalikan
+	 * sebagai konstanta {@code JSON} milik {@link Tugas} (sebuah JSON objek kosong).</p>
+	 *
+	 * @return teks JSON daftar format nilai; {@code "{}"} bila belum ada
+	 * @see #getFormatNilai()
+	 */
 	@Column(columnDefinition = "text")
 	public String getFormatNilais() {
 		return formatNilais == null || formatNilais.trim().isEmpty() ? JSON : formatNilais;
 	}
 
+	/**
+	 * Setel daftar format nilai pertemuan ini.
+	 *
+	 * @param formatNilais teks JSON daftar format nilai
+	 * @see #getFormatNilais()
+	 */
 	public void setFormatNilais(String formatNilais) {
 		this.formatNilais = formatNilais;
 	}
 
+	/**
+	 * Tahun akademik/ajaran pertemuan ini, hasil denormalisasi dari induk.
+	 *
+	 * <p>Bagian dari kelompok denormalisasi (lihat {@link #getProgram()}): nilainya dihitung ulang
+	 * dari induk setiap kali getter dipanggil, lalu disimpan ke kolomnya sendiri agar laporan dan
+	 * pencarian dapat menyaring langsung di SQL.</p>
+	 *
+	 * <p>Rantai penelusurannya paling lengkap di kelas ini — mencakup empat belas jenis induk.
+	 * Beberapa di antaranya sengaja MENGOSONGKAN nilai ({@code ta = null}) karena memang tidak
+	 * mengenal tahun akademik: ujian pegawai, kelas les, dan produk kursus.</p>
+	 *
+	 * <p>Berbeda dari {@link #getFakultasId()} dan kawan-kawan, seluruh cabang di sini memakai
+	 * GETTER (mis. {@code getPerkuliahan()}), bukan field langsung — sehingga proxy selalu
+	 * tersegarkan lebih dulu. Ini pola yang lebih benar dan sebaiknya ditiru.</p>
+	 *
+	 * @return tahun akademik/ajaran, atau {@code null}
+	 * @see #getSmt()
+	 */
 	public String getTa() {
 		try {
 			if (getPerkuliahan() != null) {
@@ -10131,10 +10595,36 @@ public class Pertemuan extends Tugas {
 		return ta;
 	}
 
+	/**
+	 * Setel tahun akademik hasil denormalisasi.
+	 *
+	 * <p>Nilai ini dihitung ulang oleh {@link #getTa()}, jadi pengisian manual jarang bertahan.</p>
+	 *
+	 * @param ta tahun akademik/ajaran
+	 */
 	public void setTa(String ta) {
 		this.ta = ta;
 	}
 
+	/**
+	 * Semester (ganjil/genap) pertemuan ini, hasil denormalisasi dari induk.
+	 *
+	 * <p>Pasangan {@link #getTa()} dengan rantai induk yang sejajar. Nilainya berupa teks
+	 * {@code Perkuliahan.GANJIL}/{@code Perkuliahan.GENAP}, BUKAN angka semester — konversi dari
+	 * angka dilakukan di sini dengan aturan ganjil/genap ({@code semester % 2 == 1}) untuk induk
+	 * yang menyimpan semester sebagai angka.</p>
+	 *
+	 * <p>Beberapa hal yang perlu diingat:</p>
+	 * <ul>
+	 *   <li>ujian PSB dan pertemuan PSB selalu dianggap {@code GANJIL} — asumsi tetap, bukan hasil
+	 *       penelusuran;</li>
+	 *   <li>ujian pegawai, kelas les, dan produk kursus mengosongkan nilainya;</li>
+	 *   <li>seperti {@link #getTa()}, seluruh cabang memakai getter sehingga proxy tersegarkan.</li>
+	 * </ul>
+	 *
+	 * @return kode semester ganjil/genap, atau {@code null}
+	 * @see #getTa()
+	 */
 	public String getSmt() {
 		try {
 			if (getPerkuliahan() != null) {
@@ -10178,10 +10668,32 @@ public class Pertemuan extends Tugas {
 		return smt;
 	}
 
+	/**
+	 * Setel kode semester hasil denormalisasi.
+	 *
+	 * @param smt kode semester ganjil/genap
+	 * @see #getSmt()
+	 */
 	public void setSmt(String smt) {
 		this.smt = smt;
 	}
 
+	/**
+	 * Jurusan/program studi pertemuan ini sebagai OBJEK, hasil denormalisasi dari induk.
+	 *
+	 * <p>Berbeda dari {@link #getJurusanId()} yang hanya menyimpan id, kolom ini benar-benar
+	 * relasi {@code @ManyToOne} — tetapi nilainya tetap dihitung ulang dari induk pada setiap
+	 * pembacaan, persis seperti anggota kelompok denormalisasi lainnya.</p>
+	 *
+	 * <p><b>Kedua properti itu tidak selalu selaras.</b> Rantai induknya berbeda: hanya method ini
+	 * yang punya cabang untuk {@link FormulirKegiatan}, dan hanya method ini yang secara TEGAS
+	 * mengosongkan jurusan untuk induk sekolah/PSB/kursus/grup pertemuan (sedangkan
+	 * {@link #getJurusanId()} membiarkan nilai lamanya). Bila keduanya dipakai bersama dalam satu
+	 * laporan, siapkan diri untuk perbedaan.</p>
+	 *
+	 * @return jurusan, atau {@code null}
+	 * @see #getJurusanId()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -10227,10 +10739,32 @@ public class Pertemuan extends Tugas {
 		return jurusan;
 	}
 
+	/**
+	 * Setel jurusan hasil denormalisasi.
+	 *
+	 * <p>Nilai ini dihitung ulang oleh {@link #getJurusan()} pada setiap pembacaan.</p>
+	 *
+	 * @param jurusan jurusan; boleh {@code null}
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Sekolah pertemuan ini sebagai OBJEK, hasil denormalisasi dari induk.
+	 *
+	 * <p>Rantainya jauh lebih pendek daripada {@link #getSekolahId()}: hanya pertemuan PSB, jadwal
+	 * pelajaran, dan formulir kegiatan yang menghasilkan nilai. Perhatikan bahwa cabang terakhirnya
+	 * adalah {@code else { sekolah = null; }} — artinya untuk jenis induk lain nilai sekolah
+	 * secara TEGAS DIKOSONGKAN, bukan dibiarkan seperti pada kelompok denormalisasi lainnya.</p>
+	 *
+	 * <p>Kedua properti tidak selalu selaras: {@link #getSekolahId()} mengenal jadwal ujian PSB
+	 * (yang tidak ada di sini), sedangkan hanya method ini yang mengenal
+	 * {@link FormulirKegiatan}.</p>
+	 *
+	 * @return sekolah, atau {@code null}
+	 * @see #getSekolahId()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sekolah", nullable = true)
 	public Sekolah getSekolah() {
@@ -10250,10 +10784,36 @@ public class Pertemuan extends Tugas {
 		return sekolah;
 	}
 
+	/**
+	 * Setel sekolah hasil denormalisasi.
+	 *
+	 * @param sekolah sekolah; boleh {@code null}
+	 * @see #getSekolah()
+	 */
 	public void setSekolah(Sekolah sekolah) {
 		this.sekolah = sekolah;
 	}
 
+	/**
+	 * Daftar id SELURUH dosen yang berkaitan dengan pertemuan ini, sebagai teks berpembatas koma.
+	 *
+	 * <p>Kolom denormalisasi untuk pencarian: dengan menyimpan {@code ",id1,id2,"} di satu kolom
+	 * teks, query dapat menemukan "semua pertemuan milik dosen X" memakai {@code LIKE '%,X,%'}
+	 * tanpa join ke rantai induk yang berbeda-beda jenisnya. Koma pembungkus di awal dan akhir
+	 * mencegah id "1" ikut cocok dengan id "12" — pola yang sama dengan
+	 * {@link #getMhsYgTidakIkut()}.</p>
+	 *
+	 * <p><b>MAHAL.</b> Nilainya dihitung ulang SETIAP KALI getter dipanggil, dan sebagian besar
+	 * cabang menjalankan query ({@code populateDosenBuId()}). Karena Hibernate memanggil getter
+	 * ini saat flush, satu penyimpanan pertemuan berarti satu rangkaian query tambahan.</p>
+	 *
+	 * <p>Untuk jenis induk yang tidak mengenal dosen (sekolah, PMB/PSB, ujian pegawai, kelas les,
+	 * produk kursus) nilainya secara tegas dikosongkan menjadi {@code null}.</p>
+	 *
+	 * @return daftar id dosen berpembatas koma, atau {@code null}
+	 * @see #ambilDosenId()
+	 * @see #getMahasiswas()
+	 */
 	@Column(columnDefinition = "text")
 	public String getDosens() {
 		try {
@@ -10314,10 +10874,40 @@ public class Pertemuan extends Tugas {
 		return dosens;
 	}
 
+	/**
+	 * Setel daftar id dosen hasil denormalisasi.
+	 *
+	 * <p>Nilai ini dihitung ulang oleh {@link #getDosens()} pada setiap pembacaan.</p>
+	 *
+	 * @param dosens daftar id berpembatas koma
+	 */
 	public void setDosens(String dosens) {
 		this.dosens = dosens;
 	}
 
+	/**
+	 * Daftar id SELURUH mahasiswa peserta pertemuan ini, sebagai teks berpembatas koma.
+	 *
+	 * <p>Kembaran {@link #getDosens()} untuk sisi peserta, dengan format dan tujuan yang sama.</p>
+	 *
+	 * <p><b>Getter ini punya penjaga anti-rekursi</b>, dan alasannya penting untuk dipahami:
+	 * method ini menjalankan query, sedangkan Hibernate dapat melakukan autoflush DI TENGAH query
+	 * itu — yang berarti memanggil kembali getter properti ini dan menimbulkan
+	 * {@link StackOverflowError}. Bendera {@code sedangHitungMahasiswas} memutus lingkaran itu
+	 * dengan mengembalikan nilai apa adanya bila perhitungan sedang berjalan, dan direset di blok
+	 * {@code finally}.</p>
+	 *
+	 * <p>Bendera itu {@code transient} dan TIDAK disinkronkan; ia hanya melindungi rekursi pada
+	 * SATU thread, bukan akses bersamaan dari beberapa thread ke objek yang sama.</p>
+	 *
+	 * <p>Sama seperti {@link #getDosens()}, method ini mahal dan dijalankan ulang pada setiap
+	 * pembacaan/flush. Perhatikan pula bahwa daftar ini TIDAK memperhitungkan
+	 * {@link #getMhsYgTidakIkut()}.</p>
+	 *
+	 * @return daftar id mahasiswa berpembatas koma, atau {@code null}
+	 * @see #ambilMahasiswa()
+	 * @see #getDosens()
+	 */
 	@Column(columnDefinition = "text")
 	public String getMahasiswas() {
 		if (sedangHitungMahasiswas) {
@@ -10381,10 +10971,32 @@ public class Pertemuan extends Tugas {
 		return mahasiswas;
 	}
 
+	/**
+	 * Setel daftar id mahasiswa hasil denormalisasi.
+	 *
+	 * <p>Nilai ini dihitung ulang oleh {@link #getMahasiswas()} pada setiap pembacaan.</p>
+	 *
+	 * @param mahasiswas daftar id berpembatas koma
+	 */
 	public void setMahasiswas(String mahasiswas) {
 		this.mahasiswas = mahasiswas;
 	}
 
+	/**
+	 * Daftar id guru yang mengajar pada pertemuan ini, sebagai teks berpembatas koma.
+	 *
+	 * <p>Padanan sekolah dari {@link #getDosens()}; hanya induk
+	 * {@link ais.database.model.sekolah.JadwalPelajaran} dan {@link FormulirKegiatan} yang
+	 * menghasilkan nilai, selebihnya {@code null}.</p>
+	 *
+	 * <p>Berbeda dari {@link #getMahasiswas()}, getter ini TIDAK punya penjaga anti-rekursi
+	 * walaupun sama-sama menjalankan query — perbedaan yang layak diingat bila suatu saat muncul
+	 * {@link StackOverflowError} pada jalur sekolah.</p>
+	 *
+	 * @return daftar id guru berpembatas koma, atau {@code null}
+	 * @see #ambilGuru()
+	 * @see #getSiswas()
+	 */
 	@Column(columnDefinition = "text")
 	public String getGurus() {
 		try {
@@ -10406,10 +11018,29 @@ public class Pertemuan extends Tugas {
 		return gurus;
 	}
 
+	/**
+	 * Setel daftar id guru hasil denormalisasi.
+	 *
+	 * @param gurus daftar id berpembatas koma
+	 * @see #getGurus()
+	 */
 	public void setGurus(String gurus) {
 		this.gurus = gurus;
 	}
 
+	/**
+	 * Daftar id siswa peserta pertemuan ini, sebagai teks berpembatas koma.
+	 *
+	 * <p>Padanan sekolah dari {@link #getMahasiswas()}; hanya induk
+	 * {@link ais.database.model.sekolah.JadwalPelajaran} dan {@link FormulirKegiatan} yang
+	 * menghasilkan nilai, selebihnya {@code null}.</p>
+	 *
+	 * <p>Seperti {@link #getGurus()}, tidak ada penjaga anti-rekursi di sini.</p>
+	 *
+	 * @return daftar id siswa berpembatas koma, atau {@code null}
+	 * @see #ambilSiswa()
+	 * @see #getMahasiswas()
+	 */
 	@Column(columnDefinition = "text")
 	public String getSiswas() {
 		try {
@@ -10431,15 +11062,38 @@ public class Pertemuan extends Tugas {
 		return siswas;
 	}
 
+	/**
+	 * Setel daftar id siswa hasil denormalisasi.
+	 *
+	 * @param siswas daftar id berpembatas koma
+	 * @see #getSiswas()
+	 */
 	public void setSiswas(String siswas) {
 		this.siswas = siswas;
 	}
 
+	/**
+	 * Penanda bahwa pertemuan ini sudah diproses oleh pekerjaan latar (batch).
+	 *
+	 * <p>Dipakai proses berkala untuk memisahkan baris yang masih perlu digarap dari yang sudah
+	 * selesai. Nilai bawaannya {@code true} — artinya baris lama yang belum pernah diisi dianggap
+	 * SUDAH diproses dan karenanya DILEWATI oleh batch. Ini pilihan yang aman untuk migrasi (tidak
+	 * memproses ulang jutaan baris lama), tetapi berarti kode yang membuat pertemuan baru harus
+	 * secara TEGAS mengisinya {@code false} bila ingin diproses.</p>
+	 *
+	 * @return {@code true} bila sudah diproses; tidak pernah {@code null}
+	 */
 	@Column(name = "sudah_diproses")
 	public Boolean getSudahDiproses() {
 		return sudahDiproses == null ? true : sudahDiproses;
 	}
 
+	/**
+	 * Setel penanda "sudah diproses" pertemuan ini.
+	 *
+	 * @param sudahDiproses {@code false} agar pertemuan ikut digarap pekerjaan latar
+	 * @see #getSudahDiproses()
+	 */
 	public void setSudahDiproses(Boolean sudahDiproses) {
 		this.sudahDiproses = sudahDiproses;
 	}
