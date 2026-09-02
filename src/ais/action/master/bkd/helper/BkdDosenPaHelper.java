@@ -132,10 +132,11 @@ public class BkdDosenPaHelper {
 		if (!asesors.isEmpty()) {
 
 			String sql = "this_.mahasiswa in (select mahasiswa from history_status_mahasiswa where status_mahasiswa="
-					+ ConstantValues.AKTIF.getId() + " and tahunakademik = '" + tahunAkademik + "' and semester%2="
+					+ ConstantValues.AKTIF.getId() + " and semester>0 and tahunakademik = '" + tahunAkademik + "' and semester%2="
 					+ (semester.equals(Perkuliahan.GANJIL) ? 1 : 0) + ")";
 
 			List<String> nims = session.createCriteria(KrsMahasiswa.class).add(Restrictions.sqlRestriction(sql))
+					.add(Restrictions.gt("semester", Integer.valueOf(0)))
 					.add(Restrictions.eq("tahunAkademik", tahunAkademik))
 					.add(Restrictions.sqlRestriction(
 							"this_.semester % 2 = " + (semester.equals(Perkuliahan.GANJIL) ? "1" : "0")))

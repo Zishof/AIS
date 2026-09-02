@@ -2122,7 +2122,8 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			return criteria;
 		} else if (jenis.equals(KRS)) {
 
-			Criteria criteria = session.createCriteria(KrsMahasiswa.class).createAlias("mahasiswa", "mahasiswa")
+			Criteria criteria = session.createCriteria(KrsMahasiswa.class)
+					.add(Restrictions.gt("semester", Integer.valueOf(0))).createAlias("mahasiswa", "mahasiswa")
 
 					.add(Restrictions.isNull("mahasiswa.statusKeluar"))
 
@@ -5395,7 +5396,8 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					"kp.dosen_pembimbing8", "kp.dosen_pembimbing9", "kp.dosen_pembimbing10" };
 			judulField = "kp.nama";
 		} else if (KRS.equals(jenis)) {
-			c = session.createCriteria(KrsMahasiswa.class).createAlias("mahasiswa", "m").createAlias("m.jurusan", "jur",
+			c = session.createCriteria(KrsMahasiswa.class).add(Restrictions.gt("semester", Integer.valueOf(0)))
+					.createAlias("mahasiswa", "m").createAlias("m.jurusan", "jur",
 					Criteria.LEFT_JOIN);
 			if (tahunAjaran != null) {
 				c.add(Restrictions.eq("tahunAkademik", tahunAjaran));

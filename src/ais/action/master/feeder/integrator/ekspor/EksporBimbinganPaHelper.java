@@ -24,6 +24,7 @@ final class EksporBimbinganPaHelper {
 
 	static List<KrsMahasiswa> ambil(Session session, SaringanFeeder saring) {
 		Criteria criteria = session.createCriteria(KrsMahasiswa.class)
+				.add(Restrictions.gt("semester", Integer.valueOf(0)))
 				.add(Restrictions.isNull("semesterPendek"))
 				.add(saring.kelas.isEmpty()
 						? Restrictions.sqlRestriction("true")
