@@ -436,22 +436,23 @@ public final class SalesInventoryHargaHelper {
 			String skemaTenant = jalurTenant ? SalesInventoryHargaTenant.skema(ctx) : null;
 			if (tokoId != null) {
 				if (jalurTenant) {
-					// Sama seperti layar Persediaan: model tenant tidak punya produk.toko.
-					// DITOLAK, bukan dijalankan tanpa saringan lingkup.
-					tolak(hasil, "Saringan toko belum tersedia pada tenant berschema; "
-							+ "lingkup gudang menyusul bersama penegakan scope.");
-					return;
+					// Sama seperti layar Persediaan: lingkup toko = lingkup GUDANG.
+					where.append(SalesInventoryHargaTenant.syaratTokoProduk(skemaTenant, tokoId));
+				} else {
+					where.append(" AND p.toko = ? ");
+					params.add(tokoId);
 				}
-				where.append(" AND p.toko = ? ");
-				params.add(tokoId);
 			}
 			if (jalurTenant) {
 				// Stok pada model tenant adalah turunan buku besar, bukan kolom.
 				if ("stok_ada".equals(filter)) {
-					where.append(" AND ").append(SalesInventoryHargaTenant.stokTurunan(skemaTenant))
+					// Stoknya ikut dibatasi gudang toko: menyaring "ada stok" atas angka
+					// se-tenant akan meloloskan produk yang justru habis di toko ini.
+					where.append(" AND ")
+							.append(SalesInventoryHargaTenant.stokTurunan(skemaTenant, tokoId))
 							.append(" > 0 ");
 				} else if ("stok_nol".equals(filter)) {
-					where.append(SalesInventoryHargaTenant.syaratStokNol(skemaTenant));
+					where.append(SalesInventoryHargaTenant.syaratStokNol(skemaTenant, tokoId));
 				} else if ("margin_negatif".equals(filter)) {
 					where.append(SalesInventoryHargaTenant.syaratMarginNegatif());
 				}

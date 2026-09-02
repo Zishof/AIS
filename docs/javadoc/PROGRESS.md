@@ -1,5 +1,55 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 17 — SELESAI 100% (2 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik,
+nol perubahan logika (dibuktikan pembandingan sumber tanpa komentar/spasi
+terhadap HEAD sebelum commit):
+
+- **`ais/database/model/NilaiHuruf.java`** (r83385) — 313→994 baris, 100%
+  (1 konstruktor + 34 getter/setter + `toString()` + kait + 20 field).
+  Entity MASTER konversi nilai angka↔huruf↔IPK, dipakai ±150 file lewat cache
+  statis `ConstantValues.nilaiHurufs` (bukan query per pemakaian). Koreksi
+  penting: `PenghargaanMahasiswa`/`PenghargaanDosen` **TIDAK** memakai
+  `ConstantValues.lulusDariNilaiHuruf` seperti diduga sesi 15 — pemakai
+  sebenarnya adalah `Detailperkuliahan`, `MahasiswaDapatKelompokKkn/Pkl`,
+  `MahasiswaRequestTugasAkhir`, `WarnaStatusLulusUtil`.
+- **`ais/database/model/Ruang.java`** (r83381) — 276→888 baris, 100%
+  (40 anggota). Entity MASTER ruangan, dipakai ~33 entity/199 file. Temuan:
+  field `ip`/"IP Gedung" terlihat seperti kontrol akses tapi **tidak pernah
+  ditegakkan di mana pun** — kontrol keamanan semu, dicatat untuk audit-luas.
+- **`ais/database/model/JadwalSidangTugasAkhir.java`** (r83382) — 284→754
+  baris, 100% (23 anggota). Nama menyesatkan: bukan jadwal 1 mahasiswa,
+  melainkan 1 gelombang/periode sidang (nol properti Dosen/Mahasiswa — bug
+  slot-swap dosen TIDAK BERLAKU, dikonfirmasi tak ada slotnya sama sekali).
+  Bug kehilangan data: agenda rinci berformat teks `||`/`<>` diurai dengan
+  `StringUtils.split` (himpunan-karakter, bukan pemisah) → baris ber-nama
+  kosong hilang permanen saat disimpan ulang.
+- **`ais/database/model/JadwalSeminarTugasAkhir.java`** (r83384) — 281→860
+  baris, 100% (34 anggota). Kembar salin-tempel `JadwalSidangTugasAkhir`
+  (field/anotasi/`serialVersionUID` sama persis) tapi **pemakaiannya sangat
+  asimetris**: sisi sidang dikonsumsi luas oleh `Skripsi` (tanggal+ruang
+  disalin), sisi seminar nyaris tidak dikonsumsi (`MahasiswaRequestTugasAkhir`
+  tak pernah baca `getMulai()`-nya). Bug format `jadwal_rinci` sama dengan
+  saudaranya. Catatan proses: pesan commit r83384 sempat salah tertulis
+  ("...NilaiHuruf.java") karena file pesan sementara `msg.txt` tertimpa sesi
+  paralel yang berbagi scratchpad — isi diff diverifikasi benar via
+  `svn log -c 83384 -v`. Pelajaran: pakai nama file pesan unik per sesi/file.
+- **`ais/database/model/PrestasiPegawai.java`** (r83383) — 306→1004 baris,
+  100% (81 anggota). Konsisten konsep "ajang/kejuaraan" dengan
+  `PrestasiMahasiswa`/`PrestasiDosen` (bukan `Penghargaan*`/karya). Himpunan
+  properti = subset sejati dari kedua saudaranya; satu-satunya beda PERILAKU
+  nyata: `getTahun()` di sini murni dari jam server, tak pernah menimpa nilai
+  ada, tak pernah lihat `tahunAkademik` (beda dari Dosen/Mahasiswa). Temuan
+  keamanan (masuk cakupan `task_c27d18e4`/`task_4180ddb8`, tidak dibuatkan
+  task baru): `PrestasiPegawaiAction` fail-open (himpunan satuan kerja kosong
+  → filter diganti `1=1`, membuka semua data lintas unit) dan
+  `DashboardRekapPrestasiPegawai` merakit SQL dengan konkatenasi nama master
+  data (potensi SQL injection via data yang bisa disunting operator).
+
+Total akumulasi 17 sesi: **263 file** dari 7.401 (~3,6%).
+
 ## `ais/database/model/KegiatanKemahasiswaan.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **master kegiatan kemahasiswaan** (tabel `public.kegiatan_kemahasiswaan`,

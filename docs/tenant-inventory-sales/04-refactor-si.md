@@ -1922,6 +1922,76 @@ galat yang sama persis**; dan sebuah galat sengaja yang disisipkan sementara ke
 `SalesInventoryPayableTenant` **dilaporkan javac**, membuktikan berkas batch ini memang ikut
 diperiksa dan bersih. Berkas itu dipulihkan utuh sesudahnya.
 
+## §16 — lingkup toko pada model tenant adalah lingkup GUDANG
+
+`priceAnalysis` dan `inventoryBalance` sama-sama menolak saringan toko sejak awal pemindahan.
+Keduanya kini menegakkannya, dan cara menegakkannya adalah keputusan rancangan yang layak
+dijelaskan.
+
+### Mengapa tidak bisa disalin apa adanya
+
+Jalur legacy menyaring `produk.toko`: di sana produk **milik** satu toko. Model tenant tidak
+begitu — produk berlaku se-tenant, dan yang menjadi milik satu toko adalah **gudangnya**
+(`gudang.toko_id`). Tidak ada kolom yang bisa disalin.
+
+### Dua pembatas, dan keduanya perlu
+
+| pembatas | apa yang dijaga |
+|---|---|
+| daftar barisnya | produk yang punya baris `saldo_stok` pada gudang toko itu |
+| angkanya | mutasi dihitung hanya dari gudang toko itu |
+
+Membatasi daftarnya saja akan menampilkan produk toko ini **dengan stok se-tenant** — angka yang
+lebih besar dari kenyataan di raknya. Blok 3 ujinya membuktikan itu: Gula yang hanya 30 di rak
+Toko 1 tampil **530** kalau angkanya tidak ikut dibatasi.
+
+Membatasi angkanya saja akan menampilkan seluruh produk tenant, kebanyakan bernilai nol.
+
+### Mengapa `saldo_stok`, bukan `mutasi_stok`
+
+Daftarnya dibatasi lewat `saldo_stok` justru supaya produk yang **bersaldo nol tetap muncul**.
+Kalau dasarnya mutasi bersaldo positif, produk yang habis akan menghilang dari layar — padahal
+layar persediaan justru dipakai untuk melihat apa yang habis. Blok 4 dan 5 ujinya sepasang: Gula
+dikosongkan di Toko 1, tetap terlihat lewat `saldo_stok` (1 baris), sedangkan dasar yang keliru
+menemukan **nol**.
+
+### Satu perbedaan hasil, dan itu disengaja
+
+Produk yang *ditugaskan* ke suatu toko tetapi belum pernah distok di sana **tidak muncul**,
+sedangkan jalur legacy menampilkannya — sebab di sana penugasannya atribut produk, bukan akibat
+adanya stok.
+
+Model tenant tidak punya penugasan semacam itu. Satu-satunya pernyataan bahwa suatu toko menangani
+suatu produk adalah adanya stok produk itu di gudangnya. Menambahkan kolom penugasan hanya demi
+menyamai daftar legacy berarti menambah sumber kebenaran kedua tentang "toko ini menjual apa",
+yang lalu bisa berselisih dengan stoknya sendiri.
+
+### Saringan `stok_ada` / `stok_nol` ikut dibatasi
+
+Pada `priceAnalysis`, kedua saringan itu membaca stok turunan. Keduanya kini memakai stok yang
+sudah dibatasi gudang: menyaring "ada stok" atas angka se-tenant akan meloloskan produk yang
+justru habis di toko yang sedang dilihat.
+
+### `tokoId` disambung sebagai literal
+
+Ia `Long` yang sudah tervalidasi pemanggil, dan ekspresinya muncul di dalam `SELECT`. Memakai `?`
+di sana akan menyisipkan parameter **sebelum** parameter `where`, mengacaukan urutan pengikatan
+yang sudah ada — pola yang sama sudah dipakai untuk literal tanggal tervalidasi.
+
+### Verifikasi
+
+SQL yang benar-benar dikeluarkan Java dijalankan atas dua toko: Gula distok di keduanya (30 di T1,
+500 di T2), Kopi hanya di T2, Teh tidak di mana pun.
+
+| kueri | hasil |
+|---|---|
+| tanpa lingkup | 3 produk; Gula 530 |
+| lingkup Toko 1 | **1 produk** (Gula), masuk **30** |
+| lingkup Toko 2 | 2 produk (Gula 500, Kopi 70) |
+| stok turunan Harga | se-tenant 530 lawan Toko 1 **30** |
+
+`uji-kesetaraan-lingkup-toko.sql` — lima blok LULUS, dua di antaranya penjaga.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

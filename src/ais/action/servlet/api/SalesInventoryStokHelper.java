@@ -102,17 +102,16 @@ public final class SalesInventoryStokHelper {
 			boolean jalurTenant = SalesInventoryStokTenant.aktif(ctx);
 			if (tokoId != null) {
 				if (jalurTenant) {
-					// Model tenant tidak punya produk.toko; lingkupnya gudang/lokasi_stok dan
-					// penegakannya bagian 16 yang belum dikerjakan. DITOLAK, bukan dijalankan
-					// tanpa saringan -- mengabaikan saringan lingkup berarti menyajikan data
-					// di luar wewenang peminta.
-					hasil.put("status", "91");
-					hasil.put("description", "Saringan toko belum tersedia pada tenant berschema; "
-							+ "lingkup gudang menyusul bersama penegakan scope.");
-					return;
+					// Lingkup toko pada model tenant = lingkup GUDANG. Daftar barisnya dibatasi
+					// produk yang berstok di gudang toko itu; angkanya dibatasi terpisah, di
+					// dalam selectSaldo. Tanpa keduanya, produk toko ini akan tampil dengan
+					// stok se-tenant.
+					where.append(SalesInventoryStokTenant.syaratTokoProduk(
+							SalesInventoryStokTenant.skema(ctx.tenant), tokoId));
+				} else {
+					where.append(" AND p.toko = ? ");
+					params.add(tokoId);
 				}
-				where.append(" AND p.toko = ? ");
-				params.add(tokoId);
 			}
 
 			String select;
@@ -121,7 +120,8 @@ public final class SalesInventoryStokHelper {
 				// dengan jalur legacy, sehingga seluruh pembungkus, paginasi, dan perakitan
 				// JSON di bawah dipakai bersama tanpa digandakan.
 				select = SalesInventoryStokTenant.selectSaldo(
-						SalesInventoryStokTenant.skema(ctx.tenant), dari, sampai, where.toString());
+						SalesInventoryStokTenant.skema(ctx.tenant), dari, sampai, where.toString(),
+						tokoId);
 			} else {
 				String awal = "(" + ekspresiMasuk(kondisiAwal) + " + " + ekspresiOpname(kondisiAwal) + " - ("
 						+ ekspresiKeluar(kondisiAwal) + "))";

@@ -109,8 +109,60 @@ final class SalesInventoryHargaTenant {
 	 * layar Analisa Harga dan layar Persediaan tidak pernah menyebut angka berbeda.
 	 */
 	static String stokTurunan(String skema) {
+		return stokTurunan(skema, null);
+	}
+
+	/**
+	 * Stok turunan, dibatasi gudang milik satu toko bila {@code tokoId} diberikan.
+	 *
+	 * <p>Lihat {@link #syaratTokoProduk(String, Long)} untuk alasan lingkup toko ditegakkan
+	 * lewat gudang, dan mengapa {@code tokoId} disambung sebagai literal.</p>
+	 */
+	static String stokTurunan(String skema, Long tokoId) {
+		String gudang = tokoId == null ? ""
+				: " AND m.gudang_id IN (SELECT g.id FROM " + skema + "gudang g"
+						+ " WHERE g.toko_id = " + tokoId.longValue() + ")";
 		return "COALESCE((SELECT SUM(m.arah * m.kuantitas) FROM " + skema + "mutasi_stok m"
-				+ " WHERE m.produk_id = p.id),0)";
+				+ " WHERE m.produk_id = p.id" + gudang + "),0)";
+	}
+
+	/**
+	 * <h4>&sect;16 — lingkup toko pada model tenant adalah lingkup GUDANG</h4>
+	 *
+	 * <p>Jalur legacy menyaring {@code produk.toko}: di sana produk <b>milik</b> satu toko.
+	 * Model tenant tidak begitu — produk berlaku se-tenant, dan yang menjadi milik satu toko
+	 * adalah <b>gudangnya</b> ({@code gudang.toko_id}). Karena itu lingkup toko di sini
+	 * ditegakkan lewat gudang, bukan lewat produk.</p>
+	 *
+	 * <p>Dua hal ditegakkan bersama, dan keduanya perlu:</p>
+	 * <ul>
+	 * <li><b>Daftar barisnya</b> dibatasi produk yang punya baris {@code saldo_stok} pada gudang
+	 * toko itu — "produk yang ditangani toko ini". Dipakai {@code saldo_stok} dan bukan
+	 * {@code mutasi_stok} justru supaya produk yang <b>bersaldo nol</b> tetap muncul; memakai
+	 * mutasi akan menyembunyikan produk yang habis, padahal justru itu yang ingin dilihat.</li>
+	 * <li><b>Angkanya</b> dihitung hanya dari mutasi pada gudang toko itu. Membatasi daftarnya
+	 * saja tanpa membatasi angkanya akan menampilkan produk toko ini dengan stok
+	 * se-tenant — angka yang lebih besar dari kenyataan di raknya.</li>
+	 * </ul>
+	 *
+	 * <h4>Satu perbedaan hasil, dan itu disengaja</h4>
+	 * <p>Produk yang <i>ditugaskan</i> ke suatu toko tetapi belum pernah distok di sana tidak
+	 * muncul, sedangkan jalur legacy menampilkannya — sebab di sana penugasannya atribut produk,
+	 * bukan akibat adanya stok. Model tenant tidak punya penugasan semacam itu; satu-satunya
+	 * pernyataan bahwa toko menangani suatu produk adalah adanya stok produk itu di gudangnya.</p>
+	 *
+	 * <p>{@code tokoId} disambung sebagai literal, bukan parameter. Ia {@code Long} yang sudah
+	 * tervalidasi pemanggil, dan ekspresi ini muncul di dalam {@code SELECT} — memakai
+	 * {@code ?} di sana akan menyisipkan parameter <b>sebelum</b> parameter {@code where},
+	 * mengacaukan urutan pengikatan yang sudah ada.</p>
+	 */
+	static String syaratTokoProduk(String skema, Long tokoId) {
+		if (tokoId == null) {
+			return "";
+		}
+		return " AND EXISTS (SELECT 1 FROM " + skema + "saldo_stok ss"
+				+ " JOIN " + skema + "gudang g ON ss.gudang_id = g.id"
+				+ " WHERE ss.produk_id = p.id AND g.toko_id = " + tokoId.longValue() + ") ";
 	}
 
 	/**
@@ -170,7 +222,12 @@ final class SalesInventoryHargaTenant {
 
 	/** Saringan {@code stok_nol} pada model tenant: stok turunan, bukan kolom. */
 	static String syaratStokNol(String skema) {
-		return " AND " + stokTurunan(skema) + " <= 0 ";
+		return syaratStokNol(skema, null);
+	}
+
+	/** Saringan {@code stok_nol}, dibatasi gudang milik satu toko bila diberikan. */
+	static String syaratStokNol(String skema, Long tokoId) {
+		return " AND " + stokTurunan(skema, tokoId) + " <= 0 ";
 	}
 
 	/** Saringan {@code margin_negatif} dengan nama kolom tenant. */

@@ -28,11 +28,11 @@ import ais.service.tenant.TenantMutasiStok;
  * tidak boleh -- meniru cacat itu. Ia memakai {@code BETWEEN dari AND sampai}. Meniru cacat
  * legacy demi angka yang sama berarti mengabadikannya di model baru.</p>
  *
- * <h4>Filter toko: gagal-tertutup, bukan diabaikan</h4>
- * <p>Model tenant tidak punya {@code produk.toko}; lingkupnya {@code gudang}/{@code lokasi_stok}
- * dan penegakannya bagian &sect;16 yang belum dikerjakan. Permintaan bersaring toko karena itu
- * <b>ditolak</b>, bukan dijalankan tanpa saringan -- mengabaikan saringan lingkup berarti
- * menyajikan data di luar wewenang peminta.</p>
+ * <h4>Filter toko: ditegakkan lewat gudang (&sect;16)</h4>
+ * <p>Model tenant tidak punya {@code produk.toko}; yang menjadi milik satu toko adalah
+ * gudangnya. Lingkupnya karena itu ditegakkan lewat {@code gudang.toko_id} — daftar barisnya
+ * dibatasi produk yang berstok di gudang toko itu, dan angkanya dihitung hanya dari mutasi pada
+ * gudang tersebut. Lihat {@link #syaratTokoProduk(String, Long)}.</p>
  */
 final class SalesInventoryStokTenant {
 
@@ -54,6 +54,54 @@ final class SalesInventoryStokTenant {
 	}
 
 	/** Penjumlah satu ember dari buku besar, sebagai subkueri terkorelasi ke {@code p.id}. */
+	/**
+	 * <h4>&sect;16 — lingkup toko pada model tenant adalah lingkup GUDANG</h4>
+	 *
+	 * <p>Jalur legacy menyaring {@code produk.toko}: di sana produk <b>milik</b> satu toko.
+	 * Model tenant tidak begitu — produk berlaku se-tenant, dan yang menjadi milik satu toko
+	 * adalah <b>gudangnya</b> ({@code gudang.toko_id}). Karena itu lingkup toko di sini
+	 * ditegakkan lewat gudang, bukan lewat produk.</p>
+	 *
+	 * <p>Dua hal ditegakkan bersama, dan keduanya perlu:</p>
+	 * <ul>
+	 * <li><b>Daftar barisnya</b> dibatasi produk yang punya baris {@code saldo_stok} pada gudang
+	 * toko itu — "produk yang ditangani toko ini". Dipakai {@code saldo_stok} dan bukan
+	 * {@code mutasi_stok} justru supaya produk yang <b>bersaldo nol</b> tetap muncul; memakai
+	 * mutasi akan menyembunyikan produk yang habis, padahal justru itu yang ingin dilihat.</li>
+	 * <li><b>Angkanya</b> dihitung hanya dari mutasi pada gudang toko itu. Membatasi daftarnya
+	 * saja tanpa membatasi angkanya akan menampilkan produk toko ini dengan stok
+	 * se-tenant — angka yang lebih besar dari kenyataan di raknya.</li>
+	 * </ul>
+	 *
+	 * <h4>Satu perbedaan hasil, dan itu disengaja</h4>
+	 * <p>Produk yang <i>ditugaskan</i> ke suatu toko tetapi belum pernah distok di sana tidak
+	 * muncul, sedangkan jalur legacy menampilkannya — sebab di sana penugasannya atribut produk,
+	 * bukan akibat adanya stok. Model tenant tidak punya penugasan semacam itu; satu-satunya
+	 * pernyataan bahwa toko menangani suatu produk adalah adanya stok produk itu di gudangnya.</p>
+	 *
+	 * <p>{@code tokoId} disambung sebagai literal, bukan parameter. Ia {@code Long} yang sudah
+	 * tervalidasi pemanggil, dan ekspresi ini muncul di dalam {@code SELECT} — memakai
+	 * {@code ?} di sana akan menyisipkan parameter <b>sebelum</b> parameter {@code where},
+	 * mengacaukan urutan pengikatan yang sudah ada.</p>
+	 */
+	static String syaratTokoProduk(String skema, Long tokoId) {
+		if (tokoId == null) {
+			return "";
+		}
+		return " AND EXISTS (SELECT 1 FROM " + skema + "saldo_stok ss"
+				+ " JOIN " + skema + "gudang g ON ss.gudang_id = g.id"
+				+ " WHERE ss.produk_id = p.id AND g.toko_id = " + tokoId.longValue() + ") ";
+	}
+
+	/** Pembatas gudang untuk subkueri mutasi; kosong bila tanpa lingkup toko. */
+	private static String lingkupGudang(String skema, Long tokoId) {
+		if (tokoId == null) {
+			return "";
+		}
+		return " AND m.gudang_id IN (SELECT g.id FROM " + skema + "gudang g"
+				+ " WHERE g.toko_id = " + tokoId.longValue() + ")";
+	}
+
 	private static String ember(String skema, String pilih, String syarat, String dari,
 			String sampai) {
 		return "COALESCE((SELECT SUM(" + pilih + ") FROM " + skema + "mutasi_stok m"
@@ -70,13 +118,16 @@ final class SalesInventoryStokTenant {
 	 * disambung sebagai literal DATE, bukan parameter, karena berada di dalam subkueri
 	 * terkorelasi yang urutan parameternya harus tetap cocok dengan {@code where}.</p>
 	 */
-	static String selectSaldo(String skema, String dari, String sampai, String where) {
-		String bukanOpname = " AND m.jenis <> '" + TenantMutasiStok.OPNAME + "'";
-		String hanyaOpname = " AND m.jenis = '" + TenantMutasiStok.OPNAME + "'";
+	static String selectSaldo(String skema, String dari, String sampai, String where,
+			Long tokoId) {
+		String gudang = lingkupGudang(skema, tokoId);
+		String bukanOpname = gudang + " AND m.jenis <> '" + TenantMutasiStok.OPNAME + "'";
+		String hanyaOpname = gudang + " AND m.jenis = '" + TenantMutasiStok.OPNAME + "'";
 		// Awal = saldo bersih SELURUH riwayat sebelum tanggal mulai -- termasuk opname,
 		// sebab saldo pembuka memang sudah memuat penyesuaian sebelumnya.
 		String awal = "COALESCE((SELECT SUM(m.arah * m.kuantitas) FROM " + skema + "mutasi_stok m"
-				+ " WHERE m.produk_id = p.id AND m.tanggal < DATE '" + dari + "'),0)";
+				+ " WHERE m.produk_id = p.id" + gudang
+				+ " AND m.tanggal < DATE '" + dari + "'),0)";
 		String masuk = ember(skema, "m.kuantitas",
 				" AND m.arah = " + TenantMutasiStok.MASUK + bukanOpname, dari, sampai);
 		String keluar = ember(skema, "m.kuantitas",
