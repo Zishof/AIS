@@ -70,6 +70,10 @@ Doc 91 menyebut angka ini **empat**. Yang benar **dua** — dan keduanya jauh le
 dampaknya daripada `laporan_dosen_pembina_matakuliah` (17 rujukan) yang sempat masuk daftar
 itu, padahal sumber bernama sama ada di direktori lain.
 
+> **Sudah dibuktikan (doc 93): kembaran senama itu BUKAN sumbernya.** Irisan rancangannya
+> hanya 50-77 persen — varian, bukan salinan. Angka yang benar bukan dua melainkan **enam**.
+> Lihat [93-sumber-templat-yang-benar-benar-hilang.md](93-sumber-templat-yang-benar-benar-hilang.md).
+
 Kolom "ada sumber bernama sama di direktori lain" sendiri masih perlu dibuktikan satu per
 satu: sumber senama belum tentu sumber yang benar. Itu pekerjaan yang belum dikerjakan, dan
 disebut apa adanya di sini alih-alih dihitung sebagai selesai.

@@ -1,5 +1,206 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/FormatNilai.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **komponen (butir) penilaian perkuliahan reguler** (tabel
+`public.formatnilai`, `@Audited`, `dynamicInsert/dynamicUpdate`, turunan langsung
+`GeneralValueObject`). **38 anggota** (2 konstruktor + 36 method) + 16 field
+terdokumentasi (100%), 446 → 1121 baris. Revisi **r83362** (tersapu ke revisi
+gabungan sesi paralel, pesan kosong, 4 berkas — isi diverifikasi lewat
+`svn diff -c 83362`), mirror `java/` verifikasi `cmp` identik byte. Hanya
+Javadoc/komentar; **nol perubahan logika** (dibuktikan: seluruh 678 baris
+tambahan lolos saringan "hanya baris komentar", nol baris kode ditambah/diubah;
+hanya 2 baris lama dihapus, keduanya isi Javadoc kosong/generik yang digantikan).
+
+**Peran:** kalau `PembombotanNilai` adalah *cetakan* ("Absensi 10%, Tugas 20%,
+UTS 30%, UAS 40%"), kelas ini adalah *hasil cetakannya* — baris nyata per
+`Perkuliahan`. Isinya pada dasarnya empat hal: milik kelas mana, komponen apa
+(`StatusPertemuan`), berapa persen bobotnya, dan apa namanya di layar.
+
+**Dua mode:** *konvensional* (id `StatusPertemuan` **dipatok keras**: 1 Absen,
+2 Form/Tugas, 3 UTS, 4 UAS, 21–25 Tugas 1–5, 31–35 Quiz 1–5; nama diambil dari
+label institusi di `PembombotanNilai`) vs *OBE* (penanda: `capaianPembelajaranLulusan`
+terisi **atau** `kodeSubCpmk` tidak kosong; nama diturunkan dari formula JSON CPL,
+ambang lulus lewat `ambilMinimal()`).
+
+**JAWABAN VERIFIKASI BUG SLOT-SWAP DOSEN 1/2 — TIDAK ADA di berkas ini**, dan
+buktinya struktural, bukan sekadar "kelihatannya tidak ada":
+
+1. **Nol kemunculan** kata `dosen`/`penguji`/`pembimbing`/`ketua`/`prosentasi`
+   di seluruh 446 baris asli, termasuk komentar (`grep -i` exit 1). Tidak ada
+   slot dosen untuk ditukar.
+2. Bobot di sini disimpan sebagai **satu skalar `persen` per baris**, bukan
+   deretan kolom `nilai_ketua_sidang`/`nilai_pembimbing`/`nilai_pengujiN` yang
+   sejajar deretan kolom label peran. Bentuk "N kolom bobot sejajar N kolom
+   label" — satu-satunya bentuk yang bisa tergeser — sama sekali tidak ada.
+3. Di hulu pun tidak ada jalurnya: `PembombotanNilai.setDefaultPembobotan(...)`
+   **tidak pernah** menerbitkan komponen `dosen1..dosen5` miliknya menjadi
+   `FormatNilai` (sudah tercatat sebagai "kesenjangan" di Javadoc method itu).
+   Bobot per dosen penguji dibaca langsung dari entity pembobotan oleh modul TA/
+   KKN/PKL.
+
+Jadi pola bug `FormatNilaiSkripsi` **tidak** menyeberang ke sisi perkuliahan
+reguler — sejalan dengan `FormatNilaiProposalSkripsi` yang juga bersih.
+
+**Verifikasi pola berulang (menyeluruh atas 38 anggota):**
+
+- **Getter yang menulis field TERPETAKAN: 4** — `getPersen()` (`null` → `0.0`,
+  perlu karena kolomnya `NOT NULL`), `getNama()` (menghitung ulang & menimpa nama
+  tiap kali dibaca, kecuali nama OBE buatan pengguna), `getNomorUrut()` (menimpa
+  dari JSON `PembombotanNilai.getNomorUrutFormat()`, **hanya untuk kelas
+  non-OBE**), `getJenisEvaluasi()` (menebak dari teks nama, lalu jatuh ke
+  `ConstantValues.Tugas`). Dengan `dynamicUpdate=true`, membaca keempatnya pada
+  instance managed bisa meng-`flush` `UPDATE` tanpa aksi simpan pengguna.
+  `getJenisEvaluasi()` paling berbahaya: ia memanggil `getNama()`, jadi satu
+  pembacaan bisa memutakhirkan **dua** kolom sekaligus.
+- **Getter relasi yang menulis balik referensi (`check()`): 5** — semua relasi
+  (`perkuliahan`, `statusPertemuan`, `kunci`, `jenisEvaluasi`,
+  `capaianPembelajaranLulusan`).
+- **Getter yang menutup sesi Hibernate: 0** — berkas tidak menyentuh `Session`/
+  `HibernateUtil`/`Criteria` sama sekali (`grep` exit 1). Jalur tak langsung
+  hanya lewat `check()`.
+- **Getter destruktif: 0.** Yang mendekati adalah `getNama()`, tapi ia hanya
+  menimpa nama *turunan*; nama OBE ketikan pengguna sengaja dipertahankan
+  (dijaga oleh `hanyaAngka(String)`).
+
+**Kuirk & cacat yang dicatat apa adanya (tidak diperbaiki):**
+
+- **Ketidakkonsistenan atribut JSON di dalam satu berkas.** `ambilMinimal()`
+  mencocokkan `kodeSubCpmk` ke atribut **`kode`** (baris 419/435), sedangkan
+  `ambilNamaObeDariFormula()` mencocokkan `kodeSubCpmk` ke atribut **`key`**
+  (baris 238–239). Kunci yang sama dipetakan ke dua atribut JSON berbeda.
+- **`ambilMinimal()` bisa memakai nilai elemen terakhir.** Variabel `minimal`
+  **dinolkan lalu diisi ulang di setiap iterasi**; bila tidak ada elemen yang
+  cocok, yang tersisa adalah `minimal` milik elemen **terakhir** array — bukan
+  nilai dasar dari `KurikulumPunyaMatakuliah.getMinimalKetercapaian()`.
+- **`ambilNama(...)` memanggil `perkuliahan.getPembombotanNilai().getXxxLabel()`
+  tanpa cek null.** Praktis aman (getter itu punya nilai baku berlapis) tapi
+  pemanggil langsung dari luar (`EksporNilaiFeeder`) tetap menanggung risiko NPE.
+- **`compareTo()` mengembalikan `0` saat gagal** — pengurutan bermasalah tampak
+  sebagai "semua sama", tanpa pesan ke pengguna.
+- **Pemotongan 255 karakter diam-diam** pada `nama` dan `kodeSubCpmk`.
+- **`getJenisEvaluasi()` memakai `"quis"` (tanpa spasi) dan `"kuis "` (dengan
+  spasi di belakang)** — nama komponen yang persis `"Kuis"` justru tidak
+  tertangkap.
+- **`ambilMinimal()` memakai `perkuliahan` tanpa cek null** → komponen yatim
+  melempar NPE.
+- **Akhiran baris CAMPURAN di HEAD.** Berkas ini bukan CRLF murni: 90 dari 446
+  baris (121–124, 178–179, 213–279, 284–286, 381–394 — semuanya sisa suntingan
+  fitur OBE) berakhiran **LF saja**. Sudah begitu di HEAD sebelum sesi ini;
+  sengaja **dipertahankan byte-identik** agar diff tetap bersih, seluruh baris
+  baru ditulis CRLF. Perlu penyapuan normalisasi tersendiri kalau mau dirapikan.
+- **Di luar berkas ini** (dicatat untuk penelusuran lain, bukan diperbaiki):
+  `ais/action/master/feeder/integrator/ekspor/EksporNilaiFeeder.java` sekitar
+  baris 200–210 mengurai `detailNilai` menjadi variabel bernama `idFormatNilai`,
+  lalu memakai nilai itu untuk mencari **`StatusPertemuan`** berdasarkan id yang
+  sama. Kalau `detailNilai` benar-benar menyimpan id `FormatNilai`, ini
+  pencampuran ruang-id antar dua tabel. Perlu diverifikasi terpisah.
+
+## `ais/database/model/PengaturanPembayaranBulanan.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **satu baris rencana pembayaran bulanan** (tabel
+`public.pengaturan_pembayaran_bulanan`, `@Audited` dengan tabel bayangan
+`new_audit.pengaturan_pembayaran_bulanan__audit`, `dynamicInsert/dynamicUpdate`,
+turunan langsung `GeneralValueObject`). **71 anggota** (1 konstruktor + 50
+method + 20 field) terdokumentasi 100%, 431 → 1341 baris. Revisi **r83362**,
+mirror `java/` verifikasi `cmp` identik byte. Hanya Javadoc/komentar; **nol
+perubahan logika** (sumber tanpa komentar/spasi identik persis dengan HEAD
+r82931, 9.816 byte).
+
+**Judul Javadoc lama salah total**: tertulis *"Bank generated by hbm2java"* —
+sisa salin-tempel generator, tidak ada hubungannya dengan entity `Bank`.
+
+**Kedudukan**: `SettingBiaya` → `DetailBiaya` → **`PengaturanPembayaranBulanan`**
+→ `DetailKegiatan`/`CicilanPembayaran`. `DetailBiaya` menyatakan total satu item
+biaya; class ini memecahnya jadi N baris bulanan (kunci logis: `detailBiaya` +
+`bulan`), lalu tiap baris menurunkan satu baris tagihan `DetailKegiatan` dan
+dilunasi `CicilanPembayaran`.
+
+**Empat penomoran bulan yang mudah tertukar** (didokumentasikan eksplisit):
+`bulan` (angsuran ke-N dalam semester, yang disimpan pengguna), `realBulan`
+(bulan kalender 1..12 hasil `hitungRealBulan`), `realBulanTahun` (`YYYYMM`),
+`namaBulan` (label; "Januari" *atau* "Angsuran n" tergantung
+`ItemBiaya.getMenggunakanIstilahBayarAngsuran()`, dengan asumsi keras 6 angsuran
+per semester).
+
+**Temuan terpenting — kolom turunan ternyata KOLOM SUNGGUHAN.** Entity ini
+memakai *property access* (`@Id` di getter), jadi setiap getter tanpa
+`@Transient` adalah properti persisten walau tanpa `@Column`. Diverifikasi dari
+daftar kolom nyata pada INSERT pemulihan di
+`ais/common/CicilanPembayaranRecoveryHelper.java` (~baris 1041): tabel benar-benar
+punya kolom `nama`, `namabulan`, `realbulan`, `realbulantahun`. Padahal keempat
+getternya menghitung ulang **dan menugaskan kembali ke field** setiap dipanggil —
+termasuk saat Hibernate sendiri memanggilnya untuk dirty-check. Hasilnya
+`UPDATE` + revisi Envers palsu dari operasi yang secara logika cuma membaca.
+Penawarnya sudah ada di repo dan kini ditautkan dari Javadoc:
+`KegiatanHelper.tandaiPengaturanBulananReadOnly(...)` /
+`lindungiKonfigurasiBulananSaatHitungUlang(...)` memanggil
+`session.setReadOnly(ppb, true)`.
+
+**Verifikasi pola berulang (menyeluruh atas 51 anggota, bukan asumsi dari file
+lain):**
+
+- **Getter menulis balik SELALU ke kolom terpetakan: 4** — `getNama()`,
+  `getNamaBulan()`, `getRealBulan()`, `getRealBulanTahun()`.
+- **Getter menulis balik hanya saat field `null`: 5** — `getPersentase()` (0.0),
+  `getNominal()` (0.0), `getBulan()` (1), `getAktif()` (**true**),
+  `getDikalikanDenganKondisiKhusus()` (false).
+- **Getter yang sengaja TIDAK menulis balik: 2** — `getTetapDitampilkanWalaupunNol()`
+  (bawaan **false**) dan `getTanggalTagihanSelaluDibuatAwalBulan()` (bawaan
+  **true**, kebalikan tetangganya). Asimetri ini menguntungkan: pembacaan tidak
+  mengotori dirty-check. Jangan diseragamkan.
+- **Getter menulis balik ke field `@Transient`: 1** — `getInfoDenda()` (aman
+  terhadap DB; tapi salinan lama tidak pernah dibersihkan).
+- **Getter yang membuka/menutup `Session`: 0.** File tidak menyentuh `Session`/
+  `HibernateUtil`/`Criteria`/`Query` sama sekali. Jalur DB tak langsung hanya
+  `hitungTahap(...)` (via `Common.poulateTahapan`) dan `ambilNominalModifikasi(...)`
+  (via `PembayaranNominalModifikasiHelper`).
+- **Getter destruktif: 0.**
+- **Getter relasi memakai `check()`: 0** — `getDetailBiaya()` mengembalikan field
+  mentah. Aman di sini karena `@ManyToOne` tanpa `fetch=LAZY` (bawaan JPA EAGER)
+  + `@Fetch(FetchMode.SELECT)`, jadi tidak ada proxy lazy. **Berbeda dari
+  mayoritas entity AIS** — jangan menambah `check()` di sini.
+
+**Flag `aktif`: DUA ARAH** (diverifikasi dari kode file ini + pemanggilnya).
+`setAktif(Boolean)` polos tanpa penjaga apa pun; keempat pemanggilnya di
+`NewDetailBiayaExcelAction` meneruskan `aktifRencana.isChecked()` langsung dari
+checkbox, jadi bebas bolak-balik. Satu-satunya asimetri ada di getter: `null`
+dibaca sebagai **true** (baris warisan dianggap aktif). Ini variasi lagi
+dibanding modul akunting sesi 12 — asumsi lintas-file memang tidak boleh dipakai.
+
+**Kuirk/bug dicatat, sengaja TIDAK diperbaiki:**
+
+- `getNama()` menimpa kolom `nama` dengan `toString()`, dan `toString()` membaca
+  **field mentah** `realBulan` (bukan getter). Isi kolom `nama` karena itu
+  bergantung urutan pemanggilan getter dan bisa tersimpan `"12-null-500000.0-..."`.
+  `toString()` juga memanggil `getDetailBiaya()` tanpa memakai hasilnya (sisa pola
+  resolusi proxy yang tak berlaku di sini) dan merangkai `DetailBiaya.toString()`
+  yang mahal.
+- `hitungPersentase()`/`hitungNominal()` bernama seperti fungsi murni padahal
+  **mengubah state** (menugaskan ke field terpetakan); pemanggil di
+  `NewDetailBiayaExcelAction` malah memakai pola `setPersentase(hitungPersentase())`.
+  `hitungPersentase()` masih menyisakan `System.out.println` debug di jalur produksi.
+- `getRealBulan()` melipat hasil >12 dengan `% 12`, sehingga kelipatan 12
+  (mis. 24) menjadi **0**, bukan 12 → `getNamaBulan()` mengembalikan string
+  kosong. Tak tercapai pada konfigurasi bawaan (`pembayaranSemesterGanjilMulaiDiBulan=7`,
+  `pembayaranSemesterGenapMulaiDiBulan=1`, maks 6 angsuran/semester).
+- Kolom `denda` dan `filelocation` **ada di tabel tetapi tidak dipetakan** class
+  ini — kolom yatim sisa versi lama.
+- `compareTo()` hanya membandingkan `bulan`, mengembalikan `0` untuk tipe lain
+  (tidak konsisten dengan `equals()` berbasis `id`), dan masih menyimpan komentar
+  `// TODO Auto-generated method stub` bawaan Eclipse.
+- `setOleh()`/`setOlehId()` **mengabaikan `null`/kosong diam-diam** → jejak audit
+  tidak bisa dikosongkan kembali.
+- `getKeterangan()` me-`trim()` nilai kembalian tanpa menulis balik, sehingga pola
+  baca-ubah-simpan diam-diam memangkas spasi tepi.
+- `ambilNominalModifikasi()` terlihat murni, tetapi helper yang dipanggilnya
+  **menulis `setKeterangan(...)`** (kolom terpetakan) pada jalur berbasis SKS →
+  satu lagi sumber `UPDATE` tak terduga.
+
+**Keamanan/privasi/akses:** tidak ditemukan kerentanan pada file ini (nol SQL
+mentah, nol kredensial, nol pemeriksaan hak akses yang bisa dilewati).
+
+
 ## `ais/database/model/TugasPertemuan.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **tugas mandiri/perorangan** pada satu pertemuan e-Learning (tabel
