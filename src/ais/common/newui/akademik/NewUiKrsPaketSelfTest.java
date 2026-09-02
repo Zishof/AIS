@@ -61,6 +61,14 @@ public final class NewUiKrsPaketSelfTest {
         periksa(!NewUiKrsPaketController.mengubah("options"),
                 "options hanya membaca, jadi tidak boleh menuntut POST + CSRF");
 
+        // Pengambilan paket membuat baris KRS berstatus DISETUJUI. Ia wajib
+        // menuntut POST + CSRF; lolos sebagai pembacaan berarti paket dapat
+        // diambil lewat permintaan lintas situs.
+        periksa(NewUiKrsPaketController.aksiDikenal("create"),
+                "create harus dikenal sebagai pengambilan paket");
+        periksa(NewUiKrsPaketController.mengubah("create"),
+                "create membuat baris KRS, jadi harus menuntut POST + CSRF");
+
         // Kata kerja sendiri akan ditolak NewUiRouteGuard yang fail-closed.
         periksa(!NewUiKrsPaketController.aksiDikenal("segarkan"),
                 "kata kerja sendiri tidak dikenal penjaga; pakai 'update'");

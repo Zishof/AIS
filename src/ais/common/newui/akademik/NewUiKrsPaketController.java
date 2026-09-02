@@ -115,6 +115,7 @@ public final class NewUiKrsPaketController {
             if ("meta".equals(action)) meta(json, request, mahasiswa);
             else if ("list".equals(action)) daftar(json, request, mahasiswa, false);
             else if ("options".equals(action)) gerbang(json, request, mahasiswa);
+            else if ("create".equals(action)) ambilPaket(json, request, user, mahasiswa);
             else if ("update".equals(action)) daftar(json, request, mahasiswa, true);
             else hapus(json, request, mahasiswa);
             json.put("ok", true);
@@ -142,12 +143,12 @@ public final class NewUiKrsPaketController {
      */
     static boolean aksiDikenal(String action) {
         return "meta".equals(action) || "list".equals(action) || "options".equals(action)
-                || "update".equals(action) || "delete".equals(action);
+                || "create".equals(action) || "update".equals(action) || "delete".equals(action);
     }
 
     /** Aksi yang mengubah data; menuntut POST dan token CSRF. */
     static boolean mengubah(String action) {
-        return "update".equals(action) || "delete".equals(action);
+        return "create".equals(action) || "update".equals(action) || "delete".equals(action);
     }
 
     /**
@@ -194,13 +195,18 @@ public final class NewUiKrsPaketController {
         j.put("csrfHeader", NewUiCsrfUtil.HEADER);
         j.put("csrfToken", NewUiCsrfUtil.getToken(request.getSession(true)));
 
-        // Dinyatakan terbuka, bukan disembunyikan: klien perlu tahu bahwa
-        // pengambilan paket masih harus dilakukan lewat tampilan lama.
-        j.put("ambilPaketTersedia", false);
-        j.put("ambilPaketAlasan", "Pengambilan paket perkuliahan menjalankan rangkaian "
-                + "validasi berlapis (tahapan, dosen pembimbing akademik, status pembayaran, "
-                + "dan status keaktifan) yang belum dipindahkan ke tampilan baru. "
-                + "Gunakan tampilan lama untuk mengambil paket.");
+        // Satu jalur konfigurasi masih menutup pengambilan: bila pembuatan
+        // jadwal otomatis menyala, layar lama membuat jadwal kosong lebih dulu
+        // dan jalur itu belum dipindahkan. Dinyatakan terbuka supaya klien
+        // menampilkan arahan, bukan tombol yang gagal saat ditekan.
+        boolean jadwalOtomatis = konfigurasiAktif2(
+                "untuk_pengambilan_krs_paket_jika_jadwal_belum_dibuat_otomatis_"
+                + "membuat_jadwal_dengan_waktu_ruang_dosen_yang_kosong");
+        j.put("ambilPaketTersedia", !jadwalOtomatis);
+        j.put("ambilPaketAlasan", jadwalOtomatis
+                ? "Institusi ini mengaktifkan pembuatan jadwal otomatis saat pengambilan KRS "
+                + "paket, dan jalur itu belum tersedia pada tampilan baru. Gunakan tampilan lama."
+                : "");
         j.put("catatanSinkronisasi", "Menyegarkan (update) menuliskan hasil sinkronisasi KRS "
                 + "ke basis data; menampilkan daftar tidak.");
     }
@@ -453,9 +459,230 @@ public final class NewUiKrsPaketController {
         j.put("gerbang", daftar);
         j.put("bolehAmbilPaket", semuaLolos);
         j.put("semester", semester);
-        // Meski seluruh gerbang lolos, pengambilannya sendiri belum dilayani
-        // kontrak ini; klien tidak boleh menyimpulkan sebaliknya.
-        j.put("ambilPaketTersedia", false);
+    }
+
+    // ------------------------------------------------------------ ambil paket
+
+    /**
+     * Mengambil paket perkuliahan menjadi baris KRS.
+     *
+     * <h4>Gerbang dijalankan lebih dulu, dan menutup</h4>
+     * <p>Keempat gerbang dievaluasi ulang di sini — bukan dipercayakan pada
+     * pemanggilan {@code options} sebelumnya. Klien dapat memanggil aksi ini
+     * langsung, dan keadaan dapat berubah di antara dua permintaan.</p>
+     *
+     * <h4>Satu jalur konfigurasi sengaja ditolak</h4>
+     * <p>Bila {@code untuk_pengambilan_krs_paket_jika_jadwal_belum_dibuat_...}
+     * menyala, layar lama <b>membuat jadwal kosong</b> untuk matakuliah paket
+     * yang belum berjadwal sebelum mengambil. Pembuatan jadwal itu belum
+     * dipindahkan, jadi permintaan ditolak dengan jelas alih-alih mengambil
+     * sebagian paket diam-diam. Bawaan konfigurasi itu TIDAK_AKTIF.</p>
+     *
+     * <h4>Aturan per matakuliah, disalin</h4>
+     * <ul>
+     *   <li>prasyarat gagal → <b>dilewati diam-diam</b>, seperti aslinya;</li>
+     *   <li>sudah punya baris untuk perkuliahan itu → dilewati;</li>
+     *   <li>kapasitas kelas <b>diambil alih kuota per angkatan</b> bila ada;
+     *       yang penuh dilewati dan dikumpulkan sebagai peringatan;</li>
+     *   <li>baris baru berstatus {@code DISETUJUI} — berbeda dari Ikut
+     *       Perkuliahan yang {@code BELUM_DISETUJUI}.</li>
+     * </ul>
+     */
+    @SuppressWarnings("unchecked")
+    private static void ambilPaket(JSONObject j, HttpServletRequest request, Tbmuser user,
+            Mahasiswa mahasiswa) throws Exception {
+        int batas = batasSemester(mahasiswa.getSemesterLulus());
+        int bawaan = semesterBawaan(mahasiswa.getSemesterLulus(),
+                NewUiKuesionerMahasiswaController.semesterSekarang(mahasiswa));
+        int semester = angka(request.getParameter("semester"), bawaan);
+        if (semester < 1 || semester > batas) {
+            throw new IllegalArgumentException("Semester harus antara 1 dan " + batas + ".");
+        }
+        String tahunAjaran = teks(request.getParameter("tahunAjaran"), "");
+        if (tahunAjaran.length() == 0) {
+            throw new IllegalArgumentException("Tahun ajaran wajib diisi.");
+        }
+        Integer semesterPendek = semesterPendek(request);
+
+        if (konfigurasiAktif2("untuk_pengambilan_krs_paket_jika_jadwal_belum_dibuat_otomatis_"
+                + "membuat_jadwal_dengan_waktu_ruang_dosen_yang_kosong")) {
+            throw new IllegalArgumentException("Institusi ini mengaktifkan pembuatan jadwal "
+                    + "otomatis saat pengambilan KRS paket, dan jalur itu belum tersedia pada "
+                    + "tampilan baru. Gunakan tampilan lama untuk mengambil paket.");
+        }
+
+        // Gerbang dievaluasi ulang; menutup bila ada yang belum lolos.
+        JSONObject cek = new JSONObject();
+        gerbang(cek, request, mahasiswa);
+        if (!cek.optBoolean("bolehAmbilPaket", false)) {
+            j.put("gerbang", cek.opt("gerbang"));
+            throw new IllegalArgumentException(
+                    "Syarat pengambilan KRS belum terpenuhi. Rincian pada daftar gerbang.");
+        }
+
+        ais.database.model.PaketPerkuliahan paket = cariPaket(
+                mahasiswa, semester, tahunAjaran, semesterPendek);
+        if (paket == null) {
+            throw new IllegalArgumentException("Tidak ada paket perkuliahan yang sesuai dengan "
+                    + "data Anda untuk semester " + semester + ".");
+        }
+
+        String kelas = mahasiswa.getKelas() == null ? "" : mahasiswa.getKelas().trim();
+        JSONArray ditolak = new JSONArray();
+        int berhasil = 0;
+
+        org.hibernate.Session sesi = HibernateUtil.getSessionFactory().openSession();
+        boolean transaksiLokal = false;
+        try {
+            if (!sesi.getTransaction().isActive()) {
+                sesi.beginTransaction();
+                transaksiLokal = true;
+            }
+
+            List<ais.database.model.KurikulumPunyaMatakuliah> isi = sesi
+                    .createCriteria(ais.database.model.KurikulumPunyaMatakuliah.class)
+                    .add(Restrictions.eq("kurikulum", paket.getKurikulum()))
+                    .add(Restrictions.eq("semester", Integer.valueOf(semester))).list();
+
+            for (int i = 0; i < isi.size(); i++) {
+                Matakuliah mk = isi.get(i).getMatakuliah();
+                if (mk == null) continue;
+
+                Perkuliahan perkuliahan = cariPerkuliahan(sesi, mk, mahasiswa, kelas,
+                        semester, tahunAjaran, semesterPendek);
+                if (perkuliahan == null) {
+                    ditolak.put(baris(mk, "Jadwal belum tersedia untuk matakuliah ini."));
+                    continue;
+                }
+
+                // Prasyarat gagal dilewati diam-diam pada layar lama. Di sini
+                // tetap dilewati, tetapi dilaporkan: sebuah API yang menghilangkan
+                // matakuliah tanpa sepatah kata membuat mahasiswa mengira paketnya
+                // memang hanya sekian.
+                if (!Common.checkMatakuliahPrasyarat(mk, mahasiswa, Integer.valueOf(semester))) {
+                    ditolak.put(baris(mk, "Prasyarat matakuliah belum terpenuhi."));
+                    continue;
+                }
+
+                int sudahAda = ais.action.master.helper.KrsUtilHelper
+                        .ambilJumlahDetailperkuliahan(sesi, perkuliahan, mahasiswa, false);
+                if (sudahAda != 0) continue;
+
+                int terisi = ais.action.master.helper.KrsUtilHelper
+                        .ambilJumlahDetailperkuliahan(sesi, perkuliahan, false) + 1;
+                Integer kapasitas = perkuliahan.getKapasitasKelas();
+                ais.database.model.PembagianKuotaPerkuliahanBerdasarkantahunAngkatan pembagian =
+                        ais.action.master.helper.KrsUtilHelper
+                                .ambilPembagianKuotaPerkuliahanBerdasarkantahunAngkatan(
+                                        sesi, perkuliahan, mahasiswa.getTahunangkatan(), false);
+                Number kuota = pembagian == null ? null : pembagian.getKuota();
+                if (kuota != null) kapasitas = Integer.valueOf(kuota.intValue());
+                if (kapasitas != null && terisi > kapasitas.intValue()) {
+                    ditolak.put(baris(mk, "Kapasitas perkuliahan sudah penuh. Maksimal "
+                            + kapasitas + "."));
+                    continue;
+                }
+
+                Detailperkuliahan detail = new Detailperkuliahan(user, NewUiKrsPaketController.class);
+                detail.setNilaiHuruf("");
+                detail.setTotalNilai(Double.valueOf(0.0));
+                detail.setMahasiswa(mahasiswa);
+                detail.setPerkuliahan(perkuliahan);
+                detail.setSemester(Integer.valueOf(semester));
+                detail.setPersetujuan(Detailperkuliahan.DISETUJUI);
+                ais.action.master.helper.KrsUtilHelper.simpanKrsJikaBelumAda(sesi, detail);
+                berhasil++;
+            }
+
+            if (transaksiLokal) sesi.getTransaction().commit();
+        } catch (Exception e) {
+            if (transaksiLokal && sesi.getTransaction().isActive()) {
+                try { sesi.getTransaction().rollback(); } catch (Exception diabaikan) { }
+            }
+            throw e;
+        } finally {
+            try { if (sesi.isOpen()) sesi.close(); } catch (Exception diabaikan) { }
+        }
+
+        j.put("paket", paket.getNama() == null ? "" : paket.getNama());
+        j.put("berhasil", berhasil);
+        j.put("ditolak", ditolak);
+        j.put("semester", semester);
+    }
+
+    private static JSONObject baris(Matakuliah mk, String alasan) throws JSONException {
+        return new JSONObject()
+                .put("kode", mk.getKode() == null ? "" : mk.getKode())
+                .put("nama", mk.getNama() == null ? "" : mk.getNama())
+                .put("alasan", alasan);
+    }
+
+    /** Paket yang cocok; kriterianya disalin dari layar pemilih paket. */
+    private static ais.database.model.PaketPerkuliahan cariPaket(Mahasiswa mahasiswa,
+            int semester, String tahunAjaran, Integer semesterPendek) {
+        org.hibernate.Session sesi = HibernateUtil.currentSession();
+        return (ais.database.model.PaketPerkuliahan) ConstantValues.simpleObject(
+                sesi.createCriteria(ais.database.model.PaketPerkuliahan.class)
+                        .add(Restrictions.sqlRestriction(semester + " between minsmt and maxsmt"))
+                        .add(Restrictions.sqlRestriction(
+                                mahasiswa.getTahunangkatan() + " between mulai and sampai"))
+                        .add(semesterPendek == null
+                                ? Restrictions.isNull("statusSemesterPendek")
+                                : Restrictions.eq("statusSemesterPendek", semesterPendek))
+                        .add(Restrictions.eq("tahunAkademik", tahunAjaran))
+                        .addOrder(org.hibernate.criterion.Order.desc("angkatanMulai"))
+                        .addOrder(org.hibernate.criterion.Order.desc("angkatanSampai"))
+                        .addOrder(org.hibernate.criterion.Order.desc("id"))
+                        .setMaxResults(1),
+                ais.database.model.PaketPerkuliahan.class);
+    }
+
+    /**
+     * Perkuliahan untuk sebuah matakuliah paket.
+     *
+     * <p>Kriterianya disalin, termasuk penyaring
+     * {@code tampilkanSaatPengambilanKrs} yang mudah terlewat: tanpa itu, kelas
+     * yang sengaja disembunyikan dari pengambilan KRS ikut terambil.</p>
+     *
+     * <p>Layar lama menyimpan hasilnya ke peta bertakik id matakuliah di dalam
+     * perulangan, sehingga bila ada beberapa kelas yang cocok, <b>yang terakhir
+     * yang dipakai</b>. Perilaku itu ditiru dengan mengambil elemen terakhir.</p>
+     */
+    @SuppressWarnings("unchecked")
+    private static Perkuliahan cariPerkuliahan(org.hibernate.Session sesi, Matakuliah mk,
+            Mahasiswa mahasiswa, String kelas, int semester, String tahunAjaran,
+            Integer semesterPendek) {
+        if (mahasiswa.getJurusan() == null) return null;
+        List<Perkuliahan> hasil = sesi.createCriteria(Perkuliahan.class)
+                .add(Restrictions.or(Restrictions.isNull("aktif"),
+                        Restrictions.eq("aktif", Boolean.TRUE)))
+                .add(Restrictions.or(Restrictions.isNull("tampilkanSaatPengambilanKrs"),
+                        Restrictions.eq("tampilkanSaatPengambilanKrs", Boolean.TRUE)))
+                .add(Restrictions.eq("matakuliah.id", mk.getId()))
+                .add(semesterPendek == null ? Restrictions.isNull("statusSemesterPendek")
+                        : Restrictions.eq("statusSemesterPendek", semesterPendek))
+                .add(Restrictions.eq("jurusan.id", mahasiswa.getJurusan().getId()))
+                .add(Restrictions.eq("program", mahasiswa.getProgram()))
+                .add(Restrictions.ilike("kelas", kelas,
+                        org.hibernate.criterion.MatchMode.EXACT))
+                .add(Restrictions.eq("semester", Integer.valueOf(semester)))
+                .add(Restrictions.eq("tahunAjaran", tahunAjaran))
+                .add(Restrictions.or(Restrictions.eq("merupakan_paralel", Boolean.FALSE),
+                        Restrictions.isNull("merupakan_paralel")))
+                .list();
+        if (hasil == null || hasil.isEmpty()) return null;
+        return hasil.get(hasil.size() - 1);
+    }
+
+    /** Konfigurasi bernilai AKTIF dengan bawaan TIDAK_AKTIF. */
+    private static boolean konfigurasiAktif2(String kunci) {
+        try {
+            ais.database.model.Konfigurasi k = Common.getKonfigurasi(kunci,
+                    ais.database.model.Konfigurasi.TIDAK_AKTIF);
+            return k != null && ais.database.model.Konfigurasi.AKTIF.equals(k.getNilai());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static JSONObject gerbangJson(String kode, boolean lolos, String pesan)
