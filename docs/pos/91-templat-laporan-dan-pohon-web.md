@@ -46,6 +46,12 @@ Namanya datang dari parameter saat berjalan; `".jasper"` cuma akhiran. Regexnya 
 akhiran itu sebagai nama berkas — cacat alat yang keenam dalam rangkaian batch ini. Kini
 ekspresi yang memuat parameter selain `SUBREPORT_DIR` dilewati sebagai dinamis.
 
+> **KOREKSI (doc 92): bagian 3 dan 5 di bawah SALAH.** `^/web` bukan pohon terpisah —
+> itu URL repositori dari `src/main/webapp`, direktori yang sedang dibuka. Dan sumber yang
+> dikira "ditemukan kembali" adalah berkas LAIN yang kebetulan bernama sama di direktori
+> berbeda. Angka yang benar: dua, bukan empat. Lihat
+> [92-koreksi-topologi-dan-cocok-nama.md](92-koreksi-topologi-dan-cocok-nama.md).
+
 ## 3. Temuan yang hampir salah dilaporkan: "sumber transkrip hilang"
 
 Membandingkan `.jasper` dengan `.jrxml` di dalam `webapp/report/` memberi **13 berkas

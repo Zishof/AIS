@@ -1,5 +1,134 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "5 entity Kkn/Pkl/PMB/karya/billing" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:
+- `Kkn.java` — 52/52+konstruktor. 337→1193 baris. r83321. AKAR modul KKN,
+  nol koleksi (semua relasi ditarik dari sisi anak). **Bug fungsional sama
+  persis dengan `Pkl.java`**: default syarat SKS/IPK alternatif (0/0.0)
+  tidak cocok dengan nilai awal field (110/2.0) — mengaktifkan "Syarat
+  Lain" tanpa isi angka justru MELOLOSKAN semua pendaftar. Konfirmasi bug
+  copy-paste lintas 2 modul identik.
+- `Pkl.java` — 53/53+konstruktor. 334→1122 baris. r83316/83319. Struktur
+  sejajar `Kkn.java`; bug default syarat SKS/IPK yang sama (lihat atas).
+- `JadwalUjianPMB.java` — 40/40+konstruktor. 273→858 baris. r83312/83314/83315.
+  Koreksi hierarki: bukan langsung `GeneralValueObject`, tapi lewat
+  `VOPembelajaran`. Getter penghapus data lagi (`getRuanganYgIkut`).
+- `PenghargaanDosen.java` — 43/43. 277→1009 baris. r83317/83320. Nama
+  class menyesatkan (modul UI-nya "Karya Dosen"/paten-HKI, BUKAN sekadar
+  "penghargaan" generik) — konsep BEDA dari `PrestasiDosen` (dikonfirmasi
+  terpisah di dashboard+cache index). **ESKALASI KEAMANAN BARU**: broken
+  access control di `PenghargaanDosenAction.java` (parameter `dosen=<id>`
+  tanpa cek kepemilikan). Task `task_c27d18e4` (sekaligus audit pola
+  serupa di action lain — pola KEDUA setelah beasiswa `task_51f767ec`).
+- `PembayaranMahasiswa.java` — 46/46+konstruktor. 288→790 baris. r83311/83313.
+  Pemetaan JPA KEDUA atas tabel SAMA dengan `Kegiatan.java` (dual-mapping
+  antipattern) — bug nyata: perbaikan `kodeunik` yang sudah diterapkan di
+  `Kegiatan` tidak pernah disalin ke sini, potensi tabrakan `unique`.
+
+**6 task eskalasi keamanan/privasi aktif sekarang** (2 kategori BARU sesi
+ini menambah "broken access control" jadi pola berulang — 2 instance
+ditemukan dalam 1 batch): `task_15f5001e` (arsitektur getter destruktif),
+`task_b0a90191` (command injection VA), `task_78a5b1ab` (kebocoran
+kredensial log login), `task_51f767ec` (akses lintas-mahasiswa beasiswa),
+`task_18d52b8b` (kebocoran identitas pelapor pengaduan), `task_c27d18e4`
+(broken access control karya dosen + audit pola serupa — BARU).
+
+**Total akumulasi 14 sesi kerja**: 243 (sesi 1-13) + 5 = **248 file** dari
+7.401 (~3,4%).
+
+## `ais/database/model/Kkn.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **gelaran/periode KKN** (tabel `public.kkn`, `@Audited`,
+`dynamicInsert/dynamicUpdate`, turunan langsung `GeneralValueObject`).
+**52 method + konstruktor + 26 field** terdokumentasi (100%), 337 → 1193
+baris. Revisi **r83321**, mirror `java/` verifikasi `cmp` identik. Hanya
+Javadoc/komentar; nol perubahan logika (dibuktikan dengan membandingkan
+sumber tanpa komentar/spasi terhadap HEAD r73618 — identik persis).
+
+**Alur:** `Kkn` adalah AKAR seluruh modul KKN. Tujuh entity ber-FK ke
+`kkn`: `KelompokKkn` (nullable) → `MahasiswaDapatKelompokKkn` (dua hop,
+tidak ada FK langsung), `MahasiswaDaftarKkn` (pendaftar + `memenuhiSyarat`
++ `totalSkor`), `MahasiswaDapatKkn` (peserta diterima),
+`KknPunyaPersyaratan` → `PersyaratanKkn` → `MahasiswaKknPersyaratan`,
+`KknPunyaKomponenPenilaianKkn` → `KomponenPenilaianKkn`, dan
+`PengecualianKknMahasiswa`. **Tidak ada satu pun koleksi di sisi `Kkn`** —
+semua relasi ditarik dari sisi anak dengan `Restrictions.eq("kkn", kkn)`,
+jadi menghapus baris `kkn` tidak meng-cascade apa pun (data anak jadi
+yatim).
+
+**Gerbang kelayakan** ada di `Common.checkSyaratKkn(Mahasiswa, Kkn)`
+(`Common.java:13080`), dipanggil dari `KknUntukMahasiswaAction`,
+`AmbilDataMahasiswaKknHelper`, dan `AmbilDataMahasiswaSeleksiKknHelper`:
+pengecualian → jurusan → fakultas → `(sks≥S1 ∧ ipk≥I1) ∨ (aktifkanSyaratLain
+∧ sks≥S2 ∧ ipk≥I2)`. AND di dalam pasangan, OR antar-pasangan.
+
+**Verifikasi pola berulang:**
+- Pemetaan berbasis properti (`@Id` di `getId()`, nol `@Transient`) →
+  seluruh getter adalah kolom.
+- **14 getter menulis balik ke field**; 3 netral (`check()`:
+  `getJurusan`, `getFakultas`, `getJenisAktfitasMahasiswa`), **11
+  benar-benar mengubah data** (`getNama`, empat getter ambang SKS/IPK,
+  `getAktifkanSyaratLain`, `getHarusBayar`, `getKodeItemBiaya`,
+  `getSemester`, `getTahunAkademik`, `getNimMhsTanpaBiaya`).
+- Getter tanpa penulisan balik tapi tetap mengubah nilai tersimpan:
+  `getProgram`, `getMahasiswaBolehMerubahAgenda`,
+  `getDosenBolehMerubahAgenda`, fallback `getJenisAktfitasMahasiswa`.
+- **TIDAK ADA field `aktif` sama sekali** (diverifikasi dari kode).
+  Visibilitas gelaran ditentukan kecocokan `jurusan`/`fakultas`/`program`
+  di `KknUntukMahasiswaAction.initCriteria`, bukan flag — dan bukan pula
+  `tanggal_selesai` (tanggal tidak ikut menyaring; pendaftaran tidak
+  tertutup sendiri setelah gelaran berakhir).
+- **TIDAK ADA getter yang membuka/menutup sesi Hibernate**; satu-satunya
+  sentuhan persistensi adalah `check()` pada tiga getter relasi.
+- `setOleh`/`setOlehId` satu arah (masukan kosong/`null` diabaikan).
+
+**Kuirk/bug yang dicatat (tidak diperbaiki):**
+- **Jebakan konfigurasi paling serius**: `getMinimalSksBolehIkutKkn2()` dan
+  `getMinimalIpkBolehIkutKkn2()` mengganti `null` dengan **0 / 0.0**,
+  padahal nilai awal field-nya 110 / 2.0. Pada gelaran lama yang kolom
+  syarat-2-nya masih `null`, mencentang "Aktifkan Syarat Lain" tanpa
+  mengisi angkanya membuat cabang alternatif berbunyi `sks≥0 ∧ ipk≥0.0` —
+  yaitu **meloloskan SEMUA pendaftar**, kebalikan dari maksud operator.
+- **Ambang bulan tidak selaras**: fallback kalender `getSemester()` mulai
+  Ganjil pada `MONTH >= 5` (Juni), sedangkan `getTahunAkademik()` maju ke
+  `YYYY/YYYY+1` baru pada `MONTH > 5` (Juli). Gelaran yang `tanggal_mulai`
+  di bulan Juni + kedua kolom `null` terisi otomatis dengan pasangan
+  mustahil (Ganjil tapi TA periode sebelumnya), dan nilai itu langsung
+  tersimpan.
+- Nilai turunan `getSemester()`/`getTahunAkademik()` **bergantung pada
+  pengguna yang sedang login** (`Common.getCurrentUser()` di dalam
+  `CommonCurrentSessionHelper`) — proses latar bisa menghasilkan nilai lain.
+- `program` **hanya** menyaring daftar yang terlihat mahasiswa; tidak
+  divalidasi ulang di `checkSyaratKkn` (beda dari `jurusan`/`fakultas`),
+  sehingga penambahan peserta massal oleh operator bisa menembus batas
+  program.
+- `ConstantValues.KKN` bukan konstanta melainkan field statis **mutable
+  non-final**; penugasannya di `InitDataHelper` bergantung pada nama baris
+  master yang persis `"Kuliah kerja nyata"` (lookup-nya `feeder = 5`).
+  Nama yang pernah diedit operator → konstanta tetap `null` →
+  `KknAction` yang merangkai
+  `kkn.getJenisAktfitasMahasiswa().getKampusMerderka()` melempar NPE.
+- Field `nama_kelompok` menyimpan **nama gelaran**, bukan nama kelompok
+  (nama kelompok yang sebenarnya ada di `kkn/KelompokKkn.java`).
+  `toString()` dan `getNama()` keduanya memakainya; `setNama(String)`
+  praktis tidak berguna karena selalu ditimpa `getNama()`.
+- `getNimMhsTanpaBiaya()` menormalkan nilai ke bentuk `",nim1,nim2,"`
+  dengan `replaceAll(",,", ",")` **tiga kali berturut-turut** (perlu karena
+  `replaceAll` tak menangani pencocokan tumpang tindih); cukup untuk
+  maksimal 8 koma beruntun, lebih dari itu masih menyisakan koma ganda.
+  NIM di daftar ini melewati **kedua** gerbang biaya sekaligus.
+- Kode di `kodeItemBiaya` yang tidak ditemukan di master `ItemBiaya`
+  **diabaikan diam-diam** — salah ketik kode = syarat hilang tanpa
+  peringatan.
+- `KelompokKkn.kkn` nullable; kelompok yatim membuat
+  `MahasiswaDapatKelompokKkn` kehilangan komponen nilai dan
+  `AktifitasKknHelper` kehilangan sakelar izin agenda.
+- Kembaran hampir persis: `ais/database/model/Pkl.java` +
+  `Common.checkSyaratPkl` (disebut eksplisit sebagai "copy semantis").
+
+**Tidak ada kerentanan keamanan/privasi baru** yang ditemukan di file ini.
+
 ## `ais/database/model/PenghargaanDosen.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **karya dosen** (tabel `public.penghargaan_dosen`, `@Audited`,
