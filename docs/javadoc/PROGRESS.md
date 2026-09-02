@@ -1,5 +1,45 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "5 entity pembayaran/kurikulum/keluarga" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`
+(verifikasi `cmp` byte-identik):
+- `VirtualAccountBank.java` — 135/135 method. 2376→3949 baris. r83134/83136.
+  Bukan sekadar entity — MESIN pembayaran VA dipanggil 17 servlet callback
+  bank berbeda. **Potensi command injection ditemukan** di `curlSmartlink()`
+  (payload JSON disisipkan mentah ke command line `curl`/`ssh`) — DIESKALASI
+  ke task keamanan terpisah `task_b0a90191` (kategori BEDA dari audit
+  arsitektur getter, severity lebih tinggi, TIDAK diperbaiki di sesi ini).
+- `ItemBiaya.java` — 70/70 method. 946→2263 baris. r83133/83135. Peringatan
+  penting: konstanta salah eja (`"suatau matakuliah tertentu"`) adalah
+  LOAD-BEARING di data produksi — JANGAN diperbaiki ejaannya tanpa migrasi
+  data, akan mematikan mode itu di baris lama.
+- `CicilanPembayaran.java` — 73/73 method. 620→1666 baris. r83129/83132.
+  Kasus "getter menulis ke object lain" terparah sejauh ini: `getKegiatan()`
+  bisa mengubah+menyimpan rentang tanggal bayar `Kegiatan` INDUK hanya
+  dengan dibaca (cascade MERGE/PERSIST).
+- `KurikulumPunyaMatakuliah.java` — 79/79 method. 749→1670 baris.
+  r83128/83131. Konfirmasi: RPS milik KURIKULUM bukan mata kuliah (bisa beda
+  antar tahun kurikulum untuk MK yang sama).
+- `OrangTua.java` — 90/90 method. 777→1774 baris. r83130. **Konfirmasi**:
+  data orang tua di `OrangTua` vs `BiodataMahasiswa` TUMPANG TINDIH TAPI
+  TIDAK PERNAH disinkronkan, bahkan pakai tabel acuan master berbeda. Bug
+  fungsional serius: 3 catch kosong di method penentu akses portal wali bisa
+  membuat wali "kehilangan" semua data anaknya secara diam-diam.
+
+**Field audit shadow: 100% konsisten di SEMUA 17 entity yang sudah digarap**
+(termasuk batch ini, entity ke-13 s/d ke-17 berturut-turut) — pola ini bukan
+lagi "kemungkinan", anggap PASTI ADA di entity model manapun yang belum
+disentuh.
+
+**Dua task eskalasi terpisah aktif** (di luar inisiatif dokumentasi ini):
+`task_15f5001e` (audit arsitektur getter-berefek-samping, kluster besar) dan
+`task_b0a90191` (command injection `curlSmartlink`, BARU sesi ini — kategori
+keamanan berbeda, jangan digabung dengan yang pertama).
+
+**Total akumulasi 7 sesi kerja**: 208 (sesi 1-6) + 5 = **213 file** dari
+7.401 (~2,9%).
+
 ## `ais/database/model/VirtualAccountBank.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **tagihan Virtual Account** (tabel `public.virtual_account_bank`, `@Audited`)

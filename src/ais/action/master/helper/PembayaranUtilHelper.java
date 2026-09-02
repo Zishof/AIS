@@ -110,7 +110,8 @@ public class PembayaranUtilHelper {
 
 	/**
 	 * Menambahkan batas sumber pada query baca {@link DetailBiaya} berdasarkan
-	 * {@link SettingBiaya} yang sudah dipilih oleh mesin prioritas. Method ini adalah satu-satunya
+	 * {@link SettingBiaya} yang sudah dipilih oleh mesin prioritas. Parameter setting boleh kosong
+	 * ketika sistem hanya menemukan tagihan langsung legacy. Method ini adalah satu-satunya
 	 * kontrak yang boleh dipakai oleh layar pembayaran admin dan layanan pembayaran/H2H untuk
 	 * membatasi sumber template biaya. Tujuannya bukan memilih setting; pemilihan tersebut harus
 	 * sudah selesai melalui {@link SetingBiayaHelper#getSettingBiayaTerpilih}. Tugas method ini
@@ -144,8 +145,10 @@ public class PembayaranUtilHelper {
 	 * kebenaran; cabang itu bukan fallback untuk mengabaikan relasi yang salah.
 	 *
 	 * <p><b>Prasyarat keamanan.</b> Method ini tidak cukup untuk dijalankan sendirian. Pemanggil
-	 * wajib membatasi {@code itemBiaya} dengan daftar item dari setting terpilih dan menerapkan
-	 * seluruh atribut profil yang tersedia: jenis pembayaran, periode, semester, angkatan,
+	 * wajib membatasi baris modern berdasarkan {@code itemBiaya} dari setting terpilih melalui
+	 * {@link #batasiItemBiayaPembacaan}. Baris legacy all-null tidak bergantung pada daftar item
+	 * modern, tetapi tetap wajib melewati seluruh filter profil berikutnya. Pemanggil juga harus
+	 * menerapkan seluruh atribut profil yang tersedia: jenis pembayaran, periode, semester, angkatan,
 	 * jenjang, prodi, program, status awal, status pembayaran efektif, semester mulai,
 	 * kewarganegaraan, kelas, tempat tinggal, paket, gelombang, jenis seleksi, afiliasi, serta
 	 * parameter tambahan aktif. Jangan melonggarkan salah satu filter tersebut untuk membuat
@@ -159,24 +162,35 @@ public class PembayaranUtilHelper {
 	 * secara diam-diam. Jangan menyalin susunan {@link Restrictions} ini ke kelas lain; panggil
 	 * helper ini agar UI admin, calon mahasiswa, dan H2H selalu mempunyai perilaku identik.</p>
 	 *
-	 * <p><b>Semantik nilai {@code null}.</b> Bila {@code criteria} atau {@code settingBiaya}
-	 * {@code null}, method mengembalikan criteria tanpa perubahan. Kondisi ini mempertahankan
-	 * perilaku alur pengecualian/default yang memang tidak memperoleh setting terpilih. Pemanggil
-	 * tidak boleh menafsirkan hasil tanpa perubahan sebagai izin menghapus filter profil.</p>
+	 * <p><b>Semantik setting kosong.</b> Bila {@code settingBiaya == null}, method tidak boleh
+	 * mengembalikan criteria tanpa pembatas. Ia justru menerima hanya baris yang ketiga relasi
+	 * sumbernya {@code null}. Ini adalah jalur standalone legacy: tidak ada setting modern yang
+	 * dapat memasok daftar item, sehingga {@link #batasiItemBiayaPembacaan} memakai cabang legacy,
+	 * tetapi pembatas sumber all-null dan seluruh filter profil tetap wajib. Tanpa aturan ini,
+	 * meniadakan filter item akan berisiko mencampurkan baris dari setting modern lain yang profilnya
+	 * kebetulan sama. Hanya {@code criteria == null} yang dikembalikan tanpa perubahan.</p>
 	 *
 	 * @param criteria criteria yang posisi root aktifnya adalah {@link DetailBiaya}; root tersebut
 	 * dapat berasal langsung dari {@code createCriteria(DetailBiaya.class)} atau dari navigasi
 	 * {@code PengaturanPembayaranBulanan.detailBiaya}
-	 * @param settingBiaya hasil akhir mesin prioritas untuk profil dan periode yang sedang diproses
+	 * @param settingBiaya hasil mesin prioritas, atau {@code null} untuk tagihan standalone legacy
 	 * @return instance criteria yang sama, setelah dua {@code LEFT JOIN} dan batas sumber ditambahkan
 	 */
 	public static Criteria batasiPembacaanDetailBiayaKeSettingTerpilih(Criteria criteria,
 			SettingBiaya settingBiaya) {
-		if (criteria == null || settingBiaya == null) {
+		if (criteria == null) {
 			return criteria;
 		}
 		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", Criteria.LEFT_JOIN);
 		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", Criteria.LEFT_JOIN);
+		if (settingBiaya == null) {
+			// Tanpa setting terpilih, jangan membuka semua DetailBiaya. Hanya sumber
+			// standalone legacy yang boleh lanjut ke filter profil pemanggil.
+			criteria.add(Restrictions.and(Restrictions.isNull("settingPrioritasIndividual.id"),
+					Restrictions.and(Restrictions.isNull("settingPrioritasRincian.id"),
+							Restrictions.isNull("settingBiaya"))));
+			return criteria;
+		}
 		// Baris legacy dari menu Pengaturan Tagihan tidak selalu memiliki relasi
 		// SettingBiaya. Tetap izinkan baris tersebut; filter profil rinci di bawah
 		// (semester, prodi, program, status, angkatan, dan seterusnya) tetap berlaku.
@@ -192,6 +206,43 @@ public class PembayaranUtilHelper {
 										Restrictions.or(Restrictions.eq("settingBiaya", settingBiaya),
 												Restrictions.isNull("settingBiaya")))))));
 		return criteria;
+	}
+
+	/**
+	 * Menambahkan pembatas {@link ItemBiaya} yang berpasangan dengan kontrak sumber query baca.
+	 * Method ini harus dipanggil setelah
+	 * {@link #batasiPembacaanDetailBiayaKeSettingTerpilih(Criteria, SettingBiaya)}.
+	 *
+	 * <p>Untuk baris modern yang mempunyai salah satu relasi sumber, daftar item dari setting
+	 * terpilih wajib berisi item baris tersebut. Bila daftar kosong, semua baris modern ditolak.
+	 * Bila daftar berisi, pembatasnya adalah {@code itemBiaya IN (...) }. Dengan demikian setting
+	 * lain tidak dapat masuk hanya karena atribut profilnya sama.</p>
+	 *
+	 * <p>Baris legacy yang ketiga relasi sumbernya kosong tidak dibuat dari daftar item suatu
+	 * setting, sehingga tidak boleh ditolak oleh daftar item modern. Cabang legacy tetap diterima
+	 * ketika setting tidak ditemukan, ketika setting ditemukan tetapi belum mempunyai item, atau
+	 * ketika item legacy tidak tercantum pada setting modern. Kelonggaran ini aman karena helper
+	 * batas sumber sebelumnya membuktikan bentuk all-null dan query pemanggil masih mencocokkan
+	 * seluruh profil. Dengan kata lain, daftar item kosong tidak membuka semua tagihan; hanya sumber
+	 * legacy all-null dengan profil identik yang dapat mencapai hasil akhir.</p>
+	 *
+	 * @param criteria criteria yang root aktifnya {@link DetailBiaya}
+	 * @param itemBiayas daftar item dari setting terpilih; boleh kosong untuk standalone legacy
+	 * @return criteria yang sama setelah pembatas item ditambahkan
+	 */
+	public static Criteria batasiItemBiayaPembacaan(Criteria criteria, Collection<ItemBiaya> itemBiayas) {
+		if (criteria == null) {
+			return null;
+		}
+		org.hibernate.criterion.Criterion sumberLegacyTanpaInduk = Restrictions.and(
+				Restrictions.isNull("settingPrioritasIndividual.id"),
+				Restrictions.and(Restrictions.isNull("settingPrioritasRincian.id"),
+						Restrictions.isNull("settingBiaya")));
+		if (itemBiayas != null && !itemBiayas.isEmpty()) {
+			return criteria.add(Restrictions.or(Restrictions.in("itemBiaya", itemBiayas),
+					sumberLegacyTanpaInduk));
+		}
+		return criteria.add(sumberLegacyTanpaInduk);
 	}
 
 	/**
@@ -507,7 +558,9 @@ public class PembayaranUtilHelper {
 	 * <p><b>Kontrak sumber:</b> setelah satu {@link SettingBiaya} terpilih, query selalu memanggil
 	 * {@link #batasiPembacaanDetailBiayaKeSettingTerpilih}. Langkah ini menerima bentuk relasi
 	 * modern dan bentuk legacy tanpa relasi, tetapi tidak menggantikan filter profil rinci yang
-	 * diterapkan sesudahnya. Jangan mengganti helper tersebut dengan
+	 * diterapkan sesudahnya. Pembatas item berikutnya wajib memakai
+	 * {@link #batasiItemBiayaPembacaan} agar daftar item kosong tetap menolak setting modern tanpa
+	 * item, tetapi tidak mematikan tagihan standalone legacy. Jangan mengganti helper tersebut dengan
 	 * {@code Restrictions.eq("settingBiaya", settingBiayaTerpilih)} karena pola itu menghilangkan
 	 * tagihan dari Pengaturan Tagihan lama walaupun nominal dan profilnya benar.</p>
 	 *
@@ -898,8 +951,8 @@ public class PembayaranUtilHelper {
 				criteria.add(Restrictions.isNull("kelas"));
 			}
 
+			criteria = batasiItemBiayaPembacaan(criteria, detailSettingBiayas);
 			Collection detailBiaya = criteria
-					.add(detailSettingBiayas == null || detailSettingBiayas.isEmpty() ? Restrictions.sqlRestriction(SQL_FALSE) : Restrictions.in("itemBiaya", detailSettingBiayas))
 					.add(Restrictions.or(Restrictions.eq("merupakanPembayaran", false), Restrictions.isNull("merupakanPembayaran")))
 					.addOrder(Order.desc("id"))
 					.add(jenisTinggalMahasiswa == null ? Restrictions.isNull("jenisTinggalMahasiswa") : Restrictions.eq("jenisTinggalMahasiswa", jenisTinggalMahasiswa))
@@ -1110,8 +1163,9 @@ public class PembayaranUtilHelper {
 	 * hasil (4), disaring lewat paket, gelombang pendaftaran, status awal, jenis seleksi, jenjang,
 	 * jurusan, angkatan, dsb; (6) dedup per {@code itemBiaya}, simpan ke cache, kembalikan.
 	 * Pembatas sumber modern/legacy selalu diterapkan melalui
-	 * {@link #batasiPembacaanDetailBiayaKeSettingTerpilih}; seluruh filter profil calon mahasiswa
-	 * tetap wajib berjalan setelah pembatas tersebut.
+	 * {@link #batasiPembacaanDetailBiayaKeSettingTerpilih} dan pembatas item melalui
+	 * {@link #batasiItemBiayaPembacaan}; seluruh filter profil calon mahasiswa tetap wajib berjalan
+	 * setelah kedua pembatas tersebut.
 	 *
 	 * @param biodataCalonMahasiswa calon mahasiswa subjek tagihan; {@code null} atau
 	 *        {@code jenisKegiatan == null} langsung mengembalikan koleksi kosong
@@ -1300,9 +1354,9 @@ public class PembayaranUtilHelper {
 			criteria = batasiPembacaanDetailBiayaKeSettingTerpilih(criteria, settingBiayaTerpilih);
 			filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);
 
+			criteria = batasiItemBiayaPembacaan(criteria, detailSettingBiayas);
 			criteria = criteria
 					.add(paket == null ? Restrictions.isNull("paket") : Restrictions.eq("paket", paket))
-					.add(detailSettingBiayas == null || detailSettingBiayas.isEmpty() ? Restrictions.sqlRestriction(SQL_FALSE) : Restrictions.in("itemBiaya", detailSettingBiayas))
 					.add(Restrictions.or(Restrictions.eq("merupakanPembayaran", false), Restrictions.isNull("merupakanPembayaran")));
 					
 			if (paket != null && Boolean.TRUE.equals(paket.getBiayaPendaftaranSemuaGelombangSama())) {

@@ -29,6 +29,14 @@ Baris yang dibuat oleh layar Pengaturan Tagihan legacy dapat mempunyai ketiga
 relasi tersebut bernilai `null`. Barisnya ada dan nominalnya benar, tetapi query
 baca membuangnya. Kondisi ini membuat pesan `Belum ada tagihan` menyesatkan.
 
+Ada dua lapis kegagalan yang harus diperbaiki bersama. Pertama, pembatas sumber
+menolak baris all-null ketika sebuah `SettingBiaya` modern ditemukan. Kedua,
+bila sama sekali tidak ada `SettingBiaya` modern yang cocok, daftar item dari
+setting menjadi kosong dan kode lama menambahkan kondisi SQL selalu salah.
+Memperbaiki lapis pertama saja belum menyelesaikan kasus Pengaturan Tagihan
+standalone. Karena itu perbaikan juga memusatkan keputusan filter item pada
+`PembayaranUtilHelper.batasiItemBiayaPembacaan(...)`.
+
 Perbaikan dipusatkan di:
 
 `PembayaranUtilHelper.batasiPembacaanDetailBiayaKeSettingTerpilih(...)`
@@ -107,11 +115,15 @@ Urutan algoritma untuk mahasiswa lama adalah:
 5. Cari tagihan khusus mahasiswa.
 6. Cari `SettingBiaya` cohort dengan prioritas terkecil yang masih mempunyai
    kandidat cocok; di dalam prioritas yang sama pilih kandidat paling spesifik.
-7. Ambil daftar `ItemBiaya` dari setting terpilih.
+   Hasil tahap ini boleh `null` untuk tagihan standalone legacy.
+7. Bila setting ditemukan, ambil daftar `ItemBiaya` dari setting terpilih.
+   Daftar ini membatasi baris modern saja; sumber legacy all-null tidak dibuat
+   dari daftar item modern dan tetap dinilai lewat profil langsung.
 8. Bangun query `DetailBiaya` atau `PengaturanPembayaranBulanan`.
 9. Terapkan batas sumber dengan helper kanonis.
-10. Terapkan seluruh filter profil mahasiswa.
-11. Kurangi pembayaran yang sudah terjadi, deduplikasi item, lalu tampilkan.
+10. Terapkan batas item dengan `batasiItemBiayaPembacaan`.
+11. Terapkan seluruh filter profil mahasiswa.
+12. Kurangi pembayaran yang sudah terjadi, deduplikasi item, lalu tampilkan.
 
 Calon mahasiswa dan layanan H2H mengikuti prinsip yang sama. Perbedaan hanya
 pada sumber profil dan aturan pembayaran bulanan.
@@ -152,6 +164,31 @@ Jika relasi yang lebih spesifik tersedia tetapi menunjuk setting lain, baris
 harus ditolak. Contoh: `settingBiayaDetail` tidak boleh diabaikan hanya karena
 `detailBiaya.settingBiaya` kebetulan menunjuk setting yang dipilih.
 
+### Ketika setting terpilih tidak ada
+
+Jika mesin prioritas menghasilkan `S = null`, query tidak boleh dibiarkan tanpa
+pembatas sumber. Hanya bentuk berikut yang boleh lewat:
+
+```text
+D.settingBiayaDetail = null
+  AND D.detailSettingBiaya = null
+  AND D.settingBiaya = null
+```
+
+Setelah itu seluruh filter profil tetap diterapkan. Pembatas ini penting karena
+filter item mempunyai cabang khusus untuk sumber legacy. Tanpa pembatas
+all-null, baris milik setting modern lain yang kebetulan mempunyai profil sama
+dapat ikut tampil.
+
+Keputusan item adalah sebagai berikut:
+
+| Setting terpilih | Daftar item | Kondisi item |
+|---|---|---|
+| Ada | Berisi | baris modern wajib `IN`; legacy all-null tetap lewat |
+| Ada | Kosong | baris modern ditolak; legacy all-null tetap lewat |
+| Tidak ada | Berisi | hanya legacy all-null; daftar item tidak memperluas sumber |
+| Tidak ada | Kosong | hanya legacy all-null; profil menjadi penentu akhir |
+
 ## Query baca dan query tulis berbeda
 
 Ini adalah invariant terpenting.
@@ -163,6 +200,8 @@ Query baca boleh menerima baris legacy tanpa relasi. Gunakan:
 ```java
 criteria = PembayaranUtilHelper
         .batasiPembacaanDetailBiayaKeSettingTerpilih(criteria, settingBiayaTerpilih);
+criteria = PembayaranUtilHelper
+        .batasiItemBiayaPembacaan(criteria, itemBiayas);
 ```
 
 Setelah itu tambahkan semua filter profil. Method ini saat ini digunakan oleh:
@@ -230,6 +269,10 @@ Setiap perubahan mesin tagihan harus menguji kasus berikut:
 | Legacy langsung | semua relasi `null` | Aktif | bebas | tampil bila profil cocok |
 | Legacy langsung | semua relasi `null` | Nonaktif | aktif | tampil bila profil Aktif cocok |
 | Legacy langsung | semua relasi `null` | Nonaktif | tidak aktif | tidak memakai tarif Aktif |
+| Legacy standalone | setting tidak ditemukan, semua relasi `null` | Aktif | bebas | tampil bila profil cocok |
+| Tanpa setting | relasi menunjuk setting lain | Aktif | bebas | tidak tampil |
+| Setting tanpa item | relasi menunjuk setting terpilih | Aktif | bebas | baris modern tidak tampil |
+| Setting tanpa item | semua relasi `null` | Aktif | bebas | legacy tampil bila profil cocok |
 | Setting salah | relasi menunjuk setting lain | Aktif | bebas | tidak tampil |
 | Profil salah | relasi benar, semester/prodi salah | Aktif | bebas | tidak tampil |
 | Sudah lunas | relasi dan profil benar | Aktif | bebas | tidak tampil sebagai tunggakan |
@@ -278,13 +321,16 @@ Sebelum merge perubahan billing:
 
 1. Cari seluruh pemakaian `settingBiayaTerpilih`.
 2. Pastikan query baca memakai helper kanonis.
-3. Pastikan query tulis/reuse tetap ketat.
-4. Pastikan UI menampilkan status asli.
-5. Pastikan query memakai status pembayaran efektif.
-6. Uji data modern, individual, dan legacy.
-7. Uji UI admin serta H2H.
-8. Kompilasi dengan JDK 1.8.
-9. Jalankan `git diff --check`.
+3. Pastikan pembatas sumber selalu dijalankan sebelum pembatas item.
+4. Pastikan baris modern selalu dibatasi daftar item, sedangkan legacy all-null
+   tidak digugurkan hanya karena daftar item setting kosong atau berbeda.
+5. Pastikan query tulis/reuse tetap ketat.
+6. Pastikan UI menampilkan status asli.
+7. Pastikan query memakai status pembayaran efektif.
+8. Uji data modern, individual, legacy dengan setting, dan legacy standalone.
+9. Uji UI admin serta H2H.
+10. Kompilasi dengan JDK 1.8.
+11. Jalankan `git diff --check`.
 
 ## Berkas utama
 

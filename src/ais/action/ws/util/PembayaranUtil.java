@@ -1368,11 +1368,15 @@ public class PembayaranUtil {
 	 * <p><b>Urutan penting:</b> status akademik asli terlebih dahulu diubah menjadi status
 	 * pembayaran efektif melalui
 	 * {@link PembayaranUtilHelper#statusMahasiswaPembayaranEfektif}. Mesin kemudian memilih daftar
-	 * item dan satu {@code SettingBiaya} berdasarkan profil mahasiswa. Sesudah root criteria
+	 * item dan, bila tersedia, satu {@code SettingBiaya} berdasarkan profil mahasiswa. Tidak adanya
+	 * setting tetap sah untuk tagihan standalone legacy. Sesudah root criteria
 	 * {@code DetailBiaya} terbentuk, method wajib memanggil
 	 * {@link PembayaranUtilHelper#batasiPembacaanDetailBiayaKeSettingTerpilih}. Helper tersebut
 	 * menerima tiga bentuk relasi modern serta baris Pengaturan Tagihan legacy yang seluruh relasi
-	 * setting-nya kosong. Filter item, semester, periode, angkatan, jenjang, prodi, program, status,
+	 * setting-nya kosong. Filter item harus dilanjutkan melalui
+	 * {@link PembayaranUtilHelper#batasiItemBiayaPembacaan}; helper itu membedakan setting modern
+	 * tanpa item dari tagihan standalone yang memang tidak memiliki daftar item setting. Filter
+	 * semester, periode, angkatan, jenjang, prodi, program, status,
 	 * status awal, semester mulai, kewarganegaraan, kelas, tempat tinggal, dan parameter tambahan
 	 * tetap diterapkan sesudahnya.</p>
 	 *
@@ -1731,10 +1735,8 @@ public class PembayaranUtil {
 			criteria.add(Restrictions.isNull("kelas"));
 		}
 
+		criteria = PembayaranUtilHelper.batasiItemBiayaPembacaan(criteria, detailSettingBiayas);
 		java.util.Collection detailBiaya = criteria
-
-				.add(detailSettingBiayas.isEmpty() ? Restrictions.sqlRestriction("false")
-						: Restrictions.in("itemBiaya", detailSettingBiayas))
 
 				.add(Restrictions.or(Restrictions.eq("merupakanPembayaran", false),
 						Restrictions.isNull("merupakanPembayaran")))
@@ -2214,12 +2216,10 @@ public class PembayaranUtil {
 				settingBiayaTerpilih);
 		filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);
 
+		criteria = PembayaranUtilHelper.batasiItemBiayaPembacaan(criteria, detailSettingBiayas);
 		criteria = criteria
 
 				.add(paket == null ? Restrictions.isNull("paket") : Restrictions.eq("paket", paket))
-
-				.add(detailSettingBiayas.isEmpty() ? Restrictions.sqlRestriction("false")
-						: Restrictions.in("itemBiaya", detailSettingBiayas))
 
 				.add(Restrictions.or(Restrictions.eq("merupakanPembayaran", false),
 						Restrictions.isNull("merupakanPembayaran")))

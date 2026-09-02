@@ -3044,6 +3044,9 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 	 * <p>Baris tanpa relasi ini tetap merupakan sumber tagihan yang sah. Query baca pembayaran
 	 * wajib mempertahankan kompatibilitasnya melalui
 	 * {@link ais.action.master.helper.PembayaranUtilHelper#batasiPembacaanDetailBiayaKeSettingTerpilih}.
+	 * Jika tidak ada setting modern yang terpilih, filter item juga harus memakai
+	 * {@link ais.action.master.helper.PembayaranUtilHelper#batasiItemBiayaPembacaan}; daftar item
+	 * kosong pada jalur standalone ini tidak berarti tagihan tidak ada.
 	 * Keamanan pencocokan berasal dari gabungan item milik setting terpilih dan atribut profil yang
 	 * ditulis di bawah: periode, semester, angkatan, jenjang, prodi, program, status, status awal,
 	 * semester mulai, jenis kegiatan, jenis seleksi, kewarganegaraan, paket, gelombang, kelas,
