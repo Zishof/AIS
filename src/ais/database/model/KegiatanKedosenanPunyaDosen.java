@@ -180,7 +180,9 @@ import org.hibernate.envers.Audited;
 public class KegiatanKedosenanPunyaDosen extends GeneralValueObject {
 
 	/**
-	 *
+	 * Versi serialisasi. Nilainya identik dengan puluhan entity lain di paket ini (antara lain
+	 * {@link KegiatanKedosenan} dan {@link OrganisasiDosenPunyaDosen}) karena semuanya hasil
+	 * salin-tempel dari berkas yang sama &mdash; jangan dijadikan penanda identitas kelas.
 	 */
 	private static final long serialVersionUID = 2463821577548439808L;
 	/** Kunci utama baris, {@code IDENTITY} basis data. Lihat {@link #getId()}. */
