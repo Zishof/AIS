@@ -58,9 +58,9 @@ import ais.ui.util.WaktuUtil;
  * <p>Validasi timestamp saja tidak cukup. Setiap nonce disimpan permanen dan
  * hanya boleh dipakai sekali. PAYMENT juga diserialisasi memakai PostgreSQL
  * advisory transaction lock berdasarkan {@code NO_TRANSAKSI_BMT}; ledger
- * transaksi menyimpan pasangan transaksi-invoice-nominal. Retry transaksi yang
+ * transaksi menyimpan pasangan transaksi-invoice-nominal-channel. Retry transaksi yang
  * sama mengembalikan sukses yang sama, sedangkan penggunaan nomor transaksi
- * untuk invoice/nominal berbeda ditolak. Lock memakai tingkat session supaya
+ * untuk invoice/nominal/channel berbeda ditolak. Lock memakai tingkat session supaya
  * tetap dipegang ketika ledger PROCESSING di-commit dan mesin posting membuka
  * transaksi terpisah. Urutan commit ini memungkinkan retry memulihkan SUCCESS
  * bila proses terputus setelah bukti pembayaran terbentuk, tanpa posting ganda.

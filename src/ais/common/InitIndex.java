@@ -62,10 +62,39 @@ public class InitIndex {
 				"CREATE INDEX IF NOT EXISTS idx_online_bmt_guard_invoice_status ON public.online_bmt_request_guard (no_invoice, status, id DESC)" };
 		for (int i = 0; i < ddl.length; i++) {
 			try {
-				Common.updateSql(ddl[i]);
+				if (ddl[i].trim().toUpperCase(java.util.Locale.ENGLISH).startsWith("ALTER TABLE")) {
+					eksekusiAlterTableOnlineBmtViaHibernate(ddl[i]);
+				} else {
+					Common.updateSql(ddl[i]);
+				}
 			} catch (Exception e) {
 				ErrorAuditUtil.record(e, "InitIndex.initOnlineBmtRequestGuard DDL ke-" + (i + 1));
 			}
+		}
+	}
+
+	/**
+	 * Menjalankan migrasi kolom Online BMT melalui lifecycle Hibernate aplikasi.
+	 * Setiap ALTER memakai transaksi tersendiri agar kegagalan tabel audit opsional
+	 * tidak membatalkan kolom utama atau langkah DDL berikutnya.
+	 */
+	private static void eksekusiAlterTableOnlineBmtViaHibernate(String sql) {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction tx = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			session.createSQLQuery(sql).executeUpdate();
+			tx.commit();
+		} catch (RuntimeException e) {
+			if (tx != null && tx.isActive()) {
+				try { tx.rollback(); } catch (RuntimeException rollback) {
+					ErrorAuditUtil.record(rollback, "InitIndex.eksekusiAlterTableOnlineBmtViaHibernate.rollback");
+				}
+			}
+			throw e;
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 
