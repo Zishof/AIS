@@ -1,5 +1,49 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "5 entity beasiswa/prasyarat/pengaduan/PMB" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:
+- `PengajuanBeasiswa.java` — 59/59. 330→1032 baris. r83287/83293.
+  **ESKALASI KEAMANAN**: `PengajuanBeasiswaAction.initCriteria()` tanpa
+  filter kepemilikan sama sekali — mahasiswa mana pun bisa melihat (dan
+  berpotensi edit/hapus) data pribadi keluarga pengajuan beasiswa mahasiswa
+  lain. Task `task_51f767ec`.
+- `MatakuliahPrasyarat.java` — 63/63. 281→818 baris. r83286/83289. Menjawab
+  pertanyaan terbuka sesi 10: DI SINI-lah prasyarat MK sungguhan disimpan
+  (bukan di `Matakuliah.java`). Jebakan data-entry: slot 1 kosong mematikan
+  pengecekan slot 2-10 sepenuhnya.
+- `Pengaduan.java` — 57/57. 460→1219 baris. r83290/83296.
+  **ESKALASI PRIVASI SERIUS**: aduan pegawai TENTANG atasan langsungnya
+  sendiri otomatis dirutekan ke meja persetujuan atasan yang diadukan itu
+  sendiri (risiko pembalasan ke whistleblower) — tidak ada field "pihak
+  diadukan" sama sekali. Plus nomor WhatsApp pelapor tersimpan mentah &
+  ikut ekspor massal. Task `task_18d52b8b`.
+- `PrestasiDosen.java` — 57/57. 345→1131 baris. r83288/83291. Sama persis
+  pola tertukar `cabang`/`kategori` dengan `PrestasiMahasiswa`; SQL
+  injection tingkat-dua serupa (risiko rendah, tidak dieskalasi) ditemukan
+  lagi di dashboard rekap dosen.
+- `UjianPMB.java` — 55/55+konstruktor. 362→1103 baris. r83292/83297. Getter
+  penghapus data (`getTanggalUjian2..10`) — membaca saja bisa menghapus
+  tanggal ujian permanen dari DB.
+
+**3 task eskalasi keamanan/privasi BARU ditambahkan sesi ini** (total kini
+5 task aktif): `task_51f767ec` (kebocoran data beasiswa antar-mahasiswa),
+`task_18d52b8b` (kebocoran identitas pelapor pengaduan ke terlapor) — kedua
+ini BEDA KATEGORI dari `task_15f5001e`/`task_b0a90191`/`task_78a5b1ab`
+sebelumnya: BUKAN soal getter-berefek-samping atau injection, melainkan
+**broken access control / kebocoran privasi lintas-pengguna**. Kategori
+kerentanan yang ditemukan inisiatif ini sekarang mencakup: arsitektur
+getter destruktif, command injection, kebocoran kredensial, DAN broken
+access control.
+
+**Catatan alat**: `grep -cU $'\r$'` menyesatkan LAGI di `MatakuliahPrasyarat.java`
+(melaporkan CRLF pada file LF murni) — ini sudah kejadian ke-3+ dalam
+inisiatif ini. Brief agent sekarang SELALU minta cross-check `perl`/`od -c`,
+terbukti efektif menangkapnya tiap kali.
+
+**Total akumulasi 13 sesi kerja**: 238 (sesi 1-12) + 5 = **243 file** dari
+7.401 (~3,3%).
+
 ## `ais/database/model/UjianPMB.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **gelaran ujian seleksi PMB** (tabel `public.ujian_pmb`, `@Audited`,
