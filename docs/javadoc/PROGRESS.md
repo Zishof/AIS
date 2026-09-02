@@ -1,5 +1,91 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/SyaratUjian.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **syarat kelayakan** (tabel `public.syarat_ujian`, `@Audited`,
+`dynamicInsert/dynamicUpdate`) — satu baris = satu aturan yang menentukan
+boleh-tidaknya mahasiswa melewati gerbang akademik: ujian online, pengumpulan
+tugas, ambil/cetak KRS, cetak kartu UTS/UAS, cetak KHS. 684 → 1986 baris,
+**90/90 method ber-Javadoc (100%)** plus 34 field didokumentasi. Revisi
+**r83155**, mirror `java/` diverifikasi byte-identik (`cmp`). **Kode terbukti
+tidak berubah**: bytecode `javap -c -p` identik dengan HEAD sebelum edit.
+
+**Struktur**: `extends GeneralValueObject` langsung. Berbeda dari
+`VirtualAccountBank`/`ItemBiaya`, entity ini **hampir seluruhnya pasif** —
+murni data konfigurasi. Seluruh logika evaluasi ada di SATU method di luar:
+`ais.action.master.SyaratUjianAction.checkSyaratSyaratUjian(SyaratUjian,
+VOPembelajaran, Mahasiswa, Integer semester, String namaSyarat, KrsMahasiswa,
+List<String> warnings)` (`SyaratUjianAction.java:1132`), `true` = boleh lewat.
+Method di entity ini hanya getter/setter + pengelola string terpadat
+`syaratPembayaran` (`populateJadwal`/`hapusJadwal`/`daftarJadwal`) + pengurai
+angka defensif `parseAngkaAman`.
+
+**Penting dicatat — jebakan penamaan**: `UtsDanUasCheckerHelper`,
+`CommonValidationHelper`, dan `CommonPaymentHelper` **TIDAK** mengevaluasi
+entity ini. Dua terakhir hanya menyimpan `import` mati; yang pertama adalah
+gerbang pembayaran TERPISAH yang dikendalikan `Konfigurasi` dan bekerja atas
+`JenisKegiatan` (cache `CommonHelperClass.jenisKegiatansUntukSyaratUjian`).
+Jangan tertukar — kemiripan namanya menyesatkan.
+
+**Dua lapis kerja**: (1) pemanggil menyaring baris mana yang relevan lewat
+Criteria memakai bendera gerbang `krs`/`uts`/`uas`/`nilai`/
+`berlakuUntukSemuaUjian`/`berlakuUntukSemuaTugas`/`statusPertemuan` — bendera
+ini TIDAK PERNAH dibaca mesin penilaian; (2) tiap baris dinilai berurutan
+(SKS → angka kredit → IPK → kehadiran → MK ATAU → MK DAN → jadwal pembayaran →
+item biaya DAN → item biaya ATAU), berhenti pada kegagalan pertama.
+**Lapis lingkup** (`minimalSmt`/`maksimalSmt`, `minimalAngkatan`/
+`maksimalAngkatan`, `fakultas`/`jurusan`/`jenjang`/`program`,
+`statusAwalMahasiswa`, `ta`) bila TIDAK cocok membuat aturan **dilewati dan
+mahasiswa dianggap LOLOS** — bukan diblokir.
+
+**Field audit shadow: KONFIRMASI KE-18 BERTURUT-TURUT.** 6 field induk
+dideklarasikan ulang (`id`, `nama`, `keterangan`, `oleh`, `olehId`,
+`tanggal_dirubah`). **Sebab akarnya akhirnya terdokumentasi**:
+`GeneralValueObject` adalah POJO abstrak biasa — **BUKAN `@Entity` maupun
+`@MappedSuperclass`** — sehingga Hibernate tidak memetakan properti induk sama
+sekali; deklarasi ulang di tiap subclass adalah **keharusan teknis**, bukan
+kelalaian. Ini menjelaskan pola di 17 entity sebelumnya sekaligus.
+
+**Temuan lain (dicatat jujur, TIDAK diperbaiki)**:
+- `getKeterangan()` di sini **melanggar jaminan non-null induk** (induk
+  mengembalikan `""`, override ini bisa `null`) — memengaruhi cabang
+  `keterangan` pada `GeneralValueObject.compareTo`.
+- **4 getter berefek samping** menulis balik ke field: `getKodeMatakuliah()`,
+  `getKodeMatakuliahDan()`, `getFakultas()`, `getTa()`. Terparah: membaca
+  `getKodeMatakuliah()` saat `tidakWajibMengambilMkTertentu=true`
+  **MENGHAPUS PERMANEN** daftar mata kuliah dari DB — membatalkan centangnya
+  kemudian tidak mengembalikannya.
+- `getFakultas()` menimpa nilai tersimpan dengan `getJurusan().getFakultas()`,
+  sehingga penyaring Criteria `fakultas IS NULL OR fakultas = ?` bisa memberi
+  hasil berbeda sebelum vs sesudah baris pernah dibaca.
+- `getTa()` selalu hitung ulang ⇒ `setTa()` praktis tidak berguna; bila parse
+  gagal, field mempertahankan nilai **LAMA (basi)**, tidak direset.
+- `ambilPersen()`/`ambilSemester()`/`ambilBulan()` = **DEAD API** (nol
+  pemanggil di seluruh pohon sumber) dan ketiganya menangani record rusak
+  dengan **tiga cara berbeda** (return default / return default / lanjut).
+- `daftarJadwal()`: catch kosong **membuang record rusak dari hasil**, jadi
+  syarat pembayaran itu diam-diam tidak lagi diberlakukan.
+- `populateJadwal()`: parameter `keterangan` **sia-sia** (selalu ditimpa
+  kalimat bangkitan); penjaga item kosong tidak pernah benar sehingga memilih
+  "Semua" menghasilkan teks `"item biaya 0"`.
+- `StringUtils.split(s,"||")` memakai **himpunan KARAKTER**, bukan string
+  pemisah utuh — `||` bekerja secara kebetulan, tapi `|`/`<`/`>` tunggal tetap
+  merusak record.
+- Ruas `item` (indeks 5) pada `syaratPembayaran` **tersimpan & ditampilkan tapi
+  tidak pernah dinilai** mesin (combobox-nya memang `setVisible(false)`).
+- `kodeItemBiaya` (label layar **"DAN"**) hanya memblokir bila **belum bayar
+  sama sekali** (`jumlah < 0.01`), bukan bila belum lunas.
+- `kodeItemBiayaOr` (label layar **"ATAU"**): kombinasi "kode A lunas penuh,
+  kode B belum dibayar" **tetap MEMBLOKIR** — melanggar semantik ATAU.
+- Field `nilai` berlabel layar **"KHS"** (cetak Kartu Hasil Studi), bukan
+  gerbang input nilai. Jangan diganti nama tanpa migrasi:
+  `Restrictions.eq("nilai", true)`.
+- `berlakuUntukSemuaTugas` hanya diperluas gerbang unggah berkas; jalur tugas
+  mandiri/kelompok tidak memakainya — cakupannya lebih sempit dari namanya.
+- `hanyaBolehDiubahOlehAdmin` murni penguncian UI, **bukan** kontrol otorisasi.
+
+**Tidak ada kerentanan keamanan baru** yang ditemukan di file ini.
+
 ## `ais/database/model/BankSoal.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **bank soal ujian** (tabel `public.bank_soal`, `@Audited`) — satu baris = satu
