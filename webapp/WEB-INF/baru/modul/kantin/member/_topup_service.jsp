@@ -7,6 +7,8 @@
 <%@page import="java.text.SimpleDateFormat"%>
 <%@page import="org.json.*"%>
 <%@page import="ais.common.Common"%>
+<%@page import="ais.common.OnlineBmtUtil"%>
+<%@page import="ais.action.master.helper.virtualaccount.DownloadTagihanAnggotaKoperasiBankOnline"%>
 <%@page import="ais.database.model.Konfigurasi"%>
 <%@page import="ais.database.model.Tbmuser"%>
 <%@page import="ais.database.model.VirtualAccountBank"%>
@@ -55,6 +57,13 @@ try {
     String idMemberStr = payload.has("id_member") ? payload.getString("id_member") : request.getParameter("id_member");
     double nominal = payload.has("nominal") ? payload.getDouble("nominal") : Double.parseDouble(request.getParameter("nominal").trim());
     double admin = payload.has("admin") ? payload.getDouble("admin") : Double.parseDouble(request.getParameter("admin").trim());
+    String selectedChannelCode = payload.optString("selectedChannelCode",
+            request.getParameter("selectedChannelCode") == null ? "" : request.getParameter("selectedChannelCode")).trim();
+    boolean onlineBmt = "ONLINE_BMT".equalsIgnoreCase(selectedChannelCode);
+    if (onlineBmt) {
+        String configuredAdmin = Common.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai();
+        admin = Common.isNumber(configuredAdmin) ? Double.parseDouble(configuredAdmin) : 0.0;
+    }
     if (nominal < 10000) {
         result.put("status", "01");
         result.put("message", Common.getBahasaConfig("Nominal pengisian saldo tidak valid. Minimal Rp 10.000."));
@@ -79,18 +88,28 @@ try {
             out.print(result.toString());
             return;
         }
+        if (onlineBmt && (!OnlineBmtUtil.isGlobalEnabled()
+                || caraPembayaranKoperasi.getKanalPembayaran() == null
+                || !Boolean.TRUE.equals(caraPembayaranKoperasi.getKanalPembayaran().getAktfkanPembayaranViaOnlineBmt()))) {
+            result.put("status", "01");
+            result.put("message", Common.getBahasaConfig("Kanal Online BMT belum diaktifkan untuk cara pembayaran ini."));
+            out.print(result.toString());
+            return;
+        }
 
         // =========================================================
         // CEK VIRTUAL ACCOUNT (TOPUP) YANG MASIH AKTIF (BELUM EXPIRED & BELUM DIBAYAR)
         // =========================================================
         Calendar calNow = ais.ui.util.WaktuUtil.getCalendar();
         Date dateNow = calNow.getTime();
-        String keteranganTopup = "Topup Saldo - " + anggotaKoperasi.getNama()+" senilai "+IndonesianNumberToWords.convert((long)nominal);
+        String keteranganTopup = onlineBmt
+                ? "Topup senilai " + Common.numberFormat.get().format(nominal) + OnlineBmtUtil.MARKER
+                : "Topup Saldo - " + anggotaKoperasi.getNama()+" senilai "+IndonesianNumberToWords.convert((long)nominal);
          
         @SuppressWarnings("unchecked")
         List<VirtualAccountBank> existingVaList = mySession.createCriteria(VirtualAccountBank.class)
                 .add(Restrictions.eq("anggotaKoperasi", anggotaKoperasi))
-                .add(Restrictions.eq("bank", "Esmartlink"))
+                .add(Restrictions.eq("bank", onlineBmt ? OnlineBmtUtil.BANK_NAME : "Esmartlink"))
                 .add(Restrictions.eq("keterangan", keteranganTopup))
                 .add(Restrictions.eq("total", nominal))
                 .add(Restrictions.gt("kadaluarsa", dateNow))
@@ -103,13 +122,15 @@ try {
         // Jika ada VA aktif yang persis sama, gunakan kembali URL-nya
         if (existingVaList != null && !existingVaList.isEmpty()) {
             VirtualAccountBank existingVa = existingVaList.get(0);
-            if (existingVa.getLink() != null && !existingVa.getLink().isEmpty()) {
+            if (onlineBmt || (existingVa.getLink() != null && !existingVa.getLink().isEmpty())) {
                 result.put("status", "00");
-                result.put("url", existingVa.getLink()); 
+                result.put("url", existingVa.getLink() == null ? "" : existingVa.getLink());
+                result.put("reference", existingVa.getKode());
                 
                 JSONArray dataArr = new JSONArray();
                 JSONObject linkObj = new JSONObject();
-                linkObj.put("link", existingVa.getLink());
+                linkObj.put("link", existingVa.getLink() == null ? "" : existingVa.getLink());
+                linkObj.put("reference", existingVa.getKode());
                 dataArr.put(linkObj);
                 result.put("data", dataArr);
                 
@@ -135,6 +156,32 @@ try {
         String va = Common.getGeneratedBarCode(30);
         int mytotal = (int) nominal;
         int biayaAdmin = (int) admin; 
+
+        if (onlineBmt) {
+            Map<String, Object> bmtParam = new HashMap<String, Object>();
+            bmtParam.put(OnlineBmtUtil.PARAM_KEY, Boolean.TRUE);
+            VirtualAccountBank newVA = DownloadTagihanAnggotaKoperasiBankOnline.downloadData(
+                    anggotaKoperasi, Double.valueOf(nominal), Double.valueOf(admin), bmtParam,
+                    null, caraPembayaranKoperasi);
+            if (newVA == null || newVA.getKode() == null || newVA.getKode().trim().isEmpty()) {
+                result.put("status", "01");
+                result.put("message", Common.getBahasaConfig("Nomor invoice Online BMT tidak dapat dibuat."));
+            } else {
+                result.put("status", "00");
+                result.put("url", "");
+                result.put("reference", newVA.getKode());
+                JSONArray dataArr = new JSONArray();
+                JSONObject linkObj = new JSONObject();
+                linkObj.put("link", "");
+                linkObj.put("reference", newVA.getKode());
+                dataArr.put(linkObj);
+                result.put("data", dataArr);
+                result.put("message", Common.getBahasaConfig("Nomor invoice Online BMT berhasil dibuat."));
+            }
+            out.print(result.toString());
+            out.flush();
+            return;
+        }
         
         JSONObject postData = new JSONObject();
         postData.put("order_id", va);

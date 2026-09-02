@@ -232,6 +232,12 @@ public class Konfigurasi extends GeneralValueObject {
 	public static final String ONLINE_BMT_ENCRYPTION_KEY = "online_bmt_encryption_key";
 	/** Material kunci HMAC inbound dari BMT. Nilai default wajib kosong. */
 	public static final String ONLINE_BMT_HMAC_KEY = "online_bmt_hmac_key";
+	/** Batas umur request Online BMT dalam detik; nilai aman bawaan 300 detik. */
+	public static final String ONLINE_BMT_REQUEST_TIME_TOLERANCE = "online_bmt_request_time_tolerance";
+	/** Mengaktifkan enkripsi DATA pada response sesuai kontrak BMT. */
+	public static final String ONLINE_BMT_ENKRIPSI_RESPONSE = "online_bmt_enkripsi_response";
+	/** Biaya administrasi yang ditambahkan pada invoice Online BMT. */
+	public static final String ONLINE_BMT_BIAYA_ADMINISTRASI = "online_bmt_biaya_administrasi";
 
 	// ==== Kunci konfigurasi akademik inti. Nilainya lazim berupa AKTIF/TIDAK_AKTIF ("gerbang
 	//      dibuka/ditutup"), sering dipadukan dengan relasi KalenderAkademik supaya buka-tutupnya

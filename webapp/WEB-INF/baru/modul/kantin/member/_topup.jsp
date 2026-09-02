@@ -4,6 +4,8 @@
 <%@page import="ais.database.model.koperasi.AnggotaKoperasi"%>
 <%@page import="ais.database.model.Tbmuser"%>
 <%@page import="ais.common.Common"%>
+<%@page import="ais.common.OnlineBmtUtil"%>
+<%@page import="ais.database.model.Konfigurasi"%>
 <%
 // Pengecekan Sesi Pengguna
 Tbmuser tbmuser = Common.getCurrentUser(request);
@@ -30,6 +32,11 @@ String urlTopupService = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fm
 
 // Mengambil Konfigurasi Saluran (Channel) Pembayaran
 String cannel_va_e_smartlink = Common.getKonfigurasi("cannel_va_e_smartlink", "VA_BNI:2500:BNI;VA_BRI:2500:BRI;VA_BCA:3500:BCA;VA_BNC:3500:BNC(Bank Neo Commerce);VA_CIMB:2500:CIMB Niaga;VA_MANDIRI:3500:Bank Mandiri;VA_PERMATA:2500:Bank Permata;VA_BSI:3000:BSI;VA_DANAMON:3000:Danamon;OTC_ALFAMART:3000:Alfamart;OTC_INDOMARET:3000:Indomart").getNilai();
+boolean onlineBmtEnabled = OnlineBmtUtil.isGlobalEnabled()
+        && caraPembayaranKoperasi.getKanalPembayaran() != null
+        && Boolean.TRUE.equals(caraPembayaranKoperasi.getKanalPembayaran().getAktfkanPembayaranViaOnlineBmt());
+String onlineBmtFeeText = Common.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai();
+double onlineBmtFee = Common.isNumber(onlineBmtFeeText) ? Double.parseDouble(onlineBmtFeeText) : 0.0;
 %>
 
 <style>
@@ -112,6 +119,18 @@ String cannel_va_e_smartlink = Common.getKonfigurasi("cannel_va_e_smartlink", "V
             <% 
                     chIndex++;
                 } 
+                if (onlineBmtEnabled) {
+                    String inputValue = "ONLINE_BMT|" + onlineBmtFee + "|" + OnlineBmtUtil.BANK_NAME;
+            %>
+                <div class="col-12 col-sm-6 col-md-4">
+                    <input type="radio" class="btn-check" name="channelRadio<%=rnd%>" id="channelBmt<%=rnd%>" value="<%=inputValue%>">
+                    <label class="btn btn-outline-secondary w-100 p-3 rounded-4 shadow-sm text-start custom-radio-card<%=rnd%>" for="channelBmt<%=rnd%>">
+                        <div class="fw-bold text-dark mb-1"><i class="fas fa-check-circle text-success me-2 d-none check-icon<%=rnd%>"></i><%=OnlineBmtUtil.BANK_NAME%></div>
+                        <div class="small text-muted"><%=Common.getBahasaConfig("Biaya Admin:")%> <span class="fw-semibold text-danger"><%=Common.numberFormat.get().format(onlineBmtFee)%></span></div>
+                    </label>
+                </div>
+            <%
+                }
             %>
         </div>
 
@@ -322,12 +341,19 @@ String cannel_va_e_smartlink = Common.getKonfigurasi("cannel_va_e_smartlink", "V
                     paymentUrl = result.url;
                 }
                 
+                const paymentReference = result.reference || result.va ||
+                    (result.data && result.data[0] ? result.data[0].reference : null);
                 if (paymentUrl) {
                     document.getElementById('paymentStatusTitle<%=rnd%>').innerText = '<%=Common.getBahasaConfigJS("Mengalihkan ke Pembayaran...")%>';
                     document.getElementById('paymentStatusDesc<%=rnd%>').innerText = '<%=Common.getBahasaConfigJS("Silakan selesaikan instruksi pembayaran di halaman selanjutnya.")%>';
                     
                     // Eksekusi Redirect Langsung
                     window.location.href = paymentUrl;
+                } else if (paymentReference) {
+                    document.getElementById('paymentStatusTitle<%=rnd%>').innerText = '<%=Common.getBahasaConfigJS("Nomor Pembayaran Berhasil Dibuat")%>';
+                    document.getElementById('paymentStatusDesc<%=rnd%>').innerText =
+                        '<%=Common.getBahasaConfigJS("Gunakan nomor invoice Online BMT berikut: ")%>' + paymentReference;
+                    document.querySelector('#loadingPayment<%=rnd%> .spinner-border').style.display = 'none';
                 } else {
                     throw new Error("<%=Common.getBahasaConfig("Tautan pembayaran tidak dikembalikan oleh sistem.")%>");
                 }

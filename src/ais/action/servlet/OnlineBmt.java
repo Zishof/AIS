@@ -10,8 +10,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 import javax.crypto.Cipher;
@@ -159,11 +162,11 @@ public class OnlineBmt extends HttpServlet {
 		validateChannel(input.channel);
 
 		Session lockSession = null;
-		Transaction lockTx = null;
+		Transaction ledgerTx = null;
 		try {
 			lockSession = HibernateUtil.openSession();
-			lockTx = lockSession.beginTransaction();
-			lockTransaction(lockSession, input.transactionNo);
+			lockTransaction(lockSession, input.transactionNo, true);
+			ledgerTx = lockSession.beginTransaction();
 			Ledger ledger = findLedger(lockSession, input.transactionNo);
 			if (ledger != null && (!ledger.invoiceNo.equals(input.invoiceNo)
 					|| !sameAmount(ledger.amount, input.amount))) {
@@ -175,33 +178,66 @@ public class OnlineBmt extends HttpServlet {
 			validateInvoiceChannel(invoice);
 			validateAmount(invoice, input.amount);
 			if (ledger != null && "SUCCESS".equals(ledger.status)) {
-				lockTx.commit();
+				ledgerTx.commit();
 				return transactionResult("00", "Transaksi Berhasil (idempoten).");
 			}
-			if (VirtualAccountBank.isSudahTerbayar(invoice) && ledger == null) {
-				throw new ApiException(409, "01", "Transaksi gagal. Tagihan sudah lunas.");
+			if (VirtualAccountBank.isSudahTerbayar(invoice)) {
+				if (ledger != null) {
+					updateLedger(lockSession, input.transactionNo, "SUCCESS", "00",
+							"Transaksi Berhasil (dipulihkan dari hasil posting invoice)");
+					ledgerTx.commit();
+					return transactionResult("00", "Transaksi Berhasil (status dipulihkan).");
+				}
+				throw new ApiException(409, "01", "Transaksi gagal. Tagihan sudah lunas oleh transaksi lain.");
 			}
-			upsertProcessing(lockSession, input);
 
-			postCanonicalPayment(invoice, input, data.toString());
+			/* Ledger PROCESSING harus committed sebelum memanggil mesin pembayaran yang
+			 * memakai session/transaction sendiri. Bila JVM berhenti setelah posting
+			 * berhasil, retry dapat mengenali ledger ini dan memulihkan SUCCESS tanpa
+			 * membukukan pembayaran untuk kedua kali. */
+			upsertProcessing(lockSession, input);
+			ledgerTx.commit();
+
+			try {
+				postCanonicalPayment(invoice, input, data.toString());
+			} catch (Exception postingError) {
+				VirtualAccountBank afterError = findInvoice(input.invoiceNo);
+				ledgerTx = lockSession.beginTransaction();
+				if (VirtualAccountBank.isSudahTerbayar(afterError)) {
+					updateLedger(lockSession, input.transactionNo, "SUCCESS", "00",
+							"Transaksi Berhasil (posting selesai sebelum respons internal terputus)");
+					ledgerTx.commit();
+					return transactionResult("00", "Transaksi Berhasil (status dipulihkan).");
+				}
+				updateLedger(lockSession, input.transactionNo, "FAILED", "96",
+						"Posting pembayaran gagal: " + safeErrorMessage(postingError));
+				ledgerTx.commit();
+				throw postingError;
+			}
+
 			VirtualAccountBank refreshed = findInvoice(input.invoiceNo);
+			ledgerTx = lockSession.beginTransaction();
 			if (!VirtualAccountBank.isSudahTerbayar(refreshed)) {
 				updateLedger(lockSession, input.transactionNo, "FAILED", "96",
 						"Posting pembayaran belum menghasilkan dokumen pembayaran.");
-				lockTx.commit();
+				ledgerTx.commit();
 				throw new ApiException(500, "96", "Pembayaran belum dapat dibukukan. Silakan cek status sebelum mengulang.");
 			}
 			updateLedger(lockSession, input.transactionNo, "SUCCESS", "00", "Transaksi Berhasil");
-			lockTx.commit();
+			ledgerTx.commit();
 			return transactionResult("00", "Transaksi Berhasil");
 		} catch (Exception e) {
-			if (lockTx != null && lockTx.isActive()) {
-				try { lockTx.rollback(); } catch (Exception rollback) {
+			if (ledgerTx != null && ledgerTx.isActive()) {
+				try { ledgerTx.rollback(); } catch (Exception rollback) {
 					ErrorAuditUtil.record(rollback, "OnlineBmt.payment.rollback");
 				}
 			}
 			throw e;
 		} finally {
+			if (lockSession != null) {
+				try { lockTransaction(lockSession, input.transactionNo, false); }
+				catch (Exception unlock) { ErrorAuditUtil.record(unlock, "OnlineBmt.payment.unlock"); }
+			}
 			HibernateUtil.closeSessionQuietly(lockSession);
 		}
 	}
@@ -298,7 +334,7 @@ public class OnlineBmt extends HttpServlet {
 		}
 		long tolerance = 300L;
 		try {
-			tolerance = Long.parseLong(config("online_bmt_request_time_tolerance"));
+			tolerance = Long.parseLong(config(Konfigurasi.ONLINE_BMT_REQUEST_TIME_TOLERANCE));
 		} catch (Exception ignore) {
 			tolerance = 300L;
 		}
@@ -333,13 +369,24 @@ public class OnlineBmt extends HttpServlet {
 		}
 	}
 
-	private static void lockTransaction(Session session, String transactionNo) throws SQLException {
+	private static void lockTransaction(Session session, String transactionNo, boolean lock) throws SQLException {
 		PreparedStatement ps = null;
 		try {
-			ps = session.connection().prepareStatement("SELECT pg_advisory_xact_lock(hashtext(?))");
+			ps = session.connection().prepareStatement(lock
+					? "SELECT pg_advisory_lock(hashtext(?))"
+					: "SELECT pg_advisory_unlock(hashtext(?))");
 			ps.setString(1, "online-bmt:" + transactionNo);
 			ps.executeQuery().close();
 		} finally { close(ps); }
+	}
+
+	private static String safeErrorMessage(Exception error) {
+		String message = error == null ? null : error.getMessage();
+		if (message == null || message.trim().length() == 0) {
+			return error == null ? "kesalahan internal" : error.getClass().getSimpleName();
+		}
+		message = message.replace('\r', ' ').replace('\n', ' ').trim();
+		return message.length() > 500 ? message.substring(0, 500) : message;
 	}
 
 	private static Ledger findLedger(Session session, String transactionNo) throws SQLException {
@@ -431,7 +478,7 @@ public class OnlineBmt extends HttpServlet {
 	private static JSONObject success(String message, JSONObject data) throws Exception {
 		JSONObject result = new JSONObject(); result.put("STATUS", true); result.put("KODE_STATUS", "00");
 		result.put("KETERANGAN", message);
-		if (Common.bolehKonfigurasi("online_bmt_enkripsi_response", Konfigurasi.AKTIF)) result.put("DATA", encrypt(data));
+		if (Common.bolehKonfigurasi(Konfigurasi.ONLINE_BMT_ENKRIPSI_RESPONSE, Konfigurasi.AKTIF)) result.put("DATA", encrypt(data));
 		else result.put("DATA", data);
 		return result;
 	}
@@ -442,8 +489,12 @@ public class OnlineBmt extends HttpServlet {
 	}
 
 	private static JSONObject failure(String code, String message) {
-		JSONObject result = new JSONObject(); result.put("STATUS", false); result.put("KODE_STATUS", code);
-		result.put("KETERANGAN", message); result.put("DATA", new JSONObject()); return result;
+		Map<String, Object> result = new LinkedHashMap<String, Object>();
+		result.put("STATUS", Boolean.FALSE);
+		result.put("KODE_STATUS", code);
+		result.put("KETERANGAN", message);
+		result.put("DATA", Collections.emptyMap());
+		return new JSONObject(result);
 	}
 
 	private static String required(JSONObject data, String key) throws ApiException {

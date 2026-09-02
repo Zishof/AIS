@@ -17556,7 +17556,8 @@ public class KantinHelper {
 					pilihan.put("nama", OnlineBmtUtil.BANK_NAME);
 					pilihan.put("channel", "");
 					pilihan.put("nama_channel", OnlineBmtUtil.BANK_NAME);
-					pilihan.put("biaya_admin", Common.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai());
+					pilihan.put("biaya_admin", parseDoubleSafe(Common
+							.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai(), 0.0));
 					pilihan.put("gateway", OnlineBmtUtil.PARAM_KEY);
 					list.put(pilihan);
 				}

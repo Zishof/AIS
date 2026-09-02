@@ -12282,7 +12282,12 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via bank online smartlink — dipakai di: DaftarUlangMahasiswaBaruAction", "aktifkan_pembayaran_via_bank_online_smartlink", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via Online BMT — gerbang global; wajib dipadukan dengan sakelar tenant PT/sekolah/kanal", Konfigurasi.ONLINE_BMT_AKTIF, Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowNilai("Prefix invoice Online BMT (huruf/angka, maksimum 8 karakter)", Konfigurasi.ONLINE_BMT_PREFIX_INVOICE, "BMT"));
-		rows.appendChild(createRowNilai("Biaya administrasi Online BMT", "online_bmt_biaya_administrasi", "0.0"));
+		rows.appendChild(createRowNilai("Biaya administrasi Online BMT", Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0"));
+		rows.appendChild(createRowNilai("Online BMT API key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_API_KEY, ""));
+		rows.appendChild(createRowNilai("Online BMT encryption key (secret AES; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY, ""));
+		rows.appendChild(createRowNilai("Online BMT HMAC key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_HMAC_KEY, ""));
+		rows.appendChild(createRowNilai("Toleransi waktu request Online BMT dalam detik (30-3600)", Konfigurasi.ONLINE_BMT_REQUEST_TIME_TOLERANCE, "300"));
+		rows.appendChild(createRowActiveDefault("Enkripsi DATA response Online BMT", Konfigurasi.ONLINE_BMT_ENKRIPSI_RESPONSE, Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via bank online smartlink 2 — dipakai di: TampilanPaymentGateway", "aktifkan_pembayaran_via_bank_online_smartlink_2", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via bank otto — dipakai di: DaftarUlangMahasiswaBaruAction, TampilanPaymentGateway", "aktifkan_pembayaran_via_bank_otto", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via bank qris — dipakai di: DaftarUlangMahasiswaBaruAction, TampilanPaymentGateway", "aktifkan_pembayaran_via_bank_qris", Konfigurasi.TIDAK_AKTIF));

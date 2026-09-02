@@ -50,7 +50,9 @@ public class InitIndex {
 						+ "status varchar(20) NOT NULL DEFAULT 'PROCESSING', response_code varchar(10), "
 						+ "response_message text, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, "
 						+ "updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)",
-				"CREATE UNIQUE INDEX IF NOT EXISTS uq_online_bmt_guard_nonce ON public.online_bmt_request_guard (nonce)",
+				/* NONCE sudah unik melalui PRIMARY KEY public.online_bmt_nonce. Index lama
+				 * pada ledger adalah salinan constraint yang tidak membantu pola query. */
+				"DROP INDEX IF EXISTS public.uq_online_bmt_guard_nonce",
 				/* PostgreSQL mengizinkan banyak NULL pada UNIQUE index. Index sengaja tidak
 				 * partial agar dapat diinferensikan secara tepat oleh ON CONFLICT(column). */
 				"CREATE UNIQUE INDEX IF NOT EXISTS uq_online_bmt_guard_transaction ON public.online_bmt_request_guard (no_transaksi_bmt)",
