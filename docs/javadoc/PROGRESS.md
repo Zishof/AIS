@@ -1,5 +1,66 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/FormatNilaiSkripsi.java` — SELESAI 100% (2 Sep 2026)
+
+Master "format penilaian sidang tugas akhir/skripsi". 1249 → 3519 baris,
+**245/245 method ber-Javadoc (100%)** (diaudit skrip, 0 tersisa). Revisi:
+r83105, r83110 (bagian 2 sebagian tersapu ke r83108, revisi gabungan sesi
+paralel; isi diverifikasi dengan `svn diff -r HEAD` bersih). Mirror `java/`
+diverifikasi byte-identik dengan `cmp`.
+
+**Struktur**: `extends GeneralValueObject`. Kepadatan method sangat tinggi
+relatif ukurannya karena hampir seluruhnya getter/setter dari beberapa keluarga
+berulang: 8 slot dosen × 4 atribut (label `dosenN`, kode `kodeN`, bendera
+`dosenNAktif`, bobot `prosentasiNilai*`), 20 slot lampiran × 3 atribut (judul
+`uploadLampiranN`, bendera `uploadLampiranNWajib`, penautan pustaka
+`tipeItemN`), plus penargetan format, syarat pendaftaran, dan pelaporan.
+Keluarga berulang didokumentasikan dengan pola "method pertama detail + sisanya
+ringkas ber-`@see`".
+
+**Perannya**: satu baris = satu "jenis pengajuan sidang" yang menentukan (a)
+siapa saja penilainya dan berapa bobotnya, (b) gerbang syarat pendaftaran
+(SKS/IPK/angka kredit/matkul prasyarat lulus/pelunasan biaya/bebas pustaka),
+(c) 20 slot lampiran wajib, (d) skala nilai huruf, (e) bobot format terhadap
+nilai mata kuliah tugas akhir di KHS, (f) kode aktivitas untuk ekspor Feeder.
+Data nilainya sendiri ada di `Skripsi`.
+
+**Keterkaitan dengan bug slot dosen 1/2 di `Skripsi.java` — TERKONFIRMASI**:
+file ini adalah *sisi master* dari bug tersebut dan mengidap pergeseran nama
+yang sama. Slot `dosen1` berlabel default "Pembimbing I" tetapi bobotnya di
+kolom `prosentasi_nilai_ketua_sidang`; slot `dosen2` ("Pembimbing II") bobotnya
+di `prosentasi_nilai_pembimbing`. Ini sejalan sempurna dengan
+`skripsi.nilai_ketua_sidang` (nilai slot 1) dan `skripsi.nilai_pembimbing`
+(nilai slot 2) — jadi keduanya salah dengan cara yang sama, bukan dua kesalahan
+yang saling meniadakan. Bukti terkuatnya `getDosen1Aktif()` yang menyimpulkan
+keaktifan slot 1 dari `getProsentasiNilaiKetuaSidang()`. Konsisten di seluruh
+aplikasi → tampilan benar, hanya namanya yang salah. Entity sejenis
+`FormatNilaiProposalSkripsi` justru memakai penamaan bersih
+(`prosentasiNilaiPembimbing1/2/3`), jadi asumsi penamaan TIDAK boleh disalin
+antar entity.
+
+**Temuan lain (dicatat, tidak diperbaiki)**:
+- Peran dosen dicocokkan berbasis **teks label** di seluruh aplikasi → dua slot
+  berlabel sama akan bertabrakan (cabang `if` pertama menang).
+- `PenilaianSkripsiHelper.populateKomponen(String)` tidak punya cabang untuk
+  slot `dosen21` (Pembimbing III) → jatuh ke default `"dosen1"`.
+- `VOPembelajaran` memetakan slot 1/2 **terbalik** (`getKetuaSidang()` →
+  `getDosen1()`), berlawanan dengan `Skripsi.dataDosen(boolean)` dan dengan
+  method lain di file yang sama.
+- `getTidakWajibMengambilMkTertentu()` bersifat destruktif: getter
+  `getKodeMatakuliah()`/`getKodeMatakuliahDan()` **mengosongkan field** saat
+  opsi itu true → daftar matkul hilang dari DB saat flush.
+- `toString()` menyebut `prosentasiNilaiPenguji1` dua kali, kehilangan satu
+  pemisah `-`, dan tidak pernah menyebut tiga bobot lainnya.
+- Penanda `auto-audit` pada dua blok catch menyebut nomor baris versi lama.
+
+**Verifikasi pola berulang**: field audit shadow (`id`, `oleh`, `olehId`,
+`tanggal_dirubah`) — **ADA**, konsisten dengan entity-entity sebelumnya. Getter
+menulis balik ke field/DB — **ADA**, varian lokalnya
+`getKodeMatakuliah()`/`getKodeMatakuliahDan()` (normalisasi koma + pengosongan
+paksa) dan `getJenisKegiatanMahasiswa()` (migrasi on-the-fly dari kolom teks
+warisan `jenis`). Getter yang membuka session Hibernate — **ADA** lewat
+`check(...)` pada 5 getter relasi.
+
 ## `ais/database/model/MahasiswaRequestTugasAkhir.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **pengajuan judul & pembimbing tugas akhir** — tahap SEBELUM `Skripsi`
