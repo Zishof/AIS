@@ -43,7 +43,19 @@ import akar_repo  # noqa: E402  -- perlu sys.path di atas
 
 AKAR_REPO_POS = akar_repo.repo_pos()
 
-AKAR_KLIEN_DART = os.path.join(AKAR_REPO_POS, 'apps', 'ebisnis', 'lib')
+# Seluruh apps + packages, bukan satu aplikasi saja.
+#
+# Sampai docs/pos/93 akar ini adalah `apps/ebisnis/lib`, sehingga apps/ecanteen
+# -- aplikasi kedua, 12 berkas memanggil aksi() -- dan kesembilan packages/core_*
+# tidak pernah diperiksa. Dua alat sibling di direktori ini sudah memindai
+# apps+packages penuh; hanya berkas ini yang tertinggal, dan tidak ada yang
+# menyatakannya. Pelebarannya menjaring 2 kunci baru, keduanya ternyata dibaca
+# server, jadi tidak ada cacat yang selama ini tersembunyi -- tetapi 40 berkas
+# memang tak pernah terlihat.
+AKAR_KLIEN_DART = [
+    os.path.join(AKAR_REPO_POS, 'apps'),
+    os.path.join(AKAR_REPO_POS, 'packages'),
+]
 AKAR_KLIEN_JSP = akar_repo.KANTIN_JSP
 AKAR_SERVER = akar_repo.AIS_SERVLET
 
@@ -168,12 +180,14 @@ def kunci_ditempel(daftar_berkas):
 
 def main():
     akar_repo.pastikan_lengkap(perlu_pos=True)
-    for akar in (AKAR_KLIEN_DART, AKAR_KLIEN_JSP, AKAR_SERVER):
+    for akar in AKAR_KLIEN_DART + [AKAR_KLIEN_JSP, AKAR_SERVER]:
         if not os.path.isdir(akar):
             print('AKAR TIDAK KETEMU: ' + akar)
             return 1
 
-    berkas_dart = berkas_demi_berkas(AKAR_KLIEN_DART, ('.dart',))
+    berkas_dart = []
+    for akar in AKAR_KLIEN_DART:
+        berkas_dart += berkas_demi_berkas(akar, ('.dart',))
     dart = '\n'.join(t for _, t in berkas_dart)
     jsp = kumpulkan(AKAR_KLIEN_JSP, ('.jsp', '.js'))
     server = kumpulkan(AKAR_SERVER, ('.java',))
@@ -191,6 +205,9 @@ def main():
             dikirim.append(nama)
 
     akar_repo.pastikan_terbaca()
+    print('CAKUPAN  berkas Dart dipindai    : %d' % len(berkas_dart))
+    print('         JSP dipindai            : modul/kantin saja -- JSP lain')
+    print('                                   memanggil /Data action=sql, bukan PosApi')
     print('kunci payload yang dikirim klien : %d' % len(dikirim))
     print('   di antaranya ditempel dinamis : %d' % len(ditempel))
     print('sumber server terbaca            : %d karakter' % len(server))
