@@ -2220,9 +2220,9 @@ public class PembayaranOnline extends GenericAutowireComposer {
 				new BaseOnlinePaymentListener(label, ipKey, param, isBankLainOnline, prefixKey) {
 					@Override
 					protected double getBiayaAdministrasi() {
-						if (Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY)) && sekolah_lokal != null) {
-							return OnlineBmtUtil.resolveSettings(sekolah_lokal, sekolah_lokal.getKanalPembayaran())
-									.getAdministrationFee();
+						Object onlineBmtFee = param.get("onlineBmtAdministrationFee");
+						if (Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY)) && onlineBmtFee instanceof Number) {
+							return ((Number) onlineBmtFee).doubleValue();
 						}
 						try {
 							return Double.parseDouble(Common.getKonfigurasi(adminFeeConfig, "0.0").getNilai());
@@ -2739,6 +2739,8 @@ public class PembayaranOnline extends GenericAutowireComposer {
 			if (OnlineBmtUtil.isSekolahEnabled(sekolah_lokal, sekolah_lokal.getKanalPembayaran())) {
 				Map<String, Object> paramOnlineBmt = new HashMap<String, Object>();
 				paramOnlineBmt.put(OnlineBmtUtil.PARAM_KEY, true);
+				paramOnlineBmt.put("onlineBmtAdministrationFee", OnlineBmtUtil
+						.resolveSettings(sekolah_lokal, sekolah_lokal.getKanalPembayaran()).getAdministrationFee());
 				createStandardPopupGatewayAction(spaceBayar, "BAYAR VIA ONLINE BMT", "online_bank_host_ip",
 						paramOnlineBmt, false, null, "/common/online/no_va.zul",
 						Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI);

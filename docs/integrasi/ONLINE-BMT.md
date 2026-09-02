@@ -47,6 +47,33 @@ Konfigurasi lengkap yang perlu diperiksa sebelum aktivasi:
 | `online_bmt_request_time_tolerance` | `300` | Selisih waktu request terhadap server, dalam detik. |
 | `online_bmt_enkripsi_response` | legacy/diabaikan | Dipertahankan agar data instalasi lama kompatibel. Respons sukses selalu terenkripsi dan layar konfigurasi tidak lagi menawarkan sakelar ini. |
 
+### Konfigurasi berjenjang Sekolah dan Kanal Pembayaran
+
+Sepuluh nilai operasional di atas juga tersedia sebagai kolom nullable pada `sekolah.sekolah` dan `sekolah.kanal_pembayaran`: `online_bmt_prefix_invoice`, `online_bmt_biaya_administrasi`, `online_bmt_kode_mitra`, `online_bmt_nama_mitra`, `online_bmt_kode_merchant`, `online_bmt_nama_merchant`, `online_bmt_api_key`, `online_bmt_encryption_key`, `online_bmt_hmac_key`, dan `online_bmt_request_time_tolerance`. Kolom yang sama ditambahkan pada tabel audit Envers. Seluruh `ALTER TABLE` dijalankan saat startup melalui native SQL pada Hibernate `Session` dan transaksi Hibernate, bukan melalui skrip JDBC lepas. DDL menggunakan `ADD COLUMN IF NOT EXISTS`, sehingga deployment ulang tidak menghapus atau menimpa nilai yang sudah ada.
+
+Urutan resolusi selalu **Kanal Pembayaran, kemudian Sekolah, kemudian global**. Contohnya, kanal A dapat mempunyai prefix dan biaya admin sendiri, tetapi tetap mewarisi identitas merchant dan credential dari sekolah. Sekolah dapat mempunyai identitas merchant sendiri, tetapi mewarisi toleransi timestamp global. Bila kanal tidak terhubung ke sekolah, seperti sebagian cara pembayaran koperasi, parent kanal langsung menjadi konfigurasi global. Konfigurasi perguruan tinggi tetap memakai global karena model PT hanya memiliki sakelar per tenant dan tidak mempunyai kumpulan credential sendiri.
+
+Arti nilai kosong harus dipertahankan ketika memelihara kode:
+
+| Jenis nilai | Nilai pada Sekolah/Kanal | Makna |
+| --- | --- | --- |
+| String, termasuk prefix dan identitas merchant | `NULL`, kosong, atau hanya spasi | Warisi parent. |
+| Biaya administrasi | `NULL` | Warisi parent. |
+| Biaya administrasi | `0` | Override sah: kanal ini tanpa biaya admin. Jangan dianggap kosong. |
+| Toleransi timestamp | `NULL` | Warisi parent. |
+| Toleransi timestamp | `30` sampai `3600` | Override sah dalam detik. |
+| Sakelar aktif | `NULL` atau `false` | OFF. Sakelar tidak diwariskan demi keamanan. |
+
+Tiga secret adalah **satu paket atomik**, bukan tiga field yang diwariskan secara independen. Jika `online_bmt_api_key`, `online_bmt_encryption_key`, dan `online_bmt_hmac_key` semuanya kosong, scope tersebut mewarisi ketiganya dari parent. Jika ingin override, ketiganya wajib diisi. Kombinasi parsial ditolak oleh form dan dianggap konfigurasi tidak siap oleh callback. Aturan ini mencegah keadaan berbahaya ketika API key kanal dipasangkan dengan AES key sekolah dan HMAC key global. Input secret memakai tipe password pada UI, tetapi nilai tersimpan tetap dimuat ke komponen agar penyimpanan perubahan field lain tidak mengosongkan secret secara tidak sengaja.
+
+Form `SekolahAction` menampilkan override sekolah pada tab Data Payment Gateway. Form `KanalPembayaranAction` menampilkan override kanal pada bagian Online BMT. Label “kosong = ikut ...” adalah perilaku domain, bukan sekadar petunjuk layar. Saat menyimpan, prefix wajib terdiri dari satu sampai delapan huruf/angka, biaya admin tidak boleh negatif, toleransi harus berupa bilangan bulat 30-3600, dan paket credential harus lengkap atau seluruhnya kosong. Sakelar sekolah dan kanal tetap default OFF meskipun konfigurasi parent lengkap.
+
+Resolver bersama berada di `OnlineBmtUtil`. Pembuatan invoice siswa, top-up siswa, koperasi, dan kantin memakai resolver yang sama untuk prefix dan biaya administrasi. Nilai biaya efektif disimpan pada `VirtualAccountBank`, sehingga nominal yang dilihat pengguna, hasil inquiry, dan validasi payment memakai angka identik. Jangan menghitung ulang biaya admin di callback dari konfigurasi terbaru: perubahan konfigurasi setelah invoice dibuat tidak boleh mengubah nominal invoice lama. Identitas merchant, credential, dan toleransi adalah kebijakan callback saat ini dan karena itu di-resolve ulang ketika callback diterima.
+
+Pemilihan credential callback berlangsung dua tahap karena isi `NO_INVOICE` berada di dalam `DATA` terenkripsi. Pertama, `API_KEY` pada envelope luar dipakai untuk mencari kandidat profil global, sekolah, atau kanal melalui Hibernate. Servlet mencoba memverifikasi HMAC dan membuka payload hanya dengan kandidat yang lengkap. Kedua, setelah `NO_INVOICE` diketahui dan invoice ditemukan, sistem menentukan sekolah serta kanal pemilik invoice, menghitung konfigurasi efektifnya, lalu mencocokkan **API key, encryption key, dan HMAC key sekaligus** dengan kandidat yang membuka payload. Request baru diterima jika kedua tahap cocok. Akibatnya credential sekolah A tidak dapat dipakai untuk membaca atau membayar invoice sekolah B, sekalipun nomor invoice B diketahui. Respons sukses dienkripsi kembali menggunakan profil efektif pemilik invoice yang sama.
+
+Relasi `siswa`, `calonSiswa`, `anggotaKoperasi`, `kanalPembayaran`, dan sekolah di bawahnya dihidrasi sebelum session pencarian `VirtualAccountBank` ditutup. Langkah ini bukan optimasi tampilan. Tanpa hidrasi tersebut, resolver callback dapat menemui proxy detached, kehilangan informasi tenant, lalu secara keliru jatuh ke konfigurasi global. Setiap refactor lookup invoice wajib mempertahankan kontrak hidrasi ini.
+
 Empat identitas mitra/merchant diwajibkan bersama-sama. `INQUIRY` ditolak dengan kode `503` bila salah satunya kosong. Keputusan fail-closed ini mencegah respons yang secara teknis sukses tetapi tidak dapat dipetakan oleh BMT. Konfigurasi secret juga diwajibkan sebelum payload diproses. Jangan mengaktifkan sakelar global terlebih dahulu sambil membiarkan konfigurasi lain kosong, karena hasil yang diharapkan pada kondisi tersebut memang penolakan layanan.
 
 Matriks aktivasi efektif:
@@ -72,7 +99,7 @@ Endpoint merchant adalah `POST /OnlineBmt`. Body luar wajib berupa JSON dengan `
 
 Sesuai contoh PHP dari BMT, kesalahan validasi dan kesalahan bisnis tetap dikirim dengan HTTP status `200`. Keberhasilan atau kegagalan wajib dibaca dari field `STATUS` dan `KODE_STATUS`, bukan dari HTTP status. Kesalahan internal tak terduga tetap dapat menghasilkan HTTP `500` agar perangkat pemantauan dan mekanisme retry infrastruktur dapat mengenalinya. Pola ini sengaja dipertahankan demi kompatibilitas dengan pihak BMT yang mungkin hanya memproses body untuk respons HTTP 2xx.
 
-Validasi dilakukan sebelum logika keuangan: metode HTTP harus POST, fitur global harus aktif, seluruh secret harus tersedia, API key dibandingkan secara constant-time, Base64 dan versi envelope harus valid, HMAC harus cocok, IV harus 16 byte, ciphertext harus dapat didekripsi, timestamp harus berada dalam toleransi, nonce wajib ada dan belum pernah digunakan, serta jenis request harus dikenal. Pesan galat tidak membocorkan secret atau plaintext sensitif.
+Validasi dilakukan sebelum logika keuangan: metode HTTP harus POST, fitur global harus aktif, API key harus memilih setidaknya satu profil credential lengkap, Base64 dan versi envelope harus valid, HMAC harus cocok, IV harus 16 byte, ciphertext harus dapat didekripsi, profil pembuka payload harus sama dengan profil efektif pemilik invoice, timestamp harus berada dalam toleransi tenant, nonce wajib ada dan belum pernah digunakan, serta jenis request harus dikenal. Pesan galat tidak membocorkan secret, scope kandidat yang hampir cocok, atau plaintext sensitif.
 
 ### Pemetaan alur workbook ke endpoint
 
