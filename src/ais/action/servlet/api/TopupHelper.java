@@ -119,8 +119,12 @@ public class TopupHelper {
 			result.put("status", "00");
 			result.put("description", "Daftar kanal topup aktif berhasil diambil");
 		} catch (Exception e) {
-			result.put("status", "90");
-			result.put("description", Common.tampilErrorJikaAdmin(e));
+			try {
+				result.put("status", "90");
+				result.put("description", Common.tampilErrorJikaAdmin(e));
+			} catch (Exception jsonError) {
+				ais.common.ErrorAuditUtil.record(jsonError, "TopupHelper.caraBayar.responseError");
+			}
 		}
 		return result;
 	}

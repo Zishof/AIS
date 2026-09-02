@@ -30,6 +30,7 @@ import ais.common.Common;
 import ais.common.OnlineBmtUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
+import ais.database.model.Konfigurasi;
 import ais.database.model.Tbmuser;
 import ais.database.model.asset.Lokasi;
 import ais.database.model.inventory.JenisProduk;
@@ -17556,7 +17557,7 @@ public class KantinHelper {
 					pilihan.put("nama", OnlineBmtUtil.BANK_NAME);
 					pilihan.put("channel", "");
 					pilihan.put("nama_channel", OnlineBmtUtil.BANK_NAME);
-					pilihan.put("biaya_admin", parseDoubleSafe(Common
+					pilihan.put("biaya_admin", Common.parseAngkaKonfigurasi(Common
 							.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai(), 0.0));
 					pilihan.put("gateway", OnlineBmtUtil.PARAM_KEY);
 					list.put(pilihan);

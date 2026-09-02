@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/servlet/api/TopupHelper.ja
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"topup", "riwayatPembelian", "checkBayar", "bayarOnline", "topupSiswa", "topupAnggotaKoperasi", "topup_mahasiswa"});
+request.setAttribute("nuiSourceMethods", new String[]{"topup", "topupCaraBayar", "riwayatPembelian", "checkBayar", "bayarOnline", "topupSiswa", "topupAnggotaKoperasi", "topup_mahasiswa"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pembelian", "Toko", "KodePembayaranOnline", "CaraPembayaranKoperasi", "Lokasi", "DraftPembelianAnggotaKoperasi", "AnggotaKoperasi", "AkunPembayaranSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

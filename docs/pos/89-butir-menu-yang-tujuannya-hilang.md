@@ -40,6 +40,13 @@ perbaikannya langsung terasa di sistem yang sudah berjalan.
 
 ## 3. Dua diperbaiki (r83269)
 
+> **Catatan menyusul (doc 95):** kepala berkas `MenuSnapshotData.java` melarang
+> penyuntingan manual dan meminta pembangkitan ulang dari export Excel. Larangan itu tidak
+> dibaca sebelum suntingan ini. Perbaikannya benar isinya tetapi akan **tersapu** pada
+> pembangkitan ulang, dan Excel sumbernya masih memuat nama kelas yang salah — sementara
+> berkas Excel itu sendiri tidak ada di repositori. Lihat
+> [95-snapshot-menu-parsial-dan-larangan-yang-saya-langgar.md](95-snapshot-menu-parsial-dan-larangan-yang-saya-langgar.md).
+
 | Butir | Menunjuk | Sebenarnya |
 |---|---|---|
 | A-3.1.1 Profil Mahasiswa dan Lulusan | `…sapto.LaporanProfileMahasiswaDanLulusan` | `…LaporanProfileMahasiswaDanLulusan_A_3_1_1` |

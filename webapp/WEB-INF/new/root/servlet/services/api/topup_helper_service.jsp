@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "integration");
 request.setAttribute("nuiServiceSourceClass", "TopupHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/TopupHelper.java");
-request.setAttribute("nuiServiceMethods", new String[]{"topup", "riwayatPembelian", "checkBayar", "bayarOnline", "topupSiswa", "topupAnggotaKoperasi", "topup_mahasiswa"});
+request.setAttribute("nuiServiceMethods", new String[]{"topup", "topupCaraBayar", "riwayatPembelian", "checkBayar", "bayarOnline", "topupSiswa", "topupAnggotaKoperasi", "topup_mahasiswa"});
 request.setAttribute("nuiServiceEntities", new String[]{"Pembelian", "Toko", "KodePembayaranOnline", "CaraPembayaranKoperasi", "Lokasi", "DraftPembelianAnggotaKoperasi", "AnggotaKoperasi", "AkunPembayaranSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -79,7 +79,7 @@ public class OnlineBmt extends HttpServlet {
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		write(response, HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+		write(response, HttpServletResponse.SC_OK,
 				failure("405", "Method harus POST."));
 	}
 
@@ -91,7 +91,10 @@ public class OnlineBmt extends HttpServlet {
 		try {
 			result = process(request);
 		} catch (ApiException e) {
-			httpStatus = e.httpStatus;
+			/* Kontrak contoh BMT selalu memakai HTTP 200 dan menaruh hasil protokol
+			 * pada STATUS/KODE_STATUS. Menjaga pola tersebut mencegah body error
+			 * dibuang oleh klien/infrastruktur BMT yang hanya memproses respons 2xx. */
+			httpStatus = HttpServletResponse.SC_OK;
 			result = failure(e.code, e.getMessage());
 		} catch (Exception e) {
 			ErrorAuditUtil.record(e, "OnlineBmt.doPost");
@@ -139,18 +142,16 @@ public class OnlineBmt extends HttpServlet {
 	}
 
 	private JSONObject inquiry(JSONObject data) throws Exception {
-		String invoiceNo = required(data, "NO_INVOICE");
+		String invoiceNo = requiredMax(data, "NO_INVOICE", 255);
 		VirtualAccountBank invoice = findInvoice(invoiceNo);
 		validateInvoiceChannel(invoice);
-		if (invoice.getKadaluarsaWaktu() != null && invoice.getKadaluarsaWaktu().before(WaktuUtil.getDate())
-				&& !VirtualAccountBank.isSudahTerbayar(invoice)) {
-			throw new ApiException(410, "01", "Invoice sudah kedaluwarsa.");
-		}
+		validateNotExpired(invoice);
 
 		JSONObject value = new JSONObject();
 		value.put("NO_INVOICE", invoiceNo);
 		value.put("NAMA", invoice.getNamaPemilikRingkas());
-		value.put("TGL", Common.databaseDateFormat.get().format(invoice.getTanggal_dirubah()));
+		Date invoiceDate = invoice.getTanggal_dirubah() == null ? WaktuUtil.getDate() : invoice.getTanggal_dirubah();
+		value.put("TGL", Common.databaseDateFormat.get().format(invoiceDate));
 		value.put("DESKRIPSI", invoice.getKeterangan() == null ? "Pembayaran eCampus" : invoice.getKeterangan());
 		value.put("NOMINAL", OnlineBmtUtil.payableAmount(invoice));
 		value.put("KD_MITRA_BMT", config("online_bmt_kode_mitra"));
@@ -180,6 +181,7 @@ public class OnlineBmt extends HttpServlet {
 
 			VirtualAccountBank invoice = findInvoice(input.invoiceNo);
 			validateInvoiceChannel(invoice);
+			validateNotExpired(invoice);
 			validateAmount(invoice, input.amount);
 			if (ledger != null && "SUCCESS".equals(ledger.status)) {
 				ledgerTx.commit();
@@ -272,7 +274,8 @@ public class OnlineBmt extends HttpServlet {
 		try {
 			postingSession = HibernateUtil.openSession();
 			Date paidAt = WaktuUtil.getDate();
-			if (invoice.getTopup().doubleValue() > 0.1 && invoice.getCicilan().length() == 0) {
+			if (invoice.getTopup() != null && invoice.getTopup().doubleValue() > 0.1
+					&& (invoice.getCicilan() == null || invoice.getCicilan().length() == 0)) {
 				VirtualAccountBank.bayarTopup(invoice, postingSession, paidAt, OnlineBmtUtil.BANK_NAME,
 						false, rawData);
 			} else if (invoice.getSiswa() != null || invoice.getCalonSiswa() != null) {
@@ -320,6 +323,13 @@ public class OnlineBmt extends HttpServlet {
 	private static void validateAmount(VirtualAccountBank invoice, BigDecimal amount) throws ApiException {
 		if (!sameAmount(BigDecimal.valueOf(OnlineBmtUtil.payableAmount(invoice)), amount)) {
 			throw new ApiException(422, "01", "Nominal pembayaran tidak sama dengan nominal invoice.");
+		}
+	}
+
+	private static void validateNotExpired(VirtualAccountBank invoice) throws ApiException {
+		if (invoice.getKadaluarsaWaktu() != null && invoice.getKadaluarsaWaktu().before(WaktuUtil.getDate())
+				&& !VirtualAccountBank.isSudahTerbayar(invoice)) {
+			throw new ApiException(410, "01", "Invoice sudah kedaluwarsa.");
 		}
 	}
 
@@ -428,26 +438,35 @@ public class OnlineBmt extends HttpServlet {
 
 	private static JSONObject decrypt(String encrypted, String encryptionKey, String hmacKey) throws ApiException {
 		try {
-			byte[] outer = Base64.decodeBase64(encrypted);
+			byte[] outer = decodeBase64(encrypted);
 			String decoded = new String(outer, StandardCharsets.UTF_8);
 			String[] parts = decoded.split("\\.", -1);
 			if (parts.length != 4 || !"v1".equals(parts[0])) throw new Exception("format");
 			String payload = parts[0] + "." + parts[1] + "." + parts[2];
 			byte[] expected = hmac(payload, hmacKey);
-			byte[] received = Base64.decodeBase64(parts[3]);
-			if (!MessageDigest.isEqual(expected, received))
+			byte[] received = decodeBase64(parts[3]);
+			if (received.length != 32 || !MessageDigest.isEqual(expected, received))
 				throw new ApiException(400, "400", "Signature/HMAC tidak valid.");
-			byte[] iv = Base64.decodeBase64(parts[1]);
+			byte[] iv = decodeBase64(parts[1]);
 			if (iv.length != 16) throw new Exception("iv");
+			byte[] ciphertext = decodeBase64(parts[2]);
+			if (ciphertext.length == 0 || ciphertext.length % 16 != 0) throw new Exception("ciphertext");
 			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 			cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(sha256(encryptionKey), "AES"),
 					new IvParameterSpec(iv));
-			return new JSONObject(new String(cipher.doFinal(Base64.decodeBase64(parts[2])), StandardCharsets.UTF_8));
+			return new JSONObject(new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8));
 		} catch (ApiException e) {
 			throw e;
 		} catch (Exception e) {
 			throw new ApiException(400, "400", "DATA terenkripsi tidak valid.");
 		}
+	}
+
+	private static byte[] decodeBase64(String value) throws Exception {
+		if (value == null || value.length() == 0 || !Base64.isBase64(value)) {
+			throw new Exception("base64");
+		}
+		return Base64.decodeBase64(value);
 	}
 
 	private static String encrypt(JSONObject data) throws Exception {
@@ -507,6 +526,14 @@ public class OnlineBmt extends HttpServlet {
 		return value;
 	}
 
+	private static String requiredMax(JSONObject data, String key, int maxLength) throws ApiException {
+		String value = required(data, key);
+		if (value.length() > maxLength) {
+			throw new ApiException(400, "400", key + " terlalu panjang.");
+		}
+		return value;
+	}
+
 	private static String config(String key) {
 		return Common.getKonfigurasi(key, "").getNilai().trim();
 	}
@@ -550,9 +577,11 @@ public class OnlineBmt extends HttpServlet {
 		}
 		static PaymentInput parse(JSONObject data) throws ApiException {
 			try {
-				return new PaymentInput(required(data,"NO_INVOICE"), required(data,"NO_TRANSAKSI_BMT"),
-						required(data,"CHANNEL_BMT").toUpperCase(), required(data,"NONCE"),
-						new BigDecimal(data.get("NOMINAL").toString()));
+				BigDecimal amount = new BigDecimal(data.get("NOMINAL").toString());
+				if (amount.signum() <= 0) throw new ApiException(400, "400", "NOMINAL harus lebih besar dari nol.");
+				return new PaymentInput(requiredMax(data,"NO_INVOICE",255),
+						requiredMax(data,"NO_TRANSAKSI_BMT",255),
+						requiredMax(data,"CHANNEL_BMT",30).toUpperCase(), required(data,"NONCE"), amount);
 			} catch (ApiException e) { throw e; }
 			catch (Exception e) { throw new ApiException(400,"400","NOMINAL tidak valid."); }
 		}

@@ -72,11 +72,15 @@ public final class OnlineBmtUtil {
 		invoice.setChannel("ONLINE_BMT");
 		invoice.setLink("");
 
-		JSONObject audit = new JSONObject();
-		audit.put("provider", "ONLINE_BMT");
-		audit.put("NO_INVOICE", kode);
-		audit.put("state", "WAITING_PAYMENT");
-		invoice.setRequest(audit.toString());
+		try {
+			JSONObject audit = new JSONObject();
+			audit.put("provider", "ONLINE_BMT");
+			audit.put("NO_INVOICE", kode);
+			audit.put("state", "WAITING_PAYMENT");
+			invoice.setRequest(audit.toString());
+		} catch (Exception e) {
+			throw new IllegalStateException("Gagal menyiapkan audit invoice Online BMT", e);
+		}
 	}
 
 	public static double payableAmount(VirtualAccountBank invoice) {
