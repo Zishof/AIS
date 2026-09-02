@@ -1,5 +1,58 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 27 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/Kelas.java`** (r83487) — 180→586 baris, 100% (21
+  anggota). BUKAN jalur sekolah (dugaan awal salah) — kelas paralel
+  akademik PT. Contoh POSITIF keamanan. Bug: penautan mahasiswa pakai
+  NAMA bukan FK (`Mahasiswa.kelas` String, `ilike EXACT`); flag "update
+  Dosen PA sekarang" tersimpan PERMANEN → tiap penyimpanan berikutnya
+  (bahkan yang tak berniat mengubah Dosen PA) menimpa ulang Dosen PA
+  seluruh mahasiswa dalam cakupan.
+- **`ais/database/model/Komentar.java`** (r83487) — 203→678 baris, 100%
+  (46 anggota). Entity AKTIF (beda dari `ChatMessage` b24 yang yatim) —
+  komentar bimbingan KRS. **Temuan keamanan**: mahasiswa bisa MENGHAPUS
+  komentar dosen pembimbing akademiknya sendiri (nol gerbang di
+  `KomentarRenderer`) + stored XSS terbatas (sanitasi HTML cuma ganti
+  substring "script"). Getter destruktif `getTbmuser()` menghapus
+  identitas penulis permanen → nama yang tampil sebenarnya field audit
+  `oleh` yang bisa berubah tiap update.
+- **`ais/database/model/ProgramMahasiswa.java`** (r83486) — 188→603
+  baris, 100% (48 anggota). Nama menyesatkan: BUKAN tabel penghubung,
+  master aturan rentang semester (3 slot). **Instance KEEMPAT** pola
+  "panel detail nol-otorisasi, assign massal sampai 5000 mahasiswa"
+  (`ProgramDataMahasiswaDetailAction`) — kembaran persis 3 temuan
+  sebelumnya (`KelompokMahasiswa`/`KelompokStatusKeluarMahasiswa`/
+  `KelompokStatusMahasiswa`).
+- **`ais/database/model/PembagianKuotaPerkuliahanBerdasarkantahunAngkatan.java`**
+  (r83487) — 206→653 baris, 100% (41 anggota). Nama menyesatkan: BUKAN
+  penjatahan kursi per angkatan, tapi "batas atas berbeda per angkatan"
+  atas total peserta semua angkatan. **Temuan keamanan**: parameter URL
+  `?perkuliahan=<id>` melewati gerbang login/READ SEPENUHNYA — menguatkan
+  `task_9b7ff647` + `task_b82b25d2`.
+- **`ais/database/model/Propinsi.java`** (r83487) — 192→533 baris, 100%
+  (35 anggota). Layar masternya NOL pemeriksaan `checkPrevilages` sama
+  sekali (bukan cuma whitelist tak lengkap). Jalur unggah Excel: nama
+  berkas dari klien dipakai mentah untuk path penulisan file + impor bisa
+  menimpa baris manapun berdasarkan id dari sheet. Kuirk: layar daftar
+  MENULIS ke DB saat sekadar di-render (`simpanWilayah()` dipanggil per
+  baris grid).
+
+**REKAP pola "panel detail nol-otorisasi, assign massal"** — sekarang **4
+instance terkonfirmasi**: `KelompokStatusKeluarMahasiswaDetailAction`(b24),
+`KelompokStatusMahasiswaDetailAction`(b26), `ProgramDataMahasiswaDetail
+Action`(b27), dan kemungkinan besar `KelompokMahasiswaDetailAction`(belum
+diverifikasi eksplisit — b22 hanya mendokumentasikan efek UPDATE massal
+`KelompokMahasiswa` sendiri, belum action detailnya). Pola ini sekarang
+CUKUP KUAT untuk disimpulkan sebagai TEMPLATE arsitektural yang disalin
+lintas modul "Kelompok*"/"Program*" — bukan kebetulan per-file.
+
+Total akumulasi 27 sesi: **313 file** dari 7.401 (~4,2%).
+
 ## Batch 26 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
