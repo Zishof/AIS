@@ -478,7 +478,7 @@ public class OnlineBmt extends HttpServlet {
 	}
 
 	private static void write(HttpServletResponse response, int status, JSONObject body) throws IOException {
-		response.setStatus(status); response.setCharacterEncoding("UTF-8");
+		response.setStatus(status);
 		response.setContentType("application/json; charset=UTF-8");
 		response.setHeader("Cache-Control", "no-store");
 		PrintWriter writer = response.getWriter(); writer.write(body.toString()); writer.flush();

@@ -5586,7 +5586,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			}
 		} else if (biodataCalonMahasiswaAktif != null) {
 			save.setVisible(false);
-			if (!TampilanPaymentGateway.adaPaymentGatewayYangAktif()) {
+			if (!TampilanPaymentGateway.adaPaymentGatewayYangAktif()
+					&& !OnlineBmtUtil.isPerguruanTinggiEnabled(perguruanTinggi.getId())) {
 				spaceBayar.setVisible(false);
 				spaceBayar.setHeight("0px");
 			}

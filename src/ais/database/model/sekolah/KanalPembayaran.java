@@ -333,6 +333,7 @@ public class KanalPembayaran extends GeneralValueObject {
 	 * Sakelar lapis kanal untuk Online BMT. Nilai null dari database lama selalu
 	 * diperlakukan OFF sehingga aktivasi harus merupakan keputusan admin eksplisit.
 	 */
+	@Column(name = "aktfkan_pembayaran_via_online_bmt")
 	public Boolean getAktfkanPembayaranViaOnlineBmt() {
 		return aktfkanPembayaranViaOnlineBmt == null ? false : aktfkanPembayaranViaOnlineBmt;
 	}

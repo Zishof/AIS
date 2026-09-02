@@ -1082,6 +1082,7 @@ public class Sekolah extends VoKunci {
 	 * menormalkan null menjadi false agar penambahan kolom tidak menyalakan kanal
 	 * pada sekolah lama secara tidak sengaja.
 	 */
+	@Column(name = "aktfkan_pembayaran_via_online_bmt")
 	public Boolean getAktfkanPembayaranViaOnlineBmt() {
 		return aktfkanPembayaranViaOnlineBmt == null ? false : aktfkanPembayaranViaOnlineBmt;
 	}

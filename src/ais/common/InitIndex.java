@@ -37,6 +37,10 @@ public class InitIndex {
 	 */
 	static void initOnlineBmtRequestGuard() {
 		String[] ddl = new String[] {
+				"ALTER TABLE sekolah.sekolah ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean NOT NULL DEFAULT false",
+				"ALTER TABLE IF EXISTS sekolah.sekolah_aud ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean",
+				"ALTER TABLE sekolah.kanal_pembayaran ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean NOT NULL DEFAULT false",
+				"ALTER TABLE IF EXISTS sekolah.kanal_pembayaran_aud ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean",
 				"CREATE TABLE IF NOT EXISTS public.online_bmt_nonce ("
 						+ "nonce varchar(200) PRIMARY KEY, request_type varchar(30) NOT NULL, "
 						+ "created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)",

@@ -6132,10 +6132,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				.equals(Common.getKonfigurasi(configKey, Konfigurasi.TIDAK_AKTIF).getNilai());
 		if (ptConfigSuffix != null && isActive) {
 			PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi();
-			String tenantDefault = OnlineBmtUtil.PARAM_KEY.equals(bankGatewayId)
-					? Konfigurasi.TIDAK_AKTIF : Konfigurasi.AKTIF;
 			isActive = Konfigurasi.AKTIF.equals(
-					Common.getKonfigurasi(configKey + ptConfigSuffix + pt.getId(), tenantDefault).getNilai());
+					Common.getKonfigurasi(configKey + ptConfigSuffix + pt.getId(), Konfigurasi.AKTIF).getNilai());
 		}
 
 		if (tab != null && tabpanel != null) {
@@ -6242,8 +6240,10 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				.equals(Common.getKonfigurasi(configKey, Konfigurasi.TIDAK_AKTIF).getNilai());
 		if (ptConfigSuffix != null && isActive) {
 			PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi();
+			String tenantDefault = OnlineBmtUtil.PARAM_KEY.equals(bankGatewayId)
+					? Konfigurasi.TIDAK_AKTIF : Konfigurasi.AKTIF;
 			isActive = Konfigurasi.AKTIF.equals(
-					Common.getKonfigurasi(configKey + ptConfigSuffix + pt.getId(), Konfigurasi.AKTIF).getNilai());
+					Common.getKonfigurasi(configKey + ptConfigSuffix + pt.getId(), tenantDefault).getNilai());
 		}
 
 		if (isActive) {

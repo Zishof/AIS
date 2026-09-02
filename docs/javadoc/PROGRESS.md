@@ -1,5 +1,133 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/PenghargaanMahasiswa.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **karya mahasiswa** (tabel `public.penghargaan_mahasiswa`, `@Audited`,
+`dynamicInsert/dynamicUpdate`, turunan langsung `GeneralValueObject`).
+**57 anggota** (1 konstruktor + 56 getter/setter/kait) + 26 field + 4 konstanta
+status terdokumentasi (100%), 352 → 1414 baris. Revisi **r83350**, mirror `java/`
+verifikasi `cmp` identik byte. Hanya Javadoc/komentar; **nol perubahan logika**
+(dibuktikan dengan membandingkan sumber tanpa komentar/spasi terhadap HEAD
+r75894 — identik persis, 7.283 byte).
+
+**Nama class menyesatkan lagi** — pola KETIGA setelah `PenghargaanDosen` dan
+`BukuBahanAjar`. Modul UI-nya bernama **"Karya Mahasiswa"**, bukan "Penghargaan
+Mahasiswa". Bukti berlapis: menu `NewUiLayarLainnyaController` baris 82/101
+(entri "Karya Mahasiswa"/"Karya" → `/pages/master/penghargaan_mahasiswa.zul`),
+label form `PenghargaanMahasiswaAction` ("Nama Karya *", "Tanggal Pendaftaran
+Karya *", "Nomor Sertifikat Karya *", "Bentuk Karya *"), koleksi DSpace bernama
+"Karya Mahasiswa", judul blok indeks `InitIndex`
+(`--- Karya/Penghargaan Mahasiswa ---`), tab ZUL "Karya Mahasiswa",
+`ProfileUiHelper` kartu "Karya", modul JSP baru "Manajemen Karya". Sisa nama
+lama: judul jendela tambah/ubah masih "Tambah/Ubah Penghargaan Mahasiswa", tab
+master masih "Bentuk Penghargaan", dan `ProfileMahasiswa` memakai **dua judul
+berbeda untuk layar yang sama**.
+
+**Jawaban pertanyaan sesi ini (diverifikasi dari kode, bukan tebakan):**
+
+- vs **`PrestasiMahasiswa`** → **KONSEP BERBEDA, bukan duplikat.** Karya/HKI vs
+  ajang/kejuaraan. Tabel, `.zul`, action, dan entri menu semuanya terpisah
+  (`NewUiLayarLainnyaController` baris 81 "Prestasi Mahasiswa" vs 82 "Karya
+  Mahasiswa"). Himpunan propertinya rapi: **57 anggota di sini ≈ 73 anggota
+  `PrestasiMahasiswa` dikurangi properti khas ajang** (`tempat`,
+  `penyelenggara`, `juara`, `peringkat`, `jumlahPeserta`, `prestasiLuarKampus`,
+  `cabangPrestasiMahasiswa`, `kategoriPrestasiMahasiswa`, `feederPrestasi`)
+  **ditambah** `kategoriPenghargaan`. Sisanya (`noSk`, `tglSk`, `alamat`, dua
+  dosen pembina, `feeder`, trio periode) **ada di kedua class dengan bentuk
+  sama persis** — tumpang tindih bentuk itu nyata dan dalam, tapi bukan
+  duplikasi konsep.
+- vs **`PenghargaanDosen`** → **KONSEP SAMA, beda pemilik.** Class ini adalah
+  sisi mahasiswa dari modul "Karya". Bukti terkuat: **master
+  `KategoriPenghargaan` dipakai bersama**, dan `PenghargaanMahasiswaAction`
+  maupun `PenghargaanDosenAction` **sama-sama menyemai baris bawaan identik**
+  ("Paten", "HaKI", "Nasional / Internasional") bila tabel master kosong —
+  layar mana pun yang dibuka lebih dulu, itulah yang menyemai. Beda: class ini
+  lebih kaya (57 vs 43) dengan dosen pembina I/II, `jenisAktfitasMahasiswa`,
+  dan **integrasi Neo Feeder yang tidak dimiliki `PenghargaanDosen` sama
+  sekali**; juga kebalikan pola `check()` — 7 getter relasi di sini memakai
+  `check()`, di `PenghargaanDosen` tidak satu pun.
+
+**Verifikasi pola berulang (menyeluruh atas 57 anggota):**
+
+- **Getter yang menulis field TERPETAKAN: 3** — `getTahunAkademik()` (isi
+  periode berjalan bila null), `getJenisSemester()` (idem), `getTahun()`
+  (**selalu** menimpa dari potongan pertama tahun akademik). Dengan
+  `dynamicUpdate=true`, membaca ketiganya pada instance managed bisa
+  meng-`flush` perubahan ke DB tanpa aksi simpan pengguna.
+- **Getter relasi yang menulis balik referensi (`check()`): 7** — semua relasi.
+- **Getter yang menutup sesi Hibernate: 0** — file tidak menyentuh `Session`/
+  `HibernateUtil`/`Criteria` sama sekali. Jalur tak langsung: `check()` (buka+
+  tutup sesi sendiri) dan `Common` (cache tahun akademik).
+- **Getter penormal tanpa tulis balik: 6** — `getNama()` (trim), `getCapaian()`/
+  `getUrl()` (null→""), `getStatus()` (null→BELUM_DIPROSES), `getFeeder()`
+  (kosong→null), `getJenisAktfitasMahasiswa()` (fallback konstanta).
+- **Setter yang mengabaikan input diam-diam: 2** — `setOleh`/`setOlehId`.
+
+**Kuirk/bug yang dicatat (tidak diperbaiki):**
+
+1. **Kolom `tahun` tidak pernah ditulis form.** Isian "Tahun *" `readonly`, dan
+   `onSave(...)` tidak pernah memanggil `setTahun(...)`. Satu-satunya penulis
+   kolom itu adalah `getTahun()` sendiri.
+2. **Fallback `getJenisAktfitasMahasiswa()` bisa menempel permanen.** Form ubah
+   memanggil `selectComboItem(..., getJenisAktfitasMahasiswa())` sehingga baris
+   ber-kolom `NULL` tampil sudah terpilih "Program kreativitas mahasiswa" (PKM);
+   sekali disimpan, `NULL` berubah jadi PKM walau pengguna tak menyentuhnya.
+   Catatan: `PrestasiMahasiswa` memakai fallback `KOMPETENSI` ("Kompetisi") —
+   dua modul kembar, dua jenis aktivitas PDDikti berbeda.
+3. **Pesan validasi salah kata**: seluruh pesan gagal-simpan berbunyi
+   "Kejuaraan" ("Nomor sertifikat kejuaraan", "Kategori Kejuaraan", "Capaian
+   kejuaraan") padahal label formnya "Karya". Gejala sama persis dengan
+   `PenghargaanDosenAction`.
+4. **Isian filter mati**: `.zul` masih punya `searchpenyelenggara`
+   ("Penyelenggara") padahal entity tak punya kolom itu dan `initCriteria(...)`
+   tak pernah membacanya.
+5. **Konstanta status kembar-tapi-terpisah** dengan `PrestasiMahasiswa` (string
+   identik, konstanta berbeda). `DasboardAktivitasMahasiswa` sengaja memakai
+   `PrestasiMahasiswa.BELUM_DIPROSES` untuk menghitung **semua** tipe termasuk
+   karya — kesamaan teks itu jadi kontrak tak tertulis.
+6. **UI baru menembak SQL langsung** dengan status hardcode
+   (`p.status='Disetujui'`), jadi mengubah konstanta di entity tak ikut
+   mengubah JSP.
+7. `serialVersionUID` `2463821577548439808L` dipakai bersama
+   `KategoriPenghargaan`, `PenghargaanDosen`, `PrestasiMahasiswa`,
+   `PrestasiDosen`.
+8. **Marker `auto-audit(empty-catch)` di `getTahun()` menyebut baris `:264`**
+   yang kini bergeser karena penambahan Javadoc — dibiarkan apa adanya (string
+   literal = kode; mengubahnya bukan perubahan Javadoc).
+9. `Mahasiswa.removePenghargaanMahasiswa` hanya mengosongkan *nilai* kunci
+   (bukan menghapus kuncinya) → berkas indeks JSON membesar monoton.
+
+**Paparan keluar yang perlu disadari:** baris `DISETUJUI` bisa terbaca **tanpa
+login** — `WEB-INF/baru/website.jsp` memanggil
+`listApproved(hs, "ais.database.model.PenghargaanMahasiswa", 6)` untuk feed
+publik, dan ekspor DSpace mempublikasikan judul + capaian + sertifikat ke
+repositori. Tombol "Setujui Semua"
+(`aktifkan_tombol_setujui_semua_karya_mahasiswa`) menyetujui borongan semua
+baris hasil filter yang bukan `DITOLAK`.
+
+**ESKALASI KEAMANAN — broken access control KEEMPAT** (pola sama dengan
+`PenghargaanDosenAction` dan `BukuBahanAjarAction`, masuk cakupan audit
+`task_c27d18e4`). Di `ais/action/master/PenghargaanMahasiswaAction.java`:
+
+- baris 261-267: parameter URL `mahasiswa=<id>` **menimpa**
+  `tbmuser.getMahasiswa()` tanpa membandingkan id-nya. `mhs` inilah satu-satunya
+  penyempit data (baris 297-301 → `initCriteria()` 1609-1610), jadi mahasiswa A
+  yang membuka `penghargaan_mahasiswa.zul?mahasiswa=<idB>` melihat **seluruh
+  karya mahasiswa B**. Bentuk URL-nya mudah ditebak karena memang dibangun sah
+  oleh `ProfileMahasiswa:2080` dan `DashboardKegiatanKemahasiswaan:166`.
+- baris 947-948: tombol Ubah/Hapus hanya dijaga status + login
+  (`!DISETUJUI && tbmuser != null`), **bukan kepemilikan** → penyamar tetap
+  dapat mengubah/menghapus baris yang belum disetujui. Ini **lebih longgar**
+  dari `PenghargaanDosenAction`.
+- baris 269-272 + 1652-1658: parameter `penghargaan=<id>` dimuat langsung
+  (`GeneralValueObject.ambilData`) tanpa cek pemilik, lalu **disisipkan paksa ke
+  awal daftar di luar `Criteria`** → IDOR baca murni: id apa pun dirender
+  lengkap (nama karya, capaian, no. sertifikat, nama+NIM pemilik, pembina,
+  lampiran) walau `mahasiswa=` diisi benar.
+- Kontras: UI JSP baru justru benar — `_karya_mahasiswa.jsp:903` memaksa
+  `filters.push("mahasiswa = <idMhsLogin>")` dari sesi server. Celahnya
+  spesifik pada jalur ZK lama.
+
 ## `ais/database/model/BukuBahanAjar.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **buku/diktat/bahan ajar karya dosen** (tabel `public.buku_bahan_ajar`,
