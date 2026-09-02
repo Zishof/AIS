@@ -6557,21 +6557,57 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 				: disposisiSop;
 	}
 
+	/**
+	 * Memastikan {@link Kegiatan} tagihan BIAYA PENDAFTARAN untuk pendaftar ini ada — dibuat bila
+	 * belum, lalu ditautkan ke kolom {@code pembayaran_registrasi}.
+	 *
+	 * <p>Jenis kegiatan yang dipakai adalah {@code ConstantUtil#PENDAFTARAN_CALON_MAHASISWA} dengan
+	 * status 0. Seluruh kerjanya didelegasikan ke
+	 * {@link #prosesPembayaran(Session, Kegiatan, String, int, boolean)}.</p>
+	 *
+	 * @param session session Hibernate milik pemanggil; bila diberikan, method TIDAK membuka
+	 *                maupun menutup session sendiri (transaksi tetap milik pemanggil bila sudah
+	 *                aktif).
+	 * @return kegiatan pembayaran registrasi; bisa {@code null} bila pembuatannya gagal.
+	 * @see #chekPembayaranDaftarUlang(Session)
+	 */
 	public Kegiatan chekPembayaranRegistrasi(Session session) {
 		return prosesPembayaran(session, this.getPembayaranRegistrasi(), ConstantUtil.PENDAFTARAN_CALON_MAHASISWA, 0,
 				true);
 	}
 
+	/**
+	 * Sama dengan {@link #chekPembayaranRegistrasi(Session)}, tetapi TANPA session dari pemanggil:
+	 * method membuka session Hibernate sendiri dan menutupnya kembali.
+	 *
+	 * @return kegiatan pembayaran registrasi; bisa {@code null} bila pembuatannya gagal.
+	 */
 	public Kegiatan chekPembayaranRegistrasi() {
 		return prosesPembayaran(null, this.getPembayaranRegistrasi(), ConstantUtil.PENDAFTARAN_CALON_MAHASISWA, 0,
 				true);
 	}
 
+	/**
+	 * Memastikan {@link Kegiatan} tagihan DAFTAR ULANG mahasiswa baru untuk pendaftar ini ada, lalu
+	 * ditautkan ke kolom {@code pembayaran_daftar_ulang}.
+	 *
+	 * <p>Jenis kegiatannya {@code ConstantUtil#PENDAFTARAN_ULANG_MAHASISWA_BARU} dengan status 1
+	 * (berbeda dari pembayaran registrasi yang berstatus 0).</p>
+	 *
+	 * @param session session Hibernate milik pemanggil; boleh {@code null}.
+	 * @return kegiatan pembayaran daftar ulang; bisa {@code null} bila pembuatannya gagal.
+	 */
 	public Kegiatan chekPembayaranDaftarUlang(Session session) {
 		return prosesPembayaran(session, this.getPembayaranDaftarUlang(), ConstantUtil.PENDAFTARAN_ULANG_MAHASISWA_BARU,
 				1, false);
 	}
 
+	/**
+	 * Sama dengan {@link #chekPembayaranDaftarUlang(Session)}, tetapi membuka dan menutup session
+	 * Hibernate sendiri.
+	 *
+	 * @return kegiatan pembayaran daftar ulang; bisa {@code null} bila pembuatannya gagal.
+	 */
 	public Kegiatan chekPembayaranDaftarUlang() {
 		return prosesPembayaran(null, this.getPembayaranDaftarUlang(), ConstantUtil.PENDAFTARAN_ULANG_MAHASISWA_BARU, 1,
 				false);
@@ -6581,6 +6617,48 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	 * Helper Method: Menangani logika pembayaran secara terpusat untuk menghindari
 	 * duplikasi kode (DRY) dan memastikan manajemen memory / Hibernate Session
 	 * ditangani secara efisien dan aman.
+	 *
+	 * <p>Inti dari empat method {@code chekPembayaran*}. Alurnya:</p>
+	 * <ol>
+	 * <li><b>Jalan pintas termurah.</b> Bila {@code kegiatanSaatIni} sudah ada DAN sudah punya id,
+	 * langsung dikembalikan — tanpa menyentuh database sama sekali. Ini penting karena method ini
+	 * dipanggil dari layar berisi banyak baris.</li>
+	 * <li>{@link JenisKegiatan} dibangkitkan dari {@code constantJenis} lewat
+	 * {@code CommonPMB.pembayaranUtil}, lalu kegiatan yang mungkin sudah ada dicari dengan
+	 * {@code ambilKegiatans} milik {@link VOMahasiswa}.</li>
+	 * <li>Session dan transaksi dikelola dengan penanda kepemilikan: session baru dibuka HANYA bila
+	 * {@code sessionArg} {@code null}, dan transaksi baru dimulai HANYA bila belum ada yang aktif.
+	 * Commit/rollback/close di akhir hanya dilakukan atas apa yang dibuka sendiri — pola inilah
+	 * yang mencegah kesalahan "Transaction not successfully started" dan penutupan session milik
+	 * pemanggil.</li>
+	 * <li>Bila kegiatannya belum ada, dibuat lewat
+	 * {@code KegiatanHelper.checkKegiatanCalonMahasiswa(...)} memakai tahun akademik pendaftar.</li>
+	 * <li><b>Penautan memakai HQL UPDATE langsung</b>
+	 * ({@code UPDATE BiodataCalonMahasiswa b SET b.<field> = :kegiatan WHERE b.id = :id}), BUKAN
+	 * {@code saveOrUpdate} atas entity ini. Alasannya tercatat pada komentar kode: menyimpan
+	 * seluruh entity akan menulis ratusan kolom sekaligus (masalah batas kolom dan pemborosan
+	 * memori). Field yang di-update ditentukan dinamis dari {@code isRegistrasi}.</li>
+	 * <li>Hasilnya juga disetel ke objek di memori agar pemanggilan berikutnya kena jalan pintas
+	 * pada langkah 1.</li>
+	 * </ol>
+	 *
+	 * <p><b>Konsekuensi langkah 5 yang perlu diingat:</b> karena penautan lewat HQL bulk update,
+	 * perubahan tersebut TIDAK tercermin pada persistence context lain yang sudah memuat baris ini,
+	 * dan tidak melewati interceptor audit entity.</p>
+	 *
+	 * <p>Kegagalan tidak dilempar ke pemanggil: transaksi milik sendiri di-rollback, kesalahan
+	 * dicetak dan dicatat ke {@code ErrorAuditUtil}, lalu kegiatan seadanya dikembalikan.</p>
+	 *
+	 * @param sessionArg      session Hibernate dari pemanggil; {@code null} berarti method membuka
+	 *                        dan menutup session sendiri.
+	 * @param kegiatanSaatIni kegiatan yang sudah tertaut pada baris ini, bila ada.
+	 * @param constantJenis   konstanta jenis kegiatan ({@code ConstantUtil}) yang menentukan
+	 *                        tagihan mana yang diurus.
+	 * @param statusInt       status yang diberikan pada kegiatan baru (0 untuk registrasi, 1 untuk
+	 *                        daftar ulang).
+	 * @param isRegistrasi    {@code true} untuk mengisi {@code pembayaranRegistrasi},
+	 *                        {@code false} untuk {@code pembayaranDaftarUlang}.
+	 * @return kegiatan pembayaran yang berlaku; bisa {@code null} bila tidak berhasil dibuat.
 	 */
 	private Kegiatan prosesPembayaran(Session sessionArg, Kegiatan kegiatanSaatIni, String constantJenis, int statusInt,
 			boolean isRegistrasi) {
@@ -6672,6 +6750,17 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	
 	
 	
+	/**
+	 * Kelas PMB tempat pendaftar ditempatkan (master {@link KelasPmb}) — mis. pengelompokan ruang
+	 * ujian atau rombongan belajar awal. Dibaca kembali oleh {@code Mahasiswa#getKelasPmb()} lewat
+	 * tautan biodata calon.
+	 *
+	 * <p>Pemanggilan {@code check()} dibungkus {@code try/catch} karena getter ini dapat dipanggil
+	 * dari konteks tanpa sesi Hibernate aktif; kegagalannya hanya dicatat dan nilai lokal
+	 * dikembalikan apa adanya.</p>
+	 *
+	 * @return master kelas PMB; {@code null} bila belum ditempatkan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelas_pmb")
 	public KelasPmb getKelasPmb() {
@@ -6683,6 +6772,11 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return kelasPmb;
 	}
  
+	/**
+	 * Menetapkan kelas PMB tempat pendaftar ditempatkan.
+	 *
+	 * @param kelasPmb master kelas PMB.
+	 */
 	public void setKelasPmb(KelasPmb kelasPmb) {
 		this.kelasPmb = kelasPmb;
 	}

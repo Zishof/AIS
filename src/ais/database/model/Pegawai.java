@@ -3163,13 +3163,13 @@ public class Pegawai extends Karyawan {
 		this.bahasa = bahasa;
 	}
 
-	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	/**
 	 * Cabang (unit organisasi payroll) tempat pegawai terdaftar.
 	 *
 	 * @return cabang, atau {@code null}
 	 * @see #getDepartemen()
 	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "cabang", nullable = true)
 	public Cabang getCabang() {
 		cabang = check(cabang);
@@ -4565,7 +4565,6 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
-	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	/**
 	 * Format item gaji untuk <b>slot pembayaran pertama</b> — menentukan komponen gaji apa saja
 	 * yang dibayarkan ke rekening slot 1.
@@ -4574,6 +4573,7 @@ public class Pegawai extends Karyawan {
 	 * @see #ambilFormatItemGajis()
 	 * @see #ambilBank(FormatItemGaji)
 	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "format_item_gaji", nullable = true)
 	public FormatItemGaji getFormatItemGaji() {
 		formatItemGaji = check(formatItemGaji);
@@ -4901,7 +4901,6 @@ public class Pegawai extends Karyawan {
 		this.tanggalkeluarHonorer = tanggalkeluarHonorer;
 	}
 
-	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	/**
 	 * Tipe pegawai — <b>disimpulkan otomatis</b> dari ada tidaknya relasi {@link #getDosen()} /
 	 * {@link #getGuru()}, bukan dibaca dari kolomnya:
@@ -4924,6 +4923,7 @@ public class Pegawai extends Karyawan {
 	 * @see #getDosen()
 	 * @see #getGuru()
 	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tipe_pegawai")
 	public TipePegawai getTipePegawai() {
 		if (getDosen() != null && TipePegawai.DOSEN != null) {
@@ -5902,7 +5902,6 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
-	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	/**
 	 * Atasan berbasis <b>jenis jabatan</b>, bukan orang tertentu — mis. "Kepala Bagian" sebagai
 	 * peran. Berbeda dari {@link #getAtasanlangsung()} yang menunjuk baris {@code Pegawai}
@@ -6199,7 +6198,6 @@ public class Pegawai extends Karyawan {
 		return tbmroles;
 	}
 
-	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	/**
 	 * Data orang tua pegawai (dipakai berkas personalia dan tunjangan keluarga).
 	 *

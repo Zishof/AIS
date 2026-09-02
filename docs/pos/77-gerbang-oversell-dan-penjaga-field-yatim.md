@@ -88,38 +88,75 @@ Yang terakhir terjadi **sehari** setelah pelajarannya ditulis, oleh tangan yang 
 Pada titik itu jelas bahwa mengandalkan kewaspadaan tidak cukup.
 
 `TesFieldTanpaPembaca` menyapu `hasil.put("...")` pada helper API, lalu mencari nama itu di
-**seluruh** sumber kanal klien (semua modul JSP, semua aplikasi Flutter, semua paket).
+**seluruh** sumber kanal klien (semua modul JSP, semua aplikasi Flutter, semua paket) DAN di
+lapisan servlet server — rantainya bisa server → server → klien, lihat bagian 2.2.
 
 ### 2.1 Dua daftar, dan bedanya penting
 
 | Daftar | Isi | Sifat |
 |---|---|---|
 | `DIIZINKAN` | field yang memang WAJAR tidak dibaca per nama — `status`, `description`, `teknis`, dsb., yang ditangani lapisan umum | tetap |
-| `UTANG_BELUM_DITELUSURI` | **37** field yatim yang sudah ada sebelum penjaga ini dipasang | **hanya boleh mengecil** |
+| `UTANG_BELUM_DITELUSURI` | **16** field yatim yang sudah ada sebelum penjaga ini dipasang | **hanya boleh mengecil** |
 
-Namanya sengaja *utang*, bukan "diizinkan". Tujuan penjaga ini bukan membereskan 37 field
-sekaligus — melainkan **mencegah yang ke-38**.
+Namanya sengaja *utang*, bukan "diizinkan". Tujuan penjaga ini bukan membereskan 16 field
+sekaligus — melainkan **mencegah yang ke-17**.
 
 Ada pemeriksaan tersendiri yang menolak nama pada daftar utang yang ternyata **sudah**
 punya pembaca. Jadi begitu satu utang dilunasi, namanya wajib dikeluarkan dan daftarnya
 tidak bisa membusuk diam-diam menjadi daftar yang tidak lagi benar.
 
-### 2.2 Yang paling patut ditelusuri: persetujuan limit member
+### 2.2 Koreksi: temuan pertama penjaga ini ternyata salah
 
-Tiga field berturut-turut tanpa pembaca di kanal mana pun:
+Versi pertama dokumen ini menyebut tiga field persetujuan limit member
+(`memerlukanPersetujuanLimit`, `pengajuanLimitId`, `peringatanPengajuanLimit`) sebagai
+"paling patut ditelusuri", dengan dugaan bahwa server menuntut persetujuan limit dan tidak
+ada layar yang menyampaikannya.
+
+**Dugaan itu keliru.** Penelusurannya menemukan rantai yang utuh:
 
 ```
-memerlukanPersetujuanLimit
-pengajuanLimitId
-peringatanPengajuanLimit
+KantinHelper.bayar        status 92 + memerlukanPersetujuanLimit
+        ↓
+PosApi:3075               membacanya -> kode galat PENGAJUAN_LIMIT_MENUNGGU
+        ↓
+keranjang_screen.dart:1761  menangani kode itu
 ```
 
-Artinya: server memberi tahu bahwa sebuah transaksi **menuntut persetujuan limit member**,
-dan tidak ada satu pun layar yang menyampaikannya kepada kasir. Ini belum ditelusuri lebih
-jauh dan **belum tentu** berarti fiturnya rusak — bisa saja jalurnya lewat kode galat, bukan
-lewat field ini. Tetapi ia pantas jadi antrean pertama.
+lengkap dengan dua uji kontrak tersendiri (`pengajuan_limit_member_kontrak_test.dart`,
+`member_pin_limit_uat_test.dart`). Fiturnya bekerja.
 
----
+Yang salah adalah penjaganya: ia hanya memindai kanal **klien**, padahal rantainya bisa
+**server → server → klien**. Sesudah lapisan servlet ikut dihitung sebagai pembaca, utang
+turun **37 → 16**; 22 dari 37 "yatim" itu positif palsu.
+
+Cakupan pembaca sisi server sengaja dibatasi pada lapisan `ais/action/servlet` saja, bukan
+seluruh pohon `ais/`. Memindai semuanya (105 MB) membuat nama field bertabrakan dengan
+variabel lokal mana pun yang kebetulan bernama sama. Selisihnya kecil dan terukur: seluruh
+pohon menghasilkan 15, lapisan servlet 16 — hanya `totalGrup` yang berbeda.
+
+### 2.3 Apa isi 16 yang tersisa
+
+| Kelompok | Field | Sifat |
+|---|---|---|
+| Peringatan pasca-transaksi | `peringatanPengajuanLimit` | **satu-satunya yang berbentuk sama dengan `peringatanStok` sebelum dok. 76** |
+| Sesi kas | `sesi_kas_tidak_dikenal`, `sesi_kas_direkonsiliasi`, `sesi_kas_sudah_tutup`, `sesi_kas_asal`, `idSesiKas` | penanda diagnostik rekonsiliasi |
+| Id/angka pendamping | `pengajuanLimitId`, `satuanDasarId`, `waktuHargaBeliTerakhir`, `versiStok` | klien memakai jalur lain |
+| Ringkasan proses massal | `draftDiperbarui`, `ringkasanBerjalan`, `siapDisimpan`, `totalGrup`, `totalTerjualBersih`, `statusRincian` | angka hasil batch |
+
+`versiStok` sempat dicurigai penjaga *lost-update* karena namanya. Diperiksa: isinya hanya
+`so.getId()` — id baris stok opname yang juga sudah dikirim sebagai `id`. Nama yang
+menyesatkan, bukan bahaya.
+
+**`peringatanPengajuanLimit` sengaja DIBIARKAN sebagai utang, tidak dipindah ke daftar
+izin.** Ia disetel ketika penandaan "persetujuan limit sudah dipakai" gagal sesudah
+transaksi final — persis bentuk `peringatanStok` sebelum dok. 76. Alasan belum dibayar:
+kejadiannya jarang, isinya sudah tercatat permanen di Error Log server lewat
+`ErrorAuditUtil` berikut jejak tumpukannya, dan yang perlu menindaklanjuti adalah
+administrator/keuangan, bukan kasir di depan layar.
+
+Itu keputusan yang bisa saja salah. Karena itu ia tetap terdaftar sebagai utang yang
+terlihat — memindahkannya ke daftar izin hanya supaya penjaganya hijau adalah persis cara
+sebuah baseline berubah menjadi tempat sampah.
 
 ## 3. Berkas yang berubah
 
@@ -144,10 +181,11 @@ nilai berubah pada default.
 ### 4.2 `TesFieldTanpaPembaca` — 12 dari 12 lulus
 
 ```
-sumber klien terbaca: 37.715.752 karakter
-field yang dikirim server: 274
-Utang lama (dibekukan): 37 field
-Yatim BARU: (tidak ada) -- inilah yang dijaga uji ini
+sumber klien terbaca      : 37.732.318 karakter
+sumber server (pembaca)   :  7.374.106 karakter
+field yang dikirim server : 274
+Utang lama (dibekukan)    : 16 field
+Yatim BARU                : (tidak ada) -- inilah yang dijaga uji ini
 ```
 
 **Penjaganya dibuktikan menyala dengan kontrol negatif sungguhan**, bukan sekadar nama
@@ -183,7 +221,8 @@ membuat field itu sampai ke mata pengguna mana pun.
   aturannya sebagai fungsi murni; pembacaan konfigurasinya sendiri belum dijalankan
   (kredensial UAT masih ditolak, lihat [73](73-stok-minus-tiga-nilai-dan-pemulihan-member.md)
   bagian 4.2).
-- **37 utang field yatim** belum ditelusuri satu pun.
+- **16 utang field yatim** belum ditelusuri satu per satu; yang sudah diperiksa hanya
+  `peringatanPengajuanLimit` dan `versiStok` (bagian 2.3).
 
 ---
 

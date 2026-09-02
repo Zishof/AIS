@@ -528,6 +528,79 @@ Yang dibuktikan tiap blok, bukan sekadar "angkanya cocok":
   Tanda negatifnya bertahan di kedua model; pemetaan yang membalik tanda akan tertangkap di
   sini.
 
+## Helper kelima: Master Supplier / Customer / Sales
+
+`SalesInventoryMasterHelper` — **sebelas aksi, seluruhnya dipindahkan.**
+
+### Pemetaan tingkat KOLOM, bukan tingkat tabel
+
+Empat helper sebelumnya sebagian besar berganti nama tabel. Di sini yang berpindah adalah
+**letak medannya**:
+
+| Legacy | Tenant |
+|---|---|
+| `library.penyedia` + `supplier_inventory_profile` | `supplier` + `supplier_profile` + `supplier_bank_account` |
+| `anggota_koperasi` + `customer_inventory_profile` | `customer` + `customer_profile` |
+| `sales_inventory` | `salesperson` + `sales_assignment` (berjangka waktu) |
+| `a.limit_kredit` | `customer_profile.plafon_piutang` |
+| `termin_hari` | `syarat_bayar_hari` |
+| `cp.sales_owner` | `customer.salesperson_id` |
+| `s.nomor_perkiraan` | `salesperson.akun_perkiraan` |
+| `s.area` | `sales_assignment.wilayah` |
+
+Rekening bank pemasok yang dulu tiga kolom pada profil kini menjadi tabel tersendiri yang
+boleh berisi lebih dari satu rekening; yang bertanda `utama` yang diambil.
+
+### Kesalahan yang tertangkap saat mencocokkan urutan kolom
+
+Rancangan pertama `selectSupplier` menaruh `akun_utang` di kolom **ke-9**, padahal jalur
+legacy menaruhnya di **ke-17**. Kalau lolos, nomor rekening akan muncul di kolom nama.
+Compiler tidak akan mengeluh sedikit pun — keduanya sama-sama teks.
+
+`selectSales` juga sempat 11 kolom padahal legacy 13; `target_bulanan` dan `limit_penagihan`
+terlewat. Keduanya dikembalikan `NULL`, **bukan nol**: nol berarti "targetnya nol" dan akan
+membuat laporan pencapaian melaporkan 100% terhadap target kosong.
+
+### Uji kesetaraan: `uji-kesetaraan-master.sql`
+
+| Blok | Hasil |
+|---|---|
+| Daftar supplier (identitas + profil + bank) | **SETARA** |
+| Daftar customer (identitas + profil + pemilik sales) | **SETARA** |
+| Daftar sales (identitas + penugasan + jumlah customer) | **SETARA** |
+| Saldo hutang 500.000 dan piutang 550.000 | **SETARA** |
+
+Blok 3 membuktikan penugasan berjangka waktu terbaca benar: toko dan wilayah yang dulu kolom
+pada sales kini ditarik dari `sales_assignment` aktif terbaru lewat `LEFT JOIN LATERAL`, dan
+hasilnya sama.
+
+Blok 4 memakai rumus yang **sama persis** dengan `SalesInventoryPayableTenant` dan sisi
+piutangnya — dihitung dari alokasi, bukan dibaca dari kolom ringkasan. Dua layar yang
+menghitung hutang dengan cara berbeda adalah cara pasti melahirkan dua angka.
+
+### Yang sengaja dibiarkan kosong
+
+**`wilayah` pemasok dan pelanggan tidak dipetakan ke `kota`.** Keduanya berdekatan tetapi
+berbeda: wilayah adalah pembagian penjualan, kota adalah bagian alamat. Memetakannya membuat
+saringan "wilayah = Jawa Barat" mencari **kota** bernama demikian dan mengembalikan nol baris
+— saringan yang tampak bekerja padahal tidak pernah cocok. Lebih baik kosong dan terlihat
+kosong.
+
+Wilayah **sales** berbeda: model tenant memang menyimpannya, dan yang itu dipetakan sungguhan
+(terbukti SETARA di blok 3).
+
+Yang lain tanpa padanan: `akun_utang` dan `keterangan` pemasok, rekening bank pelanggan,
+`alamat` dan `target_bulanan` sales.
+
+### Alasan nonaktif: kebutuhan pertama bagi `TenantAuditWriter`
+
+Jalur legacy mewajibkan alasan nonaktif **"untuk audit"** dan menaruhnya pada profil. Model
+tenant tidak menyediakan kolom untuk itu. Alasannya tetap **diwajibkan dan divalidasi** agar
+perilaku antarmuka tidak berubah, tetapi setelah itu tidak ke mana-mana.
+
+Inilah kebutuhan konkret pertama bagi `TenantAuditWriter`, yang sudah berdiri sejak P4 awal
+tanpa satu pun pemanggil. Menyambungkannya di sini akan memberi alasan itu tempat yang benar.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
