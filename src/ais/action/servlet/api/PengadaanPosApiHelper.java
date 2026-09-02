@@ -7202,6 +7202,29 @@ public final class PengadaanPosApiHelper {
 			return;
 		}
 		Long tokoId = tokoLingkup(tbmuser, request);
+		// Serialkan sinkron per-BAST supaya stok tidak DIGANDAKAN saat dua permintaan
+		// berjalan bersamaan untuk BAST yang sama (mis. sinkron otomatis saat SETUJUI
+		// beririsan dengan tombol Sinkron manual, atau retry offline). Penjaga
+		// getPengadaanFaktur() di bawah hanya menangkap pengulangan BERURUTAN: cek dan
+		// tandainya berada di transaksi berbeda dengan pemanggilan Kulakan di antaranya
+		// tanpa kunci, sehingga dua pemanggil bisa sama-sama lolos dan menambah stok dua
+		// kali. Advisory lock (idiom yang sama dgn OnlineBmt) menserialkannya tanpa kolom
+		// baru; yang kalah ditolak dan boleh mencoba ulang setelah yang menang selesai.
+		Session kunci = HibernateUtil.getSessionFactory().openSession();
+		boolean terkunci = false;
+		try {
+			java.sql.PreparedStatement lk = kunci.connection()
+					.prepareStatement("SELECT pg_try_advisory_lock(hashtext(?))");
+			try {
+				lk.setString(1, "bast-sinkron:" + id);
+				java.sql.ResultSet lrs = lk.executeQuery();
+				try { terkunci = lrs.next() && lrs.getBoolean(1); } finally { lrs.close(); }
+			} finally { lk.close(); }
+			if (!terkunci) {
+				tolak(hasil, "Penerimaan Barang ini sedang disinkronkan oleh proses lain. "
+						+ "Coba lagi sebentar.");
+				return;
+			}
 		JSONObject payload = new JSONObject();
 		JSONArray items = new JSONArray();
 		String nomorFaktur;
@@ -7348,6 +7371,19 @@ public final class PengadaanPosApiHelper {
 			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(tandai);
+		}
+		} finally {
+			try {
+				if (terkunci) {
+					java.sql.PreparedStatement ul = kunci.connection()
+							.prepareStatement("SELECT pg_advisory_unlock(hashtext(?))");
+					try { ul.setString(1, "bast-sinkron:" + id); ul.execute(); } finally { ul.close(); }
+				}
+			} catch (Exception eUnlock) {
+				ais.common.ErrorAuditUtil.record(eUnlock,
+						"PengadaanPosApiHelper.bastSinkronKulakan unlock");
+			}
+			HibernateUtil.closeSessionQuietly(kunci);
 		}
 	}
 
