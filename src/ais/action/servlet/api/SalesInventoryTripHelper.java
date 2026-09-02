@@ -299,19 +299,36 @@ public final class SalesInventoryTripHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryTripTenant.aktif(ctx);
+			String skemaTenant = jalurTenant ? SalesInventoryTripTenant.skema(ctx) : null;
 			StringBuilder where = new StringBuilder(" WHERE 1=1");
 			if (!status.isEmpty()) where.append(" AND j.status = ?");
-			if (salesId != null) where.append(" AND j.sales = ?");
-			if (ctx.tokoId != null && !ctx.admin) where.append(" AND j.toko = ?");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT j.id, j.nomor, j.status, j.tanggal_berangkat_rencana, j.rute, j.kendaraan,"
-							+ " j.uang_muka_operasional, s.id, s.nama,"
-							+ " (SELECT COUNT(*) FROM koperasi.spj_sales_barang b WHERE b.spj = j.id),"
-							+ " (SELECT COUNT(*) FROM koperasi.spj_sales_nota n WHERE n.spj = j.id),"
-							+ " (SELECT ns.id FROM koperasi.nota_sales_session ns WHERE ns.spj = j.id LIMIT 1)"
-							+ " FROM koperasi.surat_perintah_sales_jalan j"
-							+ " JOIN koperasi.sales_inventory s ON j.sales = s.id" + where
-							+ " ORDER BY j.id DESC LIMIT 100");
+			if (salesId != null) {
+				where.append(jalurTenant
+						? " AND " + SalesInventoryTripTenant.kolomSalesSpj() + " = ?"
+						: " AND j.sales = ?");
+			}
+			if (ctx.tokoId != null && !ctx.admin) {
+				// Tabel Trip tenant berlingkup gudang; toko ditegakkan lewat gudang.toko_id.
+				where.append(jalurTenant
+						? SalesInventoryTripTenant.syaratToko(skemaTenant, "j.gudang_id")
+						: " AND j.toko = ?");
+			}
+			String sqlSpj;
+			if (jalurTenant) {
+				sqlSpj = SalesInventoryTripTenant.selectSpj(skemaTenant)
+						+ SalesInventoryTripTenant.dasarSpj(skemaTenant, where.toString());
+			} else {
+				sqlSpj = "SELECT j.id, j.nomor, j.status, j.tanggal_berangkat_rencana, j.rute, j.kendaraan,"
+						+ " j.uang_muka_operasional, s.id, s.nama,"
+						+ " (SELECT COUNT(*) FROM koperasi.spj_sales_barang b WHERE b.spj = j.id),"
+						+ " (SELECT COUNT(*) FROM koperasi.spj_sales_nota n WHERE n.spj = j.id),"
+						+ " (SELECT ns.id FROM koperasi.nota_sales_session ns WHERE ns.spj = j.id LIMIT 1)"
+						+ " FROM koperasi.surat_perintah_sales_jalan j"
+						+ " JOIN koperasi.sales_inventory s ON j.sales = s.id" + where
+						+ " ORDER BY j.id DESC LIMIT 100";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlSpj);
 			int ix = 1;
 			if (!status.isEmpty()) ps.setString(ix++, status);
 			if (salesId != null) ps.setLong(ix++, salesId.longValue());
@@ -731,17 +748,33 @@ public final class SalesInventoryTripHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			StringBuilder where = new StringBuilder(" WHERE 1=1");
+			boolean jalurTenant = SalesInventoryTripTenant.aktif(ctx);
+			String skemaTenant = jalurTenant ? SalesInventoryTripTenant.skema(ctx) : null;
 			if (!status.isEmpty()) where.append(" AND ns.status = ?");
-			if (salesId != null) where.append(" AND j.sales = ?");
-			if (ctx.tokoId != null && !ctx.admin) where.append(" AND j.toko = ?");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT ns.id, ns.nomor, ns.status, ns.waktu_mulai, ns.waktu_kembali,"
-							+ " j.id, j.nomor, s.nama,"
-							+ " COALESCE((SELECT SUM(k.nominal) FROM koperasi.nota_sales_kas k WHERE k.sesi = ns.id),0)"
-							+ " FROM koperasi.nota_sales_session ns"
-							+ " JOIN koperasi.surat_perintah_sales_jalan j ON ns.spj = j.id"
-							+ " JOIN koperasi.sales_inventory s ON j.sales = s.id" + where
-							+ " ORDER BY ns.id DESC LIMIT 100");
+			if (salesId != null) {
+				where.append(jalurTenant
+						? " AND " + SalesInventoryTripTenant.kolomSalesTrip() + " = ?"
+						: " AND j.sales = ?");
+			}
+			if (ctx.tokoId != null && !ctx.admin) {
+				where.append(jalurTenant
+						? SalesInventoryTripTenant.syaratToko(skemaTenant, "ns.gudang_id")
+						: " AND j.toko = ?");
+			}
+			String sqlTrip;
+			if (jalurTenant) {
+				sqlTrip = SalesInventoryTripTenant.selectTrip(skemaTenant)
+						+ SalesInventoryTripTenant.dasarTrip(skemaTenant, where.toString());
+			} else {
+				sqlTrip = "SELECT ns.id, ns.nomor, ns.status, ns.waktu_mulai, ns.waktu_kembali,"
+						+ " j.id, j.nomor, s.nama,"
+						+ " COALESCE((SELECT SUM(k.nominal) FROM koperasi.nota_sales_kas k WHERE k.sesi = ns.id),0)"
+						+ " FROM koperasi.nota_sales_session ns"
+						+ " JOIN koperasi.surat_perintah_sales_jalan j ON ns.spj = j.id"
+						+ " JOIN koperasi.sales_inventory s ON j.sales = s.id" + where
+						+ " ORDER BY ns.id DESC LIMIT 100";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlTrip);
 			int ix = 1;
 			if (!status.isEmpty()) ps.setString(ix++, status);
 			if (salesId != null) ps.setLong(ix++, salesId.longValue());

@@ -601,6 +601,81 @@ perilaku antarmuka tidak berubah, tetapi setelah itu tidak ke mana-mana.
 Inilah kebutuhan konkret pertama bagi `TenantAuditWriter`, yang sudah berdiri sejak P4 awal
 tanpa satu pun pemanggil. Menyambungkannya di sini akan memberi alasan itu tempat yang benar.
 
+## Helper keenam: Sales Lapangan / Trip — SEBAGIAN, dan itu disengaja
+
+`SalesInventoryTripHelper` — **dua dari sembilan belas aksi** dipindahkan. Tujuh belas
+sisanya **ditolak** pada jalur tenant. Ini keputusan sadar, bukan pekerjaan yang tertinggal.
+
+### Mengapa Trip berbeda
+
+| Helper | Baris | Operasi entitas |
+|---|---|---|
+| Stok | 330 | 0 |
+| Harga | 700 | 11 |
+| Payable | 933 | 8 |
+| Finance | 791 | 5 |
+| Master | 1519 | 26 |
+| **Trip** | **1517** | **65** |
+
+Enam aksinya menyentuh **uang**: penjualan tunai, setoran, biaya, retur, rekonsiliasi, dan
+penutupan trip. Menulis enam puluh lima operasi SQL asli sekaligus, tanpa uji kesetaraan per
+bagian, berarti menaruh kesalahan hitung uang di tempat yang paling mahal untuk ditemukan.
+
+### Model tenant di sini DIRANCANG ULANG, bukan dinamai ulang
+
+Berbeda dengan lima helper sebelumnya yang sebagian besar berganti nama tabel:
+
+- `sales_trip_nota` — nota per trip, **dengan pisah tunai/kredit** yang legacy tidak punya
+- `sales_trip_hasil` — hasil barang per produk: terjual, kembali, rusak, selisih
+- `sales_trip_rekonsiliasi` — rekonsiliasi lengkap: nilai barang bawa/kembali, penjualan,
+  biaya, setoran, dan selisihnya
+
+Model yang lebih baik, tetapi memetakannya menuntut keputusan **per aksi**.
+
+### Lingkup toko vs gudang — sempat tampak penghalang, ternyata bukan
+
+Seluruh tabel Trip tenant berlingkup `gudang_id`; jalur legacy menyaring dengan `toko`
+(lima rujukan `ctx.tokoId`). Sempat terlihat sebagai penghalang struktural.
+
+Ternyata bukan: **`gudang` memuat `toko_id`**, sehingga saringan toko tetap dapat ditegakkan
+lewat `EXISTS`. Itu wajib ditegakkan, bukan dilewati — saringan lingkup yang hilang berarti
+sales satu toko melihat perjalanan toko lain.
+
+### Yang belum punya padanan
+
+**`penerimaan_piutang` tenant tidak punya kaitan ke trip**, sedangkan legacy menautkannya
+lewat `p.sesi`. Akibatnya `tripDetail` — yang menjumlahkan penerimaan piutang selama satu
+trip — tidak dapat dipetakan langsung; jalurnya harus lewat
+`sales_trip_nota` → `faktur_penjualan` → `piutang_customer` → alokasinya. Keputusan
+tersendiri, bukan efek samping.
+
+`rute` SPJ juga tidak ada, dan `wilayah` bukan padanannya: rute adalah urutan kunjungan,
+wilayah adalah pembagian penjualan.
+
+### Kesalahan yang tertangkap lagi oleh pencocokan kolom
+
+`selectSpj` rancangan pertama punya **9 kolom, legacy 12** — `uang_muka_operasional`,
+`s.id`, dan `s.nama` terlewat. Kalau lolos, nama sales muncul di kolom kendaraan.
+`selectTrip` juga 7 versus 9. Compiler tidak akan mengeluh sedikit pun.
+
+Ini kesalahan yang sama bentuknya dengan yang terjadi di Master (`akun_utang` di kolom ke-9
+padahal ke-17). **Pencocokan jumlah dan urutan kolom terhadap jalur legacy perlu menjadi
+langkah tetap**, bukan pemeriksaan sesekali.
+
+### Yang ditolak, dan mengapa itu benar
+
+Tujuh belas aksi menolak jalur tenant dengan pesan jelas. Alternatifnya — membiarkan jalur
+legacy berjalan — berarti membaca dan, pada aksi bermuatan uang, **menulis** ke schema
+bersama. Layar yang tidak tersedia jauh lebih baik daripada setoran satu tenant mendarat di
+pembukuan tenant lain.
+
+### BELUM: uji kesetaraan
+
+Kedua aksi yang dipindahkan sudah diuji **kesahihan SQL-nya** pada schema tenant sungguhan,
+tetapi **belum ada uji kesetaraan angka**. Untuk dua aksi daftar risikonya kecil; untuk
+tujuh belas sisanya, uji kesetaraan wajib ditulis **bersamaan** dengan pemindahannya —
+bukan sesudahnya.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
