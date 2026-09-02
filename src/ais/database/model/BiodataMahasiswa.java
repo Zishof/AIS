@@ -1950,6 +1950,29 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		this.kelurahan = kelurahan;
 	}
 
+	/**
+	 * Kecamatan tempat tinggal menurut pohon wilayah PDDikti/Feeder (kolom
+	 * {@code kecamatan_wilayah}).
+	 *
+	 * <p>{@link Wilayah} adalah tabel berjenjang: propinsi &rarr; kabupaten/kota &rarr; kecamatan,
+	 * dihubungkan lewat {@code wilayahInduk}, dan tiap simpul punya kode {@code feeder}. Kolom di
+	 * sini menunjuk simpul tingkat kecamatan, sehingga kabupaten dan propinsi dapat ditelusuri ke
+	 * atas — itulah yang dimanfaatkan {@link #getKota()} dan {@link #getPropinsi()}.</p>
+	 *
+	 * <p><b>Perbaikan otomatis data cacat.</b> Bila simpul yang tersimpan ternyata TIDAK punya induk
+	 * (anomali data: baris wilayah yatim) tetapi punya kode {@code feeder}, method ini memuat SELURUH
+	 * daftar {@link Wilayah} dari cache {@code ConstantValues.ambilBerdasarClass(...)} lalu mencari
+	 * simpul lain dengan kode {@code feeder} sama yang punya induk, dan mengganti referensi ke simpul
+	 * itu. Dengan kata lain baris duplikat yang "sehat" dipakai menggantikan yang rusak.</p>
+	 *
+	 * <p><b>Efek samping &amp; biaya:</b> field {@code kecamatan} ditulis ulang sehingga penggantian
+	 * referensi bisa ikut tersimpan pada flush berikutnya; pemindaian menelusuri seluruh isi cache
+	 * wilayah (puluhan ribu baris) setiap kali kondisi anomali terpenuhi. Selain itu getter ini
+	 * dipanggil di awal {@link #getKota()} dan {@link #getPropinsi()}, jadi biayanya menular ke
+	 * keduanya.</p>
+	 *
+	 * @return simpul wilayah tingkat kecamatan, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kecamatan_wilayah", nullable = true)
 	public Wilayah getKecamatan() {
@@ -1975,10 +1998,52 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return kecamatan;
 	}
 
+	/**
+	 * Menyetel kecamatan tempat tinggal.
+	 *
+	 * @param kecamatan simpul {@link Wilayah} tingkat kecamatan
+	 */
 	public void setKecamatan(Wilayah kecamatan) {
 		this.kecamatan = kecamatan;
 	}
 
+	/**
+	 * Mencari {@link Propinsi} yang namanya paling mirip dengan {@code namaProp}, dan
+	 * <b>membuatkan baris baru bila tidak ada yang cukup mirip</b>.
+	 *
+	 * <p>Helper bersama untuk {@link #getPropinsi()} dan {@link #getKota()} — keduanya perlu
+	 * menerjemahkan nama propinsi versi pohon {@link Wilayah} (Feeder) menjadi baris {@link Propinsi}
+	 * versi AIS, dan nama di kedua sumber sering berbeda tipis (imbuhan {@code "Prop."}, beda ejaan,
+	 * beda kapitalisasi).</p>
+	 *
+	 * <p>Alurnya:</p>
+	 * <ol>
+	 * <li>Nama masukan dibersihkan: imbuhan {@code "Prop."} dibuang, di-{@code trim}, dijadikan huruf
+	 * kecil.</li>
+	 * <li>Seluruh {@link Propinsi} yang namanya tidak {@code null} dan tidak kosong diambil lewat
+	 * {@code Criteria}, lalu dibandingkan satu per satu memakai jarak Levenshtein
+	 * ({@code commons-lang3}). Komentar di badan method mencatat bahwa pencarian linear ini sengaja
+	 * menggantikan {@code TreeMap} demi menghemat memori.</li>
+	 * <li>Kandidat dengan jarak terkecil dipakai bila jaraknya &lt; 2 (toleransi maksimal satu
+	 * karakter berbeda).</li>
+	 * <li>Bila tidak ada yang lolos, {@link Propinsi} BARU dibuat dengan nama masukan apa adanya dan
+	 * negara {@code ConstantValues.INDONESIA}, lalu di-{@code save} ke basis data. Bila transaksi
+	 * sesi sedang tidak aktif, method membuka transaksi sendiri dan meng-{@code commit}-nya.</li>
+	 * </ol>
+	 *
+	 * <p><b>Peringatan.</b> Ini adalah operasi TULIS yang dipicu dari dalam getter. Menampilkan
+	 * biodata seorang mahasiswa yang alamatnya tidak dikenali dapat menambah baris master
+	 * {@link Propinsi} baru — termasuk kemungkinan propinsi "hantu" hasil salah ketik. Jangan
+	 * memanggil rantai {@link #getPropinsi()}/{@link #getKota()} dalam proses batch tanpa menyadari
+	 * hal ini. Ambang jarak 2 juga cukup ketat sehingga selisih dua huruf saja sudah memicu
+	 * pembuatan baris baru.</p>
+	 *
+	 * @param session sesi Hibernate yang dipakai untuk query dan penyimpanan; disediakan pemanggil
+	 *         dan TIDAK ditutup di sini (penutupan dilakukan pemanggil pada blok {@code finally})
+	 * @param namaProp nama propinsi versi pohon {@link Wilayah}; boleh {@code null}/kosong
+	 * @return propinsi yang cocok atau yang baru dibuat; {@code null} hanya bila {@code namaProp}
+	 *         {@code null} atau kosong
+	 */
 	// Helper Method untuk menghilangkan duplikasi di getPropinsi dan getKota
 	@SuppressWarnings({ "deprecation" })
 	private Propinsi findOrCreatePropinsi(Session session, String namaProp) {
@@ -2035,6 +2100,33 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return selectedPropinsi;
 	}
 
+	/**
+	 * Propinsi tempat tinggal (kolom {@code propinsi}), dengan penurunan otomatis dari kota atau dari
+	 * pohon {@link Wilayah}.
+	 *
+	 * <p>Urutan penentuan nilai:</p>
+	 * <ol>
+	 * <li>Nilai tersimpan dilewatkan {@code check(...)}, lalu {@link #getKecamatan()} dan
+	 * {@link #getKota()} dipanggil (keduanya sendiri bisa melakukan query dan penulisan).</li>
+	 * <li>Bila {@link #getKota()} menghasilkan kota yang punya propinsi, propinsi kota itu MENIMPA
+	 * nilai di sini — konsistensi kota&ndash;propinsi diutamakan.</li>
+	 * <li>Bila propinsi masih kosong tetapi kecamatan punya induk, hierarki ditelusuri dua tingkat ke
+	 * atas (kecamatan &rarr; kabupaten &rarr; propinsi) dan namanya diterjemahkan lewat
+	 * {@link #findOrCreatePropinsi(Session, String)} — yang dapat MENYIMPAN baris propinsi baru.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping berat.</b> Method ini membuka sesi Hibernate native sendiri
+	 * ({@code HibernateUtil.currentNativeSession()}) dan pada blok {@code finally} memanggil
+	 * {@code session.disconnect()}, {@code session.close()}, dan {@code HibernateUtil.closeSession()}.
+	 * Bila getter terpanggil di tengah unit of work milik pemanggil (termasuk saat Hibernate melakukan
+	 * {@code dirty check} sebelum flush), sesi itu ikut tertutup. Kegagalan di jalur utama dilaporkan
+	 * lewat {@code Common.tampilErrorJikaAdmin}; kegagalan penutupan sesi ditelan dan dicatat
+	 * {@code ErrorAuditUtil}. Perhatikan pula bahwa {@code session} bisa masih {@code null} saat blok
+	 * {@code finally} berjalan (bila pembukaan sesi gagal) — {@code NullPointerException} yang
+	 * timbul ikut tertelan di sana.</p>
+	 *
+	 * @return propinsi tempat tinggal, atau {@code null} bila tidak dapat ditentukan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "propinsi", nullable = true)
 	public Propinsi getPropinsi() {
@@ -2070,10 +2162,43 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return propinsi;
 	}
 
+	/**
+	 * Menyetel propinsi tempat tinggal.
+	 *
+	 * <p>Nilai dapat ditimpa kembali oleh {@link #getPropinsi()} bila kota yang tersimpan menunjuk
+	 * propinsi lain.</p>
+	 *
+	 * @param propinsi acuan {@link Propinsi}
+	 */
 	public void setPropinsi(Propinsi propinsi) {
 		this.propinsi = propinsi;
 	}
 
+	/**
+	 * Kota/kabupaten tempat tinggal (kolom {@code kota}), dengan penurunan otomatis dari pohon
+	 * {@link Wilayah} memakai pencocokan nama.
+	 *
+	 * <p>Bila kolom masih kosong sementara {@link #getKecamatan()} menghasilkan simpul yang punya
+	 * induk, method menelusuri kecamatan &rarr; kabupaten &rarr; propinsi lalu:</p>
+	 * <ol>
+	 * <li>menerjemahkan nama propinsi lewat {@link #findOrCreatePropinsi(Session, String)} — dan
+	 * menyimpan hasilnya juga ke field {@code propinsi} (efek samping lintas properti yang disengaja,
+	 * lihat komentar di badan method);</li>
+	 * <li>mengambil seluruh {@link Kota} milik propinsi tersebut;</li>
+	 * <li>membandingkan nama kabupaten versi Feeder dengan nama tiap kota memakai jarak Levenshtein
+	 * setelah kata {@code "Kab."} dan {@code "Kota"} dibuang dari kedua sisi;</li>
+	 * <li>memakai kandidat terdekat hanya bila jaraknya &lt; 2.</li>
+	 * </ol>
+	 *
+	 * <p>Berbeda dengan propinsi, kota TIDAK pernah dibuatkan baris baru — bila tidak ada yang cukup
+	 * mirip, nilainya tetap {@code null}.</p>
+	 *
+	 * <p><b>Efek samping berat:</b> sama seperti {@link #getPropinsi()} — membuka sesi Hibernate
+	 * native sendiri dan menutupnya (beserta {@code HibernateUtil.closeSession()}) pada blok
+	 * {@code finally}, serta berpotensi menyimpan baris {@link Propinsi} baru lewat helper.</p>
+	 *
+	 * @return kota/kabupaten tempat tinggal, atau {@code null} bila tidak dapat ditentukan
+	 */
 	@SuppressWarnings({ "deprecation" })
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kota", nullable = true)
@@ -2147,10 +2272,33 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return kota;
 	}
 
+	/**
+	 * Menyetel kota/kabupaten tempat tinggal.
+	 *
+	 * @param kota acuan {@link Kota}
+	 */
 	public void setKota(Kota kota) {
 		this.kota = kota;
 	}
 
+	/**
+	 * Nomor identitas kependudukan (NIK/KTP) mahasiswa, sudah dinormalisasi dan disinkronkan.
+	 *
+	 * <p>Karakter selain digit dan titik dibuang bila isinya bukan angka murni, lalu tanda hubung
+	 * dihilangkan. Bila hasilnya kosong, method mencoba mengambil NIK dari formulir pendaftaran
+	 * {@link BiodataCalonMahasiswa} melalui {@code mahasiswa.getBiodataCalonMahasiswa()} dan
+	 * {@code ConstantValues.ambil(...)}.</p>
+	 *
+	 * <p><b>Kuirk:</b> syarat pengambilan dari PMB di dalam blok tersebut juga menerima nilai yang
+	 * mengandung {@code "0000"}, padahal blok itu hanya bisa tercapai ketika nilai sudah kosong —
+	 * sisa penyederhanaan kondisi versi lama yang kini tidak berpengaruh apa-apa. Kegagalan pembacaan
+	 * data PMB ditelan dan dicatat lewat {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code noIdentitas} dan {@code mahasiswa} ditulis ulang.</p>
+	 *
+	 * @return NIK hasil normalisasi yang sudah di-{@code trim}; string kosong bila tidak ada, tidak
+	 *         pernah {@code null}
+	 */
 	public String getNoIdentitas() {
 		if (noIdentitas != null && !Common.isNumber(noIdentitas)) {
 			noIdentitas = noIdentitas.replaceAll("[^\\d.]", "");
@@ -2179,10 +2327,23 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return noIdentitas == null ? "" : noIdentitas.trim();
 	}
 
+	/**
+	 * Menyetel nomor identitas kependudukan apa adanya (normalisasi terjadi saat dibaca).
+	 *
+	 * @param noIdentitas NIK/nomor KTP
+	 */
 	public void setNoIdentitas(String noIdentitas) {
 		this.noIdentitas = noIdentitas;
 	}
 
+	/**
+	 * Nama dusun/dukuh pada alamat tempat tinggal.
+	 *
+	 * <p><b>Efek samping ringan:</b> nilai {@code null} diganti string kosong dan ditulis ke
+	 * field.</p>
+	 *
+	 * @return nama dusun; string kosong bila belum diisi, tidak pernah {@code null}
+	 */
 	public String getDusun() {
 		if (dusun == null) {
 			dusun = "";
@@ -2190,10 +2351,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return dusun;
 	}
 
+	/**
+	 * Menyetel nama dusun/dukuh.
+	 *
+	 * @param dusun nama dusun
+	 */
 	public void setDusun(String dusun) {
 		this.dusun = dusun;
 	}
 
+	/**
+	 * Rentang pendapatan ayah menurut daftar acuan {@link PendapatanOrangTua} (kolom
+	 * {@code pendapatan_ortu}).
+	 *
+	 * <p>Relasi inilah sumber nilai turunan {@link #getPenghasilanAyah()} (teks siap tampil) dan
+	 * {@link #getPenghasilanOrangTua()} (angka batas atas rentang). Nilainya dilewatkan
+	 * {@code check(...)} milik {@link GeneralValueObject}.</p>
+	 *
+	 * @return rentang pendapatan ayah, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendapatan_ortu", nullable = true)
 	public PendapatanOrangTua getPendapatanOrtu() {
@@ -2201,10 +2377,21 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return pendapatanOrtu;
 	}
 
+	/**
+	 * Menyetel rentang pendapatan ayah.
+	 *
+	 * @param pendapatanOrtu acuan {@link PendapatanOrangTua}
+	 */
 	public void setPendapatanOrtu(PendapatanOrangTua pendapatanOrtu) {
 		this.pendapatanOrtu = pendapatanOrtu;
 	}
 
+	/**
+	 * Rentang pendapatan ibu menurut daftar acuan {@link PendapatanOrangTua} (kolom
+	 * {@code pendapatan_ortu_ibu}); sumber nilai turunan {@link #getPenghasilanIbu()}.
+	 *
+	 * @return rentang pendapatan ibu, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendapatan_ortu_ibu", nullable = true)
 	public PendapatanOrangTua getPendapatanOrtuIbu() {
@@ -2212,10 +2399,21 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return pendapatanOrtuIbu;
 	}
 
+	/**
+	 * Menyetel rentang pendapatan ibu.
+	 *
+	 * @param pendapatanOrtuIbu acuan {@link PendapatanOrangTua}
+	 */
 	public void setPendapatanOrtuIbu(PendapatanOrangTua pendapatanOrtuIbu) {
 		this.pendapatanOrtuIbu = pendapatanOrtuIbu;
 	}
 
+	/**
+	 * Jenis sekolah asal mahasiswa baru menurut daftar acuan {@link JenisSekolahMahasiswaBaru}
+	 * (kolom {@code jenis_sekolah}), mis. SMA negeri/swasta, MA, atau SMK.
+	 *
+	 * @return jenis sekolah asal, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_sekolah", nullable = true)
 	public JenisSekolahMahasiswaBaru getJenisSekolah() {
@@ -2223,10 +2421,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenisSekolah;
 	}
 
+	/**
+	 * Menyetel jenis sekolah asal.
+	 *
+	 * @param jenisSekolah acuan {@link JenisSekolahMahasiswaBaru}
+	 */
 	public void setJenisSekolah(JenisSekolahMahasiswaBaru jenisSekolah) {
 		this.jenisSekolah = jenisSekolah;
 	}
 
+	/**
+	 * Tingkat pendidikan ayah menurut daftar acuan {@link PendidikanOrangTua} (kolom
+	 * {@code pendidikan_ayah}).
+	 *
+	 * <p>Hidup berdampingan dengan {@link #getJenjangPendidikanAyah()} yang memakai daftar acuan
+	 * {@link Jenjang} — dua kolom untuk konsep serupa, masing-masing melayani format pelaporan yang
+	 * berbeda.</p>
+	 *
+	 * @return tingkat pendidikan ayah, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendidikan_ayah", nullable = true)
 	public PendidikanOrangTua getPendidikanAyah() {
@@ -2234,10 +2447,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return pendidikanAyah;
 	}
 
+	/**
+	 * Menyetel tingkat pendidikan ayah.
+	 *
+	 * @param pendidikanAyah acuan {@link PendidikanOrangTua}
+	 */
 	public void setPendidikanAyah(PendidikanOrangTua pendidikanAyah) {
 		this.pendidikanAyah = pendidikanAyah;
 	}
 
+	/**
+	 * Tingkat pendidikan ibu menurut daftar acuan {@link PendidikanOrangTua} (kolom
+	 * {@code pendidikan_ibu}).
+	 *
+	 * @return tingkat pendidikan ibu, atau {@code null} bila belum dipilih
+	 * @see #getJenjangPendidikanIbu()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendidikan_ibu", nullable = true)
 	public PendidikanOrangTua getPendidikanIbu() {
@@ -2245,36 +2470,79 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return pendidikanIbu;
 	}
 
+	/**
+	 * Menyetel tingkat pendidikan ibu.
+	 *
+	 * @param pendidikanIbu acuan {@link PendidikanOrangTua}
+	 */
 	public void setPendidikanIbu(PendidikanOrangTua pendidikanIbu) {
 		this.pendidikanIbu = pendidikanIbu;
 	}
 
+	/**
+	 * Tanggal lahir ayah, disimpan sebagai {@code DATE} (tanpa komponen jam).
+	 *
+	 * @return tanggal lahir ayah, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalLahirAyah() {
 		return tanggalLahirAyah;
 	}
 
+	/**
+	 * Menyetel tanggal lahir ayah.
+	 *
+	 * @param tanggalLahirAyah tanggal lahir
+	 */
 	public void setTanggalLahirAyah(Date tanggalLahirAyah) {
 		this.tanggalLahirAyah = tanggalLahirAyah;
 	}
 
+	/**
+	 * Nama wali mahasiswa — pihak yang bertanggung jawab bila mahasiswa tidak tinggal bersama orang
+	 * tua kandung, atau bila orang tua sudah tiada.
+	 *
+	 * @return nama wali, atau {@code null} bila tidak ada
+	 */
 	public String getNamaWali() {
 		return namaWali;
 	}
 
+	/**
+	 * Menyetel nama wali.
+	 *
+	 * @param namaWali nama wali
+	 */
 	public void setNamaWali(String namaWali) {
 		this.namaWali = namaWali;
 	}
 
+	/**
+	 * Tanggal lahir wali, disimpan sebagai {@code DATE}.
+	 *
+	 * @return tanggal lahir wali, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalLahirWali() {
 		return tanggalLahirWali;
 	}
 
+	/**
+	 * Menyetel tanggal lahir wali.
+	 *
+	 * @param tanggalLahirWali tanggal lahir
+	 */
 	public void setTanggalLahirWali(Date tanggalLahirWali) {
 		this.tanggalLahirWali = tanggalLahirWali;
 	}
 
+	/**
+	 * Kategori pekerjaan wali menurut daftar acuan {@link PekerjaanOrangTua} (kolom
+	 * {@code pekerjaan_wali}).
+	 *
+	 * @return kategori pekerjaan wali, atau {@code null} bila belum dipilih
+	 * @see #getJenisPekerjaanWali()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pekerjaan_wali", nullable = true)
 	public PekerjaanOrangTua getPekerjaanWali() {
@@ -2282,10 +2550,21 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return pekerjaanWali;
 	}
 
+	/**
+	 * Menyetel kategori pekerjaan wali.
+	 *
+	 * @param pekerjaanWali acuan {@link PekerjaanOrangTua}
+	 */
 	public void setPekerjaanWali(PekerjaanOrangTua pekerjaanWali) {
 		this.pekerjaanWali = pekerjaanWali;
 	}
 
+	/**
+	 * Tingkat pendidikan wali menurut daftar acuan {@link PendidikanOrangTua} (kolom
+	 * {@code pendidikan_wali}).
+	 *
+	 * @return tingkat pendidikan wali, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendidikan_wali", nullable = true)
 	public PendidikanOrangTua getPendidikanWali() {
@@ -2293,10 +2572,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return pendidikanWali;
 	}
 
+	/**
+	 * Menyetel tingkat pendidikan wali.
+	 *
+	 * @param pendidikanWali acuan {@link PendidikanOrangTua}
+	 */
 	public void setPendidikanWali(PendidikanOrangTua pendidikanWali) {
 		this.pendidikanWali = pendidikanWali;
 	}
 
+	/**
+	 * Rentang pendapatan wali menurut daftar acuan {@link PendapatanOrangTua} (kolom
+	 * {@code pendapatan_wali}).
+	 *
+	 * <p>Berbeda dengan pendapatan ayah dan ibu, rentang wali TIDAK punya properti teks turunan
+	 * sepadan {@link #getPenghasilanAyah()}/{@link #getPenghasilanIbu()} — asimetri yang perlu
+	 * diingat saat menyusun laporan.</p>
+	 *
+	 * @return rentang pendapatan wali, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendapatan_wali", nullable = true)
 	public PendapatanOrangTua getPendapatanWali() {
@@ -2304,19 +2598,49 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return pendapatanWali;
 	}
 
+	/**
+	 * Menyetel rentang pendapatan wali.
+	 *
+	 * @param pendapatanWali acuan {@link PendapatanOrangTua}
+	 */
 	public void setPendapatanWali(PendapatanOrangTua pendapatanWali) {
 		this.pendapatanWali = pendapatanWali;
 	}
 
+	/**
+	 * Tanggal lahir ibu, disimpan sebagai {@code DATE}.
+	 *
+	 * @return tanggal lahir ibu, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalLahirIbu() {
 		return tanggalLahirIbu;
 	}
 
+	/**
+	 * Menyetel tanggal lahir ibu.
+	 *
+	 * @param tanggalLahirIbu tanggal lahir
+	 */
 	public void setTanggalLahirIbu(Date tanggalLahirIbu) {
 		this.tanggalLahirIbu = tanggalLahirIbu;
 	}
 
+	/**
+	 * Alamat surel mahasiswa, dengan fallback ke surel yang tercatat pada {@link Mahasiswa}.
+	 *
+	 * <p>Bila kolom di sini kosong, nilai diambil dari {@link Mahasiswa#ambilEmail()} (yang punya
+	 * rantai fallback sendiri) dan ditulis ke field. Hasil akhirnya di-{@code trim}.</p>
+	 *
+	 * <p>Dipakai antara lain oleh fitur broadcast/pengiriman surel massal dan pencetakan formulir.
+	 * Perhatikan bahwa tidak ada validasi format apa pun di sini — nilai bisa saja bukan alamat surel
+	 * yang sah.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code email} dan {@code mahasiswa} ditulis ulang.</p>
+	 *
+	 * @return alamat surel yang sudah di-{@code trim}; string kosong bila tidak ada di kedua sumber,
+	 *         tidak pernah {@code null}
+	 */
 	public String getEmail() {
 		if (email == null) {
 			email = "";
@@ -2331,10 +2655,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return email.trim();
 	}
 
+	/**
+	 * Menyetel alamat surel mahasiswa.
+	 *
+	 * @param email alamat surel (tidak divalidasi)
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
+	/**
+	 * Jenis tempat tinggal mahasiswa menurut daftar acuan {@link JenisTinggalMahasiswa} (kolom
+	 * {@code jenis_tinggal_mahasiswa}), mis. bersama orang tua, kos, atau asrama. Termasuk data wajib
+	 * pelaporan PDDikti.
+	 *
+	 * @return jenis tempat tinggal, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_tinggal_mahasiswa", nullable = true)
 	public JenisTinggalMahasiswa getJenisTinggalMahasiswa() {
@@ -2342,10 +2678,24 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenisTinggalMahasiswa;
 	}
 
+	/**
+	 * Menyetel jenis tempat tinggal mahasiswa.
+	 *
+	 * @param jenisTinggalMahasiswa acuan {@link JenisTinggalMahasiswa}
+	 */
 	public void setJenisTinggalMahasiswa(JenisTinggalMahasiswa jenisTinggalMahasiswa) {
 		this.jenisTinggalMahasiswa = jenisTinggalMahasiswa;
 	}
 
+	/**
+	 * Alat transportasi yang biasa dipakai mahasiswa menurut daftar acuan
+	 * {@link AlatTransportasiMahasiswa} (kolom {@code alat_transportasi_mahasiswa}). Juga data wajib
+	 * pelaporan PDDikti.
+	 *
+	 * <p>Bedakan dari {@link #getKendaraanKuliah()} yang berupa teks bebas.</p>
+	 *
+	 * @return alat transportasi, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "alat_transportasi_mahasiswa", nullable = true)
 	public AlatTransportasiMahasiswa getAlatTransportasiMahasiswa() {
@@ -2353,10 +2703,26 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return alatTransportasiMahasiswa;
 	}
 
+	/**
+	 * Menyetel alat transportasi mahasiswa.
+	 *
+	 * @param alatTransportasiMahasiswa acuan {@link AlatTransportasiMahasiswa}
+	 */
 	public void setAlatTransportasiMahasiswa(AlatTransportasiMahasiswa alatTransportasiMahasiswa) {
 		this.alatTransportasiMahasiswa = alatTransportasiMahasiswa;
 	}
 
+	/**
+	 * Jenjang pendidikan ayah menurut daftar acuan {@link Jenjang} (kolom
+	 * {@code jenjang_pendidikan_ayah}) — jenjang yang sama dipakai untuk program studi (D3, S1, S2,
+	 * dan seterusnya).
+	 *
+	 * <p>Pasangan "kembar" dari {@link #getPendidikanAyah()} yang memakai acuan
+	 * {@link PendidikanOrangTua}. Keduanya diisi dari layar yang berbeda dan bisa saja tidak
+	 * konsisten satu sama lain — tidak ada mekanisme penyelaras di kelas ini.</p>
+	 *
+	 * @return jenjang pendidikan ayah, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenjang_pendidikan_ayah", nullable = true)
 	public Jenjang getJenjangPendidikanAyah() {
@@ -2364,10 +2730,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenjangPendidikanAyah;
 	}
 
+	/**
+	 * Menyetel jenjang pendidikan ayah.
+	 *
+	 * @param jenjangPendidikanAyah acuan {@link Jenjang}
+	 */
 	public void setJenjangPendidikanAyah(Jenjang jenjangPendidikanAyah) {
 		this.jenjangPendidikanAyah = jenjangPendidikanAyah;
 	}
 
+	/**
+	 * Jenjang pendidikan ibu menurut daftar acuan {@link Jenjang} (kolom
+	 * {@code jenjang_pendidikan_ibu}).
+	 *
+	 * @return jenjang pendidikan ibu, atau {@code null} bila belum dipilih
+	 * @see #getJenjangPendidikanAyah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenjang_pendidikan_ibu", nullable = true)
 	public Jenjang getJenjangPendidikanIbu() {
@@ -2375,10 +2753,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenjangPendidikanIbu;
 	}
 
+	/**
+	 * Menyetel jenjang pendidikan ibu.
+	 *
+	 * @param jenjangPendidikanIbu acuan {@link Jenjang}
+	 */
 	public void setJenjangPendidikanIbu(Jenjang jenjangPendidikanIbu) {
 		this.jenjangPendidikanIbu = jenjangPendidikanIbu;
 	}
 
+	/**
+	 * Jenis pekerjaan ayah menurut daftar acuan {@link Pekerjaan} (kolom
+	 * {@code jenis_pekerjaan_ayah}) — daftar pekerjaan umum yang juga dipakai modul lain.
+	 *
+	 * <p>Pasangan "kembar" dari {@link #getPekerjaanAyah()} yang memakai acuan
+	 * {@link PekerjaanOrangTua}. Sama seperti pasangan pendidikan, keduanya tidak saling
+	 * diselaraskan.</p>
+	 *
+	 * @return jenis pekerjaan ayah, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_pekerjaan_ayah", nullable = true)
 	public Pekerjaan getJenisPekerjaanAyah() {
@@ -2386,10 +2779,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenisPekerjaanAyah;
 	}
 
+	/**
+	 * Menyetel jenis pekerjaan ayah.
+	 *
+	 * @param jenisPekerjaanAyah acuan {@link Pekerjaan}
+	 */
 	public void setJenisPekerjaanAyah(Pekerjaan jenisPekerjaanAyah) {
 		this.jenisPekerjaanAyah = jenisPekerjaanAyah;
 	}
 
+	/**
+	 * Jenis pekerjaan ibu menurut daftar acuan {@link Pekerjaan} (kolom
+	 * {@code jenis_pekerjaan_ibu}).
+	 *
+	 * @return jenis pekerjaan ibu, atau {@code null} bila belum dipilih
+	 * @see #getJenisPekerjaanAyah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_pekerjaan_ibu", nullable = true)
 	public Pekerjaan getJenisPekerjaanIbu() {
@@ -2397,10 +2802,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenisPekerjaanIbu;
 	}
 
+	/**
+	 * Menyetel jenis pekerjaan ibu.
+	 *
+	 * @param jenisPekerjaanIbu acuan {@link Pekerjaan}
+	 */
 	public void setJenisPekerjaanIbu(Pekerjaan jenisPekerjaanIbu) {
 		this.jenisPekerjaanIbu = jenisPekerjaanIbu;
 	}
 
+	/**
+	 * Kategori penghasilan ayah menurut daftar acuan {@link Penghasilan} (kolom
+	 * {@code jenis_penghasilan_ayah}).
+	 *
+	 * <p>Kolom ketiga yang menyentuh soal penghasilan ayah, di samping relasi
+	 * {@link #getPendapatanOrtu()} (rentang nominal) dan kolom teks
+	 * {@link #getPenghasilanAyah()}. Tidak ada penyelarasan otomatis di antara ketiganya.</p>
+	 *
+	 * @return kategori penghasilan ayah, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_penghasilan_ayah", nullable = true)
 	public Penghasilan getJenisPenghasilanAyah() {
@@ -2408,10 +2828,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenisPenghasilanAyah;
 	}
 
+	/**
+	 * Menyetel kategori penghasilan ayah.
+	 *
+	 * @param jenisPenghasilanAyah acuan {@link Penghasilan}
+	 */
 	public void setJenisPenghasilanAyah(Penghasilan jenisPenghasilanAyah) {
 		this.jenisPenghasilanAyah = jenisPenghasilanAyah;
 	}
 
+	/**
+	 * Kategori penghasilan ibu menurut daftar acuan {@link Penghasilan} (kolom
+	 * {@code jenis_penghasilan_ibu}).
+	 *
+	 * @return kategori penghasilan ibu, atau {@code null} bila belum dipilih
+	 * @see #getJenisPenghasilanAyah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_penghasilan_ibu", nullable = true)
 	public Penghasilan getJenisPenghasilanIbu() {
@@ -2419,10 +2851,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenisPenghasilanIbu;
 	}
 
+	/**
+	 * Menyetel kategori penghasilan ibu.
+	 *
+	 * @param jenisPenghasilanIbu acuan {@link Penghasilan}
+	 */
 	public void setJenisPenghasilanIbu(Penghasilan jenisPenghasilanIbu) {
 		this.jenisPenghasilanIbu = jenisPenghasilanIbu;
 	}
 
+	/**
+	 * Kategori penghasilan wali menurut daftar acuan {@link Penghasilan} (kolom
+	 * {@code jenis_penghasilan_wali}).
+	 *
+	 * @return kategori penghasilan wali, atau {@code null} bila belum dipilih
+	 * @see #getJenisPenghasilanAyah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_penghasilan_wali", nullable = true)
 	public Penghasilan getJenisPenghasilanWali() {
@@ -2430,10 +2874,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenisPenghasilanWali;
 	}
 
+	/**
+	 * Menyetel kategori penghasilan wali.
+	 *
+	 * @param jenisPenghasilanWali acuan {@link Penghasilan}
+	 */
 	public void setJenisPenghasilanWali(Penghasilan jenisPenghasilanWali) {
 		this.jenisPenghasilanWali = jenisPenghasilanWali;
 	}
 
+	/**
+	 * Jenjang pendidikan wali menurut daftar acuan {@link Jenjang} (kolom
+	 * {@code jenjang_pendidikan_wali}).
+	 *
+	 * @return jenjang pendidikan wali, atau {@code null} bila belum dipilih
+	 * @see #getJenjangPendidikanAyah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenjang_pendidikan_wali", nullable = true)
 	public Jenjang getJenjangPendidikanWali() {
@@ -2441,10 +2897,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenjangPendidikanWali;
 	}
 
+	/**
+	 * Menyetel jenjang pendidikan wali.
+	 *
+	 * @param jenjangPendidikanWali acuan {@link Jenjang}
+	 */
 	public void setJenjangPendidikanWali(Jenjang jenjangPendidikanWali) {
 		this.jenjangPendidikanWali = jenjangPendidikanWali;
 	}
 
+	/**
+	 * Jenis pekerjaan wali menurut daftar acuan {@link Pekerjaan} (kolom
+	 * {@code jenis_pekerjaan_wali}).
+	 *
+	 * @return jenis pekerjaan wali, atau {@code null} bila belum dipilih
+	 * @see #getJenisPekerjaanAyah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_pekerjaan_wali", nullable = true)
 	public Pekerjaan getJenisPekerjaanWali() {
@@ -2452,10 +2920,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return jenisPekerjaanWali;
 	}
 
+	/**
+	 * Menyetel jenis pekerjaan wali.
+	 *
+	 * @param jenisPekerjaanWali acuan {@link Pekerjaan}
+	 */
 	public void setJenisPekerjaanWali(Pekerjaan jenisPekerjaanWali) {
 		this.jenisPekerjaanWali = jenisPekerjaanWali;
 	}
 
+	/**
+	 * Penanda apakah mahasiswa pernah menempuh PAUD (Pendidikan Anak Usia Dini) — salah satu butir
+	 * data riwayat pendidikan yang diminta PDDikti.
+	 *
+	 * <p><b>Efek samping ringan:</b> nilai {@code null} diganti {@code false} dan ditulis ke field,
+	 * sehingga "belum diisi" tidak dapat dibedakan dari "tidak pernah".</p>
+	 *
+	 * @return {@code true} bila pernah PAUD, {@code false} bila tidak/belum diisi; tidak pernah
+	 *         {@code null}
+	 */
 	public Boolean getApakahPernahPaud() {
 		if (apakahPernahPaud == null) {
 			apakahPernahPaud = false;
@@ -2463,10 +2946,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return apakahPernahPaud;
 	}
 
+	/**
+	 * Menyetel penanda pernah menempuh PAUD.
+	 *
+	 * @param apakahPernahPaud {@code true} bila pernah
+	 */
 	public void setApakahPernahPaud(Boolean apakahPernahPaud) {
 		this.apakahPernahPaud = apakahPernahPaud;
 	}
 
+	/**
+	 * Penanda apakah mahasiswa pernah menempuh TK (Taman Kanak-kanak), pasangan
+	 * {@link #getApakahPernahPaud()} dan diperlakukan sama: {@code null} menjadi {@code false}.
+	 *
+	 * @return {@code true} bila pernah TK, {@code false} bila tidak/belum diisi; tidak pernah
+	 *         {@code null}
+	 */
 	public Boolean getApakahPernahTk() {
 		if (apakahPernahTk == null) {
 			apakahPernahTk = false;
@@ -2474,6 +2969,11 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return apakahPernahTk;
 	}
 
+	/**
+	 * Menyetel penanda pernah menempuh TK.
+	 *
+	 * @param apakahPernahTk {@code true} bila pernah
+	 */
 	public void setApakahPernahTk(Boolean apakahPernahTk) {
 		this.apakahPernahTk = apakahPernahTk;
 	}
