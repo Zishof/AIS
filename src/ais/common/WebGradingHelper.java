@@ -185,8 +185,13 @@ public class WebGradingHelper {
             List<Perkuliahan> perkuliahans = kuliyah.ambilParalelPerkuliahan();
             if (!perkuliahans.contains(kuliyah)) perkuliahans.add(kuliyah);
 
-            List<FormatNilai> masterFormatNilais = kuliyah.ambilFormatNilai(session);
-            Collection<Long> detailperkuliahans = kuliyah.ambilDetailperkuliahan();
+			List<FormatNilai> masterFormatNilais = kuliyah.ambilFormatNilai(session);
+			if (!Detailperkuliahan.formatNilaiSiapDihitung(masterFormatNilais)) {
+				throw new IllegalStateException(
+						"Sinkronisasi nilai dibatalkan karena format kelas kosong atau total bobot bukan 100%. Perkuliahan="
+								+ kuliyah.getId());
+			}
+			Collection<Long> detailperkuliahans = kuliyah.ambilDetailperkuliahan();
 
             // A. Mengumpulkan Seluruh Komponen Penilaian (Ujian, Tugas, Kelompok)
             List<Pertemuan> pertemuanTugas1 = new ArrayList<Pertemuan>();

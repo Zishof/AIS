@@ -2079,6 +2079,12 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+				if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+					MyMessageboxConfig.show(
+							"Nilai kehadiran tidak diproses karena format nilai belum lengkap atau total bobotnya bukan 100%.",
+							"Format nilai belum valid", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
 
 				Common.createDefaultTimer(new EventListener() {
 
@@ -2212,6 +2218,13 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 							public void onEvent(Event event) throws Exception {
 								int i = Integer.parseInt(event.getData().toString());
 								if (i != MyMessageboxConfig.OK) {
+									return;
+								}
+								if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+									MyMessageboxConfig.show(
+											"Reset dibatalkan karena format nilai belum lengkap atau total bobotnya bukan 100%.",
+											"Format nilai belum valid", MyMessageboxConfig.OK,
+											MyMessageboxConfig.EXCLAMATION);
 									return;
 								}
 

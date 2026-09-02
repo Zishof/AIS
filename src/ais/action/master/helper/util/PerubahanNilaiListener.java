@@ -177,6 +177,13 @@ public class PerubahanNilaiListener implements EventListener {
 		}
 
 		Tbmuser tbmuser = Common.getCurrentUser();
+		if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+			MyMessageboxConfig.show(
+					"Nilai tidak disimpan karena format penilaian kelas belum lengkap atau total bobotnya bukan 100%. "
+							+ "Periksa format nilai terlebih dahulu agar nilai lama tidak tertimpa hasil yang keliru.",
+					"Format nilai belum valid", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
 
 		// GATE SP (semester pendek): tolak entry nilai bila pembayaran SP mahasiswa belum lunas.
 		String alasanSpNilai = ais.action.master.helper.util.GateBayarSpUtil.alasanBlokir(detailperkuliahan);

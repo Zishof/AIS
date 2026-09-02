@@ -694,7 +694,11 @@ public class ElearningApiUtil {
 						}
 					}
 
-					if (formatNilaia == null) {
+					if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+						jsonObject.put("status", "97");
+						jsonObject.put("description",
+								"Nilai tidak diubah karena format penilaian kelas belum lengkap atau total bobotnya bukan 100%");
+					} else if (formatNilaia == null) {
 						jsonObject.put("status", "97");
 						jsonObject.put("description",
 								"Format nilai tidak ditemukan, harap menghubungi bagian admin atau puskom");

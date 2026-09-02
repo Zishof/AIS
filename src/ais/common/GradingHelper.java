@@ -1362,6 +1362,11 @@ public class GradingHelper {
 										sessionSemua = HibernateUtil.getSessionFactory().openSession();
 										txSemua = sessionSemua.beginTransaction();
 										List<FormatNilai> formatNilaisDb = kuliyahSemua.ambilFormatNilai(sessionSemua);
+										if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilaisDb)) {
+											throw new IllegalStateException(
+													"Input OBE massal dibatalkan: format nilai kosong atau total bobot bukan 100%. Perkuliahan="
+															+ kuliyahSemua.getId());
+										}
 										Tbmuser tbmuserSemua = Common.getCurrentUser();
 										int countSemua = 0;
 										for (FormatNilai fn : obeFormatNilaisRef) {
@@ -1614,6 +1619,11 @@ public class GradingHelper {
 												tx = session.beginTransaction();
 
 												List<FormatNilai> formatNilais = kuliyah.ambilFormatNilai(session);
+												if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+													throw new IllegalStateException(
+															"Sinkronisasi OBE dibatalkan: format nilai kosong atau total bobot bukan 100%. Perkuliahan="
+																	+ kuliyah.getId());
+												}
 
 												int count = 0;
 												for (Long detailperkuliahanId : nilais.get(fn.getId()).keySet()) {
@@ -2861,6 +2871,11 @@ public class GradingHelper {
 										tx = session.beginTransaction();
 
 										List<FormatNilai> formatNilais = perkuliahan.ambilFormatNilai(session);
+										if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+											throw new IllegalStateException(
+													"Impor nilai dibatalkan: format nilai kosong atau total bobot bukan 100%. Perkuliahan="
+															+ perkuliahan.getId());
+										}
 
 										int count = 0;
 										for (Long detailperkuliahanId : nilais.keySet()) {
