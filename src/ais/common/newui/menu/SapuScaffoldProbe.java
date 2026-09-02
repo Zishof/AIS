@@ -220,7 +220,7 @@ public final class SapuScaffoldProbe {
         }
     }
 
-    private static void kumpulkan(File dir, String prefix, Set<String> out) {
+    static void kumpulkan(File dir, String prefix, Set<String> out) {
         File[] anak = dir.listFiles();
         if (anak == null) return;
         for (int i = 0; i < anak.length; i++) {
@@ -254,7 +254,7 @@ public final class SapuScaffoldProbe {
      * kelas composer dari atribut {@code apply=} pada ZUL, buang akhiran
      * "Action".
      */
-    private static String composerRoute(String existingRoute) {
+    static String composerRoute(String existingRoute) {
         if (existingRoute == null) return "";
         String route = existingRoute.trim().replace(BACKSLASH, '/');
         int q = route.indexOf('?');
@@ -348,7 +348,7 @@ public final class SapuScaffoldProbe {
         }
     }
 
-    private static boolean isiMemuat(String path, String cari) {
+    static boolean isiMemuat(String path, String cari) {
         BufferedReader r = null;
         try {
             r = new BufferedReader(new InputStreamReader(new FileInputStream(path), "UTF-8"));
