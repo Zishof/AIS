@@ -32,6 +32,11 @@ public final class SqlSecurityGuardSelfTest {
         periksa(!r.allowed, pesan);
     }
 
+    private static void kredensialDitolak(String sql, String pesan) {
+        SqlSecurityGuard.Result r = SqlSecurityGuard.cekKredensialSelalu(sql);
+        periksa(r != null && !r.allowed, pesan);
+    }
+
     private static void periksa(boolean nilai, String pesan) {
         if (nilai) {
             System.out.println("LULUS  " + pesan);
@@ -60,6 +65,23 @@ public final class SqlSecurityGuardSelfTest {
         tolakTulis("GRANT ALL ON koperasi.produk TO public", "tulis: GRANT ditolak");
         tolakTulis("SELECT * FROM pg_authid", "tulis: objek sistem database ditolak");
         tolakTulis("", "tulis: SQL kosong ditolak");
+
+        // --- Kolom kredensial diblokir TANPA SYARAT (apa pun mode, tanpa baca konfigurasi) ---
+        // Dapat diuji langsung karena cekKredensialSelalu tidak menyentuh tabel konfigurasi.
+        kredensialDitolak("SELECT userpassword FROM tbmuser WHERE userid = 'admin'",
+                "kredensial: SELECT userpassword ditolak");
+        kredensialDitolak("SELECT userid, password FROM tbmuser",
+                "kredensial: kolom password ditolak");
+        kredensialDitolak("UPDATE tbmuser SET userpassword = 'x' WHERE userid = 'admin'",
+                "kredensial: UPDATE userpassword ditolak");
+        kredensialDitolak("SELECT sandi FROM anggota_koperasi",
+                "kredensial: kolom sandi ditolak");
+        periksa(SqlSecurityGuard.cekKredensialSelalu(
+                        "SELECT userid, nama FROM tbmuser WHERE userid = 'admin'") == null,
+                "kredensial: SELECT kolom non-sandi dari tbmuser tetap lolos (tidak over-block)");
+        periksa(SqlSecurityGuard.cekKredensialSelalu(
+                        "SELECT nama FROM koperasi.produk WHERE nama = 'Kata Sandi Board Game'") == null,
+                "kredensial: kata 'sandi' di dalam literal tidak salah tertolak");
 
         // CATATAN: kasus yang LOLOS seluruh penolakan sengaja tidak diuji di sini.
         // Jalur itu berakhir di pemeriksaan token sensitif yang membaca tabel konfigurasi;

@@ -86,7 +86,45 @@ public class SqlSecurityGuard {
      */
     private static final String DEFAULT_TOKEN_TERLARANG = "password,sandi,userpassword";
 
+    /**
+     * Token kredensial yang diblokir SELALU — apa pun mode proteksinya, termasuk saat
+     * {@code off}, dan tanpa membaca konfigurasi.
+     *
+     * <p>Alasan dipisah dari {@link #DEFAULT_TOKEN_TERLARANG}: daftar itu hanya berlaku ketika
+     * pemilik sudah menyalakan mode, dan pembacaannya menyentuh tabel konfigurasi (yang di
+     * sebagian jalur terbukti dapat menggantung). Kolom kata sandi tidak pernah punya alasan sah
+     * dibaca atau ditulis dari browser — sudah diverifikasi tidak ada satu pun halaman yang
+     * mengirim SQL menyentuhnya — sehingga blokirnya dibuat tanpa syarat dan tanpa I/O, sebagai
+     * dasar keamanan yang tetap berlaku pada instalasi yang belum menyetel apa pun (dok. 71).</p>
+     */
+    private static final String[] TOKEN_KREDENSIAL_SELALU =
+            new String[] { "userpassword", "password", "sandi" };
+
     private SqlSecurityGuard() {
+    }
+
+    /**
+     * Blokir tanpa syarat SQL klien yang menyentuh kolom kredensial. Dijalankan lebih dulu dari
+     * pemeriksaan berbasis mode, memakai daftar tertanam sehingga tidak membaca konfigurasi.
+     * Mengembalikan {@code null} bila tidak ada token kredensial (lanjutkan pemeriksaan biasa).
+     */
+    static Result cekKredensialSelalu(String sql) {
+        try {
+            if (sql == null) {
+                return null;
+            }
+            String masked = mask(sql).toLowerCase();
+            for (String t : TOKEN_KREDENSIAL_SELALU) {
+                if (masked.indexOf(t) >= 0) {
+                    return new Result(false,
+                            "Akses kolom kredensial tidak diizinkan dari endpoint SQL klien (pola: '"
+                                    + t + "').");
+                }
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit SqlSecurityGuard.cekKredensialSelalu");
+        }
+        return null;
     }
 
     /** Membaca mode aktif dari konfigurasi; fail-safe ke {@link #MODE_OFF}. */
@@ -143,6 +181,11 @@ public class SqlSecurityGuard {
      * @return {@link Result#allowed}=true bila boleh dilanjutkan (selalu true saat mode=off / mode=log).
      */
     public static Result checkReadSql(String sql) {
+        Result kredensial = cekKredensialSelalu(sql);
+        if (kredensial != null) {
+            log("READ", "always", kredensial.reason, sql);
+            return kredensial;
+        }
         String mode = mode();
         if (MODE_OFF.equals(mode)) {
             return OK;
@@ -160,6 +203,11 @@ public class SqlSecurityGuard {
      * banyak statement bertumpuk (fitur "Hitung Ulang" mengandalkannya) — TAPI DDL/berbahaya ditolak.
      */
     public static Result checkWriteSql(String sql) {
+        Result kredensial = cekKredensialSelalu(sql);
+        if (kredensial != null) {
+            log("WRITE", "always", kredensial.reason, sql);
+            return kredensial;
+        }
         String mode = mode();
         if (MODE_OFF.equals(mode)) {
             return OK;
