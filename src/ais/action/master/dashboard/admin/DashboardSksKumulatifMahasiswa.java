@@ -380,8 +380,9 @@ public class DashboardSksKumulatifMahasiswa extends MyWindow {
 												try {
 
 													Criteria criteria = HibernateUtil.currentSession()
-															.createCriteria(KrsMahasiswa.class)
-															.add(Restrictions.eq("tahunAkademik",
+													.createCriteria(KrsMahasiswa.class)
+													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+													.add(Restrictions.eq("tahunAkademik",
 																	Common.getCurrentTahunAkademik()))
 															.add(Restrictions.sqlRestriction("semester%2="
 																	+ (Common.isNowSemensterGanjil() ? 1 : 0) + ""))
@@ -459,8 +460,9 @@ public class DashboardSksKumulatifMahasiswa extends MyWindow {
 												try {
 
 													Criteria criteria = HibernateUtil.currentSession()
-															.createCriteria(KrsMahasiswa.class)
-															.addOrder(Order.asc("sksk"))
+													.createCriteria(KrsMahasiswa.class)
+													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+													.addOrder(Order.asc("sksk"))
 															.add(Restrictions.eq("tahunAkademik",
 																	Common.getCurrentTahunAkademik()))
 															.add(Restrictions.sqlRestriction("semester%2="
@@ -538,8 +540,9 @@ public class DashboardSksKumulatifMahasiswa extends MyWindow {
 												try {
 
 													Criteria criteria = HibernateUtil.currentSession()
-															.createCriteria(KrsMahasiswa.class)
-															.addOrder(Order.desc("sksk"))
+													.createCriteria(KrsMahasiswa.class)
+													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+													.addOrder(Order.desc("sksk"))
 															.add(Restrictions.eq("tahunAkademik",
 																	Common.getCurrentTahunAkademik()))
 															.add(Restrictions.sqlRestriction("semester%2="
@@ -641,6 +644,7 @@ row = new MyFormRow();
 					i++;
 
 					List<Object[]> dataIpk = session.createCriteria(KrsMahasiswa.class)
+							.add(Restrictions.gt("semester", Integer.valueOf(0)))
 							.createAlias("mahasiswa", "mahasiswa")
 
 							.add(statusKeluar == null ? Restrictions.sqlRestriction("true")

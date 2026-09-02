@@ -3001,6 +3001,20 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		Rows rows = null;
 		rows = (createSpan("Aktifitas Umum"));
 
+		createSpan("Tampilan Dashboard Kegiatan Kemahasiswaan", rows);
+		rows.appendChild(createRowActiveDefault(
+				"Tampilkan tab Organisasi Mahasiswa. Ubah menjadi tidak aktif untuk menyembunyikannya dari dashboard petugas dan mahasiswa.",
+				Konfigurasi.KEMAHASISWAAN_TAB_ORGANISASI, Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault(
+				"Tampilkan tab Prestasi Mahasiswa. Ubah menjadi tidak aktif untuk menyembunyikannya dari dashboard petugas dan mahasiswa.",
+				Konfigurasi.KEMAHASISWAAN_TAB_PRESTASI, Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault(
+				"Tampilkan tab Karya Mahasiswa. Ubah menjadi tidak aktif untuk menyembunyikannya dari dashboard petugas dan mahasiswa.",
+				Konfigurasi.KEMAHASISWAAN_TAB_KARYA, Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault(
+				"Tampilkan tab Catatan Mahasiswa. Ubah menjadi tidak aktif untuk menyembunyikannya dari dashboard petugas dan mahasiswa.",
+				Konfigurasi.KEMAHASISWAAN_TAB_CATATAN, Konfigurasi.AKTIF));
+
 		createSpan("Pencatatan Error Sistem", rows);
 		rows.appendChild(createRowActiveDefault(
 				"Aktifkan pencatatan error otomatis ke database Error Log. Default aktif agar gangguan Java, ZKoss, servlet, dan proses background dapat ditelusuri dari menu Error Log.",

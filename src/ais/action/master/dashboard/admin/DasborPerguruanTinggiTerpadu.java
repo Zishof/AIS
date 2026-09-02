@@ -2287,6 +2287,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
     private Criteria createKrsMahasiswaCriteria(Session session, String tahunAkademik, String semester, String positiveField) {
         Criteria criteria = session.createCriteria(KrsMahasiswa.class)
                 .createAlias("mahasiswa", "mahasiswa")
+                .add(Restrictions.gt("semester", Integer.valueOf(0)))
                 .add(tahunAkademik == null || tahunAkademik.trim().length() == 0 ? Restrictions.sqlRestriction("true") : Restrictions.eq("tahunAkademik", tahunAkademik))
                 .add(semester == null || semester.trim().length() == 0 ? Restrictions.sqlRestriction("true") : Restrictions.sqlRestriction("semester%2=" + (Perkuliahan.GENAP.equals(semester) ? "0" : "1")))
                 .add(Restrictions.isNull("semesterPendek"))
@@ -2312,6 +2313,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
     private Criteria createDetailKrsCriteria(Session session, String tahunAkademik, String semester) {
         Criteria criteria = session.createCriteria(Detailperkuliahan.class)
                 .createAlias("mahasiswa", "mahasiswa")
+                .add(Restrictions.gt("semester", Integer.valueOf(0)))
                 .add(tahunAkademik == null || tahunAkademik.trim().length() == 0 ? Restrictions.sqlRestriction("true") : Restrictions.eq("tahunAkademik", tahunAkademik))
                 .add(semester == null || semester.trim().length() == 0 ? Restrictions.sqlRestriction("true") : Restrictions.sqlRestriction("semester%2=" + (Perkuliahan.GENAP.equals(semester) ? "0" : "1")))
                 .add(Restrictions.or(Restrictions.isNull("mahasiswa.aktif"), Restrictions.eq("mahasiswa.aktif", true)));
@@ -2322,6 +2324,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
     private Criteria createDetailNilaiCriteria(Session session, String tahunAkademik, boolean hanyaBelum) {
         Criteria criteria = session.createCriteria(Detailperkuliahan.class)
                 .createAlias("mahasiswa", "mahasiswa")
+                .add(Restrictions.gt("semester", Integer.valueOf(0)))
                 .add(tahunAkademik == null || tahunAkademik.trim().length() == 0 ? Restrictions.sqlRestriction("true") : Restrictions.eq("tahunAkademik", tahunAkademik))
                 .add(Restrictions.eq("persetujuan", Detailperkuliahan.DISETUJUI))
                 .add(Restrictions.or(Restrictions.isNull("mahasiswa.aktif"), Restrictions.eq("mahasiswa.aktif", true)));

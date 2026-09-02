@@ -285,6 +285,17 @@ public class Konfigurasi extends GeneralValueObject {
 	/** Kunci gerbang buka/tutup pengisian angket (kuesioner) dosen oleh mahasiswa. */
 	public static final String ANGKET = "angket";
 
+	// Tampilan tab dashboard kegiatan kemahasiswaan. Seluruh kunci sengaja default AKTIF
+	// pada pemanggil agar instalasi lama tidak kehilangan menu sebelum dikonfigurasi.
+	/** Tampil/sembunyi tab Organisasi Mahasiswa pada dashboard kemahasiswaan. Default AKTIF. */
+	public static final String KEMAHASISWAAN_TAB_ORGANISASI = "kemahasiswaan_tab_organisasi";
+	/** Tampil/sembunyi tab Prestasi Mahasiswa pada dashboard kemahasiswaan. Default AKTIF. */
+	public static final String KEMAHASISWAAN_TAB_PRESTASI = "kemahasiswaan_tab_prestasi";
+	/** Tampil/sembunyi tab Karya Mahasiswa pada dashboard kemahasiswaan. Default AKTIF. */
+	public static final String KEMAHASISWAAN_TAB_KARYA = "kemahasiswaan_tab_karya";
+	/** Tampil/sembunyi tab Catatan Mahasiswa pada dashboard kemahasiswaan. Default AKTIF. */
+	public static final String KEMAHASISWAAN_TAB_CATATAN = "kemahasiswaan_tab_catatan";
+
 	// Tampil/sembunyi akun-akun pada form Kelompok Barang/Jasa (KelompokAsset). Default AKTIF (tampil).
 	/** Tampil/sembunyi baris akun <i>Fixed Asset</i> pada form Kelompok Barang/Jasa. Default AKTIF. */
 	public static final String KELOMPOK_ASET_AKUN_FIX_ASET = "kelompok_aset_akun_fix_aset";

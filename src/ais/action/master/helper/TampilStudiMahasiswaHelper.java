@@ -807,15 +807,19 @@ public class TampilStudiMahasiswaHelper {
 		int totalTidakLulus = 0;
 		int totalKonversi = 0;
 		int totalSksDiambil = 0;
+		int semesterMaksimal = semesterAkademikMaksimal(mahasiswa);
 
 		Session session = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
 
 			List<Detailperkuliahan> detailperkuliahans = new ArrayList<Detailperkuliahan>();
-			if (mahasiswa != null) {
+			if (mahasiswa != null && semesterMaksimal > 0) {
 				detailperkuliahans = session.createCriteria(Detailperkuliahan.class)
-						.add(Restrictions.eq("mahasiswa", mahasiswa)).addOrder(Order.asc("semester"))
+						.add(Restrictions.eq("mahasiswa", mahasiswa))
+						.add(Restrictions.gt("semester", Integer.valueOf(0)))
+						.add(Restrictions.le("semester", Integer.valueOf(semesterMaksimal)))
+						.addOrder(Order.asc("semester"))
 						.addOrder(Order.asc("id")).list();
 			}
 
@@ -848,7 +852,7 @@ public class TampilStudiMahasiswaHelper {
 			}
 
 			for (Detailperkuliahan dp : detailperkuliahans) {
-				if (dp == null) {
+				if (dp == null || !semesterAkademikValid(dp.getSemester(), semesterMaksimal)) {
 					continue;
 				}
 
@@ -1774,17 +1778,20 @@ public class TampilStudiMahasiswaHelper {
 	}
 
 	/**
-	 * Hitung jumlah {@link Detailperkuliahan} mahasiswa pada {@code semester} tertentu (atau semua
-	 * semester bila {@code null}) dengan {@code ikutiPerkuliahan} kosong dan status
+	 * Hitung jumlah {@link Detailperkuliahan} mahasiswa pada semester akademik positif tertentu
+	 * dengan {@code ikutiPerkuliahan} kosong dan status
 	 * {@code persetujuan} tertentu (dipakai untuk menghitung MK "Disetujui" vs "Belum Disetujui" di
 	 * panel Rekap KRS per Semester). Query {@code rowCount()}; 0 bila gagal.
 	 */
 	private static int hitungDetailPerkuliahan(org.hibernate.Session session, Mahasiswa mahasiswa, Integer semester,
 			Integer persetujuan) {
+		if (session == null || mahasiswa == null || semester == null || semester.intValue() <= 0) {
+			return 0;
+		}
 		try {
 			Object c = session.createCriteria(ais.database.model.Detailperkuliahan.class)
 					.add(Restrictions.eq("mahasiswa", mahasiswa))
-					.add(semester == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("semester", semester))
+					.add(Restrictions.eq("semester", semester))
 					.add(Restrictions.isNull("ikutiPerkuliahan"))
 					.add(Restrictions.eq("persetujuan", persetujuan))
 					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
@@ -1794,23 +1801,84 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Semester terakhir yang boleh masuk ringkasan akademik. Aturannya sama dengan
+	 * pilihan default tab KRS: semester berjalan, dibatasi semester lulus bila ada.
+	 */
+	private static int semesterAkademikMaksimal(Mahasiswa mahasiswa) {
+		if (mahasiswa == null) {
+			return 0;
+		}
+		Integer semesterBerjalan = mahasiswa.currentSemester();
+		Integer semesterLulus = mahasiswa.getSemesterLulus();
+		int hasil = semesterBerjalan == null ? 0 : semesterBerjalan.intValue();
+		if (semesterLulus != null && semesterLulus.intValue() > 0
+				&& (hasil <= 0 || hasil > semesterLulus.intValue())) {
+			hasil = semesterLulus.intValue();
+		}
+		return hasil > 0 ? hasil : 0;
+	}
+
+	private static boolean semesterAkademikValid(Integer semester, int semesterMaksimal) {
+		return semester != null && semester.intValue() > 0 && semesterMaksimal > 0
+				&& semester.intValue() <= semesterMaksimal;
+	}
+
+	/** Ambil pasangan semester-TA dari generator periode yang juga dipakai tab KRS. */
+	private static Map<Integer, String> tahunAkademikPerSemesterKrs(Mahasiswa mahasiswa,
+			int semesterMaksimal) {
+		Map<Integer, String> hasil = new HashMap<Integer, String>();
+		if (mahasiswa == null || semesterMaksimal <= 0) {
+			return hasil;
+		}
+		List<String[]> periode = Common.generateSemestersForGrid(mahasiswa, 1, semesterMaksimal,
+				Perkuliahan.SEMESTER_PENDEK);
+		for (String[] data : periode) {
+			if (data == null || data.length < 2 || data[0] == null || data[1] == null) {
+				continue;
+			}
+			String[] semesterDalamBaris = data[1].split(",");
+			for (String nilaiSemester : semesterDalamBaris) {
+				try {
+					Integer semester = Integer.valueOf(nilaiSemester.trim());
+					if (semesterAkademikValid(semester, semesterMaksimal)) {
+						hasil.put(semester, data[0]);
+					}
+				} catch (NumberFormatException ignored) {
+					// Baris khusus seperti "Tanpa Tahap" bukan periode akademik.
+				}
+			}
+		}
+		return hasil;
+	}
+
 	/** Data KRS per semester: {semester, jenis, sksDiambil, mkDisetujui, mkBelum, ips, ipk, tahunAkademik}. */
 	private static List<String[]> dataKrsPerSemester(Mahasiswa mahasiswa) {
 		List<String[]> res = new ArrayList<String[]>();
 		if (mahasiswa == null) {
 			return res;
 		}
+		int semesterMaksimal = semesterAkademikMaksimal(mahasiswa);
+		if (semesterMaksimal <= 0) {
+			return res;
+		}
+		Map<Integer, String> tahunAkademikKrs = tahunAkademikPerSemesterKrs(mahasiswa, semesterMaksimal);
 		org.hibernate.Session session = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
 			@SuppressWarnings("unchecked")
 			List<ais.database.model.KrsMahasiswa> list = session.createCriteria(ais.database.model.KrsMahasiswa.class)
 					.add(Restrictions.eq("mahasiswa", mahasiswa))
+					.add(Restrictions.gt("semester", Integer.valueOf(0)))
+					.add(Restrictions.le("semester", Integer.valueOf(semesterMaksimal)))
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
 					.addOrder(Order.asc("semester")).addOrder(Order.asc("id")).list();
 			for (ais.database.model.KrsMahasiswa krs : list) {
 				try {
 					Integer sem = krs.getSemester();
+					if (!semesterAkademikValid(sem, semesterMaksimal)) {
+						continue;
+					}
 					int setuju = hitungDetailPerkuliahan(session, mahasiswa, sem,
 							ais.database.model.Detailperkuliahan.DISETUJUI);
 					int belum = hitungDetailPerkuliahan(session, mahasiswa, sem,
@@ -1821,7 +1889,7 @@ public class TampilStudiMahasiswaHelper {
 							String.valueOf(setuju), String.valueOf(belum),
 							krs.getIps() == null ? "-" : formatNumber(krs.getIps().doubleValue()),
 							krs.getIpk() == null ? "-" : formatNumber(krs.getIpk().doubleValue()),
-							nzTrim(krs.getTahunAkademik()) });
+							tahunAkademikKrs.containsKey(sem) ? nzTrim(tahunAkademikKrs.get(sem)) : "-" });
 				} catch (Exception ex) {
 					ais.common.ErrorAuditUtil.record(ex, "auto-audit(row) TampilStudiMahasiswaHelper.dataKrsPerSemester");
 				}

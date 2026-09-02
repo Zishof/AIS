@@ -396,6 +396,8 @@ public class LaporanRekapNilaiHurufMahasiswaProdi extends MyWindow {
 
 								Integer jml = ((Number) session.createCriteria(Detailperkuliahan.class)
 
+										.add(Restrictions.gt("semester", Integer.valueOf(0)))
+
 										.add(Restrictions.eq("nilaiHuruf", nh))
 
 										.setProjection(Projections.rowCount())
@@ -428,6 +430,8 @@ public class LaporanRekapNilaiHurufMahasiswaProdi extends MyWindow {
 						}
 
 						Integer jml = ((Number) session.createCriteria(Detailperkuliahan.class)
+
+								.add(Restrictions.gt("semester", Integer.valueOf(0)))
 
 								.add(Restrictions.eq("nilaiHuruf", nh))
 
@@ -492,6 +496,8 @@ public class LaporanRekapNilaiHurufMahasiswaProdi extends MyWindow {
 					for (Jurusan jurusan : jurusans) {
 						Number jml = ((Number) session.createCriteria(KrsMahasiswa.class)
 
+								.add(Restrictions.gt("semester", Integer.valueOf(0)))
+
 								.setProjection(Projections.avg("ipk")).add(Restrictions.gt("ipk", 0.1))
 
 								.createAlias("mahasiswa", "mahasiswa")
@@ -511,6 +517,8 @@ public class LaporanRekapNilaiHurufMahasiswaProdi extends MyWindow {
 				}
 
 				Number jml = ((Number) session.createCriteria(KrsMahasiswa.class)
+
+						.add(Restrictions.gt("semester", Integer.valueOf(0)))
 
 						.setProjection(Projections.avg("ipk")).add(Restrictions.gt("ipk", 0.1))
 

@@ -13,6 +13,7 @@ import org.zkoss.zul.Tabs;
 import ais.action.master.helper.MahasiswaPunyaKegiatanKemahasiswaanHelper;
 import ais.action.master.helper.MahasiswaPunyaOrganisasiIntraKampusHelper;
 import ais.common.Common;
+import ais.database.model.Konfigurasi;
 import ais.database.model.Mahasiswa;
 import ais.ui.util.MyInclude;
 import ais.ui.util.MyTabConfig;
@@ -105,18 +106,26 @@ public class DashboardKegiatanKemahasiswaan extends MyWindow {
 
 		MyTabConfig tabOrganisasi = new MyTabConfig("Organisasi");
 		tabOrganisasi.setParent(tabs);
+		tabOrganisasi.setVisible(Common.bolehKonfigurasi(Konfigurasi.KEMAHASISWAAN_TAB_ORGANISASI,
+				Konfigurasi.AKTIF));
 
 		MyTabConfig tabPrestasi = new MyTabConfig("Prestasi");
 		tabPrestasi.setParent(tabs);
+		tabPrestasi.setVisible(Common.bolehKonfigurasi(Konfigurasi.KEMAHASISWAAN_TAB_PRESTASI,
+				Konfigurasi.AKTIF));
 
 		MyTabConfig tabKarya = new MyTabConfig("Karya");
 		tabKarya.setParent(tabs);
+		tabKarya.setVisible(Common.bolehKonfigurasi(Konfigurasi.KEMAHASISWAAN_TAB_KARYA,
+				Konfigurasi.AKTIF));
 
 		MyTabConfig tabForm = new MyTabConfig("Form Kegiatan");
 		tabForm.setParent(tabs);
 
 		MyTabConfig tabCatatan = new MyTabConfig("Catatan Mahasiswa");
 		tabCatatan.setParent(tabs);
+		tabCatatan.setVisible(Common.bolehKonfigurasi(Konfigurasi.KEMAHASISWAAN_TAB_CATATAN,
+				Konfigurasi.AKTIF));
 
 		Tabpanels tabpanels = new Tabpanels();
 		tabpanels.setParent(tabbox);
