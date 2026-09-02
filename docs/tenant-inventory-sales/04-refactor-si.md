@@ -2240,6 +2240,96 @@ Tidak ada bundel migrasi baru: `penerimaan_piutang` dan `alokasi_penerimaan_piut
 dan pernyataan yang dipakai persis yang sudah diverifikasi untuk `collectionCreate` — bukan cara
 kedua menulis kwitansi.
 
+## §19 — satuan jual: penolakan yang ketinggalan dari survei saya sendiri
+
+Batch sebelumnya saya nyatakan "Receivable TUNTAS". **Itu salah.** Survei yang saya pakai mencari
+satu frasa penolakan saja, dan penolakan ini berbunyi lain — ia lolos begitu saja. Penyapuan yang
+lebih luas (mencari `belum tersedia`, `belum didukung`, `TODO`, dan kerabatnya) menemukannya pada
+`sisipBarisOrderTenant`.
+
+Pelajarannya melekat pada alatnya, bukan pada satu berkas: survei yang mencocokkan satu kalimat
+hanya menemukan penolakan yang saya tulis dengan kalimat itu.
+
+### Apa yang ditolak, dan mengapa alasannya separuh benar
+
+Jalur legacy **menurunkan** kuantitas dasar dari `qty_input × faktor` dan memperlakukan `jumlah`
+kiriman klien sebagai pratinjau belaka. Jalur tenant menolaknya dengan alasan "model tenant tidak
+punya tabel satuan produk maupun kolom penampungnya".
+
+Separuhnya benar. Kolom penampungnya memang tidak ada. Tetapi **tabelnya ada** — bernama `satuan`,
+lengkap dengan `produk.satuan_id` yang menunjuk satuan dasar produk. Yang benar-benar hilang hanya
+metadata konversinya, dan itu tiga kolom, bukan sebuah tabel. Bundel v19 menambahkannya.
+
+### Keputusan yang menahan diri: rasio dan arahnya tetap terpisah
+
+Sepanjang pemindahan ini aturannya "turunkan, jangan simpan" dan "jangan simpan dua hal yang
+menyandikan satu nilai". Di sini aturan kedua **tidak** diikuti, dan itu disengaja.
+
+Legacy menyimpan `rasio` berikut `tipe_konversi` (`SMALLER` atau tidak). Menggabungkannya menjadi
+satu kolom faktor tampak lebih bersih — dan merusak angkanya:
+
+| | hasil |
+|---|---|
+| 1/12 pada `numeric(18,6)` | `0.083333` |
+| `12 × 0.083333` | **`0.999996`** |
+| pembagian dilakukan sekali di akhir | **`1.0000`** |
+
+Dua belas PCS menjadi 0,999996 DUS. Selisih itu tidak pernah cukup besar untuk terlihat, dan
+tidak pernah hilang. Blok 3 uji kesetaraan penjaganya, dan ia menuntut angka pertama memang
+`0.999996` — contoh yang tidak membedakan apa pun akan GAGAL.
+
+Jadi pecahannya disimpan sebagai pecahan, dan pembagiannya dilakukan **sekali**, atas pembilang
+yang sudah dikalikan kuantitasnya:
+
+```
+faktor(jual → dasar) = (pembilangJual × penyebutDasar) / (penyebutJual × pembilangDasar)
+kuantitas            = qtyInput × pembilang / penyebut
+```
+
+Aturan "satu sumber" tetap ditegakkan, hanya di tempat lain: yang menyimpan kebenaran adalah
+`kuantitas` pada barisnya — dihitung sekali, bertipe numerik tepat.
+
+### `faktor_ke_dasar` adalah catatan, bukan masukan hitungan
+
+Ia disimpan supaya dokumen yang sudah terbit tetap menceritakan konversi yang dipakai hari itu
+(rasio satuan boleh berubah besok). Ia **tidak** dipakai menghitung ulang apa pun. Blok 6 uji
+menunjukkan mengapa itu penting: menghitung ulang `12 × 0.083333` dari cuplikannya memberi
+`0.999996`, sedangkan `kuantitas` tersimpan `1.0000` — selisih `0.000004`. Cuplikan yang dibulatkan
+tidak pernah bisa merusak angka yang mengikat, karena tidak ada yang membacanya untuk berhitung.
+
+### Aritmetikanya pindah ke kelas tenant
+
+`pecahanSatuan` dan `kuantitasDasar` diletakkan pada `SalesInventoryReceivableTenant`, bukan
+sebagai metode privat di helper-nya. Aturan konversi adalah aturan **model tenant**, dan
+menempatkannya di sana membuatnya bisa dijalankan langsung — verifikasinya memanggil fungsi yang
+sungguhan, bukan salinannya.
+
+### Satu penolakan yang saya tambahkan sendiri
+
+Produk **tanpa satuan dasar** ditolak. Jalur legacy mengembalikan faktor 1 demi katalog lama;
+menirunya di sini berarti menerima `qty_input` apa adanya dan diam-diam menganggap DUS sama dengan
+PCS. Yang kurang datanya, bukan permintaannya, dan pesannya mengatakan begitu — lengkapi satuan
+produknya, atau kirim jumlah dalam satuan dasar.
+
+### Verifikasi
+
+Aturan konversi yang sungguhan dipanggil atas metadata yang dibaca lewat SQL yang sungguhan,
+pada katalog v1–v19:
+
+| yang diuji | hasil |
+|---|---|
+| `BOX` tanpa kategori & rasio | `UNIT`, pecahan `1/1` — bukan galat |
+| 12 DUS → PCS | 144.0000 |
+| 1 DUS → PCS | 12.0000 |
+| 12 PCS → DUS | 1.0000 |
+| 12 LSN → PCS (arah `SMALLER`) | **1.0000** |
+| penjaga faktor dibulatkan dulu | **0.999996** — memang berbeda |
+| `LTR` (VOLUME) vs `PCS` (UNIT) | kategori berbeda → ditolak |
+| `sisipOrderBaris` | cuplikan tertulis; baris tanpa satuan jual tetap `NULL` |
+
+`uji-kesetaraan-satuan-jual.sql` — enam blok, **sembilan LULUS, nol GAGAL**, dua di antaranya
+penjaga.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

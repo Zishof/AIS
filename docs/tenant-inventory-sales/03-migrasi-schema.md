@@ -713,6 +713,70 @@ kehilangan pasangannya. Pada model tenant uang muka **adalah** pembayaran.
 Katalog v1–v18 bersih. Self-test LULUS — 20 migrasi, versi `v18-termin-hutang`, checksum
 `1390c5cd9981`.
 
+## Bundel v19 — satuan jual: konversi UOM dan cuplikannya
+
+Tiga kolom pada `satuan` (`kategori`, `rasio`, `tipe_konversi`) dan tiga pada
+`sales_order_detail` (`satuan_jual_id`, `qty_input`, `faktor_ke_dasar`), plus dua indeks.
+
+### Yang hilang bukan tabelnya
+
+Catatan lama menyebut `satuan_produk` "tidak ada" pada model tenant. Itu benar sebagai nama tabel
+dan menyesatkan sebagai kesimpulan: perannya **ada**, bernama `satuan`, lengkap dengan
+`produk.satuan_id` yang menunjuk satuan dasar produk. Yang hilang hanya **metadata konversinya** —
+tanpa itu satuan tenant cuma label, dan "12 PCS" tidak dapat dihubungkan dengan "1 DUS".
+
+### Rasio DAN arahnya, bukan satu bilangan faktor
+
+Godaan yang wajar: gabungkan `rasio` dan `tipe_konversi` legacy menjadi satu kolom faktor, sebab
+dua kolom yang menyandikan satu nilai bisa saling bertentangan. Itu keliru di sini, dan alasannya
+aritmetika.
+
+Faktor pecahan tidak selalu dapat disimpan tepat. 1/12 pada `numeric(18,6)` menjadi `0.083333`,
+dan `12 × 0.083333 = 0.999996`. Dua belas PCS berubah menjadi 0,999996 DUS — selisih yang tidak
+pernah cukup besar untuk terlihat, dan tidak pernah hilang.
+
+Menyimpan `rasio = 12` beserta arahnya menjaga angkanya tetap bulat, dan pembagiannya dilakukan
+**sekali** pada saat dipakai, atas pembilang yang sudah dikalikan kuantitasnya:
+
+```
+faktor(jual → dasar) = (pembilangJual × penyebutDasar) / (penyebutJual × pembilangDasar)
+kuantitas            = qtyInput × pembilang / penyebut
+```
+
+Bentuk legacy karena itu dipertahankan justru ketika sisa model tenant menyederhanakan. Aturan
+"satu sumber" tetap ditegakkan dengan cara lain: yang menyimpan kebenaran adalah `kuantitas` pada
+barisnya, dihitung sekali dan bertipe numerik tepat.
+
+### Kategori: supaya konversi yang mustahil ditolak
+
+`kategori` bukan hiasan pengelompokan. Jalur legacy memakainya untuk menolak konversi
+antar-kategori — kilogram tidak boleh menjadi liter — dan penolakan itu satu-satunya hal yang
+mencegah rasio asal-asalan menghasilkan kuantitas yang tampak wajar. Satuan tanpa kategori
+diperlakukan `UNIT`, sama seperti jalur legacy memperlakukan katalog lama.
+
+### Cuplikan pada baris order
+
+`satuan_jual_id`, `qty_input`, dan `faktor_ke_dasar` adalah **cuplikan saat transaksi**, bukan
+ringkasan yang bisa diturunkan ulang: rasio satuan boleh berubah besok, sedangkan dokumen yang
+sudah terbit harus tetap menceritakan apa yang dipakai hari ini. Ini kebalikan dari
+`nilai_tertagih` dan `sisa_hutang`, yang justru **tidak** disimpan karena keduanya ringkasan.
+
+`faktor_ke_dasar` disimpan sebagai catatan, **bukan** sebagai masukan hitungan ulang — pembulatan
+pada kolom cuplikan karena itu tidak pernah bisa merusak angka yang mengikat.
+
+### Yang tidak dilakukan
+
+Tidak ada `satuan_pembelian` pada `produk`: legacy memakainya hanya sebagai cadangan ketika satuan
+masukan tidak disebut, dan pada jalur tenant satuan jualnya selalu disebut ketika cabang ini
+berjalan. Tidak ada `presisi_pembulatan`: legacy menyimpannya tetapi tidak memakainya pada jalur
+konversi ini. Tidak ada pengisian surut — satuan lama tetap `NULL`, yang berarti `UNIT` dan rasio
+1, perlakuan yang sama dengan satuan berkategori tunggal.
+
+### Diverifikasi pada PostgreSQL 16
+
+Katalog v1–v19 bersih. Self-test LULUS — 21 migrasi, versi `v19-satuan-jual`, checksum
+`0a4584ce0d3d`.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema
