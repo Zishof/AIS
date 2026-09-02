@@ -2007,59 +2007,6 @@ public class KantinHelper {
 	}
 
 	/**
-	 * <h3>Fase 1: validasi stok server-side dengan row lock sebelum baris penjualan ditulis.</h3>
-	 *
-	 * <p>Sebelumnya {@link #bayar} sama sekali tidak memvalidasi stok di server -- pengecekan hanya
-	 * ada di klien ({@code PosKantinAction.lolosCekStok}), yang bisa dilewati sepenuhnya oleh siapa
-	 * pun yang memanggil {@code /Data?action=bayar} langsung. Method ini mengunci baris
-	 * {@code koperasi.produk} tiap item terjual (urut id menaik untuk mengurangi risiko deadlock antar
-	 * transaksi konkuren) memakai {@code SELECT ... FOR UPDATE}, lalu membaca stok LIVE lewat formula
-	 * kanonik yang sama dengan {@link ais.action.master.inventory.StokKantinUtil} (bukan field
-	 * {@code Produk.stok} yang bisa saja basi) sebelum membandingkannya dengan qty yang diminta.</p>
-	 *
-	 * <p><b>Gerbang konfigurasi (sejak 02-09-2026 benar-benar dibaca).</b> Sakelar
-	 * {@code Konfigurasi.KANTIN_POS_CEGAH_OVERSELL} (default MATI) menentukan perlakuan produk
-	 * yang aturannya masih bawaan ({@code izinkan_jual_minus_stok == null}). MATI = tidak
-	 * memblokir; AKTIF = seluruh produk yang stoknya kurang ikut diblokir. Override per-produk
-	 * tetap menang atas sakelar ini pada KEDUA arah: {@code FALSE} selalu memblokir walau sakelar
-	 * mati, {@code TRUE} tidak pernah memblokir walau sakelar aktif.
-	 *
-	 * <p>Sebelumnya JavaDoc ini sudah menyebut gerbang tersebut padahal badan method TIDAK PERNAH
-	 * membacanya — dokumentasi yang menjanjikan lebih daripada kodenya. Akibatnya menyalakan atau
-	 * mematikan "Cegah Oversell Kasir" tidak berpengaruh apa pun pada jalur API (JSP/Desktop/
-	 * Android); hanya POS ZK yang menghormatinya.</p>
-	 *
-	 * <p><b>Batas cakupan (diketahui, bukan bug):</b> lock ini hanya dipegang selama pengecekan itu
-	 * sendiri (transaksi pendek tersendiri), BUKAN sepanjang seluruh proses simpan baris penjualan --
-	 * {@link #bayar} memakai beberapa transaksi kecil terpisah per langkah, bukan satu transaksi
-	 * atomik. Ini menutup celah "tidak ada validasi server-side sama sekali" (perbaikan utama Fase 1),
-	 * tapi masih menyisakan race window sempit secara teoritis antara commit pengecekan ini dan commit
-	 * baris penjualan. Penutupan penuh butuh menyatukan seluruh alur {@link #bayar} ke satu transaksi
-	 * atomik -- di luar cakupan Fase 1 ini, dicatat sebagai risiko terbuka.</p>
-	 *
-	 * <p><b>Gagal-aman &amp; ADVISORY-ONLY (per 2026-07-20):</b> bila mekanisme pengecekan ini sendiri
-	 * melempar exception (mis. masalah koneksi DB sesaat), method mengembalikan {@code null}. Sejak
-	 * 2026-07-20, hasil kekurangan stok yang GENUINELY terdeteksi juga TIDAK LAGI memblokir transaksi di
-	 * {@link #bayar} -- pemanggil hanya mencatatnya ke audit log dan tetap meneruskan penjualan
-	 * (fail-open penuh). Perubahan ini diminta eksplisit oleh pengguna karena blokir keras menolak
-	 * transaksi pelanggan yang sah di toko dengan baseline stok historis belum bersih (lihat
-	 * [[cegah-oversell-default-blokir-toko-belum-opname]]). Method ini masih berguna sebagai sumber
-	 * deteksi/audit shortage, sekadar tidak lagi dipakai sebagai gerbang blokir.</p>
-	 *
-	 * <p><b>Override per-produk (2026-07-24):</b> {@link ais.database.model.inventory.Produk#getIzinkanJualMinusStok()}
-	 * membiarkan admin mengunci PRODUK TERTENTU supaya WAJIB diblokir begitu stoknya tidak cukup,
-	 * TERLEPAS dari gerbang toko di atas (mis. barang mahal/gampang basi) -- ditandai lewat
-	 * {@link HasilValidasiStok#wajibBlokir} pada hasil balikan. Produk TANPA override (default,
-	 * {@code null}) tetap sepenuhnya fail-open seperti sebelum field ini ada.</p>
-	 *
-	 * @param transaksi array item terjual dari payload POS ({@code {id, jumlah, ...}}).
-	 * @return {@code null} bila stok semua item cukup (dan tak ada override wajib-blokir aktif);
-	 *         selain itu {@link HasilValidasiStok} berisi {@code semuaKurang} (SELURUH kekurangan,
-	 *         dipakai pemanggil utk audit log spt sebelumnya) dan {@code wajibBlokir} (subset yg
-	 *         punya override per-produk {@code false} -- pemanggil WAJIB menolak transaksi bila
-	 *         subset ini tidak kosong).
-	 */
-	/**
 	 * Cek keras produk kadaluarsa dalam satu transaksi checkout (2026-07-26, gap analisis PDF klien
 	 * "Kadaluarsa") -- {@link ais.database.model.inventory.Produk#getTanggalExpired()} sudah ada
 	 * (dipakai laporan "akan/sudah kadaluarsa" di {@code LaporanKantinUtil}) tapi field itu SEBELUM
@@ -2252,6 +2199,59 @@ public class KantinHelper {
 		return cegahOversellAktif;
 	}
 
+	/**
+	 * <h3>Fase 1: validasi stok server-side dengan row lock sebelum baris penjualan ditulis.</h3>
+	 *
+	 * <p>Sebelumnya {@link #bayar} sama sekali tidak memvalidasi stok di server -- pengecekan hanya
+	 * ada di klien ({@code PosKantinAction.lolosCekStok}), yang bisa dilewati sepenuhnya oleh siapa
+	 * pun yang memanggil {@code /Data?action=bayar} langsung. Method ini mengunci baris
+	 * {@code koperasi.produk} tiap item terjual (urut id menaik untuk mengurangi risiko deadlock antar
+	 * transaksi konkuren) memakai {@code SELECT ... FOR UPDATE}, lalu membaca stok LIVE lewat formula
+	 * kanonik yang sama dengan {@link ais.action.master.inventory.StokKantinUtil} (bukan field
+	 * {@code Produk.stok} yang bisa saja basi) sebelum membandingkannya dengan qty yang diminta.</p>
+	 *
+	 * <p><b>Gerbang konfigurasi (sejak 02-09-2026 benar-benar dibaca).</b> Sakelar
+	 * {@code Konfigurasi.KANTIN_POS_CEGAH_OVERSELL} (default MATI) menentukan perlakuan produk
+	 * yang aturannya masih bawaan ({@code izinkan_jual_minus_stok == null}). MATI = tidak
+	 * memblokir; AKTIF = seluruh produk yang stoknya kurang ikut diblokir. Override per-produk
+	 * tetap menang atas sakelar ini pada KEDUA arah: {@code FALSE} selalu memblokir walau sakelar
+	 * mati, {@code TRUE} tidak pernah memblokir walau sakelar aktif.
+	 *
+	 * <p>Sebelumnya JavaDoc ini sudah menyebut gerbang tersebut padahal badan method TIDAK PERNAH
+	 * membacanya — dokumentasi yang menjanjikan lebih daripada kodenya. Akibatnya menyalakan atau
+	 * mematikan "Cegah Oversell Kasir" tidak berpengaruh apa pun pada jalur API (JSP/Desktop/
+	 * Android); hanya POS ZK yang menghormatinya.</p>
+	 *
+	 * <p><b>Batas cakupan (diketahui, bukan bug):</b> lock ini hanya dipegang selama pengecekan itu
+	 * sendiri (transaksi pendek tersendiri), BUKAN sepanjang seluruh proses simpan baris penjualan --
+	 * {@link #bayar} memakai beberapa transaksi kecil terpisah per langkah, bukan satu transaksi
+	 * atomik. Ini menutup celah "tidak ada validasi server-side sama sekali" (perbaikan utama Fase 1),
+	 * tapi masih menyisakan race window sempit secara teoritis antara commit pengecekan ini dan commit
+	 * baris penjualan. Penutupan penuh butuh menyatukan seluruh alur {@link #bayar} ke satu transaksi
+	 * atomik -- di luar cakupan Fase 1 ini, dicatat sebagai risiko terbuka.</p>
+	 *
+	 * <p><b>Gagal-aman &amp; ADVISORY-ONLY (per 2026-07-20):</b> bila mekanisme pengecekan ini sendiri
+	 * melempar exception (mis. masalah koneksi DB sesaat), method mengembalikan {@code null}. Sejak
+	 * 2026-07-20, hasil kekurangan stok yang GENUINELY terdeteksi juga TIDAK LAGI memblokir transaksi di
+	 * {@link #bayar} -- pemanggil hanya mencatatnya ke audit log dan tetap meneruskan penjualan
+	 * (fail-open penuh). Perubahan ini diminta eksplisit oleh pengguna karena blokir keras menolak
+	 * transaksi pelanggan yang sah di toko dengan baseline stok historis belum bersih (lihat
+	 * [[cegah-oversell-default-blokir-toko-belum-opname]]). Method ini masih berguna sebagai sumber
+	 * deteksi/audit shortage, sekadar tidak lagi dipakai sebagai gerbang blokir.</p>
+	 *
+	 * <p><b>Override per-produk (2026-07-24):</b> {@link ais.database.model.inventory.Produk#getIzinkanJualMinusStok()}
+	 * membiarkan admin mengunci PRODUK TERTENTU supaya WAJIB diblokir begitu stoknya tidak cukup,
+	 * TERLEPAS dari gerbang toko di atas (mis. barang mahal/gampang basi) -- ditandai lewat
+	 * {@link HasilValidasiStok#wajibBlokir} pada hasil balikan. Produk TANPA override (default,
+	 * {@code null}) tetap sepenuhnya fail-open seperti sebelum field ini ada.</p>
+	 *
+	 * @param transaksi array item terjual dari payload POS ({@code {id, jumlah, ...}}).
+	 * @return {@code null} bila stok semua item cukup (dan tak ada override wajib-blokir aktif);
+	 *         selain itu {@link HasilValidasiStok} berisi {@code semuaKurang} (SELURUH kekurangan,
+	 *         dipakai pemanggil utk audit log spt sebelumnya) dan {@code wajibBlokir} (subset yg
+	 *         punya override per-produk {@code false} -- pemanggil WAJIB menolak transaksi bila
+	 *         subset ini tidak kosong).
+	 */
 	private static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi, Long tokoId,
 			boolean bolehStokHabisToko) {
 		// §6 no.4 (saklar, default MATI): reservasi WO AKTIF ikut mengunci stok yang boleh dijual.

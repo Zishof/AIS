@@ -665,6 +665,7 @@ public class PembayaranMahasiswaAction extends GenericAutowireComposer {
 
 							Session session = HibernateUtil.currentSession();
 							StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa).getStatusMahasiswa();
+							statusMahasiswa = PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(statusMahasiswa);
 
 							for (ItemBiaya itemBiaya : itemBiayas) {
 								DetailBiaya detailBiaya = (DetailBiaya) session.createCriteria(DetailKegiatan.class)

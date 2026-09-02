@@ -525,6 +525,43 @@ public class HibernateUtil {
     }
 
     /**
+     * Apakah session sedang berada di dalam transaksi aktif.
+     *
+     * <p>{@code getTransaction()} termasuk method yang DIIZINKAN oleh
+     * {@code ThreadLocalSessionContext$TransactionProtectionWrapper} meskipun belum ada transaksi,
+     * jadi pemeriksaan ini aman dipanggil pada session proxy maupun session biasa.</p>
+     */
+    private static boolean transaksiSedangAktif(Session session) {
+        try {
+            return session != null && session.getTransaction() != null && session.getTransaction().isActive();
+        } catch (Throwable abaikan) {
+            return false;
+        }
+    }
+
+    /**
+     * Buka transaksi bila memang belum ada, mengikuti pola Open Session In View.
+     *
+     * <p>{@code beginTransaction()} juga termasuk method yang diizinkan pada session proxy. Nilai
+     * balik {@code false} berarti transaksi tidak dapat dibuka, sehingga pemanggil harus memakai
+     * jalur cadangan ({@code currentNativeSession()}) alih-alih menyerahkan session yang dipastikan
+     * akan melempar exception pada pemakaian pertama.</p>
+     */
+    private static boolean mulaiTransaksiBilaBisa(Session session) {
+        if (session == null) {
+            return false;
+        }
+        try {
+            session.beginTransaction();
+            return transaksiSedangAktif(session);
+        } catch (Throwable e) {
+            ais.common.ErrorAuditUtil.record(e,
+                    "auto-audit src/ais/database/hibernate/HibernateUtil.java:mulaiTransaksiBilaBisa");
+            return false;
+        }
+    }
+
+    /**
      * Mengembalikan session native berbasis {@link ThreadLocal}, membuat yang baru bila perlu.
      *
      * <p><b>Tujuan.</b> Menyediakan session "per-thread" untuk konteks NON-ZK (thread latar, API,
@@ -572,43 +609,6 @@ public class HibernateUtil {
      *
      * @return session native open untuk thread saat ini
      */
-    /**
-     * Apakah session sedang berada di dalam transaksi aktif.
-     *
-     * <p>{@code getTransaction()} termasuk method yang DIIZINKAN oleh
-     * {@code ThreadLocalSessionContext$TransactionProtectionWrapper} meskipun belum ada transaksi,
-     * jadi pemeriksaan ini aman dipanggil pada session proxy maupun session biasa.</p>
-     */
-    private static boolean transaksiSedangAktif(Session session) {
-        try {
-            return session != null && session.getTransaction() != null && session.getTransaction().isActive();
-        } catch (Throwable abaikan) {
-            return false;
-        }
-    }
-
-    /**
-     * Buka transaksi bila memang belum ada, mengikuti pola Open Session In View.
-     *
-     * <p>{@code beginTransaction()} juga termasuk method yang diizinkan pada session proxy. Nilai
-     * balik {@code false} berarti transaksi tidak dapat dibuka, sehingga pemanggil harus memakai
-     * jalur cadangan ({@code currentNativeSession()}) alih-alih menyerahkan session yang dipastikan
-     * akan melempar exception pada pemakaian pertama.</p>
-     */
-    private static boolean mulaiTransaksiBilaBisa(Session session) {
-        if (session == null) {
-            return false;
-        }
-        try {
-            session.beginTransaction();
-            return transaksiSedangAktif(session);
-        } catch (Throwable e) {
-            ais.common.ErrorAuditUtil.record(e,
-                    "auto-audit src/ais/database/hibernate/HibernateUtil.java:mulaiTransaksiBilaBisa");
-            return false;
-        }
-    }
-
     public static Session currentNativeSession() {
         /* PENGINGAT (AI & kode baru): hasil method ini WAJIB ditutup di finally lewat closeSession()
          * (ThreadLocal) atau closeSessionQuietly(s) (openSession), yang melakukan clear+disconnect+close.

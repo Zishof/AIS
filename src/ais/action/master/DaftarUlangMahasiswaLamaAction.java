@@ -863,18 +863,19 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, smt, tahap,
 					jenisKegiatan != null && jenisKegiatan.getUntukBayarSP() ? Perkuliahan.SEMESTER_PENDEK : null,
 					refresh);
-			statusmahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa, refresh)
+			statusmahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa, true)
 					.getStatusMahasiswa();
 			PendaftaranCutiMahasiswa pendaftaranCutiMahasiswa = mahasiswa.ambilCuti(smt, tahap, false);
 			if (pendaftaranCutiMahasiswa != null && pendaftaranCutiMahasiswa.getPersetujuan() != null
 					&& pendaftaranCutiMahasiswa.getPersetujuan())
 				statusmahasiswa = ConstantValues.CUTI;
+			StatusMahasiswa statusMahasiswaTampil = statusmahasiswa;
 			statusmahasiswa = statusMahasiswaPembayaranEfektif(statusmahasiswa);
 
 			tempHistoryStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
 					.getHistoryStatusMahasiswa(krsMahasiswa, refresh);
 
-			String statusNama = statusmahasiswa != null ? statusmahasiswa.getNama() : "-";
+			String statusNama = statusMahasiswaTampil != null ? statusMahasiswaTampil.getNama() : "-";
 			String statusAwalNama = (tempHistoryStatusMahasiswa != null
 					&& tempHistoryStatusMahasiswa.getStatusAwalMahasiswa() != null)
 							? tempHistoryStatusMahasiswa.getStatusAwalMahasiswa().getNama()
