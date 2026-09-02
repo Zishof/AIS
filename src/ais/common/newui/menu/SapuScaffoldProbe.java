@@ -24,11 +24,21 @@ public final class SapuScaffoldProbe {
             java.util.regex.Pattern.compile("(?:apply|use)\\s*=\\s*[\"']([^\"']+)[\"']",
                     java.util.regex.Pattern.CASE_INSENSITIVE);
 
+    private static final String SUMBER = "C:/opt/AIS/ais/src/main/src";
+
     private static final String WEBAPP = "C:/opt/AIS/ais/src/main/webapp";
 
     public static void main(String[] args) throws Exception {
         Set<String> paths = new HashSet<String>();
         kumpulkan(new File(WEBAPP + "/WEB-INF/new"), "/WEB-INF/new", paths);
+
+        // Nama sederhana seluruh kelas ber-@Entity. Pabrik definisi menerjemahkan
+        // nama entitas yang dideklarasikan scaffold menjadi metadata Hibernate;
+        // bila namanya bukan entitas terpetakan, build() gagal, tryAutoRegister
+        // mengembalikan null, dan dispatcher jatuh ke stub SCAFFOLD. Layar itu
+        // berongga sungguhan -- dan itu dapat diketahui tanpa basis data.
+        Set<String> entitas = new HashSet<String>();
+        kumpulkanEntitas(new File(SUMBER), entitas);
 
         // Ada DUA dispatcher, dan membedakannya menentukan arti hasil sapuan:
         //
@@ -54,7 +64,7 @@ public final class SapuScaffoldProbe {
         }
 
         int total = 0, tanpaAdaptor = 0, masihScaffold = 0, siap = 0;
-        int berentitas = 0, berongga = 0;
+        int berentitas = 0, berongga = 0, takTerpetakan = 0;
         Map<String, List<String>> perModul = new TreeMap<String, List<String>>();
         for (int i = 0; i < ais.common.MenuSnapshotData.DATA.length; i++) {
             String[] k = ais.common.MenuSnapshotData.DATA[i].split("[|]", -1);
@@ -110,9 +120,17 @@ public final class SapuScaffoldProbe {
                 // berongga tanpa basis data. Yang punya entitas belum tentu
                 // terlayani -- pabrik masih dapat menolaknya -- tetapi itu tidak
                 // dapat diputuskan luring, dan ditandai demikian.
-                boolean adaEntitas = punyaEntitas(WEBAPP + r.getTarget());
-                if (adaEntitas) berentitas++; else berongga++;
-                catat(perModul, (adaEntitas ? "[crud?] " : "[RONGGA] ") + r.getModule(),
+                String[] deklarasi = entitasDideklarasikan(WEBAPP + r.getTarget());
+                boolean adaEntitas = deklarasi.length > 0;
+                boolean terpetakan = false;
+                for (int d = 0; d < deklarasi.length; d++) {
+                    if (entitas.contains(deklarasi[d])) { terpetakan = true; break; }
+                }
+                String tanda;
+                if (!adaEntitas) { berongga++; tanda = "[RONGGA] "; }
+                else if (!terpetakan) { takTerpetakan++; tanda = "[ENTITAS-TAK-DIKENAL] "; }
+                else { berentitas++; tanda = "[crud?] "; }
+                catat(perModul, tanda + r.getModule(),
                         id + "\t" + label + "\t" + r.getPage());
             } else {
                 siap++;
@@ -125,6 +143,7 @@ public final class SapuScaffoldProbe {
         System.out.println("tanpa adaptor    : " + tanpaAdaptor);
         System.out.println("  scaffold + entitas (mungkin Generic CRUD) : " + berentitas);
         System.out.println("  scaffold TANPA entitas (pasti berongga)   : " + berongga);
+        System.out.println("  scaffold dgn entitas TAK TERPETAKAN       : " + takTerpetakan);
         System.out.println();
         for (Map.Entry<String, List<String>> e : perModul.entrySet()) {
             System.out.println("=== " + e.getKey() + " (" + e.getValue().size() + ") ===");
@@ -203,6 +222,66 @@ public final class SapuScaffoldProbe {
             return "";
         } finally {
             try { if (reader != null) reader.close(); } catch (Exception ignored) { }
+        }
+    }
+
+    /** Nama sederhana entitas yang dideklarasikan scaffold; kosong bila tidak ada. */
+    private static String[] entitasDideklarasikan(String path) {
+        BufferedReader r = null;
+        try {
+            r = new BufferedReader(new InputStreamReader(new FileInputStream(path), "UTF-8"));
+            String baris;
+            while ((baris = r.readLine()) != null) {
+                int i = baris.indexOf("nuiServiceEntities");
+                if (i < 0) continue;
+                // Harus benar-benar pemanggilan setAttribute, bukan sekadar
+                // penyebutan nama atribut. Komentar di kepala berkas yang
+                // menjelaskan atribut ini akan cocok lebih dulu dan membuat
+                // pembacaan berhenti pada baris yang tidak punya daftar entitas
+                // -- persis yang terjadi ketika catatan penyuntingan manual
+                // ditambahkan di atas berkas.
+                if (baris.indexOf("setAttribute") < 0) continue;
+                // Bentuk barisnya:
+                //   setAttribute("nuiServiceEntities", new String[]{"Foo","Bar"});
+                // Mulai membaca dari '{', bukan dari akhir nama atribut:
+                // i + 18 justru mendarat pada tanda kutip penutup nama atribut
+                // itu sendiri, sehingga pembacaan naif selalu menemukan kutip
+                // dan setiap scaffold tampak mendeklarasikan entitas.
+                int kurung = baris.indexOf(123, i);
+                int akhir = kurung < 0 ? -1 : baris.indexOf(125, kurung);
+                if (kurung < 0 || akhir < 0) return new String[0];
+                List<String> nama = new ArrayList<String>();
+                int dari = kurung + 1;
+                while (dari < akhir) {
+                    int buka = baris.indexOf(34, dari);
+                    if (buka < 0 || buka > akhir) break;
+                    int tutup = baris.indexOf(34, buka + 1);
+                    if (tutup < 0 || tutup > akhir) break;
+                    String v = baris.substring(buka + 1, tutup).trim();
+                    if (v.length() > 0) nama.add(v);
+                    dari = tutup + 1;
+                }
+                return nama.toArray(new String[nama.size()]);
+            }
+            return new String[0];
+        } catch (Exception e) {
+            return new String[0];
+        } finally {
+            try { if (r != null) r.close(); } catch (Exception ignored) { }
+        }
+    }
+
+    /** Nama sederhana tiap kelas sumber yang membawa anotasi @Entity. */
+    private static void kumpulkanEntitas(File dir, Set<String> out) {
+        File[] anak = dir.listFiles();
+        if (anak == null) return;
+        for (int i = 0; i < anak.length; i++) {
+            if (anak[i].isDirectory()) { kumpulkanEntitas(anak[i], out); continue; }
+            String nama = anak[i].getName();
+            if (!nama.endsWith(".java")) continue;
+            if (isiMemuat(anak[i].getPath(), "@Entity")) {
+                out.add(nama.substring(0, nama.length() - 5));
+            }
         }
     }
 

@@ -1,5 +1,67 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/Matakuliah.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **definisi mata kuliah** di kurikulum (kode/nama/SKS, tanpa keterikatan waktu).
+976 → 2284 baris, **120/120 method ber-Javadoc (100%)** (diaudit skrip, 0 tersisa).
+Revisi: **r83072** (class-level + field + blok audit + konstruktor + identitas) dan
+**r83085** (sisanya, tuntas). Potongan sempat tersapu revisi gabungan sesi paralel
+r83076/r83077 (pesan kosong) — normal, isi terverifikasi. Sudah di-mirror ke `java/`
+(`cmp` byte-identik setelah `svn update`).
+
+**Struktur**: identitas (kode/nama/namaEn/singkatan/prefix/jurusan) → bobot SKS total +
+4 rincian bentuk pembelajaran → penggolongan (status/jenis/kelompok/tingkat kesulitan/
+aktif/modul/pra-perkuliahan) → kurikulum-OBE (deskripsi + 4 kolom CSV id) → kelengkapan
+perangkat ajar + UTS/UAS → Feeder → 6 method flag store ekivalensi. Relasi kurikulum,
+prasyarat, dan ekivalensi TIDAK ada sebagai field — dipegang entity seberang
+(`KurikulumPunyaMatakuliah`, `MatakuliahPrasyarat`, `MatakuliahEkivalen`), sebab itu
+"semester ke berapa" bukan kolom di sini.
+
+**Pola berulang yang DITEMUKAN di sini**:
+- *Getter menutup sesi Hibernate pemanggil*: **ADA**. `reInitEkivalen()` dan
+  `ambilEkivalen(String)` memanggil `session.close()` + `HibernateUtil.closeSession()`
+  atas sesi thread-local pemanggil.
+- *Field audit `oleh`/`olehId`/`tanggal_dirubah` di-shadow ulang*: **ADA**, sama seperti
+  `Dosen`/`Pegawai`.
+- *Getter `findOrCreateX` + Levenshtein yang menulis baris master baru*: **TIDAK ADA**
+  di file ini (diverifikasi grep: tidak ada `findOrCreate`/`save`/`persist`).
+
+**Temuan/kuirk (didokumentasikan, TIDAK diperbaiki)**:
+1. `getMilikUniversitas()` **selalu mengembalikan `true`** — pemeriksaan `if (x == null)`
+   dikomentari sehingga penugasan berjalan tanpa syarat; karena property-access, nilai
+   `true` itu ikut di-flush dan menimpa kolom. Dampak terbatas: tidak ada satu pun
+   pemanggil `matakuliah.getMilikUniversitas()` di pohon sumber.
+2. **Banyak getter tidak bebas efek samping** dan bisa memicu `UPDATE` + baris Envers baru
+   hanya karena dibaca: `getKode()` (menghapus spasi/tanda hubung permanen bila konfigurasi
+   `matakuliah_tanpa_spasi` aktif — berisiko memutus pencocokan kode Feeder), `getStatus()`,
+   `getSks()`, `getSksDiskusi()`, `getFeeders()`, seluruh `getTerdapat*`/`getMerupakanMk*`,
+   dan 4 getter CSV OBE.
+3. `getSksDiskusi()` **mengisi dirinya sendiri** dengan `getSks()` bila keempat rincian SKS
+   nol — nilai bentukan ini tersimpan ke DB, jadi mata kuliah yang belum dirinci
+   otomatis tercatat 100% tatap muka (disengaja demi ekspor Feeder).
+4. Bendera `terdapatPraktek`/`terdapatDiskusi`/`terdapatSimulasi`/`terdapatPraktekLapangan`/
+   `merupakanMkPraktek`/`merupakanMkTeori` adalah **turunan yang menimpa kolomnya**;
+   setter-nya tidak berpengaruh dan kolomnya tidak boleh dipakai di `Restrictions`/HQL.
+5. Empat getter CSV OBE (`bahanKajian`, `capaianLulusan`, `capaianPembelajaranLulusan`,
+   `profilLulusan`) adalah salinan algoritma yang sama: dedup lewat `HashSet` sehingga
+   **urutan hilang**, daftar kosong dikembalikan sebagai `",,"` (bukan `""`), dan
+   pemeriksaan `== null` pada baris `return` adalah **kode mati**.
+6. **Asimetri ekivalensi**: `reInitEkivalen()` mengumpulkan baris dua arah (sengaja, agar
+   `EkivalenNilaiUtil` bisa mengelompokkan nilai ganda), sedangkan `ambilEkivalen()` hanya
+   meresolusi arah sumber→target. Jalur pemulihan `ambilEkivalen()` (saat JSON rusak)
+   mengembalikan hasil `reInitEkivalen()` — dua arah, tanpa filter NIM — jadi bentuk
+   hasilnya berbeda dari jalur normal.
+7. `removeEkivalen()` hanya mengosongkan nilai kunci, tidak menghapusnya — peta JSON hanya
+   bisa tumbuh sampai `reInitEkivalen()` menimpanya.
+8. `ambilLokasiEkivalen()`/`tulisLokasiEkivalen()` memanggil `getId().toString()` di luar
+   blok `try` → **NPE** pada entity yang belum tersimpan.
+9. Field `public transient String descKurikulum` **tidak dipakai sama sekali** (nihil di
+   seluruh pohon sumber, termasuk `.zul`).
+10. `status` dan `jenisMatakuliah` disimpan sebagai **teks bebas**, bukan FK: `status`
+    didenormalisasi dari nama `StatusMatakuliah` (pemetaan balik di `FeederExporterGenerator`
+    memakai perbandingan nama), dan label `jenisMatakuliah` diambil dari berkas bahasa
+    sehingga isinya ikut bahasa antarmuka saat penyimpanan.
+
 ## `ais/database/model/KrsMahasiswa.java` — SELESAI 100% (2 Sep 2026)
 
 748 → 1695 baris, **87/87 method ber-Javadoc (100%)** (diaudit skrip, 0 tersisa).

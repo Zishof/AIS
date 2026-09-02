@@ -2222,10 +2222,65 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		detailNilai = formatbaru;
 	}
 
+	/**
+	 * Menghitung nilai rata-rata berbobot yang diberikan <b>satu dosen</b> untuk skripsi ini,
+	 * dengan daftar komponen yang berlaku diambil sendiri dari database.
+	 *
+	 * <p>Bentuk singkat dari {@link #hitungTotalNilai(Boolean, Dosen, List)} dengan argumen
+	 * daftar {@code null}.</p>
+	 *
+	 * @param gunakanSkripsiPunyaKomponenPenilaianSkripsiDariDatabase bila {@code true}, rincian
+	 *        nilai dibersihkan lebih dulu dari komponen yang sudah tidak berlaku (memicu query)
+	 * @param dosen dosen yang nilainya dihitung; tidak boleh {@code null}
+	 * @return nilai rata-rata berbobot dosen tersebut; {@code 0.0} bila belum ada rincian nilai
+	 * @see #hitungTotalNilai(Boolean, Dosen, List)
+	 */
 	public Double hitungTotalNilai(Boolean gunakanSkripsiPunyaKomponenPenilaianSkripsiDariDatabase, Dosen dosen) {
 		return hitungTotalNilai(gunakanSkripsiPunyaKomponenPenilaianSkripsiDariDatabase, dosen, null);
 	}
 
+	/**
+	 * Menghitung nilai rata-rata berbobot yang diberikan <b>satu dosen</b> untuk skripsi ini,
+	 * berdasarkan rincian per komponen yang tersimpan di {@link #detailNilai}.
+	 *
+	 * <p>Urutan kerjanya:</p>
+	 * <ol>
+	 * <li>{@link #refreshNilaiKeDefault(Dosen)} — bila rincian masih kosong padahal total nilai
+	 * sudah terisi, rincian dibangkitkan dari total nilai supaya data lama tetap terbaca.</li>
+	 * <li>Bila {@code gunakanSkripsiPunyaKomponenPenilaianSkripsiDariDatabase} bernilai
+	 * {@code true}, rincian dibersihkan dari komponen yang sudah tidak berlaku:
+	 * {@link #bersihkanNilaiKeDefault()} bila {@code skripsiPunyaKomponenPenilaianSkripsis}
+	 * {@code null} (daftar komponen diambil sendiri lewat query), atau
+	 * {@link #bersihkanNilaiKeDefault(List)} bila daftarnya dipasok pemanggil.</li>
+	 * <li>Rincian di-parse: entri milik dosen lain dilewati; token bobot (token ke-5)
+	 * dijumlahkan menjadi {@code totalPersen}, lalu nilai tiap komponen ditimbang
+	 * {@code nilai * (bobot / totalPersen)}. Karena pembaginya jumlah bobot yang benar-benar
+	 * ada, <b>bobot tidak harus berjumlah 100</b> dan komponen yang belum dinilai tetap
+	 * menurunkan rata-rata (nilainya dihitung 0).</li>
+	 * </ol>
+	 *
+	 * <p>Entri yang rusak (token kurang dari 5, id kosong, teks {@code "null"}, angka tak
+	 * ter-parse) dilewati diam-diam lewat {@link #nilaiKosongAtauNull(String)} dan
+	 * {@link #parseDoubleNilaiAman(String)}, jadi satu entri cacat tidak menggagalkan seluruh
+	 * perhitungan. Method mencetak jejak perhitungan ke {@code System.out}.</p>
+	 *
+	 * <p><b>Efek samping:</b> dapat mengubah {@link #detailNilai} (lewat langkah 1 dan 2) dan
+	 * membuka query Hibernate. Hasilnya <b>tidak</b> disimpan ke kolom nilai mana pun — itu
+	 * tugas {@link #cariNilaiDariDosen(Dosen, String, Boolean)} yang memanggilnya.</p>
+	 *
+	 * <p><b>Catatan penamaan:</b> parameter {@code skripsiPunyaKomponenPenilaianSkripsis} berisi
+	 * id {@link KomponenPenilaianSkripsi} (itulah token ke-0 pada {@link #detailNilai}),
+	 * bukan id {@link SkripsiPunyaKomponenPenilaianSkripsi} seperti yang disiratkan namanya.
+	 * Memasok id join-entity ke sini akan membuat seluruh rincian terhapus oleh langkah
+	 * pembersihan.</p>
+	 *
+	 * @param gunakanSkripsiPunyaKomponenPenilaianSkripsiDariDatabase bila {@code true}, rincian
+	 *        dibersihkan lebih dulu dari komponen yang tidak lagi berlaku
+	 * @param dosen dosen yang nilainya dihitung; tidak boleh {@code null}
+	 * @param skripsiPunyaKomponenPenilaianSkripsis daftar id komponen penilaian yang dianggap
+	 *        masih berlaku; {@code null} berarti "ambil sendiri dari database"
+	 * @return nilai rata-rata berbobot dosen tersebut; {@code 0.0} bila tidak ada entri yang cocok
+	 */
 	public Double hitungTotalNilai(Boolean gunakanSkripsiPunyaKomponenPenilaianSkripsiDariDatabase, Dosen dosen,
 			List<Long> skripsiPunyaKomponenPenilaianSkripsis) {
 
@@ -2292,10 +2347,29 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return total;
 	}
 
+	/**
+	 * Memeriksa apakah sebuah token pada string {@link #detailNilai} harus dianggap "tidak ada".
+	 * Token dianggap kosong bila {@code null}, hanya berisi spasi, atau berisi teks literal
+	 * {@code "null"} (kasus yang muncul karena rincian dirakit lewat penggabungan string).
+	 *
+	 * @param nilai token yang diperiksa
+	 * @return {@code true} bila token tidak layak di-parse
+	 */
 	private boolean nilaiKosongAtauNull(String nilai) {
 		return nilai == null || nilai.trim().length() == 0 || "null".equalsIgnoreCase(nilai.trim());
 	}
 
+	/**
+	 * Mem-parse token angka pada {@link #detailNilai} tanpa pernah melempar exception.
+	 *
+	 * <p>Token kosong atau berteks {@code "null"} langsung menghasilkan {@code null}. Token yang
+	 * gagal di-parse dicatat ke audit dengan penanda
+	 * {@code auto-audit(nilai-skripsi-tidak-valid-dilewati)} lalu juga menghasilkan {@code null},
+	 * sehingga pemanggil bisa membedakan "tidak ada nilai" dari "nilai nol".</p>
+	 *
+	 * @param nilai token yang di-parse
+	 * @return nilai {@code Double}, atau {@code null} bila token kosong/tidak valid
+	 */
 	private Double parseDoubleNilaiAman(String nilai) {
 		if (nilai == null) {
 			return null;
@@ -2314,6 +2388,32 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		}
 	}
 
+	/**
+	 * Menyimpan (menambah atau memperbarui) nilai satu <b>komponen penilaian</b> dari satu dosen
+	 * ke dalam string {@link #detailNilai}.
+	 *
+	 * <p>Seluruh rincian dibaca ulang, entri yang idnya cocok dengan pasangan
+	 * (komponen, dosen) ditulis ulang dengan nilai baru, sisanya disalin apa adanya. Bila
+	 * pasangan itu belum ada, entri baru ditambahkan di akhir. Bentuk entri yang ditulis:
+	 * {@code <idKomponen>,<idDosen>,<jumlah>,0,<bobotKomponen>,<verify>}.</p>
+	 *
+	 * <p>Bila {@code jumlah} lebih kecil dari 0,01, bendera {@code verify} <b>dipaksa</b>
+	 * {@code false} — nilai nol tidak boleh berstatus terverifikasi. Bila
+	 * {@code komponenPenilaianSkripsi} {@code null}, method tidak melakukan apa pun.</p>
+	 *
+	 * <p><b>Perilaku yang perlu diwaspadai:</b> entri lama yang token pertamanya kosong akan
+	 * <b>hilang</b> (tidak disalin) karena disaring oleh pemeriksaan {@code !s[0].trim().isEmpty()};
+	 * entri yang gagal di-parse ditangani per entri dan hanya dilaporkan ke admin lewat
+	 * {@code Common.tampilErrorJikaAdmin}. Method hanya mengubah field di memori — penyimpanan ke
+	 * database bergantung pada flush/commit pemanggil.</p>
+	 *
+	 * @param komponenPenilaianSkripsi komponen yang dinilai; bila {@code null} method tidak
+	 *                                 berbuat apa-apa
+	 * @param dosen                    dosen pemberi nilai; tidak boleh {@code null}
+	 * @param jumlah                   nilai angka yang diberikan
+	 * @param verify                   status verifikasi nilai; dipaksa {@code false} bila
+	 *                                 {@code jumlah} &lt; 0,01
+	 */
 	public void populateDetailNilai(KomponenPenilaianSkripsi komponenPenilaianSkripsi, Dosen dosen, Double jumlah,
 			Boolean verify) {
 		if (jumlah != null && jumlah < 0.01) {
@@ -2357,6 +2457,27 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 
 	}
 
+	/**
+	 * Membuang dari {@link #detailNilai} seluruh entri yang komponennya <b>sudah tidak berlaku
+	 * lagi</b> bagi skripsi ini, dengan daftar komponen sah diambil sendiri dari database.
+	 *
+	 * <p>Daftar sah adalah id {@link KomponenPenilaianSkripsi} yang tertaut ke
+	 * {@link #formatNilaiSkripsi} skripsi ini <b>dan</b> lolos penyaringan cakupan: komponen
+	 * tanpa jurusan atau berjurusan sama dengan jurusan mahasiswa, komponen tanpa fakultas atau
+	 * berfakultas sama dengan fakultas mahasiswa, serta komponen yang aktif (atau belum
+	 * ditentukan keaktifannya). Hasil query dikelompokkan {@code groupProperty} sehingga yang
+	 * kembali adalah id komponen — ruang id yang sama dengan token pertama {@link #detailNilai}.
+	 * </p>
+	 *
+	 * <p><b>Perhatian:</b> method membuka session lewat {@code HibernateUtil.currentSession()}
+	 * dan memanggil {@link #getMahasiswa()} beserta {@code getJurusan().getFakultas()} tanpa
+	 * pengaman {@code null}; skripsi yang mahasiswanya belum punya jurusan akan melempar
+	 * {@code NullPointerException} dari sini. Membaca field {@link #formatNilaiSkripsi} secara
+	 * mentah (bukan lewat getter), jadi format nilai yang masih proxy detached bisa membuat
+	 * hasil query kosong dan <b>menghapus seluruh rincian nilai</b>.</p>
+	 *
+	 * @see #bersihkanNilaiKeDefault(List)
+	 */
 	@SuppressWarnings("unchecked")
 	public void bersihkanNilaiKeDefault() {
 		Session session = HibernateUtil.currentSession();
@@ -2375,6 +2496,20 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		bersihkanNilaiKeDefault(skripsiPunyaKomponenPenilaianSkripsis);
 	}
 
+	/**
+	 * Membuang dari {@link #detailNilai} entri yang id komponennya tidak ada dalam daftar putih
+	 * yang diberikan pemanggil.
+	 *
+	 * <p>Bila {@link #detailNilai} kosong, method tidak berbuat apa-apa. Berbeda dari method
+	 * parsing lain di class ini, di sini token pertama di-{@code parseLong} <b>tanpa</b>
+	 * pengaman token kosong/{@code "null"}, sehingga rincian yang rusak dapat melempar
+	 * {@code NumberFormatException} yang merambat ke pemanggil.</p>
+	 *
+	 * @param skripsiPunyaKomponenPenilaianSkripsis daftar id {@link KomponenPenilaianSkripsi}
+	 *        yang masih berlaku (perhatikan namanya menyesatkan — bukan id join-entity); entri di
+	 *        luar daftar ini dihapus. {@code null} akan melempar
+	 *        {@code NullPointerException} bila rincian tidak kosong
+	 */
 	public void bersihkanNilaiKeDefault(List<Long> skripsiPunyaKomponenPenilaianSkripsis) {
 		String formatbaru = "";
 
@@ -2394,6 +2529,36 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		}
 	}
 
+	/**
+	 * Membangkitkan rincian nilai per komponen dari <b>nilai akhir yang sudah tersimpan</b>, untuk
+	 * data lama yang dinilai sebelum fitur penilaian per komponen ada.
+	 *
+	 * <p>Hanya berjalan bila {@link #detailNilai} masih kosong <b>dan</b> {@link #totalNilai}
+	 * lebih besar dari 1,0. Dalam kondisi itu seluruh komponen yang berlaku (penyaringan cakupan
+	 * jurusan/fakultas/aktif sama seperti {@link #bersihkanNilaiKeDefault()}) ditulis sebagai
+	 * entri baru dengan <b>nilai yang sama, yaitu {@code totalNilai}</b>, atas nama dosen yang
+	 * diberikan, dan bendera verifikasi {@code false}. Karena rata-rata berbobot dari nilai yang
+	 * seragam menghasilkan nilai itu sendiri, {@link #hitungTotalNilai(Boolean, Dosen, List)}
+	 * tetap mengembalikan angka lama.</p>
+	 *
+	 * <p>Method ini dipanggil di awal hampir semua operasi rincian nilai
+	 * ({@link #hitungTotalNilai(Boolean, Dosen, List)},
+	 * {@link #retreiveDetailNilai(KomponenPenilaianSkripsi, Dosen)},
+	 * {@link #retreiveDetailVerifikasiNilai(SkripsiPunyaKomponenPenilaianSkripsi, Dosen)},
+	 * {@link #reloadSkripsiPunyaKomponenPenilaianSkripsi(Session, Dosen)}), sehingga sekadar
+	 * <i>membaca</i> nilai satu komponen bisa memicu query Hibernate dan menulis
+	 * {@link #detailNilai}.</p>
+	 *
+	 * <p><b>Konsekuensi yang perlu disadari:</b> rincian dibangkitkan atas nama <i>dosen yang
+	 * kebetulan sedang membuka layar penilaian</i>. Bila kemudian dosen lain membuka skripsi yang
+	 * sama, rincian sudah tidak kosong lagi sehingga nilainya tidak ikut dibangkitkan — bagi
+	 * dosen kedua nilai lama tampak nol. Sama seperti {@link #bersihkanNilaiKeDefault()}, method
+	 * ini memanggil {@code getMahasiswa().getJurusan().getFakultas()} tanpa pengaman {@code null}.
+	 * </p>
+	 *
+	 * @param dosen dosen yang dicatat sebagai pemberi nilai pada rincian yang dibangkitkan;
+	 *              tidak boleh {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public void refreshNilaiKeDefault(Dosen dosen) {
 		if ((detailNilai == null || detailNilai.trim().isEmpty()) && totalNilai != null && totalNilai > 1.0) {
@@ -2425,6 +2590,23 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		}
 	}
 
+	/**
+	 * Membaca nilai satu komponen penilaian dari satu dosen pada {@link #detailNilai}.
+	 *
+	 * <p>Diawali {@link #refreshNilaiKeDefault(Dosen)} (lihat efek sampingnya), lalu rincian
+	 * ditelusuri sampai menemukan entri yang token id komponennya sama dengan
+	 * {@code formatIdSource.getId()} dan token id dosennya sama dengan {@code dosen.getId()}.
+	 * Entri dengan token rusak/kosong dilewati oleh {@link #tokenAngkaValid(String)} — pengaman
+	 * ini ditambahkan setelah ditemukan {@code NumberFormatException} pada rincian berformat
+	 * {@code "id,,nilai,..."}.</p>
+	 *
+	 * <p>Dipakai luas oleh layar penilaian skripsi untuk mengisi kotak nilai tiap komponen.</p>
+	 *
+	 * @param formatIdSource komponen penilaian yang dicari; {@code null} atau tanpa id
+	 *                       menghasilkan {@code 0.0}
+	 * @param dosen          dosen pemberi nilai; tidak boleh {@code null}
+	 * @return nilai yang tersimpan, atau {@code 0.0} bila tidak ada entri yang cocok
+	 */
 	public Double retreiveDetailNilai(KomponenPenilaianSkripsi formatIdSource, Dosen dosen) {
 
 		refreshNilaiKeDefault(dosen);
@@ -2455,6 +2637,33 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return 0.0;
 	}
 
+	/**
+	 * Membaca bendera verifikasi (token ke-6) satu komponen penilaian dari satu dosen pada
+	 * {@link #detailNilai}. Nilai yang lebih kecil dari 0,01 selalu dilaporkan belum
+	 * terverifikasi, apa pun isi token benderanya.
+	 *
+	 * <p>Struktur penelusurannya menyalin {@link #retreiveDetailNilai(KomponenPenilaianSkripsi, Dosen)},
+	 * termasuk pemanggilan {@link #refreshNilaiKeDefault(Dosen)} di awal dan penyaringan token
+	 * rusak.</p>
+	 *
+	 * <p><b>BUG yang ditemukan saat pendokumentasian (sengaja TIDAK diperbaiki, hanya dicatat):
+	 * ruang id argumennya tidak cocok dengan isi rincian.</b> Token pertama {@link #detailNilai}
+	 * selalu ditulis sebagai id {@link KomponenPenilaianSkripsi} (lihat
+	 * {@link #populateDetailNilai(KomponenPenilaianSkripsi, Dosen, Double, Boolean)} dan
+	 * {@link #refreshNilaiKeDefault(Dosen)}), tetapi method ini membandingkannya dengan
+	 * {@code formatIdSource.getId()} — id baris {@link SkripsiPunyaKomponenPenilaianSkripsi},
+	 * tabel penghubung yang punya urutan id sendiri. Akibatnya bendera verifikasi hanya terbaca
+	 * benar bila kedua id kebetulan bernilai sama; selebihnya method mengembalikan
+	 * {@code false}. Ini pola yang sama dengan salah-pakai id anak versus id entity utama yang
+	 * pernah ditemukan di {@link Pertemuan}. Dampak nyatanya kecil untuk saat ini karena satu-
+	 * satunya pemanggil, {@link #reloadSkripsiPunyaKomponenPenilaianSkripsi(Session, Dosen)},
+	 * juga sudah tidak dipanggil dari mana pun.</p>
+	 *
+	 * @param formatIdSource baris penghubung komponen-format nilai; lihat catatan bug di atas
+	 * @param dosen          dosen pemberi nilai; tidak boleh {@code null}
+	 * @return {@code true} bila nilai komponen itu sudah diverifikasi; {@code false} bila belum,
+	 *         nilainya nol, atau entri tidak ditemukan
+	 */
 	public Boolean retreiveDetailVerifikasiNilai(SkripsiPunyaKomponenPenilaianSkripsi formatIdSource, Dosen dosen) {
 
 		refreshNilaiKeDefault(dosen);
@@ -2485,19 +2694,51 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return false;
 	}
 
+	/**
+	 * Memeriksa kelayakan sebuah token angka pada {@link #detailNilai} sebelum di-parse. Sama
+	 * dengan kebalikan {@link #nilaiKosongAtauNull(String)}; keduanya hidup berdampingan karena
+	 * ditambahkan pada dua perbaikan yang berbeda.
+	 *
+	 * @param nilai token yang diperiksa
+	 * @return {@code true} bila token layak di-parse
+	 */
 	private boolean tokenAngkaValid(String nilai) {
 		return nilai != null && !nilai.trim().isEmpty() && !"null".equalsIgnoreCase(nilai.trim());
 	}
 
+	/**
+	 * Mengembalikan string rincian nilai per komponen per dosen apa adanya (sudah dipangkas
+	 * spasinya). Formatnya diuraikan pada Javadoc class.
+	 *
+	 * @return string rincian; string kosong bila belum ada, tidak pernah {@code null}
+	 * @see #populateDetailNilai(KomponenPenilaianSkripsi, Dosen, Double, Boolean)
+	 */
 	@Column(columnDefinition = "text")
 	public String getDetailNilai() {
 		return detailNilai == null ? "" : detailNilai.trim();
 	}
 
+	/**
+	 * Mengganti seluruh string rincian nilai. Dipakai saat menyalin data atau membersihkan
+	 * rincian; format isinya tidak divalidasi sama sekali.
+	 *
+	 * @param detailNilai string rincian sesuai format pada Javadoc class
+	 */
 	public void setDetailNilai(String detailNilai) {
 		this.detailNilai = detailNilai;
 	}
 
+	/**
+	 * Mengembalikan format nilai (komponen penilaian gaya perkuliahan) yang dipakai saat tugas
+	 * akhir dikonversi menjadi baris kartu hasil studi. Berbeda peran dengan
+	 * {@link #getFormatNilaiSkripsi()} yang mengatur slot dosen sidang.
+	 *
+	 * <p>Seperti {@link #getDetailperkuliahan()}, getter ini tidak memanggil
+	 * {@link GeneralValueObject#check(Object)} sehingga dapat mengembalikan proxy yang belum
+	 * terinisialisasi.</p>
+	 *
+	 * @return format nilai untuk konversi KHS, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "format_nilai", nullable = true)
@@ -2505,36 +2746,88 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return formatNilai;
 	}
 
+	/**
+	 * Menyetel format nilai untuk konversi ke kartu hasil studi.
+	 *
+	 * @param formatNilai format nilai, boleh {@code null}
+	 */
 	public void setFormatNilai(FormatNilai formatNilai) {
 		this.formatNilai = formatNilai;
 	}
 
+	/**
+	 * Mengembalikan keterangan lokasi ujian/sidang sebagai teks bebas — dipakai untuk mencatat
+	 * ruang non-master maupun tautan sidang daring, dan dicetak pada berita acara.
+	 *
+	 * @return keterangan lokasi; string kosong bila belum diisi, tidak pernah {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getLokasiUjian() {
 		return lokasiUjian == null ? "" : lokasiUjian;
 	}
 
+	/**
+	 * Menyetel keterangan lokasi ujian/sidang.
+	 *
+	 * @param lokasiUjian teks lokasi
+	 */
 	public void setLokasiUjian(String lokasiUjian) {
 		this.lokasiUjian = lokasiUjian;
 	}
 
+	/**
+	 * Mengembalikan nomor SK penetapan pembimbing/penguji tugas akhir, untuk dicetak pada surat
+	 * dan berita acara.
+	 *
+	 * @return nomor SK; string kosong bila belum diisi, tidak pernah {@code null}
+	 */
 	public String getNomorSk() {
 		return nomorSk == null ? "" : nomorSk;
 	}
 
+	/**
+	 * Menyetel nomor SK penetapan pembimbing/penguji.
+	 *
+	 * @param nomorSk nomor SK
+	 */
 	public void setNomorSk(String nomorSk) {
 		this.nomorSk = nomorSk;
 	}
 
+	/**
+	 * Mengembalikan tanggal SK penetapan pembimbing/penguji.
+	 *
+	 * @return tanggal SK, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTglSk() {
 		return tglSk;
 	}
 
+	/**
+	 * Menyetel tanggal SK penetapan pembimbing/penguji.
+	 *
+	 * @param tglSk tanggal SK
+	 */
 	public void setTglSk(Date tglSk) {
 		this.tglSk = tglSk;
 	}
 
+	/**
+	 * Mengembalikan lama penyelesaian tugas akhir dalam satuan bulan.
+	 *
+	 * <p>Bila {@link #getAwalBimbingan()} dan {@link #getAkhirBimbingan()} keduanya terisi, nilai
+	 * <b>dihitung ulang</b> dengan {@code Months.monthsBetween} dari Joda-Time (selisih bulan
+	 * penuh, sisa hari dibuang) dan ditulis ke field. Bila salah satu tanggal kosong, nilai
+	 * terakhir yang tersimpan dikembalikan apa adanya — termasuk {@code null}.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis field {@link #selesaiDalamBulan}. (Nama variabel lokal
+	 * {@code jamesBirthDay} di dalam method adalah sisa contoh dari dokumentasi Joda-Time, bukan
+	 * penanda logika apa pun.)</p>
+	 *
+	 * @return lama penyelesaian dalam bulan, atau {@code null} bila rentang bimbingan belum
+	 *         lengkap dan belum pernah disetel
+	 */
 	public Integer getSelesaiDalamBulan() {
 		if (getAwalBimbingan() != null && getAkhirBimbingan() != null) {
 			LocalDate jamesBirthDay = new LocalDate(getAwalBimbingan());
@@ -2544,10 +2837,27 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return selesaiDalamBulan;
 	}
 
+	/**
+	 * Menyetel lama penyelesaian dalam bulan secara manual. Akan ditimpa oleh
+	 * {@link #getSelesaiDalamBulan()} bila rentang bimbingan lengkap.
+	 *
+	 * @param selesaiDalamBulan lama penyelesaian dalam bulan
+	 */
 	public void setSelesaiDalamBulan(Integer selesaiDalamBulan) {
 		this.selesaiDalamBulan = selesaiDalamBulan;
 	}
 
+	/**
+	 * Mengembalikan tahun awal dari tahun akademik pelaksanaan (mis. {@code 2025} untuk
+	 * {@code "2025/2026"}).
+	 *
+	 * <p>Nilai diturunkan dari {@link #getTahunAkademik()} lewat
+	 * {@link #ekstrakTahunAkademik(String)}; bila tidak bisa diurai sama sekali dan field masih
+	 * kosong, dipakai tahun kalender berjalan. Hasilnya ditulis ke field
+	 * ({@link #tahun}) — <b>efek samping</b> — dan menjadi bahan {@link #getSmt()}.</p>
+	 *
+	 * @return tahun awal tahun akademik; tidak pernah {@code null}
+	 */
 	public Integer getTahun() {
 		String tahunAkademikAktif = getTahunAkademik();
 		Integer tahunDariTahunAkademik = ekstrakTahunAkademik(tahunAkademikAktif);
@@ -2560,6 +2870,17 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return tahun;
 	}
 
+	/**
+	 * Mengurai tahun awal dari sebuah string tahun akademik dengan toleransi format tinggi.
+	 *
+	 * <p>Strategi bertingkat: pertama mencoba potongan sebelum garis miring (bentuk baku
+	 * {@code "2025/2026"}); bila gagal, seluruh string dipindai empat karakter demi empat
+	 * karakter dan kandidat pertama yang lolos {@link #parseTahunAkademik(String)} dipakai —
+	 * sehingga bentuk tak baku seperti {@code "TA 2025-2026"} pun tetap terbaca.</p>
+	 *
+	 * @param tahunAkademikAktif string tahun akademik; boleh {@code null}/kosong
+	 * @return tahun awal, atau {@code null} bila tidak ada empat digit tahun yang masuk akal
+	 */
 	private Integer ekstrakTahunAkademik(String tahunAkademikAktif) {
 		if (tahunAkademikAktif == null) {
 			return null;
@@ -2583,6 +2904,14 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return null;
 	}
 
+	/**
+	 * Memeriksa dan mengubah satu kandidat menjadi angka tahun. Kandidat harus tepat empat digit
+	 * dan berada pada rentang masuk akal 1900–2200, sehingga potongan seperti kode prodi atau
+	 * nomor urut tidak salah dikenali sebagai tahun.
+	 *
+	 * @param nilai kandidat empat karakter; boleh {@code null}
+	 * @return angka tahun, atau {@code null} bila kandidat tidak memenuhi syarat
+	 */
 	private Integer parseTahunAkademik(String nilai) {
 		if (nilai == null) {
 			return null;
@@ -2603,10 +2932,23 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return Integer.valueOf(tahunParsed);
 	}
 
+	/**
+	 * Menyetel tahun awal tahun akademik. Akan ditimpa {@link #getTahun()} bila
+	 * {@link #getTahunAkademik()} bisa diurai.
+	 *
+	 * @param tahun tahun awal, mis. {@code 2025}
+	 */
 	public void setTahun(Integer tahun) {
 		this.tahun = tahun;
 	}
 
+	/**
+	 * Mengembalikan gelombang pendaftaran sidang tugas akhir yang diikuti mahasiswa. Gelombang
+	 * mengatur rentang waktu dan syarat pendaftaran sidang; jadwal konkretnya ada pada
+	 * {@link #getJadwalSidangTugasAkhir()}.
+	 *
+	 * @return gelombang pendaftaran, atau {@code null} bila mahasiswa belum mendaftar
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "gelombang_pendaftaran_sidang_tugas_akhir", nullable = true)
 	public GelombangPendaftaranSidangTugasAkhir getGelombangPendaftaranSidangTugasAkhir() {
@@ -2614,71 +2956,169 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return gelombangPendaftaranSidangTugasAkhir;
 	}
 
+	/**
+	 * Menautkan skripsi ini ke sebuah gelombang pendaftaran sidang.
+	 *
+	 * @param gelombangPendaftaranSidangTugasAkhir gelombang pendaftaran, boleh {@code null}
+	 */
 	public void setGelombangPendaftaranSidangTugasAkhir(
 			GelombangPendaftaranSidangTugasAkhir gelombangPendaftaranSidangTugasAkhir) {
 		this.gelombangPendaftaranSidangTugasAkhir = gelombangPendaftaranSidangTugasAkhir;
 	}
 
+	/**
+	 * Mengembalikan judul tugas akhir dalam bahasa Inggris. Bila belum diisi, <b>judul bahasa
+	 * Indonesia</b> yang dikembalikan ({@link #getJudul()}) supaya ijazah/transkrip dan ekspor
+	 * Feeder tidak pernah kosong. Perhatikan bahwa string kosong dianggap "sudah diisi" —
+	 * hanya {@code null} yang memicu jatuh-balik.
+	 *
+	 * @return judul bahasa Inggris, atau judul bahasa Indonesia sebagai cadangan
+	 */
 	@Column(name = "judulen", columnDefinition = "text")
 	public String getJudulen() {
 		return judulen == null ? getJudul() : judulen.trim();
 	}
 
+	/**
+	 * Menyetel judul tugas akhir dalam bahasa Inggris.
+	 *
+	 * @param judulen judul bahasa Inggris
+	 */
 	public void setJudulen(String judulen) {
 		this.judulen = judulen;
 	}
 
+	/**
+	 * Implementasi kontrak {@link VOPembelajaran}: mengembalikan tahun akademik pelaksanaan.
+	 * Sekadar meneruskan ke {@link #getTahunAkademik()}, jadi efek sampingnya ikut terbawa.
+	 *
+	 * @return tahun akademik pelaksanaan tugas akhir
+	 */
 	@Override
 	public String ambilTahunAkademik() {
 		return getTahunAkademik();
 	}
 
+	/**
+	 * Implementasi kontrak {@link VOPembelajaran}: mengembalikan semester tempuh.
+	 * Meneruskan ke {@link #getSemester()}.
+	 *
+	 * @return semester tempuh mahasiswa
+	 */
 	@Override
 	public Integer ambilSemester() {
 		return getSemester();
 	}
 
+	/**
+	 * Implementasi kontrak {@link VOPembelajaran}: menyimpulkan jenis semester dari paritas
+	 * {@link #getSemester()} — genap bila habis dibagi dua, ganjil bila tidak.
+	 *
+	 * @return {@link Perkuliahan#GANJIL} atau {@link Perkuliahan#GENAP}; nilai semester
+	 *         {@code 0} (belum diketahui) dilaporkan sebagai genap
+	 */
 	@Override
 	public String ambilJenisSemester() {
 		return getSemester() % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL;
 	}
 
+	/**
+	 * Implementasi kontrak {@link VOPesertaPembelajaran}: skripsi adalah sesi pembelajarannya
+	 * sendiri, sehingga method ini mengembalikan {@code this}. Berkat ini kode generik yang
+	 * memproses "peserta pembelajaran" bisa memperlakukan skripsi sama seperti peserta
+	 * perkuliahan, KKN, atau PKL.
+	 *
+	 * @return object ini sendiri
+	 */
 	@Override
 	public VOPembelajaran ambilVOPembelajaran() {
 		// TODO Auto-generated method stub
 		return this;
 	}
 
+	/**
+	 * Implementasi kontrak {@link VOPembelajaran}: jumlah baris kartu hasil studi yang langsung
+	 * bergantung pada sesi ini. Untuk skripsi jawabannya selalu {@code 1} — satu tugas akhir
+	 * paling banyak menghasilkan satu baris KHS ({@link #getDetailperkuliahan()}), tidak seperti
+	 * perkuliahan yang bisa punya banyak peserta.
+	 *
+	 * @return selalu {@code 1}
+	 */
 	@Override
 	public Integer ambilJumlahDetailperkuliahanLangsung() {
 		// TODO Auto-generated method stub
 		return 1;
 	}
 
+	/**
+	 * Menyatakan apakah pembimbing slot {@code dosen1} sudah menyetujui naskah untuk maju sidang.
+	 * Murni bendera manual — <b>tidak</b> diturunkan dari nilai, berbeda dari persetujuan
+	 * penguji.
+	 *
+	 * @return {@code true} bila sudah disetujui; {@code null} dinormalkan menjadi {@code false}
+	 */
 	public Boolean getPersetujuanPembimbing1() {
 		return persetujuanPembimbing1 == null ? false : persetujuanPembimbing1;
 	}
 
+	/**
+	 * Menyetel persetujuan naskah oleh pembimbing slot {@code dosen1}.
+	 *
+	 * @param persetujuanPembimbing1 {@code true} bila disetujui
+	 */
 	public void setPersetujuanPembimbing1(Boolean persetujuanPembimbing1) {
 		this.persetujuanPembimbing1 = persetujuanPembimbing1;
 	}
 
+	/**
+	 * Menyatakan apakah pembimbing slot {@code dosen2} sudah menyetujui naskah. Bendera manual,
+	 * seperti {@link #getPersetujuanPembimbing1()}.
+	 *
+	 * @return {@code true} bila sudah disetujui; tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanPembimbing2() {
 		return persetujuanPembimbing2 == null ? false : persetujuanPembimbing2;
 	}
 
+	/**
+	 * Menyetel persetujuan naskah oleh pembimbing slot {@code dosen2}.
+	 *
+	 * @param persetujuanPembimbing2 {@code true} bila disetujui
+	 */
 	public void setPersetujuanPembimbing2(Boolean persetujuanPembimbing2) {
 		this.persetujuanPembimbing2 = persetujuanPembimbing2;
 	}
 
+	/**
+	 * Menyatakan apakah pembimbing III sudah menyetujui naskah. Bendera manual, seperti
+	 * {@link #getPersetujuanPembimbing1()}.
+	 *
+	 * @return {@code true} bila sudah disetujui; tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanPembimbing3() {
 		return persetujuanPembimbing3 == null ? false : persetujuanPembimbing3;
 	}
 
+	/**
+	 * Menyetel persetujuan naskah oleh pembimbing III.
+	 *
+	 * @param persetujuanPembimbing3 {@code true} bila disetujui
+	 */
 	public void setPersetujuanPembimbing3(Boolean persetujuanPembimbing3) {
 		this.persetujuanPembimbing3 = persetujuanPembimbing3;
 	}
 
+	/**
+	 * Menyatakan apakah penguji I sudah menyelesaikan penilaiannya.
+	 *
+	 * <p>Berbeda dari persetujuan pembimbing, bendera ini <b>diturunkan otomatis</b>: begitu
+	 * {@link #getNilaiPenguji1()} melebihi 0,1, field dipaksa {@code true} dan ditulis ke state
+	 * (efek samping). Konsekuensinya persetujuan yang sudah "menyala" tidak bisa dimatikan lagi
+	 * selama nilainya masih ada, dan penguji yang sah memberi nilai 0 tetap tercatat belum
+	 * menyetujui.</p>
+	 *
+	 * @return {@code true} bila penguji I dianggap sudah menyetujui; tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanPenguji1() {
 		if (getNilaiPenguji1() > 0.1) {
 			persetujuanPenguji1 = true;
@@ -2686,10 +3126,23 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return persetujuanPenguji1 == null ? false : persetujuanPenguji1;
 	}
 
+	/**
+	 * Menyetel persetujuan penguji I. Akan dipaksa kembali menjadi {@code true} oleh
+	 * {@link #getPersetujuanPenguji1()} selama nilai penguji I &gt; 0,1.
+	 *
+	 * @param persetujuanPenguji1 {@code true} bila disetujui
+	 */
 	public void setPersetujuanPenguji1(Boolean persetujuanPenguji1) {
 		this.persetujuanPenguji1 = persetujuanPenguji1;
 	}
 
+	/**
+	 * Menyatakan apakah penguji II sudah menyelesaikan penilaiannya; diturunkan otomatis dari
+	 * {@link #getNilaiPenguji2()} dengan pola yang sama seperti
+	 * {@link #getPersetujuanPenguji1()}.
+	 *
+	 * @return {@code true} bila penguji II dianggap sudah menyetujui; tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanPenguji2() {
 		if (getNilaiPenguji2() > 0.1) {
 			persetujuanPenguji2 = true;
@@ -2697,10 +3150,21 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return persetujuanPenguji2 == null ? false : persetujuanPenguji2;
 	}
 
+	/**
+	 * Menyetel persetujuan penguji II; dapat ditimpa kembali oleh getternya.
+	 *
+	 * @param persetujuanPenguji2 {@code true} bila disetujui
+	 */
 	public void setPersetujuanPenguji2(Boolean persetujuanPenguji2) {
 		this.persetujuanPenguji2 = persetujuanPenguji2;
 	}
 
+	/**
+	 * Menyatakan apakah penguji III sudah menyelesaikan penilaiannya; diturunkan otomatis dari
+	 * {@link #getNilaiPenguji3()}.
+	 *
+	 * @return {@code true} bila penguji III dianggap sudah menyetujui; tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanPenguji3() {
 		if (getNilaiPenguji3() > 0.1) {
 			persetujuanPenguji3 = true;
@@ -2708,10 +3172,21 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return persetujuanPenguji3 == null ? false : persetujuanPenguji3;
 	}
 
+	/**
+	 * Menyetel persetujuan penguji III; dapat ditimpa kembali oleh getternya.
+	 *
+	 * @param persetujuanPenguji3 {@code true} bila disetujui
+	 */
 	public void setPersetujuanPenguji3(Boolean persetujuanPenguji3) {
 		this.persetujuanPenguji3 = persetujuanPenguji3;
 	}
 
+	/**
+	 * Menyatakan apakah penguji IV sudah menyelesaikan penilaiannya; diturunkan otomatis dari
+	 * {@link #getNilaiPenguji4()}.
+	 *
+	 * @return {@code true} bila penguji IV dianggap sudah menyetujui; tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanPenguji4() {
 		if (getNilaiPenguji4() > 0.1) {
 			persetujuanPenguji4 = true;
@@ -2719,10 +3194,21 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return persetujuanPenguji4 == null ? false : persetujuanPenguji4;
 	}
 
+	/**
+	 * Menyetel persetujuan penguji IV; dapat ditimpa kembali oleh getternya.
+	 *
+	 * @param persetujuanPenguji4 {@code true} bila disetujui
+	 */
 	public void setPersetujuanPenguji4(Boolean persetujuanPenguji4) {
 		this.persetujuanPenguji4 = persetujuanPenguji4;
 	}
 
+	/**
+	 * Menyatakan apakah penguji V sudah menyelesaikan penilaiannya; diturunkan otomatis dari
+	 * {@link #getNilaiPenguji5()}.
+	 *
+	 * @return {@code true} bila penguji V dianggap sudah menyetujui; tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanPenguji5() {
 		if (getNilaiPenguji5() > 0.1) {
 			persetujuanPenguji5 = true;
@@ -2730,16 +3216,33 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return persetujuanPenguji5 == null ? false : persetujuanPenguji5;
 	}
 
+	/**
+	 * Menyetel persetujuan penguji V; dapat ditimpa kembali oleh getternya.
+	 *
+	 * @param persetujuanPenguji5 {@code true} bila disetujui
+	 */
 	public void setPersetujuanPenguji5(Boolean persetujuanPenguji5) {
 		this.persetujuanPenguji5 = persetujuanPenguji5;
 	}
 
+	/** Konfigurasi "course" (materi/kelas daring) dalam bentuk JSON; kontrak {@link VOPembelajaran}. */
 	private String course;
+	/** Catatan penting yang dicetak pada berita acara sidang; punya teks default panjang. */
 	private String catatanPenting;
+	/** Bila {@code true}, naskah dinyatakan tidak memerlukan perbaikan pasca sidang. */
 	private Boolean tanpaPerbaikan;
+	/** Catatan tiap dosen penguji dalam bentuk JSON (berkunci dosen); dicetak di berita acara. */
 	private String catatanDosen;
+	/** Kontrak {@link VOPembelajaran}: apakah daftar/urutan disusun otomatis; default {@code true}. */
 	private Boolean urutkanotomatis;
 
+	/**
+	 * Implementasi kontrak {@link VOPembelajaran}: mengembalikan konfigurasi "course" dalam
+	 * bentuk teks JSON. Bila belum diisi, dikembalikan JSON object kosong ({@code "{}"}) sehingga
+	 * pemanggil selalu bisa mem-parse-nya tanpa pemeriksaan {@code null}.
+	 *
+	 * @return teks JSON konfigurasi course; tidak pernah {@code null} atau kosong
+	 */
 	@Override
 	@Column(columnDefinition = "text")
 	public String getCourse() {
@@ -2747,11 +3250,31 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return course == null || course.trim().isEmpty() ? new JSONObject().toString() : course;
 	}
 
+	/**
+	 * Implementasi kontrak {@link VOPembelajaran}: menyetel konfigurasi course.
+	 *
+	 * @param course teks JSON konfigurasi course
+	 */
 	@Override
 	public void setCourse(String course) {
 		this.course = course;
 	}
 
+	/**
+	 * Mengembalikan catatan penting yang dicetak pada berita acara sidang tugas akhir.
+	 *
+	 * <p>Bila belum diisi, field <b>diisi dengan teks baku</b> berisi ketentuan batas waktu
+	 * perbaikan naskah: maksimal 14 hari kerja (Senin–Sabtu, tidak termasuk Minggu, libur
+	 * nasional, dan cuti bersama), sanksi penurunan nilai satu tingkat bila terlambat, dan
+	 * kewajiban ujian ulang bila terlambat lebih dari dua minggu. Teks ini di-hardcode di kode,
+	 * bukan diambil dari konfigurasi, sehingga perguruan tinggi yang aturannya berbeda harus
+	 * menimpanya per skripsi.</p>
+	 *
+	 * <p><b>Efek samping:</b> membaca getter ini pada skripsi yang catatannya kosong akan
+	 * menuliskan teks baku ke field, dan teks itu ikut tersimpan bila entity di-flush.</p>
+	 *
+	 * @return teks catatan penting; tidak pernah kosong
+	 */
 	@Column(columnDefinition = "text")
 	public String getCatatanPenting() {
 		if (catatanPenting == null || catatanPenting.trim().isEmpty()) {
@@ -2766,28 +3289,82 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return catatanPenting;
 	}
 
+	/**
+	 * Menyetel catatan penting berita acara, menimpa teks baku.
+	 *
+	 * @param catatanPenting teks catatan
+	 */
 	public void setCatatanPenting(String catatanPenting) {
 		this.catatanPenting = catatanPenting;
 	}
 
+	/**
+	 * Menyatakan apakah naskah dinyatakan lulus <b>tanpa perbaikan</b>, sehingga ketentuan batas
+	 * waktu revisi pada {@link #getCatatanPenting()} tidak berlaku.
+	 *
+	 * @return {@code true} bila tanpa perbaikan; {@code null} dinormalkan menjadi {@code false}
+	 */
 	public Boolean getTanpaPerbaikan() {
 		return tanpaPerbaikan == null ? false : tanpaPerbaikan;
 	}
 
+	/**
+	 * Menyetel status lulus tanpa perbaikan.
+	 *
+	 * @param tanpaPerbaikan {@code true} bila tidak ada perbaikan yang diwajibkan
+	 */
 	public void setTanpaPerbaikan(Boolean tanpaPerbaikan) {
 		this.tanpaPerbaikan = tanpaPerbaikan;
 	}
 
+	/**
+	 * Mengembalikan catatan/masukan tiap dosen penguji dalam bentuk teks JSON object (berkunci
+	 * dosen), untuk dicetak pada berita acara. Bila belum ada catatan, dikembalikan JSON object
+	 * kosong sehingga pemanggil selalu dapat mem-parse-nya.
+	 *
+	 * @return teks JSON catatan dosen; tidak pernah {@code null} atau kosong
+	 */
 	@Column(columnDefinition = "text")
 	public String getCatatanDosen() {
 		return catatanDosen == null || catatanDosen.trim().isEmpty() ? new JSONObject().toString()
 				: catatanDosen.trim();
 	}
 
+	/**
+	 * Menyetel catatan dosen penguji.
+	 *
+	 * @param catatanDosen teks JSON catatan
+	 */
 	public void setCatatanDosen(String catatanDosen) {
 		this.catatanDosen = catatanDosen;
 	}
 
+	/**
+	 * Menyusun daftar slot dosen skripsi ini sebagai {@link CommonVO} — pasangan
+	 * (id dosen, label slot, object dosen, kode slot) — untuk ditampilkan di layar penilaian,
+	 * berita acara, dan ekspor Feeder.
+	 *
+	 * <p>Sebuah slot ikut masuk hanya bila slot itu <b>aktif</b> pada
+	 * {@link FormatNilaiSkripsi} dan (bila {@code semua} bernilai {@code false}) dosennya sudah
+	 * terisi. Urutan hasilnya tetap: slot {@code dosen1} ({@link #getPembimbing()}),
+	 * {@code dosen2} ({@link #getKetuaSidang()}), {@code dosen21}
+	 * ({@link #getPembimbing3()}), lalu {@code dosen3} sampai {@code dosen7}
+	 * ({@link #getPenguji1()} .. {@link #getPenguji5()}).</p>
+	 *
+	 * <p>Label yang dipasang di {@link CommonVO} inilah yang belakangan dipakai sebagai
+	 * penanda "jenis" oleh {@link #cariNilaiDariDosen(Dosen, String, Boolean)} dan
+	 * {@link #simpanDosen(Dosen, String)}. Karena pencocokannya berbasis <b>teks label</b>, dua
+	 * slot yang diberi label sama pada satu format nilai akan saling tertukar — yang cocok
+	 * pertama pada rantai {@code if/else} yang menang.</p>
+	 *
+	 * <p>Bila {@link #getFormatNilaiSkripsi()} belum ditetapkan, method mengembalikan daftar
+	 * kosong. Untuk {@code semua == true} dan slot yang dosennya belum terisi, id pada
+	 * {@code CommonVO} berupa string kosong.</p>
+	 *
+	 * @param semua {@code true} untuk menyertakan slot aktif yang dosennya belum terisi (dipakai
+	 *              layar penetapan dosen); {@code false} hanya slot yang sudah ada dosennya
+	 * @return daftar slot dosen terurut; kosong bila format nilai belum ditetapkan
+	 */
 	public List<CommonVO> dataDosen(boolean semua) {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		Skripsi skripsi = this;
@@ -2844,6 +3421,36 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return commonVOs;
 	}
 
+	/**
+	 * Menghitung ulang nilai seorang dosen dari rincian per komponen, lalu <b>menyimpannya ke
+	 * kolom nilai milik slot yang bersangkutan</b>.
+	 *
+	 * <p>Slot ditentukan dengan mencocokkan {@code jenis} terhadap label slot pada
+	 * {@link FormatNilaiSkripsi} ({@code getDosen1()} .. {@code getDosen7()}); label ini berasal
+	 * dari {@link CommonVO} yang dibuat {@link #dataDosen(boolean)}. Nilainya sendiri dihitung
+	 * oleh {@link #hitungTotalNilai(Boolean, Dosen, List)}.</p>
+	 *
+	 * <p>Pemetaan label ke setter mengikuti penamaan kolom yang tertukar untuk dua slot pertama:
+	 * label {@code dosen1} menulis ke {@link #setNilaiKetuaSidang(Double)} dan label
+	 * {@code dosen2} ke {@link #setNilaiPembimbing(Double)} — konsisten dengan bobot
+	 * {@code prosentasiNilaiKetuaSidang}/{@code prosentasiNilaiPembimbing} yang dipakai
+	 * {@link #getTotalNilai()}. Lihat tabel pemetaan pada Javadoc class.</p>
+	 *
+	 * <p><b>Peringatan:</b> {@link #getFormatNilaiSkripsi()} dipanggil tanpa pemeriksaan
+	 * {@code null}, sehingga skripsi yang belum punya format nilai akan melempar
+	 * {@code NullPointerException}. Bila {@code jenis} tidak cocok dengan label mana pun, tidak
+	 * ada kolom yang diperbarui dan method mengembalikan {@code 0.0}.</p>
+	 *
+	 * <p>Dipanggil dari layar penilaian skripsi ({@code PenilaianSkripsiHelper}) setiap kali
+	 * dosen mengubah nilai komponen.</p>
+	 *
+	 * @param dosen dosen pemberi nilai; tidak boleh {@code null}
+	 * @param jenis label slot dosen sesuai {@link FormatNilaiSkripsi}; tidak boleh {@code null}
+	 * @param gunakanSkripsiPunyaKomponenPenilaianSkripsiDariDatabase diteruskan ke
+	 *        {@link #hitungTotalNilai(Boolean, Dosen, List)} untuk menentukan apakah rincian
+	 *        dibersihkan lebih dulu dari komponen yang tidak berlaku
+	 * @return nilai yang baru dihitung dan disimpan; {@code 0.0} bila label tidak dikenali
+	 */
 	public Double cariNilaiDariDosen(Dosen dosen, String jenis,
 			Boolean gunakanSkripsiPunyaKomponenPenilaianSkripsiDariDatabase) {
 		Skripsi skripsi = this;
@@ -2876,6 +3483,23 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return nilaiPembimbing;
 	}
 
+	/**
+	 * Menempatkan seorang dosen ke slot yang labelnya cocok dengan {@code jenis}.
+	 *
+	 * <p>Pasangan dari {@link #cariNilaiDariDosen(Dosen, String, Boolean)}, tetapi menulis ke
+	 * <b>kolom orang</b>: label {@code dosen1} ke {@link #setPembimbing(Dosen)}, {@code dosen2}
+	 * ke {@link #setKetuaSidang(Dosen)}, {@code dosen21} ke {@link #setPembimbing3(Dosen)}, lalu
+	 * {@code dosen3}..{@code dosen7} ke {@link #setPenguji1(Dosen)}..{@link #setPenguji5(Dosen)}.
+	 * Bandingkan dengan {@code cariNilaiDariDosen} yang untuk dua label pertama menulis ke kolom
+	 * nilai bernama terbalik — itulah asal silang penamaan yang dijelaskan pada Javadoc class.</p>
+	 *
+	 * <p>Seperti {@code cariNilaiDariDosen}, {@link #getFormatNilaiSkripsi()} dipakai tanpa
+	 * pemeriksaan {@code null}, dan label yang tidak dikenali membuat method tidak melakukan
+	 * apa pun (gagal diam-diam). Perubahan hanya di memori; penyimpanan bergantung pemanggil.</p>
+	 *
+	 * @param dosen dosen yang ditempatkan; boleh {@code null} untuk mengosongkan slot
+	 * @param jenis label slot sesuai {@link FormatNilaiSkripsi}
+	 */
 	public void simpanDosen(Dosen dosen, String jenis) {
 		Skripsi skripsi = this;
 		if (jenis.equals(skripsi.getFormatNilaiSkripsi().getDosen1())) {
@@ -2897,6 +3521,20 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar referensi/pustaka naskah dalam bentuk teks JSON array.
+	 *
+	 * <p>Bila referensi lokal masih kosong (atau berupa array JSON kosong), method mencoba
+	 * mewarisinya dari {@link MahasiswaRequestTugasAkhir} tahap proposal dan menulisnya ke field.
+	 * Pengambilan itu dibungkus penangkap {@code LazyInitializationException} secara khusus:
+	 * pada entity yang sudah detached (mis. dipanggil dari {@code onAddExternal}), proxy
+	 * pengajuan tidak dipaksa dimuat dan nilai lama dipakai apa adanya. Pemeriksaan memakai field
+	 * mentah, bukan {@link #getMahasiswaRequestTugasAkhir()}, sehingga efek samping penulisan
+	 * kolom {@code skr} pada entity itu tidak ikut terpicu di sini.</p>
+	 *
+	 * @return teks JSON array referensi; array kosong ({@code "[]"}) bila belum ada, tidak pernah
+	 *         {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getReferensi() {
 
@@ -2916,48 +3554,108 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return referensi == null || referensi.trim().isEmpty() ? new JSONArray().toString() : referensi.trim();
 	}
 
+	/**
+	 * Menyetel daftar referensi naskah.
+	 *
+	 * @param referensi teks JSON array referensi
+	 */
 	public void setReferensi(String referensi) {
 		this.referensi = referensi;
 	}
 
+	/**
+	 * Mengembalikan nilai dari pembimbing III ({@link #getPembimbing3()}), null-safe ke
+	 * {@code 0.0}. Ikut ditimbang oleh {@link #getTotalNilai()} dengan persentase
+	 * {@code prosentasiNilaiPembimbing3}.
+	 *
+	 * @return nilai pembimbing III; {@code 0.0} bila belum dinilai
+	 */
 	public Double getNilaiPembimbing3() {
 		return nilaiPembimbing3 == null ? 0.0 : nilaiPembimbing3;
 	}
 
+	/**
+	 * Menyetel nilai dari pembimbing III.
+	 *
+	 * @param nilaiPembimbing3 nilai angka; {@code null} berarti "belum dinilai"
+	 */
 	public void setNilaiPembimbing3(Double nilaiPembimbing3) {
 		this.nilaiPembimbing3 = nilaiPembimbing3;
 	}
 
+	/**
+	 * Mengembalikan id padanan baris ini di PDDikti Feeder, sudah dipangkas spasinya.
+	 * <b>String kosong dinormalkan menjadi {@code null}</b> supaya pemanggil cukup memeriksa
+	 * {@code null} untuk membedakan "sudah tersinkron" dari "belum".
+	 *
+	 * @return id Feeder, atau {@code null} bila belum pernah disinkronkan
+	 */
 	public String getFeeder() {
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
 
+	/**
+	 * Menyetel id padanan Feeder.
+	 *
+	 * @param feeder id Feeder hasil sinkronisasi
+	 */
 	public void setFeeder(String feeder) {
 		this.feeder = feeder;
 	}
 
+	/**
+	 * Menyatakan apakah rincian nilai tugas akhir disembunyikan dari portal mahasiswa (dipakai
+	 * selama nilai belum resmi diumumkan).
+	 *
+	 * @return {@code true} bila nilai disembunyikan; {@code null} dinormalkan menjadi
+	 *         {@code false}, artinya secara default nilai terlihat
+	 */
 	public Boolean getSembunyikanNilaiKemahasiswa() {
 		return sembunyikanNilaiKemahasiswa == null ? false : sembunyikanNilaiKemahasiswa;
 	}
 
+	/**
+	 * Menyetel penyembunyian nilai dari portal mahasiswa.
+	 *
+	 * @param sembunyikanNilaiKemahasiswa {@code true} untuk menyembunyikan
+	 */
 	public void setSembunyikanNilaiKemahasiswa(Boolean sembunyikanNilaiKemahasiswa) {
 		this.sembunyikanNilaiKemahasiswa = sembunyikanNilaiKemahasiswa;
 	}
 
+	/**
+	 * Implementasi kontrak {@link VOPembelajaran}: menyatakan apakah daftar terkait sesi ini
+	 * diurutkan otomatis. Default {@code true} untuk data lama yang kolomnya masih {@code null}.
+	 *
+	 * @return {@code true} bila pengurutan otomatis aktif; tidak pernah {@code null}
+	 */
 	@Override
 	public Boolean getUrutkanotomatis() {
 		// TODO Auto-generated method stub
 		return urutkanotomatis == null ? true : urutkanotomatis;
 	}
 
+	/**
+	 * Implementasi kontrak {@link VOPembelajaran}: menyetel pengurutan otomatis.
+	 *
+	 * @param urutkanotomatis {@code true} untuk mengaktifkan pengurutan otomatis
+	 */
 	@Override
 	public void setUrutkanotomatis(Boolean urutkanotomatis) {
 		this.urutkanotomatis = urutkanotomatis;
 	}
 
+	/** Disposisi SOP yang melahirkan/menyertai baris ini; kontrak {@code DataSop}. */
 	private DisposisiSop disposisiSop;
+	/** Penanda baris masih aktif (belum diarsipkan/dibatalkan); default {@code true}. */
 	private Boolean aktif;
 
+	/**
+	 * Mengembalikan disposisi SOP yang terkait dengan baris skripsi ini (integrasi modul
+	 * persuratan/SOP yang diwarisi dari {@code ais.database.model.sop.DataSop}).
+	 *
+	 * @return disposisi SOP, atau {@code null} bila baris tidak berasal dari alur SOP
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -2965,6 +3663,17 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah disposisi SOP.
+	 *
+	 * <p><b>Setter yang tidak biasa — tidak bisa dipakai untuk mengosongkan.</b> Argumen
+	 * {@code null} atau disposisi tanpa id langsung diabaikan (method {@code return} lebih awal),
+	 * sehingga tautan yang sudah ada tidak pernah bisa dilepas lewat setter ini. Ekspresi ternary
+	 * di baris berikutnya karena itu selalu memilih argumen — kondisinya sudah pasti salah pada
+	 * titik tersebut.</p>
+	 *
+	 * @param disposisiSop disposisi SOP; {@code null} atau tanpa id diabaikan diam-diam
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
@@ -2974,10 +3683,20 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 				: disposisiSop;
 	}
 	
+	/**
+	 * Menyatakan apakah baris skripsi ini masih aktif (belum diarsipkan atau dibatalkan).
+	 *
+	 * @return {@code true} bila aktif; data lama yang kolomnya {@code null} dianggap aktif
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menyetel status aktif baris skripsi ini.
+	 *
+	 * @param aktif {@code false} untuk menonaktifkan/mengarsipkan
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif; 
 	}

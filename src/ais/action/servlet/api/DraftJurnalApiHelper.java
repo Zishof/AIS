@@ -712,7 +712,14 @@ public final class DraftJurnalApiHelper {
                 // sebab -- yang terbaca sebagai kerusakan, bukan sebagai sifat baris itu.
                 String alasanRincian = DraftJurnalRingkasanUtil.alasanTanpaRincian(b.getNama());
                 if (alasanRincian != null) j.put("alasanTanpaRincian", alasanRincian);
-                j.put("bisaPosting", modulPosting(b.getNama()) != null);
+                String kunciModulBaris = modulPosting(b.getNama());
+                j.put("bisaPosting", kunciModulBaris != null);
+                // Hak posting per baris: dasbor ini memuat belasan modul dengan kunci menu
+                // yang BERBEDA-BEDA, jadi satu bendera untuk seluruh layar tidak cukup.
+                // Dipisah dari bisaPosting karena alasannya berbeda di mata pengguna --
+                // "belum tersedia" bukan "tidak berhak".
+                j.put("bolehPosting",
+                        kunciModulBaris != null && bolehAksi(tbmuser, kunciModulBaris, "create"));
                 data.put(j);
                 totalDraft += b.getDraft();
                 totalPosting += b.getPosting();
