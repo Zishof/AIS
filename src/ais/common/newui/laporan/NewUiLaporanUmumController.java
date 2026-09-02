@@ -95,6 +95,26 @@ public final class NewUiLaporanUmumController {
          * pernah cocok.</p>
          */
         boolean idSebagaiTeks;
+        /**
+         * Kirim tanggal sebagai {@code java.util.Date}, bukan teks.
+         *
+         * <p>Sebagian template mendeklarasikan parameter tanggalnya
+         * {@code java.util.Date} dan memakainya lewat {@code $P{...}} bertipe —
+         * mis. statistik surat. Layar ZK-nya memang mengirim objek Date
+         * ({@code datebox.getValue()}); mengirim teks ke sana membuat Jasper
+         * menyaring dengan nilai yang tidak pernah cocok.</p>
+         */
+        boolean tanggalSebagaiObjek;
+        /**
+         * Nama filter ini tidak sampai ke template apa adanya karena diolah
+         * ulang sebelum dikirim (lihat {@code siapkanParameterRab}).
+         *
+         * <p>Penanda ini hanya dibaca uji kecocokan tipe, supaya uji itu tidak
+         * melaporkan filter yang sebenarnya berfungsi sebagai "tidak
+         * berpengaruh" — sekaligus menahan diri dari melonggarkan uji untuk
+         * semua orang demi dua laporan.</p>
+         */
+        boolean diolahUlang;
         final boolean wajib;
         /**
          * Bila diisi, controller ikut mengirim parameter bernama ini berisi
@@ -139,6 +159,10 @@ public final class NewUiLaporanUmumController {
         Filter tanggalTampilan(String namaParam) { paramTanggalTampilan = namaParam; return this; }
         /** Kirim id relasi sebagai String karena template mendeklarasikannya String. */
         Filter idTeks() { idSebagaiTeks = true; return this; }
+        /** Kirim tanggal sebagai objek Date karena template mendeklarasikannya Date. */
+        Filter tanggalObjek() { tanggalSebagaiObjek = true; return this; }
+        /** Tandai filter yang namanya diolah ulang sebelum sampai ke template. */
+        Filter diolahUlang() { diolahUlang = true; return this; }
         Filter cari() { cari = true; return this; }
         static Filter teks(String nama, String label) { return new Filter(nama, label, TIPE_TEKS, false, null); }
     }
@@ -189,7 +213,11 @@ public final class NewUiLaporanUmumController {
         REGISTRI.put("surat_statistik",
                 new Laporan("Statistik Surat Masuk dan Keluar",
                         "surat/laporan_statistic_surat_masuk_dan_keluar",
-                        Filter.mulai(), Filter.sampai()));
+                        // Template mendeklarasikan mulai/sampai java.util.Date dan
+                        // memakainya lewat $P{...} bertipe; layar ZK-nya pun
+                        // mengirim datebox.getValue(). Sebelumnya kontrak ini
+                        // mengirim teks, sehingga penyaringan tidak pernah cocok.
+                        Filter.mulai().tanggalObjek(), Filter.sampai().tanggalObjek()));
 
         // --- Perpustakaan ---------------------------------------------------
         REGISTRI.put("library_saldo_awal",
@@ -328,7 +356,7 @@ public final class NewUiLaporanUmumController {
         REGISTRI.put("rab_evaluasi_penetapan_kinerja",
                 new Laporan("Evaluasi Penetapan Kinerja", "rab/Realisasi_Program_Bulanan",
                         Filter.relasi("satuanKerja", "Satuan Kerja",
-                                "ais.database.model.rab.SatuanKerja", true),
+                                "ais.database.model.rab.SatuanKerja", true).diolahUlang(),
                         Filter.mulai(),
                         new Filter("selesai", "Tanggal Selesai", TIPE_TANGGAL, true, null))
                         .mulaiHariIni());
@@ -336,7 +364,7 @@ public final class NewUiLaporanUmumController {
                 new Laporan("RKAKL 1", "rab/RKA-KL_1",
                         Filter.tahun(true),
                         Filter.relasi("satuanKerja", "Satuan Kerja",
-                                "ais.database.model.rab.SatuanKerja", true),
+                                "ais.database.model.rab.SatuanKerja", true).diolahUlang(),
                         Filter.relasi("parent", "Root RKA-KL", "ais.database.model.rab.Workspace", false)
                                 .cari().tergantung("satuanKerja"))
                         .rentangTahun(5, 19));
@@ -637,7 +665,9 @@ public final class NewUiLaporanUmumController {
             } else if (TIPE_TANGGAL.equals(f.tipe)) {
                 Date tanggal = tanggal(mentah);
                 if (tanggal == null) throw new IllegalArgumentException(f.label + " bukan tanggal yang sah.");
-                parameters.put(f.nama, Common.databaseDateFormat.get().format(tanggal));
+                parameters.put(f.nama, f.tanggalSebagaiObjek
+                        ? (Object) tanggal
+                        : (Object) Common.databaseDateFormat.get().format(tanggal));
                 parameters.put("label_" + f.nama, Common.dateFormat4.get().format(tanggal));
                 if (f.paramTanggalTampilan != null) {
                     parameters.put(f.paramTanggalTampilan,

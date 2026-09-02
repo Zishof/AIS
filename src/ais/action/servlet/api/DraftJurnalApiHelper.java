@@ -37,7 +37,7 @@ public final class DraftJurnalApiHelper {
     public static void proses(String action, ais.database.model.Tbmuser tbmuser, JSONObject payload,
             JSONObject hasil) throws Exception {
         if ("draft_jurnal_ringkasan".equals(action)) {
-            ringkasan(payload, hasil);
+            ringkasan(tbmuser, payload, hasil);
         } else if ("draft_jurnal_rincian".equals(action)) {
             rincian(payload, hasil);
         } else if ("draft_jurnal_posting".equals(action)) {
@@ -681,7 +681,8 @@ public final class DraftJurnalApiHelper {
         }
     }
 
-    private static void ringkasan(JSONObject payload, JSONObject hasil) throws Exception {
+    private static void ringkasan(ais.database.model.Tbmuser tbmuser, JSONObject payload,
+            JSONObject hasil) throws Exception {
         Date mulai = tanggal(payload, "mulai", awalBawaan());
         Date sampai = tanggal(payload, "sampai", akhirBawaan());
 

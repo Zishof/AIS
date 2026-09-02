@@ -127,7 +127,7 @@ Sesudah daftarnya dibersihkan: **field terkirim 274 → 270, utang 16 → 11, BE
 |---|---|
 | `peringatan_transaksi_test.dart` | **10/10** — baru |
 | Regresi Flutter penuh | **645 lulus** |
-| `TesKontrakPesananJsp` | **16/16** (sesudah disesuaikan, lihat 4.3) |
+| `PesananPayloadKontrakUat` | **16/16** (sesudah disesuaikan, lihat 4.3) |
 | `alat/payload-tanpa-pembaca.py` | BERSIH |
 | Sintaks JS JSP (`node --check`) | BERSIH, 1981 baris |
 
@@ -138,7 +138,7 @@ transaksinya sendiri sudah tersimpan, strukanya tidak boleh gagal tampil karenan
 
 ### 4.3 Uji kontrak lama ikut menangkap perubahan ini
 
-`TesKontrakPesananJsp` sempat **2 GAGAL**: ia menuntut `peringatanStok` dibaca di lima titik
+`PesananPayloadKontrakUat` sempat **2 GAGAL**: ia menuntut `peringatanStok` dibaca di lima titik
 JSP, padahal kini dibaca sekali saja sebagai cadangan di dalam pembaca bersama.
 
 Ujinya diperbarui, dan yang dijaga **bergeser** — dari "berapa titik membaca field itu"

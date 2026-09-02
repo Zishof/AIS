@@ -8,7 +8,7 @@ rangkaian ini justru ada di sana**:
 > pada payload dasbor; `PosApi.prosesDashboardUmum` tidak pernah membacanya. Chip "Jenis
 > pembayaran" menyala, tabelnya tetap bercampur.
 
-`TesPayloadTanpaPembaca` menutup arah itu: ia mengambil kunci dari literal payload klien
+`alat/payload-tanpa-pembaca.py` menutup arah itu: ia mengambil kunci dari literal payload klien
 (Dart `'kunci':` di dalam `aksi(...)`, JavaScript `kunci:` di dalam `fetchDataAPI(...)`),
 lalu memeriksa apakah nama itu muncul sama sekali di sumber server.
 

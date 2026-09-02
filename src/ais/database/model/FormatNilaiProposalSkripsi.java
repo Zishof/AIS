@@ -1130,6 +1130,45 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		this.prosentasiNilaiPembimbing3 = prosentasiNilaiPembimbing3;
 	}
 
+	/**
+	 * Daftar kode matakuliah prasyarat dengan relasi <b>ATAU</b> — mahasiswa boleh mengajukan bila
+	 * sudah lulus <b>salah satu</b> dari kode-kode ini.
+	 *
+	 * <p><b>PERINGATAN: getter ini MENULIS BALIK ke field-nya sendiri</b>, dan karena entity ini
+	 * memakai <i>property access</i> ({@code @Id} di getter) plus {@code dynamicUpdate = true},
+	 * perubahan tersebut terlihat oleh <i>dirty checking</i> Hibernate. Membaca properti ini pada
+	 * object yang masih <i>attached</i> dapat menghasilkan {@code UPDATE} nyata ke kolom
+	 * {@code kode_matakuliah} saat sesi di-{@code flush()}. Hal terpenting:
+	 * <b>bila {@link #getTidakWajibMengambilMkTertentu()} bernilai {@code true}, getter ini
+	 * MENGOSONGKAN daftar</b> — jadi mencentang "tidak wajib mengambil MK tertentu" lalu membaca
+	 * format itu bisa <b>menghapus permanen</b> daftar prasyarat yang tersimpan. Daftar tidak bisa
+	 * dipulihkan selain lewat riwayat Envers.</p>
+	 *
+	 * <h4>Format keluaran</h4>
+	 * <p>Nilainya dinormalkan menjadi bentuk <b>berpagar koma</b>: {@code ",MK101,MK202,"} — koma
+	 * di awal dan akhir sengaja dipertahankan supaya pencocokan sub-string
+	 * ({@code daftar.contains(",".concat(kode).concat(","))}) tidak salah mengenali kode yang
+	 * merupakan awalan kode lain. Bila kosong, dikembalikan string kosong {@code ""}, bukan
+	 * {@code null}.</p>
+	 * <p>Akibatnya, pemanggil yang melakukan {@code getKodeMatakuliah().split(",")} akan
+	 * mendapat <b>elemen pertama berupa string kosong</b> — lihat
+	 * {@code FormatNilaiProposalSkripsiAction} yang memang harus menyaringnya.</p>
+	 *
+	 * <h4>Kode mati di dalam implementasi</h4>
+	 * <ul>
+	 *   <li>{@code replaceAll(",,", ",")} dipanggil tiga kali untuk memadatkan koma beruntun
+	 *       (satu panggilan saja tidak cukup untuk deretan seperti {@code ",,,,"}).</li>
+	 *   <li>Cabang {@code equals(",,")} dan {@code equals(",,,")} <b>tidak akan pernah tercapai</b>
+	 *       setelah tiga pemadatan di atas.</li>
+	 *   <li>Pemeriksaan {@code if (kodeMatakuliah == null)} sesudahnya juga <b>mati</b>: hasil
+	 *       ekspresi ternary di atasnya dijamin bukan {@code null}.</li>
+	 * </ul>
+	 *
+	 * @return daftar kode matakuliah prasyarat berpagar koma, atau {@code ""} bila tidak ada;
+	 *         tidak pernah {@code null}
+	 * @see #getKodeMatakuliahDan()
+	 * @see #getTidakWajibMengambilMkTertentu()
+	 */
 	public String getKodeMatakuliah() {
 		kodeMatakuliah = (kodeMatakuliah == null || kodeMatakuliah.trim().equalsIgnoreCase(",") ? ""
 				: "," + kodeMatakuliah.trim() + ",").replaceAll(",,", ",").replaceAll(",,", ",").replaceAll(",,", ",");
@@ -1153,106 +1192,357 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return kodeMatakuliah;
 	}
 
+	/**
+	 * Mengisi daftar kode matakuliah prasyarat "ATAU". Disimpan apa adanya; penormalan dan
+	 * pemagaran koma dikerjakan {@link #getKodeMatakuliah()}.
+	 *
+	 * @param kodeMatakuliah daftar kode dipisah koma; boleh {@code null}
+	 * @see #getKodeMatakuliah()
+	 */
 	public void setKodeMatakuliah(String kodeMatakuliah) {
 		this.kodeMatakuliah = kodeMatakuliah;
 	}
 
+	/**
+	 * Apakah tahapan ini mensyaratkan unggahan berkas proposal.
+	 *
+	 * <p>Bila {@code true}, baris unggah proposal beserta keterangannya ditampilkan pada form
+	 * pengajuan mahasiswa ({@code MahasiswaRequestTugasAkhirAction}). <b>Default {@code true}</b>
+	 * untuk kolom {@code NULL} — tahapan lama otomatis dianggap memerlukan proposal.</p>
+	 *
+	 * @return {@code true} bila berkas proposal diminta; tidak pernah {@code null}
+	 * @see #getAdaPresentasi()
+	 */
 	public Boolean getAdaProposal() {
 		return adaProposal == null ? true : adaProposal;
 	}
 
+	/**
+	 * Mengatur apakah tahapan ini meminta unggahan berkas proposal.
+	 *
+	 * @param adaProposal {@code false} untuk menyembunyikan baris unggah proposal; {@code null}
+	 *                    berarti default ({@code true})
+	 * @see #getAdaProposal()
+	 */
 	public void setAdaProposal(Boolean adaProposal) {
 		this.adaProposal = adaProposal;
 	}
 
+	/**
+	 * Jumlah SKS lulus minimum yang harus sudah dikumpulkan mahasiswa sebelum boleh mengajukan
+	 * tahapan ini.
+	 *
+	 * <p>Divalidasi di {@code MahasiswaRequestTugasAkhirAction} saat pengajuan disimpan.
+	 * <b>Default {@code 0}</b> untuk kolom {@code NULL}, yang berarti "tanpa syarat SKS" —
+	 * pemanggil tidak perlu memeriksa {@code null}.</p>
+	 *
+	 * @return batas minimal SKS; tidak pernah {@code null}, {@code 0} berarti tanpa syarat
+	 * @see #getMinimalIpk()
+	 * @see #getMinimalAngkaKredit()
+	 */
 	public Integer getMinimalSks() {
 		return minimalSks == null ? 0 : minimalSks;
 	}
 
+	/**
+	 * Mengisi batas minimal SKS lulus.
+	 *
+	 * @param minimalSks batas minimal SKS; {@code null} berarti tanpa syarat
+	 * @see #getMinimalSks()
+	 */
 	public void setMinimalSks(Integer minimalSks) {
 		this.minimalSks = minimalSks;
 	}
 
+	/**
+	 * IPK minimum yang harus dicapai mahasiswa untuk boleh mengajukan tahapan ini.
+	 * <b>Default {@code 0.0}</b> (tanpa syarat) untuk kolom {@code NULL}.
+	 *
+	 * @return batas minimal IPK; tidak pernah {@code null}
+	 * @see #getMinimalSks()
+	 */
 	public Double getMinimalIpk() {
 		return minimalIpk == null ? 0.0 : minimalIpk;
 	}
 
+	/**
+	 * Mengisi batas minimal IPK.
+	 *
+	 * @param minimalIpk batas minimal IPK; {@code null} berarti tanpa syarat
+	 * @see #getMinimalIpk()
+	 */
 	public void setMinimalIpk(Double minimalIpk) {
 		this.minimalIpk = minimalIpk;
 	}
 
+	/**
+	 * Angka kredit (poin kegiatan kemahasiswaan/SKPI) minimum yang harus dikumpulkan mahasiswa.
+	 * <b>Default {@code 0.0}</b> (tanpa syarat) untuk kolom {@code NULL}.
+	 *
+	 * <p>Syarat ketiga yang diperiksa berdampingan dengan {@link #getMinimalSks()} dan
+	 * {@link #getMinimalIpk()} saat pengajuan disimpan.</p>
+	 *
+	 * @return batas minimal angka kredit; tidak pernah {@code null}
+	 * @see #getMinimalSks()
+	 */
 	public Double getMinimalAngkaKredit() {
 		return minimalAngkaKredit == null ? 0.0 : minimalAngkaKredit;
 	}
 
+	/**
+	 * Mengisi batas minimal angka kredit.
+	 *
+	 * @param minimalAngkaKredit batas minimal angka kredit; {@code null} berarti tanpa syarat
+	 * @see #getMinimalAngkaKredit()
+	 */
 	public void setMinimalAngkaKredit(Double minimalAngkaKredit) {
 		this.minimalAngkaKredit = minimalAngkaKredit;
 	}
 
+	/**
+	 * Apakah tagihan keuangan mahasiswa harus lunas (sampai ambang tertentu) sebelum boleh
+	 * mengajukan tahapan ini.
+	 *
+	 * <p>Flag ini adalah <b>saklar</b>-nya; besaran ambangnya ada di
+	 * {@link #getProsentaseLunas()}. Pemeriksaan sesungguhnya dilakukan
+	 * {@code CommonHelperClass} dan {@code MahasiswaRequestTugasAkhirAction}. <b>Default
+	 * {@code false}</b> untuk kolom {@code NULL}.</p>
+	 *
+	 * @return {@code true} bila kelunasan diperiksa; tidak pernah {@code null}
+	 * @see #getProsentaseLunas()
+	 */
 	public Boolean getHarusLunas() {
 		return harusLunas == null ? false : harusLunas;
 	}
 
+	/**
+	 * Mengatur apakah kelunasan tagihan diperiksa saat pengajuan.
+	 *
+	 * @param harusLunas {@code true} untuk mengaktifkan pemeriksaan; {@code null} berarti default
+	 *                   ({@code false})
+	 * @see #getHarusLunas()
+	 */
 	public void setHarusLunas(Boolean harusLunas) {
 		this.harusLunas = harusLunas;
 	}
 
+	/**
+	 * Ambang persentase pelunasan tagihan yang harus dicapai mahasiswa (0..100).
+	 *
+	 * <p>Hanya berlaku bila {@link #getHarusLunas()} bernilai {@code true}. Nilai {@code 100}
+	 * berarti lunas penuh, {@code 50} berarti cukup separuh tagihan. <b>Default {@code 0.0}</b>
+	 * untuk kolom {@code NULL} — dan perhatikan bahwa {@code harusLunas = true} berpasangan
+	 * dengan ambang {@code 0.0} secara efektif <b>tidak menghalangi siapa pun</b>, karena
+	 * pemeriksaannya berbentuk {@code ambang <= persenTerbayar}.</p>
+	 *
+	 * @return ambang persentase pelunasan; tidak pernah {@code null}
+	 * @see #getHarusLunas()
+	 */
 	public Double getProsentaseLunas() {
 		return prosentaseLunas == null ? 0.0 : prosentaseLunas;
 	}
 
+	/**
+	 * Mengisi ambang persentase pelunasan tagihan.
+	 *
+	 * @param prosentaseLunas ambang 0..100; {@code null} berarti default ({@code 0.0})
+	 * @see #getProsentaseLunas()
+	 */
 	public void setProsentaseLunas(Double prosentaseLunas) {
 		this.prosentaseLunas = prosentaseLunas;
 	}
 
+	/**
+	 * Apakah mahasiswa harus sudah mengembalikan seluruh pinjaman buku perpustakaan sebelum boleh
+	 * mengajukan tahapan ini.
+	 *
+	 * <p>Diperiksa {@code MahasiswaRequestTugasAkhirAction} terhadap modul perpustakaan.
+	 * <b>Default {@code false}</b> untuk kolom {@code NULL}.</p>
+	 *
+	 * @return {@code true} bila bebas pustaka disyaratkan; tidak pernah {@code null}
+	 */
 	public Boolean getHarusMengembalikanBukuPerpustakaan() {
 		return harusMengembalikanBukuPerpustakaan == null ? false : harusMengembalikanBukuPerpustakaan;
 	}
 
+	/**
+	 * Mengatur syarat bebas pinjaman perpustakaan.
+	 *
+	 * @param harusMengembalikanBukuPerpustakaan {@code true} untuk mengaktifkan syarat;
+	 *                                           {@code null} berarti default ({@code false})
+	 * @see #getHarusMengembalikanBukuPerpustakaan()
+	 */
 	public void setHarusMengembalikanBukuPerpustakaan(Boolean harusMengembalikanBukuPerpustakaan) {
 		this.harusMengembalikanBukuPerpustakaan = harusMengembalikanBukuPerpustakaan;
 	}
 
+	/**
+	 * Kode item biaya yang ditagihkan ketika mahasiswa mengajukan tahapan ini.
+	 *
+	 * <p>Dipakai {@code MahasiswaRequestTugasAkhirAction} untuk membangkitkan tagihan lewat modul
+	 * keuangan; dipasangkan dengan {@link #getSekaliBayar()}. Kosong berarti tahapan ini tidak
+	 * menimbulkan tagihan.</p>
+	 *
+	 * <p>Mengembalikan {@code ""} (sudah di-{@code trim()}) untuk kolom {@code NULL} —
+	 * <b>bukan</b> {@code null}, berbeda dari {@link #getProgram()}.</p>
+	 *
+	 * @return kode item biaya, atau {@code ""} bila tidak ada tagihan; tidak pernah {@code null}
+	 * @see #getSekaliBayar()
+	 */
 	public String getKodeItemBiaya() {
 		return kodeItemBiaya == null ? "" : kodeItemBiaya.trim();
 	}
 
+	/**
+	 * Mengisi kode item biaya tagihan tahapan ini. Disimpan apa adanya; {@code trim} dilakukan
+	 * saat dibaca.
+	 *
+	 * @param kodeItemBiaya kode item biaya; {@code null}/kosong berarti tanpa tagihan
+	 * @see #getKodeItemBiaya()
+	 */
 	public void setKodeItemBiaya(String kodeItemBiaya) {
 		this.kodeItemBiaya = kodeItemBiaya;
 	}
 
+	/**
+	 * Apakah tahapan ini hanya boleh diajukan <b>satu kali</b> oleh seorang mahasiswa.
+	 *
+	 * <p>Bila {@code true}, {@code MahasiswaRequestTugasAkhirAction} menolak pengajuan kedua atas
+	 * format yang sama. Setel {@code false} untuk tahapan yang memang boleh diulang (mis.
+	 * seminar proposal yang gagal dan harus diulang).</p>
+	 *
+	 * <p><b>Default {@code true}</b> untuk kolom {@code NULL} — pembatasan ini berlaku otomatis
+	 * pada format lama.</p>
+	 *
+	 * @return {@code true} bila pengajuan ulang dilarang; tidak pernah {@code null}
+	 */
 	public Boolean getHanyaBisaDilakukanSekali() {
 		return hanyaBisaDilakukanSekali == null ? true : hanyaBisaDilakukanSekali;
 	}
 
+	/**
+	 * Mengatur boleh/tidaknya tahapan ini diajukan lebih dari sekali.
+	 *
+	 * @param hanyaBisaDilakukanSekali {@code false} agar boleh diulang; {@code null} berarti
+	 *                                 default ({@code true})
+	 * @see #getHanyaBisaDilakukanSekali()
+	 */
 	public void setHanyaBisaDilakukanSekali(Boolean hanyaBisaDilakukanSekali) {
 		this.hanyaBisaDilakukanSekali = hanyaBisaDilakukanSekali;
 	}
 
+	/**
+	 * Bobot persen <b>tahapan ini</b> terhadap nilai akhir tugas akhir secara keseluruhan.
+	 *
+	 * <p>Jangan dikelirukan dengan {@code prosentasiNilai*} yang membagi nilai <i>antar dosen di
+	 * dalam</i> satu tahapan. {@code bobot} bekerja satu tingkat di atasnya: bila seorang
+	 * mahasiswa melewati beberapa tahapan (mis. "Pengajuan Judul" 20%, "Seminar Proposal" 30%,
+	 * "Ujian Komprehensif" 50%), {@code GradingHelper} menjumlahkan nilai tiap tahapan yang sudah
+	 * ditimbang dengan {@code bobot}-nya lalu membaginya dengan total bobot seluruh tahapan yang
+	 * terpakai. Karena penyebutnya dihitung dari data, total bobot yang tidak persis 100 tetap
+	 * menghasilkan angka yang ternormalkan.</p>
+	 *
+	 * <p><b>Default {@code 100.0}</b> untuk kolom {@code NULL} — asumsi "tahapan ini menentukan
+	 * seluruh nilai". Perhatikan bahwa default ini berbeda arah dari default {@code 0.0} pada
+	 * bobot per dosen: format lama yang belum diatur akan mendominasi perhitungan, bukan
+	 * diabaikan.</p>
+	 *
+	 * @return bobot persen tahapan; tidak pernah {@code null}
+	 * @see #getProsentasiNilaiPenguji1()
+	 */
 	public Double getBobot() {
 		return bobot == null ? 100.0 : bobot;
 	}
 
+	/**
+	 * Mengisi bobot persen tahapan ini terhadap nilai akhir tugas akhir.
+	 *
+	 * @param bobot bobot persen; {@code null} berarti default ({@code 100.0})
+	 * @see #getBobot()
+	 */
 	public void setBobot(Double bobot) {
 		this.bobot = bobot;
 	}
 
+	/**
+	 * Apakah syarat "harus sudah/sedang mengambil matakuliah tertentu" dimatikan untuk format ini.
+	 *
+	 * <p><b>Flag ini bukan sekadar penanda — ia MERUSAK DATA saat dibaca.</b> Bila bernilai
+	 * {@code true}, {@link #getKodeMatakuliah()} dan {@link #getKodeMatakuliahDan()} akan
+	 * menugaskan string kosong ke field masing-masing, dan karena entity memakai <i>property
+	 * access</i>, pengosongan itu dapat ikut tersimpan ke database. Daftar prasyarat yang
+	 * tersimpan sebelumnya hilang dan hanya bisa dilihat kembali lewat riwayat Envers.
+	 * Mengembalikan flag ke {@code false} <b>tidak</b> memulihkan daftarnya.</p>
+	 *
+	 * <p><b>Default {@code false}</b> untuk kolom {@code NULL}, sehingga daftar prasyarat format
+	 * lama aman selama tidak ada yang mencentang opsi ini.</p>
+	 *
+	 * @return {@code true} bila syarat matakuliah dimatikan; tidak pernah {@code null}
+	 * @see #getKodeMatakuliah()
+	 * @see #getKodeMatakuliahDan()
+	 */
 	public Boolean getTidakWajibMengambilMkTertentu() {
 		return tidakWajibMengambilMkTertentu == null ? false : tidakWajibMengambilMkTertentu;
 	}
 
+	/**
+	 * Mengaktifkan/mematikan syarat matakuliah tertentu.
+	 *
+	 * <p>Baca peringatan perusakan data pada {@link #getTidakWajibMengambilMkTertentu()} sebelum
+	 * menyetel {@code true} pada format yang daftar prasyaratnya masih ingin dipertahankan.</p>
+	 *
+	 * @param tidakWajibMengambilMkTertentu {@code true} untuk mematikan syarat matakuliah;
+	 *                                      {@code null} berarti default ({@code false})
+	 * @see #getTidakWajibMengambilMkTertentu()
+	 */
 	public void setTidakWajibMengambilMkTertentu(Boolean tidakWajibMengambilMkTertentu) {
 		this.tidakWajibMengambilMkTertentu = tidakWajibMengambilMkTertentu;
 	}
 
+	/**
+	 * Apakah tahapan ini mensyaratkan unggahan berkas presentasi (PPT).
+	 *
+	 * <p>Mengendalikan tampil/tidaknya baris "upload file PPT" pada form pengajuan mahasiswa.
+	 * Berpasangan dengan {@link #getAdaProposal()}, tetapi <b>defaultnya berlawanan</b>:
+	 * {@code false} untuk kolom {@code NULL}, karena tidak semua tahapan proposal memerlukan
+	 * presentasi.</p>
+	 *
+	 * @return {@code true} bila berkas presentasi diminta; tidak pernah {@code null}
+	 * @see #getAdaProposal()
+	 */
 	public Boolean getAdaPresentasi() {
 		return adaPresentasi == null ? false : adaPresentasi;
 	}
 
+	/**
+	 * Mengatur apakah tahapan ini meminta unggahan berkas presentasi.
+	 *
+	 * @param adaPresentasi {@code true} untuk menampilkan baris unggah presentasi; {@code null}
+	 *                      berarti default ({@code false})
+	 * @see #getAdaPresentasi()
+	 */
 	public void setAdaPresentasi(Boolean adaPresentasi) {
 		this.adaPresentasi = adaPresentasi;
 	}
 
+	/**
+	 * Daftar kode matakuliah prasyarat dengan relasi <b>DAN</b> — mahasiswa baru boleh mengajukan
+	 * bila sudah lulus <b>seluruh</b> kode dalam daftar ini.
+	 *
+	 * <p>Kembarannya {@link #getKodeMatakuliah()} memakai relasi ATAU. Keduanya dipakai bersama
+	 * oleh {@code FormatNilaiProposalSkripsiAction} dan validasi pengajuan.</p>
+	 *
+	 * <p><b>Implementasinya identik dengan {@link #getKodeMatakuliah()}</b>, termasuk seluruh
+	 * perilaku non-obvious dan cacatnya: menulis balik ke field (berpotensi memicu {@code UPDATE}),
+	 * dikosongkan bila {@link #getTidakWajibMengambilMkTertentu()} bernilai {@code true},
+	 * keluaran berpagar koma sehingga {@code split(",")} menghasilkan elemen pertama kosong, serta
+	 * cabang {@code equals(",,")}/{@code equals(",,,")} dan pemeriksaan {@code null} yang tidak
+	 * pernah tercapai. Baca Javadoc method tersebut untuk penjelasan lengkapnya.</p>
+	 *
+	 * @return daftar kode matakuliah prasyarat berpagar koma, atau {@code ""}; tidak pernah
+	 *         {@code null}
+	 * @see #getKodeMatakuliah()
+	 */
 	public String getKodeMatakuliahDan() {
 		kodeMatakuliahDan = (kodeMatakuliahDan == null || kodeMatakuliahDan.trim().equalsIgnoreCase(",") ? ""
 				: "," + kodeMatakuliahDan.trim() + ",").replaceAll(",,", ",").replaceAll(",,", ",")

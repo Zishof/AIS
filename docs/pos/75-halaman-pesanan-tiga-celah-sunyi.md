@@ -139,7 +139,7 @@ Kalimatnya tetap datang dari server apa adanya — satu sumber, seperti
 
 ## 5. Hasil uji
 
-### 5.1 `TesKontrakPesananJsp` — 16 dari 16 lulus
+### 5.1 `PesananPayloadKontrakUat` — 16 dari 16 lulus
 
 Uji berbasis SUMBER (halaman ini JSP + JavaScript inline, tanpa harness uji), pola sama
 dengan uji kontrak Flutter:

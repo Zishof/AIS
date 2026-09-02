@@ -148,8 +148,8 @@ ia memberi rasa aman tanpa memberi jaminan.
 
 ### 5.3 Sisanya
 
-- `TesKontrakPesananJsp`: **16/16** lulus.
-- `TesAturanStokMinus`: **8/8** lulus.
+- `PesananPayloadKontrakUat`: **16/16** lulus.
+- `StokMinusTigaNilaiUat`: **8/8** lulus.
 - Sintaks JS JSP: **BERSIH** (`node --check`, 1947 baris).
 - Regresi Flutter penuh: **614** lulus.
 

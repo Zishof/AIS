@@ -59,3 +59,38 @@ yang memintas lapisan entitas.
 
 Hasil negatif, dan layak dicatat justru karena itu: kecurigaan bahwa pola "menulis lintas
 modul lewat SQL mentah" tersebar luas di New UI ternyata tidak berdasar.
+
+## 3. Daftar isi dicocokkan ulang: 50 dari 125 dokumen tidak terdaftar (r83111)
+
+Folder ini berisi 125 dokumen. **Lima puluh di antaranya tidak pernah masuk tabel Daftar
+isi** — 40 persen isinya praktis tidak dapat ditemukan dari pintu depannya sendiri.
+
+Sebabnya wajar dan justru itu yang membuatnya berulang: dokumen ditulis banyak sesi yang
+berjalan bersamaan, penomorannya berbenturan (ada dua berkas bernomor 53, 54, 55, 57, 60,
+70 ...), dan tiap sesi menambahkan barisnya sendiri secara manual. Sekali terlewat, tidak
+ada yang menyadarinya.
+
+Ringkasan tiap baris baru diambil **apa adanya dari judul H1 dokumennya sendiri**, bukan
+ditulis ulang — supaya tidak ada dokumen sesi lain yang salah diwakili.
+
+Pemeriksaan ulangnya satu baris, dan layak dijalankan sesekali:
+
+```sh
+for f in *.md; do [ "$f" = README.md ] && continue
+  grep -qF "($f)" README.md || echo "belum terdaftar: $f"; done
+```
+
+## 4. Kompilasi penuh dijadikan alat: [alat/kompilasi-penuh.sh](alat/kompilasi-penuh.sh)
+
+Doc 77 mengompilasi seluruh pohon satu kali untuk memastikan `Pegawai.java` satu-satunya
+yang patah. Pemeriksaan itu kini menjadi skrip, karena sekali jalan tidak menyelesaikan apa
+pun: penyapu commit di mesin ini meng-commit perubahan siapa pun dalam hitungan detik dan
+**tidak pernah mengompilasi**. Itu sudah terbukti meloloskan berkas rusak ke HEAD (doc 76).
+Tidak ada gerbang lain.
+
+Skripnya keluar dengan kode 1 bila ada galat, sehingga bisa dipasang di penjadwal tanpa
+diawasi. Ia memakai `-source 1.7 -target 1.7` dengan sengaja: server produksi masih Java 7,
+sedangkan javac 8 menerima konstruksi yang ditolak Java 7 (doc 36).
+
+Lama jalannya belasan menit untuk 7.400-an berkas. Itu murah dibandingkan menemukan HEAD
+tidak dapat dibangun pada saat rilis.

@@ -87,7 +87,7 @@ Cacat yang sama sudah muncul **empat kali** dengan wajah berbeda:
 Yang terakhir terjadi **sehari** setelah pelajarannya ditulis, oleh tangan yang menulisnya.
 Pada titik itu jelas bahwa mengandalkan kewaspadaan tidak cukup.
 
-`TesFieldTanpaPembaca` menyapu `hasil.put("...")` pada helper API, lalu mencari nama itu di
+`alat/field-tanpa-pembaca.py` menyapu `hasil.put("...")` pada helper API, lalu mencari nama itu di
 **seluruh** sumber kanal klien (semua modul JSP, semua aplikasi Flutter, semua paket) DAN di
 lapisan servlet server — rantainya bisa server → server → klien, lihat bagian 2.2.
 
@@ -170,7 +170,7 @@ sebuah baseline berubah menjadi tempat sampah.
 
 ## 4. Hasil uji
 
-### 4.1 `TesAturanStokMinus` — 13 dari 13 lulus (tanpa basis data)
+### 4.1 `StokMinusTigaNilaiUat` — 13 dari 13 lulus (tanpa basis data)
 
 Bagian 5-nya yang paling berguna: membuktikan **sakelar AKTIF = persis rumus r77493**
 untuk ketiga nilai. Jadi klaim "perilaku lama tidak hilang, hanya diberi sakelar" bukan

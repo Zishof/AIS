@@ -50,6 +50,10 @@ public final class NewUiLaporanSirsSelfTest {
         laporan.put("inventory_transfer", "sirs/transfer_item_per_periode");
         laporan.put("inventory_tracking_stok", "sirs/tracking_stok_barang");
         laporan.put("apotik_penggunaan_item", "sirs/penggunaan_obat");
+        laporan.put("helper_kartu_pasien", "sirs/kartu_pasien");
+        laporan.put("helper_status_pasien", "sirs/data_identitas_pasien");
+        laporan.put("umum_kartu_pasien", "sirs/kartu_pasien");
+        laporan.put("umum_status_pasien", "sirs/data_identitas_pasien");
 
         Method jenis = NewUiLaporanSirsController.class.getDeclaredMethod("jenis", String.class);
         jenis.setAccessible(true);

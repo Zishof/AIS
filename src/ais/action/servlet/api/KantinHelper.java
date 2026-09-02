@@ -4033,7 +4033,7 @@ public class KantinHelper {
 	}
 
 	// package-visible: dipakai juga HargaGrosirApiHelper (aturan komersial, gerbang yang sama).
-	static boolean bolehAksiCrud(Tbmuser tbmuser, ais.database.model.inventory.Pedagang pemanggil,
+	public static boolean bolehAksiCrud(Tbmuser tbmuser, ais.database.model.inventory.Pedagang pemanggil,
 			boolean adminGlobal, boolean supervisorToko, String kunciMenu, String aksi) {
 		if (adminGlobal || supervisorToko) {
 			return true;

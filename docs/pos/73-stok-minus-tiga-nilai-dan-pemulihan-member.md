@@ -202,7 +202,7 @@ Bagian 1 skrip pemulihan menghitung keduanya sekaligus.
 
 ## 4. Hasil uji
 
-### 4.1 `TesAturanStokMinus` — 8 dari 8 lulus (tanpa basis data)
+### 4.1 `StokMinusTigaNilaiUat` — 8 dari 8 lulus (tanpa basis data)
 
 ```
 == Aturan Jual Saat Stok Kurang (master Produk) ==

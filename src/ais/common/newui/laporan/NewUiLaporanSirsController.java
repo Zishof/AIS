@@ -15,6 +15,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -39,7 +40,7 @@ import ais.database.model.sirs.TransaksiMedis;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native dua puluh sembilan laporan SIRS.
+ * Kontrak native tiga puluh tiga laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -127,7 +128,7 @@ public final class NewUiLaporanSirsController {
     static final String S_SATKER = "satker";
 
     /**
-     * Dua puluh sembilan laporan yang dilayani kontrak ini.
+     * Tiga puluh tiga laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -262,6 +263,22 @@ public final class NewUiLaporanSirsController {
                     new String[] { S_LOKASI, S_MULAI, S_SAMPAI, S_LUNAS,
                             S_RAJAL_RANAP, S_JENIS_PASIEN, S_SATKER },
                     ais.action.report.Report.XLS);
+        }
+        if ("helper_kartu_pasien".equals(kode)) {
+            return new Jenis(kode, "Cetak Kartu Pasien", "sirs/kartu_pasien",
+                    new String[] { S_PASIEN });
+        }
+        if ("helper_status_pasien".equals(kode)) {
+            return new Jenis(kode, "Status Pasien", "sirs/data_identitas_pasien",
+                    new String[] { S_PASIEN });
+        }
+        if ("umum_kartu_pasien".equals(kode)) {
+            return new Jenis(kode, "Cetak Kartu Pasien", "sirs/kartu_pasien",
+                    new String[] { S_PASIEN });
+        }
+        if ("umum_status_pasien".equals(kode)) {
+            return new Jenis(kode, "Status Pasien", "sirs/data_identitas_pasien",
+                    new String[] { S_PASIEN });
         }
         throw new IllegalArgumentException("Jenis laporan SIRS tidak dikenal.");
     }
@@ -694,6 +711,8 @@ public final class NewUiLaporanSirsController {
                 inventory(parameters, r, s, jenis);
             } else if (jenis.kode.startsWith("apotik_")) {
                 apotik(parameters, r, s);
+            } else if (jenis.kode.startsWith("helper_") || jenis.kode.startsWith("umum_")) {
+                laporanPasien(parameters, r, s, jenis);
             } else if (jenis.kode.startsWith("laporan_kasir_")) {
                 kasir(parameters, r, s);
             } else if ("ranap_laporan_perruangan_periode".equals(jenis.kode)) {
@@ -849,6 +868,102 @@ public final class NewUiLaporanSirsController {
         parameters.put("satker", satker == null ? Long.valueOf(-1L) : satker.getId());
         parameters.put("lokasi1", lokasi == null ? Long.valueOf(-1L) : lokasi.getId());
         rentang(parameters, r);
+    }
+
+    /**
+     * Parameter empat adaptor Kartu/Status Pasien. Kedua paket legacy memakai
+     * nama kelas sama, tetapi paket helper dan umum tidak sepenuhnya identik:
+     * barcode kartu helper berupa QR, kartu umum Code-128; tanggal kunjungan
+     * status helper berasal dari pembayaran pertama, sedangkan status umum
+     * berasal dari pendaftaran pertama.
+     */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void laporanPasien(Map parameters, HttpServletRequest r, Session s,
+            Jenis jenis) throws Exception {
+        Pasien pasien = (Pasien) muat(s, Pasien.class, r.getParameter(S_PASIEN));
+        if (pasien == null) throw new IllegalArgumentException("Pasien belum dipilih.");
+        String kode = teks(pasien.getKode());
+        if (kode.length() == 0) {
+            throw new IllegalArgumentException("Pasien ini tidak punya kode untuk dijadikan barcode.");
+        }
+
+        boolean kartuUmum = "umum_kartu_pasien".equals(jenis.kode);
+        File barcode = barcodePasien(r, kode, !kartuUmum);
+        if ("helper_kartu_pasien".equals(jenis.kode)) {
+            Common.insertProperty(Pasien.class, pasien, parameters, "");
+            parameters.put("nip", teks(pasien.getNip()).trim());
+            parameters.put("mybarcode", barcode.getAbsolutePath());
+            parameters.put("nama", teks(pasien.getNama()));
+            parameters.put("alamat", teks(pasien.getAlamatLengkap()));
+            parameters.put("wkt_reg", pasien.getTanggalRegistrasi() == null ? ""
+                    : Common.dateFormat3.get().format(pasien.getTanggalRegistrasi()));
+            return;
+        }
+        if (kartuUmum) {
+            parameters.put("mybarcode", barcode.getAbsolutePath());
+            parameters.put("nama", teks(pasien.getNama()));
+            parameters.put("alamat", teks(pasien.getAlamatLengkap()));
+            parameters.put("wkt_reg", pasien.getTanggalRegistrasi() == null ? ""
+                    : Common.dateFormat3.get().format(pasien.getTanggalRegistrasi()));
+            return;
+        }
+
+        Common.insertProperty(Pasien.class, pasien, parameters, "");
+        parameters.put("mybarcode", barcode.getAbsolutePath());
+        parameters.put("rm", kode);
+        parameters.put("keluarga", teks(pasien.getNama_penanggungjawab()));
+        parameters.put("kesatuan", namaKesatuan(pasien.getJenisPasienDinas()));
+        parameters.put("pangkat", teks(pasien.getPangkat()));
+        parameters.put("nip", teks(pasien.getNip()));
+        parameters.put("telp", teks(pasien.getNoTelp()) + " / " + teks(pasien.getNoHp()));
+        parameters.put("status_perkawinan", teks(pasien.getStatusPerkawinan()));
+        parameters.put("jenis_kelamin", teks(pasien.getJenisKelamin()));
+        parameters.put("agama", pasien.getAgama() == null ? "" : teks(pasien.getAgama().getNama()));
+        parameters.put("pendidikan", pasien.getPendidikan() == null
+                ? "" : teks(pasien.getPendidikan().getNama()));
+        parameters.put("pekerjaan", teks(pasien.getPekerjaan()));
+
+        Class kelasTanggal = "helper_status_pasien".equals(jenis.kode)
+                ? Pembayaran.class : Pendaftaran.class;
+        String kolomTanggal = "helper_status_pasien".equals(jenis.kode)
+                ? "tanggalPembayaran" : "tanggalPendaftaran";
+        Date pertama = (Date) s.createCriteria(kelasTanggal)
+                .add(Restrictions.eq("pasien", pasien))
+                .setProjection(Projections.min(kolomTanggal)).setMaxResults(1).uniqueResult();
+        parameters.put("kunjungan", pertama == null ? "" : Common.dateFormat3.get().format(pertama));
+        parameters.put("ttd", "Jakarta, " + Common.dateFormat2.get().format(new Date()));
+        parameters.put("nama", teks(pasien.getNama()).trim());
+        parameters.put("ttl", teks(pasien.getTempatLahir()) + " / "
+                + (pasien.getTanggalLahir() == null ? ""
+                        : Common.dateFormat2.get().format(pasien.getTanggalLahir())));
+        parameters.put("alamat", teks(pasien.getAlamatLengkap()));
+        parameters.put("wkt_reg", pasien.getTanggalRegistrasi() == null ? ""
+                : Common.dateFormat3.get().format(pasien.getTanggalRegistrasi()));
+    }
+
+    /** Tulis barcode pasien ke lokasi yang dapat dibaca template Jasper. */
+    private static File barcodePasien(HttpServletRequest r, String kode, boolean qr)
+            throws Exception {
+        File berkas = new File(r.getSession(true).getServletContext().getRealPath("/report/temp")
+                + File.separator + "barcode_" + amanNamaBerkas(kode) + ".png");
+        berkas.getParentFile().mkdirs();
+        if (qr) {
+            ais.common.BarcodeCommon.generateCRCode(kode, berkas);
+        } else {
+            net.sourceforge.barbecue.BarcodeImageHandler.savePNG(
+                    net.sourceforge.barbecue.BarcodeFactory.createCode128B(kode), berkas);
+        }
+        return berkas;
+    }
+
+    /** Nama kesatuan dinas seperti percabangan layar lama. */
+    private static String namaKesatuan(String nilai) {
+        String v = teks(nilai).trim();
+        if (Pasien.TNI_AD.getId().equals(v)) return Pasien.TNI_AD.getName();
+        if (Pasien.TNI_AL.getId().equals(v)) return Pasien.TNI_AL.getName();
+        if (Pasien.TNI_AU.getId().equals(v)) return Pasien.TNI_AU.getName();
+        if (Pasien.PNS.getId().equals(v)) return Pasien.PNS.getName();
+        return "";
     }
 
     /** Parameter rentang tanggal bertipe teks yyyy-MM-dd seperti layar ZK. */

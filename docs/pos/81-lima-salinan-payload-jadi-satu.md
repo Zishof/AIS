@@ -94,7 +94,7 @@ Kontrol kedua lebih tajam daripada yang pertama: ia membuktikan alatnya menyalah
 
 ## 4. Uji kontrak ikut berubah bentuk — dan jadi lebih kuat
 
-`TesKontrakPesananJsp` sempat **2 GAGAL**: ia menuntut "4 loop memakai
+`PesananPayloadKontrakUat` sempat **2 GAGAL**: ia menuntut "4 loop memakai
 `id_member: draft.anggota_koperasi`", yang kini hanya ada di argumen pemanggil.
 
 Yang dijaga **bergeser** — dari *"kelima salinan membawa id_member"* menjadi *"salinannya
@@ -125,7 +125,7 @@ Berkasnya menyusut 1981 → 1949 baris.
 | Uji | Hasil |
 |---|---|
 | `alat/banding-payload-jsp.py` | **5/5 payload IDENTIK**, pembandingnya terbukti bisa gagal |
-| `TesKontrakPesananJsp` | **21/21** |
+| `PesananPayloadKontrakUat` | **21/21** |
 | `alat/cek-sintaks-jsp.py` | BERSIH, 1949 baris |
 | `alat/field-tanpa-pembaca.py` | BERSIH |
 | `alat/payload-tanpa-pembaca.py` | BERSIH |
