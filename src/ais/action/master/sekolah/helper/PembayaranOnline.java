@@ -2220,6 +2220,10 @@ public class PembayaranOnline extends GenericAutowireComposer {
 				new BaseOnlinePaymentListener(label, ipKey, param, isBankLainOnline, prefixKey) {
 					@Override
 					protected double getBiayaAdministrasi() {
+						if (Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY)) && sekolah_lokal != null) {
+							return OnlineBmtUtil.resolveSettings(sekolah_lokal, sekolah_lokal.getKanalPembayaran())
+									.getAdministrationFee();
+						}
 						try {
 							return Double.parseDouble(Common.getKonfigurasi(adminFeeConfig, "0.0").getNilai());
 						} catch (Exception e) {

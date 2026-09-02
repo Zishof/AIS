@@ -402,7 +402,8 @@ public class DownloadTagihanSiswaBankOnline {
 						tampilkanPeringatan("Kanal Online BMT belum diaktifkan untuk sekolah/kanal pembayaran ini.", warnings);
 						return null;
 					}
-					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
+					biayaAdmin = OnlineBmtUtil.resolveSettings(sekolah, kanalPembayaran).getAdministrationFee();
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, sekolah, kanalPembayaran);
 				} else if (flip && sekolah != null) {
 					String strURL = Common.getKonfigurasi("flip_gateway_url_v2", "https://bigflip.id/api/v2/pwf/bill")
 							.getNilai();

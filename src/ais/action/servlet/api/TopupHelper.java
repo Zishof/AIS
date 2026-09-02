@@ -958,8 +958,8 @@ public class TopupHelper {
 						jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk sekolah ini");
 						return jsonObject;
 					}
-					biayaAdministrasi = parseDoubleSafe(
-							Common.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai(), 0.0);
+					biayaAdministrasi = OnlineBmtUtil.resolveSettings(sekolah, sekolah.getKanalPembayaran())
+							.getAdministrationFee();
 					param.put(OnlineBmtUtil.PARAM_KEY, true);
 					virtualAccountBank = DownloadTagihanSiswaBankOnline.downloadData(siswa, calonSiswa, null, param,
 							biayaAdministrasi, null, topupNumber, bankHost, akunPembayaranSiswa, sekolah, warnings);
@@ -1163,7 +1163,9 @@ public class TopupHelper {
 				return jsonObject;
 			}
 			double biayaAdministrasi = onlineBmt
-					? parseDoubleSafe(Common.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai(), 0.0)
+					? OnlineBmtUtil.resolveSettings(caraPembayaranKoperasi.getKanalPembayaran() == null ? null
+							: caraPembayaranKoperasi.getKanalPembayaran().getSekolah(),
+							caraPembayaranKoperasi.getKanalPembayaran()).getAdministrationFee()
 					: caraPembayaranKoperasi.getKanalPembayaran() == null
 					|| caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink() == null ? 0.0
 							: caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink().doubleValue();

@@ -451,10 +451,9 @@ public final class KantinMemberApi {
                     o.put("manual", cara.getManual());
                     o.put("channel", "");
                     o.put("nama_channel", OnlineBmtUtil.BANK_NAME);
-                    String biayaAdminBmt = Common
-                            .getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai();
-                    o.put("biaya_admin", Common.isNumber(biayaAdminBmt)
-                            ? Double.parseDouble(biayaAdminBmt) : 0.0);
+					o.put("biaya_admin", OnlineBmtUtil.resolveSettings(
+							cara.getKanalPembayaran().getSekolah(), cara.getKanalPembayaran())
+							.getAdministrationFee());
                     o.put("gateway", OnlineBmtUtil.PARAM_KEY);
                     arr.put(o);
                 }

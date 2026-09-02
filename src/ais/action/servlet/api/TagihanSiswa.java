@@ -1359,9 +1359,8 @@ public class TagihanSiswa {
 									if (!OnlineBmtUtil.isSekolahEnabled(sekolah, sekolah.getKanalPembayaran())) {
 										warnings.add("Kanal Online BMT belum diaktifkan untuk sekolah ini");
 									} else {
-										biayaAdministrasi = Common.parseAngkaKonfigurasi(Common
-												.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai(),
-												0.0);
+									biayaAdministrasi = OnlineBmtUtil.resolveSettings(sekolah,
+											sekolah.getKanalPembayaran()).getAdministrationFee();
 										BankHost bankHost = PembayaranUtil.getInstance().getBankHost(
 												Common.getKonfigurasi("online_bank_host_ip", "").getNilai(), "Bank Host");
 										Map param = new HashMap();
