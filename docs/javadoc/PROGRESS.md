@@ -1,5 +1,159 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/PenghargaanDosen.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **karya dosen** (tabel `public.penghargaan_dosen`, `@Audited`,
+`dynamicInsert/dynamicUpdate`, turunan langsung `GeneralValueObject`).
+**43 anggota** (konstruktor + 42 getter/setter/kait) + 4 konstanta + 22 field
+terdokumentasi (100%), 277 → 1009 baris. Revisi **r83317**, mirror `java/`
+verifikasi `cmp` identik byte. Hanya Javadoc/komentar; nol perubahan logika
+(dibuktikan dengan membandingkan sumber tanpa komentar/spasi terhadap HEAD —
+identik persis).
+
+**Nama class menyesatkan**: seluruh lapisan UI menyebut modul ini **"Karya
+Dosen"**, bukan "Penghargaan Dosen" — menu `NewUiLayarLainnyaController`
+("Karya Dosen"), label form ("Nama Karya", "Bentuk Penghargaan"), koleksi
+DSpace "Karya Dosen", `DasborPerguruanTinggiTerpadu.createKaryaDosenCriteria()`,
+dan laporan SAPTO `LaporanKaryaDosen_A_7_1_5` (HKI/Paten).
+
+**Perbandingan dengan `PrestasiDosen` (r83288)**: **dua konsep BERBEDA**, bukan
+duplikat — dibuktikan dari kode: dasbor terpadu menghitung keduanya berdampingan
+(`createKaryaDosenCriteria` vs `createPrestasiDosenCriteria`), `ProfileDosen`
+menampilkan dua grup terpisah, dan `Dosen` memelihara dua berkas indeks JSON
+terpisah (`penghargaanDosen_<id>` vs `prestasiDosen_<id>`). Isi berbeda:
+`PrestasiDosen` = ajang/kejuaraan (cabang+kategori tingkat, juara, peringkat,
+jumlahPeserta, tempat, penyelenggara, prestasiLuarKampus); `PenghargaanDosen` =
+karya/HKI (satu sumbu klasifikasi `kategoriPenghargaan` = bentuk karya:
+Paten / HaKI / Nasional-Internasional). **Bentuknya** tumpang tindih berat
+(serialVersionUID identik, blok audit, 4 konstanta status, nama/namaEn,
+tanggal/tanggalSelesai, nomorSertifikat, capaian, url, trio periode, DSpace,
+LampiranLain, cache indeks) — jangan simpulkan salah satunya redundan.
+
+**Verifikasi pola berulang**: 3 getter menulis balik ke field
+(`getTahun`/`getTahunAkademik`/`getJenisSemester` — risiko flush diam-diam
+karena `dynamicUpdate`); **0** getter memakai `check()` pada relasi (BEDA dari
+`PrestasiDosen` yang punya 3 — keempat relasi di sini eager +
+`FetchMode.SELECT` mentah); **0** getter menutup sesi Hibernate (file tidak
+menyentuh `Session` sama sekali; jalur tak langsung lewat `Common` memakai
+`openSession()` sendiri).
+
+**Kuirk dicatat, tidak diperbaiki**:
+- `KategoriPenghargaan.getKode()` memetakan nama **tingkat prestasi**
+  ("Internasional"/"Nasional"/"Regional"/...) hasil salin dari
+  `KategoriPrestasiDosen` — tidak satu pun cocok dengan master yang di-seed
+  otomatis ("Paten", "HaKI", "Nasional / Internasional"), jadi selalu
+  mengembalikan kolom `kode` apa adanya (umumnya null). Klasifikasi nyata
+  dilakukan `LaporanKaryaDosen_A_7_1_5` lewat `contains("paten")`/
+  `contains("haki")` — ganti nama master = ubah hasil laporan akreditasi
+  tanpa peringatan.
+- Semua pesan validasi `PenghargaanDosenAction.onSave()` berbunyi
+  **"Kejuaraan"** padahal label form "Karya"/"Bentuk Penghargaan".
+- `setTahun()` praktis tidak berpengaruh (ditimpa `getTahun()`).
+- `getStatus()` mengembalikan default `BELUM_DIPROSES` tanpa menulis balik,
+  sehingga baris ber-`NULL` **tidak** terjaring penyaring status SQL.
+- Kolom `fakultas`/`jurusan` entity ini tidak dipakai penyaring mana pun —
+  semua filter memakai homebase dosen (`dosen.fakultas`/`dosen.jurusan`).
+- `nomorSertifikat` diekspor sebagai `dc.identifier.issn` (bukan ISSN).
+- `Dosen.removePenghargaanDosen()` hanya mengosongkan nilai kunci JSON
+  (kunci tetap ada) → berkas indeks membesar monoton sampai di-`reInit`.
+
+**Temuan akses (bukan di entity, di `PenghargaanDosenAction`)**:
+`doAfterCompose` menerima parameter URL `dosen=<id>` dan memuat **Dosen mana
+pun** — menimpa `tbmuser.ambilDosen()` milik pengguna yang masuk. Tombol
+ubah/hapus baris hanya dijaga `!status.equals(DISETUJUI) && tbmuser != null`,
+**tanpa pemeriksaan kepemilikan**. Jadi pengguna ber-role dosen yang membuka
+`/pages/master/penghargaan_dosen.zul?dosen=<id dosen lain>` dapat melihat dan
+**mengubah/menghapus** karya dosen lain yang belum disetujui. (Ubah status
+tetap tertutup karena combobox status hanya muncul saat `mhs == null`.)
+
+## `ais/database/model/Pkl.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **program PKL** (Praktik Kerja Lapangan / kerja praktek; tabel
+`public.pkl`, `@Audited`, `dynamicInsert/dynamicUpdate`, turunan langsung
+`GeneralValueObject`). **53 method + konstruktor + 22 field**
+terdokumentasi (100%), 334 → 1122 baris. Revisi **r83316**, mirror `java/`
+diverifikasi `cmp` identik byte. Hanya Javadoc/komentar; nol perubahan
+logika (dibuktikan dengan membandingkan sumber tanpa komentar/spasi
+terhadap HEAD — identik persis, 7290 byte di kedua sisi).
+
+**Lapisan yang benar:** `Pkl` adalah lapisan **program/periode**, BUKAN
+penempatan. Tempat magang (alamat, `Lokasi`, `KerjasamaAntarInstansi`),
+kuota, sampai 10 dosen pembimbing, sertifikat, dan flag `aktif` semuanya
+ada di `ais.database.model.pkl.KelompokPkl`. Jangan mencari `aktif`/
+`kuota` di `Pkl.java` — memang tidak ada.
+
+**Alur:** `PklAction` (admin) → `PersyaratanPkl`/`KomponenPenilaianPkl`
+dikaitkan lewat `PklPunyaPersyaratan`/`PklPunyaKomponenPenilaianPkl` →
+`PklUntukMahasiswaAction` (mahasiswa mendaftar) → `MahasiswaDaftarPkl`
+(`terima` = BELUM_DIPROSES/DITERIMA/DITOLAK) + `MahasiswaPklPersyaratan`
+→ `SeleksiPenerimaPklAction`/`PendaftarPklHelper` → `KelompokPkl` +
+`MahasiswaDapatKelompokPkl`/`SiswaDapatKelompokPkl` → `AktifitasPklHelper`
+(agenda `Pertemuan`) → `PenilaianPklHelper`. Jalur samping:
+`MahasiswaDapatPkl` (mahasiswa ↔ program tanpa kelompok) dan
+`PengecualianPklMahasiswa` (bebas syarat akademis). Ekspor Feeder lewat
+`EksporAktifitasPklFeeder`/`EksporPeserta{Dosen,Mahasiswa}PklFeeder`.
+
+**Verifikasi pola berulang (diperiksa dari kode, bukan diasumsikan):**
+- **Getter menulis balik saat `null`** (9): `getMinimalSksBolehIkutPkl`
+  (100), `getMinimalIpkBolehIkutPkl` (3.0), `getMinimalSksBolehIkutPkl2`
+  (0), `getMinimalIpkBolehIkutPkl2` (0.0), `getAktifkanSyaratLain`
+  (false), `getHarusBayar` (false), `getKodeItemBiaya` (""),
+  `getSemester`, `getTahunAkademik`.
+- **Getter SELALU menimpa field**: `getNama()` (menyalin
+  `nama_kelompok`) dan `getNimMhsTanpaBiaya()` (menormalkan jadi
+  `,nim1,nim2,`) — membaca saja mengubah kolom pada flush berikutnya.
+- **Getter resolusi proxy `x = check(x)`** (3): `getJurusan`,
+  `getFakultas`, `getJenisAktfitasMahasiswa`.
+- **Getter yang TIDAK menulis balik**: `getTanggal_mulai` (fallback hari
+  ini), `getProgram` (kosong → `null`), cabang fallback
+  `getJenisAktfitasMahasiswa` → `ConstantValues.PKL`. Karena pemetaan
+  **property access**, nilai kembalian getter tetap yang dilihat Hibernate
+  saat dirty-check, jadi normalisasi tanpa write-back pun bisa mengubah
+  kolom.
+- **Sesi Hibernate**: NOL. Kelas ini tidak meng-import `HibernateUtil`;
+  satu-satunya akses DB implisit lewat `GeneralValueObject.check()`.
+- **Flag `aktif`**: tidak ada di entity ini.
+
+**Kuirk/temuan (dicatat, tidak diperbaiki):**
+- **Default syarat alternatif terbalik arah.** Field diinisialisasi
+  `minimalSksBolehIkutPkl2 = 110` / `minimalIpkBolehIkutPkl2 = 2.0`
+  (hanya untuk object baru), tapi getter mendefault kolom `NULL` menjadi
+  **0 SKS / IPK 0.0**. Baris lama ber-`aktifkanSyaratLain = true` karena
+  itu punya jalur alternatif `sks >= 0 && ipk >= 0.0` yang SELALU benar →
+  seluruh penyaringan SKS/IPK program itu efektif mati. Kontras dengan
+  syarat utama yang mendefault ketat (100 SKS / IPK 3.0).
+- **Kolom `nama` adalah salinan bayangan.** Nama program sesungguhnya di
+  `nama_kelompok`; `getNama()` selalu menimpa `nama` dengan salinannya.
+  Karena `hbm2ddl.auto=update` + `MyNamingStrategy` (turunan
+  `DefaultNamingStrategy`), kolom `nama` benar-benar ada dan ikut
+  ter-UPDATE. `setNama()` praktis tak berguna.
+- **`toString()` memakai field mentah** `nama_kelompok` (bukan getter) →
+  bisa mengembalikan `null` pada komponen ZK yang memanggilnya implisit.
+- **Kedua flag `*BolehMerubahAgenda` fail-open** (`null` → `true`),
+  berbeda arah dengan semua flag boolean lain di kelas ini yang default
+  `false`. Program lama otomatis mengizinkan mahasiswa & dosen menyunting
+  agenda.
+- **`ConstantValues.PKL` bisa `null`** — hanya terisi bila sinkronisasi
+  Neo Feeder (`InitDataHelper`) pernah menemukan jenis aktivitas "Kerja
+  praktek/PKL". Fallback `getJenisAktfitasMahasiswa()` karena itu tidak
+  dijamin non-null.
+- **Kode item biaya salah ketik diabaikan diam-diam** — pemanggil mencari
+  `ItemBiaya` per kode dan melewatkan yang tidak ketemu tanpa peringatan,
+  sehingga syarat pembayaran hilang tanpa jejak.
+- **Kode defensif tak terjangkau** di `getNimMhsTanpaBiaya()`: tiga cabang
+  `if` (`","`, `",,"`, `",,,"`) dan cek `null` pada baris `return` tidak
+  bisa tercapai setelah tiga kali `replaceAll(",,", ",")`.
+- **Pesan galat salah modul (di `Common.java`, bukan file ini):**
+  `Common.checkSyaratPkl` menampilkan "tidak bisa mendaftar di **KKN**"
+  pada dua pesan penolakan jurusan/fakultas — sisa salin-tempel dari
+  `checkSyaratKkn`. Membingungkan pengguna, tidak berbahaya.
+
+**Tidak ada kerentanan keamanan/privasi baru** pada file ini. Daftar putih
+`nimMhsTanpaBiaya` melewati seluruh pemeriksaan biaya (`kodeItemBiaya`
+DAN `harusBayar`) tetapi hanya bisa disunting dari layar admin
+`PklAction`, dan pemeriksaan syarat akademis tetap berjalan — perilaku
+yang disengaja, bukan cacat.
+
 ## `ais/database/model/JadwalUjianPMB.java` — SELESAI 100% (2 Sep 2026, sesi 14)
 
 Entity **sesi ujian PMB daring** (tabel `public.jadwal_ujian_pmb`, `@Audited`,

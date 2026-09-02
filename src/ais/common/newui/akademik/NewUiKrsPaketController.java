@@ -251,7 +251,7 @@ public final class NewUiKrsPaketController {
         }
     }
 
-    private static JSONObject barisDetail(Mahasiswa mahasiswa, Long id) throws JSONException {
+    static JSONObject barisDetail(Mahasiswa mahasiswa, Long id) throws JSONException {
         Detailperkuliahan d;
         try {
             d = (Detailperkuliahan) ConstantValues.ambil(
