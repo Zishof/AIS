@@ -1,5 +1,57 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/BankSoal.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **bank soal ujian** (tabel `public.bank_soal`, `@Audited`) — satu baris = satu
+butir soal yang bisa dipakai ulang lintas ujian/kuis/grup soal. 656 → 1862 baris,
+**80/80 method ber-Javadoc (100%)** (diaudit skrip, 0 tersisa) plus 9 konstanta jenis
+soal dan seluruh field entity. Revisi **r83151** (tersapu ke revisi gabungan sesi
+paralel, isi diverifikasi `svn diff -c 83151`). Mirror `java/` byte-identik (`cmp`).
+**Kode terbukti tidak berubah**: bytecode `javap -c -p` identik dengan versi HEAD
+sebelum edit.
+
+**Struktur**: `extends GeneralValueObject`. Rantai: `BankSoal` → `BankSoalDetail`
+(opsi/kunci jawaban) ; `BankSoal` ← `UjianPunyaSoal` → `Ujian` ; jawaban peserta di
+`HasilUjianMahasiswaDetail`/`JawabanPercobaanKuisKursus`. Kepemilikan lewat dua rumpun
+relasi paralel: jalur PT (`Fakultas`/`Jurusan`/`Dosen`/`Matakuliah`) dan jalur sekolah
+(`Yayasan`/`Sekolah`/`Guru`/`Matapelajaran`), plus `SatuanKerja`, `KategoriBankSoal`,
+`PenjelasanBankSoal`.
+
+**Temuan utama:**
+
+- **Dua sumbu “jenis soal”.** `jenis`/`jenisKoreksi` cuma punya 2 nilai efektif
+  (`ESAY`/`PILIHAN_GANDA`) dan saling menormalkan; yang benar-benar dipakai semua layar
+  ujian adalah `jenisPilihanGanda` dengan 7 nilai. Konstanta `MENGURUTKAN`,
+  `MENJODOHKAN`, `BENAR_SALAH`, `JAWABAN_SINGKAT`, `RUMPANG` **tidak pernah** menjadi
+  nilai `getJenis()` walau namanya sekelompok. `setJenis()` praktis tak berguna.
+- **Daftar `BankSoalDetail` bukan `@OneToMany`** melainkan cache berkas JSON per soal,
+  dipelihara otomatis oleh `AuditListener` pada save/delete detail.
+- `ambilBankSoalDetail(true)` **menutup sesi Hibernate thread-local**
+  (`HibernateUtil.closeSession()`) — pola berulang, bisa membuat entity pemanggil
+  mendadak detached.
+- **Kehilangan data senyap**: untuk `PILIHAN_GANDA` daftar opsi dibangun lewat
+  `TreeMap` berkunci `getHuruf()`, jadi dua opsi berhuruf sama saling menimpa dan satu
+  hilang tanpa error; urutannya juga leksikografis.
+- `ambilBankSoalDetailBenar()` **mati** (nol pemanggil) **dan salah nama**: menyaring
+  `!getBetul()` sehingga mengumpulkan opsi yang SALAH.
+- `ambilSatuBankSoalDetailEssay()` mengembalikan kecocokan **terakhir** (tanpa
+  `break`), padahal urutan sumbernya tidak stabil untuk jenis non pilihan-ganda.
+- `removeBankSoalDetail()` menulis nisan `""` alih-alih menghapus kunci → berkas cache
+  tumbuh terus. `populateBankSoalDetail()` punya parameter `tulisUlang` yang tidak
+  dipakai sama sekali.
+- `getYayasan()` menimpa field dari sekolah **termasuk bila hasilnya `null`** (asimetris
+  dengan `getSatuanKerja()` yang menjaga nilai lama bila induk kosong).
+- `BankSoal.jsonObject` adalah `public static` `JSONArray` **mutable** yang dipakai
+  bersama semua instance sebagai default `getOpsiSoal()`.
+- Salah eja load-bearing: `PenjelasanBankSoal.KOREKSI_OTOMATIS` = `"Hasil dikoreksi
+  otomtais"` (tersimpan di produksi, jangan diperbaiki tanpa migrasi);
+  `MULTIPLE_COICE` salah eja pada nama konstantanya saja.
+
+**Field audit shadow: KONFIRMASI ke-18 berturut-turut** (`oleh`/`olehId`/
+`tanggal_dirubah` + `@PreUpdate onUpdate()` berdesakan di satu baris, setter
+`oleh`/`olehId` menolak null/kosong diam-diam). Getter berefek samping: HADIR
+(9 method). Getter menutup sesi Hibernate: HADIR.
+
 ## `ais/database/model/FormulirKegiatan.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **formulir pendaftaran kegiatan** (tabel `public.formulir_kegiatan`,
