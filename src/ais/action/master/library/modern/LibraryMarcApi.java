@@ -8,8 +8,8 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.xml.parsers.DocumentBuilderFactory;
 
-import org.hibernate.Query;
 import org.hibernate.Criteria;
+import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
@@ -45,7 +45,7 @@ public final class LibraryMarcApi {
         if ("status".equals(action)) return ok(request).put("maxRecords", MAX_RECORDS).put("maxBytes", MAX_XML);
         if ("export".equals(action)) return exportRecord(positiveLong(request.getParameter("itemId")));
         if ("publication_status".equals(action)) return publicationStatus(request);
-        if (!"POST".equalsIgnoreCase(request.getMethod())) return error("Preview dan import hanya melalui POST.");
+        if (!"POST".equalsIgnoreCase(request.getMethod())) return error("Operasi perubahan data hanya melalui POST.");
         if (!NewUiCsrfUtil.isValid(request)) return error("Token keamanan tidak valid.");
         if ("publish_all".equals(action)) return publishAll(request);
         String xml = request.getParameter("xml");
