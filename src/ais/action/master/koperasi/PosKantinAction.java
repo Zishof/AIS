@@ -3055,7 +3055,9 @@ public class PosKantinAction extends GenericAutowireComposer {
                 ? new java.text.SimpleDateFormat("yyyy-MM-dd").format(dtMulai.getValue()) : "2000-01-01";
         String tglB = dtAkhir != null && dtAkhir.getValue() != null
                 ? new java.text.SimpleDateFormat("yyyy-MM-dd").format(dtAkhir.getValue()) : "2999-12-31";
-        StringBuilder w = new StringBuilder(" WHERE DATE(a.waktu) BETWEEN DATE('" + tglA + "') AND DATE('" + tglB + "') ");
+        // Baris dibatalkan tidak boleh menggelembungkan qty/total transaksi pada daftar ini,
+        // konsisten dengan Report Order dan laporan lain (dok. 65-69).
+        StringBuilder w = new StringBuilder(" WHERE COALESCE(a.aktif,true)=true AND DATE(a.waktu) BETWEEN DATE('" + tglA + "') AND DATE('" + tglB + "') ");
         if (scopeToko != null) {
             w.append(" AND a.toko = ").append(scopeToko.getId()).append(" ");
         }
@@ -3421,7 +3423,7 @@ public class PosKantinAction extends GenericAutowireComposer {
                 + "COALESCE(SUM(a.total),0) AS jumlah FROM koperasi.pembelian a "
                 + "LEFT JOIN koperasi.produk p ON p.id = a.produk "
                 + "LEFT JOIN koperasi.jenis_produk jp ON jp.id = p.jenis_produk "
-                + "WHERE a.waktu >= current_date - interval '6 days'" + condA
+                + "WHERE COALESCE(a.aktif,true)=true AND a.waktu >= current_date - interval '6 days'" + condA
                 + " GROUP BY jp.nama ORDER BY jumlah DESC LIMIT 6");
         String[] labelsDonut = new String[resDonut.size()];
         double[] valuesDonut = new double[resDonut.size()];
@@ -3445,7 +3447,7 @@ public class PosKantinAction extends GenericAutowireComposer {
                 + "COALESCE(SUM(CASE WHEN waktu >= current_date - interval '6 days' THEN qty ELSE 0 END),0), "
                 + "COALESCE(SUM(CASE WHEN waktu < current_date - interval '6 days' "
                 + "AND waktu >= current_date - interval '13 days' THEN qty ELSE 0 END),0) "
-                + "FROM koperasi.pembelian WHERE waktu >= current_date - interval '13 days'" + cond);
+                + "FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true AND waktu >= current_date - interval '13 days'" + cond);
         Object[] rs = resStat.isEmpty() ? new Object[] { 0, 0, 0, 0, 0, 0 } : resStat.get(0);
         double totalNow = num(rs[0]), totalPrev = num(rs[1]);
         double trxNow = num(rs[2]), trxPrev = num(rs[3]);
@@ -3490,7 +3492,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         java.util.Map<String, double[]> map = new java.util.HashMap<String, double[]>();
         for (Object[] r : rows("SELECT TO_CHAR(DATE(waktu),'YYYY-MM-DD'), COALESCE(SUM(total),0), "
                 + "COUNT(DISTINCT COALESCE(pembelian_anggota_koperasi, id)), COALESCE(SUM(qty),0) "
-                + "FROM koperasi.pembelian WHERE waktu >= current_date - interval '6 days'" + cond
+                + "FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true AND waktu >= current_date - interval '6 days'" + cond
                 + " GROUP BY DATE(waktu)")) {
             map.put(str(r[0]), new double[] { num(r[1]), num(r[2]), num(r[3]) });
         }

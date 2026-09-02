@@ -1,5 +1,43 @@
 # Progres Javadoc Menyeluruh
 
+**CATATAN UKURAN FILE**: tracker ini sudah >2400 baris. Pertimbangkan minta
+orkestrator/pengguna memecahnya jadi beberapa file per-topik (mis.
+`PROGRESS-action-helper.md`, `PROGRESS-database-model.md`,
+`PROGRESS-catatan-sesi.md`) di sesi mendatang bila makin sulit dikelola —
+belum dilakukan sesi ini, hanya dicatat sebagai pertimbangan.
+
+## Batch "5 entity formulir/soal/pengumuman" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:
+- `PengumumanAkademis.java` — 127/127 method. 1084→2552 baris. r83151.
+  Kanal informasi serba-guna (bukan cuma "akademik") dengan 2 mekanisme
+  distribusi (tarik via query + dorong via broadcast email 8 flag).
+- `FormulirKegiatan.java` — 157/157 method. 932→2317 baris. r83145/83150.
+- `TugasKelompok.java` — 68/68 method. 476→1427 baris. r83144/83146. Nama
+  kelas menyesatkan (ini "penugasan"-nya, bukan kelompoknya — hierarki
+  sebenarnya `TugasKelompok`→`NamaTugasKelompok`→`...PunyaMahasiswa`).
+- `BankSoal.java` — 80/80 method. 656→1862 baris. r83151/83153.
+- `SyaratUjian.java` — 90/90 method. 684→1986 baris. r83155/83159.
+  **TEMUAN ARSITEKTUR PENTING** (menjawab pertanyaan yang menggantung sejak
+  entity pertama): `GeneralValueObject` BUKAN `@Entity` atau
+  `@MappedSuperclass` — POJO abstrak biasa. Hibernate TIDAK memetakan
+  properti induknya sama sekali. Jadi field audit shadow (`oleh`/`olehId`/
+  `tanggal_dirubah`/`id`/dst di semua 18 entity yang sudah digarap) BUKAN
+  kelalaian/bug berulang — itu KEHARUSAN TEKNIS. Update pemahaman: jangan
+  lagi sebut ini sebagai "pola mencurigakan", itu memang cara kerja yang
+  benar untuk arsitektur ini.
+
+**Kehilangan data destruktif ditemukan lagi** (pola sudah sangat familiar,
+tidak dieskalasi tersendiri — cukup tercakup `task_15f5001e`):
+`PengumumanAkademis.getHanyaUntuk()` (mengosongkan daftar NIM saat audiens
+diubah), `FormulirKegiatan.getKodeItemBiaya()`, `SyaratUjian.getKodeMatakuliah()`
+(sama persis pola `FormatNilaiSkripsi`/`FormatNilaiProposalSkripsi` sesi 7).
+**Tidak ada temuan keamanan baru** di batch ini (dicek eksplisit tiap file).
+
+**Total akumulasi 8 sesi kerja**: 213 (sesi 1-7) + 5 = **218 file** dari
+7.401 (~2,9%). Field audit shadow: 100% di **18 entity** — SEKARANG
+DIPAHAMI SEBAGAI ARSITEKTUR YANG BENAR, bukan pola mencurigakan.
+
 ## `ais/database/model/SyaratUjian.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **syarat kelayakan** (tabel `public.syarat_ujian`, `@Audited`,

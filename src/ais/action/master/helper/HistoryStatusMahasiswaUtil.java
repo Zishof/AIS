@@ -1087,13 +1087,31 @@ public class HistoryStatusMahasiswaUtil {
 
     /**
      * Menentukan apakah sebuah tagihan memang boleh memengaruhi status mahasiswa pada
-     * semester yang sedang diperiksa. Tagihan daftar ulang mahasiswa baru hanya berlaku
-     * pada semester pertama. Data lama pernah menyimpan tagihan tersebut pada Mahasiswa
-     * (bukan hanya BiodataCalonMahasiswa), sehingga tanpa pagar ini mahasiswa lama dapat
-     * tetap Nonaktif walaupun tagihan semester regulernya sudah lunas.
+     * semester yang sedang diperiksa.
+     *
+     * <p>Ada dua pagar yang wajib dilewati. Pertama, jenis kegiatan harus benar-benar
+     * menyatakan {@link JenisKegiatan#getDigunakanSyaratKeaktifan()} = {@code true} menurut
+     * aturan domain. Pemeriksaan ini tidak boleh hanya mempercayai keanggotaan pada cache
+     * {@code CommonHelperClass.jenisKegiatansUntukSyaratAktif}. Data legacy banyak memiliki
+     * nilai database {@code NULL}; {@code NULL} berarti tidak ikut menjadi syarat untuk hampir
+     * semua jenis, bukan nilai {@code true}. Pagar di sini adalah pertahanan lapis kedua bila
+     * cache lama, cache dari node aplikasi lain, atau proses hot-deploy masih membawa anggota
+     * yang tidak valid.</p>
+     *
+     * <p>Kedua, tagihan daftar ulang mahasiswa baru hanya berlaku pada semester pertama.
+     * Data lama pernah menyimpan tagihan tersebut pada Mahasiswa, bukan hanya pada
+     * BiodataCalonMahasiswa. Tanpa pagar semester, mahasiswa lama dapat tetap Nonaktif walaupun
+     * tagihan semester regulernya sudah lunas.</p>
+     *
+     * @param kegiatan kegiatan/tagihan yang akan dinilai
+     * @param semester semester status yang sedang dihitung
+     * @return {@code true} hanya bila kegiatan memang sah menjadi syarat aktif pada semester itu
      */
     public static boolean kegiatanSyaratAktifBerlaku(Kegiatan kegiatan, Integer semester) {
         if (kegiatan == null || kegiatan.getJenisKegiatan() == null) {
+            return false;
+        }
+        if (!Boolean.TRUE.equals(kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan())) {
             return false;
         }
         if (semester != null && semester.intValue() > 1

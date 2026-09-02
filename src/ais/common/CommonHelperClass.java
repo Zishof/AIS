@@ -11,6 +11,7 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
@@ -547,17 +548,31 @@ public class CommonHelperClass {
 			if (jenisKegiatansUntukNilai.isEmpty() && ConstantValues.PENDAFTARAN_MAHASISWA_LAMA != null)
 				jenisKegiatansUntukNilai.add(ConstantValues.PENDAFTARAN_MAHASISWA_LAMA);
 
+			/*
+			 * PENTING: NULL pada digunakanSyaratKeaktifan bukan sinonim TRUE. Getter
+			 * JenisKegiatan.getDigunakanSyaratKeaktifan() mengembalikan false untuk
+			 * hampir semua data lama yang bernilai NULL; hanya jenis pendaftaran
+			 * kanonik tertentu yang memiliki default domain khusus. Query lama memakai
+			 * "IS NULL OR = true", sehingga seluruh jenis kegiatan legacy masuk ke set
+			 * ini. Dampaknya sangat serius: setelah cicilan dihapus, evaluasi status
+			 * melihat kegiatan lain yang sebenarnya bukan syarat aktif sebagai kewajiban
+			 * belum bayar. Saat cicilan yang benar dibayar kembali, kewajiban palsu itu
+			 * tetap menahan transisi Nonaktif -> Aktif.
+			 *
+			 * Ambil hanya opt-in eksplisit dari DB. Jenis kanonik yang memang mempunyai
+			 * default domain ditambahkan sesudah query melalui getter-nya, agar aturan
+			 * Java dan isi cache selalu mempunyai semantik yang sama.
+			 */
 			jenisKegiatansUntukSyaratAktif = new TreeSet<JenisKegiatan>((Collection<JenisKegiatan>) session
 					.createCriteria(JenisKegiatan.class).addOrder(Order.asc("namaKegiatan"))
 					.add(Restrictions.isNotNull("namaKegiatan")).add(Restrictions.ne("namaKegiatan", ""))
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-					.add(Restrictions.or(Restrictions.isNull("digunakanSyaratKeaktifan"),
-							Restrictions.eq("digunakanSyaratKeaktifan", true)))
-					.list());
+					.add(Restrictions.eq("digunakanSyaratKeaktifan", true)).list());
 
-			if (jenisKegiatansUntukSyaratAktif.isEmpty() && ConstantValues.PENDAFTARAN_MAHASISWA_LAMA != null) {
-				jenisKegiatansUntukSyaratAktif.add(ConstantValues.PENDAFTARAN_MAHASISWA_LAMA);
-			}
+			tambahkanJenisKegiatanSyaratAktifDefault(jenisKegiatansUntukSyaratAktif,
+					ConstantValues.PENDAFTARAN_MAHASISWA_LAMA);
+			tambahkanJenisKegiatanSyaratAktifDefault(jenisKegiatansUntukSyaratAktif,
+					ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU);
 
 			jenisKegiatansUntukSyaratUjian = new TreeSet<JenisKegiatan>((Collection<JenisKegiatan>) session
 					.createCriteria(JenisKegiatan.class).add(Restrictions.eq("digunakanUntukPengecekanUjian", true))
@@ -570,6 +585,19 @@ public class CommonHelperClass {
 
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CommonHelperClass.java:347");
+		}
+	}
+
+	/**
+	 * Menambahkan jenis kegiatan kanonik yang getter domainnya menetapkan syarat
+	 * keaktifan meskipun kolom database lama masih {@code NULL}. Method ini sengaja
+	 * memanggil getter domain, bukan menganggap semua {@code NULL} sebagai aktif.
+	 */
+	private static void tambahkanJenisKegiatanSyaratAktifDefault(Set<JenisKegiatan> tujuan,
+			JenisKegiatan jenisKegiatan) {
+		if (tujuan != null && jenisKegiatan != null
+				&& Boolean.TRUE.equals(jenisKegiatan.getDigunakanSyaratKeaktifan())) {
+			tujuan.add(jenisKegiatan);
 		}
 	}
 
