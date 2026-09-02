@@ -854,6 +854,10 @@ public final class SalesInventoryReversalHelper {
 			String caraBayar = str(rsAsal.getString(5));
 			String statusAsal = str(rsAsal.getString(6));
 			String statusTrip = str(rsAsal.getString(7));
+			// Penunjuk kategori (v15) ikut dibawa; tanpa ini baris pembalik kehilangan
+			// kategorinya dan akun bebannya tidak lagi dapat ditelusuri.
+			Long kategoriId = rsAsal.getObject(8) == null ? null
+					: Long.valueOf(rsAsal.getLong(8));
 			rsAsal.close();
 			psAsal.close();
 			if (!"AKTIF".equals(statusAsal)) {
@@ -872,12 +876,17 @@ public final class SalesInventoryReversalHelper {
 					java.sql.Statement.RETURN_GENERATED_KEYS);
 			ins.setLong(1, tripId);
 			ins.setString(2, kategori);
-			ins.setString(3, "REVERSAL biaya #" + id + ": " + alasan);
-			ins.setBigDecimal(4, nilai.negate());
-			ins.setString(5, caraBayar);
-			ins.setString(6, kodeRev);
-			ins.setLong(7, id.longValue());
-			ins.setString(8, tbmuser.getUserId());
+			if (kategoriId == null) {
+				ins.setNull(3, java.sql.Types.BIGINT);
+			} else {
+				ins.setLong(3, kategoriId.longValue());
+			}
+			ins.setString(4, "REVERSAL biaya #" + id + ": " + alasan);
+			ins.setBigDecimal(5, nilai.negate());
+			ins.setString(6, caraBayar);
+			ins.setString(7, kodeRev);
+			ins.setLong(8, id.longValue());
+			ins.setString(9, tbmuser.getUserId());
 			ins.executeUpdate();
 			long idRev = 0;
 			java.sql.ResultSet gk = ins.getGeneratedKeys();

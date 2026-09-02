@@ -1126,10 +1126,7 @@ public final class SalesInventoryTripHelper {
 	public static void expenseCategoryList(EbisnisActorContextResolver.ActorContext ctx,
 			JSONObject request, JSONObject hasil) throws Exception {
 		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			expenseCategoryListTenant(ctx, request, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -1169,13 +1166,6 @@ public final class SalesInventoryTripHelper {
 
 	public static void expenseCategorySave(EbisnisActorContextResolver.ActorContext ctx,
 			Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!pemilikAtauAdmin(ctx)) {
 			tolak(hasil, "Kategori biaya hanya dikelola Pemilik/Admin.");
 			return;
@@ -1184,6 +1174,10 @@ public final class SalesInventoryTripHelper {
 		String nama = request.optString("nama", "").trim();
 		if (kode.isEmpty() || nama.isEmpty()) {
 			tolak(hasil, "kode dan nama wajib diisi.");
+			return;
+		}
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			expenseCategorySaveTenant(ctx, tbmuser, request, hasil, kode, nama);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -1220,13 +1214,6 @@ public final class SalesInventoryTripHelper {
 
 	public static void expenseCreate(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehAksi("biaya_sales", "create") && !ctx.bolehAksi("nota_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mencatat biaya sesi.");
 			return;
@@ -1241,6 +1228,10 @@ public final class SalesInventoryTripHelper {
 		}
 		if (kodeUnik.isEmpty()) {
 			tolak(hasil, "kode_unik (kunci idempoten) wajib diisi.");
+			return;
+		}
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			expenseCreateTenant(ctx, tbmuser, request, hasil, sesiId, kategoriId, nilai, kodeUnik);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -2738,23 +2729,51 @@ public final class SalesInventoryTripHelper {
 			double selisih = kasAktual.doubleValue() - kasSeharusnya;
 
 			tx = session.beginTransaction();
-			java.sql.PreparedStatement psR = session.connection().prepareStatement(
-					SalesInventoryTripTenant.simpanRekonsiliasi(skema));
+			// Upsert UPDATE-lalu-INSERT; lapisan tenant tidak memakai ON CONFLICT.
+			BigDecimal bBawa = new BigDecimal(String.valueOf(barangBawa));
+			BigDecimal bKembali = new BigDecimal(String.valueOf(barangKembali));
+			BigDecimal bJual = new BigDecimal(String.valueOf(totalPenjualan));
+			BigDecimal bBiaya = new BigDecimal(String.valueOf(totalBiaya));
+			BigDecimal bSetoran = new BigDecimal(String.valueOf(setoran));
+			BigDecimal bSelisih = new BigDecimal(String.valueOf(selisih));
+			String catatan = request.optString("catatan", "").trim();
+			int kena;
+			java.sql.PreparedStatement psU = session.connection().prepareStatement(
+					SalesInventoryTripTenant.perbaruiRekonsiliasi(skema));
 			try {
-				psR.setLong(1, tripId.longValue());
-				psR.setBigDecimal(2, new BigDecimal(String.valueOf(barangBawa)));
-				psR.setBigDecimal(3, new BigDecimal(String.valueOf(barangKembali)));
-				psR.setBigDecimal(4, new BigDecimal(String.valueOf(totalPenjualan)));
-				psR.setBigDecimal(5, new BigDecimal(String.valueOf(totalBiaya)));
-				psR.setBigDecimal(6, new BigDecimal(String.valueOf(setoran)));
-				psR.setBigDecimal(7, new BigDecimal(String.valueOf(selisih)));
-				psR.setBigDecimal(8, kasAktual);
-				psR.setString(9, request.optString("catatan", "").trim());
-				psR.setString(10, oleh);
-				psR.setString(11, oleh);
-				psR.executeUpdate();
+				psU.setBigDecimal(1, bBawa);
+				psU.setBigDecimal(2, bKembali);
+				psU.setBigDecimal(3, bJual);
+				psU.setBigDecimal(4, bBiaya);
+				psU.setBigDecimal(5, bSetoran);
+				psU.setBigDecimal(6, bSelisih);
+				psU.setBigDecimal(7, kasAktual);
+				psU.setString(8, catatan);
+				psU.setString(9, oleh);
+				psU.setLong(10, tripId.longValue());
+				kena = psU.executeUpdate();
 			} finally {
-				psR.close();
+				psU.close();
+			}
+			if (kena == 0) {
+				java.sql.PreparedStatement psR = session.connection().prepareStatement(
+						SalesInventoryTripTenant.sisipRekonsiliasi(skema));
+				try {
+					psR.setLong(1, tripId.longValue());
+					psR.setBigDecimal(2, bBawa);
+					psR.setBigDecimal(3, bKembali);
+					psR.setBigDecimal(4, bJual);
+					psR.setBigDecimal(5, bBiaya);
+					psR.setBigDecimal(6, bSetoran);
+					psR.setBigDecimal(7, bSelisih);
+					psR.setBigDecimal(8, kasAktual);
+					psR.setString(9, catatan);
+					psR.setString(10, oleh);
+					psR.setString(11, oleh);
+					psR.executeUpdate();
+				} finally {
+					psR.close();
+				}
 			}
 			java.sql.PreparedStatement psC = session.connection().prepareStatement(
 					SalesInventoryTripTenant.tutupTrip(skema));
@@ -2816,6 +2835,290 @@ public final class SalesInventoryTripHelper {
 			return v;
 		} finally {
 			ps.close();
+		}
+	}
+	// =============================================================================================
+	// Jalur schema tenant -- kategori biaya dan pencatatan biaya (v15)
+	// =============================================================================================
+
+	/** Daftar kategori biaya pada schema tenant: TUJUH medan, sama urutan dengan legacy. */
+	private static void expenseCategoryListTenant(EbisnisActorContextResolver.ActorContext ctx,
+			JSONObject request, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryTripTenant.daftarKategoriBiaya(skema,
+							request.optBoolean("semua", false)));
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject r = new JSONObject();
+				r.put("id", rs.getLong(1));
+				r.put("kode", str(rs.getString(2)));
+				r.put("nama", str(rs.getString(3)));
+				r.put("aktif", rs.getBoolean(4));
+				// Akun beban hanya disertakan bila kategorinya memang punya -- sama seperti
+				// jalur legacy yang membungkusnya dalam pemeriksaan null.
+				if (rs.getObject(5) != null) {
+					r.put("akunId", rs.getLong(5));
+					r.put("akunKode", str(rs.getString(6)));
+					r.put("akunNama", str(rs.getString(7)));
+				}
+				arr.put(r);
+			}
+			rs.close();
+			ps.close();
+			hasil.put("status", "00");
+			hasil.put("rows", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Simpan/ubah kategori biaya pada schema tenant; upsert berdasarkan kodenya, sama seperti
+	 * jalur legacy.
+	 *
+	 * <p>{@code aktif} dan {@code akunId} hanya disentuh bila permintaan menyebutnya. Menyetel
+	 * keduanya tanpa syarat akan menyalakan kembali kategori yang sengaja dimatikan, dan
+	 * mengosongkan akun beban yang sudah disetel — akun beban yang hilang membuat mesin posting
+	 * tidak tahu ke mana biaya dibukukan.</p>
+	 */
+	private static void expenseCategorySaveTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, String kode, String nama)
+			throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Boolean aktif = request.isNull("aktif") ? null
+				: Boolean.valueOf(request.optBoolean("aktif", true));
+		boolean sebutAkun = request.has("akunId");
+		Long akunId = sebutAkun ? optLong(request, "akunId") : null;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			Long id = null;
+			java.sql.PreparedStatement psC = session.connection().prepareStatement(
+					SalesInventoryTripTenant.cariKategoriByKode(skema));
+			try {
+				psC.setString(1, kode);
+				java.sql.ResultSet rsC = psC.executeQuery();
+				if (rsC.next()) {
+					id = Long.valueOf(rsC.getLong(1));
+				}
+				rsC.close();
+			} finally {
+				psC.close();
+			}
+			tx = session.beginTransaction();
+			if (id == null) {
+				java.sql.PreparedStatement ins = session.connection().prepareStatement(
+						SalesInventoryTripTenant.sisipKategoriBiaya(skema),
+						java.sql.Statement.RETURN_GENERATED_KEYS);
+				try {
+					ins.setString(1, kode);
+					ins.setString(2, nama);
+					ins.setBoolean(3, aktif == null ? true : aktif.booleanValue());
+					if (akunId == null) {
+						ins.setNull(4, java.sql.Types.BIGINT);
+					} else {
+						ins.setLong(4, akunId.longValue());
+					}
+					ins.setString(5, oleh);
+					ins.executeUpdate();
+					java.sql.ResultSet gk = ins.getGeneratedKeys();
+					if (gk.next()) {
+						id = Long.valueOf(gk.getLong(1));
+					}
+					gk.close();
+				} finally {
+					ins.close();
+				}
+			} else {
+				java.sql.PreparedStatement upd = session.connection().prepareStatement(
+						SalesInventoryTripTenant.perbaruiKategoriBiaya(skema));
+				try {
+					upd.setString(1, nama);
+					if (aktif == null) {
+						upd.setNull(2, java.sql.Types.BOOLEAN);
+					} else {
+						upd.setBoolean(2, aktif.booleanValue());
+					}
+					upd.setLong(3, id.longValue());
+					upd.executeUpdate();
+				} finally {
+					upd.close();
+				}
+				if (sebutAkun) {
+					java.sql.PreparedStatement psA = session.connection().prepareStatement(
+							SalesInventoryTripTenant.ubahAkunKategori(skema));
+					try {
+						if (akunId == null) {
+							psA.setNull(1, java.sql.Types.BIGINT);
+						} else {
+							psA.setLong(1, akunId.longValue());
+						}
+						psA.setLong(2, id.longValue());
+						psA.executeUpdate();
+					} finally {
+						psA.close();
+					}
+				}
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", id);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Mencatat biaya perjalanan pada schema tenant.
+	 *
+	 * <p>Biaya tunai ikut menurunkan kas yang dipegang sales lewat satu baris buku kas
+	 * {@code EXPENSE_CASH} bertanda negatif — itu sebabnya aksi ini menunggu v12 selain v15.</p>
+	 *
+	 * <p>Kolom teks {@code kategori} sengaja tidak diisi: penunjuk {@code kategori_biaya_id}
+	 * yang berwenang. Menyalin kodenya ke sana hanya melahirkan salinan yang membeku saat
+	 * kategori berganti nama.</p>
+	 */
+	private static void expenseCreateTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Long tripId, Long kategoriId,
+			BigDecimal nilai, String kodeUnik) throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		String metode = request.optString("metode", "TUNAI").trim().toUpperCase();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement psK = session.connection().prepareStatement(
+					SalesInventoryTripTenant.cariBiayaByKunci(skema));
+			psK.setString(1, kodeUnik);
+			java.sql.ResultSet rsK = psK.executeQuery();
+			boolean sudah = rsK.next();
+			long idSudah = sudah ? rsK.getLong(1) : 0;
+			rsK.close();
+			psK.close();
+			if (sudah) {
+				hasil.put("status", "00");
+				hasil.put("id", idSudah);
+				hasil.put("idempotentReplay", true);
+				return;
+			}
+
+			java.sql.PreparedStatement psT = session.connection().prepareStatement(
+					SalesInventoryTripTenant.tripUntukStatus(skema));
+			psT.setLong(1, tripId.longValue());
+			java.sql.ResultSet rsT = psT.executeQuery();
+			if (!rsT.next()) {
+				rsT.close();
+				psT.close();
+				tolak(hasil, "Sesi tidak ditemukan / sudah ditutup.");
+				return;
+			}
+			String statusTrip = str(rsT.getString(1));
+			Long salesId = rsT.getObject(2) == null ? null : Long.valueOf(rsT.getLong(2));
+			rsT.close();
+			psT.close();
+			if (NotaSalesSession.STATUS_CLOSED.equals(statusTrip)) {
+				tolak(hasil, "Sesi tidak ditemukan / sudah ditutup.");
+				return;
+			}
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				tolak(hasil, "Sesi ini bukan milik sales Anda.");
+				return;
+			}
+
+			String namaKategori = null;
+			java.sql.PreparedStatement psC = session.connection().prepareStatement(
+					SalesInventoryTripTenant.kategoriBiayaById(skema));
+			try {
+				psC.setLong(1, kategoriId.longValue());
+				java.sql.ResultSet rsC = psC.executeQuery();
+				if (rsC.next()) {
+					namaKategori = str(rsC.getString(2));
+				}
+				rsC.close();
+			} finally {
+				psC.close();
+			}
+			if (namaKategori == null) {
+				tolak(hasil, "Kategori biaya tidak ditemukan.");
+				return;
+			}
+
+			String uraian = request.optString("uraian", "").trim();
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryTripTenant.sisipBiaya(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			long idBaru = 0;
+			try {
+				ins.setLong(1, tripId.longValue());
+				ins.setLong(2, kategoriId.longValue());
+				ins.setString(3, uraian);
+				ins.setBigDecimal(4, nilai);
+				ins.setString(5, metode);
+				ins.setString(6, request.optString("penerima", "").trim());
+				ins.setString(7, request.optString("nomor_bukti", "").trim());
+				ins.setString(8, kodeUnik);
+				ins.setString(9, oleh);
+				ins.executeUpdate();
+				java.sql.ResultSet gk = ins.getGeneratedKeys();
+				if (gk.next()) {
+					idBaru = gk.getLong(1);
+				}
+				gk.close();
+			} finally {
+				ins.close();
+			}
+			if (idBaru <= 0) {
+				tx.rollback();
+				tolak(hasil, "Biaya gagal disimpan.");
+				return;
+			}
+			if ("TUNAI".equals(metode)) {
+				// Kas yang dipegang sales berkurang. Bertanda NEGATIF.
+				bukukanKas(session, skema, tripId, ais.service.tenant.TenantKasTrip.EXPENSE_CASH,
+						nilai.negate(), "BIAYA-" + idBaru, namaKategori + ": " + uraian,
+						"KAS-BIAYA-" + idBaru, oleh);
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", idBaru);
+		} catch (java.sql.SQLException dup) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			if (dup.getSQLState() != null && dup.getSQLState().startsWith("23")) {
+				hasil.put("status", "00");
+				hasil.put("idempotentReplay", true);
+			} else {
+				throw dup;
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 }

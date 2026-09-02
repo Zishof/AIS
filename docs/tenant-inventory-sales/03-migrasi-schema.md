@@ -568,6 +568,51 @@ tripnya.
 Katalog v1–v14 dijalankan utuh, bersih. Self-test LULUS — 16 migrasi, versi `v14-kas-fisik`,
 checksum `1fb5b5cbc41d` dipatok.
 
+## Bundel v15 — master kategori biaya trip
+
+Satu tabel (`kategori_biaya_sales`) dan tiga kolom pada `sales_trip_biaya`. Semuanya melayani satu
+konsep — pencatatan biaya perjalanan — dan ketiga aksi yang menunggunya.
+
+### Kategori adalah master, bukan teks bebas
+
+`sales_trip_biaya.kategori` selama ini `varchar(64)` tanpa acuan. Jalur legacy memakai **entitas**
+dengan kode unik, dan mesin posting membaca **akun beban** dari kategori itu — sesuatu yang mustahil
+dilakukan teks bebas. v15 menambahkan tabelnya berikut penunjuk `kategori_biaya_id`.
+
+Kolom teks lama tidak dihapus: baris hasil impor legacy mungkin memuat teks tanpa padanan pada
+master. Pembacanya memakai `COALESCE(k.kode, b.kategori)` — baris baru menjawab lewat penunjuknya,
+baris lama lewat teksnya. Keduanya tidak pernah terisi bersamaan pada baris yang sama.
+
+### Dua medan yang hilang tanpa disadari
+
+`expenseCreate` legacy menyimpan `penerima` dan `nomorBukti`; keduanya tidak punya kolom, dan
+ketiadaannya baru terlihat saat aksinya hendak dipindahkan. Untuk biaya tunai lapangan, penerima
+adalah satu-satunya keterangan tentang ke mana uangnya pergi.
+
+### `ON CONFLICT` ditolak penjaga katalog — dan penolakan itu benar
+
+Versi pertama bundel ini menyemai kategori dengan `ON CONFLICT (kode) DO NOTHING`. Self-test
+menolaknya: **seluruh katalog bergaya PostgreSQL 9.3**, dan `ON CONFLICT` baru ada di 9.5.
+
+Penyemaiannya kini memakai `INSERT ... SELECT ... WHERE NOT EXISTS`. Terbukti idempoten:
+dijalankan ulang, jumlah kategorinya tetap sembilan.
+
+Penolakan itu juga memunculkan dua tempat lain — **keduanya kode saya sendiri** — yang memakai
+`ON CONFLICT` dan luput dari penjaga semata karena penjaga hanya memeriksa bundel migrasi, bukan
+SQL runtime: `TenantRoleSeeder` dan `simpanRekonsiliasi` pada penutupan trip. Keduanya diubah ke
+pola UPDATE-lalu-INSERT / `WHERE NOT EXISTS`, sebagaimana `TenantDataPlaneService` sudah
+menetapkannya untuk lapisan tenant.
+
+Perlu dicatat jujur: produksi hampir pasti sudah 9.5+ — kode aktif lain (`PosApi`,
+`BacaTulisUtil`, `CicilanPembayaranRecoveryHelper`) memakai `ON CONFLICT` dan `SKIP LOCKED`, yang
+pada 9.3 adalah galat sintaks. Jadi ini bukan cacat yang akan meledak di produksi, melainkan
+konsistensi lapisan: lapisan tenant menyatakan dirinya 9.3-aman, dan kode saya melanggarnya.
+
+### Diverifikasi pada PostgreSQL 16
+
+Katalog v1–v15 dijalankan utuh, bersih. Self-test LULUS — 17 migrasi, versi `v15-kategori-biaya`,
+checksum `f41013db03ed`. Sembilan kategori tersemai; penyemaian ulang tetap sembilan.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema

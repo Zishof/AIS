@@ -78,7 +78,9 @@ final class SalesInventoryTripTenant {
 				|| "tripBarangUpdate".equals(aksi) || "tripDeposit".equals(aksi)
 				|| "tripReturn".equals(aksi) || "tripReconcile".equals(aksi)
 				|| "tripCashSale".equals(aksi) || "spjNotaAssign".equals(aksi)
-				|| "tripNotaResult".equals(aksi) || "tripClose".equals(aksi);
+				|| "tripNotaResult".equals(aksi) || "tripClose".equals(aksi)
+				|| "expenseCategoryList".equals(aksi) || "expenseCategorySave".equals(aksi)
+				|| "expenseCreate".equals(aksi);
 	}
 
 	/**
@@ -589,7 +591,7 @@ final class SalesInventoryTripTenant {
 	static String biayaUntukBalik(String skema) {
 		return "SELECT b.sales_trip_id, COALESCE(b.kategori,''), COALESCE(b.keterangan,''),"
 				+ " COALESCE(b.nilai,0), COALESCE(b.cara_bayar,''), COALESCE(b.status,'AKTIF'),"
-				+ " COALESCE(t.status,'')"
+				+ " COALESCE(t.status,''), b.kategori_biaya_id"
 				+ " FROM " + skema + "sales_trip_biaya b"
 				+ " JOIN " + skema + "sales_trip t ON b.sales_trip_id = t.id"
 				+ " WHERE b.id = ?";
@@ -602,10 +604,10 @@ final class SalesInventoryTripTenant {
 	 * pembalikDariId, oleh.</p>
 	 */
 	static String sisipBiayaPembalik(String skema) {
-		return "INSERT INTO " + skema + "sales_trip_biaya (sales_trip_id, kategori, keterangan,"
-				+ " nilai, tanggal, cara_bayar, idempotency_key, pembalik_dari_id, status,"
-				+ " dibuat_pada, oleh)"
-				+ " VALUES (?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, 'REVERSAL', now(), ?)";
+		return "INSERT INTO " + skema + "sales_trip_biaya (sales_trip_id, kategori,"
+				+ " kategori_biaya_id, keterangan, nilai, tanggal, cara_bayar, idempotency_key,"
+				+ " pembalik_dari_id, status, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, 'REVERSAL', now(), ?)";
 	}
 
 	/** Menandai biaya asal DIBATALKAN; barisnya tetap ada dan tetap terbaca di riwayat. */
@@ -761,34 +763,40 @@ final class SalesInventoryTripTenant {
 	}
 
 	/**
-	 * Menyimpan rekonsiliasi penutupan. DUA BELAS parameter: tripId, nilaiBarangBawa,
+	 * Memperbarui rekonsiliasi penutupan yang sudah ada. SEPULUH parameter: nilaiBarangBawa,
+	 * nilaiBarangKembali, nilaiPenjualan, nilaiBiaya, nilaiSetoran, selisih, kasFisikAktual,
+	 * keterangan, disetujuiOleh, tripId.
+	 *
+	 * <p>Bersama {@link #sisipRekonsiliasi(String)} membentuk upsert <b>UPDATE-lalu-INSERT</b>,
+	 * bukan {@code ON CONFLICT}. Lapisan tenant konsisten bergaya PostgreSQL 9.3 —
+	 * {@code TenantDataPlaneService} menyatakannya, dan penjaga struktural pada katalog migrasi
+	 * menegakkannya. Versi pertama metode ini memakai {@code ON CONFLICT} dan luput dari penjaga
+	 * itu semata karena penjaganya hanya memeriksa bundel migrasi, bukan SQL runtime.</p>
+	 */
+	static String perbaruiRekonsiliasi(String skema) {
+		return "UPDATE " + skema + "sales_trip_rekonsiliasi SET nilai_barang_bawa = ?,"
+				+ " nilai_barang_kembali = ?, nilai_penjualan = ?, nilai_biaya = ?,"
+				+ " nilai_setoran = ?, selisih = ?, kas_fisik_aktual = ?, keterangan = ?,"
+				+ " disetujui_oleh = ?, disetujui_pada = now(), status = 'CLOSED',"
+				+ " tanggal_dirubah = now() WHERE sales_trip_id = ?";
+	}
+
+	/**
+	 * Menyisipkan rekonsiliasi penutupan. SEBELAS parameter: tripId, nilaiBarangBawa,
 	 * nilaiBarangKembali, nilaiPenjualan, nilaiBiaya, nilaiSetoran, selisih, kasFisikAktual,
 	 * keterangan, disetujuiOleh, oleh.
 	 *
-	 * <p>{@code ON CONFLICT} atas {@code sales_trip_id}: satu trip hanya punya satu
-	 * rekonsiliasi. Penutupan yang diulang memperbarui barisnya alih-alih gagal — dan karena
-	 * penutupan hanya sah dari status RECONCILING, pengulangan itu hanya mungkin bila
-	 * transaksinya sempat gagal di tengah.</p>
+	 * <p>Dijalankan hanya bila {@link #perbaruiRekonsiliasi(String)} tidak mengenai satu baris
+	 * pun. Batasan {@code UNIQUE (sales_trip_id)} tetap menjadi penjaga terakhir bila dua
+	 * penutupan berpacu.</p>
 	 */
-	static String simpanRekonsiliasi(String skema) {
+	static String sisipRekonsiliasi(String skema) {
 		return "INSERT INTO " + skema + "sales_trip_rekonsiliasi (sales_trip_id, tanggal,"
 				+ " nilai_barang_bawa, nilai_barang_kembali, nilai_penjualan, nilai_biaya,"
 				+ " nilai_setoran, selisih, kas_fisik_aktual, keterangan, disetujui_oleh,"
 				+ " disetujui_pada, status, dibuat_pada, oleh)"
 				+ " VALUES (?, CURRENT_DATE, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), 'CLOSED',"
-				+ " now(), ?)"
-				+ " ON CONFLICT (sales_trip_id) DO UPDATE SET"
-				+ " nilai_barang_bawa = EXCLUDED.nilai_barang_bawa,"
-				+ " nilai_barang_kembali = EXCLUDED.nilai_barang_kembali,"
-				+ " nilai_penjualan = EXCLUDED.nilai_penjualan,"
-				+ " nilai_biaya = EXCLUDED.nilai_biaya,"
-				+ " nilai_setoran = EXCLUDED.nilai_setoran,"
-				+ " selisih = EXCLUDED.selisih,"
-				+ " kas_fisik_aktual = EXCLUDED.kas_fisik_aktual,"
-				+ " keterangan = EXCLUDED.keterangan,"
-				+ " disetujui_oleh = EXCLUDED.disetujui_oleh,"
-				+ " disetujui_pada = EXCLUDED.disetujui_pada,"
-				+ " status = EXCLUDED.status, tanggal_dirubah = now()";
+				+ " now(), ?)";
 	}
 
 	/** DUA parameter: oleh, tripId. */
@@ -808,5 +816,88 @@ final class SalesInventoryTripTenant {
 	static String rekonsiliasiNotaSpj(String skema) {
 		return "UPDATE " + skema + "surat_perintah_sales_nota SET status = 'RECONCILED',"
 				+ " tanggal_dirubah = now() WHERE surat_perintah_sales_id = ?";
+	}
+	// ------------------------------------------------------------------ kategori biaya (v15)
+
+	/**
+	 * <h4>Kategori biaya: master sejak v15, teks bebas sebelumnya</h4>
+	 *
+	 * <p>{@code sales_trip_biaya.kategori} lama tetap dibaca sebagai cadangan lewat
+	 * {@code COALESCE(k.kode, b.kategori)}: baris baru menjawab lewat penunjuknya, baris hasil
+	 * impor legacy menjawab lewat teksnya. Keduanya tidak pernah terisi bersamaan pada baris
+	 * yang sama.</p>
+	 *
+	 * <p>TUJUH kolom, berurutan sama dengan keluaran JSON legacy: id, kode, nama, aktif,
+	 * akunId, akunKode, akunNama.</p>
+	 */
+	static String daftarKategoriBiaya(String skema, boolean semua) {
+		return "SELECT k.id, COALESCE(k.kode,''), COALESCE(k.nama,''),"
+				+ " COALESCE(k.aktif,true), k.akun_id, COALESCE(a.kode,''), COALESCE(a.nama,'')"
+				+ " FROM " + skema + "kategori_biaya_sales k"
+				+ " LEFT JOIN " + skema + "akun a ON k.akun_id = a.id"
+				+ (semua ? "" : " WHERE COALESCE(k.aktif,true) = true")
+				+ " ORDER BY k.id ASC";
+	}
+
+	static String cariKategoriByKode(String skema) {
+		return "SELECT id FROM " + skema + "kategori_biaya_sales WHERE kode = ? LIMIT 1";
+	}
+
+	/** LIMA parameter: kode, nama, aktif, akunId, oleh. */
+	static String sisipKategoriBiaya(String skema) {
+		return "INSERT INTO " + skema + "kategori_biaya_sales (kode, nama, aktif, akun_id,"
+				+ " dibuat_pada, oleh) VALUES (?, ?, ?, ?, now(), ?)";
+	}
+
+	/**
+	 * TIGA parameter: nama, aktif (boleh NULL = biarkan), id.
+	 *
+	 * <p>{@code aktif} memakai {@code COALESCE} supaya permintaan yang tidak menyebutkannya
+	 * tidak diam-diam menyalakan kembali kategori yang sengaja dimatikan — jalur legacy juga
+	 * hanya menyetelnya bila kuncinya ada.</p>
+	 */
+	static String perbaruiKategoriBiaya(String skema) {
+		return "UPDATE " + skema + "kategori_biaya_sales SET nama = ?,"
+				+ " aktif = COALESCE(?, aktif), tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/**
+	 * DUA parameter: akunId (boleh NULL), id.
+	 *
+	 * <p>Pernyataan terpisah, dijalankan HANYA bila permintaan menyebut {@code akunId}.
+	 * Menggabungkannya ke pernyataan di atas akan membuat permintaan yang tidak menyebut akun
+	 * mengosongkan akun beban yang sudah disetel — dan akun beban yang hilang membuat mesin
+	 * posting tidak tahu ke mana biaya dibukukan.</p>
+	 */
+	static String ubahAkunKategori(String skema) {
+		return "UPDATE " + skema + "kategori_biaya_sales SET akun_id = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/** DUA kolom: kode dan nama kategori; dipakai memvalidasi dan menyusun keterangan kas. */
+	static String kategoriBiayaById(String skema) {
+		return "SELECT COALESCE(kode,''), COALESCE(nama,'') FROM " + skema
+				+ "kategori_biaya_sales WHERE id = ?";
+	}
+
+	// ------------------------------------------------------------------ catat biaya (v15)
+
+	static String cariBiayaByKunci(String skema) {
+		return "SELECT id FROM " + skema + "sales_trip_biaya WHERE idempotency_key = ? LIMIT 1";
+	}
+
+	/**
+	 * SEMBILAN parameter: tripId, kategoriBiayaId, keterangan, nilai, caraBayar, penerima,
+	 * nomorBukti, idempotencyKey, oleh.
+	 *
+	 * <p>Kolom teks {@code kategori} sengaja <b>tidak</b> diisi untuk baris baru: penunjuknya
+	 * yang berwenang, dan menyalin kodenya ke sana hanya melahirkan salinan yang membeku saat
+	 * kategori berganti nama.</p>
+	 */
+	static String sisipBiaya(String skema) {
+		return "INSERT INTO " + skema + "sales_trip_biaya (sales_trip_id, kategori_biaya_id,"
+				+ " keterangan, nilai, tanggal, cara_bayar, penerima, nomor_bukti,"
+				+ " idempotency_key, status, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, ?, 'AKTIF', now(), ?)";
 	}
 }

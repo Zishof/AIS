@@ -52,10 +52,17 @@ public final class TenantRoleSeeder {
 			{ TenantRbac.AUDITOR, "Auditor",
 					"MEMBACA SAJA, seluruh area. Tidak ada satu pun kewenangan menulis." } };
 
+	/**
+	 * Menyisip bila belum ada. Memakai {@code WHERE NOT EXISTS}, <b>bukan</b>
+	 * {@code ON CONFLICT}: lapisan tenant konsisten bergaya PostgreSQL 9.3, sebagaimana
+	 * dinyatakan {@link TenantDataPlaneService} dan ditegakkan penjaga struktural pada katalog
+	 * migrasi. Semula kelas ini memakai {@code ON CONFLICT} dan luput dari penjaga itu karena
+	 * penjaganya hanya memeriksa bundel migrasi, bukan SQL runtime.
+	 */
 	private static final String SQL_SISIP = "INSERT INTO {S}.role_tenant"
 			+ " (kode, nama, keterangan, bawaan, aktif, dibuat_pada, oleh)"
-			+ " VALUES (:kode, :nama, :ket, true, true, now(), :oleh)"
-			+ " ON CONFLICT (kode) DO NOTHING";
+			+ " SELECT :kode, :nama, :ket, true, true, now(), :oleh"
+			+ " WHERE NOT EXISTS (SELECT 1 FROM {S}.role_tenant WHERE kode = :kode)";
 
 	private TenantRoleSeeder() {
 	}

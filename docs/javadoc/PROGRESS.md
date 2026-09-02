@@ -1,5 +1,143 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/PengajuanBeasiswa.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **formulir pengajuan beasiswa oleh mahasiswa** (tabel
+`public.pengajuan_beasiswa`, `@Audited`, `dynamicInsert/dynamicUpdate`, turunan
+`GeneralValueObject`). **59/59 anggota** terdokumentasi (100%) plus seluruh field,
+330 → 1032 baris. Revisi **r83287**, mirror `java/` verifikasi `cmp` identik.
+Hanya Javadoc/komentar; nol perubahan logika (dibuktikan dengan membandingkan
+sumber tanpa komentar/spasi terhadap HEAD — identik persis; baris
+`@PreUpdate onUpdate()` + `tanggal_dirubah` dibiarkan menyatu seperti aslinya).
+
+**Alur:** master `Beasiswa` bercabang **dua jalur yang tidak saling tersambung
+di kode**: (1) jalur seleksi sungguhan `MahasiswaDaftarBeasiswa` (`terima`,
+`totalSkor`) + `MahasiswaBeasiswaPersyaratan` → `MahasiswaDapatBeasiswa`;
+(2) jalur formulir sosial-ekonomi ini (`pengajuan_beasiswa.zul` +
+`PengajuanBeasiswaAction`), murni bahan pertimbangan manual panitia. Anaknya
+`KeadaanKeluargaPengajuanBeasiswa` — relasi searah dari sisi anak, dan entity
+anak itu **yatim di sisi kode** (tanpa DAO/Action/ZUL).
+
+**Verifikasi pola "getter menulis balik" — DUA DITEMUKAN:**
+- `getNama()` **SELALU** menimpa field dengan `mahasiswa + "-" + beasiswa`
+  (bukan hanya saat `null`). Karena pemetaan property access, Hibernate memanggil
+  getter ini saat `INSERT` dan saat dirty-checking → kolom `nama` selalu konvergen
+  ke hasil hitungan, dan `setNama()` praktis tak berguna (nol pemanggil).
+- `getTanggalPengajuan()` mengisi "sekarang" hanya saat `null`.
+
+Keduanya kolom terpetakan sungguhan (bukan `@Transient`), jadi hasilnya tersimpan
+permanen saat flush. `toString()` memanggil `getNama()` → mencetak object pun
+memicu tulis balik (kontras dengan `Beasiswa.toString()` yang sengaja baca field
+langsung).
+
+**Verifikasi pola "flag `aktif` satu arah" — TIDAK BERLAKU.** Entity ini sama
+sekali **tidak punya field/kolom `aktif`**; penghapusan berkas dilakukan fisik
+lewat `Common.refreshDelete(...)` dari tombol Hapus di renderer. Jadi entity ini
+bukan anggota kelompok "murni satu-arah" maupun "dua-arah bersyarat".
+
+**Sesi Hibernate:** tidak ada method di kelas ini yang menyentuh `Session` —
+berbeda dari `Beasiswa`, ketiga getter relasi di sini **tidak** memakai
+`GeneralValueObject.check(...)`, jadi tidak ada resolusi proxy sama sekali.
+
+**Kuirk yang dicatat (kode dibiarkan apa adanya):**
+- `setMahasiswaDapatBeasiswa()` **tidak dipanggil dari mana pun** di seluruh
+  pohon sumber, padahal renderer memakai relasi itu untuk kolom "Status"
+  (`null` → "Belum mensetujui"). Praktisnya kolom Status **selalu** berbunyi
+  "Belum mensetujui" kecuali diisi langsung lewat SQL.
+- Kolom `nama` hasil hitungan justru yang membuat satu kotak pencarian
+  `ilike("nama", ANYWHERE)` bisa menemukan lewat NIM / nama mahasiswa / nama
+  program / nama instansi sekaligus. Efek lanjutan: nama mahasiswa berubah atau
+  tanggal program disunting → sekadar membuka daftar memicu `UPDATE` + revisi
+  Envers baru tanpa ada yang menekan Simpan.
+- Risiko `length = 255`: gabungan `Mahasiswa.toString()` ("{id}-{nim} - {nama}")
+  dan `Beasiswa.toString()` ("{nama}-{tglBuka}-{tglTutup}-{instansi}") bisa
+  melewati 255 karakter → `INSERT`/`UPDATE` gagal di tingkat DB.
+- Cabang penjaga `this.nama == null ? null : ...` **kode mati**: rangkaian
+  `mahasiswa + "-" + beasiswa` selalu `String` (relasi kosong → `"null-null"`).
+- `Order.asc("nama")` sebenarnya mengurutkan menurut **id mahasiswa sebagai
+  teks** ("10-" mendahului "2-"), dan kolom grid yang memakainya berlabel
+  "Beasiswa" — menyesatkan.
+- `penghasilan` adalah **String kelas rentang** (5 pilihan hardcoded di Action,
+  tanpa rentang di atas Rp. 5.000.000), bukan angka — tidak sebanding dengan
+  `Beasiswa.penghasilanOrangTua` (`Long`). Tiga combobox lain (`rumahTinggal`,
+  `peneranganRumah`, `sumberAirBersih`) juga hardcoded, bukan master data.
+- Seluruh `setConstraint("no empty")` di `PengajuanBeasiswaAction.init()`
+  **dikomentari** → hampir semua properti bisa tersimpan kosong; hanya
+  `mahasiswa` dan `beasiswa` yang benar-benar divalidasi.
+- `keterangan` tidak pernah diisi UI (warisan template generator).
+- Satuan `jarakKotaKecamatan`, `jarakKampus`, `luasBangunanRumah` tidak
+  didefinisikan di mana pun (label layar pun tanpa satuan).
+- `DashboardStatistikPengajuanBeasiswaPerJurusan` **tidak membaca entity ini
+  sama sekali** — isinya salinan dasbor KKN yang mengagregasi
+  `MahasiswaDapatKelompokKkn`. Nama kelas/judulnya menyesatkan.
+- `serialVersionUID` identik dengan milik `KeadaanKeluargaPengajuanBeasiswa`
+  (sama-sama dari template generator).
+
+**Temuan kerahasiaan data (BUKAN di file ini — di
+`ais/action/master/PengajuanBeasiswaAction.java`, TIDAK diperbaiki):**
+`initCriteria()` hanya memfilter `ilike("nama", searchnama, ANYWHERE)` **tanpa
+batasan pemilik**, sementara `init()` menunjukkan layar ini memang ditujukan juga
+untuk pengguna mahasiswa (`Common.getCurrentUser().getMahasiswa() != null` →
+pemohon dipaksa jadi diri sendiri dan komponennya dikunci). Akibatnya setiap
+pengguna dengan hak READ pada menu ini — termasuk mahasiswa — dapat melihat
+seluruh berkas pengajuan mahasiswa lain beserta data pribadi keluarganya (nama
+dan pekerjaan orang tua, alamat lengkap, kelas penghasilan, kondisi rumah), dan
+dengan hak UPDATE/DELETE dapat menyuntingnya lewat tombol per baris. Perlu
+eskalasi terpisah.
+
+## `ais/database/model/PrestasiDosen.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **prestasi/penghargaan dosen** (tabel `public.prestasi_dosen`, `@Audited`,
+`dynamicInsert/dynamicUpdate`, turunan langsung `GeneralValueObject`).
+**57/57 anggota** terdokumentasi (100%), 345 → 1131 baris. Revisi **r83288**,
+mirror `java/` verifikasi `cmp` identik byte. Hanya Javadoc/komentar; nol
+perubahan logika (dibuktikan dengan membandingkan sumber tanpa komentar/spasi
+terhadap HEAD — identik persis; baris `@PreUpdate onUpdate()` + `tanggal_dirubah`
+dibiarkan menyatu seperti aslinya, Javadoc field disisipkan inline).
+
+**Verifikasi pola berulang (lengkap):**
+- **A. Getter yang memanggil `check()`** — hanya **3**: `getDosen()`,
+  `getFakultas()`, `getJurusan()`. `getCabangPrestasiDosen()` dan
+  `getKategoriPrestasiDosen()` **TIDAK** ikut pola ini (beda dari
+  `PrestasiMahasiswa`).
+- **B. Getter yang menulis balik ke kolom TERPETAKAN** — **3**:
+  `getTahunAkademik()` (isi bila `null`), `getJenisSemester()` (isi bila `null`),
+  `getTahun()` (**selalu** menimpa dari potongan pertama `tahunAkademik`).
+  Identik dengan `PrestasiMahasiswa`.
+- **C. Getter penormal yang TIDAK menulis balik** — 7: `getNama()` (trim),
+  `getStatus()`, `getPrestasiLuarKampus()`, `getPeringkat()`,
+  `getJumlahPeserta()`, `getCapaian()`, `getUrl()`.
+- **D. Getter yang menutup session Hibernate** — **TIDAK ADA**.
+
+**Perbandingan dengan `PrestasiMahasiswa` (sesi 11, r83225):**
+- *Sama*: `serialVersionUID` identik, 4 konstanta status identik, blok jejak
+  audit, `toString()` `"<id>-<nama>"`, bendera `prestasiLuarKampus` +
+  `fakultas`/`jurusan`, trio periode, istilah **cabang→jenis / kategori→tingkat
+  yang tertukar** (dikonfirmasi lewat `getKode()` di kedua master).
+- *Beda*: 57 lawan 73 anggota; **tidak ada properti Neo Feeder** (versi dosen
+  memakai integrasi **repositori DSpace** yang seluruhnya di
+  `PrestasiDosenAction`, bukan properti entity); tidak ada dosen pembina,
+  `jenisAktfitas`, `alamat`, no/tanggal SK; `setStatus(String)` **tanpa validasi**
+  (versi mahasiswa punya whitelist 4 konstanta); cabang/kategori **eager +
+  `@Fetch(FetchMode.SELECT)` tanpa `check()`** (mahasiswa: LAZY + `check()`);
+  ada cache indeks JSON `prestasiDosen_<id>` di `Dosen` yang dipelihara
+  `AuditListener`.
+
+**Kuirk dicatat (tidak diperbaiki):** `getPeringkat()` tak pernah `null` sehingga
+cek `== null ? "" : ...` di `PrestasiDosenAction:751` mati (layar menampilkan
+"Peringkat: 0"); `nomorSertifikat` dipetakan ke `dc.identifier.issn` di DSpace;
+`jumlahPeserta` bertipe `String`; dasbor rekap hanya menghitung status
+`"Disetujui"`.
+
+**Keamanan:** pola SQL injection tingkat-dua yang sama seperti temuan
+`PrestasiMahasiswa` **ADA juga** di jalur dosen —
+`ais/action/master/dashboard/helper/DashboardRekapPrestasiDosen.java` (±br. 221-250)
+merangkai SQL mentah dan menyisipkan `generalValueObject.getNama()` (nama master
+`CabangPrestasiDosen`/`KategoriPrestasiDosen`, lewat `Common.getBahasaConfig`)
+sebagai alias kolom berkutip ganda, lalu dieksekusi `Common.ambilSql(sql)`.
+Risiko rendah (butuh hak tulis data master), di luar entity ini; dilaporkan untuk
+eskalasi terpisah, tidak diubah pada sesi ini.
+
 ## `ais/database/model/MatakuliahPrasyarat.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **aturan prasyarat mata kuliah** (tabel `public.matakuliah_prasyarat`,

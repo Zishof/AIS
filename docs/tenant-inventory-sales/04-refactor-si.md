@@ -1683,6 +1683,54 @@ memperbarui, tidak menggandakan.
 | master kategori biaya | `expenseCategoryList`, `expenseCategorySave`, `expenseCreate` |
 | tabel pembelian dalam trip | `tripPurchaseLink`, `tripDetail` |
 
+## Tiga aksi biaya trip — Trip 17 dari 19
+
+`expenseCategoryList`, `expenseCategorySave`, dan `expenseCreate` dipindahkan bersama v15. Sisa
+Trip tinggal dua: `tripDetail` dan `tripPurchaseLink`, keduanya menunggu tabel pembelian dalam
+trip.
+
+### `aktif` dan `akunId` hanya disentuh bila disebut
+
+Jalur legacy menyetel keduanya hanya bila kuncinya ada pada permintaan. Itu bukan detail: menyetel
+tanpa syarat akan **menyalakan kembali kategori yang sengaja dimatikan**, dan **mengosongkan akun
+beban** yang sudah disetel — akun beban yang hilang membuat mesin posting tidak tahu ke mana biaya
+dibukukan.
+
+`aktif` ditangani `COALESCE(?, aktif)`; `akunId` ditangani pernyataan terpisah yang dijalankan
+hanya bila kuncinya ada. Menggabungkannya ke satu `UPDATE` akan menghilangkan perbedaan
+"tidak disebut" dan "disebut kosong".
+
+### Kolom teks kategori sengaja dikosongkan untuk baris baru
+
+Penunjuk `kategori_biaya_id` yang berwenang. Menyalin kodenya ke kolom teks hanya melahirkan
+salinan yang membeku saat kategori berganti nama — pola yang sudah berkali-kali ditolak sepanjang
+pemindahan ini.
+
+Jalan SQL membuktikannya: sesudah kategori BBM diganti nama menjadi "BBM (revisi)", biaya yang
+menunjuknya **ikut berubah**. Kalau kodenya disalin, ia akan tetap menampilkan nama lama.
+
+### Satu perbaikan menyusul: pembalikan biaya kehilangan kategorinya
+
+`expenseReverse` dipindahkan pada batch v12, ketika kategori masih teks bebas. Setelah v15
+memindahkan kewenangan ke penunjuk, baris pembalik yang hanya menyalin kolom teks akan lahir
+**tanpa kategori** — dan akun bebannya tidak lagi dapat ditelusuri.
+
+`biayaUntukBalik` kini ikut membaca `kategori_biaya_id`, dan `sisipBiayaPembalik` menulisnya.
+Ditemukan saat merancang v15, bukan setelah terkirim.
+
+### Verifikasi
+
+SQL yang benar-benar dikeluarkan Java dijalankan berurutan ke basis data v1–v15:
+
+| langkah | hasil |
+|---|---|
+| daftar kategori aktif | 9 bawaan |
+| ubah nama dengan `aktif` NULL | nama berubah, aktif bertahan |
+| sisip kategori baru | tersimpan |
+| catat biaya 100.000 tunai | tertaut kategori; penerima dan nomor bukti tersimpan |
+| buku kas | **−100.000** |
+| **penjaga** — kategori diganti nama | biaya ikut berubah, bukan beku |
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
