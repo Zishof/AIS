@@ -34,11 +34,12 @@ import ais.database.model.sirs.Pasien;
 import ais.database.model.sirs.Pembayaran;
 import ais.database.model.sirs.Pendaftaran;
 import ais.database.model.sirs.Poly;
+import ais.database.model.sirs.Satker;
 import ais.database.model.sirs.TransaksiMedis;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native dua puluh lima laporan SIRS.
+ * Kontrak native dua puluh sembilan laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -115,13 +116,18 @@ public final class NewUiLaporanSirsController {
     static final String S_DOKTER = "dokter";
     static final String S_POLI = "poli";
     static final String S_LOKASI = "lokasi";
+    static final String S_LOKASI_ASAL = "lokasi_asal";
+    static final String S_LOKASI_TUJUAN = "lokasi_tujuan";
     static final String S_TANGGAL = "tanggal";
     static final String S_PENYEDIA = "penyedia";
     static final String S_JENIS_ITEM = "jenis_item";
     static final String S_JENIS_ITEM_MEDIS = "jenis_item_medis";
+    static final String S_LUNAS = "lunas";
+    static final String S_RAJAL_RANAP = "rajal_ranap";
+    static final String S_SATKER = "satker";
 
     /**
-     * Dua puluh lima laporan yang dilayani kontrak ini.
+     * Dua puluh sembilan laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -237,6 +243,26 @@ public final class NewUiLaporanSirsController {
             return new Jenis(kode, "Laporan Penerimaan Order", "sirs/delivery_order_per_periode",
                     new String[] { S_LOKASI, S_MULAI, S_SAMPAI }, ais.action.report.Report.XLS);
         }
+        if ("inventory_pemakaian_retur".equals(kode)) {
+            return new Jenis(kode, "Laporan Pemakaian Retur Item",
+                    "sirs/pemakaian_retur_item_periode",
+                    new String[] { S_LOKASI, S_MULAI, S_SAMPAI }, ais.action.report.Report.XLS);
+        }
+        if ("inventory_transfer".equals(kode)) {
+            return new Jenis(kode, "Laporan Transfer Item", "sirs/transfer_item_per_periode",
+                    new String[] { S_LOKASI_ASAL, S_LOKASI_TUJUAN, S_MULAI, S_SAMPAI },
+                    ais.action.report.Report.XLS);
+        }
+        if ("inventory_tracking_stok".equals(kode)) {
+            return new Jenis(kode, "Laporan Tracking Stok Item", "sirs/tracking_stok_barang",
+                    new String[] { S_LOKASI, S_MULAI, S_SAMPAI }, ais.action.report.Report.XLS);
+        }
+        if ("apotik_penggunaan_item".equals(kode)) {
+            return new Jenis(kode, "Laporan Penggunaan Item Apotek", "sirs/penggunaan_obat",
+                    new String[] { S_LOKASI, S_MULAI, S_SAMPAI, S_LUNAS,
+                            S_RAJAL_RANAP, S_JENIS_PASIEN, S_SATKER },
+                    ais.action.report.Report.XLS);
+        }
         throw new IllegalArgumentException("Jenis laporan SIRS tidak dikenal.");
     }
 
@@ -310,11 +336,11 @@ public final class NewUiLaporanSirsController {
         JSONArray arr = new JSONArray();
         for (String s : jenis.saringan) {
             JSONObject definisi = filter(jenis, s);
-            if (S_LOKASI.equals(s)) {
+            if (S_LOKASI.equals(s) || S_LOKASI_ASAL.equals(s)) {
                 Lokasi lokasi = Common.getCurrentLokasi();
                 if (lokasi != null && lokasi.getId() != null) {
                     definisi.put("nilaiBawaan", lokasi.getId());
-                    if (lokasiTerkunci(jenis)) {
+                    if (S_LOKASI.equals(s) && lokasiTerkunci(jenis)) {
                         definisi.put("terkunci", true);
                     }
                 }
@@ -341,6 +367,10 @@ public final class NewUiLaporanSirsController {
                 || "inventory_koreksi".equals(jenis.kode)
                 || "inventory_pemakaian".equals(jenis.kode)
                 || "inventory_penerimaan_order".equals(jenis.kode)
+                || "inventory_pemakaian_retur".equals(jenis.kode)
+                || "inventory_transfer".equals(jenis.kode)
+                || "inventory_tracking_stok".equals(jenis.kode)
+                || "apotik_penggunaan_item".equals(jenis.kode)
                 || "ranap_laporan_perruangan_periode".equals(jenis.kode)) {
             mulai.add(java.util.Calendar.MONTH, -1);
         }
@@ -396,7 +426,8 @@ public final class NewUiLaporanSirsController {
             return d.put("label", "Tanggal Sampai").put("tipe", "tanggal").put("wajib", true);
         }
         if (S_JENIS_PASIEN.equals(nama)) {
-            boolean wajib = !"rajal_poli_baru_lama".equals(jenis.kode);
+            boolean wajib = !"rajal_poli_baru_lama".equals(jenis.kode)
+                    && !"apotik_penggunaan_item".equals(jenis.kode);
             return d.put("label", "Jenis Pasien").put("tipe", "relasi")
                     .put("wajib", wajib).put("pilihPertama", wajib);
         }
@@ -419,6 +450,12 @@ public final class NewUiLaporanSirsController {
         if (S_LOKASI.equals(nama)) {
             return d.put("label", "Lokasi").put("tipe", "relasi").put("wajib", false);
         }
+        if (S_LOKASI_ASAL.equals(nama)) {
+            return d.put("label", "Lokasi Asal").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_LOKASI_TUJUAN.equals(nama)) {
+            return d.put("label", "Lokasi Tujuan").put("tipe", "relasi").put("wajib", false);
+        }
         if (S_TANGGAL.equals(nama)) {
             return d.put("label", "Per Tanggal").put("tipe", "tanggal").put("wajib", true);
         }
@@ -436,6 +473,16 @@ public final class NewUiLaporanSirsController {
         if (S_JENIS_ITEM_MEDIS.equals(nama)) {
             return d.put("label", "Jenis Item Medis").put("tipe", "relasi")
                     .put("wajib", false).put("pilihPertama", true);
+        }
+        if (S_LUNAS.equals(nama)) {
+            return d.put("label", "Status Lunas").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_RAJAL_RANAP.equals(nama)) {
+            return d.put("label", "Rawat Jalan/Inap").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_SATKER.equals(nama)) {
+            return d.put("label", "Satuan Kerja").put("tipe", "relasi")
+                    .put("wajib", false).put("cari", true);
         }
         throw new IllegalArgumentException("Filter tidak dikenal: " + nama);
     }
@@ -465,11 +512,12 @@ public final class NewUiLaporanSirsController {
         Session s = HibernateUtil.openSession();
         try {
             JSONArray arr = new JSONArray();
-            if (S_LOKASI.equals(nama)) {
+            if (S_LOKASI.equals(nama) || S_LOKASI_ASAL.equals(nama)
+                    || S_LOKASI_TUJUAN.equals(nama)) {
                 Criteria c = s.createCriteria(Lokasi.class)
                         .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
                 Lokasi current = Common.getCurrentLokasi();
-                if (lokasiTerkunci(jenis)
+                if (S_LOKASI.equals(nama) && lokasiTerkunci(jenis)
                         && current != null && current.getId() != null) {
                     c.add(Restrictions.eq("id", current.getId()));
                 }
@@ -574,6 +622,21 @@ public final class NewUiLaporanSirsController {
                         Pendaftaran.MENINGGAL }) {
                     arr.put(new JSONObject().put("id", v).put("nama", v));
                 }
+            } else if (S_LUNAS.equals(nama)) {
+                for (String v : new String[] { "Lunas", "Belum Lunas" }) {
+                    arr.put(new JSONObject().put("id", v).put("nama", v));
+                }
+            } else if (S_RAJAL_RANAP.equals(nama)) {
+                for (String v : new String[] { Pendaftaran.RAWAT_JALAN, Pendaftaran.RAWAT_INAP }) {
+                    arr.put(new JSONObject().put("id", v).put("nama", v));
+                }
+            } else if (S_SATKER.equals(nama)) {
+                Criteria c = s.createCriteria(Satker.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Satker x = (Satker) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
             } else {
                 throw new IllegalArgumentException("Filter ini bukan filter relasi.");
             }
@@ -629,6 +692,8 @@ public final class NewUiLaporanSirsController {
                 rajal(parameters, r, s, jenis);
             } else if (jenis.kode.startsWith("inventory_")) {
                 inventory(parameters, r, s, jenis);
+            } else if (jenis.kode.startsWith("apotik_")) {
+                apotik(parameters, r, s);
             } else if (jenis.kode.startsWith("laporan_kasir_")) {
                 kasir(parameters, r, s);
             } else if ("ranap_laporan_perruangan_periode".equals(jenis.kode)) {
@@ -657,8 +722,18 @@ public final class NewUiLaporanSirsController {
     private static void inventory(Map parameters, HttpServletRequest r, Session s, Jenis jenis) {
         if ("inventory_koreksi".equals(jenis.kode)
                 || "inventory_pemakaian".equals(jenis.kode)
-                || "inventory_penerimaan_order".equals(jenis.kode)) {
+                || "inventory_penerimaan_order".equals(jenis.kode)
+                || "inventory_pemakaian_retur".equals(jenis.kode)
+                || "inventory_tracking_stok".equals(jenis.kode)) {
             kasir(parameters, r, s);
+            return;
+        }
+        if ("inventory_transfer".equals(jenis.kode)) {
+            Lokasi asal = lokasiAktif(s, r.getParameter(S_LOKASI_ASAL));
+            Lokasi tujuan = lokasiAktif(s, r.getParameter(S_LOKASI_TUJUAN));
+            parameters.put("lokasi1", asal == null ? Long.valueOf(-1L) : asal.getId());
+            parameters.put("lokasi2", tujuan == null ? Long.valueOf(-1L) : tujuan.getId());
+            rentang(parameters, r);
             return;
         }
         if ("inventory_kadaluarsa".equals(jenis.kode)) {
@@ -742,7 +817,38 @@ public final class NewUiLaporanSirsController {
         return jenis.kode.startsWith("laporan_kasir_")
                 || "inventory_koreksi".equals(jenis.kode)
                 || "inventory_pemakaian".equals(jenis.kode)
-                || "inventory_penerimaan_order".equals(jenis.kode);
+                || "inventory_penerimaan_order".equals(jenis.kode)
+                || "inventory_pemakaian_retur".equals(jenis.kode)
+                || "inventory_tracking_stok".equals(jenis.kode)
+                || "apotik_penggunaan_item".equals(jenis.kode);
+    }
+
+    /** Parameter laporan penggunaan item apotek; semua filter selain tanggal opsional. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void apotik(Map parameters, HttpServletRequest r, Session s) {
+        Lokasi lokasi = Common.getCurrentLokasi();
+        if (lokasi == null) lokasi = lokasiAktif(s, r.getParameter(S_LOKASI));
+
+        String lunas = text(r.getParameter(S_LUNAS), "");
+        if (lunas.length() > 0 && !"Lunas".equals(lunas) && !"Belum Lunas".equals(lunas)) {
+            throw new IllegalArgumentException("Status lunas tidak sah.");
+        }
+        String rawat = text(r.getParameter(S_RAJAL_RANAP), "");
+        if (rawat.length() > 0 && !Pendaftaran.RAWAT_JALAN.equals(rawat)
+                && !Pendaftaran.RAWAT_INAP.equals(rawat)) {
+            throw new IllegalArgumentException("Jenis rawat tidak sah.");
+        }
+
+        JenisPasien jenisPasien = (JenisPasien) muat(s, JenisPasien.class,
+                r.getParameter(S_JENIS_PASIEN));
+        Satker satker = (Satker) muat(s, Satker.class, r.getParameter(S_SATKER));
+        parameters.put("lunas", lunas.length() == 0 ? "-1" : lunas);
+        parameters.put("rajalRanap", rawat.length() == 0 ? "-1" : rawat);
+        parameters.put("jenis_pasien",
+                jenisPasien == null ? Long.valueOf(-1L) : jenisPasien.getId());
+        parameters.put("satker", satker == null ? Long.valueOf(-1L) : satker.getId());
+        parameters.put("lokasi1", lokasi == null ? Long.valueOf(-1L) : lokasi.getId());
+        rentang(parameters, r);
     }
 
     /** Parameter rentang tanggal bertipe teks yyyy-MM-dd seperti layar ZK. */

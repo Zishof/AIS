@@ -41,6 +41,12 @@ Dua pembantu privat ditambahkan; `stillReferenced` diberi JavaDoc yang menyebut 
 dan syarat pemanggilannya (**sesudah** cap dilepas dan di-flush, supaya hitungannya
 melihat keadaan terbaru).
 
+> **Menyusul (doc 79): penjagaan di bawah ini KURANG LENGKAP.** Ia hanya menghitung
+> `GrupTransaksi` dan `Transaksi`, padahal ada 64 entitas dengan FK ke `posting_history`;
+> riwayat dari mesin posting per modul juga dipegang dokumen sumbernya. Dipertegas di
+> r83092 dengan syarat jenis riwayat -- lihat
+> [79-penjaga-hapus-riwayat-kurang-lengkap.md](79-penjaga-hapus-riwayat-kurang-lengkap.md).
+
 Riwayat yang masih dipakai kini bertahan — sama persis dengan perilaku yang sudah diuji
 di harness posting jurnal umum skenario E/F (dua dokumen berbagi riwayat, hanya satu
 dibatalkan → riwayat bertahan).
