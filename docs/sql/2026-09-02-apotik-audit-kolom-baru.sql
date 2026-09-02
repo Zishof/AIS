@@ -31,6 +31,10 @@
  * Idempoten (IF NOT EXISTS) dan aman dijalankan ulang. Tidak mengubah satu
  * baris data pun -- hanya menambah kolom nullable.
  *
+ * DIVERIFIKASI 2 September 2026 pada PostgreSQL 16 (klaster sekali-pakai,
+ * bukan basis data siapa pun): jalan pertama 6 ALTER TABLE + COMMIT tanpa
+ * galat, jalan kedua melewati kolom yang sudah ada dan tetap keluar 0.
+ *
  * CARA MENJALANKAN
  * ----------------
  *   psql -h <host> -U <user> -d <database> -f 2026-09-02-apotik-audit-kolom-baru.sql
@@ -72,7 +76,8 @@ ALTER TABLE new_audit.apotik_pembayaran_transaksi__audit
 COMMIT;
 
 /*
- * VERIFIKASI (jalankan setelah COMMIT; harus mengembalikan 11 baris)
+ * VERIFIKASI (jalankan setelah COMMIT; harus mengembalikan 14 baris:
+ * 4+4 IR-01, 1+1 IR-02, 2+2 IR-11 -- masing-masing tabel utama dan auditnya)
  *
  * SELECT table_schema, table_name, column_name
  *   FROM information_schema.columns
