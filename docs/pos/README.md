@@ -90,6 +90,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [78-penjaga-arah-sebaliknya.md](78-penjaga-arah-sebaliknya.md) | Penjaga kunci payload yang dikirim klien tetapi tidak pernah dibaca server (arah cacat dok. 45) |
 | [79-enam-belas-utang-ditelusuri.md](79-enam-belas-utang-ditelusuri.md) | Vonis 16 field yatim satu per satu: 5 peringatan rekonsiliasi kas yang tak sampai ke siapa pun, 11 sisanya tidak merugikan |
 | [80-satu-saluran-peringatan-pasca-transaksi.md](80-satu-saluran-peringatan-pasca-transaksi.md) | Enam peringatan lepas jadi satu saluran; biaya menambah peringatan berikutnya turun dari 9 titik jadi 1 |
+| [81-lima-salinan-payload-jadi-satu.md](81-lima-salinan-payload-jadi-satu.md) | Lima salinan payload bayar yang sudah menyebabkan tiga cacat, disatukan; payloadnya diverifikasi dijalankan, bukan dibaca |
 
 > Catatan penomoran: ada **dua** berkas bernomor 10 — `10-pengadaan.md` dan
 > `10-pesan-galat-dan-detail-error.md` — karena ditulis dua sesi kerja yang berjalan

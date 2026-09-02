@@ -1017,7 +1017,9 @@ public class HistoryStatusMahasiswaUtil {
      * entity {@code Kegiatan} basi dari cache JVM, lihat komentar inline "GERBANG STATUS WAJIB
      * DATA SEGAR"), menyaring yang benar-benar berlaku untuk semester ini lewat
      * {@link #kegiatanSyaratAktifBerlaku}, lalu mensyaratkan SEMUA kegiatan berlaku sudah
-     * lunas {@code >= 10%} ({@link Kegiatan#hitungPersentaseLunasAktual()}).
+     * lunas {@code >= 10%}. Nilai pembayaran dibaca langsung dari database lewat
+     * {@link KegiatanPersistenceHelper#hitungPersentaseLunasAktualDariDatabase(Kegiatan)}
+     * agar tidak menunggu rekap asynchronous pada {@code Kegiatan.bulans}.
      *
      * @param semester  semester yang dicek
      * @param tahap     tahap terkait (diteruskan ke pengecekan bypass)
@@ -1038,7 +1040,8 @@ public class HistoryStatusMahasiswaUtil {
                     if (!kegiatanSyaratAktifBerlaku(keg, semester)) {
                         continue;
                     }
-                    check &= (keg != null && keg.hitungPersentaseLunasAktual() >= 0.1);
+                    check &= (keg != null && KegiatanPersistenceHelper
+                            .hitungPersentaseLunasAktualDariDatabase(keg) >= 0.1);
                 }
             }
         }
@@ -1069,7 +1072,8 @@ public class HistoryStatusMahasiswaUtil {
                     continue;
                 }
                 adaTagihanYangBerlaku = true;
-                if (keg == null || keg.hitungPersentaseLunasAktual() < 0.1) {
+                if (keg == null || KegiatanPersistenceHelper
+                        .hitungPersentaseLunasAktualDariDatabase(keg) < 0.1) {
                     return false;
                 }
             }
