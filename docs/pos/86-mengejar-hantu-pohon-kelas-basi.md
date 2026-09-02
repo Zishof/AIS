@@ -87,3 +87,50 @@ dapat dipasangkan lagi. Diganti redirection `cmd`, yang menulis keluaran javac a
 Yang kedua sempat tertutupi karena `Select-String` tetap menghitung dengan benar — laporan
 di layar akurat sementara lognya tidak berguna bagi alat mana pun. Cacat yang hanya terasa
 oleh pemakai berikutnya, dan ini kedua kalinya pola itu muncul (doc 85 §4).
+
+## 5. Daftar sesungguhnya, sesudah pohon kelas dibangun ulang
+
+Pohon dibangun ulang dari HEAD (40.965 kelas, kompilasi bersih), lalu gerbangnya dijalankan
+ulang. Daftarnya menyusut dari 18 galat menjadi **13 galat di 11 berkas** — sebagian karena
+empat perbaikan r83213, sebagian karena hantunya lenyap. Rujukan `NewUiSiswaAsuhanController`
+tidak muncul lagi sama sekali, persis seperti dugaan.
+
+### Tiga lagi diperbaiki (r83218)
+
+| Halaman | Cacat |
+|---|---|
+| `status_dosen.jsp`, `status_dosen_tiap_prodi.jsp` | `simpleList(Criteria, Class<T>)` dipanggil dengan token `ConstantValues.class`, sehingga `T` tersimpul `ConstantValues`. Kriterianya sendiri sudah menyebut `IkatanKerjaDosen.class` — itulah token yang benar |
+| `pertemuan_rinci.jsp` | memakai `Common.getBahasaConfig(...)` padahal yang diimpor hanya `ais.common.CommonMedia`. Impor `ais.common.Common` ditambahkan |
+
+Yang pertama layak diperhatikan: kodenya **menyebut jenis entitas yang benar dua baris di
+atas**, lalu menyerahkan token yang salah. Kompilator menangkapnya; pembacaan sepintas tidak.
+
+### Sisa: 10 galat di 8 berkas
+
+| Halaman | Perlu diputuskan |
+|---|---|
+| 3 halaman generator CRUD | kelas modelnya lenyap (bagian 3) — keputusan pemilik sistem |
+| `dashboard_aktiftas_pustakawan_service.jsp` | `package ais.common.newui.dashboard does not exist` |
+| `dashboard_kegiatan_kemahasiswaan_service.jsp` | konstanta `MODE_DASBOR_KEMAHASISWAAN_SAYA` tidak ada |
+| `info_elearning.jsp` | `rubahKeteranganPengambilanKRS` tidak cocok tanda tangannya |
+| `kunjungan_pengguna.jsp` | `DashboardStatistikKunjunganPengguna.generateDataset` tidak cocok |
+| `newtemplate_biodata_pegawai.jsp` | `Report.generateFileReport` tidak ada yang cocok |
+
+Semuanya berbentuk sama: pemanggil tertinggal di belakang tanda tangan yang berubah. Tetapi
+menentukan tanda tangan mana yang dimaksud menuntut membaca kelas tujuannya satu per satu —
+seperti tujuh yang sudah dikerjakan hari ini — dan itu pekerjaan batch berikutnya.
+
+## 6. Satu cacat lagi pada alat, jenis yang sama
+
+`kompilasi-penuh.sh` ternyata masih memuat cacat hitungan galat yang sudah dibetulkan di
+`kompilasi-berubah.sh` (doc 82): `grep -c ... || echo 0` menghasilkan `"0\n0"` ketika tidak
+ada padanan, dan `[` menolaknya:
+
+```
+kompilasi-penuh.sh: line 38: [: 0
+0: integer expression expected
+```
+
+Tidak berbahaya — skripnya tetap melaporkan BERSIH dengan benar — tetapi memperlihatkan
+bahwa memperbaiki cacat pada satu alat tidak otomatis memperbaiki kembarannya. Sudah
+disamakan.

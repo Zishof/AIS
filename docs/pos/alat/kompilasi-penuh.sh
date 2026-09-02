@@ -32,7 +32,8 @@ javac -source 1.7 -target 1.7 -encoding UTF-8 -nowarn -J-Xmx2g \
       -cp "$LIB" -d "$KELUAR" "@$DAFTAR" > "$LOG" 2>&1
 kode=$?
 
-galat=$(grep -c 'error:' "$LOG" 2>/dev/null || echo 0)
+galat=$(grep -c 'error:' "$LOG" 2>/dev/null)
+[ -z "$galat" ] && galat=0
 echo "kelas         : $(find "$KELUAR" -name '*.class' | wc -l)"
 echo "galat         : $galat"
 if [ "$galat" -gt 0 ]; then

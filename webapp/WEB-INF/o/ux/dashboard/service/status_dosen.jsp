@@ -37,7 +37,7 @@ List<IkatanKerjaDosen> ikatanKerjaDosens = ConstantValues.simpleList(
 		mySession.createCriteria(IkatanKerjaDosen.class)
 		.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 		.add(Restrictions.isNotNull("nama")).add(Restrictions.ne("nama", "")).addOrder(Order.desc("nama")),
-		ConstantValues.class);
+		IkatanKerjaDosen.class);
 // mySession.disconnect();
 if (mySession.isOpen()) {mySession.disconnect();mySession.close();}
 HibernateUtil.closeSession();
