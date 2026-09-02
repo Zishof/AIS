@@ -1,5 +1,95 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/TugasPertemuan.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **tugas mandiri/perorangan** pada satu pertemuan e-Learning (tabel
+`public.tugas_pertemuan`, `@Audited`, `dynamicInsert/dynamicUpdate`). **56 anggota**
+(1 konstruktor + 55 getter/setter/kait/utilitas) + 25 field + konstanta
+`DEFAULT_FORMULA` terdokumentasi (100%), 438 → 1246 baris. Revisi **r83361**, mirror
+`java/` verifikasi `cmp` identik byte. Hanya Javadoc/komentar; **nol perubahan
+logika** (sumber tanpa komentar/spasi dibandingkan terhadap HEAD — identik persis,
+9.434 byte). Berkas sekalian dinormalkan ke CRLF murni (sebelumnya 6 baris ber-EOL
+LF saja: 211–215 dan 246).
+
+**Bukan turunan langsung `GeneralValueObject`** — `extends Tugas`, kelas abstrak
+"sesuatu yang bisa dikumpulkan berkas oleh peserta" yang memiliki seluruh mesin
+berkas jawaban (`TugasFileContent`, indeks JSON `tugas_file_content_<id>`). Turunan
+konkret `Tugas` hanya TIGA: `TugasPertemuan` (individu), `TugasKelompok`
+(berkelompok, sudah didokumentasikan sesi lain — **nyaris kembar**, banyak method
+salinan baris-demi-baris), dan `Pertemuan` sendiri.
+
+**Jawaban pertanyaan sesi ini (relasi langsung atau tidak langsung?) — KEDUANYA:**
+
+- Arah **`TugasPertemuan` → `Pertemuan` LANGSUNG**, kolom `pertemuan` `NOT NULL`,
+  tapi diakses lewat **tiga jalur** atas satu kolom yang sama: `getPertemuan()`
+  (`Long` mentah, satu-satunya jalur TULIS), `getPertemuanData()` (`@ManyToOne`
+  `insertable=false, updatable=false` + `@NotFound(IGNORE)`, baca-saja — setternya
+  hanya mengisi cache memori dan **tidak pernah tersimpan**), dan `ambilPertemuan()`
+  (bukan properti persistence; lewat `GeneralValueObject.ambilData`, bisa membuka
+  session sendiri). Blok `@ManyToOne getPertemuan()` versi lama masih dibiarkan
+  dikomentari di file.
+- Arah **balik `Pertemuan` → daftar tugas TIDAK LANGSUNG** — tidak ada
+  `@OneToMany`. Daftarnya dibangun dari **indeks JSON berbasis berkas**
+  (`Pertemuan.reInitTugasPertemuan(Session)` / `ambilTugasPertemuanTotal()`), jadi
+  menambah/menghapus baris tanpa menyegarkan indeks membuat layar basi. Ini sejajar
+  temuan `GrupPertemuan` (r83344) meski mekanismenya berbeda (di sana lewat entity
+  penghubung, di sini lewat indeks berkas).
+
+**Verifikasi pola berulang (menyeluruh atas 56 anggota, dari kode file ini sendiri):**
+
+- **Getter yang menulis field TERPETAKAN: 3** — `getMhsYgTidakIkut()`,
+  `getMhsBolehUploadUlang()` (normalisasi CSV berbungkus koma, ditulis balik ke
+  field), dan `getAktif()` (`aktif = !getJudultugas().isEmpty()`). Dengan
+  `dynamicUpdate=true`, **sekadar membaca** ketiganya pada instance managed bisa
+  memicu `UPDATE` saat flush tanpa aksi simpan pengguna.
+- **Getter relasi yang menulis balik referensi (`check()`): 4 dari 5** —
+  `getSyaratMengumpulkanTugas()`, `getJenisItemPenilaianSiswa()`,
+  `getGrupKategoriItemPenilaianSiswa()`, `getGrupPenilaian()`. **`getFormatNilai()`
+  satu-satunya relasi yang TIDAK memakai `check()`** (anomali; dicatat, tidak
+  diperbaiki).
+- **Getter yang menutup sesi Hibernate: 0** — file tidak menyentuh
+  `Session`/`HibernateUtil`/`Criteria` sama sekali. Jalur tak langsung hanya
+  `check()` dan `ambilData()` (dipakai `ambilPertemuan()`), keduanya mengurus
+  session sendiri di `finally`.
+- **Getter destruktif: 0.**
+
+**Temuan/kuirk lain (dicatat apa adanya, TIDAK diperbaiki):**
+
+- **Enam kolom `text` berisi JSON** yang mudah tertukar; bentuk kuncinya
+  diverifikasi dari pemanggil, bukan ditebak: `formatNilais` (kunci = id
+  `FormatNilai`, sekaligus **saklar mode OBE** lewat perbandingan dengan
+  `Tugas.JSON`), `keterangan_nilai_baru`/`keterangannilai` (kunci
+  `<id>_mhs|_siswa|_cal_mhs|_cal_siswa` + akhiran `_nilai`, `_nilai_<idFormatNilai>`,
+  `_ket`), `nilai_manual_json` (bersarang: `{"<idMhs>":{"fn_<idFN>":n,
+  "fn_<idFN>_ket":s,"paksa":b}}`), `sub_cpmk_per_peserta`
+  (`{"<idMhs>":["<idFN>",…]}`, id sebagai STRING), dan `syaratakses`.
+- **Nilai per peserta tidak bisa di-query SQL** dan dua penilai yang menyimpan
+  bersamaan saling menimpa nilai SELURUH peserta. `TugasMandiriHelper` memanggil
+  `session.refresh(tp)` tepat sebelum tiap penulisan JSON — mitigasi, bukan
+  penyelesaian.
+- **Kontrak `null` berbeda dari entity kembarannya**: `getNilaiManualJson()` di sini
+  menormalkan kosong menjadi `"{}"`, sedangkan `PertemuanPunyaUjian` yang bernama
+  sama mengembalikan nilai mentah (bisa `null`). Kode yang menangani keduanya
+  bersama harus tetap memeriksa `null`.
+- `ambilSubCpmkPeserta()` **menelan seluruh kegagalan parsing menjadi `null`**,
+  sehingga JSON rusak tidak bisa dibedakan dari "peserta mengerjakan semua Sub-CPMK".
+- Normalisasi CSV memakai `replaceAll(",,", ",")` **tiga kali berurutan**, jadi
+  runtutan koma yang sangat panjang bisa tidak habis; pemeriksaan `== null` pada
+  baris `return` kedua getter CSV sudah mati (field dipastikan non-null di atasnya).
+- Nilai bawaan tersembunyi di getter: `getProsentase()` → `100.0` bila kosong (bukan
+  0), `getJudultugas()` di-`trim` sementara `toString()` membaca field mentah.
+- `DEFAULT_FORMULA` **`public static` tanpa `final`** (pola yang sama seperti
+  `Tugas.JSON`) — konstanta pembanding secara teknis bisa diubah saat runtime.
+- `setOleh()`/`setOlehId()` **menolak nilai kosong diam-diam** — jejak audit tidak
+  pernah bisa dibersihkan lewat setter.
+- Hanya ada kait `@PreUpdate`; tidak ada `@PrePersist`, jadi pengisian audit saat
+  `INSERT` bergantung pada pemanggil.
+- Import `ais.ui.util.WaktuUtil` tidak terpakai (kode memakai nama berkualifikasi
+  penuh). Dibiarkan.
+
+**Tidak ditemukan kerentanan keamanan/privasi/broken access control** di file ini —
+entity murni state, tanpa SQL, tanpa I/O, tanpa pemeriksaan otorisasi.
+
 ## `ais/database/model/PenghargaanMahasiswa.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **karya mahasiswa** (tabel `public.penghargaan_mahasiswa`, `@Audited`,
