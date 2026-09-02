@@ -1,5 +1,103 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/FormatNilaiProposalSkripsi.java` — SELESAI 100% (2 Sep 2026)
+
+Entity master **format penilaian seminar/pengajuan proposal skripsi** (tabel
+`format_nilai_proposal_skripsi`). 1247 → 3765 baris, **243/243 method
+ber-Javadoc (100%)** (diaudit skrip, 0 tersisa). Revisi: r83110 (bagian awal
+tersapu ke revisi gabungan sesi paralel, isi diverifikasi lewat
+`svn diff -c 83110`), r83114, r83119. Mirror `java/` diverifikasi byte-identik
+dengan `cmp`. Kode diverifikasi TIDAK berubah sama sekali dengan membandingkan
+sumber lama vs baru setelah seluruh komentar dilucuti.
+
+**Struktur**: `extends GeneralValueObject` langsung (bukan lewat
+`VOPembelajaran` seperti `Skripsi`). Ini **template/konfigurasi**, bukan data
+transaksi — transaksinya `MahasiswaRequestTugasAkhir`. Satu baris = satu
+"Jenis Pengajuan" (mis. Pengajuan Judul, Seminar Proposal). Anaknya:
+`MahasiswaRequestTugasAkhir`, `ProposalSkripsiPunyaKomponenPenilaianProposalSkripsi`
+(komponen penilaian), `TemplateFormatBimbingan`.
+
+**Perbandingan dengan `FormatNilaiSkripsi.java`** (dikerjakan sesi paralel —
+struktur MIRIP tapi TIDAK identik, sudah dibaca langsung untuk konfirmasi):
+- Proposal punya **6 slot dosen** (`dosen1`..`dosen6`, label default
+  Pembimbing I/II/III + Penguji I/II/III); sidang akhir punya **8**
+  (`dosen1`, `dosen2`, `dosen21`, `dosen3`..`dosen7`).
+- **Pemetaan slot→bobot di entity proposal KONSISTEN** (dosen1..3 →
+  `prosentasiNilaiPembimbing1..3`, dosen4..6 → `prosentasiNilaiPenguji1..3`).
+  **Cacat penamaan kolom slot 1/2 yang terkenal itu HANYA ada di
+  `FormatNilaiSkripsi`** (yang memakai `prosentasi_nilai_ketua_sidang` untuk
+  slot pertama); entity proposal tidak punya kolom itu sama sekali.
+- `getDosen6Aktif()` membaca `getProsentasiNilaiPenguji3()` di sini, tapi
+  `getProsentasiNilaiPenguji4()` di `FormatNilaiSkripsi` — jangan menyalin
+  logika antar keduanya tanpa menyesuaikan pemetaan.
+- Hanya entity proposal yang punya `alurSebelumnya` + `ambilSebelumnya()`
+  (rantai prasyarat antar tahapan) dan `formatNilaiSkripsi` (jembatan ke alur
+  sidang akhir).
+- Sisanya (lampiran 1..20, tipeItem 1..20, prasyarat SKS/IPK/angka kredit,
+  biaya, flag perilaku) berbagi bentuk yang sama — hasil copy-paste.
+
+**Verifikasi pola berulang lintas entity**:
+- Field audit shadow (`id`/`oleh`/`olehId`/`tanggal_dirubah` dideklarasikan
+  ulang padahal `GeneralValueObject` sudah punya) — **ADA, dikonfirmasi**.
+  Entity ke-11 berturut-turut; pola ini sekarang bisa dianggap universal.
+- Getter berefek samping ke DB — **ADA**, dalam tiga varian sekaligus:
+  (a) `check(...)` + penugasan ulang field pada semua getter relasi;
+  (b) `getKodeMatakuliah()`/`getKodeMatakuliahDan()` menormalkan lalu menulis
+  balik; (c) `getJenisKegiatanMahasiswa()` melakukan *backfill* relasi dari
+  kolom teks warisan `jenis`. Karena entity memakai *property access*
+  (`@Id` di getter) + `dynamicUpdate`, ketiganya terlihat oleh dirty checking.
+- Getter yang menutup sesi Hibernate — **TIDAK ADA** di file ini.
+  `ambilSebelumnya()` memang query DB dari dalam model, tapi memakai
+  `HibernateUtil.currentSession()` dan tidak menutupnya.
+
+**Temuan/kuirk (dicatat, TIDAK diperbaiki)**:
+1. **`getKodeMatakuliah()`/`getKodeMatakuliahDan()` bisa MENGHAPUS DATA.**
+   Bila `getTidakWajibMengambilMkTertentu()` bernilai `true`, kedua getter
+   menugaskan string kosong ke field-nya; lewat property access pengosongan
+   itu dapat ikut ter-`UPDATE` ke DB. Mencentang opsi "tidak wajib mengambil
+   MK tertentu" lalu membaca format itu berpotensi menghapus permanen daftar
+   prasyarat (hanya bisa dilihat lagi lewat riwayat Envers). Mengembalikan
+   flag ke `false` tidak memulihkan daftarnya.
+2. **`getProsentasiNilaiPenguji1..4()` tidak memberi default** — satu-satunya
+   kelompok getter numerik di file ini yang mengembalikan `null` apa adanya.
+   Inisialisasi field `= 0.0` tertimpa saat Hibernate memuat baris berkolom
+   NULL, sehingga rumus pembobotan (`nilai * persen / 100.0`) dan
+   `getDosenNAktif()` (`persen > 0.1`) bisa melempar NPE unboxing.
+   `FormatNilaiSkripsi` memakai pola `== null ? 0.0 : ...` yang aman.
+3. **Kolom `prosentasi_nilai_penguji_4` MATI** di alur proposal: tidak ada slot
+   dosen ke-7, dan satu-satunya baris UI penulisnya di
+   `FormatNilaiProposalSkripsiAction` (~baris 1571) sudah dikomentari.
+4. **`toString()` cacat salin-tempel**: `prosentasiNilaiPembimbing3` tidak
+   pernah dicetak, `prosentasiNilaiPenguji1` dicetak dua kali, dan satu
+   pemisah `"-"` hilang sehingga dua angka menempel. Hanya dipakai untuk log.
+5. **Pencocokan slot berbasis STRING label**, bukan indeks
+   (`jenis.equals(fmt.getDosen1())` di `dataDosen()`, `cariNilaiDariDosen()`,
+   `PenilaianProposalSkripsiHelper`). Mengganti label `dosenN` pada format yang
+   sudah dipakai transaksi memutus pencocokan ke nilai tersimpan; dua slot
+   berlabel sama membuat pencocokan selalu jatuh ke nomor terkecil.
+6. **`kode1..6` = kode kategori kegiatan Feeder per slot.** Bila kosong,
+   `EksporPesertaDosenBimbinganFeeder` **menebak dari label**: mengandung kata
+   "penguji" → `110500`, selain itu → `110400`. Format yang memakai istilah
+   lokal ("Reviewer", "Pembahas") akan salah kategori di ekspor PDDikti, dan
+   mengganti label slot dapat mengubah hasil ekspor secara diam-diam.
+7. **`tahunAngkatan` dicocokkan dengan `contains()`**, bukan pemisahan per
+   koma — rawan cocok sebagian (isian `"2021"` vs angkatan `"202"`).
+8. **Default getter tidak seragam arahnya**: `aktif`, `adaProposal`,
+   `hanyaBisaDilakukanSekali`, `terdapatSidangSetelahSelesai`,
+   `mahasiswaBolehMengubahAgendaAtauJadwalBimbingan` default `true`;
+   sisanya `false`. `getBobot()` default `100.0` (format lama mendominasi
+   perhitungan `GradingHelper`, bukan diabaikan). Membaca kolom lewat SQL
+   langsung memberi jawaban berbeda dari membaca lewat entity.
+9. Kode mati di `getKodeMatakuliah()`/`getKodeMatakuliahDan()`: cabang
+   `equals(",,")`/`equals(",,,")` dan pemeriksaan `== null` tidak akan pernah
+   tercapai setelah tiga kali `replaceAll(",,", ",")`.
+10. `alurSebelumnya` dan `tipeItem1..20` disimpan sebagai `Long` mentah tanpa
+    relasi/foreign key — id bisa menggantung; rantai `alurSebelumnya` tidak
+    punya proteksi melingkar.
+11. Javadoc class lama tertulis *"FormatNilaiSkripsi generated by hbm2java"* —
+    salah salin nama class, bukti file ini disalin dari `FormatNilaiSkripsi`.
+    Sudah dimutakhirkan (fakta salin-tempelnya tetap dicatat).
+
 ## `ais/database/model/FormatNilaiSkripsi.java` — SELESAI 100% (2 Sep 2026)
 
 Master "format penilaian sidang tugas akhir/skripsi". 1249 → 3519 baris,
