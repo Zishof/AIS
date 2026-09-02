@@ -44,8 +44,14 @@ CAKUPAN, diukur bukan ditebak:
 
      58  deklarasi gerbang boleh*() di pohon servlet
      17  di antaranya punya parameter kunci menu
-     39  kunci berhasil diresolusi di titik pemanggilan (literal + konstanta kelas)
-     30  pemanggilan yang kuncinya masih di luar jangkauan
+     39  kunci berhasil diresolusi di titik pemanggilan
+     27  pemanggilan yang kuncinya masih di luar jangkauan
+
+Empat bentuk diresolusi: literal, konstanta kelas (KUNCI_PO), array konstanta
+yang diulang (`String kunci = KUNCI_HAK[i]`), dan penugasan lokal. Penugasan
+lokal hanya dipakai bila SELURUH penugasan variabel itu terbaca; satu saja yang
+tidak membuat variabelnya ditinggalkan. Meleset di sini berarti menuduh gerbang
+keamanan secara palsu, dan itu jauh lebih mahal daripada satu kunci yang lolos.
 
 Angka terakhir sempat tertulis 113, dan itu salah: pola pemanggilan juga cocok
 dengan DEKLARASI method itu sendiri, sehingga 17 deklarasi terhitung sebagai
@@ -80,6 +86,14 @@ NAMA_KUNCI = ('kunciMenu', 'kunci', 'menuKey', 'kunciAkuntansi')
 # dst. lalu meneruskannya ke gerbang. Tanpa meresolusinya, 68 pemanggilan --
 # mayoritas populasi -- luput dari kedua invarian (docs/pos/90).
 KONSTANTA = re.compile(r'static\s+final\s+String\s+([A-Z][A-Z0-9_]*)\s*=\s*"([^"]+)"')
+# Array konstanta: ApotikApiDispatcher menyimpan empat kunci di KUNCI_HAK lalu
+# mengulanginya (`String kunci = KUNCI_HAK[i]`). Sumbernya tetap literal, hanya
+# melewati satu variabel.
+ARRAY_KONSTANTA = re.compile(
+    r'static\s+final\s+String\s*\[\]\s+([A-Z][A-Z0-9_]*)\s*=\s*\{([^}]*)\}')
+# Penugasan lokal ke variabel yang kemudian diteruskan ke gerbang.
+PENUGASAN = re.compile(
+    r'String\s+([a-z][A-Za-z0-9_]*)\s*=\s*([^;]+);')
 
 
 def tanpa_komentar(t):
@@ -159,11 +173,34 @@ def main():
 
     sumber = berkas(akar_repo.AIS_SERVLET, ('.java',))
 
-    konstanta = {}
+    konstanta, array_konstanta, lokal = {}, {}, {}
     for p, t in sumber:
         kelas = os.path.basename(p)[:-5]
         konstanta[kelas] = dict(
             (m.group(1), m.group(2)) for m in KONSTANTA.finditer(t))
+        arr = {}
+        for m in ARRAY_KONSTANTA.finditer(t):
+            arr[m.group(1)] = re.findall(r'"([^"]+)"', m.group(2))
+        array_konstanta[kelas] = arr
+        # Variabel lokal -> himpunan nilai yang mungkin. Hanya dipakai bila
+        # SELURUH penugasannya dapat diresolusi; satu saja yang tidak terbaca
+        # membuat variabel itu ditinggalkan sebagai "di luar jangkauan".
+        # Meleset di sini berarti menuduh gerbang keamanan secara palsu, dan itu
+        # jauh lebih mahal daripada satu kunci yang lolos.
+        lok = {}
+        for m in PENUGASAN.finditer(t):
+            nama, nilai = m.group(1), m.group(2).strip()
+            lit = re.match(r'^"([A-Za-z0-9_]+)"$', nilai)
+            idx = re.match(r'^([A-Z][A-Z0-9_]*)\[', nilai)
+            if lit:
+                lok.setdefault(nama, set()).add(lit.group(1))
+            elif idx and idx.group(1) in arr:
+                lok.setdefault(nama, set()).update(arr[idx.group(1)])
+            elif nilai in konstanta[kelas]:
+                lok.setdefault(nama, set()).add(konstanta[kelas][nilai])
+            else:
+                lok.setdefault(nama, set()).add(None)
+        lokal[kelas] = lok
 
     posisi = {}
     for p, t in sumber:
@@ -203,7 +240,16 @@ def main():
             elif arg[idx] in konstanta.get(kelas_ini, {}):
                 kunci = konstanta[kelas_ini][arg[idx]]
             else:
-                variabel += 1
+                nilai = lokal.get(kelas_ini, {}).get(arg[idx])
+                if not nilai or None in nilai:
+                    variabel += 1
+                    continue
+                aksi_lit = None
+                if idx + 1 < len(arg):
+                    a = re.match(r'^"([A-Za-z0-9_]+)"$', arg[idx + 1])
+                    aksi_lit = a.group(1) if a else None
+                for k in nilai:
+                    dipakai.setdefault(k, set()).add((os.path.basename(p), aksi_lit))
                 continue
             aksi = None
             if idx + 1 < len(arg):

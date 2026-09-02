@@ -97,3 +97,45 @@ begitu.
 sudah tertulis sebagai batas yang jujur, ia nyaris tidak diperiksa lagi. Satu
 survei bentuk argumen — sepuluh menit — memindahkan 68 pemanggilan dari "tak
 terjangkau" ke "terbukti benar".
+
+## 6. Amandemen: dua bentuk lagi diresolusi
+
+Ditulis sesudah dokumen ini di-commit, karena temuannya kecil dan tidak layak
+menjadi dokumen tersendiri.
+
+Dari 30 yang tersisa, sebagian ternyata bukan pass-through antar-berkas
+melainkan tetap berasal dari literal di berkas yang sama, hanya melewati satu
+variabel:
+
+```java
+private static final String[] KUNCI_HAK = {
+    "apotik_pengadaan", "apotik_stok_opname", "apotik_retur", "apotik_formularium"
+};
+...
+String kunci = KUNCI_HAK[i];
+j.put("create", ApotikApiHelper.bolehAksiMenu(tbmuser, kunci, "create"));
+```
+
+Alatnya kini meresolusi **array konstanta yang diulang** dan **penugasan lokal**,
+di samping literal dan konstanta skalar. Sisa: **27**.
+
+Penugasan lokal hanya dipakai bila SELURUH penugasan variabel itu terbaca. Satu
+saja yang tidak membuat variabelnya ditinggalkan sebagai di luar jangkauan --
+meleset di sini berarti menuduh gerbang keamanan secara palsu, dan itu jauh
+lebih mahal daripada satu kunci yang lolos.
+
+Jalur barunya dibuktikan hidup dengan mengubah satu elemen array:
+
+```
+"apotik_formularium" -> "apotik_formularium_uji"
+
+   - apotik_formularium_uji   (ApotikApiDispatcher.java, ...)
+   - apotik_formularium_uji   aksi: create, delete, update
+2 PELANGGARAN
+```
+
+`svn revert`, status kosong, alatnya kembali bersih. Tidak ada cacat baru
+ditemukan: keempat kunci apotik memang terdaftar.
+
+Yang tersisa benar-benar pass-through antar-berkas. Menelusurinya menuntut
+analisis antar-method, dan batas itu dibiarkan berdiri.
