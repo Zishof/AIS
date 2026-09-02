@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 24 — SELESAI 100% (3 Sep 2026) — BATCH DENGAN TEMUAN KEAMANAN TERPADAT
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika. Batch ini menghasilkan **4 task eskalasi keamanan baru
+sekaligus**:
+
+- **`ais/database/model/JenisTabungan.java`** (r83465) — 180→646 baris,
+  100% (36 anggota). Contoh POSITIF: layar tidak ada di whitelist
+  `MUST_CHECKED` tapi Action-nya sendiri punya pemeriksaan eksplisit.
+  Kehalusan: layar ini tak punya menu sendiri (dimuat sebagai tab di
+  `DepositAction`), jadi hak aksesnya menempel ke menu Deposit induk.
+- **`ais/database/model/JenisPengeluaranMahasiswa.java`** (r83464) —
+  172→538 baris, 100% (29 anggota). Inversi hak akses terkonfirmasi lagi:
+  checkbox Aktif/Default di grid tanpa gerbang `CommonPrivilages.UPDATE`
+  sama sekali (langsung `refreshSaveOrUpdate`), sementara tombol Ubah/Hapus
+  di baris sama dijaga penuh. Instance baru `task_9b7ff647` juga
+  dikonfirmasi (halaman tak ada di `MUST_CHECKED`).
+- **`ais/database/model/KelompokStatusKeluarMahasiswa.java`** (r83466) —
+  172→648 baris, 100% (29 anggota). **TEMUAN AKADEMIK BERDAMPAK
+  TERTINGGI**: `KelompokStatusKeluarMahasiswaDetailAction` (mengubah status
+  "Lulus"/"Drop Out" sampai 5.000 mahasiswa sekaligus per klik) TIDAK
+  PUNYA satu pun pemeriksaan hak akses di seluruh 1.062 barisnya — nol
+  panggilan `checkPrevilages`/`doCheckSecurity`. Perbandingan dengan
+  `KelompokMahasiswa` (b22): entity ini menimpa SAAT BACA (reversibel,
+  tanpa jejak per-mahasiswa) vs `KelompokMahasiswa` yang UPDATE massal
+  permanen.
+- **`ais/database/model/VerifikasiKelengkapanCalonMahasiswa.java`**
+  (r83468) — 171→773 baris, 100% (43 anggota). **TEMUAN PALING KRITIS
+  SELURUH INISIATIF — dieskalasi sebagai `task_b82b25d2`**: dokumen
+  keamanan `SECURITY_FINDING_AmbilLampiran_IDOR.md` yang SUDAH ADA di
+  repo ternyata USANG — klaim gerbang `/al` butuh login TIDAK LAGI AKURAT,
+  konfigurasi SEKARANG `IS_AUTHENTICATED_ANONYMOUSLY` (publik sejak
+  19-08-2026). Plus 2 jalur baru yang lolos dari mitigasi manapun di level
+  servlet: (a) URL statis langsung ke berkas ter-cache di webapp (melewati
+  servlet sepenuhnya), (b) JSP PMB (`_tampilkan_berkas_di_sukses_login.jsp`)
+  yang memuat data dari `getParameter("id")` TANPA cek login sama sekali,
+  reachable anonim. Data berisiko: KTP, KK, ijazah, foto rumah pendaftar.
+  Klarifikasi relasi dengan `Berkas` (b22): berdampingan sejak lahir (hbm2java
+  sama persis, Apr 2010), bukan penerus — `Berkas` cabang mati, ini cabang
+  yang tumbuh.
+- **`ais/database/model/ChatMessage.java`** (r83467) — 171→591 baris,
+  100% (33 anggota). Entity YATIM TOTAL (pola sama `MenuMobile`/`Berkas`)
+  — chat sungguhan pakai entity `Pesan`, bukan ini. **TEMUAN BESAR —
+  dieskalasi sebagai `task_493423ef`**: IDOR baca-apa-saja lewat endpoint
+  `/Api` action `dataRinci` — hanya butuh token login APA SAJA (mahasiswa/
+  siswa/penduduk), lalu `Class.forName(class_dari_klien)` + `id` sembarang
+  mengembalikan graf data ENTITY APAPUN termasuk `Pesan` (chat pribadi
+  orang lain) dan `Tbmuser` (ciphertext password). Plus SQL injection
+  terpisah di `DaftarDataService` (parameter `where1..10` masuk mentah ke
+  `Restrictions.sqlRestriction`). Jalur ZK chat asli (`ChatUsers`/`Chatter`)
+  sendiri BERSIH — scoping kepemilikan ditegakkan benar di SQL.
+
+**REKAP task eskalasi setelah batch 24 — total 9 task keamanan aktif**:
+`task_1214dd58`, `task_5b47d41b`, `task_7b77e368` (b20-21, otorisasi
+finansial/akademik spesifik-file), `task_b1e610b6` (b22, endpoint `/Data`
+TULIS tanpa otorisasi), `task_9b7ff647` (b23, whitelist `MUST_CHECKED`
+tidak lengkap), `task_44ea51dd` (b20, semantik RolePrivilage sistemik),
+`task_493423ef` (b24, endpoint `/Api` BACA + SQLi `DaftarDataService`),
+`task_b82b25d2` (b24, dokumen IDOR usang + kebocoran tanpa autentikasi —
+**PRIORITAS TERTINGGI, data identitas pribadi bocor tanpa akun**).
+
+Total akumulasi 24 sesi: **298 file** dari 7.401 (~4,0%).
+
 ## Batch 23 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
