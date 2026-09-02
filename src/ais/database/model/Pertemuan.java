@@ -7317,24 +7317,71 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Data mentah acara kalender (Google Calendar) yang tertaut ke pertemuan ini, sebagai teks
+	 * JSON.
+	 *
+	 * <p>Nilai kosong dikembalikan sebagai JSON objek kosong ({@code "{}"}) sehingga pemanggil
+	 * selalu aman mem-parsingnya. Isi objek ini dibaca lewat {@code retreive(kunci)} dari
+	 * {@link GeneralValueObject} — {@link #getOnlineMenggunakan()} dan {@link #getMeetLink()}
+	 * memakainya untuk mengambil kunci {@code "hangoutLink"}.</p>
+	 *
+	 * @return teks JSON acara kalender; {@code "{}"} bila belum ada
+	 * @see #getMeetLink()
+	 */
 	@Column(columnDefinition = "text")
 	public String getCalendarEvent() {
 		return calendarEvent == null || calendarEvent.trim().isEmpty() ? new JSONObject().toString() : calendarEvent;
 	}
 
+	/**
+	 * Setel data mentah acara kalender pertemuan ini.
+	 *
+	 * @param calendarEvent teks JSON acara kalender
+	 */
 	public void setCalendarEvent(String calendarEvent) {
 		this.calendarEvent = calendarEvent;
 	}
 
+	/**
+	 * Nilai {@link #getOnlineMenggunakan()}: pertemuan daring tidak diaktifkan.
+	 *
+	 * <p>Perhatikan bahwa seluruh konstanta di kelompok ini bertipe {@code public static Integer}
+	 * (bukan {@code static final int}), sehingga nilainya DAPAT diubah dari mana saja dan
+	 * membandingkannya dengan {@code ==} tidak dijamin benar untuk nilai di luar rentang cache
+	 * {@link Integer}. Bandingkan dengan {@code equals(...)}.</p>
+	 */
 	public static Integer TIDAK_AKTIF = 0;
+	/** Nilai {@link #getOnlineMenggunakan()}: memakai Jitsi Meet — lihat {@link #generateJitsiLink()}. */
 	public static Integer JITSI = 1;
+	/** Nilai {@link #getOnlineMenggunakan()}: memakai Google Meet — lihat {@link #getMeetLink()}. */
 	public static Integer GOOGLE_MEET = 2;
+	/** Nilai {@link #getOnlineMenggunakan()}: memakai Zoom — lihat {@link #getZoomLink()}. */
 	public static Integer ZOOM = 3;
+	/** Nilai {@link #getOnlineMenggunakan()}: memakai BigBlueButton — lihat {@link #getBbbLink()}. */
 	public static Integer BBB = 4;
+	/** Nilai {@link #getOnlineMenggunakan()}: memakai Skype — lihat {@link #getSkypeLink()}. */
 	public static Integer SKYPE = 5;
+	/** Nilai {@link #getOnlineMenggunakan()}: memakai WhatsApp — lihat {@link #getWaLink()}. */
 	public static Integer WA = 6;
+	/** Nilai {@link #getOnlineMenggunakan()}: memakai layanan lain — lihat {@link #getLainLink()}. */
 	public static Integer LAIN = 7;
 
+	/**
+	 * Layanan pertemuan daring yang dipakai pertemuan ini.
+	 *
+	 * <p>Nilainya salah satu konstanta {@link #TIDAK_AKTIF}, {@link #JITSI}, {@link #GOOGLE_MEET},
+	 * {@link #ZOOM}, {@link #BBB}, {@link #SKYPE}, {@link #WA}, atau {@link #LAIN}.</p>
+	 *
+	 * <p><b>Getter ini mengubah keadaan objek.</b> Bila belum pernah diisi, layanan ditebak dari
+	 * data kalender: adanya {@code "hangoutLink"} pada {@link #getCalendarEvent()} berarti
+	 * {@link #GOOGLE_MEET}, selain itu {@link #JITSI}. Hasil tebakan itu ditulis ke field sehingga
+	 * ikut tersimpan. Perhatikan bahwa nilai bawaannya {@link #JITSI}, BUKAN
+	 * {@link #TIDAK_AKTIF} — jadi pertemuan yang tidak pernah dimaksudkan daring pun akan
+	 * melaporkan memakai Jitsi.</p>
+	 *
+	 * @return kode layanan daring; tidak pernah {@code null}
+	 */
 	public Integer getOnlineMenggunakan() {
 		if (onlineMenggunakan == null) {
 			String hangoutLink = retreive("hangoutLink");
@@ -7347,18 +7394,55 @@ public class Pertemuan extends Tugas {
 		return onlineMenggunakan;
 	}
 
+	/**
+	 * Setel layanan pertemuan daring yang dipakai.
+	 *
+	 * @param onlineMenggunakan salah satu konstanta {@link #TIDAK_AKTIF}..{@link #LAIN}
+	 * @see #getOnlineMenggunakan()
+	 */
 	public void setOnlineMenggunakan(Integer onlineMenggunakan) {
 		this.onlineMenggunakan = onlineMenggunakan;
 	}
 
+	/**
+	 * Bolehkah peserta melampirkan berkas lewat penyimpanan awan ("Grive") pada pertemuan ini?
+	 *
+	 * @return {@code true} bila diizinkan; {@code false} bila belum pernah diisi
+	 * @see #getIzinkanUploadLampiranDiKomentar()
+	 */
 	public Boolean getIzinkanUploadLampiranDiGrive() {
 		return izinkanUploadLampiranDiGrive == null ? false : izinkanUploadLampiranDiGrive;
 	}
 
+	/**
+	 * Setel izin melampirkan berkas lewat penyimpanan awan.
+	 *
+	 * @param izinkanUploadLampiranDiGrive {@code true} bila diizinkan
+	 */
 	public void setIzinkanUploadLampiranDiGrive(Boolean izinkanUploadLampiranDiGrive) {
 		this.izinkanUploadLampiranDiGrive = izinkanUploadLampiranDiGrive;
 	}
 
+	/**
+	 * Tautan ruang Zoom pertemuan ini.
+	 *
+	 * <p><b>Pola bersama seluruh getter tautan daring</b> ({@link #getZoomLink()},
+	 * {@link #getBbbLink()}, {@link #getSkypeLink()}, {@link #getWaLink()},
+	 * {@link #getLainLink()}, dan sebagian {@link #getMeetLink()}): bila nilainya mengandung
+	 * SPASI — pertanda pengguna menempelkan seluruh undangan rapat, bukan hanya URL-nya —
+	 * {@code Common.getUrls(...)} dipakai untuk memungut URL PERTAMA dari teks itu, dan hasilnya
+	 * DITULIS BALIK ke field sehingga teks undangan aslinya HILANG pada penyimpanan berikutnya.
+	 * Bila tidak ada URL sama sekali di dalamnya, nilainya menjadi string kosong.</p>
+	 *
+	 * <p>Nilai kosong dikembalikan sebagai {@code null}, bukan string kosong.</p>
+	 *
+	 * <p>Di dalam kode terdapat blok yang dikomentari untuk mewarisi tautan dari
+	 * {@link VOPembelajaran} induk; pewarisan itu sengaja dinonaktifkan, jadi tiap pertemuan
+	 * memegang tautannya sendiri.</p>
+	 *
+	 * @return URL Zoom, atau {@code null} bila belum diisi
+	 * @see #getOnlineMenggunakan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getZoomLink() {
 
@@ -7382,6 +7466,13 @@ public class Pertemuan extends Tugas {
 		return zoomLink == null || zoomLink.trim().isEmpty() ? null : zoomLink.trim();
 	}
 
+	/**
+	 * Setel tautan ruang Zoom pertemuan ini (disimpan apa adanya; pemungutan URL terjadi saat
+	 * dibaca).
+	 *
+	 * @param zoomLink URL atau teks undangan Zoom
+	 * @see #getZoomLink()
+	 */
 	public void setZoomLink(String zoomLink) {
 //		try {
 //			if (zoomLink != null && !zoomLink.trim().isEmpty()) {
@@ -7396,6 +7487,21 @@ public class Pertemuan extends Tugas {
 		this.zoomLink = zoomLink;
 	}
 
+	/**
+	 * Tautan ruang Google Meet pertemuan ini.
+	 *
+	 * <p>Satu-satunya tautan daring yang punya SUMBER LUAR: bila
+	 * {@link #getCalendarEvent()} memuat kunci {@code "hangoutLink"}, nilai itulah yang dipakai
+	 * dan ditulis balik ke field — menimpa apa pun yang diisi manual. Tautan Meet karenanya
+	 * mengikuti acara Google Calendar yang tertaut, bukan sebaliknya.</p>
+	 *
+	 * <p>Bila tidak ada tautan dari kalender, berlaku pola pemungutan URL yang sama seperti
+	 * {@link #getZoomLink()}. Sebagai tambahan, nilai yang diawali {@code "meet.google.com"} tanpa
+	 * skema otomatis diberi awalan {@code "https://"}.</p>
+	 *
+	 * @return URL Google Meet, atau {@code null} bila belum diisi
+	 * @see #getOnlineMenggunakan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getMeetLink() {
 		String linkcalendar = retreive("hangoutLink");
@@ -7427,6 +7533,15 @@ public class Pertemuan extends Tugas {
 		return meetLink == null || meetLink.trim().isEmpty() ? null : meetLink.trim();
 	}
 
+	/**
+	 * Setel tautan Google Meet pertemuan ini.
+	 *
+	 * <p>Ingat bahwa {@link #getMeetLink()} akan MENIMPA nilai ini bila acara kalender yang
+	 * tertaut memuat {@code "hangoutLink"}.</p>
+	 *
+	 * @param meetLink URL atau teks undangan Google Meet
+	 * @see #getMeetLink()
+	 */
 	public void setMeetLink(String meetLink) {
 //		try {
 //			if (meetLink != null && !meetLink.trim().isEmpty()) {
@@ -7441,6 +7556,14 @@ public class Pertemuan extends Tugas {
 		this.meetLink = meetLink;
 	}
 
+	/**
+	 * Tautan ruang BigBlueButton pertemuan ini.
+	 *
+	 * <p>Mengikuti pola pemungutan URL yang dijelaskan pada {@link #getZoomLink()}.</p>
+	 *
+	 * @return URL BigBlueButton, atau {@code null} bila belum diisi
+	 * @see #getOnlineMenggunakan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getBbbLink() {
 
@@ -7464,6 +7587,12 @@ public class Pertemuan extends Tugas {
 		return bbbLink == null || bbbLink.trim().isEmpty() ? null : bbbLink.trim();
 	}
 
+	/**
+	 * Setel tautan ruang BigBlueButton pertemuan ini.
+	 *
+	 * @param bbbLink URL atau teks undangan BigBlueButton
+	 * @see #getBbbLink()
+	 */
 	public void setBbbLink(String bbbLink) {
 //		try {
 //			if (bbbLink != null && !bbbLink.trim().isEmpty()) {
@@ -7478,6 +7607,14 @@ public class Pertemuan extends Tugas {
 		this.bbbLink = bbbLink;
 	}
 
+	/**
+	 * Tautan ruang Skype pertemuan ini.
+	 *
+	 * <p>Mengikuti pola pemungutan URL yang dijelaskan pada {@link #getZoomLink()}.</p>
+	 *
+	 * @return URL Skype, atau {@code null} bila belum diisi
+	 * @see #getOnlineMenggunakan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getSkypeLink() {
 
@@ -7500,6 +7637,12 @@ public class Pertemuan extends Tugas {
 		return skypeLink == null || skypeLink.trim().isEmpty() ? null : skypeLink.trim();
 	}
 
+	/**
+	 * Setel tautan ruang Skype pertemuan ini.
+	 *
+	 * @param skypeLink URL atau teks undangan Skype
+	 * @see #getSkypeLink()
+	 */
 	public void setSkypeLink(String skypeLink) {
 //		try {
 //			if (skypeLink != null && !skypeLink.trim().isEmpty()) {
@@ -7514,6 +7657,31 @@ public class Pertemuan extends Tugas {
 		this.skypeLink = skypeLink;
 	}
 
+	/**
+	 * Induk pertemuan ini sebagai {@link VOPembelajaran} — abstraksi bersama seluruh jenis induk.
+	 *
+	 * <p><b>Ini titik pusat kedua sifat polimorfik {@link Pertemuan}</b>, berpasangan dengan
+	 * {@link #untuk()}. Bila {@link #untuk()} menjawab "induknya jenis apa" dalam bentuk teks,
+	 * method ini menyerahkan OBJEK induknya lewat antarmuka bersama, sehingga pemanggil dapat
+	 * menanyakan hal-hal umum seperti {@link VOPembelajaran#getUrutkanotomatis()} tanpa peduli
+	 * jenis induknya.</p>
+	 *
+	 * <p>Dipakai antara lain oleh {@link #getPertemuanKe()}, {@link #getPertemuanManual()},
+	 * {@link #bolehUbahAbsen(Tbmuser)}, dan {@link #bolehUbahAbsenSaja(Tbmuser)}.</p>
+	 *
+	 * <p><b>Perhatikan pola pemeriksaannya:</b> setiap cabang menguji FIELD secara langsung
+	 * ({@code if (perkuliahan != null)}) tetapi mengambil nilainya lewat GETTER
+	 * ({@code pembelajaran = getPerkuliahan()}). Artinya proxy yang belum terinisialisasi dapat
+	 * membuat cabangnya terlewat, walaupun begitu cabang yang terpilih selalu menghasilkan objek
+	 * yang sudah tersegarkan.</p>
+	 *
+	 * <p>Cakupannya paling lengkap di kelas ini — enam belas jenis induk, termasuk
+	 * {@code kelasLesSiswa}, {@code wisuda}, dan {@code jadwalPertemuanPSB} yang justru tidak punya
+	 * cabang di {@link #untuk()}.</p>
+	 *
+	 * @return induk sebagai {@link VOPembelajaran}, atau {@code null} bila tidak ada yang terisi
+	 * @see #untuk()
+	 */
 	public VOPembelajaran ambilVOPembelajaran() {
 		VOPembelajaran pembelajaran = null;
 		if (perkuliahan != null) {
@@ -7551,6 +7719,17 @@ public class Pertemuan extends Tugas {
 		return pembelajaran;
 	}
 
+	/**
+	 * Bentuk tautan ruang Jitsi untuk pertemuan ini, mengambil sendiri permintaan HTTP yang aktif.
+	 *
+	 * <p>Mencoba mengambil {@link HttpServletRequest} dari eksekusi ZK yang sedang berjalan; bila
+	 * tidak ada (mis. dipanggil dari thread latar), diambil dari {@code RequestContext}. Hasilnya
+	 * diteruskan ke {@link #generateJitsiLink(HttpServletRequest)}.</p>
+	 *
+	 * @return URL ruang Jitsi
+	 * @throws Exception bila permintaan tidak tersedia atau penyusunan tautan gagal
+	 * @see #generateJitsiLink(HttpServletRequest)
+	 */
 	public String generateJitsiLink() throws Exception {
 		HttpServletRequest request = null;
 		if (ExecutionsCtrl.getCurrent() != null) {
@@ -7563,6 +7742,45 @@ public class Pertemuan extends Tugas {
 		return generateJitsiLink(request);
 	}
 
+	/**
+	 * Bentuk tautan ruang Jitsi untuk pertemuan ini.
+	 *
+	 * <p>Berbeda dari tautan daring lain yang disimpan sebagai kolom, tautan Jitsi selalu DIHITUNG
+	 * — tidak ada kolom {@code jitsiLink}. Nama ruangnya dibentuk agar stabil dan dapat ditebak
+	 * ulang, sehingga semua peserta pertemuan yang sama selalu masuk ke ruang yang sama.</p>
+	 *
+	 * <h4>Cara nama ruang disusun</h4>
+	 * <ol>
+	 *   <li>Sebuah penanda dipilih menurut jenis induk. Untuk {@link Perkuliahan} dipakai
+	 *       <b>nama mata kuliah + id perkuliahan</b>; untuk jenis lain dipakai satu huruf awalan
+	 *       ({@code C_} jadwal pelajaran, {@code D_} ujian PMB, {@code E_} bimbingan, {@code F_}
+	 *       KKN, {@code G_} PKL, {@code H_} skripsi, {@code I_} ujian PSB, {@code J_} grup
+	 *       pertemuan, {@code K_} KRS) diikuti id induknya. Cadangannya {@code "A_" + id
+	 *       pertemuan}.</li>
+	 *   <li>Untuk induk selain perkuliahan, nama konteks aplikasi ditempelkan di depan agar dua
+	 *       tenant berbeda tidak bertabrakan di server Jitsi bersama. <b>Perkuliahan sengaja
+	 *       TIDAK diberi awalan itu</b>, sehingga dua tenant yang punya mata kuliah bernama sama
+	 *       dengan id perkuliahan sama akan berbagi ruang yang sama.</li>
+	 *   <li>Seluruh karakter selain huruf dan angka diganti garis bawah, dijadikan huruf kecil,
+	 *       dipecah per spasi lalu disambung dengan garis bawah, dan garis bawah ganda diringkas
+	 *       (tiga kali berturut-turut — cukup untuk kasus nyata, tetapi tidak menjamin habis untuk
+	 *       deretan garis bawah yang sangat panjang).</li>
+	 *   <li>Nama itu ditempelkan ke alamat server dari konfigurasi
+	 *       {@code alamat_server_video_conference} (bawaan {@code https://meet.jit.si}).</li>
+	 * </ol>
+	 *
+	 * <p><b>Kejanggalan yang dicatat:</b> cabang {@code jadwalUjianPSB} muncul DUA KALI
+	 * ({@code I_} dan {@code L_}); cabang kedua tidak pernah tercapai karena cabang pertama sudah
+	 * menangkapnya lebih dulu. Selain itu {@code jadwalPertemuanPSB}, {@code jadwalUjianPegawai},
+	 * {@code formulirKegiatan}, {@code kelasLesSiswa}, dan {@code wisuda} tidak punya cabang,
+	 * sehingga semuanya jatuh ke cadangan {@code "A_" + id pertemuan} — yang justru menghasilkan
+	 * ruang unik per pertemuan, bukan per rangkaian.</p>
+	 *
+	 * @param request permintaan HTTP aktif, dipakai mengambil nama konteks aplikasi
+	 * @return URL lengkap ruang Jitsi
+	 * @throws Exception bila penyandian nama konteks gagal
+	 * @see #getOnlineMenggunakan()
+	 */
 	public String generateJitsiLink(HttpServletRequest request) throws Exception {
 		Pertemuan pertemuan = this;
 		String id = "A_" + pertemuan.getId();

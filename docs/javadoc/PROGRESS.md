@@ -1,5 +1,35 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/Pegawai.java` — SELESAI 100% (2 Sep 2026)
+
+Saudara `Dosen.java` (keduanya `extends Karyawan extends GeneralValueObject`).
+**361/361 method ber-Javadoc (100%)**, 3711 → 6756 baris. Revisi:
+r82998, r83007, r83018, r83023, r83027, lalu potongan terakhir tersapu ke
+revisi gabungan sesi paralel r83029/r83033/r83037 (pesan kosong — normal di WC
+ini, isi sudah diverifikasi lewat `svn diff -c`).
+
+Poin penting untuk sesi berikutnya:
+
+- **Pegawai bukan "non-dosen".** Ia kartu induk *kepegawaian*; `Dosen`/`Guru`
+  adalah peran *akademik*. Dwifungsi normal: dosen yang login otomatis
+  di-provisioning satu baris `Pegawai` lewat `createDataPegawaiDariDosen`.
+  `getTipePegawai()` menyimpulkan DOSEN/GURU/STAF dari ada tidaknya relasi.
+- **Pola getter "cermin" (read-through)** ke `Dosen`/`Guru` dipakai ~30 getter:
+  nilai kolom lokal ditimpa dari sumber, jadi kolom di DB praktis diabaikan dan
+  setter umumnya "hilang" pada pembacaan berikutnya (kecuali `setAlamat` dan
+  `setKtp` yang menulis balik).
+- **Field bayangan ADA**, sama seperti `Dosen.java`: `code`, `mycode`, `nama`,
+  `alamat`, `email`, `telp`, `kelamin`, `tempatlahir`, `pangkat`, `golongan`,
+  `jabatan`, `spesialisasi1..3`, `tanggallahir`, `tetap`, `idfinger`.
+  **Bedanya dengan `Dosen`**: `jurusan`/`fakultas` milik `Karyawan` TIDAK
+  dideklarasikan ulang dan getternya tidak di-override, jadi
+  `pegawai.getJurusan()`/`getFakultas()` selalu null — padanan yang dipakai
+  adalah `getTendikJurusan()`/`getTendikFakultas()`.
+- **Empat rentang masa kerja paralel** (pengalaman kerja, honorer, semi tetap,
+  tetap) yang getternya disaring `getTipeMasaKerja()`.
+- **Penggajian dihitung ulang**, tidak disimpan: `ambilGajiPokok/Insentif/
+  Makan/Transport(Date)` berbasis `KenaikanPangkat` dari cache `ConstantValues`.
+
 ## Batch "4 file besar" — SELESAI 100% (2 Sep 2026)
 
 Semua 4 file rampung TUNTAS 100% method, dikompilasi, dikommit bertahap,

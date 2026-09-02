@@ -5115,8 +5115,18 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	}
 
 	/**
+	 * Pola pencari rangkaian angka (dengan tanda minus opsional) yang dipakai
+	 * {@link #ekstrakSkorDariTeks(String)}.
+	 *
+	 * <p>OPTIMASI FASE 9: pola regex dikompilasi SEKALI (Pattern immutable &amp; thread-safe),
+	 * bukan tiap kali method dipanggil. Matcher tetap dibuat per panggilan karena
+	 * Matcher TIDAK thread-safe.</p>
+	 */
+	private static final java.util.regex.Pattern POLA_ANGKA = java.util.regex.Pattern.compile("-?\\d+");
+
+	/**
 	 * Ekstrak kode angka pertama di dalam teks jawaban PILIHAN_CUSTOM yang tidak
-	 * murni numerik, mis. "1. 450 Watt" -> 1 (kode pilihan sebelum karakter
+	 * murni numerik, mis. "1. 450 Watt" -&gt; 1 (kode pilihan sebelum karakter
 	 * non-digit pertama). Teks bisa DIAWALI karakter unicode non-ASCII (mis.
 	 * simbol pembanding "≥ 8,50") - jangan hanya cek posisi 0, cari kemunculan
 	 * digit pertama DI MANA SAJA dalam teks lalu ambil rangkaian digitnya.
@@ -5124,15 +5134,14 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	 * "KIP Kuliah (Memiliki KIP/PKH/KKS/KJP)") kembalikan 0 - JANGAN lempar
 	 * exception, dipanggil di jalur Hibernate flush/insertProperty.
 	 *
+	 * <p>Catatan: blok Javadoc ini sebelumnya berada SEBELUM deklarasi
+	 * {@code POLA_ANGKA}, sehingga alat Javadoc menautkannya ke konstanta itu, bukan ke method
+	 * ini. Posisinya dipindahkan agar melekat pada method yang benar; isinya tidak diubah.</p>
+	 *
 	 * @param teks teks jawaban yang hendak diambil kode angkanya; {@code null} menghasilkan 0.
 	 * @return angka pertama yang ditemukan di dalam teks; 0 bila tidak ada angka sama sekali atau
 	 *         terjadi kegagalan penguraian.
 	 */
-	/* OPTIMASI FASE 9: pola regex dikompilasi SEKALI (Pattern immutable & thread-safe),
-	 * bukan tiap kali method dipanggil. Matcher tetap dibuat per panggilan karena
-	 * Matcher TIDAK thread-safe. */
-	private static final java.util.regex.Pattern POLA_ANGKA = java.util.regex.Pattern.compile("-?\\d+");
-
 	private Integer ekstrakSkorDariTeks(String teks) {
 		if (teks == null) {
 			return 0;

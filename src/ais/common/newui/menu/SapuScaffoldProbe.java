@@ -33,6 +33,7 @@ public final class SapuScaffoldProbe {
         }
 
         int total = 0, tanpaAdaptor = 0, masihScaffold = 0, siap = 0;
+        int berentitas = 0, berongga = 0;
         Map<String, List<String>> perModul = new TreeMap<String, List<String>>();
         for (int i = 0; i < ais.common.MenuSnapshotData.DATA.length; i++) {
             String[] k = ais.common.MenuSnapshotData.DATA[i].split("[|]", -1);
@@ -49,7 +50,17 @@ public final class SapuScaffoldProbe {
             }
             if (scaffold.contains(r.getTarget())) {
                 masihScaffold++;
-                catat(perModul, r.getModule(), id + "\t" + label + "\t" + r.getPage());
+                // Dispatcher mencoba Generic CRUD lebih dulu; ia jatuh ke stub
+                // SCAFFOLD hanya bila tryAutoRegister mengembalikan null.
+                // Entitas yang dideklarasikan scaffold adalah masukan utama
+                // pemanggilan itu, jadi scaffold tanpa entitas dapat dipastikan
+                // berongga tanpa basis data. Yang punya entitas belum tentu
+                // terlayani -- pabrik masih dapat menolaknya -- tetapi itu tidak
+                // dapat diputuskan luring, dan ditandai demikian.
+                boolean adaEntitas = punyaEntitas(WEBAPP + r.getTarget());
+                if (adaEntitas) berentitas++; else berongga++;
+                catat(perModul, (adaEntitas ? "[crud?] " : "[RONGGA] ") + r.getModule(),
+                        id + "\t" + label + "\t" + r.getPage());
             } else {
                 siap++;
             }
@@ -59,6 +70,8 @@ public final class SapuScaffoldProbe {
         System.out.println("sudah native     : " + siap);
         System.out.println("masih scaffold   : " + masihScaffold);
         System.out.println("tanpa adaptor    : " + tanpaAdaptor);
+        System.out.println("  scaffold + entitas (mungkin Generic CRUD) : " + berentitas);
+        System.out.println("  scaffold TANPA entitas (pasti berongga)   : " + berongga);
         System.out.println();
         for (Map.Entry<String, List<String>> e : perModul.entrySet()) {
             System.out.println("=== " + e.getKey() + " (" + e.getValue().size() + ") ===");
@@ -79,6 +92,25 @@ public final class SapuScaffoldProbe {
             String p = prefix + "/" + anak[i].getName();
             if (anak[i].isDirectory()) kumpulkan(anak[i], p, out);
             else if (p.endsWith(".jsp")) out.add(p);
+        }
+    }
+
+    /** Apakah scaffold mendeklarasikan nuiServiceEntities yang tidak kosong. */
+    private static boolean punyaEntitas(String path) {
+        BufferedReader r = null;
+        try {
+            r = new BufferedReader(new InputStreamReader(new FileInputStream(path), "UTF-8"));
+            String baris;
+            while ((baris = r.readLine()) != null) {
+                int i = baris.indexOf("nuiServiceEntities");
+                if (i < 0) continue;
+                return baris.indexOf(34, i + 18) >= 0;
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        } finally {
+            try { if (r != null) r.close(); } catch (Exception ignored) { }
         }
     }
 
