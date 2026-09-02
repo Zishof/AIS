@@ -450,14 +450,20 @@ public class KegiatanPersistenceHelper {
 						if (!kunciSudahDihitung.add(kunciDb)) {
 							continue;
 						}
-						// Nilai dasar item. Overload 2-arg untuk item HARGA-TETAP (nilaiBisaDiubah=false)
-						// TIDAK mengurangi diskon (DetailKegiatan tak di-resolve) -> nilai BRUTO.
+						// Nilai awal mengikuti mesin utama supaya item khusus tetap kompatibel. Perlu
+						// diingat bahwa overload ini SUDAH mengurangi diskon melalui
+						// Kegiatan.ambilSatuDetailKegiatan(...). Karena itu nilai ini hanya fallback;
+						// bila metadata DetailKegiatan tersedia, total di bawah dibangun ulang dari
+						// nominal DASAR dan diskon tepat satu kali.
 						Double j = Kegiatan.ambilJumlahTagihan(k, db);
 						// PENTING (idempoten): JANGAN memanggil overload ber-DetailKegiatan di sini karena
 						// itu memicu hitungDiskon yang MENULIS ke DB (setDiskon/refreshUpdate) + menutup
 						// session. Recompute display ini harus READ-ONLY; bila tidak, tiap klik "Hitung
 						// Ulang" mengubah state diskon -> hasil bolak-balik BENAR(1.8jt)/SALAH(5.165jt).
-						// Solusi: untuk item harga-tetap, kurangi diskon yang SUDAH TERSIMPAN (read-only).
+						// Solusi: untuk item harga-tetap, jangan mengurangi `j` lagi karena `j` sudah
+						// neto. Bangun ulang dari biaya DK aktif (atau nominal konfigurasi) lalu kurangi
+						// diskon efektif satu kali. Bug lama melakukan `j - diskon`, sehingga contoh
+						// 2.000.000 - 1.000.000 = 1.000.000 dikurangi lagi menjadi 0.
 						if (j != null && db.getItemBiaya() != null && !db.getItemBiaya().getNilaiBisaDiubah()
 								&& db.getItemBiaya().getId() != null) {
 							String detailKey = DetailKegiatan.kodeUnik(null, db.getItemBiaya(), db.getBayarKe(),
@@ -467,13 +473,11 @@ public class KegiatanPersistenceHelper {
 								if (info[1] == 1.0) {
 									j = Double.valueOf(0.0);
 								} else {
-									double diskonDipakai = diskonEfektif(info);
-									if (diskonDipakai > 0.0) {
-										j = Double.valueOf(j.doubleValue() - diskonDipakai);
-										if (j.doubleValue() < 0.0) {
-											j = Double.valueOf(0.0);
-										}
-									}
+									double brutoReferensi = ambilBrutoReferensi(db, j.doubleValue());
+									double dasar = info.length >= 5 && info[4] == 1.0
+											? info[3] : brutoReferensi;
+									double diskonDipakai = diskonEfektif(info, brutoReferensi);
+									j = Double.valueOf(Math.max(0.0, dasar - diskonDipakai));
 								}
 							}
 						}
@@ -494,7 +498,9 @@ public class KegiatanPersistenceHelper {
 										k, null);
 								double[] info = diskonItemMap.get(detailKey);
 								if (info != null && info.length >= 5 && info[4] == 1.0) {
-									double neto = info[1] == 1.0 ? 0.0 : info[3] - diskonEfektif(info);
+									double brutoReferensi = ambilBrutoReferensi(db, j == null ? 0.0 : j.doubleValue());
+									double neto = info[1] == 1.0 ? 0.0
+											: info[3] - diskonEfektif(info, brutoReferensi);
 									if (neto < 0.0) {
 										neto = 0.0;
 									}
@@ -536,24 +542,65 @@ public class KegiatanPersistenceHelper {
 	 * {@link #hitungTagihanSegarKonsisten(Kegiatan)}).</p>
 	 *
 	 * <p><b>Aturan.</b> (1) Bila baris TERBARU sendiri sudah punya diskon tercatat (&gt;0),
-	 * pakai itu -- paling akurat, sudah dipasangkan dgn biaya di baris yg sama. (2) Bila baris
+	 * pakai itu -- paling akurat, sudah dipasangkan dgn biaya di baris yg sama, kecuali nominal
+	 * terbaru + diskon sama dengan bruto konfigurasi. Pola terakhir berarti nominal terbaru sudah
+	 * NETO dan diskon hanya metadata penjelas; menguranginya lagi akan menghasilkan double-count.
+	 * (2) Bila baris
 	 * terbaru diskonnya 0/kosong TAPI biaya-nya SAMA dgn biaya baris tempat diskon terbesar
 	 * historis ditemukan, berarti base belum berubah sejak generasi yang py diskon benar --
 	 * metadata diskonnya saja yang hilang saat regenerasi -> pakai diskon historis itu (baru
 	 * "reapply"). (3) Selain itu (base baris terbaru SUDAH beda dari base baris diskon historis
 	 * -- mis. nilai diedit langsung jadi net) -> jangan subtraksi ulang, kembalikan 0.</p>
 	 */
-	private static double diskonEfektif(double[] info) {
+	private static double diskonEfektif(double[] info, double brutoReferensi) {
 		if (info == null || info.length < 7) {
 			return 0.0;
 		}
 		if (info[6] > 0.0) {
+			// Sebagian alur diskon lama menyimpan biaya DK sebagai nominal sesudah diskon,
+			// sementara getDiskon() tetap mengembalikan potongannya. Contoh: konfigurasi
+			// 2 jt, biaya DK 1 jt, diskon 1 jt. Dalam bentuk ini biaya DK tidak boleh
+			// dikurangi lagi. Toleransi 1 rupiah menghindari salah klasifikasi akibat hasil
+			// diskon persen bertipe floating point.
+			if (brutoReferensi > info[3] + 0.5
+					&& hampirSama(info[3] + info[6], brutoReferensi)) {
+				return 0.0;
+			}
 			return info[6];
 		}
-		if (info[0] > 0.0 && info[3] == info[5]) {
+		if (info[0] > 0.0 && hampirSama(info[3], info[5])) {
 			return info[0];
 		}
 		return 0.0;
+	}
+
+	/**
+	 * Ambil nominal bruto konfigurasi tanpa menambahkan atau mengurangi diskon. Nilai ini
+	 * hanya dipakai sebagai pembanding untuk membedakan dua bentuk data historis
+	 * DetailKegiatan: {@code biaya=bruto,diskon=potongan} dan
+	 * {@code biaya=neto,diskon=potongan}. Fallback adalah hasil mesin lama agar item khusus
+	 * yang tidak mempunyai nominal konfigurasi tetap dapat dirender.
+	 */
+	private static double ambilBrutoReferensi(DetailBiaya detailBiaya, double fallback) {
+		if (detailBiaya == null) {
+			return fallback;
+		}
+		try {
+			Double nilai = detailBiaya.getTunggakanLalu();
+			if (nilai == null || Math.abs(nilai.doubleValue()) < 0.01) {
+				nilai = detailBiaya.getNilaiBiayaBaru() == null
+						? detailBiaya.getNilaiBiaya() : detailBiaya.getNilaiBiayaBaru();
+			}
+			return nilai == null ? fallback : nilai.doubleValue();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit ambilBrutoReferensi KegiatanPersistenceHelper");
+			return fallback;
+		}
+	}
+
+	private static boolean hampirSama(double kiri, double kanan) {
+		return Math.abs(kiri - kanan) <= 1.0;
 	}
 
 	@SuppressWarnings("unchecked")
