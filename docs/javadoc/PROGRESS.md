@@ -1,5 +1,59 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 26 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/KelompokStatusMahasiswa.java`** (r83476) — 151→633
+  baris, 100% (34 anggota). Melengkapi trilogi "Kelompok*" (menimpa status
+  PER SEMESTER selama studi, beda dari status AWAL `KelompokMahasiswa` b22
+  dan status KELUAR `KelompokStatusKeluarMahasiswa` b24). **Kembaran
+  PERSIS temuan b24**: `KelompokStatusMahasiswaDetailAction` nol
+  pemeriksaan hak akses, bisa memaksa status sampai 5.000 mahasiswa
+  sekaligus, melewati gerbang pembayaran & batas studi.
+- **`ais/database/model/StatusAwalMahasiswa.java`** (r83479) — 155→661
+  baris, 100% (35 anggota, ~1.400 rujukan/194 file). Contoh POSITIF
+  keamanan (checkbox grid ikut `setDisabled(!edit)`). Bug fungsional:
+  kolom "Keterangan" di layar master TIDAK PERNAH tersimpan (bukan
+  properti terpetakan Hibernate — warisan dari `GeneralValueObject` yang
+  bukan `@MappedSuperclass`). Checkbox Pindahan/Alih Prodi tak bisa
+  dimatikan untuk baris bernama mengandung kata kunci itu (write-back
+  otomatis menimpa kembali).
+- **`ais/database/model/MahasiswaJadiAsisten.java`** (r83480) — 152→616
+  baris, 100% (35 anggota). Default tri-state berpihak "boleh": mahasiswa
+  baru dicentang asisten LANGSUNG berwenang ubah presensi tanpa siapa pun
+  mencentang izin eksplisit. **2 instance SQL injection BARU** ditemukan
+  di `PenilaianAction.java` dan `CommonReportHelper.java` (parameter
+  pencarian diinterpolasi mentah ke `sqlRestriction`) — masuk
+  `task_493423ef`. Inversi hak akses lagi di helper pemberi wewenang
+  nilai/presensi.
+- **`ais/database/model/NilaiKegiatanKemahasiswaan.java`** (r83477) —
+  151→607 baris, 100% (31 anggota). Master rubrik angka kredit (bukan
+  nilai per mahasiswa seperti dugaan). Bug perhitungan nyata: predikat
+  join di `Common.java:5430` salah ketik (`a.jabatan` seharusnya
+  `h.jabatan`) — batasan jabatan hilang untuk peserta tanpa jabatan,
+  angka kredit menggelembung. Instance baru inversi hak akses.
+- **`ais/database/model/KeadaanKeluargaPengajuanBeasiswa.java`** (r83478)
+  — 151→575 baris, 100% (34 anggota). **TEMUAN SANGAT SERIUS — memperkuat
+  `task_b82b25d2` dan `task_51f767ec`**: dikonfirmasi jalur `/Data` action
+  `daftar`/`load`/`cari` TIDAK termasuk daftar blokir `aksiSqlTulis`,
+  sehingga flag `tanpaLogin` dari klien memungkinkan enumerasi SELURUH
+  data sosial-ekonomi pemohon beasiswa (alamat, penghasilan ortu, kondisi
+  rumah, narasi alasan memohon bantuan) TANPA akun sama sekali. Entity
+  yatim (belum pernah dipakai lewat UI apa pun) tapi TERJANGKAU penuh
+  lewat endpoint reflektif — mengaitkan `task_51f767ec` (broken access
+  PengajuanBeasiswaAction) + `task_b1e610b6` (`/Data` generik) +
+  `task_b82b25d2` (kebocoran PII tanpa autentikasi) jadi satu gambar besar.
+
+**Pola sekarang: banyak entity "yatim"/belum-pernah-dipakai TETAP berisiko
+tinggi** karena endpoint reflektif generik (`/Data`, `/Api`) menjangkau
+SEMUA entity Hibernate terpetakan tanpa peduli apakah entity itu punya
+layar UI aktif atau tidak — "belum pernah dipakai" bukan berarti "aman".
+
+Total akumulasi 26 sesi: **308 file** dari 7.401 (~4,2%).
+
 ## Batch 25 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
