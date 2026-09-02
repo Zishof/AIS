@@ -158,7 +158,9 @@
         int sTepat = 0, sTelat = 0, sCepat = 0, sLain = 0;
         int jPeg = 0, jDos = 0, jGur = 0, jMhs = 0, jSis = 0;
         
-        java.util.function.Function<Double, String> formatDurasi = (Double hours) -> {
+        java.util.function.Function<Double, String> formatDurasi =
+                new java.util.function.Function<Double, String>() {
+            public String apply(Double hours) {
             if (hours == null || hours <= 0) return "";
             int totalMin = (int) (hours * 60);
             int h = totalMin / 60;
@@ -167,6 +169,7 @@
             if (h > 0) res += h + " " + Common.getBahasaConfig("jam") + " ";
             if (m > 0) res += m + " " + Common.getBahasaConfig("menit");
             return res.trim();
+            }
         };
 
         for (StatuskehadiranKaryawanHarian sk : list) {

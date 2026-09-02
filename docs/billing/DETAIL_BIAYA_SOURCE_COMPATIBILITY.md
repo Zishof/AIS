@@ -490,3 +490,14 @@ Saat deployment, restart seluruh node aplikasi atau panggil
 `CommonHelperClass.reloadJenisKegiatans()` setelah perubahan konfigurasi. Restart
 memastikan cache statis lama hilang. Pertahanan lapis kedua tetap diperlukan,
 tetapi bukan alasan untuk mengabaikan konsistensi cache antar-node.
+
+Pada layar Pembayaran Mahasiswa, status Nonaktif ditampilkan bersama ringkasan
+diagnostik dalam tanda kurung. Ringkasan tersebut berasal dari
+`HistoryStatusMahasiswaUtil.analisisPenyebabNonaktif`, bukan string yang dibuat
+oleh Action. Helper yang sama dipakai pada profil mahasiswa agar operator dan
+mahasiswa menerima penjelasan identik. Analyzer membedakan pembayaran wajib yang
+belum terdeteksi, tagihan syarat aktif yang belum tersedia, KRS/SKS kosong, NIM
+yang sudah dipindahkan, dan status history yang belum sinkron atau ditetapkan
+secara akademik. Analyzer bersifat read-only dan hanya dijalankan untuk satu
+mahasiswa berstatus Nonaktif yang sedang dibuka, sehingga tidak menambah query
+pada daftar massal.

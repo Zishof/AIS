@@ -424,13 +424,10 @@ public class ProfileMahasiswa {
 						krsMahasiswa.getSemesterPendek(), krsMahasiswa, false)
 				+ "</div>"));
 
-		// Penjelasan otomatis ke mahasiswa saat status Nonaktif (permintaan user 2026-08-18):
-		// mahasiswa berulang kali tanya-tanya alasan Nonaktif ke admin padahal penyebabnya
-		// sudah bisa dijelaskan sistem sendiri -- tagihan syarat-keaktifan (JenisKegiatan dgn
-		// checkbox "Digunakan sebagai syarat untuk mengaktifkan status mahasiswa") semester ini
-		// belum lunas. HANYA tampil kalau memang itu penyebabnya (dicek per-item, bukan cuma
-		// "status != Aktif") supaya TIDAK menyesatkan mahasiswa yang Nonaktif krn alasan lain
-		// (cuti/DO/dsb) dengan pesan seolah2 soal tagihan.
+		// Penjelasan otomatis saat status Nonaktif memakai analyzer kanonik yang sama dengan
+		// layar pembayaran. Analyzer membedakan tagihan belum dibayar, tagihan belum terbentuk,
+		// KRS/SKS kosong, NIM pindahan, dan history yang belum sinkron; jangan mengembalikan
+		// pemeriksaan lokal berbasis Kegiatan.getPersentaseLunas() karena rekap itu asynchronous.
 		try {
 			ais.database.model.HistoryStatusMahasiswa statusSaatIni = ais.action.master.helper.HistoryStatusMahasiswaUtil
 					.currentStatus(krsMahasiswa, false);
@@ -439,46 +436,15 @@ public class ProfileMahasiswa {
 					&& ais.common.ConstantValues.AKTIF.getId().equals(statusSaatIni.getStatusMahasiswa().getId());
 
 			if (!statusAktif) {
-				if (ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif == null) {
-					try {
-						ais.common.CommonHelperClass.reloadJenisKegiatans();
-					} catch (Exception eReload) {
-						ais.common.ErrorAuditUtil.record(eReload,
-								"auto-audit(empty-catch) ProfileMahasiswa penjelasan nonaktif: reloadJenisKegiatans");
-					}
-				}
-				List<String> belumLunas = new ArrayList<String>();
-				if (ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif != null) {
-					List<ais.database.model.Kegiatan> kegiatanSyaratAktif = mahasiswa.ambilKegiatans(
-							krsMahasiswa.getSemester(), ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif,
-							true);
-					if (kegiatanSyaratAktif != null) {
-						for (ais.database.model.Kegiatan keg : kegiatanSyaratAktif) {
-							if (ais.action.master.helper.HistoryStatusMahasiswaUtil
-									.kegiatanSyaratAktifBerlaku(keg, krsMahasiswa.getSemester())
-									&& (keg.getPersentaseLunas() == null || keg.getPersentaseLunas() < 0.1)) {
-								belumLunas.add(keg.getJenisKegiatan().getNamaKegiatan());
-							}
-						}
-					}
-				}
-				if (!belumLunas.isEmpty()) {
-					StringBuilder daftarBelumLunas = new StringBuilder();
-					for (int i = 0; i < belumLunas.size(); i++) {
-						if (i > 0) {
-							daftarBelumLunas.append(", ");
-						}
-						daftarBelumLunas.append(ProfileUiHelper.esc(belumLunas.get(i)));
-					}
+				String alasanNonaktif = ais.action.master.helper.HistoryStatusMahasiswaUtil
+						.analisisPenyebabNonaktif(krsMahasiswa);
+				if (alasanNonaktif != null && !alasanNonaktif.trim().isEmpty()) {
 					String pesanNonaktif = "<div style=\"padding:10px;background-color:#fef9c3;border-radius:8px;"
 							+ "border:1px solid #fde68a;color:#854d0e;margin-top:5px;line-height:1.5;\">"
 							+ "<b>&#9888; Status Anda saat ini Nonaktif</b><br>"
-							+ "Penyebabnya: tagihan wajib berikut untuk semester ini belum lunas &mdash; <b>"
-							+ daftarBelumLunas + "</b>.<br>Status akan <b>otomatis kembali Aktif dengan "
-							+ "sendirinya</b> begitu tagihan tersebut lunas (dibayar penuh maupun lewat skema "
-							+ "cicilan yang tersedia) &mdash; tidak perlu menghubungi admin untuk mengubah status "
-							+ "secara manual. Setelah membayar, tekan tombol \"Refresh Status &amp; Tagihan\" di "
-							+ "bawah untuk melihat status terbaru.</div>";
+							+ "Penyebab yang terdeteksi: <b>" + ProfileUiHelper.esc(alasanNonaktif) + "</b>.<br>"
+							+ "Setelah data penyebab diperbaiki, tekan tombol \"Refresh Status &amp; Tagihan\" "
+							+ "untuk menghitung kembali status dari data terbaru.</div>";
 					row = new MyRowStyled();
 					row.setParent(rows);
 					ais.ui.util.ZkCompat.setSpans(row, "2");

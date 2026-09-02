@@ -863,8 +863,9 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, smt, tahap,
 					jenisKegiatan != null && jenisKegiatan.getUntukBayarSP() ? Perkuliahan.SEMESTER_PENDEK : null,
 					refresh);
-			statusmahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa, refresh)
-					.getStatusMahasiswa();
+			tempHistoryStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
+					.currentStatus(krsMahasiswa, refresh);
+			statusmahasiswa = tempHistoryStatusMahasiswa.getStatusMahasiswa();
 			PendaftaranCutiMahasiswa pendaftaranCutiMahasiswa = mahasiswa.ambilCuti(smt, tahap, false);
 			if (pendaftaranCutiMahasiswa != null && pendaftaranCutiMahasiswa.getPersetujuan() != null
 					&& pendaftaranCutiMahasiswa.getPersetujuan())
@@ -872,10 +873,16 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			StatusMahasiswa statusMahasiswaTampil = statusmahasiswa;
 			statusmahasiswa = statusMahasiswaPembayaranEfektif(statusmahasiswa);
 
-			tempHistoryStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
-					.getHistoryStatusMahasiswa(krsMahasiswa, refresh);
-
 			String statusNama = statusMahasiswaTampil != null ? statusMahasiswaTampil.getNama() : "-";
+			if (statusMahasiswaTampil != null && statusMahasiswaTampil.getId() != null
+					&& ConstantValues.TIDAK_AKTIF != null && ConstantValues.TIDAK_AKTIF.getId() != null
+					&& ConstantValues.TIDAK_AKTIF.getId().equals(statusMahasiswaTampil.getId())) {
+				String penyebabNonaktif = ais.action.master.helper.HistoryStatusMahasiswaUtil
+						.analisisPenyebabNonaktif(krsMahasiswa);
+				if (penyebabNonaktif != null && !penyebabNonaktif.trim().isEmpty()) {
+					statusNama += " (" + penyebabNonaktif.trim() + ")";
+				}
+			}
 			String statusAwalNama = (tempHistoryStatusMahasiswa != null
 					&& tempHistoryStatusMahasiswa.getStatusAwalMahasiswa() != null)
 							? tempHistoryStatusMahasiswa.getStatusAwalMahasiswa().getNama()

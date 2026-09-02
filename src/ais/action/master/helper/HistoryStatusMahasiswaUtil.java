@@ -1,5 +1,6 @@
 package ais.action.master.helper;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
@@ -1123,6 +1124,108 @@ public class HistoryStatusMahasiswaUtil {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Menjelaskan penyebab paling mungkin dan dapat dibuktikan ketika status mahasiswa masih
+     * Nonaktif. Method ini adalah pasangan diagnostik dari mesin keputusan
+     * {@link #kalkulasiStatusLogikaLanjutan}: ia memakai daftar jenis kegiatan, pagar semester,
+     * serta sumber pembayaran committed yang sama dengan kalkulasi status. Karena itu teks yang
+     * ditampilkan UI bukan dugaan berdasarkan nama status saja.
+     *
+     * <p>Urutan analisis dibuat mengikuti kekuatan buktinya. NIM lama yang sudah dipindahkan
+     * diperiksa pertama karena aturan tersebut langsung memaksa Nonaktif. Berikutnya seluruh
+     * kegiatan syarat aktif semester ini diperiksa dan pembayaran aktualnya dibaca dari database.
+     * Bila ada kegiatan dengan persentase di bawah {@code 0.1}, nama kegiatan disebut sebagai
+     * penghambat. Bila tidak ada kegiatan syarat aktif, sistem menjelaskan bahwa tagihan pemicu
+     * aktivasi belum tersedia. Bila pembayaran sudah memenuhi aturan tetapi KRS masih nol, KRS/SKS
+     * disebut sebagai penyebab akademik yang perlu diperiksa. Terakhir, bila seluruh bukti
+     * pembayaran dan KRS sudah baik tetapi status masih Nonaktif, hasil secara jujur menyatakan
+     * bahwa status history belum tersinkron atau berasal dari penetapan akademik/manual.</p>
+     *
+     * <p>Method ini read-only. Ia hanya dipanggil untuk satu mahasiswa yang sedang ditampilkan,
+     * bukan untuk tabel massal. Pembacaan cicilan segar sengaja dipertahankan agar keterangan tidak
+     * menyebut "belum bayar" beberapa detik setelah pembayaran baru selesai di-commit.</p>
+     *
+     * @param krsMahasiswa konteks mahasiswa, semester, tahap, dan jumlah SKS yang dianalisis
+     * @return alasan singkat tanpa tanda kurung; selalu aman ditampilkan setelah teks status
+     */
+    public static String analisisPenyebabNonaktif(KrsMahasiswa krsMahasiswa) {
+        if (krsMahasiswa == null || krsMahasiswa.getMahasiswa() == null) {
+            return "data mahasiswa atau semester belum lengkap";
+        }
+
+        Mahasiswa mahasiswa = krsMahasiswa.getMahasiswa();
+        Integer semester = krsMahasiswa.getSemester();
+        try {
+            String nimBaru = mahasiswa.getNimBaruPindah();
+            if (nimBaru != null && !nimBaru.trim().isEmpty()) {
+                return "data telah dipindahkan ke NIM baru " + nimBaru.trim();
+            }
+
+            if (CommonHelperClass.jenisKegiatansUntukSyaratAktif == null) {
+                CommonHelperClass.reloadJenisKegiatans();
+            }
+
+            boolean adaTagihanSyaratAktif = false;
+            List<String> tagihanBelumMemenuhi = new ArrayList<String>();
+            List<Kegiatan> kegiatans = CommonHelperClass.jenisKegiatansUntukSyaratAktif == null
+                    || CommonHelperClass.jenisKegiatansUntukSyaratAktif.isEmpty()
+                            ? null
+                            : mahasiswa.ambilKegiatans(semester,
+                                    CommonHelperClass.jenisKegiatansUntukSyaratAktif, true);
+            if (kegiatans != null) {
+                for (Kegiatan kegiatan : kegiatans) {
+                    if (!kegiatanSyaratAktifBerlaku(kegiatan, semester)) {
+                        continue;
+                    }
+                    adaTagihanSyaratAktif = true;
+                    double persen = KegiatanPersistenceHelper
+                            .hitungPersentaseLunasAktualDariDatabase(kegiatan).doubleValue();
+                    if (persen < 0.1) {
+                        String nama = kegiatan.getJenisKegiatan().getNamaKegiatan();
+                        if (nama == null || nama.trim().isEmpty()) {
+                            nama = "tagihan syarat aktif";
+                        }
+                        if (!tagihanBelumMemenuhi.contains(nama)) {
+                            tagihanBelumMemenuhi.add(nama);
+                        }
+                    }
+                }
+            }
+
+            if (!tagihanBelumMemenuhi.isEmpty()) {
+                return "belum ada pembayaran yang diakui untuk " + gabungkanAlasan(tagihanBelumMemenuhi);
+            }
+
+            boolean belumAdaKrs = krsMahasiswa.getSksBukanKonversi() == null
+                    || krsMahasiswa.getSksBukanKonversi().intValue() <= 0;
+            if (!adaTagihanSyaratAktif) {
+                return belumAdaKrs
+                        ? "belum ada tagihan syarat aktif dan belum ada pengambilan KRS/SKS semester ini"
+                        : "belum ada tagihan syarat aktif yang dapat menjadi bukti aktivasi semester ini";
+            }
+            if (belumAdaKrs) {
+                return "pembayaran wajib sudah memenuhi ketentuan, tetapi belum ada pengambilan KRS/SKS semester ini";
+            }
+            return "pembayaran wajib dan KRS sudah memenuhi ketentuan; status history belum tersinkron atau ditetapkan dari proses akademik/manual";
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e,
+                    "auto-audit HistoryStatusMahasiswaUtil.analisisPenyebabNonaktif mahasiswa="
+                            + mahasiswa.getId() + ", semester=" + semester);
+            return "penyebab rinci belum dapat dibaca; periksa history status dan gunakan Refresh";
+        }
+    }
+
+    private static String gabungkanAlasan(List<String> values) {
+        StringBuilder result = new StringBuilder();
+        for (String value : values) {
+            if (result.length() > 0) {
+                result.append(", ");
+            }
+            result.append(value);
+        }
+        return result.toString();
     }
 
     /**
