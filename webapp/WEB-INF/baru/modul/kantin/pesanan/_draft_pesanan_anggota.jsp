@@ -412,6 +412,69 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
      * cadangan supaya halaman yang diperbarui lebih dulu daripada servernya
      * tidak mendadak berhenti memperingatkan.
      */
+    /**
+     * Rincian draft (hasil kueri koperasi.draft_pembelian) -> bentuk item payload bayar.
+     *
+     * Empat dari lima pemanggil memakai pemetaan yang SAMA PERSIS; hanya modal bayar
+     * manual yang berbeda karena sumbernya keranjang (sudah camelCase), bukan hasil
+     * kueri (snake_case).
+     */
+    window.itemDariRincianDraft<%=rnd%> = function (items) {
+        return (items || []).map(function (item) {
+            return {
+                id: item.produk_id,
+                kode: item.kode,
+                nama: item.nama,
+                harga: parseFloat(item.harga || 0),
+                jumlah: parseFloat(item.jumlah || 1),
+                diskon: parseFloat(item.diskon || 0),
+                aturanDiskon: item.aturan_diskon,
+                cashback: parseFloat(item.cashback || 0)
+            };
+        });
+    };
+
+    /**
+     * Rakit payload aksi "bayar" -- SATU tempat untuk kelima jalur.
+     *
+     * Sebelumnya kelima jalur merakit payloadnya masing-masing, dan salinan itu sudah
+     * menyebabkan TIGA cacat terpisah: `id_member` hilang di kelima-limanya sekaligus
+     * (dok. 75), pelaporan kegagalan diperbaiki hanya di satu loop (dok. 75), dan
+     * `peringatanStok` menuntut lima titik disentuh (dok. 80).
+     *
+     * Menambah field payload berikutnya kini berbiaya SATU baris di sini, bukan lima
+     * suntingan yang salah satunya pasti terlewat.
+     *
+     * Yang TIDAK disatukan: alur tiap jalur, progress bar, modal hasil, dan awalan
+     * kodeUnik (POS-, POS-MASSAL-, POS-AUTO-). Perbedaan itu memang disengaja --
+     * `finalisasiOtomatis` di server membacanya (lihat KantinHelper.bayar).
+     *
+     * @param o {kodeUnik, idToko, idDraft, idMember, caraBayar, waktu, transaksi,
+     *           kanalCheckout?}
+     */
+    window.buatPayloadBayar<%=rnd%> = function (o) {
+        var payload = {
+            action: "bayar",
+            kodeUnik: o.kodeUnik,
+            idToko: o.idToko,
+            waktu: o.waktu,
+            log: "true",
+            caraBayar: o.caraBayar,
+            // PARAMETER KUNCI untuk menutup/mengubah draft.
+            draftPembelianAnggotaKoperasi: o.idDraft,
+            // Pemilik pesanan WAJIB ikut dikirim. Kueri daftar sudah lama mengambil
+            // anggota_koperasi, tetapi dahulu nilainya tidak pernah masuk payload;
+            // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
+            // itu MENIMPA nama pemesan pada draft maupun transaksi finalnya.
+            id_member: o.idMember || null,
+            transaksi: o.transaksi
+        };
+        // Hanya jalur verifikasi otomatis yang mengirimkannya; server memakainya untuk
+        // menolak finalisasi otomatis tanpa data member (KantinHelper.finalisasiOtomatis).
+        if (o.kanalCheckout) payload.kanalCheckout = o.kanalCheckout;
+        return payload;
+    };
+
     window.peringatanTransaksi<%=rnd%> = function(res) {
         if (!res) return [];
         var daftar = res.peringatanTransaksi;
@@ -514,30 +577,12 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         const kodeTransaksi = "POS-AUTO-" + new Date().getTime() + "-" + i;
                         const caraBayar = draft.cara_pembayaran_koperasi || '1'; 
                         
-                        const payload = {
-                            action: "bayar",
-                            kodeUnik: kodeTransaksi,
-                            idToko: draft.id_toko, 
-                            waktu: curWaktu,
-                            log: "true",
-							kanalCheckout: "otomatis_halaman",
-                            caraBayar: caraBayar,
-                            draftPembelianAnggotaKoperasi: draft.id,
-                            // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
-                            // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
-                            // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
-                            // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
-                            // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
-                            // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
-                            // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
-                            id_member: draft.anggota_koperasi || null,
-                            transaksi: items.map(item => ({
-                                id: item.produk_id, kode: item.kode, nama: item.nama,
-                                harga: parseFloat(item.harga||0), jumlah: parseFloat(item.jumlah||1),
-                                diskon: parseFloat(item.diskon||0), aturanDiskon: item.aturan_diskon, 
-                                cashback: parseFloat(item.cashback||0)
-                            }))
-                        };
+                        const payload = buatPayloadBayar<%=rnd%>({
+                            kodeUnik: kodeTransaksi, idToko: draft.id_toko, waktu: curWaktu,
+                            caraBayar: caraBayar, idDraft: draft.id, idMember: draft.anggota_koperasi,
+                            kanalCheckout: "otomatis_halaman",
+                            transaksi: itemDariRincianDraft<%=rnd%>(items)
+                        });
 
                         const resBayar = await fetchDataAPI<%=rnd%>(payload);
                         if (resBayar.status === '00' || resBayar.status === 'success') {
@@ -1426,33 +1471,18 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
         const kodeTransaksi = "POS-" + new Date().getTime(); 
 
         // Susun Payload
-        const payload = {
-            action: "bayar",
-            kodeUnik: kodeTransaksi,
-            idToko: activeDraftIdToko<%=rnd%>, 
-            waktu: curWaktu,
-            log:"true",
-            caraBayar: idCaraBayar,
-            draftPembelianAnggotaKoperasi: activeDraftId<%=rnd%>, // INI PARAMETER KUNCI UNTUK MENUTUP / UBAH DRAFT
-            // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
-            // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
-            // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
-            // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
-            // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
-            // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
-            // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
-            id_member: activeDraftIdMember<%=rnd%>,
-            transaksi: cartDraftItems<%=rnd%>.map(item => ({
-                id: item.id, // ID Produk
-                kode: item.kode,
-                nama: item.nama,
-                harga: item.harga,
-                jumlah: item.jumlah,
-                diskon: item.diskon,
-                aturanDiskon: item.aturanDiskon, 
-                cashback: item.cashback          
-            }))
-        };
+        const payload = buatPayloadBayar<%=rnd%>({
+            kodeUnik: kodeTransaksi, idToko: activeDraftIdToko<%=rnd%>, waktu: curWaktu,
+            caraBayar: idCaraBayar, idDraft: activeDraftId<%=rnd%>,
+            idMember: activeDraftIdMember<%=rnd%>,
+            transaksi: cartDraftItems<%=rnd%>.map(function (item) {
+                return {
+                    id: item.id, kode: item.kode, nama: item.nama, harga: item.harga,
+                    jumlah: item.jumlah, diskon: item.diskon,
+                    aturanDiskon: item.aturanDiskon, cashback: item.cashback
+                };
+            })
+        });
 
         try {
             const res = await fetchDataAPI<%=rnd%>(payload);
@@ -1667,33 +1697,11 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                     const kodeTransaksi = "POS-MASSAL-" + new Date().getTime() + "-" + i;
                     const caraBayar = draft.cara_pembayaran_koperasi || '1'; // Default ke ID 1 jika null
                     
-                    const payload = {
-                        action: "bayar",
-                        kodeUnik: kodeTransaksi,
-                        idToko: draft.id_toko, 
-                        waktu: curWaktu,
-                        log: "true",
-                        caraBayar: caraBayar,
-                        draftPembelianAnggotaKoperasi: draft.id,
-                        // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
-                        // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
-                        // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
-                        // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
-                        // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
-                        // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
-                        // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
-                        id_member: draft.anggota_koperasi || null,
-                        transaksi: items.map(item => ({
-                            id: item.produk_id, 
-                            kode: item.kode,
-                            nama: item.nama,
-                            harga: parseFloat(item.harga||0),
-                            jumlah: parseFloat(item.jumlah||1),
-                            diskon: parseFloat(item.diskon||0),
-                            aturanDiskon: item.aturan_diskon, 
-                            cashback: parseFloat(item.cashback||0)
-                        }))
-                    };
+                    const payload = buatPayloadBayar<%=rnd%>({
+                        kodeUnik: kodeTransaksi, idToko: draft.id_toko, waktu: curWaktu,
+                        caraBayar: caraBayar, idDraft: draft.id, idMember: draft.anggota_koperasi,
+                        transaksi: itemDariRincianDraft<%=rnd%>(items)
+                    });
 
                     const resBayar = await fetchDataAPI<%=rnd%>(payload);
                     if (resBayar.status === '00' || resBayar.status === 'success') {
@@ -1818,33 +1826,11 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                     const kodeTransaksi = "POS-MASSAL-" + new Date().getTime() + "-" + i;
                     const caraBayar = draft.cara_pembayaran_koperasi || '1'; 
                     
-                    const payload = {
-                        action: "bayar",
-                        kodeUnik: kodeTransaksi,
-                        idToko: draft.id_toko, 
-                        waktu: curWaktu,
-                        log: "true",
-                        caraBayar: caraBayar,
-                        draftPembelianAnggotaKoperasi: draft.id,
-                        // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
-                        // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
-                        // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
-                        // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
-                        // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
-                        // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
-                        // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
-                        id_member: draft.anggota_koperasi || null,
-                        transaksi: items.map(item => ({
-                            id: item.produk_id, 
-                            kode: item.kode,
-                            nama: item.nama,
-                            harga: parseFloat(item.harga||0),
-                            jumlah: parseFloat(item.jumlah||1),
-                            diskon: parseFloat(item.diskon||0),
-                            aturanDiskon: item.aturan_diskon, 
-                            cashback: parseFloat(item.cashback||0)
-                        }))
-                    };
+                    const payload = buatPayloadBayar<%=rnd%>({
+                        kodeUnik: kodeTransaksi, idToko: draft.id_toko, waktu: curWaktu,
+                        caraBayar: caraBayar, idDraft: draft.id, idMember: draft.anggota_koperasi,
+                        transaksi: itemDariRincianDraft<%=rnd%>(items)
+                    });
 
                     const resBayar = await fetchDataAPI<%=rnd%>(payload);
                     if (resBayar.status === '00' || resBayar.status === 'success') {
@@ -2021,30 +2007,12 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         const kodeTransaksi = "POS-AUTO-" + new Date().getTime() + "-" + i;
                         const caraBayar = draft.cara_pembayaran_koperasi || '1'; 
                         
-                        const payload = {
-                            action: "bayar",
-                            kodeUnik: kodeTransaksi,
-                            idToko: draft.id_toko, 
-                            waktu: curWaktu,
-                            log: "true",
+                        const payload = buatPayloadBayar<%=rnd%>({
+                            kodeUnik: kodeTransaksi, idToko: draft.id_toko, waktu: curWaktu,
+                            caraBayar: caraBayar, idDraft: draft.id, idMember: draft.anggota_koperasi,
                             kanalCheckout: "otomatis_halaman",
-                            caraBayar: caraBayar,
-                            draftPembelianAnggotaKoperasi: draft.id,
-                            // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
-                            // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
-                            // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
-                            // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
-                            // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
-                            // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
-                            // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
-                            id_member: draft.anggota_koperasi || null,
-                            transaksi: items.map(item => ({
-                                id: item.produk_id, kode: item.kode, nama: item.nama,
-                                harga: parseFloat(item.harga||0), jumlah: parseFloat(item.jumlah||1),
-                                diskon: parseFloat(item.diskon||0), aturanDiskon: item.aturan_diskon, 
-                                cashback: parseFloat(item.cashback||0)
-                            }))
-                        };
+                            transaksi: itemDariRincianDraft<%=rnd%>(items)
+                        });
 
                         const resBayar = await fetchDataAPI<%=rnd%>(payload);
                         if (resBayar.status === '00' || resBayar.status === 'success') {

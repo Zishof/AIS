@@ -814,6 +814,57 @@ samping pemindahan kueri.
 Termasuk keenam aksi bermuatan uang, dan dua aksi kelompok ini yang tertahan pada celah
 model. Ujinya wajib ditulis **bersamaan** dengan pemindahannya, bukan sesudahnya.
 
+## Helper ketujuh: Piutang &amp; Sales Order — 6 dari 12 aksi
+
+Dibuka oleh migrasi **v10**. Enam aksi yang murni membaca dipindahkan; enam yang menulis
+lewat entitas — termasuk `collectionCreate` yang mencatat penerimaan uang — **ditolak**
+sampai ditulis beserta uji kesetaraannya.
+
+### Piutang tenant tidak menyimpan toko maupun order
+
+`piutang_customer` menautkan dirinya ke `faktur_penjualan`, dan **fakturnya** yang menyimpan
+`toko_id` serta `sales_order_id`. Saringan lingkup toko dan penyaringan per order karena itu
+ditempuh lewat faktur.
+
+Itu **wajib** ditegakkan, bukan dilewati: saringan lingkup yang hilang berarti satu toko
+melihat piutang toko lain.
+
+### Uang muka: kolom menjadi dokumen
+
+Legacy menyimpan uang muka pada kolom `dibayar_awal` yang tidak punya dokumen pembayaran.
+Model tenant mencatatnya sebagai **penerimaan beralokasi** seperti pembayaran lain, sehingga
+uang muka pun punya jejak dokumennya sendiri.
+
+Rumus sisa karena itu berbeda bentuk tetapi sama hasilnya: legacy `total − dibayar_awal −
+Σalokasi`, tenant `nilai − Σalokasi` — sebab uang mukanya sudah termasuk alokasi.
+
+### Kesalahan kolom, ketiga kalinya
+
+`selectPenagihan` rancangan pertama punya **12 kolom, legacy 14** — `status_dok` dan
+`status_bg` terlewat.
+
+Ini pola yang sama dengan Master (`akun_utang` di kolom ke-9 padahal ke-17) dan Trip
+(`selectSpj` 9 padahal 12). **Tiga kali berturut-turut**, dan compiler tidak menangkap satu
+pun. Pencocokan jumlah kolom kini saya lakukan sebelum menulis, bukan sesudah.
+
+`status_bg` sendiri tidak punya padanan; dikembalikan `NULL`, bukan disamakan dengan status
+dokumen — menyamakannya membuat giro yang belum cair tampak sudah beres.
+
+### Uji kesetaraan: `uji-kesetaraan-piutang.sql`
+
+| Blok | Hasil |
+|---|---|
+| Sisa piutang per dokumen | **SETARA** 450.000 dan 500.000 |
+| Umur piutang | **SETARA** |
+| **Lingkup toko lewat faktur** | **SETARA** — tiap toko melihat miliknya saja |
+| Total tertagih (uang muka + pembayaran) | **SETARA** 350.000 |
+
+Blok 3 memuat **penjaga** yang memeriksa contoh ujinya memang menyaring: bila seluruh piutang
+kebetulan milik satu toko, uji lingkup akan lulus tanpa membuktikan apa pun.
+
+Blok 1 dan 4 bersama-sama membuktikan pemetaan uang muka: sisa 450.000 hanya benar bila
+uang muka 100.000 <b>dan</b> pembayaran 250.000 keduanya terhitung, dan totalnya 350.000.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

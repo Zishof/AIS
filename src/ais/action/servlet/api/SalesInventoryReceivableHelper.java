@@ -1440,24 +1440,38 @@ public final class SalesInventoryReceivableHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenantAs = SalesInventoryReceivableTenant.aktif(ctx);
 			StringBuilder where = new StringBuilder(" WHERE d.status = 'AKTIF'");
 			if (aktorSales(ctx)) {
 				if (ctx.salesId == null) {
 					tolak(hasil, "Akun sales Anda belum punya profil sales aktif.");
 					return;
 				}
-				where.append(" AND d.sales = ?");
+				where.append(" AND ").append(jalurTenantAs
+						? SalesInventoryReceivableTenant.kolomSalesPiutang() : "d.sales")
+						.append(" = ?");
 			}
-			if (ctx.tokoId != null && !ctx.admin) where.append(" AND d.toko = ?");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT COALESCE(s.id,0), COALESCE(s.nama,'(tanpa sales)'), COUNT(d.id),"
-							+ " SUM(COALESCE(d.total_faktur,0)),"
-							+ " SUM(COALESCE(d.dibayar_awal,0) + " + EXPR_ALOKASI + "),"
-							+ " SUM(" + EXPR_OUTSTANDING + "),"
-							+ " SUM(CASE WHEN " + EXPR_OUTSTANDING + " <= 0.009 THEN 1 ELSE 0 END)"
-							+ " FROM koperasi.piutang_customer_doc d"
-							+ " LEFT JOIN koperasi.sales_inventory s ON d.sales = s.id" + where
-							+ " GROUP BY s.id, s.nama ORDER BY 6 DESC");
+			if (ctx.tokoId != null && !ctx.admin) {
+				// Lingkup toko lewat faktur: piutang tenant tidak menyimpan toko.
+				where.append(" AND ").append(jalurTenantAs
+						? SalesInventoryReceivableTenant.kolomTokoPiutang() : "d.toko")
+						.append(" = ?");
+			}
+			String sqlAgingS;
+			if (jalurTenantAs) {
+				sqlAgingS = SalesInventoryReceivableTenant.sqlAgingSales(
+						SalesInventoryReceivableTenant.skema(ctx), where.toString());
+			} else {
+				sqlAgingS = "SELECT COALESCE(s.id,0), COALESCE(s.nama,'(tanpa sales)'), COUNT(d.id),"
+						+ " SUM(COALESCE(d.total_faktur,0)),"
+						+ " SUM(COALESCE(d.dibayar_awal,0) + " + EXPR_ALOKASI + "),"
+						+ " SUM(" + EXPR_OUTSTANDING + "),"
+						+ " SUM(CASE WHEN " + EXPR_OUTSTANDING + " <= 0.009 THEN 1 ELSE 0 END)"
+						+ " FROM koperasi.piutang_customer_doc d"
+						+ " LEFT JOIN koperasi.sales_inventory s ON d.sales = s.id" + where
+						+ " GROUP BY s.id, s.nama ORDER BY 6 DESC";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlAgingS);
 			int ix = 1;
 			if (aktorSales(ctx)) ps.setLong(ix++, ctx.salesId.longValue());
 			if (ctx.tokoId != null && !ctx.admin) ps.setLong(ix++, ctx.tokoId.longValue());

@@ -1517,6 +1517,17 @@ public class PosApi extends HttpServlet {
 			hasil.put("produk", produkArr);
 			hasil.put("tokoId", tokoId == null ? JSONObject.NULL : tokoId);
 			hasil.put("semuaToko", semuaTokoDiminta);
+			// Hak CRUD supaya layar Produk dapat MEMADAMKAN tombol yang pasti ditolak.
+			// Gerbang sebenarnya tetap KantinHelper.bolehAksiCrud pada tiap aksi tulis;
+			// ini hanya menghentikan janji kosong sebelum formulirnya diisi.
+			JSONObject hakProduk = new JSONObject();
+			hakProduk.put("create", ais.action.servlet.api.KantinHelper.bolehAksiCrud(
+					tbmuser, null, adminGlobal, false, "produk", "create"));
+			hakProduk.put("update", ais.action.servlet.api.KantinHelper.bolehAksiCrud(
+					tbmuser, null, adminGlobal, false, "produk", "update"));
+			hakProduk.put("delete", ais.action.servlet.api.KantinHelper.bolehAksiCrud(
+					tbmuser, null, adminGlobal, false, "produk", "delete"));
+			hasil.put("hak", hakProduk);
 			if (berpaginasi) {
 				hasil.put("total", totalProduk);
 				hasil.put("page", page);
