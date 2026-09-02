@@ -1462,29 +1462,201 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		this.gdriveUsername = gdriveUsername;
 	}
 
+	/**
+	 * Membuang cache lokasi lampiran di disk untuk satu kunci ({@code ref}, {@code jenis}),
+	 * sehingga pemanggilan {@code ambil(...)} berikutnya kembali menembak basis data.
+	 *
+	 * <p><b>Kenapa perlu.</b> {@code FileFotoLain.ambil(...)} tidak selalu menembak basis
+	 * data: hasil query sebelumnya disimpan sebagai JSON pada sebuah berkas di sistem berkas
+	 * server, dengan kunci gabungan {@code clazz + ref + jenis} (ditambah sisipan
+	 * {@code "_id"} bila {@code usingId} bernilai {@code true}). Selama berkas itu ada, isi
+	 * lampiran yang berubah — atau yang baru saja dihapus — masih dilaporkan versi lamanya.
+	 * Karena itu method ini WAJIB dipanggil setelah setiap unggah/ganti/hapus lampiran;
+	 * {@code FileFotoLain.hapusAtauUpdate}, {@code performDelete}, dan
+	 * {@code delete()} sudah memanggilnya sendiri.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis berkas cache menjadi string kosong (bukan menghapusnya).
+	 * Kegagalan I/O ditelan diam-diam oleh {@code FileFotoLain.tulisLokasi}.</p>
+	 *
+	 * <p><b>Catatan cakupan:</b> cache ini <b>global per server, bukan per pengguna</b> —
+	 * ia menyimpan hasil query, bukan hak akses. Membuang atau mengisinya tidak memengaruhi
+	 * siapa yang boleh melihat berkas.</p>
+	 *
+	 * @param usingId {@code true} bila kunci cache yang dibuang adalah kunci varian
+	 *                "cari berdasarkan primary key lampiran"; {@code false} untuk kunci
+	 *                normal berbasis acuan pemilik
+	 * @param ref     acuan baris pemilik (atau primary key lampiran bila {@code usingId})
+	 * @param jenis   penanda jenis lampiran
+	 */
 	public static void resetLokasi(Boolean usingId, Long ref, String jenis) {
 		FileFotoLain.resetLokasi(usingId, ref, jenis, LampiranLain.class);
 	}
 
+	/**
+	 * Mengambil SATU baris lampiran, dengan pilihan mode pencocokan acuan.
+	 *
+	 * <h4>Cara pencocokan bekerja (delegasi ke {@code FileFotoLain.ambil})</h4>
+	 * <p>Untuk kelas ini nama field acuan yang terdaftar di {@code FileFotoLain.RELASI_MAP}
+	 * adalah {@code "ref"}, dan karena nama itu bukan {@code "id"}/{@code "tbmuser"} serta
+	 * nama kelas ini tidak berawalan {@code "Foto"} maupun berakhiran {@code "FileContent"},
+	 * penyaringan berdasarkan {@code jenis} <b>aktif</b>. Kriteria yang dibangun:</p>
+	 * <ul>
+	 *   <li>{@code usingId == false} (perilaku normal) &rarr;
+	 *       {@code Restrictions.eq("jenis", jenis)} <b>DAN</b>
+	 *       {@code Restrictions.eq("ref", ref)}; kedua-duanya kecocokan <b>persis</b>
+	 *       (case-sensitive, tanpa {@code trim}).</li>
+	 *   <li>{@code usingId == true} &rarr; <b>penyaringan {@code jenis} DIMATIKAN</b>
+	 *       (diganti {@code sqlRestriction("true")}) dan pencocokan berpindah ke
+	 *       {@code Restrictions.idEq(ref)}, yaitu <b>primary key baris
+	 *       {@code lampiran_lain} itu sendiri</b> — bukan lagi acuan ke baris pemilik.</li>
+	 * </ul>
+	 * <p>Hasil diurutkan {@code Order.desc("id")} dengan {@code setMaxResults(1)}, jadi yang
+	 * dikembalikan adalah baris <b>terbaru</b> untuk kunci tersebut; unggahan lama dengan
+	 * kunci sama tetap tersimpan di tabel tetapi tidak pernah terpilih lewat jalur ini.
+	 * Hasilnya lalu disimpan ke cache berkas (lihat {@link #resetLokasi(Boolean, Long, String)}),
+	 * dan ketiadaan hasil dicatat sebagai {@code "0"} agar pencarian berikutnya tidak
+	 * mengulang query.</p>
+	 *
+	 * <h4>TIDAK ADA VALIDASI KEPEMILIKAN DI SINI</h4>
+	 * <p>Method ini — dan seluruh rantai {@code FileFotoLain.ambil(...)} di baliknya —
+	 * adalah <b>query murni</b>. Tidak ada pemeriksaan pengguna login, peran, tenant
+	 * (yayasan/sekolah/kampus), maupun keterkaitan antara pemanggil dan baris pemilik.
+	 * Siapa yang boleh melihat berkas sepenuhnya menjadi tanggung jawab pemanggil.</p>
+	 *
+	 * <p><b>Mengapa itu penting.</b> Servlet {@code ais.action.servlet.AmbilLampiran}
+	 * (dipetakan ke {@code /AmbilLampiran} dan alias publik {@code /al}) memanggil rantai
+	 * ini dengan {@code ref}, {@code jenis}, {@code clazz}, dan {@code usingId} yang diambil
+	 * <b>mentah dari query string</b> bila token terenkripsi {@code d} tidak dikirim, dan
+	 * servlet itu tidak memiliki satu pun pemeriksaan hak akses. Kombinasi
+	 * {@code usingId = true} + primary key {@code IDENTITY} yang berurutan berarti seluruh
+	 * isi tabel lampiran dapat ditelusuri hanya dengan menaikkan satu angka — tanpa perlu
+	 * menebak {@code jenis} sama sekali, karena mode itu mematikan penyaringnya. Lihat
+	 * dokumen {@code src/ais/action/servlet/SECURITY_FINDING_AmbilLampiran_IDOR.md} dan
+	 * {@code task_b82b25d2}. Jangan menambah pemanggil baru yang meneruskan {@code ref}
+	 * dari parameter klien tanpa memeriksa kepemilikan lebih dulu.</p>
+	 *
+	 * @param usingId {@code true} untuk mencocokkan {@code ref} ke primary key baris
+	 *                lampiran (dan mengabaikan {@code jenis}); {@code false} untuk
+	 *                pencocokan normal ke acuan pemilik
+	 * @param ref     acuan baris pemilik, atau primary key lampiran bila {@code usingId}
+	 * @param jenis   penanda jenis lampiran; diabaikan bila {@code usingId} bernilai
+	 *                {@code true}
+	 * @return baris lampiran terbaru yang cocok, atau {@code null} bila tidak ada
+	 *         (juga {@code null} bila terjadi kegagalan query — pengecualiannya ditelan dan
+	 *         dicatat ke audit error, bukan dilempar ke pemanggil)
+	 */
 	public static LampiranLain ambil(Boolean usingId, Long ref, String jenis) {
 		// TODO Auto-generated method stub
 		return (LampiranLain) FileFotoLain.ambil(usingId, ref, jenis, LampiranLain.class);
 	}
 
+	/**
+	 * Kelas konkret baris ini, dipakai kelas induk untuk membangun query dan HQL secara
+	 * generik.
+	 *
+	 * <p>Diperlukan karena {@code FileFotoLain} menangani banyak subkelas lampiran sekaligus
+	 * dan tidak dapat mengandalkan {@code getClass()} — objek yang dibaca Hibernate bisa
+	 * berupa proxy. Nilainya menjadi kunci pencarian nama field acuan di
+	 * {@code FileFotoLain.RELASI_MAP} ({@code LampiranLain} &rarr; {@code "ref"}) dan
+	 * dipakai {@code hapusAtauUpdate} untuk menyusun nama entity pada HQL.</p>
+	 *
+	 * @return selalu {@code LampiranLain.class}
+	 */
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Class ambilClazz() {
 		return LampiranLain.class;
 	}
 
+	/**
+	 * Mengambil satu baris lampiran berdasarkan pasangan ({@code ref}, {@code jenis}),
+	 * dengan kendali atas penggunaan cache.
+	 *
+	 * <p>Setara {@link #ambil(Boolean, Long, String)} dengan {@code usingId = false},
+	 * ditambah parameter {@code refresh}. Bila {@code refresh} bernilai {@code true}, cache
+	 * berkas di disk <b>dilewati</b> dan query langsung ditembakkan ke basis data (hasilnya
+	 * tetap ditulis ulang ke cache). Pakai ini setelah operasi tulis yang belum sempat
+	 * memanggil {@link #resetLokasi(Boolean, Long, String)}, atau ketika data terbaru
+	 * mutlak dibutuhkan.</p>
+	 *
+	 * <p>Peringatan keamanan pada {@link #ambil(Boolean, Long, String)} berlaku sama persis
+	 * di sini: tidak ada pemeriksaan kepemilikan apa pun.</p>
+	 *
+	 * @param ref     acuan baris pemilik
+	 * @param jenis   penanda jenis lampiran (kecocokan persis, case-sensitive)
+	 * @param refresh {@code true} untuk melewati cache berkas dan memaksa query basis data
+	 * @return baris lampiran terbaru yang cocok, atau {@code null}
+	 */
 	public static LampiranLain ambil(Long ref, String jenis, boolean refresh) {
 		return (LampiranLain) FileFotoLain.ambil(ref, jenis, LampiranLain.class, refresh);
 	}
 
+	/**
+	 * Bentuk paling sering dipakai: mengambil satu baris lampiran berdasarkan pasangan
+	 * ({@code ref}, {@code jenis}), memanfaatkan cache berkas bila tersedia.
+	 *
+	 * <p>Setara {@link #ambil(Long, String, boolean)} dengan {@code refresh = false}.
+	 * Karena memakai cache, hasilnya bisa <b>basi</b> bila ada penulisan yang tidak
+	 * memanggil {@link #resetLokasi(Boolean, Long, String)}; bila baris tidak ditemukan,
+	 * ketiadaannya juga ikut di-cache sehingga lampiran yang baru diunggah bisa tampak
+	 * belum ada sampai cache dibersihkan.</p>
+	 *
+	 * <p>Contoh pemakaian tipikal — mencari lampiran milik satu baris master dengan
+	 * {@code jenis} berupa nama kelas Java pemiliknya:
+	 * {@code LampiranLain.ambil(komponen.getId(), KomponenDataProdukKursus.class.getName())}.</p>
+	 *
+	 * <p>Peringatan keamanan pada {@link #ambil(Boolean, Long, String)} berlaku sama persis
+	 * di sini: tidak ada pemeriksaan kepemilikan apa pun.</p>
+	 *
+	 * @param ref   acuan baris pemilik
+	 * @param jenis penanda jenis lampiran (kecocokan persis, case-sensitive)
+	 * @return baris lampiran terbaru yang cocok, atau {@code null}
+	 */
 	public static LampiranLain ambil(Long ref, String jenis) {
 		return (LampiranLain) FileFotoLain.ambil(ref, jenis, LampiranLain.class);
 	}
 
+	/*
+	 * ================================================================================
+	 * PABRIK KOMPONEN ZK: createDownloadUploadFileLain(...)
+	 * --------------------------------------------------------------------------------
+	 * Delapan overload yang seluruhnya bermuara ke satu bentuk terlengkap (15 parameter),
+	 * yang selanjutnya mendelegasikan ke FileFotoLain.createDownloadUpload(...) dengan
+	 * clazz = LampiranLain.class.
+	 *
+	 * Kegunaannya: merakit satu blok kendali lampiran di layar ZK -- tombol Download,
+	 * tombol Upload/Ganti, tombol Hapus (dengan dialog konfirmasi), opsional pratinjau dan
+	 * tombol simpan-ke-Google-Drive. Method ini MEMBACA basis data (memanggil
+	 * FileFotoLain.ambil untuk tahu apakah lampirannya sudah ada) dan komponen yang
+	 * dirakitnya DAPAT MENULIS/MENGHAPUS baris lampiran saat diklik pengguna.
+	 *
+	 * CATATAN HAK AKSES: tidak ada satu pun overload di sini yang memeriksa hak akses.
+	 * Tombol Hapus selalu ikut dirakit ketika tampilUpload bernilai true, apa pun peran
+	 * penggunanya. Pembatasan siapa boleh mengunggah/menghapus HARUS dikerjakan layar
+	 * pemanggil (mis. dengan tidak memanggil overload ini, atau meneruskan
+	 * tampilUpload = false untuk pengguna yang hanya boleh melihat).
+	 *
+	 * Kuirk penamaan: parameter ukuran unggah maksimum bernama "cutomUkuranUpload"
+	 * (seharusnya "custom"); salah ketiknya konsisten di seluruh overload dan di kelas
+	 * induk, jadi dipertahankan agar tidak memecah pemanggil.
+	 * ================================================================================
+	 */
+
+	/**
+	 * Bentuk paling ringkas: merakit blok unduh/unggah lampiran dengan seluruh opsi tampilan
+	 * pada nilai bakunya (bukan hanya ikon, kombo jurusan disembunyikan, tombol unggah
+	 * ditampilkan, tanpa batas ukuran khusus).
+	 *
+	 * @param row           komponen ZK induk tempat blok tombol ditempelkan
+	 * @param myref         acuan baris pemilik; bila {@code null} diganti
+	 *                      {@code Common.refSementara()} (acuan sementara negatif) supaya
+	 *                      berkas dapat diunggah sebelum baris pemiliknya tersimpan
+	 * @param jenis         penanda jenis lampiran
+	 * @param keterangan    label yang muncul pada tombol dan dialog
+	 * @param harusPdf      {@code true} untuk membatasi unggahan hanya berkas PDF
+	 * @param eventListener callback yang dipanggil setelah unggahan berhasil; boleh
+	 *                      {@code null}
+	 */
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener) {
 		Long ref = myref == null ? Common.refSementara() : myref;
@@ -1492,12 +1664,42 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 				false, false, true, null);
 	}
 
+	/**
+	 * Seperti
+	 * {@link #createDownloadUploadFileLain(Component, Long, String, String, Boolean, EventListener)},
+	 * ditambah batas ukuran unggah khusus.
+	 *
+	 * @param row               komponen ZK induk
+	 * @param myref             acuan baris pemilik; {@code null} diganti acuan sementara
+	 * @param jenis             penanda jenis lampiran
+	 * @param keterangan        label tombol/dialog
+	 * @param harusPdf          {@code true} untuk membatasi unggahan hanya PDF
+	 * @param eventListener     callback setelah unggahan berhasil; boleh {@code null}
+	 * @param cutomUkuranUpload batas ukuran unggah khusus (satuan mengikuti
+	 *                          {@code AmbilDataLampiranFileLain}); {@code null} memakai
+	 *                          batas baku sistem
+	 */
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Integer cutomUkuranUpload) {
 		Long ref = myref == null ? Common.refSementara() : myref;
 		createDownloadUploadFileLain(row, ref, jenis, keterangan, harusPdf, eventListener, null, cutomUkuranUpload);
 	}
 
+	/**
+	 * Seperti overload berbatas ukuran, ditambah penampung hasil {@code lampiranLains}.
+	 *
+	 * @param row               komponen ZK induk
+	 * @param myref             acuan baris pemilik; {@code null} diganti acuan sementara
+	 * @param jenis             penanda jenis lampiran
+	 * @param keterangan        label tombol/dialog
+	 * @param harusPdf          {@code true} untuk membatasi unggahan hanya PDF
+	 * @param eventListener     callback setelah unggahan berhasil; boleh {@code null}
+	 * @param lampiranLains     map yang <b>diisi</b> oleh method ini bila lampiran ditemukan,
+	 *                          dengan {@code jenis} sebagai kunci; berguna agar layar dapat
+	 *                          memeriksa kelengkapan berkas tanpa query ulang. Boleh
+	 *                          {@code null}
+	 * @param cutomUkuranUpload batas ukuran unggah khusus; {@code null} memakai batas baku
+	 */
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Map<String, LampiranLain> lampiranLains,
 			Integer cutomUkuranUpload) {
@@ -1506,6 +1708,18 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 				false, false, false, true, cutomUkuranUpload);
 	}
 
+	/**
+	 * Seperti bentuk paling ringkas, ditambah penampung hasil {@code lampiranLains}.
+	 *
+	 * @param row           komponen ZK induk
+	 * @param myref         acuan baris pemilik; {@code null} diganti acuan sementara
+	 * @param jenis         penanda jenis lampiran
+	 * @param keterangan    label tombol/dialog
+	 * @param harusPdf      {@code true} untuk membatasi unggahan hanya PDF
+	 * @param eventListener callback setelah unggahan berhasil; boleh {@code null}
+	 * @param lampiranLains map yang diisi hasil pencarian, berkunci {@code jenis}; boleh
+	 *                      {@code null}
+	 */
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Map<String, LampiranLain> lampiranLains) {
 		Long ref = myref == null ? Common.refSementara() : myref;
@@ -1513,6 +1727,34 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 				false, false, false, true, null);
 	}
 
+	/**
+	 * Bentuk dengan kendali tampilan lengkap, tanpa batas ukuran khusus.
+	 *
+	 * <p><b>Perhatikan:</b> mulai overload ini {@code myref} <b>tidak lagi</b> diganti
+	 * dengan acuan sementara di kelas ini — nilai {@code null} diteruskan apa adanya dan
+	 * baru ditangani {@code FileFotoLain.createDownloadUpload}. Perbedaan kecil ini mudah
+	 * terlewat saat berpindah antar-overload.</p>
+	 *
+	 * @param row                komponen ZK induk
+	 * @param myref              acuan baris pemilik; boleh {@code null}
+	 * @param jenis              penanda jenis lampiran
+	 * @param keterangan         label tombol/dialog
+	 * @param harusPdf           {@code true} untuk membatasi unggahan hanya PDF
+	 * @param eventListener      callback setelah unggahan berhasil; boleh {@code null}
+	 * @param lampiranLains      map yang diisi hasil pencarian; boleh {@code null}
+	 * @param tidakTampilJurusan {@code true} menyembunyikan kombo Jurusan. Kombo itu hanya
+	 *                           muncul bila konfigurasi
+	 *                           {@code upload_file_di_konfigurasi_tiap_jurusan_bisa_beda}
+	 *                           bernilai {@code "Y"}
+	 * @param hanyaIcon          {@code true} merender tombol sebagai ikon tanpa teks
+	 * @param usingId            {@code true} membuat pencarian lampiran memakai primary key
+	 *                           baris lampiran, bukan acuan pemilik — sekaligus mematikan
+	 *                           penyaringan {@code jenis}; lihat
+	 *                           {@link #ambil(Boolean, Long, String)}
+	 * @param tampilUpload       {@code true} menampilkan tombol Upload/Ganti dan Hapus;
+	 *                           {@code false} membuat blok ini hanya-baca (dan menyembunyikan
+	 *                           seluruh baris bila lampiran belum ada)
+	 */
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Map<String, LampiranLain> lampiranLains,
 			Boolean tidakTampilJurusan, Boolean hanyaIcon, Boolean usingId, Boolean tampilUpload) {
@@ -1520,6 +1762,23 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 				tidakTampilJurusan, hanyaIcon, usingId, tampilUpload, null);
 	}
 
+	/**
+	 * Bentuk dengan kendali tampilan lengkap plus batas ukuran unggah khusus; tata letak
+	 * dipaksa horizontal dan pratinjau di layar utama diizinkan.
+	 *
+	 * @param row                komponen ZK induk
+	 * @param myref              acuan baris pemilik; boleh {@code null}
+	 * @param jenis              penanda jenis lampiran
+	 * @param keterangan         label tombol/dialog
+	 * @param harusPdf           {@code true} untuk membatasi unggahan hanya PDF
+	 * @param eventListener      callback setelah unggahan berhasil; boleh {@code null}
+	 * @param lampiranLains      map yang diisi hasil pencarian; boleh {@code null}
+	 * @param tidakTampilJurusan {@code true} menyembunyikan kombo Jurusan
+	 * @param hanyaIcon          {@code true} merender tombol sebagai ikon tanpa teks
+	 * @param usingId            {@code true} mencari berdasarkan primary key lampiran
+	 * @param tampilUpload       {@code true} menampilkan tombol Upload/Ganti dan Hapus
+	 * @param cutomUkuranUpload  batas ukuran unggah khusus; {@code null} memakai batas baku
+	 */
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Map<String, LampiranLain> lampiranLains,
 			Boolean tidakTampilJurusan, Boolean hanyaIcon, Boolean usingId, Boolean tampilUpload,
@@ -1529,6 +1788,28 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 
 	}
 
+	/**
+	 * Bentuk lengkap dengan kendali arah tata letak dan pratinjau, tanpa wadah pratinjau
+	 * terpisah.
+	 *
+	 * @param row                       komponen ZK induk
+	 * @param myref                     acuan baris pemilik; boleh {@code null}
+	 * @param jenis                     penanda jenis lampiran
+	 * @param keterangan                label tombol/dialog
+	 * @param harusPdf                  {@code true} untuk membatasi unggahan hanya PDF
+	 * @param eventListener             callback setelah unggahan berhasil; boleh {@code null}
+	 * @param lampiranLains             map yang diisi hasil pencarian; boleh {@code null}
+	 * @param tidakTampilJurusan        {@code true} menyembunyikan kombo Jurusan
+	 * @param hanyaIcon                 {@code true} merender tombol sebagai ikon tanpa teks
+	 * @param usingId                   {@code true} mencari berdasarkan primary key lampiran
+	 * @param tampilUpload              {@code true} menampilkan tombol Upload/Ganti dan Hapus
+	 * @param cutomUkuranUpload         batas ukuran unggah khusus; boleh {@code null}
+	 * @param vertical                  {@code true} menyusun tombol secara vertikal
+	 *                                  ({@code Vbox}); diabaikan bila {@code hanyaIcon}
+	 *                                  bernilai {@code true}
+	 * @param janganPreviewDiLayarUtama {@code true} menekan pratinjau berkas langsung di
+	 *                                  layar utama
+	 */
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Map<String, LampiranLain> lampiranLains,
 			Boolean tidakTampilJurusan, Boolean hanyaIcon, Boolean usingId, Boolean tampilUpload,
@@ -1539,6 +1820,53 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 				janganPreviewDiLayarUtama, parentPreview);
 	}
 
+	/**
+	 * Bentuk TERLENGKAP — seluruh overload lain bermuara ke sini, yang meneruskan ke
+	 * {@code FileFotoLain.createDownloadUpload(...)} dengan {@code clazz =
+	 * LampiranLain.class}.
+	 *
+	 * <p><b>Yang dikerjakan di balik layar</b> (lihat
+	 * {@code FileFotoLain.createDownloadUpload}):</p>
+	 * <ol>
+	 *   <li>Merakit {@code Vbox} berisi wadah tombol dan wadah pratinjau.</li>
+	 *   <li>Memanggil {@code FileFotoLain.ambil(usingId, ref, jenis, clazz, refresh)} —
+	 *       artinya method ini <b>menyentuh basis data</b> (atau cache berkasnya) setiap
+	 *       kali dipanggil, termasuk saat sekadar merender ulang satu baris grid.</li>
+	 *   <li>Bila lampiran ada: memasang aksi unduh, menyalin nama berkas ke label tombol
+	 *       (dengan membuang awalan {@code "<id>_"}), dan — bila kebijakan Drive
+	 *       mengizinkan — menawarkan tombol simpan-ke-Google-Drive.</li>
+	 *   <li>Bila {@code tampilUpload} bernilai {@code true}: memasang tombol Upload/Ganti
+	 *       yang membuka dialog {@code AmbilDataLampiranFileLain}, serta tombol Hapus dengan
+	 *       dialog konfirmasi yang memanggil {@code performDelete(...)}. Penghapusan bersifat
+	 *       <i>soft delete</i>: acuan {@code ref} baris lampiran diubah menjadi penanda
+	 *       {@code -111111119}, jadi berkasnya tidak benar-benar hilang dari tabel —
+	 *       hanya lepas dari pemiliknya.</li>
+	 * </ol>
+	 *
+	 * <p><b>Tidak ada pemeriksaan hak akses di jalur ini.</b> Kehadiran tombol Hapus
+	 * ditentukan semata oleh {@code tampilUpload}, bukan oleh peran pengguna.</p>
+	 *
+	 * @param row                       komponen ZK induk tempat blok tombol ditempelkan
+	 * @param myref                     acuan baris pemilik; {@code null} akan diganti acuan
+	 *                                  sementara negatif oleh kelas induk
+	 * @param jenis                     penanda jenis lampiran
+	 * @param keterangan                label tombol/dialog, juga dipakai sebagai nama berkas
+	 *                                  tujuan pada unduhan {@code .jrxml}/{@code .xml}
+	 * @param harusPdf                  {@code true} untuk membatasi unggahan hanya PDF
+	 * @param eventListener             callback setelah unggahan berhasil; boleh {@code null}
+	 * @param lampiranLains             map yang diisi hasil pencarian, berkunci {@code jenis};
+	 *                                  boleh {@code null}
+	 * @param tidakTampilJurusan        {@code true} menyembunyikan kombo Jurusan
+	 * @param hanyaIcon                 {@code true} merender tombol sebagai ikon tanpa teks
+	 * @param usingId                   {@code true} mencari berdasarkan primary key baris
+	 *                                  lampiran dan mengabaikan {@code jenis}
+	 * @param tampilUpload              {@code true} menampilkan tombol Upload/Ganti dan Hapus
+	 * @param cutomUkuranUpload         batas ukuran unggah khusus; boleh {@code null}
+	 * @param vertical                  {@code true} menyusun tombol secara vertikal
+	 * @param janganPreviewDiLayarUtama {@code true} menekan pratinjau berkas di layar utama
+	 * @param parentPreview             wadah pratinjau milik pemanggil; bila {@code null}
+	 *                                  sebuah {@code Vbox} baru dibuat di dalam blok ini
+	 */
 	public static void createDownloadUploadFileLain(Component row, final Long myref, final String jenis,
 			final String keterangan, final Boolean harusPdf, final EventListener eventListener,
 			final Map<String, LampiranLain> lampiranLains, final Boolean tidakTampilJurusan, final Boolean hanyaIcon,
@@ -1549,25 +1877,97 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 				janganPreviewDiLayarUtama, parentPreview, LampiranLain.class);
 	}
 
+	/**
+	 * Implementasi kontrak induk: acuan baris pemilik lampiran ini.
+	 *
+	 * <p>Dipakai kelas induk untuk membangun URL lampiran
+	 * ({@code FileFotoLain.ambilLinkLampiranLain}) dan untuk membuang cache lokasi saat
+	 * baris dihapus ({@code FileFotoLain.delete()}). Membaca field langsung, bukan
+	 * {@link #getRef()}, sehingga bebas efek samping — meski dalam kasus ini keduanya
+	 * setara karena {@code getRef()} juga pembaca murni.</p>
+	 *
+	 * @return acuan baris pemilik, atau {@code null}
+	 */
 	@Override
 	public Long ambilRef() {
 		// TODO Auto-generated method stub
 		return ref;
 	}
 
+	/**
+	 * Implementasi kontrak induk: URL dokumen eksternal baris ini.
+	 *
+	 * <p>Meneruskan ke {@link #getLink()}, jadi <b>ikut membawa efek sampingnya</b>
+	 * (menimpa nilai dari {@code copyDari}, menyalin {@code nama} yang berupa URL ke
+	 * kolom {@code link}) dan mengembalikan string kosong, bukan {@code null}, bila tidak
+	 * ada tautan.</p>
+	 *
+	 * @return URL dokumen, atau string kosong
+	 */
 	@Override
 	public String ambilLink() {
 		return getLink();
 	}
 
+	/**
+	 * URL siap-pakai hasil {@code createLinkUri()}, di-cache pada instance.
+	 * Tidak terpetakan ke kolom — lihat {@link #getUrl()}.
+	 */
 	private String url;
+	/** Lokasi berkas fisik di server bila isinya tidak disimpan sebagai blob. */
 	private String lokasiFisik;
 
+	/**
+	 * Implementasi kontrak induk: penanda jenis lampiran ini.
+	 *
+	 * <p>Sengaja membaca field {@code jenis} langsung, bukan {@link #getJenis()}, sehingga
+	 * <b>tidak</b> mengambil nilai cadangan dari {@code copyDari}. Akibatnya method ini
+	 * dapat mengembalikan {@code null} untuk baris yang jenisnya hanya diwarisi dari baris
+	 * sumber, padahal {@code getJenis()} akan mengembalikan nilai. Perbedaan halus ini
+	 * berpengaruh: {@code FileFotoLain.ambilLinkLampiranLain} memakai {@code getJenis()}
+	 * untuk menyusun token URL, sedangkan pemanggil lain yang memakai {@code ambilJenis()}
+	 * bisa mendapat {@code null}.</p>
+	 *
+	 * @return penanda jenis apa adanya, dapat {@code null}
+	 */
 	@Override
 	public String ambilJenis() {
 		return jenis;
 	}
 
+	/**
+	 * URL siap-pakai untuk mengakses berkas lampiran ini — <b>bukan properti basis data dan
+	 * bukan operasi murni</b>.
+	 *
+	 * <p>Ditandai {@code @Transient} sehingga tidak disimpan; nilainya dibangun sekali per
+	 * instance (lazy) lalu di-cache di field {@link #url}. Pembangunannya lewat
+	 * {@code FileFotoLain.createLinkUri()}, yang berperilaku sebagai berikut:</p>
+	 * <ol>
+	 *   <li>Bila {@link #getGdrive()} terisi, dikembalikan URL Google Drive.</li>
+	 *   <li>Selain itu, berkas fisik baris ini <b>DISALIN ke direktori media</b>
+	 *       ({@code CommonMedia.getMediaDirectory()}) dengan nama hasil enkripsi
+	 *       {@code <id> + "LampiranLain"} yang tanda bacanya dibuang. Nama itu memang tidak
+	 *       terbaca manusia, tetapi <b>deterministik</b> — bukan rahasia yang berubah
+	 *       tiap permintaan.</li>
+	 *   <li>Terakhir dipanggil {@code ambilLinkLampiranLain(...)} yang, bila berkas dengan
+	 *       nama itu ada di direktori media, mengembalikan <b>URL STATIS</b> berbentuk
+	 *       {@code /f<prefix>/<NamaKelas>/<id>/<namaBerkas>} — bukan URL {@code /al?d=...}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Implikasi keamanan (penting untuk {@code task_b82b25d2}).</b> Karena berkas
+	 * disalin ke direktori media dan disajikan sebagai berkas statis, permintaan ke URL
+	 * tersebut <b>tidak melewati servlet {@code AmbilLampiran} sama sekali</b>. Segala
+	 * mitigasi yang dipasang di level servlet — pemeriksaan kepemilikan, daftar putih
+	 * {@code jenis}, pembatasan token — tidak berlaku pada jalur ini. Menutup IDOR di
+	 * servlet saja tidak cukup selama getter ini masih menyalin berkas ke area publik.</p>
+	 *
+	 * <p><b>Penanganan galat:</b> pengecualian ditelan, dicetak ke {@code stderr}, dan
+	 * dicatat ke {@code ErrorAuditUtil}; method mengembalikan {@code null} tanpa melempar.
+	 * Bila {@link #getId()} masih {@code null} (baris belum tersimpan), URL tidak dibangun
+	 * dan hasilnya {@code null}.</p>
+	 *
+	 * @return URL berkas, atau {@code null} bila belum tersimpan atau pembangunan URL gagal
+	 */
 	@Transient
 	public String getUrl() {
 		try {
@@ -1580,15 +1980,40 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return url;
 	}
 
+	/**
+	 * Menyetel (atau menimpa) URL cache pada instance ini.
+	 *
+	 * <p>Berguna untuk memaksa URL tertentu tanpa menyalin berkas ke direktori media, atau
+	 * untuk mengosongkan cache dengan menyetel {@code null} agar {@link #getUrl()}
+	 * membangunnya ulang. Tidak menyentuh basis data.</p>
+	 *
+	 * @param url URL yang dipakai, atau {@code null} untuk memaksa pembangunan ulang
+	 */
 	public void setUrl(String url) {
 		this.url = url;
 	}
 
+	/**
+	 * Lokasi berkas fisik di server untuk lampiran yang isinya tidak disimpan sebagai blob.
+	 *
+	 * <p><b>Menormalkan string kosong menjadi {@code null}</b>, sehingga pemanggil cukup
+	 * memeriksa {@code != null} tanpa perlu ikut memeriksa {@code isEmpty()}. Perhatikan
+	 * pemeriksaannya memakai {@code isEmpty()}, bukan {@code trim().isEmpty()} — nilai yang
+	 * hanya berisi spasi tetap dianggap ada. Tidak ada efek samping; nilai field tidak
+	 * diubah.</p>
+	 *
+	 * @return path berkas fisik, atau {@code null} bila kosong/belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getLokasiFisik() {
 		return lokasiFisik == null || lokasiFisik.isEmpty() ? null : lokasiFisik;
 	}
 
+	/**
+	 * Menyetel lokasi berkas fisik di server.
+	 *
+	 * @param lokasiFisik path berkas fisik
+	 */
 	public void setLokasiFisik(String lokasiFisik) {
 		this.lokasiFisik = lokasiFisik;
 	}
