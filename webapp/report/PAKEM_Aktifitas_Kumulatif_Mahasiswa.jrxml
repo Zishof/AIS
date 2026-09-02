@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="PAKEM_Aktifitas_Kumulatif_Mahasiswa" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="511" leftMargin="42" rightMargin="42" topMargin="36" bottomMargin="36" uuid="25739002-f5e5-4e38-b6c3-dc4121c266d1">
+	<property name="ireport.encoding" value="UTF-8"/>
+	<parameter name="mahasiswa_id" class="java.lang.Long"/>
+	<parameter name="nama" class="java.lang.String"/>
+	<parameter name="nim" class="java.lang.String"/>
+	<parameter name="jurusan" class="java.lang.String"/>
+	<parameter name="tingkat_semester" class="java.lang.String"/>
+	<parameter name="semester_sampai_filter" class="java.lang.Integer"/>
+	<parameter name="tahun_angkatan" class="java.lang.Integer"/>
+	<parameter name="semester_awal_mahasiswa" class="java.lang.Integer"/>
+	<parameter name="jenis_semester_masuk" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[with aktivitas as (
+	select
+		$P{semester_awal_mahasiswa}
+		+ ((cast(substring(b.tahunakademik from 1 for 4) as integer) * 2
+			+ case when lower(coalesce(b.jenissemester, 'ganjil')) = 'genap' then 1 else 0 end)
+			- ($P{tahun_angkatan} * 2
+			+ case when lower(coalesce($P{jenis_semester_masuk}, 'Ganjil')) = 'genap' then 1 else 0 end)) as semester,
+		b.id,
+		b.mulai,
+		b.nama as nama_kegiatan,
+		cast(coalesce(h.nilai, 0) as double precision) as jumlah
+	from kegiatan_kemahasiswaan_punya_mahasiswa a
+	inner join kegiatan_kemahasiswaan b on a.kegiatan_kemahasiswaan = b.id
+	inner join kelompok_kegiatan_kemahasiswaan d on b.kelompok_kegiatan_kemahasiswaan = d.id
+	inner join detail_kelompok_kegiatan_kemahasiswaan e on e.id = b.detail_kelompok_kegiatan_kemahasiswaan
+	left join nilai_kegiatan_kemahasiswaan h on (
+		h.skala_kegiatan_kemahasiswaan = a.skala_kegiatan_kemahasiswaan
+		and h.detail_kelompok_kegiatan_kemahasiswaan = b.detail_kelompok_kegiatan_kemahasiswaan
+		and (case when a.jabatan_kegiatan_kemahasiswaan is not null
+			then h.jabatan_kegiatan_kemahasiswaan = a.jabatan_kegiatan_kemahasiswaan
+			else h.jabatan_kegiatan_kemahasiswaan is null end)
+	)
+	where a.mahasiswa = $P{mahasiswa_id}
+	and d.aktif
+	and e.aktif
+	and b.status = 'Disetujui'
+	and a.persetujuan
+	and b.tahunakademik ~ '^[0-9]{4}'
+), daftar_semester as (
+	select generate_series(1, $P{semester_sampai_filter}) as semester
+)
+select
+	s.semester,
+	case s.semester
+		when 1 then 'I' when 2 then 'II' when 3 then 'III' when 4 then 'IV'
+		when 5 then 'V' when 6 then 'VI' when 7 then 'VII' when 8 then 'VIII'
+		when 9 then 'IX' when 10 then 'X' when 11 then 'XI' when 12 then 'XII'
+		when 13 then 'XIII' when 14 then 'XIV' when 15 then 'XV' when 16 then 'XVI'
+		else cast(s.semester as varchar) end as semester_romawi,
+	case when a.nama_kegiatan is null then null
+		else cast(row_number() over (partition by s.semester order by a.mulai, a.nama_kegiatan, a.id) as integer)
+	end as nomor,
+	a.nama_kegiatan,
+	a.jumlah,
+	cast(coalesce(sum(a.jumlah) over (partition by s.semester), 0) as double precision) as total_semester
+from daftar_semester s
+left join aktivitas a on a.semester = s.semester
+order by s.semester, a.mulai, a.nama_kegiatan, a.id]]>
+	</queryString>
+	<field name="semester" class="java.lang.Integer"/>
+	<field name="semester_romawi" class="java.lang.String"/>
+	<field name="nomor" class="java.lang.Integer"/>
+	<field name="nama_kegiatan" class="java.lang.String"/>
+	<field name="jumlah" class="java.lang.Double"/>
+	<field name="total_semester" class="java.lang.Double"/>
+	<variable name="total_kumulatif" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{jumlah} == null ? 0.0 : $F{jumlah}]]></variableExpression>
+		<initialValueExpression><![CDATA[0.0]]></initialValueExpression>
+	</variable>
+	<group name="Semester">
+		<groupExpression><![CDATA[$F{semester}]]></groupExpression>
+		<groupHeader>
+			<band height="22">
+				<textField><reportElement x="0" y="0" width="55" height="22" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962201"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9" isBold="true"/></textElement><textFieldExpression><![CDATA[$F{semester} + "."]]></textFieldExpression></textField>
+				<textField><reportElement x="55" y="0" width="371" height="22" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962202"/><box><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"><font fontName="Times New Roman" size="9" isBold="true"/></textElement><textFieldExpression><![CDATA["SEMESTER " + $F{semester_romawi}]]></textFieldExpression></textField>
+				<staticText><reportElement x="426" y="0" width="85" height="22" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962203"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="22">
+				<staticText><reportElement x="0" y="0" width="426" height="22" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962204"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="Times New Roman" size="9" isBold="true"/></textElement><text><![CDATA[TOTAL PER SEMESTER  ]]></text></staticText>
+				<textField pattern="#0.##"><reportElement x="426" y="0" width="85" height="22" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962205"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9" isBold="true"/></textElement><textFieldExpression><![CDATA[$F{total_semester}]]></textFieldExpression></textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background><band splitType="Stretch"/></background>
+	<title>
+		<band height="156" splitType="Stretch">
+			<staticText><reportElement x="0" y="0" width="511" height="20" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962206"/><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="12" isBold="true"/></textElement><text><![CDATA[FORM B PAKEM KUMULATIF]]></text></staticText>
+			<staticText><reportElement x="0" y="21" width="511" height="20" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962207"/><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="12" isBold="true"/></textElement><text><![CDATA[REKAPITULASI NILAI]]></text></staticText>
+			<staticText><reportElement x="0" y="42" width="511" height="20" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962208"/><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="12" isBold="true"/></textElement><text><![CDATA[POINT AKTIFITAS KEGIATAN MAHASISWA]]></text></staticText>
+			<staticText><reportElement x="0" y="74" width="95" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962209"/><textElement><font fontName="Times New Roman" size="11"/></textElement><text><![CDATA[Nama]]></text></staticText>
+			<textField isBlankWhenNull="true"><reportElement x="95" y="74" width="416" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962210"/><box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box><textElement><font fontName="Times New Roman" size="11"/></textElement><textFieldExpression><![CDATA[$P{nama}]]></textFieldExpression></textField>
+			<staticText><reportElement x="0" y="94" width="95" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962211"/><textElement><font fontName="Times New Roman" size="11"/></textElement><text><![CDATA[NIM]]></text></staticText>
+			<textField isBlankWhenNull="true"><reportElement x="95" y="94" width="416" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962212"/><box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box><textElement><font fontName="Times New Roman" size="11"/></textElement><textFieldExpression><![CDATA[$P{nim}]]></textFieldExpression></textField>
+			<staticText><reportElement x="0" y="114" width="95" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962213"/><textElement><font fontName="Times New Roman" size="11"/></textElement><text><![CDATA[Prodi/Jurusan]]></text></staticText>
+			<textField isBlankWhenNull="true"><reportElement x="95" y="114" width="416" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962214"/><box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box><textElement><font fontName="Times New Roman" size="11"/></textElement><textFieldExpression><![CDATA[$P{jurusan}]]></textFieldExpression></textField>
+			<staticText><reportElement x="0" y="134" width="95" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962215"/><textElement><font fontName="Times New Roman" size="11"/></textElement><text><![CDATA[Tingkat/Semester]]></text></staticText>
+			<textField isBlankWhenNull="true"><reportElement x="95" y="134" width="416" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962216"/><box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box><textElement><font fontName="Times New Roman" size="11"/></textElement><textFieldExpression><![CDATA[$P{tingkat_semester}]]></textFieldExpression></textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="24">
+			<staticText><reportElement x="0" y="0" width="55" height="24" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962217"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[NO]]></text></staticText>
+			<staticText><reportElement x="55" y="0" width="371" height="24" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962218"/><box><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[JENIS KEGIATAN]]></text></staticText>
+			<staticText><reportElement x="426" y="0" width="85" height="24" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962219"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[JUMLAH POIN]]></text></staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="20" splitType="Stretch">
+			<textField isBlankWhenNull="true"><reportElement x="0" y="0" width="55" height="20" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962220"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><textFieldExpression><![CDATA[$F{nomor} == null ? "" : ($F{nomor} + ".  ")]]></textFieldExpression></textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true"><reportElement positionType="Float" stretchType="RelativeToTallestObject" x="55" y="0" width="371" height="20" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962221"/><box><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><textFieldExpression><![CDATA[$F{nama_kegiatan}]]></textFieldExpression></textField>
+			<textField pattern="#0.##" isBlankWhenNull="true"><reportElement stretchType="RelativeToTallestObject" x="426" y="0" width="85" height="20" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962222"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><textFieldExpression><![CDATA[$F{jumlah}]]></textFieldExpression></textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="138" splitType="Stretch">
+			<staticText><reportElement x="0" y="0" width="426" height="24" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962223"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="Times New Roman" size="9" isBold="true"/></textElement><text><![CDATA[TOTAL KUMULATIF  ]]></text></staticText>
+			<textField pattern="#0.##"><reportElement x="426" y="0" width="85" height="24" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962224"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9" isBold="true"/></textElement><textFieldExpression><![CDATA[$V{total_kumulatif} == null ? 0.0 : $V{total_kumulatif}]]></textFieldExpression></textField>
+			<staticText><reportElement x="0" y="42" width="250" height="28" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962225"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[Wakil Rektor Mutu Pendidikan,
+Kemahasiswaan dan Prestasi]]></text></staticText>
+			<staticText><reportElement x="280" y="42" width="231" height="28" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962226"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[Ka. Biro Kemahasiswaan]]></text></staticText>
+			<staticText><reportElement x="0" y="104" width="250" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962227"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[(....................................................)]]></text></staticText>
+			<staticText><reportElement x="280" y="104" width="231" height="18" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962228"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[(....................................................)]]></text></staticText>
+			<staticText><reportElement x="0" y="122" width="250" height="12" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962229"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="8"/></textElement><text><![CDATA[NIK.]]></text></staticText>
+			<staticText><reportElement x="280" y="122" width="231" height="12" uuid="9c5b04b2-1088-4cd8-813b-e0b4aa962230"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="8"/></textElement><text><![CDATA[NIK.]]></text></staticText>
+		</band>
+	</summary>
+</jasperReport>

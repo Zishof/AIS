@@ -725,6 +725,16 @@ public class MahasiswaPunyaKegiatanKemahasiswaanHelper implements DataLoader, Da
 				}
 			});
 			cetak.setParent(toolbar);
+
+			cetak = new MyToolbarbuttonConfig("Cetak Aktifitas", "/img/print.png");
+			cetak.setTooltiptext("Cetak Form A nilai semester dan Form B rekap kumulatif PAKEM");
+			cetak.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					CommonReportHelper.onCetakAktifitasMahasiswa(mahasiswa);
+				}
+			});
+			cetak.setParent(toolbar);
 		}
 
 		grid = new MyGrid();// grid.setOddRowSclass("non-odd");

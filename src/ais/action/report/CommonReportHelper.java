@@ -3804,6 +3804,78 @@ public class CommonReportHelper {
 
 	}
 
+	/**
+	 * Membuat dokumen PAKEM mahasiswa sesuai formulir pedoman aktivitas mahasiswa.
+	 * Dokumen keluaran terdiri dari Form A (aktivitas dan nilai pada semester berjalan)
+	 * dan Form B (rekap kumulatif semester I sampai VIII), kemudian kedua PDF tersebut
+	 * digabungkan menjadi satu berkas agar pengguna tidak perlu mencetak dua laporan
+	 * secara terpisah.
+	 *
+	 * <p>Sumber data laporan dibatasi pada keikutsertaan yang telah disetujui
+	 * ({@code kegiatan_kemahasiswaan.status = 'Disetujui'} dan
+	 * {@code kegiatan_kemahasiswaan_punya_mahasiswa.persetujuan = true}). Semester
+	 * kegiatan dihitung dari tahun akademik dan jenis semester kegiatan relatif
+	 * terhadap tahun angkatan, jenis semester masuk, serta semester awal mahasiswa.
+	 * Dengan demikian laporan tidak bergantung pada semester layar atau urutan input
+	 * dan tetap benar untuk mahasiswa pindahan yang mulai pada semester lebih dari
+	 * satu.</p>
+	 *
+	 * <p>Model data saat ini hanya menyimpan nilai akhir rubrik pada
+	 * {@code nilai_kegiatan_kemahasiswaan.nilai}; sistem belum menyimpan nilai IW, IS,
+	 * IPr, dan IOr sebagai empat angka independen. Karena itu Form A menempatkan nilai
+	 * akhir resmi pada kolom Jumlah dan tidak mengarang pembagian nilai ke empat kolom
+	 * komponen. Kolom komponen tetap dicetak kosong sebagai ruang verifikasi sesuai
+	 * dokumen pedoman. Perubahan ini penting agar laporan dapat diaudit dan tidak
+	 * menyajikan data turunan yang tampak resmi tetapi sebenarnya tidak pernah direkam
+	 * oleh sistem.</p>
+	 *
+	 * @param mahasiswa mahasiswa pemilik aktivitas; harus sudah tersimpan dan memiliki
+	 *                   identitas basis data
+	 * @throws Exception bila parameter, kompilasi laporan, pengisian data, penggabungan,
+	 *                   atau penayangan PDF gagal
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public static void onCetakAktifitasMahasiswa(Mahasiswa mahasiswa) throws Exception {
+		if (mahasiswa == null || mahasiswa.getId() == null) {
+			throw new IllegalArgumentException("Mahasiswa untuk Cetak Aktifitas belum dipilih atau belum tersimpan.");
+		}
+
+		Date tanggalCetak = ais.ui.util.WaktuUtil.getDate();
+		int semesterAktif = mahasiswa.getSemesterSaatIni() == null ? 1
+				: Math.max(1, mahasiswa.getSemesterSaatIni().intValue());
+		int semesterAkhirKumulatif = Math.max(8, semesterAktif);
+
+		Map parameters = LaporanKegiatanKemahasiswaan.generateParameter(mahasiswa, tanggalCetak,
+				Integer.valueOf(1), Integer.valueOf(semesterAkhirKumulatif));
+		parameters.put("nim", mahasiswa.getNim() == null ? "" : mahasiswa.getNim());
+		parameters.put("semester_aktif", Integer.valueOf(semesterAktif));
+		parameters.put("tingkat_semester", "Semester " + semesterAktif);
+
+		File formSemester = Report.generateFileReport(Report.PDF, new HashMap(parameters),
+				"PAKEM_Aktifitas_Semester_Mahasiswa", tanggalCetak, Common.locale);
+		File formKumulatif = Report.generateFileReport(Report.PDF, new HashMap(parameters),
+				"PAKEM_Aktifitas_Kumulatif_Mahasiswa", tanggalCetak, Common.locale);
+
+		PDFMergerUtility merger = new PDFMergerUtility();
+		merger.addSource(formSemester);
+		merger.addSource(formKumulatif);
+
+		File fileGabungan = new File(formSemester.getParentFile(),
+				"PAKEM_Aktifitas_" + Common.getGeneratedBarCode() + ".pdf");
+		FileOutputStream output = null;
+		try {
+			output = new FileOutputStream(fileGabungan);
+			merger.setDestinationStream(output);
+			merger.mergeDocuments();
+		} finally {
+			if (output != null) {
+				output.close();
+			}
+		}
+
+		Report.tampil(fileGabungan, parameters, "PAKEM Aktifitas Mahasiswa");
+	}
+
 	public static void onCetakAngkaKreditSiswa(Siswa siswa) throws Exception {
 		Report.generatePDFReport(Report.PDF,
 				LaporanKegiatanKesiswaan.generateParameter(siswa, ais.ui.util.WaktuUtil.getDate()),

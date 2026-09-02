@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="PAKEM_Aktifitas_Semester_Mahasiswa" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="511" leftMargin="42" rightMargin="42" topMargin="36" bottomMargin="36" uuid="84f6292d-36be-458f-acab-030125f1bc49">
+	<property name="ireport.encoding" value="UTF-8"/>
+	<parameter name="mahasiswa_id" class="java.lang.Long"/>
+	<parameter name="nama" class="java.lang.String"/>
+	<parameter name="nim" class="java.lang.String"/>
+	<parameter name="jurusan" class="java.lang.String"/>
+	<parameter name="tingkat_semester" class="java.lang.String"/>
+	<parameter name="semester_aktif" class="java.lang.Integer"/>
+	<parameter name="tahun_angkatan" class="java.lang.Integer"/>
+	<parameter name="semester_awal_mahasiswa" class="java.lang.Integer"/>
+	<parameter name="jenis_semester_masuk" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select
+	cast(row_number() over (order by b.mulai, b.nama, b.id) as integer) as nomor,
+	b.nama as nama_kegiatan,
+	cast(coalesce(h.nilai, 0) as double precision) as jumlah
+from kegiatan_kemahasiswaan_punya_mahasiswa a
+inner join kegiatan_kemahasiswaan b on a.kegiatan_kemahasiswaan = b.id
+inner join kelompok_kegiatan_kemahasiswaan d on b.kelompok_kegiatan_kemahasiswaan = d.id
+inner join detail_kelompok_kegiatan_kemahasiswaan e on e.id = b.detail_kelompok_kegiatan_kemahasiswaan
+left join nilai_kegiatan_kemahasiswaan h on (
+	h.skala_kegiatan_kemahasiswaan = a.skala_kegiatan_kemahasiswaan
+	and h.detail_kelompok_kegiatan_kemahasiswaan = b.detail_kelompok_kegiatan_kemahasiswaan
+	and (case when a.jabatan_kegiatan_kemahasiswaan is not null
+		then h.jabatan_kegiatan_kemahasiswaan = a.jabatan_kegiatan_kemahasiswaan
+		else h.jabatan_kegiatan_kemahasiswaan is null end)
+)
+where a.mahasiswa = $P{mahasiswa_id}
+and d.aktif
+and e.aktif
+and b.status = 'Disetujui'
+and a.persetujuan
+and b.tahunakademik ~ '^[0-9]{4}'
+and (
+	$P{semester_awal_mahasiswa}
+	+ ((cast(substring(b.tahunakademik from 1 for 4) as integer) * 2
+		+ case when lower(coalesce(b.jenissemester, 'ganjil')) = 'genap' then 1 else 0 end)
+		- ($P{tahun_angkatan} * 2
+		+ case when lower(coalesce($P{jenis_semester_masuk}, 'Ganjil')) = 'genap' then 1 else 0 end))
+) = $P{semester_aktif}
+order by b.mulai, b.nama, b.id]]>
+	</queryString>
+	<field name="nomor" class="java.lang.Integer"/>
+	<field name="nama_kegiatan" class="java.lang.String"/>
+	<field name="jumlah" class="java.lang.Double"/>
+	<variable name="total" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{jumlah}]]></variableExpression>
+		<initialValueExpression><![CDATA[0.0]]></initialValueExpression>
+	</variable>
+	<background><band splitType="Stretch"/></background>
+	<title>
+		<band height="136" splitType="Stretch">
+			<staticText><reportElement x="0" y="0" width="511" height="20" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea76"/><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="12" isBold="true"/></textElement><text><![CDATA[FORM A PAKEM NILAI SEMESTER]]></text></staticText>
+			<staticText><reportElement x="0" y="21" width="511" height="20" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea77"/><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="12" isBold="true"/></textElement><text><![CDATA[POINT AKTIFITAS KEGIATAN MAHASISWA]]></text></staticText>
+			<staticText><reportElement x="0" y="52" width="95" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea78"/><textElement><font fontName="Times New Roman" size="11"/></textElement><text><![CDATA[Nama]]></text></staticText>
+			<textField isBlankWhenNull="true"><reportElement x="95" y="52" width="416" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea79"/><box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box><textElement><font fontName="Times New Roman" size="11"/></textElement><textFieldExpression><![CDATA[$P{nama}]]></textFieldExpression></textField>
+			<staticText><reportElement x="0" y="72" width="95" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea80"/><textElement><font fontName="Times New Roman" size="11"/></textElement><text><![CDATA[NIM]]></text></staticText>
+			<textField isBlankWhenNull="true"><reportElement x="95" y="72" width="416" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea81"/><box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box><textElement><font fontName="Times New Roman" size="11"/></textElement><textFieldExpression><![CDATA[$P{nim}]]></textFieldExpression></textField>
+			<staticText><reportElement x="0" y="92" width="95" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea82"/><textElement><font fontName="Times New Roman" size="11"/></textElement><text><![CDATA[Prodi/Jurusan]]></text></staticText>
+			<textField isBlankWhenNull="true"><reportElement x="95" y="92" width="416" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea83"/><box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box><textElement><font fontName="Times New Roman" size="11"/></textElement><textFieldExpression><![CDATA[$P{jurusan}]]></textFieldExpression></textField>
+			<staticText><reportElement x="0" y="112" width="95" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea84"/><textElement><font fontName="Times New Roman" size="11"/></textElement><text><![CDATA[Tingkat/Semester]]></text></staticText>
+			<textField isBlankWhenNull="true"><reportElement x="95" y="112" width="416" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea85"/><box><bottomPen lineWidth="0.5" lineStyle="Dotted"/></box><textElement><font fontName="Times New Roman" size="11"/></textElement><textFieldExpression><![CDATA[$P{tingkat_semester}]]></textFieldExpression></textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="42">
+			<staticText><reportElement x="0" y="0" width="35" height="42" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea86"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[No]]></text></staticText>
+			<staticText><reportElement x="35" y="0" width="226" height="42" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea87"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[Jenis Kegiatan]]></text></staticText>
+			<staticText><reportElement x="261" y="0" width="250" height="21" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea88"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[PAKEM]]></text></staticText>
+			<staticText><reportElement x="261" y="21" width="50" height="21" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea89"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[IW]]></text></staticText>
+			<staticText><reportElement x="311" y="21" width="50" height="21" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea90"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[IS]]></text></staticText>
+			<staticText><reportElement x="361" y="21" width="50" height="21" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea91"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[IPr]]></text></staticText>
+			<staticText><reportElement x="411" y="21" width="50" height="21" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea92"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[IOr]]></text></staticText>
+			<staticText><reportElement x="461" y="21" width="50" height="21" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea93"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[Jumlah]]></text></staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="24" splitType="Stretch">
+			<textField isBlankWhenNull="true"><reportElement x="0" y="0" width="35" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea94"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><textFieldExpression><![CDATA[$F{nomor}]]></textFieldExpression></textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true"><reportElement positionType="Float" stretchType="RelativeToTallestObject" x="35" y="0" width="226" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea95"/><box><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><textFieldExpression><![CDATA[$F{nama_kegiatan}]]></textFieldExpression></textField>
+			<staticText><reportElement stretchType="RelativeToTallestObject" x="261" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea96"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			<staticText><reportElement stretchType="RelativeToTallestObject" x="311" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea97"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			<staticText><reportElement stretchType="RelativeToTallestObject" x="361" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea98"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			<staticText><reportElement stretchType="RelativeToTallestObject" x="411" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8ea99"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			<textField pattern="#0.##" isBlankWhenNull="true"><reportElement stretchType="RelativeToTallestObject" x="461" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb00"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9"/></textElement><textFieldExpression><![CDATA[$F{jumlah}]]></textFieldExpression></textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="162" splitType="Stretch">
+			<staticText><reportElement x="0" y="0" width="261" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb01"/><box><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"><font fontName="Times New Roman" size="10" isBold="true"/></textElement><text><![CDATA[JUMLAH ANGKA KREDIT]]></text></staticText>
+			<staticText><reportElement x="261" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb02"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			<staticText><reportElement x="311" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb03"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			<staticText><reportElement x="361" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb04"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			<staticText><reportElement x="411" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb05"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
+			<textField pattern="#0.##"><reportElement x="461" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb06"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Times New Roman" size="9" isBold="true"/></textElement><textFieldExpression><![CDATA[$V{total} == null ? 0.0 : $V{total}]]></textFieldExpression></textField>
+			<staticText><reportElement x="0" y="27" width="511" height="22" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb07"/><textElement><font fontName="Times New Roman" size="9"/></textElement><text><![CDATA[IW : Indeks Wilayah, IS : Indeks Struktur, IPr : Indeks Prestasi, IOr : Indeks Organisasi]]></text></staticText>
+			<staticText><reportElement x="0" y="48" width="511" height="27" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb08"/><textElement><font fontName="Times New Roman" size="8" isItalic="true"/></textElement><text><![CDATA[Kolom Jumlah memuat nilai akhir rubrik yang tersimpan di sistem. Kolom indeks disediakan untuk verifikasi karena komponen IW/IS/IPr/IOr belum disimpan sebagai nilai terpisah.]]></text></staticText>
+			<staticText><reportElement x="2" y="88" width="210" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb09"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[Ketua Prodi]]></text></staticText>
+			<staticText><reportElement x="299" y="88" width="210" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb10"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[Kemahasiswaan Prodi]]></text></staticText>
+			<staticText><reportElement x="2" y="136" width="210" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb11"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[(....................................................)]]></text></staticText>
+			<staticText><reportElement x="299" y="136" width="210" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb12"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[(....................................................)]]></text></staticText>
+			<staticText><reportElement x="2" y="153" width="210" height="9" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb13"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="8"/></textElement><text><![CDATA[NIK.]]></text></staticText>
+			<staticText><reportElement x="299" y="153" width="210" height="9" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb14"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="8"/></textElement><text><![CDATA[NIK.]]></text></staticText>
+		</band>
+	</summary>
+</jasperReport>
