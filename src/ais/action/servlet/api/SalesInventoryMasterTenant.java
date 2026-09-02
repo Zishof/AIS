@@ -183,17 +183,26 @@ final class SalesInventoryMasterTenant {
 	}
 
 	/**
-	 * Kolom daftar sales, berurutan sama dengan legacy: id, kode, nama, nomorPerkiraan, area,
-	 * telepon, targetBulanan, jumlahCustomer, tokoId, tokoNama, aktif.
+	 * Kolom daftar sales, <b>13 kolom</b> berurutan sama dengan legacy: id, kode, nama,
+	 * nomorPerkiraan, area, telepon, targetBulanan, limitPenagihan, aktif, tokoId, tokoNama,
+	 * userId, jumlahCustomer.
 	 *
-	 * <p>{@code target_bulanan} tidak ada pada model tenant; dikembalikan nol.</p>
+	 * <p>{@code target_bulanan} dan {@code limit_penagihan} tidak ada pada model tenant;
+	 * dikembalikan {@code NULL} di tempatnya, bukan nol. Nol berarti "targetnya nol" dan akan
+	 * membuat laporan pencapaian melaporkan 100% terhadap target kosong; {@code NULL} berarti
+	 * "belum diatur" dan terbaca apa adanya oleh klien.</p>
+	 *
+	 * <p>{@code userId} legacy adalah userid Tbmuser berupa teks; model tenant menautkannya lewat
+	 * {@code pengguna_tenant_id}, sehingga useridnya ditarik dari tabel itu.</p>
 	 */
 	static String selectSales(String skema) {
 		return "SELECT s.id, s.kode, s.nama, COALESCE(s.akun_perkiraan,''), "
-				+ "COALESCE(sa.wilayah,''), COALESCE(s.telp,''), 0, "
+				+ "COALESCE(sa.wilayah,''), COALESCE(s.telp,''), NULL, NULL, "
+				+ "COALESCE(s.aktif,true), COALESCE(sa.toko_id,0), COALESCE(t.nama,''), "
+				+ "COALESCE((SELECT pt.userid FROM " + skema + "pengguna_tenant pt"
+				+ " WHERE pt.id = s.pengguna_tenant_id),''), "
 				+ "(SELECT COUNT(*) FROM " + skema + "customer c WHERE c.salesperson_id = s.id"
-				+ " AND COALESCE(c.aktif,true) = true), "
-				+ "COALESCE(sa.toko_id,0), COALESCE(t.nama,''), COALESCE(s.aktif,true)";
+				+ " AND COALESCE(c.aktif,true) = true)";
 	}
 
 	static String kunciSales() {
@@ -280,5 +289,61 @@ final class SalesInventoryMasterTenant {
 	static String ubahSalesOwner(String skema) {
 		return "UPDATE " + skema + "customer SET salesperson_id = ?, tanggal_dirubah = now(),"
 				+ " oleh = ? WHERE id = ?";
+	}
+
+	// ------------------------------------------------------------------ layar rinci
+
+	/**
+	 * Rinci pemasok dalam satu baris. Kolom berurutan: id, kode, nama, alamat, kodePos, telp,
+	 * fax, kontak, email, keterangan, profilId, terminHari, wilayah, noRekening, atasNama, bank,
+	 * alamatBank, aktif, saldoHutang.
+	 *
+	 * <p>{@code kodePos} dan {@code fax} ada pada {@code supplier_profile}; {@code keterangan},
+	 * {@code wilayah}, dan {@code alamatBank} tidak punya padanan dan dikosongkan.</p>
+	 *
+	 * <p>Saldo hutang memakai rumus yang <b>sama persis</b> dengan
+	 * {@code SalesInventoryPayableTenant.outstanding} -- dihitung dari alokasi, bukan dibaca dari
+	 * kolom ringkasan. Dua layar yang menghitung hutang dengan cara berbeda adalah cara pasti
+	 * melahirkan dua angka.</p>
+	 */
+	static String sqlDetailSupplier(String skema) {
+		return "SELECT p.id, p.kode, p.nama, COALESCE(sp.alamat1,''), COALESCE(sp.kode_pos,''), "
+				+ "COALESCE(sp.telp,''), COALESCE(sp.fax,''), COALESCE(sp.kontak,''), "
+				+ "COALESCE(sp.email,''), '', sp.id, COALESCE(sp.syarat_bayar_hari,0), '', "
+				+ "COALESCE(" + bankUtama(skema, "nomor_rekening") + ",''), "
+				+ "COALESCE(" + bankUtama(skema, "atas_nama") + ",''), "
+				+ "COALESCE(" + bankUtama(skema, "nama_bank") + ",''), '', "
+				+ "COALESCE(p.aktif,true), "
+				+ "COALESCE((SELECT SUM(COALESCE(h.nilai,0) - COALESCE((SELECT SUM(a.nilai) FROM "
+				+ skema + "alokasi_pembayaran_hutang a WHERE a.hutang_supplier_id = h.id),0))"
+				+ " FROM " + skema + "hutang_supplier h WHERE h.supplier_id = p.id),0)"
+				+ " FROM " + skema + "supplier p LEFT JOIN " + skema + "supplier_profile sp"
+				+ " ON sp.supplier_id = p.id WHERE p.id = ?";
+	}
+
+	/**
+	 * Rinci pelanggan dalam satu baris. Kolom berurutan: id, kode, nama, alamat, telp, hp, email,
+	 * limitKredit, profilId, terminHari, diskon, wilayah, noRekening, atasNama, bank,
+	 * salesOwnerId, salesOwnerNama, aktif, saldoPiutang.
+	 *
+	 * <p>{@code hp} dan {@code email} pelanggan berada di {@code customer_anggota_profile},
+	 * terpisah dari {@code customer_profile} yang menyimpan alamat dan syarat bayar. Rekening
+	 * bank pelanggan tidak punya padanan sama sekali dan dikosongkan.</p>
+	 */
+	static String sqlDetailCustomer(String skema) {
+		String anggota = "(SELECT ap.%s FROM " + skema + "customer_anggota_profile ap"
+				+ " WHERE ap.customer_id = a.id ORDER BY ap.id ASC LIMIT 1)";
+		return "SELECT a.id, a.kode, a.nama, COALESCE(cp.alamat, COALESCE(cp.alamat1,'')), "
+				+ "COALESCE(cp.telp,''), COALESCE(" + String.format(anggota, "hp") + ",''), "
+				+ "COALESCE(cp.email, COALESCE(" + String.format(anggota, "email") + ",'')), "
+				+ "COALESCE(cp.plafon_piutang,0), cp.id, COALESCE(cp.syarat_bayar_hari,0), "
+				+ "COALESCE(cp.diskon,0), '', '', '', '', "
+				+ "COALESCE(a.salesperson_id,0), COALESCE(s.nama,''), COALESCE(a.aktif,true), "
+				+ "COALESCE((SELECT SUM(COALESCE(d.nilai,0) - COALESCE((SELECT SUM(x.nilai) FROM "
+				+ skema + "alokasi_penerimaan_piutang x WHERE x.piutang_customer_id = d.id),0))"
+				+ " FROM " + skema + "piutang_customer d WHERE d.customer_id = a.id),0)"
+				+ " FROM " + skema + "customer a LEFT JOIN " + skema + "customer_profile cp"
+				+ " ON cp.customer_id = a.id LEFT JOIN " + skema + "salesperson s"
+				+ " ON a.salesperson_id = s.id WHERE a.id = ?";
 	}
 }

@@ -38,6 +38,10 @@ public final class NewUiLaporanSirsSelfTest {
         laporan.put("laporan_kasir_per_shift", "sirs/laporan_kasir_per_shift");
         laporan.put("laporan_ranap_pasien_dinas", "sirs/laporan_ranap_pasien_dinas");
         laporan.put("ranap_laporan_perruangan_periode", "sirs/ranap_laporan_perruangan_periode");
+        laporan.put("inventory_harga_beli", "sirs/daftar_harga_beli");
+        laporan.put("inventory_harga_jual", "sirs/daftar_harga_jual_item");
+        laporan.put("inventory_hpp", "sirs/hpp");
+        laporan.put("inventory_stok", "sirs/laporan_stok");
 
         Method jenis = NewUiLaporanSirsController.class.getDeclaredMethod("jenis", String.class);
         jenis.setAccessible(true);
@@ -46,6 +50,7 @@ public final class NewUiLaporanSirsSelfTest {
         Field format = null;
         Object lima = null;
         Object poliBaruLama = null;
+        Object hargaBeli = null;
         for (Map.Entry<String, String> e : laporan.entrySet()) {
             check(NewUiLaporanSirsController.jenisDikenal(e.getKey()),
                     "laporan tidak dikenal: " + e.getKey());
@@ -64,11 +69,13 @@ public final class NewUiLaporanSirsSelfTest {
             check(jasper.exists(), "template Jasper tidak ada: " + jasper.getPath());
             check(((String[]) saringan.get(nilai)).length > 0,
                     "laporan tanpa filter: " + e.getKey());
-            boolean kasir = e.getKey().startsWith("laporan_kasir_");
-            check((kasir ? "xls" : "pdf").equals(format.get(nilai)),
+            boolean xls = e.getKey().startsWith("laporan_kasir_")
+                    || e.getKey().startsWith("inventory_");
+            check((xls ? "xls" : "pdf").equals(format.get(nilai)),
                     "format keluaran keliru untuk " + e.getKey() + ": " + format.get(nilai));
             if ("rajal_umum_5".equals(e.getKey())) lima = nilai;
             if ("rajal_poli_baru_lama".equals(e.getKey())) poliBaruLama = nilai;
+            if ("inventory_harga_beli".equals(e.getKey())) hargaBeli = nilai;
         }
         check(!NewUiLaporanSirsController.jenisDikenal("laporan_karangan"),
                 "laporan tak terdaftar harus ditolak");
@@ -86,6 +93,11 @@ public final class NewUiLaporanSirsSelfTest {
         JSONObject jenisPasien = (JSONObject) filter.invoke(null, poliBaruLama, "jenis_pasien");
         check(!jenisPasien.getBoolean("wajib") && !jenisPasien.getBoolean("pilihPertama"),
                 "jenis pasien pada laporan baru/lama harus tetap opsional seperti layar ZK");
+        JSONObject penyedia = (JSONObject) filter.invoke(null, hargaBeli, "penyedia");
+        check("relasi_banyak".equals(penyedia.getString("tipe"))
+                        && penyedia.getInt("maksimal") == 8
+                        && penyedia.getJSONArray("indeksBawaan").length() == 8,
+                "harga beli harus mempertahankan delapan pilihan supplier layar ZK");
 
         System.out.println("NewUiLaporanSirsSelfTest OK (" + laporan.size() + " laporan)");
     }

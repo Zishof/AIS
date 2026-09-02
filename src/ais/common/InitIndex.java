@@ -4152,7 +4152,15 @@ public class InitIndex {
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_barcode ON koperasi.produk (toko, barcode)",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_nama_norm ON koperasi.produk (toko, LOWER(TRIM(nama)))",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_kode_barcode_nama ON koperasi.produk (toko, kode, barcode, LOWER(TRIM(nama)))",
-				"CREATE INDEX IF NOT EXISTS idx_kop_pembelian_produk ON koperasi.pembelian (produk)" };
+				"CREATE INDEX IF NOT EXISTS idx_kop_pembelian_produk ON koperasi.pembelian (produk)",
+				// Pola WAJIB setiap laporan penjualan (LaporanKantinUtil + PosApi.daftarOrderDenganSesi):
+				// "WHERE toko = ? AND waktu di rentang". Tanpa index ini setiap pembukaan laporan
+				// memindai SELURUH tabel item -- pada toko ramai itu jutaan baris untuk menampilkan
+				// satu halaman. Kolom aktif ikut dibawa karena seluruh laporan menyaringnya juga.
+				"CREATE INDEX IF NOT EXISTS idx_kop_pembelian_toko_waktu ON koperasi.pembelian (toko, waktu, aktif)",
+				// Join item -> nota. Dipakai rincian produk (dok. 64), Detail Transaksi Penjualan,
+				// dan pengelompokan per transaksi di POS; FK tidak otomatis diindeks Postgres.
+				"CREATE INDEX IF NOT EXISTS idx_kop_pembelian_nota ON koperasi.pembelian (pembelian_anggota_koperasi)" };
 		for (String sql : INDEX_QUERIES_KOPERASI_PRODUK_DUPLIKAT_FAST) {
 			try {
 				eksekusiSql10Menit(sql);

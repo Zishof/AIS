@@ -4902,6 +4902,28 @@ public class Pegawai extends Karyawan {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	/**
+	 * Tipe pegawai — <b>disimpulkan otomatis</b> dari ada tidaknya relasi {@link #getDosen()} /
+	 * {@link #getGuru()}, bukan dibaca dari kolomnya:
+	 *
+	 * <ul>
+	 * <li>ada {@code dosen} → {@code TipePegawai.DOSEN};</li>
+	 * <li>ada {@code guru} → {@code TipePegawai.GURU};</li>
+	 * <li>keduanya tidak ada <b>dan</b> kolom masih kosong → {@code TipePegawai.STAF};</li>
+	 * <li>keduanya tidak ada tapi kolom sudah terisi → nilai kolom setelah {@code check()}.</li>
+	 * </ul>
+	 *
+	 * <p>Semua cabang menulis ke field, jadi nilai simpulan ikut tersimpan pada flush berikutnya.
+	 * Setiap perbandingan dijaga terhadap konstanta master yang belum terinisialisasi
+	 * ({@code TipePegawai.DOSEN != null} dan seterusnya) supaya aman saat aplikasi baru naik.</p>
+	 *
+	 * <p><b>Konsekuensi:</b> mengubah tipe pegawai lewat {@link #setTipePegawai(TipePegawai)} tidak
+	 * ada gunanya selama relasi dosen/guru masih terpasang.</p>
+	 *
+	 * @return tipe pegawai hasil penyimpulan
+	 * @see #getDosen()
+	 * @see #getGuru()
+	 */
 	@JoinColumn(name = "tipe_pegawai")
 	public TipePegawai getTipePegawai() {
 		if (getDosen() != null && TipePegawai.DOSEN != null) {
@@ -4916,10 +4938,28 @@ public class Pegawai extends Karyawan {
 		return tipePegawai;
 	}
 
+	/**
+	 * Mengisi tipe pegawai. Diabaikan secara efektif bila relasi dosen/guru terpasang — lihat
+	 * {@link #getTipePegawai()}.
+	 *
+	 * @param tipePegawai tipe pegawai
+	 */
 	public void setTipePegawai(TipePegawai tipePegawai) {
 		this.tipePegawai = tipePegawai;
 	}
 
+	/**
+	 * Tipe masa kerja (Honorer / Semi Tetap / Tetap) — <b>penentu utama</b> rentang tanggal mana
+	 * yang boleh dibaca oleh {@link #getTanggalmasuk()}, {@link #getTanggalmasukSemiTetap()},
+	 * {@link #getTanggalmasukHonorer()}, dan pasangan tanggal keluarnya.
+	 *
+	 * <p><b>Default agresif:</b> bila kolom kosong, field diisi {@code TipeMasaKerja.Honorer} —
+	 * jenjang terendah — dan nilai itu ikut tersimpan. Jadi pegawai baru yang belum ditentukan
+	 * tipenya otomatis terbaca sebagai honorer, dan tanggal masuk tetap/semi tetapnya tersembunyi.</p>
+	 *
+	 * @return tipe masa kerja; praktis tidak pernah {@code null} setelah master terinisialisasi
+	 * @see #tipeMasaKerjaCocok(TipeMasaKerja, TipeMasaKerja)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tipe_masa_kerja")
 	public TipeMasaKerja getTipeMasaKerja() {
@@ -4931,10 +4971,23 @@ public class Pegawai extends Karyawan {
 		return tipeMasaKerja;
 	}
 
+	/**
+	 * Mengisi tipe masa kerja. Perubahan di sini langsung mengubah tanggal-tanggal mana yang
+	 * terlihat pada getter masa kerja.
+	 *
+	 * @param tipeMasaKerja tipe masa kerja
+	 */
 	public void setTipeMasaKerja(TipeMasaKerja tipeMasaKerja) {
 		this.tipeMasaKerja = tipeMasaKerja;
 	}
 
+	/**
+	 * Golongan masa kerja dari tabel master {@link MasaKerja} (dipakai tabel gaji berjenjang).
+	 * Jangan tertukar dengan {@link #ambilMasaKerjaTahun()} yang menghitung lama bekerja
+	 * sesungguhnya, atau dengan {@link #getTipeMasaKerja()} yang menentukan jenjang status.
+	 *
+	 * @return golongan masa kerja, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "masa_kerja")
 	public MasaKerja getMasaKerja() {
@@ -4942,10 +4995,22 @@ public class Pegawai extends Karyawan {
 		return masaKerja;
 	}
 
+	/**
+	 * Mengisi golongan masa kerja.
+	 *
+	 * @param masaKerja golongan masa kerja
+	 */
 	public void setMasaKerja(MasaKerja masaKerja) {
 		this.masaKerja = masaKerja;
 	}
 
+	/**
+	 * Koordinat lintang domisili/lokasi tugas — dicerminkan dari {@code Guru.getLintang()} bila
+	 * pegawai ini turunan guru (tidak ada jalur dosen).
+	 *
+	 * @return lintang sebagai teks, atau {@code null}
+	 * @see #getBujur()
+	 */
 	public String getLintang() {
 		guru = getGuru();
 		if (guru != null) {
@@ -4954,10 +5019,25 @@ public class Pegawai extends Karyawan {
 		return lintang;
 	}
 
+	/**
+	 * Mengisi koordinat lintang.
+	 *
+	 * @param lintang lintang sebagai teks
+	 */
 	public void setLintang(String lintang) {
 		this.lintang = lintang;
 	}
 
+	/**
+	 * Koordinat bujur, pasangan {@link #getLintang()}.
+	 *
+	 * <p><b>Kuirk:</b> berbeda dari {@link #getLintang()} yang memanggil {@link #getGuru()} lebih
+	 * dulu, method ini memeriksa <b>field</b> {@code guru} apa adanya. Jadi bila proxy guru belum
+	 * pernah diresolusi dalam siklus hidup objek ini, pencerminan dilewati dan nilai kolom lama
+	 * yang dikembalikan.</p>
+	 *
+	 * @return bujur sebagai teks, atau {@code null}
+	 */
 	public String getBujur() {
 		if (guru != null) {
 			bujur = guru.getBujur();
@@ -4965,10 +5045,21 @@ public class Pegawai extends Karyawan {
 		return bujur;
 	}
 
+	/**
+	 * Mengisi koordinat bujur.
+	 *
+	 * @param bujur bujur sebagai teks
+	 */
 	public void setBujur(String bujur) {
 		this.bujur = bujur;
 	}
 
+	/**
+	 * Status PTKP (Penghasilan Tidak Kena Pajak) pegawai — masukan wajib perhitungan PPh 21,
+	 * bersama {@link #getNpwp()} dan {@link #getJumlahAnak()}.
+	 *
+	 * @return status PTKP, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ptkp_pegawai")
 	public PtkpPegawai getPtkpPegawai() {
@@ -4976,10 +5067,23 @@ public class Pegawai extends Karyawan {
 		return ptkpPegawai;
 	}
 
+	/**
+	 * Mengisi status PTKP.
+	 *
+	 * @param ptkpPegawai status PTKP
+	 */
 	public void setPtkpPegawai(PtkpPegawai ptkpPegawai) {
 		this.ptkpPegawai = ptkpPegawai;
 	}
 
+	/**
+	 * Program asuransi pegawai slot 1. Kelas ini menyediakan empat slot asuransi
+	 * ({@code asuransiPegawai1}…{@code asuransiPegawai4}), masing-masing berpasangan dengan nomor
+	 * polis {@code nomorAsuransiPegawai1}…{@code 4}.
+	 *
+	 * @return program asuransi slot 1, atau {@code null}
+	 * @see #getNomorAsuransiPegawai1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "asuransi_pegawai1")
 	public AsuransiPegawai getAsuransiPegawai1() {
@@ -4987,10 +5091,21 @@ public class Pegawai extends Karyawan {
 		return asuransiPegawai1;
 	}
 
+	/**
+	 * Mengisi program asuransi slot 1.
+	 *
+	 * @param asuransiPegawai1 program asuransi
+	 */
 	public void setAsuransiPegawai1(AsuransiPegawai asuransiPegawai1) {
 		this.asuransiPegawai1 = asuransiPegawai1;
 	}
 
+	/**
+	 * Program asuransi pegawai slot 2.
+	 *
+	 * @return program asuransi slot 2, atau {@code null}
+	 * @see #getAsuransiPegawai1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "asuransi_pegawai2")
 	public AsuransiPegawai getAsuransiPegawai2() {
@@ -4998,10 +5113,21 @@ public class Pegawai extends Karyawan {
 		return asuransiPegawai2;
 	}
 
+	/**
+	 * Mengisi program asuransi slot 2.
+	 *
+	 * @param asuransiPegawai2 program asuransi
+	 */
 	public void setAsuransiPegawai2(AsuransiPegawai asuransiPegawai2) {
 		this.asuransiPegawai2 = asuransiPegawai2;
 	}
 
+	/**
+	 * Program asuransi pegawai slot 3.
+	 *
+	 * @return program asuransi slot 3, atau {@code null}
+	 * @see #getAsuransiPegawai1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "asuransi_pegawai3")
 	public AsuransiPegawai getAsuransiPegawai3() {
@@ -5009,34 +5135,81 @@ public class Pegawai extends Karyawan {
 		return asuransiPegawai3;
 	}
 
+	/**
+	 * Mengisi program asuransi slot 3.
+	 *
+	 * @param asuransiPegawai3 program asuransi
+	 */
 	public void setAsuransiPegawai3(AsuransiPegawai asuransiPegawai3) {
 		this.asuransiPegawai3 = asuransiPegawai3;
 	}
 
+	/**
+	 * Nomor telepon kontak darurat — bagian dari trio {@code namaDarurat} /
+	 * {@code telpDarurat} / {@code statusDarurat}.
+	 *
+	 * @return nomor telepon darurat, atau {@code null}
+	 * @see #getNamaDarurat()
+	 */
 	public String getTelpDarurat() {
 		return telpDarurat;
 	}
 
+	/**
+	 * Mengisi nomor telepon kontak darurat.
+	 *
+	 * @param telpDarurat nomor telepon darurat
+	 */
 	public void setTelpDarurat(String telpDarurat) {
 		this.telpDarurat = telpDarurat;
 	}
 
+	/**
+	 * Persentase KPI bawaan pegawai (dipakai saat perhitungan tunjangan kinerja belum punya
+	 * penilaian khusus), default {@code 0.0}.
+	 *
+	 * @return persentase KPI default; tidak pernah {@code null}
+	 * @see #ambilFormatKpiDetail(Date)
+	 */
 	public Double getPersenKpiDefault() {
 		return persenKpiDefault == null ? 0.0 : persenKpiDefault;
 	}
 
+	/**
+	 * Mengisi persentase KPI bawaan.
+	 *
+	 * @param persenKpiDefault persentase KPI
+	 */
 	public void setPersenKpiDefault(Double persenKpiDefault) {
 		this.persenKpiDefault = persenKpiDefault;
 	}
 
+	/**
+	 * Nilai gaji tetap yang dicatat langsung di baris pegawai, default {@code 0.0}. Berbeda dari
+	 * {@link #ambilGajiPokok(Date)} yang menghitung dari SK dan tabel master; kolom ini dipakai
+	 * skema penggajian yang tidak memakai golongan.
+	 *
+	 * @return nilai gaji; tidak pernah {@code null}
+	 */
 	public Double getNilaiGaji() {
 		return nilaiGaji == null ? 0.0 : nilaiGaji;
 	}
 
+	/**
+	 * Mengisi nilai gaji tetap.
+	 *
+	 * @param nilaiGaji nilai gaji
+	 */
 	public void setNilaiGaji(Double nilaiGaji) {
 		this.nilaiGaji = nilaiGaji;
 	}
 
+	/**
+	 * Program asuransi pegawai slot 4.
+	 *
+	 * @return program asuransi slot 4, atau {@code null}
+	 * @see #getAsuransiPegawai1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "asuransi_pegawai4")
 	public AsuransiPegawai getAsuransiPegawai4() {
@@ -5044,22 +5217,49 @@ public class Pegawai extends Karyawan {
 		return asuransiPegawai4;
 	}
 
+	/**
+	 * Mengisi program asuransi slot 4.
+	 *
+	 * @param asuransiPegawai4 program asuransi
+	 */
 	public void setAsuransiPegawai4(AsuransiPegawai asuransiPegawai4) {
 		this.asuransiPegawai4 = asuransiPegawai4;
 	}
 
+	/**
+	 * Nama orang yang dihubungi dalam keadaan darurat.
+	 *
+	 * @return nama kontak darurat, atau {@code null}
+	 * @see #getTelpDarurat()
+	 * @see #getStatusDarurat()
+	 */
 	public String getNamaDarurat() {
 		return namaDarurat;
 	}
 
+	/**
+	 * Mengisi nama kontak darurat.
+	 *
+	 * @param namaDarurat nama kontak darurat
+	 */
 	public void setNamaDarurat(String namaDarurat) {
 		this.namaDarurat = namaDarurat;
 	}
 
+	/**
+	 * Hubungan kontak darurat dengan pegawai (istri, suami, anak, orang tua, dan sebagainya).
+	 *
+	 * @return status hubungan kontak darurat, atau {@code null}
+	 */
 	public String getStatusDarurat() {
 		return statusDarurat;
 	}
 
+	/**
+	 * Mengisi hubungan kontak darurat.
+	 *
+	 * @param statusDarurat status hubungan
+	 */
 	public void setStatusDarurat(String statusDarurat) {
 		this.statusDarurat = statusDarurat;
 	}
@@ -5076,6 +5276,11 @@ public class Pegawai extends Karyawan {
 		return golonganDarah;
 	}
 
+	/**
+	 * Mengisi golongan darah.
+	 *
+	 * @param golonganDarah golongan darah (mis. {@code "O+"})
+	 */
 	public void setGolonganDarah(String golonganDarah) {
 		this.golonganDarah = golonganDarah;
 	}
@@ -5090,6 +5295,11 @@ public class Pegawai extends Karyawan {
 		return nomorKartuKeluarga;
 	}
 
+	/**
+	 * Mengisi nomor Kartu Keluarga.
+	 *
+	 * @param nomorKartuKeluarga nomor KK
+	 */
 	public void setNomorKartuKeluarga(String nomorKartuKeluarga) {
 		this.nomorKartuKeluarga = nomorKartuKeluarga;
 	}
@@ -5104,18 +5314,48 @@ public class Pegawai extends Karyawan {
 		return namaIbuKandung;
 	}
 
+	/**
+	 * Mengisi nama ibu kandung.
+	 *
+	 * @param namaIbuKandung nama ibu kandung
+	 */
 	public void setNamaIbuKandung(String namaIbuKandung) {
 		this.namaIbuKandung = namaIbuKandung;
 	}
 
+	/**
+	 * Jumlah jam pelajaran (JP) bawaan pegawai, default {@code 0.0}. Dipakai skema honor berbasis
+	 * jam mengajar.
+	 *
+	 * @return JP default; tidak pernah {@code null}
+	 */
 	public Double getJpDefault() {
 		return jpDefault == null ? 0.0 : jpDefault;
 	}
 
+	/**
+	 * Mengisi jumlah JP bawaan.
+	 *
+	 * @param jpDefault jumlah jam pelajaran
+	 */
 	public void setJpDefault(Double jpDefault) {
 		this.jpDefault = jpDefault;
 	}
 
+	/**
+	 * Versi <b>ber-ID</b> dari isian parameter tambahan gaji: teks multi-baris, satu baris per
+	 * parameter, dengan empat ruas dipisah {@code "<=>"} —
+	 * {@code idKelompok->idParameter <=> nilai <=> urlLampiran <=> keterangan}.
+	 *
+	 * <p>Dipasangkan dengan {@link #getParameterTambahan()} yang menyimpan isi yang sama dalam
+	 * bentuk berlabel (siap tampil). Versi ber-ID inilah yang dibaca kembali oleh
+	 * {@code ParameterTambahanGajiPegawaiListener} saat formulir dibuka ulang.</p>
+	 *
+	 * <p>Getter menormalkan {@code null} menjadi string kosong <b>dan menulisnya ke field</b>.</p>
+	 *
+	 * @return teks parameter tambahan versi ber-ID; string kosong bila belum ada
+	 * @see #populateParameterTambahan(java.util.List)
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahanInds() {
 		if (parameterTambahanInds == null) {
@@ -5125,10 +5365,36 @@ public class Pegawai extends Karyawan {
 		return parameterTambahanInds;
 	}
 
+	/**
+	 * Mengganti seluruh teks parameter tambahan versi ber-ID.
+	 *
+	 * @param parameterTambahanInds teks multi-baris versi ber-ID
+	 */
 	public void setParameterTambahanInds(String parameterTambahanInds) {
 		this.parameterTambahanInds = parameterTambahanInds;
 	}
 
+	/**
+	 * Mengurai {@link #getParameterTambahan()} (versi <b>berlabel</b>) menjadi daftar
+	 * {@link CommonVO} yang siap ditampilkan/direkap.
+	 *
+	 * <p>Format yang diurai: satu baris per parameter, ruas dipisah {@code "<=>"} —</p>
+	 * <pre>
+	 * namaKelompok-&gt;labelInputan &lt;=&gt; nilai &lt;=&gt; urlLampiran &lt;=&gt; nomorUrut &lt;=&gt; idParameter &lt;=&gt; ...
+	 * </pre>
+	 * <p>Pemetaan ke {@link CommonVO}: {@code id} = ruas ke-5 (ID parameter, default {@code 1}),
+	 * {@code name} = label lengkap, {@code name1} = nilai, {@code name2} = URL lampiran,
+	 * {@code name5} = bagian sebelum {@code "->"} (nama kelompok), {@code nomorUrut} = ruas ke-4
+	 * (default {@code 1}). Hasilnya diurutkan menurut urutan alami {@code CommonVO}.</p>
+	 *
+	 * <p><b>Perhatikan pada data kosong:</b> {@code "".split("\n")} menghasilkan satu elemen kosong,
+	 * sehingga pegawai yang belum punya parameter tambahan tetap menghasilkan <b>satu</b>
+	 * {@link CommonVO} kosong, bukan daftar kosong. Ruas yang tidak berupa angka ditelan
+	 * {@code try/catch} dan jatuh ke nilai default.</p>
+	 *
+	 * @return daftar parameter tambahan terurut; minimal berisi satu elemen (bisa kosong isinya)
+	 * @see #populateParameterTambahan(java.util.List)
+	 */
 	public List<CommonVO> ambilDataParameterTambahan() {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		String[] splNama = getParameterTambahan().split("\n");
@@ -5170,6 +5436,43 @@ public class Pegawai extends Karyawan {
 		return commonVOs;
 	}
 
+	/**
+	 * Mengumpulkan kembali seluruh isian <b>parameter tambahan gaji</b> dari baris-baris formulir
+	 * ZK ke dalam dua kolom teks pegawai: {@link #setParameterTambahan(String)} (versi berlabel,
+	 * siap tampil) dan {@link #setParameterTambahanInds(String)} (versi ber-ID, untuk dibaca ulang
+	 * saat formulir dibuka lagi).
+	 *
+	 * <p><b>Dipanggil dari</b> {@code ais.action.master.payroll.helper.ParameterTambahanGajiPegawaiListener}
+	 * dengan daftar {@link Row} yang dibangun listener itu. Tiap baris membawa atribut
+	 * {@code "parameterTambahan"} ({@link ParameterTambahan}),
+	 * {@code "kelompokParameterTambahanGajiPegawai"}
+	 * ({@link KelompokParameterTambahanGajiPegawai}), dan {@code "keterangan"} (sebuah
+	 * {@code Textbox}).</p>
+	 *
+	 * <p>Untuk tiap baris yang lengkap:</p>
+	 * <ol>
+	 * <li>nilai isian dibaca lewat {@code ParameterTambahan.ambilVal(row, parameterTambahan)} yang
+	 * tahu cara mengambil nilai dari komponen ZK sesuai tipe inputannya;</li>
+	 * <li>bila parameter mewajibkan lampiran, berkasnya dicari dengan
+	 * {@code LampiranLain.ambil(getId(), idKelompok + "->" + idParameter)} dan URL unduhnya
+	 * disertakan;</li>
+	 * <li>baris versi berlabel (7 ruas: nama kelompok-&gt;label, nilai, url, nomor urut, ID
+	 * parameter, ID kelompok, keterangan) dan versi ber-ID (4 ruas) dirangkai, digabung dengan
+	 * pemisah {@code "\n"}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perilaku MENIMPA.</b> Kedua kolom ditulis ulang seluruhnya. Memanggil method ini dengan
+	 * daftar baris yang tidak lengkap akan <b>menghapus</b> isian yang tidak ikut ditampilkan.
+	 * Sebagai pengaman, daftar {@code null} atau kosong membuat method langsung kembali tanpa
+	 * mengubah apa pun.</p>
+	 *
+	 * <p><b>Efek samping:</b> hanya mengubah state objek — tidak menyimpan ke basis data. Kegagalan
+	 * per baris ditelan lewat {@code Common.tampilErrorJikaAdmin} sehingga satu baris rusak tidak
+	 * membatalkan sisanya.</p>
+	 *
+	 * @param parameterRows daftar baris formulir ZK; {@code null}/kosong = tidak melakukan apa-apa
+	 * @see #ambilDataParameterTambahan()
+	 */
 	public void populateParameterTambahan(List<Row> parameterRows) {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return;
@@ -5226,6 +5529,18 @@ public class Pegawai extends Karyawan {
 		setParameterTambahan(parameterTambahanStr);
 	}
 
+	/**
+	 * Versi <b>berlabel</b> dari isian parameter tambahan gaji: teks multi-baris siap tampil,
+	 * satu baris per parameter dengan tujuh ruas dipisah {@code "<=>"} —
+	 * {@code namaKelompok->labelInputan <=> nilai <=> urlLampiran <=> nomorUrut <=> idParameter <=>
+	 * idKelompok <=> keterangan}.
+	 *
+	 * <p>Getter menormalkan {@code null} menjadi string kosong dan menulisnya ke field, sehingga
+	 * {@link #ambilDataParameterTambahan()} tidak perlu berjaga terhadap null.</p>
+	 *
+	 * @return teks parameter tambahan versi berlabel; string kosong bila belum ada
+	 * @see #getParameterTambahanInds()
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahan() {
 		if (parameterTambahan == null) {
@@ -5235,10 +5550,21 @@ public class Pegawai extends Karyawan {
 		return parameterTambahan;
 	}
 
+	/**
+	 * Mengganti seluruh teks parameter tambahan versi berlabel.
+	 *
+	 * @param parameterTambahan teks multi-baris versi berlabel
+	 */
 	public void setParameterTambahan(String parameterTambahan) {
 		this.parameterTambahan = parameterTambahan;
 	}
 
+	/**
+	 * Jenis penggajian yang dipakai pegawai ini (mis. bulanan, harian, per jam) — menentukan skema
+	 * mana yang dijalankan modul payroll.
+	 *
+	 * @return jenis gaji pegawai, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_gaji_pegawai", nullable = true)
 	public JenisGajiPegawai getJenisGajiPegawai() {
@@ -5246,10 +5572,36 @@ public class Pegawai extends Karyawan {
 		return jenisGajiPegawai;
 	}
 
+	/**
+	 * Mengisi jenis penggajian.
+	 *
+	 * @param jenisGajiPegawai jenis gaji pegawai
+	 */
 	public void setJenisGajiPegawai(JenisGajiPegawai jenisGajiPegawai) {
 		this.jenisGajiPegawai = jenisGajiPegawai;
 	}
 
+	/**
+	 * Ikatan kerja dosen (tetap / honorer / DPK dan sebagainya). Meski namanya "dosen", kolom ini
+	 * ada di baris kepegawaian dan tetap diisi untuk pegawai murni.
+	 *
+	 * <p>Urutan penentuan:</p>
+	 * <ol>
+	 * <li>bila ada {@link Dosen} dan dosen itu punya ikatan kerja → pakai punya dosen;</li>
+	 * <li>selain itu pakai kolom sendiri setelah {@code check()};</li>
+	 * <li>bila masih kosong → disimpulkan dari kolom {@code tetap}:
+	 * {@code ConstantValues.DOSEN_TETAP} untuk nilai {@code 1}, selain itu
+	 * {@code ConstantValues.DOSEN_HONORER}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Catatan implementasi (jangan diubah tanpa alasan):</b> langkah ketiga sengaja membaca
+	 * <b>field</b> {@code tetap} secara langsung, bukan lewat {@link #getTetap()}. Getter itu
+	 * kembali meresolusi {@link #getDosen()}, dan pada proxy/data legacy hal itu bisa memicu NPE
+	 * berulang; kolom skalar {@code tetap} sudah punya default {@code 0} dan aman dibandingkan
+	 * langsung. Seluruh badan juga dibungkus {@code try/catch}.</p>
+	 *
+	 * @return ikatan kerja, atau {@code null} bila penyimpulan gagal
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ikatan_kerja_dosen")
 	public IkatanKerjaDosen getIkatanKerjaDosen() {
@@ -5279,10 +5631,33 @@ public class Pegawai extends Karyawan {
 		return ikatanKerjaDosen;
 	}
 
+	/**
+	 * Mengisi ikatan kerja. Akan ditimpa bila pegawai ini turunan dosen yang punya ikatan kerja
+	 * sendiri.
+	 *
+	 * @param ikatanKerjaDosen ikatan kerja
+	 */
 	public void setIkatanKerjaDosen(IkatanKerjaDosen ikatanKerjaDosen) {
 		this.ikatanKerjaDosen = ikatanKerjaDosen;
 	}
 
+	/**
+	 * Fakultas tempat <b>tenaga kependidikan</b> ini ditempatkan.
+	 *
+	 * <p>Inilah pengganti {@code Karyawan.getFakultas()} yang tidak pernah terisi di
+	 * {@code Pegawai} (lihat catatan "yang tidak dibayangi" pada Javadoc kelas). Bila pegawai ini
+	 * turunan dosen, nilainya dicerminkan dari fakultas dosen tersebut.</p>
+	 *
+	 * <p><b>Ketahanan terhadap sesi tertutup:</b> pencerminan membaca <b>field</b> {@code dosen}
+	 * apa adanya (bukan {@link #getDosen()}) dan seluruhnya dibungkus
+	 * {@code catch (HibernateException)}. Alasannya, laporan sering membaca objek {@code Pegawai}
+	 * setelah sesi asalnya ditutup; memaksa inisialisasi proxy {@code Dosen} di situ akan melempar.
+	 * Bila itu terjadi, nilai tendik yang sudah tersedia dipertahankan apa adanya.</p>
+	 *
+	 * @return fakultas penempatan, atau {@code null}
+	 * @see #getTendikJurusan()
+	 * @see #getTendikSekolah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tendik_fakultas", nullable = true)
 	public Fakultas getTendikFakultas() {
@@ -5300,10 +5675,22 @@ public class Pegawai extends Karyawan {
 		return tendikFakultas;
 	}
 
+	/**
+	 * Mengisi fakultas penempatan tenaga kependidikan.
+	 *
+	 * @param tendikFakultas fakultas penempatan
+	 */
 	public void setTendikFakultas(Fakultas tendikFakultas) {
 		this.tendikFakultas = tendikFakultas;
 	}
 
+	/**
+	 * Jurusan/program studi tempat tenaga kependidikan ini ditempatkan — pengganti
+	 * {@code Karyawan.getJurusan()} yang tidak pernah terisi di {@code Pegawai}. Perilaku
+	 * pencerminan dan ketahanannya sama persis dengan {@link #getTendikFakultas()}.
+	 *
+	 * @return jurusan penempatan, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tendik_jurusan", nullable = true)
 	public Jurusan getTendikJurusan() {
@@ -5320,10 +5707,22 @@ public class Pegawai extends Karyawan {
 		return tendikJurusan;
 	}
 
+	/**
+	 * Mengisi jurusan penempatan tenaga kependidikan.
+	 *
+	 * @param tendikJurusan jurusan penempatan
+	 */
 	public void setTendikJurusan(Jurusan tendikJurusan) {
 		this.tendikJurusan = tendikJurusan;
 	}
 
+	/**
+	 * Sekolah tempat tenaga kependidikan ini ditempatkan (jalur sekolah, bukan perguruan tinggi).
+	 * Dicerminkan dari {@code Guru.getSekolah()} — bukan dari dosen — dengan ketahanan
+	 * {@code catch (HibernateException)} yang sama seperti {@link #getTendikFakultas()}.
+	 *
+	 * @return sekolah penempatan, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tendik_sekolah", nullable = true)
 	public Sekolah getTendikSekolah() {
@@ -5340,10 +5739,30 @@ public class Pegawai extends Karyawan {
 		return tendikSekolah;
 	}
 
+	/**
+	 * Mengisi sekolah penempatan tenaga kependidikan.
+	 *
+	 * @param tendikSekolah sekolah penempatan
+	 */
 	public void setTendikSekolah(Sekolah tendikSekolah) {
 		this.tendikSekolah = tendikSekolah;
 	}
 
+	/**
+	 * Membangun komponen ZK berisi alamat surel pegawai sebagai tombol {@code mailto:} yang dapat
+	 * diklik, lalu <b>menempelkannya sebagai anak</b> dari {@code vbox}.
+	 *
+	 * <p>Tombol selalu dibuat (walau surel kosong) supaya tata letak kolom tetap rapi; ikon,
+	 * gaya, dan tautan hanya dipasang bila surelnya ada. Karena
+	 * {@link #getEmail()} bisa mengembalikan beberapa alamat dipisah koma, tautan
+	 * {@code mailto:} yang dihasilkan pun bisa berisi banyak penerima.</p>
+	 *
+	 * <p><b>Efek samping:</b> memodifikasi pohon komponen ZK. Method ini hanya boleh dipanggil dari
+	 * thread event ZK.</p>
+	 *
+	 * @param vbox komponen induk tempat tombol ditempelkan
+	 * @see #tampilkanHp(Component, String)
+	 */
 	public void tampilkanEmail(Component vbox) {
 		String email = getEmail();
 		Toolbarbutton a;
@@ -5357,6 +5776,26 @@ public class Pegawai extends Karyawan {
 
 	}
 
+	/**
+	 * Nomor HP dalam <b>format internasional Indonesia</b> ({@code +62…}), siap dipakai untuk
+	 * tautan WhatsApp/SMS.
+	 *
+	 * <p>Alurnya: ambil {@link #getHp()}; bila kosong <b>atau berisi salah satu nomor sampah yang
+	 * dikenal</b> ({@code "08100000000000000000"}, {@code "0000000000"}) jatuh ke
+	 * {@link #getTelp()}. Nomor yang tersisa lalu dinormalkan — awalan {@code "08"} atau
+	 * {@code "0"} diganti {@code "+62"}, dan nomor tanpa awalan {@code "+"} diberi {@code "+62"}
+	 * di depan.</p>
+	 *
+	 * <p><b>Catatan:</b> nomor sampah yang dikenali pada tahap penyaringan kedua berbeda
+	 * ({@code "00000000000000000000"}, {@code "000000000"}) dari tahap pertama — daftar sentinel
+	 * ini tumbuh organik dan tidak konsisten. Nomor asing yang bukan Indonesia pun akan tetap
+	 * diberi awalan {@code +62}, karena {@link #getHp()} sudah membuang tanda {@code +}-nya.</p>
+	 *
+	 * @return nomor HP berawalan {@code +62}, atau {@code null}/nilai apa adanya bila tidak ada
+	 *         nomor yang bisa dinormalkan
+	 * @see #getHp()
+	 * @see #tampilkanHp(Component, String)
+	 */
 	public String ambilNoHp() {
 		String hp = getHp();
 		String telp = getTelp();
@@ -5374,6 +5813,34 @@ public class Pegawai extends Karyawan {
 		return hp;
 	}
 
+	/**
+	 * Membangun komponen ZK berisi nomor HP/telepon pegawai sebagai <b>tombol pintasan WhatsApp</b>
+	 * dan menempelkannya sebagai anak dari {@code vbox}.
+	 *
+	 * <p>Label tombol menggabungkan HP dan telepon ({@code "HP / telp"}), dengan menyembunyikan
+	 * nomor sampah yang dikenal dan tidak menampilkan pemisah {@code " / "} bila salah satunya
+	 * kosong; bila HP dan telepon kebetulan sama, hanya satu yang ditampilkan. Tautannya mengarah
+	 * ke {@code https://web.whatsapp.com/send} dengan nomor hasil normalisasi
+	 * {@code +62} (aturan sama seperti {@link #ambilNoHp()}) dan {@code pesan} yang sudah
+	 * di-URL-encode — tag {@code <br>} di dalam pesan diubah menjadi baris baru lebih dulu.</p>
+	 *
+	 * <p><b>Jalur cadangan:</b> bila terjadi galat apa pun (mis. {@code pesan} bernilai
+	 * {@code null} sehingga {@code replaceAll} melempar NPE), blok {@code catch} membangun ulang
+	 * tautan dengan komponen {@link A} sederhana memakai {@link #getTelp()} saja. Karena
+	 * pemulihan ini juga menempelkan komponen ke {@code vbox}, pada kasus galat separuh jalan bisa
+	 * muncul <b>dua</b> komponen di dalam {@code vbox}.</p>
+	 *
+	 * <p><b>Efek samping:</b> memodifikasi pohon komponen ZK; hanya boleh dipanggil dari thread
+	 * event ZK.</p>
+	 *
+	 * @param vbox  komponen induk tempat tombol ditempelkan
+	 * @param pesan teks pesan WhatsApp yang sudah terisi otomatis; {@code <br>} diubah jadi baris
+	 *              baru
+	 * @throws Exception dideklarasikan demi kompatibilitas pemanggil; dalam praktik galat internal
+	 *                   sudah ditangani jalur cadangan
+	 * @see #ambilNoHp()
+	 * @see #tampilkanEmail(Component)
+	 */
 	public void tampilkanHp(Component vbox, String pesan) throws Exception {
 		try {
 
@@ -5436,16 +5903,56 @@ public class Pegawai extends Karyawan {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	/**
+	 * Atasan berbasis <b>jenis jabatan</b>, bukan orang tertentu — mis. "Kepala Bagian" sebagai
+	 * peran. Berbeda dari {@link #getAtasanlangsung()} yang menunjuk baris {@code Pegawai}
+	 * spesifik, referensi peran ini tetap sah walau pejabatnya berganti.
+	 *
+	 * @return jenis jabatan atasan, atau {@code null}
+	 * @see #getAtasanPendukung()
+	 * @see #getAtasanPendukungCadangan()
+	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "atasan", nullable = true)
 	public JenisJabatan getAtasan() {
 		atasan = check(atasan);
 		return atasan;
 	}
 
+	/**
+	 * Mengisi jenis jabatan atasan.
+	 *
+	 * @param atasan jenis jabatan atasan
+	 */
 	public void setAtasan(JenisJabatan atasan) {
 		this.atasan = atasan;
 	}
 
+	/**
+	 * Membuat (bila belum ada) dan mengembalikan <b>path berkas PNG QR-code tanda tangan</b>
+	 * pegawai — dipakai laporan/dokumen yang ditandatangani agar keasliannya bisa diverifikasi
+	 * dengan memindai kode.
+	 *
+	 * <p>Isi QR-nya adalah blok teks multi-baris berisi identitas pegawai selengkap yang tersedia:
+	 * NIP ({@link #getCode()}), NIP lama, kode alternatif, NIDN dosen, NUPTK guru, nama, satuan
+	 * kerja, lalu unit akademik — sekolah bila ada, jika tidak nama perguruan tinggi dari fakultas
+	 * tendik — diikuti fakultas dan jurusan tendik, tanggal cetak, dan host aplikasi
+	 * ({@code Common.getRequestHostWithProtocol()}). Ruas yang kosong dilewati, jadi panjang blok
+	 * berbeda-beda per pegawai.</p>
+	 *
+	 * <p><b>Caching berbasis berkas:</b> hasilnya disimpan sebagai
+	 * {@code <REAL_PATH_REPORT>/ttd_peg_<id>.png} dan <b>dibuat sekali saja</b> — bila berkasnya
+	 * sudah ada, isinya tidak pernah diperbarui. Konsekuensinya, perubahan nama, satuan kerja, atau
+	 * unit penempatan <b>tidak</b> tercermin di QR lama; berkasnya harus dihapus manual agar
+	 * dibuat ulang. Tanggal di dalam QR pun adalah tanggal pembuatan pertama, bukan tanggal cetak
+	 * dokumen.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis berkas ke disk lewat {@code BarcodeCommon.generateCRCode}.
+	 * Memanggil banyak getter berat ({@link #getSatuanKerja()}, {@link #getTendikFakultas()}, …).</p>
+	 *
+	 * @return path absolut berkas PNG QR-code
+	 * @see #putPhoto(Map)
+	 */
 	public String ttdQr() {
 
 		File myfilebarcode = new File(Common.ambilREAL_PATH_REPORT() + "/ttd_peg_" + getId() + ".png");
@@ -5473,6 +5980,28 @@ public class Pegawai extends Karyawan {
 		return myfilebarcode.getAbsolutePath();
 	}
 
+	/**
+	 * <b>Tanggal mulai bekerja paling awal</b> — hasil penggabungan keempat rentang masa kerja
+	 * paralel menjadi satu angka yang dipakai laporan masa kerja dan API luar.
+	 *
+	 * <p>Nilainya adalah tanggal <b>terkecil</b> di antara: tanggal mulai pengalaman kerja
+	 * ({@link #getTanggalMulaiPengalanKerja()}), tanggal masuk honorer, tanggal masuk semi tetap,
+	 * dan tanggal masuk tetap — dievaluasi berurutan, masing-masing menggantikan nilai berjalan
+	 * bila lebih awal atau bila nilai berjalan masih {@code null}.</p>
+	 *
+	 * <p><b>Perhatikan dua hal:</b> (1) karena getter sumbernya disaring
+	 * {@link #getTipeMasaKerja()}, hasilnya ikut berubah bila tipe masa kerja pegawai diubah;
+	 * (2) {@link #getTanggalmasuk()} mengganti kolom kosong dengan tanggal <i>hari ini</i>, jadi
+	 * pegawai tetap tanpa data tanggal apa pun akan terbaca "mulai bekerja hari ini".</p>
+	 *
+	 * <p>Hasil hitungnya ditulis ke field {@code awalmasuk}, sehingga ikut tersimpan pada flush
+	 * berikutnya.</p>
+	 *
+	 * @return tanggal mulai bekerja paling awal, atau {@code null} bila tidak ada satu pun tanggal
+	 * @see #getTanggalmasukHonorer()
+	 * @see #getTanggalmasukSemiTetap()
+	 * @see #getTanggalmasuk()
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getAwalmasuk() {
 		// BUG FIX (NPE): getTanggalMulaiPengalanKerja/getTanggalmasukHonorer/
@@ -5500,10 +6029,52 @@ public class Pegawai extends Karyawan {
 		return awalmasuk;
 	}
 
+	/**
+	 * Mengisi tanggal awal masuk. Praktis tidak berguna karena {@link #getAwalmasuk()} selalu
+	 * menghitung ulang nilainya.
+	 *
+	 * @param awalmasuk tanggal awal masuk
+	 */
 	public void setAwalmasuk(Date awalmasuk) {
 		this.awalmasuk = awalmasuk;
 	}
 
+	/**
+	 * Menyisipkan seluruh <b>parameter berkas gambar/dokumen pegawai</b> ke dalam peta parameter
+	 * JasperReports, supaya laporan tinggal memakai nama parameternya.
+	 *
+	 * <p>Parameter yang diisi:</p>
+	 * <ul>
+	 * <li><b>{@code foto} dan {@code foto_pegawai}</b> — foto pegawai, dicari lewat
+	 * {@code FileFotoLain.ambil(id, FotoPegawai.DEFAULT_JENIS, FotoPegawai.class)} dengan rantai
+	 * fallback berjenjang: berkas lokal → tautan mentah Dropbox → URL ekspor Google Drive → URI
+	 * tautan internal → gambar bawaan {@code /img/administrator-icon_default.png}. Jadi parameter
+	 * ini <b>selalu terisi</b>, laporan tidak perlu berjaga terhadap null.</li>
+	 * <li>Bila pegawai turunan dosen/guru, {@code Dosen.putPhoto()} atau {@code Guru.putPhoto()}
+	 * ikut dipanggil sehingga parameter foto khas modul itu juga tersedia — dan dapat
+	 * <b>menimpa</b> nilai yang baru saja dipasang di atas.</li>
+	 * <li><b>{@code ttd_pegawai}</b> — berkas tanda tangan basah, dari
+	 * {@code LampiranLain.ambil(id, LampiranLain.TTD_PEGAWAI)}; hanya dipasang bila berkasnya
+	 * ada.</li>
+	 * <li><b>{@code ttd_pegawai_qrcode}</b> — QR verifikasi dari {@link #ttdQr()}, selalu
+	 * dipasang.</li>
+	 * <li><b>{@code dokumen_pegawai_<jenis>}</b> — satu parameter per dokumen yang ID-nya terdaftar
+	 * di kolom {@link #getKarpeg()} (daftar dipisah koma). Setiap ID diambil lewat
+	 * {@code LampiranLain.ambil(true, id, id)} dan dipetakan memakai jenis lampirannya sebagai
+	 * akhiran nama parameter, sehingga nama parameternya bergantung data.</li>
+	 * </ul>
+	 *
+	 * <p><b>Efek samping:</b> memodifikasi {@code parameters} di tempat, membaca berkas dari disk,
+	 * dan dapat <i>membuat</i> berkas QR baru lewat {@link #ttdQr()}. Seluruh badan dibungkus
+	 * {@code try/catch} (dan tiap dokumen punya {@code try/catch} sendiri), sehingga satu berkas
+	 * hilang atau ID tidak valid tidak menggagalkan pencetakan laporan.</p>
+	 *
+	 * <p><b>Dipanggil dari:</b> {@code PegawaiAction} (modul master dan BKD) serta laporan-laporan
+	 * kepegawaian seperti {@code LaporanKartuPegawai}, {@code LaporanDaftarRiwayatHidup},
+	 * {@code LaporanCatatanPegawai}, {@code LaporanPrestasiPegawai}.</p>
+	 *
+	 * @param parameters peta parameter JasperReports yang akan diisi; dimodifikasi di tempat
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void putPhoto(Map parameters) {
 		try {

@@ -25,8 +25,11 @@ import ais.common.newui.NewUiRouteGuard;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.asset.Lokasi;
+import ais.database.model.library.JenisItem;
+import ais.database.model.library.Penyedia;
 import ais.database.model.sirs.Dokter;
 import ais.database.model.sirs.JenisPasien;
+import ais.database.model.sirs.JenisItemMedis;
 import ais.database.model.sirs.Pasien;
 import ais.database.model.sirs.Pembayaran;
 import ais.database.model.sirs.Pendaftaran;
@@ -35,7 +38,7 @@ import ais.database.model.sirs.TransaksiMedis;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native tujuh belas laporan SIRS.
+ * Kontrak native dua puluh satu laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -112,9 +115,13 @@ public final class NewUiLaporanSirsController {
     static final String S_DOKTER = "dokter";
     static final String S_POLI = "poli";
     static final String S_LOKASI = "lokasi";
+    static final String S_TANGGAL = "tanggal";
+    static final String S_PENYEDIA = "penyedia";
+    static final String S_JENIS_ITEM = "jenis_item";
+    static final String S_JENIS_ITEM_MEDIS = "jenis_item_medis";
 
     /**
-     * Tujuh belas laporan yang dilayani kontrak ini.
+     * Dua puluh satu laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -198,6 +205,22 @@ public final class NewUiLaporanSirsController {
             return new Jenis(kode, "Laporan Ranap Per Ruangan Periode",
                     "sirs/ranap_laporan_perruangan_periode", new String[] { S_MULAI, S_SAMPAI });
         }
+        if ("inventory_harga_beli".equals(kode)) {
+            return new Jenis(kode, "Laporan Harga Beli Item", "sirs/daftar_harga_beli",
+                    new String[] { S_PENYEDIA, S_JENIS_ITEM }, ais.action.report.Report.XLS);
+        }
+        if ("inventory_harga_jual".equals(kode)) {
+            return new Jenis(kode, "Laporan Harga Jual Item", "sirs/daftar_harga_jual_item",
+                    new String[] { S_JENIS_ITEM_MEDIS }, ais.action.report.Report.XLS);
+        }
+        if ("inventory_hpp".equals(kode)) {
+            return new Jenis(kode, "Laporan HPP", "sirs/hpp",
+                    new String[] { S_LOKASI, S_TANGGAL }, ais.action.report.Report.XLS);
+        }
+        if ("inventory_stok".equals(kode)) {
+            return new Jenis(kode, "Laporan Stok", "sirs/laporan_stok",
+                    new String[] { S_LOKASI, S_TANGGAL }, ais.action.report.Report.XLS);
+        }
         throw new IllegalArgumentException("Jenis laporan SIRS tidak dikenal.");
     }
 
@@ -274,7 +297,10 @@ public final class NewUiLaporanSirsController {
             if (S_LOKASI.equals(s)) {
                 Lokasi lokasi = Common.getCurrentLokasi();
                 if (lokasi != null && lokasi.getId() != null) {
-                    definisi.put("nilaiBawaan", lokasi.getId()).put("terkunci", true);
+                    definisi.put("nilaiBawaan", lokasi.getId());
+                    if (jenis.kode.startsWith("laporan_kasir_")) {
+                        definisi.put("terkunci", true);
+                    }
                 }
             }
             arr.put(definisi);
@@ -374,6 +400,24 @@ public final class NewUiLaporanSirsController {
         if (S_LOKASI.equals(nama)) {
             return d.put("label", "Lokasi").put("tipe", "relasi").put("wajib", false);
         }
+        if (S_TANGGAL.equals(nama)) {
+            return d.put("label", "Per Tanggal").put("tipe", "tanggal").put("wajib", true);
+        }
+        if (S_PENYEDIA.equals(nama)) {
+            JSONArray indeks = new JSONArray();
+            for (int i = 0; i < 8; i++) indeks.put(i);
+            return d.put("label", "Supplier").put("tipe", "relasi_banyak")
+                    .put("wajib", false).put("cari", true)
+                    .put("maksimal", 8).put("indeksBawaan", indeks);
+        }
+        if (S_JENIS_ITEM.equals(nama)) {
+            return d.put("label", "Jenis Item").put("tipe", "relasi")
+                    .put("wajib", false).put("pilihPertama", true);
+        }
+        if (S_JENIS_ITEM_MEDIS.equals(nama)) {
+            return d.put("label", "Jenis Item Medis").put("tipe", "relasi")
+                    .put("wajib", false).put("pilihPertama", true);
+        }
         throw new IllegalArgumentException("Filter tidak dikenal: " + nama);
     }
 
@@ -406,12 +450,34 @@ public final class NewUiLaporanSirsController {
                 Criteria c = s.createCriteria(Lokasi.class)
                         .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
                 Lokasi current = Common.getCurrentLokasi();
-                if (current != null && current.getId() != null) {
+                if (jenis.kode.startsWith("laporan_kasir_")
+                        && current != null && current.getId() != null) {
                     c.add(Restrictions.eq("id", current.getId()));
                 }
                 cocok(c, q, "nama");
                 for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
                     Lokasi x = (Lokasi) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_PENYEDIA.equals(nama)) {
+                Criteria c = s.createCriteria(Penyedia.class);
+                cocok(c, q, "nama", "alamat");
+                for (Object o : c.addOrder(Order.asc("id")).setMaxResults(BATAS_CARI).list()) {
+                    Penyedia x = (Penyedia) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_JENIS_ITEM.equals(nama)) {
+                Criteria c = s.createCriteria(JenisItem.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("id")).setMaxResults(BATAS_CARI).list()) {
+                    JenisItem x = (JenisItem) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_JENIS_ITEM_MEDIS.equals(nama)) {
+                Criteria c = s.createCriteria(JenisItemMedis.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("id")).setMaxResults(BATAS_CARI).list()) {
+                    JenisItemMedis x = (JenisItemMedis) o;
                     arr.put(pilihan(x.getId(), "", x.getNama(), null));
                 }
             } else if (S_PENDAFTARAN.equals(nama)) {
@@ -542,6 +608,8 @@ public final class NewUiLaporanSirsController {
         try {
             if (jenis.kode.startsWith("rajal_")) {
                 rajal(parameters, r, s, jenis);
+            } else if (jenis.kode.startsWith("inventory_")) {
+                inventory(parameters, r, s, jenis);
             } else if (jenis.kode.startsWith("laporan_kasir_")) {
                 kasir(parameters, r, s);
             } else if ("ranap_laporan_perruangan_periode".equals(jenis.kode)) {
@@ -563,6 +631,60 @@ public final class NewUiLaporanSirsController {
         } else {
             JasperPdfUtil.tulis(j, jenis.template, parameters, jenis.kode, jenis.judul);
         }
+    }
+
+    /** Parameter empat laporan inventori SIRS, termasuk delapan supplier harga beli. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void inventory(Map parameters, HttpServletRequest r, Session s, Jenis jenis) {
+        if ("inventory_harga_beli".equals(jenis.kode)) {
+            List<Long> supplier = idsEntitas(r.getParameter(S_PENYEDIA), s, Penyedia.class, 8, "supplier");
+            for (int i = 1; i <= 8; i++) {
+                parameters.put("p_" + i,
+                        i <= supplier.size() ? supplier.get(i - 1) : Long.valueOf(-1L));
+            }
+            JenisItem item = (JenisItem) muat(s, JenisItem.class, r.getParameter(S_JENIS_ITEM));
+            parameters.put("jenisItem", item == null ? Long.valueOf(-1L) : item.getId());
+            return;
+        }
+        if ("inventory_harga_jual".equals(jenis.kode)) {
+            JenisItemMedis item = (JenisItemMedis) muat(s, JenisItemMedis.class,
+                    r.getParameter(S_JENIS_ITEM_MEDIS));
+            parameters.put("jenisItem", item == null ? Long.valueOf(-1L) : item.getId());
+            return;
+        }
+
+        Lokasi lokasi = (Lokasi) muat(s, Lokasi.class, r.getParameter(S_LOKASI));
+        if (lokasi != null && Boolean.FALSE.equals(lokasi.getAktif())) {
+            throw new IllegalArgumentException("Lokasi tidak aktif.");
+        }
+        Date tanggal = tanggalWajib(r.getParameter(S_TANGGAL), "Per tanggal");
+        parameters.put("lokasi", lokasi == null ? Long.valueOf(-1L) : lokasi.getId());
+        if ("inventory_hpp".equals(jenis.kode)) {
+            parameters.put("tgl", Common.databaseDateFormat.get().format(tanggal));
+        } else {
+            parameters.put("tanggal", tanggal);
+        }
+    }
+
+    /** Muat ID CSV, hilangkan duplikasi, verifikasi kelas, dan pertahankan urutan pilihan. */
+    private static List<Long> idsEntitas(String nilai, Session s, Class<?> kelas,
+            int maksimal, String label) {
+        Set<Long> ids = new LinkedHashSet<Long>();
+        String mentah = text(nilai, "");
+        if (mentah.length() > 0) {
+            String[] bagian = mentah.split(",");
+            for (int i = 0; i < bagian.length; i++) {
+                Long id = id(bagian[i]);
+                if (id == null || id.longValue() <= 0L || s.get(kelas, id) == null) {
+                    throw new IllegalArgumentException("Pilihan " + label + " tidak sah.");
+                }
+                ids.add(id);
+            }
+        }
+        if (ids.size() > maksimal) {
+            throw new IllegalArgumentException("Maksimal " + maksimal + " " + label + " dapat dipilih.");
+        }
+        return new ArrayList<Long>(ids);
     }
 
     /** Parameter dua laporan kasir: lokasi aktif dan rentang tanggal. */

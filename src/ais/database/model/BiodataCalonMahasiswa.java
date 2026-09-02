@@ -4773,6 +4773,39 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		this.parameterTambahanInds = parameterTambahanInds;
 	}
 
+	/**
+	 * Mengurai {@link #getParameterTambahan()} menjadi daftar {@link CommonVO} siap tampil/cetak —
+	 * kebalikan dari {@link #populateParameterTambahan(List)}.
+	 *
+	 * <p>Untuk setiap baris jawaban, method ini:</p>
+	 * <ol>
+	 * <li>memecah ruas dengan pemisah {@code <=>} (label, nilai, url, nomor urut, id parameter, id
+	 * kelompok);</li>
+	 * <li>memuat master {@link ParameterTambahan} dari cache {@code ConstantValues};</li>
+	 * <li>bila tipe inputannya {@code PILIHAN_CUSTOM}, menerjemahkan nilai tersimpan (yang berupa
+	 * bagian setelah tanda titik dua pada definisi pilihan) kembali menjadi TEKS pilihan; nilai
+	 * mentahnya tetap disimpan pada {@code name3} agar tidak hilang;</li>
+	 * <li>bila parameter mewajibkan lampiran, URL lampiran diambil ulang dari
+	 * {@link ais.database.model.file.LampiranLain} dengan kunci
+	 * {@code idKelompok->idParameter} — jadi tautan selalu segar, tidak mengandalkan URL yang
+	 * tersimpan di teks;</li>
+	 * <li>untuk tipe angka, nilai bernotasi ilmiah (mengandung huruf {@code e}) dinormalkan lewat
+	 * {@link BigDecimal} supaya tidak tampil sebagai {@code 1.23E7}.</li>
+	 * </ol>
+	 *
+	 * <p>Hasil diurutkan dengan {@code Collections.sort} berdasarkan nomor urut parameter. Setiap
+	 * penguraian angka/id di-{@code try/catch} sendiri sehingga satu baris rusak tidak menggagalkan
+	 * baris lain.</p>
+	 *
+	 * <p><b>Catatan:</b> method ini masih mencetak baris {@code System.out.println} per jawaban —
+	 * sisa penelusuran lama yang membuat log ramai pada layar berisi banyak pendaftar.</p>
+	 *
+	 * <p>Pemetaan ke {@link CommonVO}: {@code id} = id parameter, {@code name} = label lengkap,
+	 * {@code name1} = nilai tampil, {@code name2} = URL lampiran, {@code name3} = nilai mentah,
+	 * {@code name5} = nama kelompok, {@code nomorUrut} = urutan tampil.</p>
+	 *
+	 * @return daftar jawaban terurut; kosong bila belum ada parameter tambahan.
+	 */
 	public List<CommonVO> ambilDataParameterTambahan() {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		String[] splNama = getParameterTambahan().split("\n");
@@ -4873,6 +4906,32 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return commonVOs;
 	}
 
+	/**
+	 * Memungut jawaban parameter tambahan dari BARIS-BARIS KOMPONEN ZK di layar formulir, lalu
+	 * menuliskannya ke {@link #setParameterTambahan(String)} dan
+	 * {@link #setParameterTambahanInds(String)} sekaligus — kebalikan dari
+	 * {@link #ambilDataParameterTambahan()}.
+	 *
+	 * <p>Setiap {@link Row} diharapkan membawa atribut {@code "parameterTambahan"},
+	 * {@code "kelompokParameterTambahanCalonMahasiswa"}, dan opsional {@code "keterangan"} (berupa
+	 * {@link Textbox}); baris yang tidak lengkap dilewati. Nilai jawabannya dibaca lewat
+	 * {@code ParameterTambahan.ambilVal(row, parameterTambahan)} sehingga tiap tipe inputan
+	 * (teks/angka/pilihan) ditangani di satu tempat.</p>
+	 *
+	 * <p>URL lampiran TIDAK diambil dari komponen, melainkan dicari ulang di
+	 * {@link ais.database.model.file.LampiranLain} memakai kunci {@code idKelompok->idParameter} —
+	 * konsisten dengan cara baca di {@link #ambilDataParameterTambahan()}.</p>
+	 *
+	 * <p>Kegagalan pada satu baris ditangkap dan hanya ditampilkan kepada admin, sehingga satu
+	 * komponen bermasalah tidak membatalkan penyimpanan seluruh formulir.</p>
+	 *
+	 * <p><b>Efek samping:</b> mengubah state objek ini (dua kolom teks). Penyimpanan ke database
+	 * tetap tanggung jawab pemanggil.</p>
+	 *
+	 * @param parameterRows baris-baris komponen ZK berisi jawaban; {@code null}/kosong membuat
+	 *                      method langsung keluar TANPA mengubah apa pun (penting: memanggil dengan
+	 *                      daftar kosong tidak akan menghapus jawaban yang sudah tersimpan).
+	 */
 	public void populateParameterTambahan(List<Row> parameterRows) {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return;
@@ -4929,6 +4988,16 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		setParameterTambahan(parameterTambahanStr);
 	}
 
+	/**
+	 * Kelompok calon mahasiswa yang ditetapkan operator secara EKSPLISIT (mis. "Baru",
+	 * "Baru-Beasiswa Gratispol"), master {@link KelompokCalonMahasiswa}.
+	 *
+	 * <p>Kelompok eksplisit ini adalah keputusan operator dan karenanya menjadi prioritas kedua
+	 * (di bawah {@link #getStatusAwalDiterima()}) pada {@link #getStatusAwalMahasiswa()}. Baris
+	 * dengan kelompok {@code null} adalah yang masuk ke layar kelompok lewat jalur OTOMATIS.</p>
+	 *
+	 * @return master kelompok calon mahasiswa; {@code null} bila belum dikelompokkan eksplisit.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelompok_calon_mahasiswa", nullable = true)
 	public KelompokCalonMahasiswa getKelompokCalonMahasiswa() {
@@ -4936,18 +5005,55 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return kelompokCalonMahasiswa;
 	}
 
+	/**
+	 * Menetapkan kelompok calon mahasiswa (keputusan eksplisit operator).
+	 *
+	 * @param kelompokCalonMahasiswa master kelompok.
+	 */
 	public void setKelompokCalonMahasiswa(KelompokCalonMahasiswa kelompokCalonMahasiswa) {
 		this.kelompokCalonMahasiswa = kelompokCalonMahasiswa;
 	}
 
+	/**
+	 * Nomor telepon sekolah asal.
+	 *
+	 * @return nomor telepon sekolah; {@code null} bila belum diisi.
+	 */
 	public String getNoTelpSekolah() {
 		return noTelpSekolah;
 	}
 
+	/**
+	 * Menetapkan nomor telepon sekolah asal.
+	 *
+	 * @param noTelpSekolah nomor telepon sekolah.
+	 */
 	public void setNoTelpSekolah(String noTelpSekolah) {
 		this.noTelpSekolah = noTelpSekolah;
 	}
 
+	/**
+	 * TOTAL SKOR SELEKSI pendaftar — dihitung ULANG dari teks {@link #getParameterTambahan()}
+	 * setiap kali dipanggil, bukan dibaca dari kolom.
+	 *
+	 * <p>Hanya jawaban bertipe {@code PILIHAN_CUSTOM} yang menyumbang skor. Untuk setiap jawaban,
+	 * nilai skornya diambil dari bagian setelah tanda titik dua ({@code teks:skor}); bila tidak ada
+	 * titik dua, seluruh nilai dipakai. Nilai yang berupa angka murni diurai langsung, sedangkan
+	 * yang tidak murni angka diserahkan ke {@link #ekstrakSkorDariTeks(String)}.</p>
+	 *
+	 * <p><b>Defensif dan sengaja:</b> setiap penguraian angka diperiksa polanya dulu dan dibungkus
+	 * {@code try/catch} tersendiri. Method ini dipanggil Hibernate pada SETIAP flush/dirty-check
+	 * (ia properti entity) dan juga oleh {@code ManajemenProperty.insertProperty}, jadi satu field
+	 * berisi teks rusak tidak boleh menggagalkan seluruh perhitungan — apalagi membatalkan
+	 * transaksi.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code totalSkor} direset ke 0 lalu diakumulasi ulang, sehingga
+	 * nilai hasil hitung ikut tersimpan ke kolom pada flush berikutnya.</p>
+	 *
+	 * @return total skor seleksi; 0 bila tidak ada jawaban berskor.
+	 * @see #ambilSkor(ParameterTambahan)
+	 * @see #getRincianSkor()
+	 */
 	public Integer getTotalSkor() {
 		totalSkor = 0;
 		if (!getParameterTambahan().isEmpty()) {
@@ -5017,6 +5123,10 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	 * Kalau teks tidak mengandung angka sama sekali (mis.
 	 * "KIP Kuliah (Memiliki KIP/PKH/KKS/KJP)") kembalikan 0 - JANGAN lempar
 	 * exception, dipanggil di jalur Hibernate flush/insertProperty.
+	 *
+	 * @param teks teks jawaban yang hendak diambil kode angkanya; {@code null} menghasilkan 0.
+	 * @return angka pertama yang ditemukan di dalam teks; 0 bila tidak ada angka sama sekali atau
+	 *         terjadi kegagalan penguraian.
 	 */
 	/* OPTIMASI FASE 9: pola regex dikompilasi SEKALI (Pattern immutable & thread-safe),
 	 * bukan tiap kali method dipanggil. Matcher tetap dibuat per panggilan karena
@@ -5039,6 +5149,20 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return 0;
 	}
 
+	/**
+	 * Skor dari SATU parameter tambahan tertentu saja — versi tersaring dari
+	 * {@link #getTotalSkor()}, dipakai laporan rincian per pertanyaan seleksi.
+	 *
+	 * <p>Aturan penguraian dan sikap defensifnya sama persis dengan {@link #getTotalSkor()}; yang
+	 * berbeda hanya syarat tambahan bahwa id parameter pada baris jawaban harus sama dengan
+	 * {@code parameterTambahanData}. Berbeda dari {@link #getTotalSkor()}, method ini TIDAK
+	 * memutasi field {@code totalSkor} (memakai variabel lokal), jadi aman dipanggil berulang dari
+	 * jalur pelaporan.</p>
+	 *
+	 * @param parameterTambahanData parameter yang skornya ingin diketahui; {@code null} membuat
+	 *                              hasilnya 0.
+	 * @return skor untuk parameter tersebut; 0 bila tidak ada jawaban yang cocok.
+	 */
 	public Integer ambilSkor(ParameterTambahan parameterTambahanData) {
 		Integer totalSkor = 0;
 		if (!getParameterTambahan().isEmpty() && parameterTambahanData != null) {
@@ -5095,20 +5219,49 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return totalSkor;
 	}
 
+	/**
+	 * Menetapkan total skor. Nilai ini akan DITIMPA oleh hasil hitung ulang pada pemanggilan
+	 * {@link #getTotalSkor()} berikutnya, jadi setter ini praktis hanya dipakai Hibernate saat
+	 * memuat baris.
+	 *
+	 * @param totalSkor total skor.
+	 */
 	public void setTotalSkor(Integer totalSkor) {
 		this.totalSkor = totalSkor;
 	}
 
+	/**
+	 * Apakah pendaftar pernah login ke portal PMB? Nilainya semata-mata diturunkan dari ada
+	 * tidaknya {@link #getWaktuLogin()}, tidak pernah dibaca dari kolom.
+	 *
+	 * @return {@code true} bila pernah login.
+	 */
 	public Boolean getTelahLogin() {
 
 		telahLogin = getWaktuLogin() != null;
 		return telahLogin;
 	}
 
+	/**
+	 * Menetapkan penanda pernah login (akan ditimpa lagi oleh getternya).
+	 *
+	 * @param telahLogin penanda pernah login.
+	 */
 	public void setTelahLogin(Boolean telahLogin) {
 		this.telahLogin = telahLogin;
 	}
 
+	/**
+	 * Waktu login terakhir pendaftar ke portal PMB.
+	 *
+	 * <p>Sumbernya BUKAN kolom tabel melainkan properti berkas {@code login_terakhir} yang dibaca
+	 * lewat {@code retreive(...)} milik {@link ais.database.model.GeneralValueObject}, lalu diurai
+	 * dengan {@code Common.dateFormat9}. Bila properti itu tidak ada atau gagal diurai, nilai awal
+	 * field (waktu objek dibuat) dipertahankan — sehingga {@link #getTelahLogin()} bisa bernilai
+	 * {@code true} untuk pendaftar yang sebenarnya belum pernah login.</p>
+	 *
+	 * @return waktu login terakhir; praktis tidak pernah {@code null}.
+	 */
 	public Date getWaktuLogin() {
 		try {
 			String login_terakhir = retreive("login_terakhir");
@@ -5121,42 +5274,101 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return waktuLogin;
 	}
 
+	/**
+	 * Menetapkan waktu login terakhir (akan ditimpa oleh getternya bila properti
+	 * {@code login_terakhir} tersedia).
+	 *
+	 * @param waktuLogin waktu login.
+	 */
 	public void setWaktuLogin(Date waktuLogin) {
 		this.waktuLogin = waktuLogin;
 	}
 
+	/**
+	 * Gelar yang sudah dimiliki pendaftar (relevan untuk pendaftar pascasarjana).
+	 *
+	 * @return gelar; {@code null} bila belum diisi.
+	 */
 	public String getGelar() {
 		return gelar;
 	}
 
+	/**
+	 * Menetapkan gelar pendaftar.
+	 *
+	 * @param gelar gelar.
+	 */
 	public void setGelar(String gelar) {
 		this.gelar = gelar;
 	}
 
+	/**
+	 * Nama pengguna untuk login portal PMB (alternatif mekanisme PIN).
+	 *
+	 * @return nama pengguna; {@code null} bila tidak dipakai.
+	 */
 	public String getUsername() {
 		return username;
 	}
 
+	/**
+	 * Menetapkan nama pengguna portal PMB.
+	 *
+	 * @param username nama pengguna.
+	 */
 	public void setUsername(String username) {
 		this.username = username;
 	}
 
+	/**
+	 * Kata sandi login portal PMB.
+	 *
+	 * @return kata sandi sebagaimana tersimpan; {@code null} bila tidak dipakai.
+	 */
 	public String getPassword() {
 		return password;
 	}
 
+	/**
+	 * Menetapkan kata sandi portal PMB.
+	 *
+	 * @param password kata sandi.
+	 */
 	public void setPassword(String password) {
 		this.password = password;
 	}
 
+	/**
+	 * Nomor Kartu Keluarga pendaftar (dipakai verifikasi data dan pengajuan beasiswa/KIP).
+	 *
+	 * @return nomor KK; {@code null} bila belum diisi.
+	 */
 	public String getKk() {
 		return kk;
 	}
 
+	/**
+	 * Menetapkan nomor Kartu Keluarga.
+	 *
+	 * @param kk nomor KK.
+	 */
 	public void setKk(String kk) {
 		this.kk = kk;
 	}
 
+	/**
+	 * Urutan alami pendaftar: berdasarkan {@code noRegistrasi} secara leksikografis.
+	 *
+	 * <p>Bila pembanding bukan {@link BiodataCalonMahasiswa}, atau salah satu nomor registrasinya
+	 * {@code null} (sehingga {@code compareTo} melempar {@code NullPointerException}), method
+	 * jatuh ke urutan bawaan {@code super.compareTo} milik
+	 * {@link ais.database.model.GeneralValueObject}. Field {@code noRegistrasi} sengaja dibaca
+	 * LANGSUNG (bukan lewat getter) agar pengurutan tidak memicu efek samping getter.</p>
+	 *
+	 * @param arg0 objek pembanding.
+	 * @return negatif/nol/positif sesuai kontrak {@link Comparable}.
+	 * @see ais.database.model.GeneralValueObject
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		try {
@@ -5167,24 +5379,53 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * Nomor surat keputusan kelulusan seleksi yang diterbitkan untuk pendaftar ini (bahan cetak
+	 * surat penerimaan).
+	 *
+	 * @return nomor surat kelulusan; {@code null} bila belum terbit.
+	 */
 	@Column(name = "nomor_surat_kelulusan")
 	public String getNomorSuratKelulusan() {
 		return nomorSuratKelulusan;
 	}
 
+	/**
+	 * Menetapkan nomor surat kelulusan.
+	 *
+	 * @param nomorSuratKelulusan nomor surat.
+	 */
 	public void setNomorSuratKelulusan(String nomorSuratKelulusan) {
 		this.nomorSuratKelulusan = nomorSuratKelulusan;
 	}
 
+	/**
+	 * Tanggal surat keputusan kelulusan.
+	 *
+	 * @return tanggal surat; {@code null} bila belum terbit.
+	 * @see #getNomorSuratKelulusan()
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalSuratKelulusan() {
 		return tanggalSuratKelulusan;
 	}
 
+	/**
+	 * Menetapkan tanggal surat kelulusan.
+	 *
+	 * @param tanggalSuratKelulusan tanggal surat.
+	 */
 	public void setTanggalSuratKelulusan(Date tanggalSuratKelulusan) {
 		this.tanggalSuratKelulusan = tanggalSuratKelulusan;
 	}
 
+	/**
+	 * Sekolah asal versi BERMASTER ({@link NamaSekolahAsal}) — menjadi sumber penimpaan bagi teks
+	 * bebas {@link #getAsalSma()}, sehingga statistik "asal sekolah" bisa dikelompokkan dengan
+	 * benar meskipun pendaftar mengetik nama sekolah dengan ejaan berbeda-beda.
+	 *
+	 * @return master sekolah asal; {@code null} bila pendaftar hanya mengetik nama bebas.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "nama_sekolah_asal", nullable = true)
 	public NamaSekolahAsal getNamaSekolahAsal() {
@@ -5192,61 +5433,148 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return namaSekolahAsal;
 	}
 
+	/**
+	 * Menetapkan sekolah asal bermaster.
+	 *
+	 * @param namaSekolahAsal master sekolah asal.
+	 */
 	public void setNamaSekolahAsal(NamaSekolahAsal namaSekolahAsal) {
 		this.namaSekolahAsal = namaSekolahAsal;
 	}
 
+	/**
+	 * Apakah pendaftar DITOLAK (keputusan kampus)?
+	 *
+	 * <p>Bersama {@link #getMundur()} (keputusan pendaftar), penanda ini mematikan hasil seleksi:
+	 * {@link #getStatusLulus()} menjadi 0 dan {@link #getProdiLulus()} menjadi {@code null}.
+	 * Pendaftar yang ditolak juga tidak ikut dihitung pada kuota
+	 * ({@link #hitungJumlahPendaftarKuota(Session, PaketJurusanPmb, GelombangPendaftaran, String,
+	 * Long)}). Nilai {@code null} diperlakukan sebagai {@code false}.</p>
+	 *
+	 * @return {@code true} bila ditolak; tidak pernah {@code null}.
+	 */
 	public Boolean getDitolak() {
 		return ditolak == null ? false : ditolak;
 	}
 
+	/**
+	 * Menetapkan penanda ditolak.
+	 *
+	 * @param ditolak {@code true} bila pendaftar ditolak.
+	 */
 	public void setDitolak(Boolean ditolak) {
 		this.ditolak = ditolak;
 	}
 
+	/**
+	 * Penanda proses warisan pada kolom {@code udah_baru} ("sudah diproses"), dipakai penanda
+	 * migrasi/konversi batch lama. Nilai {@code null} diperlakukan sebagai {@code false}.
+	 *
+	 * @return {@code true} bila sudah ditandai; tidak pernah {@code null}.
+	 */
 	@Column(name = "udah_baru")
 	public Boolean getUdah() {
 		return udah == null ? false : udah;
 	}
 
+	/**
+	 * Menetapkan penanda proses warisan.
+	 *
+	 * @param udah {@code true} bila sudah diproses.
+	 */
 	public void setUdah(Boolean udah) {
 		this.udah = udah;
 	}
 
+	/**
+	 * Nama jurusan sekolah asal versi teks bebas, dipakai ketika pilihan pada master
+	 * {@link #getJurusanSekolah()} tidak memuat jurusan yang dimaksud (isian "lainnya").
+	 *
+	 * @return nama jurusan sekolah lain; {@code null} bila tidak dipakai.
+	 */
 	@Column(columnDefinition = "text")
 	public String getJurusanSekolahLain() {
 		return jurusanSekolahLain;
 	}
 
+	/**
+	 * Menetapkan nama jurusan sekolah asal versi teks bebas.
+	 *
+	 * @param jurusanSekolahLain nama jurusan.
+	 */
 	public void setJurusanSekolahLain(String jurusanSekolahLain) {
 		this.jurusanSekolahLain = jurusanSekolahLain;
 	}
 
+	/**
+	 * Catatan bebas operator atas pendaftar ini (mis. alasan penolakan, kesepakatan khusus).
+	 *
+	 * @return keterangan terpangkas; {@code ""} bila belum diisi.
+	 */
 	@Column(columnDefinition = "text")
 	public String getKeterangan() {
 		return keterangan == null ? "" : keterangan.trim();
 	}
 
+	/**
+	 * Menetapkan catatan bebas operator.
+	 *
+	 * @param keterangan catatan.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Apakah pendaftar MENGUNDURKAN DIRI (keputusan pendaftar)? Efeknya sama dengan
+	 * {@link #getDitolak()}: mematikan status kelulusan dan prodi lulus, serta membebaskan kuota.
+	 * Nilai {@code null} diperlakukan sebagai {@code false}.
+	 *
+	 * @return {@code true} bila mengundurkan diri; tidak pernah {@code null}.
+	 */
 	public Boolean getMundur() {
 		return mundur == null ? false : mundur;
 	}
 
+	/**
+	 * Menetapkan penanda mengundurkan diri.
+	 *
+	 * @param mundur {@code true} bila pendaftar mundur.
+	 */
 	public void setMundur(Boolean mundur) {
 		this.mundur = mundur;
 	}
 
+	/**
+	 * NISN (Nomor Induk Siswa Nasional) pendaftar — kunci pencocokan data dengan Dapodik/PDDikti.
+	 *
+	 * @return NISN terpangkas; {@code ""} bila belum diisi.
+	 */
 	public String getNisn() {
 		return nisn == null ? "" : nisn.trim();
 	}
 
+	/**
+	 * Menetapkan NISN.
+	 *
+	 * @param nisn NISN.
+	 */
 	public void setNisn(String nisn) {
 		this.nisn = nisn;
 	}
 
+	/**
+	 * Merender alamat surel pendaftar sebagai tombol ZK di dalam kontainer {@code vbox}, lengkap
+	 * dengan ikon amplop dan tautan {@code mailto:} yang terbuka di tab baru.
+	 *
+	 * <p>Tombol tetap dibuat meski surelnya kosong (berupa label kosong), supaya tata letak
+	 * kolom pada grid tidak bergeser.</p>
+	 *
+	 * <p><b>Efek samping:</b> membentuk dan memasang komponen UI. Method ini dipanggil dari
+	 * renderer daftar pendaftar, bukan dari logika data.</p>
+	 *
+	 * @param vbox komponen induk tempat tombol dipasang.
+	 */
 	public void tampilkanEmail(Component vbox) {
 		String email = getEmail();
 		Toolbarbutton a;

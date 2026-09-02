@@ -5198,6 +5198,29 @@ public class Pertemuan extends Tugas {
 		return pertemuanPunyaUjians;
 	}
 
+	/**
+	 * Baca peta lokasi lampiran ({@link PertemuanFileContent}) milik satu pertemuan.
+	 *
+	 * <p>Mengikuti pola pada {@link #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()}, dengan dua
+	 * perbedaan penting:</p>
+	 * <ul>
+	 *   <li><b>Statis dan menerima id.</b> Kelompok lampiran/video/audio dibuat statis agar dapat
+	 *       dipanggil dari sisi ANAK (mis. {@link PertemuanFileContent} yang hanya menyimpan id
+	 *       induknya sebagai {@code Long}, bukan sebagai relasi) tanpa perlu memuat objek
+	 *       {@link Pertemuan}-nya lebih dulu.</li>
+	 *   <li><b>Nilai peta adalah PATH BERKAS, bukan id.</b> Isi tiap lampiran ikut di-cache ke
+	 *       berkas tersendiri, dan peta menyimpan lokasi berkas itu — lihat
+	 *       {@link #populatePertemuanFileContent(PertemuanFileContent, boolean)}. Inilah yang
+	 *       memungkinkan {@link #ambilPertemuanFileContentTotal(boolean)} tetap menampilkan
+	 *       lampiran walau cache objeknya sudah kosong.</li>
+	 * </ul>
+	 *
+	 * <p>{@code id} bernilai {@code null} menghasilkan JSON kosong, bukan exception.</p>
+	 *
+	 * @param id id pertemuan pemilik lampiran
+	 * @return isi peta lokasi lampiran sebagai teks JSON; JSON kosong bila belum ada
+	 * @see #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public static String ambilLokasiPertemuanFileContent(Serializable id) {
 		if (id == null) {
 			return VOMahasiswa.dataJSON;
@@ -5212,6 +5235,13 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi lampiran milik satu pertemuan.
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 * @param id   id pertemuan pemilik lampiran
+	 * @see #ambilLokasiPertemuanFileContent(Serializable)
+	 */
 	public static void tulisLokasiPertemuanFileContent(String data, Serializable id) {
 		File file = Common.getFileLocation(Pertemuan.class, id, "pertemuan_file_content_" + id.toString());
 		try {
@@ -5222,12 +5252,49 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Hapus berkas peta lokasi lampiran milik pertemuan ini.
+	 *
+	 * <p>Berbeda dari pasangan baca/tulisnya yang statis, method ini bersifat instans dan memakai
+	 * {@code getId()} tanpa penjagaan {@code null}.</p>
+	 *
+	 * @see #bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiPertemuanFileContent() {
 		File file = Common.getFileLocation(this, "pertemuan_file_content_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "pertemuan_file_content");
 
 	}
 
+	/**
+	 * Bangun ulang peta lokasi lampiran dari basis data, sekaligus menambal tautan yang hilang.
+	 *
+	 * <p>Berbeda dari {@code reInitXxx(...)} lain yang hanya mengambil ID, method ini memuat objek
+	 * {@link PertemuanFileContent} seutuhnya karena ada perbaikan data yang harus dilakukan
+	 * sambil jalan. Untuk tiap lampiran bernama {@code "link"} yang belum punya {@code link}
+	 * tetapi punya berkas:</p>
+	 * <ul>
+	 *   <li>bila berkasnya benar-benar ada di disk, tautan dibuatkan lewat
+	 *       {@code LampiranLain.ambilLinkLampiranLain(...)}, dipasang ke objek, dimasukkan ke
+	 *       cache, dan didaftarkan ke peta;</li>
+	 *   <li>bila berkasnya tidak ada, lampiran itu DILEWATI — tidak masuk peta sama sekali,
+	 *       sehingga praktis hilang dari tampilan sampai berkasnya dipulihkan.</li>
+	 * </ul>
+	 * <p>Lampiran {@code "link"} yang tidak punya {@code link} maupun berkas juga dilewati.
+	 * Lampiran biasa langsung dimasukkan cache dan didaftarkan.</p>
+	 *
+	 * <p>Perhatikan bahwa penyaring query memakai {@code Restrictions.eq("pertemuan", this.getId())}
+	 * — dibandingkan dengan ID, karena di sisi {@link PertemuanFileContent} induknya memang
+	 * disimpan sebagai {@code Long}, bukan relasi. Ini berbeda dari blok izin/diskusi yang
+	 * membandingkan dengan objek {@code this}.</p>
+	 *
+	 * <p>Satu-satunya {@code reInitXxx} pada kelompok ini yang MELEMPARKAN exception keluar
+	 * ({@code throws Exception}); pemanggilnya di kelas ini menangkap dan mencatatnya.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @throws Exception bila query atau pembacaan berkas gagal
+	 * @see #ambilPertemuanFileContentTotal(boolean)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPertemuanFileContent(Session session) throws Exception {
 		List<PertemuanFileContent> pertemuanFileContents = session.createCriteria(PertemuanFileContent.class)
@@ -5261,6 +5328,21 @@ public class Pertemuan extends Tugas {
 		pertemuanFileContents = null;
 	}
 
+	/**
+	 * Keluarkan satu lampiran dari peta lokasi.
+	 *
+	 * <p><b>Perhatikan kekeliruan pemakaian id di sini</b> (dicatat, tidak diperbaiki): parameter
+	 * {@code id} adalah id LAMPIRAN, tetapi nilai itu juga dipakai sebagai id PERTEMUAN ketika
+	 * memanggil {@link #ambilLokasiPertemuanFileContent(Serializable)} dan
+	 * {@link #tulisLokasiPertemuanFileContent(String, Serializable)}. Akibatnya method ini membaca
+	 * dan menulis peta milik "pertemuan" bernomor sama dengan id lampiran, bukan peta pertemuan
+	 * yang sebenarnya memiliki lampiran itu. Bandingkan dengan
+	 * {@link #populatePertemuanFileContent(PertemuanFileContent, boolean)} yang benar karena
+	 * mengambil id induk lewat {@code pertemuanFileContent.getPertemuan()}.</p>
+	 *
+	 * @param id id lampiran yang dikeluarkan
+	 * @see #removePengajuanIzinTidakMasukPerkuliahan(Serializable)
+	 */
 	public static void removePertemuanFileContent(Serializable id) {
 		try {
 			JSONObject c = jsonObjekUntukTulis(ambilLokasiPertemuanFileContent(id));
@@ -5271,6 +5353,25 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu lampiran ke peta lokasi pertemuan pemiliknya.
+	 *
+	 * <p>Berbeda dari {@code populateXxx(...)} lain yang cuma menyimpan {@code "id" -> "id"},
+	 * method ini memanggil {@code pertemuanFileContent.write()} yang MENULIS BERKAS CACHE berisi
+	 * bentuk JSON lampiran, lalu menyimpan {@code "id" -> "path berkas"} ke peta. Berkas itulah
+	 * yang dibaca sebagai sumber cadangan oleh
+	 * {@link #ambilPertemuanFileContentTotal(boolean)} ketika objeknya tidak ada di cache.</p>
+	 *
+	 * <p>Id pertemuan diambil dari {@code pertemuanFileContent.getPertemuan()}, sehingga peta yang
+	 * disentuh selalu peta milik induk yang benar.</p>
+	 *
+	 * <p>Parameter {@code tulisUlang} tidak berpengaruh: kedua cabang ekspresi kondisionalnya
+	 * menghasilkan nilai yang sama persis.</p>
+	 *
+	 * @param pertemuanFileContent lampiran yang didaftarkan; {@code null} diabaikan
+	 * @param tulisUlang           tidak berpengaruh
+	 * @see #populatePengajuanIzinTidakMasukPerkuliahan(Long)
+	 */
 	public static void populatePertemuanFileContent(PertemuanFileContent pertemuanFileContent, boolean tulisUlang) {
 		try {
 			if (pertemuanFileContent == null) {
@@ -5284,10 +5385,29 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Adakah lampiran pada pertemuan ini (memakai peta lokasi yang sudah ada)?
+	 *
+	 * @return {@code true} bila ada lampiran atau pertemuan ini bertanda ujian
+	 * @see #fileContent(boolean)
+	 */
 	public boolean fileContent() {
 		return fileContent(false);
 	}
 
+	/**
+	 * Adakah lampiran pada pertemuan ini?
+	 *
+	 * <p><b>Ada jalan pintas yang mudah mengejutkan:</b> bila {@link #getStatusPertemuan()}
+	 * bertanda ujian, method ini langsung mengembalikan {@code true} TANPA memeriksa apakah
+	 * lampirannya benar-benar ada. Alasannya, sesi ujian selalu dianggap punya berkas soal.
+	 * Jadi hasil {@code true} di sini tidak menjamin
+	 * {@link #ambilPertemuanFileContentTotal(boolean)} akan mengembalikan sesuatu.</p>
+	 *
+	 * @param refresh {@code true} untuk memaksa peta lokasi dibangun ulang dari basis data lebih
+	 *                dahulu (mahal); {@code false} untuk memakai peta yang ada
+	 * @return {@code true} bila ada lampiran atau pertemuan ini bertanda ujian
+	 */
 	public boolean fileContent(boolean refresh) {
 
 		if (getStatusPertemuan() != null && getStatusPertemuan().getUjian()) {
@@ -5300,6 +5420,26 @@ public class Pertemuan extends Tugas {
 		return ada > 0;
 	}
 
+	/**
+	 * Banyaknya lampiran pada pertemuan ini.
+	 *
+	 * <p>Menghitung LANGSUNG dari peta lokasi (entri yang nilainya tidak kosong), tanpa memuat
+	 * objek lampiran mana pun — jauh lebih murah daripada
+	 * {@code ambilPertemuanFileContentTotal().size()}.</p>
+	 *
+	 * <p>Peta dibangun ulang lebih dulu bila penanda {@code "pertemuan_file_content"} belum ada;
+	 * pembangunan itu memakai session dari {@link StreamingHibernateUtil}, bukan
+	 * {@link HibernateUtil} biasa, karena lampiran termasuk data berukuran besar. Perhatikan bahwa
+	 * pada jalur ini session tersebut TIDAK ditutup — berbeda dari
+	 * {@link #ambilPertemuanFileContentTotal(boolean)} yang menutupnya.</p>
+	 *
+	 * <p>Angka yang dikembalikan bisa LEBIH BESAR daripada ukuran hasil
+	 * {@link #ambilPertemuanFileContentTotal(boolean)}, karena di sini lampiran {@code "link"}
+	 * yang rusak (tanpa tautan dan tanpa berkas) tetap ikut dihitung, sedangkan di sana
+	 * disaring keluar.</p>
+	 *
+	 * @return banyaknya entri lampiran pada peta lokasi; {@code 0} bila pertemuan belum punya id
+	 */
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahPertemuanFileContent() {
 		if (getId() == null) {
@@ -5428,10 +5568,43 @@ public class Pertemuan extends Tugas {
 		return hasil;
 	}
 
+	/**
+	 * Seluruh lampiran pertemuan ini, memakai peta lokasi yang sudah ada.
+	 *
+	 * @return peta {@code id -> lampiran}, terurut MENURUN menurut id
+	 * @see #ambilPertemuanFileContentTotal(boolean)
+	 */
 	public TreeMap<Long, PertemuanFileContent> ambilPertemuanFileContentTotal() {
 		return ambilPertemuanFileContentTotal(false);
 	}
 
+	/**
+	 * Seluruh lampiran pertemuan ini.
+	 *
+	 * <p>Seperti {@link #ambilPertemuanPunyaUjianTotal(String, Tbmuser)}, tiap entri peta dicari
+	 * lebih dulu di cache; bila tidak ada, nilai entri diperlakukan sebagai PATH BERKAS dan isinya
+	 * dibaca sebagai JSON lalu diubah menjadi objek. Kedua jalur menerapkan penyaringan yang sama
+	 * untuk lampiran bernama {@code "link"}:</p>
+	 * <ul>
+	 *   <li>tanpa {@code link} tetapi punya berkas yang ADA di disk &rarr; tautan dibuatkan lalu
+	 *       lampiran dimasukkan;</li>
+	 *   <li>tanpa {@code link} dan berkasnya TIDAK ada &rarr; dilewati;</li>
+	 *   <li>tanpa {@code link} dan tanpa berkas sama sekali &rarr; dilewati.</li>
+	 * </ul>
+	 * <p>Karena penyaringan ini, hasilnya bisa lebih sedikit daripada
+	 * {@link #ambilJumlahPertemuanFileContent()}.</p>
+	 *
+	 * <p>Urutannya MENURUN ({@code Collections.reverseOrder()}) sehingga lampiran terbaru muncul
+	 * lebih dulu.</p>
+	 *
+	 * <p>Berkas yang ada tetapi isinya bukan JSON objek dilewati dengan pesan ke
+	 * {@code System.out} — satu-satunya tempat pada kelompok ini yang mencetak, sedangkan padanan
+	 * video/audio melewatinya diam-diam.</p>
+	 *
+	 * @param refresh {@code true} untuk memaksa peta lokasi dibangun ulang dari basis data lebih
+	 *                dahulu (mahal: memuat seluruh objek lampiran dan menulis berkas cache-nya)
+	 * @return peta {@code id -> lampiran}, terurut menurun menurut id
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, PertemuanFileContent> ambilPertemuanFileContentTotal(boolean refresh) {
 		if (!udah("pertemuan_file_content") || refresh) {
@@ -5557,6 +5730,16 @@ public class Pertemuan extends Tugas {
 	// return pertemuanFileContents;
 	// }
 
+	/**
+	 * Baca peta lokasi rekaman video ({@link VideoPertemuan}) milik satu pertemuan.
+	 *
+	 * <p>Kembaran {@link #ambilLokasiPertemuanFileContent(Serializable)} untuk rekaman video:
+	 * statis, menerima id pertemuan, dan nilai petanya berupa PATH BERKAS cache.</p>
+	 *
+	 * @param id id pertemuan pemilik video
+	 * @return isi peta lokasi video sebagai teks JSON; JSON kosong bila belum ada
+	 * @see #ambilLokasiPertemuanFileContent(Serializable)
+	 */
 	public static String ambilLokasiVideoPertemuan(Serializable id) {
 		if (id == null) {
 			return VOMahasiswa.dataJSON;
@@ -5571,6 +5754,13 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi video milik satu pertemuan.
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 * @param id   id pertemuan pemilik video
+	 * @see #ambilLokasiVideoPertemuan(Serializable)
+	 */
 	public static void tulisLokasiVideoPertemuan(String data, Serializable id) {
 		File file = Common.getFileLocation(Pertemuan.class, id, "video_pertemuan_" + id.toString());
 		try {
@@ -5581,12 +5771,28 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Hapus berkas peta lokasi video milik pertemuan ini.
+	 *
+	 * @see #bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiVideoPertemuan() {
 		File file = Common.getFileLocation(this, "video_pertemuan_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "video_pertemuan");
 
 	}
 
+	/**
+	 * Bangun ulang peta lokasi video dari basis data, sekaligus menambal tautan yang hilang.
+	 *
+	 * <p>Salinan persis {@link #reInitPertemuanFileContent(Session)} untuk {@link VideoPertemuan},
+	 * termasuk penanganan entri bernama {@code "link"} yang belum punya tautan dan penyaringan
+	 * video yang berkasnya hilang.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @throws Exception bila query atau pembacaan berkas gagal
+	 * @see #reInitPertemuanFileContent(Session)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitVideoPertemuan(Session session) throws Exception {
 		List<VideoPertemuan> videoPertemuans = session.createCriteria(VideoPertemuan.class).addOrder(Order.asc("id"))
@@ -5620,6 +5826,17 @@ public class Pertemuan extends Tugas {
 		videoPertemuans = null;
 	}
 
+	/**
+	 * Keluarkan satu video dari peta lokasi.
+	 *
+	 * <p>Sedikit lebih aman daripada {@link #removePertemuanFileContent(Serializable)} karena
+	 * menolak {@code id} bernilai {@code null}, TETAPI mengulang kekeliruan yang sama: {@code id}
+	 * video dipakai juga sebagai id pertemuan saat membaca/menulis peta, sehingga peta yang
+	 * disentuh bukan peta induk yang sebenarnya.</p>
+	 *
+	 * @param id id video yang dikeluarkan; {@code null} diabaikan
+	 * @see #removePertemuanFileContent(Serializable)
+	 */
 	public static void removeVideoPertemuan(Serializable id) {
 		if (id == null) {
 			return;
@@ -5633,6 +5850,16 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu video ke peta lokasi pertemuan pemiliknya.
+	 *
+	 * <p>Sama seperti {@link #populatePertemuanFileContent(PertemuanFileContent, boolean)}:
+	 * memanggil {@code write()} yang menulis berkas cache, lalu menyimpan
+	 * {@code "id" -> "path berkas"} ke peta milik induk yang benar.</p>
+	 *
+	 * @param videoPertemuan video yang didaftarkan; {@code null} diabaikan
+	 * @param tulisUlang     tidak dipakai
+	 */
 	public static void populateVideoPertemuan(VideoPertemuan videoPertemuan, boolean tulisUlang) {
 		try {
 			if (videoPertemuan == null) {
@@ -5646,6 +5873,16 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Adakah rekaman video pada pertemuan ini?
+	 *
+	 * <p>Berbeda dari {@link #fileContent()}, tidak ada jalan pintas untuk sesi ujian — jawabannya
+	 * murni bergantung pada isi peta. Namun tetap tidak hemat: seluruh daftar dimuat lewat
+	 * {@link #ambilVideoPertemuanTotal()} lalu ukurannya diperiksa. Pakai
+	 * {@link #ambilJumlahVideoPertemuan()} bila hanya butuh jumlah.</p>
+	 *
+	 * @return {@code true} bila ada minimal satu video
+	 */
 	public boolean videoPertemuan() {
 
 		TreeMap<Long, VideoPertemuan> videoPertemuansa = ambilVideoPertemuanTotal();
@@ -5654,6 +5891,19 @@ public class Pertemuan extends Tugas {
 		return ada > 0;
 	}
 
+	/**
+	 * Banyaknya rekaman video pada pertemuan ini.
+	 *
+	 * <p>Dihitung langsung dari peta lokasi tanpa memuat objek video. Sama seperti
+	 * {@link #ambilJumlahPertemuanFileContent()}, angkanya bisa lebih besar daripada ukuran hasil
+	 * {@link #ambilVideoPertemuanTotal()} karena entri {@code "link"} yang rusak tetap dihitung
+	 * di sini tetapi disaring keluar di sana.</p>
+	 *
+	 * <p>Session {@link StreamingHibernateUtil} yang dipakai untuk membangun ulang peta TIDAK
+	 * ditutup pada jalur ini — berbeda dari {@link #ambilVideoPertemuanTotal()}.</p>
+	 *
+	 * @return banyaknya entri video pada peta lokasi; {@code 0} bila pertemuan belum punya id
+	 */
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahVideoPertemuan() {
 		if (getId() == null) {
@@ -5689,6 +5939,21 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Seluruh rekaman video pertemuan ini.
+	 *
+	 * <p>Alurnya sama persis dengan {@link #ambilPertemuanFileContentTotal(boolean)}: baca peta,
+	 * cari objek di cache, jatuhkan ke pembacaan berkas cache bila tidak ada, dan saring entri
+	 * {@code "link"} yang rusak. Urutannya juga MENURUN sehingga rekaman terbaru muncul lebih
+	 * dulu.</p>
+	 *
+	 * <p>Berbeda dari padanan lampirannya, method ini tidak punya parameter {@code refresh}:
+	 * peta hanya dibangun ulang bila penanda {@code "video_pertemuan"} memang belum ada.</p>
+	 *
+	 * @return peta {@code id -> video}, terurut menurun menurut id; kosong bila pertemuan belum
+	 *         punya id
+	 * @see #ambilPertemuanFileContentTotal(boolean)
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, VideoPertemuan> ambilVideoPertemuanTotal() {
 		TreeMap<Long, VideoPertemuan> videoPertemuansa = new TreeMap<Long, VideoPertemuan>(Collections.reverseOrder());
@@ -5784,6 +6049,15 @@ public class Pertemuan extends Tugas {
 		return videoPertemuansa;
 	}
 
+	/**
+	 * Potong satu halaman dari peta video yang sudah dikumpulkan.
+	 *
+	 * @param videoPertemuansa peta hasil {@link #ambilVideoPertemuanTotal()}
+	 * @param mulai            indeks awal halaman (berbasis nol)
+	 * @param banyak           banyaknya entri per halaman
+	 * @return daftar video pada halaman yang diminta
+	 * @see #ambilPertemuanPunyaUjian(TreeMap, int, int)
+	 */
 	public List<VideoPertemuan> ambilVideoPertemuan(TreeMap<Long, VideoPertemuan> videoPertemuansa, int mulai,
 			int banyak) {
 
@@ -5802,6 +6076,16 @@ public class Pertemuan extends Tugas {
 		return videoPertemuans;
 	}
 
+	/**
+	 * Baca peta lokasi rekaman audio ({@link AudioPertemuan}) milik satu pertemuan.
+	 *
+	 * <p>Kembaran {@link #ambilLokasiVideoPertemuan(Serializable)} untuk rekaman audio; seluruh
+	 * blok audio adalah salinan blok video dengan tipe yang diganti.</p>
+	 *
+	 * @param id id pertemuan pemilik audio
+	 * @return isi peta lokasi audio sebagai teks JSON; JSON kosong bila belum ada
+	 * @see #ambilLokasiPertemuanFileContent(Serializable)
+	 */
 	public static String ambilLokasiAudioPertemuan(Serializable id) {
 		if (id == null) {
 			return VOMahasiswa.dataJSON;
@@ -5816,6 +6100,13 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi audio milik satu pertemuan.
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 * @param id   id pertemuan pemilik audio
+	 * @see #ambilLokasiAudioPertemuan(Serializable)
+	 */
 	public static void tulisLokasiAudioPertemuan(String data, Serializable id) {
 		File file = Common.getFileLocation(Pertemuan.class, id, "audio_pertemuan_" + id.toString());
 		try {
@@ -5826,12 +6117,26 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Hapus berkas peta lokasi audio milik pertemuan ini.
+	 *
+	 * @see #bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiAudioPertemuan() {
 		File file = Common.getFileLocation(this, "audio_pertemuan_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "audio_pertemuan");
 
 	}
 
+	/**
+	 * Bangun ulang peta lokasi audio dari basis data, sekaligus menambal tautan yang hilang.
+	 *
+	 * <p>Salinan {@link #reInitVideoPertemuan(Session)} untuk {@link AudioPertemuan}.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @throws Exception bila query atau pembacaan berkas gagal
+	 * @see #reInitPertemuanFileContent(Session)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitAudioPertemuan(Session session) throws Exception {
 		List<AudioPertemuan> audioPertemuans = session.createCriteria(AudioPertemuan.class).addOrder(Order.asc("id"))
@@ -5864,6 +6169,16 @@ public class Pertemuan extends Tugas {
 		audioPertemuans = null;
 	}
 
+	/**
+	 * Keluarkan satu audio dari peta lokasi.
+	 *
+	 * <p>Mengulang kekeliruan yang sama dengan {@link #removePertemuanFileContent(Serializable)}
+	 * dan {@link #removeVideoPertemuan(Serializable)}: id audio dipakai juga sebagai id pertemuan.
+	 * Bahkan tanpa penjagaan {@code null} yang ada pada versi videonya.</p>
+	 *
+	 * @param id id audio yang dikeluarkan
+	 * @see #removePertemuanFileContent(Serializable)
+	 */
 	public static void removeAudioPertemuan(Serializable id) {
 		try {
 			JSONObject c = jsonObjekUntukTulis(ambilLokasiAudioPertemuan(id));
@@ -5874,6 +6189,13 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu audio ke peta lokasi pertemuan pemiliknya.
+	 *
+	 * @param audioPertemuan audio yang didaftarkan; {@code null} diabaikan
+	 * @param tulisUlang     tidak dipakai
+	 * @see #populatePertemuanFileContent(PertemuanFileContent, boolean)
+	 */
 	public static void populateAudioPertemuan(AudioPertemuan audioPertemuan, boolean tulisUlang) {
 		try {
 			if (audioPertemuan == null) {
@@ -5887,6 +6209,12 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Adakah rekaman audio pada pertemuan ini?
+	 *
+	 * @return {@code true} bila ada minimal satu audio
+	 * @see #videoPertemuan()
+	 */
 	public boolean audioPertemuan() {
 
 		TreeMap<Long, AudioPertemuan> audioPertemuansa = ambilAudioPertemuanTotal();
@@ -5895,6 +6223,14 @@ public class Pertemuan extends Tugas {
 		return ada > 0;
 	}
 
+	/**
+	 * Banyaknya rekaman audio pada pertemuan ini.
+	 *
+	 * <p>Dihitung langsung dari peta lokasi tanpa memuat objek audio.</p>
+	 *
+	 * @return banyaknya entri audio pada peta lokasi; {@code 0} bila pertemuan belum punya id
+	 * @see #ambilJumlahVideoPertemuan()
+	 */
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahAudioPertemuan() {
 		if (getId() == null) {
@@ -5930,6 +6266,17 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Seluruh rekaman audio pertemuan ini.
+	 *
+	 * <p>Salinan {@link #ambilVideoPertemuanTotal()} untuk {@link AudioPertemuan}, dengan satu
+	 * perbedaan yang perlu diketahui: method ini TIDAK menjaga terhadap {@code getId()} bernilai
+	 * {@code null} di awal, sehingga memanggilnya pada pertemuan yang belum tersimpan berbeda
+	 * perilakunya dari padanan videonya.</p>
+	 *
+	 * @return peta {@code id -> audio}, terurut menurun menurut id
+	 * @see #ambilVideoPertemuanTotal()
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, AudioPertemuan> ambilAudioPertemuanTotal() {
 		if (!udah("audio_pertemuan")) {
@@ -6022,6 +6369,15 @@ public class Pertemuan extends Tugas {
 		return audioPertemuansa;
 	}
 
+	/**
+	 * Potong satu halaman dari peta audio yang sudah dikumpulkan.
+	 *
+	 * @param audioPertemuansa peta hasil {@link #ambilAudioPertemuanTotal()}
+	 * @param mulai            indeks awal halaman (berbasis nol)
+	 * @param banyak           banyaknya entri per halaman
+	 * @return daftar audio pada halaman yang diminta
+	 * @see #ambilPertemuanPunyaUjian(TreeMap, int, int)
+	 */
 	public List<AudioPertemuan> ambilAudioPertemuan(TreeMap<Long, AudioPertemuan> audioPertemuansa, int mulai,
 			int banyak) {
 
@@ -6040,6 +6396,14 @@ public class Pertemuan extends Tugas {
 		return audioPertemuans;
 	}
 
+	/**
+	 * Syarat yang harus dipenuhi peserta sebelum boleh mengumpulkan tugas pertemuan ini.
+	 *
+	 * <p>Implementasi properti abstrak milik {@link Tugas}.</p>
+	 *
+	 * @return syarat pengumpulan tugas, atau {@code null} bila tanpa syarat
+	 * @see Tugas
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "syarat_mengumpulkan_tugas", nullable = true)
 	public SyaratUjian getSyaratMengumpulkanTugas() {
@@ -6047,10 +6411,25 @@ public class Pertemuan extends Tugas {
 		return syaratMengumpulkanTugas;
 	}
 
+	/**
+	 * Setel syarat pengumpulan tugas pertemuan ini.
+	 *
+	 * @param syaratMengumpulkanTugas syarat pengumpulan; boleh {@code null}
+	 */
 	public void setSyaratMengumpulkanTugas(SyaratUjian syaratMengumpulkanTugas) {
 		this.syaratMengumpulkanTugas = syaratMengumpulkanTugas;
 	}
 
+	/**
+	 * Keanggotaan grup pertemuan yang menjadi induk pertemuan ini.
+	 *
+	 * <p>Ini induk "penampung serbaguna": dipakai untuk sesi konsultasi/kegiatan yang tidak masuk
+	 * salah satu kategori akademik baku. {@link #info()} menyebutnya {@code "Konsultasi lain"} bila
+	 * grupnya pun tidak ada.</p>
+	 *
+	 * @return {@link PertemuanPunyaGrupPertemuan} induk, atau {@code null}
+	 * @see #untuk()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pertemuan_punya_grup_pertemuan", nullable = true)
@@ -6058,10 +6437,31 @@ public class Pertemuan extends Tugas {
 		return pertemuanPunyaGrupPertemuan;
 	}
 
+	/**
+	 * Tetapkan keanggotaan grup pertemuan sebagai induk pertemuan ini.
+	 *
+	 * @param pertemuanPunyaGrupPertemuan keanggotaan grup pertemuan; boleh {@code null}
+	 */
 	public void setPertemuanPunyaGrupPertemuan(PertemuanPunyaGrupPertemuan pertemuanPunyaGrupPertemuan) {
 		this.pertemuanPunyaGrupPertemuan = pertemuanPunyaGrupPertemuan;
 	}
 
+	/**
+	 * Baca peta lokasi tugas perorangan ({@link TugasPertemuan}) milik pertemuan ini.
+	 *
+	 * <p>Kembali ke gaya kuintet yang menyimpan {@code "id" -> "id"} (bukan path berkas), seperti
+	 * blok izin/diskusi/ujian. Nama berkas dan penanda cache-nya {@code "pertemuan_tugas"} —
+	 * perhatikan bahwa nama itu TIDAK sama dengan nama kelas anaknya, jadi jangan menebaknya dari
+	 * nama method.</p>
+	 *
+	 * <p>Jangan tertukar antara TIGA hal berbeda yang semuanya "tugas" di sekitar kelas ini:
+	 * {@link Tugas} (kelas induk {@link Pertemuan} sendiri), {@link TugasPertemuan} (tugas
+	 * perorangan anak pertemuan), dan {@link TugasKelompok} (tugas kelompok anak pertemuan).</p>
+	 *
+	 * @return isi peta lokasi tugas sebagai teks JSON; JSON kosong bila belum ada atau pertemuan
+	 *         belum punya id
+	 * @see #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public String ambilLokasiTugasPertemuan() {
 		if (getId() == null) {
 			return VOMahasiswa.dataJSON;
@@ -6076,6 +6476,12 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi tugas perorangan milik pertemuan ini.
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 * @see #ambilLokasiTugasPertemuan()
+	 */
 	public void tulisLokasiTugasPertemuan(String data) {
 		File file = Common.getFileLocation(this, "pertemuan_tugas_" + getId().toString());
 		try {
@@ -6086,12 +6492,32 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Hapus berkas peta lokasi tugas perorangan milik pertemuan ini.
+	 *
+	 * @see #bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiTugasPertemuan() {
 		File file = Common.getFileLocation(this, "pertemuan_tugas_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "pertemuan_tugas");
 
 	}
 
+	/**
+	 * Bangun ulang peta lokasi tugas perorangan dari basis data.
+	 *
+	 * <p>Query-nya menambahkan satu penyaring yang tidak ada pada kuintet lain:
+	 * {@code Restrictions.ne("judultugas", "")} — tugas yang judulnya masih kosong (draf) sengaja
+	 * TIDAK dimasukkan ke peta. Penyaring yang sama diulang lagi saat membaca di
+	 * {@link #ambilTugasPertemuanTotal()}.</p>
+	 *
+	 * <p><b>Catatan:</b> penyaring {@code ne("judultugas", "")} tidak menangkap judul bernilai
+	 * {@code NULL} (perbandingan dengan {@code NULL} di SQL tidak menghasilkan benar), sehingga
+	 * tugas berjudul {@code NULL} tetap masuk peta dan baru tersaring saat dibaca.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @see #reInitPengajuanIzinTidakMasukPerkuliahan(Session)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitTugasPertemuan(Session session) {
 		List<Long> tugasPertemuans = session.createCriteria(TugasPertemuan.class).addOrder(Order.asc("id"))
@@ -6105,6 +6531,12 @@ public class Pertemuan extends Tugas {
 		tugasPertemuans = null;
 	}
 
+	/**
+	 * Keluarkan satu tugas perorangan dari peta lokasi pertemuan ini.
+	 *
+	 * @param id id tugas yang dikeluarkan
+	 * @see #removePengajuanIzinTidakMasukPerkuliahan(Serializable)
+	 */
 	public void removeTugasPertemuan(Serializable id) {
 		try {
 			JSONObject c = jsonObjekUntukTulis(ambilLokasiTugasPertemuan());
@@ -6115,6 +6547,13 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu tugas perorangan ke peta lokasi pertemuan ini.
+	 *
+	 * @param tugasPertemuan id tugas yang didaftarkan; {@code null} diabaikan
+	 * @param tulisUlang     tidak dipakai
+	 * @see #populatePengajuanIzinTidakMasukPerkuliahan(Long)
+	 */
 	public void populateTugasPertemuan(Long tugasPertemuan, boolean tulisUlang) {
 		try {
 			if (tugasPertemuan == null) {
@@ -6127,6 +6566,26 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Seluruh tugas perorangan pada pertemuan ini.
+	 *
+	 * <p>Hanya membaca dari cache ({@code ambilData(..., true)}); tidak ada jalur cadangan
+	 * pembacaan berkas seperti pada lampiran/video/audio, dan tidak ada query susulan seperti pada
+	 * diskusi. Entri peta yang objeknya tidak ada di cache akan HILANG dari hasil.</p>
+	 *
+	 * <p>Tugas yang judulnya kosong disaring keluar — pengulangan penyaring yang sudah diterapkan
+	 * saat peta dibangun oleh {@link #reInitTugasPertemuan(Session)}, dan di sinilah tugas
+	 * berjudul {@code NULL} akhirnya tersaring (lewat {@link #getJudultugas()} yang mengubah
+	 * {@code null} menjadi string kosong).</p>
+	 *
+	 * <p>Session yang dipakai untuk membangun ulang peta ditutup dengan benar di blok
+	 * {@code finally}.</p>
+	 *
+	 * @return peta {@code id -> tugas}, terurut MENAIK menurut id; kosong bila pertemuan belum
+	 *         punya id
+	 * @see #ambilTugasKelompokTotal(boolean)
+	 * @see #ambilTugasTotalSemua()
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, TugasPertemuan> ambilTugasPertemuanTotal() {
 		TreeMap<Long, TugasPertemuan> tugasPertemuansa = new TreeMap<Long, TugasPertemuan>();
@@ -6175,6 +6634,22 @@ public class Pertemuan extends Tugas {
 		return tugasPertemuansa;
 	}
 
+	/**
+	 * Gabungan seluruh tugas perorangan DAN tugas kelompok pada pertemuan ini.
+	 *
+	 * <p>Hasilnya berkunci id dan bertipe {@link Tugas} (induk bersama {@link TugasPertemuan} dan
+	 * {@link TugasKelompok}), sehingga UI dapat menampilkan keduanya dalam satu daftar.</p>
+	 *
+	 * <p><b>Peringatan penting:</b> kedua peta digabung dengan {@code putAll} pada kunci id.
+	 * {@link TugasPertemuan} dan {@link TugasKelompok} adalah tabel yang BERBEDA dengan urutan id
+	 * masing-masing, sehingga sebuah tugas perorangan dan sebuah tugas kelompok sangat mungkin
+	 * punya id yang sama. Bila itu terjadi, tugas kelompok MENIMPA tugas perorangan dan tugas
+	 * perorangan itu hilang dari daftar tanpa jejak. Ini risiko nyata, bukan teoretis.</p>
+	 *
+	 * @return peta {@code id -> tugas} gabungan
+	 * @see #ambilTugasPertemuanTotal()
+	 * @see #ambilTugasKelompokTotal()
+	 */
 	public TreeMap<Long, Tugas> ambilTugasTotalSemua() {
 		TreeMap<Long, Tugas> tugasPertemuansa = new TreeMap<Long, Tugas>();
 		tugasPertemuansa.putAll(ambilTugasPertemuanTotal());
@@ -6182,6 +6657,15 @@ public class Pertemuan extends Tugas {
 		return tugasPertemuansa;
 	}
 
+	/**
+	 * Potong satu halaman dari peta tugas perorangan yang sudah dikumpulkan.
+	 *
+	 * @param tugasPertemuansa peta hasil {@link #ambilTugasPertemuanTotal()}
+	 * @param mulai            indeks awal halaman (berbasis nol)
+	 * @param banyak           banyaknya entri per halaman
+	 * @return daftar tugas pada halaman yang diminta
+	 * @see #ambilPertemuanPunyaUjian(TreeMap, int, int)
+	 */
 	public List<TugasPertemuan> ambilTugasPertemuan(TreeMap<Long, TugasPertemuan> tugasPertemuansa, int mulai,
 			int banyak) {
 
@@ -6200,6 +6684,16 @@ public class Pertemuan extends Tugas {
 		return tugasPertemuans;
 	}
 
+	/**
+	 * Baca peta lokasi tugas kelompok ({@link TugasKelompok}) milik pertemuan ini.
+	 *
+	 * <p>Nama berkas dan penanda cache-nya {@code "kelompok_tugas"} — perhatikan urutan katanya
+	 * TERBALIK dari nama kelasnya ({@code TugasKelompok}), dan berbeda pula dari
+	 * {@code "pertemuan_tugas"} milik tugas perorangan.</p>
+	 *
+	 * @return isi peta lokasi tugas kelompok sebagai teks JSON; JSON kosong bila belum ada
+	 * @see #ambilLokasiTugasPertemuan()
+	 */
 	public String ambilLokasiTugasKelompok() {
 		File file = Common.getFileLocation(this, "kelompok_tugas_" + getId().toString());
 		try {
@@ -6211,6 +6705,12 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi tugas kelompok milik pertemuan ini.
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 * @see #ambilLokasiTugasKelompok()
+	 */
 	public void tulisLokasiTugasKelompok(String data) {
 		File file = Common.getFileLocation(this, "kelompok_tugas_" + getId().toString());
 		try {
@@ -6221,12 +6721,30 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Hapus berkas peta lokasi tugas kelompok milik pertemuan ini.
+	 *
+	 * @see #bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiTugasKelompok() {
 		File file = Common.getFileLocation(this, "kelompok_tugas_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "kelompok_tugas");
 
 	}
 
+	/**
+	 * Bangun ulang peta lokasi tugas kelompok dari basis data.
+	 *
+	 * <p>Sejajar {@link #reInitTugasPertemuan(Session)}, tetapi menyaring dengan
+	 * {@code Restrictions.ne("judul", "")} — perhatikan nama propertinya {@code "judul"}, BUKAN
+	 * {@code "judultugas"} seperti pada tugas perorangan, padahal pembacanya
+	 * ({@link #ambilTugasKelompokTotal(boolean)}) menyaring memakai {@code getJudultugas()}.
+	 * Ketidakselarasan nama ini patut diingat bila suatu saat tugas kelompok tampak "hilang" atau
+	 * "muncul" tak terduga.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @see #reInitTugasPertemuan(Session)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitTugasKelompok(Session session) {
 		List<Long> tugasKelompoks = session.createCriteria(TugasKelompok.class).addOrder(Order.asc("id"))
@@ -6240,6 +6758,12 @@ public class Pertemuan extends Tugas {
 		tugasKelompoks = null;
 	}
 
+	/**
+	 * Keluarkan satu tugas kelompok dari peta lokasi pertemuan ini.
+	 *
+	 * @param id id tugas kelompok yang dikeluarkan
+	 * @see #removePengajuanIzinTidakMasukPerkuliahan(Serializable)
+	 */
 	public void removeTugasKelompok(Serializable id) {
 		try {
 			JSONObject c = jsonObjekUntukTulis(ambilLokasiTugasKelompok());
@@ -6250,6 +6774,13 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu tugas kelompok ke peta lokasi pertemuan ini.
+	 *
+	 * @param tugasKelompok id tugas kelompok yang didaftarkan; {@code null} diabaikan
+	 * @param tulisUlang    tidak dipakai
+	 * @see #populatePengajuanIzinTidakMasukPerkuliahan(Long)
+	 */
 	public void populateTugasKelompok(Long tugasKelompok, boolean tulisUlang) {
 		try {
 			if (tugasKelompok == null) {

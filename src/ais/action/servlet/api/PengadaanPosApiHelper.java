@@ -110,6 +110,61 @@ public final class PengadaanPosApiHelper {
 				EbisnisMenuKatalog.urai(role.getEbisnisMenu()), kunci, aksi);
 	}
 
+	/**
+	 * Kunci tahap yang memayungi sebuah aksi {@code pengadaan_*}.
+	 *
+	 * <p>Dipakai untuk menempelkan hak akses pada balasan DAFTAR tiap tahap. Aksi
+	 * pembayaran dan transitori bernaung pada {@link #KUNCI_DPC} -- sama dengan
+	 * gerbang yang sudah ditegakkan metodenya, supaya tombol di layar dan penolakan
+	 * di peladen tidak pernah berbeda pendapat.</p>
+	 */
+	private static String kunciTahap(String action) {
+		if (action == null) {
+			return null;
+		}
+		if (action.startsWith("pengadaan_pr_")) {
+			return KUNCI_PR;
+		}
+		if (action.startsWith("pengadaan_po_")) {
+			return KUNCI_PO;
+		}
+		if (action.startsWith("pengadaan_bast_")) {
+			return KUNCI_BAST;
+		}
+		if (action.startsWith("pengadaan_tagihan_")) {
+			return KUNCI_TAGIHAN;
+		}
+		if (action.startsWith("pengadaan_bayar_") || action.startsWith("pengadaan_transitori_")) {
+			return KUNCI_DPC;
+		}
+		if (action.startsWith("pengadaan_pajak_")) {
+			return KUNCI_PAJAK;
+		}
+		if (action.startsWith("pengadaan_bdp_")) {
+			return KUNCI_BDP;
+		}
+		return null;
+	}
+
+	/**
+	 * Hak per aksi untuk satu tahap, mengikuti bentuk yang sudah dipakai modul
+	 * Keuangan ({@code hak: {create, update, delete, approve, reject}}).
+	 *
+	 * <p>Klien memakainya untuk MEMADAMKAN tombol, bukan sebagai gerbang: gerbang
+	 * sebenarnya tetap pemeriksaan di tiap metode. Tanpa ini pengguna baru tahu
+	 * ditolak setelah menekan tombol -- dan pada modul yang local-first, setelah
+	 * perintahnya telanjur diantre.</p>
+	 */
+	private static JSONObject hakAksesJson(Tbmuser tbmuser, String kunci) throws Exception {
+		JSONObject j = new JSONObject();
+		j.put("create", bolehAksi(tbmuser, kunci, "create"));
+		j.put("update", bolehAksi(tbmuser, kunci, "update"));
+		j.put("delete", bolehAksi(tbmuser, kunci, "delete"));
+		j.put("approve", bolehAksi(tbmuser, kunci, "approve"));
+		j.put("reject", bolehAksi(tbmuser, kunci, "reject"));
+		return j;
+	}
+
 	/** Toko lingkup pemanggil: pedagang dikunci ke tokonya, admin boleh memilih lewat payload. */
 	private static Long tokoLingkup(Tbmuser tbmuser, JSONObject request) {
 		if (tbmuser != null && tbmuser.getPedagang() != null) {
@@ -7968,9 +8023,35 @@ public final class PengadaanPosApiHelper {
 		}
 	}
 
-	/** Dipakai dispatcher: aksi berawalan {@code pengadaan_} diarahkan ke sini. */
+	/**
+	 * Dipakai dispatcher: aksi berawalan {@code pengadaan_} diarahkan ke sini.
+	 *
+	 * <p>Balasan aksi DAFTAR disisipi {@code hak} tahap yang bersangkutan supaya layar
+	 * dapat memadamkan tombol yang pasti ditolak. Disisipkan di sini, bukan di tujuh
+	 * metode daftar satu per satu: satu tempat, jadi tahap baru ikut mendapatkannya
+	 * tanpa pekerjaan tambahan dan tidak ada yang terlewat karena lupa.</p>
+	 */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
+		boolean tertangani = prosesAksi(action, tbmuser, request, hasil);
+		if (tertangani && action != null && !hasil.has("hak")
+				&& (action.endsWith("_daftar") || action.endsWith("_list"))) {
+			String kunci = kunciTahap(action);
+			if (kunci != null) {
+				hasil.put("hak", hakAksesJson(tbmuser, kunci));
+				// Sinkronisasi ke Kulakan punya kunci menunya sendiri, sedangkan tombolnya
+				// duduk di layar BAST -- dikirim terpisah supaya layar itu tidak perlu
+				// menebak bahwa keduanya diatur bersama.
+				if (KUNCI_BAST.equals(kunci)) {
+					hasil.put("hakSinkron", hakAksesJson(tbmuser, KUNCI_SINKRON));
+				}
+			}
+		}
+		return tertangani;
+	}
+
+	private static boolean prosesAksi(String action, Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
 		if ("pengadaan_pr_daftar".equals(action) || "pengadaan_pr_list".equals(action)) {
 			prDaftar(tbmuser, request, hasil);
 			return true;
