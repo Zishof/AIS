@@ -1,5 +1,58 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 30 — SELESAI 100% (3 Sep 2026) — TEMUAN KEAMANAN PALING KRITIS SELURUH INISIATIF
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika. Batch ini memprioritaskan `LampiranLain`/`Pesan` — inti
+mekanisme 2 kerentanan IDOR terbesar proyek:
+
+- **`ais/database/model/file/LampiranLain.java`** (r83517/83519/83520,
+  666→2020 baris, 3 commit bertahap) — **TEMUAN PALING KRITIS SELURUH
+  INISIATIF, memperkuat `task_b82b25d2` secara drastis**. Mekanisme
+  `usingId=true` MEMATIKAN filter `jenis` SEKALIGUS mencocokkan langsung
+  ke primary key — penyerang TIDAK PERLU tahu `jenis`/`clazz` sama sekali,
+  cukup enumerasi id berurutan (`IDENTITY`). Penghapusan lampiran ternyata
+  cuma SOFT DELETE (`ref` diubah ke sentinel `-111111119`) — dokumen
+  KTP/KK/ijazah yang "dihapus" pengguna TETAP terjangkau penuh via
+  `usingId=true` (mode itu mengabaikan `ref` sama sekali). Dikonfirmasi
+  `/AmbilLampiran` (butuh login) dan `/al` (publik anonim) memetakan ke
+  SERVLET SAMA — gerbang di path pertama tidak berarti apa-apa. URL statis
+  bypass servlet dikonfirmasi (nama file deterministik `DES(id+kelas)`,
+  bukan nonce). Bonus: upload `.jrxml` sebagai lampiran berpotensi RCE
+  (ekspresi Java dieksekusi JasperReports) — belum diaudit lebih lanjut.
+- **`ais/database/model/Pesan.java`** (r83516) — 259→1008 baris, 100%
+  (59 anggota). **Bukti terkuat untuk `task_493423ef`** — rantai
+  eksploitasi IDOR baca chat pribadi dikonfirmasi persis. Pemberat baru:
+  chat "efemeral" yang dihapus dari tabel utama TERSALIN PERMANEN ke
+  tabel audit (`store_data_at_delete=true`) — jendela eksploitasi jauh
+  lebih besar dari dugaan. Jalur ZK chat asli BERSIH (scoping benar).
+  Bonus temuan: modul perpustakaan menumpang tabel ini sebagai antrean
+  tiket dengan filter kepemilikan di MEMORI, bukan SQL.
+- **`ais/database/model/Diskusi.java`** (r83518) — 197→947 baris, 100%
+  (52 anggota). Premis salah — ini modul editorial JURNAL ILMIAH
+  (peer-review), bukan diskusi akademik. Kebijakan `visibility`/
+  `anonymity_mode` TIDAK PERNAH DITEGAKKAN (`DOUBLE_ANONYMOUS` tidak
+  menyembunyikan identitas siapa pun). Satu-satunya cara baca korespondensi
+  editorial rahasia = IDOR `/Api dataRinci` yang sama.
+- **`ais/database/model/KelasPmb.java`** (r83512) — 209→677 baris, 100%
+  (43 anggota). Instance baru inversi hak akses (checkbox "Penuh" tanpa
+  gerbang) + tombol "Ambil Calon Mahasiswa"/"Bersihkan" massal tanpa
+  gerbang sama sekali.
+- **`ais/database/model/OrganisasiDosenPunyaDosen.java`** (r83514) —
+  203→701 baris, 100% (36 anggota). Bug kembar persis `Komentar.
+  getTbmuser()` (b27) — identitas pengaju dihapus permanen oleh getter
+  destruktif. Pola inversi hak akses lagi (tombol "Bersihkan" massal).
+
+**Strategi "tindak lanjuti entity kunci yang disebut temuan sebelumnya"
+kini TERBUKTI PALING PRODUKTIF sejauh ini** — `LampiranLain` sendirian
+menghasilkan detail teknis yang mengubah total pemahaman severity
+`task_b82b25d2` dari "IDOR yang perlu menebak jenis/clazz" menjadi
+"enumerasi id sekuensial tanpa syarat apa pun, termasuk data yang sudah
+di-soft-delete".
+
+Total akumulasi 30 sesi: **328 file** dari 7.401 (~4,4%).
+
 ## Batch 29 — SELESAI 100% (3 Sep 2026) — BATCH TINDAK LANJUT KEAMANAN LANGSUNG
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
