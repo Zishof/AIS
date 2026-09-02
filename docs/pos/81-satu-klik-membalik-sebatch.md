@@ -94,3 +94,53 @@ sedangkan javac 8 menerima konstruksi yang ditolak Java 7 (doc 36).
 
 Lama jalannya belasan menit untuk 7.400-an berkas. Itu murah dibandingkan menemukan HEAD
 tidak dapat dibangun pada saat rilis.
+
+## 5. Alatnya langsung menemukan: HEAD tidak dapat dikompilasi lagi
+
+Skrip itu dijalankan atas keadaan HEAD saat itu juga. Hasilnya **4 galat** dari dua sebab
+yang tidak berhubungan — padahal kompilasi penuh di doc 77, beberapa jam sebelumnya, bersih.
+`svn status` atas ketiga berkasnya kosong, jadi keadaan rusak itu memang sudah ter-commit.
+
+**Satu — `DraftJurnalApiHelper:722`**
+
+```
+error: cannot find symbol
+        kunciModulBaris != null && bolehAksi(tbmuser, kunciModulBaris, "create"));
+  symbol: variable tbmuser
+```
+
+Pemeriksaan hak akses ditambahkan di dalam `ringkasan()`, yang tidak punya parameter
+`Tbmuser`. Diperbaiki mengikuti pola berkas itu sendiri: dua pembantu lain di sana
+(`jalankanPosting`, dan pembantu di baris 623) sudah menerima `Tbmuser` sebagai parameter
+pertama, dan `proses()` — satu-satunya pemanggil `ringkasan` — sudah memegangnya. Parameter
+ditambahkan dan diteruskan. Tidak ada keputusan rancangan baru yang diambil sepihak.
+
+**Dua — `PosApi:1524, 1526, 1528`**
+
+```
+error: bolehAksiCrud(...) is not public in KantinHelper;
+       cannot be accessed from outside package
+```
+
+Dideklarasikan tanpa modifier (package-private) lalu dipanggil dari paket lain. Dijadikan
+`public`; `PosApi` sudah memanggil `KantinHelper` 183 kali dan kelas itu punya 166 metode
+publik, jadi tidak ada batas rancangan yang ditembus. Commit r83115.
+
+### Yang perlu digarisbawahi
+
+Ini **kejadian kedua hari ini**, sesudah `Pegawai.java` di doc 76. Dua kali dalam satu hari,
+dari dua sesi berbeda, dengan pola yang sama persis: perubahan yang belum selesai tersapu
+commit sebelum sempat dikompilasi. Bukan kelalaian orangnya — tidak ada satu pun langkah di
+alur kerja ini yang mengompilasi apa pun sebelum commit.
+
+Alat ini tidak memperbaiki sebabnya. Ia hanya membuat akibatnya terlihat dalam hitungan
+menit alih-alih ditemukan saat rilis. Sebabnya ada pada penyapu itu sendiri.
+
+### Jebakan pemakaian yang langsung termakan sendiri
+
+Skrip ini keluar dengan kode 1 bila ada galat. Panggilan pertama saya menyalurkannya ke
+`| tail -12`, sehingga kode keluar yang terbaca adalah milik `tail` — **0**. Laporan tugas
+latar pun menyebut "exit code 0" padahal keluarannya jelas menulis "galat: 4".
+
+Catatan itu kini ada di kepala skripnya. Sebuah gerbang yang melaporkan sukses saat gagal
+lebih buruk daripada tidak ada gerbang, karena ia menumbuhkan rasa aman.

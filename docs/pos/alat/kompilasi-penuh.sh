@@ -10,6 +10,10 @@
 # Pakai:  sh kompilasi-penuh.sh [direktori-keluaran]
 # Lama    : belasan menit, tanpa perlu ditunggui.
 # Keluar  : 0 bila bersih, 1 bila ada galat (cocok untuk dipasang di penjadwal).
+#
+# JANGAN disalurkan ke pipa (mis. "| tail"): kode keluar yang terbaca menjadi
+# milik perintah terakhir di pipa, sehingga kegagalan tampak seperti sukses.
+# Jalankan langsung, atau baca ${PIPESTATUS[0]} bila memang perlu dipipa.
 
 AKAR="${AKAR:-/c/opt/AIS/ais/src/main/java}"
 LIB='C:\opt\AIS\ais\src\main\webapp\WEB-INF\lib\*'
