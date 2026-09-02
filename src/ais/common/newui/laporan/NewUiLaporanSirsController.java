@@ -21,10 +21,12 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.common.Common;
+import ais.common.ConstantValues;
 import ais.common.newui.NewUiCsrfUtil;
 import ais.common.newui.NewUiRouteGuard;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Agama;
+import ais.database.model.Ruang;
 import ais.database.model.Tbmuser;
 import ais.database.model.asset.Lokasi;
 import ais.database.model.employ.Pendidikan;
@@ -37,16 +39,19 @@ import ais.database.model.sirs.Instalasi;
 import ais.database.model.sirs.JenisPasien;
 import ais.database.model.sirs.JenisItemMedis;
 import ais.database.model.sirs.JenisTindakan;
+import ais.database.model.sirs.Kamar;
+import ais.database.model.sirs.KelasPerawatan;
 import ais.database.model.sirs.Pasien;
 import ais.database.model.sirs.Pembayaran;
 import ais.database.model.sirs.Pendaftaran;
 import ais.database.model.sirs.Poly;
 import ais.database.model.sirs.Satker;
 import ais.database.model.sirs.TransaksiMedis;
+import ais.database.model.sirs.TempatTidur;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native empat puluh satu laporan SIRS.
+ * Kontrak native empat puluh dua laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -145,9 +150,14 @@ public final class NewUiLaporanSirsController {
     static final String S_NAMA_PASIEN = "nama_pasien";
     static final String S_ALAMAT = "alamat";
     static final String S_TELP = "telp";
+    static final String S_POLY_TUNGGAL = "poly_tunggal";
+    static final String S_KELAS_PERAWATAN = "kelas_perawatan";
+    static final String S_RUANG_PERAWATAN = "ruang_perawatan";
+    static final String S_KAMAR_PERAWATAN = "kamar_perawatan";
+    static final String S_TEMPAT_TIDUR = "tempat_tidur";
 
     /**
-     * Empat puluh satu laporan yang dilayani kontrak ini.
+     * Empat puluh dua laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -345,6 +355,17 @@ public final class NewUiLaporanSirsController {
                             S_AGAMA, S_MR, S_NAMA_PASIEN, S_ALAMAT, S_TELP },
                     ais.action.report.Report.XLS);
         }
+        if ("umum_data_pasien_periode".equals(kode)) {
+            return new Jenis(kode, "Laporan Data Pasien Per Periode",
+                    "sirs/laporan_data_pasien_periode",
+                    new String[] { S_MULAI, S_SAMPAI, S_RAJAL_RANAP,
+                            S_POLY_TUNGGAL, S_PENDIDIKAN, S_JENIS_KELAMIN,
+                            S_JENIS_PASIEN, S_SATKER, S_DOKTER, S_PEKERJAAN,
+                            S_STATUS_PERKAWINAN, S_AGAMA, S_MR, S_NAMA_PASIEN,
+                            S_ALAMAT, S_TELP, S_KELAS_PERAWATAN,
+                            S_RUANG_PERAWATAN, S_KAMAR_PERAWATAN, S_TEMPAT_TIDUR },
+                    ais.action.report.Report.XLS);
+        }
         throw new IllegalArgumentException("Jenis laporan SIRS tidak dikenal.");
     }
 
@@ -458,6 +479,7 @@ public final class NewUiLaporanSirsController {
                 || "apotik_penggunaan_item".equals(jenis.kode)
                 || "umum_kemhan_periode".equals(jenis.kode)
                 || "umum_kiup_periode".equals(jenis.kode)
+                || "umum_data_pasien_periode".equals(jenis.kode)
                 || "ranap_laporan_perruangan_periode".equals(jenis.kode)) {
             mulai.add(java.util.Calendar.MONTH, -1);
         }
@@ -510,12 +532,14 @@ public final class NewUiLaporanSirsController {
         }
         if (S_MULAI.equals(nama)) {
             boolean wajib = !"umum_kemhan_periode".equals(jenis.kode)
-                    && !"umum_kiup_periode".equals(jenis.kode);
+                    && !"umum_kiup_periode".equals(jenis.kode)
+                    && !"umum_data_pasien_periode".equals(jenis.kode);
             return d.put("label", "Tanggal Mulai").put("tipe", "tanggal").put("wajib", wajib);
         }
         if (S_SAMPAI.equals(nama)) {
             boolean wajib = !"umum_kemhan_periode".equals(jenis.kode)
-                    && !"umum_kiup_periode".equals(jenis.kode);
+                    && !"umum_kiup_periode".equals(jenis.kode)
+                    && !"umum_data_pasien_periode".equals(jenis.kode);
             return d.put("label", "Tanggal Sampai").put("tipe", "tanggal").put("wajib", wajib);
         }
         if (S_JENIS_PASIEN.equals(nama)) {
@@ -526,8 +550,9 @@ public final class NewUiLaporanSirsController {
                     .put("wajib", wajib).put("pilihPertama", wajib);
         }
         if (S_DOKTER.equals(nama)) {
+            boolean wajib = !"umum_data_pasien_periode".equals(jenis.kode);
             return d.put("label", "Dokter").put("tipe", "relasi")
-                    .put("wajib", true).put("cari", true);
+                    .put("wajib", wajib).put("cari", true);
         }
         if (S_POLI.equals(nama)) {
             int maksimal = batasPoli(jenis);
@@ -622,6 +647,29 @@ public final class NewUiLaporanSirsController {
         }
         if (S_TELP.equals(nama)) {
             return d.put("label", "Telepon").put("tipe", "teks").put("wajib", false);
+        }
+        if (S_POLY_TUNGGAL.equals(nama)) {
+            return d.put("label", "Poli").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_KELAS_PERAWATAN.equals(nama)) {
+            return d.put("label", "Kelas Perawatan").put("tipe", "relasi")
+                    .put("wajib", false);
+        }
+        if (S_RUANG_PERAWATAN.equals(nama)) {
+            return d.put("label", "Ruang").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_KAMAR_PERAWATAN.equals(nama)) {
+            return d.put("label", "Kamar").put("tipe", "relasi").put("wajib", false)
+                    .put("tergantungPada", new JSONArray()
+                            .put(S_KELAS_PERAWATAN).put(S_RUANG_PERAWATAN))
+                    .put("dependensiWajib", false);
+        }
+        if (S_TEMPAT_TIDUR.equals(nama)) {
+            return d.put("label", "Tempat Tidur (Bed)").put("tipe", "relasi")
+                    .put("wajib", false).put("cari", true)
+                    .put("tergantungPada", new JSONArray().put(S_KELAS_PERAWATAN)
+                            .put(S_RUANG_PERAWATAN).put(S_KAMAR_PERAWATAN))
+                    .put("dependensiWajib", false);
         }
         throw new IllegalArgumentException("Filter tidak dikenal: " + nama);
     }
@@ -752,6 +800,60 @@ public final class NewUiLaporanSirsController {
                 for (Object o : c.addOrder(Order.asc("id")).setMaxResults(BATAS_CARI).list()) {
                     Poly x = (Poly) o;
                     arr.put(pilihan(x.getId(), x.getKode(), x.getNama(), null));
+                }
+            } else if (S_POLY_TUNGGAL.equals(nama)) {
+                Criteria c = s.createCriteria(Poly.class).add(Restrictions.isNull("polyDari"));
+                cocok(c, q, "kode", "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Poly x = (Poly) o;
+                    arr.put(pilihan(x.getId(), x.getKode(), x.getNama(), null));
+                }
+            } else if (S_KELAS_PERAWATAN.equals(nama)) {
+                Criteria c = s.createCriteria(KelasPerawatan.class);
+                if (ConstantValues.kelasNormal != null
+                        && ConstantValues.kelasNormal.getId() != null) {
+                    c.add(Restrictions.ne("id", ConstantValues.kelasNormal.getId()));
+                }
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    KelasPerawatan x = (KelasPerawatan) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_RUANG_PERAWATAN.equals(nama)) {
+                Criteria c = s.createCriteria(Ruang.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Ruang x = (Ruang) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_KAMAR_PERAWATAN.equals(nama)) {
+                Criteria c = s.createCriteria(Kamar.class);
+                KelasPerawatan kelas = (KelasPerawatan) muat(s, KelasPerawatan.class,
+                        r.getParameter(S_KELAS_PERAWATAN));
+                Ruang ruang = (Ruang) muat(s, Ruang.class,
+                        r.getParameter(S_RUANG_PERAWATAN));
+                if (kelas != null) c.add(Restrictions.eq("kelasPerawatan", kelas));
+                if (ruang != null) c.add(Restrictions.eq("ruang", ruang));
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Kamar x = (Kamar) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_TEMPAT_TIDUR.equals(nama)) {
+                Criteria c = s.createCriteria(TempatTidur.class);
+                KelasPerawatan kelas = (KelasPerawatan) muat(s, KelasPerawatan.class,
+                        r.getParameter(S_KELAS_PERAWATAN));
+                Ruang ruang = (Ruang) muat(s, Ruang.class,
+                        r.getParameter(S_RUANG_PERAWATAN));
+                Kamar kamar = (Kamar) muat(s, Kamar.class,
+                        r.getParameter(S_KAMAR_PERAWATAN));
+                if (kelas != null) c.add(Restrictions.eq("kelasPerawatan", kelas));
+                if (ruang != null) c.add(Restrictions.eq("ruang", ruang));
+                if (kamar != null) c.add(Restrictions.eq("kamar", kamar));
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    TempatTidur x = (TempatTidur) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
                 }
             } else if (S_STATUS.equals(nama)) {
                 // Ketiga pilihan ini datang dari konstanta Pendaftaran, bukan
@@ -1154,6 +1256,10 @@ public final class NewUiLaporanSirsController {
             kemhan(parameters, r, jenis);
             return;
         }
+        if ("umum_data_pasien_periode".equals(jenis.kode)) {
+            dataPasienPeriode(parameters, r, s, jenis);
+            return;
+        }
         if (jenis.kode.startsWith("umum_kiup")) {
             kiup(parameters, r, s, jenis);
             return;
@@ -1286,6 +1392,48 @@ public final class NewUiLaporanSirsController {
             parameters.put("tgl1", tanggalAtauAwal(r.getParameter(S_MULAI), "Tanggal mulai"));
             parameters.put("tgl2", tanggalAtauAwal(r.getParameter(S_SAMPAI), "Tanggal sampai"));
         }
+    }
+
+    /** Parameter laporan data pasien, termasuk normalisasi hirarki bed/kamar/ruang. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void dataPasienPeriode(Map parameters, HttpServletRequest r,
+            Session s, Jenis jenis) {
+        // Empat filter teks, demografi, dan tanggal sama persis dengan KIUP periode.
+        kiup(parameters, r, s, jenis);
+        // Data Pasien tidak mendeklarasikan parameter asuransi; KIUP memilikinya.
+        parameters.remove("asuransi");
+
+        String rawat = pilihanTertutup(r.getParameter(S_RAJAL_RANAP),
+                "Jenis rawat", new String[] { Pendaftaran.RAWAT_JALAN, Pendaftaran.RAWAT_INAP });
+        Poly poly = (Poly) muat(s, Poly.class, r.getParameter(S_POLY_TUNGGAL));
+        Dokter dokter = (Dokter) muat(s, Dokter.class, r.getParameter(S_DOKTER));
+        KelasPerawatan kelas = (KelasPerawatan) muat(s, KelasPerawatan.class,
+                r.getParameter(S_KELAS_PERAWATAN));
+        Ruang ruang = (Ruang) muat(s, Ruang.class, r.getParameter(S_RUANG_PERAWATAN));
+        Kamar kamar = (Kamar) muat(s, Kamar.class, r.getParameter(S_KAMAR_PERAWATAN));
+        TempatTidur tempatTidur = (TempatTidur) muat(s, TempatTidur.class,
+                r.getParameter(S_TEMPAT_TIDUR));
+
+        // Layar ZK ikut memilih kamar/ruang/kelas ketika bed dipilih, dan ikut
+        // memilih ruang/kelas ketika kamar dipilih. Normalisasi yang sama
+        // mencegah kombinasi ID bertentangan menghasilkan laporan kosong.
+        if (tempatTidur != null) {
+            kamar = tempatTidur.getKamar();
+            ruang = tempatTidur.getRuang();
+            kelas = tempatTidur.getKelasPerawatan();
+        } else if (kamar != null) {
+            ruang = kamar.getRuang();
+            kelas = kamar.getKelasPerawatan();
+        }
+
+        parameters.put("rj", rawat.length() == 0 ? "-1" : rawat);
+        parameters.put("poly", poly == null ? Long.valueOf(-1L) : poly.getId());
+        parameters.put("dokter", dokter == null ? Long.valueOf(-1L) : dokter.getId());
+        parameters.put("kelasPerawatan", kelas == null ? Long.valueOf(-1L) : kelas.getId());
+        parameters.put("ruangPerawatan", ruang == null ? Long.valueOf(-1L) : ruang.getId());
+        parameters.put("kamarPerawatan", kamar == null ? Long.valueOf(-1L) : kamar.getId());
+        parameters.put("tempatTidur",
+                tempatTidur == null ? Long.valueOf(-1L) : tempatTidur.getId());
     }
 
     /** Parameter rentang tanggal bertipe teks yyyy-MM-dd seperti layar ZK. */

@@ -62,6 +62,7 @@ public final class NewUiLaporanSirsSelfTest {
         laporan.put("umum_kemhan_periode", "sirs/laporan_pasien_kemhan");
         laporan.put("umum_kiup", "sirs/laporan_kiup");
         laporan.put("umum_kiup_periode", "sirs/laporan_kiup_periode");
+        laporan.put("umum_data_pasien_periode", "sirs/laporan_data_pasien_periode");
 
         Method jenis = NewUiLaporanSirsController.class.getDeclaredMethod("jenis", String.class);
         jenis.setAccessible(true);
@@ -78,6 +79,7 @@ public final class NewUiLaporanSirsSelfTest {
         Object kemhanBulanan = null;
         Object kemhanPeriode = null;
         Object kiup = null;
+        Object dataPasienPeriode = null;
         for (Map.Entry<String, String> e : laporan.entrySet()) {
             check(NewUiLaporanSirsController.jenisDikenal(e.getKey()),
                     "laporan tidak dikenal: " + e.getKey());
@@ -100,7 +102,8 @@ public final class NewUiLaporanSirsSelfTest {
                     || e.getKey().startsWith("inventory_")
                     || e.getKey().startsWith("apotik_")
                     || "umum_biaya_tindakan".equals(e.getKey())
-                    || e.getKey().startsWith("umum_kiup");
+                    || e.getKey().startsWith("umum_kiup")
+                    || "umum_data_pasien_periode".equals(e.getKey());
             check((xls ? "xls" : "pdf").equals(format.get(nilai)),
                     "format keluaran keliru untuk " + e.getKey() + ": " + format.get(nilai));
             if ("rajal_umum_5".equals(e.getKey())) lima = nilai;
@@ -113,6 +116,7 @@ public final class NewUiLaporanSirsSelfTest {
             if ("umum_kemhan_bulanan".equals(e.getKey())) kemhanBulanan = nilai;
             if ("umum_kemhan_periode".equals(e.getKey())) kemhanPeriode = nilai;
             if ("umum_kiup".equals(e.getKey())) kiup = nilai;
+            if ("umum_data_pasien_periode".equals(e.getKey())) dataPasienPeriode = nilai;
         }
         check(!NewUiLaporanSirsController.jenisDikenal("laporan_karangan"),
                 "laporan tak terdaftar harus ditolak");
@@ -168,6 +172,18 @@ public final class NewUiLaporanSirsSelfTest {
                 "asuransi KIUP harus opsional dan dapat dicari seperti banbox ZK");
         check("teks".equals(namaKiup.getString("tipe")) && !namaKiup.getBoolean("wajib"),
                 "nama KIUP harus tetap berupa pencarian teks opsional");
+        JSONObject dokterData = (JSONObject) filter.invoke(null, dataPasienPeriode, "dokter");
+        JSONObject kamarData = (JSONObject) filter.invoke(null, dataPasienPeriode,
+                "kamar_perawatan");
+        JSONObject bedData = (JSONObject) filter.invoke(null, dataPasienPeriode, "tempat_tidur");
+        check(!dokterData.getBoolean("wajib") && dokterData.getBoolean("cari"),
+                "dokter Data Pasien harus opsional tetapi tetap dapat dicari");
+        check(kamarData.getJSONArray("tergantungPada").length() == 2
+                        && !kamarData.getBoolean("dependensiWajib"),
+                "kamar harus mengikuti kelas/ruang tetapi tetap bisa dimuat tanpa keduanya");
+        check(bedData.getBoolean("cari")
+                        && bedData.getJSONArray("tergantungPada").length() == 3,
+                "tempat tidur harus dapat dicari dengan konteks kelas/ruang/kamar");
 
         System.out.println("NewUiLaporanSirsSelfTest OK (" + laporan.size() + " laporan)");
     }
