@@ -82,7 +82,9 @@ import ais.ui.util.MyWindow;
  * kegiatan, pengajuan kegiatan baru ({@link KegiatanKemahasiswaanAction#onAddExternal}), pendaftaran
  * ke kegiatan yang sudah ada (lewat {@link AmbilDataKegiatanForKegiatanKemahasiswaanHelper}), unduh
  * Excel dengan tautan berkas SK per baris, serta cetak rekap angka kredit
- * ({@link CommonReportHelper#onCetakAngkaKreditMahasiswa}/{@code onCetakRekapAngkaKreditMahasiswa}).
+ * ({@link CommonReportHelper#onCetakAngkaKreditMahasiswa}/{@code onCetakRekapAngkaKreditMahasiswa})
+ * dan cetak Form A/Form B PAKEM
+ * ({@link CommonReportHelper#onCetakAktifitasMahasiswa}).
  * Bila dibuka menyorot satu baris tertentu ({@code kegiatanKemahasiswaanPunyaMahasiswa} pada
  * constructor {@link #display(Mahasiswa, Component, KegiatanKemahasiswaanPunyaMahasiswa)}), baris
  * tersebut disorot kuning dan selalu ditampilkan di posisi pertama grid.

@@ -88,7 +88,7 @@ order by b.mulai, b.nama, b.id]]>
 	</detail>
 	<summary>
 		<band height="162" splitType="Stretch">
-			<staticText><reportElement x="0" y="0" width="261" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb01"/><box><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"><font fontName="Times New Roman" size="10" isBold="true"/></textElement><text><![CDATA[JUMLAH ANGKA KREDIT]]></text></staticText>
+			<staticText><reportElement x="0" y="0" width="261" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb01"/><box><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"><font fontName="Times New Roman" size="10" isBold="true"/><paragraph leftIndent="4"/></textElement><text><![CDATA[JUMLAH ANGKA KREDIT]]></text></staticText>
 			<staticText><reportElement x="261" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb02"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
 			<staticText><reportElement x="311" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb03"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
 			<staticText><reportElement x="361" y="0" width="50" height="24" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb04"/><box><pen lineWidth="0.5"/></box><text><![CDATA[]]></text></staticText>
@@ -100,8 +100,8 @@ order by b.mulai, b.nama, b.id]]>
 			<staticText><reportElement x="299" y="88" width="210" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb10"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[Kemahasiswaan Prodi]]></text></staticText>
 			<staticText><reportElement x="2" y="136" width="210" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb11"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[(....................................................)]]></text></staticText>
 			<staticText><reportElement x="299" y="136" width="210" height="18" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb12"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="10"/></textElement><text><![CDATA[(....................................................)]]></text></staticText>
-			<staticText><reportElement x="2" y="153" width="210" height="9" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb13"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="8"/></textElement><text><![CDATA[NIK.]]></text></staticText>
-			<staticText><reportElement x="299" y="153" width="210" height="9" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb14"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="8"/></textElement><text><![CDATA[NIK.]]></text></staticText>
+			<staticText><reportElement x="2" y="149" width="210" height="12" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb13"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="8"/></textElement><text><![CDATA[NIK.]]></text></staticText>
+			<staticText><reportElement x="299" y="149" width="210" height="12" uuid="1f68be6d-c5e5-4931-a7e9-1e8f1bd8eb14"/><textElement textAlignment="Center"><font fontName="Times New Roman" size="8"/></textElement><text><![CDATA[NIK.]]></text></staticText>
 		</band>
 	</summary>
 </jasperReport>
