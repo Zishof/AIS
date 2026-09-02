@@ -449,6 +449,81 @@ Tidak ada pengisian data. Trip yang sudah berjalan tidak memperoleh baris pembuk
 biaya lama tetap `NULL` pada `cara_bayar`. Menebak berapa uang muka yang dulu dibawa, atau biaya
 mana yang dulu tunai, hanya melahirkan angka uang yang tampak sahih tanpa dasar.
 
+## Bundel v13 — nota piutang yang dibawa sales
+
+Satu tabel: `surat_perintah_sales_nota`, penugasan dokumen piutang kepada satu Surat Perintah
+Sales untuk ditagih di lapangan. Ia menahan **lima aksi** — `spjNotaAssign`, `tripNotaResult`,
+`tripClose`, `collectionCreate`, dan `collectionReverse` — dan merupakan penghalang tunggal
+terbesar yang tersisa pada P4.
+
+Tabel tenant yang namanya mirip, `sales_trip_nota`, bukan padanannya: itu nota **penjualan yang
+diterbitkan** dalam trip. Yang dibutuhkan di sini kebalikannya — piutang **lama** yang dibawa
+untuk ditagih.
+
+### Melekat pada SPJ, bukan pada trip
+
+Penugasan terjadi sebelum berangkat: jalur legacy menolaknya begitu SPJ meninggalkan
+DRAFT/SUBMITTED/APPROVED. Tabelnya karena itu menggantung pada `surat_perintah_sales`, sebentuk
+dengan `surat_perintah_sales_detail` yang memuat barang bawaannya. SPJ membawa dua hal — barang
+dan tagihan — dan keduanya direncanakan di tempat yang sama.
+
+### Empat medan legacy yang sengaja tidak dibuatkan kolom
+
+Entitas `SpjSalesNota` punya sebelas medan; empat di antaranya salinan atau turunan:
+
+| medan legacy | pada tenant |
+|---|---|
+| `nilaiAwal` | salinan `piutang_customer.nilai` → join |
+| `jatuhTempo` | salinan `piutang_customer.jatuh_tempo` → join |
+| `customer` | salinan `piutang_customer.customer_id` → join |
+| `nilaiTertagih` | **diturunkan dari alokasi** — lihat bawah |
+
+### `nilaiTertagih` diturunkan, dan itu menghapus satu kelas cacat
+
+Pada legacy, nilai tertagih adalah kolom yang **dinaikkan** saat penagihan dicatat dan
+**diturunkan** saat penagihan dibalik. Dua penulis untuk satu angka, dan salah satunya — pembalikan
+— mudah terlupa. Legacy bahkan harus menjepitnya ke nol supaya tidak menjadi negatif.
+
+Model tenant tidak menyimpannya. Berapa yang tertagih selama satu perjalanan diturunkan dari
+alokasi penerimaan yang menunjuk trip tersebut (`penerimaan_piutang.sales_trip_id`, kolom dari
+bundel v10) dan teralokasi ke dokumen piutang nota itu.
+
+Akibatnya pembalikan **tidak perlu mengingat apa pun**: alokasi pembaliknya bernilai negatif,
+jumlahnya turun sendiri. Blok 3 uji kesetaraannya membuktikannya dengan sengaja **tidak**
+menurunkan kolom legacy — meniru pengurang yang terlupa. Legacy tetap 300.000 (salah), turunan
+tenant sudah 0.
+
+### `saldoSaatAssign` tetap disimpan, dan itu bukan inkonsistensi
+
+Kolom ini terlihat seperti ringkasan yang bisa basi — persis jenis yang ditolak di atas. Bedanya
+menentukan: ia **bukan** ringkasan keadaan sekarang melainkan **potret satu saat**. Berapa sisa
+tagihan ketika nota diserahkan tidak dapat dihitung ulang belakangan, sebab alokasi sesudahnya
+sudah mengubah sisanya.
+
+Potret memang harus disimpan; ringkasan tidak. Yang berbahaya adalah kolom yang mengaku mewakili
+keadaan sekarang padahal berhenti diperbarui.
+
+### Diverifikasi pada PostgreSQL 16
+
+| pemeriksaan | hasil |
+|---|---|
+| katalog v1–v13 dijalankan utuh | bersih, keluar 0 |
+| kolom `surat_perintah_sales_nota` | 19 |
+| `TenantSchemaMigrasiSelfTest` | LULUS — 15 migrasi, versi `v13-nota-bawaan` |
+| checksum v13 | `4bc70ec122b3`, dipatok |
+| uji kesetaraan | lima blok LULUS |
+
+Satu catatan tentang ujinya sendiri: blok 5 semula **lulus karena alasan yang salah** — yang
+menolak penugasan ganda ternyata primary key yang kebetulan bentrok, bukan batasan
+`uq_..._sps_nota`. Urutan serialnya kini dimajukan lebih dulu supaya batasan yang benar yang
+diuji.
+
+### Yang TIDAK dilakukan bundel ini
+
+Tidak ada pengisian data, dan tidak ada penugasan yang dibentuk surut untuk SPJ yang sudah
+berjalan. Menebak nota mana yang dulu dibawa hanya melahirkan riwayat penagihan yang tampak sahih
+tanpa dasar.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema
