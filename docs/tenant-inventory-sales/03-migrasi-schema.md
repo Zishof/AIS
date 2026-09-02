@@ -271,6 +271,89 @@ Tidak ada pengisian data. Baris yang sudah ada tetap `NULL` pada ketiga kolom ba
 benar: menebak trip mana yang menagih suatu penerimaan lama, atau kunci idempotensi mana yang
 dulu dipakai, hanya melahirkan data yang tampak sahih tanpa dasar.
 
+## Bundel v11 — kunci idempotensi yang selama ini tidak mengikat apa pun
+
+Bundel ini tidak menambah tabel dan tidak menambah kolom. Ia menambahkan **indeks unik parsial**
+pada sebelas kolom `idempotency_key`.
+
+### Bagaimana celah ini ditemukan
+
+Saat menyiapkan pemindahan `payablePaymentReverse`, jalur tenantnya perlu jaminan bahwa satu
+perintah balik tidak menghasilkan dua dokumen pembalik. Jalur legacy memperolehnya dari batasan
+basis data — kodenya bahkan menangkap `ConstraintViolationException` dan memperlakukannya sebagai
+pengulangan yang sah.
+
+Pemeriksaan katalog menunjukkan batasan itu **tidak ada** pada schema tenant. Pemeriksaan
+lanjutan terhadap seluruh katalog menunjukkan celahnya bukan satu, melainkan sebelas:
+
+| | jumlah |
+|---|---|
+| Tabel ber-`idempotency_key` | 12 |
+| Di antaranya berindeks **unik** sebelum v11 | 1 (`idempotency_record`, `UNIQUE (idempotency_key, aksi)`) |
+| Berindeks biasa atau tanpa indeks | **11** |
+
+Sebelas tabel itu: `pembelian`, `pembayaran_hutang`, `sales_order`, `faktur_penjualan`,
+`penerimaan_piutang`, `sales_trip`, `sales_trip_nota`, `sales_trip_setoran`, `mutasi_stok`,
+`jurnal`, `posting_log`.
+
+Perlu dicatat jujur: indeks unik untuk `sales_trip_biaya` yang dipasang **v10** menutup satu
+anggota dari kelas celah yang sama tanpa saya sadari kelasnya. v11 menutup sisanya.
+
+### Seberapa berbahaya — dan seberapa tidak
+
+Jalur tulis tenant yang sudah berjalan (misalnya `payablePaymentCreate`) **memeriksa kuncinya
+lebih dulu** dan mengembalikan `idempotentReplay` bila sudah ada. Pemeriksaan itu menyelamatkan
+kasus yang lazim: klik ganda, atau klien mengulang permintaan setelah waktu habis. Keduanya
+berurutan, dan keduanya tertangani.
+
+Yang tidak terlindungi adalah dua permintaan yang **benar-benar bersamaan**: keduanya lolos
+pemeriksaan sebelum salah satunya sempat menyisipkan, lalu keduanya menyisipkan. Hasilnya satu
+supplier dibayar dua kali dari satu perintah bayar.
+
+Pola "periksa lalu sisipkan" tanpa batasan basis data memang tidak pernah cukup — satu baris
+selalu dapat menyelinap di antara keduanya. Yang menutupnya hanya indeks unik.
+
+Jadi: bukan cacat yang menghantam pemakaian sehari-hari, tetapi jaminan yang jalur legacy punya
+dan jalur tenant tidak. Selisih jaminan itulah yang ditutup.
+
+### Mengapa parsial
+
+Semua kolomnya boleh `NULL`, dan baris hasil impor legacy umumnya memang tidak berkunci.
+`WHERE idempotency_key IS NOT NULL` membuat baris-baris itu tetap sah dan tidak saling bentrok
+sebagai NULL berulang. Bentuknya sama persis dengan indeks yang sudah dipasang v10.
+
+### Bundel ini DAPAT gagal, dan itu disengaja
+
+Bila suatu tenant terlanjur menyimpan dua baris berkunci sama pada tabel yang sama, pembuatan
+indeksnya ditolak dan migrasi berhenti dengan galat.
+
+Itu perilaku yang diinginkan. Baris kembar semacam itu **adalah** dokumen ganda yang hendak
+dicegah kolom ini; menemukannya saat migrasi jauh lebih baik daripada membiarkannya diam di dalam
+data. Penanganannya: periksa pasangan baris itu dan batalkan yang bukan asli — bukan melonggarkan
+indeksnya.
+
+### Diverifikasi pada PostgreSQL 16
+
+Katalog v1–v11 dijalankan utuh pada klaster sekali-pakai (`initdb --auth=trust`, tanpa kredensial,
+tanpa menyentuh data mana pun):
+
+| pemeriksaan | hasil |
+|---|---|
+| 79 tabel + seluruh ALTER v10 dan v11 | jalan bersih, `psql -v ON_ERROR_STOP=1` keluar 0 |
+| indeks unik parsial `idempotency_key` terbentuk | 12 (11 dari v11 + 1 dari v10) |
+| `TenantSchemaMigrasiSelfTest` | LULUS — 13 migrasi, versi terkini `v11-idempotensi` |
+| checksum bundel v11 | `78ef67a0241d`, dipatok di `PATOKAN` |
+
+Bukti bahwa indeksnya benar-benar menggigit ada pada blok 3 `uji-kesetaraan-reversal.sql`:
+indeksnya dilepas dulu, baris kembar dibuktikan **lolos** (keadaan pra-v11), lalu indeksnya
+dipasang lagi dan baris kembar yang sama **ditolak**. Tanpa langkah pertama, blok itu tidak
+membuktikan indeksnya yang menolak.
+
+### Yang TIDAK dilakukan bundel ini
+
+Tidak ada penghapusan atau penggabungan baris kembar secara otomatis. Menebak mana di antara dua
+dokumen uang yang "asli" bukan pekerjaan migrasi.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema

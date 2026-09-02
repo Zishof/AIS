@@ -1686,7 +1686,8 @@ public class PembayaranUtil {
 
 		}
 
-		criteria = batasiKeSettingBiayaTerpilih(criteria, settingBiayaTerpilih);
+		criteria = PembayaranUtilHelper.batasiPembacaanDetailBiayaKeSettingTerpilih(criteria,
+				settingBiayaTerpilih);
 		filterCriteriaDenganNilaiTambahan(criteria, session, mahasiswa, null);
 
 		System.out.println("detailSettingBiayas > " + detailSettingBiayas);
@@ -1953,30 +1954,6 @@ public class PembayaranUtil {
 	}
 
 	/**
-	 * Membatasi query DetailBiaya ke satu induk SettingBiaya terpilih. LEFT JOIN
-	 * mempertahankan kompatibilitas data lama: relasi boleh tersimpan langsung,
-	 * melalui DetailSettingBiaya, atau melalui SettingBiayaDetail individual.
-	 */
-	private static Criteria batasiKeSettingBiayaTerpilih(Criteria criteria, SettingBiaya settingBiaya) {
-		if (criteria == null || settingBiaya == null) {
-			return criteria;
-		}
-		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", Criteria.LEFT_JOIN);
-		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", Criteria.LEFT_JOIN);
-		criteria.add(Restrictions.or(
-				Restrictions.and(Restrictions.isNotNull("settingPrioritasIndividual.id"),
-						Restrictions.eq("settingPrioritasIndividual.settingBiaya", settingBiaya)),
-				Restrictions.or(
-						Restrictions.and(Restrictions.isNull("settingPrioritasIndividual.id"),
-								Restrictions.and(Restrictions.isNotNull("settingPrioritasRincian.id"),
-										Restrictions.eq("settingPrioritasRincian.settingBiaya", settingBiaya))),
-						Restrictions.and(Restrictions.isNull("settingPrioritasIndividual.id"),
-								Restrictions.and(Restrictions.isNull("settingPrioritasRincian.id"),
-										Restrictions.eq("settingBiaya", settingBiaya))))));
-		return criteria;
-	}
-
-	/**
 	 * Mengambil sumber DetailBiaya dari rincian tagihan yang sudah benar-benar
 	 * terbentuk pada Kegiatan. Jalur ini dipakai H2H sebagai pemulihan apabila
 	 * pencarian ulang template biaya kosong (misalnya semester masuk mahasiswa
@@ -2199,7 +2176,8 @@ public class PembayaranUtil {
 				? session.createCriteria(PengaturanPembayaranBulanan.class)
 						.setProjection(Projections.property("detailBiaya")).createCriteria("detailBiaya")
 				: session.createCriteria(DetailBiaya.class);
-		criteria = batasiKeSettingBiayaTerpilih(criteria, settingBiayaTerpilih);
+		criteria = PembayaranUtilHelper.batasiPembacaanDetailBiayaKeSettingTerpilih(criteria,
+				settingBiayaTerpilih);
 		filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);
 
 		criteria = criteria

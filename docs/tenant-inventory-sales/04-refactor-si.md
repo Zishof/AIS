@@ -865,6 +865,145 @@ kebetulan milik satu toko, uji lingkup akan lulus tanpa membuktikan apa pun.
 Blok 1 dan 4 bersama-sama membuktikan pemetaan uang muka: sisa 450.000 hanya benar bila
 uang muka 100.000 <b>dan</b> pembayaran 250.000 keduanya terhitung, dan totalnya 350.000.
 
+## Helper kedelapan: Reversal &amp; Log Cetak — 3 dari 7 aksi
+
+`SalesInventoryReversalHelper` (524 baris) berisi tujuh aksi. Tiga dipindahkan; **empat
+ditolak**, dan keempatnya karena model tenant tidak menyediakan tempatnya.
+
+| aksi | jalur tenant |
+|---|---|
+| `payablePaymentReverse` | **dipindahkan** |
+| `printLogCreate` | **dipindahkan** |
+| `printLogList` | **dipindahkan** |
+| `collectionReverse` | ditolak — tidak ada buku kas trip |
+| `expenseReverse` | ditolak — `sales_trip_biaya` tanpa `pembalik_dari_id` |
+| `payableBgStatus` | ditolak — status giro tidak disimpan |
+| `collectionBgStatus` | ditolak — status giro tidak disimpan |
+
+### Sisi pembalikan justru lebih matang di tenant
+
+Berbeda dengan kebanyakan celah sebelumnya, di sini model tenant **melebihi** legacy:
+`pembalik_dari_id` tersedia pada enam tabel dokumen, dan ada `reversal_log` yang mencatat dokumen
+asal, jurnal asal, jurnal pembalik, alasan, serta pelakunya. Legacy hanya punya `reversalDari`
+pada dokumennya sendiri. Jejaknya bertambah, bukan berkurang.
+
+### Yang mengembalikan sisa hutang adalah alokasi negatif
+
+Legacy membalik dengan dokumen cermin bernilai negatif, lalu mencerminkan tiap alokasinya juga
+negatif. Bentuk itu dipertahankan persis, dan bukan demi kemiripan: rumus sisa yang dipakai
+helper Payable adalah `nilai − Σalokasi`. Alokasi negatiflah yang mengembalikan sisa hutang;
+dokumen pembaliknya sendiri tidak menyentuh angka itu sama sekali.
+
+Blok 2 `uji-kesetaraan-reversal.sql` membuktikan hal itu dari sisi negatifnya: dengan alokasi
+negatif diabaikan, sisanya tetap 600.000 dan tidak kembali ke 1.000.000. Tanpa blok itu, blok 1
+tidak membuktikan apa pun — angka yang benar bisa saja benar karena sebab lain.
+
+### Satu tambahan yang dipaksa model
+
+`pembayaran_hutang.nomor_dokumen` berstatus `NOT NULL`, sedangkan legacy tidak memberi nomor pada
+dokumen pembalik AP. Nomornya diturunkan sebagai `"REV-" + nomor asal`, mengikuti pola yang sudah
+dipakai legacy pada sisi piutang.
+
+### Idempotensi: celah yang ditemukan sambil jalan, lalu ditutup v11
+
+Pemindahan ini menuntut jaminan bahwa satu perintah balik tidak melahirkan dua dokumen pembalik.
+Ternyata jaminan itu tidak ada — bukan hanya di sini, melainkan pada sebelas tabel. Rinciannya di
+`03-migrasi-schema.md`, bundel v11.
+
+Jalur tenant kini berpenjaga dua lapis, sama seperti legacy: pemeriksaan kunci di muka untuk
+percobaan berurutan, dan indeks unik untuk permintaan yang bersamaan (`SQLState` kelas `23`
+diperlakukan sebagai pengulangan yang sah, persis seperti legacy memperlakukan
+`ConstraintViolationException`).
+
+### `collectionReverse`: ditolak utuh, bukan dipindahkan separuh
+
+Legacy mengerjakan lima hal. Model tenant mendukung tiga:
+
+| yang dikerjakan legacy | ada di tenant? |
+|---|---|
+| dokumen cermin negatif + penunjuk asal | ya |
+| alokasi negatif | ya |
+| sales order LUNAS mundur ke SIAP_TAGIH | ya (lewat piutang → faktur → order) |
+| `SpjSalesNota.nilaiTertagih` dimundurkan | **tidak** — tidak ada tabelnya |
+| baris kas sesi negatif (`NotaSalesKas`) | **tidak** — tidak ada `sales_trip_kas` |
+
+Tabel tenant yang namanya mirip, `sales_trip_nota`, adalah nota **penjualan yang diterbitkan**
+dalam trip (`faktur_penjualan_id`, `tunai`, `kredit`) — konsep berbeda, tanpa kolom nilai
+tertagih.
+
+Tiga bagian yang bisa dikerjakan sengaja **tidak** dikerjakan. Memindahkan sebagian berarti
+membalik piutangnya tanpa membalik kasnya, sehingga sales tetap tampak memegang uang yang tidak
+pernah diterimanya. Itu kelas cacat uang yang paling sulit ditemukan belakangan, dan sudah sekali
+terkirim pada helper ini (lihat "CACAT YANG SUDAH TERKIRIM" di atas). Tidak diulang.
+
+### Celah C-11: model tenant tidak punya buku kas trip
+
+Ketiadaan `sales_trip_kas` bukan hanya menghalangi `collectionReverse`. Ia juga berarti **angka
+`saldoKas` pada `tripList` jalur tenant belum setara**, dan ini menyangkut kode yang sudah
+terkirim (r83075).
+
+Legacy menghitungnya sebagai penjumlahan bertanda seluruh buku kas sesi, yang mencakup sembilan
+jenis baris: `OPENING_ADVANCE`, `COLLECTION_CASH`, `CASH_SALE`, `EXPENSE_CASH`,
+`PURCHASE_PAYMENT`, `OWNER_DEPOSIT`, `REFUND`, `ADJUSTMENT`, `REVERSAL`.
+
+Rumus tenant saat ini hanya `Σ nota.tunai − Σ setoran.nilai` — mencakup `CASH_SALE` dan setoran,
+tetapi tidak uang muka operasional, tidak penagihan tunai piutang lama, dan tidak biaya tunai.
+Untuk trip dengan panjar 500.000, penjualan tunai 300.000, penagihan tunai 200.000, biaya 100.000,
+dan setoran 400.000: legacy menghasilkan 500.000, rumus sekarang menghasilkan −100.000.
+
+Perbaikan sebelumnya (r83075) memang memperbaiki cacat yang lebih besar — waktu itu rumusnya
+menjumlahkan setoran saja — tetapi **belum menuntaskannya**, dan saat itu saya menyatakannya
+selesai. Yang tersisa tidak dapat ditutup dengan menulis ulang kuerinya: `sales_trip` tidak punya
+kolom panjar, dan tidak ada tabel tempat menaruh baris kas.
+
+Bundel yang menutupnya perlu sekurang-kurangnya `sales_trip.saldo_kas_awal` dan satu tabel buku
+kas trip. Bundel itu sekaligus membuka `collectionReverse` dan `expenseReverse`. Belum dibuat —
+menambah tabel baru adalah keputusan rancangan, bukan tambalan, dan pantas diputuskan terpisah.
+
+### `expenseReverse` dan siklus giro
+
+`sales_trip_biaya` adalah satu-satunya tabel dokumen tanpa `pembalik_dari_id`, tanpa `status`, dan
+tanpa kolom metode pembayaran. Baris pembalik bernilai negatif tanpa penunjuk asal menghasilkan
+dua baris yang tidak dapat dipasangkan kembali: totalnya benar, tetapi tidak ada yang tahu baris
+mana membalik baris mana.
+
+Untuk giro, model tenant menyimpan `nomor_bg` dan `tanggal_bg` tetapi **tidak statusnya** —
+sehingga giro yang sudah cair tidak dapat dibedakan dari yang ditolak, dan itu justru inti kedua
+aksi `*BgStatus`.
+
+### Log cetak: enam medan, dan satu kolom yang namanya tidak cocok
+
+`printLogList` legacy mengembalikan enam medan (id, jenisDokumen, referensi, userId, perangkat,
+waktu) dan jalur tenant mengembalikan enam yang sama. Rancangan pertama saya menulis delapan
+kolom — pencacah cetakan dan id dokumen ikut terbawa — dan itu akan mengubah bentuk JSON-nya.
+Tertangkap saat mencocokkan ke kode legacy sebelum menulis, bukan sesudah.
+
+`LogCetak.parameterJson` tidak punya kolom sendiri pada `print_log`; isinya disimpan pada `alasan`,
+satu-satunya kolom teks bebas. Namanya tidak cocok dan itu dicatat apa adanya di javadoc —
+membuang isian yang pada jalur legacy tersimpan jelas lebih buruk daripada menaruhnya di kolom
+yang namanya kurang tepat.
+
+`cetakan_ke` justru sebaliknya: kolom milik tenant yang tidak punya padanan legacy. Diisi
+`MAX+1` karena membiarkannya bernilai bawaan membuat setiap baris mengaku cetakan pertama. Dua
+permintaan cetak yang bersamaan dapat memperoleh angka sama; itu diterima, sebab registernya
+catatan dan tidak ada keputusan uang yang bergantung padanya.
+
+### Uji kesetaraan: `uji-kesetaraan-reversal.sql`
+
+Enam blok, seluruhnya LULUS pada klaster v1–v11:
+
+| blok | yang dibuktikan |
+|---|---|
+| 1 | sisa hutang setelah pembalikan setara legacy (1.000.000) |
+| 2 | **penjaga** — tanpa alokasi negatif sisanya tetap 600.000, jadi blok 1 memang membedakan |
+| 3 | **penjaga** — kembar lolos tanpa indeks v11, ditolak dengan indeks v11 |
+| 4 | baris berkunci `NULL` tetap boleh banyak (indeksnya parsial) |
+| 5 | dokumen asal ditandai DIBATALKAN, `reversal_log` terisi satu baris |
+| 6 | `printLogList` mengembalikan enam medan yang sama, parameter tetap tersimpan |
+
+Berkasnya dapat dijalankan berulang: data jalan uji sebelumnya dibersihkan lebih dulu menurut
+urutan kunci asing.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

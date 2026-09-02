@@ -1,0 +1,281 @@
+# Kontrak Sumber Tagihan DetailBiaya
+
+Dokumen ini menjelaskan cara mesin billing memilih `SettingBiaya` dan membaca
+`DetailBiaya`, termasuk kompatibilitas data lama. Tujuannya adalah mencegah
+regresi ketika logika prioritas setting diperketat.
+
+## Ringkasan insiden 2026-09-02
+
+Gejala:
+
+- nominal sudah dibuat melalui layar Pengaturan Tagihan;
+- profil mahasiswa dan periode terlihat sesuai;
+- layar Pembayaran Mahasiswa tetap menampilkan `Belum ada tagihan`;
+- kasus terlihat pada mahasiswa berstatus asli Nonaktif.
+
+Status Nonaktif bukan akar masalah. Bila konfigurasi
+`mahasiswa_dengan_status_non_aktif_bisa_melakukan_pembayaran_seperti_status_aktif`
+aktif, status yang dipakai untuk pencarian tagihan adalah Aktif. Status asli
+tetap ditampilkan pada UI agar informasi akademik tidak berubah secara semu.
+
+Akar masalahnya adalah filter prioritas setting. Filter tersebut sebelumnya
+hanya menerima `DetailBiaya` yang mempunyai salah satu relasi berikut:
+
+1. `setting_biaya_detail -> setting_biaya`;
+2. `detail_setting_biaya -> setting_biaya`;
+3. `detail_biaya.setting_biaya`.
+
+Baris yang dibuat oleh layar Pengaturan Tagihan legacy dapat mempunyai ketiga
+relasi tersebut bernilai `null`. Barisnya ada dan nominalnya benar, tetapi query
+baca membuangnya. Kondisi ini membuat pesan `Belum ada tagihan` menyesatkan.
+
+Perbaikan dipusatkan di:
+
+`PembayaranUtilHelper.batasiPembacaanDetailBiayaKeSettingTerpilih(...)`
+
+Semua query baca pada UI admin dan layanan pembayaran/H2H wajib memakai method
+tersebut. Jangan membuat salinan criteria sendiri.
+
+## Dua model sumber tagihan
+
+Sistem harus mendukung dua bentuk data secara bersamaan.
+
+### 1. Tagihan terkelola SettingBiaya
+
+Data baru idealnya mempunyai jejak induk yang lengkap:
+
+```text
+SettingBiaya
+  -> DetailSettingBiaya
+       -> DetailBiaya
+```
+
+Untuk tagihan khusus mahasiswa, jalurnya dapat melalui
+`SettingBiayaDetail`. Mesin prioritas memilih tepat satu `SettingBiaya` yang
+paling sesuai dengan profil mahasiswa. Baris yang menunjuk setting lain harus
+ditolak walaupun item dan nominalnya sama.
+
+### 2. Tagihan langsung legacy
+
+Layar Pengaturan Tagihan versi lama membuat `DetailBiaya` secara langsung.
+Pada data seperti ini, tiga relasi sumber dapat seluruhnya `null`:
+
+```text
+detail_biaya.setting_biaya        IS NULL
+detail_biaya.detail_setting_biaya IS NULL
+detail_biaya.setting_biaya_detail IS NULL
+```
+
+Baris tersebut tetap sah untuk dibaca. Keamanannya bukan berasal dari relasi
+setting, tetapi dari filter profil rinci pada query produksi, antara lain:
+
+- jenis pembayaran;
+- tahun akademik dan semester;
+- angkatan;
+- jenjang dan prodi;
+- program;
+- status awal dan status pembayaran efektif;
+- semester mulai;
+- kewarganegaraan;
+- kelas, tempat tinggal, dan parameter tambahan bila fitur terkait aktif.
+
+## Algoritma pemilihan
+
+Urutan algoritma untuk mahasiswa lama adalah:
+
+1. Validasi mahasiswa, semester, dan jenis pembayaran.
+2. Hitung tahun akademik serta tahap pembayaran.
+3. Ambil status akademik asli dari `HistoryStatusMahasiswa`.
+4. Bentuk status pembayaran efektif melalui
+   `PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(...)`.
+5. Cari tagihan khusus mahasiswa.
+6. Cari `SettingBiaya` cohort dengan prioritas terkecil yang masih mempunyai
+   kandidat cocok; di dalam prioritas yang sama pilih kandidat paling spesifik.
+7. Ambil daftar `ItemBiaya` dari setting terpilih.
+8. Bangun query `DetailBiaya` atau `PengaturanPembayaranBulanan`.
+9. Terapkan batas sumber dengan helper kanonis.
+10. Terapkan seluruh filter profil mahasiswa.
+11. Kurangi pembayaran yang sudah terjadi, deduplikasi item, lalu tampilkan.
+
+Calon mahasiswa dan layanan H2H mengikuti prinsip yang sama. Perbedaan hanya
+pada sumber profil dan aturan pembayaran bulanan.
+
+## Kontrak batas sumber
+
+Untuk `SettingBiaya S` yang terpilih, satu baris `DetailBiaya D` boleh dibaca
+bila memenuhi salah satu kondisi berikut:
+
+```text
+D.settingBiayaDetail != null
+  AND D.settingBiayaDetail.settingBiaya = S
+
+OR
+
+D.settingBiayaDetail = null
+  AND D.detailSettingBiaya != null
+  AND D.detailSettingBiaya.settingBiaya = S
+
+OR
+
+D.settingBiayaDetail = null
+  AND D.detailSettingBiaya = null
+  AND D.settingBiaya = S
+
+OR
+
+D.settingBiayaDetail = null
+  AND D.detailSettingBiaya = null
+  AND D.settingBiaya = null
+```
+
+Cabang terakhir adalah kompatibilitas legacy. Cabang ini tidak berarti semua
+baris tanpa relasi boleh tampil. Query pemanggil tetap wajib menerapkan seluruh
+filter profil.
+
+Jika relasi yang lebih spesifik tersedia tetapi menunjuk setting lain, baris
+harus ditolak. Contoh: `settingBiayaDetail` tidak boleh diabaikan hanya karena
+`detailBiaya.settingBiaya` kebetulan menunjuk setting yang dipilih.
+
+## Query baca dan query tulis berbeda
+
+Ini adalah invariant terpenting.
+
+### Query baca
+
+Query baca boleh menerima baris legacy tanpa relasi. Gunakan:
+
+```java
+criteria = PembayaranUtilHelper
+        .batasiPembacaanDetailBiayaKeSettingTerpilih(criteria, settingBiayaTerpilih);
+```
+
+Setelah itu tambahkan semua filter profil. Method ini saat ini digunakan oleh:
+
+- `ais.action.master.helper.PembayaranUtilHelper`, jalur mahasiswa lama;
+- `ais.action.master.helper.PembayaranUtilHelper`, jalur calon mahasiswa;
+- `ais.action.ws.util.PembayaranUtil`, jalur mahasiswa lama/H2H;
+- `ais.action.ws.util.PembayaranUtil`, jalur calon mahasiswa/H2H.
+
+### Query tulis atau reuse
+
+Query yang akan memperbarui, memakai ulang, atau memindahkan relasi
+`DetailBiaya` tidak boleh menerima baris tanpa induk secara bebas. Helper privat
+di `SetingBiayaHelper` sengaja lebih ketat. Tujuannya agar tagihan legacy tidak
+diam-diam diubah menjadi milik setting lain.
+
+Jangan menyamakan kedua helper hanya karena bentuk Criteria terlihat mirip.
+
+## Semantik status mahasiswa
+
+Ada dua nilai status yang tidak boleh dicampur:
+
+- status asli: untuk display dan kebenaran data akademik;
+- status pembayaran efektif: hanya untuk pencocokan template/tagihan.
+
+Bila konfigurasi Nonaktif sebagai Aktif dinyalakan:
+
+```text
+Status UI                 = Nonaktif
+Status pencarian tagihan  = Aktif
+```
+
+Konfigurasi tersebut tidak mengubah `HistoryStatusMahasiswa`. Pembayaran juga
+tidak boleh menulis status akademik hanya agar tagihan ditemukan.
+
+Semua jalur pembayaran wajib memanggil helper kanonis. Jangan menulis ulang
+blok `if Nonaktif then Aktif` pada action atau web service lain.
+
+## Pola yang dilarang
+
+Jangan menambahkan filter berikut secara tunggal pada query baca produksi:
+
+```java
+Restrictions.eq("settingBiaya", settingBiayaTerpilih)
+```
+
+Pola tersebut membuang dua bentuk relasi turunan dan seluruh data legacy.
+
+Jangan pula menyalin implementasi `LEFT_JOIN` ke kelas lain. Salinan mudah
+tertinggal ketika kontrak kompatibilitas berubah. Panggil helper kanonis.
+
+Jangan melonggarkan filter profil sebagai jalan pintas. Masalah relasi sumber
+harus diselesaikan pada batas sumber; semester, prodi, periode, status, dan
+atribut mahasiswa tetap harus cocok.
+
+## Matriks uji minimum
+
+Setiap perubahan mesin tagihan harus menguji kasus berikut:
+
+| Kasus | Relasi sumber | Status asli | Konfigurasi Nonaktif | Hasil |
+|---|---|---|---|---|
+| Setting modern | `detailSettingBiaya -> S` | Aktif | bebas | tampil |
+| Setting langsung | `settingBiaya = S` | Aktif | bebas | tampil |
+| Setting individual | `settingBiayaDetail -> S` | Aktif | bebas | tampil |
+| Legacy langsung | semua relasi `null` | Aktif | bebas | tampil bila profil cocok |
+| Legacy langsung | semua relasi `null` | Nonaktif | aktif | tampil bila profil Aktif cocok |
+| Legacy langsung | semua relasi `null` | Nonaktif | tidak aktif | tidak memakai tarif Aktif |
+| Setting salah | relasi menunjuk setting lain | Aktif | bebas | tidak tampil |
+| Profil salah | relasi benar, semester/prodi salah | Aktif | bebas | tidak tampil |
+| Sudah lunas | relasi dan profil benar | Aktif | bebas | tidak tampil sebagai tunggakan |
+
+Jalankan matriks minimal pada UI admin dan satu jalur H2H/inquiry karena kedua
+jalur mempunyai builder Criteria yang berbeda.
+
+## Pemeriksaan data saat insiden
+
+Untuk NIM yang bermasalah, gunakan tombol `Analisis Data` pada layar pembayaran.
+Catat titik pertama yang menghasilkan nol. Pemeriksaan database berikut dapat
+dipakai sebagai panduan dan harus disesuaikan dengan ID/konteks tenant:
+
+```sql
+select
+    db.id,
+    db.nilai_biaya,
+    db.semester,
+    db.tahun_akademik,
+    db.angkatan,
+    db.jurusan,
+    db.status_mahasiswa,
+    db.status_awal_mahasiswa,
+    db.setting_biaya,
+    db.detail_setting_biaya,
+    db.setting_biaya_detail
+from public.detail_biaya db
+where db.semester = :semester
+  and db.tahun_akademik = :tahun_akademik
+  and db.jurusan = :jurusan_id
+order by db.id desc;
+```
+
+Interpretasi cepat:
+
+- nominal ada dan tiga relasi sumber `null`: data legacy, harus lolos cabang
+  kompatibilitas setelah profil cocok;
+- satu relasi berisi ID setting lain: periksa prioritas dan sumber pembuatan;
+- tidak ada baris sama sekali: masalah berada pada proses pembuatan tagihan;
+- baris ada tetapi profil berbeda: perbaiki konfigurasi, jangan melonggarkan
+  query produksi secara global.
+
+## Checklist perubahan berikutnya
+
+Sebelum merge perubahan billing:
+
+1. Cari seluruh pemakaian `settingBiayaTerpilih`.
+2. Pastikan query baca memakai helper kanonis.
+3. Pastikan query tulis/reuse tetap ketat.
+4. Pastikan UI menampilkan status asli.
+5. Pastikan query memakai status pembayaran efektif.
+6. Uji data modern, individual, dan legacy.
+7. Uji UI admin serta H2H.
+8. Kompilasi dengan JDK 1.8.
+9. Jalankan `git diff --check`.
+
+## Berkas utama
+
+- `src/ais/action/master/helper/PembayaranUtilHelper.java`
+- `src/ais/action/ws/util/PembayaranUtil.java`
+- `src/ais/action/master/helper/SetingBiayaHelper.java`
+- `src/ais/action/master/helper/SettingBiayaMahasiswaSelector.java`
+- `src/ais/action/master/NewDetailBiayaExcelAction.java`
+- `src/ais/action/master/DaftarUlangMahasiswaLamaAction.java`
+

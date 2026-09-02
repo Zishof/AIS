@@ -108,12 +108,31 @@ public class PembayaranUtilHelper {
 	private static final String SQL_TRUE = "1=1";
 	private static final String SQL_FALSE = "1=0";
 
-	private static Criteria batasiKeSettingBiayaTerpilih(Criteria criteria, SettingBiaya settingBiaya) {
+	/**
+	 * Membatasi query baca {@link DetailBiaya} ke {@link SettingBiaya} yang sudah dipilih oleh
+	 * mesin prioritas, tanpa memutus kompatibilitas dengan data tagihan legacy.
+	 *
+	 * <p>Ada empat bentuk sumber yang sah: relasi individual melalui
+	 * {@code SettingBiayaDetail}, relasi rincian melalui {@code DetailSettingBiaya}, relasi
+	 * langsung {@code DetailBiaya.settingBiaya}, dan baris legacy yang ketiga relasinya masih
+	 * {@code null}. Jika salah satu relasi tersedia, relasi itu wajib menunjuk setting terpilih;
+	 * baris yang menunjuk setting lain tetap ditolak.</p>
+	 *
+	 * <p>Method ini khusus query <b>baca</b>. Query lanjutan wajib tetap menambahkan kriteria
+	 * profil (periode, semester, prodi, program, status, angkatan, dan parameter lain). Jangan
+	 * memakai kelonggaran baris legacy ini pada query tulis/reuse di {@link SetingBiayaHelper},
+	 * karena baris tanpa induk tidak boleh diam-diam dipindahkan ke setting lain.</p>
+	 */
+	public static Criteria batasiPembacaanDetailBiayaKeSettingTerpilih(Criteria criteria,
+			SettingBiaya settingBiaya) {
 		if (criteria == null || settingBiaya == null) {
 			return criteria;
 		}
 		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", Criteria.LEFT_JOIN);
 		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", Criteria.LEFT_JOIN);
+		// Baris legacy dari menu Pengaturan Tagihan tidak selalu memiliki relasi
+		// SettingBiaya. Tetap izinkan baris tersebut; filter profil rinci di bawah
+		// (semester, prodi, program, status, angkatan, dan seterusnya) tetap berlaku.
 		criteria.add(Restrictions.or(
 				Restrictions.and(Restrictions.isNotNull("settingPrioritasIndividual.id"),
 						Restrictions.eq("settingPrioritasIndividual.settingBiaya", settingBiaya)),
@@ -123,7 +142,8 @@ public class PembayaranUtilHelper {
 										Restrictions.eq("settingPrioritasRincian.settingBiaya", settingBiaya))),
 						Restrictions.and(Restrictions.isNull("settingPrioritasIndividual.id"),
 								Restrictions.and(Restrictions.isNull("settingPrioritasRincian.id"),
-										Restrictions.eq("settingBiaya", settingBiaya))))));
+										Restrictions.or(Restrictions.eq("settingBiaya", settingBiaya),
+												Restrictions.isNull("settingBiaya")))))));
 		return criteria;
 	}
 
@@ -786,7 +806,7 @@ public class PembayaranUtilHelper {
 				}
 			}
 
-			criteria = batasiKeSettingBiayaTerpilih(criteria, settingBiayaTerpilih);
+			criteria = batasiPembacaanDetailBiayaKeSettingTerpilih(criteria, settingBiayaTerpilih);
 			filterCriteriaDenganNilaiTambahan(criteria, session, mahasiswa, null);
 
 			if (kelasStr != null) {
@@ -1190,7 +1210,7 @@ public class PembayaranUtilHelper {
 					: session.createCriteria(DetailBiaya.class)
 							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 			
-			criteria = batasiKeSettingBiayaTerpilih(criteria, settingBiayaTerpilih);
+			criteria = batasiPembacaanDetailBiayaKeSettingTerpilih(criteria, settingBiayaTerpilih);
 			filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);
 
 			criteria = criteria
