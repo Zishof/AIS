@@ -1763,6 +1763,41 @@ public class TugasKelompokHelper implements DataLoader {
 			win.onModal();
 		}
 
+		/**
+		 * Satu jalur konfirmasi untuk seluruh tombol hapus tugas kelompok. Panel
+		 * pengaturan kartu dan toolbar lama wajib memakai handler yang sama agar
+		 * validasi, pemuatan ulang, serta pesan kegagalannya tidak berbeda.
+		 */
+		private void konfirmasiHapusTugasKelompok(final TugasKelompok tugasKelompok) throws Exception {
+			MyMessageboxConfig.show("Apakah yakin ingin menghapus tugas kelompok \""
+					+ tugasKelompok.getJudul() + "\"?", "Hapus Tugas Kelompok",
+					MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+					new EventListener() {
+						@Override
+						public void onEvent(Event event) throws Exception {
+							int pilihan = Integer.parseInt(event.getData().toString());
+							if (pilihan != MyMessageboxConfig.OK) {
+								return;
+							}
+							try {
+								Common.refreshDelete(tugasKelompok);
+								loadData(null);
+								if (eventListener != null) {
+									eventListener.onEvent(event);
+								}
+							} catch (Exception e) {
+								Common.tampilErrorJikaAdmin(e);
+								PesanFormalHelper.tampilkanGagalException("menghapus data tugas kelompok", e,
+										new String[] {
+												"Pastikan tidak ada nilai atau data lain yang masih berelasi dengan data ini.",
+												"Muat ulang (refresh) halaman ini lalu coba hapus kembali.",
+												"Apabila kendala masih berlanjut, hubungi Admin dengan menyertakan tangkapan layar (screenshot) pesan ini."
+										});
+							}
+						}
+					});
+		}
+
 		private void pasangAksiPengaturan(final Vbox parent, final TugasKelompok tugasKelompok,
 				final Set<String> syaratAlert) {
 			if (!bolehKelola(Common.getCurrentUser())) {
@@ -1815,6 +1850,18 @@ public class TugasKelompokHelper implements DataLoader {
 				}
 			});
 			kelola.setParent(aksi);
+
+			MyToolbarbutton hapus = new MyToolbarbutton("fa-trash", "Hapus Tugas Kelompok");
+			hapus.setWidth("100%");
+			hapus.setStyle("text-align:left;color:#b91c1c;");
+			hapus.setTooltiptext("Hapus tugas kelompok ini secara permanen");
+			hapus.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					konfirmasiHapusTugasKelompok(tugasKelompok);
+				}
+			});
+			hapus.setParent(aksi);
 		}
 
 		@SuppressWarnings({ "unchecked" })
@@ -2738,41 +2785,8 @@ public class TugasKelompokHelper implements DataLoader {
 			button.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
-					MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
-							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
-							new EventListener() {
-
-								@Override
-								public void onEvent(Event event) throws Exception {
-									int i = Integer.parseInt(event.getData().toString());
-									if (i == MyMessageboxConfig.OK) {
-										try {
-
-											Common.refreshDelete(tugasKelompok);
-											loadData(null);
-
-											if (eventListener != null) {
-												eventListener.onEvent(event);
-											}
-
-										} catch (Exception e) {
-											Common.tampilErrorJikaAdmin(e);
-											PesanFormalHelper.tampilkanGagalException(
-													"menghapus data tugas kelompok",
-													e, new String[] {
-															"Pastikan tidak ada nilai atau data lain yang masih berelasi dengan data ini.",
-															"Muat ulang (refresh) halaman ini lalu coba hapus kembali.",
-															"Apabila kendala masih berlanjut, hubungi Admin dengan menyertakan tangkapan layar (screenshot) pesan ini."
-													});
-										}
-
-									}
-
-								}
-							});
-
+					konfirmasiHapusTugasKelompok(tugasKelompok);
 				}
-
 			});
 			button.setParent(toolbar);
 			ais.ui.util.MenuAksiBaris.pasang(toolbar);
