@@ -451,6 +451,15 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 	private void init(final boolean refresh) throws Exception {
 		win.getFellowIfAny("window");
 		Common.clear(win);
+		/*
+		 * Window ini dapat dibuka lewat ZUL (height 100%) maupun sebagai dialog modal.
+		 * Kelas tema global ais-mywindow memakai overflow:hidden untuk menjaga bentuk
+		 * kartu. Tanpa override pada cave/content window, isi dasbor yang lebih tinggi
+		 * dari viewport terpotong di bagian bawah dan tidak memperoleh scrollbar.
+		 * Scroll ditempatkan pada area konten window (bukan body/grid) supaya seluruh
+		 * panel tetap dapat dicapai pada berbagai tinggi layar dan zoom browser.
+		 */
+		win.setContentStyle("overflow:auto;box-sizing:border-box;-webkit-overflow-scrolling:touch;");
 
 		final boolean tabsVisible = mhs == null && calMhs == null;
 		final boolean vaVisible = tabsVisible && Konfigurasi.AKTIF.equals(
@@ -464,6 +473,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 
 		Vbox mainVbox = new Vbox();
 		mainVbox.setWidth("100%");
+		// Ruang aman di ujung bawah mencegah baris/pager terakhir berhimpit dengan
+		// batas dialog atau panel navigasi browser, tanpa memberi tinggi tetap.
+		mainVbox.setStyle("height:auto;min-height:100%;padding-bottom:36px;box-sizing:border-box;");
 		mainVbox.setParent(panel1);
 
 		// ==============================================================
