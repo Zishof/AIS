@@ -54,6 +54,10 @@ public final class NewUiLaporanSirsSelfTest {
         laporan.put("helper_status_pasien", "sirs/data_identitas_pasien");
         laporan.put("umum_kartu_pasien", "sirs/kartu_pasien");
         laporan.put("umum_status_pasien", "sirs/data_identitas_pasien");
+        laporan.put("umum_biaya_tindakan", "sirs/daftar_biaya_tindakan");
+        laporan.put("umum_pendaftaran_pasien", "sirs/laporan_pendaftaran_pasien");
+        laporan.put("umum_10_icd", "sirs/laporan_10_jenis_penyakit_terbesar");
+        laporan.put("umum_10_penyakit", "sirs/laporan_10_jenis_penyakit_terbesar");
 
         Method jenis = NewUiLaporanSirsController.class.getDeclaredMethod("jenis", String.class);
         jenis.setAccessible(true);
@@ -65,6 +69,8 @@ public final class NewUiLaporanSirsSelfTest {
         Object hargaBeli = null;
         Object penggunaanApotik = null;
         Object kartuPasien = null;
+        Object sepuluhIcd = null;
+        Object sepuluhPenyakit = null;
         for (Map.Entry<String, String> e : laporan.entrySet()) {
             check(NewUiLaporanSirsController.jenisDikenal(e.getKey()),
                     "laporan tidak dikenal: " + e.getKey());
@@ -85,7 +91,8 @@ public final class NewUiLaporanSirsSelfTest {
                     "laporan tanpa filter: " + e.getKey());
             boolean xls = e.getKey().startsWith("laporan_kasir_")
                     || e.getKey().startsWith("inventory_")
-                    || e.getKey().startsWith("apotik_");
+                    || e.getKey().startsWith("apotik_")
+                    || "umum_biaya_tindakan".equals(e.getKey());
             check((xls ? "xls" : "pdf").equals(format.get(nilai)),
                     "format keluaran keliru untuk " + e.getKey() + ": " + format.get(nilai));
             if ("rajal_umum_5".equals(e.getKey())) lima = nilai;
@@ -93,6 +100,8 @@ public final class NewUiLaporanSirsSelfTest {
             if ("inventory_harga_beli".equals(e.getKey())) hargaBeli = nilai;
             if ("apotik_penggunaan_item".equals(e.getKey())) penggunaanApotik = nilai;
             if ("umum_kartu_pasien".equals(e.getKey())) kartuPasien = nilai;
+            if ("umum_10_icd".equals(e.getKey())) sepuluhIcd = nilai;
+            if ("umum_10_penyakit".equals(e.getKey())) sepuluhPenyakit = nilai;
         }
         check(!NewUiLaporanSirsController.jenisDikenal("laporan_karangan"),
                 "laporan tak terdaftar harus ditolak");
@@ -125,6 +134,15 @@ public final class NewUiLaporanSirsSelfTest {
         JSONObject pasienKartu = (JSONObject) filter.invoke(null, kartuPasien, "pasien");
         check(pasienKartu.getBoolean("wajib") && pasienKartu.getBoolean("cari"),
                 "cetak kartu pasien harus mewajibkan satu pasien yang dapat dicari");
+        JSONObject pasienIcd = (JSONObject) filter.invoke(null, sepuluhIcd, "jenis_pasien");
+        check(!pasienIcd.getBoolean("wajib") && !pasienIcd.getBoolean("pilihPertama"),
+                "jenis pasien pada 10 ICD harus tetap opsional");
+        JSONObject menularPenyakit = (JSONObject) filter.invoke(null, sepuluhPenyakit, "menular");
+        JSONObject instalasiPenyakit = (JSONObject) filter.invoke(null, sepuluhPenyakit, "instalasi");
+        check(menularPenyakit.getBoolean("wajib")
+                        && instalasiPenyakit.getBoolean("wajib")
+                        && instalasiPenyakit.getBoolean("pilihPertama"),
+                "10 Penyakit harus mewajibkan menular dan instalasi seperti layar ZK");
 
         System.out.println("NewUiLaporanSirsSelfTest OK (" + laporan.size() + " laporan)");
     }

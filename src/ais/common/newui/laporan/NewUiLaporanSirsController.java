@@ -29,8 +29,11 @@ import ais.database.model.asset.Lokasi;
 import ais.database.model.library.JenisItem;
 import ais.database.model.library.Penyedia;
 import ais.database.model.sirs.Dokter;
+import ais.database.model.sirs.DiagnosaPenyakit;
+import ais.database.model.sirs.Instalasi;
 import ais.database.model.sirs.JenisPasien;
 import ais.database.model.sirs.JenisItemMedis;
+import ais.database.model.sirs.JenisTindakan;
 import ais.database.model.sirs.Pasien;
 import ais.database.model.sirs.Pembayaran;
 import ais.database.model.sirs.Pendaftaran;
@@ -40,7 +43,7 @@ import ais.database.model.sirs.TransaksiMedis;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native tiga puluh tiga laporan SIRS.
+ * Kontrak native tiga puluh tujuh laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -126,9 +129,12 @@ public final class NewUiLaporanSirsController {
     static final String S_LUNAS = "lunas";
     static final String S_RAJAL_RANAP = "rajal_ranap";
     static final String S_SATKER = "satker";
+    static final String S_MENULAR = "menular";
+    static final String S_INSTALASI = "instalasi";
+    static final String S_JENIS_TINDAKAN = "jenis_tindakan";
 
     /**
-     * Tiga puluh tiga laporan yang dilayani kontrak ini.
+     * Tiga puluh tujuh laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -280,6 +286,26 @@ public final class NewUiLaporanSirsController {
             return new Jenis(kode, "Status Pasien", "sirs/data_identitas_pasien",
                     new String[] { S_PASIEN });
         }
+        if ("umum_biaya_tindakan".equals(kode)) {
+            return new Jenis(kode, "Laporan Biaya Tindakan", "sirs/daftar_biaya_tindakan",
+                    new String[] { S_JENIS_TINDAKAN }, ais.action.report.Report.XLS);
+        }
+        if ("umum_pendaftaran_pasien".equals(kode)) {
+            return new Jenis(kode, "Laporan Pendaftaran Pasien",
+                    "sirs/laporan_pendaftaran_pasien",
+                    new String[] { S_MULAI, S_SAMPAI, S_JENIS_PASIEN });
+        }
+        if ("umum_10_icd".equals(kode)) {
+            return new Jenis(kode, "Laporan 10 ICD", "sirs/laporan_10_jenis_penyakit_terbesar",
+                    new String[] { S_TAHUN, S_BULAN, S_JENIS_PASIEN,
+                            S_MENULAR, S_RAJAL_RANAP });
+        }
+        if ("umum_10_penyakit".equals(kode)) {
+            return new Jenis(kode, "Laporan 10 Penyakit",
+                    "sirs/laporan_10_jenis_penyakit_terbesar",
+                    new String[] { S_TAHUN, S_BULAN, S_JENIS_PASIEN,
+                            S_MENULAR, S_INSTALASI });
+        }
         throw new IllegalArgumentException("Jenis laporan SIRS tidak dikenal.");
     }
 
@@ -361,6 +387,9 @@ public final class NewUiLaporanSirsController {
                         definisi.put("terkunci", true);
                     }
                 }
+            }
+            if (S_MENULAR.equals(s) && "umum_10_penyakit".equals(jenis.kode)) {
+                definisi.put("nilaiBawaan", DiagnosaPenyakit.MENULAR);
             }
             arr.put(definisi);
         }
@@ -446,7 +475,8 @@ public final class NewUiLaporanSirsController {
         }
         if (S_JENIS_PASIEN.equals(nama)) {
             boolean wajib = !"rajal_poli_baru_lama".equals(jenis.kode)
-                    && !"apotik_penggunaan_item".equals(jenis.kode);
+                    && !"apotik_penggunaan_item".equals(jenis.kode)
+                    && !"umum_10_icd".equals(jenis.kode);
             return d.put("label", "Jenis Pasien").put("tipe", "relasi")
                     .put("wajib", wajib).put("pilihPertama", wajib);
         }
@@ -502,6 +532,18 @@ public final class NewUiLaporanSirsController {
         if (S_SATKER.equals(nama)) {
             return d.put("label", "Satuan Kerja").put("tipe", "relasi")
                     .put("wajib", false).put("cari", true);
+        }
+        if (S_MENULAR.equals(nama)) {
+            return d.put("label", "Menular").put("tipe", "relasi")
+                    .put("wajib", "umum_10_penyakit".equals(jenis.kode));
+        }
+        if (S_INSTALASI.equals(nama)) {
+            return d.put("label", "Instalasi").put("tipe", "relasi")
+                    .put("wajib", true).put("pilihPertama", true);
+        }
+        if (S_JENIS_TINDAKAN.equals(nama)) {
+            return d.put("label", "Jenis Tindakan").put("tipe", "relasi")
+                    .put("wajib", false);
         }
         throw new IllegalArgumentException("Filter tidak dikenal: " + nama);
     }
@@ -656,6 +698,25 @@ public final class NewUiLaporanSirsController {
                     Satker x = (Satker) o;
                     arr.put(pilihan(x.getId(), "", x.getNama(), null));
                 }
+            } else if (S_MENULAR.equals(nama)) {
+                for (String v : new String[] {
+                        DiagnosaPenyakit.TIDAK_MENULAR, DiagnosaPenyakit.MENULAR }) {
+                    arr.put(new JSONObject().put("id", v).put("nama", v));
+                }
+            } else if (S_INSTALASI.equals(nama)) {
+                Criteria c = s.createCriteria(Instalasi.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Instalasi x = (Instalasi) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_JENIS_TINDAKAN.equals(nama)) {
+                Criteria c = s.createCriteria(JenisTindakan.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    JenisTindakan x = (JenisTindakan) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
             } else {
                 throw new IllegalArgumentException("Filter ini bukan filter relasi.");
             }
@@ -713,8 +774,11 @@ public final class NewUiLaporanSirsController {
                 inventory(parameters, r, s, jenis);
             } else if (jenis.kode.startsWith("apotik_")) {
                 apotik(parameters, r, s);
-            } else if (jenis.kode.startsWith("helper_") || jenis.kode.startsWith("umum_")) {
+            } else if (jenis.kode.endsWith("_kartu_pasien")
+                    || jenis.kode.endsWith("_status_pasien")) {
                 laporanPasien(parameters, r, s, jenis);
+            } else if (jenis.kode.startsWith("umum_")) {
+                umum(parameters, r, s, jenis);
             } else if (jenis.kode.startsWith("laporan_kasir_")) {
                 kasir(parameters, r, s);
             } else if ("ranap_laporan_perruangan_periode".equals(jenis.kode)) {
@@ -966,6 +1030,71 @@ public final class NewUiLaporanSirsController {
         if (Pasien.TNI_AU.getId().equals(v)) return Pasien.TNI_AU.getName();
         if (Pasien.PNS.getId().equals(v)) return Pasien.PNS.getName();
         return "";
+    }
+
+    /** Parameter empat laporan umum: tindakan, pendaftaran, 10 ICD, dan penyakit. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void umum(Map parameters, HttpServletRequest r, Session s, Jenis jenis) {
+        if ("umum_biaya_tindakan".equals(jenis.kode)) {
+            JenisTindakan tindakan = (JenisTindakan) muat(s, JenisTindakan.class,
+                    r.getParameter(S_JENIS_TINDAKAN));
+            parameters.put("jenisTindakan",
+                    tindakan == null ? Long.valueOf(-1L) : tindakan.getId());
+            return;
+        }
+        if ("umum_pendaftaran_pasien".equals(jenis.kode)) {
+            Date mulai = tanggalWajib(r.getParameter(S_MULAI), "Tanggal mulai");
+            Date sampai = tanggalWajib(r.getParameter(S_SAMPAI), "Tanggal sampai");
+            if (mulai.after(sampai)) {
+                throw new IllegalArgumentException(
+                        "Tanggal mulai tidak boleh melewati tanggal sampai.");
+            }
+            JenisPasien pasien = (JenisPasien) muat(s, JenisPasien.class,
+                    r.getParameter(S_JENIS_PASIEN));
+            if (pasien == null) throw new IllegalArgumentException("Jenis pasien belum dipilih.");
+            parameters.put("tanggalMulai", mulai);
+            parameters.put("tanggalSelesai", sampai);
+            parameters.put("nama_jenis_pasien", teks(pasien.getNama()));
+            parameters.put("jenis_pasien", pasien.getId());
+            return;
+        }
+
+        Integer tahun = angka(r.getParameter(S_TAHUN), "Tahun");
+        Integer bulan = angka(r.getParameter(S_BULAN), "Bulan");
+        if (tahun == null) throw new IllegalArgumentException("Tahun laporan belum dipilih.");
+        if (bulan == null || bulan.intValue() < 1 || bulan.intValue() > 12) {
+            throw new IllegalArgumentException("Bulan laporan harus berada pada rentang 1..12.");
+        }
+        String menular = text(r.getParameter(S_MENULAR), "");
+        if (menular.length() > 0 && !DiagnosaPenyakit.MENULAR.equals(menular)
+                && !DiagnosaPenyakit.TIDAK_MENULAR.equals(menular)) {
+            throw new IllegalArgumentException("Pilihan menular tidak sah.");
+        }
+        JenisPasien pasien = (JenisPasien) muat(s, JenisPasien.class,
+                r.getParameter(S_JENIS_PASIEN));
+        parameters.put("menular", menular);
+        parameters.put("tahun", tahun);
+        parameters.put("bulan", bulan);
+        parameters.put("nama_jenis_pasien", pasien == null ? "" : teks(pasien.getNama()));
+        parameters.put("jenis_pasien", pasien == null ? Long.valueOf(-1L) : pasien.getId());
+
+        if ("umum_10_icd".equals(jenis.kode)) {
+            String rawat = text(r.getParameter(S_RAJAL_RANAP), "");
+            if (rawat.length() > 0 && !Pendaftaran.RAWAT_JALAN.equals(rawat)
+                    && !Pendaftaran.RAWAT_INAP.equals(rawat)) {
+                throw new IllegalArgumentException("Jenis rawat tidak sah.");
+            }
+            parameters.put("jenis", rawat);
+        } else {
+            if (pasien == null) throw new IllegalArgumentException("Jenis pasien belum dipilih.");
+            if (menular.length() == 0) throw new IllegalArgumentException("Menular belum dipilih.");
+            Instalasi instalasi = (Instalasi) muat(s, Instalasi.class,
+                    r.getParameter(S_INSTALASI));
+            if (instalasi == null) throw new IllegalArgumentException("Instalasi belum dipilih.");
+            parameters.put("instalasi", instalasi.getId());
+            parameters.put("nama_instalasi", teks(instalasi.getNama()));
+        }
+        CommonReport.inputParameterTanggal(parameters, bulan, tahun);
     }
 
     /** Parameter rentang tanggal bertipe teks yyyy-MM-dd seperti layar ZK. */
