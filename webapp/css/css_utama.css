@@ -328,6 +328,34 @@ html body td.z-listcell-inner .z-datebox {
     max-width: 100% !important;
     box-sizing: border-box !important;
 }
+/* Seluruh composite input di Grid/Listbox memakai lebar input dikurangi tombol
+   picker. Ini melengkapi max-width wrapper di atas dan mencegah kasus serupa
+   pada halaman lain yang memakai Combobox/Bandbox/Datebox di dalam tabel. */
+html body td.z-row-inner .z-combobox-inp,
+html body td.z-row-inner .z-bandbox-inp,
+html body td.z-row-inner .z-datebox-inp,
+html body td.z-row-inner .z-timebox-inp,
+html body td.z-row-inner .z-spinner-inp,
+html body td.z-row-inner .z-doublespinner-inp,
+html body td.z-row-inner .z-combobox-input,
+html body td.z-row-inner .z-bandbox-input,
+html body td.z-row-inner .z-datebox-input,
+html body td.z-row-inner .z-timebox-input,
+html body td.z-row-inner .z-spinner-input,
+html body td.z-listcell-inner .z-combobox-inp,
+html body td.z-listcell-inner .z-bandbox-inp,
+html body td.z-listcell-inner .z-datebox-inp,
+html body td.z-listcell-inner .z-timebox-inp,
+html body td.z-listcell-inner .z-combobox-input,
+html body td.z-listcell-inner .z-bandbox-input,
+html body td.z-listcell-inner .z-datebox-input,
+html body td.z-listcell-inner .z-timebox-input {
+    flex: 1 1 auto !important;
+    width: calc(100% - 22px) !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 22px) !important;
+    box-sizing: border-box !important;
+}
 
 /* Riwayat KRS memiliki banyak editor inline. Di desktop tabel harus memakai
    pembagian kolom yang sudah dihitung Action-side, dan setiap lapisan Vbox/
@@ -361,6 +389,39 @@ html body .krs-history-contained-fields .krs-inline-field-cell .z-timebox {
     min-width: 0 !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
+}
+/* Pada ZK 5, lebar yang diberikan komponen dapat menempel ke elemen input,
+   sedangkan tombol picker 22px tetap menjadi saudara di sebelah kanannya.
+   Jadikan input flex-item yang menyerap sisa ruang agar input + tombol selalu
+   tepat 100% dan ujung kanan (panah/kalender) tidak terpotong. Sertakan nama
+   kelas lama (-inp) dan baru (-input) untuk seluruh pola composite field. */
+html body .krs-history-contained-fields .z-combobox-inp,
+html body .krs-history-contained-fields .z-bandbox-inp,
+html body .krs-history-contained-fields .z-datebox-inp,
+html body .krs-history-contained-fields .z-timebox-inp,
+html body .krs-history-contained-fields .z-spinner-inp,
+html body .krs-history-contained-fields .z-doublespinner-inp,
+html body .krs-history-contained-fields .z-combobox-input,
+html body .krs-history-contained-fields .z-bandbox-input,
+html body .krs-history-contained-fields .z-datebox-input,
+html body .krs-history-contained-fields .z-timebox-input,
+html body .krs-history-contained-fields .z-spinner-input {
+    flex: 1 1 auto !important;
+    width: calc(100% - 22px) !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 22px) !important;
+    box-sizing: border-box !important;
+}
+html body .krs-history-contained-fields .z-combobox-btn,
+html body .krs-history-contained-fields .z-bandbox-btn,
+html body .krs-history-contained-fields .z-datebox-btn,
+html body .krs-history-contained-fields .z-timebox-btn,
+html body .krs-history-contained-fields .z-spinner-btn,
+html body .krs-history-contained-fields .z-doublespinner-btn {
+    flex: 0 0 22px !important;
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
 }
 html body .krs-history-contained-fields .z-column-cnt,
 html body .krs-history-contained-fields td.z-row-inner .z-label {
