@@ -532,6 +532,20 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	private DisposisiSop disposisiSop;
 	private KelasPmb kelasPmb;
 
+	/**
+	 * Kumpulan {@link Fakultas} yang tersentuh oleh pilihan program studi pendaftar ini, yaitu
+	 * fakultas dari {@code prodi1}..{@code prodi5} DITAMBAH fakultas dari {@link #getProdiLulus()}.
+	 *
+	 * <p>Dipakai untuk penyaringan hak akses/laporan per fakultas: satu pendaftar bisa memilih
+	 * prodi lintas fakultas, jadi ia harus terlihat oleh operator fakultas mana pun yang
+	 * bersangkutan. Hasilnya {@link HashSet} sehingga fakultas yang sama tidak berulang.</p>
+	 *
+	 * <p><b>Efek samping:</b> memanggil seluruh getter prodi, yang masing-masing bisa
+	 * mengosongkan prodi ketika {@link Paket} membatasi jumlah pilihan (lihat
+	 * {@link #getProdi1()}).</p>
+	 *
+	 * @return himpunan fakultas (mungkin kosong, tidak pernah {@code null}).
+	 */
 	public Set<Fakultas> populatePilihanFakultas() {
 		Set<Fakultas> fakultas = new HashSet<Fakultas>();
 		addFakultas(fakultas, getProdi1());
@@ -543,6 +557,13 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return fakultas;
 	}
 
+	/**
+	 * Versi "hanya id" dari {@link #populatePilihanFakultas()} — mengembalikan id fakultas, bukan
+	 * objeknya, supaya bisa langsung dipakai pada klausa {@code IN (...)} query tanpa menahan
+	 * objek entity di memori.
+	 *
+	 * @return himpunan id fakultas (mungkin kosong, tidak pernah {@code null}).
+	 */
 	public Set<Long> populatePilihanFakultasIds() {
 		Set<Long> fakultasIds = new HashSet<Long>();
 		addFakultasId(fakultasIds, getProdi1());
@@ -554,6 +575,17 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return fakultasIds;
 	}
 
+	/**
+	 * Daftar program studi yang dipilih pendaftar ini: {@code prodi1}..{@code prodi5} ditambah
+	 * {@link #getProdiLulus()}, tanpa duplikat dan tanpa {@code null}.
+	 *
+	 * <p>Berbeda dengan {@link #populatePilihanFakultas()}, hasilnya {@link ArrayList} sehingga
+	 * URUTAN PILIHAN dipertahankan (pilihan 1 lebih dulu daripada pilihan 2, dst.) — urutan itu
+	 * bermakna dalam seleksi.</p>
+	 *
+	 * @return daftar prodi terurut sesuai prioritas pilihan (mungkin kosong, tidak pernah
+	 *         {@code null}).
+	 */
 	public List<Jurusan> populatePilihanJurusan() {
 		List<Jurusan> jurusans = new ArrayList<Jurusan>();
 		addJurusan(jurusans, getProdi1());
@@ -565,6 +597,12 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return jurusans;
 	}
 
+	/**
+	 * Versi "hanya id" dari {@link #populatePilihanJurusan()}, urutan prioritas pilihan tetap
+	 * dipertahankan.
+	 *
+	 * @return daftar id prodi (mungkin kosong, tidak pernah {@code null}).
+	 */
 	public List<Long> populatePilihanJurusanIds() {
 		List<Long> jurusanIds = new ArrayList<Long>();
 		addJurusanId(jurusanIds, getProdi1());
@@ -576,6 +614,18 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return jurusanIds;
 	}
 
+	/**
+	 * Menambahkan fakultas milik {@code jurusan} ke dalam {@code fakultas} bila semuanya tidak
+	 * {@code null}. Helper untuk {@link #populatePilihanFakultas()}.
+	 *
+	 * <p>Seluruh badan method dibungkus {@code try/catch}: {@code jurusan.getFakultas()} bisa
+	 * melempar {@code LazyInitializationException} bila prodi berupa proxy Hibernate yang sesinya
+	 * sudah ditutup. Kegagalan satu pilihan sengaja hanya dilewati (dicatat ke
+	 * {@code ErrorAuditUtil}) supaya pilihan lain tetap terkumpul.</p>
+	 *
+	 * @param fakultas himpunan tujuan; diabaikan bila {@code null}.
+	 * @param jurusan  prodi sumber; diabaikan bila {@code null} atau tanpa fakultas.
+	 */
 	private static void addFakultas(Set<Fakultas> fakultas, Jurusan jurusan) {
 		try {
 			if (fakultas != null && jurusan != null && jurusan.getFakultas() != null) {
@@ -585,6 +635,14 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * Varian id dari {@link #addFakultas(Set, Jurusan)} — menambahkan id fakultas milik
+	 * {@code jurusan}. Helper untuk {@link #populatePilihanFakultasIds()}.
+	 *
+	 * @param fakultasIds himpunan id tujuan; diabaikan bila {@code null}.
+	 * @param jurusan     prodi sumber; diabaikan bila {@code null}, tanpa fakultas, atau
+	 *                    fakultasnya belum punya id.
+	 */
 	private static void addFakultasId(Set<Long> fakultasIds, Jurusan jurusan) {
 		try {
 			if (fakultasIds != null && jurusan != null && jurusan.getFakultas() != null
@@ -595,12 +653,28 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * Menambahkan {@code jurusan} ke {@code jurusans} bila belum ada di dalamnya (uji duplikat
+	 * memakai {@code equals} berbasis id dari {@link ais.database.model.GeneralValueObject}).
+	 * Helper untuk {@link #populatePilihanJurusan()}.
+	 *
+	 * @param jurusans daftar tujuan; diabaikan bila {@code null}.
+	 * @param jurusan  prodi yang hendak ditambahkan; diabaikan bila {@code null} atau sudah ada.
+	 */
 	private static void addJurusan(List<Jurusan> jurusans, Jurusan jurusan) {
 		if (jurusans != null && jurusan != null && !jurusans.contains(jurusan)) {
 			jurusans.add(jurusan);
 		}
 	}
 
+	/**
+	 * Varian id dari {@link #addJurusan(List, Jurusan)}. Helper untuk
+	 * {@link #populatePilihanJurusanIds()}.
+	 *
+	 * @param jurusanIds daftar id tujuan; diabaikan bila {@code null}.
+	 * @param jurusan    prodi sumber; diabaikan bila {@code null}, belum punya id, atau id-nya
+	 *                   sudah ada di daftar.
+	 */
 	private static void addJurusanId(List<Long> jurusanIds, Jurusan jurusan) {
 		if (jurusanIds != null && jurusan != null && jurusan.getId() != null && !jurusanIds.contains(jurusan.getId())) {
 			jurusanIds.add(jurusan.getId());
@@ -610,6 +684,42 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	/**
 	 * Menghitung jumlah pendaftar aktif yang memakai kombinasi paket + prodi pada
 	 * PaketJurusanPmb. Digunakan untuk validasi kuota PMB.
+	 *
+	 * <p>Kriteria pencacahan (semuanya lewat Hibernate {@link Criteria} dengan
+	 * {@code Projections.rowCount()}, jadi tidak ada entity yang dimuat ke memori):</p>
+	 * <ul>
+	 * <li>{@code aktif} bernilai {@code true} ATAU masih {@code NULL} (data lama sebelum kolom ini
+	 * ada dianggap aktif);</li>
+	 * <li>{@code ditolak} dan {@code mundur} bernilai {@code false} atau {@code NULL} — pendaftar
+	 * yang ditolak/mengundurkan diri tidak lagi memakan kuota;</li>
+	 * <li>{@code paket} sama persis dengan paket pada {@code paketJurusanPmb};</li>
+	 * <li>{@code tahunAkademik} sama, bila argumennya diisi;</li>
+	 * <li>{@code gelombangPendaftaran} sama, HANYA bila
+	 * {@code paketJurusanPmb.getKuotaBerlakuPerGelombang()} bernilai true (kuota per gelombang) —
+	 * kalau tidak, kuota dihitung lintas gelombang;</li>
+	 * <li>prodi pada {@code paketJurusanPmb} muncul di SALAH SATU dari {@code prodi1}..{@code prodi5}
+	 * atau {@code prodiLulus} (OR berantai).</li>
+	 * </ul>
+	 *
+	 * <p>Cache Hibernate sengaja dimatikan ({@code setCacheable(false)}) karena angka ini dipakai
+	 * untuk keputusan kuota yang harus melihat kondisi terkini.</p>
+	 *
+	 * @param session           session Hibernate yang dipakai; bila {@code null} dipakai
+	 *                          {@code HibernateUtil.currentSession()}. Session TIDAK ditutup oleh
+	 *                          method ini.
+	 * @param paketJurusanPmb   kombinasi paket+prodi yang kuotanya diperiksa; bila {@code null}
+	 *                          atau paket/jurusannya {@code null} langsung mengembalikan 0.
+	 * @param gelombangPendaftaran gelombang yang sedang diproses; hanya dipakai bila kuota berlaku
+	 *                          per gelombang.
+	 * @param tahunAkademik     tahun akademik penyaring; boleh {@code null}/kosong untuk lintas
+	 *                          tahun.
+	 * @param abaikanBiodataId  id baris yang TIDAK ikut dihitung — dipakai saat menyunting
+	 *                          pendaftar yang sudah tersimpan agar dirinya sendiri tidak dianggap
+	 *                          memakan kuota; boleh {@code null}.
+	 * @return jumlah pendaftar yang memakan kuota tersebut; 0 bila terjadi kegagalan apa pun
+	 *         (kesalahan hanya ditampilkan kepada admin lewat {@code Common.tampilErrorJikaAdmin}).
+	 * @see #kuotaPaketJurusanMasihTersedia(Session, PaketJurusanPmb, GelombangPendaftaran, String,
+	 *      Long)
 	 */
 	public static int hitungJumlahPendaftarKuota(Session session, PaketJurusanPmb paketJurusanPmb,
 			GelombangPendaftaran gelombangPendaftaran, String tahunAkademik, Long abaikanBiodataId) {
@@ -660,6 +770,22 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * Apakah kuota untuk kombinasi paket + prodi tertentu MASIH tersedia (jumlah pendaftar saat ini
+	 * masih di bawah kuota)?
+	 *
+	 * <p>Kebijakan "tidak dibatasi": bila {@code paketJurusanPmb} {@code null}, atau kuotanya
+	 * {@code null}/&le;&nbsp;0, method ini mengembalikan {@code true} — artinya <b>kuota kosong
+	 * berarti tanpa batas, bukan nol</b>. Jangan dibalik logikanya.</p>
+	 *
+	 * @param session           session Hibernate; boleh {@code null}.
+	 * @param paketJurusanPmb   kombinasi paket+prodi yang diperiksa.
+	 * @param gelombangPendaftaran gelombang yang sedang diproses.
+	 * @param tahunAkademik     tahun akademik penyaring; boleh {@code null}.
+	 * @param abaikanBiodataId  id pendaftar yang dikecualikan dari pencacahan; boleh {@code null}.
+	 * @return {@code true} bila masih boleh menerima pendaftar baru pada kombinasi tersebut.
+	 * @see #hitungJumlahPendaftarKuota(Session, PaketJurusanPmb, GelombangPendaftaran, String, Long)
+	 */
 	public static boolean kuotaPaketJurusanMasihTersedia(Session session, PaketJurusanPmb paketJurusanPmb,
 			GelombangPendaftaran gelombangPendaftaran, String tahunAkademik, Long abaikanBiodataId) {
 		if (paketJurusanPmb == null) {
@@ -673,13 +799,31 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 				abaikanBiodataId) < kuota.intValue();
 	}
 
+	/**
+	 * Konstruktor kosong yang diwajibkan Hibernate/JPA. Seluruh field memakai nilai awal deklarasi
+	 * ({@code tanggalDaftar}/{@code tanggalPendaftaran} = waktu server, {@code tahun} = tahun
+	 * berjalan, {@code statusLulus} = 0, dst.).
+	 */
 	public BiodataCalonMahasiswa() {
 	}
 
+	/**
+	 * Membuat objek "kulit" yang hanya berisi id — dipakai sebagai referensi ringan pada kriteria
+	 * pencarian atau relasi, tanpa memuat seluruh kolom dari database.
+	 *
+	 * @param id primary key baris yang diwakili.
+	 */
 	public BiodataCalonMahasiswa(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Primary key baris ini (kolom {@code id}, IDENTITY/serial PostgreSQL, karena itu
+	 * {@code insertable = false}: nilainya ditentukan database saat INSERT).
+	 *
+	 * @return id baris; {@code null} bila objek belum pernah disimpan.
+	 * @see ais.database.model.GeneralValueObject
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -687,10 +831,26 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.id;
 	}
 
+	/**
+	 * Menetapkan primary key. Umumnya hanya dipanggil Hibernate.
+	 *
+	 * @param id primary key baris.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Alamat tempat tinggal pendaftar.
+	 *
+	 * <p>Bila field lokal masih kosong DAN pendaftar tercatat sebagai alumni kampus ini
+	 * ({@link #getMahasiswaAlumni()}), nilainya diambil dari biodata mahasiswa alumni tersebut —
+	 * pola <i>fallback alumni</i> yang dipakai puluhan getter biodata di kelas ini. Karena getter
+	 * ini juga properti Hibernate, nilai hasil fallback ikut TERTULIS ke kolom saat flush
+	 * berikutnya.</p>
+	 *
+	 * @return alamat; {@code null} bila belum diisi dan tidak ada sumber alumni.
+	 */
 	@Column(name = "alamat", length = 255)
 	public String getAlamat() {
 
@@ -707,10 +867,21 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.alamat;
 	}
 
+	/**
+	 * Menetapkan alamat tempat tinggal pendaftar.
+	 *
+	 * @param alamat alamat baru.
+	 */
 	public void setAlamat(String alamat) {
 		this.alamat = alamat;
 	}
 
+	/**
+	 * Nama ayah pendaftar. Memakai pola <i>fallback alumni</i> yang sama dengan
+	 * {@link #getAlamat()}.
+	 *
+	 * @return nama ayah; {@code null} bila belum diisi dan tidak ada sumber alumni.
+	 */
 	@Column(name = "nama_ayah", columnDefinition = "text")
 	public String getNamaAyah() {
 
@@ -727,10 +898,21 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.namaAyah;
 	}
 
+	/**
+	 * Menetapkan nama ayah pendaftar.
+	 *
+	 * @param namaAyah nama ayah.
+	 */
 	public void setNamaAyah(String namaAyah) {
 		this.namaAyah = namaAyah;
 	}
 
+	/**
+	 * Pekerjaan ayah pendaftar (referensi master {@link PekerjaanOrangTua}).
+	 *
+	 * @return pekerjaan ayah; {@code null} bila belum dipilih.
+	 * @see ais.database.model.GeneralValueObject
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pekerjaan_orang_tua", nullable = true)
 	public PekerjaanOrangTua getPekerjaanAyah() {
@@ -738,10 +920,26 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.pekerjaanAyah;
 	}
 
+	/**
+	 * Menetapkan pekerjaan ayah pendaftar.
+	 *
+	 * @param pekerjaanAyah master pekerjaan orang tua.
+	 */
 	public void setPekerjaanAyah(PekerjaanOrangTua pekerjaanAyah) {
 		this.pekerjaanAyah = pekerjaanAyah;
 	}
 
+	/**
+	 * Nama ibu pendaftar, dinormalisasi: spasi ganda dirapatkan (tiga kali berturut-turut, cukup
+	 * untuk menangani sampai delapan spasi beruntun) lalu dipangkas ujungnya. Setelah itu barulah
+	 * pola <i>fallback alumni</i> ({@link #getAlamat()}) diterapkan bila hasilnya masih kosong.
+	 *
+	 * <p><b>Efek samping:</b> hasil normalisasi ditulis balik ke field, jadi tersimpan ke database
+	 * pada flush berikutnya.</p>
+	 *
+	 * @return nama ibu yang sudah dirapikan; {@code null} bila belum diisi dan tidak ada sumber
+	 *         alumni.
+	 */
 	@Column(name = "nama_ibu", columnDefinition = "text")
 	public String getNamaIbu() {
 		if (namaIbu != null) {
@@ -764,84 +962,201 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.namaIbu;
 	}
 
+	/**
+	 * Menetapkan nama ibu pendaftar (normalisasi dilakukan di {@link #getNamaIbu()}, bukan di
+	 * sini).
+	 *
+	 * @param namaIbu nama ibu.
+	 */
 	public void setNamaIbu(String namaIbu) {
 		this.namaIbu = namaIbu;
 	}
 
+	/**
+	 * Pekerjaan ibu sebagai teks bebas.
+	 *
+	 * <p><b>Kuirk:</b> berbeda dari {@link #getPekerjaanAyah()} yang memakai master
+	 * {@link PekerjaanOrangTua}, kolom ini hanya {@code varchar(150)}. Master untuk ibu ada di
+	 * properti terpisah {@link #getPekerjaanAyahIbu()} (penamaan warisan, artinya "pekerjaan orang
+	 * tua — ibu").</p>
+	 *
+	 * @return nama pekerjaan ibu; {@code null} bila belum diisi.
+	 */
 	@Column(name = "pekerjaan_ibu", length = 150)
 	public String getPekerjaanIbu() {
 
 		return this.pekerjaanIbu;
 	}
 
+	/**
+	 * Menetapkan pekerjaan ibu (teks bebas).
+	 *
+	 * @param pekerjaanIbu nama pekerjaan.
+	 */
 	public void setPekerjaanIbu(String pekerjaanIbu) {
 		this.pekerjaanIbu = pekerjaanIbu;
 	}
 
+	/**
+	 * Nama sebagaimana harus tercetak pada ijazah (bisa berbeda ejaan/gelar dari
+	 * {@link #getNama()}).
+	 *
+	 * @return nama untuk ijazah; {@code null} bila belum diisi.
+	 */
 	@Column(name = "nama_untuk_ijazah", columnDefinition = "text")
 	public String getNamaUntukIjazah() {
 		return this.namaUntukIjazah;
 	}
 
+	/**
+	 * Menetapkan nama untuk ijazah.
+	 *
+	 * @param namaUntukIjazah nama untuk ijazah.
+	 */
 	public void setNamaUntukIjazah(String namaUntukIjazah) {
 		this.namaUntukIjazah = namaUntukIjazah;
 	}
 
+	/**
+	 * Nomor ijazah sekolah asal pendaftar.
+	 *
+	 * @return nomor ijazah; {@code null} bila belum diisi.
+	 */
 	@Column(name = "no_ijazah", columnDefinition = "text")
 	public String getNoIjazah() {
 		return this.noIjazah;
 	}
 
+	/**
+	 * Menetapkan nomor ijazah sekolah asal.
+	 *
+	 * @param noIjazah nomor ijazah.
+	 */
 	public void setNoIjazah(String noIjazah) {
 		this.noIjazah = noIjazah;
 	}
 
+	/**
+	 * Ukuran jaket almamater yang diminta pendaftar (data operasional daftar ulang).
+	 *
+	 * @return ukuran jaket; {@code null} bila belum diisi.
+	 */
 	@Column(name = "ukuran_jaket", columnDefinition = "text")
 	public String getUkuranJaket() {
 		return this.ukuranJaket;
 	}
 
+	/**
+	 * Menetapkan ukuran jaket almamater.
+	 *
+	 * @param ukuranJaket ukuran jaket.
+	 */
 	public void setUkuranJaket(String ukuranJaket) {
 		this.ukuranJaket = ukuranJaket;
 	}
 
+	/**
+	 * Tinggi badan pendaftar dalam sentimeter (dipakai formulir kesehatan/seleksi tertentu).
+	 *
+	 * @return tinggi badan; {@code null} bila belum diisi.
+	 */
 	@Column(name = "tinggi_badan")
 	public Integer getTinggiBadan() {
 		return this.tinggiBadan;
 	}
 
+	/**
+	 * Menetapkan tinggi badan (cm).
+	 *
+	 * @param tinggiBadan tinggi badan.
+	 */
 	public void setTinggiBadan(Integer tinggiBadan) {
 		this.tinggiBadan = tinggiBadan;
 	}
 
+	/**
+	 * Penanda pernah menetap di luar negeri (dipakai formulir data diri; 0/1, bukan boolean).
+	 *
+	 * @return penanda; {@code null} bila belum diisi.
+	 */
 	@Column(name = "pernah_menetap_di_luar_negeri")
 	public Integer getPernahMenetapDiLuarNegeri() {
 		return this.pernahMenetapDiLuarNegeri;
 	}
 
+	/**
+	 * Menetapkan penanda pernah menetap di luar negeri.
+	 *
+	 * @param pernahMenetapDiLuarNegeri penanda 0/1.
+	 */
 	public void setPernahMenetapDiLuarNegeri(Integer pernahMenetapDiLuarNegeri) {
 		this.pernahMenetapDiLuarNegeri = pernahMenetapDiLuarNegeri;
 	}
 
+	/**
+	 * Berat badan pendaftar dalam kilogram.
+	 *
+	 * @return berat badan; {@code null} bila belum diisi.
+	 */
 	@Column(name = "berat_badan")
 	public Integer getBeratBadan() {
 		return this.beratBadan;
 	}
 
+	/**
+	 * Menetapkan berat badan (kg).
+	 *
+	 * @param beratBadan berat badan.
+	 */
 	public void setBeratBadan(Integer beratBadan) {
 		this.beratBadan = beratBadan;
 	}
 
+	/**
+	 * Nomor telepon rumah, SUDAH dibersihkan: semua karakter selain angka dan titik dibuang
+	 * (menghapus spasi, tanda hubung, tanda kurung, awalan {@code +}, dan tanda petik bawaan
+	 * tempel-dari-Excel).
+	 *
+	 * <p><b>Perhatikan:</b> yang dikembalikan adalah hasil pembersihan, sedangkan field aslinya
+	 * TIDAK dimutasi — berbeda dari {@link #getHp()} versi lama. Nilai kembali tidak pernah
+	 * {@code null}, melainkan string kosong.</p>
+	 *
+	 * @return nomor telepon rumah berisi digit saja; {@code ""} bila belum diisi.
+	 */
 	@Column(name = "telepon_rumah", length = 20)
 	public String getTeleponRumah() {
 
 		return this.teleponRumah == null ? "" : teleponRumah.trim().replaceAll("[^\\d.]", "");
 	}
 
+	/**
+	 * Menetapkan nomor telepon rumah (mentah; pembersihan dilakukan di
+	 * {@link #getTeleponRumah()}).
+	 *
+	 * @param teleponRumah nomor telepon rumah.
+	 */
 	public void setTeleponRumah(String teleponRumah) {
 		this.teleponRumah = teleponRumah;
 	}
 
+	/**
+	 * Nomor HP pendaftar, sudah dibersihkan menjadi digit saja.
+	 *
+	 * <p>Langkah yang dijalankan, berurutan:</p>
+	 * <ol>
+	 * <li>bila kosong, pakai pola <i>fallback alumni</i> ({@link #getMahasiswaAlumni()});</li>
+	 * <li>buang tanda petik ({@code '}) di depan — konvensi pengguna agar Excel memperlakukan
+	 * nomor sebagai teks;</li>
+	 * <li>buang semua karakter selain angka dan titik.</li>
+	 * </ol>
+	 *
+	 * <p><b>Catatan implementasi penting:</b> seluruh proses memakai variabel lokal sehingga field
+	 * {@code this.hp} TIDAK ikut dimutasi oleh getter ini (perbaikan atas versi lama).
+	 * {@link #tampilkanHp(Component)} menangani penggabungan dengan telepon rumah untuk
+	 * tampilan.</p>
+	 *
+	 * @return nomor HP berisi digit saja; {@code ""} bila tidak ada.
+	 */
 	@Column(name = "hp", length = 20)
 	public String getHp() {
 		// Gunakan local variable agar this.hp tidak dimutasi oleh getter.
@@ -868,91 +1183,198 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return hpResult == null ? "" : hpResult.trim().replaceAll("[^\\d.]", "");
 	}
 
+	/**
+	 * Menetapkan nomor HP (mentah; pembersihan dilakukan di {@link #getHp()}).
+	 *
+	 * @param hp nomor HP.
+	 */
 	public void setHp(String hp) {
 		this.hp = hp;
 	}
 
+	/**
+	 * Nomor SIM yang dimiliki pendaftar (data pelengkap formulir).
+	 *
+	 * @return nomor/keterangan SIM; {@code null} bila belum diisi.
+	 */
 	@Column(name = "surat_izin_mengemudi", length = 255)
 	public String getSuratIzinMengemudi() {
 		return this.suratIzinMengemudi;
 	}
 
+	/**
+	 * Menetapkan nomor/keterangan SIM.
+	 *
+	 * @param suratIzinMengemudi nomor/keterangan SIM.
+	 */
 	public void setSuratIzinMengemudi(String suratIzinMengemudi) {
 		this.suratIzinMengemudi = suratIzinMengemudi;
 	}
 
+	/**
+	 * Kendaraan yang direncanakan dipakai untuk kuliah (data pelengkap formulir, dipakai untuk
+	 * perencanaan parkir/transportasi).
+	 *
+	 * @return keterangan kendaraan; {@code null} bila belum diisi.
+	 */
 	@Column(name = "kendaraan_kuliah", length = 255)
 	public String getKendaraanKuliah() {
 		return this.kendaraanKuliah;
 	}
 
+	/**
+	 * Menetapkan keterangan kendaraan untuk kuliah.
+	 *
+	 * @param kendaraanKuliah keterangan kendaraan.
+	 */
 	public void setKendaraanKuliah(String kendaraanKuliah) {
 		this.kendaraanKuliah = kendaraanKuliah;
 	}
 
+	/**
+	 * Penanda pernah memimpin organisasi (0/1) — bahan pertimbangan seleksi jalur prestasi.
+	 *
+	 * @return penanda; {@code null} bila belum diisi.
+	 */
 	@Column(name = "pernah_memimpin_organisasi")
 	public Integer getPernahMemimpinOrganisasi() {
 		return this.pernahMemimpinOrganisasi;
 	}
 
+	/**
+	 * Menetapkan penanda pernah memimpin organisasi.
+	 *
+	 * @param pernahMemimpinOrganisasi penanda 0/1.
+	 */
 	public void setPernahMemimpinOrganisasi(Integer pernahMemimpinOrganisasi) {
 		this.pernahMemimpinOrganisasi = pernahMemimpinOrganisasi;
 	}
 
+	/**
+	 * Nama organisasi yang pernah diikuti/dipimpin pendaftar.
+	 *
+	 * @return nama organisasi; {@code null} bila belum diisi.
+	 */
 	@Column(name = "nama_organisasi", length = 255)
 	public String getNamaOrganisasi() {
 		return this.namaOrganisasi;
 	}
 
+	/**
+	 * Menetapkan nama organisasi.
+	 *
+	 * @param namaOrganisasi nama organisasi.
+	 */
 	public void setNamaOrganisasi(String namaOrganisasi) {
 		this.namaOrganisasi = namaOrganisasi;
 	}
 
+	/**
+	 * Hobi pendaftar (teks bebas).
+	 *
+	 * @return hobi; {@code null} bila belum diisi.
+	 */
 	@Column(name = "hobi")
 	public String getHobi() {
 		return this.hobi;
 	}
 
+	/**
+	 * Menetapkan hobi.
+	 *
+	 * @param hobi hobi.
+	 */
 	public void setHobi(String hobi) {
 		this.hobi = hobi;
 	}
 
+	/**
+	 * Minat seni pendaftar (teks bebas) — dipakai penempatan unit kegiatan mahasiswa.
+	 *
+	 * @return minat seni; {@code null} bila belum diisi.
+	 */
 	@Column(name = "minat_seni")
 	public String getMinatSeni() {
 		return this.minatSeni;
 	}
 
+	/**
+	 * Menetapkan minat seni.
+	 *
+	 * @param minatSeni minat seni.
+	 */
 	public void setMinatSeni(String minatSeni) {
 		this.minatSeni = minatSeni;
 	}
 
+	/**
+	 * Kemampuan bahasa ke-1 (slot bebas; tidak ada master bahasa, murni teks).
+	 *
+	 * @return kemampuan bahasa pertama; {@code null} bila belum diisi.
+	 */
 	@Column(name = "kemampuan_bahasa1", length = 255)
 	public String getKemampuanBahasa1() {
 		return this.kemampuanBahasa1;
 	}
 
+	/**
+	 * Menetapkan kemampuan bahasa ke-1.
+	 *
+	 * @param kemampuanBahasa1 keterangan kemampuan bahasa.
+	 */
 	public void setKemampuanBahasa1(String kemampuanBahasa1) {
 		this.kemampuanBahasa1 = kemampuanBahasa1;
 	}
 
+	/**
+	 * Kemampuan bahasa ke-2.
+	 *
+	 * @return kemampuan bahasa kedua; {@code null} bila belum diisi.
+	 */
 	@Column(name = "kemampuan_bahasa2", length = 255)
 	public String getKemampuanBahasa2() {
 		return this.kemampuanBahasa2;
 	}
 
+	/**
+	 * Menetapkan kemampuan bahasa ke-2.
+	 *
+	 * @param kemampuanBahasa2 keterangan kemampuan bahasa.
+	 */
 	public void setKemampuanBahasa2(String kemampuanBahasa2) {
 		this.kemampuanBahasa2 = kemampuanBahasa2;
 	}
 
+	/**
+	 * Kemampuan bahasa ke-3.
+	 *
+	 * @return kemampuan bahasa ketiga; {@code null} bila belum diisi.
+	 */
 	@Column(name = "kemampuan_bahasa3", length = 255)
 	public String getKemampuanBahasa3() {
 		return this.kemampuanBahasa3;
 	}
 
+	/**
+	 * Menetapkan kemampuan bahasa ke-3.
+	 *
+	 * @param kemampuanBahasa3 keterangan kemampuan bahasa.
+	 */
 	public void setKemampuanBahasa3(String kemampuanBahasa3) {
 		this.kemampuanBahasa3 = kemampuanBahasa3;
 	}
 
+	/**
+	 * Nama SMA/sederajat asal pendaftar.
+	 *
+	 * <p>Sumber kebenaran sebenarnya adalah master {@link #getNamaSekolahAsal()}: bila master itu
+	 * terisi, namanya MENIMPA teks bebas {@code asalSma} (dan tertulis ke kolom saat flush). Teks
+	 * penampung ZK {@code "== Klik disini untuk pilih =="} yang pernah tersimpan diperlakukan
+	 * sebagai kosong.</p>
+	 *
+	 * @return nama SMA asal yang sudah dipangkas; {@code ""} bila kosong atau masih berupa teks
+	 *         penampung.
+	 */
 	@Column(name = "asal_sma", length = 255)
 	public String getAsalSma() {
 		namaSekolahAsal = getNamaSekolahAsal();
@@ -964,19 +1386,41 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 				: asalSma.trim();
 	}
 
+	/**
+	 * Menetapkan nama SMA asal (teks bebas). Ingat: {@link #getAsalSma()} dapat menimpanya dengan
+	 * nama dari master {@link NamaSekolahAsal}.
+	 *
+	 * @param asalSma nama SMA asal.
+	 */
 	public void setAsalSma(String asalSma) {
 		this.asalSma = asalSma;
 	}
 
+	/**
+	 * Alamat SMA/sederajat asal.
+	 *
+	 * @return alamat sekolah; {@code null} bila belum diisi.
+	 */
 	@Column(name = "alamat_asal_sma")
 	public String getAlamatAsalSma() {
 		return this.alamatAsalSma;
 	}
 
+	/**
+	 * Menetapkan alamat SMA asal.
+	 *
+	 * @param alamatAsalSma alamat sekolah.
+	 */
 	public void setAlamatAsalSma(String alamatAsalSma) {
 		this.alamatAsalSma = alamatAsalSma;
 	}
 
+	/**
+	 * Nama SMP asal, sudah dipangkas dan dibersihkan dari tanda petik tunggal maupun ganda (data
+	 * hasil impor spreadsheet kerap membawa tanda petik pembungkus teks).
+	 *
+	 * @return nama SMP asal; {@code ""} bila belum diisi.
+	 */
 	@Column(name = "asal_smp", length = 255)
 	public String getAsalSmp() {
 		return this.asalSmp == null ? ""
@@ -984,19 +1428,39 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 						.replace(org.apache.commons.lang3.StringUtils.replace(this.asalSmp.trim(), "'", ""), "\"", "");
 	}
 
+	/**
+	 * Menetapkan nama SMP asal (mentah; pembersihan dilakukan di {@link #getAsalSmp()}).
+	 *
+	 * @param asalSmp nama SMP asal.
+	 */
 	public void setAsalSmp(String asalSmp) {
 		this.asalSmp = asalSmp;
 	}
 
+	/**
+	 * Alamat SMP asal.
+	 *
+	 * @return alamat sekolah; {@code null} bila belum diisi.
+	 */
 	@Column(name = "alamat_asal_smp")
 	public String getAlamatAsalSmp() {
 		return this.alamatAsalSmp;
 	}
 
+	/**
+	 * Menetapkan alamat SMP asal.
+	 *
+	 * @param alamatAsalSmp alamat sekolah.
+	 */
 	public void setAlamatAsalSmp(String alamatAsalSmp) {
 		this.alamatAsalSmp = alamatAsalSmp;
 	}
 
+	/**
+	 * Nama SD asal, dibersihkan dengan cara yang sama seperti {@link #getAsalSmp()}.
+	 *
+	 * @return nama SD asal; {@code ""} bila belum diisi.
+	 */
 	@Column(name = "asal_sd", length = 255)
 	public String getAsalSd() {
 		return this.asalSd == null ? ""
@@ -1004,28 +1468,62 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 						.replace(org.apache.commons.lang3.StringUtils.replace(this.asalSd.trim(), "'", ""), "\"", "");
 	}
 
+	/**
+	 * Menetapkan nama SD asal (mentah; pembersihan dilakukan di {@link #getAsalSd()}).
+	 *
+	 * @param asalSd nama SD asal.
+	 */
 	public void setAsalSd(String asalSd) {
 		this.asalSd = asalSd;
 	}
 
+	/**
+	 * Alamat SD asal.
+	 *
+	 * @return alamat sekolah; {@code null} bila belum diisi.
+	 */
 	@Column(name = "alamat_asal_sd")
 	public String getAlamatAsalSd() {
 		return this.alamatAsalSd;
 	}
 
+	/**
+	 * Menetapkan alamat SD asal.
+	 *
+	 * @param alamatAsalSd alamat sekolah.
+	 */
 	public void setAlamatAsalSd(String alamatAsalSd) {
 		this.alamatAsalSd = alamatAsalSd;
 	}
 
+	/**
+	 * Golongan darah pendaftar (teks bebas, mis. {@code "O"}, {@code "AB+"}).
+	 *
+	 * @return golongan darah; {@code null} bila belum diisi.
+	 */
 	@Column(name = "golongan_darah", length = 10)
 	public String getGolonganDarah() {
 		return this.golonganDarah;
 	}
 
+	/**
+	 * Menetapkan golongan darah.
+	 *
+	 * @param golonganDarah golongan darah.
+	 */
 	public void setGolonganDarah(String golonganDarah) {
 		this.golonganDarah = golonganDarah;
 	}
 
+	/**
+	 * Status pernikahan pendaftar (0 = belum menikah).
+	 *
+	 * <p><b>Efek samping:</b> bila kolomnya masih {@code NULL} (data lama), field diisi 0 dan nilai
+	 * itu ikut tersimpan pada flush berikutnya — normalisasi disengaja agar laporan tidak
+	 * kosong.</p>
+	 *
+	 * @return status nikah; tidak pernah {@code null}.
+	 */
 	@Column(name = "status_nikah")
 	public Integer getStatusNikah() {
 		if (statusNikah == null) {
@@ -1034,10 +1532,23 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.statusNikah;
 	}
 
+	/**
+	 * Menetapkan status pernikahan.
+	 *
+	 * @param statusNikah status nikah (0 = belum menikah).
+	 */
 	public void setStatusNikah(Integer statusNikah) {
 		this.statusNikah = statusNikah;
 	}
 
+	/**
+	 * Kewarganegaraan pendaftar.
+	 *
+	 * <p><b>Efek samping:</b> bila masih {@code null}, diisi bawaan {@link Mahasiswa#WNI} dan nilai
+	 * itu ikut tersimpan pada flush berikutnya.</p>
+	 *
+	 * @return kode kewarganegaraan; tidak pernah {@code null}.
+	 */
 	@Column(name = "kewarganegaraan", length = 10)
 	public String getKewarganegaraan() {
 		if (kewarganegaraan == null) {

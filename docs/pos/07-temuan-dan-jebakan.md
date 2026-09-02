@@ -214,6 +214,9 @@ ada) menolaknya setiap kali, tanpa penjelasan.
 
 Versi API memasang penandanya di kedua cabang, setelah jurnalnya benar-benar tersimpan.
 
+**Sudah diperbaiki** (r82996): cabang berpajak pada layar ZK kini menandai juga.
+Rinciannya di [75-termin-berpajak-dan-javadoc-yatim.md](75-termin-berpajak-dan-javadoc-yatim.md).
+
 ---
 
 ## 12. Boolean dari JDBC adalah `'t'`/`'f'`, bukan `true`/`false`

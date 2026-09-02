@@ -1156,6 +1156,20 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		this.kemampuanBahasa3 = kemampuanBahasa3;
 	}
 
+	/**
+	 * Nama SMA/sederajat asal (kolom {@code asal_sma}), diturunkan dari relasi bila ada.
+	 *
+	 * <p>Bila {@link #getNamaSekolahAsal()} terisi dan namanya tidak kosong, nama dari daftar acuan
+	 * {@link NamaSekolahAsal} MENIMPA teks bebas yang tersimpan di kolom {@code asal_sma} — relasi
+	 * dianggap sumber kebenaran, kolom teks hanya cadangan untuk data lama sebelum daftar sekolah baku
+	 * dipakai. Hasil akhirnya dilewatkan {@link #potongKolom50(String)}.</p>
+	 *
+	 * <p><b>Kuirk:</b> anotasi kolom menyatakan panjang 255 tetapi nilainya dipotong pada 50 karakter.
+	 * Nama sekolah yang panjang akan terpotong walaupun sebenarnya muat di basis data. Selain itu
+	 * {@code null} berubah menjadi string kosong.</p>
+	 *
+	 * @return nama SMA asal, maksimal 50 karakter, tidak pernah {@code null}
+	 */
 	@Column(name = "asal_sma", length = 255)
 	public String getAsalSma() {
 		namaSekolahAsal = getNamaSekolahAsal();
@@ -1166,19 +1180,46 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return potongKolom50(this.asalSma);
 	}
 
+	/**
+	 * Menyetel nama SMA asal sebagai teks bebas.
+	 *
+	 * <p>Nilai ini bisa ditimpa saat dibaca bila {@link #getNamaSekolahAsal()} terisi.</p>
+	 *
+	 * @param asalSma nama sekolah asal
+	 */
 	public void setAsalSma(String asalSma) {
 		this.asalSma = asalSma;
 	}
 
+	/**
+	 * Alamat SMA/sederajat asal (kolom {@code alamat_asal_sma}).
+	 *
+	 * @return alamat sekolah asal, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "alamat_asal_sma")
 	public String getAlamatAsalSma() {
 		return this.alamatAsalSma;
 	}
 
+	/**
+	 * Menyetel alamat SMA asal.
+	 *
+	 * @param alamatAsalSma alamat sekolah
+	 */
 	public void setAlamatAsalSma(String alamatAsalSma) {
 		this.alamatAsalSma = alamatAsalSma;
 	}
 
+	/**
+	 * Nama SMP/sederajat asal (kolom {@code asal_smp}, maks. 50 karakter), sudah dibersihkan.
+	 *
+	 * <p>Tanda kutip tunggal dan ganda dibuang serta spasi ujung di-{@code trim}. Pembersihan kutip
+	 * ini penting karena nilai tersebut ikut dirangkai ke berkas ekspor/laporan berformat teks yang
+	 * akan rusak bila mengandung kutip. Berbeda dengan getter penormal lain, method ini TIDAK menulis
+	 * balik ke field — pembersihan hanya berlaku pada nilai kembalian.</p>
+	 *
+	 * @return nama SMP asal tanpa kutip; string kosong bila field {@code null}
+	 */
 	@Column(name = "asal_smp", length = 50)
 	public String getAsalSmp() {
 		return this.asalSmp == null ? ""
@@ -1186,19 +1227,40 @@ public class BiodataMahasiswa extends GeneralValueObject {
 						.replace(org.apache.commons.lang3.StringUtils.replace(this.asalSmp.trim(), "'", ""), "\"", "");
 	}
 
+	/**
+	 * Menyetel nama SMP asal.
+	 *
+	 * @param asalSmp nama sekolah asal
+	 */
 	public void setAsalSmp(String asalSmp) {
 		this.asalSmp = asalSmp;
 	}
 
+	/**
+	 * Alamat SMP/sederajat asal (kolom {@code alamat_asal_smp}).
+	 *
+	 * @return alamat sekolah asal, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "alamat_asal_smp")
 	public String getAlamatAsalSmp() {
 		return this.alamatAsalSmp;
 	}
 
+	/**
+	 * Menyetel alamat SMP asal.
+	 *
+	 * @param alamatAsalSmp alamat sekolah
+	 */
 	public void setAlamatAsalSmp(String alamatAsalSmp) {
 		this.alamatAsalSmp = alamatAsalSmp;
 	}
 
+	/**
+	 * Nama SD/sederajat asal (kolom {@code asal_sd}, maks. 50 karakter), dibersihkan dari tanda kutip
+	 * tunggal dan ganda serta di-{@code trim} — sama persis perlakuannya dengan {@link #getAsalSmp()}.
+	 *
+	 * @return nama SD asal tanpa kutip; string kosong bila field {@code null}
+	 */
 	@Column(name = "asal_sd", length = 50)
 	public String getAsalSd() {
 		return this.asalSd == null ? ""
@@ -1206,19 +1268,50 @@ public class BiodataMahasiswa extends GeneralValueObject {
 						.replace(org.apache.commons.lang3.StringUtils.replace(this.asalSd.trim(), "'", ""), "\"", "");
 	}
 
+	/**
+	 * Menyetel nama SD asal.
+	 *
+	 * @param asalSd nama sekolah asal
+	 */
 	public void setAsalSd(String asalSd) {
 		this.asalSd = asalSd;
 	}
 
+	/**
+	 * Alamat SD/sederajat asal (kolom {@code alamat_asal_sd}).
+	 *
+	 * @return alamat sekolah asal, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "alamat_asal_sd")
 	public String getAlamatAsalSd() {
 		return this.alamatAsalSd;
 	}
 
+	/**
+	 * Menyetel alamat SD asal.
+	 *
+	 * @param alamatAsalSd alamat sekolah
+	 */
 	public void setAlamatAsalSd(String alamatAsalSd) {
 		this.alamatAsalSd = alamatAsalSd;
 	}
 
+	/**
+	 * Golongan darah mahasiswa (kolom {@code golongan_darah}, maks. 10 karakter).
+	 *
+	 * <p>Bila {@link Mahasiswa} punya nilai golongan darah sendiri yang tidak kosong, nilai itu
+	 * MENIMPA field di sini.</p>
+	 *
+	 * <p><b>Dua kuirk yang perlu diketahui.</b> Pertama, pemeriksaan memakai field {@code mahasiswa}
+	 * langsung, BUKAN {@link #getMahasiswa()} — jadi sinkronisasi hanya terjadi bila field tersebut
+	 * kebetulan sudah terisi oleh pemanggilan getter lain sebelumnya; pada instance yang baru dimuat
+	 * Hibernate, sinkronisasi ini diam-diam dilewati. Kedua, penimpaan menulis langsung ke field
+	 * sehingga pemotongan panjang di {@link #setGolonganDarah(String)} TIDAK berlaku; bila nilai di
+	 * tabel {@code mahasiswa} lebih dari 10 karakter, penyimpanan bisa gagal dengan
+	 * {@code value too long for type character varying(10)}.</p>
+	 *
+	 * @return golongan darah, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "golongan_darah", length = 10)
 	public String getGolonganDarah() {
 		if (mahasiswa != null && mahasiswa.getGolongan_darah() != null && !mahasiswa.getGolongan_darah().isEmpty()) {
@@ -1227,6 +1320,16 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return this.golonganDarah;
 	}
 
+	/**
+	 * Menyetel golongan darah, dengan pengaman panjang.
+	 *
+	 * <p>Nilai lebih dari 10 karakter dipotong supaya tidak melanggar lebar kolom
+	 * {@code varchar(10)} — lihat komentar di badan method mengenai isian bebas dari
+	 * {@code BiodataMahasiswaAction}. Pengaman ini hanya berlaku lewat setter; jalur penimpaan di
+	 * {@link #getGolonganDarah()} melewatinya.</p>
+	 *
+	 * @param golonganDarah golongan darah; dipotong pada 10 karakter bila lebih panjang
+	 */
 	public void setGolonganDarah(String golonganDarah) {
 		// Kolom DB golongan_darah varchar(10). Field ini diisi dari Textbox bebas
 		// (BiodataMahasiswaAction) tanpa batas panjang di sisi UI, sehingga input yang
@@ -1239,6 +1342,13 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		this.golonganDarah = golonganDarah;
 	}
 
+	/**
+	 * Status pernikahan mahasiswa (kolom {@code status_nikah}), kode numerik.
+	 *
+	 * <p><b>Efek samping ringan:</b> nilai {@code null} diganti {@code 0} dan ditulis ke field.</p>
+	 *
+	 * @return kode status nikah, tidak pernah {@code null}
+	 */
 	@Column(name = "status_nikah")
 	public Integer getStatusNikah() {
 		if (statusNikah == null) {
@@ -1247,19 +1357,49 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return this.statusNikah;
 	}
 
+	/**
+	 * Menyetel kode status pernikahan.
+	 *
+	 * @param statusNikah kode status nikah
+	 */
 	public void setStatusNikah(Integer statusNikah) {
 		this.statusNikah = statusNikah;
 	}
 
+	/**
+	 * Kewarganegaraan mahasiswa (kolom {@code kewarganegaraan}, maks. 10 karakter), umumnya berisi
+	 * kode negara singkat seperti {@code "ID"}.
+	 *
+	 * @return kode kewarganegaraan, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "kewarganegaraan", length = 10)
 	public String getKewarganegaraan() {
 		return this.kewarganegaraan;
 	}
 
+	/**
+	 * Menyetel kewarganegaraan.
+	 *
+	 * @param kewarganegaraan kode/nama kewarganegaraan (maks. 10 karakter di basis data)
+	 */
 	public void setKewarganegaraan(String kewarganegaraan) {
 		this.kewarganegaraan = kewarganegaraan;
 	}
 
+	/**
+	 * Agama mahasiswa menurut daftar acuan {@link Agama} (kolom {@code agama}).
+	 *
+	 * <p>Bila {@link Mahasiswa} sudah punya agama, nilainya MENIMPA field di sini — tabel
+	 * {@code mahasiswa} diperlakukan sebagai sumber kebenaran. Berbeda dengan
+	 * {@link #getGolonganDarah()}, di sini {@link #getMahasiswa()} benar-benar dipanggil sehingga
+	 * sinkronisasi juga berjalan pada instance yang baru dimuat. Setelah itu nilai dilewatkan
+	 * {@code check(...)} milik {@link GeneralValueObject} agar proxy Hibernate yang lepas sesi tetap
+	 * aman dipakai.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code agama} dan {@code mahasiswa} ditulis ulang.</p>
+	 *
+	 * @return agama mahasiswa, atau {@code null} bila belum ditentukan di kedua tempat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "agama", nullable = true)
 	public Agama getAgama() {
@@ -1271,14 +1411,46 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return this.agama;
 	}
 
+	/**
+	 * Menyetel agama mahasiswa.
+	 *
+	 * <p>Nilai dapat ditimpa kembali oleh {@link #getAgama()} bila {@link Mahasiswa} punya agama
+	 * sendiri.</p>
+	 *
+	 * @param agama acuan {@link Agama}
+	 */
 	public void setAgama(Agama agama) {
 		this.agama = agama;
 	}
 
+	/**
+	 * Menyetel keterangan penghasilan ayah dalam bentuk teks bebas.
+	 *
+	 * <p>Nilai ini akan ditimpa oleh {@link #getPenghasilanAyah()} bila
+	 * {@link #getPendapatanOrtu()} terisi.</p>
+	 *
+	 * @param penghasilanAyah teks penghasilan
+	 */
 	public void setPenghasilanAyah(String penghasilanAyah) {
 		this.penghasilanAyah = penghasilanAyah;
 	}
 
+	/**
+	 * Keterangan penghasilan ayah dalam bentuk teks siap tampil.
+	 *
+	 * <p>Bila field relasi {@code pendapatanOrtu} ({@link PendapatanOrangTua}) terisi, teks disusun
+	 * ulang dari rentang pendapatan menjadi bentuk
+	 * <code>"Rp. {mulaiDari} s.d {sampai}"</code> dengan pemformat angka {@code Common.numberFormat}
+	 * (sebuah {@code ThreadLocal}, jadi aman dipakai lintas thread). Bila relasi kosong, teks yang
+	 * tersimpan di kolom dikembalikan apa adanya — biasanya data lama sebelum daftar rentang
+	 * pendapatan baku dipakai.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code penghasilanAyah} ditimpa hasil format. Pemeriksaan memakai
+	 * field {@code pendapatanOrtu} langsung, bukan {@link #getPendapatanOrtu()}, sehingga pada
+	 * instance yang belum menyentuh getter relasi tersebut pemformatan bisa terlewat.</p>
+	 *
+	 * @return teks penghasilan ayah, bisa {@code null} bila kolom kosong dan relasi belum terisi
+	 */
 	public String getPenghasilanAyah() {
 		if (pendapatanOrtu != null) {
 			penghasilanAyah = "Rp. " + Common.numberFormat.get().format(pendapatanOrtu.getMulaiDari()) + " s.d "
@@ -1287,10 +1459,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return penghasilanAyah;
 	}
 
+	/**
+	 * Menyetel keterangan penghasilan ibu dalam bentuk teks bebas.
+	 *
+	 * @param penghasilanIbu teks penghasilan
+	 */
 	public void setPenghasilanIbu(String penghasilanIbu) {
 		this.penghasilanIbu = penghasilanIbu;
 	}
 
+	/**
+	 * Keterangan penghasilan ibu dalam bentuk teks siap tampil — kembaran persis
+	 * {@link #getPenghasilanAyah()}, tetapi bersumber dari relasi {@code pendapatanOrtuIbu}.
+	 *
+	 * @return teks penghasilan ibu, bisa {@code null}
+	 * @see #getPenghasilanAyah()
+	 */
 	public String getPenghasilanIbu() {
 		if (pendapatanOrtuIbu != null) {
 			penghasilanIbu = "Rp. " + Common.numberFormat.get().format(pendapatanOrtuIbu.getMulaiDari()) + " s.d "
@@ -1299,96 +1483,225 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return penghasilanIbu;
 	}
 
+	/**
+	 * Kode sumber biaya studi (kolom {@code kode_biaya_studi}), mis. biaya sendiri, beasiswa, atau
+	 * tanggungan instansi. Dipakai untuk pelaporan PDDikti/Feeder.
+	 *
+	 * @return kode biaya studi, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "kode_biaya_studi")
 	public String getBiayaStudi() {
 		return biayaStudi;
 	}
 
+	/**
+	 * Menyetel kode sumber biaya studi.
+	 *
+	 * @param biayaStudi kode biaya studi
+	 */
 	public void setBiayaStudi(String biayaStudi) {
 		this.biayaStudi = biayaStudi;
 	}
 
+	/**
+	 * Kode jenis pekerjaan mahasiswa sendiri (kolom {@code kode_kerjaan}) — relevan untuk kelas
+	 * karyawan/program pascasarjana yang mahasiswanya sudah bekerja.
+	 *
+	 * @return kode pekerjaan, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "kode_kerjaan")
 	public String getKodeKerjaan() {
 		return kodeKerjaan;
 	}
 
+	/**
+	 * Menyetel kode jenis pekerjaan mahasiswa.
+	 *
+	 * @param kodeKerjaan kode pekerjaan
+	 */
 	public void setKodeKerjaan(String kodeKerjaan) {
 		this.kodeKerjaan = kodeKerjaan;
 	}
 
+	/**
+	 * Nama tempat mahasiswa bekerja (kolom {@code tempat_kerja}).
+	 *
+	 * @return nama tempat kerja, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "tempat_kerja")
 	public String getTempatKerja() {
 		return tempatKerja;
 	}
 
+	/**
+	 * Menyetel nama tempat kerja mahasiswa.
+	 *
+	 * @param tempatKerja nama instansi/perusahaan
+	 */
 	public void setTempatKerja(String tempatKerja) {
 		this.tempatKerja = tempatKerja;
 	}
 
+	/**
+	 * Kode perguruan tinggi tempat mahasiswa bekerja (kolom {@code kode_tempat_kerja_pt}).
+	 *
+	 * <p>Dipakai bila mahasiswa adalah dosen/tenaga kependidikan yang sedang studi lanjut: kode PT
+	 * tempat ia mengajar dilaporkan ke PDDikti berpasangan dengan
+	 * {@link #getKodeTempatKerjaPs()}.</p>
+	 *
+	 * @return kode PT tempat kerja, atau {@code null} bila tidak relevan
+	 */
 	@Column(name = "kode_tempat_kerja_pt")
 	public String getKodeTempatKerjaPt() {
 		return kodeTempatKerjaPt;
 	}
 
+	/**
+	 * Menyetel kode perguruan tinggi tempat kerja.
+	 *
+	 * @param kodeTempatKerjaPt kode PT
+	 */
 	public void setKodeTempatKerjaPt(String kodeTempatKerjaPt) {
 		this.kodeTempatKerjaPt = kodeTempatKerjaPt;
 	}
 
+	/**
+	 * Kode program studi tempat mahasiswa bekerja (kolom {@code kode_tempat_kerja_ps}), pasangan
+	 * {@link #getKodeTempatKerjaPt()}.
+	 *
+	 * @return kode program studi tempat kerja, atau {@code null} bila tidak relevan
+	 */
 	@Column(name = "kode_tempat_kerja_ps")
 	public String getKodeTempatKerjaPs() {
 		return kodeTempatKerjaPs;
 	}
 
+	/**
+	 * Menyetel kode program studi tempat kerja.
+	 *
+	 * @param kodeTempatKerjaPs kode program studi
+	 */
 	public void setKodeTempatKerjaPs(String kodeTempatKerjaPs) {
 		this.kodeTempatKerjaPs = kodeTempatKerjaPs;
 	}
 
+	/**
+	 * NIDN dosen promotor (kolom {@code nidn_promotor}) untuk mahasiswa program doktor.
+	 *
+	 * <p>Disimpan sebagai NIDN mentah, bukan relasi ke {@link Dosen}, karena promotor bisa berasal
+	 * dari perguruan tinggi lain yang datanya tidak ada di basis data ini.</p>
+	 *
+	 * @return NIDN promotor, atau {@code null} bila tidak ada
+	 */
 	@Column(name = "nidn_promotor")
 	public String getNidnPromotor() {
 		return nidnPromotor;
 	}
 
+	/**
+	 * Menyetel NIDN dosen promotor.
+	 *
+	 * @param nidnPromotor NIDN promotor
+	 */
 	public void setNidnPromotor(String nidnPromotor) {
 		this.nidnPromotor = nidnPromotor;
 	}
 
+	/**
+	 * NIDN ko-promotor pertama (kolom {@code nidn_kopromotor1}).
+	 *
+	 * @return NIDN ko-promotor 1, atau {@code null} bila tidak ada
+	 * @see #getNidnPromotor()
+	 */
 	@Column(name = "nidn_kopromotor1")
 	public String getNidnKoPromotor1() {
 		return nidnKoPromotor1;
 	}
 
+	/**
+	 * Menyetel NIDN ko-promotor pertama.
+	 *
+	 * @param nidnKoPromotor1 NIDN ko-promotor
+	 */
 	public void setNidnKoPromotor1(String nidnKoPromotor1) {
 		this.nidnKoPromotor1 = nidnKoPromotor1;
 	}
 
+	/**
+	 * NIDN ko-promotor kedua (kolom {@code nidn_kopromotor2}).
+	 *
+	 * @return NIDN ko-promotor 2, atau {@code null} bila tidak ada
+	 * @see #getNidnPromotor()
+	 */
 	@Column(name = "nidn_kopromotor2")
 	public String getNidnKoPromotor2() {
 		return nidnKoPromotor2;
 	}
 
+	/**
+	 * Menyetel NIDN ko-promotor kedua.
+	 *
+	 * @param nidnKoPromotor2 NIDN ko-promotor
+	 */
 	public void setNidnKoPromotor2(String nidnKoPromotor2) {
 		this.nidnKoPromotor2 = nidnKoPromotor2;
 	}
 
+	/**
+	 * NIDN ko-promotor ketiga (kolom {@code nidn_kopromotor3}).
+	 *
+	 * @return NIDN ko-promotor 3, atau {@code null} bila tidak ada
+	 * @see #getNidnPromotor()
+	 */
 	@Column(name = "nidn_kopromotor3")
 	public String getNidnKoPromotor3() {
 		return nidnKoPromotor3;
 	}
 
+	/**
+	 * Menyetel NIDN ko-promotor ketiga.
+	 *
+	 * @param nidnKoPromotor3 NIDN ko-promotor
+	 */
 	public void setNidnKoPromotor3(String nidnKoPromotor3) {
 		this.nidnKoPromotor3 = nidnKoPromotor3;
 	}
 
+	/**
+	 * NIDN ko-promotor keempat (kolom {@code nidn_kopromotor4}) — slot terakhir yang tersedia.
+	 *
+	 * @return NIDN ko-promotor 4, atau {@code null} bila tidak ada
+	 * @see #getNidnPromotor()
+	 */
 	@Column(name = "nidn_kopromotor4")
 	public String getNidnKoPromotor4() {
 		return nidnKoPromotor4;
 	}
 
+	/**
+	 * Menyetel NIDN ko-promotor keempat.
+	 *
+	 * @param nidnKoPromotor4 NIDN ko-promotor
+	 */
 	public void setNidnKoPromotor4(String nidnKoPromotor4) {
 		this.nidnKoPromotor4 = nidnKoPromotor4;
 	}
 
+	/**
+	 * Penghasilan orang tua sebagai angka (kolom {@code penghasilan_orang_tua}), dipakai antara lain
+	 * untuk penentuan kelompok UKT dan seleksi beasiswa.
+	 *
+	 * <p>Bila relasi {@code pendapatanOrtu} terisi, nilainya diambil dari BATAS ATAS rentang
+	 * ({@link PendapatanOrangTua#getSampai()}) — bukan nilai tengah maupun batas bawah — lalu ditulis
+	 * ke field. Pilihan batas atas ini memengaruhi ambang kelayakan bantuan, jadi jangan diubah tanpa
+	 * memeriksa aturan UKT yang berlaku.</p>
+	 *
+	 * <p><b>Risiko:</b> pemeriksaan hanya menguji {@code pendapatanOrtu != null}; bila baris acuan ada
+	 * tetapi kolom {@code sampai}-nya {@code null}, pemanggilan {@code longValue()} melempar
+	 * {@code NullPointerException} yang TIDAK ditangkap di sini.</p>
+	 *
+	 * @return penghasilan orang tua dalam rupiah, atau {@code null} bila tidak ada sumber data
+	 */
 	@Column(name = "penghasilan_orang_tua")
 	public Long getPenghasilanOrangTua() {
 		if (pendapatanOrtu != null) {
@@ -1397,10 +1710,24 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return penghasilanOrangTua;
 	}
 
+	/**
+	 * Menyetel penghasilan orang tua dalam rupiah.
+	 *
+	 * @param penghasilanOrangTua nominal penghasilan
+	 */
 	public void setPenghasilanOrangTua(Long penghasilanOrangTua) {
 		this.penghasilanOrangTua = penghasilanOrangTua;
 	}
 
+	/**
+	 * Jumlah bersaudara termasuk mahasiswa yang bersangkutan (kolom {@code bersaudara}).
+	 *
+	 * <p><b>Efek samping:</b> nilai {@code null}, {@code 0}, atau negatif diganti {@code 1} dan
+	 * ditulis ke field. Akibatnya "belum diisi" tidak dapat dibedakan dari "anak tunggal" — keduanya
+	 * terbaca sebagai 1.</p>
+	 *
+	 * @return jumlah bersaudara, minimal 1, tidak pernah {@code null}
+	 */
 	@Column(name = "bersaudara")
 	public Integer getBersaudara() {
 		if (bersaudara == null || bersaudara <= 0) {
@@ -1409,37 +1736,90 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return bersaudara;
 	}
 
+	/**
+	 * Menyetel jumlah bersaudara.
+	 *
+	 * @param bersaudara jumlah saudara termasuk dirinya; nilai &lt;= 0 akan dibaca sebagai 1
+	 */
 	public void setBersaudara(Integer bersaudara) {
 		this.bersaudara = bersaudara;
 	}
 
+	/**
+	 * Nomor rekening bank mahasiswa (kolom {@code no_rek_bri}).
+	 *
+	 * <p>Penamaan menyebut BRI karena awalnya khusus untuk penyaluran beasiswa lewat bank tersebut;
+	 * pada praktiknya dipakai untuk nomor rekening bank apa pun.</p>
+	 *
+	 * @return nomor rekening, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "no_rek_bri")
 	public String getNo_rek_bri() {
 		return no_rek_bri;
 	}
 
+	/**
+	 * Menyetel nomor rekening bank mahasiswa.
+	 *
+	 * @param no_rek_bri nomor rekening
+	 */
 	public void setNo_rek_bri(String no_rek_bri) {
 		this.no_rek_bri = no_rek_bri;
 	}
 
+	/**
+	 * Kantor cabang bank tempat rekening {@link #getNo_rek_bri()} dibuka (kolom {@code cabang_bri}).
+	 *
+	 * @return nama cabang bank, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "cabang_bri")
 	public String getCabangBri() {
 		return cabangBri;
 	}
 
+	/**
+	 * Menyetel kantor cabang bank.
+	 *
+	 * @param cabangBri nama cabang
+	 */
 	public void setCabangBri(String cabangBri) {
 		this.cabangBri = cabangBri;
 	}
 
+	/**
+	 * Nomor Kartu Keluarga (kolom {@code no_kk}).
+	 *
+	 * <p>Berbeda dengan nomor identitas lain di kelas ini, nilai ini TIDAK dinormalisasi saat dibaca —
+	 * dikembalikan apa adanya termasuk kemungkinan spasi dan tanda hubung.</p>
+	 *
+	 * @return nomor KK, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "no_kk")
 	public String getNoKK() {
 		return noKK;
 	}
 
+	/**
+	 * Menyetel nomor Kartu Keluarga.
+	 *
+	 * @param noKK nomor KK
+	 */
 	public void setNoKK(String noKK) {
 		this.noKK = noKK;
 	}
 
+	/**
+	 * Nomor RT tempat tinggal, sudah dinormalisasi.
+	 *
+	 * <p>Rangkaian pembersihan: karakter selain digit dan titik dibuang bila isinya bukan angka murni,
+	 * {@code null} diganti string kosong, nilai {@code "00"} (penanda "tidak ada" versi lama) ikut
+	 * dikosongkan, lalu tanda hubung dibuang.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code rt} ditimpa hasil normalisasi sehingga bisa ikut tersimpan
+	 * pada flush berikutnya.</p>
+	 *
+	 * @return nomor RT hasil normalisasi; string kosong bila tidak ada, tidak pernah {@code null}
+	 */
 	public String getRt() {
 
 		if (rt != null && !Common.isNumber(rt)) {
@@ -1459,10 +1839,21 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return rt;
 	}
 
+	/**
+	 * Menyetel nomor RT apa adanya (normalisasi terjadi saat dibaca).
+	 *
+	 * @param rt nomor RT
+	 */
 	public void setRt(String rt) {
 		this.rt = rt;
 	}
 
+	/**
+	 * Nomor RW tempat tinggal, dinormalisasi dengan aturan yang sama persis dengan {@link #getRt()}.
+	 *
+	 * @return nomor RW hasil normalisasi; string kosong bila tidak ada, tidak pernah {@code null}
+	 * @see #getRt()
+	 */
 	public String getRw() {
 
 		if (rw != null && !Common.isNumber(rw)) {
@@ -1482,10 +1873,28 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return rw;
 	}
 
+	/**
+	 * Menyetel nomor RW apa adanya (normalisasi terjadi saat dibaca).
+	 *
+	 * @param rw nomor RW
+	 */
 	public void setRw(String rw) {
 		this.rw = rw;
 	}
 
+	/**
+	 * Kode pos alamat tempat tinggal, sudah dinormalisasi.
+	 *
+	 * <p>Karakter selain digit dan titik dibuang, {@code null} diganti string kosong, tanda hubung
+	 * dibuang, dan nilai yang MENGANDUNG {@code "0000"} di mana pun dianggap data sampah lalu
+	 * dikosongkan. Perlu dicatat bahwa pemeriksaan memakai {@code contains}, bukan kesamaan penuh,
+	 * sehingga kode pos sah yang kebetulan memuat empat nol berurutan (mis. {@code "00001"}) juga ikut
+	 * terhapus.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code kodepos} ditimpa hasil normalisasi.</p>
+	 *
+	 * @return kode pos hasil normalisasi, sudah di-{@code trim}; string kosong bila tidak ada
+	 */
 	public String getKodepos() {
 
 		if (kodepos != null && !Common.isNumber(kodepos)) {
@@ -1505,10 +1914,26 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return kodepos.trim();
 	}
 
+	/**
+	 * Menyetel kode pos apa adanya (normalisasi terjadi saat dibaca).
+	 *
+	 * @param kodepos kode pos
+	 */
 	public void setKodepos(String kodepos) {
 		this.kodepos = kodepos;
 	}
 
+	/**
+	 * Nama kelurahan/desa tempat tinggal.
+	 *
+	 * <p><b>Efek samping:</b> nilai {@code null} atau kosong diganti tanda hubung {@code "-"} dan
+	 * ditulis ke field. Penggantian ini membuat isian wajib pada formulir cetak dan berkas ekspor
+	 * tidak pernah tampil kosong, tetapi juga berarti "belum diisi" tersimpan sebagai
+	 * {@code "-"} di basis data setelah flush berikutnya.</p>
+	 *
+	 * @return nama kelurahan yang sudah di-{@code trim}, atau {@code "-"} bila belum diisi; tidak
+	 *         pernah {@code null}
+	 */
 	public String getKelurahan() {
 		if (kelurahan == null || kelurahan.trim().isEmpty()) {
 			kelurahan = "-";
@@ -1516,6 +1941,11 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return kelurahan.trim();
 	}
 
+	/**
+	 * Menyetel nama kelurahan/desa.
+	 *
+	 * @param kelurahan nama kelurahan; {@code null}/kosong akan dibaca sebagai {@code "-"}
+	 */
 	public void setKelurahan(String kelurahan) {
 		this.kelurahan = kelurahan;
 	}

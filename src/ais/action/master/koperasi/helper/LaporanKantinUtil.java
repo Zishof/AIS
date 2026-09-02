@@ -59,7 +59,7 @@ public final class LaporanKantinUtil {
      * satu-satunya sumber identitas, sama seperti yang dipakai laporan di aplikasi kasir
      * ({@code PosApi.daftarOrderDenganSesi}).</p>
      */
-    private static final String KASIR_NOTA =
+    static final String KASIR_NOTA =
         "coalesce(nullif(trim(h.kasir_login_nama),''),'Kasir tidak tercatat')";
 
     /**
@@ -68,7 +68,7 @@ public final class LaporanKantinUtil {
      * penjualan produk terhapus tetap muncul; dengan {@code join} biasa baris itu hilang dari
      * laporan tanpa jejak sehingga total laporan lebih kecil daripada penjualan sebenarnya.
      */
-    private static final String LABEL_PRODUK_ITEM =
+    static final String LABEL_PRODUK_ITEM =
         "(coalesce(nullif(trim(pr.kode),''), nullif(trim(p.kode),''), '') || ' - '"
         + " || coalesce(nullif(trim(pr.nama),''), nullif(trim(p.nama),''), 'Produk tanpa nama'))";
 
@@ -84,7 +84,7 @@ public final class LaporanKantinUtil {
      * <p>Baris lama yang belum menyimpan {@code total} tetap dihitung dengan rumus sebelumnya,
      * sehingga laporan periode lampau tidak berubah menjadi nol.</p>
      */
-    private static final String OMZET =
+    static final String OMZET =
         "coalesce(p.total, (coalesce(p.hargasatuan, pr.hargajual, 0) * coalesce(p.qty,0)"
         + " - coalesce(p.diskon,0)))";
 
@@ -94,7 +94,7 @@ public final class LaporanKantinUtil {
      * padanannya di web, satu baris "12" pada laporan web dan "1 Lusin (12 Pcs)" pada aplikasi
      * tampak seperti dua transaksi berbeda.
      */
-    private static final String LABEL_SATUAN_JUAL =
+    static final String LABEL_SATUAN_JUAL =
         "case when p.qty_input is not null and nullif(trim(sj.nama),'') is not null"
         + " then (trim(to_char(p.qty_input,'FM999999990.###')) || ' ' || trim(sj.nama))"
         + " else '' end";
@@ -105,11 +105,11 @@ public final class LaporanKantinUtil {
         + " left join koperasi.satuan_produk sd on sd.id=pr.satuan ";
 
     /** Kode produk pada baris item: master bila ada, jatuh ke snapshot baris penjualan. */
-    private static final String KODE_PRODUK_ITEM =
+    static final String KODE_PRODUK_ITEM =
         "coalesce(nullif(trim(pr.kode),''), nullif(trim(p.kode),''), '')";
 
     /** Nama produk pada baris item: master bila ada, jatuh ke snapshot baris penjualan. */
-    private static final String NAMA_PRODUK_ITEM =
+    static final String NAMA_PRODUK_ITEM =
         "coalesce(nullif(trim(pr.nama),''), nullif(trim(p.nama),''), 'Produk tanpa nama')";
 
     /** Metadata satu kolom laporan. */
@@ -130,7 +130,7 @@ public final class LaporanKantinUtil {
      * halaman yang tidak mungkin dibaca. Batas ini memilih gagal-terkendali dengan
      * pemberitahuan, bukan gagal-total tanpa penjelasan.</p>
      */
-    private static final int BATAS_BARIS_LAPORAN = 20000;
+    static final int BATAS_BARIS_LAPORAN = 20000;
 
     public static final class Hasil {
         public String status = "00";       // 00 ok | soon | 01 sesi habis | 99 error
@@ -185,7 +185,7 @@ public final class LaporanKantinUtil {
      * berbasis item memakai batas yang sama; jangan memanggil {@code klausaTanggal("p.waktu",
      * ...)} langsung lagi.</p>
      */
-    private static String klausaPeriodeItemPenjualan(String tglMulai, String tglSampai,
+    static String klausaPeriodeItemPenjualan(String tglMulai, String tglSampai,
             Map<String, Object> p) {
         return klausaTanggal("p.waktu", tglMulai, tglSampai, p) + " and coalesce(p.aktif,true)=true ";
     }

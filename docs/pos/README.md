@@ -77,6 +77,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [70-panduan-membuka-laporan-keuangan.md](70-panduan-membuka-laporan-keuangan.md) | Panduan staf: dua pintu menu ke katalog laporan, tujuh kebutuhan keuangan yayasan, dan tiga sebab laporan tampil kosong |
 | [70-panduan-laporan-keuangan-an-nahl.pdf](70-panduan-laporan-keuangan-an-nahl.pdf) | Versi PDF bergambar dari panduan di atas, siap dibagikan ke staf; pembuatnya di [panduan-ilustrasi/](panduan-ilustrasi/README.md) |
 | [74-riwayat-bersama-dan-tristate-dipipihkan.md](74-riwayat-bersama-dan-tristate-dipipihkan.md) | `unpost` menghapus riwayat yang masih dipakai dokumen lain; tri-state produk dipipihkan di payload PosApi; hasil sapuan tri-state se-basis-kode |
+| [75-termin-berpajak-dan-javadoc-yatim.md](75-termin-berpajak-dan-javadoc-yatim.md) | Termin berpajak tak pernah ditandai terposting; JavaDoc yatim (175 pasangan) dan alasan ia tidak boleh disapu otomatis |
 | [73-stok-minus-tiga-nilai-dan-pemulihan-member.md](73-stok-minus-tiga-nilai-dan-pemulihan-member.md) | "STOK MINUS" pd verifikasi pesanan: `null` diperlakukan sbg "dikunci admin"; + pemulihan nama pemesan dari audit Envers |
 | [74-sql-pemulihan-member-pesanan.sql](74-sql-pemulihan-member-pesanan.sql) | Skrip hitung-dulu-baru-perbaiki utk mengembalikan member yang tertimpa NULL |
 | [75-halaman-pesanan-tiga-celah-sunyi.md](75-halaman-pesanan-tiga-celah-sunyi.md) | `id_member` yang diambil lalu dibuang, "Bayar Semua" yang bilang sukses saat gagal, dan `peringatanStok` tanpa pembaca |
