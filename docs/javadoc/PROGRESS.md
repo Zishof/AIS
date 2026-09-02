@@ -1,5 +1,52 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 31 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/Kota.java`** (r83524) — 192→587 baris, 100% (33
+  anggota). Beda dari `Propinsi`: `getNama()` di sini MENULIS BALIK ke
+  field. Kolom `kode` praktis mati lewat UI tapi merambat jadi bug data di
+  hierarki `Wilayah` di bawahnya. Koreksi sesi 27: `PropinsiAction`
+  sebenarnya PUNYA gerbang CREATE/UPDATE/DELETE (diwarisi
+  `GenericCrudAction`) — yang nihil hanya gerbang READ (whitelist
+  `MUST_CHECKED`).
+- **`ais/database/model/Wilayah.java`** (r83525) — 189→717 baris, 100%
+  (43 anggota). Dualitas hierarki wilayah AIS kini terjelaskan LENGKAP:
+  hierarki klasik (`Propinsi→Kota`, berhenti di kota) vs `Wilayah` (satu
+  tabel self-reference, satu-satunya yang punya kecamatan) — keduanya
+  saling menumbuhkan isi lewat jembatan otomatis tanpa ada yang membuka
+  layar master. Bug nyata: impor JSON Feeder salah memetakan `induk` ke
+  id barisnya sendiri (self-reference); menyunting 1 kecamatan bisa
+  memindahkan seluruh kota/kabupaten induknya ke provinsi lain. **2
+  instance SQL injection baru** (`FeederImporter.wilayah()`,
+  `WilayahKecamatanAction.exportKeFeeder()`) — masuk `task_493423ef`.
+- **`ais/database/model/DiskusiPengumumanPerkuliahan.java`** (r83525) —
+  190→671 baris, 100% (33 anggota). Konfirmasi: ini entity diskusi
+  akademik yang BENAR (beda total dari `Diskusi.java` modul jurnal, b30).
+  Pola "dua jalur, satu bergerbang satu tidak" terulang (mirip
+  `Komentar`/`PenilaianAsesor`) — helper detail nol gerbang kepemilikan,
+  bisa hapus/ubah komentar siapa pun. Temuan privasi baru: email
+  notifikasi menyiarkan SELURUH transkrip percakapan ke semua peserta
+  setiap ada komentar baru.
+- **`ais/database/model/SintaArticle.java`** (r83523) — 188→584 baris,
+  100% (46 anggota). Data publikasi ilmiah publik, risiko rendah. Fitur
+  sinkronisasi SINTA saat ini DORMAN di UI (tombol tidak pernah
+  ditambahkan ke toolbar).
+- **`ais/database/model/ParameterUmum.java`** (r83529) — 183→697 baris,
+  100% (44 anggota). Ternyata entity KEMBAR `Konfigurasi` (bukan
+  survei/kuesioner seperti dugaan). Kuirk arsitektural mencolok: tabel
+  pengaturan global dipakai sebagai "buku catatan" per-mahasiswa oleh
+  `CommonReportHelper` (kunci berisi NIM+tahun+semester) — sekadar
+  merender surat tagihan yang belum dicetak menyisipkan baris baru,
+  tumbuh sebanding jumlah mahasiswa×tahun×semester. Instance lain pola
+  inversi hak akses (gerbang READ ada, gerbang UPDATE nihil di seluruh
+  `ParameterUmumAction`).
+
+Total akumulasi 31 sesi: **333 file** dari 7.401 (~4,5%).
+
 ## Batch 30 — SELESAI 100% (3 Sep 2026) — TEMUAN KEAMANAN PALING KRITIS SELURUH INISIATIF
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
