@@ -325,66 +325,42 @@ public class MasterAsset extends GeneralValueObject {
 		this.umurEkonomis = umurEkonomis;
 	}
 
+	/**
+	 * Nilai TERSIMPAN kolom ini apa adanya -- tanpa mengambil dari Kelompok Aset, dan tanpa
+	 * mengubah field apa pun.
+	 *
+	 * <p>Getter ini dipetakan {@code @Column} pada entitas ber-akses PROPERTI ({@code @Id}
+	 * dipasang di getter), sehingga Hibernate memanggilnya juga ketika memeriksa perubahan.
+	 * Bila ia mengembalikan nilai milik Kelompok Aset, nilai itu ikut tertulis PERMANEN ke
+	 * kolom aset pada flush berikutnya -- dan asetnya lalu berhenti mengikuti kelompoknya tanpa
+	 * ada yang menyentuhnya. Karena itu pemilihan akun efektif dipindahkan ke
+	 * {@link #akunPenyusutanEfektif()}, yang sengaja BUKAN getter JavaBean sehingga tidak dipetakan.</p>
+	 */
 	@Column(name = "akun_penyusutan_str", columnDefinition = "text")
 	public String getAkunPenyusutan() {
-
-		if (getKelompokAsset() != null && getKelompokAsset().getAkunPenyusutan() != null
-				&& !getKelompokAsset().getAkunPenyusutan().equals(Pertangungjawaban.DEFAULT_FORMULA)) {
-			akunPenyusutan = getKelompokAsset().getAkunPenyusutan();
-		} else {
-			akunPenyusutan = akunPenyusutan == null || akunPenyusutan.isEmpty() ? Pertangungjawaban.DEFAULT_FORMULA
-					: akunPenyusutan;
-		}
-
-		if ((Pertangungjawaban.DEFAULT_FORMULA.equalsIgnoreCase(akunPenyusutan) || !akunPenyusutan.contains("key"))
-				&& getAkunBiayaPenyusutanA() != null) {
-			try {
-				JSONArray array = new JSONArray(akunPenyusutan);
-				JSONObject jsonObject = new JSONObject();
-				jsonObject.put("akun", getAkunPenyusutanA().getId());
-				Long key = Math.abs(Common.randLong());
-				jsonObject.put("key", key);
-				array.put(jsonObject);
-				akunPenyusutan = array.toString();
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/asset/MasterAsset.java:350");
-			}
-		}
-
-		return akunPenyusutan;
+		return akunPenyusutan == null || akunPenyusutan.isEmpty() ? Pertangungjawaban.DEFAULT_FORMULA
+				: akunPenyusutan;
 	}
 
 	public void setAkunPenyusutan(String akunPenyusutan) {
 		this.akunPenyusutan = akunPenyusutan;
 	}
 
+	/**
+	 * Nilai TERSIMPAN kolom ini apa adanya -- tanpa mengambil dari Kelompok Aset, dan tanpa
+	 * mengubah field apa pun.
+	 *
+	 * <p>Getter ini dipetakan {@code @Column} pada entitas ber-akses PROPERTI ({@code @Id}
+	 * dipasang di getter), sehingga Hibernate memanggilnya juga ketika memeriksa perubahan.
+	 * Bila ia mengembalikan nilai milik Kelompok Aset, nilai itu ikut tertulis PERMANEN ke
+	 * kolom aset pada flush berikutnya -- dan asetnya lalu berhenti mengikuti kelompoknya tanpa
+	 * ada yang menyentuhnya. Karena itu pemilihan akun efektif dipindahkan ke
+	 * {@link #akunTransaksiEfektif()}, yang sengaja BUKAN getter JavaBean sehingga tidak dipetakan.</p>
+	 */
 	@Column(name = "akun_transaksi_str", columnDefinition = "text")
 	public String getAkunTransaksi() {
-
-		if (getKelompokAsset() != null && getKelompokAsset().getAkunTransaksi() != null
-				&& !getKelompokAsset().getAkunTransaksi().equals(Pertangungjawaban.DEFAULT_FORMULA)) {
-			akunTransaksi = getKelompokAsset().getAkunTransaksi();
-		} else {
-			akunTransaksi = akunTransaksi == null || akunTransaksi.isEmpty() ? Pertangungjawaban.DEFAULT_FORMULA
-					: akunTransaksi;
-		}
-
-		if ((Pertangungjawaban.DEFAULT_FORMULA.equalsIgnoreCase(akunTransaksi) || !akunTransaksi.contains("key"))
-				&& getAkunTransaksiA() != null) {
-			try {
-				JSONArray array = new JSONArray(akunTransaksi);
-				JSONObject jsonObject = new JSONObject();
-				jsonObject.put("akun", getAkunTransaksiA().getId());
-				Long key = Math.abs(Common.randLong());
-				jsonObject.put("key", key);
-				array.put(jsonObject);
-				akunTransaksi = array.toString();
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/asset/MasterAsset.java:383");
-			}
-		}
-
-		return akunTransaksi;
+		return akunTransaksi == null || akunTransaksi.isEmpty() ? Pertangungjawaban.DEFAULT_FORMULA
+				: akunTransaksi;
 	}
 
 	public void setAkunTransaksi(String akunTransaksi) {
@@ -407,38 +383,123 @@ public class MasterAsset extends GeneralValueObject {
 		this.hargaBeliDefault = hargaBeliDefault;
 	}
 
+	/**
+	 * Nilai TERSIMPAN kolom ini apa adanya -- tanpa mengambil dari Kelompok Aset, dan tanpa
+	 * mengubah field apa pun.
+	 *
+	 * <p>Getter ini dipetakan {@code @Column} pada entitas ber-akses PROPERTI ({@code @Id}
+	 * dipasang di getter), sehingga Hibernate memanggilnya juga ketika memeriksa perubahan.
+	 * Bila ia mengembalikan nilai milik Kelompok Aset, nilai itu ikut tertulis PERMANEN ke
+	 * kolom aset pada flush berikutnya -- dan asetnya lalu berhenti mengikuti kelompoknya tanpa
+	 * ada yang menyentuhnya. Karena itu pemilihan akun efektif dipindahkan ke
+	 * {@link #akunBiayaPenyusutanEfektif()}, yang sengaja BUKAN getter JavaBean sehingga tidak dipetakan.</p>
+	 */
 	@Column(name = "akun_biaya_penyusutan_str", columnDefinition = "text")
 	public String getAkunBiayaPenyusutan() {
-		if (getKelompokAsset() != null && getKelompokAsset().getAkunBiayaPenyusutan() != null
-				&& !getKelompokAsset().getAkunBiayaPenyusutan().equals(Pertangungjawaban.DEFAULT_FORMULA)) {
-			akunBiayaPenyusutan = getKelompokAsset().getAkunBiayaPenyusutan();
-		} else {
-			akunBiayaPenyusutan = akunBiayaPenyusutan == null || akunBiayaPenyusutan.isEmpty()
-					? Pertangungjawaban.DEFAULT_FORMULA
-					: akunBiayaPenyusutan;
-		}
-
-		if ((Pertangungjawaban.DEFAULT_FORMULA.equalsIgnoreCase(akunBiayaPenyusutan)
-				|| !akunBiayaPenyusutan.contains("key")) && getAkunBiayaPenyusutanA() != null) {
-			try {
-				JSONArray array = new JSONArray(akunBiayaPenyusutan);
-				JSONObject jsonObject = new JSONObject();
-				jsonObject.put("akun", getAkunBiayaPenyusutanA().getId());
-				Long key = Math.abs(Common.randLong());
-				jsonObject.put("key", key);
-				array.put(jsonObject);
-				akunBiayaPenyusutan = array.toString();
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/asset/MasterAsset.java:432");
-			}
-		}
-
-		return akunBiayaPenyusutan;
+		return akunBiayaPenyusutan == null || akunBiayaPenyusutan.isEmpty() ? Pertangungjawaban.DEFAULT_FORMULA
+				: akunBiayaPenyusutan;
 	}
 
 	public void setAkunBiayaPenyusutan(String akunBiayaPenyusutan) {
 		this.akunBiayaPenyusutan = akunBiayaPenyusutan;
 	}
+
+	/**
+	 * Pemetaan akun EFEKTIF untuk POSTING, menurut urutan yang ditetapkan pemilik produk:
+	 *
+	 * <ol>
+	 * <li>nilai milik ASET sendiri ({@code akun_*_str}) bila sudah memuat akun;</li>
+	 * <li>akun WARISAN pada aset (kolom FK lama {@code akun_*}) bila terisi;</li>
+	 * <li>terakhir, nilai milik KELOMPOK ASET.</li>
+	 * </ol>
+	 *
+	 * <p>Sebelumnya urutannya terbalik -- kelompok menimpa aset -- sehingga menyunting akun di
+	 * Master Aset tidak berpengaruh apa pun selama kelompoknya terisi.</p>
+	 *
+	 * <p>Sengaja BUKAN getter JavaBean ({@code get...}) supaya Hibernate tidak memetakannya. Lihat
+	 * alasannya di {@link #getAkunTransaksi()}.</p>
+	 */
+	public String akunTransaksiEfektif() {
+		return pilihAkun(akunTransaksi, getAkunTransaksiA(),
+				getKelompokAsset() == null ? null : getKelompokAsset().getAkunTransaksi());
+	}
+
+	/** Akun Akumulasi Penyusutan efektif; urutan sama dengan {@link #akunTransaksiEfektif()}. */
+	public String akunPenyusutanEfektif() {
+		return pilihAkun(akunPenyusutan, getAkunPenyusutanA(),
+				getKelompokAsset() == null ? null : getKelompokAsset().getAkunPenyusutan());
+	}
+
+	/**
+	 * Akun Biaya / Biaya Penyusutan efektif; urutan sama dengan {@link #akunTransaksiEfektif()}.
+	 *
+	 * <p>Versi lama memeriksa {@code getAkunBiayaPenyusutanA()} pada penjaganya tetapi memakai
+	 * {@code getAkunPenyusutanA()} di isinya -- salin-tempel yang membuat akun warisan salah satu
+	 * bidang terabaikan diam-diam, atau melempar NPE yang tertelan {@code catch}. Di sini tiap
+	 * bidang memakai akun warisannya sendiri.</p>
+	 */
+	public String akunBiayaPenyusutanEfektif() {
+		return pilihAkun(akunBiayaPenyusutan, getAkunBiayaPenyusutanA(),
+				getKelompokAsset() == null ? null : getKelompokAsset().getAkunBiayaPenyusutan());
+	}
+
+	private String pilihAkun(String milikAset, Akun warisanAset, String milikKelompok) {
+		if (adaAkun(milikAset)) {
+			return milikAset;
+		}
+		String dariWarisan = bungkusAkun(warisanAset);
+		if (dariWarisan != null) {
+			return dariWarisan;
+		}
+		if (adaAkun(milikKelompok)) {
+			return milikKelompok;
+		}
+		return Pertangungjawaban.DEFAULT_FORMULA;
+	}
+
+	/**
+	 * true bila teks JSON memuat sedikitnya satu entri berakun.
+	 *
+	 * <p>Diperiksa dengan menguraikan isinya, bukan dengan {@code contains("key")} seperti kode
+	 * lama: penanda itu heuristik, dan array berisi akun tanpa {@code key} akan dikira kosong.</p>
+	 */
+	private static boolean adaAkun(String teks) {
+		if (teks == null || teks.trim().isEmpty()
+				|| Pertangungjawaban.DEFAULT_FORMULA.equals(teks.trim())) {
+			return false;
+		}
+		try {
+			JSONArray array = new JSONArray(teks);
+			for (int i = 0; i < array.length(); i++) {
+				JSONObject o = array.optJSONObject(i);
+				if (o != null && !o.isNull("akun")) {
+					return true;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "MasterAsset.adaAkun");
+		}
+		return false;
+	}
+
+	/** Bungkus akun warisan (kolom FK lama) ke bentuk JSON yang sama; null bila tidak ada. */
+	private static String bungkusAkun(Akun akun) {
+		if (akun == null || akun.getId() == null) {
+			return null;
+		}
+		try {
+			JSONArray array = new JSONArray();
+			JSONObject o = new JSONObject();
+			o.put("akun", akun.getId());
+			o.put("key", Long.valueOf(Math.abs(Common.randLong())));
+			array.put(o);
+			return array.toString();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "MasterAsset.bungkusAkun");
+			return null;
+		}
+	}
+
 
 	public String getTipe() {
 		kelompokAsset = getKelompokAsset();

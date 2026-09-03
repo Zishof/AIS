@@ -285,8 +285,15 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 	 * <ol>
 	 *   <li>Menyetel postingHistory ke null.</li>
 	 *   <li>Menyimpan perubahan dengan {@code Common.refreshSaveOrUpdate}.</li>
-	 *   <li>Menghapus GrupTransaksi terkait menggunakan SQL native:
-	 *       {@code DELETE FROM akunting.grup_transaksi WHERE uang_muka=id AND closing IS NULL}.</li>
+	 *   <li>Menghapus baris {@code akunting.transaksi} milik GrupTransaksi terkait lebih
+	 *       dahulu, baru GrupTransaksi-nya sendiri, keduanya lewat SQL native:
+	 *       {@code DELETE FROM akunting.transaksi WHERE grup_transaksi IN (SELECT id FROM
+	 *       akunting.grup_transaksi WHERE uang_muka=id AND closing IS NULL)}, disusul
+	 *       {@code DELETE FROM akunting.grup_transaksi WHERE uang_muka=id AND closing IS
+	 *       NULL}. Urutan dua langkah ini wajib: menghapus header lebih dulu akan
+	 *       meninggalkan baris transaksi yatim yang lolos dari pemeriksaan anti-jurnal-ganda
+	 *       berbasis kodeUnik di {@code CommonAkunting}, sehingga posting ulang menerbitkan
+	 *       set jurnal baru dan menggandakan buku besar.</li>
 	 * </ol>
 	 * Setelah selesai, memuat ulang grid via timer default.</p>
 	 *
@@ -294,7 +301,9 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 	 * framework ZK melalui signature throws di EventListener.</p>
 	 *
 	 * <p><strong>Pemeliharaan:</strong> Filter {@code closing IS NULL} pada SQL hapus
-	 * penting untuk tidak menghapus entri yang sudah di-closing. Jangan ubah kondisi ini.</p>
+	 * penting untuk tidak menghapus entri yang sudah di-closing. Jangan ubah kondisi ini.
+	 * Jangan pula membalik urutan hapus {@code transaksi} lalu {@code grup_transaksi} —
+	 * lihat pola yang sama di {@code batalkanPostingSemua(Date, Date)} (varian API).</p>
 	 *
 	 * @param event event ZK dari klik tombol Batalkan Posting Semua
 	 * @throws Exception jika terjadi error saat dialog atau operasi database
@@ -908,6 +917,17 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								Session session = HibernateUtil.currentSession();
+
+								Object postingHistoryTerkini = session.createCriteria(UangMuka.class)
+										.add(Restrictions.idEq(uangMuka.getId()))
+										.setProjection(Projections.property("postingHistory")).uniqueResult();
+								if (postingHistoryTerkini != null) {
+									MyMessageboxConfig.show(
+											"Data ini sudah diposting oleh pengguna lain. Silakan muat ulang data.",
+											"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+									loadDataDenganProgressPosting(null);
+									return;
+								}
 
 								PostingHistory postingHistory = new PostingHistory(
 										PostingHistory.JENIS_PERSETUJUAN_UANG_MUKA);

@@ -1767,6 +1767,21 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 													return;
 												}
 												Common.refreshDelete(sCek, obj);
+											} else if (obj instanceof ais.database.model.akunting.Closing) {
+												/* Closing terkunci "setengah" bila jurnalnya tidak dilepas dulu: kolom
+												 * akunting.grup_transaksi.closing tetap menunjuk baris yang baru dihapus.
+												 * Relasinya di GrupTransaksi dipetakan @NotFound(IGNORE), jadi getClosing()
+												 * diam-diam jadi null dan tombol Ubah/Hapus/Batalkan Posting tampak aktif
+												 * lagi -- padahal SQL pembatalan yang mensyaratkan "and closing is null"
+												 * tetap melewati baris itu karena kolomnya secara fisik masih terisi.
+												 * Lepas dulu, persis seperti ClosingApiHelper.hapus. */
+												ais.database.model.akunting.Closing cHapus =
+													(ais.database.model.akunting.Closing) obj;
+												Session sHapusClosing = HibernateUtil.currentSession();
+												sHapusClosing.createSQLQuery(
+													"UPDATE akunting.grup_transaksi SET closing = NULL WHERE closing = :id")
+													.setParameter("id", cHapus.getId()).executeUpdate();
+												Common.refreshDelete(sHapusClosing, obj);
 											} else {
 												Common.refreshDelete(obj);
 											}

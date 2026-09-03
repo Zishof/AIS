@@ -483,8 +483,10 @@ public class PengajuanTransaksiPegawaiAction extends GenericAutowireComposer
 				Collections.sort(parameterTambahans);
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "->"
-							+ parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanTransaksiPegawai.class,
+							pengajuanTransaksiPegawai.getId(),
+							kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "->"
+									+ parameterTambahan.getId());
 
 					String val = "";
 					String[] spl = pengajuanTransaksiPegawai.getParameterTambahanInds().split("\n");

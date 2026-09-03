@@ -297,9 +297,14 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 	 *   <li>Mengambil semua {@link Pertangungjawaban} yang sudah diposting pengembalian
 	 *       ({@code postingHistoryPengembalian} tidak null).</li>
 	 *   <li>Untuk setiap entitas: set {@code postingHistoryPengembalian} ke null,
-	 *       simpan perubahan, hapus baris {@link GrupTransaksi} dengan kolom
-	 *       {@code ref = 'pengembalian'} dan {@code pertangungjawaban = id}
-	 *       yang bukan closing entry.</li>
+	 *       simpan perubahan, lalu hapus baris {@code akunting.transaksi} milik
+	 *       {@link GrupTransaksi} terkait lebih dahulu, baru {@link GrupTransaksi}-nya
+	 *       sendiri — keduanya dengan filter kolom {@code ref = 'pengembalian'} dan
+	 *       {@code pertangungjawaban = id} yang bukan closing entry. Urutan dua langkah
+	 *       ini wajib: menghapus header lebih dulu akan meninggalkan baris transaksi
+	 *       yatim yang lolos dari pemeriksaan anti-jurnal-ganda berbasis kodeUnik di
+	 *       {@code CommonAkunting}, sehingga posting ulang menerbitkan set jurnal baru
+	 *       dan menggandakan buku besar.</li>
 	 *   <li>Muat ulang grid via timer default.</li>
 	 * </ol>
 	 *
@@ -309,7 +314,9 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 	 * <p><strong>Pemeliharaan:</strong>
 	 * Query SQL native menggunakan filter {@code ref = 'pengembalian'} (nilai dari
 	 * field {@code ref}) untuk memastikan hanya jurnal pengembalian yang dihapus,
-	 * bukan jurnal pertanggungjawaban utama untuk entitas yang sama.</p>
+	 * bukan jurnal pertanggungjawaban utama untuk entitas yang sama. Jangan membalik
+	 * urutan hapus {@code transaksi} lalu {@code grup_transaksi} — lihat pola yang sama
+	 * di {@code batalkanPostingSemua(Date, Date)} (varian API).</p>
 	 *
 	 * @param event event ZK dari klik tombol
 	 * @throws Exception jika terjadi kesalahan akses basis data atau UI
@@ -888,6 +895,17 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								Session session = HibernateUtil.currentSession();
+
+								Object postingHistoryTerkini = session.createCriteria(Pertangungjawaban.class)
+										.add(Restrictions.idEq(pertangungjawaban.getId()))
+										.setProjection(Projections.property("postingHistoryPengembalian")).uniqueResult();
+								if (postingHistoryTerkini != null) {
+									MyMessageboxConfig.show(
+											"Data ini sudah diposting oleh pengguna lain. Silakan muat ulang data.",
+											"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+									loadDataDenganProgressPosting(null);
+									return;
+								}
 
 								PostingHistory postingHistoryPengembalian = new PostingHistory(
 										PostingHistory.JENIS_PENGEMBALIAN_UANG_MUKA);

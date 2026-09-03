@@ -541,7 +541,7 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 														for (PenerimaanPengadaanMasterAssetDetail penerimaanPengadaanMasterAssetDetail : penerimaanPengadaanMasterAssetDetails) {
 															Akun akunDebet = AssetUtil.ambilDataAkun(
 																	penerimaanPengadaanMasterAssetDetail
-																			.getMasterAsset().getAkunTransaksi(),
+																			.getMasterAsset().akunTransaksiEfektif(),
 																	satuanKerja);
 
 															if (akunDebet == null
@@ -568,7 +568,7 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 																		|| masterAsset.getKelompokAsset().getMerupakanAssetFix();
 																if (!isFixAsset) {
 																	akunDebet = AssetUtil.ambilDataAkun(
-																			masterAsset.getAkunBiayaPenyusutan(),
+																			masterAsset.akunBiayaPenyusutanEfektif(),
 																			satuanKerja);
 																}
 															}
@@ -757,7 +757,7 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 			Double nilai = 0.0;
 			for (PenerimaanPengadaanMasterAssetDetail penerimaanPengadaanMasterAssetDetail : penerimaanPengadaanMasterAssetDetails) {
 				Akun akunDebet = AssetUtil.ambilDataAkun(
-						penerimaanPengadaanMasterAssetDetail.getMasterAsset().getAkunTransaksi(), satuanKerja);
+						penerimaanPengadaanMasterAssetDetail.getMasterAsset().akunTransaksiEfektif(), satuanKerja);
 
 				if (akunDebet == null
 						&& penerimaanPengadaanMasterAssetDetail.getPemesananPengadaanMasterAssetDetail() != null
@@ -880,7 +880,7 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 								Double nilai = 0.0;
 								for (PenerimaanPengadaanMasterAssetDetail penerimaanPengadaanMasterAssetDetail : penerimaanPengadaanMasterAssetDetails) {
 									Akun akunDebet = AssetUtil.ambilDataAkun(
-											penerimaanPengadaanMasterAssetDetail.getMasterAsset().getAkunTransaksi(),
+											penerimaanPengadaanMasterAssetDetail.getMasterAsset().akunTransaksiEfektif(),
 											satuanKerja);
 
 									if (akunDebet == null
@@ -1226,7 +1226,7 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 	private static Akun akunDebetDetail(PenerimaanPengadaanMasterAssetDetail d,
 			SatuanKerja satuanKerja) throws Exception {
 		Akun akun = d.getMasterAsset() == null ? null
-			: AssetUtil.ambilDataAkun(d.getMasterAsset().getAkunTransaksi(), satuanKerja);
+			: AssetUtil.ambilDataAkun(d.getMasterAsset().akunTransaksiEfektif(), satuanKerja);
 		if (akun == null && d.getPemesananPengadaanMasterAssetDetail() != null
 			&& d.getPemesananPengadaanMasterAssetDetail()
 				.getPermintaanPengadaanMasterAssetDetail() != null
@@ -1242,7 +1242,7 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 			boolean asetTetap = m.getKelompokAsset() == null
 				|| m.getKelompokAsset().getMerupakanAssetFix();
 			if (!asetTetap) {
-				akun = AssetUtil.ambilDataAkun(m.getAkunBiayaPenyusutan(), satuanKerja);
+				akun = AssetUtil.ambilDataAkun(m.akunBiayaPenyusutanEfektif(), satuanKerja);
 			}
 		}
 		return akun;

@@ -746,6 +746,27 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return false;
 	}
 
+	/**
+	 * String kunci advisory lock untuk sebuah {@code ref} RAB, ber-namespace.
+	 *
+	 * <p>Seluruh pemakai {@code hashtext(...)} di basis kode berbagi SATU ruang
+	 * kunci advisory {@code bigint} global PostgreSQL — {@code hashtext(teks)}
+	 * memetakan string ke 32-bit yang dilebarkan Postgres ke {@code bigint}. Bila
+	 * dua fitur memakai string kunci yang sama, keduanya saling memblokir walau
+	 * tak berhubungan (berpotensi deadlock). Karena itu tiap fitur memberi prefiks
+	 * namespace berbeda: {@code online-bmt:} (OnlineBmt), {@code bast-sinkron:}
+	 * (PengadaanPosApiHelper), {@code init:} (InitIndex),
+	 * {@code PMB_NO_UJIAN_SAVE_} (CommonPMB).</p>
+	 *
+	 * <p>Prefiks {@code "rab-ref:"} WAJIB dipertahankan agar {@code ref} mentah —
+	 * yang isinya bebas ditentukan modul lain — tak mungkin menabrak kunci fitur
+	 * lain. Invarian ini dijaga {@code PenggunaanAnggaranLockSelfTest}. Lihat
+	 * docs/pos dok. 83 &amp; 107.</p>
+	 */
+	static String kunciRef(String ref) {
+		return "rab-ref:" + ref;
+	}
+
 	private static void lockRef(Session session, String ref) {
 		if (!hasText(ref)) {
 			return;
@@ -759,10 +780,14 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		 * yang tidak dikenal dialect Hibernate 3.6 saat auto-discovery hasil query
 		 * ("No Dialect mapping for JDBC type: 1111"). Hasil di-cast ke text dan
 		 * tipe scalar dideklarasikan eksplisit agar auto-discovery tidak berjalan.
+		 *
+		 * Kunci diberi prefiks namespace lewat kunciRef() supaya ref RAB tidak
+		 * menabrak kunci advisory fitur lain yang berbagi ruang kunci global yang
+		 * sama (lihat kunciRef()).
 		 */
 		session.createSQLQuery("select cast(pg_advisory_xact_lock(hashtext(:ref)) as text) as kunci")
 				.addScalar("kunci", org.hibernate.Hibernate.STRING)
-				.setString("ref", ref).uniqueResult();
+				.setString("ref", kunciRef(ref)).uniqueResult();
 	}
 
 	private static Long findPenggunaanAnggaranIdByRef(Session session, String ref) {

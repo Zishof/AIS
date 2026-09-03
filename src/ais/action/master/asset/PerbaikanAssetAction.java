@@ -513,7 +513,9 @@ public class PerbaikanAssetAction extends GenericAutowireComposer
 				Collections.sort(parameterTambahans);
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanPerbaikanAsset.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(PerbaikanAsset.class,
+							perbaikanAsset.getId(),
+							kelompokParameterTambahanPerbaikanAsset.getId() + "->" + parameterTambahan.getId());
 
 					String val = "";
 					String[] spl = perbaikanAsset.getParameterTambahanInds().split("\n");

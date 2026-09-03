@@ -515,12 +515,12 @@ public class PostingPenyusutanAssetAction extends GenericAutowireComposer {
 
 														Akun akunDebet = AssetUtil.ambilDataAkun(
 																penyusutanAsset.getAssetDetail().getAsset()
-																		.getMasterAsset().getAkunBiayaPenyusutan(),
+																		.getMasterAsset().akunBiayaPenyusutanEfektif(),
 																penyusutanAsset.getAssetDetail().getSatuanKerja());
 
 														Akun akunKredit = AssetUtil.ambilDataAkun(
 																penyusutanAsset.getAssetDetail().getAsset()
-																		.getMasterAsset().getAkunPenyusutan(),
+																		.getMasterAsset().akunPenyusutanEfektif(),
 																penyusutanAsset.getAssetDetail().getSatuanKerja());
 
 														if (akunDebet != null && akunKredit != null) {
@@ -689,11 +689,11 @@ public class PostingPenyusutanAssetAction extends GenericAutowireComposer {
 			new Label(Common.dateFormat4.get().format(penyusutanAsset.getPerTanggal())).setParent(arg0);
 
 			Akun akunDebet = AssetUtil.ambilDataAkun(
-					penyusutanAsset.getAssetDetail().getAsset().getMasterAsset().getAkunBiayaPenyusutan(),
+					penyusutanAsset.getAssetDetail().getAsset().getMasterAsset().akunBiayaPenyusutanEfektif(),
 					penyusutanAsset.getAssetDetail().getSatuanKerja());
 
 			Akun akunKredit = AssetUtil.ambilDataAkun(
-					penyusutanAsset.getAssetDetail().getAsset().getMasterAsset().getAkunPenyusutan(),
+					penyusutanAsset.getAssetDetail().getAsset().getMasterAsset().akunPenyusutanEfektif(),
 					penyusutanAsset.getAssetDetail().getSatuanKerja());
 
 			if (akunDebet != null && akunKredit != null) {
@@ -779,12 +779,12 @@ public class PostingPenyusutanAssetAction extends GenericAutowireComposer {
 
 								Akun akunDebet = AssetUtil.ambilDataAkun(
 										penyusutanAsset.getAssetDetail().getAsset().getMasterAsset()
-												.getAkunBiayaPenyusutan(),
+												.akunBiayaPenyusutanEfektif(),
 										penyusutanAsset.getAssetDetail().getSatuanKerja());
 
 								Akun akunKredit = AssetUtil.ambilDataAkun(
 										penyusutanAsset.getAssetDetail().getAsset().getMasterAsset()
-												.getAkunPenyusutan(),
+												.akunPenyusutanEfektif(),
 										penyusutanAsset.getAssetDetail().getSatuanKerja());
 
 								if (akunDebet != null && akunKredit != null) {
@@ -1162,10 +1162,10 @@ public class PostingPenyusutanAssetAction extends GenericAutowireComposer {
 					ais.database.model.rab.SatuanKerja satuanKerjaFase1 = p.getAssetDetail()
 						.getSatuanKerja();
 					Akun akunDebetFase1 = AssetUtil.ambilDataAkun(
-						p.getAssetDetail().getAsset().getMasterAsset().getAkunBiayaPenyusutan(),
+						p.getAssetDetail().getAsset().getMasterAsset().akunBiayaPenyusutanEfektif(),
 						satuanKerjaFase1);
 					Akun akunKreditFase1 = AssetUtil.ambilDataAkun(
-						p.getAssetDetail().getAsset().getMasterAsset().getAkunPenyusutan(),
+						p.getAssetDetail().getAsset().getMasterAsset().akunPenyusutanEfektif(),
 						satuanKerjaFase1);
 					if (akunDebetFase1 == null || akunKreditFase1 == null
 						|| akunDebetFase1.getId() == null || akunKreditFase1.getId() == null) {

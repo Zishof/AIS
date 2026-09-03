@@ -320,8 +320,9 @@ public class CatatanAdministrasiAction extends GenericAutowireComposer
 				Collections.sort(parameterTambahans);
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanCatatanAdministrasi.getId() + "->"
-							+ parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanAdministrasi.class,
+							catatanAdministrasi.getId(), kelompokParameterTambahanCatatanAdministrasi.getId() + "->"
+									+ parameterTambahan.getId());
 
 					String val = "";
 					String[] spl = catatanAdministrasi.getParameterTambahanInds().split("\n");

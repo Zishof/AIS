@@ -383,7 +383,9 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 							rowParameterTambahan.setVisible(!parameterTambahans.isEmpty());
 							if (!parameterTambahans.isEmpty()) {
 								for (final ParameterTambahan parameterTambahan : parameterTambahans) {
-									String jenis = kelompokParameterTambahanAlurSop.getId() + "->" + parameterTambahan.getId();
+									String jenis = LampiranLain.resolveJenisParameterTambahan(DisposisiAlurSop.class,
+											disposisiAlurSop.getId(),
+											kelompokParameterTambahanAlurSop.getId() + "->" + parameterTambahan.getId());
 									MyFormRow rowParameter = new MyFormRow();
 									rowParameter.setValign("top");
 									rowParameter.setParent(rowsParameter);

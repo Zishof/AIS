@@ -4459,7 +4459,9 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 	                        rowParameterTambahan.setVisible(!parameterTambahans.isEmpty());
 	                        if (!parameterTambahans.isEmpty()) {
 	                            for (ParameterTambahan parameterTambahan : parameterTambahans) {
-	                                String jenis = kelompokParameterTambahanCalonSiswa.getId() + "->" + parameterTambahan.getId();
+	                                String jenis = LampiranLain.resolveJenisParameterTambahan(CalonSiswa.class,
+	                                        calonSiswa.getId(),
+	                                        kelompokParameterTambahanCalonSiswa.getId() + "->" + parameterTambahan.getId());
 	                                Row rowLampiran = new MyRowStyled();
 	                                rowLampiran.setAttribute("parameterTambahan", parameterTambahan);
 	                                rowLampiran.setAttribute("kelompokParameterTambahanCalonSiswa", kelompokParameterTambahanCalonSiswa);

@@ -1796,8 +1796,9 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 							rowParameterTambahan.setVisible(!parameterTambahans.isEmpty());
 							if (!parameterTambahans.isEmpty()) {
 								for (final ParameterTambahan parameterTambahan : parameterTambahans) {
-									String jenis = kelompokParameterTambahanAlurSop.getId() + "->"
-											+ parameterTambahan.getId();
+									String jenis = LampiranLain.resolveJenisParameterTambahan(DisposisiAlurSop.class,
+											disposisiAlurSop.getId(), kelompokParameterTambahanAlurSop.getId() + "->"
+													+ parameterTambahan.getId());
 									Row rowParameter = new Row();
 									rowParameter.setParent(rowsParameter);
 									rowParameter.appendChild(new Label(parameterTambahan.getLabelInputan()

@@ -228,8 +228,9 @@ public class RealisasiKerjaPegawaiDetailAction extends MyDetail implements DataC
 						group.setVisible(!parameterTambahans.isEmpty());
 						if (!parameterTambahans.isEmpty()) {
 							for (final ParameterTambahan parameterTambahan : parameterTambahans) {
-								final String jenis = kelompokParameterTambahanKegiatan.getId() + "->"
-										+ parameterTambahan.getId();
+								final String jenis = LampiranLain.resolveJenisParameterTambahan(
+										RealisasiKerjaPegawai.class, realisasiKerjaPegawai.getId(),
+										kelompokParameterTambahanKegiatan.getId() + "->" + parameterTambahan.getId());
 
 								MyFormRow row = new MyFormRow();
 								row.setValign("top");

@@ -333,6 +333,11 @@ public class PostingKasBesarAction extends GenericAutowireComposer {
 								kasBesar.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(kasBesar);
 								HibernateUtil.currentSession().createSQLQuery(
+										"delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where kas_besar=" + kasBesar.getId()
+												+ " and closing is null)")
+										.executeUpdate();
+								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where kas_besar=" + kasBesar.getId() + " and closing is null")
 										.executeUpdate();
 							}
@@ -846,6 +851,11 @@ public class PostingKasBesarAction extends GenericAutowireComposer {
 							public void onEvent(Event arg0) throws Exception {
 								kasBesar.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(kasBesar);
+								HibernateUtil.currentSession().createSQLQuery(
+										"delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where kas_besar=" + kasBesar.getId()
+												+ " and closing is null)")
+										.executeUpdate();
 								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where kas_besar=" + kasBesar.getId() + " and closing is null")
 										.executeUpdate();

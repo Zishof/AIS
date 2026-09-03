@@ -67,6 +67,31 @@ public final class MasterKeuanganApiHelper {
 		hasil.put("description", pesan);
 	}
 
+	/**
+	 * <p><b>Catatan keamanan (diverifikasi 2026-09-03, TIDAK diubah sesuai keputusan
+	 * eksplisit -- lihat di bawah).</b> {@code role == null} di sini FAIL-OPEN (mengizinkan
+	 * penuh), bukan menolak. Ini BUKAN cacat unik file ini: pola identik disalin ke 20+
+	 * {@code *ApiHelper.bolehAksi()} lain (mis. {@code KasKecilApiHelper},
+	 * {@code PertangungjawabanApiHelper}, {@code UangMukaApiHelper}) dan ke gerbang utama
+	 * {@code PosApi.bolehAksesActionKantin} sendiri -- satu-satunya pengecualian fail-closed
+	 * di seluruh {@code ais.action.servlet.api} adalah {@code HotelApiHelper}.</p>
+	 *
+	 * <p>{@code role} (hasil {@link Tbmuser#hakAkses()}) null BUKAN berarti "user baru belum
+	 * diberi role" (kolom FK-nya {@code nullable=false}), melainkan entitas {@code Tbmrole}
+	 * yang dirujuk sudah ter-detach/hilang dari session (cache stale, role dihapus lalu
+	 * {@code check()} di {@link ais.database.model.GeneralValueObject} mengembalikan null) --
+	 * kondisi anomali cache, bukan alur normal.</p>
+	 *
+	 * <p>Karena konvensi ini konsisten &amp; disengaja di seluruh lapisan API Keuangan,
+	 * mengubahnya jadi fail-closed HANYA di sini akan (a) menciptakan inkonsistensi perilaku
+	 * antar modul yang identik strukturnya, dan (b) berisiko mengunci akun sah yang cache
+	 * role-nya sedang stale, tanpa menutup celah yang sama di 20+ file lain maupun di gerbang
+	 * {@code PosApi.bolehAksesActionKantin} yang berjalan LEBIH DULU. Perbaikan yang aman
+	 * ada di akar penyebab ({@code hakAkses()}/cache tidak boleh diam-diam mengembalikan null
+	 * untuk user sah) atau sebagai keputusan produk terpisah yang diterapkan konsisten ke
+	 * SELURUH keluarga {@code *ApiHelper} akuntansi/keuangan sekaligus -- bukan tambalan
+	 * sepihak di satu file. Dibiarkan sesuai instruksi eksplisit sesi audit 2026-09-03.</p>
+	 */
 	private static boolean bolehAksi(Tbmuser tbmuser, String aksi) {
 		if (Common.getApakahAdminLain(tbmuser)) {
 			return true;
@@ -179,6 +204,21 @@ public final class MasterKeuanganApiHelper {
 
 	// ============================================================ daftar
 
+	/**
+	 * <p><b>Catatan keamanan (diverifikasi 2026-09-03, TIDAK diubah).</b> Method ini TIDAK
+	 * memanggil {@link #bolehAksi} -- siapa pun dengan {@code tbmuser} terautentikasi (token
+	 * API apa saja) dapat membaca seluruh master data Keuangan, terlepas dari menu/role-nya.
+	 * Ditambah {@code PosApi.bolehAksesActionKantin} sendiri fallback {@code return true}
+	 * untuk prefiks {@code master_keuangan_} (tidak ada cabang khusus untuknya), jadi gerbang
+	 * pertama pun tidak menyaring. INI BUKAN cacat unik file ini: {@code daftar()} di SELURUH
+	 * helper Keuangan lain ({@code KasKecilApiHelper}, {@code KasBesarApiHelper},
+	 * {@code ReimbursementApiHelper}, {@code DanaTalanganApiHelper},
+	 * {@code PertangungjawabanApiHelper}, {@code PenggantianKasKecilApiHelper},
+	 * {@code UangMukaApiHelper}, {@code ProsesTransferApiHelper}) punya pola identik: baca
+	 * hanya digerbangi autentikasi, bukan hak menu. Menambal satu file akan inkonsisten
+	 * dengan seluruh keluarganya -- kalau memang mau ditutup, perlu keputusan &amp;
+	 * eksekusi serentak di seluruh keluarga helper ini.</p>
+	 */
 	public static void daftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		String tipe = request == null ? "" : request.optString("tipe", "").trim();
 		String cari = request == null ? "" : request.optString("cari", "").trim();
@@ -301,6 +341,20 @@ public final class MasterKeuanganApiHelper {
 
 	// ============================================================ opsi
 
+	/**
+	 * <p><b>Catatan keamanan (diverifikasi 2026-09-03, TIDAK diubah).</b> Daftar satuan kerja
+	 * di bawah ini TIDAK difilter cakupan/kepemilikan pemanggil (LIMIT 500 saja), dan
+	 * {@link #simpan} menerima {@code satuanKerjaId} APA SAJA dari klien tanpa validasi bahwa
+	 * ID tersebut relevan bagi pemanggil. INI BUKAN cacat unik file ini: query
+	 * {@code SELECT id, nama FROM rab.satuan_kerja ORDER BY nama LIMIT 500} yang sama persis
+	 * (unfiltered) dan pola terima-{@code satuanKerjaId}-mentah muncul identik di
+	 * {@code KasKecilApiHelper}, {@code KasBesarApiHelper}, {@code ReimbursementApiHelper},
+	 * {@code DanaTalanganApiHelper}, {@code PertangungjawabanApiHelper},
+	 * {@code PertangungjawabanKasBesarApiHelper}, {@code PenggantianKasKecilApiHelper},
+	 * {@code UangMukaApiHelper}, {@code ProsesTransferApiHelper} -- konvensi konsisten
+	 * di seluruh keluarga helper Keuangan, bukan gap lokal. Kalau memang perlu cakupan per
+	 * unit kerja, itu keputusan &amp; eksekusi lintas-keluarga, bukan tambalan satu file.</p>
+	 */
 	public static void opsi(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
