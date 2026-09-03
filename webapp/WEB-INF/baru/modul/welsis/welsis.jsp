@@ -2,6 +2,7 @@
 <%@page import="org.hibernate.Session"%>
 <%@page import="org.hibernate.criterion.Order"%>
 <%@page import="ais.common.Common"%>
+<%@page import="ais.common.newui.NewUiCsrfUtil"%>
 <%@page import="ais.database.hibernate.HibernateUtil"%>
 <%@page import="ais.database.model.PerguruanTinggi"%>
 <%@page import="ais.action.master.helper.util.PerguruanTinggiUtil"%>
@@ -35,6 +36,7 @@
     String rnd = Common.getGeneratedBarCode(7);
     long cacheBuster = System.currentTimeMillis();
     String linkService = Common.ROOT + "/welsis?hanya_tampil_jsp=true&p=welsis&s=_welsis_service";
+    String csrfToken = NewUiCsrfUtil.getToken(request.getSession(true));
     String bgImage = (backgroundPerguruanTinggi != null && !backgroundPerguruanTinggi.isEmpty()) 
                      ? backgroundPerguruanTinggi : Common.ROOT + "/img/main.jpg";
 %>
@@ -167,6 +169,8 @@
     <script data-cfasync="false" src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
+        var csrfToken<%=rnd%> = '<%= csrfToken.replace("\\", "\\\\").replace("'", "\\'") %>';
+
         // Realtime Clock
         function updateClock() {
             const now = new Date();
@@ -202,7 +206,7 @@
                 const req = await fetch('<%= linkService %>', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'action=scan&kode=' + encodeURIComponent(identitas)
+                    body: 'action=scan&kode=' + encodeURIComponent(identitas) + '&nui_csrf=' + encodeURIComponent(csrfToken<%=rnd%>)
                 });
                 const response = await req.json();
                 

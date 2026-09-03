@@ -21,8 +21,18 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 }
 
 if(hanya_tampil_jsp){
-	if(!p.trim().isEmpty() && !s.trim().isEmpty()){
-        	  
+	// PERBAIKAN KEAMANAN (task_1f9c66d3, rujuk r83764 webapp/WEB-INF/baru/tamu.jsp): sebelumnya p/s
+	// diambil mentah tanpa daftar putih -- proksi anonim ke JSP layanan modul APA PUN. Inventarisasi
+	// menyeluruh (grep atas seluruh webapp/ utk "hanya_tampil_jsp"/"/pos?") TIDAK menemukan satupun
+	// pemanggil sah utk dispatcher root pos.jsp ini -- semua layanan kantin/pos (layar_pelanggan,
+	// pos_offline_service, survey_kepuasan_service, verifikasi_pin_service,
+	// verifikasi_biometric_service, cetak_struk) selalu dipanggil lewat dispatcher /baru
+	// (p=kantin%2Fpos) yang sudah punya gerbang otorisasi modul kantin sendiri di Baru.java, BUKAN
+	// lewat /pos?hanya_tampil_jsp=true. Karena tidak ada pasangan p/s yang sah utk rute ini, daftar
+	// putih sengaja dikosongkan (deny-all) alih-alih menebak/membuka kombinasi baru.
+	boolean psDiizinkan = false;
+	if(!p.trim().isEmpty() && !s.trim().isEmpty() && psDiizinkan){
+
         	  try{
         		  String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
                   %>
@@ -34,7 +44,9 @@ if(hanya_tampil_jsp){
         		  <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
         		  <%
         	  }
-          
+
+    } else if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+    	response.sendError(403);
     }
 } else {
 %>
