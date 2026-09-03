@@ -1,5 +1,64 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 42 — SELESAI 100% (3 Sep 2026) — KEBOCORAN DATA DISIPLIN SISWA DITEMUKAN, TASK ESKALASI BARU
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/sekolah/ParameterTambahanCatatanKelasSiswa.java`**
+  (r83617) — 160→623 baris, 100% (21 anggota). Serialisasi 7/4 ruas
+  (identik pola CatatanSiswa). Jangkauan pembaca TERLUAS di keluarga:
+  5 jalur termasuk rapor. Broken access control ADA.
+- **`ais/database/model/sekolah/ParameterTambahanGelombangPendaftaranPsb.java`**
+  (r83618) — 159→522 baris, 100% (33 anggota). SQL migrasi mentah
+  TERKONFIRMASI (pola sama versi PT, setiap layar dibuka, lewati
+  Envers). Broken access control ADA — hit rate **14/14**. Varian bug
+  salin-tempel baru: daftar properti ekspor/impor Excel menyebut 2
+  kolom fiktif dari entity lain (`ParameterTambahanPaket`).
+- **`ais/database/model/sekolah/KelompokParameterTambahanCalonSiswa.java`**
+  (r83619) — 177→597 baris, 100% (22 anggota). 4/5 pola ADA (TreeSet
+  TIDAK — konsumen pakai `List`+`Collections.sort`). Kuirk: versi
+  sekolah KEHILANGAN sifat "aman secara bawaan" versi PT — kategori
+  baru langsung tampil di form termasuk SEBELUM login.
+- **`ais/database/model/sekolah/Pelanggaran.java`** (r83621) — 183→570
+  baris, 100% (35 anggota). Master jenis pelanggaran (`kredit`).
+  **TEMUAN KRITIS**: `PelanggaranSiswa` (data disiplin anak di bawah
+  umur) bisa di-dump ANONIM lewat `/Data` dengan `tanpaLogin=true`
+  (amplifier `task_493423ef`). TEMUAN TERPISAH: `DasbordPelanggaran`
+  tidak memfilter `orangTua` sama sekali (beda dari grid utama yang
+  sudah benar) — orang tua/guru melihat hingga 600 baris pelanggaran
+  siswa LAIN lintas sekolah/yayasan.
+- **`ais/database/model/sekolah/Hukuman.java`** (r83620) — 183→616
+  baris, 100% (33 anggota). Master jenis sanksi (`poin`). Rantai
+  TERNYATA 4 lapis, `PelanggaranDanHukuman` BUKAN entity transaksi
+  (masih master — `PelanggaranSiswa` yang transaksi). **Konfirmasi
+  independen temuan Pelanggaran**: `PelanggaranSiswaAction.initCriteria()`
+  tidak memfilter siswa/guru sama sekali, filter orang tua FAIL-OPEN
+  (kosong = lihat semua). `HukumanAction` sendiri CONTOH POSITIF
+  (guard lengkap, langka di keluarga sekolah). Bug nyata: total poin
+  hukuman di rapor SELALU 0.0 (salah nama variabel akumulator,
+  ditambah ke akumulator yang sudah ditulis sebelumnya).
+
+**TASK ESKALASI BARU: `task_5e93a600`** — broken access control pada
+riwayat pelanggaran/hukuman siswa, dikonfirmasi INDEPENDEN oleh 2 agen
+dari sudut entity berbeda (Pelanggaran & Hukuman). Cukup spesifik &
+severe (data disiplin anak di bawah umur, fail-open, cross-tenant leak)
+untuk eskalasi tersendiri di luar `task_493423ef` yang sudah ada.
+
+**Hit rate `task_58f74860` kini 14/14** (10 PT + 4 sekolah, tanpa
+pengecualian) — kandidat sekolah tersisa: `ParameterTambahanKegiatanSiswaAction`.
+**Pengecualian pertama yang menyegarkan** di keluarga Action sekolah:
+`HukumanAction`/`PelanggaranAction`/`PelanggaranDanHukumanAction`
+SEMUA punya guard lengkap — cacatnya bergeser ke lapis dasbor/endpoint,
+bukan Action master itu sendiri.
+
+**Pola "getKeterangan() membalik kontrak"**: 1 instance baru batch ini
+(`KelompokParameterTambahanCalonSiswa`; entity penghubung tetap tidak
+punya field `keterangan`). Total kumulatif: 22+1 = **23 instance**.
+
+Total akumulasi 42 sesi: **388 file** dari 7.401 (~5,2%).
+
 ## Batch 41 — SELESAI 100% (3 Sep 2026) — MODUL `sekolah/` DIBUKA, POLA BROKEN ACCESS CONTROL TERBUKTI MENYEBERANG SKEMA
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
