@@ -1108,15 +1108,27 @@ public class PostingJenisKasKecilAction extends GenericAutowireComposer {
 	 * Kriteria dokumen saldo awal kas kecil yang SAMA dengan baris "Saldo Awal Kas Kecil" di
 	 * dasbor draft jurnal ({@code DraftJurnalRingkasanUtil}): jenis kas kecil yang terhubung
 	 * proses transfer (syarat wajib layar) dan saldo awalnya tidak nol, pada rentang tanggal
-	 * pembukaan. Filter satuan kerja dan kata kunci layar tidak ikut -- dasbor menghitung
-	 * global.
+	 * pembukaan. Kata kunci pencarian layar tidak ikut, tetapi filter satuan kerja TETAP
+	 * diterapkan -- lihat catatan di bawah; klaim javadoc lama ("dasbor menghitung global")
+	 * mendokumentasikan celah ini sebagai fitur, padahal method yang sama dipakai
+	 * {@link #postingSemua} untuk MEMPOSTING (memutasi) dokumen, bukan sekadar menghitung.
 	 */
 	private static Criteria kriteriaSaldoAwalKasKecilStatic(Session session, java.util.Date mulai,
 			java.util.Date sampai) {
+		// Cakupan penyewa (satuan kerja): tanpa ini, jalur API men-scan/memposting
+		// dokumen saldo awal kas kecil SELURUH instalasi (lintas Yayasan), bukan hanya
+		// milik penyewa yang sedang memanggil -- lihat catatan sama pada
+		// PostingTransaksiPembayaranGajiAction.kriteriaPostingStatic(). Himpunan kosong
+		// (Yayasan tidak teridentifikasi) fail-CLOSED, bukan fail-open seperti
+		// initCriteria(boolean) pada layar ZK.
+		Set<SatuanKerja> satuanKerjasPengguna = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
 		Criteria c = session.createCriteria(JenisKasKecil.class)
 				.createAlias("daftarPengajuanTransfer", "daftarPengajuanTransfer")
 				.add(Restrictions.isNotNull("daftarPengajuanTransfer.prosesTransfer"))
-				.add(Restrictions.ne("saldoAwal", 0.0)).add(Restrictions.isNotNull("saldoAwal"));
+				.add(Restrictions.ne("saldoAwal", 0.0)).add(Restrictions.isNotNull("saldoAwal"))
+				.add(satuanKerjasPengguna.isEmpty() ? Restrictions.sqlRestriction("false")
+						: Restrictions.or(Restrictions.isNull("satuanKerja"),
+								Restrictions.in("satuanKerja", satuanKerjasPengguna)));
 		if (mulai != null && sampai != null) {
 			c.add(Restrictions.sqlRestriction("date(this_.tanggal) between date('"
 					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"

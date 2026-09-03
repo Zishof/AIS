@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.util.Date;
 
 import org.hibernate.Session;
+import org.hibernate.criterion.Projections;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -15,9 +16,12 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.akunting.JenisReimbursement;
+import ais.database.model.akunting.NomorSuratAlurKeuangan;
 import ais.database.model.akunting.ReimbursementPegawai;
+import ais.database.model.asset.NomorSuratAlurPengadaan;
 import ais.database.model.rab.SatuanKerja;
 import ais.database.model.rab.Workspace;
+import ais.database.model.surat.NomorSurat;
 import ais.ui.util.WaktuUtil;
 
 /**
@@ -536,7 +540,7 @@ public final class ReimbursementApiHelper {
 
 			session.beginTransaction();
 			if (baru) {
-				r.setKode(Common.getGeneratedBarCode());
+				r.setKode(buatKode(session));
 			}
 			session.saveOrUpdate(r);
 			session.getTransaction().commit();
@@ -554,6 +558,49 @@ public final class ReimbursementApiHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	// ==================================================================== kode dokumen
+
+	/**
+	 * Kode dokumen memakai catalog Nomor Surat yang SAMA dengan layar ZK
+	 * ({@code ReimbursementPegawaiAction.generateCode}): coba
+	 * {@code NomorSuratAlurPengadaan.REIMBURSEMENT_PEGAWAI_DATA} lebih dulu, lalu fallback ke
+	 * {@code NomorSuratAlurKeuangan.REIMBURSEMENT_DATA}, dan terakhir format bawaan
+	 * RMB-yyyyMM-urut -- supaya dokumen yang dibuat lewat REST (Desktop/Android) tidak
+	 * bentrok/dobel dengan yang dibuat lewat ZK.
+	 */
+	private static String buatKode(Session session) {
+		long count = 0;
+		try {
+			Number n = (Number) session.createCriteria(ReimbursementPegawai.class)
+					.setProjection(Projections.rowCount()).uniqueResult();
+			count = n == null ? 0 : n.longValue();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementApiHelper.buatKode");
+		}
+
+		try {
+			NomorSurat ns = null;
+			if (NomorSuratAlurPengadaan.REIMBURSEMENT_PEGAWAI_DATA != null) {
+				ns = NomorSuratAlurPengadaan.REIMBURSEMENT_PEGAWAI_DATA.getNomorSurat();
+			}
+			if (ns == null && NomorSuratAlurKeuangan.REIMBURSEMENT_DATA != null) {
+				ns = NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat();
+			}
+			if (ns != null) {
+				Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut())
+						? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+						: Long.valueOf(count + 1);
+				String noAgenda = ns.format(index, WaktuUtil.getDate());
+				return ais.action.master.KodeUnikUtil.pastikanUnik(ReimbursementPegawai.class, noAgenda);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementApiHelper.buatKode-kustom");
+		}
+
+		String prefix = "RMB-" + new java.text.SimpleDateFormat("yyyyMM").format(WaktuUtil.getDate()) + "-";
+		return ais.action.master.KodeUnikUtil.pastikanUnik(ReimbursementPegawai.class, prefix + (count + 1));
 	}
 
 	// ==================================================================== keputusan
