@@ -983,41 +983,120 @@ public class Produk extends GeneralValueObject {
 		return bahanBaku;
 	}
 
+	/**
+	 * Setter {@link #getBahanBaku()} -- menerima string JSON MENTAH tanpa memvalidasi bentuknya,
+	 * tanpa memeriksa bahwa id produk di dalamnya benar-benar ada, dan tanpa menghitung ulang HPP.
+	 * JSON yang rusak baru ketahuan saat pembacaan resep di lapisan helper. Perlu diingat harga
+	 * yang tersimpan di dalamnya adalah SNAPSHOT saat bahan ditambahkan: memperbarui harga beli
+	 * produk bahan baku TIDAK memperbarui angka pada resep produk ini.
+	 *
+	 * @param bahanBaku JSON daftar bahan baku, boleh {@code null}/kosong untuk produk tanpa resep
+	 */
 	public void setBahanBaku(String bahanBaku) {
 		this.bahanBaku = bahanBaku;
 	}
 
+	/** Ambang peringatan reorder; lihat {@link #getStokMinimum()}. */
 	private Double stokMinimum;
+
+	/** Tanggal kedaluwarsa tingkat produk (MVP); lihat {@link #getTanggalExpired()}. */
 	private java.util.Date tanggalExpired;
+
+	/** Nomor batch/lot tingkat produk (MVP); lihat {@link #getBatch()}. */
 	private String batch;
 
-	/** Batas minimum stok untuk peringatan reorder/pembelian ulang (opsional; 0 = tidak dipantau). */
+	/**
+	 * Batas minimum stok untuk peringatan reorder/pembelian ulang (opsional; 0 = tidak dipantau).
+	 *
+	 * <p>Dibaca {@link ais.common.StokThresholdScheduler} yang membandingkannya terhadap
+	 * {@link #getStok()} (saldo AGREGAT, bukan jumlah saldo {@link ProdukBatch}) dan menerbitkan
+	 * keluaran otomatis sesuai {@link #getRute()}: pengajuan pembelian untuk rute
+	 * {@link #RUTE_BELI}, atau draf Work Order produksi untuk {@link #RUTE_PRODUKSI}. Karena
+	 * pembandingnya stok agregat, produk yang stoknya dilacak per lot tetap dipantau lewat angka
+	 * agregat -- perbedaan antara keduanya (lihat javadoc {@link #getStok()}) ikut terbawa ke
+	 * keputusan reorder.</p>
+	 *
+	 * <p>Getter null-safe: {@code null} dibaca sebagai {@code 0.0}, yang bermakna "tidak dipantau"
+	 * karena stok tidak akan pernah turun di bawah nol tanpa penjualan minus. Akibatnya nilai
+	 * "belum pernah diisi" tidak dapat dibedakan dari "sengaja nol", dan ambang tidak bisa disetel
+	 * tepat pada nol untuk memicu peringatan saat stok habis -- pakai angka positif kecil bila itu
+	 * yang diinginkan. Satuan angka ini adalah satuan DASAR produk, sama seperti {@code stok}.</p>
+	 *
+	 * @return ambang reorder dalam satuan dasar; {@code 0.0} berarti tidak dipantau
+	 */
 	@Column(name = "stok_minimum")
 	public Double getStokMinimum() {
 		return stokMinimum == null ? 0.0 : stokMinimum;
 	}
 
+	/**
+	 * Setter {@link #getStokMinimum()}. Menyetel {@code null} atau {@code 0.0} sama-sama berarti
+	 * produk tidak dipantau ambang stoknya, karena getter menormalkan {@code null} menjadi
+	 * {@code 0.0}.
+	 *
+	 * @param stokMinimum ambang peringatan reorder
+	 */
 	public void setStokMinimum(Double stokMinimum) {
 		this.stokMinimum = stokMinimum;
 	}
 
-	/** Tanggal kedaluwarsa produk (opsional; MVP per-produk untuk laporan expired). */
+	/**
+	 * Tanggal kedaluwarsa produk (opsional; MVP per-produk untuk laporan expired).
+	 *
+	 * <p><b>Ini peninggalan tahap MVP yang DIGANTIKAN, bukan digunakan, oleh pelacakan lot.</b>
+	 * Satu tanggal per baris PRODUK secara konseptual tidak memadai: kedaluwarsa adalah sifat lot
+	 * fisik, dan satu produk lazim memiliki beberapa lot dengan tanggal berbeda sekaligus. Model
+	 * yang benar ada di {@link ProdukBatch#getTanggalExpired()}, yang menjadi kunci urutan konsumsi
+	 * FEFO dan bagian kunci unik baris batch. Field di sini TIDAK ikut dipertimbangkan mesin FEFO
+	 * dan tidak pernah dibandingkan dengan tanggal batch mana pun -- keduanya dapat berisi nilai
+	 * yang saling bertentangan tanpa ada yang memprotes. Untuk produk yang dilacak per lot,
+	 * abaikan field ini; ia dipertahankan agar produk yang tidak pernah dikirimi data lot tetap
+	 * dapat masuk laporan expired sederhana seperti sebelum fitur batch ada.</p>
+	 *
+	 * <p>Presisi {@code DATE} (tanpa komponen jam) -- kedaluwarsa dinilai per hari.</p>
+	 *
+	 * @return tanggal kedaluwarsa tingkat produk, atau {@code null} bila tidak dipakai
+	 */
 	@javax.persistence.Temporal(javax.persistence.TemporalType.DATE)
 	@Column(name = "tanggal_expired")
 	public java.util.Date getTanggalExpired() {
 		return tanggalExpired;
 	}
 
+	/**
+	 * Setter {@link #getTanggalExpired()} -- tidak menyentuh dan tidak divalidasi terhadap
+	 * {@link ProdukBatch#getTanggalExpired()} mana pun. Lihat javadoc getter mengenai statusnya
+	 * sebagai peninggalan MVP.
+	 *
+	 * @param tanggalExpired tanggal kedaluwarsa tingkat produk, boleh {@code null}
+	 */
 	public void setTanggalExpired(java.util.Date tanggalExpired) {
 		this.tanggalExpired = tanggalExpired;
 	}
 
-	/** Nomor batch/lot (opsional). */
+	/**
+	 * Nomor batch/lot (opsional).
+	 *
+	 * <p>Peninggalan tahap MVP yang sepasang dengan {@link #getTanggalExpired()} dan menanggung
+	 * keterbatasan yang sama: satu nomor lot per baris produk tidak dapat mewakili beberapa lot
+	 * yang hidup bersamaan. Pelacakan lot sebenarnya ada di {@link ProdukBatch#getNomorBatch()},
+	 * yang bersama produk, toko, dan tanggal kedaluwarsa membentuk kunci unik satu baris batch.
+	 * Nilai di sini murni informatif -- tidak dipakai mesin FEFO, tidak dicocokkan dengan nomor lot
+	 * batch mana pun, dan tidak ikut membentuk {@link #getKunciUnik()}.</p>
+	 *
+	 * @return nomor batch tingkat produk, atau {@code null} bila tidak dipakai
+	 */
 	@Column(name = "batch", length = 100)
 	public String getBatch() {
 		return batch;
 	}
 
+	/**
+	 * Setter {@link #getBatch()} -- menyimpan nilai apa adanya; tidak membuat maupun mencocokkan
+	 * baris {@link ProdukBatch}.
+	 *
+	 * @param batch nomor batch tingkat produk, boleh {@code null}
+	 */
 	public void setBatch(String batch) {
 		this.batch = batch;
 	}
@@ -1035,6 +1114,13 @@ public class Produk extends GeneralValueObject {
 		return masterAsset;
 	}
 
+	/**
+	 * Setter {@link #getMasterAsset()} -- sekadar menautkan, TIDAK memicu rekonsiliasi stok apa pun
+	 * antara saldo kantin ({@link #getStok()}) dan saldo persediaan aset. Kedua angka tetap dikelola
+	 * modulnya masing-masing; tautan ini hanya menyediakan jalan telusur.
+	 *
+	 * @param masterAsset barang persediaan modul Aset/Logistik, boleh {@code null} (mode hibrida)
+	 */
 	public void setMasterAsset(MasterAsset masterAsset) {
 		this.masterAsset = masterAsset;
 	}
@@ -1049,6 +1135,20 @@ public class Produk extends GeneralValueObject {
 		return pemasok;
 	}
 
+	/**
+	 * Setter {@link #getPemasok()}. Bersifat penanda/rujukan default saja -- TIDAK membatasi dari
+	 * pemasok mana produk ini boleh dibeli; pembelian dari pemasok lain tetap bebas.
+	 *
+	 * <p>Perhatikan getter pasangannya adalah SATU-SATUNYA getter relasi pada kelas ini yang TIDAK
+	 * memanggil {@link ais.database.model.GeneralValueObject#check(Object)} -- bersama
+	 * {@link #getSatuan()}. Konsekuensinya, pada objek yang sudah <i>detached</i> dari session
+	 * asalnya, pembacaan {@link #getPemasok()} dapat mengembalikan proxy lazy yang belum
+	 * terinisialisasi dan melempar {@code LazyInitializationException} di pemanggil, sementara
+	 * relasi lain di kelas yang sama aman. Bila membaca relasi ini di luar session, pastikan sudah
+	 * di-fetch lebih dulu.</p>
+	 *
+	 * @param pemasok pemasok utama, boleh {@code null}
+	 */
 	public void setPemasok(PemasokProduk pemasok) {
 		this.pemasok = pemasok;
 	}
@@ -1063,6 +1163,23 @@ public class Produk extends GeneralValueObject {
 		return satuan;
 	}
 
+	/**
+	 * Setter {@link #getSatuan()} -- menetapkan satuan DASAR pencatatan stok produk ini.
+	 *
+	 * <p><b>Mengubahnya pada produk yang sudah bertransaksi berbahaya secara diam-diam.</b> Seluruh
+	 * angka kuantitas yang sudah tersimpan -- {@link #getStok()}, saldo tiap {@link ProdukBatch},
+	 * riwayat {@link MutasiStokToko}, baris opname, dan qty pada dokumen pembelian/penjualan lama --
+	 * adalah angka TANPA satuan yang maknanya bergantung pada nilai field ini. Menggantinya
+	 * (mis. dari "botol" ke "dus") tidak mengonversi satu pun angka tersebut, sehingga seluruh
+	 * riwayat mendadak terbaca dalam satuan baru dan nilai persediaan ikut salah. Tidak ada
+	 * pemeriksaan di entity ini yang mencegahnya.</p>
+	 *
+	 * <p>Getter pasangannya tidak memanggil
+	 * {@link ais.database.model.GeneralValueObject#check(Object)}; lihat catatan pada
+	 * {@link #setPemasok(PemasokProduk)} mengenai risiko proxy lazy pada objek detached.</p>
+	 *
+	 * @param satuan satuan dasar produk, boleh {@code null}
+	 */
 	public void setSatuan(SatuanProduk satuan) {
 		this.satuan = satuan;
 	}
@@ -1076,6 +1193,15 @@ public class Produk extends GeneralValueObject {
 		return satuanPembelian;
 	}
 
+	/**
+	 * Setter {@link #getSatuanPembelian()} -- TIDAK memvalidasi bahwa satuan yang disetel sekategori
+	 * dengan {@link #getSatuan()}, padahal kesetaraan kategori itulah yang membuat rasio konversi
+	 * UOM bermakna. Menyetel satuan dari kategori berbeda akan menghasilkan konversi qty pembelian
+	 * ke satuan dasar yang keliru tanpa peringatan; form pengisian yang menjaga aturan ini, bukan
+	 * entity.
+	 *
+	 * @param satuanPembelian UOM bawaan PO, boleh {@code null} (memakai satuan dasar)
+	 */
 	public void setSatuanPembelian(SatuanProduk satuanPembelian) {
 		this.satuanPembelian = satuanPembelian;
 	}
@@ -1089,6 +1215,7 @@ public class Produk extends GeneralValueObject {
 	/** Rute MTO (Fase E): konfirmasi SalesOrderLapangan memicu draf Work Order. */
 	public static final String RUTE_MTO_PRODUKSI = "MTO_PRODUKSI";
 
+	/** Rute pemenuhan kembali stok; lihat {@link #getRute()}. */
 	private String rute;
 
 	/**
@@ -1102,10 +1229,22 @@ public class Produk extends GeneralValueObject {
 		return rute;
 	}
 
+	/**
+	 * Setter {@link #getRute()} -- menerima string bebas TANPA memvalidasinya terhadap keempat
+	 * konstanta {@code RUTE_*}. Nilai tak dikenal tersimpan apa adanya dan diperlakukan seperti
+	 * bukan {@link #RUTE_PRODUKSI}, sehingga secara efektif berperilaku seperti {@link #RUTE_BELI}
+	 * tanpa ada yang memberi tahu bahwa nilainya salah eja. Pemanggil bertanggung jawab hanya
+	 * memakai konstanta yang tersedia. Pola tanpa-validasi yang sama ada pada
+	 * {@link #setJenisItem(String)}, {@link #setMetodeHpp(String)}, dan
+	 * {@link ProdukBatch#setStatus(String)}.
+	 *
+	 * @param rute salah satu konstanta {@code RUTE_*}; {@code null}/kosong berarti BELI
+	 */
 	public void setRute(String rute) {
 		this.rute = rute;
 	}
 
+	/** Penanda wajib QC hasil produksi; lihat {@link #getPerluQc()}. */
 	private Boolean perluQc;
 
 	/**
@@ -1119,10 +1258,18 @@ public class Produk extends GeneralValueObject {
 		return perluQc;
 	}
 
+	/**
+	 * Setter {@link #getPerluQc()}. Berlaku MAJU saja: menyalakannya tidak mengarantina batch yang
+	 * sudah terlanjur diproduksi, dan mematikannya tidak melepas batch yang sudah berstatus
+	 * {@link ProdukBatch#STATUS_KARANTINA} -- pelepasan karantina tetap lewat disposisi manual.
+	 *
+	 * @param perluQc {@code true} mewajibkan QC; {@code null}/{@code false} perilaku lama
+	 */
 	public void setPerluQc(Boolean perluQc) {
 		this.perluQc = perluQc;
 	}
 
+	/** Penguncian harga beli terhadap penimpaan faktur; lihat {@link #getHargaBeliManual()}. */
 	private Boolean hargaBeliManual;
 
 	/**
@@ -1136,12 +1283,29 @@ public class Produk extends GeneralValueObject {
 		return hargaBeliManual;
 	}
 
+	/**
+	 * Setter {@link #getHargaBeliManual()}.
+	 *
+	 * <p><b>Penguncian ini hanya menutup SATU dari dua jalur penimpaan harga beli.</b> Yang dicegah
+	 * adalah pembaruan otomatis dari faktur kulakan/BAST tervalidasi. Penimpaan massal dari
+	 * {@link GrupProduk} -- yang berjalan setiap kali grup harga terpusat disimpan dan menyentuh
+	 * seluruh anggotanya lintas toko -- TIDAK memeriksa flag ini, sehingga produk yang harga
+	 * belinya "dikunci manual" tetap dapat berubah selama {@link #getGrupProduk()} terisi. Bila
+	 * niatnya benar-benar mengunci harga, pastikan produk tidak menjadi anggota grup harga.</p>
+	 *
+	 * @param hargaBeliManual {@code true} mengunci harga beli dari penimpaan faktur
+	 */
 	public void setHargaBeliManual(Boolean hargaBeliManual) {
 		this.hargaBeliManual = hargaBeliManual;
 	}
 
+	/** Penanda produk boleh dijual per pack; lihat {@link #getPackAktif()}. */
 	private Boolean packAktif;
+
+	/** UOM pack; lihat {@link #getSatuanPack()}. */
 	private SatuanProduk satuanPack;
+
+	/** Harga tetap per pack; lihat {@link #getHargaPack()}. */
 	private Double hargaPack;
 
 	/**
@@ -1154,6 +1318,14 @@ public class Produk extends GeneralValueObject {
 		return packAktif;
 	}
 
+	/**
+	 * Setter {@link #getPackAktif()} -- menyalakan penjualan per pack TANPA memeriksa bahwa
+	 * {@link #getSatuanPack()} dan {@link #getHargaPack()} sudah terisi. Menyalakannya sendirian
+	 * memunculkan pilihan pack di Kasir dengan harga pack yang masih {@code null}; ketiga field
+	 * pack harus diisi bersama oleh form pengisian.
+	 *
+	 * @param packAktif {@code true} mengizinkan penjualan per pack
+	 */
 	public void setPackAktif(Boolean packAktif) {
 		this.packAktif = packAktif;
 	}
@@ -1166,6 +1338,14 @@ public class Produk extends GeneralValueObject {
 		return satuanPack;
 	}
 
+	/**
+	 * Setter {@link #getSatuanPack()} -- seperti {@link #setSatuanPembelian(SatuanProduk)}, TIDAK
+	 * memvalidasi kesetaraan kategori dengan {@link #getSatuan()}. Rasio isi pack diambil dari
+	 * satuan yang disetel di sini; satuan lintas kategori menghasilkan pengurangan stok satuan
+	 * dasar yang keliru saat penjualan per pack.
+	 *
+	 * @param satuanPack UOM pack, boleh {@code null}
+	 */
 	public void setSatuanPack(SatuanProduk satuanPack) {
 		this.satuanPack = satuanPack;
 	}
@@ -1180,6 +1360,15 @@ public class Produk extends GeneralValueObject {
 		return hargaPack;
 	}
 
+	/**
+	 * Setter {@link #getHargaPack()}. Berbeda dari {@link #getHargaBeli()}/{@link #getHargaJual()},
+	 * getter pasangannya TIDAK null-safe -- ia mengembalikan {@code null} apa adanya, sehingga
+	 * pemanggil wajib memeriksanya sebelum dipakai dalam aritmetika. Nilai di sini adalah harga
+	 * TETAP per pack, bukan hasil perkalian harga satuan dengan isi pack; menyetelnya tidak
+	 * memengaruhi {@link #getHargaJual()} dan sebaliknya.
+	 *
+	 * @param hargaPack harga tetap per pack, boleh {@code null}
+	 */
 	public void setHargaPack(Double hargaPack) {
 		this.hargaPack = hargaPack;
 	}
@@ -1193,10 +1382,21 @@ public class Produk extends GeneralValueObject {
 		return kebijakanRetur;
 	}
 
+	/**
+	 * Setter {@link #getKebijakanRetur()}. Relasi ini {@code @NotAudited}: perubahannya SENGAJA
+	 * tidak dicatat Envers -- ia dianggap pengaturan, bukan data bisnis yang perlu riwayat, dan
+	 * pengecualian itu sekaligus menghindarkan kewajiban menyinkronkan kolomnya ke tabel audit
+	 * {@code new_audit.produk__audit}. Konsekuensinya, bila kelak perlu menelusuri kebijakan retur
+	 * apa yang berlaku saat sebuah transaksi lama terjadi, informasi itu TIDAK tersedia di riwayat
+	 * audit. {@link #getMetodeHpp()} mendapat perlakuan yang sama.
+	 *
+	 * @param kebijakanRetur kebijakan retur, boleh {@code null} (dimaknai baku tanpa retur)
+	 */
 	public void setKebijakanRetur(KebijakanRetur kebijakanRetur) {
 		this.kebijakanRetur = kebijakanRetur;
 	}
 
+	/** Diskriminator jenis item (JUAL/BAHAN/EKSTRA); lihat {@link #getJenisItem()}. */
 	private String jenisItem;
 
 	/**
@@ -1214,10 +1414,22 @@ public class Produk extends GeneralValueObject {
 		return (jenisItem == null || jenisItem.trim().isEmpty()) ? "JUAL" : jenisItem;
 	}
 
+	/**
+	 * Setter {@link #getJenisItem()} -- menerima string bebas tanpa memvalidasinya terhadap nilai
+	 * yang dikenal ({@code "JUAL"}, {@code "BAHAN"}, {@code "EKSTRA"}). Nilai salah eja akan
+	 * tersimpan dan diperlakukan sebagai bukan-JUAL oleh filter katalog Kasir, sehingga produk
+	 * hilang dari pencarian tanpa pesan kesalahan. Ingat pula {@code null} BUKAN nilai netral
+	 * melainkan bermakna {@code "JUAL"} lewat getter -- jangan menormalkan baris lama menjadi
+	 * string kosong, karena getter memperlakukan kosong sama dengan {@code null} dan hasilnya sama,
+	 * tetapi query SQL langsung yang membandingkan kolom tidak akan sepakat.
+	 *
+	 * @param jenisItem {@code "JUAL"}, {@code "BAHAN"}, atau {@code "EKSTRA"}; {@code null} berarti JUAL
+	 */
 	public void setJenisItem(String jenisItem) {
 		this.jenisItem = jenisItem;
 	}
 
+	/** Daftar id produk ekstra/add-on dalam JSON; lihat {@link #getEkstraPilihan()}. */
 	private String ekstraPilihan;
 
 	/**
@@ -1239,10 +1451,20 @@ public class Produk extends GeneralValueObject {
 		return ekstraPilihan;
 	}
 
+	/**
+	 * Setter {@link #getEkstraPilihan()} -- menerima JSON MENTAH tanpa memvalidasi bentuknya, tanpa
+	 * memastikan id di dalamnya benar-benar ada, dan tanpa memastikan produk yang ditunjuk
+	 * ber-{@code jenisItem} {@code "EKSTRA"}. Id yang menunjuk produk terhapus/nonaktif tetap
+	 * tersimpan di sini karena tidak ada integritas referensial pada kolom teks; penanganan id
+	 * menggantung menjadi tanggung jawab jalur checkout.
+	 *
+	 * @param ekstraPilihan JSON array id produk ekstra, boleh {@code null}/kosong
+	 */
 	public void setEkstraPilihan(String ekstraPilihan) {
 		this.ekstraPilihan = ekstraPilihan;
 	}
 
+	/** Preset kemasan spesifik produk dalam JSON; lihat {@link #getKemasan()}. */
 	private String kemasan;
 
 	/**
@@ -1256,10 +1478,20 @@ public class Produk extends GeneralValueObject {
 		return kemasan;
 	}
 
+	/**
+	 * Setter {@link #getKemasan()} -- menerima JSON mentah tanpa validasi bentuk, tanpa memastikan
+	 * barcode kemasan tidak bentrok dengan {@link #getBarcode()} produk lain, dan tanpa memastikan
+	 * {@code qtyDasar} masuk akal. Perhatikan preset kemasan di sini BERBEDA peran dari
+	 * {@link #getSatuanPack()}: kemasan hanya mempercepat entri qty saat pemindaian dan tidak
+	 * memengaruhi harga, sedangkan pack adalah satuan jual dengan harga tetapnya sendiri.
+	 *
+	 * @param kemasan JSON daftar preset kemasan, boleh {@code null}/kosong
+	 */
 	public void setKemasan(String kemasan) {
 		this.kemasan = kemasan;
 	}
 
+	/** Metode penentuan harga pokok saat posting HPP ({@code @NotAudited}); lihat {@link #getMetodeHpp()}. */
 	private String metodeHpp;
 
 	/**
@@ -1282,6 +1514,18 @@ public class Produk extends GeneralValueObject {
 		return metodeHpp == null || metodeHpp.trim().isEmpty() ? null : metodeHpp.trim();
 	}
 
+	/**
+	 * Setter {@link #getMetodeHpp()} -- menerima string bebas tanpa memvalidasinya terhadap ketiga
+	 * nilai yang dikenal. Nilai tak dikenal tersimpan apa adanya dan, karena mesin posting HPP
+	 * memilih perlakuan berdasarkan pencocokan nilai, akan jatuh ke perilaku default (rata-rata
+	 * kulakan) tanpa memberi tahu bahwa metodenya salah eja. Getter pasangannya menormalkan string
+	 * kosong menjadi {@code null}, sehingga mengosongkan pilihan lewat form berarti kembali ke
+	 * default. Field ini {@code @NotAudited} -- lihat {@link #setKebijakanRetur(KebijakanRetur)}
+	 * mengenai konsekuensinya bagi penelusuran riwayat.
+	 *
+	 * @param metodeHpp {@code "RATA_RATA_KULAKAN"}, {@code "KULAKAN_TERAKHIR"},
+	 *        {@code "HARGA_BELI_PRODUK"}, atau {@code null}/kosong untuk default
+	 */
 	public void setMetodeHpp(String metodeHpp) {
 		this.metodeHpp = metodeHpp;
 	}
