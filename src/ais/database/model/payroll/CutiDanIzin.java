@@ -95,11 +95,15 @@ import ais.database.model.sop.DisposisiSop;
 public class CutiDanIzin extends DataSop {
 
     private static final long serialVersionUID = 2463821577548439808L;
+    /** Primary key baris pengajuan cuti/izin ini, di-generate database (IDENTITY). */
     private Long id;
     /** Nama pengguna yang terakhir mengubah baris ini (audit, bukan pemohon cuti — lihat {@link #diajukanOleh}). */
     private String oleh;
+    /** Id pengguna yang terakhir mengubah baris ini (audit shadow field, pasangan {@link #oleh}). */
     private String olehId;
+    /** Timestamp terakhir baris ini diubah (audit); default nilai awal saat konstruksi objek adalah waktu sekarang, diperbarui otomatis lewat {@link #onUpdate()} saat UPDATE. */
     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
+    /** Keterangan/alasan bebas yang ditulis pemohon untuk pengajuan cuti/izin ini. */
     private String keterangan;
     /** Tanggal mulai cuti/izin (inklusif). */
     private Date mulai;
@@ -127,7 +131,9 @@ public class CutiDanIzin extends DataSop {
     private Double jumlahCuti;
     /** Cache; nilai efektif selalu dihitung ulang di {@link #getJumlahHariCuti()} dari rentang {@link #mulai}/{@link #sampai} dikurangi {@link #kecualiTanggals}. */
     private Integer jumlahHariCuti;
+    /** Jumlah hari cuti bersama (mis. cuti bersama pemerintah) yang tercakup dalam rentang pengajuan ini; unit &amp; sumber hitung sama seperti {@link #jumlahCuti}, ditentukan di luar entitas ini. */
     private Double jumlahCutiBersama;
+    /** Sisa jatah cuti pegawai pada saat pengajuan ini dibuat (snapshot); BUKAN sumber kebenaran sisa cuti terkini — lihat {@link ais.database.model.payroll.JatahCuti} untuk cara sisa cuti dihitung on-the-fly dari riwayat. */
     private Double sisaCuti;
     /** Cache; nilai efektif diturunkan di {@link #getDiajukanOleh()} dari {@link #disposisiSop} bila tersedia. */
     private Tbmuser diajukanOleh;
@@ -136,9 +142,11 @@ public class CutiDanIzin extends DataSop {
     /** JSON array berisi tanggal (format {@code Common.dateFormat4}) dalam rentang {@link #mulai}-{@link #sampai} yang DIKECUALIKAN dari perhitungan hari cuti — lihat "Penghitungan jatah cuti" pada Javadoc kelas. */
     private String kecualiTanggals;
 
+    /** Konstruktor default (dibutuhkan Hibernate); tidak menginisialisasi field apa pun secara eksplisit selain default deklarasi field. */
     public CutiDanIzin() {
     }
 
+    /** @return {@link #id} — primary key baris pengajuan cuti/izin ini. */
     @Id
     @GeneratedValue(strategy = IDENTITY)
     @Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -146,76 +154,107 @@ public class CutiDanIzin extends DataSop {
         return this.id;
     }
 
+    /** @param id primary key baru; normalnya di-generate database, jarang di-set manual dari kode aplikasi. */
     public void setId(Long id) {
         this.id = id;
     }
 
+    /** @return {@link #olehId} — id pengguna audit terakhir yang mengubah baris ini. */
     public String getOlehId() {
         return olehId;
     }
 
+    /**
+     * Meng-set {@link #olehId}; dilewati (no-op) bila {@code olehId} {@code null} atau string
+     * kosong/berisi spasi saja, sehingga nilai audit lama tidak pernah tertimpa nilai kosong.
+     *
+     * @param olehId id pengguna yang melakukan perubahan
+     */
     public void setOlehId(String olehId) {
         if (olehId == null || olehId.trim().isEmpty()) return;
         this.olehId = olehId;
     }
 
+    /** @return representasi teks baris ini: {@code id} digabung dengan nama {@link #getStatusabsensi()} (string kosong bila status absensi belum terisi). */
     @Override
     public String toString() {
         return id + "-" + (getStatusabsensi() == null ? "" : getStatusabsensi().getNama());
     }
 
+    /** @return {@link #oleh} — nama pengguna audit terakhir yang mengubah baris ini. */
     public String getOleh() {
         return oleh;
     }
 
+    /**
+     * Meng-set {@link #oleh}; dilewati (no-op) bila {@code oleh} {@code null} atau string
+     * kosong/berisi spasi saja, sehingga nilai audit lama tidak pernah tertimpa nilai kosong.
+     *
+     * @param oleh nama pengguna yang melakukan perubahan
+     */
     public void setOleh(String oleh) {
         if (oleh == null || oleh.trim().isEmpty()) return;
         this.oleh = oleh;
     }
 
+    /**
+     * Callback JPA {@code @PreUpdate}: dipanggil otomatis oleh Hibernate tepat sebelum baris ini
+     * di-UPDATE, mendelegasikan pembaruan timestamp audit ({@link #tanggal_dirubah}) ke
+     * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}. Tidak dipanggil manual
+     * dari kode aplikasi.
+     */
     @javax.persistence.PreUpdate
     protected void onUpdate() {
         ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
     }
 
+    /** @return {@link #tanggal_dirubah} — timestamp terakhir baris ini diubah. */
     @Temporal(TemporalType.TIMESTAMP)
     public Date getTanggal_dirubah() {
         return tanggal_dirubah;
     }
 
+    /** @param tanggal_dirubah nilai timestamp audit baru; dipanggil manual maupun otomatis oleh {@link #onUpdate()}. */
     public void setTanggal_dirubah(Date tanggal_dirubah) {
         this.tanggal_dirubah = tanggal_dirubah;
     }
 
+    /** @return {@link #keterangan} — keterangan/alasan bebas pengajuan cuti/izin ini, boleh {@code null}. */
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
     public String getKeterangan() {
         return this.keterangan;
     }
 
+    /** @param keterangan keterangan/alasan bebas baru. */
     public void setKeterangan(String keterangan) {
         this.keterangan = keterangan;
     }
 
+    /** @return {@link #mulai} — tanggal mulai cuti/izin (inklusif). */
     @Temporal(TemporalType.DATE)
     @Column(nullable = false)
     public Date getMulai() {
         return mulai;
     }
 
+    /** @param mulai tanggal mulai cuti/izin baru. */
     public void setMulai(Date mulai) {
         this.mulai = mulai;
     }
 
+    /** @return {@link #sampai} — tanggal selesai cuti/izin (inklusif). */
     @Temporal(TemporalType.DATE)
     @Column(nullable = false)
     public Date getSampai() {
         return sampai;
     }
 
+    /** @param sampai tanggal selesai cuti/izin baru. */
     public void setSampai(Date sampai) {
         this.sampai = sampai;
     }
 
+    /** @return {@link #pegawai} — pegawai pemohon cuti/izin ini, dilewatkan {@link #check(Object)} (pola lazy-init standar {@code GeneralValueObject}). */
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "pegawai", nullable = true)
     public Pegawai getPegawai() {
@@ -223,10 +262,12 @@ public class CutiDanIzin extends DataSop {
         return pegawai;
     }
 
+    /** @param pegawai pegawai pemohon baru. */
     public void setPegawai(Pegawai pegawai) {
         this.pegawai = pegawai;
     }
 
+    /** @return {@link #statusabsensi} — status absensi yang berlaku selama rentang cuti ini, dilewatkan {@link #check(Object)} (pola lazy-init standar {@code GeneralValueObject}). */
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "statusabsensi", nullable = true)
     public Statusabsensi getStatusabsensi() {
@@ -234,6 +275,7 @@ public class CutiDanIzin extends DataSop {
         return statusabsensi;
     }
 
+    /** @param statusabsensi status absensi baru. */
     public void setStatusabsensi(Statusabsensi statusabsensi) {
         this.statusabsensi = statusabsensi;
     }
@@ -252,6 +294,12 @@ public class CutiDanIzin extends DataSop {
         return setujui == null ? false : setujui;
     }
 
+    /**
+     * @param setujui nilai cache lokal; TIDAK mengubah status persetujuan sesungguhnya, karena
+     *                 {@link #getSetujui()} akan menghitung ulang &amp; menimpa field ini dari
+     *                 {@link #disposisiSop} pada pemanggilan berikutnya bila
+     *                 {@code disposisiSop} terisi (lihat "Alur persetujuan" pada Javadoc kelas).
+     */
     public void setSetujui(Boolean setujui) {
         this.setujui = setujui;
     }
@@ -263,6 +311,11 @@ public class CutiDanIzin extends DataSop {
         return memotongJatahCuti;
     }
 
+    /**
+     * @param memotongJatahCuti nilai cache lokal; TIDAK menentukan perilaku sesungguhnya, karena
+     *                           {@link #getMemotongJatahCuti()} akan menghitung ulang &amp; menimpa
+     *                           field ini dari {@link #statusabsensi} pada pemanggilan berikutnya.
+     */
     public void setMemotongJatahCuti(Boolean memotongJatahCuti) {
         this.memotongJatahCuti = memotongJatahCuti;
     }
@@ -284,6 +337,12 @@ public class CutiDanIzin extends DataSop {
         return disetujiOleh;
     }
 
+    /**
+     * @param disetujiOleh nilai cache lokal; TIDAK mengubah pemroses persetujuan sesungguhnya,
+     *                       karena {@link #getDisetujuiOleh()} akan menghitung ulang &amp; menimpa
+     *                       field ini dari {@link #disposisiSop} pada pemanggilan berikutnya bila
+     *                       {@code disposisiSop} terisi (lihat "Alur persetujuan" pada Javadoc kelas).
+     */
     public void setDisetujuiOleh(Tbmuser disetujiOleh) {
         this.disetujiOleh = disetujiOleh;
     }
@@ -302,10 +361,17 @@ public class CutiDanIzin extends DataSop {
         return setujuiTanggal;
     }
 
+    /**
+     * @param setujuiTanggal nilai cache lokal; TIDAK mengubah tanggal persetujuan sesungguhnya,
+     *                         karena {@link #getSetujuiTanggal()} akan menghitung ulang &amp; menimpa
+     *                         field ini dari {@link #disposisiSop} pada pemanggilan berikutnya bila
+     *                         {@code disposisiSop} terisi (lihat "Alur persetujuan" pada Javadoc kelas).
+     */
     public void setSetujuiTanggal(Date setujuiTanggal) {
         this.setujuiTanggal = setujuiTanggal;
     }
 
+    /** @return {@link #jenisCutiDanIzin} — jenis cuti/izin pengajuan ini, dilewatkan {@link #check(Object)} (pola lazy-init standar {@code GeneralValueObject}). */
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "jenis_cuti_dan_izin", nullable = true)
     public JenisCutiDanIzin getJenisCutiDanIzin() {
@@ -313,15 +379,18 @@ public class CutiDanIzin extends DataSop {
         return jenisCutiDanIzin;
     }
 
+    /** @param jenisCutiDanIzin jenis cuti/izin baru. */
     public void setJenisCutiDanIzin(JenisCutiDanIzin jenisCutiDanIzin) {
         this.jenisCutiDanIzin = jenisCutiDanIzin;
     }
 
+    /** @return {@link #parameterTambahanInds} — bentuk ringkas (id saja) parameter tambahan; string kosong (bukan {@code null}) bila belum terisi — lihat "Parameter tambahan berformat teks" pada Javadoc kelas. */
     @Column(columnDefinition = "text")
     public String getParameterTambahanInds() {
         return parameterTambahanInds == null ? "" : parameterTambahanInds;
     }
 
+    /** @param parameterTambahanInds nilai baru bentuk ringkas parameter tambahan; biasanya ditulis lewat {@link #populateParameterTambahan(List)}, bukan di-set langsung. */
     public void setParameterTambahanInds(String parameterTambahanInds) {
         this.parameterTambahanInds = parameterTambahanInds;
     }
@@ -440,35 +509,43 @@ public class CutiDanIzin extends DataSop {
         setParameterTambahan(paramTambahanStrBuilder.toString());
     }
 
+    /** @return {@link #parameterTambahan} — bentuk lengkap (dengan label) parameter tambahan; string kosong (bukan {@code null}) bila belum terisi — lihat "Parameter tambahan berformat teks" pada Javadoc kelas dan {@link #ambilDataParameterTambahan()} untuk cara mem-parsenya. */
     @Column(columnDefinition = "text")
     public String getParameterTambahan() {
         return parameterTambahan == null ? "" : parameterTambahan;
     }
 
+    /** @param parameterTambahan nilai baru bentuk lengkap parameter tambahan; biasanya ditulis lewat {@link #populateParameterTambahan(List)}, bukan di-set langsung. */
     public void setParameterTambahan(String parameterTambahan) {
         this.parameterTambahan = parameterTambahan;
     }
 
+    /** @return {@link #jumlahCuti} — jatah cuti (unit hari) yang dipakai pengajuan ini, dihitung di luar entitas ini (mis. oleh {@code CutiDanIzinAction}). */
     public Double getJumlahCuti() {
         return jumlahCuti;
     }
 
+    /** @param jumlahCuti jumlah jatah cuti (hari) baru. */
     public void setJumlahCuti(Double jumlahCuti) {
         this.jumlahCuti = jumlahCuti;
     }
 
+    /** @return {@link #jumlahCutiBersama} — jumlah hari cuti bersama yang tercakup pengajuan ini. */
     public Double getJumlahCutiBersama() {
         return jumlahCutiBersama;
     }
 
+    /** @param jumlahCutiBersama jumlah hari cuti bersama baru. */
     public void setJumlahCutiBersama(Double jumlahCutiBersama) {
         this.jumlahCutiBersama = jumlahCutiBersama;
     }
 
+    /** @return {@link #sisaCuti} — sisa jatah cuti pegawai pada saat pengajuan ini dibuat (snapshot, bukan sumber kebenaran real-time — lihat catatan pada field). */
     public Double getSisaCuti() {
         return sisaCuti;
     }
 
+    /** @param sisaCuti nilai sisa cuti (snapshot) baru. */
     public void setSisaCuti(Double sisaCuti) {
         this.sisaCuti = sisaCuti;
     }
@@ -486,10 +563,17 @@ public class CutiDanIzin extends DataSop {
         return diajukanOleh;
     }
 
+    /**
+     * @param diajukanOleh nilai cache/fallback lokal; dipakai oleh {@link #getDiajukanOleh()} HANYA
+     *                       bila {@link #disposisiSop} atau {@code disposisiSop.getDisposisiStart()}
+     *                       belum terisi — bila sudah, getter akan menimpanya dengan nilai dari
+     *                       {@code disposisiSop} (lihat "Alur persetujuan" pada Javadoc kelas).
+     */
     public void setDiajukanOleh(Tbmuser diajukanOleh) {
         this.diajukanOleh = diajukanOleh;
     }
 
+    /** @return {@link #disposisiSop} — alur disposisi SOP yang menjadi sumber kebenaran status persetujuan pengajuan ini, dilewatkan {@link #check(Object)} (pola lazy-init standar {@code GeneralValueObject}). Lihat "Alur persetujuan" pada Javadoc kelas. */
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "disposisi_sop", nullable = true)
     public DisposisiSop getDisposisiSop() {
@@ -698,15 +782,24 @@ public class CutiDanIzin extends DataSop {
         return jumlahHariCuti;
     }
 
+    /**
+     * @param jumlahHariCuti nilai cache lokal; TIDAK menggantikan hasil hitung sesungguhnya, karena
+     *                        {@link #getJumlahHariCuti()} akan menghitung ulang &amp; menimpa field
+     *                        ini dari rentang {@link #mulai}/{@link #sampai} pada pemanggilan
+     *                        berikutnya (bila {@link #statusabsensi}, {@link #mulai}, dan
+     *                        {@link #sampai} semuanya terisi).
+     */
     public void setJumlahHariCuti(Integer jumlahHariCuti) {
         this.jumlahHariCuti = jumlahHariCuti;
     }
 
+    /** @return {@link #kecualiTanggals} — JSON array tanggal yang dikecualikan dari perhitungan hari cuti; string kosong (bukan {@code null}, sudah di-trim) bila belum terisi — lihat "Penghitungan jatah cuti" pada Javadoc kelas. */
     @Column(columnDefinition = "text")
     public String getKecualiTanggals() {
         return kecualiTanggals == null ? "" : kecualiTanggals.trim();
-    } 
+    }
 
+    /** @param kecualiTanggals JSON array tanggal (format {@code Common.dateFormat4}) yang dikecualikan dari perhitungan hari cuti. */
     public void setKecualiTanggals(String kecualiTanggals) {
         this.kecualiTanggals = kecualiTanggals;
     }

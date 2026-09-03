@@ -7,6 +7,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import org.hibernate.Criteria;
@@ -41,6 +42,7 @@ import org.zkoss.zul.Vbox;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataPegawaiBanyak;
 import ais.action.master.payroll.util.RencanaItemGajiPegawaiTreeModel;
+import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
 import ais.common.CommonMedia;
 import ais.common.CommonPrivilages;
@@ -51,6 +53,7 @@ import ais.database.model.payroll.FormatItemGaji;
 import ais.database.model.payroll.ItemGaji;
 import ais.database.model.payroll.RencanaGaji;
 import ais.database.model.payroll.RencanaGajiPunyaPegawai;
+import ais.database.model.rab.SatuanKerja;
 import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyJSONObject;
@@ -359,6 +362,25 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 	private MyTextbox kode;
 	private MyTextbox nama;
 
+	/**
+	 * Satuan kerja yang boleh diakses pengguna saat ini, diresolusi sekali di {@link #display()}
+	 * (thread ZK, ada konteks request) dan dipakai ulang oleh {@link #initCriteria(boolean)} serta
+	 * kueri lain di kelas ini -- termasuk yang dipanggil dari dalam {@code Thread} latar milik
+	 * tombol "Ambil Data Pegawai"/"Hitung Ulang", yang tidak punya konteks ZK untuk meresolusi
+	 * ulang lewat {@link SekolahUtil#ambilSatuanKerjas()}.
+	 */
+	private Set<SatuanKerja> satuanKerjaScope;
+
+	/**
+	 * Kriteria pembatas tenant: baris hanya cocok bila {@code satuanKerjaProperty} termasuk dalam
+	 * {@link #satuanKerjaScope}. Bila cakupan kosong/tidak diketahui, menutup akses (fail-closed)
+	 * alih-alih membiarkan semua baris lolos.
+	 */
+	private Criterion scopeSatuanKerja(String satuanKerjaProperty) {
+		return satuanKerjaScope == null || satuanKerjaScope.isEmpty() ? Restrictions.sqlRestriction("false")
+				: Restrictions.in(satuanKerjaProperty, satuanKerjaScope);
+	}
+
 	private Criteria initCriteria(boolean order) {
 
 		Criterion critKode = Restrictions.sqlRestriction("false");
@@ -381,15 +403,30 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(RencanaGajiPunyaPegawai.class)
 
-				.createAlias("pegawai", "pegawai")
+				.createAlias("pegawai", "pegawai").createAlias("pegawai.formatItemGaji", "formatItemGaji")
 
 				.add(Restrictions.isNotNull("pegawai.formatItemGaji")).add(Restrictions.eq("pegawai.aktif", true))
 
-				.add(critKode).add(critNama).add(Restrictions.eq("rencanaGaji", rencanaGaji));
+				.add(critKode).add(critNama).add(Restrictions.eq("rencanaGaji", rencanaGaji))
+				.add(scopeSatuanKerja("formatItemGaji.satuanKerja"));
 		if (order)
 			criteria.addOrder(Order.asc("pegawai.nama"));
 
 		return criteria;
+	}
+
+	/**
+	 * Seluruh baris rencana milik dokumen ini yang berada dalam cakupan tenant pengguna saat ini,
+	 * TANPA filter kode/nama pencarian -- dipakai tombol sampah toolbar yang memang dimaksud
+	 * menghapus seluruh data (dalam batas tenant), bukan hanya baris yang sedang tersaring layar.
+	 */
+	@SuppressWarnings("unchecked")
+	private List<RencanaGajiPunyaPegawai> ambilSemuaBarisDalamCakupanTenant() {
+		Session session = HibernateUtil.currentSession();
+		return session.createCriteria(RencanaGajiPunyaPegawai.class)
+				.createAlias("pegawai", "pegawai").createAlias("pegawai.formatItemGaji", "formatItemGaji")
+				.add(Restrictions.eq("rencanaGaji", rencanaGaji))
+				.add(scopeSatuanKerja("formatItemGaji.satuanKerja")).list();
 	}
 
 	@SuppressWarnings("unchecked")
@@ -423,6 +460,7 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 
 		final boolean bolehUbah = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 		final boolean bolehHapus = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
+		satuanKerjaScope = SekolahUtil.ambilSatuanKerjas();
 
 		Groupbox groupbox = new ais.ui.util.MyGroupboxStyled();
 		groupbox.setParent(this);
@@ -446,9 +484,11 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 
 				List<Pegawai> pegawais = session.createCriteria(RencanaGajiPunyaPegawai.class)
 						.setProjection(Projections.groupProperty("pegawai")).createAlias("rencanaGaji", "rencanaGaji")
-						.createAlias("pegawai", "pegawai").add(Restrictions.isNotNull("pegawai.formatItemGaji"))
+						.createAlias("pegawai", "pegawai").createAlias("pegawai.formatItemGaji", "formatItemGaji")
+						.add(Restrictions.isNotNull("pegawai.formatItemGaji"))
 						.add(Restrictions.eq("pegawai.aktif", true))
-						.add(Restrictions.eq("rencanaGaji.tahun", rencanaGaji.getTahun())).list();
+						.add(Restrictions.eq("rencanaGaji.tahun", rencanaGaji.getTahun()))
+						.add(scopeSatuanKerja("formatItemGaji.satuanKerja")).list();
 
 				AmbilDataPegawaiBanyak ambilDataPegawaiBanyak = new AmbilDataPegawaiBanyak(pegawais,
 						tbmuser == null ? null : tbmuser.ambilSatuanKerja());
@@ -662,11 +702,9 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 								if (i == MyMessageboxConfig.OK) {
 									try {
 
-										Session session = HibernateUtil.currentSession();
-										session.createSQLQuery(
-												"delete from payroll.rencana_gaji_punya_pegawai where rencana_gaji = "
-														+ rencanaGaji.getId())
-												.executeUpdate();
+										for (RencanaGajiPunyaPegawai row : ambilSemuaBarisDalamCakupanTenant()) {
+											Common.refreshDelete(row);
+										}
 
 										loadData(event, gridSelected);
 									} catch (Exception e) {
