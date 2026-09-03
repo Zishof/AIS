@@ -111,6 +111,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [97-daftar-keputusan-lanjutan.md](97-daftar-keputusan-lanjutan.md) | Penerus dok. 78: seluruh keputusan yang menunggu dari dok. 79-96, terkumpul di satu halaman |
 | [98-path-kosong-bukan-berarti-tidak-ada.md](98-path-kosong-bukan-berarti-tidak-ada.md) | "Tidak ada toolchain Dart" ternyata salah; 710 uji dijalankan dan lulus, letaknya kini direkam |
 | [99-kontrol-kas-yang-dijaga-komentar.md](99-kontrol-kas-yang-dijaga-komentar.md) | Sepuluh suite dijalankan (semua hijau); laci kasir dijaga komentar saja, kini ada ujinya |
+| [100-satu-kendala-menjadi-alasan-untuk-sembilan-belas.md](100-satu-kendala-menjadi-alasan-untuk-sembilan-belas.md) | Satu harness ber-DB membuat 19 lainnya ikut dianggap tak dapat dijalankan; semuanya lulus |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
@@ -179,6 +180,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [100-koreksi-doc-97-sebelas-laporan-itu-bekerja.md](100-koreksi-doc-97-sebelas-laporan-itu-bekerja.md) | Koreksi doc 97: kesebelas laporan akuntansi itu tautan ZK yang bekerja, bukan placeholder |
 | [101-lepas-dari-zul-empat-laporan-jadi-api.md](101-lepas-dari-zul-empat-laporan-jadi-api.md) | Inventaris 13 titik keluar ZK dari POS; empat laporan akuntansi dijadikan natif berbasis API |
 | [102-enam-laporan-kolom-jadi-api.md](102-enam-laporan-kolom-jadi-api.md) | Enam laporan sisa jadi natif (11 titik keluar ZK jadi 1); diuji di PostgreSQL 16 sungguhan |
+| [103-akun-master-aset-ditimpa-kelompok.md](103-akun-master-aset-ditimpa-kelompok.md) | Akun Kelompok Aset menimpa akun Master Aset; layar natif Master Aset ditahan sampai pemilik memutuskan |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |

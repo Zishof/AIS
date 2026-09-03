@@ -93,6 +93,11 @@ mengubah tanpa dapat menguji.
 Tiga harness bersandar-basis-data belum pernah berjalan sekali pun. Ini juga
 yang membuat A.1 dan A.5 tidak dapat dinilai risikonya.
 
+Dikoreksi di dok. 100: yang bersandar-basis-data ternyata **satu**
+(`PostgreSqlInventoryLedgerIntegrationUat`), bukan tiga. Sembilan belas harness
+lain di direktori yang sama bebas basis data, sudah dijalankan, dan semuanya
+lulus. Kendalanya menyangkut satu berkas, bukan seluruh direktori.
+
 ### 2. ~~Tidak ada toolchain Dart/Flutter di mesin ini~~ — GUGUR, lihat F
 
 Perbaikan sisi klien pada dok. 85, 86, dan 94 **sudah di-push tetapi belum
@@ -107,6 +112,11 @@ dan `biometric_saldo_member_test.dart`.
 
 Delapan belas harness UAT Java tidak terversi. Ia dapat hilang tanpa jejak, dan
 tidak ada yang tahu versinya cocok dengan kode yang mana.
+
+Dok. 100 memperbarui taruhannya: yang tidak terversi ada **dua puluh**, dan
+sembilan belas di antaranya baru terbukti lulus hari ini. Memasukkannya ke SVN
+berarti membuat jalur tingkat-atas baru (`^/` belum punya `test`), jadi itu
+tetap keputusan tata letak milik Anda.
 
 ### 4. `docs/pos/74-sql-pemulihan-member-pesanan.sql`
 
