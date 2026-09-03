@@ -16,7 +16,14 @@ menyiapkan klaster secara manual. Kumpulan uji yang tidak dapat dijalankan sebag
 akan membusuk: berkasnya tetap ada, tetapi tidak ada yang tahu mana yang masih benar.
 
 Skrip ini menyalakan SATU klaster sekali-pakai, menyiapkan schema yang diminta tiap berkas,
-menjalankan semuanya, lalu menghitung LULUS/GAGAL-nya.
+menjalankan semuanya, lalu menghitung verdiktnya.
+
+DUA KOSAKATA VERDIKT
+--------------------
+Berkas batch awal menyatakan hasilnya SETARA / *** BERSELISIH *** -- ia membandingkan jalur
+legacy dengan jalur tenant baris demi baris. Berkas batch kemudian memakai LULUS / GAGAL.
+Keduanya sama-sama verdikt, dan pelari yang hanya mengenal satu di antaranya akan melaporkan
+separuh kumpulan ini "tanpa verdikt" padahal ia menjaga dengan baik.
 
 TANPA KREDENSIAL
 ----------------
@@ -209,8 +216,13 @@ def main():
             r = jalankan([psql, '-h', '127.0.0.1', '-p', str(port), '-U', 'uji',
                           '-d', 'postgres', '-q', '-f', jalur])
             keluaran = r.stdout.decode('utf-8', 'replace')
-            l = keluaran.count('LULUS')
-            g = keluaran.count('GAGAL')
+            # DUA kosakata verdikt, bukan satu. Berkas batch awal memakai SETARA/BERSELISIH
+            # (membandingkan jalur legacy dengan jalur tenant baris demi baris); berkas batch
+            # kemudian memakai LULUS/GAGAL. Keduanya sama-sama menyatakan lulus/tidak, dan
+            # pelari yang hanya mengenal satu di antaranya akan melaporkan separuh kumpulan
+            # ini "tanpa verdikt" -- persis kesimpulan keliru yang sempat saya tulis.
+            l = keluaran.count('LULUS') + keluaran.count('SETARA')
+            g = keluaran.count('GAGAL') + keluaran.count('BERSELISIH')
             # Galat yang BUKAN bagian penjaga: penjaga tertentu memang memancing galat batasan.
             galat = [x for x in keluaran.splitlines()
                      if 'ERROR' in x and 'batasan unik' not in x and 'unique constraint' not in x]
@@ -226,7 +238,7 @@ def main():
                 # menyatakan apa-apa. Dibiarkan tampak 0/0 tanpa tanda, ia tidak dapat
                 # dibedakan dari uji yang benar-benar hijau -- dan itulah cara kumpulan uji
                 # membusuk tanpa ada yang sadar.
-                tanda = '  <== TANPA VERDIKT (gaya lama: cetak-banding, tanpa LULUS/GAGAL)'
+                tanda = '  <== TANPA VERDIKT (tidak menyatakan lulus/tidak sama sekali)'
                 tot_v += 1
             print('%-44s %6d %6d  %s%s' % (f, l, g, ','.join(sk['erp'])[:18], tanda))
             for x in galat[:3]:
@@ -235,9 +247,9 @@ def main():
         print('TOTAL  LULUS=%d  GAGAL=%d  galat-SQL=%d  tanpa-verdikt=%d  berkas=%d' %
               (tot_l, tot_g, tot_e, tot_v, len(daftar)))
         if tot_v:
-            print('CATATAN: %d berkas tidak menyatakan LULUS/GAGAL sama sekali. Berkas gaya'
-                  ' lama itu mencetak tabel banding untuk dibaca manusia; ia TIDAK menjaga'
-                  ' apa pun secara mekanis.' % tot_v)
+            print('CATATAN: %d berkas tidak menyatakan verdikt sama sekali -- bukan'
+                  ' LULUS/GAGAL, bukan pula SETARA/BERSELISIH. Berkas semacam itu tidak'
+                  ' menjaga apa pun secara mekanis.' % tot_v)
         print('HASIL: ' + ('LULUS' if kode == 0 else 'ADA YANG GAGAL'))
         return kode
     finally:
