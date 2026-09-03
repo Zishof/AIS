@@ -85,49 +85,46 @@ import ais.ui.util.DashboardModernHtmlUtil;
  * kolom {@link SiswaAction#contents}. Artinya angka rekap bukan sekadar angka: ia adalah
  * <b>pintu ekspor Excel berisi data siswa lengkap per baris</b>.</p>
  *
- * <h3>STATUS KEAMANAN &mdash; RENTAN (kebocoran PII lintas sekolah/yayasan)</h3>
- * <p><b>Kesimpulan: kelas ini TIDAK aman.</b> Rinciannya sengaja dicatat lengkap karena
- * mekanismenya <i>berbeda</i> dari pola dasbor fail-open yang sudah dikenal di modul lain,
- * sehingga mudah salah diklasifikasikan:</p>
+ * <h3>STATUS KEAMANAN &mdash; DIPERBAIKI 2026-09-03 (bekas kebocoran PII lintas sekolah/yayasan)</h3>
+ * <p><b>Riwayat kerentanan (sebelum r83651+fix).</b> Dua ternary di {@link #reload()} yang
+ * memfilter daftar {@link Sekolah} berdasarkan pilihan {@code searchyayasan}/{@code searchsekolah}
+ * <i>terbalik arah</i>: cabang "ada yang dipilih" menghasilkan {@code Restrictions.sqlRestriction("true")}
+ * (tanpa saringan) alih-alih memfilter ke pilihan, sedangkan cabang "tidak ada yang dipilih"
+ * pada saringan sekolah men-dereference {@code searchsekolah.getSelectedItem().getValue()} yang
+ * baru saja dipastikan {@code null} oleh kondisinya sendiri (NPE pasti). Akibatnya pengguna
+ * non-admin (combobox pra-terpilih &amp; di-{@code disable} oleh
+ * {@code Common.initYayasanDanSekolahDanSemua(...)}) mendapat rekap <b>seluruh sekolah di seluruh
+ * yayasan</b>, bukan hanya sekolahnya; pengguna admin (combobox kosong) menabrak NPE dan tab
+ * "Data" gagal tampil. Tautan drill-down "Total"/angka sel juga tidak diikat privilese apa pun,
+ * padahal membuka ekspor {@code Common.cetakDataCustomButton(Siswa.class, ..., SiswaAction.contents)}
+ * hingga {@code setMaxResults(1048576)} baris dengan 116 kolom, termasuk NIK siswa/ayah/ibu/wali,
+ * penghasilan orang tua, seluruh nomor telepon &amp; WhatsApp, alamat rumah beserta koordinat
+ * lintang/bujur, nomor rekening bank, data kesehatan (golongan darah, riwayat penyakit,
+ * kebutuhan khusus), serta nomor KIP/KPS/KKS.</p>
+ * <p><b>Perbaikan yang diterapkan.</b></p>
  * <ul>
- *   <li><b>Nol pemeriksaan peran.</b> Tidak ada satu pun cek {@code tbmuser.getSiswa()},
- *       {@code tbmuser.getOrangTua()}, {@code getGuru()}, maupun {@code CommonPrivilages.checkPrevilages(...)}
- *       di kelas ini. Ini <b>bukan</b> pola "memfilter siswa tetapi lupa orang tua" &mdash; di sini
- *       bahkan penyaringan untuk akun siswa pun tidak ada sama sekali, sehingga secara kategori
- *       lebih longgar daripada pola tersebut. Satu-satunya pemakaian
- *       {@code Common.getCurrentUser()} di kelas ini adalah untuk membaca tinggi desktop
- *       ({@code MainAction.desktopHeights}) demi mengatur CSS {@code min-height}, bukan untuk
- *       otorisasi.</li>
- *   <li><b>Saringan tenant dimatikan oleh dua ternary terbalik.</b> Lihat catatan rinci pada
- *       {@link #reload()}. Kombinasi {@link Combobox} {@code searchyayasan}/{@code searchsekolah}
- *       memang dipra-pilih dan di-{@code disable} untuk pengguna non-admin oleh
- *       {@code Common.initYayasanDanSekolahDanSemua(...)}, tetapi kueri di {@link #reload()}
- *       justru <b>membuang</b> pilihan tersebut. Pembatasan yang diandalkan grid utama
- *       {@link SiswaAction} karena itu tidak berlaku di dasbor ini.</li>
- *   <li><b>Tidak ada cache.</b> Kelas ini tidak memakai {@code loadDataWithCache},
- *       {@code isPersonal}, maupun {@code DashboardCacheUtil}; hasil kueri hanya hidup selama
- *       komponen ZK ini ada. Amplifier "hasil bocor ditulis ke cache L3 app-wide" yang tercatat
- *       pada dasbor pelanggaran/apresiasi <b>TIDAK</b> berlaku di sini.</li>
- *   <li><b>Volume dan jenis data.</b> Tabel dasbor itu sendiri hanya menampilkan agregat (nama
- *       sekolah + angka), bukan baris per siswa. Kebocoran terjadi pada <i>drill-down</i>:
- *       ekspor menarik hingga {@code setMaxResults(1048576)} baris {@link Siswa} dengan 116
- *       kolom {@link SiswaAction#contents}, termasuk NIK siswa/ayah/ibu/wali, penghasilan orang
- *       tua, seluruh nomor telepon &amp; WhatsApp, alamat rumah beserta koordinat lintang/bujur,
- *       nomor rekening bank, data kesehatan (golongan darah, riwayat penyakit, kebutuhan
- *       khusus), serta nomor KIP/KPS/KKS. Tautan "Total" mengekspor seluruh sekolah sekaligus
- *       ({@code Restrictions.in("sekolah", sekolahs)}).</li>
- *   <li><b>Prasyarat eksploitasi.</b> Cukup satu akun sah yang perannya memuat menu "Siswa"
- *       (id menu {@code 887727}); tab "Statistik" pada {@code siswa.zul} tidak punya syarat
- *       tampil tambahan, dan tautan ekspor tidak diikat ke privilese apa pun &mdash; berbeda dari
- *       tombol Tambah/Ubah/Hapus di {@link SiswaAction} yang masih memeriksa
- *       {@code CommonPrivilages.checkPrevilages(...)}. Operator ber-hak-baca di satu sekolah
- *       dapat mengunduh data seluruh sekolah pada seluruh yayasan.</li>
+ *   <li>Kedua ternary di {@link #reload()} dibalik arahnya: "ada yang dipilih" &rarr; memfilter
+ *       ke pilihan ({@code CommonSearchFilterHelper.eqSelectedWithId("yayasan", ...)} /
+ *       {@code Restrictions.eq("id", ...)}); "tidak ada yang dipilih" &rarr; tanpa saringan
+ *       ({@code sqlRestriction("true")}, hanya tercapai praktis oleh admin karena non-admin
+ *       selalu punya pilihan pra-terisi). Pola ini konsisten dengan
+ *       {@link SiswaAction#initCriteria(boolean)} sendiri dan 150+ pemakaian
+ *       {@code CommonSearchFilterHelper.eqSelectedWithId(...)} lain di modul sekolah. Efek
+ *       samping: NPE pada cabang sekolah otomatis hilang karena dereference kini hanya terjadi
+ *       saat nilainya dijamin non-null oleh kondisinya sendiri.</li>
+ *   <li>Kedua tautan drill-down (angka sel dan "Total") kini digerbang
+ *       {@code CommonPrivilages.checkPrevilages(CommonPrivilages.READ)} sebelum memanggil
+ *       {@code Common.cetakDataCustomButton(...)}; penolakan menampilkan
+ *       {@code MyMessageboxConfig.show(...)} lalu berhenti tanpa mengekspor apa pun. Ini
+ *       menyamakan gerbang ekspor dengan tombol Tambah/Ubah/Hapus di {@link SiswaAction} yang
+ *       sudah memeriksa {@code CommonPrivilages.checkPrevilages(...)}.</li>
  * </ul>
- * <p><b>Ironi arah dampak:</b> justru pengguna <i>non-admin</i> (yang punya konteks sekolah,
- * sehingga combobox terisi nilai non-null) yang menerima hasil tanpa saringan; sedangkan
- * pengguna tanpa konteks sekolah (lazimnya admin) malah menabrak {@code NullPointerException}
- * sehingga tab "Data" gagal tampil. Perbaikan NPE tanpa memperbaiki ternary-nya akan
- * memperluas kebocoran, bukan menutupnya.</p>
+ * <p><b>Belum diubah (rekomendasi, bukan cacat wajib-tutup):</b> {@link SiswaAction#contents}
+ * (116 kolom, termasuk data kesehatan/finansial/koordinat GPS) tetap dipakai apa adanya untuk
+ * ekspor Excel biasa. Model privilese aplikasi ({@code CommonPrivilages}) hanya mengenal empat
+ * level generik ({@code READ}/{@code CREATE}/{@code UPDATE}/{@code DELETE}), tidak ada level
+ * khusus "data sensitif"; bila kebutuhan itu muncul, pertimbangkan memisahkan kolom
+ * kesehatan/rekening/koordinat ke ekspor terbatas dengan gerbang lebih ketat.</p>
  *
  * <h3>Batas tanggung jawab</h3>
  * <p>Perilaku umum jendela, lifecycle, dan mekanisme render tetap milik {@link MyWindow}.
@@ -648,39 +645,33 @@ public class DasboardSiswa extends MyWindow {
 	 *       {@code DashboardModernHtmlUtil.createAnyChart(...)}.</li>
 	 * </ol>
 	 *
-	 * <h3>PERINGATAN KEAMANAN &mdash; saringan tenant tidak berfungsi</h3>
-	 * <p>Kueri daftar sekolah memakai dua ternary yang <b>terbalik arah</b>, sehingga tidak
-	 * pernah menyaring apa pun:</p>
-	 * <ul>
-	 *   <li><b>Yayasan.</b> Cabang "ada yang dipilih" menghasilkan
-	 *       {@code Restrictions.sqlRestriction("true")} (tanpa saringan), sedangkan cabang
-	 *       "tidak ada yang dipilih" memanggil
-	 *       {@code CommonSearchFilterHelper.eqSelectedWithId("yayasan", ...)} yang &mdash; karena
-	 *       memang tidak ada nilai terpilih &mdash; mengembalikan {@code 1=1}. Kedua cabang
-	 *       sama-sama tanpa saringan: combobox Yayasan efektif mati.</li>
-	 *   <li><b>Sekolah.</b> Cabang "ada yang dipilih" juga menghasilkan
-	 *       {@code sqlRestriction("true")}. Cabang "tidak ada yang dipilih" justru
-	 *       men-<i>dereference</i> {@code searchsekolah.getSelectedItem().getValue()} &mdash;
-	 *       tepat nilai yang baru saja dipastikan null oleh kondisinya sendiri &mdash; sehingga
-	 *       <b>selalu melempar {@code NullPointerException}</b>.</li>
-	 * </ul>
-	 * <p>Akibat praktisnya: pengguna yang punya konteks sekolah (umumnya non-admin, combobox-nya
-	 * dipra-pilih dan dinonaktifkan oleh {@code Common.initYayasanDanSekolahDanSemua}) melewati
-	 * cabang {@code "true"} dan mendapat rekap <b>seluruh sekolah di seluruh yayasan</b>;
-	 * sedangkan pengguna tanpa konteks sekolah menabrak NPE dan tab "Data" gagal tampil.
-	 * Tidak ada pemeriksaan peran apa pun di method ini &mdash; tidak untuk siswa, orang tua,
-	 * guru, maupun privilese menu.</p>
-	 * <p><b>Dampak terberat ada pada drill-down, bukan pada angkanya.</b> Setiap angka dirender
-	 * sebagai {@link A} yang membuka ekspor {@code Common.cetakDataCustomButton(Siswa.class,
-	 * ..., SiswaAction.contents)}: 116 kolom data pribadi siswa dan orang tua (NIK, penghasilan,
-	 * telepon/WhatsApp, alamat beserta lintang/bujur, rekening bank, data kesehatan, nomor
-	 * KIP/KPS/KKS) hingga batas satu juta baris. Kriteria ekspor per sel dibatasi pada satu
-	 * {@code sekolah} dari perulangan, tetapi perulangan itu sendiri mencakup semua sekolah;
-	 * sedangkan tautan "Total" mengekspor semuanya sekaligus lewat
-	 * {@code Restrictions.in("sekolah", sekolahs)} tanpa batas tenant.</p>
-	 * <p><b>Catatan perbaikan:</b> memperbaiki NPE saja (tanpa membalik arah kedua ternary)
-	 * akan <i>memperluas</i> kebocoran ke pengguna yang saat ini terlindung kebetulan oleh
-	 * kegagalan itu.</p>
+	 * <h3>KEAMANAN &mdash; saringan tenant &amp; gerbang privilese (diperbaiki 2026-09-03)</h3>
+	 * <p>Kueri daftar sekolah semula memakai dua ternary yang <b>terbalik arah</b> sehingga tidak
+	 * pernah menyaring apa pun (cabang "ada yang dipilih" selalu {@code sqlRestriction("true")},
+	 * cabang "tidak ada yang dipilih" pada saringan sekolah men-dereference nilai yang dijamin
+	 * {@code null} oleh kondisinya sendiri &rarr; NPE pasti). Kedua ternary kini dibalik: "ada
+	 * yang dipilih" &rarr; memfilter ke pilihan ({@code CommonSearchFilterHelper.eqSelectedWithId}
+	 * untuk yayasan, {@code Restrictions.eq("id", ...)} untuk sekolah), "tidak ada yang dipilih"
+	 * &rarr; {@code sqlRestriction("true")}. Karena {@code Common.initYayasanDanSekolahDanSemua}
+	 * selalu mem-pra-pilih &amp; men-{@code disable} kedua combobox untuk pengguna non-admin
+	 * (lihat {@code InitComboUtil.initYayasanDanSekolahDanSemua}), cabang "tidak ada yang
+	 * dipilih" praktis hanya tercapai oleh admin &mdash; simetris dengan
+	 * {@link SiswaAction#initCriteria(boolean)} dan pola yang sama di 150+ kelas action lain yang
+	 * memakai {@code CommonSearchFilterHelper.eqSelectedWithId(...)}. Efek samping: dereference
+	 * pada cabang sekolah kini hanya terjadi saat nilainya dijamin non-null, sehingga NPE admin
+	 * ikut hilang tanpa perlu null-check tambahan.</p>
+	 * <p><b>Drill-down kini digerbang privilese.</b> Setiap angka dirender sebagai {@link A} yang
+	 * membuka ekspor {@code Common.cetakDataCustomButton(Siswa.class, ..., SiswaAction.contents)}:
+	 * 116 kolom data pribadi siswa dan orang tua (NIK, penghasilan, telepon/WhatsApp, alamat
+	 * beserta lintang/bujur, rekening bank, data kesehatan, nomor KIP/KPS/KKS) hingga batas satu
+	 * juta baris; tautan "Total" mengekspor seluruh sekolah dalam {@code sekolahs} sekaligus lewat
+	 * {@code Restrictions.in("sekolah", sekolahs)}. Sebelum perbaikan, tautan ini tidak diikat
+	 * privilese apa pun. Kedua handler {@code onClick} (angka sel dan "Total") kini memanggil
+	 * {@code CommonPrivilages.checkPrevilages(CommonPrivilages.READ)} lebih dulu; bila gagal,
+	 * {@code MyMessageboxConfig.show(...)} menampilkan penolakan dan method berhenti tanpa
+	 * memanggil {@code cetakDataCustomButton(...)}. Ini menyamakan gerbang ekspor dengan tombol
+	 * Tambah/Ubah/Hapus di {@link SiswaAction} yang sudah memeriksa
+	 * {@code CommonPrivilages.checkPrevilages(...)}.</p>
 	 *
 	 * <p><b>Bug fungsional lain yang teramati.</b> (1) {@code categoryModel.setValue(nama, "",
 	 * count)} dipanggil di dalam perulangan tahun dengan kunci yang sama untuk satu sekolah,
@@ -731,12 +722,12 @@ public class DasboardSiswa extends MyWindow {
 		final List<Sekolah> sekolahs = ConstantValues.simpleList(HibernateUtil.currentSession()
 				.createCriteria(Sekolah.class)
 				.add(searchyayasan.getSelectedItem() == null || searchyayasan.getSelectedItem().getValue() == null
-						? CommonSearchFilterHelper.eqSelectedWithId("yayasan", searchyayasan, false)
-						: Restrictions.sqlRestriction("true"))
+						? Restrictions.sqlRestriction("true")
+						: CommonSearchFilterHelper.eqSelectedWithId("yayasan", searchyayasan, false))
 
 				.add(searchsekolah.getSelectedItem() == null || searchsekolah.getSelectedItem().getValue() == null
-						? Restrictions.eq("id", ((Sekolah) searchsekolah.getSelectedItem().getValue()).getId())
-						: Restrictions.sqlRestriction("true"))
+						? Restrictions.sqlRestriction("true")
+						: Restrictions.eq("id", ((Sekolah) searchsekolah.getSelectedItem().getValue()).getId()))
 
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).addOrder(Order.asc("nama")), Sekolah.class);
 
@@ -773,6 +764,12 @@ public class DasboardSiswa extends MyWindow {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
+						if (!ais.common.CommonPrivilages.checkPrevilages(ais.common.CommonPrivilages.READ)) {
+							ais.ui.util.MyMessageboxConfig.show(
+									"Anda tidak memiliki hak akses baca untuk mengunduh data siswa.", "Akses Ditolak",
+									ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.EXCLAMATION);
+							return;
+						}
 						EventListener eventListener = (EventListener) Common
 								.cetakDataCustomButton(Siswa.class, new DataCriteriaWithColumn() {
 
@@ -831,6 +828,12 @@ public class DasboardSiswa extends MyWindow {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+				if (!ais.common.CommonPrivilages.checkPrevilages(ais.common.CommonPrivilages.READ)) {
+					ais.ui.util.MyMessageboxConfig.show(
+							"Anda tidak memiliki hak akses baca untuk mengunduh data siswa.", "Akses Ditolak",
+							ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
 				EventListener eventListener = (EventListener) Common
 						.cetakDataCustomButton(Siswa.class, new DataCriteriaWithColumn() {
 
