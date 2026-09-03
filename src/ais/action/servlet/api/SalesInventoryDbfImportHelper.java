@@ -71,25 +71,17 @@ public final class SalesInventoryDbfImportHelper {
 			hasil.put("description", "Impor DBF hanya untuk Pemilik Usaha Sales/Inventory.");
 			return;
 		}
-		if (SalesInventoryTenantSchema.aktif(ctx)) {
-			// GAGAL-TERTUTUP. Seluruh penyimpanan di bawah memakai entitas Hibernate, dan
-			// entitas-entitas itu menyematkan schema-nya pada anotasi -- Produk, AnggotaKoperasi,
-			// Penyedia, SalesInventory, HargaJualCustomer, HargaBeliSupplier, StokOpname,
-			// Pembelian, PengadaanProduk, SatuanProduk, beserta ketiga profilnya.
-			//
-			// Dijalankan untuk pemakai tenant, akibatnya dua-duanya buruk sekaligus: master
-			// miliknya mendarat di schema BERSAMA (terlihat instalasi lain), sementara schema
-			// tenantnya sendiri tetap kosong -- impor melapor sukses, lalu layarnya tidak
-			// menampilkan apa pun.
-			//
-			// Impor ke schema tenant menuntut jalur tulis SQL tersendiri untuk ketiga belas
-			// jenis itu, berikut pemetaan ulangnya ke model tenant (stok = turunan mutasi,
-			// pembelian ber-header/detail, harga umum tanpa customer). Itu pekerjaan P5, bukan
-			// tambalan di sini.
+		boolean jalurTenant = SalesInventoryTenantSchema.aktif(ctx);
+		if (jalurTenant && !SalesInventoryDbfImportTenant.jenisDidukung(
+				request.optString("jenis", "").trim())) {
+			// GAGAL-TERTUTUP untuk jenis yang jalur tenantnya belum ditulis. Menjalankan jalur
+			// legacy di sini akan membuat master tenant mendarat di schema BERSAMA sementara
+			// schema tenantnya sendiri tetap kosong — impor melapor sukses, lalu layarnya
+			// tidak menampilkan apa pun. Ditolak dengan MENYEBUT jenis yang sudah bisa.
 			hasil.put("status", "91");
-			hasil.put("description", "Impor DBF belum tersedia pada schema tenant: seluruh"
-					+ " penyimpanannya lewat entitas yang schema-nya tersemat, sehingga datanya"
-					+ " akan mendarat di schema bersama, bukan milik tenant ini.");
+			hasil.put("description", "Impor DBF jenis \"" + request.optString("jenis", "").trim()
+					+ "\" belum tersedia pada schema tenant. Yang sudah bisa: "
+					+ SalesInventoryDbfImportTenant.daftarJenisDidukung() + ".");
 			return;
 		}
 		String jenis = request.optString("jenis", "").trim();
@@ -113,10 +105,18 @@ public final class SalesInventoryDbfImportHelper {
 		Transaction tx = null;
 		int dibuat = 0, diperbarui = 0, dilewati = 0, gagal = 0;
 		JSONArray exceptions = new JSONArray();
+		// Medan DBF yang tidak punya rumah pada model tenant. Dikumpulkan lalu dilaporkan,
+		// bukan dibuang diam-diam: impor yang menelan kolom tanpa berkata apa-apa adalah impor
+		// yang datanya hilang tanpa jejak.
+		java.util.Set<String> peringatan = new java.util.LinkedHashSet<String>();
 		try {
-			Toko toko = tokoId == null ? null : (Toko) session.get(Toko.class, tokoId);
+			// Pada jalur tenant, Toko adalah entitas ber-schema tersemat: membacanya akan
+			// menoleh ke schema BERSAMA. Yang diperlukan di bawah hanya id-nya.
+			Toko toko = (jalurTenant || tokoId == null) ? null
+					: (Toko) session.get(Toko.class, tokoId);
 			if (("produk".equals(jenis) || "sales".equals(jenis)
-					|| "pembelian_legacy".equals(jenis) || "penjualan_legacy".equals(jenis)) && toko == null) {
+					|| "pembelian_legacy".equals(jenis) || "penjualan_legacy".equals(jenis))
+					&& (jalurTenant ? tokoId == null : toko == null)) {
 				hasil.put("status", "91");
 				hasil.put("description", "Toko aktif wajib diketahui untuk impor " + jenis
 						+ " (akun Pemilik harus terikat/memilih toko).");
@@ -127,7 +127,10 @@ public final class SalesInventoryDbfImportHelper {
 				JSONObject r = rows.getJSONObject(i);
 				try {
 					int status;
-					if ("supplier".equals(jenis)) {
+					if (jalurTenant) {
+						status = imporBarisTenant(session, ctx, tbmuser, r, jenis, tokoId,
+								opnameAwal, peringatan);
+					} else if ("supplier".equals(jenis)) {
 						status = importSupplier(session, tbmuser, r);
 					} else if ("customer".equals(jenis)) {
 						status = importCustomer(session, tbmuser, r);
@@ -167,6 +170,15 @@ public final class SalesInventoryDbfImportHelper {
 			hasil.put("dilewati", dilewati);
 			hasil.put("gagal", gagal);
 			hasil.put("exceptions", exceptions);
+			if (!peringatan.isEmpty()) {
+				JSONArray dilewatiMedan = new JSONArray();
+				for (java.util.Iterator<String> it = peringatan.iterator(); it.hasNext();) {
+					dilewatiMedan.put(it.next());
+				}
+				hasil.put("medanDilewati", dilewatiMedan);
+				hasil.put("peringatan", "Sebagian medan DBF tidak punya kolom padanan pada model"
+						+ " tenant dan TIDAK tersimpan. Lihat medanDilewati.");
+			}
 		} catch (Exception e) {
 			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
 			throw e;
@@ -501,6 +513,310 @@ public final class SalesInventoryDbfImportHelper {
 
 	private static String potong(String nilai, int maksimum) {
 		return nilai == null || nilai.length() <= maksimum ? nilai : nilai.substring(0, maksimum);
+	}
+
+	// =============================================================================================
+	// Jalur schema tenant (§23). Enam jenis master; dua jenis transaksional ditolak di atas.
+	// =============================================================================================
+
+	/** Satu id hasil kueri berparameter tunggal, atau {@code null}. */
+	private static Long satuId(Session session, String sql, Object p1) throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			ps.setObject(1, p1);
+			java.sql.ResultSet rs = ps.executeQuery();
+			Long v = rs.next() ? Long.valueOf(rs.getLong(1)) : null;
+			rs.close();
+			return v;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/** Menyisipkan satu baris lalu mengembalikan id-nya lewat {@code RETURNING}. */
+	private static Long sisipKembalikanId(Session session, String sql, Object[] params)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			for (int i = 0; i < params.length; i++) {
+				ps.setObject(i + 1, params[i]);
+			}
+			java.sql.ResultSet rs = ps.executeQuery();
+			Long v = rs.next() ? Long.valueOf(rs.getLong(1)) : null;
+			rs.close();
+			return v;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/** Menjalankan satu pernyataan dan mengembalikan jumlah baris tersentuh. */
+	private static int jalankan(Session session, String sql, Object[] params) throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			for (int i = 0; i < params.length; i++) {
+				ps.setObject(i + 1, params[i]);
+			}
+			return ps.executeUpdate();
+		} finally {
+			ps.close();
+		}
+	}
+
+	/** Catat medan DBF yang tidak punya kolom padanan, bila baris ini memang mengisinya. */
+	private static void lewati(java.util.Set<String> peringatan, JSONObject r, String medan) {
+		if (!s(r, medan).isEmpty()) {
+			peringatan.add(medan);
+		}
+	}
+
+	/**
+	 * Satu baris impor pada schema tenant.
+	 *
+	 * <p>Nilai kembaliannya sama dengan jalur legacy: 1 = dibuat, 2 = diperbarui, 0 = dilewati.
+	 * Perbedaan hasilnya bukan pada penghitungan itu melainkan pada tempat datanya mendarat.</p>
+	 */
+	private static int imporBarisTenant(Session session,
+			EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser, JSONObject r,
+			String jenis, Long tokoId, boolean opnameAwal, java.util.Set<String> peringatan)
+			throws Exception {
+		String sk = SalesInventoryDbfImportTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		if ("supplier".equals(jenis) || "customer".equals(jenis)) {
+			return imporMitraTenant(session, sk, r, "supplier".equals(jenis), oleh, peringatan);
+		}
+		if ("sales".equals(jenis)) {
+			return imporSalesTenant(session, sk, r, tokoId, oleh);
+		}
+		if ("produk".equals(jenis)) {
+			return imporProdukTenant(session, sk, r, tokoId, opnameAwal, oleh, peringatan);
+		}
+		if ("harga_beli".equals(jenis)) {
+			return imporHargaBeliTenant(session, sk, r, oleh);
+		}
+		if ("harga_jual".equals(jenis)) {
+			return imporHargaJualTenant(session, sk, r, oleh);
+		}
+		throw new Exception("jenis tidak dikenal pada jalur tenant: " + jenis);
+	}
+
+	/**
+	 * Supplier/customer: induk + profilnya, dengan aturan ISI BILA KOSONG yang ditegakkan di SQL.
+	 *
+	 * <p>Empat medan legacy ({@code wilayah}, {@code rekening}, {@code bank}, dan — untuk
+	 * supplier — {@code atas_nama}) tidak punya kolom padanan pada profil tenant. Keduanya
+	 * dilewati dan dilaporkan lewat {@code medanDilewati}.</p>
+	 */
+	private static int imporMitraTenant(Session session, String sk, JSONObject r,
+			boolean supplierMode, String oleh, java.util.Set<String> peringatan) throws Exception {
+		String kode = s(r, "kode");
+		if (kode.isEmpty()) {
+			throw new Exception("kode kosong");
+		}
+		String tabel = supplierMode ? "supplier" : "customer";
+		Long id = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, tabel), kode);
+		boolean baru = id == null;
+		int tersentuh = 0;
+		if (baru) {
+			id = sisipKembalikanId(session, SalesInventoryDbfImportTenant.sisipMitra(sk, tabel),
+					new Object[] { kode, s(r, "nama"), oleh });
+			if (id == null) {
+				throw new Exception("gagal menyisipkan " + tabel + " " + kode);
+			}
+		} else {
+			tersentuh += jalankan(session,
+					SalesInventoryDbfImportTenant.isiNamaMitra(sk, tabel),
+					new Object[] { s(r, "nama"), id });
+		}
+		Double termin = d(r, "termin");
+		Integer terminHari = termin == null ? null : Integer.valueOf(termin.intValue());
+		lewati(peringatan, r, "wilayah");
+		lewati(peringatan, r, "rekening");
+		lewati(peringatan, r, "bank");
+		if (supplierMode) {
+			lewati(peringatan, r, "atas_nama");
+			lewati(peringatan, r, "alamat_bank");
+			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.sisipProfilSupplier(sk),
+					new Object[] { id, s(r, "alamat"), null, s(r, "telp"), terminHari, oleh, id });
+			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.isiProfilSupplier(sk),
+					new Object[] { s(r, "alamat"), null, s(r, "telp"), terminHari, id });
+		} else {
+			Double diskon = d(r, "diskon");
+			java.math.BigDecimal diskonBd = diskon == null ? null
+					: new java.math.BigDecimal(String.valueOf(diskon));
+			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.sisipProfilCustomer(sk),
+					new Object[] { id, s(r, "alamat"), null, s(r, "telp"), s(r, "atas_nama"),
+							terminHari, diskonBd, oleh, id });
+			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.isiProfilCustomer(sk),
+					new Object[] { s(r, "alamat"), null, s(r, "telp"), s(r, "atas_nama"),
+							terminHari, diskonBd, id });
+		}
+		return baru ? 1 : (tersentuh > 0 ? 2 : 0);
+	}
+
+	/**
+	 * Sales: {@code salesperson} berlaku SE-TENANT, dan yang mengikatnya ke toko adalah
+	 * {@code sales_assignment}.
+	 *
+	 * <p>Konsekuensi yang dicatat: jalur legacy mencari sales per (kode, toko), sehingga dua
+	 * toko boleh punya sales berkode sama. Pada tenant kodenya unik se-tenant — baris kedua
+	 * berkode sama akan dikenali sebagai sales yang SAMA, lalu ditambahi penugasan toko kedua.
+	 * Itu bukan kehilangan data melainkan penggabungan, dan penggabungan itulah yang benar bila
+	 * memang orangnya satu.</p>
+	 */
+	private static int imporSalesTenant(Session session, String sk, JSONObject r, Long tokoId,
+			String oleh) throws Exception {
+		String kode = s(r, "kode");
+		if (kode.isEmpty()) {
+			throw new Exception("kode kosong");
+		}
+		Long id = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "salesperson"), kode);
+		boolean baru = id == null;
+		int tersentuh = 0;
+		if (baru) {
+			id = sisipKembalikanId(session, SalesInventoryDbfImportTenant.sisipSales(sk),
+					new Object[] { kode, s(r, "nama"), s(r, "no_perkiraan"), oleh });
+			if (id == null) {
+				throw new Exception("gagal menyisipkan salesperson " + kode);
+			}
+		} else {
+			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.isiSales(sk),
+					new Object[] { s(r, "nama"), s(r, "no_perkiraan"), id });
+		}
+		if (tokoId != null) {
+			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.sisipPenugasan(sk),
+					new Object[] { id, tokoId, oleh, id, tokoId });
+		}
+		return baru ? 1 : (tersentuh > 0 ? 2 : 0);
+	}
+
+	/**
+	 * Produk, berikut saldo awal legacy bila diminta.
+	 *
+	 * <p>Saldo awalnya menjadi SATU baris {@code mutasi_stok} berjenis opname — model tenant
+	 * tidak punya kolom stok, sehingga tidak ada tempat kedua yang bisa berselisih. Penjaganya
+	 * {@code WHERE NOT EXISTS} pada {@code nomor_dokumen = 'MIGRASI-DBF'}: menjalankan ulang
+	 * berkas yang sama tidak boleh melipatgandakan saldo pembukanya.</p>
+	 *
+	 * <p>Saldo awal butuh gudang, dan gudang itu ditentukan dari tokonya. Bila toko itu belum
+	 * punya gudang, saldo awalnya DITOLAK alih-alih ditaruh di gudang mana saja: menaruh stok
+	 * pada gudang yang salah lebih buruk daripada tidak menaruhnya, sebab angkanya lalu tampak
+	 * benar di tempat yang keliru.</p>
+	 */
+	private static int imporProdukTenant(Session session, String sk, JSONObject r, Long tokoId,
+			boolean opnameAwal, String oleh, java.util.Set<String> peringatan) throws Exception {
+		String kode = s(r, "kode");
+		if (kode.isEmpty()) {
+			throw new Exception("kode kosong");
+		}
+		Long satuanId = null;
+		String namaSatuan = s(r, "satuan");
+		if (!namaSatuan.isEmpty()) {
+			satuanId = satuId(session, SalesInventoryDbfImportTenant.cariSatuan(sk), namaSatuan);
+			if (satuanId == null) {
+				satuanId = sisipKembalikanId(session,
+						SalesInventoryDbfImportTenant.sisipSatuan(sk),
+						new Object[] { namaSatuan.toUpperCase(), namaSatuan, oleh });
+			}
+		}
+		Double hargaBeli = d(r, "harga_beli");
+		Double hargaJual = d(r, "harga_jual");
+		Double stokMin = d(r, "stok_minimum");
+		Long id = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "produk"), kode);
+		boolean baru = id == null;
+		int tersentuh = 0;
+		if (baru) {
+			id = sisipKembalikanId(session, SalesInventoryDbfImportTenant.sisipProduk(sk),
+					new Object[] { kode, s(r, "nama"), satuanId, hargaJual, hargaBeli, stokMin,
+							oleh });
+			if (id == null) {
+				throw new Exception("gagal menyisipkan produk " + kode);
+			}
+		} else {
+			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.isiProduk(sk),
+					new Object[] { s(r, "nama"), satuanId, hargaJual, hargaBeli, stokMin, id });
+		}
+		Double stokLegacy = d(r, "stok_legacy");
+		if (baru && opnameAwal && stokLegacy != null && stokLegacy.doubleValue() > 0) {
+			Long gudangId = tokoId == null ? null
+					: satuId(session, SalesInventoryDbfImportTenant.gudangToko(sk), tokoId);
+			if (gudangId == null) {
+				throw new Exception("saldo awal produk " + kode + " tidak dapat ditempatkan:"
+						+ " toko ini belum punya gudang aktif");
+			}
+			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.sisipSaldoAwal(sk),
+					new Object[] { id, gudangId,
+							new java.math.BigDecimal(String.valueOf(stokLegacy)), oleh, id });
+		} else if (stokLegacy != null && stokLegacy.doubleValue() < 0) {
+			lewati(peringatan, r, "stok_legacy");
+		}
+		return baru ? 1 : (tersentuh > 0 ? 2 : 0);
+	}
+
+	/** Harga beli per supplier; idempoten pada (supplier, produk, berlaku_dari). */
+	private static int imporHargaBeliTenant(Session session, String sk, JSONObject r, String oleh)
+			throws Exception {
+		String kodeSupplier = s(r, "kode_supplier");
+		String kodeProduk = s(r, "kode_produk");
+		java.util.Date tanggal = tgl(r, "tanggal");
+		Double harga = d(r, "harga");
+		if (kodeSupplier.isEmpty() || kodeProduk.isEmpty() || tanggal == null || harga == null) {
+			throw new Exception("kode_supplier/kode_produk/tanggal/harga tidak lengkap");
+		}
+		Long supplierId = satuId(session,
+				SalesInventoryDbfImportTenant.cariKode(sk, "supplier"), kodeSupplier);
+		if (supplierId == null) {
+			throw new Exception("supplier " + kodeSupplier + " belum ada (impor SUPPLIER.DBF dulu)");
+		}
+		Long produkId = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "produk"),
+				kodeProduk);
+		if (produkId == null) {
+			throw new Exception("produk " + kodeProduk + " belum ada (impor STOK.DBF dulu)");
+		}
+		java.sql.Date tgl = new java.sql.Date(tanggal.getTime());
+		int n = jalankan(session, SalesInventoryDbfImportTenant.sisipHargaBeli(sk),
+				new Object[] { supplierId, produkId, tgl,
+						new java.math.BigDecimal(String.valueOf(harga)), oleh,
+						supplierId, produkId, tgl });
+		return n > 0 ? 1 : 0;
+	}
+
+	/**
+	 * Harga jual; {@code customer_id} boleh kosong dan itulah harga umum.
+	 *
+	 * <p>Penjaga duplikatnya memakai {@code IS NOT DISTINCT FROM}, bukan {@code =}: perbandingan
+	 * biasa terhadap {@code NULL} selalu tidak-diketahui, sehingga penjaganya akan lolos setiap
+	 * kali dan harga umum yang sama berlipat pada tiap impor ulang.</p>
+	 */
+	private static int imporHargaJualTenant(Session session, String sk, JSONObject r, String oleh)
+			throws Exception {
+		String kodeCustomer = s(r, "kode_customer");
+		String kodeProduk = s(r, "kode_produk");
+		java.util.Date tanggal = tgl(r, "tanggal");
+		Double harga = d(r, "harga");
+		if (kodeProduk.isEmpty() || tanggal == null || harga == null) {
+			throw new Exception("kode_produk/tanggal/harga tidak lengkap");
+		}
+		Long customerId = null;
+		if (!kodeCustomer.isEmpty()) {
+			customerId = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "customer"),
+					kodeCustomer);
+			if (customerId == null) {
+				throw new Exception("customer " + kodeCustomer
+						+ " belum ada (impor CUSTOMER.DBF dulu)");
+			}
+		}
+		Long produkId = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "produk"),
+				kodeProduk);
+		if (produkId == null) {
+			throw new Exception("produk " + kodeProduk + " belum ada (impor STOK.DBF dulu)");
+		}
+		java.sql.Date tgl = new java.sql.Date(tanggal.getTime());
+		int n = jalankan(session, SalesInventoryDbfImportTenant.sisipHargaJual(sk),
+				new Object[] { customerId, produkId, tgl,
+						new java.math.BigDecimal(String.valueOf(harga)), oleh,
+						customerId, produkId, tgl });
+		return n > 0 ? 1 : 0;
 	}
 
 	private static boolean isiBilaKosong(String nilaiSekarang, String nilaiBaru) {

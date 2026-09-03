@@ -36,13 +36,13 @@ public final class SemesterMahasiswaAnalisisPopupHelper {
 		 * biasa. Label aksi dan bentuk pill dipasang di helper ini agar seluruh baris/pemanggil
 		 * analisis semester memperoleh affordance klik yang sama.
 		 */
-		link.setLabel("Semester " + semester + " · klik");
+		link.setLabel(semester);
 		link.setTooltiptext("Klik untuk membuka rincian Semester " + semester
 				+ ": asal angka, rumus, bukti KRS, dan saran perbaikan");
-		link.setStyle("display:inline-block;color:#075985;background:#e0f2fe;"
-				+ "border:1px solid #7dd3fc;border-radius:5px;padding:2px 7px;"
+		link.setStyle("display:inline-block;min-width:20px;text-align:center;color:#075985;background:#e0f2fe;"
+				+ "border:1px solid #38bdf8;border-radius:999px;padding:1px 6px;"
 				+ "text-decoration:underline;text-underline-offset:2px;cursor:pointer;"
-				+ "font-weight:700;white-space:nowrap;");
+				+ "font-weight:700;white-space:nowrap;box-shadow:0 1px 2px rgba(2,132,199,.18);");
 		link.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {

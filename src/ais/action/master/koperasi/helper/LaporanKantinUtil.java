@@ -2789,6 +2789,53 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("Keterangan","text"));
                 kolom.add(new Kolom("Debet","num")); kolom.add(new Kolom("Kredit","num"));
 
+            } else if ("lk_neracalajur".equals(r)) {
+                judul = "Neraca Lajur (Kertas Kerja)";
+                catatan = "Kertas kerja dari jurnal TERPOSTING: Neraca Saldo, Penyesuaian, Neraca Saldo setelah Penyesuaian, "
+                    + "lalu dipisah ke kolom Laba Rugi / Neraca menurut Kelompok Laporan. Akun yang BELUM dipetakan tetap "
+                    + "muncul di kolom NSD tetapi TIDAK masuk kolom Laba Rugi maupun Neraca (lihat 'Diagnosa Pemetaan Akun').";
+                String w = klausaLedger(session, tglMulai, tglSampai, prm);
+                // Klasifikasi sengaja dipakai sebagai subkueri EXISTS, BUKAN join seperti JOIN_KLAS:
+                // satu akun boleh terdaftar di beberapa kelompok laporan, dan join akan MENGGANDAKAN
+                // barisnya sehingga saldo tiap akun terhitung berkali-kali.
+                String klasAwal = " exists (select 1 from akunting.kelompok_laporan_punya_akun b "
+                    + " join akunting.kelompok_laporan c on c.id = b.kelompok_laporan "
+                    + " join akunting.jenis_laporan f on f.id = c.jenis_laporan "
+                    + " where b.akun = d.id and (c.aktif is null or c.aktif) and ";
+                // Predikat huruf-per-huruf sama dengan akn_laba_rugi dan akn_neraca supaya satu akun
+                // tidak pernah masuk kolom yang berbeda antara neraca lajur dan laporan pokoknya.
+                String klasLR = klasAwal + " ( lower(coalesce(f.keterangan,'')) like '%laba%' "
+                    + " or lower(coalesce(f.keterangan,'')) like '%rugi%' "
+                    + " or lower(coalesce(f.keterangan,'')) like '%pendapatan%' "
+                    + " or lower(coalesce(f.keterangan,'')) like '%beban%' "
+                    + " or lower(coalesce(f.keterangan,'')) like '%biaya%' ) ) ";
+                String klasNR = klasAwal + " lower(coalesce(f.keterangan,'')) like '%neraca%' ) ";
+                // jenis_transaksi 7 = Jurnal Penyesuaian (angka yang sama dipakai DasboardAkuntansi).
+                String ns = " (coalesce(sum(case when coalesce(a1.jenis_transaksi,0) <> 7 then a.debet - a.kredit else 0 end),0)) ";
+                String nsd = " (coalesce(sum(a.debet - a.kredit),0)) ";
+                sql = "select d.kode, d.nama, "
+                    + " case when " + ns + " > 0 then " + ns + " else 0 end, "
+                    + " case when " + ns + " < 0 then -" + ns + " else 0 end, "
+                    + " coalesce(sum(case when coalesce(a1.jenis_transaksi,0) = 7 then a.debet else 0 end),0), "
+                    + " coalesce(sum(case when coalesce(a1.jenis_transaksi,0) = 7 then a.kredit else 0 end),0), "
+                    + " case when " + nsd + " > 0 then " + nsd + " else 0 end, "
+                    + " case when " + nsd + " < 0 then -" + nsd + " else 0 end, "
+                    + " case when " + klasLR + " and " + nsd + " > 0 then " + nsd + " else 0 end, "
+                    + " case when " + klasLR + " and " + nsd + " < 0 then -" + nsd + " else 0 end, "
+                    + " case when " + klasNR + " and " + nsd + " > 0 then " + nsd + " else 0 end, "
+                    + " case when " + klasNR + " and " + nsd + " < 0 then -" + nsd + " else 0 end "
+                    + FROM_LEDGER + w
+                    + " group by d.id, d.kode, d.nama "
+                    + " having coalesce(sum(a.debet),0) <> 0 or coalesce(sum(a.kredit),0) <> 0 "
+                    + " order by d.kode ";
+                tipe = new String[]{"text","text","num","num","num","num","num","num","num","num","num","num"};
+                kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Nama Akun","text"));
+                kolom.add(new Kolom("NS Debet","num")); kolom.add(new Kolom("NS Kredit","num"));
+                kolom.add(new Kolom("Penyesuaian Debet","num")); kolom.add(new Kolom("Penyesuaian Kredit","num"));
+                kolom.add(new Kolom("NSD Debet","num")); kolom.add(new Kolom("NSD Kredit","num"));
+                kolom.add(new Kolom("Laba Rugi Debet","num")); kolom.add(new Kolom("Laba Rugi Kredit","num"));
+                kolom.add(new Kolom("Neraca Debet","num")); kolom.add(new Kolom("Neraca Kredit","num"));
+
             } else if ("akn_ringkasan_bb".equals(r)) {
                 judul = "Ringkasan Buku Besar";
                 catatan = "Total Debet, Kredit, dan Saldo (D-K) per akun dari jurnal TERPOSTING Satuan Kerja kantin.";

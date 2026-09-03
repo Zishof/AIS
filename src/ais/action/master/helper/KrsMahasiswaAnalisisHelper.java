@@ -2,6 +2,7 @@ package ais.action.master.helper;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import ais.database.model.Detailperkuliahan;
@@ -56,7 +57,23 @@ public final class KrsMahasiswaAnalisisHelper {
 				hasil.sksStatusLain += item.sks;
 			}
 		}
+		hasil.rekapSksSemester = krsMahasiswa.getSksYangDiambil();
+		hasil.selisihSks = hasil.totalSks - hasil.rekapSksSemester;
 		hasil.susunKesimpulan();
+		Collections.sort(hasil.items, new Comparator<ItemKrs>() {
+			@Override
+			public int compare(ItemKrs kiri, ItemKrs kanan) {
+				int prioritasKiri = prioritas(kiri);
+				int prioritasKanan = prioritas(kanan);
+				if (prioritasKiri != prioritasKanan) return prioritasKiri - prioritasKanan;
+				return (kiri.kode + kiri.nama).compareToIgnoreCase(kanan.kode + kanan.nama);
+			}
+
+			private int prioritas(ItemKrs item) {
+				if (item.menungguPersetujuan || (!item.disetujui && !item.menungguPersetujuan)) return 0;
+				return item.dinilai ? 2 : 1;
+			}
+		});
 		return hasil;
 	}
 
@@ -97,6 +114,11 @@ public final class KrsMahasiswaAnalisisHelper {
 		private int sksDisetujui;
 		private int sksMenunggu;
 		private int sksStatusLain;
+		private int rekapSksSemester;
+		private int selisihSks;
+		private int skorKesiapan;
+		private String prioritas = "PERLU VERIFIKASI";
+		private String arahKeputusan = "Periksa konteks KRS sebelum mengambil keputusan lanjutan.";
 		private String kesimpulan = "Data KRS belum tersedia.";
 		private final List<ItemKrs> items = new ArrayList<ItemKrs>();
 		private final List<String> temuan = new ArrayList<String>();
@@ -104,8 +126,13 @@ public final class KrsMahasiswaAnalisisHelper {
 
 		private void susunKesimpulan() {
 			int total = getTotalMatakuliah();
+			int skorPersetujuan = total == 0 ? 0 : (int) Math.round(disetujui * 50.0 / total);
+			int skorPenilaian = disetujui == 0 ? 0 : (int) Math.round(dinilai * 50.0 / disetujui);
+			skorKesiapan = Math.min(100, skorPersetujuan + skorPenilaian);
 			if (total == 0) {
 				kesimpulan = "Mahasiswa belum mempunyai mata kuliah pada konteks KRS ini.";
+				prioritas = "PERLU VERIFIKASI";
+				arahKeputusan = "Verifikasi periode dan pembentukan KRS; jangan menyimpulkan mahasiswa tidak aktif hanya dari KRS kosong.";
 				temuan.add("Belum ada baris mata kuliah yang dapat diperiksa.");
 				rekomendasi.add("Pastikan semester, tahap, jenis semester, dan pilihan remedial sudah sesuai.");
 				return;
@@ -113,23 +140,39 @@ public final class KrsMahasiswaAnalisisHelper {
 			if (menungguPersetujuan > 0) {
 				kesimpulan = menungguPersetujuan + " dari " + total
 						+ " mata kuliah masih menunggu persetujuan.";
+				prioritas = "TINGGI";
+				arahKeputusan = "Tuntaskan persetujuan Dosen PA sebelum finalisasi KRS atau evaluasi progres nilai.";
 				temuan.add("Proses persetujuan KRS belum tuntas; mata kuliah yang menunggu belum masuk cakupan penilaian.");
 				rekomendasi.add("Dosen PA perlu memeriksa dan menetapkan persetujuan mata kuliah yang masih tertunda.");
 			} else {
 				kesimpulan = "Seluruh mata kuliah yang dikenali sudah melewati tahap persetujuan.";
+				prioritas = "RENDAH";
+				arahKeputusan = "Lanjutkan pemantauan penilaian dan kecocokan rekap SKS.";
 			}
 			if (disetujui > 0 && belumDinilai == disetujui) {
+				if (!"TINGGI".equals(prioritas)) prioritas = "SEDANG";
+				arahKeputusan = "Pastikan periode penilaian; tindak lanjuti dosen bila batas input nilai sudah lewat.";
 				temuan.add("Semua mata kuliah yang disetujui belum mempunyai nilai final.");
 				rekomendasi.add("Periksa jadwal penilaian; bila masa penilaian telah selesai, konfirmasi input nilai dosen.");
 			} else if (belumDinilai > 0) {
+				if (!"TINGGI".equals(prioritas)) prioritas = "SEDANG";
+				arahKeputusan = "Fokus pada mata kuliah belum dinilai yang ditempatkan di urutan teratas tabel.";
 				temuan.add(belumDinilai + " mata kuliah yang disetujui masih belum dinilai.");
 				rekomendasi.add("Prioritaskan pemeriksaan mata kuliah belum dinilai agar progres akademik lengkap.");
 			} else if (dinilai > 0) {
 				temuan.add("Seluruh mata kuliah yang disetujui sudah mempunyai nilai.");
 			}
 			if (statusLain > 0) {
+				prioritas = "TINGGI";
+				arahKeputusan = "Tahan finalisasi dan periksa status persetujuan nonstandar bersama administrator.";
 				temuan.add(statusLain + " mata kuliah mempunyai status persetujuan di luar nilai standar 0/1.");
 				rekomendasi.add("Administrator perlu memeriksa status persetujuan nonstandar tersebut.");
+			}
+			if (selisihSks != 0) {
+				if ("RENDAH".equals(prioritas)) prioritas = "SEDANG";
+				temuan.add("SKS hasil rincian berbeda " + Math.abs(selisihSks)
+						+ " SKS dari rekap semester (rincian " + totalSks + ", rekap " + rekapSksSemester + ").");
+				rekomendasi.add("Periksa mata kuliah konversi/remedial dan jalankan sinkronisasi KRS bila perbedaan tidak diharapkan.");
 			}
 			if (rekomendasi.isEmpty()) {
 				rekomendasi.add("Tidak ada tindak lanjut mendesak; pertahankan konsistensi persetujuan dan penilaian.");
@@ -150,6 +193,12 @@ public final class KrsMahasiswaAnalisisHelper {
 		public int getSksDisetujui() { return sksDisetujui; }
 		public int getSksMenunggu() { return sksMenunggu; }
 		public int getSksStatusLain() { return sksStatusLain; }
+		public int getRekapSksSemester() { return rekapSksSemester; }
+		public int getSelisihSks() { return selisihSks; }
+		public boolean isSksKonsisten() { return selisihSks == 0; }
+		public int getSkorKesiapan() { return skorKesiapan; }
+		public String getPrioritas() { return prioritas; }
+		public String getArahKeputusan() { return arahKeputusan; }
 		public String getKesimpulan() { return kesimpulan; }
 		public List<ItemKrs> getItems() { return Collections.unmodifiableList(items); }
 		public List<String> getTemuan() { return Collections.unmodifiableList(temuan); }
@@ -178,4 +227,3 @@ public final class KrsMahasiswaAnalisisHelper {
 		public double getNilai() { return nilai; }
 	}
 }
-

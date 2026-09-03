@@ -61,11 +61,10 @@ public final class KrsMahasiswaAnalisisPopupHelper {
 	private static String buatRingkasanKlik(String ringkasan) {
 		String isi = ringkasan == null || ringkasan.trim().isEmpty()
 				? "<font>Belum ada ringkasan KRS</font>" : ringkasan;
-		return "<div style='display:inline-block;min-width:190px;padding:6px 9px;"
-				+ "border:1px solid #93c5fd;border-radius:7px;background:#eff6ff;color:#172033;'>"
-				+ isi
-				+ "<div style='margin-top:5px;color:#075985;font-weight:bold;text-decoration:underline;'>"
-				+ "&#128202; Analisis pintar &amp; grafik &mdash; klik</div></div>";
+		return "<div style='display:inline-flex;align-items:flex-start;gap:6px;color:#075985;'>"
+				+ "<span aria-hidden='true' style='font-size:14px;line-height:1.25;'>&#128202;</span>"
+				+ "<span style='text-decoration:underline;text-decoration-style:dotted;"
+				+ "text-underline-offset:3px;'>" + isi + "</span></div>";
 	}
 
 	public static void tampilkan(AnalisisKrs analisis) throws Exception {
@@ -106,12 +105,20 @@ public final class KrsMahasiswaAnalisisPopupHelper {
 				.append("<div style='font-size:11px;font-weight:bold;color:#075985;text-transform:uppercase;'>Kesimpulan utama</div>")
 				.append("<div style='font-size:17px;font-weight:bold;margin-top:4px;'>")
 				.append(esc(a.getKesimpulan())).append("</div></div>");
+		String warnaPrioritas = warnaPrioritas(a.getPrioritas());
+		h.append("<div style='display:flex;align-items:flex-start;gap:10px;background:white;border:1px solid #cbd5e1;"
+				+ "border-radius:8px;padding:11px 13px;margin-bottom:13px;'>")
+				.append("<span style='display:inline-block;background:").append(warnaPrioritas)
+				.append(";color:white;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:bold;white-space:nowrap;'>")
+				.append(esc(a.getPrioritas())).append("</span><div><b>Keputusan berikut yang disarankan</b><br>")
+				.append(esc(a.getArahKeputusan())).append("</div></div>");
 
 		h.append("<div style='display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px;'>");
 		kartu(h, "Mata kuliah", String.valueOf(a.getTotalMatakuliah()), "cakupan KRS", "#1d4ed8");
 		kartu(h, "Disetujui", String.valueOf(a.getDisetujui()), persen(a.getDisetujui(), a.getTotalMatakuliah()) + "%", "#15803d");
 		kartu(h, "Sudah dinilai", String.valueOf(a.getDinilai()), persen(a.getDinilai(), a.getDisetujui()) + "% dari disetujui", "#7e22ce");
 		kartu(h, "SKS terdeteksi", String.valueOf(a.getTotalSks()), "dari rincian mata kuliah", "#b45309");
+		kartu(h, "Skor kesiapan", a.getSkorKesiapan() + "%", "50% persetujuan + 50% penilaian", warnaPrioritas);
 		h.append("</div>");
 
 		h.append("<div style='display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;'>");
@@ -127,6 +134,10 @@ public final class KrsMahasiswaAnalisisPopupHelper {
 		barisFakta(h, "IPS", angka(krs == null ? null : krs.getIps()));
 		barisFakta(h, "IPK", angka(krs == null ? null : krs.getIpk()));
 		barisFakta(h, "SKS semester (rekap)", esc(krs == null ? "-" : krs.getSksYangDiambil()));
+		barisFakta(h, "SKS hasil rincian", esc(Integer.valueOf(a.getTotalSks())));
+		barisFakta(h, "Konsistensi SKS", a.isSksKonsisten()
+				? "<b style='color:#166534;'>Sesuai</b>"
+				: "<b style='color:#b45309;'>Selisih " + Math.abs(a.getSelisihSks()) + " SKS</b>");
 		barisFakta(h, "SKS kumulatif (rekap)", esc(krs == null ? "-" : krs.getSksk()));
 		barisFakta(h, "Catatan KRS", esc(krs == null || krs.getCatatan().isEmpty() ? "-" : krs.getCatatan()));
 		h.append("</table></div>");
@@ -234,6 +245,12 @@ public final class KrsMahasiswaAnalisisPopupHelper {
 		return Math.min(100, Math.max(1, (int) Math.round((bagian * 100.0) / total)));
 	}
 
+	private static String warnaPrioritas(String prioritas) {
+		if ("TINGGI".equals(prioritas)) return "#b91c1c";
+		if ("SEDANG".equals(prioritas) || "PERLU VERIFIKASI".equals(prioritas)) return "#b45309";
+		return "#15803d";
+	}
+
 	private static String angka(Double value) {
 		return value == null ? "-" : new DecimalFormat("0.00").format(value.doubleValue());
 	}
@@ -244,4 +261,3 @@ public final class KrsMahasiswaAnalisisPopupHelper {
 				.replace("\"", "&quot;").replace("'", "&#39;");
 	}
 }
-
