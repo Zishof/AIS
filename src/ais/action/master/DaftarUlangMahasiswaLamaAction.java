@@ -6245,6 +6245,9 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 					? Konfigurasi.TIDAK_AKTIF : Konfigurasi.AKTIF;
 			isActive = Konfigurasi.AKTIF.equals(
 					Common.getKonfigurasi(configKey + ptConfigSuffix + pt.getId(), tenantDefault).getNilai());
+			if (isActive && OnlineBmtUtil.PARAM_KEY.equals(bankGatewayId)) {
+				isActive = OnlineBmtUtil.isPerguruanTinggiReady(pt.getId());
+			}
 		}
 
 		if (isActive) {

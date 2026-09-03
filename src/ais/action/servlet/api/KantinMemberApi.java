@@ -443,8 +443,7 @@ public final class KantinMemberApi {
                     o.put("gateway", "smartlink");
                     arr.put(o);
                 }
-                if (OnlineBmtUtil.isGlobalEnabled()
-                        && Boolean.TRUE.equals(cara.getKanalPembayaran().getAktfkanPembayaranViaOnlineBmt())) {
+				if (OnlineBmtUtil.isChannelReady(cara.getKanalPembayaran())) {
                     JSONObject o = new JSONObject();
                     o.put("id", cara.getId());
                     o.put("nama", OnlineBmtUtil.BANK_NAME);
@@ -506,9 +505,8 @@ public final class KantinMemberApi {
                     || cara.getKanalPembayaran() == null)
                 return ApiHelperSupport.status("99", "Cara pembayaran online tidak diizinkan untuk jenis anggota ini.");
 
-            if (onlineBmt && (!OnlineBmtUtil.isGlobalEnabled()
-                    || !Boolean.TRUE.equals(cara.getKanalPembayaran().getAktfkanPembayaranViaOnlineBmt())))
-                return ApiHelperSupport.status("99", "Kanal Online BMT belum diaktifkan untuk cara pembayaran ini.");
+			if (onlineBmt && !OnlineBmtUtil.isChannelReady(cara.getKanalPembayaran()))
+				return ApiHelperSupport.status("99", "Kanal Online BMT belum aktif atau konfigurasinya belum lengkap.");
 
             String variable = cara.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
             if (!onlineBmt && variable != null && !variable.trim().isEmpty()) {

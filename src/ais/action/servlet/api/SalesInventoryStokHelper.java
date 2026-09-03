@@ -272,9 +272,21 @@ public final class SalesInventoryStokHelper {
 			}
 
 			// Saldo AWAL sebelum rentang (semua suku < dari) supaya kartu bisa menampilkan saldo absolut.
+			//
+			// PENTING: ini berada di LUAR cabang tenant/legacy di atas, sehingga kedua jalur
+			// melewatinya. Sebelum perbaikan ini, jalur tenant membangun kartunya dari
+			// mutasi_stok tenant tetapi saldo awalnya tetap dari koperasi.* -- yakni tabel
+			// instalasi bersama, disaring dengan id produk MILIK TENANT. Id itu bertabrakan
+			// antar-schema, jadi hasilnya bukan galat melainkan angka milik data lain (atau nol),
+			// dan karena tiap baris kartu ditampilkan sebagai saldoAwal + saldo berjalan,
+			// SELURUH kolom saldo pada kartu itu ikut salah tanpa satu pun tanda.
 			String kondisiAwal = "< DATE '" + dari + "'";
-			String sqlAwal = "SELECT (" + ekspresiMasukPid(pid, kondisiAwal) + " + " + ekspresiOpnamePid(pid, kondisiAwal)
-					+ " - (" + ekspresiKeluarPid(pid, kondisiAwal) + "))";
+			String sqlAwal = SalesInventoryStokTenant.aktif(ctx)
+					? SalesInventoryStokTenant.sqlSaldoAwal(
+							SalesInventoryStokTenant.skema(ctx.tenant), pid, dari)
+					: "SELECT (" + ekspresiMasukPid(pid, kondisiAwal) + " + "
+							+ ekspresiOpnamePid(pid, kondisiAwal)
+							+ " - (" + ekspresiKeluarPid(pid, kondisiAwal) + "))";
 			java.sql.PreparedStatement psAwal = session.connection().prepareStatement(sqlAwal);
 			java.sql.ResultSet rsAwal = psAwal.executeQuery();
 			double saldoAwal = rsAwal.next() ? rsAwal.getDouble(1) : 0;

@@ -252,8 +252,7 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 				virtualAccountBankOnline.setKanalPembayaran(kanalPembayaran);
 
 				if (onlineBmt) {
-					if (!OnlineBmtUtil.isGlobalEnabled() || kanalPembayaran == null
-							|| !Boolean.TRUE.equals(kanalPembayaran.getAktfkanPembayaranViaOnlineBmt())) return null;
+					if (!OnlineBmtUtil.isChannelReady(kanalPembayaran)) return null;
 					biayaAdmin = OnlineBmtUtil.resolveSettings(kanalPembayaran.getSekolah(), kanalPembayaran)
 							.getAdministrationFee();
 					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, kanalPembayaran.getSekolah(), kanalPembayaran);
@@ -782,8 +781,7 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 				virtualAccountBankOnline.setKanalPembayaran(kanalPembayaran);
 
 				if (onlineBmt) {
-					if (!OnlineBmtUtil.isGlobalEnabled() || kanalPembayaran == null
-							|| !Boolean.TRUE.equals(kanalPembayaran.getAktfkanPembayaranViaOnlineBmt())) return null;
+					if (!OnlineBmtUtil.isChannelReady(kanalPembayaran)) return null;
 					biayaAdmin = OnlineBmtUtil.resolveSettings(kanalPembayaran.getSekolah(), kanalPembayaran)
 							.getAdministrationFee();
 					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, kanalPembayaran.getSekolah(), kanalPembayaran);

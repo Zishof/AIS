@@ -408,8 +408,7 @@ public class OnlineBmt extends HttpServlet {
 					? invoice.getSiswa().getSekolah() : invoice.getCalonSiswa().getSekolah();
 			enabled = OnlineBmtUtil.isSekolahEnabled(sekolah, invoice.getKanalPembayaran());
 		} else if (invoice.getAnggotaKoperasi() != null) {
-			enabled = OnlineBmtUtil.isGlobalEnabled() && invoice.getKanalPembayaran() != null
-					&& Boolean.TRUE.equals(invoice.getKanalPembayaran().getAktfkanPembayaranViaOnlineBmt());
+			enabled = OnlineBmtUtil.isChannelEnabled(invoice.getKanalPembayaran());
 		} else {
 			enabled = OnlineBmtUtil.isPerguruanTinggiEnabled(invoice.getPt());
 		}

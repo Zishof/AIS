@@ -1154,12 +1154,10 @@ public class TopupHelper {
 
 			List<String> warnings = new ArrayList<String>();
 			boolean onlineBmt = bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME);
-			if (onlineBmt && (!OnlineBmtUtil.isGlobalEnabled()
-					|| caraPembayaranKoperasi.getKanalPembayaran() == null
-					|| !Boolean.TRUE.equals(caraPembayaranKoperasi.getKanalPembayaran()
-							.getAktfkanPembayaranViaOnlineBmt()))) {
+			if (onlineBmt && !OnlineBmtUtil.isChannelReady(
+					caraPembayaranKoperasi.getKanalPembayaran())) {
 				jsonObject.put("status", "03");
-				jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk kanal pembayaran ini");
+				jsonObject.put("description", "Kanal Online BMT belum aktif atau konfigurasinya belum lengkap");
 				return jsonObject;
 			}
 			double biayaAdministrasi = onlineBmt

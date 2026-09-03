@@ -122,6 +122,20 @@ public final class OnlineBmtUtil {
 	}
 
 	/**
+	 * Kanal koperasi/kantin dapat berdiri tanpa relasi Sekolah. Gerbang ini sengaja
+	 * tidak memaksakan sakelar Sekolah, tetapi tetap menuntut sakelar kanal.
+	 */
+	public static boolean isChannelEnabled(KanalPembayaran kanal) {
+		return isGlobalEnabled() && kanal != null
+				&& Boolean.TRUE.equals(kanal.getAktfkanPembayaranViaOnlineBmt());
+	}
+
+	public static boolean isChannelReady(KanalPembayaran kanal) {
+		return isChannelEnabled(kanal)
+				&& resolveSettings(kanal.getSekolah(), kanal).isOperationallyReady();
+	}
+
+	/**
 	 * Snapshot konfigurasi efektif untuk satu pemilik invoice. Snapshot sengaja
 	 * tidak menyimpan entity Hibernate supaya aman digunakan sesudah session ditutup.
 	 * Urutan pewarisan adalah Kanal Pembayaran, Sekolah, lalu konfigurasi global.

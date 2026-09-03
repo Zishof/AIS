@@ -2432,6 +2432,90 @@ Empat entitas transaksional (`piutang`, `penerimaan`, `order`, `spj`) belum puny
 penolakannya menyebut itu. Memasangnya menuntut penelusuran seluruh jalur tulis transaksionalnya
 — pekerjaan tersendiri, bukan tempelan pada batch ini.
 
+## §21 — penjaga local-first, dan kebocoran yang ia temukan pada jalan pertama
+
+Sampai §20 setiap batch memeriksa dirinya sendiri: apakah aksi ini sudah punya cabang tenant,
+apakah kuerinya setara. Yang tidak pernah diperiksa **secara mekanis** adalah sifat yang lebih
+mendasar: *tidak satu pun jalur tenant boleh menyentuh schema bersama.*
+
+Sifat itu tidak bisa dijaga dengan ingatan. Kueri jalur tenant yang masih menunjuk
+`koperasi.`/`akunting.`/`library.` berjalan mulus, mengembalikan baris yang tampak wajar, dan
+tidak melempar apa pun. Ia hanya salah — dan salahnya lintas-tenant.
+
+`audit-local-first.py` menjaganya, dan ia menemukan satu pada jalan pertamanya.
+
+### Yang ditemukan: saldo awal kartu stok
+
+`inventoryLedger` bercabang tenant/legacy saat **membangun kartunya**, lalu menutup cabang itu.
+Perhitungan **saldo awal** berada *sesudah* penutup cabang, sehingga kedua jalur melewatinya —
+dan isinya ekspresi legacy atas `koperasi.*`.
+
+Pada tenant, hasilnya: kartunya dibangun dari `mutasi_stok` tenant, tetapi saldo awalnya dihitung
+dari tabel instalasi **bersama**, disaring dengan id produk **milik tenant**. Id itu bertabrakan
+antar-schema, jadi hasilnya bukan galat melainkan angka milik data lain.
+
+Dibuktikan pada klaster yang memuat kedua schema, dengan produk ber-id 55 di keduanya:
+
+| | nilai |
+|---|---|
+| saldo awal menurut ekspresi lama (`koperasi.*`) | **900** — milik instalasi bersama |
+| saldo awal menurut `sqlSaldoAwal` (tenant) | **40** — milik tenant |
+| selisih | **860** |
+
+Dan karena tiap baris kartu ditampilkan sebagai `saldoAwal + saldo berjalan`, satu angka yang
+salah menggeser **seluruh kolom saldo**, bukan satu sel:
+
+| tanggal | saldo dgn awal benar | saldo dgn awal bocor |
+|---|---|---|
+| 2026-02-05 | 30 | 890 |
+| 2026-02-06 | 55 | 915 |
+
+**`sqlSaldoAwal()` sudah ada di `SalesInventoryStokTenant` sejak awal, dan tidak pernah dipanggil
+sekali pun.** Yang hilang bukan kuerinya, melainkan sambungannya — dan justru itu yang tidak
+terlihat pada peninjauan berkas per berkas: kelas tenantnya lengkap, helpernya bercabang, dan
+lubangnya ada di antara keduanya.
+
+### Mengapa penjaganya harus menghitung JANGKAUAN, bukan mencari pola
+
+Percobaan pertama saya hanya mencocokkan pola teks, dan ia melaporkan 65 baris — hampir semuanya
+cabang legacy yang sah. Penjaga yang berisik seperti itu akan diabaikan pada minggu kedua, dan
+kebocoran sungguhan tenggelam di antaranya.
+
+Yang dipakai sekarang menghitung **jangkauan**: untuk tiap baris, apakah ia masih tercapai ketika
+tenant aktif. Sebuah baris dinyatakan tak tercapai bila salah satu berlaku:
+
+| alasan | contoh |
+|---|---|
+| metodenya punya dispatch awal | `if (aktif) { xTenant(...); return; }` |
+| barisnya di cabang `else` uji tenant | `if (jalurTenant) {...} else { …koperasi… }` |
+| pernyataannya sendiri memuat uji tenant | `jalurTenant ? tenantSql : legacySql` |
+| metodenya hanya dipanggil dari baris tak tercapai | pembangun potongan SQL legacy |
+
+Yang terakhir dirambat **atas metode**, sampai tetap — bukan hanya atas metode yang ber-SQL.
+Tanpa itu, pembangun seperti `sukuPid` yang dipanggil dari cabang legacy lewat satu perantara
+(`ekspresiMasukPid`) akan terus dilaporkan walau aman. Perbaikan itulah yang menurunkan 65 → 2,
+dan dua sisanya bukan derau: satu artefak yang hilang setelah perambatan diperbaiki, satu lagi
+**bug sungguhan**.
+
+Batasnya diakui di kepala skripnya: perambatan hanya mengikuti pemanggilan dalam berkas yang
+sama, dan cabang yang dibentuk lewat variabel boolean selain `jalurTenant` tidak dikenali. Yang
+tidak dikenali **dilaporkan**, bukan didiamkan — penjaga yang ragu harus berisik, bukan diam.
+
+### Keadaan sesudahnya
+
+```
+Kelas *Tenant.java diperiksa : 8
+Helper campuran diperiksa    : 10
+Jalur tenant menyentuh schema bersama: 0
+LULUS
+```
+
+Kelas `*Tenant.java` juga dijaga lebih keras: di sana literal schema bersama **maupun** pemakaian
+entitas Hibernate (yang mematok `@Table(schema = …)`, sehingga menulis lewatnya selalu mendarat di
+schema bersama) sama-sama dilarang, tanpa perkecualian.
+
+`uji-kesetaraan-saldo-awal-kartu.sql` — empat blok, **lima LULUS, nol GAGAL**, satu penjaga.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
