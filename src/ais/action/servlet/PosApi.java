@@ -788,6 +788,12 @@ public class PosApi extends HttpServlet {
 			} else if ("jenis_produk_hapus".equals(action)) {
 				ais.action.servlet.api.JenisProdukApiHelper.jenisProdukHapus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "jenis_produk_hapus");
+			} else if ("kelompok_aset_list".equals(action)) {
+				ais.action.servlet.api.KelompokAsetApiHelper.kelompokAsetList(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kelompok_aset_list");
+			} else if ("kelompok_aset_akun_simpan".equals(action)) {
+				ais.action.servlet.api.KelompokAsetApiHelper.kelompokAsetAkunSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kelompok_aset_akun_simpan");
 			} else if ("uom_list".equals(action)) {
 				ais.action.servlet.api.SatuanProdukApiHelper.uomList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "uom_list");

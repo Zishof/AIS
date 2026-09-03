@@ -66,6 +66,10 @@ public final class MutasiIdempotenEBisnisUtil {
 			"jenis_produk_hapus",
 			"jenis_produk_simpan",
 			"kebijakan_retur_hapus",
+			// Menyimpan SELURUH daftar akun satu bidang sekaligus (bukan menambah baris),
+			// jadi kiriman ulang antrean menghasilkan keadaan yang sama. Didaftarkan di sini
+			// supaya konsisten dengan master lain, bukan karena replay-nya berbahaya.
+			"kelompok_aset_akun_simpan",
 			"kebijakan_retur_simpan",
 			// Faktur Kulakan (harga beli/pengadaan) menambah stok; tanpa idempotensi,
 			// kiriman ulang antrean (lost-ack / retry offline) membuat faktur DAN stok

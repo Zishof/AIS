@@ -134,6 +134,73 @@ public final class RevisiApiHelper {
 		hasil.put("description", pesan);
 	}
 
+	/**
+	 * Kunci menu yang mengatur siapa boleh MELIHAT riwayat sebuah entitas.
+	 *
+	 * <p>Riwayat satu baris ({@code revisi_daftar}/{@code revisi_detail}) semula
+	 * terbuka untuk SETIAP pengguna yang login. Aturan itu masuk akal ketika
+	 * daftar putih entitasnya masih berisi data produk; ia ikut terbawa ketika
+	 * daftar itu tumbuh memuat data pribadi. Snapshot {@code anggota} membawa
+	 * alamat, telepon, HP, dan surel; {@code hotel_tamu} membawa nomor identitas.
+	 * Penyaring {@link #propertiSensitif} tidak menutupinya, dan memang tidak
+	 * seharusnya -- tugasnya menyaring KREDENSIAL, bukan data pribadi.
+	 *
+	 * <p>Aturannya kini: boleh melihat riwayat baris yang memang boleh dilihat.
+	 * Kunci di sini hanya yang kode entitasnya PERSIS sama dengan kunci menu --
+	 * tidak ada yang ditebak. Entitas lain mempertahankan perilaku lama sampai
+	 * pemetaannya diputuskan; lihat docs/pos/105.
+	 *
+	 * <p>{@code hotel_tamu} adalah satu-satunya pengecualian yang dipetakan
+	 * secara eksplisit: data tamu tidak punya menu sendiri, tetapi hanya berguna
+	 * bagi yang mengerjakan salah satu layar Hotel. Karena itu ia menerima kunci
+	 * hotel mana pun -- lebih longgar daripada satu kunci, jauh lebih sempit
+	 * daripada "setiap pengguna login".
+	 */
+	private static final Map<String, String[]> KUNCI_MENU_ENTITAS =
+		new LinkedHashMap<String, String[]>();
+	static {
+		String[] satu;
+		for (String kode : new String[] { "produk", "grup_produk", "penyedia", "anggota",
+			"diskon", "hotel_properti", "hotel_kamar", "pesanan", "pengadaan_pr",
+			"pengadaan_po", "pengadaan_bast", "produksi" }) {
+			satu = new String[] { kode };
+			KUNCI_MENU_ENTITAS.put(kode, satu);
+		}
+		KUNCI_MENU_ENTITAS.put("hotel_tamu", new String[] { "hotel_reservasi",
+			"hotel_checkin", "hotel_folio", "hotel_kamar", "hotel_properti" });
+	}
+
+	/**
+	 * True bila pengguna boleh membuka riwayat entitas ini. Entitas yang belum
+	 * dipetakan mempertahankan perilaku lama (semua pengguna login).
+	 */
+	private static boolean bolehLihatRiwayat(Tbmuser tbmuser, String kode) {
+		String[] kunci = (String[]) KUNCI_MENU_ENTITAS.get(kode);
+		if (kunci == null) {
+			return true;
+		}
+		if (Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
+		ais.database.model.Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
+		if (role == null) {
+			// Sejalan dgn PosApi.bolehAksesActionKantin: tanpa role sama sekali,
+			// perilakunya tidak dipersempit oleh perubahan ini.
+			return true;
+		}
+		org.json.JSONObject menu = ais.common.EbisnisMenuKatalog
+			.urai(role.getEbisnisMenu()).optJSONObject("menu");
+		if (menu == null) {
+			return true;
+		}
+		for (int i = 0; i < kunci.length; i++) {
+			if (menu.optBoolean(kunci[i], true)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static Class kelasDari(JSONObject request, JSONObject hasil) throws Exception {
 		String kode = request == null ? "" : request.optString("entitas", "").trim();
 		Class clazz = (Class) ENTITAS.get(kode);
@@ -244,6 +311,12 @@ public final class RevisiApiHelper {
 		Class clazz = kelasDari(request, hasil);
 		Long id = clazz == null ? null : idDari(request, hasil);
 		if (clazz == null || id == null) return;
+		// Riwayat satu baris mengikuti hak melihat barisnya sendiri -- snapshot
+		// anggota/tamu membawa alamat, telepon, surel, dan nomor identitas.
+		if (!bolehLihatRiwayat(tbmuser, request.optString("entitas", "").trim())) {
+			tolak(hasil, "Riwayat data ini hanya untuk pengguna yang berhak membuka menunya.");
+			return;
+		}
 		int batas = Math.min(100, Math.max(1, request.optInt("batas", 30)));
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -302,6 +375,12 @@ public final class RevisiApiHelper {
 		Class clazz = kelasDari(request, hasil);
 		Long id = clazz == null ? null : idDari(request, hasil);
 		if (clazz == null || id == null) return;
+		// Riwayat satu baris mengikuti hak melihat barisnya sendiri -- snapshot
+		// anggota/tamu membawa alamat, telepon, surel, dan nomor identitas.
+		if (!bolehLihatRiwayat(tbmuser, request.optString("entitas", "").trim())) {
+			tolak(hasil, "Riwayat data ini hanya untuk pengguna yang berhak membuka menunya.");
+			return;
+		}
 		int rev = request.optInt("rev", -1);
 		if (rev < 0) { tolak(hasil, "Parameter rev wajib diisi."); return; }
 		Session session = HibernateUtil.getSessionFactory().openSession();
