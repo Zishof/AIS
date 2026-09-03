@@ -241,6 +241,11 @@ public class SetingBiayaHelper {
                     SettingBiayaDetail.class);
 
             if (settingBiayaDetail != null) {
+				if (settingBiayaDetail.getSettingBiaya() != null
+						&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(
+								biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getNim(), semester)) {
+					return PengecualianTagihanList.kosong();
+				}
                 return getDefaultSettingBiaya(session, settingBiayaDetail, semester, biodataCalonMahasiswa);
             }
             return null;
@@ -280,6 +285,11 @@ public class SetingBiayaHelper {
                                             : settingBiayaDetail.getSettingBiaya().getId())));
 
             if (settingBiayaDetail != null) {
+				if (settingBiayaDetail.getSettingBiaya() != null
+						&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(
+								mahasiswa == null ? null : mahasiswa.getNim(), semester)) {
+					return PengecualianTagihanList.kosong();
+				}
                 return getDefaultSettingBiaya(session, settingBiayaDetail, semester, mahasiswa);
             }
             return null;
@@ -293,6 +303,16 @@ public class SetingBiayaHelper {
             StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
             Paket paket, Jurusan jurusan, String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa,
             Integer ta) {
+		return getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan, statusAwalMahasiswa,
+				statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program, kelamin,
+				afiliasiCalonMahasiswa, ta, null);
+	}
+
+	public static List<DetailBiaya> getDetailBiayaDefault(Session session, Integer angkatan, Jenjang jenjang,
+			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
+			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
+			Paket paket, Jurusan jurusan, String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa,
+			Integer ta, String nimMahasiswa) {
 
         try {
             System.out.println("[TAGIHAN-DEBUG] ==> getDetailBiayaDefault(cohort) angkatan=" + angkatan + " jenjang="
@@ -342,6 +362,11 @@ public class SetingBiayaHelper {
             if (settingBiaya == null) {
                 return new ArrayList<DetailBiaya>();
             }
+			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa, semester)) {
+				System.out.println("[TAGIHAN-DEBUG] SettingBiaya id=" + settingBiaya.getId()
+						+ " tidak berlaku untuk NIM " + nimMahasiswa + " (daftar pengecualian).");
+				return PengecualianTagihanList.kosong();
+			}
             return getDefaultSettingBiaya(session, settingBiaya, angkatan, jenjang, semester,
                     jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan,
                     program, kelamin, afiliasiCalonMahasiswa);

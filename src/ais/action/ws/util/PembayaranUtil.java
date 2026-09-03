@@ -32,6 +32,7 @@ import org.json.JSONObject;
 import ais.action.master.KegiatanAction;
 import ais.action.master.SetingBiayaAction;
 import ais.action.master.helper.PembayaranUtilHelper;
+import ais.action.master.helper.PengecualianTagihanList;
 import ais.action.report.CommonReportHelper;
 import ais.common.Common;
 import ais.common.CommonEmail;
@@ -1504,6 +1505,9 @@ public class PembayaranUtil {
 
 		List<DetailBiaya> biayaDefault = SetingBiayaAction.getDetailBiayaDefault(session, mahasiswa, jenisKegiatan,
 				semester, ta);
+		if (PengecualianTagihanList.adalah(biayaDefault)) {
+			return PengecualianTagihanList.kosong();
+		}
 		AfiliasiCalonMahasiswa afiliasiCalonMahasiswa = null;
 		if (biayaDefault == null || biayaDefault.isEmpty()) {
 			Paket paket = null;
@@ -1518,7 +1522,11 @@ public class PembayaranUtil {
 
 			biayaDefault = SetingBiayaAction.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 					statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					mahasiswa.getNim());
+			if (PengecualianTagihanList.adalah(biayaDefault)) {
+				return PengecualianTagihanList.kosong();
+			}
 		}
 
 		if (biayaDefault != null && !biayaDefault.isEmpty()) {
@@ -1989,12 +1997,19 @@ public class PembayaranUtil {
 		Session session = HibernateUtil.currentNativeSession();
 		List<DetailBiaya> biayaDefault = SetingBiayaAction.getDetailBiayaDefault(session, biodataCalonMahasiswa,
 				jenisKegiatan, semester, ta);
+		if (PengecualianTagihanList.adalah(biayaDefault)) {
+			return PengecualianTagihanList.kosong();
+		}
 
 		if (biayaDefault == null || biayaDefault.isEmpty()) {
 			biayaDefault = SetingBiayaAction.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 					biodataCalonMahasiswa.getStatusAwalMahasiswa(), ConstantValues.AKTIF,
 					biodataCalonMahasiswa.getJenisSeleksi(), biodataCalonMahasiswa.getGelombangPendaftaran(),
-					biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+					biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					biodataCalonMahasiswa.getNim());
+			if (PengecualianTagihanList.adalah(biayaDefault)) {
+				return PengecualianTagihanList.kosong();
+			}
 		}
 		if (biayaDefault != null && !biayaDefault.isEmpty()) {
 			if (biodataCalonMahasiswa != null && biodataCalonMahasiswa.getMahasiswa() != null) {

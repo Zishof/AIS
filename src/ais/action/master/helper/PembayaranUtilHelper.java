@@ -341,6 +341,17 @@ public class PembayaranUtilHelper {
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:341");}
 			}
 
+			/*
+			 * Periksa setting khusus dan pengecualian NIM sebelum guard angsuran.
+			 * Tanpa urutan ini, jenis kegiatan bulanan dapat keluar lebih awal lalu
+			 * membentuk tagihan meskipun NIM dikecualikan untuk semester aktif.
+			 */
+			List<DetailBiaya> biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session,
+					mahasiswa, jenisKegiatan, semester, ta);
+			if (PengecualianTagihanList.adalah(biayaDefault)) {
+				return PengecualianTagihanList.kosong();
+			}
+
 			if (bulan == null && jenisKegiatan != null) {
 				// Per-jenjang PER-SEMESTER (dan per-angkatan bila diisi format TAHUN:SMT):
 				// aturan angsuran hanya mengenai semester/angkatan yang masuk daftar
@@ -361,7 +372,6 @@ public class PembayaranUtilHelper {
 						"[DEBUG-ANGSURAN][getDetailBiaya] → " + modeAngsuran + ": lanjut query billing reguler");
 			}
 
-			List<DetailBiaya> biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, mahasiswa, jenisKegiatan, semester, ta);
 			AfiliasiCalonMahasiswa afiliasiCalonMahasiswa = null;
 
 			if (biayaDefault == null || biayaDefault.isEmpty()) {
@@ -376,7 +386,11 @@ public class PembayaranUtilHelper {
 
 				biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 						statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-						mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+						mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+						mahasiswa.getNim());
+				if (PengecualianTagihanList.adalah(biayaDefault)) {
+					return PengecualianTagihanList.kosong();
+				}
 			}
 
 			if (JenisKegiatan.DEBUG_MODE_ANGSURAN) {
@@ -767,12 +781,19 @@ public class PembayaranUtilHelper {
 
 			List<DetailBiaya> biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, biodataCalonMahasiswa,
 					jenisKegiatan, semester, ta);
+			if (PengecualianTagihanList.adalah(biayaDefault)) {
+				return PengecualianTagihanList.kosong();
+			}
 
 			if (biayaDefault == null || biayaDefault.isEmpty()) {
 				biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 						biodataCalonMahasiswa.getStatusAwalMahasiswa(), ConstantValues.AKTIF,
 						biodataCalonMahasiswa.getJenisSeleksi(), biodataCalonMahasiswa.getGelombangPendaftaran(),
-						biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+						biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+						biodataCalonMahasiswa.getNim());
+				if (PengecualianTagihanList.adalah(biayaDefault)) {
+					return PengecualianTagihanList.kosong();
+				}
 			}
 			
 			if (biayaDefault != null && !biayaDefault.isEmpty()) {
@@ -1145,6 +1166,9 @@ public class PembayaranUtilHelper {
 	public static int countBulanan(Session session, Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Integer semester, Collection detailBiayas, boolean reload,
 			boolean comitManual) {
+		if (PengecualianTagihanList.adalah(detailBiayas)) {
+			return 0;
+		}
 
 		// Fresh reload untuk hindari stale cache dari combobox lama
 		if (jenisKegiatan != null && jenisKegiatan.getId() != null) {

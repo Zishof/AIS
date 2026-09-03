@@ -131,9 +131,12 @@
 						label="Tagihan Default" />
 						<column
 						use="ais.ui.util.MyColumnConfig" width="7%" label="Semester" />
+						<column
+						use="ais.ui.util.MyColumnConfig" width="10%" label="Pengecualian Mahasiswa"
+						tooltiptext="Daftar NIM mahasiswa yang tidak memperoleh tagihan dari setting ini" />
 
 						<column
-						use="ais.ui.util.MyColumnConfig" width="18%"
+						use="ais.ui.util.MyColumnConfig" width="14%"
 						label="Item Biaya" />
 						<column
 						use="ais.ui.util.MyColumnConfig" width="7%" label="Berlaku" />

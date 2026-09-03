@@ -528,15 +528,15 @@ public class TagihanUIBuilder {
 															if (jk.getId().equals(
 																	ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU
 																			.getId())) {
-																detailBiayas.addAll(PembayaranUtilHelper
+																detailBiayas = PembayaranUtilHelper
 																		.getDetailBiayaCalonMahasiswa(calonMhs, jk,
-																				targetJur, fSmt, refresh));
+																				targetJur, fSmt, refresh);
 															} else if (jk.getId()
 																	.equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA
 																			.getId())) {
-																detailBiayas.addAll(PembayaranUtilHelper
+																detailBiayas = PembayaranUtilHelper
 																		.getDetailBiayaCalonMahasiswa(calonMhs, jk,
-																				targetJur, refresh));
+																				targetJur, refresh);
 															}
 														}
 

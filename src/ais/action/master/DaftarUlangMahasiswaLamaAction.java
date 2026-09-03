@@ -62,6 +62,7 @@ import ais.action.master.helper.DaftarUlangPembayaranHelper;
 import ais.action.master.helper.KegiatanHelper;
 import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.action.master.helper.PembayaranUtilHelper;
+import ais.action.master.helper.PengecualianTagihanList;
 import ais.action.master.helper.PengecualianJadwalPengisianKRSMahasiswaHelper;
 import ais.action.master.helper.RevisiCicilanPembayaranHelper;
 import ais.action.master.helper.RevisiHelper;
@@ -1618,6 +1619,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			itemBiayas = new HashMap<Long, DetailBiaya>();
 			detailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa,
 					Integer.parseInt(semester.getValue()), jenisKegiatan, refresh);
+			boolean nimDikecualikan = PengecualianTagihanList.adalah(detailBiayas);
 
 			for (Object o : detailBiayas) {
 				if (o instanceof DetailBiaya) {
@@ -1646,7 +1648,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				// di tabel — kasus nyata: S2 smt 1-3 bermode bulanan, layar tampil kosong.
 				// Bila hasil kosong, hitung ulang SEKALI langsung dari database (reload=true)
 				// sebelum menyerah, sehingga admin tidak perlu menekan Refresh manual.
-				if (!refresh && (detailBiayas == null || detailBiayas.isEmpty())
+				if (!nimDikecualikan && !refresh && (detailBiayas == null || detailBiayas.isEmpty())
 						&& (biayaBulanan == null || biayaBulanan.isEmpty())) {
 					detailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa,
 							Integer.parseInt(semester.getValue()), jenisKegiatan, true);
@@ -1675,7 +1677,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				// Benteng terakhir: bila tetap kosong, susun tampilan dari riwayat cicilan
 				// yang pernah terbayar (tagihan pernah terbit, namun konfigurasi billing
 				// berubah/terhapus) agar admin tetap melihat posisi pembayaran mahasiswa.
-				if (dataTagihanData.isEmpty())
+				if (!nimDikecualikan && dataTagihanData.isEmpty())
 					PembayaranUtilHelper.fallbackTagihanDariCicilan(mahasiswa, jenisKegiatan, dataTagihanData,
 							itemBiayas, Integer.parseInt(semester.getValue()));
 				Collections.sort(dataTagihanData);
