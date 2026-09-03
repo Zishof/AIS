@@ -1,5 +1,61 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 63 — SELESAI 100% (3 Sep 2026) — endpoint publik baru (catatan ibadah anak), bypass FormSop, keluarga PSB kini bersih di 3/9 sampel terbaru
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/AktiftasHarianSiswa.java`** (r83746)
+  — 245→941 baris, 100% (55 anggota). Baris jurnal harian siswa
+  (Buku Penghubung Digital), termasuk catatan ibadah harian (Shalat
+  Jamaah/Tahfidz/dll). **Endpoint publik BARU tanpa login, baca DAN
+  tulis**: `CatatanOrangTuaServlet` (`/AktiftasHarianSiswa?siswa={id}`),
+  Javadoc-nya sendiri mengaku "endpoint publik tanpa login", id
+  sekuensial → enumerasi anak, `savePesanOrangTua()` menulis pesan
+  tanpa gerbang apa pun. IDOR bertumpuk di `AktifitasHarianSiswaApi`
+  (baca+tulis, klaim Javadoc "tidak bisa intip siswa lain" TERBUKTI
+  SALAH dari kode).
+- **`ais/database/model/sekolah/PenugasanGuruMengajar.java`** (r83747)
+  — 235→994 baris, 100% (52 anggota). Kepala SK penugasan mengajar,
+  pemasok nomor SK untuk KEDUA mode cetak (borongan & per-jadwal).
+  Broken access control: tombol "Generate No. SK Berdasarkan Jadwal"
+  nol gerbang — hak BACA bisa menyisipkan SK ke SELURUH sekolah
+  instalasi. 4 getter destruktif berantai (nama/sekolah/yayasan/tahun
+  saling menimpa).
+- **`ais/database/model/sekolah/KegiatanKesiswaanPunyaSiswa.java`**
+  (r83745) — 220→753 baris, 100% (46 anggota). Terkonfirmasi sebagai
+  TABEL FAKTA SQLi dashboard b59 (bukan sekadar terjangkau — FROM
+  utama query rusaknya). 6+ broken access control termasuk bypass
+  hak Hapus lewat checkbox (checkbox "Setujui" override visibility
+  tombol Hapus tanpa cek `delete`).
+- **`ais/database/model/sekolah/JadwalUjianPSB.java`** (r83743) —
+  222→686 baris, 100% (44 anggota). Kembar `JadwalPertemuanPSB` (b62)
+  — **verifikasi NEGATIF broken access control (bukan instance ke-8
+  PSB)**, gerbang identik & benar. Fail-open terbalik PERSIS SAMA
+  dengan kembarannya (baris kode identik). Instance baru bug gerbang
+  `getMahasiswa()` (hapus pertemuan ujian tanpa gerbang).
+- **`ais/database/model/sekolah/KelompokPendaftaranPsb.java`**
+  (r83744) — 211→816 baris, 100% (32 anggota). **Verifikasi NEGATIF
+  KE-2 berturut** broken access control keluarga PSB (layar bergerbang
+  benar). **Pola arsitektur BARU ditemukan**: implementor `FormSop`
+  (termasuk entity ini) bisa melewati `checkPrevilages` SEPENUHNYA
+  bila diinstansiasi via `DisposisiAlurSopAction`/`TampilanAlurSopAction`
+  (`Class.forName().newInstance()` melompati `doAfterCompose()` tempat
+  gerbang dipasang) — berlaku untuk SEMUA implementor `FormSop`, bukan
+  cuma entity ini.
+
+**Keluarga PSB kini 3 verifikasi negatif berturut-turut** (`JadwalPertemuanPSB`
+b62, `JadwalUjianPSB` + `KelompokPendaftaranPsb` b63) setelah 7 instance
+positif — gambaran semakin jelas: broken access control terkonsentrasi
+di helper/panel DETAIL (yang disisipkan tanpa gerbang), bukan di layar
+master PSB itu sendiri (yang cenderung bergerbang benar). Tidak ada
+task baru dibuat — seluruh temuan memperkuat `task_493423ef`/`task_5e93a600`/
+`task_9b7ff647` yang sudah ada.
+
+Kumulatif sesi ini: **492+ file** (145 batch 34-63) + 343 (sesi
+sebelumnya) dari 7.401 total (~12,5%).
+
 ## Batch 62 — SELESAI 100% (3 Sep 2026) — 3 ENDPOINT FINANSIAL BARU DITEMUKAN: satu tanpa autentikasi sama sekali, satu IDOR TULIS pengurasan saldo, satu SQL arbitrer anonim
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
