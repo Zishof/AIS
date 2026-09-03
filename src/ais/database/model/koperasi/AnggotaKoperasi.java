@@ -564,6 +564,15 @@ public class AnggotaKoperasi extends VOSiswa {
 	}
 
 	/**
+	 * PIN transaksi anggota dalam bentuk teks terbuka. Field ini adalah <b>sisa warisan</b> yang
+	 * dipertahankan semata-mata sebagai jalur migrasi: sejak pengamanan PIN diberlakukan, penyimpanan
+	 * yang sah adalah trio {@link #pinHash}/{@link #pinSalt}/{@link #pinIterations}, dan
+	 * {@link #aturPinAman(String)} selalu mengosongkan field ini setiap kali PIN diatur ulang.
+	 * Baris anggota yang masih memiliki nilai di sini berarti PIN-nya belum pernah disetel ulang
+	 * setelah migrasi.
+	 *
+	 * <p>Keterangan asli yang dipertahankan:</p>
+	 *
 	 * PIN transaksi anggota (dientri pembeli di Layar Pelanggan / layar kedua POS saat
 	 * {@link JenisAnggotaKoperasi#getWajibPin()} aktif). Verifikasi dilakukan
 	 * SERVER-SIDE memakai PBKDF2+salt (plaintext lama hanya fallback migrasi) -- nilai PIN TIDAK PERNAH
@@ -572,35 +581,149 @@ public class AnggotaKoperasi extends VOSiswa {
 	 * kolom tabel audit ditambah via InitIndex.java (ALTER new_audit.anggota_koperasi__audit).
 	 */
 	private String pin;
+
+	/**
+	 * Digest PBKDF2 dari PIN anggota. Sengaja ditandai {@code @NotAudited} agar material kredensial
+	 * tidak berlipat ganda di tabel revisi Envers.
+	 */
 	private String pinHash;
+
+	/**
+	 * Garam (<i>salt</i>) acak per anggota yang dipakai bersama {@link #pinHash}. Nilai unik per baris
+	 * inilah yang membuat dua anggota berPIN sama menghasilkan digest berbeda, sehingga tabel
+	 * pelangi tidak dapat dipakai.
+	 */
 	private String pinSalt;
+
+	/**
+	 * Jumlah iterasi PBKDF2 yang dipakai saat digest dibuat. Disimpan per baris agar biaya kerja dapat
+	 * dinaikkan di kemudian hari tanpa membatalkan PIN yang sudah terlanjur tersimpan dengan iterasi
+	 * lama.
+	 */
 	private Integer pinIterations;
 
+	/**
+	 * Mengembalikan PIN teks terbuka warisan, sudah dipangkas spasi, atau {@code null} bila kosong.
+	 *
+	 * <p>Hanya relevan bagi anggota yang belum bermigrasi ke penyimpanan ber-hash. Jangan memakai
+	 * getter ini untuk verifikasi -- pakai {@link #verifikasiPin(String)} yang menangani kedua bentuk
+	 * penyimpanan -- dan jangan pernah mengirim nilainya ke antarmuka.</p>
+	 *
+	 * @return PIN teks terbuka warisan, atau {@code null} bila tidak ada
+	 */
 	@Column(name = "pin")
 	public String getPin() {
 		return pin == null || pin.trim().length() == 0 ? null : pin.trim();
 	}
 
+	/**
+	 * Mengisi PIN teks terbuka warisan, dinormalkan menjadi {@code null} bila kosong.
+	 *
+	 * <p>Disediakan untuk pemetaan Hibernate dan pembersihan data lama. Untuk menetapkan PIN baru
+	 * gunakan {@link #aturPinAman(String)} yang langsung menyimpannya dalam bentuk ber-hash.</p>
+	 *
+	 * @param pin PIN teks terbuka; string kosong diperlakukan sebagai {@code null}
+	 */
 	public void setPin(String pin) {
 		this.pin = pin == null || pin.trim().length() == 0 ? null : pin.trim();
 	}
 
+	/**
+	 * Mengembalikan digest PBKDF2 dari PIN anggota.
+	 *
+	 * @return digest PIN, atau {@code null} bila PIN belum pernah disetel secara aman
+	 */
 	@NotAudited
 	@Column(name = "pin_hash", length = 128)
 	public String getPinHash() { return pinHash; }
+	/**
+	 * Mengisi digest PBKDF2 PIN. Untuk pemetaan Hibernate; gunakan {@link #aturPinAman(String)} pada
+	 * alur aplikasi agar digest, garam, dan jumlah iterasi selalu ditulis sebagai satu kesatuan.
+	 *
+	 * @param pinHash digest PIN
+	 */
 	public void setPinHash(String pinHash) { this.pinHash = pinHash; }
 
+	/**
+	 * Mengembalikan garam acak yang menyertai {@link #getPinHash()}.
+	 *
+	 * @return garam PIN, atau {@code null} bila PIN belum pernah disetel secara aman
+	 */
 	@NotAudited
 	@Column(name = "pin_salt", length = 128)
 	public String getPinSalt() { return pinSalt; }
+	/**
+	 * Mengisi garam PIN. Untuk pemetaan Hibernate; lihat {@link #aturPinAman(String)}.
+	 *
+	 * @param pinSalt garam acak per anggota
+	 */
 	public void setPinSalt(String pinSalt) { this.pinSalt = pinSalt; }
 
+	/**
+	 * Mengembalikan jumlah iterasi PBKDF2 yang dipakai saat digest PIN dibuat.
+	 *
+	 * @return jumlah iterasi, atau {@code null} bagi baris yang belum bermigrasi
+	 */
 	@NotAudited
 	@Column(name = "pin_iterations")
 	public Integer getPinIterations() { return pinIterations; }
+	/**
+	 * Mengisi jumlah iterasi PBKDF2. Untuk pemetaan Hibernate; lihat {@link #aturPinAman(String)}.
+	 *
+	 * @param pinIterations jumlah iterasi yang dipakai saat digest dibuat
+	 */
 	public void setPinIterations(Integer pinIterations) { this.pinIterations = pinIterations; }
 
-	/** Menyimpan PIN baru sebagai PBKDF2+salt dan menghapus plaintext warisan. */
+	/**
+	 * Menetapkan PIN transaksi baru bagi anggota ini, menyimpannya sebagai digest PBKDF2 bergaram, dan
+	 * menghapus jejak PIN teks terbuka warisan.
+	 *
+	 * <h4>Apa yang dikerjakan</h4>
+	 * <ol>
+	 * <li><b>Validasi bentuk.</b> Nilai wajib cocok dengan pola {@code [0-9]{4,8}} -- empat sampai
+	 * delapan angka, tanpa huruf, tanda baca, maupun spasi. Nilai {@code null} atau yang tidak cocok
+	 * ditolak dengan {@link IllegalArgumentException}. Validasi dilakukan di sini, pada entity, agar
+	 * tidak ada jalur pemanggil mana pun (layar admin, API biometrik, maupun impor massal) yang bisa
+	 * menyelundupkan PIN berbentuk aneh dengan melewatkan pemeriksaan sisi antarmuka.</li>
+	 * <li><b>Pembangkitan digest.</b> {@code PasswordHashService.hash} menghasilkan pasangan
+	 * digest dan garam acak baru. Garam dibuat ulang setiap kali PIN diatur, sehingga menetapkan PIN
+	 * yang sama dua kali tetap menghasilkan digest yang berbeda.</li>
+	 * <li><b>Pencatatan biaya kerja.</b> Jumlah iterasi yang berlaku disimpan ke
+	 * {@link #pinIterations}, sehingga verifikasi di masa depan tahu berapa iterasi yang harus
+	 * diulang. Ini yang memungkinkan biaya kerja dinaikkan secara bertahap tanpa membatalkan PIN
+	 * lama.</li>
+	 * <li><b>Penghapusan warisan.</b> {@link #pin} di-{@code null}-kan. Inilah langkah yang membuat
+	 * populasi baris berPIN teks terbuka menyusut secara alami seiring anggota menyetel ulang
+	 * PIN-nya.</li>
+	 * </ol>
+	 *
+	 * <h4>Sifat operasi</h4>
+	 * <p>Method ditandai {@code @Transient} sehingga bukan properti persistensi, namun ia
+	 * <b>mengubah empat field yang dipetakan</b>. Bila objek anggota sedang terikat pada
+	 * <i>persistence context</i>, perubahan tersebut akan ter-flush ke basis data pada akhir
+	 * transaksi tanpa perlu pemanggilan {@code save}/{@code update} eksplisit. Karena kolom digest
+	 * ditandai {@code @NotAudited}, penggantian PIN tidak menorehkan material kredensial ke tabel
+	 * revisi Envers -- yang tercatat di sana hanyalah bahwa baris tersebut berubah.</p>
+	 *
+	 * <h4>Siapa yang boleh memanggil</h4>
+	 * <p>Penetapan PIN adalah tindakan istimewa dan seluruh jalur pemanggilnya digerbangi hak akses:
+	 * penggantian PIN massal dari layar kantin diperiksa terhadap izin CRUD anggota, penetapan lewat
+	 * API biometrik diperiksa terhadap izin kelola PIN member, dan impor massal berjalan lewat utilitas
+	 * tersendiri. Tidak ada PIN bawaan bersama: setiap anggota wajib diatur secara eksplisit, sehingga
+	 * anggota yang belum pernah disetel tidak dapat bertransaksi pada alur yang mewajibkan PIN.</p>
+	 *
+	 * <h4>Batasan yang perlu disadari</h4>
+	 * <p>Pola yang diizinkan hanya angka dengan panjang minimum empat, sehingga ruang tebak terkecil
+	 * adalah sepuluh ribu kemungkinan. Kekuatan sesungguhnya karena itu tidak ditentukan oleh method
+	 * ini, melainkan oleh ada tidaknya pembatasan laju percobaan pada sisi verifikasi. Lihat catatan
+	 * pada {@link #verifikasiPin(String)}.</p>
+	 *
+	 * @param nilai PIN baru, empat sampai delapan angka
+	 * @throws IllegalArgumentException bila {@code nilai} {@code null} atau tidak berbentuk empat
+	 *                                  sampai delapan angka
+	 * @see #verifikasiPin(String)
+	 * @see #getPinSudahDiatur()
+	 */
 	@Transient
 	public void aturPinAman(String nilai) {
 		if (nilai == null || !nilai.matches("[0-9]{4,8}"))
@@ -610,7 +733,46 @@ public class AnggotaKoperasi extends VOSiswa {
 		pinIterations = Integer.valueOf(PasswordHashService.ITERASI); pin = null;
 	}
 
-	/** Verifikasi constant-time; plaintext lama hanya fallback selama masa migrasi. */
+	/**
+	 * Memeriksa apakah PIN yang dimasukkan pembeli cocok dengan PIN anggota ini.
+	 *
+	 * <h4>Dua bentuk penyimpanan</h4>
+	 * <p>Method memilih jalur pembandingan berdasarkan bentuk data yang tersimpan:</p>
+	 * <ul>
+	 * <li><b>Jalur utama.</b> Bila {@link #pinHash} dan {@link #pinSalt} sama-sama terisi,
+	 * pembandingan diserahkan ke {@code PasswordHashService.verify} yang menghitung ulang digest
+	 * PBKDF2 dari nilai masukan memakai garam dan jumlah iterasi milik baris ini, lalu
+	 * membandingkannya dengan waktu tetap (<i>constant time</i>). Waktu tetap penting agar lamanya
+	 * pemeriksaan tidak membocorkan berapa banyak digit awal yang sudah benar.</li>
+	 * <li><b>Jalur warisan.</b> Bila digest belum ada, method jatuh ke pembandingan teks terbuka
+	 * terhadap {@link #getPin()}. Ini semata-mata untuk anggota yang belum bermigrasi, dan jalur ini
+	 * akan mati dengan sendirinya begitu PIN yang bersangkutan disetel ulang lewat
+	 * {@link #aturPinAman(String)}.</li>
+	 * </ul>
+	 * <p>Bila anggota belum punya PIN dalam bentuk apa pun, kedua jalur mengembalikan
+	 * {@code false} -- tidak ada masukan yang bisa dianggap cocok.</p>
+	 *
+	 * <h4>Verifikasi berjalan di server</h4>
+	 * <p>Nilai PIN, baik digest maupun teks terbukanya, tidak pernah dikirimkan ke peramban.
+	 * Antarmuka hanya menerima jawaban boolean, dan untuk keperluan tampilan tersedia
+	 * {@link #getPinSudahDiatur()} yang juga hanya mengembalikan boolean. Dengan demikian
+	 * pembandingan tidak dapat dipindahkan ke sisi klien.</p>
+	 *
+	 * <h4>Peringatan: tidak ada pembatasan laju di sekitar method ini</h4>
+	 * <p>Method ini murni sebuah pembanding -- ia <b>tidak</b> menghitung percobaan gagal, tidak
+	 * menunda jawaban, dan tidak mengunci akun. Pembatasan laju, penundaan bertingkat, atau
+	 * penguncian sementara harus disediakan oleh pemanggil. Perlu diketahui bahwa jalur pemanggil
+	 * yang ada saat ini (endpoint verifikasi PIN pada POS) juga belum menyediakannya; percobaan
+	 * gagal hanya dicatat sebagai jejak audit, dan pencatatan tersebut secara sengaja tidak mengunci
+	 * kode transaksi. Digabung dengan panjang PIN minimum empat angka, artinya ruang tebak sepuluh
+	 * ribu kemungkinan dapat disapu habis oleh pemanggil endpoint yang gigih. Siapa pun yang
+	 * menambahkan pemanggil baru wajib memasang pembatasan laju sendiri, dan sebaiknya mengangkat
+	 * kekurangan ini pada jalur yang sudah ada.</p>
+	 *
+	 * @param nilai PIN yang dimasukkan pembeli
+	 * @return {@code true} bila cocok; {@code false} bila tidak cocok atau anggota belum berPIN
+	 * @see #aturPinAman(String)
+	 */
 	@Transient
 	public boolean verifikasiPin(String nilai) {
 		if (pinHash != null && pinSalt != null)
@@ -618,12 +780,79 @@ public class AnggotaKoperasi extends VOSiswa {
 		return nilai != null && getPin() != null && getPin().equals(nilai);
 	}
 
+	/**
+	 * Menyatakan apakah anggota ini sudah memiliki PIN, dalam bentuk ber-hash maupun teks terbuka
+	 * warisan.
+	 *
+	 * <p>Disediakan khusus agar antarmuka dapat menampilkan status "PIN sudah/belum diatur" tanpa
+	 * perlu menyentuh nilai PIN itu sendiri. Method ini adalah satu-satunya informasi tentang PIN
+	 * yang boleh mengalir ke peramban.</p>
+	 *
+	 * @return {@code true} bila PIN sudah pernah diatur
+	 */
 	@Transient
 	public boolean getPinSudahDiatur() {
 		return (pinHash != null && pinSalt != null) || getPin() != null;
 	}
 
 	/**
+	 * Menyusun kode member koperasi untuk anggota ini berdasarkan jenis keanggotaan, bulan/tahun
+	 * pendaftaran, dan dua nomor urut yang dihitung langsung dari basis data.
+	 *
+	 * <h4>Bahan penyusun</h4>
+	 * <ul>
+	 * <li><b>Prefix</b> diambil dari kode {@link JenisAnggotaKoperasi} anggota, dijadikan huruf
+	 * besar. Bila jenis keanggotaan belum diisi atau kodenya kosong, dipakai prefix bawaan
+	 * {@code "MEM"}.</li>
+	 * <li><b>Bulan dan tahun</b> diambil dari {@code tanggalDaftar}; bila argumen tersebut
+	 * {@code null}, dipakai waktu saat ini. Bulan diformat dua digit.</li>
+	 * <li><b>Nomor urut global</b> -- jumlah seluruh baris pada {@code koperasi.anggota_koperasi}
+	 * ditambah satu, tanpa memandang tenant maupun jenis keanggotaan.</li>
+	 * <li><b>Nomor urut per jenis</b> -- jumlah anggota dengan jenis keanggotaan yang sama ditambah
+	 * satu. Bila anggota belum punya jenis keanggotaan, nomor ini disamakan dengan nomor urut
+	 * global.</li>
+	 * </ul>
+	 *
+	 * <h4>Dua bentuk keluaran</h4>
+	 * <p>Bentuk kode ditentukan oleh prefix. Prefix {@code "MR"} dan {@code "MRS"} dianggap
+	 * keanggotaan reguler dan memakai bentuk yang menyertakan bulan, misalnya
+	 * {@code MR-1/02/2026/89}. Prefix lain dianggap keanggotaan khusus unit/lembaga dan memakai
+	 * bentuk tanpa bulan, misalnya {@code FTSP/1/2026/5}. Perhatikan bahwa penentuan ini berdasarkan
+	 * pencocokan teks pada kode jenis, bukan pada penanda tersendiri; mengganti kode sebuah jenis
+	 * keanggotaan karena itu diam-diam mengubah bentuk kode member yang diterbitkan setelahnya.</p>
+	 *
+	 * <h4>Nomor urut diambil dengan COUNT, bukan dengan penghitung terkunci</h4>
+	 * <p>Kedua nomor urut diperoleh lewat {@code COUNT(*) + 1} tanpa penguncian baris, tanpa tabel
+	 * penghitung, dan tanpa pemeriksaan duplikat sesudahnya. Padahal {@link #getKode()} dipetakan
+	 * sebagai kolom UNIQUE. Konsekuensinya, dua pendaftaran anggota yang berjalan bersamaan akan
+	 * membaca COUNT yang sama, menyusun kode yang sama persis, dan salah satunya gagal dengan
+	 * pelanggaran batasan keunikan pada saat commit. Seluruh pemanggil yang ada -- pendaftaran member
+	 * dari POS, penyimpanan anggota dari layar kantin, serta pembuatan otomatis saat login member --
+	 * berjalan di dalam transaksi tetapi tidak satu pun memasang kunci, memeriksa duplikat, atau
+	 * mencoba ulang. Pemanggil baru sebaiknya membungkus pemanggilan ini dengan pemeriksaan duplikat
+	 * dan percobaan ulang, atau menyerahkan penomoran pada mekanisme yang benar-benar serial.</p>
+	 *
+	 * <p>Perlu disadari pula bahwa COUNT global mencakup <b>seluruh tenant</b>. Nomor urut terakhir
+	 * pada kode member karena itu bukan nomor anggota ke sekian pada koperasi yang bersangkutan,
+	 * melainkan nomor pada tabel secara keseluruhan; ia akan melompat-lompat bila ada lebih dari satu
+	 * unit usaha dalam satu basis data, dan akan mundur bila ada baris anggota yang dihapus.</p>
+	 *
+	 * <h4>Kegagalan ditelan secara senyap</h4>
+	 * <p>Ketiga blok penangkap kesalahan di dalam method hanya mencetak jejak tumpukan dan
+	 * merekamnya ke audit kesalahan, lalu membiarkan eksekusi berlanjut dengan nilai bawaan. Bila
+	 * kueri hitung gagal, nomor urut diam-diam bertahan di angka satu dan kode tetap diterbitkan
+	 * seolah-olah baik-baik saja. Riwayat kelas ini memuat contoh nyata akibatnya: kueri urutan per
+	 * jenis pernah ditulis memakai nama tabel fisik pada HQL sehingga selalu melempar kesalahan
+	 * penguraian, tertangkap diam-diam, dan membuat nomor urut per jenis <i>selamanya</i> bernilai
+	 * satu tanpa pernah terdeteksi -- perbaikannya beserta penjelasannya masih tertinggal sebagai
+	 * komentar di dalam badan method. Kegagalan pada lapisan terluar mengembalikan {@code null},
+	 * yang bila tidak diperiksa pemanggil akan tersimpan sebagai kode member kosong.</p>
+	 *
+	 * <p>Method sengaja menerima {@link Session} sebagai argumen alih-alih membuka sesi sendiri,
+	 * supaya penghitungan ikut melihat perubahan yang belum ter-commit pada transaksi pemanggil.</p>
+	 *
+	 * <p>Keterangan asli yang dipertahankan:</p>
+	 *
 	 * Method untuk menghasilkan Kode Member Koperasi berdasarkan rumus standar.
 	 * Menjalankan kueri langsung ke database menggunakan parameter Session.
 	 *
@@ -721,9 +950,25 @@ public class AnggotaKoperasi extends VOSiswa {
 		}
 	}
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan Hibernate/JPA.
+	 *
+	 * <p>Objek yang baru dibuat sudah memiliki {@link #tanggal} dan {@link #tanggal_dirubah} berisi
+	 * waktu server, serta {@link #aktif} bernilai {@code true}; sisanya kosong dan harus diisi
+	 * pemanggil.</p>
+	 */
 	public AnggotaKoperasi() {
 	}
 
+	/**
+	 * Mengembalikan primary key anggota.
+	 *
+	 * <p>Kolom ditandai {@code insertable = false} karena nilainya dibangkitkan basis data melalui
+	 * IDENTITY; nilainya baru terisi setelah baris benar-benar tersimpan. Kode yang membutuhkan id
+	 * sebagai bagian dari alur penyimpanan harus melakukan flush terlebih dahulu.</p>
+	 *
+	 * @return primary key, atau {@code null} bila baris belum tersimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -731,19 +976,44 @@ public class AnggotaKoperasi extends VOSiswa {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi primary key anggota. Umumnya hanya dipanggil Hibernate.
+	 *
+	 * @param id primary key
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan catatan bebas mengenai anggota.
+	 *
+	 * @return catatan bebas, atau {@code null}
+	 */
 	@Column(name = "keterangan", nullable = true)
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengisi catatan bebas mengenai anggota.
+	 *
+	 * @param keterangan catatan bebas
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan data mahasiswa yang menjadi identitas anggota ini, bila ada.
+	 *
+	 * <p><b>Tidak murni.</b> Getter memanggil {@code check(...)} dan menulis balik hasilnya ke field,
+	 * sehingga dapat memicu inisialisasi proxy lazy atau bahkan membuka sesi Hibernate baru untuk
+	 * memuat objek yang sudah lepas dari sesi. Kegagalan resolusi tidak dilaporkan -- pada kasus
+	 * terburuk nilai yang sama dikembalikan apa adanya.</p>
+	 *
+	 * @return data mahasiswa, atau {@code null} bila anggota bukan mahasiswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa", nullable = true)
 	public Mahasiswa getMahasiswa() {
@@ -751,10 +1021,24 @@ public class AnggotaKoperasi extends VOSiswa {
 		return mahasiswa;
 	}
 
+	/**
+	 * Menetapkan data mahasiswa sebagai identitas anggota. Mengubah nilai ini ikut mengubah hasil
+	 * {@link #getNama()}, {@link #getKodeIdentitas()}, {@link #getTipeAnggotaKoperasi()}, dan
+	 * {@link #getJenisIdentitasAnggotaKoperasi()}.
+	 *
+	 * @param mahasiswa data mahasiswa, boleh {@code null}
+	 */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Mengembalikan data dosen yang menjadi identitas anggota ini, bila ada. Sama seperti getter
+	 * relasi lain di kelas ini, pemanggilannya dapat memicu pemuatan dari basis data dan menulis
+	 * balik ke field.
+	 *
+	 * @return data dosen, atau {@code null} bila anggota bukan dosen
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen", nullable = true)
 	public Dosen getDosen() {
@@ -762,10 +1046,22 @@ public class AnggotaKoperasi extends VOSiswa {
 		return dosen;
 	}
 
+	/**
+	 * Menetapkan data dosen sebagai identitas anggota. Ikut memengaruhi nama, kode identitas, tipe
+	 * anggota, dan -- lewat jurusan/fakultas/perguruan tinggi -- juga {@link #getSatuanKerja()}.
+	 *
+	 * @param dosen data dosen, boleh {@code null}
+	 */
 	public void setDosen(Dosen dosen) {
 		this.dosen = dosen;
 	}
 
+	/**
+	 * Mengembalikan data pegawai yang menjadi identitas anggota ini, bila ada. Pemanggilannya dapat
+	 * memicu pemuatan dari basis data dan menulis balik ke field.
+	 *
+	 * @return data pegawai, atau {@code null} bila anggota bukan pegawai
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai", nullable = true)
 	public Pegawai getPegawai() {
@@ -773,10 +1069,22 @@ public class AnggotaKoperasi extends VOSiswa {
 		return pegawai;
 	}
 
+	/**
+	 * Menetapkan data pegawai sebagai identitas anggota. Relasi ini memiliki prioritas tertinggi
+	 * dalam penurunan {@link #getSatuanKerja()}.
+	 *
+	 * @param pegawai data pegawai, boleh {@code null}
+	 */
 	public void setPegawai(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/**
+	 * Mengembalikan akun pengguna aplikasi yang tertaut pada anggota ini, bila ada. Pemanggilannya
+	 * dapat memicu pemuatan dari basis data dan menulis balik ke field.
+	 *
+	 * @return akun pengguna, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tbmuser", nullable = true)
 	public Tbmuser getTbmuser() {
@@ -784,10 +1092,32 @@ public class AnggotaKoperasi extends VOSiswa {
 		return tbmuser;
 	}
 
+	/**
+	 * Menautkan akun pengguna aplikasi pada anggota ini. Dipakai sebagai sumber nama dan satuan kerja
+	 * dengan prioritas paling rendah, yaitu hanya bila relasi orang lain tidak tersedia.
+	 *
+	 * @param tbmuser akun pengguna, boleh {@code null}
+	 */
 	public void setTbmuser(Tbmuser tbmuser) {
 		this.tbmuser = tbmuser;
 	}
 
+	/**
+	 * Mengembalikan jenis keanggotaan (dimensi paket) anggota ini.
+	 *
+	 * <p><b>Tidak pernah mengembalikan {@code null} dalam kondisi normal.</b> Bila kolom masih kosong,
+	 * getter memasang konstanta jenis anggota reguler bawaan aplikasi dan menulisnya ke field --
+	 * sehingga sekadar membaca properti ini pada baris lama dapat menghasilkan UPDATE yang mengisi
+	 * kolom {@code jenis_anggota_koperasi} pada akhir transaksi. Perilaku ini menyeragamkan data
+	 * historis, tetapi berarti pembacaan bukan operasi bebas efek samping.</p>
+	 *
+	 * <p>Perlu dicatat bahwa konstanta bawaan tersebut adalah objek statis tingkat JVM yang di-seed
+	 * saat aplikasi dimulai. Bila proses seed gagal, nilai yang dipasang di sini bisa berupa
+	 * {@code null} tanpa melewati {@code check(...)}, dan cabang ini tidak menyediakan penjagaan
+	 * tambahan.</p>
+	 *
+	 * @return jenis keanggotaan, jatuh ke jenis reguler bawaan bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_anggota_koperasi", nullable = true)
 	public JenisAnggotaKoperasi getJenisAnggotaKoperasi() {
@@ -799,10 +1129,43 @@ public class AnggotaKoperasi extends VOSiswa {
 		return jenisAnggotaKoperasi;
 	}
 
+	/**
+	 * Menetapkan jenis keanggotaan (dimensi paket). Nilai ini menentukan prefix kode member yang
+	 * diterbitkan {@link #generateKodeMember(Session, Date)} serta aturan kewajiban belanja rutin dan
+	 * kewajiban PIN.
+	 *
+	 * @param jenisAnggotaKoperasi jenis keanggotaan, boleh {@code null}
+	 */
 	public void setJenisAnggotaKoperasi(JenisAnggotaKoperasi jenisAnggotaKoperasi) {
 		this.jenisAnggotaKoperasi = jenisAnggotaKoperasi;
 	}
 
+	/**
+	 * Mengembalikan kode member anggota, membangkitkannya lebih dahulu bila masih kosong.
+	 *
+	 * <h4>Urutan penurunan</h4>
+	 * <p>Bila {@link #kode} kosong, getter mencoba memungut nomor identitas resmi anggota dengan
+	 * urutan prioritas: NIM mahasiswa, lalu NIDN dosen, lalu nomor induk siswa, lalu NUPTK guru.
+	 * Bila tidak satu pun tersedia, dibangkitkan barcode acak. Perhatikan bahwa cabang mahasiswa
+	 * tidak memeriksa apakah NIM-nya kosong, berbeda dari tiga cabang lainnya; anggota bertaut
+	 * mahasiswa tanpa NIM karena itu dapat memperoleh kode kosong alih-alih jatuh ke cabang
+	 * berikutnya.</p>
+	 *
+	 * <p>Kode member yang dihasilkan di sini berbeda dari kode terformat yang disusun
+	 * {@link #generateKodeMember(Session, Date)}. Yang ini memakai identitas institusional yang sudah
+	 * ada supaya kartu mahasiswa atau kartu siswa dapat langsung dipindai di kasir; yang itu menyusun
+	 * kode bernomor urut bagi anggota yang tidak membawa identitas semacam itu.</p>
+	 *
+	 * <h4>Efek samping</h4>
+	 * <p><b>Getter ini destruktif.</b> Nilai yang dibangkitkan ditulis ke field, dan karena kolomnya
+	 * dipetakan UNIQUE, pembacaan pada baris berkode kosong dapat menghasilkan UPDATE yang menetapkan
+	 * kode permanen bagi anggota tersebut. Selain itu getter memanggil enam getter relasi sehingga
+	 * ikut membawa seluruh biaya dan efek samping {@code check(...)}. Karena penetapan berlangsung
+	 * tanpa pemeriksaan tabrakan, dua baris berkode kosong yang dibaca bersamaan berpeluang menerima
+	 * nilai yang sama bila identitas sumbernya kebetulan sama.</p>
+	 *
+	 * @return kode member; tidak pernah kosong kecuali sumber identitasnya sendiri kosong
+	 */
 	@Column(unique = true)
 	public String getKode() {
 
@@ -824,14 +1187,58 @@ public class AnggotaKoperasi extends VOSiswa {
 		return kode;
 	}
 
+	/**
+	 * Menetapkan kode member secara eksplisit, melewati seluruh penurunan otomatis
+	 * {@link #getKode()}. Karena kolomnya UNIQUE, pemanggil bertanggung jawab memastikan nilainya
+	 * belum dipakai anggota lain.
+	 *
+	 * @param kode kode member
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengembalikan nilai field nama <b>apa adanya</b>, tanpa menurunkannya dari relasi orang.
+	 *
+	 * <p>Ini adalah padanan murni dari {@link #getNama()} dan sengaja diberi awalan {@code ambil}
+	 * alih-alih {@code get} supaya tidak diperlakukan Hibernate sebagai properti. Gunakan method ini
+	 * bila yang dibutuhkan sekadar nilai tersimpan -- misalnya di dalam log, pembanding, atau
+	 * perulangan panjang -- untuk menghindari rantai resolusi enam relasi dan penulisan balik yang
+	 * dilakukan {@link #getNama()}.</p>
+	 *
+	 * @return nama tersimpan, mungkin {@code null} bila belum pernah diturunkan
+	 */
 	public String ambilNama() {
 		return nama;
 	}
 
+	/**
+	 * Mengembalikan nama anggota, menurunkannya lebih dahulu dari relasi orang yang tertaut.
+	 *
+	 * <h4>Urutan prioritas</h4>
+	 * <p>Method memaksa resolusi enam relasi sekaligus -- mahasiswa, dosen, pegawai, akun pengguna,
+	 * guru, dan siswa -- lalu mengambil nama dari relasi pertama yang terisi menurut urutan:
+	 * mahasiswa, dosen, guru, siswa, pegawai, dan terakhir akun pengguna. Nama dari akun pengguna
+	 * hanya dipakai bila benar-benar tidak kosong, sedangkan lima cabang sebelumnya tidak memeriksa
+	 * kekosongan nama sumbernya. Akibatnya, anggota yang tertaut ke sebuah entity orang bernama
+	 * kosong akan menghasilkan nama kosong, bukan jatuh ke sumber berikutnya.</p>
+	 *
+	 * <p>Bila tidak satu pun relasi terisi -- kasus anggota umum -- nilai field dipertahankan, yaitu
+	 * nama yang dientri manual lewat {@link #setNama(String)}. Ini satu-satunya keadaan di mana nama
+	 * yang di-set manual bertahan; begitu sebuah relasi orang ditautkan, nama manual akan tertimpa
+	 * pada pembacaan berikutnya.</p>
+	 *
+	 * <h4>Efek samping dan biaya</h4>
+	 * <p><b>Getter ini mahal dan destruktif.</b> Enam pemanggilan {@code check(...)} masing-masing
+	 * dapat menginisialisasi proxy lazy atau membuka sesi Hibernate baru untuk memuat objek yang
+	 * sudah lepas dari sesi, dan hasil penurunan ditulis balik ke field {@link #nama} sehingga ikut
+	 * ter-flush ke basis data. Karena {@link #toString()} memanggil method ini, sekadar mencetak satu
+	 * objek anggota ke log sudah cukup untuk memicu seluruh rantai tersebut. Pada penyusunan laporan
+	 * atau perulangan panjang, gunakan {@link #ambilNama()} atau ambil nama lewat proyeksi kueri.</p>
+	 *
+	 * @return nama anggota hasil penurunan, atau nama tersimpan bila tidak ada relasi orang
+	 */
 	public String getNama() {
 		getMahasiswa();
 		getDosen();
@@ -856,25 +1263,80 @@ public class AnggotaKoperasi extends VOSiswa {
 		return nama;
 	}
 
+	/**
+	 * Membangkitkan alamat surel semu bagi anggota yang tidak memiliki surel sendiri.
+	 *
+	 * <p>Alamat disusun dari nama anggota yang dijadikan huruf kecil, dibuang seluruh karakter selain
+	 * huruf dan angka, dibuang spasinya, lalu ditambah tiga angka acak dan domain bawaan yang dibaca
+	 * dari konfigurasi aplikasi.</p>
+	 *
+	 * <p><b>Tidak menjamin keunikan.</b> Pembeda satu-satunya adalah tiga digit acak, sehingga ruang
+	 * nilainya hanya sekitar sembilan ratus kemungkinan per nama; dua anggota bernama sama berpeluang
+	 * cukup besar memperoleh alamat yang sama. Method juga tidak memeriksa apakah alamat hasilnya
+	 * sudah terpakai, dan tidak menyimpannya -- pemanggil sendiri yang harus meneruskannya ke
+	 * {@link #setEmail(String)} bila memang ingin dipakai.</p>
+	 *
+	 * <p>Perlu diperhatikan bahwa pembacaan domain bawaan berjalan lewat mekanisme konfigurasi yang
+	 * menuliskan nilai bawaan ke basis data bila kunci tersebut belum ada.</p>
+	 *
+	 * <p>Method memanggil {@link #getNama()} sehingga membawa seluruh biaya dan efek sampingnya, dan
+	 * akan gagal dengan {@link NullPointerException} bila nama anggota belum dapat diturunkan.</p>
+	 *
+	 * @return alamat surel semu hasil bangkitan
+	 */
 	public String generateEmail() {
 		return getNama().toLowerCase().replaceAll("[^\\sa-zA-Z0-9]", "").replaceAll(" ", "")
 				+ ThreadLocalRandom.current().nextLong(100, 999)
 				+ Common.getKonfigurasi("alamat_email_default", "@eschool.id").getNilai().trim();
 	}
 
+	/**
+	 * Menetapkan nama anggota. Nilai ini hanya bertahan bagi anggota umum yang tidak tertaut relasi
+	 * orang mana pun; bila ada relasi yang terisi, {@link #getNama()} akan menimpanya pada pembacaan
+	 * berikutnya.
+	 *
+	 * @param nama nama anggota
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan alamat surat anggota. Kolom bertipe {@code text} sehingga panjangnya tidak
+	 * dibatasi.
+	 *
+	 * @return alamat, atau {@code null}
+	 */
 	@Column(name = "alamat", nullable = true, columnDefinition = "text")
 	public String getAlamat() {
 		return alamat;
 	}
 
+	/**
+	 * Mengisi alamat surat anggota.
+	 *
+	 * @param alamat alamat surat
+	 */
 	public void setAlamat(String alamat) {
 		this.alamat = alamat;
 	}
 
+	/**
+	 * Mengembalikan unit usaha koperasi tempat anggota terdaftar -- pengait tenant utama domain
+	 * koperasi.
+	 *
+	 * <p><b>Getter ini sengaja dibuat murni</b> dan merupakan pengecualian di antara getter relasi
+	 * kelas ini: ia tidak memanggil {@code check(...)}, tidak melakukan pencarian, dan tidak menulis
+	 * balik apa pun. Alasannya terurai pada komentar di dalam badan method -- Hibernate memanggil
+	 * getter saat flush untuk membaca nilai properti, dan getter yang melakukan kueri dapat membuat
+	 * proses flush berulang tanpa henti. Kebutuhan fallback ke koperasi aktif dipisahkan ke
+	 * {@link #ambilKoperasiAtauDefault()}.</p>
+	 *
+	 * <p>Karena kolomnya {@code nullable} dan tidak pernah diisi paksa, jangan berasumsi hasilnya
+	 * selalu ada; banyak baris anggota historis dibuat sebelum kolom ini diperkenalkan.</p>
+	 *
+	 * @return unit usaha koperasi, atau {@code null} bila belum ditetapkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "koperasi", nullable = true)
 	public Koperasi getKoperasi() {
@@ -887,6 +1349,21 @@ public class AnggotaKoperasi extends VOSiswa {
 	}
 
 	/**
+	 * Mengembalikan koperasi anggota, atau koperasi yang sedang aktif pada sesi bila field-nya
+	 * kosong.
+	 *
+	 * <p>Ini adalah pasangan "tidak murni" dari {@link #getKoperasi()}. Diberi awalan {@code ambil}
+	 * agar Hibernate tidak memperlakukannya sebagai properti, sehingga pencarian koperasi aktif tidak
+	 * pernah ikut berjalan saat flush. Kegagalan pencarian ditelan dan menghasilkan {@code null},
+	 * bukan melempar kesalahan.</p>
+	 *
+	 * <p>Perlu diperhatikan bahwa fallback ini bergantung pada konteks sesi pengguna yang sedang
+	 * berjalan. Pada proses latar belakang atau penjadwal yang tidak memiliki sesi, hasilnya akan
+	 * {@code null}. Method juga hanya <i>mengembalikan</i> nilai fallback -- ia tidak menetapkannya ke
+	 * field, sehingga tidak menimbulkan efek samping penyimpanan.</p>
+	 *
+	 * <p>Keterangan asli yang dipertahankan:</p>
+	 *
 	 * Helper eksplisit untuk kebutuhan UI/service yang memang ingin fallback ke
 	 * koperasi aktif saat field koperasi belum terisi. Jangan dipakai oleh Hibernate
 	 * mapping atau proses flush.
@@ -903,10 +1380,42 @@ public class AnggotaKoperasi extends VOSiswa {
 		return k;
 	}
 
+	/**
+	 * Menetapkan unit usaha koperasi pemilik anggota.
+	 *
+	 * @param koperasi unit usaha koperasi, boleh {@code null}
+	 */
 	public void setKoperasi(Koperasi koperasi) {
 		this.koperasi = koperasi;
 	}
 
+	/**
+	 * Mengembalikan nomor identitas anggota pada institusi asalnya, menurunkannya lebih dahulu dari
+	 * relasi orang yang tertaut.
+	 *
+	 * <h4>Urutan prioritas</h4>
+	 * <p>Setelah memaksa resolusi enam relasi, method memungut nomor identitas menurut urutan: NIM
+	 * mahasiswa, NIDN dosen, NUPTK guru, nomor induk siswa, nomor induk nasional siswa, lalu kode
+	 * pegawai. Berbeda dari {@link #getNama()}, setiap cabang di sini memeriksa kekosongan sumbernya,
+	 * sehingga sumber yang kosong benar-benar dilewati dan penurunan berlanjut ke kandidat
+	 * berikutnya.</p>
+	 *
+	 * <p>Bila tidak satu pun sumber tersedia, nilai field dipertahankan apa adanya -- termasuk
+	 * {@code null} bagi anggota umum yang identitasnya belum pernah dientri.</p>
+	 *
+	 * <h4>Hubungan dengan kode member</h4>
+	 * <p>Nilai ini kerap sama dengan {@link #getKode()} karena keduanya memungut sumber yang mirip,
+	 * tetapi keduanya tidak identik dan tidak saling menjaga konsistensi. Kode member dipetakan
+	 * UNIQUE dan dipakai sebagai identitas kasir, sedangkan kode identitas bersifat deskriptif dan
+	 * tidak dijaga keunikannya. Jangan memakai kode identitas sebagai kunci pencarian anggota.</p>
+	 *
+	 * <h4>Efek samping</h4>
+	 * <p><b>Getter ini destruktif</b> dengan cara yang sama seperti {@link #getNama()}: enam
+	 * pemanggilan {@code check(...)} berpotensi memicu pemuatan dari basis data, dan hasil penurunan
+	 * ditulis balik ke field sehingga ikut ter-flush.</p>
+	 *
+	 * @return nomor identitas institusional, atau {@code null} bila tidak ada sumbernya
+	 */
 	@Column(name = "kode_identitas", nullable = true)
 	public String getKodeIdentitas() {
 		getMahasiswa();
@@ -933,6 +1442,12 @@ public class AnggotaKoperasi extends VOSiswa {
 		return kodeIdentitas;
 	}
 
+	/**
+	 * Menetapkan nomor identitas institusional secara manual. Nilai ini akan tertimpa oleh
+	 * {@link #getKodeIdentitas()} bila anggota tertaut relasi orang yang membawa nomor identitas.
+	 *
+	 * @param kodeIdentitas nomor identitas institusional
+	 */
 	public void setKodeIdentitas(String kodeIdentitas) {
 		this.kodeIdentitas = kodeIdentitas;
 	}
