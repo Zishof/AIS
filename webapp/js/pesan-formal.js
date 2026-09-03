@@ -68,11 +68,15 @@ function tampilkanPesanGagalFormal(aktivitas, penyebab, langkahSolusi, detailTek
     var box = document.createElement("div");
     box.style.cssText = "width:min(620px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:14px;padding:22px;font:14px/1.5 Arial,sans-serif;color:#263238;box-shadow:0 20px 60px rgba(0,0,0,.3)";
     var h = document.createElement("h3"); h.textContent = judul; h.style.margin = "0 0 8px"; box.appendChild(h);
-    var p = document.createElement("p"); p.textContent = pesanMudah; box.appendChild(p);
-    var label = document.createElement("strong"); label.textContent = "Yang dapat Anda lakukan:"; box.appendChild(label);
-    var ul = document.createElement("ol");
-    for (var i = 0; i < solusi.length; i++) { var li = document.createElement("li"); li.textContent = solusi[i]; ul.appendChild(li); }
-    box.appendChild(ul);
+    var p = document.createElement("p"); p.textContent = pesanMudah;
+    p.style.cssText = "white-space:pre-wrap;word-break:break-word;margin:0 0 10px";
+    box.appendChild(p);
+    if (solusi && solusi.length) {
+        var label = document.createElement("strong"); label.textContent = "Yang dapat Anda lakukan:"; box.appendChild(label);
+        var ul = document.createElement("ol");
+        for (var i = 0; i < solusi.length; i++) { var li = document.createElement("li"); li.textContent = solusi[i]; ul.appendChild(li); }
+        box.appendChild(ul);
+    }
     var details = document.createElement("details"); details.style.cssText = "margin-top:14px;border-top:1px solid #ddd;padding-top:10px";
     var summary = document.createElement("summary"); summary.textContent = "Detail (informasi teknis)"; summary.style.cssText = "cursor:pointer;font-weight:bold"; details.appendChild(summary);
     var pre = document.createElement("pre"); pre.textContent = salinan; pre.style.cssText = "white-space:pre-wrap;word-break:break-word;background:#f5f5f5;padding:10px;border-radius:8px;max-height:260px;overflow:auto"; details.appendChild(pre);
@@ -84,22 +88,116 @@ function tampilkanPesanGagalFormal(aktivitas, penyebab, langkahSolusi, detailTek
     };
     details.appendChild(copy); box.appendChild(details);
     var tutup = document.createElement("button"); tutup.type = "button"; tutup.textContent = "Tutup"; tutup.style.cssText = "float:right;padding:8px 18px;margin-top:16px;cursor:pointer";
-    tutup.onclick = function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+    tutup.onclick = function () {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        /* alert() bawaan MEMBLOKIR; dialog ini tidak. Pemanggil yang dulu mengandalkan
+           jeda itu (mis. memuat ulang halaman setelah pengguna menekan OK) memindahkan
+           lanjutannya ke callback ini, sehingga urutannya tetap sama seperti dulu. */
+        if (typeof data.onTutup === "function") { try { data.onTutup(); } catch (e) {} }
+    };
     box.appendChild(tutup); overlay.appendChild(box); document.body.appendChild(overlay);
 }
 
 /**
+ * Pengganti DROP-IN untuk `alert()` bawaan peramban.
+ *
+ * Bentuk pemanggilannya sengaja dibuat identik -- `alertFormal(pesan)` -- supaya
+ * pengalihan dari `alert(pesan)` menjadi perubahan satu kata saja, tanpa menyentuh
+ * logika halaman. Yang didapat sebagai gantinya: pesan tampil di dalam dialog aplikasi
+ * (bukan kotak abu-abu peramban yang bisa diblokir/di-"jangan tampilkan lagi"),
+ * lengkap dengan tombol Detail berisi waktu, halaman, peramban, dan informasi teknis
+ * yang dapat disalin pengguna untuk dikirim ke pengembang.
+ *
+ * Berbeda dari `alert()` bawaan, fungsi ini TIDAK memblokir eksekusi. Kode yang
+ * mengandalkan jeda `alert()` (mis. menunggu pengguna menekan OK sebelum berpindah
+ * halaman) perlu dipindahkan ke dalam callback -- lihat catatan pada migrasi.
+ *
+ * @param {string} pesan  isi pesan; pergantian baris dipertahankan
+ * @param {Object} [opsi] penyesuaian opsional: {judul, solusi, teknis, aktivitas}
+ */
+function alertFormal(pesan, opsi) {
+    opsi = opsi || {};
+    var isi = (pesan === null || pesan === undefined) ? "" : String(pesan);
+    tampilkanPesanGagalFormal(opsi.aktivitas || "proses pada halaman ini", {
+        judul: opsi.judul || "Informasi",
+        message: isi,
+        // Sengaja kosong: pemanggil alert() biasa tidak punya daftar langkah, dan
+        // saran generik yang tidak nyambung justru membingungkan pengguna.
+        solusi: opsi.solusi || [],
+        teknis: opsi.teknis || ("Pesan dari halaman: " + isi),
+        onTutup: opsi.onTutup
+    });
+}
+
+/**
  * Menampilkan pesan sukses formal yang konsisten.
+ *
+ * Sebelumnya memakai `alert()` bawaan dan diawali baris sapaan, sehingga pengguna
+ * membaca "Yang terhormat Bapak/Ibu Pengguna," lebih dulu sebelum tahu apa yang
+ * berhasil. Kini memakai dialog yang sama dengan pesan lain, dan kalimat intinya
+ * langsung di muka.
+ *
  * @param {string} aktivitas  aktivitas yang berhasil diselesaikan
  * @param {string} [detail]   rincian tambahan (opsional)
  */
 function tampilkanPesanSuksesFormal(aktivitas, detail) {
-    var pesan = "Yang terhormat Bapak/Ibu Pengguna,\n\n";
-    pesan += "Dengan ini kami sampaikan bahwa proses " + (aktivitas || "yang Bapak/Ibu jalankan") +
-        " telah BERHASIL diselesaikan dengan baik.";
+    var pesan = "Proses " + (aktivitas || "yang Anda jalankan") +
+        " telah BERHASIL diselesaikan.";
     if (detail && detail.length > 0) {
         pesan += "\n\nRincian: " + detail;
     }
-    pesan += "\n\nTerima kasih atas kesabaran Bapak/Ibu.";
-    alert(pesan);
+    alertFormal(pesan, {
+        judul: "Berhasil",
+        aktivitas: aktivitas || "proses pada halaman ini",
+        teknis: "Proses berhasil; tidak ada informasi galat."
+    });
 }
+
+
+/*
+ * ============================================================================
+ * PENINGKATAN alert() BAWAAN PERAMBAN
+ * ============================================================================
+ *
+ * Mengapa menimpa window.alert, bukan mengganti nama 285 pemanggilan menjadi
+ * alertFormal():
+ *
+ *   Dari 146 berkas JSP/JS yang memakai alert(), hanya SATU yang memuat
+ *   pesan-formal.js secara langsung; sisanya bergantung pada halaman induk yang
+ *   tidak dapat dipastikan secara statis. Mengganti nama pemanggilan pada berkas
+ *   yang ternyata tidak memuat skrip ini akan melempar "alertFormal is not
+ *   defined" -- dan pesannya hilang SAMA SEKALI, jauh lebih buruk daripada kotak
+ *   abu-abu bawaan peramban.
+ *
+ *   Dengan menimpa di sini: halaman yang memuat pesan-formal.js otomatis
+ *   mendapat dialog aplikasi lengkap dengan tombol Detail, sementara halaman yang
+ *   tidak memuatnya tetap berjalan persis seperti sekarang. Tidak ada satu pun
+ *   call site yang perlu disentuh, sehingga tidak ada risiko salah sunting.
+ *
+ * Perbedaan perilaku yang HARUS diketahui:
+ *
+ *   alert() bawaan MEMBLOKIR eksekusi sampai pengguna menekan OK; dialog berbasis
+ *   DOM tidak bisa. Kode berpola `alert(pesan); location.reload();` akan memuat
+ *   ulang halaman sebelum pesannya sempat dibaca. Pemanggil seperti itu harus
+ *   memindahkan lanjutannya ke callback:
+ *
+ *       alertFormal(pesan, { onTutup: function () { location.reload(); } });
+ *
+ * Jalan keluar: setel window.AIS_ALERT_NATIVE = true pada halaman yang memang
+ * memerlukan sifat memblokir, dan alert() bawaan dipakai kembali di halaman itu.
+ * alert() aslinya juga tetap tersedia sebagai window.alertAsli.
+ */
+(function () {
+    if (typeof window === "undefined" || typeof window.alert !== "function") { return; }
+    if (window.alertAsli) { return; }  // sudah dipasang; jangan bertumpuk
+    window.alertAsli = window.alert;
+    window.alert = function (pesan) {
+        if (window.AIS_ALERT_NATIVE) { return window.alertAsli(pesan); }
+        try {
+            alertFormal(pesan);
+        } catch (e) {
+            // Gagal-aman: pesan TIDAK BOLEH hilang hanya karena dialognya bermasalah.
+            try { window.alertAsli(pesan); } catch (e2) {}
+        }
+    };
+})();
