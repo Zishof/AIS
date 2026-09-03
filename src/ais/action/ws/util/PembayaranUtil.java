@@ -1294,6 +1294,8 @@ public class PembayaranUtil {
 	public Collection getDetailBiayaMahasiswadariDatabase(Mahasiswa mahasiswa, Integer semester,
 			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,
 			boolean reload) {
+		// Inquiry API/H2H wajib membaca Setting Biaya terbaru, bukan snapshot cache.
+		reload = true;
 
 		if (mahasiswa.getPindahKeKampusIniMasukSemester() != null && mahasiswa.getPindahKeKampusIniMasukSemester() > 0
 				&& semester != null && mahasiswa.getPindahKeKampusIniMasukSemester() > semester) {

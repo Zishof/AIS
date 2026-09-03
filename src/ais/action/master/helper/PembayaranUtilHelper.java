@@ -167,6 +167,9 @@ public class PembayaranUtilHelper {
 	public static Collection getDetailBiayaMahasiswadariDatabase(Mahasiswa mahasiswa, Integer semester,
 			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,
 			boolean reload) {
+		// Setting Biaya adalah sumber kebenaran seluruh UI/API tagihan aktif. Cache
+		// sebelum perubahan setting tidak boleh menghidupkan kembali item yang dilepas.
+		reload = true;
 
 		if (mahasiswa != null && mahasiswa.getTidakAdaTagihan() != null && mahasiswa.getTidakAdaTagihan()) {
 			return new TreeSet();
@@ -689,6 +692,8 @@ public class PembayaranUtilHelper {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, Integer semester, boolean reload) {
+		// Berlaku sama untuk calon/mahasiswa baru dan semua gateway yang memanggilnya.
+		reload = true;
 
 		if (biodataCalonMahasiswa == null || jenisKegiatan == null) {
 			return new TreeSet<DetailBiaya>();
