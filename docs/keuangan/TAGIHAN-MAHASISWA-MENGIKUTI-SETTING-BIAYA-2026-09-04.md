@@ -24,6 +24,7 @@ Ada tiga penyebab item lama dapat hidup kembali:
 
 - Perubahan yang sebelumnya ditempatkan di `sekolah/helper/TagihanUtil` dan `TagihanUtilCalonSiswa` dibatalkan karena kedua class tersebut adalah jalur tagihan siswa sekolah.
 - Kedua halaman mahasiswa selalu meminta data terbaru dari database ketika membentuk daftar tagihan.
+- Kedua halaman memakai mode pembacaan ketat: `DetailBiaya` legacy tanpa relasi sumber hanya boleh tampil bila Item Biayanya masih ada pada Setting Biaya terpilih. Jalur kompatibilitas legacy tetap tersedia untuk pemanggil lama lain, tetapi tidak dipakai oleh layar pembayaran mahasiswa lama maupun baru.
 - Fallback dari riwayat cicilan tidak lagi dipakai untuk membentuk tagihan aktif pada kedua halaman.
 - Saat item dilepas dari Setting Biaya, referensi nullable dari `DetailBiaya` diputus terlebih dahulu, kemudian `DetailSettingBiaya` dihapus. Nominal dan histori transaksi tetap disimpan; yang hilang hanya status item tersebut sebagai pilihan tagihan aktif.
 
