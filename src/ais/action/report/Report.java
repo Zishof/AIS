@@ -1620,6 +1620,7 @@ public class Report extends GenericAutowireComposer {
 				conn = session.connection();
 				pasangFileResolverReport(parameters, fileJasper);
 				normalisasiDataJasper(parameters, maps);
+				normalisasiMapMenurutFieldJasper(fileJasper, maps);
 				try {
 					if (maps != null) {
 						JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
@@ -1640,6 +1641,7 @@ public class Report extends GenericAutowireComposer {
 					}
 					compileJasperAtomically(fileJrxml, fileJasper);
 					normalisasiDataJasper(parameters, maps);
+					normalisasiMapMenurutFieldJasper(fileJasper, maps);
 					if (maps != null) {
 						JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
 						parameters.put("REPORT_CONNECTION", conn);
@@ -1658,6 +1660,7 @@ public class Report extends GenericAutowireComposer {
 					}
 					compileJasperAtomically(fileJrxml, fileJasper);
 					normalisasiDataJasper(parameters, maps);
+					normalisasiMapMenurutFieldJasper(fileJasper, maps);
 					if (maps != null) {
 						JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
 						parameters.put("REPORT_CONNECTION", conn);
@@ -2379,6 +2382,47 @@ public class Report extends GenericAutowireComposer {
 			return pesanAsli;
 		}
 		return "Laporan belum dapat dibuat. Klik Lihat Detail Error lalu Copy Error untuk Admin.";
+	}
+
+	/**
+	 * Menyamakan nilai map dengan deklarasi field pada template yang benar-benar akan
+	 * dijalankan. Beberapa laporan lama memakai map generik dan dapat mengirim Number
+	 * untuk field yang dideklarasikan String; Jasper kemudian gagal sebelum ekspresi
+	 * laporan sempat mengonversinya. Konversi dibatasi hanya untuk field String agar
+	 * field numerik/tanggal tetap mempertahankan tipe aslinya.
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static void normalisasiMapMenurutFieldJasper(File fileJasper, List maps) {
+		if (fileJasper == null || maps == null || maps.isEmpty() || !fileJasper.isFile()) {
+			return;
+		}
+		try {
+			Object template = net.sf.jasperreports.engine.util.JRLoader.loadObject(fileJasper);
+			if (!(template instanceof net.sf.jasperreports.engine.JasperReport)) {
+				return;
+			}
+			net.sf.jasperreports.engine.JRField[] fields =
+					((net.sf.jasperreports.engine.JasperReport) template).getFields();
+			for (int i = 0; i < fields.length; i++) {
+				if (!String.class.equals(fields[i].getValueClass())) {
+					continue;
+				}
+				String nama = fields[i].getName();
+				for (Object data : maps) {
+					if (!(data instanceof Map)) {
+						continue;
+					}
+					Map row = (Map) data;
+					Object value = row.get(nama);
+					if (value != null && !(value instanceof String)) {
+						row.put(nama, String.valueOf(value));
+					}
+				}
+			}
+		} catch (Exception ignored) {
+			// Loader/fill utama di atas tetap menangani template rusak dan melakukan
+			// recompile. Normalisasi tipe ini hanya lapisan kompatibilitas tambahan.
+		}
 	}
 
 	/**

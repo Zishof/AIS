@@ -1,5 +1,81 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 73 — SELESAI 100% (3 Sep 2026) — PIVOT DOMAIN BARU: mesin akuntansi double-entry (`ais/database/model/akunting`), sebelumnya sepenuhnya tak tersentuh; 5 task baru integritas finansial/broken-access-control (`task_aac9dcdd`, `task_3e163a39`, `task_e68c78f1`, `task_78c0c5c2`, `task_5e79a211`); GrupTransaksi (2789→4947 baris) & Pajak (950→2005) & UangMuka (683→2006) sekaligus tuntas
+
+Sesi ini beralih ke domain baru setelah paket `sekolah` mulai menipis
+kandidat undocumented — `ais/database/model/akunting` (mesin jurnal
+double-entry) belum pernah disentuh proyek dokumentasi ini SAMA
+SEKALI. Dibekali ringkasan dari memory sesi engineering TERPISAH
+([[ais-mesin-posting-pattern]], selesai 29 Agu 2026) tentang mekanisme
+`CommonAkunting.saveTransaksi`/`GrupTransaksi.ambilUnik()` — agent
+diinstruksikan MEMVERIFIKASI ULANG status setiap temuan lama dari kode
+saat ini, bukan mengasumsikan masih sama. 5 file selesai
+didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/akunting/GrupTransaksi.java`** (r83906) —
+  2789→4947 baris, 100% (entity JURNAL/header, paling sentral mesin
+  akuntansi). VERIFIKASI STATUS temuan lama: tabrakan `kodeUnik`
+  antar-kaki masih ada (kini 3 konstanta REF_* bukan 1); penjaga
+  keseimbangan Dr=Cr masih tidak ada di `saveTransaksi` TAPI jalur UI
+  baru `NewUiJournalService.save` SUDAH menolak draft timpang; jebakan
+  NULL pada filter `ref` SEBAGIAN SUDAH DIPERBAIKI di beberapa lokasi.
+  **Task baru `task_e68c78f1`** (dibuat agent sendiri): `ambilUnik()`
+  hanya mengenali 26 dari 41 kolom referensi dokumen — 15 sisanya
+  (pajak, aset, koperasi, dst.) tidak masuk kunci unik, menyebabkan
+  **jurnal duplikat** (ref null) atau **jurnal hilang/tertimpa lintas
+  dokumen berbeda** (ref sama-sama string pendek generik seperti
+  `"pajak"`/`"DP_PEKERJAAN"` — global lintas tenant).
+- **`ais/database/model/akunting/Transaksi.java`** (r83903) —
+  466→1416 baris, 100% (baris debit/kredit individual). Nominal
+  tersimpan di 2 kolom terpisah (`debet`/`kredit`, bukan satu kolom
+  bertanda). Getter destruktif TERBERAT sesi ini: `getAkun()` menimpa
+  `akun` dengan `akunOver` secara PERMANEN pada pembacaan pertama
+  (property access + dynamicUpdate) — memindahkan atribusi akun buku
+  besar resmi hanya dengan membaca baris. **Task baru `task_3e163a39`**
+  (dibuat agent sendiri): baris jurnal DRAFT (`simpan=false`) ditulis
+  ke tabel yang SAMA dengan baris resmi dan bocor ke 6+ laporan resmi
+  (`LaporanTrialBalance`, `LaporanBukuBesar`, dll.) yang tidak
+  memfilter kolom `simpan` sama sekali.
+- **`ais/database/model/akunting/Pajak.java`** (r83907) — 950→2005
+  baris, 100%. Dokumen SETORAN pajak (bukan master tarif — itu
+  `JenisPajakBarang`/`JenisPajakPpn`). Temuan integritas: DPP dihitung
+  TANPA potongan harga (invarian `netto+Σpajak=bruto` patah untuk
+  tagihan berdiskon); setoran PPN tak pernah bisa dijurnal (NPE
+  ditelan, dilewati diam-diam); `getNilai()`/`getDpp()` menghitung
+  ulang dari tarif TERKINI — ubah tarif master = ubah nominal pajak
+  baris LAMA secara retroaktif (jurnal tidak ikut berubah). Fail-open
+  cakupan + pewarisan hak menu induk terkonfirmasi lagi.
+- **`ais/database/model/akunting/UangMuka.java`** (r83908) — 683→2006
+  baris, 100%. Siklus panjar pegawai. **2 task baru dibuat agent
+  sendiri**: `task_78c0c5c2` (broken access control SISTEMIK 10 Action
+  di 8 modul uang — parameter `persetujuan` di URL mengubah halaman
+  Pengajuan jadi Persetujuan tanpa cek peran/atasan/batas nominal/
+  larangan menyetujui pengajuan sendiri) dan `task_5e79a211` (batal-
+  posting ZK hanya hapus `grup_transaksi` tanpa `transaksi` anak —
+  celah untuk mengisi buku besar dua kali via batal→posting-ulang).
+  Pertanggungjawaban BISA diloncati (LPJ tidak wajib untuk posting
+  pencairan/pengembalian di jalur ZK).
+- **`ais/database/model/akunting/Akun.java`** (r83904) — 308→1142
+  baris, 100%. Bagan akun (Chart of Accounts) berhierarki parent-child.
+  **Task baru `task_aac9dcdd`** (dibuat orkestrator): impor dari
+  Accurate menulis `debit_credit=2` untuk akun kredit (seharusnya
+  `-1`) — di `LaporanKeuanganCoaHelper` saldo dikalikan `+2` bukan
+  `-1`, sehingga laporan keuangan cetak untuk akun tersebut BESARANNYA
+  DUA KALI LIPAT dan TANDANYA TERBALIK. Pewarisan hak menu induk baru:
+  menu "Setup Kode Akun" memberi CRUD atas master Bank & Jenis
+  Transaksi via tab yang disisipkan.
+
+**5 task baru batch ini** (domain akuntansi baru menghasilkan
+proporsi temuan genuinely-baru jauh lebih tinggi dari batch
+sebelumnya, wajar untuk domain yang benar-benar pertama kali
+diperiksa): `task_aac9dcdd`, `task_3e163a39`, `task_e68c78f1`,
+`task_78c0c5c2`, `task_5e79a211`. Semua BUKAN kategori access-control/
+tenant-scope yang sudah dikenal (itu sudah lama dilacak task lain) —
+melainkan kategori BARU: integritas laporan keuangan (nilai/tanda
+salah) dan siklus approval finansial tanpa gerbang.
+
 ## Batch 72 — SELESAI 100% (3 Sep 2026) — kredensial 6 payment gateway plaintext digandakan permanen ke tabel Envers `_aud` (flag baru ke `task_a1e32ff3`); entity `PengumumanJadwalPelajaran` ternyata TIDUR/YATIM total (klon salin-tempel tanpa satu pun pemanggil); dua bendera kebijakan verifikasi PPDB tidak pernah ditegakkan (dead policy flags); jalur "Ikut Ujian Online" PPDB melewati seluruh gerbang verifikasi
 
 5 file selesai didokumentasikan penuh (100% method/field), semua

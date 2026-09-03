@@ -355,7 +355,7 @@ public class DashboardKaryaDosenUmum extends MyWindow {
 						.add(Restrictions.isNotNull("dosen.jurusan"))
 						.add(Restrictions.isNotNull("dosen.fakultas"))
 
-						.addOrder(Order.asc("jurusan.fakultas")).addOrder(Order.asc("dosen.jurusan"))
+						.addOrder(Order.asc("dosen.fakultas")).addOrder(Order.asc("dosen.jurusan"))
 						.addOrder(Order.asc("kategoriPenghargaan")).addOrder(Order.asc("tahunAkademik"))
 
 						.list();
