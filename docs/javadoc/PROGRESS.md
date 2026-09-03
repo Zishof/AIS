@@ -1,5 +1,71 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 77 — SELESAI 100% (3 Sep 2026) — `task_e2bb082c` (tombol Realisasikan tanpa gerbang) TERKONFIRMASI berlaku juga di ProsesTransferStandingInstruction; 2 task baru; `task_66986071` kini di 8 helper API; nomor surat kembar terkonfirmasi (pola ketiga setelah FormatNis/PengajuanSiswa); verifikasi NEGATIF menenangkan di ProsesTransitori (ketiga kaki task_e2bb082c TIDAK berlaku di sana)
+
+Sesi ini sempat terhambat overload API server-side berkepanjangan (~1,5 jam,
+6 kali percobaan ulang untuk seluruh 5 file) — bukan masalah pekerjaan,
+seluruhnya akhirnya berhasil. 5 file selesai didokumentasikan penuh (100%
+method/field), semua dikompilasi `-implicit:none` bersih, mirror `java/`
+diverifikasi `cmp` byte-identik, nol perubahan logika:
+
+- **`ais/database/model/akunting/ProsesTransferStandingInstruction.java`**
+  (r83999) — 326→1243 baris, 100%. Entity BERBEDA dari `ProsesTransfer`
+  (b76) — dikonfirmasi, sepupu salin-tempel tanpa FK/pewarisan. **Modul
+  ini TIDAK MENJURNAL sama sekali** — "realisasi" murni pernyataan
+  manusia bahwa surat perintah sudah dieksekusi manual, risiko bersifat
+  kertas bukan jurnal. `task_e2bb082c`: kaki (1)&(2) TIDAK berlaku
+  (tidak ada permukaan REST sama sekali), kaki (3) BERLAKU PENUH
+  IDENTIK — tombol "Realisasikan" nol gerbang hak, tetap dirender walau
+  `viewOnly=true`. **Lebih dalam di sisi tenant**: TIDAK ADA kolom
+  tenant sama sekali (bukan fail-open kondisional) — daftar batch
+  global lintas tenant tanpa penyaring apa pun.
+- **`ais/database/model/akunting/ProsesTransitori.java`** (r83998) —
+  222→788 baris, 100%. Makna "transitori" TERVERIFIKASI dari KEDUA
+  mesin posting: langkah 1 `Dr Transitori/Cr Bank`, langkah 2 (entity
+  ini) `Dr Tujuan Akhir/Cr Transitori`. **Verifikasi NEGATIF
+  MENENANGKAN**: ketiga kaki `task_e2bb082c` TIDAK berlaku di sini —
+  `PosApi` PUNYA cabang yang benar, semua tombol ZK digerbangi,
+  `persetujuan` tidak pernah dibaca dari URL. Getter destruktif
+  terberat: `getDisetujuiOleh()` bisa MENCABUT persetujuan sah hanya
+  dengan dibaca — dana bisa tersangkut permanen di akun transitori
+  tanpa jalan pulih dari UI (rasa sama dengan `task_6e542cda`).
+- **`ais/database/model/akunting/Transitori.java`** (r83995) —
+  184→703 baris, 100%. **Task baru `task_7ed651fe`**: `getTransfer()`
+  menugaskan `true` TANPA SYARAT (`setTransfer` nol pemanggil di
+  seluruh repo) — melumpuhkan gerbang kelayakan posting
+  `PostingProsesTransitoriAction`, status "Diajukan" tidak pernah
+  tampil. `task_66986071` diperluas ke helper kesembilan hitungan
+  kumulatif (`ProsesTransitoriApiHelper`, menjaga approve/reject
+  pelepasan dana).
+- **`ais/database/model/akunting/NomorSuratAlurKeuangan.java`**
+  (r83997) — 288→855 baris, 100%. Koreksi: BUKAN mesin penomoran
+  (tanpa counter) — katalog jembatan jenis-dokumen→template
+  `NomorSurat`; pembangkitan nomor sesungguhnya disalin-tempel ke ~19
+  Action/ApiHelper. **Task baru `task_59118ff1`**: nomor surat
+  finansial resmi BISA KEMBAR (pola KETIGA setelah `FormatNis` b69/
+  `PengajuanSiswa` b70) — `getindex()` pakai `rowCount()+1` bukan
+  nomor tertinggi terbit, ditambah TOCTOU, counter GLOBAL lintas
+  tenant (11 cache `static` se-JVM). Konfirmasi bug konstanta salah
+  b74: HANYA `PertangungjawabanKasBesar` yang salah dari 10 entity
+  diperiksa — bukan pola menyebar seperti dikhawatirkan.
+- **`ais/database/model/akunting/SaldoAwalAkun.java`** (r83996) —
+  171→677 baris, 100%. Koreksi klaim b73 "punya penjaga keseimbangan":
+  benar arahnya, salah bentuknya — mesin MENYEIMBANGKAN otomatis
+  (selisih diserap ke akun Modal/Ekuitas Awal), BUKAN menolak input
+  timpang. Salah ketik nominal tidak pernah tertahan, hanya berpindah
+  wujud jadi angka Modal Awal keliru. Temuan baru (tanpa task,
+  severity rendah): stempel posting ditulis via SQL mentah, LUPUT
+  dari Envers — mengoreksi klaim Javadoc helper sendiri.
+
+**2 task baru batch ini** (`task_7ed651fe`, `task_59118ff1`, keduanya
+dibuat agent sendiri). `task_66986071` (fail-open `bolehAksi()`) kini
+terkonfirmasi di **9 helper API**. `task_e2bb082c` (b76, temuan paling
+kritis inisiatif) dikonfirmasi BERLAKU SEBAGIAN (kaki tombol-tanpa-
+gerbang) di `ProsesTransferStandingInstruction` TAPI TIDAK BERLAKU
+SAMA SEKALI di `ProsesTransitori` — bukti bahwa tidak semua modul
+finansial akunting punya pola gerbang yang sama buruknya; verifikasi
+kasus-per-kasus tetap perlu.
+
 ## Batch 76 — SELESAI 100% (3 Sep 2026) — TEMUAN PALING KRITIS SELURUH INISIATIF: rantai otorisasi realisasi transfer dana rusak berlapis (`task_e2bb082c`) — satu akun AIS peran/tenant apa pun bisa menyetujui+mencairkan dana tenant lain; 3 entity TIDUR/YATIM lagi (TemplateGrupTransaksi, genap 3 dengan b72/b75); `task_66986071` kini di 7 helper API; 4 task baru total
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
