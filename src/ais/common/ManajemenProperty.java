@@ -437,7 +437,12 @@ public class ManajemenProperty {
 										formatNumber(parameters, subKey, (Number) vLocal);
 									if (vLocal instanceof Date)
 										formatDate(parameters, currentKey, pLocal, vLocal);
-								} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/ManajemenProperty.java:323");
+								} catch (Exception e) {
+									parameters.put(currentKey + "." + pLocal, "");
+									if (!merupakanProxyAtauSessionTertutup(e)) {
+										ais.common.ErrorAuditUtil.record(e,
+											"auto-audit src/ais/common/ManajemenProperty.java:sub-property");
+									}
 								}
 							}
 						}
@@ -450,6 +455,26 @@ public class ManajemenProperty {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/ManajemenProperty.java:332");
 			// e.printStackTrace();
 		}
+	}
+
+	private static boolean merupakanProxyAtauSessionTertutup(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			if (current instanceof org.hibernate.LazyInitializationException
+					|| current instanceof org.hibernate.SessionException) {
+				return true;
+			}
+			String pesan = current.getMessage();
+			if (pesan != null) {
+				String lower = pesan.toLowerCase();
+				if (lower.indexOf("closed connection") >= 0 || lower.indexOf("session is closed") >= 0
+						|| lower.indexOf("no session") >= 0) {
+					return true;
+				}
+			}
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	// --- Helper khusus untuk Dosen dan Jurusan yang logic-nya kompleks dan

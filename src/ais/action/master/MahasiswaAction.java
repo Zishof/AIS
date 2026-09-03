@@ -7637,6 +7637,13 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			return false;
 		}
 
+		// Beberapa helper validasi legacy masih dapat menutup session ThreadLocal.
+		// Ambil kembali session native tepat sebelum blok persistence agar tombol
+		// Simpan tidak meneruskan referensi Session yang sudah ditutup.
+		if (session == null || !session.isOpen()) {
+			session = HibernateUtil.currentNativeSession();
+		}
+
 		if (mahasiswa.getId() != null) {
 			if (mahasiswa.getPass() == null) {
 				mahasiswa.setPass(Common.desEncrypter.get().encrypt(mahasiswa.getNim()));

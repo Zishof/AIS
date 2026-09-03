@@ -1584,20 +1584,18 @@ public class CommonPMB {
 						.addOrder(Order.desc("id")).add(Restrictions.eq("mahasiswa", mahasiswa.getId()))
 						.setMaxResults(1).uniqueResult();
 
-				if (fotoMahasiswa != null) {
-					session.delete(fotoMahasiswa);
+				if (fotoMahasiswa == null) {
+					fotoMahasiswa = new FotoMahasiswa();
 				}
-
-				fotoMahasiswa = new FotoMahasiswa();
 				fotoMahasiswa.setNama(fotobiodataCalonMahasiswa.getNama());
 				fotoMahasiswa.setKeterangan(fotobiodataCalonMahasiswa.getKeterangan());
 				fotoMahasiswa.setMahasiswa(mahasiswa.getId());
 				fotoMahasiswa.setGdrive(fotobiodataCalonMahasiswa.getGdrive());
 				fotoMahasiswa.setGdriveUsername(fotobiodataCalonMahasiswa.getGdriveUsername());
 				fotoMahasiswa.setLink(fotobiodataCalonMahasiswa.getLink());
-				fotoMahasiswa.setFoto(fotobiodataCalonMahasiswa.getFoto());
+				fotoMahasiswa.setFoto(salinBlobDalamTransaksi(fotobiodataCalonMahasiswa.getFoto()));
 
-				session.save(fotoMahasiswa);
+				session.saveOrUpdate(fotoMahasiswa);
 			}
 
 			// =========================================================================
@@ -1621,21 +1619,20 @@ public class CommonPMB {
 							.add(Restrictions.eq("jenis", lampiranLainBiodataCalonMahasiswa.getJenis()))
 							.setMaxResults(1).uniqueResult();
 
-					if (lampiranLainMahasiswa != null) {
-						session.delete(lampiranLainMahasiswa);
+					if (lampiranLainMahasiswa == null) {
+						lampiranLainMahasiswa = new LampiranLainMahasiswa();
 					}
-
-					lampiranLainMahasiswa = new LampiranLainMahasiswa();
 					lampiranLainMahasiswa.setNama(lampiranLainBiodataCalonMahasiswa.getNama());
 					lampiranLainMahasiswa.setKeterangan(lampiranLainBiodataCalonMahasiswa.getKeterangan());
 					lampiranLainMahasiswa.setMahasiswa(mahasiswa.getId());
-					lampiranLainMahasiswa.setFoto(lampiranLainBiodataCalonMahasiswa.getFoto());
+					lampiranLainMahasiswa.setFoto(
+							salinBlobDalamTransaksi(lampiranLainBiodataCalonMahasiswa.getFoto()));
 					lampiranLainMahasiswa.setJenis(lampiranLainBiodataCalonMahasiswa.getJenis());
 					lampiranLainMahasiswa.setGdrive(lampiranLainBiodataCalonMahasiswa.getGdrive());
 					lampiranLainMahasiswa.setGdriveUsername(lampiranLainBiodataCalonMahasiswa.getGdriveUsername());
 					lampiranLainMahasiswa.setLink(lampiranLainBiodataCalonMahasiswa.getLink());
 
-					session.save(lampiranLainMahasiswa);
+					session.saveOrUpdate(lampiranLainMahasiswa);
 				}
 			}
 
@@ -1874,6 +1871,21 @@ public class CommonPMB {
 	    }
 
 	    return "";
+	}
+
+	private static Blob salinBlobDalamTransaksi(Blob sumber) throws Exception {
+		if (sumber == null) {
+			return null;
+		}
+		InputStream input = null;
+		try {
+			input = sumber.getBinaryStream();
+			return org.hibernate.Hibernate.createBlob(org.apache.commons.io.IOUtils.toByteArray(input));
+		} finally {
+			if (input != null) {
+				try { input.close(); } catch (Exception ignored) { }
+			}
+		}
 	}
 
 	/**

@@ -1616,6 +1616,44 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return (LampiranLain) FileFotoLain.ambil(ref, jenis, LampiranLain.class);
 	}
 
+	/**
+	 * Resolusi {@code jenis} efektif untuk lampiran milik {@code ownerClass}, dengan
+	 * namespace nama kelas pemilik untuk mencegah tabrakan lintas-entitas pada tabel
+	 * {@code lampiran_lain} bersama (lihat catatan keamanan sub-temuan jenis-namespace
+	 * collision, task_b82b25d2, SECURITY_FINDING_AmbilLampiran_IDOR.md).
+	 *
+	 * <p>Dipakai oleh keluarga {@code ParameterTambahan*Listener}, yang sebelumnya
+	 * membangun {@code jenis} tanpa penanda kelas pemilik (mis. hanya
+	 * {@code kelompokId + "->" + parameterId}) sehingga dua entitas berbeda dengan
+	 * pasangan id yang kebetulan sama akan saling mengambil lampiran satu sama lain.</p>
+	 *
+	 * <p><b>Migrasi tanpa penulisan ulang basis data:</b> dicoba dulu bentuk baru
+	 * ({@code ownerClass.getName() + "#" + jenisMentah}); bila tidak ada baris yang
+	 * cocok, dicoba {@code jenisMentah} apa adanya untuk tetap menemukan baris lama
+	 * (pra-perbaikan) milik {@code ref} ini. Bila baris lama ditemukan, string lama itu
+	 * dikembalikan sehingga sisa render/upload pada request ini tetap konsisten dengan
+	 * baris yang sudah ada; bila tidak ada baris sama sekali, bentuk baru (ber-namespace)
+	 * dikembalikan agar unggahan berikutnya sudah aman sejak awal.</p>
+	 *
+	 * @param ownerClass kelas entitas pemilik lampiran (mis. {@code CatatanPegawai.class})
+	 * @param ref        acuan baris pemilik
+	 * @param jenisMentah penanda jenis tanpa namespace, seperti yang dibangun pemanggil
+	 * @return {@code jenisMentah} bila baris lama ditemukan, selain itu bentuk ber-namespace
+	 */
+	public static String resolveJenisParameterTambahan(Class<?> ownerClass, Long ref, String jenisMentah) {
+		if (ref == null || jenisMentah == null) {
+			return jenisMentah;
+		}
+		String jenisBaru = ownerClass.getName() + "#" + jenisMentah;
+		if (LampiranLain.ambil(ref, jenisBaru) != null) {
+			return jenisBaru;
+		}
+		if (LampiranLain.ambil(ref, jenisMentah) != null) {
+			return jenisMentah;
+		}
+		return jenisBaru;
+	}
+
 	/*
 	 * ================================================================================
 	 * PABRIK KOMPONEN ZK: createDownloadUploadFileLain(...)

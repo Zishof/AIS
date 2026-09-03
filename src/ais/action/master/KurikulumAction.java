@@ -2070,9 +2070,11 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 	@SuppressWarnings("unchecked")
 	public static void copyLampiran(Pertemuan pertemuan,
 			KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetailBaru) {
-
+		Session session = null;
+		org.hibernate.Transaction tx = null;
 		try {
-			Session session = StreamingHibernateUtil.getInstance().currentSession();
+			session = StreamingHibernateUtil.getInstance().openSession();
+			tx = session.beginTransaction();
 
 			List<PertemuanFileContent> pertemuanFileContents = session.createCriteria(PertemuanFileContent.class)
 					.addOrder(Order.desc("id")).add(Restrictions.eq("pertemuan", pertemuan.getId())).list();
@@ -2087,16 +2089,14 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 				}
 				pertemuanFileContent.setCopyDari(c);
 				pertemuanFileContent.setLokasiFisik(c.getLokasiFisik());
-				pertemuanFileContent.setFoto(c.getFoto());
+				pertemuanFileContent.setFoto(salinBlobDalamTransaksi(c.getFoto()));
 				pertemuanFileContent.setNama(c.getNama());
 				pertemuanFileContent.setFileMimeType(c.getFileMimeType());
 				pertemuanFileContent.setKurikulumPunyaMatakuliah(
 						kurikulumPunyaMatakuliahDetailBaru.getKurikulumPunyaMatakuliah().getId());
 				pertemuanFileContent.setKurikulumPunyaMatakuliahDetail(kurikulumPunyaMatakuliahDetailBaru.getId());
 				pertemuanFileContent.setUploadDate(ais.ui.util.WaktuUtil.getDate());
-				session.getTransaction().begin();
 				session.saveOrUpdate(pertemuanFileContent);
-				session.getTransaction().commit();
 			}
 
 			List<VideoPertemuan> videoPertemuans = session.createCriteria(VideoPertemuan.class)
@@ -2109,7 +2109,7 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 				if (videoPertemuan == null) {
 					videoPertemuan = new VideoPertemuan();
 				}
-				videoPertemuan.setFoto(c.getFoto());
+				videoPertemuan.setFoto(salinBlobDalamTransaksi(c.getFoto()));
 				videoPertemuan.setNama(c.getNama());
 				videoPertemuan.setJurusan(c.getJurusan());
 				videoPertemuan.setKeterangan(c.getKeterangan());
@@ -2121,9 +2121,7 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 				videoPertemuan.setKurikulumPunyaMatakuliah(
 						kurikulumPunyaMatakuliahDetailBaru.getKurikulumPunyaMatakuliah().getId());
 				videoPertemuan.setKurikulumPunyaMatakuliahDetail(kurikulumPunyaMatakuliahDetailBaru.getId());
-				session.getTransaction().begin();
 				session.saveOrUpdate(videoPertemuan);
-				session.getTransaction().commit();
 			}
 
 			List<AudioPertemuan> audioPertemuans = session.createCriteria(AudioPertemuan.class)
@@ -2136,7 +2134,7 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 				if (audioPertemuan == null) {
 					audioPertemuan = new AudioPertemuan();
 				}
-				audioPertemuan.setFoto(c.getFoto());
+				audioPertemuan.setFoto(salinBlobDalamTransaksi(c.getFoto()));
 				audioPertemuan.setNama(c.getNama());
 				audioPertemuan.setJurusan(c.getJurusan());
 				audioPertemuan.setKeterangan(c.getKeterangan());
@@ -2148,17 +2146,34 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 				audioPertemuan.setKurikulumPunyaMatakuliah(
 						kurikulumPunyaMatakuliahDetailBaru.getKurikulumPunyaMatakuliah().getId());
 				audioPertemuan.setKurikulumPunyaMatakuliahDetail(kurikulumPunyaMatakuliahDetailBaru.getId());
-				session.getTransaction().begin();
 				session.saveOrUpdate(audioPertemuan);
-				session.getTransaction().commit();
 			}
-
-			StreamingHibernateUtil.getInstance().closeSession();
+			tx.commit();
+			tx = null;
 		} catch (Exception e1) {
-			StreamingHibernateUtil.getInstance().rollbackTransaction();
+			if (tx != null && tx.isActive()) {
+				try { tx.rollback(); } catch (Exception ignored) { }
+			}
 			e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/KurikulumAction.java:1985");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
 		}
 
+	}
+
+	private static java.sql.Blob salinBlobDalamTransaksi(java.sql.Blob sumber) throws Exception {
+		if (sumber == null) {
+			return null;
+		}
+		java.io.InputStream input = null;
+		try {
+			input = sumber.getBinaryStream();
+			return org.hibernate.Hibernate.createBlob(org.apache.commons.io.IOUtils.toByteArray(input));
+		} finally {
+			if (input != null) {
+				try { input.close(); } catch (Exception ignored) { }
+			}
+		}
 	}
 
 	@SuppressWarnings("unchecked")
