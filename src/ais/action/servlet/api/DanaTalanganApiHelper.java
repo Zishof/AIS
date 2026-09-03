@@ -529,9 +529,8 @@ public final class DanaTalanganApiHelper {
 				return Common.getGeneratedBarCode();
 			}
 			NomorSurat ns = NomorSuratAlurKeuangan.DANA_TALANGAN_DATA.getNomorSurat();
-			Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut()) ? ns.getNomorIndex()
+			Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
 					: indexBerikutnya(session, ns);
-			NomorSurat.tambahIndexNomorSurat(ns);
 			String noAgenda = ns.format(index, WaktuUtil.getDate());
 			return ais.action.master.KodeUnikUtil.pastikanUnik(DanaTalangan.class, noAgenda);
 		} catch (Exception e) {

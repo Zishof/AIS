@@ -625,9 +625,8 @@ public final class KasKecilApiHelper {
 				return Common.getGeneratedBarCode();
 			}
 			NomorSurat ns = NomorSuratAlurKeuangan.KAS_KECIL_DATA.getNomorSurat();
-			Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut()) ? ns.getNomorIndex()
+			Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
 					: indexBerikutnya(session, ns);
-			NomorSurat.tambahIndexNomorSurat(ns);
 			String noAgenda = ns.format(index, WaktuUtil.getDate());
 			return ais.action.master.KodeUnikUtil.pastikanUnik(KasKecil.class, noAgenda);
 		} catch (Exception e) {

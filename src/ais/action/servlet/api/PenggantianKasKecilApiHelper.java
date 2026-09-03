@@ -555,9 +555,8 @@ public final class PenggantianKasKecilApiHelper {
 				return Common.getGeneratedBarCode();
 			}
 			NomorSurat ns = NomorSuratAlurKeuangan.PENGGANTIAN_KAS_KECIL_DATA.getNomorSurat();
-			Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut()) ? ns.getNomorIndex()
+			Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
 					: indexBerikutnya(session, ns);
-			NomorSurat.tambahIndexNomorSurat(ns);
 			String noAgenda = ns.format(index, WaktuUtil.getDate());
 			return ais.action.master.KodeUnikUtil.pastikanUnik(PenggantianKasKecil.class, noAgenda);
 		} catch (Exception e) {

@@ -751,9 +751,8 @@ public final class PertangungjawabanApiHelper {
 			}
 			NomorSurat ns = ais.database.model.akunting.NomorSuratAlurKeuangan.PERTANGGUNGJAWABAN_DATA
 					.getNomorSurat();
-			Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut()) ? ns.getNomorIndex()
+			Long index = Boolean.TRUE.equals(ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
 					: indexBerikutnya(session, ns);
-			NomorSurat.tambahIndexNomorSurat(ns);
 			String noAgenda = ns.format(index, WaktuUtil.getDate());
 			return ais.action.master.KodeUnikUtil.pastikanUnik(Pertangungjawaban.class, noAgenda);
 		} catch (Exception e) {
