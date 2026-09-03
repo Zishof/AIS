@@ -84,6 +84,17 @@ Ditambah: jalur ini menulis data master produk dan tidak ada satu pun harness
 basis data yang dapat dijalankan (lihat B.1), jadi mengubahnya sekarang berarti
 mengubah tanpa dapat menguji.
 
+**Dikoreksi di dok. 102 — butir ini jauh lebih kecil daripada yang tertulis
+di atas.** Klaim "tiap baris menahan lock" salah: produknya managed, Hibernate
+hanya menerbitkan UPDATE untuk entitas yang benar-benar berubah, dan tidak ada
+timestamp yang diset tanpa syarat. Yang tersisa hanya hitungan "diperbarui"
+yang keliru pada ringkasan impor.
+
+Kedua penyumbatnya juga gugur: harness basis data kini dapat dijalankan
+(dok. 101), dan "apa artinya tidak berubah" terjawab sendiri — impor ini hanya
+menulis sepuluh field, jadi perbandingan atas sepuluh field itu tidak mungkin
+melewatkan perubahan yang sah.
+
 ---
 
 ## B. Menunggu tindakan lingkungan

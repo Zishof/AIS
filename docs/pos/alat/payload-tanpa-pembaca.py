@@ -85,14 +85,26 @@ UTANG = {
     #
     #  * hanya_perubahan: server memproses semua baris, bukan hanya yang berubah.
     #    TIDAK menimbulkan jurnal opname palsu (dijaga `if (selisih != 0)`).
-    #    Akibatnya dua: hitungan "diperbarui" pada ringkasan impor ikut menghitung
-    #    baris yang tidak berubah, dan tiap baris tetap menahan lock
-    #    koperasi.produk sehingga memperbesar permukaan deadlock yang sudah punya
-    #    mekanisme percobaan-ulang tersendiri.
     #
-    # Belum dibayar karena memutuskan "apa artinya tidak berubah" adalah keputusan
-    # tersendiri: perbandingan field yang terlalu longgar akan MELEWATI perubahan
-    # yang sah, dan itu kehilangan data yang sunyi.
+    #    DIKOREKSI (docs/pos/102). Semula tertulis di sini bahwa "tiap baris tetap
+    #    menahan lock koperasi.produk sehingga memperbesar permukaan deadlock".
+    #    Itu SALAH. Produk diambil lewat session.createCriteria(...).list() sehingga
+    #    berstatus managed; Hibernate dirty-check saat flush hanya menerbitkan
+    #    UPDATE untuk entitas yang nilainya benar-benar berubah. Method impor tidak
+    #    menyetel satu pun timestamp/audit tanpa syarat, dan
+    #    AuditTimestampInterceptor hanya bereaksi lewat onFlushDirty -- ia tidak
+    #    dapat mengotori entitas yang bersih. Baris yang nilainya sama karena itu
+    #    tidak menghasilkan UPDATE dan tidak mengambil lock.
+    #
+    #    Akibat yang benar-benar tersisa TINGGAL SATU: hitungan "diperbarui" pada
+    #    ringkasan impor ikut menghitung baris yang tidak berubah. Itu laporan yang
+    #    keliru, bukan risiko deadlock.
+    #
+    # "Apa artinya tidak berubah" pun ternyata bukan pertanyaan terbuka: yang
+    # ditulis impor ini hanya sepuluh field (kode, nama, barcode, hargaBeli,
+    # hargaJual, jenisProduk, pemasok, satuan, toko, kunciUnik). Perbandingan yang
+    # mencakup persis field-field itu tidak mungkin MELEWATI perubahan yang sah,
+    # karena tidak ada field lain yang ditulis.
     'hanya_perubahan',
     'nomor_batch_klien',
 }

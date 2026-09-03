@@ -113,6 +113,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [99-kontrol-kas-yang-dijaga-komentar.md](99-kontrol-kas-yang-dijaga-komentar.md) | Sepuluh suite dijalankan (semua hijau); laci kasir dijaga komentar saja, kini ada ujinya |
 | [100-satu-kendala-menjadi-alasan-untuk-sembilan-belas.md](100-satu-kendala-menjadi-alasan-untuk-sembilan-belas.md) | Satu harness ber-DB membuat 19 lainnya ikut dianggap tak dapat dijalankan; semuanya lulus |
 | [101-kredensial-yang-tidak-pernah-dibutuhkan.md](101-kredensial-yang-tidak-pernah-dibutuhkan.md) | Harness ber-DB terakhir ternyata cuma butuh PostgreSQL mana pun; 20 dari 20 lulus |
+| [102-klaim-lock-yang-keliru.md](102-klaim-lock-yang-keliru.md) | Klaim "tiap baris menahan lock" ternyata salah; A.5 menyusut jadi hitungan yang keliru saja |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
@@ -184,6 +185,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [103-akun-master-aset-ditimpa-kelompok.md](103-akun-master-aset-ditimpa-kelompok.md) | Akun Kelompok Aset menimpa akun Master Aset; layar natif Master Aset ditahan sampai pemilik memutuskan |
 | [104-api-kelompok-aset-dan-jebakan-akhiran-baris.md](104-api-kelompok-aset-dan-jebakan-akhiran-baris.md) | API Kelompok Aset untuk POS; dan diff 6.737 baris akibat menulis LF ke berkas CRLF |
 | [105-layar-kelompok-aset-natif.md](105-layar-kelompok-aset-natif.md) | Layar Kelompok Aset natif; konvensi cache akun bersama; satu berkas sesi lain yang tidak disapu |
+| [106-inventaris-lengkap-keluar-ke-web.md](106-inventaris-lengkap-keluar-ke-web.md) | Sapuan dua aplikasi: tinggal satu .zul; dan kenapa notifikasi eCanteen TIDAK boleh disambungkan ke notifikasi_list |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [POS-ALBAHJAH-1.34.20-KOREKSI-TRANSAKSI-DAN-LAPORAN-PEMASOK.md](POS-ALBAHJAH-1.34.20-KOREKSI-TRANSAKSI-DAN-LAPORAN-PEMASOK.md) | Status commit, validasi, artefak UAT, deployment, dan rollback POS Al-Bahjah 1.34.20 |
