@@ -1,5 +1,62 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 48 — SELESAI 100% (3 Sep 2026) — "SURAT SAKTI" TERKONFIRMASI DI SEKOLAH, DoS FUNGSIONAL PSB, BUG PERUSAK DATA
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/RuangPSB.java`** (r83653) — 201→676
+  baris, 100% (38 anggota). Domain terverifikasi: unit kuota alokasi
+  ujian PSB, bukan katalog ruangan. Nol filter tenant (bukan fail-open
+  — memang tidak ada), DAN 2 tombol mutasi massal tanpa gerbang sama
+  sekali — salah satunya (centang "Penuh") berpotensi **DoS fungsional**:
+  hak READ saja bisa memblokir SELURUH pendaftaran satu gelombang PSB.
+- **`ais/database/model/sekolah/KelompokStatusKeluarSiswa.java`**
+  (r83654) — 171→523 baris, 100% (28 anggota). Pola "surat sakti"
+  `task_1214dd58` TERKONFIRMASI PENUH menyeberang ke modul sekolah
+  (`KelompokStatusKeluarSiswaDetailAction` — nol `checkPrevilages` sama
+  sekali, assign/hapus massal, edit tanggal lulus langsung tersimpan).
+  Mekanisme baru `task_5e93a600` (`AmbilDataSiswaBanyak`). Kalibrasi
+  penting: dampak SAAT INI lebih rendah dari dugaan (label tak pernah
+  benar-benar diturunkan ke siswa) — tapi "bom waktu": begitu fitur
+  "dilengkapi" sesuai niat desain asli, panel jadi mesin ubah-status
+  massal sungguhan.
+- **`ais/database/model/sekolah/KelasSiswaPSB.java`** (r83655) —
+  173→680 baris, 100% (34 anggota). Dugaan awal keliru (master kuota
+  ruang PSB, bukan penempatan siswa). **Bug perusak data signifikan**:
+  `getNama()` destruktif TANPA syarat menimpa nama jadi KOSONG untuk
+  setiap ruang berbasis kelas reguler — kolom nama grid selalu kosong,
+  filter pencarian tak pernah cocok, revisi Envers palsu tiap render.
+  Kuota praktis tak ditegakkan (`==` bukan `>=`, hanya dicek renderer
+  admin). Nol filter tenant lagi (varian sama seperti `SiswaAction`).
+- **`ais/database/model/sekolah/JenisNilaiSiswa.java`** (r83656) —
+  178→712 baris, 100% (34 anggota). Premis awal keliru (bukan kategori
+  nilai rapor — profil template cetak JasperReports). Bug "kolom aktif
+  tak pernah ditulis layar master" — **instance ke-2** (kembar
+  `JenisCatatanSiswa` b45). Amplifier "unggah ulang template .jrxml
+  lintas sekolah" — **instance ke-3** (kembar `JenisCatatanGuru` b45).
+- **`ais/database/model/sekolah/KurikulumSekolah.java`** (r83657) —
+  167→779 baris, 100% (24 anggota). Bug NULL/SQL "self-healing" — baris
+  `aktif=NULL` hilang senyap dari dropdown lalu SEMBUH SENDIRI pada
+  flush berikutnya (sangat sulit direproduksi). Nol auto-seed —
+  instalasi baru mulai TANPA kurikulum sama sekali, membuat jalur
+  "kurikulum null" jadi jalur paling mungkin ditempuh. Severity
+  keamanan rendah (metadata katalog, bukan PII).
+
+**Pola "amplifier unggah-ulang-template-JasperReports-lintas-tenant"
+kini 3 instance** (`JenisCatatanGuru` b45, `JenisNilaiSiswa` b48, dan
+disebut juga di `OrganisasiSiswa`/keluarga terkait) — pola ini spesifik
+berbahaya karena JasperReports mengeksekusi ekspresi Java saat render,
+jadi ini juga terhubung ke kekhawatiran RCE lama dari `task_b82b25d2`
+(upload `.jrxml` sebagai lampiran).
+
+**Task lama diperkuat, tidak ada task baru batch ini**: `task_1214dd58`
+(surat sakti — instance baru di sekolah), `task_5e93a600` (2 mekanisme
+baru: `AmbilDataSiswaBanyak`, nol-filter `RuangPSB`/`KelasSiswaPSB`).
+
+Total akumulasi 48 sesi: **417 file + 1 Action dasbor**.
+
 ## Batch 47 — SELESAI 100% (3 Sep 2026) — EKSPOR 116-KOLOM PII TANPA PRIVILESE DITEMUKAN, TASK ESKALASI BARU
 
 5 file selesai didokumentasikan penuh (4 entity model + 1 Action dasbor),
