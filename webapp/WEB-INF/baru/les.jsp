@@ -21,8 +21,15 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 }
 
 if(hanya_tampil_jsp){
-	if(!p.trim().isEmpty() && !s.trim().isEmpty()){
-        	  
+	// Daftar putih: grep menyeluruh atas webapp/ (termasuk modul/les/* sendiri) tidak
+	// menemukan satu pun pemanggil sah untuk dispatcher ini -- landing_page.jsp memuat
+	// datanya lewat /Data (SQL native), bukan lewat hanya_tampil_jsp. Karena belum ada
+	// target p/s yang sah, tolak semua supaya dispatcher ini tidak jadi proksi bebas ke
+	// berkas modul LAIN (keuangan/kepegawaian/akuntansi, dst.) yang tidak punya cek sesi
+	// sendiri. Perbarui daftar ini jika suatu saat ada kebutuhan proksi p/s yang sah.
+	boolean psDiizinkan = false;
+	if(!p.trim().isEmpty() && !s.trim().isEmpty() && psDiizinkan){
+
         	  try{
         		  String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
                   %>
@@ -34,7 +41,9 @@ if(hanya_tampil_jsp){
         		  <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
         		  <%
         	  }
-          
+
+    } else if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+    	response.sendError(403);
     }
 } else {
 	

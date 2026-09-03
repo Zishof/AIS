@@ -21,8 +21,30 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 }
 
 if(hanya_tampil_jsp){
-	if(!p.trim().isEmpty() && !s.trim().isEmpty()){
-        	  
+	// Daftar putih: dispatcher ini (dipanggil lewat /dsh atau /dashboard, lihat
+	// ais.action.servlet.Dashboard -- pengecekan sesinya bergantung pada konfigurasi
+	// "akses_ke_dashboard_tanpa_login_tidak_diizinkan" sehingga bisa saja publik) hanya
+	// boleh menjadi proksi ke berkas statistik yang benar-benar dipakai oleh tab-tab
+	// modul/dsh/_dashboard.jsp dan modul/dsh/_dashboard_sekolah.jsp. Tanpa ini, p/s bebas
+	// dari klien bisa meng-include berkas modul LAIN (keuangan/kepegawaian/akuntansi, dst.)
+	// yang tidak punya cek sesi/otorisasi sendiri.
+	java.util.Set<String> allowedPasangan = new java.util.HashSet<String>(java.util.Arrays.asList(
+		"pagesmastermatakuliahzul|_statistik_matakuliah",
+		"pagesmasterkurikulumzul|_statistik_kurikulum",
+		"pagesmasterdosenzul|_statistik_dosen",
+		"pagesmastermahasiswazul|_statistik_mahasiswa_aktif",
+		"pagesmasterperkuliahanzul|_statistik_perkuliahan",
+		"elearning|_statistik_pertemuan",
+		"alumni|_statistik_alumni",
+		"pagesmastersekolahmatapelajaranzul|_statistik_matapelajaran",
+		"pagesmastersekolahkurikulumsekolahzul|_statistik_kurikulum_sekolah",
+		"pagesmastersekolahguruzul|_statistik_guru"
+	));
+	boolean formatDasarValid = p.matches("[A-Za-z0-9_/-]+") && s.matches("[A-Za-z0-9_/-]+")
+			&& !p.contains("..") && !s.contains("..");
+	boolean psDiizinkan = formatDasarValid && allowedPasangan.contains(p + "|" + s);
+	if(!p.trim().isEmpty() && !s.trim().isEmpty() && psDiizinkan){
+
         	  try{
         		  String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
                   %>
@@ -34,7 +56,9 @@ if(hanya_tampil_jsp){
         		  <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
         		  <%
         	  }
-          
+
+    } else if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+    	response.sendError(403);
     }
 } else {
 %>
