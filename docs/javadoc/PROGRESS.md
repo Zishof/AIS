@@ -1,5 +1,64 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 81 — SELESAI 100% (3 Sep 2026) — PIVOT DOMAIN BARU: `payroll` (penggajian pegawai), setelah `akunting` tuntas; 5 task baru sekaligus (batch terbanyak); KONFIRMASI `task_e68c78f1` (kunci jurnal bertabrakan) sudah diperbaiki sebagian (r83966); temuan PII gaji per komponen bocor lintas tenant
+
+Sesi ini beralih ke domain baru setelah paket `akunting` TUNTAS di
+batch 80 — `ais/database/model/payroll` (42 file) SAMA SEKALI belum
+disentuh. Sesi audit terpisah sebelumnya sudah menandai SELURUH modul
+`payroll`/`employ`/`kpi` rentan tanpa syarat pada `task_7b6038ac`
+(properti `pegawai` di luar whitelist Generic CRUD v2). 5 file
+selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/payroll/PembayaranGajiPunyaPegawai.java`**
+  (r84033) — 284→851 baris, 100%. **KONFIRMASI**: `task_e68c78f1`
+  (b73, `GrupTransaksi.ambilUnik()` salah pakai nama kelas
+  `PembayaranGajiPunyaPegawai` untuk field `transaksiPegawai`) SUDAH
+  DIPERBAIKI SEBAGIAN — `svn blame` mengonfirmasi perbaikan di r83966
+  oleh sesi remediasi terpisah. Dampak historis didokumentasikan:
+  peluang tabrakan TINGGI secara struktural (kedua tabel IDENTITY
+  mulai dari 1, kunci global lintas tenant).
+- **`ais/database/model/payroll/PembayaranItemGajiPegawai.java`**
+  (r84034) — 381→1204 baris, 100%. **Task baru `task_b03fe2fa`**:
+  rincian gaji per KOMPONEN (bukan cuma total) bocor lintas tenant
+  via Generic CRUD v2 di 5 halaman New UI sekaligus — kategori data
+  paling sensitif yang tersentuh perluasan `task_7b6038ac` sejauh
+  ini. Getter destruktif: `getNilai()` membulatkan negatif ke 0
+  PERMANEN dan retroaktif ke slip historis begitu bendera master
+  dinyalakan.
+- **`ais/database/model/payroll/RencanaItemGajiPegawai.java`**
+  (r84036) — 373→1192 baris, 100%. Koreksi arah alur: REALISASI→
+  RENCANA (bukan sebaliknya) — tabel sengaja tidak lengkap. **Task
+  baru `task_11fcffa9`**: rencana gaji SELURUH TENANT bisa
+  dihapus/dibangun-ulang oleh pengguna hak BACA saja
+  (`RencanaGajiPunyaPegawaiAction` nol import `CommonPrivilages`
+  sama sekali) — kontras tajam dengan layar induk yang sudah benar.
+- **`ais/database/model/payroll/PembayaranGaji.java`** (r84035) —
+  489→1401 baris, 100%. **2 task baru**: `task_58dea0e8` (posting
+  gaji tanpa gerbang + lintas tenant, asimetri "batal butuh admin,
+  terbitkan tidak butuh apa-apa"), `task_c9d4d09f` (bypass SOP —
+  dokumen di luar layar SOP resmi tak pernah dapat `disposisiSop`,
+  lolos kelayakan posting tanpa pemisahan tugas pembuat/penyetuju).
+  `task_66986071` terkonfirmasi helper KESEPULUH.
+- **`ais/database/model/payroll/ItemGaji.java`** (r84037) — 363→1274
+  baris, 100%. Katalog dengan MESIN RUMUS sungguhan (exp4j +
+  `LogicalUtil`, evaluasi rekursif antar-komponen). **Koreksi penting
+  untuk `task_7b6038ac`**: menambahkan `pegawai` ke whitelist TIDAK
+  akan menutup celah di sini — entity ini terjangkau lewat mekanisme
+  BERBEDA (binding kosong karena nol properti relasi ada di
+  whitelist manapun, bukan soal `pegawai`). **Task baru
+  `task_e4a5961e`**: komponen gaji dasar yang dirujuk 26+ komponen
+  lain (mis. `GAPOK`) diam-diam bernilai NOL tanpa exception/jejak
+  (penghitung ambang rekursi salah semantik — akumulatif bukan
+  kedalaman) — mengalir ke jurnal tanpa peringatan.
+
+**5 task baru batch ini** (batch TERBANYAK sejauh ini) — semua
+dibuat agent sendiri: `task_b03fe2fa`, `task_11fcffa9`,
+`task_58dea0e8`, `task_c9d4d09f`, `task_e4a5961e`. Domain `payroll`
+terbukti SANGAT rentan sejak pivot pertama — proporsi temuan baru
+tertinggi di seluruh inisiatif untuk 5 file pertama satu domain.
+
 ## Batch 80 — SELESAI 100% (3 Sep 2026) — 🎉 PAKET `ais/database/model/akunting` TUNTAS SELURUHNYA (45/45 file, batch 73-80); KONFIRMASI: `task_aac9dcdd` DAN `task_945c2af8` SUDAH DIPERBAIKI di kode oleh sesi remediasi terpisah; `task_66986071` (7 master keuangan) terverifikasi LENGKAP; nol task baru
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
