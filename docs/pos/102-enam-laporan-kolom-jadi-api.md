@@ -81,7 +81,34 @@ Manfaatnya langsung terbukti sekali lagi: setelah neraca lajur dirombak memakai 
 bersama, SQL dirakit ulang dari sumber terkini dan hasilnya identik angka-per-angka dengan
 sebelum dirombak. Itu yang membuat perombakan boleh disebut aman.
 
-## 5. Sisa
+## 5. `lk_dashakun`: satu jebakan nama, dan satu hal yang TIDAK disimpulkan
+
+Entri terakhir yang masih menunjuk ZK adalah `lk_dashakun` — "Rasio, Grafik, Laba Ditahan &
+Proyeksi Kas" → `common/display.zul?p=akuntansi`.
+
+Penelusurannya memuat jebakan yang layak dicatat. Di paket `ais.action.master.akunting.helper`
+ada **dua** kelas yang namanya beda satu huruf:
+
+| Kelas | Ukuran | Dipakai `display.zul?p=akuntansi`? |
+|---|---|---|
+| `DasboardAkuntansi.java` | 92 KB | tidak |
+| `DasboardAkunting.java` | 50 KB | **ya** |
+
+Membuka yang salah menghasilkan kesimpulan yang terdengar meyakinkan tentang kelas yang tidak
+ada hubungannya dengan entri ini.
+
+Di kelas yang benar, kata "ditahan", "proyeksi", "forecast", "prediksi", dan "equity" **tidak
+muncul sama sekali**, dan satu-satunya judul bagian yang tertulis adalah "Buku Besar" dan
+"Neraca Lajur" — dua-duanya sudah punya versi natif sekarang.
+
+Itu **belum cukup** untuk menyimpulkan entrinya berlebihan. Dasbor itu menyusun isinya secara
+programatik, jadi daftar bagiannya tidak bisa dibaca utuh dari sumber; ketiadaan sebuah kata
+bukan bukti ketiadaan fiturnya. Mencabut tautannya atas dasar itu berarti mengulang persis
+kegagalan yang diperingatkan doc 100 — menghapus sesuatu yang bekerja karena pengukurannya
+menjawab pertanyaan lain. Jadi entri ini sengaja dibiarkan, dan yang dicatat hanyalah apa yang
+benar-benar terlihat.
+
+## 6. Sisa
 
 - `dashAkun()` → `common/display.zul?p=akuntansi` (dasbor, bukan laporan)
 - `posting_akun_perbaikan.dart` → `master_asset.zul`, `kelompok_asset.zul` — butuh layar

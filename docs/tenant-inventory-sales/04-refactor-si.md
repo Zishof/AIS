@@ -2582,7 +2582,7 @@ sendiri tetap kosong. Impor melapor sukses, lalu layarnya tidak menampilkan apa 
 
 Batch ini menulis jalur SQL tenant untuk **enam dari delapan** jenis: `supplier`, `customer`,
 `sales`, `produk`, `harga_beli`, `harga_jual`. Dua jenis transaksional (`pembelian_legacy`,
-`penjualan_legacy`) **ditolak dengan menyebut namanya** dan menyebut jenis mana yang sudah bisa —
+`penjualan_legacy`) **ditolak dengan menyebut namanya** — dan menyusul pada §24 dan menyebut jenis mana yang sudah bisa —
 pola cakupan yang sama dengan §20/§22.
 
 ### Aturan yang dipertahankan: ISI BILA KOSONG
@@ -2659,6 +2659,71 @@ Tanpa bundel migrasi baru.
 `pembelian_legacy` dan `penjualan_legacy` menuntut pemetaan ke dokumen tenant — pembelian
 ber-kepala/detail, dan penjualan yang melahirkan faktur berikut mutasinya. Itu batch tersendiri,
 bukan tempelan di sini.
+
+## §24 — riwayat BELI.DBF/JUAL.DBF: mutasi, bukan dokumen karangan
+
+Dua jenis terakhir. Dengan ini `importLegacy` **delapan dari delapan**, dan seluruh P4/P5 pada
+modul ini tidak lagi punya aksi yang ditolak pada jalur tenant.
+
+### Godaan yang saya tolak
+
+Yang tampak rapi: menerbitkan `pembelian` ber-kepala/detail dan `faktur_penjualan`, supaya riwayat
+lama terlihat seperti dokumen tenant biasa.
+
+**Itu akan mengarang data.** Baris DBF-nya tidak membawa supplier maupun customer sebagai
+relasi — hanya *teks kode* — dan tidak membawa termin, jatuh tempo, pajak, maupun status dokumen.
+Dokumen yang dibentuk dari situ akan punya kepala yang isinya tebakan, lalu ikut masuk ke **umur
+hutang dan piutang** seolah-olah tagihan sungguhan. Angka yang salah di laporan umur piutang jauh
+lebih mahal daripada riwayat yang bentuknya sederhana.
+
+Yang benar-benar dibawa berkas itu hanya satu hal: **barang berpindah, sekian banyak, pada tanggal
+sekian, seharga sekian.** Pada model tenant itu persis satu baris `mutasi_stok`.
+
+Dan pemetaan ini **setara bentuknya, bukan penyederhanaan**: jalur legacy pun tidak membuat
+dokumen — `PengadaanProduk` dan `Pembelian` sama-sama baris datar, bukan kepala/detail.
+
+| DBF | legacy | tenant |
+|---|---|---|
+| BELI | `PengadaanProduk` (baris datar) | `mutasi_stok` `PENGADAAN` arah **+1** |
+| JUAL | `Pembelian` (baris datar) | `mutasi_stok` `PENJUALAN` arah **−1** |
+
+### Kode teks tetap disimpan, di tempat yang jujur
+
+Kode supplier/customer/sales dan nomor batch masuk ke `keterangan`. Teks tidak dapat menjadi
+relasi — memaksakannya jadi FK berarti menebak — tetapi membuangnya berarti kehilangan
+satu-satunya petunjuk asal-usul baris itu.
+
+### Idempotensi bersandar pada indeks, bukan pada kehati-hatian kode
+
+Kuncinya menirukan kunci sintetis jalur legacy
+(`LEGACY-BELI-<faktur>-<produk>-<batch>-<yyyyMMdd>`) dan disimpan pada
+`mutasi_stok.idempotency_key`, yang sudah punya indeks unik sejak bundel **v11**.
+
+Bedanya dengan legacy bukan gaya: legacy membaca lebih dulu lalu memutuskan, sehingga dua
+permintaan serentak yang membawa berkas sama dapat lolos berdua. Di sini yang menolak adalah
+indeksnya. Blok 3 uji kesetaraan membuktikan indeksnya **memang menolak** — sisipan kedua gagal
+dengan `uq_..._mutasi_stok_idem`, dan saldonya tetap 70.
+
+### Satu penolakan yang diteruskan dari §23
+
+Pergerakan butuh gudang, dan gudangnya ditentukan dari tokonya. Toko tanpa gudang aktif membuat
+barisnya **gagal**, bukan ditaruh di gudang mana saja — aturan yang sama dengan saldo awal, dan
+alasannya sama: menaruh stok pada gudang yang salah lebih buruk daripada tidak menaruhnya.
+
+### Verifikasi
+
+| yang diuji | hasil |
+|---|---|
+| arah masuk/keluar | `PENGADAAN` +1, `PENJUALAN` −1 |
+| saldo | 100 masuk − 30 keluar = **70** |
+| nilai baris | `kuantitas × harga_satuan` untuk keduanya |
+| penjaga impor ulang | ditolak `uq_..._mutasi_stok_idem`; saldo tetap 70 |
+| dokumen yang lahir | `pembelian` 0, `faktur` 0, `hutang` 0, `piutang` 0 |
+| asal-usul | `supplier=SUP1` / `customer=C9` terbaca pada `keterangan` |
+
+`uji-kesetaraan-impor-riwayat.sql` — empat blok, **sepuluh LULUS, nol GAGAL**, satu penjaga.
+
+Tanpa bundel migrasi baru.
 
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
