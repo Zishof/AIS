@@ -108,8 +108,10 @@ import ais.ui.util.MyWindow;
  *   ({@code Common.getSatuanKerja()}) dalam blok try-catch karena tidak semua
  *   pengguna pasti memiliki satuan kerja.<br>
  * - Checkbox Aktif dan Default di renderer langsung menyimpan ke database via
- *   {@code Common.refreshSaveOrUpdate}; pertimbangkan menambahkan konfirmasi
- *   untuk perubahan yang berdampak luas jika diperlukan.</p>
+ *   {@code Common.refreshSaveOrUpdate}; keduanya dinonaktifkan (disabled) bagi
+ *   pengguna tanpa hak UPDATE (flag {@code edit}), sama seperti tombol Ubah/Hapus
+ *   pada baris yang sama, dan listener {@code onCheck} juga menolak perubahan
+ *   jika {@code edit} bernilai false sebagai lapis pertahanan kedua.</p>
  */
 public class JenisKasBesarAction extends GenericAutowireComposer implements DataInitDefault {
 
@@ -321,9 +323,12 @@ public class JenisKasBesarAction extends GenericAutowireComposer implements Data
 		 * Semua komponen dibuat secara programatik dan ditambahkan ke baris ({@code arg0})
 		 * sesuai urutan kolom. Null check dilakukan pada properti yang bisa bernilai null
 		 * (akun, akunPenerima, satuanKerja) menggunakan operator ternary untuk memberikan
-		 * string kosong sebagai fallback. Checkbox aktif dan default diaktifkan tanpa
-		 * pembatasan hak akses (tidak ada disable berdasarkan flag edit/delete) karena
-		 * ini adalah kontrol administratif tingkat tinggi.</p>
+		 * string kosong sebagai fallback. Checkbox aktif dan default dinonaktifkan
+		 * (disabled) berdasarkan flag {@code edit} (hak UPDATE), konsisten dengan tombol
+		 * Ubah/Hapus pada baris yang sama yang dipagari oleh {@code Common.copyEditDeleteButtons}
+		 * memakai flag {@code edit}/{@code delete} yang sama. Listener {@code onCheck} juga
+		 * menolak penyimpanan jika {@code edit} bernilai false, sebagai lapis pertahanan kedua
+		 * terhadap permintaan AU yang dibuat langsung tanpa melalui UI (bypass disabled state).</p>
 		 *
 		 * <p><b>Penanganan error:</b><br>
 		 * Exception dari listener checkbox diteruskan ke framework ZK. Tidak ada
@@ -365,24 +370,32 @@ public class JenisKasBesarAction extends GenericAutowireComposer implements Data
 					.setParent(arg0);
 
 			final MyCheckboxConfig aktif = new MyCheckboxConfig("Aktif");
+			aktif.setDisabled(!edit);
 			aktif.setChecked(jenisKasBesar.getAktif());
 			aktif.setParent(arg0);
 			aktif.addEventListener("onCheck", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!edit) {
+						return;
+					}
 					jenisKasBesar.setAktif(aktif.isChecked());
 					Common.refreshSaveOrUpdate(jenisKasBesar);
 				}
 			});
 
 			final MyCheckboxConfig defaultData = new MyCheckboxConfig("Default");
+			defaultData.setDisabled(!edit);
 			defaultData.setChecked(jenisKasBesar.getDefaultData());
 			defaultData.setParent(arg0);
 			defaultData.addEventListener("onCheck", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!edit) {
+						return;
+					}
 					jenisKasBesar.setDefaultData(defaultData.isChecked());
 					Common.refreshSaveOrUpdate(jenisKasBesar);
 				}

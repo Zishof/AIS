@@ -1135,7 +1135,8 @@ public class PengajuanSiswa extends DataSop {
 				System.out.println("kelompokParameterTambahanPengajuan => " + kelompokParameterTambahanPengajuan);
 				
 				if (parameterTambahan != null && kelompokParameterTambahanPengajuan != null) {
-					String jenis = kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanSiswa.class, getId(),
+							kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

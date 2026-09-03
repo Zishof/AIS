@@ -41,6 +41,7 @@ sendiri (TRUNCATE lalu INSERT), dan itu memang syarat yang dituntut di sini. Ber
 bersandar pada sisa data berkas lain akan gagal -- dan itu memang lebih baik ketahuan.
 """
 import argparse
+import functools
 import io
 import os
 import re
@@ -50,6 +51,11 @@ import subprocess
 import sys
 import tempfile
 import time
+
+# Keluaran harus muncul saat berjalan, bukan menumpuk sampai selesai: pelari yang diam
+# selama sepuluh menit tidak dapat dibedakan dari pelari yang menggantung.
+print = functools.partial(__builtins__.print if hasattr(__builtins__, 'print')
+                          else __import__('builtins').print, flush=True)
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 JAVA_SRC = os.path.abspath(os.path.join(DIR, '..', '..', 'java'))
@@ -166,6 +172,7 @@ def main():
         print('%-44s %6s %6s  %s' % ('berkas', 'LULUS', 'GAGAL', 'schema'))
         print('-' * 86)
         tot_l = tot_g = tot_e = 0
+        sudah_disiapkan = set()
         for f in daftar:
             jalur = os.path.join(DIR, f)
             sk = skema_dari(jalur)

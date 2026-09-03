@@ -331,6 +331,11 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 								pertangungjawaban.setPostingHistoryPengembalian(null);
 								Common.refreshSaveOrUpdate(pertangungjawaban);
 								HibernateUtil.currentSession()
+										.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where ref='" + ref
+												+ "' and pertangungjawaban=" + pertangungjawaban.getId() + " and closing is null)")
+										.executeUpdate();
+								HibernateUtil.currentSession()
 										.createSQLQuery("delete from akunting.grup_transaksi where ref='" + ref
 												+ "' and pertangungjawaban=" + pertangungjawaban.getId() + " and closing is null")
 										.executeUpdate();
@@ -595,6 +600,7 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 																					* 100.0 / pertangungjawabans.size())
 																			+ " %)");
 
+															boolean berhasilPosting = false;
 															try {
 
 																Akun akunDenda = null;
@@ -624,15 +630,23 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 																		nilaiKredits.toArray(new Double[] {}), denda,
 																		pertangungjawaban, satuanKerja, ref, session);
 																session.getTransaction().commit();
+																berhasilPosting = true;
 															} catch (Exception e) {
 																Common.tampilErrorJikaAdmin(e);
+																try {
+																	session.getTransaction().rollback();
+																} catch (Exception ex) {
+																	// rollback gagal: kegagalan aslinya yang dilaporkan
+																}
 															}
 
-															pertangungjawaban.setPostingHistoryPengembalian(
-																	postingHistoryPengembalian);
-															session.getTransaction().begin();
-															session.update(pertangungjawaban);
-															session.getTransaction().commit();
+															if (berhasilPosting) {
+																pertangungjawaban.setPostingHistoryPengembalian(
+																		postingHistoryPengembalian);
+																session.getTransaction().begin();
+																session.update(pertangungjawaban);
+																session.getTransaction().commit();
+															}
 														}
 													} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/PostingPertangungjawabanPengembalianAction.java:632");
 														// TODO: handle
@@ -837,6 +851,11 @@ public class PostingPertangungjawabanPengembalianAction extends GenericAutowireC
 							public void onEvent(Event arg0) throws Exception {
 								pertangungjawaban.setPostingHistoryPengembalian(null);
 								Common.refreshSaveOrUpdate(pertangungjawaban);
+								HibernateUtil.currentSession()
+										.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where ref='" + ref
+												+ "' and pertangungjawaban=" + pertangungjawaban.getId() + " and closing is null)")
+										.executeUpdate();
 								HibernateUtil.currentSession()
 										.createSQLQuery("delete from akunting.grup_transaksi where ref='" + ref
 												+ "' and pertangungjawaban=" + pertangungjawaban.getId() + " and closing is null")

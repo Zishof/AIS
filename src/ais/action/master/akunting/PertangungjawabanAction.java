@@ -653,8 +653,13 @@ public class PertangungjawabanAction extends GenericAutowireComposer
 							if (nilai.intValue() != pertangungjawaban.getNilai().intValue()
 									|| totalPajak.intValue() != pertangungjawaban.getPajak().intValue()) {
 
-								Double dikembalikan = ((pertangungjawaban == null ? 0.0 : pertangungjawaban.getNilai())
-										+ (pertangungjawaban.getDariSponsor())) - nilai;
+								// Basisnya WAJIB nilai panjar (uangMuka.getNilai()), bukan nilai
+								// realisasi LPJ lama -- rumus sama dengan layar ZK dan jalur REST,
+								// lihat Pertangungjawaban.hitungDikembalikan.
+								Double dikembalikan = Pertangungjawaban.hitungDikembalikan(
+										pertangungjawaban.getUangMuka() == null ? 0.0
+												: pertangungjawaban.getUangMuka().getNilai(),
+										pertangungjawaban.getDariSponsor(), nilai);
 
 								pertangungjawaban.setPajak(totalPajak);
 								pertangungjawaban.setNilai(nilai);
@@ -2083,8 +2088,8 @@ public class PertangungjawabanAction extends GenericAutowireComposer
 
 				UangMuka work = (UangMuka) (uangMuka.getAttribute("uangMuka"));
 
-				dikembalikan = ((work == null ? 0.0 : work.getNilai())
-						+ (dariSponsor.getValue() == null ? 0.0 : dariSponsor.getValue())) - nilai;
+				dikembalikan = Pertangungjawaban.hitungDikembalikan(work == null ? 0.0 : work.getNilai(),
+						dariSponsor.getValue(), nilai);
 
 				nilaiHarusDikembalikan.setValue(Common.numberFormat.get().format(dikembalikan));
 

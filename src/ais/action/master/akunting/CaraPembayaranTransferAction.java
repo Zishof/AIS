@@ -342,12 +342,16 @@ public class CaraPembayaranTransferAction extends GenericAutowireComposer implem
 		 *   <li>Menambahkan Label untuk kode (via RevisiHelper), nama, deskripsi,
 		 *       info akun utama, info akun transitori, dan info satuan kerja.</li>
 		 *   <li>Checkbox "Aktif": langsung menyimpan perubahan via
-		 *       {@link Common#refreshSaveOrUpdate} saat dicentang/dilepas.</li>
+		 *       {@link Common#refreshSaveOrUpdate} saat dicentang/dilepas; dinonaktifkan
+		 *       (disabled) dan listener-nya menolak penyimpanan bagi pengguna tanpa hak
+		 *       UPDATE (flag {@code edit}), konsisten dengan tombol Ubah/Hapus di baris yang sama.</li>
 		 *   <li>Checkbox "Default": saat dicentang, menonaktifkan status default
 		 *       semua cara pembayaran lain pada satuan kerja yang sama sebelum
 		 *       menyimpan status default baru. Saat dilepas, cukup menyimpan
 		 *       perubahan tanpa dampak ke record lain. Memanggil
-		 *       {@code onSearchDefault} agar grid terefresh.</li>
+		 *       {@code onSearchDefault} agar grid terefresh. Sama seperti checkbox
+		 *       "Aktif", dinonaktifkan dan listener-nya menolak perubahan bagi
+		 *       pengguna tanpa hak UPDATE.</li>
 		 *   <li>Tombol Ubah/Hapus via {@link Common#copyEditDeleteButtons}.</li>
 		 * </ol>
 		 * </p>
@@ -389,18 +393,23 @@ public class CaraPembayaranTransferAction extends GenericAutowireComposer implem
 					.setParent(arg0);
 
 			final MyCheckboxConfig aktif = new MyCheckboxConfig("Aktif");
+			aktif.setDisabled(!edit);
 			aktif.setChecked(isTrue(caraPembayaranTransfer.getAktif()));
 			aktif.setParent(arg0);
 			aktif.addEventListener("onCheck", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!edit) {
+						return;
+					}
 					caraPembayaranTransfer.setAktif(aktif.isChecked());
 					Common.refreshSaveOrUpdate(caraPembayaranTransfer);
 				}
 			});
 
 			final MyCheckboxConfig checkbox = new MyCheckboxConfig("Default");
+			checkbox.setDisabled(!edit);
 			checkbox.setChecked(isTrue(caraPembayaranTransfer.getDefaultPembayaran()));
 			checkbox.setParent(arg0);
 			arg0.setAttribute("checkbox", checkbox);
@@ -408,6 +417,9 @@ public class CaraPembayaranTransferAction extends GenericAutowireComposer implem
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!edit) {
+						return;
+					}
 					Session session = HibernateUtil.currentSession();
 					if (checkbox.isChecked()) {
 						List<CaraPembayaranTransfer> defaults = session.createCriteria(CaraPembayaranTransfer.class)

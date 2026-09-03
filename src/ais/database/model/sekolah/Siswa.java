@@ -6164,7 +6164,8 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 				KelompokParameterTambahanCalonSiswa kelompokParameterTambahanCalonSiswa = (KelompokParameterTambahanCalonSiswa) row
 						.getAttribute("kelompokParameterTambahanCalonSiswa");
 				if (parameterTambahan != null && kelompokParameterTambahanCalonSiswa != null) {
-					String jenis = kelompokParameterTambahanCalonSiswa.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(Siswa.class, getId(),
+							kelompokParameterTambahanCalonSiswa.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

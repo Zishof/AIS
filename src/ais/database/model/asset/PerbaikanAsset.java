@@ -250,7 +250,8 @@ public class PerbaikanAsset extends DataSop {
 				KelompokParameterTambahanPerbaikanAsset kelompokParameterTambahanPerbaikanAsset = (KelompokParameterTambahanPerbaikanAsset) row
 						.getAttribute("kelompokParameterTambahanPerbaikanAsset");
 				if (parameterTambahan != null && kelompokParameterTambahanPerbaikanAsset != null) {
-					String jenis = kelompokParameterTambahanPerbaikanAsset.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(PerbaikanAsset.class, getId(),
+							kelompokParameterTambahanPerbaikanAsset.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

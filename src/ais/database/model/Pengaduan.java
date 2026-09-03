@@ -696,7 +696,8 @@ public class Pengaduan extends DataSop {
 				KelompokParameterTambahanPengaduan kelompokParameterTambahanPengaduan = (KelompokParameterTambahanPengaduan) row
 						.getAttribute("kelompokParameterTambahanPengaduan");
 				if (parameterTambahan != null && kelompokParameterTambahanPengaduan != null) {
-					String jenis = kelompokParameterTambahanPengaduan.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(Pengaduan.class, getId(),
+							kelompokParameterTambahanPengaduan.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

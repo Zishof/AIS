@@ -508,6 +508,7 @@ public final class PertangungjawabanApiHelper {
 			boolean pph = Common.bolehKonfigurasi("pph_mengurangi_lpj");
 			Hitungan h = hitung(session, rincian, pph);
 			double nilaiUangMuka = um.getNilai() == null ? 0 : um.getNilai().doubleValue();
+			Double dariSponsor = Double.valueOf(request.optDouble("dariSponsor", 0));
 			// Perbandingan memakai satuan bulat seperti layar ZK (longValue), supaya selisih
 			// pembulatan sen tidak menolak dokumen yang sebenarnya pas.
 			if ((long) nilaiUangMuka < (long) h.nilai) {
@@ -516,8 +517,9 @@ public final class PertangungjawabanApiHelper {
 				return;
 			}
 			// Nilai pengembalian wajib berasal dari data otoritatif server. Jangan
-			// mempercayai angka kiriman klien karena rincian LPJ dapat berubah.
-			double dikembalikan = nilaiUangMuka - h.nilai;
+			// mempercayai angka kiriman klien karena rincian LPJ dapat berubah. Rumus sama
+			// dengan layar ZK dan tombol "Hitung Ulang" -- lihat Pertangungjawaban.hitungDikembalikan.
+			double dikembalikan = Pertangungjawaban.hitungDikembalikan(nilaiUangMuka, dariSponsor, h.nilai);
 			if (Math.abs(dikembalikan) < 0.005) {
 				dikembalikan = 0;
 			}
@@ -536,7 +538,7 @@ public final class PertangungjawabanApiHelper {
 			pj.setDikembalikan(Double.valueOf(dikembalikan));
 			pj.setFormula(rincian == null ? "[]" : rincian.toString());
 			pj.setNamaSponsor(request.optString("namaSponsor", "").trim());
-			pj.setDariSponsor(Double.valueOf(request.optDouble("dariSponsor", 0)));
+			pj.setDariSponsor(dariSponsor);
 			pj.setTanggalStor(tanggalStor);
 			long satkerId = request.optLong("satuanKerjaId", 0);
 			if (satkerId > 0) {

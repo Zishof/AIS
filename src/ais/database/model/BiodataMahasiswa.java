@@ -3140,7 +3140,8 @@ public class BiodataMahasiswa extends GeneralValueObject {
 						.getAttribute("kelompokParameterTambahanMahasiswa");
 				Long indexKe = (Long) row.getAttribute("indexKe");
 				if (parameterTambahan != null && kelompokParameterTambahanMahasiswa != null) {
-					String jenis = kelompokParameterTambahanMahasiswa.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataMahasiswa.class, getId(),
+							kelompokParameterTambahanMahasiswa.getId() + "->" + parameterTambahan.getId());
 
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null
 							&& row.getAttribute("keterangan") instanceof Textbox) ? row.getAttribute("keterangan")
@@ -3477,7 +3478,8 @@ public class BiodataMahasiswa extends GeneralValueObject {
 						.getAttribute("kelompokParameterTambahanAlumni");
 				indexKe = (Long) row.getAttribute("indexKe");
 				if (parameterTambahan != null && kelompokParameterTambahanAlumni != null) {
-					String jenis = kelompokParameterTambahanAlumni.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataMahasiswa.class, getId(),
+							kelompokParameterTambahanAlumni.getId() + "->" + parameterTambahan.getId());
 
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null
 							&& row.getAttribute("keterangan") instanceof Textbox) ? row.getAttribute("keterangan")

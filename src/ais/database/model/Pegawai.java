@@ -5486,7 +5486,8 @@ public class Pegawai extends Karyawan {
 				KelompokParameterTambahanGajiPegawai kelompokParameterTambahanGajiPegawai = (KelompokParameterTambahanGajiPegawai) row
 						.getAttribute("kelompokParameterTambahanGajiPegawai");
 				if (parameterTambahan != null && kelompokParameterTambahanGajiPegawai != null) {
-					String jenis = kelompokParameterTambahanGajiPegawai.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(Pegawai.class, getId(),
+							kelompokParameterTambahanGajiPegawai.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

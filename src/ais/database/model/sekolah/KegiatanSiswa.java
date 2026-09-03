@@ -884,7 +884,8 @@ public class KegiatanSiswa extends GeneralValueObject {
 						.getAttribute("kelompokKegiatanSiswa");
 				Long indexKe = (Long) row.getAttribute("indexKe");
 				if (parameterTambahan != null && kelompokKegiatanSiswa != null) {
-					String jenis = kelompokKegiatanSiswa.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(KegiatanSiswa.class, getId(),
+							kelompokKegiatanSiswa.getId() + "->" + parameterTambahan.getId());
 
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null && row.getAttribute("keterangan") instanceof Textbox) ? row.getAttribute("keterangan") : null);
 					String ket = keterangan == null ? "" : keterangan.getValue().trim();

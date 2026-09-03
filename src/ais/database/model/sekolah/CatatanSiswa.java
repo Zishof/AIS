@@ -954,7 +954,8 @@ public class CatatanSiswa extends GeneralValueObject {
 				KelompokParameterTambahanCatatanSiswa kelompokParameterTambahanCatatanSiswa = (KelompokParameterTambahanCatatanSiswa) row
 						.getAttribute("kelompokParameterTambahanCatatanSiswa");
 				if (parameterTambahan != null && kelompokParameterTambahanCatatanSiswa != null) {
-					String jenis = kelompokParameterTambahanCatatanSiswa.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanSiswa.class, getId(),
+							kelompokParameterTambahanCatatanSiswa.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 

@@ -414,7 +414,8 @@ public class DisposisiAlurSop extends GeneralValueObject {
 				KelompokParameterTambahanAlurSop kelompokParameterTambahanAlurSop = (KelompokParameterTambahanAlurSop) row
 						.getAttribute("kelompokParameterTambahanAlurSop");
 				if (parameterTambahan != null && kelompokParameterTambahanAlurSop != null) {
-					String jenis = kelompokParameterTambahanAlurSop.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(DisposisiAlurSop.class, getId(),
+							kelompokParameterTambahanAlurSop.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

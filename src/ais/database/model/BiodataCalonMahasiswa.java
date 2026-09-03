@@ -4859,7 +4859,8 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 			}
 
 			if (parameterTambahan != null && kelompokParameterTambahanCalonMahasiswa != null) {
-				String jenis = kelompokParameterTambahanCalonMahasiswa.getId() + "->" + parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataCalonMahasiswa.class, getId(),
+						kelompokParameterTambahanCalonMahasiswa.getId() + "->" + parameterTambahan.getId());
 
 				if (parameterTambahan.getHarusMenyertakanLampiran()) {
 
@@ -4945,7 +4946,8 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 				KelompokParameterTambahanCalonMahasiswa kelompokParameterTambahanCalonMahasiswa = (KelompokParameterTambahanCalonMahasiswa) row
 						.getAttribute("kelompokParameterTambahanCalonMahasiswa");
 				if (parameterTambahan != null && kelompokParameterTambahanCalonMahasiswa != null) {
-					String jenis = kelompokParameterTambahanCalonMahasiswa.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataCalonMahasiswa.class, getId(),
+						kelompokParameterTambahanCalonMahasiswa.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

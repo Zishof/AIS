@@ -8286,7 +8286,8 @@ public class Pertemuan extends Tugas {
 						.getAttribute("kelompokParameterTambahanPertemuan");
 				Long indexKe = (Long) row.getAttribute("indexKe");
 				if (parameterTambahan != null && kelompokParameterTambahanPertemuan != null) {
-					String jenis = kelompokParameterTambahanPertemuan.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(Pertemuan.class, getId(),
+							kelompokParameterTambahanPertemuan.getId() + "->" + parameterTambahan.getId());
 
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null
 							&& row.getAttribute("keterangan") instanceof Textbox) ? row.getAttribute("keterangan")

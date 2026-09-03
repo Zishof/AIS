@@ -235,19 +235,16 @@ import ais.ui.util.WaktuUtil;
  *
  * <h3>6. Integritas nominal &mdash; catatan penting</h3>
  * <ul>
- *   <li><b>Rumus sisa panjar tidak seragam antar jalur.</b> Layar ZK menghitung
- *       <code>dikembalikan = uangMuka.nilai + dariSponsor &minus; nilaiRealisasi</code>
- *       (benar). Jalur REST <code>PertangungjawabanApiHelper.simpan</code> menghitung
- *       <code>dikembalikan = uangMuka.nilai &minus; nilaiRealisasi</code> &mdash; <b>dana sponsor
- *       tidak diperhitungkan</b>, sehingga sisa yang wajib disetor kembali dilaporkan lebih kecil
- *       dari seharusnya.</li>
- *   <li><b>Tombol &quot;Hitung Ulang&quot; memakai basis yang salah.</b> Pada
- *       <code>PertangungjawabanAction</code> penyapu massal menghitung
- *       <code>dikembalikan = <u>pertangungjawaban.getNilai()</u> + dariSponsor &minus;
- *       nilaiBaru</code>, yakni memakai <i>nilai LPJ lama</i> sebagai pengganti nilai panjar.
- *       Karena blok itu hanya dieksekusi ketika nilai lama dan baru <i>berbeda</i>, hasilnya
- *       adalah selisih antar-revisi LPJ, bukan sisa panjar. Angka inilah yang kemudian dijurnal
- *       apa adanya oleh <code>PostingPertangungjawabanPengembalianAction</code>
+ *   <li><b>Rumus sisa panjar diseragamkan lewat {@link #hitungDikembalikan(double, Double,
+ *       double)}.</b> Ketiga jalur tulis (layar ZK, REST <code>PertangungjawabanApiHelper.simpan</code>,
+ *       dan tombol &quot;Hitung Ulang&quot; massal di <code>PertangungjawabanAction</code>) kini
+ *       memanggil method statis yang sama dengan <code>uangMuka.getNilai() + dariSponsor
+ *       &minus; nilaiRealisasi</code>. Sebelum diseragamkan, jalur REST melupakan kontribusi
+ *       sponsor dan tombol &quot;Hitung Ulang&quot; memakai <i>nilai LPJ lama</i> sebagai
+ *       pengganti nilai panjar (menghasilkan selisih antar-revisi, bukan sisa panjar); lihat
+ *       riwayatnya di Javadoc {@link #hitungDikembalikan(double, Double, double)}. Angka hasil
+ *       hitung inilah yang kemudian dijurnal apa adanya oleh
+ *       <code>PostingPertangungjawabanPengembalianAction</code>
  *       (<code>nilai = pj.getDikembalikan()</code>).</li>
  *   <li><b>Basis pajak.</b> Nilai realisasi per item dihitung
  *       <code>(jumlah + jumlah&times;ppn%) &minus; (pph_mengurangi_lpj ? pph : 0)</code>, dan PPh
@@ -1425,6 +1422,30 @@ public class Pertangungjawaban extends DataSop {
 	}
 
 	/**
+	 * Menghitung sisa panjar yang wajib disetor kembali pegawai &mdash; <b>satu-satunya rumus
+	 * otoritatif</b> untuk {@link #getDikembalikan()}.
+	 *
+	 * <p><b>Riwayat:</b> sebelum diseragamkan lewat method ini, repo memakai TIGA rumus berbeda
+	 * di tiga jalur tulis (layar ZK, jalur REST, dan tombol &quot;Hitung Ulang&quot; massal) untuk
+	 * kolom yang sama &mdash; dua di antaranya salah. Jalur REST
+	 * <code>PertangungjawabanApiHelper.simpan</code> melupakan kontribusi sponsor sama sekali,
+	 * sedangkan tombol &quot;Hitung Ulang&quot; di <code>PertangungjawabanAction</code> memakai
+	 * <i>nilai realisasi LPJ lama</i> sebagai pengganti nilai panjar sehingga hasilnya adalah
+	 * selisih antar-revisi LPJ, bukan sisa panjar. Ketiga jalur kini memanggil method statis ini
+	 * supaya rumusnya tidak lagi bisa bercabang.</p>
+	 *
+	 * @param nilaiUangMuka nilai panjar yang dicairkan ({@code uangMuka.getNilai()}) &mdash;
+	 *        <b>bukan</b> nilai realisasi LPJ (lama maupun baru)
+	 * @param dariSponsor kontribusi dana pihak ketiga; <code>null</code> diperlakukan sebagai
+	 *        <code>0.0</code>
+	 * @param nilaiRealisasi total nilai realisasi belanja LPJ yang sedang dihitung
+	 * @return sisa panjar dalam rupiah; boleh negatif bila realisasi melebihi panjar
+	 */
+	public static double hitungDikembalikan(double nilaiUangMuka, Double dariSponsor, double nilaiRealisasi) {
+		return nilaiUangMuka + (dariSponsor == null ? 0.0 : dariSponsor.doubleValue()) - nilaiRealisasi;
+	}
+
+	/**
 	 * Mengembalikan sisa panjar yang wajib dikembalikan pegawai ke kas.
 	 *
 	 * <p><b>Peran:</b> ini adalah <b>nominal uang riil</b>. Ia menentukan (a) apakah baris
@@ -1434,21 +1455,11 @@ public class Pertangungjawaban extends DataSop {
 	 * nilai ini apa adanya sebagai debet <code>JenisUangMuka.akunKelebihan</code> dan kredit
 	 * <code>JenisUangMuka.akun</code>.</p>
 	 *
-	 * <p><b>Cara nilai ini terbentuk &mdash; TIGA rumus berbeda di repo:</b></p>
-	 * <ol>
-	 *   <li><b>Layar ZK (benar):</b>
-	 *       <code>uangMuka.getNilai() + dariSponsor &minus; nilaiRealisasi</code>.</li>
-	 *   <li><b>REST <code>PertangungjawabanApiHelper.simpan</code>:</b>
-	 *       <code>uangMuka.getNilai() &minus; nilaiRealisasi</code> &mdash; <b>dana sponsor
-	 *       hilang dari rumus</b>, sisa yang wajib disetor dilaporkan lebih kecil.</li>
-	 *   <li><b>Tombol &quot;Hitung Ulang&quot; massal di
-	 *       <code>PertangungjawabanAction</code>:</b>
-	 *       <code>pertangungjawaban.getNilai() + dariSponsor &minus; nilaiRealisasiBaru</code>
-	 *       &mdash; memakai <b>nilai LPJ lama</b> sebagai pengganti nilai panjar. Karena blok
-	 *       itu hanya berjalan ketika nilai lama &ne; nilai baru, hasilnya adalah selisih
-	 *       antar-revisi LPJ, bukan sisa panjar. Angka itu lalu ditulis ke kolom ini dan
-	 *       dijurnal apa adanya oleh layar posting pengembalian.</li>
-	 * </ol>
+	 * <p><b>Cara nilai ini terbentuk:</b> ketiga jalur tulis (layar ZK, REST
+	 * <code>PertangungjawabanApiHelper.simpan</code>, dan tombol &quot;Hitung Ulang&quot; massal
+	 * di <code>PertangungjawabanAction</code>) memanggil {@link #hitungDikembalikan(double,
+	 * Double, double)} dengan <code>uangMuka.getNilai() + dariSponsor &minus; nilaiRealisasi</code>.
+	 * Lihat Javadoc method tersebut untuk riwayat tiga rumus berbeda yang pernah dipakai.</p>
 	 *
 	 * <p><b>Kasus tepi:</b> <code>null</code> dinormalkan menjadi <code>0.0</code>. Nilai negatif
 	 * (realisasi melebihi panjar) tidak ditolak di level entity; layar ZK-lah yang menolak simpan

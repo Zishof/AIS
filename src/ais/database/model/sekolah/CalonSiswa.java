@@ -3910,7 +3910,8 @@ public class CalonSiswa extends VOSiswa {
 				KelompokParameterTambahanCalonSiswa kelompokParameterTambahanCalonSiswa = (KelompokParameterTambahanCalonSiswa) row
 						.getAttribute("kelompokParameterTambahanCalonSiswa");
 				if (parameterTambahan != null && kelompokParameterTambahanCalonSiswa != null) {
-					String jenis = kelompokParameterTambahanCalonSiswa.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(CalonSiswa.class, getId(),
+							kelompokParameterTambahanCalonSiswa.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

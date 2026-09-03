@@ -1108,7 +1108,9 @@ public class JenisUangMukaAction extends GenericAutowireComposer implements Data
 	 * <p><strong>Cara kerja:</strong> Meng-extend {@code MyRowRenderer} dan mengoverride
 	 * metode {@code render(Row, Object)}. Setiap kolom diisi menggunakan komponen ZK yang
 	 * sesuai. Checkbox Aktif dan Default menggunakan EventListener inline yang langsung
-	 * menyimpan perubahan ke database saat diubah, tanpa memerlukan tombol simpan terpisah.
+	 * menyimpan perubahan ke database saat diubah, tanpa memerlukan tombol simpan terpisah;
+	 * keduanya dinonaktifkan (disabled) dan listener-nya menolak penyimpanan bagi pengguna
+	 * tanpa hak UPDATE (flag {@code edit}), konsisten dengan tombol Ubah/Hapus di baris yang sama.
 	 * Tombol aksi (salin/ubah/hapus) dibuat melalui {@code Common.copyEditDeleteButtons}.</p>
 	 *
 	 * <p><strong>Threading:</strong> Renderer dipanggil pada thread ZK event, aman untuk
@@ -1129,8 +1131,10 @@ public class JenisUangMukaAction extends GenericAutowireComposer implements Data
 		 *
 		 * <p><strong>Cara kerja:</strong> Cast parameter {@code arg1} ke {@link JenisUangMuka},
 		 * kemudian secara berurutan menambahkan komponen ZK ke Row. Checkbox Aktif dan Default
-		 * masing-masing memiliki EventListener {@code onCheck} yang memanggil
-		 * {@code Common.refreshSaveOrUpdate} secara langsung. Tombol aksi dibuat dengan
+		 * masing-masing dinonaktifkan (disabled) berdasarkan flag {@code edit}, dan memiliki
+		 * EventListener {@code onCheck} yang menolak perubahan jika {@code edit} bernilai false
+		 * (lapis pertahanan kedua), atau memanggil {@code Common.refreshSaveOrUpdate} secara
+		 * langsung jika pengguna berhak. Tombol aksi dibuat dengan
 		 * {@code Common.copyEditDeleteButtons} menggunakan flag {@code edit} dan {@code delete}
 		 * dari outer class.</p>
 		 *
@@ -1172,24 +1176,32 @@ public class JenisUangMukaAction extends GenericAutowireComposer implements Data
 					.setParent(arg0);
 
 			final MyCheckboxConfig aktif = new MyCheckboxConfig("Aktif");
+			aktif.setDisabled(!edit);
 			aktif.setChecked(jenisUangMuka.getAktif());
 			aktif.setParent(arg0);
 			aktif.addEventListener("onCheck", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!edit) {
+						return;
+					}
 					jenisUangMuka.setAktif(aktif.isChecked());
 					Common.refreshSaveOrUpdate(jenisUangMuka);
 				}
 			});
 
 			final MyCheckboxConfig defaultData = new MyCheckboxConfig("Default");
+			defaultData.setDisabled(!edit);
 			defaultData.setChecked(jenisUangMuka.getDefaultData());
 			defaultData.setParent(arg0);
 			defaultData.addEventListener("onCheck", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!edit) {
+						return;
+					}
 					jenisUangMuka.setDefaultData(defaultData.isChecked());
 					Common.refreshSaveOrUpdate(jenisUangMuka);
 				}

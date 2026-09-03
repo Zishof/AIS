@@ -273,7 +273,8 @@ public class CatatanPegawai extends GeneralValueObject {
 				KelompokParameterTambahanCatatanPegawai kelompokParameterTambahanCatatanPegawai = (KelompokParameterTambahanCatatanPegawai) row
 						.getAttribute("kelompokParameterTambahanCatatanPegawai");
 				if (parameterTambahan != null && kelompokParameterTambahanCatatanPegawai != null) {
-					String jenis = kelompokParameterTambahanCatatanPegawai.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanPegawai.class, getId(),
+							kelompokParameterTambahanCatatanPegawai.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

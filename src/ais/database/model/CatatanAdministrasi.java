@@ -238,8 +238,9 @@ public class CatatanAdministrasi extends DataSop {
 				KelompokParameterTambahanCatatanAdministrasi kelompokParameterTambahanCatatanAdministrasi = (KelompokParameterTambahanCatatanAdministrasi) row
 						.getAttribute("kelompokParameterTambahanCatatanAdministrasi");
 				if (parameterTambahan != null && kelompokParameterTambahanCatatanAdministrasi != null) {
-					String jenis = kelompokParameterTambahanCatatanAdministrasi.getId() + "->"
-							+ parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanAdministrasi.class, getId(),
+							kelompokParameterTambahanCatatanAdministrasi.getId() + "->"
+									+ parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null

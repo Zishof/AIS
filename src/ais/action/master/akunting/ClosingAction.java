@@ -516,6 +516,17 @@ public class ClosingAction extends GenericAutowireComposer implements DataCriter
 		keterangan.setWidth("90%");
 		keterangan.setRows(3);
 
+		// Kunci baris (VoKunci.dikunci) sebelumnya hanya menonaktifkan tombol Hapus
+		// (CommonUiFactoryHelper.copyEditDeleteButtons); kotak tanggal batas masih bisa
+		// digeser dari form Ubah, padahal memajukannya langsung mengunci jurnal tambahan
+		// pada reload() berikutnya. Samakan dengan ClosingApiHelper.simpan, yang menolak
+		// mengubah closing yang sudah dikunci.
+		if (closing.getId() != null && closing.getDikunci() != null) {
+			tanggal.setDisabled(true);
+			nama.setDisabled(true);
+			keterangan.setDisabled(true);
+		}
+
 		South south = new South();
 		ais.ui.util.ZkCompat.setFlex(south, true);
 		south.setParent(borderlayout);
@@ -590,6 +601,15 @@ public class ClosingAction extends GenericAutowireComposer implements DataCriter
 	public boolean onSave(Event event) throws Exception {
 		if (nama.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Mohon maaf, Nama Closing belum diisi. Langkah yang dapat dilakukan: (1) Isikan kolom Nama Closing dengan nama periode penutupan buku yang sesuai; (2) Pastikan nama tidak kosong atau hanya terdiri dari spasi; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+
+		if (closing.getId() != null && closing.getDikunci() != null) {
+			MyMessageboxConfig.show("Mohon maaf, Closing \"" + closing.getNama() + "\" sudah dikunci sehingga "
+					+ "tidak dapat diubah. Langkah yang dapat dilakukan: (1) Buka kunci closing ini terlebih dahulu "
+					+ "melalui widget kunci pada daftar; (2) ulangi proses simpan setelah kunci dibuka. Jika masih "
+					+ "mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.INFORMATION);
 			return false;
 		}
@@ -693,6 +713,14 @@ public class ClosingAction extends GenericAutowireComposer implements DataCriter
 			}
 
 			System.out.println("datas -> " + datas);
+
+			// Lepas dulu SELURUH penautan lama. Sebuah closing bisa saja tanggalnya
+			// dimundurkan sejak penautan sebelumnya, dan UPDATE di bawah tidak pernah
+			// menulis NULL -- tanpa pelepasan ini jurnal yang sudah tidak lagi tercakup
+			// rentang manapun akan tetap terkunci pada closing lama yang sudah tidak
+			// berlaku untuknya.
+			session.createSQLQuery("update akunting.grup_transaksi set closing = null where closing is not null")
+					.executeUpdate();
 
 			for (Closing closing : datas.values()) {
 				String sql = "update akunting.grup_transaksi set closing=" + closing.getId()

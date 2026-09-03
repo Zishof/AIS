@@ -330,6 +330,14 @@ public final class ClosingApiHelper {
 	 * urutannya akan menaruh semua jurnal lama pada closing terbaru.</p>
 	 */
 	private static int tautkanUlang(Session session) throws Exception {
+		// Lepas dulu SELURUH penautan lama, sama seperti ClosingAction.reload(): tanpa
+		// ini, memundurkan tanggal sebuah closing tidak pernah melepas jurnal yang
+		// telanjur tertaut, karena UPDATE di bawah tidak pernah menulis NULL.
+		PreparedStatement lepas = session.connection().prepareStatement(
+				"UPDATE akunting.grup_transaksi SET closing = NULL WHERE closing IS NOT NULL");
+		lepas.executeUpdate();
+		lepas.close();
+
 		PreparedStatement ps = session.connection().prepareStatement(
 				"SELECT id, tanggal FROM akunting.closing ORDER BY tanggal DESC");
 		ResultSet rs = ps.executeQuery();

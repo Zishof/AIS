@@ -244,7 +244,8 @@ public class RealisasiKerjaPegawai extends GeneralValueObject {
 				KelompokParameterTambahanKegiatan kelompokParameterTambahanKegiatan = (KelompokParameterTambahanKegiatan) row
 						.getAttribute("kelompokParameterTambahanKegiatan");
 				if (parameterTambahan != null && kelompokParameterTambahanKegiatan != null) {
-					String jenis = kelompokParameterTambahanKegiatan.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(RealisasiKerjaPegawai.class, getId(),
+							kelompokParameterTambahanKegiatan.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 

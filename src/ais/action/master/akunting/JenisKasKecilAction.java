@@ -385,7 +385,9 @@ public class JenisKasKecilAction extends GenericAutowireComposer implements Data
 		 *   <li>Menampilkan saldo awal yang diformat dengan angka.</li>
 		 *   <li>Menampilkan satuan kerja dalam format "kode-nama".</li>
 		 *   <li>Checkbox "Aktif": saat diubah, langsung menyimpan ke database
-		 *       via {@link Common#refreshSaveOrUpdate}.</li>
+		 *       via {@link Common#refreshSaveOrUpdate}; dinonaktifkan (disabled) dan
+		 *       listener-nya menolak penyimpanan bagi pengguna tanpa hak UPDATE
+		 *       (flag {@code edit}), konsisten dengan tombol Ubah/Hapus di baris yang sama.</li>
 		 *   <li>Tombol Ubah/Hapus via {@link Common#copyEditDeleteButtons}.</li>
 		 * </ol>
 		 * </p>
@@ -429,12 +431,16 @@ public class JenisKasKecilAction extends GenericAutowireComposer implements Data
 					.setParent(arg0);
 
 			final MyCheckboxConfig aktif = new MyCheckboxConfig("Aktif");
+			aktif.setDisabled(!edit);
 			aktif.setChecked(jenisKasKecil.getAktif());
 			aktif.setParent(arg0);
 			aktif.addEventListener("onCheck", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!edit) {
+						return;
+					}
 					jenisKasKecil.setAktif(aktif.isChecked());
 					Common.refreshSaveOrUpdate(jenisKasKecil);
 				}

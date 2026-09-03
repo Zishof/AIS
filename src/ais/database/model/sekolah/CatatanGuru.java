@@ -1003,7 +1003,8 @@ public class CatatanGuru extends GeneralValueObject {
 				KelompokParameterTambahanCatatanGuru kelompokParameterTambahanCatatanGuru = (KelompokParameterTambahanCatatanGuru) row
 						.getAttribute("kelompokParameterTambahanCatatanGuru");
 				if (parameterTambahan != null && kelompokParameterTambahanCatatanGuru != null) {
-					String jenis = kelompokParameterTambahanCatatanGuru.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanGuru.class, getId(),
+							kelompokParameterTambahanCatatanGuru.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 

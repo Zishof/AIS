@@ -398,7 +398,8 @@ public class CutiDanIzin extends DataSop {
                 KelompokParameterTambahanCutiDanIzin kelompokParameterTambahanCutiDanIzin = (KelompokParameterTambahanCutiDanIzin) row.getAttribute("kelompokParameterTambahanCutiDanIzin");
                 
                 if (parameterTambahan != null && kelompokParameterTambahanCutiDanIzin != null) {
-                    String jenis = kelompokParameterTambahanCutiDanIzin.getId() + "->" + parameterTambahan.getId();
+                    String jenis = LampiranLain.resolveJenisParameterTambahan(CutiDanIzin.class, getId(),
+                            kelompokParameterTambahanCutiDanIzin.getId() + "->" + parameterTambahan.getId());
                     String val = ParameterTambahan.ambilVal(row, parameterTambahan);
                     
                     Object objKeterangan = row.getAttribute("keterangan");

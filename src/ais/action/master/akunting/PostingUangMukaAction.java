@@ -316,6 +316,11 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 								uangMuka.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(uangMuka);
 								HibernateUtil.currentSession().createSQLQuery(
+										"delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where uang_muka=" + uangMuka.getId()
+												+ " and closing is null)")
+										.executeUpdate();
+								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where uang_muka=" + uangMuka.getId() + " and closing is null")
 										.executeUpdate();
 							}
@@ -574,6 +579,7 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 															Double nilaiPengajuan = uangMuka.getNilai();
 															Double selisih = nilaiPengajuan - nilai;
 
+															boolean berhasilPosting = false;
 															try {
 
 																Akun akunDenda = null;
@@ -620,14 +626,22 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 																	}
 																}
 																session.getTransaction().commit();
+																berhasilPosting = true;
 															} catch (Exception e) {
 																Common.tampilErrorJikaAdmin(e);
+																try {
+																	session.getTransaction().rollback();
+																} catch (Exception ex) {
+																	// rollback gagal: kegagalan aslinya yang dilaporkan
+																}
 															}
 
-															uangMuka.setPostingHistory(postingHistory);
-															session.getTransaction().begin();
-															session.update(uangMuka);
-															session.getTransaction().commit();
+															if (berhasilPosting) {
+																uangMuka.setPostingHistory(postingHistory);
+																session.getTransaction().begin();
+																session.update(uangMuka);
+																session.getTransaction().commit();
+															}
 														}
 													} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/PostingUangMukaAction.java:632");
 														// Exception per-baris ditangkap untuk melanjutkan proses berikutnya
@@ -858,6 +872,11 @@ public class PostingUangMukaAction extends GenericAutowireComposer {
 							public void onEvent(Event arg0) throws Exception {
 								uangMuka.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(uangMuka);
+								HibernateUtil.currentSession().createSQLQuery(
+										"delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where uang_muka=" + uangMuka.getId()
+												+ " and closing is null)")
+										.executeUpdate();
 								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where uang_muka=" + uangMuka.getId() + " and closing is null")
 										.executeUpdate();
