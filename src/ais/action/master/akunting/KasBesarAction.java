@@ -2378,13 +2378,10 @@ public class KasBesarAction extends GenericAutowireComposer
 			return Common.getGeneratedBarCode();
 		}
 
-		Long index = NomorSuratAlurKeuangan.KAS_BESAR_DATA.getNomorSurat().getGunakanIndexUrut()
-				? NomorSuratAlurKeuangan.KAS_BESAR_DATA.getNomorSurat().getNomorIndex()
-				: getindex(NomorSuratAlurKeuangan.KAS_BESAR_DATA.getNomorSurat());
-		if (tambah) {
-			NomorSurat.tambahIndexNomorSurat(NomorSuratAlurKeuangan.KAS_BESAR_DATA.getNomorSurat());
-		}
-		String noAgenda = NomorSuratAlurKeuangan.KAS_BESAR_DATA.getNomorSurat().format(index, WaktuUtil.getDate());
+		NomorSurat ns = NomorSuratAlurKeuangan.KAS_BESAR_DATA.getNomorSurat();
+		Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+				: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
+		String noAgenda = ns.format(index, WaktuUtil.getDate());
 		return ais.action.master.KodeUnikUtil.pastikanUnik(KasBesar.class, noAgenda);
 	}
 

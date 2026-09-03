@@ -2999,13 +2999,10 @@ public class UangMukaAction extends GenericAutowireComposer
 			return Common.getGeneratedBarCode();
 		}
 
-		Long index = NomorSuratAlurKeuangan.UANG_MUKA_DATA.getNomorSurat().getGunakanIndexUrut()
-				? NomorSuratAlurKeuangan.UANG_MUKA_DATA.getNomorSurat().getNomorIndex()
-				: getindex(NomorSuratAlurKeuangan.UANG_MUKA_DATA.getNomorSurat());
-		if (tambah) {
-			NomorSurat.tambahIndexNomorSurat(NomorSuratAlurKeuangan.UANG_MUKA_DATA.getNomorSurat());
-		}
-		String noAgenda = NomorSuratAlurKeuangan.UANG_MUKA_DATA.getNomorSurat().format(index, WaktuUtil.getDate());
+		NomorSurat ns = NomorSuratAlurKeuangan.UANG_MUKA_DATA.getNomorSurat();
+		Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+				: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
+		String noAgenda = ns.format(index, WaktuUtil.getDate());
 		return ais.action.master.KodeUnikUtil.pastikanUnik(UangMuka.class, noAgenda);
 	}
 

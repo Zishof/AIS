@@ -1606,15 +1606,11 @@ public class DanaTalanganAction extends GenericAutowireComposer
 			return Common.getGeneratedBarCode();
 		}
 
-		Long index = NomorSuratAlurKeuangan.DANA_TALANGAN_DATA.getNomorSurat().getGunakanIndexUrut()
-				? NomorSuratAlurKeuangan.DANA_TALANGAN_DATA.getNomorSurat().getNomorIndex()
-				: getindex(NomorSuratAlurKeuangan.DANA_TALANGAN_DATA.getNomorSurat());
+		NomorSurat ns = NomorSuratAlurKeuangan.DANA_TALANGAN_DATA.getNomorSurat();
+		Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+				: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
 
-		if (tambah) {
-			NomorSurat.tambahIndexNomorSurat(NomorSuratAlurKeuangan.DANA_TALANGAN_DATA.getNomorSurat());
-		}
-
-		String noAgenda = NomorSuratAlurKeuangan.DANA_TALANGAN_DATA.getNomorSurat().format(index, WaktuUtil.getDate());
+		String noAgenda = ns.format(index, WaktuUtil.getDate());
 		return ais.action.master.KodeUnikUtil.pastikanUnik(DanaTalangan.class, noAgenda);
 	}
 

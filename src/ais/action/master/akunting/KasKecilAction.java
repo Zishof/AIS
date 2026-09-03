@@ -2747,13 +2747,10 @@ public class KasKecilAction extends GenericAutowireComposer
 			return Common.getGeneratedBarCode();
 		}
 
-		Long index = NomorSuratAlurKeuangan.KAS_KECIL_DATA.getNomorSurat().getGunakanIndexUrut()
-				? NomorSuratAlurKeuangan.KAS_KECIL_DATA.getNomorSurat().getNomorIndex()
-				: getindex(NomorSuratAlurKeuangan.KAS_KECIL_DATA.getNomorSurat());
-		if (tambah) {
-			NomorSurat.tambahIndexNomorSurat(NomorSuratAlurKeuangan.KAS_KECIL_DATA.getNomorSurat());
-		}
-		String noAgenda = NomorSuratAlurKeuangan.KAS_KECIL_DATA.getNomorSurat().format(index, WaktuUtil.getDate());
+		NomorSurat ns = NomorSuratAlurKeuangan.KAS_KECIL_DATA.getNomorSurat();
+		Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+				: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
+		String noAgenda = ns.format(index, WaktuUtil.getDate());
 		return ais.action.master.KodeUnikUtil.pastikanUnik(KasKecil.class, noAgenda);
 	}
 
