@@ -61,6 +61,13 @@ public final class MutasiIdempotenEBisnisUtil {
 			"hotel_kontrak_pemilik_simpan",
 			"hotel_properti_simpan",
 			"hotel_tamu_simpan",
+			// Pembayaran hutang anggota MENYENTUH UANG dan diantre lokal lewat
+			// prosesSimpanMaster, tetapi selama ini tidak terdaftar di sini -- kiriman
+			// ulang setelah lost-ack menghasilkan pembayaran GANDA. Hapusnya didaftarkan
+			// sekalian: menghapus baris yang sama dua kali harus berakhir sama, bukan
+			// menggagalkan antrean.
+			"hutang_bayar_hapus",
+			"hutang_bayar_simpan",
 			"jenis_anggota_hapus",
 			"jenis_anggota_simpan",
 			"jenis_produk_hapus",
