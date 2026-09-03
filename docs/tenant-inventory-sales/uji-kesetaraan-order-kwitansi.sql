@@ -5,7 +5,7 @@
 -- CARA PAKAI -- klaster sekali-pakai berisi schema tenant v1-v11:
 --   psql -h 127.0.0.1 -p 55502 -U uji -d postgres -f uji-kesetaraan-order-kwitansi.sql
 --
--- Berkas ini mengandaikan schema tenant bernama rev11.
+-- Berkas ini mengandaikan schema tenant bernama kwit11.
 --
 -- EMPAT HAL YANG DIUJI
 --   1. Kosakata status: katalog tenant menyingkat DRAFT jadi 'DRAF'. Tanpa penormalan,
@@ -23,15 +23,15 @@
 \set QUIET on
 
 -- Dijalankan berulang: bersihkan sisa jalan uji sebelumnya, dari anak ke induk.
-DELETE FROM rev11.alokasi_penerimaan_piutang;
-DELETE FROM rev11.penerimaan_piutang;
-DELETE FROM rev11.piutang_customer;
-DELETE FROM rev11.faktur_penjualan;
-DELETE FROM rev11.sales_order_detail;
-DELETE FROM rev11.sales_order;
-DELETE FROM rev11.produk;
-DELETE FROM rev11.salesperson;
-DELETE FROM rev11.customer;
+DELETE FROM kwit11.alokasi_penerimaan_piutang;
+DELETE FROM kwit11.penerimaan_piutang;
+DELETE FROM kwit11.piutang_customer;
+DELETE FROM kwit11.faktur_penjualan;
+DELETE FROM kwit11.sales_order_detail;
+DELETE FROM kwit11.sales_order;
+DELETE FROM kwit11.produk;
+DELETE FROM kwit11.salesperson;
+DELETE FROM kwit11.customer;
 
 DROP SCHEMA IF EXISTS koperasi CASCADE;
 CREATE SCHEMA koperasi;
@@ -88,44 +88,49 @@ INSERT INTO koperasi.alokasi_penerimaan_piutang_customer (penerimaan, piutang_do
   VALUES (300, 900, 100000);
 
 -- ---------- tenant ----------
-INSERT INTO rev11.customer (id, kode, nama) VALUES (5, 'C05', 'Toko Melati');
-INSERT INTO rev11.salesperson (id, kode, nama) VALUES (7, 'S07', 'Budi');
+INSERT INTO kwit11.customer (id, kode, nama) VALUES (5, 'C05', 'Toko Melati');
+INSERT INTO kwit11.salesperson (id, kode, nama) VALUES (7, 'S07', 'Budi');
 -- Produk 100 kini bernama lain daripada salinan beku pada baris order legacy.
-INSERT INTO rev11.produk (id, kode, nama) VALUES
+INSERT INTO kwit11.produk (id, kode, nama) VALUES
   (100, 'P100', 'Gula Pasir 1kg (kemasan baru)'),
   (101, 'P101', 'Kopi Bubuk 200g');
 
 -- status sengaja TIDAK diisi: memakai bawaan katalog, yaitu 'DRAF'
-INSERT INTO rev11.sales_order (id, nomor_dokumen, tanggal, customer_id, salesperson_id,
+INSERT INTO kwit11.sales_order (id, nomor_dokumen, tanggal, customer_id, salesperson_id,
                                total, keterangan, dibuat_pada, oleh)
   VALUES (1, 'SO-001', DATE '2026-02-01', 5, 7, 250000, 'pesanan mingguan', now(), 'uji');
-INSERT INTO rev11.sales_order (id, nomor_dokumen, tanggal, customer_id, salesperson_id,
+INSERT INTO kwit11.sales_order (id, nomor_dokumen, tanggal, customer_id, salesperson_id,
                                total, status, dibuat_pada, oleh)
   VALUES (2, 'SO-002', DATE '2026-02-02', 5, 7, 50000, 'TERKIRIM', now(), 'uji');
-INSERT INTO rev11.sales_order_detail
+INSERT INTO kwit11.sales_order_detail
   (id, sales_order_id, baris_ke, produk_id, kuantitas, harga_satuan, total) VALUES
   (11, 1, 1, 100, 10, 15000, 150000),
   (12, 1, 2, 101, 5, 20000, 100000);
 
-INSERT INTO rev11.faktur_penjualan (id, nomor_dokumen, nomor_faktur, tanggal, customer_id,
+INSERT INTO kwit11.faktur_penjualan (id, nomor_dokumen, nomor_faktur, tanggal, customer_id,
                                     sales_order_id, total, dibuat_pada, oleh)
   VALUES (500, 'FJ-500', 'PIU-900', DATE '2026-02-03', 5, 1, 250000, now(), 'uji'),
          (501, 'FJ-501', 'PIU-901', DATE '2026-02-04', 5, 2, 50000, now(), 'uji');
-INSERT INTO rev11.piutang_customer (id, customer_id, salesperson_id, faktur_penjualan_id,
+INSERT INTO kwit11.piutang_customer (id, customer_id, salesperson_id, faktur_penjualan_id,
                                     nomor_faktur, tanggal, nilai, dibuat_pada, oleh)
   VALUES (900, 5, 7, 500, 'PIU-900', DATE '2026-02-03', 250000, now(), 'uji'),
          (901, 5, 7, 501, 'PIU-901', DATE '2026-02-04', 50000, now(), 'uji');
 
-INSERT INTO rev11.penerimaan_piutang (id, nomor_dokumen, tanggal, customer_id,
+INSERT INTO kwit11.penerimaan_piutang (id, nomor_dokumen, tanggal, customer_id,
                                       salesperson_id, cara_bayar, nilai, keterangan,
                                       status, dibuat_pada, oleh)
   VALUES (300, 'KWT-300', DATE '2026-02-10', 5, 7, 'TUNAI', 100000, 'setoran pertama',
           'AKTIF', now(), 'andi');
-INSERT INTO rev11.alokasi_penerimaan_piutang (penerimaan_piutang_id, piutang_customer_id,
+INSERT INTO kwit11.alokasi_penerimaan_piutang (penerimaan_piutang_id, piutang_customer_id,
                                               nilai, dibuat_pada, oleh)
   VALUES (300, 900, 100000, now(), 'andi');
 
 \pset format aligned
+
+-- CATATAN: schema berkas ini SENGAJA tidak dibagi dengan berkas uji lain. Empat berkas
+-- sempat sama-sama memakai rev11 tanpa satu pun membersihkannya, sehingga datanya
+-- saling menimpa dan berkas yang berjalan terakhir membaca sisa berkas lain. Schema
+-- sendiri menghapus kopling urutan itu sepenuhnya.
 
 \echo ''
 \echo '== BLOK 1 (PENJAGA): katalog tenant memang menyimpan DRAF, bukan DRAFT ============='
@@ -137,7 +142,7 @@ SELECT o.status AS "status mentah tenant",
              AND (SELECT status FROM koperasi.sales_order_lapangan WHERE id = 1) = 'DRAFT'
             THEN 'LULUS (kosakatanya memang beda)'
             ELSE 'GAGAL (tidak ada beda untuk dinormalkan)' END AS hasil
-FROM rev11.sales_order o WHERE o.id = 1;
+FROM kwit11.sales_order o WHERE o.id = 1;
 
 \echo ''
 \echo '== BLOK 2: setelah dinormalkan, status tenant setara legacy ========================'
@@ -146,7 +151,7 @@ SELECT ten.st AS "status tenant (ternormalkan)", leg.status AS "status legacy",
        CASE WHEN ten.st = leg.status THEN 'LULUS' ELSE 'GAGAL' END AS hasil
 FROM (SELECT CASE WHEN o.status = 'DRAF' THEN 'DRAFT'
                   ELSE COALESCE(o.status,'') END AS st
-      FROM rev11.sales_order o WHERE o.id = 1) ten,
+      FROM kwit11.sales_order o WHERE o.id = 1) ten,
      (SELECT status FROM koperasi.sales_order_lapangan WHERE id = 1) leg;
 
 \echo ''
@@ -166,7 +171,7 @@ SELECT
 FROM (SELECT nomor, tanggal, total, keterangan, customer, sales
       FROM koperasi.sales_order_lapangan WHERE id = 1) leg,
      (SELECT nomor_dokumen AS nomor, tanggal, total, keterangan, customer_id, salesperson_id
-      FROM rev11.sales_order WHERE id = 1) ten;
+      FROM kwit11.sales_order WHERE id = 1) ten;
 
 \echo ''
 \echo '== BLOK 4: baris order -- angka setara, NAMA PRODUK sengaja berbeda ================'
@@ -188,7 +193,7 @@ SELECT
 FROM (SELECT nama_produk, harga_satuan, jumlah, subtotal
       FROM koperasi.sales_order_lapangan_item WHERE id = 11) l,
      (SELECT pr.nama, i.harga_satuan AS harga, i.kuantitas, i.total
-      FROM rev11.sales_order_detail i JOIN rev11.produk pr ON i.produk_id = pr.id
+      FROM kwit11.sales_order_detail i JOIN kwit11.produk pr ON i.produk_id = pr.id
       WHERE i.id = 11) t;
 
 \echo ''
@@ -198,18 +203,18 @@ FROM (SELECT nama_produk, harga_satuan, jumlah, subtotal
 SELECT
   leg.nomor  AS "piutang legacy",
   ten.nomor  AS "piutang tenant",
-  (SELECT COUNT(*) FROM rev11.piutang_customer d
-     JOIN rev11.faktur_penjualan f ON d.faktur_penjualan_id = f.id
+  (SELECT COUNT(*) FROM kwit11.piutang_customer d
+     JOIN kwit11.faktur_penjualan f ON d.faktur_penjualan_id = f.id
     WHERE f.sales_order_id = 1) AS "jumlah tertaut ke order 1",
   CASE WHEN leg.nomor = ten.nomor
-        AND (SELECT COUNT(*) FROM rev11.piutang_customer d
-               JOIN rev11.faktur_penjualan f ON d.faktur_penjualan_id = f.id
+        AND (SELECT COUNT(*) FROM kwit11.piutang_customer d
+               JOIN kwit11.faktur_penjualan f ON d.faktur_penjualan_id = f.id
               WHERE f.sales_order_id = 1) = 1
        THEN 'LULUS (tepat satu, dan yang benar)'
        ELSE 'GAGAL' END AS hasil
 FROM (SELECT nomor FROM koperasi.piutang_customer_doc WHERE sales_order = 1) leg,
-     (SELECT COALESCE(d.nomor_faktur,'') AS nomor FROM rev11.piutang_customer d
-        JOIN rev11.faktur_penjualan f ON d.faktur_penjualan_id = f.id
+     (SELECT COALESCE(d.nomor_faktur,'') AS nomor FROM kwit11.piutang_customer d
+        JOIN kwit11.faktur_penjualan f ON d.faktur_penjualan_id = f.id
        WHERE f.sales_order_id = 1 ORDER BY d.id LIMIT 1) ten;
 
 \echo ''
@@ -227,7 +232,7 @@ SELECT
 FROM (SELECT nomor, nominal, metode, keterangan, dibuat_oleh
       FROM koperasi.penerimaan_piutang_customer WHERE id = 300) l,
      (SELECT nomor_dokumen AS nomor, nilai, cara_bayar, keterangan, oleh
-      FROM rev11.penerimaan_piutang WHERE id = 300) t;
+      FROM kwit11.penerimaan_piutang WHERE id = 300) t;
 
 \echo ''
 \echo '== BLOK 7: rincian alokasi kwitansi -- 4 medan setara =============================='
@@ -245,8 +250,8 @@ FROM (SELECT d.nomor, d.tanggal, d.total_faktur, a.nominal AS alok
       JOIN koperasi.piutang_customer_doc d ON a.piutang_doc = d.id
       WHERE a.penerimaan = 300) l,
      (SELECT d.nomor_faktur, d.tanggal, d.nilai, a.nilai AS alok
-      FROM rev11.alokasi_penerimaan_piutang a
-      JOIN rev11.piutang_customer d ON a.piutang_customer_id = d.id
+      FROM kwit11.alokasi_penerimaan_piutang a
+      JOIN kwit11.piutang_customer d ON a.piutang_customer_id = d.id
       WHERE a.penerimaan_piutang_id = 300) t;
 
 \echo ''
