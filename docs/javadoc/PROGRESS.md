@@ -1,5 +1,45 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `payroll` TUNTAS 100% (4 Sep 2026, akhir batch 86)
+
+Diverifikasi lewat scan penuh: **42/42 file** `ais/database/model/payroll/`
+kini punya Javadoc substansial (minimum 23 blok Javadoc/file, jauh di
+atas ambang "tersentuh"). Dikerjakan sepanjang batch 81-86 (6 batch
+berturut, 39 file baru — 3 file lain sudah dikerjakan lebih awal
+sebagai bagian domain lain). Ringkasan pencapaian domain payroll:
+rantai realisasi gaji (`PembayaranGaji`→`...PunyaPegawai`→
+`...ItemGajiPegawai`) LENGKAP, rantai perencanaan (`RencanaGaji`→
+`...PunyaPegawai`→`...ItemGajiPegawai`) LENGKAP dan DIKONFIRMASI
+TIDAK terhubung FK ke rantai realisasi, mesin formula `ItemGaji`
+(exp4j+`LogicalUtil`) dan seluruh variabel input (`PtkpPegawai`,
+`AsuransiPegawai`, `KodeTunjangan`, `AdjusVariablePenggajian`→
+`GajiTabahan`, `JenisGajiPegawai`) LENGKAP, rantai shift/absensi
+(`JenisShiftPegawai`→`JenisShiftPunyaPegawai`→`DetailJenisShiftPegawai`
+→`WaktuShift`) LENGKAP, dua pasangan parameter-tambahan-dinamis
+LENGKAP (dengan bug nyata `task_fe6517bf` ditemukan+diperbaiki sesi
+lain), rantai pengajuan transaksi/pinjaman pegawai LENGKAP.
+
+**Total temuan keamanan domain payroll (batch 81-86, ~18 task
+baru)**: mencakup RBAC spoofing universal (`task_9f520b16`, temuan
+paling signifikan seluruh inisiatif), berbagai fail-open Generic
+CRUD v2, bug integritas kalkulasi (`Restrictions.ge` salah-scope
+`task_574ada57`, tabrakan representasi waktu `task_1c5eb15c` —
+sudah diperbaiki), kebocoran log lintas-pengguna (`UploadLog`,
+sepola `LogLogin`), HQL tanpa filter tenant
+(`task_6d36a069`). **4 entity dorman/yatim ditemukan di domain ini**
+(`PengajuanPeminjaman`, `AbsenPegawaiDetail`, `StandarGaji`+
+`StandarGajiDetail`) — melengkapi total 9 entity dorman seluruh
+inisiatif.
+
+**Pivot domain berikutnya (batch 87+): `ais/database/model/koperasi/`**
+(60 file, HAMPIR SELURUHNYA jd=1-2/belum tersentuh) — modul
+sales/pembelian/piutang-hutang koperasi, kemungkinan kaya temuan
+serupa `akunting`/`payroll` (keduanya domain finansial fertile).
+Berisi juga `PerhitunganPinjamanUtil` (mesin pinjaman berbunga
+koperasi, sudah disinggung sekilas di batch 83 sebagai lawan
+`PengajuanPeminjaman` payroll yang dorman) — kandidat leverage
+tinggi untuk batch awal.
+
 ## Batch 86 — SELESAI 100% (4 Sep 2026) — 1 task baru (`task_574ada57`); paket `payroll` MENDEKATI TUNTAS
 
 8 file selesai didokumentasikan penuh, semua dikompilasi
