@@ -559,6 +559,14 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			 * daftar pembayaran di kanan pada desktop. CSS portal menumpuk keduanya
 			 * menjadi satu kolom pada layar mobile.
 			 */
+			// TINGGI PENUH: #portalHost secara bawaan dibatasi .ais-portal-host (max-height 72vh)
+			// sebagai pengaman konteks POPUP. Di halaman penuh batas itu MEMOTONG daftar tagihan
+			// padahal ruang di bawahnya masih kosong. Kelas tambahan ini melepas max-height dan
+			// memakai height:100% -> tinggi MENGIKUTI PARENT (center borderlayout). Bila rantai
+			// height:100% tak resolve (include berlapis di popup), jatuh ke auto sehingga isi
+			// mengalir penuh & wadah induk (overflow:auto) yang men-scroll -> tetap tak terpotong.
+			tambahSclass(portalHost, "ais-portal-host-tinggi-penuh");
+
 			MyPortallayout portal = ais.ui.util.PortalUiHelper.portal(portalHost);
 			portal.setSclass("ais-pembayaran-mahasiswa-layout");
 			MyPortalchildren kolMahasiswa = ais.ui.util.PortalUiHelper.kolom(portal, "50%");

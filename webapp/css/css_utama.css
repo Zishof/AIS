@@ -8514,6 +8514,32 @@ html body .ais-portal-host {
         overflow: visible !important;
     }
 }
+/* ── TINGGI PENUH area pembayaran (DaftarUlang*Action) ─────────────────────
+   Batas 72vh di atas adalah PENGAMAN untuk konteks popup; di HALAMAN penuh
+   batas itu justru memotong daftar tagihan (isi terpotong di tengah baris,
+   scrollbar kecil bersarang) padahal masih ada ruang kosong di bawah. Kelas
+   ini dipasang oleh DaftarUlangMahasiswaLamaAction / DaftarUlangMahasiswaBaru
+   Action pada #portalHost: tinggi MENGIKUTI PARENT (rantai height:100% dari
+   borderlayout-center → wadah div → host), max-height dilepas.
+   Bila rantai 100% TIDAK resolve (mis. include berlapis di popup), height:100%
+   jatuh ke auto → isi mengalir penuh & wadah induk (overflow:auto) yang
+   men-scroll; jadi tetap tak ada isi terpotong. ─────────────────────────── */
+html body .ais-portal-host.ais-portal-host-tinggi-penuh {
+    height: 100% !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+@media (max-width: 760px) {
+    /* HP: samakan dgn perilaku .ais-portal-host — mengalir alami, tanpa
+       scroll bersarang saat kolom portal sudah menumpuk 1 lajur. */
+    html body .ais-portal-host.ais-portal-host-tinggi-penuh {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+}
 /* ── Panel portal TINGGI PENUH (mengikuti parent, mis. tab "Dasbor" e-Learning) ──
    Dipakai oleh BaseDasbordPortal.mountWrappedTinggiPenuh: rantai flex 100% dari
    Panel → body → host → dasbor, agar dasbor mengisi penuh tinggi tab. */

@@ -12248,8 +12248,8 @@ public class Common {
 		Session session = HibernateUtil.currentNativeSession();
 		Transaction transaction = null;
 		try {
-			org.hibernate.criterion.Disjunction nidnDosen = Restrictions.disjunction()
-					.add(Restrictions.ilike("nidn", nidnBersih, MatchMode.EXACT));
+			org.hibernate.criterion.Disjunction nidnDosen = Restrictions.disjunction();
+			nidnDosen.add(Restrictions.ilike("nidn", nidnBersih, MatchMode.EXACT));
 			if (!nidnNormal.isEmpty()) {
 				nidnDosen.add(Restrictions.sqlRestriction(
 						"lower(regexp_replace(coalesce(this_.nidn,''), '[^A-Za-z0-9]', '', 'g')) = '"
@@ -12269,9 +12269,9 @@ public class Common {
 				// Data lama sering sudah memiliki kode/NIDN, tetapi relasi person dan tipe masih kosong.
 				// Hanya ambil baris tanpa relasi person agar kode yang sama milik mahasiswa/pegawai
 				// tidak keliru diubah menjadi anggota dosen.
-				org.hibernate.criterion.Disjunction identitasDosen = Restrictions.disjunction()
-						.add(Restrictions.ilike("kode", nidnBersih, MatchMode.EXACT))
-						.add(Restrictions.ilike("kodeIdentitas", nidnBersih, MatchMode.EXACT));
+				org.hibernate.criterion.Disjunction identitasDosen = Restrictions.disjunction();
+				identitasDosen.add(Restrictions.ilike("kode", nidnBersih, MatchMode.EXACT));
+				identitasDosen.add(Restrictions.ilike("kodeIdentitas", nidnBersih, MatchMode.EXACT));
 				if (!nidnNormal.isEmpty()) {
 					identitasDosen.add(Restrictions.sqlRestriction(
 							"lower(regexp_replace(coalesce(this_.kode,''), '[^A-Za-z0-9]', '', 'g')) = '"

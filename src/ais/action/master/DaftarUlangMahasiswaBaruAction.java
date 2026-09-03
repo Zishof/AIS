@@ -340,6 +340,16 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		}
 	}
 
+	/** Tambahkan kelas CSS tanpa menimpa sclass yang sudah ada. */
+	private void tambahSclass(org.zkoss.zk.ui.Component c, String cls) {
+		if (!(c instanceof org.zkoss.zk.ui.HtmlBasedComponent)) {
+			return;
+		}
+		org.zkoss.zk.ui.HtmlBasedComponent h = (org.zkoss.zk.ui.HtmlBasedComponent) c;
+		String sc = h.getSclass();
+		h.setSclass((sc == null || sc.trim().isEmpty()) ? cls : sc + " " + cls);
+	}
+
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -420,6 +430,14 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		 * desktop (Data Mahasiswa | Pembayaran) lalu dasbor Analisis MEMBENTANG penuh
 		 * di bawah; otomatis menumpuk 1 kolom di HP. Logika lama tidak diubah.
 		 */
+		// TINGGI PENUH: #portalHost secara bawaan dibatasi .ais-portal-host (max-height 72vh)
+		// sebagai pengaman konteks POPUP. Di halaman penuh batas itu MEMOTONG daftar tagihan
+		// padahal ruang di bawahnya masih kosong. Kelas tambahan ini melepas max-height dan
+		// memakai height:100% -> tinggi MENGIKUTI PARENT (center borderlayout). Bila rantai
+		// height:100% tak resolve (include berlapis di popup), jatuh ke auto sehingga isi
+		// mengalir penuh & wadah induk (overflow:auto) yang men-scroll -> tetap tak terpotong.
+		tambahSclass(portalHost, "ais-portal-host-tinggi-penuh");
+
 		MyPortallayout portal = ais.ui.util.PortalUiHelper.portal(portalHost);
 		portal.setSclass("ais-pembayaran-mahasiswa-layout");
 		MyPortalchildren kolMahasiswa = ais.ui.util.PortalUiHelper.kolom(portal, "50%");
