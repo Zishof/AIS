@@ -1,5 +1,77 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 41 — SELESAI 100% (3 Sep 2026) — MODUL `sekolah/` DIBUKA, POLA BROKEN ACCESS CONTROL TERBUKTI MENYEBERANG SKEMA
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika. **File PERTAMA yang digarap dari modul `sekolah/`** (155
+file, belum tersentuh sama sekali sebelum batch ini):
+
+- **`ais/database/model/sekolah/KelompokParameterTambahanCatatanKelasSiswa.java`**
+  (r83611) — 205→621 baris, 100% (30 anggota). Domain TERVERIFIKASI:
+  catatan tingkat KELAS (rombel), bukan per-siswa — entity pemilik
+  `CatatanKelasSiswa` punya relasi ke `KelasSiswa`, bukan `Siswa`.
+  Bug TreeSet di sini DAMPAK PALING LUAS sejauh ini: kelompok yang
+  tabrakan nomor urut lenyap dari formulir DAN dari rapor siswa
+  (`LaporanRaporSiswa`). Broken access control ADA di kedua lapis
+  (Intbox guard bolong + `ParameterTambahanCatatanKelasSiswaAction`
+  hardcoded).
+- **`ais/database/model/sekolah/KelompokParameterTambahanCatatanSiswa.java`**
+  (r83612) — 205→718 baris, 100% (26 anggota). Padanan `CatatanMahasiswa`
+  versi PT. Varian BARU pola salin-tempel SOP: kali ini nama TABEL
+  itu sendiri yang salah (`kelompok_parameter_tambahan_alur_sop`),
+  bukan cuma nama kolom FK seperti temuan batch 38-40. Kuirk cakupan
+  auto-seed: baris bawaan lahir `sekolah`/`yayasan=null`, tapi filter
+  centang kategori di `JenisCatatanSiswaAction` mensyaratkan NON-null
+  — kategori bawaan tidak pernah bisa dipakai sampai admin mengisi
+  cakupan manual. Broken access control ADA di kedua lapis.
+- **`ais/database/model/sekolah/KelompokParameterTambahanCatatanGuru.java`**
+  (r83613) — 205→807 baris, 100% (38 anggota). Padanan
+  `CatatanPegawai` versi PT — identik kata-per-kata kecuali relasi
+  `satuanKerja` (yatim di versi PT) diganti `yayasan`+`sekolah` yang
+  BENAR-BENAR terpakai. Kuirk baru: `getYayasan()` destruktif (menimpa
+  dari `getSekolah().getYayasan()` saat baris dibaca). Broken access
+  control ADA di kedua lapis.
+- **`ais/database/model/sekolah/ParameterTambahanCatatanSiswa.java`**
+  (r83614) — 160→580 baris, 100% (30 anggota). Serialisasi 7 ruas
+  (identik pola CatatanMahasiswa versi PT). Broken access control
+  `ParameterTambahanCatatanSiswaAction` ADA — konfirmasi lintas skema.
+- **`ais/database/model/sekolah/ParameterTambahanCatatanGuru.java`**
+  (r83615) — 160→650 baris, 100% (29 anggota). Serialisasi PALING
+  RAMPING di seluruh keluarga: 6 ruas berlabel/3 ruas ber-ID, TANPA
+  ruas keterangan sama sekali. Bug parser "keterangan" di sini LEBIH
+  PARAH dari versi Pegawai (b40): salah 100% waktu (bukan kasus tepi)
+  karena ruas keterangan memang tidak ada. Kolom berlabel TERKONFIRMASI
+  write-only independen (nol pemanggil parser). Broken access control
+  `ParameterTambahanCatatanGuruAction` ADA.
+
+**KESIMPULAN PALING PENTING — `task_58f74860` TERBUKTI MENYEBERANG
+SKEMA/MODUL.** 3 file Action BARU di `ais/action/master/sekolah/`
+dikonfirmasi cacat identik (edit/delete hardcoded, nol checkPrevilages):
+`ParameterTambahanCatatanKelasSiswaAction`, `ParameterTambahanCatatanSiswaAction`,
+`ParameterTambahanCatatanGuruAction`. **Total kumulatif terverifikasi
+kini 13 file** (10 versi PT/`public` akhir batch 40 + 3 versi `sekolah`
+batch ini) — TANPA SATU PUN pengecualian di kedua skema. Kandidat
+tersisa yang BELUM diverifikasi tapi sangat mungkin cacat sama:
+`ParameterTambahanCalonMahasiswaAction`(?)/`ParameterTambahanCatatanPegawaiAction`(sudah
+b40)/dst versi PT sisa, dan `ParameterTambahanGelombangPendaftaranPsbAction`/
+`ParameterTambahanKegiatanSiswaAction` versi sekolah.
+
+**Pola "guard Intbox nomor urut bolong" JUGA terbukti menyeberang ke
+`sekolah/`** — 3 instance baru (`KelompokParameterTambahanCatatanKelasSiswaAction`,
+`...CatatanSiswaAction`, `...CatatanGuruAction`), semuanya berpasangan
+dengan bug TreeSet yang sama.
+
+**Varian bug salin-tempel SOP baru ditemukan**: bukan cuma kolom FK
+(6/6 sub-keluarga "Catatan*" versi PT+sekolah cacat), tapi juga NAMA
+TABEL itu sendiri untuk `sekolah.ParameterTambahanCatatanSiswa`.
+
+**Pola "getKeterangan() membalik kontrak"**: 0 instance baru batch ini
+(entity penghubung `ParameterTambahan*` tidak punya field `keterangan`,
+konsisten dengan pola versi PT). Tetap **22 instance** total.
+
+Total akumulasi 41 sesi: **383 file** dari 7.401 (~5,2%).
+
 ## Batch 40 — SELESAI 100% (3 Sep 2026) — BROKEN ACCESS CONTROL SISTEMIK 10/10, KELUARGA `ParameterTambahan*` TUNTAS
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
