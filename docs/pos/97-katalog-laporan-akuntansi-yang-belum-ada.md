@@ -22,6 +22,12 @@ sementara jalur jurnal manual (`NewUiJournalService.post`) menolak yang tidak ba
 asimetri yang menarik — **dan sudah digarap sesi lain** di doc 72 §1, yang menutupnya dengan
 "struktur berisiko teridentifikasi; menunggu bukti data". Tidak diduplikasi.
 
+> **KOREKSI (doc 100): bagian 2, 3, dan 5 di bawah SALAH.** Kesebelas entri `lk_*` membawa
+> URL `launchZk(...)` ke `laporan_keuangan.zul?lap=<kode>` — halaman yang ada dan menangani
+> kode-kode itu. Semuanya bekerja; tidak ada yang placeholder. Bagian 1 (penjagaan closing
+> dan keseimbangan debet/kredit) tetap berlaku. Lihat
+> [100-koreksi-doc-97-sebelas-laporan-itu-bekerja.md](100-koreksi-doc-97-sebelas-laporan-itu-bekerja.md).
+
 ## 2. Katalog laporan POS: 11 kunci tanpa pelaksana
 
 `LaporanKatalogData` mendaftar 184 entri laporan; `LaporanKantinUtil` melaksanakannya lewat

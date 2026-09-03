@@ -37,6 +37,15 @@ def main():
         return 2
     teks = open(kat, encoding='utf-8', errors='replace').read()
     kunci = re.findall(r'item\(\s*"([a-z0-9_]+)"', teks)
+    # Entri yang membawa URL peluncur (launchZk(...) / dashAkun()) BUKAN kunci
+    # dispatch: ia tautan langsung ke layar ZK dan tidak pernah melewati rantai
+    # if ("kunci".equals(r)). Melaporkannya sebagai 'tanpa pelaksana' keliru --
+    # kekeliruan yang sempat terjadi dan dikoreksi di docs/pos/100.
+    peluncur = set(re.findall(
+        r'item\(\s*"([a-z0-9_]+)"[^;]*?(?:launchZk|dashAkun)\s*\(', teks))
+    kunci = [k for k in kunci if k not in peluncur]
+    if peluncur:
+        print('entri berupa tautan ZK (dilewati): %d' % len(peluncur))
     judul = dict(re.findall(r'item\(\s*"([a-z0-9_]+)"\s*,\s*"([^"]*)"', teks))
 
     isi = []

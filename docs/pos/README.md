@@ -176,6 +176,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [97-katalog-laporan-akuntansi-yang-belum-ada.md](97-katalog-laporan-akuntansi-yang-belum-ada.md) | 11 laporan akuntansi terdaftar di katalog POS tetapi jatuh ke "sedang disiapkan"; panduan staf tidak terpengaruh |
 | [98-empat-sapuan-keuangan-yang-bersih.md](98-empat-sapuan-keuangan-yang-bersih.md) | Empat sapuan keuangan tanpa cacat, satu di antaranya dicatat "tidak terjawab"; angka panduan staf diverifikasi |
 | [99-local-first-keuangan-diperiksa.md](99-local-first-keuangan-diperiksa.md) | Batas local-first modul keuangan benar, tetapi kontraknya hanya mengunci 3 dari 10 aksi; ditambal |
+| [100-koreksi-doc-97-sebelas-laporan-itu-bekerja.md](100-koreksi-doc-97-sebelas-laporan-itu-bekerja.md) | Koreksi doc 97: kesebelas laporan akuntansi itu tautan ZK yang bekerja, bukan placeholder |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |
