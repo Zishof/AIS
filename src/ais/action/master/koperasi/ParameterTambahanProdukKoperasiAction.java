@@ -33,6 +33,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.ParameterTambahan;
 import ais.database.model.koperasi.KelompokParameterTambahanProdukKoperasi;
@@ -90,8 +91,8 @@ public class ParameterTambahanProdukKoperasiAction extends GenericAutowireCompos
 	private Combobox kelompokParameterTambahanProdukKoperasi;
 	private Combobox parameterTambahan;
 
-	private boolean edit = true;
-	private boolean delete = true;
+	private boolean edit = false;
+	private boolean delete = false;
 
 	private MyToolbarbuttonConfig find;
 	private ParameterTambahanProdukKoperasi parameterTambahanProdukKoperasi;
@@ -144,6 +145,11 @@ public class ParameterTambahanProdukKoperasiAction extends GenericAutowireCompos
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
 
 		KelompokParameterTambahanProdukKoperasi.checkCreateDefault();
 
@@ -152,6 +158,9 @@ public class ParameterTambahanProdukKoperasiAction extends GenericAutowireCompos
 		if (!searchkelompokParameterTambahanProdukKoperasi.getChildren().isEmpty()) {
 			searchkelompokParameterTambahanProdukKoperasi.setSelectedIndex(0);
 		}
+
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
 		onSearchDefault(null);
 		Common.initPaging(paging, new EventListener() {
@@ -263,6 +272,10 @@ public class ParameterTambahanProdukKoperasiAction extends GenericAutowireCompos
 
 	@SuppressWarnings("unchecked")
 	public void onAdd(Event event) throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
+
 		if (searchkelompokParameterTambahanProdukKoperasi.getSelectedItem() == null
 				|| searchkelompokParameterTambahanProdukKoperasi.getSelectedItem().getValue() == null) {
 			MyMessageboxConfig.show("Mohon maaf, kelompok parameter belum dipilih. Langkah yang dapat dilakukan: (1) pilih kelompok parameter dari daftar pencarian di bagian atas; (2) ulangi penambahan data setelah memilih kelompok.", "Peringatan",

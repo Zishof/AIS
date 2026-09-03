@@ -38,6 +38,7 @@ import org.zkoss.zul.Vbox;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.common.PesanFormalHelper;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Fakultas;
@@ -111,8 +112,8 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 
 	private MyToolbarbuttonConfig find;
 
-	private boolean edit = true;
-	private boolean delete = true;
+	private boolean edit = false;
+	private boolean delete = false;
 	private boolean pt;
 	private boolean ya;
 
@@ -133,6 +134,11 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
 
 		boolean[] ptYa = Common.chekPtAtauSekolah();
 		pt = ptYa[0];
@@ -140,6 +146,8 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 
 		initFilterCombo();
 		initToolbar();
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		onSearchDefault(null);
 
 		Common.initPaging(paging, new EventListener() {
@@ -398,6 +406,9 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 	 * @throws Exception diteruskan apa adanya dari kegagalan query atau pembangunan komponen
 	 */
 	public void onAdd(Event event) throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
 		Object target = selectedSearchTarget();
 		if (target == null) {
 			init(new ParameterTambahanAngketUmum());

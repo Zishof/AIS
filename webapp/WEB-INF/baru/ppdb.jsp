@@ -22,7 +22,21 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 
 if(hanya_tampil_jsp){
 	if(!p.trim().isEmpty() && !s.trim().isEmpty()){
-        	  
+
+		java.util.Set<String> ppdbAllowedPairs = new java.util.HashSet<String>(java.util.Arrays.asList(
+			"ppdb/landing_page", "ppdb/_sukses_login", "ppdb/_pendaftaran_siswa",
+			"ppdb/_cetak_kartu_pendaftaran", "ppdb/_gelombang_ppdb", "ppdb/_pengumuman_ppdb",
+			"ppdb/_wawancara_service", "ppdb/_ikut_ujian_online_service",
+			"home/pengumuman_rinci"
+		));
+
+		boolean psFormatValid = p.matches("[A-Za-z0-9_/-]+") && s.matches("[A-Za-z0-9_/-]+") && !p.contains("..") && !s.contains("..");
+
+		if(!psFormatValid){
+			response.sendError(400);
+		} else if(!ppdbAllowedPairs.contains(p+"/"+s)){
+			response.sendError(404);
+		} else {
         	  try{
         		  String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
                   %>
@@ -34,7 +48,8 @@ if(hanya_tampil_jsp){
         		  <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
         		  <%
         	  }
-          
+		}
+
     }
 } else {
 %>
