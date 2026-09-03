@@ -182,6 +182,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	private Combobox kelamin;
 	private Combobox tahunAkademik;
 	private Combobox semester;
+	private MyCheckboxConfig terdapatPengecualianMahasiswa;
 	private Textbox pengecualianMahasiswa;
 	private Intbox prioritas;
 
@@ -877,16 +878,39 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				"Menampilkan fitur Ambil Mahasiswa, tetapi nominal dan periode tetap berasal dari Pengaturan Tagihan Bulanan. Mahasiswa yang tidak dipilih tidak memakai setting ini.");
 
 		row = new MyFormRow();
-		row.setValign("top");
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Pengecualian Mahasiswa (NIM)"));
+		row.appendChild(new ais.ui.util.MyLabelConfig());
+		row.appendChild(terdapatPengecualianMahasiswa = new MyCheckboxConfig("Terdapat pengecualian NIM"));
+		terdapatPengecualianMahasiswa.setChecked(settingBiaya.getPengecualianMahasiswa().length() > 0);
+		terdapatPengecualianMahasiswa.setTooltiptext(
+				"Centang bila terdapat mahasiswa yang tidak boleh memakai setting biaya ini.");
+
+		final MyFormRow rowPengecualianMahasiswa = new MyFormRow();
+		rowPengecualianMahasiswa.setValign("top");
+		rowPengecualianMahasiswa.setParent(rows);
+		rowPengecualianMahasiswa.appendChild(new ais.ui.util.MyLabelConfig("Pengecualian Mahasiswa (NIM)"));
+		Vbox panelPengecualian = new Vbox();
+		panelPengecualian.setWidth("100%");
 		pengecualianMahasiswa = new Textbox(settingBiaya.getPengecualianMahasiswa());
 		pengecualianMahasiswa.setRows(4);
 		pengecualianMahasiswa.setMultiline(true);
-		pengecualianMahasiswa.setWidth("90%");
+		pengecualianMahasiswa.setWidth("100%");
 		pengecualianMahasiswa.setTooltiptext(
-				"Masukkan NIM mahasiswa yang tidak boleh memakai setting biaya ini. Pisahkan dengan koma, titik koma, spasi, atau baris baru. Contoh: 20240001, 20240002");
-		row.appendChild(pengecualianMahasiswa);
+				"Format lama: NIM,NIM (semua semester). Format rentang: NIM:SMT_MULAI:SMT_SAMPAI;NIM:SMT_MULAI:SMT_SAMPAI.");
+		pengecualianMahasiswa.setParent(panelPengecualian);
+		Label petunjukPengecualian = new Label(
+				"Format: NIM,NIM untuk semua semester, atau NIM:SMT_MULAI:SMT_SAMPAI;NIM:SMT_MULAI:SMT_SAMPAI untuk rentang semester tertentu.");
+		petunjukPengecualian.setMultiline(true);
+		petunjukPengecualian.setStyle("color:#64748b;font-size:11px;white-space:normal;");
+		petunjukPengecualian.setParent(panelPengecualian);
+		rowPengecualianMahasiswa.appendChild(panelPengecualian);
+		rowPengecualianMahasiswa.setVisible(terdapatPengecualianMahasiswa.isChecked());
+		terdapatPengecualianMahasiswa.addEventListener("onCheck", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				rowPengecualianMahasiswa.setVisible(terdapatPengecualianMahasiswa.isChecked());
+			}
+		});
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -1860,6 +1884,21 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			return false;
 		}
 
+		String daftarPengecualian = terdapatPengecualianMahasiswa != null
+				&& terdapatPengecualianMahasiswa.isChecked() && pengecualianMahasiswa != null
+				? pengecualianMahasiswa.getValue().trim() : "";
+		try {
+			SettingBiaya.validasiFormatPengecualianMahasiswa(daftarPengecualian);
+		} catch (IllegalArgumentException e) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan pengecualian NIM", e.getMessage(),
+					new String[] { "Gunakan NIM,NIM untuk semua semester.",
+							"Gunakan NIM:SMT_MULAI:SMT_SAMPAI;NIM:SMT_MULAI:SMT_SAMPAI untuk rentang semester." });
+			return false;
+		}
+		if (daftarPengecualian.length() == 0 && terdapatPengecualianMahasiswa != null) {
+			terdapatPengecualianMahasiswa.setChecked(false);
+		}
+
 		boolean i = checkSettingBiaya();
 		if (i) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Setting Biaya",
@@ -1905,7 +1944,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		settingBiaya.setSmtIkutiSettinganDisini(smtIkutiSettinganDisini.isChecked());
 		settingBiaya.setKhususBuatMahasiswaTertentu(khususBuatMahasiswaTertentu.isChecked());
 		settingBiaya.setBatasiMahasiswaTertentu(batasiMahasiswaTertentu.isChecked());
-		settingBiaya.setPengecualianMahasiswa(pengecualianMahasiswa.getValue());
+		settingBiaya.setPengecualianMahasiswa(daftarPengecualian);
 		settingBiaya.setPrioritas(prioritas.getValue());
 		settingBiaya.setJumlahPembayaran(jumlahPembayaran.getValue());
 		settingBiaya.setTampilkanPerProdi(tampilkanPerProdi.isChecked());
