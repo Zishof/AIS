@@ -6795,6 +6795,86 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Menghitung bagian total transaksi yang memiliki sifat finansial tertentu pada kelima slot
+	 * pembayaran. Slot pertama selalu berupa sisa total setelah nominal slot 2-5, sama persis dengan
+	 * kontrak {@link PembelianAnggotaKoperasi#getNominalBayar1()}.
+	 *
+	 * <p>Method sengaja package-private agar self-test tanpa database dapat menjaga rumus koreksi
+	 * transaksi. {@code sifatHutang=true} memilih flag masuk-sebagai-hutang; {@code false} memilih
+	 * metode yang memotong deposit ({@code manual=false} atau flag eksplisit memotong-deposit).</p>
+	 */
+	static double nominalMetodeKhusus(double total,
+			CaraPembayaranKoperasi cara1,
+			CaraPembayaranKoperasi cara2, double nominal2,
+			CaraPembayaranKoperasi cara3, double nominal3,
+			CaraPembayaranKoperasi cara4, double nominal4,
+			CaraPembayaranKoperasi cara5, double nominal5,
+			boolean sifatHutang) {
+		double n2 = Math.max(0.0, nominal2);
+		double n3 = Math.max(0.0, nominal3);
+		double n4 = Math.max(0.0, nominal4);
+		double n5 = Math.max(0.0, nominal5);
+		double n1 = Math.max(0.0, Math.max(0.0, total) - n2 - n3 - n4 - n5);
+		CaraPembayaranKoperasi[] cara = new CaraPembayaranKoperasi[] {
+				cara1, cara2, cara3, cara4, cara5 };
+		double[] nominal = new double[] { n1, n2, n3, n4, n5 };
+		double hasil = 0.0;
+		for (int i = 0; i < cara.length; i++) {
+			if (cara[i] == null || nominal[i] <= 0.0) continue;
+			boolean cocok = sifatHutang
+					? Boolean.TRUE.equals(cara[i].getMasukSebagaiHutang())
+					: (Boolean.FALSE.equals(cara[i].getManual())
+							|| Boolean.TRUE.equals(cara[i].getMemotongDeposit()));
+			if (cocok) hasil += nominal[i];
+		}
+		return hasil;
+	}
+
+	/** Rumus saldo hutang setelah nota lama diganti nota hasil koreksi, tanpa double-count. */
+	static double proyeksiHutangSetelahKoreksi(double hutangBerjalan,
+			double hutangLama, double hutangBaru) {
+		return Math.max(0.0, hutangBerjalan - hutangLama + hutangBaru);
+	}
+
+	/** Tambahan beban deposit yang harus ditolak bila koreksi tidak mempunyai validasi saldo baru. */
+	static double tambahanDepositKoreksi(double depositLama, double depositBaru) {
+		return Math.max(0.0, depositBaru - depositLama);
+	}
+
+	private static SplitPembayaran splitPembayaranTransaksi(PembelianAnggotaKoperasi transaksi) {
+		SplitPembayaran split = new SplitPembayaran();
+		if (transaksi == null) return split;
+		split.cara2 = transaksi.getCaraPembayaranKoperasi2();
+		split.nominal2 = transaksi.getNominalBayar2();
+		split.cara3 = transaksi.getCaraPembayaranKoperasi3();
+		split.nominal3 = transaksi.getNominalBayar3();
+		split.cara4 = transaksi.getCaraPembayaranKoperasi4();
+		split.nominal4 = transaksi.getNominalBayar4();
+		split.cara5 = transaksi.getCaraPembayaranKoperasi5();
+		split.nominal5 = transaksi.getNominalBayar5();
+		return split;
+	}
+
+	private static String metodeWajibMemberTanpaPemilik(AnggotaKoperasi anggota,
+			CaraPembayaranKoperasi utama, SplitPembayaran split, double total) {
+		if (anggota != null) return null;
+		StringBuffer daftar = new StringBuffer();
+		double slot1 = Math.max(0.0, total - split.nominal2 - split.nominal3
+				- split.nominal4 - split.nominal5);
+		if (utama != null && utama.wajibPilihMemberEfektif() && slot1 > 0.0)
+			catatMetodeWajibMember(daftar, utama);
+		if (split.cara2 != null && split.cara2.wajibPilihMemberEfektif() && split.nominal2 > 0.0)
+			catatMetodeWajibMember(daftar, split.cara2);
+		if (split.cara3 != null && split.cara3.wajibPilihMemberEfektif() && split.nominal3 > 0.0)
+			catatMetodeWajibMember(daftar, split.cara3);
+		if (split.cara4 != null && split.cara4.wajibPilihMemberEfektif() && split.nominal4 > 0.0)
+			catatMetodeWajibMember(daftar, split.cara4);
+		if (split.cara5 != null && split.cara5.wajibPilihMemberEfektif() && split.nominal5 > 0.0)
+			catatMetodeWajibMember(daftar, split.cara5);
+		return daftar.length() == 0 ? null : daftar.toString();
+	}
+
+	/**
 	 * Mengaktifkan kebijakan koreksi hanya untuk toko transaksi yang sedang ditangani.
 	 * Aksi ini sengaja online-only: perubahan hak koreksi transaksi final tidak boleh
 	 * dianggap berhasil dari outbox sebelum server memverifikasi pelaku dan lingkup toko.
@@ -18022,6 +18102,16 @@ public class KantinHelper {
 				caraBayarBaru = (CaraPembayaranKoperasi) session.get(CaraPembayaranKoperasi.class, Long.valueOf(caraBayarIdTeks));
 				if (caraBayarBaru == null || !Boolean.TRUE.equals(caraBayarBaru.getAktif())) throw new IllegalStateException("Metode pembayaran yang dipilih tidak ditemukan atau sudah tidak aktif.");
 			}
+			AnggotaKoperasi anggotaTransaksi = trx.getAnggotaKoperasi();
+			CaraPembayaranKoperasi caraBayarLama = trx.getCaraPembayaranKoperasi();
+			SplitPembayaran splitLama = splitPembayaranTransaksi(trx);
+			double totalPembayaranLama = trx.getTotalBiaya() == null ? 0.0 : trx.getTotalBiaya().doubleValue();
+			double hutangLama = nominalMetodeKhusus(totalPembayaranLama, caraBayarLama,
+					splitLama.cara2, splitLama.nominal2, splitLama.cara3, splitLama.nominal3,
+					splitLama.cara4, splitLama.nominal4, splitLama.cara5, splitLama.nominal5, true);
+			double depositLama = nominalMetodeKhusus(totalPembayaranLama, caraBayarLama,
+					splitLama.cara2, splitLama.nominal2, splitLama.cara3, splitLama.nominal3,
+					splitLama.cara4, splitLama.nominal4, splitLama.cara5, splitLama.nominal5, false);
 
 			List<Pembelian> lama = session.createCriteria(Pembelian.class)
 					.add(Restrictions.eq("pembelianAnggotaKoperasi", trx)).list();
@@ -18075,6 +18165,51 @@ public class KantinHelper {
 
 			double pajak = trx.getHargaPpn() == null ? 0.0 : trx.getHargaPpn().doubleValue();
 			double totalBaru = Math.max(0.0, jumlahRincian - diskonFakturTetap + pajak);
+			CaraPembayaranKoperasi caraBayarEfektif = caraBayarBaru == null ? caraBayarLama : caraBayarBaru;
+			SplitPembayaran splitEfektif = caraBayarBaru == null ? splitLama : new SplitPembayaran();
+			String metodeTanpaPemilik = metodeWajibMemberTanpaPemilik(anggotaTransaksi,
+					caraBayarEfektif, splitEfektif, totalBaru);
+			if (metodeTanpaPemilik != null) {
+				throw new IllegalStateException("Metode pembayaran " + metodeTanpaPemilik
+						+ " wajib memilih member/PIC. Koreksi tidak boleh membuat Kasbon, voucher, "
+						+ "atau pemotongan saldo tanpa penanggung jawab yang dapat ditelusuri.");
+			}
+			String galatCaraBayar = validasiCaraBayarMember(anggotaTransaksi,
+					caraBayarEfektif, splitEfektif, trx.getToko().getId());
+			if (galatCaraBayar != null) throw new IllegalStateException(galatCaraBayar);
+			PelanggaranBatasTransaksi galatBatas = validasiBatasTransaksi(session,
+					anggotaTransaksi, waktuBaru, totalBaru, transaksiId, trx.getToko().getId());
+			if (galatBatas != null) {
+				throw new IllegalStateException("Koreksi ditolak karena " + galatBatas.pesan());
+			}
+
+			double hutangBaru = nominalMetodeKhusus(totalBaru, caraBayarEfektif,
+					splitEfektif.cara2, splitEfektif.nominal2, splitEfektif.cara3, splitEfektif.nominal3,
+					splitEfektif.cara4, splitEfektif.nominal4, splitEfektif.cara5, splitEfektif.nominal5, true);
+			if (hutangBaru > 0.0 && anggotaTransaksi != null) {
+				TipeAnggotaKoperasi tipeHutang = anggotaTransaksi.getTipeAnggotaKoperasi();
+				if (tipeHutang != null && !tipeHutang.berlakuUntukToko(trx.getToko().getId())) tipeHutang = null;
+				double batasHutang = tipeHutang == null ? 0.0 : tipeHutang.getMaksimalBolehUtang();
+				double hutangBerjalan = hitungTotalHutangBerjalan(session, anggotaTransaksi.getId());
+				double proyeksiHutang = proyeksiHutangSetelahKoreksi(hutangBerjalan, hutangLama, hutangBaru);
+				if (proyeksiHutang > batasHutang + 0.5) {
+					throw new IllegalStateException("Koreksi ditolak: batas maksimal hutang anggota ini ("
+							+ Common.numberFormat.get().format(batasHutang) + ") akan terlampaui. "
+							+ "Hutang berjalan " + Common.numberFormat.get().format(hutangBerjalan)
+							+ ", bagian nota lama " + Common.numberFormat.get().format(hutangLama)
+							+ ", dan hasil koreksi " + Common.numberFormat.get().format(hutangBaru) + ".");
+				}
+			}
+
+			double depositBaru = nominalMetodeKhusus(totalBaru, caraBayarEfektif,
+					splitEfektif.cara2, splitEfektif.nominal2, splitEfektif.cara3, splitEfektif.nominal3,
+					splitEfektif.cara4, splitEfektif.nominal4, splitEfektif.cara5, splitEfektif.nominal5, false);
+			double tambahanDeposit = tambahanDepositKoreksi(depositLama, depositBaru);
+			if (tambahanDeposit > 0.5) {
+				throw new IllegalStateException("Koreksi tidak dapat menambah pemotongan saldo/deposit sebesar "
+						+ Common.numberFormat.get().format(tambahanDeposit)
+						+ ". Gunakan pembatalan/retur resmi dan transaksi baru agar saldo diverifikasi ulang.");
+			}
 			double tunaiLama = trx.getBayarTunai() == null ? 0.0 : trx.getBayarTunai().doubleValue();
 			double nonTunaiLama = trx.getBayarNonTunai() == null ? 0.0 : trx.getBayarNonTunai().doubleValue();
 			double komposisi = tunaiLama + nonTunaiLama;
