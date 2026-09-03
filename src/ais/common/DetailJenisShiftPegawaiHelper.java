@@ -286,8 +286,7 @@ public class DetailJenisShiftPegawaiHelper {
 				if (mulai != null) {
 					calendar.setTime(mulai);
 				}
-				String da = calendar.get(Calendar.HOUR_OF_DAY) + "." + calendar.get(Calendar.MINUTE);
-				Double jarakMulai = Double.parseDouble(da);
+				Double jarakMulai = (double) (calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE));
 
 				Double selisihNext = Math.abs(next.getJarakMulai() - jarakMulai);
 				Double selisihBack = Math.abs(back.getJarakMulai() - jarakMulai);

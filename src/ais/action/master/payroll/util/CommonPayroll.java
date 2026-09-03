@@ -90,7 +90,7 @@ public class CommonPayroll {
 	 * arah: kandidat shift dengan jam mulai sebelum ({@code next}) dan sesudah/sama ({@code back})
 	 * jam masuk aktual, masing-masing diprioritaskan cocok dengan {@code hari} spesifik lalu jatuh
 	 * kembali ke shift tanpa hari spesifik (berlaku semua hari) bila tidak ada. Di antara kedua
-	 * kandidat, yang dipilih adalah yang selisih jaraknya (dalam representasi jam.menit) ke jam
+	 * kandidat, yang dipilih adalah yang selisih jaraknya (dalam menit sejak tengah malam) ke jam
 	 * masuk aktual paling kecil.
 	 *
 	 * @return detail shift yang paling cocok dengan jam masuk aktual, atau {@code null} bila {@code mulai} kosong atau tidak ada kandidat yang cocok
@@ -105,8 +105,7 @@ public class CommonPayroll {
 			try {
 				Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 				calendar.setTime(mulai);
-				String da = calendar.get(Calendar.HOUR_OF_DAY) + "." + calendar.get(Calendar.MINUTE);
-				Double jarakMulai = Double.parseDouble(da);
+				Double jarakMulai = (double) (calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE));
 
 				Session session = HibernateUtil.currentNativeSession();
 				@SuppressWarnings("unchecked")

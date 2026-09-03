@@ -236,7 +236,7 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 	/** Hari ke berapa dalam siklus rotasi shift; lihat {@link #getHariKe()} untuk aturan penyamaan otomatis. */
 	private Integer hariKe = 1;
 
-	/** Representasi numerik jam.menit mulai shift (mis. 8.30), dihitung ulang oleh {@link #getJarakMulai()}. */
+	/** Jumlah menit sejak tengah malam untuk jam mulai shift (mis. 08:30 -> 510.0), dihitung ulang oleh {@link #getJarakMulai()}. */
 	private Double jarakMulai = 0.0;
 
 	/** Sumber jam mulai/sampai kanonik (opsional); bila terpasang, menimpa {@link #mulai}/{@link #sampai}. */
@@ -786,53 +786,39 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 	}
 
 	/**
-	 * Menghitung ulang dan mengembalikan representasi numerik jam.menit dari {@link #getMulai()}, dipakai
-	 * sebagai "jarak" kasar untuk membandingkan seberapa dekat dua jam mulai shift satu sama lain (lihat
-	 * pemakaiannya di {@code DetailJenisShiftPegawaiHelper.shiftDetail} untuk memilih baris detail
-	 * "terdekat" — {@code next} vs {@code back} — terhadap jam absen aktual pegawai).
+	 * Menghitung ulang dan mengembalikan jumlah menit sejak tengah malam dari {@link #getMulai()}
+	 * ({@code HOUR_OF_DAY * 60 + MINUTE}), dipakai sebagai "jarak" kasar untuk membandingkan seberapa
+	 * dekat dua jam mulai shift satu sama lain (lihat pemakaiannya di
+	 * {@code DetailJenisShiftPegawaiHelper.shiftDetail} dan {@code ais.action.master.payroll.util.CommonPayroll.getDetailJenisShiftPegawai}
+	 * untuk memilih baris detail "terdekat" — {@code next} vs {@code back} — terhadap jam absen aktual
+	 * pegawai; kedua pemanggil menghitung sisi "jam absen aktual" dengan rumus menit-sejak-tengah-malam
+	 * yang sama secara terpisah, jadi representasi di sini harus tetap konsisten dengan keduanya).
 	 *
 	 * <p><b>Efek samping (getter destruktif):</b> bila {@link #getMulai()} tidak {@code null}, method ini
 	 * MENIMPA field {@link #jarakMulai} setiap dipanggil.</p>
 	 *
-	 * <p><b>WASPADA — bug tabrakan representasi (bukan sekadar pembulatan).</b> Nilai dibentuk dengan
-	 * menggabungkan {@code HOUR_OF_DAY} dan {@code MINUTE} sebagai STRING desimal TANPA zero-padding pada
-	 * menit — {@code hour + "." + minute}, lalu diparse sebagai {@code double}. Karena {@code Double} tidak
-	 * membedakan trailing zero, INI MENYEBABKAN JAM:MENIT YANG BERBEDA MENGHASILKAN NILAI YANG SAMA
-	 * PERSIS. Contoh konkret: jam 08:05 → string {@code "8.5"} → {@code 8.5}; jam 08:50 → string
-	 * {@code "8.50"} → {@code 8.5} JUGA (parseDouble mengabaikan trailing zero). Dua jam yang terpaut 45
-	 * menit dianggap identik oleh representasi ini. Pola yang sama berlaku untuk pasangan menit lain yang
-	 * membentuk string desimal setara secara numerik meski berbeda sebagai jam:menit (mis. menit 1 vs
-	 * menit 10 sama-sama dekat ke pola "x.1..."). Ini BUKAN sekadar rawan off-by-one — ini tabrakan
-	 * (collision) genuine pada domain jam:menit yang valid dan lazim terjadi (menit satuan seperti :05,
-	 * :06, ..., :09 SELALU bertabrakan dengan menit puluhan senilai literal yang sama, mis. :05 vs :50,
-	 * :06 vs :60-tidak berlaku karena 60 invalid, tapi :05 vs :50, :01 vs :10 TIDAK bertabrakan karena
-	 * "1" != "10" secara string sebelum parse — namun {@code "8.1"} vs {@code "8.10"} SAMA setelah parse
-	 * meski representasi 08:01 vs 08:10 dimaksud berbeda). Dampak nyatanya: perbandingan "jarak terdekat"
-	 * ({@code selisihNext}/{@code selisihBack}) di {@code DetailJenisShiftPegawaiHelper.shiftDetail} dapat
-	 * memilih baris shift yang salah ketika jam mulai dua kandidat kebetulan membentuk pasangan menit
-	 * satuan/puluhan yang bertabrakan seperti ini. Perbaikan yang benar semestinya memformat menit dengan
-	 * zero-padding dua digit (mis. {@code String.format("%d.%02d", hour, minute)}) sebelum parse, atau
-	 * memakai representasi non-ambigu (mis. total menit sejak tengah malam). Perbaikan TIDAK dilakukan pada
-	 * pass dokumentasi ini agar tidak mengubah perilaku behavioral entity — lihat task terpisah yang di-
-	 * spawn untuk perbaikan ini.</p>
+	 * <p><b>Riwayat bug (diperbaiki):</b> sebelum perbaikan ini, nilai dibentuk dengan menggabungkan
+	 * {@code HOUR_OF_DAY} dan {@code MINUTE} sebagai string desimal tanpa zero-padding menit lalu diparse
+	 * sebagai {@code double} ({@code hour + "." + minute}), sehingga mis. 08:05 dan 08:50 sama-sama
+	 * menghasilkan {@code 8.5} (trailing zero diabaikan {@code Double.parseDouble}) — jam yang terpaut 45
+	 * menit dianggap identik. Representasi menit-sejak-tengah-malam saat ini tidak ambigu: setiap jam:menit
+	 * yang berbeda selalu menghasilkan nilai yang berbeda.</p>
 	 *
-	 * @return representasi jam.menit dari jam mulai (lihat catatan tabrakan di atas), atau nilai
-	 *         {@link #jarakMulai} sebelumnya (default {@code 0.0}) bila {@link #getMulai()} {@code null}
+	 * @return jumlah menit sejak tengah malam dari jam mulai, atau nilai {@link #jarakMulai} sebelumnya
+	 *         (default {@code 0.0}) bila {@link #getMulai()} {@code null}
 	 */
 	public Double getJarakMulai() {
 		if (getMulai() != null) {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 			calendar.setTime(getMulai());
-			String da = calendar.get(Calendar.HOUR_OF_DAY) + "." + calendar.get(Calendar.MINUTE);
-			jarakMulai = Double.parseDouble(da);
+			jarakMulai = (double) (calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE));
 		}
 		return jarakMulai;
 	}
 
 	/**
 	 * Mengisi nilai jarak-mulai secara manual. Ditimpa kembali oleh {@link #getJarakMulai()} pada
-	 * pemanggilan berikutnya bila {@link #getMulai()} tidak {@code null} (lihat javadoc getter, termasuk
-	 * catatan bug tabrakan representasi menit).
+	 * pemanggilan berikutnya bila {@link #getMulai()} tidak {@code null} (lihat javadoc getter).
 	 *
 	 * @param jarakMulai nilai jarak-mulai yang diinginkan; berpotensi ditimpa oleh {@link #getJarakMulai()}
 	 */
