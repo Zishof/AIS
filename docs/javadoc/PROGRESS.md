@@ -1,5 +1,67 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 83 — SELESAI 100% (4 Sep 2026) — 3 task baru; KOREKSI PENTING batch 82: `PengajuanPeminjaman` ternyata entity TIDUR keenam (bukan "hidup" seperti diduga); mekanisme pembajakan akun jurnal b81 "dipersenjatai" via form CRUD generik; bug integritas dasbor (dicatat, tanpa task — dampak terbatas tampilan)
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/payroll/JenisFormatGaji.java`** (r84048) —
+  207→724 baris, 100%. Koreksi hipotesis nama: BUKAN katalog jenis
+  dari `FormatItemGaji` — nol referensi kedua arah. Entity ini adalah
+  katalog VARIAN CETAK (layout laporan) untuk SATU laporan saja
+  (rekap pembayaran gaji). **Task baru `task_e3160403`**: bug
+  salin-tempel — listener checkbox "Query Manual" salah memanggil
+  `setPerSatkerSekolah(...)` bukan `setQueryManual(...)` — mencentang
+  fitur A diam-diam mengubah mode pengelompokan laporan jadi
+  per-sekolah. Observasi arsitektural dicatat (tanpa task,
+  lintas-modul): jrxml unggahan operator dikompilasi+dieksekusi
+  server-side, dipakai puluhan layar lain.
+- **`ais/database/model/payroll/KelompokItemGaji.java`** (r84049) —
+  164→653 baris, 100%. **KOREKSI PENTING mekanisme cache b81**: cache
+  statis TIDAK ADA di entity ini (milik `ItemGaji`), dan mekanisme
+  pembajakan akun jurnal b81 saat ini TIDAK BERSENJATA — `setAktif()`
+  nol pemanggil di seluruh repo, cache pemuat menyaring `aktif=true`
+  ketat → permanen kosong. **Task baru `task_348356a3`**: satu-satunya
+  jalur yang bisa menyalakan `aktif=true` adalah form
+  `DynamicJspCrudGenerator` otomatis TANPA filter tenant — begitu
+  dinyalakan, pembajakan akun jurnal lintas tenant b81 jadi nyata.
+- **`ais/database/model/payroll/PengajuanTransaksiPegawai.java`**
+  (r84051) — 472→1378 baris, 100%. **Perluasan presisi
+  `task_f2f37db5`** dengan nomor baris exact (populateTransaksi
+  baris 1102-1119, listener checkbox "Setujui" baris 547/551-572).
+  Gerbang persetujuan: penjaga anti-self-approval ADA (verifikasi
+  menenangkan, beda dari `task_c9d4d09f`), tapi terhadap `pegawai`
+  pemohon bukan `diajukanOleh` — atasan yang mengajukan atas nama
+  bawahan boleh menyetujui dokumen buatannya sendiri. **Task baru
+  `task_fe6517bf`**: kunci parameter tambahan SALAH (modul beda,
+  `PengajuanPegawai` vs `payroll.PengajuanTransaksiPegawai`) —
+  `getAttribute()` selalu null → SETIAP penyimpanan mengosongkan
+  seluruh isian dinamis dokumen diam-diam, walau validasi tetap
+  ketat sesaat sebelumnya (isian tervalidasi lalu dibuang).
+- **`ais/database/model/payroll/JenisTransaksiPegawai.java`**
+  (r84050) — 174→800 baris, 100%. KONFIRMASI klaim b82: kolom
+  `jenisTransaksi` benar-benar kosmetik untuk mesin posting. Bug
+  integritas DASBOR ditemukan (tanpa task — dampak terbatas tampilan
+  bukan buku besar): form ZK menulis sandi Kredit=`-1`, tapi KEDUA
+  dasbor menguji sandi `2` — setiap baris Kredit/potongan salah
+  tergolong Debet, potongan gaji ikut terjumlah sebagai tunjangan.
+- **`ais/database/model/payroll/PengajuanPeminjaman.java`** (r84052)
+  — 376→1242 baris, 100%. **🚨 KOREKSI PENTING terhadap batch 82**:
+  entity ini BUKAN "hidup" — TIDUR/YATIM SEPENUHNYA (entity tidur
+  KEENAM inisiatif), nol Action/ApiHelper/ZUL/JSP/HQL, tabel tak
+  pernah bertambah satu baris pun. Pinjaman/kasbon pegawai
+  sesungguhnya ditangani `PengajuanTransaksiPegawai` (rantai
+  berbeda, lengkap, sudah didokumentasikan di batch ini juga).
+
+**3 task baru batch ini** (semua dibuat agent sendiri):
+`task_e3160403`, `task_348356a3`, `task_fe6517bf`. Pelajaran
+metodologis DIPERKUAT LAGI: klaim "entity hidup" dari satu batch
+(b82, `PengajuanPeminjaman`) TERBUKTI SALAH saat diverifikasi
+langsung dari sisi entity itu sendiri di batch berikutnya — bahkan
+verifikasi lintas-batch yang tampak solid tetap perlu dicek ulang
+saat entity itu sendiri akhirnya didokumentasikan.
+
 ## Batch 82 — SELESAI 100% (4 Sep 2026) — 4 task baru; TEMUAN SANGAT SIGNIFIKAN: `task_9f520b16` — spoofing atribut sesi `currentMenu` via parameter URL meruntuhkan granularitas RBAC PER-MENU SELURUH SISTEM (bukan cuma payroll); KONFIRMASI LANJUTAN `task_e68c78f1` diperbaiki (r83966) dari sisi kedua (`TransaksiPegawai`)
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
