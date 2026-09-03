@@ -255,13 +255,10 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 				if (onlineBmt) {
 					Toko tokoOnlineBmt = param.get("onlineBmtToko") instanceof Toko
 							? (Toko) param.get("onlineBmtToko") : null;
-					if (!(tokoOnlineBmt == null ? OnlineBmtUtil.isChannelReady(kanalPembayaran)
-							: OnlineBmtUtil.isChannelReady(kanalPembayaran, tokoOnlineBmt))) return null;
-					biayaAdmin = OnlineBmtUtil.resolveSettings(kanalPembayaran.getSekolah(), kanalPembayaran,
-							tokoOnlineBmt)
+					if (!OnlineBmtUtil.isChannelReady(caraPembayaranKoperasi, tokoOnlineBmt)) return null;
+					biayaAdmin = OnlineBmtUtil.resolveSettings(caraPembayaranKoperasi, tokoOnlineBmt)
 							.getAdministrationFee();
-					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, kanalPembayaran.getSekolah(),
-							kanalPembayaran, tokoOnlineBmt);
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, caraPembayaranKoperasi, tokoOnlineBmt);
 				} else if (flip) {
 
 					if (expired_date == null) {
@@ -789,13 +786,10 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 				if (onlineBmt) {
 					Toko tokoOnlineBmt = param.get("onlineBmtToko") instanceof Toko
 							? (Toko) param.get("onlineBmtToko") : null;
-					if (!(tokoOnlineBmt == null ? OnlineBmtUtil.isChannelReady(kanalPembayaran)
-							: OnlineBmtUtil.isChannelReady(kanalPembayaran, tokoOnlineBmt))) return null;
-					biayaAdmin = OnlineBmtUtil.resolveSettings(kanalPembayaran.getSekolah(), kanalPembayaran,
-							tokoOnlineBmt)
+					if (!OnlineBmtUtil.isChannelReady(caraPembayaranKoperasi, tokoOnlineBmt)) return null;
+					biayaAdmin = OnlineBmtUtil.resolveSettings(caraPembayaranKoperasi, tokoOnlineBmt)
 							.getAdministrationFee();
-					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, kanalPembayaran.getSekolah(),
-							kanalPembayaran, tokoOnlineBmt);
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, caraPembayaranKoperasi, tokoOnlineBmt);
 				} else if (flip) {
 
 					if (expired_date == null) {

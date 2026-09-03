@@ -17602,14 +17602,13 @@ public class KantinHelper {
 					pilihan.put("gateway", "smartlink");
 					list.put(pilihan);
 				}
-				if (OnlineBmtUtil.isChannelReady(cara.getKanalPembayaran())) {
+				if (OnlineBmtUtil.isChannelReady(cara, null)) {
 					JSONObject pilihan = new JSONObject();
 					pilihan.put("id", cara.getId());
 					pilihan.put("nama", OnlineBmtUtil.BANK_NAME);
 					pilihan.put("channel", "");
 					pilihan.put("nama_channel", OnlineBmtUtil.BANK_NAME);
-					pilihan.put("biaya_admin", OnlineBmtUtil.resolveSettings(
-							cara.getKanalPembayaran().getSekolah(), cara.getKanalPembayaran())
+					pilihan.put("biaya_admin", OnlineBmtUtil.resolveSettings(cara, null)
 							.getAdministrationFee());
 					pilihan.put("gateway", OnlineBmtUtil.PARAM_KEY);
 					list.put(pilihan);
@@ -17681,9 +17680,7 @@ public class KantinHelper {
 				hasil.put("description", "Cara pembayaran online tidak diizinkan untuk jenis member ini.");
 				return;
 			}
-			if (onlineBmt && !(tokoOnlineBmt == null
-					? OnlineBmtUtil.isChannelReady(cara.getKanalPembayaran())
-					: OnlineBmtUtil.isChannelReady(cara.getKanalPembayaran(), tokoOnlineBmt))) {
+			if (onlineBmt && !OnlineBmtUtil.isChannelReady(cara, tokoOnlineBmt)) {
 				hasil.put("status", "91");
 				hasil.put("description", "Kanal Online BMT belum aktif atau konfigurasinya belum lengkap.");
 				return;

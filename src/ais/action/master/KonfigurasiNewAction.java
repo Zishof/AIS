@@ -12297,10 +12297,10 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via Online BMT — kanal baru hanya tampil bila credential dan identitas global/efektif lengkap", Konfigurasi.ONLINE_BMT_AKTIF, Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowNilai("Prefix invoice Online BMT (huruf/angka, maksimum 8 karakter)", Konfigurasi.ONLINE_BMT_PREFIX_INVOICE, "BMT"));
 		rows.appendChild(createRowNilai("Biaya administrasi Online BMT", Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0"));
-		rows.appendChild(createRowNilai("Kode mitra BMT GLOBAL (wajib; dipakai invoice mahasiswa/PT)", Konfigurasi.ONLINE_BMT_KODE_MITRA, ""));
-		rows.appendChild(createRowNilai("Nama mitra BMT GLOBAL (wajib; dipakai invoice mahasiswa/PT)", Konfigurasi.ONLINE_BMT_NAMA_MITRA, ""));
-		rows.appendChild(createRowNilai("Kode merchant Online BMT GLOBAL (wajib; dipakai invoice mahasiswa/PT)", Konfigurasi.ONLINE_BMT_KODE_MERCHANT, ""));
-		rows.appendChild(createRowNilai("Nama merchant Online BMT GLOBAL (wajib; dipakai invoice mahasiswa/PT)", Konfigurasi.ONLINE_BMT_NAMA_MERCHANT, ""));
+		rows.appendChild(createRowNilai("Fallback kode mitra Online BMT (normalnya dari Kode Yayasan)", Konfigurasi.ONLINE_BMT_KODE_MITRA, ""));
+		rows.appendChild(createRowNilai("Fallback nama mitra Online BMT (normalnya dari Nama Yayasan)", Konfigurasi.ONLINE_BMT_NAMA_MITRA, ""));
+		rows.appendChild(createRowNilai("Fallback kode merchant Online BMT (normalnya dari master pemilik transaksi)", Konfigurasi.ONLINE_BMT_KODE_MERCHANT, ""));
+		rows.appendChild(createRowNilai("Fallback nama merchant Online BMT (normalnya dari master pemilik transaksi)", Konfigurasi.ONLINE_BMT_NAMA_MERCHANT, ""));
 		rows.appendChild(createRowNilaiPassword("Online BMT API key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_API_KEY, ""));
 		rows.appendChild(createRowNilaiPassword("Online BMT encryption key (secret AES; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY, ""));
 		rows.appendChild(createRowNilaiPassword("Online BMT HMAC key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_HMAC_KEY, ""));

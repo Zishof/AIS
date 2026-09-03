@@ -1118,6 +1118,17 @@ public class VirtualAccountBank extends GeneralValueObject {
 			if (va.getAnggotaKoperasi() != null) va.getAnggotaKoperasi().getId();
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "VirtualAccountBank.initialise.anggotaKoperasi"); }
 		try {
+			if (va.getCaraPembayaranKoperasi() != null) {
+				va.getCaraPembayaranKoperasi().getId();
+				if (va.getCaraPembayaranKoperasi().getKoperasi() != null) {
+					va.getCaraPembayaranKoperasi().getKoperasi().getId();
+					if (va.getCaraPembayaranKoperasi().getKoperasi().getYayasan() != null) {
+						va.getCaraPembayaranKoperasi().getKoperasi().getYayasan().getId();
+					}
+				}
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "VirtualAccountBank.initialise.caraPembayaranKoperasi"); }
+		try {
 			if (va.getKanalPembayaran() != null) {
 				va.getKanalPembayaran().getId();
 				if (va.getKanalPembayaran().getSekolah() != null) va.getKanalPembayaran().getSekolah().getId();

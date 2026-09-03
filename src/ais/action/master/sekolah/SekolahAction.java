@@ -1366,22 +1366,22 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 		row.appendChild(onlineBmtBiayaAdministrasi = new MyDoublebox(value.getOnlineBmtBiayaAdministrasi()));
 
 		row = new MyFormRow(); row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Kode Mitra BMT (kosong = ikut global)"));
+		row.appendChild(new ais.ui.util.MyLabelConfig("Fallback Kode Mitra BMT (utama = Kode Yayasan)"));
 		row.appendChild(onlineBmtKodeMitra = new Textbox(value.getOnlineBmtKodeMitra()));
 		onlineBmtKodeMitra.setWidth("90%");
 
 		row = new MyFormRow(); row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Nama Mitra BMT (kosong = ikut global)"));
+		row.appendChild(new ais.ui.util.MyLabelConfig("Fallback Nama Mitra BMT (utama = Nama Yayasan)"));
 		row.appendChild(onlineBmtNamaMitra = new Textbox(value.getOnlineBmtNamaMitra()));
 		onlineBmtNamaMitra.setWidth("90%");
 
 		row = new MyFormRow(); row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Kode Merchant Online BMT (kosong = ikut global)"));
+		row.appendChild(new ais.ui.util.MyLabelConfig("Fallback Kode Merchant (utama = Kode Sekolah)"));
 		row.appendChild(onlineBmtKodeMerchant = new Textbox(value.getOnlineBmtKodeMerchant()));
 		onlineBmtKodeMerchant.setWidth("90%");
 
 		row = new MyFormRow(); row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Nama Merchant Online BMT (kosong = ikut global)"));
+		row.appendChild(new ais.ui.util.MyLabelConfig("Fallback Nama Merchant (utama = Nama Sekolah)"));
 		row.appendChild(onlineBmtNamaMerchant = new Textbox(value.getOnlineBmtNamaMerchant()));
 		onlineBmtNamaMerchant.setWidth("90%");
 

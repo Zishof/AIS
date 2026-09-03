@@ -10,11 +10,15 @@ import org.hibernate.criterion.Restrictions;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
+import ais.database.model.Pendaftar;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.VirtualAccountBank;
 import ais.database.model.inventory.Toko;
+import ais.database.model.koperasi.CaraPembayaranKoperasi;
+import ais.database.model.koperasi.Koperasi;
 import ais.database.model.sekolah.KanalPembayaran;
 import ais.database.model.sekolah.Sekolah;
+import ais.database.model.sekolah.Yayasan;
 
 /**
  * Kontrak bersama kanal pembayaran Online BMT.
@@ -153,6 +157,12 @@ public final class OnlineBmtUtil {
 				&& resolveSettings(kanal.getSekolah(), kanal, toko).isOperationallyReady();
 	}
 
+	/** Varian kanal koperasi yang mengambil identitas Yayasan dari pemilik cara pembayaran. */
+	public static boolean isChannelReady(CaraPembayaranKoperasi cara, Toko toko) {
+		return cara != null && isChannelEnabled(cara.getKanalPembayaran())
+				&& resolveSettings(cara, toko).isOperationallyReady();
+	}
+
 	/**
 	 * Snapshot konfigurasi efektif untuk satu pemilik invoice. Snapshot sengaja
 	 * tidak menyimpan entity Hibernate supaya aman digunakan sesudah session ditutup.
@@ -272,19 +282,36 @@ public final class OnlineBmtUtil {
 	 */
 	public static Settings resolveSettings(Sekolah sekolah, KanalPembayaran kanal) {
 		Settings result = resolveConfiguredSettings(sekolah, kanal);
-		return sekolah == null ? result : withIdentityFallback(result,
-				"sekolah:" + sekolah.getId(), sekolah.getNpsn(), sekolah.getNama());
+		String[] identity = loadSekolahIdentity(sekolah);
+		return withResolvedIdentity(result, "sekolah:" + (sekolah == null ? "-" : sekolah.getId()),
+				identity[0], identity[1], identity[2], identity[3]);
 	}
 
 	/**
-	 * Konfigurasi efektif transaksi toko. Override eksplisit tetap lebih tinggi,
-	 * sedangkan field identitas yang kosong memakai kode dan nama toko.
+	 * Konfigurasi efektif transaksi toko. Mitra berasal dari Yayasan sekolah dan
+	 * merchant berasal dari toko; konfigurasi identitas hanya menjadi fallback.
 	 */
 	public static Settings resolveSettings(Sekolah sekolah, KanalPembayaran kanal, Toko toko) {
 		if (toko == null) return resolveSettings(sekolah, kanal);
 		Settings result = resolveConfiguredSettings(sekolah, kanal);
-		return withIdentityFallback(result,
-				"toko:" + toko.getId(), toko.getKode(), toko.getNama());
+		String[] yayasan = loadSekolahIdentity(sekolah);
+		String[] merchant = loadTokoIdentity(toko);
+		return withResolvedIdentity(result, "yayasan-sekolah|toko:" + toko.getId(),
+				yayasan[0], yayasan[1], merchant[0], merchant[1]);
+	}
+
+	/**
+	 * Konfigurasi efektif transaksi koperasi/kantin. Identitas mitra berasal dari
+	 * Yayasan pemilik Koperasi, sedangkan merchant berasal dari toko terverifikasi
+	 * atau dari Koperasi untuk topup yang tidak mempunyai konteks toko.
+	 */
+	public static Settings resolveSettings(CaraPembayaranKoperasi cara, Toko toko) {
+		KanalPembayaran kanal = cara == null ? null : cara.getKanalPembayaran();
+		Sekolah sekolah = kanal == null ? null : kanal.getSekolah();
+		Settings result = resolveConfiguredSettings(sekolah, kanal);
+		String[] identity = loadKoperasiIdentity(cara, toko);
+		return withResolvedIdentity(result, "koperasi:" + (cara == null ? "-" : cara.getId()),
+				identity[0], identity[1], identity[2], identity[3]);
 	}
 
 	/** Menentukan konfigurasi efektif dari relasi pemilik yang sudah dihidrasi. */
@@ -301,6 +328,8 @@ public final class OnlineBmtUtil {
 			result = resolveSettings(sekolah, kanal);
 		} else if (invoice.getMahasiswa() != null || invoice.getBiodataCalonMahasiswa() != null) {
 			result = resolvePerguruanTinggiSettings(invoice.getPt(), kanal);
+		} else if (invoice.getAnggotaKoperasi() != null && invoice.getCaraPembayaranKoperasi() != null) {
+			result = resolveSettings(invoice.getCaraPembayaranKoperasi(), null);
 		} else if (kanal != null) {
 			sekolah = kanal.getSekolah();
 			result = resolveSettings(sekolah, kanal);
@@ -321,31 +350,124 @@ public final class OnlineBmtUtil {
 		Settings result = globalSettings();
 		if (kanal != null) result = overlayChannel(result, kanal);
 		String[] identity = loadPerguruanTinggiIdentity(ptId);
-		return withIdentityFallback(result, "perguruan-tinggi:" + ptId, identity[0], identity[1]);
+		return withResolvedIdentity(result, "perguruan-tinggi:" + ptId,
+				identity[0], identity[1], identity[2], identity[3]);
 	}
 
 	private static String[] loadPerguruanTinggiIdentity(Long ptId) {
-		if (ptId == null) return new String[] { "", "" };
+		if (ptId == null) return emptyIdentity();
 		Session session = null;
 		try {
 			session = HibernateUtil.openSession();
 			PerguruanTinggi value = (PerguruanTinggi) session.get(PerguruanTinggi.class, ptId);
-			return value == null ? new String[] { "", "" }
-					: new String[] { clean(value.getKodePerguruanTinggi()), clean(value.getNama()) };
+			if (value == null) return emptyIdentity();
+			String kodeYayasan = clean(value.getKodeYayasan());
+			Yayasan yayasan = findYayasan(session, value.getPendaftar(), kodeYayasan);
+			String[] mitra = yayasanIdentity(yayasan);
+			return new String[] { inherit(mitra[0], kodeYayasan), mitra[1],
+					clean(value.getKodePerguruanTinggi()), clean(value.getNama()) };
 		} catch (Exception e) {
 			ErrorAuditUtil.record(e, "OnlineBmtUtil.loadPerguruanTinggiIdentity");
+			return emptyIdentity();
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	private static String[] loadSekolahIdentity(Sekolah sekolah) {
+		if (sekolah == null) return emptyIdentity();
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			Sekolah value = sekolah.getId() == null ? sekolah
+					: (Sekolah) session.get(Sekolah.class, sekolah.getId());
+			if (value == null) return emptyIdentity();
+			String[] mitra = yayasanIdentity(value.getYayasan());
+			return new String[] { mitra[0], mitra[1], clean(value.getNpsn()), clean(value.getNama()) };
+		} catch (Exception e) {
+			ErrorAuditUtil.record(e, "OnlineBmtUtil.loadSekolahIdentity");
+			return emptyIdentity();
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	private static String[] loadTokoIdentity(Toko toko) {
+		if (toko == null) return new String[] { "", "" };
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			Toko value = toko.getId() == null ? toko : (Toko) session.get(Toko.class, toko.getId());
+			return value == null ? new String[] { "", "" }
+					: new String[] { clean(value.getKode()), clean(value.getNama()) };
+		} catch (Exception e) {
+			ErrorAuditUtil.record(e, "OnlineBmtUtil.loadTokoIdentity");
 			return new String[] { "", "" };
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 
-	/** Mengisi hanya identitas yang belum ditentukan oleh konfigurasi eksplisit. */
-	private static Settings withIdentityFallback(Settings value, String source, String code, String name) {
+	private static String[] loadKoperasiIdentity(CaraPembayaranKoperasi cara, Toko toko) {
+		if (cara == null) return emptyIdentity();
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			CaraPembayaranKoperasi value = cara.getId() == null ? cara
+					: (CaraPembayaranKoperasi) session.get(CaraPembayaranKoperasi.class, cara.getId());
+			if (value == null) return emptyIdentity();
+			Koperasi koperasi = value.getKoperasi();
+			String[] mitra = yayasanIdentity(koperasi == null ? null : koperasi.getYayasan());
+			if (mitra[0].length() == 0 && value.getKanalPembayaran() != null) {
+				String[] sekolahIdentity = loadSekolahIdentity(value.getKanalPembayaran().getSekolah());
+				mitra[0] = sekolahIdentity[0];
+				mitra[1] = sekolahIdentity[1];
+			}
+			String[] merchant = loadTokoIdentity(toko);
+			if (merchant[0].length() == 0 && koperasi != null) {
+				merchant[0] = clean(koperasi.getKode());
+				merchant[1] = clean(koperasi.getNama());
+			}
+			return new String[] { mitra[0], mitra[1], merchant[0], merchant[1] };
+		} catch (Exception e) {
+			ErrorAuditUtil.record(e, "OnlineBmtUtil.loadKoperasiIdentity");
+			return emptyIdentity();
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static Yayasan findYayasan(Session session, Pendaftar pendaftar, String kodeYayasan) {
+		if (session == null) return null;
+		if (pendaftar != null && pendaftar.getId() != null) {
+			Yayasan value = (Yayasan) session.createCriteria(Yayasan.class)
+					.add(Restrictions.eq("pendaftar", pendaftar)).setMaxResults(1).uniqueResult();
+			if (value != null) return value;
+		}
+		if (clean(kodeYayasan).length() == 0) return null;
+		return (Yayasan) session.createCriteria(Yayasan.class).createAlias("pendaftar", "pendaftar")
+				.add(Restrictions.eq("pendaftar.kode", clean(kodeYayasan)))
+				.setMaxResults(1).uniqueResult();
+	}
+
+	private static String[] yayasanIdentity(Yayasan yayasan) {
+		if (yayasan == null) return new String[] { "", "" };
+		Pendaftar pendaftar = yayasan.getPendaftar();
+		return new String[] { pendaftar == null ? "" : clean(pendaftar.getKode()), clean(yayasan.getNama()) };
+	}
+
+	private static String[] emptyIdentity() {
+		return new String[] { "", "", "", "" };
+	}
+
+	/** Master data menjadi sumber utama; konfigurasi eksplisit hanya fallback. */
+	private static Settings withResolvedIdentity(Settings value, String source, String kodeMitra,
+			String namaMitra, String kodeMerchant, String namaMerchant) {
 		if (value == null) return null;
 		return new Settings(value.source + "|" + source, value.prefixInvoice, value.administrationFee,
-				inherit(value.kodeMitra, code), inherit(value.namaMitra, name),
-				inherit(value.kodeMerchant, code), inherit(value.namaMerchant, name),
+				inherit(kodeMitra, value.kodeMitra), inherit(namaMitra, value.namaMitra),
+				inherit(kodeMerchant, value.kodeMerchant), inherit(namaMerchant, value.namaMerchant),
 				value.apiKey, value.encryptionKey, value.hmacKey, value.requestTimeTolerance,
 				value.securityOverrideValid);
 	}
@@ -479,6 +601,11 @@ public final class OnlineBmtUtil {
 	public static void prepareInvoice(VirtualAccountBank invoice, Sekolah sekolah,
 			KanalPembayaran kanal, Toko toko) {
 		prepareInvoice(invoice, resolveSettings(sekolah, kanal, toko));
+	}
+
+	/** Menyiapkan invoice koperasi/kantin dengan sumber Yayasan dan merchant terpisah. */
+	public static void prepareInvoice(VirtualAccountBank invoice, CaraPembayaranKoperasi cara, Toko toko) {
+		prepareInvoice(invoice, resolveSettings(cara, toko));
 	}
 
 	private static void prepareInvoice(VirtualAccountBank invoice, Settings settings) {

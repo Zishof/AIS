@@ -37,10 +37,10 @@ Konfigurasi lengkap yang perlu diperiksa sebelum aktivasi:
 | `sekolah.kanal_pembayaran.aktfkan_pembayaran_via_online_bmt` | `false` | Gerbang per kanal sekolah/koperasi. |
 | `online_bmt_prefix_invoice` | `BMT` | Prefix nomor invoice lokal, dibersihkan menjadi maksimal delapan karakter alfanumerik. |
 | `online_bmt_biaya_administrasi` | `0.0` | Biaya admin yang menjadi bagian nominal inquiry dan payment. |
-| `online_bmt_kode_mitra` | kosong | `KD_MITRA_BMT` pada inquiry. |
-| `online_bmt_nama_mitra` | kosong | `NM_MITRA_BMT` pada inquiry. |
-| `online_bmt_kode_merchant` | kosong | `KD_MERCHANT` pada inquiry. |
-| `online_bmt_nama_merchant` | kosong | `NM_MERCHANT` pada inquiry. |
+| `online_bmt_kode_mitra` | kosong | Fallback `KD_MITRA_BMT` jika kode Yayasan pada master belum tersedia. |
+| `online_bmt_nama_mitra` | kosong | Fallback `NM_MITRA_BMT` jika nama Yayasan pada master belum tersedia. |
+| `online_bmt_kode_merchant` | kosong | Fallback `KD_MERCHANT` jika kode PT/sekolah/toko pemilik transaksi belum tersedia. |
+| `online_bmt_nama_merchant` | kosong | Fallback `NM_MERCHANT` jika nama PT/sekolah/toko pemilik transaksi belum tersedia. |
 | `online_bmt_api_key` | kosong | Autentikasi envelope dari BMT. |
 | `online_bmt_encryption_key` | kosong | Material pembentuk key AES-256. |
 | `online_bmt_hmac_key` | kosong | Material pembentuk key HMAC-SHA256. |
@@ -51,7 +51,22 @@ Konfigurasi lengkap yang perlu diperiksa sebelum aktivasi:
 
 Sepuluh nilai operasional di atas juga tersedia sebagai kolom nullable pada `sekolah.sekolah` dan `sekolah.kanal_pembayaran`: `online_bmt_prefix_invoice`, `online_bmt_biaya_administrasi`, `online_bmt_kode_mitra`, `online_bmt_nama_mitra`, `online_bmt_kode_merchant`, `online_bmt_nama_merchant`, `online_bmt_api_key`, `online_bmt_encryption_key`, `online_bmt_hmac_key`, dan `online_bmt_request_time_tolerance`. Kolom yang sama ditambahkan pada tabel audit Envers. Seluruh `ALTER TABLE` dijalankan saat startup melalui native SQL pada Hibernate `Session` dan transaksi Hibernate, bukan melalui skrip JDBC lepas. DDL menggunakan `ADD COLUMN IF NOT EXISTS`, sehingga deployment ulang tidak menghapus atau menimpa nilai yang sudah ada.
 
-Urutan resolusi selalu **Kanal Pembayaran, kemudian Sekolah, kemudian global**. Contohnya, kanal A dapat mempunyai prefix dan biaya admin sendiri, tetapi tetap mewarisi identitas merchant dan credential dari sekolah. Sekolah dapat mempunyai identitas merchant sendiri, tetapi mewarisi toleransi timestamp global. Bila kanal tidak terhubung ke sekolah, seperti sebagian cara pembayaran koperasi, parent kanal langsung menjadi konfigurasi global. Konfigurasi perguruan tinggi tetap memakai global karena model PT hanya memiliki sakelar per tenant dan tidak mempunyai kumpulan credential sendiri.
+Urutan resolusi konfigurasi eksplisit selalu **Kanal Pembayaran, kemudian Sekolah, kemudian global**. Untuk empat field identitas, master data menjadi sumber utama dan nilai konfigurasi hanya dipakai sebagai fallback bila master belum lengkap. Prefix, biaya admin, credential, dan toleransi tetap mengikuti urutan pewarisan konfigurasi tersebut. Bila kanal tidak terhubung ke sekolah, resolver transaksi koperasi menelusuri Yayasan melalui `CaraPembayaranKoperasi.koperasi`.
+
+### Identitas mitra dan merchant otomatis
+
+Empat field inquiry mengikuti konteks bisnis yang disepakati dengan BMT:
+
+| Jenis transaksi | `KD_MITRA_BMT` | `NM_MITRA_BMT` | `KD_MERCHANT` | `NM_MERCHANT` |
+| --- | --- | --- | --- | --- |
+| Mahasiswa/calon mahasiswa | Kode Yayasan pemilik PT | Nama Yayasan pemilik PT | `PerguruanTinggi.kodePerguruanTinggi` | `PerguruanTinggi.nama` |
+| Siswa/calon siswa | Kode Yayasan sekolah | Nama Yayasan sekolah | `Sekolah.npsn` | `Sekolah.nama` |
+| Toko/kantin/pedagang | Kode Yayasan pemilik Koperasi | Nama Yayasan pemilik Koperasi | `Toko.kode` | `Toko.nama` |
+| Topup anggota tanpa konteks toko | Kode Yayasan pemilik Koperasi | Nama Yayasan pemilik Koperasi | `Koperasi.kode` | `Koperasi.nama` |
+
+Kode Yayasan berasal dari kode `Pendaftar` yang terhubung ke master Yayasan. Untuk invoice PT, resolver mencocokkan `PerguruanTinggi.kodeYayasan` ke master Yayasan agar nama badan hukum tidak keliru diisi nama kampus. Nilai konfigurasi hanya menjadi fallback ketika master terkait kosong. Untuk transaksi toko, objek toko wajib berasal dari sesi POS yang telah diverifikasi server. `toko_id` dari payload publik tidak langsung dipercaya sebagai identitas merchant karena manipulasi id dapat mengarahkan invoice ke merchant lain.
+
+Saat invoice baru diterbitkan, empat identitas efektif dan sumbernya disimpan sebagai snapshot non-rahasia dalam `VirtualAccountBank.request`. Callback memakai snapshot tersebut agar perubahan kode/nama master setelah invoice dibuat tidak mengubah identitas invoice lama. Invoice lama yang belum memiliki snapshot tetap kompatibel: callback menghitung fallback dari relasi pemilik. API key, encryption key, dan HMAC key tidak pernah disalin ke snapshot.
 
 Arti nilai kosong harus dipertahankan ketika memelihara kode:
 
@@ -68,17 +83,17 @@ Tiga secret adalah **satu paket atomik**, bukan tiga field yang diwariskan secar
 
 Form `SekolahAction` menampilkan override sekolah pada tab Data Payment Gateway. Form `KanalPembayaranAction` menampilkan override kanal pada bagian Online BMT. Label “kosong = ikut ...” adalah perilaku domain, bukan sekadar petunjuk layar. Saat menyimpan, prefix wajib terdiri dari satu sampai delapan huruf/angka, biaya admin tidak boleh negatif, toleransi harus berupa bilangan bulat 30-3600, dan paket credential harus lengkap atau seluruhnya kosong. Sakelar sekolah dan kanal tetap default OFF meskipun konfigurasi parent lengkap.
 
-Resolver bersama berada di `OnlineBmtUtil`. Pembuatan invoice siswa, top-up siswa, koperasi, dan kantin memakai resolver yang sama untuk prefix dan biaya administrasi. Nilai biaya efektif disimpan pada `VirtualAccountBank`, sehingga nominal yang dilihat pengguna, hasil inquiry, dan validasi payment memakai angka identik. Jangan menghitung ulang biaya admin di callback dari konfigurasi terbaru: perubahan konfigurasi setelah invoice dibuat tidak boleh mengubah nominal invoice lama. Identitas merchant, credential, dan toleransi adalah kebijakan callback saat ini dan karena itu di-resolve ulang ketika callback diterima.
+Resolver bersama berada di `OnlineBmtUtil`. Pembuatan invoice siswa, top-up siswa, koperasi, dan kantin memakai resolver yang sama untuk prefix dan biaya administrasi. Nilai biaya efektif disimpan pada `VirtualAccountBank`, sehingga nominal yang dilihat pengguna, hasil inquiry, dan validasi payment memakai angka identik. Jangan menghitung ulang biaya admin di callback dari konfigurasi terbaru: perubahan konfigurasi setelah invoice dibuat tidak boleh mengubah nominal invoice lama. Identitas memakai snapshot invoice bila tersedia, sedangkan credential dan toleransi tetap di-resolve ulang ketika callback diterima agar penonaktifan atau rotasi keamanan berlaku segera.
 
-Status **aktif** dan **siap transaksi** dibedakan. Aktif berarti sakelar global serta tenant telah ON; siap transaksi berarti tiga credential dan empat identitas mitra/merchant pada konfigurasi efektif juga lengkap. UI, action, serta API pembuat invoice hanya menawarkan Online BMT ketika statusnya siap transaksi. `prepareInvoice` melakukan pemeriksaan terakhir agar jalur yang terlewat tidak dapat menerbitkan invoice yang nantinya selalu ditolak saat inquiry. Callback tetap membedakan kegagalan sakelar dari konfigurasi tidak lengkap dan menyebut nama field yang belum tersedia tanpa pernah menampilkan nilai secret.
+Status **aktif** dan **siap transaksi** dibedakan. Aktif berarti sakelar global serta tenant telah ON; siap transaksi berarti tiga credential lengkap dan empat identitas dapat dihasilkan dari override atau master pemilik. UI, action, serta API pembuat invoice hanya menawarkan Online BMT ketika statusnya siap transaksi. `prepareInvoice` melakukan pemeriksaan terakhir agar jalur yang terlewat tidak dapat menerbitkan invoice yang nantinya selalu ditolak saat inquiry. Callback tetap membedakan kegagalan sakelar dari konfigurasi tidak lengkap dan menyebut nama field yang belum tersedia tanpa pernah menampilkan nilai secret.
 
-Khusus invoice mahasiswa, calon mahasiswa, dan perguruan tinggi, konfigurasi efektif berasal dari konfigurasi **global**; sakelar `aktifkan_pembayaran_via_online_bmt_pt_<ID_PT>` hanya menjadi gerbang ON/OFF tenant. Nilai pada `Sekolah` atau `KanalPembayaran` tidak menjadi fallback ke arah invoice mahasiswa. Override Sekolah/Kanal hanya berlaku bagi invoice yang memang memiliki relasi siswa, calon siswa, sekolah, atau kanal tersebut. Karena itu pengujian invoice mahasiswa wajib mengisi `online_bmt_kode_mitra`, `online_bmt_nama_mitra`, `online_bmt_kode_merchant`, dan `online_bmt_nama_merchant` pada Pengaturan Konfigurasi global.
+Khusus invoice mahasiswa dan calon mahasiswa, sakelar `aktifkan_pembayaran_via_online_bmt_pt_<ID_PT>` menjadi gerbang ON/OFF tenant dan credential dasarnya berasal dari global. Identitas mitra berasal dari Yayasan, sedangkan identitas merchant berasal dari PT pemilik invoice. Karena itu SIT mahasiswa tidak mewajibkan empat field identitas global selama kode/nama Yayasan dan kode/nama PT pada master terisi.
 
 Pemilihan credential callback berlangsung dua tahap karena isi `NO_INVOICE` berada di dalam `DATA` terenkripsi. Pertama, `API_KEY` pada envelope luar dipakai untuk mencari kandidat profil global, sekolah, atau kanal melalui Hibernate. Servlet mencoba memverifikasi HMAC dan membuka payload hanya dengan kandidat yang lengkap. Kedua, setelah `NO_INVOICE` diketahui dan invoice ditemukan, sistem menentukan sekolah serta kanal pemilik invoice, menghitung konfigurasi efektifnya, lalu mencocokkan **API key, encryption key, dan HMAC key sekaligus** dengan kandidat yang membuka payload. Request baru diterima jika kedua tahap cocok. Akibatnya credential sekolah A tidak dapat dipakai untuk membaca atau membayar invoice sekolah B, sekalipun nomor invoice B diketahui. Respons sukses dienkripsi kembali menggunakan profil efektif pemilik invoice yang sama.
 
 Relasi `siswa`, `calonSiswa`, `anggotaKoperasi`, `kanalPembayaran`, dan sekolah di bawahnya dihidrasi sebelum session pencarian `VirtualAccountBank` ditutup. Langkah ini bukan optimasi tampilan. Tanpa hidrasi tersebut, resolver callback dapat menemui proxy detached, kehilangan informasi tenant, lalu secara keliru jatuh ke konfigurasi global. Setiap refactor lookup invoice wajib mempertahankan kontrak hidrasi ini.
 
-Empat identitas mitra/merchant diwajibkan bersama-sama. `INQUIRY` ditolak dengan kode `503` bila salah satunya kosong. Keputusan fail-closed ini mencegah respons yang secara teknis sukses tetapi tidak dapat dipetakan oleh BMT. Konfigurasi secret juga diwajibkan sebelum payload diproses. Jangan mengaktifkan sakelar global terlebih dahulu sambil membiarkan konfigurasi lain kosong, karena hasil yang diharapkan pada kondisi tersebut memang penolakan layanan.
+Empat identitas mitra/merchant diwajibkan bersama-sama. `INQUIRY` ditolak dengan kode `503` bila setelah override dan fallback master masih ada nilai kosong. Keputusan fail-closed ini mencegah respons yang secara teknis sukses tetapi tidak dapat dipetakan oleh BMT. Konfigurasi tiga secret tetap diwajibkan sebelum payload diproses. Respons `503` tentang identitas berarti kode/nama master pemilik belum lengkap atau invoice tidak mempunyai relasi pemilik yang deterministik; bukan kegagalan AES/HMAC dan bukan invoice tidak ditemukan.
 
 Matriks aktivasi efektif:
 
@@ -93,7 +108,7 @@ Sakelar diperiksa saat daftar metode dibentuk, saat tombol ditampilkan, saat inv
 
 ## Penerbitan invoice
 
-Semua generator menerima marker parameter `online_bmt=true`. Marker ini ditangani oleh `OnlineBmtUtil.prepareInvoice`. Method tersebut membuat nomor lokal berawalan prefix yang telah dibersihkan menjadi huruf/angka, menetapkan bank `Online BMT`, channel `ONLINE_BMT`, mengosongkan link, serta menyimpan metadata audit tanpa secret. Generator tetap menghitung total, biaya administrasi, daftar cicilan, item biaya, pemilik, semester, tahun akademik, dan waktu kedaluwarsa dengan algoritma yang sama seperti bank online lain.
+Semua generator menerima marker parameter `online_bmt=true`. Marker ini ditangani oleh `OnlineBmtUtil.prepareInvoice`. Method tersebut membuat nomor lokal berawalan prefix yang telah dibersihkan menjadi huruf/angka, menetapkan bank `Online BMT`, channel `ONLINE_BMT`, mengosongkan link, serta menyimpan metadata audit dan snapshot identitas tanpa secret. Generator tetap menghitung total, biaya administrasi, daftar cicilan, item biaya, pemilik, semester, tahun akademik, dan waktu kedaluwarsa dengan algoritma yang sama seperti bank online lain.
 
 Keterangan invoice menyertakan marker `online_bmt:true`. Marker menjadi bagian dari kunci pencarian invoice aktif, sehingga permintaan Online BMT tidak menggunakan ulang invoice Smartlink atau bank online generik yang kebetulan memiliki rincian tagihan sama. Sebaliknya, menekan tombol Online BMT berulang untuk rincian sama dapat menggunakan kembali invoice BMT yang masih aktif, mencegah banyak nomor pembayaran yang tidak perlu.
 
@@ -248,7 +263,7 @@ Urutan rollout yang disarankan:
 
 1. Deploy aplikasi yang memuat servlet, kolom sakelar, tabel nonce, dan ledger. Jangan aktifkan kanal.
 2. Pastikan startup berhasil membuat `online_bmt_nonce` dan `online_bmt_request_guard` beserta index transaksi/invoice.
-3. Untuk SIT, masukkan credential sample yang disetujui BMT ke konfigurasi server SIT; jangan masukkan ke source/default. Isi pula identitas mitra/merchant yang disepakati. Sebelum UAT/produksi, rotasi menjadi credential lingkungan tujuan.
+3. Untuk SIT, masukkan credential sample yang disetujui BMT ke konfigurasi server SIT; jangan masukkan ke source/default. Pastikan kode/nama Yayasan serta kode/nama PT, NPSN/nama sekolah, atau kode/nama toko yang diuji telah terisi. Empat field identitas konfigurasi hanya menjadi fallback bila master belum lengkap. Sebelum UAT/produksi, rotasi credential menjadi nilai lingkungan tujuan.
 4. Sinkronkan jam server eCampus dan BMT melalui NTP; selisih lebih dari toleransi akan ditolak.
 5. Daftarkan callback `https://ecampus.staialbahjah.ac.id/albahjah/OnlineBmt` pada BMT.
 6. Verifikasi dengan test vector bahwa response `DATA` dapat didekripsi BMT. Enkripsi response bersifat wajib dan tidak memiliki sakelar OFF.

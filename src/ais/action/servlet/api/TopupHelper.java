@@ -1167,17 +1167,13 @@ public class TopupHelper {
 
 			List<String> warnings = new ArrayList<String>();
 			boolean onlineBmt = bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME);
-			if (onlineBmt && !(tokoTarget == null
-					? OnlineBmtUtil.isChannelReady(caraPembayaranKoperasi.getKanalPembayaran())
-					: OnlineBmtUtil.isChannelReady(caraPembayaranKoperasi.getKanalPembayaran(), tokoTarget))) {
+			if (onlineBmt && !OnlineBmtUtil.isChannelReady(caraPembayaranKoperasi, tokoTarget)) {
 				jsonObject.put("status", "03");
 				jsonObject.put("description", "Kanal Online BMT belum aktif atau konfigurasinya belum lengkap");
 				return jsonObject;
 			}
 			double biayaAdministrasi = onlineBmt
-					? OnlineBmtUtil.resolveSettings(caraPembayaranKoperasi.getKanalPembayaran() == null ? null
-							: caraPembayaranKoperasi.getKanalPembayaran().getSekolah(),
-							caraPembayaranKoperasi.getKanalPembayaran(), tokoTarget).getAdministrationFee()
+					? OnlineBmtUtil.resolveSettings(caraPembayaranKoperasi, tokoTarget).getAdministrationFee()
 					: caraPembayaranKoperasi.getKanalPembayaran() == null
 					|| caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink() == null ? 0.0
 							: caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink().doubleValue();
