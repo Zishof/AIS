@@ -3172,7 +3172,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 					"Semester " + smt, semesterCocok, sudahGagal);
 
 			Jurusan jurusan = jurusanCalonUntukAnalisis();
-			Object jenjang = jurusan == null ? calonMahasiswa.getJenjang() : jurusan.getJenjang();
+			Jenjang jenjang = jurusan == null ? calonMahasiswa.getJenjang() : jurusan.getJenjang();
 			sudahGagal = tambahTahapTagihanBaru(sessionAnalisis, filter, tahap, "Angkatan",
 					String.valueOf(calonMahasiswa.getTahun()), kriteriaWildcardBaru("angkatan", calonMahasiswa.getTahun()), sudahGagal);
 			sudahGagal = tambahTahapTagihanBaru(sessionAnalisis, filter, tahap, "Jenjang",
@@ -3453,7 +3453,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		tahap.add(new TahapAnalisisDetailBaru("Jenis seleksi template", namaObjekAnalisisBaru(calonMahasiswa.getJenisSeleksi()),
 				kriteriaCabangKhususBaru(settingKhusus, kriteriaTepatDetailBaru("jenisSeleksi", calonMahasiswa.getJenisSeleksi())), false));
 		Jurusan jurusan = jurusanCalonUntukAnalisis();
-		Object jenjang = jurusan == null ? calonMahasiswa.getJenjang() : jurusan.getJenjang();
+		Jenjang jenjang = jurusan == null ? calonMahasiswa.getJenjang() : jurusan.getJenjang();
 		tahap.add(new TahapAnalisisDetailBaru("Jenjang template", namaObjekAnalisisBaru(jenjang),
 				kriteriaCabangKhususBaru(settingKhusus,
 						PembayaranUtilHelper.kriteriaJenjangDetailBiaya(jenjang)), false));
