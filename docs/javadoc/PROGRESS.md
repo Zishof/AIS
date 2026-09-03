@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 82 — SELESAI 100% (4 Sep 2026) — 4 task baru; TEMUAN SANGAT SIGNIFIKAN: `task_9f520b16` — spoofing atribut sesi `currentMenu` via parameter URL meruntuhkan granularitas RBAC PER-MENU SELURUH SISTEM (bukan cuma payroll); KONFIRMASI LANJUTAN `task_e68c78f1` diperbaiki (r83966) dari sisi kedua (`TransaksiPegawai`)
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/payroll/TransaksiPegawai.java`** (r84041) —
+  280→960 baris, 100%. Bukan "pinjaman" — satu baris ANGSURAN
+  transaksi pegawai non-gaji. **KONFIRMASI LANJUTAN `task_e68c78f1`**
+  dari sisi kedua (r83966, `svn blame` mengonfirmasi). Temuan arah
+  kerusakan historis TERBALIK dari dugaan: bukan "jurnal transaksi
+  pegawai hilang", melainkan "slip gaji yang diposting SETELAH
+  transaksi pegawai gagal terjurnal diam-diam sambil tampak sudah
+  diposting". **2 task baru**: `task_f2f37db5` (hapus-tanpa-syarat +
+  bangkitkan-ulang menghancurkan jurnal yang sudah diposting DAN
+  pelunasan gaji terbayar, dipicu satu klik cabut centang "Setujui"),
+  `task_7415492c` (bug multi-tahun AND-bukan-jendela-periode membuat
+  potongan gaji membesar tiap tahun).
+- **`ais/database/model/payroll/ItemGajiPegawai.java`** (r84043) —
+  323→1195 baris, 100%. Mekanisme `ikutiItemGaji` diverifikasi tuntas
+  — tabel CERMIN (bukan override), mayoritas baris fisik kosong.
+  **🚨 Task baru `task_9f520b16` — TEMUAN SANGAT SIGNIFIKAN, DIVERIFIKASI
+  LANGSUNG dari kode**: atribut sesi `currentMenu` (dasar SELURUH
+  evaluasi hak `CommonPrivilages` di seluruh sistem) ditanam dari
+  PARAMETER URL MENTAH (`DisplayMenu.process()`/`baru/index.jsp`)
+  TANPA verifikasi bahwa menu itu milik peran pengguna — hak
+  tertinggi yang dipegang peran pada MENU MANAPUN berlaku di SETIAP
+  layar. Ini BUKAN varian pola "pewarisan hak menu induk" yang sudah
+  dilacak (itu soal desain tab) — ini primitif SPOOFING AKTIF yang
+  meruntuhkan granularitas RBAC per-menu untuk SELURUH APLIKASI,
+  bukan spesifik payroll.
+- **`ais/database/model/payroll/FormatItemGaji.java`** (r84042) —
+  177→713 baris, 100%. Entity jangkar tenant tunggal seluruh rantai
+  penggajian — TERKONFIRMASI. Verifikasi NEGATIF menenangkan (jarang
+  di domain ini): `satuanKerja` ADA di whitelist `scopeBindings()`
+  (Generic CRUD v2 tersaring benar), gerbang ZK CRUD lengkap dan
+  benar. **Task baru `task_1f6d1e7b`**: permukaan KETIGA
+  (`DynamicJspCrudGenerator` generic) — kolom tenant `satuanKerja`
+  TAMPIL SEBAGAI ISIAN YANG BISA DIUBAH di form otomatis + nol filter
+  tenant di listing (agent dengan baik menarik task duplikat setelah
+  menemukan `task_9f520b16` sudah mencakup separuh mekanisme).
+- **`ais/database/model/payroll/RencanaGajiPunyaPegawai.java`**
+  (r84039) — 260→888 baris, 100%. **KONFIRMASI + PERLUASAN
+  `task_11fcffa9`** (bukan task baru) dengan 5 detail baru: gerbang
+  ada di layar induk TAPI TIDAK DITERUSKAN ke Action anak per baris;
+  hapus massal SQL mentah melewati Envers (nol jejak audit); "Hitung
+  Ulang" merusak LINTAS TENANT (nol filter); kebocoran session
+  (thread mentah tanpa `finally` penutup).
+- **`ais/database/model/payroll/CaraPembayaranGaji.java`** (r84040)
+  — 197→740 baris, 100%. **Mekanisme baru ditemukan** (perluasan
+  `task_c9d4d09f`, bukan task baru): `applyScope()` vs
+  `validateObjectScope()` Generic CRUD v2 membaca SUMBU TENANT
+  BERBEDA (kolom SQL tersimpan vs nilai getter yang bisa ditimpa field
+  lain) — dokumen gaji tenant A bisa di-UPDATE oleh pengguna tenant B
+  via id langsung, asalkan `caraPembayaranGaji` dokumen menunjuk baris
+  katalog milik B. Bukan sekadar TOCTOU — nilai yang diperiksa
+  DIKENDALIKAN lewat field lain.
+
+**4 task baru batch ini** (semua dibuat agent sendiri):
+`task_f2f37db5`, `task_7415492c`, `task_9f520b16` (paling signifikan
+— dampak SELURUH SISTEM, bukan spesifik payroll), `task_1f6d1e7b`.
+Domain `payroll` tetap sangat produktif temuan (batch kedua
+berturut-turut dengan banyak task baru).
+
 ## Batch 81 — SELESAI 100% (3 Sep 2026) — PIVOT DOMAIN BARU: `payroll` (penggajian pegawai), setelah `akunting` tuntas; 5 task baru sekaligus (batch terbanyak); KONFIRMASI `task_e68c78f1` (kunci jurnal bertabrakan) sudah diperbaiki sebagian (r83966); temuan PII gaji per komponen bocor lintas tenant
 
 Sesi ini beralih ke domain baru setelah paket `akunting` TUNTAS di
