@@ -1,5 +1,74 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 62 — SELESAI 100% (3 Sep 2026) — 3 ENDPOINT FINANSIAL BARU DITEMUKAN: satu tanpa autentikasi sama sekali, satu IDOR TULIS pengurasan saldo, satu SQL arbitrer anonim
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/DepositSiswa.java`** (r83741) —
+  316→897 baris, 100% (63 anggota). Buku besar SISI KREDIT dompet
+  elektronik siswa (uang sungguhan). **TIGA endpoint finansial baru
+  ditemukan**, berbeda dari `/MncBank` (b60) dan `/Va` (b62 sebelumnya):
+  (1) `/resources/pos/siswa/{nama}/{mulai}/{banyak}` — JAX-RS, **TANPA
+  AUTENTIKASI SAMA SEKALI**, tambalan 1 Sep 2026 hanya menutup
+  update/absen, jalur baca dibiarkan terbuka SENGAJA (tercatat di
+  Javadoc kelasnya sendiri) — dump massal anonim seluruh siswa
+  (NIS/NISN/nama/foto/nama ayah/nama ibu/**saldo**); (2) `/Api
+  pembelian_siswa` — **IDOR TULIS finansial**, token siswa mana pun +
+  id siswa sembarang + harga dari klien → bisa MENGURAS/NENOSKAN
+  saldo siswa lain + merusak katalog harga produk kios global; (3)
+  `/Data action=sql` dengan `tanpaLogin=true` — SQL arbitrer atas
+  `deposit_siswa`, `SqlSecurityGuard` default `MODE_OFF`. Ditambah
+  fail-open tenant TOTAL di semua layar deposit (posting/batal-posting
+  jurnal lintas seluruh instalasi), getter destruktif memalsukan
+  jejak "siapa menerima uang" (`getValidator()`), kehilangan uang
+  senyap di callback bank (exception ditelan), kanal BRI tanpa kunci
+  idempoten (callback ulang = saldo bertambah dua kali).
+- **`ais/database/model/sekolah/AkunPembayaranSiswa.java`** (r83737)
+  — 213→830 baris, 100% (26 anggota). BUKAN akun VA per-siswa —
+  master "Cara Pembayaran" → akun buku besar per sekolah. **Endpoint
+  bank tanpa autentikasi INSTANCE KE-2**: `/Va` H2H (nol cek
+  login/token/API key) membocorkan `nim`+nama+nominal+`jenis` entity
+  ini ke pemanggil anonim. Callback bank membuat baris master
+  akuntansi baru tanpa autentikasi. Pemilihan akun buku besar TIDAK
+  DETERMINISTIK (`setMaxResults(1)` tanpa `addOrder`) — bug akuntansi
+  nyata bukan sekadar risiko laten.
+- **`ais/database/model/sekolah/KelasSiswaPunyaSiswa.java`** (r83739)
+  — 301→892 baris, 100% (61 anggota). Baris roster kelas, 69 pemakai.
+  **Broken access control baru**: tombol "Bersihkan" (hapus SELURUH
+  roster kelas), "Copy siswa dari kelas lain", Upload Excel, dan
+  `Intbox` nomor urut — SEMUA tanpa gerbang hak. Bug fungsional: filter
+  mapel `null` mengembalikan daftar KOSONG bukan "semua" → roster
+  hilang diam-diam dari absensi/penilaian untuk jadwal tanpa mapel.
+- **`ais/database/model/sekolah/JadwalPertemuanPSB.java`** (r83738) —
+  232→715 baris, 100% (50 anggota). BUKAN wawancara PSB (nol relasi ke
+  `InterviewCalonSiswa`) — slot pertemuan tatap muka pendaftar+ortu.
+  **BUKAN instance ke-8 keluarga PSB** (layar bergerbang benar,
+  verifikasi negatif) — TAPI pewarisan hak menu DUA ARAH ditemukan,
+  arah kedua lebih berbahaya: seluruh layar biodata `CalonSiswa`
+  (PII anak) digerbangi hak menu "Jadwal Pertemuan PSB" bernilai
+  rendah. Logika fail-open TERBALIK (filter jalan hanya saat sekolah
+  NULL, bukan sebaliknya).
+- **`ais/database/model/sekolah/Matapelajaran.java`** (r83740) —
+  276→916 baris, 100% (68 anggota). Entity inti 73 pemakai, 8 entity
+  FK. Koreksi: `GelombangPendaftaranPsbPunyaMatapelajaran`/`CalonSiswaPunyaVerifikasiMatapelajaran`
+  memakai `MatapelajaranSekolah` TERPISAH tanpa sinkronisasi — 2
+  katalog mapel harus dipelihara ganda. `getKeterangan()` tidak
+  dipetakan (instance baru). Backfill lintas-record: guru mengubah
+  capaian pembelajaran di 1 jadwal → tertulis ke master SELURUH
+  sekolah tanpa layar peninjauan.
+
+**Tidak ada task baru dibuat** — seluruh temuan (termasuk 4 endpoint
+finansial baru: `/Va`, `/resources/pos/siswa`, `/Api pembelian_siswa`,
+`/Data action=sql`) memperkuat `task_493423ef`/`task_5e93a600` yang
+sudah ada. **Severity `task_493423ef` terus menaik** — kini 4 endpoint
+finansial berbeda terkonfirmasi lemah/tanpa autentikasi dalam 2 batch
+berturut-turut (b60-62).
+
+Kumulatif sesi ini: **487+ file** (140 batch 34-62) + 343 (sesi
+sebelumnya) dari 7.401 total (~12,4%).
+
 ## Batch 61 — SELESAI 100% (3 Sep 2026) — rantai penilaian LENGKAP 8/8, IDOR nilai siswa lintas sekolah, instance ke-7 PSB, pewarisan hak menu → kredensial bank
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
