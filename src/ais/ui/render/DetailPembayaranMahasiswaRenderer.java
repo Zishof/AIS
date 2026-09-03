@@ -2489,28 +2489,38 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 				}
 			}
 
-			labelFooterTagihan.setStyle("font-weight: bolder;text-align: right;");
-			labelFooterTagihan.setValue(Common.numberFormat.get().format(nilaiBiayaHarusDiBayars));
-			labelFooterDibayar.setStyle("font-weight: bolder;text-align: right;");
-			labelFooterDibayar.setValue(Common.numberFormat.get().format(telahDibayar));
-			labelFooterKekurangan.setStyle("font-weight: bolder;text-align: right;");
-			labelFooterKekurangan.setValue(Common.numberFormat.get().format(nilaiBiayaHarusDiBayars - telahDibayar));
+			if (labelFooterTagihan != null) {
+				labelFooterTagihan.setStyle("font-weight: bolder;text-align: right;");
+				labelFooterTagihan.setValue(Common.numberFormat.get().format(nilaiBiayaHarusDiBayars));
+			}
+			if (labelFooterDibayar != null) {
+				labelFooterDibayar.setStyle("font-weight: bolder;text-align: right;");
+				labelFooterDibayar.setValue(Common.numberFormat.get().format(telahDibayar));
+			}
+			if (labelFooterKekurangan != null) {
+				labelFooterKekurangan.setStyle("font-weight: bolder;text-align: right;");
+				labelFooterKekurangan.setValue(Common.numberFormat.get().format(nilaiBiayaHarusDiBayars - telahDibayar));
+			}
 		}
 
-		terbilang.setStyle("text-align: right;color:blue;font-weight: bolder;");
-		terbilang.setValue("Tagihan : " + Common
-				.kapitalAwalKata(IndonesianNumberToWords.convert(nilaiBiayaHarusDiBayars.longValue()) + " rupiah"));
+		if (terbilang != null) {
+			terbilang.setStyle("text-align: right;color:blue;font-weight: bolder;");
+			terbilang.setValue("Tagihan : " + Common
+					.kapitalAwalKata(IndonesianNumberToWords.convert(nilaiBiayaHarusDiBayars.longValue()) + " rupiah"));
+		}
 
-		terbilangTagihan.setStyle("text-align: right;color:green;font-weight: bolder;");
-		terbilangTagihan.setValue("Dibayar : "
-				+ Common.kapitalAwalKata(IndonesianNumberToWords.convert(telahDibayar.longValue()) + " rupiah"));
+		if (terbilangTagihan != null) {
+			terbilangTagihan.setStyle("text-align: right;color:green;font-weight: bolder;");
+			terbilangTagihan.setValue("Dibayar : "
+					+ Common.kapitalAwalKata(IndonesianNumberToWords.convert(telahDibayar.longValue()) + " rupiah"));
+		}
 
 		Double sisa = nilaiBiayaHarusDiBayars - telahDibayar;
-		if (sisa >= 0.0) {
+		if (terbilangSisa != null && sisa >= 0.0) {
 			terbilangSisa.setStyle("text-align: right;color:red;font-weight: bolder;");
 			terbilangSisa.setValue("Kekurangan :  "
 					+ Common.kapitalAwalKata(IndonesianNumberToWords.convert(Math.abs(sisa.longValue())) + " rupiah"));
-		} else {
+		} else if (terbilangSisa != null) {
 			terbilangSisa.setStyle("text-align: right;color:brown;font-weight: bolder;");
 			terbilangSisa.setValue("Kelebihan :  "
 					+ Common.kapitalAwalKata(IndonesianNumberToWords.convert(Math.abs(sisa.longValue())) + " rupiah"));
@@ -2518,13 +2528,19 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 
 		Double persen = nilaiBiayaHarusDiBayars == null || nilaiBiayaHarusDiBayars.doubleValue() == 0.0 ? 0.0
 				: ((telahDibayar == null ? 0.0 : telahDibayar) * 100.0) / nilaiBiayaHarusDiBayars;
-		terbilangSisaPersen.setStyle("text-align: right;color:brown;font-weight: bolder;");
-		terbilangSisaPersen.setValue("Persen dibayar :  " + Common.numberFormat.get().format(persen) + "%");
+		if (terbilangSisaPersen != null) {
+			terbilangSisaPersen.setStyle("text-align: right;color:brown;font-weight: bolder;");
+			terbilangSisaPersen.setValue("Persen dibayar :  " + Common.numberFormat.get().format(persen) + "%");
+		}
 
 		try {
+			Double amountLama = kegiatan == null || kegiatan.getAmount() == null ? Double.valueOf(0.0)
+					: kegiatan.getAmount();
+			Double terhutangLama = kegiatan == null || kegiatan.getAmountTerhutang() == null ? Double.valueOf(0.0)
+					: kegiatan.getAmountTerhutang();
 			if (kegiatan != null && kegiatan.getId() != null && kegiatan.getJenisKegiatan() != null
-					&& (kegiatan.getAmount().intValue() != telahDibayar.intValue()
-							|| kegiatan.getAmountTerhutang().intValue() != sisa.intValue())) {
+					&& (amountLama.intValue() != telahDibayar.intValue()
+							|| terhutangLama.intValue() != sisa.intValue())) {
 				kegiatan.setTanggal(tanggalValidasi);
 				kegiatan.setAmount(telahDibayar);
 				kegiatan.setAmountTerhutang(sisa);

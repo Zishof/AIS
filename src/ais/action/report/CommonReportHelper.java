@@ -1406,6 +1406,57 @@ public class CommonReportHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static Map ambilDataUjianSkl(BiodataCalonMahasiswa calonMahasiswa, Konfigurasi konfigurasi) {
+		RuntimeException errorTerakhir = null;
+		for (int percobaan = 0; percobaan < 2; percobaan++) {
+			Session session = null;
+			try {
+				session = HibernateUtil.openSession();
+				Map ujianData = new HashMap();
+				Long ujianPMBId = (Long) session.createCriteria(RuangPaketPMB.class)
+						.createAlias("ruangPMB", "ruangPMB").createAlias("ruangPMB.ujianPMB", "ujianPMB")
+						.setProjection(Projections.property("ujianPMB.id"))
+						.add(Restrictions.eq("biodataCalonMahasiswa", calonMahasiswa)).addOrder(Order.asc("id"))
+						.setMaxResults(1).uniqueResult();
+				UjianPMB ujianPMB = ujianPMBId == null ? null : (UjianPMB) session.get(UjianPMB.class, ujianPMBId);
+				if (ujianPMB == null) {
+					ujianPMB = (UjianPMB) session.createCriteria(UjianPMB.class)
+							.add(Restrictions.eq("gelombangPendaftaran", calonMahasiswa.getGelombangPendaftaran()))
+							.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+				}
+				if (ujianPMB != null) {
+					ujianData.put("tanggalujian1", ujianPMB.getTanggalUjian1());
+					ujianData.put("tanggalujian2", ujianPMB.getTanggalUjian2());
+					ujianData.put("tanggalujian3", ujianPMB.getTanggalUjian3());
+					ujianData.put("tanggalujian4", ujianPMB.getTanggalUjian4());
+					ujianData.put("tanggalujian5", ujianPMB.getTanggalUjian5());
+					ujianData.put("tanggalujian6", ujianPMB.getTanggalUjian6());
+					ujianData.put("tanggalujian7", ujianPMB.getTanggalUjian7());
+					ujianData.put("tanggalujian8", ujianPMB.getTanggalUjian8());
+					ujianData.put("tanggalujian9", ujianPMB.getTanggalUjian9());
+					ujianData.put("tanggalujian10", ujianPMB.getTanggalUjian10());
+					ujianData.put("info", ujianPMB.getKeterangan());
+					ujianData.put("tampilkanjadwalujiandikartuujian", ujianPMB.getTampilkanJadwalUjianDiKartuUjian());
+					ujianData.put("lokasi", ujianPMB.getLokasi());
+				} else {
+					ujianData.put("lokasi", "Belum ditentukan");
+					ujianData.put("info", konfigurasi.getNilai());
+					ujianData.put("tampilkanjadwalujiandikartuujian", false);
+				}
+				return ujianData;
+			} catch (RuntimeException e) {
+				errorTerakhir = e;
+				if (!ais.common.Common.isTransientKoneksiError(e) || percobaan == 1) {
+					throw e;
+				}
+			} finally {
+				HibernateUtil.closeSessionQuietly(session);
+			}
+		}
+		throw errorTerakhir;
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Map genSklMap(BiodataCalonMahasiswa calonMahasiswa) {
 		Map parameters = ais.common.HashMapGenerator.getRandStringSerializable();
 		parameters.put("biodata_id", calonMahasiswa.getId());
@@ -1416,45 +1467,9 @@ public class CommonReportHelper {
 			parameters.put("currentLang", calonMahasiswa.getBahasa());
 		}
 		parameters.put("info", konfigurasi.getNilai());
-		Session session = HibernateUtil.getSessionFactory().openSession();
-		Map ujianData = new HashMap();
-		UjianPMB ujianPMB;
+		Map ujianData;
 		try {
-			Long ujianPMBId = (Long) session.createCriteria(RuangPaketPMB.class)
-					.createAlias("ruangPMB", "ruangPMB").createAlias("ruangPMB.ujianPMB", "ujianPMB")
-					.setProjection(Projections.property("ujianPMB.id"))
-					.add(Restrictions.eq("biodataCalonMahasiswa", calonMahasiswa)).addOrder(Order.asc("id"))
-					.setMaxResults(1).uniqueResult();
-			/*
-			 * Projection entity relasi dapat menghasilkan proxy yang pemilik session-nya
-			 * berbeda. Ambil id lalu muat ulang entity pada session lokal ini agar seluruh
-			 * getter jadwal aman diakses sebelum session ditutup.
-			 */
-			ujianPMB = ujianPMBId == null ? null : (UjianPMB) session.get(UjianPMB.class, ujianPMBId);
-			if (ujianPMB == null) {
-				ujianPMB = (UjianPMB) session.createCriteria(UjianPMB.class)
-						.add(Restrictions.eq("gelombangPendaftaran", calonMahasiswa.getGelombangPendaftaran()))
-						.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
-			}
-			if (ujianPMB != null) {
-				ujianData.put("tanggalujian1", ujianPMB.getTanggalUjian1());
-				ujianData.put("tanggalujian2", ujianPMB.getTanggalUjian2());
-				ujianData.put("tanggalujian3", ujianPMB.getTanggalUjian3());
-				ujianData.put("tanggalujian4", ujianPMB.getTanggalUjian4());
-				ujianData.put("tanggalujian5", ujianPMB.getTanggalUjian5());
-				ujianData.put("tanggalujian6", ujianPMB.getTanggalUjian6());
-				ujianData.put("tanggalujian7", ujianPMB.getTanggalUjian7());
-				ujianData.put("tanggalujian8", ujianPMB.getTanggalUjian8());
-				ujianData.put("tanggalujian9", ujianPMB.getTanggalUjian9());
-				ujianData.put("tanggalujian10", ujianPMB.getTanggalUjian10());
-				ujianData.put("info", ujianPMB.getKeterangan());
-				ujianData.put("tampilkanjadwalujiandikartuujian", ujianPMB.getTampilkanJadwalUjianDiKartuUjian());
-				ujianData.put("lokasi", ujianPMB.getLokasi());
-			} else {
-				ujianData.put("lokasi", "Belum ditentukan");
-				ujianData.put("info", konfigurasi.getNilai());
-				ujianData.put("tampilkanjadwalujiandikartuujian", false);
-			}
+			ujianData = ambilDataUjianSkl(calonMahasiswa, konfigurasi);
 		} catch (RuntimeException e) {
 			// Koneksi/statement DB terputus di tengah proses cetak (mis. pool c3p0 mengembalikan
 			// koneksi basi setelah proses ini berjalan lama) -> pesan jelas utk admin, bukan cuma
@@ -1469,19 +1484,14 @@ public class CommonReportHelper {
 						e);
 			}
 			throw e;
-		} finally {
-			if (session != null && session.isOpen()) {
-				try { session.clear(); } catch (Exception e) { }
-				try { session.disconnect(); } catch (Exception e) { }
-				try { session.close(); } catch (Exception e) { }
-			}
 		}
 		parameters.putAll(ujianData);
 
 		calonMahasiswa.putPhoto(parameters);
 
+		Session session = null;
 		try {
-			session = HibernateUtil.getSessionFactory().openSession();
+			session = HibernateUtil.openSession();
 			ArrayList detailBiayas = new ArrayList();
 			PembayaranUtil.getInstance();
 			java.util.Collection<DetailBiaya> detailBiayas1 = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(
@@ -1912,11 +1922,7 @@ public class CommonReportHelper {
 					"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
 				});
 		} finally {
-			if (session != null && session.isOpen()) {
-				try { session.clear(); } catch (Exception e) { }
-				try { session.disconnect(); } catch (Exception e) { }
-				try { session.close(); } catch (Exception e) { }
-			}
+			HibernateUtil.closeSessionQuietly(session);
 		}
 
 		Common.insertProperty(BiodataCalonMahasiswa.class, calonMahasiswa, parameters, "bio", 2);

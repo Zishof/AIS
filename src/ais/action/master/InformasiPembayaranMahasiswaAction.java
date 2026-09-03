@@ -2175,15 +2175,24 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 										kegiatan.getTahunAkademik(), true, kegiatan.getJadwalPembayaran(), true,
 										false, null, session);
 							}
-							if (tx != null && tx.isActive()) {
-								tx.commit();
-								tx = null;
+							/*
+							 * KegiatanHelper dapat memulihkan transaksi PostgreSQL yang ter-abort
+							 * dengan rollback lalu beginTransaction() baru. Variabel tx di atas masih
+							 * menunjuk transaksi lama, sehingga transaksi pengganti dapat tertinggal
+							 * tanpa commit. Ambil transaksi aktif terakhir langsung dari session.
+							 */
+							org.hibernate.Transaction transaksiAktif = session.getTransaction();
+							if (transaksiAktif != null && transaksiAktif.isActive()) {
+								transaksiAktif.commit();
 							}
+							tx = null;
 							sukses.incrementAndGet();
 						} catch (Exception ex) {
 							try {
-								if (tx != null && tx.isActive()) {
-									tx.rollback();
+								org.hibernate.Transaction transaksiAktif = session == null ? tx
+										: session.getTransaction();
+								if (transaksiAktif != null && transaksiAktif.isActive()) {
+									transaksiAktif.rollback();
 								}
 							} catch (Exception rollbackError) {
 								ais.common.ErrorAuditUtil.record(rollbackError,

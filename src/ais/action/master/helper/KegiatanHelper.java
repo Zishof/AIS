@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.hibernate.Criteria;
+import org.hibernate.FlushMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Criterion;
@@ -213,11 +214,28 @@ public class KegiatanHelper {
 		// lock_timeout, tunggu lock dibatasi lalu GAGAL CEPAT (55P03) sehingga retry di sesi bersih
 		// (lihat updateEntitySafe) menjadi efektif & koneksi cepat bebas. SET LOCAL hanya berlaku
 		// untuk transaksi ini. Best-effort (diam bila bukan PostgreSQL / tanpa transaksi aktif).
+		FlushMode flushModeSebelumnya = null;
 		try {
+			/*
+			 * SET LOCAL tidak membaca state entity. Jangan biarkan Hibernate melakukan
+			 * auto-flush seluruh persistence context sebelum statement konfigurasi ini;
+			 * context pemanggil dapat memuat proxy lazy dari session lama. Flush yang
+			 * memang diperlukan tetap dijalankan eksplisit sesudah entity target disimpan.
+			 */
+			flushModeSebelumnya = session.getFlushMode();
+			session.setFlushMode(FlushMode.MANUAL);
 			session.createSQLQuery("SET LOCAL lock_timeout = '5000ms'").executeUpdate();
 		} catch (Exception ignore) {
 			// Best-effort saja. Jika koneksi sudah ditutup atau database bukan PostgreSQL,
 			// jangan jadikan SET LOCAL lock_timeout sebagai error aplikasi.
+		} finally {
+			if (flushModeSebelumnya != null && session != null && session.isOpen()) {
+				try {
+					session.setFlushMode(flushModeSebelumnya);
+				} catch (Exception ignore) {
+					// Session yang rusak akan ditangani jalur retry updateEntitySafe.
+				}
+			}
 		}
 	}
 

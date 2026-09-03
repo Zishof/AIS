@@ -381,26 +381,40 @@ public class DetailBiaya extends GeneralValueObject {
 
 	@Column(name = "nilai_biaya", precision = 15)
 	public Double getNilaiBiaya() {
-		itemBiaya = getItemBiaya();
-		settingBiayaDetail = getSettingBiayaDetail();
-		settingBiaya = getSettingBiaya();
-		detailSettingBiaya = getDetailSettingBiaya();
-		jurusan = getJurusan();
-		if (jurusan != null && jurusan.getId() != null && settingBiaya != null && settingBiaya.getTampilkanPerProdi()
-				&& detailSettingBiaya != null) {
-			nilaiBiaya = detailSettingBiaya.ambilDefaultBiaya(jurusan);
-		} else if (settingBiayaDetail != null && settingBiayaDetail.getId() != null) {
-			try {
+		/*
+		 * Hibernate juga memanggil getter ini saat flush. Pada proses async, relasi
+		 * lazy dapat masih menunjuk session lama yang sudah ditutup. Dalam keadaan
+		 * itu nilai kolom yang tersimpan tetap sah; perhitungan dinamis hanya boleh
+		 * dijalankan ketika seluruh relasi masih dapat dibaca.
+		 */
+		Double nilaiTersimpan = nilaiBiaya;
+		try {
+			itemBiaya = getItemBiaya();
+			settingBiayaDetail = getSettingBiayaDetail();
+			settingBiaya = getSettingBiaya();
+			detailSettingBiaya = getDetailSettingBiaya();
+			jurusan = getJurusan();
+			if (jurusan != null && jurusan.getId() != null && settingBiaya != null
+					&& settingBiaya.getTampilkanPerProdi() && detailSettingBiaya != null) {
+				nilaiBiaya = detailSettingBiaya.ambilDefaultBiaya(jurusan);
+			} else if (settingBiayaDetail != null && settingBiayaDetail.getId() != null
+					&& itemBiaya != null && itemBiaya.getId() != null && detailSettingBiaya != null) {
 				JSONObject jsonObject = new JSONObject(settingBiayaDetail.getBiayas());
 				nilaiBiaya = jsonObject.isNull(itemBiaya.getId().toString()) ? detailSettingBiaya.getDefaultBiaya()
 						: jsonObject.getDouble(itemBiaya.getId().toString());
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/DetailBiaya.java:398");
-			}
-		} else {
-			if (detailSettingBiaya != null && settingBiaya != null && settingBiaya.getGunakanBiayaDefault()) {
+			} else if (detailSettingBiaya != null && settingBiaya != null
+					&& settingBiaya.getGunakanBiayaDefault()) {
 				nilaiBiaya = detailSettingBiaya.getDefaultBiaya();
 			}
+		} catch (org.hibernate.LazyInitializationException e) {
+			// Entity detached: pertahankan nilai biaya yang sudah tersimpan.
+			nilaiBiaya = nilaiTersimpan;
+		} catch (org.hibernate.SessionException e) {
+			// Proxy terhubung ke session tertutup; perlakukan sama seperti detached.
+			nilaiBiaya = nilaiTersimpan;
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/DetailBiaya.java:getNilaiBiaya");
 		}
 		if (nilaiBiaya == null) {
 			nilaiBiaya = 0.0;

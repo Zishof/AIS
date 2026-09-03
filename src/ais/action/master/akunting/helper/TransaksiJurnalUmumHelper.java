@@ -1560,7 +1560,11 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 			}
 		}
 
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = null;
+		Transaction transaksiUtama = null;
+		GrupTransaksi grupTransaksi;
+		try {
+			session = HibernateUtil.openSession();
 
 		Date maxClosing = (Date) session.createCriteria(Closing.class).setProjection(Projections.max("tanggal"))
 				.uniqueResult();
@@ -1571,13 +1575,9 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
 					Common.dateFormat4.get().format(maxClosing),
 					Common.dateFormat4.get().format(tanggal.getValue()));
-			// session.disconnect();
-			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
 			return false;
 		}
 
-		GrupTransaksi grupTransaksi;
 		if (this.grupTransaksi.getId() != null) {
 			grupTransaksi = (GrupTransaksi) session.createCriteria(GrupTransaksi.class)
 					.add(Restrictions.idEq(this.grupTransaksi.getId())).uniqueResult();
@@ -1603,9 +1603,6 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 		if (i) {
 			MyMessageboxConfig.show("Mohon maaf, Kode Jurnal sudah ada di database. Langkah yang dapat dilakukan: (1) Gunakan nomor jurnal yang berbeda dan belum terdaftar; (2) Periksa daftar jurnal yang sudah ada melalui menu pencarian; (3) ulangi proses simpan dengan kode baru. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.INFORMATION);
-			// session.disconnect();
-			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
 			return false;
 		}
 
@@ -1619,18 +1616,12 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 				if (lain == null) {
 					MyMessageboxConfig.show("Mohon maaf, File Bukti Transaksi belum diupload. Langkah yang dapat dilakukan: (1) Upload file bukti transaksi berformat JPG melalui tombol upload yang tersedia; (2) Pastikan file yang diupload berformat JPG dan ukurannya wajar; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.",
 							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-					// session.disconnect();
-					if (session.isOpen()) {session.disconnect();session.close();}
-					HibernateUtil.closeSession();
 					return false;
 				}
 			} else {
 				if (buktiTransaksi == null || !buktiTransaksi.getNama().toLowerCase().endsWith("jpg")) {
 					MyMessageboxConfig.show("Mohon maaf, File Bukti Transaksi belum diisi atau bukan format JPG. Langkah yang dapat dilakukan: (1) Pilih dan upload file bukti transaksi berformat JPG; (2) Pastikan file yang dipilih berekstensi .jpg; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.",
 							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-					// session.disconnect();
-					if (session.isOpen()) {session.disconnect();session.close();}
-					HibernateUtil.closeSession();
 					return false;
 				}
 
@@ -1650,34 +1641,56 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 		grupTransaksi.setParentCode(parentCode);
 		grupTransaksi.setWorkspace((Workspace) workspace.getAttribute("workspace"));
 
-		session.getTransaction().begin();
+		transaksiUtama = session.beginTransaction();
 		if (grupTransaksi.getId() != null) {
 			session.update(grupTransaksi);
 		} else {
 			session.save(grupTransaksi);
 		}
-		session.getTransaction().commit();
+		transaksiUtama.commit();
+		transaksiUtama = null;
+		} catch (Exception e) {
+			if (transaksiUtama != null && transaksiUtama.isActive()) {
+				try {
+					transaksiUtama.rollback();
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"TransaksiJurnalUmumHelper.onSaveTransaksiUtama rollback gagal");
+				}
+			}
+			throw e;
+		} finally {
+			Common.closeNativeSessionQuietly(session);
+		}
 
-		// session.disconnect();
-		if (session.isOpen()) {session.disconnect();session.close();}
-		HibernateUtil.closeSession();
-
+		Session streamSession = null;
+		Transaction streamTransaction = null;
 		try {
-			session = StreamingHibernateUtil.getInstance().currentSession();
+			streamSession = StreamingHibernateUtil.getInstance().openSession();
 
 			if (buktiTransaksi != null && buktiTransaksi.getId() != null) {
-				session.refresh(buktiTransaksi);
-				buktiTransaksi.setRef(grupTransaksi.getId());
-
-				session.getTransaction().begin();
-				session.update(buktiTransaksi);
-				session.getTransaction().commit();
+				LampiranLain buktiManaged = (LampiranLain) streamSession.get(LampiranLain.class,
+						buktiTransaksi.getId());
+				if (buktiManaged != null) {
+					buktiManaged.setRef(grupTransaksi.getId());
+					streamTransaction = streamSession.beginTransaction();
+					streamSession.update(buktiManaged);
+					streamTransaction.commit();
+					streamTransaction = null;
+				}
 			}
-
-			StreamingHibernateUtil.getInstance().closeSession();
 		} catch (Exception e) {
-			StreamingHibernateUtil.getInstance().rollbackTransaction();
+			if (streamTransaction != null && streamTransaction.isActive()) {
+				try {
+					streamTransaction.rollback();
+				} catch (Exception rollbackError) {
+					ais.common.ErrorAuditUtil.record(rollbackError,
+							"TransaksiJurnalUmumHelper.onSaveTransaksiUtama rollback lampiran gagal");
+				}
+			}
 			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			HibernateUtil.closeSessionQuietly(streamSession);
 		}
 
 		return true;
