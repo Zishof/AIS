@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 38 — SELESAI 100% (3 Sep 2026) — POLA "GUARD KOMPONEN BOLONG" TERKONFIRMASI SISTEMIK
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/KelompokParameterTambahanCatatanPegawai.java`**
+  (r83595) — 186→698 baris, 100% (35 anggota). Rantai TERNYATA 4 lapis
+  (bukan 3): kategori harus dicentang per `JenisCatatanPegawai` sebelum
+  muncul di form. `compareTo()` dipangkas (tanpa fallback `getNim`).
+  Broken access control kembar Mahasiswa (Intbox nomor urut tanpa
+  guard), DAMPAK LEBIH BERAT: berpasangan dengan bug TreeSet →
+  pengguna READ-saja bisa MELENYAPKAN satu seksi form dari tampilan
+  SEMUA orang. Field `satuanKerja` terkonfirmasi yatim total (nol
+  pemanggil di luar entity sendiri).
+- **`ais/database/model/KelompokParameterTambahanCatatanAdministrasi.java`**
+  (r83593) — 176→539 baris, 100% (30 anggota). `compareTo()` versi
+  pendek (tanpa fallback). Broken access control kembar persis (Intbox
+  nomor urut). Bug TreeSet penciutan senyap dikonfirmasi ADA (bukan
+  kasus langka — kondisi DEFAULT karena `nomorUrut` tak pernah diisi
+  form Tambah/Ubah).
+- **`ais/database/model/KelompokParameterTambahanCatatanMahasiswa.java`**
+  (r83596) — 170→644 baris, 100% (33 anggota). Rantai 4 lapis (per
+  `JenisCatatanMahasiswa`). **TEMUAN PALING SERIUS batch ini**:
+  `ParameterTambahanCatatanMahasiswaAction` — `edit=true`/`delete=true`
+  DI-HARDCODE, NOL pemanggilan `checkPrevilages` di SELURUH file (bukan
+  cuma dikomentari — tidak pernah ada sama sekali) + nol gerbang READ
+  di `doAfterCompose`. Siapa pun yang bisa buka layar bisa
+  ubah+hapus pemetaan parameter tanpa hak apa pun. PLUS broken access
+  control kembar Intbox nomor urut (instance kedua di file yang sama).
+- **`ais/database/model/ItemBiayaPunyaDibayarDimuka.java`** (r83594) —
+  160→564 baris, 100% (18 anggota). Entity TERKONFIRMASI HIDUP (beda
+  dari Diskon) — `ItemBiaya.ambilDibayarDimuka()` ada & dipanggil 8+
+  titik. Mekanisme fallback rantai `PIUTANG→DIMUKA→PENDAPATAN` di
+  `GrupTransaksi` dikonfirmasi dari kode: kegagalan cari akun piutang
+  DIAM-DIAM beralih ke akun dibayar-dimuka tanpa peringatan apa pun.
+  `getFakultas()` write-back kembar persis Piutang/Diskon. Broken
+  access control kembar (cek UPDATE dikomentari mati).
+- **`ais/database/model/ItemBiayaPunyaPendapatanDenda.java`** (r83597)
+  — 160→576 baris, 100% (31 anggota). Entity TERKONFIRMASI HIDUP dengan
+  GERBANG KERAS (posting diblokir total bila akun denda tak ditemukan,
+  beda dari fallback senyap Dibayar Dimuka). Bug tabrakan nama BARU:
+  `ItemBiayaAction` query kelas HELPER `ItemBiayaPunyaDenda` (bukan
+  entity `ItemBiayaPunyaPendapatanDenda`) → `MappingException` tertelan
+  2 lapis catch → ringkasan "Akun denda" di layar daftar PERMANEN
+  KOSONG tanpa jejak error. Broken access control kembar (instance ke-4
+  keluarga `ItemBiayaPunya*`).
+
+**Pola "guard komponen bolong" (Intbox nomor urut tanpa guard) kini
+TERKONFIRMASI 5x independen** dalam satu batch saja (3 di keluarga
+`KelompokParameterTambahan*`, sudah pernah juga di varian Mahasiswa b37
+= total 4 kali di keluarga itu) — bukan kebetulan, TEMPLATE hbm2java/
+Action generator yang konsisten menghilangkan satu guard spesifik.
+**Pola "cek UPDATE dikomentari mati" di keluarga `ItemBiayaPunya*` kini
+4 instance** (Piutang b37, Diskon b37, DibayarDimuka b38, PendapatanDenda
+b38) — SEMUA anggota keluarga yang sudah digarap punya bug ini, pola
+TEMPLATE bukan kebetulan.
+
+**Pola "getKeterangan() membalik kontrak"**: 3 dari 5 file batch ini
+(kedua entity `ItemBiayaPunya*` tetap tidak punya field `keterangan`).
+Total kumulatif: 16 (akhir b37) + 3 = **19 instance**.
+
+Total akumulasi 38 sesi: **368 file** dari 7.401 (~5,0%).
+
 ## Batch 37 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
