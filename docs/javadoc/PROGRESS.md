@@ -1,5 +1,66 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 55 — SELESAI 100% (3 Sep 2026) — akar bug penciutan TreeSet b50 ditemukan, fail-open personalia guru, broken access control finansial baru
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/DetailJenisPenilaian.java`** (r83695)
+  — 137→669 baris, 100% (28 anggota). Simpul TERTINGGI rantai
+  penilaian (`JenisPenilaian→DetailJenisPenilaian→GrupPenilaian→...`).
+  Varian timing bug bom-waktu `aktif` (b51/54) TERKONFIRMASI di sini,
+  paling parah karena simpul teratas — Simpan sebelum timer 50ms
+  selesai = seluruh rapor mapel pemakai jenis penilaian itu lenyap.
+  **Pewarisan hak menu varian baru**: layar ini menyisipkan 7 tab
+  TERMASUK `/pages/master/konstanta.zul` — hak ubah katalog penilaian
+  sekolah dengan sendirinya memberi hak CRUD konstanta GLOBAL
+  instalasi (eskalasi menuju layar konfigurasi sistem).
+- **`ais/database/model/sekolah/KategoriPrestasiGuru.java`** (r83696)
+  — 134→503 baris, 100% (17 anggota). Master TINGKAT kejuaraan guru
+  (kembar `KategoriPrestasiSiswa`/`CabangPrestasiSiswa`, kini 5
+  kembaran total termasuk versi mahasiswa/dosen/pegawai).
+  **Fail-open cakupan PERSONALIA GURU**: `_prestasi_guru.jsp` dan
+  `_dashboard_prestasi_guru.jsp` meng-hardcode `Yayasan/Sekolah/Guru
+  loginSebagai... = null` dengan panggilan asli DIKOMENTARI — akun
+  guru biasa melihat+mengekspor prestasi SELURUH guru lintas
+  sekolah/yayasan; regresi khusus sisi guru (sisi siswa hidup normal).
+- **`ais/database/model/sekolah/ParameterVerifikasiCalonSiswa.java`**
+  (r83697) — 133→533 baris, 100% (27 anggota). BUKAN instance ke-5
+  broken access control PSB (layar bergerbang benar — rantai nol-checkPrevilages
+  berhenti di 4). **TEMUAN KUNCI: akar penyebab bug penciutan TreeSet
+  batch 50 ditemukan** — `getNomorUrut()` override tak pernah `null`
+  (default 1) membuat `compareTo()` induk selalu 0 untuk baris
+  ber-nomorUrut sama → `GelombangPendaftaranPsbPunyaParameterVerifikasiCalonSiswa.getParameterVerifikasiCalonSiswas()`
+  hanya menyimpan 1 tingkat walau banyak dicentang. Ironi: satu-satunya
+  kontrol UI tanpa gerbang di layar ini (`Intbox` nomor urut) adalah
+  satu-satunya cara memperbaikinya.
+- **`ais/database/model/sekolah/AbsenPiketPeserta.java`** (r83698) —
+  138→581 baris, 100% (27 anggota). **VERIFIKASI NEGATIF** (menenangkan):
+  TIDAK tersentuh jalur pra-otentikasi `/welsis` (`task_acfae1fb`)
+  maupun IDOR `simpanAbsenPiket` (`task_493423ef`) — nol referensi di
+  kedua jalur. Tapi tabel praktis SELALU KOSONG akibat 2 bug menulis
+  bertumpuk (syarat terbalik + objek salah yang di-`session.save`);
+  panel detail sisi PT (`DetailAbsenPiketMahasiswaHelper`) nol
+  `checkPrevilages` — bom waktu bila bug penulisan pernah diperbaiki.
+- **`ais/database/model/sekolah/PengaturanBiayaPunyaSiswa.java`**
+  (r83699) — 131→534 baris, 100% (22 anggota). BUKAN penetapan tarif
+  individual — whitelist peserta pengaturan biaya `khususBuatSiswaTertentu`.
+  **Broken access control BARU**: 4 tombol toolbar (`Ambil Siswa`/
+  `Sinkronkan`/`Recovery`/`Upload`) di `DetailTagihanSiswaHelper` nol
+  cek `edit` — hak BACA saja bisa menciptakan kewajiban finansial atas
+  nama siswa. Fail-open tenant dua lapis. **Verifikasi NEGATIF untuk
+  `task_493423ef`**: REST `TagihanSiswa`/`PsbCalonApi` di sini justru
+  contoh POSITIF (menolak token tanpa kepemilikan). Bug integritas:
+  "tagihan hantu" via 2 dari 8 jalur yang melewati penegakan whitelist.
+
+Tidak ada task baru dibuat — semua temuan memperkuat
+`task_5e93a600`/`task_493423ef`/`task_acfae1fb` yang sudah ada; 2
+temuan (AbsenPiketPeserta, TagihanSiswa API) justru NEGATIF/menenangkan.
+
+Kumulatif sesi ini: **452+ file** (105 batch 34-55) + 343 (sesi
+sebelumnya) dari 7.401 total (~11,2%).
+
 ## Batch 54 — SELESAI 100% (3 Sep 2026) — SQL injection baru via nama katalog master (memperkuat `task_493423ef`), komentar generator "JenisSekolah" sumber asli ditemukan, pewarisan hak menu tumbuh lagi
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
