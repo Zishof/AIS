@@ -425,7 +425,24 @@ public class KelompokItemGajiAction extends GenericAutowireComposer
 						: Restrictions.ne("id", this.kelompokItemGaji.getId()))
 				.uniqueResult()).intValue();
 
-		return !kotaCount.equals(0);
+		if (!kotaCount.equals(0)) {
+			return true;
+		}
+
+		/*
+		 * ItemGaji.getKelompokItemGaji() mencocokkan kode kelompok ini (trim + case-insensitive)
+		 * dengan item_gaji.kode untuk menentukan akun jurnal komponen gaji tersebut -- lihat
+		 * Javadoc KelompokItemGaji bagian "Pencocokan berbasis kode". Kode kelompok yang
+		 * bertabrakan dengan kode komponen gaji yang sudah ada akan memindahkan akun jurnal
+		 * komponen itu begitu kelompok ini aktif; tabrakan harus ditolak di sini, sebelum sempat
+		 * tersimpan.
+		 */
+		Integer itemGajiCount = ((Number) session.createCriteria(ItemGaji.class)
+				.setProjection(Projections.rowCount())
+				.add(Restrictions.ilike("kode", kode.getValue().trim(), MatchMode.EXACT)).uniqueResult())
+				.intValue();
+
+		return !itemGajiCount.equals(0);
 	}
 
 	@Override

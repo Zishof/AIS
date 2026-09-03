@@ -80,11 +80,12 @@ import ais.database.model.akunting.Pertangungjawaban;
  *         -&gt; KelompokItemGaji.getAkun() / getAkunDebet()   // JSON pemetaan, kelas INI
  *         -&gt; AssetUtil.ambilDataAkun(json, formatItemGaji.getSatuanKerja())
  * </pre>
- * <p>Karena {@link ais.database.model.payroll.ItemGaji#getAkun()} dan {@code getAkunDebet()} adalah
- * getter yang <b>menulis-balik</b> hasil resolusi ke FK per-item (property access +
- * {@code dynamicUpdate}), pemetaan yang diisi di layar kelompok ini tidak hanya dipakai sekali saat
- * posting — begitu resolusinya berhasil, ia <b>menimpa secara permanen</b> akun yang dipilih
- * operator pada baris Item Gaji.</p>
+ * <p>{@link ais.database.model.payroll.ItemGaji#getAkun()} dan {@code getAkunDebet()} dulu menulis
+ * balik hasil resolusi ini ke FK per-item secara permanen (property access + {@code dynamicUpdate})
+ * hanya karena barisnya dibaca; perbaikan pada {@code ItemGaji} menghapus efek samping itu — hasil
+ * resolusi kini murni nilai kembalian, dipakai LIVE setiap kali akun jurnal dibutuhkan, tanpa lagi
+ * menimpa FK tersimpan pada baris Item Gaji. Lihat Javadoc {@code ItemGaji} bagian riwayat
+ * write-back untuk rinciannya.</p>
  *
  * <h2>Pencocokan berbasis kode dan cache statis se-JVM</h2>
  * <p>Perlu ditegaskan lebih dulu: <b>cache statis itu tidak tinggal di kelas ini.</b> Ia adalah
@@ -140,9 +141,14 @@ import ais.database.model.akunting.Pertangungjawaban;
  * pemetaan akun yang diisi operator di layar ini <b>tidak pernah dipakai</b>. Penjurnalan gaji
  * jatuh sepenuhnya ke FK {@code akun}/{@code akun_debet} per-item. Ini sekaligus berarti risiko
  * tabrakan kode yang diuraikan di atas bersifat <b>laten</b>: ia menyala begitu ada pihak yang
- * berhasil menyetel {@code aktif = true}. Jalur yang bisa melakukannya: SQL langsung, migrasi/impor
- * data lama, atau <b>form otomatis Generic CRUD/{@code DynamicJspCrudGenerator}</b> yang memang
- * merender setiap properti termasuk {@code aktif} sebagai isian boolean.</p>
+ * berhasil menyetel {@code aktif = true}. Jalur yang bisa melakukannya kini tinggal SQL langsung
+ * atau migrasi/impor data lama — kedua form otomatis (Generic CRUD v2 dan
+ * {@code DynamicJspCrudGenerator}) yang dulu bisa menyetelnya lewat isian boolean tanpa restriksi
+ * tenant sudah SENGAJA ditutup (lihat bagian "Siapa yang bisa mengubah katalog ini" di bawah), dan
+ * {@code KelompokItemGajiAction.checkKodeKelompokItemGaji()} kini juga menolak kelompok baru/ubahan
+ * yang kodenya bertabrakan dengan {@code item_gaji.kode} sebelum sempat tersimpan. Risiko tabrakan
+ * kode karena itu sudah jauh lebih sempit dari sebelumnya, meski belum tertutup total: baris yang
+ * disisipkan lewat SQL/impor Excel (yang melewati penjaga ini) tetap bisa bertabrakan.</p>
  * <p><b>Tiga pembacaan berbeda atas "aktif" hidup berdampingan</b> di kode: getter
  * {@link #getAktif()} menganggap {@code null} berarti aktif; {@code DynamicJspCrudGenerator}
  * menyaring dengan {@code isNull(aktif) OR aktif = true} (senada dengan getter); tetapi
@@ -151,22 +157,25 @@ import ais.database.model.akunting.Pertangungjawaban;
  *
  * <h2>Cakupan tenant</h2>
  * <ul>
- *   <li><b>Generic CRUD v2.</b> {@code GenericCrudAutoEntityAdapter.scopeBindings()} hanya memasang
- *   pembatas untuk properti bernama {@code yayasan}, {@code sekolah}, {@code program},
- *   {@code fakultas}, {@code jurusan}, {@code satuanKerja} (plus beberapa properti per-peran).
- *   Entity ini <b>tidak punya satu pun</b> di antaranya, dan {@code addScope()} menelan kondisi
- *   "properti tidak ada" secara diam-diam — jadi daftar maupun tulis lewat jalur New UI berjalan
- *   <b>tanpa restriksi apa pun</b>. Sama seperti koreksi yang sudah dicatat untuk
- *   {@link ais.database.model.payroll.ItemGaji}: menambahkan {@code pegawai} ke whitelist tidak
- *   akan menutup apa pun di sini, sebab masalahnya bukan properti yang terlewat melainkan
- *   ketiadaan sumbu tenant sama sekali.</li>
- *   <li><b>Fail-open di dalam pembaca JSON.</b> {@code AssetUtil.ambilDataAkun(json, satuanKerja)}
- *   punya cabang <code>else if (satuanKerjaData == null || ...)</code>. Bila komponen gaji berasal
- *   dari {@code FormatItemGaji} yang {@code satuanKerja}-nya {@code null}, cabang itu
- *   mengembalikan <b>entri pertama yang punya akun, apa pun satuan kerjanya</b> — bukan hanya entri
- *   default. Artinya satu format gaji tanpa satuan kerja bisa terjurnal ke akun milik tenant lain
- *   yang kebetulan terdaftar lebih dulu di array. Karena katalog ini global, entri milik banyak
- *   tenant memang bercampur dalam satu array.</li>
+ *   <li><b>Generic CRUD v2 — permukaan kini DITUTUP (lihat bagian berikut).</b>
+ *   {@code GenericCrudAutoEntityAdapter.scopeBindings()} hanya memasang pembatas untuk properti
+ *   bernama {@code yayasan}, {@code sekolah}, {@code program}, {@code fakultas}, {@code jurusan},
+ *   {@code satuanKerja} (plus beberapa properti per-peran); entity ini <b>tidak punya satu pun</b>
+ *   di antaranya, dan {@code addScope()} menelan kondisi "properti tidak ada" secara diam-diam,
+ *   sehingga bila permukaan New UI-nya dibuka lagi di masa depan, daftar maupun tulis lewat jalur
+ *   itu akan kembali berjalan <b>tanpa restriksi apa pun</b>. Sama seperti koreksi yang sudah
+ *   dicatat untuk {@link ais.database.model.payroll.ItemGaji}: menambahkan {@code pegawai} ke
+ *   whitelist tidak akan menutup apa pun di sini, sebab masalahnya bukan properti yang terlewat
+ *   melainkan ketiadaan sumbu tenant sama sekali. Selama entity ini belum punya sumbu tenant
+ *   sungguhan, JANGAN buka kembali {@code kelompok_item_gaji_service.jsp}/
+ *   {@code tryAutoRegister(...)} untuknya.</li>
+ *   <li><b>Fail-open di dalam pembaca JSON — DIPERBAIKI.</b> {@code AssetUtil.ambilDataAkun(json,
+ *   satuanKerja)} dulu punya cabang yang, bila komponen gaji berasal dari {@code FormatItemGaji}
+ *   yang {@code satuanKerja}-nya {@code null}, mengembalikan entri pertama yang punya akun apa pun
+ *   satuan kerjanya — bukan hanya entri default — sehingga satu format gaji tanpa satuan kerja bisa
+ *   terjurnal ke akun milik tenant lain yang kebetulan terdaftar lebih dulu di array. Cabang itu kini
+ *   hanya mengembalikan entri yang satuan kerjanya cocok persis; bila {@code satuanKerjaData} null,
+ *   hanya entri default ber-{@code satuanKerja} null yang dikembalikan.</li>
  * </ul>
  *
  * <h2>Siapa yang bisa mengubah katalog ini</h2>
@@ -182,16 +191,24 @@ import ais.database.model.akunting.Pertangungjawaban;
  *   Format Item Gaji dengan sendirinya memperoleh CRUD atas katalog akun jurnal ini.</li>
  *   <li><b>Impor Excel.</b> {@code Common.uploadData(this, KelompokItemGaji.class, contents)}
  *   dengan {@code contents} yang memuat {@code akun} dan {@code akunDebet} — jadi seluruh peta akun
- *   jurnal bisa ditulis massal dari satu berkas. Tombolnya memang disembunyikan bila pengguna tidak
- *   memegang create+update+delete, tetapi {@code CommonDownloadUpload} sendiri <b>nol pemeriksaan
- *   hak di sisi server</b>: gerbangnya semata-mata visibilitas komponen. Jalur ini juga melewati
- *   {@code checkKodeKelompokItemGaji()}/{@code checkNamaKelompokItemGaji()} dan <b>tidak</b>
- *   memanggil {@code reloadKelompokItemGaji()}.</li>
- *   <li><b>Permukaan New UI ketiga.</b> Tersedia
- *   {@code /WEB-INF/baru/modul/pagesmasterpayrollkelompokitemgajizul/index.jsp} yang merender form
- *   otomatis {@code DynamicJspCrudGenerator} atas kelas ini, plus berkas layanan
- *   {@code new/payroll/services/kelompok_item_gaji_service.jsp}. Form otomatis itulah satu-satunya
- *   jalur aplikasi yang bisa menyetel {@code aktif}.</li>
+ *   jurnal bisa ditulis massal dari satu berkas (kolom {@code aktif} <b>tidak</b> termasuk daftar
+ *   kolom impor). Tombolnya memang disembunyikan bila pengguna tidak memegang create+update+delete,
+ *   tetapi {@code CommonDownloadUpload} sendiri <b>nol pemeriksaan hak di sisi server</b>: gerbangnya
+ *   semata-mata visibilitas komponen. Jalur ini juga melewati
+ *   {@code checkKodeKelompokItemGaji()}/{@code checkNamaKelompokItemGaji()} — termasuk penjaga
+ *   tabrakan kode lintas tabel terhadap {@code item_gaji.kode} — dan <b>tidak</b> memanggil
+ *   {@code reloadKelompokItemGaji()}.</li>
+ *   <li><b>Permukaan New UI ketiga — DITUTUP.</b>
+ *   {@code /WEB-INF/baru/modul/pagesmasterpayrollkelompokitemgajizul/index.jsp} dulu merender form
+ *   otomatis {@code DynamicJspCrudGenerator} atas kelas ini, dan
+ *   {@code new/payroll/services/kelompok_item_gaji_service.jsp} dulu mendelegasikan ke
+ *   {@code GenericCrudDefinitionRegistry.tryAutoRegister(...)} lewat dispatcher New UI bersama —
+ *   dua-duanya adalah satu-satunya jalur aplikasi yang bisa menyetel {@code aktif} maupun mengubah
+ *   {@code akun}/{@code akunDebet} tanpa restriksi tenant. Keduanya kini SENGAJA dibuat menolak
+ *   permintaan (lihat komentar pada masing-masing berkas) sampai entity ini punya sumbu tenant
+ *   sungguhan. Dengan ditutupnya kedua jalur ini dan tidak adanya kolom {@code aktif} pada impor
+ *   Excel, satu-satunya cara tersisa untuk menyetel {@code aktif = true} pada instalasi ini adalah
+ *   SQL langsung atau migrasi data.</li>
  *   <li><b>Verifikasi negatif:</b> tidak ada satu pun {@code *ApiHelper}/{@code PosApi} yang
  *   menyentuh kelas ini — seluruh rujukan di repositori hanya
  *   {@code KelompokItemGajiAction}, {@code ItemGaji}, {@code Common.DataUtil},

@@ -144,6 +144,12 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "saldo_awal_akun", "Akuntansi: Saldo Awal (Neraca Awal)", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "jurnal_penyesuaian", "Akuntansi: Jurnal Penyesuaian Berkala", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "tutup_buku", "Akuntansi: Tutup Buku (Laba Ditahan)", "desktop", "android"));
+		// Pemetaan Akun -> Kelompok Laporan (2026-09-04): menempelkan akun massal ke baris laporan
+		// resmi (Neraca/Laba Rugi). Sebelum kunci ini ada, cabang "pemetaan_akun_" di PosApi dan
+		// halaman diagnosa kantin/cek_pemetaan_akun.jsp menulis TANPA gerbang peran sama sekali --
+		// lihat PemetaanAkunHelper serta Javadoc KelompokLaporan. Fail-closed spt sesama menu
+		// Akuntansi lain: tidak boleh mendadak terbuka utk peran POS existing.
+		DAFTAR.add(new Entri(MODUL_POS, "pemetaan_akun", "Akuntansi: Pemetaan Akun ke Kelompok Laporan", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_kulakan", "Akuntansi: Posting Kulakan", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_bayar_hutang", "Akuntansi: Posting Bayar Hutang", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "posting_terima_piutang", "Akuntansi: Posting Terima Piutang", "desktop", "android", "jsp"));
@@ -297,7 +303,7 @@ public final class EbisnisMenuKatalog {
 			// peran lewat grid CRUD TbmroleAction.
 			"laporankeuangan", "draft_jurnal", "jurnal_umum", "posting_hpp", "posting_penjualan",
 			"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
-			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
+			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku", "pemetaan_akun",
 			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
 			"posting_penyusutan",
 			// Grup "Keuangan": dokumen pencairan dana -- fail-closed, dinyalakan admin per peran.
@@ -319,7 +325,7 @@ public final class EbisnisMenuKatalog {
 			new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
 					"laporankeuangan", "draft_jurnal", "jurnal_umum", "posting_hpp", "posting_penjualan",
 					"kode_akun", "grup_akun", "jenis_transaksi", "bank_akun",
-					"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
+					"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku", "pemetaan_akun",
 					"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "anggaran", "posting_penyesuaian",
 			"posting_penyusutan",
 					"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
@@ -516,7 +522,7 @@ public final class EbisnisMenuKatalog {
 			// Layar posting & siklus akuntansi: "Read"-nya tetap kolom menu.<kunci>, sedangkan
 			// Create di sini berarti BOLEH MEMPOSTING (menulis jurnal) -- kewenangan yang biasa
 			// dipisah dari sekadar boleh melihat drafnya.
-			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku",
+			"saldo_awal_akun", "jurnal_penyesuaian", "tutup_buku", "pemetaan_akun",
 			"posting_kulakan", "posting_bayar_hutang", "posting_terima_piutang", "posting_penyesuaian",
 			// posting_hpp dan posting_penjualan sifatnya SAMA PERSIS dengan empat posting di atas
 			// (menulis jurnal), tetapi selama ini tertinggal dari daftar ini sehingga haknya tidak

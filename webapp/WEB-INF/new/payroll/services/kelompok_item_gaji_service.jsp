@@ -2,17 +2,24 @@
 Source: src/ais/action/master/payroll/KelompokItemGajiAction.java
 Generated: 2026-08-06T18:20:20Z
 Safe service-adapter scaffold. Implement data access in a Java service layer, not directly in this JSP.
+
+SENGAJA TIDAK didelegasikan ke dispatcher.jsp/GenericCrudDefinitionRegistry.tryAutoRegister(...).
+KelompokItemGaji adalah katalog akun jurnal penggajian tanpa kolom tenant apa pun; auto-register
+generik tidak memasang satu pun pembatas satuan kerja (GenericCrudAutoEntityAdapter.scopeBindings()
+hanya mengenal properti relasi bernama yayasan/sekolah/program/fakultas/jurusan/satuanKerja, dan
+entity ini tidak punya satu pun di antaranya) dan akan mengizinkan create/update penuh atas kolom
+"aktif" serta pemetaan JSON "akun"/"akunDebet" lintas tenant. Menyalakan "aktif" mempersenjatai
+pencocokan kode di ItemGaji.getKelompokItemGaji(): kelompok baru berkode sama dengan kode komponen
+gaji yang sudah ada akan memindahkan akun jurnal komponen itu lintas tenant. Biarkan blok ini
+menolak permintaan sampai entity ini punya sumbu tenant sungguhan atau penjaga cakupan fail-closed.
 --%>
+<%@ page import="org.json.JSONObject" %>
 <%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8" %>
 <%
-request.setAttribute("nuiServiceModule", "payroll");
-request.setAttribute("nuiServicePage", "kelompok_item_gaji");
-request.setAttribute("nuiServiceTitle", "Kelompok Item Gaji");
-request.setAttribute("nuiServiceType", "finance");
-request.setAttribute("nuiServiceSourceClass", "KelompokItemGajiAction");
-request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
-request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/KelompokItemGajiAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onSearchDefault", "init", "onAdd", "onSave", "initCriteria", "checkNamaKelompokItemGaji", "checkKodeKelompokItemGaji"});
-request.setAttribute("nuiServiceEntities", new String[]{"KelompokItemGaji"});
+response.setStatus(404);
+JSONObject root = new JSONObject();
+root.put("ok", false);
+root.put("code", "ENTITY_NOT_REGISTERED");
+root.put("message", "Kelompok Item Gaji belum tersedia lewat API tampilan baru. Gunakan layar Kelompok Item Gaji pada tampilan lama.");
+out.print(root.toString());
 %>
-<jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />
