@@ -460,7 +460,14 @@ public class KasKecilAction extends GenericAutowireComposer
 		}
 
 		if (execution.getParameter("persetujuan") != null) {
-			persetujuan = Boolean.parseBoolean(execution.getParameter("persetujuan"));
+			boolean persetujuanDariUrl = Boolean.parseBoolean(execution.getParameter("persetujuan"));
+			// Parameter URL TIDAK BOLEH menaikkan mode dari pengajuan ke persetujuan --
+			// hanya menu Persetujuan (konstruktor super(true), lihat PersetujuanKasKecilAction)
+			// atau hak APPROVE eksplisit pada menu aktif yang boleh mengaktifkannya. Mencegah
+			// eskalasi via ?persetujuan=true di menu Pengeluaran Kas Kecil biasa.
+			persetujuan = persetujuanDariUrl
+					? (persetujuan || CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE))
+					: false;
 		}
 
 		if (add != null) {

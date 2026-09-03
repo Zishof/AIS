@@ -372,7 +372,14 @@ public class DanaTalanganAction extends GenericAutowireComposer
 		if (searchstatus != null) { searchstatus.setReadonly(true); }
 
 		if (execution.getParameter("persetujuan") != null) {
-			persetujuan = Boolean.parseBoolean(execution.getParameter("persetujuan"));
+			boolean persetujuanDariUrl = Boolean.parseBoolean(execution.getParameter("persetujuan"));
+			// Parameter URL TIDAK BOLEH menaikkan mode dari pengajuan ke persetujuan --
+			// hanya menu Persetujuan (konstruktor super(true), lihat PersetujuanDanaTalanganAction)
+			// atau hak APPROVE eksplisit pada menu aktif yang boleh mengaktifkannya. Mencegah
+			// eskalasi via ?persetujuan=true di menu Dana Talangan biasa.
+			persetujuan = persetujuanDariUrl
+					? (persetujuan || CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE))
+					: false;
 		}
 
 		if (add != null) {
