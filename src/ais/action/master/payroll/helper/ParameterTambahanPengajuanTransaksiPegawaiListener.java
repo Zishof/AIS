@@ -90,8 +90,9 @@ public class ParameterTambahanPengajuanTransaksiPegawaiListener implements Event
 			KelompokParameterTambahanPengajuanTransaksiPegawai kelompokParameterTambahanPengajuanTransaksiPegawai = (KelompokParameterTambahanPengajuanTransaksiPegawai) row
 					.getAttribute("kelompokParameterTambahanPengajuanTransaksiPegawai");
 			if (parameterTambahan != null && kelompokParameterTambahanPengajuanTransaksiPegawai != null) {
-				String jenis = kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "->"
-						+ parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanTransaksiPegawai.class,
+						pengajuanPegawai.getId(), kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "->"
+								+ parameterTambahan.getId());
 
 				String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 

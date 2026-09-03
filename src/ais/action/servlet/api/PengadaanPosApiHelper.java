@@ -7216,7 +7216,7 @@ public final class PengadaanPosApiHelper {
 			java.sql.PreparedStatement lk = kunci.connection()
 					.prepareStatement("SELECT pg_try_advisory_lock(hashtext(?))");
 			try {
-				lk.setString(1, "bast-sinkron:" + id);
+				lk.setString(1, kunciSinkronBast(id));
 				java.sql.ResultSet lrs = lk.executeQuery();
 				try { terkunci = lrs.next() && lrs.getBoolean(1); } finally { lrs.close(); }
 			} finally { lk.close(); }
@@ -7377,7 +7377,7 @@ public final class PengadaanPosApiHelper {
 				if (terkunci) {
 					java.sql.PreparedStatement ul = kunci.connection()
 							.prepareStatement("SELECT pg_advisory_unlock(hashtext(?))");
-					try { ul.setString(1, "bast-sinkron:" + id); ul.execute(); } finally { ul.close(); }
+					try { ul.setString(1, kunciSinkronBast(id)); ul.execute(); } finally { ul.close(); }
 				}
 			} catch (Exception eUnlock) {
 				ais.common.ErrorAuditUtil.record(eUnlock,
@@ -7387,6 +7387,24 @@ public final class PengadaanPosApiHelper {
 		}
 	}
 
+	/**
+	 * Kunci advisory lock per-BAST untuk serialisasi {@link #bastSinkronKulakan}.
+	 *
+	 * <p>Disentralkan supaya sisi lock dan sisi unlock TIDAK PERNAH memakai string
+	 * kunci yang berbeda: bila keduanya menyimpang, unlock meleset dan kunci hanya
+	 * lepas saat koneksi ditutup — rapuh. Satu sumber kebenaran menutup celah itu.</p>
+	 *
+	 * <p>Prefiks namespace {@code "bast-sinkron:"} WAJIB dipertahankan. Seluruh
+	 * pemakai {@code hashtext(...)} di basis kode berbagi SATU ruang kunci advisory
+	 * global PostgreSQL, jadi tiap fitur memberi prefiks berbeda agar tidak saling
+	 * memblokir: {@code online-bmt:} (OnlineBmt), {@code init:} (InitIndex),
+	 * {@code PMB_NO_UJIAN_SAVE_} (CommonPMB). Menghapus/menyamakan prefiks ini akan
+	 * membuat sinkron BAST bentrok dengan fitur lain — dijaga
+	 * {@code PengadaanBastLockSelfTest}.</p>
+	 */
+	static String kunciSinkronBast(Long id) {
+		return "bast-sinkron:" + id;
+	}
 
 	/**
 	 * Pilihan jenis pajak untuk editor termin: PPh (JenisPajakBarang) dan PPN (JenisPajakPpn).

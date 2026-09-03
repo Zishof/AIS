@@ -90,7 +90,9 @@ public class ParameterTambahanDisposisiAlurSopListener implements EventListener 
 			KelompokParameterTambahanAlurSop kelompokParameterTambahanAlurSop = (KelompokParameterTambahanAlurSop) row
 					.getAttribute("kelompokParameterTambahanAlurSop");
 			if (parameterTambahan != null && kelompokParameterTambahanAlurSop != null) {
-				String jenis = kelompokParameterTambahanAlurSop.getId() + "->" + parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(DisposisiAlurSop.class,
+						disposisiAlurSop.getId(),
+						kelompokParameterTambahanAlurSop.getId() + "->" + parameterTambahan.getId());
 
 				String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 
@@ -187,7 +189,9 @@ public class ParameterTambahanDisposisiAlurSopListener implements EventListener 
 				if (!parameterTambahans.isEmpty()) {
 
 					for (ParameterTambahan parameterTambahan : parameterTambahans) {
-						String jenis = kelompokParameterTambahanAlurSop.getId() + "->" + parameterTambahan.getId();
+						String jenis = LampiranLain.resolveJenisParameterTambahan(DisposisiAlurSop.class,
+						disposisiAlurSop.getId(),
+						kelompokParameterTambahanAlurSop.getId() + "->" + parameterTambahan.getId());
 
 						MyFormRow row = new MyFormRow();row.setValign("top");
 						row.setValign("top");row.setAttribute("parameterTambahan", parameterTambahan);

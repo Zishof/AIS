@@ -168,13 +168,39 @@ public final class RevisiApiHelper {
 		}
 		KUNCI_MENU_ENTITAS.put("hotel_tamu", new String[] { "hotel_reservasi",
 			"hotel_checkin", "hotel_folio", "hotel_kamar", "hotel_properti" });
+		// Empat berikut dipetakan berdasar BUKTI, bukan kemiripan nama: ketiga
+		// entitas si_* dipakai layar yang namanya sendiri menyebut kuncinya
+		// (master_customer_screen.dart dst), dan snapshot-nya membawa NOMOR
+		// REKENING (noRekening, atasNama, bank, alamatBank) yang tidak disaring
+		// propertiSensitif. calon_anggota membawa kodeIdentitas, nama, alamat,
+		// telp, hp, dan surel; ia tidak dipakai dialog riwayat di klien sama
+		// sekali, jadi menggerbanginya tidak memutus alur mana pun.
+		KUNCI_MENU_ENTITAS.put("si_customer", new String[] { "master_customer" });
+		KUNCI_MENU_ENTITAS.put("si_supplier", new String[] { "master_supplier" });
+		KUNCI_MENU_ENTITAS.put("si_sales", new String[] { "master_sales" });
+		KUNCI_MENU_ENTITAS.put("calon_anggota", new String[] { "anggota" });
 	}
+
+	/**
+	 * Entitas yang riwayatnya mengikuti gerbang ADMIN, bukan kunci menu.
+	 *
+	 * <p>{@code toko} tidak punya kunci menu sendiri di {@code DAFTAR}; seluruh
+	 * mutasinya admin-only di keempat kanal ({@code TokoApiHelper}: "Seluruh
+	 * mutasi admin-only ... padanan gate isAdmin di JSP dan checkbox admin-only
+	 * ZK"). Snapshot-nya membawa alamat, telepon, surel, nama &amp; HP PIC, serta
+	 * NPWP -- riwayatnya karena itu mengikuti gerbang yang sama dengan datanya.
+	 */
+	private static final java.util.Set<String> ENTITAS_ADMIN_SAJA =
+			new java.util.LinkedHashSet<String>(java.util.Arrays.asList("toko"));
 
 	/**
 	 * True bila pengguna boleh membuka riwayat entitas ini. Entitas yang belum
 	 * dipetakan mempertahankan perilaku lama (semua pengguna login).
 	 */
 	private static boolean bolehLihatRiwayat(Tbmuser tbmuser, String kode) {
+		if (ENTITAS_ADMIN_SAJA.contains(kode)) {
+			return Common.getApakahAdminLain(tbmuser);
+		}
 		String[] kunci = (String[]) KUNCI_MENU_ENTITAS.get(kode);
 		if (kunci == null) {
 			return true;

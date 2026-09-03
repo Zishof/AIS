@@ -86,7 +86,8 @@ public class ParameterTambahanCatatanSiswaListener implements EventListener {
 			KelompokParameterTambahanCatatanSiswa kelompokParameterTambahanCatatanSiswa = (KelompokParameterTambahanCatatanSiswa) row
 					.getAttribute("kelompokParameterTambahanCatatanSiswa");
 			if (parameterTambahan != null && kelompokParameterTambahanCatatanSiswa != null) {
-				String jenis = kelompokParameterTambahanCatatanSiswa.getId() + "->" + parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanSiswa.class, catatanSiswa.getId(),
+						kelompokParameterTambahanCatatanSiswa.getId() + "->" + parameterTambahan.getId());
 
 				String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 
@@ -172,7 +173,8 @@ public class ParameterTambahanCatatanSiswaListener implements EventListener {
 			if (!parameterTambahans.isEmpty()) {
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanCatatanSiswa.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanSiswa.class, catatanSiswa.getId(),
+						kelompokParameterTambahanCatatanSiswa.getId() + "->" + parameterTambahan.getId());
 
 					MyFormRow row = new MyFormRow();
 					row.setValign("top");

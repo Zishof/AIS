@@ -98,7 +98,8 @@ public class ParameterTambahanKegiatanSiswaListener implements EventListener {
 			final boolean lolosSyaratKgs = ais.common.ParameterTambahanHtmlHelper.lolosSyaratTampil(parameterTambahan, nilaiByParamIdKgs);
 			KelompokKegiatanSiswa kelompokKegiatanSiswa = parameterTambahanKegiatanSiswa.getKelompokKegiatanSiswa();
 			if (parameterTambahan != null && kelompokKegiatanSiswa != null) {
-				String jenis = kelompokKegiatanSiswa.getId() + "->" + parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(KegiatanSiswa.class,
+						kegiatanSiswa.getId(), kelompokKegiatanSiswa.getId() + "->" + parameterTambahan.getId());
 
 				String val = "";
 				String[] spl = kegiatanSiswa.getNilaiInds().split("\n");
@@ -272,7 +273,8 @@ public class ParameterTambahanKegiatanSiswaListener implements EventListener {
 					}
 				}
 
-				String jenis = kelompokKegiatanSiswa.getId() + "->" + parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(KegiatanSiswa.class,
+						kegiatanSiswa.getId(), kelompokKegiatanSiswa.getId() + "->" + parameterTambahan.getId());
 
 				MyFormRow row = new MyFormRow();row.setValign("top");
 

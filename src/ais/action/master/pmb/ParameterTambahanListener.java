@@ -99,7 +99,9 @@ public class ParameterTambahanListener implements EventListener {
 			KelompokParameterTambahanCalonMahasiswa kelompokParameterTambahanCalonMahasiswa = (KelompokParameterTambahanCalonMahasiswa) row
 					.getAttribute("kelompokParameterTambahanCalonMahasiswa");
 			if (parameterTambahan != null && kelompokParameterTambahanCalonMahasiswa != null) {
-				String jenis = kelompokParameterTambahanCalonMahasiswa.getId() + "->" + parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataCalonMahasiswa.class,
+						biodataCalonMahasiswa.getId(),
+						kelompokParameterTambahanCalonMahasiswa.getId() + "->" + parameterTambahan.getId());
 
 				String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 
@@ -269,7 +271,9 @@ public class ParameterTambahanListener implements EventListener {
 			if (!parameterTambahans.isEmpty()) {
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanCalonMahasiswa.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataCalonMahasiswa.class,
+						biodataCalonMahasiswa.getId(),
+						kelompokParameterTambahanCalonMahasiswa.getId() + "->" + parameterTambahan.getId());
 
 					Row row = new MyRowStyled();
 

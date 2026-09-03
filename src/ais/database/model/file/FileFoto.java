@@ -1101,8 +1101,9 @@ public abstract class FileFoto extends GeneralValueObject {
 	 * hibernate.streaming.cfg.xml, karena dapat mengubah pemisahan konfigurasi yang sudah
 	 * berjalan.
 	 *
-	 * Saat ini LampiranPengumumanAkademis dipertahankan memakai hibernate.cfg.xml utama
-	 * agar tidak memicu MappingException: Unknown entity pada SessionFactory streaming.
+	 * Entity lampiran yang hanya terdaftar di konfigurasi utama dipertahankan memakai
+	 * hibernate.cfg.xml utama agar tidak memicu MappingException: Unknown entity pada
+	 * SessionFactory streaming.
 	 */
 	private Session openBlobReadSession(FileFoto source) {
 		if (useMainHibernateConfigForBlob(source)) {
@@ -1120,7 +1121,8 @@ public abstract class FileFoto extends GeneralValueObject {
 			while (clazz != null) {
 				String className = clazz.getName();
 				if ("ais.database.model.file.LampiranPengumumanAkademis".equals(className)
-						|| "ais.database.model.file.LampiranPengumumanPerkuliahan".equals(className)) {
+						|| "ais.database.model.file.LampiranPengumumanPerkuliahan".equals(className)
+						|| "ais.database.model.file.LampiranPenelitianDanPengabdian".equals(className)) {
 					return true;
 				}
 				clazz = clazz.getSuperclass();

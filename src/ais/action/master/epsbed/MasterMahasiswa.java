@@ -10,6 +10,7 @@ import java.util.List;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
@@ -213,6 +214,8 @@ public class MasterMahasiswa extends MyWindow {
 
 			@Override
 			public void run() {
+				Session session = null;
+				Transaction transaction = null;
 				try {
 
 				XSSFWorkbook workbook = new XSSFWorkbook();
@@ -277,7 +280,8 @@ public class MasterMahasiswa extends MyWindow {
 
 				rowhead.createCell(46).setCellValue("NIK");
 
-				Session session = HibernateUtil.currentNativeSession();
+				session = HibernateUtil.getSessionFactory().openSession();
+				transaction = session.beginTransaction();
 
 				List<Mahasiswa> mahasiswas = session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 						.createAlias("jurusan", "jurusan", Criteria.LEFT_JOIN)
@@ -309,14 +313,14 @@ public class MasterMahasiswa extends MyWindow {
 							.setCellValue(perguruanTinggi == null || perguruanTinggi.getId() == null ? "" : perguruanTinggi.getKodePerguruanTinggi());
 					row.createCell(1).setCellValue(mahasiswa.getJenjang().getJenjangEpsbed());
 					row.createCell(2).setCellValue(mahasiswa.getJurusan() == null
-							? mahasiswa.getJurusan().getKodeEpsbed() : mahasiswa.getJurusan().getKodeEpsbed());
+							? "" : mahasiswa.getJurusan().getKodeEpsbed());
 					row.createCell(3).setCellValue(mahasiswa.getNim());
 					row.createCell(4).setCellValue(mahasiswa.getNama());
 					row.createCell(5).setCellValue(mahasiswa.getProgram().equalsIgnoreCase("Reguler") ? "R" : "N");
 					row.createCell(6).setCellValue(mahasiswa.getTempatlahir());
 					row.createCell(7).setCellValue(mahasiswa.getTanggallahir() == null ? ""
 							: CommonEpsbed.dateFormatEpsbed.get().format(mahasiswa.getTanggallahir()));
-					BiodataMahasiswa biodataMahasiswa = (BiodataMahasiswa) HibernateUtil.currentSession()
+					BiodataMahasiswa biodataMahasiswa = (BiodataMahasiswa) session
 							.createCriteria(BiodataMahasiswa.class).add(Restrictions.eq("mahasiswa", mahasiswa))
 							.setMaxResults(1).uniqueResult();
 					// System.out.println(ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR)
@@ -411,12 +415,23 @@ public class MasterMahasiswa extends MyWindow {
 
 				System.out.println("Your excel file has been generated! " );
 
-				HibernateUtil.closeSession();
-
 				mahasiswas.clear();
 				label.setValue("");
 							} finally {
-					ais.database.hibernate.HibernateUtil.closeSession();
+					if (transaction != null) {
+						try {
+							transaction.rollback();
+						} catch (Exception ignored) {
+							// Session ekspor bersifat baca-saja; kegagalan rollback tidak boleh menutupi hasil ekspor.
+						}
+					}
+					if (session != null) {
+						try {
+							session.close();
+						} catch (Exception ignored) {
+							// Tidak ada tindakan lanjutan saat penutupan session terdedikasi gagal.
+						}
+					}
 				}
 			}
 		}).start();
