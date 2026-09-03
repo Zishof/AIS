@@ -22,7 +22,26 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 
 if(hanya_tampil_jsp){
 	if(!p.trim().isEmpty() && !s.trim().isEmpty()){
-        	  
+
+		java.util.Set<String> pmbAllowedPairs = new java.util.HashSet<String>(java.util.Arrays.asList(
+			"pmb/landing_page", "pmb/_sukses_login", "pmb/_pendaftaran_mahasiswa",
+			"pmb/_pendaftaran_mahasiswa_service", "pmb/_pendaftaran_mahasiswa_validasi_service",
+			"pmb/_form_tambahan_pendaftaran_mahasiswa", "pmb/_form_verifikasi_berkas_mahasiswa",
+			"pmb/_cetak_biodata_calon_mahasiswa", "pmb/_cetak_kartu_pendaftaran", "pmb/_cetak_kartu_ujian",
+			"pmb/_cetak_bukti_diterima", "pmb/_cetak_e_ktm", "pmb/_cetak_bukti_pembayaran_mhs",
+			"pmb/_cetak_bukti_bayar", "pmb/_bukti_bayar", "pmb/_alur_pendaftaran",
+			"pmb/_ikut_ujian_online", "pmb/_ikut_ujian_online_service", "pmb/_wawancara", "pmb/_wawancara_service",
+			"pmb/_tampilkan_berkas_di_sukses_login", "pmb/_gelombang", "pmb/_pengumuman", "pmb/_pilihan_prodi",
+			"bayarmhs/pembayaran_online_mhs", "common/upload_component", "home/pengumuman_rinci"
+		));
+
+		boolean psFormatValid = p.matches("[A-Za-z0-9_/-]+") && s.matches("[A-Za-z0-9_/-]+") && !p.contains("..") && !s.contains("..");
+
+		if(!psFormatValid){
+			response.sendError(400);
+		} else if(!pmbAllowedPairs.contains(p+"/"+s)){
+			response.sendError(404);
+		} else {
         	  try{
         		  String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
                   %>
@@ -34,7 +53,8 @@ if(hanya_tampil_jsp){
         		  <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
         		  <%
         	  }
-          
+		}
+
     }
 } else {
 %>

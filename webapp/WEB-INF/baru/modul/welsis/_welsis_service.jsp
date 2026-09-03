@@ -47,7 +47,9 @@
 				return (Sekolah) dbSession.get(Sekolah.class, resolved.getId());
 			}
 			@SuppressWarnings("unchecked")
-			List<Sekolah> daftarSekolah = dbSession.createCriteria(Sekolah.class).setMaxResults(2).list();
+			List<Sekolah> daftarSekolah = dbSession.createCriteria(Sekolah.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.setMaxResults(2).list();
 			if (daftarSekolah.size() == 1) {
 				return daftarSekolah.get(0);
 			}

@@ -29,8 +29,15 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 }
 
 if(hanya_tampil_jsp){
-	if(!p.trim().isEmpty() && !s.trim().isEmpty()){
-        	  
+	// PERBAIKAN KEAMANAN (task_1f9c66d3, rujuk r83764 webapp/WEB-INF/baru/tamu.jsp): sebelumnya p/s
+	// diambil mentah tanpa daftar putih -- proksi anonim ke JSP layanan modul APA PUN. Inventarisasi
+	// menyeluruh (grep atas seluruh webapp/ utk "hanya_tampil_jsp"/"/login?") TIDAK menemukan
+	// satupun pemanggil sah utk dispatcher root login.jsp ini. Karena tidak ada pasangan p/s yang
+	// sah utk rute ini, daftar putih sengaja dikosongkan (deny-all) alih-alih menebak/membuka
+	// kombinasi baru.
+	boolean psDiizinkan = false;
+	if(!p.trim().isEmpty() && !s.trim().isEmpty() && psDiizinkan){
+
         	  try{
         		  String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
                   %>
@@ -42,7 +49,9 @@ if(hanya_tampil_jsp){
         		  <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
         		  <%
         	  }
-          
+
+    } else if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+    	response.sendError(403);
     }
 } else {
 %>

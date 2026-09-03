@@ -38,6 +38,11 @@
 
     String includePath = "/WEB-INF/baru/modul/vendor/landing_page.jsp";
     if (hanya_tampil_jsp && !p.trim().isEmpty() && !s.trim().isEmpty()) {
+        boolean psDiizinkanVendor = "vendor".equals(p) && "_vendor_service".equals(s);
+        if (!psDiizinkanVendor) {
+            response.sendError(403);
+            return;
+        }
         includePath = "/WEB-INF/baru/modul/" + p + "/" + s + ".jsp";
     }
 

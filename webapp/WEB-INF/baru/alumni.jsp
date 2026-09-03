@@ -26,7 +26,15 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 
 if(hanya_tampil_jsp){
 	if(!p.trim().isEmpty() && !s.trim().isEmpty() && modulValid){
-        	  
+		java.util.Set<String> alumniPasanganDiizinkan = new java.util.HashSet<String>(java.util.Arrays.asList(
+			"alumni:tracer_study", "alumni:_statistik_alumni", "alumni:_isi_kuesioner_alumni",
+			"alumni:_simpan_isi_kuesioner_alumni", "alumni:_pengumuman_alumni", "alumni:_galeri",
+			"alumni:_daftar_alumni", "home:pengumuman_rinci"));
+		if(!alumniPasanganDiizinkan.contains(p+":"+s)){
+			response.sendError(404);
+			return;
+		}
+
         	  try{
 		          String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
 		          if (application.getResource(pg) == null) {
