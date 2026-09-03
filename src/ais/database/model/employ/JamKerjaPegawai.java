@@ -63,7 +63,7 @@ import ais.database.model.rab.SatuanKerja;
 public class JamKerjaPegawai extends GeneralValueObject {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 1129196121609467759L;
 
@@ -71,10 +71,23 @@ public class JamKerjaPegawai extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * Mengembalikan id pengguna (kolom {@code oleh_id}) yang terakhir membuat/mengubah baris jam
+	 * kerja ini. Bagian dari pasangan field audit {@code oleh}/{@code olehId} yang diwarisi pola
+	 * generiknya dari {@link GeneralValueObject}.
+	 *
+	 * @return id pengguna pencatat, atau {@code null} bila belum pernah diisi
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menetapkan id pengguna pencatat. Nilai kosong atau hanya berisi whitespace diabaikan secara
+	 * diam-diam (tidak melempar exception, tidak mengubah state).
+	 *
+	 * @param olehId id pengguna pencatat; {@code null} atau string kosong/whitespace diabaikan
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
@@ -84,17 +97,40 @@ public class JamKerjaPegawai extends GeneralValueObject {
 	private Integer hari;
 	private SatuanKerja satuanKerja;
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: dipanggil otomatis oleh Hibernate tepat sebelum baris ini
+	 * di-{@code UPDATE}, mendelegasikan ke
+	 * {@code ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)} untuk memutakhirkan
+	 * {@link #tanggal_dirubah}. Tidak dipanggil manual oleh kode aplikasi.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menetapkan tanggal terakhir baris ini dirubah. Biasanya diisi otomatis oleh
+	 * {@link #onUpdate()}, bukan dipanggil manual.
+	 *
+	 * @param tanggal_dirubah tanggal perubahan terakhir
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan tanggal terakhir baris ini dirubah. Nilai awalnya (sebelum pernah di-update)
+	 * diinisialisasi ke waktu saat object dibuat, lewat {@code WaktuUtil.getDate()}.
+	 *
+	 * @return tanggal perubahan terakhir
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan primary key baris jam kerja pegawai ini.
+	 *
+	 * @return id baris, atau {@code null} bila belum persisten
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -102,26 +138,65 @@ public class JamKerjaPegawai extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menetapkan primary key. Kolom dipetakan {@code insertable = false} (nilai dihasilkan
+	 * database via {@code IDENTITY}), jadi setter ini praktis hanya dipakai saat memuat ulang
+	 * entity dari hasil query.
+	 *
+	 * @param id id baris
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Menetapkan nama pengguna pencatat. Nilai kosong atau hanya berisi whitespace diabaikan
+	 * secara diam-diam, sama seperti {@link #setOlehId(String)}.
+	 *
+	 * @param oleh nama pengguna pencatat; {@code null} atau string kosong/whitespace diabaikan
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama pengguna (kolom {@code oleh}) yang terakhir membuat/mengubah baris jam
+	 * kerja ini.
+	 *
+	 * @return nama pengguna pencatat, atau {@code null} bila belum pernah diisi
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Mengembalikan jumlah hari (per minggu, atau kode hari tergantung konvensi pemanggil) yang
+	 * dicakup jadwal jam kerja ini.
+	 *
+	 * @return jumlah/kode hari, atau {@code null} bila belum diset
+	 */
 	public Integer getHari() {
 		return hari;
 	}
 
+	/**
+	 * Menetapkan jumlah/kode hari.
+	 *
+	 * @param hari nilai hari baru
+	 */
 	public void setHari(Integer hari) {
 		this.hari = hari;
 	}
 
+	/**
+	 * Mengembalikan jam mulai kerja. Bila belum pernah diset ({@code null}), <b>method ini
+	 * menetapkan sekaligus mengembalikan</b> nilai default 07:30:00 — getter dengan efek samping:
+	 * memanggilnya pada entity baru mengisi field {@link #mulai} secara permanen di memori, bukan
+	 * sekadar mengembalikan nilai sementara. Kalender dasar diambil dari
+	 * {@code WaktuUtil.getCalendar()} lalu jam/menit/detik ditimpa.
+	 *
+	 * @return jam mulai kerja, default 07:30:00 bila belum diset
+	 */
 	@Temporal(TemporalType.TIME)
 	public Date getMulai() {
 		if (mulai == null) {
@@ -134,10 +209,22 @@ public class JamKerjaPegawai extends GeneralValueObject {
 		return mulai;
 	}
 
+	/**
+	 * Menetapkan jam mulai kerja secara eksplisit.
+	 *
+	 * @param mulai jam mulai baru
+	 */
 	public void setMulai(Date mulai) {
 		this.mulai = mulai;
 	}
 
+	/**
+	 * Mengembalikan jam selesai kerja. Sama seperti {@link #getMulai()}, bila belum pernah diset
+	 * method ini menetapkan sekaligus mengembalikan nilai default 16:00:00 — getter dengan efek
+	 * samping yang mengisi field {@link #sampai} secara permanen saat pertama dipanggil.
+	 *
+	 * @return jam selesai kerja, default 16:00:00 bila belum diset
+	 */
 	@Temporal(TemporalType.TIME)
 	public Date getSampai() {
 		if (sampai == null) {
@@ -150,10 +237,23 @@ public class JamKerjaPegawai extends GeneralValueObject {
 		return sampai;
 	}
 
+	/**
+	 * Menetapkan jam selesai kerja secara eksplisit.
+	 *
+	 * @param sampai jam selesai baru
+	 */
 	public void setSampai(Date sampai) {
 		this.sampai = sampai;
 	}
 
+	/**
+	 * Mengembalikan satuan kerja (entity {@code ais.database.model.rab.SatuanKerja}, dari paket
+	 * {@code rab} — <b>bukan</b> {@link SatuanKerjaEmploy} maupun {@link UnitKerja}, lihat catatan
+	 * pembeda tiga entity "satuan kerja" di Javadoc {@link UnitKerja}) yang menjadi cakupan jadwal
+	 * jam kerja ini.
+	 *
+	 * @return satuan kerja terkait, atau {@code null} bila berlaku umum/tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
@@ -161,6 +261,11 @@ public class JamKerjaPegawai extends GeneralValueObject {
 		return satuanKerja;
 	}
 
+	/**
+	 * Menetapkan satuan kerja cakupan jadwal jam kerja ini.
+	 *
+	 * @param satuanKerja satuan kerja baru
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
