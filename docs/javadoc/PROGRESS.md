@@ -1,5 +1,68 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 39 — SELESAI 100% (3 Sep 2026) — BROKEN ACCESS CONTROL SISTEMIK 6/6, TASK ESKALASI BARU
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/KelompokParameterTambahanPengaduan.java`** (r83599)
+  — 168→552 baris, 100% (28 anggota). Rantai 4 lapis (per `JenisPengaduan`).
+  Ketiga pola keluarga terkonfirmasi ADA. **Broken access control TOTAL**
+  di `ParameterTambahanPengaduanAction` (edit/delete hardcoded, nol
+  `checkPrevilages`) — modul WHISTLEBLOWER, amplifier langsung
+  `task_18d52b8b`.
+- **`ais/database/model/KelompokParameterTambahanPengajuanPegawai.java`**
+  (r83600) — 168→618 baris, 100% (25 anggota). Skema `payroll` (satu-
+  satunya anggota keluarga di skema ini). Broken access control identik
+  di `ParameterTambahanPengajuanPegawaiAction`.
+- **`ais/database/model/KelompokParameterTambahanPengajuan.java`**
+  (r83601) — 168→687 baris, 100% (33 anggota). Domain "Pengajuan"
+  TERVERIFIKASI = peserta didik (mahasiswa+siswa), BUKAN pegawai. Broken
+  access control identik di `ParameterTambahanPengajuanAction`. Bug bonus:
+  alias Criteria rusak (`kelompokParameterTambahanPengajuan` vs
+  `...Mahasiswa`/`...Siswa`) berpotensi `QueryException` tak tertangkap
+  di jalur tampil, dikonfirmasi kembar di modul Mahasiswa DAN Siswa.
+- **`ais/database/model/ParameterTambahanMahasiswa.java`** (r83602) —
+  195→642 baris, 100% (20 anggota). Lapis PENGHUBUNG (bukan kategori) —
+  mekanisme penyimpanan nilai isian mahasiswa TERKONFIRMASI PENUH:
+  2 kolom text `BiodataMahasiswa`, format 8-ruas (berlabel)/4-ruas
+  (ber-ID) dipisah `\n`/`<=>`, kunci gabungan `idKelompok-&gt;idParameter`
+  juga dipakai sebagai `jenis` di `LampiranLain.ambil(idBiodata, jenis)`.
+  4 kolom cakupan akademik (fakultas/jurusan/program/jenjang)
+  TERKONFIRMASI write-only/fiktif — nol pembaca runtime memakainya.
+  Broken access control identik di `ParameterTambahanMahasiswaAction`.
+- **`ais/database/model/ParameterTambahanAlumni.java`** (r83603) —
+  209→728 baris, 100% (30 anggota). Filter tahun angkatan
+  TERKONFIRMASI (format `";thn;;thn;"` tanpa pemisah tambahan, dibaca
+  4 query identik `Restrictions.ilike ANYWHERE`). Bug nyata: combobox
+  `program` tidak pernah di-`appendChild` ke dialog Ubah tapi tetap
+  dibaca `onSave()` → membuka lalu menyimpan baris apa pun MENGOSONGKAN
+  `program` yang sudah terisi. Broken access control identik di
+  `ParameterTambahanAlumniAction`.
+
+**TEMUAN PALING SIGNIFIKAN — pola broken access control kini 6/6 (HIT
+RATE 100%)** di seluruh file `ParameterTambahan*Action` yang sudah
+diperiksa lintas batch 38-39 (CatatanMahasiswa, Pengaduan,
+PengajuanPegawai, Pengajuan, Mahasiswa, Alumni) — `edit`/`delete`
+di-hardcode `true`, NOL pemanggilan `checkPrevilages` di setiap file,
+tanpa kecuali. Bukan kebetulan — cacat TEMPLATE sistemik di seluruh
+keluarga kelas Action ini (kontras dengan `KelompokParameterTambahan*Action`
+yang pada umumnya PUNYA guard benar). **Task eskalasi baru dibuat:
+`task_58f74860`** — cukup spesifik & actionable (daftar file konkret +
+pola perbaikan referensi) untuk ditangani terpisah dari task audit-luas
+umum.
+
+**Pola "guard Intbox nomor urut bolong"**: 3 instance baru batch ini
+(Pengaduan/PengajuanPegawai/Pengajuan) — total kumulatif keluarga
+`KelompokParameterTambahan*` kini 7 dari 9 varian yang sudah digarap.
+
+**Pola "getKeterangan() membalik kontrak"**: 3 dari 5 file batch ini
+(kedua entity `ParameterTambahan*` penghubung TIDAK punya field
+`keterangan`). Total kumulatif: 19 (akhir b38) + 3 = **22 instance**.
+
+Total akumulasi 39 sesi: **373 file** dari 7.401 (~5,0%).
+
 ## Batch 38 — SELESAI 100% (3 Sep 2026) — POLA "GUARD KOMPONEN BOLONG" TERKONFIRMASI SISTEMIK
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
