@@ -1,5 +1,62 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 87 — SELESAI 100% (4 Sep 2026) — PIVOT ke paket `koperasi`; 3 task baru (`task_5c4bc70c`, `task_2db2f4ba`, `task_334b71eb`)
+
+19 file selesai didokumentasikan penuh (batch pertama domain baru
+`koperasi`), semua dikompilasi `-implicit:none` bersih via
+PowerShell, WC mirror disinkron via `svn update`, `cmp` byte-identik:
+
+- **`Koperasi.java`** (r84152) + **`JenisTransaksiKoperasi.java`**
+  (r84159) — 100%. `Koperasi` DIKONFIRMASI **bukan** representasi
+  tenant langsung — satu baris = satu unit usaha di bawah satu
+  `SatuanKerja` (isolasi tenant DUA TINGKAT tidak langsung). 10 file
+  di paket ini punya FK ke `Koperasi`. **TIDAK terdaftar langsung**
+  di Generic CRUD v2 — hanya anak `PembayaranAnggotaKoperasi`
+  terdaftar, dan adapter itu tanpa properti tenant untuk dibind
+  (konfirmasi lanjutan `task_7b6038ac` di domain baru).
+- **`TipeProdukKoperasi.java`** (r84151) + **`SyaratProdukKoperasi.java`**
+  (r84155) + **`KelompokParameterTambahanProdukKoperasi.java`**
+  (r84160) + **`ParameterTambahanProdukKoperasi.java`** (r84163) —
+  100%. **Verifikasi NEGATIF penting**: pola bug kunci-ZK-salah-modul
+  `task_fe6517bf` TIDAK ADA di klaster koperasi ini (pakai referensi
+  objek langsung via closure, bukan `setAttribute`/`getAttribute`
+  string-key). `TipeProdukKoperasi.getJenis()` menentukan arah
+  debet/kredit jurnal otomatis, fallback tebak-nama rawan untuk data
+  legacy (risiko residual, bukan task baru).
+- **`GrupAturanDiskonDetail.java`** (r84149) + **`GrupAturanDiskon.java`**
+  (r84156) + **`AturanDiskon.java`** (r84166) + **`PencairanDiskon.java`**
+  (r84167) — 100%. `GrupAturanDiskon`/`AturanDiskon` DIKONFIRMASI
+  BUKAN header/detail — dua mesin promo PARALEL independen digabung
+  satu mesin hitung `KantinHelper`. **🚨 Task baru `task_334b71eb`**:
+  jalur API mobile memvalidasi saldo cashback sebelum pencairan,
+  tapi layar CRUD ZK admin (`PencairanDiskonAction`, dipakai staf
+  approve/reject) SAMA SEKALI TIDAK validasi saldo — staf bisa buat
+  baris `BERHASIL` nominal berapa pun, diposting ke buku besar oleh
+  `PostingDanaAnggotaUtil`.
+- **`AlokasiPenerimaanPiutangCustomer.java`** (r84150) +
+  **`AlokasiPembayaranHutangSupplier.java`** (r84154) +
+  **`PembayaranHutang.java`** (r84158) + **`HargaJualCustomer.java`**
+  (r84162) + **`HargaBeliSupplier.java`** (r84164) — 100%. Penjagaan
+  keseimbangan alokasi ADA (di helper servlet, bukan entity).
+  **🚨 Task baru `task_5c4bc70c`**: race TOCTOU pada
+  cek-lalu-simpan versi harga (tanpa `FOR UPDATE`/unique constraint
+  DB pada skema koperasi legacy) — dua simpan bersamaan bisa lolos
+  keduanya, menghasilkan dua baris harga "unik" aktif sekaligus.
+- **`JenisAnggotaKoperasi.java`** (r84153) + **`JenisIdentitasAnggotaKoperasi.java`**
+  (r84157) + **`PengurusKoperasi.java`** (r84161) +
+  **`TipeAnggotaKoperasi.java`** (r84165, sebagian sudah ada) —
+  100%. Jenis vs Tipe DIKONFIRMASI dua dimensi klasifikasi
+  independen (bukan nama menyesatkan) — satu anggota rujuk KEDUANYA.
+  **🚨 Task baru `task_2db2f4ba`**: flag `aktif` pada
+  `PengurusKoperasi` tidak pernah dikonsultasikan oleh
+  `getCurrentKoperasi()` (resolusi tenant aktif pengguna) — menonaktifkan
+  kepengurusan lewat CRUD generik tidak benar-benar mencabut akses.
+
+**3 task baru batch ini**: `task_5c4bc70c`, `task_2db2f4ba`,
+`task_334b71eb`. Domain `koperasi` terbukti fertile untuk temuan
+keamanan/integritas finansial sejak batch pertama, konsisten dengan
+`akunting`/`payroll`.
+
 ## 🎉 MILESTONE — paket `payroll` TUNTAS 100% (4 Sep 2026, akhir batch 86)
 
 Diverifikasi lewat scan penuh: **42/42 file** `ais/database/model/payroll/`
