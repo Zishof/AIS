@@ -1211,87 +1211,214 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 		this.hari = hari;
 	}
 
+	/**
+	 * Mengembalikan flag aktif/tidaknya validasi absen-foto (dan implisit, validasi lokasi lewat
+	 * {@link #ambilJarakDanLokasiTerdekat(String, String)}) untuk shift ini.
+	 *
+	 * @return {@code true} bila fitur diaktifkan; default {@code true} bila belum pernah diset — perilaku
+	 *         "aman secara default" yaitu validasi dianggap AKTIF kecuali secara eksplisit dimatikan
+	 */
 	public Boolean getAktifkanAbsenFoto() {
 		return aktifkanAbsenFoto == null ? true : aktifkanAbsenFoto;
 	}
 
+	/**
+	 * Mengisi flag aktif/tidaknya validasi absen-foto.
+	 *
+	 * @param aktifkanAbsenFoto nilai flag baru; {@code null} akan diperlakukan sebagai {@code true} oleh
+	 *                          {@link #getAktifkanAbsenFoto()}
+	 */
 	public void setAktifkanAbsenFoto(Boolean aktifkanAbsenFoto) {
 		this.aktifkanAbsenFoto = aktifkanAbsenFoto;
 	}
 
+	/**
+	 * Mengembalikan toleransi menit SEBELUM jam mulai shift yang masih dianggap tepat waktu (mis. untuk
+	 * jendela absen masuk yang diperbolehkan).
+	 *
+	 * @return toleransi menit; default {@code 30.0} bila belum pernah diset
+	 */
 	public Double getMenitSebelumJamMulai() {
 		return menitSebelumJamMulai == null ? 30.0 : menitSebelumJamMulai;
 	}
 
+	/**
+	 * Mengisi toleransi menit sebelum jam mulai shift.
+	 *
+	 * @param menitSebelumJamMulai toleransi menit baru
+	 */
 	public void setMenitSebelumJamMulai(Double menitSebelumJamMulai) {
 		this.menitSebelumJamMulai = menitSebelumJamMulai;
 	}
 
+	/**
+	 * Mengembalikan toleransi menit SETELAH jam mulai shift yang masih dianggap tepat waktu.
+	 *
+	 * @return toleransi menit; default {@code 30.0} bila belum pernah diset
+	 */
 	public Double getMenitSetelahJamMulai() {
 		return menitSetelahJamMulai == null ? 30.0 : menitSetelahJamMulai;
 	}
 
+	/**
+	 * Mengisi toleransi menit setelah jam mulai shift.
+	 *
+	 * @param menitSetelahJamMulai toleransi menit baru
+	 */
 	public void setMenitSetelahJamMulai(Double menitSetelahJamMulai) {
 		this.menitSetelahJamMulai = menitSetelahJamMulai;
 	}
 
+	/**
+	 * Mengembalikan toleransi menit SEBELUM jam selesai shift untuk keperluan absen pulang.
+	 *
+	 * @return toleransi menit; default {@code 30.0} bila belum pernah diset
+	 */
 	public Double getMenitSebelumJamSampai() {
 		return menitSebelumJamSampai == null ? 30.0 : menitSebelumJamSampai;
 	}
 
+	/**
+	 * Mengisi toleransi menit sebelum jam selesai shift.
+	 *
+	 * @param menitSebelumJamSampai toleransi menit baru
+	 */
 	public void setMenitSebelumJamSampai(Double menitSebelumJamSampai) {
 		this.menitSebelumJamSampai = menitSebelumJamSampai;
 	}
 
+	/**
+	 * Mengembalikan toleransi menit SETELAH jam selesai shift untuk keperluan absen pulang.
+	 *
+	 * @return toleransi menit; default {@code 30.0} bila belum pernah diset
+	 */
 	public Double getMenitSetelahJamSampai() {
 		return menitSetelahJamSampai == null ? 30.0 : menitSetelahJamSampai;
 	}
 
+	/**
+	 * Mengisi toleransi menit setelah jam selesai shift.
+	 *
+	 * @param menitSetelahJamSampai toleransi menit baru
+	 */
 	public void setMenitSetelahJamSampai(Double menitSetelahJamSampai) {
 		this.menitSetelahJamSampai = menitSetelahJamSampai;
 	}
 
+	/**
+	 * Mengembalikan toleransi jam (desimal) SEBELUM jam mulai shift — varian granularitas jam dari
+	 * {@link #getMenitSebelumJamMulai()}, dipakai pada alur yang bekerja dalam satuan jam bukan menit.
+	 *
+	 * @return toleransi jam; default {@code 0.5} bila belum pernah diset
+	 */
 	public Double getJamSebelumJamMulai() {
 		return jamSebelumJamMulai == null ? 0.5 : jamSebelumJamMulai;
 	}
 
+	/**
+	 * Mengisi toleransi jam sebelum jam mulai shift.
+	 *
+	 * @param jamSebelumJamMulai toleransi jam baru
+	 */
 	public void setJamSebelumJamMulai(Double jamSebelumJamMulai) {
 		this.jamSebelumJamMulai = jamSebelumJamMulai;
 	}
 
+	/**
+	 * Mengembalikan toleransi jam (desimal) SETELAH jam mulai shift.
+	 *
+	 * @return toleransi jam; default {@code 0.5} bila belum pernah diset
+	 */
 	public Double getJamSetelahJamMulai() {
 		return jamSetelahJamMulai == null ? 0.5 : jamSetelahJamMulai;
 	}
 
+	/**
+	 * Mengisi toleransi jam setelah jam mulai shift.
+	 *
+	 * @param jamSetelahJamMulai toleransi jam baru
+	 */
 	public void setJamSetelahJamMulai(Double jamSetelahJamMulai) {
 		this.jamSetelahJamMulai = jamSetelahJamMulai;
 	}
 
+	/**
+	 * Mengembalikan toleransi jam (desimal) SEBELUM jam selesai shift.
+	 *
+	 * @return toleransi jam; default {@code 0.5} bila belum pernah diset
+	 */
 	public Double getJamSebelumJamSampai() {
 		return jamSebelumJamSampai == null ? 0.5 : jamSebelumJamSampai;
 	}
 
+	/**
+	 * Mengisi toleransi jam sebelum jam selesai shift.
+	 *
+	 * @param jamSebelumJamSampai toleransi jam baru
+	 */
 	public void setJamSebelumJamSampai(Double jamSebelumJamSampai) {
 		this.jamSebelumJamSampai = jamSebelumJamSampai;
 	}
 
+	/**
+	 * Mengembalikan toleransi jam (desimal) SETELAH jam selesai shift.
+	 *
+	 * @return toleransi jam; default {@code 0.5} bila belum pernah diset
+	 */
 	public Double getJamSetelahJamSampai() {
 		return jamSetelahJamSampai == null ? 0.5 : jamSetelahJamSampai;
 	}
 
+	/**
+	 * Mengisi toleransi jam setelah jam selesai shift.
+	 *
+	 * @param jamSetelahJamSampai toleransi jam baru
+	 */
 	public void setJamSetelahJamSampai(Double jamSetelahJamSampai) {
 		this.jamSetelahJamSampai = jamSetelahJamSampai;
 	}
 
+	/**
+	 * Mengembalikan teks/aturan konversi jam lembur (mis. pemetaan tingkat lembur ke pengali gaji), kolom
+	 * database bertipe {@code text} bebas format.
+	 *
+	 * @return teks konversi jam lembur; string kosong ({@code ""}) bila belum pernah diisi — TIDAK PERNAH
+	 *         {@code null}, berbeda dari kebanyakan getter String lain di kelas ini yang membolehkan
+	 *         {@code null}
+	 */
 	@Column(name = "konversi_jam_lembur", columnDefinition = "text")
 	public String getKonversiJamLembur() {
 		return konversiJamLembur == null ? "" : konversiJamLembur;
 	}
 
+	/**
+	 * Mengisi teks/aturan konversi jam lembur.
+	 *
+	 * @param konversiJamLembur teks konversi baru, boleh {@code null} (akan tampil sebagai string kosong
+	 *                          lewat {@link #getKonversiJamLembur()})
+	 */
 	public void setKonversiJamLembur(String konversiJamLembur) {
 		this.konversiJamLembur = konversiJamLembur;
 	}
 
+	/**
+	 * Mengembalikan flag apakah baris shift ini khusus dipakai pada hari libur.
+	 *
+	 * <p><b>Efek samping (getter destruktif, flag satu-arah bersyarat).</b> Sebelum mengembalikan nilai,
+	 * method ini memeriksa header {@link #getJenisShiftPegawai()}: bila header ADA dan header TIDAK
+	 * menandai konsep hari libur sebagai sesuatu yang ditentukan ({@code !getHariLiburDitentukan()}), maka
+	 * field {@link #khususBuatHariLibur} DIPAKSA menjadi {@code false} dan DITULIS BALIK ke field instance
+	 * — menimpa nilai apa pun yang sebelumnya di-set lewat {@link #setKhususBuatHariLibur(Boolean)} atau
+	 * dimuat dari database. Ini adalah pola "flag satu-arah bersyarat" yang berulang di codebase AIS: flag
+	 * hanya bisa dipaksa dari {@code true}/tak-tentu MENJADI {@code false} berdasarkan kondisi pada entity
+	 * lain (di sini, header shift), tidak pernah sebaliknya (getter ini tidak pernah memaksa flag menjadi
+	 * {@code true}). Jika header {@code null} atau {@code getHariLiburDitentukan()} bernilai {@code true},
+	 * field TIDAK diubah dan nilai tersimpan sebelumnya (atau default {@code false}) yang dikembalikan.</p>
+	 *
+	 * @return {@code true} bila baris ini khusus untuk hari libur DAN header masih menandai konsep hari
+	 *         libur sebagai berlaku; {@code false} dalam semua kasus lain (termasuk saat dipaksa oleh
+	 *         efek samping di atas)
+	 */
 	public Boolean getKhususBuatHariLibur() {
 
 		if (getJenisShiftPegawai() != null && !getJenisShiftPegawai().getHariLiburDitentukan()) {
@@ -1301,28 +1428,72 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 		return khususBuatHariLibur == null ? false : khususBuatHariLibur;
 	}
 
+	/**
+	 * Mengisi flag "khusus untuk hari libur" secara manual. Perlu diperhatikan bahwa nilai {@code true} di
+	 * sini dapat DIPAKSA kembali menjadi {@code false} oleh {@link #getKhususBuatHariLibur()} pada
+	 * pemanggilan berikutnya, tergantung konfigurasi header {@link #jenisShiftPegawai} (lihat javadoc
+	 * getter).
+	 *
+	 * @param khususBuatHariLibur nilai flag baru
+	 */
 	public void setKhususBuatHariLibur(Boolean khususBuatHariLibur) {
 		this.khususBuatHariLibur = khususBuatHariLibur;
 	}
 
+	/**
+	 * Mengembalikan flag apakah lembur dihitung sejak jam masuk aktual pegawai (bukan sejak
+	 * {@link #getLemburMulai()} yang telah dikonfigurasi tetap).
+	 *
+	 * @return {@code true} bila lembur dihitung dari awal masuk; default {@code false} bila belum pernah
+	 *         diset (perilaku default: pakai {@link #lemburMulai} tetap)
+	 */
 	public Boolean getLemburDihitungDariAwalMasuk() {
 		return lemburDihitungDariAwalMasuk == null ? false : lemburDihitungDariAwalMasuk;
 	}
 
+	/**
+	 * Mengisi flag "lembur dihitung dari awal masuk".
+	 *
+	 * @param lemburDihitungDariAwalMasuk nilai flag baru
+	 */
 	public void setLemburDihitungDariAwalMasuk(Boolean lemburDihitungDariAwalMasuk) {
 		this.lemburDihitungDariAwalMasuk = lemburDihitungDariAwalMasuk;
 	}
 
+	/**
+	 * Mengembalikan flag apakah jam masuk dan pulang otomatis mengikuti {@link #getWaktuShift()} tanpa
+	 * memerlukan input/override manual dari pengguna.
+	 *
+	 * @return {@code true} bila penyesuaian otomatis aktif; default {@code false} bila belum pernah diset
+	 */
 	public Boolean getJamMasukDanPulangOtomatisMenyesuakanWaktuShift() {
 		return jamMasukDanPulangOtomatisMenyesuakanWaktuShift == null ? false
 				: jamMasukDanPulangOtomatisMenyesuakanWaktuShift;
 	}
 
+	/**
+	 * Mengisi flag penyesuaian otomatis jam masuk/pulang terhadap {@link WaktuShift}.
+	 *
+	 * @param jamMasukDanPulangOtomatisMenyesuakanWaktuShift nilai flag baru
+	 */
 	public void setJamMasukDanPulangOtomatisMenyesuakanWaktuShift(
 			Boolean jamMasukDanPulangOtomatisMenyesuakanWaktuShift) {
 		this.jamMasukDanPulangOtomatisMenyesuakanWaktuShift = jamMasukDanPulangOtomatisMenyesuakanWaktuShift;
 	}
 
+	/**
+	 * Mengembalikan sumber jam mulai/sampai kanonik ({@link WaktuShift}) yang, bila terpasang, menjadi
+	 * acuan untuk {@link #getMulai()} dan {@link #getSampai()} — relasi {@code @ManyToOne} lewat kolom FK
+	 * {@code waktu_shift}.
+	 *
+	 * <p><b>Efek samping:</b> memanggil {@code GeneralValueObject.check(Object)} yang meresolusi proxy
+	 * lazy Hibernate dan menulis balik hasil resolusi ke field {@link #waktuShift} — pola identik dengan
+	 * {@link #getJenisShiftPegawai()}, lihat javadoc method itu untuk penjelasan mekanisme
+	 * {@code check()}.</p>
+	 *
+	 * @return object {@link WaktuShift} terkait, atau {@code null} bila kolom FK kosong (dalam hal ini
+	 *         {@link #mulai}/{@link #sampai} dipakai apa adanya tanpa ditimpa)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "waktu_shift", nullable = true)
 	public WaktuShift getWaktuShift() {
@@ -1330,10 +1501,30 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 		return waktuShift;
 	}
 
+	/**
+	 * Mengaitkan baris detail ini dengan sumber jam kanonik {@link WaktuShift} tertentu.
+	 *
+	 * @param waktuShift object {@link WaktuShift} baru; {@code null} melepas asosiasi
+	 */
 	public void setWaktuShift(WaktuShift waktuShift) {
 		this.waktuShift = waktuShift;
 	}
 
+	/**
+	 * Mengembalikan hari ke berapa dalam siklus rotasi shift tempat baris detail ini berlaku.
+	 *
+	 * <p><b>Efek samping (getter destruktif, sinkronisasi bersyarat dengan header).</b> Bila header
+	 * {@link #getJenisShiftPegawai()} ADA dan header menandai bahwa jumlah hari dalam siklus SAMA DENGAN
+	 * jumlah shift ({@code getJumlahHariSamaDenganJumlahShift()} — kasus umum: satu shift per hari dalam
+	 * siklus, tidak ada hari dengan shift ganda atau hari kosong), maka field {@link #hariKe} DITIMPA
+	 * dengan {@link #getKe()} — asumsinya, dalam konfigurasi seperti ini, urutan shift ({@link #ke}) dan
+	 * urutan hari ({@link #hariKe}) selalu identik sehingga tidak perlu dikonfigurasi terpisah. Bila header
+	 * {@code null} atau flag tersebut {@code false} (siklus punya struktur hari/shift yang lebih kompleks,
+	 * mis. 2 shift dalam 1 hari lalu 1 hari kosong), {@link #hariKe} TIDAK diubah dan nilai yang tersimpan
+	 * (hasil {@link #setHariKe(Integer)} atau dari database) yang dipakai.</p>
+	 *
+	 * @return hari ke berapa dalam siklus rotasi; default {@code 1} bila belum pernah diset
+	 */
 	public Integer getHariKe() {
 		if (getJenisShiftPegawai() != null && getJenisShiftPegawai().getJumlahHariSamaDenganJumlahShift()) {
 			hariKe = getKe();
@@ -1341,23 +1532,64 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 		return hariKe == null ? 1 : hariKe;
 	}
 
+	/**
+	 * Mengisi hari ke berapa dalam siklus rotasi secara manual. Nilai ini dapat ditimpa kembali oleh
+	 * {@link #getHariKe()} tergantung konfigurasi header (lihat javadoc getter).
+	 *
+	 * @param hariKe nilai hari-ke baru
+	 */
 	public void setHariKe(Integer hariKe) {
 		this.hariKe = hariKe;
 	}
 
+	/**
+	 * Mengembalikan flag apakah baris detail ini dijadikan shift default — fallback TERAKHIR yang dipakai
+	 * oleh {@code DetailJenisShiftPegawaiHelper.getDetailJenisShiftPegawai} bila seluruh strategi pencarian
+	 * shift lain (kepemilikan langsung, hierarki sekolah/yayasan/jurusan/fakultas, default per-kategori)
+	 * gagal menemukan baris yang cocok.
+	 *
+	 * @return {@code true} bila baris ini adalah shift default; default {@code false} bila belum pernah
+	 *         diset
+	 */
 	public Boolean getJadikanDefault() {
 		return jadikanDefault == null ? false : jadikanDefault;
 	}
 
+	/**
+	 * Mengisi flag "jadikan default" untuk baris detail ini.
+	 *
+	 * @param jadikanDefault nilai flag baru
+	 */
 	public void setJadikanDefault(Boolean jadikanDefault) {
 		this.jadikanDefault = jadikanDefault;
 	}
 
+	/**
+	 * Mengembalikan baris kepemilikan shift pegawai ({@link JenisShiftPunyaPegawai}) yang diasosiasikan
+	 * secara manual dengan baris detail ini.
+	 *
+	 * <p>Field ini bertanda {@code @Transient} — TIDAK dipetakan ke kolom database apa pun dan tidak
+	 * pernah dimuat otomatis oleh Hibernate saat query. Nilainya harus diisi eksplisit oleh pemanggil lewat
+	 * {@link #setJenisShiftPunyaPegawai(JenisShiftPunyaPegawai)} — lihat pemakaiannya di
+	 * {@code DetailJenisShiftPegawaiHelper.getDetailJenisShiftPegawai}, yang menempelkan
+	 * {@link JenisShiftPunyaPegawai} hasil pencarian kepemilikan langsung ke object detail shift yang
+	 * dikembalikan, sehingga pemanggil di lapisan atas dapat mengetahui BARIS KEPEMILIKAN mana yang
+	 * menghasilkan detail shift ini tanpa perlu query ulang.</p>
+	 *
+	 * @return object kepemilikan shift yang ditempelkan manual, atau {@code null} bila belum pernah diisi
+	 *         pada instance ini
+	 */
 	@Transient
 	public JenisShiftPunyaPegawai getJenisShiftPunyaPegawai() {
 		return jenisShiftPunyaPegawai;
 	}
 
+	/**
+	 * Mengisi/menempelkan baris kepemilikan shift pegawai terkait ke instance ini. Murni state transient
+	 * di sisi Java, tidak pernah dipersistensikan.
+	 *
+	 * @param jenisShiftPunyaPegawai object kepemilikan shift yang ingin ditempelkan, boleh {@code null}
+	 */
 	public void setJenisShiftPunyaPegawai(JenisShiftPunyaPegawai jenisShiftPunyaPegawai) {
 		this.jenisShiftPunyaPegawai = jenisShiftPunyaPegawai;
 	}
