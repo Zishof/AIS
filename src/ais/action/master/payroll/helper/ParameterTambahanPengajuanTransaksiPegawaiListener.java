@@ -181,8 +181,9 @@ public class ParameterTambahanPengajuanTransaksiPegawaiListener implements Event
 			if (!parameterTambahans.isEmpty()) {
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "->"
-							+ parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanTransaksiPegawai.class,
+							pengajuanPegawai.getId(), kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "->"
+									+ parameterTambahan.getId());
 
 					MyFormRow row = new MyFormRow();
 					row.setValign("top");

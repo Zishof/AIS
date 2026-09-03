@@ -5590,6 +5590,40 @@ public class KantinHelper {
 		return cocok.isEmpty() ? null : cocok.get(0).getId();
 	}
 
+	/**
+	 * Tanda tangan field yang DITULIS impor Excel produk -- dasar hitungan "diperbarui".
+	 *
+	 * <p>Sebelum ini {@code produkImporExcelKomit} menghitung SETIAP baris yang cocok
+	 * sebagai "diperbarui", termasuk baris yang nilainya sama persis. Ringkasan impor
+	 * karena itu melaporkan angka yang jauh lebih besar daripada yang sungguh berubah
+	 * (docs/pos/79, 102, 103).</p>
+	 *
+	 * <p><b>Mengapa membandingkan sembilan field ini AMAN.</b> Kekhawatiran lamanya:
+	 * "perbandingan yang terlalu longgar akan MELEWATI perubahan yang sah". Itu benar
+	 * untuk himpunan field yang dipilih sembarang. Di sini himpunannya bukan pilihan --
+	 * ia PERSIS field yang disetel jalur impor ini. Tidak ada field lain yang ditulis,
+	 * jadi tidak ada perubahan sah yang dapat terlewat.</p>
+	 *
+	 * <p>Relasi dibandingkan lewat {@code getId()}, bukan objeknya: getter itu aman
+	 * terhadap proxy Hibernate dan tidak bergantung pada identitas objek.</p>
+	 *
+	 * <p>Stok TIDAK ikut: perubahannya ditangani jalur opname tersendiri yang sudah
+	 * punya penjaga {@code if (selisih != 0)}.</p>
+	 */
+	static String tandaTanganImporProduk(Produk p) {
+		StringBuilder b = new StringBuilder();
+		b.append(p.getKode()).append('\u0001');
+		b.append(p.getNama()).append('\u0001');
+		b.append(p.getBarcode()).append('\u0001');
+		b.append(p.getKunciUnik()).append('\u0001');
+		b.append(p.getHargaJual()).append('\u0001');
+		b.append(p.getHargaBeli()).append('\u0001');
+		b.append(p.getJenisProduk() == null ? null : p.getJenisProduk().getId()).append('\u0001');
+		b.append(p.getPemasok() == null ? null : p.getPemasok().getId()).append('\u0001');
+		b.append(p.getSatuan() == null ? null : p.getSatuan().getId());
+		return b.toString();
+	}
+
 	private static void produkImporExcelKomitSatuPercobaan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Long tokoId = gerbangDanTokoImporProduk(tbmuser, request, hasil,
 				"Hanya admin/manager atau supervisor toko yang dapat menyimpan katalog barang.");
@@ -5665,7 +5699,7 @@ public class KantinHelper {
 				if (!kunciSegar.isEmpty()) petaProdukTokoKunciUnik.put(kunciSegar, p.getId());
 			}
 
-			int dibuat = 0, diperbarui = 0, dilewati = 0, kategoriBaru = 0, pemasokBaru = 0, satuanBaru = 0, stokDiopname = 0;
+			int dibuat = 0, diperbarui = 0, tidakBerubah = 0, dilewati = 0, kategoriBaru = 0, pemasokBaru = 0, satuanBaru = 0, stokDiopname = 0;
 			JSONArray errorArr = new JSONArray();
 			JSONArray barisHasilArr = new JSONArray();
 			String oleh = tbmuser == null ? "impor-excel-katalog" : tbmuser.getUserId();
@@ -5788,13 +5822,14 @@ public class KantinHelper {
 					boolean baru = (produkId == null);
 					double stokLama = 0;
 					String kodeLama = null;
+					String tandaSebelum = null;
 					if (baru) {
 						p = new Produk();
 						p.setToko(toko);
 					} else {
 						p = (Produk) session.get(Produk.class, produkId);
 						if (p == null) { p = new Produk(); p.setToko(toko); baru = true; dicocokkanVia = null; }
-						else { stokLama = p.getStok() == null ? 0 : p.getStok(); kodeLama = p.getKode(); }
+						else { stokLama = p.getStok() == null ? 0 : p.getStok(); kodeLama = p.getKode(); tandaSebelum = tandaTanganImporProduk(p); }
 					}
 					// Kode SELALU ditulis (bukan cuma saat baru) -- gap-closure: baris yg cocok lewat
 					// fallback barcode/nama (lihat JavaDoc method) punya kode BEDA dari produk yg
@@ -5860,7 +5895,18 @@ public class KantinHelper {
 						}
 					} else {
 						session.update(p);
-						diperbarui++;
+						// Hitung "diperbarui" hanya bila ada yang benar-benar berubah. Baris yang
+						// nilainya sama masuk hitungan tersendiri, supaya ringkasan impor tidak
+						// melaporkan pekerjaan yang tidak pernah terjadi (docs/pos/103).
+						//
+						// tandaSebelum null berarti barisnya BARU (jalur konflik kunci unik di
+						// atas), dan itu memang perubahan -- karena itu dihitung diperbarui.
+						if (tandaSebelum == null
+								|| !tandaSebelum.equals(tandaTanganImporProduk(p))) {
+							diperbarui++;
+						} else {
+							tidakBerubah++;
+						}
 					}
 					bh.put("id", p.getId());
 
