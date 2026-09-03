@@ -120,6 +120,70 @@ public class InitIndex {
 	}
 
 	/**
+	 * Migrasi startup yang menutup risiko NIS (Nomor Induk Siswa) kembar yang ditemukan pada audit
+	 * {@code ais.database.model.sekolah.FormatNis}/{@code ais.common.CommonPSB}: (1) menyiapkan
+	 * tabel {@code sekolah.nis_counter} &mdash; pencacah NIS otomatis yang dipersistensikan per
+	 * (sekolah, tahun, epoch), menggantikan penghitungan ulang {@code rowCount} pendaftar yang
+	 * dahulu dipakai {@code CommonPSB#getindex} (lihat {@link ais.database.model.sekolah.NisCounter});
+	 * (2) membersihkan duplikat {@code sekolah.siswa.nomor_induk} yang SUDAH ADA sebelum
+	 * constraint dipasang &mdash; setiap baris duplikat (disisakan satu baris tertua per
+	 * (sekolah, nomor_induk) sebagai kanonik) dicatat ke {@code sekolah.nis_duplikat_audit}
+	 * (nomor asli &amp; nomor baru) lalu diberi sufiks {@code -DUP<id>} yang unik per baris,
+	 * SEBELUM unique index dipasang &mdash; bukan penomoran ulang otomatis yang menebak nomor
+	 * &quot;benar&quot;, karena NIS adalah identitas resmi (dipakai login) yang keliru bila ditebak
+	 * sistem; sekolah perlu meninjau {@code sekolah.nis_duplikat_audit} dan menerbitkan NIS yang
+	 * benar secara manual untuk baris yang tersufiks; (3) memasang unique index
+	 * {@code (sekolah_id, nomor_induk)} pada {@code sekolah.siswa} &mdash; jaring pengaman lapisan
+	 * basis data yang dahulu tidak ada sama sekali (kolom hanya {@code nullable = false}).
+	 *
+	 * <p>Seluruh langkah idempoten ({@code IF NOT EXISTS}/{@code WHERE NOT EXISTS}) dan aman
+	 * dijalankan berulang pada tiap startup maupun pada beberapa node aplikasi bersamaan (kegagalan
+	 * satu langkah akibat race dicatat ke {@link ErrorAuditUtil} tanpa menggagalkan startup,
+	 * langkah berikutnya tetap dicoba). Sengaja TIDAK memakai {@code ON CONFLICT} (PostgreSQL 9.5+)
+	 * mengikuti kebiasaan berkas ini ({@code initOnlineBmtRequestGuard} di atas) yang berasumsi
+	 * versi PostgreSQL lebih lama mungkin masih dipakai sebagian instalasi.</p>
+	 */
+	static void initNisCounterDanKeunikanSiswa() {
+		String[] ddl = new String[] {
+				"CREATE TABLE IF NOT EXISTS sekolah.nis_counter ("
+						+ "id bigserial PRIMARY KEY, "
+						+ "sekolah_id bigint NOT NULL REFERENCES sekolah.sekolah(id), "
+						+ "tahun integer NOT NULL, "
+						+ "epoch varchar(32) NOT NULL DEFAULT 'AWAL', "
+						+ "nilai bigint NOT NULL DEFAULT 0, "
+						+ "CONSTRAINT uq_nis_counter_sekolah_tahun_epoch UNIQUE (sekolah_id, tahun, epoch))",
+
+				"CREATE TABLE IF NOT EXISTS sekolah.nis_duplikat_audit ("
+						+ "id bigserial PRIMARY KEY, "
+						+ "siswa_id bigint NOT NULL, "
+						+ "sekolah_id bigint, "
+						+ "nomor_induk_asli varchar(255) NOT NULL, "
+						+ "nomor_induk_baru varchar(255) NOT NULL, "
+						+ "dicatat_pada timestamp NOT NULL DEFAULT now())",
+
+				"INSERT INTO sekolah.nis_duplikat_audit (siswa_id, sekolah_id, nomor_induk_asli, nomor_induk_baru) "
+						+ "SELECT d.id, d.sekolah_id, d.nomor_induk, d.nomor_induk || '-DUP' || d.id "
+						+ "FROM (SELECT id, sekolah_id, nomor_induk, "
+						+ "ROW_NUMBER() OVER (PARTITION BY sekolah_id, nomor_induk ORDER BY id) AS urutan "
+						+ "FROM sekolah.siswa WHERE nomor_induk IS NOT NULL AND nomor_induk <> '') d "
+						+ "WHERE d.urutan > 1 "
+						+ "AND NOT EXISTS (SELECT 1 FROM sekolah.nis_duplikat_audit a WHERE a.siswa_id = d.id)",
+
+				"UPDATE sekolah.siswa s SET nomor_induk = a.nomor_induk_baru "
+						+ "FROM sekolah.nis_duplikat_audit a "
+						+ "WHERE s.id = a.siswa_id AND s.nomor_induk = a.nomor_induk_asli",
+
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_siswa_sekolah_nomor_induk ON sekolah.siswa (sekolah_id, nomor_induk)" };
+		for (int i = 0; i < ddl.length; i++) {
+			try {
+				Common.updateSql(ddl[i]);
+			} catch (Exception e) {
+				ErrorAuditUtil.record(e, "InitIndex.initNisCounterDanKeunikanSiswa DDL ke-" + (i + 1));
+			}
+		}
+	}
+
+	/**
 	 * Menjalankan migrasi kolom Online BMT melalui lifecycle Hibernate aplikasi.
 	 * Setiap ALTER memakai transaksi tersendiri agar kegagalan tabel audit opsional
 	 * tidak membatalkan kolom utama atau langkah DDL berikutnya.

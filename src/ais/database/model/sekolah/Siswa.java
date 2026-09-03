@@ -2562,10 +2562,15 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	 * Nomor induk siswa (NIS) di sekolah ini &mdash; identitas utama yang dipakai login dan
 	 * pencetakan.
 	 *
-	 * <p>Kolom {@code nomor_induk} bersifat {@code nullable = false} tetapi <b>tidak unik</b>: dua
-	 * sekolah dalam satu instalasi dapat memakai nomor induk yang sama. Alias baca-sajanya
-	 * {@link #getNis()}. Nilai ini juga menjadi cadangan {@link #getNomorIndukNasional()} &mdash; baca
-	 * peringatan di sana tentang risiko tabrakan unique constraint.</p>
+	 * <p>Kolom {@code nomor_induk} bersifat {@code nullable = false}. Sejak
+	 * {@code ais.common.InitIndex#initNisCounterDanKeunikanSiswa()} terpasang, kolom ini UNIK
+	 * per sekolah lewat index {@code uq_siswa_sekolah_nomor_induk} pada {@code (sekolah_id,
+	 * nomor_induk)} &mdash; dua sekolah BERBEDA masih boleh memakai nomor induk yang sama, tetapi
+	 * dua siswa di sekolah YANG SAMA tidak lagi bisa. Lihat javadoc kelas
+	 * {@link ais.database.model.sekolah.FormatNis} untuk riwayat perbaikan mekanisme pembangkitan
+	 * NIS yang dahulu bisa menghasilkan nomor kembar. Alias baca-sajanya {@link #getNis()}. Nilai
+	 * ini juga menjadi cadangan {@link #getNomorIndukNasional()} &mdash; baca peringatan di sana
+	 * tentang risiko tabrakan unique constraint pada kolom ITU (kolom berbeda, masih berlaku).</p>
 	 *
 	 * <p>Dipakai {@link #ambilKode()}, ikut tercetak pada QR {@link #ttdQr()}, dan dibocorkan
 	 * endpoint POS anonim bersama saldo dompet siswa.</p>

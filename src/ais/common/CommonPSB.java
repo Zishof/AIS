@@ -69,9 +69,11 @@ import ais.ui.util.MyMessageboxConfig;
  * NoUjianGeneratorPsb} yang dapat diganti via konfigurasi {@code class_untuk_generate_no_ujian_psb}),
  * {@link #generateNoRegistrasi(CalonSiswa)} (nomor registrasi, lewat {@link NoRegGeneratorPsb}
  * via konfigurasi {@code class_untuk_generate_no_reg_psb}), serta {@link
- * #generateCode(FormatNis, CalonSiswa)}/{@link #getindex(FormatNis, CalonSiswa)} (nomor
- * agenda/surat berformat kustom lewat {@link FormatNis}, dengan nomor urut otomatis atau indeks
- * manual). Pola generator yang dapat diganti lewat konfigurasi kelas (reflection
+ * #generateCode(FormatNis, CalonSiswa)}/{@link #ambilNomorUrutOtomatis(FormatNis, CalonSiswa)}
+ * (nomor agenda/surat berformat kustom lewat {@link FormatNis}, dengan nomor urut otomatis
+ * dipersistensikan per sekolah lewat {@link ais.database.model.sekolah.NisCounter} atau indeks
+ * manual dikunci baris lewat {@link FormatNis#ambilLaluNaikkanNomorIndex(FormatNis)}). Pola
+ * generator yang dapat diganti lewat konfigurasi kelas (reflection
  * {@link Class#forName(String)}) ini konsisten dipakai di seluruh kelas untuk memungkinkan
  * kustomisasi format nomor per instalasi AIS tanpa mengubah kode inti.</li>
  * <li><b>Konversi calon siswa menjadi siswa</b> — {@link #onGenerateNis(CalonSiswa,
@@ -364,70 +366,184 @@ public class CommonPSB {
 		return "";
 	}
 
+	/** Jumlah maksimal percobaan ulang saat NIS hasil rakitan bentrok dengan yang sudah dipakai. */
+	private static final int MAKS_PERCOBAAN_NIS_BENTROK = 1000;
+
 	/**
 	 * Membangkitkan satu string nomor (mis. NIS, nomor surat/agenda) berformat kustom dari
-	 * {@link FormatNis}. Indeks urut diambil dari nomor indeks tetap {@code
-	 * formatNis.getNomorIndex()} bila {@code formatNis} dikonfigurasi memakai indeks manual
-	 * ({@code gunakanIndexUrut=true}, dan nomor indeks tersebut LANGSUNG dinaikkan/disimpan
-	 * lewat {@link FormatNis#tambahIndexNomorSurat(FormatNis)} setelah dipakai — efek samping
-	 * ini terjadi SETIAP kali method dipanggil), atau dihitung otomatis lewat
-	 * {@link #getindex(FormatNis, CalonSiswa)} bila tidak.
+	 * {@link FormatNis}, dengan pemeriksaan bentrok + percobaan ulang (pola yang sama dengan
+	 * generator cadangan {@code DefaultNisGenerator}).
+	 *
+	 * <p><b>Sumber nomor urut:</b> {@link FormatNis#ambilLaluNaikkanNomorIndex(FormatNis)} (dibaca
+	 * DAN dinaikkan atomik dalam satu transaksi terkunci) bila {@code formatNis} dikonfigurasi
+	 * memakai indeks manual ({@code gunakanIndexUrut=true}), atau
+	 * {@link #ambilNomorUrutOtomatis(FormatNis, CalonSiswa)} (pencacah {@link
+	 * ais.database.model.sekolah.NisCounter} dipersistensikan per sekolah, juga dikunci atomik)
+	 * bila tidak. Kedua sumber TIDAK bisa lagi menghasilkan nomor kembar akibat race condition
+	 * lintas request/node seperti sebelumnya.</p>
+	 *
+	 * <p><b>Lapisan pertahanan terakhir:</b> setelah {@link FormatNis#format(Long, Integer)}
+	 * merakit string NIS, method ini memeriksa apakah NIS tersebut SUDAH dipakai siswa lain di
+	 * sekolah yang sama (mis. sisa data lama sebelum unique constraint dipasang, lihat
+	 * {@code ais.common.InitIndex#initNisCounterDanKeunikanSiswa()}). Bila bentrok, nomor urut
+	 * berikutnya dicoba (mengonsumsi satu nilai pencacah tanpa dipakai — aman, hanya berarti ada
+	 * lubang di deret nomor), dibatasi {@link #MAKS_PERCOBAAN_NIS_BENTROK} kali agar tidak
+	 * berputar tanpa batas seperti rekursi tak terbatas pada {@code DefaultNisGenerator}.</p>
 	 *
 	 * @param formatNis  konfigurasi format nomor yang dipakai
-	 * @param calonSiswa calon siswa yang datanya (tahun masuk) dipakai untuk memformat nomor
-	 * @return nomor hasil format sesuai {@link FormatNis#format(Long, int)}
+	 * @param calonSiswa calon siswa yang datanya (tahun masuk, sekolah) dipakai untuk memformat
+	 *                   dan memeriksa bentrok nomor
+	 * @return nomor hasil format sesuai {@link FormatNis#format(Long, Integer)}, dijamin belum
+	 *         dipakai siswa lain di sekolah yang sama pada saat pemeriksaan
+	 * @throws Exception diteruskan dari kegagalan penguncian/transaksi basis data, atau
+	 *                    {@code IllegalStateException} bila {@link #MAKS_PERCOBAAN_NIS_BENTROK}
+	 *                    percobaan berturut-turut semuanya bentrok
 	 */
-	public static String generateCode(FormatNis formatNis, CalonSiswa calonSiswa) {
-
-		Long index = formatNis.getGunakanIndexUrut() ? formatNis.getNomorIndex() : getindex(formatNis, calonSiswa);
-		if (formatNis.getGunakanIndexUrut()) {
-			FormatNis.tambahIndexNomorSurat(formatNis);
+	public static String generateCode(FormatNis formatNis, CalonSiswa calonSiswa) throws Exception {
+		for (int percobaan = 0; percobaan < MAKS_PERCOBAAN_NIS_BENTROK; percobaan++) {
+			Long index = formatNis.getGunakanIndexUrut() ? FormatNis.ambilLaluNaikkanNomorIndex(formatNis)
+					: ambilNomorUrutOtomatis(formatNis, calonSiswa);
+			String noAgenda = formatNis.format(index, calonSiswa.getTahunMasuk());
+			if (!nomorIndukSudahDipakai(calonSiswa.getSekolah(), noAgenda)) {
+				return noAgenda;
+			}
 		}
-		String noAgenda = formatNis.format(index, calonSiswa.getTahunMasuk());
-		return noAgenda;
+		throw new IllegalStateException("Gagal membangkitkan NIS unik untuk calon siswa id=" + calonSiswa.getId()
+				+ " setelah " + MAKS_PERCOBAAN_NIS_BENTROK + " percobaan; setiap nomor urut yang dicoba sudah "
+				+ "dipakai siswa lain di sekolah yang sama. Periksa data NIS duplikat sekolah ini.");
 	}
 
 	/**
-	 * Menghitung nomor urut (indeks) berikutnya untuk {@link FormatNis} bertipe indeks
-	 * OTOMATIS (bukan manual), dengan menghitung jumlah {@link CalonSiswa} yang sudah memiliki
-	 * {@code gelombangPendaftaranPsb} (sudah didaftarkan lewat PSB), difilter opsional per
-	 * tahun masuk (bila {@code formatNis.getResetUrutanTiapTahun()} aktif — nomor urut reset
-	 * setiap tahun) dan per tanggal reset kustom (bila {@code formatNis.getResetTiap()} sudah
-	 * lewat atau sama dengan tanggal pendaftaran calon siswa — nomor urut reset pada tanggal
-	 * tertentu). Hasil hitung ditambah 1 untuk mendapat nomor urut berikutnya.
+	 * {@code true} bila {@code nomorInduk} sudah dipakai baris {@link Siswa} lain pada
+	 * {@code sekolah} yang sama &mdash; lapisan pertahanan terakhir yang dipanggil
+	 * {@link #generateCode(FormatNis, CalonSiswa)} setelah NIS dirakit, sebelum dikembalikan ke
+	 * pemanggil.
 	 *
-	 * @param formatNis  konfigurasi format yang menentukan aturan reset nomor urut; bila
-	 *                   {@code null}, method langsung mengembalikan {@code 0L}
-	 * @param calonSiswa calon siswa yang tahun masuk & tanggal pendaftarannya dipakai sebagai
-	 *                   acuan filter
-	 * @return nomor urut berikutnya (mulai dari 1 bila belum ada data sebelumnya yang cocok
-	 *         filter)
+	 * @param sekolah    sekolah yang jadi lingkup pemeriksaan; {@code null}/tanpa id membuat method
+	 *                   langsung mengembalikan {@code false} (tidak ada lingkup untuk diperiksa)
+	 * @param nomorInduk NIS yang akan diperiksa; {@code null}/kosong membuat method mengembalikan
+	 *                   {@code false}
+	 * @return {@code true} bila sudah ada siswa lain di sekolah yang sama dengan NIS ini
 	 */
-	public static Long getindex(FormatNis formatNis, CalonSiswa calonSiswa) {
-		if (formatNis == null) {
-			return 0L;
+	private static boolean nomorIndukSudahDipakai(Sekolah sekolah, String nomorInduk) {
+		if (sekolah == null || sekolah.getId() == null || nomorInduk == null || nomorInduk.trim().isEmpty()) {
+			return false;
 		}
 		Session session = HibernateUtil.currentSession();
-		int tahun = calonSiswa.getTahunMasuk();
-		Date sekarang = calonSiswa.getTanggalPendaftaran();
-		Number indexO = (Number) session.createCriteria(CalonSiswa.class)
-				.add(Restrictions.isNotNull("gelombangPendaftaranPsb"))
+		Number jumlah = (Number) session.createCriteria(Siswa.class).add(Restrictions.eq("sekolah", sekolah))
+				.add(Restrictions.eq("nomorInduk", nomorInduk)).setProjection(Projections.rowCount())
+				.uniqueResult();
+		return jumlah != null && jumlah.longValue() > 0;
+	}
 
-				.add(formatNis.getResetUrutanTiapTahun() ? Restrictions.eq("tahunMasuk", tahun)
-						: Restrictions.sqlRestriction("true"))
-
-				.add(formatNis.getResetTiap() != null && (Common.dateFormat8.get().format(formatNis.getResetTiap())
-						.equals(Common.dateFormat8.get().format(sekarang)) || formatNis.getResetTiap().before(sekarang))
-								? Restrictions.ge("tanggal", formatNis.getResetTiap())
-								: Restrictions.sqlRestriction("true"))
-
-				.setProjection(Projections.rowCount()).uniqueResult();
-
-		Long index = indexO == null ? null : indexO.longValue();
-		if (index == null) {
-			index = 0L;
+	/**
+	 * Mengembalikan nomor urut berikutnya untuk {@link FormatNis} bertipe indeks OTOMATIS (bukan
+	 * manual), diambil dari pencacah dipersistensikan {@link ais.database.model.sekolah.NisCounter}
+	 * milik {@code calonSiswa.getSekolah()}, dinaikkan ATOMIK (dikunci baris database, aman lintas
+	 * thread maupun lintas node aplikasi lewat
+	 * {@code ais.database.hibernate.KunciEntityHelper#jalankanDenganKunci}).
+	 *
+	 * <p><b>Perbaikan dibanding {@code getindex(FormatNis, CalonSiswa)} yang lama:</b> versi lama
+	 * MENGHITUNG ULANG jumlah baris {@link CalonSiswa} yang sudah punya
+	 * {@code gelombangPendaftaranPsb} setiap kali dipanggil (bukan jumlah NIS yang SUDAH terbit),
+	 * dan query-nya tidak menyaring {@code sekolah} sama sekali &mdash; dua cacat yang bersama-sama
+	 * membuat mode ini menghasilkan NIS kembar deterministik dan bocor volume pendaftaran antar
+	 * sekolah. Sekarang nomor urut adalah nilai pencacah yang dipersistensikan per SEKOLAH ini
+	 * saja, dinaikkan satu setiap dipanggil &mdash; tidak pernah dihitung ulang dari data lain.</p>
+	 *
+	 * <p><b>Lingkup pencacah</b> (baca javadoc {@link ais.database.model.sekolah.NisCounter} untuk
+	 * detail): kunci baris pencacah adalah (sekolah, tahun masuk ATAU sentinel bila
+	 * {@code formatNis.getResetUrutanTiapTahun()} tidak aktif, epoch reset kustom bila
+	 * {@code formatNis.getResetTiap()} sudah terlampaui).</p>
+	 *
+	 * @param formatNis  konfigurasi format yang menentukan aturan reset nomor urut
+	 * @param calonSiswa calon siswa yang sekolah, tahun masuk, &amp; tanggal pendaftarannya dipakai
+	 *                   sebagai acuan lingkup pencacah; WAJIB memiliki sekolah (lihat
+	 *                   {@code throws})
+	 * @return nomor urut berikutnya (mulai dari 1 untuk pencacah baru)
+	 * @throws Exception diteruskan dari kegagalan penguncian/transaksi basis data
+	 * @throws IllegalStateException bila {@code calonSiswa} tidak memiliki sekolah &mdash; pencacah
+	 *                    otomatis tidak dapat dibangkitkan tanpa lingkup sekolah (dahulu, versi
+	 *                    lama diam-diam menghitung LINTAS SEKOLAH dalam kasus ini)
+	 */
+	public static Long ambilNomorUrutOtomatis(final FormatNis formatNis, final CalonSiswa calonSiswa)
+			throws Exception {
+		Sekolah sekolahCalon = calonSiswa.getSekolah();
+		if (sekolahCalon == null || sekolahCalon.getId() == null) {
+			throw new IllegalStateException("Calon siswa id=" + calonSiswa.getId()
+					+ " tidak memiliki sekolah; NIS otomatis tidak dapat dibangkitkan tanpa lingkup sekolah.");
 		}
-		return ++index;
+		final Long sekolahId = sekolahCalon.getId();
+		final int tahunKunci = formatNis.getResetUrutanTiapTahun() ? calonSiswa.getTahunMasuk()
+				: ais.database.model.sekolah.NisCounter.TAHUN_TANPA_RESET;
+		Date resetTiap = formatNis.getResetTiap();
+		Date sekarang = calonSiswa.getTanggalPendaftaran();
+		final String epoch = (resetTiap != null && sekarang != null && !resetTiap.after(sekarang))
+				? Common.dateFormat8.get().format(resetTiap)
+				: ais.database.model.sekolah.NisCounter.EPOCH_AWAL;
+
+		Long counterId = cariAtauBuatNisCounterId(sekolahId, tahunKunci, epoch);
+
+		final Long[] hasil = new Long[1];
+		boolean adaBaris = ais.database.hibernate.KunciEntityHelper.jalankanDenganKunci(
+				ais.database.model.sekolah.NisCounter.class, counterId,
+				new ais.database.hibernate.KunciEntityHelper.PekerjaanTransaksi() {
+					@Override
+					public void kerjakan(Session session, Object entityTerkunci) throws Exception {
+						ais.database.model.sekolah.NisCounter counter = (ais.database.model.sekolah.NisCounter) entityTerkunci;
+						Long nilaiBaru = counter.getNilai() + 1L;
+						counter.setNilai(nilaiBaru);
+						session.update(counter);
+						hasil[0] = nilaiBaru;
+					}
+				});
+		if (!adaBaris) {
+			// Baris pencacah dihapus tepat di antara pencarian dan penguncian (sangat jarang):
+			// buat ulang lalu coba sekali lagi.
+			return ambilNomorUrutOtomatis(formatNis, calonSiswa);
+		}
+		return hasil[0];
+	}
+
+	/**
+	 * Mencari id baris {@link ais.database.model.sekolah.NisCounter} untuk kunci
+	 * (sekolah, tahun, epoch) yang diberikan, membuatnya bila belum ada.
+	 *
+	 * <p>Pencarian &amp; penyisipan di sini TIDAK dikunci &mdash; penguncian sungguhan terjadi
+	 * belakangan lewat {@code KunciEntityHelper.jalankanDenganKunci} pada id yang dikembalikan.
+	 * Race saat penyisipan (dua permintaan sama-sama tidak menemukan baris, sama-sama mencoba
+	 * INSERT) ditangani lewat unique constraint {@code uq_nis_counter_sekolah_tahun_epoch}: yang
+	 * kalah menerima pelanggaran constraint (ditangkap &amp; diabaikan di sini), lalu SELECT ulang
+	 * menemukan baris milik pemenang.</p>
+	 */
+	private static Long cariAtauBuatNisCounterId(Long sekolahId, int tahun, String epoch) {
+		Session session = HibernateUtil.currentNativeSession();
+		Number id = (Number) session
+				.createSQLQuery("SELECT id FROM sekolah.nis_counter WHERE sekolah_id=:sekolahId AND tahun=:tahun"
+						+ " AND epoch=:epoch")
+				.setParameter("sekolahId", sekolahId).setParameter("tahun", tahun).setParameter("epoch", epoch)
+				.uniqueResult();
+		if (id != null) {
+			return id.longValue();
+		}
+		try {
+			session.createSQLQuery("INSERT INTO sekolah.nis_counter (sekolah_id, tahun, epoch, nilai)"
+					+ " VALUES (:sekolahId, :tahun, :epoch, 0)").setParameter("sekolahId", sekolahId)
+					.setParameter("tahun", tahun).setParameter("epoch", epoch).executeUpdate();
+		} catch (RuntimeException race) {
+			// Baris sudah dibuat proses lain di antara SELECT dan INSERT di atas (unique
+			// constraint) -- abaikan, SELECT ulang di bawah akan menemukannya.
+		}
+		Number idBaru = (Number) session
+				.createSQLQuery("SELECT id FROM sekolah.nis_counter WHERE sekolah_id=:sekolahId AND tahun=:tahun"
+						+ " AND epoch=:epoch")
+				.setParameter("sekolahId", sekolahId).setParameter("tahun", tahun).setParameter("epoch", epoch)
+				.uniqueResult();
+		if (idBaru == null) {
+			throw new IllegalStateException("Gagal mencari/membuat baris sekolah.nis_counter untuk sekolah="
+					+ sekolahId + " tahun=" + tahun + " epoch=" + epoch);
+		}
+		return idBaru.longValue();
 	}
 
 	/** Seperti {@link #onGenerateNis(CalonSiswa, NisGenerator, boolean)} dengan {@code cetak=true} (mencetak bukti PDF setelah NIS dibangkitkan). */
@@ -713,8 +829,8 @@ public class CommonPSB {
 											.add(Restrictions.isNotNull("gelombangPendaftaranPsb"))
 											.add(Restrictions.eq("noRegistrasi", content))
 											.add(sekolah != null && sekolah.getId() != null
-													? Restrictions.sqlRestriction("true")
-													: Restrictions.eq("sekolah", sekolah))
+													? Restrictions.eq("sekolah", sekolah)
+													: Restrictions.sqlRestriction("true"))
 											.setProjection(Projections.property("id")).setMaxResults(1).uniqueResult();
 								} catch (Exception e) {
 									System.err.println("[GenNIS] ERROR cari via noRegistrasi baris=" + i + ": " + e.getClass().getSimpleName() + ": " + e.getMessage());
@@ -763,8 +879,8 @@ public class CommonPSB {
 								calonSiswa = (CalonSiswa) session.createCriteria(CalonSiswa.class)
 										.add(Restrictions.isNotNull("gelombangPendaftaranPsb"))
 										.add(sekolah != null && sekolah.getId() != null
-												? Restrictions.sqlRestriction("true")
-												: Restrictions.eq("sekolah", sekolah))
+												? Restrictions.eq("sekolah", sekolah)
+												: Restrictions.sqlRestriction("true"))
 										.add(Restrictions.eq("noRegistrasi", noRegistrasi)).uniqueResult();
 							}
 

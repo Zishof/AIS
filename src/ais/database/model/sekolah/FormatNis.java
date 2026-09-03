@@ -30,7 +30,7 @@ import ais.database.model.GeneralValueObject;
  * Konfigurasi <b>pola penomoran Nomor Induk Siswa (NIS)</b> per sekolah &mdash; tabel
  * {@code sekolah.format_nis}. Entity ini bukan sekadar master pasif: method
  * {@link #format(Long, Integer)} adalah mesin perakit string NIS yang sesungguhnya, dan
- * {@link #tambahIndexNomorSurat(FormatNis)} adalah pencacah nomor urut yang dipersistensikan.
+ * {@link #ambilLaluNaikkanNomorIndex(FormatNis)} adalah pencacah nomor urut yang dipersistensikan.
  * Verifikasi rantai pemanggil (lihat bagian &quot;Siapa memakai&quot;) mengonfirmasi bahwa entity
  * inilah yang menentukan NIS resmi seorang siswa saat calon siswa PSB dikonversi menjadi
  * {@link Siswa}.
@@ -54,13 +54,14 @@ import ais.database.model.GeneralValueObject;
  * <h3>Dua mode pencacah nomor urut</h3>
  * <ol>
  * <li><b>Mode indeks manual</b> &mdash; {@link #getGunakanIndexUrut()} bernilai {@code true}.
- * Nomor urut diambil dari kolom {@link #getNomorIndex()} pada baris format ini sendiri, lalu
- * dinaikkan dan disimpan oleh {@link #tambahIndexNomorSurat(FormatNis)}. Karena pencacah menempel
- * pada baris format (yang punya kolom {@code sekolah}), mode ini <b>terisolasi per sekolah</b>.</li>
+ * Nomor urut diambil dari kolom {@link #getNomorIndex()} pada baris format ini sendiri, dibaca
+ * dan dinaikkan ATOMIK oleh {@link #ambilLaluNaikkanNomorIndex(FormatNis)}. Karena pencacah
+ * menempel pada baris format (yang punya kolom {@code sekolah}), mode ini <b>terisolasi per
+ * sekolah</b>.</li>
  * <li><b>Mode hitung otomatis</b> &mdash; {@code gunakanIndexUrut = false} (bawaan). Nomor urut
- * dihitung ulang setiap kali oleh {@code ais.common.CommonPSB#getindex(FormatNis, CalonSiswa)}
- * sebagai <i>jumlah baris {@code CalonSiswa} yang punya gelombang PSB</i> plus satu. Pencacah ini
- * <b>TIDAK memfilter sekolah maupun yayasan sama sekali</b> &mdash; baca peringatan di bawah.</li>
+ * diambil dari pencacah dipersistensikan {@link NisCounter} milik sekolah bersangkutan lewat
+ * {@code ais.common.CommonPSB#ambilNomorUrutOtomatis(FormatNis, CalonSiswa)}, dinaikkan atomik
+ * per (sekolah, tahun) &mdash; lihat {@link NisCounter}.</li>
  * </ol>
  *
  * <h3>Siapa memakai (verifikasi rantai pemanggil)</h3>
@@ -82,48 +83,52 @@ import ais.database.model.GeneralValueObject;
  * <li>Entity ini juga didaftarkan pada seeding master {@code ais.common.InitData}.</li>
  * </ul>
  *
- * <h3>PERINGATAN &mdash; risiko NIS kembar (hasil verifikasi kode, bukan dugaan)</h3>
+ * <h3>Riwayat &mdash; risiko NIS kembar yang SUDAH DIPERBAIKI (r83851 audit, perbaikan menyusul)</h3>
  * <p>
- * NIS adalah identitas resmi siswa: dipakai untuk login, pencetakan, kartu, dan penagihan. Kolom
- * penampungnya, {@code sekolah.siswa.nomor_induk}, dideklarasikan {@code nullable = false} tetapi
- * <b>TIDAK unik</b> (lihat {@code Siswa#getNomorInduk()}), sehingga tidak ada jaring pengaman di
- * lapisan basis data untuk seluruh masalah berikut:
+ * NIS adalah identitas resmi siswa: dipakai untuk login, pencetakan, kartu, dan penagihan. Audit
+ * kode menemukan lima celah yang bersama-sama membuat {@code sekolah.siswa.nomor_induk} &mdash;
+ * dideklarasikan {@code nullable = false} tetapi dahulu TIDAK unik &mdash; dapat kembar. Kelimanya
+ * sudah ditutup:
  * </p>
  * <ol>
- * <li><b>Mode hitung otomatis menghasilkan nomor kembar secara deterministik.</b> Pencacahnya
- * menghitung jumlah <i>pendaftar</i>, bukan jumlah <i>NIS yang sudah diterbitkan</i>. Selama tidak
- * ada pendaftar baru masuk, dua kali pembangkitan NIS berturut-turut mengembalikan angka yang
- * PERSIS SAMA. Menerbitkan NIS untuk 50 calon siswa yang sudah diterima dalam satu sesi kerja
- * karena itu menghasilkan 50 NIS identik.</li>
- * <li><b>Pencacah otomatis tidak terisolasi per tenant.</b> Query pencacah hanya menyaring
- * &quot;punya gelombang PSB&quot;, opsional per {@code tahunMasuk} dan opsional per tanggal reset
- * &mdash; tanpa syarat {@code sekolah} maupun {@code yayasan}. Akibatnya nomor urut satu sekolah
- * ikut melonjak oleh pendaftaran sekolah lain di instalasi yang sama (kanal bocoran volume
- * pendaftaran antar tenant), dan dua sekolah dengan pola format serupa dapat menerbitkan NIS yang
- * sama persis.</li>
- * <li><b>Race condition pada mode indeks manual.</b> {@link #tambahIndexNomorSurat(FormatNis)}
- * memang {@code synchronized}, tetapi pemanggilnya membaca {@link #getNomorIndex()} DI LUAR blok
- * tersinkronisasi sebelum menaikkannya, sehingga dua thread dapat membaca angka yang sama lalu
- * masing-masing menaikkan satu kali. Selain itu {@code synchronized} pada method statis hanya
- * berlaku dalam satu JVM &mdash; pada deployment multi-node atau di belakang beberapa instance
- * aplikasi, tidak ada kunci basis data ({@code SELECT ... FOR UPDATE}), tidak ada versi optimistis,
- * dan tidak ada unique constraint. Pendaftaran mandiri PPDB yang berbarengan adalah pemicu yang
- * realistis.</li>
- * <li><b>Kegagalan kenaikan pencacah ditelan diam-diam.</b> Blok {@code catch} pada
- * {@link #tambahIndexNomorSurat(FormatNis)} hanya mencetak jejak tumpukan; nomor yang sudah
- * telanjur dipakai pemanggil tetap terpakai walau kenaikan indeks gagal disimpan, sehingga
- * pembangkitan berikutnya mengulang angka yang sama.</li>
- * <li><b>Pemotongan diam-diam saat nomor melampaui lebar pad.</b>
- * {@link #getJumlahAngkaNolDiDepanNomorUrut()} tidak hanya memberi nol di depan, ia juga
- * MEMOTONG dari kiri. Dengan lebar 3, urutan ke-1234 menjadi {@code "234"} &mdash; bertabrakan
- * dengan urutan ke-234. Lihat {@link #format(Long, Integer)}.</li>
+ * <li><b>Mode hitung otomatis kini memakai pencacah dipersistensikan.</b> Dahulu nomor urut
+ * dihitung ulang dari {@code rowCount} <i>pendaftar</i> {@link CalonSiswa} (bisa mengembalikan
+ * angka yang sama berulang kali selama tidak ada pendaftar baru). Sekarang
+ * {@code ais.common.CommonPSB#ambilNomorUrutOtomatis(FormatNis, CalonSiswa)} menaikkan satu baris
+ * {@link NisCounter} milik sekolah tersebut secara atomik (lihat butir 3).</li>
+ * <li><b>Pencacah otomatis kini terisolasi per sekolah.</b> {@link NisCounter} punya kolom
+ * {@code sekolah} wajib &mdash; pendaftaran sekolah lain di instalasi yang sama tidak lagi ikut
+ * menaikkan nomor urut sekolah ini.</li>
+ * <li><b>Race condition pada mode indeks manual ditutup dengan kunci baris database.</b>
+ * {@link #ambilLaluNaikkanNomorIndex(FormatNis)} menggantikan pasangan lama
+ * &quot;{@code getNomorIndex()} di luar kunci, lalu {@code tambahIndexNomorSurat} terpisah&quot;.
+ * Pembacaan DAN kenaikan kini terjadi dalam SATU transaksi yang mengunci baris {@link FormatNis}
+ * lewat {@code KunciEntityHelper.jalankanDenganKunci} ({@code FOR NO KEY UPDATE NOWAIT} + retry),
+ * aman lintas thread MAUPUN lintas node aplikasi (bukan sekadar {@code synchronized} Java yang
+ * hanya berlaku satu JVM).</li>
+ * <li><b>Kegagalan kenaikan pencacah tidak lagi ditelan.</b>
+ * {@link #ambilLaluNaikkanNomorIndex(FormatNis)} tidak membungkus dirinya dengan
+ * {@code catch (Exception)} generik; kegagalan (mis. deadlock, koneksi putus) dilempar ke
+ * pemanggil ({@code CommonPSB#generateCode}) alih-alih dibiarkan diam-diam membuat nomor terpakai
+ * ulang.</li>
+ * <li><b>Pemotongan diam-diam saat nomor melampaui lebar pad kini melempar exception.</b>
+ * {@link #format(Long, Integer)} memeriksa lebih dulu apakah nomor urut muat pada lebar
+ * {@link #getJumlahAngkaNolDiDepanNomorUrut()} sebelum memotong; bila tidak muat, method melempar
+ * {@code IllegalStateException} alih-alih diam-diam menghasilkan NIS yang bertabrakan dengan
+ * nomor urut lain. {@link #setJumlahAngkaNolDiDepanNomorUrut(Integer)} juga kini menolak nilai di
+ * luar rentang 1&ndash;72 sejak awal (validasi rentang), bukan menunggu meledak saat generate.</li>
  * </ol>
  * <p>
- * Perlu dicatat sebagai pembanding: generator cadangan {@code DefaultNisGenerator} JUSTRU
- * memeriksa keunikan {@code nomorInduk} ke basis data dan mengulang bila bentrok. Jadi memasang
- * sebuah {@code FormatNis} aktif untuk sebuah sekolah secara efektif <b>menurunkan</b> jaminan
- * keunikan NIS sekolah tersebut, karena jalur {@code FormatNis} mengambil prioritas dan tidak
- * melakukan pemeriksaan bentrok apa pun.
+ * <b>Lapisan pertahanan terakhir: unique constraint + pemeriksaan bentrok.</b> Migrasi startup
+ * {@code ais.common.InitIndex#initNisCounterDanKeunikanSiswa()} membersihkan duplikat NIS lama
+ * (disalin ke {@code sekolah.nis_duplikat_audit} sebelum diberi sufiks pembeda) lalu memasang
+ * unique index {@code (sekolah_id, nomor_induk)} pada {@code sekolah.siswa} &mdash; jaring
+ * pengaman lapisan basis data yang dahulu tidak ada sama sekali. Di lapisan aplikasi,
+ * {@code CommonPSB#generateCode(FormatNis, CalonSiswa)} kini memeriksa apakah NIS hasil rakitan
+ * sudah dipakai sekolah yang sama sebelum mengembalikannya, dan mencoba nomor urut berikutnya
+ * bila bentrok (dibatasi jumlah percobaan) &mdash; pola yang sama dengan yang sudah lama dipakai
+ * generator cadangan {@code DefaultNisGenerator}, kini diterapkan juga pada jalur
+ * {@link FormatNis}.
  * </p>
  *
  * <h3>PERINGATAN &mdash; cakupan hak akses layar pengelola</h3>
@@ -179,7 +184,7 @@ import ais.database.model.GeneralValueObject;
  * <h3>Pengelompokan method</h3>
  * <ul>
  * <li><b>Mesin penomoran</b>: {@link #format(Long, Integer)},
- * {@link #tambahIndexNomorSurat(FormatNis)}, {@link #getContohFormat()}.</li>
+ * {@link #ambilLaluNaikkanNomorIndex(FormatNis)}, {@link #getContohFormat()}.</li>
  * <li><b>Identitas &amp; audit</b>: {@link #getId()}, {@link #getOleh()}, {@link #getOlehId()},
  * {@link #getTanggal_dirubah()}, {@link #onUpdate()}, {@link #toString()}.</li>
  * <li><b>Deskripsi format</b>: {@link #getNama()}, {@link #getKeterangan()},
@@ -470,8 +475,8 @@ public class FormatNis extends GeneralValueObject {
 	 */
 	private Boolean gunakanIndexUrut = false;
 	/**
-	 * Field pendukung nilai pencacah pada mode indeks manual. Dinaikkan dan disimpan oleh
-	 * {@link #tambahIndexNomorSurat(FormatNis)}. Bawaan {@code 1L}.
+	 * Field pendukung nilai pencacah pada mode indeks manual. Dibaca dan dinaikkan atomik oleh
+	 * {@link #ambilLaluNaikkanNomorIndex(FormatNis)}. Bawaan {@code 1L}.
 	 */
 	private Long nomorIndex = 1L;
 	/**
@@ -481,70 +486,67 @@ public class FormatNis extends GeneralValueObject {
 	private Boolean aktif;
 
 	/**
-	 * Menaikkan pencacah {@link #getNomorIndex()} sebesar satu dan MENYIMPANNYA ke basis data
-	 * dalam transaksi tersendiri. Ini adalah satu-satunya titik di seluruh kelas yang melakukan
-	 * penulisan ke basis data.
+	 * Mengembalikan nomor urut yang harus dipakai untuk pembangkitan NIS BERIKUTNYA, sekaligus
+	 * MENAIKKAN pencacah {@link #getNomorIndex()} sebesar satu secara atomik. Ini adalah
+	 * satu-satunya titik di seluruh kelas yang melakukan penulisan ke basis data.
 	 *
-	 * <p><b>Alur:</b> (1) berhenti tanpa efek bila {@code nomorSurat} {@code null} atau tidak
-	 * memakai mode indeks manual; (2) mengambil session Hibernate native milik thread dan
-	 * me-{@code refresh} objek dari basis data agar tidak menaikkan angka basi; (3) menaikkan
-	 * {@code nomorIndex} di memori; (4) membuka transaksi, memanggil
-	 * {@code Common.refreshUpdate(session, nomorSurat)}, lalu commit; (5) memutus dan menutup
-	 * session, dan terakhir memanggil {@code HibernateUtil.closeSession()}.</p>
+	 * <p><b>Perbaikan dibanding {@code tambahIndexNomorSurat(FormatNis)} yang lama:</b> versi lama
+	 * memisahkan &quot;baca {@link #getNomorIndex()}&quot; (dilakukan pemanggil, DI LUAR kunci apa
+	 * pun) dari &quot;naikkan &amp; simpan&quot; (method terpisah ini, {@code synchronized} tapi
+	 * hanya berlaku satu JVM) &mdash; celah di antara keduanya membuat dua permintaan bersamaan
+	 * dapat membaca angka yang sama dan menerbitkan NIS identik. Method ini menyatukan baca+naikkan
+	 * dalam SATU transaksi yang mengunci baris {@link FormatNis} di basis data lewat
+	 * {@code ais.database.hibernate.KunciEntityHelper#jalankanDenganKunci(Class,
+	 * java.io.Serializable, ais.database.hibernate.KunciEntityHelper.PekerjaanTransaksi)}
+	 * ({@code SELECT ... FOR NO KEY UPDATE NOWAIT} + retry backoff), sehingga aman lintas thread
+	 * MAUPUN lintas node aplikasi &mdash; bukan sekadar {@code synchronized} Java.</p>
+	 *
+	 * <p><b>Alur:</b> (1) kembalikan {@link #getNomorIndex()} objek yang diterima apa adanya bila
+	 * {@code nomorSurat} {@code null} atau tidak memakai mode indeks manual (tidak ada penguncian
+	 * atau penulisan basis data untuk kasus ini); (2) selain itu, kunci baris {@link FormatNis}
+	 * ber-{@code id} sama di basis data, baca ULANG {@link #getNomorIndex()} dari baris yang
+	 * terkunci (bukan dari objek {@code nomorSurat} yang mungkin sudah basi), naikkan satu, simpan,
+	 * lalu kembalikan nilai LAMA (sebelum dinaikkan) sebagai nomor urut yang dipakai pemanggil.</p>
 	 *
 	 * <p><b>Dipanggil dari:</b> {@code ais.common.CommonPSB#generateCode(FormatNis, CalonSiswa)},
-	 * SETELAH nomor indeks lama dibaca dan dipakai untuk merakit NIS.</p>
+	 * MENGGANTIKAN pasangan lama &quot;baca {@link #getNomorIndex()} lalu panggil
+	 * {@code tambahIndexNomorSurat} terpisah&quot;.</p>
 	 *
-	 * <p><b>Efek samping penting:</b> method ini MENUTUP session Hibernate thread-local milik
-	 * pemanggil. Objek entity yang dipegang pemanggil (termasuk {@code nomorSurat} itu sendiri dan
-	 * calon siswa yang sedang diproses) menjadi <i>detached</i> sesudahnya; pembacaan properti lazy
-	 * setelah titik ini akan bergantung pada mekanisme pemulihan
-	 * {@link GeneralValueObject#check(Object)} dan bisa gagal diam-diam.</p>
+	 * <p><b>Kegagalan tidak ditelan.</b> Berbeda dari method lama, tidak ada
+	 * {@code catch (Exception)} generik di sini; kegagalan kunci/commit dilempar apa adanya ke
+	 * pemanggil sehingga NIS yang gagal dinaikkan pencacahnya tidak akan diam-diam terpakai
+	 * ulang.</p>
 	 *
-	 * <p><b>Kasus tepi &amp; risiko (lihat juga peringatan pada Javadoc kelas):</b></p>
-	 * <ul>
-	 * <li><b>Race condition.</b> Kata kunci {@code synchronized} pada method statis ini hanya
-	 * mengunci proses kenaikan, TIDAK mencakup pembacaan {@link #getNomorIndex()} yang dilakukan
-	 * pemanggil sebelum method ini dipanggil. Dua permintaan bersamaan dapat membaca angka yang
-	 * sama, masing-masing menaikkan satu, dan menerbitkan DUA NIS IDENTIK. Kunci ini juga hanya
-	 * berlaku dalam satu JVM &mdash; tidak ada penguncian baris basis data ({@code FOR UPDATE}),
-	 * tidak ada penomoran versi optimistis, dan kolom {@code siswa.nomor_induk} tidak unik.</li>
-	 * <li><b>Kegagalan ditelan.</b> Seluruh tubuh dibungkus {@code try/catch (Exception)} yang hanya
-	 * mencetak jejak tumpukan dan mencatat ke {@code ErrorAuditUtil}. Bila commit gagal (deadlock,
-	 * koneksi putus, baris terkunci), pemanggil TIDAK diberi tahu: NIS yang telanjur dipakai tetap
-	 * dipakai sementara pencacah tidak naik, sehingga pembangkitan berikutnya mengulang angka yang
-	 * sama.</li>
-	 * <li><b>Transaksi bersarang.</b> {@code session.getTransaction().begin()} dipanggil tanpa
-	 * memeriksa apakah sudah ada transaksi aktif pada session tersebut; pada konteks yang sudah
-	 * bertransaksi hal ini melempar dan berakhir di blok {@code catch} yang sama.</li>
-	 * <li>Baris {@code session.disconnect()} yang dikomentari di atas blok penutup adalah sisa
-	 * kode lama; penutupan session yang berlaku dilakukan oleh kondisi {@code session.isOpen()}
-	 * di bawahnya.</li>
-	 * </ul>
-	 *
-	 * @param nomorSurat baris format yang pencacahnya akan dinaikkan; {@code null} atau baris yang
-	 *                   tidak memakai indeks manual diabaikan tanpa efek
+	 * @param nomorSurat baris format yang pencacahnya akan dibaca &amp; dinaikkan
+	 * @return nomor urut yang harus dipakai pembangkitan NIS kali ini; {@code null} bila
+	 *         {@code nomorSurat} {@code null}
+	 * @throws Exception diteruskan dari kegagalan penguncian/transaksi basis data, atau bila baris
+	 *                    {@code nomorSurat} sudah dihapus tepat sebelum dikunci
 	 */
-	public synchronized static void tambahIndexNomorSurat(FormatNis nomorSurat) {
-		if (nomorSurat != null && nomorSurat.getGunakanIndexUrut()) {
-			try {
-
-				Session session = HibernateUtil.currentNativeSession();
-				session.refresh(nomorSurat);
-
-				nomorSurat.setNomorIndex(nomorSurat.getNomorIndex() + 1L);
-				session.getTransaction().begin();
-				Common.refreshUpdate(session, nomorSurat);
-				session.getTransaction().commit();
-
-				// session.disconnect();
-				if (session.isOpen()) {session.disconnect();session.close();}
-
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/sekolah/FormatNis.java:139");
-			}
-			HibernateUtil.closeSession();
+	public static Long ambilLaluNaikkanNomorIndex(final FormatNis nomorSurat) throws Exception {
+		if (nomorSurat == null) {
+			return null;
 		}
+		if (!nomorSurat.getGunakanIndexUrut()) {
+			return nomorSurat.getNomorIndex();
+		}
+		final Long[] hasil = new Long[1];
+		boolean adaBaris = ais.database.hibernate.KunciEntityHelper.jalankanDenganKunci(FormatNis.class,
+				nomorSurat.getId(), new ais.database.hibernate.KunciEntityHelper.PekerjaanTransaksi() {
+					@Override
+					public void kerjakan(Session session, Object entityTerkunci) throws Exception {
+						FormatNis terkunci = (FormatNis) entityTerkunci;
+						Long nomorDipakai = terkunci.getNomorIndex();
+						terkunci.setNomorIndex(nomorDipakai + 1L);
+						session.update(terkunci);
+						hasil[0] = nomorDipakai;
+					}
+				});
+		if (!adaBaris) {
+			throw new IllegalStateException(
+					"FormatNis id=" + nomorSurat.getId() + " sudah dihapus saat pembangkitan NIS.");
+		}
+		return hasil[0];
 	}
 
 	/**
@@ -574,22 +576,27 @@ public class FormatNis extends GeneralValueObject {
 	 *
 	 * <p><b>Method ini murni menghitung</b> &mdash; ia tidak menaikkan pencacah dan tidak menulis
 	 * ke basis data; kenaikan pencacah adalah tanggung jawab
-	 * {@link #tambahIndexNomorSurat(FormatNis)} yang dipanggil terpisah oleh {@code CommonPSB}.
+	 * {@link #ambilLaluNaikkanNomorIndex(FormatNis)} (mode indeks manual) atau
+	 * {@code CommonPSB#ambilNomorUrutOtomatis(FormatNis, CalonSiswa)} (mode otomatis), keduanya
+	 * dipanggil terpisah oleh {@code CommonPSB} SEBELUM method ini.
 	 * Ia juga membaca field {@code kolomN}/{@code tandaN} secara langsung (bukan lewat getter),
 	 * jadi tidak memicu pemulihan lazy apa pun.</p>
 	 *
 	 * <p><b>Kasus tepi yang perlu diwaspadai:</b></p>
 	 * <ul>
-	 * <li><b>Pemotongan dari kiri, bukan sekadar pad.</b> Baris
-	 * {@code nomor.substring(nomor.length() - lebar)} memotong kelebihan digit dari sebelah KIRI.
-	 * Dengan lebar 3, urutan ke-1234 menghasilkan {@code "234"} &mdash; identik dengan urutan
-	 * ke-234. Karena {@code siswa.nomor_induk} tidak unik, tabrakan ini tidak akan tertangkap
-	 * basis data. Begitu jumlah siswa melampaui {@code 10^lebar}, NIS kembar menjadi pasti.</li>
-	 * <li><b>Lebar 0</b> membuat potongan nomor urut menghilang sepenuhnya (substring kosong);
-	 * <b>lebar negatif</b> melempar {@code StringIndexOutOfBoundsException}.</li>
-	 * <li><b>Batas pad.</b> Deret nol pembantu di dalam method hanya 72 karakter, jadi lebar yang
-	 * melebihi 72 (dikurangi panjang angka) juga melempar
-	 * {@code StringIndexOutOfBoundsException}.</li>
+	 * <li><b>Overflow lebar kini gagal eksplisit, bukan diam-diam bertabrakan.</b> Dahulu baris
+	 * {@code nomor.substring(nomor.length() - lebar)} memotong kelebihan digit dari sebelah KIRI
+	 * &mdash; dengan lebar 3, urutan ke-1234 menghasilkan {@code "234"}, identik dengan urutan
+	 * ke-234, dan karena {@code siswa.nomor_induk} dahulu tidak unik, tabrakan itu tidak tertangkap
+	 * basis data. Sekarang method ini memeriksa lebih dulu apakah representasi desimal
+	 * {@code urutanke + offset} muat dalam {@link #getJumlahAngkaNolDiDepanNomorUrut()} digit; bila
+	 * TIDAK muat, method melempar {@code IllegalStateException} alih-alih menghasilkan NIS yang
+	 * pasti bertabrakan. Admin sekolah perlu memperbesar &quot;Jumlah Karakter Nomor Urutan&quot;
+	 * pada layar Format NIS begitu populasi mendekati {@code 10^lebar}.</li>
+	 * <li><b>Rentang lebar kini divalidasi di setter.</b> {@code lebar 0}/negatif/{@code > 72}
+	 * ditolak sejak {@link #setJumlahAngkaNolDiDepanNomorUrut(Integer)} dipanggil (lihat javadoc
+	 * setter itu), sehingga kasus tepi lama ({@code StringIndexOutOfBoundsException} saat generate)
+	 * seharusnya tidak lagi tercapai lewat jalur normal aplikasi.</li>
 	 * <li><b>{@code NullPointerException}</b> bila ada {@code kolomN} bernilai {@code null} di
 	 * basis data (kolom tidak dijamin {@code NOT NULL}; nilai bawaan hanya berlaku untuk objek
 	 * yang dibuat lewat Java), karena {@code data[i].equals(...)} dipanggil pada elemen tersebut.
@@ -608,16 +615,18 @@ public class FormatNis extends GeneralValueObject {
 	 *
 	 * @param urutanke nomor urut mentah yang akan disisipkan pada potongan {@link #NOMOR_URUT};
 	 *                 berasal dari {@link #getNomorIndex()} (mode indeks manual) atau dari hasil
-	 *                 hitung {@code CommonPSB#getindex} (mode otomatis). Tidak boleh {@code null}
-	 *                 bila ada potongan bertipe {@link #NOMOR_URUT}
+	 *                 hitung {@code CommonPSB#ambilNomorUrutOtomatis} (mode otomatis). Tidak
+	 *                 boleh {@code null} bila ada potongan bertipe {@link #NOMOR_URUT}
 	 * @param tahun    tahun yang dipakai potongan {@link #TAHUN}/{@link #TAHUN_2_DIGIT}
 	 * @return string NIS/nomor hasil rakitan; string kosong bila seluruh kolom bernilai
 	 *         {@link #KOSONG} atau tidak dikenali
+	 * @throws IllegalStateException bila ada potongan {@link #NOMOR_URUT} dan representasi
+	 *         desimal {@code urutanke + offset} lebih panjang dari
+	 *         {@link #getJumlahAngkaNolDiDepanNomorUrut()} digit &mdash; menggantikan pemotongan
+	 *         diam-diam yang dahulu menghasilkan NIS kembar
 	 */
 	public String format(Long urutanke, Integer tahun) {
 		String hasil = "";
-
-		
 
 		String[] data = new String[] { kolom1, tanda1, kolom2, tanda2, kolom3, tanda3, kolom4, tanda4, kolom5, tanda5,
 				kolom6, tanda6, kolom7, tanda7, kolom8, tanda8, kolom9, tanda9, kolom10, tanda10, };
@@ -626,9 +635,18 @@ public class FormatNis extends GeneralValueObject {
 			if (data[i].equals(KOSONG)) {
 				continue;
 			} else if (data[i].equals(NOMOR_URUT)) {
+				long nilaiUrut = urutanke + ((getUrutBerdasarkanNomor() ? getMulaiUrutanKe() : 0L));
+				String angkaMentah = Long.toString(nilaiUrut);
+				int lebar = getJumlahAngkaNolDiDepanNomorUrut();
+				if (angkaMentah.length() > lebar) {
+					throw new IllegalStateException("Nomor urut " + nilaiUrut + " (" + angkaMentah.length()
+							+ " digit) melebihi lebar yang dikonfigurasi (" + lebar
+							+ " digit) pada Format NIS \"" + nama
+							+ "\"; NIS akan bertabrakan bila dipotong. Perbesar \"Jumlah Karakter Nomor Urutan\" pada layar Format NIS.");
+				}
 				String nomor = "000000000000000000000000000000000000000000000000000000000000000000000000"
-						+ (urutanke + ((getUrutBerdasarkanNomor() ? getMulaiUrutanKe() : 0L)));
-				nomor = nomor.substring(nomor.length() - getJumlahAngkaNolDiDepanNomorUrut());
+						+ nilaiUrut;
+				nomor = nomor.substring(nomor.length() - lebar);
 				hasil += nomor + data[i + 1];
 			} else if (data[i].equals(KATA_STATIS)) {
 				hasil += data[i + 1];
@@ -1219,15 +1237,24 @@ public class FormatNis extends GeneralValueObject {
 	/**
 	 * Menetapkan lebar tetap potongan nomor urut.
 	 *
-	 * <p><b>Tidak ada validasi rentang di sini maupun di layar pengelola.</b> Nilai {@code 0}
-	 * membuat nomor urut hilang dari NIS, nilai negatif atau lebih besar dari 72 membuat
-	 * {@link #format(Long, Integer)} melempar {@code StringIndexOutOfBoundsException}, dan nilai
-	 * yang terlalu kecil untuk populasi siswa menghasilkan NIS kembar.</p>
+	 * <p><b>Rentang kini divalidasi di sini.</b> Nilai harus {@code null} atau di antara 1 dan 72
+	 * (inklusif); di luar itu method melempar {@code IllegalArgumentException} SEBELUM nilai
+	 * tersimpan. Dahulu tidak ada validasi sama sekali di sini maupun di layar pengelola: nilai
+	 * {@code 0} membuat nomor urut hilang dari NIS, dan nilai negatif atau lebih besar dari 72
+	 * membuat {@link #format(Long, Integer)} melempar {@code StringIndexOutOfBoundsException} baru
+	 * saat NIS digenerate untuk siswa sungguhan &mdash; jauh dari titik input yang salah. Validasi
+	 * di sini menggagalkan input yang salah SAAT disimpan di layar Format NIS, bukan belakangan.</p>
 	 *
 	 * @param jumlahAngkaNolDiDepanNomorUrut lebar potongan nomor urut; boleh {@code null} (getter
 	 *                                       mengembalikannya ke {@code 3})
+	 * @throws IllegalArgumentException bila nilai bukan {@code null} dan di luar rentang 1&ndash;72
 	 */
 	public void setJumlahAngkaNolDiDepanNomorUrut(Integer jumlahAngkaNolDiDepanNomorUrut) {
+		if (jumlahAngkaNolDiDepanNomorUrut != null
+				&& (jumlahAngkaNolDiDepanNomorUrut < 1 || jumlahAngkaNolDiDepanNomorUrut > 72)) {
+			throw new IllegalArgumentException("Jumlah Karakter Nomor Urutan harus antara 1 dan 72 (nilai diberikan: "
+					+ jumlahAngkaNolDiDepanNomorUrut + ").");
+		}
 		this.jumlahAngkaNolDiDepanNomorUrut = jumlahAngkaNolDiDepanNomorUrut;
 	}
 
@@ -1372,10 +1399,10 @@ public class FormatNis extends GeneralValueObject {
 	 * Mengembalikan saklar pemilih mode pencacah (label layar: &quot;Urutankan nomor surat
 	 * menggunakan indeks&quot;).
 	 *
-	 * <p>{@code true} = mode indeks manual, memakai {@link #getNomorIndex()} yang dinaikkan
-	 * {@link #tambahIndexNomorSurat(FormatNis)} setiap pembangkitan. {@code false} (bawaan) = mode
-	 * hitung otomatis, nomor dihitung ulang dari jumlah pendaftar oleh
-	 * {@code CommonPSB#getindex}.</p>
+	 * <p>{@code true} = mode indeks manual, memakai {@link #getNomorIndex()} yang dibaca+dinaikkan
+	 * atomik oleh {@link #ambilLaluNaikkanNomorIndex(FormatNis)} setiap pembangkitan. {@code false}
+	 * (bawaan) = mode hitung otomatis, nomor diambil dari pencacah dipersistensikan
+	 * {@link NisCounter} milik sekolah lewat {@code CommonPSB#ambilNomorUrutOtomatis}.</p>
 	 *
 	 * <p>Saklar ini juga menentukan apakah kotak isian &quot;Saat ini indeks ke&quot; tampil di
 	 * dialog tambah/ubah, dan angka mana yang dipakai {@link #getContohFormat()}. Tidak menulis
@@ -1401,12 +1428,15 @@ public class FormatNis extends GeneralValueObject {
 	 * Mengembalikan nilai pencacah pada mode indeks manual (label layar: &quot;Saat ini indeks
 	 * ke&quot;) &mdash; yaitu nomor urut yang akan dipakai pada pembangkitan NIS BERIKUTNYA.
 	 *
-	 * <p>Nilai ini dibaca {@code CommonPSB#generateCode} SEBELUM
-	 * {@link #tambahIndexNomorSurat(FormatNis)} menaikkannya; celah antara pembacaan dan kenaikan
-	 * itulah yang membuka race condition yang dijelaskan pada Javadoc kelas. Angka ini juga dapat
-	 * disetel bebas oleh siapa pun yang boleh mengubah layar Format NIS &mdash; menurunkannya
-	 * membuat NIS berikutnya mengulang nomor yang sudah pernah terbit, tanpa peringatan dan tanpa
-	 * penghalang unique constraint.</p>
+	 * <p>Nilai ini dibaca DAN dinaikkan atomik dalam satu transaksi terkunci oleh
+	 * {@link #ambilLaluNaikkanNomorIndex(FormatNis)} yang dipanggil {@code CommonPSB#generateCode}
+	 * &mdash; lihat method itu untuk penjelasan perbaikan race condition yang dahulu ada di sini.
+	 * Angka ini tetap dapat disetel bebas oleh siapa pun yang boleh mengubah layar Format NIS
+	 * &mdash; menurunkannya membuat NIS berikutnya berpotensi mengulang nomor yang sudah pernah
+	 * terbit, tetapi sejak {@code ais.common.InitIndex#initNisCounterDanKeunikanSiswa()} terpasang,
+	 * unique index {@code (sekolah_id, nomor_induk)} pada {@code sekolah.siswa} DAN pemeriksaan
+	 * bentrok+percobaan ulang pada {@code CommonPSB#generateCode} menahan akibatnya &mdash;
+	 * generator akan mencoba nomor berikutnya, bukan menerbitkan NIS kembar.</p>
 	 *
 	 * <p>Tidak menulis balik ke field.</p>
 	 *
@@ -1419,7 +1449,7 @@ public class FormatNis extends GeneralValueObject {
 	/**
 	 * Menetapkan nilai pencacah mode indeks manual.
 	 *
-	 * <p>Dipanggil {@link #tambahIndexNomorSurat(FormatNis)} (kenaikan otomatis) dan
+	 * <p>Dipanggil {@link #ambilLaluNaikkanNomorIndex(FormatNis)} (kenaikan otomatis) dan
 	 * {@code FormatNisAction.onSave} (penyetelan manual dari layar pengelola). Tidak ada validasi
 	 * bahwa nilai baru lebih besar dari nilai lama.</p>
 	 *

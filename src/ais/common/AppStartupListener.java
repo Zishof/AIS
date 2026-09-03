@@ -162,6 +162,9 @@ public class AppStartupListener implements ServletContextListener {
 			// index baru/redundan.
 			InitIndex.initRetailRequestIdempotencyColumns();
 			InitIndex.initOnlineBmtRequestGuard();
+			// Migrasi startup idempoten: pencacah NIS dipersistensikan per sekolah + dedup
+			// & unique constraint NIS lama. Lihat javadoc method untuk latar belakang audit.
+			InitIndex.initNisCounterDanKeunikanSiswa();
 			// Migrasi kecil dan idempoten ini harus dijalankan segera setelah
 			// SessionFactory tersedia, sebelum init data/menu yang berat. Dengan
 			// demikian promo "Semua Produk" tidak perlu menunggu seluruh maintenance
