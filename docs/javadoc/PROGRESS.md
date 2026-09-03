@@ -1,5 +1,82 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 60 — SELESAI 100% (3 Sep 2026) — RANTAI BILLING KEUANGAN AKTUAL DIAUDIT: broken access control finansial parah, endpoint bank TANPA AUTENTIKASI SAMA SEKALI, task baru `task_a1e32ff3` (ekspor /tmp/ publik)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika. Batch ini pertama kali menyasar
+entity BESAR/berpengaruh tinggi (bukan sekadar katalog 100-150 baris):
+
+- **`ais/database/model/sekolah/JabatanOrganisasiSiswa.java`**
+  (r83726) — 115→481 baris, 100% (22 anggota). Katalog jabatan
+  kepengurusan (teks bebas, tanpa seed). **Verifikasi SQLi
+  `OrganisasiSiswaAction` NEGATIF ketiga berturut-turut** — kali ini
+  pada entity yang BENAR-BENAR dipakai Action tersebut, mengonfirmasi
+  tuntas bahwa SQLi itu terisolasi pada 2 parameter search
+  (`searchnamamhs`/`searchnim`) saja. Contoh POSITIF gerbang
+  `SiswaPunyaOrganisasiSiswaHelper.bolehEdit` (kontras tajam bug
+  `getMahasiswa()` b58-59).
+- **`ais/database/model/sekolah/GrupItemBiayaSekolah.java`**
+  (r83725) — 107→485 baris, 100% (36 anggota). Pengelompok
+  `ItemBiayaSekolah` (FK di sisi item). Fail-open tenant + pewarisan
+  hak menu (pola arsitektur, bukan kekhususan file). **Bug regresi
+  finansial NYATA**: `PembayaranOnline` mewarisi `break` loop
+  kronologis dari sebelum fitur pengurutan-per-grup (r83433) — grup
+  yang urutan labelnya belakangan TIDAK PERNAH dirender, tagihan
+  hilang diam-diam dari layar pembayaran.
+- **`ais/database/model/sekolah/JenisPenilaian.java`** (r83727) —
+  531→1150 baris, 100% (24 anggota). Puncak rantai penilaian
+  (7 entity turunan sudah lengkap b51/54/55). Verifikasi mandiri
+  pewarisan hak menu ke `konstanta.zul` (CRUD konstanta GLOBAL
+  instalasi). Bug baru: `keterangan` TIDAK dipetakan sama sekali
+  (instance baru pola b56). **Ditemukan pola arsitektur BARU**: method
+  statis (kode mati) menulis file berisi NIM+nilai siswa ke
+  `getRealPath("/tmp/...")` DI DALAM webapp, tersaji anonim, nama
+  hanya timestamp — pola ini muncul **193 kali** di codebase. **Task
+  baru dibuat: `task_a1e32ff3`** (audit sistemik semua 193 titik).
+- **`ais/database/model/sekolah/ItemBiayaSekolah.java`** (r83728) —
+  388→1296 baris, 100% (94 anggota — kelas besar). Katalog jenis
+  biaya, simpul terpadat modul sekolah (71 pemakai). Getter destruktif
+  PALING BERBAHAYA sejauh ini: `getKelamin()` MENGHAPUS PERMANEN data
+  `"L"`/`"P"` lama (case-sensitive exact match) saat baris tersentuh.
+  Broken access control baru: 2 kontrol renderer tanpa gerbang di
+  antara 6 saudaranya yang benar. Fail-open tenant + pewarisan hak
+  menu.
+- **`ais/database/model/sekolah/NominalBiaya.java`** (r83729) —
+  639→1677 baris, 100% (61 anggota). Materialisasi tarif→kewajiban
+  rupiah per siswa/periode. **TEMUAN PALING SEVERE SEPANJANG
+  INISIATIF INI (data finansial)**:
+  - `DetailTagihanSiswaHelper`/`CalonSiswaHelper`/`ItemBiayaHelper`
+    NOL `checkPrevilages`; tombol Reset/Upload/Sinkronkan/Recovery
+    TANPA GERBANG SAMA SEKALI — hak BACA cukup menghapus+regenerasi
+    tagihan, timpa nominal massal via Excel.
+  - **`/MncBank` endpoint bank TANPA AUTENTIKASI SAMA SEKALI** — nomor
+    VA dari klien jadi oracle yang mengembalikan nama siswa+NIS+item
+    biaya+rupiah.
+  - **IDOR + SQL injection** di `/Api TagihanSiswa.va()` dan
+    `bayarTabunganSiswa()` — `sqlRestriction` menyambung parameter ID
+    tagihan mentah, `hapus_split` bahkan MENULIS nominal siswa lain.
+  - `BniRequestAction`/`BsiRequestAction` menerima `siswa=`/`calon_siswa=`
+    dari URL tanpa cek kepemilikan.
+  - **Getter destruktif menghapus data finansial PERMANEN**:
+    `getNominal()` menulis `0.0` saat "bukan tagihan" dicentang;
+    melepas centang TIDAK memulihkan angka asli.
+  - Operasi massal (native SQL/HQL bulk) melewati Envers — riwayat
+    audit finansial BUTA untuk perubahan-perubahan ini.
+  - Password gateway bank tercetak ke stdout log
+    (`Bniresponse`/`Bsiresponse`).
+
+**Tidak ada task baru untuk temuan NominalBiaya/ItemBiayaSekolah/GrupItemBiayaSekolah**
+— seluruhnya memperkuat `task_5e93a600`/`task_493423ef`/`task_9b7ff647`
+yang sudah ada, namun **severity `task_493423ef` harus dinilai ulang
+SANGAT TINGGI** mengingat `/MncBank` benar-benar tanpa autentikasi dan
+menyentuh rekening/tagihan siswa nyata. **1 task BARU dibuat**:
+`task_a1e32ff3` (ekspor `/tmp/` publik, 193 titik, kategori berbeda
+dari task manapun yang ada).
+
+Kumulatif sesi ini: **477+ file** (130 batch 34-60) + 343 (sesi
+sebelumnya) dari 7.401 total (~12,1%).
+
 ## Batch 59 — SELESAI 100% (3 Sep 2026) — SQL injection kini 3 instance pola dashboard, bug gerbang `getMahasiswa()` terkonfirmasi template salin-tempel, TreeSet penciutan aktif 2x lagi
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
