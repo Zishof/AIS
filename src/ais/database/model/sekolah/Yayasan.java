@@ -372,6 +372,8 @@ public class Yayasan extends VoKunci {
 		return tanggal_dirubah;
 	}
 
+	/** Kode unik Yayasan untuk identitas integrasi dan pertukaran data antar-sistem. */
+	private String kode;
 	/** Nama badan hukum yayasan. Wajib diisi dan unik global (divalidasi {@code YayasanAction.checkNamaYayasan()}). */
 	private String nama;
 	/** Alamat jalan yayasan; dipakai pada kop surat dan laporan. */
@@ -665,6 +667,19 @@ public class Yayasan extends VoKunci {
 	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
+	}
+
+	/**
+	 * Kode resmi Yayasan. Nilai ini menjadi sumber utama {@code KD_MITRA_BMT};
+	 * kode Pendaftar hanya dipakai sebagai fallback untuk data lama.
+	 */
+	@Column(name = "kode", length = 100, unique = true)
+	public String getKode() {
+		return kode == null || kode.trim().isEmpty() ? null : kode.trim();
+	}
+
+	public void setKode(String kode) {
+		this.kode = kode == null || kode.trim().isEmpty() ? null : kode.trim();
 	}
 
 	/**

@@ -99,6 +99,7 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 	/** Hanya untuk super admin: bila dicentang, tampilkan SEMUA yayasan (abaikan filter domain). */
 	private org.zkoss.zul.Checkbox abaikanDomain;
 
+	private Textbox kode;
 	private Textbox nama;
 	private Textbox alamat;
 	private Textbox email;
@@ -168,7 +169,7 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 			}
 		});
 
-		String[] contents = new String[] { "id", "nama", "alamat", "email", "fax", "telp", "keterangan", "deskripsi",
+		String[] contents = new String[] { "id", "kode", "nama", "alamat", "email", "fax", "telp", "keterangan", "deskripsi",
 				"domain" };
 		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(this, contents);
 		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
@@ -202,6 +203,9 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 
 			Vbox a = RevisiHelper.createNewRevisi(Yayasan.class, yayasan, yayasan.getNama());
 			a.setParent(arg0);
+			if (yayasan.getKode() != null) {
+				a.appendChild(new Label("Kode: " + yayasan.getKode()));
+			}
 			if (yayasan.getDomain() != null && !yayasan.getDomain().isEmpty()) {
 				a.appendChild(new Label(yayasan.getDomain()));
 			}
@@ -242,7 +246,7 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 	}
 
 	private void init(Yayasan yayasan) {
-		this.yayasan = yayasan == null || yayasan.getId() == null ? null : yayasan;
+		this.yayasan = yayasan;
 		addWindow.setTitle(yayasan.getId() == null ? "Tambah Yayasan" : "Ubah Yayasan");
 		Common.clear(addWindow);
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -288,6 +292,15 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
+
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Kode Yayasan"));
+		row.appendChild(kode = new Textbox(yayasan.getKode()));
+		kode.setWidth("90%");
+		kode.setMaxlength(100);
+		Common.initKeterangan(rows, "Kode unik Yayasan. Wajib dilengkapi bila Yayasan memakai kanal Online BMT.");
+
+		row = new MyFormRow();
 
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Nama Yayasan"));
@@ -624,6 +637,11 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 					MyMessageboxConfig.INFORMATION);
 			return false;
 		}
+		if (!kode.getValue().trim().isEmpty() && checkKodeYayasan()) {
+			MyMessageboxConfig.show("Kode Yayasan sudah digunakan oleh Yayasan lain", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
+		}
 
 		Session session = HibernateUtil.currentSession();
 		if (yayasan.getId() != null) {
@@ -631,6 +649,7 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 
 		}
 
+		yayasan.setKode(kode.getValue());
 		yayasan.setNama(nama.getValue());
 		yayasan.setFax(fax.getValue());
 		yayasan.setTelp(telp.getValue());
@@ -839,7 +858,9 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 		if (order)
 			criteria.addOrder(Order.asc("nama"));
 		criteria.add(searchnama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
-				: Restrictions.ilike("nama", searchnama.getValue().trim(), MatchMode.ANYWHERE));
+				: Restrictions.or(
+						Restrictions.ilike("kode", searchnama.getValue().trim(), MatchMode.ANYWHERE),
+						Restrictions.ilike("nama", searchnama.getValue().trim(), MatchMode.ANYWHERE)));
 		return criteria;
 	}
 
@@ -866,6 +887,18 @@ public class YayasanAction extends GenericAutowireComposer implements DataCriter
 				.uniqueResult()).intValue();
 
 		return !kotaCount.equals(0);
+	}
+
+	public Boolean checkKodeYayasan() {
+		String value = kode == null ? "" : kode.getValue().trim();
+		if (value.isEmpty()) return false;
+		Session session = HibernateUtil.currentSession();
+		Number count = (Number) session.createCriteria(Yayasan.class).setProjection(Projections.rowCount())
+				.add(Restrictions.eq("kode", value))
+				.add(yayasan == null || yayasan.getId() == null ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.ne("id", yayasan.getId()))
+				.uniqueResult();
+		return count != null && count.intValue() > 0;
 	}
 
 	public static volatile Map<String, Yayasan> yayasanByDomain = new HashMap<String, Yayasan>();

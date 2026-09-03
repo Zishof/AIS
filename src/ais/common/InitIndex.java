@@ -39,6 +39,8 @@ public class InitIndex {
 	 */
 	static void initOnlineBmtRequestGuard() {
 		String[] ddl = new String[] {
+				"ALTER TABLE sekolah.yayasan ADD COLUMN IF NOT EXISTS kode varchar(100)",
+				"ALTER TABLE IF EXISTS sekolah.yayasan_aud ADD COLUMN IF NOT EXISTS kode varchar(100)",
 				"ALTER TABLE sekolah.sekolah ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean NOT NULL DEFAULT false",
 				"ALTER TABLE IF EXISTS sekolah.sekolah_aud ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean",
 				"ALTER TABLE sekolah.sekolah "

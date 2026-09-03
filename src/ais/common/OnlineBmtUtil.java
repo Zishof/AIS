@@ -440,6 +440,11 @@ public final class OnlineBmtUtil {
 	@SuppressWarnings("unchecked")
 	private static Yayasan findYayasan(Session session, Pendaftar pendaftar, String kodeYayasan) {
 		if (session == null) return null;
+		if (clean(kodeYayasan).length() > 0) {
+			Yayasan value = (Yayasan) session.createCriteria(Yayasan.class)
+					.add(Restrictions.eq("kode", clean(kodeYayasan))).setMaxResults(1).uniqueResult();
+			if (value != null) return value;
+		}
 		if (pendaftar != null && pendaftar.getId() != null) {
 			Yayasan value = (Yayasan) session.createCriteria(Yayasan.class)
 					.add(Restrictions.eq("pendaftar", pendaftar)).setMaxResults(1).uniqueResult();
@@ -454,7 +459,8 @@ public final class OnlineBmtUtil {
 	private static String[] yayasanIdentity(Yayasan yayasan) {
 		if (yayasan == null) return new String[] { "", "" };
 		Pendaftar pendaftar = yayasan.getPendaftar();
-		return new String[] { pendaftar == null ? "" : clean(pendaftar.getKode()), clean(yayasan.getNama()) };
+		return new String[] { inherit(yayasan.getKode(), pendaftar == null ? "" : pendaftar.getKode()),
+				clean(yayasan.getNama()) };
 	}
 
 	private static String[] emptyIdentity() {
