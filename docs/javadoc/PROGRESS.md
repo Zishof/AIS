@@ -1,5 +1,68 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 76 — SELESAI 100% (3 Sep 2026) — TEMUAN PALING KRITIS SELURUH INISIATIF: rantai otorisasi realisasi transfer dana rusak berlapis (`task_e2bb082c`) — satu akun AIS peran/tenant apa pun bisa menyetujui+mencairkan dana tenant lain; 3 entity TIDUR/YATIM lagi (TemplateGrupTransaksi, genap 3 dengan b72/b75); `task_66986071` kini di 7 helper API; 4 task baru total
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/akunting/ProsesTransfer.java`** (r83949) —
+  370→1209 baris, 100%. Langkah KETIGA rantai pencairan dana (DPC→
+  batch→disetujui→direalisasikan→posting). **TEMUAN PALING KRITIS
+  SELURUH INISIATIF — task baru `task_e2bb082c`**: rantai otorisasi
+  realisasi rusak di TIGA titik independen sekaligus — (1) `PosApi`
+  tidak punya cabang untuk `proses_transfer_` meski sudah terdaftar
+  di `KUNCI_DEFAULT_NONAKTIF` (niat fail-closed tak pernah
+  tereksekusi, jatuh ke `true`); (2) `ProsesTransferApiHelper
+  .bolehAksi()` fail-open (helper ke-6 `task_66986071`) menjaga
+  approve/reject/**realisasi**; (3) tombol "Realisasikan" di ZK NOL
+  gerbang hak sama sekali (hanya syarat keadaan data), dipanggil dari
+  25+ layar lintas modul. Gabungan: **satu akun AIS sah, peran
+  apapun, tenant manapun, cukup menyetujui+mencairkan dana tenant
+  lain** — memicu posting jurnal + pencairan uang riil dalam satu
+  aksi. Integritas: batal-posting via `and closing is null`
+  menjamin **jurnal ganda utuh** untuk pencairan yang sama (perluasan
+  `task_5e79a211`).
+- **`ais/database/model/akunting/TemplateGrupTransaksi.java`**
+  (r83951) — 457→1431 baris, 100%. **Entity TIDUR/YATIM ketiga**
+  (genap dengan `PengumumanJadwalPelajaran` b72, `TemplateTransaksi`
+  b75) — pasangan header yang JUGA mati total, bukan hanya baris
+  detailnya. Bug laten (tak bisa dipicu, entity mati): `populateDeskripsi()`
+  query `Transaksi` (baris jurnal SUNGGUHAN) pakai id baris TEMPLATE
+  sebagai kunci — tabrakan id lintas tabel yang berpotensi membocorkan
+  jurnal resmi milik dokumen lain lintas tenant BILA entity ini
+  dihidupkan tanpa perbaikan.
+- **`ais/database/model/akunting/TemplateJurnalPenyesuaian.java`**
+  (r83948) — 182→664 baris, 100%. Kontras dengan pasangan mati di
+  atas — fitur "Template Jurnal" yang BENAR-BENAR HIDUP (amortisasi/
+  akrual). **Task baru `task_945c2af8`**: penjaga anti-posting-ganda
+  (penanda teks `LIKE` di `keterangan`, bukan kolom idempotensi
+  sungguhan) FAIL-OPEN pada exception + rentan ejaan periode berbeda
+  (`"2026-1"` vs `"2026-01"`) via REST — beban sama bisa dibukukan
+  berkali-kali. `task_66986071` terkonfirmasi (helper ke-6 versi
+  hitungan agent ini).
+- **`ais/database/model/akunting/CaraPembayaranTransfer.java`**
+  (r83960) — 215→918 baris, 100%. `task_66986071` DAN `task_0a06e418`
+  (checkbox grid tanpa gerbang) SAMA-SAMA terkonfirmasi menjangkau
+  entity ini — pola identik `JenisKasBesar` b75. Kuirk: `defaultPembayaran`
+  punya TIGA penulis dengan TIGA semantik berbeda (per-satuan-kerja
+  vs global vs tak ditegakkan) tanpa indeks unik.
+- **`ais/database/model/akunting/StandingInstruction.java`** (r83953)
+  — 432→1433 baris, 100%. Koreksi: TIDAK punya kolom jadwal/frekuensi
+  sama sekali (keberulangan datang dari dokumen `PembayaranGaji`
+  berulang, bukan mesin penjadwal); eksekusi MANUAL (bukan
+  cron/otomatis) — risikonya "surat perintah tercetak dengan angka
+  sudah berubah diam-diam", bukan "dana mengalir sendiri". **Task
+  baru `task_a594425b`**: erosi cakupan satuan kerja dari SISI
+  ENTITY (`getSatuanKerja()` menugaskan `null` tanpa syarat) +
+  penggelembungan total batch dari entri tercentang-lalu-ditinggalkan.
+
+**4 task baru batch ini**: `task_e2bb082c` (dibuat orkestrator — PALING
+KRITIS), `task_945c2af8` dan `task_a594425b` (dibuat agent sendiri).
+`task_66986071` (fail-open `bolehAksi()`) kini terkonfirmasi di
+**7 helper API** domain akunting — pola arsitektural yang menyebar
+luas, bukan lagi anomali satu file.
+
 ## Batch 75 — SELESAI 100% (3 Sep 2026) — 2 entity TIDUR/YATIM lagi ditemukan (TemplateTransaksi); fail-open `bolehAksi()` (`task_66986071`) meluas ke gerbang TUTUP BUKU (`Closing`/`Pajak`) — instans paling kritis sejauh ini; 2 task baru (`task_6e542cda` split-brain penguncian jurnal, `task_0a06e418` checkbox grid tanpa gerbang)
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
