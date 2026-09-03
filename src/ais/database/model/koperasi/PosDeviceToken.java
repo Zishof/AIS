@@ -60,6 +60,7 @@ public class PosDeviceToken extends GeneralValueObject {
 	protected void onUpdate() {
 	}
 
+	/** Kunci utama (identity/auto-increment); {@code insertable = false} karena nilainya diserahkan sepenuhnya ke DB. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -67,6 +68,7 @@ public class PosDeviceToken extends GeneralValueObject {
 		return this.id;
 	}
 
+	/** Tidak pernah dipanggil dalam alur normal -- id identity diisi DB, bukan aplikasi. Ada semata melengkapi bentuk JavaBean. */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -77,6 +79,7 @@ public class PosDeviceToken extends GeneralValueObject {
 		return tokenHash;
 	}
 
+	/** Dipanggil sekali saat penerbitan token (lihat {@code PosDeviceAuthApi#terbitkanToken}) dengan hash, BUKAN token mentah. */
 	public void setTokenHash(String tokenHash) {
 		this.tokenHash = tokenHash;
 	}
@@ -101,6 +104,7 @@ public class PosDeviceToken extends GeneralValueObject {
 		this.labelPerangkat = labelPerangkat;
 	}
 
+	/** Waktu token diterbitkan; default nilai inisialisasi field ({@code new Date()}) dipakai bila pemanggil tak menimpanya secara eksplisit. */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "dibuat_pada", nullable = false)
 	public Date getDibuatPada() {
@@ -111,6 +115,18 @@ public class PosDeviceToken extends GeneralValueObject {
 		this.dibuatPada = dibuatPada;
 	}
 
+	/**
+	 * Batas masa berlaku token -- dibandingkan terhadap waktu sekarang di
+	 * {@code PosDeviceAuthApi#resolveDariRequest} setiap permintaan {@code PosApi} masuk; token yang
+	 * sudah lewat kedaluwarsanya ditolak (diperlakukan setara token tak dikenal, tanpa pesan berbeda).
+	 *
+	 * <p><b>Tidak ada rotasi/perpanjangan diam-diam</b> -- ditelusuri di seluruh {@code PosApi}/
+	 * {@code PosDeviceAuthApi}, tidak ada endpoint refresh yang menggeser nilai kolom ini. Satu-satunya
+	 * cara memperpanjang akses adalah login ulang lewat {@code PosDeviceAuthApi#terbitkanToken}, yang
+	 * menerbitkan baris token BARU dengan masa berlaku baru (30 hari, lihat
+	 * {@code PosDeviceAuthApi#MASA_BERLAKU_HARI}) -- baris lama tidak dihapus otomatis, hanya berhenti
+	 * valid begitu kolom ini terlampaui.</p>
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "kedaluwarsa_pada", nullable = false)
 	public Date getKedaluwarsaPada() {
@@ -121,6 +137,16 @@ public class PosDeviceToken extends GeneralValueObject {
 		this.kedaluwarsaPada = kedaluwarsaPada;
 	}
 
+	/**
+	 * Waktu terakhir token ini berhasil dipakai mengautentikasi permintaan; {@code null} bila belum
+	 * pernah dipakai sejak diterbitkan.
+	 *
+	 * <p>Ditulis lewat {@code UPDATE} SQL langsung di {@code PosDeviceAuthApi#resolveDariRequest}
+	 * (bukan lewat {@code setTerakhirDipakaiPada} + {@code session.save}/{@code update}) -- sengaja
+	 * menghindari siklus dirty-check Hibernate penuh untuk operasi write-per-request yang sangat
+	 * sering ini. Konsekuensinya: instance {@link PosDeviceToken} yang sedang dipegang di memori tidak
+	 * otomatis merefleksikan pembaruan ini sampai dimuat ulang dari DB.</p>
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "terakhir_dipakai_pada", nullable = true)
 	public Date getTerakhirDipakaiPada() {
