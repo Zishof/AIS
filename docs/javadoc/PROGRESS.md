@@ -1,5 +1,64 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 67 — SELESAI 100% (3 Sep 2026) — AKAR STRUKTURAL pola "fail-open tenant" ditemukan; kredensial guru dipanen ke pihak ketiga; deteksi bentrok jadwal terkonfirmasi RUSAK; task baru `task_beeb2833`
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/Yayasan.java`** (r83823) — 433→1197
+  baris, 100%. **AKAR STRUKTURAL pola "fail-open cakupan tenant"
+  (yang paling sering muncul sepanjang 67 batch) akhirnya ditemukan**:
+  `SekolahUtil.getYayasan()` TIDAK PERNAH mengembalikan `null`,
+  melainkan objek transient ber-id `null` — sehingga penjaga `==
+  null` di 81+ lokasi TIDAK PERNAH menyala; yang menyala justru
+  `.getId() == null`, kondisi "resolusi tenant gagal" yang terjadi
+  saat domain kosong/`aktif=false`/thread latar/JAX-RS/servlet bank.
+  Sibling langsung akar b33 (`SekolahUtil.ambilSatuanKerjas()`).
+  **Mekanisme BARU ditemukan, berbeda kategori (salah identifikasi
+  tenant, bukan filter hilang)**: `SekolahUtil.getYayasanData()`
+  mencocokkan host request via SUBSTRING (`contains`) tanpa validasi
+  panjang/format domain, iterasi `HashMap` tak deterministik — satu
+  yayasan berdomain pendek bisa "membajak" resolusi tenant untuk
+  yayasan lain di server yang sama. **Task baru `task_beeb2833`.**
+  5 getter destruktif termasuk `getDomain()` (bisa mengosongkan
+  identitas tenant sendiri, memicu fail-open lebih lanjut).
+- **`ais/database/model/sekolah/Guru.java`** (r83825) — 1144→2862
+  baris, 100% (277 blok). **Kredensial dipanen ke PIHAK KETIGA
+  EKSTERNAL**: tombol "Password Guru" (tanpa gerbang hak sama
+  sekali) membuat akun `Tbmuser` massal (password 5-digit acak),
+  MENGEKSPOR password hasil DEKRIPSI DES seluruh guru ke Excel di
+  direktori publik webapp, DAN mengirim username+host instalasi ke
+  URL pihak ketiga eksternal (`https://dev.ecampus.id/...`) via curl.
+  Fail-open tenant di `GuruAction.initCriteria()`. Data sensitif
+  langsung di entity: NIK, rekening bank, koordinat GPS rumah.
+- **`ais/database/model/sekolah/JadwalPelajaran.java`** (r83826) —
+  1630→3767 baris, 100% (259 blok). **Deteksi bentrok jadwal
+  (ruang/kelas/guru) TERKONFIRMASI RUSAK**: ketiga pemeriksa
+  menambahkan syarat ekstra "hari slot pertama harus sama" yang
+  membuat bentrok slot II-XII tak pernah terdeteksi, DAN baris
+  ber-slot-1-kosong tak pernah bentrok sama sekali (`"".equals(null)`
+  selalu `false`). 12 getter destruktif dalam satu file (REKOR sesi
+  ini). 25 instance pewarisan hak menu sekaligus.
+- **`ais/database/model/sekolah/GuruMengajar.java`** (r83822) —
+  1337→3979 baris, 100% (261 blok). Koreksi relasi: TERNYATA nol
+  relasi dengan `PenugasanGuruMengajar` (b63) — kemiripan nama
+  murni kebetulan, bukan entity terkait. Getter destruktif berantai
+  memicu tulis-ulang massal saat grid dibuka.
+- **`ais/database/model/sekolah/KelasSiswa.java`** (r83821) —
+  590→1466 baris, 100%. Verifikasi ulang b62 terkonfirmasi PLUS
+  temuan baru DI LAYAR MASTER itu sendiri: tombol "Singkronkan" tanpa
+  gerbang menulis ulang kelas aktif SEMUA siswa lintas instalasi via
+  native SQL — melemahkan asumsi "master selalu bergerbang benar".
+
+**1 task baru dibuat batch ini** (`task_beeb2833` — pembajakan
+resolusi tenant, kategori baru). Sisanya memperkuat
+`task_493423ef`/`task_5e93a600`/`task_9b7ff647`/`task_7510ad23` yang
+sudah ada.
+
+Kumulatif sesi ini: **512+ file** (165 batch 34-67) + 343 (sesi
+sebelumnya) dari 7.401 total (~13,1%).
+
 ## Batch 66 — SELESAI 100% (3 Sep 2026) — MILESTONE: Siswa.java & CalonSiswa.java (dua entity paling sentral aplikasi) LENGKAP; 2 BYPASS OTENTIKASI NYATA ditemukan (task baru `task_06e1cfa2`, `task_5a059324`)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
