@@ -1,5 +1,53 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 86 — SELESAI 100% (4 Sep 2026) — 1 task baru (`task_574ada57`); paket `payroll` MENDEKATI TUNTAS
+
+8 file selesai didokumentasikan penuh, semua dikompilasi
+`-implicit:none` bersih via PowerShell, WC mirror disinkron via `svn
+update`, `cmp` byte-identik. Beberapa commit tersapu sesi paralel
+lain (r84131, pesan kosong) — isi diverifikasi utuh via `svn diff`
+per file, tidak ada kerja hilang:
+
+- **`Departemen.java`** (tersapu r84131) + **`LevelJabatan.java`**
+  (r84143) — 100%. Keduanya master label/filter sederhana pada
+  `Pegawai`/`FormatItemGaji`/`GajiTabahan` — DIKONFIRMASI **bukan**
+  bagian mesin kalkulasi tunjangan (itu jalur
+  `JabatanStruktural`/`JabatanFungsional`→`KodeTunjangan`).
+- **`JenisPengajuanTransaksiPegawai.java`** (r84131/r84144) — 100%.
+  Field `jenisTransaksiPegawai` DIKONFIRMASI **bukan** kosmetik
+  (beda dari sepupu `JenisTransaksiPegawai.jenisTransaksi`) —
+  `TransaksiPegawai.getJenisTransaksiPegawai()` getter destruktif
+  menimpa atribusi akun jurnal seluruh angsuran (termasuk yang sudah
+  diposting) dari rantai katalog ini.
+- **`GajiTabahan.java`** (tersapu r84131) — 100%. Relasi opsional ke
+  `AdjusVariablePenggajian` dikonfirmasi (getter tanpa-syarat
+  `getKode()`/`getMulai()`/`getSampai()`), `kode` = token exp4j
+  nyata di 3 titik. **🚨 Task baru `task_574ada57`**: 6 titik di 4
+  file (`ItemGajiPegawaiTreeModel`, `GajiTabahanAction`,
+  `ItemGajiTreeModel`, `BayarGajiPegawaiAction`) memakai
+  `Restrictions.ge` (>=) alih-alih `eq` untuk mencocokkan
+  cabang/departemen/levelJabatan — kemungkinan bug salah-scope
+  perhitungan gaji produksi yang menyebar via salin-tempel.
+- **`UploadLog.java`** (r84128) + **`Cabang.java`** (r84130) — 100%.
+  `UploadLog` menyimpan SALINAN MENTAH PENUH berkas absensi + hasil
+  parse (nama pegawai/mahasiswa/siswa), dimuat TANPA filter
+  oleh/olehId/cabang — instansiasi lain pola kebocoran log lintas
+  pengguna (sepola `LogLogin`). `MesinMagic` (parser duplikat)
+  dikonfirmasi dead code, tak dipanggil manapun. `Cabang` hidup &
+  dipakai luas (bukan dorman).
+- **`LiburNasional.java`** (r84129+r84146) + **`CutiDanIzin.java`**
+  (perkaya 42 method baru, sebagian sudah ada; tersapu r84131) —
+  100%. `LiburNasional` dikonfirmasi LINTAS MODUL (payroll+akademik)
+  sama seperti `LiburRutin`. `CutiDanIzin`: gerbang persetujuan
+  sepenuhnya via `disposisiSop` generik (bukan self-set) — negatif
+  verifikasi self-approval baru.
+
+**1 task baru batch ini**: `task_574ada57` (pola bug `Restrictions.ge`
+salah-scope perhitungan gaji, 6 titik/4 file). Paket `payroll` kini
+mendekati tuntas — sisa kandidat file utama tinggal sedikit, sesi
+berikutnya perlu scan ulang untuk memutuskan lanjut menyapu sisa
+kecil atau pivot domain baru.
+
 ## Batch 85 — SELESAI 100% (4 Sep 2026) — 0 task baru; 2 entity tidur lagi ditemukan (`StandarGaji`+`StandarGajiDetail`, entity ke-8 & ke-9); rantai shift lengkap terverifikasi
 
 10 file selesai didokumentasikan penuh (100% method/field), semua
