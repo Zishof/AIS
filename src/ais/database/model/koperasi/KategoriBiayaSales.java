@@ -34,11 +34,18 @@ public class KategoriBiayaSales extends GeneralValueObject {
 	private String nama;
 	private Boolean aktif;
 
+	/**
+	 * Hook JPA {@code @PreUpdate}: mendelegasikan pencatatan {@link #tanggal_dirubah} (dan field
+	 * audit sejenis) ke {@link ais.database.hibernate.AuditTimestampInterceptor#ubah}. Dipanggil
+	 * otomatis oleh provider JPA setiap {@code UPDATE}, tidak untuk dipanggil manual.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Konstruktor bawaan (dipakai JPA/Hibernate dan seed idempoten {@code ApiEBisnis.init}). */
 	public KategoriBiayaSales() {
 	}
 
+	/** @return id baris (identity, dibuat DB). */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -46,42 +53,57 @@ public class KategoriBiayaSales extends GeneralValueObject {
 		return this.id;
 	}
 
+	/** @param id id baris; biasanya tidak diset manual, dibuat DB saat {@code save}. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return kode kategori (unik), mis. {@code BBM}, {@code TOL}, {@code PARKIR}, {@code MAKAN},
+	 *         {@code BONGKAR_MUAT}, {@code PENGINAPAN}, {@code SERVIS}, {@code ADMIN},
+	 *         {@code LAINNYA} -- daftar seed awal, bukan enum tertutup (lihat catatan kelas);
+	 *         pengurus dapat menambah kategori baru lewat master tanpa rilis aplikasi.
+	 */
 	@Column(name = "kode", length = 30, unique = true)
 	public String getKode() {
 		return kode;
 	}
 
+	/** @param kode kode kategori biaya (unik). */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/** @return nama tampilan kategori biaya. */
 	@Column(name = "nama")
 	public String getNama() {
 		return nama;
 	}
 
+	/** @param nama nama tampilan kategori biaya. */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/** @return status aktif kategori. Fallback ke {@link Boolean#TRUE} bila kolom {@code null}. */
 	@Column(name = "aktif")
 	public Boolean getAktif() {
 		return aktif == null ? Boolean.TRUE : aktif;
 	}
 
+	/** @param aktif status aktif kategori; kategori nonaktif tidak lagi dipilihkan di transaksi baru
+	 *               tapi tetap tampak di riwayat biaya lama yang sudah memakainya. */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/** @return waktu baris terakhir diubah; diperbarui otomatis lewat {@link #onUpdate()}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** @param tanggal_dirubah waktu perubahan terakhir (biasanya tidak diset manual). */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
@@ -99,6 +121,7 @@ public class KategoriBiayaSales extends GeneralValueObject {
 		return akun;
 	}
 
+	/** @param akun akun BEBAN untuk kategori biaya ini; boleh {@code null} selama belum diisi pengurus. */
 	public void setAkun(ais.database.model.akunting.Akun akun) {
 		this.akun = akun;
 	}
