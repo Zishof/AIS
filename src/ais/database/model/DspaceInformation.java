@@ -96,9 +96,12 @@ public class DspaceInformation extends GeneralValueObject {
 	public static DspaceInformation dspaceProcess(String cookie, GeneralValueObject generalValueObject,
 			GeneralValueObject generalValueObjectLagi, String jsonPost, String jsonPut, boolean update, String action,
 			String postAction, String putAction, Boolean minus) throws Exception {
+		if (generalValueObject == null || generalValueObject.getId() == null) {
+			throw new IllegalArgumentException("Data sumber DSpace belum tersimpan");
+		}
 		DspaceInformation dspaceInformation = DspaceInformation.getDspaceInformation(
 				generalValueObject.getClass().getName(),
-				minus ? -generalValueObject.getId() : generalValueObject.getId(),
+				Boolean.TRUE.equals(minus) ? -generalValueObject.getId() : generalValueObject.getId(),
 				generalValueObjectLagi == null ? null : generalValueObjectLagi.getId());
 		if (dspaceInformation.getUuid().isEmpty() || !URLCommon.cek(action + "/" + dspaceInformation.getUuid())) {
 			JSONObject jsonObject = URLCommon.post(cookie, postAction, jsonPost.toString());
@@ -106,11 +109,7 @@ public class DspaceInformation extends GeneralValueObject {
 				dspaceInformation.putJosnObject(jsonObject);
 				dspaceInformation.setPostInfo(jsonPost.toString());
 
-				Session session = HibernateUtil.currentNativeSession();
-				session.getTransaction().begin();
-				Common.refreshSaveOrUpdate(session, dspaceInformation);
-				session.getTransaction().commit();
-				HibernateUtil.closeSession();
+				simpanInformasi(dspaceInformation);
 			}
 		} else if (update) {
 			URLCommon.put(cookie,
@@ -122,6 +121,9 @@ public class DspaceInformation extends GeneralValueObject {
 
 	public static DspaceInformation upload(String cookie, String uuid, FileFoto lampiranLain, String description)
 			throws Exception {
+		if (lampiranLain == null || lampiranLain.getId() == null) {
+			return null;
+		}
 		if (lampiranLain.getGdrive() == null) {
 			DspaceInformation dspaceInformation = DspaceInformation
 					.getDspaceInformation(lampiranLain.getClass().getName(), lampiranLain.getId(), null);
@@ -136,11 +138,7 @@ public class DspaceInformation extends GeneralValueObject {
 					dspaceInformation.putJosnObject(jsonPost);
 					dspaceInformation.setPostInfo(jsonPost.toString());
 
-					Session session = HibernateUtil.currentNativeSession();
-					session.getTransaction().begin();
-					Common.refreshSaveOrUpdate(session, dspaceInformation);
-					session.getTransaction().commit();
-					HibernateUtil.closeSession();
+					simpanInformasi(dspaceInformation);
 				}
 			}
 			return dspaceInformation;
@@ -156,6 +154,9 @@ public class DspaceInformation extends GeneralValueObject {
 
 	public static DspaceInformation upload(String cookie, String uuid, GeneralValueObject generalValueObject,
 			GeneralValueObject generalValueObjectLagi, String filePath, String description) throws Exception {
+		if (generalValueObject == null || generalValueObject.getId() == null) {
+			return null;
+		}
 		DspaceInformation dspaceInformation = DspaceInformation.getDspaceInformation(
 				generalValueObject.getClass().getName(), generalValueObject.getId(),
 				generalValueObjectLagi == null ? null : generalValueObjectLagi.getId());
@@ -168,11 +169,7 @@ public class DspaceInformation extends GeneralValueObject {
 				dspaceInformation.putJosnObject(jsonPost);
 				dspaceInformation.setPostInfo(jsonPost.toString());
 
-				Session session = HibernateUtil.currentNativeSession();
-				session.getTransaction().begin();
-				Common.refreshSaveOrUpdate(session, dspaceInformation);
-				session.getTransaction().commit();
-				HibernateUtil.closeSession();
+				simpanInformasi(dspaceInformation);
 			}
 		}
 		return dspaceInformation;
@@ -183,24 +180,68 @@ public class DspaceInformation extends GeneralValueObject {
 	}
 
 	public static DspaceInformation getDspaceInformation(String nama, Long refId, Long refIdLagi) {
-		Session session = HibernateUtil.currentNativeSession();
-		DspaceInformation dspaceInformation = (DspaceInformation) session.createCriteria(DspaceInformation.class)
-				.add(Restrictions.eq("nama", nama))
-				.add(refId == null ? Restrictions.isNull("refId") : Restrictions.eq("refId", refId))
-				.add(refIdLagi == null ? Restrictions.isNull("refIdLagi") : Restrictions.eq("refIdLagi", refIdLagi))
-				.setMaxResults(1).uniqueResult();
-		if (dspaceInformation == null) {
-			dspaceInformation = new DspaceInformation();
-			dspaceInformation.setRefId(refId);
-			dspaceInformation.setRefIdLagi(refIdLagi);
-			dspaceInformation.setNama(nama);
-
-			session.getTransaction().begin();
-			session.save(dspaceInformation);
-			session.getTransaction().commit();
+		RuntimeException errorTerakhir = null;
+		for (int percobaan = 0; percobaan < 2; percobaan++) {
+			Session session = null;
+			org.hibernate.Transaction transaksi = null;
+			try {
+				session = HibernateUtil.openSession();
+				/*
+				 * Unique key tabel dibentuk oleh refId + nama (lihat getKodeUnik), bukan
+				 * refIdLagi. Kriteria lama memasukkan refIdLagi sehingga baris yang sebenarnya
+				 * sudah ada tidak ditemukan lalu INSERT kedua melanggar unique constraint.
+				 */
+				DspaceInformation data = (DspaceInformation) session.createCriteria(DspaceInformation.class)
+						.add(Restrictions.eq("nama", nama))
+						.add(refId == null ? Restrictions.isNull("refId") : Restrictions.eq("refId", refId))
+						.setMaxResults(1).uniqueResult();
+				if (data != null) {
+					return data;
+				}
+				data = new DspaceInformation();
+				data.setRefId(refId);
+				data.setRefIdLagi(refIdLagi);
+				data.setNama(nama);
+				transaksi = session.beginTransaction();
+				session.save(data);
+				transaksi.commit();
+				transaksi = null;
+				return data;
+			} catch (org.hibernate.exception.ConstraintViolationException e) {
+				errorTerakhir = e;
+				if (transaksi != null && transaksi.isActive()) {
+					try { transaksi.rollback(); } catch (Exception ignored) { }
+				}
+				// INSERT paralel memenangkan unique key; ulangi SELECT pada session baru.
+			} catch (RuntimeException e) {
+				if (transaksi != null && transaksi.isActive()) {
+					try { transaksi.rollback(); } catch (Exception ignored) { }
+				}
+				throw e;
+			} finally {
+				HibernateUtil.closeSessionQuietly(session);
+			}
 		}
-		HibernateUtil.closeSession();
-		return dspaceInformation;
+		throw errorTerakhir == null ? new IllegalStateException("Data DSpace tidak dapat dibuat") : errorTerakhir;
+	}
+
+	private static void simpanInformasi(DspaceInformation data) {
+		Session session = null;
+		org.hibernate.Transaction transaksi = null;
+		try {
+			session = HibernateUtil.openSession();
+			transaksi = session.beginTransaction();
+			session.saveOrUpdate(data);
+			transaksi.commit();
+			transaksi = null;
+		} catch (RuntimeException e) {
+			if (transaksi != null && transaksi.isActive()) {
+				try { transaksi.rollback(); } catch (Exception ignored) { }
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
 	}
 
 	private static List<String> linksForClass = new ArrayList<String>();

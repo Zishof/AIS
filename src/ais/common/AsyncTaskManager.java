@@ -405,7 +405,8 @@ public class AsyncTaskManager {
 								Clients.clearBusy();
 								Executions.deactivate(desktop);
 							}
-						} catch (DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/common/AsyncTaskManager.java:175");
+						} catch (DesktopUnavailableException due) {
+							// Pengguna sudah menutup/navigasi dari desktop; pekerjaan latar tetap selesai normal.
 						} catch (Exception e) {
 							tampilErrorJikaAdmin(e);
 						}
@@ -455,7 +456,8 @@ public class AsyncTaskManager {
 								Executions.deactivate(desktop);
 							}
 						}
-					} catch (DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/common/AsyncTaskManager.java:221");
+					} catch (DesktopUnavailableException due) {
+						// Desktop berakhir selama watcher menunggu; bukan kegagalan aplikasi.
 					} catch (InterruptedException e) {
 						Thread.currentThread().interrupt();
 					} catch (Exception e) {
@@ -497,7 +499,8 @@ public class AsyncTaskManager {
 								Clients.clearBusy();
 								Executions.deactivate(desktop);
 							}
-						} catch (DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/common/AsyncTaskManager.java:260");
+						} catch (DesktopUnavailableException due) {
+							// Hasil tidak perlu dikirim bila halaman asal sudah ditutup.
 						} catch (Exception e) {
 							tampilErrorJikaAdmin(e);
 						}
@@ -547,7 +550,8 @@ public class AsyncTaskManager {
 							} finally {
 								Executions.deactivate(desktop);
 							}
-						} catch (DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/common/AsyncTaskManager.java:308");
+						} catch (DesktopUnavailableException due) {
+							// Lifecycle normal saat pengguna meninggalkan halaman.
 						} catch (Exception e) {
 							tampilErrorJikaAdmin(e);
 						}
@@ -590,7 +594,8 @@ public class AsyncTaskManager {
 								Clients.clearBusy();
 								Executions.deactivate(desktop);
 							}
-						} catch (DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/common/AsyncTaskManager.java:349");
+						} catch (DesktopUnavailableException due) {
+							// Lifecycle normal saat pengguna meninggalkan halaman.
 						} catch (Exception e) {
 							tampilErrorJikaAdmin(e);
 						}
@@ -691,7 +696,8 @@ public class AsyncTaskManager {
 								Executions.deactivate(desktop);
 							}
 						}
-					} catch (DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/common/AsyncTaskManager.java:442");
+					} catch (DesktopUnavailableException due) {
+						// Lifecycle normal saat pengguna meninggalkan halaman.
 					} catch (InterruptedException e) {
 						Thread.currentThread().interrupt();
 					} catch (Exception e) {
@@ -722,7 +728,8 @@ public class AsyncTaskManager {
 								Clients.clearBusy();
 								Executions.deactivate(desktop);
 							}
-						} catch (DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due, "auto-audit(empty-catch) src/ais/common/AsyncTaskManager.java:470");
+						} catch (DesktopUnavailableException due) {
+							// Lifecycle normal saat pengguna meninggalkan halaman.
 						} catch (Exception e) {
 							tampilErrorJikaAdmin(e);
 						}

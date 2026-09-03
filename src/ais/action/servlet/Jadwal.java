@@ -134,7 +134,7 @@ public class Jadwal extends HttpServlet {
 						.add(Restrictions.or(Restrictions.isNotNull("jadwalPelajaran"),
 								Restrictions.isNotNull("perkuliahan")))
 						.list();
-				pertemuans = new HashMap<Long, Pertemuan>();
+				pertemuans = new java.util.concurrent.ConcurrentHashMap<Long, Pertemuan>();
 				for (Pertemuan pertemuan : pertemuansData) {
 					pertemuans.put(pertemuan.getId(), pertemuan);
 				}
@@ -142,8 +142,9 @@ public class Jadwal extends HttpServlet {
 				PengumumanAkademisAction.pertemuansHarian.put(sekarang, pertemuans);
 			}
 
-			for (Map<Long, Pertemuan> pertemuansD : PengumumanAkademisAction.pertemuansHarian.values()) {
-				for (Pertemuan pertemuan : pertemuansD.values()) {
+			for (Map<Long, Pertemuan> pertemuansD : new ArrayList<Map<Long, Pertemuan>>(
+					PengumumanAkademisAction.pertemuansHarian.values())) {
+				for (Pertemuan pertemuan : new ArrayList<Pertemuan>(pertemuansD.values())) {
 					if (pertemuan != null && pertemuan.getPerkuliahan() != null) {
 						Perkuliahan perkuliahan = pertemuan.getPerkuliahan();
 						List<Dosen> dosens = perkuliahan.populateDosenBuNama();

@@ -237,10 +237,8 @@ public class CheckISBN extends HttpServlet {
 			String categories = gabungkan(volumeInfo == null ? null : volumeInfo.getCategories());
 
 			Integer tahun = 0;
-			try {
+			if (publishedDate != null && publishedDate.matches("^[0-9]{4}.*")) {
 				tahun = Integer.parseInt(publishedDate.substring(0, 4));
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:256");
-				// TODO: handle exception
 			}
 
 			Penerbit penerbit = (Penerbit) session.createCriteria(Penerbit.class).add(publisher == null
@@ -482,10 +480,8 @@ public class CheckISBN extends HttpServlet {
 			String categories = gabungkan(volumeInfo == null ? null : volumeInfo.getCategories());
 
 			Integer tahun = 0;
-			try {
+			if (publishedDate != null && publishedDate.matches("^[0-9]{4}.*")) {
 				tahun = Integer.parseInt(publishedDate.substring(0, 4));
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/CheckISBN.java:524");
-				// TODO: handle exception
 			}
 
 			Penerbit penerbit = (Penerbit) session.createCriteria(Penerbit.class).add(publisher == null

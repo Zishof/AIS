@@ -1642,7 +1642,8 @@ public class PengumumanAkademisAction extends GenericAutowireComposer implements
 		}
 	}
 
-	public static Map<String, Map<Long, Pertemuan>> pertemuansHarian = new HashMap<String, Map<Long, Pertemuan>>();
+	public static Map<String, Map<Long, Pertemuan>> pertemuansHarian =
+			new java.util.concurrent.ConcurrentHashMap<String, Map<Long, Pertemuan>>();
 
 	/** Escape ringan untuk teks header slide kehadiran. */
 	private static String khEsc(String s) {
@@ -1932,7 +1933,7 @@ public class PengumumanAkademisAction extends GenericAutowireComposer implements
 							.add(Restrictions.or(Restrictions.isNotNull("jadwalPelajaran"),
 									Restrictions.isNotNull("perkuliahan")))
 							.list();
-					pertemuans = new HashMap<Long, Pertemuan>();
+					pertemuans = new java.util.concurrent.ConcurrentHashMap<Long, Pertemuan>();
 					for (Pertemuan pertemuan : pertemuansData) {
 						pertemuans.put(pertemuan.getId(), pertemuan);
 					}
@@ -1955,7 +1956,7 @@ public class PengumumanAkademisAction extends GenericAutowireComposer implements
 					kodeFakultas = null;
 				}
 
-				for (Pertemuan pertemuan : pertemuans.values()) {
+				for (Pertemuan pertemuan : new ArrayList<Pertemuan>(pertemuans.values())) {
 					if (pertemuan.getPerkuliahan() != null && pertemuan.getTanggal() != null
 							&& pertemuan.getPerkuliahan().getJumlahDosen() > 0
 							&& sekarang.equals(Common.dateFormat8.get().format(pertemuan.getTanggal()))) {
@@ -2187,7 +2188,7 @@ public class PengumumanAkademisAction extends GenericAutowireComposer implements
 							.add(Restrictions.or(Restrictions.isNotNull("jadwalPelajaran"),
 									Restrictions.isNotNull("perkuliahan")))
 							.list();
-					pertemuans = new HashMap<Long, Pertemuan>();
+					pertemuans = new java.util.concurrent.ConcurrentHashMap<Long, Pertemuan>();
 					for (Pertemuan pertemuan : pertemuansData) {
 						pertemuans.put(pertemuan.getId(), pertemuan);
 					}
@@ -2220,7 +2221,7 @@ public class PengumumanAkademisAction extends GenericAutowireComposer implements
 					// TODO: handle exception
 				}
 
-				for (Pertemuan pertemuan : pertemuans.values()) {
+				for (Pertemuan pertemuan : new ArrayList<Pertemuan>(pertemuans.values())) {
 					if (pertemuan.getJadwalPelajaran() != null && pertemuan.getTanggal() != null
 							&& sekarang.equals(Common.dateFormat8.get().format(pertemuan.getTanggal()))) {
 						if (perkuliahans == null || (perkuliahans != null && pertemuan.getJadwalPelajaran() != null

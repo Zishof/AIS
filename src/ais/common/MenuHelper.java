@@ -1128,8 +1128,9 @@ public class MenuHelper {
     public static void ensureRepositoryMenus() {
         Session session = null;
         Transaction tx = null;
+        Transaction tx2 = null;
         try {
-            session = HibernateUtil.currentNativeSession();
+            session = HibernateUtil.openSession();
             tx = session.beginTransaction();
 
             final long ROOT = 160L; // induk "Repository" (root=0, sejajar modul lain)
@@ -1152,7 +1153,7 @@ public class MenuHelper {
             System.out.println("[MenuHelper] Menu Repository berhasil dipastikan di root 160.");
 
             // ── Hak akses: role 'am' (Administrator) + role dengan flag repository=true ──
-            Transaction tx2 = session.beginTransaction();
+            tx2 = session.beginTransaction();
             try {
                 // (a) Visibility — job_has_menu (idempoten via NOT EXISTS; guard FK ke tbmrole)
                 int ins = session.createSQLQuery(
@@ -1178,24 +1179,23 @@ public class MenuHelper {
                     }
                 }
                 tx2.commit();
+                tx2 = null;
                 System.out.println("[MenuHelper] Hak akses menu Repository dipastikan (job_has_menu +"
                         + ins + " baris, privilege " + jobs.size() + " role).");
             } catch (Exception e) {
-                if (tx2 != null && tx2.isActive()) try { tx2.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/MenuHelper.java:675");}
+                if (tx2 != null && tx2.isActive()) try { tx2.rollback(); } catch (Exception ignored) { }
+                tx2 = null;
                 System.err.println("[MenuHelper] Gagal assign hak akses menu Repository: " + e.getMessage());
                 e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/MenuHelper.java:677");
             }
 
         } catch (Exception e) {
+            if (tx2 != null && tx2.isActive()) try { tx2.rollback(); } catch (Exception ignored) { }
             if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/MenuHelper.java:681");}
             System.err.println("[MenuHelper] Gagal seeding menu Repository: " + e.getMessage());
             e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/MenuHelper.java:683");
         } finally {
-            if (session != null) {
-                try { session.disconnect(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/MenuHelper.java:686");}
-                try { session.close(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/MenuHelper.java:687");}
-            }
-            HibernateUtil.closeSession();
+            HibernateUtil.closeSessionQuietly(session);
         }
     }
 

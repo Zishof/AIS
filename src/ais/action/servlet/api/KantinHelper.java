@@ -17579,6 +17579,20 @@ public class KantinHelper {
 		return menuRole.optBoolean("supervisor", false);
 	}
 
+	/** Keputusan murni untuk tombol edit detail; dibuat terpisah agar semua gerbang dapat diuji. */
+	public static boolean bolehEditTransaksiDetail(boolean penggunaBolehEdit,
+			boolean punyaHeader, boolean kebijakanAktif, boolean sudahPosting,
+			boolean memilikiRetur) {
+		return penggunaBolehEdit && punyaHeader && kebijakanAktif
+				&& !sudahPosting && !memilikiRetur;
+	}
+
+	/** Aktivasi kebijakan hanya berguna untuk transaksi final yang statusnya masih dapat dikoreksi. */
+	public static boolean bolehAktifkanKebijakanEditTransaksi(boolean penggunaBolehEdit,
+			boolean punyaHeader, boolean sudahPosting, boolean memilikiRetur) {
+		return penggunaBolehEdit && punyaHeader && !sudahPosting && !memilikiRetur;
+	}
+
 	/** Mencari akun kasir aktif langsung dari public.tbmuser untuk koreksi transaksi. */
 	public static void editTransaksiKasirCari(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		if (!bolehEditTransaksi(tbmuser)) {

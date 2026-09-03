@@ -343,11 +343,18 @@ public class DashboardMahasiswaYangSudahMengambilKRS extends MyWindow {
 		print.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (file == null || !file.isFile()) {
+					ais.ui.util.MyMessageboxConfig.show(
+							"Berkas rekap belum tersedia. Jalankan proses pencarian atau pembuatan rekap terlebih dahulu.");
+					return;
+				}
 				try {
-					Filedownload.save(new FileInputStream(file), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+					Filedownload.save(new FileInputStream(file),
+							"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 							"KRS_SUDAH_DISETUJUI_SEMUA.xlsx");
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardMahasiswaYangSudahMengambilKRS.java:324");
-
+				} catch (java.io.FileNotFoundException e) {
+					ais.ui.util.MyMessageboxConfig.show(
+							"Berkas rekap sudah tidak tersedia. Silakan proses ulang data, lalu unduh kembali.");
 				}
 			}
 		});

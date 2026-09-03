@@ -61,6 +61,24 @@ public final class KantinKoreksiTransaksiSelfTest {
         check(Math.abs(KantinHelper.tambahanDepositKoreksi(100.0, 75.0)) < 0.001,
                 "pengurangan pemotongan deposit tidak ditolak sebagai penambahan saldo");
 
+		check(KantinHelper.bolehEditTransaksiDetail(true, true, true, false, false),
+				"detail dapat diedit hanya ketika semua gerbang terpenuhi");
+		check(!KantinHelper.bolehEditTransaksiDetail(false, true, true, false, false),
+				"akun tanpa hak tidak mendapat tombol edit");
+		check(!KantinHelper.bolehEditTransaksiDetail(true, true, false, false, false),
+				"kebijakan nonaktif menutup tombol edit");
+		check(!KantinHelper.bolehEditTransaksiDetail(true, true, true, true, false),
+				"transaksi posting tidak mendapat tombol edit");
+		check(!KantinHelper.bolehEditTransaksiDetail(true, true, true, false, true),
+				"transaksi ber-retur tidak mendapat tombol edit");
+		check(!KantinHelper.bolehEditTransaksiDetail(true, false, true, false, false),
+				"baris legacy tanpa header tidak mendapat tombol edit");
+		check(KantinHelper.bolehAktifkanKebijakanEditTransaksi(true, true, false, false),
+				"admin atau supervisor dapat mengaktifkan kebijakan untuk transaksi yang layak");
+		check(!KantinHelper.bolehAktifkanKebijakanEditTransaksi(true, true, true, false)
+				&& !KantinHelper.bolehAktifkanKebijakanEditTransaksi(true, true, false, true),
+				"aktivasi tidak ditawarkan untuk transaksi posting atau ber-retur");
+
         System.out.println(gagal == 0
                 ? "SEMUA ATURAN KOREKSI TRANSAKSI TERJAGA"
                 : ("ADA " + gagal + " ATURAN YANG DILANGGAR"));

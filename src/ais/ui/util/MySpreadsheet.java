@@ -146,36 +146,35 @@ public class MySpreadsheet extends Spreadsheet {
 	 * dipakai ulang supaya tidak menumpuk pembungkus setiap kali laporan dijalankan.</p>
 	 */
 	private static Component bungkusIsiRegion(org.zkoss.zul.LayoutRegion region) {
-		java.util.List<Object> isi = new java.util.ArrayList<Object>(region.getChildren());
-		if (isi.size() == 1 && isi.get(0) instanceof org.zkoss.zul.Div
-				&& "kb-wadah-region".equals(((org.zkoss.zul.Div) isi.get(0)).getSclass())) {
-			return (Component) isi.get(0);
-		}
-		org.zkoss.zul.Div wadah = new org.zkoss.zul.Div();
-		wadah.setSclass("kb-wadah-region");
-		wadah.setWidth("100%");
-		wadah.setStyle("height:100%;max-width:100%;min-width:0;overflow:auto;box-sizing:border-box;");
+		synchronized (region) {
+			java.util.List<Object> isi = new java.util.ArrayList<Object>(region.getChildren());
+			if (isi.size() == 1 && isi.get(0) instanceof org.zkoss.zul.Div
+					&& "kb-wadah-region".equals(((org.zkoss.zul.Div) isi.get(0)).getSclass())) {
+				return (Component) isi.get(0);
+			}
+			org.zkoss.zul.Div wadah = new org.zkoss.zul.Div();
+			wadah.setSclass("kb-wadah-region");
+			wadah.setWidth("100%");
+			wadah.setStyle("height:100%;max-width:100%;min-width:0;overflow:auto;box-sizing:border-box;");
 		/* Lepaskan dahulu seluruh child dari LayoutRegion. Memindahkan langsung
 		 * child.setParent(wadah) pada ZK lama dapat meninggalkan child tercatat
 		 * sementara di region, sehingga wadah ditolak sebagai anak kedua. */
-		for (int i = 0; i < isi.size(); i++) {
-			try {
-				((Component) isi.get(i)).detach();
-			} catch (Exception e) {
-				((Component) isi.get(i)).setParent(null);
+			for (int i = 0; i < isi.size(); i++) {
+				try {
+					((Component) isi.get(i)).detach();
+				} catch (Exception e) {
+					((Component) isi.get(i)).setParent(null);
+				}
 			}
+			while (!region.getChildren().isEmpty()) {
+				((Component) region.getChildren().get(0)).setParent(null);
+			}
+			wadah.setParent(region);
+			for (int i = 0; i < isi.size(); i++) {
+				((Component) isi.get(i)).setParent(wadah);
+			}
+			return wadah;
 		}
-		try {
-			region.getChildren().clear();
-		} catch (Exception ignored) {
-			ais.common.ErrorAuditUtil.record(ignored,
-					"auto-audit(empty-catch) src/ais/ui/util/MySpreadsheet.java:bersihkan-region");
-		}
-		wadah.setParent(region);
-		for (int i = 0; i < isi.size(); i++) {
-			((Component) isi.get(i)).setParent(wadah);
-		}
-		return wadah;
 	}
 
 	private static Component wadahAman(Component parent) {

@@ -867,7 +867,7 @@ public class AuditListener extends AuditEventListener {
 				String sekarang = Common.dateFormat8.get().format(pertemuan.getTanggal());
 				Map<Long, Pertemuan> pertemuans = PengumumanAkademisAction.pertemuansHarian.get(sekarang);
 				if (pertemuans == null) {
-					pertemuans = new HashMap<Long, Pertemuan>();
+					pertemuans = new java.util.concurrent.ConcurrentHashMap<Long, Pertemuan>();
 					pertemuans.put(pertemuan.getId(), pertemuan);
 					PengumumanAkademisAction.pertemuansHarian.put(sekarang, pertemuans);
 				} else {

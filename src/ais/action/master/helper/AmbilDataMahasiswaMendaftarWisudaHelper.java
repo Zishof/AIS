@@ -190,9 +190,12 @@ public class AmbilDataMahasiswaMendaftarWisudaHelper {
 		Rows rows = grid.getRows();
 		List<Row> list = rows.getChildren();
 		for (Row row : list) {
-			List data = row.getChildren();
 			try {
-				MyCheckboxConfig checkbox = (MyCheckboxConfig) data.get(0);
+				Object pilihan = row.getAttribute("checkbox");
+				if (!(pilihan instanceof MyCheckboxConfig)) {
+					continue;
+				}
+				MyCheckboxConfig checkbox = (MyCheckboxConfig) pilihan;
 				if (checkbox.isChecked()) {
 					Mahasiswa mahasiswa = (Mahasiswa) checkbox.getAttribute("mahasiswa");
 

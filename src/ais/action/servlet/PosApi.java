@@ -3948,7 +3948,8 @@ public class PosApi extends HttpServlet {
 					"SELECT pak.kode, pak.tanggal_pembayaran, COALESCE(pak.bayar_tunai,0), COALESCE(pak.bayar_non_tunai,0), "
 							+ "COALESCE(pak.kembalian,0), COALESCE(pak.total_biaya,0), COALESCE(pak.total_diskon,0), COALESCE(pak.totalcashback,0), "
 							+ "COALESCE(t.nama,''), COALESCE(NULLIF(t.pesan_terima_kasih,''), ?), pak.tbmuser, pak.kasir_login_nama, "
-							+ "pak.cara_pembayaran_koperasi, COALESCE(cb.nama,'') "
+							+ "pak.cara_pembayaran_koperasi, COALESCE(cb.nama,''), pak.posting_history, "
+							+ "EXISTS (SELECT 1 FROM koperasi.retur_penjualan rp WHERE rp.pembelian_anggota_koperasi_id = pak.id) "
 							+ "FROM koperasi.pembelian_anggota_koperasi pak LEFT JOIN koperasi.toko t ON pak.toko = t.id "
 							+ "LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON pak.cara_pembayaran_koperasi = cb.id "
 							+ "WHERE pak.id = ? AND pak.toko = ?");
@@ -3957,6 +3958,8 @@ public class PosApi extends HttpServlet {
 			psHeader.setLong(3, tokoId.longValue());
 			java.sql.ResultSet rsHeader = psHeader.executeQuery();
 			boolean punyaHeaderKelompok = rsHeader.next();
+			boolean transaksiSudahPosting = false;
+			boolean transaksiMemilikiRetur = false;
 			if (punyaHeaderKelompok) {
 				hasil.put("kode", str(rsHeader.getString(1)));
 				hasil.put("waktu", rsHeader.getTimestamp(2) == null ? "" : fmt.format(rsHeader.getTimestamp(2)));
@@ -3973,6 +3976,8 @@ public class PosApi extends HttpServlet {
 				long caraBayarId = rsHeader.getLong(13);
 				hasil.put("caraBayarId", rsHeader.wasNull() ? JSONObject.NULL : caraBayarId);
 				hasil.put("caraBayarNama", rsHeader.getString(14) == null ? "" : rsHeader.getString(14));
+				transaksiSudahPosting = rsHeader.getObject(15) != null;
+				transaksiMemilikiRetur = rsHeader.getBoolean(16);
 			}
 			rsHeader.close(); psHeader.close();
 
@@ -4058,10 +4063,22 @@ public class PosApi extends HttpServlet {
 
 			boolean penggunaBolehEdit = KantinHelper.bolehEditTransaksi(tbmuser);
 			boolean kebijakanEditAktif = ais.action.master.koperasi.KoreksiTransaksiUtil.efektif(tokoId);
-			boolean bolehEditTransaksi = penggunaBolehEdit && punyaHeaderKelompok && kebijakanEditAktif;
+			boolean bolehEditTransaksi = KantinHelper.bolehEditTransaksiDetail(
+					penggunaBolehEdit, punyaHeaderKelompok, kebijakanEditAktif,
+					transaksiSudahPosting, transaksiMemilikiRetur);
 			hasil.put("bolehEditTransaksi", bolehEditTransaksi);
-			hasil.put("bolehAktifkanKebijakanEditTransaksi", penggunaBolehEdit && punyaHeaderKelompok);
+			hasil.put("bolehAktifkanKebijakanEditTransaksi",
+					KantinHelper.bolehAktifkanKebijakanEditTransaksi(
+							penggunaBolehEdit, punyaHeaderKelompok,
+							transaksiSudahPosting, transaksiMemilikiRetur));
+			// Status setiap gerbang sengaja dikirim terpisah agar UI dan petugas dukungan
+			// tidak menyimpulkan semua masalah hanya dari satu pesan prioritas.
+			hasil.put("penggunaBolehEditTransaksi", penggunaBolehEdit);
+			hasil.put("punyaHeaderTransaksi", punyaHeaderKelompok);
+			hasil.put("transaksiSudahPosting", transaksiSudahPosting);
+			hasil.put("transaksiMemilikiRetur", transaksiMemilikiRetur);
 			hasil.put("tokoIdTransaksi", tokoId);
+			hasil.put("kebijakanEditEfektif", kebijakanEditAktif);
 			hasil.put("kebijakanEditGlobalAktif",
 					ais.action.master.koperasi.KoreksiTransaksiUtil.globalAktif());
 			hasil.put("kebijakanEditTokoAktif",
@@ -4072,9 +4089,22 @@ public class PosApi extends HttpServlet {
 					alasanEdit = "Edit tidak tersedia karena baris ini tidak mempunyai header transaksi kelompok. "
 							+ "Pilih baris bernomor Order yang memuat kode transaksi yang sama. Jika header tidak ada, "
 							+ "jangan mengubah rincian langsung; minta admin merekonsiliasi transaksi sumber.";
+				} else if (transaksiSudahPosting) {
+					alasanEdit = "Edit tidak tersedia karena transaksi sudah diposting ke jurnal. "
+							+ "Gunakan prosedur koreksi/pembalikan jurnal resmi; jangan membuka kunci atau mengubah transaksi langsung.";
+				} else if (transaksiMemilikiRetur) {
+					alasanEdit = "Edit tidak tersedia karena transaksi sudah memiliki retur. "
+							+ "Selesaikan melalui alur retur atau pembatalan resmi agar stok, pembayaran, dan jejak audit tetap konsisten.";
+				} else if (!kebijakanEditAktif && !penggunaBolehEdit) {
+					alasanEdit = "Edit belum tersedia karena dua syarat belum terpenuhi: kebijakan koreksi untuk toko ini masih nonaktif "
+							+ "dan akun ini belum mempunyai hak koreksi. Admin perlu (1) mengaktifkan Konfigurasi > Identitas Mesin > "
+							+ "Keamanan & Koreksi Transaksi secara global, atau Konfigurasi > Profil Toko > Keamanan & Koreksi Transaksi Toko; "
+							+ "serta (2) menetapkan akun sebagai supervisor toko atau memakai grup pengguna berizin Supervisor. "
+							+ "Setelah perubahan, keluar dan masuk kembali, klik Sinkronkan, Muat Ulang, lalu buka lagi Detail transaksi.";
 				} else if (!kebijakanEditAktif) {
 					alasanEdit = "Edit tidak tersedia karena kebijakan koreksi transaksi masih nonaktif untuk toko ini. "
-							+ "Admin dapat mengaktifkan Konfigurasi > Identitas Mesin > Keamanan & Koreksi Transaksi "
+							+ "Admin/supervisor dapat menekan Aktifkan Koreksi Toko pada dialog ini. Alternatifnya, admin dapat membuka "
+							+ "Konfigurasi > Identitas Mesin > Keamanan & Koreksi Transaksi "
 							+ "secara global, atau membuka Konfigurasi > Profil Toko > Keamanan & Koreksi Transaksi Toko, "
 							+ "mengaktifkannya untuk toko ini, lalu menekan Simpan Profil Toko. Setelah itu klik Sinkronkan, "
 							+ "Muat Ulang, dan buka kembali Detail transaksi.";

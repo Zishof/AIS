@@ -3905,7 +3905,7 @@ public class ElearningApiUtil {
 											Restrictions.eq("jurusan.kode", kodeProdi)))
 							.addOrder(Order.asc("waktuMulai")).add(Restrictions.eq("tanggal", WaktuUtil.getDate()))
 							.add(Restrictions.isNotNull("perkuliahan")).list();
-					pertemuans = new HashMap<Long, Pertemuan>();
+					pertemuans = new java.util.concurrent.ConcurrentHashMap<Long, Pertemuan>();
 					for (Pertemuan pertemuan : pertemuansData) {
 						pertemuans.put(pertemuan.getId(), pertemuan);
 					}
@@ -3920,7 +3920,7 @@ public class ElearningApiUtil {
 					perkuliahans = dosen.ambilPerkuliahan(session);
 				}
 
-				for (Pertemuan pertemuan : pertemuans.values()) {
+				for (Pertemuan pertemuan : new ArrayList<Pertemuan>(pertemuans.values())) {
 					if (pertemuan.getPerkuliahan() != null && pertemuan.getTanggal() != null
 							&& pertemuan.getPerkuliahan().getJumlahDosen() > 0
 							&& sekarang.equals(Common.dateFormat8.get().format(pertemuan.getTanggal()))) {

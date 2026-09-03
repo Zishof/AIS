@@ -160,10 +160,12 @@ public class GoogleAction extends GenericAutowireComposer {
 		try {
 			return URLDecoder.decode(value, "UTF-8");
 		} catch (IllegalArgumentException e) {
-			ais.common.ErrorAuditUtil.record(e,
-					"oauth-state-invalid-escape src/ais/action/maintenance/GoogleAction.java:safeUrlDecode value="
-							+ value);
-			return value;
+			/*
+			 * State dapat dipotong proxy/browser sehingga berisi escape '%' yang tidak lengkap.
+			 * Jangan memakai nilai mentah sebagai URL redirect dan jangan mencatat input eksternal
+			 * yang dapat dipulihkan sebagai error server; pemanggil akan memakai nilai sesi.
+			 */
+			return null;
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e,
 					"auto-audit(empty-catch) src/ais/action/maintenance/GoogleAction.java:safeUrlDecode");

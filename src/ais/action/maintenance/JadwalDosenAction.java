@@ -97,7 +97,7 @@ public class JadwalDosenAction extends GenericAutowireComposer {
 						.add(Restrictions.or(Restrictions.isNotNull("jadwalPelajaran"),
 								Restrictions.isNotNull("perkuliahan")))
 						.list();
-				pertemuans = new HashMap<Long, Pertemuan>();
+				pertemuans = new java.util.concurrent.ConcurrentHashMap<Long, Pertemuan>();
 				for (Pertemuan pertemuan : pertemuansData) {
 					pertemuans.put(pertemuan.getId(), pertemuan);
 				}
@@ -107,7 +107,7 @@ public class JadwalDosenAction extends GenericAutowireComposer {
 
 			List<Pertemuan> hariIni = new ArrayList<Pertemuan>();
 
-			for (Pertemuan pertemuan : pertemuans.values()) {
+			for (Pertemuan pertemuan : new ArrayList<Pertemuan>(pertemuans.values())) {
 				if (pertemuan.getPerkuliahan() != null && pertemuan.getTanggal() != null
 						&& pertemuan.getPerkuliahan().getJumlahDosen() > 0
 						&& sekarang.equals(Common.dateFormat8.get().format(pertemuan.getTanggal()))) {
