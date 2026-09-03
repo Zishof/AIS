@@ -1160,7 +1160,8 @@ public class PembayaranOnline extends GenericAutowireComposer {
 
 	private void confirmAndExecute(String actionName, final double biayaAdministrasi, final PaymentAction action)
 			throws Exception {
-		String msg = "Apakah yakin ingin melakukan " + actionName + " untuk:\nSiswa : "
+		String msg = "Apakah yakin ingin melakukan " + Common.getBahasaConfig(actionName).trim()
+				+ " untuk:\nSiswa : "
 				+ (getSiswaLokal() != null ? getSiswaLokal().getNama() : getCalonSiswaLokal().getNama())
 				+ "\nTotal tagihan : " + totalTagihan.getValue()
 				+ (biayaAdministrasi > 0.1

@@ -233,14 +233,41 @@ def add_table(doc, headers, rows, widths=None, font_size=7.7):
     table.style = "Table Grid"
     table.autofit = False if widths else True
     if widths:
+        # Word can silently widen columns when only table.columns is set.  A
+        # fixed layout plus explicit cell widths keeps wide tables inside A4.
+        max_width = 16.5
+        scale = min(1.0, max_width / sum(widths))
+        widths = [width * scale for width in widths]
+        tbl_pr = table._tbl.tblPr
+        tbl_layout = tbl_pr.find(qn("w:tblLayout"))
+        if tbl_layout is None:
+            tbl_layout = OxmlElement("w:tblLayout")
+            tbl_pr.append(tbl_layout)
+        tbl_layout.set(qn("w:type"), "fixed")
         for i, width in enumerate(widths):
             table.columns[i].width = Cm(width)
+
+    def set_widths(cells):
+        if not widths:
+            return
+        for i, width in enumerate(widths):
+            cells[i].width = Cm(width)
+            tc_pr = cells[i]._tc.get_or_add_tcPr()
+            tc_w = tc_pr.find(qn("w:tcW"))
+            if tc_w is None:
+                tc_w = OxmlElement("w:tcW")
+                tc_pr.append(tc_w)
+            tc_w.set(qn("w:w"), str(round(width / 2.54 * 1440)))
+            tc_w.set(qn("w:type"), "dxa")
+
+    set_widths(table.rows[0].cells)
     for i, h in enumerate(headers):
         shade(table.cell(0, i), NAVY)
         set_cell_text(table.cell(0, i), h, bold=True, color=WHITE, size=8)
     set_repeat_table_header(table.rows[0])
     for row in rows:
         cells = table.add_row().cells
+        set_widths(cells)
         for i, value in enumerate(row):
             if len(table.rows) % 2 == 0:
                 shade(cells[i], LIGHT)
@@ -303,7 +330,8 @@ def build():
     doc.add_paragraph(
         "Dokumen ini menggabungkan panduan operasional dan hasil User Acceptance Test (UAT) "
         "menu Akuntansi. Seluruh gambar berasal dari render aplikasi eBisnis yang benar-benar "
-        "terhubung ke server demo; bukan mockup. Data contoh dibuat hanya untuk jurnal manual."
+        "terhubung ke server demo; bukan mockup. Data contoh mencakup jurnal manual, saldo awal, "
+        "penyesuaian, penjualan/kulakan, pembayaran hutang, penerimaan piutang, dan anggaran."
     )
     add_callout(doc, "Keamanan", "Kata sandi demo tidak dicantumkan. Gunakan kredensial yang disampaikan melalui kanal terpisah.", "info")
     add_callout(doc, "Batas UAT", "Tutup Buku dan Closing tidak dijalankan karena keduanya mengunci periode bersama. Layar dan pratinjaunya tetap diuji.", "warn")
@@ -326,27 +354,27 @@ def build():
 
     doc.add_heading("Ringkasan hasil UAT", level=1)
     rows = [
-        ("Draft Jurnal", "Lulus", "32 aktivitas: 27 draf, 5 terposting, 0 closing."),
-        ("Jurnal Umum", "Lulus", "Dua jurnal contoh seimbang tersimpan dan terposting."),
-        ("Posting HPP", "Catatan", "1 transaksi Rp1.200.000; tertahan karena akun HPP/persediaan belum dipetakan."),
-        ("Posting Penjualan", "Catatan", "Transaksi sample tampil; prasyarat pemetaan akun masih menahan posting."),
-        ("Posting Kulakan", "Lulus", "Layar stabil; 0 dokumen belum diposting pada periode uji."),
-        ("Posting Bayar Hutang", "Lulus", "Layar stabil; 0 dokumen belum diposting pada periode uji."),
-        ("Posting Terima Piutang", "Lulus", "Layar stabil; 0 dokumen belum diposting pada periode uji."),
-        ("Saldo Awal", "Lulus", "Fungsi tambah/Excel/posting pembukaan tersedia; data sample kosong."),
-        ("Jurnal Penyesuaian", "Lulus", "Fungsi template dan posting tersedia; template sample kosong."),
-        ("Tutup Buku", "Tidak dieksekusi", "Pratinjau tersedia; aksi final sengaja tidak mengunci periode bersama."),
-        ("Closing", "Tidak dieksekusi", "Daftar stabil dan masih kosong; aksi final tidak dijalankan."),
+        ("Draft Jurnal", "Lulus", "52 aktivitas: 39 draf, 13 terposting, 0 closing."),
+        ("Jurnal Umum", "Catatan", "8 jurnal manual terposting; daftar sempat lulus, tetapi endpoint daftar regresi setelah restart."),
+        ("Posting HPP", "Catatan", "1 transaksi Rp1.200.000; akun HPP ada, tetapi akun persediaan Master Aset masih kosong."),
+        ("Posting Penjualan", "Catatan", "Perpindahan submenu dapat mempertahankan pratinjau HPP; indikasi state layar tidak direset."),
+        ("Posting Kulakan", "Catatan", "2 faktur Rp600.000 dan Rp450.000 tampil; tertahan oleh akun persediaan Master Aset."),
+        ("Posting Bayar Hutang", "Lulus", "1 pembayaran Rp150.000 siap; 1 pembayaran Rp200.000 telah diposting saat penyiapan."),
+        ("Posting Terima Piutang", "Lulus", "1 penerimaan Rp200.000 siap; 1 penerimaan Rp175.000 telah diposting saat penyiapan."),
+        ("Saldo Awal", "Lulus", "5 akun terposting; total Debet dan Kredit masing-masing Rp22.000.000."),
+        ("Jurnal Penyesuaian", "Lulus", "3 template sampel: listrik, sewa outlet, dan cadangan kerugian piutang."),
+        ("Tutup Buku", "Tidak dieksekusi", "Draf tampil; layar tetap menyatakan Laba Ditahan belum diatur meski toko sudah dipetakan."),
+        ("Closing", "Tidak dieksekusi", "Form Closing Baru tampil; penyimpanan final sengaja tidak dijalankan."),
         ("Katalog Laporan", "Lulus", "9 kategori laporan keuangan/pengadaan/pajak/anggaran."),
-        ("Anggaran", "Catatan", "Unit/tahun tampil; pagu 0 dan ada overflow horizontal pada lebar 1264 px."),
-        ("Kode Akun", "Lulus", "311 akun, 21 halaman."),
+        ("Anggaran", "Catatan", "3 item, total rencana Rp45.000.000; ada overflow horizontal pada lebar 1264 px."),
+        ("Kode Akun", "Lulus", "317 akun tampil; 256 akun yang belum terpetakan telah ditautkan secara aman."),
         ("Grup Akun", "Lulus", "Grup dan jumlah akun tampil."),
         ("Jenis Transaksi", "Lulus", "Kode jurnal AJE/GJP/JBI/JBO/JCI/JCO/JMM/PB tampil."),
         ("Bank", "Lulus", "Master bank sample tampil."),
     ]
     add_table(doc, ["Submenu", "Status", "Hasil ringkas"], rows, widths=[4.0, 3.0, 9.6], font_size=7.2)
     doc.add_paragraph()
-    add_callout(doc, "Kesimpulan", "Alur Jurnal Umum → Posting → Laporan berfungsi. Posting otomatis baru dapat dilanjutkan setelah pemetaan akun transaksi sample dilengkapi.", "ok")
+    add_callout(doc, "Kesimpulan", "Data sampel kini mengisi seluruh tahap utama dan enam laporan inti. Posting bayar hutang/terima piutang siap; HPP, Penjualan, Kulakan, Tutup Buku, dan endpoint daftar Jurnal Umum masih memiliki temuan yang perlu diperbaiki.", "warn")
     doc.add_page_break()
 
     add_page(doc, "1. Masuk dan memastikan konteks", "Gunakan akun demo yang diberikan terpisah. Setelah masuk, pastikan identitas admin, toko, dan versi build sesuai.",
@@ -359,8 +387,8 @@ def build():
              ["Gulir sidebar sampai menemukan AKUNTANSI.", "Klik judul grup agar daftar terbuka.", "Pilih submenu berdasarkan proses yang hendak dilakukan."],
              ("Catatan navigasi", "Pada sesi UAT, submenu yang berbagi layar bertab kadang mempertahankan tab sebelumnya. Bila header sudah berubah tetapi isi belum, klik tab target pada bagian atas layar.", "warn"))
 
-    add_page(doc, "3. Daftar Jurnal Umum", "Periode default adalah bulan berjalan. Daftar menampilkan kode, tanggal, keterangan, total, status, dan aksi.",
-             "02-jurnal-umum-daftar.png", "Gambar 3. Daftar Jurnal Umum sebelum data contoh dibuat.",
+    add_page(doc, "3. Daftar Jurnal Umum", "Daftar menampilkan jurnal contoh beserta kode, tanggal, keterangan, total, status, dan aksi. Bukti ini diambil sebelum restart server; pengujian ulang setelah restart menemukan regresi internal pada endpoint daftar.",
+             "02-jurnal-umum-daftar.png", "Gambar 3. Daftar Jurnal Umum pada periode uji.",
              ["Pilih Akuntansi → Jurnal Umum.", "Atur Mulai dan Sampai.", "Gunakan pencarian atau filter Status bila diperlukan.", "Klik Jurnal Baru untuk memasukkan transaksi manual."])
 
     add_page(doc, "4. Membuat jurnal baru", "Contoh pertama adalah setoran modal awal: Kas Yayasan didebet dan Modal dikredit.",
@@ -372,9 +400,9 @@ def build():
              ["Debet 111.101 Kas Yayasan sebesar Rp1.000.000.", "Kredit 800.000 Modal sebesar Rp1.000.000.", "Pastikan chip Siap disimpan muncul.", "Klik Simpan sebagai Draf."],
              ("Praktik baik", "Gunakan uraian kepala dan uraian baris yang menjelaskan sumber transaksi, dokumen pendukung, serta tujuan dana.", "info"))
 
-    add_page(doc, "6. Memeriksa draf tersimpan", "UAT menggunakan dua contoh: setoran modal awal dan pemindahan dana kas kecil.",
-             "05-jurnal-umum-draf-tersimpan.png", "Gambar 6. Dua jurnal sample masih berstatus Draf.",
-             ["Cari jurnal menggunakan kata UAT Manual Akuntansi.", "Cocokkan Debet dan Kredit pada setiap jurnal.", "Buka menu aksi jika perlu mengoreksi draf.", "Posting hanya setelah bukti transaksi diperiksa."],
+    add_page(doc, "6. Memeriksa jurnal tersimpan", "UAT menggunakan dua contoh: setoran modal awal dan pemindahan dana kas kecil. Setelah proses posting, keduanya ditampilkan berstatus Terposting.",
+             "05-jurnal-umum-draf-tersimpan.png", "Gambar 6. Dua jurnal contoh pada periode uji setelah posting.",
+             ["Cari jurnal menggunakan kata UAT Manual Akuntansi.", "Cocokkan Debet dan Kredit pada setiap jurnal.", "Sebelum posting, pastikan statusnya Draf; sesudah posting, pastikan statusnya Terposting.", "Buka menu aksi jika perlu menelusuri rinciannya."],
              ("Kontrol empat mata", "Untuk operasional nyata, pemilik dokumen dan petugas posting sebaiknya berbeda.", "info"))
 
     add_page(doc, "7. Konfirmasi posting", "Posting memindahkan jurnal ke buku besar dan menjadikannya sumber laporan keuangan.",
@@ -388,41 +416,41 @@ def build():
              ("Hasil UAT", "JU/09/00001 Rp1.000.000 dan JU/09/00002 Rp250.000 berhasil diposting pada 4 September 2026.", "ok"))
 
     add_page(doc, "9. Draft Jurnal lintas modul", "Layar ini merangkum kesiapan jurnal dari seluruh modul sebelum closing.",
-             "08-draft-jurnal.png", "Gambar 9. Ringkasan Draft Jurnal: 27 draf, 5 terposting, 0 closing.",
+             "08-draft-jurnal.png", "Gambar 9. Ringkasan Draft Jurnal: 39 draf, 13 terposting, 0 closing, total 52 aktivitas.",
              ["Pilih Akuntansi → Draft Jurnal.", "Atur rentang tanggal.", "Periksa kartu Draft, Terposting, Closing, dan Total Aktivitas.", "Buka detail per jenis jurnal melalui menu aksi."],
-             ("UAT", "Dua jurnal manual yang baru diposting sudah ikut dihitung pada kolom Terposting.", "ok"))
+             ("UAT", "Delapan jurnal manual terposting, saldo awal, penyesuaian, dan aktivitas lintas modul ikut membentuk ringkasan.", "ok"))
 
     posting_pages = [
         ("10. Posting HPP", "09-posting-hpp.png", "Gambar 10. Pratinjau Posting HPP.",
-         "Pratinjau menemukan satu transaksi ABC Kecap Manis senilai Rp1.200.000, tetapi belum siap karena akun HPP dan persediaan belum diatur."),
+         "Pratinjau menemukan satu transaksi ABC Kecap Manis Rp1.200.000. Akun HPP 510.900 sudah terbaca, tetapi akun lawan Persediaan pada Master Aset belum tersedia."),
         ("11. Posting Penjualan", "10-posting-penjualan.png", "Gambar 11. Pratinjau Posting Penjualan.",
-         "Data sample tampil, tetapi prasyarat pemetaan akun masih menahan tombol Posting."),
+         "Saat berpindah dari Posting HPP, layar mempertahankan pratinjau HPP. Ini adalah defect state layar; jangan menekan Posting sebelum judul dan isi sama-sama menunjukkan Penjualan."),
         ("12. Posting Kulakan", "11-posting-kulakan.png", "Gambar 12. Posting Kulakan.",
-         "Tidak ada dokumen kulakan belum-posting pada periode uji."),
+         "Dua faktur pemasok tampil: Rp600.000 dan Rp450.000. Keduanya belum siap karena akun persediaan Master Aset belum tersedia."),
         ("13. Posting Bayar Hutang", "12-posting-bayar-hutang.png", "Gambar 13. Posting Bayar Hutang.",
-         "Tidak ada pembayaran hutang belum-posting pada periode uji."),
+         "Satu pembayaran Rp150.000 siap diposting (Debet 310.600; Kredit 111.101); satu pembayaran Rp200.000 telah diposting saat penyiapan data."),
         ("14. Posting Terima Piutang", "13-posting-terima-piutang.png", "Gambar 14. Posting Terima Piutang.",
-         "Tidak ada penerimaan piutang belum-posting pada periode uji."),
+         "Satu penerimaan Rp200.000 siap diposting (Debet 111.101; Kredit 131.300); satu penerimaan Rp175.000 telah diposting saat penyiapan data."),
     ]
     for title, shot, cap, outcome in posting_pages:
         add_page(doc, title, outcome, shot, cap,
                  ["Pilih periode transaksi.", "Klik Muat ulang/Pratinjau.", "Periksa baris yang siap dan alasan baris tertahan.", "Lengkapi pemetaan akun bila diperlukan.", "Posting hanya baris yang siap."],
-                 ("Status UAT", outcome, "warn" if "belum siap" in outcome or "menahan" in outcome else "info"))
+                 ("Status UAT", outcome, "warn" if "belum" in outcome or "defect" in outcome else "info"))
 
     cycle_pages = [
-        ("15. Saldo Awal (Neraca Awal)", "14-saldo-awal.png", "Gambar 15. Daftar saldo awal akun.",
-         "Tambahkan saldo pembukaan per akun atau unggah Excel. Pastikan total Debet dan Kredit seimbang sebelum Posting Jurnal Pembukaan."),
+        ("15. Saldo Awal (Neraca Awal)", "14-saldo-awal.png", "Gambar 15. Lima saldo awal telah diposting.",
+         "Lima akun pembukaan telah diposting: kas, persediaan, piutang, utang, dan modal. Total Debet dan Kredit masing-masing Rp22.000.000."),
         ("16. Jurnal Penyesuaian Berkala", "15-jurnal-penyesuaian.png", "Gambar 16. Template Jurnal Penyesuaian.",
-         "Buat template untuk amortisasi, akrual, penyisihan, atau jurnal periodik lain; lalu posting per periode."),
+         "Tiga template sampel tersedia untuk listrik/internet Rp350.000, sewa outlet Rp500.000, dan cadangan kerugian piutang Rp100.000; jurnal periode September telah diposting."),
         ("17. Tutup Buku (Laba Ditahan)", "16-tutup-buku.png", "Gambar 17. Pratinjau Tutup Buku.",
-         "Gunakan Lihat Draf untuk meninjau akun laba/rugi dan sisi penutupnya sebelum menekan Tutup Buku."),
-        ("18. Closing", "17-closing.png", "Gambar 18. Daftar periode Closing.",
-         "Closing menautkan jurnal sampai tanggal batas dan mencegah pembatalan posting. UAT tidak mengeksekusi aksi final pada database demo bersama."),
+         "Gunakan Lihat Draf untuk meninjau akun laba/rugi dan sisi penutupnya. UAT menemukan pesan Laba Ditahan belum diatur walau toko sudah mempunyai pemetaan; aksi final tidak dijalankan."),
+        ("18. Closing", "17-closing.png", "Gambar 18. Form Closing Baru.",
+         "Form Closing Baru berhasil dibuka. Closing menautkan jurnal sampai tanggal batas dan mencegah pembatalan posting; formulir ditutup tanpa menyimpan pada database demo bersama."),
     ]
     for title, shot, cap, intro in cycle_pages:
         tone = "warn" if "Tutup" in title or "Closing" in title else "info"
         add_page(doc, title, intro, shot, cap,
-                 ["Pilih submenu terkait.", "Klik tab target bila isi masih berada pada tab sebelumnya.", "Lengkapi parameter/periode.", "Tinjau draf sebelum aksi final."],
+                 ["Buka submenu yang diperlukan.", "Klik tab target bila isi masih berada pada tab sebelumnya.", "Lengkapi parameter/periode.", "Tinjau draf sebelum aksi final."],
                  ("Kontrol periode", "Cadangkan data dan pastikan seluruh jurnal telah direkonsiliasi sebelum Tutup Buku atau Closing.", tone))
 
     add_page(doc, "19. Katalog Laporan Keuangan", "Katalog menampilkan laporan berbasis jurnal sebagai laporan resmi, serta laporan operasional sebagai pembanding.",
@@ -431,12 +459,12 @@ def build():
              ("Prioritas", "Untuk laporan resmi gunakan judul yang memuat “Berbasis Jurnal Akuntansi”; angka hanya mengambil jurnal yang sudah terposting.", "info"))
 
     add_page(doc, "20. Anggaran (RAB Bulanan)", "Pilih tahun, satuan kerja, sumber dana, dan revisi untuk melihat rencana, realisasi, serta penggunaan anggaran.",
-             "19-anggaran.png", "Gambar 20. RAB Bulanan pada tahun 2025.",
+             "19-anggaran.png", "Gambar 20. Tiga item RAB Bulanan dengan total rencana Rp45.000.000.",
              ["Pilih filter anggaran.", "Klik Terapkan.", "Gunakan tab Rencana Bulanan, Realisasi, atau Penggunaan Anggaran.", "Tambah Item atau Buat Revisi Baru sesuai hak akses."],
              ("Temuan tata letak", "Pada lebar render 1264 px, kalender bulan melampaui area tabel (RenderFlex overflow 370 px). Data tetap dapat dibaca sebagian; perbaikan responsif diperlukan.", "warn"))
 
     master_pages = [
-        ("21. Kode Akun", "20-kode-akun.png", "Gambar 21. Bagan akun sample—311 akun dalam 21 halaman.",
+        ("21. Kode Akun", "20-kode-akun.png", "Gambar 21. Bagan akun sample—317 akun.",
          "Kelola struktur akun, saldo normal, klasifikasi laporan, dan pemakaian akun."),
         ("22. Grup Akun", "21-grup-akun.png", "Gambar 22. Grup akun dan jumlah anggotanya.",
          "Gunakan grup untuk klasifikasi dan penyajian laporan."),
@@ -452,52 +480,52 @@ def build():
 
     doc.add_heading("25. Laporan keuangan", level=1)
     doc.add_paragraph(
-        "Delapan endpoint laporan diuji untuk periode 1–4 September 2026. Semua memberi status sukses. "
-        "Enam laporan inti berikut juga dirender di aplikasi dan tombol PDF/Excel diverifikasi aktif."
+        "Enam laporan inti diuji ulang untuk periode 1–30 September 2026 setelah 256 akun lama "
+        "ditautkan ke Kelompok Laporan melalui pemetaan standar aplikasi. Semua layar memuat dan "
+        "tombol PDF/Excel aktif."
     )
-    add_table(doc, ["Laporan", "Kolom", "Baris", "Hasil"], [
-        ("Laba Rugi (berbasis jurnal)", "2", "1", "Sukses"),
-        ("Neraca (berbasis jurnal)", "2", "15", "Sukses"),
-        ("Arus Kas (berbasis jurnal)", "2", "13", "Sukses"),
-        ("Laporan Aktivitas", "2", "1", "Sukses"),
-        ("Keseluruhan Jurnal", "7", "4", "Sukses"),
-        ("Buku Besar", "6", "4", "Sukses"),
-        ("Neraca Saldo", "4", "3", "Sukses"),
-        ("Neraca Percobaan Lengkap", "10", "5", "Sukses"),
-    ], widths=[9.0, 2.0, 2.0, 3.6])
-    add_callout(doc, "Rekonsiliasi", "Jumlah baris bukan ukuran kelengkapan bisnis; ia mencerminkan data terposting pada periode dan unit terpilih.", "info")
+    add_table(doc, ["Laporan", "Bukti data sampel", "Hasil"], [
+        ("Laba Rugi", "Pendapatan Rp4.750.000; beban berasal dari HPP, listrik, sewa, dan penyisihan.", "Sukses"),
+        ("Neraca", "Kas Yayasan Rp18.025.000 serta akun aset/kewajiban/modal lain tampil terkelompok.", "Sukses"),
+        ("Arus Kas", "Saldo awal kas/bank Rp12.900.000; penerimaan terlihat Rp3.100.000.", "Sukses"),
+        ("Keseluruhan Jurnal", "JU/09/00001 s.d. JU/09/00008 dapat ditelusuri per baris.", "Sukses"),
+        ("Buku Besar", "Mutasi Kas Yayasan dan akun lawan tampil per nomor jurnal.", "Sukses"),
+        ("Neraca Saldo", "Kas, piutang, persediaan, penyisihan, sewa, dan akun lain memiliki saldo.", "Sukses"),
+    ], widths=[4.3, 9.8, 2.5])
+    add_callout(doc, "Rekonsiliasi", "Pemetaan Kelompok Laporan tidak mengubah saldo atau jurnal; ia menentukan tempat akun disajikan pada laporan resmi.", "info")
     doc.add_page_break()
 
     report_pages = [
         ("25.1 Laba Rugi", "24-laporan-laba-rugi.png", "Gambar 25. Laba Rugi berbasis jurnal.",
-         "Endpoint sukses; hasil tidak memiliki pendapatan/beban karena jurnal sample hanya memakai akun neraca."),
+         "Pendapatan penjualan sampel Rp4.750.000 tampil setelah akun 410.900 dipetakan. Beban sampel mencakup HPP, listrik/internet, sewa outlet, dan cadangan kerugian piutang."),
         ("25.2 Neraca", "25-laporan-neraca.png", "Gambar 26. Neraca berbasis jurnal.",
-         "Saldo akun Kas, Kas Kecil, dan Modal tampil; sebagian akun masih berlabel belum dipetakan ke Kelompok Laporan."),
+         "Kas Yayasan Rp18.025.000 serta akun neraca lain tampil pada kelompok yang sesuai; label 'belum dipetakan' tidak lagi mendominasi hasil."),
         ("25.3 Arus Kas", "26-laporan-arus-kas.png", "Gambar 27. Arus Kas berbasis jurnal.",
-         "Setoran modal Rp1.000.000 terbaca sebagai penerimaan; transfer antar-kas tidak menggandakan total penerimaan."),
+         "Saldo awal Kas & Bank Rp12.900.000 dan penerimaan Rp3.100.000 terlihat; akun lawan memudahkan penelusuran sumber arus."),
         ("25.4 Keseluruhan Jurnal", "27-laporan-jurnal-umum.png", "Gambar 28. Keseluruhan Jurnal.",
-         "Empat baris dari dua jurnal tampil dengan total Debet dan Kredit Rp1.250.000."),
+         "Delapan jurnal manual terposting dapat ditelusuri, termasuk penjualan tunai/kredit, HPP, listrik, sewa, dan penyisihan."),
         ("25.5 Buku Besar", "28-laporan-buku-besar.png", "Gambar 29. Rincian Buku Besar.",
-         "Mutasi per akun dapat ditelusuri kembali ke JU/09/00001 dan JU/09/00002."),
+         "Mutasi Kas Yayasan dapat ditelusuri ke setoran modal, pemindahan kas, penjualan tunai, dan pembayaran biaya."),
         ("25.6 Neraca Saldo", "29-laporan-neraca-saldo.png", "Gambar 30. Neraca Percobaan / Neraca Saldo.",
-         "Saldo akhir seimbang: total Debet Rp1.000.000 sama dengan total Kredit Rp1.000.000."),
+         "Saldo akun sampel tampil, antara lain Kas Rp3.375.000, Piutang Usaha Rp1.075.000, Cadangan Kerugian Piutang Rp200.000 (kredit), dan Persediaan Rp2.100.000 (kredit) untuk periode yang dipilih."),
     ]
     for title, shot, cap, hasil_uat in report_pages:
-        add_page(doc, title, "Atur periode 1–4 September 2026 dan pilih Semua Unit/Konsolidasi bila diperlukan, lalu klik Tampilkan.",
+        add_page(doc, title, "Atur periode 1–30 September 2026 dan pilih Semua Unit/Konsolidasi bila diperlukan, lalu klik Tampilkan.",
                  shot, cap,
                  ["Periksa judul dan periode.", "Pastikan tabel hasil terisi.", "Gunakan PDF atau Excel setelah hasil tampil.", "Telusuri angka melalui fitur rincian/asal angka bila tersedia."],
                  ("UAT", hasil_uat, "ok"))
 
     doc.add_heading("26. Temuan dan rekomendasi", level=1)
     add_table(doc, ["ID", "Prioritas", "Temuan", "Rekomendasi"], [
-        ("ACC-01", "Tinggi", "Posting HPP/Penjualan tertahan karena akun HPP dan persediaan produk sample belum diatur.", "Lengkapi pemetaan akun produk/kelompok, lalu ulang pratinjau dan posting."),
-        ("ACC-02", "Sedang", "Submenu yang berbagi layar bertab dapat mempertahankan tab dari submenu sebelumnya.", "Tangani didUpdateWidget atau beri key unik agar tabAwal diterapkan saat submenu berubah."),
-        ("ACC-03", "Sedang", "RAB Bulanan overflow 370 px pada lebar render 1264 px.", "Buat header bulan horizontal-scroll atau responsif tanpa RenderFlex overflow."),
-        ("ACC-04", "Rendah", "Kulakan, Bayar Hutang, Terima Piutang, Saldo Awal, Penyesuaian, dan Closing belum memiliki data sample periode uji.", "Tambahkan dataset demo yang mencakup siklus penuh dan expected result."),
-        ("ENV-01", "Info", "Server publik sempat memberi 503 saat restart sehingga pengambilan laporan perlu diulang.", "Jalankan UAT setelah health check API stabil dan catat window maintenance."),
+        ("ACC-01", "Tinggi", "Posting HPP dan Kulakan tertahan karena Master Aset produk belum menyediakan akun Persediaan.", "Lengkapi akun Persediaan pada Master/Kelompok Aset yang benar, lalu ulang pratinjau sebelum posting."),
+        ("ACC-02", "Tinggi", "Posting Penjualan dapat mempertahankan isi pratinjau HPP setelah perpindahan submenu.", "Reset state pada didUpdateWidget atau gunakan key unik; blokir posting bila jenis layar dan payload berbeda."),
+        ("ACC-03", "Sedang", "Tutup Buku menyatakan akun Laba Ditahan belum diatur walau akun sudah tersimpan pada toko.", "Pastikan tokoId/konteks toko ikut dikirim saat pratinjau dan gunakan pemetaan toko aktif."),
+        ("ACC-04", "Sedang", "RAB Bulanan overflow 370 px pada lebar render 1264 px.", "Buat header bulan horizontal-scroll atau responsif tanpa RenderFlex overflow."),
+        ("API-01", "Tinggi", "Setelah restart, jurnal_umum_daftar mengembalikan SERVER_ERROR walau laporan jurnal tetap dapat memuat data.", "Telusuri referensi API-MTLWU4YI dan uji endpoint daftar setelah perbaikan server."),
+        ("ENV-01", "Info", "Server sempat direstart; data dan laporan kemudian diuji ulang setelah layanan aktif.", "Jalankan health check API sebelum regression test dan catat window maintenance."),
     ], widths=[2.0, 2.2, 6.2, 6.2], font_size=7.2)
     doc.add_heading("Keputusan kesiapan", level=2)
-    add_callout(doc, "Siap bersyarat", "Jurnal manual, posting jurnal, master data, dan laporan dapat dipakai. Posting otomatis perlu konfigurasi akun; Tutup Buku/Closing memerlukan UAT khusus pada salinan database.", "warn")
+    add_callout(doc, "Siap bersyarat", "Data master, saldo awal, penyesuaian, posting hutang/piutang, dan laporan dapat digunakan. Tahan Posting HPP/Penjualan/Kulakan dan Tutup Buku sampai ACC-01–ACC-03 serta API-01 diperbaiki; Closing final perlu UAT pada salinan database.", "warn")
     doc.add_page_break()
 
     doc.add_heading("27. Checklist operasional", level=1)
@@ -516,7 +544,7 @@ def build():
         "Jika angka laporan belum sesuai, kembali ke daftar jurnal dan pastikan transaksi sudah terposting, "
         "periode/unit benar, serta akun telah masuk klasifikasi laporan yang tepat."
     )
-    add_callout(doc, "Akhir dokumen", "Manual ini dibuat dari UAT server demo pada 4 September 2026. Ulangi smoke test setelah perbaikan ACC-01 sampai ACC-03.", "info")
+    add_callout(doc, "Akhir dokumen", "Manual ini dibuat dari UAT server demo pada 4 September 2026 dan pengujian ulang setelah restart. Ulangi smoke test setelah perbaikan ACC-01 sampai ACC-04 dan API-01.", "info")
 
     props = doc.core_properties
     props.title = "Manual UAT Akuntansi eBisnis"
