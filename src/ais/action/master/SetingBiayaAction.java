@@ -1965,8 +1965,6 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 		Session session = HibernateUtil.currentSession();
 
-		List<String> itemSettingBiayaGagalDihapus = new ArrayList<String>();
-
 		for (Integer index : selectedItemBiayaIndex.keySet()) {
 			List<Long> ids = new ArrayList<Long>();
 			for (DetailSettingBiaya detailSettingBiaya : selectedItemBiayaIndex.get(index).values()) {
@@ -1981,23 +1979,19 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 									: Restrictions.not(Restrictions.in("id", ids)))
 							.add(Restrictions.eq("settingBiaya", settingBiaya)), DetailSettingBiaya.class);
 			for (DetailSettingBiaya d : detailSettingBiayas) {
-				// PERBAIKAN: cek dulu apakah DetailSettingBiaya ini masih dipakai/direferensikan
-				// oleh DetailBiaya (tagihan mahasiswa nyata) sebelum dihapus. Bila masih dipakai,
-				// menghapusnya akan melanggar FK constraint fk33037014b229979d (detail_biaya ->
-				// detail_setting_biaya). Lewati penghapusan item ini & beri tahu user, jangan
-				// biarkan ConstraintViolationException mentah sampai ke UI.
-				long jumlahDipakai = ((Number) session.createCriteria(DetailBiaya.class)
-						.add(Restrictions.eq("detailSettingBiaya", d))
-						.setProjection(Projections.rowCount())
-						.uniqueResult()).longValue();
-
-				if (jumlahDipakai > 0) {
-					ItemBiaya itemBiayaD = d.getItemBiaya();
-					itemSettingBiayaGagalDihapus
-							.add(itemBiayaD != null && itemBiayaD.getNama() != null ? itemBiayaD.getNama() : ("id " + d.getId()));
-					continue;
+				/*
+				 * DetailBiaya adalah histori/tagihan mahasiswa yang harus dipertahankan,
+				 * tetapi FK-nya ke pilihan Setting Biaya yang telah dilepas tidak boleh
+				 * membuat item itu tetap dianggap aktif. Putuskan relasi nullable tersebut
+				 * sebelum menghapus DetailSettingBiaya. Nilai dan histori pembayaran tetap ada.
+				 */
+				List<DetailBiaya> detailBiayaTerkait = ConstantValues.simpleList(
+						session.createCriteria(DetailBiaya.class).add(Restrictions.eq("detailSettingBiaya", d)),
+						DetailBiaya.class);
+				for (DetailBiaya detailBiayaTerkaitItem : detailBiayaTerkait) {
+					detailBiayaTerkaitItem.setDetailSettingBiaya(null);
 				}
-
+				session.flush();
 				session.delete(d);
 				session.flush();
 			}
@@ -2007,14 +2001,6 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				session.saveOrUpdate(detailSettingBiaya);
 				session.flush();
 			}
-		}
-
-		if (!itemSettingBiayaGagalDihapus.isEmpty()) {
-			MyMessageboxConfig.show(
-					"Item setting biaya berikut tidak bisa dihapus karena sudah dipakai pada tagihan mahasiswa, dan tetap dipertahankan: "
-							+ org.apache.commons.lang.StringUtils.join(itemSettingBiayaGagalDihapus.iterator(), ", ")
-							+ ". Nonaktifkan item biaya terkait bila tidak ingin dipakai lagi.",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 		}
 
 		if (eventListener != null) {
