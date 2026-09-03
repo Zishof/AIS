@@ -42,8 +42,9 @@ INSERT INTO det16.salesperson (id, kode, nama, aktif, dibuat_pada, oleh)
      VALUES (5, 'S5', 'Sales', true, now(), 'uji');
 INSERT INTO det16.customer (id, kode, nama, aktif, dibuat_pada, oleh)
      VALUES (9, 'C9', 'Pelanggan', true, now(), 'uji');
-INSERT INTO det16.produk (id, kode, nama, status, aktif, dibuat_pada, oleh)
-     VALUES (10, 'P10', 'Produk', 'AKTIF', true, now(), 'uji');
+INSERT INTO det16.produk (id, kode, nama, status, aktif, dibuat_pada, oleh) VALUES
+    (10, 'P10', 'Gula', 'AKTIF', true, now(), 'uji'),
+    (20, 'P20', 'Kopi', 'AKTIF', true, now(), 'uji');
 INSERT INTO det16.surat_perintah_sales (id, nomor_dokumen, tanggal, salesperson_id, gudang_id,
                                         status, dibuat_pada, oleh)
      VALUES (1, 'SPJ-1', CURRENT_DATE, 5, 1, 'AKTIF', now(), 'uji');
@@ -53,31 +54,46 @@ INSERT INTO det16.sales_trip (id, nomor_dokumen, tanggal_berangkat, surat_perint
 INSERT INTO det16.faktur_penjualan (id, nomor_dokumen, tanggal, customer_id, toko_id,
                                     subtotal, total, status, dibuat_pada, oleh)
      VALUES (1, 'INV-1', CURRENT_DATE, 9, 1, 600000, 600000, 'AKTIF', now(), 'uji');
+-- Piutang ber-id 900: blok 6 memang menunjuk id itu.
 INSERT INTO det16.piutang_customer (id, customer_id, faktur_penjualan_id, nomor_faktur, tanggal,
                                     nilai, sisa, status, dibuat_pada, oleh)
-     VALUES (1, 9, 1, 'INV-1', CURRENT_DATE, 600000, 600000, 'TERBUKA', now(), 'uji');
+     VALUES (900, 9, 1, 'INV-1', CURRENT_DATE, 600000, 600000, 'TERBUKA', now(), 'uji');
+-- DUA kwitansi menagih piutang yang sama, dan hanya SATU yang lahir dari trip ini. Itulah
+-- yang membuat blok 6 bermakna: nilai tertagih nota bawaan harus 200.000 (yang dari trip),
+-- bukan 300.000 (seluruh alokasi piutang itu). Kalau keduanya sama, bloknya tidak
+-- membuktikan bahwa turunannya memang berlingkup trip.
 INSERT INTO det16.penerimaan_piutang (id, nomor_dokumen, tanggal, customer_id, salesperson_id,
                                       cara_bayar, nilai, sales_trip_id, idempotency_key,
-                                      status, dibuat_pada, oleh)
-     VALUES (1, 'KWT-1', CURRENT_DATE, 9, 5, 'TUNAI', 300000, 1, 'KWT-1', 'AKTIF', now(), 'uji');
+                                      status, dibuat_pada, oleh) VALUES
+    (1, 'KWT-1', CURRENT_DATE, 9, 5, 'TUNAI', 200000, 1,    'KWT-1', 'AKTIF', now(), 'uji'),
+    (2, 'KWT-2', CURRENT_DATE, 9, 5, 'TRANSFER', 100000, NULL, 'KWT-2', 'AKTIF', now(), 'uji');
 INSERT INTO det16.alokasi_penerimaan_piutang (penerimaan_piutang_id, piutang_customer_id, nilai,
-                                              dibuat_pada, oleh)
-     VALUES (1, 1, 300000, now(), 'uji');
--- Isi trip yang dibaca blok-bloknya: barang bawaan, rincian SPJ, nota bawaan, dan buku kas.
+                                              dibuat_pada, oleh) VALUES
+    (1, 900, 200000, now(), 'uji'),
+    (2, 900, 100000, now(), 'uji');
+-- SPJ merencanakan DUA produk; hanya Gula yang jadi dimuat. Kopi direncanakan 5 dan tidak
+-- pernah dimuat -- itulah yang dituntut blok 4: ia tetap harus muncul, dengan qtyDimuat nol.
+INSERT INTO det16.surat_perintah_sales_detail (surat_perintah_sales_id, produk_id, kuantitas,
+                                               dibuat_pada, oleh) VALUES
+    (1, 10, 100, now(), 'uji'),
+    (1, 20,   5, now(), 'uji');
 INSERT INTO det16.sales_trip_barang (sales_trip_id, produk_id, kuantitas_bawa, harga_satuan,
                                      dibuat_pada, oleh)
      VALUES (1, 10, 100, 5000, now(), 'uji');
-INSERT INTO det16.surat_perintah_sales_detail (surat_perintah_sales_id, produk_id, kuantitas,
-                                               dibuat_pada, oleh)
-     VALUES (1, 10, 100, now(), 'uji');
 INSERT INTO det16.surat_perintah_sales_nota (surat_perintah_sales_id, piutang_customer_id,
                                              saldo_saat_assign, status, dibuat_pada, oleh)
-     VALUES (1, 1, 600000, 'DITAGIH', now(), 'uji');
--- Buku kas trip: uang muka operasional 200.000 masuk, penagihan tunai 300.000 masuk.
+     VALUES (1, 900, 600000, 'DITAGIH', now(), 'uji');
+-- Buku kas trip: CERMIN baris-per-baris dari nota_sales_kas legacy di bawah, dengan jenis dan
+-- tanda yang sama. Blok 1-3 membandingkan keduanya langsung, jadi fixture-nya memang harus
+-- kembar -- yang diuji kesetaraan pembacaannya, bukan perbedaan isinya.
 INSERT INTO det16.sales_trip_kas (sales_trip_id, jenis, nominal, keterangan, waktu,
                                   dibuat_pada, oleh) VALUES
-    (1, 'UANG_MUKA', 200000, 'Uang muka operasional', now(), now(), 'uji'),
-    (1, 'COLLECTION', 300000, 'Penagihan tunai', now(), now(), 'uji');
+    (1, 'OPENING_ADVANCE',   500000, 'Panjar operasional', now(), now(), 'uji'),
+    (1, 'CASH_SALE',         300000, 'Penjualan tunai',    now(), now(), 'uji'),
+    (1, 'COLLECTION_CASH',   200000, 'Penagihan tunai',    now(), now(), 'uji'),
+    (1, 'EXPENSE_CASH',     -100000, 'Biaya tunai',        now(), now(), 'uji'),
+    (1, 'PURCHASE_PAYMENT', -200000, 'Bayar kulakan',      now(), now(), 'uji'),
+    (1, 'OWNER_DEPOSIT',    -400000, 'Setoran ke kantor',  now(), now(), 'uji');
 
 CREATE SCHEMA koperasi;
 
