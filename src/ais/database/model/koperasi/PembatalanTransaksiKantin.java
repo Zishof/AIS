@@ -91,6 +91,13 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
     private Date tanggalDibatalkan;
     private Boolean sudahDiposting;
 
+    /**
+     * PK identity baris arsip pembatalan ini. {@code null} sebelum entity di-{@code save}/
+     * {@code flush} ke Hibernate. {@code insertable = false} — kolom {@code id} TIDAK disertakan
+     * pada statement {@code INSERT}, nilainya murni ditentukan DB lewat identity.
+     *
+     * @return id baris arsip, atau {@code null} bila belum tersimpan.
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -98,6 +105,12 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return id;
     }
 
+    /**
+     * Setter PK — dipanggil Hibernate saat memuat entity dari DB. Kode aplikasi normal tidak perlu
+     * memanggil ini; id baru dibuat otomatis oleh DB saat insert.
+     *
+     * @param id id baris arsip.
+     */
     public void setId(Long id) {
         this.id = id;
     }
@@ -110,10 +123,21 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
 
     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+    /**
+     * Setter manual untuk {@link #tanggal_dirubah}. Jarang dipakai langsung — field ini biasanya
+     * diisi otomatis oleh {@link #onUpdate()}.
+     *
+     * @param tanggal_dirubah waktu perubahan yang ingin dicatat.
+     */
     public void setTanggal_dirubah(Date tanggal_dirubah) {
         this.tanggal_dirubah = tanggal_dirubah;
     }
 
+    /**
+     * Timestamp perubahan terakhir baris arsip ini, diisi otomatis oleh {@link #onUpdate()}.
+     *
+     * @return waktu perubahan terakhir, atau waktu instansiasi objek bila belum pernah di-update.
+     */
     @Temporal(TemporalType.TIMESTAMP)
     public Date getTanggal_dirubah() {
         return tanggal_dirubah;
@@ -129,6 +153,12 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return pembelianAnggotaKoperasiId;
     }
 
+    /**
+     * Menetapkan id transaksi asli yang diarsipkan. Lihat catatan {@link #getPembelianAnggotaKoperasiId()}
+     * — SENGAJA bukan foreign key, jadi tidak divalidasi terhadap baris apa pun.
+     *
+     * @param pembelianAnggotaKoperasiId id transaksi asli.
+     */
     public void setPembelianAnggotaKoperasiId(Long pembelianAnggotaKoperasiId) {
         this.pembelianAnggotaKoperasiId = pembelianAnggotaKoperasiId;
     }
@@ -139,26 +169,55 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return kode;
     }
 
+    /**
+     * Menetapkan kode/nomor transaksi asli.
+     *
+     * @param kode kode transaksi asli.
+     */
     public void setKode(String kode) {
         this.kode = kode;
     }
 
+    /**
+     * Relasi ke toko/outlet asal transaksi yang dibatalkan — dipertahankan (nullable) semata-mata
+     * untuk penyaringan/penelusuran per toko, BUKAN sumber tampilan nama (lihat Javadoc kelas,
+     * bagian "Sengaja memakai potret teks, bukan relasi").
+     *
+     * @return toko asal transaksi, atau {@code null} bila tidak diisi.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "toko", nullable = true)
     public Toko getToko() {
         return toko;
     }
 
+    /**
+     * Menetapkan toko/outlet asal transaksi yang dibatalkan.
+     *
+     * @param toko toko baru.
+     */
     public void setToko(Toko toko) {
         this.toko = toko;
     }
 
+    /**
+     * Relasi ke anggota koperasi pembeli — dipertahankan (nullable) semata-mata untuk
+     * penyaringan/penelusuran per anggota, BUKAN sumber tampilan nama; nama tampil dibaca dari
+     * potret teks {@link #getNamaAnggota()} (lihat Javadoc kelas).
+     *
+     * @return anggota koperasi pembeli, atau {@code null} bila tidak diisi.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "anggota_koperasi", nullable = true)
     public AnggotaKoperasi getAnggotaKoperasi() {
         return anggotaKoperasi;
     }
 
+    /**
+     * Menetapkan anggota koperasi pembeli pada transaksi yang dibatalkan.
+     *
+     * @param anggotaKoperasi anggota koperasi baru.
+     */
     public void setAnggotaKoperasi(AnggotaKoperasi anggotaKoperasi) {
         this.anggotaKoperasi = anggotaKoperasi;
     }
@@ -169,6 +228,11 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return namaAnggota;
     }
 
+    /**
+     * Menetapkan potret nama pembeli saat dibatalkan.
+     *
+     * @param namaAnggota nama pembeli (teks, bukan relasi).
+     */
     public void setNamaAnggota(String namaAnggota) {
         this.namaAnggota = namaAnggota;
     }
@@ -179,33 +243,71 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return namaKasir;
     }
 
+    /**
+     * Menetapkan potret nama kasir/petugas pembuat transaksi asli.
+     *
+     * @param namaKasir nama kasir (teks, bukan relasi).
+     */
     public void setNamaKasir(String namaKasir) {
         this.namaKasir = namaKasir;
     }
 
+    /**
+     * Potret nama cara pembayaran (mis. tunai/deposit/nama kas) yang dipakai transaksi asli — teks
+     * apa adanya, dipakai a.l. sbg penentu akun kas lawan saat mesin posting "Pembatalan Penjualan
+     * Kantin" menjurnal-balikkan pembatalan yang sudah terposting (lihat Javadoc
+     * {@link #getPostingHistory()}).
+     *
+     * @return nama cara pembayaran, atau {@code null} bila tidak diisi.
+     */
     @Column(name = "cara_pembayaran", length = 255)
     public String getCaraPembayaran() {
         return caraPembayaran;
     }
 
+    /**
+     * Menetapkan potret nama cara pembayaran transaksi asli.
+     *
+     * @param caraPembayaran nama cara pembayaran (teks).
+     */
     public void setCaraPembayaran(String caraPembayaran) {
         this.caraPembayaran = caraPembayaran;
     }
 
+    /**
+     * Total biaya/nominal transaksi asli sebelum diskon.
+     *
+     * @return total biaya, tidak pernah {@code null} ({@code 0} sebagai fallback).
+     */
     @Column(name = "total_biaya")
     public Double getTotalBiaya() {
         return totalBiaya == null ? Double.valueOf(0) : totalBiaya;
     }
 
+    /**
+     * Menetapkan total biaya transaksi asli.
+     *
+     * @param totalBiaya total biaya baru.
+     */
     public void setTotalBiaya(Double totalBiaya) {
         this.totalBiaya = totalBiaya;
     }
 
+    /**
+     * Total diskon yang diberikan pada transaksi asli.
+     *
+     * @return total diskon, tidak pernah {@code null} ({@code 0} sebagai fallback).
+     */
     @Column(name = "total_diskon")
     public Double getTotalDiskon() {
         return totalDiskon == null ? Double.valueOf(0) : totalDiskon;
     }
 
+    /**
+     * Menetapkan total diskon transaksi asli.
+     *
+     * @param totalDiskon total diskon baru.
+     */
     public void setTotalDiskon(Double totalDiskon) {
         this.totalDiskon = totalDiskon;
     }
@@ -217,6 +319,11 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return tanggalTransaksi;
     }
 
+    /**
+     * Menetapkan waktu transaksi ASLI dibayar.
+     *
+     * @param tanggalTransaksi waktu transaksi asli.
+     */
     public void setTanggalTransaksi(Date tanggalTransaksi) {
         this.tanggalTransaksi = tanggalTransaksi;
     }
@@ -232,6 +339,11 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return rincian;
     }
 
+    /**
+     * Menetapkan potret isi keranjang saat dibatalkan.
+     *
+     * @param rincian teks rincian item, satu baris per item.
+     */
     public void setRincian(String rincian) {
         this.rincian = rincian;
     }
@@ -242,6 +354,11 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return alasan;
     }
 
+    /**
+     * Menetapkan alasan pembatalan.
+     *
+     * @param alasan alasan pembatalan (wajib diisi oleh alur pemanggil).
+     */
     public void setAlasan(String alasan) {
         this.alasan = alasan;
     }
@@ -252,40 +369,85 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return dibatalkanOleh;
     }
 
+    /**
+     * Menetapkan nama pengguna yang melakukan pembatalan.
+     *
+     * @param dibatalkanOleh nama pengguna pembatal.
+     */
     public void setDibatalkanOleh(String dibatalkanOleh) {
         this.dibatalkanOleh = dibatalkanOleh;
     }
 
+    /**
+     * Id/username pengguna yang MELAKUKAN pembatalan, pasangan {@link #getDibatalkanOleh()}.
+     *
+     * @return id/username pengguna pembatal, atau {@code null} bila tidak diisi.
+     */
     @Column(name = "dibatalkan_oleh_id", length = 100)
     public String getDibatalkanOlehId() {
         return dibatalkanOlehId;
     }
 
+    /**
+     * Menetapkan id/username pengguna yang melakukan pembatalan.
+     *
+     * @param dibatalkanOlehId id/username pengguna pembatal.
+     */
     public void setDibatalkanOlehId(String dibatalkanOlehId) {
         this.dibatalkanOlehId = dibatalkanOlehId;
     }
 
+    /**
+     * Waktu pembatalan dilakukan (BUKAN waktu transaksi asli — lihat {@link #getTanggalTransaksi()}).
+     * Dipakai sbg tanggal jurnal balik saat mesin posting "Pembatalan Penjualan Kantin" menjurnal
+     * arsip ini (lihat Javadoc {@link #getPostingHistory()}).
+     *
+     * @return waktu pembatalan, atau {@code null} bila tidak diisi.
+     */
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "tanggal_dibatalkan")
     public Date getTanggalDibatalkan() {
         return tanggalDibatalkan;
     }
 
+    /**
+     * Menetapkan waktu pembatalan dilakukan.
+     *
+     * @param tanggalDibatalkan waktu pembatalan baru.
+     */
     public void setTanggalDibatalkan(Date tanggalDibatalkan) {
         this.tanggalDibatalkan = tanggalDibatalkan;
     }
 
     /**
-     * Menandai bahwa transaksi ini SUDAH pernah diposting ke jurnal akuntansi saat dibatalkan.
-     * Penting bagi bagian keuangan: pembatalan transaksi yang sudah diposting meninggalkan selisih
-     * antara jurnal dan data sumber, sehingga membutuhkan jurnal koreksi/pembalik tersendiri —
-     * arsip ini menandainya agar tidak terlewat, bukan membuat jurnalnya secara otomatis.
+     * Menandai bahwa transaksi ASLI ini SUDAH pernah diposting ke jurnal akuntansi (batch
+     * Penjualan Kantin) pada saat dibatalkan — diisi sekali oleh
+     * {@code PembatalanTransaksiUtil.batalkan(...)} dari {@code trx.getPostingHistory() != null}.
+     *
+     * <p><b>Pemakaian pasca dok 61 butir C (r78603).</b> Sejak baris dasbor "Pembatalan Penjualan
+     * Kantin" ditambahkan, flag {@code true} pada field ini BUKAN sekadar penanda pasif —
+     * dipakai langsung sbg kriteria seleksi ({@code sudahDiposting = TRUE}) oleh
+     * {@code PembatalanTransaksiUtil.kriteriaPembatalanStatic}/
+     * {@code DraftJurnalRingkasanUtil.kriteriaPembatalanKantin} utk menentukan arsip mana yang
+     * BUTUH dan BOLEH dijurnal-balik otomatis lewat {@code PembatalanTransaksiUtil.postingSemua}.
+     * Arsip yang {@code sudahDiposting == false} (transaksi asli belum sempat terposting saat
+     * dibatalkan) TIDAK PERNAH dijurnal balik — sudah keluar dari kriteria batch Penjualan sebelum
+     * pernah dijurnal, jadi tidak butuh koreksi.
+     *
+     * @return {@code true} bila transaksi asli sudah terposting saat dibatalkan (arsip ini
+     *         kandidat jurnal balik), tidak pernah {@code null} ({@code false} sebagai fallback).
      */
     @Column(name = "sudah_diposting")
     public Boolean getSudahDiposting() {
         return sudahDiposting == null ? Boolean.FALSE : sudahDiposting;
     }
 
+    /**
+     * Menetapkan status "sudah diposting" transaksi asli.
+     *
+     * @param sudahDiposting status baru; lihat catatan {@link #getSudahDiposting()} — bernilai
+     *                       {@code true} membuat arsip ini masuk kriteria jurnal balik otomatis.
+     */
     public void setSudahDiposting(Boolean sudahDiposting) {
         this.sudahDiposting = sudahDiposting;
     }
@@ -294,8 +456,18 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
 
     /**
      * Riwayat JURNAL BALIK pembatalan (dok 61 butir C): terisi begitu mesin posting
-     * "Pembatalan Penjualan Kantin" menjurnal-balikkan pendapatan transaksi terposting
-     * yang dibatalkan ini. Hanya relevan bila {@link #getSudahDiposting()} true.
+     * "Pembatalan Penjualan Kantin" ({@code PembatalanTransaksiUtil.postingSemua}) menjurnal-
+     * balikkan pendapatan transaksi terposting yang dibatalkan ini — jurnal per arsip: Dr akun
+     * pendapatan (konfigurasi {@code akun_pendapatan_pembatalan_kantin_id}) / Cr akun kas dari
+     * {@link #getCaraPembayaran()} (dicari per nama, potret teks), senilai {@link #getTotalBiaya()},
+     * bertanggal {@link #getTanggalDibatalkan()}. Hanya relevan bila {@link #getSudahDiposting()}
+     * true — arsip yang belum terposting asalnya tidak pernah masuk kriteria seleksi jurnal balik.
+     * {@code null} berarti BELUM diposting (masih draf) ATAU pembatalannya sendiri tidak memerlukan
+     * jurnal balik. Dilepas kembali ke {@code null} oleh
+     * {@code PembatalanTransaksiUtil.batalkanPostingSemua} saat posting dibatalkan mundur (baris
+     * jurnal turunan yang belum closing dihapus lebih dulu).
+     *
+     * @return riwayat posting jurnal balik, atau {@code null} bila belum/tidak diposting.
      */
     @javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
     @javax.persistence.JoinColumn(name = "posting_history", nullable = true)
@@ -303,6 +475,12 @@ public class PembatalanTransaksiKantin extends GeneralValueObject {
         return postingHistory;
     }
 
+    /**
+     * Menetapkan riwayat posting jurnal balik arsip ini.
+     *
+     * @param postingHistory riwayat posting baru; {@code null} utk melepas tautan (dipakai alur
+     *                       batal-mundur posting).
+     */
     public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
         this.postingHistory = postingHistory;
     }
