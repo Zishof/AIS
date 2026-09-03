@@ -1098,8 +1098,12 @@ public class KegiatanHelper {
 				Double amountTotal = 0.0;
 				Double denda = 0.0;
 				kegiatan.resetBulans();
+				// Pemanggil masih memegang transaksi yang akan menyimpan Kegiatan ini. Hitung
+				// snapshot cicilan secara lokal agar tidak membuka transaksi kedua yang meng-update
+				// baris sama dan menunggu lock milik transaksi ini sendiri (55P03), lalu berujung
+				// retry merge koleksi ke dua session berbeda.
 				List<CicilanPembayaran> cicilanPembayarans = KegiatanPersistenceHelper.ambilCicilan(kegiatan,
-						hitungUlang);
+						hitungUlang, false);
 
 				Date tglMax = null;
 				Date tglMin = null;
@@ -1456,8 +1460,10 @@ public class KegiatanHelper {
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:739");
 				}
 
+				// Sama dengan alur calon mahasiswa: rekap ikut disimpan oleh transaksi pemanggil,
+				// sehingga tidak ada transaksi terisolasi yang berebut lock baris Kegiatan sendiri.
 				List<CicilanPembayaran> cicilanPembayarans = KegiatanPersistenceHelper.ambilCicilan(kegiatan,
-						hitungUlang);
+						hitungUlang, false);
 
 				Double amountTotal = 0.0;
 				Double denda = 0.0;

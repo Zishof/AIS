@@ -663,6 +663,21 @@ public class KegiatanPersistenceHelper {
 
 	@SuppressWarnings("unchecked")
 	public static List<CicilanPembayaran> ambilCicilan(Kegiatan kegiatan, boolean refresh) {
+		return ambilCicilan(kegiatan, refresh, true);
+	}
+
+	/**
+	 * Memuat cicilan dan memperbarui snapshot pembayaran pada object {@link Kegiatan}.
+	 *
+	 * <p>{@code simpanTerisolasi=false} dipakai ketika pemanggil masih memiliki transaksi
+	 * yang akan menyimpan object kegiatan yang sama. Pada kondisi itu membuka transaksi
+	 * kedua untuk meng-update baris yang sama akan menunggu lock milik transaksi pemanggil
+	 * sendiri. Snapshot tetap dihitung lengkap pada object, kemudian ikut tersimpan dalam
+	 * satu flush milik pemanggil.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static List<CicilanPembayaran> ambilCicilan(Kegiatan kegiatan, boolean refresh,
+			boolean simpanTerisolasi) {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return new ArrayList<CicilanPembayaran>();
 		}
@@ -706,7 +721,11 @@ public class KegiatanPersistenceHelper {
 		if (refresh) {
 			kegiatan.setTanggal_dirubah(WaktuUtil.getDate());
 		}
-		updatePembayaran(hasilCicilan, kegiatan, refresh);
+		if (simpanTerisolasi) {
+			updatePembayaran(hasilCicilan, kegiatan, refresh);
+		} else {
+			terapkanRekapPembayaranLokal(hasilCicilan, kegiatan);
+		}
 
 		return hasilCicilan;
 	}
@@ -1600,6 +1619,21 @@ public class KegiatanPersistenceHelper {
 	private static String bangunRekapTagihan(Kegiatan kegiatan, List<DetailKegiatan> listDetail, boolean live)
 			throws JSONException {
 		return bangunRekapTagihan(kegiatan, listDetail, live, true);
+	}
+
+	/** Terapkan rekap yang sama dengan worker persistence tanpa membuka transaksi kedua. */
+	private static void terapkanRekapPembayaranLokal(List<CicilanPembayaran> listCp, Kegiatan kegiatan) {
+		if (kegiatan == null) {
+			return;
+		}
+		try {
+			kegiatan.setCicilans(bangunStringAktif(listCp));
+			RekapPembayaran rekap = bangunRekapPembayaran(listCp);
+			kegiatan.setBulans(rekap.bulans);
+			kegiatan.setDibayar(rekap.dibayar);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
 	}
 
 	/**

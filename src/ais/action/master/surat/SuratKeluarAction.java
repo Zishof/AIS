@@ -1886,6 +1886,8 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 						try {
 
 							File jrxmlFile = lampiranLain.ambilFile();
+							Object hpAsli = parameters.get("param_hp");
+							boolean hpDiubahSementara = false;
 							// KE-1/KE-2: sebagian template surat (jrxml diunggah admin per Klasifikasi
 							// Surat, BUKAN berkas repo) menulis ekspresi
 							// "NIP. "+$P{sekolah.nipKepalaSekolah}.split("/")[1].trim() -- mengasumsikan
@@ -1910,6 +1912,22 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 												nilaiAsli.trim().isEmpty() ? "-/-" : "-/" + nilaiAsli);
 										nipDiubahSementara = true;
 									}
+									// Template dinamis lama memakai param_hp.split(",")[REPORT_COUNT-1].
+									// Bila jumlah nomor telepon lebih sedikit daripada jumlah baris tabel,
+									// Groovy melempar ArrayIndexOutOfBoundsException. Tambahkan slot kosong
+									// hanya selama template tersebut dicetak; nilai asli dipulihkan di finally.
+									if (isiJrxml.indexOf("param_hp}.split(") >= 0
+											&& isiJrxml.indexOf("REPORT_COUNT") >= 0) {
+										String nilaiHp = hpAsli == null ? "" : String.valueOf(hpAsli);
+										StringBuilder hpAman = new StringBuilder(nilaiHp);
+										int jumlahSlot = nilaiHp.split(",", -1).length;
+										while (jumlahSlot < 200) {
+											hpAman.append(", ");
+											jumlahSlot++;
+										}
+										parameters.put("param_hp", hpAman.toString());
+										hpDiubahSementara = true;
+									}
 								} catch (Exception eScan) { ais.common.ErrorAuditUtil.record(eScan, "auto-audit(empty-catch) src/ais/action/master/surat/SuratKeluarAction.java:1657");
 									// Gagal baca/cek isi jrxml -- lanjut pakai nilai asli, jangan halangi cetak.
 								}
@@ -1929,6 +1947,9 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 							} finally {
 								if (nipDiubahSementara) {
 									parameters.put("sekolah.nipKepalaSekolah", nipAsli);
+								}
+								if (hpDiubahSementara) {
+									parameters.put("param_hp", hpAsli);
 								}
 							}
 

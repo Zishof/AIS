@@ -227,19 +227,24 @@ public class CommonPrivilages {
                     if (!Hibernate.isInitialized(value)) {
                         continue;
                     }
-                    Serializable displayValue = null;
+                    Object displayValue = null;
                     try {
                         ClassMetadata myClassMetadata = HibernateUtil.getClassMetadata(value.getClass());
                         if (myClassMetadata != null) {
-                            displayValue = (Serializable) myClassMetadata.getPropertyValue(value, "nama",
-                                    EntityMode.POJO);
+							try {
+								displayValue = myClassMetadata.getPropertyValue(value, "nama", EntityMode.POJO);
+							} catch (Exception tidakPunyaNama) {
+								Serializable valueId = myClassMetadata.getIdentifier(value, EntityMode.POJO);
+								displayValue = AuditTrailHelper.describeEntity(value, valueId);
+							}
                         }
                     } catch (Exception e) {
                         displayValue = null;
                     }
                     try {
                         keterangan.append(property).append("=")
-                                .append(displayValue == null ? value : displayValue).append('\n');
+								.append(displayValue == null ? nilaiAuditAman(value) : nilaiAuditAman(displayValue))
+								.append('\n');
                     } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonPrivilages.java:139");
                         // abaikan property yang tidak bisa di-string-kan
                     }
@@ -250,6 +255,34 @@ public class CommonPrivilages {
         }
         return keterangan.toString();
     }
+
+	/**
+	 * Membentuk teks audit tanpa memanggil {@code toString()} object domain secara buta.
+	 * Method {@code toString()} beberapa entity/komponen membaca relasi lazy di dalamnya;
+	 * saat audit dijalankan setelah session asal ditutup hal itu memicu
+	 * {@code LazyInitializationException} dan mengganggu update bisnis utama.
+	 */
+	private static String nilaiAuditAman(Object value) {
+		if (value == null) {
+			return "";
+		}
+		if (value instanceof CharSequence || value instanceof Number || value instanceof Boolean
+				|| value instanceof Character || value instanceof java.util.Date || value instanceof java.util.Calendar
+				|| value.getClass().isEnum()) {
+			return String.valueOf(value);
+		}
+		if (value instanceof java.util.Collection) {
+			return value.getClass().getSimpleName() + "#size=" + ((java.util.Collection) value).size();
+		}
+		if (value instanceof java.util.Map) {
+			return value.getClass().getSimpleName() + "#size=" + ((java.util.Map) value).size();
+		}
+		Serializable id = AuditTrailHelper.safeIdentifier(value);
+		if (id != null) {
+			return AuditTrailHelper.describeEntity(value, id);
+		}
+		return value.getClass().getName();
+	}
 
     public static String[] MUST_CHECKED = new String[] { "/pages/master/mahasiswa.zul", "/pages/master/fakultas.zul",
             "/pages/master/dosen.zul", "/pages/master/pegawai.zul", "/pages/master/jurusan.zul",

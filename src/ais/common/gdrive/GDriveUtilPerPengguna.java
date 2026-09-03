@@ -632,7 +632,13 @@ public class GDriveUtilPerPengguna {
 				updateStatus(label, "Menerapkan hak akses publik...");
 				createPublicPermission(drive, fileUpload.getId());
 			} catch (Exception e) {
-				if (!merupakanGangguanJaringan(e)) {
+				if (merupakanLaranganPublikOrganisasi(e)) {
+					// Kebijakan Google Workspace dapat melarang permission "anyone". Upload
+					// sudah berhasil; pertahankan file sebagai private dan jangan memasukkan
+					// kondisi kebijakan yang diharapkan ini ke Error Log aplikasi.
+					System.err.println("Info: kebijakan Google Workspace melarang publikasi file; "
+							+ "backup tetap tersimpan privat untuk pengguna " + username + ".");
+				} else if (!merupakanGangguanJaringan(e)) {
 					ais.common.ErrorAuditUtil.record(e, "GDriveUtilPerPengguna:createPublicPermission");
 				}
 				System.err.println("Peringatan: Gagal set permission public - " + e.getMessage());
@@ -730,6 +736,25 @@ public class GDriveUtilPerPengguna {
 		}
 
 		return fileUpload;
+	}
+
+	/** Google Workspace menolak link publik karena kebijakan domain, bukan kegagalan upload. */
+	private static boolean merupakanLaranganPublikOrganisasi(Throwable error) {
+		Throwable current = error;
+		int guard = 0;
+		while (current != null && guard++ < 20) {
+			String pesan = current.getMessage();
+			if (pesan != null) {
+				String kecil = pesan.toLowerCase();
+				if (kecil.indexOf("publishoutnotpermitted") >= 0
+						|| kecil.indexOf("sharing outside") >= 0
+						|| kecil.indexOf("outside of the domain") >= 0) {
+					return true;
+				}
+			}
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	/**

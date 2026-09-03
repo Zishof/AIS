@@ -2541,7 +2541,10 @@ public class Report extends GenericAutowireComposer {
 				if (!isImageFormatError(exportEx)) {
 					throw exportEx;
 				}
-				if (isReportErrorLogConsoleEnabled()) exportEx.printStackTrace(); ais.common.ErrorAuditUtil.record(exportEx, "auto-audit src/ais/action/report/Report.java:1452");
+				// Error format gambar pada tahap ini masih dapat dipulihkan di bawah. Jangan
+				// masukkan percobaan pertama ke Error Log; kegagalan final tetap dicatat oleh
+				// catch luar setelah konversi/pengosongan gambar benar-benar tidak berhasil.
+				if (isReportErrorLogConsoleEnabled()) exportEx.printStackTrace();
 
 				boolean berhasilTanpaGambarRusak = false;
 
