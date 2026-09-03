@@ -1,5 +1,65 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 59 — SELESAI 100% (3 Sep 2026) — SQL injection kini 3 instance pola dashboard, bug gerbang `getMahasiswa()` terkonfirmasi template salin-tempel, TreeSet penciutan aktif 2x lagi
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika. Fokus batch ini: domain kegiatan
+kesiswaan/organisasi siswa, menguji apakah kerentanan `OrganisasiSiswa`
+(b46) menular ke tetangga domainnya:
+
+- **`ais/database/model/sekolah/JabatanKegiatanKesiswaan.java`**
+  (r83719) — 134→543 baris, 100% (24 anggota). BUKAN jabatan
+  pengurus organisasi — satu kolom campur peran/capaian juara/format
+  lomba (Peserta/Panitia/Juara I-III/dst). Verifikasi SQLi
+  `OrganisasiSiswaAction` NEGATIF di Action-nya sendiri, **TAPI SQL
+  injection NYATA ditemukan lewat jalur lain**: `DashboardRekapKegiatanKesiswaan`
+  menyisipkan nama baris katalog mentah ke alias kolom native SQL
+  (instance ke-2 pola batch 54). Bug TreeSet penciutan (b55)
+  terkonfirmasi AKTIF di `NilaiKegiatanKesiswaanAction` (2 lokasi).
+  `Intbox` nomor urut tanpa gerbang.
+- **`ais/database/model/sekolah/MatapelajaranPunyaBukuBahanAjar.java`**
+  (r83720) — 120→466 baris, 100% (22 anggota). BUKAN terkait paket
+  perpustakaan (dugaan ditolak) — katalog global buku ajar (`public.buku_bahan_ajar`,
+  dibagi dengan modul PT/BKD/DSpace). **Bug gerbang `getMahasiswa()`
+  bukan `getSiswa()` (b58) TERKONFIRMASI SEBAGAI TEMPLATE SALIN-TEMPEL**,
+  instance LEBIH PARAH: seluruh toolbar (bukan cuma tombol Hapus)
+  salah gerbang — siswa bisa Tambah/Ambil/Hapus buku ajar global DAN
+  memicu email spam "Pengumuman Resmi Sekolah" ke guru+seluruh siswa
+  kelas dengan judul buku bebas pilihan siswa.
+- **`ais/database/model/sekolah/SkalaKegiatanKesiswaan.java`**
+  (r83721) — 133→466 baris, 100% (23 anggota). Katalog teks bebas
+  campur skala/durasi/flag tampilan/peran (klon seed PT). SQL
+  injection instance ke-3 pola dashboard yang sama (`DashboardRekapKegiatanKesiswaan`).
+  Bug TreeSet penciutan terkonfirmasi dengan mekanisme KONKRET: rubrik
+  nilai kehilangan kolom skala karena semua baris ber-nomorUrut NULL.
+  `Intbox` tanpa gerbang lagi (ironisnya satu-satunya cara perbaikan).
+- **`ais/database/model/sekolah/UploadTransaksiPembelianSiswa.java`**
+  (r83722) — 119→539 baris, 100% (24 anggota). Log/header unggahan
+  batch transaksi pembelian siswa — **fitur TIDAK PERNAH
+  diimplementasikan** (nol Action/ZUL/JSP, hanya deklarasi relasi).
+  Risiko LATEN dicatat untuk masa depan: tanpa kolom tenant sama
+  sekali, tanpa proteksi duplikasi transaksi finansial.
+- **`ais/database/model/sekolah/JenisKelompokKegiatanKesiswaan.java`**
+  (r83723) — 115→520 baris, 100% (22 anggota). Tingkat 1 hierarki
+  3-tingkat (Utama/Penunjang, BUKAN Akademik/Olahraga/dst). Verifikasi
+  SQLi NEGATIF kedua berturut-turut (setelah `PembinaSiswa` b58) —
+  kerentanan `OrganisasiSiswa` makin jelas TERLOKALISASI, bukan pola
+  domain. Bug seed: query pencarian "Kelompok Penunjang" salah ketik
+  jadi "Kelompok Utama" — baris kedua tak pernah tercipta pada
+  instalasi baru. Contoh POSITIF gerbang tombol unggah massal
+  (kontras bug `AsramaSiswa` b58).
+
+**Pola SQL injection lewat nama katalog master → alias kolom native
+SQL kini 3 instance terkonfirmasi** (`DashboardRekapPrestasiSiswa` b54,
+`DashboardRekapKegiatanKesiswaan` ×2 b59) — cukup luas untuk dianggap
+pola arsitektur `Common.getBahasaConfig()` yang tidak meng-escape,
+bukan kebetulan lokal. Memperkuat `task_493423ef`. Tidak ada task baru
+dibuat.
+
+Kumulatif sesi ini: **472+ file** (125 batch 34-59) + 343 (sesi
+sebelumnya) dari 7.401 total (~11,9%).
+
 ## Batch 58 — SELESAI 100% (3 Sep 2026) — broken access control baru (referensi guru, asrama), verifikasi negatif OrganisasiSiswa, pewarisan hak menu kini 15 instance
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
