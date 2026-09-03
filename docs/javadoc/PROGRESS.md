@@ -1,5 +1,75 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 66 — SELESAI 100% (3 Sep 2026) — MILESTONE: Siswa.java & CalonSiswa.java (dua entity paling sentral aplikasi) LENGKAP; 2 BYPASS OTENTIKASI NYATA ditemukan (task baru `task_06e1cfa2`, `task_5a059324`)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika. Batch ini menyasar dua file
+TERBESAR seluruh inisiatif:
+
+- **`ais/database/model/sekolah/Siswa.java`** (r83810) — 3001→7078
+  baris (**file terbesar sesi ini**), 519 blok Javadoc, ~620 file
+  perujuk. **Mekanisme `OrangTua.ambilAnakSiswa()` fail-open (8+
+  instance terkonfirmasi sejak b42) akhirnya diketahui AKARNYA**:
+  relasi ortu-anak disimpan DUA KALI dan HANYA SATU ARAH via FK
+  sungguhan (anak→ortu); arah ortu→anak adalah kolom TEKS JSON tanpa
+  sinkronisasi apa pun dengan sisi FK — struktur data itu sendirilah
+  sumber fail-open, bukan sekadar kelalaian tiap Action. **BYPASS
+  OTENTIKASI PENUH ditemukan**: `Siswa.urlLogin()` — token DES
+  plaintext deterministik (id berurutan) dengan PASSPHRASE GLOBAL
+  TERTANAM DI KODE sama untuk semua instalasi, diterima `/m` (MServet,
+  anonim), memberi sesi login PENUH. Berlaku juga untuk Mahasiswa/
+  CalonSiswa/BiodataCalonMahasiswa/alumni/`Tbmuser` sembarang.
+  Diperparah: password bawaan siswa = NISN sendiri, dan NISN bisa
+  dipanen anonim via `/resources/pos/siswa`. **Task baru:
+  `task_5a059324`.** 9 getter destruktif (rekor sesi ini) termasuk
+  `getAlamatOrangTua()`/`getTeleponOrangTua()` yang MENGHAPUS PERMANEN
+  kolom asli tiap baris siswa dirender di grid manapun.
+- **`ais/database/model/sekolah/CalonSiswa.java`** (r83809) —
+  2949→7021 baris, 530 blok Javadoc. **BYPASS OTENTIKASI KEDUA**:
+  `LoginCalonSiswaAction` — login portal PPDB pakai `Restrictions.ilike(...,
+  MatchMode.EXACT)` TANPA ESCAPE wildcard SQL LIKE — nama/PIN berisi
+  `%` bisa login sebagai ANAK LAIN. **Task baru: `task_06e1cfa2`.**
+  Terkonfirmasi sebagai sumber field `id` yang dibocorkan `task_1f9c66d3`
+  (rantai lengkap dari config→servlet→JSP terverifikasi). Endpoint
+  pra-otentikasi BARU yang MENULIS (`_cetak_kartu_pendaftaran.jsp`
+  membangkitkan Tagihan+VA BRI sungguhan+kirim email, semua anonim).
+  Data sensitif langsung di entity: NIK, no. KK, no. akta, riwayat
+  penyakit, kebutuhan khusus, **koordinat GPS rumah**, kredensial
+  portal.
+- **`ais/database/model/sekolah/CatatanGuru.java`** (r83777) —
+  351→1081 baris, 100%. Padanan guru dari `CatatanSiswa` (b65) —
+  **2 verifikasi NEGATIF** (seeder hak berlebihan & IDOR API TIDAK
+  terulang, menenangkan). Tapi ditemukan pola sistemik baru:
+  `DynamicJspCrudGenerator` tidak punya gerbang `canRead` SAMA SEKALI
+  — berlaku untuk SEMUA entity yang dipasang lewatnya.
+- **`ais/database/model/sekolah/DiskonSiswa.java`** (r83789) —
+  1006→2044 baris, 100%. Verifikasi ulang b57 POSITIF (6 tombol tanpa
+  gerbang, termasuk di layar MASTER). Bug salin-tempel baru
+  meloloskan tombol hapus-massal ke akun ORANG TUA (`getSiswa()==null
+  && getSiswa()==null`, kondisi diulang identik — pola sama "Setujui
+  Semua" b64). Bug integritas finansial baru → `task_7510ad23`.
+- **`ais/database/model/sekolah/PembayaranSiswaDetail.java`**
+  (r83790) — 460→1314 baris, 100%. **12+ servlet H2H bank anonim
+  tambahan** ditemukan (Otto/Mandiri/BSI/BMS/Flip/Finpay/Maja/
+  Esmartlink/Bankaltimtara/BCA/Briva/OcbcNisp) di luar `/MncBank`/`/Va`
+  yang sudah tercatat. Endpoint tulis anonim BARU: `/Data
+  action=simpanDataRinci`/`hapusDataRinci` — CRUD anonim penuh atas
+  tabel finansial. **Koreksi penting**: `Briresponse` TIDAK ter-mapping
+  di web.xml (bukan endpoint anonim); `Bniresponse`/`Bsiresponse`
+  ternyata terlindungi shared secret (BUKAN anonim seperti diduga
+  sebelumnya) — kalibrasi yang perlu diingat.
+
+**2 task BYPASS OTENTIKASI baru dibuat batch ini** (`task_06e1cfa2`,
+`task_5a059324`) — kategori LEBIH SEVERE dari broken access control:
+penyerang tidak perlu token/sesi sama sekali, langsung dapat sesi
+login penuh sebagai korban. Sisanya memperkuat `task_493423ef`
+(severity terus naik — kini 12+ servlet bank tambahan +2 endpoint
+tulis anonim baru)/`task_5e93a600`/`task_7510ad23`.
+
+Kumulatif sesi ini: **507+ file** (160 batch 34-66) + 343 (sesi
+sebelumnya) dari 7.401 total (~12,9%).
+
 ## Batch 65 — SELESAI 100% (3 Sep 2026) — TAGIHAN.JAVA (file terbesar sesi ini) langsung terjangkau endpoint bank anonim, endpoint finansial anonim ke-5 (`/Struk`), 2 task baru dibuat
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
