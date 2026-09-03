@@ -24,7 +24,8 @@ Ada tiga penyebab item lama dapat hidup kembali:
 
 - Perubahan yang sebelumnya ditempatkan di `sekolah/helper/TagihanUtil` dan `TagihanUtilCalonSiswa` dibatalkan karena kedua class tersebut adalah jalur tagihan siswa sekolah.
 - Kedua halaman mahasiswa selalu meminta data terbaru dari database ketika membentuk daftar tagihan.
-- Kedua halaman memakai mode pembacaan ketat: `DetailBiaya` legacy tanpa relasi sumber hanya boleh tampil bila Item Biayanya masih ada pada Setting Biaya terpilih. Jalur kompatibilitas legacy tetap tersedia untuk pemanggil lama lain, tetapi tidak dipakai oleh layar pembayaran mahasiswa lama maupun baru.
+- Seluruh pembaca tagihan mahasiswa memakai mode ketat, termasuk UI, REST/servlet, inquiry H2H, VA, dan gateway pembayaran: `DetailBiaya` legacy tanpa relasi sumber hanya boleh tampil bila Item Biayanya masih ada pada Setting Biaya terpilih.
+- Cache tagihan dilewati pada pembentukan tagihan aktif mahasiswa lama maupun calon/mahasiswa baru agar perubahan Setting Biaya langsung berlaku konsisten di UI dan API.
 - Fallback dari riwayat cicilan tidak lagi dipakai untuk membentuk tagihan aktif pada kedua halaman.
 - Saat item dilepas dari Setting Biaya, referensi nullable dari `DetailBiaya` diputus terlebih dahulu, kemudian `DetailSettingBiaya` dihapus. Nominal dan histori transaksi tetap disimpan; yang hilang hanya status item tersebut sebagai pilihan tagihan aktif.
 
@@ -35,6 +36,13 @@ Ada tiga penyebab item lama dapat hidup kembali:
 - Setelah versi baru dideploy, buka Setting Biaya terkait, pastikan hanya item yang diinginkan tercentang, lalu simpan sekali lagi agar relasi lama yang sebelumnya gagal dilepas dibersihkan.
 - Server AIS perlu dibangun dan dideploy ulang; POS Desktop tidak perlu dibangun ulang.
 
+## Cakupan API
+
+- Servlet/REST tagihan mahasiswa dan calon mahasiswa memakai `PembayaranUtilHelper` yang sama.
+- Inquiry dan payment H2H, termasuk jalur Bank Mandiri serta gateway yang memakai `action.ws.util.PembayaranUtil`, selalu membaca ulang Setting Biaya dan memakai filter item ketat.
+- Pemulihan tagihan aktif dari `DetailKegiatan` lama dihapus dari inquiry dan payment. Data historis tersebut hanya boleh dibaca oleh reversal agar transaksi yang sudah pernah diposting tetap dapat dibalik dengan benar.
+- Callback/settlement untuk transaksi yang sudah diterbitkan tetap mempertahankan rincian historis; perubahan ini mengatur pembentukan dan penyajian tagihan aktif, bukan menghapus histori transaksi.
+
 ## Verifikasi minimum
 
 1. Pada Setting Biaya, lepas satu Item Biaya yang sudah pernah menghasilkan tagihan dan simpan.
@@ -42,3 +50,4 @@ Ada tiga penyebab item lama dapat hidup kembali:
 3. Ulangi pada Pembayaran Mahasiswa Baru.
 4. Pastikan histori cicilan lama masih tersedia pada daftar/riwayat pembayaran.
 5. Centang kembali item tersebut, simpan, dan pastikan tagihan kembali muncul sesuai konfigurasi terbaru.
+6. Ulangi inquiry melalui API/H2H dan pastikan rincian serta totalnya identik dengan layar Pembayaran Mahasiswa.

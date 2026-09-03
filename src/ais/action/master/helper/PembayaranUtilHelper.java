@@ -243,7 +243,10 @@ public class PembayaranUtilHelper {
 	 * @return criteria yang sama setelah pembatas item ditambahkan
 	 */
 	public static Criteria batasiItemBiayaPembacaan(Criteria criteria, Collection<ItemBiaya> itemBiayas) {
-		return batasiItemBiayaPembacaan(criteria, itemBiayas, false);
+		// Setting Biaya adalah sumber kebenaran tagihan aktif untuk seluruh UI dan API.
+		// Baris legacy boleh tetap tersimpan sebagai histori, tetapi item yang sudah
+		// dilepas tidak boleh kembali muncul pada inquiry maupun layar pembayaran.
+		return batasiItemBiayaPembacaan(criteria, itemBiayas, true);
 	}
 
 	/**
@@ -618,7 +621,7 @@ public class PembayaranUtilHelper {
 			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,
 			boolean reload) {
 		return getDetailBiayaMahasiswadariDatabase(mahasiswa, semester, jenisKegiatan, bulan,
-				untukBulananTampilkanMeskipunSudahDibayar, reload, false);
+				untukBulananTampilkanMeskipunSudahDibayar, reload, true);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -649,7 +652,7 @@ public class PembayaranUtilHelper {
 				+ bulanKey + "_" + (untukBulananTampilkanMeskipunSudahDibayar ? "semua" : "belum_dibayar")
 				+ "_aktif_tagihan_v2";
 
-		if (!reload && mahasiswa != null) {
+		if (!hanyaItemDariSettingBiaya && !reload && mahasiswa != null) {
 			try {
 				String s = mahasiswa.retreive(key);
 				JSONObject data = s == null || s.trim().isEmpty() ? null : new JSONObject(s);
@@ -1232,7 +1235,7 @@ public class PembayaranUtilHelper {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, Integer semester, boolean reload) {
-		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, semester, reload, false);
+		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, semester, reload, true);
 	}
 
 	/** Jalur ketat untuk layar Pembayaran Mahasiswa Baru/calon mahasiswa. */
@@ -1253,7 +1256,7 @@ public class PembayaranUtilHelper {
 
 		String key = "tagihan_cal_mhs_" + biodataCalonMahasiswa.getId() + "_" + jenisKegiatan.getId() + "_" + semester;
 
-		if (!reload) {
+		if (!hanyaItemDariSettingBiaya && !reload) {
 			try {
 				String s = biodataCalonMahasiswa.retreive(key);
 				JSONObject data = s == null || s.trim().isEmpty() ? null : new JSONObject(s);

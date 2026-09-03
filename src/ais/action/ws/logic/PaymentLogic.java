@@ -356,13 +356,8 @@ public class PaymentLogic {
 				detailBiayas = detailBiayas1;
 			}
 
-			// Samakan sumber item payment dengan inquiry/billing. Mahasiswa RPL dapat
-			// memiliki semester kegiatan yang tidak cocok dengan template default.
-			if (detailBiayas.isEmpty()
-					&& !ais.action.master.helper.PengecualianTagihanList.adalah(detailBiayas)) {
-				detailBiayas.addAll(pembayaranUtil.getDetailBiayaDariKegiatan(kegiatan));
-			}
-
+			// Pembayaran baru hanya boleh memakai Item Biaya yang masih aktif pada
+			// Setting Biaya. DetailKegiatan lama tidak boleh menghidupkan tagihan kembali.
 			if (detailBiayas.isEmpty()
 					&& !ais.action.master.helper.PengecualianTagihanList.adalah(detailBiayas)) {
 				int smtAlternatif = smt == 0 ? 1 : 0;

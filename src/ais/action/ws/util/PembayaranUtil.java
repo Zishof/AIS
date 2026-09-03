@@ -1372,8 +1372,9 @@ public class PembayaranUtil {
 	@SuppressWarnings({ "rawtypes" })
 	public Collection getDetailBiayaMahasiswa(Mahasiswa mahasiswa, Integer semester, JenisKegiatan jenisKegiatan,
 			String bulan, Boolean untukBulananTampilkanMeskipunSudahDibayar, boolean reload) {
+		// Inquiry API/H2H tidak boleh memakai snapshot cache sebelum Setting Biaya berubah.
 		Collection d = getDetailBiayaMahasiswadariDatabase(mahasiswa, semester, jenisKegiatan, bulan,
-				untukBulananTampilkanMeskipunSudahDibayar, reload);
+				untukBulananTampilkanMeskipunSudahDibayar, true);
 		return d;
 	}
 
@@ -1416,6 +1417,8 @@ public class PembayaranUtil {
 	public Collection getDetailBiayaMahasiswadariDatabase(Mahasiswa mahasiswa, Integer semester,
 			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,
 			boolean reload) {
+		// Pertahanan untuk pemanggil yang masuk langsung ke method inti.
+		reload = true;
 
 		if (mahasiswa.getPindahKeKampusIniMasukSemester() != null && mahasiswa.getPindahKeKampusIniMasukSemester() > 0
 				&& semester != null && mahasiswa.getPindahKeKampusIniMasukSemester() > semester) {
