@@ -188,6 +188,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [105-layar-kelompok-aset-natif.md](105-layar-kelompok-aset-natif.md) | Layar Kelompok Aset natif; konvensi cache akun bersama; satu berkas sesi lain yang tidak disapu |
 | [106-inventaris-lengkap-keluar-ke-web.md](106-inventaris-lengkap-keluar-ke-web.md) | Sapuan dua aplikasi: tinggal satu .zul; dan kenapa notifikasi eCanteen TIDAK boleh disambungkan ke notifikasi_list |
 | [107-cakupan-keuangan-akuntansi-pos.md](107-cakupan-keuangan-akuntansi-pos.md) | 169 dari 181 aksi keuangan/akuntansi punya pemanggil di klien; empat yang benar-benar belum ada |
+| [108-urutan-akun-aset-menang-atas-kelompok.md](108-urutan-akun-aset-menang-atas-kelompok.md) | Akun Master Aset kini menang atas Kelompok; getter dipecah agar Hibernate tidak menulis balik nilai kelompok |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [POS-ALBAHJAH-1.34.20-KOREKSI-TRANSAKSI-DAN-LAPORAN-PEMASOK.md](POS-ALBAHJAH-1.34.20-KOREKSI-TRANSAKSI-DAN-LAPORAN-PEMASOK.md) | Status commit, validasi, artefak UAT, deployment, dan rollback POS Al-Bahjah 1.34.20 |
