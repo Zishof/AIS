@@ -1509,10 +1509,10 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 			try {
 				List<FormatNilai> formatNilais = Common.getFormatNilais(perkuliahan);
 				if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
-					ais.common.ErrorAuditUtil.record(new IllegalStateException(
-							"Hitung ulang dibatalkan: format kosong atau total bobot bukan 100%."),
-						"realoadNilaiLangsung perkuliahan="
-								+ (perkuliahan == null ? null : perkuliahan.getId()));
+					// Ini kondisi validasi bisnis, bukan kegagalan sistem. Format belum lengkap memang
+					// harus menahan hitung ulang, tetapi tidak boleh memenuhi dasbor error produksi.
+					System.out.println("Hitung ulang nilai dilewati: format kosong atau total bobot bukan 100%, perkuliahan="
+							+ (perkuliahan == null ? null : perkuliahan.getId()));
 					if (eventListener != null) {
 						eventListener.onEvent(null);
 					}
