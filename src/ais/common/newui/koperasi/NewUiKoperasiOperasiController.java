@@ -2,6 +2,7 @@ package ais.common.newui.koperasi;
 
 import java.util.Calendar;
 import java.util.List;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -14,6 +15,7 @@ import org.json.JSONObject;
 import ais.action.master.koperasi.PengaturanKantinAction;
 import ais.action.master.koperasi.ProsesPoinBulananHelper;
 import ais.action.master.koperasi.util.PembagianShuHelper;
+import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
 import ais.common.newui.NewUiCsrfUtil;
 import ais.common.newui.NewUiRouteGuard;
@@ -22,6 +24,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.koperasi.PembagianShu;
 import ais.database.model.koperasi.ShuAnggota;
 import ais.database.model.koperasi.TransaksiKoperasi;
+import ais.database.model.rab.SatuanKerja;
 
 /**
  * Kontrak native empat layar pengurus koperasi.
@@ -332,6 +335,7 @@ public final class NewUiKoperasiOperasiController {
                     "select distinct t from TransaksiKoperasi t "
                             + "left join fetch t.anggotaKoperasi a "
                             + "left join fetch t.produkKoperasi p "
+                            + "left join fetch t.satuanKerja sk "
                             + "left join fetch t.disetujuiOleh d where ");
             if (TransaksiKoperasi.DISETUJU.equals(status)) {
                 hql.append("t.disetujuiOleh is not null");
@@ -340,10 +344,25 @@ public final class NewUiKoperasiOperasiController {
             } else {
                 hql.append("t.disetujuiOleh is null and (t.status is null or t.status <> :ditolak)");
             }
+            // Dibatasi ke satuan kerja yang berhak dilihat pengguna login, sama
+            // seperti initCriteria() pada TransaksiKoperasiAction (layar ZK
+            // pembandingnya). Transaksi berkolom satuanKerja kosong tetap
+            // ditampilkan, mengikuti pola yang sama pada
+            // NewUiStandingInstructionService.
+            Set<SatuanKerja> allowed = SekolahUtil.ambilSatuanKerjas();
+            boolean batasi = allowed != null && !allowed.isEmpty();
+            if (batasi) {
+                hql.append(" and (sk is null or sk in (:allowed))");
+            } else {
+                hql.append(" and sk is null");
+            }
             hql.append(" order by t.id desc");
             org.hibernate.Query q = session.createQuery(hql.toString());
             if (!TransaksiKoperasi.DISETUJU.equals(status)) {
                 q.setParameter("ditolak", TransaksiKoperasi.DITOLAK);
+            }
+            if (batasi) {
+                q.setParameterList("allowed", allowed);
             }
             q.setMaxResults(BATAS_BARIS);
             JSONArray out = new JSONArray();

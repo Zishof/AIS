@@ -283,8 +283,10 @@ public class RencanaItemGajiPegawaiTreeModel extends AbstractTreeModel {
 		Session session = HibernateUtil.currentNativeSession();
 
 		try {
+			session.getTransaction().begin();
 			session.createSQLQuery("delete from payroll.rencana_item_gaji_pegawai where rencana_gaji_punya_pegawai = "
 					+ rencanaGajiPunyaPegawai.getId()).executeUpdate();
+			session.getTransaction().commit();
 			jsonObject = new MyJSONObject(rencanaGajiPunyaPegawai.getKomponenGaji());
 
 			Map<String, Double> mapTotal = new HashMap<String, Double>();
@@ -375,6 +377,9 @@ public class RencanaItemGajiPegawaiTreeModel extends AbstractTreeModel {
 			Common.refreshUpdate(session, rencanaGajiPunyaPegawai);
 			session.getTransaction().commit();
 		} catch (Exception e) {
+			if (session.getTransaction().isActive()) {
+				session.getTransaction().rollback();
+			}
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/payroll/util/RencanaItemGajiPegawaiTreeModel.java:353");
 			// TODO: handle exception
 		}
@@ -467,6 +472,9 @@ public class RencanaItemGajiPegawaiTreeModel extends AbstractTreeModel {
 							bulan, tahun, session, mapTotal);
 				}
 			} catch (Exception e) {
+				if (session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/payroll/util/RencanaItemGajiPegawaiTreeModel.java:445");
 			}
 		}

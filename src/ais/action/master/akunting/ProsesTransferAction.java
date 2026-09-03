@@ -335,7 +335,10 @@ public class ProsesTransferAction extends GenericAutowireComposer
 			final ProsesTransfer prosesTransfer = (ProsesTransfer) arg1;
 
 			if (prosesTransfer.getKode() == null || prosesTransfer.getKode().trim().isEmpty()) {
-				String noAgenda = generateCode(true);
+				// tambah=false: ini render() grid (baris bisa dirender berkali-kali tanpa
+				// pengguna menekan Simpan), BUKAN titik simpan — jangan konsumsi index resmi
+				// di sini. Kode definitif dibangkitkan tambah=true hanya di onSave (baris ~1929).
+				String noAgenda = generateCode(false);
 				prosesTransfer.setKode(noAgenda);
 
 				Common.refreshUpdate(prosesTransfer);
@@ -2166,7 +2169,10 @@ public class ProsesTransferAction extends GenericAutowireComposer
 		rows.setParent(grid);
 
 		if (prosesTransfer.getKode() == null || prosesTransfer.getKode().trim().isEmpty()) {
-			String noAgenda = generateCode(true);
+			// tambah=false: ini pembentukan form saat window dibuka, BUKAN titik simpan —
+			// jangan konsumsi index resmi di sini. Kode definitif dibangkitkan tambah=true
+			// hanya di onSave (baris ~1929).
+			String noAgenda = generateCode(false);
 			prosesTransfer.setKode(noAgenda);
 		}
 
@@ -2502,13 +2508,10 @@ public class ProsesTransferAction extends GenericAutowireComposer
 			return Common.getGeneratedBarCode();
 		}
 
-		Long index = NomorSuratAlurKeuangan.DPC.getNomorSurat().getGunakanIndexUrut()
-				? NomorSuratAlurKeuangan.DPC.getNomorSurat().getNomorIndex()
-				: getindex(NomorSuratAlurKeuangan.DPC.getNomorSurat());
-		if (tambah) {
-			NomorSurat.tambahIndexNomorSurat(NomorSuratAlurKeuangan.DPC.getNomorSurat());
-		}
-		String noAgenda = NomorSuratAlurKeuangan.DPC.getNomorSurat().format(index, WaktuUtil.getDate());
+		NomorSurat ns = NomorSuratAlurKeuangan.DPC.getNomorSurat();
+		Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+				: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
+		String noAgenda = ns.format(index, WaktuUtil.getDate());
 		return ais.action.master.KodeUnikUtil.pastikanUnik(ProsesTransfer.class, noAgenda);
 	}
 

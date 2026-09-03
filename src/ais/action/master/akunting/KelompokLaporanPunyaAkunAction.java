@@ -499,8 +499,10 @@ public class KelompokLaporanPunyaAkunAction extends GenericAutowireComposer {
 	 *
 	 * <p><b>Pemeliharaan:</b><br>
 	 * Jika ada field wajib baru, tambahkan validasinya sebelum blok load DAO.
-	 * Tidak ada pengecekan duplikasi dalam metode ini — pertimbangkan menambahkan
-	 * pengecekan unik berdasarkan kombinasi akun+kelompokLaporan jika diperlukan.</p>
+	 * Sejak perbaikan duplikasi lintas kelompok laporan (integritas jurnal penutup), metode
+	 * ini menolak simpan bila akun yang dipilih sudah terpetakan ke kelompok laporan LAIN
+	 * pada jenis laporan yang sama — lihat {@link KelompokLaporanPunyaAkun} untuk latar
+	 * belakang dampaknya pada {@code TutupBukuHelper} dan dashboard akuntansi.</p>
 	 *
 	 * @param event event ZK yang memicu penyimpanan
 	 * @return {@code true} jika berhasil disimpan; {@code false} jika validasi gagal
@@ -516,6 +518,18 @@ public class KelompokLaporanPunyaAkunAction extends GenericAutowireComposer {
 			return false;
 		}
 
+		Akun akunTerpilih = (Akun) akun.getAttribute("akun");
+		KelompokLaporan kelompokTerpilih = (KelompokLaporan) kelompokLaporan.getSelectedItem().getValue();
+		KelompokLaporan bentrok = cariBentrokJenisLaporan(akunTerpilih, kelompokTerpilih,
+				kelompokLaporanPunyaAkun.getId());
+		if (bentrok != null) {
+			MyMessageboxConfig.show("Mohon maaf, Akun ini sudah terpetakan ke Kelompok Laporan '"
+					+ (bentrok.getKeterangan() == null ? "-" : bentrok.getKeterangan())
+					+ "' pada jenis laporan yang sama. Langkah yang dapat dilakukan: (1) Pilih Kelompok Laporan yang berbeda jenis laporannya; (2) Hapus dulu pemetaan akun ini dari kelompok tersebut bila memang ingin dipindah; (3) ulangi proses simpan. Satu akun tidak boleh terhitung di dua baris pada jenis laporan yang sama karena akan melipatgandakan nominal laporan dan jurnal penutup.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
 		KelompokLaporanPunyaAkunDao kelompokLaporanPunyaAkunDao = DaoFactory.getInstance()
 				.getKelompokLaporanPunyaAkunDao();
 		if (kelompokLaporanPunyaAkun.getId() != null) {
@@ -523,8 +537,8 @@ public class KelompokLaporanPunyaAkunAction extends GenericAutowireComposer {
 
 		}
 
-		kelompokLaporanPunyaAkun.setAkun((Akun) akun.getAttribute("akun"));
-		kelompokLaporanPunyaAkun.setKelompokLaporan((KelompokLaporan) kelompokLaporan.getSelectedItem().getValue());
+		kelompokLaporanPunyaAkun.setAkun(akunTerpilih);
+		kelompokLaporanPunyaAkun.setKelompokLaporan(kelompokTerpilih);
 
 		if (kelompokLaporanPunyaAkun.getId() != null) {
 			kelompokLaporanPunyaAkunDao.update(kelompokLaporanPunyaAkun);
@@ -533,6 +547,46 @@ public class KelompokLaporanPunyaAkunAction extends GenericAutowireComposer {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Mencari baris {@link KelompokLaporanPunyaAkun} LAIN yang memetakan akun yang sama ke
+	 * kelompok laporan pada jenis laporan yang sama dengan {@code kelompokTujuan}.
+	 *
+	 * <p><b>Tujuan:</b> mencegah satu akun terhitung di dua baris cetak sekaligus pada satu
+	 * jenis laporan (Neraca/Rugi Laba/Arus Kas) — duplikasi semacam ini melipatgandakan
+	 * nominal di {@code LaporanKeuanganCoaHelper}, dashboard akuntansi, dan (paling berat)
+	 * jurnal penutup {@code TutupBukuHelper}, karena seluruh konsumen tersebut melakukan
+	 * INNER JOIN pada kolom akun tanpa menyaring per kelompok tertentu.</p>
+	 *
+	 * <p><b>Cakupan sengaja per jenis laporan, bukan per kelompok laporan:</b> dua baris
+	 * dengan kelompok laporan berbeda tetap saling bentrok bila keduanya berada pada jenis
+	 * laporan yang sama, karena mesin-mesin di atas menyaring akun berdasarkan jenis laporan,
+	 * bukan kelompok spesifik.</p>
+	 *
+	 * @param akun akun yang akan dipetakan
+	 * @param kelompokTujuan kelompok laporan tujuan pemetaan
+	 * @param idBarisIni id baris {@link KelompokLaporanPunyaAkun} yang sedang diubah (boleh
+	 *                   {@code null} untuk baris baru), dikecualikan dari pencarian
+	 * @return kelompok laporan lain yang sudah memuat akun ini pada jenis laporan yang sama,
+	 *         atau {@code null} bila tidak ada bentrok
+	 */
+	@SuppressWarnings("unchecked")
+	private KelompokLaporan cariBentrokJenisLaporan(Akun akun, KelompokLaporan kelompokTujuan, Long idBarisIni) {
+		if (akun == null || kelompokTujuan == null || kelompokTujuan.getJenisLaporan() == null) {
+			return null;
+		}
+		String hql = "select k from KelompokLaporanPunyaAkun k "
+				+ "where k.akun = :akun and k.kelompokLaporan.jenisLaporan = :jenisLaporan "
+				+ (idBarisIni != null ? "and k.id != :idBarisIni " : "") + "order by k.id";
+		org.hibernate.Query query = HibernateUtil.currentSession().createQuery(hql);
+		query.setParameter("akun", akun);
+		query.setParameter("jenisLaporan", kelompokTujuan.getJenisLaporan());
+		if (idBarisIni != null) {
+			query.setParameter("idBarisIni", idBarisIni);
+		}
+		List<KelompokLaporanPunyaAkun> bentrok = query.setMaxResults(1).list();
+		return bentrok.isEmpty() ? null : bentrok.get(0).getKelompokLaporan();
 	}
 
 	/**

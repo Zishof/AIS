@@ -117,8 +117,8 @@ public class AssetUtil {
 
 					if (satuanKerjaData == null && satuanKerja == null) {
 						return akunBiaya;
-					} else if (satuanKerjaData == null || (satuanKerja != null && satuanKerjaData != null
-							&& satuanKerjaData.getId().equals(satuanKerja.getId()))) {
+					} else if (satuanKerja != null && satuanKerjaData != null
+							&& satuanKerjaData.getId().equals(satuanKerja.getId())) {
 						return akunBiaya;
 					}
 				}

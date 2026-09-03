@@ -38,10 +38,33 @@ try {
 	}
 } catch (Exception e) { satkerId = -1L; }
 
+// --- Gerbang peran utk "Petakan Cepat" (kunci menu "pemetaan_akun", sama dgn PemetaanAkunHelper /
+// PosApi cabang "pemetaan_akun_"). Sebelumnya HANYA cek login (uCP di atas) -- siapa pun yang sudah
+// masuk, peran apa pun, dapat MENGUBAH STRUKTUR LAPORAN GLOBAL lewat blok ini. Admin global boleh;
+// pengguna tanpa peran dianggap boleh (kompatibilitas akun lama), sama dgn PemetaanAkunHelper.
+boolean bolehPetakanCepat;
+if (ais.common.Common.getApakahAdminLain(uCP)) {
+	bolehPetakanCepat = true;
+} else {
+	ais.database.model.Tbmrole peranCP = uCP.hakAkses();
+	bolehPetakanCepat = peranCP == null || ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(
+			peranCP.getEbisnisMenu(), peranCP.getRoleId(), "pemetaan_akun", "create");
+}
+
 // --- AKSI PETAKAN CEPAT: simpan mapping akun -> kelompok_laporan (MENGUBAH STRUKTUR LAPORAN GLOBAL) ---
+// Aksi tulis hanya lewat POST (form di bawah dipindah dari GET) supaya tautan/gambar dari halaman
+// lain tidak bisa memicunya (CSRF via GET); lihat juga gerbang peran bolehPetakanCepat di atas.
 String savedMsg = null; boolean savedErr = false;
 String aksi = request.getParameter("aksi");
-if ("petakan".equals(aksi)) {
+if ("petakan".equals(aksi) && !"POST".equalsIgnoreCase(request.getMethod())) {
+	response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+	out.print("Metode tidak diizinkan, gunakan POST.");
+	return;
+} else if ("petakan".equals(aksi) && !bolehPetakanCepat) {
+	response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+	out.print("Anda tidak memiliki hak memetakan akun. Hubungi admin untuk mengaktifkannya pada Grup Pengguna.");
+	return;
+} else if ("petakan".equals(aksi)) {
 	Long akunId = null, kelompokId = null;
 	try { akunId = Long.valueOf(request.getParameter("akunId").trim()); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/kantin/cek_pemetaan_akun.jsp:46");}
 	try { kelompokId = Long.valueOf(request.getParameter("kelompokId").trim()); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/kantin/cek_pemetaan_akun.jsp:47");}
@@ -202,8 +225,8 @@ if (belum > 0) {
         <td>
         <% if (mapped) { %>
           <%= DashboardUiKit.esc(lap) %>
-        <% } else if (optHtml.length() > 0) { %>
-          <form method="get" action="<%=Common.ROOT%>/baru" style="display:flex;gap:4px;align-items:center;margin:0;flex-wrap:wrap" onsubmit="return confirm('<%=Common.getBahasaConfigJS("Petakan akun ini ke Kelompok Laporan terpilih? Tindakan ini MENGUBAH struktur laporan keuangan GLOBAL (seluruh instansi).")%>');">
+        <% } else if (optHtml.length() > 0 && bolehPetakanCepat) { %>
+          <form method="post" action="<%=Common.ROOT%>/baru" style="display:flex;gap:4px;align-items:center;margin:0;flex-wrap:wrap" onsubmit="return confirm('<%=Common.getBahasaConfigJS("Petakan akun ini ke Kelompok Laporan terpilih? Tindakan ini MENGUBAH struktur laporan keuangan GLOBAL (seluruh instansi).")%>');">
             <input type="hidden" name="hanya_tampil_jsp" value="true"/>
             <input type="hidden" name="p" value="kantin"/>
             <input type="hidden" name="s" value="cek_pemetaan_akun"/>
@@ -212,6 +235,8 @@ if (belum > 0) {
             <select name="kelompokId" style="max-width:230px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px"><%= optHtml %></select>
             <button type="submit" style="padding:3px 10px;border:0;border-radius:6px;background:#b45309;color:#fff;font-size:12px;font-weight:700;cursor:pointer"><%=Common.getBahasaConfig("Petakan")%></button>
           </form>
+        <% } else if (optHtml.length() > 0) { %>
+          <i style='color:#94a3b8' title='<%=Common.getBahasaConfigJS("Anda tidak memiliki hak memetakan akun.")%>'><%= Common.getBahasaConfig("tidak berhak memetakan") %></i>
         <% } else { %>
           <i style='color:#b91c1c'><%= Common.getBahasaConfig("tidak muncul") %></i>
         <% } %>

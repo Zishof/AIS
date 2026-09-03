@@ -114,24 +114,35 @@ public final class TutupBukuHelper {
 		try {
 			long satker = satkerId(session);
 			// Akun nominal (jenis laporan Rugi Laba) beserta saldonya pada periode ini.
+			//
+			// NON-OBVIOUS: filter "akun ini punya pemetaan Rugi Laba aktif" dilakukan lewat
+			// EXISTS, BUKAN join biasa ke kelompok_laporan_punya_akun/kelompok_laporan/
+			// jenis_laporan. Sebuah akun BISA terpetakan ke lebih dari satu baris kelompok
+			// laporan (entity KelompokLaporanPunyaAkun tidak punya unique constraint atas
+			// pasangan akun+kelompok, lihat Javadoc-nya) -- join biasa menggandakan baris
+			// akunting.transaksi sebanyak jumlah pemetaan yang cocok, sehingga group by d.id
+			// menghasilkan BEBERAPA baris untuk akun yang sama (satu per kombinasi keterangan
+			// kelompok/grup/jenis), masing-masing membawa saldo PENUH -- dan seluruhnya ikut
+			// diposting sebagai jurnal penutup, melipatgandakan nominal yang ditutup. EXISTS
+			// hanya menguji ada/tidaknya pemetaan yang cocok, tidak pernah mengalikan baris.
 			String sql = "select d.id, d.kode, d.nama, "
-					+ " coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) as saldo_debet, "
-					+ " lower(coalesce(c.keterangan,'') || ' ' || coalesce(m.keterangan,'') || ' '"
-					+ "   || coalesce(f.keterangan,'')) as tag "
+					+ " coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) as saldo_debet "
 					+ " from akunting.transaksi a "
 					+ " join akunting.grup_transaksi a1 on a1.id = a.grup_transaksi "
 					+ " join akunting.akun d on d.id = a.akun "
-					+ " join akunting.kelompok_laporan_punya_akun b on b.akun = d.id "
-					+ " join akunting.kelompok_laporan c on c.id = b.kelompok_laporan "
-					+ " join akunting.jenis_laporan f on f.id = c.jenis_laporan "
-					+ " left join akunting.master_grup_laporan m on m.id = c.master_grup_laporan "
 					+ " where a1.posting_history is not null "
 					+ "   and ( :satker = -1 or a1.satuan_kerja = :satker ) "
 					+ "   and cast(a.tanggal_transaksi as date) between cast(:mulai as date) and cast(:sampai as date) "
-					+ "   and (c.aktif is null or c.aktif) "
-					+ "   and ( lower(coalesce(f.keterangan,'')) like '%laba%' "
-					+ "         or lower(coalesce(f.keterangan,'')) like '%rugi%' ) "
-					+ " group by d.id, d.kode, d.nama, c.keterangan, m.keterangan, f.keterangan "
+					+ "   and exists ( "
+					+ "     select 1 from akunting.kelompok_laporan_punya_akun b "
+					+ "     join akunting.kelompok_laporan c on c.id = b.kelompok_laporan "
+					+ "     join akunting.jenis_laporan f on f.id = c.jenis_laporan "
+					+ "     where b.akun = d.id "
+					+ "       and (c.aktif is null or c.aktif) "
+					+ "       and ( lower(coalesce(f.keterangan,'')) like '%laba%' "
+					+ "             or lower(coalesce(f.keterangan,'')) like '%rugi%' ) "
+					+ "   ) "
+					+ " group by d.id, d.kode, d.nama "
 					+ " having abs(coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0)) >= 0.005 "
 					+ " order by d.kode ";
 			SQLQuery q = session.createSQLQuery(sql);

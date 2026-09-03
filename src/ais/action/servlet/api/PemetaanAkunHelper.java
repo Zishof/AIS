@@ -21,6 +21,7 @@ import ais.database.model.akunting.Akun;
 import ais.database.model.akunting.JenisLaporan;
 import ais.database.model.akunting.KelompokLaporan;
 import ais.database.model.akunting.KelompokLaporanPunyaAkun;
+import ais.database.model.akunting.MasterGrupLaporan;
 
 /**
  * Pemetaan otomatis akun ke Kelompok Laporan.
@@ -44,12 +45,64 @@ import ais.database.model.akunting.KelompokLaporanPunyaAkun;
  * dinormalkan, ASET/AKTIVA dianggap sama) dan hanya dibuat baru bila memang belum ada. Semua
  * penulisan lewat Hibernate supaya terekam Envers, satu transaksi per baris.</p>
  *
- * <p>Aksi API: {@code pemetaan_akun_usulan} (pratinjau, tidak menulis apa pun) dan
- * {@code pemetaan_akun_terapkan}.</p>
+ * <p>Aksi API: {@code pemetaan_akun_usulan} (pratinjau, tidak menulis apa pun, tidak digerbangi --
+ * hanya membaca) dan {@code pemetaan_akun_terapkan} (MENULIS, digerbangi kunci menu
+ * {@code pemetaan_akun} aksi {@code create} lewat {@link #bolehAksiMenu}, pola yang sama dengan
+ * {@code TutupBukuHelper}/{@code SaldoAwalAkunHelper}/{@code JurnalPenyesuaianHelper} di paket ini
+ * -- sebelum gerbang ini dipasang, cabang {@code pemetaan_akun_} di {@code PosApi} meneruskan
+ * langsung ke sini tanpa pemeriksaan hak apa pun).</p>
+ *
+ * <p><b>Seksi laporan (masterGrupLaporan).</b> Baris {@link KelompokLaporan} baru yang dibuat di
+ * sini diisi {@code masterGrupLaporan} HANYA bila nama AKAR bagan akun (mis. "AKTIVA", "KEWAJIBAN")
+ * sudah cocok dengan {@link MasterGrupLaporan} yang memang ada di data tenant ini (pencocokan nama
+ * dinormalkan lewat {@link #normal(String)}, tanpa membuat baris {@code MasterGrupLaporan} baru dan
+ * tanpa menebak konvensi digit kode akun) -- konsisten dengan aturan aman "hanya menambah, tidak
+ * menebak" di bawah. Bila tidak cocok, kolomnya dibiarkan {@code null} seperti sebelumnya (baris
+ * tetap tercetak di bawah judul semu "Lainnya", lihat Javadoc {@link KelompokLaporan}).</p>
  */
 public final class PemetaanAkunHelper {
 
     private PemetaanAkunHelper() {
+    }
+
+    /**
+     * Gerbang aksi granular (grid CRUD {@code TbmroleAction}), pola identik dengan
+     * {@code TutupBukuHelper.bolehAksiMenu}/{@code SaldoAwalAkunHelper.bolehAksiMenu}. Admin global
+     * boleh; pengguna tanpa peran dianggap boleh (kompatibilitas akun lama). Kotak CRUD yang BELUM
+     * PERNAH diatur admin mengikuti visibilitas menunya -- lihat
+     * {@code EbisnisMenuKatalog.bolehAksiAkuntansi}.
+     */
+    private static boolean bolehAksiMenu(Tbmuser tbmuser, String kunciMenu, String aksi) {
+        if (ais.common.Common.getApakahAdminLain(tbmuser)) {
+            return true;
+        }
+        ais.database.model.Tbmrole peran = tbmuser == null ? null : tbmuser.hakAkses();
+        if (peran == null) {
+            return true;
+        }
+        return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(peran.getEbisnisMenu(), peran.getRoleId(),
+                kunciMenu, aksi);
+    }
+
+    /** Balasan seragam saat aksi ditolak gerbang peran. */
+    private static void tolakHak(JSONObject hasil, String pekerjaan) throws Exception {
+        hasil.put("status", "91");
+        hasil.put("description", "Anda tidak memiliki hak " + pekerjaan
+                + ". Hubungi admin untuk mengaktifkannya pada Grup Pengguna.");
+    }
+
+    /**
+     * Hak menu Pemetaan Akun, dikirim bersama PRATINJAU (usulan) -- di situlah tombol "Terapkan"
+     * berada, tempat paling tepat memberi tahu bahwa tombolnya akan ditolak. Pemetaan akun hanya
+     * mengenal satu wewenang: menerapkan.
+     *
+     * <p>Bukan gerbang: gerbang sebenarnya tetap pemeriksaan pada cabang
+     * {@code pemetaan_akun_terapkan} di bawah.</p>
+     */
+    private static JSONObject hakAksesJson(Tbmuser tbmuser) throws Exception {
+        JSONObject j = new JSONObject();
+        j.put("create", bolehAksiMenu(tbmuser, "pemetaan_akun", "create"));
+        return j;
     }
 
     /** Satu akun beserta posisinya pada bagan. */
@@ -63,6 +116,7 @@ public final class PemetaanAkunHelper {
     /** Usulan pemetaan satu akun. */
     private static final class Usul {
         Simpul akun;
+        Simpul akar;       // akar rantai induk akun ini, dipakai mencocokkan MasterGrupLaporan
         String jenis;      // "Neraca" / "Rugi Laba"
         String kelompok;   // nama kelompok tujuan
         String kodeKelompok;
@@ -71,7 +125,12 @@ public final class PemetaanAkunHelper {
     public static void proses(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
         if ("pemetaan_akun_usulan".equals(action)) {
             jalankan(payload, hasil, false);
+            hasil.put("hak", hakAksesJson(tbmuser));
         } else if ("pemetaan_akun_terapkan".equals(action)) {
+            if (!bolehAksiMenu(tbmuser, "pemetaan_akun", "create")) {
+                tolakHak(hasil, "menerapkan pemetaan akun");
+                return;
+            }
             jalankan(payload, hasil, true);
         } else {
             hasil.put("status", "99");
@@ -173,6 +232,20 @@ public final class PemetaanAkunHelper {
             rs.close();
             ps.close();
 
+            // 3b) MasterGrupLaporan yang sudah ada (nama dinormalkan) -- HANYA dipakai utk mencocokkan,
+            // tidak pernah dibuat baru di sini (lihat Javadoc kelas: "hanya menambah, tidak menebak").
+            Map<String, Long> grupAda = new HashMap<String, Long>();
+            ps = conn.prepareStatement("SELECT id, COALESCE(nama,'') FROM akunting.master_grup_laporan");
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                String nama = normal(rs.getString(2));
+                if (nama.length() > 0 && !grupAda.containsKey(nama)) {
+                    grupAda.put(nama, Long.valueOf(rs.getLong(1)));
+                }
+            }
+            rs.close();
+            ps.close();
+
             // 4) susun usulan
             List<Usul> usulan = new ArrayList<Usul>();
             for (Map.Entry<Long, Simpul> e : peta.entrySet()) {
@@ -200,6 +273,7 @@ public final class PemetaanAkunHelper {
                 }
                 Usul u = new Usul();
                 u.akun = akun;
+                u.akar = akar;
                 u.jenis = jenisDariAkar(akar.kode);
                 u.kelompok = grup.nama == null || grup.nama.trim().length() == 0 ? akar.nama : grup.nama.trim();
                 u.kodeKelompok = grup.kode;
@@ -279,6 +353,10 @@ public final class PemetaanAkunHelper {
                         kl.setJenisLaporan((JenisLaporan) session.load(JenisLaporan.class, idJenis));
                         kl.setAktif(Boolean.TRUE);
                         kl.setUrut(Double.valueOf(urutDariKode(u.kodeKelompok)));
+                        Long idGrup = u.akar == null ? null : grupAda.get(normal(u.akar.nama));
+                        if (idGrup != null) {
+                            kl.setMasterGrupLaporan((MasterGrupLaporan) session.load(MasterGrupLaporan.class, idGrup));
+                        }
                         session.save(kl);
                         session.getTransaction().commit();
                         idKelompok = kl.getId();

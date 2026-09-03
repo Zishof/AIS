@@ -43,6 +43,7 @@ import ais.action.master.helper.generic.AmbilDataPegawaiBanyak;
 import ais.action.master.payroll.util.RencanaItemGajiPegawaiTreeModel;
 import ais.common.Common;
 import ais.common.CommonMedia;
+import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Pegawai;
 import ais.database.model.Tbmuser;
@@ -420,6 +421,9 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 	@SuppressWarnings("unchecked")
 	private void display() throws Exception {
 
+		final boolean bolehUbah = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		final boolean bolehHapus = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
+
 		Groupbox groupbox = new ais.ui.util.MyGroupboxStyled();
 		groupbox.setParent(this);
 		groupbox.appendChild(new MyCaptionStyled("Daftar Pegawai"));
@@ -428,10 +432,14 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 		// toolbar.setHeight("25px");
 		toolbar.setParent(groupbox);
 		Toolbarbutton button = new MyToolbarbuttonConfig("Ambil Data Pegawai", "/img/add_item.png");
+		button.setVisible(bolehUbah);
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (!bolehUbah) {
+					return;
+				}
 				Session session = HibernateUtil.currentSession();
 
 				Tbmuser tbmuser = Common.getCurrentUser();
@@ -533,10 +541,14 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 		button.setParent(toolbar);
 
 		button = new MyToolbarbuttonConfig("Hitung Ulang", "/img/add_item.png");
+		button.setVisible(bolehUbah);
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (!bolehUbah) {
+					return;
+				}
 
 				Common.createDefaultTimer(new EventListener() {
 
@@ -630,10 +642,14 @@ public class RencanaGajiPunyaPegawaiAction extends MyDetail {
 
 		Toolbarbutton delete;
 		toolbar.appendChild(delete = new MyToolbarbuttonConfig("", "/img/svg/trash.svg"));
+		delete.setVisible(bolehHapus);
 		delete.addEventListener("onClick", new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+				if (!bolehHapus) {
+					return;
+				}
 
 				MyMessageboxConfig.show(
 						"Apakah Bapak/Ibu yakin ingin menghapus seluruh data ini? Data yang telah dihapus tidak dapat dikembalikan. Tekan OK untuk melanjutkan penghapusan, atau Batal untuk membatalkan.",

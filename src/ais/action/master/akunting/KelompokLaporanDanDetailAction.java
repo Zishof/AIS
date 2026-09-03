@@ -1226,6 +1226,11 @@ public class KelompokLaporanDanDetailAction extends GenericAutowireComposer
 		 * <p><b>Penanganan error:</b> Hanya validasi null akun yang ditangani secara eksplisit.
 		 * Exception DAO dilempar ke pemanggil.</p>
 		 *
+		 * <p><b>Non-obvious:</b> sejak perbaikan duplikasi lintas kelompok laporan, metode ini
+		 * juga menolak simpan bila akun yang dipilih sudah terpetakan ke kelompok laporan LAIN
+		 * pada jenis laporan yang sama — lihat Javadoc {@link KelompokLaporanPunyaAkun} untuk
+		 * dampaknya pada {@code TutupBukuHelper} dan dashboard akuntansi.</p>
+		 *
 		 * @param event Event ZK dari klik tombol simpan; tidak digunakan secara langsung.
 		 * @return {@code true} jika berhasil disimpan; {@code false} jika validasi gagal.
 		 * @throws Exception Jika terjadi kesalahan database saat menyimpan.
@@ -1237,6 +1242,17 @@ public class KelompokLaporanDanDetailAction extends GenericAutowireComposer
 				return false;
 			}
 
+			Akun akunTerpilih = (Akun) akun.getAttribute("akun");
+			KelompokLaporan bentrok = cariBentrokJenisLaporan(akunTerpilih, kelompokLaporan,
+					kelompokLaporanPunyaAkun.getId());
+			if (bentrok != null) {
+				MyMessageboxConfig.show("Mohon maaf, Akun ini sudah terpetakan ke Kelompok Laporan '"
+						+ (bentrok.getKeterangan() == null ? "-" : bentrok.getKeterangan())
+						+ "' pada jenis laporan yang sama. Langkah yang dapat dilakukan: (1) Pilih akun lain; (2) Hapus dulu pemetaan akun ini dari kelompok tersebut bila memang ingin dipindah; (3) ulangi proses simpan. Satu akun tidak boleh terhitung di dua baris pada jenis laporan yang sama karena akan melipatgandakan nominal laporan dan jurnal penutup.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
+
 			KelompokLaporanPunyaAkunDao kelompokLaporanPunyaAkunDao = DaoFactory.getInstance()
 					.getKelompokLaporanPunyaAkunDao();
 			if (kelompokLaporanPunyaAkun.getId() != null) {
@@ -1245,7 +1261,7 @@ public class KelompokLaporanDanDetailAction extends GenericAutowireComposer
 			}
 
 			kelompokLaporanPunyaAkun.setKelompokLaporan(kelompokLaporan);
-			kelompokLaporanPunyaAkun.setAkun((Akun) akun.getAttribute("akun"));
+			kelompokLaporanPunyaAkun.setAkun(akunTerpilih);
 
 			if (kelompokLaporanPunyaAkun.getId() != null) {
 				kelompokLaporanPunyaAkunDao.update(kelompokLaporanPunyaAkun);
@@ -1253,6 +1269,40 @@ public class KelompokLaporanDanDetailAction extends GenericAutowireComposer
 				kelompokLaporanPunyaAkunDao.save(kelompokLaporanPunyaAkun);
 			}
 			return true;
+		}
+
+		/**
+		 * Mencari baris {@link KelompokLaporanPunyaAkun} LAIN yang memetakan akun yang sama ke
+		 * kelompok laporan pada jenis laporan yang sama dengan {@code kelompokTujuan}.
+		 *
+		 * <p>Duplikat pada penamaan/tujuan: kembaran persis dari
+		 * {@code KelompokLaporanPunyaAkunAction.cariBentrokJenisLaporan} (Action ZK mandiri) —
+		 * disengaja, mengikuti pola berkas ini yang sudah menduplikasi blok "copy dari" antar
+		 * kedua Action alih-alih membagikannya lewat kelas util bersama.</p>
+		 *
+		 * @param akun akun yang akan dipetakan
+		 * @param kelompokTujuan kelompok laporan tujuan pemetaan
+		 * @param idBarisIni id baris {@link KelompokLaporanPunyaAkun} yang sedang diubah (boleh
+		 *                   {@code null} untuk baris baru), dikecualikan dari pencarian
+		 * @return kelompok laporan lain yang sudah memuat akun ini pada jenis laporan yang sama,
+		 *         atau {@code null} bila tidak ada bentrok
+		 */
+		@SuppressWarnings("unchecked")
+		private KelompokLaporan cariBentrokJenisLaporan(Akun akun, KelompokLaporan kelompokTujuan, Long idBarisIni) {
+			if (akun == null || kelompokTujuan == null || kelompokTujuan.getJenisLaporan() == null) {
+				return null;
+			}
+			String hql = "select k from KelompokLaporanPunyaAkun k "
+					+ "where k.akun = :akun and k.kelompokLaporan.jenisLaporan = :jenisLaporan "
+					+ (idBarisIni != null ? "and k.id != :idBarisIni " : "") + "order by k.id";
+			org.hibernate.Query query = HibernateUtil.currentSession().createQuery(hql);
+			query.setParameter("akun", akun);
+			query.setParameter("jenisLaporan", kelompokTujuan.getJenisLaporan());
+			if (idBarisIni != null) {
+				query.setParameter("idBarisIni", idBarisIni);
+			}
+			List<KelompokLaporanPunyaAkun> bentrok = query.setMaxResults(1).list();
+			return bentrok.isEmpty() ? null : bentrok.get(0).getKelompokLaporan();
 		}
 
 		/**
@@ -1642,6 +1692,7 @@ public class KelompokLaporanDanDetailAction extends GenericAutowireComposer
 			List<KelompokLaporanPunyaAkun> laporanPunyaAkuns = session.createCriteria(KelompokLaporanPunyaAkun.class)
 					.add(Restrictions.eq("kelompokLaporan.id", kelompokLaporan.getCopyDari().getId())).list();
 
+			int dilewatiKarenaBentrok = 0;
 			for (KelompokLaporanPunyaAkun kelompokLaporanPunyaAkun : laporanPunyaAkuns) {
 				KelompokLaporanPunyaAkun kelompokLaporanPunyaAkunBaru = (KelompokLaporanPunyaAkun) session
 						.createCriteria(KelompokLaporanPunyaAkun.class)
@@ -1649,6 +1700,13 @@ public class KelompokLaporanDanDetailAction extends GenericAutowireComposer
 						.add(Restrictions.eq("kelompokLaporan", this.kelompokLaporan)).addOrder(Order.desc("id"))
 						.setMaxResults(1).uniqueResult();
 				if (kelompokLaporanPunyaAkunBaru == null) {
+					if (cariBentrokJenisLaporanOuter(kelompokLaporanPunyaAkun.getAkun(), this.kelompokLaporan,
+							null) != null) {
+						// Akun ini sudah terpetakan ke kelompok lain pada jenis laporan yang sama;
+						// menyalinnya ke sini akan melipatgandakan nominal (lihat KelompokLaporanPunyaAkun).
+						dilewatiKarenaBentrok++;
+						continue;
+					}
 					kelompokLaporanPunyaAkunBaru = new KelompokLaporanPunyaAkun();
 					kelompokLaporanPunyaAkunBaru.setAkun(kelompokLaporanPunyaAkun.getAkun());
 					kelompokLaporanPunyaAkunBaru.setKelompokLaporan(this.kelompokLaporan);
@@ -1657,9 +1715,52 @@ public class KelompokLaporanDanDetailAction extends GenericAutowireComposer
 				}
 
 			}
+			if (dilewatiKarenaBentrok > 0) {
+				MyMessageboxConfig.show(dilewatiKarenaBentrok
+						+ " akun dari kelompok sumber TIDAK disalin karena sudah terpetakan ke kelompok laporan lain pada jenis laporan yang sama (mencegah nominal berlipat pada laporan dan jurnal penutup).",
+						"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			}
 		}
 
 		return true;
+	}
+
+	/**
+	 * Mencari baris {@link KelompokLaporanPunyaAkun} LAIN yang memetakan akun yang sama ke
+	 * kelompok laporan pada jenis laporan yang sama dengan {@code kelompokTujuan}.
+	 *
+	 * <p>Dipakai oleh {@code onSave(Event)} level Action ini (bukan inner class
+	 * {@code KelompokLaporanPunyaAkunAction}, yang punya method sejenis bernama sama dalam
+	 * lingkup kelasnya sendiri) untuk menyaring fitur "copy dari" agar tidak menduplikasi akun
+	 * lintas kelompok pada jenis laporan yang sama — lihat Javadoc {@link KelompokLaporanPunyaAkun}
+	 * untuk latar belakang dampaknya pada jurnal penutup dan dashboard akuntansi. Diberi akhiran
+	 * "Outer" karena berkas ini juga punya inner class dengan method serupa; kedua bentuk
+	 * disengaja duplikat, mengikuti pola berkas ini yang sudah menduplikasi blok "copy dari"
+	 * alih-alih membagikannya lewat kelas util bersama.</p>
+	 *
+	 * @param akun akun yang akan dipetakan
+	 * @param kelompokTujuan kelompok laporan tujuan pemetaan
+	 * @param idBarisIni id baris {@link KelompokLaporanPunyaAkun} yang sedang diubah (boleh
+	 *                   {@code null} untuk baris baru), dikecualikan dari pencarian
+	 * @return kelompok laporan lain yang sudah memuat akun ini pada jenis laporan yang sama,
+	 *         atau {@code null} bila tidak ada bentrok
+	 */
+	@SuppressWarnings("unchecked")
+	private KelompokLaporan cariBentrokJenisLaporanOuter(Akun akun, KelompokLaporan kelompokTujuan, Long idBarisIni) {
+		if (akun == null || kelompokTujuan == null || kelompokTujuan.getJenisLaporan() == null) {
+			return null;
+		}
+		String hql = "select k from KelompokLaporanPunyaAkun k "
+				+ "where k.akun = :akun and k.kelompokLaporan.jenisLaporan = :jenisLaporan "
+				+ (idBarisIni != null ? "and k.id != :idBarisIni " : "") + "order by k.id";
+		org.hibernate.Query query = HibernateUtil.currentSession().createQuery(hql);
+		query.setParameter("akun", akun);
+		query.setParameter("jenisLaporan", kelompokTujuan.getJenisLaporan());
+		if (idBarisIni != null) {
+			query.setParameter("idBarisIni", idBarisIni);
+		}
+		List<KelompokLaporanPunyaAkun> bentrok = query.setMaxResults(1).list();
+		return bentrok.isEmpty() ? null : bentrok.get(0).getKelompokLaporan();
 	}
 
 	/**

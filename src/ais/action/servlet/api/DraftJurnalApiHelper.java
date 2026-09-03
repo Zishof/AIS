@@ -162,7 +162,14 @@ public final class DraftJurnalApiHelper {
     private static boolean bolehAksi(ais.database.model.Tbmuser tbmuser, String kunciMenu, String aksi) {
         if (ais.common.Common.getApakahAdminLain(tbmuser)) return true;
         ais.database.model.Tbmrole peran = tbmuser == null ? null : tbmuser.hakAkses();
-        if (peran == null) return true;
+        // FAIL-CLOSED: role null BUKAN "pengguna baru tanpa role" (FK tbmuser.role_id
+        // nullable=false) -- ini anomali cache/detach pada Tbmuser.hakAkses() saat
+        // entitas Tbmrole yang dirujuk sudah lepas dari session (lihat catatan pada
+        // Tbmuser.hakAkses()). Sebelumnya cabang ini mengembalikan true (fail-open),
+        // yang berarti anomali cache itu bisa MELEWATI gerbang hak posting untuk
+        // SEMUA baris di modulPosting() (bukan cuma payroll) -- lebih aman menolak dan
+        // memaksa pemanggil mengulang permintaan daripada diam-diam meloloskan.
+        if (peran == null) return false;
         return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(peran.getEbisnisMenu(), peran.getRoleId(),
                 kunciMenu, aksi);
     }

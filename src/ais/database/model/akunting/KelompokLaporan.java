@@ -72,10 +72,13 @@ import ais.database.model.GeneralValueObject;
  *       {@code return false} bila Jenis Laporan atau Master Grup Laporan belum dipilih. Impor Excel
  *       di layar kedua pun hanya memproses baris ketika <em>kedua</em> objek berhasil di-resolve
  *       ({@code if (grupLaporan != null && jenisLaporan != null)}).</li>
- *   <li><b>Jalur REST tidak.</b> {@code ais.action.servlet.api.PemetaanAkunHelper} membuat baris
- *       baru hanya dengan {@code setKeterangan} + {@code setJenisLaporan} + {@code setAktif} +
- *       {@code setUrut} &mdash; {@code masterGrupLaporan} <b>sengaja dibiarkan null</b>. Inilah
- *       satu-satunya penghasil baris yatim yang terverifikasi di repo.</li>
+ *   <li><b>Jalur REST tidak selalu.</b> {@code ais.action.servlet.api.PemetaanAkunHelper} membuat
+ *       baris baru dengan {@code setKeterangan} + {@code setJenisLaporan} + {@code setAktif} +
+ *       {@code setUrut}, ditambah {@code setMasterGrupLaporan} (2026-09-04) HANYA bila nama akar
+ *       bagan akun kebetulan cocok dengan {@link MasterGrupLaporan} yang sudah ada (pencocokan nama,
+ *       tanpa membuat baris {@code MasterGrupLaporan} baru) &mdash; bila tidak cocok, kolomnya tetap
+ *       {@code null} seperti semula. Jalur ini karena itu masih bisa (dan pada data lama sudah
+ *       terlanjur) menghasilkan baris yatim, hanya saja kini bukan keniscayaan tak bersyarat.</li>
  *   <li><b>Perender menampung yatim, tetapi tidak seragam.</b>
  *       {@code LaporanKeuanganCoaHelper.susun()} mengelompokkan baris ber-{@code masterGrupLaporan}
  *       null ke dalam grup semu ber-id <code>-1</code> berlabel <b>"Lainnya"</b>, sehingga barisnya
@@ -105,7 +108,7 @@ import ais.database.model.GeneralValueObject;
  * operator yang mengubah nomor urut, mematikan bendera {@code aktif}, atau mengganti seksi sebuah
  * baris mengubah tata letak laporan keuangan <em>seluruh</em> tenant pada satu instalasi.</p>
  *
- * <h3>Gerbang hak akses: rapi di ZK, TIDAK ADA di dua jalur lain</h3>
+ * <h3>Gerbang hak akses: rapi di ZK; dua jalur lain DITAMBAL 2026-09-04 (sebelumnya NOL gerbang)</h3>
  * <p>Perbedaan ini penting dan sudah diverifikasi baris per baris:</p>
  * <ul>
  *   <li><b>Layar ZK &mdash; digerbangi dengan benar.</b> Keduanya memanggil
@@ -118,21 +121,29 @@ import ais.database.model.GeneralValueObject;
  *       &mdash; pola pewarisan hak lewat menu induk yang sudah berulang kali ditemukan di repo ini
  *       tetap berlaku, jadi hak yang diperiksa bisa saja hak menu lain yang kebetulan sedang aktif
  *       di sesi.</li>
- *   <li><b>Jalur REST {@code PosApi} &mdash; NOL gerbang peran.</b> Cabang
- *       {@code action.startsWith("pemetaan_akun_")} memanggil {@code PemetaanAkunHelper.proses}
- *       secara langsung; {@code proses()} menerima {@code Tbmuser} tetapi <b>tidak pernah
- *       memakainya</b>, dan {@code jalankan()} bahkan tidak menerimanya. Kuncinya
- *       (<code>pemetaan_akun</code>) juga <b>tidak terdaftar</b> di
- *       {@code EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF}. Ini <em>berbeda</em> dari pola fail-open
- *       {@code bolehAksi()} yang sudah dikenal di modul akunting: di sana ada gerbang yang salah
- *       arah, di sini tidak ada gerbang sama sekali. Aksi
- *       <code>pemetaan_akun_terapkan</code> MENULIS &mdash; ia membuat baris {@code KelompokLaporan}
- *       baru dan menempelkan akun massal.</li>
+ *   <li><b>Jalur REST {@code PosApi} &mdash; SEBELUMNYA nol gerbang peran, kini digerbangi.</b>
+ *       Cabang {@code action.startsWith("pemetaan_akun_")} memanggil {@code PemetaanAkunHelper.proses}
+ *       secara langsung; sebelum tambalan ini {@code proses()} menerima {@code Tbmuser} tetapi
+ *       <b>tidak pernah memakainya</b>, dan kuncinya (<code>pemetaan_akun</code>) juga <b>tidak
+ *       terdaftar</b> di {@code EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF} &mdash; berbeda dari pola
+ *       fail-open {@code bolehAksi()} yang sudah dikenal di modul akunting (di sana gerbangnya salah
+ *       arah; di sini dulu tidak ada gerbang sama sekali). Tambalan menambahkan
+ *       {@code PemetaanAkunHelper.bolehAksiMenu} (pola identik {@code TutupBukuHelper}/
+ *       {@code SaldoAwalAkunHelper}/{@code JurnalPenyesuaianHelper}) yang menggerbangi aksi TULIS
+ *       <code>pemetaan_akun_terapkan</code> lewat {@code EbisnisMenuKatalog.bolehAksiAkuntansi} kunci
+ *       {@code pemetaan_akun} (kini terdaftar di {@code DAFTAR}/{@code KUNCI_DEFAULT_NONAKTIF}/
+ *       {@code KUNCI_AKUNTANSI}/{@code KUNCI_CRUD}, fail-closed spt sesama menu Akuntansi); aksi
+ *       pratinjau <code>pemetaan_akun_usulan</code> (read-only) tetap tidak digerbangi, sama seperti
+ *       aksi {@code _draft}/{@code _usulan} pada tiga helper padanannya.</li>
  *   <li><b>Halaman diagnosa {@code webapp/WEB-INF/baru/modul/kantin/cek_pemetaan_akun.jsp} &mdash;
- *       juga NOL gerbang peran.</b> Ia hanya menolak pengunjung anonim
- *       ({@code uCP == null || uCP.getUserId() == null}), lalu menerima parameter
- *       <code>?aksi=petakan&amp;akunId=..&amp;kelompokId=..</code> dan menyimpan pemetaan baru.
- *       Komentarnya sendiri sudah menuliskan "MENGUBAH STRUKTUR LAPORAN GLOBAL".</li>
+ *       SEBELUMNYA juga nol gerbang peran, kini digerbangi.</b> Sebelum tambalan ini hanya menolak
+ *       pengunjung anonim ({@code uCP == null || uCP.getUserId() == null}), lalu menerima parameter
+ *       GET <code>?aksi=petakan&amp;akunId=..&amp;kelompokId=..</code> dan langsung menyimpan pemetaan
+ *       baru &mdash; peran apa pun boleh, dan karena lewat GET rentan CSRF juga. Komentarnya sendiri
+ *       sudah menuliskan "MENGUBAH STRUKTUR LAPORAN GLOBAL". Tambalan menambahkan pemeriksaan peran
+ *       yang sama (kunci {@code pemetaan_akun} lewat {@code bolehAksiAkuntansi}) sebelum blok
+ *       {@code aksi=petakan} dieksekusi, memindahkan formulir "Petakan Cepat" dari GET ke POST plus
+ *       menolak method selain POST, dan menyembunyikan formulirnya bila pengguna tidak berhak.</li>
  * </ul>
  *
  * <h3>Pengelompokan method di berkas ini</h3>
@@ -498,9 +509,11 @@ public class KelompokLaporan extends GeneralValueObject {
 	/**
 	 * Menempatkan baris ini pada sumbu "seksi/judul blok".
 	 *
-	 * <p>Dipanggil dari {@code onSave} kedua layar ZK dan dari impor Excel. <b>Tidak pernah
-	 * dipanggil</b> oleh {@code PemetaanAkunHelper} &mdash; itulah sebabnya jalur REST menghasilkan
-	 * baris yatim yang kemudian tercetak di bawah judul semu "Lainnya".</p>
+	 * <p>Dipanggil dari {@code onSave} kedua layar ZK, dari impor Excel, dan (2026-09-04, bersyarat)
+	 * dari {@code PemetaanAkunHelper} &mdash; hanya bila nama akar bagan akun cocok dengan
+	 * {@link MasterGrupLaporan} yang sudah ada. Bila tidak cocok (atau pada baris lama dari sebelum
+	 * tambalan ini), kolomnya tetap {@code null} dan barisnya tercetak di bawah judul semu
+	 * "Lainnya".</p>
 	 *
 	 * @param masterGrupLaporan seksi tujuan; {@code null} diperbolehkan skema dan memang terjadi
 	 *                          pada baris buatan jalur REST

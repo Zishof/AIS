@@ -213,35 +213,26 @@ import ais.database.model.akunting.Akun;
  * di {@link KelompokItemGaji} akan mengubah akun yang dipakai untuk posting berikutnya. Ini
  * kebalikan dari pola snapshot pada {@code JenisReimbursement} di paket {@code akunting}.</p>
  *
- * <h2>PERINGATAN: tiga getter di kelas ini bersifat menulis-balik (write-back)</h2>
- * <p>{@link #getAkun()}, {@link #getAkunDebet()} dan {@link #getKelompokItemGaji()} <b>tidak murni
- * membaca</b> &mdash; ketiganya menugaskan ulang field instance sebelum mengembalikannya. Karena
- * entity ini dipetakan <i>property access</i> (anotasi ada di getter) dan memakai
- * {@code dynamicUpdate = true}, setiap {@code flush} Hibernate atas instance yang sudah dibaca akan
- * <b>menuliskan nilai baru itu ke database secara permanen</b>, tanpa aksi simpan eksplisit dari
- * pengguna. Rinciannya:</p>
- * <ul>
- *   <li>{@link #getKelompokItemGaji()} mengabaikan FK {@code kelompok_item_gaji} yang tersimpan bila
- *   {@link #getKode()} kebetulan sama (case-insensitive) dengan {@code kode} sebuah
- *   {@link KelompokItemGaji} aktif di cache statis {@link #kelompokItemGajis}. Pengelompokan
- *   praktis ditentukan oleh <b>kesamaan teks kode</b>, bukan oleh FK.</li>
- *   <li>{@link #getAkun()}/{@link #getAkunDebet()} menimpa FK akun per-item dengan hasil resolusi
- *   dari kelompok. Selama kelompok punya pemetaan yang resolvable, <b>akun yang dipilih operator di
- *   form Item Gaji tidak akan bertahan</b> &mdash; ia tertimpa pada pembacaan berikutnya dan pilihan
- *   aslinya hilang tanpa jejak di kolom itu (riwayat Envers tetap merekam perubahannya). Bila
- *   kelompok tidak punya pemetaan, {@link KelompokItemGaji#getAkun()} mengembalikan
- *   {@code Pertangungjawaban.DEFAULT_FORMULA} (array JSON kosong), resolusi menghasilkan
- *   {@code null}, dan FK per-item dipertahankan.</li>
- *   <li>Pemicu nyata yang paling mudah dikenali: {@code AmbilDataItemGajiBanbox} menaikkan
- *   {@link #getJmlDipakai() jmlDipakai} lalu memanggil {@code Common.refreshUpdate(session, itemGaji)}
- *   setiap kali operator <i>memilih</i> sebuah item gaji dari bandbox &mdash; satu klik pemilihan
- *   sudah cukup untuk mempersistenkan seluruh penulisan-balik di atas. Renderer daftar
- *   {@code ItemGajiAction.ItemGajiRenderer} juga memanggil {@link #getAkun()}/{@link #getAkunDebet()}
- *   untuk setiap baris grid.</li>
- * </ul>
- * <p>Pola ini sekeluarga dengan {@code Transaksi.getAkun()} di paket {@code akunting} (menimpa
- * {@code akun} dengan {@code akunOver}), namun di sini pemicunya jauh lebih sering karena menyentuh
- * layar master yang dipakai sehari-hari.</p>
+ * <h2>Riwayat: tiga getter di kelas ini DULU bersifat menulis-balik (write-back) — DIPERBAIKI</h2>
+ * <p>Sampai perbaikan ini, {@link #getAkun()}, {@link #getAkunDebet()} dan
+ * {@link #getKelompokItemGaji()} tidak murni membaca &mdash; ketiganya menugaskan ulang field
+ * instance sebelum mengembalikannya. Karena entity ini dipetakan <i>property access</i> (anotasi ada
+ * di getter) dan memakai {@code dynamicUpdate = true}, setiap {@code flush} Hibernate atas instance
+ * yang sekadar sudah <i>dibaca</i> (bukan disunting) menuliskan nilai baru itu ke database secara
+ * permanen, tanpa aksi simpan eksplisit dari pengguna &mdash; satu klik pemilihan di
+ * {@code AmbilDataItemGajiBanbox}, atau sekadar merender satu baris grid di
+ * {@code ItemGajiAction.ItemGajiRenderer}, sudah cukup memicunya. Ketiga getter itu <b>sekarang
+ * murni</b>: hasil resolusi (pencocokan kode kelompok, penurunan akun dari pemetaan kelompok) hanya
+ * dipakai sebagai nilai kembalian, tidak pernah ditugaskan ke field yang dipetakan Hibernate. FK yang
+ * dipilih operator di form Item Gaji karena itu tidak lagi bisa tertimpa hanya karena barisnya
+ * dibaca; field hanya berubah lewat {@code setAkun}/{@code setAkunDebet}/{@code setKelompokItemGaji}
+ * eksplisit dari alur simpan.</p>
+ * <p>Perilaku <i>bisnis</i> tidak berubah: pengelompokan efektif dan akun jurnal efektif yang
+ * dipakai mesin posting tetap ditentukan oleh kecocokan teks {@code kode} dan pemetaan kelompok yang
+ * resolvable, persis seperti sebelumnya (lihat {@link #ambilAkun()}/{@link #ambilAkunDebet()}/
+ * {@link #getKelompokItemGaji()}) &mdash; yang dihapus hanyalah efek samping penulisan permanen ke
+ * FK tersimpan. Pola serupa (menimpa {@code akun} dengan {@code akunOver}) masih ada di
+ * {@code Transaksi.getAkun()} paket {@code akunting}; tidak ikut disentuh oleh perbaikan ini.</p>
  *
  * <h2>Cakupan tenant (satuan kerja) &mdash; tidak ada di entity ini</h2>
  * <p>{@code ItemGaji} <b>tidak punya kolom tenant sama sekali</b>: tidak ada {@code yayasan},
@@ -506,9 +497,9 @@ public class ItemGaji extends GeneralValueObject {
 	/** Counter popularitas untuk pengurutan bandbox "sering dipakai"; lihat {@link #getJmlDipakai()}. */
 	private Long jmlDipakai = 0L;
 
-	/** Akun sisi KREDIT jurnal gaji; lihat {@link #getAkun()} (getter menulis-balik). */
+	/** Akun sisi KREDIT jurnal gaji; lihat {@link #getAkun()}. */
 	private Akun akun;
-	/** Akun sisi DEBET jurnal gaji; lihat {@link #getAkunDebet()} (getter menulis-balik). */
+	/** Akun sisi DEBET jurnal gaji; lihat {@link #getAkunDebet()}. */
 	private Akun akunDebet;
 
 	/** Bila {@code true}, baris hanya berfungsi sebagai pemisah/spasi visual dan dilewati perhitungan; lihat {@link #getSpace()}. */
@@ -787,28 +778,26 @@ public class ItemGaji extends GeneralValueObject {
 	 * Mengembalikan {@link Akun} untuk <b>sisi KREDIT</b> jurnal gaji komponen ini (umumnya Utang
 	 * Gaji, Kas/Bank, atau akun kewajiban potongan seperti Utang BPJS).
 	 *
-	 * <p><b>PERINGATAN — getter ini MENULIS-BALIK dan berpotensi destruktif.</b> Urutan kerjanya:
-	 * (1) resolusi proxy lazy lewat {@link GeneralValueObject#check(Object)}; (2) memanggil
-	 * {@link #ambilAkun()} untuk menurunkan akun dari {@link KelompokItemGaji} sesuai satuan kerja
-	 * format; (3) bila hasilnya bukan {@code null} dan sudah punya {@code id}, <b>field
-	 * {@link #akun} ditugasi ulang</b> dengan akun hasil resolusi itu. Karena entity ini dipetakan
-	 * property-access dan memakai {@code dynamicUpdate = true}, penugasan ulang tersebut akan
-	 * di-{@code UPDATE} ke basis data pada {@code flush} berikutnya — akun yang dipilih operator di
-	 * form Item Gaji <b>hilang tertimpa</b> tanpa aksi simpan eksplisit. Pemicu yang terverifikasi
-	 * antara lain: renderer daftar {@code ItemGajiAction} (setiap baris grid), pohon
-	 * {@code ItemGajiTreeAction}, dan terutama {@code AmbilDataItemGajiBanbox} yang memang memanggil
-	 * {@code Common.refreshUpdate(...)} pada baris yang baru dipilih.</p>
+	 * <p><b>Tidak lagi menulis-balik (diperbaiki).</b> Getter ini dulu menugaskan hasil
+	 * {@link #ambilAkun()} ke field {@link #akun} sebelum mengembalikannya — karena entity ini
+	 * dipetakan property-access dengan {@code dynamicUpdate = true}, penugasan itu ikut
+	 * ter-{@code UPDATE} ke basis data pada {@code flush} berikutnya, menimpa akun yang dipilih
+	 * operator di form Item Gaji hanya karena barisnya dibaca (renderer grid, pohon, atau bandbox
+	 * pemilih). Getter ini sekarang murni: field {@link #akun} hanya diresolusi proxy-nya lewat
+	 * {@link GeneralValueObject#check(Object)}, dan resolusi {@link #ambilAkun()} hanya dipakai
+	 * untuk NILAI KEMBALIAN — tidak pernah ditulis ke field maupun dipersistenkan.</p>
 	 *
 	 * <p>Bila kelompok tidak punya pemetaan yang resolvable ({@link KelompokItemGaji#getAkun()}
 	 * mengembalikan array JSON kosong), resolusi menghasilkan {@code null} dan FK per-item
-	 * dipertahankan apa adanya.</p>
+	 * tersimpan itulah yang dikembalikan apa adanya.</p>
 	 *
 	 * <p><b>Dipanggil dari:</b> mesin posting penggajian lewat
 	 * {@code PembayaranItemGajiPegawai.getAkun()} sebagai fallback ketika baris slip belum punya
 	 * akun sendiri, sehingga nilai yang dikembalikan di sini benar-benar menentukan akun buku besar
-	 * yang dijurnal.</p>
+	 * yang dijurnal — hasil resolusi kelompok tetap dipakai LIVE untuk keperluan itu, hanya saja
+	 * kini tanpa efek samping menulis ke basis data.</p>
 	 *
-	 * @return akun sisi kredit, atau {@code null} bila tidak ada FK tersimpan maupun pemetaan
+	 * @return akun sisi kredit hasil resolusi kelompok, atau FK tersimpan bila tidak ada pemetaan
 	 *         kelompok yang cocok
 	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
@@ -817,17 +806,14 @@ public class ItemGaji extends GeneralValueObject {
 		akun = check(akun);
 
 		Akun a = ambilAkun();
-		if (a != null && a.getId() != null) {
-			akun = a;
-		}
-
-		return akun;
+		return a != null && a.getId() != null ? a : akun;
 	}
 
 	/**
-	 * Mengisi akun sisi kredit secara langsung. Perlu diketahui bahwa nilai yang disimpan lewat
-	 * setter ini <b>tidak bertahan</b> bila {@link #getKelompokItemGaji()} komponen ini punya
-	 * pemetaan akun yang resolvable — {@link #getAkun()} akan menimpanya pada pembacaan berikutnya.
+	 * Mengisi akun sisi kredit secara langsung. Nilai FK tersimpan ini tetap dipertahankan oleh
+	 * {@link #getAkun()} kecuali {@link #getKelompokItemGaji()} komponen ini punya pemetaan akun
+	 * yang resolvable, dalam hal mana nilai hasil resolusi itulah yang dikembalikan (tanpa menimpa
+	 * field ini — lihat Javadoc {@link #getAkun()}).
 	 *
 	 * @param akun akun buku besar sisi kredit, boleh {@code null}
 	 */
@@ -898,16 +884,17 @@ public class ItemGaji extends GeneralValueObject {
 
 	/**
 	 * Menurunkan {@link Akun} sisi <b>kredit</b> dari pemetaan kelompok, tanpa menyentuh FK
-	 * per-item. Alurnya: resolusi {@link #formatItemGaji} lalu {@link #getKelompokItemGaji()}
-	 * (perhatikan: pemanggilan ini sendiri sudah menulis-balik field {@link #kelompokItemGaji}),
+	 * per-item. Alurnya: resolusi {@link #formatItemGaji} lalu {@link #getKelompokItemGaji()},
 	 * kemudian menyerahkan JSON pemetaan {@link KelompokItemGaji#getAkun()} bersama
 	 * {@code formatItemGaji.getSatuanKerja()} ke
 	 * {@code AssetUtil.ambilDataAkun(String, SatuanKerja)}. Utilitas itu memilih entri yang
 	 * {@code satuanKerja}-nya cocok persis, dan jatuh ke entri default (ber-{@code satuanKerja}
 	 * {@code null}) bila tidak ada yang cocok.
 	 *
-	 * <p><b>Efek samping:</b> menugaskan ulang field {@link #formatItemGaji} dan
-	 * {@link #kelompokItemGaji} (lihat peringatan write-back pada Javadoc kelas).</p>
+	 * <p><b>Efek samping:</b> menugaskan ulang field {@link #formatItemGaji} (resolusi proxy lazy
+	 * non-destruktif). Kelompok hasil {@link #getKelompokItemGaji()} disimpan ke variabel lokal,
+	 * <b>bukan</b> ke field {@link #kelompokItemGaji} — perbaikan atas versi lama yang dulu menulis
+	 * field itu di sini juga, menduplikasi write-back yang sudah dihapus dari getter itu sendiri.</p>
 	 *
 	 * <p><b>Penanganan galat:</b> seluruh kegagalan resolusi — JSON pemetaan rusak, akun yang
 	 * dirujuk sudah dihapus, kegagalan sesi Hibernate — ditelan menjadi {@code null} dan hanya
@@ -922,10 +909,10 @@ public class ItemGaji extends GeneralValueObject {
 	public Akun ambilAkun() {
 		Akun a = null;
 		formatItemGaji = check(formatItemGaji);
-		kelompokItemGaji = getKelompokItemGaji();
-		if (formatItemGaji != null && kelompokItemGaji != null) {
+		KelompokItemGaji kelompok = getKelompokItemGaji();
+		if (formatItemGaji != null && kelompok != null) {
 			try {
-				a = AssetUtil.ambilDataAkun(kelompokItemGaji.getAkun(), formatItemGaji.getSatuanKerja());
+				a = AssetUtil.ambilDataAkun(kelompok.getAkun(), formatItemGaji.getSatuanKerja());
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/payroll/ItemGaji.java:240");
 //				e.printStackTrace();
 			}
@@ -944,10 +931,10 @@ public class ItemGaji extends GeneralValueObject {
 	public Akun ambilAkunDebet() {
 		Akun a = null;
 		formatItemGaji = check(formatItemGaji);
-		kelompokItemGaji = getKelompokItemGaji();
-		if (formatItemGaji != null && kelompokItemGaji != null) {
+		KelompokItemGaji kelompok = getKelompokItemGaji();
+		if (formatItemGaji != null && kelompok != null) {
 			try {
-				a = AssetUtil.ambilDataAkun(kelompokItemGaji.getAkunDebet(), formatItemGaji.getSatuanKerja());
+				a = AssetUtil.ambilDataAkun(kelompok.getAkunDebet(), formatItemGaji.getSatuanKerja());
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/payroll/ItemGaji.java:254");
 //				e.printStackTrace();
 			}
@@ -958,15 +945,15 @@ public class ItemGaji extends GeneralValueObject {
 	/**
 	 * Mengembalikan {@link Akun} untuk <b>sisi DEBET</b> jurnal gaji komponen ini (umumnya akun
 	 * Beban Gaji/Beban Tunjangan). Perilakunya cerminan persis {@link #getAkun()}, termasuk
-	 * <b>penulisan-balik yang berpotensi destruktif</b>: hasil {@link #ambilAkunDebet()} menimpa FK
-	 * {@code akun_debet} per-item dan ikut tersimpan pada {@code flush} berikutnya.
+	 * perbaikan yang sama: getter ini <b>tidak lagi menulis-balik</b> hasil {@link #ambilAkunDebet()}
+	 * ke field {@link #akunDebet} — resolusi hanya dipakai untuk nilai kembalian.
 	 *
 	 * <p><b>Dipanggil dari:</b> {@code PembayaranItemGajiPegawai.getAkunDebet()} sebagai fallback
 	 * ketika baris slip belum punya akun debet sendiri; nilainya dikumpulkan
 	 * {@code PostingTransaksiPembayaranGajiAction}/{@code PostingTransaksiPenggajianAction} ke
 	 * daftar akun sisi debet sebelum jurnal dibentuk.</p>
 	 *
-	 * @return akun sisi debet, atau {@code null} bila tidak ada FK tersimpan maupun pemetaan
+	 * @return akun sisi debet hasil resolusi kelompok, atau FK tersimpan bila tidak ada pemetaan
 	 *         kelompok yang cocok
 	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
@@ -974,15 +961,13 @@ public class ItemGaji extends GeneralValueObject {
 	public Akun getAkunDebet() {
 		akunDebet = check(akunDebet);
 		Akun a = ambilAkunDebet();
-		if (a != null && a.getId() != null) {
-			akunDebet = a;
-		}
-		return akunDebet;
+		return a != null && a.getId() != null ? a : akunDebet;
 	}
 
 	/**
-	 * Mengisi akun sisi debet secara langsung. Sama seperti {@link #setAkun(Akun)}, nilai ini tidak
-	 * bertahan bila kelompok komponen punya pemetaan akun debet yang resolvable.
+	 * Mengisi akun sisi debet secara langsung. Nilai FK tersimpan ini tetap dipertahankan oleh
+	 * {@link #getAkunDebet()} kecuali kelompok komponen punya pemetaan akun debet yang resolvable,
+	 * dalam hal mana nilai hasil resolusi itulah yang dikembalikan (tanpa menimpa field ini).
 	 *
 	 * @param akunDebet akun buku besar sisi debet, boleh {@code null}
 	 */
@@ -1208,19 +1193,28 @@ public class ItemGaji extends GeneralValueObject {
 	 * Mengembalikan {@link KelompokItemGaji} komponen ini — sumber sebenarnya akun jurnal debet dan
 	 * kredit lewat {@link #ambilAkun()}/{@link #ambilAkunDebet()}.
 	 *
-	 * <p><b>PERINGATAN — getter ini MENULIS-BALIK dan mengabaikan FK tersimpan.</b> Setelah
-	 * resolusi proxy lazy, method ini menelusuri cache statis {@link #kelompokItemGajis} dan, bila
-	 * menemukan kelompok aktif yang {@code kode}-nya sama dengan {@link #getKode()} komponen ini
-	 * (perbandingan {@code trim} + <i>case-insensitive</i>), <b>menugaskan ulang</b> field
-	 * {@link #kelompokItemGaji} ke kelompok tersebut. Karena kolom {@code kelompok_item_gaji}
-	 * dipetakan pada getter ini dengan {@code dynamicUpdate}, penugasan ulang itu ikut di-{@code
-	 * UPDATE} ke basis data pada {@code flush} berikutnya. Konsekuensi praktisnya:</p>
+	 * <p><b>Tidak lagi menulis-balik (diperbaiki).</b> Getter ini dulu menugaskan ulang field
+	 * {@link #kelompokItemGaji} begitu menemukan kecocokan kode, dan karena kolom
+	 * {@code kelompok_item_gaji} dipetakan property-access dengan {@code dynamicUpdate}, penugasan
+	 * itu ikut ter-{@code UPDATE} ke basis data pada {@code flush} berikutnya — FK yang dipilih
+	 * operator hilang tertimpa hanya karena barisnya dibaca. Getter ini sekarang mengembalikan hasil
+	 * pencocokan kode sebagai NILAI KEMBALIAN saja; field {@link #kelompokItemGaji} tidak pernah
+	 * ditugasi ulang di sini (hanya diresolusi proxy-nya lewat
+	 * {@link GeneralValueObject#check(Object)}, yang non-destruktif).</p>
+	 * <p>Resolusi kode tetap dipakai LIVE oleh {@link #ambilAkun()}/{@link #ambilAkunDebet()} untuk
+	 * menentukan akun jurnal yang berlaku — hanya efek samping penulisannya yang dihapus. Konsekuensi
+	 * yang masih berlaku:</p>
 	 * <ul>
-	 *   <li>Pengelompokan efektif ditentukan oleh <b>kesamaan teks kode</b>, bukan oleh FK yang
-	 *   dipilih operator; FK hanya berlaku selama tidak ada kelompok berkode sama.</li>
+	 *   <li>Pengelompokan efektif tetap ditentukan oleh <b>kesamaan teks kode</b> bila ada kecocokan
+	 *   di cache, bukan oleh FK yang dipilih operator; FK hanya dipakai bila tidak ada kelompok aktif
+	 *   berkode sama.</li>
 	 *   <li>Menambah sebuah {@link KelompokItemGaji} baru yang kodenya kebetulan bertabrakan dengan
-	 *   kode komponen gaji yang sudah ada akan <b>memindahkan akun jurnal</b> komponen-komponen itu
-	 *   secara serentak, di seluruh tenant, tanpa satu pun aksi pada layar Item Gaji.</li>
+	 *   kode komponen gaji yang sudah ada tetap <b>memindahkan akun jurnal EFEKTIF</b>
+	 *   komponen-komponen itu (untuk keperluan penjurnalan berikutnya) — yang berbeda sekarang: FK
+	 *   tersimpan pada baris {@code item_gaji} itu sendiri <b>tidak ikut berubah</b>, sehingga
+	 *   dampaknya tidak permanen dan hilang begitu tabrakan kode diperbaiki/dihapus. Penjaga
+	 *   tabrakan kode lintas tabel tetap diperlukan di lapisan penyimpanan
+	 *   {@code KelompokItemGajiAction.checkKodeKelompokItemGaji()} — lihat Javadoc kelas.</li>
 	 *   <li>Pencocokan berhenti pada kecocokan pertama ({@code break}); bila ada beberapa kelompok
 	 *   aktif berkode sama, yang menang adalah yang lebih dulu muncul pada urutan pemuatan cache —
 	 *   tidak deterministik dari sudut pandang pengguna.</li>
@@ -1228,9 +1222,10 @@ public class ItemGaji extends GeneralValueObject {
 	 *   mis. karena kegagalan yang ditelan saat startup), pencocokan otomatis mati dan akun jurnal
 	 *   jatuh ke FK per-item — <b>hasil penjurnalan bisa berbeda antara instans yang baru
 	 *   dinyalakan dan instans yang cache-nya sudah terisi</b>, tanpa indikasi apa pun di UI.</li>
-	 *   <li>Tidak ada apa pun yang menjaga kesesuaian kode antara kedua tabel: nilai {@code kode} di
-	 *   {@code item_gaji} dan {@code kelompok_item_gaji} sepenuhnya ditentukan operator, tanpa
-	 *   constraint, enum, seed bawaan, maupun validasi. Sinkronisasinya murni konvensi manual.</li>
+	 *   <li>Tidak ada apa pun yang menjaga kesesuaian kode antara kedua tabel selain penjaga di
+	 *   {@code KelompokItemGajiAction}: nilai {@code kode} di {@code item_gaji} dan
+	 *   {@code kelompok_item_gaji} sepenuhnya ditentukan operator, tanpa constraint/enum/seed bawaan
+	 *   di basis data.</li>
 	 * </ul>
 	 *
 	 * <p><b>Penanganan galat:</b> pemeriksaan tiap elemen dibungkus {@code try/catch} yang ditelan,
@@ -1244,12 +1239,13 @@ public class ItemGaji extends GeneralValueObject {
 	@JoinColumn(name = "kelompok_item_gaji", nullable = true)
 	public KelompokItemGaji getKelompokItemGaji() {
 		kelompokItemGaji = check(kelompokItemGaji);
+		KelompokItemGaji resolved = kelompokItemGaji;
 		if (kode != null && !kode.trim().isEmpty()) {
 			for (KelompokItemGaji itemGaji : kelompokItemGajis) {
 				try {
 					if (itemGaji.getKode() != null && itemGaji.getAktif()
 							&& itemGaji.getKode().trim().equalsIgnoreCase(kode.trim())) {
-						kelompokItemGaji = itemGaji;
+						resolved = itemGaji;
 						break;
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/payroll/ItemGaji.java:351");
@@ -1257,13 +1253,14 @@ public class ItemGaji extends GeneralValueObject {
 				}
 			}
 		}
-		return kelompokItemGaji;
+		return resolved;
 	}
 
 	/**
-	 * Mengisi kelompok item gaji secara langsung. Ingat bahwa nilai ini <b>tidak bertahan</b> bila
-	 * {@link #getKode()} komponen ini cocok dengan kode salah satu kelompok aktif —
-	 * {@link #getKelompokItemGaji()} akan menimpanya pada pembacaan berikutnya.
+	 * Mengisi kelompok item gaji secara langsung. FK tersimpan ini tetap dipertahankan oleh
+	 * {@link #getKelompokItemGaji()} kecuali {@link #getKode()} komponen ini cocok dengan kode salah
+	 * satu kelompok aktif, dalam hal mana kelompok hasil pencocokan itulah yang dikembalikan (tanpa
+	 * menimpa field ini — lihat Javadoc {@link #getKelompokItemGaji()}).
 	 *
 	 * @param kelompokItemGaji kelompok pemetaan akun, boleh {@code null}
 	 */

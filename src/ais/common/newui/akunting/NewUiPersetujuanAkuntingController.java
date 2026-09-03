@@ -3,6 +3,7 @@ package ais.common.newui.akunting;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -13,6 +14,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.action.master.akunting.PostingJurnalAction;
+import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
 import ais.common.newui.NewUiRouteGuard;
 import ais.database.hibernate.HibernateUtil;
@@ -24,6 +26,7 @@ import ais.database.model.akunting.PenggantianKasKecil;
 import ais.database.model.akunting.Pertangungjawaban;
 import ais.database.model.akunting.PertangungjawabanKasBesar;
 import ais.database.model.akunting.UangMuka;
+import ais.database.model.rab.SatuanKerja;
 import ais.database.model.sop.DataSop;
 
 /**
@@ -109,15 +112,19 @@ public final class NewUiPersetujuanAkuntingController {
             }
             Tbmuser user = Common.getCurrentUser(request);
             if (user == null) throw new SecurityException("Sesi tidak dikenal.");
+            // Satuan kerja yang berhak dilihat pengguna login. Sama seperti
+            // initCriteria() di layar ZK pembandingnya, kandidat/detail HARUS
+            // dibatasi dengan set ini di level Hibernate.
+            Set<SatuanKerja> allowed = SekolahUtil.ambilSatuanKerjas();
 
             if (MODE_DRAFT_JURNAL.equals(mode)) {
                 draftJurnal(json, action);
             } else if ("meta".equals(action)) {
                 meta(json, mode);
             } else if ("list".equals(action)) {
-                daftar(json, request, mode);
+                daftar(json, request, mode, allowed);
             } else if ("detail".equals(action)) {
-                detail(json, request, mode);
+                detail(json, request, mode, allowed);
             } else {
                 throw new IllegalArgumentException("Aksi tidak dikenal.");
             }
@@ -194,7 +201,7 @@ public final class NewUiPersetujuanAkuntingController {
 
     // ------------------------------------------------------------------ list
 
-    private static void daftar(JSONObject j, HttpServletRequest request, String mode) throws Exception {
+    private static void daftar(JSONObject j, HttpServletRequest request, String mode, Set<SatuanKerja> allowed) throws Exception {
         String status = text(request.getParameter("status"), PENGAJUAN);
         if (!PENGAJUAN.equals(status) && !DISETUJU.equals(status) && !DITOLAK.equals(status)) {
             throw new IllegalArgumentException("Status tidak dikenal.");
@@ -202,7 +209,7 @@ public final class NewUiPersetujuanAkuntingController {
         int tahun = tahunParam(request);
         String kw = text(request.getParameter("q"), "").trim().toLowerCase();
 
-        List<DataSop> kandidat = kandidat(mode, status, tahun);
+        List<DataSop> kandidat = kandidat(mode, status, tahun, allowed);
         JSONArray rows = new JSONArray();
         double total = 0;
         for (DataSop d : kandidat) {
@@ -230,7 +237,7 @@ public final class NewUiPersetujuanAkuntingController {
      * bersama lalu dipilah di Java.</p>
      */
     @SuppressWarnings("unchecked")
-    private static List<DataSop> kandidat(String mode, String status, int tahun) {
+    private static List<DataSop> kandidat(String mode, String status, int tahun, Set<SatuanKerja> allowed) {
         String nama = entity(mode).getSimpleName();
         StringBuilder hql = new StringBuilder("select distinct t from " + nama + " t "
                 + "left join fetch t.dibuatOleh du "
@@ -249,9 +256,21 @@ public final class NewUiPersetujuanAkuntingController {
         if (tahun > 0) {
             hql.append(" and t.tahun = :tahun");
         }
+        // Dibatasi ke satuan kerja yang berhak dilihat pengguna login, sama
+        // seperti initCriteria() pada layar ZK pembandingnya. Kandidat berkolom
+        // satuanKerja kosong tetap ditampilkan (mengikuti pola yang sama pada
+        // NewUiStandingInstructionService); bila pengguna tidak berhak atas
+        // satuan kerja manapun, hanya kandidat tanpa satuan kerja yang tampil.
+        boolean batasi = allowed != null && !allowed.isEmpty();
+        if (batasi) {
+            hql.append(" and (sk is null or sk in (:allowed))");
+        } else {
+            hql.append(" and sk is null");
+        }
         hql.append(" order by t.id desc");
         Query q = HibernateUtil.currentSession().createQuery(hql.toString());
         if (tahun > 0) q.setParameter("tahun", Integer.valueOf(tahun));
+        if (batasi) q.setParameterList("allowed", allowed);
         q.setMaxResults(BATAS_KANDIDAT);
         List<DataSop> hasil = new ArrayList<DataSop>();
         for (Object o : q.list()) {
@@ -262,12 +281,16 @@ public final class NewUiPersetujuanAkuntingController {
 
     // ---------------------------------------------------------------- detail
 
-    private static void detail(JSONObject j, HttpServletRequest request, String mode) throws Exception {
+    private static void detail(JSONObject j, HttpServletRequest request, String mode, Set<SatuanKerja> allowed) throws Exception {
         Long id = idWajib(request.getParameter("id"));
         Session session = HibernateUtil.currentSession();
         Object o = session.get(entity(mode), id);
         if (o == null) throw new IllegalArgumentException("Pengajuan tidak ditemukan.");
         DataSop d = (DataSop) o;
+        // list() sudah dibatasi ke satuan kerja yang berhak dilihat pengguna;
+        // detail() dijaga sama supaya id tidak bisa ditebak untuk membaca data
+        // finansial lintas satuan kerja.
+        ensureScope(d, allowed);
         JSONObject isi = baris(d, nilai(d));
         isi.put("keterangan", teks(d.getKeterangan()));
         isi.put("kodeUnik", teks(panggilTeks(d, "getKodeUnik")));
@@ -368,6 +391,23 @@ public final class NewUiPersetujuanAkuntingController {
      * antarmuka bersama ditambahkan pada model, bagian ini dapat diganti
      * pemanggilan langsung tanpa mengubah bentuk JSON-nya.</p>
      */
+    /**
+     * Menolak akses bila satuan kerja pengajuan {@code d} berada di luar
+     * {@code allowed}. Kandidat tanpa satuan kerja selalu diizinkan, sama
+     * seperti penyaringan di {@link #kandidat}.
+     */
+    private static void ensureScope(DataSop d, Set<SatuanKerja> allowed) {
+        Object sk = panggilObjek(d, "getSatuanKerja");
+        if (sk == null) return;
+        Object skId = panggilObjek(sk, "getId");
+        if (allowed != null) {
+            for (SatuanKerja u : allowed) {
+                if (u.getId() != null && u.getId().equals(skId)) return;
+            }
+        }
+        throw new IllegalArgumentException("Pengajuan tidak ditemukan.");
+    }
+
     private static Object panggilObjek(Object target, String getter) {
         try {
             return target.getClass().getMethod(getter).invoke(target);
