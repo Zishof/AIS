@@ -14,11 +14,30 @@ Satu kendala nyata menjadi alasan untuk tidak mencoba sembilan belas yang lain.
 Harness bersandar-basis-data dilewati secara eksplisit, bukan diam-diam: namanya
 disebut supaya jelas apa yang TIDAK dijalankan.
 
+IA PUN TIDAK BENAR-BENAR TERHALANG (docs/pos/101). Harness itu sudah dirancang
+untuk keadaan ini: bila propertinya kosong ia melewati diri sendiri, dan bila
+diisi ia membuat SCHEMA TEMPORER bernama unik lalu menghapusnya di `finally`.
+Penjaganya (`validasiTargetUat`) secara eksplisit mengizinkan `//localhost`.
+Jadi yang dibutuhkan bukan kredensial UAT, melainkan PostgreSQL apa pun.
+
+Resep klaster sekali-pakai (tidak menyentuh klaster mana pun yang sudah ada):
+
+    initdb  -D <dir-kosong> -U uat -A trust -E UTF8
+    pg_ctl  -D <dir-kosong> -o "-p 55432 -c listen_addresses=localhost" -l log start
+    psql    -h localhost -p 55432 -U uat -d postgres -c "CREATE DATABASE inventory_uat;"
+
+    python uji-uat-java.py --db-url jdbc:postgresql://localhost:55432/inventory_uat --db-user uat
+
+    pg_ctl  -D <dir-kosong> stop     lalu hapus direktorinya
+
+Tanpa --db-url, perilakunya persis seperti sebelumnya: harness itu dilewati dan
+namanya disebut.
+
 Catatan: `ais/src/test` BUKAN working copy SVN (docs/pos/82). Alat ini tidak
 mengubah itu; memasukkannya ke repositori berarti membuat jalur tingkat-atas
 baru, dan itu keputusan tata letak milik pemiliknya.
 
-Pakai:  python uji-uat-java.py [--daftar]
+Pakai:  python uji-uat-java.py [--daftar] [--db-url <jdbc> --db-user <u>]
 """
 import os
 import re
@@ -37,6 +56,16 @@ AKAR_AIS = os.path.dirname(os.path.dirname(akar_repo.AIS_MAIN))
 BERSANDAR_DB = ('PostgreSqlInventoryLedgerIntegrationUat',)
 
 PAKET = re.compile(r'^\s*package\s+([a-zA-Z0-9_.]+)\s*;', re.M)
+
+
+
+def argumen_bernilai(nama):
+    """Nilai untuk `--nama <nilai>`, atau None."""
+    if nama in sys.argv:
+        i = sys.argv.index(nama)
+        if i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    return None
 
 
 def kelas_uat():
@@ -69,8 +98,12 @@ def main():
         return 1
 
     daftar = kelas_uat()
+    db_url_awal = argumen_bernilai('--db-url')
     print('CAKUPAN  harness ber-main()      : %d' % len(daftar))
-    print('         dilewati (bersandar DB) : %s' % ', '.join(BERSANDAR_DB))
+    if db_url_awal:
+        print('         bersandar DB, IKUT jalan: %s' % ', '.join(BERSANDAR_DB))
+    else:
+        print('         dilewati (bersandar DB) : %s' % ', '.join(BERSANDAR_DB))
     if '--daftar' in sys.argv:
         for _, penuh, _n in daftar:
             print('   ' + penuh)
@@ -82,7 +115,14 @@ def main():
         os.makedirs(keluaran)
     cp = classpath()
 
-    sumber = [j for j, _p, n in daftar if n not in BERSANDAR_DB]
+    db_url = argumen_bernilai('--db-url')
+    db_user = argumen_bernilai('--db-user') or 'uat'
+    db_pass = argumen_bernilai('--db-pass') or ''
+    if db_url:
+        print('         basis data UAT          : ' + db_url)
+        sumber = [j for j, _p, _n in daftar]
+    else:
+        sumber = [j for j, _p, n in daftar if n not in BERSANDAR_DB]
     print('')
     print('$ javac (%d berkas)' % len(sumber))
     p = subprocess.Popen(
@@ -104,10 +144,15 @@ def main():
     gagal = []
     print('')
     for _j, penuh, nama in daftar:
+        tambahan = []
         if nama in BERSANDAR_DB:
-            continue
+            if not db_url:
+                continue
+            tambahan = ['-Dinventory.uat.jdbc.url=' + db_url,
+                        '-Dinventory.uat.jdbc.user=' + db_user,
+                        '-Dinventory.uat.jdbc.password=' + db_pass]
         q = subprocess.Popen(
-            ['java', '-cp', keluaran + os.pathsep + cp, penuh],
+            ['java', '-cp', keluaran + os.pathsep + cp] + tambahan + [penuh],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         hasil = q.communicate()[0].decode('utf-8', 'replace').strip()
         ekor = hasil.split('\n')[-1] if hasil else '(tanpa keluaran)'

@@ -88,7 +88,7 @@ mengubah tanpa dapat menguji.
 
 ## B. Menunggu tindakan lingkungan
 
-### 1. Kredensial basis data UAT ditolak — dok. 82
+### 1. ~~Kredensial basis data UAT ditolak~~ — GUGUR, lihat dok. 101
 
 Tiga harness bersandar-basis-data belum pernah berjalan sekali pun. Ini juga
 yang membuat A.1 dan A.5 tidak dapat dinilai risikonya.
@@ -97,6 +97,12 @@ Dikoreksi di dok. 100: yang bersandar-basis-data ternyata **satu**
 (`PostgreSqlInventoryLedgerIntegrationUat`), bukan tiga. Sembilan belas harness
 lain di direktori yang sama bebas basis data, sudah dijalankan, dan semuanya
 lulus. Kendalanya menyangkut satu berkas, bukan seluruh direktori.
+
+Dok. 101 menutupnya sepenuhnya: harness ber-DB itu pun tidak pernah butuh
+kredensial UAT. Ia menerima properti JDBC apa pun, mengizinkan `//localhost`,
+membuat schema temporer, dan menghapusnya di `finally`. Dijalankan pada klaster
+PostgreSQL sekali-pakai di mesin ini: **LULUS**. Dua puluh dari dua puluh
+harness kini terbukti lulus, dan A.5 tidak lagi terhalang oleh butir ini.
 
 ### 2. ~~Tidak ada toolchain Dart/Flutter di mesin ini~~ — GUGUR, lihat F
 

@@ -1,5 +1,65 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 72 — SELESAI 100% (3 Sep 2026) — kredensial 6 payment gateway plaintext digandakan permanen ke tabel Envers `_aud` (flag baru ke `task_a1e32ff3`); entity `PengumumanJadwalPelajaran` ternyata TIDUR/YATIM total (klon salin-tempel tanpa satu pun pemanggil); dua bendera kebijakan verifikasi PPDB tidak pernah ditegakkan (dead policy flags); jalur "Ikut Ujian Online" PPDB melewati seluruh gerbang verifikasi
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/KanalPembayaran.java`** (r83895) —
+  452→1541 baris, 100%. Entity KREDENSIAL 6 payment gateway sekaligus
+  (BNI, BSI Maja, Flip, Finpay, E-Smartlink, Online BMT) — plaintext
+  TERVERIFIKASI di jalur tulis maupun baca. **Mekanisme baru
+  di-flag ke `task_a1e32ff3`**: `@Audited` (Envers) MENGGANDAKAN setiap
+  versi kredensial ke `kanal_pembayaran_aud` — mengganti kunci yang
+  bocor TIDAK menghapus kunci lama dari DB; gerbang tabel revisi bukan
+  hak menu, hanya daftar id/role di konfigurasi (`boleh_lihat_revisi`).
+  Pewarisan hak menu induk `task_beeb2833`/`task_9b7ff647`-style
+  DIKONFIRMASI b61 dan DIPERLUAS 1→3 induk (`JenisBiayaSekolah`,
+  `JenisKegiatan`, `CaraPembayaranKoperasi`). Verifikasi NEGATIF
+  menenangkan: endpoint H2H `OnlineBmt` terjangkau anonim TAPI terikat
+  tenant dengan benar (`sameSecurity` check) — beda dari 12+ servlet
+  bank anonim b66.
+- **`ais/database/model/sekolah/VerifikasiKelengkapanCalonSiswa.java`**
+  (r83896) — 466→1432 baris, 100%. Katalog MASTER jenis berkas PPDB
+  (bukan status verifikasi — nama menyesatkan). VERIFIKASI: bukan
+  duplikasi `CalonSiswaPunyaVerifikasiBerkas` (b56), pasangan
+  master↔transaksi. **Temuan terberat**: 2 bendera kebijakan
+  (`wajibVerifikasiSebelumUjian`/`...Interview`) TIDAK PERNAH
+  ditegakkan — nol pemanggil di seluruh repo, mengoreksi klaim Javadoc
+  b56. Portal PPDB "Ikut Ujian Online" melewati SELURUH gerbang
+  verifikasi (beda dari `_wawancara_service.jsp` yang menegakkannya).
+  Memperkuat `task_1f9c66d3`/`task_4ca32776` — bukan task baru.
+- **`ais/database/model/sekolah/AngketPenilaianGuru.java`** (r83893) —
+  253→1058 baris, 100%. Koreksi Javadoc lama yang KELIRU (bukan "satu
+  butir pertanyaan", melainkan header/definisi "Jenis Angket").
+  **Verifikasi negatif memburuk untuk `task_9ac1e585`**: entity induk
+  ini TIDAK punya flag anonimitas apa pun — tidak ada mitigasi
+  konfigurasi yang tersedia bagi admin, perbaikan wajib di kode
+  konsumen. Bug UI serius: dialog master menimpa combo sekolah dengan
+  instance kosong → SETIAP edit melebarkan angket jadi berlaku untuk
+  SEMUA sekolah instalasi.
+- **`ais/database/model/sekolah/PengumumanJadwalPelajaran.java`**
+  (r83892) — 228→720 baris, 100%. **Entity TIDUR/YATIM total** — klon
+  salin-tempel dari `PengumumanPerkuliahan` (PT), `serialVersionUID`
+  identik dengan 5 kelas lain, TIDAK ADA satu pun Action/Helper/ZUL/JSP
+  yang menulis/membaca/menayangkannya — tabel selalu kosong. 3
+  pengaman hilang saat menyalin (filter XSS, de-proxy, FK wajib jadi
+  opsional) — relevan bila entity ini kelak dihidupkan.
+- **`ais/database/model/sekolah/DetailKelompokKegiatanKesiswaan.java`**
+  (r83894) — 187→841 baris, 100%. Koreksi hierarki: induk langsung
+  adalah `KelompokKegiatanKesiswaan` (bukan `JenisKelompokKegiatanKesiswaan`
+  yang merupakan KAKEK). Zero-gate b64 dikonfirmasi menjangkau
+  `DetailKelompokKegiatanKesiswaanHelper` (nol `checkPrevilages`).
+  Tulis-dari-jalur-render pola b71 terulang: `NilaiKegiatanKesiswaanRenderer`
+  menerbitkan INSERT per sel jabatan×skala hanya dengan membuka tab.
+
+**Tidak ada task baru dibuat batch ini** — seluruh temuan (termasuk 2
+mekanisme baru yang di-flag: penggandaan Envers kredensial, dead
+policy flags PPDB) cocok dengan task audit-luas yang sudah ada
+(`task_a1e32ff3`, `task_1f9c66d3`, `task_4ca32776`, `task_9f4af0bf`,
+`task_9ac1e585`, `task_7b6038ac`).
+
 ## Batch 71 — SELESAI 100% (3 Sep 2026) — 2 entity SANGAT BESAR bernilai tinggi (Sekolah = entity tenant inti, PengaturanBiaya = celah rantai finansial); task baru `task_9ac1e585` (identitas penilai bocor di dasbor angket guru); `task_beeb2833` (pembajakan domain) TERKONFIRMASI berlaku identik di sisi Sekolah — cakupan diperluas 2x; kuota PSB dilewati total di jalur NIS otomatis publik
 
 5 file selesai didokumentasikan penuh (100% method/field), semua

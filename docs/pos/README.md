@@ -112,6 +112,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [98-path-kosong-bukan-berarti-tidak-ada.md](98-path-kosong-bukan-berarti-tidak-ada.md) | "Tidak ada toolchain Dart" ternyata salah; 710 uji dijalankan dan lulus, letaknya kini direkam |
 | [99-kontrol-kas-yang-dijaga-komentar.md](99-kontrol-kas-yang-dijaga-komentar.md) | Sepuluh suite dijalankan (semua hijau); laci kasir dijaga komentar saja, kini ada ujinya |
 | [100-satu-kendala-menjadi-alasan-untuk-sembilan-belas.md](100-satu-kendala-menjadi-alasan-untuk-sembilan-belas.md) | Satu harness ber-DB membuat 19 lainnya ikut dianggap tak dapat dijalankan; semuanya lulus |
+| [101-kredensial-yang-tidak-pernah-dibutuhkan.md](101-kredensial-yang-tidak-pernah-dibutuhkan.md) | Harness ber-DB terakhir ternyata cuma butuh PostgreSQL mana pun; 20 dari 20 lulus |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
