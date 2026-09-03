@@ -2137,14 +2137,11 @@ public class TransaksiKoperasiAction extends GenericAutowireComposer
 
 		if (transaksiKoperasi != null && transaksiKoperasi.getProdukKoperasi() != null
 				&& transaksiKoperasi.getProdukKoperasi().getNomorSurat() != null) {
-			Long index = transaksiKoperasi.getProdukKoperasi().getNomorSurat().getGunakanIndexUrut()
-					? transaksiKoperasi.getProdukKoperasi().getNomorSurat().getNomorIndex()
-					: getindex(transaksiKoperasi.getProdukKoperasi().getNomorSurat());
-			if (tambah) {
-				NomorSurat.tambahIndexNomorSurat(transaksiKoperasi.getProdukKoperasi().getNomorSurat());
-			}
-			String noAgenda = transaksiKoperasi.getProdukKoperasi().getNomorSurat().format(index, WaktuUtil.getDate());
-			return noAgenda;
+			NomorSurat ns = transaksiKoperasi.getProdukKoperasi().getNomorSurat();
+			Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+					: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
+			String noAgenda = ns.format(index, WaktuUtil.getDate());
+			return ais.action.master.KodeUnikUtil.pastikanUnik(TransaksiKoperasi.class, noAgenda);
 		} else {
 
 			if (NomorSuratAlurKeuangan.TRANSAKSI_KOPERASI_DATA == null
@@ -2152,15 +2149,11 @@ public class TransaksiKoperasiAction extends GenericAutowireComposer
 				return Common.getGeneratedBarCode();
 			}
 
-			Long index = NomorSuratAlurKeuangan.TRANSAKSI_KOPERASI_DATA.getNomorSurat().getGunakanIndexUrut()
-					? NomorSuratAlurKeuangan.TRANSAKSI_KOPERASI_DATA.getNomorSurat().getNomorIndex()
-					: getindex(NomorSuratAlurKeuangan.TRANSAKSI_KOPERASI_DATA.getNomorSurat());
-			if (tambah) {
-				NomorSurat.tambahIndexNomorSurat(NomorSuratAlurKeuangan.TRANSAKSI_KOPERASI_DATA.getNomorSurat());
-			}
-			String noAgenda = NomorSuratAlurKeuangan.TRANSAKSI_KOPERASI_DATA.getNomorSurat().format(index,
-					WaktuUtil.getDate());
-			return noAgenda;
+			NomorSurat ns = NomorSuratAlurKeuangan.TRANSAKSI_KOPERASI_DATA.getNomorSurat();
+			Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+					: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
+			String noAgenda = ns.format(index, WaktuUtil.getDate());
+			return ais.action.master.KodeUnikUtil.pastikanUnik(TransaksiKoperasi.class, noAgenda);
 		}
 	}
 

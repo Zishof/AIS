@@ -1505,10 +1505,9 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 				ns = ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat();
 			}
 			if (ns != null) {
-				Long index = ns.getGunakanIndexUrut() ? ns.getNomorIndex() : Long.valueOf(count + 1);
-				if (tambah) {
-					ais.database.model.surat.NomorSurat.tambahIndexNomorSurat(ns);
-				}
+				Long index = (tambah && ns.getGunakanIndexUrut())
+						? ais.database.model.surat.NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+						: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : Long.valueOf(count + 1));
 				String noAgenda = ns.format(index, WaktuUtil.getDate());
 				return ais.action.master.KodeUnikUtil.pastikanUnik(ReimbursementPegawai.class, noAgenda);
 			}
