@@ -893,7 +893,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 				});
 				row.appendChild(tombol);
 			} else {
-				row.appendChild(PostingAkunCrudNavigator.panel("hpp"));
+				row.appendChild(PostingAkunCrudNavigator.panel("hpp", baris.optString("alasan", "")));
 			}
 			rows.appendChild(row);
 		}

@@ -953,7 +953,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 				});
 				row.appendChild(tombol);
 			} else {
-				row.appendChild(PostingAkunCrudNavigator.panel("penjualan"));
+				row.appendChild(PostingAkunCrudNavigator.panel("penjualan", baris.optString("alasan", "")));
 			}
 			rows.appendChild(row);
 		}

@@ -294,7 +294,7 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 				});
 				row.appendChild(btn);
 			} else {
-				row.appendChild(PostingAkunCrudNavigator.panel(jenis));
+				row.appendChild(PostingAkunCrudNavigator.panel(jenis, baris.optString("alasan", "")));
 			}
 			rows.appendChild(row);
 		}
