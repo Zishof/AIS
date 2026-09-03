@@ -147,6 +147,83 @@ public class NomorSurat extends GeneralValueObject {
 
 	private String tipe;
 
+	/**
+	 * Mengambil index yang akan DIPAKAI untuk mencetak nomor surat berikutnya, sekaligus
+	 * menaikkan counter {@code nomorIndex} secara ATOMIK &mdash; menutup celah TOCTOU yang ada
+	 * pada pola lama "baca {@code getNomorIndex()} lalu panggil {@link #tambahIndexNomorSurat}
+	 * terpisah" (dua permintaan bersamaan bisa membaca angka yang sama sebelum salah satunya
+	 * sempat menaikkan, sehingga dua dokumen tercetak dengan nomor identik).
+	 *
+	 * <p><b>Cara kerja.</b> Memakai {@link ais.database.hibernate.KunciEntityHelper#jalankanDenganKunci}
+	 * &mdash; infrastruktur kunci yang sudah dipakai modul lain di codebase ini (mis. disposisi SOP,
+	 * transfer saldo koperasi) dan memang didokumentasikan untuk kasus "generate nomor urut": antrian
+	 * FIFO di aplikasi (lapis 1) LALU {@code SELECT ... FOR NO KEY UPDATE NOWAIT} di database (lapis 3,
+	 * dengan retry+backoff bila baris sedang dikunci proses lain). Baris {@code nomor_surat} dikunci,
+	 * nilai {@code nomorIndex} SAAT INI dibaca sebagai nilai yang akan dipakai (return value), lalu
+	 * langsung ditulis {@code +1} dan di-{@code commit} dalam transaksi pendek yang sama &mdash; tidak
+	 * ada jendela waktu antara "baca" dan "naikkan" yang bisa diselip pemanggil lain, baik dalam satu
+	 * JVM maupun lintas node (berbeda dengan {@code synchronized} pada {@link #tambahIndexNomorSurat}
+	 * yang hanya berlaku se-JVM).</p>
+	 *
+	 * <p><b>Hanya berlaku mode index urut.</b> Bila {@code nomorSurat} null, {@code getGunakanIndexUrut()}
+	 * bernilai false, atau belum tersimpan ({@code getId() == null}), method ini TIDAK mengunci apa pun
+	 * dan sekadar mengembalikan {@code getNomorIndex()} (mode non-index memakai {@code getindex()} milik
+	 * Action masing-masing, tidak lewat sini).</p>
+	 *
+	 * <p><b>Gagal-aman.</b> Bila penguncian gagal (mis. baris terkunci proses lain melebihi batas retry,
+	 * atau baris sudah terhapus), kegagalan dicatat ke {@link ais.common.ErrorAuditUtil} dan method
+	 * JATUH KEMBALI ke perilaku lama (baca {@code nomorIndex} di memori, naikkan tanpa kunci) alih-alih
+	 * melempar exception &mdash; konsisten dengan {@link #tambahIndexNomorSurat} yang juga tidak pernah
+	 * menggagalkan penyimpanan dokumen keuangan hanya karena penomoran resminya bermasalah.</p>
+	 *
+	 * <p><b>Dipanggil dari.</b> {@code generateCode(true)} di seluruh Action/ApiHelper penomoran
+	 * keuangan (Uang Muka, Kas Besar, Kas Kecil, dst.), menggantikan pola lama
+	 * "{@code getNomorIndex()} lalu {@code tambahIndexNomorSurat} terpisah", TEPAT SEBELUM
+	 * {@code format(index, tanggal)} dipanggil dengan index yang dikembalikan di sini.</p>
+	 *
+	 * @param nomorSurat template nomor surat yang indexnya hendak dikonsumsi
+	 * @return index yang harus dipakai untuk mencetak nomor kali ini (BUKAN nilai sesudah increment)
+	 */
+	public static Long ambilLaluTambahIndexNomorSurat(final NomorSurat nomorSurat) {
+		if (nomorSurat == null) {
+			return 0L;
+		}
+		if (!nomorSurat.getGunakanIndexUrut() || nomorSurat.getId() == null) {
+			return nomorSurat.getNomorIndex() == null ? 1L : nomorSurat.getNomorIndex();
+		}
+		final Long[] konsumsiTerkunci = new Long[1];
+		try {
+			boolean adaRow = ais.database.hibernate.KunciEntityHelper.jalankanDenganKunci(NomorSurat.class,
+					nomorSurat.getId(), new ais.database.hibernate.KunciEntityHelper.PekerjaanTransaksi() {
+						public void kerjakan(Session session, Object entityTerkunci) throws Exception {
+							NomorSurat fresh = (NomorSurat) entityTerkunci;
+							Long konsumsi = fresh.getNomorIndex() == null ? 1L : fresh.getNomorIndex();
+							fresh.setNomorIndex(konsumsi + 1L);
+							session.update(fresh);
+							konsumsiTerkunci[0] = konsumsi;
+						}
+					});
+			if (adaRow && konsumsiTerkunci[0] != null) {
+				nomorSurat.setNomorIndex(konsumsiTerkunci[0] + 1L);
+				return konsumsiTerkunci[0];
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e, "NomorSurat.ambilLaluTambahIndexNomorSurat");
+		}
+		// Gagal-aman: baris hilang atau penguncian gagal — jangan blokir penyimpanan dokumen.
+		Long konsumsi = nomorSurat.getNomorIndex() == null ? 1L : nomorSurat.getNomorIndex();
+		nomorSurat.setNomorIndex(konsumsi + 1L);
+		return konsumsi;
+	}
+
+	/**
+	 * @deprecated Sejak perbaikan celah TOCTOU (lihat {@link #ambilLaluTambahIndexNomorSurat}),
+	 * pemanggil BARU sebaiknya memakai {@link #ambilLaluTambahIndexNomorSurat} yang menggabungkan
+	 * baca-index dan naik-index dalam satu operasi terkunci. Method ini dipertahankan agar
+	 * pemanggil lama yang belum dipindahkan tetap berfungsi; ia sendiri tidak berubah.
+	 */
+	@Deprecated
 	public synchronized static void tambahIndexNomorSurat(NomorSurat nomorSurat) {
 		if (nomorSurat != null && nomorSurat.getGunakanIndexUrut()) {
 			// Selalu pakai session DEDICATED (openSession) — TIDAK memakai currentNativeSession

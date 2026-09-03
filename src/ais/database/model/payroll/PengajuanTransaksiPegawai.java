@@ -30,7 +30,6 @@ import org.zkoss.zul.Textbox;
 
 import ais.common.Common;
 import ais.database.model.CommonVO;
-import ais.database.model.KelompokParameterTambahanPengajuanPegawai;
 import ais.database.model.ParameterTambahan;
 import ais.database.model.Pegawai;
 import ais.database.model.Tbmuser;
@@ -161,10 +160,14 @@ import ais.ui.util.WaktuUtil;
  * tanpa ada yang memanggil setter. Lihat peringatan pada {@link #getNama()},
  * {@link #getSatuanKerja()}, {@link #getTahun()}, {@link #getBulan()}, {@link #getSetujui()}, dan
  * {@link #getAktif()}.</p>
- * <p><b>Isian dinamis hilang setiap kali disimpan.</b> Lihat peringatan terinci pada
- * {@link #populateParameterTambahan(List)} — method itu membaca atribut baris ZK dengan nama kunci
- * yang tidak pernah dipasang oleh listener modul ini, sehingga setiap penyimpanan mengosongkan
- * seluruh jawaban parameter tambahan dokumen ini secara diam-diam.</p>
+ * <p><b>Isian dinamis (sudah diperbaiki).</b> {@link #populateParameterTambahan(List)} sempat membaca
+ * atribut baris ZK dengan kunci dan tipe milik modul {@code PengajuanPegawai} yang tidak pernah
+ * dipasang oleh listener modul ini, sehingga setiap penyimpanan mengosongkan seluruh jawaban
+ * parameter tambahan dokumen ini secara diam-diam. Sudah diperbaiki menjadi kunci/tipe
+ * {@code KelompokParameterTambahanPengajuanTransaksiPegawai} milik modul ini, dan method sekarang
+ * fail-closed (mempertahankan nilai lama) bila tidak satu pun baris berhasil diproses. Dokumen yang
+ * disimpan sebelum perbaikan ini kemungkinan sudah telanjur kosong; lihat catatan pemulihan pada
+ * {@link #populateParameterTambahan(List)}.</p>
  * <p><b>Cakupan tenant.</b> Layar ZK menyaring {@code satuanKerja} dengan pola fail-open yang sudah
  * dikenal (daftar satuan kerja kosong menjadi <code>1=1</code>, dan dokumen ber-{@code satuanKerja}
  * null selalu ikut tampil); cabang "punya bawahan" bahkan melewati penyaring satuan kerja sama
@@ -700,16 +703,15 @@ public class PengajuanTransaksiPegawai extends DataSop {
 	 * ketika pengguna mengubah salah satu isian (listener {@code isi}), dan sekali lagi dari
 	 * {@code onSave()} tepat sebelum dokumen disimpan.</p>
 	 *
-	 * <p><b>🚨 CACAT SALIN-TEMPEL YANG MENGHAPUS DATA — TERVERIFIKASI LANGSUNG DARI KODE.</b>
-	 * Method ini membaca atribut baris ZK dengan kunci
+	 * <p><b>✅ CACAT SALIN-TEMPEL YANG MENGHAPUS DATA — SUDAH DIPERBAIKI.</b>
+	 * Method ini sempat membaca atribut baris ZK dengan kunci
 	 * <code>"kelompokParameterTambahanPengajuanPegawai"</code> dan menampungnya dalam variabel
-	 * bertipe {@link KelompokParameterTambahanPengajuanPegawai} — keduanya milik keluarga
+	 * bertipe {@code KelompokParameterTambahanPengajuanPegawai} — keduanya milik keluarga
 	 * <b>{@code PengajuanPegawai}</b> (paket {@code ais.database.model}), bukan keluarga payroll
-	 * ini. Listener modul ini justru memasang atributnya dengan kunci
+	 * ini, sedangkan listener modul ini memasang atributnya dengan kunci
 	 * <code>"kelompokParameterTambahanPengajuanTransaksiPegawai"</code> dan objek bertipe
-	 * {@link KelompokParameterTambahanPengajuanTransaksiPegawai} — kelas yang <b>tidak</b> berelasi
-	 * pewarisan dengan yang di atas (keduanya langsung turunan
-	 * {@code GeneralValueObject}). Akibatnya:</p>
+	 * {@link KelompokParameterTambahanPengajuanTransaksiPegawai}. Kedua kunci/tipe itu sekarang
+	 * sudah disamakan dengan yang dipasang listener. Akibat sebelum perbaikan:</p>
 	 * <ul>
 	 *   <li>{@code row.getAttribute(...)} selalu mengembalikan {@code null};</li>
 	 *   <li>penjaga <code>parameterTambahan != null &amp;&amp; kelompok... != null</code>
@@ -725,14 +727,29 @@ public class PengajuanTransaksiPegawai extends DataSop {
 	 *       {@code onSave()} layar), sehingga hasil akhirnya adalah dokumen dengan lampiran yang
 	 *       ada tetapi tanpa satu pun jawaban tercatat.</li>
 	 * </ul>
+	 * <p><b>Setelah perbaikan</b> method ini juga fail-closed: bila {@code parameterRows} tidak
+	 * kosong tetapi tidak satu pun barisnya berhasil diproses (mis. karena listener gagal memasang
+	 * atribut, atau setiap baris melempar exception), nilai {@link #getParameterTambahan()} dan
+	 * {@link #getParameterTambahanInds()} yang lama <b>dipertahankan</b>, bukan ditimpa string
+	 * kosong. Exception per baris kini juga dicatat ke {@code ais.common.ErrorAuditUtil} selain
+	 * ditampilkan lewat {@code Common.tampilErrorJikaAdmin(e)}.</p>
+	 * <p><b>Pemulihan data historis.</b> Dokumen yang disimpan sebelum perbaikan ini kemungkinan sudah
+	 * telanjur memiliki {@code parameter_tambahan}/{@code parameter_tambahan_inds} kosong di tabel
+	 * {@code payroll.pengajuan_transaksi_pegawai}. Entity ini {@code @Audited} (Envers), sehingga
+	 * revisi lama pada tabel audit (skema {@code payroll_aud}, tabel
+	 * {@code pengajuan_transaksi_pegawai_aud}) mungkin masih menyimpan teks sebelum dikosongkan —
+	 * pemulihan itu belum dijalankan dan memerlukan akses/kredensial basis data untuk memverifikasi
+	 * cakupan kerusakan dan menyusun skrip pemulihan dari revisi audit terakhir yang kolomnya masih
+	 * terisi.</p>
 	 * <p>Pembanding yang menegaskan ini salinan: {@code PengajuanPegawai.populateParameterTambahan()}
 	 * memakai kunci yang sama persis, dan di sana listener pasangannya
 	 * ({@code ParameterTambahanPengajuanPegawaiListener}) memang memasang kunci itu — jadi di
-	 * modul asalnya method ini bekerja. Yang tertinggal saat disalin ke modul payroll adalah
-	 * penyesuaian nama kunci dan tipenya.</p>
+	 * modul asalnya method ini bekerja. Kandidat lain yang menyalin pola ini dan belum diperiksa
+	 * untuk cacat serupa: {@code ais.database.model.employ.CutiDanIzin}, {@code CatatanAdministrasi},
+	 * {@code CatatanMahasiswa}, {@code CatatanPegawai}, {@code IsiAngketParameterUmum},
+	 * {@code KegiatanSiswa}.</p>
 	 *
-	 * <p><b>Format yang seharusnya ditulis</b> (bila penjaga di atas pernah dilewati) adalah dua
-	 * teks berbeda dari data yang sama:</p>
+	 * <p><b>Format yang ditulis</b> adalah dua teks berbeda dari data yang sama:</p>
 	 * <ul>
 	 *   <li>versi terbaca-manusia ke {@link #setParameterTambahan(String)}:
 	 *       <code>namaKelompok-&gt;label &lt;=&gt; nilai &lt;=&gt; url &lt;=&gt; nomorUrut
@@ -748,9 +765,11 @@ public class PengajuanTransaksiPegawai extends DataSop {
 	 * kunci yang dipakai setelah dokumen tersimpan.</p>
 	 *
 	 * <p><b>Kasus tepi lain:</b> pemanggilan dengan daftar {@code null} atau kosong
-	 * <b>keluar lebih awal</b> tanpa menyentuh entity — hanya pada kasus inilah jawaban lama
-	 * selamat. Kegagalan per baris ditelan {@code Common.tampilErrorJikaAdmin(e)}, yang hanya
-	 * menampilkan pesan kepada pengguna admin; pengguna biasa tidak melihat apa pun.</p>
+	 * <b>keluar lebih awal</b> tanpa menyentuh entity, dan sejak perbaikan ini nilai lama juga
+	 * dipertahankan bila {@code parameterRows} tidak kosong tetapi tidak satu pun barisnya berhasil
+	 * diproses (fail-closed). Kegagalan per baris masih ditampilkan lewat
+	 * {@code Common.tampilErrorJikaAdmin(e)} (hanya terlihat pengguna admin) tetapi kini juga
+	 * dicatat ke {@code ais.common.ErrorAuditUtil} sehingga tetap terlacak untuk pengguna biasa.</p>
 	 *
 	 * @param parameterRows baris-baris ZK hasil rakitan listener isian dinamis; {@code null} atau
 	 *                      kosong menjadikan method ini no-op.
@@ -762,14 +781,15 @@ public class PengajuanTransaksiPegawai extends DataSop {
 
 		String parameterTambahanStr = "";
 		String parameterTambahanInds = "";
+		int baris = 0;
 		for (Row row : parameterRows) {
 			try {
 				ParameterTambahan parameterTambahan = (ParameterTambahan) row.getAttribute("parameterTambahan");
-				KelompokParameterTambahanPengajuanPegawai kelompokParameterTambahanPengajuanPegawai = (KelompokParameterTambahanPengajuanPegawai) row
-						.getAttribute("kelompokParameterTambahanPengajuanPegawai");
-				if (parameterTambahan != null && kelompokParameterTambahanPengajuanPegawai != null) {
+				KelompokParameterTambahanPengajuanTransaksiPegawai kelompokParameterTambahanPengajuanTransaksiPegawai = (KelompokParameterTambahanPengajuanTransaksiPegawai) row
+						.getAttribute("kelompokParameterTambahanPengajuanTransaksiPegawai");
+				if (parameterTambahan != null && kelompokParameterTambahanPengajuanTransaksiPegawai != null) {
 					String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanTransaksiPegawai.class, getId(),
-							kelompokParameterTambahanPengajuanPegawai.getId() + "->" + parameterTambahan.getId());
+							kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "->" + parameterTambahan.getId());
 
 					String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 					Textbox keterangan = (Textbox) ((row.getAttribute("keterangan") != null
@@ -784,30 +804,38 @@ public class PengajuanTransaksiPegawai extends DataSop {
 								url = lam.createLinkUri();
 							} catch (Exception e) {
 								Common.tampilErrorJikaAdmin(e);
+								ais.common.ErrorAuditUtil.record(e,
+										"PengajuanTransaksiPegawai.populateParameterTambahan: gagal membuat link lampiran");
 							}
 						}
 
 					}
 
-					String s = kelompokParameterTambahanPengajuanPegawai.getNama() + "->"
+					String s = kelompokParameterTambahanPengajuanTransaksiPegawai.getNama() + "->"
 							+ parameterTambahan.getLabelInputan() + "<=>" + val + "<=>" + url + "<=>"
 							+ parameterTambahan.getNomorUrut() + "<=>" + parameterTambahan.getId() + "<=>"
-							+ kelompokParameterTambahanPengajuanPegawai.getId() + "<=>"
+							+ kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "<=>"
 							+ (keterangan == null ? "" : keterangan.getValue().trim());
 
 					parameterTambahanStr += parameterTambahanStr.isEmpty() ? s : "\n" + s;
 
-					String sIds = kelompokParameterTambahanPengajuanPegawai.getId() + "->" + parameterTambahan.getId()
+					String sIds = kelompokParameterTambahanPengajuanTransaksiPegawai.getId() + "->" + parameterTambahan.getId()
 							+ "<=>" + val + "<=>" + url + "<=>"
 							+ (keterangan == null ? "" : keterangan.getValue().trim());
 					parameterTambahanInds += parameterTambahanInds.isEmpty() ? sIds : "\n" + sIds;
+					baris++;
 				}
 			} catch (Exception e) {
 				Common.tampilErrorJikaAdmin(e);
+				ais.common.ErrorAuditUtil.record(e,
+						"PengajuanTransaksiPegawai.populateParameterTambahan: gagal memproses satu baris isian dinamis");
 			}
 		}
-		// System.out.println("parameterTambahanStr => " + parameterTambahanStr);
-		// System.out.println("parameterTambahanInds => " + parameterTambahanInds);
+		if (baris == 0) {
+			// Tidak satu pun baris berhasil diproses padahal parameterRows tidak kosong:
+			// pertahankan nilai lama (fail-closed) alih-alih menimpanya dengan string kosong.
+			return;
+		}
 		setParameterTambahanInds(parameterTambahanInds);
 		setParameterTambahan(parameterTambahanStr);
 	}
