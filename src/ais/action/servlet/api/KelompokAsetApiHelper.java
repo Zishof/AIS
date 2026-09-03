@@ -208,7 +208,7 @@ public final class KelompokAsetApiHelper {
 				daftar.put(j);
 			}
 			hasil.put("status", "00");
-			hasil.put("daftar", daftar);
+			hasil.put("data", daftar);
 		} finally {
 			tutup(session);
 		}

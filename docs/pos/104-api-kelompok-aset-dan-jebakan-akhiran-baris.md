@@ -74,6 +74,5 @@ dulu.** Di repositori ini keduanya bercampur — `LaporanKantinUtil.java` dan
 
 ## 3. Sisa
 
-Layar Flutter-nya belum dibuat; `posting_akun_perbaikan.dart` masih membuka
-`kelompok_asset.zul`. API-nya sudah siap dipakai, dan `master_asset.zul` tetap menunggu
-keputusan pemilik seperti dicatat doc 103.
+Layar Flutter-nya sudah dibuat — lihat [105-layar-kelompok-aset-natif.md](105-layar-kelompok-aset-natif.md).
+`master_asset.zul` tetap menunggu keputusan pemilik seperti dicatat doc 103.
