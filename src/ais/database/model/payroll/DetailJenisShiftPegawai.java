@@ -710,14 +710,39 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 		return treeMapLokasi.isEmpty() ? null : treeMapLokasi.firstEntry();
 	}
 
+	/**
+	 * Mengembalikan urutan shift ke berapa dalam satu hari/siklus rotasi (1-based).
+	 *
+	 * @return nilai urutan {@link #ke}, dipakai juga sebagai basis label {@link #getNama()} dan sebagai
+	 *         kunci pencarian baris detail pada shift yang berotasi (lihat
+	 *         {@code DetailJenisShiftPegawaiHelper.shiftDetail})
+	 */
 	public Integer getKe() {
 		return ke;
 	}
 
+	/**
+	 * Mengisi urutan shift ke berapa.
+	 *
+	 * @param ke nilai urutan baru (1-based)
+	 */
 	public void setKe(Integer ke) {
 		this.ke = ke;
 	}
 
+	/**
+	 * Menghitung ulang dan mengembalikan durasi shift ini dalam DETIK — versi granularitas lebih halus dari
+	 * {@link #getJumlah()} (yang mengembalikan jam desimal), memakai algoritma normalisasi tanggal dan
+	 * penanganan shift lintas-hari (overnight, {@code end.before(start)} → {@code +1} hari) yang identik
+	 * persis dengan {@link #getJumlah()} — lihat javadoc method tersebut untuk penjelasan lengkap algoritma
+	 * dan kaveatnya (termasuk batasan pada shift yang sengaja berdurasi lebih dari 24 jam).
+	 *
+	 * <p><b>Efek samping (getter destruktif):</b> sama seperti {@link #getJumlah()}, method ini MENIMPA
+	 * field {@link #jumlahSecond} setiap dipanggil, bukan getter baca-murni.</p>
+	 *
+	 * @return durasi shift dalam detik (bulat), {@code 0} bila {@link #getMulai()} atau {@link #getSampai()}
+	 *         {@code null}
+	 */
 	public Integer getJumlahSecond() {
 		if (getMulai() != null && getSampai() != null) {
 			Calendar now = ais.ui.util.WaktuUtil.getCalendar();
@@ -750,10 +775,50 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 		return jumlahSecond;
 	}
 
+	/**
+	 * Mengisi durasi shift dalam detik secara manual. Ditimpa kembali oleh {@link #getJumlahSecond()} pada
+	 * pemanggilan berikutnya (lihat javadoc getter).
+	 *
+	 * @param jumlahSecond durasi detik yang diinginkan; akan ditimpa oleh {@link #getJumlahSecond()}
+	 */
 	public void setJumlahSecond(Integer jumlahSecond) {
 		this.jumlahSecond = jumlahSecond;
 	}
 
+	/**
+	 * Menghitung ulang dan mengembalikan representasi numerik jam.menit dari {@link #getMulai()}, dipakai
+	 * sebagai "jarak" kasar untuk membandingkan seberapa dekat dua jam mulai shift satu sama lain (lihat
+	 * pemakaiannya di {@code DetailJenisShiftPegawaiHelper.shiftDetail} untuk memilih baris detail
+	 * "terdekat" — {@code next} vs {@code back} — terhadap jam absen aktual pegawai).
+	 *
+	 * <p><b>Efek samping (getter destruktif):</b> bila {@link #getMulai()} tidak {@code null}, method ini
+	 * MENIMPA field {@link #jarakMulai} setiap dipanggil.</p>
+	 *
+	 * <p><b>WASPADA — bug tabrakan representasi (bukan sekadar pembulatan).</b> Nilai dibentuk dengan
+	 * menggabungkan {@code HOUR_OF_DAY} dan {@code MINUTE} sebagai STRING desimal TANPA zero-padding pada
+	 * menit — {@code hour + "." + minute}, lalu diparse sebagai {@code double}. Karena {@code Double} tidak
+	 * membedakan trailing zero, INI MENYEBABKAN JAM:MENIT YANG BERBEDA MENGHASILKAN NILAI YANG SAMA
+	 * PERSIS. Contoh konkret: jam 08:05 → string {@code "8.5"} → {@code 8.5}; jam 08:50 → string
+	 * {@code "8.50"} → {@code 8.5} JUGA (parseDouble mengabaikan trailing zero). Dua jam yang terpaut 45
+	 * menit dianggap identik oleh representasi ini. Pola yang sama berlaku untuk pasangan menit lain yang
+	 * membentuk string desimal setara secara numerik meski berbeda sebagai jam:menit (mis. menit 1 vs
+	 * menit 10 sama-sama dekat ke pola "x.1..."). Ini BUKAN sekadar rawan off-by-one — ini tabrakan
+	 * (collision) genuine pada domain jam:menit yang valid dan lazim terjadi (menit satuan seperti :05,
+	 * :06, ..., :09 SELALU bertabrakan dengan menit puluhan senilai literal yang sama, mis. :05 vs :50,
+	 * :06 vs :60-tidak berlaku karena 60 invalid, tapi :05 vs :50, :01 vs :10 TIDAK bertabrakan karena
+	 * "1" != "10" secara string sebelum parse — namun {@code "8.1"} vs {@code "8.10"} SAMA setelah parse
+	 * meski representasi 08:01 vs 08:10 dimaksud berbeda). Dampak nyatanya: perbandingan "jarak terdekat"
+	 * ({@code selisihNext}/{@code selisihBack}) di {@code DetailJenisShiftPegawaiHelper.shiftDetail} dapat
+	 * memilih baris shift yang salah ketika jam mulai dua kandidat kebetulan membentuk pasangan menit
+	 * satuan/puluhan yang bertabrakan seperti ini. Perbaikan yang benar semestinya memformat menit dengan
+	 * zero-padding dua digit (mis. {@code String.format("%d.%02d", hour, minute)}) sebelum parse, atau
+	 * memakai representasi non-ambigu (mis. total menit sejak tengah malam). Perbaikan TIDAK dilakukan pada
+	 * pass dokumentasi ini agar tidak mengubah perilaku behavioral entity — lihat task terpisah yang di-
+	 * spawn untuk perbaikan ini.</p>
+	 *
+	 * @return representasi jam.menit dari jam mulai (lihat catatan tabrakan di atas), atau nilai
+	 *         {@link #jarakMulai} sebelumnya (default {@code 0.0}) bila {@link #getMulai()} {@code null}
+	 */
 	public Double getJarakMulai() {
 		if (getMulai() != null) {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -764,167 +829,384 @@ public class DetailJenisShiftPegawai extends GeneralValueObject {
 		return jarakMulai;
 	}
 
+	/**
+	 * Mengisi nilai jarak-mulai secara manual. Ditimpa kembali oleh {@link #getJarakMulai()} pada
+	 * pemanggilan berikutnya bila {@link #getMulai()} tidak {@code null} (lihat javadoc getter, termasuk
+	 * catatan bug tabrakan representasi menit).
+	 *
+	 * @param jarakMulai nilai jarak-mulai yang diinginkan; berpotensi ditimpa oleh {@link #getJarakMulai()}
+	 */
 	public void setJarakMulai(Double jarakMulai) {
 		this.jarakMulai = jarakMulai;
 	}
 
+	/**
+	 * Mengembalikan ambang menit keterlambatan tahap 1. Bagian dari tangga potongan telat 4-tahap
+	 * ({@link #menitTelat1}..{@link #menitTelat4}) yang dipasangkan dengan {@link #getPotonganTelat1()};
+	 * dibaca oleh pipeline absensi untuk menentukan besaran potongan sesuai seberapa telat pegawai masuk.
+	 *
+	 * @return ambang menit tahap 1, boleh {@code null} bila tahap ini tidak dikonfigurasi
+	 */
 	public Double getMenitTelat1() {
 		return menitTelat1;
 	}
 
+	/**
+	 * Mengisi ambang menit keterlambatan tahap 1.
+	 *
+	 * @param menitTelat1 ambang menit baru
+	 */
 	public void setMenitTelat1(Double menitTelat1) {
 		this.menitTelat1 = menitTelat1;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan untuk keterlambatan tahap 1 (dipicu setelah {@link #getMenitTelat1()}).
+	 *
+	 * @return besaran potongan tahap 1, boleh {@code null}
+	 */
 	public Double getPotonganTelat1() {
 		return potonganTelat1;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk keterlambatan tahap 1.
+	 *
+	 * @param potonganTelat1 besaran potongan baru
+	 */
 	public void setPotonganTelat1(Double potonganTelat1) {
 		this.potonganTelat1 = potonganTelat1;
 	}
 
+	/**
+	 * Mengembalikan ambang menit keterlambatan tahap 2, dipasangkan dengan {@link #getPotonganTelat2()}.
+	 *
+	 * @return ambang menit tahap 2, boleh {@code null}
+	 */
 	public Double getMenitTelat2() {
 		return menitTelat2;
 	}
 
+	/**
+	 * Mengisi ambang menit keterlambatan tahap 2.
+	 *
+	 * @param menitTelat2 ambang menit baru
+	 */
 	public void setMenitTelat2(Double menitTelat2) {
 		this.menitTelat2 = menitTelat2;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan untuk keterlambatan tahap 2 (dipicu setelah {@link #getMenitTelat2()}).
+	 *
+	 * @return besaran potongan tahap 2, boleh {@code null}
+	 */
 	public Double getPotonganTelat2() {
 		return potonganTelat2;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk keterlambatan tahap 2.
+	 *
+	 * @param potonganTelat2 besaran potongan baru
+	 */
 	public void setPotonganTelat2(Double potonganTelat2) {
 		this.potonganTelat2 = potonganTelat2;
 	}
 
+	/**
+	 * Mengembalikan ambang menit keterlambatan tahap 3, dipasangkan dengan {@link #getPotonganTelat3()}.
+	 *
+	 * @return ambang menit tahap 3, boleh {@code null}
+	 */
 	public Double getMenitTelat3() {
 		return menitTelat3;
 	}
 
+	/**
+	 * Mengisi ambang menit keterlambatan tahap 3.
+	 *
+	 * @param menitTelat3 ambang menit baru
+	 */
 	public void setMenitTelat3(Double menitTelat3) {
 		this.menitTelat3 = menitTelat3;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan untuk keterlambatan tahap 3 (dipicu setelah {@link #getMenitTelat3()}).
+	 *
+	 * @return besaran potongan tahap 3, boleh {@code null}
+	 */
 	public Double getPotonganTelat3() {
 		return potonganTelat3;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk keterlambatan tahap 3.
+	 *
+	 * @param potonganTelat3 besaran potongan baru
+	 */
 	public void setPotonganTelat3(Double potonganTelat3) {
 		this.potonganTelat3 = potonganTelat3;
 	}
 
+	/**
+	 * Mengembalikan ambang menit keterlambatan tahap 4 (tertinggi), dipasangkan dengan
+	 * {@link #getPotonganTelat4()}.
+	 *
+	 * @return ambang menit tahap 4, boleh {@code null}
+	 */
 	public Double getMenitTelat4() {
 		return menitTelat4;
 	}
 
+	/**
+	 * Mengisi ambang menit keterlambatan tahap 4.
+	 *
+	 * @param menitTelat4 ambang menit baru
+	 */
 	public void setMenitTelat4(Double menitTelat4) {
 		this.menitTelat4 = menitTelat4;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan untuk keterlambatan tahap 4 (dipicu setelah {@link #getMenitTelat4()}).
+	 *
+	 * @return besaran potongan tahap 4, boleh {@code null}
+	 */
 	public Double getPotonganTelat4() {
 		return potonganTelat4;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk keterlambatan tahap 4.
+	 *
+	 * @param potonganTelat4 besaran potongan baru
+	 */
 	public void setPotonganTelat4(Double potonganTelat4) {
 		this.potonganTelat4 = potonganTelat4;
 	}
 
+	/**
+	 * Mengembalikan ambang menit pulang cepat tahap 1. Bagian dari tangga potongan pulang-cepat 4-tahap
+	 * ({@link #menitCepat1}..{@link #menitCepat4}), dipasangkan dengan {@link #getPotonganCepat1()}.
+	 *
+	 * @return ambang menit tahap 1, boleh {@code null}
+	 */
 	public Double getMenitCepat1() {
 		return menitCepat1;
 	}
 
+	/**
+	 * Mengisi ambang menit pulang cepat tahap 1.
+	 *
+	 * @param menitCepat1 ambang menit baru
+	 */
 	public void setMenitCepat1(Double menitCepat1) {
 		this.menitCepat1 = menitCepat1;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan untuk pulang cepat tahap 1 (dipicu setelah {@link #getMenitCepat1()}).
+	 *
+	 * @return besaran potongan tahap 1, boleh {@code null}
+	 */
 	public Double getPotonganCepat1() {
 		return potonganCepat1;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk pulang cepat tahap 1.
+	 *
+	 * @param potonganCepat1 besaran potongan baru
+	 */
 	public void setPotonganCepat1(Double potonganCepat1) {
 		this.potonganCepat1 = potonganCepat1;
 	}
 
+	/**
+	 * Mengembalikan ambang menit pulang cepat tahap 2, dipasangkan dengan {@link #getPotonganCepat2()}.
+	 *
+	 * @return ambang menit tahap 2, boleh {@code null}
+	 */
 	public Double getMenitCepat2() {
 		return menitCepat2;
 	}
 
+	/**
+	 * Mengisi ambang menit pulang cepat tahap 2.
+	 *
+	 * @param menitCepat2 ambang menit baru
+	 */
 	public void setMenitCepat2(Double menitCepat2) {
 		this.menitCepat2 = menitCepat2;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan untuk pulang cepat tahap 2 (dipicu setelah {@link #getMenitCepat2()}).
+	 *
+	 * @return besaran potongan tahap 2, boleh {@code null}
+	 */
 	public Double getPotonganCepat2() {
 		return potonganCepat2;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk pulang cepat tahap 2.
+	 *
+	 * @param potonganCepat2 besaran potongan baru
+	 */
 	public void setPotonganCepat2(Double potonganCepat2) {
 		this.potonganCepat2 = potonganCepat2;
 	}
 
+	/**
+	 * Mengembalikan ambang menit pulang cepat tahap 3, dipasangkan dengan {@link #getPotonganCepat3()}.
+	 *
+	 * @return ambang menit tahap 3, boleh {@code null}
+	 */
 	public Double getMenitCepat3() {
 		return menitCepat3;
 	}
 
+	/**
+	 * Mengisi ambang menit pulang cepat tahap 3.
+	 *
+	 * @param menitCepat3 ambang menit baru
+	 */
 	public void setMenitCepat3(Double menitCepat3) {
 		this.menitCepat3 = menitCepat3;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan untuk pulang cepat tahap 3 (dipicu setelah {@link #getMenitCepat3()}).
+	 *
+	 * @return besaran potongan tahap 3, boleh {@code null}
+	 */
 	public Double getPotonganCepat3() {
 		return potonganCepat3;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk pulang cepat tahap 3.
+	 *
+	 * @param potonganCepat3 besaran potongan baru
+	 */
 	public void setPotonganCepat3(Double potonganCepat3) {
 		this.potonganCepat3 = potonganCepat3;
 	}
 
+	/**
+	 * Mengembalikan ambang menit pulang cepat tahap 4 (tertinggi), dipasangkan dengan
+	 * {@link #getPotonganCepat4()}.
+	 *
+	 * @return ambang menit tahap 4, boleh {@code null}
+	 */
 	public Double getMenitCepat4() {
 		return menitCepat4;
 	}
 
+	/**
+	 * Mengisi ambang menit pulang cepat tahap 4.
+	 *
+	 * @param menitCepat4 ambang menit baru
+	 */
 	public void setMenitCepat4(Double menitCepat4) {
 		this.menitCepat4 = menitCepat4;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan untuk pulang cepat tahap 4 (dipicu setelah {@link #getMenitCepat4()}).
+	 *
+	 * @return besaran potongan tahap 4, boleh {@code null}
+	 */
 	public Double getPotonganCepat4() {
 		return potonganCepat4;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk pulang cepat tahap 4.
+	 *
+	 * @param potonganCepat4 besaran potongan baru
+	 */
 	public void setPotonganCepat4(Double potonganCepat4) {
 		this.potonganCepat4 = potonganCepat4;
 	}
 
+	/**
+	 * Mengembalikan besaran potongan bila pegawai sama sekali tidak masuk pada shift ini (berbeda dari
+	 * tangga telat/cepat yang bertahap — ini potongan flat untuk ketidakhadiran total).
+	 *
+	 * @return besaran potongan tidak masuk, boleh {@code null}
+	 */
 	public Double getPotonganTidakMasuk() {
 		return potonganTidakMasuk;
 	}
 
+	/**
+	 * Mengisi besaran potongan untuk ketidakhadiran total pada shift ini.
+	 *
+	 * @param potonganTidakMasuk besaran potongan baru
+	 */
 	public void setPotonganTidakMasuk(Double potonganTidakMasuk) {
 		this.potonganTidakMasuk = potonganTidakMasuk;
 	}
 
+	/**
+	 * Mengembalikan jam mulai dihitungnya lembur, dipetakan sebagai kolom {@code TIME}. Berbeda dari
+	 * {@link #getLemburDihitungDariAwalMasuk()} yang bila {@code true} mengabaikan field ini demi jam
+	 * masuk aktual pegawai.
+	 *
+	 * @return jam mulai lembur, boleh {@code null}
+	 */
 	@Temporal(TemporalType.TIME)
 	public Date getLemburMulai() {
 		return lemburMulai;
 	}
 
+	/**
+	 * Mengisi jam mulai dihitungnya lembur.
+	 *
+	 * @param lemburMulai jam mulai lembur baru
+	 */
 	public void setLemburMulai(Date lemburMulai) {
 		this.lemburMulai = lemburMulai;
 	}
 
+	/**
+	 * Mengembalikan batas maksimum jam lembur yang diakui untuk shift ini.
+	 *
+	 * @return batas jam lembur maksimum, boleh {@code null} (berarti tidak dibatasi)
+	 */
 	public Double getLemburMaks() {
 		return lemburMaks;
 	}
 
+	/**
+	 * Mengisi batas maksimum jam lembur yang diakui.
+	 *
+	 * @param lemburMaks batas jam lembur maksimum baru
+	 */
 	public void setLemburMaks(Double lemburMaks) {
 		this.lemburMaks = lemburMaks;
 	}
 
+	/**
+	 * Mengembalikan nama hari spesifik tempat baris shift ini berlaku.
+	 *
+	 * @return nama hari (mis. "Senin"), atau {@code null} bila baris ini berlaku untuk hari apa saja
+	 *         (dipakai sebagai kandidat fallback saat pencarian shift tidak menemukan baris untuk hari
+	 *         spesifik — lihat {@code DetailJenisShiftPegawaiHelper.findDetailShift})
+	 */
 	public String getHari() {
 		return hari;
 	}
 
+	/**
+	 * Mengisi nama hari spesifik tempat baris shift ini berlaku.
+	 *
+	 * @param hari nama hari baru, atau {@code null} untuk menjadikannya berlaku semua hari
+	 */
 	public void setHari(String hari) {
 		this.hari = hari;
 	}
