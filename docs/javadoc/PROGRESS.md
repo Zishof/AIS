@@ -1,5 +1,79 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 80 — SELESAI 100% (3 Sep 2026) — 🎉 PAKET `ais/database/model/akunting` TUNTAS SELURUHNYA (45/45 file, batch 73-80); KONFIRMASI: `task_aac9dcdd` DAN `task_945c2af8` SUDAH DIPERBAIKI di kode oleh sesi remediasi terpisah; `task_66986071` (7 master keuangan) terverifikasi LENGKAP; nol task baru
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika. **Batch ini menuntaskan SELURUH
+paket `akunting`** — 45 file, dimulai batch 73 (pivot dari domain
+`sekolah`), selesai batch 80.
+
+- **`ais/database/model/akunting/AkunDebetCreditNormalisasiSelfTest.java`**
+  (r84023) — 62→108 baris, 100%. **KONFIRMASI PERBAIKAN**:
+  `task_aac9dcdd` (b73, impor Accurate menulis `debit_credit=2`)
+  SUDAH DIPERBAIKI — `Akun.setDebetCredit()` kini menormalkan sandi
+  legacy `2` menjadi `Akun.CREDIT` (-1) SEBELUM disimpan. Karena
+  `Akun` dipetakan property-access, normalisasi ini otomatis berlaku
+  juga pada baris LAMA yang sudah terlanjur tersimpan `2` saat
+  dimuat dari DB — tidak perlu migrasi data terpisah. Self-test ini
+  adalah penjaga regresi permanen untuk perbaikan tersebut.
+- **`ais/database/model/akunting/PenandaJurnalPenyesuaian.java`**
+  (r84025) — 136→339 baris, 100%. **KONFIRMASI PERBAIKAN**:
+  `task_945c2af8` (b76, penjaga anti-posting-ganda jurnal penyesuaian
+  fail-open) SUDAH DIPERBAIKI — entity ini ADALAH perbaikannya:
+  constraint database `UNIQUE (template_id, periode)` sungguhan
+  menggantikan penanda teks `LIKE` yang rapuh, `sudahDiposting()`
+  kini melempar (bukan menelan) exception, format periode divalidasi
+  regex ketat. Ketiga kaki celah lama tertutup. Sisa pekerjaan:
+  backfill data historis (di luar cakupan kode).
+- **`ais/database/model/akunting/JenisPengeluaran.java`** (r84026) —
+  89→736 baris, 100%. **`task_66986071` KINI TERVERIFIKASI LENGKAP**
+  untuk ketujuh master keuangan (`JenisUangMuka`, `JenisKasKecil`,
+  `JenisKasBesar`, `JenisReimbursement`, `JenisPengeluaran` —
+  penutup, `CaraPembayaranTransfer`, `kategori_biaya_sales`).
+  Koreksi: akun per baris TIDAK PERNAH jadi akun jurnal (penjurnalan
+  via `DaftarPengajuanTransfer`) — snapshot murni untuk gerbang &
+  label, sejalan koreksi `JenisReimbursement` b78.
+- **`ais/database/model/akunting/AcaraHasTransaksi.java`** (r84028) —
+  126→593 baris, 100%. Jembatan `rab.Acara`↔`Transaksi` (bukan
+  `crm`/`asset`). **Pola BARU**: pembaca hidup, PENULIS mati
+  (kebalikan `AkunPajak` b78) — penjaga hapus di `KalenderModel`
+  praktis kosong karena tabel tak lagi bertambah isi. **Temuan
+  sistemik dicatat** (cocok pola audit luas, bukan task baru):
+  `GenericCrudAutoEntityAdapter.addScope()` menelan exception
+  "missingProperty" diam-diam — SETIAP entity tanpa kolom tenant
+  otomatis lolos tanpa restriksi CRUD generik (ketiadaan kolom dibaca
+  sebagai "tidak perlu disaring", bukan "tolak").
+- **`ais/database/model/akunting/Matauang.java`** (r84027/84028) —
+  107→538 baris, 100%. Koreksi ganda terhadap hipotesis: NOL kolom
+  kurs/kode/simbol (kurs dititipkan ke `Transaksi.currencyCurs`,
+  bukan katalog) — rancangan katalog ini SECARA STRUKTURAL tidak
+  sanggup menyuplai konversi mata uang apa pun sekalipun FK
+  dihidupkan. **BUKAN entity tidur kelima** — pola "master hidup
+  (CRUD dipakai), seluruh hilir mati" seperti `AkunPajak` b78, tapi
+  lebih dalam (`AkunPajak` setidaknya punya tarif bermakna).
+
+**Nol task baru batch ini** — 2 konfirmasi perbaikan dari sesi
+remediasi eksternal, `task_66986071` diverifikasi lengkap untuk
+ketujuh master, dan satu temuan sistemik (fail-open scoping CRUD
+generik untuk entity tanpa kolom tenant) yang cocok pola audit luas
+yang sudah ada.
+
+**🎉 MILESTONE: paket `akunting` TUNTAS.** Ringkasan 8 batch (73-80):
+mesin jurnal double-entry inti, rantai pencairan dana (UangMuka/
+KasBesar/Reimbursement/StandingInstruction/Transitori), rantai
+laporan keuangan lengkap, katalog master. Temuan kumulatif: **~20
+task keamanan/integritas baru** dibuat sepanjang eksplorasi domain
+ini (jauh lebih tinggi dari domain `sekolah`), termasuk temuan
+paling kritis seluruh inisiatif (`task_e2bb082c`, rantai otorisasi
+realisasi transfer rusak). Pola arsitektural signifikan: fail-open
+`bolehAksi()` role-null tersebar di 9+ helper API (kesalahan
+template/copy-paste, `task_66986071`); 5 entity tidur/yatim
+ditemukan (`PengumumanJadwalPelajaran` sekolah + 4 di akunting);
+beberapa temuan lama (b73-b76) dikoreksi/dipersempit oleh verifikasi
+lanjutan (pelajaran metodologis: jangan generalisasi pola sistemik
+tanpa verifikasi kasus-per-kasus, dikonfirmasi berulang b77-b79).
+
 ## Batch 79 — SELESAI 100% (3 Sep 2026) — TUNTAS rantai laporan keuangan (JenisLaporan→MasterGrupLaporan→KelompokLaporan→KelompokLaporanPunyaAkun→Akun); 3 task baru termasuk akses ANONIM laporan keuangan lintas tenant dan jurnal penutup berlipat; Akun.aktifitas vs AkunArusKas diklarifikasi tidak berelasi
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
