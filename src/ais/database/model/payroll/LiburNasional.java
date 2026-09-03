@@ -335,6 +335,7 @@ public class LiburNasional extends GeneralValueObject {
 	private String keterangan;
 	/** Penanda apakah tanggal ini dihitung sebagai ketidakhadiran bila pegawai absen pada hari libur ini; {@code null} diperlakukan sebagai {@code true}, lihat {@link #getDihitungKetidakhadiran()}. */
 	private Boolean dihitungKetidakhadiran;
+	/** Penanda manual "libur panjang"; lihat Javadoc lengkap pada getter {@link #getLiburPanjang()}. */
 	private Boolean liburPanjang;
 
 	/** Konstruktor default (dibutuhkan Hibernate); tidak menginisialisasi field apa pun secara eksplisit selain default deklarasi field. */
@@ -462,6 +463,7 @@ public class LiburNasional extends GeneralValueObject {
 		return liburPanjang == null ? false : liburPanjang;
 	}
 
+	/** @param liburPanjang penanda manual baru apakah periode libur ini tergolong libur panjang — lihat Javadoc pada {@link #getLiburPanjang()}. */
 	public void setLiburPanjang(Boolean liburPanjang) {
 		this.liburPanjang = liburPanjang;
 	}
