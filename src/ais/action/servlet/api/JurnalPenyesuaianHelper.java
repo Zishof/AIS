@@ -13,6 +13,7 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.akunting.Akun;
+import ais.database.model.akunting.PenandaJurnalPenyesuaian;
 import ais.database.model.akunting.PostingHistory;
 import ais.database.model.akunting.TemplateJurnalPenyesuaian;
 
@@ -22,8 +23,11 @@ import ais.database.model.akunting.TemplateJurnalPenyesuaian;
  *
  * <p>Template didefinisikan sekali (akun debet, akun kredit, nilai, frekuensi), lalu tiap periode
  * cukup dilihat drafnya dan diposting. Satu template hanya bisa diposting SEKALI untuk periode
- * yang sama &mdash; penanda {@code [PENYESUAIAN <id> <periode>]} disimpan pada keterangan jurnal
- * dan dicek sebelum menulis &mdash; sehingga menjalankan ulang tidak menggandakan beban.</p>
+ * yang sama &mdash; ditegakkan baris {@link ais.database.model.akunting.PenandaJurnalPenyesuaian}
+ * ber-{@code UNIQUE (template_id, periode)} yang ditulis pada transaksi yang sama dengan
+ * postingnya (lihat {@link #jalankan}), dengan penanda teks lama pada keterangan jurnal sebagai
+ * fallback kompatibilitas mundur untuk periode yang sudah diposting sebelum tabel itu ada
+ * &mdash; sehingga menjalankan ulang tidak menggandakan beban.</p>
  *
  * <p>Aksi: {@code penyesuaian_template_daftar}, {@code penyesuaian_template_simpan},
  * {@code penyesuaian_template_hapus}, {@code penyesuaian_draft}, {@code penyesuaian_posting}.</p>
@@ -34,6 +38,31 @@ public final class JurnalPenyesuaianHelper {
 	 * Gerbang aksi granular (grid CRUD {@code TbmroleAction}). Admin global boleh; pengguna tanpa
 	 * peran dianggap boleh (kompatibilitas akun lama). Kotak CRUD yang BELUM PERNAH diatur admin
 	 * mengikuti visibilitas menunya -- lihat {@code EbisnisMenuKatalog.bolehAksiAkuntansi}.
+	 *
+	 * <p><b>Fail-open peran {@code null} -- disengaja, bukan bug lokal.</b> Pola ini
+	 * ({@code peran == null -> true}) IDENTIK dengan yang dipakai {@code MasterKeuanganApiHelper},
+	 * {@code PertangungjawabanKasBesarApiHelper}, {@code ClosingApiHelper}, dan
+	 * {@code ReimbursementApiHelper} ({@code task_66986071}). Keputusan eksplisit sesi audit
+	 * 2026-09-03 (lihat Javadoc {@code MasterKeuanganApiHelper.bolehAksi}): mengubahnya jadi
+	 * fail-closed HANYA di satu helper akan (a) menciptakan inkonsistensi perilaku antar modul yang
+	 * identik strukturnya, dan (b) berisiko mengunci akun sah yang cache peran-nya sedang stale --
+	 * {@code tbmuser.hakAkses()} bisa mengembalikan {@code null} bukan karena user tanpa peran
+	 * (kolom FK-nya {@code nullable=false}) melainkan karena entitas {@code Tbmrole} yang dirujuk
+	 * ter-detach/hilang dari session (cache stale). Perbaikan yang aman ada di akar penyebab, atau
+	 * sebagai keputusan produk terpisah yang diterapkan konsisten ke SELURUH keluarga
+	 * {@code *ApiHelper} akuntansi/keuangan sekaligus -- bukan tambalan sepihak di file ini. Di sini
+	 * yang dipagari lebih sensitif dari sebagian besar helper lain: bukan cuma CRUD template, tapi
+	 * juga {@code penyesuaian_posting} yang menulis jurnal finansial (lihat {@link #jalankan}).</p>
+	 *
+	 * <p><b>Aksi baca ({@code penyesuaian_template_daftar}, {@code penyesuaian_draft}) TIDAK lewat
+	 * gerbang ini sama sekali</b> -- ini juga bukan lubang khusus file ini: helper API sejenis
+	 * ({@code SaldoAwalAkunHelper.proses}, method {@code daftar}/{@code draftAtauPosting} untuk
+	 * mode draft) mengikuti pola yang sama, hanya mutasi (create/update/delete/posting) yang
+	 * digerbangi granular; baca mengandalkan gerbang kasar {@code PosApi.bolehAksesActionKantin}
+	 * (yang untuk prefiks {@code penyesuaian_} jatuh ke default {@code true} karena tidak ada
+	 * cabang {@code menu.optBoolean(...)} khusus) ditambah keharusan token POS terautentikasi.
+	 * Konsisten dengan butir di atas: menutup jalur baca di satu helper tanpa menyelaraskan seluruh
+	 * keluarga hanya memindah inkonsistensi, bukan menghapusnya.</p>
 	 */
 	private static boolean bolehAksiMenu(Tbmuser tbmuser, String kunciMenu, String aksi) {
 		if (ais.common.Common.getApakahAdminLain(tbmuser)) {
@@ -209,6 +238,23 @@ public final class JurnalPenyesuaianHelper {
 		}
 	}
 
+	/**
+	 * Menghapus template -- DITOLAK bila template sudah pernah diposting (punya baris
+	 * {@link PenandaJurnalPenyesuaian}).
+	 *
+	 * <p>Id template adalah komponen kunci anti-posting-ganda (lihat {@link #jalankan}). Bila
+	 * template yang sudah diposting boleh dihapus lalu dibuat ulang, baris baru mendapat id baru
+	 * yang belum punya penanda apa pun, sehingga periode yang sudah diposting bisa diposting ULANG
+	 * -- sementara jurnal lama tetap tersimpan (tidak ikut terhapus). Nonaktifkan (kolom Aktif)
+	 * adalah cara yang benar untuk menghentikan template yang sudah pernah dipakai.</p>
+	 *
+	 * <p><b>Celah residual yang diketahui.</b> Penjaga ini hanya melihat baris
+	 * {@link PenandaJurnalPenyesuaian} (skema BARU). Template yang HANYA pernah diposting lewat
+	 * penanda teks lama (sebelum tabel ini ada, belum pernah di-backfill -- lihat Javadoc kelas itu)
+	 * tidak akan terdeteksi di sini dan tetap bisa dihapus-lalu-dibuat-ulang. Menutup celah ini
+	 * sepenuhnya butuh migrasi backfill data historis dari {@code posting_history.keterangan}, yang
+	 * belum dijalankan karena butuh kredensial basis data produksi.</p>
+	 */
 	private static void hapus(JSONObject payload, JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -217,6 +263,18 @@ public final class JurnalPenyesuaianHelper {
 			if (t == null) {
 				hasil.put("status", "99");
 				hasil.put("message", "Template tidak ditemukan.");
+				return;
+			}
+			Long sudahDipostingBerapaKali = (Long) session.createCriteria(PenandaJurnalPenyesuaian.class)
+					.add(org.hibernate.criterion.Restrictions.eq("templateId", t.getId()))
+					.setProjection(org.hibernate.criterion.Projections.rowCount())
+					.uniqueResult();
+			if (sudahDipostingBerapaKali != null && sudahDipostingBerapaKali.longValue() > 0) {
+				hasil.put("status", "99");
+				hasil.put("message", "Template ini sudah diposting untuk " + sudahDipostingBerapaKali
+						+ " periode dan tidak boleh dihapus (id template dipakai sebagai kunci "
+						+ "anti-posting-ganda; menghapusnya membuka celah posting ulang). "
+						+ "Nonaktifkan template ini saja (kolom Aktif) untuk menghentikannya.");
 				return;
 			}
 			// Jurnal yang sudah terbentuk TIDAK ikut terhapus -- riwayat akuntansi tidak boleh
@@ -234,21 +292,45 @@ public final class JurnalPenyesuaianHelper {
 		}
 	}
 
-	/** Penanda periode per template; dipakai sebagai kunci anti-posting-ganda. */
+	/**
+	 * Penanda periode per template dalam bentuk teks lama (fallback kompatibilitas mundur saja --
+	 * lihat {@link #sudahDiposting}). Ditaruh di AWAL {@code keterangan} pada posting baru supaya
+	 * tidak ikut terpotong bila {@code keterangan} melewati batas kolom {@code varchar(255)}.
+	 */
 	private static String penanda(long idTemplate, String periode) {
 		return "[PENYESUAIAN " + idTemplate + " " + periode + "]";
 	}
 
-	private static boolean sudahDiposting(Session session, String penanda) {
-		try {
-			Object v = session.createSQLQuery("select count(*) from akunting.posting_history"
-					+ " where jenis = :jenis and coalesce(keterangan,'') like :penanda")
-					.setParameter("jenis", JENIS).setParameter("penanda", "%" + penanda + "%").uniqueResult();
-			return v instanceof Number && ((Number) v).longValue() > 0;
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "auto-audit JurnalPenyesuaianHelper.sudahDiposting");
-			return false;
+	/**
+	 * Sudah pernah diposting untuk pasangan (template, periode) ini?
+	 *
+	 * <p>Sumber kebenaran utama adalah baris {@link PenandaJurnalPenyesuaian}, ditulis pada
+	 * transaksi yang sama dengan postingnya dan dijaga {@code UNIQUE (template_id, periode)} di
+	 * basis data (lihat {@link #jalankan}) -- ini yang menutup celah TOCTOU pada permintaan
+	 * bersamaan, karena bergantung pada constraint basis data, bukan urutan baca-lalu-tulis di
+	 * aplikasi. Fallback ke penanda TEKS lama pada {@code posting_history.keterangan} tetap
+	 * diperiksa untuk periode yang sudah diposting SEBELUM tabel penanda ini ada (migrasi
+	 * backfill data historis belum dijalankan -- lihat Javadoc {@link PenandaJurnalPenyesuaian}).</p>
+	 *
+	 * <p><b>Gagal-tertutup.</b> Exception apa pun pada kedua pemeriksaan DILEMPAR ke pemanggil,
+	 * bukan ditelan lalu dianggap "belum diposting" -- gangguan basis data sesaat sekarang
+	 * menghentikan draf/posting (respons error), bukan diam-diam melumpuhkan penjaga anti-duplikat.
+	 * {@code proses(...)}/pemanggil servlet membungkus ini dengan penanganan exception baku.</p>
+	 */
+	private static boolean sudahDiposting(Session session, long idTemplate, String periode) {
+		Long jumlahPenandaBaru = (Long) session.createCriteria(PenandaJurnalPenyesuaian.class)
+				.add(org.hibernate.criterion.Restrictions.eq("templateId", Long.valueOf(idTemplate)))
+				.add(org.hibernate.criterion.Restrictions.eq("periode", periode))
+				.setProjection(org.hibernate.criterion.Projections.rowCount())
+				.uniqueResult();
+		if (jumlahPenandaBaru != null && jumlahPenandaBaru.longValue() > 0) {
+			return true;
 		}
+		Object v = session.createSQLQuery("select count(*) from akunting.posting_history"
+				+ " where jenis = :jenis and coalesce(keterangan,'') like :penanda")
+				.setParameter("jenis", JENIS)
+				.setParameter("penanda", "%" + penanda(idTemplate, periode) + "%").uniqueResult();
+		return v instanceof Number && ((Number) v).longValue() > 0;
 	}
 
 	private static void jalankan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil, boolean terapkan)
@@ -258,6 +340,16 @@ public final class JurnalPenyesuaianHelper {
 		if (periode.isEmpty()) {
 			hasil.put("status", "99");
 			hasil.put("message", "Periode (format yyyy-MM) wajib diisi.");
+			return;
+		}
+		// Format ketat, BUKAN cuma "tidak kosong": tanpa ini "2026-1" dan "2026-01" mem-parse ke
+		// bulan yang SAMA (tanggalPeriode di bawah lenient) tetapi menghasilkan DUA penanda
+		// anti-posting-ganda berbeda, sehingga beban yang sama bisa diposting berkali-kali hanya
+		// dengan mengubah ejaan periode lewat REST. Menolak ejaan non-kanonik di sini membuat tepat
+		// satu representasi teks per bulan, jadi tidak perlu langkah normalisasi terpisah.
+		if (!periode.matches("\\d{4}-(0[1-9]|1[0-2])")) {
+			hasil.put("status", "99");
+			hasil.put("message", "Periode harus berformat yyyy-MM dengan bulan 01-12 (contoh: 2026-01).");
 			return;
 		}
 		JSONArray idsArr = payload == null ? null : payload.optJSONArray("posting_ids");
@@ -278,7 +370,7 @@ public final class JurnalPenyesuaianHelper {
 				} else if (TemplateJurnalPenyesuaian.TAHUNAN.equals(t.getFrekuensi())
 						&& !periode.endsWith("-12")) {
 					alasan = "Template tahunan hanya diposting pada periode Desember.";
-				} else if (sudahDiposting(session, penanda(t.getId().longValue(), periode))) {
+				} else if (sudahDiposting(session, t.getId().longValue(), periode)) {
 					alasan = "Sudah diposting untuk periode " + periode + ".";
 				}
 				JSONObject j = new JSONObject();
@@ -328,15 +420,40 @@ public final class JurnalPenyesuaianHelper {
 				if (t == null) {
 					continue;
 				}
-				String ket = "Penyesuaian " + t.getNama() + " periode " + periode + " "
-						+ penanda(idT, periode);
+				// Penanda TEKS ditaruh di AWAL (bukan ujung) supaya bila "Penyesuaian <nama> periode
+				// <periode>" mendorong total melewati batas kolom varchar(255), yang terpotong
+				// adalah ekor deskriptifnya -- bukan penanda. Penanda ini sekarang cuma jejak
+				// manusia-terbaca/fallback kompatibilitas mundur (lihat sudahDiposting); penjaga
+				// SUNGGUHAN adalah baris PenandaJurnalPenyesuaian di bawah.
+				String ket = penanda(idT, periode) + " Penyesuaian " + t.getNama() + " periode " + periode;
+				if (ket.length() > 255) {
+					ket = ket.substring(0, 255);
+				}
 				try {
+					session.beginTransaction();
+					// TOCTOU-close: cek "siap" di atas dihitung SEBELUM loop ini, jadi dua
+					// permintaan penyesuaian_posting yang berjalan bersamaan bisa sama-sama lolos
+					// pemeriksaan itu. Menulis baris penanda LEBIH DULU pada transaksi yang sama,
+					// lalu flush segera, memaksa UNIQUE (template_id, periode) di basis data
+					// menegakkan keputusan -- pemenangnya yang lanjut menulis jurnal, yang kalah
+					// menabrak ConstraintViolationException di bawah dan dihitung sebagai gagal
+					// (bukan sukses ganda). Pola sama dipakai KantinHelper utk idempotensi sesi kas.
+					PenandaJurnalPenyesuaian penandaBaru = new PenandaJurnalPenyesuaian();
+					penandaBaru.setTemplateId(Long.valueOf(idT));
+					penandaBaru.setPeriode(periode);
+					penandaBaru.setOlehId(pengguna.getUserId());
+					session.save(penandaBaru);
+					session.flush();
+
 					PostingHistory ph = new PostingHistory(JENIS);
 					ph.setTanggal(tanggal);
 					ph.setTbmuser(pengguna);
 					ph.setKeterangan(ket);
-					session.beginTransaction();
 					session.save(ph);
+					session.flush();
+					penandaBaru.setPostingHistoryId(ph.getId());
+					session.update(penandaBaru);
+
 					boolean ok = CommonAkunting.saveTransaksi(new Akun[] { t.getAkunDebet() },
 							new Akun[] { t.getAkunKredit() }, null, null, ph, true, ket, tanggal,
 							new Double[] { t.getNilai() }, new Double[] { t.getNilai() },
@@ -348,6 +465,10 @@ public final class JurnalPenyesuaianHelper {
 					}
 					session.getTransaction().commit();
 					berhasil++;
+				} catch (org.hibernate.exception.ConstraintViolationException eDup) {
+					batalkanDiam(session);
+					masalah.put(t.getNama() + ": sudah diposting untuk periode " + periode
+							+ " (terdeteksi saat menulis -- kemungkinan permintaan bersamaan).");
 				} catch (Exception ex) {
 					batalkanDiam(session);
 					ais.common.ErrorAuditUtil.record(ex, "auto-audit JurnalPenyesuaianHelper.posting " + idT);
