@@ -1,5 +1,57 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 47 — SELESAI 100% (3 Sep 2026) — EKSPOR 116-KOLOM PII TANPA PRIVILESE DITEMUKAN, TASK ESKALASI BARU
+
+5 file selesai didokumentasikan penuh (4 entity model + 1 Action dasbor),
+semua dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi
+`cmp` byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/ChecklistPenilaianGuru.java`** (r83650)
+  — 201→659 baris, 100% (39 anggota). Javadoc dangkal lama (r78724)
+  DIPERKAYA bukan diganti. TERKONFIRMASI HIDUP PENUH (kontras entity
+  transaksinya yang yatim, b45). Bug fungsional serius: asimetri filter
+  gerbang-wajib-isi vs formulir-tampilan bisa membuat status "angket
+  belum lengkap" TIDAK PERNAH bisa dituntaskan siswa mana pun di
+  instalasi multi-sekolah (blokir permanen). Modul disalin dari versi
+  dosen TAPI tidak lengkap: `pilihan` (label opsi JSON) tak pernah
+  diisi → label radio selalu angka telanjang, tak pernah "Sangat Baik".
+- **`ais/database/model/sekolah/Apresiasi.java`** (r83647) — 165→604
+  baris, 100% (34 anggota). Master butir apresiasi (`kredit`).
+  Konfirmasi pola dasbor fail-open (kini dijangkau dari TIGA layar
+  berbeda, bukan cuma satu). Bug kembar temuan batch 42:
+  `totalPointPenghargaan` di rapor SELALU 0.0 — bug tunggal batch 42
+  ternyata SEPASANG (sisi disiplin & apresiasi, file sama).
+- **`ais/database/model/sekolah/BlokirSiswa.java`** (r83648) — 164→624
+  baris, 100% (35 anggota). Investigasi penegakan blokir: HANYA 1 dari
+  3 saklar (`login`) benar-benar ditegakkan, dan HANYA di jalur portal
+  ZK — jalur REST/mobile (token login, API) BYPASS TOTAL. `krs`/`nilai`
+  nol pembaca sama sekali. Kontrol keamanan semu parsial — cocok pola
+  "6 pola berulang" yang sudah tercatat.
+- **`ais/database/model/sekolah/PenghasilanOrangTuaSiswa.java`**
+  (r83649) — 162→491 baris, 100% (32 anggota). Premis awal keliru
+  (kamus rentang global, bukan data pribadi langsung). TAPI investigasi
+  menemukan **`SiswaAction.initCriteria()` TANPA FILTER TENANT SAMA
+  SEKALI** (bukan fail-open — memang tidak ada filter) — siapa pun
+  hak READ menu Siswa melihat penghasilan ayah/ibu/wali, NIK, nomor HP
+  orang tua SELURUH siswa lintas sekolah/yayasan. Kelas keparahan lebih
+  tinggi dari 5 instance fail-open sebelumnya.
+- **`ais/action/master/dashboard/sekolah/DasboardSiswa.java`** (r83651)
+  — 626→879 baris, Javadoc lengkap. **TEMUAN PALING SEVERE batch ini**:
+  dua ternary TERBALIK ARAH melumpuhkan filter tenant tab "Data", DAN
+  tautan drill-down mengekspor **116 kolom PII** (NIK, data kesehatan,
+  rekening bank, KOORDINAT GPS RUMAH) hingga 1 juta+ baris, TANPA
+  privilese apa pun — cukup hak BACA menu Siswa 1 sekolah untuk
+  mengunduh data SELURUH instalasi. Mekanisme BEDA dari `task_5e93a600`
+  (bukan `OrangTua.ambilAnakSiswa()`). **Task eskalasi baru:
+  `task_4ca32776`.**
+
+**Total kumulatif fail-open `task_5e93a600` kini termasuk 6 mekanisme**
+(5 varian `OrangTua.ambilAnakSiswa()` + 1 varian ternary terbalik BARU
+di `DasboardSiswa`) — pola arsitektur "dasbor sekolah tanpa scoping
+tenant" terbukti MULTI-MEKANISME, bukan 1 root cause tunggal.
+
+Total akumulasi 47 sesi: **412 file + 1 Action dasbor**.
+
 ## Batch 46 — SELESAI 100% (3 Sep 2026) — POLA DASBOR FAIL-OPEN KINI 4 INSTANCE, SQL INJECTION "BOM WAKTU" DITEMUKAN
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
