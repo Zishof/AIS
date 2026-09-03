@@ -1,5 +1,63 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 61 — SELESAI 100% (3 Sep 2026) — rantai penilaian LENGKAP 8/8, IDOR nilai siswa lintas sekolah, instance ke-7 PSB, pewarisan hak menu → kredensial bank
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika. Rantai penilaian siswa kini
+**LENGKAP 8/8 entity** (dimulai b48, selesai b61):
+
+- **`ais/database/model/sekolah/JenisBiayaSekolah.java`** (r83731) —
+  279→1095 baris, 100% (67 anggota). Konfigurasi PERILAKU billing
+  (periode generator tagihan, `gunakanCalonSiswa`). **Pewarisan hak
+  menu PALING BERBAHAYA sejauh ini**: CRUD "Jenis Biaya Sekolah"
+  otomatis memberi CRUD `KanalPembayaran` — kredensial gateway
+  pembayaran BANK HIDUP (BNI/BSI/Flip/Finpay/OnlineBmt/Esmartlink).
+  3 jalur kerusakan data saat flag diubah pada instalasi berjalan
+  (kunci identitas Tagihan, FK gelombang/paket dihapus permanen).
+- **`ais/database/model/sekolah/GrupPenilaian.java`** (r83733) —
+  229→925 baris, 100% (51 anggota). Simpul tengah rantai. Bug
+  bom-waktu timer terkonfirmasi LEBIH PARAH: beberapa timer async
+  berjalan bersamaan, overlay "sibuk" dilepas oleh timer PERTAMA yang
+  selesai (bukan yang mengisi peta) — jendela rentan lebih lebar dari
+  dugaan. `getKeterangan()` tidak dipetakan (instance baru pola b56).
+  `compareTo()` override kunci dibalik — 6 titik render/API
+  bergantung urutan alfabetis, admin tak bisa mengurutkan ulang.
+- **`ais/database/model/sekolah/GrupKategoriItemPenilaianSiswa.java`**
+  (r83732) — 222→919 baris, 100% (48 anggota). Bug "kategori hantu"
+  (b51/54) TERNYATA ada juga SATU TINGKAT DI ATAS — bukan cuma 1
+  kategori bocor, tapi SATU BLOK KOLOM PENUH rapor. **IDOR baru**:
+  `NilaiSiswaApi.input_nilai_siswa()` — akun guru MANA PUN di
+  instalasi bisa menulis/mengubah nilai siswa MANA PUN di sekolah
+  mana pun, nol cek kepemilikan kelas/mapel.
+- **`ais/database/model/sekolah/CalonSiswaPunyaVerifikasiMatapelajaran.java`**
+  (r83734) — 233→772 baris, 100% (28 anggota). Bug penimpaan calon
+  siswa (b57) TERKONFIRMASI LEBIH PARAH: calon siswa sekadar
+  menyentuh KKM sel yang SUDAH diverifikasi petugas → status
+  ter-reset tanpa tombol Simpan, tanpa cara batal. **Instance ke-7
+  keluarga PSB nol-privilese** (`VerifikasiMatapelajaranPSBHelper`,
+  berlaku di SEMUA 12 kelas `PPDB*`). Efek gabungan dengan tombol
+  tanpa gerbang: hak BACA → ekspor massal rapor lintas sekolah ke
+  `/opt/ecampus/lampiran_raport_<timestamp>/` (di luar webapp, tapi
+  pola serupa `task_a1e32ff3`).
+- **`ais/database/model/sekolah/OrganisasiSiswaPunyaSiswa.java`**
+  (r83735) — 212→746 baris, 100% (25 anggota). Tabel sesungguhnya yang
+  disasar SQLi `OrganisasiSiswaAction` (b46) — mekanisme "bom waktu"
+  TERKONFIRMASI PERSIS (payload muncul SEBELUM titik SELECT yang
+  rusak skema, sehingga tak bisa menutup query). **Bug KEDUA
+  ditemukan**: filter guru pembina JUGA selalu gagal (properti
+  `@Transient`, bukan kolom DB) — 2 filter rusak di layar yang sama.
+  Broken access control: checkbox "Setujui" (gerbang resmi jabatan
+  organisasi) TANPA GERBANG hak sama sekali — hak BACA meresmikan
+  siswa jadi "Ketua OSIS". Getter destruktif MENGOSONGKAN PERMANEN
+  kolom `tbmuser` untuk pengajuan akun siswa begitu baris tersentuh.
+
+**Tidak ada task baru dibuat** — seluruh temuan (termasuk 2 sink SQLi
+baru dan endpoint `/Data` reflektif tanpa gerbang) memperkuat
+`task_493423ef`/`task_5e93a600`/`task_b1e610b6`/`task_9b7ff647` yang
+sudah ada. Kumulatif sesi ini: **482+ file** (135 batch 34-61) + 343
+(sesi sebelumnya) dari 7.401 total (~12,2%).
+
 ## Batch 60 — SELESAI 100% (3 Sep 2026) — RANTAI BILLING KEUANGAN AKTUAL DIAUDIT: broken access control finansial parah, endpoint bank TANPA AUTENTIKASI SAMA SEKALI, task baru `task_a1e32ff3` (ekspor /tmp/ publik)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
