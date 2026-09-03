@@ -1,5 +1,75 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 71 — SELESAI 100% (3 Sep 2026) — 2 entity SANGAT BESAR bernilai tinggi (Sekolah = entity tenant inti, PengaturanBiaya = celah rantai finansial); task baru `task_9ac1e585` (identitas penilai bocor di dasbor angket guru); `task_beeb2833` (pembajakan domain) TERKONFIRMASI berlaku identik di sisi Sekolah — cakupan diperluas 2x; kuota PSB dilewati total di jalur NIS otomatis publik
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/Sekolah.java`** (r83880) — 1367→2618
+  baris, 100%. **Entity TENANT INTI** — koreksi rantai warisan (`Sekolah
+  extends VoKunci extends DataSop extends GeneralValueObject`, bukan
+  langsung). Relasi ke `Yayasan` TERNYATA **opsional** dan `setYayasan()`
+  menormalkan objek id-null jadi `null` asli — DI LEVEL ENTITY penjaga
+  `== null` BENAR-BENAR menyala (kebalikan pola fail-open `SekolahUtil`
+  b67). Tapi `SekolahUtil.getSekolah()`/`getSekolahData()` sendiri punya
+  cacat IDENTIK — selalu `return new Sekolah()`, tak pernah `null`
+  (190 pemanggil vs hanya 2 penjaga `==null`, keduanya mati).
+  **`task_beeb2833` (pembajakan domain via substring) DIKONFIRMASI
+  berlaku IDENTIK dari sisi `Sekolah.domain`/`reInitByDomain()` —
+  cakupan task ini DUA KALI LEBIH LUAS dari catatan b67.** Mekanisme
+  baru dicatat (bukan task terpisah, varian getter write-back): 8
+  getter menulis balik dari `Pendaftar`, termasuk `getDomain()` —
+  sekadar MEMBACA entity dalam sesi hidup bisa menerbitkan UPDATE yang
+  memindahkan pemetaan host. Pewarisan hak menu induk STRUKTURAL:
+  CRUD tenant inti (termasuk kredensial payment gateway plaintext)
+  diwarisi dari menu "Pendaftar".
+- **`ais/database/model/sekolah/PengaturanBiaya.java`** (r83883) —
+  1855→3448 baris, 100%. Entity SENTRAL rantai finansial
+  (`JenisBiayaSekolah→PengaturanBiaya→ItemBiayaSekolah/NominalBiaya→
+  Tagihan→PembayaranSiswaDetail→PembayaranSiswa`). Bug integritas baru:
+  notifikasi tagihan ke wali murid menghitung TOTAL hanya dari SATU
+  angsuran (variabel ditimpa dalam loop) — pesan bisa lebih kecil dari
+  kewajiban sebenarnya (angka di layar pembayaran tetap benar).
+  `khususBuatSiswaTertentu` membuang filter sekolah di
+  `DetailTagihanSiswaHelper` (pembatas tersisa hanya tabel
+  `PengaturanBiayaPunyaSiswa`). Verifikasi negatif menenangkan:
+  properti `sekolah`+`yayasan` ADA di whitelist `task_7b6038ac`.
+- **`ais/database/model/sekolah/GelombangPendaftaranPsb.java`** (r83881)
+  — 1065→2229 baris, 100%. Gerbang layar MASTER PSB POSITIF (bukan
+  anomali seperti `KelasSiswa` b67). **Temuan berat**: kuota
+  (`kuotaDiterima`) DILEWATI TOTAL di jalur `langsungDapatNisSaatDaftar`
+  — pendaftar publik anonim diterima resmi + diterbitkan NIS tanpa
+  verifikasi berkas/pembayaran/panitia (memperkuat `task_3186ae97` NIS
+  kembar). `chekUmur()` fail-open (exception→`true`, lolos bukan
+  ditolak). `chekKuotaPendaftar()` salah nama total — menulis 2 baris DB
+  dari jalur RENDER tanpa transaksi. Simpul pewarisan hak menu induk
+  TERBESAR sejauh ini: 9 tab CRUD tak satu pun terdaftar sebagai menu.
+- **`ais/database/model/sekolah/ChecklistBaruPenilaianGuruOlehSiswa.java`**
+  (r83877) — 291→791 baris, 100%. **Task baru `task_9ac1e585`**:
+  identitas siswa PENILAI (NIS+nama lengkap via `Siswa.toString()`)
+  bocor ke dasbor rekap `LaporanAngketGuruDashboardWindow` — nol gerbang
+  sendiri, disisipkan sebagai tab tanpa filter guru-ke-diri-sendiri.
+  Fail-open tenant STRUKTURAL: entity tanpa kolom sekolah/yayasan sama
+  sekali. Bug fungsional: pemisah `"___"` di `StringUtils.split`
+  (commons-lang 2, argumen kedua = himpunan KARAKTER) pecah pada setiap
+  `_` tunggal — keterangan bergaris bawah kehilangan data diam-diam.
+- **`ais/database/model/sekolah/KelompokKegiatanSiswa.java`** (r83875)
+  — 234→855 baris, 100%. Bug nyata: tombol "Upload Data" mengimpor ke
+  KELAS SALAH (`Hukuman.class`, bukan entity ini) — kebetulan kolom
+  sama sehingga impor berhasil diam-diam ke tabel master Hukuman.
+  Poin kelompok dibaca LIVE saat cetak rapor (tanpa snapshot) — ubah
+  poin = ubah retroaktif rapor lama yang dicetak ulang; validasi poin
+  TIDAK ADA (negatif diizinkan). Fail-open tenant: `setSekolah`/
+  `setYayasan` tidak pernah dipanggil di seluruh repo — katalog de
+  facto global.
+
+**Task baru batch ini**: `task_9ac1e585` (identitas penilai bocor di
+dasbor angket guru). `task_beeb2833` diperluas signifikan (bukan task
+baru — domain-hijacking dikonfirmasi identik di `Sekolah.java`).
+Sisanya memperkuat task yang ada (`task_3186ae97`, `task_9b7ff647`,
+`task_7b6038ac`, `task_5e93a600`).
+
 ## Batch 70 — SELESAI 100% (3 Sep 2026) — IDOR sistemik URL-param override di 42+ Action (task baru `task_9f4af0bf`); tabrakan namespace kunci lampiran (task baru `task_3c8413c2`); klarifikasi VoKelasPunyaSiswa BUKAN entity (abstract, dibayangi lewat pewarisan sungguhan); konfirmasi ulang gerbang penilaian rapor REGULER dikomentari juga
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
