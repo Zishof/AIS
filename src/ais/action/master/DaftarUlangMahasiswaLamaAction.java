@@ -1617,8 +1617,11 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 
 		if (jenisKegiatan != null) {
 			itemBiayas = new HashMap<Long, DetailBiaya>();
+			// Tagihan mahasiswa harus selalu mengikuti pilihan Item Biaya terbaru.
+			// Cache lama dapat masih memuat item yang sudah dilepas dari Setting Biaya.
+			final boolean muatDariSettingBiayaTerbaru = true;
 			detailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa,
-					Integer.parseInt(semester.getValue()), jenisKegiatan, refresh);
+					Integer.parseInt(semester.getValue()), jenisKegiatan, muatDariSettingBiayaTerbaru);
 			boolean nimDikecualikan = PengecualianTagihanList.adalah(detailBiayas);
 
 			for (Object o : detailBiayas) {
@@ -1633,13 +1636,14 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			try {
 				session = HibernateUtil.openSession();
 				countPengaturanBulanan = PembayaranUtilHelper.countBulanan(session, mahasiswa, jenisKegiatan,
-						Integer.parseInt(semester.getValue()), detailBiayas, refresh, false);
+						Integer.parseInt(semester.getValue()), detailBiayas, muatDariSettingBiayaTerbaru, false);
 				pengurangan = new ArrayList<MyDoubleboxMin>();
 
 				Collection biayaBulanan = null;
 				if (countPengaturanBulanan > 0) {
 					biayaBulanan = PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa,
-							Integer.parseInt(semester.getValue()), jenisKegiatan, "-1", true, refresh);
+							Integer.parseInt(semester.getValue()), jenisKegiatan, "-1", true,
+							muatDariSettingBiayaTerbaru);
 					serapBiayaBulanan(biayaBulanan);
 				}
 
@@ -1674,12 +1678,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 						: kegiatan.ambilDetailKegiatan(refresh);
 				Collection ooo = (biayaBulanan != null && !biayaBulanan.isEmpty() ? biayaBulanan : detailBiayas);
 				dataTagihanData = new ArrayList(ooo);
-				// Benteng terakhir: bila tetap kosong, susun tampilan dari riwayat cicilan
-				// yang pernah terbayar (tagihan pernah terbit, namun konfigurasi billing
-				// berubah/terhapus) agar admin tetap melihat posisi pembayaran mahasiswa.
-				if (!nimDikecualikan && dataTagihanData.isEmpty())
-					PembayaranUtilHelper.fallbackTagihanDariCicilan(mahasiswa, jenisKegiatan, dataTagihanData,
-							itemBiayas, Integer.parseInt(semester.getValue()));
+				// Jangan menghidupkan kembali item dari riwayat cicilan ketika item tersebut
+				// sudah tidak dipilih pada Setting Biaya. Riwayat pembayaran tetap tersimpan.
 				Collections.sort(dataTagihanData);
 				isiInfoModeTagihan(infoModeTagihan, Integer.parseInt(semester.getValue()));
 				strset = new SimpleListModel(dataTagihanData);

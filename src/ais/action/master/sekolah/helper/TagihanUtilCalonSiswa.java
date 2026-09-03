@@ -608,11 +608,11 @@ public class TagihanUtilCalonSiswa {
 
 			try {
 				session = HibernateUtil.openSession();
-				Criteria criteria = TagihanUtil.batasiPadaItemYangMasihDiatur(session.createCriteria(Tagihan.class)
+				Criteria criteria = session.createCriteria(Tagihan.class)
 						.createAlias("itemBiayaSekolah", "itemBiayaSekolah")
 						.add(Restrictions.eq("itemBiayaSekolah.aktif", true))
 						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-						.add(Restrictions.eq("calonSiswa", s)));
+						.add(Restrictions.eq("calonSiswa", s));
 
 				// Jika daftar pengaturan biaya disediakan, gunakan operator IN
 				if (pengaturanDatas != null && !pengaturanDatas.isEmpty()) {

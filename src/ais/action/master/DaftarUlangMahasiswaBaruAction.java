@@ -2710,6 +2710,9 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			Integer smt = (Integer) semesterPilihan.getSelectedItem().getValue();
 			itemBiayas = new HashMap<Long, DetailBiaya>();
 			Collection hasilTagihan = null;
+			// Mahasiswa baru juga harus membaca Item Biaya terbaru. Jangan gunakan cache
+			// yang dibuat sebelum pilihan pada Setting Biaya diubah.
+			final boolean muatDariSettingBiayaTerbaru = true;
 
 			if (jenisKegiatan.getId().equals(ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU.getId())) {
 				Jurusan prodiLulus = calonMahasiswa.getProdiLulus();
@@ -2718,10 +2721,10 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 					Jurusan myjurusan1 = calonMahasiswa.getProdi1() == null ? calonMahasiswa.getProdi2()
 							: calonMahasiswa.getProdi1();
 					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							myjurusan1, smt, refresh);
+							myjurusan1, smt, muatDariSettingBiayaTerbaru);
 				} else {
 					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							prodiLulus, smt, refresh);
+							prodiLulus, smt, muatDariSettingBiayaTerbaru);
 				}
 			} else if (jenisKegiatan.getId().equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA.getId())) {
 				Jurusan prodiLulus = calonMahasiswa.getProdiLulus();
@@ -2730,10 +2733,10 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 					Jurusan myjurusan1 = calonMahasiswa.getProdi1() == null ? calonMahasiswa.getProdi2()
 							: calonMahasiswa.getProdi1();
 					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							myjurusan1, refresh);
+							myjurusan1, muatDariSettingBiayaTerbaru);
 				} else {
 					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							prodiLulus, refresh);
+							prodiLulus, muatDariSettingBiayaTerbaru);
 				}
 			}
 
@@ -2753,10 +2756,10 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				session = HibernateUtil.currentSession();
 				PembayaranUtil.getInstance();
 				countPengaturanBulanan = PembayaranUtilHelper.countBulanan(session, calonMahasiswa, jenisKegiatan, smt,
-						detailBiayas, refresh, false);
+						detailBiayas, muatDariSettingBiayaTerbaru, false);
 				if (countPengaturanBulanan > 0) {
 					biayaBulanan = pembayaranUtil.getPengaturanPembayaranSemua(calonMahasiswa, session, smt,
-							jenisKegiatan, detailBiayas, refresh, false);
+							jenisKegiatan, detailBiayas, muatDariSettingBiayaTerbaru, false);
 				}
 
 				// PENYEMBUHAN-DIRI: muatan pertama membaca cache (refresh=false); cache basi
@@ -2779,11 +2782,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			pengurangan = new ArrayList<MyDoubleboxMin>();
 			Collection ooo = (biayaBulanan != null ? biayaBulanan : detailBiayas);
 			dataTagihanData = new ArrayList(ooo);
-			// Benteng terakhir: bila tetap kosong, susun tampilan dari riwayat cicilan yang
-			// pernah terbayar agar posisi pembayaran calon mahasiswa tetap terlihat.
-			if (!nimDikecualikan && dataTagihanData.isEmpty())
-				PembayaranUtilHelper.fallbackTagihanDariCicilan(calonMahasiswa, jenisKegiatan, dataTagihanData,
-						itemBiayas, smt);
+			// Jangan membentuk tagihan aktif dari riwayat cicilan bila itemnya sudah
+			// dilepas dari Setting Biaya. Riwayat pembayaran tetap tidak dihapus.
 			Collections.sort(dataTagihanData);
 			isiInfoModeTagihan(infoModeTagihan, smt);
 			ListModel strset = new SimpleListModel(dataTagihanData);
