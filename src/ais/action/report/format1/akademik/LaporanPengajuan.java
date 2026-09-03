@@ -370,7 +370,9 @@ public class LaporanPengajuan extends MyWindow {
 				Collections.sort(parameterTambahans);
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanMahasiswa.class,
+							pengajuan.getId(),
+							kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId());
 					String jenis_id = kelompokParameterTambahanPengajuan.getId() + "_" + parameterTambahan.getId();
 
 					String val = "";
@@ -557,7 +559,8 @@ public class LaporanPengajuan extends MyWindow {
 				Collections.sort(parameterTambahans);
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanSiswa.class, pengajuan.getId(),
+							kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId());
 					String jenis_id = kelompokParameterTambahanPengajuan.getId() + "_" + parameterTambahan.getId();
 
 					String val = "";

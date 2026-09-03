@@ -35,6 +35,54 @@
 
 \pset format aligned
 
+-- ---------------------------------------------------------------------------------------
+-- Berkas ini MENYIAPKAN DATANYA SENDIRI. Sempat tidak begitu: datanya disemai tangan saat
+-- batch §25 ditulis, dan pelari kumpulan uji (jalankan-uji.py) langsung membuktikan bahwa
+-- ujinya lalu GAGAL di klaster yang bersih. Uji yang hanya lulus di mesin penulisnya bukan
+-- uji; ia catatan pribadi.
+-- ---------------------------------------------------------------------------------------
+TRUNCATE ta.mutasi_stok, ta.piutang_customer, ta.faktur_penjualan, ta.produk, ta.satuan,
+         ta.gudang, ta.akun, ta.supplier, ta.customer, ta.toko RESTART IDENTITY CASCADE;
+TRUNCATE tb.mutasi_stok, tb.piutang_customer, tb.faktur_penjualan, tb.produk, tb.satuan,
+         tb.gudang, tb.akun, tb.supplier, tb.customer, tb.toko RESTART IDENTITY CASCADE;
+TRUNCATE ta__audit.audit_baris, ta__audit.revinfo RESTART IDENTITY CASCADE;
+TRUNCATE tb__audit.audit_baris, tb__audit.revinfo RESTART IDENTITY CASCADE;
+
+-- Id, kode, dan nomor dokumen SENGAJA SAMA di kedua tenant; angkanya sengaja jauh berbeda.
+INSERT INTO ta.toko (id,nama) VALUES (1,'Toko ta');
+INSERT INTO tb.toko (id,nama) VALUES (1,'Toko tb');
+INSERT INTO ta.gudang (id,kode,nama,toko_id) VALUES (1,'G1','Gudang',1);
+INSERT INTO tb.gudang (id,kode,nama,toko_id) VALUES (1,'G1','Gudang',1);
+INSERT INTO ta.satuan (id,kode,nama) VALUES (1,'PCS','Pieces');
+INSERT INTO tb.satuan (id,kode,nama) VALUES (1,'PCS','Pieces');
+INSERT INTO ta.produk (id,kode,nama,satuan_id,status,aktif,dibuat_pada,oleh)
+     VALUES (10,'P10','Produk ta',1,'AKTIF',true,now(),'uji');
+INSERT INTO tb.produk (id,kode,nama,satuan_id,status,aktif,dibuat_pada,oleh)
+     VALUES (10,'P10','Produk tb',1,'AKTIF',true,now(),'uji');
+INSERT INTO ta.supplier (id,kode,nama,aktif,dibuat_pada,oleh) VALUES (1,'SUP1','Supplier ta',true,now(),'uji');
+INSERT INTO tb.supplier (id,kode,nama,aktif,dibuat_pada,oleh) VALUES (1,'SUP1','Supplier tb',true,now(),'uji');
+INSERT INTO ta.customer (id,kode,nama,aktif,dibuat_pada,oleh) VALUES (9,'C9','Customer ta',true,now(),'uji');
+INSERT INTO tb.customer (id,kode,nama,aktif,dibuat_pada,oleh) VALUES (9,'C9','Customer tb',true,now(),'uji');
+INSERT INTO ta.akun (id,kode,nama,tipe,saldo_normal,dibuat_pada,oleh) VALUES (1,'1000','Kas ta','ASET','D',now(),'uji');
+INSERT INTO tb.akun (id,kode,nama,tipe,saldo_normal,dibuat_pada,oleh) VALUES (1,'1000','Kas tb','ASET','D',now(),'uji');
+INSERT INTO ta.mutasi_stok (produk_id,gudang_id,tanggal,jenis,arah,kuantitas,dibuat_pada,oleh)
+     VALUES (10,1,DATE '2026-01-05','PENGADAAN',1,100,now(),'uji');
+INSERT INTO tb.mutasi_stok (produk_id,gudang_id,tanggal,jenis,arah,kuantitas,dibuat_pada,oleh)
+     VALUES (10,1,DATE '2026-01-05','PENGADAAN',1,7000,now(),'uji');
+INSERT INTO ta.faktur_penjualan (id,nomor_dokumen,tanggal,customer_id,toko_id,subtotal,total,status,dibuat_pada,oleh)
+     VALUES (1,'INV-1',CURRENT_DATE,9,1,500,500,'AKTIF',now(),'uji');
+INSERT INTO tb.faktur_penjualan (id,nomor_dokumen,tanggal,customer_id,toko_id,subtotal,total,status,dibuat_pada,oleh)
+     VALUES (1,'INV-1',CURRENT_DATE,9,1,60000,60000,'AKTIF',now(),'uji');
+INSERT INTO ta.piutang_customer (id,customer_id,faktur_penjualan_id,nomor_faktur,tanggal,nilai,sisa,status,dibuat_pada,oleh)
+     VALUES (1,9,1,'INV-1',CURRENT_DATE,500,500,'TERBUKA',now(),'uji');
+INSERT INTO tb.piutang_customer (id,customer_id,faktur_penjualan_id,nomor_faktur,tanggal,nilai,sisa,status,dibuat_pada,oleh)
+     VALUES (1,9,1,'INV-1',CURRENT_DATE,60000,60000,'TERBUKA',now(),'uji');
+INSERT INTO ta__audit.revinfo (revtstmp,tenant_id,tenant_code,user_id,action,waktu) VALUES (1,1,'TA','uji','master_supplier_simpan',now());
+INSERT INTO ta__audit.audit_baris (rev,revtype,entity,entity_id,sesudah,waktu) VALUES (1,0,'supplier','1','{"nama":"Supplier ta"}',now());
+INSERT INTO tb__audit.revinfo (revtstmp,tenant_id,tenant_code,user_id,action,waktu) VALUES (1,2,'TB','uji','master_supplier_simpan',now());
+INSERT INTO tb__audit.audit_baris (rev,revtype,entity,entity_id,sesudah,waktu) VALUES (1,0,'supplier','1','{"nama":"Supplier tb"}',now());
+INSERT INTO tb__audit.audit_baris (rev,revtype,entity,entity_id,sesudah,waktu) VALUES (1,1,'supplier','1','{"nama":"Supplier tb v2"}',now());
+
 \echo ''
 \echo '== BLOK 1: stok -- A, lalu B, lalu A lagi ========================================='
 \echo '   Produk ber-id 10 dan kode P10 ada di KEDUA tenant.'

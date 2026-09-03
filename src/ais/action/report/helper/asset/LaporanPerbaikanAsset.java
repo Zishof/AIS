@@ -247,7 +247,9 @@ public class LaporanPerbaikanAsset extends MyWindow {
 			Collections.sort(parameterTambahans);
 
 			for (ParameterTambahan parameterTambahan : parameterTambahans) {
-				String jenis = kelompokParameterTambahanPerbaikanAsset.getId() + "->" + parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(PerbaikanAsset.class,
+						perbaikanAsset.getId(),
+						kelompokParameterTambahanPerbaikanAsset.getId() + "->" + parameterTambahan.getId());
 				String jenis_id = kelompokParameterTambahanPerbaikanAsset.getId() + "_" + parameterTambahan.getId();
 
 				String val = "";

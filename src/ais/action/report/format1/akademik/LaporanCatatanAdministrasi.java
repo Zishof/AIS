@@ -242,7 +242,9 @@ public class LaporanCatatanAdministrasi extends MyWindow {
 			Collections.sort(parameterTambahans);
 
 			for (ParameterTambahan parameterTambahan : parameterTambahans) {
-				String jenis = kelompokParameterTambahanCatatanAdministrasi.getId() + "->" + parameterTambahan.getId();
+				String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanAdministrasi.class,
+						catatanAdministrasi.getId(),
+						kelompokParameterTambahanCatatanAdministrasi.getId() + "->" + parameterTambahan.getId());
 				String jenis_id = kelompokParameterTambahanCatatanAdministrasi.getId() + "_"
 						+ parameterTambahan.getId();
 

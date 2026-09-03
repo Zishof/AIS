@@ -399,8 +399,8 @@ public class LaporanSlipGajiPegawaiPerOrang extends MyWindow {
 					if (!parameterTambahans.isEmpty()) {
 
 						for (ParameterTambahan parameterTambahan : parameterTambahans) {
-							String jenis = kelompokParameterTambahanGajiPegawai.getId() + "->"
-									+ parameterTambahan.getId();
+							String jenis = LampiranLain.resolveJenisParameterTambahan(Pegawai.class, pegawai.getId(),
+									kelompokParameterTambahanGajiPegawai.getId() + "->" + parameterTambahan.getId());
 
 							String val = "";
 							String ket = "";

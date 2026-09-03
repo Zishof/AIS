@@ -190,7 +190,7 @@ def main():
         print()
         print('%-44s %6s %6s  %s' % ('berkas', 'LULUS', 'GAGAL', 'schema'))
         print('-' * 86)
-        tot_l = tot_g = tot_e = 0
+        tot_l = tot_g = tot_e = tot_v = 0
         sudah_disiapkan = set()
         for f in daftar:
             jalur = os.path.join(DIR, f)
@@ -221,12 +221,23 @@ def main():
                 tanda = '  <== PERIKSA'
                 kode = 1
                 tot_e += len(galat)
+            elif l == 0:
+                # Berkas tanpa satu pun verdikt BUKAN berkas yang lulus: ia berkas yang tidak
+                # menyatakan apa-apa. Dibiarkan tampak 0/0 tanpa tanda, ia tidak dapat
+                # dibedakan dari uji yang benar-benar hijau -- dan itulah cara kumpulan uji
+                # membusuk tanpa ada yang sadar.
+                tanda = '  <== TANPA VERDIKT (gaya lama: cetak-banding, tanpa LULUS/GAGAL)'
+                tot_v += 1
             print('%-44s %6d %6d  %s%s' % (f, l, g, ','.join(sk['erp'])[:18], tanda))
             for x in galat[:3]:
                 print('        %s' % x.strip()[:96])
         print('-' * 86)
-        print('TOTAL  LULUS=%d  GAGAL=%d  galat-SQL=%d  berkas=%d' %
-              (tot_l, tot_g, tot_e, len(daftar)))
+        print('TOTAL  LULUS=%d  GAGAL=%d  galat-SQL=%d  tanpa-verdikt=%d  berkas=%d' %
+              (tot_l, tot_g, tot_e, tot_v, len(daftar)))
+        if tot_v:
+            print('CATATAN: %d berkas tidak menyatakan LULUS/GAGAL sama sekali. Berkas gaya'
+                  ' lama itu mencetak tabel banding untuk dibaca manusia; ia TIDAK menjaga'
+                  ' apa pun secara mekanis.' % tot_v)
         print('HASIL: ' + ('LULUS' if kode == 0 else 'ADA YANG GAGAL'))
         return kode
     finally:
