@@ -423,6 +423,99 @@ public final class LaporanKantinUtil {
      * Kerja kantin (a1.satuan_kerja) bila konfigurasi 'satuan_kerja_kantin' terisi. Mengisi :satker
      * (+ :tglMulai/:tglSampai bila ada) ke map. Pola IDENTIK dgn cek_pemetaan_akun.jsp.
      */
+    /**
+     * Klasifikasi akun sebagai subkueri EXISTS, sengaja BUKAN join seperti {@link #JOIN_KLAS}.
+     *
+     * <p>Satu akun boleh terdaftar di beberapa Kelompok Laporan sekaligus. Bila klasifikasinya
+     * dipasang sebagai join, barisnya menggandakan dan saldo akun itu terhitung berkali-kali —
+     * diuji pada PostgreSQL 16 dengan satu akun Kas yang dipetakan ke dua kelompok: versi join
+     * memberi 1.300.000 untuk saldo yang sebenarnya 650.000. Predikatnya sengaja dibuat
+     * huruf-per-huruf sama dengan {@code akn_neraca} dan {@code akn_laba_rugi} supaya satu akun
+     * tidak pernah masuk kolom yang berbeda antara laporan pokok dan laporan turunannya.</p>
+     */
+    private static final String KLAS_AWAL =
+        " exists (select 1 from akunting.kelompok_laporan_punya_akun b "
+      + " join akunting.kelompok_laporan c on c.id = b.kelompok_laporan "
+      + " join akunting.jenis_laporan f on f.id = c.jenis_laporan "
+      + " where b.akun = d.id and (c.aktif is null or c.aktif) and ";
+
+    private static final String KLAS_NERACA =
+        KLAS_AWAL + " lower(coalesce(f.keterangan,'')) like '%neraca%' ) ";
+
+    private static final String KLAS_LABARUGI =
+        KLAS_AWAL + " ( lower(coalesce(f.keterangan,'')) like '%laba%' "
+      + " or lower(coalesce(f.keterangan,'')) like '%rugi%' "
+      + " or lower(coalesce(f.keterangan,'')) like '%pendapatan%' "
+      + " or lower(coalesce(f.keterangan,'')) like '%beban%' "
+      + " or lower(coalesce(f.keterangan,'')) like '%biaya%' ) ) ";
+
+    /** Satu kolom periode pada laporan berformat kolom (2 periode, 12 bulan, 2 tahun, harian). */
+    private static final class Periode {
+        final String label; final String awal; final String akhir;
+        Periode(String label, String awal, String akhir) {
+            this.label = label; this.awal = awal; this.akhir = akhir;
+        }
+    }
+
+    private static final String[] NAMA_BULAN_SINGKAT =
+        {"Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"};
+
+    private static String awalBulan(int tahun, int bulan) {
+        return String.format("%04d-%02d-01", Integer.valueOf(tahun), Integer.valueOf(bulan));
+    }
+
+    private static String akhirBulan(int tahun, int bulan) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.clear(); c.set(tahun, bulan - 1, 1);
+        return String.format("%04d-%02d-%02d", Integer.valueOf(tahun), Integer.valueOf(bulan),
+                Integer.valueOf(c.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)));
+    }
+
+    /** Tahun dari string tanggal yyyy-MM-dd; tahun berjalan bila kosong atau tidak terbaca. */
+    private static int tahunDari(String tgl) {
+        if (ada(tgl) && tgl.trim().length() >= 4) {
+            try { return Integer.parseInt(tgl.trim().substring(0, 4)); }
+            catch (NumberFormatException e) { /* jatuh ke tahun berjalan */ }
+        }
+        return java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+    }
+
+    /** Bulan 1..12 dari string tanggal yyyy-MM-dd; 0 bila tidak terbaca. */
+    private static int bulanDari(String tgl) {
+        if (ada(tgl) && tgl.trim().length() >= 7) {
+            try { return Integer.parseInt(tgl.trim().substring(5, 7)); }
+            catch (NumberFormatException e) { /* 0 = tidak terbaca */ }
+        }
+        return 0;
+    }
+
+    /**
+     * Nilai satu kolom periode, dengan dua arti yang berbeda menurut jenis akunnya.
+     *
+     * <p>Akun NERACA bersifat kumulatif: isinya SALDO per akhir periode. Itu sama persis dengan
+     * yang dikirim kelas ZK, yang menaruh satu tanggal acuan per kolom
+     * ({@code getActualMaximum(DAY_OF_MONTH)}), jadi angkanya sebanding.</p>
+     *
+     * <p>Akun LABA RUGI bersifat arus, jadi kolomnya berisi MUTASI di dalam periode itu —
+     * <b>bukan</b> kumulatif tahun berjalan. Tata letak jrxml laporan resmi tersimpan di basis
+     * data (LampiranLain), bukan di repositori, sehingga tidak bisa dipastikan apakah kolom
+     * Laba Rugi di sana kumulatif atau periodik. Karena itu artinya disebut terang-terangan di
+     * catatan tiap laporan alih-alih ditebak diam-diam.</p>
+     */
+    private static String nilaiPeriode(Periode pr) {
+        return " case when " + KLAS_NERACA
+            + " then coalesce(sum(case when cast(a.tanggal_transaksi as date) <= date '" + pr.akhir
+            + "' then a.debet - a.kredit else 0 end),0) "
+            + " else coalesce(sum(case when cast(a.tanggal_transaksi as date) between date '" + pr.awal
+            + "' and date '" + pr.akhir + "' then a.debet - a.kredit else 0 end),0) end ";
+    }
+
+    /** Mutasi bersih (Debet - Kredit) di dalam periode — dipakai Arus Kas berformat kolom. */
+    private static String mutasiPeriode(Periode pr) {
+        return " coalesce(sum(case when cast(a.tanggal_transaksi as date) between date '" + pr.awal
+            + "' and date '" + pr.akhir + "' then a.debet - a.kredit else 0 end),0) ";
+    }
+
     private static String klausaLedger(org.hibernate.Session session, String tglMulai, String tglSampai, Map<String, Object> p) {
         long satker = kantinSatkerId(session);
         p.put("satker", Long.valueOf(satker));
@@ -2795,21 +2888,6 @@ public final class LaporanKantinUtil {
                     + "lalu dipisah ke kolom Laba Rugi / Neraca menurut Kelompok Laporan. Akun yang BELUM dipetakan tetap "
                     + "muncul di kolom NSD tetapi TIDAK masuk kolom Laba Rugi maupun Neraca (lihat 'Diagnosa Pemetaan Akun').";
                 String w = klausaLedger(session, tglMulai, tglSampai, prm);
-                // Klasifikasi sengaja dipakai sebagai subkueri EXISTS, BUKAN join seperti JOIN_KLAS:
-                // satu akun boleh terdaftar di beberapa kelompok laporan, dan join akan MENGGANDAKAN
-                // barisnya sehingga saldo tiap akun terhitung berkali-kali.
-                String klasAwal = " exists (select 1 from akunting.kelompok_laporan_punya_akun b "
-                    + " join akunting.kelompok_laporan c on c.id = b.kelompok_laporan "
-                    + " join akunting.jenis_laporan f on f.id = c.jenis_laporan "
-                    + " where b.akun = d.id and (c.aktif is null or c.aktif) and ";
-                // Predikat huruf-per-huruf sama dengan akn_laba_rugi dan akn_neraca supaya satu akun
-                // tidak pernah masuk kolom yang berbeda antara neraca lajur dan laporan pokoknya.
-                String klasLR = klasAwal + " ( lower(coalesce(f.keterangan,'')) like '%laba%' "
-                    + " or lower(coalesce(f.keterangan,'')) like '%rugi%' "
-                    + " or lower(coalesce(f.keterangan,'')) like '%pendapatan%' "
-                    + " or lower(coalesce(f.keterangan,'')) like '%beban%' "
-                    + " or lower(coalesce(f.keterangan,'')) like '%biaya%' ) ) ";
-                String klasNR = klasAwal + " lower(coalesce(f.keterangan,'')) like '%neraca%' ) ";
                 // jenis_transaksi 7 = Jurnal Penyesuaian (angka yang sama dipakai DasboardAkuntansi).
                 String ns = " (coalesce(sum(case when coalesce(a1.jenis_transaksi,0) <> 7 then a.debet - a.kredit else 0 end),0)) ";
                 String nsd = " (coalesce(sum(a.debet - a.kredit),0)) ";
@@ -2820,10 +2898,10 @@ public final class LaporanKantinUtil {
                     + " coalesce(sum(case when coalesce(a1.jenis_transaksi,0) = 7 then a.kredit else 0 end),0), "
                     + " case when " + nsd + " > 0 then " + nsd + " else 0 end, "
                     + " case when " + nsd + " < 0 then -" + nsd + " else 0 end, "
-                    + " case when " + klasLR + " and " + nsd + " > 0 then " + nsd + " else 0 end, "
-                    + " case when " + klasLR + " and " + nsd + " < 0 then -" + nsd + " else 0 end, "
-                    + " case when " + klasNR + " and " + nsd + " > 0 then " + nsd + " else 0 end, "
-                    + " case when " + klasNR + " and " + nsd + " < 0 then -" + nsd + " else 0 end "
+                    + " case when " + KLAS_LABARUGI + " and " + nsd + " > 0 then " + nsd + " else 0 end, "
+                    + " case when " + KLAS_LABARUGI + " and " + nsd + " < 0 then -" + nsd + " else 0 end, "
+                    + " case when " + KLAS_NERACA + " and " + nsd + " > 0 then " + nsd + " else 0 end, "
+                    + " case when " + KLAS_NERACA + " and " + nsd + " < 0 then -" + nsd + " else 0 end "
                     + FROM_LEDGER + w
                     + " group by d.id, d.kode, d.nama "
                     + " having coalesce(sum(a.debet),0) <> 0 or coalesce(sum(a.kredit),0) <> 0 "
@@ -2835,6 +2913,93 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("NSD Debet","num")); kolom.add(new Kolom("NSD Kredit","num"));
                 kolom.add(new Kolom("Laba Rugi Debet","num")); kolom.add(new Kolom("Laba Rugi Kredit","num"));
                 kolom.add(new Kolom("Neraca Debet","num")); kolom.add(new Kolom("Neraca Kredit","num"));
+
+            } else if ("lk_keu2".equals(r) || "lk_keu12".equals(r) || "lk_keu2th".equals(r)) {
+                List<Periode> periode = new ArrayList<Periode>();
+                int th = tahunDari(tglSampai);
+                if ("lk_keu12".equals(r)) {
+                    judul = "Neraca & Laba Rugi — 12 Bulan (Kolom) " + th;
+                    for (int b = 1; b <= 12; b++) {
+                        periode.add(new Periode(NAMA_BULAN_SINGKAT[b - 1], awalBulan(th, b), akhirBulan(th, b)));
+                    }
+                } else if ("lk_keu2th".equals(r)) {
+                    judul = "Neraca & Laba Rugi — 2 Tahun";
+                    periode.add(new Periode(String.valueOf(th - 1), (th - 1) + "-01-01", (th - 1) + "-12-31"));
+                    periode.add(new Periode(String.valueOf(th), th + "-01-01", th + "-12-31"));
+                } else {
+                    judul = "Neraca & Laba Rugi — 2 Periode";
+                    int b2 = bulanDari(tglSampai);
+                    if (b2 < 1) { b2 = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1; }
+                    int th1 = tahunDari(tglMulai);
+                    int b1 = bulanDari(tglMulai);
+                    if (b1 < 1) {
+                        // Tanpa Tgl Mulai, pembandingnya adalah bulan SEBELUM Tgl Sampai.
+                        th1 = (b2 == 1) ? th - 1 : th;
+                        b1 = (b2 == 1) ? 12 : b2 - 1;
+                    }
+                    periode.add(new Periode(NAMA_BULAN_SINGKAT[b1 - 1] + " " + th1, awalBulan(th1, b1), akhirBulan(th1, b1)));
+                    periode.add(new Periode(NAMA_BULAN_SINGKAT[b2 - 1] + " " + th, awalBulan(th, b2), akhirBulan(th, b2)));
+                }
+                catatan = "Kolom akun NERACA berisi SALDO per akhir periode (kumulatif, sama dengan tanggal acuan laporan resmi). "
+                    + "Kolom akun LABA RUGI berisi MUTASI di dalam periode itu, BUKAN kumulatif tahun berjalan. "
+                    + "Sumber: jurnal TERPOSTING. Akun yang belum dipetakan ke Kelompok Laporan ditandai '- belum dipetakan -' "
+                    + "dan angkanya tetap ditampilkan sebagai mutasi.";
+                String w = klausaLedgerSampai(session, periode.get(periode.size() - 1).akhir, prm);
+                StringBuilder sb = new StringBuilder();
+                sb.append("select d.kode, d.nama, case when ").append(KLAS_NERACA).append(" then 'Neraca' when ")
+                  .append(KLAS_LABARUGI).append(" then 'Laba Rugi' else '- belum dipetakan -' end ");
+                List<String> tp = new ArrayList<String>();
+                kolom.add(new Kolom("Kode", "text")); tp.add("text");
+                kolom.add(new Kolom("Nama Akun", "text")); tp.add("text");
+                kolom.add(new Kolom("Jenis", "text")); tp.add("text");
+                for (Periode pr : periode) {
+                    sb.append(", ").append(nilaiPeriode(pr));
+                    kolom.add(new Kolom(pr.label, "num")); tp.add("num");
+                }
+                sb.append(FROM_LEDGER).append(w)
+                  .append(" group by d.id, d.kode, d.nama ")
+                  .append(" having coalesce(sum(a.debet),0) <> 0 or coalesce(sum(a.kredit),0) <> 0 ")
+                  .append(" order by d.kode ");
+                sql = sb.toString();
+                tipe = tp.toArray(new String[tp.size()]);
+
+            } else if ("lk_aruskas12".equals(r) || "lk_aruskas31".equals(r)) {
+                List<Periode> periode = new ArrayList<Periode>();
+                int th = tahunDari(tglSampai);
+                if ("lk_aruskas12".equals(r)) {
+                    judul = "Arus Kas — 12 Bulan (Kolom) " + th;
+                    for (int b = 1; b <= 12; b++) {
+                        periode.add(new Periode(NAMA_BULAN_SINGKAT[b - 1], awalBulan(th, b), akhirBulan(th, b)));
+                    }
+                } else {
+                    int b = bulanDari(tglSampai);
+                    if (b < 1) { b = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1; }
+                    judul = "Arus Kas — Harian (" + NAMA_BULAN_SINGKAT[b - 1] + " " + th + ")";
+                    int hariAkhir = Integer.parseInt(akhirBulan(th, b).substring(8));
+                    for (int h = 1; h <= hariAkhir; h++) {
+                        String t = String.format("%04d-%02d-%02d", Integer.valueOf(th), Integer.valueOf(b), Integer.valueOf(h));
+                        periode.add(new Periode(String.valueOf(h), t, t));
+                    }
+                }
+                catatan = "Mutasi bersih tiap akun Kas/Bank per periode (Debet - Kredit, jadi nilai positif = kas MASUK bersih) "
+                    + "dari jurnal TERPOSTING. Akun dikenali Kas/Bank lewat flag bank / nomor rekening, atau namanya memuat "
+                    + "'kas' atau 'bank' — heuristik yang sama dengan laporan arus kas lainnya.";
+                String w = klausaLedger(session, periode.get(0).awal,
+                        periode.get(periode.size() - 1).akhir, prm) + FILTER_KASBANK;
+                StringBuilder sb = new StringBuilder("select d.kode, d.nama ");
+                List<String> tp = new ArrayList<String>();
+                kolom.add(new Kolom("Kode", "text")); tp.add("text");
+                kolom.add(new Kolom("Nama Akun", "text")); tp.add("text");
+                for (Periode pr : periode) {
+                    sb.append(", ").append(mutasiPeriode(pr));
+                    kolom.add(new Kolom(pr.label, "num")); tp.add("num");
+                }
+                sb.append(FROM_LEDGER).append(w)
+                  .append(" group by d.id, d.kode, d.nama ")
+                  .append(" having coalesce(sum(a.debet),0) <> 0 or coalesce(sum(a.kredit),0) <> 0 ")
+                  .append(" order by d.kode ");
+                sql = sb.toString();
+                tipe = tp.toArray(new String[tp.size()]);
 
             } else if ("akn_ringkasan_bb".equals(r)) {
                 judul = "Ringkasan Buku Besar";

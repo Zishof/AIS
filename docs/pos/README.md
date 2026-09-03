@@ -178,6 +178,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [99-local-first-keuangan-diperiksa.md](99-local-first-keuangan-diperiksa.md) | Batas local-first modul keuangan benar, tetapi kontraknya hanya mengunci 3 dari 10 aksi; ditambal |
 | [100-koreksi-doc-97-sebelas-laporan-itu-bekerja.md](100-koreksi-doc-97-sebelas-laporan-itu-bekerja.md) | Koreksi doc 97: kesebelas laporan akuntansi itu tautan ZK yang bekerja, bukan placeholder |
 | [101-lepas-dari-zul-empat-laporan-jadi-api.md](101-lepas-dari-zul-empat-laporan-jadi-api.md) | Inventaris 13 titik keluar ZK dari POS; empat laporan akuntansi dijadikan natif berbasis API |
+| [102-enam-laporan-kolom-jadi-api.md](102-enam-laporan-kolom-jadi-api.md) | Enam laporan sisa jadi natif (11 titik keluar ZK jadi 1); diuji di PostgreSQL 16 sungguhan |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |

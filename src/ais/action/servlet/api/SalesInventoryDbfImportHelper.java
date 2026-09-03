@@ -597,6 +597,10 @@ public final class SalesInventoryDbfImportHelper {
 		if ("harga_jual".equals(jenis)) {
 			return imporHargaJualTenant(session, sk, r, oleh);
 		}
+		if ("pembelian_legacy".equals(jenis) || "penjualan_legacy".equals(jenis)) {
+			return imporRiwayatTenant(session, sk, r, "pembelian_legacy".equals(jenis), tokoId,
+					oleh);
+		}
 		throw new Exception("jenis tidak dikenal pada jalur tenant: " + jenis);
 	}
 
@@ -751,6 +755,79 @@ public final class SalesInventoryDbfImportHelper {
 			lewati(peringatan, r, "stok_legacy");
 		}
 		return baru ? 1 : (tersentuh > 0 ? 2 : 0);
+	}
+
+	/**
+	 * Riwayat BELI.DBF/JUAL.DBF sebagai satu baris {@code mutasi_stok}.
+	 *
+	 * <p>Bukan dokumen — lihat alasannya pada
+	 * {@link SalesInventoryDbfImportTenant#sisipMutasiRiwayat}. Ringkasnya: baris DBF-nya tidak
+	 * membawa supplier/customer sebagai relasi, hanya teks kode, dan tidak membawa termin, jatuh
+	 * tempo, maupun status. Dokumen yang dibentuk dari situ akan punya kepala berisi tebakan lalu
+	 * ikut masuk ke umur hutang dan piutang seolah tagihan sungguhan.</p>
+	 *
+	 * <p>Kunci idempotensinya menirukan kunci sintetis jalur legacy, sehingga berkas yang sama
+	 * boleh diimpor ulang tanpa menggandakan pergerakan stok. Bedanya, di sini penjaganya indeks
+	 * unik — bukan pembacaan lebih dulu — sehingga dua permintaan serentak pun tetap
+	 * menghasilkan satu baris.</p>
+	 */
+	private static int imporRiwayatTenant(Session session, String sk, JSONObject r,
+			boolean pembelian, Long tokoId, String oleh) throws Exception {
+		String faktur = s(r, "nomor_faktur");
+		String kodeProduk = s(r, "kode_produk");
+		java.util.Date tanggal = tgl(r, "tanggal");
+		Double qty = d(r, "qty");
+		Double harga = d(r, pembelian ? "harga_beli" : "harga_jual");
+		if (faktur.isEmpty() || kodeProduk.isEmpty() || tanggal == null || qty == null
+				|| harga == null) {
+			throw new Exception("nomor_faktur/kode_produk/tanggal/qty/"
+					+ (pembelian ? "harga_beli" : "harga_jual") + " tidak lengkap");
+		}
+		if (qty.doubleValue() <= 0) {
+			throw new Exception("qty harus lebih dari 0");
+		}
+		Long produkId = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "produk"),
+				kodeProduk);
+		if (produkId == null) {
+			throw new Exception("produk " + kodeProduk + " belum ada (impor STOK.DBF dulu)");
+		}
+		Long gudangId = tokoId == null ? null
+				: satuId(session, SalesInventoryDbfImportTenant.gudangToko(sk), tokoId);
+		if (gudangId == null) {
+			// Sama seperti saldo awal: menaruh pergerakan pada gudang yang salah lebih buruk
+			// daripada tidak menaruhnya, sebab angkanya lalu tampak benar di tempat yang keliru.
+			throw new Exception("riwayat " + faktur + " tidak dapat ditempatkan: toko ini belum"
+					+ " punya gudang aktif");
+		}
+		String kunci = potong((pembelian ? "LEGACY-BELI-" : "LEGACY-JUAL-") + faktur + "-"
+				+ kodeProduk + "-" + s(r, "nomor_batch") + "-"
+				+ new java.text.SimpleDateFormat("yyyyMMdd").format(tanggal), 128);
+		java.sql.PreparedStatement cek = session.connection().prepareStatement(
+				SalesInventoryDbfImportTenant.adaMutasiRiwayat(sk));
+		boolean sudah;
+		try {
+			cek.setString(1, kunci);
+			java.sql.ResultSet rs = cek.executeQuery();
+			sudah = rs.next();
+			rs.close();
+		} finally {
+			cek.close();
+		}
+		if (sudah) {
+			return 0;
+		}
+		java.math.BigDecimal kuantitas = new java.math.BigDecimal(String.valueOf(qty));
+		java.math.BigDecimal hargaSatuan = new java.math.BigDecimal(String.valueOf(harga));
+		String keterangan = pembelian
+				? ("Migrasi BELI.DBF; supplier=" + s(r, "kode_supplier") + "; batch="
+						+ s(r, "nomor_batch") + "; ED=" + s(r, "tanggal_expired"))
+				: ("Migrasi JUAL.DBF; customer=" + s(r, "kode_customer") + "; sales="
+						+ s(r, "kode_sales") + "; batch=" + s(r, "nomor_batch"));
+		jalankan(session, SalesInventoryDbfImportTenant.sisipMutasiRiwayat(sk, pembelian),
+				new Object[] { produkId, gudangId, new java.sql.Date(tanggal.getTime()),
+						kuantitas, hargaSatuan, kuantitas.multiply(hargaSatuan), faktur,
+						keterangan, kunci, oleh });
+		return 1;
 	}
 
 	/** Harga beli per supplier; idempoten pada (supplier, produk, berlaku_dari). */

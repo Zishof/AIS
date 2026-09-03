@@ -54,14 +54,12 @@ final class SalesInventoryDbfImportTenant {
 	/**
 	 * Jenis impor yang jalur tenantnya sudah ditulis.
 	 *
-	 * <p>Dua jenis transaksional ({@code pembelian_legacy}, {@code penjualan_legacy}) sengaja
-	 * belum termasuk: keduanya menuntut pemetaan ulang ke dokumen tenant — pembelian
-	 * ber-kepala/detail, dan penjualan yang melahirkan faktur berikut mutasinya — bukan sekadar
-	 * upsert satu baris. Keduanya <b>ditolak dengan menyebut namanya</b>, bukan dijalankan
-	 * separuh.</p>
+	 * <p>Sejak §24 kedelapan jenisnya termasuk. Daftar ini tetap ada sebagai penjaga: jenis di
+	 * luarnya ditolak dengan menyebut namanya, bukan dijatuhkan ke jalur legacy yang akan menulis
+	 * ke schema bersama.</p>
 	 */
 	private static final String[] JENIS_DIDUKUNG = { "supplier", "customer", "sales", "produk",
-			"harga_beli", "harga_jual" };
+			"harga_beli", "harga_jual", "pembelian_legacy", "penjualan_legacy" };
 
 	static boolean jenisDidukung(String jenis) {
 		for (int i = 0; i < JENIS_DIDUKUNG.length; i++) {
@@ -295,5 +293,51 @@ final class SalesInventoryDbfImportTenant {
 	static String gudangToko(String skema) {
 		return "SELECT id FROM " + skema + "gudang WHERE toko_id = ?"
 				+ " AND COALESCE(aktif,true) = true ORDER BY id LIMIT 1";
+	}
+
+	// ------------------------------------------------------------------ riwayat transaksi DBF
+
+	/**
+	 * <h4>Riwayat BELI.DBF/JUAL.DBF menjadi MUTASI, bukan dokumen karangan</h4>
+	 *
+	 * <p>Godaan yang wajar: menerbitkan {@code pembelian} ber-kepala/detail dan
+	 * {@code faktur_penjualan} supaya riwayat lama tampak seperti dokumen tenant biasa.
+	 * <b>Itu akan mengarang data.</b> Baris DBF-nya tidak membawa supplier maupun customer sebagai
+	 * relasi — hanya <i>teks kode</i> — dan tidak membawa termin, jatuh tempo, pajak, maupun
+	 * status dokumen. Dokumen yang dibentuk dari situ akan punya kepala yang isinya tebakan, lalu
+	 * ikut masuk ke umur piutang dan hutang seolah-olah tagihan sungguhan.</p>
+	 *
+	 * <p>Yang benar-benar dibawa berkas itu hanya satu hal: <b>barang berpindah, sekian banyak,
+	 * pada tanggal sekian, seharga sekian</b>. Pada model tenant itu persis satu baris
+	 * {@code mutasi_stok}. Jalur legacy pun tidak membuat dokumen — {@code PengadaanProduk} dan
+	 * {@code Pembelian} sama-sama baris datar, bukan kepala/detail — sehingga pemetaan ini
+	 * setara bentuknya, bukan penyederhanaan.</p>
+	 *
+	 * <p>Kode supplier/customer/sales dan nomor batch tetap disimpan pada {@code keterangan}:
+	 * teksnya tidak dapat menjadi relasi, tetapi membuangnya berarti kehilangan satu-satunya
+	 * petunjuk asal-usul baris itu.</p>
+	 *
+	 * <p>DELAPAN parameter: produkId, gudangId, tanggal, kuantitas, hargaSatuan, nilai,
+	 * nomorDokumen, keterangan, idempotencyKey, oleh — dengan {@code jenis} dan {@code arah}
+	 * ditentukan pemanggil lewat {@link #MUTASI_MASUK_PENGADAAN} atau
+	 * {@link #MUTASI_KELUAR_PENJUALAN}.</p>
+	 *
+	 * <p>Idempotensinya bersandar pada indeks unik {@code idempotency_key} milik
+	 * {@code mutasi_stok} (bundel v11), bukan pada {@code WHERE NOT EXISTS}: dua permintaan
+	 * serentak yang membawa berkas sama tetap berakhir pada satu baris, bukan dua.</p>
+	 */
+	static String sisipMutasiRiwayat(String skema, boolean masuk) {
+		return "INSERT INTO " + skema + "mutasi_stok (produk_id, gudang_id, tanggal, jenis, arah,"
+				+ " kuantitas, harga_satuan, nilai, nomor_dokumen, keterangan, idempotency_key,"
+				+ " dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, '"
+				+ (masuk ? TenantMutasiStok.PENGADAAN : TenantMutasiStok.PENJUALAN) + "', "
+				+ (masuk ? TenantMutasiStok.MASUK : TenantMutasiStok.KELUAR)
+				+ ", ?, ?, ?, ?, ?, ?, now(), ?)";
+	}
+
+	/** Benar bila kunci idempotensi itu sudah dipakai — baris DBF yang sama pernah diimpor. */
+	static String adaMutasiRiwayat(String skema) {
+		return "SELECT 1 FROM " + skema + "mutasi_stok WHERE idempotency_key = ? LIMIT 1";
 	}
 }

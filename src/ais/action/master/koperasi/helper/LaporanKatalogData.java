@@ -45,11 +45,6 @@ public final class LaporanKatalogData {
     private LaporanKatalogData() {
     }
 
-    /** URL peluncur laporan Akuntansi resmi (ZK) — Satuan Kerja kantin dipra-pilih di dalam form. */
-    private static String launchZk(String lap) {
-        return Common.ROOT + "/pages/master/kantin/laporan_keuangan.zul?lap=" + lap;
-    }
-
     private static String dashAkun() {
         return Common.ROOT + "/common/display.zul?p=akuntansi";
     }
@@ -387,10 +382,10 @@ public final class LaporanKatalogData {
         semua.add(k);
 
         k = new Kat("Laporan Keuangan Resmi — Komparatif (Akuntansi)");
-        k.items.add(item("lk_keu2", "Neraca / Laba Rugi / Arus Kas — 2 Periode", "Perbandingan 2 periode (pilih jenis di combo 'Jenis Laporan'). Resmi dari jurnal, Satuan Kerja kantin.", false, false, false, launchZk("keu2")));
-        k.items.add(item("lk_keu12", "Neraca / Laba Rugi / Arus Kas — 12 Bulan", "Kolom 12 bulan berjalan (pilih jenis di combo). Resmi dari jurnal akuntansi.", false, false, false, launchZk("keu12")));
-        k.items.add(item("lk_keu2th", "Neraca / Laba Rugi / Arus Kas — 2 Tahun", "Perbandingan 2 tahun (pilih jenis di combo). Resmi dari jurnal akuntansi.", false, false, false, launchZk("keu2th")));
-        k.items.add(item("lk_neracalajur", "Neraca Lajur (Kertas Kerja)", "Worksheet neraca lajur akuntansi resmi.", false, false, false, launchZk("neracalajur")));
+        k.items.add(item("lk_keu2", "Neraca & Laba Rugi — 2 Periode", "Dua kolom periode. Akun Neraca berisi SALDO per akhir periode; akun Laba Rugi berisi MUTASI dalam periode itu.", false, false, false, null));
+        k.items.add(item("lk_keu12", "Neraca & Laba Rugi — 12 Bulan (Kolom)", "Dua belas kolom bulan pada satu tahun. Akun Neraca berisi SALDO per akhir bulan; akun Laba Rugi berisi MUTASI bulan itu.", false, false, false, null));
+        k.items.add(item("lk_keu2th", "Neraca & Laba Rugi — 2 Tahun", "Perbandingan dua tahun. Akun Neraca berisi SALDO per 31 Desember; akun Laba Rugi berisi MUTASI setahun.", false, false, false, null));
+        k.items.add(item("lk_neracalajur", "Neraca Lajur (Kertas Kerja)", "Kertas kerja: Neraca Saldo, Penyesuaian, NSD, lalu dipisah ke kolom Laba Rugi / Neraca menurut Kelompok Laporan.", false, false, false, null));
         semua.add(k);
 
         k = new Kat("Buku Besar Resmi (Akuntansi)");
@@ -401,8 +396,8 @@ public final class LaporanKatalogData {
         semua.add(k);
 
         k = new Kat("Arus Kas & Analisa Keuangan (Akuntansi)");
-        k.items.add(item("lk_aruskas12", "Arus Kas — 12 Bulan (Kolom)", "Arus kas resmi format kolom 12 bulan.", false, false, false, launchZk("aruskas12")));
-        k.items.add(item("lk_aruskas31", "Arus Kas — 31 Hari (Kolom)", "Arus kas resmi harian 31 hari.", false, false, false, launchZk("aruskas31")));
+        k.items.add(item("lk_aruskas12", "Arus Kas — 12 Bulan (Kolom)", "Mutasi bersih tiap akun Kas/Bank per bulan (positif = kas masuk bersih) dari jurnal TERPOSTING.", false, false, false, null));
+        k.items.add(item("lk_aruskas31", "Arus Kas — Harian (Kolom)", "Mutasi bersih tiap akun Kas/Bank per hari dalam satu bulan (positif = kas masuk bersih).", false, false, false, null));
         k.items.add(item("lk_dashakun", "Rasio, Grafik, Laba Ditahan & Proyeksi Kas", "Buka Dasbor Akuntansi penuh: rasio keuangan, grafik, laba ditahan, perubahan ekuitas, proyeksi kas.", false, false, false, dashAkun()));
         semua.add(k);
 

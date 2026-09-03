@@ -538,11 +538,40 @@ public final class EbisnisMenuKatalog {
 			"uang_muka", "pj_uang_muka", "kas_besar", "pj_kas_besar", "kas_kecil", "penggantian_kas_kecil",
 			"dana_talangan", "reimbursement", "master_keuangan", "proses_transfer",
 			"proses_transitori", "nomor_surat_keuangan", "closing",
-			// varian POS Apotik/eMedik: menu ber-record nyata (laporan & monitor batch sengaja
+			// varian POS Apotik: menu ber-record nyata (laporan & monitor batch sengaja
 			// tidak disertakan -- tidak ada create/update/delete yang berarti di sana)
 			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium",
-			"apotik_pengadaan", "apotik_stok_opname", "apotik_retur", "apotik_narkotika",
-			"emedik_kasir", "emedik_pendaftaran", "emedik_tagihan", "emedik_deposit", "emedik_penjamin"));
+			"apotik_pengadaan", "apotik_stok_opname", "apotik_retur"));
+
+	/*
+	 * SENGAJA TIDAK ada di KUNCI_CRUD -- jangan ditambahkan tanpa membangun
+	 * gerbangnya lebih dulu. Kunci di sini memunculkan lima baris centang
+	 * (create/update/delete/approve/reject) di grid peran TbmroleAction; bila
+	 * peladen tidak pernah memeriksanya, centangnya BOHONG: admin mencabutnya,
+	 * menyimpan, dan percaya sudah membatasi sesuatu. Tidak ada galat dan tidak
+	 * ada perbedaan perilaku -- tidak ada cara mengetahuinya selain mengaudit.
+	 *
+	 *   apotik_narkotika  -- register obat terkendali (sirs.apotik_narkotika_log)
+	 *                        adalah jejak AUDIT: barisnya ditulis otomatis oleh
+	 *                        ApotikApiHelper saat obat bergolongan terkendali
+	 *                        terjual. Tidak ada endpoint create/update/delete
+	 *                        untuknya, jadi tidak ada yang bisa digerbangi -- dan
+	 *                        centangnya justru menyesatkan pada menu sepenting ini.
+	 *   emedik_kasir, emedik_pendaftaran, emedik_tagihan, emedik_deposit,
+	 *   emedik_penjamin   -- kelimanya JSP tipis yang menyisipkan panel ZK SIRS
+	 *                        (pagesmastersirs*zul), dirender DynamicJspCrudGenerator
+	 *                        yang MENEGAKKAN haknya sendiri lewat model hakAkses
+	 *                        lama. Layarnya berizin; izinnya datang dari sistem lain.
+	 *                        Menambahkan gerbang eBisnis di sana berarti sistem izin
+	 *                        KEDUA untuk layar yang sudah punya satu.
+	 *
+	 * Visibilitas menunya TIDAK terpengaruh: keenamnya tetap di DAFTAR, dan
+	 * defaultObj() menyusun `menu` dari DAFTAR terpisah dari `crud`. Pengaturan
+	 * yang terlanjur tersimpan juga tidak hilang -- ebisnisRoleMenuSimpan bersifat
+	 * aditif dan tidak pernah membuang kunci di luar KUNCI_CRUD.
+	 *
+	 * Lihat docs/pos/96 dan penjaga test/kunci_crud_ditegakkan_test.dart.
+	 */
 
 	/** Aksi granular yg bisa diatur per {@link #KUNCI_CRUD}, di luar Read (sudah diwakili {@code menu}). */
 	public static final String[] AKSI_CRUD = { "create", "update", "delete", "approve", "reject" };
