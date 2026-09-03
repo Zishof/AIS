@@ -1,5 +1,56 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 50 — SELESAI 100% (3 Sep 2026) — `/ppdb` PRA-OTENTIKASI DIKONFIRMASI, MEMPERKUAT `task_1f9c66d3`
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/PengaturanBiayaItemBiaya.java`**
+  (r83665) — 158→622 baris, 100% (34 anggota). TERKONFIRMASI HIDUP
+  PENUH sebagai inti mesin billing sekolah (rantai `PengaturanBiaya →
+  ...  → Tagihan → PembayaranSiswa`). Bug baru: fitur "salin dari
+  pengaturan biaya lain" MATI TOTAL (ternary logika salah membuat
+  sumber salinan selalu null).
+- **`ais/database/model/sekolah/GelombangPendaftaranPsbPunyaParameter
+  VerifikasiCalonSiswa.java`** (r83667) — 152→696 baris, 100% (31
+  anggota). Melengkapi temuan batch 49: KEDUA sisi rantai verifikasi
+  PSB kini terkonfirmasi TANPA privilese sama sekali. Bug penciutan
+  TreeSet berdampak khusus: penyimpanan PERTAMA kehilangan pilihan
+  checkbox secara senyap, edit-simpan kedua terlihat normal — sangat
+  mudah disalahkan ke kesalahan pengguna.
+- **`ais/database/model/sekolah/InterviewPunyaCalonSiswa.java`**
+  (r83668) — 147→607 baris, 100% (34 anggota). **TEMUAN PALING KRITIS
+  batch ini**: endpoint `/ppdb?hanya_tampil_jsp=true&p=ppdb&s=
+  _wawancara_service` SEPENUHNYA PRA-OTENTIKASI — `action=get_data`
+  membocorkan foto+NOMOR HP pewawancara dan LINK VIDEO CONFERENCE
+  wawancara anak orang lain; `action=submit_siap` bisa MENULIS (timpa
+  catatan, set status "siap") pada baris calon siswa MANA PUN lintas
+  instalasi TANPA LOGIN. Ini konfirmasi langsung `/ppdb` yang sudah
+  dicurigai di daftar `task_1f9c66d3` (dispatcher `hanya_tampil_jsp`)
+  memang rentan — MEMPERKUAT task itu signifikan, bukan task baru.
+  Layar pengelola juga nol privilese (instance ke-3 pola PSB).
+- **`ais/database/model/sekolah/KurikulumPunyaMatapelajaran.java`**
+  (r83666) — 143→665 baris, 100% (31 anggota). Premis awal keliru
+  (tidak ada field `jenisPenilaian`). Bug batch 48 TERKONFIRMASI dengan
+  koreksi penting (penjaga null menjaga hal yang tidak pernah terjadi).
+  Bug baru "matapelajaran hantu": divergensi checkbox vs SQL `aktif`
+  membuat mapel yang tak pernah disentuh admin tetap terhitung di
+  rapor/rekap/API meski tampak tak tercentang.
+- **`ais/database/model/sekolah/PaketPsb.java`** (r83669) — 158→639
+  baris, 100% (34 anggota). Domain terverifikasi 6 sumber (katalog
+  jalur/paket PPDB, bukan bundel biaya). Broken access control via
+  PEWARISAN MENU (hak CREATE/UPDATE/DELETE master paket sesungguhnya
+  hak menu Gelombang Pendaftaran PSB — mekanisme baru, bukan fail-open
+  biasa). Bug fungsional: nama paket wajib unik GLOBAL (bukan per
+  sekolah) — instalasi multi-sekolah tak bisa punya 2 paket "Reguler".
+
+**`task_1f9c66d3` (dispatcher JSP anonim) DIPERKUAT SIGNIFIKAN** —
+`/ppdb` kini terkonfirmasi rentan dengan mekanisme baca DAN tulis
+pra-otentikasi konkret (bukan cuma dugaan dari daftar 17 halaman).
+
+Total akumulasi 50 sesi: **427 file + 1 Action dasbor**.
+
 ## Batch 49 — SELESAI 100% (3 Sep 2026) — DATA DISABILITAS ANAK TERHAPUS SENYAP, BROKEN ACCESS CONTROL VERIFIKASI PSB
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
