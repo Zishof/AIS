@@ -1452,57 +1452,161 @@ public class AnggotaKoperasi extends VOSiswa {
 		this.kodeIdentitas = kodeIdentitas;
 	}
 
+	/**
+	 * Mengembalikan label tipe anggota dalam bentuk teks bebas.
+	 *
+	 * <p>Berbeda dari {@link #getTipeAnggotaKoperasi()} yang merupakan relasi terstruktur dan menjadi
+	 * dasar batas berutang, field teks ini hanya deskriptif dan tidak dipakai sebagai kunci logika
+	 * mana pun. Keduanya tidak saling menjaga konsistensi.</p>
+	 *
+	 * @return label tipe anggota, atau {@code null}
+	 */
 	public String getTipe() {
 		return tipe;
 	}
 
+	/**
+	 * Mengisi label tipe anggota berbentuk teks bebas.
+	 *
+	 * @param tipe label tipe anggota
+	 */
 	public void setTipe(String tipe) {
 		this.tipe = tipe;
 	}
 
+	/**
+	 * Mengembalikan label jenis identitas dalam bentuk teks bebas.
+	 *
+	 * <p>Padanan deskriptif dari relasi terstruktur {@link #getJenisIdentitasAnggotaKoperasi()}.
+	 * Tidak dipakai sebagai kunci logika dan tidak dijaga konsisten dengan relasi tersebut.</p>
+	 *
+	 * @return label jenis identitas, atau {@code null}
+	 */
 	public String getJenisIdentitas() {
 		return jenisIdentitas;
 	}
 
+	/**
+	 * Mengisi label jenis identitas berbentuk teks bebas.
+	 *
+	 * @param jenisIdentitas label jenis identitas
+	 */
 	public void setJenisIdentitas(String jenisIdentitas) {
 		this.jenisIdentitas = jenisIdentitas;
 	}
 
+	/**
+	 * Mengembalikan nomor telepon tetap anggota.
+	 *
+	 * @return nomor telepon tetap, atau {@code null}
+	 */
 	public String getTelp() {
 		return telp;
 	}
 
+	/**
+	 * Mengisi nomor telepon tetap anggota.
+	 *
+	 * @param telp nomor telepon tetap
+	 */
 	public void setTelp(String telp) {
 		this.telp = telp;
 	}
 
+	/**
+	 * Mengembalikan nomor seluler anggota sebagaimana dientri pengguna.
+	 *
+	 * <p>Nilainya belum dinormalisasi dan boleh berisi spasi, tanda hubung, atau awalan {@code 0}
+	 * maupun {@code +62}. Untuk pencocokan dan pencarian gunakan
+	 * {@link #getNomorHpNormalisasi()}.</p>
+	 *
+	 * @return nomor seluler mentah, atau {@code null}
+	 */
 	public String getHp() {
 		return hp;
 	}
 
+	/**
+	 * Mengisi nomor seluler anggota dalam bentuk mentah. Setter ini <b>tidak</b> ikut memperbarui
+	 * {@link #nomorHpNormalisasi}; normalisasi dikerjakan lapisan layanan, sehingga mengubah nomor
+	 * lewat method ini saja dapat membuat kedua kolom tidak sinkron.
+	 *
+	 * @param hp nomor seluler mentah
+	 */
 	public void setHp(String hp) {
 		this.hp = hp;
 	}
 
-	/** Nomor seluler kanonik (62xxxxxxxxxx) untuk identitas unik member POS. */
+	/**
+	 * Mengembalikan bentuk kanonik nomor seluler anggota, yaitu format {@code 62xxxxxxxxxx} tanpa
+	 * pemisah.
+	 *
+	 * <p>Kolom inilah yang dipakai sebagai identitas unik member pada alur POS -- pembeli cukup
+	 * menyebutkan nomor teleponnya untuk dikenali. Karena itu nilai di sini harus benar-benar
+	 * kanonik; pencarian member tidak akan menemukan anggota yang nomornya masih tersimpan dalam
+	 * bentuk mentah.</p>
+	 *
+	 * <p>Normalisasi dilakukan di lapisan layanan, bukan oleh entity ini, dan tidak ada penjagaan
+	 * yang memaksa kolom ini selaras dengan {@link #getHp()}. Keduanya dapat menyimpang bila nomor
+	 * diubah lewat jalur yang melewatkan langkah normalisasi.</p>
+	 *
+	 * @return nomor seluler kanonik, atau {@code null} bila belum dinormalisasi
+	 */
 	@Column(name = "nomor_hp_normalisasi", length = 32)
 	public String getNomorHpNormalisasi() {
 		return nomorHpNormalisasi;
 	}
 
+	/**
+	 * Mengisi bentuk kanonik nomor seluler. Pemanggil bertanggung jawab memastikan nilainya benar
+	 * benar sudah dinormalisasi -- entity ini tidak memverifikasinya.
+	 *
+	 * @param nomorHpNormalisasi nomor seluler dalam format {@code 62xxxxxxxxxx}
+	 */
 	public void setNomorHpNormalisasi(String nomorHpNormalisasi) {
 		this.nomorHpNormalisasi = nomorHpNormalisasi;
 	}
 
+	/**
+	 * Mengembalikan alamat surel anggota. Dipetakan ke kolom {@code email_nasabah} -- penamaan yang
+	 * tertinggal dari masa ketika entity ini juga melayani konteks nasabah.
+	 *
+	 * @return alamat surel, atau {@code null}
+	 */
 	@Column(name = "email_nasabah")
 	public String getEmail() {
 		return email;
 	}
 
+	/**
+	 * Mengisi alamat surel anggota. Untuk anggota tanpa surel sendiri, {@link #generateEmail()} dapat
+	 * membangkitkan alamat semu yang nilainya harus diteruskan ke method ini secara eksplisit.
+	 *
+	 * @param email alamat surel
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
+	/**
+	 * Mengembalikan jenis dokumen identitas anggota, menurunkannya dari relasi orang yang tertaut.
+	 *
+	 * <p>Penurunan mengikuti urutan: mahasiswa menghasilkan NIM, dosen menghasilkan NIDN, siswa
+	 * menghasilkan NIS, dan guru menghasilkan NUPTK. Bila tidak satu pun relasi terisi dan field
+	 * masih kosong, dipasang KTP sebagai jenis bawaan bagi anggota umum.</p>
+	 *
+	 * <p><b>Getter ini destruktif dan menimpa nilai manual.</b> Empat cabang pertama berjalan tanpa
+	 * memeriksa apakah field sudah terisi, sehingga jenis identitas yang dipilih admin secara manual
+	 * akan selalu tertimpa selama anggota tertaut ke salah satu entity orang tersebut. Hasil
+	 * penurunan ditulis balik ke field dan ikut ter-flush ke basis data pada akhir transaksi.</p>
+	 *
+	 * <p>Nilai bawaan yang dipasang berasal dari konstanta statis tingkat JVM yang di-seed saat
+	 * aplikasi dimulai; bila proses seed gagal, yang terpasang bisa berupa {@code null}. Berbeda dari
+	 * {@link #getTipeAnggotaKoperasi()}, di sini {@code check(...)} dipanggil pada seluruh jalur --
+	 * termasuk setelah konstanta dipasang -- sehingga hasilnya konsisten melewati resolusi proxy.</p>
+	 *
+	 * @return jenis dokumen identitas anggota
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_identitas_anggota_koperasi", nullable = true)
 	public JenisIdentitasAnggotaKoperasi getJenisIdentitasAnggotaKoperasi() {
@@ -1523,10 +1627,50 @@ public class AnggotaKoperasi extends VOSiswa {
 		return jenisIdentitasAnggotaKoperasi;
 	}
 
+	/**
+	 * Menetapkan jenis dokumen identitas anggota. Nilai ini hanya bertahan bagi anggota umum; bagi
+	 * anggota yang tertaut mahasiswa, dosen, siswa, atau guru ia akan tertimpa pada pembacaan
+	 * berikutnya oleh {@link #getJenisIdentitasAnggotaKoperasi()}.
+	 *
+	 * @param jenisIdentitasAnggotaKoperasi jenis dokumen identitas, boleh {@code null}
+	 */
 	public void setJenisIdentitasAnggotaKoperasi(JenisIdentitasAnggotaKoperasi jenisIdentitasAnggotaKoperasi) {
 		this.jenisIdentitasAnggotaKoperasi = jenisIdentitasAnggotaKoperasi;
 	}
 
+	/**
+	 * Mengembalikan tipe anggota -- dimensi klasifikasi peran/asal orang -- dengan menurunkannya dari
+	 * relasi orang yang tertaut.
+	 *
+	 * <h4>Mengapa nilai ini penting</h4>
+	 * <p>Tipe anggota bukan sekadar label tampilan. Batas {@code maksimalBolehUtang} milik
+	 * {@link TipeAnggotaKoperasi} adalah gerbang yang benar-benar dipakai alur checkout kantin untuk
+	 * menolak belanja tempo, dibandingkan terhadap hutang berjalan yang dihitung on-the-fly dari
+	 * tabel pembelian dan pembayaran hutang. Karena {@link #getLimitKredit()} tidak dipakai sebagai
+	 * gerbang, nilai inilah satu-satunya pembatas utang yang ditegakkan sistem.</p>
+	 *
+	 * <h4>Urutan penurunan</h4>
+	 * <p>Mahasiswa menghasilkan tipe Mahasiswa, dosen menghasilkan Dosen, siswa menghasilkan Siswa,
+	 * guru menghasilkan Guru; bila tidak satu pun terisi dan field masih kosong, dipasang Pegawai
+	 * sebagai tipe bawaan. Perhatikan bahwa tipe bawaan bagi anggota tanpa relasi orang adalah
+	 * Pegawai, bukan Umum -- anggota luar yang didaftarkan lewat POS karena itu mewarisi batas
+	 * berutang milik tipe Pegawai kecuali tipenya ditetapkan eksplisit.</p>
+	 *
+	 * <h4>Efek samping dan satu kejanggalan</h4>
+	 * <p><b>Getter ini destruktif dan menimpa nilai manual:</b> empat cabang pertama tidak memeriksa
+	 * apakah field sudah terisi, sehingga tipe yang dipilih admin akan selalu tertimpa selama anggota
+	 * tertaut ke entity orang yang bersangkutan. Hasilnya ditulis balik ke field dan ikut ter-flush.
+	 * Konsekuensi finansialnya nyata: mengubah keterkaitan seorang anggota ke data mahasiswa atau
+	 * pegawai diam-diam mengubah pula plafon utangnya di kasir.</p>
+	 *
+	 * <p>Berbeda dari {@link #getJenisIdentitasAnggotaKoperasi()}, di sini {@code check(...)} hanya
+	 * dipanggil pada cabang terakhir, yaitu ketika field sudah terisi dan tidak ada relasi orang yang
+	 * cocok. Nilai yang berasal dari konstanta bawaan maupun dari keempat cabang penurunan
+	 * dikembalikan tanpa melewati resolusi proxy, sehingga pemanggil dapat menerima proxy yang belum
+	 * terinisialisasi pada jalur-jalur tersebut.</p>
+	 *
+	 * @return tipe anggota, jatuh ke tipe Pegawai bawaan bila tidak dapat diturunkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tipe_anggota_koperasi", nullable = true)
 	public TipeAnggotaKoperasi getTipeAnggotaKoperasi() {
@@ -1546,10 +1690,50 @@ public class AnggotaKoperasi extends VOSiswa {
 		return tipeAnggotaKoperasi;
 	}
 
+	/**
+	 * Menetapkan tipe anggota. Karena tipe menentukan batas berutang yang ditegakkan di kasir,
+	 * perubahan nilai ini berdampak langsung pada plafon utang anggota. Nilai yang ditetapkan di sini
+	 * akan tertimpa pada pembacaan berikutnya bila anggota tertaut mahasiswa, dosen, siswa, atau
+	 * guru.
+	 *
+	 * @param tipeAnggotaKoperasi tipe anggota, boleh {@code null}
+	 */
 	public void setTipeAnggotaKoperasi(TipeAnggotaKoperasi tipeAnggotaKoperasi) {
 		this.tipeAnggotaKoperasi = tipeAnggotaKoperasi;
 	}
 
+	/**
+	 * Mengembalikan status keaktifan anggota, sekaligus menegakkan kedaluwarsa keanggotaan.
+	 *
+	 * <h4>Dua hal yang dikerjakan</h4>
+	 * <ol>
+	 * <li><b>Normalisasi.</b> Bila kolom masih {@code null} -- kondisi baris lama yang dibuat sebelum
+	 * kolom ini ada -- nilainya dijadikan {@code true}. Anggota tanpa status eksplisit karena itu
+	 * dianggap aktif.</li>
+	 * <li><b>Penegakan kedaluwarsa.</b> Bila {@link #getTanggalKadaluarsa()} terisi dan tanggal
+	 * server sudah mencapai atau melewatinya, status dipaksa menjadi {@code false}.</li>
+	 * </ol>
+	 *
+	 * <h4>Penanda ini bekerja satu arah dalam penegakan otomatisnya</h4>
+	 * <p>Kedua penyesuaian di atas <b>ditulis balik ke field</b>, sehingga pembacaan status pada
+	 * anggota yang baru kedaluwarsa menghasilkan UPDATE yang mematikan keanggotaannya secara
+	 * permanen di basis data. Yang perlu disadari: penegakan ini hanya berjalan ke arah menonaktifkan.
+	 * Bila tanggal kedaluwarsa kemudian diperpanjang atau dikosongkan, method ini <b>tidak</b>
+	 * menghidupkan kembali status yang terlanjur {@code false}; pengaktifan ulang harus dilakukan
+	 * eksplisit lewat {@link #setAktif(Boolean)}. Memperpanjang masa berlaku saja karena itu tidak
+	 * cukup untuk memulihkan keanggotaan.</p>
+	 *
+	 * <p>Perbandingan tanggal dilakukan pada nilai penuh termasuk komponen waktu, dan bersifat
+	 * inklusif -- anggota sudah dianggap tidak aktif tepat pada saat batas tercapai.</p>
+	 *
+	 * <p>Selain jalur kedaluwarsa ini, status keaktifan juga dimatikan dari luar oleh proses
+	 * terjadwal pelanggaran belanja rutin ketika {@link #getJumlahPeringatan()} melampaui ambang
+	 * milik {@link JenisAnggotaKoperasi}. Jadi terdapat tiga sumber yang dapat menonaktifkan seorang
+	 * anggota -- admin, kedaluwarsa, dan penjadwal -- sementara hanya admin yang dapat
+	 * mengaktifkannya kembali.</p>
+	 *
+	 * @return {@code true} bila anggota masih aktif
+	 */
 	public Boolean getAktif() {
 		if (aktif == null) {
 			aktif = true;
@@ -1564,10 +1748,32 @@ public class AnggotaKoperasi extends VOSiswa {
 		return aktif;
 	}
 
+	/**
+	 * Menetapkan status keaktifan anggota. Ini satu-satunya jalur untuk mengaktifkan kembali anggota
+	 * yang sudah dinonaktifkan, baik oleh kedaluwarsa maupun oleh penjadwal pelanggaran belanja.
+	 *
+	 * <p>Perlu diperhatikan bahwa mengaktifkan kembali anggota yang tanggal kedaluwarsanya sudah
+	 * lewat tidak akan bertahan: pembacaan {@link #getAktif()} berikutnya akan langsung
+	 * menonaktifkannya lagi. Perpanjang atau kosongkan dahulu
+	 * {@link #setTanggalKadaluarsa(Date)}.</p>
+	 *
+	 * @param aktif status keaktifan; {@code null} akan dibaca sebagai aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan tanggal pendaftaran anggota.
+	 *
+	 * <p><b>Tidak pernah {@code null}.</b> Bila kolom kosong, getter memasang tanggal server saat ini
+	 * dan menuliskannya ke field, sehingga pembacaan pada baris lama dapat menghasilkan UPDATE yang
+	 * menetapkan tanggal pendaftaran hari ini -- bukan tanggal pendaftaran yang sebenarnya. Untuk
+	 * data historis yang tanggal pendaftarannya hilang, isi kolom secara eksplisit sebelum baris
+	 * tersebut sempat terbaca.</p>
+	 *
+	 * @return tanggal pendaftaran anggota
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggal() {
 		if (tanggal == null) {
@@ -1576,11 +1782,26 @@ public class AnggotaKoperasi extends VOSiswa {
 		return tanggal;
 	}
 
+	/**
+	 * Menetapkan tanggal pendaftaran anggota.
+	 *
+	 * @param tanggal tanggal pendaftaran
+	 */
 	public void setTanggal(Date tanggal) {
 		this.tanggal = tanggal;
 	}
 
 	/**
+	 * Mengembalikan tanggal anggota berhenti atau keluar dari koperasi.
+	 *
+	 * <p>Kolom ini adalah penanda riwayat, <b>bukan</b> penanda status: mengisinya tidak dengan
+	 * sendirinya menonaktifkan anggota. Status keaktifan tetap dipegang {@link #getAktif()}, dan
+	 * keduanya dapat menyimpang -- seorang anggota bisa memiliki tanggal berhenti sekaligus tetap
+	 * berstatus aktif, atau sebaliknya. Alur yang memberhentikan anggota harus mengisi kedua hal
+	 * tersebut.</p>
+	 *
+	 * <p>Keterangan asli yang dipertahankan:</p>
+	 *
 	 * Tanggal anggota berhenti/keluar dari koperasi (untuk "Buku Anggota" pada template pembukuan).
 	 * {@code null} berarti masih aktif sebagai anggota.
 	 */
@@ -1590,21 +1811,59 @@ public class AnggotaKoperasi extends VOSiswa {
 		return tanggalBerhenti;
 	}
 
+	/**
+	 * Menetapkan tanggal anggota berhenti/keluar. Ingat bahwa ini tidak menonaktifkan anggota --
+	 * panggil juga {@link #setAktif(Boolean)} bila keanggotaan memang harus berakhir.
+	 *
+	 * @param tanggalBerhenti tanggal berhenti, {@code null} berarti masih tercatat sebagai anggota
+	 */
 	public void setTanggalBerhenti(Date tanggalBerhenti) {
 		this.tanggalBerhenti = tanggalBerhenti;
 	}
 
-	/** Alasan anggota berhenti/keluar (mis. meninggal, pindah, mengundurkan diri). */
+	/**
+	 * Mengembalikan alasan anggota berhenti atau keluar, misalnya meninggal, pindah, atau
+	 * mengundurkan diri.
+	 *
+	 * <p>Teks bebas tanpa daftar nilai baku, sehingga tidak dapat dipakai sebagai dasar
+	 * pengelompokan yang andal pada laporan keanggotaan. Kolom bertipe {@code text} sehingga
+	 * panjangnya tidak dibatasi.</p>
+	 *
+	 * @return alasan berhenti, atau {@code null}
+	 */
 	@Column(name = "alasan_berhenti", columnDefinition = "text")
 	public String getAlasanBerhenti() {
 		return alasanBerhenti;
 	}
 
+	/**
+	 * Mengisi alasan anggota berhenti/keluar.
+	 *
+	 * @param alasanBerhenti alasan berhenti dalam teks bebas
+	 */
 	public void setAlasanBerhenti(String alasanBerhenti) {
 		this.alasanBerhenti = alasanBerhenti;
 	}
 
 	/**
+	 * Menyatakan apakah anggota tergolong <b>pihak terkait</b> koperasi, yaitu orang yang punya
+	 * hubungan istimewa dengan pengurus seperti pengurus atau pengawas itu sendiri.
+	 *
+	 * <p>Penanda ini memperketat Batas Maksimum Pemberian Pinjaman: pihak terkait dibatasi sepuluh
+	 * persen dari Modal Sendiri, sedangkan pihak tidak terkait lima belas persen. Karena itu
+	 * pengisiannya bukan sekadar administratif -- ia langsung memperkecil pagu pinjaman yang boleh
+	 * diterima anggota, dan salah mengisinya berarti melonggarkan batas kehati-hatian yang justru
+	 * ditujukan bagi orang dalam.</p>
+	 *
+	 * <p><b>Null-safe:</b> kolom yang belum diisi dibaca sebagai {@code false}, artinya anggota
+	 * dianggap bukan pihak terkait. Nilai bawaan ini bersifat longgar, sehingga pengurus yang belum
+	 * ditandai akan dinilai dengan pagu yang lebih besar. Normalisasi tidak ditulis balik ke field,
+	 * sehingga getter ini murni. Perhatikan bahwa penandaan di sini tidak diturunkan otomatis dari
+	 * {@link PengurusKoperasi} -- keduanya adalah pencatatan terpisah dan harus dijaga selaras secara
+	 * manual.</p>
+	 *
+	 * <p>Keterangan asli yang dipertahankan:</p>
+	 *
 	 * {@code true} bila anggota merupakan <b>pihak terkait</b> (mis. pengurus/pengawas). Dipakai untuk
 	 * perhitungan Batas Maksimum Pemberian Pinjaman (BMPP): pihak terkait dibatasi 10% dari Modal
 	 * Sendiri, sedangkan pihak tidak terkait 15%. Default {@code false}.
@@ -1614,10 +1873,26 @@ public class AnggotaKoperasi extends VOSiswa {
 		return pihakTerkait == null ? false : pihakTerkait;
 	}
 
+	/**
+	 * Menetapkan penanda pihak terkait. Perubahan nilai ini mengubah pagu Batas Maksimum Pemberian
+	 * Pinjaman anggota dari lima belas persen menjadi sepuluh persen Modal Sendiri, atau sebaliknya.
+	 *
+	 * @param pihakTerkait {@code true} bila anggota adalah pihak terkait; {@code null} dibaca sebagai
+	 *                     {@code false}
+	 */
 	public void setPihakTerkait(Boolean pihakTerkait) {
 		this.pihakTerkait = pihakTerkait;
 	}
 
+	/**
+	 * Mengembalikan pengguna yang mendaftarkan anggota ini.
+	 *
+	 * <p>Berbeda dari bayangan audit {@link #getOleh()} yang mencatat pengubah <i>terakhir</i>, relasi
+	 * ini mencatat pembuat dan tidak berubah sepanjang umur baris. Pemanggilannya dapat memicu
+	 * pemuatan dari basis data lewat {@code check(...)}.</p>
+	 *
+	 * @return pengguna pembuat, atau {@code null} bila tidak tercatat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dibuat_oleh", nullable = true)
 	public Tbmuser getDibuatOleh() {
@@ -1625,10 +1900,21 @@ public class AnggotaKoperasi extends VOSiswa {
 		return dibuatOleh;
 	}
 
+	/**
+	 * Menetapkan pengguna yang mendaftarkan anggota ini.
+	 *
+	 * @param dibuatOleh pengguna pembuat, boleh {@code null}
+	 */
 	public void setDibuatOleh(Tbmuser dibuatOleh) {
 		this.dibuatOleh = dibuatOleh;
 	}
 
+	/**
+	 * Mengembalikan data guru yang menjadi identitas anggota ini, bila ada. Pemanggilannya dapat
+	 * memicu pemuatan dari basis data dan menulis balik ke field.
+	 *
+	 * @return data guru, atau {@code null} bila anggota bukan guru
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "guru", nullable = true)
 	public Guru getGuru() {
@@ -1636,10 +1922,22 @@ public class AnggotaKoperasi extends VOSiswa {
 		return guru;
 	}
 
+	/**
+	 * Menetapkan data guru sebagai identitas anggota. Ikut memengaruhi nama, kode identitas, jenis
+	 * identitas, tipe anggota, dan -- lewat sekolah -- juga {@link #getSatuanKerja()}.
+	 *
+	 * @param guru data guru, boleh {@code null}
+	 */
 	public void setGuru(Guru guru) {
 		this.guru = guru;
 	}
 
+	/**
+	 * Mengembalikan data siswa yang menjadi identitas anggota ini, bila ada. Pemanggilannya dapat
+	 * memicu pemuatan dari basis data dan menulis balik ke field.
+	 *
+	 * @return data siswa, atau {@code null} bila anggota bukan siswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "siswa", nullable = true)
 	public Siswa getSiswa() {
@@ -1647,10 +1945,59 @@ public class AnggotaKoperasi extends VOSiswa {
 		return siswa;
 	}
 
+	/**
+	 * Menetapkan data siswa sebagai identitas anggota. Selain memengaruhi nama dan identitas, relasi
+	 * ini juga mengambil alih {@link #getKelasLesDipilih()} dari data siswa.
+	 *
+	 * @param siswa data siswa, boleh {@code null}
+	 */
 	public void setSiswa(Siswa siswa) {
 		this.siswa = siswa;
 	}
 
+	/**
+	 * Mengembalikan satuan kerja (tenant akuntansi/anggaran) pemilik anggota, menurunkannya dari
+	 * rantai relasi orang bila belum ditetapkan.
+	 *
+	 * <h4>Tenant langsung, berbeda dari koperasi</h4>
+	 * <p>Berbeda dari {@link #getKoperasi()} yang hanya dapat dicapai lewat dua tingkat
+	 * ketidaklangsungan, satuan kerja tersedia sebagai kolom langsung pada entity ini. Keduanya
+	 * adalah sumbu tenant yang berbeda dan tidak saling menyiratkan: satuan kerja dipakai modul
+	 * akuntansi dan anggaran, sedangkan koperasi dipakai domain usaha koperasi.</p>
+	 *
+	 * <h4>Urutan penurunan</h4>
+	 * <p>Kandidat diperiksa berurutan dan yang pertama cocok dipakai:</p>
+	 * <ol>
+	 * <li>Satuan kerja milik pegawai.</li>
+	 * <li>Satuan kerja jurusan dosen, tetapi hanya bila jurusan tersebut menyatakan dosennya memang
+	 * harus memakai satuan kerja.</li>
+	 * <li>Satuan kerja fakultas dosen, dengan syarat penanda serupa pada fakultas.</li>
+	 * <li>Satuan kerja perguruan tinggi dosen, dengan syarat penanda serupa.</li>
+	 * <li>Satuan kerja sekolah guru, dengan syarat penanda serupa pada sekolah.</li>
+	 * <li>Satuan kerja akun pengguna yang tertaut.</li>
+	 * </ol>
+	 * <p>Bila semuanya gagal dan field masih kosong, dijalankan rangkaian cadangan: satuan kerja
+	 * sekolah guru atau perguruan tinggi dosen diambil <b>tanpa</b> memeriksa penanda "harus memakai
+	 * satuan kerja" -- longgar dibandingkan jalur utama di atas. Sebagai upaya terakhir, dan hanya
+	 * untuk baris yang belum pernah tersimpan, satuan kerja diambil dari pengguna yang sedang login
+	 * atau dari perpustakaan aktif.</p>
+	 *
+	 * <h4>Peringatan pemakaian</h4>
+	 * <p><b>Getter ini destruktif, mahal, dan bergantung pada konteks sesi.</b> Hasil penurunan
+	 * ditulis balik ke field sehingga ikut ter-flush; penelusuran menembus beberapa tingkat relasi
+	 * lazy sehingga dapat menerbitkan banyak kueri; dan cabang terakhir membaca pengguna yang sedang
+	 * login. Konsekuensinya, tenant sebuah anggota baru dapat ditentukan oleh siapa yang kebetulan
+	 * membuka layar tersebut. Pada proses latar belakang yang tidak punya sesi pengguna, cabang itu
+	 * menghasilkan {@code null} dan anggota berakhir tanpa satuan kerja. Untuk data yang tenant-nya
+	 * harus pasti, tetapkan nilainya eksplisit lewat {@link #setSatuanKerja(SatuanKerja)}.</p>
+	 *
+	 * <p>Seluruh kesalahan pada rangkaian cadangan ditelan dan hanya direkam ke audit kesalahan,
+	 * sehingga kegagalan penurunan tidak terlihat oleh pemanggil dan berakhir sebagai {@code null}
+	 * yang senyap. Perhatikan pula bahwa method ini dapat mengembalikan {@code null} pada banyak
+	 * jalur, sementara sejumlah pemanggil di modul lain mengasumsikan tenant selalu ada.</p>
+	 *
+	 * @return satuan kerja pemilik anggota, atau {@code null} bila tidak dapat ditentukan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
@@ -1709,26 +2056,75 @@ public class AnggotaKoperasi extends VOSiswa {
 		return satuanKerja;
 	}
 
+	/**
+	 * Menetapkan satuan kerja pemilik anggota secara eksplisit. Nilai yang ditetapkan di sini tetap
+	 * dapat tertimpa oleh {@link #getSatuanKerja()} bila anggota tertaut pegawai, dosen, guru, atau
+	 * akun pengguna yang membawa satuan kerja sendiri.
+	 *
+	 * @param satuanKerja satuan kerja pemilik, boleh {@code null}
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Mengembalikan nama pengguna portal anggota, sudah dipangkas spasi, atau {@code null} bila
+	 * kosong.
+	 *
+	 * <p>Hanya relevan bagi anggota yang diberi akses login mandiri. Ini berbeda dari relasi
+	 * {@link #getTbmuser()} yang menautkan anggota ke akun pengguna aplikasi.</p>
+	 *
+	 * @return nama pengguna portal, atau {@code null}
+	 */
 	public String getUserid() {
 		return userid == null || userid.trim().isEmpty() ? null : userid.trim();
 	}
 
+	/**
+	 * Mengisi nama pengguna portal anggota. Berbeda dari getter-nya, setter ini menyimpan nilai apa
+	 * adanya tanpa memangkas spasi.
+	 *
+	 * @param userid nama pengguna portal
+	 */
 	public void setUserid(String userid) {
 		this.userid = userid;
 	}
 
+	/**
+	 * Mengembalikan kata sandi portal anggota, sudah dipangkas spasi, atau {@code null} bila kosong.
+	 *
+	 * <p><b>Berbeda dari PIN, kata sandi ini tidak disimpan dalam bentuk ber-hash</b> -- nilainya
+	 * tersimpan apa adanya pada kolom dan dikembalikan utuh oleh getter ini. Jangan menampilkannya di
+	 * antarmuka, menuliskannya ke log, atau menyertakannya dalam muatan yang dikirim ke peramban.
+	 * Bandingkan dengan {@link #verifikasiPin(String)} yang memperlihatkan cara penyimpanan
+	 * kredensial yang seharusnya.</p>
+	 *
+	 * @return kata sandi portal, atau {@code null}
+	 */
 	public String getPass() {
 		return pass == null || pass.trim().isEmpty() ? null : pass.trim();
 	}
 
+	/**
+	 * Mengisi kata sandi portal anggota. Nilai disimpan apa adanya tanpa hashing maupun pemangkasan
+	 * spasi.
+	 *
+	 * @param pass kata sandi portal
+	 */
 	public void setPass(String pass) {
 		this.pass = pass;
 	}
 
+	/**
+	 * Mengembalikan berkas pengajuan calon anggota yang menjadi asal-usul baris anggota ini.
+	 *
+	 * <p>Terisi bagi anggota yang lahir dari alur pendaftaran resmi, dan {@code null} bagi anggota
+	 * yang dibuat langsung oleh admin atau otomatis saat transaksi POS. Berguna untuk menelusuri
+	 * kembali dokumen persetujuan keanggotaan. Pemanggilannya dapat memicu pemuatan dari basis
+	 * data.</p>
+	 *
+	 * @return berkas pengajuan calon anggota, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "calon_anggota_koperasi", nullable = true)
 	public CalonAnggotaKoperasi getCalonAnggotaKoperasi() {
@@ -1736,14 +2132,52 @@ public class AnggotaKoperasi extends VOSiswa {
 		return calonAnggotaKoperasi;
 	}
 
+	/**
+	 * Menautkan berkas pengajuan calon anggota sebagai asal-usul baris anggota ini.
+	 *
+	 * @param calonAnggotaKoperasi berkas pengajuan calon anggota, boleh {@code null}
+	 */
 	public void setCalonAnggotaKoperasi(CalonAnggotaKoperasi calonAnggotaKoperasi) {
 		this.calonAnggotaKoperasi = calonAnggotaKoperasi;
 	}
 
+	/**
+	 * Mengembalikan daftar kelas les pilihan <b>apa adanya</b> dari field, tanpa mengambil alih dari
+	 * data siswa dan tanpa membersihkan koma berlebih.
+	 *
+	 * <p>Padanan murni dari {@link #getKelasLesDipilih()}, diberi awalan {@code ambil} agar tidak
+	 * diperlakukan Hibernate sebagai properti. Nilai {@code null} dinormalkan menjadi string kosong
+	 * sehingga aman langsung dipakai.</p>
+	 *
+	 * @return daftar id kelas les berpemisah koma, atau string kosong
+	 */
 	public String ambilKelasLesDipilih() {
 		return kelasLesDipilih == null ? "" : kelasLesDipilih.trim();
 	}
 
+	/**
+	 * Mengembalikan daftar kelas les yang dipilih, dalam bentuk deretan id berpemisah koma.
+	 *
+	 * <p>Method ini melaksanakan kontrak abstrak milik {@link ais.database.model.VOSiswa}, yang
+	 * memakainya untuk mengurai daftar id dan memuat objek kelas les terkait.</p>
+	 *
+	 * <h4>Dua perilaku yang berbeda</h4>
+	 * <p>Bila anggota tertaut data siswa, daftar diambil alih sepenuhnya dari siswa tersebut --
+	 * nilai yang tersimpan pada anggota diabaikan dan tertimpa. Bila tidak, nilai field dirapikan
+	 * lebih dahulu: dibungkus koma di kedua ujung lalu koma ganda dipadatkan, dengan pemeriksaan
+	 * tambahan untuk membuang sisa string yang hanya berisi koma.</p>
+	 *
+	 * <p>Perlu dicatat bahwa pemadatan koma ganda dilakukan dengan tiga kali penggantian berurutan,
+	 * bukan dengan pengulangan sampai tuntas, sehingga deretan koma yang sangat panjang tidak
+	 * dijamin bersih seluruhnya. Demikian pula pemeriksaan sisa hanya menangani sampai tiga koma
+	 * berturut-turut.</p>
+	 *
+	 * <p><b>Getter ini destruktif:</b> hasil perapian maupun hasil pengambilalihan dari siswa
+	 * ditulis balik ke field, sehingga pembacaan dapat menghasilkan UPDATE. Gunakan
+	 * {@link #ambilKelasLesDipilih()} bila hanya butuh nilai tersimpan.</p>
+	 *
+	 * @return daftar id kelas les berpemisah koma, atau string kosong bila tidak ada
+	 */
 	public String getKelasLesDipilih() {
 		if (getSiswa() != null) {
 			kelasLesDipilih = getSiswa().getKelasLesDipilih();
@@ -1763,20 +2197,54 @@ public class AnggotaKoperasi extends VOSiswa {
 		return kelasLesDipilih == null ? "" : kelasLesDipilih.trim();
 	}
 
+	/**
+	 * Menetapkan daftar kelas les pilihan sebagai deretan id berpemisah koma. Nilai ini akan
+	 * tertimpa oleh {@link #getKelasLesDipilih()} bila anggota tertaut data siswa.
+	 *
+	 * @param kelasLesDipilih daftar id kelas les berpemisah koma
+	 */
 	public void setKelasLesDipilih(String kelasLesDipilih) {
 		this.kelasLesDipilih = kelasLesDipilih;
 	}
 
+	/**
+	 * Mengembalikan tanggal kedaluwarsa keanggotaan.
+	 *
+	 * <p>{@code null} berarti keanggotaan tidak berbatas waktu. Bila terisi dan sudah terlewati,
+	 * {@link #getAktif()} akan menonaktifkan anggota secara permanen pada pembacaan berikutnya --
+	 * lihat catatan satu arah pada getter tersebut sebelum mengubah nilai ini.</p>
+	 *
+	 * @return tanggal kedaluwarsa, atau {@code null} bila tidak berbatas waktu
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggal_kadaluarsa")
 	public Date getTanggalKadaluarsa() {
 		return tanggalKadaluarsa;
 	}
 
+	/**
+	 * Menetapkan tanggal kedaluwarsa keanggotaan.
+	 *
+	 * <p>Memperpanjang atau mengosongkan tanggal ini <b>tidak</b> mengaktifkan kembali anggota yang
+	 * sudah terlanjur dinonaktifkan karena kedaluwarsa; panggil juga {@link #setAktif(Boolean)}.</p>
+	 *
+	 * @param tanggalKadaluarsa tanggal kedaluwarsa, {@code null} berarti tidak berbatas waktu
+	 */
 	public void setTanggalKadaluarsa(Date tanggalKadaluarsa) {
 		this.tanggalKadaluarsa = tanggalKadaluarsa;
 	}
 
+	/**
+	 * Mengembalikan data calon siswa yang tertaut pada anggota ini, bila ada.
+	 *
+	 * <p>Dipakai bagi pendaftar yang sudah menjadi anggota koperasi sebelum berstatus siswa penuh.
+	 * Berbeda dari relasi orang lainnya, relasi ini <b>tidak</b> ikut dibaca oleh
+	 * {@link #getNama()}, {@link #getKodeIdentitas()}, {@link #getTipeAnggotaKoperasi()}, maupun
+	 * {@link #getJenisIdentitasAnggotaKoperasi()}. Anggota yang hanya tertaut calon siswa karena itu
+	 * tetap memakai nama yang dientri manual dan jatuh ke tipe serta jenis identitas bawaan.</p>
+	 *
+	 * @return data calon siswa, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "calon_siswa", nullable = true)
 	public CalonSiswa getCalonSiswa() {
@@ -1784,6 +2252,11 @@ public class AnggotaKoperasi extends VOSiswa {
 		return calonSiswa;
 	}
 
+	/**
+	 * Menautkan data calon siswa pada anggota ini.
+	 *
+	 * @param calonSiswa data calon siswa, boleh {@code null}
+	 */
 	public void setCalonSiswa(CalonSiswa calonSiswa) {
 		this.calonSiswa = calonSiswa;
 	}
