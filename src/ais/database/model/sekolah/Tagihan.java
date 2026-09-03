@@ -273,6 +273,7 @@ import ais.ui.util.WaktuUtil;
 @Table(name = "tagihan", schema = "sekolah")
 public class Tagihan extends GeneralValueObject {
 
+	/** Versi serialisasi; entity ini dikirim antar-lapisan sebagai {@link Serializable}. */
 	private static final long serialVersionUID = -5958155911087405007L;
 	/** Kunci utama baris tagihan (identity/serial database). */
 	private Long id;
@@ -723,6 +724,10 @@ public class Tagihan extends GeneralValueObject {
 		this.calonSiswa = calonSiswa;
 	}
 
+	// =========================================================================================
+	// OPTIMISASI MEMORI: Pengambilan Tahun dan Bulan menggunakan aritmatika, bukan
+	// String
+	// =========================================================================================
 	/**
 	 * Bulan periode tagihan (1-12), atau {@code null} bila tagihan tidak terikat bulan
 	 * tertentu.
@@ -752,10 +757,6 @@ public class Tagihan extends GeneralValueObject {
 	 *
 	 * @return bulan periode 1-12, atau {@code null}
 	 */
-	// =========================================================================================
-	// OPTIMISASI MEMORI: Pengambilan Tahun dan Bulan menggunakan aritmatika, bukan
-	// String
-	// =========================================================================================
 	@Column(name = "bulan")
 	public Integer getBulan() {
 		if (getPengaturanBiaya() != null) {
@@ -974,6 +975,10 @@ public class Tagihan extends GeneralValueObject {
 		this.informasi = informasi;
 	}
 
+	// =========================================================================================
+	// OPTIMISASI: Pengecekan Rekursif tagihanLainWajib Diekstrak Menjadi Method
+	// Terpisah
+	// =========================================================================================
 	/**
 	 * Menelusuri rantai prasyarat <code>ItemBiayaSekolah.harusBayar</code> secara rekursif
 	 * dan mengumpulkan id seluruh komponen biaya yang harus dilunasi lebih dahulu.
@@ -992,10 +997,6 @@ public class Tagihan extends GeneralValueObject {
 	 * @param tagihanCek   tagihan yang sedang ditelusuri prasyaratnya
 	 * @param allTagihans  seluruh tagihan yang tersedia sebagai bahan penelusuran
 	 */
-	// =========================================================================================
-	// OPTIMISASI: Pengecekan Rekursif tagihanLainWajib Diekstrak Menjadi Method
-	// Terpisah
-	// =========================================================================================
 	private void checkUlangRekursif(List<Long> harusBayars, Tagihan tagihanCek, List<Tagihan> allTagihans) {
 		if (tagihanCek == null || tagihanCek.getItemBiayaSekolah() == null)
 			return;
@@ -1466,6 +1467,9 @@ public class Tagihan extends GeneralValueObject {
 		return kiri.compareToIgnoreCase(kanan);
 	}
 
+	// =========================================================================================
+	// OPTIMISASI: Pengelolaan Session Database dengan blok finally yang ketat
+	// =========================================================================================
 	/**
 	 * Varian ringkas {@link #ambilAtauBuat(ItemBiayaSekolah, PengaturanBiaya, Siswa,
 	 * CalonSiswa, Integer, NominalBiaya, Integer, PengaturanBiayaItemBiaya, boolean)}
@@ -1481,9 +1485,6 @@ public class Tagihan extends GeneralValueObject {
 	 * @param pengaturanBiayaItemBiaya konfigurasi komponen, dipakai bila tarif perlu dibuat ulang
 	 * @return tagihan yang sudah ada atau baru dibuat, atau {@code null} bila gagal/ditolak
 	 */
-	// =========================================================================================
-	// OPTIMISASI: Pengelolaan Session Database dengan blok finally yang ketat
-	// =========================================================================================
 	public static Tagihan ambilAtauBuat(ItemBiayaSekolah itemBiayaSekolah, PengaturanBiaya pengaturanBiaya, Siswa siswa,
 			CalonSiswa calonSiswa, Integer bayarKe, NominalBiaya nominalBiaya, Integer tahunbulan,
 			PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya) {
@@ -2496,6 +2497,7 @@ public class Tagihan extends GeneralValueObject {
 		return getBoleh(pengaturanBiaya, siswa, calonSiswa, itemBiayaSekolah, false);
 	}
 
+	// 1. Method Overloading: Menjaga agar class lain yang memanggil method ini tidak error (Backward Compatibility)
 	/**
 	 * Varian kompatibilitas mundur (tanpa parameter <code>debug</code>) — dipertahankan agar
 	 * kelas lain yang memanggilnya tetap terkompilasi.
@@ -2507,12 +2509,12 @@ public class Tagihan extends GeneralValueObject {
 	 * @param aktifkanmanual   penanda aktifkan manual; satu-satunya penentu untuk periode "Harian"
 	 * @return {@code true} bila paket biaya boleh dikenakan kepada pihak tersebut
 	 */
-	// 1. Method Overloading: Menjaga agar class lain yang memanggil method ini tidak error (Backward Compatibility)
 		public static Boolean getBoleh(PengaturanBiaya pengaturanBiaya, Siswa siswa, CalonSiswa calonSiswa,
 				ItemBiayaSekolah itemBiayaSekolah, Boolean aktifkanmanual) {
 			return getBoleh(pengaturanBiaya, siswa, calonSiswa, itemBiayaSekolah, aktifkanmanual, false);
 		}
 
+		// 2. Method Utama: Dengan tambahan parameter "boolean debug" dan Perbaikan Bug Gelombang
 	/**
 	 * Menentukan apakah sebuah paket biaya <b>boleh dikenakan</b> kepada seorang siswa atau
 	 * calon siswa. Inilah penyaring kelayakan yang dipakai {@link #getAktif()}, dan lewat
@@ -2563,7 +2565,6 @@ public class Tagihan extends GeneralValueObject {
 	 * @param debug            {@code true} untuk mencetak alasan tiap keputusan ke stdout
 	 * @return {@code true} bila paket biaya boleh dikenakan kepada pihak tersebut
 	 */
-		// 2. Method Utama: Dengan tambahan parameter "boolean debug" dan Perbaikan Bug Gelombang
 		public static Boolean getBoleh(PengaturanBiaya pengaturanBiaya, Siswa siswa, CalonSiswa calonSiswa,
 				ItemBiayaSekolah itemBiayaSekolah, Boolean aktifkanmanual, boolean debug) {
 			
@@ -2667,6 +2668,68 @@ public class Tagihan extends GeneralValueObject {
 			return true;
 		}
 
+	/**
+	 * Menentukan apakah tagihan ini <b>masih berlaku</b> — yaitu apakah ia muncul di layar
+	 * pembayaran, ikut dijumlahkan ke total Virtual Account, dan tampil di laporan
+	 * tunggakan.
+	 *
+	 * <p><b>GETTER MENULIS BALIK.</b> Setiap cabang menyimpan hasilnya ke field
+	 * {@link #aktif} sebelum mengembalikannya (<code>return this.aktif = ...</code>),
+	 * sehingga kolom <code>aktif</code> ikut berubah pada flush berikutnya. Method ini juga
+	 * memanggil sembilan getter lain yang semuanya menulis balik, termasuk
+	 * {@link #getPembayaranSiswaDetail()} dengan efek destruktifnya.</p>
+	 *
+	 * <h4>Urutan keputusan (yang di atas mengalahkan yang di bawah)</h4>
+	 * <ol>
+	 *   <li><b>Sudah dibayar &rarr; SELALU aktif.</b> Bila ada baris pelunasan yang tertaut
+	 *       ke sebuah kuitansi (<i>rescue</i>), tagihan dipaksa aktif tanpa validasi apa pun.
+	 *       Tanpa aturan ini, mengubah konfigurasi biaya dapat membuat tagihan yang sudah
+	 *       dilunasi menghilang dari riwayat pembayaran siswa.</li>
+	 *   <li><b>Nonaktifkan manual</b> ({@link #getNonaktifManual()}) &rarr; mati, tidak
+	 *       dihitung ulang.</li>
+	 *   <li><b>Bukan tagihan</b> (dari tarif atau dari kolom sendiri) &rarr; mati. Perhatikan
+	 *       urutannya: ini diperiksa <b>SEBELUM</b> override aktifkan manual, jadi penanda
+	 *       "bukan tagihan" menang atas paksaan admin. Inilah alasan
+	 *       {@link #setBukanTagihan(Boolean)} tidak perlu lagi punya efek samping.</li>
+	 *   <li><b>Aktifkan manual</b> ({@link #getAktifkanmanual()}) &rarr; aktif, melewati
+	 *       seluruh validasi di bawah.</li>
+	 *   <li><b>Kelayakan paket biaya</b> lewat {@link #getBoleh} — angkatan, penjurusan,
+	 *       status awal, gelombang PSB, periode "Harian".</li>
+	 *   <li><b>Jenis kelamin</b>: komponen yang dibatasi
+	 *       <code>ItemBiayaSekolah.kelamin</code> tidak berlaku bagi siswa berjenis kelamin
+	 *       lain. Bila jenis kelamin siswa {@code null}, pembatasan ini <b>dilewati</b>
+	 *       (gagal ke sisi longgar).</li>
+	 * </ol>
+	 *
+	 * <h4>Validasi lanjutan (hanya untuk tagihan yang belum "diselamatkan")</h4>
+	 * Blok <code>!isRescued</code> dilewati bila tagihan sudah dibayar, diaktifkan manual,
+	 * atau merupakan angsuran pertama dari komponen sekali lunas. Selebihnya diperiksa:
+	 * bulan di luar 1-12; periode melewati <code>bulanSampai</code> (dua kali, dengan ambang
+	 * berbeda); angsuran ke-2+ yang nominalnya persis sama dengan tarif penuh padahal
+	 * komponennya BUKAN <code>angsuranSeragam</code> (indikasi cicilan yang belum dibagi);
+	 * tahun yang tidak terkandung di string tahun ajaran; tanggal
+	 * <code>tagihanKadaluarsa</code> yang sudah lewat atau jatuh hari ini; tahun ajaran yang
+	 * sudah melewati tahun kelulusan siswa; dan komponen biaya yang sudah dinonaktifkan.
+	 * <p>
+	 * Terakhir, untuk paket "semua angkatan" (<code>tahunAngkatan == 0</code>) berperiode
+	 * "Bulanan", batas <code>bulanSampai</code> diperiksa sekali lagi.
+	 *
+	 * <h4>Kuirk &amp; catatan</h4>
+	 * <ul>
+	 *   <li>Komentar di dalam kode menegaskan bahwa <code>bulanMulai</code> hanya mengontrol
+	 *       PEMBANGKITAN tagihan, bukan keaktifan tagihan yang sudah ada — karena itu hanya
+	 *       <code>bulanSampai</code> yang diuji di sini.</li>
+	 *   <li>Pemeriksaan angsuran ke-2+ membaca field mentah <code>bayarKe</code> dan
+	 *       <code>nominal</code>, bukan getter-nya — sehingga perilakunya berbeda pada
+	 *       entity yang belum dihidrasi penuh.</li>
+	 *   <li><b>Kegagalan berujung fail-open:</b> bila terjadi <i>exception</i> di mana pun,
+	 *       method mengembalikan nilai <code>aktif</code> terakhir, dan bila itu pun
+	 *       {@code null}, mengembalikan {@code true}. Artinya kerusakan data induk cenderung
+	 *       membuat tagihan tetap tampil (dan tetap ditagihkan), bukan hilang.</li>
+	 * </ul>
+	 *
+	 * @return {@code true} bila tagihan masih berlaku dan harus ditagihkan
+	 */
 	public Boolean getAktif() {
 		try {
 			Siswa s = getSiswa();
@@ -2795,10 +2858,31 @@ public class Tagihan extends GeneralValueObject {
 		return this.aktif == null ? true : this.aktif;
 	}
 
+	/**
+	 * Menyetel status keaktifan secara langsung.
+	 * <p>
+	 * Nilai yang disetel di sini bersifat sementara: {@link #getAktif()} akan
+	 * menghitungnya ulang pada pembacaan berikutnya. Untuk mematikan tagihan secara
+	 * permanen pakai {@link #setNonaktifManual(Boolean)}; untuk menyalakannya pakai
+	 * {@link #setAktifkanmanual(Boolean)}.
+	 *
+	 * @param aktif status keaktifan
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Jejak posting jurnal akuntansi untuk <b>pokok</b> tagihan ini. Terisi setelah tagihan
+	 * diposting ke buku besar (layar Posting Piutang Siswa); {@code null} berarti belum
+	 * pernah diposting, dan nilainya dikosongkan kembali saat posting dibatalkan.
+	 * <p>
+	 * Salah satu dari empat jejak posting yang terpisah — pokok, denda, diskon, dan uang
+	 * muka masing-masing masuk ke jurnal sendiri sehingga dapat dibatalkan sendiri-sendiri.
+	 * Pembaca murni, tanpa efek samping.
+	 *
+	 * @return jejak posting pokok tagihan, atau {@code null} bila belum diposting
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "posting_history_id")
@@ -2806,6 +2890,10 @@ public class Tagihan extends GeneralValueObject {
 		return postingHistory;
 	}
 
+	/**
+	 * @param postingHistory jejak posting pokok tagihan, atau {@code null} untuk
+	 *                       menandai belum/batal diposting
+	 */
 	public void setPostingHistory(PostingHistory postingHistory) {
 		this.postingHistory = postingHistory;
 	}
@@ -2814,6 +2902,20 @@ public class Tagihan extends GeneralValueObject {
 	// OPTIMISASI: Penggunaan Helper untuk membersihkan IF-ELSE bersarang di
 	// TanggalTagihan
 	// =========================================================================================
+	/**
+	 * Memilih tanggal terbit tagihan khusus untuk sebuah bulan dari dua belas kolom
+	 * <code>tanggalTagihanBulan1</code> .. <code>tanggalTagihanBulan12</code> milik
+	 * {@link ais.database.model.sekolah.PengaturanBiaya}.
+	 * <p>
+	 * Bentuk <code>switch</code> berjenjang ini menggantikan rantai IF-ELSE bersarang;
+	 * kedua belas kolom itu memang dideklarasikan terpisah di entity induk, sehingga
+	 * pemetaan manual seperti ini tidak terhindarkan.
+	 *
+	 * @param pb  paket biaya sumber tanggal (diasumsikan tidak {@code null} oleh pemanggil)
+	 * @param bln bulan 1-12; nilai di luar rentang jatuh ke
+	 *            <code>PengaturanBiaya.getTanggalTagihan()</code> umum
+	 * @return tanggal terbit untuk bulan tersebut, atau {@code null} bila belum diisi
+	 */
 	private Date getTanggalTagihanBulanHelper(PengaturanBiaya pb, int bln) {
 		switch (bln) {
 		case 1:
@@ -2845,6 +2947,37 @@ public class Tagihan extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Tanggal tagihan diterbitkan — yang dicetak di kuitansi dan dipakai sebagai patokan
+	 * "sejak kapan kewajiban ini berlaku".
+	 *
+	 * <p><b>GETTER MENULIS BALIK.</b> Nilainya diturunkan ulang dari paket biaya melalui
+	 * tiga jalur:</p>
+	 * <ol>
+	 *   <li>bila paket biaya <b>tidak</b> ber-flag
+	 *       <code>tanggalTagihanMengikutiBulanBerjalan</code> dan bulan tagihan diketahui
+	 *       &rarr; ambil tanggal khusus bulan itu lewat
+	 *       {@link #getTanggalTagihanBulanHelper};</li>
+	 *   <li>untuk periode "Bulanan" dengan bulan &amp; tahun diketahui &rarr; disusun sebagai
+	 *       <b>tanggal 1 pukul 07.00</b> pada bulan yang bersangkutan (jam 7 pagi dipakai
+	 *       konsisten di seluruh kelas ini agar perbandingan tanggal tidak terpengaruh zona
+	 *       waktu / batas tengah malam);</li>
+	 *   <li>selebihnya &rarr; <code>PengaturanBiaya.getTanggalTagihan()</code> umum, tetapi
+	 *       hanya bila paket ber-flag <code>tanggalTagihanMengikutiDefault</code> atau nilai
+	 *       tersimpan masih kosong — sehingga tanggal yang sudah pernah ditetapkan tidak
+	 *       tertimpa.</li>
+	 * </ol>
+	 *
+	 * <p>Akses ke paket biaya dibungkus <code>try/catch</code> untuk melindungi dari proxy
+	 * yang terikat sesi tertutup; kegagalan bersifat senyap dan nilai tersimpan
+	 * dipertahankan.</p>
+	 *
+	 * <p><b>Tidak pernah mengembalikan {@code null}</b> — bila semua jalur gagal, waktu
+	 * server saat ini yang dikembalikan. Karena itu jangan memakai method ini untuk menguji
+	 * "apakah tanggal tagihan sudah diisi".</p>
+	 *
+	 * @return tanggal terbit tagihan; waktu sekarang bila tidak dapat disimpulkan
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggal_tagihan")
 	public Date getTanggalTagihan() {
@@ -2882,10 +3015,51 @@ public class Tagihan extends GeneralValueObject {
 		return tanggalTagihan == null ? WaktuUtil.getDate() : tanggalTagihan;
 	}
 
+	/**
+	 * @param tanggalTagihan tanggal terbit tagihan; dapat ditimpa kembali oleh
+	 *                       {@link #getTanggalTagihan()}
+	 */
 	public void setTanggalTagihan(Date tanggalTagihan) {
 		this.tanggalTagihan = tanggalTagihan;
 	}
 
+	/**
+	 * Denda keterlambatan yang menempel pada tagihan ini. Nilainya ditambahkan ke
+	 * {@link #getNominal()} di seluruh titik penjumlahan — layar pembayaran, total Virtual
+	 * Account, dan servlet bank.
+	 *
+	 * <p><b>GETTER MENULIS BALIK</b> ke field {@link #denda}.</p>
+	 *
+	 * <h4>Cara hitung</h4>
+	 * <ol>
+	 *   <li>Tagihan yang tidak aktif ({@link #getAktif()}) &rarr; <b>0</b>, tanpa
+	 *       perhitungan lebih lanjut.</li>
+	 *   <li>Tanggal pembanding: normalnya waktu server sekarang; <b>tetapi</b> bila tagihan
+	 *       sudah dibayar, yang dipakai adalah tanggal bayar pada kuitansi. Ini penting agar
+	 *       denda tagihan lama tidak terus tumbuh setelah dilunasi.</li>
+	 *   <li>Bila {@link #getTanggalDeadline()} sudah terlewat &rarr; denda dihitung; kalau
+	 *       tidak &rarr; 0.</li>
+	 *   <li>Denda tetap &rarr; <code>PengaturanBiaya.getDenda()</code> apa adanya.</li>
+	 *   <li>Denda persentase (<code>dendaMengunakanPersen</code>) &rarr; rumus yang dipakai
+	 *       adalah <code>nominal - (nominal * persen/100)</code>.</li>
+	 *   <li>Penanda "bukan tagihan" &rarr; denda dipaksa 0 (override terakhir).</li>
+	 * </ol>
+	 *
+	 * <p><b>Kuirk pada rumus persentase.</b> Bacaan harfiah rumus di atas menghasilkan
+	 * <i>sisa</i> setelah potongan persen, bukan besaran denda itu sendiri: untuk nominal
+	 * 1.000.000 dengan denda 5%, hasilnya 950.000 — hampir seluruh nilai tagihan menjadi
+	 * denda, alih-alih 50.000. Rumus yang lazim adalah <code>nominal * persen / 100</code>.
+	 * Perilaku ini didokumentasikan apa adanya; <b>tidak diubah</b> karena instalasi yang
+	 * berjalan mungkin sudah bergantung padanya dan koreksinya akan mengubah angka rupiah
+	 * yang sudah tercetak.</p>
+	 *
+	 * <p>Perhatikan juga bahwa method ini memanggil {@link #getAktif()},
+	 * {@link #getPembayaranSiswaDetail()}, {@link #getTanggalDeadline()}, dan
+	 * {@link #getNominal()} — seluruhnya menulis balik, sehingga sekadar menampilkan kolom
+	 * denda pada sebuah grid akan menyentuh banyak kolom lain.</p>
+	 *
+	 * @return besaran denda, minimal 0,0 (tidak pernah {@code null})
+	 */
 	public Double getDenda() {
 		if (!Boolean.TRUE.equals(getAktif()))
 			return 0.0;
@@ -2921,10 +3095,38 @@ public class Tagihan extends GeneralValueObject {
 		return denda == null ? 0.0 : denda;
 	}
 
+	/**
+	 * @param denda besaran denda; akan dihitung ulang oleh {@link #getDenda()}
+	 */
 	public void setDenda(Double denda) {
 		this.denda = denda;
 	}
 
+	/**
+	 * Batas akhir pembayaran sebelum denda mulai berlaku. Nilai {@code null} berarti
+	 * <b>tidak ada denda</b> untuk tagihan ini.
+	 *
+	 * <p><b>GETTER MENULIS BALIK.</b> Diturunkan ulang dari paket biaya:</p>
+	 * <ol>
+	 *   <li>paket tanpa <code>terdapatDenda</code> &rarr; <b>{@code null}</b> (denda mati);</li>
+	 *   <li>periode tagihan terdaftar di <code>bulanYangTidakAdaDendanya</code> &rarr;
+	 *       <b>{@code null}</b>. Pencocokannya memakai pola <code>","+tahunbulan+","</code>,
+	 *       jadi daftar itu harus berawal dan berakhir koma agar entri pertama/terakhir ikut
+	 *       terbaca;</li>
+	 *   <li>periode "Bulanan" dengan bulan &amp; tahun diketahui &rarr; disusun sebagai
+	 *       tanggal <code>tanggalDeadlineDenda</code> (bawaan: 1) pukul 07.00 pada bulan
+	 *       yang bersangkutan;</li>
+	 *   <li>selebihnya &rarr; <code>PengaturanBiaya.getDeadlineTagihan()</code> umum.</li>
+	 * </ol>
+	 *
+	 * <p>Berbeda dengan {@link #getTanggalTagihan()}, method ini <b>boleh</b> mengembalikan
+	 * {@code null} — dan {@code null} di sini bermakna, bukan sekadar "belum diisi".</p>
+	 *
+	 * <p>Akses ke paket biaya dibungkus <code>try/catch</code> untuk proxy dari sesi
+	 * tertutup; kegagalan bersifat senyap dan mempertahankan nilai tersimpan.</p>
+	 *
+	 * @return batas akhir pembayaran, atau {@code null} bila tagihan ini bebas denda
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggal_deadline")
 	public Date getTanggalDeadline() {
@@ -2967,10 +3169,39 @@ public class Tagihan extends GeneralValueObject {
 		return tanggalDeadline;
 	}
 
+	/**
+	 * @param tanggalDeadline batas akhir pembayaran; akan dihitung ulang oleh
+	 *                        {@link #getTanggalDeadline()}
+	 */
 	public void setTanggalDeadline(Date tanggalDeadline) {
 		this.tanggalDeadline = tanggalDeadline;
 	}
 
+	/**
+	 * Menghitung potongan <b>tanpa</b> memperhitungkan diskon khusus pembayaran sekali lunas
+	 * — versi "polos" dari {@link #getDiskon()}. Namanya mengandung salah ketik yang sudah
+	 * terlanjur dipakai luas ("Dikon", seharusnya "Diskon").
+	 *
+	 * <p>Aturannya jauh lebih sederhana:</p>
+	 * <ol>
+	 *   <li>bila ada {@link #getDiskonSiswa()} yang <b>tidak</b> memotong tagihan (diskon
+	 *       yang dibayarkan sebagai transfer terpisah, bukan pengurang tagihan) &rarr; 0;</li>
+	 *   <li>selebihnya &rarr; {@link #getDiskonTidakLangsung()};</li>
+	 *   <li>penanda "bukan tagihan" &rarr; 0;</li>
+	 *   <li><b>angsuran ke-2 ke atas &rarr; 0</b> — diskon hanya melekat pada angsuran
+	 *       pertama, konsisten dengan {@link #getDiskonSiswa()} yang mengosongkan relasi
+	 *       diskon untuk <code>bayarKe &gt; 1</code>.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> hasilnya ditulis ke field {@link #diskon}, sehingga memanggil
+	 * method ini dapat mengubah nilai yang kemudian dibaca {@link #getDiskon()}.</p>
+	 *
+	 * <p>Dipakai layar/aksi yang menampilkan "Tagihan bersih" (mis.
+	 * {@link #pindahkan(Tagihan, EventListener)} dan <code>/Api TagihanSiswa.split()</code>)
+	 * dengan rumus <code>denda + nominal - diskon</code>.</p>
+	 *
+	 * @return besaran potongan, minimal 0,0 (tidak pernah {@code null})
+	 */
 	public Double ambilDiskonTanpaDikonBayarSatuKali() {
 		nominalBiaya = getNominalBiaya();
 		if (getDiskonSiswa() != null && !Boolean.TRUE.equals(getDiskonSiswa().getMemotongTagihan())) {
@@ -2989,6 +3220,42 @@ public class Tagihan extends GeneralValueObject {
 		return diskon == null ? 0.0 : diskon;
 	}
 
+	/**
+	 * Potongan yang berlaku atas tagihan ini.
+	 *
+	 * <p><b>GETTER MENULIS BALIK</b> ke field {@link #diskon}.</p>
+	 *
+	 * <h4>Cabang perhitungan</h4>
+	 * <ol>
+	 *   <li><b>Tarif terkunci &amp; sudah dibayar.</b> Bila komponen sekali lunas dengan
+	 *       <code>maksimalBiaya == minimalBiaya</code> (&gt; 0,1) sudah punya pelunasan
+	 *       bernilai &gt; 0,1 &rarr; <code>diskon = NominalBiaya.getNominal() - dibayar</code>,
+	 *       yaitu selisih antara tarif resmi dan uang yang benar-benar masuk. <b>Inilah
+	 *       cabang yang dahulu menjadi setengah dari umpan balik bug "tagihan bertambah tiap
+	 *       klik Cari"</b> — lihat {@link #setNominal(Double)}: karena diskon dihitung DARI
+	 *       <code>nominalBiaya.getNominal()</code>, setter yang menulis balik ke sana
+	 *       menutup lingkarannya.</li>
+	 *   <li><b>Sudah dibayar dengan diskon siswa.</b> &rarr;
+	 *       <code>diskon = getNominal() - dibayar</code>.</li>
+	 *   <li><b>Diskon manual</b> (&gt; 0,1) &rarr; dipakai apa adanya.</li>
+	 *   <li><b>Selebihnya</b> &rarr; {@link #ambilDiskonTanpaDikonBayarSatuKali()} ditambah
+	 *       <code>PengaturanBiayaItemBiaya.diskonBiaya</code>, tetapi tambahan itu HANYA
+	 *       berlaku untuk komponen sekali lunas.</li>
+	 * </ol>
+	 *
+	 * <h4>Kuirk</h4>
+	 * <ul>
+	 *   <li>Dua cabang pertama membaca field mentah <code>dibayar</code>,
+	 *       <code>pembayaranSiswaDetail</code>, dan <code>nominalBiaya</code> — bukan
+	 *       getter-nya. Pada entity yang belum dihidrasi penuh, cabang-cabang itu tidak
+	 *       terpicu dan perhitungan jatuh ke cabang terakhir.</li>
+	 *   <li>Ada dua lapis <code>try/catch</code> bersarang yang keduanya hanya mencetak
+	 *       jejak dan mencatat ke audit — kegagalan menghasilkan diskon parsial secara
+	 *       senyap, bukan error.</li>
+	 * </ul>
+	 *
+	 * @return besaran potongan, minimal 0,0 (tidak pernah {@code null})
+	 */
 	public Double getDiskon() {
 		PengaturanBiayaItemBiaya pbi = getNominalBiaya() == null ? null
 				: getNominalBiaya().getPengaturanBiayaItemBiaya();
@@ -3023,10 +3290,19 @@ public class Tagihan extends GeneralValueObject {
 		return diskon == null ? 0.0 : diskon;
 	}
 
+	/**
+	 * @param diskon besaran potongan; akan dihitung ulang oleh {@link #getDiskon()}
+	 */
 	public void setDiskon(Double diskon) {
 		this.diskon = diskon;
 	}
 
+	/**
+	 * Jejak posting jurnal akuntansi untuk komponen <b>denda</b>, terpisah dari jurnal pokok
+	 * agar pembatalan posting denda tidak ikut membatalkan posting pokok. Pembaca murni.
+	 *
+	 * @return jejak posting denda, atau {@code null} bila belum diposting
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "posting_history_denda_id")
@@ -3034,10 +3310,20 @@ public class Tagihan extends GeneralValueObject {
 		return postingHistoryDenda;
 	}
 
+	/**
+	 * @param postingHistoryDenda jejak posting denda, atau {@code null}
+	 */
 	public void setPostingHistoryDenda(PostingHistory postingHistoryDenda) {
 		this.postingHistoryDenda = postingHistoryDenda;
 	}
 
+	/**
+	 * Jejak posting jurnal akuntansi untuk komponen <b>uang muka</b> (pembayaran di muka /
+	 * <i>dibayar dimuka</i>), yang diposting lewat layar tersendiri karena secara akuntansi
+	 * merupakan kewajiban, bukan pendapatan. Pembaca murni.
+	 *
+	 * @return jejak posting uang muka, atau {@code null} bila belum diposting
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "posting_history_uang_muka_id")
@@ -3045,27 +3331,73 @@ public class Tagihan extends GeneralValueObject {
 		return postingHistoryUangMuka;
 	}
 
+	/**
+	 * @param postingHistoryUangMuka jejak posting uang muka, atau {@code null}
+	 */
 	public void setPostingHistoryUangMuka(PostingHistory postingHistoryUangMuka) {
 		this.postingHistoryUangMuka = postingHistoryUangMuka;
 	}
 
+	/**
+	 * Nomor <b>Virtual Account</b> bank yang diterbitkan untuk tagihan ini.
+	 * <p>
+	 * String kosong dinormalisasi menjadi {@code null} sehingga pemanggil cukup memeriksa
+	 * satu kondisi untuk tahu "apakah VA sudah terbit". Tidak ada efek samping.
+	 * <p>
+	 * <b>Catatan keamanan:</b> nomor VA adalah kunci masuk servlet <code>/MncBank</code>
+	 * dan <code>/Va</code> yang tidak terautentikasi. Siapa pun yang memegang atau menebak
+	 * nomor ini dapat memperoleh nama siswa, NIS, rincian item biaya, denda, dan nominal
+	 * rupiah dari kedua endpoint tersebut. Lihat Javadoc kelas.
+	 *
+	 * @return nomor Virtual Account, atau {@code null} bila belum terbit
+	 */
 	public String getVa() {
 		return va == null || va.isEmpty() ? null : va;
 	}
 
+	/**
+	 * @param va nomor Virtual Account bank
+	 */
 	public void setVa(String va) {
 		this.va = va;
 	}
 
+	/**
+	 * Kedaluwarsa nomor {@link #getVa()} / {@link #getLink()} pembayaran. Setelah waktu ini
+	 * terlewat, kanal pembayaran online untuk tagihan ini harus diterbitkan ulang.
+	 * <p>
+	 * Pembaca murni. Perhatikan bahwa penegakan kedaluwarsa di sisi servlet bank
+	 * dikendalikan konfigurasi <code>chek_kadaluarsa</code> — bila konfigurasi itu mati,
+	 * VA lama tetap dilayani.
+	 *
+	 * @return waktu kedaluwarsa kanal pembayaran, atau {@code null} bila tanpa batas
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getExpired() {
 		return expired;
 	}
 
+	/**
+	 * @param expired waktu kedaluwarsa kanal pembayaran
+	 */
 	public void setExpired(Date expired) {
 		this.expired = expired;
 	}
 
+	/**
+	 * Tahun ajaran tagihan dalam bentuk string "2025/2026".
+	 *
+	 * <p><b>GETTER MENULIS BALIK:</b> bila paket biaya dapat dimuat, nilainya SELALU
+	 * disalin dari <code>PengaturanBiaya.getTahunAjaran()</code> — nilai kolom sendiri tidak
+	 * pernah menang. Artinya mengubah tahun ajaran sebuah paket biaya akan menulis ulang
+	 * kolom ini pada seluruh tagihan yang menaunginya begitu barisnya tersentuh.</p>
+	 *
+	 * <p>String ini dipakai sebagai kriteria pencarian di {@link #buatAtauLoadTagihan} dan
+	 * sebagai pembanding di {@link #getAktif()} (yang menguji apakah tahun periode
+	 * terkandung di dalamnya), sehingga formatnya harus konsisten "YYYY/YYYY".</p>
+	 *
+	 * @return tahun ajaran, atau {@code null} bila belum dapat disimpulkan
+	 */
 	public String getTahunAjaran() {
 		if (getPengaturanBiaya() != null) {
 			tahunAjaran = getPengaturanBiaya().getTahunAjaran();
@@ -3073,10 +3405,40 @@ public class Tagihan extends GeneralValueObject {
 		return tahunAjaran;
 	}
 
+	/**
+	 * @param tahunAjaran tahun ajaran "YYYY/YYYY"; akan ditimpa kembali oleh
+	 *                    {@link #getTahunAjaran()} bila paket biaya dapat dimuat
+	 */
 	public void setTahunAjaran(String tahunAjaran) {
 		this.tahunAjaran = tahunAjaran;
 	}
 
+	/**
+	 * <i>Snapshot</i> kelas siswa pada tahun ajaran tagihan ini, dipakai laporan tunggakan
+	 * dan rekap pembayaran per kelas.
+	 *
+	 * <p><b>GETTER MENULIS BALIK</b> dengan logika pemilihan yang cukup halus:</p>
+	 * <ol>
+	 *   <li><b>Utamakan snapshot yang sudah tersimpan</b> — bila kolom sudah terisi, tahun
+	 *       ajarannya cocok dengan paket biaya, DAN barisnya masih ada di database
+	 *       ({@link #kelasSiswaMasihAdaDiDb}), nilai itu dipertahankan. Komentar di dalam
+	 *       kode mencatat alasannya: sebelumnya nilai ini selalu ditimpa oleh
+	 *       <code>Siswa.ambilKelas(...)</code> yang dapat membaca cache relasi lama
+	 *       <b>setelah siswa pindah kelas</b>.</li>
+	 *   <li>Kalau tidak, kandidat baru diambil dari <code>Siswa.ambilKelas(...)</code>.</li>
+	 *   <li><b>Kandidat divalidasi keberadaannya di database.</b> Ini perbaikan akar
+	 *       masalah, bukan tambalan: karena relasi ini dipetakan
+	 *       <code>cascade = PERSIST/MERGE</code>, referensi ke baris kelas yang sudah
+	 *       terhapus akan membuat INSERT tagihan baru <b>ditolak Postgres</b> dengan
+	 *       pelanggaran foreign key. Kandidat basi karena itu dijadikan {@code null}.</li>
+	 * </ol>
+	 *
+	 * <p>Seluruh <i>exception</i> ditelan dan dijatuhkan ke nilai kolom sendiri lewat
+	 * <code>check(...)</code>.</p>
+	 *
+	 * @return kelas siswa pada tahun ajaran tagihan, atau {@code null} bila tidak diketahui
+	 *         atau referensinya sudah tidak valid
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelas_siswa_id")
 	public KelasSiswa getKelasSiswa() {
@@ -3116,10 +3478,35 @@ public class Tagihan extends GeneralValueObject {
 	// Cache kecil (in-memory, TTL) hasil validasi keberadaan baris "kelas" di DB,
 	// supaya getKelasSiswa() yang dipanggil berulang kali (mis. saat render grid
 	// utk banyak siswa dgn kelas yg sama) tidak membanjiri DB dengan query yang sama.
+	/**
+	 * Cache validasi keberadaan baris kelas: id kelas &rarr; cap waktu (milidetik) saat
+	 * terakhir dipastikan ada di database. Bersifat statis, jadi dibagi seluruh proses.
+	 */
 	private static final java.util.concurrent.ConcurrentHashMap<Long, Long> KELAS_EXIST_CACHE_AT =
 			new java.util.concurrent.ConcurrentHashMap<Long, Long>();
+	/** Masa berlaku entri {@link #KELAS_EXIST_CACHE_AT}: 5 menit. */
 	private static final long KELAS_EXIST_CACHE_TTL_MS = 5 * 60 * 1000L;
 
+	/**
+	 * Memastikan sebuah baris kelas masih benar-benar ada di database, sebagai penjaga
+	 * terhadap referensi basi yang akan ditolak <i>foreign key</i> saat
+	 * {@link #getKelasSiswa()} dipakai untuk INSERT tagihan baru.
+	 *
+	 * <p>Hasil positif di-cache selama 5 menit ({@link #KELAS_EXIST_CACHE_TTL_MS}) agar
+	 * render grid berisi banyak siswa sekelas tidak menghasilkan satu query per baris.
+	 * Hasil negatif justru <b>menghapus</b> entri cache sehingga selalu diuji ulang.</p>
+	 *
+	 * <p>Membuka dan menutup sesi Hibernate sendiri (ditutup di <code>finally</code>) —
+	 * disengaja, agar validasi ini tidak mengotori <i>persistence context</i> pemanggil.</p>
+	 *
+	 * <p><b>Gagal ke sisi longgar:</b> bila query-nya sendiri gagal (mis. basis data sedang
+	 * sibuk), method mengembalikan {@code true} — kelas dianggap masih ada. Ini disengaja
+	 * agar gangguan sesaat tidak menghapus snapshot kelas yang sebenarnya sah, tetapi
+	 * berarti penjagaannya tidak mutlak.</p>
+	 *
+	 * @param id id baris kelas yang diuji; {@code null} menghasilkan {@code false}
+	 * @return {@code true} bila baris kelas ada, atau bila validasinya gagal
+	 */
 	private static boolean kelasSiswaMasihAdaDiDb(Long id) {
 		if (id == null) {
 			return false;
@@ -3156,10 +3543,30 @@ public class Tagihan extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * @param kelasSiswa snapshot kelas siswa; akan diverifikasi ulang oleh
+	 *                   {@link #getKelasSiswa()}
+	 */
 	public void setKelasSiswa(KelasSiswa kelasSiswa) {
 		this.kelasSiswa = kelasSiswa;
 	}
 
+	/**
+	 * Paket biaya yang menaungi tagihan ini — pemasok tahun ajaran, tahun angkatan,
+	 * konfigurasi denda, tanggal terbit/deadline per bulan, daftar bulan tanpa tagihan,
+	 * dan jenis biaya.
+	 *
+	 * <p><b>GETTER MENULIS BALIK.</b> Nilainya <b>selalu</b> diambil ulang dari
+	 * {@link #getNominalBiaya()} bila tarif dapat dimuat; kolom
+	 * <code>pengaturan_biaya</code> milik tagihan hanya dipakai sebagai cadangan saat tarif
+	 * tidak tersedia. Dengan kata lain, tarif adalah acuan kebenaran dan tagihan akan
+	 * "mengikuti" bila tarifnya dipindahkan ke paket biaya lain.</p>
+	 *
+	 * <p>Seluruh <i>exception</i> ditelan dan dijatuhkan ke nilai kolom sendiri lewat
+	 * <code>check(...)</code>.</p>
+	 *
+	 * @return paket biaya yang menaungi, atau {@code null} bila tak dapat dimuat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pengaturan_biaya")
 	public PengaturanBiaya getPengaturanBiaya() {
@@ -3176,10 +3583,40 @@ public class Tagihan extends GeneralValueObject {
 		return pengaturanBiaya;
 	}
 
+	/**
+	 * @param pengaturanBiaya paket biaya yang menaungi; akan ditimpa kembali oleh
+	 *                        {@link #getPengaturanBiaya()} bila tarif dapat dimuat
+	 */
 	public void setPengaturanBiaya(PengaturanBiaya pengaturanBiaya) {
 		this.pengaturanBiaya = pengaturanBiaya;
 	}
 
+	/**
+	 * Menentukan apakah periode ini termasuk <b>"bulan yang tidak ada tagihannya"</b>
+	 * menurut konfigurasi paket biaya — misalnya SPP yang diliburkan pada bulan Ramadan
+	 * atau libur akhir tahun.
+	 *
+	 * <p>Berbeda dengan {@link #ambilBukanTagihanData()} yang sekadar membaca kolom, method
+	 * ini <b>menghitung</b> dari daftar <code>PengaturanBiaya.bulanYangTidakAdaTagihannya</code>.
+	 * Formatnya berupa pasangan <code>kodeItem:bulan</code> yang diapit koma, dicocokkan
+	 * sebagai <code>","+kode+":"+bulan+","</code> dan dibandingkan tanpa memperhatikan
+	 * besar-kecil huruf. Konsekuensinya sama seperti daftar berkoma lain di kelas ini:
+	 * daftar harus berawal dan berakhir koma agar entri pertama/terakhir ikut terbaca.</p>
+	 *
+	 * <p>Berlaku hanya bila paket ber-flag
+	 * <code>terdapatBulanYangTidakAdaTagihannya</code>, komponen biaya punya kode, dan bulan
+	 * tagihan diketahui serta berada di rentang 1-12.</p>
+	 *
+	 * <p><b>Tidak ada efek samping langsung</b> pada field kelas ini, tetapi memanggil
+	 * {@link #getPengaturanBiaya()}, {@link #getItemBiayaSekolah()}, dan {@link #getBulan()}
+	 * yang menulis balik.</p>
+	 *
+	 * <p>Hasil {@code true} memaksa {@link #getNominal()}, {@link #ambilNominal()},
+	 * {@link #getDenda()}, dan {@link #ambilDiskonTanpaDikonBayarSatuKali()} menjadi 0, serta
+	 * mematikan {@link #getAktif()}.</p>
+	 *
+	 * @return {@code true} bila periode ini dikecualikan dari penagihan
+	 */
 	public Boolean ambilBukanTagihan() {
 		Boolean isBukanTagihan = false;
 		pengaturanBiaya = getPengaturanBiaya();
@@ -3200,14 +3637,57 @@ public class Tagihan extends GeneralValueObject {
 		return isBukanTagihan;
 	}
 
+	/**
+	 * Membaca penanda "bukan tagihan" milik baris ini dengan {@code null} dinormalisasi
+	 * menjadi {@code false} — versi bebas-{@code null} dari {@link #getBukanTagihan()}.
+	 * <p>
+	 * Dipakai di dalam ekspresi perhitungan ({@link #getNominal()}, {@link #getDenda()},
+	 * {@link #getAktif()}) yang selalu digabung dengan {@link #ambilBukanTagihan()} lewat
+	 * operator ATAU: baris dikecualikan bila salah satu sumber mengatakannya bukan tagihan.
+	 * <p>
+	 * Pembaca murni, tanpa efek samping — sengaja dibedakan dari getter berpola JavaBean
+	 * agar Hibernate tidak memetakannya sebagai properti kedua atas kolom yang sama.
+	 *
+	 * @return {@code true} bila baris ini ditandai bukan tagihan
+	 */
 	public Boolean ambilBukanTagihanData() {
 		return bukanTagihan == null ? false : bukanTagihan;
 	}
 
+	/**
+	 * Penanda "bukan tagihan" yang dipetakan ke kolom database (dicentang petugas untuk
+	 * membatalkan sebuah kewajiban tanpa menghapus barisnya).
+	 * <p>
+	 * Mengembalikan nilai mentah — dapat {@code null} untuk baris lama yang belum pernah
+	 * disetel. Untuk pemakaian di dalam perhitungan, pakai {@link #ambilBukanTagihanData()}
+	 * yang sudah bebas-{@code null}.
+	 *
+	 * @return {@code true}/{@code false}/{@code null} sesuai isi kolom
+	 */
 	public Boolean getBukanTagihan() {
 		return bukanTagihan;
 	}
 
+	/**
+	 * Menyetel penanda "bukan tagihan".
+	 *
+	 * <p><b>Setter ini adalah lokasi bug produksi kedua yang sudah diperbaiki</b> — komentar
+	 * di dalam badan method (dipertahankan apa adanya, jangan dihapus) mendokumentasikan
+	 * gejala <i>"centang aktif kembali ter-uncheck saat refresh"</i>. Mekanismenya sejenis
+	 * dengan bug {@link #setNominal(Double)}: versi lama setter ini punya efek samping
+	 * (menghapus <code>aktifkanmanual</code> dan memaksa <code>setAktif(!bukanTagihan)</code>),
+	 * sementara entity ini property-access sehingga setter dipanggil Hibernate SETIAP kali
+	 * baris dimuat. Akibatnya centang "aktifkan manual" yang baru disimpan admin langsung
+	 * terhapus lagi pada pemuatan berikutnya, dan riwayat audit memperlihatkan pasangan
+	 * nilai yang bolak-balik <code>true/true &rarr; false/kosong</code> setiap beberapa
+	 * detik.</p>
+	 *
+	 * <p>Perbaikannya sama: setter dibuat murni. Kebenaran status tetap terjaga karena
+	 * {@link #getAktif()} memeriksa penanda "bukan tagihan" <b>sebelum</b> override
+	 * <code>aktifkanmanual</code>, sehingga efek samping itu memang tidak diperlukan.</p>
+	 *
+	 * @param bukanTagihan {@code true} untuk membatalkan kewajiban tanpa menghapus barisnya
+	 */
 	public void setBukanTagihan(Boolean bukanTagihan) {
 		// SETTER MURNI (perbaikan "centang aktif kembali un-check saat refresh"):
 		// dulu setter ini ikut MENGHAPUS aktifkanmanual (set null) + memaksa
@@ -3222,6 +3702,21 @@ public class Tagihan extends GeneralValueObject {
 		this.bukanTagihan = bukanTagihan;
 	}
 
+	/**
+	 * Pengguna yang <b>mengunci</b> nominal tagihan ini pada nilai sementara hasil
+	 * negosiasi/keringanan ({@link #getBiayaTemporary()}), alih-alih membiarkannya dihitung
+	 * dari tarif.
+	 * <p>
+	 * Selama relasi ini terisi, {@link #getNominal()} mengembalikan
+	 * {@link #getBiayaTemporary()} dan mengabaikan seluruh cabang perhitungannya. Ini
+	 * sekaligus menjadi catatan <i>siapa</i> yang bertanggung jawab atas keringanan
+	 * tersebut. Kunci serupa juga dapat berada di tingkat paket biaya
+	 * (<code>PengaturanBiaya.getKunci()</code>), yang diperiksa sebagai cadangan.
+	 * <p>
+	 * Dibungkus <code>check(...)</code> terhadap proxy dari sesi tertutup.
+	 *
+	 * @return pengguna pengunci nominal, atau {@code null} bila nominal dihitung normal
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kunci", nullable = true)
 	public Tbmuser getKunci() {
@@ -3229,10 +3724,28 @@ public class Tagihan extends GeneralValueObject {
 		return kunci;
 	}
 
+	/**
+	 * @param kunci pengguna yang mengunci nominal pada {@link #getBiayaTemporary()}
+	 */
 	public void setKunci(Tbmuser kunci) {
 		this.kunci = kunci;
 	}
 
+	/**
+	 * Nominal sementara hasil simulasi/negosiasi keringanan biaya.
+	 *
+	 * <p><b>GETTER MENULIS BALIK, dan arah logikanya terbalik dari dugaan:</b> ketika
+	 * {@link #getKunci()} <b>kosong</b> (tidak ada keringanan), field ini justru
+	 * <i>ditimpa</i> dengan {@link #getNominal()}. Jadi nilai sementara hanya "bertahan"
+	 * selama kuncinya terpasang; begitu kunci dilepas, angka negosiasi lama tertimpa nominal
+	 * hasil hitung dan <b>tidak dapat dipulihkan</b>.</p>
+	 *
+	 * <p>Sisi baiknya, ini membuat field selalu berisi angka yang wajar sebagai nilai awal
+	 * saat petugas mulai menyunting keringanan. Sisi buruknya, ia menjadi jalur ketiga
+	 * di kelas ini yang menghapus data finansial hanya karena barisnya dibaca.</p>
+	 *
+	 * @return nominal sementara; sama dengan {@link #getNominal()} bila tidak terkunci
+	 */
 	public Double getBiayaTemporary() {
 		kunci = getKunci();
 		if (kunci == null)
@@ -3240,21 +3753,77 @@ public class Tagihan extends GeneralValueObject {
 		return biayaTemporary;
 	}
 
+	/**
+	 * @param biayaTemporary nominal sementara hasil negosiasi; hanya bertahan selama
+	 *                       {@link #getKunci()} terisi
+	 */
 	public void setBiayaTemporary(Double biayaTemporary) {
 		this.biayaTemporary = biayaTemporary;
 	}
 
+	/**
+	 * Tautan pembayaran (<i>payment link</i>) kanal online untuk tagihan ini.
+	 *
+	 * <p>Getter ini <b>menormalkan tanpa menyimpan</b>: nilai kosong menjadi string kosong,
+	 * dan tautan yang belum berawalan <code>https</code> diberi awalan
+	 * <code>https://</code>. Hasil normalisasi TIDAK ditulis balik ke field, jadi berbeda
+	 * dari getter lain di kelas ini — kolom database tetap menyimpan apa yang diisikan.</p>
+	 *
+	 * <p><b>Kuirk:</b> pemeriksaannya <code>startsWith("https")</code>, bukan
+	 * <code>"https://"</code>. Tautan yang kebetulan dimulai dengan kata "https" tanpa
+	 * pemisah (mis. <code>httpsku.example.com</code>) akan lolos tanpa diberi skema.
+	 * Tautan <code>http://</code> biasa akan menjadi
+	 * <code>https://http://...</code> karena tidak berawalan "https".</p>
+	 *
+	 * @return tautan pembayaran yang sudah dinormalkan, atau string kosong bila belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getLink() {
 		return link == null || link.trim().isEmpty() ? ""
 				: !link.startsWith("https") ? "https://" + link.trim() : link.trim();
 	}
 
+	/**
+	 * @param link tautan pembayaran kanal online; disimpan apa adanya tanpa normalisasi
+	 */
 	public void setLink(String link) {
 		this.link = link;
 	}
 
 
+	/**
+	 * Diskon siswa yang sedang berlaku atas tagihan ini.
+	 *
+	 * <p><b>GETTER DESTRUKTIF — mengosongkan relasi secara permanen.</b> Ada dua jalur
+	 * penghapusan:</p>
+	 * <ol>
+	 *   <li><b>Angsuran ke-2 ke atas</b> ({@link #getBayarKe()} &gt; 1) &rarr;
+	 *       <code>diskonSiswa = null</code> dan langsung {@code null} dikembalikan. Aturan
+	 *       bisnisnya wajar (diskon hanya melekat pada angsuran pertama), tetapi
+	 *       implementasinya <b>menulis</b> alih-alih sekadar menyembunyikan: kolom
+	 *       <code>diskon_siswa</code> pada baris angsuran itu akan menjadi NULL di
+	 *       database.</li>
+	 *   <li><b>Masa berlaku diskon sudah lewat</b> ({@link #isDiskonSiswaMasihBerlaku})
+	 *       &rarr; <code>diskonSiswa = null</code>. Ini yang lebih berbahaya: begitu periode
+	 *       sebuah diskon berakhir, cukup MEMBUKA layar tagihan lama untuk menghapus catatan
+	 *       "diskon apa yang dahulu dipakai" pada seluruh tagihan yang tersentuh.</li>
+	 * </ol>
+	 *
+	 * <p>Kolom cadangan {@link #getDiskonSiswaAsli()} ada justru untuk menyelamatkan
+	 * informasi ini, dan method ini memang berusaha memulihkan dari sana
+	 * (<code>diskonSiswa == null &amp;&amp; diskonSiswaAsli != null</code>). Namun pemulihan
+	 * itu terjadi <b>sebelum</b> uji masa berlaku, sehingga diskon yang sudah kedaluwarsa
+	 * tetap berakhir {@code null}. Selain itu {@link #setDiskonSiswa(DiskonSiswa)} mengisi
+	 * kedua kolom sekaligus, jadi cadangan hanya terjaga bila penyetelan aslinya lewat
+	 * setter tersebut.</p>
+	 *
+	 * <p>Kedua relasi dilewatkan {@link #resolveDiskonSiswaForRead(DiskonSiswa)} lebih dahulu
+	 * agar proxy dari sesi tertutup dimuat ulang, bukan meledak. Seluruh <i>exception</i>
+	 * ditelan menjadi {@code null} — yaitu kegagalan pun berujung "tidak ada diskon".</p>
+	 *
+	 * @return diskon yang berlaku, atau {@code null} bila tidak ada / sudah kedaluwarsa /
+	 *         ini bukan angsuran pertama
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "diskon_siswa", nullable = true)
 	public DiskonSiswa getDiskonSiswa() {
@@ -3280,6 +3849,24 @@ public class Tagihan extends GeneralValueObject {
 		return diskonSiswa;
 	}
 
+	/**
+	 * Menguji apakah sebuah diskon masih berada dalam masa berlakunya pada saat ini.
+	 * <p>
+	 * Batas mulai dan batas akhir keduanya opsional ({@code null} berarti tanpa batas), dan
+	 * <b>inklusif</b>: hari yang sama persis dengan tanggal batas dianggap masih berlaku.
+	 * Perbandingan inklusif itu dilakukan dengan membandingkan hasil format tanggal
+	 * (<code>Common.dateFormat83</code>), bukan aritmetika waktu — cara yang lugas untuk
+	 * mengabaikan komponen jam.
+	 * <p>
+	 * <b>Gagal ke sisi ketat:</b> bila membaca tanggal diskon melempar exception, method
+	 * mengembalikan {@code false}. Komentar di dalam kode menjelaskan alasannya — satu baris
+	 * diskon yang datanya rusak (proxy <code>Sekolah</code> bertipe id salah) tidak boleh
+	 * menggagalkan SELURUH perhitungan tagihan/pembayaran. Konsekuensinya, kerusakan data
+	 * diskon muncul sebagai "diskon hilang", bukan sebagai error.
+	 *
+	 * @param diskon diskon yang diuji; {@code null} menghasilkan {@code false}
+	 * @return {@code true} bila diskon masih berlaku hari ini
+	 */
 	private boolean isDiskonSiswaMasihBerlaku(DiskonSiswa diskon) {
 		if (diskon == null) {
 			return false;
@@ -3305,6 +3892,29 @@ public class Tagihan extends GeneralValueObject {
 		return mulaiValid && sampaiValid;
 	}
 
+	/**
+	 * Menjadikan sebuah referensi diskon <b>aman untuk dibaca</b>, apa pun keadaan sesi
+	 * Hibernate yang mengikatnya.
+	 *
+	 * <p>Tiga keadaan ditangani:</p>
+	 * <ol>
+	 *   <li><b>Proxy dengan sesi masih terbuka</b> &rarr; dikembalikan apa adanya (murah,
+	 *       tidak ada query tambahan);</li>
+	 *   <li><b>Proxy dengan sesi sudah tertutup</b> &rarr; id-nya diambil dari
+	 *       <code>LazyInitializer</code> (aman, tidak memicu lazy-load) lalu entity dimuat
+	 *       ulang lewat {@link #loadDiskonSiswaById(Serializable)} pada sesi baru;</li>
+	 *   <li><b>Objek belum terinisialisasi</b> (<code>!Hibernate.isInitialized</code>)
+	 *       &rarr; dimuat ulang berdasarkan id-nya.</li>
+	 * </ol>
+	 *
+	 * <p>Bila langkah mana pun gagal, method mencoba sekali lagi lewat
+	 * <code>diskon.getId()</code>; kegagalan kedua menghasilkan {@code null}. Ini pola
+	 * "putus rantai lazy" yang dipakai agar satu relasi diskon yang bermasalah tidak
+	 * merambat menjadi kegagalan seluruh perhitungan tagihan.</p>
+	 *
+	 * @param diskon referensi diskon yang mungkin berupa proxy basi; boleh {@code null}
+	 * @return diskon yang aman dibaca, atau {@code null} bila tidak dapat dipulihkan
+	 */
 	private DiskonSiswa resolveDiskonSiswaForRead(DiskonSiswa diskon) {
 		if (diskon == null) {
 			return null;
@@ -3338,6 +3948,22 @@ public class Tagihan extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Memuat sebuah {@link ais.database.model.sekolah.DiskonSiswa} pada <b>sesi Hibernate
+	 * baru yang terisolasi</b>, lalu "menghangatkan" properti yang akan dipakai
+	 * ({@code id}, {@code nama}, {@code memotongTagihan}, {@code diskonMulai},
+	 * {@code diskonSampai}) selagi sesi masih terbuka.
+	 * <p>
+	 * Pemanggilan getter yang tampak sia-sia itu justru intinya: setelah sesi ditutup di
+	 * {@link #closeDiskonLookupSession(Session)}, entity menjadi <i>detached</i> dan properti
+	 * yang belum sempat dimuat tidak akan bisa diakses lagi.
+	 * <p>
+	 * Kegagalan hanya dicetak ke <code>System.out</code> (bukan dicatat ke audit error
+	 * seperti di tempat lain pada kelas ini) dan menghasilkan {@code null}.
+	 *
+	 * @param identifier id diskon; {@code null} menghasilkan {@code null}
+	 * @return diskon yang sudah dimuat dan siap dibaca dalam keadaan detached, atau {@code null}
+	 */
 	private DiskonSiswa loadDiskonSiswaById(Serializable identifier) {
 		if (identifier == null) {
 			return null;
@@ -3365,6 +3991,19 @@ public class Tagihan extends GeneralValueObject {
 		return null;
 	}
 
+	/**
+	 * Menutup sesi bantu milik {@link #loadDiskonSiswaById(Serializable)} secara bertahap:
+	 * <code>clear()</code> &rarr; <code>disconnect()</code> &rarr; <code>close()</code>,
+	 * masing-masing dalam blok <code>try/catch</code>-nya sendiri sehingga kegagalan satu
+	 * langkah tidak menghalangi langkah berikutnya.
+	 * <p>
+	 * <code>clear()</code> lebih dahulu penting agar entity yang baru dimuat tidak
+	 * tertinggal di <i>persistence context</i>, dan <code>disconnect()</code> mengembalikan
+	 * koneksi ke pool lebih awal — pada layar yang merender ratusan baris tagihan, sesi
+	 * bantu seperti ini dibuka sangat sering.
+	 *
+	 * @param session sesi bantu yang hendak ditutup; {@code null} diabaikan
+	 */
 	private void closeDiskonLookupSession(Session session) {
 		if (session == null) {
 			return;
@@ -3385,19 +4024,49 @@ public class Tagihan extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menyetel diskon siswa. <b>Mengisi DUA kolom sekaligus</b>: {@link #diskonSiswa}
+	 * (nilai kerja, yang dapat dikosongkan {@link #getDiskonSiswa()}) dan
+	 * {@link #diskonSiswaAsli} (cadangan permanen).
+	 * <p>
+	 * Karena itu, satu-satunya cara agar jejak "diskon apa yang dahulu diberikan" bertahan
+	 * adalah menyetelnya lewat method ini, bukan lewat
+	 * {@link #setDiskonSiswaAsli(DiskonSiswa)} atau penulisan kolom secara terpisah.
+	 *
+	 * @param diskonSiswa diskon yang diberikan, atau {@code null} untuk mencabutnya
+	 */
 	public void setDiskonSiswa(DiskonSiswa diskonSiswa) {
 		setDiskonSiswaAsli(diskonSiswa);
 		this.diskonSiswa = diskonSiswa;
 	}
 
+	/**
+	 * Potongan yang berasal dari sumber lain di luar {@link #getDiskonSiswa()} — beasiswa,
+	 * subsidi yayasan, atau potongan yang dihitung oleh alur pembayaran dan dititipkan ke
+	 * baris tagihan.
+	 * <p>
+	 * Pembaca murni dengan normalisasi {@code null} &rarr; 0,0. Nilai inilah yang menjadi
+	 * dasar {@link #ambilDiskonTanpaDikonBayarSatuKali()}.
+	 *
+	 * @return besaran potongan tidak langsung, minimal 0,0
+	 */
 	public Double getDiskonTidakLangsung() {
 		return diskonTidakLangsung == null ? 0.0 : diskonTidakLangsung;
 	}
 
+	/**
+	 * @param diskonTidakLangsung besaran potongan dari sumber lain
+	 */
 	public void setDiskonTidakLangsung(Double diskonTidakLangsung) {
 		this.diskonTidakLangsung = diskonTidakLangsung;
 	}
 
+	/**
+	 * Jejak posting jurnal akuntansi untuk komponen <b>diskon</b>, terpisah dari jurnal
+	 * pokok, denda, dan uang muka. Pembaca murni.
+	 *
+	 * @return jejak posting diskon, atau {@code null} bila belum diposting
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "posting_history_diskon_id")
@@ -3405,10 +4074,26 @@ public class Tagihan extends GeneralValueObject {
 		return postingHistoryDiskon;
 	}
 
+	/**
+	 * @param postingHistoryDiskon jejak posting diskon, atau {@code null}
+	 */
 	public void setPostingHistoryDiskon(PostingHistory postingHistoryDiskon) {
 		this.postingHistoryDiskon = postingHistoryDiskon;
 	}
 
+	/**
+	 * Tahun angkatan pihak tertagih, dipakai laporan rekap per angkatan.
+	 *
+	 * <p><b>GETTER MENULIS BALIK:</b> nilainya selalu disalin ulang dari
+	 * <code>tahunMasuk</code> milik {@link #getSiswa()} atau, bila tidak ada,
+	 * {@link #getCalonSiswa()}. Kolom sendiri tidak pernah menang, sehingga koreksi tahun
+	 * masuk seorang siswa merambat ke seluruh tagihannya.</p>
+	 *
+	 * <p>Nilai ini dibandingkan dengan <code>PengaturanBiaya.tahunAngkatan</code> di
+	 * {@link #getBoleh} untuk menentukan kelayakan tagihan.</p>
+	 *
+	 * @return tahun angkatan, atau {@code null} bila tidak diketahui
+	 */
 	public Integer getTahunAngkatan() {
 		siswa = getSiswa();
 		calonSiswa = getCalonSiswa();
@@ -3419,10 +4104,35 @@ public class Tagihan extends GeneralValueObject {
 		return tahunAngkatan;
 	}
 
+	/**
+	 * @param tahunAngkatan tahun angkatan; akan ditimpa kembali oleh
+	 *                      {@link #getTahunAngkatan()} bila siswa/calon siswa dapat dimuat
+	 */
 	public void setTahunAngkatan(Integer tahunAngkatan) {
 		this.tahunAngkatan = tahunAngkatan;
 	}
 
+	/**
+	 * Jumlah rupiah yang sudah benar-benar dibayarkan untuk tagihan ini.
+	 *
+	 * <p><b>GETTER MENULIS BALIK:</b> nilainya selalu diambil ulang dari
+	 * <code>PembayaranSiswaDetail.getNominal()</code>, atau 0 bila belum ada pelunasan.</p>
+	 *
+	 * <p><b>Kuirk penting:</b> method ini membaca field <code>pembayaranSiswaDetail</code>
+	 * secara MENTAH, bukan lewat {@link #getPembayaranSiswaDetail()}. Akibatnya nilainya
+	 * bergantung pada apakah getter tersebut sudah pernah dipanggil pada instance ini —
+	 * termasuk apakah efek pemutusan relasi di sana sudah terjadi. Pada entity yang baru
+	 * dimuat dan belum "dihangatkan", method ini dapat mengembalikan 0 meski tagihan
+	 * sebenarnya sudah lunas.</p>
+	 *
+	 * <p>Bila akses melempar exception, relasi dianggap tidak ada: field
+	 * <code>pembayaranSiswaDetail</code> <b>dikosongkan</b> dan hasilnya 0 — satu lagi
+	 * jalur di mana kegagalan pembacaan berujung pada penulisan.</p>
+	 *
+	 * <p>Nilai ini menjadi masukan {@link #getDiskon()} pada cabang "sudah dibayar".</p>
+	 *
+	 * @return jumlah yang sudah dibayarkan, 0,0 bila belum ada pelunasan
+	 */
 	public Double getDibayar() {
 		try {
 			if (pembayaranSiswaDetail != null) {
@@ -3437,10 +4147,30 @@ public class Tagihan extends GeneralValueObject {
 		return dibayar;
 	}
 
+	/**
+	 * @param dibayar jumlah yang sudah dibayarkan; akan dihitung ulang oleh
+	 *                {@link #getDibayar()}
+	 */
 	public void setDibayar(Double dibayar) {
 		this.dibayar = dibayar;
 	}
 
+	/**
+	 * Sekolah pemilik tagihan ini.
+	 *
+	 * <p><b>GETTER MENULIS BALIK:</b> selalu diturunkan dari {@link #getSiswa()} atau
+	 * {@link #getCalonSiswa()}; kolom sendiri hanya dipakai sebagai cadangan terakhir
+	 * (lewat <code>check(...)</code>) ketika kedua pihak tertagih tidak tersedia.</p>
+	 *
+	 * <p><b>Catatan cakupan tenant.</b> Kolom ini bersifat <i>denormalisasi untuk
+	 * pelaporan</i>, <b>bukan</b> penyaring keamanan: tidak ada satu pun jalur di kelas ini
+	 * yang memfilter tagihan berdasarkan sekolah pengguna yang sedang masuk. Penyaringan
+	 * tenant terjadi (atau tidak terjadi) di lapisan layar. Pada pemilih siswa yang memasok
+	 * tagihan, filter sekolah itu sendiri <b>dilepas sepenuhnya</b> ketika paket biaya
+	 * ber-flag "khusus buat siswa tertentu" — lihat Javadoc kelas.</p>
+	 *
+	 * @return sekolah pemilik, atau {@code null} bila tidak dapat disimpulkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sekolah", nullable = true)
 	public Sekolah getSekolah() {
@@ -3455,10 +4185,35 @@ public class Tagihan extends GeneralValueObject {
 		return sekolah;
 	}
 
+	/**
+	 * Menyetel sekolah pemilik, dengan penjaga: entity yang <b>belum tersimpan</b>
+	 * (id-nya {@code null}) ditolak dan diganti {@code null}.
+	 * <p>
+	 * Penjaga ini mencegah Hibernate mencoba meng-<i>cascade</i> penyimpanan sebuah
+	 * <code>Sekolah</code> baru hanya karena tagihan menunjuk padanya.
+	 *
+	 * @param sekolah sekolah pemilik; entity tanpa id disimpan sebagai {@code null}
+	 */
 	public void setSekolah(Sekolah sekolah) {
 		this.sekolah = sekolah == null || sekolah.getId() == null ? null : sekolah;
 	}
 
+	/**
+	 * Tanggal uang benar-benar diterima, diambil dari kuitansi
+	 * (<code>PembayaranSiswa.getTanggalBayar()</code>).
+	 *
+	 * <p><b>GETTER MENULIS BALIK, termasuk MENGOSONGKAN:</b> bila tidak ada pelunasan atau
+	 * pelunasan itu belum tertaut ke kuitansi, field <b>di-set {@code null}</b> — bukan
+	 * sekadar tidak diisi. Digabung dengan efek destruktif
+	 * {@link #getPembayaranSiswaDetail()} yang dipanggilnya di baris pertama, tanggal bayar
+	 * yang tersimpan dapat terhapus bersamaan dengan putusnya relasi pelunasan.</p>
+	 *
+	 * <p>Bedakan dari {@link #getPembayaranPada()} yang mengambil
+	 * <code>PembayaranSiswa.getTanggal()</code> (tanggal dokumen/entri) alih-alih tanggal
+	 * bayar, dan yang <b>tidak</b> mengosongkan nilainya.</p>
+	 *
+	 * @return tanggal pembayaran diterima, atau {@code null} bila belum dibayar
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggalBayar() {
 		if (getPembayaranSiswaDetail() != null && pembayaranSiswaDetail.getPembayaranSiswa() != null) {
@@ -3468,19 +4223,63 @@ public class Tagihan extends GeneralValueObject {
 		return tanggalBayar;
 	}
 
+	/**
+	 * @param tanggalBayar tanggal pembayaran; akan dihitung ulang (atau dikosongkan) oleh
+	 *                     {@link #getTanggalBayar()}
+	 */
 	public void setTanggalBayar(Date tanggalBayar) {
 		this.tanggalBayar = tanggalBayar;
 	}
 
+	/**
+	 * Nominal angsuran yang <b>ditentukan manual</b> oleh petugas saat memecah kewajiban
+	 * menjadi cicilan — misalnya "cicilan pertama 2 juta, sisanya menyusul".
+	 * <p>
+	 * Pembaca murni dengan normalisasi {@code null} &rarr; 0,0, sehingga aman dibandingkan
+	 * langsung dengan ambang <code>0,01</code> yang dipakai di seluruh kelas ini untuk
+	 * membedakan "terisi" dari "nol".
+	 * <p>
+	 * Bila terisi, nilai ini <b>mengalahkan</b> hasil hitung tarif pada beberapa cabang
+	 * {@link #getNominal()} dan {@link #ambilNominal()} — khususnya untuk komponen dicicil
+	 * non-"Bulanan" dan untuk paket biaya "khusus buat siswa tertentu".
+	 *
+	 * @return nominal angsuran manual, 0,0 bila tidak ditentukan
+	 */
 	public Double getDibayarManual() {
 		return dibayarManual == null ? 0.0 : dibayarManual;
 	}
 
+	/**
+	 * Menyetel nominal angsuran manual.
+	 * <p>
+	 * Disinkronkan otomatis oleh {@link #ambilAtauBuat} bila pemanggil mengoper nilai baru
+	 * yang berbeda — dengan UPDATE dan commit tersendiri, di luar transaksi pemanggil.
+	 *
+	 * @param dibayarManual nominal angsuran yang ditentukan petugas
+	 */
 	public void setDibayarManual(Double dibayarManual) {
 		this.dibayarManual = dibayarManual;
 	}
 
 
+	/**
+	 * <b>Cadangan permanen</b> {@link #getDiskonSiswa()} — merekam diskon apa yang pernah
+	 * diberikan, agar jejaknya tidak ikut hilang ketika getter diskon utama mengosongkan
+	 * relasinya (untuk angsuran ke-2+ atau setelah masa berlaku habis).
+	 *
+	 * <p><b>GETTER MENULIS BALIK, dua arah:</b> bila kolom cadangan kosong sementara
+	 * {@link #diskonSiswa} terisi, nilai itu <b>disalin</b> ke sini. Jadi kedua kolom saling
+	 * memulihkan.</p>
+	 *
+	 * <p><b>Namun pemulihannya bergantung urutan.</b> {@link #getDiskonSiswa()} berjalan
+	 * lebih dahulu di hampir semua alur perhitungan, dan ia mengosongkan
+	 * {@link #diskonSiswa}. Bila pada saat itu cadangan belum pernah terisi — misalnya
+	 * karena diskon disetel lewat jalur yang tidak memanggil
+	 * {@link #setDiskonSiswa(DiskonSiswa)} — maka ketika getter ini akhirnya dipanggil,
+	 * tidak ada lagi yang bisa disalin. Cadangan ini karena itu bukan jaminan mutlak.</p>
+	 *
+	 * @return diskon asli yang pernah diberikan, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "diskon_siswa_asli", nullable = true)
 	public DiskonSiswa getDiskonSiswaAsli() {
@@ -3494,18 +4293,79 @@ public class Tagihan extends GeneralValueObject {
 		return diskonSiswaAsli;
 	}
 
+	/**
+	 * Menyetel cadangan diskon secara langsung. Umumnya <b>tidak</b> dipanggil sendiri —
+	 * {@link #setDiskonSiswa(DiskonSiswa)} sudah memanggilnya sehingga kedua kolom terisi
+	 * bersamaan.
+	 *
+	 * @param diskonSiswaAsli diskon asli yang dicatat sebagai cadangan
+	 */
 	public void setDiskonSiswaAsli(DiskonSiswa diskonSiswaAsli) {
 		this.diskonSiswaAsli = diskonSiswaAsli;
 	}
 
+	/**
+	 * Nominal yang ditetapkan manual oleh petugas untuk <b>menggantikan</b> hasil hitung
+	 * tarif — berbeda dari {@link #getDibayarManual()} yang mengatur besaran satu angsuran.
+	 * <p>
+	 * Pembaca murni tanpa normalisasi: dapat mengembalikan {@code null}. Seluruh pemakaiannya
+	 * di kelas ini karena itu selalu memeriksa {@code null} lebih dahulu.
+	 * <p>
+	 * Dipakai {@link #getNominal()} dan {@link #ambilNominal()} pada kondisi "nominal manual
+	 * terisi TETAPI angsuran manual tidak" — jadi bila keduanya diisi, angsuran manual yang
+	 * menang.
+	 *
+	 * @return nominal manual, atau {@code null} bila tidak ditetapkan
+	 */
 	public Double getNominalManual() {
 		return nominalManual;
 	}
 
+	/**
+	 * @param nominalManual nominal yang ditetapkan petugas untuk menggantikan hasil hitung tarif
+	 */
 	public void setNominalManual(Double nominalManual) {
 		this.nominalManual = nominalManual;
 	}
 
+	/**
+	 * Membuka dialog ZK <b>"Pindahkan Pembayaran"</b>: memindahkan satu baris pelunasan yang
+	 * sudah tercatat dari tagihan ini ke tagihan lain milik siswa/calon siswa yang sama.
+	 * Dipakai untuk memperbaiki uang yang telanjur tercatat pada komponen atau periode yang
+	 * keliru, tanpa membatalkan kuitansinya.
+	 *
+	 * <h4>Isi dialog</h4>
+	 * Menampilkan nama komponen biaya, nilai tagihan bersih
+	 * (<code>denda + nominal - {@link #ambilDiskonTanpaDikonBayarSatuKali()}</code>), dan
+	 * sebuah combobox tujuan.
+	 *
+	 * <h4>Penyaringan tagihan tujuan</h4>
+	 * Combobox diisi tagihan milik pihak yang sama
+	 * (<code>calonSiswa</code> bila ada, kalau tidak <code>siswa</code>) yang berstatus
+	 * aktif DAN belum terbayar — yaitu belum punya <code>pembayaranSiswaDetail</code>, atau
+	 * masa <code>pembayaran_berakhir_pada</code>-nya sudah lewat. Pembatas
+	 * "komponen biaya harus sama" sengaja <b>dikomentari</b> di dalam kode, sehingga
+	 * pemindahan lintas komponen diizinkan.
+	 *
+	 * <h4>Aksi Simpan</h4>
+	 * Dalam satu transaksi: kedua tagihan dan baris pelunasan di-<code>refresh</code>;
+	 * pelunasan dialihkan ke tagihan tujuan beserta <code>nominalBiaya</code>-nya; tagihan
+	 * asal dilepas dari pelunasan; ketiganya disimpan; lalu <i>listener</i> pemanggil
+	 * dipicu untuk menyegarkan layar. Kegagalan memicu <code>rollback</code> dan hanya
+	 * dicatat — tidak ada pesan ke pengguna, sehingga <b>kegagalan tampak seperti
+	 * keberhasilan</b> sampai layar disegarkan.
+	 *
+	 * <h4>Catatan hak akses</h4>
+	 * Method ini <b>tidak memeriksa hak apa pun</b>: tidak ada
+	 * <code>checkPrevilages</code>, dan tidak ada verifikasi bahwa pengguna berwenang atas
+	 * siswa yang bersangkutan. Gerbangnya sepenuhnya bergantung pada layar pemanggil —
+	 * yang, untuk keluarga helper tagihan, juga tidak memilikinya (lihat Javadoc kelas).
+	 * Pemindahan uang antar-tagihan karena itu berjalan dengan hak menu induk saja.
+	 *
+	 * @param tag           tagihan asal yang pembayarannya hendak dipindahkan
+	 * @param eventListener aksi yang dijalankan setelah pemindahan berhasil (penyegaran layar)
+	 * @throws Exception bila komponen dialog gagal dibangun atau dilekatkan ke halaman
+	 */
 	public static void pindahkan(final Tagihan tag, final EventListener eventListener) throws Exception {
 		final MyWindow addWindow = new MyWindow("Pindahkan Pembayaran", "none", false);
 		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(addWindow);
@@ -3641,6 +4501,34 @@ public class Tagihan extends GeneralValueObject {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Batas berlakunya pembayaran untuk pola <b>langganan/subscription</b> — misalnya
+	 * layanan yang otomatis tertagih kembali setelah sekian hari.
+	 *
+	 * <p><b>GETTER MENULIS BALIK, dua arah:</b></p>
+	 * <ul>
+	 *   <li>bila paket biaya ber-flag
+	 *       <code>otomatisTertagihJikaLebihDariSekianWaktuAtauSubscribtion</code> dan
+	 *       {@link #getPembayaranPada()} sudah terisi &rarr; nilainya dihitung sebagai
+	 *       tanggal bayar + <code>jumlahHariPenagihanBerikutnya</code> hari;</li>
+	 *   <li>bila paket <b>tidak</b> ber-flag tersebut &rarr; field dipaksa {@code null}.
+	 *       Mematikan opsi langganan pada sebuah paket biaya karena itu <b>menghapus
+	 *       permanen</b> seluruh tanggal berakhir yang sudah tercatat pada tagihan-tagihan
+	 *       di bawahnya, begitu barisnya tersentuh.</li>
+	 * </ul>
+	 *
+	 * <p><b>Kuirk aritmetika tanggal:</b> penambahan hari dilakukan dengan
+	 * <code>calendar.set(Calendar.DATE, calendar.get(Calendar.DATE) + n)</code>, bukan
+	 * <code>add(...)</code>. Bentuk <code>set</code> tetap benar di sini karena
+	 * {@link Calendar} bersifat <i>lenient</i> dan meluapkan tanggal ke bulan berikutnya,
+	 * tetapi <code>add</code> adalah bentuk yang lazim dan lebih jelas maksudnya.</p>
+	 *
+	 * <p>Kolom ini juga dipakai sebagai kriteria "tagihan yang masih boleh menjadi tujuan
+	 * pemindahan" di {@link #pindahkan(Tagihan, EventListener)} dan sebagai penyaring
+	 * tagihan yang belum lunas di <code>/Api TagihanSiswa.va()</code>.</p>
+	 *
+	 * @return batas berlakunya pembayaran, atau {@code null} bila bukan pola langganan
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "pembayaran_berakhir_pada")
 	public Date getPembayaranBerakhirPada() {
@@ -3664,10 +4552,29 @@ public class Tagihan extends GeneralValueObject {
 		return pembayaranBerakhirPada;
 	}
 
+	/**
+	 * @param pembayaranBerakhirPada batas berlakunya pembayaran; akan dihitung ulang atau
+	 *                               dikosongkan oleh {@link #getPembayaranBerakhirPada()}
+	 */
 	public void setPembayaranBerakhirPada(Date pembayaranBerakhirPada) {
 		this.pembayaranBerakhirPada = pembayaranBerakhirPada;
 	}
 
+	/**
+	 * Waktu pembayaran menurut <b>tanggal dokumen</b> kuitansi
+	 * (<code>PembayaranSiswa.getTanggal()</code>) — menjadi titik awal perhitungan
+	 * {@link #getPembayaranBerakhirPada()} pada pola langganan.
+	 *
+	 * <p><b>GETTER MENULIS BALIK</b>, tetapi berbeda dari {@link #getTanggalBayar()} ia
+	 * <b>tidak mengosongkan</b> nilai lama ketika pelunasan tidak ditemukan — nilai
+	 * tersimpan dipertahankan.</p>
+	 *
+	 * <p>Bedakan ketiganya: {@link #getTanggalTagihan()} = kapan ditagihkan;
+	 * {@link #getTanggalBayar()} = tanggal uang diterima; method ini = tanggal dokumen
+	 * kuitansi.</p>
+	 *
+	 * @return waktu pembayaran menurut dokumen, atau {@code null} bila belum ada
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getPembayaranPada() {
 		if (getPembayaranSiswaDetail() != null && getPembayaranSiswaDetail().getPembayaranSiswa() != null) {
@@ -3676,14 +4583,31 @@ public class Tagihan extends GeneralValueObject {
 		return pembayaranPada;
 	}
 
+	/**
+	 * @param pembayaranPada waktu pembayaran menurut dokumen kuitansi
+	 */
 	public void setPembayaranPada(Date pembayaranPada) {
 		this.pembayaranPada = pembayaranPada;
 	}
 
+	/**
+	 * Potongan yang ditetapkan <b>manual</b> oleh petugas, menggantikan seluruh perhitungan
+	 * diskon otomatis.
+	 * <p>
+	 * Pembaca murni tanpa normalisasi ({@code null} mungkin). Di {@link #getDiskon()} nilai
+	 * ini dipakai bila lebih besar dari 0,1, tetapi hanya setelah dua cabang "sudah dibayar"
+	 * tidak terpenuhi — jadi ia tidak mengalahkan diskon yang sudah terwujud sebagai selisih
+	 * pembayaran nyata.
+	 *
+	 * @return besaran potongan manual, atau {@code null} bila tidak ditetapkan
+	 */
 	public Double getDiskonManual() {
 		return diskonManual;
 	}
 
+	/**
+	 * @param diskonManual besaran potongan yang ditetapkan petugas
+	 */
 	public void setDiskonManual(Double diskonManual) {
 		this.diskonManual = diskonManual;
 	}
@@ -3691,6 +4615,59 @@ public class Tagihan extends GeneralValueObject {
 	// =========================================================================================
 	// OPTIMISASI: finally block untuk mencegah memory/connection leak
 	// =========================================================================================
+	/**
+	 * Mencari tagihan yang sesuai untuk sebuah kombinasi siswa/komponen/periode, dipakai
+	 * layar dan laporan yang perlu "menempelkan" tagihan ke baris yang sedang dirender.
+	 *
+	 * <p><b>Bila argumen <code>tagihan</code> sudah terisi, method langsung
+	 * mengembalikannya</b> tanpa menyentuh database sama sekali — bentuk memoisasi yang
+	 * membuatnya murah dipanggil di dalam perulangan render.</p>
+	 *
+	 * <p>Meski namanya mengandung "buat", method ini <b>tidak pernah membuat baris tagihan
+	 * baru</b>. Untuk itu pakai {@link #ambilAtauBuat}. Satu-satunya penulisan yang
+	 * dilakukannya adalah menyinkronkan {@link #setDibayarManual(Double)} pada jalur
+	 * "khusus siswa" (lihat di bawah).</p>
+	 *
+	 * <h4>Dua jalur pencarian</h4>
+	 * <ol>
+	 *   <li><b>Paket "khusus buat siswa tertentu".</b> Konfigurasi komponen
+	 *       (<code>PengaturanBiayaItemBiaya</code>) dicari lebih dahulu — hanya untuk
+	 *       komponen yang aktif atau yang bendera aktifnya belum diisi. Bila periodenya
+	 *       "Bulanan"/"Insidentil", tarif diambil lewat
+	 *       <code>TagihanUtil.ambilNominalBiaya(...)</code>, kunci identitas dihitung
+	 *       {@link #genCode}, lalu tagihan dicari dengan {@link #findByKodeUnik}. Bila
+	 *       ketemu dan <code>nominal</code> yang dioper berbeda, <b>nilai angsuran manual
+	 *       diperbarui dan di-commit</b> — inilah satu-satunya efek tulis method ini.</li>
+	 *   <li><b>Paket biasa.</b> Pencarian langsung ke tabel tagihan dengan kriteria: paket
+	 *       biaya tidak null, tahun ajaran sama, dan identitas pihak tertagih. Bila
+	 *       <b>tidak ada</b> siswa maupun calon siswa, ditambahkan
+	 *       <code>sqlRestriction("false")</code> sehingga hasilnya dijamin kosong — penjaga
+	 *       yang tepat, karena tanpa itu query akan mengembalikan tagihan milik siswa
+	 *       sembarang. Komponen biaya dan periode disaring bila diberikan; bila periode
+	 *       kosong, dipakai <code>sqlRestriction("true")</code> sebagai penanda "tanpa
+	 *       filter". Diambil id terbesar (paling baru).</li>
+	 * </ol>
+	 *
+	 * <p><b>Pemulihan kegagalan.</b> Bila jalur di atas melempar, method membuka <i>sesi
+	 * kedua</i> dan mencoba sekali lagi lewat <code>kode_unik</code> saja. Kedua sesi
+	 * ditutup di blok <code>finally</code> masing-masing.</p>
+	 *
+	 * <p>Parameter <code>tahunbulan</code> bertipe {@link String} (bukan {@link Integer}
+	 * seperti di tempat lain) karena nilainya datang langsung dari kotak isian layar;
+	 * konversinya dijaga <code>Common.isNumber(...)</code>.</p>
+	 *
+	 * @param tagihan          tagihan yang sudah diketahui; bila tidak {@code null}
+	 *                         langsung dikembalikan
+	 * @param pengaturanBiaya  paket biaya yang menaungi
+	 * @param siswa            siswa yang ditagih, atau {@code null}
+	 * @param calonSiswa       calon siswa yang ditagih, atau {@code null}
+	 * @param itemBiayaSekolah komponen biaya yang dicari, atau {@code null} untuk semua
+	 * @param tahunbulan       periode YYYYMM sebagai teks; kosong/non-numerik berarti tanpa filter
+	 * @param nominal          nominal angsuran manual yang hendak disinkronkan (jalur "khusus siswa")
+	 * @param tahunAjaran      tahun ajaran "YYYY/YYYY" sebagai penyaring
+	 * @param bayarke          nomor angsuran, dipakai membentuk kunci identitas
+	 * @return tagihan yang ditemukan, atau {@code null} bila tidak ada
+	 */
 	public static Tagihan buatAtauLoadTagihan(Tagihan tagihan, PengaturanBiaya pengaturanBiaya, Siswa siswa,
 			CalonSiswa calonSiswa, ItemBiayaSekolah itemBiayaSekolah, String tahunbulan, Double nominal,
 			String tahunAjaran, Integer bayarke) {
