@@ -72,6 +72,13 @@ import ais.ui.util.MyWindow;
  * mundur dengan dua skema penyimpanan jawaban angket yang pernah dipakai. Hasil akhirnya
  * diakumulasi ke objek {@link DashboardData} (statistik per kelompok pertanyaan, per guru,
  * distribusi nilai, dan daftar masukan/komentar terbaru).
+ *
+ * <h2>Anonimitas responden (siswa penilai)</h2>
+ * Layar ini bisa dibuka oleh guru yang dinilai sendiri (lihat javadoc kelas
+ * {@link ChecklistBaruPenilaianGuruOlehSiswa}, bagian privasi identitas penilai), jadi identitas
+ * siswa penilai TIDAK PERNAH dirender di sini &mdash; setiap tempat yang dulu memakai
+ * {@code safeToString(siswa)} (yang membocorkan NIS dan nama lengkap lewat
+ * {@link Siswa#toString()}) kini memakai {@link DashboardData#anonSiswaLabel(Siswa)}.
  */
 public class LaporanAngketGuruDashboardWindow extends MyWindow {
 
@@ -364,11 +371,11 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 			if (jadwalId != null) {
 				data.jadwalIds.add(jadwalId);
 			}
-			data.formRows.add(new String[] { safeToString(g), safeToString(s), jp == null ? "" : safeToString(jp) });
+			data.formRows.add(new String[] { safeToString(g), data.anonSiswaLabel(s), jp == null ? "" : safeToString(jp) });
 
 			String masukan = hasilAngket.getMasukan();
 			if (masukan != null && masukan.trim().length() > 0 && data.masukanTerbaru.size() < 10) {
-				data.masukanTerbaru.add(new String[] { safeToString(g), safeToString(s), masukan.trim() });
+				data.masukanTerbaru.add(new String[] { safeToString(g), data.anonSiswaLabel(s), masukan.trim() });
 			}
 
 			List<Object[]> values = ambilValueGuruAman(hasilAngket);
@@ -488,7 +495,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		Div cards = new Div();
 		cards.setStyle("display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;");
 		cards.setParent(container);
-		cards.appendChild(card("Angket Terisi", INTEGER.get().format(data.totalAngket), "Jumlah formulir angket yang masuk", data.formRows, new String[] { "Guru", "Siswa", "Jadwal" }));
+		cards.appendChild(card("Angket Terisi", INTEGER.get().format(data.totalAngket), "Jumlah formulir angket yang masuk", data.formRows, new String[] { "Guru", "Responden (Anonim)", "Jadwal" }));
 		cards.appendChild(card("Siswa Pengisi", INTEGER.get().format(data.siswaIds.size()), "Responden unik", popupRows(new Object[] { "Siswa Pengisi", INTEGER.get().format(data.siswaIds.size()) }), new String[] { "Data", "Nilai" }));
 		cards.appendChild(card("Guru Dinilai", INTEGER.get().format(data.guruIds.size()), "Guru unik", data.getGuruRanking(true), new String[] { "Guru", "Rata-rata", "Jumlah" }));
 		cards.appendChild(card("Jadwal Terkait", INTEGER.get().format(data.jadwalIds.size()), "Kelas/jadwal yang dinilai", popupRows(new Object[] { "Jadwal Terkait", INTEGER.get().format(data.jadwalIds.size()) }), new String[] { "Data", "Nilai" }));
@@ -733,7 +740,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		col.setWidth("28%");
 		col.setParent(columns);
 		col = new MyColumnConfig();
-		col.setLabel("Pengisi / Catatan");
+		col.setLabel("Responden (Anonim) / Catatan");
 		col.setParent(columns);
 		Rows rows = new Rows();
 		rows.setParent(grid);
@@ -743,8 +750,8 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 			row.setValign("top");
 			row.setParent(rows);
 			List detail = popupRows(m);
-			clickableLabel(m[0] == null ? "" : m[0], "Detail Masukan", new String[] { "Guru/Pertanyaan", "Pengisi", "Catatan" }, detail).setParent(row);
-			clickableLabel((m[1] == null ? "" : m[1]) + " - " + (m[2] == null ? "" : m[2]), "Detail Masukan", new String[] { "Guru/Pertanyaan", "Pengisi", "Catatan" }, detail).setParent(row);
+			clickableLabel(m[0] == null ? "" : m[0], "Detail Masukan", new String[] { "Guru/Pertanyaan", "Responden (Anonim)", "Catatan" }, detail).setParent(row);
+			clickableLabel((m[1] == null ? "" : m[1]) + " - " + (m[2] == null ? "" : m[2]), "Detail Masukan", new String[] { "Guru/Pertanyaan", "Responden (Anonim)", "Catatan" }, detail).setParent(row);
 			added++;
 			if (added >= 10) {
 				break;
@@ -1138,6 +1145,26 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		List<String[]> masukanTerbaru = new ArrayList<String[]>();
 		List<String[]> detailRows = new ArrayList<String[]>();
 		List<String[]> formRows = new ArrayList<String[]>();
+		Map<Long, String> siswaAnonLabel = new LinkedHashMap<Long, String>();
+
+		/**
+		 * @return penanda anonim stabil untuk {@code siswa} dalam satu pemuatan dasbor ini (mis.
+		 *         "Responden 3"), BUKAN {@link Siswa#toString()} (yang berisi NIS dan nama lengkap).
+		 *         Dasbor ini dapat dibuka oleh guru yang dinilai sendiri (lihat javadoc kelas
+		 *         {@link ChecklistBaruPenilaianGuruOlehSiswa}), jadi identitas penilai tidak pernah
+		 *         boleh dirender di sini.
+		 */
+		String anonSiswaLabel(Siswa siswa) {
+			if (siswa == null || siswa.getId() == null) {
+				return "Responden";
+			}
+			String label = siswaAnonLabel.get(siswa.getId());
+			if (label == null) {
+				label = "Responden " + (siswaAnonLabel.size() + 1);
+				siswaAnonLabel.put(siswa.getId(), label);
+			}
+			return label;
+		}
 
 		void addNilai(int nilai) {
 			totalNilai++;

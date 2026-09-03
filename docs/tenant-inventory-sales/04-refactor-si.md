@@ -2725,6 +2725,65 @@ alasannya sama: menaruh stok pada gudang yang salah lebih buruk daripada tidak m
 
 Tanpa bundel migrasi baru.
 
+## §25 — uji isolasi lintas-tenant: yang menjadi alasan seluruh pemindahan ini
+
+Setiap batch sebelumnya menguji **satu** tenant: apakah kuerinya setara dengan jalur legacy. Yang
+tidak pernah diuji ujung-ke-ujung adalah sifat yang menjadi **alasan** seluruh pemindahan ini:
+dua tenant tidak boleh saling melihat.
+
+Bahayanya khas dan diam. Kalau isolasinya bocor, kuerinya tetap berjalan dan tetap mengembalikan
+baris yang tampak wajar — hanya saja barisnya milik orang lain.
+
+### Dua hal yang membuat ujinya bermakna
+
+**Datanya sengaja bertabrakan.** Kedua tenant diisi id, kode, dan nomor dokumen yang **sama** —
+produk id 10 kode `P10`, faktur `INV-1`, akun `1000`, supplier id 1. Tanpa tabrakan itu, uji
+isolasi bisa lulus hanya karena datanya kebetulan berbeda, bukan karena schemanya memang
+memisahkan. Blok 5 penjaganya, dan ia menuntut tabrakannya memang ada.
+
+**Angkanya dibuat jauh berbeda** — 100 lawan 7.000, 500 lawan 60.000 — supaya kebocoran terlihat
+sebagai angka yang salah, bukan sekadar nama yang tertukar.
+
+### Mengapa dibaca A → B → A
+
+Kumpulan koneksi (c3p0) mengembalikan koneksi ke kolam **beserta keadaannya**. Kalau jalur tenant
+bersandar pada `SET search_path`, koneksi yang dipakai ulang akan membawa schema tenant
+sebelumnya — dan permintaan berikutnya membaca data tenant yang salah tanpa satu pun galat.
+
+Jalur ini tidak memakai `search_path`: nama schemanya disambung sebagai literal tervalidasi pada
+tiap pernyataan. Ujinya membuktikan itu dengan membaca A, lalu B, lalu **A lagi**, pada koneksi
+yang sama.
+
+### Hasil
+
+SQL yang benar-benar dikeluarkan kelas `*Tenant` dijalankan untuk kedua schema, bergantian, pada
+satu koneksi:
+
+| yang dibaca | tenant A | tenant B | A lagi |
+|---|---|---|---|
+| stok produk 10 (`selectSaldo`) | **100** | **7.000** | **100** |
+| piutang `INV-1` | 500 | 60.000 | 500 |
+| nama akun `1000` (`selectCoa`) | `Kas ta` | `Kas tb` | — |
+| revisi audit `supplier/1` (`cacahRiwayatAudit`) | 1 | 2 | 1 |
+
+Blok 6 menunjukkan bahayanya secara langsung: kueri yang **tidak** menyebut schema akan memberi
+7.100 — angka yang bukan milik siapa pun.
+
+`uji-isolasi-lintas-tenant.sql` — enam blok, **tujuh LULUS, nol GAGAL**, dua di antaranya penjaga.
+Pemandu Java-nya (yang memanggil fragmen `*Tenant` yang sungguhan) memberi **12 LULUS, 0 GAGAL**.
+
+### Dua catatan yang sudah tidak berlaku, dan saya cabut
+
+Daftar "yang belum dikerjakan" memuat dua hal yang sudah lewat:
+
+1. **"`TenantAuditWriter` belum dipanggil dari mana pun."** Salah sejak §20/§22 — ia kini dipanggil
+   dari lima berkas: `SalesInventoryAudit`, `MasterHelper`, `ReceivableHelper`,
+   `ReversalHelper`, `TripHelper`.
+2. **"Uji lintas-tenant dan uji pool A → B → A (§25.5) memerlukan basis data."** Benar, dan basis
+   datanya bukan halangan: klaster sekali-pakai (`initdb --auth=trust`, tanpa kredensial apa pun)
+   sudah dipakai memverifikasi setiap batch sejak §12. Yang menghalangi ternyata hanya anggapan
+   bahwa ia menghalangi.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
@@ -2758,6 +2817,7 @@ pindahkan kueri per helper dengan hasilnya dapat dibandingkan.
 - **Satu Session per request (§9.4).** Setiap helper masih membuka Session sendiri, termasuk
   gerbang tenant ini. Penyatuannya menuntut perubahan tanda tangan seluruh helper —
   pekerjaan yang wajar dilakukan bersamaan dengan migrasi kuerinya, bukan terpisah.
-- **`TenantAuditWriter` belum dipanggil dari mana pun.** Ia siap; pemanggilnya lahir bersama
-  helper yang dipindahkan.
-- **Uji lintas-tenant dan uji pool A → B → A (§25.5)** memerlukan basis data.
+- ~~`TenantAuditWriter` belum dipanggil dari mana pun.~~ **Selesai (§20, §22).** Ia dipanggil
+  dari lima berkas; cakupan `auditHistory` tujuh dari tujuh entitas.
+- ~~Uji lintas-tenant dan uji pool A → B → A (§25.5) memerlukan basis data.~~ **Selesai (§25).**
+  Basis datanya bukan halangan: klaster sekali-pakai tanpa kredensial sudah dipakai sejak §12.

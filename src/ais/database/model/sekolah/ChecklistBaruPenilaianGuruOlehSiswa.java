@@ -126,38 +126,54 @@ import ais.database.model.GeneralValueObject;
  * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
  * </p>
  *
- * <h2>Privasi identitas penilai &mdash; risiko nyata, TERVERIFIKASI</h2>
+ * <h2>Privasi identitas penilai &mdash; risiko struktural pada entity ini, DIPERBAIKI di lapisan
+ * penyajian pada 3 Sep 2026</h2>
  * <p>
  * Baris ini menautkan <b>identitas siswa penilai</b> ({@link #getSiswa()}) ke <b>guru yang
  * dinilai</b> ({@link #getGuru()}) berikut komentar teks bebasnya ({@link #getMasukan()}). Layar
  * pengisian menampilkan ajakan "Isi penilaian guru dengan jujur dan objektif" tanpa menjanjikan
- * anonimitas, namun rancangan penyimpanannya memang <b>tidak anonim sama sekali</b>. Tiga hal yang
+ * anonimitas, dan rancangan penyimpanan entity ini sendiri memang <b>tidak anonim sama sekali</b>
+ * &mdash; identitas penilai tetap melekat di kolom {@code siswa} pada setiap baris. Tiga hal yang
  * perlu diketahui pembaca kode:
  * </p>
  * <ul>
- *   <li><b>Dasbor rekap membuka identitas pengisi.</b>
+ *   <li><b>Dasbor rekap SEBELUMNYA membuka identitas pengisi (sudah diperbaiki).</b>
  *       {@code ais.action.report.format1.akademik.LaporanAngketGuruDashboardWindow} menyusun panel
- *       "Masukan / Catatan Terbaru" dari pasangan {@code (guru, siswa, masukan)} dan merender
- *       kolomnya dengan judul "Pengisi / Catatan". Nilai "Pengisi" berasal dari
- *       {@code String.valueOf(siswa)}, dan {@link Siswa#toString()} menghasilkan
- *       {@code "<id>-<nomorInduk>-<namaSiswa>"} &mdash; jadi yang tampil adalah <b>NIS dan nama
- *       lengkap</b> siswa di samping komentarnya, bukan sekadar penanda anonim.</li>
+ *       "Masukan / Catatan Terbaru" dari pasangan {@code (guru, siswa, masukan)}. Sampai dengan
+ *       3 Sep 2026 kolomnya berjudul "Pengisi / Catatan" dan nilainya berasal dari
+ *       {@code String.valueOf(siswa)} &mdash; dan {@link Siswa#toString()} menghasilkan
+ *       {@code "<id>-<nomorInduk>-<namaSiswa>"}, sehingga yang tampil adalah <b>NIS dan nama
+ *       lengkap</b> siswa di samping komentarnya. Perbaikan mengganti nilai tersebut dengan token
+ *       anonim per-sesi-pemuatan ({@code DashboardData.anonSiswaLabel(Siswa)}, mis. "Responden 3",
+ *       stabil selama satu pemuatan dasbor agar beberapa masukan dari siswa yang sama tetap terlihat
+ *       berasal dari responden yang sama tanpa membuka identitasnya) dan mengubah judul kolom/popup
+ *       menjadi "Responden (Anonim)"; hal yang sama juga berlaku untuk kolom "Siswa" pada popup
+ *       kartu "Angket Terisi" ({@code data.formRows}), yang sebelumnya memakai
+ *       {@code safeToString(siswa)} dengan masalah identik. Perbaikan ini murni di lapisan
+ *       penyajian (window laporan) &mdash; entity ini TIDAK diubah, karena {@link #getSiswa()}
+ *       tetap dipakai sebagai kunci fungsional (lihat paragraf di bawah). Tombol ekspor PDF/Excel
+ *       ({@code DashboardGridExportHelper.pasang}) membaca ulang teks yang SUDAH dirender di layar,
+ *       sehingga ikut teranonimkan tanpa perubahan terpisah.</li>
  *   <li><b>Dasbor itu tidak memiliki gerbang hak akses miliknya sendiri</b> (tidak ada pemanggilan
  *       {@code checkPrevilages} di dalamnya) dan disisipkan sebagai salah satu tab pada
  *       {@code LaporanAngketDosenPerDosenWindow}; hak membukanya diwarisi sepenuhnya dari hak menu
- *       laporan induk. Filter guru pada dasbor juga tidak dipaksa ke guru pemilik sesi &mdash;
- *       tidak ada mekanisme yang mencegah pemegang menu laporan memilih guru mana pun, termasuk
- *       dirinya sendiri, lalu membaca siapa saja yang mengomentarinya.</li>
+ *       laporan induk. Filter guru pada dasbor (widget {@code AmbilDataGuruBanbox}) diisi otomatis
+ *       dan dikunci ({@code setDisabled(true)}) ke guru milik sesi login bila penggunanya sendiri
+ *       tercatat sebagai {@link Guru} &mdash; jadi pada pemakaian normal seorang guru hanya melihat
+ *       baris penilaian atas dirinya sendiri, bukan guru lain; penguncian ini bersifat UI (client-side),
+ *       bukan validasi ulang di {@code loadDashboardData}. Anonimisasi kolom "Responden" di atas
+ *       adalah mitigasi utama karena tidak bergantung pada kekuatan penguncian tersebut.</li>
  *   <li><b>Riwayat Envers menyimpan selamanya.</b> Karena kelas ini {@link Audited}, menghapus atau
  *       mengosongkan {@link #getMasukan()} di baris utama tidak menghapus versi sebelumnya di tabel
- *       revisi; pasangan (siswa penilai, komentar) tetap dapat direkonstruksi dari sana.</li>
+ *       revisi; pasangan (siswa penilai, komentar) tetap dapat direkonstruksi dari sana oleh siapa
+ *       pun yang punya akses ke tabel revisi Envers secara langsung (di luar cakupan perbaikan
+ *       lapisan penyajian ini).</li>
  * </ul>
  * <p>
- * Ini adalah temuan rancangan, bukan usulan perubahan: bila anonimitas memang diinginkan, yang
- * perlu diubah adalah lapisan penyajian (dasbor) dan/atau penyimpanan &mdash; jangan mengubah
- * entity ini sendirian, karena {@link #getSiswa()} juga dipakai sebagai kunci fungsional
- * (mencegah pengisian ganda, dan menjawab "apakah siswa ini masih punya kewajiban mengisi angket"
- * lewat {@code ais.common.ChecklistPenilaianGuruHelper} dan {@code ais.common.AngketUtil}).
+ * Entity ini sengaja TIDAK diubah oleh perbaikan privasi di atas: {@link #getSiswa()} dipakai
+ * sebagai kunci fungsional (mencegah pengisian ganda, dan menjawab "apakah siswa ini masih punya
+ * kewajiban mengisi angket" lewat {@code ais.common.ChecklistPenilaianGuruHelper} dan
+ * {@code ais.common.AngketUtil}), jadi kolom {@code siswa} tetap harus menyimpan identitas asli.
  * </p>
  *
  * <h2>Cakupan tenant (yayasan/sekolah) &mdash; fail-open struktural</h2>
