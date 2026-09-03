@@ -44,7 +44,13 @@ public final class GenericCrudAutoDefinitionFactory {
     };
     private static final String[] INTERNAL_FIELDS = new String[] {
         "oleh", "olehid", "tanggal_dirubah", "created", "createdat", "updated", "updatedat",
-        "deleted", "deletedat", "version", "copydari", "initdata", "dikunci"
+        "deleted", "deletedat", "version", "copydari", "initdata", "dikunci",
+        // Rantai persetujuan SOP (DataSop/DisposisiSop) & status posting jurnal: keduanya
+        // diturunkan dari langkah SOP/mesin posting, tidak boleh disetel langsung lewat
+        // permukaan CRUD generik. "disetujui_oleh"/"ditolak_oleh" sudah tercakup token "oleh"
+        // di atas; dicantumkan eksplisit di sini agar tidak bergantung diam-diam pada tabrakan
+        // substring token itu. Lihat PembayaranGaji.isPersetujuanSahDanTerpisah().
+        "disetujui_oleh", "ditolak_oleh", "tanggal_persetujuan", "tanggal_ditolak", "posting_history"
     };
 
     private GenericCrudAutoDefinitionFactory() { }

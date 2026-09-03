@@ -2632,14 +2632,10 @@ public class PertangungjawabanKasBesarAction extends GenericAutowireComposer
 			return Common.getGeneratedBarCode();
 		}
 
-		Long index = NomorSuratAlurKeuangan.PERTANGGUNGJAWABAN_KAS_BESAR_DATA.getNomorSurat().getGunakanIndexUrut()
-				? NomorSuratAlurKeuangan.PERTANGGUNGJAWABAN_KAS_BESAR_DATA.getNomorSurat().getNomorIndex()
-				: getindex(NomorSuratAlurKeuangan.PERTANGGUNGJAWABAN_KAS_BESAR_DATA.getNomorSurat());
-		if (tambah) {
-			NomorSurat.tambahIndexNomorSurat(NomorSuratAlurKeuangan.PERTANGGUNGJAWABAN_KAS_BESAR_DATA.getNomorSurat());
-		}
-		String noAgenda = NomorSuratAlurKeuangan.PERTANGGUNGJAWABAN_KAS_BESAR_DATA.getNomorSurat().format(index,
-				WaktuUtil.getDate(), satuanKerja);
+		NomorSurat ns = NomorSuratAlurKeuangan.PERTANGGUNGJAWABAN_KAS_BESAR_DATA.getNomorSurat();
+		Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+				: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
+		String noAgenda = ns.format(index, WaktuUtil.getDate(), satuanKerja);
 		return ais.action.master.KodeUnikUtil.pastikanUnik(PertangungjawabanKasBesar.class, noAgenda);
 	}
 

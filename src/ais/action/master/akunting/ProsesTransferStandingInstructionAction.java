@@ -339,7 +339,10 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 
 			if (prosesTransferStandingInstruction.getKode() == null
 					|| prosesTransferStandingInstruction.getKode().trim().isEmpty()) {
-				String noAgenda = generateCode(true);
+				// tambah=false: ini render() grid (baris bisa dirender berkali-kali tanpa
+				// pengguna menekan Simpan), BUKAN titik simpan — jangan konsumsi index resmi
+				// di sini. Kode definitif dibangkitkan tambah=true hanya di onSave (baris ~1357).
+				String noAgenda = generateCode(false);
 				prosesTransferStandingInstruction.setKode(noAgenda);
 
 				Common.refreshUpdate(prosesTransferStandingInstruction);
@@ -1566,7 +1569,10 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 
 		if (prosesTransferStandingInstruction.getKode() == null
 				|| prosesTransferStandingInstruction.getKode().trim().isEmpty()) {
-			String noAgenda = generateCode(true);
+			// tambah=false: ini pembentukan form saat window dibuka, BUKAN titik simpan —
+			// jangan konsumsi index resmi di sini. Kode definitif dibangkitkan tambah=true
+			// hanya di onSave (baris ~1357).
+			String noAgenda = generateCode(false);
 			prosesTransferStandingInstruction.setKode(noAgenda);
 		}
 
@@ -1806,13 +1812,10 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 			return Common.getGeneratedBarCode();
 		}
 
-		Long index = NomorSuratAlurKeuangan.SI.getNomorSurat().getGunakanIndexUrut()
-				? NomorSuratAlurKeuangan.SI.getNomorSurat().getNomorIndex()
-				: getindex(NomorSuratAlurKeuangan.SI.getNomorSurat());
-		if (tambah) {
-			NomorSurat.tambahIndexNomorSurat(NomorSuratAlurKeuangan.SI.getNomorSurat());
-		}
-		String noAgenda = NomorSuratAlurKeuangan.SI.getNomorSurat().format(index, WaktuUtil.getDate());
+		NomorSurat ns = NomorSuratAlurKeuangan.SI.getNomorSurat();
+		Long index = (tambah && ns.getGunakanIndexUrut()) ? NomorSurat.ambilLaluTambahIndexNomorSurat(ns)
+				: (ns.getGunakanIndexUrut() ? ns.getNomorIndex() : getindex(ns));
+		String noAgenda = ns.format(index, WaktuUtil.getDate());
 		return ais.action.master.KodeUnikUtil.pastikanUnik(ProsesTransferStandingInstruction.class, noAgenda);
 	}
 

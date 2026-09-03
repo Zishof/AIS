@@ -16,6 +16,7 @@ import ais.common.Common;
 import ais.common.CommonDashboardHtmlHelper;
 import ais.database.model.KehadiranPegawaiBulanan;
 import ais.database.model.Pegawai;
+import ais.database.model.Tbmuser;
 import ais.database.model.payroll.CutiDanIzin;
 import ais.database.model.payroll.JenisTransaksiPegawai;
 import ais.database.model.payroll.PembayaranGajiPunyaPegawai;
@@ -97,6 +98,26 @@ public final class DasborPenggajianDetailHelper {
 				+ kartuHtml + "</div>";
 	}
 
+	/**
+	 * Terapkan cakupan bawahan (sama persis dengan pola {@code panelDaftarCuti}) ke Criteria
+	 * yang SUDAH memiliki alias {@code "pegawai"} menunjuk ke properti pegawai langsung
+	 * (mis. {@code x.pegawai}, {@code t.pegawai}). Tanpa ini, panel rincian gaji/tunjangan/
+	 * kehadiran menampilkan nama &amp; nilai seluruh pegawai instalasi ke siapa pun yang
+	 * membuka dasbor — bukan hanya diri sendiri/bawahannya.
+	 *
+	 * <p>Fail-closed: bila penentuan akses gagal (exception), Criteria diberi
+	 * {@code 1=0} sehingga tidak ada baris yang bocor.</p>
+	 */
+	private static void terapkanFilterBawahan(Session s, Criteria c) {
+		try {
+			Tbmuser tbmuserAkses = Common.getCurrentUser();
+			PegawaiBawahanHelper.BawahanSet bs = PegawaiBawahanHelper.ambilBawahan(s, tbmuserAkses);
+			PegawaiBawahanHelper.applyFilterByPegawai(c, bs, tbmuserAkses);
+		} catch (Exception eAkses) {
+			c.add(Restrictions.sqlRestriction("1=0"));
+		}
+	}
+
 	// ════════════════════════════════════════════════════════════════════════
 	// 1) Gaji per kategori pegawai (pegawai/guru/dosen × tetap/honorer)
 	// ════════════════════════════════════════════════════════════════════════
@@ -137,9 +158,12 @@ public final class DasborPenggajianDetailHelper {
 
 			// Jumlahkan gaji per pegawai (group by pegawai) -> kurangi N+1 saat cek role.
 			// Filter rentang bulan (1-12) mengikuti "Rentang Tgl" dashboard.
-			List<Object[]> rows = s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
-					.createAlias("x.pembayaranGaji", "pg").add(Restrictions.eq("pg.tahun", Integer.valueOf(tahun)))
-					.add(Restrictions.between("pg.bulan", Integer.valueOf(bulanMulai), Integer.valueOf(bulanSampai)))
+			Criteria kGaji = s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
+					.createAlias("x.pembayaranGaji", "pg").createAlias("x.pegawai", "pegawai", Criteria.LEFT_JOIN)
+					.add(Restrictions.eq("pg.tahun", Integer.valueOf(tahun)))
+					.add(Restrictions.between("pg.bulan", Integer.valueOf(bulanMulai), Integer.valueOf(bulanSampai)));
+			terapkanFilterBawahan(s, kGaji);
+			List<Object[]> rows = kGaji
 					.setProjection(Projections.projectionList().add(Projections.groupProperty("x.pegawai"))
 							.add(Projections.sum("x.nilai")))
 					.list();
@@ -199,11 +223,14 @@ public final class DasborPenggajianDetailHelper {
 	@SuppressWarnings("unchecked")
 	public static String panelKomponenGajiFormula(Session s, int tahun, int bulanMulai, int bulanSampai) {
 		try {
-			List<Object[]> rows = s.createCriteria(PembayaranItemGajiPegawai.class, "x")
+			Criteria kKomponen = s.createCriteria(PembayaranItemGajiPegawai.class, "x")
 					.createAlias("x.pembayaranGajiPunyaPegawai", "pgp")
 					.createAlias("pgp.pembayaranGaji", "pg")
+					.createAlias("x.pegawai", "pegawai", Criteria.LEFT_JOIN)
 					.add(Restrictions.eq("pg.tahun", Integer.valueOf(tahun)))
-					.add(Restrictions.between("pg.bulan", Integer.valueOf(bulanMulai), Integer.valueOf(bulanSampai)))
+					.add(Restrictions.between("pg.bulan", Integer.valueOf(bulanMulai), Integer.valueOf(bulanSampai)));
+			terapkanFilterBawahan(s, kKomponen);
+			List<Object[]> rows = kKomponen
 					.setProjection(Projections.projectionList().add(Projections.groupProperty("x.nama"))
 							.add(Projections.groupProperty("x.pegawai")).add(Projections.sum("x.nilai")))
 					.list();
@@ -316,8 +343,11 @@ public final class DasborPenggajianDetailHelper {
 			double totalLain = 0.0;
 			long jumlahLain = 0;
 
-			List<TransaksiPegawai> rows = s.createCriteria(TransaksiPegawai.class)
-					.add(Restrictions.eq("thn", Integer.valueOf(tahun))).addOrder(Order.desc("tanggal")).list();
+			Criteria kTrans = s.createCriteria(TransaksiPegawai.class)
+					.createAlias("pegawai", "pegawai", Criteria.LEFT_JOIN)
+					.add(Restrictions.eq("thn", Integer.valueOf(tahun)));
+			terapkanFilterBawahan(s, kTrans);
+			List<TransaksiPegawai> rows = kTrans.addOrder(Order.desc("tanggal")).list();
 
 			for (TransaksiPegawai t : rows) {
 				JenisTransaksiPegawai j = t.getJenisTransaksiPegawai();
@@ -458,6 +488,7 @@ public final class DasborPenggajianDetailHelper {
 		try {
 			Criteria c = s.createCriteria(TransaksiPegawai.class, "t")
 					.createAlias("t.jenisTransaksiPegawai", "j", Criteria.LEFT_JOIN)
+					.createAlias("t.pegawai", "pegawai", Criteria.LEFT_JOIN)
 					.add(Restrictions.ilike("j.nama", "perjalanan dinas", org.hibernate.criterion.MatchMode.ANYWHERE));
 			if (mulai != null) {
 				c.add(Restrictions.ge("t.tanggal", mulai));
@@ -465,6 +496,7 @@ public final class DasborPenggajianDetailHelper {
 			if (sampai != null) {
 				c.add(Restrictions.le("t.tanggal", sampai));
 			}
+			terapkanFilterBawahan(s, c);
 			List<TransaksiPegawai> rows = c.addOrder(Order.desc("t.tanggal")).setMaxResults(MAKS_RINCIAN).list();
 
 			if (rows.isEmpty()) {
@@ -555,9 +587,12 @@ public final class DasborPenggajianDetailHelper {
 	@SuppressWarnings("unchecked")
 	public static String panelKehadiranBulanan(Session s, int tahun, int bulanMulai, int bulanSampai) {
 		try {
-			List<KehadiranPegawaiBulanan> rows = s.createCriteria(KehadiranPegawaiBulanan.class)
+			Criteria kHadir = s.createCriteria(KehadiranPegawaiBulanan.class)
+					.createAlias("pegawai", "pegawai", Criteria.LEFT_JOIN)
 					.add(Restrictions.eq("tahun", Integer.valueOf(tahun)))
-					.add(Restrictions.between("bulan", Integer.valueOf(bulanMulai), Integer.valueOf(bulanSampai)))
+					.add(Restrictions.between("bulan", Integer.valueOf(bulanMulai), Integer.valueOf(bulanSampai)));
+			terapkanFilterBawahan(s, kHadir);
+			List<KehadiranPegawaiBulanan> rows = kHadir
 					.addOrder(Order.asc("nama")).addOrder(Order.asc("bulan")).setMaxResults(MAKS_RINCIAN).list();
 
 			if (rows.isEmpty()) {

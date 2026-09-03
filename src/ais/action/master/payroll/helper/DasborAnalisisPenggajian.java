@@ -21,8 +21,8 @@ import org.zkoss.zul.Html;
 import ais.common.Common;
 import ais.common.CommonDashboardHtmlHelper;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Tbmuser;
 import ais.database.model.payroll.CutiDanIzin;
-import ais.database.model.payroll.PembayaranGaji;
 import ais.database.model.payroll.PembayaranGajiPunyaPegawai;
 import ais.database.model.payroll.TransaksiPegawai;
 import ais.ui.util.DashboardCache;
@@ -220,8 +220,27 @@ public class DasborAnalisisPenggajian extends Div {
         final int year = filterTahun;
         final int bm = bulanMulai();
         final int bs = bulanSampai();
-        // Rentang bulan ikut serta di key cache supaya ganti rentang -> hitung ulang (bukan data lama).
-        final String dashKey = "payroll.dash." + fokus.name() + "." + year + "." + bm + "-" + bs;
+
+        // Cakupan bawahan pengguna saat ini (sama persis dengan DasborPenggajianDetailHelper) —
+        // TANPA ini, dashKey/L3 key di bawah dipakai bersama SEMUA pengguna instalasi walau
+        // datanya (lewat queryGaji/queryTransaksi/queryCuti) sudah difilter per pegawai/bawahan,
+        // sehingga hasil hitungan satu manajer bisa disajikan ke manajer lain (kebocoran lintas
+        // tenant lewat cache berbagi).
+        final Tbmuser tbmuserAkses = Common.getCurrentUser();
+        PegawaiBawahanHelper.BawahanSet aksesTmp;
+        try {
+            aksesTmp = PegawaiBawahanHelper.ambilBawahan(HibernateUtil.currentSession(), tbmuserAkses);
+        } catch (Exception exAkses) {
+            aksesTmp = null; // gagal tentukan akses -> fail-closed (lihat scopeKey/queryX di bawah)
+        }
+        final PegawaiBawahanHelper.BawahanSet akses = aksesTmp;
+        final String scopeKey = (akses == null) ? "DENIED"
+                : (akses.admin ? "ADMIN"
+                        : "U" + (tbmuserAkses != null && tbmuserAkses.getUserId() != null ? tbmuserAkses.getUserId() : "anon"));
+
+        // Rentang bulan & cakupan akses ikut serta di key cache supaya ganti rentang/pengguna ->
+        // hitung ulang (bukan data lama ATAU data pengguna lain).
+        final String dashKey = "payroll.dash." + fokus.name() + "." + scopeKey + "." + year + "." + bm + "-" + bs;
 
         // L1: kalau seluruh data layar masih segar, langsung render (instan, tanpa progress).
         Object hit = DashboardCache.getIfPresent(dashKey);
@@ -240,10 +259,10 @@ public class DasborAnalisisPenggajian extends Div {
         if (fokus == Fokus.SEMUA || fokus == Fokus.GAJI) {
             dp.step("Menghitung ringkasan & tren penggajian", new DashboardProgress.Step() {
                 public void run() throws Exception {
-                    d.gaji = DashboardCache.l3("payroll.gaji." + year + "." + bm + "-" + bs,
+                    d.gaji = DashboardCache.l3("payroll.gaji." + scopeKey + "." + year + "." + bm + "-" + bs,
                             new DashboardCache.Loader<GajiData>() {
                                 public GajiData load() {
-                                    return queryGaji(year, bm, bs);
+                                    return queryGaji(year, bm, bs, akses, tbmuserAkses);
                                 }
                             });
                 }
@@ -252,10 +271,10 @@ public class DasborAnalisisPenggajian extends Div {
         if (fokus == Fokus.SEMUA || fokus == Fokus.TRANSAKSI) {
             dp.step("Menghitung transaksi pegawai (tunjangan & potongan)", new DashboardProgress.Step() {
                 public void run() throws Exception {
-                    d.transaksi = DashboardCache.l3("payroll.transaksi." + year,
+                    d.transaksi = DashboardCache.l3("payroll.transaksi." + scopeKey + "." + year,
                             new DashboardCache.Loader<TransaksiData>() {
                                 public TransaksiData load() {
-                                    return queryTransaksi(year);
+                                    return queryTransaksi(year, akses, tbmuserAkses);
                                 }
                             });
                 }
@@ -264,9 +283,9 @@ public class DasborAnalisisPenggajian extends Div {
         if (fokus == Fokus.SEMUA || fokus == Fokus.CUTI) {
             dp.step("Menghitung data cuti & izin", new DashboardProgress.Step() {
                 public void run() throws Exception {
-                    d.cuti = DashboardCache.l3("payroll.cuti." + year, new DashboardCache.Loader<CutiData>() {
+                    d.cuti = DashboardCache.l3("payroll.cuti." + scopeKey + "." + year, new DashboardCache.Loader<CutiData>() {
                         public CutiData load() {
-                            return queryCuti(year);
+                            return queryCuti(year, akses, tbmuserAkses);
                         }
                     });
                 }
@@ -287,23 +306,36 @@ public class DasborAnalisisPenggajian extends Div {
     // ════════════════════════════════════════════════════════════════════════
 
     @SuppressWarnings("unchecked")
-    private GajiData queryGaji(int year, int bulanMulai, int bulanSampai) {
+    private GajiData queryGaji(int year, int bulanMulai, int bulanSampai, PegawaiBawahanHelper.BawahanSet akses,
+            Tbmuser user) {
         GajiData g = new GajiData();
         Session s = HibernateUtil.currentSession();
 
-        // Filter rentang bulan (1-12) sesuai "Rentang Tgl" -> bisa 1/3/6 bulan atau setahun.
-        g.totalBatch = num(cache(s.createCriteria(PembayaranGaji.class).add(Restrictions.eq("tahun", year))
-                .add(Restrictions.between("bulan", bulanMulai, bulanSampai))
-                .setProjection(Projections.rowCount())).uniqueResult());
+        // Batch/slip TIDAK dihitung langsung dari PembayaranGaji (header, tidak punya properti
+        // pegawai) — dihitung lewat baris PembayaranGajiPunyaPegawai yang SUDAH difilter cakupan
+        // bawahan, supaya konsisten dengan panel rincian di bawahnya (satu manajer tidak melihat
+        // total batch/nilai pegawai lain).
 
-        g.batchPosted = num(cache(s.createCriteria(PembayaranGaji.class).add(Restrictions.eq("tahun", year))
-                .add(Restrictions.between("bulan", bulanMulai, bulanSampai))
-                .add(Restrictions.isNotNull("postingHistory")).setProjection(Projections.rowCount())).uniqueResult());
+        // Filter rentang bulan (1-12) sesuai "Rentang Tgl" -> bisa 1/3/6 bulan atau setahun.
+        Criteria cBatch = s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
+                .createAlias("x.pembayaranGaji", "pg").createAlias("x.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.eq("pg.tahun", year)).add(Restrictions.between("pg.bulan", bulanMulai, bulanSampai));
+        applyPegawaiScope(cBatch, akses, user);
+        g.totalBatch = num(cache(cBatch.setProjection(Projections.countDistinct("pg.id"))).uniqueResult());
+
+        Criteria cBatchPosted = s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
+                .createAlias("x.pembayaranGaji", "pg").createAlias("x.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.eq("pg.tahun", year)).add(Restrictions.between("pg.bulan", bulanMulai, bulanSampai))
+                .add(Restrictions.isNotNull("pg.postingHistory"));
+        applyPegawaiScope(cBatchPosted, akses, user);
+        g.batchPosted = num(cache(cBatchPosted.setProjection(Projections.countDistinct("pg.id"))).uniqueResult());
 
         // Nilai & jumlah slip per bulan (GROUP BY bulan)
-        List<Object[]> bulanRows = cache(s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
-                .createAlias("x.pembayaranGaji", "pg").add(Restrictions.eq("pg.tahun", year))
-                .add(Restrictions.between("pg.bulan", bulanMulai, bulanSampai))
+        Criteria cBulan = s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
+                .createAlias("x.pembayaranGaji", "pg").createAlias("x.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.eq("pg.tahun", year)).add(Restrictions.between("pg.bulan", bulanMulai, bulanSampai));
+        applyPegawaiScope(cBulan, akses, user);
+        List<Object[]> bulanRows = cache(cBulan
                 .setProjection(Projections.projectionList().add(Projections.groupProperty("pg.bulan"))
                         .add(Projections.sum("x.nilai")).add(Projections.rowCount())))
                 .list();
@@ -319,19 +351,22 @@ public class DasborAnalisisPenggajian extends Div {
             }
         }
 
-        g.pegawaiDibayar = num(cache(s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
-                .createAlias("x.pembayaranGaji", "pg").add(Restrictions.eq("pg.tahun", year))
-                .add(Restrictions.between("pg.bulan", bulanMulai, bulanSampai))
-                .setProjection(Projections.countDistinct("x.pegawai"))).uniqueResult());
+        Criteria cPegawai = s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
+                .createAlias("x.pembayaranGaji", "pg").createAlias("x.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.eq("pg.tahun", year)).add(Restrictions.between("pg.bulan", bulanMulai, bulanSampai));
+        applyPegawaiScope(cPegawai, akses, user);
+        g.pegawaiDibayar = num(cache(cPegawai.setProjection(Projections.countDistinct("x.pegawai"))).uniqueResult());
 
         // Distribusi nilai gaji per cara pembayaran (LEFT JOIN agar yang null tetap terhitung)
-        List<Object[]> caraRows = cache(s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
+        Criteria cCara = s.createCriteria(PembayaranGajiPunyaPegawai.class, "x")
                 .createAlias("x.pembayaranGaji", "pg")
                 .createAlias("pg.caraPembayaranGaji", "cb", Criteria.LEFT_JOIN)
+                .createAlias("x.pegawai", "pegawai", Criteria.LEFT_JOIN)
                 .add(Restrictions.eq("pg.tahun", year))
-                .add(Restrictions.between("pg.bulan", bulanMulai, bulanSampai))
-                .setProjection(Projections.projectionList().add(Projections.groupProperty("cb.nama"))
-                        .add(Projections.sum("x.nilai"))))
+                .add(Restrictions.between("pg.bulan", bulanMulai, bulanSampai));
+        applyPegawaiScope(cCara, akses, user);
+        List<Object[]> caraRows = cache(cCara.setProjection(Projections.projectionList()
+                        .add(Projections.groupProperty("cb.nama")).add(Projections.sum("x.nilai"))))
                 .list();
         for (Object[] r : caraRows) {
             String nama = r[0] == null ? "(Tanpa cara bayar)" : String.valueOf(r[0]);
@@ -345,14 +380,17 @@ public class DasborAnalisisPenggajian extends Div {
     // ════════════════════════════════════════════════════════════════════════
 
     @SuppressWarnings("unchecked")
-    private TransaksiData queryTransaksi(int year) {
+    private TransaksiData queryTransaksi(int year, PegawaiBawahanHelper.BawahanSet akses, Tbmuser user) {
         TransaksiData t = new TransaksiData();
         Session s = HibernateUtil.currentSession();
 
         // Rekap per jenis transaksi (GROUP BY nama, jenisTransaksi)
-        List<Object[]> jenisRows = cache(s.createCriteria(TransaksiPegawai.class, "t")
+        Criteria cJenis = s.createCriteria(TransaksiPegawai.class, "t")
                 .createAlias("t.jenisTransaksiPegawai", "j", Criteria.LEFT_JOIN)
-                .add(Restrictions.eq("t.thn", year))
+                .createAlias("t.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.eq("t.thn", year));
+        applyPegawaiScope(cJenis, akses, user);
+        List<Object[]> jenisRows = cache(cJenis
                 .setProjection(Projections.projectionList().add(Projections.groupProperty("j.nama"))
                         .add(Projections.groupProperty("j.jenisTransaksi")).add(Projections.sum("t.nilai"))
                         .add(Projections.rowCount())))
@@ -379,9 +417,12 @@ public class DasborAnalisisPenggajian extends Div {
         });
 
         // Tren per bulan (GROUP BY bln, jenisTransaksi)
-        List<Object[]> bulanRows = cache(s.createCriteria(TransaksiPegawai.class, "t")
+        Criteria cBulanTrx = s.createCriteria(TransaksiPegawai.class, "t")
                 .createAlias("t.jenisTransaksiPegawai", "j", Criteria.LEFT_JOIN)
-                .add(Restrictions.eq("t.thn", year))
+                .createAlias("t.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.eq("t.thn", year));
+        applyPegawaiScope(cBulanTrx, akses, user);
+        List<Object[]> bulanRows = cache(cBulanTrx
                 .setProjection(Projections.projectionList().add(Projections.groupProperty("t.bln"))
                         .add(Projections.groupProperty("j.jenisTransaksi")).add(Projections.sum("t.nilai"))))
                 .list();
@@ -405,29 +446,35 @@ public class DasborAnalisisPenggajian extends Div {
     // ════════════════════════════════════════════════════════════════════════
 
     @SuppressWarnings("unchecked")
-    private CutiData queryCuti(int year) {
+    private CutiData queryCuti(int year, PegawaiBawahanHelper.BawahanSet akses, Tbmuser user) {
         CutiData c = new CutiData();
         Session s = HibernateUtil.currentSession();
         Date start = startOfYear(year);
         Date end = endOfYear(year);
 
-        Object[] agg = (Object[]) cache(s.createCriteria(CutiDanIzin.class, "c")
-                .add(Restrictions.ge("c.mulai", start)).add(Restrictions.le("c.mulai", end))
-                .setProjection(Projections.projectionList().add(Projections.rowCount())
+        Criteria cAgg = s.createCriteria(CutiDanIzin.class, "c").createAlias("c.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.ge("c.mulai", start)).add(Restrictions.le("c.mulai", end));
+        applyCutiScope(cAgg, akses, user);
+        Object[] agg = (Object[]) cache(cAgg.setProjection(Projections.projectionList().add(Projections.rowCount())
                         .add(Projections.sum("c.jumlahHariCuti")))).uniqueResult();
         if (agg != null) {
             c.total = num(agg[0]);
             c.totalHari = dbl(agg[1]);
         }
 
-        c.disetujui = num(cache(s.createCriteria(CutiDanIzin.class, "c").add(Restrictions.ge("c.mulai", start))
-                .add(Restrictions.le("c.mulai", end)).add(Restrictions.eq("c.setujui", Boolean.TRUE))
-                .setProjection(Projections.rowCount())).uniqueResult());
+        Criteria cDisetujui = s.createCriteria(CutiDanIzin.class, "c")
+                .createAlias("c.pegawai", "pegawai", Criteria.LEFT_JOIN).add(Restrictions.ge("c.mulai", start))
+                .add(Restrictions.le("c.mulai", end)).add(Restrictions.eq("c.setujui", Boolean.TRUE));
+        applyCutiScope(cDisetujui, akses, user);
+        c.disetujui = num(cache(cDisetujui.setProjection(Projections.rowCount())).uniqueResult());
 
         // Distribusi per jenis cuti/izin
-        List<Object[]> jenisRows = cache(s.createCriteria(CutiDanIzin.class, "c")
+        Criteria cJenisCuti = s.createCriteria(CutiDanIzin.class, "c")
                 .createAlias("c.jenisCutiDanIzin", "j", Criteria.LEFT_JOIN)
-                .add(Restrictions.ge("c.mulai", start)).add(Restrictions.le("c.mulai", end))
+                .createAlias("c.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.ge("c.mulai", start)).add(Restrictions.le("c.mulai", end));
+        applyCutiScope(cJenisCuti, akses, user);
+        List<Object[]> jenisRows = cache(cJenisCuti
                 .setProjection(Projections.projectionList().add(Projections.groupProperty("j.nama"))
                         .add(Projections.rowCount())))
                 .list();
@@ -437,9 +484,12 @@ public class DasborAnalisisPenggajian extends Div {
         }
 
         // Distribusi per status absensi
-        List<Object[]> statusRows = cache(s.createCriteria(CutiDanIzin.class, "c")
+        Criteria cStatus = s.createCriteria(CutiDanIzin.class, "c")
                 .createAlias("c.statusabsensi", "sa", Criteria.LEFT_JOIN)
-                .add(Restrictions.ge("c.mulai", start)).add(Restrictions.le("c.mulai", end))
+                .createAlias("c.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.ge("c.mulai", start)).add(Restrictions.le("c.mulai", end));
+        applyCutiScope(cStatus, akses, user);
+        List<Object[]> statusRows = cache(cStatus
                 .setProjection(Projections.projectionList().add(Projections.groupProperty("sa.nama"))
                         .add(Projections.rowCount())))
                 .list();
@@ -449,8 +499,10 @@ public class DasborAnalisisPenggajian extends Div {
         }
 
         // Tren per bulan: group by tanggal mulai (payload kecil) lalu bucket per bulan di Java
-        List<Object[]> tglRows = cache(s.createCriteria(CutiDanIzin.class, "c").add(Restrictions.ge("c.mulai", start))
-                .add(Restrictions.le("c.mulai", end)).setProjection(Projections.projectionList()
+        Criteria cTgl = s.createCriteria(CutiDanIzin.class, "c").createAlias("c.pegawai", "pegawai", Criteria.LEFT_JOIN)
+                .add(Restrictions.ge("c.mulai", start)).add(Restrictions.le("c.mulai", end));
+        applyCutiScope(cTgl, akses, user);
+        List<Object[]> tglRows = cache(cTgl.setProjection(Projections.projectionList()
                         .add(Projections.groupProperty("c.mulai")).add(Projections.rowCount())))
                 .list();
         for (Object[] r : tglRows) {
@@ -952,6 +1004,28 @@ public class DasborAnalisisPenggajian extends Div {
 
     private Criteria cache(Criteria c) {
         return DashboardCache.cacheable(c);
+    }
+
+    /**
+     * Terapkan cakupan bawahan (sama pola dengan {@code DasborPenggajianDetailHelper}) ke
+     * Criteria yang sudah punya alias {@code "pegawai"}. {@code akses == null} berarti
+     * penentuan akses gagal di {@link #loadAndRender()} -> fail-closed ({@code 1=0}).
+     */
+    private static void applyPegawaiScope(Criteria c, PegawaiBawahanHelper.BawahanSet akses, Tbmuser user) {
+        if (akses == null) {
+            c.add(Restrictions.sqlRestriction("1=0"));
+            return;
+        }
+        PegawaiBawahanHelper.applyFilterByPegawai(c, akses, user);
+    }
+
+    /** Varian {@link #applyPegawaiScope} untuk {@code CutiDanIzin} (ikut memfilter diajukanOleh). */
+    private static void applyCutiScope(Criteria c, PegawaiBawahanHelper.BawahanSet akses, Tbmuser user) {
+        if (akses == null) {
+            c.add(Restrictions.sqlRestriction("1=0"));
+            return;
+        }
+        PegawaiBawahanHelper.applyFilterCuti(c, akses, user);
     }
 
     private static long num(Object o) {

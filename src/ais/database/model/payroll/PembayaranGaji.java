@@ -19,6 +19,7 @@ import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 
 import org.hibernate.Session;
 import org.hibernate.annotations.Fetch;
@@ -173,12 +174,15 @@ import ais.database.model.sop.DisposisiSop;
  * {@link #getSatuanKerja()}, {@link #getKodeUnik()}, {@link #getNomorSuratAlurPengadaan()},
  * {@link #getDisetujuiOleh()}/{@link #getTanggalPersetujuan()} (kedua terakhir bahkan dapat
  * <b>mengosongkan</b> persetujuan yang sudah sah). Rinciannya ada di Javadoc masing-masing.</li>
- * <li><b>Kelayakan posting hanya diperiksa dari DUA kolom.</b> Kriteria kedua mesin posting
- * ({@code kriteriaPostingStatic()} dan {@code initCriteria()}) adalah
- * {@code standingInstruction IS NOT NULL AND disetujuiOleh IS NOT NULL}. Tidak ada pemeriksaan
- * bahwa persetujuan itu benar-benar berasal dari langkah SOP, tidak ada pemisahan tugas
- * (pembuat boleh sama dengan penyetuju), dan tidak ada penyaring satuan kerja sama sekali.
- * Lihat catatan pada {@link #getDisetujuiOleh()}.</li>
+ * <li><b>Kelayakan posting: dua kolom di SQL, satu gerbang tambahan di Java.</b> Kriteria kedua
+ * mesin posting ({@code kriteriaPostingStatic()} dan {@code initCriteria()}) masih
+ * {@code standingInstruction IS NOT NULL AND disetujuiOleh IS NOT NULL} &mdash; itu tetap hanya
+ * penyaring awal yang murah. Sejak perbaikan 4 September 2026, setiap kandidat yang lolos
+ * penyaring itu WAJIB juga lolos {@link #isPersetujuanSahDanTerpisah()} sebelum benar-benar
+ * dijurnal (dipanggil eksplisit di titik posting kedua mesin, ZK maupun REST); method itulah
+ * yang memeriksa bahwa persetujuannya berasal dari langkah SOP yang sah dan bahwa pembuat
+ * berbeda dari penyetuju. <b>Penyaring satuan kerja tetap tidak ada sama sekali</b> &mdash; itu
+ * di luar cakupan perbaikan ini. Lihat catatan pada {@link #getDisetujuiOleh()}.</li>
  * <li><b>Pembatalan posting tidak simetris dengan posting.</b> Kedua jalur pembatalan menghapus
  * jurnal dengan {@code delete from akunting.grup_transaksi where pembayaran_gaji=<id> and closing
  * is null}. Baris jurnal yang periodenya sudah ditutup ({@code closing} terisi) <b>tetap
@@ -260,13 +264,22 @@ import ais.database.model.sop.DisposisiSop;
  * satuan kerja dokumen dengan satuan kerja {@link CaraPembayaranGaji} yang dipilih. Jadi cakupan
  * yang diperiksa bukan cakupan yang tersimpan, melainkan cakupan yang baru saja ditulis ulang
  * oleh pilihan cara bayar pada request yang sedang diperiksa.</li>
- * <li><b>Persetujuan dapat berdiri tanpa langkah SOP.</b> Lihat
- * {@link #getDisetujuiOleh()}: seluruh logika penurunan dan pembatalan di dalamnya dijaga
- * {@code if (getDisposisiSop() != null ...)}. Ketika {@code disposisiSop} bernilai {@code null},
- * <b>tidak satu pun cabang berjalan</b> dan nilai kolom mentah diteruskan apa adanya. Karena
+ * <li><b>Persetujuan dapat berdiri tanpa langkah SOP &mdash; kolomnya sendiri, bukan lagi
+ * kelayakan posting.</b> Lihat {@link #getDisetujuiOleh()}: seluruh logika penurunan dan
+ * pembatalan di dalamnya masih dijaga {@code if (getDisposisiSop() != null ...)}, dan ketika
+ * {@code disposisiSop} bernilai {@code null} nilai kolom mentah tetap diteruskan apa adanya
+ * &mdash; itu <b>tidak</b> diubah oleh perbaikan ini (lihat peringatan {@code getDisetujuiOleh()}
+ * soal mengapa membuat cabang pengosongan tanpa syarat justru berbahaya). Karena
  * {@link #setDisposisiSop(DisposisiSop)} menolak argumen {@code null}/tanpa id, dokumen yang lahir
- * di luar layar SOP tidak akan pernah punya disposisi &mdash; dan kriteria kelayakan posting
- * (butir 4 di bagian sebelumnya) hanya menuntut kolom {@code disetujui_oleh} terisi.</li>
+ * di luar layar SOP tidak akan pernah punya disposisi, sehingga kolom {@code disetujui_oleh}-nya
+ * tetap murni data mentah. Yang berubah: kolom mentah itu sendiri <b>tidak lagi cukup</b> untuk
+ * lolos posting. {@link #isPersetujuanSahDanTerpisah()} menuntut {@code disposisiSop} ada DAN
+ * langkah persetujuannya lengkap, sehingga dokumen semacam ini otomatis gagal gerbang posting
+ * &mdash; perbaikannya ada di titik pemeriksaan kelayakan, bukan di getter. Jalur Generic CRUD v2
+ * yang disebut pada butir sebelumnya juga sudah ditutup: {@code disetujuiOleh}, {@code ditolakOleh},
+ * {@code tanggalPersetujuan}, {@code tanggalDitolak}, dan {@code postingHistory} kini eksplisit
+ * masuk {@code GenericCrudAutoDefinitionFactory.INTERNAL_FIELDS}, jadi tidak muncul sebagai field
+ * yang bisa ditulis lewat permukaan REST generik itu.</li>
  * <li><b>Pembatalan posting luput dari Envers.</b> Penghapusan {@code grup_transaksi}/
  * {@code transaksi} dilakukan lewat {@code createSQLQuery(...)} mentah, sehingga tidak
  * menghasilkan revisi Envers. Riwayat audit hanya memperlihatkan {@code postingHistory} berubah
@@ -913,6 +926,75 @@ public class PembayaranGaji extends DataSop {
 		}
 
 		return disetujuiOleh;
+	}
+
+	/**
+	 * Menjawab: apakah dokumen ini benar-benar layak diposting ke jurnal, di luar sekadar kolom
+	 * {@code disetujui_oleh} terisi?
+	 *
+	 * <p><b>Konteks temuan audit (per 4 September 2026).</b> Kedua mesin posting
+	 * ({@code PostingTransaksiPembayaranGajiAction}, {@code PostingTransaksiPenggajianAction})
+	 * semula hanya menyaring {@code disetujuiOleh IS NOT NULL} lewat Hibernate {@code Criteria}.
+	 * Seperti dicatat pada peringatan {@link #getDisetujuiOleh()}, kolom itu murni data mentah
+	 * ketika {@code disposisiSop} bernilai {@code null} &mdash; tidak ada jaminan isinya benar-benar
+	 * berasal dari langkah persetujuan SOP yang sah, dan sebelum method ini tidak ada pemisahan
+	 * tugas antara pembuat dan penyetuju.</p>
+	 *
+	 * <p><b>Sengaja bukan bagian dari {@code Criteria} SQL.</b> {@code disposisiSetuju} pada
+	 * {@link DisposisiSop} adalah properti hasil turunan dengan logika fallback yang rumit (lihat
+	 * {@link DisposisiSop#getDisposisiSetuju()}), sehingga tidak bisa direplikasi dengan aman
+	 * sebagai restriksi SQL/HQL. Method ini memanggil getter Java yang persis sama yang dipakai
+	 * {@link #getDisetujuiOleh()} sendiri, sehingga hasilnya dijamin konsisten dengannya. Pemanggil
+	 * (kedua mesin posting) memakai kolom {@code disetujuiOleh}/{@code standingInstruction} sebagai
+	 * penyaring awal yang murah di basis data, lalu memanggil method ini di sisi Java untuk setiap
+	 * kandidat sebelum benar-benar menjurnalkannya.</p>
+	 *
+	 * <p><b>Dua syarat, keduanya harus benar:</b></p>
+	 * <ol>
+	 * <li>persetujuan benar-benar berasal dari langkah SOP yang lengkap: {@code disposisiSop} ada,
+	 * langkah persetujuannya ({@code getDisposisiSetuju()}) ada, dan langkah itu punya pengaju;
+	 * dokumen yang sudah ditolak ({@link #getDitolakOleh()} terisi) otomatis gagal syarat ini;</li>
+	 * <li><b>pemisahan tugas:</b> pembuat ({@link #getDibuatOleh()}) dan penyetuju
+	 * ({@link #getDisetujuiOleh()}) harus dua pengguna berbeda &mdash; keduanya wajib ada dan
+	 * {@code userId}-nya wajib berbeda (identitas {@link Tbmuser} memakai {@code userId}, bukan
+	 * {@code getId()} bawaan {@code GeneralValueObject}).</li>
+	 * </ol>
+	 *
+	 * <p>Ditandai {@code @Transient} agar Hibernate tidak memetakannya sebagai kolom; nilainya
+	 * selalu dihitung ulang dari getter lain, tidak pernah di-cache di field, dan tidak punya
+	 * setter &mdash; tidak ada jalur untuk menyetelnya langsung lewat Generic CRUD atau kode lain.</p>
+	 *
+	 * @return {@code true} hanya bila persetujuannya berasal dari langkah SOP yang sah DAN pembuat
+	 *         berbeda dari penyetuju
+	 */
+	@Transient
+	public boolean isPersetujuanSahDanTerpisah() {
+		DisposisiSop sop;
+		try {
+			sop = getDisposisiSop();
+		} catch (Exception exLazy) {
+			return false;
+		}
+		if (sop == null) {
+			return false;
+		}
+		try {
+			if (sop.getDisposisiSetuju() == null || sop.getDisposisiSetuju().getDiajukanOleh() == null) {
+				return false;
+			}
+		} catch (Exception exLazy) {
+			return false;
+		}
+		if (getDitolakOleh() != null) {
+			return false;
+		}
+		Tbmuser pembuat = getDibuatOleh();
+		Tbmuser penyetuju = getDisetujuiOleh();
+		if (pembuat == null || penyetuju == null || pembuat.getUserId() == null
+				|| penyetuju.getUserId() == null) {
+			return false;
+		}
+		return !pembuat.getUserId().equals(penyetuju.getUserId());
 	}
 
 	/**

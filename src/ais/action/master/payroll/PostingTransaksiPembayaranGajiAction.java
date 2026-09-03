@@ -524,6 +524,9 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 			button.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
+					if (!adminLain) {
+						return;
+					}
 
 					Common.createDefaultTimer(new EventListener() {
 
@@ -554,10 +557,13 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 			if (!akunKredit.isEmpty() && !akunDebet.isEmpty()) {
 				button = new MyToolbarbuttonConfig("", "/img/svg/check2-circle.svg");
 				button.setTooltiptext("Posting Data");
-				button.setVisible(pembayaranGaji.getPostingHistory() == null);
+				button.setVisible(adminLain && pembayaranGaji.getPostingHistory() == null);
 				button.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
+						if (!adminLain) {
+							return;
+						}
 
 						Common.createDefaultTimer(new EventListener() {
 
@@ -796,6 +802,12 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 	}
 
 	public void onBatalkanPostingSemua(Event event) throws Exception {
+		if (!adminLain) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, Bapak/Ibu tidak memiliki hak untuk membatalkan posting transaksi penggajian.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
 
 		MyMessageboxConfig.show(
 				"Apakah Bapak/Ibu yakin ingin membatalkan posting transaksi penggajian ini? Perlu diketahui bahwa seluruh transaksi penggajian yang telah terposting akan dibatalkan.",
@@ -833,6 +845,12 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 	}
 
 	public void onPostingSemua(Event event) throws Exception {
+		if (!adminLain) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, Bapak/Ibu tidak memiliki hak untuk memposting transaksi penggajian.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
 		if (grid == null || grid.getRows() == null) {
 			return;
 		}
@@ -978,6 +996,12 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 											session.getTransaction().commit();
 
 											for (PembayaranGaji pembayaranGaji : pembayaranGajis) {
+
+												// Gerbang tambahan di luar Criteria SQL, lihat catatan pada
+												// PembayaranGaji.isPersetujuanSahDanTerpisah().
+												if (!pembayaranGaji.isPersetujuanSahDanTerpisah()) {
+													continue;
+												}
 
 												List<PembayaranGajiPunyaPegawai> pembayaranGajiPunyaPegawais = session
 														.createCriteria(PembayaranGajiPunyaPegawai.class)
@@ -1254,6 +1278,17 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 		} 
 		
 
+		// Cakupan penyewa (satuan kerja): pola SAMA dengan PostingKasKecilAction/
+		// PostingPertangungjawabanAction (SekolahUtil.ambilSatuanKerjas()), TAPI himpunan
+		// kosong di sini fail-CLOSED (tidak ada baris yang cocok) alih-alih fail-open
+		// seperti kedua kelas itu -- sebelum tambalan ini, layar tidak menyaring satuan
+		// kerja sama sekali, sehingga menampilkan/memposting dokumen gaji SELURUH
+		// instalasi (lintas Yayasan), bukan hanya milik penyewa pengguna.
+		Set<SatuanKerja> satuanKerjasPengguna = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
+		criteria.add(satuanKerjasPengguna.isEmpty() ? Restrictions.sqlRestriction("false")
+				: Restrictions.or(Restrictions.isNull("satuanKerja"),
+						Restrictions.in("satuanKerja", satuanKerjasPengguna)));
+
 		criteria.add(Restrictions.isNotNull("standingInstruction")).add(Restrictions.isNotNull("disetujuiOleh"))
 
 				.add((mulai == null || sampai == null) ? org.hibernate.criterion.Restrictions.sqlRestriction("1=1") : (Restrictions.sqlRestriction(
@@ -1354,9 +1389,17 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 	 */
 	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
 			java.util.Date sampai) {
+		// Cakupan penyewa (satuan kerja): tanpa ini, jalur API men-scan/memposting
+		// dokumen gaji SELURUH instalasi (lintas Yayasan), bukan hanya milik penyewa
+		// yang sedang memanggil -- lihat catatan sama di initCriteria(boolean).
+		// Himpunan kosong (Yayasan tidak teridentifikasi) fail-CLOSED, bukan fail-open.
+		Set<SatuanKerja> satuanKerjasPengguna = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
 		Criteria c = session.createCriteria(PembayaranGaji.class)
 				.add(Restrictions.isNotNull("standingInstruction"))
-				.add(Restrictions.isNotNull("disetujuiOleh"));
+				.add(Restrictions.isNotNull("disetujuiOleh"))
+				.add(satuanKerjasPengguna.isEmpty() ? Restrictions.sqlRestriction("false")
+						: Restrictions.or(Restrictions.isNull("satuanKerja"),
+								Restrictions.in("satuanKerja", satuanKerjasPengguna)));
 		if (mulai != null && sampai != null) {
 			c.add(Restrictions.sqlRestriction("date(this_.waktubayar) between date('"
 					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
@@ -1451,6 +1494,13 @@ public class PostingTransaksiPembayaranGajiAction extends GenericAutowireCompose
 					PembayaranGaji gaji = (PembayaranGaji) session.createCriteria(PembayaranGaji.class)
 							.add(Restrictions.idEq(id)).uniqueResult();
 					if (gaji == null) {
+						continue;
+					}
+					// Gerbang tambahan di luar Criteria SQL: standingInstruction/disetujuiOleh IS
+					// NOT NULL hanyalah penyaring awal yang murah; kelayakan sesungguhnya (persetujuan
+					// SOP yang sah + pemisahan tugas) diperiksa di sini. Lihat
+					// PembayaranGaji.isPersetujuanSahDanTerpisah().
+					if (!gaji.isPersetujuanSahDanTerpisah()) {
 						continue;
 					}
 					List<PembayaranGajiPunyaPegawai> perPegawai = session

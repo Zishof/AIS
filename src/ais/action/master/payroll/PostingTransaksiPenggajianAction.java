@@ -681,6 +681,13 @@ public class PostingTransaksiPenggajianAction extends GenericAutowireComposer {
 
 											for (PembayaranGajiPunyaPegawai pembayaranGajiPunyaPegawai : pembayaranGajiPunyaPegawais) {
 
+												// Gerbang tambahan di luar Criteria SQL, lihat catatan pada
+												// PembayaranGaji.isPersetujuanSahDanTerpisah().
+												if (pembayaranGajiPunyaPegawai.getPembayaranGaji() == null || !pembayaranGajiPunyaPegawai
+														.getPembayaranGaji().isPersetujuanSahDanTerpisah()) {
+													continue;
+												}
+
 												Pegawai pegawai = pembayaranGajiPunyaPegawai.getPegawai();
 
 												List<PembayaranItemGajiPegawai> pembayaranItemGajiPegawais = ConstantValues
@@ -965,6 +972,13 @@ public class PostingTransaksiPenggajianAction extends GenericAutowireComposer {
 			for (Object o : daftar) {
 				PembayaranGajiPunyaPegawai pg = (PembayaranGajiPunyaPegawai) o;
 				if (pg == null || pg.getPegawai() == null || pg.getPembayaranGaji() == null) {
+					continue;
+				}
+				// Gerbang tambahan di luar Criteria SQL: pembayaranGaji.disetujuiOleh IS NOT NULL
+				// hanyalah penyaring awal yang murah; kelayakan sesungguhnya (persetujuan SOP yang
+				// sah + pemisahan tugas) diperiksa di sini. Lihat
+				// PembayaranGaji.isPersetujuanSahDanTerpisah().
+				if (!pg.getPembayaranGaji().isPersetujuanSahDanTerpisah()) {
 					continue;
 				}
 				try {
