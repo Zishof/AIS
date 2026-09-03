@@ -1,5 +1,62 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 56 — SELESAI 100% (3 Sep 2026) — IDOR PRA-OTENTIKASI KRITIS: unduh dokumen PPDB anak tanpa login (memperkuat `task_1f9c66d3`/`task_4ca32776`), instance ke-5 keluarga PSB nol-privilese
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/CalonSiswaPunyaVerifikasiBerkas.java`**
+  (r83705) — 129→629 baris, 100% (18 anggota). Entity BERBEDA dari
+  `CalonSiswaPunyaVerifikasiParameter` (b49) — jangkar transaksi
+  kepemilikan berkas wajib PPDB (Akte/KK/Ijazah) via `LampiranLain`.
+  **TEMUAN PALING KRITIS SESI INI**: `/ppdb?hanya_tampil_jsp=true&p=ppdb&s=_sukses_login&id=<N>`
+  fully pra-otentikasi — parameter URL `id` MENANG atas sesi login,
+  merender link unduh dokumen PPDB (akte kelahiran, KK, KTP orang
+  tua, ijazah, surat keterangan RS anak berkebutuhan khusus) untuk
+  CALON SISWA MANAPUN, nol cek kepemilikan. `createLinkUri()` bahkan
+  MENYALIN berkas ke direktori publik statis. Permintaan anonim juga
+  meng-INSERT baris (tulis pra-otentikasi). Endpoint pra-otentikasi
+  konkret ke-2 di `/ppdb` (setelah `_wawancara_service` b50) — kali
+  ini eksfiltrasi dokumen PII anak di bawah umur. **Instance ke-5
+  keluarga PSB nol-`checkPrevilages`**: `VerifikasiPSBHelper` (hak
+  READ saja cukup mencentang/membatalkan status verifikasi — gerbang
+  bisnis nyata untuk cetak kartu ujian/ikut ujian/wawancara).
+- **`ais/database/model/sekolah/CabangPrestasiGuru.java`** (r83701) —
+  127→493 baris, 100% (17 anggota). Bidang lomba guru, kembar
+  `CabangPrestasiSiswa`. **Konfirmasi PENUH** relevansi temuan
+  fail-open personalia guru b55 (`_prestasi_guru.jsp` hardcode null)
+  — dipakai di layar yang sama. Temuan baru: filter "Cabang" di layar
+  daftar menyebut kolom yang tidak ada (`_id` salah tempel) → SQL
+  error, bukan filter mati fungsional. `PrestasiGuruAction` TIDAK ADA
+  sama sekali di repo — tabel selalu kosong pada instalasi baru.
+- **`ais/database/model/sekolah/StatusAwalSiswa.java`** (r83702) —
+  137→626 baris, 100% (28 anggota). Katalog jalur masuk siswa
+  (Baru/Beasiswa/Pindahan), klon jenjang sekolah dari
+  `StatusAwalMahasiswa`. Bug "aktif tak pernah ditulis" instance
+  ke-6. `getKeterangan()` TIDAK DIPETAKAN SAMA SEKALI (`GeneralValueObject`
+  bukan `@MappedSuperclass`) — isian keterangan hilang tiap request,
+  sudah pernah timbulkan NPE reflektif (ada komentar "FIX NPE"
+  eksplisit di 2 tempat pemanggil). Pewarisan hak menu instance ke-13.
+- **`ais/database/model/sekolah/PaketPsbPunyaGelombangPendaftaranPsb.java`**
+  (r83704) — 118→474 baris, 100% (18 anggota). BUKAN instance ke-5
+  broken access control PSB (layar bergerbang benar — instance ke-5
+  sesungguhnya ditemukan di `CalonSiswaPunyaVerifikasiBerkas` di atas).
+  Siklus tulis hapus-total-lalu-sisip-ulang tanpa transaksi eksplisit
+  — beberapa bom waktu integritas (Envers bolong untuk DELETE native
+  SQL, risiko no-op bila session-per-request berubah).
+- **`ais/database/model/sekolah/KurikulumPunyaJenisNilai.java`**
+  (r83703) — 123→529 baris, 100% (24 anggota). **Klaim batch 55
+  (relasi yatim) TERKONFIRMASI, bahkan lebih ekstrem**: satu-satunya
+  rujukan kode (`JenisPenilaian.hitungNilaiBerdasarkanDetailGrupPenilaian`)
+  mati 3 lapis (nol pemanggil + bug query properti salah nama + badan
+  tombol dikomentari 100%). Bom waktu terkait: bila fitur pernah
+  dihidupkan, exception di tengah alur render meninggalkan `Timer`
+  ZK 200ms tak pernah dilepas.
+
+Kumulatif sesi ini: **457+ file** (110 batch 34-56) + 343 (sesi
+sebelumnya) dari 7.401 total (~11,4%).
+
 ## Batch 55 — SELESAI 100% (3 Sep 2026) — akar bug penciutan TreeSet b50 ditemukan, fail-open personalia guru, broken access control finansial baru
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
