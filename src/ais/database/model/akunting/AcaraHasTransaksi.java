@@ -173,6 +173,20 @@ import ais.database.model.rab.Acara;
  *       modul/halaman ini. Ini <b>berbeda</b> dari pola fail-open {@code bolehAksi()} pada
  *       keluarga {@code *ApiHelper} yang menjadi pokok {@code task_66986071}: kelas ini
  *       <b>tidak</b> terjangkau pola tersebut.</li>
+ *   <li><b>Saat ini benar-benar tidak terjangkau.</b> Tidak ada satu pun menu yang terpetakan ke
+ *       {@code rab/helper/kalender_model}: {@code NewUiRouteRegistry} tidak punya entri bermodul
+ *       {@code rab} sama sekali, dan sumber menu {@code ais.common.MenuSnapshotData} tidak memuat
+ *       URL yang basename-nya menghasilkan kunci {@code kalendermodel}. Menu RAB yang ada menunjuk
+ *       {@code /pages/master/rab/kalender.zul}, yang me-resolve ke {@code rab/uiux/kalender.jsp}
+ *       &mdash; halaman lain.</li>
+ *   <li><b>Tetapi gerbangnya berbasis DATA, bukan kode (non-obvious).</b> Lewat jalur fallback
+ *       {@code _shared/native_menu}, {@code NewUiNativeJspResolver} mencocokkan <b>basename</b>
+ *       URL menu lawas dengan basename berkas JSP mana pun di bawah {@code WEB-INF/new/*}{@code /uiux/},
+ *       lintas direktori, lalu {@code NewUiRouteGuard.evaluate()} mempercayai hasilnya. Karena
+ *       {@code kalender_model.jsp} unik secara global, <b>menambahkan satu baris menu</b> ber-URL
+ *       seperti {@code /pages/master/rab/kalender_model.zul} sudah cukup untuk menghidupkan rute
+ *       ini &mdash; perubahan data oleh admin, tanpa perubahan kode. Bila itu terjadi, penyaring
+ *       tenant yang kosong (bagian berikut) langsung berlaku.</li>
  * </ul>
  *
  * <h3>Cakupan tenant fail-open pada jalur baca generik</h3>
