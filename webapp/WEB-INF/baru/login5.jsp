@@ -62,7 +62,15 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 }
 
 if(hanya_tampil_jsp){
-    if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+    // PERBAIKAN KEAMANAN (task_1f9c66d3, rujuk r83764 webapp/WEB-INF/baru/tamu.jsp): sebelumnya p/s
+    // diambil mentah tanpa daftar putih -- proksi anonim ke JSP layanan modul APA PUN. Inventarisasi
+    // menyeluruh (grep atas seluruh webapp/ utk "hanya_tampil_jsp=true" dan "/login5?") TIDAK
+    // menemukan satupun pemanggil sah utk dispatcher root login5.jsp ini (pemanggilan keluar
+    // login5.jsp sendiri ke /pustaka?hanya_tampil_jsp=true di bawah adalah rute lain, bukan bagian
+    // dari cabang ini). Karena tidak ada pasangan p/s yang sah utk rute ini, daftar putih sengaja
+    // dikosongkan (deny-all) alih-alih menebak/membuka kombinasi baru.
+    boolean psDiizinkan = false;
+    if(!p.trim().isEmpty() && !s.trim().isEmpty() && psDiizinkan){
           try{
               String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
                   %>
@@ -74,6 +82,8 @@ if(hanya_tampil_jsp){
               <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
               <%
           }
+    } else if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+        response.sendError(403);
     }
 } else {
     boolean aktifkan_integrasi_google = Common.getKonfigurasi("aktifkan_integrasi_google", Konfigurasi.AKTIF).getNilai().equalsIgnoreCase(Konfigurasi.AKTIF);

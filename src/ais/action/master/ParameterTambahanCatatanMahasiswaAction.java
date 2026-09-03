@@ -33,6 +33,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.common.PesanFormalHelper;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.KelompokParameterTambahanCatatanMahasiswa;
@@ -92,8 +93,8 @@ public class ParameterTambahanCatatanMahasiswaAction extends GenericAutowireComp
 	private Combobox kelompokParameterTambahanCatatanMahasiswa;
 	private Combobox parameterTambahan;
 
-	private boolean edit = true;
-	private boolean delete = true;
+	private boolean edit = false;
+	private boolean delete = false;
 
 	private MyToolbarbuttonConfig find;
 	private ParameterTambahanCatatanMahasiswa parameterTambahanCatatanMahasiswa;
@@ -150,6 +151,13 @@ public class ParameterTambahanCatatanMahasiswaAction extends GenericAutowireComp
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
 		KelompokParameterTambahanCatatanMahasiswa.checkCreateDefault();
 
@@ -287,6 +295,9 @@ public class ParameterTambahanCatatanMahasiswaAction extends GenericAutowireComp
 
 	@SuppressWarnings("unchecked")
 	public void onAdd(Event event) throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
 		if (searchkelompokParameterTambahanCatatanMahasiswa.getSelectedItem() == null
 				|| searchkelompokParameterTambahanCatatanMahasiswa.getSelectedItem().getValue() == null) {
 			MyMessageboxConfig.show("Sebelum bisa menambah data, kelompok harus dipilih", "Peringatan",
