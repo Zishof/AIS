@@ -191,6 +191,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [108-urutan-akun-aset-menang-atas-kelompok.md](108-urutan-akun-aset-menang-atas-kelompok.md) | Akun Master Aset kini menang atas Kelompok; getter dipecah agar Hibernate tidak menulis balik nilai kelompok |
 | [109-uat-jebakan-build-dart-define-stale.md](109-uat-jebakan-build-dart-define-stale.md) | UAT keuangan POS: build varian eBisnis mewarisi --dart-define basi dari build Al-Bahjah sebelumnya; flutter clean memulihkannya |
 | [110-uat-otomasi-tidak-bisa-jalan-di-lingkungan-ini.md](110-uat-otomasi-tidak-bisa-jalan-di-lingkungan-ini.md) | UAT: klik native gagal (tanpa sesi desktop interaktif), build web gagal (core_hw pakai dart:ffi) -- dua bukti keras, manual disusun via ilustrasi |
+| [manual-posting-keuangan/](manual-posting-keuangan/README.md) | Manual Posting & Laporan Keuangan POS eBisnis (PDF 10 halaman) -- Jurnal Umum, posting pembelian/penjualan, katalog laporan resmi |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [POS-ALBAHJAH-1.34.20-KOREKSI-TRANSAKSI-DAN-LAPORAN-PEMASOK.md](POS-ALBAHJAH-1.34.20-KOREKSI-TRANSAKSI-DAN-LAPORAN-PEMASOK.md) | Status commit, validasi, artefak UAT, deployment, dan rollback POS Al-Bahjah 1.34.20 |
