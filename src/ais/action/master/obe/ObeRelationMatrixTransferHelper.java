@@ -207,9 +207,18 @@ public final class ObeRelationMatrixTransferHelper {
 			adapter.refresh();
 			MyMessageboxConfig.show("Upload selesai. " + updated + " baris " + adapter.getRowLabel() + " diperbarui.", "Informasi",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
-		}
+		} catch (IllegalArgumentException e) {
+			// Template yang salah/kedaluwarsa adalah kesalahan masukan yang dapat diperbaiki
+			// pengguna, bukan error aplikasi. Beri petunjuk tanpa memenuhi audit produksi.
+			try {
+				MyMessageboxConfig.show(e.getMessage(), "Peringatan", MyMessageboxConfig.OK,
+						MyMessageboxConfig.INFORMATION);
+			} catch (InterruptedException interrupted) {
+				Thread.currentThread().interrupt();
+			}
+			} catch (Exception e) {
+				Common.tampilErrorJikaAdmin(e);
+			}
 	}
 
 	private static void cetakPdf(MatrixAdapter adapter) {

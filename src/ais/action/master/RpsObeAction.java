@@ -1321,7 +1321,11 @@ public class RpsObeAction extends GenericAutowireComposer {
 			MyMessageboxConfig.show(result.message() + refreshNote, "Pemberitahuan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
+			// Salah ekstensi/template/metadata adalah validasi berkas pengguna. Pesannya tetap
+			// ditampilkan, tetapi tidak dicatat sebagai kegagalan sistem di dasbor error.
+			if (!(e instanceof IllegalArgumentException)) {
+				Common.tampilErrorJikaAdmin(e);
+			}
 			MyMessageboxConfig.show("Upload Excel RPS OBE gagal. " + pesanKesalahanExcel(e),
 					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
 		}

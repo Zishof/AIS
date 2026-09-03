@@ -3,6 +3,7 @@
 Tanggal: 2026-09-03  
 Status: selesai di kode, menunggu deploy server untuk UAT pengguna  
 Revisi SVN terkait: r83913 (model, pemanggil, dan prioritas snapshot), r83925 (popup final dan proteksi mode wizard)
+Commit GitHub: `249d32ba` (`feat(payment): persist edited invoice nominal snapshots`), sudah dipush ke `master`.
 
 ## Hasil
 
