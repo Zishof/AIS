@@ -1808,7 +1808,10 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 							@Override
 							public void onEvent(Event event) throws Exception {
 								if (cboTaPopup.getSelectedItem() == null) {
-									Clients.alert("Pilih tahun akademik terlebih dahulu.");
+									// Lewat MyMessageboxConfig, bukan Clients.alert: agar ikut memperoleh
+									// dialog baku (ringkasan bermakna, Detail teknis, dan tombol Ubah Teks
+									// bagi administrator) seperti alert lain di aplikasi ini.
+									MyMessageboxConfig.show("Pilih tahun akademik terlebih dahulu.");
 									return;
 								}
 								String newTA = cboTaPopup.getSelectedItem().getLabel();

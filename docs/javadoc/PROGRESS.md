@@ -1,5 +1,56 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 68 — SELESAI 100% (3 Sep 2026) — kerentanan STRUKTURAL Generic CRUD v2 ditemukan (whitelist nama properti); endpoint tulis anonim baru (`/DoUpload tanpaLogin`); pola "Singkronkan" terulang lebih buruk; task baru `task_7b6038ac`
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/CekKesehatanSiswa.java`** (r83841) —
+  281→1031 baris, 100%. DATA KESEHATAN ANAK pra-penerimaan PSB.
+  **Kerentanan STRUKTURAL baru ditemukan** di sistem Generic CRUD v2:
+  `GenericCrudAutoEntityAdapter.scopeBindings()` hanya memasang
+  pembatas tenant untuk properti relasi bernama PERSIS dari whitelist
+  12 nama tetap (yayasan/sekolah/.../siswa/dosen/guru/...). Entity ini
+  hanya punya relasi `calonSiswa` (TIDAK di whitelist) → pembatas
+  KOSONG → hak BACA = daftar+IDOR+ekspor SELURUH rekam kesehatan anak
+  lintas instalasi. **Berlaku untuk SETIAP entity lain** yang mencapai
+  tenant lewat nama properti di luar whitelist — bukan bug 1 entity.
+  **Task baru `task_7b6038ac`.** Verifikasi negatif menenangkan: seeder
+  siswa TIDAK memberi hak berlebihan di sini (kontras `CatatanSiswa`
+  b65); `ambilAnakSiswa()` tidak relevan (entity tak sentuh `Siswa`).
+- **`ais/database/model/sekolah/PrestasiGuru.java`** (r83838) —
+  346→1284 baris, 100%. Konfirmasi ulang fail-open personalia guru
+  (b55) dengan 3 bukti baru. **Endpoint tulis anonim baru**:
+  `_prestasi_guru.jsp` kirim `tanpaLogin=true` ke `/DoUpload` — lampiran
+  bukti bisa ditempel ke prestasi guru MANA PUN tanpa sesi sama sekali.
+- **`ais/database/model/sekolah/KelasLesSiswa.java`** (r83839) —
+  699→1703 baris, 100%. Pola "Singkronkan" tanpa gerbang (b67)
+  TERULANG, instance LEBIH BURUK (tanpa dialog konfirmasi sama
+  sekali). Filter dengan operator AND/OR TERBALIK ditemukan
+  (`AmbilDataKelasLesSiswaBanbox`) — menyalakan saklar "hanya wali
+  kelas" justru MEMBUKA ke semua guru.
+- **`ais/database/model/sekolah/MasaJadwalPelajaran.java`** (r83837)
+  — 271→847 baris, 100%. Konfirmasi lanjutan akar struktural b67
+  (`SekolahUtil.getYayasan()` id-null bukan null) — kegagalan
+  resolusi tenant MELEBARKAN cakupan baris, bukan mempersempit.
+  Sinkronisasi "hanya satu default" berjalan via native SQL tanpa
+  filter tenant DAN tidak menyentuh cache in-JVM.
+- **`ais/database/model/sekolah/NilaiHurufSekolah.java`** (r83836)
+  — 762→1524 baris, 100%. Mesin konversi nilai 7-tahap (koreksi dari
+  "8-tahap" b53) terverifikasi detail. 2 dari 7 tahap fallback GLOBAL
+  tanpa filter tenant — pita nilai satu sekolah bisa menentukan huruf
+  rapor sekolah lain. Bug legenda rapor: `ta` ambang salah digit,
+  blok keterangan skala kosong walau huruf di badan rapor terisi.
+
+**Task baru `task_7b6038ac`** (kerentanan struktural Generic CRUD v2)
+dibuat batch ini. Sisanya memperkuat
+`task_493423ef`/`task_5e93a600`/`task_9b7ff647`/`task_beeb2833` yang
+sudah ada.
+
+Kumulatif sesi ini: **517+ file** (170 batch 34-68) + 343 (sesi
+sebelumnya) dari 7.401 total (~13,3%).
+
 ## Batch 67 — SELESAI 100% (3 Sep 2026) — AKAR STRUKTURAL pola "fail-open tenant" ditemukan; kredensial guru dipanen ke pihak ketiga; deteksi bentrok jadwal terkonfirmasi RUSAK; task baru `task_beeb2833`
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
