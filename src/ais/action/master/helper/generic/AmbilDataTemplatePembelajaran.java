@@ -290,11 +290,11 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 			}
 
 			if (templatePembelajaran instanceof JadwalPelajaran) {
-				checkbox.setLabel(((JadwalPelajaran) templatePembelajaran).infoSimple());
+				checkbox.setLabel(labelTemplatePembelajaran(templatePembelajaran));
 			}
 
 			if (templatePembelajaran instanceof Perkuliahan) {
-				checkbox.setLabel(((Perkuliahan) templatePembelajaran).infoSimple());
+				checkbox.setLabel(labelTemplatePembelajaran(templatePembelajaran));
 			}
 
 			if (templatePembelajaran instanceof KelompokKkn) {
@@ -805,6 +805,22 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 		labelTugasAkhir.clear();
 		labelTemplatePembelajaran.clear();
 		for (GeneralValueObject value : myTemplatePembelajaran) {
+			if (value instanceof JadwalPelajaran) {
+				try {
+					labelTemplatePembelajaran.put(value.getId(),
+							safeText(((JadwalPelajaran) value).infoSimple()));
+				} catch (Exception e) {
+					labelTemplatePembelajaran.put(value.getId(), "Jadwal #" + value.getId());
+				}
+			}
+			if (value instanceof Perkuliahan) {
+				try {
+					labelTemplatePembelajaran.put(value.getId(),
+							safeText(((Perkuliahan) value).infoSimple()));
+				} catch (Exception e) {
+					labelTemplatePembelajaran.put(value.getId(), "Perkuliahan #" + value.getId());
+				}
+			}
 			if (value instanceof KelompokKkn) {
 				try {
 					KelompokKkn kkn = (KelompokKkn) value;

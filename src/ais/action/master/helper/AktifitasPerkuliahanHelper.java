@@ -3207,7 +3207,13 @@ public class AktifitasPerkuliahanHelper {
 							perkuliahan.getGanjilGenap())
 							&& !pertemuan.getPertemuanKe().equals(m + 1)) {
 						Session session = HibernateUtil.currentSession();
-						session.refresh(pertemuan);
+						try {
+							session.refresh(pertemuan);
+						} catch (org.hibernate.UnresolvableObjectException missing) {
+							// Pertemuan telah dihapus oleh proses lain setelah daftar dibaca.
+							// Lewati baris stale agar panel lain tetap dapat ditampilkan.
+							continue;
+						}
 						pertemuan.setPertemuanKe(m + 1);
 						pertemuan.setPertemuanManual(m + 1);
 						Common.refreshUpdate(session, pertemuan);

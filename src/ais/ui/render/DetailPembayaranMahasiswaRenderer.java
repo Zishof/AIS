@@ -12,6 +12,7 @@ import java.util.TreeMap;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.LockMode;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
@@ -58,6 +59,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.VOMahasiswa;
 import ais.database.model.akunting.GrupTransaksi;
 import ais.ui.util.MyCheckboxConfig;
+import ais.ui.util.MyButtonConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyDoubleboxMin;
@@ -65,6 +67,7 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyLabelAgakKecilBoldMerah;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
+import ais.ui.util.MyWindow;
 
 /**
  * Renderer ZK untuk detail pembayaran mahasiswa. Kelas ini menerjemahkan satu objek domain menjadi
@@ -124,6 +127,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 	private String tahunAkademik;
 	private List<CicilanPembayaran> cicilanPembayarans;
 	private Label terbilangSisaPersen;
+	private boolean bolehEditTagihan;
 
 	public List<Long> bul = new ArrayList<Long>();
 	public List<Long> det = new ArrayList<Long>();
@@ -144,7 +148,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 			EventListener eventListener, Grid gridCicilan, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, Integer semester, String tahunAkademik,
 			Map<Long, Double> dataTagihan, Grid currentGrid, Collection<DetailKegiatan> detailKegiatans,
-			EventListener refrsh) {
+			EventListener refrsh, boolean bolehEditTagihan) {
 		this.eventListener = eventListener;
 		this.kegiatan = kegiatan;
 		this.jadwalPembayaran = jadwalPembayaran;
@@ -168,6 +172,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 		this.detailKegiatans = detailKegiatans;
 		this.tahunAkademik = tahunAkademik;
 		this.tbmuser = Common.getCurrentUser();
+		this.bolehEditTagihan = bolehEditTagihan;
 	}
 
 	private static void executeNativeUpdateTransaction(GeneralValueObject entity) {

@@ -291,16 +291,16 @@ public class AmbilDataDosenBanyak extends MyWindow {
 					List<Dosen> dosens = new ArrayList<Dosen>();
 					List<Row> rows = grid.getRows().getChildren();
 					for (Row row : rows) {
-						try {
-							MyCheckboxConfig checkbox = (MyCheckboxConfig) row.getAttribute("checkbox");
-							if (checkbox != null && checkbox.isChecked() && !checkbox.isDisabled()) {
-								Dosen myDosen = (Dosen) row.getAttribute("dosen");
-								if (myDosen != null) {
-									dosens.add(myDosen);
-								}
+						Object pilihan = row.getAttribute("checkbox");
+						if (!(pilihan instanceof MyCheckboxConfig)) {
+							continue;
+						}
+						MyCheckboxConfig checkbox = (MyCheckboxConfig) pilihan;
+						if (checkbox.isChecked() && !checkbox.isDisabled()) {
+							Object dataDosen = row.getAttribute("dosen");
+							if (dataDosen instanceof Dosen) {
+								dosens.add((Dosen) dataDosen);
 							}
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataDosenBanyak.java:265");
-							// TODO: handle exception
 						}
 					}
 					Event myEvent = new Event("myEvent", event.getTarget(), dosens);

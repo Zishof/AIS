@@ -302,7 +302,14 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
                         if (a < 0 || b <= a) {
                             return;
                         }
-                        JSONArray arr = new JSONArray(resp.substring(a, b + 1));
+						JSONArray arr;
+						try {
+							arr = new JSONArray(resp.substring(a, b + 1));
+						} catch (org.json.JSONException invalidAiResponse) {
+							ais.ui.util.MyMessageboxConfig.show(
+									"Jawaban AI belum membentuk JSON yang lengkap. Silakan jalankan Generate kembali.");
+							return;
+						}
                         for (int i = 0; i < arr.length(); i++) {
                             JSONObject o = arr.optJSONObject(i);
                             if (o == null) {

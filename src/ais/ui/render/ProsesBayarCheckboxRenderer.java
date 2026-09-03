@@ -48,10 +48,12 @@ public class ProsesBayarCheckboxRenderer extends DetailPembayaranMahasiswaRender
 			Label terbilangSisa, Label terbilangSisaPersen, List<MyDoubleboxMin> pengurangan,
 			EventListener eventListener, Grid gridCicilan, Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			Integer semester, String tahunAkademik, Map<Long, Double> dataTagihan, Grid currentGrid,
-			Collection<DetailKegiatan> detailKegiatans, EventListener refrsh, boolean konversiCheckbox) {
+			Collection<DetailKegiatan> detailKegiatans, EventListener refrsh, boolean bolehEditTagihan,
+			boolean konversiCheckbox) {
 		super(kegiatan, jadwalPembayaran, labelFooterTagihan, labelFooterDibayar, labelFooterKekurangan, terbilang,
 				terbilangTagihan, terbilangSisa, terbilangSisaPersen, pengurangan, eventListener, gridCicilan, mahasiswa,
-				biodataCalonMahasiswa, semester, tahunAkademik, dataTagihan, currentGrid, detailKegiatans, refrsh);
+				biodataCalonMahasiswa, semester, tahunAkademik, dataTagihan, currentGrid, detailKegiatans, refrsh,
+				bolehEditTagihan);
 		this.konversiCheckbox = konversiCheckbox;
 		this.gridCicilanRef = gridCicilan;
 	}

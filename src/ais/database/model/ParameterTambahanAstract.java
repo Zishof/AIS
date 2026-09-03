@@ -690,10 +690,7 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 			}
 
 		} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.TANGGAL_DAN_WAKTU)) {
-			Date nilai = null;
-			try {
-				nilai = val == null || val.trim().isEmpty() ? null : Common.dateFormat.get().parse(val);
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/ParameterTambahanAstract.java:472"); }
+			Date nilai = parseTanggalDanWaktu(val);
 			component = new MyDatebox(nilai);
 			((MyDatebox) component).setFormat(Common.dateFormat.get().toPattern());
 			((MyDatebox) component).focus();
@@ -1684,6 +1681,27 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	private static Date parseTanggalDanWaktu(String raw) {
+		if (raw == null || raw.trim().length() == 0) {
+			return null;
+		}
+		Date hasil = parseTanggalAman(raw, Common.dateFormat.get());
+		if (hasil != null) {
+			return hasil;
+		}
+		String[] polaIso = new String[] { "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss" };
+		for (int i = 0; i < polaIso.length; i++) {
+			try {
+				java.text.SimpleDateFormat format = new java.text.SimpleDateFormat(polaIso[i]);
+				format.setLenient(false);
+				return format.parse(raw.trim());
+			} catch (java.text.ParseException ignored) {
+				// Coba pola berikutnya; input HTML datetime-local memang memakai ISO.
+			}
+		}
+		return null;
 	}
 
 	@SuppressWarnings("unchecked")

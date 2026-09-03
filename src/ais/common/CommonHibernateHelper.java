@@ -375,6 +375,14 @@ public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
         try {
             session.refresh(o);
         } catch (Exception e) {
+			if (isStaleOrMissingRow(e)) {
+				try {
+					session.evict(o);
+				} catch (Exception ignored) {
+					// Entity mungkin memang sudah tidak lagi berada di session.
+				}
+				return;
+			}
             Common.tampilErrorJikaAdmin(e);
         }
     }

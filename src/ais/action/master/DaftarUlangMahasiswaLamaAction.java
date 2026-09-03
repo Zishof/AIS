@@ -1787,7 +1787,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 									}
 								});
 							}
-						}, modeWizardRingkas));
+						}, edit, modeWizardRingkas));
 				gridss.setModel(strset);
 				for (MyDoubleboxMin kurang : pengurangan) {
 					kurang.addEventListener("onChange", new EventListener() {

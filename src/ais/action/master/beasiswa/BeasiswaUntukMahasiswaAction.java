@@ -737,7 +737,7 @@ public class BeasiswaUntukMahasiswaAction extends GenericAutowireComposer {
 									}
 								});
 						return;
-					} else if (component instanceof MyDoublebox && ((MyDoublebox) component).getValue() == null) {
+					} else if (component instanceof MyDoublebox && nilaiAngkaKosongAtauTidakValid((MyDoublebox) component)) {
 						MyMessageboxConfig.show("Mohon maaf, persyaratan belum lengkap diisi. Langkah yang dapat dilakukan: (1) Masukkan nilai angka pada kolom angka yang masih kosong; (2) Perhatikan semua kolom bertanda (*) yang berarti wajib diisi; (3) Klik tombol Daftar dan Simpan kembali. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Informasi", MyMessageboxConfig.OK,
 								MyMessageboxConfig.INFORMATION, new EventListener() {
 
@@ -1025,5 +1025,25 @@ public class BeasiswaUntukMahasiswaAction extends GenericAutowireComposer {
 
 		return row;
 
+	}
+
+	private static boolean nilaiAngkaKosongAtauTidakValid(MyDoublebox input) {
+		if (input == null) {
+			return true;
+		}
+		try {
+			Object raw = input.getRawValue();
+			if (raw instanceof Number) {
+				return false;
+			}
+			String teks = input.getRawText();
+			if (teks == null || teks.trim().length() == 0) {
+				return true;
+			}
+			Double.parseDouble(teks.trim().replace(',', '.'));
+			return false;
+		} catch (Exception invalid) {
+			return true;
+		}
 	}
 }

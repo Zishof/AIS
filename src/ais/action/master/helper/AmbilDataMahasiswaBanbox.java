@@ -556,6 +556,7 @@ public class AmbilDataMahasiswaBanbox extends Bandbox implements GetEventListene
 	 * @return criteria siap dieksekusi oleh {@link AmbilDataPagingHelper}
 	 */
 	public Criteria initCriteria(Session session, boolean isOrder) {
+		Integer tahunAngkatanFilter = ambilTahunAngkatanAman();
 		Dosen dosen = (Dosen) searchdosen.getAttribute("myValue");
 
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatus.getSelectedItem() == null
@@ -594,8 +595,8 @@ public class AmbilDataMahasiswaBanbox extends Bandbox implements GetEventListene
 				.add(nim.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.ilike("nim", nim.getValue().trim(), MatchMode.ANYWHERE))
 
-				.add(tahunangkatan.getValue() == null ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.eq("tahunangkatan", tahunangkatan.getValue().intValue()))
+				.add(tahunAngkatanFilter == null ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.eq("tahunangkatan", tahunAngkatanFilter))
 
 				.add(searchprogram.getSelectedItem() == null || searchprogram.getSelectedItem().getValue() == null
 						? Restrictions.sqlRestriction("1=1")
@@ -623,6 +624,23 @@ public class AmbilDataMahasiswaBanbox extends Bandbox implements GetEventListene
 		}
 
 		return criteria;
+	}
+
+	private Integer ambilTahunAngkatanAman() {
+		if (tahunangkatan == null) {
+			return null;
+		}
+		try {
+			Object raw = tahunangkatan.getRawValue();
+			if (raw instanceof Number) {
+				return Integer.valueOf(((Number) raw).intValue());
+			}
+			String teks = raw == null ? tahunangkatan.getRawText() : raw.toString();
+			java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("([0-9]{4})").matcher(teks == null ? "" : teks);
+			return matcher.find() ? Integer.valueOf(matcher.group(1)) : null;
+		} catch (Exception ignored) {
+			return null;
+		}
 	}
 
 	/**

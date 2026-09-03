@@ -7472,7 +7472,7 @@ public class Common {
 
 			List<Pejabat> pejabats = null;
 
-			if (httpSession == null || httpSession.getAttribute("CurrentPejabat") == null || refresh) {
+			if (httpSession.getAttribute("CurrentPejabat") == null || Boolean.TRUE.equals(refresh)) {
 
 				pejabats = ConstantValues.simpleList(HibernateUtil.currentSession().createCriteria(Pejabat.class)
 

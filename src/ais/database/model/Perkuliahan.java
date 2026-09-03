@@ -1992,8 +1992,11 @@ public class Perkuliahan extends VOPembelajaran {
 					dikunci = null;
 				}
 			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Perkuliahan.java:1108");
-			// TODO: handle exception
+		} catch (Exception e) {
+			// Data pengunci lama dapat menunjuk akun/dosen yang sudah tidak aktif atau
+			// proxy yang session-nya telah berakhir. Dalam kondisi itu kelas diperlakukan
+			// tidak terkunci, sesuai aturan di atas, tanpa menjadikannya error sistem.
+			dikunci = null;
 		}
 		return dikunci;
 	}

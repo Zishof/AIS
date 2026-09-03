@@ -2928,8 +2928,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 									onCariMahasiswa(a);
 								}
 							});
-						}
-					}));
+					}
+				}, edit));
 			gridss.setModel(strset);
 
 			for (MyDoubleboxMin kurang : pengurangan) {
