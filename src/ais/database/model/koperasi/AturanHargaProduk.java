@@ -40,9 +40,14 @@ public class AturanHargaProduk implements Serializable {
 	private Boolean aktif = Boolean.TRUE; private String keterangan;
 	private String oleh; private Date waktu = new Date();
 
+	/** PK auto-generated (identity). {@code null} sebelum baris aturan disimpan. */
 	@Id @GeneratedValue(strategy = IDENTITY) @Column(name = "id", unique = true, nullable = false)
 	public Long getId() { return id; } public void setId(Long value) { id = value; }
-	/** Id {@code koperasi.produk}. Wajib — aturan harga selalu per produk. */
+	/** Id {@code koperasi.produk} (entity {@link ais.database.model.inventory.Produk} —
+	 * BUKAN {@link ProdukKoperasi}, katalog produk simpan-pinjam yang berbeda meski satu package;
+	 * ini FK mentah {@code Long}, tanpa relasi {@code @ManyToOne}, jadi tidak ada resolusi lazy
+	 * seperti pola {@code check()} di entity lain domain koperasi). Wajib — aturan harga selalu
+	 * per produk. */
 	@Column(name = "produk", nullable = false) public Long getProduk() { return produk; } public void setProduk(Long value) { produk = value; }
 	/** Null = berlaku semua toko; terisi = hanya toko itu (dan menang atas aturan global). */
 	@Column(name = "toko") public Long getToko() { return toko; } public void setToko(Long value) { toko = value; }
@@ -58,11 +63,35 @@ public class AturanHargaProduk implements Serializable {
 	/** §6 no.2: {@code true} = pembeli grosir WAJIB kelipatan {@code minQtyDasar} — bayar menolak
 	 * qty nanggung ("53 kg") dengan pesan terbaca. {@code null}/false = bebas (perilaku lama). */
 	@Column(name = "kelipatan_wajib") public Boolean getKelipatanWajib() { return kelipatanWajib; } public void setKelipatanWajib(Boolean value) { kelipatanWajib = value; }
+	/** Awal jendela waktu berlakunya aturan ini; {@code null} = berlaku sejak kapan pun (tanpa
+	 * batas awal). Bersama {@link #getBerlakuSampai()} membentuk jendela opsional yang harus
+	 * dievaluasi {@code HargaGrosirApiHelper.terapkanKeItems} terhadap waktu transaksi saat
+	 * memilih aturan mana yang cocok — di luar jendela, aturan diperlakukan seolah tidak aktif
+	 * meski {@link #getAktif()} bernilai {@code true}. */
 	@Temporal(TemporalType.TIMESTAMP) @Column(name = "berlaku_mulai") public Date getBerlakuMulai() { return berlakuMulai; } public void setBerlakuMulai(Date value) { berlakuMulai = value; }
+	/** Akhir jendela waktu berlakunya aturan ini; {@code null} = tanpa batas akhir. Lihat
+	 * {@link #getBerlakuMulai()}. */
 	@Temporal(TemporalType.TIMESTAMP) @Column(name = "berlaku_sampai") public Date getBerlakuSampai() { return berlakuSampai; } public void setBerlakuSampai(Date value) { berlakuSampai = value; }
+	/** Status aktif aturan. Getter null-safe: {@code null} di DB dibaca sebagai {@link Boolean#TRUE}
+	 * (default aktif, bukan default nonaktif) — konsisten dengan inisialisasi field
+	 * {@code aktif = Boolean.TRUE} pada deklarasi. Menonaktifkan (bukan menghapus baris) adalah
+	 * cara "hapus" aturan harga grosir dari rute {@code harga_grosir_list/simpan/hapus} — jejak
+	 * komersial (harga yang pernah berlaku) tetap dipertahankan untuk audit. */
 	@Column(name = "aktif") public Boolean getAktif() { return aktif == null ? Boolean.TRUE : aktif; } public void setAktif(Boolean value) { aktif = value; }
+	/** Catatan bebas tentang aturan harga ini (mis. alasan/sumber kesepakatan harga). Opsional,
+	 * tidak dipakai logika evaluasi mesin harga grosir. */
 	@Column(name = "keterangan", length = 255) public String getKeterangan() { return keterangan; } public void setKeterangan(String value) { keterangan = value; }
+	/** Nama/identitas petugas yang membuat/mengubah baris aturan ini — jejak audit tampilan,
+	 * bukan FK ke tabel pengguna. Tidak ada guard null/blank pada setter (berbeda dari pola
+	 * {@code setOleh}/{@code setOlehId} pada entity koperasi lain yang mengabaikan nilai
+	 * kosong) — di sini nilai kosong/{@code null} langsung menimpa. */
 	@Column(name = "oleh", length = 100) public String getOleh() { return oleh; } public void setOleh(String value) { oleh = value; }
+	/** Waktu baris aturan ini dibuat/terakhir diubah. Diinisialisasi ke waktu instansiasi objek
+	 * ({@code new Date()} pada deklarasi field) — BUKAN dihitung ulang tiap panggilan getter, dan
+	 * TIDAK diperbarui otomatis oleh hook {@code @PreUpdate} (kelas ini tidak mendeklarasikan
+	 * satu, berbeda dari {@link ProdukKoperasi#onUpdate()}/{@link HargaJualCustomer#onUpdate()})
+	 * — pemanggil (helper simpan) yang bertanggung jawab men-set ulang nilai ini saat mengubah
+	 * baris bila ingin jejak waktu perubahan akurat. */
 	@Temporal(TemporalType.TIMESTAMP) @Column(name = "waktu")
 	public Date getWaktu() { return waktu; } public void setWaktu(Date value) { waktu = value; }
 }
