@@ -6081,9 +6081,12 @@ public class KantinHelper {
 			}
 
 			hasil.put("status", "00");
-			hasil.put("total", dibuat + diperbarui + dilewati);
+			// tidakBerubah IKUT total: ia baris yang diproses, bukan yang dilewati.
+			// Tanpa ini totalnya menyusut diam-diam begitu hitungannya dipersempit.
+			hasil.put("total", dibuat + diperbarui + tidakBerubah + dilewati);
 			hasil.put("dibuat", dibuat);
 			hasil.put("diperbarui", diperbarui);
+			hasil.put("tidakBerubah", tidakBerubah);
 			hasil.put("dilewati", dilewati);
 			hasil.put("kategoriBaru", kategoriBaru);
 			hasil.put("pemasokBaru", pemasokBaru);

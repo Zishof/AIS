@@ -114,6 +114,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [100-satu-kendala-menjadi-alasan-untuk-sembilan-belas.md](100-satu-kendala-menjadi-alasan-untuk-sembilan-belas.md) | Satu harness ber-DB membuat 19 lainnya ikut dianggap tak dapat dijalankan; semuanya lulus |
 | [101-kredensial-yang-tidak-pernah-dibutuhkan.md](101-kredensial-yang-tidak-pernah-dibutuhkan.md) | Harness ber-DB terakhir ternyata cuma butuh PostgreSQL mana pun; 20 dari 20 lulus |
 | [102-klaim-lock-yang-keliru.md](102-klaim-lock-yang-keliru.md) | Klaim "tiap baris menahan lock" ternyata salah; A.5 menyusut jadi hitungan yang keliru saja |
+| [103-hitungan-yang-melaporkan-pekerjaan-yang-tidak-terjadi.md](103-hitungan-yang-melaporkan-pekerjaan-yang-tidak-terjadi.md) | "Diperbarui: 8.000" untuk impor yang tak mengubah apa pun; dipisah, dan pembacanya ikut dibuat |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
