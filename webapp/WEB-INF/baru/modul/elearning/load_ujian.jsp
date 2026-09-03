@@ -280,7 +280,18 @@ function gandakanUjian(ppuId) {
     })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-        if (d.status === 'success') { alert(d.message); location.reload(); }
+        if (d.status === 'success') {
+            /* alert() bawaan MEMBLOKIR sampai OK ditekan, sedangkan dialog aplikasi
+               (pesan-formal.js) tidak. Tanpa penundaan ini halaman termuat ulang
+               sebelum pesannya sempat dibaca. Dijaga typeof supaya halaman yang
+               belum memuat pesan-formal.js tetap berperilaku seperti semula. */
+            if (typeof alertFormal === 'function') {
+                alertFormal(d.message, { judul: 'Berhasil',
+                    onTutup: function () { location.reload(); } });
+            } else {
+                alert(d.message); location.reload();
+            }
+        }
         else alert('<%=Common.getBahasaConfigJS("Gagal") %>: ' + d.message);
     })
     .catch(function(e) { alert('Error: ' + e); });

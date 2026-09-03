@@ -1,5 +1,172 @@
 # Progres Javadoc Menyeluruh
 
+## Sesi audit khusus (3 Sep 2026) — perluasan `task_7b6038ac`: ~35 entity tambahan ditemukan rentan pola whitelist-nama-properti Generic CRUD v2, 2 mekanisme baru ditemukan
+
+**Bukan batch dokumentasi entity baru** — sesi audit terpisah (pola sama dengan
+`task_a1e32ff3`) yang secara khusus memverifikasi ulang dan memperluas cakupan
+`task_7b6038ac` (ditemukan batch 68 dari `CekKesehatanSiswa.java`). Metodologi:
+verifikasi mekanisme langsung dari kode saat ini, lalu 3 agen paralel menyisir
+`ais/database/model/**` untuk entity lain yang mencapai cakupan tenant HANYA
+lewat relasi ke entity pemilik-tenant (`CalonSiswa`, `Mahasiswa`,
+`BiodataCalonMahasiswa`, `Dosen`, `Guru`, `Pegawai`, `OrangTua`,
+`AnggotaKoperasi`) dengan nama properti Hibernate DI LUAR whitelist 12 nama
+tetap `GenericCrudAutoEntityAdapter.scopeBindings()`
+(`yayasan|sekolah|program|fakultas|jurusan|satuanKerja|mahasiswa|siswa|dosen|
+guru|orangTua|anggotaKoperasi`), lalu memverifikasi tiap kandidat: (a) tidak
+punya properti whitelist lain yang menyelamatkannya, (b) TIDAK termasuk 6
+entity yang didaftarkan eksplisit di `GenericCrudDefinitionRegistry`
+(`Agama`, `Mahasiswa` [root/mahasiswa], `JenjangProgramStudi`, `KelasSiswa`
+[sekolah/penilaian_siswa], `PembayaranSiswa` dan `Kegiatan` — dua yang
+terakhir HANYA di bawah key berprefiks `"calon:"` untuk SATU route tertentu,
+jadi entityKey polosnya tetap bebas untuk auto-registrasi rute lain), dan
+(c) benar-benar terjangkau lewat halaman New UI nyata — dikonfirmasi dengan
+mencari berkas `*_service.jsp` di bawah `webapp/WEB-INF/new/**` yang
+mendeklarasikan `nuiServiceEntities` berisi nama class persis dan menyertakan
+`_shared/services/dispatcher.jsp` (scaffold generik, BUKAN JSP Generic-CRUD
+buatan tangan).
+
+**Verifikasi mekanisme dispatcher (baru, melengkapi temuan batch 68):**
+`_shared/services/dispatcher.jsp` mewajibkan sesi login (`session.getAttribute
+("mytbmuser")`, 401 bila tidak ada) dan `NewUiRouteGuard.isActionAuthorized`
+(gerbang RBAC level-menu) SEBELUM memanggil `GenericCrudDefinitionRegistry
+.tryAutoRegister(module, page, nuiServiceEntities, …)`. Ini menegaskan bahwa
+celah `scopeBindings()` BUKAN pra-otentikasi (beda kategori dari
+`task_1f9c66d3`/`task_acfae1fb`) — kombinasinya adalah "sesi valid + hak BACA
+menu apa pun yang memetakan ke entity ini" sudah cukup untuk melihat/
+mengekspor SEMUA baris lintas tenant, karena gerbang menu itu sama sekali
+tidak menyentuh baris mana yang boleh dilihat.
+
+**Mekanisme baru #1 — `GenericCrudExistingActionInvoker.supports()` HANYA
+menggerbangi TULIS, tidak pernah BACA.** Dikonfirmasi dari kode
+(`GenericCrudAutoEntityAdapter.applyReadScope`/`applyCountScope` memanggil
+`applyScope()` yang murni bergantung pada `scopeBindings()`; jalur
+create/update lewat `beforeSave()` yang memanggil
+`GenericCrudExistingActionInvoker.execute()`, dan ITU yang mensyaratkan Action
+sumber py method `boolean onSave(Event)` + `init(Entity)` yang cocok).
+Akibatnya "perlindungan kebetulan" yang sudah dicatat di Javadoc
+`CekKesehatanSiswa` (mutasi terkunci karena tanda tangan method Action lama
+tidak cocok) TIDAK PERNAH melindungi `list`/`get`/`export_xlsx`/`export_pdf`
+— itu murni domain `scopeBindings()`. Kesimpulan: perlindungan "kebetulan
+tanda tangan method" ini bersifat SPESIFIK PER-ACTION untuk TULIS saja, bukan
+mitigasi umum untuk celah baca yang menjadi topik `task_7b6038ac`.
+
+**Mekanisme baru #2 — whitelist 6 nama "aktor" bersyarat PERAN PENGGUNA, dan
+`pegawai` sama sekali tidak ada di whitelist manapun.** `scopeBindings()`
+hanya memasang restriksi pada properti `mahasiswa`/`siswa`/`dosen`/`guru`/
+`orangTua`/`anggotaKoperasi` BILA string peran pengguna yang SEDANG LOGIN
+mengandung substring peran itu (`role.indexOf("siswa")>=0`, dst.) — untuk
+pengguna staf/admin (audiens realistis layar Generic CRUD v2 kepegawaian/
+keuangan), keenam properti itu TIDAK PERNAH menghasilkan restriksi meski
+nama propertinya PERSIS cocok whitelist. Hanya 6 properti institusi
+(`yayasan|sekolah|program|fakultas|jurusan|satuanKerja`) yang selalu dicoba
+tanpa syarat peran. Lebih parah: `pegawai` (pegawai/staf) SAMA SEKALI TIDAK
+ADA di antara 12 nama whitelist — jadi SETIAP entity yang cakupan tenant-nya
+HANYA lewat relasi ke `Pegawai` otomatis rentan TANPA SYARAT, terlepas dari
+penamaan properti apa pun yang dipilih pengembang. Ini menjelaskan mengapa
+seluruh modul payroll/HR (lihat tabel bawah) rentan secara serempak.
+
+### Ringkasan temuan per kelompok (detail lengkap di laporan agen, disimpan
+di riwayat sesi — daftar di bawah adalah entity dengan reachability New-UI
+terkonfirmasi, bukan seluruh daftar kandidat yang diperiksa)
+
+**Kelompok PMB/akademik (relasi `BiodataCalonMahasiswa`/`Dosen`
+non-whitelist) — TERTINGGI, data kesehatan+psikotes+wawancara PMB:**
+- `CekKesehatan` (relasi tunggal `biodataCalonMahasiswa`) — data kesehatan
+  pendaftar PMB (penyakit, tekanan darah, buta warna, narkoba) — pola
+  KEMBAR PERSIS `CekKesehatanSiswa` tapi untuk jalur perguruan tinggi.
+  `root/pmb/services/cek_kesehatan_service.jsp`.
+- `CekPsikotest` — hasil tes psikologi pendaftar. `cek_psikotest_service.jsp`.
+- `InterviewPunyaCalonMahasiswa` — catatan wawancara + keputusan lulus/tidak.
+- `BiodataCalonMahasiswaPunyaVerifikasiBerkas` — status verifikasi dokumen
+  identitas (akte, KK, ijazah) — token "berkas"/nama field TIDAK tertangkap
+  `BLOCKED_FIELD_TOKENS`.
+- `BiodataCalonMahasiswaPunyaVerifikasiParameter` — checklist verifikasi PMB.
+- `RuangPaketPMB` (sedang) — penempatan ruang ujian + kode unik.
+- `KelompokKkn` (sedang, relasi `dosen_pembimbing1..10`, TIDAK ada `dosen`
+  polos maupun `jurusan`/`fakultas`) — data kelompok KKN mahasiswa.
+- `KelompokPkl` (belum terverifikasi reachability, kemungkinan besar sama
+  strukturnya dengan `KelompokKkn`).
+- **Kontras positif (TIDAK rentan)**: `Perkuliahan` (punya `jurusan` langsung
+  meski relasi dosen bernama `dosen1..10`), `BiodataCalonMahasiswa` sendiri
+  (punya `program`).
+
+**Kelompok payroll/kepegawaian (relasi `Pegawai` — TANPA SYARAT rentan
+karena `pegawai` tak ada di whitelist manapun) — KRITIS, seluruh modul:**
+- `payroll/*`: `PembayaranGajiPunyaPegawai`, `RencanaGajiPunyaPegawai`,
+  `ItemGajiPegawai`, `GajiTabahan`, `TransaksiPegawai`, `CutiDanIzin`,
+  `JatahCuti` (gaji, cuti — reachability New-UI terkonfirmasi).
+- `employ/*`: `RiwayatKartuIdentitasPegawai` (dokumen identitas),
+  `PendataanPelanggaranPegawai` (disiplin), serta seluruh keluarga
+  `Riwayat*Pegawai` (kerja, pendidikan, keluar negeri, organisasi, pelatihan,
+  tanda jasa, status kepegawaian, keluarga, pensiun, mutasi, kenaikan
+  pangkat/gaji berkala) — riwayat pribadi/keluarga pegawai, reachability
+  dikonfirmasi lewat `*_helper_service.jsp` yang berpola sama untuk setiap
+  submodul.
+- `BiodataPegawai`, `recruitment/CalonPegawai` — biodata & data calon pegawai.
+- `kpi/*`: `FormatKpiDetail`, `NilaiDefaultKpi`, `PenilaianKpi` — evaluasi
+  kinerja pegawai.
+- `koperasi/ShuAnggota` (relasi `anggota`, bukan `anggotaKoperasi` persis) —
+  data pembagian SHU (finansial).
+- Severity LEBIH RENDAH, mekanisme sama: `sirs/PemakaianItem`,
+  `sirs/PemakaianReturItem`, `antarjemput/JadwalAntarJemput`,
+  `antarjemput/KendaraanAntarJemput`.
+
+**Kelompok sekolah/PSB (relasi `CalonSiswa` non-whitelist, melengkapi
+`CekKesehatanSiswa` batch 68) — TINGGI:**
+- `CalonSiswaPunyaVerifikasiParameter`, `InterviewPunyaCalonSiswa` — masing-
+  masing SUDAH punya bug otorisasi lebih parah yang tercatat terpisah (nol
+  gerbang privilege / endpoint tanpa-login sama sekali); temuan sesi ini
+  MENAMBAHKAN celah baca lintas-tenant Generic CRUD v2 di atasnya.
+- `CalonSiswaPunyaVerifikasiBerkas`, `CalonSiswaPunyaVerifikasiMatapelajaran`
+  — status verifikasi dokumen & nilai rapor pendaftar.
+- `RuangGelombangPendaftaranPsbPSB` (sedang) — penempatan ruang ujian PSB.
+- **Rentan HANYA untuk peran staf** (properti whitelist ada tapi bersyarat
+  peran — lihat "Mekanisme baru #2" di atas): `BniRequest`/`BriRequest`/
+  `BsiRequest` (permintaan VA bank), `VirtualAccountBank`, `Deposit`,
+  `koperasi/KodePembayaranOnline`, `inventory/Pembelian`/`DraftPembelian`,
+  `HasilUjianMahasiswa`, `PengeluaranMahasiswa`, `sekolah/NominalBiaya`,
+  `sekolah/DiskonSiswaPunyaSiswa`, `sekolah/PengaturanBiayaPunyaSiswa`,
+  `sekolah/KelasSiswaPunyaSiswa`, `sekolah/KelasLesSiswaPunyaSiswa`,
+  `DiskusiPengumumanAkademis`.
+- **Kontras positif (TIDAK rentan, punya properti institusi langsung)**:
+  `Tbmuser` (juga terkunci mutasi lewat token kelas "user"),
+  `sekolah/PembayaranSiswa`, `sekolah/DepositSiswa`, `sekolah/Tagihan`,
+  `koperasi/AnggotaKoperasi`.
+
+### Usulan perbaikan (BELUM dieksekusi — audit-only sesuai kebijakan proyek)
+
+1. **Fail-closed sebagai default**, bukan fail-open: bila `scopeBindings()`
+   mengembalikan peta kosong untuk entity yang BUKAN admin, `applyScope()`
+   seharusnya menolak (`Restrictions.sqlRestriction("1=0")` atau lempar 403)
+   alih-alih mengizinkan tanpa batas — membalik prasangka default sistem.
+2. **Whitelist dinamis via penelusuran graf relasi Hibernate**: alih-alih
+   mencocokkan nama persis, telusuri metadata relasi entity secara rekursif
+   (dengan batas kedalaman) sampai menemukan entity yang PUNYA properti
+   institusi langsung (yayasan/sekolah/fakultas/dst.), lalu scope lewat path
+   itu — independen dari konvensi penamaan.
+3. **Wajibkan definisi CRUD eksplisit (dengan scope adapter tervalidasi
+   manual) untuk kategori data sensitif** (kesehatan, dokumen identitas,
+   finansial/gaji, disiplin) — matikan jalur auto-registrasi untuk paket
+   `sekolah.*`/`employ.*`/`payroll.*`/`recruitment.*`/`pmb.*` yang menyimpan
+   kategori ini, mengikuti pola yang SUDAH dipakai untuk `PembayaranSiswa`/
+   `Kegiatan` (dikunci ke key `"calon:"` + adapter khusus).
+   `BLOCKED_FIELD_TOKENS` juga perlu token kesehatan (`penyakit`, `narkoba`,
+   `rontgen`, `psikotes`, dll.) ditambahkan, terlepas dari perbaikan scope.
+4. **Tambahkan `pegawai` ke whitelist tanpa syarat**, sejajar dengan 6
+   properti institusi — ini perbaikan paling murah berdampak besar mengingat
+   seluruh modul payroll/HR bergantung padanya.
+5. **Perbaiki kondisi peran pada 6 whitelist aktor** agar tidak diam-diam
+   menjadi "tanpa restriksi" untuk peran staf/admin: bila properti aktor ada
+   pada entity TAPI peran pengguna tidak cocok salah satu dari 6 itu DAN
+   entity tidak punya properti institusi lain, sistem seharusnya tetap
+   scope lewat institusi milik aktor tersebut (mis. `siswa.sekolah`) alih-
+   alih tidak melakukan apa pun.
+
+**Task tetap `task_7b6038ac`** (perluasan, bukan task baru) — kategori sama
+dengan temuan batch 68, mekanisme berbeda dari `task_5e93a600` (fail-open
+filter Action manual) dan `task_beeb2833` (pembajakan resolusi tenant via
+domain), sehingga tidak duplikasi kedua task itu.
+
 ## Batch 68 — SELESAI 100% (3 Sep 2026) — kerentanan STRUKTURAL Generic CRUD v2 ditemukan (whitelist nama properti); endpoint tulis anonim baru (`/DoUpload tanpaLogin`); pola "Singkronkan" terulang lebih buruk; task baru `task_7b6038ac`
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
