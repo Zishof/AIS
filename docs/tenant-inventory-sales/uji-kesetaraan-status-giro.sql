@@ -28,6 +28,40 @@ UPDATE giro17.pembayaran_hutang SET status_bg = NULL, tanggal_status_bg = NULL W
 
 \pset format aligned
 
+-- ---------------------------------------------------------------------------------------
+-- Berkas ini MENYIAPKAN DATANYA SENDIRI. Sempat tidak begitu: prasyaratnya disemai tangan
+-- saat batchnya ditulis, dan pelari kumpulan uji (jalankan-uji.py) membuktikan berkasnya
+-- lalu jatuh pada pelanggaran foreign key di klaster yang bersih. Uji yang mengandaikan
+-- data yang tidak ia buat sendiri tidak menjaga apa pun.
+-- ---------------------------------------------------------------------------------------
+TRUNCATE giro17.alokasi_penerimaan_piutang, giro17.penerimaan_piutang,
+         giro17.piutang_customer, giro17.faktur_penjualan, giro17.salesperson,
+         giro17.customer, giro17.toko RESTART IDENTITY CASCADE;
+INSERT INTO giro17.toko (id, nama) VALUES (1, 'Toko');
+-- Id-nya mengikuti yang dipakai blok-blok di bawah: customer 5, salesperson 7, piutang 1.
+INSERT INTO giro17.customer (id, kode, nama, aktif, dibuat_pada, oleh)
+     VALUES (5, 'C5', 'Pelanggan', true, now(), 'uji');
+INSERT INTO giro17.salesperson (id, kode, nama, aktif, dibuat_pada, oleh)
+     VALUES (7, 'S7', 'Sales', true, now(), 'uji');
+INSERT INTO giro17.faktur_penjualan (id, nomor_dokumen, tanggal, customer_id, toko_id,
+                                     subtotal, total, status, dibuat_pada, oleh)
+     VALUES (1, 'INV-1', CURRENT_DATE, 5, 1, 1000000, 1000000, 'AKTIF', now(), 'uji');
+INSERT INTO giro17.piutang_customer (id, customer_id, faktur_penjualan_id, nomor_faktur,
+                                     tanggal, nilai, sisa, status, dibuat_pada, oleh)
+-- Piutang ber-id 900 bernilai 600.000: blok 4 dan 5 memang menunjuk id itu, dan menuntut
+-- sisanya 300.000 sebelum dibalik lalu pulih ke 600.000 sesudahnya.
+     VALUES (900, 5, 1, 'INV-1', CURRENT_DATE, 600000, 600000, 'TERBUKA', now(), 'uji');
+-- Kwitansi GIRO 11 -- dokumen yang DIBALIK pada blok pembalikan di bawah. Berkasnya
+-- menunjuknya lewat pembalik_dari_id tanpa pernah membuatnya, sehingga di klaster bersih
+-- pembaliknya jatuh pada foreign key.
+INSERT INTO giro17.penerimaan_piutang (id, nomor_dokumen, tanggal, customer_id, salesperson_id,
+    cara_bayar, nomor_bg, nama_bank, tanggal_bg, nilai, idempotency_key, status,
+    dibuat_pada, oleh)
+  VALUES (11, 'KWT-11', DATE '2026-12-01', 5, 7, 'GIRO', 'BG-001', 'Bank Uji',
+          DATE '2026-12-10', 300000, 'KWT-11', 'AKTIF', now(), 'uji');
+INSERT INTO giro17.alokasi_penerimaan_piutang (penerimaan_piutang_id, piutang_customer_id,
+    nilai, dibuat_pada, oleh) VALUES (11, 900, 300000, now(), 'uji');
+
 \echo ''
 \echo '== BLOK 1: NULL berarti DITERIMA -- belum ada kabarnya ============================'
 \echo '   Dokumen giro yang baru dicatat tidak boleh mengaku sudah cair maupun ditolak.'

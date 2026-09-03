@@ -28,6 +28,33 @@
 
 \pset format aligned
 
+-- ---------------------------------------------------------------------------------------
+-- Berkas ini MENYIAPKAN DATANYA SENDIRI. Sempat tidak begitu: prasyaratnya disemai tangan
+-- saat batchnya ditulis, dan pelari kumpulan uji (jalankan-uji.py) membuktikan berkasnya
+-- lalu jatuh pada pelanggaran foreign key di klaster yang bersih. Uji yang mengandaikan
+-- data yang tidak ia buat sendiri tidak menjaga apa pun.
+-- ---------------------------------------------------------------------------------------
+TRUNCATE a22.alokasi_penerimaan_piutang, a22.penerimaan_piutang, a22.piutang_customer,
+         a22.faktur_penjualan, a22.sales_order, a22.salesperson, a22.customer, a22.toko
+      RESTART IDENTITY CASCADE;
+INSERT INTO a22.toko (id, nama) VALUES (1, 'Toko');
+INSERT INTO a22.customer (id, kode, nama, aktif, dibuat_pada, oleh)
+     VALUES (9, 'C9', 'Pelanggan', true, now(), 'uji');
+INSERT INTO a22.salesperson (id, kode, nama, aktif, dibuat_pada, oleh)
+     VALUES (5, 'S5', 'Sales', true, now(), 'uji');
+INSERT INTO a22.sales_order (id, nomor_dokumen, tanggal, customer_id, salesperson_id, toko_id,
+                             total, status)
+     VALUES (77, 'SO-77', CURRENT_DATE, 9, 5, 1, 1000000, 'TERKIRIM');
+INSERT INTO a22.faktur_penjualan (id, nomor_dokumen, tanggal, customer_id, sales_order_id,
+                                  toko_id, subtotal, total, status, dibuat_pada, oleh)
+     VALUES (1, 'INV-1', CURRENT_DATE, 9, 77, 1, 1000000, 1000000, 'AKTIF', now(), 'uji');
+INSERT INTO a22.piutang_customer (id, customer_id, faktur_penjualan_id, nomor_faktur, tanggal,
+                                  nilai, sisa, status, dibuat_pada, oleh)
+     VALUES (1, 9, 1, 'INV-1', CURRENT_DATE, 1000000, 1000000, 'TERBUKA', now(), 'uji');
+INSERT INTO a22.penerimaan_piutang (id, nomor_dokumen, tanggal, customer_id, salesperson_id,
+                                    cara_bayar, nilai, idempotency_key, status, dibuat_pada, oleh)
+     VALUES (1, 'KWT-1', CURRENT_DATE, 9, 5, 'TUNAI', 300000, 'SO-DP-77', 'AKTIF', now(), 'uji');
+
 TRUNCATE a22__audit.audit_baris, a22__audit.revinfo RESTART IDENTITY CASCADE;
 
 -- Peristiwa 1: pemfakturan -- piutang lahir, order berpindah status.

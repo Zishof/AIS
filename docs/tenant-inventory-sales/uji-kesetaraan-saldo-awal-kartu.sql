@@ -33,6 +33,30 @@
 
 \pset format aligned
 
+-- ---------------------------------------------------------------------------------------
+-- Berkas ini MENYIAPKAN SENDIRI schema bersama tiruannya berikut isi tenantnya. Sempat
+-- tidak begitu: keduanya disemai tangan saat batch §21 ditulis, dan pelari kumpulan uji
+-- membuktikan berkasnya lalu berhenti pada "relasi koperasi.pengadaan_produk tidak ada".
+-- Uji yang mengandaikan lingkungan yang tidak ia buat sendiri tidak menjaga apa pun.
+--
+-- Tabel koperasi di bawah TIRUAN, dan sengaja hanya berkolom seperlunya: yang diuji adalah
+-- bahwa ekspresi legacy MENUNJUK ke sana, bukan bentuk penuh tabel legacynya.
+-- ---------------------------------------------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS koperasi;
+CREATE TABLE IF NOT EXISTS koperasi.pengadaan_produk (
+    id bigserial PRIMARY KEY, produk bigint, qty numeric, waktupengadaan date,
+    nomorfaktur text);
+CREATE TABLE IF NOT EXISTS koperasi.stok_opname (
+    id bigserial PRIMARY KEY, produk bigint, selisih numeric, waktuopname date);
+CREATE TABLE IF NOT EXISTS koperasi.pembelian (
+    id bigserial PRIMARY KEY, produk bigint, qty numeric, waktu date);
+
+TRUNCATE lf19.mutasi_stok, lf19.produk, lf19.gudang, lf19.toko RESTART IDENTITY CASCADE;
+INSERT INTO lf19.toko (id, nama) VALUES (1, 'Toko');
+INSERT INTO lf19.gudang (id, kode, nama, toko_id) VALUES (1, 'G1', 'Gudang', 1);
+INSERT INTO lf19.produk (id, kode, nama, status, aktif, dibuat_pada, oleh)
+     VALUES (55, 'P55', 'Produk Tenant', 'AKTIF', true, now(), 'uji');
+
 TRUNCATE koperasi.pengadaan_produk, koperasi.stok_opname, koperasi.pembelian RESTART IDENTITY;
 TRUNCATE lf19.mutasi_stok RESTART IDENTITY CASCADE;
 

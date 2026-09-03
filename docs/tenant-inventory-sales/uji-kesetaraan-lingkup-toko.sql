@@ -27,6 +27,29 @@
 
 \pset format aligned
 
+-- ---------------------------------------------------------------------------------------
+-- Berkas ini MENYIAPKAN DATANYA SENDIRI. Sempat tidak begitu: prasyaratnya disemai tangan
+-- saat batchnya ditulis, dan pelari kumpulan uji (jalankan-uji.py) membuktikan berkasnya
+-- lalu jatuh pada pelanggaran foreign key di klaster yang bersih. Uji yang mengandaikan
+-- data yang tidak ia buat sendiri tidak menjaga apa pun.
+-- ---------------------------------------------------------------------------------------
+TRUNCATE scope18.mutasi_stok, scope18.saldo_stok, scope18.produk, scope18.gudang,
+         scope18.toko RESTART IDENTITY CASCADE;
+INSERT INTO scope18.toko (id, nama) VALUES (1, 'Toko 1'), (2, 'Toko 2');
+INSERT INTO scope18.gudang (id, kode, nama, toko_id)
+     VALUES (11, 'G-T1', 'Gudang Toko 1', 1), (22, 'G-T2', 'Gudang Toko 2', 2);
+INSERT INTO scope18.produk (id, kode, nama, status, aktif, dibuat_pada, oleh) VALUES
+    (100, 'GULA', 'Gula', 'AKTIF', true, now(), 'uji'),
+    (200, 'KOPI', 'Kopi', 'AKTIF', true, now(), 'uji'),
+    (300, 'TEH',  'Teh',  'AKTIF', true, now(), 'uji');
+-- Gula ada di KEDUA toko (30 di T1, 500 di T2); Kopi hanya T2; Teh tak pernah distok.
+INSERT INTO scope18.saldo_stok (produk_id, gudang_id, kuantitas) VALUES
+    (100, 11, 30), (100, 22, 500), (200, 22, 70);
+INSERT INTO scope18.mutasi_stok (produk_id, gudang_id, tanggal, jenis, arah, kuantitas) VALUES
+    (100, 11, DATE '2026-12-05', 'PENGADAAN', 1, 30),
+    (100, 22, DATE '2026-12-05', 'PENGADAAN', 1, 500),
+    (200, 22, DATE '2026-12-05', 'PENGADAAN', 1, 70);
+
 \echo ''
 \echo '== BLOK 1: daftar dibatasi gudang toko ============================================'
 \echo '   T1 hanya menangani Gula; Kopi milik T2 dan Teh tak pernah distok.'

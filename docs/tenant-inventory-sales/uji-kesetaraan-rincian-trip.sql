@@ -26,6 +26,59 @@
 -- =====================================================================================
 
 DROP SCHEMA IF EXISTS koperasi CASCADE;
+-- ---------------------------------------------------------------------------------------
+-- Berkas ini MENYIAPKAN DATANYA SENDIRI. Sempat tidak begitu: prasyarat sisi tenantnya
+-- disemai tangan saat batchnya ditulis, sehingga di klaster bersih blok-bloknya membaca
+-- tabel kosong dan GAGAL. Uji yang mengandaikan data yang tidak ia buat sendiri tidak
+-- menjaga apa pun.
+-- ---------------------------------------------------------------------------------------
+TRUNCATE det16.alokasi_penerimaan_piutang, det16.penerimaan_piutang,
+         det16.piutang_customer, det16.faktur_penjualan, det16.sales_trip_barang,
+         det16.sales_trip, det16.surat_perintah_sales, det16.produk, det16.gudang,
+         det16.salesperson, det16.customer, det16.toko RESTART IDENTITY CASCADE;
+INSERT INTO det16.toko (id, nama) VALUES (1, 'Toko');
+INSERT INTO det16.gudang (id, kode, nama, toko_id) VALUES (1, 'G1', 'Gudang', 1);
+INSERT INTO det16.salesperson (id, kode, nama, aktif, dibuat_pada, oleh)
+     VALUES (5, 'S5', 'Sales', true, now(), 'uji');
+INSERT INTO det16.customer (id, kode, nama, aktif, dibuat_pada, oleh)
+     VALUES (9, 'C9', 'Pelanggan', true, now(), 'uji');
+INSERT INTO det16.produk (id, kode, nama, status, aktif, dibuat_pada, oleh)
+     VALUES (10, 'P10', 'Produk', 'AKTIF', true, now(), 'uji');
+INSERT INTO det16.surat_perintah_sales (id, nomor_dokumen, tanggal, salesperson_id, gudang_id,
+                                        status, dibuat_pada, oleh)
+     VALUES (1, 'SPJ-1', CURRENT_DATE, 5, 1, 'AKTIF', now(), 'uji');
+INSERT INTO det16.sales_trip (id, nomor_dokumen, tanggal_berangkat, surat_perintah_sales_id,
+                              salesperson_id, gudang_id, status, dibuat_pada, oleh)
+     VALUES (1, 'TRIP-1', CURRENT_DATE, 1, 5, 1, 'BERJALAN', now(), 'uji');
+INSERT INTO det16.faktur_penjualan (id, nomor_dokumen, tanggal, customer_id, toko_id,
+                                    subtotal, total, status, dibuat_pada, oleh)
+     VALUES (1, 'INV-1', CURRENT_DATE, 9, 1, 600000, 600000, 'AKTIF', now(), 'uji');
+INSERT INTO det16.piutang_customer (id, customer_id, faktur_penjualan_id, nomor_faktur, tanggal,
+                                    nilai, sisa, status, dibuat_pada, oleh)
+     VALUES (1, 9, 1, 'INV-1', CURRENT_DATE, 600000, 600000, 'TERBUKA', now(), 'uji');
+INSERT INTO det16.penerimaan_piutang (id, nomor_dokumen, tanggal, customer_id, salesperson_id,
+                                      cara_bayar, nilai, sales_trip_id, idempotency_key,
+                                      status, dibuat_pada, oleh)
+     VALUES (1, 'KWT-1', CURRENT_DATE, 9, 5, 'TUNAI', 300000, 1, 'KWT-1', 'AKTIF', now(), 'uji');
+INSERT INTO det16.alokasi_penerimaan_piutang (penerimaan_piutang_id, piutang_customer_id, nilai,
+                                              dibuat_pada, oleh)
+     VALUES (1, 1, 300000, now(), 'uji');
+-- Isi trip yang dibaca blok-bloknya: barang bawaan, rincian SPJ, nota bawaan, dan buku kas.
+INSERT INTO det16.sales_trip_barang (sales_trip_id, produk_id, kuantitas_bawa, harga_satuan,
+                                     dibuat_pada, oleh)
+     VALUES (1, 10, 100, 5000, now(), 'uji');
+INSERT INTO det16.surat_perintah_sales_detail (surat_perintah_sales_id, produk_id, kuantitas,
+                                               dibuat_pada, oleh)
+     VALUES (1, 10, 100, now(), 'uji');
+INSERT INTO det16.surat_perintah_sales_nota (surat_perintah_sales_id, piutang_customer_id,
+                                             saldo_saat_assign, status, dibuat_pada, oleh)
+     VALUES (1, 1, 600000, 'DITAGIH', now(), 'uji');
+-- Buku kas trip: uang muka operasional 200.000 masuk, penagihan tunai 300.000 masuk.
+INSERT INTO det16.sales_trip_kas (sales_trip_id, jenis, nominal, keterangan, waktu,
+                                  dibuat_pada, oleh) VALUES
+    (1, 'UANG_MUKA', 200000, 'Uang muka operasional', now(), now(), 'uji'),
+    (1, 'COLLECTION', 300000, 'Penagihan tunai', now(), now(), 'uji');
+
 CREATE SCHEMA koperasi;
 
 -- Buku kas sesi legacy: satu tabel, bertanda, sembilan jenis.
