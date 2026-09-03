@@ -456,121 +456,126 @@ public class NomorSuratAlurKeuangan extends GeneralValueObject {
 	 * template baru tanpa perlu restart server.</p>
 	 */
 	public static void reloadDefault() {
-		Session session = HibernateUtil.currentNativeSession();
-		int count = ((Number) session.createCriteria(NomorSuratAlurKeuangan.class).setProjection(Projections.rowCount())
-				.uniqueResult()).intValue();
-		if (count == 0) {
+		// Selalu pakai session DEDICATED (openSession) — TIDAK memakai currentNativeSession
+		// bersama milik alur ZK yang sedang berjalan (dipanggil dari
+		// NomorSuratAlurKeuanganAction.doAfterCompose dan dari timer sesudah admin ganti
+		// template), sama seperti pola NomorSurat.tambahIndexNomorSurat. Menutup sesi bersama
+		// di sini akan memicu "Session is closed!" pada langkah berikutnya di alur ZK tersebut,
+		// jadi HANYA session dedicated ini yang ditutup di finally.
+		Session session = HibernateUtil.openSession();
+		try {
+			int count = ((Number) session.createCriteria(NomorSuratAlurKeuangan.class).setProjection(Projections.rowCount())
+					.uniqueResult()).intValue();
+			if (count == 0) {
 
-			for (String s : S) {
-				NomorSuratAlurKeuangan nomorSuratAlurPengadaan = new NomorSuratAlurKeuangan();
-				nomorSuratAlurPengadaan.setKode(s.split(";")[0]);
-				nomorSuratAlurPengadaan.setNama(s.split(";")[1]);
-				nomorSuratAlurPengadaan.setKeterangan(s.split(";")[2]);
+				for (String s : S) {
+					NomorSuratAlurKeuangan nomorSuratAlurPengadaan = new NomorSuratAlurKeuangan();
+					nomorSuratAlurPengadaan.setKode(s.split(";")[0]);
+					nomorSuratAlurPengadaan.setNama(s.split(";")[1]);
+					nomorSuratAlurPengadaan.setKeterangan(s.split(";")[2]);
+					session.getTransaction().begin();
+					session.save(nomorSuratAlurPengadaan);
+					session.getTransaction().commit();
+				}
+
+			}
+
+			UANG_MUKA_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", UANG_MUKA)).setMaxResults(1).uniqueResult();
+
+			DANA_TALANGAN_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", DANA_TALANGAN)).setMaxResults(1).uniqueResult();
+
+			PERTANGGUNGJAWABAN_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", PERTANGGUNGJAWABAN)).setMaxResults(1).uniqueResult();
+
+			KAS_KECIL_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", KAS_KECIL)).setMaxResults(1).uniqueResult();
+
+			PENGGANTIAN_KAS_KECIL_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", PENGGANTIAN_KAS_KECIL)).setMaxResults(1).uniqueResult();
+
+			DPC = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", DAFTAR_PENGAJUAN_CHEK)).setMaxResults(1).uniqueResult();
+
+			if (DPC == null) {
+				DPC = new NomorSuratAlurKeuangan();
+				DPC.setKode("006");
+				DPC.setNama(DAFTAR_PENGAJUAN_CHEK);
+				DPC.setKeterangan(DAFTAR_PENGAJUAN_CHEK);
 				session.getTransaction().begin();
-				session.save(nomorSuratAlurPengadaan);
+				session.save(DPC);
 				session.getTransaction().commit();
 			}
 
+			REIMBURSEMENT_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", REIMBURSEMENT)).setMaxResults(1).uniqueResult();
+
+			if (REIMBURSEMENT_DATA == null) {
+				REIMBURSEMENT_DATA = new NomorSuratAlurKeuangan();
+				REIMBURSEMENT_DATA.setKode("011");
+				REIMBURSEMENT_DATA.setNama(REIMBURSEMENT);
+				REIMBURSEMENT_DATA.setKeterangan("Reimbursement Pegawai");
+				session.getTransaction().begin();
+				session.save(REIMBURSEMENT_DATA);
+				session.getTransaction().commit();
+			}
+
+			SI = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", STANDING_INSTRUCTION)).setMaxResults(1).uniqueResult();
+
+			if (SI == null) {
+				SI = new NomorSuratAlurKeuangan();
+				SI.setKode("010");
+				SI.setNama(STANDING_INSTRUCTION);
+				SI.setKeterangan(STANDING_INSTRUCTION);
+				session.getTransaction().begin();
+				session.save(SI);
+				session.getTransaction().commit();
+			}
+
+			KAS_BESAR_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", KAS_BESAR)).setMaxResults(1).uniqueResult();
+
+			if (KAS_BESAR_DATA == null) {
+				KAS_BESAR_DATA = new NomorSuratAlurKeuangan();
+				KAS_BESAR_DATA.setKode("007");
+				KAS_BESAR_DATA.setNama(KAS_BESAR);
+				KAS_BESAR_DATA.setKeterangan(KAS_BESAR);
+				session.getTransaction().begin();
+				session.save(KAS_BESAR_DATA);
+				session.getTransaction().commit();
+			}
+
+			PERTANGGUNGJAWABAN_KAS_BESAR_DATA = (NomorSuratAlurKeuangan) session
+					.createCriteria(NomorSuratAlurKeuangan.class).add(Restrictions.eq("nama", PERTANGGUNGJAWABAN_KAS_BESAR))
+					.setMaxResults(1).uniqueResult();
+
+			if (PERTANGGUNGJAWABAN_KAS_BESAR_DATA == null) {
+				PERTANGGUNGJAWABAN_KAS_BESAR_DATA = new NomorSuratAlurKeuangan();
+				PERTANGGUNGJAWABAN_KAS_BESAR_DATA.setKode("008");
+				PERTANGGUNGJAWABAN_KAS_BESAR_DATA.setNama(PERTANGGUNGJAWABAN_KAS_BESAR);
+				PERTANGGUNGJAWABAN_KAS_BESAR_DATA.setKeterangan(PERTANGGUNGJAWABAN_KAS_BESAR);
+				session.getTransaction().begin();
+				session.save(PERTANGGUNGJAWABAN_KAS_BESAR_DATA);
+				session.getTransaction().commit();
+			}
+
+			TRANSAKSI_KOPERASI_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+					.add(Restrictions.eq("nama", TRANSAKSI_KOPERASI)).setMaxResults(1).uniqueResult();
+
+			if (TRANSAKSI_KOPERASI_DATA == null) {
+				TRANSAKSI_KOPERASI_DATA = new NomorSuratAlurKeuangan();
+				TRANSAKSI_KOPERASI_DATA.setKode("009");
+				TRANSAKSI_KOPERASI_DATA.setNama(TRANSAKSI_KOPERASI);
+				TRANSAKSI_KOPERASI_DATA.setKeterangan(TRANSAKSI_KOPERASI);
+				session.getTransaction().begin();
+				session.save(TRANSAKSI_KOPERASI_DATA);
+				session.getTransaction().commit();
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
 		}
-
-		UANG_MUKA_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", UANG_MUKA)).setMaxResults(1).uniqueResult();
-
-		DANA_TALANGAN_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", DANA_TALANGAN)).setMaxResults(1).uniqueResult();
-
-		PERTANGGUNGJAWABAN_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", PERTANGGUNGJAWABAN)).setMaxResults(1).uniqueResult();
-
-		KAS_KECIL_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", KAS_KECIL)).setMaxResults(1).uniqueResult();
-
-		PENGGANTIAN_KAS_KECIL_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", PENGGANTIAN_KAS_KECIL)).setMaxResults(1).uniqueResult();
-
-		DPC = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", DAFTAR_PENGAJUAN_CHEK)).setMaxResults(1).uniqueResult();
-
-		if (DPC == null) {
-			DPC = new NomorSuratAlurKeuangan();
-			DPC.setKode("006");
-			DPC.setNama(DAFTAR_PENGAJUAN_CHEK);
-			DPC.setKeterangan(DAFTAR_PENGAJUAN_CHEK);
-			session.getTransaction().begin();
-			session.save(DPC);
-			session.getTransaction().commit();
-		}
-
-		REIMBURSEMENT_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", REIMBURSEMENT)).setMaxResults(1).uniqueResult();
-
-		if (REIMBURSEMENT_DATA == null) {
-			REIMBURSEMENT_DATA = new NomorSuratAlurKeuangan();
-			REIMBURSEMENT_DATA.setKode("011");
-			REIMBURSEMENT_DATA.setNama(REIMBURSEMENT);
-			REIMBURSEMENT_DATA.setKeterangan("Reimbursement Pegawai");
-			session.getTransaction().begin();
-			session.save(REIMBURSEMENT_DATA);
-			session.getTransaction().commit();
-		}
-
-		SI = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", STANDING_INSTRUCTION)).setMaxResults(1).uniqueResult();
-
-		if (SI == null) {
-			SI = new NomorSuratAlurKeuangan();
-			SI.setKode("010");
-			SI.setNama(STANDING_INSTRUCTION);
-			SI.setKeterangan(STANDING_INSTRUCTION);
-			session.getTransaction().begin();
-			session.save(SI);
-			session.getTransaction().commit();
-		}
-
-		KAS_BESAR_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", KAS_BESAR)).setMaxResults(1).uniqueResult();
-
-		if (KAS_BESAR_DATA == null) {
-			KAS_BESAR_DATA = new NomorSuratAlurKeuangan();
-			KAS_BESAR_DATA.setKode("007");
-			KAS_BESAR_DATA.setNama(KAS_BESAR);
-			KAS_BESAR_DATA.setKeterangan(KAS_BESAR);
-			session.getTransaction().begin();
-			session.save(KAS_BESAR_DATA);
-			session.getTransaction().commit();
-		}
-
-		PERTANGGUNGJAWABAN_KAS_BESAR_DATA = (NomorSuratAlurKeuangan) session
-				.createCriteria(NomorSuratAlurKeuangan.class).add(Restrictions.eq("nama", PERTANGGUNGJAWABAN_KAS_BESAR))
-				.setMaxResults(1).uniqueResult();
-
-		if (PERTANGGUNGJAWABAN_KAS_BESAR_DATA == null) {
-			PERTANGGUNGJAWABAN_KAS_BESAR_DATA = new NomorSuratAlurKeuangan();
-			PERTANGGUNGJAWABAN_KAS_BESAR_DATA.setKode("008");
-			PERTANGGUNGJAWABAN_KAS_BESAR_DATA.setNama(PERTANGGUNGJAWABAN_KAS_BESAR);
-			PERTANGGUNGJAWABAN_KAS_BESAR_DATA.setKeterangan(PERTANGGUNGJAWABAN_KAS_BESAR);
-			session.getTransaction().begin();
-			session.save(PERTANGGUNGJAWABAN_KAS_BESAR_DATA);
-			session.getTransaction().commit();
-		}
-
-		TRANSAKSI_KOPERASI_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
-				.add(Restrictions.eq("nama", TRANSAKSI_KOPERASI)).setMaxResults(1).uniqueResult();
-
-		if (TRANSAKSI_KOPERASI_DATA == null) {
-			TRANSAKSI_KOPERASI_DATA = new NomorSuratAlurKeuangan();
-			TRANSAKSI_KOPERASI_DATA.setKode("009");
-			TRANSAKSI_KOPERASI_DATA.setNama(TRANSAKSI_KOPERASI);
-			TRANSAKSI_KOPERASI_DATA.setKeterangan(TRANSAKSI_KOPERASI);
-			session.getTransaction().begin();
-			session.save(TRANSAKSI_KOPERASI_DATA);
-			session.getTransaction().commit();
-		}
-
-		// session.disconnect();
-		if (session.isOpen()) {session.disconnect();session.close();}
-
-		HibernateUtil.closeSession();
 	}
 
 	/**
