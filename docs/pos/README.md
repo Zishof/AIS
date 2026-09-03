@@ -186,6 +186,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [105-layar-kelompok-aset-natif.md](105-layar-kelompok-aset-natif.md) | Layar Kelompok Aset natif; konvensi cache akun bersama; satu berkas sesi lain yang tidak disapu |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
+| [POS-ALBAHJAH-1.34.20-KOREKSI-TRANSAKSI-DAN-LAPORAN-PEMASOK.md](POS-ALBAHJAH-1.34.20-KOREKSI-TRANSAKSI-DAN-LAPORAN-PEMASOK.md) | Status commit, validasi, artefak UAT, deployment, dan rollback POS Al-Bahjah 1.34.20 |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |
 | [ZUL-GRID-FULL-WIDTH-2026-08-26.md](ZUL-GRID-FULL-WIDTH-2026-08-26.md) | Normalisasi Grid/Tabel ZUL Full Width |
 
