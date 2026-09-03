@@ -53,6 +53,12 @@ public class GrupProduk extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * Hook JPA {@code @PreUpdate}: dipanggil otomatis Hibernate tepat sebelum tiap {@code UPDATE}
+	 * baris ini, mendelegasikan ke {@link ais.database.hibernate.AuditTimestampInterceptor#ubah}
+	 * yang menyetel {@link #tanggal_dirubah} ke waktu saat itu. Pemanggil (helper simpan/action ZK)
+	 * TIDAK perlu men-set {@code tanggal_dirubah} manual pada jalur update.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
@@ -60,13 +66,25 @@ public class GrupProduk extends GeneralValueObject {
 
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Konstruktor kosong wajib JPA/Hibernate (instansiasi via refleksi saat memuat entity dari DB). */
 	public GrupProduk() {
 	}
 
+	/**
+	 * Representasi ringkas untuk log/debug dan komponen combobox ZK (mis. pemilih grup pada form
+	 * {@code Produk}) -- format {@code "<id>-<nama>"}. Kedua bagian diberi penjaga null sehingga
+	 * grup baru yang belum tersimpan ({@code id == null}) tetap menghasilkan string tanpa
+	 * {@code NullPointerException}.
+	 */
 	public String toString() {
 		return (id == null ? "" : id) + "-" + (nama == null ? "" : nama);
 	}
 
+	/**
+	 * Kunci primer (identity, auto-generated DB). {@code null} sebelum baris grup pertama kali
+	 * disimpan. {@code insertable = false} karena nilainya diserahkan sepenuhnya ke sequence/identity
+	 * kolom DB, bukan diisi manual oleh aplikasi.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -74,33 +92,48 @@ public class GrupProduk extends GeneralValueObject {
 		return this.id;
 	}
 
+	/** Setter {@link #getId()} -- normalnya hanya dipanggil Hibernate saat memuat baris dari DB. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Kode singkat opsional grup (mis. kode internal waralaba) -- murni label, tidak dipakai
+	 * sebagai kunci pencarian/unik oleh mesin penyalinan harga di {@code GrupProdukAction.onSave}.
+	 */
 	@Column(name = "kode", nullable = true, length = 100)
 	public String getKode() {
 		return kode;
 	}
 
+	/** Setter {@link #getKode()}. */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Nama grup, wajib diisi -- ditampilkan pada combobox {@link Produk#getGrupProduk()} di form
+	 * Produk dan pada daftar CRUD Grup Produk. Getter men-{@code trim()} nilai (spasi tepi
+	 * dibuang saat DIBACA, bukan saat disimpan); {@code null} tetap dikembalikan sebagai
+	 * {@code null} bila belum diisi.
+	 */
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/** Setter {@link #getNama()} -- TIDAK men-trim nilai masukan (trim terjadi di getter). */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/** Catatan bebas tentang grup ini (mis. alasan pengelompokan). Opsional, tidak dipakai logika. */
 	@Column(name = "keterangan", nullable = true)
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/** Setter {@link #getKeterangan()}. */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -111,6 +144,7 @@ public class GrupProduk extends GeneralValueObject {
 		return hargaBeli;
 	}
 
+	/** Setter {@link #getHargaBeli()} -- lihat javadoc getter untuk efek penyalinan ke anggota. */
 	public void setHargaBeli(Double hargaBeli) {
 		this.hargaBeli = hargaBeli;
 	}
@@ -121,6 +155,7 @@ public class GrupProduk extends GeneralValueObject {
 		return hargaJual;
 	}
 
+	/** Setter {@link #getHargaJual()} -- lihat javadoc getter untuk efek penyalinan ke anggota. */
 	public void setHargaJual(Double hargaJual) {
 		this.hargaJual = hargaJual;
 	}
@@ -136,6 +171,7 @@ public class GrupProduk extends GeneralValueObject {
 		return bahanBaku;
 	}
 
+	/** Setter {@link #getBahanBaku()} -- lihat javadoc getter untuk format JSON dan efek penyalinan. */
 	public void setBahanBaku(String bahanBaku) {
 		this.bahanBaku = bahanBaku;
 	}
@@ -151,6 +187,7 @@ public class GrupProduk extends GeneralValueObject {
 		return ikutHpp;
 	}
 
+	/** Setter {@link #getIkutHpp()} -- lihat javadoc getter untuk semantik NULL vs TRUE/FALSE. */
 	public void setIkutHpp(Boolean ikutHpp) {
 		this.ikutHpp = ikutHpp;
 	}
@@ -161,6 +198,7 @@ public class GrupProduk extends GeneralValueObject {
 		return ikutHargaJual;
 	}
 
+	/** Setter {@link #getIkutHargaJual()}. */
 	public void setIkutHargaJual(Boolean ikutHargaJual) {
 		this.ikutHargaJual = ikutHargaJual;
 	}
@@ -176,22 +214,38 @@ public class GrupProduk extends GeneralValueObject {
 		return aturanDiskon;
 	}
 
+	/** Setter {@link #getAturanDiskon()}. */
 	public void setAturanDiskon(ais.database.model.koperasi.AturanDiskon aturanDiskon) {
 		this.aturanDiskon = aturanDiskon;
 	}
 
+	/**
+	 * Status aktif grup ini. Getter null-safe: baris lama tanpa nilai eksplisit ({@code null})
+	 * dibaca sebagai {@code true} (default aktif) -- konsisten dengan pola getter aktif pada
+	 * entity master lain di domain koperasi/inventory (mis. {@link JenisProduk#getAktif()},
+	 * {@link SatuanProduk#getAktif()}). Menonaktifkan grup TIDAK melepas keanggotaan
+	 * {@link Produk#getGrupProduk()} produk yang sudah menunjuk ke sini -- hanya menyembunyikan
+	 * grup dari pilihan combobox aktif (lihat pemakai combobox di form Produk).
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/** Setter {@link #getAktif()}. */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/** Nama/identitas petugas yang membuat/mengubah baris grup ini -- jejak audit tampilan. */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Setter {@link #getOleh()}. Mengabaikan (tidak menimpa nilai lama) bila masukan
+	 * {@code null}/kosong-setelah-trim -- pola pengaman umum di entity domain koperasi/inventory
+	 * agar jejak audit "oleh" tidak pernah ditimpa kosong oleh pemanggil yang lalai mengisinya.
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -199,10 +253,12 @@ public class GrupProduk extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/** Id/username petugas pasangan {@link #getOleh()} -- jejak audit tampilan, bukan FK. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/** Setter {@link #getOlehId()} -- pola pengaman sama dengan {@link #setOleh(String)}. */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -210,11 +266,18 @@ public class GrupProduk extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Waktu baris ini terakhir diubah. Diinisialisasi ke waktu instansiasi objek pada deklarasi
+	 * field, dan diperbarui otomatis oleh {@link #onUpdate()} setiap {@code UPDATE} (hook
+	 * {@code @PreUpdate}) -- BEDA dengan {@code AturanHargaProduk.waktu} yang tidak punya hook
+	 * serupa dan harus di-set manual pemanggil.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** Setter {@link #getTanggal_dirubah()} -- normalnya hanya dipanggil {@link #onUpdate()}. */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
