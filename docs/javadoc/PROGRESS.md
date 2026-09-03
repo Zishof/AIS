@@ -1,5 +1,60 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 89 — SELESAI 100% (4 Sep 2026) — 3 task baru (`task_eba4e4a8`, `task_14f006a2`, `task_ce22ad09`); entity dorman KESEPULUH (`CalonAnggotaKoperasi`); entity SENTRAL `AnggotaKoperasi` tuntas
+
+12 file selesai (batch ketiga domain `koperasi`), semua dikompilasi
+`-implicit:none` bersih via PowerShell, WC mirror disinkron via
+`svn update`, `cmp` byte-identik:
+
+- **`AnggotaKoperasi.java`** (r84199/84202/84205, 99/99 method) —
+  100%. Entity paling sentral domain koperasi TUNTAS. Tenant DUA
+  SUMBU: `koperasi` (FK nullable) DAN `satuanKerja` LANGSUNG sebagai
+  kolom (beda dugaan awal). Saldo/hutang/piutang **tidak ada kolom
+  sama sekali** — selalu on-the-fly. **TIDAK terdaftar** Generic
+  CRUD v2 (perluasan `task_7b6038ac`: binding otomatis kenal
+  `satuanKerja` tapi TIDAK ada kunci `koperasi`). `limitKredit`
+  BUKAN gerbang transaksi checkout (hanya laporan). **🚨 2 task
+  baru**: `task_14f006a2` (verifikasi PIN member TANPA rate
+  limiting — ruang tebak 10.000, `BiometricApi` sengaja beri
+  idempotency key baru tiap percobaan agar tidak terkunci);
+  `task_ce22ad09` (`generateKodeMember` pakai `COUNT+1` tanpa kunci
+  padahal kolom UNIQUE, plus catch senyap yang PERNAH membekukan
+  nomor di 1 — bukti nyata di komentar kode).
+- **`TransaksiKoperasi.java`** (r84195) + **`PembatalanTransaksiKantin.java`**
+  (r84200) — 100%. `getMargin()`/`getTotal()` dihitung ULANG dari
+  `ProdukKoperasi` SAAT INI (bukan dibekukan) — bunga produk berubah
+  menggeser tampilan margin historis. Mekanisme pembatalan
+  DIVERIFIKASI SOLID (arsip sebelum hapus, jurnal balik proper,
+  tidak bisa closing ganda) — javadoc usang yang salah soal
+  auto-posting diperbaiki.
+- **`PembelianAnggotaKoperasi.java`** (r84198) + **`CalonAnggotaKoperasi.java`**
+  (r84204) — 100%. `PembelianAnggotaKoperasi` = header struk
+  kasir/POS, BEDA DOMAIN dari `TransaksiKoperasi` (simpan-pinjam).
+  **🚨 `CalonAnggotaKoperasi` TERNYATA ENTITY TIDUR KESEPULUH** —
+  alur pendaftaran→persetujuan TIDAK ADA SAMA SEKALI di basis kode
+  (nol pemanggil `setCalonAnggotaKoperasi`/`setAnggotaKoperasi` di
+  luar entity sendiri). **Task baru `task_eba4e4a8`**: cacat
+  salin-tempel `getKode()` — cabang guru CEK `getGuru().getNuptk()`
+  tapi TUGASKAN `getDosen().getNuptk()` (dampak nol sekarang karena
+  entity tidur, perbaikan preventif).
+- **`ModalPenyertaanKoperasi.java`** (r84192) + **`PembagianShu.java`**
+  (r84194) + **`AnggaranKasKoperasi.java`** (r84197) — 100%.
+  `totalShu` DIKONFIRMASI input manual hasil RAT (bukan dihitung
+  otomatis). `AnggaranKasKoperasi` = rencana RAPB dibandingkan
+  realisasi (bukan limit kas operasional seperti dugaan awal).
+- **`PiutangCustomerDoc.java`** (r84193) + **`PenerimaanPiutangCustomer.java`**
+  (r84196) + **`PembayaranHutangSupplier.java`** (r84201) +
+  **`PenyesuaianSaldoAnggota.java`** (r84203) — 100%. Penjagaan
+  keseimbangan alokasi ADA (di helper servlet). Gerbang approval
+  `PenyesuaianSaldoAnggota` DIVERIFIKASI MEMADAI (role check, alasan
+  wajib, saldo dibaca ulang server-side menutup TOCTOU) — hanya
+  kurang batas nominal/maker-checker, pola sama dengan topup manual
+  biasa.
+
+**3 task baru batch ini**: `task_eba4e4a8`, `task_14f006a2`,
+`task_ce22ad09`. Total entity dorman seluruh inisiatif kini
+**10**. Paket `koperasi` mendekati tuntas (53/60 file).
+
 ## Batch 88 — SELESAI 100% (4 Sep 2026) — 0 task baru; koreksi struktural penting (`TransaksiKoperasiDetail` = angsuran USPK, bukan rincian produk)
 
 22 file selesai didokumentasikan penuh (batch kedua domain
