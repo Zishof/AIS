@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 46 — SELESAI 100% (3 Sep 2026) — POLA DASBOR FAIL-OPEN KINI 4 INSTANCE, SQL INJECTION "BOM WAKTU" DITEMUKAN
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/KelompokMatapelajaran.java`** (r83644)
+  — 203→766 baris, 100% (47 anggota). Domain terverifikasi dari 4
+  sumber independen (rumpun mapel berjenjang: umum/kejuruan/mulok).
+  Bug siklus rekursi TANPA penjaga kunjungan pada relasi self-FK
+  `induk` — berpotensi `StackOverflowError` saat cetak rapor bila admin
+  membuat rantai melingkar. 2 NPE nyata di `LaporanRaporSiswa`/
+  `LaporanRekapTotalNilai` (cek null ada di satu titik, hilang di
+  titik lain file yang sama).
+- **`ais/database/model/sekolah/DiskonSiswaPunyaSiswa.java`** (r83643)
+  — 181→686 baris, 100% (28 anggota). Dugaan nama KELIRU (bukan
+  relasi antar-siswa — aturan-diskon-punya-penerima). TERKONFIRMASI
+  HIDUP (kontras `ItemBiayaPunyaDiskon` b37 yang yatim) dengan bug
+  finansial nyata: DUA mesin diskon berbeda (`hitungDiskon()` otomatis
+  vs `sinkronkan()` manual) memproses jumlah aturan BERBEDA untuk
+  siswa yang sama. Fail-open orang tua ditemukan lagi (akar sama
+  `OrangTua.ambilAnakSiswa()`) — **instance ke-5** pola `task_5e93a600`.
+- **`ais/database/model/sekolah/ApresiasiDanPenghargaan.java`** (r83641)
+  — 180→663 baris, 100% (38 anggota). Struktur "paket master"
+  TERKONFIRMASI PENUH (cerminan persis `PelanggaranDanHukuman` b43).
+  **Konfirmasi independen KEEMPAT** pola `task_5e93a600` (fail-open
+  orang tua + `DasbordApresiasi` tanpa filter + amplifier cache L3
+  app-wide) — di domain APRESIASI, bukan cuma pelanggaran. Pola
+  "Dasbor*+*SiswaAction fail-open" kini terbukti template arsitektur
+  lintas-modul, bukan bug 1 fitur.
+- **`ais/database/model/sekolah/KelompokKegiatanKesiswaan.java`**
+  (r83642/83643) — 178→718 baris, 100% (40 anggota). Bug kolom FK
+  salin-tempel terkonfirmasi LAGI — **instance ke-3** lintas modul
+  dosen/PT/sekolah. Bug seed nyata: nama literal salah membuat
+  "Kelompok Penunjang" TIDAK PERNAH tersemai untuk modul kesiswaan.
+  Kontras menarik: versi sekolah justru MEMPERBAIKI jebakan bug flush
+  PT lain (batch 36) — bukti bug tidak selalu menyeberang simetris.
+- **`ais/database/model/sekolah/OrganisasiSiswa.java`** (r83645) —
+  169→787 baris, 100% (33 anggota). SQL injection TERKONFIRMASI tapi
+  **saat ini "tertutup" karena SQL sekitarnya kebetulan rusak** (find/
+  replace skema salah mengenai nama kolom) — filter mati total secara
+  fungsional, TAPI celah SQLi langsung hidup penuh begitu ada yang
+  "memperbaiki" bug fungsionalnya tanpa sadar. Inversi hak akses LEBIH
+  PARAH dari versi PT (bahkan komentar jejak niat kode `edit`/`delete`
+  dihapus total, bukan cuma dikomentari). Tombol "Bersihkan" juga rusak
+  total (salah tabel/kolom) — "bom waktu" kedua di file yang sama.
+
+**TEMUAN METODOLOGIS PENTING**: pola "Dasbor*+*SiswaAction fail-open
+orang tua + amplifier cache L3" (akar `task_5e93a600`) kini terverifikasi
+independen di **2 domain berbeda** (Pelanggaran b42-43, Apresiasi b46)
+dengan mekanisme structural IDENTIK — ini bukan bug spesifik 1 fitur,
+melainkan TEMPLATE arsitektur yang kemungkinan besar terulang di modul
+dasbor sekolah lain manapun (Kunjungan, Kegiatan, dll — belum diperiksa
+semua). Total kumulatif instance fail-open `task_5e93a600`: 5.
+
+**Konsep baru "bom waktu" ditemukan 2x batch ini**: kerentanan yang saat
+ini TIDAK dapat dieksploitasi karena kebetulan terhalang bug fungsional
+lain di sekitarnya, tapi akan langsung aktif penuh begitu bug tersebut
+"diperbaiki" tanpa menyadari implikasi keamanannya. Pola ini layak
+diwaspadai khusus saat ada permintaan perbaikan bug fungsional di masa
+depan — cek dulu apakah perbaikan itu membuka celah keamanan tersembunyi.
+
+Total akumulasi 46 sesi: **408 file**.
+
 ## Batch 45 — SELESAI 100% (3 Sep 2026) — IDOR CRUD PENUH (TERMASUK HAPUS) DITEMUKAN DI REST API CATATAN SISWA
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
