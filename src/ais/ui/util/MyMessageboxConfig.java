@@ -382,7 +382,8 @@ public class MyMessageboxConfig {
 	}
 
 	private static int tampilModern(final String pesan, final String title, final Integer buttons, final String icon,
-			final EventListener eventListener, Throwable throwable, String detailTambahan) throws InterruptedException {
+			final EventListener eventListener, Throwable throwable, String detailTambahan, final String kodeAsli)
+			throws InterruptedException {
 		if (!isZkEnvironment() || !bisaPakaiModern(buttons, eventListener)) {
 			return Messagebox.show(pesan, title, buttons, icon, eventListener);
 		}
@@ -522,6 +523,31 @@ public class MyMessageboxConfig {
 				}
 			});
 
+			/* Tombol khusus ADMINISTRATOR: perbaiki kalimat ini beserta terjemahannya langsung
+			 * dari tempat kalimat itu muncul. Kalimat yang janggal atau salah terjemah paling
+			 * mudah dikenali justru saat sedang dibaca; sebelumnya perbaikannya harus lewat menu
+			 * Konfigurasi terpisah dan admin perlu menebak baris mana yang benar.
+			 *
+			 * Yang dikirim ke penyunting adalah kodeAsli (teks default bahasa Indonesia di kode
+			 * sumber), BUKAN `pesan` yang sudah diterjemahkan -- kunci kamus diturunkan dari teks
+			 * default, sehingga memakai hasil terjemahan akan membuat baris baru yang tidak
+			 * pernah terbaca. Pemeriksaan hak akses diulang di dalam EditorLabelBahasa. */
+			if (kodeAsli != null && kodeAsli.trim().length() > 0 && EditorLabelBahasa.bolehMenyunting()) {
+				final String kodeUntukEditor = kodeAsli;
+				Button ubahBtn = new Button("Ubah Teks");
+				ubahBtn.setStyle("border:1px solid #cbd5e1;background:#ffffff;color:#334155;"
+						+ "border-radius:8px;padding:6px 12px;font-weight:800;");
+				ubahBtn.setTooltiptext(
+						"Ubah kalimat ini beserta terjemahannya (Indonesia, English, Arabic, Mandarin)");
+				ubahBtn.setParent(footer);
+				ubahBtn.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						EditorLabelBahasa.buka(kodeUntukEditor);
+					}
+				});
+			}
+
 			tambahTombolAksi(footer, win, eventListener, buttons, warna);
 
 			win.doModal();
@@ -532,8 +558,8 @@ public class MyMessageboxConfig {
 	}
 
 	private static int tampilModern(final String pesan, final String title, final Integer buttons, final String icon,
-			final EventListener eventListener) throws InterruptedException {
-		return tampilModern(pesan, title, buttons, icon, eventListener, null, null);
+			final EventListener eventListener, final String kodeAsli) throws InterruptedException {
+		return tampilModern(pesan, title, buttons, icon, eventListener, null, null, kodeAsli);
 	}
 
 	private static void tambahTombolAksi(Hbox footer, final Window win, final EventListener eventListener,
@@ -631,7 +657,7 @@ public class MyMessageboxConfig {
 		}
 		if (isZkEnvironment()) {
 			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, null, throwable,
-					detailTambahan);
+					detailTambahan, messageCode);
 		}
 		triggerGlobalJavascriptToast(pesan, icon);
 		return OK;
@@ -658,7 +684,8 @@ public class MyMessageboxConfig {
 			return;
 		}
 		if (isZkEnvironment()) {
-			tampilModern(pesan, Common.getBahasaConfig("Informasi"), Messagebox.OK, Messagebox.INFORMATION, null);
+			tampilModern(pesan, Common.getBahasaConfig("Informasi"), Messagebox.OK, Messagebox.INFORMATION, null,
+					messageCode);
 		} else {
 			triggerGlobalJavascriptToast(pesan, INFORMATION);
 		}
@@ -674,7 +701,7 @@ public class MyMessageboxConfig {
 		if (isZkEnvironment()) {
 			// Mengembalikan tombol yang diklik (mode sinkron ZK) agar pemanggil dapat memeriksa
 			// hasil, mis. if (MyMessageboxConfig.show(...) == MyMessageboxConfig.YES) { ... }.
-			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, null);
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, null, messageCode);
 		} else {
 			triggerGlobalJavascriptToast(pesan, icon);
 			return OK;
@@ -689,7 +716,7 @@ public class MyMessageboxConfig {
 			return OK;
 		}
 		if (isZkEnvironment()) {
-			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener);
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener, messageCode);
 		} else {
 			triggerGlobalJavascriptToast(pesan, icon);
 			// Karena pemanggilan JavaScript di luar ZK berjalan secara asynchronous di browser,
@@ -720,7 +747,10 @@ public class MyMessageboxConfig {
 			return OK;
 		}
 		if (isZkEnvironment()) {
-			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, null);
+			// Yang disunting adalah TEMPLATE-nya (berisi {V1},{V2},...), bukan hasil
+			// substitusi: kamus menyimpan template, sehingga hasil substitusi akan
+			// membuat baris baru yang tidak pernah terbaca.
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, null, template);
 		} else {
 			triggerGlobalJavascriptToast(pesan, icon);
 			return OK;
@@ -740,7 +770,8 @@ public class MyMessageboxConfig {
 			return OK;
 		}
 		if (isZkEnvironment()) {
-			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener);
+			// Lihat catatan pada showFormat: yang disunting adalah templatenya.
+			return tampilModern(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener, template);
 		} else {
 			triggerGlobalJavascriptToast(pesan, icon);
 			return OK;

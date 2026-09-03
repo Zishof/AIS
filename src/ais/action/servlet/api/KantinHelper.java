@@ -6795,6 +6795,49 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Mengaktifkan kebijakan koreksi hanya untuk toko transaksi yang sedang ditangani.
+	 * Aksi ini sengaja online-only: perubahan hak koreksi transaksi final tidak boleh
+	 * dianggap berhasil dari outbox sebelum server memverifikasi pelaku dan lingkup toko.
+	 */
+	public static void pengaturanEditTransaksiTokoAktifkan(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		if (!bolehEditTransaksi(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin global, supervisor toko, atau grup pengguna berizin Supervisor yang dapat mengaktifkan koreksi transaksi.");
+			return;
+		}
+		boolean adminGlobal = Common.getApakahAdminLain(tbmuser);
+		ais.database.model.inventory.Pedagang pedagang = tbmuser == null ? null : tbmuser.getPedagang();
+		Long tokoLogin = pedagang == null || pedagang.getToko() == null ? null : pedagang.getToko().getId();
+		Long tokoDiminta = Common.angkaAtauNull(request, "toko_id");
+		Long tokoId = adminGlobal ? (tokoDiminta != null ? tokoDiminta : tokoLogin) : tokoLogin;
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko transaksi tidak diketahui. Pilih toko lalu buka kembali detail transaksi.");
+			return;
+		}
+		if (!adminGlobal && tokoDiminta != null && !tokoId.equals(tokoDiminta)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Kebijakan hanya dapat diaktifkan untuk toko akun yang sedang login.");
+			return;
+		}
+		Toko toko = (Toko) GeneralValueObject.ambilData(Toko.class, String.valueOf(tokoId));
+		if (toko == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak ditemukan.");
+			return;
+		}
+		simpanKonfigurasiAktif(
+				ais.action.master.koperasi.KoreksiTransaksiUtil.kunciToko(tokoId), true);
+		hasil.put("status", "00");
+		hasil.put("tokoId", tokoId);
+		hasil.put("tokoNama", toko.getNama() == null ? "" : toko.getNama());
+		hasil.put("aktif", true);
+		hasil.put("efektif", ais.action.master.koperasi.KoreksiTransaksiUtil.efektif(tokoId));
+		hasil.put("description", "Koreksi transaksi telah diaktifkan untuk toko ini. Buka ulang detail transaksi untuk mulai mengoreksi.");
+	}
+
+	/**
 	 * Tulis satu konfigurasi bernilai AKTIF/TIDAK_AKTIF.
 	 *
 	 * <p>Cache konfigurasi di memori WAJIB ikut diperbarui; tanpa itu nilai

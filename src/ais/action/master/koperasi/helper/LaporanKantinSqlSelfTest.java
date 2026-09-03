@@ -65,6 +65,12 @@ public final class LaporanKantinSqlSelfTest {
         String satuan = LaporanKantinUtil.LABEL_SATUAN_JUAL.toLowerCase();
         check(satuan.indexOf("qty_input") >= 0 && satuan.indexOf("sj.nama") >= 0,
                 "label satuan jual memakai qty_input dan nama satuan yang dipilih kasir");
+        String satuanAgregat = LaporanKantinUtil.NAMA_SATUAN_TRANSAKSI.toLowerCase();
+        String qtyUom = LaporanKantinUtil.QTY_UOM_ITEM.toLowerCase();
+        check(satuanAgregat.indexOf("sj.nama") >= 0 && satuanAgregat.indexOf("sd.nama") >= 0,
+                "laporan agregat pemasok membedakan UOM jual dan satuan dasar");
+        check(qtyUom.indexOf("p.qty_input") >= 0 && qtyUom.indexOf("p.qty") >= 0,
+                "qty laporan pemasok memakai qty UOM dengan cadangan qty dasar");
 
         java.util.Map<String, Object> prm = new java.util.HashMap<String, Object>();
         String periode = LaporanKantinUtil.klausaPeriodeItemPenjualan("2026-01-01", "2026-01-31", prm)

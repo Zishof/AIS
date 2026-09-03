@@ -199,7 +199,7 @@ public final class LaporanKatalogData {
         k.items.add(item("pnj_per_pelanggan", "Penjualan Barang per Pelanggan", "Nilai belanja per pelanggan/anggota.", false, true, true, null));
         k.items.add(item("pnj_per_kategori_pelanggan", "Penjualan per Kategori Pelanggan", "Nilai penjualan per kategori anggota.", false, false, true, null));
         k.items.add(item("pnj_per_cabang", "Penjualan per Cabang", "Nilai penjualan per toko/merchant."));
-        k.items.add(item("pnj_per_pemasok", "Penjualan Barang Per Pemasok", "Nilai penjualan dikelompokkan per pemasok.", true, false, true, null));
+        k.items.add(item("pnj_per_pemasok", "Penjualan Barang Per Pemasok", "Rincian produk, satuan, kuantitas, dan nilai penjualan yang dikelompokkan per pemasok.", true, false, true, null));
         k.items.add(item("pnj_uang_muka", "Uang Muka Penjualan", "Faktur dengan pembayaran sebagian (uang muka).", false, true, false, null));
         k.items.add(item("pnj_detail_transaksi", "Detail Transaksi Penjualan", "Rincian item tiap transaksi POS (per nomor faktur).", true, false, false, null));
         k.items.add(item("pnj_per_jam", "Penjualan per Jam", "Omzet & transaksi tiap jam operasional (jam ramai).", false, false, true, null));

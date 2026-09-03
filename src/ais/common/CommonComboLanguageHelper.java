@@ -473,6 +473,21 @@ public class CommonComboLanguageHelper extends Common {
 		return (prefix == null || prefix.trim().length() == 0 ? "" : prefix.trim() + "_") + key;
 	}
 
+	/**
+	 * Kunci kamus untuk sebuah teks default — versi publik dari {@link #buildBahasaKey}.
+	 *
+	 * <p>Dibutuhkan layar penyuntingan label multi-bahasa: untuk menyunting terjemahan
+	 * sebuah kalimat, penyunting harus tahu kunci baris {@code LabelBahasa} mana yang
+	 * dipakai jalur baca. Menurunkan kunci itu sendiri di luar kelas ini berisiko
+	 * menyimpang dari aturan normalisasi di sini (spasi, garis miring, tanda kurung sudut)
+	 * dan akan menghasilkan baris yatim yang tidak pernah terbaca.</p>
+	 *
+	 * @see ais.common.LabelBahasaHelper
+	 */
+	public static String kunciBahasa(String teksDefault) {
+		return buildBahasaKey(null, teksDefault);
+	}
+
 	private static String ambilBahasaDariMemory(String key, String currentLang) {
 		try {
 			if (currentLang == null) {

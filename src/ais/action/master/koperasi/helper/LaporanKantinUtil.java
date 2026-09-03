@@ -99,6 +99,15 @@ public final class LaporanKantinUtil {
         + " then (trim(to_char(p.qty_input,'FM999999990.###')) || ' ' || trim(sj.nama))"
         + " else '' end";
 
+    /** Nama UOM transaksi untuk laporan agregat (tanpa angka qty per baris). */
+    static final String NAMA_SATUAN_TRANSAKSI =
+        "coalesce(nullif(trim(sj.nama),''), nullif(trim(sd.nama),''), '-')";
+
+    /** Qty dalam UOM yang dipilih kasir; jatuh ke qty dasar untuk penjualan biasa. */
+    static final String QTY_UOM_ITEM =
+        "case when p.satuan_jual is not null and p.qty_input is not null"
+        + " then p.qty_input else coalesce(p.qty,0) end";
+
     /** JOIN satuan jual + satuan dasar untuk baris item penjualan. */
     private static final String JOIN_SATUAN_ITEM =
         " left join koperasi.satuan_produk sj on sj.id=p.satuan_jual"
@@ -821,19 +830,26 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("Metode / Akun Bank","text")); kolom.add(new Kolom("Jml Transaksi","num")); kolom.add(new Kolom("Total Diterima","num"));
 
             } else if ("pnj_per_pemasok".equals(r)) { tokoIdCol = "p.toko";
-                judul = "Penjualan Barang Per Pemasok";
-                catatan = "Pemasok ditentukan dari pengadaan terakhir tiap produk.";
+                judul = "Rincian Penjualan Barang Per Pemasok"; grupIdx = 0;
+                catatan = "Setiap pemasok dirinci sampai produk yang terjual. Pemasok ditentukan dari pengadaan terakhir tiap produk.";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 w.append(kondToko("p.toko", tokoId, prm));
                 w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
-                if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
-                sql = "select coalesce(ps.pemasok,'(Tanpa Pemasok)'), sum(coalesce(p.qty,0)), sum(" + OMZET + ") "
+                if (qp != null) { w.append(" and (lower(" + KODE_PRODUK_ITEM + ") like :qp or lower(" + NAMA_PRODUK_ITEM + ") like :qp) "); prm.put("qp", qp); }
+                sql = "select coalesce(ps.pemasok,'(Tanpa Pemasok)'), " + KODE_PRODUK_ITEM + ", "
+                    + NAMA_PRODUK_ITEM + ", " + NAMA_SATUAN_TRANSAKSI + ", "
+                    + "sum(" + QTY_UOM_ITEM + "), sum(coalesce(p.qty,0)), sum(" + OMZET + ") "
                     + " from koperasi.pembelian p left join koperasi.produk pr on pr.id=p.produk "
+                    + JOIN_SATUAN_ITEM
                     + " left join (select distinct on (produk) produk, coalesce(nullif(namasupplier,''),'(Tanpa Pemasok)') as pemasok "
                     + "            from koperasi.pengadaan_produk order by produk, waktupengadaan desc) ps on ps.produk=p.produk "
-                    + w + " group by ps.pemasok order by 3 desc ";
-                tipe = new String[]{"text","num","num"};
-                kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("Qty Terjual","num")); kolom.add(new Kolom("Total Penjualan","num"));
+                    + w + " group by ps.pemasok, " + KODE_PRODUK_ITEM + ", " + NAMA_PRODUK_ITEM + ", "
+                    + NAMA_SATUAN_TRANSAKSI + " order by 1, 7 desc, 3 ";
+                tipe = new String[]{"text","text","text","text","num","num","num"};
+                kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("Kode Produk","text"));
+                kolom.add(new Kolom("Produk Terjual","text")); kolom.add(new Kolom("Satuan Terjual","text"));
+                kolom.add(new Kolom("Qty UOM","num")); kolom.add(new Kolom("Qty Dasar","num"));
+                kolom.add(new Kolom("Total Penjualan","num"));
 
             } else if ("pnj_uang_muka".equals(r)) {
                 judul = "Uang Muka Penjualan (Pembayaran Sebagian)";

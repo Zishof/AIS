@@ -410,6 +410,9 @@ public class PosApi extends HttpServlet {
 			} else if ("pengaturan_edit_transaksi_global_simpan".equals(action)) {
 				KantinHelper.pengaturanEditTransaksiGlobalSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if ("pengaturan_edit_transaksi_toko_aktifkan".equals(action)) {
+				KantinHelper.pengaturanEditTransaksiTokoAktifkan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if ("toko_filter_list".equals(action)) {
 				prosesTokoFilterList(tbmuser, hasil);
 			} else if ("pengguna_toko_list".equals(action)) {
@@ -2371,7 +2374,9 @@ public class PosApi extends HttpServlet {
 		// prosesPesananList/prosesRingkasan) -- gap-closure: sebelumnya HANYA dicek via menu "laporan",
 		// jadi kasir/pedagang yang punya akses "ringkasan" tapi bukan "laporan" bisa MELIHAT transaksi
 		// di dasbor Ringkasan tapi ditolak server begitu menekan "Cetak Struk" pada baris yang sama.
-		if ("detail_transaksi".equals(action) || "edit_transaksi".equals(action) || "edit_transaksi_kasir_cari".equals(action)) {
+		if ("detail_transaksi".equals(action) || "edit_transaksi".equals(action)
+				|| "edit_transaksi_kasir_cari".equals(action)
+				|| "pengaturan_edit_transaksi_toko_aktifkan".equals(action)) {
 			return menu.optBoolean("laporan", true) || menu.optBoolean("ringkasan", true)
 					|| menu.optBoolean("returpenjualan", true);
 		}
@@ -4049,6 +4054,8 @@ public class PosApi extends HttpServlet {
 			boolean kebijakanEditAktif = ais.action.master.koperasi.KoreksiTransaksiUtil.efektif(tokoId);
 			boolean bolehEditTransaksi = penggunaBolehEdit && punyaHeaderKelompok && kebijakanEditAktif;
 			hasil.put("bolehEditTransaksi", bolehEditTransaksi);
+			hasil.put("bolehAktifkanKebijakanEditTransaksi", penggunaBolehEdit && punyaHeaderKelompok);
+			hasil.put("tokoIdTransaksi", tokoId);
 			hasil.put("kebijakanEditGlobalAktif",
 					ais.action.master.koperasi.KoreksiTransaksiUtil.globalAktif());
 			hasil.put("kebijakanEditTokoAktif",
