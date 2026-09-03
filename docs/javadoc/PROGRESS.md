@@ -1,5 +1,66 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 75 — SELESAI 100% (3 Sep 2026) — 2 entity TIDUR/YATIM lagi ditemukan (TemplateTransaksi); fail-open `bolehAksi()` (`task_66986071`) meluas ke gerbang TUTUP BUKU (`Closing`/`Pajak`) — instans paling kritis sejauh ini; 2 task baru (`task_6e542cda` split-brain penguncian jurnal, `task_0a06e418` checkbox grid tanpa gerbang)
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/akunting/Closing.java`** (r83935) — 153→574
+  baris, 100%. Penanda batas waktu tutup buku, GLOBAL lintas tenant
+  (tidak ada kolom sekolah/yayasan — satu tenant menutup buku mengunci
+  SEMUA tenant). Koreksi b73: klaim NPE bila `tanggal` null TIDAK
+  TERBUKTI (getter substitusi hari ini, bukan NPE). **Temuan paling
+  kritis sejauh ini**: `ClosingApiHelper.bolehAksi()` fail-open
+  IDENTIK `task_66986071` — tapi di sini gerbangnya adalah
+  create/update/**delete**/kunci/**buka-kunci periode tutup buku**;
+  rantai lengkap: pengguna berperan tak-terbaca → hapus closing via
+  REST → `grup_transaksi.closing` dilepas massal → SELURUH jurnal
+  historis global kembali bisa diubah/dibatalkan/dihapus. **Task baru
+  `task_6e542cda`**: hapus closing lewat ZK (beda dari REST)
+  meninggalkan referensi patah (`@NotFound(IGNORE)`) — jurnal
+  tampak "bisa diubah" tapi aksinya tak berefek, terkunci permanen
+  tanpa jalan pulih dari UI.
+- **`ais/database/model/akunting/JenisKasBesar.java`** (r83939) —
+  232→991 baris, 100%. `task_66986071` TERKONFIRMASI menjangkau
+  entity ini (akun jurnal kas besar bisa dipindah via REST fail-open).
+  **Temuan baru** (kandidat `task_0a06e418`): checkbox grid "Aktif"/
+  "Default" tersimpan ke DB TANPA gerbang hak SAMA SEKALI, kontras
+  tombol Ubah/Hapus di baris sama yang dipagari — Javadoc lama bahkan
+  merasionalisasi ini sebagai "disengaja". Bug lingkungan: `reloadDefault()`
+  melanggar kontrak `HibernateUtil` (menutup sesi ZK yang sedang
+  aktif) — pola sama dikonfirmasi di 3 layar (Kas Besar/Kecil/UangMuka).
+- **`ais/database/model/akunting/JenisKasKecil.java`** (r83942) —
+  270→1199 baris, 100%. Peran GANDA terverifikasi: katalog akun DAN
+  dokumen yang diposting sendiri (jurnal saldo awal). `task_66986071`
+  terkonfirmasi menjangkau entity ini juga. Pola checkbox grid tanpa
+  gerbang TIDAK diverifikasi ulang di sini (di luar cakupan agent) —
+  `task_0a06e418` akan memeriksa kembarannya.
+- **`ais/database/model/akunting/ReimbursementPegawai.java`** (r83943)
+  — 464→1719 baris, 100%. Dokumen SATU-LANGKAH (bukan siklus panjar+LPJ
+  seperti UangMuka). `task_78c0c5c2` TIDAK berlaku (field `persetujuan`
+  ada tapi mati, tak pernah dibaca dari URL). **`task_66986071`
+  diperluas**: `ReimbursementApiHelper.bolehAksi()` fail-open identik,
+  tapi di sini menjaga APPROVE/REJECT (bukan CRUD master) — pengguna
+  tanpa peran bisa mengajukan klaim lalu MENYETUJUI KLAIMNYA SENDIRI,
+  melewati alur SOP sepenuhnya, otomatis mengalir ke pembayaran.
+- **`ais/database/model/akunting/TemplateTransaksi.java`** (r83940) —
+  468→1431 baris, 100%. **Entity TIDUR/YATIM kedua** (setelah
+  `PengumumanJadwalPelajaran` b72) — nol pemanggil di seluruh repo,
+  peninggalan rancangan 2010. Kuirk berbahaya `Transaksi.getAkun()`
+  (b73, menimpa dengan `akunOver`) TIDAK menular ke kembarannya ini.
+  Fitur "Template Jurnal" yang benar-benar hidup ternyata entity lain
+  (`TemplateJurnalPenyesuaian`).
+
+**2 task baru batch ini**: `task_6e542cda` (dibuat agent `Closing.java`
+sendiri), `task_0a06e418` (dibuat orkestrator, dari temuan agent
+`JenisKasBesar.java`). **Pola fail-open `bolehAksi()`
+(`task_66986071`) kini terkonfirmasi di 5 helper API berbeda**
+(`MasterKeuanganApiHelper`, `PertangungjawabanKasBesarApiHelper`,
+`ClosingApiHelper`, `ReimbursementApiHelper`, + sebelumnya) — jelas
+merupakan KESALAHAN TEMPLATE/COPY-PASTE arsitektural di seluruh
+lapisan REST modul finansial "uang" akunting, bukan bug satu file.
+
 ## Batch 74 — SELESAI 100% (3 Sep 2026) — melengkapi inti mesin akuntansi (PostingHistory, Pertangungjawaban, PertangungjawabanKasBesar, JenisUangMuka, JenisTransaksi); 4 task baru; `task_78c0c5c2` (bypass persetujuan via `?persetujuan=true`) TERKONFIRMASI di 2 Action tambahan + diperluas ke jalur REST; `task_66986071` (fail-open `bolehAksi()` role null) diperluas ke 2 helper API lagi
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
