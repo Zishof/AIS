@@ -35,7 +35,26 @@ constraint "fk59bea98af381abdb" on table "detail_kegiatan"
 ## Berkas
 
 - Migrasi: `webapp/sql/migrasi_fk_detail_kegiatan_pembayaran_bulanan_cascade_20260903.sql`
+- ALTER sederhana (nama constraint sesuai error):
+  `webapp/sql/alter_fk_detail_kegiatan_pembayaran_bulanan_cascade_sederhana_20260903.sql`
 - Rollback: `webapp/sql/rollback_fk_detail_kegiatan_pembayaran_bulanan_cascade_20260903.sql`
+
+## ALTER sederhana
+
+Untuk instalasi yang constraint-nya pasti bernama `fk59bea98af381abdb`, dapat
+langsung menjalankan:
+
+```sql
+ALTER TABLE detail_kegiatan
+DROP CONSTRAINT fk59bea98af381abdb,
+ADD CONSTRAINT fk59bea98af381abdb
+    FOREIGN KEY (pengaturan_pembayaran_bulanan)
+    REFERENCES pengaturan_pembayaran_bulanan (id)
+    ON DELETE CASCADE;
+```
+
+Versi ini mengikuti pola `cascade.sql`. Untuk instalasi lain yang nama
+constraint-nya dapat berbeda, gunakan berkas migrasi idempotent di atas.
 
 ## Cara menjalankan
 
