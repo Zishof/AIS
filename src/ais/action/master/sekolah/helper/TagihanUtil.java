@@ -42,6 +42,21 @@ import ais.database.model.sekolah.Tagihan;
 
 public class TagihanUtil {
 
+	/**
+	 * Batasi tagihan pada pasangan paket + item yang masih tercantum di Setting Biaya.
+	 *
+	 * <p>Tagihan dan NominalBiaya adalah data materialisasi, sehingga baris lama tetap
+	 * ada ketika operator melepas suatu item dari PengaturanBiayaAction. Tanpa korelasi
+	 * ini, baris lama tersebut kembali tampil walaupun relasi
+	 * PengaturanBiayaItemBiaya-nya sudah dihapus.</p>
+	 */
+	static Criteria batasiPadaItemYangMasihDiatur(Criteria criteria) {
+		return criteria.add(Restrictions.sqlRestriction(
+				"exists (select 1 from sekolah.pengaturan_biaya_item_biaya pbi_aktif "
+						+ "where pbi_aktif.pengaturan_biaya_id = {alias}.pengaturan_biaya_id "
+						+ "and pbi_aktif.item_biaya_sekolah_id = {alias}.item_biaya_sekolah_id)"));
+	}
+
 	// === Anti-deadlock generate tagihan (KE-1/2/3): serialisasi per-siswa + retry saat deadlock ===
 
 	/** Lama maksimal sebuah thread menunggu giliran generate untuk siswa yang sama (detik). */
@@ -1574,14 +1589,14 @@ public class TagihanUtil {
 
 		try {
 			session = HibernateUtil.openSession();
-			Criteria criteria = session.createCriteria(Tagihan.class)
+			Criteria criteria = batasiPadaItemYangMasihDiatur(session.createCriteria(Tagihan.class)
 					.createAlias("itemBiayaSekolah", "itemBiayaSekolah")
 					.createAlias("nominalBiaya", "nb_filter")
 					.add(Restrictions.eq("itemBiayaSekolah.aktif", true))
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 					.add(Restrictions.or(Restrictions.isNull("nb_filter.bukanTagihan"),
 							Restrictions.eq("nb_filter.bukanTagihan", false)))
-					.add(Restrictions.eq("siswa", s));
+					.add(Restrictions.eq("siswa", s)));
 
 			if (pengaturanData != null) {
 				criteria.add(Restrictions.eq("pengaturanBiaya", pengaturanData));
