@@ -261,13 +261,24 @@
                 if(res.status === 'success') {
                     tbody.innerHTML = res.data.length ? '' : '<tr><td colspan="4" class="text-center py-3 text-muted">Belum ada data hari ini.</td></tr>';
                     res.data.forEach(function(d) {
-                        var row = '<tr>' +
-                                  '<td class="ps-3"><b>' + d.nama + '</b></td>' +
-                                  '<td>' + d.alamat + '</td>' +
-                                  '<td>' + d.keperluan + '</td>' +
-                                  '<td class="text-center">' + d.waktu + '</td>' +
-                                  '</tr>';
-                        tbody.innerHTML += row;
+                        var tr = document.createElement('tr');
+                        var tdNama = document.createElement('td');
+                        tdNama.className = 'ps-3';
+                        var b = document.createElement('b');
+                        b.textContent = d.nama;
+                        tdNama.appendChild(b);
+                        var tdAlamat = document.createElement('td');
+                        tdAlamat.textContent = d.alamat;
+                        var tdKeperluan = document.createElement('td');
+                        tdKeperluan.textContent = d.keperluan;
+                        var tdWaktu = document.createElement('td');
+                        tdWaktu.className = 'text-center';
+                        tdWaktu.textContent = d.waktu;
+                        tr.appendChild(tdNama);
+                        tr.appendChild(tdAlamat);
+                        tr.appendChild(tdKeperluan);
+                        tr.appendChild(tdWaktu);
+                        tbody.appendChild(tr);
                     });
                 }
             } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-danger">Gagal memuat riwayat.</td></tr>'; }

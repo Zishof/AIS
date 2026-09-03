@@ -21,8 +21,14 @@ if(request.getParameter("urlLama") != null && !request.getParameter("urlLama").t
 }
 
 if(hanya_tampil_jsp){
-	if(!p.trim().isEmpty() && !s.trim().isEmpty()){
-        	  
+	// Daftar putih: dispatcher publik ini hanya boleh menjadi proksi ke berkas
+	// layanan milik modulnya SENDIRI (dipanggil dari _belum_login_anjungan.jsp).
+	// Tanpa ini, p/s bebas dari klien bisa meng-include berkas _service.jsp modul
+	// LAIN (keuangan/kepegawaian/akuntansi, dst.) yang tidak punya cek sesi sendiri.
+	boolean psDiizinkan = "anjungan".equals(p)
+			&& ("_login_pustaka_service".equals(s) || "_login_qrcode_service".equals(s));
+	if(!p.trim().isEmpty() && !s.trim().isEmpty() && psDiizinkan){
+
         	  try{
         		  String pg = "/WEB-INF/baru/modul/"+p+"/"+s+".jsp";
                   %>
@@ -34,7 +40,9 @@ if(hanya_tampil_jsp){
         		  <jsp:include page="/WEB-INF/baru/componen/tidak_ketemu_page.jsp"></jsp:include>
         		  <%
         	  }
-          
+
+    } else if(!p.trim().isEmpty() && !s.trim().isEmpty()){
+        response.sendError(403);
     }
 } else {
 %>
