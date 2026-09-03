@@ -1,5 +1,57 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 49 — SELESAI 100% (3 Sep 2026) — DATA DISABILITAS ANAK TERHAPUS SENYAP, BROKEN ACCESS CONTROL VERIFIKASI PSB
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/Penghargaan.java`** (r83659) — 157→709
+  baris, 100% (34 anggota). Bug `totalPointPenghargaan` TERKONFIRMASI —
+  bahkan lebih parah dari dugaan: kode penjumlahan salah-alamat itu
+  SEPENUHNYA MATI (tidak bocor ke total manapun karena `Double`
+  immutable + urutan penulisan parameter). Penciutan TreeSet
+  terverifikasi NYATA menghasilkan selisih hitung layar vs laporan.
+- **`ais/database/model/sekolah/AsramaSiswaPunyaSiswa.java`** (r83660)
+  — 157→703 baris, 100% (33 anggota). Bug `syncAsrama` TIDAK menyeberang
+  dari PT (mekanisme beda), TAPI bug "penambahan lupa filter asrama"
+  TERKONFIRMASI ADA di 2 lokasi (memindahkan siswa diam-diam antar
+  asrama, berdampak keuangan via `PengaturanBiaya`). Bug baru: tombol
+  "Bersihkan" membatalkan dirinya sendiri (renderer langsung menulis
+  ulang data yang baru dibersihkan).
+- **`ais/database/model/sekolah/CalonSiswaPunyaVerifikasiParameter.java`**
+  (r83661) — 155→647 baris, 100% (27 anggota). Domain lebih kompleks
+  dari dugaan (N entri per kategori). **Broken access control
+  signifikan**: layar verifikasi PSB nol `checkPrevilages` sama sekali
+  — hak READ saja bisa mengubah status verifikasi berkas penerimaan
+  calon siswa MANA PUN lintas instalasi (keputusan lolos/tidak seleksi).
+- **`ais/database/model/sekolah/NilaiKegiatanKesiswaan.java`** (r83662)
+  — 151→659 baris, 100% (31 anggota). Struktur kunci gabungan
+  TERKONFIRMASI RAPI (mencerminkan versi mahasiswa PT yang baik).
+  Temuan penting: SELURUH lapis nilai kegiatan kesiswaan YATIM
+  FUNGSIONAL — diisi tapi tak pernah dibaca untuk perhitungan kredit
+  apa pun (porting dari PT berhenti di layar master). Broken access
+  control ada tapi "bom waktu" (severity rendah sekarang).
+- **`ais/database/model/sekolah/KebutuhanKhususSiswa.java`** (r83663)
+  — 149→588 baris, 100% (19 anggota). Premis awal keliru — entity ini
+  katalog GENERIK 17 kategori (bukan data pribadi), data disabilitas
+  asli ada di kolom teks bebas `Siswa.kebutuhanKhusus` TANPA FK ke
+  entity ini. **BUG PALING SIGNIFIKAN batch ini**: penulis form PPDB
+  menyimpan LABEL kategori, pembaca mencocokkan berdasarkan ID — hampir
+  tidak pernah cocok → checkbox SELALU tampak kosong saat form dibuka
+  ulang → menyimpan ulang tanpa mencentang lagi MENGHAPUS DATA
+  DISABILITAS ANAK SECARA SENYAP, sekaligus melewati validasi wajib
+  unggah surat keterangan dari rumah sakit. "Bom waktu" ganda: memperbaiki
+  1 sisi saja akan membuat data historis format-lama jadi tak terbaca.
+
+**Bug fungsional paling berdampak sesi ini** (bukan kerentanan keamanan,
+integritas data anak berkebutuhan khusus): kehilangan data senyap di
+`KebutuhanKhususSiswa`/`CalonSiswa.kebutuhanKhusus` — dicatat lengkap
+di Javadoc `CalonSiswa.kebutuhanKhusus(Box)` untuk perbaikan masa depan,
+TIDAK dieskalasi sebagai task keamanan (murni bug data, bukan akses).
+
+Total akumulasi 49 sesi: **422 file + 1 Action dasbor**.
+
 ## Batch 48 — SELESAI 100% (3 Sep 2026) — "SURAT SAKTI" TERKONFIRMASI DI SEKOLAH, DoS FUNGSIONAL PSB, BUG PERUSAK DATA
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
