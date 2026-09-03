@@ -1,5 +1,62 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 91 — SELESAI 100% (4 Sep 2026) — PIVOT ke paket `inventory`; 2 task baru (`task_2c2a0ebf`, `task_a0bf7dc1`)
+
+20 file selesai (batch pertama domain baru `inventory`, dipilih
+karena sudah sering dirujuk dari `koperasi`), semua dikompilasi
+`-implicit:none` bersih via PowerShell, WC mirror disinkron via
+`svn update`, `cmp` byte-identik:
+
+- **`PengadaanFaktur.java`** (r84215) + **`PengadaanProduk.java`**
+  (r84219) + **`PengajuanPembelianGudang.java`** (r84225) — 100%.
+  **KOREKSI ALUR**: bukan rantai FK linear —
+  `PengajuanPembelianGudang` adalah antrean kerja MURNI tanpa FK
+  sama sekali ke `PengadaanProduk`/`PengadaanFaktur`; realisasi
+  sesungguhnya lewat `KantinHelper.kulakanFakturSimpan`.
+- **`Pembelian.java`** (r84223) + **`DraftPembelian.java`**
+  (r84231) + **`ReturPembelian.java`** (r84234) — 100%. **KOREKSI
+  NAMA MENYESATKAN besar**: `Pembelian`/`DraftPembelian` ternyata
+  baris PENJUALAN (barang keluar ke pembeli), BUKAN pembelian ke
+  supplier — dikonfirmasi 3 sisi (StokKantinUtil, kolom harga jual,
+  `postingHpp`). `DraftPembelian` (baris) vs
+  `koperasi.DraftPembelianAnggotaKoperasi` (header) — hubungan
+  induk-anak dokumen yang sama, BUKAN dua pola serupa nama beda
+  modul. **🚨 Task baru `task_a0bf7dc1`**: `returPembelianHapus`
+  TIDAK memeriksa `postingHistory` sebelum hapus (beda dari
+  `batalkanTransaksi` di file sama yang sudah punya penjaga itu) —
+  jurnal yatim + stok menyimpang dari nilai persediaan.
+- **`GrupProduk.java`** (r84216) + **`JenisProduk.java`** (r84218)
+  + **`SatuanProduk.java`** (r84224) + **`ProdukBatch.java`**
+  (r84228) — 100%. `GrupProduk`(harga)/`JenisProduk`(akunting) DUA
+  DIMENSI independen dikonfirmasi. `ProdukBatch` = mesin FEFO nyata
+  dengan integrasi karantina QC. **🚨 Task baru `task_2c2a0ebf`**:
+  `SatuanProduk.getRasio()` menormalkan rasio tak valid jadi 1.0
+  SEBELUM validasi exception sempat jalan — silently jadi 1:1; plus
+  2 field konfigurasi mati (`presisiPembulatan`,
+  `JenisProduk.defaultProduk`).
+- **`StokOpname.java`** (r84217) + **`SesiStokOpname.java`**
+  (r84220) + **`AmbangStokGudang.java`** (r84222) +
+  **`MutasiStokToko.java`** (r84227) + **`MutasiStokProduksi.java`**
+  (r84230) — 100%. `MutasiStokToko` punya penjaga keseimbangan
+  STRUKTURAL nyata (satu kolom qty untuk kedua sisi). Penutupan
+  sesi opname TIDAK memeriksa selisih (soft-check, sama pola
+  `koperasi.SalesInventoryTripHelper`). `AmbangStokGudang`
+  DIKONFIRMASI HIDUP (memicu draf pengajuan otomatis), bukan field
+  pasif seperti dugaan.
+- **`Pedagang.java`** (r84221) + **`SetoranTenant.java`** (r84226)
+  + **`SesiKasKasir.java`** (r84229) + **`ReturPenjualan.java`**
+  (r84232) + **`ReturBarang.java`** (r84233) — 100%. `SesiKasKasir`
+  konfirmasi pola sama `koperasi.NotaSalesSession` (selisih
+  dicatat, tidak hard-block). **Koreksi dokumentasi**: `ReturBarang`
+  klaim lama "retur ke pemasok" TIDAK PERNAH diimplementasikan —
+  satu-satunya penulis nyata adalah penanganan barang rusak transfer
+  antar-gudang.
+
+**2 task baru batch ini**: `task_2c2a0ebf`, `task_a0bf7dc1`. Domain
+`inventory` fertile untuk koreksi struktural/nama-menyesatkan
+(3 koreksi besar batch ini) walau tak sefertile `koperasi` untuk
+temuan keamanan murni.
+
 ## 🎉 MILESTONE — paket `koperasi` TUNTAS 100% (4 Sep 2026, akhir batch 90) — domain finansial KETIGA tuntas
 
 Diverifikasi: **60/60 file** `ais/database/model/koperasi/` kini
