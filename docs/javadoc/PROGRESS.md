@@ -1,5 +1,41 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `inventory` TUNTAS 100% (4 Sep 2026, akhir batch 92) — domain KEEMPAT tuntas
+
+Diverifikasi: **40/40 file** `ais/database/model/inventory/` kini
+punya Javadoc substansial. Dikerjakan batch 91-92 (2 batch). Domain
+keempat yang tuntas penuh setelah `akunting` (73-80), `payroll`
+(81-86), `koperasi` (87-90).
+
+**Batch 92 (penutup, 20 file, 1 task baru `task_445349e3`)**:
+klaster produksi/manufaktur (8 file, r84236-r84254 — DUA mesin
+produksi terpisah dikonfirmasi: WO/BOM vs resep-POS, bukan satu
+rantai tunggal; `ProduksiKantin` tanpa jalur tulis bisnis
+ditemukan); klaster distribusi (4 file, r84238-r84244 — **SELURUH
+klaster dormant/yatim**, nol listener/service/action menyentuhnya);
+klaster kecil misc (6 file, r84239-r84255 — `MutasiRekeningKoran`
+juga dormant/yatim; `KebijakanRetur` murni deskriptif tak
+ditegakkan; gerbang approval `PengajuanPerubahanHargaProduk`
+self-approval-mungkin, memperkuat pola tercatat); **`Produk.java`**
+(r84247/84253) + **`Toko.java`** (r84256/84257, keduanya tuntas
+100%) — `Toko` DIKONFIRMASI akar tenant SATU TINGKAT (beda dari
+`Koperasi` 2-tingkat), TIDAK terdaftar Generic CRUD v2 (whitelist
+`scopeBindings()` bahkan TIDAK punya kunci `toko` sama sekali —
+scope Produk/Toko jadi no-op total, lebih parah dari kasus lain).
+**🚨 Task baru `task_445349e3`**: `GrupProdukUtil.terapkanHargaKeAnggota`
+menimpa `hargaBeli` SELURUH anggota grup LINTAS TOKO tanpa memeriksa
+flag `hargaBeliManual` (yang dihormati di titik lain) — harga
+terkunci berubah diam-diam.
+
+**Total entity dorman/yatim baru ditemukan domain `inventory`**: 5
+(seluruh klaster distribusi 4 file + `MutasiRekeningKoran`) —
+melengkapi 10 sebelumnya dari domain lain, total sekarang **15**.
+
+**Pivot domain berikutnya (batch 93+)**: perlu scan ulang untuk
+paket besar berikutnya — kandidat `sirs` (118), `sister` (88),
+`library` (86), `asset` (63), `employ` (56), `file` (52), `rab`
+(46), `surat` (28).
+
 ## Batch 91 — SELESAI 100% (4 Sep 2026) — PIVOT ke paket `inventory`; 2 task baru (`task_2c2a0ebf`, `task_a0bf7dc1`)
 
 20 file selesai (batch pertama domain baru `inventory`, dipilih
