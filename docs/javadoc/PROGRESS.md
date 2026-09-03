@@ -1,5 +1,52 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 93 — SELESAI 100% (4 Sep 2026) — PIVOT ke paket `employ`; 1 task baru KRITIS (`task_b62255d9`); entity dorman ke-16 (`Pensiun`)
+
+47 file selesai (batch pertama domain baru `employ`/kepegawaian,
+dipilih karena terkait erat `payroll` yang sudah tuntas), semua
+dikompilasi `-implicit:none` bersih via PowerShell, WC mirror
+disinkron via `svn update`, `cmp` byte-identik:
+
+- **Klaster jabatan/golongan** (8 file, r84264-r84297):
+  `JabatanStruktural`/`JabatanFungsional` DIKONFIRMASI sumber NYATA
+  nilai tunjangan (dipanggil `ItemGajiPegawaiTreeModel` via
+  `ambilTunjangans()`) — `payroll.KodeTunjangan` cuma kamus token.
+  `GradeTunjanganKinerja` = entity dorman KELIMA BELAS.
+- **Klaster riwayat pegawai** (10 file, r84261-r84302): pola
+  template berulang terkonfirmasi (leverage tinggi), semua HIDUP
+  (tak ada dorman), beberapa perbedaan halus antar-file didokumentasikan
+  (satu default status terbalik, satu getter tanpa fallback biasa).
+- **Klaster karir/kenaikan** (10 file, r84260-r84305). **🚨🚨 Task
+  baru KRITIS `task_b62255d9`**: `Pegawai.ambilKenaikanPangkat()`
+  menerima SK kenaikan pangkat BELUM DISETUJUI (tidak cek
+  `getStatus()`) asal rentang tanggal mencakup hari ini — SK draft
+  langsung menggerakkan golongan/jabatan/gaji pokok/insentif/makan/
+  transport LIVE. Gerbang APPROVE hanya di UI
+  (`visible`/`disabled`), tidak diperiksa di titik mutasi.
+  `KenaikanGajiBerkala` lebih longgar lagi (tanpa cek APPROVE sama
+  sekali). `Pensiun` = entity dorman KEENAM BELAS (pemensiunan
+  nyata langsung tulis `Pegawai.statusPegawai`). `MutasiPindah` =
+  salinan `Pensiun` dengan kolom mati + bug filter
+  `Restrictions.eq("status", Boolean)` pada kolom String.
+- **Klaster cuti/disiplin/peraturan** (9 file, r84259-r84288).
+  **Verifikasi NEGATIF ketiga** untuk pola `task_fe6517bf` (kunci
+  ZK cocok persis di pasangan cuti-izin ini juga). Rantai disiplin
+  pegawai (pelanggaran→hukuman→pencatatan) terkonfirmasi terstruktur
+  rapi via `DisposisiSop` generik.
+- **Klaster gaji-tambahan/org** (10 file, r84262-r84301):
+  `GajiPokok`/`Insentif`/`Makan`/`Transport` = master rate
+  berbasis Golongan+masa-kerja, dicari via
+  `Pegawai.ambilGajiPokok/dst(Date)`. `SatuanKerjaEmploy`
+  DIKONFIRMASI kemungkinan predecessor historis `UnitKerja` (flat
+  vs pohon), keduanya beda dari `rab.SatuanKerja` root.
+
+**1 task baru KRITIS**: `task_b62255d9` (bypass persetujuan SK
+kenaikan pangkat). Entity dorman baru: `GradeTunjanganKinerja`
+(ke-15), `Pensiun` (ke-16). Domain `employ` terhubung erat
+`payroll` — banyak verifikasi silang berhasil (tunjangan, gaji
+pokok, masa kerja — DUA definisi masa kerja paralel ditemukan tidak
+saling terhubung).
+
 ## 🎉 MILESTONE — paket `inventory` TUNTAS 100% (4 Sep 2026, akhir batch 92) — domain KEEMPAT tuntas
 
 Diverifikasi: **40/40 file** `ais/database/model/inventory/` kini
