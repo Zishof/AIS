@@ -394,10 +394,10 @@ public final class LaporanKatalogData {
         semua.add(k);
 
         k = new Kat("Buku Besar Resmi (Akuntansi)");
-        k.items.add(item("lk_trial", "Neraca Saldo / Trial Balance", "Neraca saldo resmi dari jurnal (versi Akuntansi, format JRXML).", false, false, false, launchZk("trial")));
-        k.items.add(item("lk_bukubesar", "Buku Besar", "Buku besar resmi per akun (versi Akuntansi).", false, false, false, launchZk("bukubesar")));
-        k.items.add(item("lk_bukubesartgl", "Buku Besar per Tanggal", "Buku besar resmi difilter tanggal (versi Akuntansi).", false, false, false, launchZk("bukubesartgl")));
-        k.items.add(item("lk_jurnal", "Jurnal Harian", "Daftar jurnal harian resmi (versi Akuntansi).", false, false, false, launchZk("jurnal")));
+        k.items.add(item("lk_trial", "Neraca Saldo / Trial Balance", "Saldo tiap akun dipisah kolom Debet/Kredit dari jurnal TERPOSTING. Total Debet harus sama dengan total Kredit.", false, false, false, null));
+        k.items.add(item("lk_bukubesar", "Buku Besar", "Mutasi tiap akun dari jurnal TERPOSTING, dengan subtotal Debet/Kredit per akun.", false, false, false, null));
+        k.items.add(item("lk_bukubesartgl", "Buku Besar per Tanggal", "Mutasi jurnal TERPOSTING dikelompokkan per tanggal, dengan subtotal Debet/Kredit tiap tanggal.", false, false, false, null));
+        k.items.add(item("lk_jurnal", "Jurnal Harian", "Seluruh baris jurnal TERPOSTING urut tanggal. Sumber: akunting.transaksi.", false, false, false, null));
         semua.add(k);
 
         k = new Kat("Arus Kas & Analisa Keuangan (Akuntansi)");

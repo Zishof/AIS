@@ -1,5 +1,90 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 69 — SELESAI 100% (3 Sep 2026) — bug NIS kembar (3 mekanisme, task baru `task_3186ae97`); IDOR tulis lintas-tenant baru di API langganan kelas les; broken access control di layar master Jam Pelajaran (hapus tanpa konfirmasi); atribusi "guru piket" `_welsis_service` DIKONFIRMASI merujuk `AbsenPiket`, bukan `AbsenGuruPiket`
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/AbsenPiketDetail.java`** (r83847) —
+  683→1592 baris, 100%. Tidak ada FK ke `AbsenPiket` (b44) — hanya
+  tertaut lewat STRING `ref` di dalam blob teks, konsisten dengan
+  `AbsenPiketPeserta`. Dikonfirmasi sebagai SASARAN TULIS TERAKHIR
+  rantai pra-otentikasi `/welsis` (`task_acfae1fb`) dan REST IDOR
+  `ElearningApiUtil.simpanAbsenPiket` (`task_493423ef`). Fail-open
+  tenant STRUKTURAL: entity tidak punya relasi `sekolah`/`yayasan`
+  sama sekali — saat `siswa`+`mahasiswa` keduanya null, kueri jatuh
+  ke `sqlRestriction("true")` + `setMaxResults(1)` tanpa `addOrder`
+  → baris absensi peserta didik ACAK lintas seluruh instalasi. Bug
+  baru: `CommonPayroll.java:1200` mengirim id SISWA ke `jamKe()`
+  padahal seharusnya id sekolah (`siswa.getSekolah()==null?0:siswa.getId()`
+  — pola yang sama seharusnya `siswa.getSekolah().getId()`), menyemai
+  baris konfigurasi sampah per siswa. `ambil()` adalah pabrik yang
+  MENYIMPAN+COMMIT sendiri — mencetak laporan absensi MENULIS ke DB.
+- **`ais/database/model/sekolah/AbsenGuruPiket.java`** (r83854/r83857)
+  — 657→1517 baris, 100%. **VERIFIKASI NEGATIF PENTING**: entity ini
+  TERPISAH dari rantai `/welsis` pra-otentikasi — temuan lama "atribusi
+  palsu guru piket" merujuk kolom `guru` pada `AbsenPiket`, BUKAN
+  entity ini (nol rujukan `AbsenGuruPiket` di seluruh jalur kios `_welsis_service.jsp`).
+  Jalur REST kios yang pernah menyentuh entity ini sudah bergerbang
+  `pos_api_secret` sejak tambalan 1 Sep 2026. Bug baru: kombobox
+  "Jam Ke" di layar manual SELALU tersimpan `jamke=0`
+  (`comboitem.setValue(0)` alih-alih `jam`) — entri manual hilang dari
+  rekap yang memfilter berdasarkan jamke. Bug rekap: `LaporanRekapAbsenGuruPiket`
+  mem-`put` ke `TreeMap` berkunci `tanggal+jamke` TANPA sekolah →
+  sesi sekolah berbeda pada slot sama saling menimpa di laporan.
+- **`ais/database/model/sekolah/KelasLesSiswaPunyaSiswa.java`** (r83850)
+  — 619→1515 baris, 100%. VERIFIKASI ULANG broken access control panel
+  detail (b68) POSITIF dan LEBIH LUAS dari dugaan: "Bersihkan"/"Copy
+  siswa dari kelas lain" (+ fail-open tenant baru)/unggah Excel massal
+  (checkId=true tanpa Criterion — terima id Siswa MANA PUN di instalasi)
+  semua tanpa gerbang. Lebih berat: `DetailPenilaianLesSiswaHelper`
+  (2782 baris) punya KEDUA baris `checkPrevilages` DIKOMENTARI di
+  constructor — nol gerbang atas nilai rapor kelas les. **IDOR TULIS
+  LINTAS-TENANT BARU**: `TagihanSiswa.subscribeKelasLes` (API token
+  siswa) resolve id kelas les mentah dari klien tanpa cek kepemilikan
+  sekolah — siswa bisa mendaftarkan diri ke kelas les sekolah/yayasan
+  manapun dan langsung aktif, melewati gerbang pembayaran (cocok
+  `task_493423ef`/`task_5e93a600`, tidak buat task baru). Temuan
+  struktural: 7 method mesin nilai MEMBAYANGI versi induk `VoKelasPunyaSiswa`
+  yang sudah diperkeras — perbaikan induk tak pernah sampai ke kelas les.
+- **`ais/database/model/sekolah/FormatNis.java`** (r83851) —
+  473→1462 baris, 100%. **Task baru `task_3186ae97`** — NIS (identitas
+  resmi siswa) bisa KEMBAR lewat 3 mekanisme terpisah tanpa jaring
+  pengaman (`nomor_induk` nullable=false TANPA unique=true): (1) mode
+  otomatis bawaan menghitung JUMLAH PENDAFTAR bukan NIS terbit — dua
+  generate berturut tanpa pendaftar baru = NIS identik, DETERMINISTIK
+  bukan race; (2) mode indeks manual punya race condition nyata (baca
+  `getNomorIndex()` di luar blok `synchronized`); (3) `format()` memotong
+  dari KIRI (`substring(len-lebar)`) — populasi melebihi 10^lebar =
+  kembar pasti. Ironi: generator cadangan `DefaultNisGenerator` justru
+  memeriksa keunikan ke DB — memasang `FormatNis` aktif MENURUNKAN
+  jaminan keunikan. Fail-open tenant: pencacah otomatis tidak memfilter
+  sekolah/yayasan sama sekali — nomor satu sekolah melonjak akibat
+  pendaftaran sekolah lain.
+- **`ais/database/model/sekolah/JamPelajaran.java`** (r83853) —
+  320→1223 baris, 100%. **Broken access control baru**: `TimetableJadwalPelajaranWindow`
+  (disisipkan di `jadwal_pelajaran.zul`) beri CRUD PENUH atas master Jam
+  Pelajaran dengan NOL gerbang — termasuk HAPUS PERMANEN tanpa dialog
+  konfirmasi lewat kolom "Mulai" yang dikosongkan (pola "Singkronkan
+  tanpa gerbang" b67/b68 terulang, varian lebih buruk). Fail-open tenant
+  TIGA varian, satu di antaranya `loadJamList()` tanpa tapis sekolah SAMA
+  SEKALI dan memberi makan jalur TULIS — kisi timetable sekolah A bisa
+  terisi slot sekolah B lalu tersimpan ke `JadwalPelajaran`. **Validasi
+  tumpang-tindih slot: TIDAK ADA SAMA SEKALI** — `onSave()` hanya cek
+  keterisian, bukan rentang waktu; ini lapisan kegagalan TERPISAH dari
+  bug deteksi-bentrok b67 (`JadwalPelajaran`), menumpuk di atasnya. Satu
+  fakta waktu tersimpan di TIGA kolom (`mulai`/`selesai` TIME,
+  `mulaiS`/`sampaiS` String tanpa `@Column`, `waktuMulaiD`/`waktuSelesaiD`
+  Double pseudo-desimal) tanpa mekanisme sinkronisasi eksplisit.
+
+**Task baru `task_3186ae97`** (NIS kembar) dibuat batch ini. Sisanya
+memperkuat task yang sudah ada (`task_acfae1fb`, `task_493423ef`,
+`task_5e93a600`, `task_9b7ff647`, `task_beeb2833`); verifikasi negatif
+`AbsenGuruPiket` vs `/welsis` dan `JamPelajaran` vs `task_7b6038ac`
+(whitelist Generic CRUD v2 mencakup relasi `sekolah`/`yayasan` entity
+ini) dicatat sebagai kejelasan penting untuk pembaca masa depan.
+
 ## Sesi audit khusus (3 Sep 2026) — perluasan `task_7b6038ac`: ~35 entity tambahan ditemukan rentan pola whitelist-nama-properti Generic CRUD v2, 2 mekanisme baru ditemukan
 
 **Bukan batch dokumentasi entity baru** — sesi audit terpisah (pola sama dengan

@@ -2753,7 +2753,7 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("Referensi","text")); kolom.add(new Kolom("Masuk","num")); kolom.add(new Kolom("Keluar","num"));
 
             // ===================== AKUNTANSI (Buku Besar NYATA — meniru Accurate) =====================
-            } else if ("akn_jurnal".equals(r)) {
+            } else if ("akn_jurnal".equals(r) || "lk_jurnal".equals(r)) {
                 judul = "Keseluruhan Jurnal (Jurnal Umum)";
                 catatan = "Seluruh baris jurnal TERPOSTING pada Satuan Kerja kantin (konfigurasi 'satuan_kerja_kantin'). Sumber: akunting.transaksi. Isi Tgl Mulai/Sampai utk membatasi periode.";
                 String w = klausaLedger(session, tglMulai, tglSampai, prm);
@@ -2765,7 +2765,7 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("Kode Akun","text")); kolom.add(new Kolom("Nama Akun","text"));
                 kolom.add(new Kolom("Keterangan","text")); kolom.add(new Kolom("Debet","num")); kolom.add(new Kolom("Kredit","num"));
 
-            } else if ("akn_buku_besar".equals(r)) {
+            } else if ("akn_buku_besar".equals(r) || "lk_bukubesar".equals(r)) {
                 judul = "Buku Besar (per Akun)"; grupIdx = 0;
                 catatan = "Mutasi tiap akun dari jurnal TERPOSTING Satuan Kerja kantin, dengan subtotal Debet/Kredit per akun.";
                 String w = klausaLedger(session, tglMulai, tglSampai, prm);
@@ -2775,6 +2775,19 @@ public final class LaporanKantinUtil {
                 tipe = new String[]{"text","tgl","text","text","num","num"};
                 kolom.add(new Kolom("Akun","text")); kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("No. Jurnal","text"));
                 kolom.add(new Kolom("Keterangan","text")); kolom.add(new Kolom("Debet","num")); kolom.add(new Kolom("Kredit","num"));
+
+            } else if ("lk_bukubesartgl".equals(r)) {
+                judul = "Buku Besar per Tanggal"; grupIdx = 0;
+                catatan = "Mutasi jurnal TERPOSTING dikelompokkan per TANGGAL (bukan per akun), dengan subtotal Debet/Kredit tiap tanggal. Sumber sama dengan Buku Besar.";
+                String w = klausaLedger(session, tglMulai, tglSampai, prm);
+                sql = "select to_char(a.tanggal_transaksi, 'DD-MM-YYYY') as tgl, d.kode, d.nama, coalesce(a.kode,'-'), "
+                    + " coalesce(a.keterangan,''), coalesce(a.debet,0), coalesce(a.kredit,0) " + FROM_LEDGER + w
+                    + " order by a.tanggal_transaksi, d.kode, a.id ";
+                tipe = new String[]{"text","text","text","text","text","num","num"};
+                kolom.add(new Kolom("Tanggal","text")); kolom.add(new Kolom("Kode Akun","text"));
+                kolom.add(new Kolom("Nama Akun","text")); kolom.add(new Kolom("No. Jurnal","text"));
+                kolom.add(new Kolom("Keterangan","text"));
+                kolom.add(new Kolom("Debet","num")); kolom.add(new Kolom("Kredit","num"));
 
             } else if ("akn_ringkasan_bb".equals(r)) {
                 judul = "Ringkasan Buku Besar";
@@ -2789,7 +2802,7 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Nama Akun","text"));
                 kolom.add(new Kolom("Debet","num")); kolom.add(new Kolom("Kredit","num")); kolom.add(new Kolom("Saldo (D-K)","num"));
 
-            } else if ("akn_neraca_saldo".equals(r)) {
+            } else if ("akn_neraca_saldo".equals(r) || "lk_trial".equals(r)) {
                 judul = "Neraca Percobaan (Neraca Saldo / Trial Balance)";
                 catatan = "Saldo tiap akun dipisah kolom Debet/Kredit. Total Debet HARUS sama dengan total Kredit (seimbang). Jurnal TERPOSTING Satuan Kerja kantin.";
                 String w = klausaLedger(session, tglMulai, tglSampai, prm);
