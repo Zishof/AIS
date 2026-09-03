@@ -1,5 +1,68 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 78 — SELESAI 100% (3 Sep 2026) — entity TIDUR/YATIM keempat (DetailLaporanPertahun); nol task baru — batch dengan proporsi verifikasi NEGATIF menenangkan tertinggi sejauh ini di domain akunting; `task_66986071` dikonfirmasi (GrupAkun, JenisReimbursement) sekaligus DUA verifikasi negatif penting (AkunPajak, MasterGrupLaporan tidak terjangkau helper manapun); klaim batch 76 soal ReimbursementPegawai "akun bisa dipindah retroaktif" DIHALUSKAN — ternyata snapshot bukan live-read
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/akunting/GrupAkun.java`** (r84009) — 109→449
+  baris, 100%. Koreksi mendasar: entity ini JAUH lebih miskin dari
+  dugaan — hanya `nama`+`keterangan`, TANPA kategori laporan keuangan
+  (Aset/Kewajiban/dst), TANPA hierarki sendiri (tidak self-referential).
+  VERIFIKASI ULANG write-back b73: rekursi `Akun.getGrupAkun()`
+  sepenuhnya menaiki pohon `Akun`, grup tidak menyumbang satu langkah
+  pun. Klaim Javadoc lama "dasar penyusunan neraca/laba-rugi"
+  DIBANTAH — nol laporan merujuk kelas ini. `task_66986071`
+  terkonfirmasi (`KodeAkunApiHelper`).
+- **`ais/database/model/akunting/JenisReimbursement.java`** (r84010)
+  — 105→651 baris, 100%. **KOREKSI PENTING klaim b76**: rantai akun
+  biaya reimbursement adalah SNAPSHOT saat klaim disimpan, BUKAN
+  live-read — beda dari Uang Muka/Kas Besar/Dana Talangan yang live.
+  Jendela dampak "pindah akun retroaktif" b76 perlu dihaluskan: ke
+  depan (klaim baru) saja, bukan ke belakang. **DUA jalur fail-open
+  independen dikonfirmasi** menyentuh katalog yang sama
+  (`MasterKeuanganApiHelper` untuk CRUD master + `ReimbursementApiHelper`
+  untuk approve/reject) — rantai gabungan: pindah akun → ajukan
+  klaim → setujui sendiri → dijurnal ke akun pilihan sendiri.
+- **`ais/database/model/akunting/AkunPajak.java`** (r84011) — 133→534
+  baris, 100%. Koreksi hipotesis: BUKAN jembatan Akun↔Pajak — entity
+  berdiri sendiri, `Pajak.java` nol referensi ke sini. **Kuirk baru**:
+  master HIDUP (CRUD dipakai) dengan SELURUH konsumen hilir MATI
+  (dikomentari di `Transaksi`/`TemplateTransaksi`) — variasi baru pola
+  "tidur": operator terus memelihara data tarif pajak yang tidak
+  pernah diterapkan ke jurnal manapun. `task_66986071`: **verifikasi
+  NEGATIF** — entity ini TIDAK termasuk 7 master yang dijaga
+  `MasterKeuanganApiHelper`, nol permukaan REST sama sekali.
+- **`ais/database/model/akunting/MasterGrupLaporan.java`** (r84012)
+  — 340→813 baris, 100%. Koreksi hierarki laporan keuangan: entity
+  ini BUKAN akar pohon — `KelompokLaporan` yang pegang DUA FK
+  ortogonal (`JenisLaporan` + `MasterGrupLaporan`, seksi/blok
+  cetak). `task_aac9dcdd` (b73, `debit_credit=2`): blast-radius
+  DIPERSEMPIT — laporan Jasper cetak KEBAL (jumlah mentah tanpa
+  pengali sandi), hanya jalur HTML/CoaHelper yang rentan.
+  `reloadDefault()` no-op total TAPI tetap dipanggil `InitData` —
+  log startup berbohong (struktur bawaan tak pernah tersemai).
+- **`ais/database/model/akunting/DetailLaporanPertahun.java`**
+  (r84013) — 379→1127 baris, 100%. **Entity TIDUR/YATIM KEEMPAT**
+  (genap dengan `PengumumanJadwalPelajaran` b72, `TemplateTransaksi`
+  b75, `TemplateGrupTransaksi` b76) — nol pembaca/penulis di seluruh
+  repo. Mesin laporan tahunan yang BENAR-BENAR hidup ternyata
+  `LaporanAkunting12Bulan` (hitung-saat-cetak langsung dari jurnal,
+  bukan materialisasi pra-hitung seperti rancangan entity ini).
+  `task_aac9dcdd`: risiko BERPINDAH bukan hilang — lapisan
+  penyimpanan aman (d/k kolom terpisah, nol aritmetika), tapi
+  lapisan penyajian TETAP terpapar bila entity ini kelak dihidupkan.
+
+**Nol task baru batch ini** — proporsi verifikasi NEGATIF/menenangkan
+tertinggi sejauh ini di domain akunting (AkunPajak & MasterGrupLaporan
+tidak terjangkau `task_66986071`; GrupAkun tidak kena pewarisan menu
+maupun checkbox-tanpa-gerbang; DetailLaporanPertahun getter TIDAK
+destruktif, beda dari `Transaksi.getAkun()`). Pelajaran metodologis
+b77 (jangan asumsikan pola sistemik berlaku universal) terkonfirmasi
+lagi — domain akunting punya campuran nyata antara modul rapuh dan
+modul aman.
+
 ## Batch 77 — SELESAI 100% (3 Sep 2026) — `task_e2bb082c` (tombol Realisasikan tanpa gerbang) TERKONFIRMASI berlaku juga di ProsesTransferStandingInstruction; 2 task baru; `task_66986071` kini di 8 helper API; nomor surat kembar terkonfirmasi (pola ketiga setelah FormatNis/PengajuanSiswa); verifikasi NEGATIF menenangkan di ProsesTransitori (ketiga kaki task_e2bb082c TIDAK berlaku di sana)
 
 Sesi ini sempat terhambat overload API server-side berkepanjangan (~1,5 jam,
