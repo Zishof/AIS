@@ -238,11 +238,11 @@ public class ItemGajiTreeModel extends AbstractTreeModel {
 		Session session = HibernateUtil.currentSession();
 		List<GajiTabahan> gajiTabahansLagi = ConstantValues.simpleList(session.createCriteria(GajiTabahan.class)
 
-				.add(Restrictions.or(Restrictions.ge("cabang", formatItemGaji.getCabang()),
+				.add(Restrictions.or(Restrictions.eq("cabang", formatItemGaji.getCabang()),
 						Restrictions.isNull("cabang")))
-				.add(Restrictions.or(Restrictions.ge("departemen", formatItemGaji.getDepartemen()),
+				.add(Restrictions.or(Restrictions.eq("departemen", formatItemGaji.getDepartemen()),
 						Restrictions.isNull("departemen")))
-				.add(Restrictions.or(Restrictions.ge("levelJabatan", formatItemGaji.getLevelJabatan()),
+				.add(Restrictions.or(Restrictions.eq("levelJabatan", formatItemGaji.getLevelJabatan()),
 						Restrictions.isNull("levelJabatan")))
 				
 				.add(Restrictions.isNull("pegawai"))

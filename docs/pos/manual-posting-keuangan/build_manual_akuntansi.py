@@ -469,18 +469,24 @@ def build():
     doc.add_page_break()
 
     report_pages = [
-        ("25.1 Laba Rugi", "24-laporan-laba-rugi.png", "Gambar 25. Laba Rugi berbasis jurnal."),
-        ("25.2 Neraca", "25-laporan-neraca.png", "Gambar 26. Neraca berbasis jurnal."),
-        ("25.3 Arus Kas", "26-laporan-arus-kas.png", "Gambar 27. Arus Kas berbasis jurnal."),
-        ("25.4 Keseluruhan Jurnal", "27-laporan-jurnal-umum.png", "Gambar 28. Keseluruhan Jurnal."),
-        ("25.5 Buku Besar", "28-laporan-buku-besar.png", "Gambar 29. Rincian Buku Besar."),
-        ("25.6 Neraca Saldo", "29-laporan-neraca-saldo.png", "Gambar 30. Neraca Percobaan / Neraca Saldo."),
+        ("25.1 Laba Rugi", "24-laporan-laba-rugi.png", "Gambar 25. Laba Rugi berbasis jurnal.",
+         "Endpoint sukses; hasil tidak memiliki pendapatan/beban karena jurnal sample hanya memakai akun neraca."),
+        ("25.2 Neraca", "25-laporan-neraca.png", "Gambar 26. Neraca berbasis jurnal.",
+         "Saldo akun Kas, Kas Kecil, dan Modal tampil; sebagian akun masih berlabel belum dipetakan ke Kelompok Laporan."),
+        ("25.3 Arus Kas", "26-laporan-arus-kas.png", "Gambar 27. Arus Kas berbasis jurnal.",
+         "Setoran modal Rp1.000.000 terbaca sebagai penerimaan; transfer antar-kas tidak menggandakan total penerimaan."),
+        ("25.4 Keseluruhan Jurnal", "27-laporan-jurnal-umum.png", "Gambar 28. Keseluruhan Jurnal.",
+         "Empat baris dari dua jurnal tampil dengan total Debet dan Kredit Rp1.250.000."),
+        ("25.5 Buku Besar", "28-laporan-buku-besar.png", "Gambar 29. Rincian Buku Besar.",
+         "Mutasi per akun dapat ditelusuri kembali ke JU/09/00001 dan JU/09/00002."),
+        ("25.6 Neraca Saldo", "29-laporan-neraca-saldo.png", "Gambar 30. Neraca Percobaan / Neraca Saldo.",
+         "Saldo akhir seimbang: total Debet Rp1.000.000 sama dengan total Kredit Rp1.000.000."),
     ]
-    for title, shot, cap in report_pages:
+    for title, shot, cap, hasil_uat in report_pages:
         add_page(doc, title, "Atur periode 1–4 September 2026 dan pilih Semua Unit/Konsolidasi bila diperlukan, lalu klik Tampilkan.",
                  shot, cap,
                  ["Periksa judul dan periode.", "Pastikan tabel hasil terisi.", "Gunakan PDF atau Excel setelah hasil tampil.", "Telusuri angka melalui fitur rincian/asal angka bila tersedia."],
-                 ("UAT", "Endpoint laporan sukses dan hasil berisi data dari jurnal terposting.", "ok"))
+                 ("UAT", hasil_uat, "ok"))
 
     doc.add_heading("26. Temuan dan rekomendasi", level=1)
     add_table(doc, ["ID", "Prioritas", "Temuan", "Rekomendasi"], [

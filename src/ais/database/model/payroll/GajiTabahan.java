@@ -42,14 +42,17 @@ import ais.database.model.Pegawai;
  * diperlakukan sebagai wildcard "berlaku untuk semua" oleh query pemanggil (lihat
  * {@code Restrictions.isNull(...)} pada {@code ItemGajiPegawaiTreeModel}/{@code GajiTabahanAction}
  * /{@code BayarGajiPegawaiAction}); bila diisi, ia dimaksudkan sebagai pembatas ke cabang/
- * departemen/level jabatan/pegawai tertentu. <b>Perhatian:</b> query-query tersebut membandingkan
- * field non-{@code null} ini memakai {@code Restrictions.ge(...)} ("&gt;=") terhadap entity milik
- * pegawai yang sedang dihitung, bukan {@code Restrictions.eq(...)}. Untuk relasi
- * {@code @ManyToOne} ini diterjemahkan Hibernate menjadi perbandingan {@code >=} atas kolom FK
- * (id) — pola yang konsisten dipakai ulang di banyak titik (bukan salah ketik satu tempat), tetapi
- * tidak diverifikasi di sini apakah ini disengaja (mis. bergantung urutan id sebagai proksi
- * hierarki) atau bug lama yang seharusnya {@code eq}; lihat {@code TODO} arsitektur yang
- * dilaporkan terpisah untuk investigasi lanjut. Kelas ini sendiri tidak punya field
+ * departemen/level jabatan/pegawai tertentu. Query-query tersebut membandingkan field
+ * non-{@code null} ini memakai {@code Restrictions.eq(...)} terhadap entity milik pegawai yang
+ * sedang dihitung — konsisten dengan restriksi {@code pegawai} di baris yang sama.
+ * <b>Riwayat:</b> sampai dengan r84131, ketiga query pemanggil ({@code ItemGajiPegawaiTreeModel},
+ * {@code ItemGajiTreeModel}, {@code BayarGajiPegawaiAction}) memakai {@code Restrictions.ge(...)}
+ * ("&gt;=") di sini, bukan {@code eq(...)}. Untuk relasi {@code @ManyToOne} ini diterjemahkan
+ * Hibernate menjadi perbandingan {@code >=} atas kolom FK (id) — dikonfirmasi bug (bukan
+ * pembanding hierarki yang disengaja): {@link Cabang}, {@link Departemen} dan {@link LevelJabatan}
+ * adalah tabel master datar (id/nama/keterangan saja, tanpa kolom urutan/level eksplisit apa pun),
+ * sehingga id auto-increment-nya tidak merepresentasikan hierarki apa pun. Diperbaiki ke
+ * {@code eq(...)} di ketiga titik pemanggil. Kelas ini sendiri tidak punya field
  * {@code aktif} seperti {@link AdjusVariablePenggajian} — status "berlaku/tidak" satu baris murni
  * ditentukan oleh jendela {@link #mulai}/{@link #sampai} pada saat query, bukan flag eksplisit.</p>
  *
@@ -506,8 +509,8 @@ public class GajiTabahan extends GeneralValueObject {
 	 * {@link GeneralValueObject#check(Object)} (lihat javadoc {@code check()} untuk mekanisme
 	 * empat-tahapnya). {@code null} berarti baris ini tidak dibatasi cabang tertentu (wildcard
 	 * "semua cabang") pada query pemanggil yang memakai pola
-	 * {@code Restrictions.or(Restrictions.ge("cabang", ...), Restrictions.isNull("cabang"))} —
-	 * lihat catatan penting soal operator {@code ge} pada javadoc kelas.
+	 * {@code Restrictions.or(Restrictions.eq("cabang", ...), Restrictions.isNull("cabang"))} —
+	 * lihat catatan riwayat perbaikan {@code ge}→{@code eq} pada javadoc kelas.
 	 *
 	 * @return cabang pembatas, atau {@code null} bila berlaku untuk semua cabang
 	 */
@@ -530,7 +533,7 @@ public class GajiTabahan extends GeneralValueObject {
 	/**
 	 * Mengembalikan pembatas departemen baris ini, dengan resolusi proxy lazy lewat
 	 * {@link GeneralValueObject#check(Object)}. {@code null} berarti wildcard "semua
-	 * departemen" — semantik dan catatan {@code Restrictions.ge(...)} sama dengan
+	 * departemen" — semantik dan catatan {@code Restrictions.eq(...)} sama dengan
 	 * {@link #getCabang()}.
 	 *
 	 * @return departemen pembatas, atau {@code null} bila berlaku untuk semua departemen
@@ -554,7 +557,7 @@ public class GajiTabahan extends GeneralValueObject {
 	/**
 	 * Mengembalikan pembatas level jabatan baris ini, dengan resolusi proxy lazy lewat
 	 * {@link GeneralValueObject#check(Object)}. {@code null} berarti wildcard "semua level
-	 * jabatan" — semantik dan catatan {@code Restrictions.ge(...)} sama dengan
+	 * jabatan" — semantik dan catatan {@code Restrictions.eq(...)} sama dengan
 	 * {@link #getCabang()}.
 	 *
 	 * @return level jabatan pembatas, atau {@code null} bila berlaku untuk semua level jabatan

@@ -531,9 +531,9 @@ public class ItemGajiPegawaiTreeModel extends AbstractTreeModel {
 
 			List<GajiTabahan> gajiTabahansLagi = ConstantValues.simpleList(sessionA.createCriteria(GajiTabahan.class)
 					.setProjection(Projections.property("id"))
-					.add(Restrictions.or(Restrictions.ge("cabang", pegawai.getCabang()), Restrictions.isNull("cabang")))
-					.add(Restrictions.or(Restrictions.ge("departemen", pegawai.getDepartemen()), Restrictions.isNull("departemen")))
-					.add(Restrictions.or(Restrictions.ge("levelJabatan", pegawai.getLevelJabatan()), Restrictions.isNull("levelJabatan")))
+					.add(Restrictions.or(Restrictions.eq("cabang", pegawai.getCabang()), Restrictions.isNull("cabang")))
+					.add(Restrictions.or(Restrictions.eq("departemen", pegawai.getDepartemen()), Restrictions.isNull("departemen")))
+					.add(Restrictions.or(Restrictions.eq("levelJabatan", pegawai.getLevelJabatan()), Restrictions.isNull("levelJabatan")))
 					.add(Restrictions.or(Restrictions.isNull("pegawai"), Restrictions.eq("pegawai", pegawai)))
 					.add(Restrictions.or(
 							Restrictions.sqlRestriction("date('" + Common.databaseDateFormat.get().format(d) + "') between date(mulai) and date(sampai)"),

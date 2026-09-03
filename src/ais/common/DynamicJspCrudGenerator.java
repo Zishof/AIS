@@ -280,7 +280,7 @@ public class DynamicJspCrudGenerator {
                 return delete(request, configs);
             }
             if ("options".equalsIgnoreCase(action)) {
-                return options(request);
+                return options(request, configs);
             }
             if ("download".equalsIgnoreCase(action)) {
                 return startDownloadExcel(request, configs);
@@ -693,12 +693,15 @@ public class DynamicJspCrudGenerator {
         }
     }
 
-    private static JSONObject options(HttpServletRequest request) throws Exception {
+    private static JSONObject options(HttpServletRequest request, JSONArray configs) throws Exception {
         String className = nvl(request.getParameter("className"));
         String q = nvl(request.getParameter("q"));
         int max = parseInt(request.getParameter("max"), 30);
         if (max <= 0 || max > 100) {
             max = 30;
+        }
+        if (isBlank(className) || !isAllowedLookupClass(configs, className)) {
+            return error("Kelas data tidak valid untuk konfigurasi CRUD ini.");
         }
         Class clazz = Class.forName(className);
         ClassMetadata cm = HibernateUtil.getClassMetadata(clazz);
@@ -739,6 +742,73 @@ public class DynamicJspCrudGenerator {
         } finally {
             close(session);
         }
+    }
+
+    /**
+     * action=options mengambil daftar pilihan lookup untuk field relasi (FK) dropdown/autocomplete.
+     * className tidak boleh dipercaya mentah dari request: batasi hanya ke kelas yang memang
+     * dideklarasikan sebagai target relasi pada configs milik rnd sesi ini (sumber sama dengan
+     * meta.optionClass yang dibangun buildMeta/metaForField), bukan sembarang kelas Hibernate.
+     */
+    private static boolean isAllowedLookupClass(JSONArray configs, String className) {
+        if (configs == null || isBlank(className)) {
+            return false;
+        }
+        try {
+            for (int i = 0; i < configs.length(); i++) {
+                JSONObject conf = configs.optJSONObject(i);
+                if (conf == null) {
+                    continue;
+                }
+                String modelClass = conf.optString("modelClass", "");
+                if (isBlank(modelClass)) {
+                    continue;
+                }
+                Class clazz;
+                ClassMetadata cm;
+                try {
+                    clazz = Class.forName(modelClass);
+                    cm = HibernateUtil.getClassMetadata(clazz);
+                } catch (Exception e) {
+                    continue;
+                }
+                if (cm == null) {
+                    continue;
+                }
+                if (hasLookupTarget(cm, collectAllFieldSpecs(conf), className)
+                        || hasLookupTarget(cm, conf.optJSONArray("tableColumns"), className)
+                        || hasLookupTarget(cm, conf.optJSONArray("searchCols"), className)) {
+                    return true;
+                }
+            }
+        } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DynamicJspCrudGenerator.java:isAllowedLookupClass"); }
+        return false;
+    }
+
+    private static boolean hasLookupTarget(ClassMetadata cm, JSONArray specs, String className) {
+        if (specs == null) {
+            return false;
+        }
+        for (int i = 0; i < specs.length(); i++) {
+            Object raw = specs.opt(i);
+            if (raw instanceof JSONArray) {
+                if (hasLookupTarget(cm, (JSONArray) raw, className)) {
+                    return true;
+                }
+                continue;
+            }
+            String field = cleanField(specs.optString(i, ""));
+            if (isBlank(field) || !hasProperty(cm, field)) {
+                continue;
+            }
+            try {
+                Class rc = cm.getPropertyType(field).getReturnedClass();
+                if (isModelClass(rc) && rc.getName().equals(className)) {
+                    return true;
+                }
+            } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DynamicJspCrudGenerator.java:hasLookupTarget"); }
+        }
+        return false;
     }
 
 

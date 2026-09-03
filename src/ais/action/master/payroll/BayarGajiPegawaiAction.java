@@ -810,13 +810,13 @@ public class BayarGajiPegawaiAction extends GenericAutowireComposer {
 							.add(Restrictions.or(Restrictions.isNull("pegawai"),
 									Restrictions.eq("pegawai", itemGajiPegawai.getPegawai())))
 
-							.add(Restrictions.or(Restrictions.ge("cabang", itemGajiPegawai.getPegawai().getCabang()),
+							.add(Restrictions.or(Restrictions.eq("cabang", itemGajiPegawai.getPegawai().getCabang()),
 									Restrictions.isNull("cabang")))
 							.add(Restrictions.or(
-									Restrictions.ge("departemen", itemGajiPegawai.getPegawai().getDepartemen()),
+									Restrictions.eq("departemen", itemGajiPegawai.getPegawai().getDepartemen()),
 									Restrictions.isNull("departemen")))
 							.add(Restrictions.or(
-									Restrictions.ge("levelJabatan", itemGajiPegawai.getPegawai().getLevelJabatan()),
+									Restrictions.eq("levelJabatan", itemGajiPegawai.getPegawai().getLevelJabatan()),
 									Restrictions.isNull("levelJabatan")))
 
 							.add(Restrictions.ilike("kode", s, MatchMode.EXACT)).add(Restrictions.le("mulai", date))
