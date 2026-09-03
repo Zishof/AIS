@@ -2310,7 +2310,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 				tabpanelOnline.setVisible(true);
 			}
 
-			MyButtonConfig btn = type == 1 ? BriCommon.createButton()
+			final MyButtonConfig btn = type == 1 ? BriCommon.createButton()
 					: type == 2 ? BniCommon.createButton()
 							: type == 3 ? BsiCommon.createButton() : new MyButtonConfig(btnLabel);
 			spaceBayar.appendChild(btn);
@@ -2330,7 +2330,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 						}
 
 						final double adminFee = adminFeeLocal;
-						confirmAndExecute(btnLabel, adminFee, new PaymentAction() {
+						confirmAndExecute(btn.getLabel(), adminFee, new PaymentAction() {
 							@Override
 							public void execute() throws Exception {
 								double dep = deposit == null || deposit.isDisabled() || deposit.getValue() == null ? 0.0
