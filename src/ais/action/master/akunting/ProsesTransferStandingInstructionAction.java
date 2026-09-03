@@ -5,9 +5,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -785,6 +787,27 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 	private Map<Long, Double> longs;
 
 	/**
+	 * Peta id {@link StandingInstruction} &rarr; kumpulan kunci bank ({@code idBank} sebagai
+	 * String) yang benar-benar dicentang oleh pengguna pada sesi form yang sedang berjalan.
+	 *
+	 * <p>
+	 * <b>Kenapa perlu dilacak terpisah dari {@link #longs}:</b> checkbox per-baris menulis
+	 * entri {@code {"nilai":n,"si":""}} ke {@link StandingInstruction#getTransferVia()} dan
+	 * langsung mempersistensikannya seketika saat dicentang ({@code Common.refreshUpdate}) --
+	 * jauh sebelum {@link #onSave(Event)} dipanggil. Bila pengguna menutup window lewat
+	 * tombol "Batal" tanpa menekan Simpan, entri itu tertinggal di basis data dengan
+	 * {@code si} tetap kosong (tidak ada langkah pembersihan pada tombol Batal). Tanpa peta
+	 * ini, {@link #onSave(Event)} akan menstempel <b>seluruh</b> entri ber-{@code si} kosong
+	 * pada setiap SI yang kebetulan terpilih -- termasuk entri terbengkalai dari sesi
+	 * sebelumnya yang tidak pernah dicentang pada sesi saat ini -- sehingga total batch
+	 * membengkak dari nilai lama yang tidak diminta. Peta ini membatasi
+	 * {@link #onSave(Event)} hanya menstempel kunci bank yang benar-benar dicentang di sesi
+	 * form ini.
+	 * </p>
+	 */
+	private Map<Long, Set<String>> bankTerpilihSesiIni;
+
+	/**
 	 * Komponen footer grid detail yang menampilkan total nilai transfer secara real-time.
 	 * Diperbarui setiap kali pengguna mencentang atau mencabut centang item SI.
 	 */
@@ -831,6 +854,7 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 			((East) east).setWidth("70%");
 		}
 		longs = new HashMap<Long, Double>();
+		bankTerpilihSesiIni = new HashMap<Long, Set<String>>();
 
 		final MyCheckboxConfig gaji = new MyCheckboxConfig("Gaji");
 
@@ -1189,6 +1213,12 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 											longs.remove(iddata);
 										}
 
+										Set<String> bankTerpilih = bankTerpilihSesiIni.get(iddata);
+										if (bankTerpilih == null) {
+											bankTerpilih = new HashSet<String>();
+											bankTerpilihSesiIni.put(iddata, bankTerpilih);
+										}
+
 										JSONObject jsonObjectTransfer = new JSONObject(
 												standingInstruction.getTransferVia());
 
@@ -1199,8 +1229,10 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 													prosesTransferStandingInstruction.getId() == null ? ""
 															: prosesTransferStandingInstruction.getId().toString());
 											jsonObjectTransfer.put(idBank.toString(), jsonObjectData);
+											bankTerpilih.add(idBank.toString());
 										} else {
 											jsonObjectTransfer.remove(idBank.toString());
+											bankTerpilih.remove(idBank.toString());
 										}
 
 										standingInstruction.setTransferVia(jsonObjectTransfer.toString());
@@ -1265,8 +1297,12 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 	 *   <li><b>Simpan ke DB:</b> via {@code Common.refreshSaveOrUpdate()} dan flush.</li>
 	 *   <li><b>Update SI (hanya untuk entitas baru):</b> Mengambil semua SI yang id-nya ada
 	 *       di {@code longs}, lalu untuk setiap SI, mengiterasi JSON {@code transferVia}
-	 *       untuk menemukan entri yang belum memiliki referensi "si" dan mengisinya dengan
-	 *       ID proses baru. Juga memperbarui field {@code prosesStanding} (CSV ID) dan
+	 *       untuk menemukan entri yang belum memiliki referensi "si" <b>dan yang kunci
+	 *       banknya tercatat di {@link #bankTerpilihSesiIni} untuk sesi form ini</b>, lalu
+	 *       mengisinya dengan ID proses baru. Pembatasan ini disengaja: mencegah entri
+	 *       ber-{@code si} kosong yang tertinggal dari sesi form sebelumnya (dicentang lalu
+	 *       ditutup lewat tombol Batal tanpa disimpan) ikut terstempel dan menggelembungkan
+	 *       total batch ini. Juga memperbarui field {@code prosesStanding} (CSV ID) dan
 	 *       menghitung total nilai keseluruhan.</li>
 	 *   <li><b>Update nilai total:</b> Menyimpan total nilai ke entitas proses.</li>
 	 *   <li><b>Async post-save:</b> Jika ada eventListener callback (dari {@code onAddExternal}),
@@ -1343,11 +1379,20 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 			Double nilai = 0.0;
 			for (StandingInstruction standingInstruction : standingInstructions) {
 
+				Set<String> bankTerpilih = bankTerpilihSesiIni.get(standingInstruction.getId());
+
 				JSONObject jsonObjectTransfer = new JSONObject(standingInstruction.getTransferVia());
 				Iterator<String> iterator = jsonObjectTransfer.keys();
 
 				while (iterator.hasNext()) {
 					String d = iterator.next();
+					if (bankTerpilih == null || !bankTerpilih.contains(d)) {
+						// Entri ber-"si" kosong yang bukan berasal dari centangan sesi form ini
+						// (mis. tertinggal dari sesi sebelumnya yang dibatalkan tanpa disimpan) --
+						// jangan ikut diklaim/dijumlahkan ke batch ini. Lihat javadoc
+						// #bankTerpilihSesiIni.
+						continue;
+					}
 					JSONObject jsonObjectData = jsonObjectTransfer.getJSONObject(d);
 					if (jsonObjectData.isNull("si") || jsonObjectData.get("si").toString().isEmpty()) {
 						jsonObjectData.put("si", prosesTransferStandingInstruction.getId().toString());
@@ -1910,6 +1955,7 @@ public class ProsesTransferStandingInstructionAction extends GenericAutowireComp
 							"prosesTransferStandingInstruction");
 
 					Double nilai = jsonObjectData.getDouble("nilai");
+					totalSemua += nilai;
 
 					String status = "";
 					if (prosesTransferStandingInstruction.getDisetujuiOleh() == null) {

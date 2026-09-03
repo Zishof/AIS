@@ -1240,11 +1240,16 @@ public class StandingInstruction extends DataSop {
 	 * Untuk "satu SI masuk dua dokumen batch", pencegahnya ada di tempat lain, yaitu
 	 * {@code ProsesTransferStandingInstructionAction.initDetail()} yang hanya menawarkan SI
 	 * yang entri JSON-nya belum ber-{@code "si"}; dan {@code onSave()} men-stempel id batch
-	 * hanya pada entri yang {@code "si"}-nya masih kosong. Celah yang tersisa: entri JSON
-	 * yang terlanjur ditulis saat pencentangan lalu formnya <b>ditinggalkan tanpa disimpan</b>
-	 * akan tetap tersimpan dengan {@code "si"} kosong, dan kelak ikut terstempel &mdash;
+	 * hanya pada entri yang {@code "si"}-nya masih kosong dan yang kunci banknya benar-benar
+	 * dicentang pada sesi form yang sedang menyimpan (dilacak lewat peta
+	 * {@code bankTerpilihSesiIni}, diperbaiki setelah audit 2026-09). Sebelum perbaikan itu,
+	 * entri JSON yang terlanjur ditulis saat pencentangan lalu formnya <b>ditinggalkan tanpa
+	 * disimpan</b> tetap tersimpan dengan {@code "si"} kosong dan ikut terstempel &mdash;
 	 * beserta angka {@code nilai} lamanya &mdash; ke dokumen batch berikutnya yang menyertakan
-	 * SI tersebut, menambah total batch tanpa pernah dicentang pada sesi itu.
+	 * SI tersebut, menambah total batch tanpa pernah dicentang pada sesi itu. Entri
+	 * terbengkalai lama (dari sebelum perbaikan) masih bisa ada di basis data, tetapi kini
+	 * inert: tidak akan diklaim kecuali kunci banknya dicentang ulang secara eksplisit pada
+	 * sesi form yang menyimpannya.
 	 * </p>
 	 *
 	 * @param pembayaranGaji dokumen penggajian yang hendak diberi instruksi transfer; diabaikan

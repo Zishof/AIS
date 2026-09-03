@@ -746,7 +746,17 @@ public class ProsesTransferAction extends GenericAutowireComposer
 
 			if (prosesTransfer.getDisetujuiOleh() != null) {
 
+				// Gerbang hak akses: tombol ini yang mencairkan dana (menyetel realisasikanOleh
+				// lalu memicu posting jurnal) -- sebelumnya HANYA disyaratkan status dokumen
+				// (disetujuiOleh != null && realisasikanOleh == null), tanpa cek privilege sama
+				// sekali, padahal tombol "Setujui"/"Tolak" di grid SUDAH dipagari approve/reject
+				// (lihat doAfterCompose). Dicek di sini (bukan lewat field this.approve) karena
+				// onAddExternal (25+ pemanggil lintas modul) membuat instance baru TANPA pernah
+				// memanggil doAfterCompose, sehingga this.approve selalu bernilai default false.
+				boolean bolehRealisasi = CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
+
 				if (prosesTransfer.getRealisasikanOleh() == null) {
+					if (bolehRealisasi) {
 					save = new MyToolbarbuttonConfig("Realisasikan", "/img/svg/check-square.svg");
 					save.setTooltiptext("Simpan");
 					save.addEventListener("onClick", new EventListener() {
@@ -801,6 +811,7 @@ public class ProsesTransferAction extends GenericAutowireComposer
 						}
 					});
 					save.setParent(toolbar);
+				}
 				} else {
 					Tbmuser tbmuser = Common.getCurrentUser();
 					if (prosesTransfer.getRealisasikanOleh() != null && tbmuser != null && tbmuser.getUserId() != null
