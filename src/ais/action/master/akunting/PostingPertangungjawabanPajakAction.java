@@ -1284,6 +1284,13 @@ public class PostingPertangungjawabanPajakAction extends GenericAutowireComposer
 	 * Tanpa penyaring itu satu pajak akan berjurnal dua kali.</p>
 	 */
 	private static Criteria kriteriaPostingStatic(Session session, Date mulai, Date sampai) {
+		// Cakupan penyewa (satuan kerja): tanpa ini, jalur API men-scan/memposting
+		// baris pajak SELURUH instalasi (lintas Yayasan), bukan hanya milik penyewa
+		// yang sedang memanggil -- lihat catatan sama pada
+		// PostingTransaksiPembayaranGajiAction.kriteriaPostingStatic(). Himpunan kosong
+		// (Yayasan tidak teridentifikasi) fail-CLOSED, bukan fail-open seperti
+		// initCriteria(boolean) pada layar ZK.
+		Set<SatuanKerja> satuanKerjasPengguna = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
 		Criteria c = session.createCriteria(Pajak.class)
 				.createAlias("saldoAwalMasterAssetDetail", "bdDetail", Criteria.LEFT_JOIN)
 				.createAlias("bdDetail.saldoAwal", "bdTagihan", Criteria.LEFT_JOIN)
@@ -1293,7 +1300,10 @@ public class PostingPertangungjawabanPajakAction extends GenericAutowireComposer
 						.add(Restrictions.eq("bdTagihan.breakdownAktif", false)))
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.add(Restrictions.ne("nilai", 0.0))
-				.add(Restrictions.isNotNull("nilai"));
+				.add(Restrictions.isNotNull("nilai"))
+				.add(satuanKerjasPengguna.isEmpty() ? Restrictions.sqlRestriction("false")
+						: Restrictions.or(Restrictions.isNull("satuanKerja"),
+								Restrictions.in("satuanKerja", satuanKerjasPengguna)));
 		if (mulai != null && sampai != null) {
 			c.add(Restrictions.sqlRestriction("date(this_.tanggal_transaksi) between date('"
 					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"

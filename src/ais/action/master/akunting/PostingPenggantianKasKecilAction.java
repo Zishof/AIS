@@ -1195,11 +1195,21 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 	 * transfernya sudah diproses, dan berada dalam rentang tanggal persetujuan.
 	 */
 	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai, java.util.Date sampai) {
+		// Cakupan penyewa (satuan kerja): tanpa ini, jalur API men-scan/memposting
+		// dokumen penggantian kas kecil SELURUH instalasi (lintas Yayasan), bukan hanya
+		// milik penyewa yang sedang memanggil -- lihat catatan sama pada
+		// PostingTransaksiPembayaranGajiAction.kriteriaPostingStatic(). Himpunan kosong
+		// (Yayasan tidak teridentifikasi) fail-CLOSED, bukan fail-open seperti
+		// initCriteria(boolean) pada layar ZK.
+		Set<SatuanKerja> satuanKerjasPengguna = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
 		Criteria c = session.createCriteria(PenggantianKasKecil.class)
 				.createAlias("daftarPengajuanTransfer", "dpt")
 				.add(Restrictions.isNotNull("dpt.prosesTransfer"))
 				.add(Restrictions.isNotNull("disetujuiOleh"))
-				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
+				.add(satuanKerjasPengguna.isEmpty() ? Restrictions.sqlRestriction("false")
+						: Restrictions.or(Restrictions.isNull("satuanKerja"),
+								Restrictions.in("satuanKerja", satuanKerjasPengguna)));
 		if (mulai != null && sampai != null) {
 			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
 					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
