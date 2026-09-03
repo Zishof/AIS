@@ -1,5 +1,77 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 57 — SELESAI 100% (3 Sep 2026) — instance ke-6 keluarga PSB, broken access control finansial baru, KALIBRASI ULANG diperlukan untuk pola "aktif tak pernah ditulis"
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/StatusKeluarSiswa.java`** (r83707) —
+  129→521 baris, 100% (29 anggota). Arah relasi ke `KelompokStatusKeluarSiswa`
+  TERBALIK dari dugaan (kelompok→katalog, bukan sebaliknya). Auto-seed
+  menyalin seluruh baris `StatusKeluar` (PT). `getKeterangan()` tidak
+  dipetakan (pola b56) TIDAK berlaku di sini (properti dipetakan
+  benar). **Menandai kemungkinan kontradiksi dalam klaim "aktif tak
+  pernah ditulis" batch 52-56** — lihat catatan kalibrasi di bawah.
+  Pewarisan hak menu instance ke-14.
+- **`ais/database/model/sekolah/GelombangPendaftaranPsbPunyaMatapelajaran.java`**
+  (r83708) — 118→496 baris, 100% (22 anggota). BUKAN mapel ujian
+  masuk — daftar mapel yang nilai rapornya wajib diverifikasi per
+  gelombang PSB. **Instance ke-6 keluarga PSB nol-privilese**
+  (`edit`/`delete` HARDCODE `true`, bukan sekadar nol `checkPrevilages`)
+  — DAN ditemukan bahwa `CommonPrivilages.doCheckPrevilagesRead()`
+  whitelist `MUST_CHECKED` (12 URL) HANYA berisi modul PT, seluruh
+  modul sekolah tidak tercakup sama sekali (memperkuat `task_9b7ff647`).
+  Verifikasi NEGATIF menenangkan: nol keterlibatan di jalur `/ppdb`
+  pra-otentikasi.
+- **`ais/database/model/sekolah/DiskonSiswaItemBiaya.java`** (r83709)
+  — 120→529 baris, 100% (17 anggota). Sisi kanan relasi adalah
+  `ItemBiayaSekolah` (bukan `PengaturanBiayaItemBiaya`). **Broken
+  access control finansial BARU**: `DiskonSiswaAction` "Singkronkan
+  Tagihan" DAN 5 tombol di `DiskonSiswaPunyaSiswaHelper` (Ambil
+  Siswa/Ambil Calon Siswa/Singkronkan×2/**Kirimkan Diskon Ke
+  Pembayaran**) nol cek `edit` — hak BACA saja bisa memberi diskon
+  massal + mendorongnya ke alur pembayaran. Instance kedua persis
+  pola batch 55 (`DetailTagihanSiswaHelper`), kali ini di sisi
+  pengurangan tagihan.
+- **`ais/database/model/sekolah/AlatTransportasiSiswa.java`** (r83710)
+  — 126→505 baris, 100% (28 anggota). Katalog PDDikti 13 nilai,
+  disalin dari `AlatTransportasiMahasiswa` via auto-seed. Pewarisan
+  hak menu instance ke-14 varian PALING MURNI (satu-satunya pintu,
+  tanpa menu sendiri sama sekali). **Koreksi mekanisme penting**: getter
+  `null→true` + Hibernate property access berarti nilai coalesced
+  YANG DITULIS ke INSERT — risiko nyata pola "aktif tak pernah
+  ditulis" hanya untuk baris yang masuk LEWAT SQL MENTAH/migrasi, bukan
+  lewat `onSave()` normal.
+- **`ais/database/model/sekolah/JenisTinggalSiswa.java`** (r83711) —
+  125→593 baris, 100% (24 anggota). Katalog PDDikti 6 nilai. Pewarisan
+  hak menu varian BARU: rantai TIGA TINGKAT (Siswa→konfigurasi_siswa→
+  Jenis Tinggal, tanpa menu di kedua tingkat tengah). **Bug "aktif tak
+  pernah ditulis" instance ke-7, DIKLAIM TERKONFIRMASI** termasuk pada
+  baris hasil auto-seed — **BERTENTANGAN** dengan penjelasan mekanisme
+  `AlatTransportasiSiswa` di atas (agen berbeda, kesimpulan berbeda
+  untuk pola getter yang serupa).
+
+**⚠ CATATAN KALIBRASI PENTING — perlu verifikasi empiris**: batch ini
+menghasilkan 2 kesimpulan BERTENTANGAN soal mekanisme sebenarnya di
+balik pola "kolom `aktif` tak pernah ditulis `onSave()`" yang sudah
+diklaim 6-7 instance sejak batch 45. `StatusKeluarSiswa`/`AlatTransportasiSiswa`
+berargumen bahwa Hibernate property-access + getter `null→true`
+berarti nilai coalesced ITU YANG DITULIS ke kolom saat INSERT (risiko
+nyata cuma untuk baris masuk lewat SQL mentah), sementara
+`JenisTinggalSiswa` mengklaim baris auto-seed tetap `NULL` di DB dan
+gagal cocok filter ketat. Sebelum instance-instance lama pola ini
+dipakai sebagai dasar perbaikan kode, **VERIFIKASI EMPIRIS lewat
+harness DB UAT** (lihat [[ais-mesin-posting-pattern]]) sangat
+disarankan — jangan asumsikan salah satu penjelasan benar tanpa
+mengecek nilai kolom sungguhan di database.
+
+Tidak ada task baru dibuat — semua temuan keamanan memperkuat
+`task_5e93a600`/`task_9b7ff647` yang sudah ada.
+
+Kumulatif sesi ini: **462+ file** (115 batch 34-57) + 343 (sesi
+sebelumnya) dari 7.401 total (~11,5%).
+
 ## Batch 56 — SELESAI 100% (3 Sep 2026) — IDOR PRA-OTENTIKASI KRITIS: unduh dokumen PPDB anak tanpa login (memperkuat `task_1f9c66d3`/`task_4ca32776`), instance ke-5 keluarga PSB nol-privilese
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
