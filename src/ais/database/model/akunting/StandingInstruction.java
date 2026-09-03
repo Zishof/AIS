@@ -186,15 +186,28 @@ import ais.ui.util.WaktuUtil;
  * sedangkan angka {@code nilai} di JSON {@link #getTransferVia()} dibekukan saat pencentangan.
  * Bila dokumen gaji direvisi setelah SI masuk batch, layar SI dan total batch akan
  * menampilkan dua angka berbeda tanpa peringatan apa pun.</li>
- * <li><b>{@link #getSatuanKerja()} bisa MENGHAPUS cakupan organisasi.</b> Getter ini menugaskan
- * hasil {@link #ambilSatuanKerja()} apa adanya; bila SI tidak terkait dokumen gaji (atau dokumen
- * gajinya tanpa satuan kerja), field menjadi {@code null}. Sementara itu penyaring di
- * {@code StandingInstructionAction.initCriteria()} maupun di
- * {@code NewUiStandingInstructionService.criteria()} sengaja meng-OR-kan
- * {@code isNull("satuanKerja")}, dan penjaga {@code ensureScope()} pada jalur REST
- * <b>langsung meluluskan</b> baris ber-satuan-kerja {@code null}. Artinya baris yang cakupannya
- * terhapus menjadi terlihat &mdash; dan dapat disunting &mdash; oleh seluruh satuan kerja
- * (fail-open cakupan tenant).</li>
+ * <li><b>{@link #getSatuanKerja()} MENOLAK menghapus cakupan organisasi yang sudah tersimpan.</b>
+ * Sampai dengan audit 2026-09, getter ini menugaskan hasil {@link #ambilSatuanKerja()} ke field
+ * <b>apa adanya, tanpa syarat</b> &mdash; termasuk ketika hasilnya {@code null} (SI tidak terkait
+ * dokumen gaji, dokumen gajinya sudah terhapus di balik {@code @NotFound(IGNORE)} pada
+ * {@link #getPembayaranGaji()}, atau dokumen gajinya sendiri tanpa satuan kerja). Karena
+ * pemetaan kelas ini memakai <i>property access</i> + {@code dynamicUpdate}, sekadar
+ * <b>membaca</b> SI semacam itu di dalam sesi yang di-flush sudah cukup mengosongkan kolom
+ * {@code satuan_kerja} secara permanen &mdash; dan penyaring di
+ * {@code StandingInstructionAction.initCriteria()} maupun {@code NewUiStandingInstructionService.criteria()}
+ * memperlakukan {@code satuanKerja IS NULL} sebagai "milik semua orang", sehingga baris yang
+ * cakupannya terhapus jadi terlihat dan dapat disunting oleh satuan kerja mana pun (fail-open
+ * cakupan tenant); {@code ensureScope()} pada jalur REST bahkan langsung meluluskan baris
+ * ber-satuan-kerja {@code null} sebelum sempat memeriksa hak akses.
+ * <br><br>
+ * <b>Diperbaiki:</b> getter ini sekarang hanya menimpa field bila hasil
+ * {@link #ambilSatuanKerja()} <b>bukan</b> {@code null}, pola yang sama seperti
+ * {@link #getBankSumber()} pada kelas ini. Cakupan yang sudah benar tetap ikut mengikuti
+ * perubahan dokumen gaji (mis. dokumen gaji pindah satuan kerja), tetapi SI yang untuk
+ * sementara "yatim" (dokumen gaji terhapus, atau SI non-penggajian) tidak lagi kehilangan
+ * satuan kerja yang sudah tersimpan hanya karena dibaca. Ini tidak memulihkan baris yang
+ * satuan kerjanya <i>sudah</i> terlanjur kosong sebelum perbaikan ini &mdash; itu perlu audit
+ * data historis terpisah.</li>
  * <li><b>Bendera {@code aktif} praktis tidak pernah menegakkan aturan apa pun.</b> Lihat
  * {@link #getAktif()} dan {@link #hitungAktifDariStatus()}.</li>
  * <li><b>Deklarasi ulang field itu keharusan teknis.</b> Rantai warisannya adalah
@@ -1098,14 +1111,13 @@ public class StandingInstruction extends DataSop {
 	 * Mengembalikan satuan kerja pemilik instruksi ini.
 	 *
 	 * <p>
-	 * <b>Getter paling berbahaya di kelas ini.</b> Berbeda dari {@link #ambilSatuanKerja()}
-	 * yang memakai variabel lokal, method ini <b>menugaskan hasilnya ke field persisten</b>
+	 * <b>Riwayat &mdash; dulu getter paling berbahaya di kelas ini.</b> Sampai dengan audit
+	 * 2026-09, method ini <b>menugaskan hasilnya ke field persisten</b>
 	 * ({@code satuanKerja = ambilSatuanKerja();}) <i>tanpa syarat</i> &mdash; termasuk ketika
-	 * hasilnya {@code null}. Jadi setiap kali SI yang tidak terkait penggajian (atau yang
-	 * dokumen gajinya sudah terhapus, lihat {@code @NotFound(IGNORE)} pada
-	 * {@link #getPembayaranGaji()}, atau yang dokumen gajinya tanpa satuan kerja) dibaca di
-	 * dalam sesi yang kemudian di-flush, kolom {@code satuan_kerja} baris tersebut
-	 * <b>dikosongkan permanen</b>.
+	 * hasilnya {@code null}. Setiap kali SI yang tidak terkait penggajian (atau yang dokumen
+	 * gajinya sudah terhapus, lihat {@code @NotFound(IGNORE)} pada {@link #getPembayaranGaji()},
+	 * atau yang dokumen gajinya tanpa satuan kerja) dibaca di dalam sesi yang kemudian di-flush,
+	 * kolom {@code satuan_kerja} baris tersebut <b>dikosongkan permanen</b>.
 	 * </p>
 	 *
 	 * <p>
@@ -1120,23 +1132,35 @@ public class StandingInstruction extends DataSop {
 	 * <li>penjaga tulis {@code NewUiStandingInstructionService.ensureScope()} membuka dengan
 	 * {@code if (v.getSatuanKerja() == null) return;} &mdash; artinya baris tanpa satuan kerja
 	 * <b>langsung diluluskan</b> untuk disunting oleh pengguna satuan kerja mana pun.
-	 * Ironisnya {@code ensureScope()} memanggil getter ini, sehingga pemeriksaan izin itu
-	 * sendiri berpotensi mengosongkan cakupan baris sebelum menyimpannya lewat
-	 * {@code s.update(v)} + {@code commit}.</li>
+	 * Ironisnya {@code ensureScope()} memanggil getter ini.</li>
 	 * </ul>
+	 *
+	 * <p>
+	 * <b>Diperbaiki:</b> getter ini sekarang hanya menugaskan field bila
+	 * {@link #ambilSatuanKerja()} mengembalikan nilai <b>bukan</b> {@code null} (pola sama
+	 * dengan {@link #getBankSumber()}). SI yang untuk sementara "yatim" karena itu tidak lagi
+	 * kehilangan satuan kerja yang sudah tersimpan hanya karena dibaca; penjaga cakupan di atas
+	 * masih memperlakukan baris ber-{@code satuanKerja null} sebagai lintas-unit, tetapi baris
+	 * semacam itu kini hanya muncul untuk SI yang memang belum/tidak pernah punya satuan kerja
+	 * sejak awal, bukan hasil erosi saat dibaca. Baris yang cakupannya sudah terlanjur kosong
+	 * sebelum perbaikan ini butuh audit data historis terpisah untuk dipulihkan.
+	 * </p>
 	 *
 	 * <p>
 	 * Relasi {@code LAZY}, {@code cascade = PERSIST, MERGE}, kolom {@code satuan_kerja} boleh
 	 * {@code null}.
 	 * </p>
 	 *
-	 * @return satuan kerja pemilik, atau {@code null} &mdash; dan pada saat yang sama
-	 *         menuliskan nilai itu ke field persisten
+	 * @return satuan kerja pemilik, atau {@code null} bila SI ini memang belum/tidak pernah
+	 *         berasosiasi dengan satuan kerja
 	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
-		satuanKerja = ambilSatuanKerja();
+		SatuanKerja hasil = ambilSatuanKerja();
+		if (hasil != null) {
+			satuanKerja = hasil;
+		}
 		return satuanKerja;
 	}
 
