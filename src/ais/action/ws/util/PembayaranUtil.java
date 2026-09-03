@@ -1752,7 +1752,7 @@ public class PembayaranUtil {
 				.add(Restrictions.eq("mulaiBelajarDiSemester", mulaiBelajarDiSemester))
 				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
 				.add(Restrictions.ilike("wnaAtauWni", warganegara, MatchMode.EXACT))
-				.add(Restrictions.eq("jenjang", jenjang)).add(Restrictions.eq("jurusan", jurusan))
+				.add(PembayaranUtilHelper.kriteriaJenjangDetailBiaya(jenjang)).add(Restrictions.eq("jurusan", jurusan))
 				.add(Restrictions.ilike("program", program, MatchMode.EXACT)).add(Restrictions.eq("semester", semester))
 				.add(Restrictions.between("semester", jenisKegiatan.getMinSmt(), jenisKegiatan.getMaxSmt()))
 				.add(Restrictions.eq("angkatan", angkatan)).list();
@@ -2242,7 +2242,7 @@ public class PembayaranUtil {
 				.add(Restrictions.eq("statusMahasiswa", ConstantValues.AKTIF))
 				.add(Restrictions.ilike("wnaAtauWni", warganegara, MatchMode.EXACT))
 				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan)).add(Restrictions.eq("jenisSeleksi", jenisSeleksi))
-				.add(Restrictions.eq("jenjang", jenjang)).add(Restrictions.eq("jurusan", jurusan))
+				.add(PembayaranUtilHelper.kriteriaJenjangDetailBiaya(jenjang)).add(Restrictions.eq("jurusan", jurusan))
 				.add(Restrictions.ilike("program", program, MatchMode.EXACT)).add(Restrictions.eq("angkatan", angkatan))
 				.add(Restrictions.ilike("mulaiBelajarDiSemester", biodataCalonMahasiswa.getSemesterMulai(),
 						MatchMode.EXACT));

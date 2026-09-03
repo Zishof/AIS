@@ -3126,7 +3126,13 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			myBiayas.setStatusMahasiswa(statusMahasiswa);
 			myBiayas.setStatusAwalMahasiswa(statusAwalMahasiswa);
 			myBiayas.setJenisSeleksi(jenisSeleksi);
-			myBiayas.setJenjang((Jenjang) searchJenjang.getSelectedItem().getValue());
+			Jenjang jenjangDetail = (Jenjang) searchJenjang.getSelectedItem().getValue();
+			// Filter "Semua" hanya mengatur cakupan layar. Setiap baris grid sudah
+			// menunjuk prodi tertentu, sehingga jenjang riil prodi harus ikut disimpan.
+			// Data lama yang telanjur null tetap dibaca sebagai wildcard oleh
+			// PembayaranUtilHelper.kriteriaJenjangDetailBiaya(...).
+			myBiayas.setJenjang(jenjangDetail != null ? jenjangDetail
+					: (jurusan == null ? null : jurusan.getJenjang()));
 			myBiayas.setProgram(program);
 			myBiayas.setWnaAtauWni(warganegara);
 			myBiayas.setPaket(paket);
@@ -3145,6 +3151,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			session.save(myBiayas);
 			session.getTransaction().commit();
 			HibernateUtil.closeSession();
+		}
+		if (myBiayas.getJenjang() == null && jurusan != null && jurusan.getJenjang() != null) {
+			// Saat baris lama disimpan ulang, pulihkan relasi jenjang tanpa SQL/ALTER.
+			myBiayas.setJenjang(jurusan.getJenjang());
 		}
 
 		if (maps != null) {

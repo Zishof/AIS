@@ -2488,7 +2488,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		tahap.add(new TahapAnalisisDetailLama("Kewarganegaraan", mahasiswa.getWarganegara(),
 				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatStringDetailLama("wnaAtauWni", mahasiswa.getWarganegara())), false));
 		tahap.add(new TahapAnalisisDetailLama("Jenjang template", namaObjekAnalisis(jenjang),
-				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatDetailLama("jenjang", jenjang)), false));
+				kriteriaCabangKhususLama(settingKhusus,
+						PembayaranUtilHelper.kriteriaJenjangDetailBiaya((Jenjang) jenjang)), false));
 		tahap.add(new TahapAnalisisDetailLama("Prodi/Jurusan template", namaObjekAnalisis(mahasiswa.getJurusan()),
 				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatDetailLama("jurusan", mahasiswa.getJurusan())), false));
 		tahap.add(new TahapAnalisisDetailLama("Program template", program,

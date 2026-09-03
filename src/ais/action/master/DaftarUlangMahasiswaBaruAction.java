@@ -3455,7 +3455,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		Jurusan jurusan = jurusanCalonUntukAnalisis();
 		Object jenjang = jurusan == null ? calonMahasiswa.getJenjang() : jurusan.getJenjang();
 		tahap.add(new TahapAnalisisDetailBaru("Jenjang template", namaObjekAnalisisBaru(jenjang),
-				kriteriaCabangKhususBaru(settingKhusus, kriteriaTepatDetailBaru("jenjang", jenjang)), false));
+				kriteriaCabangKhususBaru(settingKhusus,
+						PembayaranUtilHelper.kriteriaJenjangDetailBiaya(jenjang)), false));
 		tahap.add(new TahapAnalisisDetailBaru("Prodi/Jurusan template", namaObjekAnalisisBaru(jurusan),
 				kriteriaCabangKhususBaru(settingKhusus, kriteriaTepatDetailBaru("jurusan", jurusan)), false));
 		tahap.add(new TahapAnalisisDetailBaru("Program template", calonMahasiswa.getProgram(),

@@ -13,6 +13,7 @@ import java.util.TreeSet;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -107,6 +108,17 @@ public class PembayaranUtilHelper {
 
 	private static final String SQL_TRUE = "1=1";
 	private static final String SQL_FALSE = "1=0";
+
+	/**
+	 * Mencocokkan jenjang pada DetailBiaya dengan semantik filter "Semua".
+	 * Editor Pengaturan Tagihan lama menyimpan {@code jenjang = null} ketika
+	 * filter Jenjang dipilih Semua, walaupun barisnya sudah menunjuk prodi yang
+	 * spesifik. Nilai null tersebut adalah wildcard, bukan data yang rusak.
+	 */
+	public static Criterion kriteriaJenjangDetailBiaya(Jenjang jenjang) {
+		return jenjang == null ? Restrictions.isNull("jenjang")
+				: Restrictions.or(Restrictions.isNull("jenjang"), Restrictions.eq("jenjang", jenjang));
+	}
 
 	/**
 	 * Menambahkan batas sumber pada query baca {@link DetailBiaya} berdasarkan
@@ -966,7 +978,7 @@ public class PembayaranUtilHelper {
 					.add(Restrictions.eq("mulaiBelajarDiSemester", mulaiBelajarDiSemester))
 					.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
 					.add(warganegara != null ? Restrictions.ilike("wnaAtauWni", warganegara, MatchMode.EXACT) : Restrictions.sqlRestriction(SQL_TRUE))
-					.add(Restrictions.eq("jenjang", jenjang))
+					.add(kriteriaJenjangDetailBiaya(jenjang))
 					.add(Restrictions.eq("jurusan", jurusan))
 					.add(program != null ? Restrictions.ilike("program", program, MatchMode.EXACT) : Restrictions.sqlRestriction(SQL_TRUE))
 					.add(Restrictions.eq("semester", semester))
@@ -1311,7 +1323,7 @@ public class PembayaranUtilHelper {
 			if (jurusan == null) {
 				jurusan = (Jurusan) session.createCriteria(Jurusan.class)
 						.add(Restrictions.eq("aktif", true))
-						.add(Restrictions.eq("jenjang", jenjang))
+						.add(kriteriaJenjangDetailBiaya(jenjang))
 						.setMaxResults(1)
 						.uniqueResult();
 			}
@@ -1381,7 +1393,7 @@ public class PembayaranUtilHelper {
 					.add(warganegara != null ? Restrictions.ilike("wnaAtauWni", warganegara, MatchMode.EXACT) : Restrictions.sqlRestriction(SQL_TRUE))
 					.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
 					.add(Restrictions.eq("jenisSeleksi", jenisSeleksi))
-					.add(Restrictions.eq("jenjang", jenjang))
+					.add(kriteriaJenjangDetailBiaya(jenjang))
 					.add(Restrictions.eq("jurusan", jurusan))
 					.add(program != null ? Restrictions.ilike("program", program, MatchMode.EXACT) : Restrictions.sqlRestriction(SQL_TRUE))
 					.add(Restrictions.eq("angkatan", angkatan))
