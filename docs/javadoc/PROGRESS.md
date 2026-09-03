@@ -1,5 +1,84 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 44 — SELESAI 100% (3 Sep 2026) — BATCH KEAMANAN PALING SIGNIFIKAN: CACAT DISPATCHER JSP LINTAS 17 HALAMAN, IDOR API BARU
+
+5 file selesai didokumentasikan penuh (4 servlet + 1 entity), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika. **Batch investigasi keamanan murni**
+menyusul temuan `/welsis` batch 43 — 4 servlet kiosk sejenis (turunan
+template generator "CheckISBN" yang sama) diinvestigasi satu per satu:
+
+- **`ais/action/servlet/Welpus.java`** (r83629) — 68→248 baris. Domain:
+  kiosk buku tamu PERPUSTAKAAN (`KunjunganAnggota`), BUKAN siswa. Jalur
+  BARU (`_welpus_service.jsp`) TERNYATA SUDAH diperkeras dengan baik
+  (masking nama/kode/alamat, staff gate, CSRF, scoping per perpustakaan)
+  — TAPI parameter `?versilama=true` melewati SEMUA mitigasi itu: dump
+  PII massal TERMASUK FOTO, lintas perpustakaan/sekolah/yayasan, plus
+  scan-oracle identitas. Pola "diperbaiki tapi jalur lama lupa
+  dimatikan".
+- **`ais/action/servlet/Anjungan.java`** (r83630) — 59→247 baris. Domain:
+  kios layanan mandiri akademik (cetak KRS/KHS/transkrip). Halaman
+  penuh AMAN (cek sesi benar). **TEMUAN YANG MEMPERLUAS DRASTIS
+  cakupan**: parameter `hanya_tampil_jsp=true&p=X&s=Y` menjadikan
+  servlet ini proksi ANONIM ke SELURUH JSP di `WEB-INF/baru/modul/`
+  tanpa daftar putih — termasuk 65+ file `_service.jsp` backend AJAX
+  yang TIDAK punya cek sesi sendiri (mengandalkan gerbang normal yang
+  di-bypass). Pola dispatcher SAMA dikonfirmasi ada di `anjungan.jsp`,
+  `welsis.jsp`, `tamu.jsp` — cacat STRUKTURAL, bukan spesifik 1 servlet.
+- **`ais/action/servlet/Hadir.java`** (r83631) — 59→263 baris. Domain:
+  papan kehadiran dosen/guru lobi (BUKAN siswa) — disengaja publik
+  (terkonfirmasi via whitelist eksplisit `FilterJSP`). Cabang PT bocor
+  data dosen (NIDN, foto, jadwal) lintas fakultas; cabang sekolah
+  "aman" HANYA karena bug NPE yang mengancam bocor serupa bila
+  "diperbaiki" tanpa sadar. Kelas keparahan LEBIH RINGAN dari
+  `/welsis` (baca-saja, bukan data anak di bawah umur) — direkomendasikan
+  TIDAK digabung mentah ke `task_acfae1fb`.
+- **`ais/action/servlet/Tamu.java`** (r83632) — 67→245 baris. Domain:
+  buku tamu institusi (`KunjunganTamu`, BUKAN `KunjunganSiswa` — dugaan
+  awal keliru). Aksi `guest` publik BY DESIGN (terdaftar `HomePortalService`).
+  Tapi `action=list` bocor SELURUH riwayat sejak awal instalasi (bukan
+  cuma "hari ini" seperti label UI). **Konfirmasi independen KEDUA**
+  pola dispatcher `hanya_tampil_jsp` di 17 halaman root JSP publik,
+  termasuk modul keuangan/kepegawaian/akuntansi TANPA cek sesi sama
+  sekali. Plus XSS TERSIMPAN pra-otentikasi terpisah (isian anonim
+  dirender ke `innerHTML` tanpa escaping).
+- **`ais/database/model/sekolah/AbsenPiket.java`** (r83633) — 362→1072
+  baris, 100% (66 anggota). Header absensi harian per kelas. **4 kanal
+  penulis diidentifikasi, hanya 1 bergerbang benar** (`AbsenPiketAction`,
+  tapi `initCriteria()` fail-open serupa `task_5e93a600` DAN
+  `DetailAbsenPiketHelper` — 503 baris — NOL `checkPrevilages` sama
+  sekali, tombol massal "Semua hadir"/"Reset" tanpa syarat). Kanal kiosk
+  `/welsis` dikonfirmasi ULANG end-to-end, PLUS detail baru: penyerang
+  anonim menciptakan header `AbsenPiket` BARU dan menunjuk guru pembina
+  kelas sebagai guru piket palsu — atribusi palsu ter-audit permanen
+  (`@Audited`). **TEMUAN BARU: IDOR terautentikasi PENUH** di REST
+  `ElearningApiUtil.simpanAbsenPiket` — token valid APA PUN (termasuk
+  siswa/orang tua) bisa mengubah status kehadiran siswa MANA PUN lintas
+  sekolah/yayasan, id `IDENTITY` berurutan → enumerasi trivial (masuk
+  `task_493423ef`). Bug data nyata: `CommonPayroll` header absensi
+  "membajak" kelas lain akibat kondisi filter asimetris antar 2 cabang
+  kode.
+
+**TIGA TASK ESKALASI dari batch ini**:
+- `task_acfae1fb` (sudah ada) — diperkuat signifikan: path traversal
+  konkret di `welsis.jsp` (parameter `p`/`s` mentah ke `jsp:include`),
+  jalur legacy `/welpus?versilama=true`, atribusi palsu guru piket.
+- **`task_1f9c66d3` (BARU)** — cacat dispatcher `hanya_tampil_jsp`
+  lintas 17 halaman JSP publik, akses anonim ke backend keuangan/
+  kepegawaian/akuntansi, PLUS XSS tersimpan Tamu. Kategori BEDA dari
+  `task_acfae1fb` (struktural lintas-modul, bukan aksi 1 servlet).
+- `task_493423ef` (sudah ada) — diperkuat dengan IDOR baru `simpanAbsenPiket`.
+
+**Kalibrasi penting**: batch ini JUGA menghasilkan 1 kontra-contoh
+kalibrasi (`Hadir.java` — publik BY DESIGN, bukan kerentanan) dan 1
+contoh POSITIF parsial (`AbsenPiketAction` layar utama bergerbang benar,
+cacatnya di helper detail) — mengingatkan untuk tidak menggeneralisasi
+semua servlet publik sebagai otomatis rentan.
+
+Total akumulasi 44 sesi: **398 file** (394 model + 4 servlet, dihitung
+gabungan) dari basis 7.401 file model (~5,3%; servlet dihitung terpisah
+dari basis utama).
+
 ## Batch 43 — SELESAI 100% (3 Sep 2026) — ENDPOINT PRA-OTENTIKASI DITEMUKAN, `task_5e93a600` DIKONFIRMASI 3X INDEPENDEN
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
