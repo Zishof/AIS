@@ -2556,6 +2556,21 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("si_")) {
 			return false; // prefix si_ tak dikenal = TOLAK (fail-closed), bukan jatuh ke default true.
 		}
+		// Catatan keamanan (diverifikasi 2026-09-03, TIDAK diubah). Seluruh prefiks keluarga
+		// "Keuangan" (proses_transfer_, master_keuangan_, uang_muka_, kas_besar_, pj_kas_besar_,
+		// closing_, reimbursement_, dana_talangan_, jurnal_umum_) TIDAK punya cabang eksplisit
+		// di sini -- semuanya jatuh ke `return true` di bawah, walau kuncinya (mis.
+		// "proses_transfer") sudah terdaftar di EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF
+		// (niat fail-closed penulis jelas dari komentar di sana). Ini pola dua-lapis yang
+		// SAMA dengan distribusi_/produksi_ di atas: gerbang pertama ini sengaja meloloskan
+		// namespace-nya, dan pemeriksaan fail-closed sesungguhnya ada di lapis kedua --
+		// masing-masing *ApiHelper.bolehAksi() memanggil EbisnisMenuKatalog.bolehAksi(...)
+		// yang MEMANG menolak default lewat KUNCI_DEFAULT_NONAKTIF. Menambah cabang eksplisit
+		// hanya untuk proses_transfer_ akan menyimpang dari 8 prefiks saudaranya yang belum
+		// ditambal serupa -- kalau memang mau ditutup, itu keputusan produk lintas-keluarga
+		// sekaligus (juga dilacak sisi lapis-kedua di task_66986071), bukan tambalan satu
+		// prefiks. Dikonfirmasi & dibiarkan sesuai keputusan eksplisit pengguna, sesi audit
+		// 2026-09-03 (rantai realisasi transfer, lihat ProsesTransferApiHelper.bolehAksi).
 		return true;
 	}
 

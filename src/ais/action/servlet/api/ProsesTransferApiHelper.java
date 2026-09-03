@@ -84,6 +84,37 @@ public final class ProsesTransferApiHelper {
 		hasil.put("description", pesan);
 	}
 
+	/**
+	 * <p><b>Catatan keamanan (diverifikasi 2026-09-03, TIDAK diubah sesuai keputusan
+	 * eksplisit -- lihat di bawah).</b> {@code role == null} di sini FAIL-OPEN (mengizinkan
+	 * penuh), bukan menolak. Ini BUKAN cacat unik file ini: pola identik disalin ke 20+
+	 * {@code *ApiHelper.bolehAksi()} lain (mis. {@code MasterKeuanganApiHelper},
+	 * {@code PertangungjawabanKasBesarApiHelper}, {@code ClosingApiHelper},
+	 * {@code ReimbursementApiHelper}) dan ke gerbang utama
+	 * {@code PosApi.bolehAksesActionKantin} sendiri -- satu-satunya pengecualian fail-closed
+	 * di seluruh {@code ais.action.servlet.api} adalah {@code HotelApiHelper}. Dilacak sebagai
+	 * {@code task_66986071} (kini di 7 helper). Gerbang di sini istimewa dibanding sebagian
+	 * saudaranya: menjaga bukan cuma create/update/delete master data, tapi juga
+	 * <b>approve/reject/realisasi</b> -- realisasi memicu posting jurnal otomatis
+	 * ({@link ais.action.master.akunting.PostingProsesTransferAction#postingSatu}), jadi
+	 * fail-open di sini berarti pencairan dana, bukan sekadar perubahan data master.</p>
+	 *
+	 * <p>{@code role} (hasil {@link Tbmuser#hakAkses()}) null BUKAN berarti "user baru belum
+	 * diberi role" (kolom FK-nya {@code nullable=false}), melainkan entitas {@code Tbmrole}
+	 * yang dirujuk sudah ter-detach/hilang dari session (cache stale) -- kondisi anomali
+	 * cache, bukan alur normal yang bisa dipicu sembarang pengguna terautentikasi kapan pun.</p>
+	 *
+	 * <p>Karena konvensi ini konsisten &amp; disengaja di seluruh lapisan API Keuangan,
+	 * mengubahnya jadi fail-closed HANYA di sini akan (a) menciptakan inkonsistensi perilaku
+	 * antar modul yang identik strukturnya, dan (b) berisiko mengunci akun sah yang cache
+	 * role-nya sedang stale, tanpa menutup celah yang sama di 6+ file lain maupun di gerbang
+	 * {@code PosApi.bolehAksesActionKantin} yang berjalan LEBIH DULU. Perbaikan yang aman
+	 * ada di akar penyebab ({@code hakAkses()}/cache tidak boleh diam-diam mengembalikan null
+	 * untuk user sah) atau sebagai keputusan produk terpisah yang diterapkan konsisten ke
+	 * SELURUH keluarga {@code *ApiHelper} akuntansi/keuangan sekaligus ({@code task_66986071})
+	 * -- bukan tambalan sepihak di satu file. Dikonfirmasi ulang &amp; dibiarkan sesuai
+	 * keputusan eksplisit pengguna, sesi audit 2026-09-03 (rantai realisasi transfer).</p>
+	 */
 	private static boolean bolehAksi(Tbmuser tbmuser, String aksi) {
 		if (Common.getApakahAdminLain(tbmuser)) {
 			return true;
@@ -318,6 +349,26 @@ public final class ProsesTransferApiHelper {
 
 	// ============================================================ daftar
 
+	/**
+	 * <p><b>Catatan keamanan (diverifikasi 2026-09-03, TIDAK diubah).</b> Method ini (dan
+	 * {@code detail}/{@code kandidat}/{@code opsi}/{@code dasbor}) TIDAK memanggil
+	 * {@link #bolehAksi} -- siapa pun dengan {@code tbmuser} terautentikasi (token API apa
+	 * saja) dapat membaca seluruh daftar batch pencairan dana, terlepas dari menu/role-nya.
+	 * INI BUKAN cacat unik file ini: {@code daftar()} di SELURUH helper Keuangan lain
+	 * ({@code MasterKeuanganApiHelper}, {@code KasKecilApiHelper}, {@code KasBesarApiHelper},
+	 * {@code ReimbursementApiHelper}, {@code UangMukaApiHelper}, dst.) punya pola identik:
+	 * baca hanya digerbangi autentikasi, bukan hak menu.</p>
+	 *
+	 * <p><b>Ditambah: nol filter tenant.</b> {@link ais.database.model.akunting.ProsesTransfer}
+	 * dan {@link DaftarPengajuanTransfer} TIDAK PUNYA kolom tenant sama sekali (bukan sekadar
+	 * predikat yang lupa ditambahkan ke query -- kolomnya memang tidak ada di skema; lihat
+	 * Javadoc kelas {@code ProsesTransfer} bagian "Cakupan tenant" untuk detail lengkap).
+	 * Query di bawah ({@code daftar}/{@code kandidat}/{@code itemTerpasang}) karena itu
+	 * mengembalikan baris SELURUH tenant tanpa kemungkinan menyaringnya di level kode ini.
+	 * Menutup gap ini butuh migrasi skema (menambah kolom tenant) di seluruh keluarga
+	 * Keuangan sekaligus -- keputusan produk terpisah, bukan tambalan query satu file.
+	 * Dikonfirmasi &amp; dibiarkan sesuai keputusan eksplisit pengguna, sesi audit 2026-09-03.</p>
+	 */
 	public static void daftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		String cari = request == null ? "" : request.optString("cari", "").trim();
 		String statusFilter = request == null ? "" : request.optString("statusFilter", "").trim();
