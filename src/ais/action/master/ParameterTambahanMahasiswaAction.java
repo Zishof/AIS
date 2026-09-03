@@ -41,6 +41,7 @@ import org.zkoss.zul.Vbox;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.common.PesanFormalHelper;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Fakultas;
@@ -113,8 +114,8 @@ public class ParameterTambahanMahasiswaAction extends GenericAutowireComposer
 
 	private MyToolbarbuttonConfig find;
 
-	private boolean edit = true;
-	private boolean delete = true;
+	private boolean edit = false;
+	private boolean delete = false;
 
 	private ParameterTambahanMahasiswa parameterTambahanMahasiswa;
 	private Tabpanel manajemenKelompok;
@@ -198,6 +199,12 @@ public class ParameterTambahanMahasiswaAction extends GenericAutowireComposer
 		super.doAfterCompose(comp);
 		Common.initLaguage();
 
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
+
 		KelompokParameterTambahanMahasiswa.checkCreateDefault();
 
 		if (searchkelompokParameterTambahanMahasiswa != null) {
@@ -217,6 +224,9 @@ public class ParameterTambahanMahasiswaAction extends GenericAutowireComposer
 					Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 			Common.insertComboDanSemua(jenjang = new Combobox(), "nama", Jenjang.class,
 					Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+
+			edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
 			onSearchDefault(null);
 			Common.initPaging(paging, new EventListener() {
@@ -401,6 +411,10 @@ public class ParameterTambahanMahasiswaAction extends GenericAutowireComposer
 
 	@SuppressWarnings("unchecked")
 	public void onAdd(Event event) throws Exception {
+
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
 
 		if (searchkelompokParameterTambahanMahasiswa.getSelectedItem() == null
 				|| searchkelompokParameterTambahanMahasiswa.getSelectedItem().getValue() == null) {
