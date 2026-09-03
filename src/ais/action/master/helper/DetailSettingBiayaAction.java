@@ -2474,6 +2474,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 
 			@Override
 			public void run() {
+				Session session = null;
 				try {
 
 				try {
@@ -2481,7 +2482,11 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					Session session = HibernateUtil.currentNativeSession();
+					// Thread upload tidak boleh berbagi session ThreadLocal dengan helper di
+					// dalam loop. Beberapa helper dapat menutup currentNativeSession(), lalu
+					// iterasi berikutnya gagal dengan "Session is closed". Gunakan session
+					// terisolasi yang lifecycle-nya dimiliki penuh oleh thread ini.
+					session = HibernateUtil.openSession();
 
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
@@ -2574,8 +2579,6 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:1772");
 				}
 
-				HibernateUtil.closeSession();
-
 				try {
 					java.io.File rptFile = report.simpanLaporan();
 					downloadPath.setValue(rptFile.getAbsolutePath());
@@ -2583,7 +2586,8 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					ais.common.ErrorAuditUtil.record(eReport, "auto-audit(empty-catch) DetailSettingBiayaAction laporan upload");
 				}
 				label.setValue("");
-							} finally {
+				} finally {
+					Common.closeNativeSessionQuietly(session);
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
@@ -2640,6 +2644,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 
 			@Override
 			public void run() {
+				Session session = null;
 				try {
 
 				try {
@@ -2647,7 +2652,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					Session session = HibernateUtil.currentNativeSession();
+					// Sama dengan upload mahasiswa: session khusus thread mencegah helper
+					// menutup session utama di tengah pemrosesan baris berikutnya.
+					session = HibernateUtil.openSession();
 
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
@@ -2748,8 +2755,6 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:1908");
 				}
 
-				HibernateUtil.closeSession();
-
 				try {
 					java.io.File rptFile = report.simpanLaporan();
 					downloadPath.setValue(rptFile.getAbsolutePath());
@@ -2757,7 +2762,8 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					ais.common.ErrorAuditUtil.record(eReport, "auto-audit(empty-catch) DetailSettingBiayaAction laporan upload");
 				}
 				label.setValue("");
-							} finally {
+				} finally {
+					Common.closeNativeSessionQuietly(session);
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
