@@ -226,7 +226,7 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 			pesan = pesan + " " + masalah.optString(0);
 		}
 		try {
-			org.zkoss.zul.Messagebox.show(pesan, judul(), org.zkoss.zul.Messagebox.OK,
+			ais.ui.util.MyMessageboxConfig.show(pesan, judul(), org.zkoss.zul.Messagebox.OK,
 					org.zkoss.zul.Messagebox.INFORMATION);
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingTokoKantinAction.posting pesan");

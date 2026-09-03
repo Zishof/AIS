@@ -204,6 +204,72 @@ public class MyMessageboxConfig {
 		return hasil;
 	}
 
+	/** Batas panjang ringkasan yang ditampilkan di muka dialog. */
+	private static final int BATAS_RINGKAS = 700;
+
+	/**
+	 * Apakah sebuah baris hanyalah sapaan pembuka baku yang tidak membawa informasi.
+	 *
+	 * <p>Seluruh pesan dari {@code PesanFormalHelper} diawali "Yang terhormat Bapak/Ibu
+	 * Pengguna,". Baris ini sopan tetapi kosong isi, dan justru menjadi penyebab dialog
+	 * tampak hampa ketika ringkasan dipotong pada baris pertama.</p>
+	 */
+	private static boolean barisSapaan(String baris) {
+		if (baris == null) {
+			return true;
+		}
+		String l = baris.trim().toLowerCase();
+		if (l.length() == 0) {
+			return true;
+		}
+		return l.startsWith("yang terhormat") || l.startsWith("kepada yth") || l.startsWith("kepada yang terhormat")
+				|| l.startsWith("dengan hormat");
+	}
+
+	/**
+	 * Posisi awal paragraf ESKALASI baku ("hubungi Administrator ... lampirkan tangkapan
+	 * layar"), atau -1 bila tidak ada.
+	 *
+	 * <p>Paragraf ini identik pada SETIAP pesan gagal dan panjangnya sekitar 300 karakter.
+	 * Menampilkannya di muka membuat ringkasan tenggelam, padahal isinya tidak membedakan
+	 * satu kesalahan dari kesalahan lain. Teksnya tetap utuh di dalam Detail.</p>
+	 */
+	private static int indexEskalasi(String pesan) {
+		if (pesan == null) {
+			return -1;
+		}
+		String lower = pesan.toLowerCase();
+		String[] penanda = new String[] { "apabila bapak/ibu kurang memahami", "apabila langkah-langkah di atas",
+				"apabila langkah di atas", "silakan menghubungi administrator", "silakan hubungi administrator" };
+		int hasil = -1;
+		for (int i = 0; i < penanda.length; i++) {
+			int idx = lower.indexOf(penanda[i]);
+			if (idx >= 0 && (hasil < 0 || idx < hasil)) {
+				hasil = idx;
+			}
+		}
+		return hasil;
+	}
+
+	/**
+	 * Ringkasan yang ditampilkan DI MUKA dialog: inti pesan bagi pengguna.
+	 *
+	 * <p><b>Akar masalah yang diperbaiki.</b> Versi sebelumnya memotong pesan pada newline
+	 * PERTAMA. Karena setiap pesan {@code PesanFormalHelper} dibuka baris sapaan, yang tersisa
+	 * di dialog hanyalah "Yang terhormat Bapak/Ibu Pengguna," — pengguna tidak melihat apa pun
+	 * tentang kesalahannya kecuali menekan Detail, padahal Detail diperuntukkan bagi informasi
+	 * teknis.</p>
+	 *
+	 * <p><b>Sekarang.</b> Ringkasan dibentuk dari bagian yang benar-benar berisi: kalimat
+	 * "apa yang gagal", <i>Penyebab</i>, dan <i>Tindak Lanjut</i> — semuanya bahasa pengguna.
+	 * Yang dibuang hanyalah dua hal yang tidak menambah informasi: baris sapaan di awal, dan
+	 * paragraf eskalasi baku di akhir yang bunyinya sama di semua pesan. Keduanya TETAP utuh
+	 * di dalam Detail, sehingga tidak ada teks yang hilang.</p>
+	 *
+	 * <p>Batas panjang dinaikkan dari 260 menjadi {@value #BATAS_RINGKAS} karakter karena
+	 * Label pada dialog memang multiline; 260 karakter memotong ringkasan di tengah bagian
+	 * Penyebab. Pemotongan tetap ada sebagai pengaman, dan dilakukan pada batas kalimat.</p>
+	 */
 	private static String ringkasPesanAwal(String pesan) {
 		if (pesan == null) {
 			return "";
@@ -213,15 +279,34 @@ public class MyMessageboxConfig {
 		if (idx > 0) {
 			value = value.substring(0, idx).trim();
 		}
-		int newline = value.indexOf('\n');
-		if (newline > 0) {
-			value = value.substring(0, newline).trim();
+		int eskalasi = indexEskalasi(value);
+		if (eskalasi > 0) {
+			value = value.substring(0, eskalasi).trim();
 		}
-		if (value.length() > 260) {
-			int titik = value.lastIndexOf('.', 260);
-			value = value.substring(0, titik > 80 ? titik + 1 : 260).trim();
+
+		// Buang baris sapaan/kosong yang mengawali pesan; sisanya dipertahankan apa adanya
+		// (termasuk pergantian baris) karena Label dialog sudah multiline.
+		String[] baris = value.split("\n");
+		StringBuilder sb = new StringBuilder();
+		boolean masihPembuka = true;
+		for (int i = 0; i < baris.length; i++) {
+			if (masihPembuka && barisSapaan(baris[i])) {
+				continue;
+			}
+			masihPembuka = false;
+			sb.append(baris[i]).append("\n");
 		}
-		return value.length() == 0 ? pesan.trim() : value;
+		String hasil = sb.toString().trim();
+		if (hasil.length() == 0) {
+			// Pesan yang isinya HANYA sapaan: lebih baik tampilkan apa adanya daripada kosong.
+			hasil = value;
+		}
+
+		if (hasil.length() > BATAS_RINGKAS) {
+			int titik = hasil.lastIndexOf('.', BATAS_RINGKAS);
+			hasil = hasil.substring(0, titik > 120 ? titik + 1 : BATAS_RINGKAS).trim();
+		}
+		return hasil.length() == 0 ? pesan.trim() : hasil;
 	}
 
 	private static String ambilDetailDariPesan(String pesan) {
@@ -239,13 +324,26 @@ public class MyMessageboxConfig {
 		return "";
 	}
 
+	/** Exception terdalam pada rantai {@code getCause()}; dijaga dari rantai melingkar. */
+	private static Throwable akarPenyebab(Throwable error) {
+		Throwable hasil = error;
+		int batas = 0;
+		while (hasil != null && hasil.getCause() != null && hasil.getCause() != hasil && batas < 50) {
+			hasil = hasil.getCause();
+			batas++;
+		}
+		return hasil;
+	}
+
 	private static String susunDetail(String pesan, String pesanTampilan, String title, String icon, Throwable throwable,
 			String detailTambahan) {
 		StringBuilder detail = new StringBuilder();
 		detail.append("Waktu : ")
 				.append(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(new Date())).append("\n");
-		detail.append("Judul : ").append(title == null ? "" : title).append("\n");
-		detail.append("Jenis : ").append(icon == null ? "" : icon).append("\n\n");
+		detail.append("Judul : ").append(title == null ? "" : title).append("\n\n");
+		// Baris "Jenis" sengaja DIHILANGKAN: isinya nama kelas CSS ZK (mis.
+		// "z-msgbox z-msgbox-question") yang tidak berarti bagi pengguna maupun
+		// pengembang, dan hanya menambah keriuhan di awal detail.
 		detail.append("Pesan Singkat yang Ditampilkan:\n").append(pesanTampilan == null ? "" : pesanTampilan)
 				.append("\n\n");
 		detail.append("Pesan Lengkap:\n").append(pesan == null ? "" : pesan).append("\n\n");
@@ -259,6 +357,20 @@ public class MyMessageboxConfig {
 			detail.append("1. Periksa kembali data/filter/input pada form yang sedang diproses.\n");
 			detail.append("2. Ulangi proses setelah data yang wajib diisi sudah lengkap.\n");
 			detail.append("3. Jika masih gagal, salin detail ini lalu kirim ke admin/teknis.\n\n");
+		}
+		// Ringkasan teknis dituliskan SEBELUM stack trace: tipe dan pesan exception --
+		// termasuk penyebab TERDALAM -- adalah hal pertama yang dicari pengembang, dan pada
+		// stack trace yang panjang keduanya mudah terlewat.
+		if (throwable != null) {
+			Throwable akar = akarPenyebab(throwable);
+			detail.append("Ringkasan Teknis:\n");
+			detail.append("- Tipe error utama       : ").append(throwable.getClass().getName()).append("\n");
+			detail.append("- Pesan error utama      : ").append(String.valueOf(throwable.getMessage())).append("\n");
+			if (akar != null && akar != throwable) {
+				detail.append("- Tipe penyebab terdalam : ").append(akar.getClass().getName()).append("\n");
+				detail.append("- Pesan penyebab terdalam: ").append(String.valueOf(akar.getMessage())).append("\n");
+			}
+			detail.append("\n");
 		}
 		String trace = stackTrace(throwable);
 		if (trace.length() > 0) {

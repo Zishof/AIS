@@ -288,7 +288,7 @@ public class AmbilDataMatakuliahKurikulumHelper {
 
 		if (gagalDihapus.length() > 0) {
 			try {
-				org.zkoss.zul.Messagebox.show(
+				ais.ui.util.MyMessageboxConfig.show(
 						"Mata kuliah berikut tidak dihapus dari kurikulum karena sudah dipakai pada perkuliahan yang berjalan: "
 								+ gagalDihapus.toString(),
 						"Perhatian", org.zkoss.zul.Messagebox.OK, org.zkoss.zul.Messagebox.EXCLAMATION);

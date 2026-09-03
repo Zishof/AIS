@@ -9856,7 +9856,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						if (pesan == null || pesan.trim().length() == 0) {
 							pesan = "Data " + judul + " belum dapat dibuka. Silakan periksa program studi mata kuliah.";
 						}
-						Messagebox.show(pesan, "Peringatan", Messagebox.OK, Messagebox.EXCLAMATION);
+						ais.ui.util.MyMessageboxConfig.show(pesan, "Peringatan", Messagebox.OK, Messagebox.EXCLAMATION);
 					}
 				}
 			});

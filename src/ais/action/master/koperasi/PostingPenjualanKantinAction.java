@@ -585,7 +585,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 
 	private void onPosting() throws Exception {
 		if (!bolehMemposting()) {
-			org.zkoss.zul.Messagebox.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.", "Posting Penjualan",
+			ais.ui.util.MyMessageboxConfig.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.", "Posting Penjualan",
 					org.zkoss.zul.Messagebox.OK, org.zkoss.zul.Messagebox.INFORMATION);
 			return;
 		}
@@ -969,7 +969,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		// onPosting(). Penjagaannya karena itu wajib ada di sini juga -- kalau hanya
 		// di onPosting(), tombol per baris menjadi jalan pintas yang melewatinya.
 		if (!bolehMemposting()) {
-			org.zkoss.zul.Messagebox.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.", "Posting Penjualan",
+			ais.ui.util.MyMessageboxConfig.show("Grup pengguna Anda tidak memiliki hak memposting pada menu ini.", "Posting Penjualan",
 					org.zkoss.zul.Messagebox.OK, org.zkoss.zul.Messagebox.INFORMATION);
 			return;
 		}

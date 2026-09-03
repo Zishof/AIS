@@ -232,7 +232,7 @@ public class SiklusAkuntansiKantinAction extends GenericAutowireComposer {
 			if (masalah != null && masalah.length() > 0) {
 				pesan = pesan + " " + masalah.optString(0);
 			}
-			org.zkoss.zul.Messagebox.show(pesan, judul(), org.zkoss.zul.Messagebox.OK,
+			ais.ui.util.MyMessageboxConfig.show(pesan, judul(), org.zkoss.zul.Messagebox.OK,
 					org.zkoss.zul.Messagebox.INFORMATION);
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) SiklusAkuntansiKantinAction.posting");

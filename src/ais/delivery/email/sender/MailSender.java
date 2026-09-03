@@ -1397,10 +1397,10 @@ public class MailSender {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (notif != null) {
-						Messagebox.show(notif.getHasil() + "\n\n" + notif.getHasilEmail(), "Info Pengiriman Data",
+						ais.ui.util.MyMessageboxConfig.show(notif.getHasil() + "\n\n" + notif.getHasilEmail(), "Info Pengiriman Data",
 								MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 					} else {
-						Messagebox.show("Pengiriman email sudah diproses. Data notifikasi tidak dibuat karena penerima kosong.",
+						ais.ui.util.MyMessageboxConfig.show("Pengiriman email sudah diproses. Data notifikasi tidak dibuat karena penerima kosong.",
 								"Info Pengiriman Data", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 					}
 				}

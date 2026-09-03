@@ -244,7 +244,7 @@ public final class DaftarBimbinganPerDosenHelper {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private static void tampilkanCetak(List<Map> maps) throws Exception {
 		if (maps == null || maps.isEmpty()) {
-			Messagebox.show("Belum ada data mahasiswa bimbingan untuk dicetak.");
+			ais.ui.util.MyMessageboxConfig.show("Belum ada data mahasiswa bimbingan untuk dicetak.");
 			return;
 		}
 

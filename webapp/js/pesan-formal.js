@@ -32,8 +32,33 @@ function tampilkanPesanGagalFormal(aktivitas, penyebab, langkahSolusi, detailTek
         pesanMudah = "Isi pesanan di server berbeda dengan keranjang yang sedang tampil. Pembayaran dihentikan agar barang atau jumlah yang salah tidak tersimpan.";
         solusi = ["Tutup jendela pembayaran, lalu muat ulang daftar pesanan.", "Buka kembali pesanan dan periksa nama produk serta jumlahnya.", "Jika masih berbeda, salin Detail Error dan hubungi supervisor/admin."];
     }
-    var salinan = "Kode referensi: " + referensi + "\nAktivitas: " +
-        (aktivitas || "proses aplikasi") + "\n" + teknis;
+    /* Blok Detail disusun dengan bentuk yang SAMA seperti sisi ZK
+       (MyMessageboxConfig.susunDetail): keterangan konteks lebih dulu, lalu informasi
+       teknis. Sebelumnya hanya kode referensi + aktivitas + teks teknis mentah,
+       sehingga laporan pengguna sering tiba tanpa waktu kejadian maupun halaman
+       tempat kesalahan terjadi -- dua hal pertama yang ditanyakan pengembang. */
+    var barisDetail = [];
+    barisDetail.push("Waktu         : " + new Date().toLocaleString());
+    barisDetail.push("Kode Referensi: " + referensi);
+    barisDetail.push("Aktivitas     : " + (aktivitas || "proses aplikasi"));
+    barisDetail.push("Judul         : " + judul);
+    try { barisDetail.push("Halaman       : " + window.location.href); } catch (e) {}
+    try { barisDetail.push("Peramban      : " + navigator.userAgent); } catch (e) {}
+    barisDetail.push("");
+    barisDetail.push("Pesan Singkat yang Ditampilkan:");
+    barisDetail.push(pesanMudah);
+    barisDetail.push("");
+    if (solusi && solusi.length) {
+        barisDetail.push("Langkah yang Disarankan:");
+        for (var s2 = 0; s2 < solusi.length; s2++) {
+            barisDetail.push("  " + (s2 + 1) + ". " + solusi[s2]);
+        }
+        barisDetail.push("");
+    }
+    barisDetail.push("Informasi Teknis:");
+    barisDetail.push(teknis && String(teknis).length ? teknis
+        : "Tidak ada informasi teknis yang dikirim ke komponen alert ini.");
+    var salinan = barisDetail.join("\n");
 
     var lama = document.getElementById("ais-dialog-error-global");
     if (lama && lama.parentNode) lama.parentNode.removeChild(lama);
@@ -49,11 +74,11 @@ function tampilkanPesanGagalFormal(aktivitas, penyebab, langkahSolusi, detailTek
     for (var i = 0; i < solusi.length; i++) { var li = document.createElement("li"); li.textContent = solusi[i]; ul.appendChild(li); }
     box.appendChild(ul);
     var details = document.createElement("details"); details.style.cssText = "margin-top:14px;border-top:1px solid #ddd;padding-top:10px";
-    var summary = document.createElement("summary"); summary.textContent = "Detail Error"; summary.style.cssText = "cursor:pointer;font-weight:bold"; details.appendChild(summary);
+    var summary = document.createElement("summary"); summary.textContent = "Detail (informasi teknis)"; summary.style.cssText = "cursor:pointer;font-weight:bold"; details.appendChild(summary);
     var pre = document.createElement("pre"); pre.textContent = salinan; pre.style.cssText = "white-space:pre-wrap;word-break:break-word;background:#f5f5f5;padding:10px;border-radius:8px;max-height:260px;overflow:auto"; details.appendChild(pre);
-    var copy = document.createElement("button"); copy.type = "button"; copy.textContent = "Copy Error"; copy.style.cssText = "padding:8px 14px;margin-right:8px;cursor:pointer";
+    var copy = document.createElement("button"); copy.type = "button"; copy.textContent = "Copy Detail"; copy.style.cssText = "padding:8px 14px;margin-right:8px;cursor:pointer";
     copy.onclick = function () {
-        var selesai = function () { copy.textContent = "Error sudah disalin"; };
+        var selesai = function () { copy.textContent = "Tersalin"; };
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(salinan).then(selesai);
         else { var ta = document.createElement("textarea"); ta.value = salinan; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); selesai(); }
     };

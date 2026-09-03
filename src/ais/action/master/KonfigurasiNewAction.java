@@ -624,7 +624,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 
 		if (!shown) {
 			try {
-				Messagebox.show(safeMessage, safeTitle, Messagebox.OK, Messagebox.EXCLAMATION);
+				ais.ui.util.MyMessageboxConfig.show(safeMessage, safeTitle, Messagebox.OK, Messagebox.EXCLAMATION);
 				shown = true;
 			} catch (Exception e) {
 			ais.common.Common.tampilErrorJikaAdmin(e);

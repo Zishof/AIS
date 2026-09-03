@@ -298,7 +298,7 @@ public class GenerateNimCalonMahasiswaAkademikAction extends GenericAutowireComp
 			return;
 		}
 
-		Messagebox.show(
+		ais.ui.util.MyMessageboxConfig.show(
 			"NIM saat ini : " + (nimLama.isEmpty() ? "-" : nimLama) + "\n"
 			+ "NIM baru     : " + nimBaru + "\n\n"
 			+ "Yakin ingin mengganti NIM dengan format terbaru?",

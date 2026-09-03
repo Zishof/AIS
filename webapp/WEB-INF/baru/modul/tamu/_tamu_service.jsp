@@ -75,7 +75,15 @@ try {
         else if ("list".equals(aksi)) {
             int limit = 10;
             int pageIdx = 0;
-            try { pageIdx = Integer.parseInt(request.getParameter("page")); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/tamu/_tamu_service.jsp:78");}
+            String pageParam = request.getParameter("page");
+            if (pageParam != null && pageParam.trim().matches("[0-9]+")) {
+                try {
+                    pageIdx = Integer.parseInt(pageParam.trim());
+                } catch (NumberFormatException e) {
+                    // Angka di luar rentang integer diperlakukan sebagai halaman pertama.
+                    pageIdx = 0;
+                }
+            }
             
             Long totalData = (Long) dbSession.createCriteria(KunjunganTamu.class)
                 .setProjection(Projections.rowCount())
