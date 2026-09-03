@@ -3,7 +3,6 @@ package ais.action.master.psb;
 import java.util.Calendar;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
@@ -176,10 +175,10 @@ public class LoginCalonSiswaAction extends GenericAutowireComposer {
 			calonSiswa = (CalonSiswa) session.createCriteria(CalonSiswa.class)
 					.add(Restrictions.isNotNull("gelombangPendaftaranPsb")).setMaxResults(1).addOrder(Order.desc("id"))
 					.add(Restrictions.eq("tanggalLahir", calendarEntry.getTime()))
-					.add(Restrictions.ilike("pinPassword", pinPassword.getValue().trim(), MatchMode.EXACT))
+					.add(Restrictions.eq("pinPassword", pinPassword.getValue().trim()).ignoreCase())
 					.add(Restrictions.or(
-							Restrictions.ilike("nomorInduk", nomorInduk.getValue().trim(), MatchMode.EXACT),
-							Restrictions.ilike("noUjian", nomorInduk.getValue().trim(), MatchMode.EXACT)))
+							Restrictions.eq("nomorInduk", nomorInduk.getValue().trim()).ignoreCase(),
+							Restrictions.eq("noUjian", nomorInduk.getValue().trim()).ignoreCase()))
 					.uniqueResult();
 		} else {
 			calonSiswa = (CalonSiswa) session.createCriteria(CalonSiswa.class)
@@ -188,8 +187,8 @@ public class LoginCalonSiswaAction extends GenericAutowireComposer {
 					.add(Restrictions.eq("tanggalLahir", calendarEntry.getTime()))
 
 					.add(Restrictions.or(
-							Restrictions.ilike("nomorInduk", nomorInduk.getValue().trim(), MatchMode.EXACT),
-							Restrictions.ilike("noUjian", nomorInduk.getValue().trim(), MatchMode.EXACT)))
+							Restrictions.eq("nomorInduk", nomorInduk.getValue().trim()).ignoreCase(),
+							Restrictions.eq("noUjian", nomorInduk.getValue().trim()).ignoreCase()))
 					.uniqueResult();
 		}
 
@@ -203,13 +202,13 @@ public class LoginCalonSiswaAction extends GenericAutowireComposer {
 				calonSiswa = (CalonSiswa) session.createCriteria(CalonSiswa.class)
 						.add(Restrictions.isNotNull("gelombangPendaftaranPsb")).setMaxResults(1)
 						.addOrder(Order.desc("id")).add(Restrictions.eq("tanggalLahir", calendarEntry.getTime()))
-						.add(Restrictions.ilike("pinPassword", pinPassword.getValue().trim(), MatchMode.EXACT))
-						.add(Restrictions.ilike("nama", nomorInduk.getValue().trim(), MatchMode.EXACT)).uniqueResult();
+						.add(Restrictions.eq("pinPassword", pinPassword.getValue().trim()).ignoreCase())
+						.add(Restrictions.eq("nama", nomorInduk.getValue().trim()).ignoreCase()).uniqueResult();
 			} else {
 				calonSiswa = (CalonSiswa) session.createCriteria(CalonSiswa.class)
 						.add(Restrictions.isNotNull("gelombangPendaftaranPsb")).setMaxResults(1)
 						.addOrder(Order.desc("id")).add(Restrictions.eq("tanggalLahir", calendarEntry.getTime()))
-						.add(Restrictions.ilike("nama", nomorInduk.getValue().trim(), MatchMode.EXACT)).uniqueResult();
+						.add(Restrictions.eq("nama", nomorInduk.getValue().trim()).ignoreCase()).uniqueResult();
 			}
 		}
 

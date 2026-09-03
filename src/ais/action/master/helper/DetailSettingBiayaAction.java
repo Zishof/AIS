@@ -1809,7 +1809,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 							if (biodataCalonMahasiswas != null && biodataCalonMahasiswas.size() != 0) {
 
 								Session session = HibernateUtil.currentNativeSession();
-
+								try {
 								for (BiodataCalonMahasiswa biodataCalonMahasiswa : biodataCalonMahasiswas) {
 
 									SettingBiayaDetail settingBiayaDetail = (SettingBiayaDetail) session
@@ -1830,10 +1830,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 									}
 
 								}
-
-								// session.disconnect();
-								if (session.isOpen()) {session.disconnect();session.close();}
-								HibernateUtil.closeSession();
+								} finally {
+									Common.closeNativeSessionQuietly(session);
+								}
 							}
 
 							loadData(null);
@@ -2012,7 +2011,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 							if (mahasiswas != null && mahasiswas.size() != 0) {
 
 								Session session = HibernateUtil.currentNativeSession();
-
+								try {
 								for (Mahasiswa mahasiswa : mahasiswas) {
 
 									SettingBiayaDetail settingBiayaDetail = (SettingBiayaDetail)
@@ -2034,10 +2033,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 									}
 
 								}
-
-								// session.disconnect();
-								if (session.isOpen()) {session.disconnect();session.close();}
-								HibernateUtil.closeSession();
+								} finally {
+									Common.closeNativeSessionQuietly(session);
+								}
 							}
 
 							loadData(null);

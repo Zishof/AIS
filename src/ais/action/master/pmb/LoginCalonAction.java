@@ -3,7 +3,6 @@ package ais.action.master.pmb;
 import java.util.Calendar;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
@@ -110,10 +109,10 @@ public class LoginCalonAction extends GenericAutowireComposer {
 				.add(Restrictions.isNotNull("gelombangPendaftaran"))
 				.addOrder(Order.desc("id"))
 				.add(Restrictions.eq("tanggalLahir", calendarEntry.getTime()))
-				.add(Restrictions.or(Restrictions.ilike("nama", noRegistrasi.getValue().trim(), MatchMode.EXACT),
+				.add(Restrictions.or(Restrictions.eq("nama", noRegistrasi.getValue().trim()).ignoreCase(),
 						Restrictions.or(
-								Restrictions.ilike("noRegistrasi", noRegistrasi.getValue().trim(), MatchMode.EXACT),
-								Restrictions.ilike("noUjian", noRegistrasi.getValue().trim(), MatchMode.EXACT)))),
+								Restrictions.eq("noRegistrasi", noRegistrasi.getValue().trim()).ignoreCase(),
+								Restrictions.eq("noUjian", noRegistrasi.getValue().trim()).ignoreCase()))),
 				BiodataCalonMahasiswa.class);
 
 		if (biodataCalonMahasiswa == null) {

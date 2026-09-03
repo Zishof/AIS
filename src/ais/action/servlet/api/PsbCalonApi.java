@@ -10,7 +10,6 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
-import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
@@ -88,11 +87,11 @@ public final class PsbCalonApi {
 		Criteria criteria = session.createCriteria(CalonSiswa.class)
 				.add(Restrictions.isNotNull("gelombangPendaftaranPsb")).setMaxResults(1)
 				.addOrder(Order.desc("id")).add(Restrictions.eq("tanggalLahir", tanggalLahir))
-				.add(Restrictions.or(Restrictions.ilike("nomorInduk", identitas, MatchMode.EXACT),
-						Restrictions.or(Restrictions.ilike("noUjian", identitas, MatchMode.EXACT),
-								Restrictions.ilike("noRegistrasi", identitas, MatchMode.EXACT))));
+				.add(Restrictions.or(Restrictions.eq("nomorInduk", identitas).ignoreCase(),
+						Restrictions.or(Restrictions.eq("noUjian", identitas).ignoreCase(),
+								Restrictions.eq("noRegistrasi", identitas).ignoreCase())));
 		if (ApiHelperSupport.hasText(pin)) {
-			criteria.add(Restrictions.ilike("pinPassword", pin.trim(), MatchMode.EXACT));
+			criteria.add(Restrictions.eq("pinPassword", pin.trim()).ignoreCase());
 		}
 		CalonSiswa calonSiswa = (CalonSiswa) criteria.uniqueResult();
 
@@ -100,9 +99,9 @@ public final class PsbCalonApi {
 			Criteria criteriaNama = session.createCriteria(CalonSiswa.class)
 					.add(Restrictions.isNotNull("gelombangPendaftaranPsb")).setMaxResults(1)
 					.addOrder(Order.desc("id")).add(Restrictions.eq("tanggalLahir", tanggalLahir))
-					.add(Restrictions.ilike("nama", identitas, MatchMode.EXACT));
+					.add(Restrictions.eq("nama", identitas).ignoreCase());
 			if (ApiHelperSupport.hasText(pin)) {
-				criteriaNama.add(Restrictions.ilike("pinPassword", pin.trim(), MatchMode.EXACT));
+				criteriaNama.add(Restrictions.eq("pinPassword", pin.trim()).ignoreCase());
 			}
 			calonSiswa = (CalonSiswa) criteriaNama.uniqueResult();
 		}

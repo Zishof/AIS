@@ -7,7 +7,6 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
-import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONObject;
@@ -71,9 +70,9 @@ public final class PmbCalonApi {
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.setMaxResults(1).add(Restrictions.isNotNull("gelombangPendaftaran"))
 				.addOrder(Order.desc("id")).add(Restrictions.eq("tanggalLahir", tanggalLahir))
-				.add(Restrictions.or(Restrictions.ilike("nama", identitas, MatchMode.EXACT),
-						Restrictions.or(Restrictions.ilike("noRegistrasi", identitas, MatchMode.EXACT),
-								Restrictions.ilike("noUjian", identitas, MatchMode.EXACT))));
+				.add(Restrictions.or(Restrictions.eq("nama", identitas).ignoreCase(),
+						Restrictions.or(Restrictions.eq("noRegistrasi", identitas).ignoreCase(),
+								Restrictions.eq("noUjian", identitas).ignoreCase())));
 		return (BiodataCalonMahasiswa) criteria.uniqueResult();
 	}
 
