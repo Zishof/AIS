@@ -35,6 +35,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.common.PesanFormalHelper;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.ParameterTambahan;
@@ -117,10 +118,10 @@ public class ParameterTambahanPerbaikanAssetAction extends GenericAutowireCompos
 	private Combobox parameterTambahan;
 
 	/** Penanda apakah pengguna memiliki hak ubah data (default: true karena halaman internal). */
-	private boolean edit = true;
+	private boolean edit = false;
 
 	/** Penanda apakah pengguna memiliki hak hapus data (default: true karena halaman internal). */
-	private boolean delete = true;
+	private boolean delete = false;
 
 	/** Tombol toolbar untuk aksi temukan/cari, digunakan sebagai titik acuan toolbar. */
 	private MyToolbarbuttonConfig find;
@@ -280,6 +281,11 @@ public class ParameterTambahanPerbaikanAssetAction extends GenericAutowireCompos
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
 
 		KelompokParameterTambahanPerbaikanAsset.checkCreateDefault();
 
@@ -288,6 +294,9 @@ public class ParameterTambahanPerbaikanAssetAction extends GenericAutowireCompos
 		if (!searchkelompokParameterTambahanPerbaikanAsset.getChildren().isEmpty()) {
 			searchkelompokParameterTambahanPerbaikanAsset.setSelectedIndex(0);
 		}
+
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
 		onSearchDefault(null);
 		Common.initPaging(paging, new EventListener() {
@@ -456,6 +465,10 @@ public class ParameterTambahanPerbaikanAssetAction extends GenericAutowireCompos
 	 */
 	@SuppressWarnings("unchecked")
 	public void onAdd(Event event) throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
+
 		if (searchkelompokParameterTambahanPerbaikanAsset.getSelectedItem() == null
 				|| searchkelompokParameterTambahanPerbaikanAsset.getSelectedItem().getValue() == null) {
 			MyMessageboxConfig.show("Mohon maaf, Kelompok Parameter belum dipilih. Langkah yang dapat dilakukan: (1) Pilih kelompok parameter dari dropdown di bagian filter; (2) Setelah kelompok dipilih, tombol Tambah akan bisa digunakan; (3) ulangi proses penambahan data. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
