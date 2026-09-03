@@ -1884,9 +1884,10 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			return false;
 		}
 
+		String nilaiPengecualian = pengecualianMahasiswa == null || pengecualianMahasiswa.getValue() == null
+				? "" : pengecualianMahasiswa.getValue().trim();
 		String daftarPengecualian = terdapatPengecualianMahasiswa != null
-				&& terdapatPengecualianMahasiswa.isChecked() && pengecualianMahasiswa != null
-				? pengecualianMahasiswa.getValue().trim() : "";
+				&& terdapatPengecualianMahasiswa.isChecked() ? nilaiPengecualian : "";
 		try {
 			SettingBiaya.validasiFormatPengecualianMahasiswa(daftarPengecualian);
 		} catch (IllegalArgumentException e) {
@@ -2363,7 +2364,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		if (settingBiaya == null) {
 			return new ArrayList<ItemBiaya>();
 		}
-		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa, semester)) {
 			return null;
 		}
 
@@ -2429,7 +2430,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		if (settingBiayaDetail != null) {
 			if (settingBiayaDetail.getSettingBiaya() != null
 					&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(
-							biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getNim())) {
+							biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getNim(), semester)) {
 				return PengecualianTagihanList.kosong();
 			}
 			return getDefaultSettingBiaya(session, settingBiayaDetail, semester, biodataCalonMahasiswa);
@@ -2456,7 +2457,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 		if (settingBiayaDetail != null) {
 			if (settingBiayaDetail.getSettingBiaya() != null
-					&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(mahasiswa == null ? null : mahasiswa.getNim())) {
+					&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(mahasiswa == null ? null : mahasiswa.getNim(), semester)) {
 				return PengecualianTagihanList.kosong();
 			}
 			return getDefaultSettingBiaya(session, settingBiayaDetail, semester, mahasiswa);
@@ -2505,7 +2506,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			// jalur tagihan normal/bulanan seperti perilaku sebelum fitur pengecualian NIM.
 			return new ArrayList<DetailBiaya>();
 		}
-		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa, semester)) {
 			System.out.println("[TAGIHAN-DEBUG] SettingBiaya id=" + settingBiaya.getId()
 					+ " tidak berlaku untuk NIM " + nimMahasiswa + " (daftar pengecualian).");
 			// Hanya kondisi pengecualian eksplisit yang memakai list penanda agar
@@ -2887,7 +2888,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		if (settingBiaya == null) {
 			return new ArrayList<DetailBiaya>();
 		}
-		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa, semester)) {
 			return PengecualianTagihanList.kosong();
 		}
 

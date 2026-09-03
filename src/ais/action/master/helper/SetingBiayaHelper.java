@@ -477,7 +477,7 @@ public class SetingBiayaHelper {
             if (settingBiaya == null) {
                 return new ArrayList<ItemBiaya>();
             }
-			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa, semester)) {
 				return null;
 			}
 
@@ -531,7 +531,7 @@ public class SetingBiayaHelper {
             if (settingBiayaDetail != null) {
 				if (settingBiayaDetail.getSettingBiaya() != null
 						&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(
-								biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getNim())) {
+								biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getNim(), semester)) {
 					return PengecualianTagihanList.kosong();
 				}
                 return getDefaultSettingBiaya(session, settingBiayaDetail, semester, biodataCalonMahasiswa);
@@ -583,7 +583,7 @@ public class SetingBiayaHelper {
 
             if (settingBiayaDetail != null) {
 				if (settingBiayaDetail.getSettingBiaya() != null
-						&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(mahasiswa == null ? null : mahasiswa.getNim())) {
+						&& settingBiayaDetail.getSettingBiaya().isMahasiswaDikecualikan(mahasiswa == null ? null : mahasiswa.getNim(), semester)) {
 					return PengecualianTagihanList.kosong();
 				}
                 return getDefaultSettingBiaya(session, settingBiayaDetail, semester, mahasiswa);
@@ -676,7 +676,7 @@ public class SetingBiayaHelper {
             if (settingBiaya == null) {
                 return new ArrayList<DetailBiaya>();
             }
-			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa, semester)) {
 				System.out.println("[TAGIHAN-DEBUG] SettingBiaya id=" + settingBiaya.getId()
 						+ " tidak berlaku untuk NIM " + nimMahasiswa + " (daftar pengecualian).");
 				return PengecualianTagihanList.kosong();
@@ -1166,7 +1166,7 @@ public class SetingBiayaHelper {
             if (settingBiaya == null) {
                 return new ArrayList<DetailBiaya>();
             }
-			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa, semester)) {
 				return PengecualianTagihanList.kosong();
 			}
 
