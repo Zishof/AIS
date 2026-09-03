@@ -1108,6 +1108,19 @@ public class TopupHelper {
 	public static JSONObject topupAnggotaKoperasi(JSONObject request, HttpServletRequest httpServletRequest,
 			Tbmuser tbmuser, AnggotaKoperasi anggotaTarget,
 			CaraPembayaranKoperasi caraPembayaranTarget) {
+		return topupAnggotaKoperasi(request, httpServletRequest, tbmuser, anggotaTarget,
+				caraPembayaranTarget, null);
+	}
+
+	/**
+	 * Varian untuk POS yang sudah memverifikasi toko dari sesi pengguna. Toko tidak
+	 * pernah diambil langsung dari payload publik supaya identitas merchant tidak
+	 * dapat dialihkan dengan mengganti id pada request.
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static JSONObject topupAnggotaKoperasi(JSONObject request, HttpServletRequest httpServletRequest,
+			Tbmuser tbmuser, AnggotaKoperasi anggotaTarget,
+			CaraPembayaranKoperasi caraPembayaranTarget, Toko tokoTarget) {
 		JSONObject jsonObject = new JSONObject();
 		Session session = null;
 
@@ -1154,8 +1167,9 @@ public class TopupHelper {
 
 			List<String> warnings = new ArrayList<String>();
 			boolean onlineBmt = bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME);
-			if (onlineBmt && !OnlineBmtUtil.isChannelReady(
-					caraPembayaranKoperasi.getKanalPembayaran())) {
+			if (onlineBmt && !(tokoTarget == null
+					? OnlineBmtUtil.isChannelReady(caraPembayaranKoperasi.getKanalPembayaran())
+					: OnlineBmtUtil.isChannelReady(caraPembayaranKoperasi.getKanalPembayaran(), tokoTarget))) {
 				jsonObject.put("status", "03");
 				jsonObject.put("description", "Kanal Online BMT belum aktif atau konfigurasinya belum lengkap");
 				return jsonObject;
@@ -1163,7 +1177,7 @@ public class TopupHelper {
 			double biayaAdministrasi = onlineBmt
 					? OnlineBmtUtil.resolveSettings(caraPembayaranKoperasi.getKanalPembayaran() == null ? null
 							: caraPembayaranKoperasi.getKanalPembayaran().getSekolah(),
-							caraPembayaranKoperasi.getKanalPembayaran()).getAdministrationFee()
+							caraPembayaranKoperasi.getKanalPembayaran(), tokoTarget).getAdministrationFee()
 					: caraPembayaranKoperasi.getKanalPembayaran() == null
 					|| caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink() == null ? 0.0
 							: caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink().doubleValue();
@@ -1175,6 +1189,7 @@ public class TopupHelper {
 			Map param = new HashMap();
 
 			param.put(onlineBmt ? OnlineBmtUtil.PARAM_KEY : "esmartlink", true);
+			if (onlineBmt && tokoTarget != null) param.put("onlineBmtToko", tokoTarget);
 			String channel = request.has("channel") && !request.isNull("channel")
 					? request.optString("channel", "").trim() : "";
 			String variableChannel = caraPembayaranKoperasi.getKanalPembayaran() == null ? ""

@@ -30,6 +30,7 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
 import ais.database.model.Konfigurasi;
 import ais.database.model.VirtualAccountBank;
+import ais.database.model.inventory.Toko;
 import ais.database.model.koperasi.AnggotaKoperasi;
 import ais.database.model.koperasi.CaraPembayaranKoperasi;
 import ais.database.model.koperasi.TransaksiKoperasiDetail;
@@ -252,10 +253,15 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 				virtualAccountBankOnline.setKanalPembayaran(kanalPembayaran);
 
 				if (onlineBmt) {
-					if (!OnlineBmtUtil.isChannelReady(kanalPembayaran)) return null;
-					biayaAdmin = OnlineBmtUtil.resolveSettings(kanalPembayaran.getSekolah(), kanalPembayaran)
+					Toko tokoOnlineBmt = param.get("onlineBmtToko") instanceof Toko
+							? (Toko) param.get("onlineBmtToko") : null;
+					if (!(tokoOnlineBmt == null ? OnlineBmtUtil.isChannelReady(kanalPembayaran)
+							: OnlineBmtUtil.isChannelReady(kanalPembayaran, tokoOnlineBmt))) return null;
+					biayaAdmin = OnlineBmtUtil.resolveSettings(kanalPembayaran.getSekolah(), kanalPembayaran,
+							tokoOnlineBmt)
 							.getAdministrationFee();
-					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, kanalPembayaran.getSekolah(), kanalPembayaran);
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, kanalPembayaran.getSekolah(),
+							kanalPembayaran, tokoOnlineBmt);
 				} else if (flip) {
 
 					if (expired_date == null) {
@@ -781,10 +787,15 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 				virtualAccountBankOnline.setKanalPembayaran(kanalPembayaran);
 
 				if (onlineBmt) {
-					if (!OnlineBmtUtil.isChannelReady(kanalPembayaran)) return null;
-					biayaAdmin = OnlineBmtUtil.resolveSettings(kanalPembayaran.getSekolah(), kanalPembayaran)
+					Toko tokoOnlineBmt = param.get("onlineBmtToko") instanceof Toko
+							? (Toko) param.get("onlineBmtToko") : null;
+					if (!(tokoOnlineBmt == null ? OnlineBmtUtil.isChannelReady(kanalPembayaran)
+							: OnlineBmtUtil.isChannelReady(kanalPembayaran, tokoOnlineBmt))) return null;
+					biayaAdmin = OnlineBmtUtil.resolveSettings(kanalPembayaran.getSekolah(), kanalPembayaran,
+							tokoOnlineBmt)
 							.getAdministrationFee();
-					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, kanalPembayaran.getSekolah(), kanalPembayaran);
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline, kanalPembayaran.getSekolah(),
+							kanalPembayaran, tokoOnlineBmt);
 				} else if (flip) {
 
 					if (expired_date == null) {

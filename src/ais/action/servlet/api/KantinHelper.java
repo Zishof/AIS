@@ -17667,6 +17667,8 @@ public class KantinHelper {
 					Long.valueOf(idMember));
 			CaraPembayaranKoperasi cara = (CaraPembayaranKoperasi) session.get(
 					CaraPembayaranKoperasi.class, Long.valueOf(idCara));
+			Long tokoId = soResolveTokoId(tbmuser, request);
+			Toko tokoOnlineBmt = tokoId == null ? null : (Toko) session.get(Toko.class, tokoId);
 			if (anggota == null || !jenisMemberBolehTopup(anggota)) {
 				hasil.put("status", "91");
 				hasil.put("description", "Member tidak ditemukan atau tidak diizinkan menerima topup lewat petugas.");
@@ -17679,7 +17681,9 @@ public class KantinHelper {
 				hasil.put("description", "Cara pembayaran online tidak diizinkan untuk jenis member ini.");
 				return;
 			}
-			if (onlineBmt && !OnlineBmtUtil.isChannelReady(cara.getKanalPembayaran())) {
+			if (onlineBmt && !(tokoOnlineBmt == null
+					? OnlineBmtUtil.isChannelReady(cara.getKanalPembayaran())
+					: OnlineBmtUtil.isChannelReady(cara.getKanalPembayaran(), tokoOnlineBmt))) {
 				hasil.put("status", "91");
 				hasil.put("description", "Kanal Online BMT belum aktif atau konfigurasinya belum lengkap.");
 				return;
@@ -17703,7 +17707,7 @@ public class KantinHelper {
 				permintaan.put("channel", channel);
 			}
 			JSONObject jawaban = TopupHelper.topupAnggotaKoperasi(permintaan, httpServletRequest,
-					tbmuser, anggota, cara);
+					tbmuser, anggota, cara, tokoOnlineBmt);
 			String[] kunci = new String[] { "status", "description", "billExpired", "topup",
 					"biayaAdministrasi", "total", "va", "link", "va_bank_lain", "data" };
 			for (int i = 0; i < kunci.length; i++) {

@@ -10,7 +10,9 @@ import org.hibernate.criterion.Restrictions;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
+import ais.database.model.PerguruanTinggi;
 import ais.database.model.VirtualAccountBank;
+import ais.database.model.inventory.Toko;
 import ais.database.model.sekolah.KanalPembayaran;
 import ais.database.model.sekolah.Sekolah;
 
@@ -34,6 +36,12 @@ public final class OnlineBmtUtil {
 	public static final String BANK_NAME = "Online BMT";
 	public static final String PARAM_KEY = "online_bmt";
 	public static final String MARKER = "online_bmt:true";
+	private static final String AUDIT_PROVIDER = "provider";
+	private static final String AUDIT_IDENTITY_SOURCE = "identity_source";
+	private static final String AUDIT_KODE_MITRA = "KD_MITRA_BMT";
+	private static final String AUDIT_NAMA_MITRA = "NM_MITRA_BMT";
+	private static final String AUDIT_KODE_MERCHANT = "KD_MERCHANT";
+	private static final String AUDIT_NAMA_MERCHANT = "NM_MERCHANT";
 
 	private OnlineBmtUtil() {
 	}
@@ -104,7 +112,8 @@ public final class OnlineBmtUtil {
 	 * menjadi milik invoice mahasiswa benar-benar siap dipakai oleh callback.
 	 */
 	public static boolean isPerguruanTinggiReady(Long ptId) {
-		return isPerguruanTinggiEnabled(ptId) && globalSettings().isOperationallyReady();
+		return isPerguruanTinggiEnabled(ptId)
+				&& resolvePerguruanTinggiSettings(ptId, null).isOperationallyReady();
 	}
 
 	public static boolean isSekolahEnabled(Sekolah sekolah, KanalPembayaran kanal) {
@@ -133,6 +142,15 @@ public final class OnlineBmtUtil {
 	public static boolean isChannelReady(KanalPembayaran kanal) {
 		return isChannelEnabled(kanal)
 				&& resolveSettings(kanal.getSekolah(), kanal).isOperationallyReady();
+	}
+
+	/**
+	 * Varian kanal toko. Identitas toko hanya dipakai ketika konteks toko sudah
+	 * diverifikasi oleh pemanggil; method ini tidak pernah memilih toko secara acak.
+	 */
+	public static boolean isChannelReady(KanalPembayaran kanal, Toko toko) {
+		return isChannelEnabled(kanal)
+				&& resolveSettings(kanal.getSekolah(), kanal, toko).isOperationallyReady();
 	}
 
 	/**
@@ -253,20 +271,105 @@ public final class OnlineBmtUtil {
 	 * angka null berarti inherit. Biaya nol tetap dipertahankan sebagai override sah.
 	 */
 	public static Settings resolveSettings(Sekolah sekolah, KanalPembayaran kanal) {
+		Settings result = resolveConfiguredSettings(sekolah, kanal);
+		return sekolah == null ? result : withIdentityFallback(result,
+				"sekolah:" + sekolah.getId(), sekolah.getNpsn(), sekolah.getNama());
+	}
+
+	/**
+	 * Konfigurasi efektif transaksi toko. Override eksplisit tetap lebih tinggi,
+	 * sedangkan field identitas yang kosong memakai kode dan nama toko.
+	 */
+	public static Settings resolveSettings(Sekolah sekolah, KanalPembayaran kanal, Toko toko) {
+		if (toko == null) return resolveSettings(sekolah, kanal);
+		Settings result = resolveConfiguredSettings(sekolah, kanal);
+		return withIdentityFallback(result,
+				"toko:" + toko.getId(), toko.getKode(), toko.getNama());
+	}
+
+	/** Menentukan konfigurasi efektif dari relasi pemilik yang sudah dihidrasi. */
+	public static Settings resolveSettings(VirtualAccountBank invoice) {
+		if (invoice == null) return globalSettings();
+		Sekolah sekolah = null;
+		KanalPembayaran kanal = invoice.getKanalPembayaran();
+		Settings result;
+		if (invoice.getSiswa() != null) {
+			sekolah = invoice.getSiswa().getSekolah();
+			result = resolveSettings(sekolah, kanal);
+		} else if (invoice.getCalonSiswa() != null) {
+			sekolah = invoice.getCalonSiswa().getSekolah();
+			result = resolveSettings(sekolah, kanal);
+		} else if (invoice.getMahasiswa() != null || invoice.getBiodataCalonMahasiswa() != null) {
+			result = resolvePerguruanTinggiSettings(invoice.getPt(), kanal);
+		} else if (kanal != null) {
+			sekolah = kanal.getSekolah();
+			result = resolveSettings(sekolah, kanal);
+		} else {
+			result = resolvePerguruanTinggiSettings(invoice.getPt(), null);
+		}
+		return overlayInvoiceIdentity(result, invoice);
+	}
+
+	private static Settings resolveConfiguredSettings(Sekolah sekolah, KanalPembayaran kanal) {
 		Settings result = globalSettings();
 		if (sekolah != null) result = overlaySchool(result, sekolah);
 		if (kanal != null) result = overlayChannel(result, kanal);
 		return result;
 	}
 
-	/** Menentukan konfigurasi efektif dari relasi pemilik yang sudah dihidrasi. */
-	public static Settings resolveSettings(VirtualAccountBank invoice) {
-		Sekolah sekolah = null;
-		KanalPembayaran kanal = invoice == null ? null : invoice.getKanalPembayaran();
-		if (invoice != null && invoice.getSiswa() != null) sekolah = invoice.getSiswa().getSekolah();
-		else if (invoice != null && invoice.getCalonSiswa() != null) sekolah = invoice.getCalonSiswa().getSekolah();
-		else if (kanal != null) sekolah = kanal.getSekolah();
-		return resolveSettings(sekolah, kanal);
+	private static Settings resolvePerguruanTinggiSettings(Long ptId, KanalPembayaran kanal) {
+		Settings result = globalSettings();
+		if (kanal != null) result = overlayChannel(result, kanal);
+		String[] identity = loadPerguruanTinggiIdentity(ptId);
+		return withIdentityFallback(result, "perguruan-tinggi:" + ptId, identity[0], identity[1]);
+	}
+
+	private static String[] loadPerguruanTinggiIdentity(Long ptId) {
+		if (ptId == null) return new String[] { "", "" };
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			PerguruanTinggi value = (PerguruanTinggi) session.get(PerguruanTinggi.class, ptId);
+			return value == null ? new String[] { "", "" }
+					: new String[] { clean(value.getKodePerguruanTinggi()), clean(value.getNama()) };
+		} catch (Exception e) {
+			ErrorAuditUtil.record(e, "OnlineBmtUtil.loadPerguruanTinggiIdentity");
+			return new String[] { "", "" };
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Mengisi hanya identitas yang belum ditentukan oleh konfigurasi eksplisit. */
+	private static Settings withIdentityFallback(Settings value, String source, String code, String name) {
+		if (value == null) return null;
+		return new Settings(value.source + "|" + source, value.prefixInvoice, value.administrationFee,
+				inherit(value.kodeMitra, code), inherit(value.namaMitra, name),
+				inherit(value.kodeMerchant, code), inherit(value.namaMerchant, name),
+				value.apiKey, value.encryptionKey, value.hmacKey, value.requestTimeTolerance,
+				value.securityOverrideValid);
+	}
+
+	/**
+	 * Identitas disalin ke invoice saat diterbitkan agar inquiry selalu mengembalikan
+	 * pihak yang sama walaupun master PT/sekolah/toko kemudian berganti nama.
+	 */
+	private static Settings overlayInvoiceIdentity(Settings value, VirtualAccountBank invoice) {
+		if (value == null || invoice == null || clean(invoice.getRequest()).length() == 0) return value;
+		try {
+			JSONObject audit = new JSONObject(invoice.getRequest());
+			if (!"ONLINE_BMT".equalsIgnoreCase(audit.optString(AUDIT_PROVIDER, ""))) return value;
+			return new Settings(value.source + "|invoice:" + audit.optString(AUDIT_IDENTITY_SOURCE, "snapshot"),
+					value.prefixInvoice, value.administrationFee,
+					inherit(audit.optString(AUDIT_KODE_MITRA, ""), value.kodeMitra),
+					inherit(audit.optString(AUDIT_NAMA_MITRA, ""), value.namaMitra),
+					inherit(audit.optString(AUDIT_KODE_MERCHANT, ""), value.kodeMerchant),
+					inherit(audit.optString(AUDIT_NAMA_MERCHANT, ""), value.namaMerchant),
+					value.apiKey, value.encryptionKey, value.hmacKey, value.requestTimeTolerance,
+					value.securityOverrideValid);
+		} catch (Exception ignored) {
+			return value;
+		}
 	}
 
 	/**
@@ -364,12 +467,18 @@ public final class OnlineBmtUtil {
 
 	/** Menyiapkan invoice lokal; method ini tidak melakukan posting finansial. */
 	public static void prepareInvoice(VirtualAccountBank invoice) {
-		prepareInvoice(invoice, globalSettings());
+		prepareInvoice(invoice, resolvePerguruanTinggiSettings(invoice == null ? null : invoice.getPt(), null));
 	}
 
 	/** Menyiapkan invoice memakai override kanal/sekolah yang efektif. */
 	public static void prepareInvoice(VirtualAccountBank invoice, Sekolah sekolah, KanalPembayaran kanal) {
 		prepareInvoice(invoice, resolveSettings(sekolah, kanal));
+	}
+
+	/** Menyiapkan invoice transaksi toko dengan identitas toko yang telah diverifikasi. */
+	public static void prepareInvoice(VirtualAccountBank invoice, Sekolah sekolah,
+			KanalPembayaran kanal, Toko toko) {
+		prepareInvoice(invoice, resolveSettings(sekolah, kanal, toko));
 	}
 
 	private static void prepareInvoice(VirtualAccountBank invoice, Settings settings) {
@@ -391,9 +500,14 @@ public final class OnlineBmtUtil {
 
 		try {
 			JSONObject audit = new JSONObject();
-			audit.put("provider", "ONLINE_BMT");
+			audit.put(AUDIT_PROVIDER, "ONLINE_BMT");
 			audit.put("NO_INVOICE", kode);
 			audit.put("state", "WAITING_PAYMENT");
+			audit.put(AUDIT_IDENTITY_SOURCE, settings.getSource());
+			audit.put(AUDIT_KODE_MITRA, settings.getKodeMitra());
+			audit.put(AUDIT_NAMA_MITRA, settings.getNamaMitra());
+			audit.put(AUDIT_KODE_MERCHANT, settings.getKodeMerchant());
+			audit.put(AUDIT_NAMA_MERCHANT, settings.getNamaMerchant());
 			invoice.setRequest(audit.toString());
 		} catch (Exception e) {
 			throw new IllegalStateException("Gagal menyiapkan audit invoice Online BMT", e);
