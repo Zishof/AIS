@@ -1,5 +1,68 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 79 — SELESAI 100% (3 Sep 2026) — TUNTAS rantai laporan keuangan (JenisLaporan→MasterGrupLaporan→KelompokLaporan→KelompokLaporanPunyaAkun→Akun); 3 task baru termasuk akses ANONIM laporan keuangan lintas tenant dan jurnal penutup berlipat; Akun.aktifitas vs AkunArusKas diklarifikasi tidak berelasi
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/akunting/JenisLaporan.java`** (r84020) —
+  172→701 baris, 100%. Neraca/Rugi-Laba/Arus-Kas TERVERIFIKASI
+  sebagai teks bebas yang DIBACA sebagai semantik (beda dari `GrupAkun`
+  b78 yang teksnya benar-benar tanpa makna) — dua helper konsumen
+  membaca KOLOM BERBEDA (`nama` vs `keterangan`) dengan pencocokan
+  substring longgar, split-brain nyata. **Temuan berat (extends
+  `task_e2bb082c`)**: `PosApi` cabang `pemetaan_akun_terapkan`
+  TANPA gerbang hak sama sekali (bukan fail-open — `Tbmuser` diterima
+  tapi tak pernah dipakai) — token POS peran apapun bisa mengubah
+  struktur Neraca/Laba-Rugi seluruh instalasi. **Task baru
+  `task_8c26a446`**: `_monitor_akunting_service.jsp` mengembalikan
+  agregat jurnal LENGKAP (Neraca/Laba-Rugi/komparasi) TANPA
+  otentikasi via bypass dispatcher `/anjungan?hanya_tampil_jsp=true`
+  — beda severity dari 17 halaman task_1f9c66d3 lain (di sini
+  kontennya laporan keuangan resmi, bukan daftar master), dan
+  `satuan_kerja_id` opsional → lintas SELURUH tenant.
+- **`ais/database/model/akunting/KelompokLaporan.java`** (r84018) —
+  167→721 baris, 100%. Klaim b78 (kedua FK nullable) TERKONFIRMASI.
+  **Task baru `task_ff5f7a8a`**: DUA jalur tulis mengubah struktur
+  laporan keuangan resmi TANPA satu pun pemeriksaan peran — `PosApi`
+  `pemetaan_akun_` (kunci bahkan tidak terdaftar di
+  `KUNCI_DEFAULT_NONAKTIF`) dan `cek_pemetaan_akun.jsp` (GET tanpa
+  gerbang, rentan CSRF, komentar berkasnya sendiri mengakui "MENGUBAH
+  STRUKTUR LAPORAN GLOBAL").
+- **`ais/database/model/akunting/KelompokLaporanPunyaAkun.java`**
+  (r84019) — 149→645 baris, 100%. Hipotesis jembatan many-to-many
+  TERKONFIRMASI PENUH. **Task baru `task_bc531b9f`**: akun BISA
+  duplikat lintas kelompok laporan — nol penjaga di manapun (impor
+  Excel, fitur "copy dari", ZK) — dan karena semua konsumen INNER
+  JOIN tanpa DISTINCT, dampaknya BUKAN sekadar kosmetik:
+  `TutupBukuHelper` benar-benar MEMPOSTING nominal berlipat sebagai
+  jurnal penutup resmi ke buku besar.
+- **`ais/database/model/akunting/Devisi.java`** (r84017) — 128→562
+  baris, 100%. Klaim b78 "bukan sumbu tenant" TERKONFIRMASI lebih
+  kuat — nol kolom relasi sama sekali (daun murni). Ironi
+  arsitektural: entity tinggal di paket `akunting` tapi satu-satunya
+  konsumen HIDUP ada di modul SIRS (rumah sakit) — `Transaksi.devisi`
+  permanen NULL, divisi tidak pernah jadi dimensi pelaporan akuntansi.
+  `task_66986071`: verifikasi negatif (nol permukaan REST).
+- **`ais/database/model/akunting/AkunArusKas.java`** (r84021) —
+  125→629 baris, 100%. Koreksi ganda: BUKAN katalog kategori
+  Operasional/Investasi/Pendanaan, dan TIDAK berelasi dengan
+  `Akun.aktifitas` (klaim b73 dipersempit — `aktifitas` cuma
+  fallback tingkat kedua di SATU laporan `LaporanKantinUtil`, bukan
+  "benar-benar dipakai" secara luas). Pola BARU: hulu (layar ZK
+  legacy) DAN hilir (laporan arus kas) SAMA-SAMA putus — lebih parah
+  dari `AkunPajak` b78 (yang hulu tetap hidup).
+
+**3 task baru batch ini**: `task_8c26a446` (orkestrator),
+`task_ff5f7a8a` dan `task_bc531b9f` (dibuat agent sendiri). Rantai
+laporan keuangan lengkap kini TUNTAS terdokumentasikan
+(`JenisLaporan→MasterGrupLaporan→KelompokLaporan→
+KelompokLaporanPunyaAkun→Akun`) dan ternyata menyimpan DUA celah
+akses tanpa gerbang sama sekali (bukan fail-open — memang tidak ada
+pemeriksaan) plus satu bug integritas yang benar-benar memposting
+jurnal ganda.
+
 ## Batch 78 — SELESAI 100% (3 Sep 2026) — entity TIDUR/YATIM keempat (DetailLaporanPertahun); nol task baru — batch dengan proporsi verifikasi NEGATIF menenangkan tertinggi sejauh ini di domain akunting; `task_66986071` dikonfirmasi (GrupAkun, JenisReimbursement) sekaligus DUA verifikasi negatif penting (AkunPajak, MasterGrupLaporan tidak terjangkau helper manapun); klaim batch 76 soal ReimbursementPegawai "akun bisa dipindah retroaktif" DIHALUSKAN — ternyata snapshot bukan live-read
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
