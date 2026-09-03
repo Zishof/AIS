@@ -1710,6 +1710,10 @@ public final class SalesInventoryTripHelper {
 		Transaction tx = null;
 		try {
 			tx = session.beginTransaction();
+			// Pada pembaruan, keadaan lamanya dicuplik sebelum disentuh; pada penambahan ia
+			// memang null, dan null itulah yang membedakan keduanya pada riwayat.
+			String sebelumSpj = SalesInventoryAudit.cuplikan(session, sk, "surat_perintah_sales",
+					update ? spjId : null);
 			Long idAkhir = spjId;
 			if (!update) {
 				java.sql.PreparedStatement ins = session.connection().prepareStatement(
@@ -1813,6 +1817,12 @@ public final class SalesInventoryTripHelper {
 					insD.close();
 				}
 			}
+			SalesInventoryAudit.catat(session, ctx, "spj_simpan", "surat_perintah_sales",
+					idAkhir,
+					update ? ais.service.tenant.TenantAuditWriter.REVTYPE_MOD
+							: ais.service.tenant.TenantAuditWriter.REVTYPE_ADD,
+					sebelumSpj, SalesInventoryAudit.cuplikan(session, sk,
+							"surat_perintah_sales", idAkhir));
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", idAkhir);

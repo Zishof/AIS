@@ -527,7 +527,11 @@ final class SalesInventoryFinanceTenant {
 	private static final String[][] ENTITAS_TERAUDIT = {
 			{ "supplier", "supplier" },
 			{ "customer", "customer" },
-			{ "sales", "salesperson" } };
+			{ "sales", "salesperson" },
+			{ "order", "sales_order" },
+			{ "piutang", "piutang_customer" },
+			{ "penerimaan", "penerimaan_piutang" },
+			{ "spj", "surat_perintah_sales" } };
 
 	/** Nama tabel tenant untuk entitas yang jejaknya sudah ditulis, atau {@code null}. */
 	static String tabelTeraudit(String jenis) {

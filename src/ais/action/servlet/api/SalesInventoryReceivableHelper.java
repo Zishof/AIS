@@ -2097,6 +2097,10 @@ public final class SalesInventoryReceivableHelper {
 			psF.setLong(3, orderId);
 			psF.executeUpdate();
 			psF.close();
+			// Aksi ini hanya MENYISIP: pengulangan permintaan yang sama sudah keluar lebih awal
+			// lewat penjaga idempotensinya, jadi tidak ada keadaan "sebelum" untuk dicuplik.
+			SalesInventoryAudit.catatBaru(session, ctx, "sales_order_simpan", skema, "sales_order",
+					Long.valueOf(orderId));
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", orderId);
@@ -2314,12 +2318,25 @@ public final class SalesInventoryReceivableHelper {
 				return;
 			}
 
+			// Dicuplik SEBELUM statusnya berpindah; sesudahnya keadaan lama tidak dapat
+			// direkonstruksi dari mana pun.
+			String sebelumOrderFaktur = SalesInventoryAudit.cuplikan(session, skema, "sales_order",
+					orderId);
 			java.sql.PreparedStatement psS = session.connection().prepareStatement(
 					SalesInventoryReceivableTenant.tandaiSiapTagih(skema));
 			psS.setString(1, oleh);
 			psS.setLong(2, orderId.longValue());
 			psS.executeUpdate();
 			psS.close();
+
+			// Dua peristiwa, dua baris audit, SATU revisi masing-masing: piutangnya lahir, dan
+			// ordernya berpindah status. Menggabungkannya menjadi satu catatan akan membuat
+			// penelusuran per-entitas kehilangan salah satunya.
+			SalesInventoryAudit.catatBaru(session, ctx, "sales_order_faktur", skema,
+					"piutang_customer", Long.valueOf(piutangId));
+			SalesInventoryAudit.catat(session, ctx, "sales_order_faktur", "sales_order", orderId,
+					ais.service.tenant.TenantAuditWriter.REVTYPE_MOD, sebelumOrderFaktur,
+					SalesInventoryAudit.cuplikan(session, skema, "sales_order", orderId));
 
 			// Uang muka: dokumen penerimaan berikut alokasinya, di dalam transaksi yang sama.
 			// Bukan kolom pengurang -- lihat catatan pada uangMukaFaktur().
@@ -2375,6 +2392,8 @@ public final class SalesInventoryReceivableHelper {
 				psDa.setString(4, oleh);
 				psDa.executeUpdate();
 				psDa.close();
+				SalesInventoryAudit.catatBaru(session, ctx, "sales_order_faktur_uang_muka", skema,
+						"penerimaan_piutang", Long.valueOf(uangMukaId));
 			}
 
 			tx.commit();
@@ -2643,6 +2662,8 @@ public final class SalesInventoryReceivableHelper {
 				}
 			}
 
+			SalesInventoryAudit.catatBaru(session, ctx, "penagihan_simpan", skema,
+					"penerimaan_piutang", Long.valueOf(terimaId));
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", terimaId);

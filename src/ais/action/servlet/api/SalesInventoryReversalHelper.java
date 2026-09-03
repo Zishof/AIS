@@ -1033,6 +1033,9 @@ public final class SalesInventoryReversalHelper {
 			}
 
 			tx = session.beginTransaction();
+			// Dicuplik sebelum apa pun berubah pada dokumen asalnya.
+			String sebelumAsal = SalesInventoryAudit.cuplikan(session, skema,
+					"penerimaan_piutang", id);
 			java.sql.PreparedStatement psRev = session.connection().prepareStatement(
 					SalesInventoryReversalTenant.sisipPembalikPenerimaan(skema),
 					java.sql.Statement.RETURN_GENERATED_KEYS);
@@ -1157,6 +1160,15 @@ public final class SalesInventoryReversalHelper {
 			psLog.executeUpdate();
 			psLog.close();
 
+			// DUA baris, satu untuk tiap dokumen yang tersentuh. Pembaliknya adalah dokumen
+			// BARU (ADD), sedangkan yang dibalik dicatat DEL: barisnya tetap ada, tetapi bagi
+			// pemakai data itulah pembatalannya. Mencatat hanya salah satunya membuat riwayat
+			// salah satu dokumen bungkam tentang peristiwa yang justru paling penting baginya.
+			SalesInventoryAudit.catatBaru(session, ctx, "penagihan_balik", skema,
+					"penerimaan_piutang", Long.valueOf(idRev));
+			SalesInventoryAudit.catat(session, ctx, "penagihan_balik", "penerimaan_piutang", id,
+					ais.service.tenant.TenantAuditWriter.REVTYPE_DEL, sebelumAsal,
+					SalesInventoryAudit.cuplikan(session, skema, "penerimaan_piutang", id));
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", idRev);

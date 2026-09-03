@@ -1057,52 +1057,20 @@ public final class SalesInventoryMasterHelper {
 	 * disembunyikan.</p>
 	 */
 	/**
-	 * Cuplikan satu baris master sebagai teks JSON, atau {@code null} bila barisnya belum/tidak
-	 * ada. Nama kolomnya diambil dari metadata hasilnya, sehingga kuerinya yang menentukan isi
-	 * muatan — bukan daftar kedua di sini yang bisa berselisih dengannya.
+	 * Cuplikan satu baris master. Aturan muatannya dipusatkan di {@link SalesInventoryAudit}
+	 * sejak §22 — tujuh entitas dicatat dari lima berkas helper, dan daftar kolom yang
+	 * tersebar adalah daftar yang berselisih.
 	 */
 	private static String cuplikanAudit(Session session, String skema, String tabel, Long id)
 			throws Exception {
-		if (id == null) {
-			return null;
-		}
-		java.sql.PreparedStatement ps = session.connection().prepareStatement(
-				SalesInventoryMasterTenant.cuplikanAudit(skema, tabel));
-		try {
-			ps.setLong(1, id.longValue());
-			java.sql.ResultSet rs = ps.executeQuery();
-			String muatan = null;
-			if (rs.next()) {
-				java.sql.ResultSetMetaData md = rs.getMetaData();
-				JSONObject o = new JSONObject();
-				for (int i = 1; i <= md.getColumnCount(); i++) {
-					Object v = rs.getObject(i);
-					o.put(md.getColumnLabel(i), v == null ? JSONObject.NULL : String.valueOf(v));
-				}
-				muatan = o.toString();
-			}
-			rs.close();
-			return muatan;
-		} finally {
-			ps.close();
-		}
+		return SalesInventoryAudit.cuplikan(session, skema, tabel, id);
 	}
 
-	/**
-	 * Tulis satu revisi audit tenant untuk satu baris master.
-	 *
-	 * <p>Berjalan pada Session dan transaksi pemanggil — tidak pernah membuka sendiri. Baris
-	 * audit <b>wajib</b> berada di transaksi yang sama dengan perubahan datanya: audit yang
-	 * commit terpisah dapat bertahan padahal perubahannya dibatalkan, atau hilang padahal
-	 * perubahannya jadi.</p>
-	 */
+	/** Tulis satu revisi audit tenant untuk satu baris master. */
 	private static void catatAuditMaster(Session session,
 			EbisnisActorContextResolver.ActorContext ctx, String aksi, String tabel, Long id,
 			int revtype, String sebelum, String sesudah) {
-		ais.service.tenant.TenantAuditWriter.Jejak jejak =
-				new ais.service.tenant.TenantAuditWriter.Jejak(aksi);
-		ais.service.tenant.TenantAuditWriter.catatTunggal(session, ctx.tenant, jejak, tabel, id,
-				revtype, sebelum, sesudah);
+		SalesInventoryAudit.catat(session, ctx, aksi, tabel, id, revtype, sebelum, sesudah);
 	}
 
 	private static void nonaktifkanTenant(EbisnisActorContextResolver.ActorContext ctx,
