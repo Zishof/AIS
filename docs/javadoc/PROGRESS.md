@@ -1,5 +1,72 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 84 — SELESAI 100% (4 Sep 2026) — 1 task baru (`task_1c5eb15c`); KOREKSI PROSES: WC mirror `java/` adalah checkout KEDUA dari `^/src` yang SAMA (bukan path terpisah) — mirroring = `svn update`, BUKAN commit kedua; entity tidur KETUJUH ditemukan (`AbsenPegawaiDetail`)
+
+7 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, WC mirror disinkron via `svn
+update` (bukan commit terpisah — lihat koreksi proses di
+[[ais-svn-workflow]]), verifikasi `cmp` byte-identik, nol perubahan
+logika:
+
+- **`ais/database/model/payroll/RencanaGaji.java`** (r84057) —
+  15/15 method, 100%. Konfirmasi TIDAK ADA FK planning→realized di
+  level KEPALA dokumen juga (melengkapi konfirmasi level-anak b81) —
+  jembatan satu-satunya cuma baca sesaat searah realisasi→rencana di
+  `RencanaItemGajiPegawaiTreeModel.reset()`, tak pernah disimpan
+  sebagai FK. `getTahun()` BUKAN getter tulis-balik (beda dari
+  `PembayaranGaji.getTahun()`/`getBulan()` yang menulis balik saat
+  null) — koreksi konkret atas asumsi "entity paralel pasti mirip
+  struktural". Keunikan tahun: aplikasi-level, global lintas tenant,
+  tanpa constraint DB.
+- **`ais/database/model/payroll/KelompokParameterTambahanPengajuanTransaksiPegawai.java`**
+  (r84060) + **`ParameterTambahanPengajuanTransaksiPegawai.java`**
+  (r84061) — 100%. **Perdalaman `task_fe6517bf`**: jejak salin-tempel
+  juga ada di lapisan ENTITY, bukan cuma Action — kolom FK
+  `ParameterTambahanPengajuanTransaksiPegawai` bernama
+  `kelompok_parameter_tambahan_pengajuan_pegawai` (tanpa kata
+  "transaksi"), berbeda dari sepupu gaji yang konsisten. Tak ada
+  constraint anti-data-yatim, tapi blast radius `task_fe6517bf` tetap
+  murni logika aplikasi (jawaban hilang), bukan baris yatim di tabel
+  master.
+- **`ais/database/model/payroll/KelompokParameterTambahanGajiPegawai.java`**
+  (r84065) + **`ParameterTambahanGajiPegawai.java`** (r84066) —
+  100%. **Verifikasi NEGATIF penting**: pola bug kunci-ZK-salah-modul
+  `task_fe6517bf` TIDAK ADA di pasangan gaji ini (kunci tulis
+  listener vs kunci baca `Pegawai.populateParameterTambahan()` DAN
+  `validate()` cocok persis) — bug tersebut terisolasi di modul
+  pengajuan-transaksi, tidak sistemik lintas kedua modul parameter-
+  tambahan payroll.
+- **`ais/database/model/payroll/DetailJenisShiftPegawai.java`**
+  (r84058/84062/84063) — 90/90 method, 100%, 3 commit bertahap.
+  **Task baru `task_1c5eb15c`**: `getJarakMulai()` membentuk
+  representasi "jam.menit" TANPA zero-padding menit (`hour + "." +
+  minute`) — 08:05 dan 08:50 sama-sama jadi `8.5` setelah
+  `Double.parseDouble`, memengaruhi pemilihan shift "terdekat" di
+  `DetailJenisShiftPegawaiHelper.shiftDetail()`. Bukan bagian rantai
+  penggajian langsung (murni modul absensi/jadwal, dipakai
+  `ProsesAbsensiPegawai`/`AbsensiApiAction`/`ScanBerhasilAction`).
+- **`ais/database/model/payroll/JenisShiftPegawai.java`** (r84059,
+  78/78 method) + **`AbsenPegawaiDetail.java`** (r84064, 36/36
+  method) — 100%. Rantai nyata terverifikasi: `JenisShiftPegawai`
+  (header katalog) → `JenisShiftPunyaPegawai` (penugasan) →
+  `DetailJenisShiftPegawai` → `StatuskehadiranKaryawanHarian`
+  (absensi harian aktual, sumber nyata potongan/lembur yang mengalir
+  ke gaji). **🚨 `AbsenPegawaiDetail` TERNYATA ENTITY TIDUR KETUJUH
+  inisiatif** — TIDAK berelasi struktural ke rantai shift/absensi di
+  atas, nol Action/helper/laporan memanggil method-nya di seluruh
+  pohon sumber (hanya 3 rujukan: mapping hibernate.cfg.xml, satu
+  baris label dashboard generik, file itu sendiri).
+
+**1 task baru batch ini**: `task_1c5eb15c` (bug tabrakan representasi
+jam.menit). **Koreksi proses penting** (ditemukan independen oleh 3
+dari 5 agent): WC `C:\opt\AIS\ais\src\main\java` bukan path repo
+terpisah — checkout KEDUA dari URL `^/src` yang SAMA persis dengan WC
+`src`. "Mirroring" yang benar = `svn update` di WC java (menyinkron
+otomatis dari commit WC src), BUKAN commit kedua — memori
+`ais-svn-workflow.md` sudah mencatat ini dengan benar sejak awal,
+cuma perlu ditegaskan lagi di briefing agent berikutnya agar tidak
+mencoba commit ganda yang mustahil.
+
 ## Batch 83 — SELESAI 100% (4 Sep 2026) — 3 task baru; KOREKSI PENTING batch 82: `PengajuanPeminjaman` ternyata entity TIDUR keenam (bukan "hidup" seperti diduga); mekanisme pembajakan akun jurnal b81 "dipersenjatai" via form CRUD generik; bug integritas dasbor (dicatat, tanpa task — dampak terbatas tampilan)
 
 5 file selesai didokumentasikan penuh (100% method/field), semua
