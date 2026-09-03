@@ -1,5 +1,71 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 40 — SELESAI 100% (3 Sep 2026) — BROKEN ACCESS CONTROL SISTEMIK 10/10, KELUARGA `ParameterTambahan*` TUNTAS
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/ParameterTambahanCatatanMahasiswa.java`**
+  (r83605) — 124→526 baris, 100% (21 anggota). Entity pemilik
+  `CatatanMahasiswa` (bukan `BiodataMahasiswa`), serialisasi berlabel
+  TERNYATA 7 ruas (bukan 8 seperti Alumni/Mahasiswa — tanpa `indexKe`).
+  `nomorUrut` entity ini kode mati untuk pengurutan (semua pembaca
+  runtime pakai `groupProperty` yang mengembalikan `ParameterTambahan`,
+  bukan entity ini). Broken access control ADA (konfirmasi ulang b38).
+- **`ais/database/model/ParameterTambahanCatatanAdministrasi.java`**
+  (r83606/83607) — 132→533 baris, 100% (16 anggota). Serialisasi 7 ruas
+  juga (bukan 8). Kunci KETIGA ditemukan: `LaporanCatatanAdministrasi`
+  pakai format garis-bawah `idKelompok_idParameter` terpisah dari 2
+  kunci lain yang harus dijaga konsisten. Nama tabel/kolom salah
+  salin-tempel dari modul SOP (`kelompok_parameter_tambahan_alur_sop`).
+  Broken access control ADA — hit rate **7/7**.
+- **`ais/database/model/ParameterTambahanPaket.java`** (r83607) —
+  164→600 baris, 100% (22 anggota). Klaim SQL migrasi mentah batch 34
+  TERKONFIRMASI AKURAT (setiap layar dibuka, tanpa syarat, lewati
+  Envers). Nilai isian PMB TERKONFIRMASI di `BiodataCalonMahasiswa`.
+  Premis brief soal `@ManyToMany` ke `GelombangPendaftaran` KELIRU —
+  cakupan gelombang didenormalisasi ke kolom text terpisah. Bug
+  fungsional nyata: ganti tahun akademik lalu centang 1 gelombang
+  MENGHAPUS semua pilihan gelombang tahun lain tanpa peringatan. Broken
+  access control ADA — hit rate **8/8**.
+- **`ais/database/model/ParameterTambahanPengajuan.java`** (r83609) —
+  124→589 baris, 100% (23 anggota). Mekanisme dua entity pemilik
+  (Mahasiswa+Siswa) TERKONFIRMASI: pembedaan di lapis pemilik data (2
+  pasang kolom di 2 tabel terpisah), BUKAN di entity ini yang justru
+  paling ramping di keluarga. Ditemukan tabrakan ruang-nama lampiran
+  lintas jenjang — `LampiranLain` tidak membedakan pemilik `Mahasiswa`
+  vs `Siswa` (kedua urutan IDENTITY mulai dari 1, kunci sama = lampiran
+  bisa tertukar bila kedua modul aktif sekaligus). Broken access control
+  ADA — hit rate **9/9**.
+- **`ais/database/model/ParameterTambahanCatatanPegawai.java`** (r83608)
+  — 138→551 baris, 100% (26 anggota). Serialisasi 7 ruas (konsisten pola
+  sub-keluarga "Catatan*"). Kolom berlabel TERKONFIRMASI write-only —
+  parser pembacanya kode mati (nol pemanggil), kontras 6 pemanggil di
+  padanan Alumni/Mahasiswa. Bug parser nyata: `split` Java membuang ruas
+  kosong ekor → keterangan kosong membuat field "keterangan" yang
+  terbaca justru berisi URL lampiran atau nilai isian. Broken access
+  control ADA — hit rate **10/10 (SEMPURNA)**.
+
+**KESIMPULAN — `task_58f74860` (broken access control `ParameterTambahan*Action`)
+kini 10 dari 10 file yang diperiksa, TANPA SATU PUN PENGECUALIAN.**
+Ini pola template sistemik yang pasti berlaku di SEMUA anggota keluarga
+`ParameterTambahan*Action` yang tersisa (jika ada lagi) — tidak perlu
+verifikasi eksplisit lagi kecuali untuk kelengkapan dokumentasi, cukup
+asumsikan ADA sampai terbukti sebaliknya.
+
+**Keluarga `KelompokParameterTambahan*` (9/9) dan lapis penghubung
+`ParameterTambahan*` (7/7 yang relevan: Alumni/Mahasiswa/CatatanPegawai/
+CatatanAdministrasi/CatatanMahasiswa/Pengajuan/Paket) kini TUNTAS.**
+Total 2 keluarga besar (16 file model + puluhan file Action terkait)
+selesai diaudit menyeluruh dalam 4 batch berturut-turut (37-40).
+
+**Pola "getKeterangan() membalik kontrak"**: 0 instance baru batch ini
+(seluruh 5 entity penghubung tidak punya field `keterangan`). Tetap
+**22 instance** total.
+
+Total akumulasi 40 sesi: **378 file** dari 7.401 (~5,1%).
+
 ## Batch 39 — SELESAI 100% (3 Sep 2026) — BROKEN ACCESS CONTROL SISTEMIK 6/6, TASK ESKALASI BARU
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
