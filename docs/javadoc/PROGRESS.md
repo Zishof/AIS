@@ -1,5 +1,56 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 88 — SELESAI 100% (4 Sep 2026) — 0 task baru; koreksi struktural penting (`TransaksiKoperasiDetail` = angsuran USPK, bukan rincian produk)
+
+22 file selesai didokumentasikan penuh (batch kedua domain
+`koperasi`), semua dikompilasi `-implicit:none` bersih via
+PowerShell, WC mirror disinkron via `svn update`, `cmp` byte-identik:
+
+- **`NotaSalesSession.java`** (r84171) + **`NotaSalesKas.java`**
+  (r84177) + **`NotaSalesPembelian.java`** (r84182) +
+  **`NotaSalesBiaya.java`** (r84187) — 100%. Rantai LEGACY
+  (superseded skema tenant paralel `TenantKasTrip` untuk tenant
+  migrasi). Hanya `NotaSalesBiaya` benar-benar dijurnal. Penjaga
+  keseimbangan kas TIDAK ADA saat tutup sesi (selisih dicatat,
+  tidak diblokir) — memperkuat pola tercatat, tanpa task baru.
+- **`SpjSalesBarang.java`** (r84169) + **`SpjSalesNota.java`**
+  (r84175) + **`SalesOrderLapangan.java`** (r84181) +
+  **`SalesOrderLapanganItem.java`** (r84185) +
+  **`SuratPerintahSalesJalan.java`** (r84190) — 100%. Alur SPJ
+  sales-lapangan lengkap terverifikasi. Penjaga keseimbangan BARANG
+  ADA dan HARD-BLOCKING (`qtyDimuat = terjual+kembali+rusak+hilang`);
+  keseimbangan UANG hanya soft-check+gerbang approval (bukan
+  hard-block, pola akuntansi kas fisik normal). Invoice ganda
+  dicegah via query eksplisit.
+- **`PembayaranAnggotaKoperasi.java`** (r84174) +
+  **`PembayaranAnggotaKoperasiDetail.java`** (r84179) +
+  **`ShuAnggota.java`** (r84184) — 100%. Rumus SHU didokumentasikan
+  lengkap (proporsi simpanan/partisipasi). Rekalkulasi tahun sama
+  hapus-lalu-buat-ulang (anti-duplikasi). 2 method dead-code
+  ditemukan (kunci atribut salah, tak pernah dipanggil) — dicatat,
+  tanpa task.
+- **`CustomerInventoryProfile.java`** (r84172) +
+  **`SupplierInventoryProfile.java`** (r84176) +
+  **`PayableFakturInfo.java`** (r84180) +
+  **`TransaksiKoperasiDetail.java`** (r84188) — 100%. **🚨 KOREKSI
+  STRUKTURAL**: `TransaksiKoperasiDetail` BUKAN baris rincian
+  produk/inventory — ini baris ANGSURAN pinjaman modul Simpan-Pinjam
+  Koperasi (USPK), dengan dukungan pembayaran online (VA) dan
+  penanda lunas satu-arah via `pembayaranAnggotaKoperasiDetail`.
+- **`PengajuanLimitTransaksiMember.java`** (r84170) +
+  **`LayarPelangganScreensaverConfig.java`** (r84173) +
+  **`DepositoRolloverKoperasi.java`** (r84178) +
+  **`KodePembayaranOnline.java`** (r84183) +
+  **`KategoriBiayaSales.java`** (r84186) + **`MejaKantin.java`**
+  (r84189) — 100%. `KodePembayaranOnline` DIKONFIRMASI **bukan**
+  mesin VA multi-bank seperti `VirtualAccountBank.java` (tabel bukti
+  konfirmasi generik lintas-modul). Rollover deposito otomatis
+  harian, TIDAK ditemukan bug bunga majemuk.
+
+**0 task baru batch ini** — semua temuan memperkuat pola tercatat
+atau bersifat kosmetik/dead-code (satu perbaikan Javadoc salah
+tempat dilakukan langsung, bukan bug logika).
+
 ## Batch 87 — SELESAI 100% (4 Sep 2026) — PIVOT ke paket `koperasi`; 3 task baru (`task_5c4bc70c`, `task_2db2f4ba`, `task_334b71eb`)
 
 19 file selesai didokumentasikan penuh (batch pertama domain baru
