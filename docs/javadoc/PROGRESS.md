@@ -1,5 +1,60 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 45 — SELESAI 100% (3 Sep 2026) — IDOR CRUD PENUH (TERMASUK HAPUS) DITEMUKAN DI REST API CATATAN SISWA
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/JenisCatatanSiswa.java`** (r83639) —
+  191→679 baris, 100% (37 anggota). Tidak ada jenis catatan bawaan seed
+  (semua diketik admin). **TEMUAN KRITIS BARU**: rute REST
+  `catatan_siswa_*` (`CatatanApi.java`) — CRUD PENUH TERMASUK HAPUS
+  hanya butuh token valid APA PUN (termasuk akun siswa/orang tua),
+  NOL cek kepemilikan/tenant. Pemegang token bisa baca, ubah, DAN
+  MENGHAPUS catatan disiplin/konseling siswa mana pun lintas sekolah/
+  yayasan. Id `IDENTITY` berurutan → enumerasi trivial. Memperkuat
+  `task_493423ef` secara signifikan. Bug data nyata: kolom `aktif`
+  tidak pernah diisi layar master → jenis catatan BARU tidak pernah
+  muncul di combobox web (hanya API mobile yang selamat, filter beda).
+- **`ais/database/model/sekolah/JenisCatatanKelasSiswa.java`** (r83635)
+  — 191→677 baris, 100% (23 anggota). Koreksi catatan batch 41:
+  `LaporanRaporSiswa` TERNYATA pakai `ArrayList` bukan `TreeSet` — jalur
+  rapor TIDAK terdampak bug penciutan. Bug baru: kelompok bawaan tidak
+  pernah bisa dicentang di konteks sekolah aktif.
+- **`ais/database/model/sekolah/JenisCatatanGuru.java`** (r83637/83638)
+  — 191→809 baris, 100% (37 anggota). Nuansa TreeSet: penciutan HANYA
+  terjadi di jalur formulir pengisian (bukan layar master/rapor). Fail-
+  open cakupan tenant lagi, dengan amplifier: pengguna UPDATE 1 sekolah
+  bisa unggah ulang template JasperReports (.jrxml, ekspresi Java
+  server-side) milik sekolah LAIN.
+- **`ais/database/model/sekolah/ChecklistPenilaianGuruOlehSiswa.java`**
+  (r83638) — 201→525 baris, 100% (37 anggota). Entity transaksi angket
+  guru, YATIM/skema lama (jalur aktif pakai `ChecklistBaruPenilaian
+  GuruOlehSiswa`). **Investigasi anonimitas menemukan instance BARU
+  `task_72336ffe` DI FILE YANG SAMA** (`LaporanAngketDosenPerDosenWindow
+  .java` — tab "Angket Guru" kehilangan guard peran yang sama persis
+  dengan tab dosen yang sudah tercatat). Plus temuan terpisah: IDOR
+  impersonasi siswa lintas sekolah/yayasan via `?siswa=<id>` di layar
+  pengisian angket (kandidat `task_493423ef`).
+- **`ais/database/model/sekolah/Kantin.java`** (r83636) — 170→565
+  baris, 100% (34 anggota). TERKONFIRMASI yatim total, konsisten
+  `PembelianSiswa` (b43) — bahkan satu-satunya pembaca SQL (laporan
+  saldo) sudah dimatikan (dikomentari). Risiko keamanan NIHIL saat ini.
+
+**`task_493423ef` diperkuat SANGAT SIGNIFIKAN batch ini** — 2 instance
+IDOR baru sekaligus, satu di antaranya (CRUD penuh + HAPUS via
+`CatatanApi`) adalah salah satu temuan paling severe dari kategori IDOR
+sepanjang inisiatif ini karena mencakup operasi destruktif (bukan cuma
+baca) pada data disiplin anak di bawah umur.
+
+**`task_72336ffe` diperkuat** dengan instance baru persis di file yang
+sama dengan temuan aslinya — pola "tab tanpa guard peran" kini
+terkonfirmasi berlaku untuk 3 tab (dosen, data-dosen, data-umum) DAN
+tab guru sekolah.
+
+Total akumulasi 45 sesi: **403 file**.
+
 ## Batch 44 — SELESAI 100% (3 Sep 2026) — BATCH KEAMANAN PALING SIGNIFIKAN: CACAT DISPATCHER JSP LINTAS 17 HALAMAN, IDOR API BARU
 
 5 file selesai didokumentasikan penuh (4 servlet + 1 entity), semua
