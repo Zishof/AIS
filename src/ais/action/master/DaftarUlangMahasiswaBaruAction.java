@@ -2847,10 +2847,10 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				if (prodiLulus == null || prodiLulus.getId() == null) {
 					Jurusan myjurusan1 = calonMahasiswa.getProdi1() == null ? calonMahasiswa.getProdi2()
 							: calonMahasiswa.getProdi1();
-					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
+					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswaUntukLayarPembayaran(calonMahasiswa, jenisKegiatan,
 							myjurusan1, smt, muatDariSettingBiayaTerbaru);
 				} else {
-					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
+					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswaUntukLayarPembayaran(calonMahasiswa, jenisKegiatan,
 							prodiLulus, smt, muatDariSettingBiayaTerbaru);
 				}
 			} else if (jenisKegiatan.getId().equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA.getId())) {
@@ -2859,11 +2859,11 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				if (prodiLulus == null || prodiLulus.getId() == null) {
 					Jurusan myjurusan1 = calonMahasiswa.getProdi1() == null ? calonMahasiswa.getProdi2()
 							: calonMahasiswa.getProdi1();
-					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							myjurusan1, muatDariSettingBiayaTerbaru);
+					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswaUntukLayarPembayaran(calonMahasiswa, jenisKegiatan,
+							myjurusan1, null, muatDariSettingBiayaTerbaru);
 				} else {
-					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(calonMahasiswa, jenisKegiatan,
-							prodiLulus, muatDariSettingBiayaTerbaru);
+					hasilTagihan = PembayaranUtilHelper.getDetailBiayaCalonMahasiswaUntukLayarPembayaran(calonMahasiswa, jenisKegiatan,
+							prodiLulus, null, muatDariSettingBiayaTerbaru);
 				}
 			}
 

@@ -243,8 +243,21 @@ public class PembayaranUtilHelper {
 	 * @return criteria yang sama setelah pembatas item ditambahkan
 	 */
 	public static Criteria batasiItemBiayaPembacaan(Criteria criteria, Collection<ItemBiaya> itemBiayas) {
+		return batasiItemBiayaPembacaan(criteria, itemBiayas, false);
+	}
+
+	/**
+	 * Varian ketat untuk layar pembayaran mahasiswa. Saat aktif, baris standalone
+	 * legacy tidak boleh melewati daftar item pada Setting Biaya terpilih.
+	 */
+	private static Criteria batasiItemBiayaPembacaan(Criteria criteria, Collection<ItemBiaya> itemBiayas,
+			boolean hanyaItemDariSettingBiaya) {
 		if (criteria == null) {
 			return null;
+		}
+		if (hanyaItemDariSettingBiaya) {
+			return criteria.add(itemBiayas == null || itemBiayas.isEmpty()
+					? Restrictions.sqlRestriction(SQL_FALSE) : Restrictions.in("itemBiaya", itemBiayas));
 		}
 		org.hibernate.criterion.Criterion sumberLegacyTanpaInduk = Restrictions.and(
 				Restrictions.isNull("settingPrioritasIndividual.id"),
@@ -452,6 +465,18 @@ public class PembayaranUtilHelper {
 	}
 
 	/**
+	 * Jalur khusus layar Pembayaran Mahasiswa: selalu membatasi hasil pada Item
+	 * Biaya yang masih dipilih pada Setting Biaya terbaru.
+	 */
+	@SuppressWarnings({ "rawtypes" })
+	public static Collection getDetailBiayaMahasiswaUntukLayarPembayaran(Mahasiswa mahasiswa, Integer semester,
+			JenisKegiatan jenisKegiatan, String bulan, Boolean untukBulananTampilkanMeskipunSudahDibayar,
+			boolean reload) {
+		return getDetailBiayaMahasiswadariDatabase(mahasiswa, semester, jenisKegiatan, bulan,
+				untukBulananTampilkanMeskipunSudahDibayar, reload, true);
+	}
+
+	/**
 	 * Varian yang menghitung otomatis semester akademik mahasiswa saat ini (ganjil/genap berjalan,
 	 * memperhitungkan mahasiswa pindahan lewat {@code pindahKeKampusIniMasukSemester} dan
 	 * {@code semesterMulai}) sebelum mendelegasikan ke
@@ -592,6 +617,14 @@ public class PembayaranUtilHelper {
 	public static Collection getDetailBiayaMahasiswadariDatabase(Mahasiswa mahasiswa, Integer semester,
 			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,
 			boolean reload) {
+		return getDetailBiayaMahasiswadariDatabase(mahasiswa, semester, jenisKegiatan, bulan,
+				untukBulananTampilkanMeskipunSudahDibayar, reload, false);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static Collection getDetailBiayaMahasiswadariDatabase(Mahasiswa mahasiswa, Integer semester,
+			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,
+			boolean reload, boolean hanyaItemDariSettingBiaya) {
 
 		if (mahasiswa != null && mahasiswa.getTidakAdaTagihan() != null && mahasiswa.getTidakAdaTagihan()) {
 			return new TreeSet();
@@ -972,7 +1005,7 @@ public class PembayaranUtilHelper {
 				criteria.add(Restrictions.isNull("kelas"));
 			}
 
-			criteria = batasiItemBiayaPembacaan(criteria, detailSettingBiayas);
+			criteria = batasiItemBiayaPembacaan(criteria, detailSettingBiayas, hanyaItemDariSettingBiaya);
 			Collection detailBiaya = criteria
 					.add(Restrictions.or(Restrictions.eq("merupakanPembayaran", false), Restrictions.isNull("merupakanPembayaran")))
 					.addOrder(Order.desc("id"))
@@ -1199,6 +1232,20 @@ public class PembayaranUtilHelper {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, Integer semester, boolean reload) {
+		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, semester, reload, false);
+	}
+
+	/** Jalur ketat untuk layar Pembayaran Mahasiswa Baru/calon mahasiswa. */
+	public static Collection<DetailBiaya> getDetailBiayaCalonMahasiswaUntukLayarPembayaran(
+			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, Jurusan jurusan,
+			Integer semester, boolean reload) {
+		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, semester, reload, true);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(
+			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, Jurusan jurusan,
+			Integer semester, boolean reload, boolean hanyaItemDariSettingBiaya) {
 
 		if (biodataCalonMahasiswa == null || jenisKegiatan == null) {
 			return new TreeSet<DetailBiaya>();
@@ -1375,7 +1422,7 @@ public class PembayaranUtilHelper {
 			criteria = batasiPembacaanDetailBiayaKeSettingTerpilih(criteria, settingBiayaTerpilih);
 			filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);
 
-			criteria = batasiItemBiayaPembacaan(criteria, detailSettingBiayas);
+			criteria = batasiItemBiayaPembacaan(criteria, detailSettingBiayas, hanyaItemDariSettingBiaya);
 			criteria = criteria
 					.add(paket == null ? Restrictions.isNull("paket") : Restrictions.eq("paket", paket))
 					.add(Restrictions.or(Restrictions.eq("merupakanPembayaran", false), Restrictions.isNull("merupakanPembayaran")));

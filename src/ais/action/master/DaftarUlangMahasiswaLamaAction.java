@@ -1706,8 +1706,9 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			// Tagihan mahasiswa harus selalu mengikuti pilihan Item Biaya terbaru.
 			// Cache lama dapat masih memuat item yang sudah dilepas dari Setting Biaya.
 			final boolean muatDariSettingBiayaTerbaru = true;
-			detailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa,
-					Integer.parseInt(semester.getValue()), jenisKegiatan, muatDariSettingBiayaTerbaru);
+			detailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswaUntukLayarPembayaran(mahasiswa,
+					Integer.parseInt(semester.getValue()), jenisKegiatan, null, false,
+					muatDariSettingBiayaTerbaru);
 			boolean nimDikecualikan = PengecualianTagihanList.adalah(detailBiayas);
 
 			for (Object o : detailBiayas) {
@@ -1727,7 +1728,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 
 				Collection biayaBulanan = null;
 				if (countPengaturanBulanan > 0) {
-					biayaBulanan = PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa,
+					biayaBulanan = PembayaranUtilHelper.getDetailBiayaMahasiswaUntukLayarPembayaran(mahasiswa,
 							Integer.parseInt(semester.getValue()), jenisKegiatan, "-1", true,
 							muatDariSettingBiayaTerbaru);
 					serapBiayaBulanan(biayaBulanan);
