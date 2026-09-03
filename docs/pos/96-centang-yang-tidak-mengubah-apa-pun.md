@@ -1,5 +1,9 @@
 # Centang yang tidak mengubah apa pun
 
+> **Menyusul:** keenam kunci di bawah SUDAH dikeluarkan dari `KUNCI_CRUD` (r83871, dok. [103](103-tiga-puluh-centang-mati-dicabut.md)).
+> Bagian "Keputusan yang TIDAK diambil di sini" karena itu **sudah tidak berlaku** —
+> lihat catatan di bawahnya.
+
 Audit dua arah atas `EbisnisMenuKatalog.KUNCI_CRUD` — daftar kunci yang
 memunculkan baris create/update/delete/approve/reject di grid peran
 (`TbmroleAction`).
@@ -70,14 +74,26 @@ keamanan:
    layar yang sudah punya satu, dengan risiko keduanya lambat laun berbeda.
 
 Untuk `apotik_narkotika` jalan (1) jelas benar — tidak ada mutasi yang mungkin
-ada. Untuk eMedik pilihannya bergantung pada arah produk: apakah layar SIRS itu
-akan dipindahkan ke model izin eBisnis, atau memang dibiarkan di model lama.
-Karena itu **tidak diubah** dalam pekerjaan ini; temuannya dicatat dan
-regresinya dikunci.
+ada. Untuk eMedik pilihannya semula tampak bergantung pada arah produk: apakah
+layar SIRS itu akan dipindahkan ke model izin eBisnis, atau dibiarkan di model
+lama. Karena itu tidak diubah dalam pekerjaan ini.
+
+**Penundaan itu ternyata terlalu hati-hati, dan sudah dibatalkan.** Diukur
+kemudian, jalan (1) tidak mengubah perilaku apa pun untuk keenamnya sekaligus:
+tidak ada gerbang yang memakai kunci-kunci itu, visibilitas menunya disusun dari
+`DAFTAR` secara terpisah, `ebisnisRoleMenuSimpan` bersifat aditif sehingga
+setelan tersimpan tidak hilang, dan klien memakai keenam nama itu lewat
+`bolehMenuVarianBaru` (visibilitas), bukan sebagai kunci `crud`. Arah produk
+untuk eMedik tetap terbuka — mengembalikan kuncinya kelak hanya perlu satu baris,
+dan setelan lamanya masih ada di tempatnya.
+
+Keenamnya dikeluarkan di r83871; rinciannya di dok.
+[103](103-tiga-puluh-centang-mati-dicabut.md). Daftar pengecualian pada
+penjaganya kini KOSONG, dan invariannya menjadi mutlak.
 
 ## Penjaga
 
-`test/kunci_crud_ditegakkan_test.dart` (repositori Flutter), 2 uji, ~2 detik.
+`test/kunci_crud_ditegakkan_test.dart` (repositori Flutter), kini 4 uji (semula 2), ~2 detik.
 
 Enam kunci di atas menjadi **daftar pengecualian bersama alasannya** — izin
 untuk tidak ditegakkan, bukan daftar cacat yang dibiarkan. Menambah kunci baru
