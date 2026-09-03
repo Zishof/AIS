@@ -1099,7 +1099,21 @@ public class PengajuanTransaksiPegawaiAction extends GenericAutowireComposer
 		return true;
 	}
 
-	private void populateTransaksi(Session session, PengajuanTransaksiPegawai pengajuanTransaksiPegawai) {
+	private void populateTransaksi(Session session, PengajuanTransaksiPegawai pengajuanTransaksiPegawai)
+			throws InterruptedException {
+		Number jumlahTerkunci = (Number) session.createSQLQuery(
+				"select count(*) from payroll.transaksi_pegawai where pengajuan_transaksi_pegawai="
+						+ pengajuanTransaksiPegawai.getId()
+						+ " and (posting_history is not null or pembayaran_gaji_punya_pegawai is not null)")
+				.uniqueResult();
+		if (jumlahTerkunci != null && jumlahTerkunci.longValue() > 0) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, jadwal angsuran tidak dapat dibangkitkan ulang: " + jumlahTerkunci.longValue()
+							+ " baris angsuran pada pengajuan ini sudah diposting ke jurnal dan/atau sudah dipotong dari slip gaji yang sudah dibayar, sehingga tidak boleh dihapus. Langkah yang dapat dilakukan: (1) batalkan posting/pelunasan baris terkait terlebih dahulu apabila jadwal memang perlu diubah; (2) ajukan dokumen baru untuk sisa angsuran yang belum berjalan.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
 		session.createSQLQuery("delete from payroll.transaksi_pegawai where pengajuan_transaksi_pegawai="
 				+ pengajuanTransaksiPegawai.getId()).executeUpdate();
 
