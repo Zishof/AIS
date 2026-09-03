@@ -524,9 +524,10 @@ public class GrupTransaksi extends GeneralValueObject {
 	 * {@link #ambilUnik()}. */
 	private PembayaranGajiPunyaPegawai pembayaranGajiPunyaPegawai;
 	/** Referensi dokumen sumber: transaksi pegawai (kasbon/potongan). <b>Ikut</b>
-	 * {@link #ambilUnik()} — namun perhatikan bahwa {@link #ambilUnik()} menuliskan nama
-	 * kelas {@code PembayaranGajiPunyaPegawai} untuk field ini, sehingga kuncinya
-	 * bertabrakan dengan {@link #pembayaranGajiPunyaPegawai} ber-id sama. */
+	 * {@link #ambilUnik()} dengan nama kelasnya sendiri sejak perbaikan tabrakan kunci
+	 * dengan {@link #pembayaranGajiPunyaPegawai} ber-id sama (sebelumnya {@link
+	 * #ambilUnik()} keliru menuliskan nama kelas {@code PembayaranGajiPunyaPegawai}
+	 * untuk field ini). */
 	private TransaksiPegawai transaksiPegawai;
 	/** Referensi dokumen sumber: log pembayaran (payment gateway/host-to-host).
 	 * <b>TIDAK ikut</b> {@link #ambilUnik()} — lihat peringatan pada dokumentasi kelas. */
@@ -3327,10 +3328,10 @@ public class GrupTransaksi extends GeneralValueObject {
 	/**
 	 * Referensi dokumen sumber: transaksi pegawai (kasbon, potongan, tunjangan lepas).
 	 *
-	 * <p><b>Catatan kunci unik:</b> field ini ikut menyusun {@link #ambilUnik()}, tetapi
-	 * di sana nama kelas yang ditulis adalah {@code PembayaranGajiPunyaPegawai}, bukan
-	 * {@code TransaksiPegawai}. Akibatnya kunci jurnal transaksi pegawai ber-id N
-	 * bertabrakan dengan kunci slip gaji ber-id N.</p>
+	 * <p><b>Catatan kunci unik:</b> field ini ikut menyusun {@link #ambilUnik()} dengan
+	 * nama kelasnya sendiri ({@code TransaksiPegawai}). Sebelum diperbaiki, cabang ini
+	 * keliru menulis {@code PembayaranGajiPunyaPegawai.class.getName()} sehingga kunci
+	 * jurnal transaksi pegawai ber-id N bertabrakan dengan kunci slip gaji ber-id N.</p>
 	 *
 	 * @return transaksi pegawai asal jurnal, atau {@code null}.
 	 */
@@ -3853,8 +3854,8 @@ public class GrupTransaksi extends GeneralValueObject {
 
 	/**
 	 * Referensi dokumen sumber: slip gaji per pegawai. Ikut menyusun
-	 * {@link #ambilUnik()} — perhatikan tabrakan kunci dengan
-	 * {@link #getTransaksiPegawai()} yang dijelaskan di sana.
+	 * {@link #ambilUnik()} dengan nama kelasnya sendiri — lihat riwayat tabrakan yang
+	 * sudah diperbaiki pada {@link #getTransaksiPegawai()}.
 	 *
 	 * @return slip gaji per pegawai asal jurnal, atau {@code null}.
 	 */
@@ -4135,10 +4136,6 @@ public class GrupTransaksi extends GeneralValueObject {
 	 *   cerminan {@code postingHistory.jenis}, jadi dua kaki jurnal berbeda jenis pada
 	 *   dokumen yang sama tetap bertabrakan. Satu-satunya pembeda kaki adalah
 	 *   {@link #getRef()}.</li>
-	 *   <li><b>{@code transaksiPegawai} memakai nama kelas yang keliru.</b> Cabangnya
-	 *   menulis {@code PembayaranGajiPunyaPegawai.class.getName()}, bukan
-	 *   {@code TransaksiPegawai}. Jurnal transaksi pegawai ber-id N dan slip gaji ber-id
-	 *   N menghasilkan kunci identik.</li>
 	 *   <li><b>Cakupan tidak lengkap — 15 dari 41 kolom referensi tidak dikenali.</b>
 	 *   {@code logPembayaran}, {@code penerimaanPengadaanMasterAsset},
 	 *   {@code saldoAwalMasterAsset}, {@code pertangungjawabanKasBesar},
@@ -4190,7 +4187,7 @@ public class GrupTransaksi extends GeneralValueObject {
 		} else if (pembayaranGajiPunyaPegawai != null) {
 			ko = PembayaranGajiPunyaPegawai.class.getName() + "_" + pembayaranGajiPunyaPegawai.getId();
 		} else if (transaksiPegawai != null) {
-			ko = PembayaranGajiPunyaPegawai.class.getName() + "_" + transaksiPegawai.getId();
+			ko = TransaksiPegawai.class.getName() + "_" + transaksiPegawai.getId();
 		} else if (penerimaanPengadaanMasterAssetDetail != null) {
 			ko = PenerimaanPengadaanMasterAssetDetail.class.getName() + "_"
 					+ penerimaanPengadaanMasterAssetDetail.getId();
