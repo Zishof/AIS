@@ -1121,6 +1121,18 @@ public class PembayaranUtil {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static int hitungBarisBulananSemester(Session session, JenisKegiatan jenisKegiatan, Jenjang jenjang,
 			Integer semester, Integer angkatan, java.util.Collection detailBiayasNonDefault) {
+		return hitungBarisBulananSemester(session, jenisKegiatan, jenjang, semester, angkatan, null,
+				detailBiayasNonDefault);
+	}
+
+	/**
+	 * Varian ter-scope jurusan. Filter ini mencegah baris bulanan milik prodi lain
+	 * mengalihkan mahasiswa ke jalur angsuran yang hasilnya kosong.
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public static int hitungBarisBulananSemester(Session session, JenisKegiatan jenisKegiatan, Jenjang jenjang,
+			Integer semester, Integer angkatan, Jurusan jurusan,
+			java.util.Collection detailBiayasNonDefault) {
 		if (jenisKegiatan == null || jenisKegiatan.getId() == null) {
 			return -1;
 		}
@@ -1165,6 +1177,10 @@ public class PembayaranUtil {
 				if (angkatan != null) {
 					criteria.add(Restrictions.or(Restrictions.eq("db.angkatan", angkatan),
 							Restrictions.isNull("db.angkatan")));
+				}
+				if (jurusan != null && jurusan.getId() != null) {
+					criteria.add(Restrictions.or(Restrictions.eq("db.jurusan", jurusan),
+							Restrictions.isNull("db.jurusan")));
 				}
 			}
 
@@ -1219,8 +1235,9 @@ public class PembayaranUtil {
 				// harus angsuran. -1 = pengecekan gagal → pertahankan perilaku lama (paksa 1).
 				// CATATAN (revert 07-17): status "Tagihan Default" di SettingBiaya TIDAK lagi
 				// memaksa mode menjadi bukan-bulanan.
+				Jurusan jurusanMhs = mahasiswa == null ? null : mahasiswa.getJurusan();
 				int nyata = hitungBarisBulananSemester(session, jenisKegiatan, jenjangMhs, semester, angkatanMhs,
-						detailBiayas);
+						jurusanMhs, detailBiayas);
 				if (nyata >= 0) {
 					return nyata;
 				}
@@ -1426,7 +1443,7 @@ public class PembayaranUtil {
 				// → billing reguler tetap diproses; >0 atau -1 (cek gagal) = varian
 				// default kosong (tagihan dilayani via angsuran, perilaku lama).
 				int barisBulanan = hitungBarisBulananSemester(null, jenisKegiatan,
-						jenjangMhsUntukAngsuran, semester, mahasiswa.getTahunangkatan(), null);
+						jenjangMhsUntukAngsuran, semester, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(), null);
 				if (barisBulanan != 0) {
 					return new TreeSet();
 				}
@@ -2202,7 +2219,8 @@ public class PembayaranUtil {
 		boolean pakaiJalurAngsuran = Boolean.TRUE
 				.equals(jenisKegiatan.modeAngsuranUntukJenjang(jenjang, semester, angkatan));
 		if (pakaiJalurAngsuran) {
-			int barisBulanan = hitungBarisBulananSemester(session, jenisKegiatan, jenjang, semester, angkatan, null);
+			int barisBulanan = hitungBarisBulananSemester(session, jenisKegiatan, jenjang, semester, angkatan,
+					jurusan, null);
 			if (barisBulanan == 0) {
 				pakaiJalurAngsuran = false;
 			}

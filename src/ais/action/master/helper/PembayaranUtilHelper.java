@@ -765,15 +765,20 @@ public class PembayaranUtilHelper {
 						+ " bulan=" + bulan + " modeAngsuran=" + modeAngsuran);
 				if (Boolean.TRUE.equals(modeAngsuran)
 						&& (biayaDefault == null || biayaDefault.isEmpty())) {
+					int barisBulanan = ais.action.ws.util.PembayaranUtil.hitungBarisBulananSemester(session,
+							jenisKegiatan, jenjang, semester, mahasiswa.getTahunangkatan(), jurusan, null);
 					if (JenisKegiatan.DEBUG_MODE_ANGSURAN) System.out.println(
-							"[DEBUG-ANGSURAN][getDetailBiaya] → TRUE tanpa setting khusus: return empty (lanjut jalur angsuran bulanan)");
+							"[DEBUG-ANGSURAN][getDetailBiaya] → TRUE tanpa setting khusus: baris bulanan jurusan="
+							+ barisBulanan);
 					/*
-					 * Ini bukan pengecualian NIM. Koleksi kosong biasa memberi tahu pemanggil
-					 * agar tagihan dilayani oleh jalur angsuran/bulanan. Sentinel
-					 * PengecualianTagihanList hanya boleh dipakai untuk NIM yang benar-benar
-					 * tercantum pada daftar pengecualian Setting Biaya.
+					 * Kosongkan varian reguler hanya bila billing bulanan yang relevan untuk
+					 * jurusan ini benar-benar ada. Pemeriksaan lama hanya melihat mode pada
+					 * jenjang; akibatnya PPB prodi lain dapat membuat tagihan TI lenyap.
+					 * Nilai -1 berarti pengecekan gagal, sehingga perilaku lama dipertahankan.
 					 */
-					return new TreeSet();
+					if (barisBulanan != 0) {
+						return new TreeSet();
+					}
 				}
 				if (Boolean.TRUE.equals(modeAngsuran) && biayaDefault != null && !biayaDefault.isEmpty()
 						&& JenisKegiatan.DEBUG_MODE_ANGSURAN) {
@@ -1353,7 +1358,7 @@ public class PembayaranUtilHelper {
 					.equals(jenisKegiatan.modeAngsuranUntukJenjang(jenjang, semester, angkatan));
 			if (isHarusAngsuranForJenjang) {
 				int barisBulanan = ais.action.ws.util.PembayaranUtil.hitungBarisBulananSemester(session,
-						jenisKegiatan, jenjang, semester, angkatan, null);
+						jenisKegiatan, jenjang, semester, angkatan, jurusan, null);
 				if (barisBulanan == 0) {
 					isHarusAngsuranForJenjang = false;
 				}
@@ -1893,8 +1898,9 @@ public class PembayaranUtilHelper {
 				// CATATAN (revert 07-17): status "Tagihan Default" di SettingBiaya TIDAK lagi
 				// memaksa mode menjadi bukan-bulanan — mode murni mengikuti aturan jenjang/
 				// semester dan keberadaan baris bulanan di billing.
+				Jurusan jurusanMhs = mahasiswa == null ? null : mahasiswa.getJurusan();
 				int nyata = ais.action.ws.util.PembayaranUtil.hitungBarisBulananSemester(session,
-						jenisKegiatan, mhsJenjang, semester, angkatanMhs, detailBiayas);
+						jenisKegiatan, mhsJenjang, semester, angkatanMhs, jurusanMhs, detailBiayas);
 				if (JenisKegiatan.DEBUG_MODE_ANGSURAN) System.out.println(
 						"[DEBUG-ANGSURAN][countBulanan] → TRUE: baris bulanan nyata semester ini=" + nyata);
 				if (nyata >= 0) {
