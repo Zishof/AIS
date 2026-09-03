@@ -53,14 +53,16 @@ import ais.common.Common;
  *       tiga karakter terakhir), meniru penyamaran pada anjungan kunjungan perpustakaan.</li>
  * </ol>
  *
- * <p><b>BELUM ditambal — layar lama (<code>?versilama=true</code>):</b> sama seperti kondisi
- * {@link Welpus} sebelum ditambal, {@code KunjunganSiswaAction.initCriteria()} jatuh ke
- * {@code Restrictions.sqlRestriction("true")} selama kombobox sekolah belum dipilih, sehingga
- * grid ZK tetap dapat memuat SELURUH baris {@code KunjunganSiswa} lintas sekolah/yayasan untuk
- * pengunjung anonim; {@code onKodeSiswa()} pun menolak memindai tanpa sekolah dipilih tetapi TIDAK
- * membatasi sekolah yang boleh dipilih ke sekolah tertentu. Jalur ini TIDAK tersentuh oleh
- * perbaikan pada javadoc ini dan perlu ditangani terpisah bila layar lama masih dipakai di
- * lapangan.</p>
+ * <p><b>Perbaikan (layar lama / <code>?versilama=true</code>, ditambal 2026-09-03):</b>
+ * {@code KunjunganSiswaAction} kini juga meresolusi sekolah pemilik anjungan di SERVER lewat
+ * {@code SekolahUtil.getSekolah(request)} (field {@code sekolahKiosk}, diisi pada
+ * {@code doAfterCompose()}), meniru pola {@code resolveSekolahKiosk()} pada
+ * {@code _welsis_service.jsp}: {@code initCriteria()} membatasi ke {@code sekolahKiosk} bila
+ * kombobox sekolah belum dipilih, dan gagal-tutup (nol baris) bila {@code sekolahKiosk} pun tidak
+ * dapat ditentukan — bukan lagi {@code Restrictions.sqlRestriction("true")} yang membocorkan
+ * SELURUH baris {@code KunjunganSiswa} lintas sekolah/yayasan; {@code onKodeSiswa()} kini mencocokkan
+ * sekolah yang dipilih pada combobox terhadap {@code sekolahKiosk} sebelum mengizinkan pemindaian,
+ * menutup celah "bisa memindai ke sekolah manapun yang tersedia di combobox".</p>
  *
  * <p><b>Tidak ditemukan pembatasan laju (<i>rate limiting</i>)</b> pada <code>action=scan</code>;
  * pembatasan sekolah di atas mempersempit ruang enumerasi NIS/NISN dari seluruh instalasi menjadi
