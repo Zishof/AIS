@@ -1,5 +1,70 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 64 — SELESAI 100% (3 Sep 2026) — RANTAI PENILAIAN SISWA LENGKAP 8/8, IDOR ganda `PrestasiSiswa`, keluarga PSB kini 4 verifikasi negatif berturut, wawancara PSB terkonfirmasi + eskalasi penyusupan video conference
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/JenisItemPenilaianSiswa.java`**
+  (r83753) — 384→1585 baris, 100%. **RANTAI PENILAIAN SISWA KINI
+  LENGKAP 8/8** (dimulai b48, tuntas b64):
+  `JenisPenilaian→DetailJenisPenilaian→GrupPenilaian→DetailGrupPenilaian→
+  GrupKategoriItemPenilaianSiswa→DetailGrupKategoriItemPenilaianSiswa→
+  KategoriItemPenilaianSiswa→JenisItemPenilaianSiswa`. **Broken access
+  control PALING LANGSUNG di seluruh rantai**: `JenisItemPenilaianSiswaAction`
+  nol `checkPrevilages`, `edit`/`delete` HARDCODE `true` — hak BACA
+  menu "Jenis Penilaian" cukup menimpa `nilaiMax`/`formula`/`kode`
+  butir nilai MANAPUN di SELURUH instalasi via satu unggahan Excel
+  (kolom `"id"` disertakan). Getter destruktif `getKodeAdminYgBoleh()`
+  menghapus permanen daftar putih admin. Penjelasan mengapa bug
+  "kategori hantu" (b51/54/61) sulit dilacak: kerusakan di lapis 6,
+  gejala (nilai hilang dari rapor) muncul di lapis 8 yang sendirinya
+  sehat.
+- **`ais/database/model/sekolah/PrestasiSiswa.java`** (r83749) —
+  425→1303 baris, 100% (107 anggota). Verifikasi ulang b53-54 SEMUA
+  masih berlaku (gerbang dikomentari, fail-open `ambilAnakSiswa()`,
+  tabel fakta SQLi). **IDOR BARU**: parameter URL `?siswa=` tanpa cek
+  kepemilikan — akun siswa bisa lihat/ubah/hapus prestasi siswa lain;
+  `?prestasi=` bahkan MELEWATI SELURUH filter termasuk pembatas anak
+  untuk wali murid. Tab Dasbor membocorkan hingga 800 baris prestasi
+  lintas siswa ke akun orang tua tanpa filter.
+- **`ais/database/model/sekolah/KegiatanKesiswaan.java`** (r83750) —
+  382→1231 baris, 100% (94 anggota). Action induk terkonfirmasi NOL
+  GERBANG TOTAL (`checkPrevilages` hanya muncul di komentar). **SQL
+  injection BARU** persis pola `OrganisasiSiswaAction` (b46) tapi di
+  layar master kegiatan sendiri. Tombol "Setujui Semua" — kondisi
+  gerbang diulang identik 2x (bug salin-tempel) meloloskan akun guru,
+  meresmikan SELURUH peserta SEMUA kegiatan lintas instalasi.
+- **`ais/database/model/sekolah/InterviewCalonSiswa.java`** (r83751)
+  — 479→1384 baris, 100% (48 anggota, memperkaya 3 blok Javadoc
+  eksisting). **TERKONFIRMASI sebagai sumber langsung** temuan
+  pra-otentikasi `_wawancara_service` (b50) — tabel yang persis
+  dibocorkan/ditulis. Action-nya sendiri: NOL `checkPrevilages` pada
+  670 baris, fail-open tenant di 5 titik. **Eskalasi baru**: nama
+  ruang Jitsi deterministik tanpa password → penyusup bisa MENGHITUNG
+  SENDIRI dan MASUK ke ruang video conference wawancara anak di bawah
+  umur.
+- **`ais/database/model/sekolah/UjianPSB.java`** (r83752) — 356→1059
+  baris, 100% (66 anggota). **Verifikasi NEGATIF ke-4 berturut**
+  keluarga PSB (layar bergerbang benar, tanpa panel detail sama
+  sekali) — makin menguatkan pola "kerusakan di helper detail, bukan
+  layar master". Pewarisan hak menu varian terburuk: `ujian_psb.zul`
+  tanpa menu sendiri, gerbang bergantung menu APAPUN yang terakhir
+  diklik pengguna (fallback session). 9 getter destruktif dalam 1
+  file (menurunkan "Jumlah Hari Ujian" menghapus permanen tanggal di
+  atasnya).
+
+Keluarga PSB sekarang: **7 instance broken access control positif +
+4 verifikasi negatif berturut-turut** — kesimpulan cukup kuat bahwa
+kerusakan terkonsentrasi di panel/helper DETAIL yang disisipkan tanpa
+gerbang, sementara layar MASTER PSB cenderung bergerbang benar. Tidak
+ada task baru dibuat — seluruh temuan memperkuat
+`task_1f9c66d3`/`task_493423ef`/`task_5e93a600`/`task_9b7ff647`.
+
+Kumulatif sesi ini: **497+ file** (150 batch 34-64) + 343 (sesi
+sebelumnya) dari 7.401 total (~12,6%).
+
 ## Batch 63 — SELESAI 100% (3 Sep 2026) — endpoint publik baru (catatan ibadah anak), bypass FormSop, keluarga PSB kini bersih di 3/9 sampel terbaru
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
