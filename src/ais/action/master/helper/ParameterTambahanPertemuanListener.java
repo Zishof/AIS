@@ -241,8 +241,9 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 							row.setAttribute("parameterTambahan", parameterTambahan);
 							row.setAttribute("kelompokParameterTambahanPertemuan", kelompokParameterTambahanPertemuan);
 
-							String jenis = kelompokParameterTambahanPertemuan.getId() + "->"
-									+ parameterTambahan.getId();
+							String jenis = LampiranLain.resolveJenisParameterTambahan(Pertemuan.class,
+									pertemuan.getId(), kelompokParameterTambahanPertemuan.getId() + "->"
+											+ parameterTambahan.getId());
 							row.appendChild(new Label(parameterTambahan.getLabelInputan()
 									+ (parameterTambahan.getWajibDiisi() ? " (*)" : " ")));
 
@@ -336,8 +337,9 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 									row.setAttribute("kelompokParameterTambahanPertemuan",
 											kelompokParameterTambahanPertemuan);
 
-									String jenis = kelompokParameterTambahanPertemuan.getId() + "->"
-											+ parameterTambahan.getId() + "->" + parameterTambahan1.getId();
+									String jenis = LampiranLain.resolveJenisParameterTambahan(Pertemuan.class,
+											pertemuan.getId(), kelompokParameterTambahanPertemuan.getId() + "->"
+													+ parameterTambahan.getId() + "->" + parameterTambahan1.getId());
 
 									row.appendChild(new Label(parameterTambahan.getLabelInputan()
 											+ (parameterTambahan.getWajibDiisi() ? " (*)" : " ")));
@@ -502,7 +504,8 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 
 									LampiranLain.createDownloadUploadFileLain(hbox,
 											pertemuan.getId() == null ? -Common.randLong() : pertemuan.getId(),
-											jenis + "_" + mhs.getId().toString(),
+											LampiranLain.resolveJenisParameterTambahan(Pertemuan.class,
+													pertemuan.getId(), jenis + "_" + mhs.getId().toString()),
 											parameterTambahan.getLabelInputan()
 													+ (parameterTambahan.getLampiranWajibDiisi() ? " (*)" : " "),
 											false, null, null, false, false, false, false, null);
@@ -515,8 +518,9 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 
 						boolean tampil = false;
 						for (ParameterTambahan parameterTambahan : parameterTambahans) {
-							String jenis = kelompokParameterTambahanPertemuan.getId() + "->"
-									+ parameterTambahan.getId();
+							String jenis = LampiranLain.resolveJenisParameterTambahan(Pertemuan.class,
+									pertemuan.getId(), kelompokParameterTambahanPertemuan.getId() + "->"
+											+ parameterTambahan.getId());
 
 							MyFormRow row = new MyFormRow();
 							row.setValign("top");

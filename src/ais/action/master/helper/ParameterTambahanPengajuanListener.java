@@ -101,7 +101,12 @@ public class ParameterTambahanPengajuanListener implements EventListener {
 			KelompokParameterTambahanPengajuan kelompokParameterTambahanPengajuan = (KelompokParameterTambahanPengajuan) row
 					.getAttribute("kelompokParameterTambahanPengajuan");
 			if (parameterTambahan != null && kelompokParameterTambahanPengajuan != null) {
-				String jenis = kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId();
+				String jenisMentah = kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId();
+				String jenis = pengajuanSiswa != null
+						? LampiranLain.resolveJenisParameterTambahan(PengajuanSiswa.class, pengajuanSiswa.getId(),
+								jenisMentah)
+						: LampiranLain.resolveJenisParameterTambahan(PengajuanMahasiswa.class,
+								pengajuanMahasiswa.getId(), jenisMentah);
 
 				String val = ParameterTambahan.ambilVal(row, parameterTambahan);
 
@@ -198,7 +203,9 @@ public class ParameterTambahanPengajuanListener implements EventListener {
 				if (!parameterTambahans.isEmpty()) {
 
 					for (ParameterTambahan parameterTambahan : parameterTambahans) {
-						String jenis = kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId();
+						String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanSiswa.class,
+								pengajuanSiswa.getId(),
+								kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId());
 
 						MyFormRow row = new MyFormRow();
 						row.setValign("top");
@@ -280,7 +287,9 @@ public class ParameterTambahanPengajuanListener implements EventListener {
 				if (!parameterTambahans.isEmpty()) {
 
 					for (ParameterTambahan parameterTambahan : parameterTambahans) {
-						String jenis = kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId();
+						String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanMahasiswa.class,
+								pengajuanMahasiswa.getId(),
+								kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId());
 
 						MyFormRow row = new MyFormRow();
 						row.setValign("top");

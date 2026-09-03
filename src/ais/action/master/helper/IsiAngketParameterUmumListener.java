@@ -308,7 +308,9 @@ public class IsiAngketParameterUmumListener implements EventListener {
 			return "GURU:" + ((GrupChecklistPenilaianGuru) grup).getId() + "->" + parameterTambahan.getId();
 		}
 		if (grup instanceof GrupChecklistPenilaianUmum) {
-			return ((GrupChecklistPenilaianUmum) grup).getId() + "->" + parameterTambahan.getId();
+			return LampiranLain.resolveJenisParameterTambahan(GrupChecklistPenilaianUmum.class,
+					isiAngketParameterUmum == null ? null : isiAngketParameterUmum.getId(),
+					((GrupChecklistPenilaianUmum) grup).getId() + "->" + parameterTambahan.getId());
 		}
 		return "";
 	}
