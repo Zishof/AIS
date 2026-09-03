@@ -323,6 +323,12 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 								Common.refreshSaveOrUpdate(daftarPengajuanTransfer);
 								HibernateUtil.currentSession()
 										.createSQLQuery(
+												"delete from akunting.transaksi where grup_transaksi in"
+														+ " (select id from akunting.grup_transaksi where daftar_pengajuan_transfer="
+														+ daftarPengajuanTransfer.getId() + " and closing is null)")
+										.executeUpdate();
+								HibernateUtil.currentSession()
+										.createSQLQuery(
 												"delete from akunting.grup_transaksi where daftar_pengajuan_transfer="
 														+ daftarPengajuanTransfer.getId() + " and closing is null")
 										.executeUpdate();
@@ -890,6 +896,12 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 							public void onEvent(Event arg0) throws Exception {
 								daftarPengajuanTransfer.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(daftarPengajuanTransfer);
+								HibernateUtil.currentSession()
+										.createSQLQuery(
+												"delete from akunting.transaksi where grup_transaksi in"
+														+ " (select id from akunting.grup_transaksi where daftar_pengajuan_transfer="
+														+ daftarPengajuanTransfer.getId() + " and closing is null)")
+										.executeUpdate();
 								HibernateUtil.currentSession()
 										.createSQLQuery(
 												"delete from akunting.grup_transaksi where daftar_pengajuan_transfer="

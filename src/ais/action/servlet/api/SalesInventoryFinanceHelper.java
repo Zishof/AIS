@@ -124,6 +124,18 @@ public final class SalesInventoryFinanceHelper {
 			tolak(hasil, "kode dan nama akun wajib diisi.");
 			return;
 		}
+		Integer debetCredit = null;
+		if (!request.isNull("debet_credit")) {
+			int dc = request.optInt("debet_credit", 0);
+			// Sandi sah: DEBET(1), CREDIT(-1), dan sandi legacy 2 yang dinormalkan
+			// Akun.setDebetCredit(Integer) menjadi -1. Lihat peringatan integritas data pada
+			// Javadoc kelas Akun -- kolom ini pernah menerima nilai lain tanpa penyaring apa pun.
+			if (dc != 1 && dc != -1 && dc != 2) {
+				tolak(hasil, "Debet / Credit tidak valid.");
+				return;
+			}
+			debetCredit = Integer.valueOf(dc);
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
@@ -157,8 +169,8 @@ public final class SalesInventoryFinanceHelper {
 			if (!request.isNull("keterangan")) {
 				a.setKeterangan(request.optString("keterangan", "").trim());
 			}
-			if (!request.isNull("debet_credit")) {
-				a.setDebetCredit(Integer.valueOf(request.optInt("debet_credit", 0)));
+			if (debetCredit != null) {
+				a.setDebetCredit(debetCredit);
 			}
 			Long parentId = optLong(request, "parent_id");
 			if (parentId != null) {

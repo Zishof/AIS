@@ -418,8 +418,9 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 						Collections.sort(parameterTambahans);
 
 						for (ParameterTambahan parameterTambahan : parameterTambahans) {
-							String jenis = kelompokParameterTambahanCatatanSiswa.getId() + "->"
-									+ parameterTambahan.getId();
+							String jenis = LampiranLain.resolveJenisParameterTambahan(CatatanSiswa.class,
+									catatanSiswa.getId(), kelompokParameterTambahanCatatanSiswa.getId() + "->"
+											+ parameterTambahan.getId());
 							String searchKey = jenis.toLowerCase();
 
 							// Mengambil langsung dari Map hasil pre-parsing

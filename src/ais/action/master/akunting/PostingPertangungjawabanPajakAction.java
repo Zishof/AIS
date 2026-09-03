@@ -376,6 +376,11 @@ public class PostingPertangungjawabanPajakAction extends GenericAutowireComposer
 								pajak.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(pajak);
 								HibernateUtil.currentSession()
+										.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where ref='" + ref
+												+ "' and pajak=" + pajak.getId() + " and closing is null)")
+										.executeUpdate();
+								HibernateUtil.currentSession()
 										.createSQLQuery("delete from akunting.grup_transaksi where ref='" + ref
 												+ "' and pajak=" + pajak.getId() + " and closing is null")
 										.executeUpdate();
@@ -886,6 +891,11 @@ public class PostingPertangungjawabanPajakAction extends GenericAutowireComposer
 							public void onEvent(Event arg0) throws Exception {
 								pajak.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(pajak);
+								HibernateUtil.currentSession()
+										.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where ref='" + ref
+												+ "' and pajak=" + pajak.getId() + " and closing is null)")
+										.executeUpdate();
 								HibernateUtil.currentSession()
 										.createSQLQuery("delete from akunting.grup_transaksi where ref='" + ref
 												+ "' and pajak=" + pajak.getId() + " and closing is null")

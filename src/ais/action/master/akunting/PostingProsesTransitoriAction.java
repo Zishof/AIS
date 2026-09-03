@@ -335,6 +335,11 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 								transitori.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(transitori);
 								HibernateUtil.currentSession().createSQLQuery(
+										"delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where transitori=" + transitori.getId()
+												+ " and closing is null)")
+										.executeUpdate();
+								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where transitori=" + transitori.getId() + " and closing is null")
 										.executeUpdate();
 							}
@@ -821,6 +826,11 @@ public class PostingProsesTransitoriAction extends GenericAutowireComposer {
 							public void onEvent(Event arg0) throws Exception {
 								transitori.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(transitori);
+								HibernateUtil.currentSession().createSQLQuery(
+										"delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where transitori=" + transitori.getId()
+												+ " and closing is null)")
+										.executeUpdate();
 								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where transitori=" + transitori.getId() + " and closing is null")
 										.executeUpdate();

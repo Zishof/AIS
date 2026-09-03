@@ -85,18 +85,32 @@ import ais.database.model.rab.SatuanKerja;
  *       angka ini apa adanya: {@code nilai = saldo * akun.getDebetCredit()}. Jadi angka pada
  *       kolom ini masuk langsung ke besaran <i>dan</i> tanda pada laporan keuangan COA.</li>
  * </ol>
- * <p><b>PERINGATAN INTEGRITAS DATA &mdash; ada sandi ketiga yang beredar.</b>
- * {@code KodeAkunApiHelper.posisiDariTipeAccurate()} mengembalikan <b>{@code 2}</b> (bukan
- * {@code -1}) untuk seluruh tipe Accurate sisi kredit ({@code DEPR}, {@code APAY}, {@code OCLY},
- * {@code LTLY}, {@code EQTY}, {@code REVE}, {@code OINC}), dan nilai itu ditulis ke kolom
- * {@code debit_credit} yang sama oleh {@code akunImpor}. Akibatnya, akun kredit hasil impor
- * Accurate: (a) tetap <i>tampak</i> benar di layar (karena label hanya menguji "sama dengan 1?"),
- * (b) <b>hilang</b> dari picker akun kredit, dan (c) pada
+ * <p><b>PERINGATAN INTEGRITAS DATA &mdash; sandi ketiga {@code 2}, DIPERBAIKI 3 Sep 2026.</b>
+ * Tiga jalur tulis pernah/masih menulis {@code 2} (bukan {@code -1}) ke kolom ini untuk
+ * kredit: {@code KodeAkunApiHelper.posisiDariTipeAccurate()} (dipakai {@code akunImpor} untuk
+ * tipe Accurate sisi kredit: {@code DEPR}, {@code APAY}, {@code OCLY}, {@code LTLY},
+ * {@code EQTY}, {@code REVE}, {@code OINC}), cabang teks {@code posisi} ("Credit"/"Kredit") pada
+ * {@code akunImpor} yang sama, dan API {@code akunSimpan} (menerima {@code 1}/{@code 2} dari
+ * klien Desktop/Android sebagai kontrak kawat, sengaja TIDAK diubah agar kompatibel).
+ * Sebelum perbaikan, akun kredit hasil impor Accurate: (a) tetap <i>tampak</i> benar di layar
+ * (label hanya menguji "sama dengan 1?"), (b) <b>hilang</b> dari picker akun kredit
+ * ({@code Restrictions.eq("debetCredit", -1)} tidak cocok {@code 2}), dan (c) pada
  * {@code LaporanKeuanganCoaHelper} dikalikan {@code +2} alih-alih {@code -1} &mdash; besaran dua
- * kali lipat <b>dan tanda terbalik</b>. Model tenant baru
- * ({@code SalesInventoryFinanceTenant}) sudah menyadari perselisihan ini dan sengaja menerima
- * {@code -1} maupun {@code 2} sebagai "kredit" pada masukan, tetapi jalur legacy di paket ini
- * tidak melakukan normalisasi apa pun.</p>
+ * kali lipat <b>dan tanda terbalik</b> pada laporan keuangan cetak. Model tenant baru
+ * ({@code SalesInventoryFinanceTenant}) sudah lebih dulu menyadari perselisihan ini dan sengaja
+ * menerima {@code -1} maupun {@code 2} sebagai "kredit" pada masukan.</p>
+ * <p><b>Perbaikannya ada di {@link #setDebetCredit(Integer)}</b>: sandi {@code 2} dinormalkan
+ * menjadi {@link #CREDIT} di titik tunggal itu. Karena kelas ini dipetakan lewat akses properti,
+ * Hibernate memanggil setter itu juga saat menghidrasi baris dari basis data, sehingga (c) di
+ * atas TERTUTUP untuk seluruh baris &mdash; lama maupun baru &mdash; segera setelah dimuat ulang,
+ * tanpa menunggu migrasi data. (b) TIDAK ikut tertutup oleh perbaikan ini: picker memakai
+ * {@code Restrictions.eq} yang dievaluasi basis data atas kolom mentah SEBELUM baris dihidrasi,
+ * sehingga baris lama yang fisiknya masih {@code 2} tetap tersembunyi dari picker akun kredit
+ * sampai baris itu disimpan ulang (menormalkan kolomnya) atau dimigrasikan lewat
+ * {@code UPDATE akunting.akun SET debit_credit = -1 WHERE debit_credit = 2}. Jalur tulis
+ * {@code posisiDariTipeAccurate()} dan cabang teks {@code akunImpor} sudah diubah menulis
+ * {@link #CREDIT} langsung, bukan {@code 2}, supaya impor baru tidak lagi bergantung pada
+ * normalisasi setter.</p>
  * <p><b>Kolom ini juga "kolom wajib" secara praktik.</b> DDL-nya {@code nullable = true}, tetapi
  * baik {@code AkunAction.onSave} maupun {@code AkunGenericCrudAdapter.validate} menolak simpan
  * bila Debet/Credit belum dipilih, dan {@link #getDebetCredit()} memaksa nilai {@code null}
@@ -729,15 +743,32 @@ public class Akun extends GeneralValueObject {
 	 * Menetapkan saldo normal akun.
 	 *
 	 * <p>Nilai yang diharapkan hanya {@link #DEBET} ({@code 1}) atau {@link #CREDIT}
-	 * ({@code -1}); layar master menjaminnya lewat combobox dua pilihan. <b>Tidak ada validasi
-	 * di setter ini</b>, dan jalur impor Accurate memanfaatkannya untuk menulis {@code 2}
-	 * &mdash; lihat peringatan integritas data pada Javadoc kelas.</p>
+	 * ({@code -1}); layar master menjaminnya lewat combobox dua pilihan.</p>
 	 *
-	 * @param debetCredit sandi saldo normal; boleh {@code null}, tetapi getter-nya akan
-	 *                    memaksanya menjadi {@link #CREDIT} saat dibaca
+	 * <p><b>Normalisasi sandi legacy {@code 2} (diperbaiki).</b> Jalur impor Accurate
+	 * ({@code KodeAkunApiHelper.posisiDariTipeAccurate}/{@code akunImpor}) dan API
+	 * {@code akunSimpan} menulis {@code 2} untuk kredit &mdash; sandi asing yang beredar
+	 * berdampingan dengan konstanta {@link #CREDIT} pada kolom yang sama (lihat riwayat
+	 * pada Javadoc kelas). Setter ini sekarang menormalkan {@code 2} menjadi {@link #CREDIT}
+	 * <b>sebelum</b> menyimpannya ke field. Karena kelas ini dipetakan lewat akses properti,
+	 * Hibernate memanggil setter ini juga saat menghidrasi baris dari basis data &mdash; jadi
+	 * baris LAMA yang sudah terlanjur tersimpan {@code 2} pun ikut ternormalkan begitu dimuat
+	 * ulang, tanpa menunggu migrasi data. Ini menutup celah yang membuat
+	 * {@code LaporanKeuanganCoaHelper} mengalikan saldo akun tersebut dengan {@code +2}
+	 * alih-alih {@code -1} (besaran dua kali lipat, tanda terbalik).</p>
+	 *
+	 * <p>Nilai di luar {@code {null, 1, -1, 2}} diteruskan apa adanya &mdash; setter ini
+	 * bukan tempat validasi bentuk; validasi keras ada di titik masuk API
+	 * ({@code KodeAkunApiHelper.akunSimpan}, {@code SalesInventoryFinanceHelper.coaSave}).</p>
+	 *
+	 * @param debetCredit sandi saldo normal; boleh {@code null}. Sandi legacy {@code 2}
+	 *                    dinormalkan menjadi {@link #CREDIT} ({@code -1})
 	 * @see #getDebetCredit()
 	 */
 	public void setDebetCredit(Integer debetCredit) {
+		if (debetCredit != null && debetCredit.intValue() == 2) {
+			debetCredit = CREDIT;
+		}
 		this.debetCredit = debetCredit;
 	}
 
@@ -774,8 +805,9 @@ public class Akun extends GeneralValueObject {
 	 * yang sama &mdash; "tidak diisi" menjadi "kredit" saat berkas dibawa keluar.</p>
 	 *
 	 * @return {@link #DEBET} bila akun bersaldo normal debet; {@link #CREDIT} bila kredit
-	 *         <b>atau</b> bila kolomnya kosong. Nilai lain ({@code 2}) dapat muncul untuk baris
-	 *         hasil impor Accurate.
+	 *         <b>atau</b> bila kolomnya kosong. Sandi legacy {@code 2} (baris impor Accurate)
+	 *         tidak lagi tampak di sini &mdash; {@link #setDebetCredit(Integer)} sudah
+	 *         menormalkannya menjadi {@code -1}, termasuk saat Hibernate menghidrasi baris ini.
 	 */
 	@Column(name = "debit_credit", nullable = true)
 	public Integer getDebetCredit() {

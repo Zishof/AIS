@@ -427,7 +427,9 @@ public class PengajuanSiswaAction extends GenericAutowireComposer implements Dat
 				Collections.sort(parameterTambahans);
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(PengajuanSiswa.class,
+							pengajuanSiswa.getId(),
+							kelompokParameterTambahanPengajuan.getId() + "->" + parameterTambahan.getId());
 
 					String val = "";
 					String[] spl = pengajuanSiswa.getParameterTambahanInds().split("\n");

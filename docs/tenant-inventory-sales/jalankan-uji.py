@@ -73,7 +73,9 @@ TABEL_PENANDA = (
     'sales_assignment', 'kategori_biaya_sales', 'audit_baris', 'revinfo', 'jurnal',
     'jurnal_detail', 'sales_order_detail', 'stok_opname',
 )
-POLA_SKEMA = re.compile(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\.(' + '|'.join(TABEL_PENANDA) + r')\b')
+POLA_POSISI_TABEL = re.compile(
+    r'(?is)\b(?:FROM|JOIN|INTO|UPDATE|TRUNCATE)\s+(?:TABLE\s+)?'
+    r'([a-zA-Z_][a-zA-Z0-9_]*)\.(' + '|'.join(TABEL_PENANDA) + r')\b')
 # Schema bersama tiruan yang dibuat berkasnya sendiri -- bukan schema tenant.
 BUKAN_TENANT = {'koperasi', 'akunting', 'library', 'information_schema', 'pg_catalog', 'public'}
 
@@ -90,6 +92,17 @@ def jalankan(cmd, **kw):
     return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kw)
 
 
+def jalankan_lepas(cmd):
+    """Untuk `pg_ctl start`: JANGAN tangkap keluarannya.
+
+    pg_ctl melahirkan daemon yang MEWARISI pipa keluaran induknya. Kalau pipanya kita tangkap,
+    pembacanya menunggu pipa itu tertutup -- dan pipa itu baru tertutup ketika servernya mati.
+    Akibatnya pelari menggantung selamanya justru pada langkah yang paling cepat. Berkas log
+    sudah ditangani lewat -l, jadi keluarannya memang tidak diperlukan di sini.
+    """
+    return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def cari_pgbin(diberi):
     if diberi:
         return diberi
@@ -101,19 +114,25 @@ def cari_pgbin(diberi):
 
 
 def skema_dari(berkas):
-    """{'erp': [...], 'audit': [...]} menurut awalan yang benar-benar dipakai berkasnya."""
+    """{'erp': [...], 'audit': [...]} menurut awalan yang benar-benar dipakai berkasnya.
+
+    Awalan hanya diakui bila muncul pada POSISI TABEL -- tepat sesudah
+    FROM/JOIN/INTO/UPDATE/TRUNCATE. Alias kueri (`FROM koperasi.pengadaan_produk x` lalu
+    `x.produk`) tidak pernah muncul di posisi itu, sehingga tidak lagi tertangkap.
+
+    Menyaring menurut PANJANG nama tidak dipakai: uji isolasi memang memakai schema dua huruf
+    (`ta`, `tb`), dan penyaring panjang justru membuang berkas yang paling penting.
+    """
     teks = io.open(berkas, encoding='utf-8', errors='replace').read()
     erp, audit = set(), set()
-    for nama, _tabel in POLA_SKEMA.findall(teks):
-        if nama in BUKAN_TENANT or len(nama) > 40:
+    for nama, _tabel in POLA_POSISI_TABEL.findall(teks):
+        if nama.lower() in BUKAN_TENANT or len(nama) > 40:
             continue
         if nama.endswith('__audit'):
             audit.add(nama)
             erp.add(nama[:-len('__audit')])
         else:
             erp.add(nama)
-    # Alias kueri satu-dua huruf tidak mungkin nama schema.
-    erp = {e for e in erp if len(e) > 2}
     return {'erp': sorted(erp), 'audit': sorted(audit)}
 
 
@@ -163,7 +182,7 @@ def main():
 
         print('Menyalakan klaster sekali-pakai di 127.0.0.1:%d ...' % port)
         jalankan([initdb, '-D', data, '-U', 'uji', '--auth=trust', '-E', 'UTF8'])
-        jalankan([pg_ctl, '-D', data, '-o',
+        jalankan_lepas([pg_ctl, '-D', data, '-o',
                   '-p %d -c listen_addresses=127.0.0.1' % port,
                   '-l', os.path.join(kerja, 'pg.log'), '-w', 'start'])
         time.sleep(1)
@@ -211,7 +230,7 @@ def main():
         print('HASIL: ' + ('LULUS' if kode == 0 else 'ADA YANG GAGAL'))
         return kode
     finally:
-        jalankan([pg_ctl, '-D', data, '-m', 'fast', '-w', 'stop'])
+        jalankan_lepas([pg_ctl, '-D', data, '-m', 'fast', '-w', 'stop'])
         shutil.rmtree(kerja, ignore_errors=True)
 
 

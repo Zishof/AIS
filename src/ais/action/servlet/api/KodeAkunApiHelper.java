@@ -306,9 +306,9 @@ public final class KodeAkunApiHelper {
 					}
 					String posisi = b.optString("posisi", "").trim().toLowerCase();
 					if (posisi.startsWith("d")) {
-						akun.setDebetCredit(Integer.valueOf(1));
+						akun.setDebetCredit(ais.database.model.akunting.Akun.DEBET);
 					} else if (posisi.startsWith("c") || posisi.startsWith("k")) {
-						akun.setDebetCredit(Integer.valueOf(2));
+						akun.setDebetCredit(ais.database.model.akunting.Akun.CREDIT);
 					} else if (!tipe.isEmpty()) {
 						Integer dc = posisiDariTipeAccurate(tipe);
 						if (dc != null) {
@@ -678,6 +678,17 @@ public final class KodeAkunApiHelper {
 	 *
 	 * <p>Tombol "Copy" dan "Tambah Anak" di klien memakai aksi yang sama; bedanya hanya nilai
 	 * awal formulir (kode induk + nol sebanyak {@link #panjangKodeAnak()} untuk anak).</p>
+	 *
+	 * <p><b>Kontrak kawat {@code debetCredit}: {@code 1} (debet) atau {@code 2} (kredit).</b>
+	 * Klien Desktop/Android yang ada mengirim {@code 2} untuk kredit, BUKAN {@code -1}, jadi
+	 * validasi ini sengaja tidak diubah menjadi hanya menerima {@link
+	 * ais.database.model.akunting.Akun#CREDIT} agar tidak memutus klien yang sudah beredar --
+	 * sandi {@code -1} kini ikut diterima juga (aditif, tidak menyempitkan). Nilai kredit yang
+	 * masuk (baik {@code 2} maupun {@code -1}) dinormalkan menjadi
+	 * {@link ais.database.model.akunting.Akun#CREDIT} oleh
+	 * {@link ais.database.model.akunting.Akun#setDebetCredit(Integer)} sebelum disimpan, jadi
+	 * kolom {@code debit_credit} tetap konsisten {@code -1} untuk kredit di basis data terlepas
+	 * dari sandi yang dikirim klien.</p>
 	 */
 	public static void akunSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		long id = request == null ? 0 : request.optLong("id", 0);
@@ -698,7 +709,7 @@ public final class KodeAkunApiHelper {
 			return;
 		}
 		int dc = request.optInt("debetCredit", 0);
-		if (dc != 1 && dc != 2) {
+		if (dc != 1 && dc != 2 && dc != -1) {
 			tolak(hasil, "Debet / Credit belum dipilih.");
 			return;
 		}
@@ -1114,8 +1125,18 @@ public final class KodeAkunApiHelper {
 	 * pada aset tetapi saldo normalnya KREDIT, karena itu tidak boleh ikut daftar debet hanya
 	 * karena "berbau aset".</p>
 	 *
-	 * @return 1 (debet), 2 (kredit), atau null bila tipenya tidak dikenal -- pemanggil
-	 *         membiarkan posisi yang sudah ada apa adanya alih-alih menebak.
+	 * <p><b>Diperbaiki 3 Sep 2026:</b> sisi kredit dulu mengembalikan sandi asing {@code 2},
+	 * bukan konstanta {@link ais.database.model.akunting.Akun#CREDIT}. {@code 2} yang tertulis
+	 * ke kolom {@code debit_credit} membuat {@code LaporanKeuanganCoaHelper} mengalikan saldo
+	 * akun itu dengan {@code +2} alih-alih {@code -1} (besaran dua kali lipat, tanda terbalik)
+	 * dan menyembunyikan akun itu dari picker akun kredit. {@link ais.database.model.akunting.Akun#setDebetCredit(Integer)}
+	 * sekarang menormalkan {@code 2} lama secara mandiri, tetapi jalur ini diperbaiki juga supaya
+	 * impor baru tidak lagi bergantung pada normalisasi itu.</p>
+	 *
+	 * @return {@link ais.database.model.akunting.Akun#DEBET} (debet),
+	 *         {@link ais.database.model.akunting.Akun#CREDIT} (kredit), atau {@code null} bila
+	 *         tipenya tidak dikenal -- pemanggil membiarkan posisi yang sudah ada apa adanya
+	 *         alih-alih menebak.
 	 */
 	static Integer posisiDariTipeAccurate(String tipe) {
 		if (tipe == null) {
@@ -1125,12 +1146,12 @@ public final class KodeAkunApiHelper {
 		// Aset & beban: bertambah di DEBET.
 		if ("BANK".equals(t) || "AREC".equals(t) || "OCAS".equals(t) || "INTR".equals(t)
 				|| "FASS".equals(t) || "EXPS".equals(t) || "COGS".equals(t) || "OEXP".equals(t)) {
-			return Integer.valueOf(1);
+			return ais.database.model.akunting.Akun.DEBET;
 		}
 		// Kewajiban, ekuitas, pendapatan, dan akumulasi penyusutan: bertambah di KREDIT.
 		if ("DEPR".equals(t) || "APAY".equals(t) || "OCLY".equals(t) || "LTLY".equals(t)
 				|| "EQTY".equals(t) || "REVE".equals(t) || "OINC".equals(t)) {
-			return Integer.valueOf(2);
+			return ais.database.model.akunting.Akun.CREDIT;
 		}
 		return null;
 	}

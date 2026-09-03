@@ -485,7 +485,8 @@ public class PengaduanAction extends GenericAutowireComposer
 				Collections.sort(parameterTambahans);
 
 				for (ParameterTambahan parameterTambahan : parameterTambahans) {
-					String jenis = kelompokParameterTambahanPengaduan.getId() + "->" + parameterTambahan.getId();
+					String jenis = LampiranLain.resolveJenisParameterTambahan(Pengaduan.class, pengaduan.getId(),
+							kelompokParameterTambahanPengaduan.getId() + "->" + parameterTambahan.getId());
 
 					String val = "";
 					String[] spl = pengaduan.getParameterTambahanInds().split("\n");

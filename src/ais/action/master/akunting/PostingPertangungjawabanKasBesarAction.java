@@ -313,6 +313,11 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 								pertangungjawabanKasBesar.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(pertangungjawabanKasBesar);
 								HibernateUtil.currentSession().createSQLQuery(
+										"delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where ref is null and pertangungjawaban_kas_besar="
+												+ pertangungjawabanKasBesar.getId() + " and closing is null)")
+										.executeUpdate();
+								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where ref is null and pertangungjawaban_kas_besar="
 												+ pertangungjawabanKasBesar.getId() + " and closing is null")
 										.executeUpdate();
@@ -873,6 +878,11 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 							public void onEvent(Event arg0) throws Exception {
 								pertangungjawabanKasBesar.setPostingHistory(null);
 								Common.refreshSaveOrUpdate(pertangungjawabanKasBesar);
+								HibernateUtil.currentSession().createSQLQuery(
+										"delete from akunting.transaksi where grup_transaksi in"
+												+ " (select id from akunting.grup_transaksi where ref is null and pertangungjawaban_kas_besar="
+												+ pertangungjawabanKasBesar.getId() + " and closing is null)")
+										.executeUpdate();
 								HibernateUtil.currentSession().createSQLQuery(
 										"delete from akunting.grup_transaksi where ref is null and pertangungjawaban_kas_besar="
 												+ pertangungjawabanKasBesar.getId() + " and closing is null")
