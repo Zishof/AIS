@@ -1,5 +1,55 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `koperasi` TUNTAS 100% (4 Sep 2026, akhir batch 90) — domain finansial KETIGA tuntas
+
+Diverifikasi: **60/60 file** `ais/database/model/koperasi/` kini
+punya Javadoc substansial. Dikerjakan sepanjang batch 87-90 (4 batch
+berturut). Domain ketiga yang tuntas penuh setelah `akunting` (batch
+73-80) dan `payroll` (batch 81-86).
+
+**Batch 90 (penutup)**: `ProdukKoperasi.java` (r84210) +
+`AturanHargaProduk.java` (r84212, koreksi: `getProduk()` menunjuk
+`inventory.Produk` bukan `ProdukKoperasi` meski sepaket),
+`CaraPembayaranKoperasi.java` (r84208, `getAkun()` dicocokkan via
+NAMA teks bukan FK di mesin posting-balik — aman hanya karena nama
+dipaksa unik global; `getKoperasi()` dikonfirmasi DEKORATIF, tak
+pernah difilter) + `SalesInventory.java` (r84211, dikonfirmasi HIDUP
+~40 helper dependen, bukan yatim), `PosDeviceToken.java` (r84207,
+gerbang registrasi device SUDAH benar via `SecurityFilter`
+autologin, tanpa mekanisme rotasi token 30 hari) + `LogCetak.java`
+(r84209, BEDA dari pola kebocoran `LogLogin`/`UploadLog` — sudah
+tergerbang peran Pemilik/Admin) + `DraftPembelianAnggotaKoperasi.java`
+(r84213, gerbang anti-bayar-dobel dikonfirmasi via kode nyata). 0
+task baru batch ini.
+
+**Ringkasan pencapaian domain koperasi (batch 87-90, 6 task
+keamanan/integritas baru)**: entity sentral `Koperasi` (tenant
+2-tingkat tidak langsung, tidak terdaftar Generic CRUD v2 langsung)
+dan `AnggotaKoperasi` (99 method, tenant DUA SUMBU, saldo selalu
+on-the-fly) tuntas. Rantai USPK (simpan-pinjam) LENGKAP
+(`TransaksiKoperasi`→`TransaksiKoperasiDetail`, dikonfirmasi baris
+ANGSURAN bukan rincian produk). Rantai SHU/modal/anggaran LENGKAP.
+Rantai piutang-customer/hutang-supplier LENGKAP (penjagaan
+keseimbangan di helper servlet, bukan entity). Rantai SPJ
+sales-lapangan LENGKAP (penjaga barang HARD-BLOCKING, uang
+soft-check). **Temuan keamanan**: race TOCTOU harga
+(`task_5c4bc70c`), flag aktif pengurus diabaikan (`task_2db2f4ba`),
+pencairan diskon admin tanpa validasi saldo (`task_334b71eb`), bug
+NUPTK salin-tempel (`task_eba4e4a8`), PIN member tanpa rate limit
+(`task_14f006a2`), race generateKodeMember (`task_ce22ad09`). **1
+entity dorman baru** (`CalonAnggotaKoperasi`, ke-10) + koreksi bahwa
+`StandarGaji`/`StandarGajiDetail` payroll juga dorman (total
+sekarang 10 dorman seluruh inisiatif, bukan 9 seperti sempat
+tercatat — lihat detail per-batch).
+
+**Pivot domain berikutnya (batch 91+)**: perlu scan ulang
+`wc -l`+`grep -c '/\*\*'` untuk paket besar berikutnya. Kandidat
+dari survei awal (belum digarap sama sekali): `sirs` (118 file),
+`sister` (88 file), `library` (86 file), `asset` (63 file), `employ`
+(56 file), `file` (52 file), `rab` (46 file), `inventory` (40 file,
+SEBAGIAN sudah tersentuh via referensi koperasi — cek dulu berapa
+yang benar-benar sudah ada Javadoc), `surat` (28 file).
+
 ## Batch 89 — SELESAI 100% (4 Sep 2026) — 3 task baru (`task_eba4e4a8`, `task_14f006a2`, `task_ce22ad09`); entity dorman KESEPULUH (`CalonAnggotaKoperasi`); entity SENTRAL `AnggotaKoperasi` tuntas
 
 12 file selesai (batch ketiga domain `koperasi`), semua dikompilasi
