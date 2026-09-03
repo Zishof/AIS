@@ -292,7 +292,7 @@ public class JenisFormatGajiAction extends GenericAutowireComposer
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					jenisFormatGaji.setPerSatkerSekolah(queryManual.isChecked());
+					jenisFormatGaji.setQueryManual(queryManual.isChecked());
 					Common.refreshSaveOrUpdate(jenisFormatGaji);
 				}
 			});

@@ -564,14 +564,18 @@ public class ItemGajiPegawaiTreeModel extends AbstractTreeModel {
 			List<JenisTransaksiPegawai> jenisTransaksiPegawais = ConstantValues.simpleList(
 					sessionA.createCriteria(TransaksiPegawai.class).add(Restrictions.eq("pegawai", pegawai))
 							.setProjection(Projections.groupProperty("jenisTransaksiPegawai.id"))
-							.add(Restrictions.eq("bln", bulan)).add(Restrictions.eq("thn", tahun)),
+							.add(Restrictions.isNull("pembayaranGajiPunyaPegawai"))
+							.add(Restrictions.or(Restrictions.lt("thn", tahun), Restrictions.and(
+									Restrictions.eq("thn", tahun), Restrictions.le("bln", bulan)))),
 					JenisTransaksiPegawai.class, false);
 
 			for (JenisTransaksiPegawai jenisTransaksiPegawai : jenisTransaksiPegawais) {
 				Number nilai = ((Number) sessionA.createCriteria(TransaksiPegawai.class)
 						.add(Restrictions.eq("jenisTransaksiPegawai", jenisTransaksiPegawai))
 						.setProjection(Projections.sum("nilai")).add(Restrictions.eq("pegawai", pegawai))
-						.add(Restrictions.le("bln", bulan)).add(Restrictions.le("thn", tahun)).uniqueResult());
+						.add(Restrictions.isNull("pembayaranGajiPunyaPegawai"))
+						.add(Restrictions.or(Restrictions.lt("thn", tahun), Restrictions.and(
+								Restrictions.eq("thn", tahun), Restrictions.le("bln", bulan)))).uniqueResult());
 
 				nilai = nilai == null ? 0.0 : nilai.doubleValue();
 				hashMapTransaksi.put(jenisTransaksiPegawai.getKode(), nilai.doubleValue());
