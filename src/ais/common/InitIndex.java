@@ -2858,11 +2858,29 @@ public class InitIndex {
 		}
 	}
 
+	/**
+	 * Menyamakan skema instalasi lama dengan mapping CutiDanIzin. Catatan pengajuan
+	 * memang berupa uraian bebas dan tidak boleh terpotong pada batas varchar(255).
+	 */
+	private static void initKeteranganCutiDanIzinText() {
+		String[] sqls = new String[] {
+				"ALTER TABLE IF EXISTS payroll.cuti_dan_izin ALTER COLUMN keterangan TYPE text",
+				"DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='payroll' AND table_name='cuti_dan_izin_aud') THEN ALTER TABLE payroll.cuti_dan_izin_aud ALTER COLUMN keterangan TYPE text; END IF; END $$" };
+		for (String sql : sqls) {
+			try {
+				eksekusiSqlAmanDdl(sql);
+			} catch (Exception e) {
+				ErrorAuditUtil.record(e, "auto-audit InitIndex.initKeteranganCutiDanIzinText");
+			}
+		}
+	}
+
 	public static void initEksekusiQueryIndex() {
 		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
 		// pekerjaan index paralel diaktifkan.
 		bersihkanAccessedUsersSaatStartup();
 		initPrioritasSettingBiaya();
+		initKeteranganCutiDanIzinText();
 		initAturanDiskonProdukNullable();
 		initCaraPembayaranMasukSebagaiHutang();
 		initKebijakanReturProduk();

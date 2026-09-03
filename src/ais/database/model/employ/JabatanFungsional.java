@@ -256,6 +256,7 @@ public class JabatanFungsional extends GeneralValueObject {
 			throws Exception {
 		String s = Common.dateFormat1.get().format(sekarang);
 		Double totalHasil = 0.0;
+		StringBuilder formulaHasil = new StringBuilder();
 		for (JabatanFungsional jabatanFungsional : jabatanFungsionals) {
 			try {
 				JSONArray jsonArray = new JSONArray(jabatanFungsional.getTunjangans());
@@ -288,12 +289,22 @@ public class JabatanFungsional extends GeneralValueObject {
 				formulas = null;
 				jsonArray = null;
 
-				totalHasil += Double.parseDouble(hasil.trim());
+				String nilai = hasil == null ? "" : hasil.trim();
+				if (!nilai.isEmpty()) {
+					try {
+						totalHasil += Double.parseDouble(nilai);
+					} catch (NumberFormatException e) {
+						// Nilai tunjangan boleh berupa rumus payroll (mis. "0.07 * GP").
+						// Pertahankan rumus agar dievaluasi bersama formula item gaji, bukan
+						// memaksanya menjadi Double pada tahap agregasi jabatan.
+						formulaHasil.append("+(").append(nilai).append(")");
+					}
+				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/employ/JabatanFungsional.java:293");
 			}
 		}
-		return totalHasil.toString();
+		return totalHasil.toString() + formulaHasil.toString();
 	}
 
 	public Boolean getAktif() {

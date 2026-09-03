@@ -761,9 +761,11 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 													try {
 														s2 = HibernateUtil.currentSession();
 														tx2 = s2.beginTransaction();
-														String sql2 = "delete from disposisi_sop where id="
-																+ attachedSopForListener.getId();
-														s2.createSQLQuery(sql2).executeUpdate();
+												DisposisiSop disposisiHapus = (DisposisiSop) s2.get(
+														DisposisiSop.class, attachedSopForListener.getId());
+												if (disposisiHapus != null && !SopUtil.hapusDisposisi(s2, disposisiHapus)) {
+													throw new IllegalStateException("Relasi disposisi masih digunakan oleh data lain");
+												}
 														tx2.commit();
 													} catch (Exception ex) {
 														if (tx2 != null)
@@ -1991,9 +1993,11 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 																try {
 																	s2 = HibernateUtil.currentSession();
 																	tx2 = s2.beginTransaction();
-																	String sql2 = "delete from disposisi_sop where id="
-																			+ attachedSopForListener.getId();
-																	s2.createSQLQuery(sql2).executeUpdate();
+																	DisposisiSop disposisiHapus = (DisposisiSop) s2.get(
+																			DisposisiSop.class, attachedSopForListener.getId());
+																	if (disposisiHapus != null && !SopUtil.hapusDisposisi(s2, disposisiHapus)) {
+																		throw new IllegalStateException("Relasi disposisi masih digunakan oleh data lain");
+																	}
 																	tx2.commit();
 																} catch (Exception ex) {
 																	if (tx2 != null)

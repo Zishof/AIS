@@ -941,7 +941,14 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 //			}
 
 			if (grupTransaksi.getId() == null) {
-				onSaveTransaksiUtama(event);
+				// Detail tidak boleh diteruskan bila validasi/simpan jurnal utama gagal.
+				// Sebelumnya nilai false diabaikan, sehingga object GrupTransaksi yang masih
+				// transient (kode null) ikut di-save oleh sesi detail dan melanggar NOT NULL.
+				if (!onSaveTransaksiUtama(event) || grupTransaksi == null
+						|| grupTransaksi.getId() == null || grupTransaksi.getKode() == null
+						|| grupTransaksi.getKode().trim().length() == 0) {
+					return false;
+				}
 			}
 
 			transaksi.setJumlahTransaksi(transaksi.getKredit() < 1.0 ? transaksi.getKredit() : transaksi.getDebet());
@@ -967,8 +974,9 @@ public class TransaksiJurnalUmumHelper extends MyWindow {
 				}
 				tx = session.beginTransaction();
 				if (grupTransaksi != null) {
-					if (grupTransaksi.getId() == null) {
-						session.saveOrUpdate(grupTransaksi);
+					if (grupTransaksi.getId() == null || grupTransaksi.getKode() == null
+							|| grupTransaksi.getKode().trim().length() == 0) {
+						throw new IllegalStateException("Jurnal utama belum tersimpan atau nomor jurnal kosong");
 					} else {
 						/*
 						 * Jurnal utama sudah disimpan oleh onSaveTransaksiUtama() pada sesi

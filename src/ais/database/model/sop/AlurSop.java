@@ -330,11 +330,19 @@ public class AlurSop extends GeneralValueObject {
 		Session session = null;
 		try {
 			session = HibernateUtil.openSession();
-			AlurSop attached = (AlurSop) session.get(AlurSop.class, alurSopId);
-			if (attached != null && attached.dokumenAlurSops != null) {
-				Hibernate.initialize(attached.dokumenAlurSops);
-				return filterDokumenAlurSop(attached.dokumenAlurSops, sopId);
-			}
+			// Jangan membaca kembali PersistentSet dari entity AlurSop. Identity-map/cache
+			// lama dapat mengembalikan instance kanonik yang koleksinya masih terikat ke
+			// session yang sudah ditutup, sehingga Hibernate.initialize() tetap berakhir
+			// LazyInitializationException. Query tabel relasi secara langsung dan bentuk
+			// Set biasa yang aman dipakai setelah session lokal ditutup.
+			@SuppressWarnings("unchecked")
+			java.util.List<DokumenAlurSop> rows = session.createSQLQuery(
+					"select d.* from public.dokumen_alur_sop d "
+							+ "inner join public.alur_sop_has_dokumen r on r.dokumen=d.id "
+							+ "where r.alur_sop=:alurSopId")
+					.addEntity(DokumenAlurSop.class).setLong("alurSopId", alurSopId.longValue()).list();
+			return filterDokumenAlurSop(
+					new java.util.LinkedHashSet<DokumenAlurSop>(rows), sopId);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/sop/AlurSop.java:334");
 		} finally {
 			closeOpenSessionSafely(session);
@@ -346,11 +354,15 @@ public class AlurSop extends GeneralValueObject {
 		Session session = null;
 		try {
 			session = HibernateUtil.openSession();
-			AlurSop attached = (AlurSop) session.get(AlurSop.class, alurSopId);
-			if (attached != null && attached.kelompokParameterTambahanAlurSops != null) {
-				Hibernate.initialize(attached.kelompokParameterTambahanAlurSops);
-				return filterKelompokParameter(attached.kelompokParameterTambahanAlurSops);
-			}
+			@SuppressWarnings("unchecked")
+			java.util.List<KelompokParameterTambahanAlurSop> rows = session.createSQLQuery(
+					"select p.* from public.kelompok_parameter_tambahan_alur_sop p "
+							+ "inner join public.alur_sop_has_parameter r on r.parameter=p.id "
+							+ "where r.alur_sop=:alurSopId")
+					.addEntity(KelompokParameterTambahanAlurSop.class)
+					.setLong("alurSopId", alurSopId.longValue()).list();
+			return filterKelompokParameter(
+					new java.util.LinkedHashSet<KelompokParameterTambahanAlurSop>(rows));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/sop/AlurSop.java:350");
 		} finally {
 			closeOpenSessionSafely(session);

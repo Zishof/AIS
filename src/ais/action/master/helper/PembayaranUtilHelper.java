@@ -891,7 +891,11 @@ public class PembayaranUtilHelper {
 								.add(Restrictions.isNotNull("pengaturanPembayaranBulanan")).list();
 
 				StringBuilder sqlQueryBuilder = new StringBuilder();
-				sqlQueryBuilder.append("(realbulan,item_biaya) not in (");
+				// Kedua tabel yang ikut dalam Criteria mempunyai kolom item_biaya. Gunakan
+				// token alias Hibernate untuk menunjuk tabel PengaturanPembayaranBulanan
+				// secara eksplisit; tanpa kualifikasi PostgreSQL menolak query sebagai
+				// "column reference item_biaya is ambiguous".
+				sqlQueryBuilder.append("({alias}.realbulan,{alias}.item_biaya) not in (");
 				
 				StringBuilder sqlBuilder = new StringBuilder();
 				if (yangSudahDibayarBulanans != null) {

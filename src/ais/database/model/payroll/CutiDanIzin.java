@@ -187,7 +187,7 @@ public class CutiDanIzin extends DataSop {
         this.tanggal_dirubah = tanggal_dirubah;
     }
 
-    @Column(name = "keterangan", nullable = true)
+	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
     public String getKeterangan() {
         return this.keterangan;
     }

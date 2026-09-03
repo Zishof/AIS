@@ -879,11 +879,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:353");
+			} finally {
+				Common.closeNativeSessionQuietly(session);
 			}
-
-			// session.disconnect();
-			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
 		}
 	}
 
@@ -1424,11 +1422,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:802");
+			} finally {
+				Common.closeNativeSessionQuietly(session);
 			}
-
-			// session.disconnect();
-			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
 		}
 	}
 
@@ -1510,9 +1506,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			}
 			return true;
 		} finally {
-			if (session != null && session.isOpen()) {
-				session.close();
-			}
+			Common.closeNativeSessionQuietly(session);
 		}
 	}
 
@@ -2232,12 +2226,11 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 								KegiatanHelper.checkKegiatanMahasiswa(j, mahasiswa, smt,
 										tahunAkademik.getSelectedItem().getValue().toString(), ulang, rst, item,
 										session);
-								// session.disconnect();
-								if (session.isOpen()) {session.disconnect();session.close();}
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:1438");
+							} finally {
+								Common.closeNativeSessionQuietly(session);
 							}
-							HibernateUtil.closeSession();
 						}
 
 					} else {
@@ -2259,13 +2252,11 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 								KegiatanHelper.checkKegiatanCalonMahasiswa(jenisKegiatan, biodataCalonMahasiswa, smt,
 										tahunAkademik.getSelectedItem().getValue().toString(), ulang, rst, item,
 										session);
-								// session.disconnect();
-								if (session.isOpen()) {session.disconnect();session.close();}
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:1465");
+							} finally {
+								Common.closeNativeSessionQuietly(session);
 							}
-
-							HibernateUtil.closeSession();
 						}
 
 					}
@@ -2310,12 +2301,11 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 													KegiatanHelper.checkKegiatanMahasiswa(j, mahasiswa, smt,
 															tahunAkademik.getSelectedItem().getValue().toString(),
 															ulang, rst, item, session);
-													// session.disconnect();
-													if (session.isOpen()) {session.disconnect();session.close();}
 												} catch (Exception e) {
 													e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:1516");
+												} finally {
+													Common.closeNativeSessionQuietly(session);
 												}
-												HibernateUtil.closeSession();
 											}
 
 										} else {
@@ -2338,13 +2328,11 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 															biodataCalonMahasiswa, smt,
 															tahunAkademik.getSelectedItem().getValue().toString(),
 															ulang, rst, item, session);
-													// session.disconnect();
-													if (session.isOpen()) {session.disconnect();session.close();}
 												} catch (Exception e) {
 													e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/DetailSettingBiayaAction.java:1544");
+												} finally {
+													Common.closeNativeSessionQuietly(session);
 												}
-
-												HibernateUtil.closeSession();
 											}
 
 										}

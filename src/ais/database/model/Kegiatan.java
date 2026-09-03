@@ -438,8 +438,19 @@ public class Kegiatan extends GeneralValueObject {
 
 	@Column(name = "kodeunik", unique = true, nullable = false)
 	public String getKodeunik() {
+		// kodeunik adalah natural key yang sudah dipakai oleh banyak relasi. Entity lama
+		// dapat masih menyimpan mahasiswa DAN calonMahasiswa sekaligus; menghitung ulang
+		// getter pada setiap flush dapat mengubah MHS_* menjadi CAL_MHS_* dan menabrak
+		// baris kegiatan calon yang memang sudah ada. Bekukan nilai yang sudah tersimpan.
+		// Entity baru (id null) tetap memakai generator lama, dan setKodeunik eksplisit
+		// pada entity existing tetap dihormati karena nilainya langsung dikembalikan.
+		if (id != null && kodeunik != null && kodeunik.trim().length() > 0) {
+			return kodeunik;
+		}
 		if (getKodeUnikLain() || !getAktif()) {
-			kodeunik = Common.getGeneratedBarCode();
+			if (kodeunik == null || kodeunik.trim().length() == 0) {
+				kodeunik = Common.getGeneratedBarCode();
+			}
 		} else {
 			kodeunik = Kegiatan.generateKodeUnik(mahasiswa, calonMahasiswa, jenisKegiatan, semster, tambahanKodeUnik,
 					bulan);

@@ -189,6 +189,7 @@ public class JabatanStruktural extends GeneralValueObject {
 			throws Exception {
 		String s = Common.dateFormat1.get().format(sekarang);
 		Double totalHasil = 0.0;
+		StringBuilder formulaHasil = new StringBuilder();
 		for (JabatanStruktural jabatanStruktural : labatanStrukturals) {
 			try {
 				JSONArray jsonArray = new JSONArray(jabatanStruktural.getTunjangans());
@@ -220,12 +221,19 @@ public class JabatanStruktural extends GeneralValueObject {
 				formulas = null;
 				jsonArray = null;
 
-				totalHasil += Double.parseDouble(hasil);
+				String nilai = hasil == null ? "" : hasil.trim();
+				if (!nilai.isEmpty()) {
+					try {
+						totalHasil += Double.parseDouble(nilai);
+					} catch (NumberFormatException e) {
+						formulaHasil.append("+(").append(nilai).append(")");
+					}
+				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/employ/JabatanStruktural.java:225");
 			}
 		}
-		return totalHasil.toString();
+		return totalHasil.toString() + formulaHasil.toString();
 	}
 
 	public Boolean getAktif() {

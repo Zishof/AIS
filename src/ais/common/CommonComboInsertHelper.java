@@ -1025,8 +1025,11 @@ public class CommonComboInsertHelper {
 
 	@SuppressWarnings("deprecation")
 		public static void insertComboItems(Combobox combo, String property, List<?> items) {
+			if (combo == null) {
+				return;
+			}
 			Common.clear(combo);
-			if (items.size() == 0)
+			if (items == null || items.size() == 0)
 				return;
 			if (items.get(0) == null) {
 				Comboitem comboitem = new Comboitem();
@@ -1034,7 +1037,7 @@ public class CommonComboInsertHelper {
 				comboitem.setValue(null);
 				combo.appendChild(comboitem);
 			} else {
-				Class<? extends Object> clazz = items.get(0).getClass();
+				Class<? extends Object> clazz = Hibernate.getClass(items.get(0));
 				ClassMetadata metadata = null;
 				if (!clazz.equals(CommonVO.class)) {
 					metadata = HibernateUtil.getClassMetadata(clazz);
@@ -1199,7 +1202,7 @@ public class CommonComboInsertHelper {
 				return;
 			}
 			Common.clear(combo);
-			if (items.size() == 0)
+			if (items == null || items.size() == 0)
 				return;
 			if (items.get(0) == null) {
 				Comboitem comboitem = new Comboitem();
@@ -1207,7 +1210,7 @@ public class CommonComboInsertHelper {
 				comboitem.setValue(null);
 				combo.appendChild(comboitem);
 			} else {
-				Class<? extends Object> clazz = items.get(0).getClass();
+				Class<? extends Object> clazz = Hibernate.getClass(items.get(0));
 				ClassMetadata metadata = null;
 				if (!clazz.equals(CommonVO.class)) {
 					metadata = HibernateUtil.getClassMetadata(clazz);
@@ -1225,6 +1228,13 @@ public class CommonComboInsertHelper {
 					} else {
 
 						try {
+							if (metadata == null) {
+								comboitem.setLabel(property.equals("") ? nilaiAmanUntukCombo(o) : "");
+								comboitem.setDescription("");
+								comboitem.setValue(o);
+								combo.appendChild(comboitem);
+								continue;
+							}
 							Object myproperty = metadata.getPropertyValue(o, property, EntityMode.POJO);
 							Object mydeskripsi = null;
 							if (!deskripsi.equals("") && adaProperti(metadata.getPropertyNames(), deskripsi)) {

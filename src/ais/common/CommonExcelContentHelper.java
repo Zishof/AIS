@@ -421,6 +421,13 @@ public class CommonExcelContentHelper extends Common {
 
 				// Hapus karakter non-numerik selain separator (titik, koma, minus)
 				content = content.replaceAll("[^0-9.,\\-]", "");
+				// Isi sel seperti spasi, simbol mata uang, atau teks tanpa angka akan menjadi
+				// string kosong setelah normalisasi. Perlakukan sama seperti sel kosong agar
+				// import tidak melempar NumberFormatException.
+				if (content.length() == 0 || "-".equals(content) || ".".equals(content)
+						|| ",".equals(content)) {
+					return null;
+				}
 
 				// Jika koma lebih dari satu → pemisah ribuan gaya US (1,000,000)
 				if (StringUtils.countMatches(content, ",") > 1) {

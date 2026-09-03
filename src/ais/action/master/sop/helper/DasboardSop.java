@@ -4161,9 +4161,18 @@ public class DasboardSop extends MyPortallayout {
 	// =========================================================================================
 
 	private Criterion getDateRestriction(MyDatebox datebox, String operator) {
-		if (datebox == null || datebox.getValue() == null)
+		if (datebox == null)
 			return Restrictions.sqlRestriction("true");
-		return getDateRestriction(datebox.getValue(), operator);
+		try {
+			Date value = datebox.getValue();
+			return value == null ? Restrictions.sqlRestriction("true")
+					: getDateRestriction(value, operator);
+		} catch (org.zkoss.zk.ui.WrongValueException e) {
+			// Saat pengguna masih mengetik tanggal, paging/onSearch dapat berjalan sebelum
+			// input lengkap. Biarkan komponen menampilkan validasi tanggalnya dan abaikan
+			// filter yang belum valid, bukan menggagalkan seluruh dashboard.
+			return Restrictions.sqlRestriction("true");
+		}
 	}
 
 	private Criterion getDateRestriction(Date date, String operator) {

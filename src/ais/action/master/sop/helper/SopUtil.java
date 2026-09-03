@@ -51,25 +51,35 @@ public class SopUtil {
 		}
 
 		try {
-			String sql = "delete from akunting.daftar_pengajuan_transfer where disposisi_sop=" + disposisiSop.getId();
-			session.createSQLQuery(sql).executeUpdate();
+			String sql = "delete from akunting.daftar_pengajuan_transfer where disposisi_sop=:disposisiId";
+			session.createSQLQuery(sql).setLong("disposisiId", disposisiSop.getId().longValue()).executeUpdate();
 
-			sql = "delete from disposisi_alur_sop where disposisi_sop=" + disposisiSop.getId();
-			session.createSQLQuery(sql).executeUpdate();
+			sql = "delete from disposisi_alur_sop where disposisi_sop=:disposisiId";
+			session.createSQLQuery(sql).setLong("disposisiId", disposisiSop.getId().longValue()).executeUpdate();
+
+			// PengajuanMahasiswaAction memanggil helper ini sebelum menghapus record
+			// pengajuannya. Lepaskan FK pemilik lebih dulu; urutan lama mencoba menghapus
+			// disposisi yang masih direferensikan dan membuat transaksi PostgreSQL abort.
+			sql = "update public.pengajuan_mahasiswa set disposisi_sop=null where disposisi_sop=:disposisiId";
+			session.createSQLQuery(sql).setLong("disposisiId", disposisiSop.getId().longValue()).executeUpdate();
 
 			// penggunaan_anggaran masih mereferensi disposisi_sop (FK fkef7f694ebc255eb8).
 			// Kolomnya nullable, jadi LEPASKAN tautan (set null) — bukan dihapus — agar
 			// data realisasi/penggunaan anggaran TETAP ada, namun penghapusan disposisi
 			// tidak melanggar foreign key.
-			sql = "update rab.penggunaan_anggaran set disposisi_sop=null where disposisi_sop=" + disposisiSop.getId();
-			session.createSQLQuery(sql).executeUpdate();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/SopUtil.java:46");
+			sql = "update rab.penggunaan_anggaran set disposisi_sop=null where disposisi_sop=:disposisiId";
+			session.createSQLQuery(sql).setLong("disposisiId", disposisiSop.getId().longValue()).executeUpdate();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "SopUtil.hapusDisposisi: gagal melepas relasi disposisi");
+			return false;
 		}
 
 		try {
 			session.delete(disposisiSop);
 			session.flush();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/SopUtil.java:52");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "SopUtil.hapusDisposisi: gagal menghapus disposisi");
+			return false;
 		}
 
 		return true;
