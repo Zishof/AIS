@@ -480,8 +480,8 @@ yang menaruh seluruh barisnya pada satu schema yang ditetapkan **statis per Sess
 (`default_schema=new_audit`). Membiarkannya berjalan berarti menyajikan riwayat perubahan
 **seluruh instalasi** kepada satu tenant — kebocoran, bukan sekadar hasil yang salah. Sejak §20
 jalur tenant membaca jejaknya sendiri, yang ditulis `TenantAuditWriter` ke schema audit tenant;
-`supplier`, `customer`, dan `sales` sudah punya penulisnya, dan empat entitas transaksional
-lainnya ditolak dengan menyebut namanya.
+`supplier`, `customer`, dan `sales` sejak §20; empat entitas transaksional lainnya menyusul
+pada §22, sehingga cakupannya kini tujuh dari tujuh.
 
 **Pembuatan akun baru — DIBUKA pada §17.** `akun` model tenant mewajibkan kolom `tipe` yang
 tidak pernah dibawa permintaan legacy, dan mengarangnya berarti menebak klasifikasi akun. Yang
@@ -2515,6 +2515,63 @@ entitas Hibernate (yang mematok `@Table(schema = …)`, sehingga menulis lewatny
 schema bersama) sama-sama dilarang, tanpa perkecualian.
 
 `uji-kesetaraan-saldo-awal-kartu.sql` — empat blok, **lima LULUS, nol GAGAL**, satu penjaga.
+
+## §22 — empat entitas transaksional, dan aturan muatan yang akhirnya punya satu rumusan
+
+§20 memasang penulis audit untuk tiga entitas master dan **menolak empat sisanya dengan
+menyebut namanya**. Batch ini memasang keempatnya: `order`, `piutang`, `penerimaan`, `spj`.
+Cakupan `auditHistory` kini **tujuh dari tujuh** — tidak ada lagi entitas yang ditolak.
+
+### Lima corong, bukan lima belas situs
+
+| corong | entitas | peristiwa |
+|---|---|---|
+| `salesOrderSimpanTenant` | `sales_order` | ADD |
+| `salesOrderInvoiceTenant` | `piutang_customer` + `sales_order` + `penerimaan_piutang` | ADD + MOD + ADD |
+| `collectionCreateTenant` | `penerimaan_piutang` | ADD |
+| `collectionReverseTenant` | `penerimaan_piutang` ×2 | ADD + DEL |
+| `simpanSpjTenant` | `surat_perintah_sales` | ADD/MOD |
+
+### Satu peristiwa boleh menyentuh dua dokumen — dan keduanya dicatat
+
+Pemfakturan menerbitkan piutang **dan** memindahkan status ordernya. Pembalikan penagihan
+menerbitkan dokumen pembalik **dan** menutup yang dibalik. Pada keduanya saya menulis **dua**
+baris audit, bukan satu: riwayat ditelusuri **per dokumen**, dan mencatat hanya salah satunya
+membuat riwayat dokumen yang lain bungkam justru tentang peristiwa terpenting baginya.
+
+Dokumen yang dibalik dicatat `DEL`, sejalan dengan keputusan §20 untuk penonaktifan: barisnya
+tetap ada, tetapi bagi pemakai data itulah pembatalannya.
+
+### Aturan muatan dipusatkan — `SalesInventoryAudit`
+
+§20 menaruh aturannya di `SalesInventoryMasterTenant` + metode privat di helpernya. Dengan tujuh
+entitas dicatat dari **lima berkas helper**, itu akan menjadi tujuh daftar kolom yang boleh
+berselisih diam-diam — dan riwayat yang bentuknya berbeda antar-entitas tidak lagi dapat
+dibandingkan dengan satu pembaca. Aturannya kini satu kelas, sejajar dengan
+`SalesInventoryTenantSchema`; rumusan gandanya di `MasterTenant` dibuang, bukan dibiarkan
+menganggur.
+
+Entitas di luar daftar **melempar** alih-alih menghasilkan SQL: nama tabel yang tidak dikenal
+berhenti di situ, tidak menjadi bagian kueri.
+
+### Kolom ringkasan sengaja TIDAK ikut muatan
+
+`piutang_customer` punya `terbayar` dan `sisa`. Keduanya **tidak** masuk cuplikan, karena model
+tenant menghitung sisa dari alokasinya — kolom itu bukan sumber kebenaran. Memasukkannya berarti
+riwayat menunjukkan "perubahan" pada tiap alokasi yang menyentuh dokumen, padahal barisnya tidak
+disunting sama sekali.
+
+Blok 3 uji kesetaraan penjaganya, dan ia membuktikan kolom itu memang bisa basi: sesudah satu
+alokasi 300.000, `sisa` **tersimpan** masih 1.000.000 sedangkan `sisa` **turunan** sudah 700.000.
+
+### Verifikasi
+
+Ketujuh kueri cuplikan yang dikeluarkan Java dijalankan apa adanya atas schema tenant v1–v19 —
+seluruhnya berjalan dan mengembalikan kolom yang dimaksud; entitas tak dikenal ditolak.
+
+`uji-kesetaraan-audit-transaksional.sql` — empat blok, **delapan LULUS, nol GAGAL**, satu penjaga.
+
+Tanpa bundel migrasi baru.
 
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
