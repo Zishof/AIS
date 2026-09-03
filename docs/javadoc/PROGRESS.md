@@ -1,5 +1,68 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 65 — SELESAI 100% (3 Sep 2026) — TAGIHAN.JAVA (file terbesar sesi ini) langsung terjangkau endpoint bank anonim, endpoint finansial anonim ke-5 (`/Struk`), 2 task baru dibuat
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/Tagihan.java`** (r83760) — 2495→4791
+  baris (FILE TERBESAR sesi ini), 100% (~200 anggota, 193 blok
+  Javadoc). Entity paling sentral rantai billing. **Tabel `tagihan`
+  SENDIRI (bukan cuma tetangganya) terkonfirmasi dibaca+ditulis
+  langsung oleh `/MncBank` dan `/Va` tanpa autentikasi.** Bug
+  `setNominal()` (komentar produksi lama tentang tagihan membesar
+  tiap klik "Cari") TERKONFIRMASI masih bisa dilacak mekanismenya di
+  kode saat ini; bug kedua sejenis ditemukan di `setBukanTagihan()`.
+  4 getter destruktif menyentuh rupiah/status lunas langsung
+  (`getPembayaranSiswaDetail()` bisa membalik status LUNAS→TUNGGAKAN).
+  **Bug baru signifikan**: `genCode()` bisa kehilangan prefiks
+  identitas siswa pada kombinasi tertentu → tabrakan kunci finansial
+  lintas siswa, diperparah cache global `MemoryDbUtil.getAllTagihan()`
+  yang di-key tanpa pemisahan tenant. **Task baru `task_7510ad23`**
+  dibuat untuk bug ini + 2 bug PembayaranSiswa terkait (beda kategori
+  dari broken-access-control, murni integritas data finansial).
+- **`ais/database/model/sekolah/PembayaranSiswa.java`** (r83758) —
+  785→1973 baris, 100% (72 method). **Akar konfigurasi seluruh
+  endpoint bank anonim dikonfirmasi**: `applicationContext-security.xml`
+  baris 62, `intercept-url pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY"`
+  sebagai aturan tangkap-semua. **Endpoint finansial anonim ke-5**:
+  `/Struk?id=N` — nol cek login/kepemilikan, id sekuensial, membocorkan
+  struk pembayaran lengkap PII+finansial. `getBankHost()` bukan
+  gerbang melainkan pendaftaran-diri IP (default AKTIF pada instalasi
+  baru). 2 bug finansial baru dieskalasi via `task_7510ad23`
+  (setoran deposit hantu, erosi saldo dompet retroaktif). Pewarisan
+  hak menu varian TERLUAS: `PembayaranOnline` (nol gerbang, 4366
+  baris) menyisipkan 10 layar bergerbang sekaligus sebagai tab.
+- **`ais/database/model/sekolah/CatatanSiswa.java`** (r83756) —
+  389→1083 baris, 100% (67 anggota). Catatan perilaku/pembinaan siswa
+  (data sensitif anak). **Temuan paling severe kategori barunya
+  sendiri**: role SISWA diberi hak CRUD PENUH oleh SEEDER BAWAAN
+  (`MenuInitializer.ensureSiswaRoleAndPrivileges`) atas menu Catatan
+  Siswa — bukan kelalaian gerbang, tapi hak destruktif yang memang
+  diberikan sengaja lewat kode inisialisasi. IDOR berlapis di
+  `CatatanApi`.
+- **`ais/database/model/sekolah/PenghargaanSiswa.java`** (r83757) —
+  317→1045 baris, 100% (78 anggota). Entity BERBEDA total dari
+  `Penghargaan.java` (nol relasi, katalog sendiri — asal-usul modul
+  HKI/paten PDDIKTI). Action nol `checkPrevilages` pada 987 baris.
+  IDOR ganda `?siswa=`/`?penghargaan=` (pola sama `PrestasiSiswa` b64).
+  Endpoint `/Data` + dashboard SQL sisi-klien sebagai amplifier.
+- **`ais/database/model/sekolah/ApresiasiSiswa.java`** (r83755) —
+  230→874 baris, 100% (33 anggota). Entity BERBEDA dari `Apresiasi`/
+  `ApresiasiDanPenghargaan` — baris transaksi lapis 3 (padanan
+  `PelanggaranSiswa`). Konfirmasi ulang fail-open `ambilAnakSiswa()` +
+  amplifier cache L3 di dashboard yang belum pernah diaudit sebelumnya.
+
+**2 task baru dibuat batch ini**: `task_7510ad23` (bug integritas
+data finansial lintas-siswa — kategori BARU, beda dari broken access
+control). Sisanya memperkuat `task_493423ef` (severity terus naik,
+kini 5 endpoint finansial anonim + akar konfigurasinya diketahui) dan
+`task_5e93a600`/`task_9b7ff647`.
+
+Kumulatif sesi ini: **502+ file** (155 batch 34-65) + 343 (sesi
+sebelumnya) dari 7.401 total (~12,8%).
+
 ## Batch 64 — SELESAI 100% (3 Sep 2026) — RANTAI PENILAIAN SISWA LENGKAP 8/8, IDOR ganda `PrestasiSiswa`, keluarga PSB kini 4 verifikasi negatif berturut, wawancara PSB terkonfirmasi + eskalasi penyusupan video conference
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
