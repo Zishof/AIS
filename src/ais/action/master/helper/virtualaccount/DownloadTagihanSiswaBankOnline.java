@@ -398,7 +398,7 @@ public class DownloadTagihanSiswaBankOnline {
 				// ------------------------------------------------------------
 
 				if (onlineBmt) {
-					if (!OnlineBmtUtil.isSekolahEnabled(sekolah, kanalPembayaran)) {
+					if (!OnlineBmtUtil.isSekolahReady(sekolah, kanalPembayaran)) {
 						tampilkanPeringatan("Kanal Online BMT belum diaktifkan untuk sekolah/kanal pembayaran ini.", warnings);
 						return null;
 					}

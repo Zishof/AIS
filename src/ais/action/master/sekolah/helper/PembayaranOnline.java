@@ -2736,7 +2736,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 		createDirectBankButton(spaceBayar, 4, "BAYAR VIA BTN", "bank_btn");
 
 		if (sekolah_lokal != null) {
-			if (OnlineBmtUtil.isSekolahEnabled(sekolah_lokal, sekolah_lokal.getKanalPembayaran())) {
+			if (OnlineBmtUtil.isSekolahReady(sekolah_lokal, sekolah_lokal.getKanalPembayaran())) {
 				Map<String, Object> paramOnlineBmt = new HashMap<String, Object>();
 				paramOnlineBmt.put(OnlineBmtUtil.PARAM_KEY, true);
 				paramOnlineBmt.put("onlineBmtAdministrationFee", OnlineBmtUtil

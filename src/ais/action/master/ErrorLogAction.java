@@ -42,6 +42,7 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.ErrorLog;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.DataSearchDefault;
+import ais.ui.util.DashboardUiKit;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyHtml;
@@ -1420,6 +1421,8 @@ public class ErrorLogAction extends GenericAutowireComposer implements DataCrite
         appendCard(html, "Paling Sering", escapeHtml(data.topCategory), "Jenis masalah yang paling banyak muncul pada data yang sedang ditampilkan.");
         html.append("</div>");
 
+		html.append(buildSmartErrorAnalysis(data));
+
         html.append("<div class='elog-panels'>");
         appendTrendPanel(html, data);
         appendCategoryPanel(html, data);
@@ -1440,6 +1443,52 @@ public class ErrorLogAction extends GenericAutowireComposer implements DataCrite
         html.append("</div>");
         return html.toString();
     }
+
+	private String buildSmartErrorAnalysis(DashboardData data) {
+		List<String> temuan = new ArrayList<String>();
+		List<String> penyebab = new ArrayList<String>();
+		List<String> tindakan = new ArrayList<String>();
+		long rataHarian = data.last7Days == null ? 0L : Math.round(data.last7Days.longValue() / 7.0);
+		int topCount = getValue(data.categoryCounts, data.topCategory);
+		int sampel = data.logs == null ? 0 : data.logs.size();
+		double dominasi = sampel > 0 ? topCount * 100.0 / sampel : 0.0;
+		long hariIni = data.today == null ? 0L : data.today.longValue();
+		String status;
+		String ringkasan;
+		if (data.total == null || data.total.longValue() == 0L) {
+			status = "BELUM ADA DATA";
+			ringkasan = "Belum ada kesalahan yang dapat dianalisis pada periode ini.";
+		} else if (hariIni >= 100L || (hariIni >= 20L && hariIni > Math.max(1L, rataHarian) * 3L)
+				|| getValue(data.categoryCounts, "Database") >= 50) {
+			status = "KRITIS";
+			ringkasan = "Volume atau konsentrasi kesalahan menunjukkan gangguan berulang yang perlu ditangani segera.";
+		} else if (hariIni > Math.max(3L, rataHarian * 2L) || data.last7Days.longValue() > 0L) {
+			status = "PERLU PERHATIAN";
+			ringkasan = "Masih terdapat kesalahan aktif; prioritas pemeriksaan diarahkan ke kategori dan sumber yang paling dominan.";
+		} else {
+			status = "NORMAL";
+			ringkasan = "Tidak terlihat lonjakan kesalahan baru, namun histori tetap tersedia untuk evaluasi berkala.";
+		}
+
+		temuan.add(hariIni + " error tercatat hari ini; rata-rata tujuh hari sekitar " + rataHarian + " error per hari.");
+		temuan.add("Kategori dominan adalah " + data.topCategory + " sebanyak " + topCount
+				+ " dari " + sampel + " sampel terbaru (" + new java.text.DecimalFormat("0.0").format(dominasi) + "%).");
+		temuan.add("Sumber yang paling sering muncul: " + topKey(data.sourceCounts) + ".");
+
+		String kategori = data.topCategory == null ? "" : data.topCategory.toLowerCase();
+		if (kategori.indexOf("database") >= 0) penyebab.add("Koneksi database, query lambat, constraint, transaksi gagal, atau session yang tidak selesai dengan benar.");
+		else if (kategori.indexOf("data") >= 0 || kategori.indexOf("format") >= 0) penyebab.add("Data wajib kosong, format input tidak sesuai, relasi lama terputus, atau konversi nilai gagal.");
+		else if (kategori.indexOf("file") >= 0 || kategori.indexOf("jaringan") >= 0) penyebab.add("File tidak tersedia, izin akses, timeout, host eksternal, atau koneksi jaringan tidak stabil.");
+		else if (kategori.indexOf("tampilan") >= 0 || kategori.indexOf("halaman") >= 0) penyebab.add("State komponen tidak lengkap, data null saat render, atau event halaman berjalan pada urutan yang tidak diharapkan.");
+		else penyebab.add("Akar masalah perlu ditentukan dari stack trace lengkap pada kategori dan sumber dominan.");
+		if (dominasi >= 50.0) penyebab.add("Satu akar masalah kemungkinan menghasilkan banyak catatan berulang; angka total belum tentu mewakili banyak masalah berbeda.");
+
+		tindakan.add("Aktifkan 'Hanya Tampilkan Error yang berbeda' untuk memisahkan akar masalah dari pengulangan log.");
+		tindakan.add("Buka error terbaru dari sumber " + topKey(data.sourceCounts) + " dan telusuri frame aplikasi pertama pada stack trace.");
+		if (hariIni > Math.max(3L, rataHarian * 2L)) tindakan.add("Bandingkan jam lonjakan dengan tab Performa Sistem, Pemakaian Memori, dan Catatan Upload.");
+		tindakan.add("Setelah perbaikan, muat ulang dan pastikan kategori dominan tidak bertambah pada periode pemantauan berikutnya.");
+		return DashboardUiKit.smartAnalysis(status, ringkasan, temuan, penyebab, tindakan);
+	}
 
     private void appendCard(StringBuilder html, String label, String value, String help) {
         html.append("<div class='elog-card'>");

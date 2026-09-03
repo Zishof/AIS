@@ -99,12 +99,26 @@ public final class OnlineBmtUtil {
 				Konfigurasi.TIDAK_AKTIF);
 	}
 
+	/**
+	 * Kanal PT boleh ditawarkan hanya jika sakelar aktif dan konfigurasi global yang
+	 * menjadi milik invoice mahasiswa benar-benar siap dipakai oleh callback.
+	 */
+	public static boolean isPerguruanTinggiReady(Long ptId) {
+		return isPerguruanTinggiEnabled(ptId) && globalSettings().isOperationallyReady();
+	}
+
 	public static boolean isSekolahEnabled(Sekolah sekolah, KanalPembayaran kanal) {
 		if (!isGlobalEnabled() || sekolah == null
 				|| !Boolean.TRUE.equals(sekolah.getAktfkanPembayaranViaOnlineBmt())) {
 			return false;
 		}
 		return kanal == null || Boolean.TRUE.equals(kanal.getAktfkanPembayaranViaOnlineBmt());
+	}
+
+	/** Kanal sekolah siap bila sakelar dan seluruh konfigurasi efektifnya lengkap. */
+	public static boolean isSekolahReady(Sekolah sekolah, KanalPembayaran kanal) {
+		return isSekolahEnabled(sekolah, kanal)
+				&& resolveSettings(sekolah, kanal).isOperationallyReady();
 	}
 
 	/**
@@ -164,6 +178,38 @@ public final class OnlineBmtUtil {
 		public boolean hasCompleteMerchantIdentity() {
 			return kodeMitra.length() > 0 && namaMitra.length() > 0
 					&& kodeMerchant.length() > 0 && namaMerchant.length() > 0;
+		}
+
+		/**
+		 * Memisahkan status aktif dari kesiapan operasional. Nama field dikembalikan
+		 * tanpa nilainya supaya dapat dipakai pada pesan diagnosis tanpa membocorkan
+		 * credential.
+		 */
+		public boolean isOperationallyReady() {
+			return isSecurityComplete() && hasCompleteMerchantIdentity();
+		}
+
+		public List<String> getMissingConfigurationNames() {
+			List<String> missing = new ArrayList<String>();
+			if (apiKey.length() == 0) missing.add(Konfigurasi.ONLINE_BMT_API_KEY);
+			if (encryptionKey.length() == 0) missing.add(Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY);
+			if (hmacKey.length() == 0) missing.add(Konfigurasi.ONLINE_BMT_HMAC_KEY);
+			if (!securityOverrideValid && missing.isEmpty()) missing.add("paket credential override tidak lengkap");
+			if (kodeMitra.length() == 0) missing.add(Konfigurasi.ONLINE_BMT_KODE_MITRA);
+			if (namaMitra.length() == 0) missing.add(Konfigurasi.ONLINE_BMT_NAMA_MITRA);
+			if (kodeMerchant.length() == 0) missing.add(Konfigurasi.ONLINE_BMT_KODE_MERCHANT);
+			if (namaMerchant.length() == 0) missing.add(Konfigurasi.ONLINE_BMT_NAMA_MERCHANT);
+			return missing;
+		}
+
+		public String describeMissingConfiguration() {
+			List<String> missing = getMissingConfigurationNames();
+			StringBuilder result = new StringBuilder();
+			for (int i = 0; i < missing.size(); i++) {
+				if (i > 0) result.append(", ");
+				result.append(missing.get(i));
+			}
+			return result.toString();
 		}
 
 		/** Credential harus identik setelah invoice diketahui, bukan API key saja. */
@@ -315,6 +361,11 @@ public final class OnlineBmtUtil {
 	private static void prepareInvoice(VirtualAccountBank invoice, Settings settings) {
 		if (invoice == null) {
 			throw new IllegalArgumentException("Invoice Online BMT tidak boleh null");
+		}
+		if (settings == null || !settings.isOperationallyReady()) {
+			String missing = settings == null ? "konfigurasi efektif tidak ditemukan"
+					: settings.describeMissingConfiguration();
+			throw new IllegalStateException("Konfigurasi Online BMT belum siap: " + missing);
 		}
 		String prefix = settings.getPrefixInvoice();
 		String kode = prefix + Common.getGeneratedBarCode(30 - prefix.length());

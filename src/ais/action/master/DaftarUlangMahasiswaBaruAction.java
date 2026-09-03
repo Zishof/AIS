@@ -3006,7 +3006,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				judul = "Tagihan: BULANAN / ANGSURAN";
 				keterangan = "Tagihan dibagi menjadi "
 						+ (jumlahBulan > 0 ? jumlahBulan + " bulan/angsuran" : "beberapa bulan/angsuran")
-						+ ". Bayar sesuai bulan atau angsuran yang jatuh tempo pada daftar di bawah.";
+						+ ". Nominal Setting Biaya adalah total satu periode, sedangkan nominal pada daftar di bawah adalah bagian per bulan sesuai Rencana Angsuran."
+						+ " Denda, diskon, dan penyesuaian lain dihitung terpisah dari pokok angsuran.";
 			} else {
 				warnaLatar = "#dcfce7";
 				warnaTeks = "#166534";
@@ -5305,7 +5306,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 								"prefix_kode_bank_lain_online", true, false, false, false, false, false, false));
 			}
 
-			if (OnlineBmtUtil.isPerguruanTinggiEnabled(perguruanTinggi.getId())) {
+			if (OnlineBmtUtil.isPerguruanTinggiReady(perguruanTinggi.getId())) {
 				final MyButtonConfig btnOnlineBmt = new MyButtonConfig("BAYAR VIA ONLINE BMT");
 				btnOnlineBmt.setWidth("150px");
 				btnOnlineBmt.setHeight("55px");
@@ -5587,7 +5588,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		} else if (biodataCalonMahasiswaAktif != null) {
 			save.setVisible(false);
 			if (!TampilanPaymentGateway.adaPaymentGatewayYangAktif()
-					&& !OnlineBmtUtil.isPerguruanTinggiEnabled(perguruanTinggi.getId())) {
+					&& !OnlineBmtUtil.isPerguruanTinggiReady(perguruanTinggi.getId())) {
 				spaceBayar.setVisible(false);
 				spaceBayar.setHeight("0px");
 			}

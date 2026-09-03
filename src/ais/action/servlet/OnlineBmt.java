@@ -201,7 +201,8 @@ public class OnlineBmt extends HttpServlet {
 				settings.getKodeMerchant(), settings.getNamaMerchant());
 		if (!identity.isComplete()) {
 			throw new ApiException(503, "503",
-					"Konfigurasi identitas mitra dan merchant Online BMT belum lengkap.");
+					"Konfigurasi identitas mitra dan merchant Online BMT belum lengkap: "
+							+ settings.describeMissingConfiguration() + ".");
 		}
 		return identity;
 	}

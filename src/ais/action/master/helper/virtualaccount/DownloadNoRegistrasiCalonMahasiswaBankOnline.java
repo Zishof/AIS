@@ -304,7 +304,7 @@ public class DownloadNoRegistrasiCalonMahasiswaBankOnline extends MyWindow {
 			if (onlineBmt) {
 				PerguruanTinggi perguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
 				if (perguruanTinggi == null
-						|| !OnlineBmtUtil.isPerguruanTinggiEnabled(perguruanTinggi.getId())) {
+						|| !OnlineBmtUtil.isPerguruanTinggiReady(perguruanTinggi.getId())) {
 					if (warnings != null) {
 						warnings.add("Kanal Online BMT belum diaktifkan untuk perguruan tinggi ini.");
 					}

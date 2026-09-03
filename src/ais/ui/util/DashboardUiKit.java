@@ -697,6 +697,76 @@ public final class DashboardUiKit {
 		return sb.toString();
 	}
 
+	/**
+	 * Panel analisis operasional berbasis aturan yang dapat dipakai ulang oleh seluruh dasbor
+	 * pemantauan sistem. Pemanggil wajib mengirim bukti terukur pada {@code findings}; bagian
+	 * {@code possibleCauses} sengaja diberi label "kemungkinan" agar hipotesis tidak ditampilkan
+	 * sebagai fakta. Seluruh teks di-escape sebelum dirender.
+	 */
+	public static String smartAnalysis(String status, String summary, List<String> findings,
+			List<String> possibleCauses, List<String> actions) {
+		String normalized = status == null ? "INFORMASI" : status.trim().toUpperCase();
+		String color = GOOD;
+		String background = "#f0fdf4";
+		if (normalized.indexOf("KRITIS") >= 0 || normalized.indexOf("TINGGI") >= 0) {
+			color = BAD;
+			background = "#fef2f2";
+		} else if (normalized.indexOf("WASPADA") >= 0 || normalized.indexOf("PERHATIAN") >= 0) {
+			color = WARN;
+			background = "#fff7ed";
+		} else if (normalized.indexOf("INFO") >= 0 || normalized.indexOf("BELUM") >= 0) {
+			color = PRIMARY;
+			background = "#eff6ff";
+		}
+
+		StringBuilder sb = new StringBuilder(5000);
+		sb.append("<div style='background:#fff;border:1px solid ").append(LINE)
+				.append(";border-left:5px solid ").append(color)
+				.append(";border-radius:8px;padding:14px;margin:0 0 12px 0;box-shadow:0 6px 16px rgba(15,23,42,.06);'>")
+				.append("<div style='display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;'>")
+				.append("<div><div style='font-size:15px;font-weight:900;color:").append(INK)
+				.append(";'>Analisis Pintar</div><div style='font-size:11px;color:").append(MUTED)
+				.append(";margin-top:3px;'>Kesimpulan otomatis dari data yang sedang ditampilkan.</div></div>")
+				.append("<span style='background:").append(background).append(";color:").append(color)
+				.append(";border:1px solid ").append(color)
+				.append(";border-radius:999px;padding:5px 9px;font-size:10px;font-weight:900;'>")
+				.append(esc(normalized)).append("</span></div>");
+
+		if (summary != null && summary.trim().length() > 0) {
+			sb.append("<div style='margin-top:10px;padding:9px 10px;background:").append(background)
+					.append(";border-radius:6px;color:").append(INK)
+					.append(";font-size:12px;font-weight:700;line-height:1.55;'>")
+					.append(esc(summary)).append("</div>");
+		}
+
+		sb.append("<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:10px;'>");
+		appendAnalysisList(sb, "Bukti dan Temuan", findings, "Belum ada temuan yang cukup untuk dinilai.");
+		appendAnalysisList(sb, "Kemungkinan Penyebab", possibleCauses,
+				"Tidak ada indikasi penyebab khusus dari data saat ini.");
+		appendAnalysisList(sb, "Tindakan yang Disarankan", actions,
+				"Lanjutkan pemantauan dan muat ulang data secara berkala.");
+		sb.append("</div><div style='font-size:10px;color:").append(MUTED)
+				.append(";margin-top:10px;line-height:1.45;'>Analisis bersifat diagnostik. Konfirmasi akar masalah melalui rincian data, log aplikasi, dan kondisi server pada waktu kejadian.</div></div>");
+		return sb.toString();
+	}
+
+	private static void appendAnalysisList(StringBuilder sb, String title, List<String> values, String emptyText) {
+		sb.append("<div style='background:#f8fafc;border:1px solid ").append(LINE)
+				.append(";border-radius:7px;padding:10px;'>")
+				.append("<div style='font-size:11px;font-weight:900;color:").append(INK).append(";'>")
+				.append(esc(title)).append("</div><ol style='margin:7px 0 0 17px;padding:0;color:#334155;font-size:11px;line-height:1.55;'>");
+		if (values == null || values.isEmpty()) {
+			sb.append("<li>").append(esc(emptyText)).append("</li>");
+		} else {
+			for (String value : values) {
+				if (value != null && value.trim().length() > 0) {
+					sb.append("<li style='margin:3px 0;'>").append(esc(value)).append("</li>");
+				}
+			}
+		}
+		sb.append("</ol></div>");
+	}
+
 	// ============================================================
 	// TABEL TREN BER-PAGING (komponen ZK, batang HTML/CSS)
 	// ============================================================

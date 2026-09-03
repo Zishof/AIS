@@ -2231,7 +2231,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 			vbox.appendChild(itemBiayaVbox);
 
-			vbox.appendChild(new Label("Tag : " + Common.numberFormat.get().format(detailBiaya.getNilaiBiaya())));
+			vbox.appendChild(new Label("Total biaya semester : "
+					+ Common.numberFormat.get().format(detailBiaya.getNilaiBiaya())));
 
 			List<PengaturanPembayaranBulanan> tempPengaturanPembayaranBulanans = session
 					.createCriteria(PengaturanPembayaranBulanan.class).add(Restrictions.eq("detailBiaya", detailBiaya))
@@ -2418,7 +2419,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 						pengaturanPembayaranBulanan.setDeadline(deadline.getValue());
 
 						Double total = hitungTotalNominalPerItemBiaya(row);
-						labelTotal.setValue("Tot : " + Common.numberFormat.get().format(total));
+						labelTotal.setValue("Total rencana angsuran : "
+								+ Common.numberFormat.get().format(total));
 					}
 				};
 
@@ -2442,7 +2444,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 						pengaturanPembayaranBulanan.setDeadline(deadline.getValue());
 
 						Double total = hitungTotalNominalPerItemBiaya(row);
-						labelTotal.setValue("Tot : " + Common.numberFormat.get().format(total));
+						labelTotal.setValue("Total rencana angsuran : "
+								+ Common.numberFormat.get().format(total));
 					}
 				});
 
@@ -2461,7 +2464,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			}
 
 			Double total = hitungTotalNominalPerItemBiaya(row);
-			labelTotal.setValue("Tot : " + Common.numberFormat.get().format(total));
+			labelTotal.setValue("Total rencana angsuran : " + Common.numberFormat.get().format(total));
 			vbox.appendChild(labelTotal);
 		}
 	}
@@ -2780,7 +2783,8 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		column.setParent(columns);
 
 		for (ItemBiaya itemBiaya : detailSettingBiayas) {
-			column = new MyColumnConfig(itemBiaya.getNama());
+			column = new MyColumnConfig(itemBiaya.getNama() + " (Total Semester)");
+			column.setTooltiptext("Nominal ini adalah total biaya satu semester. Pembagian nominal per bulan diatur melalui Rencana Angsuran.");
 			column.setParent(columns);
 			column = new Column("h");
 			column.setParent(columns);
@@ -2844,6 +2848,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 							idsAda.add(detailBiaya.getId());
 
 							final MyDoublebox nilai = new MyDoublebox(detailBiaya.getNilaiBiaya());
+							nilai.setTooltiptext("Total biaya satu semester; bukan nominal satu bulan. Lihat Rencana Angsuran untuk rincian bulanan.");
 							nilai.setAttribute("itemBiaya", itemBiaya);
 							nilai.setAttribute("jurusan", jurusan);
 							nilai.setWidth("90%");

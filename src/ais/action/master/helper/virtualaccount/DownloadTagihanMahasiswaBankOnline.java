@@ -343,7 +343,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 								: Common.getGeneratedAngkaDigit(jml_digit_prefix_va_bank_online);
 
 				if (onlineBmt) {
-					if (!OnlineBmtUtil.isPerguruanTinggiEnabled(perguruanTinggi.getId())) return null;
+					if (!OnlineBmtUtil.isPerguruanTinggiReady(perguruanTinggi.getId())) return null;
 					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
 				} else if (Common.bolehKonfigurasi("aktifkan_va_e_smartlink", Konfigurasi.TIDAK_AKTIF) || smartlink) {
 					virtualAccountBankOnline.setLink("");
@@ -972,7 +972,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 							|| mahasiswa.getJurusan().getFakultas() == null
 							|| mahasiswa.getJurusan().getFakultas().getPerguruanTinggi() == null ? null
 									: mahasiswa.getJurusan().getFakultas().getPerguruanTinggi().getId();
-					if (!OnlineBmtUtil.isPerguruanTinggiEnabled(ptId)) {
+					if (!OnlineBmtUtil.isPerguruanTinggiReady(ptId)) {
 						if (warnings != null) warnings.add("Kanal Online BMT belum diaktifkan untuk perguruan tinggi ini.");
 						return null;
 					}

@@ -491,7 +491,7 @@ public class TagihanMahasiswa {
 						String configuredBanks = Common.getKonfigurasi("bank_va_mobile_pt_" + ptId,
 								"BNI,MANDIRI").getNilai();
 						jsonObject.put("bank_va_mobile", OnlineBmtUtil.appendToConfiguredBanks(configuredBanks,
-								OnlineBmtUtil.isPerguruanTinggiEnabled(ptId)));
+								OnlineBmtUtil.isPerguruanTinggiReady(ptId)));
 					} else {
 
 						String w = "";
@@ -700,7 +700,7 @@ public class TagihanMahasiswa {
 							|| bank.equalsIgnoreCase("BTN") || bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
 
 					if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)
-							&& !OnlineBmtUtil.isPerguruanTinggiEnabled(
+							&& !OnlineBmtUtil.isPerguruanTinggiReady(
 									mahasiswa.getJurusan().getFakultas().getPerguruanTinggi().getId())) {
 						jsonObject.put("status", "05");
 						jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk perguruan tinggi ini");

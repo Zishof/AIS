@@ -98,11 +98,11 @@ public class TopupHelper {
 				Sekolah sekolah = user.getSiswa() != null ? user.getSiswa().getSekolah()
 						: user.getCalonSiswa().getSekolah();
 				configured = Common.getKonfigurasi("bank_va_mobile_" + sekolah.getId(), "Smartlink").getNilai();
-				onlineBmt = OnlineBmtUtil.isSekolahEnabled(sekolah, sekolah.getKanalPembayaran());
+				onlineBmt = OnlineBmtUtil.isSekolahReady(sekolah, sekolah.getKanalPembayaran());
 			} else if (user.getMahasiswa() != null) {
 				Long ptId = user.getMahasiswa().getJurusan().getFakultas().getPerguruanTinggi().getId();
 				configured = Common.getKonfigurasi("bank_va_mobile_pt_" + ptId, "Smartlink").getNilai();
-				onlineBmt = OnlineBmtUtil.isPerguruanTinggiEnabled(ptId);
+				onlineBmt = OnlineBmtUtil.isPerguruanTinggiReady(ptId);
 			}
 			configured = OnlineBmtUtil.appendToConfiguredBanks(configured, onlineBmt);
 			JSONArray data = new JSONArray();
@@ -953,7 +953,7 @@ public class TopupHelper {
 							biayaAdministrasi, null, topupNumber, bankHost, akunPembayaranSiswa, sekolah, warnings);
 
 				} else if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
-					if (!OnlineBmtUtil.isSekolahEnabled(sekolah, sekolah.getKanalPembayaran())) {
+					if (!OnlineBmtUtil.isSekolahReady(sekolah, sekolah.getKanalPembayaran())) {
 						jsonObject.put("status", "03");
 						jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk sekolah ini");
 						return jsonObject;
@@ -1337,7 +1337,7 @@ public class TopupHelper {
 					|| bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
 
 				if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)
-						&& !OnlineBmtUtil.isPerguruanTinggiEnabled(PerguruanTinggiUtil.getPerguruanTinggi().getId())) {
+						&& !OnlineBmtUtil.isPerguruanTinggiReady(PerguruanTinggiUtil.getPerguruanTinggi().getId())) {
 					jsonObject.put("status", "03");
 					jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk perguruan tinggi ini");
 					return jsonObject;

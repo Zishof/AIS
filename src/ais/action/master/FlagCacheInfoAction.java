@@ -405,7 +405,47 @@ public class FlagCacheInfoAction extends GenericAutowireComposer {
 				"Belum ada data flag."));
 		sb.append(DashboardUiKit.closeGrid());
 
+		long terbesar = nilaiTerbesar(perFolderCount);
+		double persenKosong = total > 0 ? kosong * 100.0 / total : 0.0;
+		double konsentrasi = total > 0 ? terbesar * 100.0 / total : 0.0;
+		long rataUkuran = total > 0 ? totalSize / total : 0L;
+		String status = total == 0 ? "BELUM ADA DATA"
+				: (persenKosong >= 20.0 || totalSize >= 100L * 1024L * 1024L ? "KRITIS"
+						: (persenKosong >= 5.0 || rataUkuran >= 64L * 1024L || konsentrasi >= 70.0
+								? "WASPADA" : "NORMAL"));
+		String ringkasan = total == 0
+				? "Belum ada flag/cache tersimpan atau tabel penyimpanan belum terbentuk."
+				: "Kondisi dinilai dari kelengkapan nilai, ukuran penyimpanan, rata-rata ukuran per flag, dan konsentrasi pada folder terbesar.";
+		List<String> temuan = new ArrayList<String>();
+		List<String> penyebab = new ArrayList<String>();
+		List<String> tindakan = new ArrayList<String>();
+		temuan.add(total + " flag tersebar pada " + folders + " folder dengan total ukuran " + formatBytes(totalSize) + ".");
+		temuan.add(kosong + " nilai kosong (" + formatPersen(persenKosong) + ") dan rata-rata ukuran " + formatBytes(rataUkuran) + " per flag.");
+		temuan.add("Folder terbesar menampung " + terbesar + " flag (" + formatPersen(konsentrasi) + " dari seluruh flag).");
+		if (persenKosong >= 5.0) penyebab.add("Flag dibuat sebagai penanda keberadaan tetapi nilainya tidak pernah diisi, atau data lama belum dibersihkan.");
+		if (rataUkuran >= 64L * 1024L) penyebab.add("Cache menyimpan payload besar, hasil serialisasi panjang, atau data yang seharusnya berada pada penyimpanan khusus.");
+		if (konsentrasi >= 70.0) penyebab.add("Satu fitur memakai namespace/folder yang sama untuk sebagian besar key sehingga pertumbuhan terpusat.");
+		tindakan.add("Buka tab Data dan mulai pemeriksaan dari folder dengan jumlah atau ukuran terbesar.");
+		if (kosong > 0) tindakan.add("Pastikan nilai kosong memang berfungsi sebagai flag boolean; hapus hanya key usang melalui alur pemilik fitur, bukan langsung dari tabel produksi.");
+		if (rataUkuran >= 64L * 1024L) tindakan.add("Tinjau format nilai besar, masa berlaku, dan kebutuhan kompresi atau pemindahan payload.");
+		tindakan.add("Gunakan Refresh setelah pembersihan untuk memastikan total dan ukuran benar-benar menurun.");
+		sb.append(DashboardUiKit.smartAnalysis(status, ringkasan, temuan, penyebab, tindakan));
+
 		return sb.toString();
+	}
+
+	private long nilaiTerbesar(LinkedHashMap<String, Number> values) {
+		long max = 0L;
+		if (values != null) {
+			for (Number value : values.values()) {
+				if (value != null && value.longValue() > max) max = value.longValue();
+			}
+		}
+		return max;
+	}
+
+	private String formatPersen(double value) {
+		return new java.text.DecimalFormat("0.0").format(value) + "%";
 	}
 
 	/** Format byte → B / KB / MB ringkas. */

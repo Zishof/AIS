@@ -110,6 +110,12 @@
 								<column use="ais.ui.util.MyColumnConfig"
 									label="Nama File" />
 								<column use="ais.ui.util.MyColumnConfig"
+									width="90px" label="Jenis File" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="18%" label="Sumber Modul" />
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Lokasi / Catatan" />
+								<column use="ais.ui.util.MyColumnConfig"
 									width="56px" label=""  align="center"/>
 							</columns>
 

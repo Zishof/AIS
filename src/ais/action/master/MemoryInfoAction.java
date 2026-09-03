@@ -3,6 +3,8 @@ package ais.action.master;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -31,6 +33,7 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.MemoryInfo;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.DataSearchDefault;
+import ais.ui.util.DashboardUiKit;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyToolbarbuttonConfig;
@@ -191,8 +194,9 @@ private MyToolbarbuttonConfig find;
 	}
 	private void refreshDashboardSafe() {
 		try {
-			GenericActionDashboardHelper.refresh(dashboardHtml, progressHtml, MemoryInfo.class,
-					"Dasbor Pemakaian Memori", "Ringkasan kondisi memori server agar pemantauan beban sistem lebih mudah dipahami.");
+			if (dashboardHtml != null) {
+				dashboardHtml.setContent(buildDashboardMemori());
+			}
 		} catch (Exception e) {
 			try {
 				Common.tampilErrorJikaAdmin(e);
@@ -324,6 +328,133 @@ private MyToolbarbuttonConfig find;
 		} finally {
 			GenericActionDashboardHelper.hideProgress(progressHtml);
 		}
+	}
+
+	/** Membentuk analisis memori langsung dari sampel yang sesuai filter aktif. */
+	private String buildDashboardMemori() {
+		List<MemoryInfo> sampel = ambilSampelMemori(MAKS_SAMPEL_AI);
+		MemoryDashboardData data = analisisMemori(sampel);
+		StringBuilder html = new StringBuilder(22000);
+		html.append("<div style='font-family:Arial,Helvetica,sans-serif;color:#0f172a;padding:12px;background:#f8fafc;'>");
+		html.append(DashboardUiKit.introBanner("Dasbor Pemakaian Memori",
+				"Analisis tekanan memori JVM berdasarkan pemakaian terkini, puncak, rata-rata, arah tren, dan konsistensi kapasitas server."));
+
+		List<DashboardUiKit.Stat> stats = new ArrayList<DashboardUiKit.Stat>();
+		stats.add(new DashboardUiKit.Stat("Pemakaian Terkini", formatPersen(data.terkiniPct),
+				data.terkiniMb + " MB digunakan", warnaMemori(data.terkiniPct)));
+		stats.add(new DashboardUiKit.Stat("Pemakaian Puncak", formatPersen(data.puncakPct),
+				"Nilai tertinggi pada sampel", warnaMemori(data.puncakPct)));
+		stats.add(new DashboardUiKit.Stat("Rata-rata", formatPersen(data.rataPct),
+				data.sampel + " sampel dianalisis", warnaMemori(data.rataPct)));
+		stats.add(new DashboardUiKit.Stat("Kapasitas JVM", DashboardUiKit.money(data.maxMb) + " MB",
+				data.jumlahKapasitas + " variasi kapasitas", data.jumlahKapasitas > 1 ? DashboardUiKit.WARN : DashboardUiKit.PRIMARY));
+		html.append(DashboardUiKit.cards(stats));
+
+		html.append(DashboardUiKit.openGrid(300));
+		html.append(DashboardUiKit.sparkline("Tren Pemakaian",
+				"Urutan terlama ke terbaru; kenaikan berulang perlu dibandingkan dengan siklus garbage collection.",
+				data.trenPct, DashboardUiKit.PRIMARY, "Minimal dua sampel diperlukan untuk membaca tren."));
+		LinkedHashMap<String, Double> status = new LinkedHashMap<String, Double>();
+		status.put("Normal", Double.valueOf(data.normal));
+		status.put("Waspada", Double.valueOf(data.waspada));
+		status.put("Kritis", Double.valueOf(data.kritis));
+		html.append(DashboardUiKit.donut("Distribusi Kondisi", "Komposisi sampel berdasarkan batas normal, waspada, dan kritis.",
+				status, false, "Belum ada sampel memori."));
+		html.append(DashboardUiKit.closeGrid());
+
+		LinkedHashMap<String, String> detail = new LinkedHashMap<String, String>();
+		detail.put("Arah Tren", data.arahTren);
+		detail.put("Perubahan", (data.perubahanPct >= 0 ? "+" : "") + formatPersen(data.perubahanPct));
+		detail.put("Total Bebas Terkini", DashboardUiKit.money(data.bebasTerkiniMb) + " MB");
+		detail.put("Sampel Kritis", data.kritis + " dari " + data.sampel);
+		detail.put("Sampel Waspada", data.waspada + " dari " + data.sampel);
+		detail.put("Filter Status", statusPemakaianTerpilih());
+		html.append(DashboardUiKit.insight("Rincian Analisis Memori", "Nilai dihitung dari maxMemory dan totalFreeMemory pada setiap snapshot.", detail));
+		html.append(DashboardUiKit.smartAnalysis(data.status, data.ringkasan, data.temuan,
+				data.kemungkinanPenyebab, data.tindakan));
+		html.append("</div>");
+		return html.toString();
+	}
+
+	private MemoryDashboardData analisisMemori(List<MemoryInfo> list) {
+		MemoryDashboardData data = new MemoryDashboardData();
+		Set<Long> kapasitas = new LinkedHashSet<Long>();
+		double totalPct = 0.0;
+		if (list != null) {
+			for (int i = list.size() - 1; i >= 0; i--) {
+				MemoryInfo m = list.get(i);
+				long max = nilai(m.getMaxMemory());
+				long totalFree = nilai(m.getTotalFreeMemory());
+				double usedPct = max > 0 ? Math.max(0.0, Math.min(100.0, (max - totalFree) * 100.0 / max)) : 0.0;
+				data.trenPct.add(Double.valueOf(usedPct));
+				totalPct += usedPct;
+				data.puncakPct = Math.max(data.puncakPct, usedPct);
+				if (usedPct >= 85.0) data.kritis++; else if (usedPct >= 75.0) data.waspada++; else data.normal++;
+				kapasitas.add(Long.valueOf(toMb(max)));
+			}
+		}
+		data.sampel = data.trenPct.size();
+		data.rataPct = data.sampel == 0 ? 0.0 : totalPct / data.sampel;
+		data.jumlahKapasitas = kapasitas.size();
+		if (list != null && !list.isEmpty()) {
+			MemoryInfo terbaru = list.get(0);
+			long max = nilai(terbaru.getMaxMemory());
+			long totalFree = nilai(terbaru.getTotalFreeMemory());
+			data.maxMb = toMb(max);
+			data.bebasTerkiniMb = toMb(totalFree);
+			data.terkiniMb = toMb(Math.max(0L, max - totalFree));
+			data.terkiniPct = max > 0 ? (max - totalFree) * 100.0 / max : 0.0;
+		}
+		if (data.trenPct.size() >= 2) {
+			data.perubahanPct = data.trenPct.get(data.trenPct.size() - 1).doubleValue() - data.trenPct.get(0).doubleValue();
+		}
+		data.arahTren = data.perubahanPct > 5.0 ? "Meningkat" : data.perubahanPct < -5.0 ? "Menurun" : "Relatif stabil";
+
+		if (data.terkiniPct >= 85.0 || data.kritis > 0) {
+			data.status = "KRITIS";
+			data.ringkasan = "Tekanan memori mencapai batas kritis; risiko jeda GC panjang atau OutOfMemoryError perlu diperiksa segera.";
+		} else if (data.terkiniPct >= 75.0 || data.waspada > 0 || data.perubahanPct > 10.0 || data.jumlahKapasitas > 1) {
+			data.status = "WASPADA";
+			data.ringkasan = "Ada indikator tekanan atau perubahan pola memori yang perlu dipantau lebih dekat.";
+		} else if (data.sampel == 0) {
+			data.status = "BELUM ADA DATA";
+			data.ringkasan = "Belum tersedia sampel memori untuk filter saat ini.";
+		} else {
+			data.status = "NORMAL";
+			data.ringkasan = "Pemakaian memori pada sampel berada di bawah ambang waspada dan tidak menunjukkan kenaikan besar.";
+		}
+
+		data.temuan.add("Pemakaian terkini " + formatPersen(data.terkiniPct) + ", puncak " + formatPersen(data.puncakPct)
+				+ ", dan rata-rata " + formatPersen(data.rataPct) + ".");
+		data.temuan.add("Tren " + data.arahTren.toLowerCase() + " dengan perubahan " + formatPersen(data.perubahanPct)
+				+ " dari sampel terlama ke terbaru.");
+		data.temuan.add(data.kritis + " sampel kritis dan " + data.waspada + " sampel waspada dari " + data.sampel + " sampel.");
+		if (data.jumlahKapasitas > 1) data.temuan.add("Ditemukan " + data.jumlahKapasitas + " kapasitas maksimum JVM; tren mungkin berasal dari node atau restart berbeda.");
+
+		if (data.perubahanPct > 10.0) data.kemungkinanPenyebab.add("Beban request meningkat, object berumur panjang bertambah, cache membesar, atau garbage collection belum melepaskan memori.");
+		if (data.kritis > 0) data.kemungkinanPenyebab.add("Heap terlalu kecil untuk beban saat ini, proses massal sedang berjalan, atau terdapat retensi object yang perlu dibuktikan dengan GC log dan histogram.");
+		if (data.jumlahKapasitas > 1) data.kemungkinanPenyebab.add("Aplikasi sempat restart dengan parameter heap berbeda atau sampel berasal dari lebih dari satu JVM/node.");
+
+		data.tindakan.add("Bandingkan waktu sampel kritis dengan tab Performa Sistem dan Kesalahan Sistem.");
+		if (data.terkiniPct >= 85.0) data.tindakan.add("Kurangi proses massal sementara dan ambil GC log serta histogram object sebelum melakukan restart terencana.");
+		if (data.perubahanPct > 10.0) data.tindakan.add("Ambil beberapa snapshot lanjutan setelah full GC; kenaikan yang tetap bertahan merupakan bukti lebih kuat adanya retensi object.");
+		data.tindakan.add("Jangan menyimpulkan memory leak dari satu snapshot; verifikasi dengan tren, old generation, GC log, dan heap dump.");
+		return data;
+	}
+
+	private String warnaMemori(double persen) {
+		return persen >= 85.0 ? DashboardUiKit.BAD : persen >= 75.0 ? DashboardUiKit.WARN : DashboardUiKit.GOOD;
+	}
+
+	private static class MemoryDashboardData {
+		int sampel, normal, waspada, kritis, jumlahKapasitas;
+		long maxMb, terkiniMb, bebasTerkiniMb;
+		double terkiniPct, puncakPct, rataPct, perubahanPct;
+		String status, ringkasan, arahTren;
+		List<Double> trenPct = new ArrayList<Double>();
+		List<String> temuan = new ArrayList<String>();
+		List<String> kemungkinanPenyebab = new ArrayList<String>();
+		List<String> tindakan = new ArrayList<String>();
 	}
 
 	private String buatInstruksiAiMemori() {

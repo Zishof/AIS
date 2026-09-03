@@ -39,6 +39,7 @@ import ais.database.model.PerformaLog;
 import ais.database.model.Tbmuser;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.DataSearchDefault;
+import ais.ui.util.DashboardUiKit;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyHtml;
@@ -1284,17 +1285,29 @@ public class PerformaLogAction extends GenericAutowireComposer implements DataCr
     }
 
     private void appendRekomendasi(StringBuilder html, PerformaSnapshotUtil.Analisa analisa) {
-        html.append("<div class='plog-rec'>");
-        html.append("<div style='font-weight:900;font-size:14px;margin-bottom:6px;'>Rekomendasi Investigasi</div>");
-        html.append("<ul style='margin:0;padding-left:18px;'>");
-        if (analisa == null || analisa.rekomendasi == null || analisa.rekomendasi.isEmpty()) {
-            html.append("<li>Analisa langsung belum tersedia.</li>");
-        } else {
-            for (int i = 0; i < analisa.rekomendasi.size(); i++) {
-                html.append("<li>").append(escapeHtml(analisa.rekomendasi.get(i))).append("</li>");
-            }
-        }
-        html.append("</ul></div>");
+		List<String> temuan = new ArrayList<String>();
+		List<String> penyebab = new ArrayList<String>();
+		List<String> tindakan = new ArrayList<String>();
+		PerformaLog live = analisa == null ? null : analisa.ringkas;
+		String status = live == null ? "BELUM ADA DATA" : live.getStatusKesehatan();
+		String ringkasan = live == null
+				? "Snapshot runtime langsung belum tersedia; jalankan Rekam Sekarang untuk memperoleh diagnosis terbaru."
+				: "Status dihitung dari deadlock, thread blocked, kontensi lock, heap, old generation, metaspace, dan aktivitas garbage collector.";
+		if (live != null) {
+			temuan.add("Thread aktif " + nz(live.getJumlahThread()) + ", menunggu " + live.getJumlahMenunggu()
+					+ ", blocked " + nz(live.getJumlahBlocked()) + ", dan deadlock " + nz(live.getJumlahDeadlock()) + ".");
+			temuan.add("Heap " + persenStr(live.getPersenHeap()) + ", old generation "
+					+ persenStr(live.getPersenOldGen()) + ", dan metaspace " + persenStr(live.getPersenMetaspace()) + ".");
+			int kontensi = live.getMaxThreadSatuLock() == null ? 0 : live.getMaxThreadSatuLock().intValue();
+			temuan.add("Kontensi tertinggi pada satu lock melibatkan " + kontensi + " thread.");
+			if (nz(live.getJumlahDeadlock()) > 0) penyebab.add("Dua atau lebih thread mengambil lock dengan urutan berbeda sehingga saling menunggu permanen.");
+			if (kontensi >= 10) penyebab.add("Pool koneksi, synchronized block, atau resource bersama menjadi titik antrean banyak request.");
+			if (live.getPersenOldGen() >= 85) penyebab.add("Object berumur panjang, cache, session, atau koleksi besar bertahan di old generation.");
+			if (live.getPersenMetaspace() >= 85) penyebab.add("Jumlah class/classloader bertambah, redeploy berulang, atau metaspace terlalu kecil.");
+		}
+		if (analisa != null && analisa.rekomendasi != null) tindakan.addAll(analisa.rekomendasi);
+		if (tindakan.isEmpty()) tindakan.add("Lanjutkan pemantauan; rekam snapshot saat pengguna melaporkan aplikasi lambat agar kondisi kejadian tertangkap.");
+		html.append(DashboardUiKit.smartAnalysis(status, ringkasan, temuan, penyebab, tindakan));
     }
 
     private void appendMemoryPoolPanel(StringBuilder html, PerformaSnapshotUtil.Analisa analisa) {

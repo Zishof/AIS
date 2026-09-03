@@ -2000,7 +2000,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				judul = "Tagihan semester " + smt + ": BULANAN / ANGSURAN";
 				keterangan = "Tagihan semester ini dibagi menjadi "
 						+ (jumlahBulan > 0 ? jumlahBulan + " bulan/angsuran" : "beberapa bulan/angsuran")
-						+ ". Bayar sesuai bulan atau angsuran yang jatuh tempo pada daftar di bawah.";
+						+ ". Nominal Setting Biaya adalah total satu semester, sedangkan nominal pada daftar di bawah adalah bagian per bulan sesuai Rencana Angsuran."
+						+ " Denda, diskon, dan penyesuaian lain dihitung terpisah dari pokok angsuran.";
 			} else {
 				warnaLatar = "#dcfce7";
 				warnaTeks = "#166534";

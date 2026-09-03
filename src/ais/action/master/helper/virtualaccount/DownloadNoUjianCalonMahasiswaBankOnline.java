@@ -348,7 +348,7 @@ public class DownloadNoUjianCalonMahasiswaBankOnline extends MyWindow {
 
 			if (onlineBmt) {
 				Long ptId = PerguruanTinggiUtil.getPerguruanTinggi().getId();
-				if (!OnlineBmtUtil.isPerguruanTinggiEnabled(ptId)) return null;
+			if (!OnlineBmtUtil.isPerguruanTinggiReady(ptId)) return null;
 				OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
 			}
 
