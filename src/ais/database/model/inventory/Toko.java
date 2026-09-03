@@ -554,42 +554,101 @@ public class Toko extends GeneralValueObject {
 		return alamat;
 	}
 
+	/**
+	 * Setter {@link #getAlamat()}. Bagian dari kelompok field profil yang disunting lewat
+	 * {@code KantinHelper.tokoProfilSimpan}, bukan lewat form ZK admin.
+	 *
+	 * @param alamat alamat gerai, boleh {@code null}
+	 */
 	public void setAlamat(String alamat) {
 		this.alamat = alamat;
 	}
 
+	/**
+	 * Kota tempat gerai berada -- bagian profil toko yang dicetak pada kop struk dan dokumen.
+	 * Teks bebas maksimum 100 karakter, sengaja BUKAN relasi ke master wilayah: profil kios kantin
+	 * tidak memerlukan data wilayah terstruktur, dan menjadikannya relasi akan memaksa setiap
+	 * pemasangan mengisi master wilayah lebih dulu. Pembaca murni tanpa normalisasi.
+	 *
+	 * @return kota gerai, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "kota", nullable = true, length = 100)
 	public String getKota() {
 		return kota;
 	}
 
+	/**
+	 * Setter {@link #getKota()} -- menyimpan nilai apa adanya tanpa validasi terhadap master
+	 * wilayah mana pun.
+	 *
+	 * @param kota kota gerai, boleh {@code null}
+	 */
 	public void setKota(String kota) {
 		this.kota = kota;
 	}
 
+	/**
+	 * Kode pos gerai -- bagian profil yang dicetak pada kop struk dan dokumen. Disimpan sebagai
+	 * TEKS (maksimum 10 karakter), bukan angka, karena kode pos bukan bilangan yang dihitung dan
+	 * dapat mengandung nol di depan yang akan hilang bila disimpan numerik. Tidak ada validasi
+	 * format.
+	 *
+	 * @return kode pos gerai, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "kode_pos", nullable = true, length = 10)
 	public String getKodePos() {
 		return kodePos;
 	}
 
+	/**
+	 * Setter {@link #getKodePos()} -- menyimpan nilai apa adanya tanpa validasi format.
+	 *
+	 * @param kodePos kode pos gerai, boleh {@code null}
+	 */
 	public void setKodePos(String kodePos) {
 		this.kodePos = kodePos;
 	}
 
+	/**
+	 * Nomor telepon gerai (bukan nomor pribadi penanggung jawab -- itu {@link #getPicHp()}) --
+	 * dicetak pada kop struk agar pembeli dapat menghubungi gerai. Disimpan sebagai teks maksimum
+	 * 50 karakter sehingga dapat memuat awalan negara, tanda pemisah, atau beberapa nomor
+	 * sekaligus; tidak ada normalisasi maupun validasi format.
+	 *
+	 * @return telepon gerai, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "telp", nullable = true, length = 50)
 	public String getTelp() {
 		return telp;
 	}
 
+	/**
+	 * Setter {@link #getTelp()} -- menyimpan nilai apa adanya tanpa normalisasi format nomor.
+	 *
+	 * @param telp telepon gerai, boleh {@code null}
+	 */
 	public void setTelp(String telp) {
 		this.telp = telp;
 	}
 
+	/**
+	 * Alamat surel gerai -- bagian profil untuk korespondensi dan kop dokumen. Maksimum 255
+	 * karakter, TANPA validasi format alamat surel dan tanpa jaminan keunikan; entity ini tidak
+	 * pernah mengirim surel ke alamat ini sendiri, jadi nilainya murni informatif kecuali ada jalur
+	 * lain yang memakainya.
+	 *
+	 * @return surel gerai, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "email", nullable = true, length = 255)
 	public String getEmail() {
 		return email;
 	}
 
+	/**
+	 * Setter {@link #getEmail()} -- menyimpan nilai apa adanya tanpa validasi format.
+	 *
+	 * @param email surel gerai, boleh {@code null}
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
@@ -600,24 +659,62 @@ public class Toko extends GeneralValueObject {
 		return picNama;
 	}
 
+	/**
+	 * Setter {@link #getPicNama()} -- menyimpan NAMA sebagai teks beku, sengaja bukan relasi ke
+	 * {@code Tbmuser}/{@code Pegawai}. Penanggung jawab gerai sering kali bukan pengguna sistem
+	 * (mis. pemilik kios yang tidak punya akun), dan membekukan namanya membuat kontak yang tercatat
+	 * tetap seperti saat diisi walau akun terkait berubah. Konsekuensinya nama di sini TIDAK ikut
+	 * berubah bila orangnya berganti nama di master pegawai, dan tidak ada validasi bahwa orang
+	 * tersebut memang ada.
+	 *
+	 * @param picNama nama penanggung jawab gerai, boleh {@code null}
+	 */
 	public void setPicNama(String picNama) {
 		this.picNama = picNama;
 	}
 
+	/**
+	 * Nomor HP penanggung jawab/PIC gerai -- kontak pribadi yang dihubungi admin pusat bila ada
+	 * kendala operasional, berpasangan dengan {@link #getPicNama()}. Berbeda peran dari
+	 * {@link #getTelp()} yang merupakan nomor gerai untuk pembeli; nomor di sini bersifat internal
+	 * dan tidak dicetak pada struk. Teks maksimum 50 karakter tanpa normalisasi format.
+	 *
+	 * @return nomor HP penanggung jawab, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "pic_hp", nullable = true, length = 50)
 	public String getPicHp() {
 		return picHp;
 	}
 
+	/**
+	 * Setter {@link #getPicHp()} -- menyimpan nilai apa adanya tanpa normalisasi format nomor.
+	 *
+	 * @param picHp nomor HP penanggung jawab, boleh {@code null}
+	 */
 	public void setPicHp(String picHp) {
 		this.picHp = picHp;
 	}
 
+	/**
+	 * NPWP gerai -- nomor pokok wajib pajak yang dicetak pada dokumen bernilai pajak (faktur,
+	 * dokumen pengadaan) bila gerai berbadan usaha sendiri. Disimpan sebagai TEKS maksimum 50
+	 * karakter, bukan angka, karena NPWP lazim ditulis berformat dengan titik dan strip serta dapat
+	 * berawalan nol. Nullable dan tanpa validasi checksum maupun format -- banyak kios kantin tidak
+	 * memiliki NPWP terpisah dari induknya.
+	 *
+	 * @return NPWP gerai, atau {@code null} bila tidak ada/belum diisi
+	 */
 	@Column(name = "npwp", nullable = true, length = 50)
 	public String getNpwp() {
 		return npwp;
 	}
 
+	/**
+	 * Setter {@link #getNpwp()} -- menyimpan nilai apa adanya tanpa validasi format maupun
+	 * checksum.
+	 *
+	 * @param npwp NPWP gerai, boleh {@code null}
+	 */
 	public void setNpwp(String npwp) {
 		this.npwp = npwp;
 	}
@@ -628,6 +725,14 @@ public class Toko extends GeneralValueObject {
 		return jamOperasional;
 	}
 
+	/**
+	 * Setter {@link #getJamOperasional()} -- menerima teks bebas. Karena bentuknya tidak
+	 * terstruktur, nilai ini TIDAK dapat dan TIDAK PERNAH dipakai untuk menegakkan apa pun: tidak
+	 * ada mekanisme yang menolak transaksi di luar jam yang tertulis di sini. Nilainya murni
+	 * informatif untuk ditampilkan kepada pembeli.
+	 *
+	 * @param jamOperasional teks jam operasional, boleh {@code null}
+	 */
 	public void setJamOperasional(String jamOperasional) {
 		this.jamOperasional = jamOperasional;
 	}
@@ -649,15 +754,48 @@ public class Toko extends GeneralValueObject {
 		return (pesanTerimaKasih == null || pesanTerimaKasih.trim().isEmpty()) ? PESAN_TERIMA_KASIH_DEFAULT : pesanTerimaKasih;
 	}
 
+	/**
+	 * Setter {@link #getPesanTerimaKasih()}. Perhatikan asimetri yang mudah membingungkan:
+	 * menyetel {@code null} atau string kosong TIDAK menghasilkan struk tanpa ucapan penutup,
+	 * melainkan mengembalikan toko ke teks baku {@link #PESAN_TERIMA_KASIH_DEFAULT} karena
+	 * getter-nya menormalkan keduanya menjadi default. Dengan kata lain ucapan penutup tidak dapat
+	 * dimatikan lewat setter ini -- toko yang ingin struk tanpa ucapan harus menyimpan teks berisi
+	 * spasi atau karakter tak terlihat, dan itu memang tidak disediakan sebagai fitur.
+	 *
+	 * @param pesanTerimaKasih ucapan penutup; {@code null}/kosong berarti kembali ke teks baku
+	 */
 	public void setPesanTerimaKasih(String pesanTerimaKasih) {
 		this.pesanTerimaKasih = pesanTerimaKasih;
 	}
 
+	/**
+	 * Daftar alasan penahanan transaksi yang tersedia di Kasir toko ini, disimpan sebagai JSON pada
+	 * satu kolom {@code text}. "Menahan" adalah menyisihkan transaksi yang sedang berjalan agar
+	 * kasir dapat melayani pembeli berikutnya lebih dulu; daftar ini memberi kasir pilihan alasan
+	 * baku (mis. pembeli mengambil barang lain, menunggu konfirmasi harga) alih-alih mengetik bebas,
+	 * sehingga alasannya dapat direkap.
+	 *
+	 * <p>Disimpan sebagai JSON dalam satu kolom, bukan sebagai tabel anak, karena daftarnya pendek,
+	 * hanya dibaca sebagai satu kesatuan saat Kasir dimuat, dan tidak pernah menjadi sasaran query
+	 * atau agregasi -- pola yang sama dipakai {@link #getUnitUsahaJson()} pada kelas ini serta
+	 * {@link Produk#getEkstraPilihan()} dan {@link Produk#getKemasan()}. Konsekuensinya isi kolom
+	 * ini TIDAK memiliki integritas referensial maupun validasi bentuk dari basis data: JSON rusak
+	 * baru ketahuan saat diurai di lapisan klien. Pembaca murni; {@code null}/kosong berarti toko
+	 * belum menyiapkan alasan baku dan kasir memakai perilaku bawaannya.</p>
+	 *
+	 * @return JSON daftar alasan penahanan, atau {@code null} bila belum diatur
+	 */
 	@Column(name = "alasan_tahan_json", nullable = true, columnDefinition = "text")
 	public String getAlasanTahanJson() {
 		return alasanTahanJson;
 	}
 
+	/**
+	 * Setter {@link #getAlasanTahanJson()} -- menerima string JSON MENTAH tanpa memvalidasi
+	 * bentuknya; JSON rusak tersimpan apa adanya dan baru menimbulkan masalah saat diurai klien.
+	 *
+	 * @param alasanTahanJson JSON daftar alasan penahanan, boleh {@code null}
+	 */
 	public void setAlasanTahanJson(String alasanTahanJson) {
 		this.alasanTahanJson = alasanTahanJson;
 	}
@@ -671,6 +809,22 @@ public class Toko extends GeneralValueObject {
 		return bolehTransaksiStokHabis == null ? Boolean.FALSE : bolehTransaksiStokHabis;
 	}
 
+	/**
+	 * Setter {@link #getBolehTransaksiStokHabis()} -- gerbang OVERSELL tingkat toko.
+	 *
+	 * <p>Kebijakan efektif sebuah produk adalah gabungan flag ini dengan override per-produk
+	 * {@link Produk#getIzinkanJualMinusStok()}, dan override produk MENANG: {@code false} di sana
+	 * memblokir penjualan minus walau gerbang toko menyala, {@code true} mengizinkannya walau
+	 * gerbang toko mati, dan {@code null} berarti mengikuti nilai di sini. Menyalakan gerbang ini
+	 * karena itu tidak menjamin seluruh produk toko boleh dijual minus. Menyetel {@code null} pada
+	 * kelas ini secara efektif sama dengan {@code false} karena getter-nya fail-closed.</p>
+	 *
+	 * <p>Perlu disadari penjualan minus menghasilkan {@link Produk#getStok()} bernilai NEGATIF yang
+	 * tetap tersimpan apa adanya; tidak ada proses yang mengoreksinya sendiri, dan angka negatif itu
+	 * ikut terbawa ke perbandingan ambang reorder serta laporan nilai persediaan.</p>
+	 *
+	 * @param bolehTransaksiStokHabis kebijakan oversell tingkat toko
+	 */
 	public void setBolehTransaksiStokHabis(Boolean bolehTransaksiStokHabis) {
 		this.bolehTransaksiStokHabis = bolehTransaksiStokHabis;
 	}
@@ -688,6 +842,20 @@ public class Toko extends GeneralValueObject {
 		return semuaBolehUbahHarga == null ? Boolean.TRUE : semuaBolehUbahHarga;
 	}
 
+	/**
+	 * Setter {@link #getSemuaBolehUbahHarga()} -- saklar utama kebijakan ubah harga toko.
+	 *
+	 * <p>Perhatikan default getter-nya {@code true} (FAIL-OPEN, demi kompatibilitas mundur agar
+	 * pemasangan lama tidak mendadak terkunci), sehingga menyetel {@code null} berarti SEMUA
+	 * pengguna boleh mengubah harga -- bukan berarti "belum diatur lalu dikunci". Karena itu
+	 * mengosongkan field ini adalah cara MELONGGARKAN kebijakan, bukan mengetatkannya. Pengetatan
+	 * hanya terjadi bila nilainya {@code false} secara eksplisit, dan barulah kemudian
+	 * {@link #getUserBolehUbahHarga()} serta {@link #getRoleBolehUbahHarga()} dievaluasi secara
+	 * OR.</p>
+	 *
+	 * @param semuaBolehUbahHarga {@code false} untuk membatasi ke daftar putih; {@code null}/
+	 *        {@code true} berarti semua boleh
+	 */
 	public void setSemuaBolehUbahHarga(Boolean semuaBolehUbahHarga) {
 		this.semuaBolehUbahHarga = semuaBolehUbahHarga;
 	}
@@ -703,6 +871,21 @@ public class Toko extends GeneralValueObject {
 		return userBolehUbahHarga;
 	}
 
+	/**
+	 * Setter {@link #getUserBolehUbahHarga()} -- menyimpan CSV daftar putih APA ADANYA, tanpa
+	 * menambahkan koma pembungkus, tanpa membuang spasi, dan tanpa memvalidasi bahwa userId di
+	 * dalamnya benar-benar ada.
+	 *
+	 * <p><b>Koma pembungkus adalah tanggung jawab pemanggil dan menentukan kebenaran hasil.</b>
+	 * Format yang diharapkan adalah {@code ",admin,kasir1,"} justru agar pemeriksaan keanggotaan
+	 * cukup memakai pencarian substring {@code ",<userId>,"} tanpa memecah string. Bila pemanggil
+	 * menyimpan {@code "admin,kasir1"} tanpa koma di ujung, anggota pertama dan terakhir tidak akan
+	 * cocok. Sebaliknya, karena pencocokan berbasis substring, userId yang merupakan bagian dari
+	 * userId lain berpotensi cocok keliru bila koma pembungkus tidak konsisten. Entity ini tidak
+	 * menegakkan format tersebut sama sekali.</p>
+	 *
+	 * @param userBolehUbahHarga CSV userId berkoma pembungkus, boleh {@code null}
+	 */
 	public void setUserBolehUbahHarga(String userBolehUbahHarga) {
 		this.userBolehUbahHarga = userBolehUbahHarga;
 	}
@@ -729,6 +912,23 @@ public class Toko extends GeneralValueObject {
 		return otomatisBayarSetelahJam24;
 	}
 
+	/**
+	 * Setter {@link #getOtomatisBayarSetelahJam24()}.
+	 *
+	 * <p><b>Jangan pernah menormalkan {@code null} menjadi {@code false} pada jalur simpan.</b>
+	 * Field ini TRI-STATE dan {@code null} adalah nilai bermakna ("ikut pengaturan global"), bukan
+	 * "belum diisi". Menormalkannya akan mengunci toko pada keadaan mati secara permanen terhadap
+	 * pengaturan global -- persis kebalikan dari maksud tri-state, sebagaimana dijelaskan pada
+	 * javadoc getter. Form yang menyunting field ini karena itu memerlukan kendali tiga pilihan
+	 * (ikut global / nyala / mati), bukan kotak centang dua keadaan.</p>
+	 *
+	 * <p>Perlu disadari otomatisasi ini menandai pesanan sebagai TERBAYAR tanpa ada uang yang
+	 * benar-benar diterima -- ia menutup piutang berdasarkan berlalunya waktu, bukan berdasarkan
+	 * penerimaan kas. Menyalakannya adalah keputusan kebijakan akuntansi, bukan sekadar kenyamanan
+	 * operasional.</p>
+	 *
+	 * @param otomatisBayarSetelahJam24 {@code null} ikut global, {@code TRUE} nyala, {@code FALSE} mati
+	 */
 	public void setOtomatisBayarSetelahJam24(Boolean otomatisBayarSetelahJam24) {
 		this.otomatisBayarSetelahJam24 = otomatisBayarSetelahJam24;
 	}
@@ -743,6 +943,15 @@ public class Toko extends GeneralValueObject {
 		return otomatisLayaniSetelahJam24;
 	}
 
+	/**
+	 * Setter {@link #getOtomatisLayaniSetelahJam24()} -- TRI-STATE, sama seperti
+	 * {@link #setOtomatisBayarSetelahJam24(Boolean)}: {@code null} berarti "ikut pengaturan global"
+	 * dan tidak boleh dinormalkan menjadi {@code false}. Lihat javadoc setter tersebut untuk alasan
+	 * dan konsekuensinya. Berbeda dari otomatisasi pembayaran, penandaan terlayani tidak berdampak
+	 * akuntansi -- ia hanya menutup antrean pelayanan yang tertinggal terbuka.
+	 *
+	 * @param otomatisLayaniSetelahJam24 {@code null} ikut global, {@code TRUE} nyala, {@code FALSE} mati
+	 */
 	public void setOtomatisLayaniSetelahJam24(Boolean otomatisLayaniSetelahJam24) {
 		this.otomatisLayaniSetelahJam24 = otomatisLayaniSetelahJam24;
 	}
@@ -759,19 +968,56 @@ public class Toko extends GeneralValueObject {
 		return roleBolehUbahHarga;
 	}
 
+	/**
+	 * Setter {@link #getRoleBolehUbahHarga()} -- menyimpan CSV daftar putih role APA ADANYA, dengan
+	 * kewajiban koma pembungkus dan risiko pencocokan substring yang sama persis seperti
+	 * {@link #setUserBolehUbahHarga(String)}; lihat javadoc setter tersebut.
+	 *
+	 * <p>Perlu diingat hubungannya dengan daftar pengguna adalah OR, bukan AND: memberi izin lewat
+	 * role secara otomatis memberi izin kepada SETIAP pengguna yang memegang role itu, tanpa perlu
+	 * namanya tercantum di daftar pengguna. Daftar ini karena itu jauh lebih luas dampaknya per
+	 * entri dibanding daftar userId, dan tidak ada mekanisme pengecualian per pengguna terhadap
+	 * role yang sudah diberi izin.</p>
+	 *
+	 * @param roleBolehUbahHarga CSV roleId berkoma pembungkus, boleh {@code null}
+	 */
 	public void setRoleBolehUbahHarga(String roleBolehUbahHarga) {
 		this.roleBolehUbahHarga = roleBolehUbahHarga;
 	}
 
+	/**
+	 * Penanda toko khusus demo/UAT -- dipakai untuk memisahkan gerai percobaan berisi data contoh
+	 * dari gerai produksi, terutama oleh generator data sample dan layar yang sengaja menyembunyikan
+	 * toko demo.
+	 *
+	 * <p>Getter null-safe dengan default {@code Boolean.FALSE} (FAIL-CLOSED) -- arah default yang
+	 * benar untuk penanda semacam ini: baris lama dan toko yang belum pernah dikonfigurasi dianggap
+	 * PRODUKSI, sehingga data contoh mustahil menyelinap ke gerai sungguhan hanya karena kolomnya
+	 * belum terisi. Kesalahan yang mungkin terjadi hanyalah toko demo yang lupa ditandai lalu
+	 * diperlakukan sebagai produksi, dan itu jauh lebih aman daripada kebalikannya.</p>
+	 *
+	 * <p>Penanda ini murni deklaratif: ia TIDAK menghalangi transaksi nyata, tidak mengisolasi data,
+	 * dan tidak mencegah toko demo muncul pada laporan yang tidak sengaja memfilternya. Hanya
+	 * pemanggil yang memeriksanya yang terpengaruh.</p>
+	 *
+	 * @return {@code true} bila toko ditandai demo/UAT; {@code false} untuk kolom {@code null}
+	 */
 	@Column(name = "toko_demo", nullable = true)
 	public Boolean getTokoDemo() {
 		return tokoDemo == null ? Boolean.FALSE : tokoDemo;
 	}
 
+	/**
+	 * Setter {@link #getTokoDemo()}. Menyetel {@code null} secara efektif sama dengan
+	 * {@code false} (toko dianggap produksi) karena default fail-closed pada getter.
+	 *
+	 * @param tokoDemo {@code true} menandai toko sebagai demo/UAT
+	 */
 	public void setTokoDemo(Boolean tokoDemo) {
 		this.tokoDemo = tokoDemo;
 	}
 
+	/** Unit usaha toko dalam JSON; lihat {@link #getUnitUsahaJson()}. */
 	private String unitUsahaJson;
 
 	/**
@@ -789,10 +1035,20 @@ public class Toko extends GeneralValueObject {
 		return unitUsahaJson;
 	}
 
+	/**
+	 * Setter {@link #getUnitUsahaJson()} -- menerima JSON MENTAH tanpa memvalidasi bentuknya dan
+	 * tanpa memastikan kode di dalamnya dikenal {@code ais.common.UnitUsahaKatalog}. Kode tak
+	 * dikenal tersimpan apa adanya dan akan diabaikan diam-diam oleh pembacanya. Karena disimpan
+	 * sebagai teks, tidak ada integritas referensial: menghapus atau mengganti kode pada katalog
+	 * TIDAK memperbarui baris toko mana pun yang terlanjur menyimpannya.
+	 *
+	 * @param unitUsahaJson JSON array kode unit usaha, boleh {@code null}/kosong
+	 */
 	public void setUnitUsahaJson(String unitUsahaJson) {
 		this.unitUsahaJson = unitUsahaJson;
 	}
 
+	/** Gudang cabang pemasok toko ini (rujukan, tidak memblokir); lihat {@link #getGudangPemasok()}. */
 	private Gudang gudangPemasok;
 
 	/**
@@ -809,11 +1065,28 @@ public class Toko extends GeneralValueObject {
 		return gudangPemasok;
 	}
 
+	/**
+	 * Setter {@link #getGudangPemasok()} -- menetapkan gudang cabang penanggung jawab pasokan
+	 * sebagai RUJUKAN saja. Menyetelnya TIDAK memblokir pengiriman dari gudang lain, yang tetap
+	 * bebas seperti sebelum field ini ada; satu-satunya pembaca yang bertindak atasnya adalah
+	 * {@code StokThresholdScheduler} saat menentukan ke gudang mana pengajuan otomatis ditujukan.
+	 * Menyetel {@code null} berarti belum ditentukan.
+	 *
+	 * <p>Perhatikan relasi ini menyeberangi paket ke {@code ais.database.model.sirs.Gudang} dan
+	 * getter-nya tidak memanggil {@link ais.database.model.GeneralValueObject#check(Object)},
+	 * sehingga rawan proxy lazy pada objek yang sudah <i>detached</i> -- sama seperti seluruh relasi
+	 * lain pada kelas ini.</p>
+	 *
+	 * @param gudangPemasok gudang cabang pemasok, boleh {@code null}
+	 */
 	public void setGudangPemasok(Gudang gudangPemasok) {
 		this.gudangPemasok = gudangPemasok;
 	}
 
+	/** Pemilik toko pada portal ebisnis.id; lihat {@link #getPendaftar()}. */
 	private Pendaftar pendaftar;
+
+	/** Brand/sub-merek opsional; lihat {@link #getBrand()}. */
 	private Brand brand;
 
 	/**
@@ -828,6 +1101,19 @@ public class Toko extends GeneralValueObject {
 		return pendaftar;
 	}
 
+	/**
+	 * Setter {@link #getPendaftar()} -- menautkan toko ke pemiliknya pada portal ebisnis.id.
+	 *
+	 * <p>Field ini adalah SATU-SATUNYA pengait kepemilikan pada kelas ini, dan perlu dipahami
+	 * batasnya: ia menyatakan siapa yang mendaftarkan toko, BUKAN sumbu tenant organisasi. Toko
+	 * warisan (kantin/koperasi) seluruhnya bernilai {@code null} di sini, sehingga field ini tidak
+	 * dapat dipakai sebagai pembatas lingkup umum -- filter berdasarkan pendaftar akan menyisihkan
+	 * semua toko lama sekaligus. Lihat javadoc kelas mengenai ketiadaan sumbu tenant organisasi
+	 * pada {@code Toko}. Nullability-nya disengaja agar penambahan kolom ini tidak mengubah
+	 * perilaku toko-toko yang sudah ada sama sekali.</p>
+	 *
+	 * @param pendaftar pemilik pada portal ebisnis.id, boleh {@code null} untuk toko warisan
+	 */
 	public void setPendaftar(Pendaftar pendaftar) {
 		this.pendaftar = pendaftar;
 	}
@@ -839,6 +1125,14 @@ public class Toko extends GeneralValueObject {
 		return brand;
 	}
 
+	/**
+	 * Setter {@link #getBrand()} -- menautkan toko ke brand/sub-merek yang menaunginya. Murni
+	 * pengelompokan untuk pelaporan dan tampilan; TIDAK berperan sebagai batas tenant dan tidak
+	 * membatasi apa pun. Beberapa toko boleh berbagi satu brand, dan toko tanpa brand ({@code null})
+	 * sepenuhnya sah.
+	 *
+	 * @param brand brand penaung, boleh {@code null}
+	 */
 	public void setBrand(Brand brand) {
 		this.brand = brand;
 	}
@@ -852,12 +1146,42 @@ public class Toko extends GeneralValueObject {
 	 */
 	private ais.database.model.akunting.Akun akunKas;
 
+	/**
+	 * Akun Kas/Bank outlet -- lawan jurnal pembayaran dan penerimaan tunai toko ini.
+	 *
+	 * <p>Bersama {@link #getAkunPiutang()}, {@link #getAkunModalAwal()}, dan
+	 * {@link #getAkunLabaDitahan()}, field ini membentuk PEMETAAN AKUN PER OUTLET yang membuat satu
+	 * pemasangan AIS dapat membukukan beberapa gerai ke akun berbeda tanpa memisahkan bagan
+	 * akunnya. Keempatnya mengikuti resolusi BERJENJANG yang sama: nilai pada master toko ini
+	 * dipakai lebih dulu, dan bila {@code null} pemostingan jatuh ke konfigurasi global. Karena
+	 * itulah seluruhnya {@code nullable} -- pemasangan lama yang belum pernah memetakan akun
+	 * per-outlet terus berjalan persis seperti sebelumnya tanpa migrasi data.</p>
+	 *
+	 * <p>Konsekuensi yang perlu disadari: karena {@code null} bermakna "pakai konfigurasi global"
+	 * dan bukan kesalahan, salah memetakan akun di sini TIDAK menimbulkan kegagalan yang terlihat --
+	 * jurnal tetap terbentuk, hanya membebani akun yang keliru, dan selisihnya baru tampak saat
+	 * rekonsiliasi. Relasi menyeberang paket ke {@code ais.database.model.akunting.Akun} dan
+	 * getter-nya tidak memanggil {@link ais.database.model.GeneralValueObject#check(Object)},
+	 * sehingga rawan proxy lazy pada objek detached. Kolomnya dibuat otomatis oleh Hibernate pada
+	 * tabel utama -- ingat kewajiban ALTER manual tabel audit Envers yang dijelaskan pada javadoc
+	 * kelas.</p>
+	 *
+	 * @return akun kas/bank outlet, atau {@code null} untuk memakai konfigurasi global
+	 */
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_kas", nullable = true)
 	public ais.database.model.akunting.Akun getAkunKas() {
 		return akunKas;
 	}
 
+	/**
+	 * Setter {@link #getAkunKas()} -- TIDAK memvalidasi bahwa akun yang disetel bertipe kas/bank,
+	 * maupun bahwa ia berada pada bagan akun yang relevan. Akun bertipe apa pun akan diterima dan
+	 * dibebani saat pemostingan. Menyetel {@code null} mengembalikan outlet ke konfigurasi global.
+	 * Perubahan berlaku MAJU saja: jurnal yang sudah terbentuk tidak dipetakan ulang.
+	 *
+	 * @param akunKas akun kas/bank outlet, boleh {@code null}
+	 */
 	public void setAkunKas(ais.database.model.akunting.Akun akunKas) {
 		this.akunKas = akunKas;
 	}
@@ -870,12 +1194,30 @@ public class Toko extends GeneralValueObject {
 	 */
 	private ais.database.model.akunting.Akun akunPiutang;
 
+	/**
+	 * Akun Piutang Usaha outlet -- dikredit saat penerimaan piutang pelanggan dijurnal. Mengikuti
+	 * pola pemetaan akun per-outlet dengan cadangan konfigurasi global; lihat {@link #getAkunKas()}
+	 * untuk penjelasan lengkap mekanisme, konsekuensi, dan catatan proxy lazy yang berlaku sama
+	 * bagi keempat akun.
+	 *
+	 * <p>Akun inilah yang terpengaruh bila {@link #getOtomatisBayarSetelahJam24()} menyala:
+	 * otomatisasi tersebut menutup piutang berdasarkan berlalunya waktu, bukan penerimaan kas, dan
+	 * kreditnya masuk ke akun ini.</p>
+	 *
+	 * @return akun piutang usaha outlet, atau {@code null} untuk memakai konfigurasi global
+	 */
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_piutang", nullable = true)
 	public ais.database.model.akunting.Akun getAkunPiutang() {
 		return akunPiutang;
 	}
 
+	/**
+	 * Setter {@link #getAkunPiutang()} -- tanpa validasi tipe akun, berlaku maju saja; lihat
+	 * {@link #setAkunKas(ais.database.model.akunting.Akun)}.
+	 *
+	 * @param akunPiutang akun piutang usaha outlet, boleh {@code null}
+	 */
 	public void setAkunPiutang(ais.database.model.akunting.Akun akunPiutang) {
 		this.akunPiutang = akunPiutang;
 	}
@@ -888,12 +1230,32 @@ public class Toko extends GeneralValueObject {
 	 */
 	private ais.database.model.akunting.Akun akunModalAwal;
 
+	/**
+	 * Akun Modal/Ekuitas Awal outlet -- menampung SELISIH debet-kredit pada jurnal pembukaan (saldo
+	 * awal). Mengikuti pola pemetaan akun per-outlet dengan cadangan konfigurasi global; lihat
+	 * {@link #getAkunKas()} untuk penjelasan lengkapnya.
+	 *
+	 * <p>Perannya sebagai penampung selisih membuat akun ini perlu perhatian khusus: ia menyerap
+	 * apa pun yang tidak seimbang pada jurnal pembukaan agar jurnal tetap balance. Akibatnya
+	 * kesalahan pada saldo awal TIDAK menggagalkan pembukaan, melainkan mengendap sebagai angka
+	 * pada akun ini -- saldo yang tidak wajar di sini adalah petunjuk pertama bahwa saldo awal
+	 * outlet perlu ditinjau ulang.</p>
+	 *
+	 * @return akun modal/ekuitas awal outlet, atau {@code null} untuk memakai konfigurasi global
+	 */
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_modal_awal", nullable = true)
 	public ais.database.model.akunting.Akun getAkunModalAwal() {
 		return akunModalAwal;
 	}
 
+	/**
+	 * Setter {@link #getAkunModalAwal()} -- tanpa validasi tipe akun, berlaku maju saja; lihat
+	 * {@link #setAkunKas(ais.database.model.akunting.Akun)}. Mengubahnya setelah jurnal pembukaan
+	 * terbentuk tidak memindahkan selisih yang sudah terlanjur mengendap di akun sebelumnya.
+	 *
+	 * @param akunModalAwal akun modal/ekuitas awal outlet, boleh {@code null}
+	 */
 	public void setAkunModalAwal(ais.database.model.akunting.Akun akunModalAwal) {
 		this.akunModalAwal = akunModalAwal;
 	}
@@ -906,12 +1268,32 @@ public class Toko extends GeneralValueObject {
 	 */
 	private ais.database.model.akunting.Akun akunLabaDitahan;
 
+	/**
+	 * Akun Laba Ditahan outlet -- tujuan pemindahan laba/rugi bersih saat TUTUP BUKU. Mengikuti pola
+	 * pemetaan akun per-outlet dengan cadangan konfigurasi global; lihat {@link #getAkunKas()} untuk
+	 * penjelasan lengkapnya.
+	 *
+	 * <p>Berbeda dari ketiga akun lain yang dipakai pada transaksi harian, akun ini hanya tersentuh
+	 * pada peristiwa tutup buku yang jarang dan sulit dibatalkan. Kesalahan pemetaan di sini karena
+	 * itu berumur panjang: ia tidak akan terdeteksi oleh pemakaian sehari-hari, dan baru muncul
+	 * sebagai laba ditahan yang salah tempat pada laporan posisi keuangan setelah periode ditutup.
+	 * Pastikan pemetaan sudah benar SEBELUM tutup buku pertama outlet ini.</p>
+	 *
+	 * @return akun laba ditahan outlet, atau {@code null} untuk memakai konfigurasi global
+	 */
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_laba_ditahan", nullable = true)
 	public ais.database.model.akunting.Akun getAkunLabaDitahan() {
 		return akunLabaDitahan;
 	}
 
+	/**
+	 * Setter {@link #getAkunLabaDitahan()} -- tanpa validasi tipe akun, berlaku maju saja; lihat
+	 * {@link #setAkunKas(ais.database.model.akunting.Akun)}. Mengubahnya setelah tutup buku tidak
+	 * memindahkan laba ditahan yang sudah terlanjur dibukukan ke akun sebelumnya.
+	 *
+	 * @param akunLabaDitahan akun laba ditahan outlet, boleh {@code null}
+	 */
 	public void setAkunLabaDitahan(ais.database.model.akunting.Akun akunLabaDitahan) {
 		this.akunLabaDitahan = akunLabaDitahan;
 	}
