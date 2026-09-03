@@ -1,5 +1,63 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 58 — SELESAI 100% (3 Sep 2026) — broken access control baru (referensi guru, asrama), verifikasi negatif OrganisasiSiswa, pewarisan hak menu kini 15 instance
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/JadwalPelajaranPunyaItem.java`**
+  (r83713) — 134→435 baris, 100% (24 anggota). Dugaan "model jadwal
+  alternatif" DITOLAK — "Item" merujuk paket perpustakaan
+  (`library.Item`), entity ini daftar buku referensi per jadwal.
+  **Broken access control baru**: tombol Hapus di
+  `JadwalPelajaranPunyaItemHelper` hanya cek `getMahasiswa()==null`
+  (bukan siswa) sementara kontrol lain di layar sama cek siswa —
+  siswa yang buka tab "Buku" dari kalender mingguannya bisa menghapus
+  daftar rujukan milik gurunya. Bug tak berbahaya: tombol Revisi
+  memanggil `RevisiHelper` dengan kelas AUDIT SALAH (`SaldoAwalDetail`,
+  bukan entity ini) — riwayat revisi yang tampil salah tempel.
+- **`ais/database/model/sekolah/PendidikanOrangTuaSiswa.java`**
+  (r83714) — 125→495 baris, 100% (28 anggota). Katalog jenjang
+  pendidikan ortu, auto-seed dari PT (tapi sumbernya juga tak pernah
+  di-seed kode → tabel awalnya kosong). Pewarisan hak menu — pintu
+  SAMA dengan 4 kembarannya (tab "Konfigurasi Tampilan Siswa").
+  Observasi mentah `aktif` dilaporkan tanpa kesimpulan (sesuai
+  instruksi kalibrasi b57).
+- **`ais/database/model/sekolah/AsramaSiswa.java`** (r83715) —
+  126→676 baris, 100% (27 anggota). Katalog LABEL murni (bukan
+  gedung/lantai/kamar). **Broken access control baru**: tombol
+  "Singkronkan" — `Common.appendKeToolbar` tidak menyalin
+  `isVisible()` dari tombol jangkarnya, hak BACA saja cukup memicu
+  mutasi massal `Siswa.asrama` LINTAS SELURUH INSTALASI tanpa filter
+  tenant. Fail-open tenant untuk pengguna terkait `Dosen` (yayasan
+  null). Pewarisan hak menu instance ke-15. **Mendukung mekanisme
+  "true tertulis saat INSERT"** untuk pola aktif (bukan penjelasan
+  `JenisTinggalSiswa` b57).
+- **`ais/database/model/sekolah/PembinaSiswa.java`** (r83716) —
+  128→499 baris, 100% (27 anggota). Kolom `pembina` bertipe `Tbmuser`
+  (akun), BUKAN `Guru` — picker tanpa batas sekolah/yayasan.
+  **Verifikasi NEGATIF pola `OrganisasiSiswa`** (SQLi & bug schema
+  TIDAK ada di sini — menenangkan). Bug baru: cache preload
+  `ConstantValues` punya batas 100 baris tanpa fallback DB — isi
+  otomatis pembina berhenti bekerja secara acak begitu instalasi
+  melewati ambang itu. Filter "Nama Pembina" rusak (alias salah,
+  QueryException berisik — beda dari pola `OrganisasiSiswa` yang
+  gagal diam-diam).
+- **`ais/database/model/sekolah/PekerjaanOrtuSiswa.java`** (r83717)
+  — 125→583 baris, 100% (28 anggota). Bug auto-seed: kode Feeder
+  HILANG TOTAL (`Pekerjaan.getKode()` yang dipanggil bukan
+  `getFeeder()`, dan `kode` tidak dipetakan di kelas sumber → selalu
+  null). Bug promosi PPDB→siswa: `CommonPSB` menyalin properti
+  reflektif berbasis NAMA, tipe `Pekerjaan`(PT)→`PekerjaanOrtuSiswa`
+  tidak cocok → exception ditelan, data pekerjaan ortu tak pernah
+  terbawa dari pendaftaran ke biodata siswa. Observasi mentah `aktif`
+  dilaporkan tanpa kesimpulan.
+
+Tidak ada task baru dibuat — broken access control baru memperkuat
+`task_5e93a600`. Kumulatif sesi ini: **467+ file** (120 batch 34-58)
++ 343 (sesi sebelumnya) dari 7.401 total (~11,7%).
+
 ## Batch 57 — SELESAI 100% (3 Sep 2026) — instance ke-6 keluarga PSB, broken access control finansial baru, KALIBRASI ULANG diperlukan untuk pola "aktif tak pernah ditulis"
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
