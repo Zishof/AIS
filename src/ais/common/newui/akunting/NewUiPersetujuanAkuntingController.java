@@ -381,17 +381,6 @@ public final class NewUiPersetujuanAkuntingController {
     }
 
     /**
-     * Pemanggilan getter lewat refleksi, untuk yang TIDAK ada di kelas basis.
-     *
-     * <p>{@code GeneralValueObject} sudah mendeklarasikan id, kode, nama, dan
-     * keterangan sehingga keempatnya dipanggil langsung. Sisanya — nilai,
-     * pengaju, penyetuju, satuan kerja, tanggal, dan status — dimiliki keenam
-     * entity dengan nama yang sama persis namun tanpa antarmuka yang
-     * mendeklarasikannya. Refleksi menjaga kontrak tetap satu; bila kelak
-     * antarmuka bersama ditambahkan pada model, bagian ini dapat diganti
-     * pemanggilan langsung tanpa mengubah bentuk JSON-nya.</p>
-     */
-    /**
      * Menolak akses bila satuan kerja pengajuan {@code d} berada di luar
      * {@code allowed}. Kandidat tanpa satuan kerja selalu diizinkan, sama
      * seperti penyaringan di {@link #kandidat}.
@@ -408,6 +397,17 @@ public final class NewUiPersetujuanAkuntingController {
         throw new IllegalArgumentException("Pengajuan tidak ditemukan.");
     }
 
+    /**
+     * Pemanggilan getter lewat refleksi, untuk yang TIDAK ada di kelas basis.
+     *
+     * <p>{@code GeneralValueObject} sudah mendeklarasikan id, kode, nama, dan
+     * keterangan sehingga keempatnya dipanggil langsung. Sisanya — nilai,
+     * pengaju, penyetuju, satuan kerja, tanggal, dan status — dimiliki keenam
+     * entity dengan nama yang sama persis namun tanpa antarmuka yang
+     * mendeklarasikannya. Refleksi menjaga kontrak tetap satu; bila kelak
+     * antarmuka bersama ditambahkan pada model, bagian ini dapat diganti
+     * pemanggilan langsung tanpa mengubah bentuk JSON-nya.</p>
+     */
     private static Object panggilObjek(Object target, String getter) {
         try {
             return target.getClass().getMethod(getter).invoke(target);

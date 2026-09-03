@@ -2486,8 +2486,9 @@ public class ProsesTransferAction extends GenericAutowireComposer
 	 *   <li>Tentukan index berikutnya: jika konfigurasi menggunakan index urut manual
 	 *       ({@code getGunakanIndexUrut()}), ambil dari {@code getNomorIndex()};
 	 *       jika tidak, hitung dari database via {@link #getindex(NomorSurat)}.</li>
-	 *   <li>Jika {@code tambah=true}, increment index di database via
-	 *       {@code NomorSurat.tambahIndexNomorSurat()}.</li>
+	 *   <li>Jika {@code tambah=true} dan mode index urut aktif, index dibaca sekaligus
+	 *       dinaikkan atomik di database via
+	 *       {@code NomorSurat.ambilLaluTambahIndexNomorSurat()}.</li>
 	 *   <li>Format nomor via {@code NomorSurat.format(index, tanggal)}.</li>
 	 *   <li>Pastikan kode unik via {@code KodeUnikUtil.pastikanUnik()} yang menambahkan
 	 *       suffix -2, -3, dst jika kode sudah ada.</li>

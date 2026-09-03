@@ -2607,8 +2607,9 @@ public class PertangungjawabanKasBesarAction extends GenericAutowireComposer
 	 *       jika {@code gunakanIndexUrut=true}, memakai {@code nomorIndex} yang disimpan
 	 *       di konfigurasi; jika tidak, memanggil {@link #getindex(NomorSurat)} yang
 	 *       menghitung dari jumlah data yang ada di database.</li>
-	 *   <li>Jika {@code tambah=true}, memanggil {@code NomorSurat.tambahIndexNomorSurat}
-	 *       untuk menaikkan counter sequence.</li>
+	 *   <li>Jika {@code tambah=true} dan mode index urut aktif, memanggil
+	 *       {@code NomorSurat.ambilLaluTambahIndexNomorSurat} untuk membaca sekaligus
+	 *       menaikkan counter sequence secara atomik.</li>
 	 *   <li>Memformat kode via {@code NomorSurat.format(index, tanggal, satuanKerja)}.</li>
 	 *   <li>Memastikan keunikan kode dengan {@link ais.action.master.KodeUnikUtil#pastikanUnik}
 	 *       (menambahkan sufiks -2/-3 jika sudah dipakai).</li>

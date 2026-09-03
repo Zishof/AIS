@@ -2957,9 +2957,9 @@ public class UangMukaAction extends GenericAutowireComposer
 	 * <ol>
 	 *   <li>Tentukan index dari konfigurasi (getGunakanIndexUrut) atau hitung
 	 *       via {@code getindex}.</li>
-	 *   <li>Bila {@code tambah=true}: increment index via
-	 *       {@code NomorSurat.tambahIndexNomorSurat} sebelum generate agar counter
-	 *       bertambah permanen di database.</li>
+	 *   <li>Bila {@code tambah=true} dan mode index urut aktif: index dibaca sekaligus
+	 *       dinaikkan atomik via {@code NomorSurat.ambilLaluTambahIndexNomorSurat}
+	 *       (menutup celah TOCTOU pola baca-lalu-tambah terpisah).</li>
 	 *   <li>Format kode dengan {@code format(index, tanggal)} tanpa parameter satuan
 	 *       kerja (berbeda dengan generateCode di PertangungjawabanAction yang
 	 *       menerima SatuanKerja).</li>

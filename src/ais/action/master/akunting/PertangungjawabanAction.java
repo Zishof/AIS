@@ -3191,8 +3191,9 @@ public class PertangungjawabanAction extends GenericAutowireComposer
 	 *       ({@code getGunakanIndexUrut()}), ambil dari {@code getNomorIndex()}.
 	 *       Bila tidak, hitung dari jumlah data yang sudah ada via {@code getindex()}.</li>
 	 *   <li>Bila parameter {@code tambah} true (simpan sungguhan, bukan preview),
-	 *       increment index di database via {@code NomorSurat.tambahIndexNomorSurat}
-	 *       untuk mencegah duplikasi pada simpan berikutnya.</li>
+	 *       (dan mode index urut aktif) index dibaca sekaligus dinaikkan atomik via
+	 *       {@code NomorSurat.ambilLaluTambahIndexNomorSurat} untuk mencegah duplikasi
+	 *       pada simpan berikutnya.</li>
 	 *   <li>Format kode menggunakan {@code format(index, tanggal, satuanKerja)} yang
 	 *       menggabungkan prefix, index dengan padding, tahun/bulan, dan kode satuan kerja
 	 *       sesuai pola format yang dikonfigurasi.</li>

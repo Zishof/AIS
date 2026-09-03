@@ -1930,8 +1930,9 @@ public class PenggantianKasKecilAction extends GenericAutowireComposer
 	 *   <li>Menentukan indeks urutan: jika {@code gunakanIndexUrut} true, pakai
 	 *       {@code nomorIndex} langsung; jika tidak, hitung via {@code getindex()}
 	 *       yang menghitung rowCount dari DB dengan aturan reset.</li>
-	 *   <li>Jika {@code tambah} true, menaikkan indeks nomor surat via
-	 *       {@code NomorSurat.tambahIndexNomorSurat()} (side effect: mengubah DB).</li>
+	 *   <li>Jika {@code tambah} true dan mode index urut aktif, index dibaca sekaligus
+	 *       dinaikkan atomik via {@code NomorSurat.ambilLaluTambahIndexNomorSurat()}
+	 *       (side effect: mengubah DB, terkunci lewat {@code KunciEntityHelper}).</li>
 	 *   <li>Memformat kode menggunakan {@code NomorSurat.format(index, tanggalSekarang)}.</li>
 	 *   <li>Memastikan kode unik via {@code KodeUnikUtil.pastikanUnik()} yang menambahkan
 	 *       sufiks jika kode sudah ada di DB.</li>

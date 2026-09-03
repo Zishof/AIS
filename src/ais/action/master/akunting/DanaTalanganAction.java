@@ -1584,9 +1584,10 @@ public class DanaTalanganAction extends GenericAutowireComposer
 	 *   <li>Jika konfigurasi ada, menentukan index urutan: jika menggunakan indeks urut manual
 	 *       ({@code gunakanIndexUrut = true}), diambil dari field {@code nomorIndex}; jika tidak,
 	 *       dihitung dari database via {@code getindex(NomorSurat)}.</li>
-	 *   <li>Jika parameter {@code tambah} adalah {@code true} (simpan definitif), indeks
-	 *       NomorSurat ditambah satu via {@code NomorSurat.tambahIndexNomorSurat} untuk
-	 *       mencegah duplikasi di pemanggilan berikutnya.</li>
+	 *   <li>Jika parameter {@code tambah} adalah {@code true} (simpan definitif) dan mode
+	 *       index urut aktif, indeks dibaca sekaligus ditambah satu secara atomik via
+	 *       {@code NomorSurat.ambilLaluTambahIndexNomorSurat} untuk mencegah duplikasi
+	 *       di pemanggilan berikutnya.</li>
 	 *   <li>Format kode dihasilkan dari template NomorSurat dengan index dan tanggal saat ini.</li>
 	 *   <li>Keunikan akhir dijamin oleh {@code KodeUnikUtil.pastikanUnik} yang menambah sufiks
 	 *       numerik (-2, -3, dst.) jika kode sudah ada.</li>
