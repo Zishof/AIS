@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 43 — SELESAI 100% (3 Sep 2026) — ENDPOINT PRA-OTENTIKASI DITEMUKAN, `task_5e93a600` DIKONFIRMASI 3X INDEPENDEN
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/sekolah/PelanggaranDanHukuman.java`** (r83624)
+  — 206→815 baris, 100% (35 anggota). Master paket pemetaan
+  pelanggaran↔hukuman (bukan transaksi). Klaim "nol filter sekolah"
+  TERKONFIRMASI simetris untuk KEDUA sisi. Bug nyata: tombol "Batal"
+  tidak membatalkan apa pun (alias langsung ke `PersistentSet` entity
+  terkelola, bukan salinan — perubahan centang tetap ter-flush).
+  Instance baru bug TreeSet penciutan senyap. Memperkuat `task_5e93a600`
+  dengan celah tambahan: daftar pilihan paket tanpa filter apa pun.
+- **`ais/database/model/sekolah/PelanggaranSiswa.java`** (r83626) —
+  248→1026 baris, 100% (55 anggota). **VERIFIKASI INDEPENDEN KETIGA
+  `task_5e93a600` — TERKONFIRMASI PENUH**, dengan amplifier BARU:
+  kebocoran ke akun orang tua ditulis ke cache L3 APP-WIDE (persisten
+  lintas-sesi, bukan sekali per permintaan). Akar fail-open dilacak ke
+  `OrangTua.ambilAnakSiswa()` — TIGA kondisi berbeda menghasilkan
+  koleksi kosong (bukan satu). Bug nyata: kolom `waktu` tidak pernah
+  diisi formulir (readonly, disetel ke waktu SIMPAN, bukan waktu
+  kejadian) — merusak urutan grid/laporan/dasbor.
+- **`ais/database/model/sekolah/ParameterTambahanKegiatanSiswa.java`**
+  (r83623) — 149→525 baris, 100% (26 anggota). Struktur BEDA dari
+  keluarga lain: 3 lapis (bukan 4, tidak ada `KelompokParameterTambahan
+  KegiatanSiswa` — perannya diambil `KelompokKegiatanSiswa`), dan
+  atribut BENAR-BENAR hidup runtime (bukan kode mati seperti mayoritas
+  keluarga). Broken access control ADA — **hit rate `task_58f74860`
+  kini 15/15, MENUNTASKAN seluruh daftar kandidat eksplisit**.
+- **`ais/database/model/sekolah/KunjunganSiswa.java`** (r83625) —
+  206→642 baris, 100% (43 anggota). Domain terverifikasi: log absensi
+  kiosk scan-kartu (BUKAN konseling/BK). **TEMUAN PALING KRITIS SEJAK
+  AWAL INISIATIF**: servlet `/welsis` SEPENUHNYA PRA-OTENTIKASI —
+  `action=list` dump PII massal (nama, NIS, kelas, alamat) lintas
+  sekolah/yayasan TANPA LOGIN; `action=scan` memalsukan absensi siswa
+  MANA PUN tanpa kredensial, sekaligus jadi oracle identitas untuk
+  brute-force NIS/NISN. **Task eskalasi baru: `task_acfae1fb`.**
+- **`ais/database/model/sekolah/PembelianSiswa.java`** (r83627) —
+  202→749 baris, 100% (42 anggota). Domain terverifikasi: nota belanja
+  kantin siswa (sisi pengeluaran deposit). **Entity YATIM TOTAL** (nol
+  referensi di luar berkasnya sendiri) — fitur "Belanja Siswa" yang
+  HIDUP ternyata memakai entity BERBEDA (`inventory.Pembelian`),
+  jebakan penamaan berbahaya bagi pembaca kode masa depan. Getter
+  destruktif berantai DUA tingkat (varian terparah yang pernah
+  ditemukan). Risiko keamanan saat ini NIHIL (tabel tak pernah diisi).
+
+**DUA TASK ESKALASI PENTING batch ini**: `task_5e93a600` (data disiplin
+siswa) dikonfirmasi INDEPENDEN 3 KALI dari 3 sudut entity berbeda
+(Pelanggaran b42, Hukuman b42, PelanggaranSiswa b43) — keyakinan sangat
+tinggi. `task_acfae1fb` (BARU) — endpoint `/welsis` pra-otentikasi,
+kategori kerentanan PALING PARAH sejauh ini karena TIDAK BUTUH LOGIN
+SAMA SEKALI (beda dari mayoritas temuan proyek yang butuh minimal 1
+akun sah).
+
+**`task_58f74860` TUNTAS 100% (15/15)** — seluruh kandidat eksplisit
+keluarga `ParameterTambahan*Action` (10 PT + 5 sekolah) sudah
+diverifikasi, tanpa satu pun pengecualian.
+
+**Pola "getKeterangan() membalik kontrak"**: 0 instance baru batch ini.
+Tetap **23 instance** total.
+
+Total akumulasi 43 sesi: **393 file** dari 7.401 (~5,3%).
+
 ## Batch 42 — SELESAI 100% (3 Sep 2026) — KEBOCORAN DATA DISIPLIN SISWA DITEMUKAN, TASK ESKALASI BARU
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
