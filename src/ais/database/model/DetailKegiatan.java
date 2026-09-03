@@ -138,7 +138,13 @@ public class DetailKegiatan extends GeneralValueObject {
 	public Double getBiaya() {
 		kunci = getKunci();
 		try {
-			if (kunci != null && biayaTemporary != null) {
+			Kegiatan kegiatanSnapshot = kegiatan == null ? getKegiatan() : kegiatan;
+			Double nominalTerkunci = kegiatanSnapshot == null ? null
+					: kegiatanSnapshot.ambilNominalTagihanTerkunci(detailBiaya,
+							getPengaturanPembayaranBulanan(), this);
+			if (nominalTerkunci != null) {
+				biaya = nominalTerkunci;
+			} else if (kunci != null && biayaTemporary != null) {
 				biaya = biayaTemporary;
 			} else if (getPengaturanPembayaranBulanan() != null
 					&& getPengaturanPembayaranBulanan().getDetailBiaya() != null

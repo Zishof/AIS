@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Restrictions;
@@ -58,6 +59,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.VOMahasiswa;
 import ais.database.model.akunting.GrupTransaksi;
 import ais.ui.util.MyCheckboxConfig;
+import ais.ui.util.MyButtonConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyDoubleboxMin;
@@ -65,6 +67,7 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyLabelAgakKecilBoldMerah;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
+import ais.ui.util.MyWindow;
 
 public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -92,6 +95,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 	private String tahunAkademik;
 	private List<CicilanPembayaran> cicilanPembayarans;
 	private Label terbilangSisaPersen;
+	private boolean bolehEditTagihan;
 
 	public List<Long> bul = new ArrayList<Long>();
 	public List<Long> det = new ArrayList<Long>();
@@ -102,7 +106,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 			EventListener eventListener, Grid gridCicilan, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, Integer semester, String tahunAkademik,
 			Map<Long, Double> dataTagihan, Grid currentGrid, Collection<DetailKegiatan> detailKegiatans,
-			EventListener refrsh) {
+			EventListener refrsh, boolean bolehEditTagihan) {
 		this.eventListener = eventListener;
 		this.kegiatan = kegiatan;
 		this.jadwalPembayaran = jadwalPembayaran;
@@ -126,6 +130,263 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 		this.detailKegiatans = detailKegiatans;
 		this.tahunAkademik = tahunAkademik;
 		this.tbmuser = Common.getCurrentUser();
+		this.bolehEditTagihan = bolehEditTagihan;
+	}
+
+	private boolean bolehUbahNominal(ItemBiaya itemBiaya) {
+		return bolehEditTagihan && tbmuser != null && tbmuser.getMahasiswa() == null
+				&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getCalonSiswa() == null && itemBiaya != null
+				&& Boolean.TRUE.equals(itemBiaya.getNilaiBisaDiubah());
+	}
+
+	private boolean nominalSudahTerkunci(DetailBiaya detailBiaya,
+			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, DetailKegiatan detailKegiatan) {
+		return kegiatan != null && kegiatan.ambilNominalTagihanTerkunci(detailBiaya,
+				pengaturanPembayaranBulanan, detailKegiatan) != null;
+	}
+
+	private void perbaruiNilaiPengurang(DetailBiaya detailBiaya, Double nominal) {
+		if (pengurangan == null || detailBiaya == null) return;
+		for (int i = pengurangan.size() - 1; i >= 0; i--) {
+			Object item = pengurangan.get(i).getAttribute("itemBiaya");
+			if (item instanceof DetailBiaya && detailBiaya.getId() != null
+					&& detailBiaya.getId().equals(((DetailBiaya) item).getId())) {
+				pengurangan.remove(i);
+			}
+		}
+		MyDoubleboxMin nilaiPengurang = new MyDoubleboxMin(-Math.abs(nominal == null ? 0.0 : nominal));
+		nilaiPengurang.setAttribute("itemBiaya", detailBiaya);
+		pengurangan.add(nilaiPengurang);
+	}
+
+	private static void tambahBarisInformasi(Rows rows, String judul, String nilai) {
+		Row row = new Row();
+		Label labelJudul = new Label(judul);
+		labelJudul.setStyle("font-weight:bold;color:#475569;");
+		labelJudul.setParent(row);
+		Label labelNilai = new Label(nilai == null || nilai.trim().isEmpty() ? "-" : nilai);
+		labelNilai.setMultiline(true);
+		labelNilai.setStyle("white-space:normal;");
+		labelNilai.setParent(row);
+		row.setParent(rows);
+	}
+
+	private void simpanNominalTagihanTerkunci(DetailKegiatan detailKegiatan, DetailBiaya detailBiaya,
+			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, Double nominalSebelum, Double nominalBaru,
+			String alasan) throws Exception {
+		if (!bolehUbahNominal(detailBiaya == null ? null : detailBiaya.getItemBiaya())) {
+			throw new SecurityException("Anda tidak mempunyai hak EDIT untuk mengubah nominal tagihan ini.");
+		}
+		if (kegiatan == null || kegiatan.getId() == null) {
+			throw new IllegalStateException("Data kegiatan pembayaran belum tersimpan.");
+		}
+
+		Session session = null;
+		Transaction tx = null;
+		try {
+			session = HibernateUtil.openSession();
+			tx = session.beginTransaction();
+			Kegiatan kegiatanDb = (Kegiatan) session.get(Kegiatan.class, kegiatan.getId(), LockMode.UPGRADE);
+			if (kegiatanDb == null) {
+				throw new IllegalStateException("Data kegiatan pembayaran tidak ditemukan.");
+			}
+
+			DetailBiaya detailBiayaDb = detailBiaya == null || detailBiaya.getId() == null ? null
+					: (DetailBiaya) session.get(DetailBiaya.class, detailBiaya.getId());
+			PengaturanPembayaranBulanan bulananDb = pengaturanPembayaranBulanan == null
+					|| pengaturanPembayaranBulanan.getId() == null ? null
+							: (PengaturanPembayaranBulanan) session.get(PengaturanPembayaranBulanan.class,
+									pengaturanPembayaranBulanan.getId());
+			ItemBiaya itemBiayaDb = detailBiayaDb == null ? null : detailBiayaDb.getItemBiaya();
+			if (itemBiayaDb == null || !Boolean.TRUE.equals(itemBiayaDb.getNilaiBisaDiubah())) {
+				throw new SecurityException("Item biaya ini tidak diizinkan berubah saat pembayaran.");
+			}
+
+			DetailKegiatan detailDb = detailKegiatan == null || detailKegiatan.getId() == null ? null
+					: (DetailKegiatan) session.get(DetailKegiatan.class, detailKegiatan.getId());
+			if (detailDb == null) {
+				detailDb = new DetailKegiatan();
+				detailDb.setKegiatan(kegiatanDb);
+				detailDb.setDetailBiaya(detailBiayaDb);
+				detailDb.setPengaturanPembayaranBulanan(bulananDb);
+				detailDb.setKeterangan(detailBiayaDb.getKeterangan());
+				detailDb.setBiaya(nominalBaru);
+				detailDb.setBiayaTemporary(nominalBaru);
+				session.save(detailDb);
+				session.flush();
+			} else {
+				detailDb.setBiaya(nominalBaru);
+				detailDb.setBiayaTemporary(nominalBaru);
+			}
+			kegiatanDb.appendDetailKegiatan(detailDb);
+			kegiatanDb.simpanNominalTagihanTerkunci(detailBiayaDb, bulananDb, detailDb, nominalSebelum,
+					nominalBaru, alasan, tbmuser.getUserId(), tbmuser.getUserNama());
+			session.flush();
+			tx.commit();
+
+			kegiatan.setNominalTagihanKunciJson(kegiatanDb.getNominalTagihanKunciJson());
+			if (detailKegiatan != null) {
+				detailKegiatan.setBiaya(nominalBaru);
+				detailKegiatan.setBiayaTemporary(nominalBaru);
+			}
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) tx.rollback();
+			throw e;
+		} finally {
+			if (session != null) HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	private void bukaPopupUbahNominal(final Row rowPembayaran, final DetailKegiatan detailKegiatan,
+			final DetailBiaya detailBiaya, final PengaturanPembayaranBulanan pengaturanPembayaranBulanan,
+			final Double nominalDitampilkan, final boolean negatif) throws Exception {
+		if (!bolehUbahNominal(detailBiaya == null ? null : detailBiaya.getItemBiaya())) {
+			MyMessageboxConfig.show("Anda tidak mempunyai hak EDIT untuk mengubah nominal tagihan ini.",
+					"Akses ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
+		final MyWindow window = new MyWindow("Ubah Nominal Tagihan", "normal", true);
+		window.setWidth(Common.isMobile() ? "100%" : "720px");
+		window.setSizable(true);
+		Vbox body = new Vbox();
+		body.setWidth("100%");
+		body.setSpacing("8px");
+		body.setParent(window);
+
+		Html info = new Html("<div style='padding:10px;border-radius:8px;background:#eff6ff;color:#1e3a8a'>"
+				+ "Nominal baru akan disimpan sebagai snapshot final pada kegiatan pembayaran, lengkap dengan alasan, "
+				+ "pelaku, dan waktu perubahan.</div>");
+		info.setParent(body);
+
+		Grid gridInfo = new Grid();
+		gridInfo.setWidth("100%");
+		Rows rowsInfo = new Rows();
+		rowsInfo.setParent(gridInfo);
+		gridInfo.setParent(body);
+		ItemBiaya itemBiaya = detailBiaya == null ? null : detailBiaya.getItemBiaya();
+		tambahBarisInformasi(rowsInfo, "Item biaya",
+				itemBiaya == null ? "-" : itemBiaya.getKode() + " - " + itemBiaya.getNama());
+		tambahBarisInformasi(rowsInfo, "Jenis kegiatan", kegiatan == null || kegiatan.getJenisKegiatan() == null
+				? "-" : kegiatan.getJenisKegiatan().getNamaKegiatan());
+		if (mahasiswa != null) {
+			tambahBarisInformasi(rowsInfo, "Mahasiswa", mahasiswa.getNim() + " - " + mahasiswa.getNama());
+		} else if (biodataCalonMahasiswa != null) {
+			tambahBarisInformasi(rowsInfo, "Calon mahasiswa", biodataCalonMahasiswa.getNoRegistrasi() + " - "
+					+ biodataCalonMahasiswa.getNama());
+		}
+		tambahBarisInformasi(rowsInfo, "Semester / tahun akademik", String.valueOf(semester) + " / "
+				+ (tahunAkademik == null ? "-" : tahunAkademik));
+		tambahBarisInformasi(rowsInfo, "Sumber tagihan", pengaturanPembayaranBulanan == null
+				? "Item biaya reguler" : "Pengaturan pembayaran bulanan");
+		tambahBarisInformasi(rowsInfo, "Uraian", detailBiaya == null ? "-" : detailBiaya.getKeterangan());
+		tambahBarisInformasi(rowsInfo, "Nominal saat ini", "Rp "
+				+ Common.numberFormat.get().format(nominalDitampilkan == null ? 0.0 : nominalDitampilkan));
+
+		Hbox barisNominal = new Hbox();
+		barisNominal.setWidth("100%");
+		new Label("Nominal baru *").setParent(barisNominal);
+		final MyDoublebox nominalBaru = new MyDoublebox(Math.abs(nominalDitampilkan == null ? 0.0
+				: nominalDitampilkan.doubleValue()));
+		nominalBaru.setWidth("220px");
+		nominalBaru.setParent(barisNominal);
+		if (negatif) new Label("(disimpan sebagai pengurang)").setParent(barisNominal);
+		barisNominal.setParent(body);
+
+		new Label("Catatan / alasan perubahan *").setParent(body);
+		final Textbox alasan = new Textbox();
+		alasan.setRows(4);
+		alasan.setMultiline(true);
+		alasan.setWidth("100%");
+		alasan.setTooltiptext("Jelaskan dasar perubahan nominal agar dapat diaudit.");
+		alasan.setParent(body);
+
+		Hbox aksi = new Hbox();
+		aksi.setPack("end");
+		aksi.setWidth("100%");
+		final MyButtonConfig simpanNominal = new MyButtonConfig("Simpan", "/img/save.gif");
+		MyButtonConfig batal = new MyButtonConfig("Batal", "/img/svg/close.svg");
+		simpanNominal.setParent(aksi);
+		batal.setParent(aksi);
+		aksi.setParent(body);
+
+		batal.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				window.detach();
+			}
+		});
+		simpanNominal.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				Double nilai = nominalBaru.getValue();
+				String catatan = alasan.getValue() == null ? "" : alasan.getValue().trim();
+				if (nilai == null || nilai.isNaN() || nilai.isInfinite() || nilai.doubleValue() < 0.0) {
+					MyMessageboxConfig.show("Nominal baru harus berupa angka nol atau lebih.", "Data belum valid",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+				if (catatan.isEmpty()) {
+					MyMessageboxConfig.show("Catatan/alasan perubahan wajib diisi.", "Data belum lengkap",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+				Double nilaiFinal = negatif ? Double.valueOf(-Math.abs(nilai.doubleValue())) : nilai;
+				Double lama = nominalDitampilkan == null ? 0.0 : nominalDitampilkan;
+				if (Double.compare(lama.doubleValue(), nilaiFinal.doubleValue()) == 0) {
+					MyMessageboxConfig.show("Nominal baru masih sama dengan nominal saat ini.", "Belum ada perubahan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					return;
+				}
+				simpanNominalTagihanTerkunci(detailKegiatan, detailBiaya, pengaturanPembayaranBulanan,
+						lama, nilaiFinal, catatan);
+				window.detach();
+				DetailPembayaranMahasiswaRenderer.this.eventListener.onEvent(new Event("", null, kegiatan));
+				Common.createDefaultTimer(new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						detailKegiatans = kegiatan == null || kegiatan.getId() == null ? null
+								: kegiatan.ambilDetailKegiatan(true);
+						Common.clear(rowPembayaran);
+						render(rowPembayaran, pengaturanPembayaranBulanan == null ? detailBiaya
+								: pengaturanPembayaranBulanan);
+						ubahWarnaStatus(cicilanPembayarans);
+					}
+				});
+			}
+		});
+		window.onModal();
+	}
+
+	private Label tampilkanNominalDenganIkonEdit(final Vbox vbox, final Row rowPembayaran,
+			final DetailKegiatan detailKegiatan, final DetailBiaya detailBiaya,
+			final PengaturanPembayaranBulanan pengaturanPembayaranBulanan, Double nominal, final boolean negatif) {
+		Hbox baris = new Hbox();
+		baris.setWidth("100%");
+		baris.setPack("end");
+		final Double nominalFinal = negatif ? Double.valueOf(-Math.abs(nominal == null ? 0.0 : nominal))
+				: Double.valueOf(nominal == null ? 0.0 : nominal);
+		Label label = new Label(Common.numberFormat.get().format(nominalFinal));
+		label.setStyle("text-align:right;");
+		label.setParent(baris);
+		rowPembayaran.setAttribute("tag", label);
+		if (bolehUbahNominal(detailBiaya == null ? null : detailBiaya.getItemBiaya())) {
+			Toolbarbutton editNominal = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
+			editNominal.setAttribute("editNominalTagihan", Boolean.TRUE);
+			editNominal.setTooltiptext("Ubah nominal tagihan dan catat alasannya");
+			editNominal.setStyle("margin-left:6px;min-width:24px;");
+			editNominal.setParent(baris);
+			editNominal.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					bukaPopupUbahNominal(rowPembayaran, detailKegiatan, detailBiaya,
+							pengaturanPembayaranBulanan, nominalFinal, negatif);
+				}
+			});
+		}
+		baris.setParent(vbox);
+		return label;
 	}
 
 	private static void executeNativeUpdateTransaction(GeneralValueObject entity) {
@@ -481,7 +742,9 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 															.contains("," + mahasiswa.getNim() + ",") ? jadwalPembayaran
 																	: null;
 
-											Double hasilDenda = detailKegiatan != null
+											Double hasilDenda = nominalSudahTerkunci(
+													pengaturanPembayaranBulanan.getDetailBiaya(),
+													pengaturanPembayaranBulanan, detailKegiatan) ? jml : detailKegiatan != null
 													&& (detailKegiatan.getBatalkanDenda() || jml.intValue() == 0)
 															? jml
 															: menggunakanDendaCustom(detailKegiatan)
@@ -936,7 +1199,8 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 					}
 				}
 
-				Double hasilDenda = detailKegiatan != null && (detailKegiatan.getBatalkanDenda() || jml.intValue() == 0)
+				Double hasilDenda = nominalSudahTerkunci(detailBiaya, null, detailKegiatan) ? jml
+						: detailKegiatan != null && (detailKegiatan.getBatalkanDenda() || jml.intValue() == 0)
 						? jml
 						: menggunakanDendaCustom(detailKegiatan) ? hitungTagihanDenganDendaCustom(jml, detailKegiatan)
 								: detailBiaya.checkDenda(jml, tanggalValidasi, jdw,
@@ -1358,7 +1622,8 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 				}
 			}
 
-			Double hasilDenda = detailKegiatan != null && (detailKegiatan.getBatalkanDenda() || jml.intValue() == 0)
+			Double hasilDenda = nominalSudahTerkunci(detailBiaya, pengaturanPembayaranBulanan, detailKegiatan) ? jml
+					: detailKegiatan != null && (detailKegiatan.getBatalkanDenda() || jml.intValue() == 0)
 					? jml
 					: menggunakanDendaCustom(detailKegiatan) ? hitungTagihanDenganDendaCustom(jml, detailKegiatan)
 							: pengaturanPembayaranBulanan.checkDenda(jml, tanggalValidasi, jdw,
@@ -1902,241 +2167,68 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 		}
 
 		if (detailBiaya.getItemBiaya().getPenghitungan().equals(ItemBiaya.DIKALI_NILAI_MINUS)) {
-
-			if (tbmuser == null || tbmuser.getMahasiswa() != null || tbmuser.getBiodataCalonMahasiswa() != null
-					|| !detailBiaya.getItemBiaya().getNilaiBisaDiubah()
-					|| (detailKegiatan != null && detailKegiatan.getKunci() != null)) {
-
-				Vbox vbox = new Vbox();
-				vbox.setAlign("right");
-				vbox.setWidth("100%");
-				vbox.setParent(rowPembayaran);
-
-				Label tag;
-				(tag = new Label(Common.numberFormat.get().format(-Math.abs(jml)))).setParent(vbox);
-				tag.setWidth("100%");
-				rowPembayaran.setAttribute("tag", tag);
-
-				tampilkanNominalAsliSebelumDiskon(vbox, rowPembayaran, jml, detailKegiatan, pengaturanPembayaranBulanan,
-						detailBiaya, true);
-
-				DetailPembayaranMahasiswaRenderer.tampilkanKunci(vbox, detailKegiatan, new EventListener() {
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						Common.clear(rowPembayaran);
-						render(rowPembayaran, pengaturanPembayaranBulanan);
-					}
-				}, tbmuser);
-
-				prosesPembayaran.addEventListener("onClick", new EventListener() {
-					@Override
-					public void onEvent(Event a) throws Exception {
-						double kekurangan = 0.0;
-						try {
-							kekurangan = Common.numberFormat.get().parse(kurang.getValue()).doubleValue();
-						} catch (Exception e) {
-							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/ui/render/DetailPembayaranMahasiswaRenderer.java:1712");
-						}
-						masukkanNilai(-Math.abs(kekurangan), detailBiaya, pengaturanPembayaranBulanan);
-						hitungUlang();
-					}
-				});
-
-			} else {
-
-				Vbox vbox = new Vbox();
-				vbox.setAlign("right");
-				vbox.setWidth("100%");
-				vbox.setParent(rowPembayaran);
-
-				final MyDoubleboxMin doubleboxMin = new MyDoubleboxMin(-Math.abs(jml));
-				if (detailKegiatan != null && detailKegiatan.getBukanTagihan()) {
-					doubleboxMin.setDisabled(true);
-				}
-
-				rowPembayaran.setAttribute("tag", doubleboxMin);
-				doubleboxMin.setAttribute("itemBiaya", detailBiaya);
-				doubleboxMin.setWidth("90%");
-				doubleboxMin.setParent(vbox);
-				doubleboxMin.addEventListener("onChange", new EventListener() {
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						buatBaruJikaBelumAda();
-						if (kegiatan != null && kegiatan.getId() != null) {
-							DetailKegiatan dk = detailKegiatan;
-							if (dk == null) {
-								dk = new DetailKegiatan();
-							}
-							dk.setPengaturanPembayaranBulanan(pengaturanPembayaranBulanan);
-							dk.setBiaya(doubleboxMin.getValue());
-							dk.setDetailBiaya(detailBiaya);
-							dk.setKeterangan(detailBiaya.getKeterangan());
-							dk.setKegiatan(kegiatan);
-
-							if (dk.getId() == null) {
-								executeNativeSaveTransaction((GeneralValueObject) dk);
-							} else {
-								executeNativeUpdateTransaction((GeneralValueObject) dk);
-							}
-						}
-
-						doubleboxMin
-								.setValue(-Math.abs(doubleboxMin.getValue() == null ? 0.0 : doubleboxMin.getValue()));
-						DetailPembayaranMahasiswaRenderer.this.eventListener.onEvent(new Event("", null, kegiatan));
-
-						Common.createDefaultTimer(new EventListener() {
-							@Override
-							public void onEvent(Event arg0) throws Exception {
-								detailKegiatans = kegiatan == null || kegiatan.getId() == null ? null
-										: kegiatan.ambilDetailKegiatan(true);
-								ubahWarnaStatus(cicilanPembayarans);
-							}
-						});
-					}
-				});
-				pengurangan.add(doubleboxMin);
-
-				DetailPembayaranMahasiswaRenderer.tampilkanKunci(vbox, detailKegiatan, new EventListener() {
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						Common.clear(rowPembayaran);
-						render(rowPembayaran, pengaturanPembayaranBulanan);
-					}
-				}, tbmuser);
-
-				prosesPembayaran.addEventListener("onClick", new EventListener() {
-					@Override
-					public void onEvent(Event a) throws Exception {
-						double kekurangan = 0.0;
-						try {
-							kekurangan = Common.numberFormat.get().parse(kurang.getValue()).doubleValue();
-						} catch (Exception e) {
-							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/ui/render/DetailPembayaranMahasiswaRenderer.java:1788");
-						}
-						masukkanNilai(kekurangan, detailBiaya, pengaturanPembayaranBulanan);
-						hitungUlang();
-					}
-				});
-
-				tampilkanNominalAsliSebelumDiskon(vbox, rowPembayaran, jml, detailKegiatan, pengaturanPembayaranBulanan,
-						detailBiaya, true);
+			Vbox vbox = new Vbox();
+			vbox.setAlign("right");
+			vbox.setWidth("100%");
+			vbox.setParent(rowPembayaran);
+			tampilkanNominalDenganIkonEdit(vbox, rowPembayaran, detailKegiatan, detailBiaya,
+					pengaturanPembayaranBulanan, jml, true);
+			if (bolehUbahNominal(detailBiaya.getItemBiaya())) {
+				perbaruiNilaiPengurang(detailBiaya, jml);
 			}
+			tampilkanNominalAsliSebelumDiskon(vbox, rowPembayaran, jml, detailKegiatan,
+					pengaturanPembayaranBulanan, detailBiaya, true);
+			DetailPembayaranMahasiswaRenderer.tampilkanKunci(vbox, detailKegiatan, new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					Common.clear(rowPembayaran);
+					render(rowPembayaran, pengaturanPembayaranBulanan);
+				}
+			}, tbmuser, bolehEditTagihan);
+			prosesPembayaran.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event a) throws Exception {
+					double kekurangan = 0.0;
+					try {
+						kekurangan = Common.numberFormat.get().parse(kurang.getValue()).doubleValue();
+					} catch (Exception e) {
+						e.printStackTrace(); ais.common.ErrorAuditUtil.record(e,
+								"DetailPembayaranMahasiswaRenderer.prosesPembayaranPengurang");
+					}
+					masukkanNilai(-Math.abs(kekurangan), detailBiaya, pengaturanPembayaranBulanan);
+					hitungUlang();
+				}
+			});
 		} else {
-
-			if (tbmuser == null || tbmuser.getMahasiswa() != null || tbmuser.getBiodataCalonMahasiswa() != null
-					|| !detailBiaya.getItemBiaya().getNilaiBisaDiubah()
-					|| (detailKegiatan != null && detailKegiatan.getKunci() != null)) {
-
-				Vbox vbox = new Vbox();
-				vbox.setWidth("100%");
-				vbox.setAlign("right");
-				vbox.setParent(rowPembayaran);
-
-				Label tag;
-				(tag = new Label(Common.numberFormat.get().format(jml))).setParent(vbox);
-				tag.setWidth("100%");
-				rowPembayaran.setAttribute("tag", tag);
-
-				DetailPembayaranMahasiswaRenderer.tampilkanKunci(vbox, detailKegiatan, new EventListener() {
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						Common.clear(rowPembayaran);
-						render(rowPembayaran, pengaturanPembayaranBulanan);
-					}
-				}, tbmuser);
-
-				prosesPembayaran.addEventListener("onClick", new EventListener() {
-					@Override
-					public void onEvent(Event a) throws Exception {
-						double kekurangan = 0.0;
-						try {
-							kekurangan = Common.numberFormat.get().parse(kurang.getValue()).doubleValue();
-						} catch (Exception e) {
-							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/ui/render/DetailPembayaranMahasiswaRenderer.java:1829");
-						}
-						masukkanNilai(kekurangan, detailBiaya, pengaturanPembayaranBulanan);
-						hitungUlang();
-					}
-				});
-
-				tampilkanNominalAsliSebelumDiskon(vbox, rowPembayaran, jml, detailKegiatan, pengaturanPembayaranBulanan,
-						detailBiaya, false);
-
-			} else {
-
-				Vbox vbox = new Vbox();
-				vbox.setAlign("right");
-				vbox.setWidth("100%");
-				vbox.setParent(rowPembayaran);
-
-				final MyDoublebox nilai;
-				(nilai = new MyDoublebox(jml)).setParent(vbox);
-				if (detailKegiatan != null && detailKegiatan.getBukanTagihan()) {
-					nilai.setDisabled(true);
+			Vbox vbox = new Vbox();
+			vbox.setAlign("right");
+			vbox.setWidth("100%");
+			vbox.setParent(rowPembayaran);
+			tampilkanNominalDenganIkonEdit(vbox, rowPembayaran, detailKegiatan, detailBiaya,
+					pengaturanPembayaranBulanan, jml, false);
+			DetailPembayaranMahasiswaRenderer.tampilkanKunci(vbox, detailKegiatan, new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					Common.clear(rowPembayaran);
+					render(rowPembayaran, pengaturanPembayaranBulanan);
 				}
-				rowPembayaran.setAttribute("tag", nilai);
-				nilai.setAttribute("itemBiaya", detailBiaya);
-				nilai.setWidth("90%");
-				nilai.addEventListener("onChange", new EventListener() {
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						buatBaruJikaBelumAda();
-						if (kegiatan != null && kegiatan.getId() != null) {
-							DetailKegiatan dk = detailKegiatan;
-							if (dk == null) {
-								dk = new DetailKegiatan();
-							}
-							dk.setPengaturanPembayaranBulanan(pengaturanPembayaranBulanan);
-							dk.setBiaya(nilai.getValue());
-							dk.setDetailBiaya(detailBiaya);
-							dk.setKeterangan(detailBiaya.getKeterangan());
-							dk.setKegiatan(kegiatan);
-
-							if (dk.getId() == null) {
-								executeNativeSaveTransaction((GeneralValueObject) dk);
-							} else {
-								executeNativeUpdateTransaction((GeneralValueObject) dk);
-							}
-						}
-
-						DetailPembayaranMahasiswaRenderer.this.eventListener.onEvent(new Event("", null, kegiatan));
-
-						Common.createDefaultTimer(new EventListener() {
-							@Override
-							public void onEvent(Event arg0) throws Exception {
-								detailKegiatans = kegiatan == null || kegiatan.getId() == null ? null
-										: kegiatan.ambilDetailKegiatan(true);
-								ubahWarnaStatus(cicilanPembayarans);
-							}
-						});
+			}, tbmuser, bolehEditTagihan);
+			prosesPembayaran.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event a) throws Exception {
+					double kekurangan = 0.0;
+					try {
+						kekurangan = Common.numberFormat.get().parse(kurang.getValue()).doubleValue();
+					} catch (Exception e) {
+						e.printStackTrace(); ais.common.ErrorAuditUtil.record(e,
+								"DetailPembayaranMahasiswaRenderer.prosesPembayaranTagihan");
 					}
-				});
-
-				DetailPembayaranMahasiswaRenderer.tampilkanKunci(vbox, detailKegiatan, new EventListener() {
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						Common.clear(rowPembayaran);
-						render(rowPembayaran, pengaturanPembayaranBulanan);
-					}
-				}, tbmuser);
-
-				prosesPembayaran.addEventListener("onClick", new EventListener() {
-					@Override
-					public void onEvent(Event a) throws Exception {
-						double kekurangan = 0.0;
-						try {
-							kekurangan = Common.numberFormat.get().parse(kurang.getValue()).doubleValue();
-						} catch (Exception e) {
-							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/ui/render/DetailPembayaranMahasiswaRenderer.java:1904");
-						}
-						masukkanNilai(kekurangan, detailBiaya, pengaturanPembayaranBulanan);
-						hitungUlang();
-					}
-				});
-
-				tampilkanNominalAsliSebelumDiskon(vbox, rowPembayaran, jml, detailKegiatan, pengaturanPembayaranBulanan,
-						detailBiaya, false);
-			}
+					masukkanNilai(kekurangan, detailBiaya, pengaturanPembayaranBulanan);
+					hitungUlang();
+				}
+			});
+			tampilkanNominalAsliSebelumDiskon(vbox, rowPembayaran, jml, detailKegiatan,
+					pengaturanPembayaranBulanan, detailBiaya, false);
 		}
 
 		dibayar.setParent(rowPembayaran);
@@ -2169,8 +2261,14 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 
 	public static void tampilkanKunci(final Vbox vbox1, final DetailKegiatan detailKegiatan, final EventListener refrsh,
 			final Tbmuser tbmuser) {
+		tampilkanKunci(vbox1, detailKegiatan, refrsh, tbmuser, true);
+	}
+
+	public static void tampilkanKunci(final Vbox vbox1, final DetailKegiatan detailKegiatan, final EventListener refrsh,
+			final Tbmuser tbmuser, boolean bolehEditTagihan) {
 		try {
-			if (detailKegiatan != null && tbmuser.getMahasiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+			if (bolehEditTagihan && detailKegiatan != null && tbmuser != null && tbmuser.getMahasiswa() == null
+					&& tbmuser.getBiodataCalonMahasiswa() == null
 					&& (detailKegiatan.getItemBiaya() != null && detailKegiatan.getItemBiaya().getNilaiBisaDiubah())) {
 
 				final Toolbarbutton bukaKunciDetail = new ais.ui.util.MyToolbarbuttonConfig(

@@ -30,6 +30,7 @@ import org.hibernate.annotations.FetchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.envers.Audited;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.common.Common;
@@ -157,6 +158,7 @@ public class Kegiatan extends GeneralValueObject {
 	private String cicilans;
 	private String detailKegiatans;
 	private String pembatalanDenda;
+	private String nominalTagihanKunciJson;
 
 	public Kegiatan() {
 	}
@@ -843,6 +845,12 @@ public class Kegiatan extends GeneralValueObject {
 					return jumlah;
 				}
 
+				Double nominalTerkunci = kegiatan == null ? null
+						: kegiatan.ambilNominalTagihanTerkunci(detailBiaya, null, detailKegiatan);
+				if (nominalTerkunci != null) {
+					return nominalTerkunci;
+				}
+
 			// Untuk item dgn penghitungan PERKALIAN (mis. "(50.000) x N matakuliah/SKS"),
 			// nilai tagihan yang sah adalah HASIL perkalian (nilaiBiayaBaru), BUKAN nilai
 			// per-unit (getNilaiBiaya) yang tampil dicoret. Bila hasil perkalian belum
@@ -932,9 +940,19 @@ public class Kegiatan extends GeneralValueObject {
 			Mahasiswa mahasiswa, Integer semester, PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
 		Double jumlah = 0.0;
 		try {
+			if (detailBiaya == null || detailBiaya.getItemBiaya() == null
+					|| pengaturanPembayaranBulanan == null) {
+				return jumlah;
+			}
 
 			if (detailKegiatan != null && detailKegiatan.getBukanTagihan()) {
 				return jumlah;
+			}
+
+			Double nominalTerkunci = kegiatan == null ? null : kegiatan.ambilNominalTagihanTerkunci(
+					detailBiaya, pengaturanPembayaranBulanan, detailKegiatan);
+			if (nominalTerkunci != null) {
+				return nominalTerkunci;
 			}
 
 			Double ni = pengaturanPembayaranBulanan.getNominal();
@@ -1012,6 +1030,12 @@ public class Kegiatan extends GeneralValueObject {
 
 				if (detailKegiatan != null && detailKegiatan.getBukanTagihan()) {
 					return jumlah;
+				}
+
+				Double nominalTerkunci = kegiatan == null ? null : kegiatan.ambilNominalTagihanTerkunci(
+						detailBiaya, pengaturanPembayaranBulanan, detailKegiatan);
+				if (nominalTerkunci != null) {
+					return nominalTerkunci;
 				}
 
 				Double ni = pengaturanPembayaranBulanan.getNominal();
@@ -1444,6 +1468,113 @@ public class Kegiatan extends GeneralValueObject {
 	}
 
 	private static String jsonObject = new JSONObject().toString();
+
+	/**
+	 * Snapshot nominal hasil koreksi manual per baris tagihan. Disimpan sebagai JSON agar nilai yang
+	 * telah disetujui petugas tidak kembali mengikuti nilai master yang dapat berubah. Struktur ini
+	 * juga menyimpan alasan, pelaku, waktu, dan riwayat perubahan.
+	 */
+	@Column(name = "nominal_tagihan_kunci_json", nullable = true, columnDefinition = "text")
+	public String getNominalTagihanKunciJson() {
+		return nominalTagihanKunciJson;
+	}
+
+	public void setNominalTagihanKunciJson(String nominalTagihanKunciJson) {
+		this.nominalTagihanKunciJson = nominalTagihanKunciJson;
+	}
+
+	/** Kunci stabil untuk snapshot nominal, tidak bergantung pada id DetailKegiatan yang bisa dibuat ulang. */
+	public static String kodeNominalTagihanTerkunci(DetailBiaya detailBiaya,
+			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, DetailKegiatan detailKegiatan) {
+		if (pengaturanPembayaranBulanan != null && pengaturanPembayaranBulanan.getId() != null) {
+			return "bulanan:" + pengaturanPembayaranBulanan.getId();
+		}
+		if (detailBiaya != null && detailBiaya.getId() != null) {
+			return "detailBiaya:" + detailBiaya.getId();
+		}
+		if (detailKegiatan != null && detailKegiatan.getId() != null) {
+			return "detailKegiatan:" + detailKegiatan.getId();
+		}
+		return null;
+	}
+
+	/** Mengambil nominal final yang pernah dikunci petugas; {@code null} berarti belum pernah diedit. */
+	public Double ambilNominalTagihanTerkunci(DetailBiaya detailBiaya,
+			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, DetailKegiatan detailKegiatan) {
+		String kode = kodeNominalTagihanTerkunci(detailBiaya, pengaturanPembayaranBulanan, detailKegiatan);
+		if (kode == null || nominalTagihanKunciJson == null || nominalTagihanKunciJson.trim().isEmpty()) {
+			return null;
+		}
+		try {
+			JSONObject root = new JSONObject(nominalTagihanKunciJson);
+			JSONObject nilai = root.optJSONObject("nilai");
+			JSONObject snapshot = nilai == null ? null : nilai.optJSONObject(kode);
+			return snapshot == null || !snapshot.has("nominal") ? null
+					: Double.valueOf(snapshot.getDouble("nominal"));
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"Kegiatan.ambilNominalTagihanTerkunci: JSON snapshot nominal tidak valid");
+			return null;
+		}
+	}
+
+	/**
+	 * Menyimpan snapshot nominal final beserta audit perubahan. Alasan wajib divalidasi lagi di model
+	 * agar jalur non-UI tidak dapat menyimpan koreksi tanpa pertanggungjawaban.
+	 */
+	public void simpanNominalTagihanTerkunci(DetailBiaya detailBiaya,
+			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, DetailKegiatan detailKegiatan,
+			Double nominalSebelum, Double nominalBaru, String alasan, String userId, String userNama) throws Exception {
+		String kode = kodeNominalTagihanTerkunci(detailBiaya, pengaturanPembayaranBulanan, detailKegiatan);
+		if (kode == null) {
+			throw new IllegalArgumentException("Sumber baris tagihan belum memiliki identitas yang dapat dikunci.");
+		}
+		if (nominalBaru == null || nominalBaru.isNaN() || nominalBaru.isInfinite()) {
+			throw new IllegalArgumentException("Nominal baru tidak valid.");
+		}
+		if (alasan == null || alasan.trim().isEmpty()) {
+			throw new IllegalArgumentException("Alasan perubahan nominal wajib diisi.");
+		}
+
+		JSONObject root = nominalTagihanKunciJson == null || nominalTagihanKunciJson.trim().isEmpty()
+				? new JSONObject() : new JSONObject(nominalTagihanKunciJson);
+		JSONObject nilai = root.optJSONObject("nilai");
+		if (nilai == null) {
+			nilai = new JSONObject();
+			root.put("nilai", nilai);
+		}
+		JSONArray riwayat = root.optJSONArray("riwayat");
+		if (riwayat == null) {
+			riwayat = new JSONArray();
+			root.put("riwayat", riwayat);
+		}
+
+		long waktu = System.currentTimeMillis();
+		ItemBiaya itemBiaya = detailBiaya == null ? null : detailBiaya.getItemBiaya();
+		JSONObject snapshot = new JSONObject();
+		snapshot.put("nominal", nominalBaru.doubleValue());
+		snapshot.put("alasan", alasan.trim());
+		snapshot.put("waktuEpoch", waktu);
+		if (userId != null) snapshot.put("userId", userId);
+		if (userNama != null) snapshot.put("userNama", userNama);
+		if (itemBiaya != null && itemBiaya.getId() != null) snapshot.put("itemBiayaId", itemBiaya.getId());
+		if (itemBiaya != null && itemBiaya.getNama() != null) snapshot.put("itemBiaya", itemBiaya.getNama());
+		if (detailBiaya != null && detailBiaya.getId() != null) snapshot.put("detailBiayaId", detailBiaya.getId());
+		if (pengaturanPembayaranBulanan != null && pengaturanPembayaranBulanan.getId() != null) {
+			snapshot.put("pengaturanPembayaranBulananId", pengaturanPembayaranBulanan.getId());
+		}
+		if (detailKegiatan != null && detailKegiatan.getId() != null) {
+			snapshot.put("detailKegiatanId", detailKegiatan.getId());
+		}
+		nilai.put(kode, snapshot);
+
+		JSONObject audit = new JSONObject(snapshot.toString());
+		audit.put("kode", kode);
+		if (nominalSebelum != null) audit.put("nominalSebelum", nominalSebelum.doubleValue());
+		riwayat.put(audit);
+		root.put("versi", 1);
+		nominalTagihanKunciJson = root.toString();
+	}
 
 	@Column(columnDefinition = "text")
 	public String getBulans() {
