@@ -2573,6 +2573,93 @@ seluruhnya berjalan dan mengembalikan kolom yang dimaksud; entitas tak dikenal d
 
 Tanpa bundel migrasi baru.
 
+## §23 — impor DBF ke schema tenant: enam jenis master
+
+`importLegacy` **gagal-tertutup** sejak awal, dan alasannya tetap benar: seluruh penyimpanannya
+lewat entitas Hibernate yang menyematkan schema pada anotasi. Dijalankan untuk pemakai tenant,
+akibatnya buruk dua kali — masternya mendarat di schema **bersama**, sementara schema tenantnya
+sendiri tetap kosong. Impor melapor sukses, lalu layarnya tidak menampilkan apa pun.
+
+Batch ini menulis jalur SQL tenant untuk **enam dari delapan** jenis: `supplier`, `customer`,
+`sales`, `produk`, `harga_beli`, `harga_jual`. Dua jenis transaksional (`pembelian_legacy`,
+`penjualan_legacy`) **ditolak dengan menyebut namanya** dan menyebut jenis mana yang sudah bisa —
+pola cakupan yang sama dengan §20/§22.
+
+### Aturan yang dipertahankan: ISI BILA KOSONG
+
+Impor legacy tidak pernah menimpa nilai yang sudah terisi. Itu bukan kebetulan: berkas DBF adalah
+cerminan data **lama**, dan menjalankan ulang impor sesudah data dirapikan di layar akan
+mengembalikan ejaan lama, alamat lama, dan nomor rekening lama.
+
+Pada jalur tenant aturan itu ditegakkan **di dalam SQL** (`COALESCE(NULLIF(TRIM(kolom),''), ?)`),
+bukan dengan membaca-lalu-membandingkan di Java. Bedanya bukan gaya: aturan yang hidup di dalam
+pernyataan tetap berlaku walau barisnya diproses berulang atau oleh dua permintaan sekaligus.
+
+### Empat bentuk yang berubah
+
+| legacy | tenant |
+|---|---|
+| `library.penyedia` + `supplier_inventory_profile` | `supplier` + `supplier_profile` |
+| `anggota_koperasi` + `customer_inventory_profile` | `customer` + `customer_profile` |
+| `sales_inventory` (ber-toko) | `salesperson` (se-tenant) + `sales_assignment` |
+| `produk.stok` + `stok_opname` | `mutasi_stok` — stok adalah **turunan** |
+
+**Saldo awal menjadi satu baris mutasi.** Jalur legacy menulis dua tempat sekaligus: satu baris
+`stok_opname` *dan* `produk.stok`. Model tenant tidak punya kolom stok sama sekali, jadi tidak ada
+tempat kedua yang bisa berselisih dengannya.
+
+**Sales digabung, bukan digandakan.** Legacy mencari sales per (kode, toko), jadi dua toko boleh
+punya sales berkode sama. Pada tenant kodenya unik se-tenant — baris kedua berkode sama dikenali
+sebagai orang yang **sama**, lalu ditambahi penugasan toko kedua. Itu penggabungan, dan
+penggabungan itulah yang benar bila memang orangnya satu.
+
+### Medan yang tidak punya rumah — dilaporkan, bukan ditelan
+
+`wilayah`, `rekening`, `bank` (dan `atas_nama`, `alamat_bank` untuk supplier) tidak punya kolom
+padanan pada profil tenant. Medan itu dilewati, dan permintaan menerima daftar `medanDilewati`
+berikut `peringatan`.
+
+**Impor yang menelan kolom tanpa berkata apa-apa adalah impor yang datanya hilang tanpa jejak.**
+Itu sebabnya ia dilaporkan alih-alih didiamkan.
+
+### Dua penolakan yang saya tambahkan sendiri
+
+**Saldo awal tanpa gudang ditolak.** Saldo butuh gudang, dan gudangnya ditentukan dari tokonya.
+Bila toko itu belum punya gudang aktif, barisnya gagal — bukan ditaruh di gudang mana saja.
+Menaruh stok pada gudang yang salah lebih buruk daripada tidak menaruhnya, sebab angkanya lalu
+tampak benar di tempat yang keliru.
+
+**`Toko` tidak dibaca sebagai entitas pada jalur tenant.** `Toko` juga ber-schema tersemat;
+membacanya akan menoleh ke schema bersama. Yang diperlukan hanya id-nya.
+
+### Idempotensi, dan satu jebakan NULL
+
+Saldo awal dijaga `WHERE NOT EXISTS` pada `nomor_dokumen = 'MIGRASI-DBF'` — inilah satu-satunya
+baris impor yang menambah **kuantitas**, sehingga pengulangan di sini berakibat langsung pada
+angka stok.
+
+Harga jual boleh ber-`customer_id` kosong, dan itulah harga umum. Penjaga duplikatnya memakai
+`IS NOT DISTINCT FROM`, **bukan** `=`: perbandingan biasa terhadap `NULL` selalu tidak-diketahui,
+sehingga penjaganya akan lolos setiap kali dan harga umum yang sama berlipat pada tiap impor
+ulang. Blok 4 uji kesetaraan membuktikannya — `= NULL` mencocokkan **nol** baris.
+
+### Verifikasi
+
+Ketujuh belas pernyataan yang benar-benar dikeluarkan Java diserahkan ke PostgreSQL lewat
+`PREPARE` atas schema tenant v1–v19: **seluruhnya ter-parse dan ter-rencana**, artinya tiap nama
+tabel dan kolomnya memang ada. Jumlah parameternya pun cocok dengan yang tertulis pada Javadoc
+masing-masing dan dengan susunan argumen di pemanggilnya.
+
+`uji-kesetaraan-impor-dbf.sql` — empat blok, **empat LULUS, nol GAGAL**, dua di antaranya penjaga.
+
+Tanpa bundel migrasi baru.
+
+### Yang tersisa
+
+`pembelian_legacy` dan `penjualan_legacy` menuntut pemetaan ke dokumen tenant — pembelian
+ber-kepala/detail, dan penjualan yang melahirkan faktur berikut mutasinya. Itu batch tersendiri,
+bukan tempelan di sini.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
