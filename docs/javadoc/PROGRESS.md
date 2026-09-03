@@ -1,5 +1,65 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 53 — SELESAI 100% (3 Sep 2026) — entity klon yatim berbagi tabel (bom waktu skema), pewarisan hak menu kini 9 instance, fail-open `ambilAnakSiswa` instance baru
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/KategoriPrestasiSiswa.java`** (r83683)
+  — 142→484 baris, 100% (25 anggota). Master TINGKAT kejuaraan
+  (Internasional/Nasional/.../Kecamatan, kode PDDikti Feeder — bukan
+  Akademik/Non-Akademik). **Fail-open `ambilAnakSiswa()` instance
+  baru** di `PrestasiSiswaAction`; **gerbang hak akses DIKOMENTARI
+  TOTAL** di Action yang sama (tombol Ubah/Hapus tampil untuk siapa
+  pun bisa buka menu); `DasbordPrestasi`/`DashboardRekapPrestasiSiswa`
+  nol filter tenant + amplifier cache L3; bug schema salah-salin di
+  `catatan.jsp` (cabang siswa menembak `public.*`, seharusnya
+  `sekolah.*`).
+- **`ais/database/model/sekolah/GrupChecklistPenilaianGuru.java`**
+  (r83684) — 145→597 baris, 100% (27 anggota). BUKAN supervisi kepsek
+  — angket umpan balik SISWA atas guru. **Renderer grid menulis balik
+  FK angket ke baris SEMBARANG tanpa filter tenant** (varian baru
+  "write-back destruktif" di level renderer, bukan getter) —
+  menyentuh instrumen penilaian kinerja guru (personalia), severity
+  dinaikkan. Pewarisan hak menu **instance ke-9**, mekanisme baru:
+  layar ini sendiri PEMBERI hak ke 3 tab tanpa entri menu sendiri.
+- **`ais/database/model/sekolah/KompetensiDasarMatapelajaran.java`**
+  (r83685) — 156→578 baris, 100% (33 anggota). **TEMUAN STRUKTURAL
+  BESAR**: nama & Javadoc lama menyesatkan total — file ini adalah
+  KLON YATIM `JenisJadwalPelajaran` (`serialVersionUID` identik),
+  memetakan **tabel fisik yang sama** (`sekolah.jenis_jadwal_pelajaran`)
+  lewat 2 `@Entity`+`@Audited` terpisah. Kolom hantu `kode` dipaksa DDL
+  ke tabel utama tanpa pembaca. **Terdaftar di manifest generic-CRUD**
+  sebagai "Kompetensi Dasar Matapelajaran" — bila dibangkitkan jadi
+  layar, pengguna mengira mengelola KD kurikulum padahal
+  menghapus/mengubah master Jenis Jam Pelajaran yang dipakai FK wajib
+  `JamPelajaran`. "Bom waktu" skema murni, bukan kerentanan akses.
+- **`ais/database/model/sekolah/JenisNilaiHuruf.java`** (r83686) —
+  149→562 baris, 100% (31 anggota). BUKAN skala konversi nilai (itu
+  `NilaiHurufSekolah`) — label dimensi yang memungkinkan sekolah punya
+  beberapa skala huruf paralel. Bug "aktif tak pernah ditulis"
+  instance ke-4 (skala baru tak pernah muncul di kombo manapun sampai
+  checkbox ditekan 2x). Pewarisan hak menu instance ke-9 (kembar pola
+  b51-52).
+- **`ais/database/model/sekolah/JenisJadwalPelajaran.java`** (r83687)
+  — 146→603 baris, 100% (31 anggota). Sisi HIDUP dari pasangan klon di
+  atas — FK wajib `JamPelajaran.jenis_jadwal_pelajaran_id`. Dijadikan
+  **contoh pembanding POSITIF** untuk bug "aktif tak pernah ditulis"
+  (di sini getter+SQL konsisten toleran-NULL, tidak bermasalah).
+  Konfirmasi independen ke-2 atas temuan klon `KompetensiDasarMatapelajaran`.
+  `TimetableJadwalPelajaranWindow.jenisDefault()` fail-open lintas
+  sekolah (kembar pola `task_5e93a600`).
+
+**Pola "pewarisan hak lewat menu induk" kini 9 instance kumulatif.**
+Tidak ada task baru dibuat — semua temuan memperkuat
+`task_5e93a600`/pola audit-luas yang sudah ada; 2 temuan "bom waktu"
+skema (`KompetensiDasarMatapelajaran`) dicatat untuk perbaikan masa
+depan, bukan kerentanan akses.
+
+Kumulatif sesi ini: **442+ file** (95 batch 34-53) + 343 (sesi
+sebelumnya) dari 7.401 total (~10,9%).
+
 ## Batch 52 — SELESAI 100% (3 Sep 2026) — amplifier JasperReports instance ke-4 & ke-5, pewarisan hak menu kini 8 instance, Intbox nomor urut tanpa gerbang
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
