@@ -1,5 +1,66 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 74 — SELESAI 100% (3 Sep 2026) — melengkapi inti mesin akuntansi (PostingHistory, Pertangungjawaban, PertangungjawabanKasBesar, JenisUangMuka, JenisTransaksi); 4 task baru; `task_78c0c5c2` (bypass persetujuan via `?persetujuan=true`) TERKONFIRMASI di 2 Action tambahan + diperluas ke jalur REST; `task_66986071` (fail-open `bolehAksi()` role null) diperluas ke 2 helper API lagi
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/akunting/PostingHistory.java`** (r83914) —
+  234→813 baris, 100%. Entity "cap posting" murni (bukan pembawa
+  angka) — satu baris dipakai bersama N dokumen. Field `posting`
+  TERVERIFIKASI: BUKAN "sudah dijurnal" (itu ditentukan keberadaan
+  cap), melainkan bendera pengakuan batch ke buku besar untuk mode
+  posting dua-langkah (`ConstantValues.otomatisTerposting`, default
+  `true` = kolom ini diabaikan laporan). **Task baru `task_12d8f4e3`**:
+  mayoritas baris `posting=NULL` tidak cocok filter "sudah" MAUPUN
+  "belum" (hilang dari dua-duanya) + bug salin-tempel di 9 berkas
+  `Posting*Action` yang membuat checkbox "Sudah diposting" menampilkan
+  yang BELUM — risiko posting ganda.
+- **`ais/database/model/akunting/Pertangungjawaban.java`** (r83918) —
+  554→1823 baris, 100%. LPJ uang muka pegawai, pasangan `UangMuka`.
+  3 cap posting terverifikasi, kaki pajak (`postingHistoryPajak`)
+  DIKONFIRMASI mati total (nol pemanggil) — penjaga hapus tidak pernah
+  menyala lewat jalur itu. `task_78c0c5c2` TERKONFIRMASI PENUH (2 menu
+  terpisah, `?persetujuan=true` cukup) + DIPERLUAS ke jalur REST
+  (`PertangungjawabanApiHelper.simpan` terima status "Disetujui" dari
+  klien, self-approval via API). **Task baru `task_acad77ad`**: rumus
+  sisa panjar (`dikembalikan`) bercabang TIGA implementasi berbeda
+  (ZK benar, REST buang komponen sponsor, "Hitung Ulang" pakai basis
+  nilai yang salah) — nominal yang dijurnal bisa salah tergantung jalur.
+- **`ais/database/model/akunting/PertangungjawabanKasBesar.java`**
+  (r83923) — 503→1864 baris, 100%. Kembar salin-tempel `Pertangungjawaban`
+  (`serialVersionUID` identik) untuk siklus kas besar (bukan panjar
+  pegawai). `task_78c0c5c2` TERKONFIRMASI lagi. `task_66986071`
+  DIPERLUAS ke `PertangungjawabanKasBesarApiHelper`. **Task baru
+  `task_f1283f4a`**: `DasboardPertangungjawabanKasBesar` TANPA filter
+  tenant SAMA SEKALI (bukan fail-open kondisional — memang tidak ada)
+  + kunci cache literal `"ADMIN"` — agregat keuangan seluruh tenant
+  di-render dan dilayani ulang lintas pengguna.
+- **`ais/database/model/akunting/JenisUangMuka.java`** (r83915) —
+  237→902 baris, 100%. Koreksi penting: entity ini TIDAK punya
+  kolom pagu/plafon sama sekali (beda dari dugaan awal) — hanya
+  katalog + sumber akun jurnal. **Task baru `task_66986071`**
+  (dibuat orkestrator): `MasterKeuanganApiHelper.bolehAksi()` fail-open
+  — peran null diberi izin PENUH create/update/delete atas 7 master
+  keuangan (bukan ditolak).
+- **`ais/database/model/akunting/JenisTransaksi.java`** (r83916) —
+  196→796 baris, 100%. Koreksi: BUKAN "Jurnal Umum/Penerimaan/
+  Pengeluaran" (itu sumbu klasifikasi terpisah, kolom string
+  `jenisJurnal`) — katalog ini adalah kode/nomor-seri jurnal
+  operator-defined (PB/JBI/JCO/dst). Pola pewarisan hak menu induk b73
+  DIPERKUAT dengan mekanisme presis: `checkPrevilages()` membaca
+  atribut SESI `currentMenu` yang tidak di-resolve ulang untuk halaman
+  ter-include — jadi salah-menu (bukan tanpa-menu).
+
+**4 task baru batch ini**: `task_12d8f4e3`, `task_acad77ad`,
+`task_f1283f4a` (semua dibuat agent sendiri), `task_66986071` (dibuat
+orkestrator, lalu diperluas 2x oleh agent berikutnya). `task_78c0c5c2`
+(b73) dikonfirmasi berlaku di 2 Action tambahan domain akunting +
+diperluas ke REST — pola broken-access-control approval kini
+terverifikasi SISTEMIK di seluruh modul finansial "uang" (bukan hanya
+`UangMuka`).
+
 ## Batch 73 — SELESAI 100% (3 Sep 2026) — PIVOT DOMAIN BARU: mesin akuntansi double-entry (`ais/database/model/akunting`), sebelumnya sepenuhnya tak tersentuh; 5 task baru integritas finansial/broken-access-control (`task_aac9dcdd`, `task_3e163a39`, `task_e68c78f1`, `task_78c0c5c2`, `task_5e79a211`); GrupTransaksi (2789→4947 baris) & Pajak (950→2005) & UangMuka (683→2006) sekaligus tuntas
 
 Sesi ini beralih ke domain baru setelah paket `sekolah` mulai menipis
