@@ -181,6 +181,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [101-lepas-dari-zul-empat-laporan-jadi-api.md](101-lepas-dari-zul-empat-laporan-jadi-api.md) | Inventaris 13 titik keluar ZK dari POS; empat laporan akuntansi dijadikan natif berbasis API |
 | [102-enam-laporan-kolom-jadi-api.md](102-enam-laporan-kolom-jadi-api.md) | Enam laporan sisa jadi natif (11 titik keluar ZK jadi 1); diuji di PostgreSQL 16 sungguhan |
 | [103-akun-master-aset-ditimpa-kelompok.md](103-akun-master-aset-ditimpa-kelompok.md) | Akun Kelompok Aset menimpa akun Master Aset; layar natif Master Aset ditahan sampai pemilik memutuskan |
+| [104-api-kelompok-aset-dan-jebakan-akhiran-baris.md](104-api-kelompok-aset-dan-jebakan-akhiran-baris.md) | API Kelompok Aset untuk POS; dan diff 6.737 baris akibat menulis LF ke berkas CRLF |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |
