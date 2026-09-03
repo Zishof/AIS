@@ -18,6 +18,7 @@ import javax.persistence.Column; import javax.persistence.Entity; import javax.p
 @Entity @Table(schema="koperasi",name="production_document_event")
 public class ProduksiDokumenEvent implements Serializable {
 	private static final long serialVersionUID=1L; private Long id; private Long documentId; private String fromStatus; private String toStatus; private String notes; private String actorId; private Date eventAt=new Date();
+	/** Primary key baris log peristiwa ini; digenerasi database ({@code IDENTITY}), {@code null} sebelum baris pertama kali disimpan. Setter normalnya hanya dipanggil Hibernate saat memuat baris dari DB. */
 	@Id @GeneratedValue(strategy=IDENTITY) @Column(name="id",unique=true,nullable=false) public Long getId(){return id;} public void setId(Long v){id=v;}
 	/** Id dokumen produksi yang mengalami perubahan status (referensi mentah, tanpa relasi terpetakan). */
 	@Column(name="document_id",nullable=false) public Long getDocumentId(){return documentId;} public void setDocumentId(Long v){documentId=v;}
