@@ -1,5 +1,62 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 85 — SELESAI 100% (4 Sep 2026) — 0 task baru; 2 entity tidur lagi ditemukan (`StandarGaji`+`StandarGajiDetail`, entity ke-8 & ke-9); rantai shift lengkap terverifikasi
+
+10 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih via PowerShell, WC mirror
+disinkron via `svn update`, `cmp` byte-identik, nol perubahan logika:
+
+- **`WaktuShift.java`** (r84081) + **`JenisShiftPunyaPegawai.java`**
+  (r84100) — 100%. Rantai shift LENGKAP terverifikasi:
+  `JenisShiftPegawai` (katalog) → `JenisShiftPunyaPegawai`
+  (penugasan ke Pegawai/Mahasiswa/Siswa, prioritas resolusi
+  if/else-if bukan filter gabungan) → `DetailJenisShiftPegawai`
+  (baris jam per hari-rotasi) → `WaktuShift` opsional (preset jam
+  reusable). `WaktuShift.getSampai()` menghitung ulang TANPA SYARAT
+  dari `mulai+jam` — `setSampai()` tak pernah benar-benar tersimpan.
+  `abaikanJarak` di-OR dua level (`JenisShiftPunyaPegawai` +
+  `StatuskehadiranKaryawanHarian`) — satu `true` saja cukup melewati
+  geofencing.
+- **`StandarGaji.java`** (r84087) + **`StandarGajiDetail.java`**
+  (tersapu ke r84104, isi diverifikasi utuh) — 100%. **🚨 ENTITY
+  TIDUR KEDELAPAN & KESEMBILAN**: nol Action/DAO/listener/ZUL di
+  seluruh pohon sumber, satu-satunya penyebutan di luar kedua kelas
+  ini sendiri adalah teks Javadoc `FormatItemGaji`/`ItemGaji`
+  (dokumentasi, bukan kode) + mapping `hibernate.cfg.xml`. Rantai
+  gaji aktif (`ItemGajiPegawai`, dst.) tidak menunjuk ke sini.
+- **`PtkpPegawai.java`** (r84078) + **`JatahCuti.java`** (r84088) —
+  100%. `PtkpPegawai.tarif` dikonfirmasi HIDUP: disuntikkan ke token
+  `PTKP_PEGAWAI` formula `ItemGaji` via `GajiPegawaiAction`.
+  `JatahCuti.tahun` BUKAN tahun kalender — urutan tahun MASA KERJA,
+  dicocokkan `Pegawai.ambilMasaKerjaTahun()`; tak ada logika
+  reset/carry-over (sisa cuti dihitung on-the-fly dari riwayat
+  `CutiDanIzin`).
+- **`AsuransiPegawai.java`** (r84089) + **`KodeTunjangan.java`**
+  (r84106) — 100%, keduanya genuinely hidup. `AsuransiPegawai.tarif`
+  disuntikkan ke token `ASURANSI_PEGAWAI_1..4`/`TARIF_ASURANSI_*`/
+  `*_ASURANSI_KELUARGA_*`; `jenis` benar-benar dipakai filter
+  `Restrictions.eq`. `KodeTunjangan` = "kamus token" untuk tunjangan
+  struktural/fungsional/jabatan; `reloadDefault()` auto-seed 45
+  baris digerbang TABEL-WIDE (bukan per-baris) — pola auto-seed
+  sudah dikenal. `KodeTunjangan.java` mixed-EOL, ditangani hati-hati
+  via script byte-level (bukan Edit tool) demi tidak merusak region
+  LF asli.
+- **`AdjusVariablePenggajian.java`** (r84080) + **`JenisGajiPegawai.java`**
+  (r84091) + **`LiburRutin.java`** (r84102) — 100%.
+  `AdjusVariablePenggajian` = template kop default untuk baris
+  `GajiTabahan` (terhubung TIDAK LANGSUNG ke formula lewat kode
+  `GajiTabahan`). `JenisGajiPegawai` dikonfirmasi AKTIF — menentukan
+  set `KelompokParameterTambahanGajiPegawai` per pegawai (cache
+  statis `mapParameters` berumur-JVM dicatat, skala kecil, tak
+  di-task-kan). `LiburRutin` dikonfirmasi dipakai LINTAS MODUL
+  (payroll + mahasiswa + siswa), bukan payroll-only; auto-seed 7
+  baris default Sabtu/Minggu.
+
+**0 task baru batch ini** — semua temuan (getter destruktif, field
+audit shadow, cache statis tak di-evict, tenant filter nullable pada
+entity dorman) memperkuat pola yang sudah tercatat, tidak ada yang
+genuinely baru/aktif dieksploitasi.
+
 ## Batch 84 — SELESAI 100% (4 Sep 2026) — 1 task baru (`task_1c5eb15c`); KOREKSI PROSES: WC mirror `java/` adalah checkout KEDUA dari `^/src` yang SAMA (bukan path terpisah) — mirroring = `svn update`, BUKAN commit kedua; entity tidur KETUJUH ditemukan (`AbsenPegawaiDetail`)
 
 7 file selesai didokumentasikan penuh (100% method/field), semua

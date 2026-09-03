@@ -123,44 +123,61 @@ import ais.database.model.GeneralValueObject;
  *       ZUL, maupun JSP), jadi jalurnya laten, bukan hidup. Lihat catatan "Kuirk" di bawah.</li>
  * </ol>
  *
- * <h3>PENTING &mdash; satu akun BISA masuk lebih dari satu kelompok laporan</h3>
+ * <h3>PENTING &mdash; satu akun BISA masuk lebih dari satu kelompok laporan (DIPERBAIKI SEBAGIAN)</h3>
  *
- * <p>Pertanyaan ini diverifikasi langsung dari kode dan jawabannya <b>ya, bisa, dan tidak ada
- * penjaga apa pun di tingkat entity maupun di mayoritas jalur tulis</b>:</p>
+ * <p><b>Status sebelum perbaikan (diverifikasi dari kode, masih berlaku untuk data historis):</b>
+ * entity ini <b>tidak</b> mendeklarasikan {@code @UniqueConstraint} atas pasangan (akun,
+ * kelompok_laporan), dan tidak ada pemeriksaan apa pun di setter/getter. Jalur impor Excel dan
+ * fitur "copy dari" hanya memeriksa duplikat <b>di dalam kelompok tujuan</b> &mdash; akun yang
+ * sama tetap boleh muncul di kelompok lain pada jenis laporan yang sama. Fitur "copy dari" bahkan
+ * merupakan <b>sumber duplikasi lintas kelompok</b>: seluruh isi kelompok sumber disalin ke
+ * kelompok baru sehingga tiap akun sumber bisa terdaftar di dua kelompok sekaligus.</p>
  *
+ * <p><b>Status setelah perbaikan (migrasi {@code webapp/sql/
+ * migrasi_dedup_kelompok_laporan_punya_akun_20260904.sql}):</b></p>
  * <ul>
- *   <li>Entity ini <b>tidak</b> mendeklarasikan {@code @UniqueConstraint} maupun
- *       {@code @Table(uniqueConstraints = ...)} atas pasangan (akun, kelompok_laporan), dan tidak
- *       ada pemeriksaan apa pun di setter/getter.</li>
  *   <li>{@code KelompokLaporanPunyaAkunAction.onSave} dan
- *       {@code KelompokLaporanDanDetailAction.KelompokLaporanPunyaAkunAction.onSave} menyimpan
- *       tanpa cek duplikat sama sekali (Javadoc {@code KelompokLaporanPunyaAkunAction} sendiri
- *       mengakui: "Tidak ada pengecekan duplikasi dalam metode ini").</li>
- *   <li>Jalur impor Excel dan fitur "copy dari" hanya memeriksa duplikat <b>di dalam kelompok
- *       tujuan</b> &mdash; akun yang sama tetap boleh muncul di kelompok LAIN.</li>
- *   <li>Fitur "copy dari" bahkan merupakan <b>sumber duplikasi lintas kelompok</b>: seluruh isi
- *       kelompok sumber disalin ke kelompok baru sehingga tiap akun sumber kini terdaftar di dua
- *       kelompok sekaligus.</li>
+ *       {@code KelompokLaporanDanDetailAction.KelompokLaporanPunyaAkunAction.onSave} kini menolak
+ *       simpan (pesan menyebutkan nama kelompok yang sudah memuat akun tersebut) bila akun sudah
+ *       terpetakan ke kelompok LAIN pada <i>jenis laporan yang sama</i> &mdash; lewat method privat
+ *       {@code cariBentrokJenisLaporan}, dibandingkan bukan hanya per pasangan (akun,
+ *       kelompok_laporan) tetapi per (akun, jenis_laporan), karena itulah unit yang benar-benar
+ *       dipakai konsumen di bawah (TutupBukuHelper, dashboard) untuk memutuskan "akun ini masuk
+ *       Rugi Laba atau tidak".</li>
+ *   <li>Fitur "copy dari" pada kedua Action kini melewati (skip) akun sumber yang akan bentrok
+ *       dengan pemetaan lain pada jenis laporan yang sama, dan melaporkan jumlah yang dilewati
+ *       lewat messagebox informasi &mdash; bukan lagi menduplikasi tanpa syarat.</li>
+ *   <li><b>Trigger DB</b> {@code akunting.trg_cegah_duplikasi_kelompok_laporan_punya_akun}
+ *       menegakkan aturan yang sama pada level basis data untuk jalur yang TIDAK melalui kedua
+ *       {@code onSave} di atas: impor Excel, {@code cek_pemetaan_akun.jsp},
+ *       {@code PemetaanAkunHelper}, dan penulis mana pun di masa depan. Ditambah indeks unik
+ *       {@code uq_kelompok_laporan_punya_akun_pasangan} atas pasangan (akun, kelompok_laporan)
+ *       persis sebagai rem kedua yang lebih murah.</li>
+ *   <li><b>Belum dibersihkan:</b> baris duplikat yang SUDAH ada di data sebelum migrasi ini TIDAK
+ *       disentuh (trigger hanya menolak baris baru/ubahan, bukan retroaktif). Lihat AUDIT 1-3 di
+ *       akhir skrip migrasi untuk mengukur dan meninjau data historis sebelum membersihkannya.</li>
  * </ul>
  *
- * <p><b>Dampaknya terhadap angka.</b> Karena semua konsumen melakukan INNER JOIN pada
- * {@code akun}, satu akun yang terdaftar di dua kelompok pada <i>jenis laporan yang sama</i>
- * membuat baris jurnalnya <b>terhitung dua kali</b>:</p>
+ * <p><b>Dampaknya terhadap angka (tetap berlaku untuk duplikat historis yang belum dibersihkan).</b>
+ * Karena semua konsumen melakukan INNER JOIN pada {@code akun}, satu akun yang terdaftar di dua
+ * kelompok pada <i>jenis laporan yang sama</i> membuat baris jurnalnya <b>terhitung dua kali</b>:</p>
  * <ul>
  *   <li>{@code LaporanKeuanganCoaHelper} menghasilkan dua baris cetak yang masing-masing memuat
  *       saldo penuh akun tersebut &mdash; subtotal grup dan total laporan menggelembung.</li>
  *   <li>Dashboard 12 bulan ({@code DashboardAkuntingHelper} dkk.) menggandakan baris
  *       {@code akunting.transaksi} pada join sehingga {@code sum(debet-kredit)} ikut berlipat.</li>
- *   <li><b>Paling berat:</b> {@code TutupBukuHelper} menggunakan pola join yang sama untuk
- *       memilih akun nominal dan besaran yang ditutup. Duplikasi pemetaan berarti <b>jurnal
- *       penutup yang benar-benar diposting ke buku besar memuat nominal berlipat</b>, dan
- *       selisihnya mendarat di akun Laba Ditahan &mdash; ini kerusakan integritas finansial,
- *       bukan sekadar salah tampil.</li>
+ *   <li><b>Paling berat:</b> {@code TutupBukuHelper} <i>dulu</i> menggunakan pola join yang sama
+ *       untuk memilih akun nominal dan besaran yang ditutup, sehingga duplikasi pemetaan berarti
+ *       jurnal penutup yang benar-benar diposting ke buku besar memuat nominal berlipat. Query itu
+ *       sudah ditulis ulang memakai {@code EXISTS} (bukan {@code JOIN}) sehingga TIDAK LAGI
+ *       menggandakan baris berapa pun jumlah pemetaan yang cocok, terlepas dari status data
+ *       historis. Konsumen lain ({@code LaporanKeuanganCoaHelper}, dashboard) belum diubah pola
+ *       query-nya &mdash; perlindungannya bergantung pada penjaga tulis di atas.</li>
  * </ul>
  *
- * <p>Satu-satunya rem parsial ada di {@code PemetaanAkunHelper}, yang melewati akun yang sudah
- * terpetakan ke kelompok <i>aktif</i> mana pun ({@code SELECT DISTINCT p.akun ...}); rem itu
- * melindungi jalur otomatis saja dan tidak berlaku bagi jalur ZK/JSP.</p>
+ * <p>Rem parsial lama di {@code PemetaanAkunHelper} (melewati akun yang sudah terpetakan ke
+ * kelompok <i>aktif</i> mana pun, {@code SELECT DISTINCT p.akun ...}) tetap ada dan kini
+ * bertumpuk dengan trigger DB di atas.</p>
  *
  * <h3>Cakupan tenant: TIDAK ADA sama sekali</h3>
  *
