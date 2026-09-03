@@ -1,6 +1,6 @@
 <%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.*, java.text.*, org.hibernate.*, org.hibernate.criterion.*, org.json.*" %>
-<%@ page import="ais.common.*, ais.database.hibernate.*, ais.database.model.akunting.*, ais.database.model.rab.*" %>
+<%@ page import="ais.common.*, ais.database.hibernate.*, ais.database.model.akunting.*, ais.database.model.rab.*, ais.database.model.Tbmuser" %>
 <%
     response.setContentType("application/json");
     response.setCharacterEncoding("UTF-8");
@@ -12,11 +12,41 @@
         String action = request.getParameter("action");
         sess = HibernateUtil.openSession();
 
+        // Layar ini dulunya membuka sesi Hibernate & mengembalikan agregat jurnal/Neraca/Laba-Rugi
+        // TANPA satu pun cek sesi/hak akses -- setiap pengguna yang tahu URL bisa memanggilnya
+        // langsung (melewati menu "Dasbor Akuntansi"). Dispatcher /baru (ais.action.servlet.Baru ->
+        // WEB-INF/baru/index.jsp) memang mensyaratkan login sebelum meng-include berkas ini, tapi
+        // TIDAK memeriksa hak akses per-modul (index.jsp#bolehAksesModulKantin mengizinkan p!=kantin
+        // apa pun untuk pengguna manapun) -- jadi berkas ini wajib memvalidasi sendiri.
+        Tbmuser tbmuser = Common.getCurrentUser(request);
+        if (tbmuser == null) {
+            jsonResponse.put("status", "error");
+            jsonResponse.put("message", Common.getBahasaConfig("Sesi berakhir, silakan login kembali."));
+            out.print(jsonResponse.toString());
+            out.flush();
+            return;
+        }
+        // Meniru gerbang cakupan Satuan Kerja yang sudah dipakai dasbor akunting lama (ZK)
+        // di AmbilDataSatuanKerjaBanbox/DasboardAkunting: hanya role dengan hak
+        // "melihat data satker lain" boleh melihat konsolidasi SELURUH unit kerja; pengguna
+        // lain dikunci ke satuan kerjanya sendiri agar tidak bisa mengagregasi jurnal/Neraca
+        // milik unit/yayasan lain sekadar dengan menghilangkan parameter satuan_kerja_id.
+        boolean bolehSemuaSatuanKerja = tbmuser.hakAkses() != null
+                && Boolean.TRUE.equals(tbmuser.hakAkses().getMelihatDataSatkerLain());
+        Long satuanKerjaSendiri = tbmuser.ambilSatuanKerja() == null ? null : tbmuser.ambilSatuanKerja().getId();
+
         // =================================================================================
-        // ACTION: INIT FILTER 
+        // ACTION: INIT FILTER
         // =================================================================================
         if ("init_filter".equals(action)) {
             Criteria critSk = sess.createCriteria(SatuanKerja.class).addOrder(Order.asc("nama"));
+            if (!bolehSemuaSatuanKerja) {
+                if (satuanKerjaSendiri != null) {
+                    critSk.add(Restrictions.idEq(satuanKerjaSendiri));
+                } else {
+                    critSk.add(Restrictions.sqlRestriction("1=0"));
+                }
+            }
             List<SatuanKerja> listSk = critSk.list();
             JSONArray arrSk = new JSONArray();
             for(SatuanKerja sk : listSk) {
@@ -55,6 +85,13 @@
             
             Long satuan_kerja = (skIdStr != null && !skIdStr.trim().isEmpty()) ? Long.parseLong(skIdStr) : -1L;
             Long jenis_laporan_id = (jenisLaporanIdStr != null && !jenisLaporanIdStr.trim().isEmpty()) ? Long.parseLong(jenisLaporanIdStr) : -1L;
+
+            if (!bolehSemuaSatuanKerja) {
+                // -1L (parameter dihilangkan) berarti "konsolidasi seluruh unit" -- tanpa hak
+                // "melihat data satker lain" itu wajib dipersempit ke unit sendiri; permintaan
+                // eksplisit ke unit LAIN juga ditolak, bukan cuma diam-diam ditimpa.
+                satuan_kerja = satuanKerjaSendiri == null ? -2L : satuanKerjaSendiri;
+            }
             
             String sqlSelectCols = "";
             int N = 0; // Jumlah kolom nilai yang akan diagregasi

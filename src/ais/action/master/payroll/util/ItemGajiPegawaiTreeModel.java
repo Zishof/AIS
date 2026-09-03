@@ -105,7 +105,10 @@ public class ItemGajiPegawaiTreeModel extends AbstractTreeModel {
 	private GajiPokok gajiPokok = null;
 	private Insentif insentif = null;
 	private Map<String, Double> dataVar = new HashMap<String, Double>();
-	private Map<String, Integer> jumlah = new HashMap<String, Integer>();
+	// Kedalaman rekursi hitungItemGajiPegawai() saat ini (bukan akumulasi jumlah evaluasi
+	// seumur instance) -- naik sebelum rekursi, turun di finally, agar ambang di bawah
+	// membatasi rumus yang benar-benar sirkular tanpa memakan kuota rujukan silang biasa.
+	private int kedalaman = 0;
 	private List<KenaikanPangkat> kenaikanPangkats = null;
 	private List<JabatanFungsional> jabatanFungsionals = null;
 	private List<JabatanStruktural> jabatanStrukturals = null;
@@ -634,12 +637,24 @@ public class ItemGajiPegawaiTreeModel extends AbstractTreeModel {
 			HashMap<String, Double> hashMapFormulaTransaksi, PembayaranGajiPunyaPegawai toPembayaranGajiPunyaPegawai,
 			List<String> penghitungan) throws Exception {
 
-		int c = jumlah.containsKey(kodeGaji) ? jumlah.get(kodeGaji) : 0;
-		if (formula == null || formula.trim().equals("") || formula.replaceAll("[\\p{Punct}&&[^_-]]+", "").trim().isEmpty() || c > 25) {
+		if (formula == null || formula.trim().equals("") || formula.replaceAll("[\\p{Punct}&&[^_-]]+", "").trim().isEmpty()) {
 			return 0.0;
 		}
 
-		jumlah.put(kodeGaji, ++c);
+		if (kedalaman > 25) {
+			try {
+				MyMessageboxConfig.showFormat(
+						"Mohon maaf, penghitungan formula untuk kode \"{V1}\" dihentikan karena kedalaman rekursi melebihi batas (25). Kemungkinan ada rujukan formula yang saling melingkar (sirkular), sehingga nilai kode ini dipaksa menjadi 0. Langkah yang dapat dilakukan: (1) Periksa kembali rumus untuk kode \"{V1}\" beserta kode-kode yang dirujuknya; (2) Pastikan tidak ada rujukan yang saling melingkar; (3) Perbaiki formula lalu ulangi proses penghitungan.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, kodeGaji);
+			} catch (Exception ea) { ais.common.ErrorAuditUtil.record(ea, "auto-audit(empty-catch) src/ais/action/master/payroll/util/ItemGajiPegawaiTreeModel.java: kedalaman rekursi terlampaui"); }
+			if (penghitungan != null) {
+				penghitungan.add(kodeGaji + " = 0 (DIHENTIKAN: kedalaman rekursi > 25, kemungkinan rumus sirkular)");
+			}
+			return 0.0;
+		}
+
+		kedalaman++;
+		try {
 
 		for (GajiTabahan gajiTabahan : gajiTabahans) {
 			if (gajiTabahan != null && gajiTabahan.getKode() != null
@@ -1324,6 +1339,10 @@ public class ItemGajiPegawaiTreeModel extends AbstractTreeModel {
 
 		dataVar.put(kodeGaji, result);
 		return result;
+
+		} finally {
+			kedalaman--;
+		}
 	}
 
 	public static String angka(double hasil) {
