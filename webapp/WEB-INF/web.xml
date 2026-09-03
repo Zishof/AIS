@@ -482,6 +482,16 @@
 		<url-pattern>/bantuan</url-pattern>
 	</servlet-mapping>
 	<servlet>
+		<description>Penyunting teks/label multi-bahasa untuk halaman JSP (khusus administrator)</description>
+		<display-name>label-bahasa</display-name>
+		<servlet-name>label-bahasa</servlet-name>
+		<servlet-class>ais.action.servlet.LabelBahasaApi</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>label-bahasa</servlet-name>
+		<url-pattern>/label-bahasa</url-pattern>
+	</servlet-mapping>
+	<servlet>
 		<description>
 		</description>
 		<display-name>pustaka</display-name>

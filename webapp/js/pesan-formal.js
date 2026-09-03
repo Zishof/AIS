@@ -95,7 +95,177 @@ function tampilkanPesanGagalFormal(aktivitas, penyebab, langkahSolusi, detailTek
            lanjutannya ke callback ini, sehingga urutannya tetap sama seperti dulu. */
         if (typeof data.onTutup === "function") { try { data.onTutup(); } catch (e) {} }
     };
+    /* Tombol khusus ADMINISTRATOR (lihat pasangUbahTeks). Ditambahkan setelah dialog
+       terpasang karena status admin ditanyakan ke server secara asinkron: dialognya
+       tidak boleh menunggu jawaban itu untuk tampil. */
     box.appendChild(tutup); overlay.appendChild(box); document.body.appendChild(overlay);
+    try { pasangUbahTeks(box, pesanMudah); } catch (e) {}
+}
+
+/* ============================================================================
+ * UBAH TEKS / TERJEMAHAN  (khusus administrator)
+ * ============================================================================
+ *
+ * Padanan EditorLabelBahasa di sisi ZKoss. Kalimat yang janggal atau salah terjemah
+ * paling mudah dikenali saat kalimat itu sedang dibaca, jadi tombol perbaikannya
+ * diletakkan tepat pada dialognya.
+ *
+ * Status admin, kunci kamus, dan terjemahan yang sudah ada diambil dari endpoint
+ * /label-bahasa. Endpoint itu jugalah yang menegakkan hak akses -- tombol ini hanya
+ * lapisan tampilan, dan menyembunyikannya BUKAN pengaman.
+ */
+function pasangUbahTeks(box, teksAsli) {
+    if (!teksAsli || !String(teksAsli).trim()) { return; }
+    var ctx = (typeof AIS_CONTEXT_PATH === "string") ? AIS_CONTEXT_PATH : "";
+    var url = ctx + "/label-bahasa?aksi=muat&teks=" + encodeURIComponent(teksAsli);
+    var x = new XMLHttpRequest();
+    x.open("GET", url, true);
+    x.onreadystatechange = function () {
+        if (x.readyState !== 4) { return; }
+        var d;
+        try { d = JSON.parse(x.responseText); } catch (e) { return; }
+        // Bukan admin: tidak ada tombol, tidak ada pesan apa pun.
+        if (!d || d.admin !== true) { return; }
+        try { bangunPanelUbahTeks(box, d, ctx); } catch (e) {}
+    };
+    try { x.send(); } catch (e) {}
+}
+
+function bangunPanelUbahTeks(box, d, ctx) {
+    var bungkus = document.createElement("div");
+    bungkus.style.cssText = "margin-top:12px;border-top:1px solid #ddd;padding-top:10px";
+
+    var tombol = document.createElement("button");
+    tombol.type = "button";
+    tombol.textContent = "Ubah Teks";
+    tombol.style.cssText = "padding:8px 14px;cursor:pointer;font-weight:bold";
+    bungkus.appendChild(tombol);
+
+    var form = document.createElement("div");
+    form.style.cssText = "margin-top:10px";
+    // Disetel eksplisit, bukan lewat cssText: pembacaan status buka/tutup di bawah
+    // memakai style.display, dan itu lebih jelas daripada mengandalkan penguraian
+    // cssText oleh peramban.
+    form.style.display = "none";
+    bungkus.appendChild(form);
+
+    var ket = document.createElement("div");
+    ket.style.cssText = "font-size:11px;color:#666;margin-bottom:8px";
+    ket.textContent = "Kunci kamus: " + (d.kunci || "-") +
+        " \u2014 perubahan berlaku untuk seluruh aplikasi, bukan hanya halaman ini.";
+    form.appendChild(ket);
+
+    var isian = {};
+    var bahasa = [["indonesia", "Bahasa Indonesia"], ["english", "English"],
+                  ["arab", "Arabic"], ["mandarin", "Mandarin"]];
+    for (var i = 0; i < bahasa.length; i++) {
+        var l = document.createElement("div");
+        l.textContent = bahasa[i][1];
+        l.style.cssText = "font-size:12px;font-weight:bold;margin-top:6px";
+        form.appendChild(l);
+        var t = document.createElement("textarea");
+        t.rows = 2;
+        t.value = d[bahasa[i][0]] || "";
+        t.style.cssText = "width:100%;box-sizing:border-box;font-size:13px;padding:6px;" +
+            "border:1px solid #cbd5e1;border-radius:6px";
+        form.appendChild(t);
+        isian[bahasa[i][0]] = t;
+    }
+
+    var status = document.createElement("div");
+    status.style.cssText = "font-size:12px;margin-top:8px";
+    form.appendChild(status);
+
+    var baris = document.createElement("div");
+    baris.style.cssText = "margin-top:10px";
+    form.appendChild(baris);
+
+    var btnTerjemah = document.createElement("button");
+    btnTerjemah.type = "button";
+    btnTerjemah.textContent = "Terjemahkan Otomatis";
+    btnTerjemah.style.cssText = "padding:7px 12px;margin-right:8px;cursor:pointer";
+    baris.appendChild(btnTerjemah);
+
+    var btnSimpan = document.createElement("button");
+    btnSimpan.type = "button";
+    btnSimpan.textContent = "Simpan";
+    btnSimpan.style.cssText = "padding:7px 14px;cursor:pointer;font-weight:bold";
+    baris.appendChild(btnSimpan);
+
+    tombol.onclick = function () {
+        var buka = form.style.display === "none";
+        form.style.display = buka ? "block" : "none";
+        tombol.textContent = buka ? "Tutup Ubah Teks" : "Ubah Teks";
+    };
+
+    btnTerjemah.onclick = function () {
+        var sumber = isian.indonesia.value;
+        if (!sumber || !sumber.trim()) {
+            status.style.color = "#b91c1c";
+            status.textContent = "Isi dulu kalimat Bahasa Indonesia-nya.";
+            return;
+        }
+        btnTerjemah.disabled = true;
+        btnTerjemah.textContent = "Menerjemahkan...";
+        var x = new XMLHttpRequest();
+        x.open("GET", ctx + "/label-bahasa?aksi=terjemah&teks=" + encodeURIComponent(sumber), true);
+        x.onreadystatechange = function () {
+            if (x.readyState !== 4) { return; }
+            btnTerjemah.disabled = false;
+            btnTerjemah.textContent = "Terjemahkan Otomatis";
+            var r;
+            try { r = JSON.parse(x.responseText); } catch (e) { r = null; }
+            if (!r || r.admin !== true) {
+                status.style.color = "#b91c1c";
+                status.textContent = "Terjemahan otomatis tidak tersedia saat ini.";
+                return;
+            }
+            /* Hanya menimpa bila penerjemah menghasilkan sesuatu: hasil suntingan
+               manusia tidak boleh hilang karena server AI sedang tidak siap. */
+            if (r.english) { isian.english.value = r.english; }
+            if (r.arab) { isian.arab.value = r.arab; }
+            if (r.mandarin) { isian.mandarin.value = r.mandarin; }
+            status.style.color = "#166534";
+            status.textContent = "Terjemahan diisikan. Periksa dan perbaiki bila perlu, lalu Simpan.";
+        };
+        try { x.send(); } catch (e) {
+            btnTerjemah.disabled = false;
+            btnTerjemah.textContent = "Terjemahkan Otomatis";
+        }
+    };
+
+    btnSimpan.onclick = function () {
+        btnSimpan.disabled = true;
+        btnSimpan.textContent = "Menyimpan...";
+        var badan = "aksi=simpan&kunci=" + encodeURIComponent(d.kunci || "") +
+            "&indonesia=" + encodeURIComponent(isian.indonesia.value) +
+            "&english=" + encodeURIComponent(isian.english.value) +
+            "&arab=" + encodeURIComponent(isian.arab.value) +
+            "&mandarin=" + encodeURIComponent(isian.mandarin.value);
+        var x = new XMLHttpRequest();
+        x.open("POST", ctx + "/label-bahasa", true);
+        x.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        // Penyimpanan mengubah data, jadi wajib membawa token CSRF dari endpoint muat.
+        if (d.csrfHeader && d.csrfToken) { x.setRequestHeader(d.csrfHeader, d.csrfToken); }
+        x.onreadystatechange = function () {
+            if (x.readyState !== 4) { return; }
+            btnSimpan.disabled = false;
+            btnSimpan.textContent = "Simpan";
+            var r;
+            try { r = JSON.parse(x.responseText); } catch (e) { r = null; }
+            var ok = r && r.ok === true;
+            status.style.color = ok ? "#166534" : "#b91c1c";
+            status.textContent = ok
+                ? "Teks berhasil diperbarui. Muat ulang halaman untuk melihat hasilnya."
+                : ((r && r.pesan) || "Teks gagal disimpan.");
+        };
+        try { x.send(badan); } catch (e) {
+            btnSimpan.disabled = false;
+            btnSimpan.textContent = "Simpan";
+        }
+    };
+
+    box.appendChild(bungkus);
 }
 
 /**
