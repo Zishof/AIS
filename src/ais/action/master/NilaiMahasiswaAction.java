@@ -346,8 +346,8 @@ public class NilaiMahasiswaAction extends GenericAutowireComposer {
 							sks.setValue(Common.numberFormat.get().format(sksmhss) + " / "
 									+ Common.numberFormat.get().format(sksmhs));
 
-							html.setContent(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-									krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, false));
+							ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+									html, mahasiswa, krsMahasiswa, false);
 						}
 					});
 				}

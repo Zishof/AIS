@@ -266,9 +266,7 @@ public class KrsKurikulumAction extends GenericAutowireComposer {
 							semesterPendek, keDatabase);
 					catatan.setValue(krsMahasiswa.getCatatan());
 					catatanKhs.setValue(krsMahasiswa.getCatatanKhs());
-					String krs = mahasiswa.rubahKeteranganPengambilanKRS(semester, tahapan, semesterPendek,
-							krsMahasiswa, false);
-					html.setContent(krs);
+					ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(html, mahasiswa, krsMahasiswa, false);
 					Integer komentars = krsMahasiswa.getKomentars();
 					String kom = komentars == 0 ? "Tidak ada komentar" : "Terdapat " + komentars + " komentar";
 					komentarshtml.setContent(kom);

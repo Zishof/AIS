@@ -764,8 +764,8 @@ public class KrsKurikulumHelper implements DataLoader {
 		}
 
 		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek);
-		keteranganParent.setContent(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-				krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, false));
+		ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+				keteranganParent, mahasiswa, krsMahasiswa, false);
 	}
 
 	/** Memuat ulang grid komentar (dosen PA/mahasiswa) untuk KRS yang sedang ditampilkan. */

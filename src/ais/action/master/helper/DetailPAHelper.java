@@ -239,8 +239,9 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 			KrsMahasiswa krsMahasiswa = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa);
 
 			new Label(krsMahasiswa.getKelas()).setParent(row);
-			new ais.ui.util.MyHtml(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-					krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, false)).setParent(row);
+			Html keteranganKrs = new ais.ui.util.MyHtml("");
+			ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(keteranganKrs, mahasiswa, krsMahasiswa, false);
+			keteranganKrs.setParent(row);
 
 			final Html komentarshtml = new ais.ui.util.MyHtml("");
 			komentarshtml.setParent(row);

@@ -1297,10 +1297,12 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 					+ (mahasiswa.getStatusAwalMahasiswa() == null ? "" : mahasiswa.getStatusAwalMahasiswa().getNama()))
 					.setParent(arg0);
 
-			new ais.ui.util.MyHtml(mahasiswa.getStatusKeluar() == null
-					? mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(), krsMahasiswa.getTahapan(),
-							krsMahasiswa.getSemesterPendek(), krsMahasiswa, false)
-					: (mahasiswa.getStatusKeluar().getNama()
+			org.zkoss.zul.Html keteranganKrs = new ais.ui.util.MyHtml("");
+			if (mahasiswa.getStatusKeluar() == null) {
+				ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+						keteranganKrs, mahasiswa, krsMahasiswa, false);
+			} else {
+				keteranganKrs.setContent(mahasiswa.getStatusKeluar().getNama()
 							+ (mahasiswa.getPredikatKelulusan() == null ? ""
 									: " / " + mahasiswa.getPredikatKelulusan().getNama())
 
@@ -1313,7 +1315,9 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 							+ (mahasiswa.getStatusDomisiliSetelahLulus() == null ? ""
 									: " / " + mahasiswa.getStatusDomisiliSetelahLulus().getNama())
 
-					)).setParent(arg0);
+					);
+			}
+			keteranganKrs.setParent(arg0);
 
 			Tbmuser tbmuser = Common.getCurrentUser();
 

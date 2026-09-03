@@ -390,9 +390,8 @@ public class StudiMahasiswaHelper implements DataLoader {
 
 						Integer sksmhss = krsMahasiswa.getSksYangDiambil();
 						Integer sksmhs = krsMahasiswa.getSksk();
-						String krsStr = mahasiswa.rubahKeteranganPengambilanKRS(semester, tahapan, semesterPendek, krsMahasiswa, remedial);
-						
-						keterangan.setContent(krsStr);
+						ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+								keterangan, mahasiswa, krsMahasiswa, remedial);
 						ipIpk.setValue(Common.numberFormat.get().format(ipmhs) + " / " + Common.numberFormat.get().format(ipkmhs));
 						sksSksk.setLabel(Common.numberFormat.get().format(sksmhss) + " / " + Common.numberFormat.get().format(sksmhs));
 					}
@@ -1199,8 +1198,8 @@ public class StudiMahasiswaHelper implements DataLoader {
 		}
 		sksSksk.setLabel(labelSksk);
 
-		String krs = mahasiswa.rubahKeteranganPengambilanKRS(semester, tahapan, semesterPendek, krsMahasiswa, remedial);
-		keterangan.setContent(krs);
+		ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+				keterangan, mahasiswa, krsMahasiswa, remedial);
 		
 		Integer komentars = krsMahasiswa.getKomentars();
 		komentarshtml.setContent(komentars == 0 ? "Tidak ada komentar" : "Terdapat " + komentars + " komentar");

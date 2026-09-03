@@ -258,8 +258,8 @@ public class DashboardTampilanKrsMahasiswa extends MyWindow {
 
 				Vbox vbox = new Vbox();
 				vbox.setParent(detail);
-				Html html = new ais.ui.util.MyHtml(mahasiswa.rubahKeteranganPengambilanKRS(semester, tahapan,
-						semesterPendek, krsMahasiswa, false));
+				Html html = new ais.ui.util.MyHtml("");
+				ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(html, mahasiswa, krsMahasiswa, false);
 				html.setParent(vbox);
 				MyLabelAgakKecil catatan = new MyLabelAgakKecil(krsMahasiswa.getCatatan());
 				MyLabelAgakKecil catatanKhs = new MyLabelAgakKecil(krsMahasiswa.getCatatanKhs());

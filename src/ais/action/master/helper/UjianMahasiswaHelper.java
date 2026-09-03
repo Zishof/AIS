@@ -351,9 +351,10 @@ public class UjianMahasiswaHelper implements DataLoader {
 			rowUtama1.setParent(rowUtama.getParent());
 		}
 
-		String krs = mahasiswa.rubahKeteranganPengambilanKRS(semester, tahapan, semesterPendek, krsMahasiswa, false);
 		rowUtama1.appendChild(new MyLabelConfig("Keterangan"));
-		rowUtama1.appendChild(new Html(krs));
+		Html keteranganKrs = new Html();
+		ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(keteranganKrs, mahasiswa, krsMahasiswa, false);
+		rowUtama1.appendChild(keteranganKrs);
 
 		rowUtama1 = new MyFormRow();
 		rowUtama1.setStyle("border:0px;background: transparent;");

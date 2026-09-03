@@ -3820,9 +3820,8 @@ public class TampilStudiMahasiswaHelper {
 					Common.createDefaultTimer(new EventListener() {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							html.setContent(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-									krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa,
-									remedial));
+							ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+									html, mahasiswa, krsMahasiswa, remedial);
 							Integer komentars = krsMahasiswa.getKomentars();
 							komentarshtml.setContent(
 									komentars == 0 ? "Tidak ada komentar" : "Terdapat " + komentars + " komentar");
@@ -3838,9 +3837,8 @@ public class TampilStudiMahasiswaHelper {
 					Common.createDefaultTimerNoBusy(new EventListener() {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							html.setContent(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-									krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa,
-									remedial));
+							ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+									html, mahasiswa, krsMahasiswa, remedial);
 							Integer komentars = krsMahasiswa.getKomentars();
 							komentarshtml.setContent(
 									komentars == 0 ? "Tidak ada komentar" : "Terdapat " + komentars + " komentar");
@@ -4397,8 +4395,8 @@ public class TampilStudiMahasiswaHelper {
 
 					hbox1.setParent(vbox1);
 
-					html.setContent(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-							krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, remedial));
+					ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+							html, mahasiswa, krsMahasiswa, remedial);
 					Integer komentars = krsMahasiswa.getKomentars();
 					komentarshtml
 							.setContent(komentars == 0 ? "Tidak ada komentar" : "Terdapat " + komentars + " komentar");

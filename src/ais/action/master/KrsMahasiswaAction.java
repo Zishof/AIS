@@ -838,8 +838,8 @@ public class KrsMahasiswaAction extends GenericAutowireComposer implements DataC
 				}
 			});
 
-			final Html html = new ais.ui.util.MyHtml(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-					krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, false));
+			final Html html = new ais.ui.util.MyHtml("");
+			ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(html, mahasiswa, krsMahasiswa, false);
 			final Html komentarshtml = new ais.ui.util.MyHtml("");
 			final MyLabelAgakKecil catatan = new MyLabelAgakKecil(krsMahasiswa.getCatatan());
 			final MyLabelAgakKecil catatanKhs = new MyLabelAgakKecil(krsMahasiswa.getCatatanKhs());

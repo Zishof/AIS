@@ -214,9 +214,7 @@ public class KrsMahasiswaDataRenderer extends ais.ui.util.MyRowRenderer {
 							semesterPendek, keDatabase);
 					catatan.setValue(krsMahasiswa.getCatatan());
 					catatanKhs.setValue(krsMahasiswa.getCatatanKhs());
-					String krs = mahasiswa.rubahKeteranganPengambilanKRS(semester, tahapan, semesterPendek,
-							krsMahasiswa, remedial);
-					html.setContent(krs);
+					KrsMahasiswaAnalisisPopupHelper.pasang(html, mahasiswa, krsMahasiswa, remedial);
 					Integer komentars = krsMahasiswa.getKomentars();
 
 					String kom = komentars == 0 ? "Tidak ada komentar" : "Terdapat " + komentars + " komentar";

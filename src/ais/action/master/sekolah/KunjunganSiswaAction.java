@@ -36,6 +36,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.sekolah.helper.AmbilDataSiswaBanbox;
+import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
 import ais.common.CommonMedia;
 import ais.common.CommonPrivilages;
@@ -120,6 +121,16 @@ public class KunjunganSiswaAction extends GenericAutowireComposer implements Dat
 	private Label label_universitas;
 	private Tbmuser tbmuser = null;
 
+	/**
+	 * {@link Sekolah} pemilik anjungan/layar ini, diresolusi di SERVER lewat
+	 * {@link SekolahUtil#getSekolah(HttpServletRequest)} pada {@link #doAfterCompose(Component)} --
+	 * TIDAK PERNAH dipercaya dari parameter klien atau dari pilihan combobox {@code searchsekolah}.
+	 * {@code null} bila sekolah anjungan ini tidak dapat ditentukan; {@link #initCriteria(boolean)}
+	 * dan {@link #onKodeSiswa(Event)} WAJIB gagal-tutup (menolak data/pemindaian) dalam kondisi ini,
+	 * meniru pola {@code resolveSekolahKiosk()} pada {@code _welsis_service.jsp}.
+	 */
+	private Sekolah sekolahKiosk;
+
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -133,6 +144,8 @@ public class KunjunganSiswaAction extends GenericAutowireComposer implements Dat
 		Common.initBahasaParameter(execution.getParameter("lang"));
 		HttpServletRequest request = (HttpServletRequest) execution.getNativeRequest();
 		SessionCounter.initSessionTimeout(request.getSession(), null, false);
+		Sekolah sekolahTerresolusi = SekolahUtil.getSekolah(request);
+		sekolahKiosk = sekolahTerresolusi != null && sekolahTerresolusi.getId() != null ? sekolahTerresolusi : null;
 		if (label_universitas != null) {
 			label_universitas.setValue(Common.getKonfigurasi("label_universitas", "Universitas").getNilai());
 		}
@@ -436,6 +449,22 @@ public class KunjunganSiswaAction extends GenericAutowireComposer implements Dat
 			kodeSiswa.focus();
 			return;
 		}
+
+		// Gagal-tutup: kombobox searchsekolah berisi SELURUH sekolah pada instalasi ini, jadi
+		// pilihan pengguna sendirian tidak cukup dipercaya untuk menentukan lingkup pemindaian.
+		// Cocokkan dengan sekolahKiosk (diresolusi di server pada doAfterCompose(), lihat javadoc
+		// field-nya) sebelum mengizinkan pemindaian/pencatatan kehadiran -- meniru pola
+		// resolveSekolahKiosk() pada _welsis_service.jsp yang tidak pernah mempercayai sekolah dari
+		// input klien.
+		Sekolah sekolahDipilih = (Sekolah) searchsekolah.getSelectedItem().getValue();
+		if (sekolahKiosk == null || sekolahKiosk.getId() == null || sekolahDipilih == null
+				|| sekolahDipilih.getId() == null || !sekolahKiosk.getId().equals(sekolahDipilih.getId())) {
+			MyMessageboxConfig.show("Sekolah tidak dikenali untuk anjungan ini", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			kodeSiswa.select();
+			kodeSiswa.focus();
+			return;
+		}
 		Session session = HibernateUtil.currentNativeSession();
 		Siswa siswa = (Siswa) session.createCriteria(Siswa.class).add(Restrictions.isNotNull("namaSiswa")).add(Restrictions.ne("namaSiswa","")).add(Restrictions.isNotNull("sekolah"))
 				.add(CommonSearchFilterHelper.eqSelectedWithId("sekolah", searchsekolah, false))
@@ -646,8 +675,13 @@ public class KunjunganSiswaAction extends GenericAutowireComposer implements Dat
 			criteria.addOrder(Order.desc("id"));
 		criteria
 
+				// Gagal-tutup: bila kombobox sekolah belum dipilih, batasi ke sekolah anjungan yang
+				// diresolusi di server (sekolahKiosk); bila itu pun tidak dapat ditentukan, jangan
+				// kembalikan apa pun -- sebelumnya jatuh ke sqlRestriction("true") yang membocorkan
+				// SELURUH baris KunjunganSiswa lintas sekolah/yayasan ke pengunjung anonim.
 				.add(searchsekolah.getSelectedItem() == null || searchsekolah.getSelectedItem().getValue() == null
-						? Restrictions.sqlRestriction("true")
+						? (sekolahKiosk == null ? Restrictions.sqlRestriction("false")
+								: Restrictions.eq("sekolah", sekolahKiosk))
 						: CommonSearchFilterHelper.eqSelectedWithId("sekolah", searchsekolah, false))
 
 				.add(searchyayasan.getSelectedItem() == null || searchyayasan.getSelectedItem().getValue() == null

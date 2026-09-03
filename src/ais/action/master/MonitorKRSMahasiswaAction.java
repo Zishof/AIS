@@ -1525,9 +1525,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 			final Html htmlKrs = new ais.ui.util.MyHtml("");
 			htmlKrs.setParent(arg0);
 
-			String krs = mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(), krsMahasiswa.getTahapan(),
-					krsMahasiswa.getSemesterPendek(), krsMahasiswa, false);
-			htmlKrs.setContent(krs);
+			ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(htmlKrs, mahasiswa, krsMahasiswa, false);
 			if (mahasiswa.getDosen() == null && krsMahasiswa.getDosenPa() != null) {
 				mahasiswa.setDosen(krsMahasiswa.getDosenPa().getId());
 			}

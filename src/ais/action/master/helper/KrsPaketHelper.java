@@ -469,14 +469,15 @@ public class KrsPaketHelper implements DataLoader {
 										: "Saat ini anda tidak bisa mengambil dan mengubah KRS. Waktu pengambilan KRS sudah selesai atau belum berlangsung");
 		waktuisiKrs.setParent(rowUtama1);
 
-		String krs = mahasiswa.rubahKeteranganPengambilanKRS(semester, tahapan, semesterPendek, krsMahasiswa, false);
 		if (Common.isMobile()) {
 			rowUtama1 = new Row();
 			rowUtama1.setStyle("border:0px;background: transparent;");
 			rowUtama1.setParent(rowUtama.getParent());
 		}
 		rowUtama1.appendChild(new MyLabelConfig("Keterangan"));
-		rowUtama1.appendChild(new Html(krs));
+		Html keteranganKrs = new Html();
+		ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(keteranganKrs, mahasiswa, krsMahasiswa, false);
+		rowUtama1.appendChild(keteranganKrs);
 
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");
@@ -864,8 +865,8 @@ public class KrsPaketHelper implements DataLoader {
 		}
 
 		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek);
-		keteranganParent.setContent(mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-				krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, false));
+		ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+				keteranganParent, mahasiswa, krsMahasiswa, false);
 	}
 
 	/** Memuat ulang grid komentar dosen PA terkait KRS mahasiswa/semester/tahapan/tahun ajaran saat ini. */

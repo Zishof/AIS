@@ -5355,10 +5355,10 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 					mahasiswa.setDosen(krsMahasiswa.getDosenPa().getId());
 				}
 
-				htmlKrs.setContent(mahasiswa.getStatusKeluar() == null
-						? mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(), krsMahasiswa.getTahapan(),
-								krsMahasiswa.getSemesterPendek(), krsMahasiswa, false)
-						: (mahasiswa.getStatusKeluar().getNama()
+				if (mahasiswa.getStatusKeluar() == null) {
+					ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(htmlKrs, mahasiswa, krsMahasiswa, false);
+				} else {
+					htmlKrs.setContent(mahasiswa.getStatusKeluar().getNama()
 								+ (mahasiswa.getPredikatKelulusan() == null ? ""
 										: " / " + mahasiswa.getPredikatKelulusan().getNama())
 
@@ -5371,7 +5371,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 								+ (mahasiswa.getStatusDomisiliSetelahLulus() == null ? ""
 										: " / " + mahasiswa.getStatusDomisiliSetelahLulus().getNama())
 
-						));
+						);
+				}
 
 				String statusPrefix = (mahasiswa.getStatusKeluar() == null ? ""
 						: mahasiswa.getStatusKeluar().getNama() + "/")

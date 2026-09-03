@@ -419,10 +419,14 @@ public class ProfileMahasiswa {
 		row = new MyRowStyled();
 		row.setParent(rows);
 		ais.ui.util.ZkCompat.setSpans(row, "2");
-		row.appendChild(new ais.ui.util.MyHtml("Perkuliahan:<br><div style=\"padding: 10px; background-color: #ffffff; border-radius: 5px; border: 1px solid #e9ecef; margin-top: 5px;\">"
-				+ mahasiswa.rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(), krsMahasiswa.getTahapan(),
-						krsMahasiswa.getSemesterPendek(), krsMahasiswa, false)
-				+ "</div>"));
+		Vbox ringkasanKrs = new Vbox();
+		ringkasanKrs.setWidth("100%");
+		row.appendChild(ringkasanKrs);
+		new ais.ui.util.MyHtml("<b>Perkuliahan:</b>").setParent(ringkasanKrs);
+		Html keteranganKrs = new ais.ui.util.MyHtml("");
+		ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
+				keteranganKrs, mahasiswa, krsMahasiswa, false);
+		keteranganKrs.setParent(ringkasanKrs);
 
 		// Penjelasan otomatis saat status Nonaktif memakai analyzer kanonik yang sama dengan
 		// layar pembayaran. Analyzer membedakan tagihan belum dibayar, tagihan belum terbentuk,
