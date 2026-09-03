@@ -105,7 +105,8 @@ public class ProsesBayarCheckboxRenderer extends DetailPembayaranMahasiswaRender
 		try {
 			for (Object o : new java.util.ArrayList<Object>(c.getChildren())) {
 				org.zkoss.zk.ui.Component child = (org.zkoss.zk.ui.Component) o;
-				if (child instanceof org.zkoss.zul.A || child instanceof org.zkoss.zul.Toolbarbutton) {
+				if ((child instanceof org.zkoss.zul.A || child instanceof org.zkoss.zul.Toolbarbutton)
+						&& !Boolean.TRUE.equals(child.getAttribute("editNominalTagihan"))) {
 					if (child instanceof HtmlBasedComponent) {
 						((HtmlBasedComponent) child).setVisible(false);
 					}

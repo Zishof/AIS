@@ -101,12 +101,21 @@ Di kelas yang benar, kata "ditahan", "proyeksi", "forecast", "prediksi", dan "eq
 muncul sama sekali**, dan satu-satunya judul bagian yang tertulis adalah "Buku Besar" dan
 "Neraca Lajur" — dua-duanya sudah punya versi natif sekarang.
 
-Itu **belum cukup** untuk menyimpulkan entrinya berlebihan. Dasbor itu menyusun isinya secara
-programatik, jadi daftar bagiannya tidak bisa dibaca utuh dari sumber; ketiadaan sebuah kata
-bukan bukti ketiadaan fiturnya. Mencabut tautannya atas dasar itu berarti mengulang persis
-kegagalan yang diperingatkan doc 100 — menghapus sesuatu yang bekerja karena pengukurannya
-menjawab pertanyaan lain. Jadi entri ini sengaja dibiarkan, dan yang dicatat hanyalah apa yang
-benar-benar terlihat.
+Itu **belum cukup** untuk menyimpulkan entrinya berlebihan — dan pembacaan lanjutan
+(dicatat saat menutup doc 106) menunjukkan kenapa.
+
+**Grafiknya ada.** Komentar kelas baris 7: *"Grafik, tren, radar, dan spider web dipertahankan
+sebagai HTML/CSS agar ringan dan aman di ZK 5.5."* Jadi kata "Grafik" pada judul entri benar.
+
+**Dua kemunculan "rasio" itu palsu.** Keduanya substring di dalam kata "ope**rasio**nal", bukan
+rasio keuangan. Tidak ada perhitungan rasio di kelas itu.
+
+**Dan yang menentukan:** isi dasbornya adalah pohon `JenisLaporan` yang dibaca dari **basis
+data**, bukan daftar yang ditulis di kode. Nama seperti "Laba Ditahan" atau "Proyeksi Kas"
+akan muncul bila instalasi memilikinya sebagai Jenis Laporan — sehingga ketiadaan kata itu di
+sumber tidak membuktikan apa pun tentang apa yang dilihat pengguna. Mencabut tautannya atas
+dasar pencarian teks berarti mengulang persis kegagalan doc 100.
+
 
 ## 6. Sisa
 
