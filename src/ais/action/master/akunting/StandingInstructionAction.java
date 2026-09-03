@@ -1,5 +1,6 @@
 package ais.action.master.akunting;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Iterator;
 import java.util.List;
@@ -101,9 +102,12 @@ import ais.ui.util.MyToolbarbuttonConfig;
  *   ekspor; perbarui semua pemanggil jika ada perubahan kolom.<br>
  * - Tab statistik dimuat secara lazy (lazy loading) untuk menghindari query
  *   yang berat saat halaman pertama dibuka.<br>
- * - Filter status transfer (searchbelum/searchsudah/searchsudahtrnf) menggunakan
- *   LEFT JOIN ke tabel proses transfer; perhatikan implikasi performa pada
- *   dataset besar.</p>
+ * - Filter status transfer (searchbelum/searchsudah/searchsudahtrnf) <b>tidak</b> memakai
+ *   Criteria/LEFT JOIN -- relasi ke {@link ProsesTransferStandingInstruction} hanya berupa
+ *   JSON ({@code transferVia}), bukan foreign key, sehingga status dihitung di Java oleh
+ *   {@link #hitungStatusTransfer(Session, StandingInstruction)} dan disaring setelah seluruh
+ *   baris (yang lolos filter satuan kerja/tanggal/nama) diambil dari DB; lihat javadoc
+ *   {@link #onSearchDefault(Event)}. Perhatikan implikasi performa pada dataset besar.</p>
  */
 public class StandingInstructionAction extends GenericAutowireComposer implements DataCriteria, DataSearchDefault {
 
@@ -549,20 +553,30 @@ public class StandingInstructionAction extends GenericAutowireComposer implement
 	 *   <li><b>Filter rentang tanggal:</b> SQL raw pada field {@code waktu} dengan
 	 *       format {@code date()} untuk perbandingan tanggal. Fallback ke {@code 1=1}
 	 *       jika salah satu datebox null.</li>
-	 *   <li><b>Filter status transfer (opsional):</b> Hanya diaktifkan jika minimal
-	 *       satu checkbox status dicentang. Menggunakan LEFT JOIN ke
-	 *       {@code prosesTransferStandingInstruction}:
-	 *       <ul>
-	 *         <li>{@code searchbelum}: prosesTransfer IS NULL (belum diproses sama sekali).</li>
-	 *         <li>{@code searchsudah}: prosesTransfer IS NOT NULL AND realisasikanOleh IS NULL
-	 *             (sudah disetujui tapi belum ditransfer).</li>
-	 *         <li>{@code searchsudahtrnf}: transfer=true AND prosesTransfer IS NOT NULL
-	 *             AND realisasikanOleh IS NOT NULL (sudah ditransfer ke bank).</li>
-	 *       </ul>
-	 *   </li>
 	 *   <li><b>Filter nama/kode:</b> ILIKE OR pada field {@code kode} dan {@code nama}.</li>
 	 *   <li><b>Pengurutan:</b> Jika {@code order=true}, berdasarkan {@code id} descending.</li>
 	 * </ul>
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Riwayat &mdash; filter status transfer TIDAK dibangun di sini (diperbaiki setelah
+	 * audit 2026-09).</b> Sampai audit tersebut, method ini juga mencoba menyaring status
+	 * transfer (searchbelum/searchsudah/searchsudahtrnf) lewat
+	 * {@code criteria.createAlias("prosesTransferStandingInstruction", ...)} dan
+	 * {@code Restrictions.eq("transfer", true)}. Kedua nama itu <b>bukan</b> properti Hibernate
+	 * yang ada di {@link StandingInstruction}, {@code DataSop}, maupun
+	 * {@code GeneralValueObject} &mdash; relasi ke {@link ProsesTransferStandingInstruction}
+	 * di kelas itu murni JSON teks ({@code transferVia}), bukan {@code @ManyToOne}. Akibatnya
+	 * mencentang checkbox {@code searchbelum} atau {@code searchsudahtrnf} melempar
+	 * {@code QueryException} saat query dijalankan. Kondisi gerbangnya pun keliru
+	 * ({@code searchbelum.isChecked() || searchbelum.isChecked() || searchsudahtrnf.isChecked()}
+	 * &mdash; {@code searchbelum} diuji dua kali, {@code searchsudah} tidak pernah muncul di
+	 * kondisi gerbang), sehingga mencentang <b>hanya</b> {@code searchsudah} membuat seluruh
+	 * blok filter status tidak pernah dieksekusi (bukan error, tapi filter diam-diam diabaikan
+	 * dan semua status ikut tampil). Filter status kini dihitung dan diterapkan di Java oleh
+	 * {@code StandingInstructionAction.onSearchDefault(Event)} lewat
+	 * {@link #hitungStatusTransfer(Session, StandingInstruction)}, bukan di {@link Criteria}
+	 * ini &mdash; lihat javadoc kedua method tersebut.
 	 * </p>
 	 *
 	 * <p><b>Penanganan error:</b><br>
@@ -571,13 +585,16 @@ public class StandingInstructionAction extends GenericAutowireComposer implement
 	 * Log debug {@code System.out.println} digunakan untuk tracing filter satuan kerja.</p>
 	 *
 	 * <p><b>Pemeliharaan:</b><br>
-	 * Penggunaan LEFT JOIN pada {@code prosesTransferStandingInstruction} penting agar
-	 * SI tanpa proses transfer tetap muncul dalam hasil. Jangan ubah ke INNER JOIN
-	 * tanpa pertimbangan konsekuensinya. Hapus {@code System.out.println} saat pindah
-	 * ke production jika log terlalu verbose.</p>
+	 * Hapus {@code System.out.println} saat pindah ke production jika log terlalu verbose.
+	 * Criteria yang dikembalikan di sini <b>tidak lengkap</b> untuk keperluan tampilan grid
+	 * ketika filter status aktif &mdash; jangan panggil method ini secara langsung untuk
+	 * menghitung jumlah baris final tanpa juga menerapkan
+	 * {@link #hitungStatusTransfer(Session, StandingInstruction)} seperti yang dilakukan
+	 * {@code onSearchDefault(Event)}.</p>
 	 *
 	 * @param order {@code true} untuk menyertakan ORDER BY, {@code false} untuk COUNT
-	 * @return objek {@link Criteria} yang telah dikonfigurasi dengan semua filter aktif
+	 * @return objek {@link Criteria} untuk filter satuan kerja/tanggal/nama saja; filter
+	 *         status transfer TIDAK termasuk (lihat catatan riwayat di atas)
 	 */
 	public Criteria initCriteria(boolean order) {
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -606,29 +623,13 @@ public class StandingInstructionAction extends GenericAutowireComposer implement
 
 		;
 
-		if ((searchbelum.isChecked() || searchbelum.isChecked() || searchsudahtrnf.isChecked())) {
-
-			criteria.createAlias("prosesTransferStandingInstruction", "prosesTransferStandingInstruction",
-					Criteria.LEFT_JOIN)
-					.add(searchbelum.isChecked() ? Restrictions.isNull("prosesTransferStandingInstruction")
-							: Restrictions.sqlRestriction("true"))
-
-					.add(searchsudah.isChecked() ?
-
-							Restrictions.and(Restrictions.isNotNull("prosesTransferStandingInstruction"),
-									Restrictions.isNull("prosesTransferStandingInstruction.realisasikanOleh"))
-
-							: Restrictions.sqlRestriction("true"))
-
-					.add(searchsudahtrnf.isChecked() ?
-
-							Restrictions.and(Restrictions.eq("transfer", true),
-									Restrictions.and(Restrictions.isNotNull("prosesTransferStandingInstruction"),
-											Restrictions
-													.isNotNull("prosesTransferStandingInstruction.realisasikanOleh")))
-
-							: Restrictions.sqlRestriction("true"));
-		}
+		// Filter status transfer (searchbelum/searchsudah/searchsudahtrnf) TIDAK diterapkan di
+		// sini lagi -- lihat javadoc method ini dan #hitungStatusTransfer(Session,
+		// StandingInstruction). Relasi ke ProsesTransferStandingInstruction hanya berupa JSON
+		// (StandingInstruction#getTransferVia()), bukan properti Hibernate bernama
+		// "prosesTransferStandingInstruction"/"transfer", sehingga tidak bisa disaring lewat
+		// Criteria di sini; filter status diterapkan belakangan di Java oleh
+		// #onSearchDefault(Event).
 
 		if (order)
 			criteria.addOrder(Order.desc("id"));
@@ -644,12 +645,22 @@ public class StandingInstructionAction extends GenericAutowireComposer implement
 	 * disertai pembaruan komponen paging.
 	 *
 	 * <p><b>Cara kerja:</b><br>
-	 * Melakukan dua panggilan {@link #initCriteria(boolean)}: pertama dengan
-	 * {@code order=false} untuk menghitung total record dan memperbarui paging,
-	 * kemudian dengan {@code order=true} untuk mengambil data halaman aktif
-	 * menggunakan {@code setMaxResults} dan {@code setFirstResult}. Hasilnya
-	 * dibungkus dalam {@code SimpleListModel} dan diset ke grid dengan
-	 * {@code StandingInstructionRenderer} baru.</p>
+	 * Bila tidak ada satu pun checkbox status ({@code searchbelum}/{@code searchsudah}/
+	 * {@code searchsudahtrnf}) yang dicentang, mengikuti jalur cepat lama: dua panggilan
+	 * {@link #initCriteria(boolean)} (satu untuk {@code Common.initPaging} menghitung total
+	 * record lewat {@code COUNT} di DB, satu lagi dengan {@code setMaxResults}/
+	 * {@code setFirstResult} untuk halaman aktif).</p>
+	 *
+	 * <p>
+	 * Bila minimal satu checkbox status dicentang, filter status <b>tidak</b> bisa diwakili
+	 * sebagai {@link Criteria} (lihat javadoc {@link #initCriteria(boolean)}), sehingga
+	 * jalurnya berbeda: mengambil <b>seluruh</b> baris yang lolos filter satuan
+	 * kerja/tanggal/nama tanpa paging DB, menghitung status tiap baris lewat
+	 * {@link #hitungStatusTransfer(Session, StandingInstruction)} (logika yang sama dengan
+	 * yang dipakai {@code StandingInstructionRenderer} untuk menampilkan kolom status),
+	 * menyaringnya di Java sesuai checkbox yang dicentang, lalu memotong hasil tersaring
+	 * itu sendiri menjadi satu halaman. {@code paging.setTotalSize(...)} diisi manual dari
+	 * jumlah hasil tersaring karena totalnya tidak lagi berasal dari {@code COUNT} SQL.</p>
 	 *
 	 * <p><b>Penanganan error:</b><br>
 	 * Exception dari Hibernate diteruskan ke framework ZK. Jika paging null,
@@ -659,21 +670,114 @@ public class StandingInstructionAction extends GenericAutowireComposer implement
 	 * Metode ini dipanggil dari timer default (refresh berkala), listener paging,
 	 * listener filter, dan inisialisasi awal. Pastikan rendering tidak terlalu
 	 * lambat karena dipanggil berulang dari timer; pertimbangkan mekanisme
-	 * debouncing jika refresh terlalu sering.</p>
+	 * debouncing jika refresh terlalu sering. Jalur status-aktif melakukan query N+1 ke
+	 * {@link ProsesTransferStandingInstruction} per entri {@code transferVia} (sama seperti
+	 * renderer) dan mengambil seluruh baris tanpa paging DB -- bisa berat pada dataset besar
+	 * yang sekaligus difilter status; pertimbangkan indeks/cache bila jadi masalah performa.</p>
 	 *
 	 * @param event event ZK pemicu pencarian (bisa null jika dipanggil programatik,
 	 *              seperti dari timer atau inisialisasi)
 	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
-		Common.initPaging(initCriteria(false), paging);
 
-		List<StandingInstruction> standingInstruction = initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE)
-				.setFirstResult(Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage())).list();
-		ListModel strset = new SimpleListModel(standingInstruction);
+		boolean filterStatusAktif = searchbelum.isChecked() || searchsudah.isChecked() || searchsudahtrnf.isChecked();
+
+		if (!filterStatusAktif) {
+			Common.initPaging(initCriteria(false), paging);
+
+			List<StandingInstruction> standingInstruction = initCriteria(true)
+					.setMaxResults(Common.ROWS_COUNT_ON_PAGE)
+					.setFirstResult(Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage())).list();
+			ListModel strset = new SimpleListModel(standingInstruction);
+			grid.setRowRenderer(new StandingInstructionRenderer());
+			grid.setModelCheckMobile(strset);
+			return;
+		}
+
+		Session session = HibernateUtil.currentSession();
+		List<StandingInstruction> semua = initCriteria(true).list();
+
+		List<StandingInstruction> tersaring = new ArrayList<StandingInstruction>();
+		for (StandingInstruction standingInstruction : semua) {
+			String status = hitungStatusTransfer(session, standingInstruction);
+			if ((searchbelum.isChecked() && "BELUM".equals(status))
+					|| (searchsudah.isChecked() && "SUDAH".equals(status))
+					|| (searchsudahtrnf.isChecked() && "SUDAHTRNF".equals(status))) {
+				tersaring.add(standingInstruction);
+			}
+		}
+
+		if (paging != null) {
+			paging.setTotalSize(tersaring.size());
+		}
+
+		int dariIndeks = Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage());
+		dariIndeks = Math.min(dariIndeks, tersaring.size());
+		int sampaiIndeks = Math.min(tersaring.size(), dariIndeks + Common.ROWS_COUNT_ON_PAGE);
+
+		ListModel strset = new SimpleListModel(tersaring.subList(dariIndeks, sampaiIndeks));
 		grid.setRowRenderer(new StandingInstructionRenderer());
 		grid.setModelCheckMobile(strset);
+	}
 
+	/**
+	 * Menghitung status proses transfer sebuah {@link StandingInstruction} dari JSON
+	 * {@link StandingInstruction#getTransferVia()}, tanpa bergantung pada properti Hibernate
+	 * yang tidak ada (lihat javadoc {@link #initCriteria(boolean)}).
+	 *
+	 * <p>
+	 * <b>Cara kerja (sengaja dibuat identik dengan
+	 * {@code NewUiStandingInstructionService.row()}</b>, versi headless dari layar ini, agar
+	 * kedua layar selalu sepakat soal status SI yang sama): mengiterasi setiap entri JSON.
+	 * Bila sebuah entri punya referensi {@code "si"} tidak kosong, baris dianggap sudah masuk
+	 * proses ({@code has}); bila {@link ProsesTransferStandingInstruction} yang dirujuknya
+	 * punya {@code realisasikanOleh} terisi, baris dianggap sudah ditransfer ({@code done}).
+	 * Sebuah SI dengan beberapa entri bank campuran (sebagian sudah direalisasi, sebagian
+	 * belum) dihitung {@code SUDAHTRNF} begitu <b>salah satu</b> entrinya terealisasi --
+	 * penyederhanaan yang sama seperti yang sudah dipakai {@code NewUiStandingInstructionService},
+	 * bukan hal baru yang diperkenalkan di sini.
+	 * </p>
+	 *
+	 * @param session sesi Hibernate aktif untuk memuat {@link ProsesTransferStandingInstruction}
+	 *                yang dirujuk
+	 * @param standingInstruction baris yang akan dihitung statusnya
+	 * @return {@code "BELUM"} (belum diproses sama sekali), {@code "SUDAH"} (sudah masuk
+	 *         proses transfer tapi belum direalisasikan), atau {@code "SUDAHTRNF"} (sudah
+	 *         direalisasikan/ditransfer)
+	 */
+	private String hitungStatusTransfer(Session session, StandingInstruction standingInstruction) {
+		boolean ada = false;
+		boolean selesai = false;
+		try {
+			JSONObject jsonObjectTransfer = new JSONObject(standingInstruction.getTransferVia());
+			Iterator<String> iterator = jsonObjectTransfer.keys();
+			while (iterator.hasNext()) {
+				String d = iterator.next();
+				JSONObject jsonObjectData = jsonObjectTransfer.isNull(d) ? null : jsonObjectTransfer.getJSONObject(d);
+				Long idS = jsonObjectData == null || jsonObjectData.isNull("si")
+						|| jsonObjectData.get("si").toString().trim().isEmpty() ? null
+								: Long.parseLong(jsonObjectData.get("si").toString().trim());
+				if (idS != null) {
+					ada = true;
+					ProsesTransferStandingInstruction prosesTransferStandingInstruction = (ProsesTransferStandingInstruction) session
+							.createCriteria(ProsesTransferStandingInstruction.class).add(Restrictions.idEq(idS))
+							.uniqueResult();
+					if (prosesTransferStandingInstruction != null
+							&& prosesTransferStandingInstruction.getRealisasikanOleh() != null) {
+						selesai = true;
+					}
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/action/master/akunting/StandingInstructionAction.java:hitungStatusTransfer");
+		}
+
+		if (selesai) {
+			return "SUDAHTRNF";
+		}
+		return ada ? "SUDAH" : "BELUM";
 	}
 
 }
