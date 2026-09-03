@@ -1,5 +1,44 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `employ` TUNTAS 100% (4 Sep 2026, akhir batch 94) — domain KELIMA tuntas
+
+Diverifikasi: **56/56 file** `ais/database/model/employ/` kini
+punya Javadoc substansial. Dikerjakan batch 93-94 (2 batch). Domain
+kelima yang tuntas penuh setelah `akunting`, `payroll`, `koperasi`,
+`inventory`.
+
+**Batch 94 (penutup, 9 file, 0 task baru)**: klaster katalog
+"Jenis*" kecil (5 file, r84307-r84315 — `JenisDiklat`≠`JenisPelatihan`
+dua konsep berbeda dikonfirmasi; `JenisKegiatanEmploy` TAK berelasi
+sama sekali dengan `sekolah.KegiatanKesiswaan`/`KegiatanKedosenan`
+meski nama mirip); `Diklat.java`+`Seminar.java`+`KomunikasiPegawai.java`
+(r84308/84310/84313 — `Diklat` katalog admin independen BUKAN
+sumber `RiwayatPelatihanPegawai`; `Seminar` justru entity riwayat
+personal langsung meski tanpa nama "Riwayat"; `KomunikasiPegawai`
+= infrastruktur thread komentar polymorphic generik, visibilitas
+bersama disengaja — BEDA kualitatif dari pola kebocoran log
+`LogLogin`/`UploadLog`); **`DaftarNilaiPelaksanaanPekerjaan.java`**
+(r84311, penilaian kinerja pegawai) — **verifikasi NEGATIF penting**:
+TIDAK ADA relasi struktural ke `KenaikanPangkat`/`KenaikanGajiBerkala`
+(grep dua arah nol hasil), jadi bug `task_b62255d9` TIDAK meluas ke
+sini secara langsung — tapi entity ini punya gap SENDIRI (tanpa
+kolom status/lock sama sekali, siapa pun ber-privilese UPDATE bisa
+ubah nilai kinerja pegawai lain kapan saja, hanya memperkuat pola
+tercatat, tidak di-task-kan terpisah).
+
+**Ringkasan pencapaian domain employ (batch 93-94)**: klaster
+jabatan/golongan (sumber nyata tunjangan payroll dikonfirmasi),
+riwayat pegawai (10 file, leverage tinggi, pola template),
+karir/kenaikan (temuan KRITIS `task_b62255d9`), cuti/disiplin
+(verifikasi negatif ketiga `task_fe6517bf`), gaji-tambahan/org. 2
+entity dorman baru (`GradeTunjanganKinerja` ke-15, `Pensiun`
+ke-16). **1 task KRITIS**: `task_b62255d9` (bypass persetujuan SK
+kenaikan pangkat langsung menggerakkan gaji nyata).
+
+**Pivot domain berikutnya (batch 95+)**: perlu scan ulang. Kandidat
+dari survei awal: `sirs` (118), `sister` (88), `library` (86),
+`asset` (63), `file` (52), `rab` (46), `surat` (28).
+
 ## Batch 93 — SELESAI 100% (4 Sep 2026) — PIVOT ke paket `employ`; 1 task baru KRITIS (`task_b62255d9`); entity dorman ke-16 (`Pensiun`)
 
 47 file selesai (batch pertama domain baru `employ`/kepegawaian,
