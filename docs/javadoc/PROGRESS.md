@@ -1,5 +1,71 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 70 — SELESAI 100% (3 Sep 2026) — IDOR sistemik URL-param override di 42+ Action (task baru `task_9f4af0bf`); tabrakan namespace kunci lampiran (task baru `task_3c8413c2`); klarifikasi VoKelasPunyaSiswa BUKAN entity (abstract, dibayangi lewat pewarisan sungguhan); konfirmasi ulang gerbang penilaian rapor REGULER dikomentari juga
+
+5 file selesai didokumentasikan penuh (100% method/field), semua
+dikompilasi `-implicit:none` bersih, mirror `java/` diverifikasi `cmp`
+byte-identik, nol perubahan logika:
+
+- **`ais/database/model/sekolah/VoKelasPunyaSiswa.java`** (r83864) —
+  398→1053 baris, 100%. **Koreksi penting**: BUKAN entity (abstract,
+  tanpa `@Entity`/field terpetakan) — kelas dasar mesin nilai bagi DUA
+  turunan sungguhan lewat `extends`: `KelasSiswaPunyaSiswa` (kelas
+  reguler, tidak override — pakai versi diperkeras) dan
+  `KelasLesSiswaPunyaSiswa` (b69, override ketujuh method dengan
+  salinan lama). Klaim b69 soal "versi diperkeras dibayangi" TERVERIFIKASI
+  benar via pewarisan Java sungguhan, bukan sekadar signature mirip.
+  **Eskalasi b69 diperluas**: `DetailPenilaianSiswaHelper` (kelas
+  REGULER, jalur nilai rapor resmi) juga punya KEDUA baris
+  `checkPrevilages` dikomentari di constructor — bukan anomali kelas
+  les, pola yang sama di jalur utama.
+- **`ais/database/model/sekolah/PengajuanSiswa.java`** (r83864/r83866)
+  — 468→1482 baris, 100%. Mesin permohonan siswa serba-guna (izin/cuti
+  asrama dominan) berbasis `JenisPengajuan`. **Task baru
+  `task_9f4af0bf`**: `PengajuanSiswaAction.doAfterCompose` resolve
+  `Siswa` dari parameter URL `execution.getParameter("siswa")` TANPA
+  cek kepemilikan/tenant, MENDAHULUI pengecekan identitas sesi — siswa
+  bisa mengarahkan layar ke siswa lain manapun (bocor NIS+nama+lampiran
+  permohonan). Pola SISTEMIK: 42 berkas Action memakainya, termasuk
+  `PembayaranSiswaAction` (data keuangan, tanpa override sesi sama
+  sekali). Kontras aman: `DepositSiswaAction` menimpa nilai URL dengan
+  identitas sesi. Bug nomor agenda kembar mirip `FormatNis` b69 (hitung
+  baris bukan nomor tertinggi terbit).
+- **`ais/database/model/sekolah/KegiatanSiswa.java`** (r83864/r83866)
+  — 367→1103 baris, 100%. VERIFIKASI: entity BERBEDA dari
+  `KegiatanKesiswaan` (b64) — nol relasi/tabel/pemakai bersama, bukan
+  klon yatim. Sumber kebingungan nyata: tab biodata siswa berlabel
+  "Kegiatan Kesiswaan" justru menampilkan entity INI. SQLi-via-alias
+  dashboard NEGATIF (Criteria API murni). Fail-open tenant NEGATIF
+  (kolom sekolah/yayasan selalu disegarkan dari siswa).
+- **`ais/database/model/sekolah/CatatanKelasSiswa.java`** (r83867) —
+  353→1078 baris, 100%. Catatan per ROMBONGAN BELAJAR (bukan per
+  siswa) — kembar struktural `CatatanSiswa` (b65), BUKAN turunan.
+  **VERIFIKASI NEGATIF PENTING**: pola broken-access-control seeder
+  siswa b65 TIDAK berulang di sini (menu Catatan Kelas tidak ada di
+  daftar seeder mana pun, role ortu/wali bahkan tanpa `RolePrivilage`).
+  **Task baru `task_3c8413c2`**: kunci lampiran `LampiranLain.ambil(id,
+  "{idKelompok}->{idParameter}")` memakai format IDENTIK dengan
+  `CatatanSiswa` (data pribadi siswa) tanpa diskriminator kelas pemilik
+  — risiko tabrakan/pertukaran lampiran lintas-entity bila id kedua
+  tabel berimpit. Bug fungsional murni: pencarian layar mengacu 2
+  properti yang tidak ada di `KelasSiswa` (salin-tempel dari
+  `CatatanSiswaAction`) — fitur cari sama sekali tidak bisa dipakai.
+- **`ais/database/model/sekolah/JenisRaporSiswa.java`** (r83866) —
+  292→1129 baris, 100%. Master PROFIL CETAK rapor (layout JRXML +
+  ruang lingkup isi), BUKAN enumerasi jenis/BUKAN terhubung
+  `NilaiHurufSekolah` (verifikasi negatif). Temuan menonjol:
+  `LaporanApi.raport_siswa` resolve id profil dari klien tanpa cek
+  sekolah/aktif/`tampilKeSiswa` — siswa bisa merender template
+  internal/tenant lain (memperkuat `task_493423ef`/`task_5e93a600`).
+  Pewarisan hak menu induk STRUKTURAL: master ini tidak terdaftar di
+  menu manapun, seluruh CRUD-nya (termasuk UNGGAH JRXML yang
+  dikompilasi+dieksekusi server) diwarisi dari menu "Rapor Siswa".
+
+**2 task baru batch ini**: `task_9f4af0bf` (IDOR URL-param sistemik,
+42+ Action, termasuk data keuangan), `task_3c8413c2` (tabrakan
+namespace kunci lampiran lintas-entity). Sisanya memperkuat task yang
+ada (`task_493423ef`, `task_5e93a600`, `task_9b7ff647`, `task_7b6038ac`).
+
 ## Batch 69 — SELESAI 100% (3 Sep 2026) — bug NIS kembar (3 mekanisme, task baru `task_3186ae97`); IDOR tulis lintas-tenant baru di API langganan kelas les; broken access control di layar master Jam Pelajaran (hapus tanpa konfirmasi); atribusi "guru piket" `_welsis_service` DIKONFIRMASI merujuk `AbsenPiket`, bukan `AbsenGuruPiket`
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua
