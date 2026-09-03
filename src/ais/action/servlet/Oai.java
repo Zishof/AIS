@@ -2,6 +2,7 @@ package ais.action.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import org.hibernate.criterion.Restrictions;
 import ais.common.Common;
 import ais.action.master.jurnal.JurnalMetadataFormatService;
 import ais.action.master.jurnal.JurnalRateLimiter;
+import ais.action.master.repository.RepositoryTenantScope;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
@@ -49,7 +51,6 @@ public class Oai extends HttpServlet {
 
     /** Records returned per page for ListIdentifiers / ListRecords. */
     private static final int PAGE_SIZE = 100;
-    private static final long TOKEN_MAX_AGE_MILLIS = 86400000L;
     private static final byte[] TOKEN_SECRET = tokenSecret();
     private static final String[] PUBLIC_STATUSES =
         new String[] { "SYNCED", "PUBLISHED", "APPROVED" };
@@ -166,12 +167,16 @@ public class Oai extends HttpServlet {
     // ── Verb: Identify ────────────────────────────────────────────────────────
 
     private void handleIdentify(PrintWriter out, HttpServletRequest request, String baseUrl) {
-        String repoName   = Common.getKonfigurasi("oai_repository_name",
-                            Common.getKonfigurasi("nama_institusi", "Repository").getNilai())
-                            .getNilai();
-        String adminEmail = Common.getKonfigurasi("oai_admin_email",
-                            Common.getKonfigurasi("email_institusi", "admin@repository.ac.id").getNilai())
-                            .getNilai();
+        String repoName = System.getProperty("ais.repository.oaiRepositoryName", "").trim();
+        if (repoName.isEmpty()) {
+            repoName = Common.getKonfigurasi("oai_repository_name",
+                    Common.getKonfigurasi("nama_institusi", "Repository").getNilai()).getNilai();
+        }
+        String adminEmail = System.getProperty("ais.repository.oaiAdminEmail", "").trim();
+        if (adminEmail.isEmpty()) {
+            adminEmail = Common.getKonfigurasi("oai_admin_email",
+                    Common.getKonfigurasi("email_institusi", "admin@repository.ac.id").getNilai()).getNilai();
+        }
         String earliest   = queryEarliestDatestamp();
 
         out.println("  <Identify>");
@@ -228,6 +233,7 @@ public class Oai extends HttpServlet {
             session = openSession();
             @SuppressWarnings("unchecked")
             List<RepoCollection> cols = session.createCriteria(RepoCollection.class)
+                .add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()))
                 .add(Restrictions.eq("aktif", Boolean.TRUE))
                 .addOrder(Order.asc("sortOrder"))
                 .addOrder(Order.asc("nama"))
@@ -288,7 +294,7 @@ public class Oai extends HttpServlet {
             String setSpec = "col_" + item.getCollectionId();
 
             out.println("  <GetRecord>");
-            writeRecord(out, session, item, metas, setSpec, metadataPrefix);
+            writeRecord(out, session, item, metas, setSpec, metadataPrefix, request);
             out.println("  </GetRecord>");
         } catch (Exception e) {
             e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Oai.java:294");
@@ -362,7 +368,7 @@ public class Oai extends HttpServlet {
             for (RepoItem item : items) {
                 String setSpec = "col_" + item.getCollectionId();
                 List<RepoItemMetadata> metas = loadMetadata(session, item.getId());
-                writeRecord(out, session, item, metas, setSpec, q.metadataPrefix);
+                writeRecord(out, session, item, metas, setSpec, q.metadataPrefix, request);
             }
             writeResumptionToken(out, q, total, items.size());
             out.println("  </ListRecords>");
@@ -378,7 +384,7 @@ public class Oai extends HttpServlet {
 
     private void writeRecord(PrintWriter out, Session session, RepoItem item,
                               List<RepoItemMetadata> metas, String setSpec,
-                              String metadataPrefix) {
+                              String metadataPrefix, HttpServletRequest request) {
         String datestamp = itemDatestamp(item);
         boolean deleted  = Boolean.TRUE.equals(item.getIsWithdrawn());
 
@@ -391,7 +397,8 @@ public class Oai extends HttpServlet {
 
         if (!deleted) {
             out.println("      <metadata>");
-            out.println("        " + metadataFormats.serialize(metadataPrefix, item, metas));
+            out.println("        " + metadataFormats.serialize(metadataPrefix, item, metas,
+                    buildPublicItemUrl(request, item.getId())));
             out.println("      </metadata>");
         }
         out.println("    </record>");
@@ -499,6 +506,7 @@ public class Oai extends HttpServlet {
         // Only records that reached a public state may be harvested. A
         // withdrawn public record remains visible as an OAI deleted header.
         c.add(Restrictions.eq("aktif", Boolean.TRUE));
+        c.add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()));
         c.add(Restrictions.in("syncStatus", PUBLIC_STATUSES));
 
         if (q.setSpec != null) {
@@ -548,6 +556,7 @@ public class Oai extends HttpServlet {
             session = openSession();
             return (RepoItem) session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("oaiIdentifier", identifier))
+                .add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()))
                 .add(Restrictions.eq("aktif", Boolean.TRUE))
                 .add(Restrictions.in("syncStatus", PUBLIC_STATUSES))
                 .setMaxResults(1)
@@ -566,6 +575,7 @@ public class Oai extends HttpServlet {
             session = openSession();
             Object result = session.createCriteria(RepoItem.class)
                 .add(Restrictions.eq("aktif", Boolean.TRUE))
+                .add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()))
                 .add(Restrictions.in("syncStatus", PUBLIC_STATUSES))
                 .add(Restrictions.isNotNull("lastSyncAt"))
                 .setProjection(Projections.min("lastSyncAt"))
@@ -623,7 +633,7 @@ public class Oai extends HttpServlet {
             String unsigned = raw.substring(0, raw.lastIndexOf('|'));
             if (!MessageDigest.isEqual(hmac(unsigned), unhex(parts[7]))) return null;
             long issuedAt=Long.parseLong(parts[6]);
-            if (issuedAt > System.currentTimeMillis()+60000L || System.currentTimeMillis()-issuedAt > TOKEN_MAX_AGE_MILLIS) return null;
+            if (issuedAt > System.currentTimeMillis()+60000L || System.currentTimeMillis()-issuedAt > tokenMaximumAgeMillis()) return null;
 
             ListQuery q = new ListQuery();
             q.from   = parts[0].isEmpty() ? null : parseDateFlexible(parts[0]);
@@ -739,15 +749,45 @@ public class Oai extends HttpServlet {
     }
 
     private String buildBaseUrl(HttpServletRequest request) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(request.getScheme()).append("://").append(request.getServerName());
-        int port = request.getServerPort();
-        if (!((request.getScheme().equals("http")  && port == 80) ||
-              (request.getScheme().equals("https") && port == 443))) {
-            sb.append(":").append(port);
+        String configured = System.getProperty("ais.repository.publicBaseUrl", "").trim();
+        if (!configured.isEmpty()) {
+            try {
+                URL url = new URL(configured);
+                String protocol = url.getProtocol();
+                String path = url.getPath() == null ? "" : url.getPath().trim();
+                if (!("http".equalsIgnoreCase(protocol) || "https".equalsIgnoreCase(protocol))
+                        || url.getHost() == null || url.getHost().trim().isEmpty()
+                        || url.getUserInfo() != null || url.getQuery() != null || url.getRef() != null
+                        || !(path.isEmpty() || "/".equals(path))) {
+                    throw new IllegalStateException("ais.repository.publicBaseUrl tidak valid.");
+                }
+                String host = url.getHost().indexOf(':') >= 0 ? "[" + url.getHost() + "]" : url.getHost();
+                return protocol.toLowerCase() + "://" + host + (url.getPort() < 0 ? "" : ":" + url.getPort())
+                        + request.getContextPath() + "/oai";
+            } catch (IllegalStateException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new IllegalStateException("ais.repository.publicBaseUrl tidak valid.", e);
+            }
         }
-        sb.append(request.getContextPath()).append("/oai");
-        return sb.toString();
+
+        String scheme = request.getScheme() == null ? "" : request.getScheme().trim().toLowerCase();
+        String host = request.getServerName() == null ? "" : request.getServerName().trim();
+        int port = request.getServerPort();
+        if (!("http".equals(scheme) || "https".equals(scheme)) || host.isEmpty()
+                || !host.matches("[A-Za-z0-9.-]+|[0-9a-fA-F:]+") || port < 1 || port > 65535) {
+            throw new IllegalStateException("Origin publik OAI tidak valid.");
+        }
+        String authority = host.indexOf(':') >= 0 ? "[" + host + "]" : host;
+        boolean defaultPort = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
+        return scheme + "://" + authority + (defaultPort ? "" : ":" + port)
+                + request.getContextPath() + "/oai";
+    }
+
+    private String buildPublicItemUrl(HttpServletRequest request, Long itemId) {
+        String oaiBaseUrl = buildBaseUrl(request);
+        return oaiBaseUrl.substring(0, oaiBaseUrl.length() - "/oai".length())
+                + "/repository/item/" + itemId;
     }
 
     private String buildRepositoryIdentifier(HttpServletRequest request) {
@@ -841,7 +881,19 @@ public class Oai extends HttpServlet {
         return HibernateUtil.openSession();
     }
 
-    private static byte[] tokenSecret(){String configured=System.getenv("AIS_JURNAL_OAI_TOKEN_SECRET");if(configured!=null&&configured.length()>=32)return configured.getBytes(java.nio.charset.StandardCharsets.UTF_8);byte[] random=new byte[32];new SecureRandom().nextBytes(random);return random;}
+    private static byte[] tokenSecret(){
+        String configured=System.getProperty("ais.repository.oaiTokenSecret","").trim();
+        if(configured.length()<32){String env=System.getenv("AIS_REPOSITORY_OAI_TOKEN_SECRET");configured=env==null?"":env.trim();}
+        if(configured.length()<32){String legacy=System.getenv("AIS_JURNAL_OAI_TOKEN_SECRET");configured=legacy==null?"":legacy.trim();}
+        if(configured.length()>=32)return configured.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] random=new byte[32];new SecureRandom().nextBytes(random);return random;
+    }
+    private static long tokenMaximumAgeMillis(){
+        try{
+            long seconds=Long.parseLong(System.getProperty("ais.repository.oaiTokenTtlSeconds","86400"));
+            return Math.max(300L,Math.min(seconds,604800L))*1000L;
+        }catch(Exception e){return 86400000L;}
+    }
     private static byte[] hmac(String value){try{Mac mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(TOKEN_SECRET,"HmacSHA256"));return mac.doFinal(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));}catch(Exception e){throw new IllegalStateException(e);}}
     private static String hex(byte[] value){StringBuilder b=new StringBuilder();for(byte x:value)b.append(String.format("%02x",x&255));return b.toString();}
     private static byte[] unhex(String value){if(value==null||!value.matches("(?i)[0-9a-f]{64}"))return new byte[0];byte[]out=new byte[32];for(int i=0;i<32;i++)out[i]=(byte)Integer.parseInt(value.substring(i*2,i*2+2),16);return out;}

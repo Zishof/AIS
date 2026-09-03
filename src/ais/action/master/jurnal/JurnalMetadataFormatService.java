@@ -51,9 +51,15 @@ public final class JurnalMetadataFormatService {
     public boolean supports(String prefix){return prefix!=null&&FORMATS.containsKey(prefix.trim());}
 
     public String serialize(String prefix,RepoItem item,List<RepoItemMetadata> metadata){
+        return serialize(prefix,item,metadata,"");
+    }
+
+    /** Serializes metadata and optionally adds the canonical public landing-page URL. */
+    public String serialize(String prefix,RepoItem item,List<RepoItemMetadata> metadata,String publicIdentifier){
         if(!supports(prefix))throw new IllegalArgumentException("Metadata format tidak didukung: "+prefix);
         if(item==null)throw new IllegalArgumentException("Item wajib diisi.");
         Map<String,List<String>> dc=dc(item,metadata);
+        if(has(publicIdentifier)&&!dc.get("identifier").contains(publicIdentifier.trim()))dc.get("identifier").add(publicIdentifier.trim());
         String p=prefix.trim();
         if("marc".equals(p))return marc(dc,false);
         if("marcxml".equals(p))return marc(dc,true);
@@ -96,7 +102,7 @@ public final class JurnalMetadataFormatService {
         Map<String,List<String>> d=new LinkedHashMap<String,List<String>>();
         put(d,"title",i.getTitle());putMany(d,"creator",i.getAuthors());putMany(d,"subject",i.getSubjects());put(d,"description",i.getAbstractText());put(d,"publisher",i.getPublisher());put(d,"date",iso(i.getIssuedAt()));put(d,"type",i.getDocumentType());put(d,"language",i.getLanguage());put(d,"rights",i.getAccessPolicy());put(d,"identifier",i.getOaiIdentifier());if(has(i.getDspaceHandle()))d.get("identifier").add("https://hdl.handle.net/"+i.getDspaceHandle());
         for(String k:Arrays.asList("contributor","format","source","relation","coverage"))d.put(k,new ArrayList<String>());
-        if(metadata!=null)for(RepoItemMetadata m:metadata){String key=mapField(m.getMetadataField());if(key!=null&&has(m.getMetadataValue()))d.get(key).add(m.getMetadataValue().trim());}
+        if(metadata!=null)for(RepoItemMetadata m:metadata){String key=mapField(m.getMetadataField());if(key!=null&&has(m.getMetadataValue())){String value=m.getMetadataValue().trim();if(!d.get(key).contains(value))d.get(key).add(value);}}
         return d;
     }
     private String mapField(String f){if(f==null)return null;if(f.startsWith("dc.title"))return"title";if(f.startsWith("dc.contributor.author"))return"creator";if(f.startsWith("dc.contributor"))return"contributor";if(f.startsWith("dc.subject"))return"subject";if(f.startsWith("dc.description"))return"description";if(f.startsWith("dc.publisher"))return"publisher";if(f.startsWith("dc.date"))return"date";if(f.startsWith("dc.type"))return"type";if(f.startsWith("dc.format"))return"format";if(f.startsWith("dc.identifier"))return"identifier";if(f.startsWith("dc.source"))return"source";if(f.startsWith("dc.language"))return"language";if(f.startsWith("dc.relation"))return"relation";if(f.startsWith("dc.coverage"))return"coverage";if(f.startsWith("dc.rights"))return"rights";return null;}

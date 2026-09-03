@@ -83,14 +83,17 @@ public class AmbilDataAnggotaBanbox extends Bandbox {
 				Anggota anggota = (Anggota) HibernateUtil
 						.currentSession()
 						.createCriteria(Anggota.class)
-						.add(Restrictions.ilike("kode",
-								AmbilDataAnggotaBanbox.this.getValue().trim(),
-								MatchMode.EXACT)).setMaxResults(1)
+						.add(Restrictions.disjunction()
+								.add(Restrictions.ilike("kode",
+										AmbilDataAnggotaBanbox.this.getValue().trim(), MatchMode.EXACT))
+								.add(Restrictions.ilike("kodeIdentitas",
+										AmbilDataAnggotaBanbox.this.getValue().trim(), MatchMode.EXACT)))
+						.setMaxResults(1)
 						.uniqueResult();
 				if (anggota == null) {
 					MyMessageboxConfig.show("Anggota dengan kode = "
 							+ AmbilDataAnggotaBanbox.this.getValue().trim()
-							+ " tidak ada di data anggaota", "Peringatan",
+							+ " tidak ada di data anggota", "Peringatan",
 							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 					return;
 				}
@@ -304,8 +307,9 @@ public class AmbilDataAnggotaBanbox extends Bandbox {
 				.add(Restrictions.ilike("nama", nama.getValue().trim(),
 						MatchMode.ANYWHERE))
 				.add(kodeAnggotaan.getValue().trim().equals("") ? Restrictions
-						.sqlRestriction("1=1") : Restrictions.ilike("kode",
-						kodeAnggotaan.getValue().trim(), MatchMode.ANYWHERE))
+						.sqlRestriction("1=1") : Restrictions.disjunction()
+								.add(Restrictions.ilike("kode", kodeAnggotaan.getValue().trim(), MatchMode.ANYWHERE))
+								.add(Restrictions.ilike("kodeIdentitas", kodeAnggotaan.getValue().trim(), MatchMode.ANYWHERE)))
 
 				.setMaxResults(Common.MAX_RESULT).list();
 

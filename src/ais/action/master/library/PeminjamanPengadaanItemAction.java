@@ -1534,6 +1534,13 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 					MyMessageboxConfig.EXCLAMATION);
 			return false;
 		}
+		Anggota anggotaTerpilih = (Anggota) anggota.getAttribute("anggota");
+		if (!Boolean.TRUE.equals(anggotaTerpilih.getAktif())) {
+			MyMessageboxConfig.show(
+					"Anggota perpustakaan ini tidak aktif, sehingga tidak diizinkan untuk meminjam buku di perpustakaan",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
 		if (perpustakaan.getSelectedItem() == null) {
 			MyMessageboxConfig.show("Perpustakaan harus diisi", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.EXCLAMATION);
@@ -1949,13 +1956,14 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 		Anggota anggota = (Anggota) session.createCriteria(Anggota.class)
 				.createAlias("mahasiswa", "mahasiswa", Criteria.LEFT_JOIN)
 				.createAlias("dosen", "dosen", Criteria.LEFT_JOIN)
-				.add(Restrictions.or(
-						Restrictions.or(Restrictions.ilike("kode", searchkodeangota.getValue().trim(), MatchMode.EXACT),
-								Restrictions.ilike("mahasiswa.nim", searchkodeangota.getValue().trim(),
-										MatchMode.EXACT)),
-						Restrictions.ilike("dosen.mycode", searchkodeangota.getValue().trim(), MatchMode.EXACT)
-
-				)).setMaxResults(1).uniqueResult();
+				.add(Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", searchkodeangota.getValue().trim(), MatchMode.EXACT))
+						.add(Restrictions.ilike("kodeIdentitas", searchkodeangota.getValue().trim(), MatchMode.EXACT))
+						.add(Restrictions.ilike("mahasiswa.nim", searchkodeangota.getValue().trim(), MatchMode.EXACT))
+						.add(Restrictions.ilike("dosen.nidn", searchkodeangota.getValue().trim(), MatchMode.EXACT))
+						.add(Restrictions.ilike("dosen.mycode", searchkodeangota.getValue().trim(), MatchMode.EXACT))
+						.add(Restrictions.ilike("dosen.code", searchkodeangota.getValue().trim(), MatchMode.EXACT)))
+				.setMaxResults(1).uniqueResult();
 		if (anggota == null) {
 			MyMessageboxConfig.show("Kode Anggota \"" + searchkodeangota.getValue().trim() + "\" tidak ditemukan",
 					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
@@ -1964,7 +1972,7 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 			return;
 		}
 
-		if (!anggota.getAktif()) {
+		if (!Boolean.TRUE.equals(anggota.getAktif())) {
 			MyMessageboxConfig.show(
 					"Anggota perpustakaan ini tidak aktif, sehingga tidak diizinkan untuk meminjam buku di perpustakaan",
 					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);

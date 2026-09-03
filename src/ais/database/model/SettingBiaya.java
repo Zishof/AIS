@@ -315,8 +315,9 @@ public class SettingBiaya extends GeneralValueObject {
 	}
 
 	/**
-	 * Daftar NIM yang tidak boleh memakai setting biaya ini. Pemisah yang didukung:
-	 * koma, titik koma, spasi, tab, atau baris baru.
+	 * Daftar NIM yang tidak boleh memakai setting biaya ini. Format NIM biasa berlaku untuk
+	 * seluruh semester; format {@code NIM:SMT_MULAI:SMT_SAMPAI} hanya berlaku pada rentang
+	 * semester tersebut. Antarentri dapat dipisahkan koma, titik koma, spasi, tab, atau baris baru.
 	 */
 	@Column(name = "pengecualian_mahasiswa", columnDefinition = "text")
 	public String getPengecualianMahasiswa() {
@@ -340,16 +341,74 @@ public class SettingBiaya extends GeneralValueObject {
 		this.prioritas = prioritas == null ? Integer.valueOf(10) : prioritas;
 	}
 
-	/** Pemeriksaan tunggal agar seluruh jalur billing memakai aturan pengecualian yang sama. */
+	/**
+	 * Memvalidasi format sebelum disimpan dari UI. Nilai kosong sah karena berarti tidak ada
+	 * pengecualian. Method ini sengaja tidak dipanggil dari setter agar data legacy yang pernah
+	 * tersimpan tidak membuat Hibernate gagal memuat entity.
+	 */
+	public static void validasiFormatPengecualianMahasiswa(String daftar) {
+		if (daftar == null || daftar.trim().length() == 0) {
+			return;
+		}
+		String nilai = daftar.trim().replaceAll("\\s*:\\s*", ":");
+		String[] entri = nilai.split("[\\s,;]+");
+		for (int i = 0; i < entri.length; i++) {
+			String item = entri[i] == null ? "" : entri[i].trim();
+			if (item.length() == 0) {
+				continue;
+			}
+			String[] bagian = item.split(":", -1);
+			if (bagian.length == 1) {
+				continue;
+			}
+			if (bagian.length != 3 || bagian[0].trim().length() == 0
+					|| bagian[1].trim().length() == 0 || bagian[2].trim().length() == 0) {
+				throw new IllegalArgumentException("Format pengecualian tidak valid pada '" + item
+						+ "'. Gunakan NIM atau NIM:SMT_MULAI:SMT_SAMPAI.");
+			}
+			try {
+				int semesterMulai = Integer.parseInt(bagian[1].trim());
+				int semesterSampai = Integer.parseInt(bagian[2].trim());
+				if (semesterMulai < 1 || semesterSampai < semesterMulai) {
+					throw new IllegalArgumentException("Rentang semester tidak valid pada '" + item
+							+ "'. Semester mulai minimal 1 dan tidak boleh melebihi semester sampai.");
+				}
+			} catch (NumberFormatException e) {
+				throw new IllegalArgumentException("Semester pada '" + item + "' harus berupa angka.");
+			}
+		}
+	}
+
+	/** Pemeriksaan kompatibel format lama; entri berentang diabaikan bila semester tidak tersedia. */
 	public boolean isMahasiswaDikecualikan(String nim) {
+		return isMahasiswaDikecualikan(nim, null);
+	}
+
+	/** Pemeriksaan tunggal agar seluruh jalur billing memakai aturan pengecualian semester yang sama. */
+	public boolean isMahasiswaDikecualikan(String nim, Integer semesterAktif) {
 		if (nim == null || nim.trim().length() == 0 || getPengecualianMahasiswa().length() == 0) {
 			return false;
 		}
 		String nimDicari = nim.trim();
-		String[] daftarNim = getPengecualianMahasiswa().split("[\\s,;]+");
+		String nilai = getPengecualianMahasiswa().replaceAll("\\s*:\\s*", ":");
+		String[] daftarNim = nilai.split("[\\s,;]+");
 		for (int i = 0; i < daftarNim.length; i++) {
-			if (nimDicari.equalsIgnoreCase(daftarNim[i].trim())) {
+			String[] bagian = daftarNim[i].trim().split(":", -1);
+			if (bagian.length == 1 && nimDicari.equalsIgnoreCase(bagian[0].trim())) {
 				return true;
+			}
+			if (bagian.length == 3 && nimDicari.equalsIgnoreCase(bagian[0].trim())
+					&& semesterAktif != null) {
+				try {
+					int semesterMulai = Integer.parseInt(bagian[1].trim());
+					int semesterSampai = Integer.parseInt(bagian[2].trim());
+					if (semesterAktif.intValue() >= semesterMulai
+							&& semesterAktif.intValue() <= semesterSampai) {
+						return true;
+					}
+				} catch (NumberFormatException e) {
+					// Data legacy salah format tidak boleh menghentikan proses penagihan.
+				}
 			}
 		}
 		return false;

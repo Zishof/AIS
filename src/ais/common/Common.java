@@ -12215,7 +12215,7 @@ public class Common {
 
 	/**
 	 * Mendaftarkan dosen (berdasarkan NIDN) secara otomatis sebagai anggota perpustakaan
-	 * bila belum terdaftar.
+	 * bila belum terdaftar, atau memperbaiki data anggota lama yang belum terhubung ke dosen.
 	 *
 	 * <p><b>Tujuan.</b> Memastikan setiap dosen aktif yang login ke sistem secara otomatis
 	 * memiliki kartu anggota perpustakaan tanpa registrasi manual.</p>
@@ -12223,12 +12223,11 @@ public class Common {
 	 * <p><b>Cara kerja (inline).</b>
 	 * <ol>
 	 *   <li>Buka {@code currentNativeSession()}.</li>
-	 *   <li>Cari {@code Anggota} yang terhubung ke dosen dengan NIDN tersebut, atau kode
-	 *       anggota cocok (fuzzy match hapus titik).</li>
-	 *   <li>Bila belum ada, cari {@code Dosen} dengan NIDN tersebut.</li>
-	 *   <li>Bila ditemukan: buat {@code Anggota} baru dengan jenis identitas NIDN, tipe DOSEN,
-	 *       simpan dan commit.</li>
-	 *   <li>Tutup sesi.</li>
+	 *   <li>Cari {@code Dosen} berdasarkan NIDN.</li>
+	 *   <li>Cari {@code Anggota} yang sudah terhubung ke dosen tersebut. Bila belum ada, cari
+	 *       data anggota lama tanpa relasi person berdasarkan kode anggota/kode identitas.</li>
+	 *   <li>Buat atau perbarui anggota dengan relasi dosen, jenis identitas NIDN dan tipe DOSEN.</li>
+	 *   <li>Commit transaksi dan selalu tutup sesi lewat {@code finally}.</li>
 	 * </ol>
 	 * </p>
 	 *
@@ -12237,45 +12236,105 @@ public class Common {
 	 * diset ke {@code LibraryUtil.DOSEN} dan jenis identitas ke {@code LibraryUtil.NIDN}.</p>
 	 *
 	 * @param nidn NIDN dosen yang akan didaftarkan; tidak boleh null
-	 * @return entitas {@code Anggota} yang dibuat, atau null bila dosen tidak ditemukan
+	 * @return entitas {@code Anggota} yang dibuat/diperbarui, atau null bila dosen tidak ditemukan
 	 */
 	public static Anggota checkApakahDosenOtomatisMenjadiAnggotaPerpustakaan(String nidn) {
-		Session session = HibernateUtil.currentNativeSession();
-		Anggota anggota = ((Anggota) session.createCriteria(Anggota.class)
-				.createAlias("dosen", "dosen", Criteria.LEFT_JOIN)
-				.add(Restrictions.or(Restrictions.eq("dosen.nidn", nidn), Restrictions.sqlRestriction(
-						"replace(trim(this_.kode),'.','') = replace(trim('" + nidn.replaceAll("'", "") + "'),'.','')")))
-				.setMaxResults(1).uniqueResult());
-		if (anggota == null) {
-			Dosen dosen = (Dosen) session.createCriteria(Dosen.class).add(Restrictions.eq("nidn", nidn))
-					.setMaxResults(1).uniqueResult();
-			if (dosen != null) {
-				anggota = new Anggota();
-				anggota.setAktif(true);
-				anggota.setAlamat(dosen.getAlamat());
-				anggota.setEmail(dosen.getEmail());
-				anggota.setJenisAnggota(LibraryUtil.ANGGOTA_REGULER);
-				anggota.setJenisIdentitasAnggota(LibraryUtil.NIDN);
-				anggota.setJenisIdentitas("NIDN");
-				anggota.setKeterangan("Anggota ini mendaftar otomatis");
-				anggota.setKodeIdentitas(dosen.getNidn());
-				anggota.setKode(dosen.getNidn());
-				anggota.setNama(dosen.getNama());
-				anggota.setPerpustakaan(null);
-				anggota.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
-				anggota.setDosen(dosen);
-				anggota.setTipeAnggota(LibraryUtil.DOSEN);
-				anggota.setTipe(LibraryUtil.DOSEN.getNama());
-				session.getTransaction().begin();
-				session.save(anggota);
-				session.getTransaction().commit();
-			}
-			// System.out.println("=== Simpan anggota dosen " + anggota + "
-			// ===");
+		if (nidn == null || nidn.trim().isEmpty()) {
+			return null;
 		}
 
-		HibernateUtil.closeSession();
-		return anggota;
+		String nidnBersih = nidn.trim();
+		String nidnNormal = nidnBersih.replaceAll("[^A-Za-z0-9]", "").toLowerCase();
+		Session session = HibernateUtil.currentNativeSession();
+		Transaction transaction = null;
+		try {
+			org.hibernate.criterion.Disjunction nidnDosen = Restrictions.disjunction()
+					.add(Restrictions.ilike("nidn", nidnBersih, MatchMode.EXACT));
+			if (!nidnNormal.isEmpty()) {
+				nidnDosen.add(Restrictions.sqlRestriction(
+						"lower(regexp_replace(coalesce(this_.nidn,''), '[^A-Za-z0-9]', '', 'g')) = '"
+								+ nidnNormal + "'"));
+			}
+			Dosen dosen = (Dosen) session.createCriteria(Dosen.class)
+					.add(nidnDosen)
+					.setMaxResults(1).uniqueResult();
+			if (dosen == null) {
+				return null;
+			}
+
+			Anggota anggota = (Anggota) session.createCriteria(Anggota.class)
+					.add(Restrictions.eq("dosen", dosen))
+					.setMaxResults(1).uniqueResult();
+			if (anggota == null) {
+				// Data lama sering sudah memiliki kode/NIDN, tetapi relasi person dan tipe masih kosong.
+				// Hanya ambil baris tanpa relasi person agar kode yang sama milik mahasiswa/pegawai
+				// tidak keliru diubah menjadi anggota dosen.
+				org.hibernate.criterion.Disjunction identitasDosen = Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", nidnBersih, MatchMode.EXACT))
+						.add(Restrictions.ilike("kodeIdentitas", nidnBersih, MatchMode.EXACT));
+				if (!nidnNormal.isEmpty()) {
+					identitasDosen.add(Restrictions.sqlRestriction(
+							"lower(regexp_replace(coalesce(this_.kode,''), '[^A-Za-z0-9]', '', 'g')) = '"
+									+ nidnNormal + "' or lower(regexp_replace(coalesce(this_.kode_identitas,''), "
+									+ "'[^A-Za-z0-9]', '', 'g')) = '" + nidnNormal + "'"));
+				}
+				anggota = (Anggota) session.createCriteria(Anggota.class)
+						.add(Restrictions.isNull("mahasiswa"))
+						.add(Restrictions.isNull("dosen"))
+						.add(Restrictions.isNull("pegawai"))
+						.add(Restrictions.isNull("guru"))
+						.add(Restrictions.isNull("siswa"))
+						.add(identitasDosen)
+						.setMaxResults(1).uniqueResult();
+			}
+
+			boolean anggotaBaru = anggota == null;
+			if (anggotaBaru) {
+				anggota = new Anggota();
+				anggota.setAktif(Boolean.TRUE);
+				anggota.setKeterangan("Anggota ini mendaftar otomatis");
+			}
+
+			transaction = session.beginTransaction();
+			anggota.setAlamat(dosen.getAlamat());
+			anggota.setEmail(dosen.getEmail());
+			anggota.setTelp(dosen.getTelp());
+			anggota.setHp(dosen.getHp());
+			anggota.setJenisAnggota(LibraryUtil.ANGGOTA_REGULER);
+			anggota.setJenisIdentitasAnggota(LibraryUtil.NIDN);
+			anggota.setJenisIdentitas("NIDN");
+			anggota.setKodeIdentitas(dosen.getNidn());
+			if (anggota.getKode() == null || anggota.getKode().trim().isEmpty()) {
+				anggota.setKode(dosen.getNidn());
+			}
+			anggota.setNama(dosen.getNama());
+			anggota.setPerpustakaan(null);
+			anggota.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
+			anggota.setMahasiswa(null);
+			anggota.setPegawai(null);
+			anggota.setGuru(null);
+			anggota.setSiswa(null);
+			anggota.setDosen(dosen);
+			anggota.setTipeAnggota(LibraryUtil.DOSEN);
+			anggota.setTipe(LibraryUtil.DOSEN.getNama());
+			Common.refreshSaveOrUpdate(session, anggota);
+			transaction.commit();
+			return anggota;
+		} catch (RuntimeException e) {
+			try {
+				if (transaction != null && transaction.isActive()) {
+					transaction.rollback();
+				}
+			} catch (Exception ignored) {
+				ais.common.ErrorAuditUtil.record(ignored,
+						"auto-audit(empty-catch) src/ais/common/Common.java:checkDosenPerpusRollback");
+			}
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit src/ais/common/Common.java:checkApakahDosenOtomatisMenjadiAnggotaPerpustakaan");
+			throw e;
+		} finally {
+			HibernateUtil.closeSession();
+		}
 	}
 
 	/**

@@ -534,7 +534,10 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 									label.setValue("Singkronkan anggota perpustakaan dengan nidn " + nidn + " ("
 											+ Common.numberFormat.get().format((i * 100.0 / ids.size())) + "%)");
 									try {
-										Common.checkApakahDosenOtomatisMenjadiAnggotaPerpustakaan(nidn);
+										Anggota hasil = Common.checkApakahDosenOtomatisMenjadiAnggotaPerpustakaan(nidn);
+										if (hasil == null) {
+											throw new IllegalStateException("Data dosen dengan NIDN " + nidn + " tidak ditemukan");
+										}
 										laporan.catatBerhasil(i - 1, nidn, "Sinkronisasi berhasil");
 									} catch (Exception ePerItem) {
 										Common.tampilErrorJikaAdmin(ePerItem);
@@ -1441,6 +1444,9 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Mahasiswa myMahasiswa = (Mahasiswa) mahasiswa.getAttribute("mahasiswa");
+				if (myMahasiswa == null) {
+					return;
+				}
 				kodeIdentitas.setValue(myMahasiswa.getNim());
 				nama.setValue(myMahasiswa.getNama());
 				if (alamat.getValue().trim().equals("")) {
@@ -1456,9 +1462,9 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 					email.setValue(myMahasiswa.getEmail());
 				}
 
-				JenisAnggota m = (JenisAnggota) HibernateUtil.currentSession().createCriteria(JenisAnggota.class)
+				JenisIdentitasAnggota m = (JenisIdentitasAnggota) HibernateUtil.currentSession().createCriteria(JenisIdentitasAnggota.class)
 						.add(Restrictions.eq("nama", "NIM")).setMaxResults(1).uniqueResult();
-				Common.selectComboItem(jenisAnggota, m);
+				Common.selectComboItem(jenisIdentitas, m);
 			}
 		});
 
@@ -1476,7 +1482,10 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Dosen mydosen = (Dosen) dosen.getAttribute("dosen");
-				kodeIdentitas.setValue(mydosen.getCode());
+				if (mydosen == null) {
+					return;
+				}
+				kodeIdentitas.setValue(mydosen.getNidn().trim().isEmpty() ? mydosen.ambilKode() : mydosen.getNidn());
 				nama.setValue(mydosen.getNama());
 				if (alamat.getValue().trim().equals("")) {
 					alamat.setValue(mydosen.getAlamat());
@@ -1485,15 +1494,15 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 					telp.setValue(mydosen.getTelp());
 				}
 				if (hp.getValue().trim().equals("")) {
-					hp.setValue(mydosen.getTelp());
+					hp.setValue(mydosen.getHp());
 				}
 				if (email.getValue().trim().equals("")) {
 					email.setValue(mydosen.getEmail());
 				}
 
-				JenisAnggota m = (JenisAnggota) HibernateUtil.currentSession().createCriteria(JenisAnggota.class)
+				JenisIdentitasAnggota m = (JenisIdentitasAnggota) HibernateUtil.currentSession().createCriteria(JenisIdentitasAnggota.class)
 						.add(Restrictions.eq("nama", "NIDN")).setMaxResults(1).uniqueResult();
-				Common.selectComboItem(jenisAnggota, m);
+				Common.selectComboItem(jenisIdentitas, m);
 			}
 		});
 
@@ -1511,6 +1520,9 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Guru myguru = (Guru) guru.getAttribute("guru");
+				if (myguru == null) {
+					return;
+				}
 				kodeIdentitas.setValue(myguru.getKode());
 				nama.setValue(myguru.getNama());
 				if (alamat.getValue().trim().equals("")) {
@@ -1526,9 +1538,9 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 					email.setValue(myguru.getAlamatEmail());
 				}
 
-				JenisAnggota m = (JenisAnggota) HibernateUtil.currentSession().createCriteria(JenisAnggota.class)
+				JenisIdentitasAnggota m = (JenisIdentitasAnggota) HibernateUtil.currentSession().createCriteria(JenisIdentitasAnggota.class)
 						.add(Restrictions.eq("nama", "KTP")).setMaxResults(1).uniqueResult();
-				Common.selectComboItem(jenisAnggota, m);
+				Common.selectComboItem(jenisIdentitas, m);
 			}
 		});
 
@@ -1546,6 +1558,9 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Pegawai mypegawai = (Pegawai) pegawai.getAttribute("pegawai");
+				if (mypegawai == null) {
+					return;
+				}
 				kodeIdentitas.setValue(mypegawai.getCode());
 				nama.setValue(mypegawai.getNama());
 				if (alamat.getValue().trim().equals("")) {
@@ -1555,15 +1570,15 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 					telp.setValue(mypegawai.getTelp());
 				}
 				if (hp.getValue().trim().equals("")) {
-					hp.setValue(mypegawai.getTelp());
+					hp.setValue(mypegawai.getHp());
 				}
 				if (email.getValue().trim().equals("")) {
 					email.setValue(mypegawai.getEmail());
 				}
 
-				JenisAnggota m = (JenisAnggota) HibernateUtil.currentSession().createCriteria(JenisAnggota.class)
+				JenisIdentitasAnggota m = (JenisIdentitasAnggota) HibernateUtil.currentSession().createCriteria(JenisIdentitasAnggota.class)
 						.add(Restrictions.eq("nama", "NIP")).setMaxResults(1).uniqueResult();
-				Common.selectComboItem(jenisAnggota, m);
+				Common.selectComboItem(jenisIdentitas, m);
 			}
 		});
 
@@ -1581,6 +1596,9 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Siswa mySiswa = (Siswa) siswa.getAttribute("siswa");
+				if (mySiswa == null) {
+					return;
+				}
 				kodeIdentitas.setValue(mySiswa.getNim());
 				nama.setValue(mySiswa.getNama());
 				if (alamat.getValue().trim().equals("")) {
@@ -1596,9 +1614,9 @@ public class AnggotaAction extends GenericAutowireComposer implements DataCriter
 					email.setValue(mySiswa.getAlamatEmail());
 				}
 
-				JenisAnggota m = (JenisAnggota) HibernateUtil.currentSession().createCriteria(JenisAnggota.class)
+				JenisIdentitasAnggota m = (JenisIdentitasAnggota) HibernateUtil.currentSession().createCriteria(JenisIdentitasAnggota.class)
 						.add(Restrictions.eq("nama", "NIS")).setMaxResults(1).uniqueResult();
-				Common.selectComboItem(jenisAnggota, m);
+				Common.selectComboItem(jenisIdentitas, m);
 			}
 		});
 
