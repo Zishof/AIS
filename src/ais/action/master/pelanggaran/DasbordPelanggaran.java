@@ -21,7 +21,10 @@ import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.hibernate.Session;
+import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.Executions;
@@ -34,15 +37,19 @@ import org.zkoss.zul.Row;
 import org.zkoss.zul.SimpleListModel;
 
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.common.DashboardCacheUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
 import ais.database.model.Mahasiswa;
+import ais.database.model.OrangTua;
 import ais.database.model.Pegawai;
 import ais.database.model.PelanggaranMahasiswa;
 import ais.database.model.Tbmuser;
 import ais.database.model.employ.PendataanPelanggaranPegawai;
 import ais.database.model.sekolah.Guru;
+import ais.database.model.sekolah.JadwalPelajaran;
+import ais.database.model.sekolah.KelasSiswaPunyaSiswa;
 import ais.database.model.sekolah.PelanggaranSiswa;
 import ais.database.model.sekolah.Siswa;
 import ais.ui.util.MyColumnConfig;
@@ -223,7 +230,8 @@ public class DasbordPelanggaran extends Div {
                 user.getMahasiswa() != null ||
                 user.ambilGuru()    != null ||
                 user.ambilDosen()   != null ||
-                user.ambilPegawai() != null));
+                user.ambilPegawai() != null ||
+                user.getOrangTua()  != null));
 
         String cacheKey = DashboardCacheUtil.key(
                 "DasbordPelanggaran", lingkup.name(), isPersonal ? userId : null);
@@ -251,11 +259,14 @@ public class DasbordPelanggaran extends Div {
         DashData d = new DashData();
         Tbmuser user = Common.getCurrentUser();
 
-        Mahasiswa mhs = user != null ? user.getMahasiswa()  : null;
-        Dosen     dos = user != null ? user.ambilDosen()    : null;
-        Siswa     sis = user != null ? user.getSiswa()      : null;
-        Guru      gur = user != null ? user.ambilGuru()     : null;
-        Pegawai   peg = user != null ? user.ambilPegawai()  : null;
+        Mahasiswa mhs  = user != null ? user.getMahasiswa()  : null;
+        Dosen     dos  = user != null ? user.ambilDosen()    : null;
+        Siswa     sis  = user != null ? user.getSiswa()      : null;
+        Guru      gur  = user != null ? user.ambilGuru()     : null;
+        Pegawai   peg  = user != null ? user.ambilPegawai()  : null;
+        OrangTua  ortu = user != null ? user.getOrangTua()   : null;
+
+        boolean personal = (mhs != null || sis != null || gur != null || dos != null || peg != null || ortu != null);
 
         if (mhs != null) {
             d.namaRole = "Mahasiswa"; d.namaPengguna = safeStr(mhs.getNama());
@@ -267,6 +278,8 @@ public class DasbordPelanggaran extends Div {
             d.namaRole = "Dosen";     d.namaPengguna = safeStr(dos.getNama());
         } else if (gur != null) {
             d.namaRole = "Guru";      d.namaPengguna = safeStr(gur.getNama());
+        } else if (ortu != null) {
+            d.namaRole = "Orang Tua"; d.namaPengguna = safeStr(user.getUserNama());
         } else {
             d.namaRole     = "Administrator";
             d.namaPengguna = user != null ? safeStr(user.getUserNama()) : "";
@@ -280,13 +293,20 @@ public class DasbordPelanggaran extends Div {
         }
         for (String h : HARI_MINGGU) d.perHari.put(h, 0);
 
+        // Akun tanpa peran personal (siswa/orangTua/guru/dosen/pegawai) hanya boleh melihat data
+        // lintas-institusi bila punya privilese baca eksplisit pada menu ini (fail-closed, bukan
+        // fail-open). Akun personal tetap disaring per baris di masing-masing method muat*.
+        boolean bolehLihatSemua = personal || CommonPrivilages.checkPrevilages(CommonPrivilages.READ);
+
         boolean all = (lingkup == Lingkup.SEMUA);
-        if (all || lingkup == Lingkup.MAHASISWA)
-            try { muatPelanggaranMahasiswa(d, mhs); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:245"); /*skip*/ }
-        if (all || lingkup == Lingkup.SISWA)
-            try { muatPelanggaranSiswa(d, sis); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:247"); /*skip*/ }
-        if (all || lingkup == Lingkup.PEGAWAI)
-            try { muatPelanggaranPegawai(d, peg, mhs, sis); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:249"); /*skip*/ }
+        if (bolehLihatSemua) {
+            if (all || lingkup == Lingkup.MAHASISWA)
+                try { muatPelanggaranMahasiswa(d, mhs); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:245"); /*skip*/ }
+            if (all || lingkup == Lingkup.SISWA)
+                try { muatPelanggaranSiswa(d, sis, ortu, gur); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:247"); /*skip*/ }
+            if (all || lingkup == Lingkup.PEGAWAI)
+                try { muatPelanggaranPegawai(d, peg, mhs, sis); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:249"); /*skip*/ }
+        }
 
         Collections.sort(d.semua, new Comparator<PelEntry>() {
             public int compare(PelEntry a, PelEntry b) {
@@ -333,11 +353,55 @@ public class DasbordPelanggaran extends Div {
     }
 
     @SuppressWarnings("unchecked")
-    private void muatPelanggaranSiswa(DashData d, Siswa sis) {
-        org.hibernate.Criteria c = HibernateUtil.currentSession()
+    private void muatPelanggaranSiswa(DashData d, Siswa sis, OrangTua ortu, Guru gur) {
+        Session session = HibernateUtil.currentSession();
+        org.hibernate.Criteria c = session
                 .createCriteria(PelanggaranSiswa.class)
                 .addOrder(Order.desc("id")).setMaxResults(MAX_ROWS);
-        if (sis != null) c.add(Restrictions.eq("siswa", sis));
+
+        if (sis != null) {
+            // Siswa yang login: hanya riwayatnya sendiri.
+            c.add(Restrictions.eq("siswa", sis));
+
+        } else if (ortu != null) {
+            List<Long> anakSiswa = ortu.ambilAnakSiswa();
+            if (anakSiswa.isEmpty()) {
+                // Orang tua tanpa anak tertaut: NOL data (fail-closed), bukan seluruh data.
+                return;
+            }
+            c.createAlias("siswa", "siswa").add(Restrictions.in("siswa.id", anakSiswa));
+
+        } else if (gur != null) {
+            Criterion criterionGuru = Restrictions.eq("guru", gur);
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru2", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru3", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru4", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru5", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru6", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru7", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru8", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru9", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru10", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru11", gur));
+            criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru12", gur));
+
+            List<Long> kelasDiajar = session.createCriteria(JadwalPelajaran.class)
+                    .add(criterionGuru).add(Restrictions.isNotNull("kelas"))
+                    .setProjection(Projections.groupProperty("kelas.id")).list();
+            if (kelasDiajar.isEmpty()) {
+                // Guru tanpa kelas yang diajar: NOL data (fail-closed).
+                return;
+            }
+
+            List<Long> siswaDiajar = session.createCriteria(KelasSiswaPunyaSiswa.class)
+                    .setProjection(Projections.property("siswa.id"))
+                    .add(Restrictions.in("kelasSiswa.id", kelasDiajar)).list();
+            if (siswaDiajar.isEmpty()) {
+                return;
+            }
+            c.createAlias("siswa", "siswa").add(Restrictions.in("siswa.id", siswaDiajar));
+        }
+
         for (PelanggaranSiswa p : (List<PelanggaranSiswa>) c.list()) {
             String jenis  = p.getPelanggaranDanHukuman() != null ? p.getPelanggaranDanHukuman().getNama() : "";
             String subjek = p.getSiswa() != null ? p.getSiswa().getNama() : safeStr(p.getNama());

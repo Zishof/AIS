@@ -38,6 +38,7 @@ import org.zkoss.zul.Vbox;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.common.PesanFormalHelper;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GelombangPendaftaran;
@@ -99,8 +100,8 @@ public class ParameterTambahanPaketAction extends GenericAutowireComposer implem
 	private Combobox paket;
 	private Combobox parameterTambahan;
 
-	private boolean edit = true;
-	private boolean delete = true;
+	private boolean edit = false;
+	private boolean delete = false;
 
 	private MyToolbarbuttonConfig find;
 	private ParameterTambahanPaket parameterTambahanPaket;
@@ -183,6 +184,12 @@ public class ParameterTambahanPaketAction extends GenericAutowireComposer implem
 		super.doAfterCompose(comp);
 		Common.initLaguage();
 
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
+
 		KelompokParameterTambahanCalonMahasiswa kelompokParameterTambahanCalonMahasiswa = KelompokParameterTambahanCalonMahasiswa
 				.checkCreateDefault();
 		HibernateUtil.currentSession()
@@ -212,6 +219,9 @@ public class ParameterTambahanPaketAction extends GenericAutowireComposer implem
 		if (!searchkelompokParameterTambahanCalonMahasiswa.getChildren().isEmpty()) {
 			searchkelompokParameterTambahanCalonMahasiswa.setSelectedIndex(0);
 		}
+
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
 		onSearchDefault(null);
 		Common.initPaging(paging, new EventListener() {
@@ -414,6 +424,10 @@ public class ParameterTambahanPaketAction extends GenericAutowireComposer implem
 
 	@SuppressWarnings("unchecked")
 	public void onAdd(Event event) throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
+
 		if (searchkelompokParameterTambahanCalonMahasiswa.getSelectedItem() == null
 				|| searchkelompokParameterTambahanCalonMahasiswa.getSelectedItem().getValue() == null) {
 			MyMessageboxConfig.show("Sebelum bisa menambah data, kelompok harus dipilih", "Peringatan",

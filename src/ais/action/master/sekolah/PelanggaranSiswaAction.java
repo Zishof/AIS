@@ -9,8 +9,10 @@ import java.util.TreeSet;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
@@ -47,7 +49,10 @@ import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Tbmuser;
+import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Hukuman;
+import ais.database.model.sekolah.JadwalPelajaran;
+import ais.database.model.sekolah.KelasSiswaPunyaSiswa;
 import ais.database.model.sekolah.Pelanggaran;
 import ais.database.model.sekolah.PelanggaranDanHukuman;
 import ais.database.model.sekolah.PelanggaranSiswa;
@@ -787,9 +792,54 @@ public class PelanggaranSiswaAction extends GenericAutowireComposer
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(PelanggaranSiswa.class).createAlias("siswa", "siswa");
 		Tbmuser tbmuser = Common.getCurrentUser();
-		if (tbmuser != null && tbmuser.getOrangTua() != null && !tbmuser.getOrangTua().ambilAnakSiswa().isEmpty()) {
-			criteria.add(Restrictions.in("siswa.id", tbmuser.getOrangTua().ambilAnakSiswa()));
+
+		if (tbmuser != null && tbmuser.getSiswa() != null) {
+			// Siswa yang login: hanya boleh melihat riwayat pelanggaran/hukuman miliknya sendiri.
+			criteria.add(Restrictions.eq("siswa.id", tbmuser.getSiswa().getId()));
+
+		} else if (tbmuser != null && tbmuser.getOrangTua() != null) {
+			List<Long> anakSiswa = tbmuser.getOrangTua().ambilAnakSiswa();
+			if (!anakSiswa.isEmpty()) {
+				criteria.add(Restrictions.in("siswa.id", anakSiswa));
+			} else {
+				// Orang tua tanpa anak tertaut harus melihat NOL data, bukan seluruh data (fail-closed).
+				criteria.add(Restrictions.sqlRestriction("1=0"));
+			}
+
+		} else if (tbmuser != null && tbmuser.ambilGuru() != null) {
+			Guru guru = tbmuser.ambilGuru();
+			Criterion criterionGuru = Restrictions.eq("guru", guru);
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru2", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru3", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru4", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru5", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru6", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru7", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru8", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru9", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru10", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru11", guru));
+			criterionGuru = Restrictions.or(criterionGuru, Restrictions.eq("guru12", guru));
+
+			// Pola yang sama dengan PenilaianSiswaAction.initCriteria(): guru -> kelas yang diajar
+			// (via JadwalPelajaran) -> siswa anggota kelas tersebut (via KelasSiswaPunyaSiswa).
+			List<Long> kelasDiajar = session.createCriteria(JadwalPelajaran.class)
+					.add(criterionGuru).add(Restrictions.isNotNull("kelas"))
+					.setProjection(Projections.groupProperty("kelas.id")).list();
+
+			List<Long> siswaDiajar = kelasDiajar.isEmpty() ? java.util.Collections.<Long>emptyList()
+					: session.createCriteria(KelasSiswaPunyaSiswa.class)
+							.setProjection(Projections.property("siswa.id"))
+							.add(Restrictions.in("kelasSiswa.id", kelasDiajar)).list();
+
+			if (!siswaDiajar.isEmpty()) {
+				criteria.add(Restrictions.in("siswa.id", siswaDiajar));
+			} else {
+				// Guru tanpa kelas yang diajar harus melihat NOL data (fail-closed).
+				criteria.add(Restrictions.sqlRestriction("1=0"));
+			}
 		}
+
 		if (order)
 			criteria.addOrder(Order.desc("waktu"));
 
