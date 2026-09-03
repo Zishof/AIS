@@ -34,6 +34,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.ParameterTambahan;
 import ais.database.model.payroll.KelompokParameterTambahanGajiPegawai;
@@ -92,8 +93,8 @@ public class ParameterTambahanGajiPegawaiAction extends GenericAutowireComposer
 	private Combobox kelompokParameterTambahanGajiPegawai;
 	private Combobox parameterTambahan;
 
-	private boolean edit = true;
-	private boolean delete = true;
+	private boolean edit = false;
+	private boolean delete = false;
 
 	private MyToolbarbuttonConfig find;
 	private ParameterTambahanGajiPegawai parameterTambahanGajiPegawai;
@@ -146,6 +147,14 @@ public class ParameterTambahanGajiPegawaiAction extends GenericAutowireComposer
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
+
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
 		KelompokParameterTambahanGajiPegawai.checkCreateDefault();
 
@@ -267,6 +276,10 @@ public class ParameterTambahanGajiPegawaiAction extends GenericAutowireComposer
 
 	@SuppressWarnings("unchecked")
 	public void onAdd(Event event) throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
+
 		if (searchkelompokParameterTambahanGajiPegawai.getSelectedItem() == null
 				|| searchkelompokParameterTambahanGajiPegawai.getSelectedItem().getValue() == null) {
 			MyMessageboxConfig.show("Mohon maaf, Kelompok belum dipilih sehingga data tidak dapat ditambahkan. Langkah yang dapat dilakukan: (1) pilih Kelompok yang sesuai pada daftar yang tersedia; (2) pastikan pilihan tidak dikosongkan; (3) ulangi kembali proses penambahan data. Jika masih mengalami kendala, hubungi Administrator.", "Peringatan",

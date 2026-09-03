@@ -36,6 +36,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.ParameterTambahan;
 import ais.database.model.lkp.KelompokParameterTambahanKegiatan;
@@ -88,8 +89,8 @@ public class ParameterTambahanKegiatanAction extends GenericAutowireComposer {
 	private Combobox kelompokParameterTambahanKegiatan;
 	private Combobox parameterTambahan;
 
-	private boolean edit = true;
-	private boolean delete = true;
+	private boolean edit = false;
+	private boolean delete = false;
 
 	private ParameterTambahanKegiatan parameterTambahanKegiatan;
 	private Tabpanel manajemenKelompok;
@@ -136,6 +137,11 @@ public class ParameterTambahanKegiatanAction extends GenericAutowireComposer {
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
 
 		KelompokParameterTambahanKegiatan.checkCreateDefault();
 
@@ -143,6 +149,9 @@ public class ParameterTambahanKegiatanAction extends GenericAutowireComposer {
 		if (!searchkelompokParameterTambahanKegiatan.getChildren().isEmpty()) {
 			searchkelompokParameterTambahanKegiatan.setSelectedIndex(0);
 		}
+
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
 		onSearchDefault(null);
 		Common.initPaging(paging, new EventListener() {
@@ -242,6 +251,9 @@ public class ParameterTambahanKegiatanAction extends GenericAutowireComposer {
 
 	@SuppressWarnings("unchecked")
 	public void onAdd(Event event) throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
 
 		if (searchkelompokParameterTambahanKegiatan.getSelectedItem() == null
 				|| searchkelompokParameterTambahanKegiatan.getSelectedItem().getValue() == null) {

@@ -33,6 +33,7 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.generic.AmbilDataParameterTambahanBanyak;
 import ais.common.Common;
+import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.ParameterTambahan;
 import ais.database.model.payroll.KelompokParameterTambahanPengajuanTransaksiPegawai;
@@ -90,8 +91,8 @@ public class ParameterTambahanPengajuanTransaksiPegawaiAction extends GenericAut
 	private Combobox kelompokParameterTambahanPengajuanTransaksiPegawai;
 	private Combobox parameterTambahan;
 
-	private boolean edit = true;
-	private boolean delete = true;
+	private boolean edit = false;
+	private boolean delete = false;
 
 	private MyToolbarbuttonConfig find;
 	private ParameterTambahanPengajuanTransaksiPegawai parameterTambahanPengajuanTransaksiPegawai;
@@ -144,6 +145,11 @@ public class ParameterTambahanPengajuanTransaksiPegawaiAction extends GenericAut
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+			session.removeAttribute("usersTemp");
+			Common.goLogoff();
+			return;
+		}
 
 		KelompokParameterTambahanPengajuanTransaksiPegawai.checkCreateDefault();
 
@@ -152,6 +158,9 @@ public class ParameterTambahanPengajuanTransaksiPegawaiAction extends GenericAut
 		if (!searchkelompokParameterTambahanPengajuanTransaksiPegawai.getChildren().isEmpty()) {
 			searchkelompokParameterTambahanPengajuanTransaksiPegawai.setSelectedIndex(0);
 		}
+
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
 		onSearchDefault(null);
 		Common.initPaging(paging, new EventListener() {
@@ -266,6 +275,10 @@ public class ParameterTambahanPengajuanTransaksiPegawaiAction extends GenericAut
 
 	@SuppressWarnings("unchecked")
 	public void onAdd(Event event) throws Exception {
+		if (!CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE)) {
+			return;
+		}
+
 		if (searchkelompokParameterTambahanPengajuanTransaksiPegawai.getSelectedItem() == null
 				|| searchkelompokParameterTambahanPengajuanTransaksiPegawai.getSelectedItem().getValue() == null) {
 			MyMessageboxConfig.show("Mohon maaf, Kelompok belum dipilih sehingga data tidak dapat ditambahkan. Langkah yang dapat dilakukan: (1) pilih Kelompok yang sesuai pada daftar yang tersedia; (2) pastikan pilihan tidak dikosongkan; (3) ulangi kembali proses penambahan data. Jika masih mengalami kendala, hubungi Administrator.", "Peringatan",
