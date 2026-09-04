@@ -2246,7 +2246,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));
-		bolehEntryTopup = new MyCheckboxConfig("Boleh entry topup / tabungan / deposit");
+		bolehEntryTopup = new MyCheckboxConfig("Boleh entry topup / tabungan / deposit / pelunasan piutang");
 		bolehEntryTopup.setChecked(tbmrole.getBolehEntryTopup());
 		bolehEntryTopup.setParent(row);
 

@@ -6849,6 +6849,76 @@ public class KantinHelper {
 		hasil.put("global", ais.action.master.koperasi.KoreksiTransaksiUtil.globalAktif());
 	}
 
+	/** Hasil validasi payload pembayaran baru pada koreksi transaksi. */
+	private static class PembayaranKoreksi {
+		boolean diminta;
+		CaraPembayaranKoperasi utama;
+		SplitPembayaran split = new SplitPembayaran();
+		double totalNominal;
+		String pesanError;
+	}
+
+	/**
+	 * Membaca array {@code pembayaran:[{cara_bayar,nominal}]} untuk koreksi.
+	 * Berbeda dari checkout lama, payload koreksi ditolak keras bila satu baris
+	 * tidak sah: perubahan transaksi final tidak boleh sukses sebagian atau
+	 * diam-diam menghilangkan salah satu metode pembayaran.
+	 */
+	private static PembayaranKoreksi resolvePembayaranKoreksi(Session session,
+			JSONObject request) {
+		PembayaranKoreksi hasil = new PembayaranKoreksi();
+		hasil.diminta = request != null && request.has("pembayaran");
+		if (!hasil.diminta) return hasil;
+		JSONArray daftar = request.optJSONArray("pembayaran");
+		if (daftar == null || daftar.length() == 0) {
+			hasil.pesanError = "Pilih sedikitnya satu metode pembayaran.";
+			return hasil;
+		}
+		if (daftar.length() > 5) {
+			hasil.pesanError = "Maksimal 5 metode pembayaran per transaksi.";
+			return hasil;
+		}
+		java.util.Set<Long> sudahDipakai = new java.util.HashSet<Long>();
+		for (int i = 0; i < daftar.length(); i++) {
+			JSONObject baris = daftar.optJSONObject(i);
+			if (baris == null) {
+				hasil.pesanError = "Baris pembayaran ke-" + (i + 1) + " tidak valid.";
+				return hasil;
+			}
+			Long caraId = Common.angkaAtauNull(baris, "cara_bayar");
+			if (caraId == null) {
+				hasil.pesanError = "Metode pembayaran pada baris ke-" + (i + 1) + " wajib dipilih.";
+				return hasil;
+			}
+			double nominal;
+			try { nominal = Double.parseDouble(baris.optString("nominal", "").trim()); }
+			catch (Exception e) { nominal = 0.0; }
+			if (Double.isNaN(nominal) || Double.isInfinite(nominal) || nominal <= 0.0) {
+				hasil.pesanError = "Nominal pembayaran pada baris ke-" + (i + 1) + " harus lebih dari 0.";
+				return hasil;
+			}
+			CaraPembayaranKoperasi cara = (CaraPembayaranKoperasi)
+					session.get(CaraPembayaranKoperasi.class, caraId);
+			if (cara == null || !Boolean.TRUE.equals(cara.getAktif())) {
+				hasil.pesanError = "Metode pembayaran pada baris ke-" + (i + 1)
+						+ " tidak ditemukan atau sudah tidak aktif.";
+				return hasil;
+			}
+			if (!sudahDipakai.add(caraId)) {
+				hasil.pesanError = "Metode pembayaran " + cara.getNama()
+						+ " dipilih lebih dari satu kali.";
+				return hasil;
+			}
+			if (i == 0) hasil.utama = cara;
+			else if (i == 1) { hasil.split.cara2 = cara; hasil.split.nominal2 = Double.valueOf(nominal); }
+			else if (i == 2) { hasil.split.cara3 = cara; hasil.split.nominal3 = Double.valueOf(nominal); }
+			else if (i == 3) { hasil.split.cara4 = cara; hasil.split.nominal4 = Double.valueOf(nominal); }
+			else { hasil.split.cara5 = cara; hasil.split.nominal5 = Double.valueOf(nominal); }
+			hasil.totalNominal += nominal;
+		}
+		return hasil;
+	}
+
 	/**
 	 * Menghitung bagian total transaksi yang memiliki sifat finansial tertentu pada kelima slot
 	 * pembayaran. Slot pertama selalu berupa sisa total setelah nominal slot 2-5, sama persis dengan
@@ -6894,6 +6964,13 @@ public class KantinHelper {
 	/** Tambahan beban deposit yang harus ditolak bila koreksi tidak mempunyai validasi saldo baru. */
 	static double tambahanDepositKoreksi(double depositLama, double depositBaru) {
 		return Math.max(0.0, depositBaru - depositLama);
+	}
+
+	/** Toleransi Rp 1 untuk pembulatan alokasi split dari antarmuka kasir. */
+	static boolean totalAlokasiPembayaranCocok(double dialokasikan, double total) {
+		return !Double.isNaN(dialokasikan) && !Double.isInfinite(dialokasikan)
+				&& !Double.isNaN(total) && !Double.isInfinite(total)
+				&& Math.abs(dialokasikan - total) < 1.0;
 	}
 
 	private static SplitPembayaran splitPembayaranTransaksi(PembelianAnggotaKoperasi transaksi) {
@@ -9001,7 +9078,7 @@ public class KantinHelper {
 	 * KREDIT ("Pembayaran") dari {@link ais.database.model.koperasi.PembayaranHutang}. Lihat JavaDoc
 	 * {@link #mutasiTabunganList} soal alasan flat-list (bukan server-paginated).
 	 */
-	public static void mutasiHutangList(JSONObject request, JSONObject hasil) throws Exception {
+	public static void mutasiHutangList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		String dari = request.optString("dari", "").trim();
 		String sampai = request.optString("sampai", "").trim();
 		if (dari.isEmpty() || sampai.isEmpty()) {
@@ -9027,7 +9104,9 @@ public class KantinHelper {
 				if (slot > 1) sql.append(" UNION ALL ");
 				sql.append("  SELECT h.tanggal_pembayaran AS waktu, ('H").append(slot).append("' || h.id) AS baris_id, "
 						+ "(a.kode || ' - ' || a.nama) AS nama_anggota, h.anggota_koperasi AS id_anggota, "
-						+ "'Belanja (Hutang)' AS jenis_mutasi, COALESCE(h.kode, '') AS keterangan, ")
+						+ "h.id AS transaksi_id, ").append(slot).append(" AS slot_piutang, "
+						+ "COALESCE(cpk").append(slot).append(".nama, '') AS metode_pembayaran, "
+						+ "'Belanja (Piutang)' AS jenis_mutasi, COALESCE(h.kode, '') AS keterangan, ")
 						.append(slotNominal[slot - 1]).append(" AS bertambah, 0 AS berkurang "
 						+ "FROM koperasi.pembelian_anggota_koperasi h "
 						+ "JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id "
@@ -9038,14 +9117,15 @@ public class KantinHelper {
 			}
 			sql.append(" UNION ALL ")
 					.append("  SELECT ph.waktu, ('C' || ph.id), (a.kode || ' - ' || a.nama), ph.anggota_koperasi, "
-							+ "'Pembayaran Hutang', COALESCE(ph.keterangan, ''), 0, COALESCE(ph.nominal, 0) "
+							+ "NULL::bigint, NULL::integer, NULL::varchar, "
+							+ "'Pelunasan Piutang', COALESCE(ph.keterangan, ''), 0, COALESCE(ph.nominal, 0) "
 							+ "FROM koperasi.pembayaran_hutang ph "
 							+ "JOIN koperasi.anggota_koperasi a ON ph.anggota_koperasi = a.id "
 							+ "WHERE ph.anggota_koperasi IS NOT NULL ").append(filterPh)
 					.append("), saldo_awal AS ( "
 							+ "SELECT id_anggota, SUM(bertambah-berkurang) AS saldo_awal FROM semua_mutasi WHERE waktu < CAST(? AS date) GROUP BY id_anggota"
 							+ "), mutasi AS (SELECT * FROM semua_mutasi WHERE waktu >= CAST(? AS date) AND waktu < (CAST(? AS date) + interval '1 day')) "
-							+ "SELECT waktu, baris_id, nama_anggota, m.id_anggota, jenis_mutasi, keterangan, bertambah, berkurang, "
+							+ "SELECT waktu, baris_id, nama_anggota, m.id_anggota, transaksi_id, slot_piutang, metode_pembayaran, jenis_mutasi, keterangan, bertambah, berkurang, "
 							+ "  COALESCE(sa.saldo_awal,0) + SUM(bertambah - berkurang) OVER (PARTITION BY m.id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_anggota, "
 							+ "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(bertambah - berkurang) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total, "
 							+ "  COALESCE(sa.saldo_awal,0) AS saldo_awal "
@@ -9072,13 +9152,18 @@ public class KantinHelper {
 				j.put("namaAnggota", rs.getString(3));
 				long idA = rs.getLong(4);
 				j.put("idAnggota", rs.wasNull() ? JSONObject.NULL : idA);
-				j.put("jenisMutasi", rs.getString(5));
-				j.put("keterangan", rs.getString(6));
-				j.put("bertambah", rs.getDouble(7));
-				j.put("berkurang", rs.getDouble(8));
-				j.put("saldoPerAnggota", rs.getDouble(9));
-				j.put("saldoTotal", rs.getDouble(10));
-				j.put("saldoAwal", rs.getDouble(11));
+				long transaksiId = rs.getLong(5);
+				j.put("transaksiId", rs.wasNull() ? JSONObject.NULL : transaksiId);
+				int slotPiutang = rs.getInt(6);
+				j.put("slotPiutang", rs.wasNull() ? JSONObject.NULL : slotPiutang);
+				j.put("metodePembayaran", rs.getString(7) == null ? "" : rs.getString(7));
+				j.put("jenisMutasi", rs.getString(8));
+				j.put("keterangan", rs.getString(9));
+				j.put("bertambah", rs.getDouble(10));
+				j.put("berkurang", rs.getDouble(11));
+				j.put("saldoPerAnggota", rs.getDouble(12));
+				j.put("saldoTotal", rs.getDouble(13));
+				j.put("saldoAwal", rs.getDouble(14));
 				arr.put(j);
 			}
 			rs.close();
@@ -9132,12 +9217,18 @@ public class KantinHelper {
 	 * {@link ais.database.model.koperasi.PembayaranHutang}. Gerbang SAMA dgn {@link #topupSaldo}
 	 * ({@code Tbmrole.bolehEntryTopup}) -- entri finansial manual, bukan bagian grid CRUD menu.
 	 */
+	static boolean nominalPelunasanPiutangValid(double nominal, double saldoBerjalan,
+			double nominalLama) {
+		return !Double.isNaN(nominal) && !Double.isInfinite(nominal) && nominal > 0.0
+				&& nominal <= Math.max(0.0, saldoBerjalan) + Math.max(0.0, nominalLama) + 0.000001;
+	}
+
 	public static void hutangBayarSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		ais.database.model.Tbmrole roleHb = tbmuser == null ? null : tbmuser.hakAkses();
 		boolean bolehHb = roleHb != null && roleHb.getBolehEntryTopup() != null && roleHb.getBolehEntryTopup().booleanValue();
 		if (!bolehHb) {
 			hasil.put("status", "91");
-			hasil.put("description", "Anda tidak memiliki hak akses untuk mencatat pembayaran hutang.");
+			hasil.put("description", "Anda tidak memiliki hak akses untuk mencatat pelunasan piutang.");
 			return;
 		}
 		Long idAnggota = ais.common.Common.angkaAtauNull(request, "id_member");
@@ -9147,19 +9238,28 @@ public class KantinHelper {
 			return;
 		}
 		double nominal = request.optDouble("nominal", 0);
-		if (nominal <= 0) {
+		if (Double.isNaN(nominal) || Double.isInfinite(nominal) || nominal <= 0) {
 			hasil.put("status", "91");
 			hasil.put("description", "Nominal pembayaran harus lebih dari 0.");
 			return;
 		}
 		Long id = ais.common.Common.angkaAtauNull(request, "id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		org.hibernate.Transaction tx = null;
 		try {
+			ais.database.model.koperasi.AnggotaKoperasi anggota =
+					(ais.database.model.koperasi.AnggotaKoperasi) session.get(
+							ais.database.model.koperasi.AnggotaKoperasi.class, idAnggota);
+			if (anggota == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Pelanggan tidak ditemukan.");
+				return;
+			}
 			ais.database.model.koperasi.PembayaranHutang bayar;
+			double nominalLama = 0.0;
 			if (id == null) {
 				bayar = new ais.database.model.koperasi.PembayaranHutang();
-				bayar.setAnggotaKoperasi((ais.database.model.koperasi.AnggotaKoperasi) session
-						.get(ais.database.model.koperasi.AnggotaKoperasi.class, idAnggota));
+				bayar.setAnggotaKoperasi(anggota);
 			} else {
 				bayar = (ais.database.model.koperasi.PembayaranHutang) session
 						.get(ais.database.model.koperasi.PembayaranHutang.class, id);
@@ -9168,9 +9268,34 @@ public class KantinHelper {
 					hasil.put("description", "Data pembayaran hutang tidak ditemukan.");
 					return;
 				}
+				if (bayar.getAnggotaKoperasi() == null
+						|| !idAnggota.equals(bayar.getAnggotaKoperasi().getId())) {
+					hasil.put("status", "91");
+					hasil.put("description", "Pelanggan pembayaran tidak boleh diganti.");
+					return;
+				}
+				nominalLama = bayar.getNominal() == null ? 0.0 : bayar.getNominal().doubleValue();
+			}
+			// Serialisasi pelunasan per pelanggan. Tanpa lock ini dua petugas dapat
+			// sama-sama membaca saldo lama lalu keduanya lolos validasi.
+			tx = session.beginTransaction();
+			session.createSQLQuery("SELECT id FROM koperasi.anggota_koperasi WHERE id=:id FOR UPDATE")
+					.setParameter("id", idAnggota).uniqueResult();
+			double saldoBerjalan = hitungTotalHutangBerjalan(session, idAnggota.longValue());
+			if (!nominalPelunasanPiutangValid(nominal, saldoBerjalan, nominalLama)) {
+				tx.rollback();
+				tx = null;
+				hasil.put("status", "91");
+				hasil.put("description", "Nominal pelunasan tidak boleh melebihi sisa piutang pelanggan ("
+						+ Common.numberFormat.get().format(saldoBerjalan + nominalLama) + ").");
+				return;
 			}
 			bayar.setNominal(Double.valueOf(nominal));
 			bayar.setKeterangan(request.optString("keterangan", ""));
+			if (tbmuser != null) {
+				bayar.setOleh(tbmuser.getUserNama());
+				bayar.setOlehId(tbmuser.getUserId());
+			}
 			if (!request.isNull("waktu") && !request.optString("waktu", "").trim().isEmpty()) {
 				try {
 					bayar.setWaktu(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(request.optString("waktu")));
@@ -9180,11 +9305,17 @@ public class KantinHelper {
 			} else if (id == null) {
 				bayar.setWaktu(ais.ui.util.WaktuUtil.getDate());
 			}
-			session.beginTransaction();
 			session.saveOrUpdate(bayar);
-			session.getTransaction().commit();
+			tx.commit();
+			tx = null;
 			hasil.put("status", "00");
 			hasil.put("id", bayar.getId());
+			hasil.put("sisaPiutang", Math.max(0.0, saldoBerjalan + nominalLama - nominal));
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) {
+				ais.common.ErrorAuditUtil.record(rollback, "hutangBayarSimpan-rollback");
+			}
+			throw e;
 		} finally {
 			tutupSessionPolaB(session);
 		}
@@ -9199,7 +9330,7 @@ public class KantinHelper {
 		boolean bolehHh = roleHh != null && roleHh.getBolehEntryTopup() != null && roleHh.getBolehEntryTopup().booleanValue();
 		if (!bolehHh) {
 			hasil.put("status", "91");
-			hasil.put("description", "Anda tidak memiliki hak akses untuk menghapus entri pembayaran hutang.");
+			hasil.put("description", "Anda tidak memiliki hak akses untuk menghapus entri pelunasan piutang.");
 			return;
 		}
 		Long id = ais.common.Common.angkaAtauNull(request, "id");
@@ -17634,6 +17765,102 @@ public class KantinHelper {
 		return menuRole.optBoolean("supervisor", false);
 	}
 
+	/**
+	 * Detail satu mutasi piutang yang berasal dari transaksi Kasbon. ID transaksi
+	 * diverifikasi terhadap toko pengguna dan slot yang benar-benar bertanda
+	 * piutang sebelum rincian barang dikembalikan; ID klien tidak pernah langsung
+	 * dipakai untuk membaca transaksi toko lain.
+	 */
+	public static void mutasiPiutangDetail(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		Long transaksiId = ais.common.Common.angkaAtauNull(request, "transaksi_id");
+		Long idAnggota = ais.common.Common.angkaAtauNull(request, "id_anggota");
+		int slot = request.optInt("slot", 0);
+		if (transaksiId == null || slot < 1 || slot > 5) {
+			hasil.put("status", "91");
+			hasil.put("description", "Identitas transaksi atau slot piutang tidak valid.");
+			return;
+		}
+		Long tokoId = null;
+		if (tbmuser != null && tbmuser.getPedagang() != null
+				&& tbmuser.getPedagang().getToko() != null) {
+			tokoId = tbmuser.getPedagang().getToko().getId();
+		} else {
+			tokoId = ais.common.Common.angkaAtauNull(request, "toko_id");
+		}
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Pilih toko sebelum melihat detail piutang.");
+			return;
+		}
+
+		String[] kolomCara = { "h.cara_pembayaran_koperasi", "h.cara_pembayaran_koperasi_2",
+				"h.cara_pembayaran_koperasi_3", "h.cara_pembayaran_koperasi_4",
+				"h.cara_pembayaran_koperasi_5" };
+		String nominalUtama = "GREATEST(0, COALESCE(h.total_biaya,0) - COALESCE(h.nominal_bayar_2,0) "
+				+ "- COALESCE(h.nominal_bayar_3,0) - COALESCE(h.nominal_bayar_4,0) - COALESCE(h.nominal_bayar_5,0))";
+		String[] kolomNominal = { nominalUtama, "COALESCE(h.nominal_bayar_2,0)",
+				"COALESCE(h.nominal_bayar_3,0)", "COALESCE(h.nominal_bayar_4,0)",
+				"COALESCE(h.nominal_bayar_5,0)" };
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String sqlHeader = "SELECT COALESCE(h.kode,''), h.tanggal_pembayaran, COALESCE(h.total_biaya,0), "
+					+ "COALESCE(a.kode,''), COALESCE(a.nama,''), COALESCE(cpk.nama,''), "
+					+ kolomNominal[slot - 1] + " AS nominal_piutang "
+					+ "FROM koperasi.pembelian_anggota_koperasi h "
+					+ "JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi=a.id "
+					+ "JOIN koperasi.cara_pembayaran_koperasi cpk ON " + kolomCara[slot - 1] + "=cpk.id "
+					+ "WHERE h.id=? AND h.toko=? AND cpk.masuk_sebagai_hutang=true "
+					+ (idAnggota == null ? "" : "AND h.anggota_koperasi=? ");
+			java.sql.PreparedStatement psHeader = session.connection().prepareStatement(sqlHeader);
+			psHeader.setLong(1, transaksiId.longValue());
+			psHeader.setLong(2, tokoId.longValue());
+			if (idAnggota != null) psHeader.setLong(3, idAnggota.longValue());
+			java.sql.ResultSet rsHeader = psHeader.executeQuery();
+			if (!rsHeader.next()) {
+				rsHeader.close(); psHeader.close();
+				hasil.put("status", "91");
+				hasil.put("description", "Detail piutang tidak ditemukan pada toko yang boleh diakses akun ini.");
+				return;
+			}
+			java.text.SimpleDateFormat waktu = new java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+			hasil.put("nomor", rsHeader.getString(1));
+			hasil.put("waktu", rsHeader.getTimestamp(2) == null ? "" : waktu.format(rsHeader.getTimestamp(2)));
+			hasil.put("totalTransaksi", rsHeader.getDouble(3));
+			hasil.put("kodeAnggota", rsHeader.getString(4));
+			hasil.put("namaAnggota", rsHeader.getString(5));
+			hasil.put("metodePembayaran", rsHeader.getString(6));
+			hasil.put("nominalPiutang", rsHeader.getDouble(7));
+			rsHeader.close(); psHeader.close();
+
+			java.sql.PreparedStatement psItem = session.connection().prepareStatement(
+					"SELECT COALESCE(pr.nama,''), COALESCE(p.qty,0), "
+							+ "COALESCE(p.hargasatuan, p.total/NULLIF(p.qty,0), 0), COALESCE(p.diskon,0), "
+							+ "COALESCE(p.total, (COALESCE(p.hargasatuan,0)*COALESCE(p.qty,0))-COALESCE(p.diskon,0)) "
+							+ "FROM koperasi.pembelian p LEFT JOIN koperasi.produk pr ON p.produk=pr.id "
+							+ "WHERE p.pembelian_anggota_koperasi=? AND p.toko=? "
+							+ "ORDER BY COALESCE(p.induk_id,p.id), p.id");
+			psItem.setLong(1, transaksiId.longValue());
+			psItem.setLong(2, tokoId.longValue());
+			java.sql.ResultSet rsItem = psItem.executeQuery();
+			JSONArray item = new JSONArray();
+			while (rsItem.next()) {
+				JSONObject baris = new JSONObject();
+				baris.put("nama", rsItem.getString(1));
+				baris.put("qty", rsItem.getDouble(2));
+				baris.put("harga", rsItem.getDouble(3));
+				baris.put("diskon", rsItem.getDouble(4));
+				baris.put("subtotal", rsItem.getDouble(5));
+				item.put(baris);
+			}
+			rsItem.close(); psItem.close();
+			hasil.put("item", item);
+			hasil.put("status", "00");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
 	/** Keputusan murni untuk tombol edit detail; dibuat terpisah agar semua gerbang dapat diuji. */
 	public static boolean bolehEditTransaksiDetail(boolean penggunaBolehEdit,
 			boolean punyaHeader, boolean kebijakanAktif, boolean sudahPosting,
@@ -18164,13 +18391,16 @@ public class KantinHelper {
 				kasirBaru = (Tbmuser) session.get(Tbmuser.class, kasirUserIdBaru);
 				if (kasirBaru == null || !Boolean.TRUE.equals(kasirBaru.getAktif())) throw new IllegalStateException("Akun kasir yang dipilih tidak ditemukan atau sudah tidak aktif.");
 			}
-			CaraPembayaranKoperasi caraBayarBaru = null;
-			if (!request.isNull("cara_bayar")) {
+			PembayaranKoreksi pembayaranBaru = resolvePembayaranKoreksi(session, request);
+			if (pembayaranBaru.pesanError != null) throw new IllegalStateException(pembayaranBaru.pesanError);
+			CaraPembayaranKoperasi caraBayarBaru = pembayaranBaru.utama;
+			if (!pembayaranBaru.diminta && !request.isNull("cara_bayar")) {
 				String caraBayarIdTeks = (request.get("cara_bayar") + "").trim();
 				if (caraBayarIdTeks.length() == 0 || !Common.isNumber(caraBayarIdTeks)) throw new IllegalStateException("Metode pembayaran tidak valid.");
 				caraBayarBaru = (CaraPembayaranKoperasi) session.get(CaraPembayaranKoperasi.class, Long.valueOf(caraBayarIdTeks));
 				if (caraBayarBaru == null || !Boolean.TRUE.equals(caraBayarBaru.getAktif())) throw new IllegalStateException("Metode pembayaran yang dipilih tidak ditemukan atau sudah tidak aktif.");
 			}
+			boolean pembayaranDiubah = pembayaranBaru.diminta || caraBayarBaru != null;
 			AnggotaKoperasi anggotaTransaksi = trx.getAnggotaKoperasi();
 			CaraPembayaranKoperasi caraBayarLama = trx.getCaraPembayaranKoperasi();
 			SplitPembayaran splitLama = splitPembayaranTransaksi(trx);
@@ -18234,8 +18464,24 @@ public class KantinHelper {
 
 			double pajak = trx.getHargaPpn() == null ? 0.0 : trx.getHargaPpn().doubleValue();
 			double totalBaru = Math.max(0.0, jumlahRincian - diskonFakturTetap + pajak);
-			CaraPembayaranKoperasi caraBayarEfektif = caraBayarBaru == null ? caraBayarLama : caraBayarBaru;
-			SplitPembayaran splitEfektif = caraBayarBaru == null ? splitLama : new SplitPembayaran();
+			if (pembayaranBaru.diminta
+					&& !totalAlokasiPembayaranCocok(pembayaranBaru.totalNominal, totalBaru)) {
+				throw new IllegalStateException("Total alokasi pembayaran ("
+						+ Common.numberFormat.get().format(pembayaranBaru.totalNominal)
+						+ ") harus sama dengan total transaksi ("
+						+ Common.numberFormat.get().format(totalBaru) + ").");
+			}
+			double totalTambahanLama = SplitPembayaran.nominalPositif(splitLama.nominal2)
+					+ SplitPembayaran.nominalPositif(splitLama.nominal3)
+					+ SplitPembayaran.nominalPositif(splitLama.nominal4)
+					+ SplitPembayaran.nominalPositif(splitLama.nominal5);
+			if (!pembayaranDiubah && totalTambahanLama > totalBaru + 0.5) {
+				throw new IllegalStateException("Total transaksi berubah menjadi lebih kecil daripada alokasi split lama. "
+						+ "Buka Metode Pembayaran dan sesuaikan nominal setiap metode sebelum menyimpan koreksi.");
+			}
+			CaraPembayaranKoperasi caraBayarEfektif = pembayaranDiubah ? caraBayarBaru : caraBayarLama;
+			SplitPembayaran splitEfektif = pembayaranBaru.diminta
+					? pembayaranBaru.split : (caraBayarBaru == null ? splitLama : new SplitPembayaran());
 			String metodeTanpaPemilik = metodeWajibMemberTanpaPemilik(anggotaTransaksi,
 					caraBayarEfektif, splitEfektif, totalBaru);
 			if (metodeTanpaPemilik != null) {
@@ -18282,13 +18528,9 @@ public class KantinHelper {
 			double tunaiLama = trx.getBayarTunai() == null ? 0.0 : trx.getBayarTunai().doubleValue();
 			double nonTunaiLama = trx.getBayarNonTunai() == null ? 0.0 : trx.getBayarNonTunai().doubleValue();
 			double komposisi = tunaiLama + nonTunaiLama;
-			if (caraBayarBaru != null) {
-				boolean metodeTunai = caraBayarBaru.getNama() != null && caraBayarBaru.getNama().toLowerCase().indexOf("tunai") >= 0;
-				trx.setBayarTunai(Double.valueOf(metodeTunai ? totalBaru : 0.0));
-				trx.setBayarNonTunai(Double.valueOf(metodeTunai ? 0.0 : totalBaru));
+			if (pembayaranDiubah) {
 				trx.setCaraPembayaranKoperasi(caraBayarBaru);
-				trx.setCaraPembayaranKoperasi2(null); trx.setCaraPembayaranKoperasi3(null); trx.setCaraPembayaranKoperasi4(null); trx.setCaraPembayaranKoperasi5(null);
-				trx.setNominalBayar2(Double.valueOf(0)); trx.setNominalBayar3(Double.valueOf(0)); trx.setNominalBayar4(Double.valueOf(0)); trx.setNominalBayar5(Double.valueOf(0));
+				splitEfektif.terapkanKe(trx, caraBayarBaru, Double.valueOf(totalBaru));
 			} else if (komposisi > 0) {
 				double tunaiBaru = totalBaru * tunaiLama / komposisi;
 				trx.setBayarTunai(Double.valueOf(tunaiBaru)); trx.setBayarNonTunai(Double.valueOf(totalBaru - tunaiBaru));
@@ -18303,7 +18545,7 @@ public class KantinHelper {
 			DraftPembelianAnggotaKoperasi draftAsal = trx.getDraftPembelianAnggotaKoperasi();
 			if (draftAsal != null) {
 				draftAsal.setTanggalPembayaran(waktuBaru);
-				if (caraBayarBaru != null) draftAsal.setCaraPembayaranKoperasi(caraBayarBaru);
+				if (pembayaranDiubah) draftAsal.setCaraPembayaranKoperasi(caraBayarBaru);
 				if (kasirBaru != null) {
 					draftAsal.setTbmuser(kasirBaru);
 					draftAsal.setKasirLoginNama(kasirBaru.getUserNama() == null

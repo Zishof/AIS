@@ -214,10 +214,9 @@ public class PembayaranHutang extends GeneralValueObject {
 	}
 
 	/**
-	 * Menetapkan anggota koperasi pembayar. Tidak memvalidasi bahwa anggota tsb memang mempunyai
-	 * saldo hutang berjalan -- {@code KantinHelper.hutangBayarSimpan} hanya mensyaratkan
-	 * {@code idAnggota} valid dan nominal &gt; 0, TIDAK mengecek {@link #getNominal()} terhadap
-	 * saldo hutang berjalan anggota tsb (lihat catatan integritas di {@link #getNominal()}).
+	 * Menetapkan anggota koperasi pembayar. Setter entity ini tidak menghitung saldo, tetapi jalur
+	 * aplikasi {@code KantinHelper.hutangBayarSimpan} mengunci baris anggota dan memvalidasi bahwa
+	 * nominal pelunasan tidak melebihi saldo piutang berjalan.
 	 *
 	 * @param anggotaKoperasi anggota koperasi pembayar.
 	 */
@@ -238,14 +237,10 @@ public class PembayaranHutang extends GeneralValueObject {
 	 * hutang berjalan (lihat query {@code saldo_hutang} di {@code KantinHelper}), bukan dicocokkan
 	 * ke transaksi tertentu. Karena itu TIDAK ADA baris "alokasi" utk kelas ini (berbeda dari
 	 * piutang/hutang supplier yg dialokasikan per faktur via {@link AlokasiPenerimaanPiutangCustomer}
-	 * /{@link AlokasiPembayaranHutangSupplier}) dan TIDAK ADA penjagaan "nominal &le; sisa hutang
-	 * berjalan anggota" di jalur simpan ({@code KantinHelper.hutangBayarSimpan} hanya memvalidasi
-	 * {@code nominal > 0}) -- scr desain, member/kasir bisa mencatat pembayaran melebihi hutang
-	 * berjalan, dan {@code saldo_hutang} akan tetap konsisten secara aritmatika (bisa menghasilkan
-	 * saldo negatif yg lalu dipotong ke 0 oleh {@code Math.max(0.0, saldo)} pada query saldo,
-	 * bukan menjadi "piutang balik" koperasi ke anggota). Ini pola yang SAMA dgn Deposit/Topup
-	 * (bukan bug baru), tetapi patut diwaspadai bila laporan lain mengasumsikan saldo hutang
-	 * tidak pernah negatif secara internal sebelum dipotong.
+	 * /{@link AlokasiPembayaranHutangSupplier}). Jalur simpan standar mengunci baris anggota dan
+	 * menolak nominal nol, bukan angka, atau lebih besar daripada saldo berjalan. Data historis yang
+	 * pernah masuk melalui jalur lama tetap mungkin mengandung kelebihan bayar dan harus diaudit
+	 * terpisah bila ditemukan.
 	 *
 	 * @return nominal pembayaran, tidak pernah {@code null} (default {@code 0.0}).
 	 */
@@ -256,9 +251,9 @@ public class PembayaranHutang extends GeneralValueObject {
 
 	/**
 	 * Menetapkan nominal pembayaran baris ini. Tidak melakukan validasi apa pun di level entity
-	 * (boleh negatif/nol/{@code null} bila dipanggil langsung) -- validasi "nominal &gt; 0"
-	 * dilakukan {@code KantinHelper.hutangBayarSimpan} sebelum entity ini dibangun/di-{@code save},
-	 * bukan di setter.
+	 * (boleh negatif/nol/{@code null} bila dipanggil langsung) -- validasi angka positif dan batas
+	 * saldo dilakukan {@code KantinHelper.hutangBayarSimpan} sebelum entity ini disimpan, bukan di
+	 * setter.
 	 *
 	 * @param nominal nominal pembayaran baru.
 	 */

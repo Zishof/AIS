@@ -44,6 +44,7 @@ import ais.database.model.koperasi.AnggotaKoperasi;
 import ais.database.model.koperasi.CaraPembayaranKoperasi;
 import ais.database.model.koperasi.DraftPembelianAnggotaKoperasi;
 import ais.database.model.koperasi.JenisAnggotaKoperasi;
+import ais.database.model.koperasi.PembelianAnggotaKoperasi;
 import ais.database.model.koperasi.TipeAnggotaKoperasi;
 import org.hibernate.criterion.Disjunction;
 
@@ -951,8 +952,11 @@ public class PosApi extends HttpServlet {
 				KantinHelper.mutasiTabunganList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "mutasi_tabungan_list");
 			} else if ("mutasi_hutang_list".equals(action)) {
-				KantinHelper.mutasiHutangList(payload, hasil);
+				KantinHelper.mutasiHutangList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "mutasi_hutang_list");
+			} else if ("mutasi_piutang_detail".equals(action)) {
+				KantinHelper.mutasiPiutangDetail(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "mutasi_piutang_detail");
 			} else if ("pembantu_piutang_list".equals(action)) {
 				KantinHelper.pembantuPiutangList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pembantu_piutang_list");
@@ -1686,6 +1690,11 @@ public class PosApi extends HttpServlet {
 		// tampilan tombol Topup di Flutter (mirror pola isAdmin/supervisorPedagang di atas).
 		hasil.put("bolehEntryTopup", roleAksesMenu != null && roleAksesMenu.getBolehEntryTopup() != null
 				&& roleAksesMenu.getBolehEntryTopup().booleanValue());
+		// Alias capability yang menjelaskan penggunaan hak finansial manual ini pada
+		// tab Mutasi Piutang. Server tetap menjadi gerbang saat simpan/hapus.
+		hasil.put("bolehEntryPelunasanPiutang",
+				roleAksesMenu != null && roleAksesMenu.getBolehEntryTopup() != null
+						&& roleAksesMenu.getBolehEntryTopup().booleanValue());
 		hasil.put("bolehVerifikasiLimitMember",
 				ais.action.servlet.api.PengajuanLimitMemberApiHelper.bolehVerifikasi(tbmuser));
 		hasil.put("bolehHapusPesanan", bolehSupervisorAtauAdmin(tbmuser)
@@ -2356,6 +2365,7 @@ public class PosApi extends HttpServlet {
 				|| action.startsWith("satuan_kerja_")
 				|| "mutasi_tabungan_list".equals(action)
 				|| "mutasi_hutang_list".equals(action)
+				|| "mutasi_piutang_detail".equals(action)
 				|| "pembantu_piutang_list".equals(action)
 				|| action.startsWith("notifikasi_") || action.startsWith("sinkron_")) {
 			return menu.optBoolean("anggota", true);
@@ -3946,6 +3956,34 @@ public class PosApi extends HttpServlet {
 	 * ulang struk milik toko B walau tahu ID transaksinya. Header tak ditemukan (id salah ATAU toko
 	 * tak cocok) dibalas sbg "not found" polos, bukan data toko lain.</p>
 	 */
+	private static void tambahRincianPembayaran(JSONArray pembayaran,
+			CaraPembayaranKoperasi cara, double nominal) throws Exception {
+		if (cara == null || nominal <= 0.0) return;
+		JSONObject baris = new JSONObject();
+		baris.put("caraBayarId", cara.getId());
+		baris.put("nama", cara.getNama() == null ? "" : cara.getNama());
+		baris.put("nominal", nominal);
+		pembayaran.put(baris);
+	}
+
+	/** Rincian slot pembayaran lama agar form koreksi tidak meratakan split. */
+	private static JSONArray rincianPembayaranTransaksi(PembelianAnggotaKoperasi transaksi)
+			throws Exception {
+		JSONArray pembayaran = new JSONArray();
+		if (transaksi == null) return pembayaran;
+		tambahRincianPembayaran(pembayaran, transaksi.getCaraPembayaranKoperasi(),
+				transaksi.getNominalBayar1());
+		tambahRincianPembayaran(pembayaran, transaksi.getCaraPembayaranKoperasi2(),
+				transaksi.getNominalBayar2() == null ? 0.0 : transaksi.getNominalBayar2().doubleValue());
+		tambahRincianPembayaran(pembayaran, transaksi.getCaraPembayaranKoperasi3(),
+				transaksi.getNominalBayar3() == null ? 0.0 : transaksi.getNominalBayar3().doubleValue());
+		tambahRincianPembayaran(pembayaran, transaksi.getCaraPembayaranKoperasi4(),
+				transaksi.getNominalBayar4() == null ? 0.0 : transaksi.getNominalBayar4().doubleValue());
+		tambahRincianPembayaran(pembayaran, transaksi.getCaraPembayaranKoperasi5(),
+				transaksi.getNominalBayar5() == null ? 0.0 : transaksi.getNominalBayar5().doubleValue());
+		return pembayaran;
+	}
+
 	private void prosesDetailTransaksi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		if (payload.isNull("id")) { hasil.put("status", "error"); hasil.put("message", "ID transaksi wajib diisi."); return; }
 		long idTransaksi;
@@ -3991,6 +4029,9 @@ public class PosApi extends HttpServlet {
 				long caraBayarId = rsHeader.getLong(13);
 				hasil.put("caraBayarId", rsHeader.wasNull() ? JSONObject.NULL : caraBayarId);
 				hasil.put("caraBayarNama", rsHeader.getString(14) == null ? "" : rsHeader.getString(14));
+				PembelianAnggotaKoperasi transaksi = (PembelianAnggotaKoperasi)
+						session.get(PembelianAnggotaKoperasi.class, Long.valueOf(idTransaksi));
+				hasil.put("pembayaran", rincianPembayaranTransaksi(transaksi));
 				transaksiSudahPosting = rsHeader.getObject(15) != null;
 				transaksiMemilikiRetur = rsHeader.getBoolean(16);
 			}
@@ -4082,6 +4123,7 @@ public class PosApi extends HttpServlet {
 					penggunaBolehEdit, punyaHeaderKelompok, kebijakanEditAktif,
 					transaksiSudahPosting, transaksiMemilikiRetur);
 			hasil.put("bolehEditTransaksi", bolehEditTransaksi);
+			hasil.put("bolehKoreksiSplitPembayaran", punyaHeaderKelompok);
 			hasil.put("bolehAktifkanKebijakanEditTransaksi",
 					KantinHelper.bolehAktifkanKebijakanEditTransaksi(
 							penggunaBolehEdit, punyaHeaderKelompok,

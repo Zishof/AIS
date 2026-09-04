@@ -60,6 +60,12 @@ public final class KantinKoreksiTransaksiSelfTest {
                 "tambahan pemotongan deposit dihitung sebagai delta positif");
         check(Math.abs(KantinHelper.tambahanDepositKoreksi(100.0, 75.0)) < 0.001,
                 "pengurangan pemotongan deposit tidak ditolak sebagai penambahan saldo");
+		check(KantinHelper.totalAlokasiPembayaranCocok(1500.0 + 23500.0, 25000.0),
+				"split Tunai 1.500 + Voucher 23.500 cocok dengan total 25.000");
+		check(!KantinHelper.totalAlokasiPembayaranCocok(1500.0 + 23000.0, 25000.0),
+				"alokasi split yang kurang dari total ditolak");
+		check(!KantinHelper.totalAlokasiPembayaranCocok(Double.NaN, 25000.0),
+				"nominal bukan angka ditolak fail-closed");
 
 		check(KantinHelper.bolehEditTransaksiDetail(true, true, true, false, false),
 				"detail dapat diedit hanya ketika semua gerbang terpenuhi");
