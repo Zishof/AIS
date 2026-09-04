@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Restrictions;
@@ -156,16 +157,32 @@ public class SecurityFilter extends GenericFilterBean {
 		Session session = null;
 		Transaction tx = null;
 		try {
-			session = HibernateUtil.openSession();
-			AccessedUsers accessedUsers = Common.setUserAccess(session, arg0);
+			AccessedUsers accessedUsers = Common.setUserAccess(arg0);
 			// Bila accessedUsers null (gagal di-persist karena koneksi/pool), lewati
 			// OnlineUsers agar tidak terjadi FK violation "Key (accessed_users) not present".
 			if (accessedUsers == null || accessedUsers.getNama() == null) {
 				return;
 			}
 
+			session = HibernateUtil.openSession();
+			tx = session.beginTransaction();
 			OnlineUsers onlineUsers = (OnlineUsers) session.createCriteria(OnlineUsers.class)
-					.add(Restrictions.eq("login", login)).setMaxResults(1).uniqueResult();
+					.add(Restrictions.eq("login", login)).setLockMode(LockMode.UPGRADE)
+					.setMaxResults(1).uniqueResult();
+
+			/*
+			 * Kunci parent dalam transaksi yang SAMA dengan update online_users. Tanpa lock ini,
+			 * SessionCounter dapat menghapus accessed_users persis sesudah pengecekan tetapi
+			 * sebelum UPDATE child, sehingga FK fk59b25d1c86625d3c gagal. Urutan lock child lalu
+			 * parent disamakan dengan urutan penghapusan di SessionCounter untuk menghindari
+			 * deadlock. Bila parent sudah hilang, lewati presence; request berikutnya membuat ulang.
+			 */
+			accessedUsers = (AccessedUsers) session.get(AccessedUsers.class,
+					accessedUsers.getNama(), LockMode.UPGRADE);
+			if (accessedUsers == null) {
+				tx.rollback();
+				return;
+			}
 
 			if (onlineUsers == null) {
 				onlineUsers = new OnlineUsers();
@@ -207,7 +224,6 @@ public class SecurityFilter extends GenericFilterBean {
 				onlineUsers.setNama(penduduk.getKode());
 			}
 
-			tx = session.beginTransaction();
 			session.saveOrUpdate(onlineUsers);
 			tx.commit();
 
