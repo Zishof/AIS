@@ -584,6 +584,12 @@ public final class ApotikDemoProvisionHelper {
 					+ "where (r.kode = 'RSP-UJI-1' or r.kode like 'RSP-DEMO-%') and not exists "
 					+ "(select tm.id from TransaksiMedis tm where tm.resep = r)")
 					.uniqueResult()).longValue();
+			long resepCampuranSiap = ((Number) session.createQuery("select count(distinct r) from Resep r "
+					+ "where r.kode like 'RSP-DEMO-%' and not exists "
+					+ "(select tm.id from TransaksiMedis tm where tm.resep = r) and exists "
+					+ "(select dr.id from ResepDetail dr where dr.resep = r and dr.racikan is not null) and exists "
+					+ "(select di.id from ResepDetail di where di.resep = r and di.item is not null)")
+					.uniqueResult()).longValue();
 			Calendar awal = Calendar.getInstance();
 			awal.set(Calendar.HOUR_OF_DAY, 0);
 			awal.set(Calendar.MINUTE, 0);
@@ -595,17 +601,20 @@ public final class ApotikDemoProvisionHelper {
 			verifikasi.put("obatJadi", obat);
 			verifikasi.put("bahanRacikan", bahan);
 			verifikasi.put("resepSiapJual", resepSiap);
+			verifikasi.put("resepCampuranSiapTebus", resepCampuranSiap);
 			verifikasi.put("formulaRacikanOperasional", formulaRacikan);
 			verifikasi.put("formulaProduksiOperasional", formulaProduksi);
 			verifikasi.put("antreanHariIni", antrean);
 			verifikasi.put("targetObatJadi", JUMLAH_OBAT_DEMO);
 			verifikasi.put("targetBahanRacikan", JUMLAH_BAHAN_RACIKAN_DEMO);
 			verifikasi.put("targetResepSiapJual", 500);
+			verifikasi.put("targetResepCampuranSiapTebus", 100);
 			verifikasi.put("targetFormulaRacikanOperasional", JUMLAH_FORMULA_UAT);
 			verifikasi.put("targetFormulaProduksiOperasional", JUMLAH_FORMULA_UAT);
 			verifikasi.put("targetAntrean", JUMLAH_ANTREAN_DEMO);
 			verifikasi.put("lulus", obat >= JUMLAH_OBAT_DEMO
 					&& bahan >= JUMLAH_BAHAN_RACIKAN_DEMO && resepSiap >= 500
+					&& resepCampuranSiap >= 100
 					&& formulaRacikan >= JUMLAH_FORMULA_UAT
 					&& formulaProduksi >= JUMLAH_FORMULA_UAT
 					&& antrean >= JUMLAH_ANTREAN_DEMO);
@@ -696,7 +705,8 @@ public final class ApotikDemoProvisionHelper {
 				"from ItemMedis i where i.kode like :kode order by i.kode")
 				.setString("kode", "DEMO-BHN-%").setMaxResults(JUMLAH_BAHAN_RACIKAN_DEMO).list();
 		List<Resep> resep = session.createQuery(
-				"from Resep r where r.kode like :kode order by r.kode")
+				"from Resep r where r.kode like :kode and not exists "
+				+ "(select tm.id from TransaksiMedis tm where tm.resep = r) order by r.kode")
 				.setString("kode", "RSP-DEMO-%").setMaxResults(JUMLAH_FORMULA_UAT).list();
 		if (bahan.size() < 3) return 0;
 		int dibuat = 0;
