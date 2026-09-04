@@ -105,7 +105,8 @@ public final class ApotikMetrikHelper {
 							+ "GROUP BY a.item) x WHERE x.saldo <= 0");
 
 			long transaksiHariIni = hitung(session,
-					"SELECT COUNT(DISTINCT d.transaksi) FROM sirs.detail_transaksi_pasien d "
+					"SELECT COUNT(DISTINCT td.transaksi) FROM sirs.detail_transaksi_pasien d "
+							+ "INNER JOIN sirs.transaksi_medis_detail td ON d.transaksi_detail = td.id "
 							+ "INNER JOIN sirs.kode_transaksi_medis k ON d.kode_transaksi = k.id "
 							+ "WHERE k.kode = 'AJ' AND d.tanggal >= CURRENT_DATE "
 							+ "AND d.tanggal < (CURRENT_DATE + INTERVAL '1 day')");
