@@ -757,10 +757,15 @@ public class CommonMenuAccessHelper extends Common {
 			tampilErrorJikaAdmin(e);
 		}
 
+		/*
+		 * Jangan pernah mengembalikan entity TRANSIENT sebagai seolah-olah sudah tersimpan.
+		 * Saat database baru restart / pool belum pulih, ensureAccessedUsersExists dapat gagal.
+		 * Fallback lama membuat objek lokal bernama sessionId; SecurityFilter lalu meng-update
+		 * online_users dengan FK ke nama yang belum ada di accessed_users. Lebih aman melewati
+		 * pencatatan presence pada request ini dan mencoba lagi pada request berikutnya.
+		 */
 		if (accessedUsers == null) {
-			accessedUsers = new AccessedUsers();
-			accessedUsers.setNama(sessionId);
-			accessedUsers.setHost(Common.getRequestHost(request));
+			return null;
 		}
 
 		/* HttpSession bisa sudah di-invalidate (logout/timeout) di tengah request lain →
