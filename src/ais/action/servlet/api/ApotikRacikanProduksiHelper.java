@@ -96,6 +96,24 @@ public final class ApotikRacikanProduksiHelper {
 		String referensi;
 	}
 
+	private static final class BarisItem {
+		final ItemMedis item;
+		final ApotikItemProfile profil;
+		final double qty;
+		final double harga;
+		final double diskon;
+		final List<AlokasiBatch> batch;
+		BarisItem(ItemMedis item, ApotikItemProfile profil, double qty,
+				double harga, double diskon, List<AlokasiBatch> batch) {
+			this.item = item;
+			this.profil = profil;
+			this.qty = qty;
+			this.harga = harga;
+			this.diskon = diskon;
+			this.batch = batch;
+		}
+	}
+
 	private static String str(Object nilai) {
 		return nilai == null ? "" : nilai.toString();
 	}
