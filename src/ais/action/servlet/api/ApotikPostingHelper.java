@@ -18,7 +18,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.action.master.akunting.util.CommonAkunting;
-import ais.action.master.koperasi.helper.AkunKantinUtil;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
@@ -260,7 +259,7 @@ public final class ApotikPostingHelper {
             PostingHistory ph=new PostingHistory(ApotikPostingLink.PENJUALAN.equals(jenis)?JENIS_PENJUALAN:JENIS_HPP);
             ph.setTanggal(d.tanggal);ph.setTanggalPosting(d.tanggal);ph.setTbmuser(u);ph.setPosting(Boolean.TRUE);ph.setKeterangan(ket);s.save(ph);
             boolean ok=CommonAkunting.saveTransaksi(d.debet.toArray(new Akun[]{}),d.kredit.toArray(new Akun[]{}),null,null,ph,true,ket,d.tanggal,
-                    d.nilaiDebet.toArray(new Double[]{}),d.nilaiKredit.toArray(new Double[]{}),Double.valueOf(0),null,AkunKantinUtil.satkerKantin(),s);
+                    d.nilaiDebet.toArray(new Double[]{}),d.nilaiKredit.toArray(new Double[]{}),Double.valueOf(0),null,null,s);
             if(!ok){tx.rollback();return false;}
             ApotikPostingLink l=new ApotikPostingLink();l.setTransaksi((TransaksiMedis)s.load(TransaksiMedis.class,Long.valueOf(d.id)));
             l.setJenis(jenis);l.setPostingHistory(ph);l.setNilai(Double.valueOf(d.nilai));l.setWaktu(new Date());l.setOleh(u.getUserId());l.setOlehId(u.getUserId());s.save(l);
