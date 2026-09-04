@@ -200,7 +200,10 @@ public final class ApotikDemoProvisionHelper {
 			ConstantValues.beliRetur = br;
 			ringkas.put("kodeTransaksi", "AJ/BM/ADT/ADK/AR/BR/RAC dipastikan + ConstantValues di-set live");
 
-			// 2) Data uji item/resep -- HANYA bila item_medis masih kosong (server nyata dilewati).
+			// 2) Data uji item/resep -- hanya tabel kosong atau katalog bertanda demo.
+			// Katalog demo parsial (mis. baru UJI-PCT/UJI-CDN) harus dapat dilengkapi
+			// secara idempoten sampai volume UAT. Server SIRS nyata tanpa penanda demo
+			// tetap tidak disentuh.
 			long jumlahItem = ((Number) session.createQuery("select count(i) from ItemMedis i")
 					.uniqueResult()).longValue();
 			long penandaDemo = ((Number) session.createQuery("select count(i) from ItemMedis i "
@@ -210,33 +213,6 @@ public final class ApotikDemoProvisionHelper {
 			if (jumlahItem > 0 && penandaDemo == 0) {
 				ringkas.put("dataUji", "DILEWATI -- sirs.item_medis sudah berisi " + jumlahItem
 						+ " item (server ber-SIRS nyata, tidak disentuh)");
-				session.getTransaction().commit();
-				seedPendukungDemoTerpisah(ringkas);
-				provisionTahap = "Selesai";
-				hasil.put("status", "00");
-				hasil.put("ringkasan", ringkas);
-				return;
-			}
-			if (jumlahItem > 0) {
-				int namaDiperbarui = perbaruiNamaKatalogDemo(session);
-				int batchDibuat = ensureBatchKatalogDemo(session);
-				ItemMedis obatAExisting = (ItemMedis) session.createCriteria(ItemMedis.class)
-						.add(Restrictions.eq("kode", "UJI-PCT")).setMaxResults(1).uniqueResult();
-				ItemMedis obatBExisting = (ItemMedis) session.createCriteria(ItemMedis.class)
-						.add(Restrictions.eq("kode", "UJI-CDN")).setMaxResults(1).uniqueResult();
-				int bahanDibuat = ensureBahanRacikanDemo(session);
-				int racikanDibuat = ensureRacikanDemo(session, obatAExisting, obatBExisting);
-				int antreanDibuat = ensureAntreanDemo(session, request);
-				ringkas.put("dataUji", "Katalog demo sudah tersedia (" + jumlahItem
-						+ " item); role, akun, serta stok demo dipastikan tanpa menggandakan katalog");
-				ringkas.put("batchStokBaru", batchDibuat);
-				ringkas.put("namaKatalogDiperbarui", namaDiperbarui);
-				ringkas.put("racikanBaru", racikanDibuat);
-				ringkas.put("bahanRacikanBaru", bahanDibuat);
-				ringkas.put("antreanBaru", antreanDibuat);
-				ringkas.put("jumlahBahanRacikan", JUMLAH_BAHAN_RACIKAN_DEMO);
-				ringkas.put("jumlahRacikan", JUMLAH_RACIKAN_DEMO);
-				ringkas.put("jumlahAntrean", JUMLAH_ANTREAN_DEMO);
 				session.getTransaction().commit();
 				seedPendukungDemoTerpisah(ringkas);
 				provisionTahap = "Selesai";
