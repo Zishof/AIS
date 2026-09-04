@@ -187,12 +187,16 @@ public final class ApotikPostingHelper {
                 Draf d = daftar.get(i); JSONObject j = new JSONObject();
                 j.put("id", d.id); j.put("referensi", d.kode); j.put("tanggal", Common.dateFormat3.get().format(d.tanggal));
                 j.put("nilai", d.nilai); j.put("siap", d.siap()); j.put("alasan", d.alasan);
+                j.put("akunDebit", namaAkun(d.debet)); j.put("akunKredit", namaAkun(d.kredit));
+                j.put("debit", total(d.nilaiDebet)); j.put("kredit", total(d.nilaiKredit));
                 PostingStatusUtil.tandaiBelum(j, d.siap()); rincian.put(j);
                 if (d.siap()) { siap++; totalSiap += d.nilai; }
             }
             hasil.put("status", "00"); hasil.put("jenis", jenis.toLowerCase()); hasil.put("rincian", rincian);
             hasil.put("jumlahBelumDiposting", daftar.size()); hasil.put("jumlahSiapDiposting", siap); hasil.put("totalSiap", totalSiap);
-            JSONArray sudah = riwayat(s, jenis, mulai, sampai, PostingStatusUtil.batasRiwayat(p));
+            int batasRiwayat = PostingStatusUtil.batasRiwayat(p);
+            hasil.put("batasRiwayat", batasRiwayat);
+            JSONArray sudah = riwayat(s, jenis, mulai, sampai, batasRiwayat);
             hasil.put("rincianSudahDiposting", sudah); hasil.put("jumlahSudahDiposting", sudah.length());
             if (!terapkan) { hasil.put("message", siap + " dari " + daftar.size() + " transaksi siap diposting."); return; }
             if (pengguna == null) { hasil.put("status", "91"); hasil.put("message", "Sesi pengguna tidak ditemukan."); return; }
@@ -209,6 +213,7 @@ public final class ApotikPostingHelper {
 
     private static List<Draf> draf(Session s, String jenis, String mulai, String sampai) throws Exception {
         List<Draf> out = new ArrayList<Draf>();
+        Map<Long,Draf> menurutId = new LinkedHashMap<Long,Draf>();
         String sql = "SELECT t.id,COALESCE(NULLIF(TRIM(t.kode),''),'Apotik #'||CAST(t.id AS text)),t.tanggal_transaksi"
                 + " FROM sirs.transaksi_medis t WHERE t.sumber='APOTIK' AND t.jenis_transaksi='item'"
                 + " AND date(t.tanggal_transaksi) BETWEEN date(?) AND date(?)"
@@ -217,36 +222,49 @@ public final class ApotikPostingHelper {
                 + " ORDER BY t.tanggal_transaksi,t.id";
         PreparedStatement ps = s.connection().prepareStatement(sql); ps.setString(1, mulai); ps.setString(2, sampai); ps.setString(3, jenis);
         ResultSet rs = ps.executeQuery();
-        while (rs.next()) { Draf d = new Draf(); d.id=rs.getLong(1); d.kode=rs.getString(2); d.tanggal=rs.getTimestamp(3); out.add(d); }
+        while (rs.next()) { Draf d = new Draf(); d.id=rs.getLong(1); d.kode=rs.getString(2); d.tanggal=rs.getTimestamp(3); out.add(d); menurutId.put(Long.valueOf(d.id),d); }
         rs.close(); ps.close();
-        for (int i = 0; i < out.size(); i++) isiDraf(s, jenis, out.get(i));
+        if (ApotikPostingLink.PENJUALAN.equals(jenis)) isiDrafPenjualan(s,mulai,sampai,menurutId);
+        else isiDrafHpp(s,mulai,sampai,menurutId);
         return out;
     }
 
-    private static void isiDraf(Session s, String jenis, Draf d) throws Exception {
-        if (ApotikPostingLink.PENJUALAN.equals(jenis)) {
-            Akun pendapatan = akun(s, ApotikAkunMapping.PENDAPATAN);
-            PreparedStatement ps = s.connection().prepareStatement("SELECT p.nominal,c.akun,c.nama FROM sirs.apotik_pembayaran_transaksi p"
-                    + " LEFT JOIN koperasi.cara_pembayaran_koperasi c ON c.id=p.cara_bayar WHERE p.transaksi=? ORDER BY p.id");
-            ps.setLong(1,d.id); ResultSet rs=ps.executeQuery();
-            Map<Long,Double> perAkun=new LinkedHashMap<Long,Double>();
-            while(rs.next()) { double n=Math.abs(rs.getDouble(1)); long id=rs.getLong(2);
-                if(rs.wasNull() || id<=0) d.alasan="Cara pembayaran " + rs.getString(3) + " belum mempunyai akun kas/bank/piutang.";
-                else perAkun.put(Long.valueOf(id), Double.valueOf((perAkun.containsKey(Long.valueOf(id))?perAkun.get(Long.valueOf(id)).doubleValue():0)+n));
-                d.nilai+=n; }
-            rs.close(); ps.close();
-            for(Map.Entry<Long,Double> e:perAkun.entrySet()){ Akun a=(Akun)s.get(Akun.class,e.getKey()); if(a!=null){d.debet.add(a);d.nilaiDebet.add(e.getValue());}}
-            if(pendapatan==null) d.alasan="Akun Pendapatan Apotik belum dipetakan.";
-            else { d.kredit.add(pendapatan); d.nilaiKredit.add(Double.valueOf(d.nilai)); }
-        } else {
-            Akun hpp=akun(s,ApotikAkunMapping.HPP), persediaan=akun(s,ApotikAkunMapping.PERSEDIAAN);
-            PreparedStatement ps=s.connection().prepareStatement("SELECT COALESCE(SUM(k.qty*COALESCE(i.default_harga_beli,0)),0)"
-                    + " FROM sirs.apotik_batch_konsumsi k JOIN sirs.transaksi_medis_detail d ON d.id=k.transaksi_detail"
-                    + " JOIN sirs.kadaluarsa b ON b.id=k.kadaluarsa JOIN sirs.item_medis i ON i.id=b.item WHERE d.transaksi=?");
-            ps.setLong(1,d.id); ResultSet rs=ps.executeQuery(); if(rs.next())d.nilai=Math.abs(rs.getDouble(1)); rs.close();ps.close();
+    private static void isiDrafPenjualan(Session s,String mulai,String sampai,Map<Long,Draf> daftar)throws Exception{
+        Akun pendapatan=akun(s,ApotikAkunMapping.PENDAPATAN);
+        String sql="SELECT p.transaksi,c.akun,COALESCE(c.nama,p.nama_cara_bayar,'(tanpa nama)'),SUM(ABS(p.nominal))"
+                + " FROM sirs.apotik_pembayaran_transaksi p JOIN sirs.transaksi_medis t ON t.id=p.transaksi"
+                + " LEFT JOIN koperasi.cara_pembayaran_koperasi c ON c.id=p.cara_bayar"
+                + " WHERE t.sumber='APOTIK' AND t.jenis_transaksi='item' AND date(t.tanggal_transaksi) BETWEEN date(?) AND date(?)"
+                + " GROUP BY p.transaksi,c.akun,c.nama,p.nama_cara_bayar ORDER BY p.transaksi";
+        PreparedStatement ps=s.connection().prepareStatement(sql);ps.setString(1,mulai);ps.setString(2,sampai);ResultSet rs=ps.executeQuery();
+        while(rs.next()){
+            Draf d=daftar.get(Long.valueOf(rs.getLong(1)));if(d==null)continue;
+            long akunId=rs.getLong(2);boolean akunKosong=rs.wasNull()||akunId<=0;double nilai=Math.abs(rs.getDouble(4));d.nilai+=nilai;
+            if(akunKosong)d.alasan="Cara pembayaran "+rs.getString(3)+" belum mempunyai akun kas/bank/piutang.";
+            else{Akun a=(Akun)s.get(Akun.class,Long.valueOf(akunId));if(a==null)d.alasan="Akun cara pembayaran tidak ditemukan.";else{d.debet.add(a);d.nilaiDebet.add(Double.valueOf(nilai));}}
+        }
+        rs.close();ps.close();
+        for(Draf d:daftar.values()){
+            if(d.nilai<=EPS&&d.alasan.length()==0)d.alasan="Pembayaran transaksi belum tersedia atau bernilai nol.";
+            if(pendapatan==null)d.alasan="Akun Pendapatan Apotik belum dipetakan.";
+            else{d.kredit.add(pendapatan);d.nilaiKredit.add(Double.valueOf(d.nilai));}
+        }
+    }
+
+    private static void isiDrafHpp(Session s,String mulai,String sampai,Map<Long,Draf> daftar)throws Exception{
+        Akun hpp=akun(s,ApotikAkunMapping.HPP),persediaan=akun(s,ApotikAkunMapping.PERSEDIAAN);
+        String sql="SELECT d.transaksi,COALESCE(SUM(k.qty*COALESCE(i.default_harga_beli,0)),0)"
+                + " FROM sirs.apotik_batch_konsumsi k JOIN sirs.transaksi_medis_detail d ON d.id=k.transaksi_detail"
+                + " JOIN sirs.transaksi_medis t ON t.id=d.transaksi JOIN sirs.kadaluarsa b ON b.id=k.kadaluarsa"
+                + " JOIN sirs.item_medis i ON i.id=b.item WHERE t.sumber='APOTIK' AND t.jenis_transaksi='item'"
+                + " AND date(t.tanggal_transaksi) BETWEEN date(?) AND date(?) GROUP BY d.transaksi";
+        PreparedStatement ps=s.connection().prepareStatement(sql);ps.setString(1,mulai);ps.setString(2,sampai);ResultSet rs=ps.executeQuery();
+        while(rs.next()){Draf d=daftar.get(Long.valueOf(rs.getLong(1)));if(d!=null)d.nilai=Math.abs(rs.getDouble(2));}
+        rs.close();ps.close();
+        for(Draf d:daftar.values()){
             if(hpp==null||persediaan==null)d.alasan="Akun HPP atau Persediaan Apotik belum dipetakan.";
             else if(d.nilai<=EPS)d.alasan="Nilai HPP nol; periksa harga beli item/batch transaksi.";
-            else {d.debet.add(hpp);d.nilaiDebet.add(Double.valueOf(d.nilai));d.kredit.add(persediaan);d.nilaiKredit.add(Double.valueOf(d.nilai));}
+            else{d.debet.add(hpp);d.nilaiDebet.add(Double.valueOf(d.nilai));d.kredit.add(persediaan);d.nilaiKredit.add(Double.valueOf(d.nilai));}
         }
     }
 
@@ -269,7 +287,7 @@ public final class ApotikPostingHelper {
 
     private static JSONArray riwayat(Session s,String jenis,String mulai,String sampai,int batas)throws Exception{
         JSONArray out=new JSONArray();String sql="SELECT t.id,COALESCE(NULLIF(TRIM(t.kode),''),'Apotik #'||CAST(t.id AS text)),l.nilai,t.tanggal_transaksi,l.posting_history,"
-                + "COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g WHERE g.posting_history=l.posting_history),''),ph.tanggal_posting"
+                + "COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g WHERE g.posting_history=l.posting_history),''),ph.tanggalposting"
                 + " FROM sirs.apotik_posting_link l JOIN sirs.transaksi_medis t ON t.id=l.transaksi JOIN akunting.posting_history ph ON ph.id=l.posting_history"
                 + " WHERE l.jenis=? AND date(t.tanggal_transaksi) BETWEEN date(?) AND date(?) ORDER BY t.tanggal_transaksi DESC,t.id DESC LIMIT "+batas;
         PreparedStatement ps=s.connection().prepareStatement(sql);ps.setString(1,jenis);ps.setString(2,mulai);ps.setString(3,sampai);ResultSet rs=ps.executeQuery();
@@ -280,5 +298,6 @@ public final class ApotikPostingHelper {
     private static ApotikAkunMapping mapping(Session s,String peran){return (ApotikAkunMapping)s.createCriteria(ApotikAkunMapping.class)
             .add(Restrictions.eq("peran",peran)).add(Restrictions.eq("aktif",Boolean.TRUE)).setMaxResults(1).uniqueResult();}
     private static Akun akun(Session s,String peran){ApotikAkunMapping m=mapping(s,peran);return m==null?null:m.getAkun();}
+    private static String namaAkun(List<Akun> daftar){StringBuilder b=new StringBuilder();for(int i=0;i<daftar.size();i++){if(i>0)b.append(", ");Akun a=daftar.get(i);b.append(a.getKode()).append(" ").append(a.getNama());}return b.toString();}
     private static double total(List<Double> n){double t=0;for(int i=0;i<n.size();i++)t+=n.get(i).doubleValue();return t;}
 }
