@@ -116,13 +116,9 @@ public final class DbCredentialOverride {
 		configuration.setProperty("hibernate.connection.url", "jdbc:postgresql://" + host + ":" + port + "/" + name);
 		configuration.setProperty("hibernate.connection.username", user);
 		configuration.setProperty("hibernate.connection.password", password);
-		// SIT/UAT memakai migration SQL dan gate schema eksplisit. SessionFactory
-		// legacy memetakan banyak modul di luar jurnal, jadi auto-DDL maupun validasi
-		// global tidak boleh mengubah/menggagalkan clone hanya karena modul lain.
-        boolean streamingCloneUpdate = streaming
-                && "true".equalsIgnoreCase(System.getenv("AIS_JURNAL_STREAMING_SCHEMA_UPDATE"))
-                && name.toLowerCase().matches(".*(_sit|_uat|_demo|_fixture)(_[a-z0-9]+)?$");
-        configuration.setProperty("hibernate.hbm2ddl.auto", streamingCloneUpdate ? "update" : "none");
+		// Selaraskan environment jurnal dengan konfigurasi utama: Hibernate boleh
+		// menambahkan atau menyelaraskan tabel/kolom yang dipetakan saat startup.
+		configuration.setProperty("hibernate.hbm2ddl.auto", "update");
 		// CVE-2020-25638 requires SQL comments together with unsafe query literals.
 		// Journal environments do not need generated SQL comments, so keep the
 		// vulnerable precondition disabled even if a parent JVM sets it globally.
