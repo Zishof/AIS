@@ -15,16 +15,16 @@
   },
   "volume_data": {
     "penjualan": 102,
-    "kulakan": 107,
-    "kulakan_dalam_posting": 102,
+    "kulakan": 207,
+    "kulakan_dalam_posting": 202,
     "batas_minimum": 100,
     "batas_maksimum": 10000
   },
   "penjualan": {
-    "siap": 50,
-    "diposting": 50,
+    "siap": 102,
+    "diposting": 102,
     "tertahan": 0,
-    "nilai": 24799500
+    "nilai": 51154000
   },
   "hpp": {
     "siap": 2,
@@ -33,10 +33,12 @@
     "nilai": 41009014
   },
   "kulakan": {
-    "siap": 102,
-    "diposting": 102,
+    "siap": 100,
+    "diposting": 100,
     "tertahan": 0,
-    "nilai": 222520000
+    "nilai": 112500000,
+    "diposting_kumulatif": 202,
+    "nilai_kumulatif": 335020000
   },
   "audit_pascaposting": {
     "penjualan_belum_posting": 0,
@@ -49,9 +51,9 @@
     "penyedia_tanpa_utang": 0
   },
   "keseimbangan_jurnal": {
-    "jumlah_baris": 2601,
-    "total_debet": 730178014,
-    "total_kredit": 730178014,
+    "jumlah_baris": 2901,
+    "total_debet": 842678014,
+    "total_kredit": 842678014,
     "selisih": 0,
     "jurnal_tidak_seimbang": 0,
     "koreksi_terverifikasi": "LPJ Kas Besar diposting ulang setelah akun beban rincian dipulihkan; 103 dokumen sukses"
@@ -60,7 +62,8 @@
     "mode": "Windows maximized / full working area",
     "lebar_pixel": 2560,
     "tinggi_pixel": 1392,
-    "jumlah_file": 27,
+    "jumlah_file_praposting": 9,
+    "jumlah_file_pascaposting": 27,
     "cakupan_laporan": "halaman awal dan halaman terakhir/terbawah untuk setiap laporan"
   },
   "laporan": [
