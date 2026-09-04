@@ -6,6 +6,7 @@ import java.util.List;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -20,6 +21,7 @@ import ais.database.model.sirs.ApotikBatchKonsumsi;
 import ais.database.model.sirs.ApotikItemProfile;
 import ais.database.model.sirs.ApotikNarkotikaLog;
 import ais.database.model.sirs.ApotikPembayaranTransaksi;
+import ais.database.model.sirs.AntreanFarmasi;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
 import ais.database.model.sirs.Resep;
@@ -68,6 +70,47 @@ public final class ApotikApiHelper {
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {
 		hasil.put("status", "91");
 		hasil.put("description", pesan);
+	}
+
+	private static Long tokoId(Tbmuser user, JSONObject request) {
+		try {
+			if (user != null && user.getPedagang() != null && user.getPedagang().getToko() != null) {
+				return user.getPedagang().getToko().getId();
+			}
+		} catch (Exception ignored) { }
+		return optLong(request, "toko_id");
+	}
+
+	private static boolean jenisAntreanValid(String jenis) {
+		return AntreanFarmasi.JENIS_JADI.equals(jenis) || AntreanFarmasi.JENIS_RACIKAN.equals(jenis)
+				|| AntreanFarmasi.JENIS_CAMPURAN.equals(jenis);
+	}
+
+	private static boolean statusAntreanValid(String status) {
+		return AntreanFarmasi.STATUS_MENUNGGU.equals(status)
+				|| AntreanFarmasi.STATUS_DISIAPKAN.equals(status)
+				|| AntreanFarmasi.STATUS_SIAP.equals(status)
+				|| AntreanFarmasi.STATUS_SELESAI.equals(status);
+	}
+
+	private static String samarkanNama(String nama) {
+		if (nama == null || nama.trim().isEmpty()) return "PASIEN";
+		String[] bagian = nama.trim().toUpperCase().split("\\s+");
+		StringBuilder hasil = new StringBuilder();
+		for (int i = 0; i < bagian.length; i++) {
+			if (i > 0) hasil.append(' ');
+			String b = bagian[i];
+			hasil.append(b.substring(0, 1));
+			for (int x = 1; x < b.length(); x++) hasil.append('*');
+		}
+		return hasil.toString();
+	}
+
+	private static String samarkanRm(String rm) {
+		if (rm == null || rm.trim().isEmpty()) return "";
+		String v = rm.trim();
+		if (v.length() <= 4) return "****";
+		return "****" + v.substring(v.length() - 4);
 	}
 
 	/** Awal hari ini (00:00) -- batch bertanggal kadaluarsa SEBELUM hari ini = kedaluwarsa. */
@@ -175,12 +218,18 @@ public final class ApotikApiHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			org.hibernate.Criteria c = session.createCriteria(ItemMedis.class);
+			org.hibernate.Criteria hitung = session.createCriteria(ItemMedis.class);
 			if (!keyword.isEmpty()) {
 				c.add(Restrictions.disjunction()
 						.add(Restrictions.ilike("kode", "%" + keyword + "%"))
 						.add(Restrictions.ilike("barcode", "%" + keyword + "%"))
 						.add(Restrictions.ilike("nama", "%" + keyword + "%")));
+				hitung.add(Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", "%" + keyword + "%"))
+						.add(Restrictions.ilike("barcode", "%" + keyword + "%"))
+						.add(Restrictions.ilike("nama", "%" + keyword + "%")));
 			}
+			long total = ((Number) hitung.setProjection(Projections.rowCount()).uniqueResult()).longValue();
 			c.addOrder(Order.asc("nama"));
 			c.setFirstResult((page - 1) * size);
 			c.setMaxResults(size);
@@ -211,6 +260,10 @@ public final class ApotikApiHelper {
 				j.put("barcode", str(it.getBarcode()));
 				j.put("nama", str(it.getNama()));
 				j.put("satuan", it.getSatuanItem() == null ? "" : str(it.getSatuanItem().getNama()));
+				j.put("jenisKode", it.getJenisItem() == null ? "" : str(it.getJenisItem().getKode()));
+				j.put("jenisNama", it.getJenisItem() == null ? "" : str(it.getJenisItem().getNama()));
+				j.put("bahanRacikan", str(it.getKode()).startsWith("DEMO-BHN-")
+						|| (it.getJenisItem() != null && "BRC".equalsIgnoreCase(str(it.getJenisItem().getKode()))));
 				j.put("kandungan", str(it.getKandungan()));
 				j.put("hargaJual", it.getDefaultHargaJual() == null ? 0 : it.getDefaultHargaJual().doubleValue());
 				j.put("stok", stok.containsKey(it.getId()) ? stok.get(it.getId()).doubleValue() : 0);
@@ -228,6 +281,8 @@ public final class ApotikApiHelper {
 			hasil.put("data", arr);
 			hasil.put("page", page);
 			hasil.put("pageSize", size);
+			hasil.put("total", total);
+			hasil.put("totalPages", total == 0 ? 0 : (long) Math.ceil(total / (double) size));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -345,15 +400,23 @@ public final class ApotikApiHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			org.hibernate.Criteria c = session.createCriteria(Resep.class);
-			if (!keyword.isEmpty()) {
-				c.add(Restrictions.ilike("kode", "%" + keyword + "%"));
+			StringBuilder syarat = new StringBuilder(" from Resep r where 1=1");
+			if (!keyword.isEmpty()) syarat.append(" and lower(r.kode) like :keyword");
+			if (hanyaMenunggu) {
+				syarat.append(" and not exists (select tm.id from TransaksiMedis tm where tm.resep = r)");
 			}
-			c.addOrder(Order.desc("id"));
-			c.setFirstResult((page - 1) * size);
-			c.setMaxResults(size);
+			org.hibernate.Query qJumlah = session.createQuery("select count(r)" + syarat.toString());
+			org.hibernate.Query qData = session.createQuery("select r" + syarat.toString() + " order by r.id desc");
+			if (!keyword.isEmpty()) {
+				String pola = "%" + keyword.toLowerCase() + "%";
+				qJumlah.setString("keyword", pola);
+				qData.setString("keyword", pola);
+			}
+			long total = ((Number) qJumlah.uniqueResult()).longValue();
+			qData.setFirstResult((page - 1) * size);
+			qData.setMaxResults(size);
 			@SuppressWarnings("unchecked")
-			List<Resep> reseps = c.list();
+			List<Resep> reseps = qData.list();
 
 			// Status "sudah ditebus" = sudah ada TransaksiMedis yang menunjuk resep itu
 			// (FACT_SOURCE: TransaksiMedis.resep FK; Resep sendiri tanpa kolom status).
@@ -374,9 +437,6 @@ public final class ApotikApiHelper {
 			JSONArray arr = new JSONArray();
 			for (Resep r : reseps) {
 				boolean ditebus = sudahDitebus.contains(r.getId());
-				if (hanyaMenunggu && ditebus) {
-					continue;
-				}
 				JSONObject j = new JSONObject();
 				j.put("id", r.getId());
 				j.put("kode", str(r.getKode()));
@@ -398,6 +458,8 @@ public final class ApotikApiHelper {
 			hasil.put("data", arr);
 			hasil.put("page", page);
 			hasil.put("pageSize", size);
+			hasil.put("total", total);
+			hasil.put("totalPages", total == 0 ? 0 : (long) Math.ceil(total / (double) size));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -465,6 +527,176 @@ public final class ApotikApiHelper {
 			// Keterbatasan FASE A yang DISENGAJA: penyerahan racikan butuh konsumsi komposisi
 			// (BOM) -- menyusul; klien wajib menampilkan ini, bukan diam-diam melewatkan baris.
 			hasil.put("adaRacikan", adaRacikan);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// =============================================================================================
+	// Antrean farmasi -- konsol petugas + layar publik obat jadi/racikan
+	// =============================================================================================
+
+	/** Daftar antrean hari ini. Payload {@code untuk_layar=true} selalu menyamarkan identitas. */
+	public static void antreanFarmasiList(Tbmuser user, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = tokoId(user, request);
+		if (tokoId == null) { tolak(hasil, "Toko/apotek aktif tidak diketahui."); return; }
+		boolean layar = request != null && request.optBoolean("untuk_layar", false);
+		String jenis = request == null ? "" : request.optString("jenis", "").trim().toUpperCase();
+		Date awal = awalHariIni();
+		java.util.Calendar besok = java.util.Calendar.getInstance();
+		besok.setTime(awal);
+		besok.add(java.util.Calendar.DAY_OF_MONTH, 1);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			org.hibernate.Criteria c = session.createCriteria(AntreanFarmasi.class)
+					.add(Restrictions.eq("tokoId", tokoId))
+					.add(Restrictions.ge("tanggalDibuat", awal))
+					.add(Restrictions.lt("tanggalDibuat", besok.getTime()));
+			if (jenisAntreanValid(jenis)) c.add(Restrictions.eq("jenis", jenis));
+			if (layar) c.add(Restrictions.ne("status", AntreanFarmasi.STATUS_SELESAI));
+			c.addOrder(Order.asc("urutan")).addOrder(Order.asc("id"));
+			@SuppressWarnings("unchecked")
+			List<AntreanFarmasi> daftar = c.list();
+			JSONArray data = new JSONArray();
+			for (AntreanFarmasi a : daftar) {
+				JSONObject j = new JSONObject();
+				j.put("id", a.getId());
+				j.put("kodeAntrean", str(a.getKodeAntrean()));
+				j.put("namaPasien", layar ? samarkanNama(a.getNamaPasien()) : str(a.getNamaPasien()));
+				j.put("nomorRekamMedis", layar ? samarkanRm(a.getNomorRekamMedis()) : str(a.getNomorRekamMedis()));
+				j.put("jenis", str(a.getJenis()));
+				j.put("status", str(a.getStatus()));
+				j.put("loket", str(a.getLoket()));
+				j.put("catatanPublik", str(a.getCatatanPublik()));
+				j.put("resepId", a.getResepId() == null ? JSONObject.NULL : a.getResepId());
+				j.put("urutan", a.getUrutan() == null ? 0 : a.getUrutan());
+				j.put("waktuMasuk", a.getTanggalDibuat() == null ? ""
+						: new java.text.SimpleDateFormat("HH:mm").format(a.getTanggalDibuat()));
+				JSONArray obat = new JSONArray();
+				try { obat = new JSONArray(a.getDaftarObat() == null ? "[]" : a.getDaftarObat()); }
+				catch (Exception ignored) { }
+				j.put("obat", obat);
+				data.put(j);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", data);
+			hasil.put("total", data.length());
+			hasil.put("privasi", layar ? "IDENTITAS_DISAMARKAN" : "KONSOL_PETUGAS");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Buat atau perbarui satu antrean; daftar obat hanya berisi nama/jumlah yang layak ditampilkan. */
+	public static void antreanFarmasiSimpan(Tbmuser user, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = tokoId(user, request);
+		if (tokoId == null) { tolak(hasil, "Toko/apotek aktif tidak diketahui."); return; }
+		Long id = optLong(request, "id");
+		String nama = request == null ? "" : request.optString("nama_pasien", "").trim();
+		String jenis = request == null ? "" : request.optString("jenis", "").trim().toUpperCase();
+		if (nama.isEmpty()) { tolak(hasil, "Nama pasien wajib diisi pada konsol petugas."); return; }
+		if (!jenisAntreanValid(jenis)) { tolak(hasil, "Jenis antrean wajib JADI, RACIKAN, atau CAMPURAN."); return; }
+		if (id == null && !bolehAksi(user, "apotik_resep", "create")
+				&& !bolehAksi(user, "apotik_kasir", "create")) {
+			tolak(hasil, "Akun tidak berhak menambah antrean farmasi."); return;
+		}
+		if (id != null && !bolehAksi(user, "apotik_resep", "update")
+				&& !bolehAksi(user, "apotik_kasir", "update")) {
+			tolak(hasil, "Akun tidak berhak mengubah antrean farmasi."); return;
+		}
+		JSONArray obat = request == null ? new JSONArray() : request.optJSONArray("obat");
+		if (obat == null) obat = new JSONArray();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = session.beginTransaction();
+		try {
+			AntreanFarmasi a = id == null ? new AntreanFarmasi()
+					: (AntreanFarmasi) session.get(AntreanFarmasi.class, id);
+			if (a == null || (a.getTokoId() != null && !tokoId.equals(a.getTokoId()))) {
+				tolak(hasil, "Antrean tidak ditemukan pada apotek aktif."); tx.rollback(); return;
+			}
+			if (id == null) {
+				a.setTokoId(tokoId);
+				a.setTanggalDibuat(new Date());
+				a.setStatus(AntreanFarmasi.STATUS_MENUNGGU);
+				Number maks = (Number) session.createQuery(
+						"select max(a.urutan) from AntreanFarmasi a where a.tokoId=:toko and a.tanggalDibuat>=:awal")
+						.setLong("toko", tokoId.longValue()).setTimestamp("awal", awalHariIni()).uniqueResult();
+				int urutan = maks == null ? 1 : maks.intValue() + 1;
+				a.setUrutan(Integer.valueOf(urutan));
+				String kode = request.optString("kode_antrean", "").trim().toUpperCase();
+				a.setKodeAntrean(kode.isEmpty() ? String.format("F%03d", Integer.valueOf(urutan)) : kode);
+			}
+			a.setResepId(optLong(request, "resep_id"));
+			a.setNamaPasien(nama);
+			a.setNomorRekamMedis(request.optString("nomor_rekam_medis", "").trim());
+			a.setJenis(jenis);
+			a.setLoket(request.optString("loket", "").trim());
+			a.setCatatanPublik(request.optString("catatan_publik", "").trim());
+			a.setDaftarObat(obat.toString());
+			a.setOleh(user == null ? "" : str(user.getUserNama()));
+			a.setOlehId(user == null ? "" : str(user.getUserId()));
+			session.saveOrUpdate(a);
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", a.getId());
+			hasil.put("kodeAntrean", a.getKodeAntrean());
+		} catch (Exception e) {
+			if (tx.isActive()) tx.rollback();
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Ubah tahap pelayanan tanpa memperbolehkan nilai status bebas. */
+	public static void antreanFarmasiStatus(Tbmuser user, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = tokoId(user, request);
+		Long id = optLong(request, "id");
+		String status = request == null ? "" : request.optString("status", "").trim().toUpperCase();
+		if (tokoId == null || id == null) { tolak(hasil, "Toko dan id antrean wajib diisi."); return; }
+		if (!statusAntreanValid(status)) { tolak(hasil, "Status antrean tidak valid."); return; }
+		if (!bolehAksi(user, "apotik_resep", "update") && !bolehAksi(user, "apotik_kasir", "update")) {
+			tolak(hasil, "Akun tidak berhak mengubah status antrean."); return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = session.beginTransaction();
+		try {
+			AntreanFarmasi a = (AntreanFarmasi) session.get(AntreanFarmasi.class, id);
+			if (a == null || !tokoId.equals(a.getTokoId())) {
+				tolak(hasil, "Antrean tidak ditemukan pada apotek aktif."); tx.rollback(); return;
+			}
+			a.setStatus(status);
+			session.update(a);
+			tx.commit();
+			hasil.put("status", "00");
+		} catch (Exception e) {
+			if (tx.isActive()) tx.rollback();
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	public static void antreanFarmasiHapus(Tbmuser user, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = tokoId(user, request);
+		Long id = optLong(request, "id");
+		if (tokoId == null || id == null) { tolak(hasil, "Toko dan id antrean wajib diisi."); return; }
+		if (!bolehAksi(user, "apotik_resep", "delete") && !bolehAksi(user, "apotik_kasir", "delete")) {
+			tolak(hasil, "Akun tidak berhak menghapus antrean."); return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = session.beginTransaction();
+		try {
+			AntreanFarmasi a = (AntreanFarmasi) session.get(AntreanFarmasi.class, id);
+			if (a == null || !tokoId.equals(a.getTokoId())) {
+				tolak(hasil, "Antrean tidak ditemukan pada apotek aktif."); tx.rollback(); return;
+			}
+			session.delete(a);
+			tx.commit();
+			hasil.put("status", "00");
+		} catch (Exception e) {
+			if (tx.isActive()) tx.rollback();
+			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

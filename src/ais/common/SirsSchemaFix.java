@@ -48,6 +48,7 @@ public final class SirsSchemaFix {
 
     public static void initKolomBaru() {
         try {
+			ensureAntreanFarmasiTable();
             // --- Pasien: identifier interoperabilitas (NIK / BPJS / SATUSEHAT) ---
             addColumnIfMissing("sirs", "pasien", "nik", "varchar(20)");
             addColumnIfMissing("new_audit", "pasien__audit", "nik", "varchar(20)");
@@ -86,6 +87,37 @@ public final class SirsSchemaFix {
             }
         }
     }
+
+	/**
+	 * Tabel baru untuk layar kedua farmasi. Deployment AIS memakai hbm2ddl=none
+	 * pada sejumlah instalasi, sehingga DDL idempoten ini merupakan bagian wajib
+	 * dari startup dan tidak bergantung pada perubahan manual basis data.
+	 */
+	private static void ensureAntreanFarmasiTable() {
+		Session session = null;
+		Transaction tx = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			session.createSQLQuery("create table if not exists sirs.antrean_farmasi ("
+					+ "id bigserial primary key, toko_id bigint not null, resep_id bigint, "
+					+ "kode_antrean varchar(30) not null, nomor_rekam_medis varchar(80), "
+					+ "nama_pasien varchar(160) not null, jenis varchar(20) not null, "
+					+ "status varchar(20) not null, loket varchar(40), daftar_obat text, "
+					+ "catatan_publik varchar(240), urutan integer, tanggal_dibuat timestamp not null, "
+					+ "tanggal_dirubah timestamp, oleh varchar(255), oleh_id varchar(255))")
+					.executeUpdate();
+			session.createSQLQuery("create index if not exists antrean_farmasi_toko_tanggal_idx "
+					+ "on sirs.antrean_farmasi (toko_id, tanggal_dibuat, urutan)").executeUpdate();
+			tx.commit();
+			log("Tabel sirs.antrean_farmasi siap.");
+		} catch (Exception e) {
+			rollbackQuietly(tx);
+			log("Gagal memastikan tabel sirs.antrean_farmasi: " + e.getMessage());
+		} finally {
+			closeQuietly(session);
+		}
+	}
 
     /** Tambah kolom bila belum ada. Aman untuk PostgreSQL lama (tanpa IF NOT EXISTS). */
     private static void addColumnIfMissing(String schema, String table, String column, String sqlType) {

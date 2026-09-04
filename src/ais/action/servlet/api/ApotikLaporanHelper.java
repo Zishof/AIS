@@ -237,6 +237,9 @@ public final class ApotikLaporanHelper {
 			hasil.put("totalNilai", totalNilai);
 			hasil.put("jumlahBaris", baris);
 			hasil.put("perItem", perItem);
+			// Alias kanonik untuk semua layar/list API. Klien lama tetap membaca perItem.
+			hasil.put("data", perItem);
+			hasil.put("jumlahItem", perItem.length());
 			hasil.put("perGolongan", perGolongan);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);

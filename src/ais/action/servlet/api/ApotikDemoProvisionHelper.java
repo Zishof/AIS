@@ -2,7 +2,10 @@ package ais.action.servlet.api;
 
 import java.util.Date;
 import java.util.Calendar;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -18,6 +21,7 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.sirs.ApotikItemProfile;
+import ais.database.model.sirs.AntreanFarmasi;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
 import ais.database.model.sirs.JenisItemMedis;
@@ -53,7 +57,9 @@ import ais.database.model.sirs.SatuanItem;
 public final class ApotikDemoProvisionHelper {
 
 	private static final int JUMLAH_OBAT_DEMO = 10000;
+	private static final int JUMLAH_BAHAN_RACIKAN_DEMO = 1000;
 	private static final int JUMLAH_RACIKAN_DEMO = 5000;
+	private static final int JUMLAH_ANTREAN_DEMO = 100;
 	private static final Object LOCK_PROVISION = new Object();
 	private static volatile boolean provisionBerjalan = false;
 	private static volatile boolean provisionPernahDijalankan = false;
@@ -108,6 +114,7 @@ public final class ApotikDemoProvisionHelper {
 			hasil.put("berhasil", provisionBerhasil);
 			hasil.put("ringkasan", provisionTerakhir);
 			hasil.put("tahap", provisionTahap);
+			hasil.put("verifikasi", verifikasiVolumeDemo());
 			return;
 		}
 		// Default dijalankan sebagai daemon agar request maupun bootstrap Tomcat tidak
@@ -165,7 +172,8 @@ public final class ApotikDemoProvisionHelper {
 			// Status 00 = permintaan DITERIMA. Flag `berjalan` membedakan job latar;
 			// klien Api_eBisnis menganggap status selain 00 sebagai kegagalan.
 			hasil.put("status", "00");
-			hasil.put("description", "Provisioning 10.000 obat, 5.000 racikan, dan tenaga medis dimulai di latar.");
+			hasil.put("description", "Provisioning 10.000 obat jadi, 1.000 bahan racikan, 5.000 resep, "
+					+ "100 antrean, dan tenaga medis dimulai di latar.");
 			hasil.put("berjalan", true);
 			return;
 		}
@@ -216,13 +224,19 @@ public final class ApotikDemoProvisionHelper {
 						.add(Restrictions.eq("kode", "UJI-PCT")).setMaxResults(1).uniqueResult();
 				ItemMedis obatBExisting = (ItemMedis) session.createCriteria(ItemMedis.class)
 						.add(Restrictions.eq("kode", "UJI-CDN")).setMaxResults(1).uniqueResult();
+				int bahanDibuat = ensureBahanRacikanDemo(session);
 				int racikanDibuat = ensureRacikanDemo(session, obatAExisting, obatBExisting);
+				int antreanDibuat = ensureAntreanDemo(session, request);
 				ringkas.put("dataUji", "Katalog demo sudah tersedia (" + jumlahItem
 						+ " item); role, akun, serta stok demo dipastikan tanpa menggandakan katalog");
 				ringkas.put("batchStokBaru", batchDibuat);
 				ringkas.put("namaKatalogDiperbarui", namaDiperbarui);
 				ringkas.put("racikanBaru", racikanDibuat);
+				ringkas.put("bahanRacikanBaru", bahanDibuat);
+				ringkas.put("antreanBaru", antreanDibuat);
+				ringkas.put("jumlahBahanRacikan", JUMLAH_BAHAN_RACIKAN_DEMO);
 				ringkas.put("jumlahRacikan", JUMLAH_RACIKAN_DEMO);
+				ringkas.put("jumlahAntrean", JUMLAH_ANTREAN_DEMO);
 				session.getTransaction().commit();
 				seedPendukungDemoTerpisah(ringkas);
 				provisionTahap = "Selesai";
@@ -292,7 +306,9 @@ public final class ApotikDemoProvisionHelper {
 				}
 			}
 
-			ensureRacikanDemo(session, obatA, obatB);
+			int bahanDibuat = ensureBahanRacikanDemo(session);
+			int racikanDibuat = ensureRacikanDemo(session, obatA, obatB);
+			int antreanDibuat = ensureAntreanDemo(session, request);
 			Resep resep = (Resep) session.createCriteria(Resep.class)
 					.add(Restrictions.eq("kode", "RSP-UJI-1")).setMaxResults(1).uniqueResult();
 
@@ -305,7 +321,12 @@ public final class ApotikDemoProvisionHelper {
 					.put("golongan", "NARKOTIKA"));
 			ringkas.put("dataUji", "dibuat");
 			ringkas.put("jumlahObat", JUMLAH_OBAT_DEMO);
+			ringkas.put("jumlahBahanRacikan", JUMLAH_BAHAN_RACIKAN_DEMO);
 			ringkas.put("jumlahRacikan", JUMLAH_RACIKAN_DEMO);
+			ringkas.put("jumlahAntrean", JUMLAH_ANTREAN_DEMO);
+			ringkas.put("bahanRacikanBaru", bahanDibuat);
+			ringkas.put("racikanBaru", racikanDibuat);
+			ringkas.put("antreanBaru", antreanDibuat);
 			ringkas.put("items", items);
 			ringkas.put("resepId", resep.getId());
 			ringkas.put("catatan", "Setiap obat demo dilengkapi batch dan stok awal; gunakan Penerimaan PBF/Opname untuk menguji mutasi berikutnya.");
@@ -352,9 +373,157 @@ public final class ApotikDemoProvisionHelper {
 		}
 	}
 
+	/** Pastikan 1.000 bahan racikan sintetik, stok, batch, dan profilnya tersedia. */
+	private static int ensureBahanRacikanDemo(Session session) {
+		SatuanItem satuan = (SatuanItem) session.createCriteria(SatuanItem.class)
+				.add(Restrictions.eq("nama", "Gram").ignoreCase()).setMaxResults(1).uniqueResult();
+		if (satuan == null) {
+			satuan = new SatuanItem();
+			satuan.setNama("Gram");
+			satuan.setNamaAwal("g");
+			satuan.setJumlah(Integer.valueOf(1));
+			session.save(satuan);
+		}
+		JenisItemMedis jenis = (JenisItemMedis) session.createCriteria(JenisItemMedis.class)
+				.add(Restrictions.eq("kode", "BRC").ignoreCase()).setMaxResults(1).uniqueResult();
+		if (jenis == null) {
+			jenis = new JenisItemMedis();
+			jenis.setKode("BRC");
+			jenis.setNama("Bahan Racikan");
+			session.save(jenis);
+		}
+		String[] zat = { "Amylum", "Lactosum", "Saccharum Lactis", "Aerosil", "Talcum",
+				"Zinc Oxide", "Acidum Salicylicum", "Mentholum", "Camphora", "Glycerinum",
+				"Paraffinum Liquidum", "Vaselin Album", "Cetyl Alcohol", "Propylene Glycol",
+				"Sodium Bicarbonate", "Calcium Carbonate", "Magnesium Oxide", "Kaolin",
+				"Pectin", "Gelatin" };
+		int dibuat = 0;
+		for (int i = 1; i <= JUMLAH_BAHAN_RACIKAN_DEMO; i++) {
+			String kode = "DEMO-BHN-" + pad(i, 4);
+			ItemMedis sebelum = (ItemMedis) session.createCriteria(ItemMedis.class)
+					.add(Restrictions.eq("kode", kode)).setMaxResults(1).uniqueResult();
+			String nama = "DATA SAMPLE Bahan Racikan " + zat[(i - 1) % zat.length]
+					+ " Grade Farmasi " + pad(i, 4);
+			double beli = 100 + ((i * 37) % 7500);
+			double jual = Math.ceil((beli * 1.25) / 100.0) * 100.0;
+			ItemMedis item = buatItem(session, kode, nama, satuan, jenis, jual, beli);
+			item.setBarcode("89888" + pad(i, 8));
+			item.setKandungan(zat[(i - 1) % zat.length]
+					+ " — DATA SINTETIK/UAT, bukan acuan formulasi klinis");
+			item.setBatasMinimalStok(Integer.valueOf(50 + (i % 150)));
+			session.saveOrUpdate(item);
+			ensureProfil(session, item, ApotikItemProfile.GOLONGAN_BEBAS, false);
+			ensureBatchDemo(session, item, 500 + (i % 1500), 180 + (i % 720));
+			if (sebelum == null) dibuat++;
+			if (i % 250 == 0) {
+				session.flush();
+				session.getTransaction().commit();
+				session.beginTransaction();
+			}
+		}
+		return dibuat;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static int ensureAntreanDemo(Session session, JSONObject request) throws Exception {
+		long nilaiToko = request == null ? 1L : request.optLong("toko_id", 1L);
+		if (nilaiToko <= 0) nilaiToko = 1L;
+		Long tokoId = Long.valueOf(nilaiToko);
+		Calendar awal = Calendar.getInstance();
+		awal.set(Calendar.HOUR_OF_DAY, 0);
+		awal.set(Calendar.MINUTE, 0);
+		awal.set(Calendar.SECOND, 0);
+		awal.set(Calendar.MILLISECOND, 0);
+		List<AntreanFarmasi> hariIni = session.createCriteria(AntreanFarmasi.class)
+				.add(Restrictions.eq("tokoId", tokoId))
+				.add(Restrictions.ge("tanggalDibuat", awal.getTime())).list();
+		Set<String> kodeAda = new HashSet<String>();
+		for (AntreanFarmasi antrean : hariIni) kodeAda.add(antrean.getKodeAntrean());
+		List<ItemMedis> bahan = session.createQuery(
+				"from ItemMedis i where i.kode like :kode order by i.kode")
+				.setString("kode", "DEMO-BHN-%").setMaxResults(JUMLAH_BAHAN_RACIKAN_DEMO).list();
+		List<Resep> resep = session.createQuery(
+				"from Resep r where r.kode like :kode order by r.id desc")
+				.setString("kode", "RSP-DEMO-%").setMaxResults(JUMLAH_ANTREAN_DEMO).list();
+		int dibuat = 0;
+		for (int i = 1; i <= JUMLAH_ANTREAN_DEMO; i++) {
+			String kode = "UAT" + pad(i, 3);
+			if (kodeAda.contains(kode)) continue;
+			AntreanFarmasi antrean = new AntreanFarmasi();
+			antrean.setTokoId(tokoId);
+			if (!resep.isEmpty()) antrean.setResepId(resep.get((i - 1) % resep.size()).getId());
+			antrean.setKodeAntrean(kode);
+			antrean.setNomorRekamMedis("RM-SAMPLE-" + pad(i, 6));
+			antrean.setNamaPasien("Pasien Sample UAT " + pad(i, 3));
+			antrean.setJenis(i % 3 == 0 ? AntreanFarmasi.JENIS_CAMPURAN
+					: (i % 2 == 0 ? AntreanFarmasi.JENIS_RACIKAN : AntreanFarmasi.JENIS_JADI));
+			antrean.setStatus(i <= 12 ? AntreanFarmasi.STATUS_SIAP
+					: (i <= 40 ? AntreanFarmasi.STATUS_DISIAPKAN : AntreanFarmasi.STATUS_MENUNGGU));
+			antrean.setLoket("Loket " + (1 + (i % 8)));
+			antrean.setUrutan(Integer.valueOf(i));
+			antrean.setTanggalDibuat(new Date());
+			JSONArray obat = new JSONArray();
+			if (!bahan.isEmpty()) {
+				obat.put(new JSONObject().put("nama", bahan.get(i % bahan.size()).getNama())
+						.put("jumlah", (1 + (i % 3)) + " bungkus"));
+				obat.put(new JSONObject().put("nama", bahan.get((i + 37) % bahan.size()).getNama())
+						.put("jumlah", (1 + (i % 2)) + " kapsul"));
+			}
+			antrean.setDaftarObat(obat.toString());
+			antrean.setCatatanPublik(i <= 12 ? "Obat siap diambil di loket."
+					: "Obat sedang diproses oleh Instalasi Farmasi.");
+			antrean.setOleh("Provisioning DATA SAMPLE/UAT");
+			antrean.setOlehId("seed_demo");
+			session.save(antrean);
+			dibuat++;
+		}
+		return dibuat;
+	}
+
+	private static JSONObject verifikasiVolumeDemo() throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			JSONObject verifikasi = new JSONObject();
+			long obat = ((Number) session.createQuery("select count(i) from ItemMedis i where "
+					+ "i.kode = 'UJI-PCT' or i.kode = 'UJI-CDN' or i.kode like 'DEMO-OBT-%'")
+					.uniqueResult()).longValue();
+			long bahan = ((Number) session.createQuery("select count(i) from ItemMedis i "
+					+ "where i.kode like 'DEMO-BHN-%'").uniqueResult()).longValue();
+			long resepSiap = ((Number) session.createQuery("select count(r) from Resep r "
+					+ "where (r.kode = 'RSP-UJI-1' or r.kode like 'RSP-DEMO-%') and not exists "
+					+ "(select tm.id from TransaksiMedis tm where tm.resep = r)")
+					.uniqueResult()).longValue();
+			Calendar awal = Calendar.getInstance();
+			awal.set(Calendar.HOUR_OF_DAY, 0);
+			awal.set(Calendar.MINUTE, 0);
+			awal.set(Calendar.SECOND, 0);
+			awal.set(Calendar.MILLISECOND, 0);
+			long antrean = ((Number) session.createQuery("select count(a) from AntreanFarmasi a "
+					+ "where a.tanggalDibuat >= :awal").setTimestamp("awal", awal.getTime())
+					.uniqueResult()).longValue();
+			verifikasi.put("obatJadi", obat);
+			verifikasi.put("bahanRacikan", bahan);
+			verifikasi.put("resepSiapJual", resepSiap);
+			verifikasi.put("antreanHariIni", antrean);
+			verifikasi.put("targetObatJadi", JUMLAH_OBAT_DEMO);
+			verifikasi.put("targetBahanRacikan", JUMLAH_BAHAN_RACIKAN_DEMO);
+			verifikasi.put("targetResepSiapJual", 500);
+			verifikasi.put("targetAntrean", JUMLAH_ANTREAN_DEMO);
+			verifikasi.put("lulus", obat >= JUMLAH_OBAT_DEMO
+					&& bahan >= JUMLAH_BAHAN_RACIKAN_DEMO && resepSiap >= 500
+					&& antrean >= JUMLAH_ANTREAN_DEMO);
+			return verifikasi;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	private static int ensureRacikanDemo(Session session, ItemMedis obatA, ItemMedis obatB) {
 		if (obatA == null || obatB == null) return 0;
+		List<ItemMedis> bahan = session.createQuery(
+				"from ItemMedis i where i.kode like :kode order by i.kode")
+				.setString("kode", "DEMO-BHN-%").list();
 		java.util.List<Resep> daftar = session.createQuery(
 				"from Resep r where r.kode = :uji or r.kode like :demo")
 				.setString("uji", "RSP-UJI-1").setString("demo", "RSP-DEMO-%").list();
@@ -377,9 +546,8 @@ public final class ApotikDemoProvisionHelper {
 			resep.setKode("RSP-UJI-1");
 			resep.setKeterangan(namaRacikanApotik(1));
 			session.save(resep);
-			ResepDetail rd = new ResepDetail();
-			rd.setResep(resep); rd.setItem(obatA); rd.setJumlah(Double.valueOf(10));
-			rd.setTanggal(new Date()); session.save(rd); dibuat++;
+			buatDetailRacikan(session, resep, bahan.isEmpty() ? obatA : bahan.get(0), 10);
+			dibuat++;
 		}
 		for (int i = 2; i <= JUMLAH_RACIKAN_DEMO; i++) {
 			// Pertahankan format historis 3 digit (002..999; 1000 dst tetap utuh)
@@ -390,10 +558,14 @@ public final class ApotikDemoProvisionHelper {
 				racikan.setKode(kode);
 				racikan.setKeterangan(namaRacikanApotik(i));
 				session.save(racikan);
-				ResepDetail detail = new ResepDetail();
-				detail.setResep(racikan); detail.setItem(i % 2 == 0 ? obatA : obatB);
-				detail.setJumlah(Double.valueOf(1 + (i % 10)));
-				detail.setTanggal(new Date()); session.save(detail); dibuat++;
+				if (bahan.isEmpty()) {
+					buatDetailRacikan(session, racikan, i % 2 == 0 ? obatA : obatB, 1 + (i % 10));
+				} else {
+					buatDetailRacikan(session, racikan, bahan.get(i % bahan.size()), 1 + (i % 5));
+					buatDetailRacikan(session, racikan, bahan.get((i + 97) % bahan.size()), 1 + ((i + 2) % 4));
+					buatDetailRacikan(session, racikan, bahan.get((i + 211) % bahan.size()), 1 + ((i + 1) % 3));
+				}
+				dibuat++;
 			}
 			if (i % 250 == 0) {
 				// KE-FIX: lihat catatan commit periodik di loop katalog utama -- 5.000
@@ -404,6 +576,16 @@ public final class ApotikDemoProvisionHelper {
 			}
 		}
 		return dibuat;
+	}
+
+	private static void buatDetailRacikan(Session session, Resep resep, ItemMedis item, int jumlah) {
+		ResepDetail detail = new ResepDetail();
+		detail.setResep(resep);
+		detail.setItem(item);
+		detail.setJumlah(Double.valueOf(jumlah));
+		detail.setTanggal(new Date());
+		detail.setKeterangan("Komposisi DATA SAMPLE/UAT; wajib diverifikasi apoteker sebelum penggunaan nyata.");
+		session.save(detail);
 	}
 
 	@SuppressWarnings("unchecked")

@@ -5995,7 +5995,7 @@ public final class PengadaanPosApiHelper {
 
 	/**
 	 * Daftar dokumen pembayaran vendor pada lingkup toko. Param opsional: {@code cari}
-	 * (kode/keterangan), {@code status} (DRAFT/DISETUJUI), {@code page}, {@code pageSize}.
+	 * (kode/judul/keterangan), {@code status} (DRAFT/DISETUJUI), {@code page}, {@code pageSize}.
 	 */
 	public static void bayarDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		if (!bolehLihat(tbmuser, KUNCI_DPC)) {
@@ -6017,6 +6017,7 @@ public final class PengadaanPosApiHelper {
 			if (cari.length() > 0) {
 				kriteria.add(Restrictions.disjunction()
 						.add(Restrictions.ilike("kode", cari, MatchMode.ANYWHERE))
+						.add(Restrictions.ilike("judul", cari, MatchMode.ANYWHERE))
 						.add(Restrictions.ilike("keterangan", cari, MatchMode.ANYWHERE)));
 			}
 			kriteria.addOrder(Order.desc("id"));
@@ -6037,6 +6038,7 @@ public final class PengadaanPosApiHelper {
 				JSONObject o = new JSONObject();
 				o.put("id", b.getId());
 				o.put("kode", b.getKode() == null ? "" : b.getKode());
+				o.put("judul", b.getJudul() == null ? "" : b.getJudul());
 				o.put("keterangan", b.getKeterangan() == null ? "" : b.getKeterangan());
 				o.put("caraBayar", b.getCaraPembayaranTransfer() == null
 						|| b.getCaraPembayaranTransfer().getNama() == null ? ""
