@@ -88,14 +88,6 @@ public final class ApotikRacikanProduksiHelper {
 		}
 	}
 
-	private static final class BarisBayar {
-		CaraPembayaranKoperasi cara;
-		double nominal;
-		Double tunai;
-		Double kembalian;
-		String referensi;
-	}
-
 	private static final class BarisItem {
 		final ItemMedis item;
 		final ApotikItemProfile profil;
@@ -112,6 +104,14 @@ public final class ApotikRacikanProduksiHelper {
 			this.diskon = diskon;
 			this.batch = batch;
 		}
+	}
+
+	private static final class BarisBayar {
+		CaraPembayaranKoperasi cara;
+		double nominal;
+		Double tunai;
+		Double kembalian;
+		String referensi;
 	}
 
 	private static String str(Object nilai) {
@@ -256,7 +256,7 @@ public final class ApotikRacikanProduksiHelper {
 
 	@SuppressWarnings("unchecked")
 	private static List<AlokasiBatch> alokasiFefo(Session session, ItemMedis item,
-			double qty, Long lokasiId) throws Validasi {
+			double qty, Long lokasiId, Map<Long, Double> dipesan) throws Validasi {
 		org.hibernate.Criteria c = session.createCriteria(Kadaluarsa.class)
 				.add(Restrictions.eq("item", item))
 				.addOrder(Order.asc("tanggalKadaluarsa")).addOrder(Order.asc("id"));
@@ -271,10 +271,14 @@ public final class ApotikRacikanProduksiHelper {
 		for (Kadaluarsa k : daftar) {
 			if (!Kadaluarsa.lotLayak(k.getStatusLot()) || kedaluwarsa(k)) continue;
 			double sisa = (k.getQty() == null ? 0 : k.getQty().doubleValue())
-					- (konsumsi.containsKey(k.getId()) ? konsumsi.get(k.getId()).doubleValue() : 0);
+					- (konsumsi.containsKey(k.getId()) ? konsumsi.get(k.getId()).doubleValue() : 0)
+					- (dipesan.containsKey(k.getId()) ? dipesan.get(k.getId()).doubleValue() : 0);
 			if (sisa <= 0) continue;
 			double ambil = Math.min(kurang, sisa);
 			hasil.add(new AlokasiBatch(k, ambil));
+			Double sebelumnya = dipesan.get(k.getId());
+			dipesan.put(k.getId(), Double.valueOf(
+					(sebelumnya == null ? 0 : sebelumnya.doubleValue()) + ambil));
 			kurang -= ambil;
 			if (kurang <= 0.0001) break;
 		}
@@ -353,14 +357,17 @@ public final class ApotikRacikanProduksiHelper {
 		return hasil;
 	}
 
-	/** Penjualan racikan: transaksi, komponen stok, batch FEFO, register, pembayaran satu commit. */
+	/**
+	 * Penjualan racikan atau tebus resep campuran: obat jadi, komponen racikan,
+	 * batch FEFO, register, dan pembayaran dibukukan dalam satu commit.
+	 */
 	public static void bayarRacikan(Tbmuser user, JSONObject request, JSONObject hasil) throws Exception {
 		if (!ApotikApiHelper.bolehAksiMenu(user, "apotik_racikan", "create")
 				&& !ApotikApiHelper.bolehAksiMenu(user, "apotik_kasir", "create")) {
 			tolak(hasil, "Akun tidak berhak menjual racikan."); return;
 		}
 		JSONArray items = request == null ? null : request.optJSONArray("items");
-		if (items == null || items.length() == 0) { tolak(hasil, "Minimal satu racikan."); return; }
+		if (items == null || items.length() == 0) { tolak(hasil, "Minimal satu item atau racikan."); return; }
 		Long ajId = ApotikKodeTransaksiHelper.pastikanId("AJ", "Apotik Jual", -1);
 		Long lokasiId = optLong(request, "lokasi_id");
 		Long resepId = optLong(request, "resep_id");
@@ -385,14 +392,41 @@ public final class ApotikRacikanProduksiHelper {
 			Resep resep = resepId == null ? null : (Resep) session.get(Resep.class, resepId);
 			if (resepId != null && resep == null) throw new Validasi("Resep tidak ditemukan.");
 			List<BarisRacikan> baris = new ArrayList<BarisRacikan>();
+			List<BarisItem> barisItem = new ArrayList<BarisItem>();
 			Map<Long, Double> kebutuhan = new HashMap<Long, Double>();
+			Map<Long, Double> batchDipesan = new HashMap<Long, Double>();
 			List<Long> komponenIds = new ArrayList<Long>();
 			double total = 0;
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject input = items.optJSONObject(i);
 				Long id = optLong(input, "racikan_id");
 				double qtyPaket = input == null ? 0 : input.optDouble("qty", 0);
-				if (id == null || qtyPaket <= 0) throw new Validasi("Racikan baris ke-" + (i + 1) + " tidak valid.");
+				if (qtyPaket <= 0) throw new Validasi("Jumlah baris ke-" + (i + 1) + " tidak valid.");
+				if (id == null) {
+					Long itemId = optLong(input, "item_id");
+					ItemMedis item = itemId == null ? null
+							: (ItemMedis) session.get(ItemMedis.class, itemId);
+					if (item == null) throw new Validasi("Obat jadi baris ke-" + (i + 1) + " tidak ditemukan.");
+					ApotikItemProfile p = profil(session, item);
+					String golongan = p == null ? ApotikItemProfile.GOLONGAN_BEBAS : p.getGolonganObat();
+					if (ApotikItemProfile.terkendali(golongan)
+							&& (namaPembeli.isEmpty() || (resep == null && namaDokter.isEmpty()))) {
+						throw new Validasi("Obat terkendali \"" + str(item.getNama())
+								+ "\": nama pasien dan resep/nama dokter wajib.");
+					}
+					double hargaDefault = item.getDefaultHargaJual() == null ? 0
+							: item.getDefaultHargaJual().doubleValue();
+					double harga = input.optDouble("harga_satuan", hargaDefault);
+					double diskon = input.optDouble("diskon", 0);
+					Double lama = kebutuhan.get(item.getId());
+					kebutuhan.put(item.getId(), Double.valueOf(
+							(lama == null ? 0 : lama.doubleValue()) + qtyPaket));
+					komponenIds.add(item.getId());
+					barisItem.add(new BarisItem(item, p, qtyPaket, harga, diskon,
+							alokasiFefo(session, item, qtyPaket, lokasiId, batchDipesan)));
+					total += qtyPaket * harga - diskon;
+					continue;
+				}
 				Racikan racikan = (Racikan) session.get(Racikan.class, id);
 				if (racikan == null) throw new Validasi("Racikan baris ke-" + (i + 1) + " tidak ditemukan.");
 				List<RacikanDetail> formula = detailRacikan(session, racikan);
@@ -415,7 +449,7 @@ public final class ApotikRacikanProduksiHelper {
 					kebutuhan.put(d.getItem().getId(), Double.valueOf((lama == null ? 0 : lama.doubleValue()) + jumlah));
 					komponenIds.add(d.getItem().getId());
 					komponen.add(new KomponenRacikan(d.getItem(), p, jumlah, h,
-							alokasiFefo(session, d.getItem(), jumlah, lokasiId)));
+							alokasiFefo(session, d.getItem(), jumlah, lokasiId, batchDipesan)));
 				}
 				if (komponen.isEmpty()) throw new Validasi("Komposisi racikan tidak valid.");
 				double harga = input.optDouble("harga_satuan", hargaHitung);
@@ -440,7 +474,9 @@ public final class ApotikRacikanProduksiHelper {
 			trx.setTanggalTransaksi(new Date()); trx.setResep(resep); trx.setLokasi(lokasi);
 			if (!namaPembeli.isEmpty()) trx.setNama(namaPembeli);
 			if (!alamatPembeli.isEmpty()) trx.setAlamat(alamatPembeli);
-			trx.setKeterangan("Kasir Apotik - penjualan racikan");
+			trx.setKeterangan(barisItem.isEmpty()
+					? "Kasir Apotik - penjualan racikan"
+					: "Kasir Apotik - tebus resep campuran");
 			trx.setOleh(user.getUserId()); trx.setOlehId(user.getUserId());
 			session.save(trx);
 			for (BarisRacikan b : baris) {
@@ -478,6 +514,44 @@ public final class ApotikRacikanProduksiHelper {
 						log.setOleh(user.getUserId()); log.setOlehId(user.getUserId());
 						session.save(log);
 					}
+				}
+			}
+			for (BarisItem b : barisItem) {
+				TransaksiMedisDetail detail = new TransaksiMedisDetail();
+				detail.setTransaksi(trx); detail.setItem(b.item);
+				detail.setQty(Double.valueOf(b.qty)); detail.setAmount(Double.valueOf(b.harga));
+				detail.setDiskon(Double.valueOf(b.diskon)); detail.setTanggal(new Date());
+				detail.setHasilPenghitunganTotal(Double.valueOf(b.qty * b.harga - b.diskon));
+				detail.setOleh(user.getUserId()); detail.setOlehId(user.getUserId());
+				session.save(detail);
+				DetailTransaksiPasien ledger = new DetailTransaksiPasien();
+				ledger.setKodeTransaksi(aj); ledger.setItem(b.item); ledger.setQty(Double.valueOf(b.qty));
+				ledger.setQtyBonus(Double.valueOf(0)); ledger.setAmount(Double.valueOf(b.harga));
+				ledger.setDiskon(Double.valueOf(b.diskon));
+				ledger.setHasilPenghitunganTotal(Double.valueOf(b.qty * b.harga - b.diskon));
+				ledger.setTransaksiDetail(detail); ledger.setTanggal(new Date());
+				ledger.setKeterangan("Obat jadi pada tebus resep campuran");
+				ledger.setLunas(Boolean.TRUE); ledger.setLokasi(lokasi);
+				ledger.setOleh(user.getUserId()); ledger.setOlehId(user.getUserId());
+				session.save(ledger);
+				for (AlokasiBatch a : b.batch) {
+					ApotikBatchKonsumsi konsumsi = new ApotikBatchKonsumsi();
+					konsumsi.setKadaluarsa(a.batch); konsumsi.setTransaksiDetail(detail);
+					konsumsi.setQty(Double.valueOf(a.qty)); konsumsi.setWaktu(new Date());
+					konsumsi.setOleh(user.getUserId()); konsumsi.setOlehId(user.getUserId());
+					session.save(konsumsi);
+				}
+				String golongan = b.profil == null ? ApotikItemProfile.GOLONGAN_BEBAS
+						: b.profil.getGolonganObat();
+				if (ApotikItemProfile.terkendali(golongan)) {
+					ApotikNarkotikaLog log = new ApotikNarkotikaLog();
+					log.setItem(b.item); log.setTransaksiDetail(detail); log.setResep(resep);
+					log.setQty(Double.valueOf(b.qty)); log.setGolonganObat(golongan);
+					log.setNamaPembeli(namaPembeli); log.setAlamatPembeli(alamatPembeli);
+					log.setNamaDokter(namaDokter); log.setWaktu(new Date());
+					log.setKeterangan("Obat jadi pada tebus resep campuran");
+					log.setOleh(user.getUserId()); log.setOlehId(user.getUserId());
+					session.save(log);
 				}
 			}
 			JSONArray pembayaranJson = simpanPembayaran(session, trx, pembayaran, user);
@@ -577,6 +651,7 @@ public final class ApotikRacikanProduksiHelper {
 			List<Double> quantities = new ArrayList<Double>();
 			List<List<BahanBakuItem>> formulas = new ArrayList<List<BahanBakuItem>>();
 			Map<Long, Double> kebutuhan = new HashMap<Long, Double>();
+			Map<Long, Double> batchDipesan = new HashMap<Long, Double>();
 			List<Long> bahanIds = new ArrayList<Long>();
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject row = items.optJSONObject(i); Long itemId = optLong(row, "item_id");
@@ -593,7 +668,7 @@ public final class ApotikRacikanProduksiHelper {
 					kebutuhan.put(b.getItem().getId(), Double.valueOf((ada == null ? 0 : ada.doubleValue()) + perlu));
 					bahanIds.add(b.getItem().getId());
 					// Validasi hanya lot yang layak dan belum kedaluwarsa bila bahan dikelola per batch.
-					alokasiFefo(session, b.getItem(), perlu, lokasiId);
+					alokasiFefo(session, b.getItem(), perlu, lokasiId, batchDipesan);
 				}
 				outputs.add(output); quantities.add(Double.valueOf(qty)); formulas.add(formula);
 			}
