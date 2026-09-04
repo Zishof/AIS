@@ -37,6 +37,7 @@ import ais.database.model.sirs.ResepDetail;
 import ais.database.model.sirs.Racikan;
 import ais.database.model.sirs.RacikanDetail;
 import ais.database.model.sirs.SatuanItem;
+import ais.database.model.sirs.Shift;
 
 /**
  * <h3>Provisioning MINIMAL modul SIRS untuk UAT apotik (aksi {@code apotik_provision_demo}).</h3>
@@ -351,6 +352,16 @@ public final class ApotikDemoProvisionHelper {
 		List<Resep> reseps = session.createQuery(
 				"from Resep r where r.kode like :kode order by r.kode")
 				.setString("kode", "RSP-DEMO-%").setMaxResults(100).list();
+		Shift shift = (Shift) session.createCriteria(Shift.class)
+				.setMaxResults(1).uniqueResult();
+		if (shift == null) {
+			shift = new Shift();
+			shift.setNama("Shift Demo Apotik");
+			shift.setKeterangan("DATA SAMPLE/UAT");
+			shift.setOleh("Provisioning DATA SAMPLE/UAT");
+			shift.setOlehId("seed_demo");
+			session.save(shift);
+		}
 		int dibuat = 0;
 		for (int i = 1; i <= reseps.size(); i++) {
 			String nomor = pad(i, 3);
@@ -379,6 +390,7 @@ public final class ApotikDemoProvisionHelper {
 				diagnosa.setKeluhanPasien("DATA SAMPLE/UAT — bukan diagnosis klinis nyata");
 				diagnosa.setPasien(pasien);
 				diagnosa.setTanggal(new Date());
+				diagnosa.setShift(shift);
 				diagnosa.setOleh("Provisioning DATA SAMPLE/UAT");
 				diagnosa.setOlehId("seed_demo");
 				session.save(diagnosa);
