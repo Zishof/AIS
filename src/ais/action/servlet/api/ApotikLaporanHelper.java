@@ -124,6 +124,11 @@ public final class ApotikLaporanHelper {
 			hasil.put("totalNilai", totalNilai);
 			hasil.put("jumlahBaris", baris);
 			hasil.put("perItem", perItem);
+			// Alias data menjaga kompatibilitas seluruh tabel/paging generik Flutter.
+			// Sebelumnya laporan sukses tetapi pembaca generik menampilkan 0 baris
+			// karena hanya mencari properti `data`.
+			hasil.put("data", perItem);
+			hasil.put("jumlahItem", perItem.length());
 			hasil.put("perGolongan", perGolongan);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);

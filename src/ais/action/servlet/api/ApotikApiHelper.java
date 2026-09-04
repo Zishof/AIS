@@ -6,6 +6,7 @@ import java.util.List;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -202,12 +203,19 @@ public final class ApotikApiHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			org.hibernate.Criteria c = session.createCriteria(ItemMedis.class);
+			org.hibernate.Criteria hitung = session.createCriteria(ItemMedis.class);
 			if (!keyword.isEmpty()) {
-				c.add(Restrictions.disjunction()
+				org.hibernate.criterion.Criterion pencarian = Restrictions.disjunction()
+						.add(Restrictions.ilike("kode", "%" + keyword + "%"))
+						.add(Restrictions.ilike("barcode", "%" + keyword + "%"))
+						.add(Restrictions.ilike("nama", "%" + keyword + "%"));
+				c.add(pencarian);
+				hitung.add(Restrictions.disjunction()
 						.add(Restrictions.ilike("kode", "%" + keyword + "%"))
 						.add(Restrictions.ilike("barcode", "%" + keyword + "%"))
 						.add(Restrictions.ilike("nama", "%" + keyword + "%")));
 			}
+			long total = ((Number) hitung.setProjection(Projections.rowCount()).uniqueResult()).longValue();
 			c.addOrder(Order.asc("nama"));
 			c.setFirstResult((page - 1) * size);
 			c.setMaxResults(size);
@@ -238,6 +246,10 @@ public final class ApotikApiHelper {
 				j.put("barcode", str(it.getBarcode()));
 				j.put("nama", str(it.getNama()));
 				j.put("satuan", it.getSatuanItem() == null ? "" : str(it.getSatuanItem().getNama()));
+				j.put("jenisKode", it.getJenisItem() == null ? "" : str(it.getJenisItem().getKode()));
+				j.put("jenisNama", it.getJenisItem() == null ? "" : str(it.getJenisItem().getNama()));
+				j.put("bahanRacikan", it.getJenisItem() != null
+						&& "BRC".equalsIgnoreCase(str(it.getJenisItem().getKode())));
 				j.put("kandungan", str(it.getKandungan()));
 				j.put("hargaJual", it.getDefaultHargaJual() == null ? 0 : it.getDefaultHargaJual().doubleValue());
 				j.put("stok", stok.containsKey(it.getId()) ? stok.get(it.getId()).doubleValue() : 0);
@@ -250,6 +262,8 @@ public final class ApotikApiHelper {
 			hasil.put("data", arr);
 			hasil.put("page", page);
 			hasil.put("pageSize", size);
+			hasil.put("total", total);
+			hasil.put("totalPages", (total + size - 1) / size);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -323,15 +337,20 @@ public final class ApotikApiHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			org.hibernate.Criteria c = session.createCriteria(Resep.class);
+			String kondisi = " from Resep r where 1=1 ";
+			if (!keyword.isEmpty()) kondisi += "and lower(r.kode) like :keyword ";
+			if (hanyaMenunggu) kondisi += "and not exists (select tm.id from TransaksiMedis tm where tm.resep = r) ";
+			org.hibernate.Query daftarQuery = session.createQuery("select r" + kondisi + "order by r.id desc");
+			org.hibernate.Query jumlahQuery = session.createQuery("select count(r)" + kondisi);
 			if (!keyword.isEmpty()) {
-				c.add(Restrictions.ilike("kode", "%" + keyword + "%"));
+				daftarQuery.setString("keyword", "%" + keyword.toLowerCase() + "%");
+				jumlahQuery.setString("keyword", "%" + keyword.toLowerCase() + "%");
 			}
-			c.addOrder(Order.desc("id"));
-			c.setFirstResult((page - 1) * size);
-			c.setMaxResults(size);
+			daftarQuery.setFirstResult((page - 1) * size);
+			daftarQuery.setMaxResults(size);
 			@SuppressWarnings("unchecked")
-			List<Resep> reseps = c.list();
+			List<Resep> reseps = daftarQuery.list();
+			long total = ((Number) jumlahQuery.uniqueResult()).longValue();
 
 			// Status "sudah ditebus" = sudah ada TransaksiMedis yang menunjuk resep itu
 			// (FACT_SOURCE: TransaksiMedis.resep FK; Resep sendiri tanpa kolom status).
@@ -352,9 +371,6 @@ public final class ApotikApiHelper {
 			JSONArray arr = new JSONArray();
 			for (Resep r : reseps) {
 				boolean ditebus = sudahDitebus.contains(r.getId());
-				if (hanyaMenunggu && ditebus) {
-					continue;
-				}
 				JSONObject j = new JSONObject();
 				j.put("id", r.getId());
 				j.put("kode", str(r.getKode()));
@@ -376,6 +392,8 @@ public final class ApotikApiHelper {
 			hasil.put("data", arr);
 			hasil.put("page", page);
 			hasil.put("pageSize", size);
+			hasil.put("total", total);
+			hasil.put("totalPages", (total + size - 1) / size);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

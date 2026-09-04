@@ -12,8 +12,6 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
-import org.hibernate.envers.Audited;
-
 import ais.database.model.GeneralValueObject;
 
 /**
@@ -25,7 +23,6 @@ import ais.database.model.GeneralValueObject;
  */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
-@Audited
 @Table(schema = "sirs", name = "antrean_farmasi")
 public class AntreanFarmasi extends GeneralValueObject {
 
