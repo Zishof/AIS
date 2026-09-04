@@ -43,10 +43,9 @@ import ais.database.model.sirs.TransaksiMedisDetail;
  * <p>Aturan keras FASE A: obat kedaluwarsa TIDAK BISA terjual (ditolak server, bukan
  * peringatan); obat terkendali tanpa data register = SELURUH transaksi ditahan (rollback).</p>
  *
- * <p>Keterbatasan yang DISENGAJA di FASE A (bukan kelupaan): racikan belum bisa dijual lewat
- * jalur ini (ditolak dgn pesan jelas); entity {@code Pembayaran} SIRS belum dibuat oleh
- * {@code apotik_bayar} (transaksi dicatat lunas tunai + keterangan -- integrasi kasir Pembayaran
- * menyusul fase kasir medis). Keduanya tercatat di respons/UAT.</p>
+ * <p>Penjualan item jadi dilayani {@code apotik_bayar}; racikan memakai jalur khusus
+ * {@code ApotikRacikanProduksiHelper} agar formula, konsumsi komponen, batch FEFO,
+ * register terkendali, dan pembayaran tetap dibukukan atomik.</p>
  */
 public final class ApotikApiHelper {
 

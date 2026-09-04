@@ -22,6 +22,7 @@ import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.sirs.ApotikItemProfile;
 import ais.database.model.sirs.AntreanFarmasi;
+import ais.database.model.sirs.BahanBakuItem;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
 import ais.database.model.sirs.JenisItemMedis;
@@ -30,6 +31,8 @@ import ais.database.model.sirs.Dokter;
 import ais.database.model.sirs.DetailTransaksiPasien;
 import ais.database.model.sirs.Resep;
 import ais.database.model.sirs.ResepDetail;
+import ais.database.model.sirs.Racikan;
+import ais.database.model.sirs.RacikanDetail;
 import ais.database.model.sirs.SatuanItem;
 
 /**
@@ -60,6 +63,7 @@ public final class ApotikDemoProvisionHelper {
 	private static final int JUMLAH_BAHAN_RACIKAN_DEMO = 1000;
 	private static final int JUMLAH_RACIKAN_DEMO = 5000;
 	private static final int JUMLAH_ANTREAN_DEMO = 100;
+	private static final int JUMLAH_FORMULA_UAT = 250;
 	private static final Object LOCK_PROVISION = new Object();
 	private static volatile boolean provisionBerjalan = false;
 	private static volatile boolean provisionPernahDijalankan = false;
@@ -191,14 +195,19 @@ public final class ApotikDemoProvisionHelper {
 			KodeTransaksiMedis adk = ensureKode(session, "ADK", "Adjustment Pengurangan", -1);
 			KodeTransaksiMedis ar = ensureKode(session, "AR", "Apotik Retur", 1);
 			KodeTransaksiMedis br = ensureKode(session, "BR", "Beli Retur", -1);
-			ensureKode(session, "RAC", "Jasa Racik", 1);
+			KodeTransaksiMedis rac = ensureKode(session, "RAC", "Jasa Racik", 1);
+			KodeTransaksiMedis prod = ensureKode(session, "PROD", "Produksi Farmasi", 1);
+			KodeTransaksiMedis bb = ensureKode(session, "BB", "Bahan Baku Produksi", -1);
 			ConstantValues.apotikJual = aj;
 			ConstantValues.beliMasuk = bm;
 			ConstantValues.adjustmentPenambahan = adt;
 			ConstantValues.adjustmentPengurangan = adk;
 			ConstantValues.apotikRetur = ar;
 			ConstantValues.beliRetur = br;
-			ringkas.put("kodeTransaksi", "AJ/BM/ADT/ADK/AR/BR/RAC dipastikan + ConstantValues di-set live");
+			ConstantValues.jasaRacik = rac;
+			ConstantValues.produksi = prod;
+			ConstantValues.bahanBaku = bb;
+			ringkas.put("kodeTransaksi", "AJ/BM/ADT/ADK/AR/BR/RAC/PROD/BB dipastikan + ConstantValues di-set live");
 
 			// 2) Data uji item/resep -- hanya tabel kosong atau katalog bertanda demo.
 			// Katalog demo parsial (mis. baru UJI-PCT/UJI-CDN) harus dapat dilengkapi
@@ -284,6 +293,8 @@ public final class ApotikDemoProvisionHelper {
 
 			int bahanDibuat = ensureBahanRacikanDemo(session);
 			int racikanDibuat = ensureRacikanDemo(session, obatA, obatB);
+			int formulaRacikanDibuat = ensureFormulaRacikanUat(session);
+			int formulaProduksiDibuat = ensureFormulaProduksiUat(session);
 			int antreanDibuat = ensureAntreanDemo(session, request);
 			Resep resep = (Resep) session.createCriteria(Resep.class)
 					.add(Restrictions.eq("kode", "RSP-UJI-1")).setMaxResults(1).uniqueResult();
@@ -302,6 +313,8 @@ public final class ApotikDemoProvisionHelper {
 			ringkas.put("jumlahAntrean", JUMLAH_ANTREAN_DEMO);
 			ringkas.put("bahanRacikanBaru", bahanDibuat);
 			ringkas.put("racikanBaru", racikanDibuat);
+			ringkas.put("formulaRacikanOperasionalBaru", formulaRacikanDibuat);
+			ringkas.put("formulaProduksiOperasionalBaru", formulaProduksiDibuat);
 			ringkas.put("antreanBaru", antreanDibuat);
 			ringkas.put("items", items);
 			ringkas.put("resepId", resep.getId());
@@ -465,6 +478,11 @@ public final class ApotikDemoProvisionHelper {
 					.uniqueResult()).longValue();
 			long bahan = ((Number) session.createQuery("select count(i) from ItemMedis i "
 					+ "where i.kode like 'DEMO-BHN-%'").uniqueResult()).longValue();
+			long formulaRacikan = ((Number) session.createQuery("select count(r) from Racikan r "
+					+ "where r.kode like 'RAC-UAT-%'").uniqueResult()).longValue();
+			long formulaProduksi = ((Number) session.createQuery("select count(distinct b.itemInduk.id) "
+					+ "from BahanBakuItem b where b.itemInduk.kode like 'DEMO-OBT-%'")
+					.uniqueResult()).longValue();
 			long resepSiap = ((Number) session.createQuery("select count(r) from Resep r "
 					+ "where (r.kode = 'RSP-UJI-1' or r.kode like 'RSP-DEMO-%') and not exists "
 					+ "(select tm.id from TransaksiMedis tm where tm.resep = r)")
@@ -480,13 +498,19 @@ public final class ApotikDemoProvisionHelper {
 			verifikasi.put("obatJadi", obat);
 			verifikasi.put("bahanRacikan", bahan);
 			verifikasi.put("resepSiapJual", resepSiap);
+			verifikasi.put("formulaRacikanOperasional", formulaRacikan);
+			verifikasi.put("formulaProduksiOperasional", formulaProduksi);
 			verifikasi.put("antreanHariIni", antrean);
 			verifikasi.put("targetObatJadi", JUMLAH_OBAT_DEMO);
 			verifikasi.put("targetBahanRacikan", JUMLAH_BAHAN_RACIKAN_DEMO);
 			verifikasi.put("targetResepSiapJual", 500);
+			verifikasi.put("targetFormulaRacikanOperasional", JUMLAH_FORMULA_UAT);
+			verifikasi.put("targetFormulaProduksiOperasional", JUMLAH_FORMULA_UAT);
 			verifikasi.put("targetAntrean", JUMLAH_ANTREAN_DEMO);
 			verifikasi.put("lulus", obat >= JUMLAH_OBAT_DEMO
 					&& bahan >= JUMLAH_BAHAN_RACIKAN_DEMO && resepSiap >= 500
+					&& formulaRacikan >= JUMLAH_FORMULA_UAT
+					&& formulaProduksi >= JUMLAH_FORMULA_UAT
 					&& antrean >= JUMLAH_ANTREAN_DEMO);
 			return verifikasi;
 		} finally {
@@ -562,6 +586,104 @@ public final class ApotikDemoProvisionHelper {
 		detail.setTanggal(new Date());
 		detail.setKeterangan("Komposisi DATA SAMPLE/UAT; wajib diverifikasi apoteker sebelum penggunaan nyata.");
 		session.save(detail);
+	}
+
+	/**
+	 * Membuat formula Racikan sungguhan (bukan hanya baris item resep) dan
+	 * menautkan 250 resep demo. Ini yang dipakai endpoint kasir racikan dan UAT
+	 * tebus resep campuran; seluruh isi adalah DATA SAMPLE, bukan formula klinis.
+	 */
+	@SuppressWarnings("unchecked")
+	private static int ensureFormulaRacikanUat(Session session) {
+		List<ItemMedis> bahan = session.createQuery(
+				"from ItemMedis i where i.kode like :kode order by i.kode")
+				.setString("kode", "DEMO-BHN-%").setMaxResults(JUMLAH_BAHAN_RACIKAN_DEMO).list();
+		List<Resep> resep = session.createQuery(
+				"from Resep r where r.kode like :kode order by r.kode")
+				.setString("kode", "RSP-DEMO-%").setMaxResults(JUMLAH_FORMULA_UAT).list();
+		if (bahan.size() < 3) return 0;
+		int dibuat = 0;
+		for (int i = 1; i <= JUMLAH_FORMULA_UAT; i++) {
+			String kode = "RAC-UAT-" + pad(i, 4);
+			Racikan racikan = (Racikan) session.createCriteria(Racikan.class)
+					.add(Restrictions.eq("kode", kode)).setMaxResults(1).uniqueResult();
+			if (racikan == null) {
+				racikan = new Racikan();
+				racikan.setKode(kode);
+				racikan.setNama(namaRacikanApotik(i));
+				racikan.setKeterangan("DATA SAMPLE/UAT -- formula wajib diverifikasi apoteker sebelum penggunaan nyata.");
+				racikan.setOleh("Provisioning DATA SAMPLE/UAT");
+				racikan.setOlehId("seed_demo");
+				session.save(racikan);
+				dibuat++;
+			}
+			long jumlahDetail = ((Number) session.createQuery(
+					"select count(d) from RacikanDetail d where d.racikan = :racikan")
+					.setParameter("racikan", racikan).uniqueResult()).longValue();
+			if (jumlahDetail == 0) {
+				for (int x = 0; x < 3; x++) {
+					ItemMedis komponen = bahan.get((i * 17 + x * 97) % bahan.size());
+					RacikanDetail d = new RacikanDetail();
+					d.setRacikan(racikan);
+					d.setItem(komponen);
+					d.setJumlah(Double.valueOf(1 + ((i + x) % 4)));
+					d.setHargaTransaksi(komponen.getDefaultHargaJual());
+					d.setKeterangan("Komponen DATA SAMPLE/UAT");
+					d.setOleh("Provisioning DATA SAMPLE/UAT");
+					d.setOlehId("seed_demo");
+					session.save(d);
+				}
+			}
+			if (i <= resep.size()) {
+				Resep resepUat = resep.get(i - 1);
+				long sudah = ((Number) session.createQuery(
+						"select count(d) from ResepDetail d where d.resep = :resep and d.racikan = :racikan")
+						.setParameter("resep", resepUat).setParameter("racikan", racikan)
+						.uniqueResult()).longValue();
+				if (sudah == 0) {
+					ResepDetail rd = new ResepDetail();
+					rd.setResep(resepUat); rd.setRacikan(racikan); rd.setJumlah(Double.valueOf(1));
+					rd.setTanggal(new Date()); rd.setKeterangan("Racikan DATA SAMPLE/UAT");
+					rd.setOleh("Provisioning DATA SAMPLE/UAT"); rd.setOlehId("seed_demo");
+					session.save(rd);
+					racikan.setResepDetail(rd);
+					session.update(racikan);
+				}
+			}
+		}
+		return dibuat;
+	}
+
+	/** 250 formula produksi barang jadi, masing-masing memakai dua bahan demo. */
+	@SuppressWarnings("unchecked")
+	private static int ensureFormulaProduksiUat(Session session) {
+		List<ItemMedis> hasil = session.createQuery(
+				"from ItemMedis i where i.kode like :kode order by i.kode")
+				.setString("kode", "DEMO-OBT-%").setMaxResults(JUMLAH_FORMULA_UAT).list();
+		List<ItemMedis> bahan = session.createQuery(
+				"from ItemMedis i where i.kode like :kode order by i.kode")
+				.setString("kode", "DEMO-BHN-%").setMaxResults(JUMLAH_BAHAN_RACIKAN_DEMO).list();
+		if (bahan.size() < 2) return 0;
+		int dibuat = 0;
+		for (int i = 0; i < hasil.size(); i++) {
+			ItemMedis output = hasil.get(i);
+			long jumlah = ((Number) session.createQuery(
+					"select count(b) from BahanBakuItem b where b.itemInduk = :output")
+					.setParameter("output", output).uniqueResult()).longValue();
+			if (jumlah > 0) continue;
+			for (int x = 0; x < 2; x++) {
+				BahanBakuItem b = new BahanBakuItem();
+				b.setItemInduk(output);
+				b.setItem(bahan.get((i * 11 + x * 101) % bahan.size()));
+				b.setQty(Double.valueOf(1 + ((i + x) % 3)));
+				b.setKeterangan("Formula produksi DATA SAMPLE/UAT");
+				b.setOleh("Provisioning DATA SAMPLE/UAT");
+				b.setOlehId("seed_demo");
+				session.save(b);
+			}
+			dibuat++;
+		}
+		return dibuat;
 	}
 
 	@SuppressWarnings("unchecked")
