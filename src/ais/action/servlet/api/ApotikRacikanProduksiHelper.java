@@ -583,8 +583,23 @@ public final class ApotikRacikanProduksiHelper {
 		try {
 			@SuppressWarnings("unchecked")
 			List<ItemMedis> induk = session.createQuery(
-					"select distinct b.itemInduk from BahanBakuItem b where b.itemInduk is not null order by b.itemInduk.nama")
+					"select distinct b.itemInduk from BahanBakuItem b where b.itemInduk is not null")
 					.setMaxResults(size * 3).list();
+			// PostgreSQL menolak ORDER BY kolom relasi yang tidak ikut proyeksi
+			// SELECT DISTINCT. Urutkan hasil entity di memori agar kontrak katalog
+			// tetap deterministik tanpa SQL yang tidak portabel.
+			Collections.sort(induk, new java.util.Comparator<ItemMedis>() {
+				@Override
+				public int compare(ItemMedis a, ItemMedis b) {
+					int nama = str(a == null ? null : a.getNama()).compareToIgnoreCase(
+							str(b == null ? null : b.getNama()));
+					if (nama != 0) return nama;
+					Long ai = a == null ? null : a.getId();
+					Long bi = b == null ? null : b.getId();
+					if (ai == null) return bi == null ? 0 : -1;
+					return bi == null ? 1 : ai.compareTo(bi);
+				}
+			});
 			JSONArray data = new JSONArray();
 			for (ItemMedis item : induk) {
 				if (!keyword.isEmpty() && !(str(item.getNama()).toLowerCase().contains(keyword)
