@@ -53,8 +53,10 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 	private Datebox dpSampai;
 	private Div previewBox;
 	private Label lblStatus;
+	private org.zkoss.zul.Combobox cbStatusPosting;
 
 	private final List<JSONObject> draf = new ArrayList<JSONObject>();
+	private JSONArray riwayat = new JSONArray();
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page, Component parent,
@@ -104,6 +106,14 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 		dpSampai.setFormat("dd-MM-yyyy");
 		dpSampai.setWidth("130px");
 		filter.appendChild(dpSampai);
+		filter.appendChild(new Label(Common.getBahasaConfig("Status:")));
+		cbStatusPosting = PostingStatusZkUtil.buatFilter(new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				gambarGrid();
+			}
+		});
+		filter.appendChild(cbStatusPosting);
 
 		MyToolbarbuttonConfig btnDraf = new MyToolbarbuttonConfig(Common.getBahasaConfig("Tampilkan Draf"));
 		btnDraf.addEventListener("onClick", new EventListener() {
@@ -181,6 +191,7 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 		try {
 			payload.put("mulai", tanggal(dpMulai));
 			payload.put("sampai", tanggal(dpSampai));
+			payload.put("batasRiwayat", 1000);
 			if (ids != null && !ids.isEmpty()) {
 				payload.put("posting_ids", new JSONArray(ids));
 			}
@@ -201,6 +212,10 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 	private void muatDraf() {
 		JSONObject hasil = panggil(false, null);
 		draf.clear();
+		riwayat = hasil.optJSONArray("rincianSudahDiposting");
+		if (riwayat == null) {
+			riwayat = new JSONArray();
+		}
 		JSONArray arr = hasil.optJSONArray("rincian");
 		for (int i = 0; arr != null && i < arr.length(); i++) {
 			JSONObject b = arr.optJSONObject(i);
@@ -239,9 +254,11 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 			return;
 		}
 		previewBox.getChildren().clear();
-		if (draf.isEmpty()) {
+		List<JSONObject> tampil = PostingStatusZkUtil.gabungkan(draf, riwayat,
+				PostingStatusZkUtil.nilai(cbStatusPosting));
+		if (tampil.isEmpty()) {
 			previewBox.appendChild(DashboardUiKit.html(
-					"<div style='padding:10px;color:#64748b;'>Tidak ada dokumen yang belum diposting pada periode ini.</div>"));
+					"<div style='padding:10px;color:#64748b;'>Tidak ada dokumen untuk filter status yang dipilih.</div>"));
 			return;
 		}
 		org.zkoss.zul.Grid grid = new org.zkoss.zul.Grid();
@@ -261,12 +278,15 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 
 		double totalSiap = 0;
 		int jumlahSiap = 0;
-		for (int i = 0; i < draf.size(); i++) {
-			final JSONObject baris = draf.get(i);
-			final boolean siap = baris.optBoolean("siap", false);
+		for (int i = 0; i < tampil.size(); i++) {
+			final JSONObject baris = tampil.get(i);
+			final boolean sudah = baris.optBoolean("sudahDiposting", false);
+			final boolean siap = !sudah && baris.optBoolean("siap", false);
 			org.zkoss.zul.Row row = new org.zkoss.zul.Row();
 			row.setValign("top");
-			if (!siap) {
+			if (sudah) {
+				row.setStyle("background:#f0fdf4;");
+			} else if (!siap) {
 				row.setStyle("background:#fff7ed;");
 			} else {
 				jumlahSiap++;
@@ -281,10 +301,19 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 			j.append("<div style='color:#64748b;'>").append(DashboardUiKit.esc(baris.optString("keterangan", "")))
 					.append("</div></div>");
 			row.appendChild(DashboardUiKit.html(j.toString()));
-			row.appendChild(DashboardUiKit.html(siap
-					? "<span style='color:#15803d;font-weight:600;'>Siap diposting</span>"
-					: "<span style='color:#b45309;'>" + DashboardUiKit.esc(baris.optString("alasan", "")) + "</span>"));
-			if (siap) {
+			String status = baris.optString("statusLabel", siap
+					? "Belum Diposting - Siap" : "Belum Diposting - Tertahan");
+			row.appendChild(DashboardUiKit.html(sudah
+					? "<span style='color:#15803d;font-weight:600;'>" + DashboardUiKit.esc(status)
+							+ "</span><br/><span style='font-size:11px;'>Jurnal "
+							+ DashboardUiKit.esc(baris.optString("nomorJurnal", "-")) + "</span>"
+					: siap
+							? "<span style='color:#15803d;font-weight:600;'>" + DashboardUiKit.esc(status) + "</span>"
+							: "<span style='color:#b45309;'>" + DashboardUiKit.esc(status) + ": "
+									+ DashboardUiKit.esc(baris.optString("alasan", "")) + "</span>"));
+			if (sudah) {
+				row.appendChild(new Label(Common.getBahasaConfig("Tercatat di buku besar")));
+			} else if (siap) {
 				MyToolbarbuttonConfig btn = new MyToolbarbuttonConfig(Common.getBahasaConfig("Posting"));
 				btn.addEventListener("onClick", new EventListener() {
 					@Override

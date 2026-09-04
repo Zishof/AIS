@@ -72,6 +72,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 
 	private Datebox dpMulai;
 	private Datebox dpSampai;
+	private org.zkoss.zul.Combobox cbStatusPosting;
 	private Div previewBox;
 	private Label lblStatus;
 
@@ -124,6 +125,13 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		dpSampai.setWidth("130px");
 		dpSampai.setValue(WaktuUtil.getDate());
 		filter.appendChild(dpSampai);
+		cbStatusPosting = PostingStatusZkUtil.buatFilter(new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				hitungPreview();
+			}
+		});
+		filter.appendChild(cbStatusPosting);
 		MyToolbarbuttonConfig btnTampil = new MyToolbarbuttonConfig("Tampilkan", "/img/search.gif");
 		btnTampil.addEventListener("onClick", new EventListener() {
 			@Override
@@ -829,7 +837,21 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 	 * TIDAK memblokir transaksi lain.
 	 */
 	private void tampilkanGridDraf() {
-		if (previewBox == null || rincianDraft.isEmpty()) {
+		if (previewBox == null) {
+			return;
+		}
+		JSONArray riwayat = dpMulai == null || dpSampai == null || dpMulai.getValue() == null
+				|| dpSampai.getValue() == null ? new JSONArray()
+						: riwayatPostingApi(dpMulai.getValue(), dpSampai.getValue(), 1000);
+		List<org.json.JSONObject> tampil = PostingStatusZkUtil.gabungkan(rincianDraft, riwayat,
+				PostingStatusZkUtil.nilai(cbStatusPosting));
+		previewBox.appendChild(DashboardUiKit.html(
+				"<div style='font-weight:700;font-size:12px;margin:10px 0 4px;'>Barang HPP"
+						+ " &mdash; belum diposting: " + rincianDraft.size() + "; telah diposting: "
+						+ riwayat.length() + "</div>"));
+		if (tampil.isEmpty()) {
+			previewBox.appendChild(DashboardUiKit.html(
+					"<div style='padding:10px;color:#64748b;'>Tidak ada barang HPP untuk filter status yang dipilih.</div>"));
 			return;
 		}
 		org.zkoss.zul.Grid grid = new org.zkoss.zul.Grid();
@@ -847,16 +869,24 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		grid.appendChild(cols);
 		org.zkoss.zul.Rows rows = new org.zkoss.zul.Rows();
 		grid.appendChild(rows);
-		for (int i = 0; i < rincianDraft.size(); i++) {
-			final org.json.JSONObject baris = rincianDraft.get(i);
-			final boolean siap = baris.optBoolean("siap", false);
+		for (int i = 0; i < tampil.size(); i++) {
+			final org.json.JSONObject baris = tampil.get(i);
+			final boolean sudah = baris.optBoolean("sudahDiposting", false);
+			final boolean siap = !sudah && baris.optBoolean("siap", false);
 			org.zkoss.zul.Row row = new org.zkoss.zul.Row();
 			row.setValign("top");
-			if (!siap) {
+			if (sudah) {
+				row.setStyle("background:#f0fdf4;");
+			} else if (!siap) {
 				row.setStyle("background:#fff7ed;");
 			}
-			row.appendChild(new Label(baris.optString("ref", "-")));
+			row.appendChild(new Label(baris.optString("ref", baris.optString("referensi", "-"))));
 			row.appendChild(new Label("Rp " + DashboardUiKit.money(baris.optDouble("nilai", 0))));
+			if (sudah) {
+				row.appendChild(DashboardUiKit.html("<div style='font-size:11px;color:#166534;'><b>Jurnal:</b> "
+						+ DashboardUiKit.esc(baris.optString("nomorJurnal", "-")) + "<br/><b>Tanggal posting:</b> "
+						+ DashboardUiKit.esc(baris.optString("tanggalPosting", "-")) + "</div>"));
+			} else {
 			StringBuilder j = new StringBuilder("<table style='width:100%;font-size:11px;'>");
 			org.json.JSONArray jr = baris.optJSONArray("jurnal");
 			for (int k = 0; jr != null && k < jr.length(); k++) {
@@ -889,11 +919,18 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 					.append("</td></tr>");
 			j.append("</table>");
 			row.appendChild(DashboardUiKit.html(j.toString()));
-			row.appendChild(DashboardUiKit.html(siap
-					? "<span style='color:#166534;font-size:11px;'>Siap diposting</span>"
-					: "<span style='color:#b45309;font-size:11px;'>Belum siap: "
-							+ DashboardUiKit.esc(baris.optString("alasan", "")) + "</span>"));
-			if (siap) {
+			}
+			String status = baris.optString("statusLabel", siap
+					? "Belum Diposting - Siap" : "Belum Diposting - Tertahan");
+			row.appendChild(DashboardUiKit.html(sudah
+					? "<span style='color:#166534;font-size:11px;font-weight:600;'>" + DashboardUiKit.esc(status) + "</span>"
+					: siap
+							? "<span style='color:#166534;font-size:11px;'>" + DashboardUiKit.esc(status) + "</span>"
+							: "<span style='color:#b45309;font-size:11px;'>" + DashboardUiKit.esc(status) + ": "
+									+ DashboardUiKit.esc(baris.optString("alasan", "")) + "</span>"));
+			if (sudah) {
+				row.appendChild(new Label(Common.getBahasaConfig("Tercatat di buku besar")));
+			} else if (siap) {
 				org.zkoss.zul.Toolbarbutton tombol = new org.zkoss.zul.Toolbarbutton("Posting");
 				tombol.setStyle("color:#166534;font-weight:600;cursor:pointer;");
 				tombol.addEventListener("onClick", new EventListener() {
@@ -907,9 +944,6 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			}
 			rows.appendChild(row);
 		}
-		previewBox.appendChild(DashboardUiKit.html(
-				"<div style='font-weight:700;font-size:12px;margin:10px 0 4px;'>Draf Jurnal per Barang"
-						+ " (analisis dulu, posting bisa satu per satu)</div>"));
 		previewBox.appendChild(grid);
 	}
 
