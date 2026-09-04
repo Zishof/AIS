@@ -111,15 +111,14 @@
 		<property name="hibernate.c3p0.idle_test_period">60</property>
 		<property name="hibernate.c3p0.preferredTestQuery">SELECT 1</property>
 		<property name="hibernate.c3p0.testConnectionOnCheckin">true</property>
-		<!-- REBUT koneksi ter-checkout > 30 menit (kebocoran nyata 6-10 JAM pasti
-		     terjaring; operasi sah < 30 mnt aman). Jaring pengaman TETAP menyala. -->
-		<property name="hibernate.c3p0.unreturnedConnectionTimeout">1800</property>
-		<!-- DINYALAKAN SEMENTARA (insiden pool-exhaustion 10-07) untuk MENANGKAP kode pembocor:
-		     saat unreturnedConnectionTimeout (1800 dtk) merebut koneksi yang tertahan, c3p0 akan
+		<!-- DIAGNOSTIK SEMENTARA insiden pool-exhaustion 04-09: rebut koneksi yang
+		     tertahan lebih dari 10 menit agar satu node tidak terus terkunci di 80/80. -->
+		<property name="hibernate.c3p0.unreturnedConnectionTimeout">600</property>
+		<!-- DINYALAKAN SEMENTARA untuk MENANGKAP kode pembocor:
+		     saat unreturnedConnectionTimeout (600 dtk) merebut koneksi yang tertahan, c3p0 akan
 		     MENCETAK stack trace tempat koneksi itu di-checkout ke log -> langsung ketahuan apakah
 		     ada leak & di kelas/baris mana (di antara ~377 lokasi openSession + perubahan terbaru).
-		     Ada overhead capture stack per-checkout; MATIKAN LAGI (false) setelah diagnosa selesai.
-		     Tip: untuk hasil lebih cepat, bisa turunkan unreturnedConnectionTimeout sementara (mis. 600). -->
+		     Ada overhead capture stack per-checkout; kembalikan ke 1800/false setelah diagnosa selesai. -->
 		<property name="hibernate.c3p0.debugUnreturnedConnectionStackTraces">true</property>
 
 		<!-- ============================================================
