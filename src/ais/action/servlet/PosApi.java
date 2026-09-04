@@ -4034,11 +4034,14 @@ public class PosApi extends HttpServlet {
 				long caraBayarId = rsHeader.getLong(13);
 				hasil.put("caraBayarId", rsHeader.wasNull() ? JSONObject.NULL : caraBayarId);
 				hasil.put("caraBayarNama", rsHeader.getString(14) == null ? "" : rsHeader.getString(14));
+				// Baca semua nilai ResultSet SEBELUM session.get(). Hibernate dapat memakai
+				// koneksi/statement yang sama dan menutup ResultSet aktif (terbukti pada UAT
+				// detail transaksi volume: PSQLException "This ResultSet is closed").
+				transaksiSudahPosting = rsHeader.getObject(15) != null;
+				transaksiMemilikiRetur = rsHeader.getBoolean(16);
 				PembelianAnggotaKoperasi transaksi = (PembelianAnggotaKoperasi)
 						session.get(PembelianAnggotaKoperasi.class, Long.valueOf(idTransaksi));
 				hasil.put("pembayaran", rincianPembayaranTransaksi(transaksi));
-				transaksiSudahPosting = rsHeader.getObject(15) != null;
-				transaksiMemilikiRetur = rsHeader.getBoolean(16);
 			}
 			rsHeader.close(); psHeader.close();
 
