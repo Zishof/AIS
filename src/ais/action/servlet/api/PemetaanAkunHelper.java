@@ -180,6 +180,12 @@ public final class PemetaanAkunHelper {
         String kodeUtang = p.optString("kodeUtang", "310.600").trim();
         String kodePendapatan = p.optString("kodePendapatan", "410.900").trim();
         String kodeHpp = p.optString("kodeHpp", "510.900").trim();
+        String mulai = p.optString("mulai", "").trim();
+        String sampai = p.optString("sampai", "").trim();
+        if (mulai.isEmpty() || sampai.isEmpty()) {
+            mulai = "";
+            sampai = "";
+        }
 
         Session session = HibernateUtil.getSessionFactory().openSession();
         Transaction tx = null;
@@ -199,7 +205,7 @@ public final class PemetaanAkunHelper {
             akun.put(relasiAkun("Pendapatan penjualan", pendapatan));
             akun.put(relasiAkun("HPP", hpp));
 
-            List<Long> produkId = produkBelumPosting(session.connection(), tokoId);
+            List<Long> produkId = produkBelumPosting(session.connection(), tokoId, mulai, sampai);
             Set<Long> jenisId = new HashSet<Long>();
             int produkTanpaMaster = 0;
             int produkTanpaPersediaan = 0;
@@ -236,7 +242,7 @@ public final class PemetaanAkunHelper {
             int tokoTanpaPiutang = toko != null && toko.getAkunPiutang() == null ? 1 : 0;
             int tokoDipetakan = 0;
 
-            List<Long> penyediaId = penyediaBelumPosting(session.connection(), tokoId);
+            List<Long> penyediaId = penyediaBelumPosting(session.connection(), tokoId, mulai, sampai);
             int penyediaTanpaUtang = 0;
             int penyediaDipetakan = 0;
             for (int i = 0; i < penyediaId.size(); i++) {
@@ -353,6 +359,8 @@ public final class PemetaanAkunHelper {
             hasil.put("mode", terapkan ? "TERAPKAN" : "AUDIT");
             hasil.put("sumberAkun", "cetak_data_260904124814.xlsx");
             hasil.put("tokoId", tokoId == null ? JSONObject.NULL : tokoId);
+            hasil.put("mulai", mulai.isEmpty() ? JSONObject.NULL : mulai);
+            hasil.put("sampai", sampai.isEmpty() ? JSONObject.NULL : sampai);
             hasil.put("produkBelumPosting", produk.size());
             hasil.put("jenisProdukTerkait", jenisId.size());
             hasil.put("penyediaTerkait", penyediaId.size());
@@ -426,15 +434,33 @@ public final class PemetaanAkunHelper {
         return new JSONArray().put(j).toString();
     }
 
-    private static List<Long> produkBelumPosting(Connection conn, Long tokoId) throws Exception {
-        String sql = "SELECT DISTINCT p.id FROM koperasi.produk p WHERE COALESCE(p.aktif,true)=true"
-                + " AND (p.id IN (SELECT pp.produk FROM koperasi.pengadaan_produk pp"
-                + " WHERE pp.posting_pembelian IS NULL)"
-                + " OR p.id IN (SELECT pb.produk FROM koperasi.pembelian pb"
-                + " WHERE pb.posting_hpp IS NULL AND pb.aktif=true))"
+    private static List<Long> produkBelumPosting(Connection conn, Long tokoId,
+            String mulai, String sampai) throws Exception {
+        boolean pakaiPeriode = mulai != null && !mulai.isEmpty()
+                && sampai != null && !sampai.isEmpty();
+        String rentangKulakan = pakaiPeriode
+                ? " AND date(pp.waktupengadaan) BETWEEN date(?) AND date(?)" : "";
+        String rentangPenjualan = pakaiPeriode
+                ? " AND date(pb.waktu) BETWEEN date(?) AND date(?)" : "";
+        // Mulai dari tabel transaksi yang belum posting, lalu join ke Produk. Bentuk lama
+        // memakai dua subquery IN yang memindai seluruh riwayat untuk setiap produk dan dapat
+        // melewati timeout proxy pada tenant besar.
+        String sql = "SELECT DISTINCT p.id FROM koperasi.produk p INNER JOIN ("
+                + "SELECT pp.produk FROM koperasi.pengadaan_produk pp"
+                + " WHERE pp.posting_pembelian IS NULL" + rentangKulakan
+                + " UNION SELECT pb.produk FROM koperasi.pembelian pb"
+                + " WHERE pb.posting_hpp IS NULL AND pb.aktif=true" + rentangPenjualan
+                + ") sumber ON sumber.produk=p.id WHERE COALESCE(p.aktif,true)=true"
                 + (tokoId == null ? "" : " AND p.toko=?") + " ORDER BY p.id";
         PreparedStatement ps = conn.prepareStatement(sql);
-        if (tokoId != null) ps.setLong(1, tokoId.longValue());
+        int parameter = 1;
+        if (pakaiPeriode) {
+            ps.setString(parameter++, mulai);
+            ps.setString(parameter++, sampai);
+            ps.setString(parameter++, mulai);
+            ps.setString(parameter++, sampai);
+        }
+        if (tokoId != null) ps.setLong(parameter++, tokoId.longValue());
         ResultSet rs = ps.executeQuery();
         List<Long> keluar = new ArrayList<Long>();
         while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
@@ -442,13 +468,25 @@ public final class PemetaanAkunHelper {
         return keluar;
     }
 
-    private static List<Long> penyediaBelumPosting(Connection conn, Long tokoId) throws Exception {
+    private static List<Long> penyediaBelumPosting(Connection conn, Long tokoId,
+            String mulai, String sampai) throws Exception {
+        boolean pakaiPeriode = mulai != null && !mulai.isEmpty()
+                && sampai != null && !sampai.isEmpty();
         String sql = "SELECT DISTINCT f.supplier FROM koperasi.pengadaan_faktur f"
-                + " INNER JOIN koperasi.pengadaan_produk pp ON pp.faktur_pengadaan=f.id"
-                + " WHERE f.supplier IS NOT NULL AND pp.posting_pembelian IS NULL"
-                + (tokoId == null ? "" : " AND f.toko=?") + " ORDER BY f.supplier";
+                + " WHERE f.supplier IS NOT NULL"
+                + (tokoId == null ? "" : " AND f.toko=?")
+                + " AND EXISTS (SELECT 1 FROM koperasi.pengadaan_produk pp"
+                + " WHERE pp.faktur_pengadaan=f.id AND pp.posting_pembelian IS NULL"
+                + (pakaiPeriode
+                        ? " AND date(pp.waktupengadaan) BETWEEN date(?) AND date(?)" : "")
+                + ") ORDER BY f.supplier";
         PreparedStatement ps = conn.prepareStatement(sql);
-        if (tokoId != null) ps.setLong(1, tokoId.longValue());
+        int parameter = 1;
+        if (tokoId != null) ps.setLong(parameter++, tokoId.longValue());
+        if (pakaiPeriode) {
+            ps.setString(parameter++, mulai);
+            ps.setString(parameter++, sampai);
+        }
         ResultSet rs = ps.executeQuery();
         List<Long> keluar = new ArrayList<Long>();
         while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
