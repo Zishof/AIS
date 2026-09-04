@@ -385,6 +385,7 @@ public class SaldoAwalAkun extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "akun", nullable = true)
 	public Akun getAkun() {
+		akun = check(akun);
 		return akun;
 	}
 
@@ -552,6 +553,7 @@ public class SaldoAwalAkun extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public ais.database.model.rab.SatuanKerja getSatuanKerja() {
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 
@@ -590,6 +592,7 @@ public class SaldoAwalAkun extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "posting_history", nullable = true)
 	public PostingHistory getPostingHistory() {
+		postingHistory = check(postingHistory);
 		return postingHistory;
 	}
 

@@ -1104,6 +1104,7 @@ public class StandingInstruction extends DataSop {
 			satuanKerja = getPembayaranGaji().getSatuanKerja();
 		}
 
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 
@@ -1161,6 +1162,7 @@ public class StandingInstruction extends DataSop {
 		if (hasil != null) {
 			satuanKerja = hasil;
 		}
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 

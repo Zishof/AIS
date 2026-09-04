@@ -336,6 +336,7 @@ public class PenghapusanMasterAsset extends DataSop {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
 	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		postingHistory = check(postingHistory);
 		return postingHistory;
 	}
 

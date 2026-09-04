@@ -88,6 +88,7 @@ public class NisCounter {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "sekolah_id", nullable = false)
 	public Sekolah getSekolah() {
+		sekolah = ais.database.model.GeneralValueObject.check(sekolah);
 		return sekolah;
 	}
 

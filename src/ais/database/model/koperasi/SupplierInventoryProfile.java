@@ -127,6 +127,7 @@ public class SupplierInventoryProfile extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "penyedia", nullable = false)
 	public Penyedia getPenyedia() {
+		penyedia = check(penyedia);
 		return penyedia;
 	}
 

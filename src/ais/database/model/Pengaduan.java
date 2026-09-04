@@ -1121,6 +1121,7 @@ public class Pengaduan extends DataSop {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "diajukan", nullable = true)
 	public Tbmuser getDiajukan() {
+		diajukan = check(diajukan);
 		return diajukan;
 	}
 

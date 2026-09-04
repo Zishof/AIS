@@ -127,6 +127,7 @@ public class StokOpname extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "produk", nullable = false)
 	public Produk getProduk() {
+		produk = check(produk);
 		return produk;
 	}
 
@@ -145,6 +146,7 @@ public class StokOpname extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "toko", nullable = false)
 	public Toko getToko() {
+		toko = check(toko);
 		return toko;
 	}
 
@@ -341,6 +343,7 @@ public class StokOpname extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
 	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		postingHistory = check(postingHistory);
 		return postingHistory;
 	}
 

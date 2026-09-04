@@ -3272,6 +3272,7 @@ public class DaftarPengajuanTransfer extends DataSop {
 			satuanKerja = getTransaksiKoperasi().getSatuanKerja();
 		}
 
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 
@@ -3425,6 +3426,7 @@ public class DaftarPengajuanTransfer extends DataSop {
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
 		satuanKerja = ambilSatuanKerja();
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 

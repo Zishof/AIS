@@ -1351,6 +1351,7 @@ public class CalonAnggotaKoperasi extends GeneralValueObject {
 				}
 			}
 		}
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 

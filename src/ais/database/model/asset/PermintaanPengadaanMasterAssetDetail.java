@@ -727,6 +727,7 @@ public class PermintaanPengadaanMasterAssetDetail extends GeneralValueObject {
 		if (getPermintaanPengadaanMasterAsset() != null) {
 			satuanKerja = getPermintaanPengadaanMasterAsset().getSatuanKerja();
 		}
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 

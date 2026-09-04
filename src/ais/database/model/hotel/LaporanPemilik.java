@@ -69,7 +69,7 @@ public class LaporanPemilik extends GeneralValueObject {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "kontrak", nullable = false)
-	public KontrakPemilik getKontrak() { return kontrak; }
+	public KontrakPemilik getKontrak() { kontrak = check(kontrak); return kontrak; }
 	public void setKontrak(KontrakPemilik kontrak) { this.kontrak = kontrak; }
 
 	@Temporal(TemporalType.DATE)

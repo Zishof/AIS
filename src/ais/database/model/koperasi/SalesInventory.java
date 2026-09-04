@@ -132,6 +132,7 @@ public class SalesInventory extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tbmuser_id", nullable = true)
 	public Tbmuser getTbmuser() {
+		tbmuser = check(tbmuser);
 		return tbmuser;
 	}
 
@@ -161,6 +162,7 @@ public class SalesInventory extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "toko", nullable = false)
 	public Toko getToko() {
+		toko = check(toko);
 		return toko;
 	}
 

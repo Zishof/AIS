@@ -2394,6 +2394,7 @@ public class PenerimaanPengadaanMasterAsset extends DataSop {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pengadaan_faktur", nullable = true)
 	public ais.database.model.inventory.PengadaanFaktur getPengadaanFaktur() {
+		pengadaanFaktur = check(pengadaanFaktur);
 		return pengadaanFaktur;
 	}
 

@@ -833,6 +833,7 @@ public class ProdukKoperasi extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun", nullable = true)
 	public ais.database.model.akunting.Akun getAkun() {
+		akun = check(akun);
 		return akun;
 	}
 
@@ -848,6 +849,7 @@ public class ProdukKoperasi extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_margin", nullable = true)
 	public ais.database.model.akunting.Akun getAkunMargin() {
+		akunMargin = check(akunMargin);
 		return akunMargin;
 	}
 

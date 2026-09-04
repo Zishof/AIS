@@ -95,6 +95,7 @@ public class ProvisioningStep extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "job_id", nullable = false)
 	public ProvisioningJob getJob() {
+		job = check(job);
 		return job;
 	}
 

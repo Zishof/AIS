@@ -4737,6 +4737,7 @@ public class GrupTransaksi extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pembatalan_transaksi", nullable = true)
 	public ais.database.model.koperasi.PembatalanTransaksiKantin getPembatalanTransaksiKantin() {
+		pembatalanTransaksiKantin = check(pembatalanTransaksiKantin);
 		return pembatalanTransaksiKantin;
 	}
 
@@ -4765,6 +4766,7 @@ public class GrupTransaksi extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "penghapusan_master_asset", nullable = true)
 	public ais.database.model.asset.PenghapusanMasterAsset getPenghapusanMasterAsset() {
+		penghapusanMasterAsset = check(penghapusanMasterAsset);
 		return penghapusanMasterAsset;
 	}
 
@@ -4793,6 +4795,7 @@ public class GrupTransaksi extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pembayaran_anggota_koperasi", nullable = true)
 	public ais.database.model.koperasi.PembayaranAnggotaKoperasi getPembayaranAnggotaKoperasi() {
+		pembayaranAnggotaKoperasi = check(pembayaranAnggotaKoperasi);
 		return pembayaranAnggotaKoperasi;
 	}
 
@@ -4820,6 +4823,7 @@ public class GrupTransaksi extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pencairan_diskon", nullable = true)
 	public ais.database.model.koperasi.PencairanDiskon getPencairanDiskon() {
+		pencairanDiskon = check(pencairanDiskon);
 		return pencairanDiskon;
 	}
 
@@ -4847,6 +4851,7 @@ public class GrupTransaksi extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "penyesuaian_saldo_anggota", nullable = true)
 	public ais.database.model.koperasi.PenyesuaianSaldoAnggota getPenyesuaianSaldoAnggota() {
+		penyesuaianSaldoAnggota = check(penyesuaianSaldoAnggota);
 		return penyesuaianSaldoAnggota;
 	}
 
@@ -4874,6 +4879,7 @@ public class GrupTransaksi extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "modal_penyertaan_koperasi", nullable = true)
 	public ais.database.model.koperasi.ModalPenyertaanKoperasi getModalPenyertaanKoperasi() {
+		modalPenyertaanKoperasi = check(modalPenyertaanKoperasi);
 		return modalPenyertaanKoperasi;
 	}
 
@@ -4902,6 +4908,7 @@ public class GrupTransaksi extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pembagian_shu", nullable = true)
 	public ais.database.model.koperasi.PembagianShu getPembagianShu() {
+		pembagianShu = check(pembagianShu);
 		return pembagianShu;
 	}
 
@@ -4929,6 +4936,7 @@ public class GrupTransaksi extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "nota_sales_biaya", nullable = true)
 	public ais.database.model.koperasi.NotaSalesBiaya getNotaSalesBiaya() {
+		notaSalesBiaya = check(notaSalesBiaya);
 		return notaSalesBiaya;
 	}
 

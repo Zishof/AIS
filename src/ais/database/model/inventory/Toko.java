@@ -1062,6 +1062,7 @@ public class Toko extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "gudang_pemasok", nullable = true)
 	public Gudang getGudangPemasok() {
+		gudangPemasok = check(gudangPemasok);
 		return gudangPemasok;
 	}
 
@@ -1098,6 +1099,7 @@ public class Toko extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendaftar", nullable = true)
 	public Pendaftar getPendaftar() {
+		pendaftar = check(pendaftar);
 		return pendaftar;
 	}
 
@@ -1122,6 +1124,7 @@ public class Toko extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "brand", nullable = true)
 	public Brand getBrand() {
+		brand = check(brand);
 		return brand;
 	}
 
@@ -1171,6 +1174,7 @@ public class Toko extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_kas", nullable = true)
 	public ais.database.model.akunting.Akun getAkunKas() {
+		akunKas = check(akunKas);
 		return akunKas;
 	}
 
@@ -1209,6 +1213,7 @@ public class Toko extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_piutang", nullable = true)
 	public ais.database.model.akunting.Akun getAkunPiutang() {
+		akunPiutang = check(akunPiutang);
 		return akunPiutang;
 	}
 
@@ -1246,6 +1251,7 @@ public class Toko extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_modal_awal", nullable = true)
 	public ais.database.model.akunting.Akun getAkunModalAwal() {
+		akunModalAwal = check(akunModalAwal);
 		return akunModalAwal;
 	}
 
@@ -1284,6 +1290,7 @@ public class Toko extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_laba_ditahan", nullable = true)
 	public ais.database.model.akunting.Akun getAkunLabaDitahan() {
+		akunLabaDitahan = check(akunLabaDitahan);
 		return akunLabaDitahan;
 	}
 

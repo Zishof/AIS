@@ -2012,7 +2012,8 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "current_kelas_id")
 	public KelasSiswa getKelas() {
-		/* AKAR MASALAH (5 error beruntun di Thread-21 PengaturanBiaya: NullPointerException di
+		/* LAZY_GETTER_CHECK_EXCEPTION: fallback field mentah mencegah current_kelas_id menjadi NULL.
+		 * AKAR MASALAH (5 error beruntun di Thread-21 PengaturanBiaya: NullPointerException di
 		 * AbstractLazyInitializer, AssertionFailure "possible non-threadsafe access to the
 		 * session", "This ResultSet is closed", LazyInitializationException, dan "illegally
 		 * attempted to associate a proxy with two open Sessions").

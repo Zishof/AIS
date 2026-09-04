@@ -420,7 +420,8 @@ public class KelompokPendaftaranPsb extends DataSop {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "gelombang_pendaftaran_id", nullable = false)
 	public GelombangPendaftaranPsb getGelombangPendaftaran() {
-		return this.gelombangPendaftaran;
+		gelombangPendaftaran = check(gelombangPendaftaran);
+		return gelombangPendaftaran;
 	}
 
 	/**

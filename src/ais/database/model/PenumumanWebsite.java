@@ -119,6 +119,7 @@ public class PenumumanWebsite extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "perguruan_tinggi")
 	public PerguruanTinggi getPerguruanTinggi() {
+		perguruanTinggi = check(perguruanTinggi);
 		return perguruanTinggi;
 	}
 

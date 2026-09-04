@@ -63,12 +63,12 @@ public class Folio extends GeneralValueObject {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "properti", nullable = false)
-	public PropertiHotel getProperti() { return properti; }
+	public PropertiHotel getProperti() { properti = check(properti); return properti; }
 	public void setProperti(PropertiHotel properti) { this.properti = properti; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "menginap", nullable = false)
-	public MenginapTamu getMenginap() { return menginap; }
+	public MenginapTamu getMenginap() { menginap = check(menginap); return menginap; }
 	public void setMenginap(MenginapTamu menginap) { this.menginap = menginap; }
 
 	@Column(name = "status", nullable = false, length = 24)

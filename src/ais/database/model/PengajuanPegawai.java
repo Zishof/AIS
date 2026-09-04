@@ -1151,6 +1151,7 @@ public class PengajuanPegawai extends DataSop {
 		if (satuanKerjaPengaju == null) {
 			satuanKerjaPengaju = getSatuanKerja();
 		}
+		satuanKerjaPengaju = check(satuanKerjaPengaju);
 		return satuanKerjaPengaju;
 	}
 

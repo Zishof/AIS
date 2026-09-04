@@ -172,6 +172,7 @@ public class SuratPerintahSalesJalan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "toko", nullable = false)
 	public Toko getToko() {
+		toko = check(toko);
 		return toko;
 	}
 
@@ -193,6 +194,7 @@ public class SuratPerintahSalesJalan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sales", nullable = false)
 	public SalesInventory getSales() {
+		sales = check(sales);
 		return sales;
 	}
 
@@ -394,6 +396,7 @@ public class SuratPerintahSalesJalan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dibuat_oleh")
 	public Tbmuser getDibuatOleh() {
+		dibuatOleh = check(dibuatOleh);
 		return dibuatOleh;
 	}
 
@@ -418,6 +421,7 @@ public class SuratPerintahSalesJalan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disetujui_oleh")
 	public Tbmuser getDisetujuiOleh() {
+		disetujuiOleh = check(disetujuiOleh);
 		return disetujuiOleh;
 	}
 

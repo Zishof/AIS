@@ -92,6 +92,7 @@ public class ApotikItemProfile extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "item", nullable = false)
 	public ItemMedis getItem() {
+		item = check(item);
 		return item;
 	}
 

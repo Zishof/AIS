@@ -662,6 +662,7 @@ public class PemesananPengadaanMasterAsset extends DataSop {
 			disetujuiOleh = null;
 		}
 
+		disetujuiOleh = check(disetujuiOleh);
 		return disetujuiOleh;
 	}
 

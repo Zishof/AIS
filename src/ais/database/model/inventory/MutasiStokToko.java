@@ -144,6 +144,7 @@ public class MutasiStokToko extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "produk_asal", nullable = false)
 	public Produk getProdukAsal() {
+		produkAsal = check(produkAsal);
 		return produkAsal;
 	}
 
@@ -161,6 +162,7 @@ public class MutasiStokToko extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "produk_tujuan", nullable = false)
 	public Produk getProdukTujuan() {
+		produkTujuan = check(produkTujuan);
 		return produkTujuan;
 	}
 
@@ -182,6 +184,7 @@ public class MutasiStokToko extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "toko_asal", nullable = false)
 	public Toko getTokoAsal() {
+		tokoAsal = check(tokoAsal);
 		return tokoAsal;
 	}
 
@@ -200,6 +203,7 @@ public class MutasiStokToko extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "toko_tujuan", nullable = false)
 	public Toko getTokoTujuan() {
+		tokoTujuan = check(tokoTujuan);
 		return tokoTujuan;
 	}
 
@@ -317,6 +321,7 @@ public class MutasiStokToko extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
 	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		postingHistory = check(postingHistory);
 		return postingHistory;
 	}
 

@@ -162,6 +162,7 @@ public class SalesOrderLapangan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "toko", nullable = false)
 	public Toko getToko() {
+		toko = check(toko);
 		return toko;
 	}
 
@@ -182,6 +183,7 @@ public class SalesOrderLapangan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "customer", nullable = false)
 	public AnggotaKoperasi getCustomer() {
+		customer = check(customer);
 		return customer;
 	}
 
@@ -203,6 +205,7 @@ public class SalesOrderLapangan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sales")
 	public SalesInventory getSales() {
+		sales = check(sales);
 		return sales;
 	}
 
@@ -338,6 +341,7 @@ public class SalesOrderLapangan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dibuat_oleh")
 	public Tbmuser getDibuatOleh() {
+		dibuatOleh = check(dibuatOleh);
 		return dibuatOleh;
 	}
 

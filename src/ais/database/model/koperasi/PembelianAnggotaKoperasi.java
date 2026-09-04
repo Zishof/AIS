@@ -1427,6 +1427,7 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "sesi_kas_kasir", nullable = true)
 	public SesiKasKasir getSesiKasKasir() {
+		sesiKasKasir = check(sesiKasKasir);
 		return sesiKasKasir;
 	}
 

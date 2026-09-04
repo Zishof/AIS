@@ -112,7 +112,7 @@ public class SurveyVendor extends GeneralValueObject {
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dibuat_oleh", nullable = true)
-	public Tbmuser getDibuatOleh() { return dibuatOleh; }
+	public Tbmuser getDibuatOleh() { dibuatOleh = check(dibuatOleh); return dibuatOleh; }
 	public void setDibuatOleh(Tbmuser dibuatOleh) { this.dibuatOleh = dibuatOleh; }
 
 	@Temporal(TemporalType.TIMESTAMP) @Column(name = "tanggal_pembuatan") public Date getTanggalPembuatan() { return tanggalPembuatan; }

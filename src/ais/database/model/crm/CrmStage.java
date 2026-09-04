@@ -67,6 +67,7 @@ public class CrmStage extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pipeline_type", nullable = false)
 	public CrmPipelineType getPipelineType() {
+		pipelineType = check(pipelineType);
 		return pipelineType;
 	}
 

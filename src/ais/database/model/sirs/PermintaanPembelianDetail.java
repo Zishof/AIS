@@ -156,6 +156,7 @@ public class PermintaanPembelianDetail extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "vendor", nullable = true)
 	public Penyedia getPenyedia() {
+		vendor = check(vendor);
 		return vendor;
 	}
 

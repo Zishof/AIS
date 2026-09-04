@@ -131,6 +131,7 @@ public class CustomerInventoryProfile extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "anggota_koperasi", nullable = false)
 	public AnggotaKoperasi getAnggotaKoperasi() {
+		anggotaKoperasi = check(anggotaKoperasi);
 		return anggotaKoperasi;
 	}
 
@@ -155,6 +156,7 @@ public class CustomerInventoryProfile extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sales_owner", nullable = true)
 	public SalesInventory getSalesOwner() {
+		salesOwner = check(salesOwner);
 		return salesOwner;
 	}
 

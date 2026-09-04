@@ -673,7 +673,7 @@ public class SaldoAwalMasterAsset extends DataSop {
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "breakdown_jenis_pph", nullable = true)
-	public JenisPajakBarang getBreakdownJenisPph() { return breakdownJenisPph; }
+	public JenisPajakBarang getBreakdownJenisPph() { breakdownJenisPph = check(breakdownJenisPph); return breakdownJenisPph; }
 	public void setBreakdownJenisPph(JenisPajakBarang v) { this.breakdownJenisPph = v; }
 
 	public Long getIdTemp() {

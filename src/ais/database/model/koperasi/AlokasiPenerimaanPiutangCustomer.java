@@ -101,6 +101,7 @@ public class AlokasiPenerimaanPiutangCustomer extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "penerimaan", nullable = false)
 	public PenerimaanPiutangCustomer getPenerimaan() {
+		penerimaan = check(penerimaan);
 		return penerimaan;
 	}
 
@@ -125,6 +126,7 @@ public class AlokasiPenerimaanPiutangCustomer extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "piutang_doc", nullable = false)
 	public PiutangCustomerDoc getPiutangDoc() {
+		piutangDoc = check(piutangDoc);
 		return piutangDoc;
 	}
 

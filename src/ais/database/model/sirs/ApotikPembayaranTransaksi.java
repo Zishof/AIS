@@ -95,12 +95,12 @@ public class ApotikPembayaranTransaksi extends GeneralValueObject {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "transaksi", nullable = false)
-	public TransaksiMedis getTransaksi() { return transaksi; }
+	public TransaksiMedis getTransaksi() { transaksi = check(transaksi); return transaksi; }
 	public void setTransaksi(TransaksiMedis transaksi) { this.transaksi = transaksi; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "cara_bayar", nullable = true)
-	public CaraPembayaranKoperasi getCaraBayar() { return caraBayar; }
+	public CaraPembayaranKoperasi getCaraBayar() { caraBayar = check(caraBayar); return caraBayar; }
 	public void setCaraBayar(CaraPembayaranKoperasi caraBayar) { this.caraBayar = caraBayar; }
 
 	@Column(name = "nama_cara_bayar", length = 120)

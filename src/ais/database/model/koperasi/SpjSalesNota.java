@@ -129,6 +129,7 @@ public class SpjSalesNota extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "spj", nullable = false)
 	public SuratPerintahSalesJalan getSpj() {
+		spj = check(spj);
 		return spj;
 	}
 
@@ -155,6 +156,7 @@ public class SpjSalesNota extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "piutang_doc", nullable = false)
 	public PiutangCustomerDoc getPiutangDoc() {
+		piutangDoc = check(piutangDoc);
 		return piutangDoc;
 	}
 
@@ -177,6 +179,7 @@ public class SpjSalesNota extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "customer", nullable = false)
 	public AnggotaKoperasi getCustomer() {
+		customer = check(customer);
 		return customer;
 	}
 

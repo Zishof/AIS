@@ -74,23 +74,23 @@ public class ReservasiKamar extends GeneralValueObject {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "properti", nullable = false)
-	public PropertiHotel getProperti() { return properti; }
+	public PropertiHotel getProperti() { properti = check(properti); return properti; }
 	public void setProperti(PropertiHotel properti) { this.properti = properti; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "tamu", nullable = false)
-	public Tamu getTamu() { return tamu; }
+	public Tamu getTamu() { tamu = check(tamu); return tamu; }
 	public void setTamu(Tamu tamu) { this.tamu = tamu; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "tipe_kamar", nullable = false)
-	public TipeKamar getTipeKamar() { return tipeKamar; }
+	public TipeKamar getTipeKamar() { tipeKamar = check(tipeKamar); return tipeKamar; }
 	public void setTipeKamar(TipeKamar tipeKamar) { this.tipeKamar = tipeKamar; }
 
 	/** Kamar spesifik opsional saat booking; boleh baru ditetapkan saat check-in. */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "kamar", nullable = true)
-	public Kamar getKamar() { return kamar; }
+	public Kamar getKamar() { kamar = check(kamar); return kamar; }
 	public void setKamar(Kamar kamar) { this.kamar = kamar; }
 
 	@Column(name = "kode", nullable = false, length = 64)

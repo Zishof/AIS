@@ -246,6 +246,7 @@ public class BookingRegistrasi extends GeneralValueObject {
 		if (kelasPerawatan == null) {
 			kelasPerawatan = ConstantValues.kelasNormal;
 		}
+		kelasPerawatan = check(kelasPerawatan);
 		return kelasPerawatan;
 	}
 

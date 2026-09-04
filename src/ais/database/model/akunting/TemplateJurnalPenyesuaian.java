@@ -402,6 +402,7 @@ public class TemplateJurnalPenyesuaian extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "akun_debet", nullable = true)
 	public Akun getAkunDebet() {
+		akunDebet = check(akunDebet);
 		return akunDebet;
 	}
 
@@ -429,6 +430,7 @@ public class TemplateJurnalPenyesuaian extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "akun_kredit", nullable = true)
 	public Akun getAkunKredit() {
+		akunKredit = check(akunKredit);
 		return akunKredit;
 	}
 
@@ -574,6 +576,7 @@ public class TemplateJurnalPenyesuaian extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public ais.database.model.rab.SatuanKerja getSatuanKerja() {
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 

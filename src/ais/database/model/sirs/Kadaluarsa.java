@@ -209,6 +209,7 @@ public class Kadaluarsa extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lokasi", nullable = true)
 	public Lokasi getLokasi() {
+		lokasi = check(lokasi);
 		return lokasi;
 	}
 

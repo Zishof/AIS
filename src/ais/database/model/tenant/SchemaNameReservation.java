@@ -84,6 +84,7 @@ public class SchemaNameReservation extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendaftaran_tenant_id", nullable = true)
 	public PendaftaranTenant getPendaftaranTenant() {
+		pendaftaranTenant = check(pendaftaranTenant);
 		return pendaftaranTenant;
 	}
 

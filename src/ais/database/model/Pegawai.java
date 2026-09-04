@@ -4656,6 +4656,7 @@ public class Pegawai extends Karyawan {
 		List<KenaikanPangkat> kenaikanPangkats = ambilKenaikanPangkat(WaktuUtil.kemarin());
 		jabatanFungsional = ambilJabatanFungsional(kenaikanPangkats);
 		kenaikanPangkats = null;
+		jabatanFungsional = check(jabatanFungsional);
 		return jabatanFungsional;
 	}
 
@@ -4685,6 +4686,7 @@ public class Pegawai extends Karyawan {
 		List<KenaikanPangkat> kenaikanPangkats = ambilKenaikanPangkat(WaktuUtil.kemarin());
 		jabatanStruktural = ambilJabatanStruktural(kenaikanPangkats);
 		kenaikanPangkats = null;
+		jabatanStruktural = check(jabatanStruktural);
 		return jabatanStruktural;
 	}
 

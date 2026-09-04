@@ -76,7 +76,7 @@ public class BreakdownItemTagihanVendor extends GeneralValueObject {
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @Fetch(FetchMode.SELECT)
     @JoinColumn(name = "saldo_awal_id", nullable = false)
-    public SaldoAwalMasterAsset getSaldoAwal() { return saldoAwal; }
+    public SaldoAwalMasterAsset getSaldoAwal() { saldoAwal = check(saldoAwal); return saldoAwal; }
     public void setSaldoAwal(SaldoAwalMasterAsset saldoAwal) { this.saldoAwal = saldoAwal; }
 
     @Column(name = "urutan")

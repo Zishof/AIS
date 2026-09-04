@@ -105,6 +105,7 @@ public class SalesOrderLapanganItem extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sales_order", nullable = false)
 	public SalesOrderLapangan getSalesOrder() {
+		salesOrder = check(salesOrder);
 		return salesOrder;
 	}
 
@@ -126,6 +127,7 @@ public class SalesOrderLapanganItem extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "produk", nullable = false)
 	public Produk getProduk() {
+		produk = check(produk);
 		return produk;
 	}
 

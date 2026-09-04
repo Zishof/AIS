@@ -91,7 +91,8 @@ public class KelompokPendaftaranPegawai extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "gelombang_pendaftaran_id", nullable = false)
 	public GelombangPendaftaranPegawai getGelombangPendaftaran() {
-		return this.gelombangPendaftaran;
+		gelombangPendaftaran = check(gelombangPendaftaran);
+		return gelombangPendaftaran;
 	}
 
 	public void setGelombangPendaftaran(GelombangPendaftaranPegawai gelombangPendaftaran) {

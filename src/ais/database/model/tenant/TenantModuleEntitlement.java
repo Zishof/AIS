@@ -85,6 +85,7 @@ public class TenantModuleEntitlement extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tenant_id", nullable = false)
 	public TenantRegistry getTenant() {
+		tenant = check(tenant);
 		return tenant;
 	}
 
@@ -153,6 +154,7 @@ public class TenantModuleEntitlement extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_usaha_tenant_id", nullable = true)
 	public JenisUsahaTenant getSelectedJenisUsaha() {
+		selectedJenisUsaha = check(selectedJenisUsaha);
 		return selectedJenisUsaha;
 	}
 
