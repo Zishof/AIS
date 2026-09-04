@@ -262,8 +262,12 @@ public final class ApotikDemoProvisionHelper {
 			// Katalog besar dibuat deterministik dan idempoten. Nama, dosis, harga,
 			// barcode, golongan, serta penanda LASA bervariasi sehingga dashboard demo
 			// langsung representatif tanpa menyimpan 10.000 literal di source code.
-			provisionTahap = "Membuat 10.000 obat dan batch stok";
-			for (int i = 3; i <= JUMLAH_OBAT_DEMO; i++) {
+			boolean katalogDemoLengkap = jumlahItem >= JUMLAH_OBAT_DEMO
+					&& penandaDemo >= JUMLAH_OBAT_DEMO - 2;
+			provisionTahap = katalogDemoLengkap
+					? "Katalog obat lengkap; melengkapi formula racikan dan produksi"
+					: "Membuat 10.000 obat dan batch stok";
+			for (int i = 3; !katalogDemoLengkap && i <= JUMLAH_OBAT_DEMO; i++) {
 				String kode = "DEMO-OBT-" + pad(i, 5);
 				String nama = namaObatApotik(i);
 				double beli = 500 + ((i * 137) % 95000);

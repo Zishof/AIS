@@ -582,9 +582,13 @@ public final class ApotikRacikanProduksiHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			@SuppressWarnings("unchecked")
-			List<ItemMedis> induk = session.createQuery(
-					"select distinct b.itemInduk from BahanBakuItem b where b.itemInduk is not null")
-					.setMaxResults(size * 3).list();
+			String hql = "select distinct b.itemInduk from BahanBakuItem b where b.itemInduk is not null";
+			if (!keyword.isEmpty()) {
+				hql += " and (lower(b.itemInduk.nama) like :keyword or lower(b.itemInduk.kode) like :keyword)";
+			}
+			org.hibernate.Query query = session.createQuery(hql);
+			if (!keyword.isEmpty()) query.setString("keyword", "%" + keyword + "%");
+			List<ItemMedis> induk = query.setMaxResults(size).list();
 			// PostgreSQL menolak ORDER BY kolom relasi yang tidak ikut proyeksi
 			// SELECT DISTINCT. Urutkan hasil entity di memori agar kontrak katalog
 			// tetap deterministik tanpa SQL yang tidak portabel.
@@ -602,8 +606,6 @@ public final class ApotikRacikanProduksiHelper {
 			});
 			JSONArray data = new JSONArray();
 			for (ItemMedis item : induk) {
-				if (!keyword.isEmpty() && !(str(item.getNama()).toLowerCase().contains(keyword)
-						|| str(item.getKode()).toLowerCase().contains(keyword))) continue;
 				@SuppressWarnings("unchecked")
 				List<BahanBakuItem> formula = session.createCriteria(BahanBakuItem.class)
 						.add(Restrictions.eq("itemInduk", item)).addOrder(Order.asc("id")).list();
