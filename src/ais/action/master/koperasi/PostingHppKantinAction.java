@@ -1093,15 +1093,16 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			Session session = HibernateUtil.currentSession();
 			String m = Common.databaseDateFormat.get().format(mulai);
 			String s = Common.databaseDateFormat.get().format(sampai);
-			List<Object[]> rows = session.createSQLQuery(
-					"SELECT pb.posting_hpp, COALESCE(ph.keterangan,''),"
-							+ " MIN(h.tanggal_pembayaran),"
+			org.hibernate.SQLQuery query = session.createSQLQuery(
+					"SELECT pb.posting_hpp AS posting_id,"
+							+ " COALESCE(ph.keterangan,'') AS posting_keterangan,"
+							+ " MIN(h.tanggal_pembayaran) AS tanggal_pembayaran,"
 							+ " COALESCE((SELECT SUM(g.total_debet) FROM akunting.grup_transaksi g"
-							+ " WHERE g.posting_history=pb.posting_hpp),0),"
+							+ " WHERE g.posting_history=pb.posting_hpp),0) AS total_debet,"
 							+ " COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g"
-							+ " WHERE g.posting_history=pb.posting_hpp),''),"
+							+ " WHERE g.posting_history=pb.posting_hpp),'') AS kode_jurnal,"
 							+ " (SELECT MIN(g.tanggal_transaksi) FROM akunting.grup_transaksi g"
-							+ " WHERE g.posting_history=pb.posting_hpp)"
+							+ " WHERE g.posting_history=pb.posting_hpp) AS tanggal_transaksi"
 							+ " FROM koperasi.pembelian pb"
 							+ " INNER JOIN koperasi.pembelian_anggota_koperasi h"
 							+ " ON h.id=pb.pembelian_anggota_koperasi"
@@ -1109,7 +1110,17 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 							+ " WHERE pb.posting_hpp IS NOT NULL AND pb.aktif=true"
 							+ " AND date(h.tanggal_pembayaran) BETWEEN date('" + m + "') AND date('" + s + "')"
 							+ " GROUP BY pb.posting_hpp, ph.keterangan"
-							+ " ORDER BY MIN(h.tanggal_pembayaran) DESC, pb.posting_hpp DESC LIMIT " + batas).list();
+							+ " ORDER BY MIN(h.tanggal_pembayaran) DESC, pb.posting_hpp DESC LIMIT " + batas);
+			// Semua ekspresi native SQL wajib memakai alias unik dan tipe scalar eksplisit.
+			// Hibernate 3 dapat salah memakai alias COALESCE/MIN yang sama lalu mencoba
+			// membaca posting_keterangan sebagai DOUBLE (SQLState 22003).
+			query.addScalar("posting_id", org.hibernate.Hibernate.LONG)
+					.addScalar("posting_keterangan", org.hibernate.Hibernate.STRING)
+					.addScalar("tanggal_pembayaran", org.hibernate.Hibernate.TIMESTAMP)
+					.addScalar("total_debet", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("kode_jurnal", org.hibernate.Hibernate.STRING)
+					.addScalar("tanggal_transaksi", org.hibernate.Hibernate.TIMESTAMP);
+			List<Object[]> rows = query.list();
 			for (Object[] r : rows) {
 				long phId = ((Number) r[0]).longValue();
 				String ket = r[1] == null ? "" : r[1].toString();

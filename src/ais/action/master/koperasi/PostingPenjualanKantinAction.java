@@ -1143,17 +1143,30 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 			Session session = HibernateUtil.currentSession();
 			String m = Common.databaseDateFormat.get().format(mulai);
 			String s = Common.databaseDateFormat.get().format(sampai);
-			List<Object[]> rows = session.createSQLQuery(
-					"SELECT h.id, COALESCE(h.total_biaya,0), h.tanggal_pembayaran, h.posting_history,"
+			org.hibernate.SQLQuery query = session.createSQLQuery(
+					"SELECT h.id AS sumber_id, COALESCE(h.total_biaya,0) AS total_biaya,"
+							+ " h.tanggal_pembayaran AS tanggal_pembayaran,"
+							+ " h.posting_history AS posting_id,"
 							+ " COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g"
-							+ " WHERE g.posting_history=h.posting_history),''),"
+							+ " WHERE g.posting_history=h.posting_history),'') AS kode_jurnal,"
 							+ " (SELECT MIN(g.tanggal_transaksi) FROM akunting.grup_transaksi g"
-							+ " WHERE g.posting_history=h.posting_history), COALESCE(ph.keterangan,'')"
+							+ " WHERE g.posting_history=h.posting_history) AS tanggal_transaksi,"
+							+ " COALESCE(ph.keterangan,'') AS posting_keterangan"
 							+ " FROM koperasi.pembelian_anggota_koperasi h"
 							+ " LEFT JOIN akunting.posting_history ph ON ph.id=h.posting_history"
 							+ " WHERE h.posting_history IS NOT NULL AND COALESCE(h.total_biaya,0)>0"
 							+ " AND date(h.tanggal_pembayaran) BETWEEN date('" + m + "') AND date('" + s + "')"
-							+ " ORDER BY h.tanggal_pembayaran DESC, h.id DESC LIMIT " + batas).list();
+							+ " ORDER BY h.tanggal_pembayaran DESC, h.id DESC LIMIT " + batas);
+			// Jangan biarkan Hibernate 3 menebak tipe/alias ekspresi native SQL.
+			// Alias implisit COALESCE/MIN dapat bertabrakan dan memetakan teks ke DOUBLE.
+			query.addScalar("sumber_id", org.hibernate.Hibernate.LONG)
+					.addScalar("total_biaya", org.hibernate.Hibernate.DOUBLE)
+					.addScalar("tanggal_pembayaran", org.hibernate.Hibernate.TIMESTAMP)
+					.addScalar("posting_id", org.hibernate.Hibernate.LONG)
+					.addScalar("kode_jurnal", org.hibernate.Hibernate.STRING)
+					.addScalar("tanggal_transaksi", org.hibernate.Hibernate.TIMESTAMP)
+					.addScalar("posting_keterangan", org.hibernate.Hibernate.STRING);
+			List<Object[]> rows = query.list();
 			for (Object[] r : rows) {
 				long id = ((Number) r[0]).longValue();
 				keluar.put(PostingStatusUtil.sudah(id, "Faktur #" + id,
