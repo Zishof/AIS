@@ -49,6 +49,13 @@ public final class ApotikPostingHelper {
         boolean siap() { return alasan.length() == 0 && nilai > EPS && Math.abs(total(nilaiDebet) - total(nilaiKredit)) < EPS; }
     }
 
+    /** Nilai scalar hasil JDBC disalin dahulu agar lookup Hibernate tidak menutup ResultSet aktif. */
+    private static final class PembayaranAgregat {
+        long transaksiId;
+        Long caraBayarId;
+        double nilai;
+    }
+
     public static void proses(String action, Tbmuser pengguna, JSONObject payload, JSONObject hasil) throws Exception {
         if ("apotik_pemetaan_akun_audit".equals(action)) {
             auditPemetaan(hasil);
@@ -236,16 +243,22 @@ public final class ApotikPostingHelper {
                 + " FROM sirs.apotik_pembayaran_transaksi p JOIN sirs.transaksi_medis t ON t.id=p.transaksi"
                 + " WHERE t.sumber='APOTIK' AND t.jenis_transaksi='item' AND date(t.tanggal_transaksi) BETWEEN date(?) AND date(?)"
                 + " GROUP BY p.transaksi,p.cara_bayar ORDER BY p.transaksi";
+        List<PembayaranAgregat> pembayaran=new ArrayList<PembayaranAgregat>();
         PreparedStatement ps=s.connection().prepareStatement(sql);ps.setString(1,mulai);ps.setString(2,sampai);ResultSet rs=ps.executeQuery();
         while(rs.next()){
-            Draf d=daftar.get(Long.valueOf(rs.getLong(1)));if(d==null)continue;
-            long caraId=rs.getLong(2);boolean caraKosong=rs.wasNull()||caraId<=0;double nilai=Math.abs(rs.getDouble(3));d.nilai+=nilai;
-            CaraPembayaranKoperasi cara=caraKosong?null:(CaraPembayaranKoperasi)s.get(CaraPembayaranKoperasi.class,Long.valueOf(caraId));
-            Akun a=cara==null?null:cara.getAkun();
-            if(a==null)d.alasan="Cara pembayaran "+(cara==null?"(tidak ditemukan)":cara.getNama())+" belum mempunyai akun kas/bank/piutang.";
-            else{d.debet.add(a);d.nilaiDebet.add(Double.valueOf(nilai));}
+            PembayaranAgregat p=new PembayaranAgregat();p.transaksiId=rs.getLong(1);
+            long caraId=rs.getLong(2);p.caraBayarId=rs.wasNull()||caraId<=0?null:Long.valueOf(caraId);
+            p.nilai=Math.abs(rs.getDouble(3));pembayaran.add(p);
         }
         rs.close();ps.close();
+        for(PembayaranAgregat p:pembayaran){
+            Draf d=daftar.get(Long.valueOf(p.transaksiId));if(d==null)continue;
+            d.nilai+=p.nilai;
+            CaraPembayaranKoperasi cara=p.caraBayarId==null?null:(CaraPembayaranKoperasi)s.get(CaraPembayaranKoperasi.class,p.caraBayarId);
+            Akun a=cara==null?null:cara.getAkun();
+            if(a==null)d.alasan="Cara pembayaran "+(cara==null?"(tidak ditemukan)":cara.getNama())+" belum mempunyai akun kas/bank/piutang.";
+            else{d.debet.add(a);d.nilaiDebet.add(Double.valueOf(p.nilai));}
+        }
         for(Draf d:daftar.values()){
             if(d.nilai<=EPS&&d.alasan.length()==0)d.alasan="Pembayaran transaksi belum tersedia atau bernilai nol.";
             if(pendapatan==null)d.alasan="Akun Pendapatan Apotik belum dipetakan.";
