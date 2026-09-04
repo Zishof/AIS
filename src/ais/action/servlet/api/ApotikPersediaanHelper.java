@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.LockMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
@@ -16,6 +17,9 @@ import ais.common.EbisnisMenuKatalog;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
+import ais.database.model.koperasi.CaraPembayaranKoperasi;
+import ais.database.model.sirs.ApotikPbfDokumen;
+import ais.database.model.sirs.ApotikPbfPembayaran;
 import ais.database.model.sirs.DetailTransaksiPasien;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
@@ -108,7 +112,13 @@ public final class ApotikPersediaanHelper {
 		Long lokasiId = optLong(request, "lokasi_id");
 		String noFaktur = request.optString("no_faktur", "").trim();
 		String penyedia = request.optString("penyedia", "").trim();
-		String catatan = ("PBF " + penyedia + (noFaktur.isEmpty() ? "" : " faktur " + noFaktur)).trim();
+		String kodeDokumen = request.optString("kode_dokumen", "").trim();
+		if (kodeDokumen.isEmpty()) {
+			kodeDokumen = "PBF-" + new java.text.SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date())
+					+ "-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+		}
+		String catatan = (kodeDokumen + " PBF " + penyedia
+				+ (noFaktur.isEmpty() ? "" : " faktur " + noFaktur)).trim();
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
@@ -117,6 +127,22 @@ public final class ApotikPersediaanHelper {
 					: session.get(ais.database.model.asset.Lokasi.class, lokasiId);
 			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
 			tx = session.beginTransaction();
+			double totalDokumen = 0;
+			for (int i = 0; i < items.length(); i++) {
+				JSONObject baris = items.getJSONObject(i);
+				totalDokumen += baris.optDouble("qty", 0) * baris.optDouble("harga_beli", 0);
+			}
+			ApotikPbfDokumen dokumen = new ApotikPbfDokumen();
+			dokumen.setKode(kodeDokumen);
+			dokumen.setNoFaktur(noFaktur);
+			dokumen.setPenyedia(penyedia);
+			dokumen.setTanggal(new Date());
+			dokumen.setTotal(Double.valueOf(totalDokumen));
+			dokumen.setJumlahBaris(Integer.valueOf(items.length()));
+			dokumen.setKeterangan(request.optString("keterangan", "").trim());
+			dokumen.setOleh(tbmuser.getUserId());
+			dokumen.setOlehId(tbmuser.getUserId());
+			session.save(dokumen);
 			int barisBatch = 0;
 			// IR-09 (sebagian): apakah faktur ini memuat barang rantai dingin.
 			// Ditentukan SERVER dari profil item, bukan dari klaim klien --
@@ -190,6 +216,9 @@ public final class ApotikPersediaanHelper {
 			hasil.put("status", "00");
 			hasil.put("jumlahBaris", items.length());
 			hasil.put("jumlahBatch", barisBatch);
+			hasil.put("dokumenId", dokumen.getId());
+			hasil.put("kodeDokumen", dokumen.getKode());
+			hasil.put("total", totalDokumen);
 			hasil.put("adaColdChain", adaColdChain);
 			hasil.put("suhuTercatat", suhu != null);
 			if (suhu != null) {
@@ -205,6 +234,85 @@ public final class ApotikPersediaanHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/** Daftar dokumen PBF beserta saldo utang dan status postingnya. */
+	public static void pbfList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
+		int size = request == null ? 100 : request.optInt("page_size", 100);
+		if (size < 1) size = 100;
+		if (size > 10000) size = 10000;
+		String mulai = request == null ? "" : request.optString("mulai", "").trim();
+		String sampai = request == null ? "" : request.optString("sampai", "").trim();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String filter = " WHERE 1=1";
+			if (!mulai.isEmpty()) filter += " AND date(d.tanggal)>=date(:mulai)";
+			if (!sampai.isEmpty()) filter += " AND date(d.tanggal)<=date(:sampai)";
+			org.hibernate.SQLQuery q = session.createSQLQuery("SELECT d.id,d.kode,d.no_faktur,d.penyedia,d.tanggal,d.total,d.jumlah_baris,"
+					+ "COALESCE(SUM(b.nominal),0),d.posting_history,COUNT(b.id) FROM sirs.apotik_pbf_dokumen d"
+					+ " LEFT JOIN sirs.apotik_pbf_pembayaran b ON b.dokumen=d.id" + filter
+					+ " GROUP BY d.id,d.kode,d.no_faktur,d.penyedia,d.tanggal,d.total,d.jumlah_baris,d.posting_history"
+					+ " ORDER BY d.tanggal DESC,d.id DESC");
+			if (!mulai.isEmpty()) q.setString("mulai", mulai);
+			if (!sampai.isEmpty()) q.setString("sampai", sampai);
+			q.setFirstResult((page - 1) * size).setMaxResults(size);
+			@SuppressWarnings("unchecked") List<Object[]> rows = q.list();
+			JSONArray data = new JSONArray();
+			for (Object[] r : rows) {
+				double total = ((Number) r[5]).doubleValue();
+				double dibayar = ((Number) r[7]).doubleValue();
+				JSONObject j = new JSONObject();
+				j.put("id", r[0]); j.put("kode", str(r[1])); j.put("noFaktur", str(r[2]));
+				j.put("penyedia", str(r[3])); j.put("tanggal", r[4] == null ? "" : Common.dateFormat3.get().format((Date) r[4]));
+				j.put("total", total); j.put("dibayar", dibayar); j.put("sisa", Math.max(0, total - dibayar));
+				j.put("jumlahBaris", r[6]); j.put("jumlahPembayaran", r[9]);
+				j.put("statusPembayaran", dibayar <= 0.005 ? "BELUM" : dibayar + 0.005 >= total ? "LUNAS" : "SEBAGIAN");
+				j.put("sudahDiposting", r[8] != null);
+				data.put(j);
+			}
+			org.hibernate.SQLQuery qc = session.createSQLQuery("SELECT COUNT(*) FROM sirs.apotik_pbf_dokumen d" + filter);
+			if (!mulai.isEmpty()) qc.setString("mulai", mulai);
+			if (!sampai.isEmpty()) qc.setString("sampai", sampai);
+			Number total = (Number) qc.uniqueResult();
+			hasil.put("status", "00"); hasil.put("data", data); hasil.put("page", page);
+			hasil.put("pageSize", size); hasil.put("total", total == null ? 0 : total.longValue());
+		} finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	/** Mencatat pembayaran utang PBF; jurnalnya dibentuk lewat layar posting khusus Apotik. */
+	public static void pbfBayar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehAksi(tbmuser, "apotik_pengadaan", "update")
+				&& !bolehAksi(tbmuser, "apotik_pengadaan", "create")) {
+			tolak(hasil, "Akun Anda tidak berhak mencatat pembayaran PBF."); return;
+		}
+		Long dokumenId = optLong(request, "dokumen_id");
+		Long caraId = optLong(request, "cara_bayar_id");
+		double nominal = request == null ? 0 : request.optDouble("nominal", 0);
+		if (dokumenId == null || caraId == null || nominal <= 0) {
+			tolak(hasil, "dokumen_id, cara_bayar_id, dan nominal (>0) wajib diisi."); return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession(); Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			ApotikPbfDokumen d = (ApotikPbfDokumen) session.get(ApotikPbfDokumen.class, dokumenId, LockMode.UPGRADE);
+			CaraPembayaranKoperasi cara = (CaraPembayaranKoperasi) session.get(CaraPembayaranKoperasi.class, caraId);
+			if (d == null) { tx.rollback(); tolak(hasil, "Dokumen PBF tidak ditemukan."); return; }
+			if (cara == null || !Boolean.TRUE.equals(cara.getAktif())) { tx.rollback(); tolak(hasil, "Cara pembayaran tidak aktif/tidak ditemukan."); return; }
+			Number sudah = (Number) session.createSQLQuery("SELECT COALESCE(SUM(nominal),0) FROM sirs.apotik_pbf_pembayaran WHERE dokumen=" + dokumenId).uniqueResult();
+			double dibayar = sudah == null ? 0 : sudah.doubleValue();
+			double sisa = d.getTotal().doubleValue() - dibayar;
+			if (nominal > sisa + 0.005) { tx.rollback(); tolak(hasil, "Nominal melebihi sisa utang PBF."); return; }
+			ApotikPbfPembayaran b = new ApotikPbfPembayaran(); b.setDokumen(d); b.setCaraBayar(cara);
+			b.setNominal(Double.valueOf(nominal)); b.setTanggal(new Date());
+			b.setKeterangan(request.optString("keterangan", "").trim()); b.setOleh(tbmuser.getUserId()); b.setOlehId(tbmuser.getUserId());
+			session.save(b); tx.commit();
+			hasil.put("status", "00"); hasil.put("pembayaranId", b.getId()); hasil.put("dokumenId", d.getId());
+			hasil.put("dibayar", dibayar + nominal); hasil.put("sisa", Math.max(0, sisa - nominal));
+		} catch (Exception e) {
+			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
+			throw e;
+		} finally { HibernateUtil.closeSessionQuietly(session); }
 	}
 
 	// =============================================================================================

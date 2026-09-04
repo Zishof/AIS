@@ -1963,6 +1963,8 @@
 		<mapping class="ais.database.model.sirs.ApotikPostingLink"></mapping>
 		<!-- IR-09 (sebagian): bukti suhu penerimaan rantai dingin -->
 		<mapping class="ais.database.model.sirs.ApotikPenerimaanSuhu"></mapping>
+		<mapping class="ais.database.model.sirs.ApotikPbfDokumen"></mapping>
+		<mapping class="ais.database.model.sirs.ApotikPbfPembayaran"></mapping>
 		<mapping class="ais.database.model.sirs.ApotikBatchKonsumsi" />
 		<mapping class="ais.database.model.sirs.ApotikNarkotikaLog" />
 		<!-- Layar kedua Instalasi Farmasi: antrean obat jadi/racikan untuk pasien. -->

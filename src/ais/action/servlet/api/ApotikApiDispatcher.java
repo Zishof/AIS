@@ -97,6 +97,10 @@ public final class ApotikApiDispatcher {
 			ApotikRacikanProduksiHelper.prosesProduksi(tbmuser, payload, hasil);
 		} else if ("apotik_terima_barang".equals(action)) {
 			ApotikPersediaanHelper.terimaBarang(tbmuser, payload, hasil);
+		} else if ("apotik_pbf_list".equals(action)) {
+			ApotikPersediaanHelper.pbfList(tbmuser, payload, hasil);
+		} else if ("apotik_pbf_bayar".equals(action)) {
+			ApotikPersediaanHelper.pbfBayar(tbmuser, payload, hasil);
 		} else if ("apotik_opname_simpan".equals(action)) {
 			ApotikPersediaanHelper.opnameSimpan(tbmuser, payload, hasil);
 		} else if ("apotik_retur_simpan".equals(action)) {
@@ -117,6 +121,9 @@ public final class ApotikApiDispatcher {
 			ApotikSesiKasHelper.daftar(tbmuser, payload, hasil);
 		} else if ("apotik_metrik_operasional".equals(action)) {
 			ApotikMetrikHelper.metrikOperasional(payload, hasil);
+		} else if (action.startsWith("apotik_posting_pbf_")
+				|| action.startsWith("apotik_posting_bayar_hutang_pbf_")) {
+			ApotikPbfPostingHelper.proses(action, tbmuser, payload, hasil);
 		} else if (action.startsWith("apotik_posting_") || action.startsWith("apotik_pemetaan_akun_")) {
 			ApotikPostingHelper.proses(action, tbmuser, payload, hasil);
 		} else if ("apotik_laporan_pembayaran".equals(action)) {
