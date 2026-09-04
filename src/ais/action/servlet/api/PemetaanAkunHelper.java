@@ -49,7 +49,9 @@ import ais.database.model.library.Penyedia;
  *
  * <p><b>Aturan aman.</b> Hanya MENAMBAH: akun yang sudah punya kelompok aktif tidak disentuh, tidak
  * ada baris yang dihapus atau dipindah. Kelompok yang sudah ada dipakai ulang (pembandingan nama
- * dinormalkan, ASET/AKTIVA dianggap sama) dan hanya dibuat baru bila memang belum ada. Semua
+ * dinormalkan, ASET/AKTIVA dianggap sama) dan hanya dibuat baru bila memang belum ada. Bila master
+ * global Jenis Laporan belum memiliki Neraca atau Rugi Laba, mode terapkan membuat tepat dua master
+ * standar itu secara idempoten; tanpa keduanya tidak satu pun akun dapat masuk laporan resmi. Semua
  * penulisan lewat Hibernate supaya terekam Envers, satu transaksi per baris.</p>
  *
  * <p>Aksi API: {@code pemetaan_akun_usulan} (pratinjau, tidak menulis apa pun, tidak digerbangi --
@@ -687,6 +689,32 @@ public final class PemetaanAkunHelper {
                 return;
             }
 
+            // Instalasi lama dapat memiliki bagan akun lengkap tetapi tabel Jenis Laporan kosong.
+            // Dalam kondisi itu seluruh usulan di atas sebelumnya berakhir sebagai "dilewati" dan
+            // Laba Rugi tetap hanya berisi pesan kosong. Karena aksi tulis ini sudah digerbangi hak
+            // admin, bootstrap dua jenis fundamental secara idempoten. Nama dan keterangan sengaja
+            // sama agar kedua konsumen lama (satu membaca nama, satu membaca keterangan) sepakat.
+            int jenisLaporanBaru = 0;
+            String[][] jenisStandar = new String[][] {
+                    { "NERACA", "Neraca" },
+                    { "RUGI LABA", "Rugi Laba" }
+            };
+            for (int i = 0; i < jenisStandar.length; i++) {
+                String kunciJenis = jenisStandar[i][0];
+                if (jenisAda.containsKey(kunciJenis)) {
+                    continue;
+                }
+                session.beginTransaction();
+                JenisLaporan jl = new JenisLaporan();
+                jl.setNama(jenisStandar[i][1]);
+                jl.setKeterangan(jenisStandar[i][1]);
+                jl.setTampilDiDashboard(Boolean.TRUE);
+                session.save(jl);
+                session.getTransaction().commit();
+                jenisAda.put(kunciJenis, jl.getId());
+                jenisLaporanBaru++;
+            }
+
             // 6) terapkan
             int dibuatKelompok = 0;
             int dipetakan = 0;
@@ -733,6 +761,7 @@ public final class PemetaanAkunHelper {
                 }
             }
             hasil.put("dipetakan", dipetakan);
+            hasil.put("jenisLaporanBaru", jenisLaporanBaru);
             hasil.put("kelompokBaru", dibuatKelompok);
             hasil.put("masalah", masalah);
             hasil.put("message", dipetakan + " akun dipetakan (" + dibuatKelompok + " kelompok baru dibuat)"
