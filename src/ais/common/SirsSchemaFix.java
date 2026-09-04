@@ -49,6 +49,7 @@ public final class SirsSchemaFix {
     public static void initKolomBaru() {
         try {
 			ensureAntreanFarmasiTable();
+			ensureApotikPbfTables();
             // --- Pasien: identifier interoperabilitas (NIK / BPJS / SATUSEHAT) ---
             addColumnIfMissing("sirs", "pasien", "nik", "varchar(20)");
             addColumnIfMissing("new_audit", "pasien__audit", "nik", "varchar(20)");
@@ -114,6 +115,62 @@ public final class SirsSchemaFix {
 		} catch (Exception e) {
 			rollbackQuietly(tx);
 			log("Gagal memastikan tabel sirs.antrean_farmasi: " + e.getMessage());
+		} finally {
+			closeQuietly(session);
+		}
+	}
+
+	/**
+	 * Dokumen PBF dan pembayaran dibuat eksplisit karena deployment utama memakai
+	 * hbm2ddl.auto=none. DDL seluruhnya aditif dan idempoten; tabel audit Envers
+	 * ikut disiapkan sebelum transaksi pertama agar flush tidak rollback.
+	 */
+	private static void ensureApotikPbfTables() {
+		Session session = null;
+		Transaction tx = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			session.createSQLQuery("create table if not exists sirs.apotik_pbf_dokumen ("
+					+ "id bigserial primary key, kode varchar(80) not null, no_faktur varchar(100), "
+					+ "penyedia varchar(200), tanggal timestamp not null, total double precision not null, "
+					+ "jumlah_baris integer not null, keterangan varchar(500), posting_history bigint, "
+					+ "oleh varchar(60), oleh_id varchar(60), tanggal_dirubah timestamp, "
+					+ "constraint apotik_pbf_dokumen_kode_uk unique (kode))").executeUpdate();
+			session.createSQLQuery("create table if not exists sirs.apotik_pbf_pembayaran ("
+					+ "id bigserial primary key, dokumen bigint not null, cara_bayar bigint not null, "
+					+ "nominal double precision not null, tanggal timestamp not null, keterangan varchar(500), "
+					+ "posting_history bigint, oleh varchar(60), oleh_id varchar(60), tanggal_dirubah timestamp)")
+					.executeUpdate();
+			session.createSQLQuery("create index if not exists apotik_pbf_dokumen_tanggal_idx "
+					+ "on sirs.apotik_pbf_dokumen (tanggal, id)").executeUpdate();
+			session.createSQLQuery("create index if not exists apotik_pbf_pembayaran_dokumen_idx "
+					+ "on sirs.apotik_pbf_pembayaran (dokumen, tanggal, id)").executeUpdate();
+			session.createSQLQuery("create index if not exists apotik_pbf_dokumen_posting_idx "
+					+ "on sirs.apotik_pbf_dokumen (posting_history, tanggal)").executeUpdate();
+			session.createSQLQuery("create index if not exists apotik_pbf_pembayaran_posting_idx "
+					+ "on sirs.apotik_pbf_pembayaran (posting_history, tanggal)").executeUpdate();
+
+			// Bentuk audit mengikuti Envers Hibernate 3: kunci komposit (id, rev).
+			session.createSQLQuery("create table if not exists new_audit.apotik_pbf_dokumen__audit ("
+					+ "id bigint not null, rev integer not null, revtype smallint, kode varchar(80), "
+					+ "no_faktur varchar(100), penyedia varchar(200), tanggal timestamp, total double precision, "
+					+ "jumlah_baris integer, keterangan varchar(500), posting_history bigint, oleh varchar(60), "
+					+ "oleh_id varchar(60), tanggal_dirubah timestamp, primary key (id, rev))").executeUpdate();
+			session.createSQLQuery("create table if not exists new_audit.apotik_pbf_pembayaran__audit ("
+					+ "id bigint not null, rev integer not null, revtype smallint, dokumen bigint, cara_bayar bigint, "
+					+ "nominal double precision, tanggal timestamp, keterangan varchar(500), posting_history bigint, "
+					+ "oleh varchar(60), oleh_id varchar(60), tanggal_dirubah timestamp, primary key (id, rev))")
+					.executeUpdate();
+			session.createSQLQuery("create index if not exists apotik_pbf_dokumen_audit_rev_idx "
+					+ "on new_audit.apotik_pbf_dokumen__audit (rev, revtype)").executeUpdate();
+			session.createSQLQuery("create index if not exists apotik_pbf_pembayaran_audit_rev_idx "
+					+ "on new_audit.apotik_pbf_pembayaran__audit (rev, revtype)").executeUpdate();
+			tx.commit();
+			log("Tabel PBF Apotik dan audit Envers siap.");
+		} catch (Exception e) {
+			rollbackQuietly(tx);
+			log("Gagal memastikan tabel PBF Apotik: " + e.getMessage());
 		} finally {
 			closeQuietly(session);
 		}
