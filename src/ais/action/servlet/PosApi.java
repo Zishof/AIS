@@ -1198,7 +1198,7 @@ public class PosApi extends HttpServlet {
 				}
 				hasil.put("pendukung", pendukung);
 			} else if ("laporan_keuangan_pendukung".equals(action)) {
-				prosesLaporanKeuanganPendukung(payload, hasil);
+				prosesLaporanKeuanganPendukung(tbmuser, payload, hasil);
 			} else if ("laporan_jalankan".equals(action)) {
 				prosesLaporanJalankan(request, tbmuser, payload, hasil);
 			} else if ("laporan_pdf".equals(action)) {
@@ -4484,7 +4484,8 @@ public class PosApi extends HttpServlet {
 	}
 
 	/** Menjalankan pratinjau/posting HPP atau penjualan tanpa berpindah ke halaman ZK. */
-	private void prosesLaporanKeuanganPendukung(JSONObject payload, JSONObject hasil) throws Exception {
+	private void prosesLaporanKeuanganPendukung(Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
+			throws Exception {
 		String jenis = payload.optString("jenis", "").trim().toLowerCase();
 		boolean posting = payload.optBoolean("posting", false);
 		java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
@@ -4515,20 +4516,20 @@ public class PosApi extends HttpServlet {
 			ais.action.master.koperasi.PostingHppKantinAction aksiHpp =
 					new ais.action.master.koperasi.PostingHppKantinAction();
 			if (perTransaksi) {
-				data = aksiHpp.prosesApi(mulai, sampai, false);
-				data.put("hasilPosting", aksiHpp.postingPerBarang(idsDipilih, mulai, sampai));
+				data = aksiHpp.prosesApi(mulai, sampai, false, tbmuser);
+				data.put("hasilPosting", aksiHpp.postingPerBarang(idsDipilih, mulai, sampai, tbmuser));
 			} else {
-				data = aksiHpp.prosesApi(mulai, sampai, posting);
+				data = aksiHpp.prosesApi(mulai, sampai, posting, tbmuser);
 			}
 		} else if ("penjualan".equals(jenis)) {
 			ais.action.master.koperasi.PostingPenjualanKantinAction aksiJual =
 					new ais.action.master.koperasi.PostingPenjualanKantinAction();
 			if (perTransaksi) {
 				// Hitung draf dulu (tanpa posting), lalu posting hanya id terpilih.
-				data = aksiJual.prosesApi(mulai, sampai, false);
-				data.put("hasilPosting", aksiJual.postingPerTransaksi(idsDipilih));
+				data = aksiJual.prosesApi(mulai, sampai, false, tbmuser);
+				data.put("hasilPosting", aksiJual.postingPerTransaksi(idsDipilih, tbmuser));
 			} else {
-				data = aksiJual.prosesApi(mulai, sampai, posting);
+				data = aksiJual.prosesApi(mulai, sampai, posting, tbmuser);
 			}
 		} else {
 			throw new IllegalArgumentException("Jenis pendukung laporan keuangan tidak dikenal: " + jenis);
@@ -5565,9 +5566,15 @@ public class PosApi extends HttpServlet {
 
 		java.sql.Connection conn = session.connection();
 
-		StringBuilder whereTrx = new StringBuilder("a.toko = ? AND COALESCE(a.aktif,true)=true");
+		StringBuilder whereTrx = new StringBuilder("COALESCE(a.aktif,true)=true");
 		java.util.List<Object> paramsTrx = new java.util.ArrayList<Object>();
-		paramsTrx.add(tokoId);
+		// tokoId null hanya mungkin untuk pengguna yang sudah lolos hak "semua toko"
+		// pada method pemanggil. Jangan ikat NULL ke a.toko = ?: SQL tersebut selalu
+		// false dan membuat laporan administrator tampak kosong.
+		if (tokoId != null) {
+			whereTrx.insert(0, "a.toko = ? AND ");
+			paramsTrx.add(tokoId);
+		}
 		if (tanggalMulai != null) { whereTrx.append(" AND DATE(a.waktu) >= ?"); paramsTrx.add(tanggalMulai); }
 		if (tanggalSampai != null) { whereTrx.append(" AND DATE(a.waktu) <= ?"); paramsTrx.add(tanggalSampai); }
 		if (waktuMulai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND CAST(a.waktu AS time) >= CAST(? AS time)"); paramsTrx.add(waktuMulai); }

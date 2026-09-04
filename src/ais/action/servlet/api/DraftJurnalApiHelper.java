@@ -209,8 +209,8 @@ public final class DraftJurnalApiHelper {
 
         // Keluarga kantin/toko tidak lewat jalur generik: dokumennya milik modul koperasi
         // (hitungDokumen generik tidak mengenalnya) dan mesinnya berkontrak JSON sendiri.
-        if ("Posting HPP".equals(nama) || "Penjualan Kantin".equals(nama)) {
-            jalankanKantinBatch(nama, posting, mulai, sampai, hasil);
+		if ("Posting HPP".equals(nama) || "Penjualan Kantin".equals(nama)) {
+			jalankanKantinBatch(nama, posting, tbmuser, mulai, sampai, hasil);
             return;
         }
         if ("Kulakan Toko".equals(nama) || "Pembayaran Hutang Toko".equals(nama)
@@ -579,16 +579,17 @@ public final class DraftJurnalApiHelper {
      * masing. Pesan tolakan mesin (periode tumpang tindih, belum ada yang siap, akun belum
      * dipetakan) sudah ditulis untuk manusia, jadi diteruskan apa adanya.
      */
-    private static void jalankanKantinBatch(String nama, boolean posting, Date mulai, Date sampai,
-            JSONObject hasil) throws Exception {
+	private static void jalankanKantinBatch(String nama, boolean posting,
+			ais.database.model.Tbmuser tbmuser, Date mulai, Date sampai, JSONObject hasil)
+			throws Exception {
         boolean hpp = "Posting HPP".equals(nama);
         try {
             if (posting) {
-                org.json.JSONObject r = hpp
-                        ? new ais.action.master.koperasi.PostingHppKantinAction()
-                                .prosesApi(mulai, sampai, true)
-                        : new ais.action.master.koperasi.PostingPenjualanKantinAction()
-                                .prosesApi(mulai, sampai, true);
+				org.json.JSONObject r = hpp
+						? new ais.action.master.koperasi.PostingHppKantinAction()
+								.prosesApi(mulai, sampai, true, tbmuser)
+						: new ais.action.master.koperasi.PostingPenjualanKantinAction()
+								.prosesApi(mulai, sampai, true, tbmuser);
                 hasil.put("status", "00");
                 hasil.put("nama", nama);
                 hasil.put("jumlah", 1);

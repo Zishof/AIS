@@ -757,6 +757,15 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 	 * @return ringkasan {@code {diposting, dilewati, gagal, pesan}}.
 	 */
 	public JSONObject postingPerTransaksi(java.util.Collection<Long> idsDipilih) throws Exception {
+		return postingPerTransaksi(idsDipilih, Common.getCurrentUser());
+	}
+
+	/** Versi headless/API: pelaku posting wajib diberikan dari token autentikasi. */
+	public JSONObject postingPerTransaksi(java.util.Collection<Long> idsDipilih,
+			ais.database.model.Tbmuser pelakuPosting) throws Exception {
+		if (pelakuPosting == null) {
+			throw new IllegalStateException("Pengguna pelaku posting penjualan tidak tersedia.");
+		}
 		Session session = HibernateUtil.currentSession();
 		int diposting = 0, dilewati = 0, gagal = 0;
 		StringBuilder pesan = new StringBuilder();
@@ -774,7 +783,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 				continue;
 			}
 			try {
-				if (postingSatuFaktur(session, id, baris)) {
+				if (postingSatuFaktur(session, id, baris, pelakuPosting)) {
 					diposting++;
 				} else {
 					gagal++;
@@ -806,7 +815,8 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 	 * memakai transaksi database sendiri: kegagalan pada satu faktur tidak membatalkan
 	 * faktur lain yang sudah berhasil (pola yang sama dipakai Posting Cicilan Mahasiswa).
 	 */
-	private boolean postingSatuFaktur(Session session, Long headerId, org.json.JSONObject baris) throws Exception {
+	private boolean postingSatuFaktur(Session session, Long headerId, org.json.JSONObject baris,
+			ais.database.model.Tbmuser pelakuPosting) throws Exception {
 		org.json.JSONArray jurnal = baris.optJSONArray("jurnal");
 		if (jurnal == null || jurnal.length() == 0) {
 			return false;
@@ -842,7 +852,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		String ket = "Penjualan Kantin Faktur #" + headerId;
 		PostingHistory ph = new PostingHistory(JENIS);
 		ph.setTanggal(dpSampai == null ? new Date() : dpSampai.getValue());
-		ph.setTbmuser(Common.getCurrentUser());
+		ph.setTbmuser(pelakuPosting);
 		ph.setKeterangan(ket);
 		session.getTransaction().begin();
 		try {
@@ -989,6 +999,12 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 	}
 
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
+		return prosesApi(mulai, sampai, posting, Common.getCurrentUser());
+	}
+
+	/** Versi headless/API: tidak bergantung pada Execution ZK untuk identitas pelaku. */
+	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting,
+			ais.database.model.Tbmuser pelakuPosting) throws Exception {
 		if (mulai == null || sampai == null || mulai.after(sampai)) {
 			throw new IllegalArgumentException("Periode posting penjualan tidak valid.");
 		}
@@ -1014,6 +1030,9 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		if (!posting) {
 			return hasil;
 		}
+		if (pelakuPosting == null) {
+			throw new IllegalStateException("Pengguna pelaku posting penjualan tidak tersedia.");
+		}
 		if (headerTerposting.isEmpty() || totalDebit <= 0) {
 			throw new IllegalStateException("Tidak ada penjualan yang siap diposting pada periode ini.");
 		}
@@ -1037,7 +1056,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 				+ Common.dateFormat.get().format(sampai);
 		PostingHistory ph = new PostingHistory(JENIS);
 		ph.setTanggal(sampai);
-		ph.setTbmuser(Common.getCurrentUser());
+		ph.setTbmuser(pelakuPosting);
 		ph.setKeterangan(ket);
 		boolean ok = false;
 		session.getTransaction().begin();

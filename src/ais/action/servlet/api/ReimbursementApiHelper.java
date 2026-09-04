@@ -511,6 +511,12 @@ public final class ReimbursementApiHelper {
 			r.setKategori(request.optString("kategori", "").trim());
 			r.setCatatanPengaju(request.optString("catatanPengaju", "").trim());
 			r.setPegawai(pegawai);
+			// Kolom atasan pada instalasi lama masih NOT NULL walaupun pemetaan
+			// entitasnya nullable. Layar ZK selalu menyimpan snapshot atasan langsung
+			// (atau pegawainya sendiri bila hierarki belum diisi); kanal REST wajib
+			// menerapkan aturan yang sama agar dokumen tidak gagal saat flush.
+			ais.database.model.Pegawai atasan = pegawai.getAtasanlangsung();
+			r.setAtasan(atasan == null ? pegawai : atasan);
 			r.setTanggalPengeluaran(tglKeluar);
 			r.setFormula(rincian == null ? "[]" : rincian.toString());
 			r.setNominal(Double.valueOf(nominal));

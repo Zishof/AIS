@@ -695,6 +695,15 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 	 */
 	public JSONObject postingPerBarang(java.util.Collection<Long> idsDipilih, Date mulai, Date sampai)
 			throws Exception {
+		return postingPerBarang(idsDipilih, mulai, sampai, Common.getCurrentUser());
+	}
+
+	/** Versi headless/API: pelaku posting berasal dari token, bukan sesi ZK. */
+	public JSONObject postingPerBarang(java.util.Collection<Long> idsDipilih, Date mulai, Date sampai,
+			ais.database.model.Tbmuser pelakuPosting) throws Exception {
+		if (pelakuPosting == null) {
+			throw new IllegalStateException("Pengguna pelaku posting HPP tidak tersedia.");
+		}
 		Session session = HibernateUtil.currentSession();
 		String mStr = Common.databaseDateFormat.get().format(mulai);
 		String sStr = Common.databaseDateFormat.get().format(sampai);
@@ -714,7 +723,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 				continue;
 			}
 			try {
-				if (postingSatuBarang(session, masterAssetId, baris, mStr, sStr)) {
+				if (postingSatuBarang(session, masterAssetId, baris, mStr, sStr, pelakuPosting)) {
 					diposting++;
 				} else {
 					gagal++;
@@ -739,7 +748,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 
 	/** Tulis SATU barang jadi satu entri jurnal + tandai baris penjualan penyumbangnya. */
 	private boolean postingSatuBarang(Session session, Long masterAssetId, org.json.JSONObject baris,
-			String mStr, String sStr) throws Exception {
+			String mStr, String sStr, ais.database.model.Tbmuser pelakuPosting) throws Exception {
 		org.json.JSONArray jurnal = baris.optJSONArray("jurnal");
 		if (jurnal == null || jurnal.length() < 2) {
 			return false;
@@ -775,7 +784,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		String ket = "HPP Kantin - " + baris.optString("ref", "#" + masterAssetId);
 		PostingHistory ph = new PostingHistory(JENIS);
 		ph.setTanggal(dpSampai == null ? new Date() : dpSampai.getValue());
-		ph.setTbmuser(Common.getCurrentUser());
+		ph.setTbmuser(pelakuPosting);
 		ph.setKeterangan(ket);
 		session.getTransaction().begin();
 		try {
@@ -929,6 +938,12 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 	}
 
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
+		return prosesApi(mulai, sampai, posting, Common.getCurrentUser());
+	}
+
+	/** Versi headless/API: tidak bergantung pada Execution ZK untuk identitas pelaku. */
+	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting,
+			ais.database.model.Tbmuser pelakuPosting) throws Exception {
 		if (mulai == null || sampai == null || mulai.after(sampai)) {
 			throw new IllegalArgumentException("Periode posting HPP tidak valid.");
 		}
@@ -950,6 +965,9 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		hasil.put("terakhir", terakhir == null ? JSONObject.NULL : Common.databaseDateFormat.get().format(terakhir));
 		if (!posting) {
 			return hasil;
+		}
+		if (pelakuPosting == null) {
+			throw new IllegalStateException("Pengguna pelaku posting HPP tidak tersedia.");
 		}
 		if (terakhir != null && !mulai.after(terakhir)) {
 			throw new IllegalStateException("Periode tumpang tindih; posting terakhir sampai "
@@ -975,7 +993,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 				+ Common.dateFormat.get().format(sampai);
 		PostingHistory ph = new PostingHistory(JENIS);
 		ph.setTanggal(sampai);
-		ph.setTbmuser(Common.getCurrentUser());
+		ph.setTbmuser(pelakuPosting);
 		ph.setKeterangan(ket);
 		boolean ok = false;
 		session.getTransaction().begin();

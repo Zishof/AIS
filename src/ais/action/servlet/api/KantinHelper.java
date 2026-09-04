@@ -6674,17 +6674,23 @@ public class KantinHelper {
 		String[] pola = new String[] { "dd-MM-yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss",
 				"dd-MM-yyyy HH:mm", "yyyy-MM-dd'T'HH:mm:ss" };
 		for (int i = 0; i < pola.length; i++) {
-			try {
-				return new java.text.SimpleDateFormat(pola[i], Common.LOCALE_ID).parse(teks);
-			} catch (Exception abaikan) {
-				// coba pola berikutnya
+			java.text.SimpleDateFormat parser =
+					new java.text.SimpleDateFormat(pola[i], Common.LOCALE_ID);
+			parser.setLenient(false);
+			java.text.ParsePosition posisi = new java.text.ParsePosition(0);
+			Date hasil = parser.parse(teks, posisi);
+			if (hasil != null && posisi.getIndex() == teks.length()) {
+				return hasil;
 			}
 		}
-		try {
-			return new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy",
-					java.util.Locale.ENGLISH).parse(teks);
-		} catch (Exception abaikan) {
-			// benar-benar tak dikenali -- dicatat di bawah
+		java.text.SimpleDateFormat parserDateToString =
+				new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy",
+						java.util.Locale.ENGLISH);
+		parserDateToString.setLenient(false);
+		java.text.ParsePosition posisiDateToString = new java.text.ParsePosition(0);
+		Date hasilDateToString = parserDateToString.parse(teks, posisiDateToString);
+		if (hasilDateToString != null && posisiDateToString.getIndex() == teks.length()) {
+			return hasilDateToString;
 		}
 		ais.common.ErrorAuditUtil.record(
 				new java.text.ParseException("Format waktu transaksi tidak dikenali: " + teks, 0),
