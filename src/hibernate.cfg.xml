@@ -124,22 +124,15 @@
 		<property name="hibernate.c3p0.preferredTestQuery">SELECT 1</property>
 		<property name="hibernate.c3p0.testConnectionOnCheckin">true</property>
 		<property name="hibernate.c3p0.testConnectionOnCheckout">true</property>
-		<!-- REBUT koneksi ter-checkout > 30 menit (kebocoran nyata 6-10 JAM pasti
-		     terjaring; operasi sah < 30 mnt aman). Jaring pengaman TETAP menyala. -->
-		<property name="hibernate.c3p0.unreturnedConnectionTimeout">1800</property>
-		<!-- DINYALAKAN SEMENTARA (insiden pool-exhaustion 10-07) untuk MENANGKAP kode pembocor:
-		     saat unreturnedConnectionTimeout (1800 dtk) merebut koneksi yang tertahan, c3p0 akan
+		<!-- DIAGNOSTIK SEMENTARA insiden pool-exhaustion 04-09: rebut koneksi yang
+		     tertahan lebih dari 10 menit agar satu node tidak terus terkunci di 80/80. -->
+		<property name="hibernate.c3p0.unreturnedConnectionTimeout">600</property>
+		<!-- DINYALAKAN SEMENTARA untuk MENANGKAP kode pembocor:
+		     saat unreturnedConnectionTimeout (600 dtk) merebut koneksi yang tertahan, c3p0 akan
 		     MENCETAK stack trace tempat koneksi itu di-checkout ke log -> langsung ketahuan apakah
 		     ada leak & di kelas/baris mana (di antara ~377 lokasi openSession + perubahan terbaru).
-		     Ada overhead capture stack per-checkout; MATIKAN LAGI (false) setelah diagnosa selesai.
-		     Tip: untuk hasil lebih cepat, bisa turunkan unreturnedConnectionTimeout sementara (mis. 600). -->
-		<!-- OPTIMASI FASE 4: debugUnreturnedConnectionStackTraces MEMATIKAN diagnostik mahal.
-			 c3p0 merekam stack trace pada SETIAP checkout koneksi (walk stack per-request) -
-			 berguna saat memburu kebocoran koneksi, tetapi menjadi beban tetap di jalur panas
-			 setelah kebocoran diperbaiki (Fase 1). unreturnedConnectionTimeout di atas TETAP
-			 aktif sehingga koneksi yang bocor tetap direbut kembali; yang hilang hanya jejak
-			 stack-nya. Kembalikan ke true (lalu restart) bila perlu mendiagnosis kebocoran. -->
-		<property name="hibernate.c3p0.debugUnreturnedConnectionStackTraces">false</property>
+		     Ada overhead capture stack per-checkout; kembalikan ke 1800/false setelah diagnosa selesai. -->
+		<property name="hibernate.c3p0.debugUnreturnedConnectionStackTraces">true</property>
 
 		<!-- ============================================================
 		     KETAHANAN SAAT DATABASE TURUN / NGADAT SESAAT
