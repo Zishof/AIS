@@ -1228,6 +1228,50 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 		if (workspace != null && workspace.getAkun() != null) {
 			akunsDebets.add(workspace.getAkun());
 			nilaiDebets.add(pertangungjawabanKasBesar.getNilai());
+		} else {
+			// Kas Besar tanpa anggaran (alur operasional yang sah) tidak memiliki
+			// workspace pada formula dokumen induk. Dalam kasus itu debit diambil dari
+			// akun biaya PER BARIS LPJ, sama dengan akun yang dipilih pengguna pada
+			// formulir. Implementasi lama hanya memahami workspace sehingga seluruh LPJ
+			// tanpa anggaran diam-diam dilewati saat posting massal.
+			boolean pphMengurangi = Common.bolehKonfigurasi("pph_mengurangi_lpj");
+			JSONArray rincianLpj = new JSONArray(pertangungjawabanKasBesar.getFormula());
+			for (int i = 0; i < rincianLpj.length(); i++) {
+				JSONObject baris = rincianLpj.optJSONObject(i);
+				if (baris == null || baris.isNull("akun")) {
+					continue;
+				}
+				Akun akunBiaya = null;
+				try {
+					akunBiaya = (Akun) ConstantValues.ambil(Akun.class.getName(),
+							Long.valueOf(new BigDecimal(baris.get("akun") + "").longValue()));
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"PostingPertangungjawabanKasBesarAction akun rincian LPJ");
+				}
+				if (akunBiaya == null) {
+					continue;
+				}
+				double jumlah = baris.optDouble("jumlah", 0.0);
+				double nilaiBaris = jumlah + (baris.optDouble("ppn", 0.0) / 100.0 * jumlah);
+				if (pphMengurangi && !baris.isNull("pajak")) {
+					try {
+						JenisPajakBarang pajak = (JenisPajakBarang) ConstantValues.ambil(
+								JenisPajakBarang.class.getName(),
+								Long.valueOf(new BigDecimal(baris.get("pajak") + "").longValue()));
+						if (pajak != null && pajak.getPersen() != null) {
+							nilaiBaris -= pajak.getPersen().doubleValue() / 100.0 * jumlah;
+						}
+					} catch (Exception e) {
+						ais.common.ErrorAuditUtil.record(e,
+								"PostingPertangungjawabanKasBesarAction pajak rincian LPJ");
+					}
+				}
+				if (nilaiBaris > 0.0) {
+					akunsDebets.add(akunBiaya);
+					nilaiDebets.add(Double.valueOf(nilaiBaris));
+				}
+			}
 		}
 
 		Double totalPajak = 0.0;
