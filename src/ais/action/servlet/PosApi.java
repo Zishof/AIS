@@ -4558,25 +4558,26 @@ public class PosApi extends HttpServlet {
 			}
 		}
 		boolean perTransaksi = idsArr != null;
+		int batasRiwayat = ais.action.servlet.api.PostingStatusUtil.batasRiwayat(payload);
 		JSONObject data;
 		if ("hpp".equals(jenis)) {
 			ais.action.master.koperasi.PostingHppKantinAction aksiHpp =
 					new ais.action.master.koperasi.PostingHppKantinAction();
 			if (perTransaksi) {
-				data = aksiHpp.prosesApi(mulai, sampai, false, tbmuser);
+				data = aksiHpp.prosesApi(mulai, sampai, false, tbmuser, batasRiwayat);
 				data.put("hasilPosting", aksiHpp.postingPerBarang(idsDipilih, mulai, sampai, tbmuser));
 			} else {
-				data = aksiHpp.prosesApi(mulai, sampai, posting, tbmuser);
+				data = aksiHpp.prosesApi(mulai, sampai, posting, tbmuser, batasRiwayat);
 			}
 		} else if ("penjualan".equals(jenis)) {
 			ais.action.master.koperasi.PostingPenjualanKantinAction aksiJual =
 					new ais.action.master.koperasi.PostingPenjualanKantinAction();
 			if (perTransaksi) {
 				// Hitung draf dulu (tanpa posting), lalu posting hanya id terpilih.
-				data = aksiJual.prosesApi(mulai, sampai, false, tbmuser);
+				data = aksiJual.prosesApi(mulai, sampai, false, tbmuser, batasRiwayat);
 				data.put("hasilPosting", aksiJual.postingPerTransaksi(idsDipilih, tbmuser));
 			} else {
-				data = aksiJual.prosesApi(mulai, sampai, posting, tbmuser);
+				data = aksiJual.prosesApi(mulai, sampai, posting, tbmuser, batasRiwayat);
 			}
 		} else {
 			throw new IllegalArgumentException("Jenis pendukung laporan keuangan tidak dikenal: " + jenis);

@@ -24,6 +24,7 @@ import org.zkoss.zul.Vlayout;
 
 import ais.action.master.akunting.util.CommonAkunting;
 import ais.action.master.asset.util.AssetUtil;
+import ais.action.servlet.api.PostingStatusUtil;
 import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
@@ -681,7 +682,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit PostingHppKantinAction.barisDraftHpp");
 		}
-		return o;
+		return PostingStatusUtil.tandaiBelum(o, akunLengkap);
 	}
 
 	/**
@@ -938,12 +939,18 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 	}
 
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
-		return prosesApi(mulai, sampai, posting, Common.getCurrentUser());
+		return prosesApi(mulai, sampai, posting, Common.getCurrentUser(), 500);
 	}
 
 	/** Versi headless/API: tidak bergantung pada Execution ZK untuk identitas pelaku. */
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting,
 			ais.database.model.Tbmuser pelakuPosting) throws Exception {
+		return prosesApi(mulai, sampai, posting, pelakuPosting, 500);
+	}
+
+	/** Versi API dengan batas riwayat eksplisit (100..10.000). */
+	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting,
+			ais.database.model.Tbmuser pelakuPosting, int batasRiwayat) throws Exception {
 		if (mulai == null || sampai == null || mulai.after(sampai)) {
 			throw new IllegalArgumentException("Periode posting HPP tidak valid.");
 		}
@@ -961,6 +968,19 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		hasil.put("belumDipetakan", new JSONArray(belumDipetakan));
 		hasil.put("jurnal", jurnalApi(debitPerAkun, kreditPerAkun, "HPP", "Persediaan"));
 		hasil.put("rincian", new JSONArray(rincianDraft));
+		JSONArray sudah = riwayatPostingApi(mulai, sampai,
+				PostingStatusUtil.batasRiwayat(batasRiwayat));
+		int jumlahSiap = 0;
+		for (int i = 0; i < rincianDraft.size(); i++) {
+			if (rincianDraft.get(i).optBoolean("siap", false)) {
+				jumlahSiap++;
+			}
+		}
+		hasil.put("rincianSudahDiposting", sudah);
+		hasil.put("jumlahBelumDiposting", rincianDraft.size());
+		hasil.put("jumlahSiapDiposting", jumlahSiap);
+		hasil.put("jumlahSudahDiposting", sudah.length());
+		hasil.put("batasRiwayat", PostingStatusUtil.batasRiwayat(batasRiwayat));
 		Date terakhir = lastPostedEnd();
 		hasil.put("terakhir", terakhir == null ? JSONObject.NULL : Common.databaseDateFormat.get().format(terakhir));
 		if (!posting) {
@@ -1029,6 +1049,46 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		}
 		hasil.put("diposting", true);
 		return hasil;
+	}
+
+	/** Riwayat posting HPP diringkas per PostingHistory/jurnal. */
+	@SuppressWarnings("unchecked")
+	private JSONArray riwayatPostingApi(Date mulai, Date sampai, int batas) {
+		JSONArray keluar = new JSONArray();
+		try {
+			Session session = HibernateUtil.currentSession();
+			String m = Common.databaseDateFormat.get().format(mulai);
+			String s = Common.databaseDateFormat.get().format(sampai);
+			List<Object[]> rows = session.createSQLQuery(
+					"SELECT pb.posting_hpp, COALESCE(ph.keterangan,''),"
+							+ " MIN(h.tanggal_pembayaran),"
+							+ " COALESCE((SELECT SUM(g.total_debet) FROM akunting.grup_transaksi g"
+							+ " WHERE g.posting_history=pb.posting_hpp),0),"
+							+ " COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g"
+							+ " WHERE g.posting_history=pb.posting_hpp),''),"
+							+ " (SELECT MIN(g.tanggal_transaksi) FROM akunting.grup_transaksi g"
+							+ " WHERE g.posting_history=pb.posting_hpp)"
+							+ " FROM koperasi.pembelian pb"
+							+ " INNER JOIN koperasi.pembelian_anggota_koperasi h"
+							+ " ON h.id=pb.pembelian_anggota_koperasi"
+							+ " LEFT JOIN akunting.posting_history ph ON ph.id=pb.posting_hpp"
+							+ " WHERE pb.posting_hpp IS NOT NULL AND pb.aktif=true"
+							+ " AND date(h.tanggal_pembayaran) BETWEEN date('" + m + "') AND date('" + s + "')"
+							+ " GROUP BY pb.posting_hpp, ph.keterangan"
+							+ " ORDER BY MIN(h.tanggal_pembayaran) DESC, pb.posting_hpp DESC LIMIT " + batas).list();
+			for (Object[] r : rows) {
+				long phId = ((Number) r[0]).longValue();
+				String ket = r[1] == null ? "" : r[1].toString();
+				keluar.put(PostingStatusUtil.sudah(phId,
+						ket.isEmpty() ? ("HPP #" + phId) : ket,
+						r[3] instanceof Number ? ((Number) r[3]).doubleValue() : 0.0,
+						(Date) r[2], phId, r[4] == null ? "" : r[4].toString(),
+						(Date) r[5], ket));
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingHppKantinAction.riwayatPostingApi");
+		}
+		return keluar;
 	}
 
 	private JSONArray jurnalApi(Map<Long, Double> debit, Map<Long, Double> kredit, String labelDebit,

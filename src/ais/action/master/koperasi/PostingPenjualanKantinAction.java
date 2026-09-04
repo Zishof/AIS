@@ -24,6 +24,7 @@ import org.zkoss.zul.Label;
 import org.zkoss.zul.Vlayout;
 
 import ais.action.master.akunting.util.CommonAkunting;
+import ais.action.servlet.api.PostingStatusUtil;
 import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
@@ -730,7 +731,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 			// menggagalkan perhitungan posting itu sendiri (gagal-aman).
 			ais.common.ErrorAuditUtil.record(e, "auto-audit PostingPenjualanKantinAction.barisDraft");
 		}
-		return o;
+		return PostingStatusUtil.tandaiBelum(o, alasan == null);
 	}
 
 	private org.json.JSONObject barisJurnal(Long akunId, double debit, double kredit) {
@@ -999,12 +1000,18 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 	}
 
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
-		return prosesApi(mulai, sampai, posting, Common.getCurrentUser());
+		return prosesApi(mulai, sampai, posting, Common.getCurrentUser(), 500);
 	}
 
 	/** Versi headless/API: tidak bergantung pada Execution ZK untuk identitas pelaku. */
 	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting,
 			ais.database.model.Tbmuser pelakuPosting) throws Exception {
+		return prosesApi(mulai, sampai, posting, pelakuPosting, 500);
+	}
+
+	/** Versi API dengan batas riwayat eksplisit (100..10.000). */
+	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting,
+			ais.database.model.Tbmuser pelakuPosting, int batasRiwayat) throws Exception {
 		if (mulai == null || sampai == null || mulai.after(sampai)) {
 			throw new IllegalArgumentException("Periode posting penjualan tidak valid.");
 		}
@@ -1025,6 +1032,13 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		hasil.put("belumDipetakan", new JSONArray(belumDipetakan));
 		hasil.put("jurnal", jurnalApi());
 		hasil.put("rincian", new JSONArray(rincianDraft));
+		JSONArray sudah = riwayatPostingApi(mulai, sampai,
+				PostingStatusUtil.batasRiwayat(batasRiwayat));
+		hasil.put("rincianSudahDiposting", sudah);
+		hasil.put("jumlahBelumDiposting", rincianDraft.size());
+		hasil.put("jumlahSiapDiposting", headerTerposting.size());
+		hasil.put("jumlahSudahDiposting", sudah.length());
+		hasil.put("batasRiwayat", PostingStatusUtil.batasRiwayat(batasRiwayat));
 		Date terakhir = lastPostedEnd();
 		hasil.put("terakhir", terakhir == null ? JSONObject.NULL : Common.databaseDateFormat.get().format(terakhir));
 		if (!posting) {
@@ -1084,6 +1098,38 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		}
 		hasil.put("diposting", true);
 		return hasil;
+	}
+
+	/** Riwayat sumber penjualan yang sudah mempunyai PostingHistory. */
+	@SuppressWarnings("unchecked")
+	private JSONArray riwayatPostingApi(Date mulai, Date sampai, int batas) {
+		JSONArray keluar = new JSONArray();
+		try {
+			Session session = HibernateUtil.currentSession();
+			String m = Common.databaseDateFormat.get().format(mulai);
+			String s = Common.databaseDateFormat.get().format(sampai);
+			List<Object[]> rows = session.createSQLQuery(
+					"SELECT h.id, COALESCE(h.total_biaya,0), h.tanggal_pembayaran, h.posting_history,"
+							+ " COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g"
+							+ " WHERE g.posting_history=h.posting_history),''),"
+							+ " (SELECT MIN(g.tanggal_transaksi) FROM akunting.grup_transaksi g"
+							+ " WHERE g.posting_history=h.posting_history), COALESCE(ph.keterangan,'')"
+							+ " FROM koperasi.pembelian_anggota_koperasi h"
+							+ " LEFT JOIN akunting.posting_history ph ON ph.id=h.posting_history"
+							+ " WHERE h.posting_history IS NOT NULL AND COALESCE(h.total_biaya,0)>0"
+							+ " AND date(h.tanggal_pembayaran) BETWEEN date('" + m + "') AND date('" + s + "')"
+							+ " ORDER BY h.tanggal_pembayaran DESC, h.id DESC LIMIT " + batas).list();
+			for (Object[] r : rows) {
+				long id = ((Number) r[0]).longValue();
+				keluar.put(PostingStatusUtil.sudah(id, "Faktur #" + id,
+						num(r[1]), (Date) r[2], ((Number) r[3]).longValue(),
+						r[4] == null ? "" : r[4].toString(), (Date) r[5],
+						r[6] == null ? "" : r[6].toString()));
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingPenjualanKantinAction.riwayatPostingApi");
+		}
+		return keluar;
 	}
 
 	private JSONArray jurnalApi() throws Exception {

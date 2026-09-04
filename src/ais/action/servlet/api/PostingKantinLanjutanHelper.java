@@ -321,6 +321,7 @@ public final class PostingKantinLanjutanHelper {
                 j.put("siap", d.siap());
 				j.put("alasan", d.siap() ? "" : lengkapiLangkahPerbaikan(
 						d.alasan.isEmpty() ? "Jurnal tidak seimbang" : d.alasan));
+				PostingStatusUtil.tandaiBelum(j, d.siap());
                 arr.put(j);
                 if (d.siap()) {
                     siap++;
@@ -333,8 +334,15 @@ public final class PostingKantinLanjutanHelper {
             hasil.put("jumlahDraf", draf.size());
             hasil.put("jumlahSiap", siap);
             hasil.put("totalSiap", totalSiap);
+			hasil.put("jumlahBelumDiposting", draf.size());
+			hasil.put("jumlahSiapDiposting", siap);
 
             if (!terapkan) {
+				int batas = PostingStatusUtil.batasRiwayat(payload);
+				JSONArray sudah = riwayatPosting(session, jenis, mulai, sampai, batas);
+				hasil.put("rincianSudahDiposting", sudah);
+				hasil.put("jumlahSudahDiposting", sudah.length());
+				hasil.put("batasRiwayat", batas);
                 hasil.put("message", draf.isEmpty()
                         ? "Tidak ada dokumen yang belum diposting pada periode ini."
                         : siap + " dari " + draf.size() + " dokumen siap diposting.");
@@ -389,6 +397,95 @@ public final class PostingKantinLanjutanHelper {
             HibernateUtil.closeSessionQuietly(session);
         }
     }
+
+	/**
+	 * Membaca dokumen sumber yang sudah terposting tanpa mengubah kontrak draf lama.
+	 * Kolomnya dinormalisasi menjadi: id, referensi, nilai, tanggal sumber,
+	 * posting_history, nomor jurnal, tanggal posting.
+	 */
+	private static JSONArray riwayatPosting(Session session, String jenis, String mulai,
+			String sampai, int batas) {
+		JSONArray keluar = new JSONArray();
+		try {
+			String sql;
+			if ("kulakan".equals(jenis)) {
+				sql = "SELECT COALESCE(pp.faktur_pengadaan,pp.id),"
+						+ " CASE WHEN pp.faktur_pengadaan IS NULL THEN 'Kulakan #' || CAST(pp.id AS text)"
+						+ " ELSE 'Faktur ' || COALESCE(NULLIF(TRIM(f.nomor_faktur),''),"
+						+ " '#' || CAST(pp.faktur_pengadaan AS text)) END,"
+						+ " SUM(COALESCE(pp.totalharga,COALESCE(pp.qty,0)*COALESCE(pp.hargabelisatuan,0),0)),"
+						+ " MIN(pp.waktupengadaan), pp.posting_pembelian,"
+						+ " COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g"
+						+ " WHERE g.posting_history=pp.posting_pembelian),''),"
+						+ " (SELECT MIN(g.tanggal_transaksi) FROM akunting.grup_transaksi g"
+						+ " WHERE g.posting_history=pp.posting_pembelian)"
+						+ " FROM koperasi.pengadaan_produk pp"
+						+ " LEFT JOIN koperasi.pengadaan_faktur f ON f.id=pp.faktur_pengadaan"
+						+ " WHERE pp.posting_pembelian IS NOT NULL"
+						+ " AND date(pp.waktupengadaan) BETWEEN date(?) AND date(?)"
+						+ " GROUP BY COALESCE(pp.faktur_pengadaan,pp.id),"
+						+ " CASE WHEN pp.faktur_pengadaan IS NULL THEN 'Kulakan #' || CAST(pp.id AS text)"
+						+ " ELSE 'Faktur ' || COALESCE(NULLIF(TRIM(f.nomor_faktur),''),"
+						+ " '#' || CAST(pp.faktur_pengadaan AS text)) END, pp.posting_pembelian"
+						+ " ORDER BY MIN(pp.waktupengadaan) DESC LIMIT " + batas;
+			} else if ("bayar_hutang".equals(jenis)) {
+				sql = "SELECT p.id, COALESCE(NULLIF(TRIM(p.kode_unik),''),'Bayar #' || CAST(p.id AS text)),"
+						+ " ABS(COALESCE(p.nominal,0)), p.tanggal, p.posting_history,"
+						+ " COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g"
+						+ " WHERE g.posting_history=p.posting_history),''),"
+						+ " (SELECT MIN(g.tanggal_transaksi) FROM akunting.grup_transaksi g"
+						+ " WHERE g.posting_history=p.posting_history)"
+						+ " FROM koperasi.pembayaran_hutang_supplier p"
+						+ " WHERE p.posting_history IS NOT NULL"
+						+ " AND date(p.tanggal) BETWEEN date(?) AND date(?)"
+						+ " ORDER BY p.tanggal DESC, p.id DESC LIMIT " + batas;
+			} else if ("terima_piutang".equals(jenis)) {
+				sql = "SELECT p.id, COALESCE(NULLIF(TRIM(p.nomor),''),'Terima #' || CAST(p.id AS text)),"
+						+ " ABS(COALESCE(p.nominal,0)), p.tanggal, p.posting_history,"
+						+ " COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g"
+						+ " WHERE g.posting_history=p.posting_history),''),"
+						+ " (SELECT MIN(g.tanggal_transaksi) FROM akunting.grup_transaksi g"
+						+ " WHERE g.posting_history=p.posting_history)"
+						+ " FROM koperasi.penerimaan_piutang_customer p"
+						+ " WHERE p.posting_history IS NOT NULL"
+						+ " AND date(p.tanggal) BETWEEN date(?) AND date(?)"
+						+ " ORDER BY p.tanggal DESC, p.id DESC LIMIT " + batas;
+			} else {
+				sql = "SELECT x.id,x.referensi,x.nilai,x.tanggal,x.ph,"
+						+ " COALESCE((SELECT MIN(g.kode) FROM akunting.grup_transaksi g"
+						+ " WHERE g.posting_history=x.ph),''),"
+						+ " (SELECT MIN(g.tanggal_transaksi) FROM akunting.grup_transaksi g"
+						+ " WHERE g.posting_history=x.ph) FROM ("
+						+ " SELECT r.id,'Retur Beli #' || CAST(r.id AS text) referensi,"
+						+ " ABS(COALESCE(r.totalnilai,COALESCE(r.qty,0)*COALESCE(r.hargasatuan,0),0)) nilai,"
+						+ " r.waktu tanggal,r.posting_history ph FROM koperasi.retur_pembelian r"
+						+ " WHERE r.posting_history IS NOT NULL"
+						+ " UNION ALL SELECT r.id,'Retur Jual #' || CAST(r.id AS text),"
+						+ " ABS(COALESCE(r.totalnilai,COALESCE(r.qty,0)*COALESCE(r.hargasatuan,0),0)),"
+						+ " r.waktu,r.posting_history FROM koperasi.retur_penjualan r"
+						+ " WHERE r.posting_history IS NOT NULL"
+						+ " UNION ALL SELECT o.id,'Opname #' || CAST(o.id AS text),"
+						+ " ABS(COALESCE(o.selisih,0)*COALESCE(pr.hargabeli,0)),o.waktuopname,o.posting_history"
+						+ " FROM koperasi.stok_opname o LEFT JOIN koperasi.produk pr ON pr.id=o.produk"
+						+ " WHERE o.posting_history IS NOT NULL"
+						+ " UNION ALL SELECT m.id,'Mutasi #' || CAST(m.id AS text),"
+						+ " ABS(COALESCE(m.qty,0)*COALESCE(pr.hargabeli,0)),m.waktu,m.posting_history"
+						+ " FROM koperasi.mutasi_stok_toko m LEFT JOIN koperasi.produk pr ON pr.id=m.produk_asal"
+						+ " WHERE m.posting_history IS NOT NULL) x"
+						+ " WHERE date(x.tanggal) BETWEEN date(?) AND date(?)"
+						+ " ORDER BY x.tanggal DESC,x.id DESC LIMIT " + batas;
+			}
+			List<Mentah> rows = baca(session, sql, mulai, sampai, 7);
+			for (int i = 0; i < rows.size(); i++) {
+				Mentah r = rows.get(i);
+				keluar.put(PostingStatusUtil.sudah(r.lng(1), r.str(2), r.dbl(3), r.tgl(4),
+						r.lng(5), r.str(6), r.tgl(7), ""));
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PostingKantinLanjutanHelper.riwayatPosting " + jenis);
+		}
+		return keluar;
+	}
 
 	/**
 	 * Semua draf posting toko melewati titik ini. Pesan sebab dari kalkulator tetap
