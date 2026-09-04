@@ -485,6 +485,22 @@ public final class AnggaranApiHelper {
 		}
 	}
 
+	/** Menjaga flag leaf tetap benar untuk pemilih anggaran lama maupun API baru. */
+	private static void perbaruiLeaf(Session session, Long id) {
+		if (session == null || id == null || id.longValue() == 0L) {
+			return;
+		}
+		Workspace item = (Workspace) session.get(Workspace.class, id);
+		if (item == null) {
+			return;
+		}
+		Number anak = (Number) session
+				.createQuery("select count(w.id) from Workspace w where w.parentId = :id and w.id <> :id")
+				.setLong("id", id.longValue()).uniqueResult();
+		item.setLeaf(Boolean.valueOf(anak == null || anak.longValue() == 0L));
+		session.saveOrUpdate(item);
+	}
+
 	/**
 	 * Tambah/ubah satu item anggaran. Nilai dua belas bulan yang dikirim klien menjadi sumber
 	 * kebenaran untuk item DAUN; {@code hargaTotal} selalu dihitung ulang dari jumlah bulan agar
@@ -596,9 +612,12 @@ public final class AnggaranApiHelper {
 			session.beginTransaction();
 			session.saveOrUpdate(w);
 			session.flush();
+			perbaruiLeaf(session, w.getId());
+			perbaruiLeaf(session, w.getParentId());
 			// Induk lama ikut dihitung ulang bila item dipindah, supaya jumlahnya ikut turun.
 			hitungUlangInduk(session, w.getParentId());
 			if (indukLama != null && !indukLama.equals(w.getParentId())) {
+				perbaruiLeaf(session, indukLama);
 				hitungUlangInduk(session, indukLama);
 			}
 			session.getTransaction().commit();
@@ -669,6 +688,7 @@ public final class AnggaranApiHelper {
 			session.beginTransaction();
 			session.delete(w);
 			session.flush();
+			perbaruiLeaf(session, induk);
 			hitungUlangInduk(session, induk);
 			session.getTransaction().commit();
 			hasil.put("status", "00");

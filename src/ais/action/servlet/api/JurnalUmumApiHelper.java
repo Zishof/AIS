@@ -24,6 +24,7 @@ import ais.database.model.akunting.GrupTransaksi;
 import ais.database.model.akunting.JenisTransaksi;
 import ais.database.model.akunting.PostingHistory;
 import ais.database.model.akunting.Transaksi;
+import ais.database.model.rab.Workspace;
 
 /**
  * <h3>Jurnal Umum untuk POS Desktop/Android</h3>
@@ -68,6 +69,22 @@ public final class JurnalUmumApiHelper {
         java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd");
         f.setLenient(false);
         return f;
+    }
+
+    /** Id workspace bisa 19 digit dan pada instalasi lama bernilai negatif. */
+    private static long idDari(JSONObject payload, String nama) {
+        if (payload == null) {
+            return 0L;
+        }
+        String teks = payload.optString(nama + "Teks", "").trim();
+        if (teks.length() == 0) {
+            teks = payload.optString(nama, "").trim();
+        }
+        try {
+            return teks.length() == 0 ? payload.optLong(nama, 0L) : Long.parseLong(teks);
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     private JurnalUmumApiHelper() {
@@ -155,6 +172,8 @@ public final class JurnalUmumApiHelper {
         } else if ("jurnal_umum_batal_posting".equals(action)) {
             if (!bolehAksi(tbmuser, payload, hasil, "reject")) { return; }
             posting(tbmuser, payload, hasil, false);
+        } else if ("jurnal_umum_cari_anggaran".equals(action)) {
+            AnggaranKeuanganUtil.cari(payload, hasil);
         } else if ("jurnal_umum_jenis_transaksi".equals(action)) {
             jenisTransaksi(payload, hasil);
         } else {
@@ -180,9 +199,11 @@ public final class JurnalUmumApiHelper {
                     "SELECT g.id, COALESCE(g.kode,''), g.tanggal_transaksi, COALESCE(g.keterangan,''),"
                             + " COALESCE(g.total_debet,0), COALESCE(g.total_kredit,0), g.posting_history,"
                             + " COALESCE(jt.nama,''), COALESCE(jt.kode,''),"
-                            + " (SELECT COUNT(*) FROM akunting.transaksi t WHERE t.grup_transaksi = g.id)"
+                            + " (SELECT COUNT(*) FROM akunting.transaksi t WHERE t.grup_transaksi = g.id),"
+                            + " g.workspace, COALESCE(w.kode,''), COALESCE(w.nama,'')"
                             + " FROM akunting.grup_transaksi g"
                             + " LEFT JOIN akunting.jenis_transaksi jt ON jt.id = g.jenis_transaksi"
+                            + " LEFT JOIN rab.workspace w ON w.id = g.workspace"
                             + " WHERE COALESCE(g.jenis_jurnal,'') = ?");
             List<Object> prm = new ArrayList<Object>();
             prm.add(Transaksi.JURNAL_UMUM);
@@ -229,6 +250,12 @@ public final class JurnalUmumApiHelper {
                 j.put("jenisTransaksi", rs.getString(8));
                 j.put("kodeJenis", rs.getString(9));
                 j.put("jumlahBaris", rs.getInt(10));
+                long workspaceId = rs.getLong(11);
+                boolean tanpaWorkspace = rs.wasNull();
+                j.put("workspaceId", tanpaWorkspace ? JSONObject.NULL : Long.valueOf(workspaceId));
+                j.put("workspaceIdTeks", tanpaWorkspace ? "" : String.valueOf(workspaceId));
+                j.put("workspaceKode", rs.getString(12));
+                j.put("workspaceNama", rs.getString(13));
                 arr.put(j);
                 totalDebet += rs.getDouble(5);
                 totalKredit += rs.getDouble(6);
@@ -277,6 +304,13 @@ public final class JurnalUmumApiHelper {
                     : g.getJenisTransaksi().getId());
             kepala.put("jenisTransaksi", g.getJenisTransaksi() == null ? ""
                     : g.getJenisTransaksi().getNama());
+            Workspace workspace = g.getWorkspace();
+            kepala.put("workspaceId", workspace == null ? JSONObject.NULL : workspace.getId());
+            kepala.put("workspaceIdTeks", workspace == null ? "" : String.valueOf(workspace.getId()));
+            kepala.put("workspaceNama", workspace == null ? "" : workspace.getNama());
+            kepala.put("workspaceLabel", workspace == null ? ""
+                    : ((workspace.getKode() == null ? "" : workspace.getKode()) + " - "
+                            + (workspace.getNama() == null ? "" : workspace.getNama())));
 
             Connection conn = session.connection();
             PreparedStatement ps = conn.prepareStatement(
@@ -319,6 +353,7 @@ public final class JurnalUmumApiHelper {
         String tanggalTeks = payload.optString("tanggal", "").trim();
         String keterangan = payload.optString("keterangan", "").trim();
         long idJenis = payload.optLong("jenisTransaksiId", 0);
+        long workspaceId = idDari(payload, "workspaceId");
         JSONArray baris = payload.optJSONArray("baris");
 
         if (tanggalTeks.isEmpty()) {
@@ -389,6 +424,28 @@ public final class JurnalUmumApiHelper {
                 return;
             }
 
+            Workspace workspace = null;
+            if (workspaceId != 0L) {
+                workspace = (Workspace) session.get(Workspace.class, Long.valueOf(workspaceId));
+                if (workspace == null) {
+                    tolak(hasil, "Mata anggaran yang dipilih tidak ditemukan.");
+                    return;
+                }
+                if (workspace.getTahunWorkspace() != null
+                        && workspace.getTahunWorkspace().intValue() != Integer.parseInt(tanggalTeks.substring(0, 4))) {
+                    tolak(hasil, "Tahun mata anggaran tidak sama dengan tahun tanggal jurnal.");
+                    return;
+                }
+                Number anak = (Number) session.createQuery(
+                        "select count(w.id) from Workspace w where w.parentId = :id and w.id <> :id"
+                                + " and (w.carryOver = true or w.aktif is null or w.aktif = true)")
+                        .setLong("id", workspaceId).uniqueResult();
+                if (anak != null && anak.longValue() > 0L) {
+                    tolak(hasil, "Pilih mata anggaran paling rinci (daun), bukan kelompok anggaran.");
+                    return;
+                }
+            }
+
             GrupTransaksi g;
             if (id > 0) {
                 g = (GrupTransaksi) session.get(GrupTransaksi.class, Long.valueOf(id));
@@ -431,6 +488,7 @@ public final class JurnalUmumApiHelper {
                 g.setKeterangan(keterangan);
                 g.setJenisJurnal(Transaksi.JURNAL_UMUM);
                 g.setJenisTransaksi(jt);
+                g.setWorkspace(workspace);
                 g.setTotalDebet(Double.valueOf(totalDebet));
                 g.setTotalKredit(Double.valueOf(totalKredit));
                 g.setTbmuser(tbmuser);
@@ -445,6 +503,9 @@ public final class JurnalUmumApiHelper {
                 if (g.getId() == null) {
                     session.save(g);
                 } else {
+                    // Bersihkan realisasi lama sekarang. AuditListener akan membuat ulang
+                    // baris idempotent beberapa detik setelah commit bila workspace tetap dipilih.
+                    AnggaranKeuanganUtil.lepaskan(session, "grup_transaksi", g.getId());
                     session.update(g);
                     session.createSQLQuery("DELETE FROM akunting.transaksi WHERE grup_transaksi = "
                             + g.getId().longValue()).executeUpdate();
@@ -478,8 +539,9 @@ public final class JurnalUmumApiHelper {
             hasil.put("status", "00");
             hasil.put("id", g.getId());
             hasil.put("kode", kode);
-            hasil.put("message", "Jurnal " + kode + " tersimpan sebagai DRAF. Tekan Posting agar masuk "
-                    + "buku besar dan laporan keuangan.");
+            hasil.put("message", "Jurnal " + kode + " tersimpan sebagai DRAF"
+                    + (workspace == null ? "." : " dengan mata anggaran " + workspace.getNama() + ".")
+                    + " Tekan Posting agar masuk buku besar dan laporan keuangan.");
         } finally {
             HibernateUtil.closeSessionQuietly(session);
         }
@@ -527,6 +589,7 @@ public final class JurnalUmumApiHelper {
             }
             session.getTransaction().begin();
             try {
+                AnggaranKeuanganUtil.lepaskan(session, "grup_transaksi", Long.valueOf(id));
                 session.createSQLQuery("DELETE FROM akunting.transaksi WHERE grup_transaksi = " + id)
                         .executeUpdate();
                 session.delete(g);

@@ -79,14 +79,17 @@ public final class AnggaranKeuanganUtil {
 						+ " FROM rab.workspace w"
 						+ " LEFT JOIN rab.satuan_kerja sk ON sk.id = w.satuan_kerja"
 						+ " LEFT JOIN akunting.akun a ON a.id = w.akun"
-						+ " WHERE COALESCE(w.aktif,true) = true AND COALESCE(w.leaf,false) = true");
+						+ " WHERE COALESCE(w.aktif,true) = true"
+						+ " AND NOT EXISTS (SELECT 1 FROM rab.workspace anak"
+						+ " WHERE anak.parent_id = w.id AND anak.id <> w.id"
+						+ " AND COALESCE(anak.aktif,true) = true)");
 		if (cari != null && !cari.isEmpty()) {
 			sql.append(" AND (w.nama ILIKE ? OR COALESCE(w.kode,'') ILIKE ?)");
 		}
 		if (tahun > 0) {
 			sql.append(" AND COALESCE(w.tahun_workspace,0) = ?");
 		}
-		sql.append(" ORDER BY w.nama LIMIT 100");
+		sql.append(" ORDER BY w.nama LIMIT 500");
 		PreparedStatement ps = conn.prepareStatement(sql.toString());
 		int i = 1;
 		if (cari != null && !cari.isEmpty()) {
@@ -289,8 +292,8 @@ public final class AnggaranKeuanganUtil {
 	 * Dipanggil di dalam transaksi milik pemanggil supaya keduanya batal bersama bila
 	 * penghapusan dokumennya gagal.</p>
 	 *
-	 * @param kolom {@code uang_muka}, {@code kas_kecil}, {@code kas_besar}, atau
-	 *              {@code pertangungjawaban}.
+	 * @param kolom {@code uang_muka}, {@code kas_kecil}, {@code kas_besar},
+	 *              {@code pertangungjawaban}, atau {@code grup_transaksi}.
 	 */
 	public static void lepaskan(Session session, String kolom, Long id) throws Exception {
 		if (session == null || id == null || !kolomSah(kolom)) {
@@ -310,7 +313,7 @@ public final class AnggaranKeuanganUtil {
 	 * menunjukkan anggaran mana saja yang terpotong oleh dokumen ini.
 	 *
 	 * @param kolom nama kolom relasi: {@code uang_muka}, {@code kas_kecil}, {@code kas_besar},
-	 *              atau {@code pertangungjawaban}.
+	 *              {@code pertangungjawaban}, atau {@code grup_transaksi}.
 	 */
 	public static JSONArray pemakaianDokumen(Session session, String kolom, long id) throws Exception {
 		JSONArray arr = new JSONArray();
@@ -338,9 +341,9 @@ public final class AnggaranKeuanganUtil {
 		return arr;
 	}
 
-	/** Nama kolom tidak boleh datang dari luar apa adanya -- hanya empat ini yang sah. */
+	/** Nama kolom tidak boleh datang dari luar apa adanya -- hanya relasi ini yang sah. */
 	private static boolean kolomSah(String kolom) {
 		return "uang_muka".equals(kolom) || "kas_kecil".equals(kolom) || "kas_besar".equals(kolom)
-				|| "pertangungjawaban".equals(kolom);
+				|| "pertangungjawaban".equals(kolom) || "grup_transaksi".equals(kolom);
 	}
 }
