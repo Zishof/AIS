@@ -113,6 +113,8 @@ public final class ApotikApiDispatcher {
 			ApotikSesiKasHelper.daftar(tbmuser, payload, hasil);
 		} else if ("apotik_metrik_operasional".equals(action)) {
 			ApotikMetrikHelper.metrikOperasional(payload, hasil);
+		} else if (action.startsWith("apotik_posting_") || action.startsWith("apotik_pemetaan_akun_")) {
+			ApotikPostingHelper.proses(action, tbmuser, payload, hasil);
 		} else if ("apotik_laporan_pembayaran".equals(action)) {
 			ApotikLaporanHelper.laporanPembayaran(payload, hasil);
 		} else if ("apotik_laporan_terkendali".equals(action)) {

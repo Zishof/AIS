@@ -2428,6 +2428,11 @@ public class PosApi extends HttpServlet {
 		if ("apotik_provision_demo".equals(action)) {
 			return true;
 		}
+		if (action.startsWith("apotik_posting_") || action.startsWith("apotik_pemetaan_akun_")) {
+			return menu.optBoolean("apotik_laporan", false)
+					|| menu.optBoolean("posting_penjualan", false)
+					|| menu.optBoolean("posting_hpp", false);
+		}
 		if ("apotik_item_profil_simpan".equals(action)) {
 			return menu.optBoolean("apotik_formularium", false);
 		}

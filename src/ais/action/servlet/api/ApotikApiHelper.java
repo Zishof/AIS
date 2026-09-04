@@ -21,10 +21,13 @@ import ais.database.model.sirs.ApotikBatchKonsumsi;
 import ais.database.model.sirs.ApotikItemProfile;
 import ais.database.model.sirs.ApotikNarkotikaLog;
 import ais.database.model.sirs.ApotikPembayaranTransaksi;
+import ais.database.model.sirs.AlergiPasien;
 import ais.database.model.sirs.AntreanFarmasi;
+import ais.database.model.sirs.DiagnosaPenyakit;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
 import ais.database.model.sirs.KodeTransaksiMedis;
+import ais.database.model.sirs.Pasien;
 import ais.database.model.sirs.Resep;
 import ais.database.model.sirs.ResepDetail;
 import ais.database.model.sirs.TransaksiMedis;
@@ -527,6 +530,9 @@ public final class ApotikApiHelper {
 			hasil.put("resepId", resep.getId());
 			hasil.put("kode", str(resep.getKode()));
 			hasil.put("data", arr);
+			JSONObject klinis = profilKeselamatanResep(session, resep, details);
+			hasil.put("pasien", klinis.opt("pasien"));
+			hasil.put("telaahKlinis", klinis);
 			// Klien baru memakai ringkasan racikan di atas untuk tebus resep campuran;
 			// flag dipertahankan agar klien lama tetap dapat memberi peringatan.
 			hasil.put("adaRacikan", adaRacikan);
@@ -588,6 +594,86 @@ public final class ApotikApiHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/**
+	 * Ringkasan keselamatan resep dari model SIRS existing. Pemeriksaan otomatis
+	 * sengaja hanya menyatakan kecocokan yang eksak melalui FK
+	 * {@link AlergiPasien#getItemMedis()}; alergi teks bebas tidak ditebak dan
+	 * tidak pernah menghasilkan klaim "aman" karena basis pengetahuan interaksi
+	 * serta dosis belum dikonfigurasi.
+	 */
+	@SuppressWarnings("unchecked")
+	private static JSONObject profilKeselamatanResep(Session session, Resep resep,
+			List<ResepDetail> details) throws Exception {
+		JSONObject hasil = new JSONObject();
+		hasil.put("evaluasiOtomatisLengkap", false);
+		hasil.put("basisPengetahuanInteraksiTersedia", false);
+		hasil.put("kesimpulan", "PERLU_TELAAH_APOTEKER");
+		JSONArray alergiJson = new JSONArray();
+		JSONArray peringatan = new JSONArray();
+		DiagnosaPenyakit diagnosa = resep.getDiagnosaPenyakit();
+		Pasien pasien = diagnosa == null ? null : diagnosa.getPasien();
+		if (pasien == null) {
+			hasil.put("pasien", JSONObject.NULL);
+			hasil.put("alergiAktif", alergiJson);
+			peringatan.put(new JSONObject()
+					.put("tingkat", "PERINGATAN")
+					.put("kode", "PROFIL_PASIEN_BELUM_TERHUBUNG")
+					.put("pesan", "Profil pasien belum terhubung ke resep; alergi wajib dikonfirmasi manual."));
+			hasil.put("peringatan", peringatan);
+			return hasil;
+		}
+
+		JSONObject p = new JSONObject();
+		p.put("id", pasien.getId());
+		p.put("kode", str(pasien.getKode()));
+		p.put("nama", str(pasien.getNama()));
+		p.put("jenisKelamin", str(pasien.getJenisKelamin()));
+		hasil.put("pasien", p);
+
+		java.util.Set<Long> itemResep = new java.util.HashSet<Long>();
+		for (ResepDetail detail : details) {
+			if (detail.getItem() != null) itemResep.add(detail.getItem().getId());
+		}
+		List<AlergiPasien> alergi = session.createCriteria(AlergiPasien.class)
+				.add(Restrictions.eq("pasien", pasien))
+				.add(Restrictions.eq("statusKlinis", AlergiPasien.STATUS_AKTIF))
+				.addOrder(Order.desc("tanggalCatat")).list();
+		boolean cocokEksak = false;
+		for (AlergiPasien a : alergi) {
+			boolean cocok = a.getItemMedis() != null && itemResep.contains(a.getItemMedis().getId());
+			cocokEksak = cocokEksak || cocok;
+			JSONObject baris = new JSONObject();
+			baris.put("id", a.getId());
+			baris.put("kategori", str(a.getKategori()));
+			baris.put("substansi", str(a.getSubstansi()));
+			baris.put("reaksi", str(a.getReaksi()));
+			baris.put("keparahan", str(a.getKeparahan()));
+			baris.put("cocokEksakDenganResep", cocok);
+			baris.put("itemId", a.getItemMedis() == null ? JSONObject.NULL : a.getItemMedis().getId());
+			alergiJson.put(baris);
+			if (cocok) {
+				peringatan.put(new JSONObject()
+						.put("tingkat", "BAHAYA")
+						.put("kode", "ALERGI_OBAT_COCOK_EKSAK")
+						.put("pesan", "Alergi aktif cocok dengan item resep: " + str(a.getSubstansi())));
+			}
+		}
+		if (!alergi.isEmpty() && !cocokEksak) {
+			peringatan.put(new JSONObject()
+					.put("tingkat", "PERINGATAN")
+					.put("kode", "ALERGI_AKTIF_PERLU_VERIFIKASI")
+					.put("pesan", "Pasien memiliki alergi aktif; substansi teks wajib diverifikasi apoteker."));
+		}
+		peringatan.put(new JSONObject()
+				.put("tingkat", "INFO")
+				.put("kode", "TELAAH_INTERAKSI_MANUAL")
+				.put("pesan", "Interaksi, duplikasi terapi, dan dosis belum dinilai otomatis."));
+		hasil.put("alergiAktif", alergiJson);
+		hasil.put("peringatan", peringatan);
+		if (cocokEksak) hasil.put("kesimpulan", "ALERGI_TERDETEKSI");
+		return hasil;
 	}
 
 	/** Buat atau perbarui satu antrean; daftar obat hanya berisi nama/jumlah yang layak ditampilkan. */

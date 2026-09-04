@@ -21,6 +21,7 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.sirs.ApotikItemProfile;
+import ais.database.model.sirs.AlergiPasien;
 import ais.database.model.sirs.AntreanFarmasi;
 import ais.database.model.sirs.BahanBakuItem;
 import ais.database.model.sirs.ItemMedis;
@@ -29,6 +30,8 @@ import ais.database.model.sirs.JenisItemMedis;
 import ais.database.model.sirs.KodeTransaksiMedis;
 import ais.database.model.sirs.Dokter;
 import ais.database.model.sirs.DetailTransaksiPasien;
+import ais.database.model.sirs.DiagnosaPenyakit;
+import ais.database.model.sirs.Pasien;
 import ais.database.model.sirs.Resep;
 import ais.database.model.sirs.ResepDetail;
 import ais.database.model.sirs.Racikan;
@@ -299,6 +302,7 @@ public final class ApotikDemoProvisionHelper {
 			int racikanDibuat = ensureRacikanDemo(session, obatA, obatB);
 			int formulaRacikanDibuat = ensureFormulaRacikanUat(session);
 			int formulaProduksiDibuat = ensureFormulaProduksiUat(session);
+			int pasienKlinisDibuat = ensurePasienKlinisDemo(session);
 			int antreanDibuat = ensureAntreanDemo(session, request);
 			Resep resep = (Resep) session.createCriteria(Resep.class)
 					.add(Restrictions.eq("kode", "RSP-UJI-1")).setMaxResults(1).uniqueResult();
@@ -319,6 +323,7 @@ public final class ApotikDemoProvisionHelper {
 			ringkas.put("racikanBaru", racikanDibuat);
 			ringkas.put("formulaRacikanOperasionalBaru", formulaRacikanDibuat);
 			ringkas.put("formulaProduksiOperasionalBaru", formulaProduksiDibuat);
+			ringkas.put("pasienKlinisSampleBaru", pasienKlinisDibuat);
 			ringkas.put("antreanBaru", antreanDibuat);
 			ringkas.put("items", items);
 			ringkas.put("resepId", resep.getId());
@@ -335,6 +340,82 @@ public final class ApotikDemoProvisionHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/**
+	 * Hubungkan 100 resep demo ke pasien/diagnosis/alergi SIRS existing. Seluruh
+	 * nilai ditandai SAMPLE dan idempoten; resep/pasien nyata tidak disentuh.
+	 */
+	@SuppressWarnings("unchecked")
+	private static int ensurePasienKlinisDemo(Session session) {
+		List<Resep> reseps = session.createQuery(
+				"from Resep r where r.kode like :kode order by r.kode")
+				.setString("kode", "RSP-DEMO-%").setMaxResults(100).list();
+		int dibuat = 0;
+		for (int i = 1; i <= reseps.size(); i++) {
+			String nomor = pad(i, 3);
+			String kodePasien = "APT-UAT-" + nomor;
+			Pasien pasien = (Pasien) session.createCriteria(Pasien.class)
+					.add(Restrictions.eq("kode", kodePasien)).setMaxResults(1).uniqueResult();
+			if (pasien == null) {
+				pasien = new Pasien();
+				pasien.setKode(kodePasien);
+				pasien.setNama("Pasien Sample Apotik " + nomor);
+				pasien.setJenisKelamin(i % 2 == 0 ? "P" : "L");
+				pasien.setAlamat("DATA SAMPLE/UAT");
+				pasien.setKeterangan("Profil pasien sintetis untuk demonstrasi keselamatan farmasi.");
+				pasien.setOleh("Provisioning DATA SAMPLE/UAT");
+				pasien.setOlehId("seed_demo");
+				session.save(pasien);
+				dibuat++;
+			}
+
+			Resep resep = reseps.get(i - 1);
+			DiagnosaPenyakit diagnosa = resep.getDiagnosaPenyakit();
+			if (diagnosa == null) {
+				diagnosa = new DiagnosaPenyakit();
+				diagnosa.setKode("DX-APT-UAT-" + nomor);
+				diagnosa.setKeterangan(i % 3 == 0 ? "Demam dan nyeri ringan" : "Keluhan saluran napas ringan");
+				diagnosa.setKeluhanPasien("DATA SAMPLE/UAT — bukan diagnosis klinis nyata");
+				diagnosa.setPasien(pasien);
+				diagnosa.setTanggal(new Date());
+				diagnosa.setOleh("Provisioning DATA SAMPLE/UAT");
+				diagnosa.setOlehId("seed_demo");
+				session.save(diagnosa);
+				resep.setDiagnosaPenyakit(diagnosa);
+				session.update(resep);
+			}
+
+			long jumlahAlergi = ((Number) session.createQuery(
+					"select count(a) from AlergiPasien a where a.pasien = :pasien")
+					.setParameter("pasien", pasien).uniqueResult()).longValue();
+			if (jumlahAlergi == 0) {
+				AlergiPasien alergi = new AlergiPasien();
+				alergi.setPasien(pasien);
+				alergi.setKategori(i % 4 == 0 ? AlergiPasien.KATEGORI_OBAT : AlergiPasien.KATEGORI_MAKANAN);
+				alergi.setReaksi(i % 4 == 0 ? "Ruam dan sesak" : "Gatal ringan");
+				alergi.setKeparahan(i % 4 == 0 ? AlergiPasien.KEPARAHAN_BERAT : AlergiPasien.KEPARAHAN_RINGAN);
+				alergi.setStatusKlinis(AlergiPasien.STATUS_AKTIF);
+				alergi.setPencatat("Apoteker Demo");
+				alergi.setKeterangan("DATA SAMPLE/UAT — wajib diverifikasi sebelum penggunaan nyata.");
+				alergi.setOleh("Provisioning DATA SAMPLE/UAT");
+				alergi.setOlehId("seed_demo");
+				if (i % 4 == 0) {
+					List<ResepDetail> detail = session.createQuery(
+							"from ResepDetail d where d.resep = :resep and d.item is not null order by d.id")
+							.setParameter("resep", resep).setMaxResults(1).list();
+					if (!detail.isEmpty()) {
+						ItemMedis item = detail.get(0).getItem();
+						alergi.setItemMedis(item);
+						alergi.setSubstansi(item.getNama());
+					}
+				} else {
+					alergi.setSubstansi(i % 2 == 0 ? "Kacang" : "Udang");
+				}
+				session.save(alergi);
+			}
+		}
+		return dibuat;
 	}
 
 	/**
