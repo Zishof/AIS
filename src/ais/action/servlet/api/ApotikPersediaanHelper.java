@@ -475,42 +475,61 @@ public final class ApotikPersediaanHelper {
 		try {
 			java.util.Calendar batas = java.util.Calendar.getInstance();
 			batas.add(java.util.Calendar.DAY_OF_MONTH, hariKeDepan);
-			org.hibernate.Criteria c = session.createCriteria(Kadaluarsa.class)
-					.add(Restrictions.le("tanggalKadaluarsa", batas.getTime()));
-			if (lokasiId != null) {
-				c.createAlias("lokasi", "lokasi").add(Restrictions.eq("lokasi.id", lokasiId));
-			}
-			c.addOrder(Order.asc("tanggalKadaluarsa"));
-			c.setFirstResult((page - 1) * size);
-			c.setMaxResults(size);
-			@SuppressWarnings("unchecked")
-			List<Kadaluarsa> batches = c.list();
-			List<Long> ids = new java.util.ArrayList<Long>();
-			for (Kadaluarsa k : batches) {
-				ids.add(k.getId());
-			}
-			java.util.Map<Long, Double> konsumsi = ApotikApiHelper.konsumsiPerBatch(session, ids);
 			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
 			Date awalHari = awalHariIni();
 			JSONArray arr = new JSONArray();
-			for (Kadaluarsa k : batches) {
-				double awal = k.getQty() == null ? 0 : k.getQty().doubleValue();
-				Double pakai = konsumsi.get(k.getId());
-				double sisa = awal - (pakai == null ? 0 : pakai.doubleValue());
-				if (sisa <= 0.0001) {
-					continue; // batch habis -- tidak perlu ditindak.
+			// Jangan melakukan paging SEBELUM batch habis disaring. Pola lama mengambil
+			// tepat `size` baris dari DB lalu membuang batch bersisa nol, sehingga
+			// page_size=100 dapat mengembalikan 99 (atau lebih sedikit) walaupun ribuan
+			// batch layak masih tersedia pada halaman berikutnya. Ambil kandidat per
+			// chunk, hitung sisa, lalu terapkan offset/limit pada kumpulan LOGIS yang
+			// benar-benar layak ditampilkan. Ini menjaga halaman selalu penuh sekaligus
+			// mencegah duplikasi/lompatan antarhalaman.
+			final int offsetLayak = (page - 1) * size;
+			final int ukuranChunk = Math.max(100, size * 2);
+			int offsetMentah = 0;
+			int jumlahLayakTerlewati = 0;
+			boolean kandidatHabis = false;
+			while (arr.length() < size && !kandidatHabis) {
+				org.hibernate.Criteria c = session.createCriteria(Kadaluarsa.class)
+						.add(Restrictions.le("tanggalKadaluarsa", batas.getTime()));
+				if (lokasiId != null) {
+					c.createAlias("lokasi", "lokasi").add(Restrictions.eq("lokasi.id", lokasiId));
 				}
-				JSONObject j = new JSONObject();
-				j.put("kadaluarsaId", k.getId());
-				j.put("itemId", k.getItem() == null ? JSONObject.NULL : k.getItem().getId());
-				j.put("kode", k.getItem() == null ? "" : str(k.getItem().getKode()));
-				j.put("nama", k.getItem() == null ? "" : str(k.getItem().getNama()));
-				j.put("tanggalKadaluarsa",
-						k.getTanggalKadaluarsa() == null ? "" : fmt.format(k.getTanggalKadaluarsa()));
-				j.put("sisa", sisa);
-				j.put("kedaluwarsa",
-						k.getTanggalKadaluarsa() != null && k.getTanggalKadaluarsa().before(awalHari));
-				arr.put(j);
+				c.addOrder(Order.asc("tanggalKadaluarsa")).addOrder(Order.asc("id"));
+				c.setFirstResult(offsetMentah);
+				c.setMaxResults(ukuranChunk);
+				@SuppressWarnings("unchecked")
+				List<Kadaluarsa> batches = c.list();
+				if (batches.size() < ukuranChunk) kandidatHabis = true;
+				offsetMentah += batches.size();
+				if (batches.isEmpty()) break;
+
+				List<Long> ids = new java.util.ArrayList<Long>();
+				for (Kadaluarsa k : batches) ids.add(k.getId());
+				java.util.Map<Long, Double> konsumsi = ApotikApiHelper.konsumsiPerBatch(session, ids);
+				for (Kadaluarsa k : batches) {
+					double awal = k.getQty() == null ? 0 : k.getQty().doubleValue();
+					Double pakai = konsumsi.get(k.getId());
+					double sisa = awal - (pakai == null ? 0 : pakai.doubleValue());
+					if (sisa <= 0.0001) continue;
+					if (jumlahLayakTerlewati < offsetLayak) {
+						jumlahLayakTerlewati++;
+						continue;
+					}
+					JSONObject j = new JSONObject();
+					j.put("kadaluarsaId", k.getId());
+					j.put("itemId", k.getItem() == null ? JSONObject.NULL : k.getItem().getId());
+					j.put("kode", k.getItem() == null ? "" : str(k.getItem().getKode()));
+					j.put("nama", k.getItem() == null ? "" : str(k.getItem().getNama()));
+					j.put("tanggalKadaluarsa",
+							k.getTanggalKadaluarsa() == null ? "" : fmt.format(k.getTanggalKadaluarsa()));
+					j.put("sisa", sisa);
+					j.put("kedaluwarsa",
+							k.getTanggalKadaluarsa() != null && k.getTanggalKadaluarsa().before(awalHari));
+					arr.put(j);
+					if (arr.length() >= size) break;
+				}
 			}
 			hasil.put("status", "00");
 			hasil.put("data", arr);
