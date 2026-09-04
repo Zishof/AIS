@@ -2563,10 +2563,11 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	 * pencetakan.
 	 *
 	 * <p>Kolom {@code nomor_induk} bersifat {@code nullable = false}. Sejak
-	 * {@code ais.common.InitIndex#initNisCounterDanKeunikanSiswa()} terpasang, kolom ini UNIK
-	 * per sekolah lewat index {@code uq_siswa_sekolah_nomor_induk} pada {@code (sekolah_id,
-	 * nomor_induk)} &mdash; dua sekolah BERBEDA masih boleh memakai nomor induk yang sama, tetapi
-	 * dua siswa di sekolah YANG SAMA tidak lagi bisa. Lihat javadoc kelas
+	 * {@code ais.common.InitIndex#initNisCounterDanKeunikanSiswa()} terpasang, NIS yang terisi UNIK
+	 * per sekolah lewat partial index {@code uq_siswa_sekolah_nomor_induk_terisi} pada
+	 * {@code (sekolah_id, nomor_induk)}. Nilai {@code null}, kosong, atau hanya berisi spasi
+	 * diabaikan sampai NIS resmi tersedia. Dua sekolah BERBEDA masih boleh memakai nomor induk
+	 * yang sama, tetapi dua siswa di sekolah YANG SAMA tidak lagi bisa. Lihat javadoc kelas
 	 * {@link ais.database.model.sekolah.FormatNis} untuk riwayat perbaikan mekanisme pembangkitan
 	 * NIS yang dahulu bisa menghasilkan nomor kembar. Alias baca-sajanya {@link #getNis()}. Nilai
 	 * ini juga menjadi cadangan {@link #getNomorIndukNasional()} &mdash; baca peringatan di sana

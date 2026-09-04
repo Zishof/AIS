@@ -132,9 +132,10 @@ public class InitIndex {
 	 * SEBELUM unique index dipasang &mdash; bukan penomoran ulang otomatis yang menebak nomor
 	 * &quot;benar&quot;, karena NIS adalah identitas resmi (dipakai login) yang keliru bila ditebak
 	 * sistem; sekolah perlu meninjau {@code sekolah.nis_duplikat_audit} dan menerbitkan NIS yang
-	 * benar secara manual untuk baris yang tersufiks; (3) memasang unique index
-	 * {@code (sekolah_id, nomor_induk)} pada {@code sekolah.siswa} &mdash; jaring pengaman lapisan
-	 * basis data yang dahulu tidak ada sama sekali (kolom hanya {@code nullable = false}).
+	 * benar secara manual untuk baris yang tersufiks; (3) memasang partial unique index
+	 * {@code (sekolah_id, nomor_induk)} pada {@code sekolah.siswa} hanya untuk NIS yang terisi
+	 * &mdash; nilai {@code null}, string kosong, dan string berisi spasi diabaikan karena belum
+	 * merupakan identitas resmi siswa.
 	 *
 	 * <p>Seluruh langkah idempoten ({@code IF NOT EXISTS}/{@code WHERE NOT EXISTS}) dan aman
 	 * dijalankan berulang pada tiap startup maupun pada beberapa node aplikasi bersamaan (kegagalan
@@ -165,7 +166,7 @@ public class InitIndex {
 						+ "SELECT d.id, d.sekolah_id, d.nomor_induk, d.nomor_induk || '-DUP' || d.id "
 						+ "FROM (SELECT id, sekolah_id, nomor_induk, "
 						+ "ROW_NUMBER() OVER (PARTITION BY sekolah_id, nomor_induk ORDER BY id) AS urutan "
-						+ "FROM sekolah.siswa WHERE nomor_induk IS NOT NULL AND nomor_induk <> '') d "
+						+ "FROM sekolah.siswa WHERE nomor_induk IS NOT NULL AND BTRIM(nomor_induk) <> '') d "
 						+ "WHERE d.urutan > 1 "
 						+ "AND NOT EXISTS (SELECT 1 FROM sekolah.nis_duplikat_audit a WHERE a.siswa_id = d.id)",
 
@@ -173,7 +174,16 @@ public class InitIndex {
 						+ "FROM sekolah.nis_duplikat_audit a "
 						+ "WHERE s.id = a.siswa_id AND s.nomor_induk = a.nomor_induk_asli",
 
-				"CREATE UNIQUE INDEX IF NOT EXISTS uq_siswa_sekolah_nomor_induk ON sekolah.siswa (sekolah_id, nomor_induk)" };
+				/*
+				 * Nama index baru sengaja dipakai agar instalasi yang sempat berhasil membuat index
+				 * lama (yang juga mengunci string kosong) dapat dimigrasikan tanpa DROP/CREATE pada
+				 * setiap startup. Buat pelindung baru dahulu, baru hapus definisi lama.
+				 */
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_siswa_sekolah_nomor_induk_terisi "
+						+ "ON sekolah.siswa (sekolah_id, nomor_induk) "
+						+ "WHERE nomor_induk IS NOT NULL AND BTRIM(nomor_induk) <> ''",
+
+				"DROP INDEX IF EXISTS sekolah.uq_siswa_sekolah_nomor_induk" };
 		for (int i = 0; i < ddl.length; i++) {
 			try {
 				Common.updateSql(ddl[i]);
