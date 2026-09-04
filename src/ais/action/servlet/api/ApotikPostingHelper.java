@@ -41,6 +41,7 @@ public final class ApotikPostingHelper {
         String kode;
         Date tanggal;
         double nilai;
+        boolean pembayaranTersedia;
         String alasan = "";
         final List<Akun> debet = new ArrayList<Akun>();
         final List<Double> nilaiDebet = new ArrayList<Double>();
@@ -268,18 +269,22 @@ public final class ApotikPostingHelper {
 
     private static void isiDrafHpp(Session s,String mulai,String sampai,Map<Long,Draf> daftar)throws Exception{
         Akun hpp=akun(s,ApotikAkunMapping.HPP),persediaan=akun(s,ApotikAkunMapping.PERSEDIAAN);
-        String sql="SELECT d.transaksi,COALESCE(SUM(k.qty*COALESCE(i.default_harga_beli,0)),0)"
+        String sql="SELECT d.transaksi,COALESCE(SUM(k.qty*COALESCE(i.default_harga_beli,0)),0),"
+                + " EXISTS (SELECT 1 FROM sirs.apotik_pembayaran_transaksi p WHERE p.transaksi=d.transaksi)"
                 + " FROM sirs.apotik_batch_konsumsi k JOIN sirs.transaksi_medis_detail d ON d.id=k.transaksi_detail"
                 + " JOIN sirs.transaksi_medis t ON t.id=d.transaksi JOIN sirs.kadaluarsa b ON b.id=k.kadaluarsa"
                 + " JOIN sirs.item_medis i ON i.id=b.item WHERE t.sumber='APOTIK' AND t.jenis_transaksi='item'"
                 + " AND date(t.tanggal_transaksi) BETWEEN date(?) AND date(?) GROUP BY d.transaksi";
         PreparedStatement ps=s.connection().prepareStatement(sql);ps.setString(1,mulai);ps.setString(2,sampai);ResultSet rs=ps.executeQuery();
-        while(rs.next()){Draf d=daftar.get(Long.valueOf(rs.getLong(1)));if(d!=null)d.nilai=Math.abs(rs.getDouble(2));}
+        while(rs.next()){Draf d=daftar.get(Long.valueOf(rs.getLong(1)));if(d!=null){d.nilai=Math.abs(rs.getDouble(2));d.pembayaranTersedia=rs.getBoolean(3);}}
         rs.close();ps.close();
         for(Draf d:daftar.values()){
             if(hpp==null||persediaan==null)d.alasan="Akun HPP atau Persediaan Apotik belum dipetakan.";
             else if(d.nilai<=EPS)d.alasan="Nilai HPP nol; periksa harga beli item/batch transaksi.";
-            else{d.debet.add(hpp);d.nilaiDebet.add(Double.valueOf(d.nilai));d.kredit.add(persediaan);d.nilaiKredit.add(Double.valueOf(d.nilai));}
+            else{
+                d.debet.add(hpp);d.nilaiDebet.add(Double.valueOf(d.nilai));d.kredit.add(persediaan);d.nilaiKredit.add(Double.valueOf(d.nilai));
+                if(!d.pembayaranTersedia)d.alasan="Pembayaran transaksi belum tersedia; HPP ditahan agar tidak terposting tanpa jurnal Penjualan.";
+            }
         }
     }
 
