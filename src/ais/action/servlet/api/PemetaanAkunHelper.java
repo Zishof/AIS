@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -22,6 +24,11 @@ import ais.database.model.akunting.JenisLaporan;
 import ais.database.model.akunting.KelompokLaporan;
 import ais.database.model.akunting.KelompokLaporanPunyaAkun;
 import ais.database.model.akunting.MasterGrupLaporan;
+import ais.database.model.asset.MasterAsset;
+import ais.database.model.inventory.JenisProduk;
+import ais.database.model.inventory.Produk;
+import ais.database.model.inventory.Toko;
+import ais.database.model.library.Penyedia;
 
 /**
  * Pemetaan otomatis akun ke Kelompok Laporan.
@@ -123,7 +130,16 @@ public final class PemetaanAkunHelper {
     }
 
     public static void proses(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
-        if ("pemetaan_akun_usulan".equals(action)) {
+        if ("pemetaan_akun_kantin_audit".equals(action)) {
+            jalankanKantin(payload, hasil, false);
+            hasil.put("hak", hakAksesJson(tbmuser));
+        } else if ("pemetaan_akun_kantin_terapkan".equals(action)) {
+            if (!bolehAksiMenu(tbmuser, "pemetaan_akun", "create")) {
+                tolakHak(hasil, "menerapkan pemetaan akun Kantin/POS");
+                return;
+            }
+            jalankanKantin(payload, hasil, true);
+        } else if ("pemetaan_akun_usulan".equals(action)) {
             jalankan(payload, hasil, false);
             hasil.put("hak", hakAksesJson(tbmuser));
         } else if ("pemetaan_akun_terapkan".equals(action)) {
@@ -136,6 +152,308 @@ public final class PemetaanAkunHelper {
             hasil.put("status", "99");
             hasil.put("message", "Aksi pemetaan akun tidak dikenal: " + action);
         }
+    }
+
+    /**
+     * Audit/perbaikan idempoten untuk rantai Kantin -&gt; POS -&gt; Kulakan -&gt; Akuntansi.
+     *
+     * <p>Kode akun bawaan diambil dari bagan akun eBisnis yang dilampirkan pada UAT 4 September
+     * 2026. Server selalu me-resolve KODE ke id tenant saat ini; id tidak pernah di-hardcode.
+     * Mode terapkan hanya mengisi relasi kosong, kecuali payload {@code timpa=true} diberikan
+     * secara eksplisit. Produk yang diperiksa dibatasi pada produk yang masih mempunyai transaksi
+     * penjualan/HPP atau kulakan yang belum diposting, sehingga tidak menyapu katalog tenant di
+     * luar lingkup UAT.</p>
+     */
+    private static void jalankanKantin(JSONObject payload, JSONObject hasil, boolean terapkan) throws Exception {
+        JSONObject p = payload == null ? new JSONObject() : payload;
+        Long tokoId = p.has("tokoId") && !p.isNull("tokoId") && p.optLong("tokoId", 0) > 0
+                ? Long.valueOf(p.optLong("tokoId")) : null;
+        if (terapkan && tokoId == null) {
+            hasil.put("status", "91");
+            hasil.put("description", "tokoId wajib dipilih agar pemetaan akun Kantin tidak mengenai toko lain.");
+            return;
+        }
+        boolean timpa = p.optBoolean("timpa", false);
+        String kodeKas = p.optString("kodeKas", "111.101").trim();
+        String kodePiutang = p.optString("kodePiutang", "131.300").trim();
+        String kodePersediaan = p.optString("kodePersediaan", "151.200").trim();
+        String kodeUtang = p.optString("kodeUtang", "310.600").trim();
+        String kodePendapatan = p.optString("kodePendapatan", "410.900").trim();
+        String kodeHpp = p.optString("kodeHpp", "510.900").trim();
+
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction tx = null;
+        try {
+            Akun kas = akunKantinDariKode(session, kodeKas, "Kas");
+            Akun piutang = akunKantinDariKode(session, kodePiutang, "Piutang Usaha Toko");
+            Akun persediaan = akunKantinDariKode(session, kodePersediaan, "Persediaan");
+            Akun utang = akunKantinDariKode(session, kodeUtang, "Utang Usaha Toko");
+            Akun pendapatan = akunKantinDariKode(session, kodePendapatan, "Pendapatan Penjualan Toko");
+            Akun hpp = akunKantinDariKode(session, kodeHpp, "Beban Pokok Penjualan Toko");
+
+            JSONArray akun = new JSONArray();
+            akun.put(relasiAkun("Kas/Tunai", kas));
+            akun.put(relasiAkun("Piutang penjualan kredit", piutang));
+            akun.put(relasiAkun("Persediaan barang kantin", persediaan));
+            akun.put(relasiAkun("Utang supplier", utang));
+            akun.put(relasiAkun("Pendapatan penjualan", pendapatan));
+            akun.put(relasiAkun("HPP", hpp));
+
+            List<Long> produkId = produkBelumPosting(session.connection(), tokoId);
+            Set<Long> jenisId = new HashSet<Long>();
+            int produkTanpaMaster = 0;
+            int produkTanpaPersediaan = 0;
+            int masterDibuat = 0;
+            int masterDipetakan = 0;
+            int jenisTanpaPendapatan = 0;
+            int jenisTanpaHpp = 0;
+            int jenisDipetakan = 0;
+
+            List<Produk> produk = new ArrayList<Produk>();
+            for (int i = 0; i < produkId.size(); i++) {
+                Produk pr = (Produk) session.get(Produk.class, produkId.get(i));
+                if (pr == null) continue;
+                produk.add(pr);
+                if (pr.getJenisProduk() != null && pr.getJenisProduk().getId() != null) {
+                    jenisId.add(pr.getJenisProduk().getId());
+                }
+                MasterAsset ma = pr.getMasterAsset();
+                if (ma == null) {
+                    produkTanpaMaster++;
+                } else if (!formulaPunyaAkun(ma.akunTransaksiEfektif())) {
+                    produkTanpaPersediaan++;
+                }
+            }
+            for (java.util.Iterator<Long> it = jenisId.iterator(); it.hasNext();) {
+                JenisProduk jp = (JenisProduk) session.get(JenisProduk.class, it.next());
+                if (jp == null) continue;
+                if (jp.getAkunPendapatan() == null) jenisTanpaPendapatan++;
+                if (jp.getAkunHpp() == null) jenisTanpaHpp++;
+            }
+
+            Toko toko = tokoId == null ? null : (Toko) session.get(Toko.class, tokoId);
+            int tokoTanpaKas = toko != null && toko.getAkunKas() == null ? 1 : 0;
+            int tokoTanpaPiutang = toko != null && toko.getAkunPiutang() == null ? 1 : 0;
+            int tokoDipetakan = 0;
+
+            List<Long> penyediaId = penyediaBelumPosting(session.connection(), tokoId);
+            int penyediaTanpaUtang = 0;
+            int penyediaDipetakan = 0;
+            for (int i = 0; i < penyediaId.size(); i++) {
+                Penyedia py = (Penyedia) session.get(Penyedia.class, penyediaId.get(i));
+                if (py != null && py.getAkunUtang() == null) penyediaTanpaUtang++;
+            }
+
+            if (terapkan) {
+                tx = session.beginTransaction();
+                if (toko == null) {
+                    throw new IllegalArgumentException("Toko id " + tokoId + " tidak ditemukan.");
+                }
+                if (timpa || toko.getAkunKas() == null) {
+                    toko.setAkunKas(kas);
+                    tokoDipetakan++;
+                }
+                if (timpa || toko.getAkunPiutang() == null) {
+                    toko.setAkunPiutang(piutang);
+                    tokoDipetakan++;
+                }
+                session.saveOrUpdate(toko);
+
+                for (int i = 0; i < produk.size(); i++) {
+                    Produk pr = produk.get(i);
+                    MasterAsset ma = pr.getMasterAsset();
+                    if (ma == null) {
+                        String kode = pr.getKode() == null ? "" : pr.getKode().trim();
+                        if (!kode.isEmpty()) {
+                            ma = (MasterAsset) session.createCriteria(MasterAsset.class)
+                                    .add(Restrictions.eq("kode", kode)).setMaxResults(1).uniqueResult();
+                        }
+                        if (ma == null) {
+                            ma = new MasterAsset();
+                            ma.setKode(kode.isEmpty() ? null : kode);
+                            ma.setNama(pr.getNama() == null ? "Produk POS" : pr.getNama());
+                            session.save(ma);
+                            masterDibuat++;
+                        }
+                        pr.setMasterAsset(ma);
+                        session.saveOrUpdate(pr);
+                    }
+                    if (timpa || !formulaPunyaAkun(ma.akunTransaksiEfektif())) {
+                        ma.setAkunTransaksi(formulaAkun(persediaan));
+                        session.saveOrUpdate(ma);
+                        masterDipetakan++;
+                    }
+                }
+
+                for (java.util.Iterator<Long> it = jenisId.iterator(); it.hasNext();) {
+                    JenisProduk jp = (JenisProduk) session.get(JenisProduk.class, it.next());
+                    if (jp == null) continue;
+                    boolean berubah = false;
+                    if (timpa || jp.getAkunPendapatan() == null) {
+                        jp.setAkunPendapatan(pendapatan);
+                        berubah = true;
+                    }
+                    if (timpa || jp.getAkunHpp() == null) {
+                        jp.setAkunHpp(hpp);
+                        berubah = true;
+                    }
+                    if (timpa || jp.getAkunSelisihPersediaan() == null) {
+                        jp.setAkunSelisihPersediaan(hpp);
+                        berubah = true;
+                    }
+                    if (berubah) {
+                        session.saveOrUpdate(jp);
+                        jenisDipetakan++;
+                    }
+                }
+
+                for (int i = 0; i < penyediaId.size(); i++) {
+                    Penyedia py = (Penyedia) session.get(Penyedia.class, penyediaId.get(i));
+                    if (py != null && (timpa || py.getAkunUtang() == null)) {
+                        py.setAkunUtang(utang);
+                        session.saveOrUpdate(py);
+                        penyediaDipetakan++;
+                    }
+                }
+                tx.commit();
+
+                // Cadangan untuk produk/supplier baru. Disimpan lewat manager supaya cache konfigurasi
+                // ikut berubah dan request posting berikutnya tidak perlu restart server.
+                ais.common.KonfigurasiManager.simpanKonfigurasi(
+                        ais.action.master.koperasi.helper.AkunKantinUtil.CFG_KAS_TOKO, String.valueOf(kas.getId()));
+                ais.common.KonfigurasiManager.simpanKonfigurasi(
+                        ais.action.master.koperasi.helper.AkunKantinUtil.CFG_PIUTANG_TOKO, String.valueOf(piutang.getId()));
+                ais.common.KonfigurasiManager.simpanKonfigurasi(
+                        ais.action.master.koperasi.helper.AkunKantinUtil.CFG_UTANG_SUPPLIER, String.valueOf(utang.getId()));
+                ais.common.KonfigurasiManager.simpanKonfigurasi(
+                        ais.action.master.koperasi.helper.AkunKantinUtil.CFG_PERSEDIAAN_TOKO, String.valueOf(persediaan.getId()));
+                ais.common.KonfigurasiManager.simpanKonfigurasi(
+                        ais.action.master.koperasi.helper.AkunKantinUtil.CFG_HPP_TOKO, String.valueOf(hpp.getId()));
+                ais.common.KonfigurasiManager.simpanKonfigurasi(
+                        ais.action.master.koperasi.helper.AkunKantinUtil.CFG_PENDAPATAN_TOKO, String.valueOf(pendapatan.getId()));
+            }
+
+            JSONObject kekurangan = new JSONObject();
+            kekurangan.put("tokoTanpaKas", tokoTanpaKas);
+            kekurangan.put("tokoTanpaPiutang", tokoTanpaPiutang);
+            kekurangan.put("produkTanpaMasterAset", produkTanpaMaster);
+            kekurangan.put("produkTanpaAkunPersediaan", produkTanpaPersediaan);
+            kekurangan.put("jenisProdukTanpaPendapatan", jenisTanpaPendapatan);
+            kekurangan.put("jenisProdukTanpaHpp", jenisTanpaHpp);
+            kekurangan.put("penyediaTanpaUtang", penyediaTanpaUtang);
+            JSONObject perubahan = new JSONObject();
+            perubahan.put("relasiToko", tokoDipetakan);
+            perubahan.put("masterAsetDibuat", masterDibuat);
+            perubahan.put("masterAsetDipetakan", masterDipetakan);
+            perubahan.put("jenisProdukDipetakan", jenisDipetakan);
+            perubahan.put("penyediaDipetakan", penyediaDipetakan);
+            perubahan.put("konfigurasiCadangan", terapkan ? 6 : 0);
+
+            hasil.put("status", "00");
+            hasil.put("mode", terapkan ? "TERAPKAN" : "AUDIT");
+            hasil.put("sumberAkun", "cetak_data_260904124814.xlsx");
+            hasil.put("tokoId", tokoId == null ? JSONObject.NULL : tokoId);
+            hasil.put("produkBelumPosting", produk.size());
+            hasil.put("jenisProdukTerkait", jenisId.size());
+            hasil.put("penyediaTerkait", penyediaId.size());
+            hasil.put("akun", akun);
+            hasil.put("kekuranganSebelum", kekurangan);
+            hasil.put("perubahan", perubahan);
+            hasil.put("message", terapkan
+                    ? "Pemetaan akun Kantin diterapkan secara idempoten. Jalankan audit ulang sebelum posting."
+                    : "Audit pemetaan akun Kantin selesai; belum ada data yang diubah.");
+        } catch (Exception e) {
+            if (tx != null && tx.isActive()) {
+                try { tx.rollback(); } catch (Exception rollback) {
+                    ais.common.ErrorAuditUtil.record(rollback, "PemetaanAkunHelper.kantin rollback");
+                }
+            }
+            throw e;
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
+    }
+
+    private static Akun akunKantinDariKode(Session session, String kode, String peran) throws Exception {
+        PreparedStatement ps = session.connection().prepareStatement(
+                "SELECT a.id, NOT EXISTS (SELECT 1 FROM akunting.akun b WHERE b.parent=a.id)"
+                        + " FROM akunting.akun a WHERE REPLACE(TRIM(a.kode),',','.')=? ORDER BY a.id DESC LIMIT 1");
+        ps.setString(1, kode.replace(',', '.'));
+        ResultSet rs = ps.executeQuery();
+        if (!rs.next()) {
+            rs.close(); ps.close();
+            throw new IllegalArgumentException("Akun " + peran + " dengan kode " + kode + " tidak ditemukan.");
+        }
+        long id = rs.getLong(1);
+        boolean daun = rs.getBoolean(2);
+        rs.close(); ps.close();
+        if (!daun) {
+            throw new IllegalArgumentException("Akun " + peran + " " + kode
+                    + " bukan akun daun dan tidak boleh menampung transaksi.");
+        }
+        return (Akun) session.get(Akun.class, Long.valueOf(id));
+    }
+
+    private static JSONObject relasiAkun(String peran, Akun akun) throws Exception {
+        JSONObject j = new JSONObject();
+        j.put("peran", peran);
+        j.put("id", akun.getId());
+        j.put("kode", akun.getKode() == null ? "" : akun.getKode());
+        j.put("nama", akun.getNama() == null ? "" : akun.getNama());
+        return j;
+    }
+
+    private static boolean formulaPunyaAkun(String teks) {
+        try {
+            JSONArray a = teks == null || teks.trim().isEmpty() ? new JSONArray() : new JSONArray(teks);
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject j = a.optJSONObject(i);
+                if (j != null && !j.isNull("akun") && j.optLong("akun", 0) > 0) return true;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return false;
+    }
+
+    private static String formulaAkun(Akun akun) throws Exception {
+        JSONObject j = new JSONObject();
+        long key = System.nanoTime();
+        if (key < 0) key = -key;
+        j.put("key", Long.valueOf(key));
+        j.put("akun", akun.getId());
+        j.put("satuanKerja", JSONObject.NULL);
+        return new JSONArray().put(j).toString();
+    }
+
+    private static List<Long> produkBelumPosting(Connection conn, Long tokoId) throws Exception {
+        String sql = "SELECT DISTINCT p.id FROM koperasi.produk p WHERE COALESCE(p.aktif,true)=true"
+                + " AND (p.id IN (SELECT pp.produk FROM koperasi.pengadaan_produk pp"
+                + " WHERE pp.posting_pembelian IS NULL)"
+                + " OR p.id IN (SELECT pb.produk FROM koperasi.pembelian pb"
+                + " WHERE pb.posting_hpp IS NULL AND pb.aktif=true))"
+                + (tokoId == null ? "" : " AND p.toko=?") + " ORDER BY p.id";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        if (tokoId != null) ps.setLong(1, tokoId.longValue());
+        ResultSet rs = ps.executeQuery();
+        List<Long> keluar = new ArrayList<Long>();
+        while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
+        rs.close(); ps.close();
+        return keluar;
+    }
+
+    private static List<Long> penyediaBelumPosting(Connection conn, Long tokoId) throws Exception {
+        String sql = "SELECT DISTINCT f.supplier FROM koperasi.pengadaan_faktur f"
+                + " INNER JOIN koperasi.pengadaan_produk pp ON pp.faktur_pengadaan=f.id"
+                + " WHERE f.supplier IS NOT NULL AND pp.posting_pembelian IS NULL"
+                + (tokoId == null ? "" : " AND f.toko=?") + " ORDER BY f.supplier";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        if (tokoId != null) ps.setLong(1, tokoId.longValue());
+        ResultSet rs = ps.executeQuery();
+        List<Long> keluar = new ArrayList<Long>();
+        while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
+        rs.close(); ps.close();
+        return keluar;
     }
 
     /** Normalisasi nama kelompok utk pembandingan: huruf besar, spasi rapat, ASET disamakan AKTIVA. */

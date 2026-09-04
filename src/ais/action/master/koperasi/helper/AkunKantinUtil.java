@@ -36,6 +36,10 @@ public final class AkunKantinUtil {
     public static final String CFG_PIUTANG_TOKO = "akun_piutang_toko";
     public static final String CFG_SELISIH_PERSEDIAAN = "akun_selisih_persediaan_toko";
     public static final String CFG_RETUR_PENJUALAN = "akun_retur_penjualan_toko";
+    /** Cadangan eksplisit akun Persediaan/HPP/Pendapatan untuk produk POS yang master barunya belum dipetakan. */
+    public static final String CFG_PERSEDIAAN_TOKO = "akun_persediaan_produk_toko";
+    public static final String CFG_HPP_TOKO = "akun_hpp_produk_toko";
+    public static final String CFG_PENDAPATAN_TOKO = "akun_pendapatan_produk_toko";
 
     private AkunKantinUtil() {
     }
@@ -101,33 +105,30 @@ public final class AkunKantinUtil {
      */
     public static Akun akunPersediaan(Session session, Produk produk, SatuanKerja satker) {
         if (produk == null) {
-            return null;
+            return akunKonfigurasi(CFG_PERSEDIAAN_TOKO);
         }
         try {
             MasterAsset ma = produk.getMasterAsset();
-            if (ma == null) {
-                return null;
-            }
-            if (ma.getAkunTransaksi() != null && !ma.getAkunTransaksi().trim().isEmpty()) {
+            if (ma != null && ma.getAkunTransaksi() != null && !ma.getAkunTransaksi().trim().isEmpty()) {
                 Akun a = AssetUtil.ambilDataAkun(ma.getAkunTransaksi(), satker);
                 if (a != null) {
                     return a;
                 }
             }
-            KelompokAsset kelompok = ma.getKelompokAsset();
+            KelompokAsset kelompok = ma == null ? null : ma.getKelompokAsset();
             if (kelompok != null && kelompok.getAkunTransaksi() != null) {
                 return AssetUtil.ambilDataAkun(kelompok.getAkunTransaksi(), satker);
             }
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "auto-audit AkunKantinUtil.akunPersediaan");
         }
-        return null;
+        return akunKonfigurasi(CFG_PERSEDIAAN_TOKO);
     }
 
     /** Akun HPP barang: Jenis Produk dulu, cadangan Kelompok Aset. */
     public static Akun akunHpp(Session session, Produk produk, SatuanKerja satker) {
         if (produk == null) {
-            return null;
+            return akunKonfigurasi(CFG_HPP_TOKO);
         }
         try {
             JenisProduk jp = produk.getJenisProduk();
@@ -142,16 +143,17 @@ public final class AkunKantinUtil {
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "auto-audit AkunKantinUtil.akunHpp");
         }
-        return null;
+        return akunKonfigurasi(CFG_HPP_TOKO);
     }
 
     /** Akun Pendapatan Penjualan barang (dipakai jurnal retur penjualan). */
     public static Akun akunPendapatan(Session session, Produk produk) {
         try {
             JenisProduk jp = produk == null ? null : produk.getJenisProduk();
-            return jp == null ? null : jp.getAkunPendapatan();
+            Akun a = jp == null ? null : jp.getAkunPendapatan();
+            return a != null ? a : akunKonfigurasi(CFG_PENDAPATAN_TOKO);
         } catch (Exception e) {
-            return null;
+            return akunKonfigurasi(CFG_PENDAPATAN_TOKO);
         }
     }
 
