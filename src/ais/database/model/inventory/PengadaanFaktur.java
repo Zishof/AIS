@@ -132,6 +132,7 @@ public class PengadaanFaktur extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "toko", nullable = false)
 	public Toko getToko() {
+		toko = check(toko);
 		return toko;
 	}
 
@@ -157,6 +158,7 @@ public class PengadaanFaktur extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "supplier", nullable = true)
 	public Penyedia getSupplier() {
+		supplier = check(supplier);
 		return supplier;
 	}
 

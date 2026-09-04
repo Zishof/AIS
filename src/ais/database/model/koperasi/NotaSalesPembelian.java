@@ -148,6 +148,7 @@ public class NotaSalesPembelian extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sesi", nullable = false)
 	public NotaSalesSession getSesi() {
+		sesi = check(sesi);
 		return sesi;
 	}
 
@@ -169,6 +170,7 @@ public class NotaSalesPembelian extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pengadaan_faktur")
 	public PengadaanFaktur getPengadaanFaktur() {
+		pengadaanFaktur = check(pengadaanFaktur);
 		return pengadaanFaktur;
 	}
 
@@ -189,6 +191,7 @@ public class NotaSalesPembelian extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "supplier")
 	public Penyedia getSupplier() {
+		supplier = check(supplier);
 		return supplier;
 	}
 

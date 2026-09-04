@@ -172,6 +172,7 @@ public class PembayaranHutangSupplier extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "supplier", nullable = false)
 	public Penyedia getSupplier() {
+		supplier = check(supplier);
 		return supplier;
 	}
 
@@ -357,6 +358,7 @@ public class PembayaranHutangSupplier extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dibuat_oleh", nullable = true)
 	public Tbmuser getDibuatOleh() {
+		dibuatOleh = check(dibuatOleh);
 		return dibuatOleh;
 	}
 
@@ -572,6 +574,7 @@ public class PembayaranHutangSupplier extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
 	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		postingHistory = check(postingHistory);
 		return postingHistory;
 	}
 
@@ -602,6 +605,7 @@ public class PembayaranHutangSupplier extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "daftar_pengajuan_transfer", nullable = true)
 	public ais.database.model.akunting.DaftarPengajuanTransfer getDaftarPengajuanTransfer() {
+		daftarPengajuanTransfer = check(daftarPengajuanTransfer);
 		return daftarPengajuanTransfer;
 	}
 

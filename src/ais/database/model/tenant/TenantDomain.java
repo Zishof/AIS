@@ -77,6 +77,7 @@ public class TenantDomain extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tenant_id", nullable = false)
 	public TenantRegistry getTenant() {
+		tenant = check(tenant);
 		return tenant;
 	}
 

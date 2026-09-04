@@ -324,6 +324,7 @@ public class PenerimaanOrder extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_biaya_lain", nullable = true)
 	public JenisBiayaLain getJenisBiayaLain() {
+		jenisBiayaLain = check(jenisBiayaLain);
 		return jenisBiayaLain;
 	}
 

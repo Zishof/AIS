@@ -67,6 +67,7 @@ public class RegistrationCredentialDelivery extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendaftaran_tenant_id", nullable = false)
 	public PendaftaranTenant getPendaftaranTenant() {
+		pendaftaranTenant = check(pendaftaranTenant);
 		return pendaftaranTenant;
 	}
 

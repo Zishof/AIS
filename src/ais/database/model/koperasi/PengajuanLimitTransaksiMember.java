@@ -87,7 +87,7 @@ public class PengajuanLimitTransaksiMember extends GeneralValueObject {
 	/** @return anggota koperasi yang melakukan transaksi ini. Wajib diisi ({@code nullable = false}). */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "anggota_koperasi", nullable = false)
-	public AnggotaKoperasi getAnggotaKoperasi() { return anggotaKoperasi; }
+	public AnggotaKoperasi getAnggotaKoperasi() { anggotaKoperasi = check(anggotaKoperasi); return anggotaKoperasi; }
 	/** @param value anggota koperasi yang mengajukan (pemilik transaksi). */
 	public void setAnggotaKoperasi(AnggotaKoperasi value) { this.anggotaKoperasi = value; }
 
@@ -99,7 +99,7 @@ public class PengajuanLimitTransaksiMember extends GeneralValueObject {
 	 */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "tipe_anggota_koperasi")
-	public TipeAnggotaKoperasi getTipeAnggotaKoperasi() { return tipeAnggotaKoperasi; }
+	public TipeAnggotaKoperasi getTipeAnggotaKoperasi() { tipeAnggotaKoperasi = check(tipeAnggotaKoperasi); return tipeAnggotaKoperasi; }
 	/** @param value tipe anggota koperasi pada saat pengajuan dibuat. */
 	public void setTipeAnggotaKoperasi(TipeAnggotaKoperasi value) { this.tipeAnggotaKoperasi = value; }
 
@@ -153,7 +153,7 @@ public class PengajuanLimitTransaksiMember extends GeneralValueObject {
 	/** @return kasir/petugas yang membuat pengajuan (pengguna yang sedang login saat checkout ditolak gerbang limit). */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "diajukan_oleh")
-	public Tbmuser getDiajukanOleh() { return diajukanOleh; }
+	public Tbmuser getDiajukanOleh() { diajukanOleh = check(diajukanOleh); return diajukanOleh; }
 	/** @param value pengguna yang mengajukan (kasir). */
 	public void setDiajukanOleh(Tbmuser value) { this.diajukanOleh = value; }
 
@@ -167,7 +167,7 @@ public class PengajuanLimitTransaksiMember extends GeneralValueObject {
 	 */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "diputuskan_oleh")
-	public Tbmuser getDiputuskanOleh() { return diputuskanOleh; }
+	public Tbmuser getDiputuskanOleh() { diputuskanOleh = check(diputuskanOleh); return diputuskanOleh; }
 	/** @param value petugas yang memutuskan pengajuan. */
 	public void setDiputuskanOleh(Tbmuser value) { this.diputuskanOleh = value; }
 
@@ -200,7 +200,7 @@ public class PengajuanLimitTransaksiMember extends GeneralValueObject {
 	 */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "pembelian_anggota_koperasi")
-	public PembelianAnggotaKoperasi getPembelianAnggotaKoperasi() { return pembelianAnggotaKoperasi; }
+	public PembelianAnggotaKoperasi getPembelianAnggotaKoperasi() { pembelianAnggotaKoperasi = check(pembelianAnggotaKoperasi); return pembelianAnggotaKoperasi; }
 	/** @param value pembelian final yang mengunci pemakaian persetujuan ini. */
 	public void setPembelianAnggotaKoperasi(PembelianAnggotaKoperasi value) { this.pembelianAnggotaKoperasi = value; }
 

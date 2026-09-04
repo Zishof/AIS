@@ -354,6 +354,7 @@ public class Produk extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "grup_produk", nullable = true)
 	public GrupProduk getGrupProduk() {
+		grupProduk = check(grupProduk);
 		return grupProduk;
 	}
 
@@ -1132,6 +1133,7 @@ public class Produk extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "pemasok", nullable = true)
 	public PemasokProduk getPemasok() {
+		pemasok = check(pemasok);
 		return pemasok;
 	}
 
@@ -1160,6 +1162,7 @@ public class Produk extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan", nullable = true)
 	public SatuanProduk getSatuan() {
+		satuan = check(satuan);
 		return satuan;
 	}
 

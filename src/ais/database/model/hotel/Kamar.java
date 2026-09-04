@@ -72,12 +72,12 @@ public class Kamar extends GeneralValueObject {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "properti", nullable = false)
-	public PropertiHotel getProperti() { return properti; }
+	public PropertiHotel getProperti() { properti = check(properti); return properti; }
 	public void setProperti(PropertiHotel properti) { this.properti = properti; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "tipe_kamar", nullable = false)
-	public TipeKamar getTipeKamar() { return tipeKamar; }
+	public TipeKamar getTipeKamar() { tipeKamar = check(tipeKamar); return tipeKamar; }
 	public void setTipeKamar(TipeKamar tipeKamar) { this.tipeKamar = tipeKamar; }
 
 	@Column(name = "nomor", nullable = false, length = 50)

@@ -10737,6 +10737,7 @@ public class Pertemuan extends Tugas {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:5947");
 			// TODO: handle exception
 		}
+		jurusan = check(jurusan);
 		return jurusan;
 	}
 
@@ -10782,6 +10783,7 @@ public class Pertemuan extends Tugas {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:5970");
 			// TODO: handle exception
 		}
+		sekolah = check(sekolah);
 		return sekolah;
 	}
 

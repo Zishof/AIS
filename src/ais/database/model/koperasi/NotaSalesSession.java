@@ -248,6 +248,7 @@ public class NotaSalesSession extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "spj", nullable = false, unique = true)
 	public SuratPerintahSalesJalan getSpj() {
+		spj = check(spj);
 		return spj;
 	}
 
@@ -532,6 +533,7 @@ public class NotaSalesSession extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disetujui_oleh")
 	public Tbmuser getDisetujuiOleh() {
+		disetujuiOleh = check(disetujuiOleh);
 		return disetujuiOleh;
 	}
 

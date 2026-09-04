@@ -81,6 +81,7 @@ public class ProvisioningJob extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendaftaran_tenant_id", nullable = false)
 	public PendaftaranTenant getPendaftaranTenant() {
+		pendaftaranTenant = check(pendaftaranTenant);
 		return pendaftaranTenant;
 	}
 
@@ -91,6 +92,7 @@ public class ProvisioningJob extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tenant_id", nullable = true)
 	public TenantRegistry getTenant() {
+		tenant = check(tenant);
 		return tenant;
 	}
 

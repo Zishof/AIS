@@ -92,6 +92,7 @@ public class CrmActivity extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lead", nullable = false)
 	public CrmLead getLead() {
+		lead = check(lead);
 		return lead;
 	}
 
@@ -149,6 +150,7 @@ public class CrmActivity extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pic_user", nullable = true)
 	public Tbmuser getPicUser() {
+		picUser = check(picUser);
 		return picUser;
 	}
 

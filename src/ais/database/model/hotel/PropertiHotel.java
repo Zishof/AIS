@@ -112,7 +112,7 @@ public class PropertiHotel extends GeneralValueObject {
 	/** Pemilik/pengurus utama -- nullable; SATU pemilik boleh punya BANYAK properti (5.3). */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "pemilik", nullable = true)
-	public Tbmuser getPemilik() { return pemilik; }
+	public Tbmuser getPemilik() { pemilik = check(pemilik); return pemilik; }
 	public void setPemilik(Tbmuser pemilik) { this.pemilik = pemilik; }
 
 	public String getOleh() { return oleh; }

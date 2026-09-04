@@ -89,6 +89,7 @@ public class PendaftarTenantProfile extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendaftar_id", nullable = false, unique = true)
 	public Pendaftar getPendaftar() {
+		pendaftar = check(pendaftar);
 		return pendaftar;
 	}
 

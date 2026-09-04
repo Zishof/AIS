@@ -120,6 +120,7 @@ public class TenantRegistry extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "owner_pendaftar_id", nullable = false)
 	public Pendaftar getOwnerPendaftar() {
+		ownerPendaftar = check(ownerPendaftar);
 		return ownerPendaftar;
 	}
 

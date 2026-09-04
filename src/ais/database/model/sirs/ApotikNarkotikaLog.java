@@ -70,6 +70,7 @@ public class ApotikNarkotikaLog extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "item", nullable = false)
 	public ItemMedis getItem() {
+		item = check(item);
 		return item;
 	}
 
@@ -80,6 +81,7 @@ public class ApotikNarkotikaLog extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "transaksi_detail", nullable = false)
 	public TransaksiMedisDetail getTransaksiDetail() {
+		transaksiDetail = check(transaksiDetail);
 		return transaksiDetail;
 	}
 
@@ -90,6 +92,7 @@ public class ApotikNarkotikaLog extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "resep", nullable = true)
 	public Resep getResep() {
+		resep = check(resep);
 		return resep;
 	}
 

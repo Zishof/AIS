@@ -66,6 +66,7 @@ public class CrmCatatan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lead", nullable = true)
 	public CrmLead getLead() {
+		lead = check(lead);
 		return lead;
 	}
 

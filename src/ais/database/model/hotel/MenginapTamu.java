@@ -67,22 +67,22 @@ public class MenginapTamu extends GeneralValueObject {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "properti", nullable = false)
-	public PropertiHotel getProperti() { return properti; }
+	public PropertiHotel getProperti() { properti = check(properti); return properti; }
 	public void setProperti(PropertiHotel properti) { this.properti = properti; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "reservasi", nullable = true)
-	public ReservasiKamar getReservasi() { return reservasi; }
+	public ReservasiKamar getReservasi() { reservasi = check(reservasi); return reservasi; }
 	public void setReservasi(ReservasiKamar reservasi) { this.reservasi = reservasi; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "tamu", nullable = false)
-	public Tamu getTamu() { return tamu; }
+	public Tamu getTamu() { tamu = check(tamu); return tamu; }
 	public void setTamu(Tamu tamu) { this.tamu = tamu; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "kamar", nullable = false)
-	public Kamar getKamar() { return kamar; }
+	public Kamar getKamar() { kamar = check(kamar); return kamar; }
 	public void setKamar(Kamar kamar) { this.kamar = kamar; }
 
 	@Temporal(TemporalType.TIMESTAMP)

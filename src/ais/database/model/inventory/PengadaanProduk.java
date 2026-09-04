@@ -555,6 +555,7 @@ public class PengadaanProduk extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "faktur_pengadaan", nullable = true)
 	public PengadaanFaktur getFakturPengadaan() {
+		fakturPengadaan = check(fakturPengadaan);
 		return fakturPengadaan;
 	}
 
@@ -591,6 +592,7 @@ public class PengadaanProduk extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "posting_pembelian", nullable = true)
 	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		postingHistory = check(postingHistory);
 		return postingHistory;
 	}
 

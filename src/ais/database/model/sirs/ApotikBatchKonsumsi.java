@@ -65,6 +65,7 @@ public class ApotikBatchKonsumsi extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kadaluarsa", nullable = false)
 	public Kadaluarsa getKadaluarsa() {
+		kadaluarsa = check(kadaluarsa);
 		return kadaluarsa;
 	}
 
@@ -75,6 +76,7 @@ public class ApotikBatchKonsumsi extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "transaksi_detail", nullable = false)
 	public TransaksiMedisDetail getTransaksiDetail() {
+		transaksiDetail = check(transaksiDetail);
 		return transaksiDetail;
 	}
 

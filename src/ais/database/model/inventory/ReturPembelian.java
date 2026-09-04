@@ -220,6 +220,7 @@ public class ReturPembelian extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "faktur_pengadaan", nullable = true)
 	public PengadaanFaktur getFakturPengadaan() {
+		fakturPengadaan = check(fakturPengadaan);
 		return fakturPengadaan;
 	}
 
@@ -281,6 +282,7 @@ public class ReturPembelian extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "supplier", nullable = true)
 	public Penyedia getSupplier() {
+		supplier = check(supplier);
 		return supplier;
 	}
 
@@ -571,6 +573,7 @@ public class ReturPembelian extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
 	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		postingHistory = check(postingHistory);
 		return postingHistory;
 	}
 

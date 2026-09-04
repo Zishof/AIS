@@ -155,6 +155,7 @@ public class PenyesuaianSaldoAnggota extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "anggota_koperasi", nullable = true)
 	public AnggotaKoperasi getAnggotaKoperasi() {
+		anggotaKoperasi = check(anggotaKoperasi);
 		return anggotaKoperasi;
 	}
 
@@ -283,6 +284,7 @@ public class PenyesuaianSaldoAnggota extends GeneralValueObject {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "deposit", nullable = true)
 	public Deposit getDeposit() {
+		deposit = check(deposit);
 		return deposit;
 	}
 
@@ -381,6 +383,7 @@ public class PenyesuaianSaldoAnggota extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
 	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		postingHistory = check(postingHistory);
 		return postingHistory;
 	}
 

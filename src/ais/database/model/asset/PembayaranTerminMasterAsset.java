@@ -351,6 +351,7 @@ public class PembayaranTerminMasterAsset extends DataSop {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "toko", nullable = true)
 	public ais.database.model.inventory.Toko getToko() {
+		toko = check(toko);
 		return toko;
 	}
 

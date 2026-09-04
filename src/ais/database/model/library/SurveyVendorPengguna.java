@@ -73,7 +73,7 @@ public class SurveyVendorPengguna extends GeneralValueObject {
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pengguna", nullable = true)
-	public Tbmuser getPengguna() { return pengguna; }
+	public Tbmuser getPengguna() { pengguna = check(pengguna); return pengguna; }
 	public void setPengguna(Tbmuser pengguna) { this.pengguna = pengguna; }
 
 	@Column(name = "peran", length = 30) public String getPeran() { return peran == null ? PENILAI : peran; }

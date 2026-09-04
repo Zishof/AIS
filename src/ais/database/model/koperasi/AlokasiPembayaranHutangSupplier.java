@@ -101,6 +101,7 @@ public class AlokasiPembayaranHutangSupplier extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pembayaran", nullable = false)
 	public PembayaranHutangSupplier getPembayaran() {
+		pembayaran = check(pembayaran);
 		return pembayaran;
 	}
 
@@ -126,6 +127,7 @@ public class AlokasiPembayaranHutangSupplier extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pengadaan_faktur", nullable = false)
 	public PengadaanFaktur getPengadaanFaktur() {
+		pengadaanFaktur = check(pengadaanFaktur);
 		return pengadaanFaktur;
 	}
 

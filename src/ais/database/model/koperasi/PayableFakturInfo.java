@@ -131,6 +131,7 @@ public class PayableFakturInfo extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pengadaan_faktur", nullable = false)
 	public PengadaanFaktur getPengadaanFaktur() {
+		pengadaanFaktur = check(pengadaanFaktur);
 		return pengadaanFaktur;
 	}
 

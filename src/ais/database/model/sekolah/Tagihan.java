@@ -3827,6 +3827,7 @@ public class Tagihan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "diskon_siswa", nullable = true)
 	public DiskonSiswa getDiskonSiswa() {
+		// LAZY_GETTER_CHECK_EXCEPTION: resolver khusus juga memvalidasi masa berlaku diskon.
 		try {
 			if (getBayarKe() != null && getBayarKe().intValue() > 1) {
 				diskonSiswa = null;
@@ -4283,6 +4284,7 @@ public class Tagihan extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "diskon_siswa_asli", nullable = true)
 	public DiskonSiswa getDiskonSiswaAsli() {
+		// LAZY_GETTER_CHECK_EXCEPTION: resolver khusus menjaga pasangan diskon utama/cadangan.
 		diskonSiswaAsli = resolveDiskonSiswaForRead(diskonSiswaAsli);
 		if (diskonSiswaAsli == null) {
 			diskonSiswa = resolveDiskonSiswaForRead(diskonSiswa);

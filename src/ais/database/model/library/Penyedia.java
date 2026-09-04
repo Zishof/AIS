@@ -188,6 +188,7 @@ public class Penyedia extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_utang", nullable = true)
 	public ais.database.model.akunting.Akun getAkunUtang() {
+		akunUtang = check(akunUtang);
 		return akunUtang;
 	}
 

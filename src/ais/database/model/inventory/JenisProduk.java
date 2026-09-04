@@ -242,6 +242,7 @@ public class JenisProduk extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_pendapatan", nullable = true)
 	public ais.database.model.akunting.Akun getAkunPendapatan() {
+		akunPendapatan = check(akunPendapatan);
 		return akunPendapatan;
 	}
 
@@ -258,6 +259,7 @@ public class JenisProduk extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_ppn_keluaran", nullable = true)
 	public ais.database.model.akunting.Akun getAkunPpnKeluaran() {
+		akunPpnKeluaran = check(akunPpnKeluaran);
 		return akunPpnKeluaran;
 	}
 
@@ -277,6 +279,7 @@ public class JenisProduk extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_hpp", nullable = true)
 	public ais.database.model.akunting.Akun getAkunHpp() {
+		akunHpp = check(akunHpp);
 		return akunHpp;
 	}
 
@@ -297,6 +300,7 @@ public class JenisProduk extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_selisih_persediaan", nullable = true)
 	public ais.database.model.akunting.Akun getAkunSelisihPersediaan() {
+		akunSelisihPersediaan = check(akunSelisihPersediaan);
 		return akunSelisihPersediaan;
 	}
 
@@ -318,6 +322,7 @@ public class JenisProduk extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "akun_retur_penjualan", nullable = true)
 	public ais.database.model.akunting.Akun getAkunReturPenjualan() {
+		akunReturPenjualan = check(akunReturPenjualan);
 		return akunReturPenjualan;
 	}
 

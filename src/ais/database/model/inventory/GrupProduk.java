@@ -211,6 +211,7 @@ public class GrupProduk extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "aturan_diskon", nullable = true)
 	public ais.database.model.koperasi.AturanDiskon getAturanDiskon() {
+		aturanDiskon = check(aturanDiskon);
 		return aturanDiskon;
 	}
 

@@ -75,12 +75,12 @@ public class TiketDapur extends GeneralValueObject {
 	/** Nullable: nota outlet tanpa konteks properti (mis. toko campuran) tetap boleh bertiket. */
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "properti", nullable = true)
-	public PropertiHotel getProperti() { return properti; }
+	public PropertiHotel getProperti() { properti = check(properti); return properti; }
 	public void setProperti(PropertiHotel properti) { this.properti = properti; }
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "pembelian", nullable = false, unique = true)
-	public ais.database.model.koperasi.PembelianAnggotaKoperasi getPembelian() { return pembelian; }
+	public ais.database.model.koperasi.PembelianAnggotaKoperasi getPembelian() { pembelian = check(pembelian); return pembelian; }
 	public void setPembelian(ais.database.model.koperasi.PembelianAnggotaKoperasi pembelian) { this.pembelian = pembelian; }
 
 	@Column(name = "status", nullable = false, length = 24)

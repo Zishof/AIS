@@ -2243,6 +2243,7 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendaftar", nullable = true)
 	public ais.database.model.Pendaftar getPendaftar() {
+		pendaftar = check(pendaftar);
 		return pendaftar;
 	}
 

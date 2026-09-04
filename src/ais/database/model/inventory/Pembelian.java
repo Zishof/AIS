@@ -1633,6 +1633,7 @@ public class Pembelian extends GeneralValueObject {
 	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
 	@javax.persistence.JoinColumn(name = "posting_hpp", nullable = true)
 	public ais.database.model.akunting.PostingHistory getPostingHpp() {
+		postingHpp = check(postingHpp);
 		return postingHpp;
 	}
 

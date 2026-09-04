@@ -127,6 +127,7 @@ public class CrmLead extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pipeline_type", nullable = false)
 	public CrmPipelineType getPipelineType() {
+		pipelineType = check(pipelineType);
 		return pipelineType;
 	}
 
@@ -137,6 +138,7 @@ public class CrmLead extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "stage", nullable = true)
 	public CrmStage getStage() {
+		stage = check(stage);
 		return stage;
 	}
 
@@ -224,6 +226,7 @@ public class CrmLead extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sales_team", nullable = true)
 	public CrmSalesTeam getSalesTeam() {
+		salesTeam = check(salesTeam);
 		return salesTeam;
 	}
 
@@ -234,6 +237,7 @@ public class CrmLead extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ditugaskan_user", nullable = true)
 	public Tbmuser getDitugaskanUser() {
+		ditugaskanUser = check(ditugaskanUser);
 		return ditugaskanUser;
 	}
 
@@ -281,6 +285,7 @@ public class CrmLead extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lost_reason", nullable = true)
 	public CrmLostReason getLostReason() {
+		lostReason = check(lostReason);
 		return lostReason;
 	}
 

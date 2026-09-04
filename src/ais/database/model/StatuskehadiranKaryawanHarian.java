@@ -1252,6 +1252,7 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	@JoinColumn(name = "libur_nasional", nullable = true)
 	public LiburNasional getLiburNasional() {
 		liburNasional = LiburNasional.ambilLiburNasional(getTanggal());
+		liburNasional = check(liburNasional);
 		return liburNasional;
 	}
 

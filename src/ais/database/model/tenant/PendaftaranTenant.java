@@ -116,6 +116,7 @@ public class PendaftaranTenant extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendaftar_id", nullable = false)
 	public Pendaftar getPendaftar() {
+		pendaftar = check(pendaftar);
 		return pendaftar;
 	}
 
@@ -126,6 +127,7 @@ public class PendaftaranTenant extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tenant_registry_id", nullable = true)
 	public TenantRegistry getTenantRegistry() {
+		tenantRegistry = check(tenantRegistry);
 		return tenantRegistry;
 	}
 

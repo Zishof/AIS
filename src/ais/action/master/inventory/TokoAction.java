@@ -404,17 +404,6 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 	}
 
 	private void init(Toko toko) throws Exception {
-		/*
-		 * Item grid dibuat pada request sebelumnya. Saat tombol Ubah diklik, objek Toko
-		 * tersebut sudah detached, sedangkan relasi akun memakai FetchType.LAZY. Muat ulang
-		 * entity pada session request saat ini sebelum label akun membaca kode/nama proxy.
-		 */
-		if (toko != null && toko.getId() != null) {
-			Toko tokoAktif = (Toko) HibernateUtil.currentSession().get(Toko.class, toko.getId());
-			if (tokoAktif != null) {
-				toko = tokoAktif;
-			}
-		}
 
 		this.toko = toko;
 		addWindow.setTitle(toko.getId() == null ? "Tambah Toko" : "Ubah Toko");

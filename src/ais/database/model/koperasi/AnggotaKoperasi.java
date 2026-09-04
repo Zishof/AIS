@@ -1341,6 +1341,7 @@ public class AnggotaKoperasi extends VOSiswa {
 	@JoinColumn(name = "koperasi", nullable = true)
 	public Koperasi getKoperasi() {
 		/*
+		 * LAZY_GETTER_CHECK_EXCEPTION: getter property-access ini wajib tetap murni saat flush.
 		 * Getter entity harus murni dan tidak melakukan lookup database.
 		 * Hibernate memanggil getter saat flush/autoflush untuk membaca nilai property.
 		 * Jika getter melakukan query lagi, proses flush dapat berulang terus.
@@ -2053,6 +2054,7 @@ public class AnggotaKoperasi extends VOSiswa {
 				}
 			}
 		}
+		satuanKerja = check(satuanKerja);
 		return satuanKerja;
 	}
 

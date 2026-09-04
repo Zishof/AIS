@@ -157,6 +157,7 @@ public class NotaSalesKas extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sesi", nullable = false)
 	public NotaSalesSession getSesi() {
+		sesi = check(sesi);
 		return sesi;
 	}
 

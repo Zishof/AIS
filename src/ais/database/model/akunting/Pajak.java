@@ -1986,6 +1986,7 @@ public class Pajak extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_pajak_ppn", nullable = true)
 	public ais.database.model.asset.JenisPajakPpn getJenisPajakPpn() {
+		jenisPajakPpn = check(jenisPajakPpn);
 		return jenisPajakPpn;
 	}
 

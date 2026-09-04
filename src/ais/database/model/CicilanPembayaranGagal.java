@@ -535,6 +535,7 @@ public class CicilanPembayaranGagal extends GeneralValueObject {
 		} else if (detailBiaya != null && detailBiaya.getItemBiaya() != null) {
 			itemBiaya = detailBiaya.getItemBiaya();
 		}
+		itemBiaya = check(itemBiaya);
 		return itemBiaya;
 	}
 
@@ -557,6 +558,7 @@ public class CicilanPembayaranGagal extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_pembayaran", nullable = true)
 	public JenisPembayaran getJenisPembayaran() {
+		jenisPembayaran = check(jenisPembayaran);
 		return jenisPembayaran;
 	}
 

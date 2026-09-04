@@ -80,6 +80,7 @@ public class CrmSalesTeamMember extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sales_team", nullable = false)
 	public CrmSalesTeam getSalesTeam() {
+		salesTeam = check(salesTeam);
 		return salesTeam;
 	}
 
@@ -90,6 +91,7 @@ public class CrmSalesTeamMember extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "anggota", nullable = false)
 	public Tbmuser getAnggota() {
+		anggota = check(anggota);
 		return anggota;
 	}
 

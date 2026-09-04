@@ -124,6 +124,7 @@ public class HargaJualCustomer extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "anggota_koperasi", nullable = true)
 	public AnggotaKoperasi getAnggotaKoperasi() {
+		anggotaKoperasi = check(anggotaKoperasi);
 		return anggotaKoperasi;
 	}
 
@@ -149,6 +150,7 @@ public class HargaJualCustomer extends GeneralValueObject {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "produk", nullable = false)
 	public Produk getProduk() {
+		produk = check(produk);
 		return produk;
 	}
 

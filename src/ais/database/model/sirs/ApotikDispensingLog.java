@@ -83,7 +83,7 @@ public class ApotikDispensingLog extends GeneralValueObject {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "resep", nullable = false)
-	public Resep getResep() { return resep; }
+	public Resep getResep() { resep = check(resep); return resep; }
 	public void setResep(Resep resep) { this.resep = resep; }
 
 	@Column(name = "jenis", nullable = false, length = 24)

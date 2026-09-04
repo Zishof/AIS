@@ -68,7 +68,7 @@ public class FolioTransaksi extends GeneralValueObject {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "folio", nullable = false)
-	public Folio getFolio() { return folio; }
+	public Folio getFolio() { folio = check(folio); return folio; }
 	public void setFolio(Folio folio) { this.folio = folio; }
 
 	@Column(name = "jenis", nullable = false, length = 24)
