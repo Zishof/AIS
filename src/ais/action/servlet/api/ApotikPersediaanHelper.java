@@ -44,6 +44,17 @@ public final class ApotikPersediaanHelper {
 		return o == null ? "" : o.toString();
 	}
 
+	/**
+	 * Kolom audit pada tabel Apotik baru dibatasi 60 karakter, sementara
+	 * {@code tbmuser.userid} secara historis dapat mencapai 255 karakter.
+	 * Batasi nilai di boundary persistence supaya akun federasi/tenant yang
+	 * memakai userid panjang tidak menggagalkan transaksi bisnis seluruhnya.
+	 */
+	private static String auditActor(Tbmuser user) {
+		String nilai = user == null ? "" : str(user.getUserId()).trim();
+		return nilai.length() <= 60 ? nilai : nilai.substring(0, 60);
+	}
+
 	private static Long optLong(JSONObject r, String kunci) {
 		if (r == null || r.isNull(kunci)) {
 			return null;
@@ -140,8 +151,9 @@ public final class ApotikPersediaanHelper {
 			dokumen.setTotal(Double.valueOf(totalDokumen));
 			dokumen.setJumlahBaris(Integer.valueOf(items.length()));
 			dokumen.setKeterangan(request.optString("keterangan", "").trim());
-			dokumen.setOleh(tbmuser.getUserId());
-			dokumen.setOlehId(tbmuser.getUserId());
+			String pelaku = auditActor(tbmuser);
+			dokumen.setOleh(pelaku);
+			dokumen.setOlehId(pelaku);
 			session.save(dokumen);
 			int barisBatch = 0;
 			// IR-09 (sebagian): apakah faktur ini memuat barang rantai dingin.
@@ -208,8 +220,8 @@ public final class ApotikPersediaanHelper {
 				bukti.setAdaColdChain(Boolean.valueOf(adaColdChain));
 				bukti.setKeterangan(suhuKeterangan);
 				bukti.setWaktu(new java.util.Date());
-				bukti.setOleh(tbmuser.getUserId());
-				bukti.setOlehId(tbmuser.getUserId());
+				bukti.setOleh(pelaku);
+				bukti.setOlehId(pelaku);
 				session.save(bukti);
 			}
 			tx.commit();
@@ -305,7 +317,8 @@ public final class ApotikPersediaanHelper {
 			if (nominal > sisa + 0.005) { tx.rollback(); tolak(hasil, "Nominal melebihi sisa utang PBF."); return; }
 			ApotikPbfPembayaran b = new ApotikPbfPembayaran(); b.setDokumen(d); b.setCaraBayar(cara);
 			b.setNominal(Double.valueOf(nominal)); b.setTanggal(new Date());
-			b.setKeterangan(request.optString("keterangan", "").trim()); b.setOleh(tbmuser.getUserId()); b.setOlehId(tbmuser.getUserId());
+			b.setKeterangan(request.optString("keterangan", "").trim());
+			String pelaku = auditActor(tbmuser); b.setOleh(pelaku); b.setOlehId(pelaku);
 			session.save(b); tx.commit();
 			hasil.put("status", "00"); hasil.put("pembayaranId", b.getId()); hasil.put("dokumenId", d.getId());
 			hasil.put("dibayar", dibayar + nominal); hasil.put("sisa", Math.max(0, sisa - nominal));
