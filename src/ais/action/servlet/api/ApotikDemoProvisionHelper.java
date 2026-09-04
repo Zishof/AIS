@@ -52,8 +52,10 @@ import ais.database.model.sirs.SatuanItem;
  */
 public final class ApotikDemoProvisionHelper {
 
-	private static final int JUMLAH_OBAT_DEMO = 10000;
-	private static final int JUMLAH_RACIKAN_DEMO = 100;
+	/** Batas volume UAT yang diminta: cukup besar untuk pagination/performa,
+	 *  tetapi tidak membanjiri basis data demo bersama. */
+	private static final int JUMLAH_OBAT_DEMO = 1000;
+	private static final int JUMLAH_RACIKAN_DEMO = 1000;
 	private static final Object LOCK_PROVISION = new Object();
 	private static volatile boolean provisionBerjalan = false;
 	private static volatile String provisionTerakhir = "Belum dijalankan";
@@ -171,7 +173,9 @@ public final class ApotikDemoProvisionHelper {
 			ConstantValues.beliRetur = br;
 			ringkas.put("kodeTransaksi", "AJ/BM/ADT/ADK/AR/BR/RAC dipastikan + ConstantValues di-set live");
 
-			// 2) Data uji item/resep -- HANYA bila item_medis masih kosong (server nyata dilewati).
+			// 2) Data uji item/resep -- HANYA bila tabel kosong ATAU penanda katalog demo
+			// sudah ada. Kondisi kedua memungkinkan katalog demo lama yang baru berisi
+			// UJI-PCT/UJI-CDN dilengkapi sampai volume UAT, tanpa menyentuh server nyata.
 			long jumlahItem = ((Number) session.createQuery("select count(i) from ItemMedis i")
 					.uniqueResult()).longValue();
 			long penandaDemo = ((Number) session.createQuery("select count(i) from ItemMedis i "
@@ -189,17 +193,6 @@ public final class ApotikDemoProvisionHelper {
 				hasil.put("ringkasan", ringkas);
 				return;
 			}
-			if (jumlahItem > 0) {
-				int batchDibuat = ensureBatchKatalogDemo(session);
-				ringkas.put("dataUji", "Katalog demo sudah tersedia (" + jumlahItem
-						+ " item); role, akun, serta stok demo dipastikan tanpa menggandakan katalog");
-				ringkas.put("batchStokBaru", batchDibuat);
-				tx.commit();
-				hasil.put("status", "00");
-				hasil.put("ringkasan", ringkas);
-				return;
-			}
-
 			// Master pendukung (satuan + jenis item), idempoten by nama/kode.
 			SatuanItem satuan = (SatuanItem) session.createCriteria(SatuanItem.class)
 					.add(Restrictions.eq("nama", "Tablet").ignoreCase()).setMaxResults(1).uniqueResult();
@@ -231,7 +224,7 @@ public final class ApotikDemoProvisionHelper {
 
 			// Katalog besar dibuat deterministik dan idempoten. Nama, dosis, harga,
 			// barcode, golongan, serta penanda LASA bervariasi sehingga dashboard demo
-			// langsung representatif tanpa menyimpan 10.000 literal di source code.
+			// langsung representatif tanpa menyimpan 1.000 literal di source code.
 			String[] zat = { "Amoxicillin", "Paracetamol", "Ibuprofen", "Cetirizine",
 					"Metformin", "Amlodipine", "Omeprazole", "Azithromycin", "Salbutamol",
 					"Vitamin B Kompleks", "Asam Mefenamat", "Captopril", "Domperidone",
