@@ -23,6 +23,7 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.akunting.Akun;
 import ais.database.model.akunting.PostingHistory;
+import ais.database.model.koperasi.CaraPembayaranKoperasi;
 import ais.database.model.sirs.ApotikAkunMapping;
 import ais.database.model.sirs.ApotikPostingLink;
 import ais.database.model.sirs.TransaksiMedis;
@@ -231,17 +232,18 @@ public final class ApotikPostingHelper {
 
     private static void isiDrafPenjualan(Session s,String mulai,String sampai,Map<Long,Draf> daftar)throws Exception{
         Akun pendapatan=akun(s,ApotikAkunMapping.PENDAPATAN);
-        String sql="SELECT p.transaksi,c.akun,COALESCE(c.nama,p.nama_cara_bayar,'(tanpa nama)'),SUM(ABS(p.nominal))"
+        String sql="SELECT p.transaksi,p.cara_bayar,SUM(ABS(p.nominal))"
                 + " FROM sirs.apotik_pembayaran_transaksi p JOIN sirs.transaksi_medis t ON t.id=p.transaksi"
-                + " LEFT JOIN koperasi.cara_pembayaran_koperasi c ON c.id=p.cara_bayar"
                 + " WHERE t.sumber='APOTIK' AND t.jenis_transaksi='item' AND date(t.tanggal_transaksi) BETWEEN date(?) AND date(?)"
-                + " GROUP BY p.transaksi,c.akun,c.nama,p.nama_cara_bayar ORDER BY p.transaksi";
+                + " GROUP BY p.transaksi,p.cara_bayar ORDER BY p.transaksi";
         PreparedStatement ps=s.connection().prepareStatement(sql);ps.setString(1,mulai);ps.setString(2,sampai);ResultSet rs=ps.executeQuery();
         while(rs.next()){
             Draf d=daftar.get(Long.valueOf(rs.getLong(1)));if(d==null)continue;
-            long akunId=rs.getLong(2);boolean akunKosong=rs.wasNull()||akunId<=0;double nilai=Math.abs(rs.getDouble(4));d.nilai+=nilai;
-            if(akunKosong)d.alasan="Cara pembayaran "+rs.getString(3)+" belum mempunyai akun kas/bank/piutang.";
-            else{Akun a=(Akun)s.get(Akun.class,Long.valueOf(akunId));if(a==null)d.alasan="Akun cara pembayaran tidak ditemukan.";else{d.debet.add(a);d.nilaiDebet.add(Double.valueOf(nilai));}}
+            long caraId=rs.getLong(2);boolean caraKosong=rs.wasNull()||caraId<=0;double nilai=Math.abs(rs.getDouble(3));d.nilai+=nilai;
+            CaraPembayaranKoperasi cara=caraKosong?null:(CaraPembayaranKoperasi)s.get(CaraPembayaranKoperasi.class,Long.valueOf(caraId));
+            Akun a=cara==null?null:cara.getAkun();
+            if(a==null)d.alasan="Cara pembayaran "+(cara==null?"(tidak ditemukan)":cara.getNama())+" belum mempunyai akun kas/bank/piutang.";
+            else{d.debet.add(a);d.nilaiDebet.add(Double.valueOf(nilai));}
         }
         rs.close();ps.close();
         for(Draf d:daftar.values()){

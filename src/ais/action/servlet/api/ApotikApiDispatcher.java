@@ -67,6 +67,10 @@ public final class ApotikApiDispatcher {
 			ApotikApiHelper.resepList(payload, hasil);
 		} else if ("apotik_resep_detail".equals(action)) {
 			ApotikApiHelper.resepDetail(payload, hasil);
+		} else if ("apotik_pasien_cari".equals(action)) {
+			ApotikPasienHelper.cari(payload, hasil);
+		} else if ("apotik_pasien_detail".equals(action)) {
+			ApotikPasienHelper.detail(payload, hasil);
 		} else if ("apotik_antrean_farmasi_list".equals(action)) {
 			ApotikApiHelper.antreanFarmasiList(tbmuser, payload, hasil);
 		} else if ("apotik_antrean_farmasi_simpan".equals(action)) {
