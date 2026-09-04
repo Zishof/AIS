@@ -24,6 +24,7 @@ import ais.database.model.sirs.ApotikPembayaranTransaksi;
 import ais.database.model.sirs.AntreanFarmasi;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
+import ais.database.model.sirs.KodeTransaksiMedis;
 import ais.database.model.sirs.Resep;
 import ais.database.model.sirs.ResepDetail;
 import ais.database.model.sirs.TransaksiMedis;
@@ -497,9 +498,12 @@ public final class ApotikApiHelper {
 				j.put("keterangan", str(d.getKeterangan()));
 				if (d.getRacikan() != null) {
 					adaRacikan = true;
-					j.put("racikan", true);
-					j.put("nama", str(d.getRacikan().getNama()));
-					j.put("kode", str(d.getRacikan().getKode()));
+					JSONObject ringkas = ApotikRacikanProduksiHelper.ringkasRacikan(
+							session, d.getRacikan(), null);
+					for (java.util.Iterator<?> it = ringkas.keys(); it.hasNext();) {
+						String kunci = str(it.next());
+						j.put(kunci, ringkas.get(kunci));
+					}
 				} else if (d.getItem() != null) {
 					ItemMedis it = d.getItem();
 					ApotikItemProfile p = profilItem(session, it);
@@ -524,8 +528,8 @@ public final class ApotikApiHelper {
 			hasil.put("resepId", resep.getId());
 			hasil.put("kode", str(resep.getKode()));
 			hasil.put("data", arr);
-			// Keterbatasan FASE A yang DISENGAJA: penyerahan racikan butuh konsumsi komposisi
-			// (BOM) -- menyusul; klien wajib menampilkan ini, bukan diam-diam melewatkan baris.
+			// Klien baru memakai ringkasan racikan di atas untuk tebus resep campuran;
+			// flag dipertahankan agar klien lama tetap dapat memberi peringatan.
 			hasil.put("adaRacikan", adaRacikan);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
@@ -778,12 +782,6 @@ public final class ApotikApiHelper {
 	// =============================================================================================
 
 	public static void bayar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		if (ConstantValues.apotikJual == null) {
-			// Fail-closed: tanpa kode transaksi bertanda, baris ledger stok tidak bisa ditulis
-			// benar -- lebih baik menolak daripada mencatat penjualan yang tidak mengurangi stok.
-			tolak(hasil, "Kode transaksi 'apotik jual' belum terinisialisasi di server. Hubungi admin.");
-			return;
-		}
 		JSONArray items = request == null ? null : request.optJSONArray("items");
 		if (items == null || items.length() == 0) {
 			tolak(hasil, "Minimal satu baris obat.");
@@ -797,9 +795,19 @@ public final class ApotikApiHelper {
 		String namaDokter = request.optString("nama_dokter", "").trim();
 		String kodeIdem = request.optString("kode", "").trim();
 
+		// Jangan bergantung pada seed/startup: server demo maupun tenant baru harus
+		// dapat melakukan transaksi pertama secara deterministik. Helper ini tetap
+		// fail-closed bila pembuatan kode ledger sungguh gagal.
+		Long apotikJualId = ApotikKodeTransaksiHelper.pastikanId("AJ", "Apotik Jual", -1);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			KodeTransaksiMedis apotikJual = (KodeTransaksiMedis) session.get(
+					KodeTransaksiMedis.class, apotikJualId);
+			if (apotikJual == null) {
+				tolak(hasil, "Kode transaksi 'apotik jual' tidak dapat dimuat. Transaksi ditahan.");
+				return;
+			}
 			// Idempoten: retry perangkat dgn kode yang sama TIDAK membuat transaksi kedua.
 			if (!kodeIdem.isEmpty()) {
 				TransaksiMedis sudahAda = (TransaksiMedis) session.createCriteria(TransaksiMedis.class)
@@ -1078,7 +1086,7 @@ public final class ApotikApiHelper {
 				// Baris ledger stok -- pola PERSIS CommonPendaftaranUtil (kodeTransaksi apotikJual).
 				ais.database.model.sirs.DetailTransaksiPasien ledger =
 						new ais.database.model.sirs.DetailTransaksiPasien();
-				ledger.setKodeTransaksi(ConstantValues.apotikJual);
+				ledger.setKodeTransaksi(apotikJual);
 				ledger.setItem(item);
 				ledger.setQty(Double.valueOf(qty));
 				ledger.setAmount(Double.valueOf(harga));

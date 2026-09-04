@@ -2439,6 +2439,11 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("apotik_resep_")) {
 			return menu.optBoolean("apotik_resep", false) || menu.optBoolean("apotik_kasir", false);
 		}
+		if (action.startsWith("apotik_racikan_") || "apotik_bayar_racikan".equals(action)
+				|| action.startsWith("apotik_produksi_")) {
+			return menu.optBoolean("apotik_racikan", false)
+					|| menu.optBoolean("apotik_kasir", false);
+		}
 		// IR-02 sisi tulis: mengubah status lot adalah wewenang pengelola batch.
 		if (action.startsWith("apotik_batch_")) {
 			return menu.optBoolean("apotik_batch", false)

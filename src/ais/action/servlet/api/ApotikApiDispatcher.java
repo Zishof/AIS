@@ -23,7 +23,8 @@ public final class ApotikApiDispatcher {
 	 * supaya tombol Simpan pada tiap formulir dapat dipadamkan sebelum ditekan.
 	 */
 	private static final String[] KUNCI_HAK = {
-		"apotik_pengadaan", "apotik_stok_opname", "apotik_retur", "apotik_formularium"
+		"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_pengadaan",
+		"apotik_stok_opname", "apotik_retur", "apotik_formularium"
 	};
 
 	/**
@@ -82,6 +83,14 @@ public final class ApotikApiDispatcher {
 			ApotikApiHelper.caraBayarList(payload, hasil);
 		} else if ("apotik_bayar".equals(action)) {
 			ApotikApiHelper.bayar(tbmuser, payload, hasil);
+		} else if ("apotik_racikan_list".equals(action)) {
+			ApotikRacikanProduksiHelper.racikanList(payload, hasil);
+		} else if ("apotik_bayar_racikan".equals(action)) {
+			ApotikRacikanProduksiHelper.bayarRacikan(tbmuser, payload, hasil);
+		} else if ("apotik_produksi_katalog".equals(action)) {
+			ApotikRacikanProduksiHelper.produksiKatalog(payload, hasil);
+		} else if ("apotik_produksi_proses".equals(action)) {
+			ApotikRacikanProduksiHelper.prosesProduksi(tbmuser, payload, hasil);
 		} else if ("apotik_terima_barang".equals(action)) {
 			ApotikPersediaanHelper.terimaBarang(tbmuser, payload, hasil);
 		} else if ("apotik_opname_simpan".equals(action)) {
