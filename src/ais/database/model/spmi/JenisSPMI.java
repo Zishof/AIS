@@ -744,9 +744,14 @@ public class JenisSPMI extends GeneralValueObject {
 		return dataIndikators;
 	}
 
+	/** Konstruktor kosong wajib bagi Hibernate untuk membentuk proxy/instance entitas. */
 	public JenisSPMI() {
 	}
 
+	/**
+	 * @return primary key baris ini. Kolom {@code id} bertipe {@code IDENTITY}
+	 *         (auto-increment oleh database) dan ditandai {@code insertable = false}.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -754,40 +759,62 @@ public class JenisSPMI extends GeneralValueObject {
 		return this.id;
 	}
 
+	/** @param id primary key; jarang dipanggil manual karena {@code id} adalah IDENTITY. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return kode singkat jenis SPMI ini; tidak dipetakan lewat anotasi
+	 *         {@code @Column} eksplisit (mengandalkan konvensi penamaan
+	 *         Hibernate bawaan ke kolom {@code kode}), boleh {@code null}.
+	 */
 	public String getKode() {
 		return kode;
 	}
 
+	/** @param kode kode singkat jenis SPMI ini; opsional. */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * @return nama/judul jenis instrumen SPMI ini (mis. "Lembar Kerja AMI"),
+	 *         di-{@code trim()} terlebih dahulu; {@code null} bila belum diisi.
+	 */
 	@Column(name = "nama", nullable = false, columnDefinition = "text")
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/** @param nama nama/judul jenis SPMI ini; wajib diisi (kolom {@code NOT NULL}). */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/** @return keterangan/deskripsi tambahan bagi jenis SPMI ini; boleh {@code null}. */
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/** @param keterangan keterangan/deskripsi tambahan; opsional. */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * @return {@code true} bila jenis SPMI ini masih aktif/berlaku (dipakai
+	 *         untuk sesi evaluasi baru), {@code false} bila dinonaktifkan
+	 *         (soft delete). Default {@code true} bila kolom belum pernah
+	 *         diisi — pola flag aktif "default aman" yang konsisten dengan
+	 *         entitas SPMI lain di paket ini.
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/** @param aktif status aktif/nonaktif jenis SPMI ini; lihat {@link #getAktif()}. */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
