@@ -1,5 +1,71 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 98 — SELESAI 100% (5 Sep 2026) — PIVOT ke paket `rab`; 3 task baru (`task_74114f95`, `task_f70f4cb9`, `task_078519f7`)
+
+34 file selesai (batch pertama domain baru `rab`/perencanaan
+anggaran, dipilih karena berisi `SatuanKerja` — entity tenant root
+yang dirujuk ~528 file & ~111 entity di seluruh codebase tapi belum
+pernah digarap langsung), semua dikompilasi bersih, WC mirror
+disinkron via `svn update`, `cmp` byte-identik.
+
+- **`SatuanKerja.java`** (r84515) + **`Kppn.java`** (r84520) +
+  **`UnitOrganisasi.java`** (r84524) + **`Pejabat.java`** (r84536)
+  — 100%. **DIKONFIRMASI: hanya SATU class `SatuanKerja`**
+  (`ais.database.model.rab.SatuanKerja`, nol duplikat paket-lain).
+  Hierarki BERJENJANG via `parent` (siklus derajat-1 saja dicegah).
+  `Yayasan` di ATAS `SatuanKerja`; sumbu akademik
+  (sekolah/fakultas/jurusan) justru menunjuk BALIK ke `SatuanKerja`,
+  bukan sebaliknya. Generic CRUD v2: `satuanKerja` ADA di whitelist
+  `scopeBindings()` (untungkan ~111 entity FK-nya), TAPI `SatuanKerja`
+  ITU SENDIRI tidak punya properti itu (relasi ke diri sendiri
+  namanya `parent`) — jalur generik hanya kebagian scope `yayasan`,
+  pengguna non-admin bisa lihat SELURUH satker dalam yayasannya
+  (bukan cuma sub-pohon) — perluasan `task_7b6038ac`, tidak
+  di-task-kan terpisah.
+- **Klaster Workspace** (7 file, r84523-r84543). Isolasi tenant HANYA
+  di lapisan Action (`Workspace.satuanKerja`), 5 entity anak
+  `WorkspacePunya*` TIDAK simpan satker sendiri.
+  `getAllWorkspaceIds()` TIDAK menyaring satker/tahun/aktif — validasi
+  hanya di pemanggil. **🚨 Task baru `task_74114f95`**: dialog
+  pemilihan predecessor diisi daftar SALAH (workspace pemilik,
+  bukan predecessor) — membuka+simpan pada workspace yang sudah
+  punya predecessor MENAMBAHKAN dirinya sendiri sebagai predecessor.
+  Penjaga siklus predecessor TIDAK ADA (di semua lapisan, semua
+  paket rab).
+- **Klaster PenggunaanAnggaran** (4 file, r84512-r84545). Self-test
+  DIKONFIRMASI menguji NAMESPACING KUNCI (bukan locking transaksi) —
+  perbaikan SUDAH diterapkan & utuh (18/18 invarian lulus).
+  TIDAK ADA penjaga pagu-vs-realisasi, TAPI secara arsitektural
+  TIDAK BISA ada di titik ini (thread rekonsiliasi jalan SETELAH
+  transaksi sumber commit) — tidak di-task-kan, sudah dijelaskan
+  kenapa menambah cek di situ justru memperburuk.
+- **Klaster Tugas/Acara** (10 file, r84514-r84537). `Tugas`
+  (Gantt, per-`Proyek`) vs `Acara` (monev, per-`Workspace`)
+  DIKONFIRMASI dua konsep berbeda. `JenisParameter` katalog GLOBAL
+  bersama tapi diakses ASIMETRIS (Tugas langsung, Acara via
+  `WorkspacePunyaJenisParameter`).
+- **Klaster rencana-output** (9 file, r84513-r84547). **KOREKSI
+  BESAR**: hierarki perencanaan BUKAN satu rantai — TIGA CABANG
+  TERPISAH (capaian-output, penjadwalan, RENSTRA) yang HANYA
+  terhubung lewat `SatuanKerja`, nol FK antar-cabang. `KegiatanSatker`
+  DIKONFIRMASI TIDAK berkerabat dengan `Kegiatan` billing/dst (pola
+  "nama Kegiatan menyesatkan" kasus ke-N) — DAN entity dorman
+  KE-18+ (nol Action/Helper meski nama "Satker", ironisnya juga
+  TANPA kolom satuan_kerja). Penjaga rencana-vs-realisasi TIDAK ADA
+  sama sekali (`prosentase` diketik manual, bukan turunan; DAN
+  `getProsentase()` pembagi tetap 12 bukan bulan-terisi — unit yang
+  100% selama 6 bulan tampil 50%, bukan 100%). **🚨 Task baru
+  `task_f70f4cb9`**: `RenstraProgram.getSatuanKerja()` TANPA
+  penjaga `id==null` + `RenstraProgramAction` NOL filter satker —
+  membuka daftar RENSTRA bisa menuliskan satker pembaca ke baris
+  siapa pun. **Task baru `task_078519f7`** (belum terverifikasi
+  runtime): `Tor` tidak memetakan `kode`/`nama` tapi `TorAction`
+  memakai `Order.asc("nama")` — dugaan `QueryException` saat layar
+  dibuka, perlu verifikasi dulu sebelum diubah.
+
+**3 task baru batch ini**: `task_74114f95`, `task_f70f4cb9`,
+`task_078519f7`. Sisa ~12 file `rab` untuk batch berikutnya.
+
 ## 🎉 MILESTONE — paket `surat` TUNTAS 100% (5 Sep 2026) — domain KETUJUH tuntas; 🚨🚨 TEMUAN SANGAT SIGNIFIKAN: bypass persetujuan alur surat (API + ZK), sepupu `task_9f520b16`/`task_b62255d9`
 
 **28/28 file** `ais/database/model/surat/` tuntas dalam SATU batch

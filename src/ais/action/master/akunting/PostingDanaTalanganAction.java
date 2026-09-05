@@ -1192,13 +1192,20 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 		// PostingTransaksiPembayaranGajiAction.kriteriaPostingStatic(). Himpunan kosong
 		// (Yayasan tidak teridentifikasi) fail-CLOSED, bukan fail-open seperti
 		// initCriteria(boolean) pada layar ZK.
+		boolean administrator = pengguna != null && Common.getApakahAdminLain(pengguna);
 		Set<SatuanKerja> satuanKerjasPengguna = cakupanSatuanKerja(session, pengguna);
 		Criteria c = session.createCriteria(DanaTalangan.class)
 				.add(Restrictions.isNotNull("disetujuiOleh"))
-				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
-				.add(satuanKerjasPengguna.isEmpty() ? Restrictions.sqlRestriction("false")
-						: Restrictions.or(Restrictions.isNull("satuanKerja"),
-								Restrictions.in("satuanKerja", satuanKerjasPengguna)));
+				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"));
+		// Administrator memang mempunyai cakupan lintas unit. Jalur bearer-token
+		// tidak memiliki sesi ZK, sehingga SekolahUtil dapat mengembalikan himpunan
+		// kosong walaupun pengguna eksplisitnya Administrator. Jangan mengubah kosong
+		// itu menjadi `false`; pembatasan fail-closed hanya berlaku bagi non-admin.
+		if (!administrator) {
+			c.add(satuanKerjasPengguna.isEmpty() ? Restrictions.sqlRestriction("false")
+					: Restrictions.or(Restrictions.isNull("satuanKerja"),
+							Restrictions.in("satuanKerja", satuanKerjasPengguna)));
+		}
 		if (mulai != null && sampai != null) {
 			c.add(Restrictions.sqlRestriction("date(this_.tanggal_persetujuan) between date('"
 					+ Common.databaseDateFormat.get().format(mulai) + "') and date('"
