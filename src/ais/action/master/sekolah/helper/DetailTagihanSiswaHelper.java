@@ -2757,6 +2757,52 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 		loadData(null);
 	}
 
+	private static boolean tagihanUploadCocok(Tagihan tagihan, NominalBiaya nominalBiaya,
+			Integer tahunbulan, Integer bayarKe) {
+		if (tagihan == null || nominalBiaya == null || nominalBiaya.getId() == null
+				|| tagihan.getNominalBiaya() == null || tagihan.getNominalBiaya().getId() == null) {
+			return false;
+		}
+		return nominalBiaya.getId().equals(tagihan.getNominalBiaya().getId())
+				&& (tahunbulan == null ? tagihan.getTahunbulan() == null : tahunbulan.equals(tagihan.getTahunbulan()))
+				&& (bayarKe == null ? tagihan.getBayarKe() == null : bayarKe.equals(tagihan.getBayarKe()));
+	}
+
+	/**
+	 * Selalu kembalikan Tagihan yang dikelola {@code session}. Entity dari MemoryDb tidak boleh
+	 * langsung di-saveOrUpdate karena cache global menyimpan instance detached dan dapat berbenturan
+	 * dengan instance ber-ID sama yang sudah dimuat oleh preload upload.
+	 */
+	private static Tagihan ambilTagihanUploadTerkelola(Session session, Map<String, Tagihan> tagihanPreload,
+			String kodeUnik, NominalBiaya nominalBiaya, Integer tahunbulan, Integer bayarKe) {
+		if (session == null || !session.isOpen() || kodeUnik == null || kodeUnik.trim().isEmpty()) {
+			return null;
+		}
+
+		Tagihan tagihan = tagihanPreload.get(kodeUnik);
+		if (tagihan != null && tagihan.getId() != null) {
+			// Setelah recovery session.clear(), isi map menjadi detached. session.get() mengembalikan
+			// instance kanonik dari persistence context tanpa menimbulkan NonUniqueObjectException.
+			tagihan = (Tagihan) session.get(Tagihan.class, tagihan.getId());
+		}
+		if (!tagihanUploadCocok(tagihan, nominalBiaya, tahunbulan, bayarKe)) {
+			tagihan = Tagihan.findByKodeUnik(kodeUnik, session);
+		}
+		if (!tagihanUploadCocok(tagihan, nominalBiaya, tahunbulan, bayarKe)) {
+			tagihan = (Tagihan) session.createCriteria(Tagihan.class)
+					.add(Restrictions.eq("nominalBiaya", nominalBiaya))
+					.add(tahunbulan == null ? Restrictions.isNull("tahunbulan")
+							: Restrictions.eq("tahunbulan", tahunbulan))
+					.add(bayarKe == null ? Restrictions.isNull("bayarKe") : Restrictions.eq("bayarKe", bayarKe))
+					.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+		}
+		if (tagihanUploadCocok(tagihan, nominalBiaya, tahunbulan, bayarKe)) {
+			tagihanPreload.put(kodeUnik, tagihan);
+			return tagihan;
+		}
+		return null;
+	}
+
 	public void uploadDataSiswa(final File file, final PengaturanBiaya pengaturanBiaya,
 			final EventListener eventListener) throws Exception {
 
@@ -2942,8 +2988,8 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 														nominalBiaya.getPengaturanBiaya(), pembayaranTerakhir,
 														nominalBiaya.getSiswa(), nominalBiaya.getCalonSiswa(), bayarKe);
 
-												tagihan = tagihanPreload.get(kodeUnik);
-												if (tagihan == null) tagihan = MemoryDbUtil.getAllTagihan().get(kodeUnik);
+												tagihan = ambilTagihanUploadTerkelola(session, tagihanPreload,
+														kodeUnik, nominalBiaya, pembayaranTerakhir, Integer.valueOf(bayarKe));
 
 											}
 
@@ -3030,6 +3076,9 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 												session.saveOrUpdate(tagihan);
 												session.getTransaction().commit();
 												session.flush();
+												if (kodeUnik != null) {
+													tagihanPreload.put(kodeUnik, tagihan);
+												}
 
 												if (pembayaranSiswaDetail != null
 														&& pembayaranSiswaDetail.getId() != null) {
@@ -3073,17 +3122,8 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 														nominalBiaya.getPengaturanBiaya(), pembayaranTerakhir,
 														nominalBiaya.getSiswa(), nominalBiaya.getCalonSiswa(), bayarKe);
 
-												Tagihan tagihan = tagihanPreload.get(kodeUnik);
-												if (tagihan == null) tagihan = MemoryDbUtil.getAllTagihan().get(kodeUnik);
-
-												// Fallback DB: cache tidak selalu memuat tagihan lama.
-												// Tanpa ini, tagihan yang sudah ada di DB tapi tidak di-cache
-												// akan di-INSERT ulang → kodeUnik duplicate → update gagal diam-diam.
-												if (tagihan == null && kodeUnik != null && !kodeUnik.isEmpty()) {
-													tagihan = (Tagihan) session.createCriteria(Tagihan.class)
-															.add(Restrictions.eq("kodeUnik", kodeUnik))
-															.setMaxResults(1).uniqueResult();
-												}
+												Tagihan tagihan = ambilTagihanUploadTerkelola(session, tagihanPreload,
+														kodeUnik, nominalBiaya, pembayaranTerakhir, Integer.valueOf(bayarKe));
 
 												int j = contents.length + index;
 												Double nominal = Common.getSheetContentAsDouble(sheet, j, i);
@@ -3285,6 +3325,23 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 							}
 
 						} catch (Exception e) {
+							try {
+								if (session != null && session.getTransaction() != null
+										&& session.getTransaction().isActive()) {
+									session.getTransaction().rollback();
+								}
+							} catch (Exception eRollback) {
+								ais.common.ErrorAuditUtil.record(eRollback,
+										"auto-audit DetailTagihanSiswaHelper.uploadDataSiswa rollback baris");
+							}
+							try {
+								if (session != null && session.isOpen()) {
+									session.clear();
+								}
+							} catch (Exception eClear) {
+								ais.common.ErrorAuditUtil.record(eClear,
+										"auto-audit DetailTagihanSiswaHelper.uploadDataSiswa clear baris");
+							}
 							String idSiswa = "Baris " + i;
 							try {
 								String nis = Common.getSheetContentAsString(sheet, 1, i);
