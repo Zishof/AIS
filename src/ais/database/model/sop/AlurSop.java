@@ -3301,6 +3301,37 @@ public class AlurSop extends GeneralValueObject {
 		this.kembaliKeAktorSebelumnya = kembaliKeAktorSebelumnya;
 	}
 
+	/**
+	 * Merangkum ke-20 kolom cabang menjadi satu {@link List} tahap lanjutan yang benar-benar
+	 * berlaku -- inti pembacaan topologi alur di kelas ini.
+	 *
+	 * <p>Implementasinya berupa dua puluh blok {@code if} berurutan yang masing-masing memanggil
+	 * {@code getSetelahnyaN()} dan menambahkannya ke daftar bila tidak {@code null}. Dua
+	 * konsekuensi penting muncul dari cara itu:</p>
+	 * <ul>
+	 *   <li><b>Daftar hasilnya sudah tersaring.</b> Karena yang dipanggil adalah getter, tahap
+	 *       tujuan yang merupakan tahap awal atau yang sudah tidak aktif <b>tidak muncul</b> di
+	 *       sini. Daftar ini karena itu menggambarkan "cabang yang dapat ditempuh sekarang",
+	 *       bukan "cabang yang tersimpan di basis data".</li>
+	 *   <li><b>Memanggilnya menimbulkan efek samping.</b> Getter-getter itu destruktif: cabang
+	 *       yang tersaring akan <b>ditimpa menjadi {@code null}</b> di field. Sekadar membaca
+	 *       daftar cabang karena itu dapat mengubah state instance dan, pada entitas terkelola,
+	 *       ikut tersimpan.</li>
+	 * </ul>
+	 *
+	 * <p><b>Rapat dengan indeks daftar lain:</b> {@link #ambilOpsiAlurSetelahnya()} dan
+	 * {@link #ambilOpsiAlurSetujui()} dibangun dengan pola penyaringan yang <b>sama persis</b>,
+	 * sehingga ketiganya berindeks sejajar dan boleh dipasangkan berdasarkan posisi. Kesejajaran
+	 * itu bergantung pada ketiga method tetap memeriksa {@code getSetelahnyaN() != null} dengan
+	 * urutan yang sama -- ia tidak dijamin oleh tipe apa pun, hanya oleh disiplin penulisan.</p>
+	 *
+	 * <p><b>Tidak ada pemeriksaan kewenangan.</b> Daftar dikembalikan apa adanya tanpa menimbang
+	 * siapa yang membacanya; penyaringan "cabang mana yang boleh dipilih pengguna ini" sepenuhnya
+	 * urusan pemanggil.</p>
+	 *
+	 * @return daftar tahap lanjutan yang berlaku, terurut menurut nomor cabang; daftar kosong bila
+	 *         tahap ini tidak punya lanjutan -- tidak pernah {@code null}
+	 */
 	public List<AlurSop> ambilAlurSetelahnya() {
 		AlurSop alurSop = this;
 		List<AlurSop> alurSops = new ArrayList<AlurSop>();
@@ -3378,6 +3409,22 @@ public class AlurSop extends GeneralValueObject {
 		return alurSops;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk setiap cabang yang berlaku, <b>berindeks sejajar</b>
+	 * dengan {@link #ambilAlurSetelahnya()}.
+	 *
+	 * <p>Perhatikan pola penyusunannya: syarat penambahan adalah {@code getSetelahnyaN() != null}
+	 * -- <b>tahap tujuannya</b> yang diperiksa -- sedangkan yang dimasukkan ke daftar adalah
+	 * {@code getOpsiSetelahnyaN()}. Karena itu cabang yang berlaku namun labelnya belum diisi
+	 * tetap menempati satu posisi, dengan isi string kosong; jumlah elemen kedua daftar selalu
+	 * sama.
+	 *
+	 * <p>Sebagaimana {@link #ambilAlurSetelahnya()}, pemanggilan ikut menjalankan penyaringan
+	 * destruktif pada getter cabang.
+	 *
+	 * @return daftar label cabang; tidak pernah {@code null}, dan tiap elemennya tidak pernah
+	 *         {@code null}
+	 */
 	public List<String> ambilOpsiAlurSetelahnya() {
 		AlurSop alurSop = this;
 		List<String> alurSops = new ArrayList<String>();
@@ -3455,6 +3502,27 @@ public class AlurSop extends GeneralValueObject {
 		return alurSops;
 	}
 
+	/**
+	 * Mengembalikan penanda "cabang ini bermakna menyetujui" untuk setiap cabang yang berlaku,
+	 * <b>berindeks sejajar</b> dengan {@link #ambilAlurSetelahnya()} dan
+	 * {@link #ambilOpsiAlurSetelahnya()}.
+	 *
+	 * <p>Inilah titik tempat semantik persetujuan mesin alur ini dibaca. Perlu ditegaskan apa yang
+	 * <b>tidak</b> dilakukannya: method ini hanya melaporkan <i>arti</i> tiap cabang, dan sama
+	 * sekali tidak menimbang <i>siapa</i> yang berhak memilihnya. Ia tidak menerima parameter
+	 * pengguna, tidak menyentuh {@link #getAktorSop()} maupun {@link #getKhususUsername()}, dan
+	 * tidak memanggil pemeriksa kewenangan mana pun. Pemanggil yang memakai hasilnya sekadar untuk
+	 * menentukan tombol apa yang dirender -- tanpa memeriksa ulang kewenangan pada saat menyimpan
+	 * -- akan menghasilkan gerbang persetujuan yang hanya ada di tampilan.
+	 *
+	 * <p>Ingat pula jebakan penomoran: syarat penambahan diperiksa pada
+	 * {@code getSetelahnyaN()} (cabang pertama tanpa angka), sedangkan nilai yang dimasukkan
+	 * berasal dari {@code getPersetujuanAdaDiSiniN()} (cabang pertama <b>dengan</b> angka 1).
+	 *
+	 * @return daftar penanda persetujuan per cabang; tidak pernah {@code null}, dan tiap elemennya
+	 *         tidak pernah {@code null} karena getter sumbernya memberi {@code false} sebagai
+	 *         nilai bawaan
+	 */
 	public List<Boolean> ambilOpsiAlurSetujui() {
 		AlurSop alurSop = this;
 		List<Boolean> alurSops = new ArrayList<Boolean>();
@@ -3532,6 +3600,46 @@ public class AlurSop extends GeneralValueObject {
 		return alurSops;
 	}
 
+	/**
+	 * Menjawab pertanyaan: <b>bila alur berlanjut dari tahap ini ke {@code alurSopData}, apakah
+	 * perpindahan itu bermakna MENYETUJUI?</b>
+	 *
+	 * <p>Method ini adalah bentuk pencarian dari {@link #ambilOpsiAlurSetujui()}: alih-alih
+	 * mengembalikan seluruh daftar, ia mencocokkan id tahap tujuan yang diberikan dengan ke-20
+	 * kolom cabang secara berurutan dan mengembalikan penanda persetujuan cabang yang cocok
+	 * pertama.
+	 *
+	 * <h3>Yang perlu diperhatikan</h3>
+	 * <ul>
+	 *   <li><b>Ini bukan pemeriksaan izin.</b> Meskipun namanya menyangkut persetujuan dan nilai
+	 *       baliknya bertipe {@code Boolean}, method ini <b>tidak menerima identitas pengguna</b>
+	 *       dan tidak memeriksa kewenangan siapa pun. Ia menjawab "apa arti langkah ini", bukan
+	 *       "bolehkah orang ini melangkah". Memakai nilai baliknya sebagai satu-satunya gerbang
+	 *       sebelum menandai sebuah pengajuan disetujui adalah kekeliruan pemakaian yang serius.</li>
+	 *   <li><b>Nilai balik {@code false} bersifat ambigu.</b> Angka salah tidak dibedakan dari
+	 *       tidak ditemukan: {@code false} dikembalikan baik ketika {@code alurSopData} bernilai
+	 *       {@code null}, ketika tahap itu memang bukan cabang mana pun dari tahap ini, maupun
+	 *       ketika ia cabang yang sah namun penandanya salah. Pemanggil yang ingin menolak tujuan
+	 *       tak dikenal harus memeriksanya sendiri lewat {@link #ambilAlurSetelahnya()} --
+	 *       method ini <b>tidak dapat</b> dipakai untuk memvalidasi bahwa sebuah perpindahan tahap
+	 *       sah, dan karena itu tidak menghalangi lompatan jenjang.</li>
+	 *   <li><b>Berhenti pada kecocokan pertama.</b> Bila tahap yang sama dipasang pada lebih dari
+	 *       satu kolom cabang -- yang tidak dicegah oleh setter mana pun -- hanya penanda cabang
+	 *       bernomor terkecil yang terbaca; penanda cabang kembarannya diabaikan tanpa pesan.</li>
+	 *   <li><b>Rentan {@code NullPointerException}.</b> {@code alurSopData.getId()} dipanggil tanpa
+	 *       penjagaan, sehingga tahap tujuan yang belum tersimpan (id masih {@code null}) akan
+	 *       melempar galat -- berbeda dari argumen {@code null} yang tertangani rapi di baris
+	 *       pertama.</li>
+	 *   <li><b>Ikut menjalankan penyaringan destruktif</b> pada ke-20 getter cabang, sama seperti
+	 *       method {@code ambil...} lainnya di kelas ini.</li>
+	 * </ul>
+	 *
+	 * @param alurSopData tahap tujuan yang hendak diperiksa maknanya; {@code null} menghasilkan
+	 *                    {@code false}
+	 * @return {@code true} hanya bila tahap tujuan cocok dengan salah satu cabang <b>dan</b>
+	 *         penanda persetujuan cabang itu bernilai benar; {@code false} untuk seluruh keadaan
+	 *         lain, termasuk tujuan yang tidak dikenal
+	 */
 	public Boolean ambilAlurSetujui(AlurSop alurSopData) {
 		if (alurSopData == null) {
 			return false;
