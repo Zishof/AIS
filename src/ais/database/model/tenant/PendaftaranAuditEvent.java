@@ -116,6 +116,13 @@ public class PendaftaranAuditEvent extends GeneralValueObject {
 	public static final String EV_REGISTRATION_REJECTED = "REGISTRATION_REJECTED";
 	/** Permohonan dibatalkan pendaftar sendiri. */
 	public static final String EV_REGISTRATION_CANCELLED = "REGISTRATION_CANCELLED";
+	/**
+	 * Permohonan ditandai basi oleh penyapu latar ({@code ReservationExpiryScheduler}): masih
+	 * {@code STATUS_EMAIL_VERIFICATION_PENDING}/{@code STATUS_SUBMITTED} saat reservasi
+	 * username/schema-nya ({@code SchemaNameReservation}) melewati {@code expiresAt} -- ditinggalkan
+	 * sebelum verifikasi email, bukan dibatalkan pendaftar.
+	 */
+	public static final String EV_REGISTRATION_EXPIRED = "REGISTRATION_EXPIRED";
 	/** Permintaan diblokir kontrol keamanan (rate limit, honeypot, elapsed-time). */
 	public static final String EV_SECURITY_BLOCKED = "SECURITY_BLOCKED";
 

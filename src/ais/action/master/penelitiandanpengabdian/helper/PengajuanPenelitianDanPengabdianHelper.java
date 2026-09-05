@@ -1977,6 +1977,10 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 										public void run() {
 											try {
 											try {
+												if (!Common.getApakahAdmin()) {
+													label.setValue("Aksi ditolak: hanya admin yang berhak menyetujui semua data.");
+													return;
+												}
 												List<PengajuanPenelitianDanPengabdian> pengajuanPenelitianDanPengabdians = initCriteria(
 														true).list();
 

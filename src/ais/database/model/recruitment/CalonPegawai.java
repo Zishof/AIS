@@ -1320,10 +1320,139 @@ public class CalonPegawai extends GeneralValueObject {
 		this.nomorInduk = nomorInduk;
 	}
 
+	/**
+	 * Menyetel kata sandi terenkripsi pelamar apa adanya, tanpa enkripsi, tanpa hashing, dan
+	 * tanpa validasi.
+	 *
+	 * <p>
+	 * Kontraknya menuntut pemanggil menyerahkan nilai yang SUDAH terenkripsi (mis. hasil
+	 * {@code Common.desEncrypter.get().encrypt(...)}); menyerahkan kata sandi mentah ke sini akan
+	 * menyimpannya terbaca jelas di kolom {@code pass} tanpa peringatan apa pun. Kontrak implisit
+	 * semacam ini adalah sumber kesalahan berulang di modul-modul lain AIS.
+	 * </p>
+	 *
+	 * <p>
+	 * Setter ini juga TIDAK menyentuh {@link #setIs_encripted(Boolean)}, sehingga penanda
+	 * bentuk-tersimpan bisa berbeda dari kenyataan bila pemanggil lupa menyetelnya sendiri.
+	 * </p>
+	 *
+	 * <p>
+	 * Di seluruh WC ini tidak ditemukan satu pun pemanggil {@code setPass(...)} pada
+	 * {@code CalonPegawai} — satu-satunya penulis kolom {@code pass} adalah efek samping
+	 * {@link #getPass()}.
+	 * </p>
+	 *
+	 * @param pass kata sandi dalam bentuk yang sudah terenkripsi
+	 */
 	public void setPass(String pass) {
 		this.pass = pass;
 	}
 
+	/**
+	 * Mengembalikan kata sandi pelamar dalam bentuk terenkripsi DES, <b>dan menyemainya sendiri
+	 * bila masih kosong</b>.
+	 *
+	 * <h3>Mekanisme persisnya</h3>
+	 * <p>
+	 * Bila field {@link #pass} bernilai {@code null} atau hanya berisi spasi, DAN
+	 * {@link #getNomorInduk()} sudah terisi, getter ini menjalankan dua penugasan:
+	 * </p>
+	 * <ol>
+	 * <li>{@code pass = Common.desEncrypter.get().encrypt(getNomorInduk().trim())} — kata sandi
+	 * dibentuk dari NOMOR REGISTRASI pelamar itu sendiri;</li>
+	 * <li>{@code is_encripted = true} — penanda bahwa nilai tersimpan sudah terenkripsi
+	 * dinyalakan, lihat {@link #getIs_encripted()}.</li>
+	 * </ol>
+	 * <p>
+	 * Bila salah satu syarat tidak terpenuhi, nilai lama dikembalikan apa adanya (bisa
+	 * {@code null}).
+	 * </p>
+	 *
+	 * <h3>Mengapa ini getter destruktif yang benar-benar menulis ke database</h3>
+	 * <p>
+	 * Entity ini memetakan anotasi JPA pada getter, artinya Hibernate memakai <i>property
+	 * access</i>: Hibernate sendiri yang memanggil {@code getPass()} ketika memuat, melakukan
+	 * <i>dirty check</i>, dan mem-{@code flush} objek. Jadi penyemaian di atas tidak menunggu ada
+	 * kode aplikasi yang secara sengaja meminta kata sandi — cukup sebuah baris
+	 * {@code calon_pegawai} ikut terbawa dalam sesi Hibernate yang aktif dan kemudian di-flush,
+	 * maka kolom {@code pass} dan {@code is_encripted} terisi permanen. Anotasi
+	 * {@code dynamicUpdate} tidak mencegahnya; ia hanya membuat {@code UPDATE} berisi kolom yang
+	 * berubah — dan kedua kolom ini memang berubah.
+	 * </p>
+	 *
+	 * <h3>Kualitas kriptografinya</h3>
+	 * <p>
+	 * {@code Common.desEncrypter} adalah {@code DesEncrypter} dengan passphrase
+	 * {@code Common.DES_PASS_PHRASE} yang <b>tertanam permanen di kode sumber dan sama untuk
+	 * seluruh instalasi AIS mana pun</b>. Implikasinya berlapis:
+	 * </p>
+	 * <ul>
+	 * <li>ini ENKRIPSI, bukan HASH — nilainya dapat dikembalikan ke bentuk semula oleh siapa pun
+	 * yang memegang passphrase, dan passphrase itu dapat dibaca oleh siapa pun yang punya akses
+	 * ke kode (termasuk lewat riwayat kontrol versi);</li>
+	 * <li>DES dengan kunci efektif 56 bit sudah lama tidak dianggap aman secara kriptografi;</li>
+	 * <li>enkripsinya deterministik (tanpa IV acak, tanpa salt), sehingga dua pelamar dengan nomor
+	 * registrasi sama menghasilkan ciphertext identik dan pola dapat dikenali langsung dari dump
+	 * database.</li>
+	 * </ul>
+	 * <p>
+	 * Bandingkan dengan pola yang sudah dikonfirmasi benar pada pendaftaran tenant
+	 * ({@code ais.database.model.tenant.Pendaftar}), yang memakai
+	 * {@code PasswordHashService.hash()} — PBKDF2-HMAC-SHA256 dengan salt per-pengguna, fungsi
+	 * satu arah yang tidak bisa dibalik sama sekali. Perlu dicatat bahwa penggantian
+	 * {@code DesEncrypter} ke AES-256-GCM pernah dicoba dan DIBATALKAN (2026-09-02) karena
+	 * sebagian jalur login memverifikasi kata sandi dengan membandingkan ciphertext-ke-ciphertext
+	 * di kueri database, pola yang hanya jalan bila enkripsinya deterministik; rinciannya ada pada
+	 * Javadoc {@code Common#DES_PASS_PHRASE}.
+	 * </p>
+	 *
+	 * <h3>Nilai rahasia yang bukan rahasia</h3>
+	 * <p>
+	 * Bahkan seandainya kriptografinya kuat, kata sandi bawaannya tetap tidak bernilai: isinya
+	 * adalah nomor registrasi pelamar, yang tampil di grid panitia, tercetak di kartu peserta,
+	 * ikut serta pada {@link #toString()} (sehingga masuk ke log dan pesan galat), dan pada banyak
+	 * instalasi dibentuk secara berurutan oleh {@code DefaultNoRegGeneratorPegawai} sehingga bisa
+	 * ditebak dari satu contoh saja.
+	 * </p>
+	 *
+	 * <h3>Siapa yang menulis, siapa yang membaca</h3>
+	 * <p>
+	 * <b>Penulis:</b> hanya getter ini sendiri. Penelusuran seluruh WC tidak menemukan pemanggil
+	 * {@code setPass(...)} pada {@code CalonPegawai}, dan tidak ada pula jalur pendaftaran, layar
+	 * admin, atau skrip yang mengisinya.
+	 * <br>
+	 * <b>Pembaca:</b> tidak ada pemanggil {@code calonPegawai.getPass()} di kode Java mana pun —
+	 * satu-satunya "pembaca" adalah Hibernate saat memetakan kolom. Login pelamar ke portal karir
+	 * TIDAK melewati kolom ini: autentikasi berjalan lewat entity {@code Tbmuser} (kolom
+	 * {@code userPassword}, juga DES) yang ditautkan ke calon pegawai lewat
+	 * {@code Tbmuser.calonPegawai}, lalu sesi diisi oleh
+	 * {@code KarirConfigUtil.putKarirSession(...)}.
+	 * </p>
+	 * <p>
+	 * Kesimpulannya, kolom {@code pass} pada entity ini adalah <b>kredensial dorman</b>: tidak
+	 * pernah dipakai untuk apa pun, tetapi tetap terisi otomatis dengan rahasia yang dapat ditebak
+	 * sekaligus dapat didekripsi, untuk setiap pelamar yang barisnya pernah tersentuh Hibernate.
+	 * Ia menambah permukaan serangan tanpa memberi manfaat fungsional, dan karena kelas ini
+	 * {@code @Audited}, setiap penyemaiannya juga tersalin ke tabel revisi Envers.
+	 * </p>
+	 *
+	 * <h3>Hubungan dengan temuan ekspor kata sandi massal</h3>
+	 * <p>
+	 * Temuan keamanan yang sudah tercatat pada {@code CalonPegawaiAction} (tombol toolbar
+	 * "Password penyedia / perusahaan") adalah masalah TERPISAH dan bekerja pada kolom yang
+	 * berbeda: yang diekspor di sana adalah {@code Tbmuser.userPassword} yang didekripsi menjadi
+	 * teks terbaca ke dalam berkas XLSX, untuk seluruh populasi pelamar tanpa filter kepemilikan,
+	 * lewat tombol yang dipasang tanpa pemeriksaan hak tambahan. Kolom {@code pass} milik entity
+	 * ini tidak ikut dalam ekspor tersebut. Keduanya berbagi akar yang sama — pemakaian enkripsi
+	 * reversibel berkunci global untuk menyimpan kata sandi — tetapi harus diperbaiki secara
+	 * terpisah.
+	 * </p>
+	 *
+	 * @return kata sandi terenkripsi DES; disemai dari {@link #getNomorInduk()} bila sebelumnya
+	 *         kosong, atau {@code null} bila nomor registrasi juga belum ada
+	 * @see #getIs_encripted()
+	 * @see #setPass(String)
+	 */
 	@Column(name = "pass", nullable = true, length = 100)
 	public String getPass() {
 		if ((pass == null || pass.trim().isEmpty()) && getNomorInduk() != null && !getNomorInduk().trim().isEmpty()) {
@@ -1333,23 +1462,91 @@ public class CalonPegawai extends GeneralValueObject {
 		return pass;
 	}
 
+	/**
+	 * Mengembalikan penanda baris aktif, dengan {@code null} diperlakukan sebagai {@code true}.
+	 *
+	 * <p>
+	 * Artinya baris lama yang kolomnya belum pernah diisi otomatis dianggap AKTIF — pilihan
+	 * bawaan yang aman untuk data warisan, tetapi berarti "tidak aktif" harus selalu dinyatakan
+	 * secara eksplisit dengan {@code false}, tidak cukup dengan mengosongkan kolom.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan bahwa penyaringan di {@code CalonPegawaiAction.initCriteria(...)} harus menirukan
+	 * logika bawaan ini pada level SQL, dan memang begitu:
+	 * {@code Restrictions.or(isNull("aktif"), eq("aktif", true))}. Bila ada kode lain yang
+	 * menyaring hanya dengan {@code eq("aktif", true)}, baris warisan berkolom {@code null} akan
+	 * hilang dari hasil — ketidakcocokan yang perlu diperiksa pada setiap kueri baru terhadap
+	 * tabel ini. Perlu dicatat pula bahwa filter aktif di layar itu bersifat OPSIONAL (bergantung
+	 * pada checkbox {@code searchaktif}), sehingga secara bawaan pelamar nonaktif pun tetap ikut
+	 * terambil, termasuk pada jalur ekspor kata sandi massal.
+	 * </p>
+	 *
+	 * @return {@code true} bila baris aktif atau kolomnya {@code null}; {@code false} hanya bila
+	 *         dinonaktifkan eksplisit (tidak pernah {@code null})
+	 */
 	@Column(name = "aktif")
 	public Boolean getAktif() {
 		return this.aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menyetel penanda baris aktif. Menyetel {@code null} bukan berarti "tidak aktif" melainkan
+	 * mengembalikan perilaku bawaan {@code true} pada {@link #getAktif()}.
+	 *
+	 * @param aktif {@code true}/{@code false}/{@code null} sesuai penjelasan di atas
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan catatan bebas panitia mengenai pelamar apa adanya.
+	 *
+	 * <p>
+	 * Properti ini tidak punya {@code @Column}, sehingga nama kolom mengikuti nama properti
+	 * ({@code keterangan}) dengan panjang bawaan 255 karakter. Isinya teks bebas tanpa struktur:
+	 * dalam praktik dipakai panitia untuk mencatat alasan penolakan, hasil wawancara, atau catatan
+	 * administratif lain. Karena tidak terstruktur, isinya tidak bisa dipakai untuk kueri atau
+	 * pelaporan yang andal, dan bisa saja memuat penilaian personal yang sensitif tanpa pembatasan
+	 * akses tersendiri.
+	 * </p>
+	 *
+	 * @return catatan panitia, atau {@code null} bila kosong
+	 */
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/**
+	 * Menyetel catatan bebas panitia mengenai pelamar.
+	 *
+	 * @param keterangan teks catatan (maksimal 255 karakter)
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan negara/kewarganegaraan pelamar sebagai relasi, dengan nilai bawaan
+	 * {@code ConstantValues.INDONESIA} bila belum diisi.
+	 *
+	 * <p>
+	 * <b>Perbedaan penting dari getter bernilai bawaan lainnya:</b> getter ini TIDAK menugaskan
+	 * kembali ke field — nilai bawaan hanya dikembalikan, tidak disimpan. Karena itu kolom
+	 * {@code negara_id} di database tetap {@code NULL} meski layar selalu menampilkan
+	 * "Indonesia". Kueri SQL langsung terhadap tabel ini karena itu TIDAK boleh mengasumsikan
+	 * bahwa pelamar berkewarganegaraan Indonesia punya {@code negara_id} terisi; penyaringan
+	 * berdasarkan negara harus menyertakan {@code IS NULL} secara eksplisit.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilai teks {@link #getKewarganegaraan()} menyimpan informasi serupa secara terpisah dan
+	 * tidak disinkronkan dengan relasi ini.
+	 * </p>
+	 *
+	 * @return negara pelamar, atau {@code ConstantValues.INDONESIA} sebagai bawaan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "negara_id")
@@ -1357,14 +1554,64 @@ public class CalonPegawai extends GeneralValueObject {
 		return negara == null ? ConstantValues.INDONESIA : negara;
 	}
 
+	/**
+	 * Menyetel negara/kewarganegaraan pelamar. Menyetel {@code null} mengembalikan perilaku
+	 * bawaan {@code ConstantValues.INDONESIA} pada {@link #getNegara()}.
+	 *
+	 * @param negara negara pelamar; {@code null} diperbolehkan
+	 */
 	public void setNegara(Negara negara) {
 		this.negara = negara;
 	}
 
+	/**
+	 * Menyetel penanda apakah {@link #getPass()} tersimpan dalam bentuk terenkripsi.
+	 *
+	 * <p>
+	 * Setter ini tidak melakukan apa pun terhadap {@link #pass}: menyalakan penanda tidak
+	 * mengenkripsi nilai yang sudah ada, dan mematikannya tidak mendekripsi apa pun. Ia semata
+	 * metadata yang harus dijaga konsistensinya oleh pemanggil — dan di WC ini tidak ada satu pun
+	 * pemanggil untuk {@code CalonPegawai}, sehingga satu-satunya penulisnya adalah efek samping
+	 * {@link #getPass()}.
+	 * </p>
+	 *
+	 * @param is_encripted {@code true} bila kolom {@code pass} berisi ciphertext
+	 */
 	public void setIs_encripted(Boolean is_encripted) {
 		this.is_encripted = is_encripted;
 	}
 
+	/**
+	 * Mengembalikan penanda apakah kolom {@code pass} tersimpan dalam bentuk terenkripsi, dengan
+	 * {@code null} dinormalkan menjadi {@code false}.
+	 *
+	 * <p>
+	 * <b>Getter destruktif ringan.</b> Normalisasi dilakukan dengan MENUGASKAN kembali ke field
+	 * ({@code is_encripted = false}), bukan sekadar mengembalikan nilai. Untuk baris warisan yang
+	 * kolomnya {@code NULL}, pembacaan pertama saja sudah mengubah state objek menjadi
+	 * {@code false} dan — lewat property access Hibernate — ikut tersimpan pada {@code flush}
+	 * berikutnya. Pola yang sama muncul kembali pada {@link #getTelahLogin()} dan
+	 * {@link #getParameterTambahan()}.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Bahaya penafsirannya.</b> Nilai {@code false} di sini berarti "belum pernah dinyatakan
+	 * terenkripsi", BUKAN "isinya kata sandi mentah". Baris warisan yang kolomnya {@code NULL}
+	 * akan dilaporkan {@code false} padahal isinya bisa saja ciphertext DES. Kode yang memutuskan
+	 * apakah perlu mendekripsi berdasarkan penanda ini akan salah untuk baris-baris tersebut.
+	 * Karena penandanya hanya dinyalakan sebagai efek samping {@link #getPass()}, satu-satunya
+	 * kombinasi yang benar-benar bisa dipercaya adalah {@code true} yang berasal dari penyemaian
+	 * otomatis itu.
+	 * </p>
+	 *
+	 * <p>
+	 * Properti ini juga memakai penamaan {@code snake_case} dan tanpa {@code @Column}, sehingga
+	 * nama kolomnya mengikuti nama properti apa adanya.
+	 * </p>
+	 *
+	 * @return {@code true} bila kolom {@code pass} dinyatakan terenkripsi; {@code false} bila
+	 *         belum dinyatakan (tidak pernah {@code null})
+	 */
 	public Boolean getIs_encripted() {
 		if (is_encripted == null) {
 			is_encripted = false;

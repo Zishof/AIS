@@ -48,48 +48,28 @@ import ais.database.model.Tbmuser;
  * kembali ke dokumen pengadaan asalnya: {@link ItemPunyaBarcode} tidak punya FK langsung ke
  * dokumen mana pun.</p>
  *
- * <h2>Tiga sumber asal, tetapi hanya dua yang dijaga</h2>
+ * <h2>Tiga sumber asal, masing-masing dijaga getter-nya sendiri</h2>
  * <p>Batch dapat berasal dari tiga jenis dokumen, masing-masing dengan FK sendiri:
  * {@link #getSaldoAwal() saldoAwal} (pendataan koleksi awal),
  * {@link #getPenerimaanPengadaanItem() penerimaanPengadaanItem} (penerimaan pembelian), dan
  * {@link #getTerimaPengadaanItem() terimaPengadaanItem} (serah-terima/transfer). Label teks
  * {@link #getBerasalDari() berasalDari} menyatakan mana yang berlaku, memakai konstanta
  * {@link #SALDO_AWAL}, {@link #PEMBELIAN}, dan {@link #TERIMA}.</p>
- * <p><b>Invarian "hanya satu FK sumber yang terisi" ditegakkan secara tidak lengkap.</b>
- * Penegakannya dilakukan di dalam getter, bukan di setter atau di level basis data:</p>
- * <ul>
- *   <li>{@link #getSaldoAwal()} menihilkan {@code saldoAwal} bila label bernilai
- *   {@link #PEMBELIAN}.</li>
- *   <li>{@link #getPenerimaanPengadaanItem()} menihilkan {@code penerimaanPengadaanItem} bila
- *   label bernilai {@link #SALDO_AWAL}.</li>
- *   <li>{@link #getTerimaPengadaanItem()} <b>tidak menihilkan apa pun</b> — tidak ada penjaga
- *   sama sekali untuk cabang ketiga.</li>
- * </ul>
- * <p>Akibatnya, bila label bernilai {@link #TERIMA} — yang bukan {@code PEMBELIAN} dan bukan
- * {@code SALDO_AWAL} — <b>kedua penjaga di atas tidak aktif</b>, sehingga {@code saldoAwal} dan
- * {@code penerimaanPengadaanItem} dapat terisi bersamaan dan invariannya pecah seluruhnya.</p>
- *
- * <h2>Konstanta {@link #TERIMA} tidak pernah dipakai, dan jalur serah-terima salah label</h2>
- * <p>Penelusuran ke seluruh basis kode menunjukkan {@link #TERIMA} <b>tidak memiliki satu pun
- * pemanggil</b>. Semua titik yang memanggil {@link #setBerasalDari(String)} hanya memakai
- * {@link #SALDO_AWAL} atau {@link #PEMBELIAN}, dan combobox pemilihan asal di layar pembangkitan
- * barcode pun hanya berisi dua pilihan itu.</p>
- * <p>Yang menjadi masalah nyata: alur serah-terima menyetel label ke <b>{@link #SALDO_AWAL}</b>
- * padahal pada baris berikutnya batch yang sama diberi {@code terimaPengadaanItem}. Kombinasi itu
- * menimbulkan tiga akibat berantai:</p>
- * <ol>
- *   <li>{@link #getSaldoAwal()} tidak menihilkan apa pun (label bukan {@code PEMBELIAN}), padahal
- *   batch ini sesungguhnya bukan saldo awal.</li>
- *   <li>{@link #getPenerimaanPengadaanItem()} <b>memaksa {@code null}</b> karena label bernilai
- *   {@code SALDO_AWAL} — data penerimaan hilang saat dibaca bila sempat terisi.</li>
- *   <li>Pembangkit barcode baku tidak memiliki cabang untuk {@code terimaPengadaanItem}, sehingga
- *   komponen tahun pada nomor barcode jatuh ke <b>tanggal sekarang</b>, bukan tanggal dokumen
- *   serah-terima. Barcode yang lahir dari jalur ini karena itu bertahun keliru.</li>
- * </ol>
- * <p>Memakai {@link #TERIMA} pada jalur tersebut <i>tanpa</i> lebih dulu menambahkan penjaga
- * ketiga di {@link #getTerimaPengadaanItem()} justru akan memperburuk keadaan, karena membuat
- * kedua penjaga yang ada menjadi tidak aktif. Perbaikan yang benar harus mencakup ketiga getter
- * sekaligus.</p>
+ * <p><b>Invarian "hanya satu FK sumber yang terisi" ditegakkan di dalam getter</b> (bukan di
+ * setter atau di level basis data), dan simetris untuk ketiga cabang: masing-masing getter
+ * menihilkan field-nya sendiri kecuali label {@link #getBerasalDari()} menunjuk persis padanya.
+ * {@link #getSaldoAwal()} menyimpan nilai hanya bila label {@link #SALDO_AWAL};
+ * {@link #getPenerimaanPengadaanItem()} hanya bila {@link #PEMBELIAN};
+ * {@link #getTerimaPengadaanItem()} hanya bila {@link #TERIMA}. Karena ketiganya saling
+ * eksklusif terhadap label yang sama, hanya satu FK sumber yang pernah terlihat aktif pada satu
+ * waktu, apa pun kombinasi field yang kebetulan terisi.</p>
+ * <p><b>Riwayat perbaikan.</b> Sebelumnya jalur serah-terima ({@code
+ * TerimaPengadaanItemDetailAction.generateBarcode()}) keliru melabeli batchnya
+ * {@link #SALDO_AWAL} padahal mengisi {@code terimaPengadaanItem}, dan {@link #getTerimaPengadaanItem()}
+ * tidak punya penjaga sama sekali — kombinasi itu membuat kedua penjaga lain (saldo awal,
+ * penerimaan pembelian) ikut tidak aktif untuk batch serah-terima. Jalur tersebut kini memakai
+ * label {@link #TERIMA} yang benar, dan ketiga getter kini menjaga cabangnya masing-masing secara
+ * simetris.</p>
  *
  * <h2>Cakupan tenant dan Generic CRUD v2</h2>
  * <p>Satu-satunya field tenant di kelas ini adalah {@code perpustakaan}, dan properti itu
@@ -135,15 +115,10 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	 */
 	public static String PEMBELIAN = "Pembelian";
 	/**
-	 * Label {@link #getBerasalDari() berasalDari} untuk batch hasil serah-terima/transfer.
+	 * Label {@link #getBerasalDari() berasalDari} untuk batch hasil serah-terima/transfer, dipakai
+	 * oleh {@code TerimaPengadaanItemDetailAction.generateBarcode()}.
 	 *
-	 * <p><b>Konstanta ini tidak pernah dipakai di mana pun dalam basis kode.</b> Jalur serah-terima
-	 * justru melabeli batchnya {@link #SALDO_AWAL}. Sebelum mulai memakai konstanta ini, tambahkan
-	 * lebih dulu penjaga invarian untuk cabang serah-terima di
-	 * {@link #getTerimaPengadaanItem()} — tanpa itu, label {@code TERIMA} justru menonaktifkan
-	 * kedua penjaga yang ada di {@link #getSaldoAwal()} dan {@link #getPenerimaanPengadaanItem()}.
-	 * Lihat Javadoc kelas untuk uraian lengkapnya. Berlaku pula peringatan "tanpa {@code final}"
-	 * seperti pada {@link #SALDO_AWAL}.</p>
+	 * <p>Berlaku peringatan "tanpa {@code final}" yang sama seperti pada {@link #SALDO_AWAL}.</p>
 	 */
 	public static String TERIMA = "Terima";
 
@@ -350,17 +325,20 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	 * yang menyentuh getter ini karena itu dapat melakukan {@code UPDATE} tanpa disengaja. Pola
 	 * yang sama ada di {@link ItemPunyaBarcode#getPerpustakaan()}.</p>
 	 *
-	 * <h3>Cabang serah-terima tidak ditangani</h3>
-	 * <p>Tidak ada cabang untuk {@code terimaPengadaanItem}. Batch yang berasal dari serah-terima
-	 * karena itu selalu jatuh ke cabang 3 dan mengambil perpustakaan <b>pemanggil</b>, bukan
-	 * perpustakaan dokumen serah-terimanya. Pada transfer antarperpustakaan, ini berarti
-	 * kepemilikan ditentukan oleh siapa yang kebetulan membuka layar lebih dulu.</p>
+	 * <h3>Cabang serah-terima</h3>
+	 * <p>Batch yang berasal dari serah-terima mengambil perpustakaan <b>tujuan transfer</b>
+	 * ({@code terimaPengadaanItem.getTransferPengadaanItem().getPerpustakaanTujuan()}), sejalan
+	 * dengan perpustakaan yang dicatat pada mutasi persediaan {@code TERIMA}. Bila dokumen serah-terima
+	 * tidak punya transfer asal (kolom join-nya {@code nullable}), method jatuh kembali ke
+	 * {@code terimaPengadaanItem.getPerpustakaan()} alih-alih melempar
+	 * {@code NullPointerException}.</p>
 	 *
 	 * <h3>Ketergantungan pada label {@code berasalDari}</h3>
-	 * <p>Cabang 1 dan 2 membaca field mentah, tetapi nilai field itu sendiri dapat sudah dinihilkan
-	 * oleh {@link #getSaldoAwal()} atau {@link #getPenerimaanPengadaanItem()} bila salah satunya
-	 * sempat dipanggil lebih dulu. Hasil method ini karena itu bergantung pada urutan pemanggilan
-	 * getter dan pada nilai label {@link #getBerasalDari()}.</p>
+	 * <p>Cabang 1, 2, dan 3 membaca field mentah, tetapi nilai field itu sendiri dapat sudah
+	 * dinihilkan oleh {@link #getSaldoAwal()}, {@link #getPenerimaanPengadaanItem()}, atau
+	 * {@link #getTerimaPengadaanItem()} bila salah satunya sempat dipanggil lebih dulu. Hasil
+	 * method ini karena itu bergantung pada urutan pemanggilan getter dan pada nilai label
+	 * {@link #getBerasalDari()}.</p>
 	 *
 	 * @return perpustakaan pemilik batch, atau {@code null} bila tidak dapat ditentukan
 	 * @see ItemPunyaBarcode#getPerpustakaan()
@@ -373,6 +351,10 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 			perpustakaan = saldoAwal.getPerpustakaan();
 		} else if (penerimaanPengadaanItem != null) {
 			perpustakaan = penerimaanPengadaanItem.getPerpustakaan();
+		} else if (terimaPengadaanItem != null) {
+			perpustakaan = terimaPengadaanItem.getTransferPengadaanItem() != null
+					? terimaPengadaanItem.getTransferPengadaanItem().getPerpustakaanTujuan()
+					: terimaPengadaanItem.getPerpustakaan();
 		}
 
 		else if (perpustakaan == null && Common.getCurrentPerpustakaan() != null) {
@@ -440,8 +422,8 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	}
 
 	/**
-	 * Mengembalikan dokumen saldo awal asal batch, <b>menihilkannya bila label asal bernilai
-	 * {@link #PEMBELIAN}</b>.
+	 * Mengembalikan dokumen saldo awal asal batch, <b>menihilkannya kecuali label asal bernilai
+	 * {@link #SALDO_AWAL}</b>.
 	 *
 	 * <p>Ini getter <b>destruktif</b> yang dapat menyebabkan kehilangan data: penihilan dilakukan
 	 * terhadap field, sehingga pada entity yang sedang dikelola Hibernate dengan
@@ -463,7 +445,7 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "saldo_awal", nullable = true)
 	public SaldoAwal getSaldoAwal() {
-		if (getBerasalDari().equals(PEMBELIAN)) {
+		if (!getBerasalDari().equals(SALDO_AWAL)) {
 			saldoAwal = null;
 		}
 		return saldoAwal;
@@ -483,16 +465,11 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	}
 
 	/**
-	 * Mengembalikan dokumen penerimaan pembelian asal batch, <b>menihilkannya bila label asal
-	 * bernilai {@link #SALDO_AWAL}</b>.
+	 * Mengembalikan dokumen penerimaan pembelian asal batch, <b>menihilkannya kecuali label asal
+	 * bernilai {@link #PEMBELIAN}</b>.
 	 *
 	 * <p>Berlaku peringatan getter destruktif yang sama seperti pada {@link #getSaldoAwal()}:
 	 * penihilan mengenai field dan berpotensi dipersistensikan sebagai {@code NULL}.</p>
-	 *
-	 * <p>Method inilah yang paling terdampak oleh salah label pada jalur serah-terima. Karena alur
-	 * itu menyetel label ke {@link #SALDO_AWAL} sambil mengisi {@code terimaPengadaanItem}, setiap
-	 * FK penerimaan yang kebetulan terisi pada batch tersebut akan dinihilkan saat dibaca. Lihat
-	 * Javadoc kelas.</p>
 	 *
 	 * @return dokumen penerimaan pembelian, atau {@code null} bila batch bukan berasal dari
 	 *         pembelian
@@ -501,7 +478,7 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "penerimaan_pengadaan_item", nullable = true)
 	public PenerimaanPengadaanItem getPenerimaanPengadaanItem() {
-		if (getBerasalDari().equals(SALDO_AWAL)) {
+		if (!getBerasalDari().equals(PEMBELIAN)) {
 			penerimaanPengadaanItem = null;
 		}
 		return penerimaanPengadaanItem;
@@ -655,23 +632,9 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	}
 
 	/**
-	 * Mengembalikan dokumen serah-terima asal batch.
-	 *
-	 * <p><b>Getter ini tidak memiliki penjaga invarian.</b> Berbeda dari {@link #getSaldoAwal()}
-	 * dan {@link #getPenerimaanPengadaanItem()} yang menihilkan FK-nya ketika label
-	 * {@link #getBerasalDari()} menunjuk sumber lain, method ini mengembalikan field apa adanya
-	 * tanpa memeriksa label sama sekali. Akibatnya {@code terimaPengadaanItem} dapat terisi
-	 * bersamaan dengan salah satu FK sumber lain tanpa terdeteksi — dan memang itulah yang terjadi
-	 * pada alur serah-terima, yang melabeli batchnya {@link #SALDO_AWAL} sambil mengisi field
-	 * ini.</p>
-	 *
-	 * <p>Ketiadaan penjaga di sini juga alasan mengapa konstanta {@link #TERIMA} berbahaya bila
-	 * mulai dipakai tanpa perbaikan menyeluruh: dengan label {@code TERIMA}, tidak ada satu pun
-	 * dari ketiga getter yang menegakkan eksklusivitas. Lihat Javadoc kelas.</p>
-	 *
-	 * <p>Perhatikan pula bahwa {@link #getPerpustakaan()} tidak memiliki cabang untuk field ini,
-	 * sehingga batch serah-terima mengambil perpustakaan pemanggil alih-alih perpustakaan
-	 * dokumennya.</p>
+	 * Mengembalikan dokumen serah-terima asal batch, <b>menihilkannya kecuali label asal bernilai
+	 * {@link #TERIMA}</b>. Simetris dengan {@link #getSaldoAwal()} dan
+	 * {@link #getPenerimaanPengadaanItem()}.
 	 *
 	 * @return dokumen serah-terima, atau {@code null} bila batch bukan berasal dari serah-terima
 	 */
@@ -679,6 +642,9 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "terima_pengadaan_item", nullable = true)
 	public TerimaPengadaanItem getTerimaPengadaanItem() {
+		if (!getBerasalDari().equals(TERIMA)) {
+			terimaPengadaanItem = null;
+		}
 		return terimaPengadaanItem;
 	}
 
@@ -686,8 +652,8 @@ public class BatchItemPunyaBarcode extends GeneralValueObject {
 	 * Menyetel dokumen serah-terima asal batch.
 	 *
 	 * <p>Setter ini tidak menyelaraskan label {@link #getBerasalDari()} maupun mengosongkan FK
-	 * sumber lain. Pemanggil yang menyetel field ini seharusnya juga menyetel label ke
-	 * {@link #TERIMA} — namun perhatikan peringatan pada konstanta tersebut sebelum melakukannya.</p>
+	 * sumber lain. Pemanggil yang menyetel field ini harus juga menyetel label ke
+	 * {@link #TERIMA} agar {@link #getTerimaPengadaanItem()} tidak menihilkannya kembali.</p>
 	 *
 	 * @param terimaPengadaanItem dokumen serah-terima baru, boleh {@code null}
 	 */

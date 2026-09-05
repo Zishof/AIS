@@ -40,7 +40,6 @@ import ais.database.dao.library.PenerimaanPengadaanItemDetailDao;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.library.BatchItemPunyaBarcode;
-import ais.database.model.library.DetailTransaksi;
 import ais.database.model.library.Item;
 import ais.database.model.library.ItemPunyaBarcode;
 import ais.database.model.library.PenerimaanPengadaanItem;
@@ -261,10 +260,6 @@ public class PenerimaanPengadaanItemDetailAction extends MyDetail {
 			public void onEvent(Event arg0) throws Exception {
 				Tbmuser dibuatOleh = Common.getTbmuser();
 				Session session = HibernateUtil.currentNativeSession();
-				session.createSQLQuery(
-						"delete from library.detail_transaksi where penerimaan_pengadaan_item_detail in (select id from library.penerimaan_pengadaan_item_detail where penerimaan_pengadaan_item = "
-								+ penerimaanPengadaanItem.getId() + ");")
-						.executeUpdate();
 
 				@SuppressWarnings("unchecked")
 				List<PenerimaanPengadaanItemDetail> penerimaanPengadaanItemDetails = session
@@ -320,21 +315,6 @@ public class PenerimaanPengadaanItemDetailAction extends MyDetail {
 
 						}
 
-						DetailTransaksi detailTransaksi = new DetailTransaksi();
-						detailTransaksi.setPenerimaanPengadaanItemDetail(penerimaanPengadaanItemDetail);
-						detailTransaksi.setQtyBonus(0.0);
-						detailTransaksi.setItemPunyaBarcode(itemPunyaBarcode);
-						detailTransaksi.setItem(penerimaanPengadaanItemDetail.getItem());
-						detailTransaksi.setKeterangan("Transaksi Penerimaan Pengadaan");
-						detailTransaksi.setKodeTransaksi(LibraryUtil.BELI_MASUK);
-						detailTransaksi.setPerpustakaan(penerimaanPengadaanItem.getPerpustakaan());
-						detailTransaksi.setQty(1.0);
-						detailTransaksi.setTanggal(penerimaanPengadaanItem.getTanggalPersetujuan());
-						detailTransaksi.setTanggalDanWaktu(penerimaanPengadaanItem.getTanggalPersetujuan());
-
-						session.getTransaction().begin();
-						Common.refreshSaveOrUpdate(session, detailTransaksi);
-						session.getTransaction().commit();
 					}
 
 				}

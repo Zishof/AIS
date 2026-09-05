@@ -37,7 +37,6 @@ import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.library.BatchItemPunyaBarcode;
-import ais.database.model.library.DetailTransaksi;
 import ais.database.model.library.Item;
 import ais.database.model.library.ItemPunyaBarcode;
 import ais.database.model.library.TerimaPengadaanItem;
@@ -388,10 +387,6 @@ public class TerimaPengadaanItemDetailAction extends MyDetail {
 			public void onEvent(Event arg0) throws Exception {
 				Tbmuser dibuatOleh = Common.getCurrentUser();
 				Session session = HibernateUtil.currentNativeSession();
-				session.createSQLQuery(
-						"delete from library.detail_transaksi where terima_pengadaan_item_detail in (select id from library.terima_pengadaan_item_detail where terima_pengadaan_item = "
-								+ terimaPengadaanItem.getId() + ");")
-						.executeUpdate();
 
 				@SuppressWarnings("unchecked")
 				List<TerimaPengadaanItemDetail> terimaPengadaanItemDetails = session
@@ -406,7 +401,7 @@ public class TerimaPengadaanItemDetailAction extends MyDetail {
 							.uniqueResult();
 					if (batchItemPunyaBarcode == null) {
 						batchItemPunyaBarcode = new BatchItemPunyaBarcode();
-						batchItemPunyaBarcode.setBerasalDari(BatchItemPunyaBarcode.SALDO_AWAL);
+						batchItemPunyaBarcode.setBerasalDari(BatchItemPunyaBarcode.TERIMA);
 						batchItemPunyaBarcode.setDibuatOleh(dibuatOleh);
 						batchItemPunyaBarcode.setItem(terimaPengadaanItemDetail.getItem());
 						batchItemPunyaBarcode.setTerimaPengadaanItem(terimaPengadaanItem);
@@ -446,24 +441,6 @@ public class TerimaPengadaanItemDetailAction extends MyDetail {
 
 					session.getTransaction().begin();
 					Common.refreshSaveOrUpdate(session, itemPunyaBarcode);
-					session.getTransaction().commit();
-
-					DetailTransaksi detailTransaksi = new DetailTransaksi();
-					detailTransaksi.setTerimaPengadaanItemDetail(terimaPengadaanItemDetail);
-					detailTransaksi.setQtyBonus(0.0);
-
-					detailTransaksi.setItem(terimaPengadaanItemDetail.getItem());
-					detailTransaksi.setKeterangan("Transaksi Terima Pengadaan");
-					detailTransaksi.setKodeTransaksi(LibraryUtil.TERIMA);
-					detailTransaksi
-							.setPerpustakaan(terimaPengadaanItem.getTransferPengadaanItem().getPerpustakaanTujuan());
-					detailTransaksi.setQty(1.0);
-					detailTransaksi.setTanggal(terimaPengadaanItem.getTanggalPembuatan());
-					detailTransaksi.setItemPunyaBarcode(itemPunyaBarcode);
-					detailTransaksi.setTanggalDanWaktu(terimaPengadaanItem.getTanggalPembuatan());
-
-					session.getTransaction().begin();
-					Common.refreshSaveOrUpdate(session, detailTransaksi);
 					session.getTransaction().commit();
 
 				}
