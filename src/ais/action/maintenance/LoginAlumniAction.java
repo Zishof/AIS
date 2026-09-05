@@ -724,8 +724,10 @@ public class LoginAlumniAction extends GenericAutowireComposer {
 
 												@Override
 												public void onEvent(Event arg0) throws Exception {
-													ExecutionsCtrl.sendRedirect(Common.getRequestHostWithProtocol()
-															+ "/report/" + bio.getName());
+													// Buka hasil Tracer Study di tab baru. Redirect pada tab aplikasi memicu
+													// confirmClose milik MainAction dan menggantikan halaman utama dengan PDF.
+													ExecutionsCtrl.getCurrent().sendRedirect(Common.getRequestHostWithProtocol()
+															+ "/report/" + bio.getName(), "_blank");
 												}
 											});
 										}

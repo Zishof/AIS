@@ -129,11 +129,56 @@ yang dimaksud, tidak tercampur apa pun di luar itu untuk berkas ini).
 
 Payroll punya gap serupa (nol token blocklist, `FULL_CRUD` via `tryAutoRegister`) dan sudah
 ter-track terpisah — lihat javadoc `PembayaranGaji.java`. Koperasi, asset, dan employ punya
-paket sendiri dan juga nol token blocklist spesifik domain, tapi **sengaja belum diblok
-blanket** di sini karena (tidak seperti sirs) domain-domain itu punya `scopeBindings` parsial
-yang aktif di jalur menu — blok blanket berisiko mematikan CRUD yang mungkin sedang dipakai
-produksi tanpa peninjauan per-kelas. Audit granular untuk ketiganya belum dikerjakan.
+paket sendiri dan juga nol token blocklist spesifik domain — audit granularnya ada di bagian
+berikutnya, yang berujung pada perbaikan akar masalah, bukan blok per-paket seperti sirs.
 
 Audit data historis (siapa saja yang mungkin sudah mengakses/mengubah data sirs lewat jalur
 CRUD generik ini) belum dijalankan — butuh kredensial database dan log akses yang tidak
 tersedia saat audit ini dilakukan.
+
+## Audit granular koperasi/asset/employ, dan perbaikan akar masalah — 6 September 2026
+
+Audit lanjutan menghitung token blocklist terhadap 180 entity di tiga paket ini: **56 dari 61**
+entity koperasi, **61 dari 63** entity asset, dan **56 dari 56** entity employ lolos
+`BLOCKED_CLASS_TOKENS` tanpa satu pun token cocok. Akar sebabnya sama seperti sirs — token
+berbahasa Inggris ("payment", "bank") tidak menangkap padanan Indonesia (`Pembayaran*`,
+`Piutang`, `Hutang`, `Gaji`, `Hukuman`, `Pelanggaran`, `Keluarga`) yang maknanya identik.
+
+Beda dari sirs: penelusuran JSP scaffold (`generate_new_jsp_scaffold.py`, 6 Agu 2026, pola
+sama persis dengan `pasien_service.jsp`) membuktikan entity paling sensitif di ketiga domain
+ini **sudah live** lewat jalur menu (`tryAutoRegister`, digerbangi `NewUiRouteGuard`) — bukan
+sekadar termapping Hibernate:
+
+- **employ**: `hukuman_pegawai_service.jsp`, `pelanggaran_dan_hukuman_pegawai_service.jsp`
+  (catatan disiplin pegawai), `keluarga_service.jsp` (data keluarga/tanggungan),
+  `riwayat_kartu_identitas_pegawai_service.jsp`, `riwayat_keluar_negeri_pegawai_service.jsp`,
+  `gaji_pokok_service.jsp`, `kenaikan_gaji_berkala_service.jsp` (gaji).
+- **koperasi**: `anggota_koperasi_service.jsp` (identitas anggota), `pembayaran_anggota_koperasi_service.jsp`,
+  `pencairan_diskon_service.jsp`.
+- **asset**: `master_asset_service.jsp`, `penyedia_asset_service.jsp`, dan tiga helper
+  `pembayaran_{dp,pengadaan,termin}_master_asset_helper_service.jsp` (pembayaran pengadaan/vendor).
+
+Karena `isBlockedClass()` (dan sebelumnya `SIRS_BLOCKED_PACKAGE_PREFIX`) dipakai bersama oleh
+DUA jalur — `tryAutoRegister` (menu-gated, `scopeBindings` parsial aktif utk staf biasa) dan
+`buildAdministrative`/`model_crud_service.jsp` (admin-flag kasar, scope selalu bypass) —
+menambah token/blok paket di sana akan menurunkan `FULL_CRUD`→`READ_ONLY` di **kedua jalur
+sekaligus**, termasuk layar-layar live di atas yang sedang dipakai staf HR/koperasi/aset
+sungguhan untuk create/update. Blok blanket ala sirs ditolak di sini karena (tidak seperti
+sirs) domain-domain ini punya lalu lintas `scopeBindings`-terproteksi yang nyata di jalur
+menu — menurunkannya adalah regresi fungsional, bukan sekadar pengetatan keamanan.
+
+**Perbaikan akar masalah, dipilih setelah user memilih opsi ini secara eksplisit:** pisahkan
+gerbang `buildAdministrative`/`listAdministrativeModels` dari `isBlockedClass()`. Jalur admin
+browser sekarang default **DENY**, digerbangi daftar-terima baru `ADMINISTRATIVE_BROWSING_ALLOWLIST`
+(kosong-hampir-kosong, seed satu-satunya: `ais.database.model.Agama`) — bukan lagi default-allow
+kecuali diblokir token. Jalur menu (`tryAutoRegister`) sama sekali tidak disentuh, jadi seluruh
+CRUD live yang terdaftar di atas tetap berfungsi seperti biasa. Ini juga menutup gap yang sama
+untuk payroll (`PembayaranGaji`, `CaraPembayaranGaji`, `PengajuanPeminjaman` — sudah
+didokumentasikan terpisah di javadoc masing-masing) dan modul lain manapun (`TenantRegistry`,
+`SocialTenantSetting`, dst.) yang sebelumnya lolos `BLOCKED_CLASS_TOKENS` di jalur admin browser
+ini, sekaligus — bukan tambal token satu per satu.
+
+Sesuai prinsip "default deny / default disabled" di README paket ini: entity baru HARUS
+ditinjau lalu ditambahkan satu per satu ke `ADMINISTRATIVE_BROWSING_ALLOWLIST` sebelum bisa
+dijelajah lewat `model_crud_service.jsp` — daftar kosong-hampir-kosong ini adalah keadaan yang
+disengaja, bukan kekurangan yang perlu buru-buru diisi.
