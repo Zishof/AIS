@@ -283,6 +283,15 @@ public class PengajuanKpiAction extends GenericAutowireComposer implements DataI
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
+										// Gerbang persetujuan diperiksa ulang di sini (server-side): setVisible(approve)
+										// di renderer hanya menyembunyikan tombol, bukan mencegah event onClick yang
+										// dipicu di luar jalur render normal.
+										if (!CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)) {
+											MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk menyetujui pengajuan KPI ini.",
+													"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+											return;
+										}
+
 										Session session = HibernateUtil.currentSession();
 
 										pengajuanKpi.setDisetujuiOleh(Common.getCurrentUser());
@@ -328,6 +337,14 @@ public class PengajuanKpiAction extends GenericAutowireComposer implements DataI
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
+										// Gerbang persetujuan diperiksa ulang di sini (server-side): setVisible(reject)
+										// di renderer hanya menyembunyikan tombol, bukan mencegah event onClick yang
+										// dipicu di luar jalur render normal.
+										if (!CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT)) {
+											MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk menolak pengajuan KPI ini.",
+													"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+											return;
+										}
 
 										Session session = HibernateUtil.currentSession();
 										pengajuanKpi.setDitolakOleh(Common.getCurrentUser());
@@ -372,6 +389,15 @@ public class PengajuanKpiAction extends GenericAutowireComposer implements DataI
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
+										// Gerbang persetujuan diperiksa ulang di sini (server-side): setVisible(reject)
+										// di renderer hanya menyembunyikan tombol, bukan mencegah event onClick yang
+										// dipicu di luar jalur render normal.
+										if (!CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT)) {
+											MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk membatalkan pengajuan KPI ini.",
+													"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+											return;
+										}
+
 										Session session = HibernateUtil.currentSession();
 
 										pengajuanKpi.setDisetujuiOleh(null);

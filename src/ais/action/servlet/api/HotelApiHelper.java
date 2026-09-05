@@ -580,7 +580,12 @@ public final class HotelApiHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			Kamar kamar = (Kamar) session.get(Kamar.class, kamarId);
+			session.beginTransaction();
+			// Lock baris Kamar (SELECT ... FOR UPDATE) SEBELUM baca status, bukan sesudah:
+			// tanpa ini, dua check-in konkuren utk kamar yg sama bisa keduanya membaca VACANT
+			// sebelum salah satu commit (isolation default Postgres READ COMMITTED, tidak ada
+			// constraint DB yg menjaga 1 stay aktif per kamar) -- dobel-huni + dobel Folio.
+			Kamar kamar = (Kamar) session.get(Kamar.class, kamarId, org.hibernate.LockOptions.UPGRADE);
 			if (kamar == null || !Boolean.TRUE.equals(kamar.getAktif())) {
 				tolak(hasil, "Kamar tidak ditemukan / tidak aktif.");
 				return;
@@ -632,7 +637,6 @@ public final class HotelApiHelper {
 			stay.setStatus(ais.database.model.hotel.MenginapTamu.STATUS_IN_HOUSE);
 			stay.setCatatan(request.optString("catatan", ""));
 
-			session.beginTransaction();
 			session.save(stay);
 			ais.database.model.hotel.Folio folio = new ais.database.model.hotel.Folio();
 			folio.setProperti(kamar.getProperti());
