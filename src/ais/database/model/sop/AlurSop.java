@@ -359,77 +359,717 @@ public class AlurSop extends GeneralValueObject {
 
 	private Sop sop;
 	private AlurSop sebelumnya;
+	/**
+	 * Tahap tujuan <b>cabang ke-1</b> dari tahap ini (kolom {@code setelahnya}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya} (label pilihan) dan {@link #persetujuanAdaDiSini1} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya;
+	/**
+	 * Tahap tujuan <b>cabang ke-2</b> dari tahap ini (kolom {@code setelahnya2}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya2} (label pilihan) dan {@link #persetujuanAdaDiSini2} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya2()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya2;
+	/**
+	 * Tahap tujuan <b>cabang ke-3</b> dari tahap ini (kolom {@code setelahnya3}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya3} (label pilihan) dan {@link #persetujuanAdaDiSini3} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya3()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya3;
+	/**
+	 * Tahap tujuan <b>cabang ke-4</b> dari tahap ini (kolom {@code setelahnya4}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya4} (label pilihan) dan {@link #persetujuanAdaDiSini4} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya4()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya4;
+	/**
+	 * Tahap tujuan <b>cabang ke-5</b> dari tahap ini (kolom {@code setelahnya5}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya5} (label pilihan) dan {@link #persetujuanAdaDiSini5} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya5()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya5;
 
+	/**
+	 * Tahap tujuan <b>cabang ke-6</b> dari tahap ini (kolom {@code setelahnya6}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya6} (label pilihan) dan {@link #persetujuanAdaDiSini6} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya6()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya6;
+	/**
+	 * Tahap tujuan <b>cabang ke-7</b> dari tahap ini (kolom {@code setelahnya7}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya7} (label pilihan) dan {@link #persetujuanAdaDiSini7} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya7()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya7;
+	/**
+	 * Tahap tujuan <b>cabang ke-8</b> dari tahap ini (kolom {@code setelahnya8}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya8} (label pilihan) dan {@link #persetujuanAdaDiSini8} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya8()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya8;
+	/**
+	 * Tahap tujuan <b>cabang ke-9</b> dari tahap ini (kolom {@code setelahnya9}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya9} (label pilihan) dan {@link #persetujuanAdaDiSini9} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya9()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya9;
+	/**
+	 * Tahap tujuan <b>cabang ke-10</b> dari tahap ini (kolom {@code setelahnya10}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya10} (label pilihan) dan {@link #persetujuanAdaDiSini10} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya10()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya10;
 
+	/**
+	 * Tahap tujuan <b>cabang ke-11</b> dari tahap ini (kolom {@code setelahnya11}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya11} (label pilihan) dan {@link #persetujuanAdaDiSini11} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya11()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya11;
+	/**
+	 * Tahap tujuan <b>cabang ke-12</b> dari tahap ini (kolom {@code setelahnya12}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya12} (label pilihan) dan {@link #persetujuanAdaDiSini12} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya12()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya12;
+	/**
+	 * Tahap tujuan <b>cabang ke-13</b> dari tahap ini (kolom {@code setelahnya13}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya13} (label pilihan) dan {@link #persetujuanAdaDiSini13} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya13()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya13;
+	/**
+	 * Tahap tujuan <b>cabang ke-14</b> dari tahap ini (kolom {@code setelahnya14}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya14} (label pilihan) dan {@link #persetujuanAdaDiSini14} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya14()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya14;
+	/**
+	 * Tahap tujuan <b>cabang ke-15</b> dari tahap ini (kolom {@code setelahnya15}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya15} (label pilihan) dan {@link #persetujuanAdaDiSini15} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya15()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya15;
 
+	/**
+	 * Tahap tujuan <b>cabang ke-16</b> dari tahap ini (kolom {@code setelahnya16}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya16} (label pilihan) dan {@link #persetujuanAdaDiSini16} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya16()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya16;
+	/**
+	 * Tahap tujuan <b>cabang ke-17</b> dari tahap ini (kolom {@code setelahnya17}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya17} (label pilihan) dan {@link #persetujuanAdaDiSini17} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya17()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya17;
+	/**
+	 * Tahap tujuan <b>cabang ke-18</b> dari tahap ini (kolom {@code setelahnya18}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya18} (label pilihan) dan {@link #persetujuanAdaDiSini18} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya18()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya18;
+	/**
+	 * Tahap tujuan <b>cabang ke-19</b> dari tahap ini (kolom {@code setelahnya19}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya19} (label pilihan) dan {@link #persetujuanAdaDiSini19} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya19()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya19;
+	/**
+	 * Tahap tujuan <b>cabang ke-20</b> dari tahap ini (kolom {@code setelahnya20}).
+	 *
+	 * <p>Bagian dari fan-out terdenormalisasi 20 kolom; berpasangan berdasarkan indeks dengan
+	 * {@link #opsiSetelahnya20} (label pilihan) dan {@link #persetujuanAdaDiSini20} (apakah memilih
+	 * cabang ini bermakna MENYETUJUI). Perhatikan bahwa cabang pertama memakai nama field
+	 * tanpa angka untuk tujuan dan label, tetapi <b>dengan</b> angka 1 untuk penanda
+	 * persetujuannya.</p>
+	 *
+	 * <p>Dibaca lewat getter destruktif {@link #getSetelahnya20()} yang membuang nilai ini
+	 * (menjadikannya {@code null}) bila tahap tujuan ternyata tahap awal atau sudah tidak
+	 * aktif.</p>
+	 */
 	private AlurSop setelahnya20;
 
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-1</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini1}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya
+	 */
 	private String opsiSetelahnya;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-2</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini2}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya2
+	 */
 	private String opsiSetelahnya2;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-3</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini3}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya3
+	 */
 	private String opsiSetelahnya3;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-4</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini4}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya4
+	 */
 	private String opsiSetelahnya4;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-5</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini5}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya5
+	 */
 	private String opsiSetelahnya5;
 
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-6</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini6}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya6
+	 */
 	private String opsiSetelahnya6;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-7</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini7}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya7
+	 */
 	private String opsiSetelahnya7;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-8</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini8}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya8
+	 */
 	private String opsiSetelahnya8;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-9</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini9}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya9
+	 */
 	private String opsiSetelahnya9;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-10</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini10}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya10
+	 */
 	private String opsiSetelahnya10;
 
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-11</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini11}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya11
+	 */
 	private String opsiSetelahnya11;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-12</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini12}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya12
+	 */
 	private String opsiSetelahnya12;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-13</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini13}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya13
+	 */
 	private String opsiSetelahnya13;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-14</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini14}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya14
+	 */
 	private String opsiSetelahnya14;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-15</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini15}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya15
+	 */
 	private String opsiSetelahnya15;
 
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-16</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini16}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya16
+	 */
 	private String opsiSetelahnya16;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-17</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini17}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya17
+	 */
 	private String opsiSetelahnya17;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-18</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini18}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya18
+	 */
 	private String opsiSetelahnya18;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-19</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini19}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya19
+	 */
 	private String opsiSetelahnya19;
+	/**
+	 * Label/teks pilihan yang ditampilkan kepada aktor untuk <b>cabang ke-20</b>
+	 * (mis. "Setuju", "Revisi", "Teruskan"). Murni teks tampilan: tidak ada makna keputusan
+	 * yang disimpulkan dari isinya -- makna "menyetujui" ditentukan terpisah oleh
+	 * {@link #persetujuanAdaDiSini20}, sehingga label bertuliskan "Setuju" pun tetap
+	 * <b>tidak</b> dihitung sebagai persetujuan bila penanda tersebut bernilai salah.
+	 *
+	 * @see #setelahnya20
+	 */
 	private String opsiSetelahnya20;
 
 	private Boolean persetujuanAdaDiSini;
 	private Boolean penolakanAdaDiSini;
 
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-1</b> ({@link #setelahnya})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini1;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-2</b> ({@link #setelahnya2})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini2;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-3</b> ({@link #setelahnya3})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini3;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-4</b> ({@link #setelahnya4})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini4;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-5</b> ({@link #setelahnya5})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini5;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-6</b> ({@link #setelahnya6})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini6;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-7</b> ({@link #setelahnya7})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini7;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-8</b> ({@link #setelahnya8})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini8;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-9</b> ({@link #setelahnya9})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini9;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-10</b> ({@link #setelahnya10})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini10;
 
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-11</b> ({@link #setelahnya11})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini11;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-12</b> ({@link #setelahnya12})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini12;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-13</b> ({@link #setelahnya13})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini13;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-14</b> ({@link #setelahnya14})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini14;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-15</b> ({@link #setelahnya15})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini15;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-16</b> ({@link #setelahnya16})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini16;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-17</b> ({@link #setelahnya17})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini17;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-18</b> ({@link #setelahnya18})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini18;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-19</b> ({@link #setelahnya19})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini19;
+	/**
+	 * Penanda bahwa melanjutkan alur melalui <b>cabang ke-20</b> ({@link #setelahnya20})
+	 * bermakna <b>MENYETUJUI</b> pengajuan pada tahap ini.
+	 *
+	 * <p>Penanda ini semata-mata <b>metadata deklaratif</b>: ia dibaca oleh
+	 * {@link #ambilAlurSetujui(AlurSop)} dan {@link #ambilOpsiAlurSetujui()} untuk memberi
+	 * tahu pemanggil arti sebuah cabang, tetapi tidak ada kode di kelas ini yang
+	 * memeriksa kewenangan pemilihnya. Lihat javadoc kelas, bagian "pemisahan deklarasi
+	 * kewenangan dari penegakan kewenangan".</p>
+	 */
 	private Boolean persetujuanAdaDiSini20;
 
 //	private Tbmrole role;
