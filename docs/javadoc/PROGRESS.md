@@ -1,5 +1,83 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `file` TUNTAS 100% (6 Sep 2026, akhir batch 107) — domain KEDUA BELAS tuntas
+
+Diverifikasi: **50/50 file** `ais/database/model/file/` kini punya Javadoc
+substansial. Selesai dalam SATU batch (107, 5 agent paralel). Domain kedua
+belas yang tuntas penuh setelah `akunting`, `payroll`, `koperasi`,
+`inventory`, `employ`, `asset`, `surat`, `rab`, `sirs`, `sister`, `library`.
+
+**Klaster inti — `FileFotoLain.java`** (1 agent `opus` khusus, 1189→3108
+baris, 4→61 blok javadoc, r84841-r84884 dalam 8 tahap commit; plus
+`LampiranJurnal.java` r84889, `MediaParameter.java` r84892). Dikonfirmasi
+sebagai **superclass abstrak 21 entitas** lampiran/foto di seluruh
+codebase (termasuk `LampiranLain.java` di paket lain, yang metode
+statisnya `ambil/resetLokasi/ambilLinkLampiranLain` cuma meneruskan ke sini
+dengan `clazz=LampiranLain.class`). Mekanisme inti `usingId`
+(`FileFotoLain.java:1517-1523`) — satu `boolean` mematikan DUA pembatas
+sekaligus (`Restrictions.eq("jenis",...)`→`sqlRestriction("true")` DAN
+`Restrictions.eq(refName, ref)`→`Restrictions.idEq(ref)` ke PK `IDENTITY`)
+— dikonfirmasi ULANG dari kode dengan detail baru: jalur masuknya
+sepenuhnya PRA-OTENTIKASI (`/al` = `IS_AUTHENTICATED_ANONYMOUSLY` di
+`applicationContext-security.xml:59-60`, DAN `FilterJSP.isIgnoredPath()`
+melewatkan SEMUA path yang MENGANDUNG substring "al", bukan exact-match) —
+komentar kode lama yang menyebut `AmbilLampiran` "servlet yang
+terautentikasi" FAKTUAL KELIRU. `AmbilMedia` adalah titik masuk kedua
+dengan pola identik. `delete()` hanya membatalkan cache `usingId=false`,
+bukan `usingId=true` — lampiran "terhapus" tetap tersaji dari cache lain.
+`hapusAtauUpdate()` pada kelas ber-`refField="id"` (fallback fail-open dari
+`RELASI_MAP`) cabangnya KOSONG — tidak menghapus apa pun meski UI
+mengklaim "permanen", unggah ulang menumpuk baris. **Task baru
+`task_080bf7c2`**: SQL injection nyata — `Data.java` meneruskan parameter
+`kondisiTambahan` mentah ke `Restrictions.sqlRestriction()` di method
+`ambil()` yang sama, kategori BERBEDA (injeksi, bukan IDOR) dari
+`task_b82b25d2`, kebetulan bertemu titik kode yang sama.
+
+**Klaster foto identitas orang** (11 file, r84840-r84883). 10 dari 11
+`extends FileFotoLain` dan terdaftar `RELASI_MAP`; **`FotoBiodataMahasiswa`
+pengecualian** — `extends FileFoto` langsung, tidak terdaftar
+`RELASI_MAP`, jalur resolusi kepemilikan berbeda total. `FotoAdmin`:
+`ambilRef()` mengembalikan PK baris sendiri (bukan FK `tbmuser`), asimetri
+disengaja untuk penanganan `String` vs `Long`. 0 task baru — semua
+perluasan `task_b82b25d2`/`task_a1e32ff3`.
+
+**Klaster foto surat/tandatangan** (10 file, r84842-r84879). Gerbang
+upload/ganti gambar tanda tangan pejabat (`FotoGambarTandaTanganPejabat`)
+UI-only, tak ada re-cek otorisasi di handler simpan — memperkuat
+`task_910db49b`/`task_7a1b63d1`. **Task baru `task_aec36eff`**: rantai RCE
+JasperReports — upload `.jrxml` (`SuratJrxmlFile`) cuma blacklist ekstensi
+tanpa validasi isi JRXML, dan `JasperCompileManager.compileReportToFile`
+dipanggil dari servlet `AmbilLaporanMahasiswa` yang TERNYATA anonim (tak
+terdaftar `applicationContext-security.xml`) — kombinasi upload-tanpa-
+validasi + eksekusi-publik-tanpa-auth, lebih konkret dari dugaan lama
+"belum diaudit". `FotoAnggotaKoperasi` ternyata LF murni (bukan CRLF
+seperti 9 kerabatnya) — terungkap lewat cross-check `perl` vs `svn cat`
+setelah `grep -cU` sempat memberi hasil palsu lagi.
+
+**Klaster lampiran akademik/kemahasiswaan** (10 file, r84845-r84887).
+`LampiranLainBiodataCalonMahasiswa`/`LampiranLainMahasiswa` dikonfirmasi
+entity MANDIRI (tabel fisik sendiri, bukan wrapper `LampiranLain`) — DAN
+ditemukan relasi arsitektural baru: saat calon mahasiswa diterima,
+`CommonPMB` menyalin tiap baris `LampiranLainBiodataCalonMahasiswa` jadi
+baris baru `LampiranLainMahasiswa` (dipasangkan via kolom `jenis`, blob
+disalin independen). `LampiranBeasiswaMahasiswa` dicatat sebagai
+perluasan `task_51f767ec` (filter kepemilikan hilang). 0 task baru.
+
+**Klaster item/perpustakaan/rab/misc** (16 file, r84839-r84895, agent
+penutup paket). `PertemuanFileContent`/`TugasFileContent.ambilRef()`
+mengembalikan `getId()` SENGAJA (golongan `"id"` di `RELASI_MAP`, bukan
+bug). **Task baru `task_506a5649`**: bug id-salah-relasi GENUINELY BARU di
+`ais/action/master/helper/generic/AmbilDataTugasFileContent.java` (7
+lokasi, DI LUAR paket `file/`) — cabang `if (siswa != null)` keliru
+`setMahasiswa(mahasiswa.getId())` alih-alih `setSiswa(siswa.getId())`,
+submission tugas siswa sekolah (GDrive/rekam-layar/kamera/link) gagal
+tersimpan atau salah tertaut. `LogCsvFileUpload` entity tidur (2 titik
+`new` hanya di kode yang dikomentari).
+
+**3 task baru batch 107**: `task_080bf7c2`, `task_aec36eff`,
+`task_506a5649`. Total akumulasi 107 sesi: **1249+ file** dari 7.401
+(~31,9%).
+
 ## 🎉 MILESTONE — paket `library` TUNTAS 100% (6 Sep 2026, akhir batch 106) — domain KESEBELAS tuntas
 
 Diverifikasi: **86/86 file** `ais/database/model/library/` kini punya
