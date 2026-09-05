@@ -40,7 +40,7 @@ public final class KantinMemberApi {
      * dan menerapkan logika auto-create yang sama dengan beranda.jsp.
      */
     @SuppressWarnings({"unchecked", "deprecation"})
-    private static AnggotaKoperasi resolveAnggotaDb(Session s, Tbmuser detachedUser, boolean autoCreate) {
+    private static AnggotaKoperasi resolveAnggotaDb(Session s, Tbmuser detachedUser, boolean autoCreate) throws Exception {
         // 1. Reload Tbmuser dalam session supaya lazy associations bisa diakses
         // Tbmuser memakai String userId sebagai @Id (bukan Long id dari GeneralValueObject)
         if (detachedUser == null || detachedUser.getUserId() == null) return null;
@@ -101,7 +101,7 @@ public final class KantinMemberApi {
             } catch (Exception e) {
                 ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:resolveAnggotaDb");
             }
-            anggota.setKode(anggota.generateKodeMember(s, anggota.getTanggal()));
+            anggota.setKode(AnggotaKoperasi.generateKodeMemberUnik(s, anggota, anggota.getTanggal()));
             if (!s.getTransaction().isActive()) s.getTransaction().begin();
             s.save(anggota);
             user.setAnggotaKoperasi(anggota);
@@ -299,7 +299,7 @@ public final class KantinMemberApi {
                 }
             }
 
-            anggota.setKode(anggota.generateKodeMember(s, anggota.getTanggal()));
+            anggota.setKode(AnggotaKoperasi.generateKodeMemberUnik(s, anggota, anggota.getTanggal()));
 
             if (!s.getTransaction().isActive()) s.getTransaction().begin();
             s.save(anggota);

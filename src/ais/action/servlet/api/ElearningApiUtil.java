@@ -2375,7 +2375,7 @@ public class ElearningApiUtil {
 			if (baru && (data.isNull("kode") || data.get("kode").toString().trim().isEmpty())
 					&& clazz.getName().equalsIgnoreCase(AnggotaKoperasi.class.getName())) {
 				AnggotaKoperasi anggotaKoperasi = (AnggotaKoperasi) generalValueObject;
-				String noAgenda = anggotaKoperasi.generateKodeMember(session, WaktuUtil.getDate());
+				String noAgenda = AnggotaKoperasi.generateKodeMemberUnik(session, anggotaKoperasi, WaktuUtil.getDate());
 				anggotaKoperasi.setKode(noAgenda);
 			}
 

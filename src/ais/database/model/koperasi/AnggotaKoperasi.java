@@ -956,7 +956,8 @@ public class AnggotaKoperasi extends VOSiswa {
 
 	/**
 	 * Menyusun kode member koperasi untuk anggota ini berdasarkan jenis keanggotaan, bulan/tahun
-	 * pendaftaran, dan dua nomor urut yang dihitung langsung dari basis data.
+	 * pendaftaran, dan dua nomor urut yang dipersistensikan secara atomik -- BUKAN dihitung ulang
+	 * dari COUNT baris {@code koperasi.anggota_koperasi} seperti versi sebelumnya.
 	 *
 	 * <h4>Bahan penyusun</h4>
 	 * <ul>
@@ -965,11 +966,8 @@ public class AnggotaKoperasi extends VOSiswa {
 	 * {@code "MEM"}.</li>
 	 * <li><b>Bulan dan tahun</b> diambil dari {@code tanggalDaftar}; bila argumen tersebut
 	 * {@code null}, dipakai waktu saat ini. Bulan diformat dua digit.</li>
-	 * <li><b>Nomor urut global</b> -- jumlah seluruh baris pada {@code koperasi.anggota_koperasi}
-	 * ditambah satu, tanpa memandang tenant maupun jenis keanggotaan.</li>
-	 * <li><b>Nomor urut per jenis</b> -- jumlah anggota dengan jenis keanggotaan yang sama ditambah
-	 * satu. Bila anggota belum punya jenis keanggotaan, nomor ini disamakan dengan nomor urut
-	 * global.</li>
+	 * <li><b>Nomor urut global</b> dan <b>nomor urut per jenis</b> -- lihat bagian "Sumber nomor
+	 * urut" di bawah.</li>
 	 * </ul>
 	 *
 	 * <h4>Dua bentuk keluaran</h4>
@@ -980,48 +978,68 @@ public class AnggotaKoperasi extends VOSiswa {
 	 * pencocokan teks pada kode jenis, bukan pada penanda tersendiri; mengganti kode sebuah jenis
 	 * keanggotaan karena itu diam-diam mengubah bentuk kode member yang diterbitkan setelahnya.</p>
 	 *
-	 * <h4>Nomor urut diambil dengan COUNT, bukan dengan penghitung terkunci</h4>
-	 * <p>Kedua nomor urut diperoleh lewat {@code COUNT(*) + 1} tanpa penguncian baris, tanpa tabel
-	 * penghitung, dan tanpa pemeriksaan duplikat sesudahnya. Padahal {@link #getKode()} dipetakan
-	 * sebagai kolom UNIQUE. Konsekuensinya, dua pendaftaran anggota yang berjalan bersamaan akan
-	 * membaca COUNT yang sama, menyusun kode yang sama persis, dan salah satunya gagal dengan
-	 * pelanggaran batasan keunikan pada saat commit. Seluruh pemanggil yang ada -- pendaftaran member
-	 * dari POS, penyimpanan anggota dari layar kantin, serta pembuatan otomatis saat login member --
-	 * berjalan di dalam transaksi tetapi tidak satu pun memasang kunci, memeriksa duplikat, atau
-	 * mencoba ulang. Pemanggil baru sebaiknya membungkus pemanggilan ini dengan pemeriksaan duplikat
-	 * dan percobaan ulang, atau menyerahkan penomoran pada mekanisme yang benar-benar serial.</p>
+	 * <h4>Sumber nomor urut: pencacah dipersistensikan, bukan COUNT</h4>
+	 * <p><b>Perbaikan dibanding versi sebelumnya:</b> versi lama mengambil kedua nomor urut lewat
+	 * {@code COUNT(*) + 1} atas baris {@code koperasi.anggota_koperasi} setiap kali dipanggil, tanpa
+	 * penguncian baris, tanpa tabel penghitung, dan tanpa pemeriksaan duplikat -- padahal
+	 * {@link #getKode()} dipetakan sebagai kolom UNIQUE. Dua pendaftaran anggota yang berjalan
+	 * bersamaan membaca COUNT yang sama dan menyusun kode identik; COUNT itu sendiri juga MUNDUR
+	 * bila ada baris anggota yang dihapus, sehingga kode yang sama bisa diterbitkan dua kali seiring
+	 * waktu bahkan tanpa konkurensi sama sekali.</p>
 	 *
-	 * <p>Perlu disadari pula bahwa COUNT global mencakup <b>seluruh tenant</b>. Nomor urut terakhir
-	 * pada kode member karena itu bukan nomor anggota ke sekian pada koperasi yang bersangkutan,
-	 * melainkan nomor pada tabel secara keseluruhan; ia akan melompat-lompat bila ada lebih dari satu
-	 * unit usaha dalam satu basis data, dan akan mundur bila ada baris anggota yang dihapus.</p>
+	 * <p>Sekarang kedua nomor urut diambil dari baris {@link AnggotaKoperasiKodeCounter} yang
+	 * dipersistensikan per (koperasi, jenis) dan dinaikkan ATOMIK -- dikunci lewat
+	 * {@code ais.database.hibernate.KunciEntityHelper#jalankanDenganKunci} (kunci baris database
+	 * {@code FOR NO KEY UPDATE NOWAIT} + retry, aman lintas thread maupun lintas node aplikasi),
+	 * pola yang sama persis dengan perbaikan NIS kembar terdahulu (lihat
+	 * {@link ais.database.model.sekolah.NisCounter}). Nomor urut TIDAK PERNAH diturunkan ulang dari
+	 * COUNT baris yang bisa terhapus. Lingkup pencacah:</p>
+	 * <ul>
+	 * <li><b>Nomor urut global</b> -- pencacah {@code (koperasi, JENIS_GLOBAL)}: BERMAKNA per
+	 * koperasi bagi anggota yang koperasinya sudah ditautkan lewat {@link #getKoperasi()}; anggota
+	 * yang belum ditautkan ke koperasi mana pun (mayoritas pemanggil API saat ini) berbagi SATU
+	 * pencacah sentinel bersama, meniru perilaku global versi lama untuk populasi tersebut. Lihat
+	 * javadoc {@link AnggotaKoperasiKodeCounter} untuk rincian sentinel dan alasan tidak memakai
+	 * foreign key sungguhan ke {@link Koperasi}.</li>
+	 * <li><b>Nomor urut per jenis</b> -- pencacah {@code (koperasi, idJenis)} terpisah, dalam
+	 * lingkup koperasi yang sama. Bila anggota belum punya jenis keanggotaan, nomor ini disamakan
+	 * dengan nomor urut global (tidak memakai pencacah tersendiri).</li>
+	 * </ul>
+	 * <p>Perubahan mekanisme ini TIDAK menulis ulang satu pun kode member yang sudah terlanjur
+	 * terbit -- string {@link #getKode()} yang tersimpan pada baris lama tidak tersentuh.</p>
 	 *
-	 * <h4>Kegagalan ditelan secara senyap</h4>
-	 * <p>Ketiga blok penangkap kesalahan di dalam method hanya mencetak jejak tumpukan dan
-	 * merekamnya ke audit kesalahan, lalu membiarkan eksekusi berlanjut dengan nilai bawaan. Bila
-	 * kueri hitung gagal, nomor urut diam-diam bertahan di angka satu dan kode tetap diterbitkan
-	 * seolah-olah baik-baik saja. Riwayat kelas ini memuat contoh nyata akibatnya: kueri urutan per
-	 * jenis pernah ditulis memakai nama tabel fisik pada HQL sehingga selalu melempar kesalahan
-	 * penguraian, tertangkap diam-diam, dan membuat nomor urut per jenis <i>selamanya</i> bernilai
-	 * satu tanpa pernah terdeteksi -- perbaikannya beserta penjelasannya masih tertinggal sebagai
-	 * komentar di dalam badan method. Kegagalan pada lapisan terluar mengembalikan {@code null},
-	 * yang bila tidak diperiksa pemanggil akan tersimpan sebagai kode member kosong.</p>
+	 * <h4>Kegagalan tidak lagi ditelan secara senyap</h4>
+	 * <p>Versi lama menangkap kegagalan kueri hitung lalu membiarkan eksekusi berlanjut dengan nilai
+	 * bawaan (nomor urut diam-diam bertahan di angka satu, kode tetap diterbitkan seolah baik-baik
+	 * saja); riwayat kelas ini bahkan memuat contoh nyata akibatnya -- kueri urutan per jenis pernah
+	 * ditulis salah bentuk sehingga SELALU gagal namun tak pernah terdeteksi. Method ini sekarang
+	 * MELEMPAR ({@code throws Exception}) bila pencacah gagal dinaikkan, alih-alih mengembalikan
+	 * {@code null} atau kode bernomor 1 yang salah. Pemanggil WAJIB menangani kegagalan ini --
+	 * gunakan {@link #generateKodeMemberUnik(Session, AnggotaKoperasi, Date)} yang juga menyediakan
+	 * lapis pertahanan kedua (pemeriksaan duplikat + percobaan ulang) di sekitar penyimpanan baris
+	 * anggota.</p>
 	 *
-	 * <p>Method sengaja menerima {@link Session} sebagai argumen alih-alih membuka sesi sendiri,
-	 * supaya penghitungan ikut melihat perubahan yang belum ter-commit pada transaksi pemanggil.</p>
+	 * <p>Method sengaja menerima {@link Session} sebagai argumen alih-alih membuka sesi sendiri untuk
+	 * langkah cari-atau-buat baris pencacah, supaya langkah tersebut ikut melihat perubahan yang
+	 * belum ter-commit pada transaksi pemanggil; kenaikan nomor urut yang sesungguhnya tetap berjalan
+	 * di sesi terpisah milik {@code KunciEntityHelper} agar penguncian sungguhan lintas node.</p>
 	 *
 	 * <p>Keterangan asli yang dipertahankan:</p>
 	 *
 	 * Method untuk menghasilkan Kode Member Koperasi berdasarkan rumus standar.
 	 * Menjalankan kueri langsung ke database menggunakan parameter Session.
 	 *
-	 * @param session       Sesi Hibernate yang sedang aktif untuk mengeksekusi
-	 *                      kueri.
+	 * @param session       Sesi Hibernate yang sedang aktif, dipakai untuk mencari/membuat baris
+	 *                      pencacah (lihat catatan di atas).
 	 * @param tanggalDaftar Waktu pendaftaran (jika null, sistem menggunakan waktu
 	 *                      saat ini).
-	 * @return String Kode Member Koperasi yang sudah diformat.
+	 * @return String Kode Member Koperasi yang sudah diformat; tidak pernah {@code null} -- kegagalan
+	 *         dilempar sebagai {@link Exception}, bukan dikembalikan sebagai nilai.
+	 * @throws Exception bila baris pencacah gagal dicari/dibuat/dikunci/dinaikkan
+	 * @see #generateKodeMemberUnik(Session, AnggotaKoperasi, Date)
+	 * @see AnggotaKoperasiKodeCounter
 	 */
-	public String generateKodeMember(Session session, Date tanggalDaftar) {
+	public String generateKodeMember(Session session, Date tanggalDaftar) throws Exception {
 		try {
 			// 1. Dapatkan Prefix dan ID dari relasi JenisAnggotaKoperasi
 			String prefix = "MEM"; // Prefix bawaan jika data jenis kosong
@@ -1047,43 +1065,28 @@ public class AnggotaKoperasi extends VOSiswa {
 			// Format bulan menjadi 2 digit (contoh: 02, 08, 10, dst)
 			String strBulan = String.format("%02d", bulan);
 
-			// 3. Kueri Hitung Urutan Keseluruhan (Global)
-			long urutanGlobal = 1;
-			try {
-				Number countGlobal = (Number) session.createSQLQuery("SELECT COUNT(a.id) FROM koperasi.anggota_koperasi a")
-						.uniqueResult();
-				if (countGlobal != null) {
-					urutanGlobal = countGlobal.longValue() + 1;
-				}
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/koperasi/AnggotaKoperasi.java:240");
-			}
+			// 3. Lingkup tenant pencacah: koperasi anggota ini, atau sentinel bila belum ditautkan.
+			Koperasi koperasiAnggota = this.getKoperasi();
+			long koperasiId = (koperasiAnggota != null && koperasiAnggota.getId() != null)
+					? koperasiAnggota.getId().longValue()
+					: AnggotaKoperasiKodeCounter.KOPERASI_TANPA_TENANT;
 
-			// 4. Kueri Hitung Urutan Per Jenis Anggota
-			long urutanPerJenis = 1;
+			// 4. Nomor urut global -- pencacah dipersistensikan & dinaikkan atomik, TIDAK dihitung
+			// ulang dari COUNT.
+			long urutanGlobal = ambilNomorUrutKodeMember(session, koperasiId,
+					AnggotaKoperasiKodeCounter.JENIS_GLOBAL);
+
+			// 5. Nomor urut per jenis anggota, pencacah terpisah dalam lingkup koperasi yang sama.
+			long urutanPerJenis;
 			if (idJenis != null) {
-				try {
-					// FIX QuerySyntaxException "koperasi.anggota_koperasi is not mapped": HQL wajib memakai
-					// nama ENTITY Hibernate ("AnggotaKoperasi"), bukan nama tabel/skema fisik
-					// ("koperasi.anggota_koperasi") seperti pada SQL native di atas -- query lama SELALU
-					// gagal (tertangkap try/catch di bawah, urutanPerJenis diam-diam tetap 1), sehingga
-					// nomor urut per jenis anggota koperasi tidak pernah benar-benar bertambah.
-					Number countJenis = (Number) session.createQuery(
-							"SELECT COUNT(a.id) FROM AnggotaKoperasi a WHERE a.jenisAnggotaKoperasi.id = :idJenis")
-							.setParameter("idJenis", idJenis).uniqueResult();
-					if (countJenis != null) {
-						urutanPerJenis = countJenis.longValue() + 1;
-					}
-				} catch (Exception e) {
-					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/koperasi/AnggotaKoperasi.java:254");
-				}
+				urutanPerJenis = ambilNomorUrutKodeMember(session, koperasiId, idJenis.longValue());
 			} else {
 				// Jika tidak ada jenis anggota yang dipilih, urutannya disamakan dengan urutan
 				// global
 				urutanPerJenis = urutanGlobal;
 			}
 
-			// 5. Tentukan Aturan Format
+			// 6. Tentukan Aturan Format
 			// Jika prefix adalah MR atau MRS, maka menggunakan format Reguler (pakai bulan
 			// dan tanda strip).
 			// Selain itu, dianggap sebagai Member Khusus/Fakultas (tanpa bulan, garis
@@ -1104,9 +1107,151 @@ public class AnggotaKoperasi extends VOSiswa {
 
 			return kodeBuilder.toString();
 		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/koperasi/AnggotaKoperasi.java:283");
-			return null;
+			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/koperasi/AnggotaKoperasi.java:generateKodeMember");
+			throw e;
 		}
+	}
+
+	/**
+	 * Mencari-atau-membuat baris {@link AnggotaKoperasiKodeCounter} untuk kunci (koperasi, jenis)
+	 * yang diberikan, lalu MENAIKKANNYA ATOMIK satu langkah dan mengembalikan nilai barunya -- pola
+	 * yang sama persis dengan {@code ais.common.CommonPSB#ambilNomorUrutOtomatis(FormatNis,
+	 * CalonSiswa)}.
+	 *
+	 * @param session    sesi Hibernate pemanggil, dipakai untuk cari/buat baris (bukan untuk
+	 *                   kenaikan atomiknya -- lihat javadoc {@link #generateKodeMember(Session,
+	 *                   Date)})
+	 * @param koperasiId id koperasi, atau {@link AnggotaKoperasiKodeCounter#KOPERASI_TANPA_TENANT}
+	 * @param jenisId    id jenis anggota, atau {@link AnggotaKoperasiKodeCounter#JENIS_GLOBAL}
+	 * @return nomor urut berikutnya (mulai dari 1 untuk pencacah baru)
+	 * @throws Exception diteruskan dari kegagalan penguncian/transaksi basis data
+	 */
+	private static long ambilNomorUrutKodeMember(final Session session, final long koperasiId, final long jenisId)
+			throws Exception {
+		Long counterId = cariAtauBuatKodeCounterId(session, koperasiId, jenisId);
+		final long[] hasil = new long[1];
+		boolean adaBaris = ais.database.hibernate.KunciEntityHelper.jalankanDenganKunci(
+				AnggotaKoperasiKodeCounter.class, counterId,
+				new ais.database.hibernate.KunciEntityHelper.PekerjaanTransaksi() {
+					@Override
+					public void kerjakan(Session sesiTerkunci, Object entityTerkunci) throws Exception {
+						AnggotaKoperasiKodeCounter counter = (AnggotaKoperasiKodeCounter) entityTerkunci;
+						long nilaiBaru = counter.getNilai() + 1L;
+						counter.setNilai(nilaiBaru);
+						sesiTerkunci.update(counter);
+						hasil[0] = nilaiBaru;
+					}
+				});
+		if (!adaBaris) {
+			// Baris pencacah terhapus tepat di antara pencarian & penguncian (sangat jarang): buat
+			// ulang lalu coba sekali lagi, meniru pola ais.common.CommonPSB#ambilNomorUrutOtomatis.
+			return ambilNomorUrutKodeMember(session, koperasiId, jenisId);
+		}
+		return hasil[0];
+	}
+
+	/**
+	 * Mencari id baris {@link AnggotaKoperasiKodeCounter} untuk kunci (koperasi, jenis) yang
+	 * diberikan, membuatnya bila belum ada.
+	 *
+	 * <p>Pencarian &amp; penyisipan di sini TIDAK dikunci -- penguncian sungguhan baru terjadi
+	 * belakangan lewat {@link #ambilNomorUrutKodeMember(Session, long, long)} pada id yang
+	 * dikembalikan. Race saat penyisipan (dua pemanggil sama-sama tidak menemukan baris, sama-sama
+	 * mencoba INSERT) ditangani lewat unique constraint
+	 * {@code uq_anggota_koperasi_kode_counter_koperasi_jenis}: yang kalah menerima pelanggaran
+	 * constraint (ditangkap &amp; diabaikan di sini), lalu SELECT ulang menemukan baris milik
+	 * pemenang.</p>
+	 */
+	private static Long cariAtauBuatKodeCounterId(Session session, long koperasiId, long jenisId) {
+		Number id = (Number) session
+				.createSQLQuery("SELECT id FROM koperasi.anggota_koperasi_kode_counter"
+						+ " WHERE koperasi_id=:koperasiId AND jenis_id=:jenisId")
+				.setParameter("koperasiId", koperasiId).setParameter("jenisId", jenisId).uniqueResult();
+		if (id != null) {
+			return id.longValue();
+		}
+		try {
+			session.createSQLQuery("INSERT INTO koperasi.anggota_koperasi_kode_counter (koperasi_id, jenis_id, nilai)"
+					+ " VALUES (:koperasiId, :jenisId, 0)").setParameter("koperasiId", koperasiId)
+					.setParameter("jenisId", jenisId).executeUpdate();
+		} catch (RuntimeException race) {
+			// Baris sudah dibuat proses lain di antara SELECT dan INSERT di atas (unique
+			// constraint) -- abaikan, SELECT ulang di bawah akan menemukannya.
+		}
+		Number idBaru = (Number) session
+				.createSQLQuery("SELECT id FROM koperasi.anggota_koperasi_kode_counter"
+						+ " WHERE koperasi_id=:koperasiId AND jenis_id=:jenisId")
+				.setParameter("koperasiId", koperasiId).setParameter("jenisId", jenisId).uniqueResult();
+		if (idBaru == null) {
+			throw new IllegalStateException(
+					"Gagal mencari/membuat baris koperasi.anggota_koperasi_kode_counter untuk koperasi_id="
+							+ koperasiId + " jenis_id=" + jenisId);
+		}
+		return idBaru.longValue();
+	}
+
+	/**
+	 * Jumlah maksimal percobaan ulang saat kode member hasil rakitan bentrok dengan yang sudah
+	 * dipakai anggota lain. Lihat {@link #generateKodeMemberUnik(Session, AnggotaKoperasi, Date)}.
+	 */
+	public static final int MAKS_PERCOBAAN_KODE_MEMBER_BENTROK = 20;
+
+	/**
+	 * Lapis pertahanan KEDUA di sekitar {@link #generateKodeMember(Session, Date)}: membangkitkan
+	 * kode member lalu memeriksa apakah kode tersebut SUDAH dipakai anggota lain sebelum
+	 * mengembalikannya, mengulang percobaan (mengonsumsi nomor urut baru dari pencacah) hingga
+	 * {@link #MAKS_PERCOBAAN_KODE_MEMBER_BENTROK} kali bila bentrok -- pola yang sama dengan
+	 * {@code ais.common.CommonPSB#generateCode(FormatNis, CalonSiswa)}.
+	 *
+	 * <p>Lapis pertama (pencacah atomik pada {@link #generateKodeMember(Session, Date)}) sudah
+	 * membuat kode hasil bangkitan BARU dijamin tidak bertabrakan satu sama lain. Pemeriksaan di
+	 * sini adalah jaring pengaman terhadap sumber tabrakan LAIN yang tidak tersentuh pencacah --
+	 * kode yang dientri manual lewat gap-closure "Edit Kode Member Secara Manual", atau duplikat
+	 * historis dari sebelum perbaikan ini. Pemeriksaan dilakukan SEBELUM baris anggota disimpan
+	 * (bukan menangkap pelanggaran unique constraint SESUDAH {@code session.save}/flush), supaya
+	 * kegagalan tidak membuat transaksi pemanggil ikut ter-abort di tengah jalan pada database yang
+	 * mengabort seluruh transaksi setelah satu pelanggaran constraint (mis. PostgreSQL) -- pemanggil
+	 * di berkas ini umumnya masih punya operasi lain (mis. menautkan {@code Tbmuser}) yang harus
+	 * tetap jalan dalam transaksi yang sama setelah kode ditetapkan.</p>
+	 *
+	 * @param session       sesi Hibernate aktif milik pemanggil
+	 * @param anggota       anggota yang kode member-nya akan dibangkitkan (dipakai untuk membaca
+	 *                      jenis keanggotaan &amp; koperasi lewat {@link #generateKodeMember(Session,
+	 *                      Date)}; TIDAK diubah/disimpan oleh method ini -- pemanggil tetap
+	 *                      bertanggung jawab memanggil {@link #setKode(String)} dan menyimpan baris)
+	 * @param tanggalDaftar waktu pendaftaran, diteruskan ke {@link #generateKodeMember(Session, Date)}
+	 * @return kode member yang, pada saat pemeriksaan, belum dipakai anggota lain
+	 * @throws Exception diteruskan dari kegagalan {@link #generateKodeMember(Session, Date)}, atau
+	 *                    {@code IllegalStateException} bila
+	 *                    {@link #MAKS_PERCOBAAN_KODE_MEMBER_BENTROK} percobaan berturut-turut
+	 *                    semuanya bentrok
+	 */
+	public static String generateKodeMemberUnik(Session session, AnggotaKoperasi anggota, Date tanggalDaftar)
+			throws Exception {
+		for (int percobaan = 0; percobaan < MAKS_PERCOBAAN_KODE_MEMBER_BENTROK; percobaan++) {
+			String kode = anggota.generateKodeMember(session, tanggalDaftar);
+			if (!kodeMemberSudahDipakai(session, kode)) {
+				return kode;
+			}
+		}
+		throw new IllegalStateException("Gagal membangkitkan kode member unik untuk anggota id=" + anggota.getId()
+				+ " setelah " + MAKS_PERCOBAAN_KODE_MEMBER_BENTROK + " percobaan; setiap kode yang dicoba sudah "
+				+ "dipakai anggota lain. Periksa data kode member duplikat.");
+	}
+
+	/**
+	 * {@code true} bila {@code kode} sudah dipakai baris {@link AnggotaKoperasi} lain &mdash; lapisan
+	 * pertahanan terakhir yang dipanggil {@link #generateKodeMemberUnik(Session, AnggotaKoperasi,
+	 * Date)} setelah kode dirakit, sebelum dikembalikan ke pemanggil.
+	 */
+	private static boolean kodeMemberSudahDipakai(Session session, String kode) {
+		if (kode == null || kode.trim().isEmpty()) {
+			return false;
+		}
+		Number jumlah = (Number) session.createCriteria(AnggotaKoperasi.class)
+				.add(org.hibernate.criterion.Restrictions.eq("kode", kode))
+				.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+		return jumlah != null && jumlah.longValue() > 0;
 	}
 
 	/**

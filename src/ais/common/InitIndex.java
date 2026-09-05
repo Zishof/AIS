@@ -194,6 +194,71 @@ public class InitIndex {
 	}
 
 	/**
+	 * Migrasi startup idempoten yang menutup risiko kode member
+	 * {@code ais.database.model.koperasi.AnggotaKoperasi} kembar, ditemukan pada audit
+	 * {@code AnggotaKoperasi#generateKodeMember(org.hibernate.Session, java.util.Date)}: method lama
+	 * menghitung ulang {@code COUNT(*) + 1} atas baris {@code koperasi.anggota_koperasi} setiap
+	 * dipanggil, tanpa penguncian apa pun, padahal kolom {@code kode} dipetakan UNIQUE -- dua
+	 * pendaftaran anggota bersamaan dapat menyusun kode identik, dan COUNT itu sendiri MUNDUR bila
+	 * ada baris anggota yang terhapus (kode yang sama bisa terbit dua kali seiring waktu bahkan tanpa
+	 * konkurensi). Langkah-langkah:
+	 * (1) menyiapkan tabel {@code koperasi.anggota_koperasi_kode_counter} -- pencacah kode member
+	 * dipersistensikan per (koperasi, jenis), menggantikan penghitungan ulang COUNT (lihat
+	 * {@code ais.database.model.koperasi.AnggotaKoperasiKodeCounter});
+	 * (2) MENCATAT (bukan mengubah) kode member yang SUDAH bentrok sebelum unique index dipasang ke
+	 * tabel audit {@code koperasi.anggota_koperasi_kode_duplikat_audit} -- BERBEDA dari migrasi NIS
+	 * ({@link #initNisCounterDanKeunikanSiswa()}), kode member di sini SENGAJA TIDAK
+	 * disufiks/ditulis ulang otomatis karena nilainya dicetak/dipindai sebagai barcode fisik yang
+	 * sudah beredar di tangan anggota (lihat javadoc {@code AnggotaKoperasi#getKode()}); mengubah
+	 * string yang tersimpan akan membuat kartu fisik tidak lagi cocok dengan datanya sendiri.
+	 * Penyelesaian duplikat historis (bila ada) harus ditinjau manual oleh admin koperasi
+	 * berdasarkan tabel audit ini;
+	 * (3) memasang partial unique index {@code (kode)} pada {@code koperasi.anggota_koperasi} hanya
+	 * untuk kode yang terisi -- bila masih ada duplikat yang belum diselesaikan, langkah ini GAGAL
+	 * (tertangkap &amp; dicatat, tidak menggagalkan startup) dan index baru benar-benar terpasang
+	 * pada percobaan startup berikutnya setelah duplikat pada langkah (2) diselesaikan.
+	 *
+	 * <p>Seluruh langkah idempoten ({@code IF NOT EXISTS}/{@code WHERE NOT EXISTS}) dan aman
+	 * dijalankan berulang pada tiap startup maupun pada beberapa node aplikasi bersamaan (kegagalan
+	 * satu langkah dicatat ke {@link ErrorAuditUtil} tanpa menggagalkan startup, langkah berikutnya
+	 * tetap dicoba).</p>
+	 */
+	static void initAnggotaKoperasiKodeCounterDanKeunikanKode() {
+		String[] ddl = new String[] {
+				"CREATE TABLE IF NOT EXISTS koperasi.anggota_koperasi_kode_counter ("
+						+ "id bigserial PRIMARY KEY, "
+						+ "koperasi_id bigint NOT NULL DEFAULT 0, "
+						+ "jenis_id bigint NOT NULL DEFAULT 0, "
+						+ "nilai bigint NOT NULL DEFAULT 0, "
+						+ "CONSTRAINT uq_anggota_koperasi_kode_counter_koperasi_jenis UNIQUE (koperasi_id, jenis_id))",
+
+				"CREATE TABLE IF NOT EXISTS koperasi.anggota_koperasi_kode_duplikat_audit ("
+						+ "id bigserial PRIMARY KEY, "
+						+ "anggota_koperasi_id bigint NOT NULL, "
+						+ "kode varchar(255) NOT NULL, "
+						+ "dicatat_pada timestamp NOT NULL DEFAULT now())",
+
+				"INSERT INTO koperasi.anggota_koperasi_kode_duplikat_audit (anggota_koperasi_id, kode) "
+						+ "SELECT a.id, a.kode FROM koperasi.anggota_koperasi a "
+						+ "WHERE a.kode IS NOT NULL AND BTRIM(a.kode) <> '' "
+						+ "AND EXISTS (SELECT 1 FROM koperasi.anggota_koperasi b "
+						+ "WHERE b.kode = a.kode AND b.id <> a.id) "
+						+ "AND NOT EXISTS (SELECT 1 FROM koperasi.anggota_koperasi_kode_duplikat_audit x "
+						+ "WHERE x.anggota_koperasi_id = a.id)",
+
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_anggota_koperasi_kode_terisi "
+						+ "ON koperasi.anggota_koperasi (kode) "
+						+ "WHERE kode IS NOT NULL AND BTRIM(kode) <> ''" };
+		for (int i = 0; i < ddl.length; i++) {
+			try {
+				Common.updateSql(ddl[i]);
+			} catch (Exception e) {
+				ErrorAuditUtil.record(e, "InitIndex.initAnggotaKoperasiKodeCounterDanKeunikanKode DDL ke-" + (i + 1));
+			}
+		}
+	}
+
+	/**
 	 * Menjalankan migrasi kolom Online BMT melalui lifecycle Hibernate aplikasi.
 	 * Setiap ALTER memakai transaksi tersendiri agar kegagalan tabel audit opsional
 	 * tidak membatalkan kolom utama atau langkah DDL berikutnya.

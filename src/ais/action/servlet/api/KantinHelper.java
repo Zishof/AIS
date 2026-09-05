@@ -7424,7 +7424,7 @@ public class KantinHelper {
 
 			session.beginTransaction();
 			if (baru) {
-				anggota.setKode(anggota.generateKodeMember(session, new Date()));
+				anggota.setKode(AnggotaKoperasi.generateKodeMemberUnik(session, anggota, new Date()));
 				session.save(anggota);
 			} else {
 				session.saveOrUpdate(anggota);
@@ -18204,7 +18204,7 @@ public class KantinHelper {
 				anggota.setNama(nama);
 				anggota.setHp(hpDigit);
 				anggota.setAktif(Boolean.TRUE);
-				anggota.setKode(anggota.generateKodeMember(session, new Date()));
+				anggota.setKode(AnggotaKoperasi.generateKodeMemberUnik(session, anggota, new Date()));
 				session.save(anggota);
 				session.flush();
 			}

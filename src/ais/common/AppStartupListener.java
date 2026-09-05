@@ -165,6 +165,9 @@ public class AppStartupListener implements ServletContextListener {
 			// Migrasi startup idempoten: pencacah NIS dipersistensikan per sekolah + dedup
 			// & unique constraint NIS lama. Lihat javadoc method untuk latar belakang audit.
 			InitIndex.initNisCounterDanKeunikanSiswa();
+			// Migrasi startup idempoten setara, untuk risiko kode member AnggotaKoperasi kembar
+			// (AnggotaKoperasi#generateKodeMember memakai COUNT(*) tanpa lock). Lihat javadoc method.
+			InitIndex.initAnggotaKoperasiKodeCounterDanKeunikanKode();
 			// Migrasi kecil dan idempoten ini harus dijalankan segera setelah
 			// SessionFactory tersedia, sebelum init data/menu yang berat. Dengan
 			// demikian promo "Semua Produk" tidak perlu menunggu seluruh maintenance
