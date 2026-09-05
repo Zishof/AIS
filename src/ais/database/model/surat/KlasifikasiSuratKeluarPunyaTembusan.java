@@ -69,6 +69,32 @@ import ais.database.model.rab.SatuanKerja;
  *   apa-apa pada hasil cetak.</li>
  * </ul>
  *
+ * <h2>Status pemakaian: entity tidur (dormant)</h2>
+ * <p>Penelusuran seluruh pohon sumber {@code src/main/src} menunjukkan bahwa satu-satunya kode Java
+ * di luar berkas entity ini yang menyentuh kelas ini adalah
+ * {@code ais.action.master.surat.helper.KlasifikasiSuratKeluarPunyaTembusanHelper} — dan helper itu
+ * <b>tidak pernah diinstansiasi dari Action, dashboard, atau utilitas mana pun</b>. Lebih jauh,
+ * kata "tembusan" tidak muncul sama sekali di jalur cetak/laporan
+ * ({@code ais.action.master.surat.util}, {@code ais.action.report}).</p>
+ *
+ * <p>Konsekuensinya:</p>
+ * <ul>
+ *   <li>Jalur cetak surat keluar yang benar-benar berjalan
+ *   ({@link SuratKeluar#cetak(ais.database.model.Tbmuser)},
+ *   {@code SuratKeluarAction.cetakDisposisi(...)}, {@code SuratUtil.ubahIsiSuratKeluar(...)})
+ *   <b>tidak membaca tabel ini</b>. Daftar "Tembusan:" pada surat yang tercetak — bila ada —
+ *   berasal dari isi template jrxml, bukan dari baris di tabel ini.</li>
+ *   <li>Karena helper editornya tidak terpasang di UI, dalam kondisi kode saat ini baris di tabel
+ *   ini juga tidak bertambah lewat aplikasi.</li>
+ *   <li><b>Kualifikasi yang jujur:</b> template jrxml diunggah administrator (lihat
+ *   {@code ais.database.model.file.LampiranLain}) dan bukan berkas repositori, sehingga secara
+ *   teknis sebuah template dapat membaca tabel ini lewat query SQL-nya sendiri. Pernyataan "tidak
+ *   dipakai" berlaku pasti untuk <b>kode Java</b> saja.</li>
+ *   <li>Nasib yang sama berlaku untuk {@link KlasifikasiSuratKeluarPunyaJenisJabatan}. Sebelum
+ *   menghapus kelas/tabel ini, periksa lebih dulu isi tabel di basis data produksi dan isi template
+ *   jrxml yang terpasang.</li>
+ * </ul>
+ *
  * <h2>Basis data dan audit</h2>
  * <p>Tabel: skema {@code surat}, nama {@code klasifikasi_surat_keluar_punya_tembusan}. Kelas
  * memakai {@code dynamicInsert}/{@code dynamicUpdate} sehingga Hibernate hanya menulis kolom yang
