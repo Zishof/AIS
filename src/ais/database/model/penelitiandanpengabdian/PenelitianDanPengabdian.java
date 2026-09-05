@@ -953,6 +953,18 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 	public PenelitianDanPengabdian() {
 	}
 
+	/**
+	 * Mengembalikan kunci utama skema. Kolomnya dideklarasikan {@code insertable = false}
+	 * karena nilainya dibangkitkan basis data ({@code IDENTITY}/sequence), sehingga nilai id
+	 * yang disetel manual sebelum {@code save()} tidak ikut dikirim pada {@code INSERT}.
+	 *
+	 * <p>Id inilah yang dipakai sebagai parameter pada tautan pengumuman skema dan pada
+	 * pemanggilan {@code session.get(PenelitianDanPengabdian.class, id)} di layar pengajuan;
+	 * karena skema memang dimaksudkan sebagai katalog penawaran yang boleh dilihat calon
+	 * pengusul, id di sini bukan kunci kepemilikan data pribadi.
+	 *
+	 * @return id baris, atau {@code null} bila objek belum pernah disimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -960,19 +972,62 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menetapkan kunci utama. Dipakai Hibernate saat memuat baris dan oleh proses
+	 * impor/penyalinan; kode aplikasi biasa tidak perlu memanggilnya.
+	 *
+	 * @param id kunci utama baris
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Pendahuluan" panduan skema apa adanya, untuk dirender ke
+	 * tab panduan pada layar skema maupun layar pengajuan.
+	 *
+	 * <p>Nilai balik boleh {@code null} untuk baris lama yang kolomnya belum pernah diisi —
+	 * pemanggil yang menyusun HTML gabungan perlu menjaga diri terhadap {@code null} tersebut.
+	 * Isi kolom dirender sebagai HTML mentah, jadi hak sunting field ini setara hak menyisipkan
+	 * markup ke halaman: batasi ke administrator skema.
+	 *
+	 * @return naskah HTML pendahuluan, boleh {@code null}
+	 */
 	@Column(name = "pendahuluan", nullable = true, columnDefinition = "text")
 	public String getPendahuluan() {
 		return this.pendahuluan;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Pendahuluan". Menyimpan {@code null} atau string kosong
+	 * diperbolehkan dan akan menghapus panduan bawaan Ditlitabmas untuk skema ini.
+	 *
+	 * @param pendahuluan naskah HTML pengganti
+	 */
 	public void setPendahuluan(String pendahuluan) {
 		this.pendahuluan = pendahuluan;
 	}
 
+	/**
+	 * Mengembalikan daftar alamat surel penerima notifikasi skema, satu string dipisah koma
+	 * (mis. {@code "lppm@kampus.ac.id,wakilrektor2@kampus.ac.id"}).
+	 *
+	 * <p><b>Getter dengan efek samping:</b> bila field masih {@code null}, method menulis string
+	 * kosong ke field lalu mengembalikannya. Karena entitas ini beranotasi {@code dynamicUpdate},
+	 * penulisan balik itu mengubah kondisi objek terkelola dan dapat memunculkan
+	 * {@code UPDATE} kolom {@code korespondensi} pada saat flush walau pengguna tidak menyunting
+	 * apa pun — sekaligus mengubah nilai {@code NULL} lama menjadi string kosong.
+	 *
+	 * <p>Seluruh pemanggilnya ({@code PenelitianDanPengabdianAction},
+	 * {@code PengajuanPenelitianDanPengabdianHelper},
+	 * {@code PengajuanTahapanPelaporanPenelitianDanPengabdianHelper},
+	 * {@code TahapanPelaporanPenelitianDanPengabdianHelper}) memecah hasilnya dengan
+	 * {@code split(",")} lalu mengirim surel pemberitahuan pengajuan/pelaporan. Tidak ada
+	 * validasi format alamat di lapisan entitas, sehingga kesalahan ketik hanya terlihat sebagai
+	 * kegagalan kirim di log.
+	 *
+	 * @return daftar surel dipisah koma; tidak pernah {@code null}, tetapi bisa string kosong
+	 */
 	@Column(name = "korespondensi", nullable = true, length = 1000)
 	public String getKorespondensi() {
 		if (korespondensi == null) {
@@ -981,27 +1036,84 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return korespondensi;
 	}
 
+	/**
+	 * Menetapkan daftar alamat surel penerima notifikasi (dipisah koma, maksimum 1000 karakter
+	 * sesuai panjang kolom). Nilai yang lebih panjang akan ditolak basis data saat flush.
+	 *
+	 * @param korespondensi daftar surel dipisah koma
+	 */
 	public void setKorespondensi(String korespondensi) {
 		this.korespondensi = korespondensi;
 	}
 
+	/**
+	 * Mengembalikan daftar nama grup pengguna penerima notifikasi, dipisah koma, sudah
+	 * dipangkas spasi tepinya.
+	 *
+	 * <p>Berbeda dari {@link #getKorespondensi()}, normalisasi di sini dilakukan pada nilai
+	 * balik saja ({@code null} dipetakan ke string kosong tanpa menulis field), sehingga getter
+	 * ini bebas efek samping. Ketidakseragaman antara dua getter bersaudara ini sebaiknya
+	 * diingat saat menyalin pola ke entitas lain.
+	 *
+	 * <p>Field ini tidak beranotasi {@code @Column}, jadi nama kolomnya mengikuti strategi
+	 * penamaan Hibernate yang berlaku di konfigurasi AIS.
+	 *
+	 * @return daftar nama grup dipisah koma; tidak pernah {@code null}
+	 */
 	public String getKorespondensiGrupPengguna() {
 		return korespondensiGrupPengguna == null ? "" : korespondensiGrupPengguna.trim();
 	}
 
+	/**
+	 * Menetapkan daftar nama grup pengguna penerima notifikasi (dipisah koma). Nama grup
+	 * kemudian dipakai pemanggil untuk mencari anggota grup dan mengumpulkan alamat surel
+	 * mereka.
+	 *
+	 * @param korespondensiGrupPengguna daftar nama grup dipisah koma
+	 */
 	public void setKorespondensiGrupPengguna(String korespondensiGrupPengguna) {
 		this.korespondensiGrupPengguna = korespondensiGrupPengguna;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Tujuan" panduan skema.
+	 *
+	 * @return naskah HTML tujuan, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "tujuan", nullable = true, columnDefinition = "text")
 	public String getTujuan() {
 		return this.tujuan;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Tujuan".
+	 *
+	 * @param tujuan naskah HTML pengganti
+	 */
 	public void setTujuan(String tujuan) {
 		this.tujuan = tujuan;
 	}
 
+	/**
+	 * Mengembalikan klasifikasi berjenjang skema ({@link JenisPenelitianDanPengabdian}) —
+	 * sumbu pelabelan/rumpun, bukan sumbu yang memisahkan penelitian dari pengabdian
+	 * (lihat {@link #getTipePenelitianDanPengabdian()} untuk sumbu tersebut).
+	 *
+	 * <p>Relasi dipetakan {@code LAZY}, karena itu nilai field lebih dulu dilewatkan
+	 * {@code check(...)} milik {@link ais.database.model.GeneralValueObject}: pembantu itu
+	 * menyelesaikan proxy Hibernate menjadi objek nyata (lewat peta identitas entitas atau
+	 * query ulang) sehingga pemanggil tetap dapat membaca {@code getIsi()} walau sesi asalnya
+	 * sudah ditutup — pola lazy-safe yang dipakai konsisten di seluruh entitas AIS. Hasil
+	 * resolusi ditulis balik ke field, jadi objek yang dikembalikan bisa berbeda instance dari
+	 * proxy semula.
+	 *
+	 * <p>FK-nya {@code nullable = false}: setiap skema wajib punya jenis. Pemanggil di
+	 * {@code PenelitianDanPengabdianAction} langsung memanggil {@code .getIsi()} dan
+	 * {@code .getId()} atas hasil method ini tanpa pemeriksaan {@code null}, sehingga baris
+	 * warisan yang kolomnya kosong akan memunculkan {@code NullPointerException} di layar.
+	 *
+	 * @return jenis/rumpun skema; secara skema data tidak boleh {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_penelitian_dan_pengabdian", nullable = false)
 	public JenisPenelitianDanPengabdian getJenisPenelitianDanPengabdian() {
@@ -1009,145 +1121,363 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return jenisPenelitianDanPengabdian;
 	}
 
+	/**
+	 * Menetapkan klasifikasi berjenjang skema.
+	 *
+	 * <p>Karena relasi memakai {@code cascade = PERSIST, MERGE}, menyimpan skema ikut menyimpan
+	 * objek jenis yang belum tersimpan — jalur inilah yang dipakai
+	 * {@code PengajuanPenelitianDanPengabdianHelper} saat membuat skema otomatis dengan jenis
+	 * ber-id terkecil.
+	 *
+	 * @param jenisPenelitianDanPengabdian jenis/rumpun skema
+	 */
 	public void setJenisPenelitianDanPengabdian(JenisPenelitianDanPengabdian jenisPenelitianDanPengabdian) {
 		this.jenisPenelitianDanPengabdian = jenisPenelitianDanPengabdian;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Luaran Penelitian" (luaran wajib dan luaran tambahan yang
+	 * diharapkan dari skema ini).
+	 *
+	 * @return naskah HTML luaran, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "luaran_penelitian", nullable = true, columnDefinition = "text")
 	public String getLuaranPenelitian() {
 		return luaranPenelitian;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Luaran Penelitian".
+	 *
+	 * @param luaranPenelitian naskah HTML pengganti
+	 */
 	public void setLuaranPenelitian(String luaranPenelitian) {
 		this.luaranPenelitian = luaranPenelitian;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Kriteria dan Pengusulan" (syarat ketua/anggota tim, jangka
+	 * waktu, rentang biaya, aturan satu usulan per pengusul).
+	 *
+	 * <p>Perlu ditegaskan: aturan pada naskah ini tidak divalidasi program mana pun saat
+	 * proposal disimpan. Misalnya larangan "tiap pengusul hanya boleh mengusulkan satu usulan
+	 * pada skema dan tahun yang sama" hanya mengikat secara administratif.
+	 *
+	 * @return naskah HTML kriteria pengusulan, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "kriteria_dan_pengusulan", nullable = true, columnDefinition = "text")
 	public String getKriteriaDanPengusulan() {
 		return kriteriaDanPengusulan;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Kriteria dan Pengusulan".
+	 *
+	 * @param kriteriaDanPengusulan naskah HTML pengganti
+	 */
 	public void setKriteriaDanPengusulan(String kriteriaDanPengusulan) {
 		this.kriteriaDanPengusulan = kriteriaDanPengusulan;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Sistematika Usulan" — kerangka bab proposal yang harus
+	 * diikuti pengusul, lengkap dengan tabel ringkasan anggaran.
+	 *
+	 * @return naskah HTML sistematika, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "sistematika", nullable = true, columnDefinition = "text")
 	public String getSistematika() {
 		return sistematika;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Sistematika Usulan".
+	 *
+	 * @param sistematika naskah HTML pengganti
+	 */
 	public void setSistematika(String sistematika) {
 		this.sistematika = sistematika;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Seleksi dan Evaluasi" yang menerangkan dua tahap seleksi
+	 * proposal beserta rujukan ke borangnya.
+	 *
+	 * @return naskah HTML seleksi dan evaluasi, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "seleksi_dan_evaluasi", nullable = true, columnDefinition = "text")
 	public String getSeleksiDanEvaluasi() {
 		return seleksiDanEvaluasi;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Seleksi dan Evaluasi".
+	 *
+	 * @param seleksiDanEvaluasi naskah HTML pengganti
+	 */
 	public void setSeleksiDanEvaluasi(String seleksiDanEvaluasi) {
 		this.seleksiDanEvaluasi = seleksiDanEvaluasi;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML contoh "Halaman Sampul" proposal untuk skema ini.
+	 *
+	 * @return naskah HTML halaman sampul, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "sampul", nullable = true, columnDefinition = "text")
 	public String getSampul() {
 		return sampul;
 	}
 
+	/**
+	 * Menetapkan naskah HTML contoh "Halaman Sampul".
+	 *
+	 * @param sampul naskah HTML pengganti
+	 */
 	public void setSampul(String sampul) {
 		this.sampul = sampul;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML contoh "Halaman Pengesahan" proposal.
+	 *
+	 * <p>Ini semata contoh format cetak; kolom tanda tangan di dalamnya tidak berhubungan dengan
+	 * mekanisme persetujuan elektronik proposal yang dijalankan modul pengajuan.
+	 *
+	 * @return naskah HTML halaman pengesahan, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "pengesahan", nullable = true, columnDefinition = "text")
 	public String getPengesahan() {
 		return pengesahan;
 	}
 
+	/**
+	 * Menetapkan naskah HTML contoh "Halaman Pengesahan".
+	 *
+	 * @param pengesahan naskah HTML pengganti
+	 */
 	public void setPengesahan(String pengesahan) {
 		this.pengesahan = pengesahan;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Sumber Dana" panduan skema.
+	 *
+	 * <p>Jangan tertukar dengan master {@link SumberDanaPenelitianDanPengabdian}: method ini
+	 * hanya mengembalikan uraian naratif, sedangkan sumber dana yang dipilih pengusul disimpan
+	 * sebagai relasi banyak-ke-banyak di {@link PengajuanPenelitianDanPengabdian}.
+	 *
+	 * @return naskah HTML sumber dana, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "sumber_dana", nullable = true, columnDefinition = "text")
 	public String getSumberDana() {
 		return sumberDana;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Sumber Dana".
+	 *
+	 * @param sumberDana naskah HTML pengganti
+	 */
 	public void setSumberDana(String sumberDana) {
 		this.sumberDana = sumberDana;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Pelaksanaan" (pemantauan internal, kunjungan lapangan,
+	 * evaluasi terpusat selama kegiatan berjalan).
+	 *
+	 * @return naskah HTML pelaksanaan, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "pelaksanaan", nullable = true, columnDefinition = "text")
 	public String getPelaksanaan() {
 		return pelaksanaan;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Pelaksanaan".
+	 *
+	 * @param pelaksanaan naskah HTML pengganti
+	 */
 	public void setPelaksanaan(String pelaksanaan) {
 		this.pelaksanaan = pelaksanaan;
 	}
 
+	/**
+	 * Mengembalikan judul skema — nama penawaran yang dilihat pengusul, mis. "Penelitian Dasar
+	 * Internal 2026".
+	 *
+	 * <p>Kolomnya {@code nullable = true} walau judul praktis wajib bagi kegunaan skema;
+	 * {@link #toString()} membaca field yang sama dan ikut mengembalikan {@code null} bila
+	 * belum diisi. Skema yang dibuat otomatis oleh helper pengajuan mengisi judul dengan pola
+	 * "&lt;tipe&gt; &lt;tahun berjalan&gt;".
+	 *
+	 * @return judul skema, boleh {@code null}
+	 */
 	@Column(name = "judul", nullable = true, columnDefinition = "text")
 	public String getJudul() {
 		return judul;
 	}
 
+	/**
+	 * Menetapkan judul skema.
+	 *
+	 * <p>Tidak ada penjaga keunikan: dua skema dengan judul persis sama pada tahun yang sama
+	 * dapat tersimpan berdampingan dan akan tampil sebagai dua pilihan kembar di combobox
+	 * pengajuan. Pembedanya hanya id.
+	 *
+	 * @param judul judul skema
+	 */
 	public void setJudul(String judul) {
 		this.judul = judul;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML bab "Pelaporan" (kewajiban logbook, laporan kemajuan, laporan
+	 * akhir, dan kompilasi luaran).
+	 *
+	 * @return naskah HTML pelaporan, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "pelaporan", nullable = true, columnDefinition = "text")
 	public String getPelaporan() {
 		return pelaporan;
 	}
 
+	/**
+	 * Menetapkan naskah HTML bab "Pelaporan".
+	 *
+	 * @param pelaporan naskah HTML pengganti
+	 */
 	public void setPelaporan(String pelaporan) {
 		this.pelaporan = pelaporan;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML borang "Desk Evaluasi Proposal" (penilaian tahap pertama,
+	 * daring) berikut tabel bobot dan rentang skornya.
+	 *
+	 * <p>Borang ini murni tampilan: nilai yang diketik penilai pada tabel HTML tidak terekam
+	 * lewat kolom ini. Angka bobot di sini pun tidak terhubung ke perhitungan apa pun di
+	 * program, sehingga mengubah bobot pada naskah tidak memengaruhi skor yang tersimpan.
+	 *
+	 * @return naskah HTML borang desk evaluasi, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "desk_evaluasi", nullable = true, columnDefinition = "text")
 	public String getDeskEvaluasi() {
 		return deskEvaluasi;
 	}
 
+	/**
+	 * Menetapkan naskah HTML borang "Desk Evaluasi Proposal".
+	 *
+	 * @param deskEvaluasi naskah HTML pengganti
+	 */
 	public void setDeskEvaluasi(String deskEvaluasi) {
 		this.deskEvaluasi = deskEvaluasi;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML borang "Evaluasi Pembahasan Proposal" — tahap kedua seleksi
+	 * yang menambahkan komponen kemampuan presentasi pengusul.
+	 *
+	 * @return naskah HTML borang pembahasan, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "pembahasan", nullable = true, columnDefinition = "text")
 	public String getPembahasan() {
 		return pembahasan;
 	}
 
+	/**
+	 * Menetapkan naskah HTML borang "Evaluasi Pembahasan Proposal".
+	 *
+	 * @param pembahasan naskah HTML pengganti
+	 */
 	public void setPembahasan(String pembahasan) {
 		this.pembahasan = pembahasan;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML "Borang Monitoring dan Evaluasi Lapangan" untuk menilai capaian
+	 * kegiatan yang sedang berjalan (capaian, publikasi, pemakalah, HKI, produk, buku ajar).
+	 *
+	 * @return naskah HTML borang monev, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "monitoring_dan_evaluasi", nullable = true, columnDefinition = "text")
 	public String getMonitoringDanEvaluasi() {
 		return monitoringDanEvaluasi;
 	}
 
+	/**
+	 * Menetapkan naskah HTML "Borang Monitoring dan Evaluasi Lapangan".
+	 *
+	 * @param monitoringDanEvaluasi naskah HTML pengganti
+	 */
 	public void setMonitoringDanEvaluasi(String monitoringDanEvaluasi) {
 		this.monitoringDanEvaluasi = monitoringDanEvaluasi;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML "Formulir Evaluasi Kelayakan dan Monev Terpusat", dipakai pada
+	 * skema multitahun untuk menilai kelayakan usulan tahun berikutnya.
+	 *
+	 * @return naskah HTML borang kelayakan, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "kelayakan", nullable = true, columnDefinition = "text")
 	public String getKelayakan() {
 		return kelayakan;
 	}
 
+	/**
+	 * Menetapkan naskah HTML "Formulir Evaluasi Kelayakan dan Monev Terpusat".
+	 *
+	 * @param kelayakan naskah HTML pengganti
+	 */
 	public void setKelayakan(String kelayakan) {
 		this.kelayakan = kelayakan;
 	}
 
+	/**
+	 * Mengembalikan naskah HTML gabungan sembilan lampiran baku proposal/laporan.
+	 *
+	 * <p>Untuk objek baru isinya berasal dari {@link LampiranUmumPenelitian#init()}; untuk baris
+	 * tersimpan isinya adalah salinan yang mungkin sudah disunting administrator, sehingga
+	 * pembaruan format lampiran di kelas {@code LampiranUmumPenelitian} <b>tidak</b> merambat ke
+	 * skema yang sudah terlanjur tersimpan — tiap baris memegang salinannya sendiri.
+	 *
+	 * @return naskah HTML lampiran umum, boleh {@code null} untuk baris lama
+	 */
 	@Column(name = "lampiran_umum", nullable = true, columnDefinition = "text")
 	public String getLampiranUmum() {
 		return lampiranUmum;
 	}
 
+	/**
+	 * Menetapkan naskah HTML lampiran umum.
+	 *
+	 * @param lampiranUmum naskah HTML pengganti
+	 */
 	public void setLampiranUmum(String lampiranUmum) {
 		this.lampiranUmum = lampiranUmum;
 	}
 
+	/**
+	 * Mengembalikan penanda apakah skema masih dipakai.
+	 *
+	 * <p><b>Bawaan condong-aktif dan menulis balik:</b> bila kolom masih {@code null} (baris
+	 * warisan sebelum kolom ini ada, atau objek baru), method menetapkan {@code true} ke field
+	 * lalu mengembalikannya. Dengan kata lain "belum diputuskan" diterjemahkan menjadi "aktif",
+	 * bukan sebaliknya — pola gagal-terbuka yang lazim di master AIS dan perlu diingat saat
+	 * memigrasi data.
+	 *
+	 * <p>Inilah satu-satunya penanda yang benar-benar ditegakkan pada jalur pengajuan: kriteria
+	 * pemilihan skema di {@code PengajuanPenelitianDanPengabdianHelper} menyaring
+	 * {@code Restrictions.eq("aktif", true)}. Karena penyaringan itu dilakukan dengan
+	 * membandingkan kolom di basis data (bukan lewat getter ini), baris yang kolom
+	 * {@code aktif}-nya masih {@code NULL} justru <i>tidak</i> lolos saringan meski getter ini
+	 * melaporkannya aktif — ketidakcocokan halus antara aturan di Java dan aturan di SQL.
+	 *
+	 * @return {@code true} bila skema aktif; tidak pernah {@code null}
+	 */
 	public Boolean getAktif() {
 		if (aktif == null) {
 			aktif = true;
@@ -1155,10 +1485,36 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return aktif;
 	}
 
+	/**
+	 * Menetapkan penanda aktif skema. Menonaktifkan skema hanya menyembunyikannya dari daftar
+	 * pilihan pengajuan; proposal yang sudah menunjuk skema ini tetap utuh dan tetap tampil.
+	 *
+	 * @param aktif {@code true} bila skema masih dipakai
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan penanda "pendaftaran proposal sedang dibuka", dengan bawaan {@code true}
+	 * bila kolom masih {@code null} (menulis balik ke field seperti {@link #getAktif()}).
+	 *
+	 * <p><b>Penanda ini tidak menjaga apa pun.</b> Penelusuran seluruh basis kode menemukan
+	 * hanya tiga pemakaian: {@code PenelitianDanPengabdianAction} membacanya untuk mencentang
+	 * kotak centang di layar admin dan menuliskannya kembali saat disimpan, serta
+	 * {@code PengajuanPenelitianDanPengabdianHelper} menyetel {@code true} pada skema yang
+	 * dibuatnya otomatis. Tidak ada satu pun jalur penyimpanan proposal yang memeriksa nilainya,
+	 * dan kriteria pemilihan skema pada layar pengusul pun tidak menyertakannya (hanya
+	 * {@code aktif}, {@code diperuntukkan}, dan {@code tipePenelitianDanPengabdian}).
+	 *
+	 * <p>Akibatnya, menutup pendaftaran lewat kotak centang ini tidak menghentikan pengajuan
+	 * proposal baru — skema yang "ditutup" tetap muncul di combobox dan tetap bisa dipilih.
+	 * Ini pengulangan pola gerbang UI-only yang sudah tercatat di beberapa domain lain AIS
+	 * (kepegawaian, persuratan); yang menutup pendaftaran secara efektif hanyalah menonaktifkan
+	 * skema lewat {@link #setAktif(Boolean)}.
+	 *
+	 * @return {@code true} bila pendaftaran dinyatakan dibuka; tidak pernah {@code null}
+	 */
 	public Boolean getDibuka() {
 		if (dibuka == null) {
 			dibuka = true;
@@ -1166,6 +1522,12 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return dibuka;
 	}
 
+	/**
+	 * Menetapkan penanda buka/tutup pendaftaran. Lihat {@link #getDibuka()} untuk peringatan
+	 * bahwa penanda ini bersifat informatif dan tidak menghalangi pengajuan baru.
+	 *
+	 * @param dibuka {@code true} bila pendaftaran dinyatakan dibuka
+	 */
 	public void setDibuka(Boolean dibuka) {
 		this.dibuka = dibuka;
 	}

@@ -1008,6 +1008,13 @@ public class Artikel extends DataSop {
 		this.status = status;
 	}
 
+	/**
+	 * Mengembalikan semester akademik penulisan/publikasi artikel.
+	 *
+	 * @return semester ({@link Perkuliahan#GANJIL} atau {@link Perkuliahan#GENAP}); bila belum
+	 *         diisi, diturunkan sekali dari {@link #getTanggalPublikasi()} lewat
+	 *         {@code Common.isNowSemensterGanjil(Date)} lalu disimpan ke field
+	 */
 	public String getSemester() {
 		if (semester == null) {
 			semester = Common.isNowSemensterGanjil(getTanggalPublikasi()) ? Perkuliahan.GANJIL : Perkuliahan.GENAP;
@@ -1015,10 +1022,22 @@ public class Artikel extends DataSop {
 		return semester;
 	}
 
+	/**
+	 * Menyetel semester akademik artikel secara manual.
+	 *
+	 * @param semester semester baru
+	 */
 	public void setSemester(String semester) {
 		this.semester = semester;
 	}
 
+	/**
+	 * Mengembalikan tahun akademik penulisan/publikasi artikel.
+	 *
+	 * @return tahun akademik; bila belum diisi, diturunkan sekali dari
+	 *         {@link #getTanggalPublikasi()} lewat {@code Common.getCurrentTahunAkademik(Date)}
+	 *         lalu disimpan ke field
+	 */
 	public String getTahunAkademik() {
 		if (tahunAkademik == null) {
 			tahunAkademik = Common.getCurrentTahunAkademik(getTanggalPublikasi());
@@ -1026,10 +1045,22 @@ public class Artikel extends DataSop {
 		return tahunAkademik;
 	}
 
+	/**
+	 * Menyetel tahun akademik artikel secara manual.
+	 *
+	 * @param tahunAkademik tahun akademik baru
+	 */
 	public void setTahunAkademik(String tahunAkademik) {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Mengembalikan tanggal publikasi artikel.
+	 *
+	 * @return tanggal publikasi; bila belum diisi, memakai {@link #getTanggal_dirubah()} (tanggal
+	 *         perubahan terakhir baris) sebagai fallback dan menyimpannya ke field, sehingga
+	 *         panggilan berikutnya konsisten
+	 */
 	public Date getTanggalPublikasi() {
 		if (tanggalPublikasi == null) {
 			tanggalPublikasi = getTanggal_dirubah();
@@ -1037,59 +1068,134 @@ public class Artikel extends DataSop {
 		return tanggalPublikasi;
 	}
 
+	/**
+	 * Menyetel tanggal publikasi artikel.
+	 *
+	 * @param tanggalPublikasi tanggal publikasi baru
+	 */
 	public void setTanggalPublikasi(Date tanggalPublikasi) {
 		this.tanggalPublikasi = tanggalPublikasi;
 	}
 
+	/**
+	 * Mengembalikan kata kunci artikel.
+	 *
+	 * @return kata kunci yang sudah di-{@code trim()}, atau string kosong bila belum diisi
+	 */
 	public String getKeyword() {
 		return keyword == null ? "" : keyword.trim();
 	}
 
+	/**
+	 * Menyetel kata kunci artikel.
+	 *
+	 * @param keyword kata kunci baru
+	 */
 	public void setKeyword(String keyword) {
 		this.keyword = keyword;
 	}
 
+	/**
+	 * Menyetel bahasa penulisan artikel.
+	 *
+	 * @param bahasa bahasa baru
+	 */
 	public void setBahasa(String bahasa) {
 		this.bahasa = bahasa;
 	}
 
+	/**
+	 * Mengembalikan bahasa penulisan artikel.
+	 *
+	 * @return bahasa, atau string kosong bila belum diisi (tidak pernah {@code null})
+	 */
 	public String getBahasa() {
 		// TODO Auto-generated method stub
 		return bahasa == null ? "" : bahasa;
 	}
 
+	/**
+	 * Mengembalikan tautan/berkas pratinjau tampilan jurnal.
+	 *
+	 * @return tautan pratinjau, dapat {@code null} bila belum diisi
+	 */
 	public String getPreviewJurnal() {
 		return previewJurnal;
 	}
 
+	/**
+	 * Menyetel tautan/berkas pratinjau tampilan jurnal.
+	 *
+	 * @param previewJurnal tautan pratinjau baru
+	 */
 	public void setPreviewJurnal(String previewJurnal) {
 		this.previewJurnal = previewJurnal;
 	}
 
+	/**
+	 * Mengembalikan tautan/keterangan hasil pemeriksaan plagiarisme artikel.
+	 *
+	 * @return keterangan pemeriksaan plagiarisme, dapat {@code null} bila belum diisi
+	 */
 	public String getPlagiatChecker() {
 		return plagiatChecker;
 	}
 
+	/**
+	 * Menyetel tautan/keterangan hasil pemeriksaan plagiarisme artikel.
+	 *
+	 * @param plagiatChecker keterangan pemeriksaan plagiarisme baru
+	 */
 	public void setPlagiatChecker(String plagiatChecker) {
 		this.plagiatChecker = plagiatChecker;
 	}
 
+	/**
+	 * Mengembalikan tautan/keterangan proses peer review artikel.
+	 *
+	 * @return keterangan peer review, dapat {@code null} bila belum diisi
+	 */
 	public String getPeerReview() {
 		return peerReview;
 	}
 
+	/**
+	 * Menyetel tautan/keterangan proses peer review artikel.
+	 *
+	 * @param peerReview keterangan peer review baru
+	 */
 	public void setPeerReview(String peerReview) {
 		this.peerReview = peerReview;
 	}
 
+	/**
+	 * Mengembalikan penanda apakah artikel telah terindeks sitasi.
+	 *
+	 * @return {@code true} bila sudah terindeks sitasi; default {@code false} bila belum pernah
+	 *         disetel
+	 */
 	public Boolean getTelahTerindeksSitasi() {
 		return telahTerindeksSitasi == null ? false : telahTerindeksSitasi;
 	}
 
+	/**
+	 * Menyetel penanda terindeks sitasi artikel.
+	 *
+	 * @param telahTerindeksSitasi penanda baru
+	 */
 	public void setTelahTerindeksSitasi(Boolean telahTerindeksSitasi) {
 		this.telahTerindeksSitasi = telahTerindeksSitasi;
 	}
 
+	/**
+	 * Mengembalikan daftar editor dan kontributor artikel.
+	 *
+	 * <p><b>Ditimpa sumber eksternal:</b> bila {@link #sintaArticle} tertaut, daftar ini diambil
+	 * dari {@code sintaArticle.getAuthor()}.</p>
+	 *
+	 * @return daftar editor dan kontributor yang sudah di-{@code trim()}, atau string kosong bila
+	 *         belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getEditorDanKontributor() {
 		if (sintaArticle != null) {
@@ -1098,10 +1204,22 @@ public class Artikel extends DataSop {
 		return editorDanKontributor == null ? "" : editorDanKontributor.trim();
 	}
 
+	/**
+	 * Menyetel daftar editor dan kontributor artikel secara manual. Lihat catatan penimpaan pada
+	 * {@link #getEditorDanKontributor()}.
+	 *
+	 * @param editorDanKontributor daftar editor dan kontributor baru
+	 */
 	public void setEditorDanKontributor(String editorDanKontributor) {
 		this.editorDanKontributor = editorDanKontributor;
 	}
 
+	/**
+	 * Mengembalikan tahapan penyusunan artikel saat ini. Proxy lazy diresolusi lebih dulu lewat
+	 * {@code check()}.
+	 *
+	 * @return tahapan terkait, atau {@code null} bila belum disetel
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tahapan_penyusunan_artikel", nullable = true)
 	public TahapanPenyusunanArtikel getTahapanPenyusunanArtikel() {
@@ -1109,10 +1227,22 @@ public class Artikel extends DataSop {
 		return tahapanPenyusunanArtikel;
 	}
 
+	/**
+	 * Menyetel tahapan penyusunan artikel saat ini.
+	 *
+	 * @param tahapanPenyusunanArtikel tahapan baru; boleh {@code null}
+	 */
 	public void setTahapanPenyusunanArtikel(TahapanPenyusunanArtikel tahapanPenyusunanArtikel) {
 		this.tahapanPenyusunanArtikel = tahapanPenyusunanArtikel;
 	}
 
+	/**
+	 * Mengembalikan tautan ke data hasil pengambilan Google Scholar untuk artikel ini. Dimuat
+	 * dengan {@link FetchMode#SELECT}. Kolom relasi ini {@code unique = true} — satu
+	 * {@link ScholarArticle} hanya boleh ditautkan ke satu {@link Artikel}.
+	 *
+	 * @return data Scholar terkait, atau {@code null} bila artikel ini belum ditautkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "scholar_article", nullable = true, unique = true)
@@ -1120,10 +1250,23 @@ public class Artikel extends DataSop {
 		return scholarArticle;
 	}
 
+	/**
+	 * Menautkan artikel ini ke data hasil pengambilan Google Scholar. Menautkan tautan ini akan
+	 * membuat beberapa getter bibliografis (lihat javadoc kelas) mulai menimpa nilai lokal dengan
+	 * data dari {@link ScholarArticle} pada panggilan berikutnya.
+	 *
+	 * @param scholarArticle data Scholar baru; boleh {@code null} untuk melepas tautan
+	 */
 	public void setScholarArticle(ScholarArticle scholarArticle) {
 		this.scholarArticle = scholarArticle;
 	}
 
+	/**
+	 * Mengembalikan tautan ke data hasil pengambilan SINTA untuk artikel ini. Dimuat dengan
+	 * {@link FetchMode#SELECT}.
+	 *
+	 * @return data SINTA terkait, atau {@code null} bila artikel ini belum ditautkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "sinta_article", nullable = true)
@@ -1131,28 +1274,77 @@ public class Artikel extends DataSop {
 		return sintaArticle;
 	}
 
+	/**
+	 * Menautkan artikel ini ke data hasil pengambilan SINTA. Menautkan tautan ini akan membuat
+	 * beberapa getter bibliografis (lihat javadoc kelas) mulai menimpa nilai lokal dengan data dari
+	 * {@link SintaArticle} pada panggilan berikutnya.
+	 *
+	 * @param sintaArticle data SINTA baru; boleh {@code null} untuk melepas tautan
+	 */
 	public void setSintaArticle(SintaArticle sintaArticle) {
 		this.sintaArticle = sintaArticle;
 	}
 
+	/**
+	 * Mengembalikan teks sitasi lengkap artikel.
+	 *
+	 * @return teks sitasi yang sudah di-{@code trim()}, atau string kosong bila belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getSitasi() {
 		return sitasi == null ? "" : sitasi.trim();
 	}
 
+	/**
+	 * Menyetel teks sitasi lengkap artikel.
+	 *
+	 * @param sitasi teks sitasi baru
+	 */
 	public void setSitasi(String sitasi) {
 		this.sitasi = sitasi;
 	}
 
+	/**
+	 * Mengembalikan daftar nama anggota eksternal (di luar institusi) dalam bentuk teks bebas.
+	 *
+	 * @return daftar anggota eksternal yang sudah di-{@code trim()}, atau string kosong bila belum
+	 *         diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getAnggotaEksternal() {
 		return anggotaEksternal == null ? "" : anggotaEksternal.trim();
 	}
 
+	/**
+	 * Menyetel daftar nama anggota eksternal artikel.
+	 *
+	 * @param anggotaEksternal daftar anggota eksternal baru
+	 */
 	public void setAnggotaEksternal(String anggotaEksternal) {
 		this.anggotaEksternal = anggotaEksternal;
 	}
 
+	/**
+	 * Mengembalikan dosen/pegawai yang menyetujui artikel ini. Proxy lazy diresolusi lebih dulu
+	 * lewat {@code check()}.
+	 *
+	 * <p><b>Diturunkan dari rantai disposisi SOP</b>, menimpa field mentah yang mungkin disetel
+	 * manual lewat {@link #setDisetujuiOleh(Tbmuser)}:</p>
+	 * <ul>
+	 *   <li>Bila {@link #getDisposisiSop()} ada dan langkah persetujuannya
+	 *       ({@code getDisposisiSetuju()}) sudah menunjuk pengaju ({@code getDiajukanOleh()}
+	 *       tidak {@code null}), penyetuju diambil dari sana.</li>
+	 *   <li>Bila {@link #getDisposisiSop()} ada tetapi langkah persetujuan tersebut belum ada atau
+	 *       belum menunjuk pengaju, field ini dipaksa {@code null} — artinya rantai disposisi
+	 *       adalah <em>sumber kebenaran tunggal</em> selama disposisi terpasang: nilai manual tidak
+	 *       akan pernah terlihat selama artikel punya {@link #disposisiSop}.</li>
+	 *   <li>Bila tidak ada {@link #disposisiSop} sama sekali, nilai field mentah (hasil
+	 *       {@code check()}) dipakai apa adanya.</li>
+	 * </ul>
+	 *
+	 * @return dosen/pegawai penyetuju, atau {@code null} bila belum disetujui atau disposisi belum
+	 *         mencapai langkah persetujuan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disetuji_oleh", nullable = true)
 	public Tbmuser getDisetujuiOleh() {
@@ -1171,10 +1363,28 @@ public class Artikel extends DataSop {
 		return disetujiOleh;
 	}
 
+	/**
+	 * Menyetel dosen/pegawai penyetuju artikel secara manual. Lihat catatan penimpaan pada
+	 * {@link #getDisetujuiOleh()} — nilai ini hanya terlihat selama artikel tidak punya
+	 * {@link #disposisiSop} terpasang.
+	 *
+	 * @param disetujiOleh penyetuju baru
+	 */
 	public void setDisetujuiOleh(Tbmuser disetujiOleh) {
 		this.disetujiOleh = disetujiOleh;
 	}
 
+	/**
+	 * Mengembalikan tanggal persetujuan artikel ini.
+	 *
+	 * <p><b>Diturunkan dari rantai disposisi SOP</b> dengan aturan yang persis sama seperti
+	 * {@link #getDisetujuiOleh()}: bila disposisi sudah mencapai langkah persetujuan dengan
+	 * pengaju terisi, tanggalnya diambil dari {@code getDisposisiSetuju().getWaktu()}; bila
+	 * disposisi ada tetapi belum mencapai langkah tersebut, field dipaksa {@code null}.</p>
+	 *
+	 * @return tanggal persetujuan, atau {@code null} bila belum disetujui atau disposisi belum
+	 *         mencapai langkah persetujuan
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getSetujuiTanggal() {
 
@@ -1191,13 +1401,44 @@ public class Artikel extends DataSop {
 		return setujuiTanggal;
 	}
 
+	/**
+	 * Menyetel tanggal persetujuan artikel secara manual. Lihat catatan penimpaan pada
+	 * {@link #getSetujuiTanggal()}.
+	 *
+	 * @param setujuiTanggal tanggal persetujuan baru
+	 */
 	public void setSetujuiTanggal(Date setujuiTanggal) {
 		this.setujuiTanggal = setujuiTanggal;
 	}
 
+	/**
+	 * Mengembalikan id item pada sistem repositori (mis. repository institusi) tempat artikel
+	 * diarsipkan.
+	 *
+	 * @return id item repositori, atau {@code null} bila belum diarsipkan
+	 */
 	@Column(name="repo_item_id") public Long getRepoItemId(){return repoItemId;}
+	/**
+	 * Menyetel id item repositori artikel.
+	 *
+	 * @param v id item repositori baru
+	 */
 	public void setRepoItemId(Long v){repoItemId=v;}
 
+	/**
+	 * Mengembalikan dosen/pegawai yang mengajukan artikel ini. Proxy lazy diresolusi lebih dulu
+	 * lewat {@code check()}.
+	 *
+	 * <p><b>Diturunkan dari rantai disposisi SOP</b>, menimpa field mentah yang mungkin disetel
+	 * manual lewat {@link #setDiajukanOleh(Tbmuser)}: bila {@link #getDisposisiSop()} ada dan
+	 * langkah awalnya ({@code getDisposisiStart()}) sudah menunjuk pengaju, nilai tersebut dipakai.
+	 * Berbeda dari {@link #getDisetujuiOleh()}, di sini <b>tidak ada</b> cabang yang memaksa
+	 * {@code null} ketika disposisi ada tetapi langkah awalnya belum menunjuk pengaju — pada
+	 * kondisi itu nilai field mentah (hasil {@code check()}) tetap dipertahankan apa adanya.</p>
+	 *
+	 * @return dosen/pegawai pengaju, atau {@code null} bila belum pernah diisi dan disposisi belum
+	 *         menunjuk pengaju
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "diajukan_oleh", nullable = true)
 	public Tbmuser getDiajukanOleh() {
@@ -1211,10 +1452,23 @@ public class Artikel extends DataSop {
 		return diajukanOleh;
 	}
 
+	/**
+	 * Menyetel dosen/pegawai pengaju artikel secara manual. Lihat catatan penimpaan pada
+	 * {@link #getDiajukanOleh()}.
+	 *
+	 * @param diajukanOleh pengaju baru
+	 */
 	public void setDiajukanOleh(Tbmuser diajukanOleh) {
 		this.diajukanOleh = diajukanOleh;
 	}
 
+	/**
+	 * Mengembalikan rantai disposisi SOP yang menaungi alur pengajuan/persetujuan artikel ini.
+	 * Proxy lazy diresolusi lebih dulu lewat {@code check()}. Implementasi dari kontrak abstrak
+	 * {@link DataSop#getDisposisiSop()}.
+	 *
+	 * @return disposisi terkait, atau {@code null} bila artikel ini belum masuk alur SOP apa pun
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -1222,6 +1476,24 @@ public class Artikel extends DataSop {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menautkan artikel ini ke sebuah rantai disposisi SOP. Implementasi dari kontrak abstrak
+	 * {@link DataSop#setDisposisiSop(DisposisiSop)}.
+	 *
+	 * <p><b>Setter satu-arah defensif — menolak melepas/menimpa tautan yang sudah ada:</b>
+	 * masukan {@code null}, atau disposisi yang belum tersimpan ({@code getId() == null}, mis.
+	 * objek transien hasil {@code new DisposisiSop()} yang belum di-persist), diabaikan sepenuhnya
+	 * lewat early return — tautan lama (bila ada) dipertahankan apa adanya. Setelah early return
+	 * ini, masukan dijamin bukan {@code null} dan sudah punya id, sehingga kondisi pada baris
+	 * kedua (yang secara sintaksis terlihat memeriksa ulang kemungkinan {@code null}/id kosong)
+	 * pada praktiknya selalu bernilai salah — baris itu selalu berakhir menugaskan
+	 * {@code this.disposisiSop = disposisiSop} apa adanya. Efek bersihnya: sekali sebuah artikel
+	 * ditautkan ke disposisi yang valid, tautan tersebut hanya bisa diganti dengan disposisi valid
+	 * lain, tidak pernah bisa dilepas ({@code null}) atau ditimpa objek transien lewat method
+	 * ini.</p>
+	 *
+	 * @param disposisiSop disposisi baru; masukan {@code null} atau belum tersimpan diabaikan
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {if(disposisiSop==null||disposisiSop.getId()==null) {return;}
 		this.disposisiSop = (this.disposisiSop != null && (disposisiSop == null || disposisiSop.getId() == null)) ? this.disposisiSop : disposisiSop;
 	}
