@@ -150,6 +150,11 @@ public class SeksiKursus extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi id unik baris ini. Lihat {@link #getId()} untuk detail perilaku getter.
+	 *
+	 * @param id nilai baru untuk id unik baris ini.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -164,6 +169,11 @@ public class SeksiKursus extends GeneralValueObject {
 		return kode == null ? "" : kode.trim();
 	}
 
+	/**
+	 * Mengisi kode unik baris ini. Lihat {@link #getKode()} untuk detail perilaku getter.
+	 *
+	 * @param kode nilai baru untuk kode unik baris ini.
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
@@ -199,6 +209,11 @@ public class SeksiKursus extends GeneralValueObject {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan/deskripsi bebas. Lihat {@link #getKeterangan()} untuk detail perilaku getter.
+	 *
+	 * @param keterangan nilai baru untuk keterangan/deskripsi bebas.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -238,6 +253,11 @@ public class SeksiKursus extends GeneralValueObject {
 		return urutan == null ? 0 : urutan;
 	}
 
+	/**
+	 * Mengisi urutan tampil. Lihat {@link #getUrutan()} untuk detail perilaku getter.
+	 *
+	 * @param urutan nilai baru untuk urutan tampil.
+	 */
 	public void setUrutan(Integer urutan) {
 		this.urutan = urutan;
 	}
@@ -254,6 +274,11 @@ public class SeksiKursus extends GeneralValueObject {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Mengisi penanda aktif/nonaktif. Lihat {@link #getAktif()} untuk detail perilaku getter.
+	 *
+	 * @param aktif nilai baru untuk penanda aktif/nonaktif.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}

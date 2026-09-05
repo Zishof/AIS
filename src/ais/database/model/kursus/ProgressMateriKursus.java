@@ -213,6 +213,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan/deskripsi bebas. Lihat {@link #getKeterangan()} untuk detail perilaku getter.
+	 *
+	 * @param keterangan nilai baru untuk keterangan/deskripsi bebas.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -234,6 +239,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return kode;
 	}
 
+	/**
+	 * Mengisi kode unik baris ini. Lihat {@link #getKode()} untuk detail perilaku getter.
+	 *
+	 * @param kode nilai baru untuk kode unik baris ini.
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
@@ -258,6 +268,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return nama;
 	}
 
+	/**
+	 * Mengisi nama tampilan. Lihat {@link #getNama()} untuk detail perilaku getter.
+	 *
+	 * @param nama nilai baru untuk nama tampilan.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -300,6 +315,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return materiKursus;
 	}
 
+	/**
+	 * Mengisi materi kursus terkait. Lihat {@link #getMateriKursus()} untuk detail perilaku getter.
+	 *
+	 * @param materiKursus nilai baru untuk materi kursus terkait.
+	 */
 	public void setMateriKursus(MateriKursus materiKursus) {
 		this.materiKursus = materiKursus;
 	}
@@ -342,6 +362,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return waktuSelesai;
 	}
 
+	/**
+	 * Mengisi waktu selesai. Lihat {@link #getWaktuSelesai()} untuk detail perilaku getter.
+	 *
+	 * @param waktuSelesai nilai baru untuk waktu selesai.
+	 */
 	public void setWaktuSelesai(Date waktuSelesai) {
 		this.waktuSelesai = waktuSelesai;
 	}
@@ -377,6 +402,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return waktuMulai;
 	}
 
+	/**
+	 * Mengisi waktu mulai. Lihat {@link #getWaktuMulai()} untuk detail perilaku getter.
+	 *
+	 * @param waktuMulai nilai baru untuk waktu mulai.
+	 */
 	public void setWaktuMulai(Date waktuMulai) {
 		this.waktuMulai = waktuMulai;
 	}
@@ -393,6 +423,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return waktuTerakhir;
 	}
 
+	/**
+	 * Mengisi waktu akses terakhir. Lihat {@link #getWaktuTerakhir()} untuk detail perilaku getter.
+	 *
+	 * @param waktuTerakhir nilai baru untuk waktu akses terakhir.
+	 */
 	public void setWaktuTerakhir(Date waktuTerakhir) {
 		this.waktuTerakhir = waktuTerakhir;
 	}
@@ -409,6 +444,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return detikVideoTerakhir == null ? 0 : detikVideoTerakhir;
 	}
 
+	/**
+	 * Mengisi posisi detik video terakhir dilaporkan. Lihat {@link #getDetikVideoTerakhir()} untuk detail perilaku getter.
+	 *
+	 * @param detikVideoTerakhir nilai baru untuk posisi detik video terakhir dilaporkan.
+	 */
 	public void setDetikVideoTerakhir(Integer detikVideoTerakhir) {
 		this.detikVideoTerakhir = detikVideoTerakhir;
 	}
@@ -427,6 +467,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return durasiDitonton == null ? 0 : durasiDitonton;
 	}
 
+	/**
+	 * Mengisi total durasi tontonan tertinggi (detik). Lihat {@link #getDurasiDitonton()} untuk detail perilaku getter.
+	 *
+	 * @param durasiDitonton nilai baru untuk total durasi tontonan tertinggi (detik).
+	 */
 	public void setDurasiDitonton(Integer durasiDitonton) {
 		this.durasiDitonton = durasiDitonton;
 	}
@@ -467,6 +512,11 @@ public class ProgressMateriKursus extends GeneralValueObject {
 		return jumlahAkses == null ? 0 : jumlahAkses;
 	}
 
+	/**
+	 * Mengisi jumlah akses/pembukaan materi. Lihat {@link #getJumlahAkses()} untuk detail perilaku getter.
+	 *
+	 * @param jumlahAkses nilai baru untuk jumlah akses/pembukaan materi.
+	 */
 	public void setJumlahAkses(Integer jumlahAkses) {
 		this.jumlahAkses = jumlahAkses;
 	}

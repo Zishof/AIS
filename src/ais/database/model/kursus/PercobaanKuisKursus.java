@@ -176,6 +176,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi id unik baris ini. Lihat {@link #getId()} untuk detail perilaku getter.
+	 *
+	 * @param id nilai baru untuk id unik baris ini.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -191,6 +196,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan/deskripsi bebas. Lihat {@link #getKeterangan()} untuk detail perilaku getter.
+	 *
+	 * @param keterangan nilai baru untuk keterangan/deskripsi bebas.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -210,6 +220,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return kode;
 	}
 
+	/**
+	 * Mengisi kode unik baris ini. Lihat {@link #getKode()} untuk detail perilaku getter.
+	 *
+	 * @param kode nilai baru untuk kode unik baris ini.
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
@@ -232,6 +247,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return nama;
 	}
 
+	/**
+	 * Mengisi nama tampilan. Lihat {@link #getNama()} untuk detail perilaku getter.
+	 *
+	 * @param nama nilai baru untuk nama tampilan.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -249,6 +269,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return materiKursus;
 	}
 
+	/**
+	 * Mengisi materi kursus terkait. Lihat {@link #getMateriKursus()} untuk detail perilaku getter.
+	 *
+	 * @param materiKursus nilai baru untuk materi kursus terkait.
+	 */
 	public void setMateriKursus(MateriKursus materiKursus) {
 		this.materiKursus = materiKursus;
 	}
@@ -286,6 +311,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return nomorPercobaan == null ? 1 : nomorPercobaan;
 	}
 
+	/**
+	 * Mengisi nomor urut percobaan. Lihat {@link #getNomorPercobaan()} untuk detail perilaku getter.
+	 *
+	 * @param nomorPercobaan nilai baru untuk nomor urut percobaan.
+	 */
 	public void setNomorPercobaan(Integer nomorPercobaan) {
 		this.nomorPercobaan = nomorPercobaan;
 	}
@@ -306,6 +336,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return waktuMulai == null ? new Date() : waktuMulai;
 	}
 
+	/**
+	 * Mengisi waktu mulai. Lihat {@link #getWaktuMulai()} untuk detail perilaku getter.
+	 *
+	 * @param waktuMulai nilai baru untuk waktu mulai.
+	 */
 	public void setWaktuMulai(Date waktuMulai) {
 		this.waktuMulai = waktuMulai;
 	}
@@ -320,6 +355,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return waktuSelesai;
 	}
 
+	/**
+	 * Mengisi waktu selesai. Lihat {@link #getWaktuSelesai()} untuk detail perilaku getter.
+	 *
+	 * @param waktuSelesai nilai baru untuk waktu selesai.
+	 */
 	public void setWaktuSelesai(Date waktuSelesai) {
 		this.waktuSelesai = waktuSelesai;
 	}
@@ -335,6 +375,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return status == null || status.isEmpty() ? BERLANGSUNG : status;
 	}
 
+	/**
+	 * Mengisi status baris ini. Lihat {@link #getStatus()} untuk detail perilaku getter.
+	 *
+	 * @param status nilai baru untuk status baris ini.
+	 */
 	public void setStatus(String status) {
 		this.status = status;
 	}
@@ -351,6 +396,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return totalNilai == null ? 0.0 : totalNilai;
 	}
 
+	/**
+	 * Mengisi nilai akhir dalam persen. Lihat {@link #getTotalNilai()} untuk detail perilaku getter.
+	 *
+	 * @param totalNilai nilai baru untuk nilai akhir dalam persen.
+	 */
 	public void setTotalNilai(Double totalNilai) {
 		this.totalNilai = totalNilai;
 	}
@@ -368,6 +418,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return lulus;
 	}
 
+	/**
+	 * Mengisi penanda kelulusan. Lihat {@link #getLulus()} untuk detail perilaku getter.
+	 *
+	 * @param lulus nilai baru untuk penanda kelulusan.
+	 */
 	public void setLulus(Boolean lulus) {
 		this.lulus = lulus;
 	}
@@ -383,6 +438,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return jumlahSoal == null ? 0 : jumlahSoal;
 	}
 
+	/**
+	 * Mengisi jumlah total soal pada percobaan. Lihat {@link #getJumlahSoal()} untuk detail perilaku getter.
+	 *
+	 * @param jumlahSoal nilai baru untuk jumlah total soal pada percobaan.
+	 */
 	public void setJumlahSoal(Integer jumlahSoal) {
 		this.jumlahSoal = jumlahSoal;
 	}
@@ -398,6 +458,11 @@ public class PercobaanKuisKursus extends GeneralValueObject {
 		return jumlahBenar == null ? 0 : jumlahBenar;
 	}
 
+	/**
+	 * Mengisi jumlah jawaban benar. Lihat {@link #getJumlahBenar()} untuk detail perilaku getter.
+	 *
+	 * @param jumlahBenar nilai baru untuk jumlah jawaban benar.
+	 */
 	public void setJumlahBenar(Integer jumlahBenar) {
 		this.jumlahBenar = jumlahBenar;
 	}

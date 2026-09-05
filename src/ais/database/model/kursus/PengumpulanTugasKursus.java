@@ -187,6 +187,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi id unik baris ini. Lihat {@link #getId()} untuk detail perilaku getter.
+	 *
+	 * @param id nilai baru untuk id unik baris ini.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -202,6 +207,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan/deskripsi bebas. Lihat {@link #getKeterangan()} untuk detail perilaku getter.
+	 *
+	 * @param keterangan nilai baru untuk keterangan/deskripsi bebas.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -221,6 +231,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return kode;
 	}
 
+	/**
+	 * Mengisi kode unik baris ini. Lihat {@link #getKode()} untuk detail perilaku getter.
+	 *
+	 * @param kode nilai baru untuk kode unik baris ini.
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
@@ -241,6 +256,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return nama;
 	}
 
+	/**
+	 * Mengisi nama tampilan. Lihat {@link #getNama()} untuk detail perilaku getter.
+	 *
+	 * @param nama nilai baru untuk nama tampilan.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -282,6 +302,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return materiKursus;
 	}
 
+	/**
+	 * Mengisi materi kursus terkait. Lihat {@link #getMateriKursus()} untuk detail perilaku getter.
+	 *
+	 * @param materiKursus nilai baru untuk materi kursus terkait.
+	 */
 	public void setMateriKursus(MateriKursus materiKursus) {
 		this.materiKursus = materiKursus;
 	}
@@ -298,6 +323,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return namaFile;
 	}
 
+	/**
+	 * Mengisi nama berkas asli yang diunggah. Lihat {@link #getNamaFile()} untuk detail perilaku getter.
+	 *
+	 * @param namaFile nilai baru untuk nama berkas asli yang diunggah.
+	 */
 	public void setNamaFile(String namaFile) {
 		this.namaFile = namaFile;
 	}
@@ -315,6 +345,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return link;
 	}
 
+	/**
+	 * Mengisi URL berkas yang tersimpan di disk. Lihat {@link #getLink()} untuk detail perilaku getter.
+	 *
+	 * @param link nilai baru untuk URL berkas yang tersimpan di disk.
+	 */
 	public void setLink(String link) {
 		this.link = link;
 	}
@@ -333,6 +368,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return waktuKumpul == null ? new Date() : waktuKumpul;
 	}
 
+	/**
+	 * Mengisi waktu pengumpulan tugas. Lihat {@link #getWaktuKumpul()} untuk detail perilaku getter.
+	 *
+	 * @param waktuKumpul nilai baru untuk waktu pengumpulan tugas.
+	 */
 	public void setWaktuKumpul(Date waktuKumpul) {
 		this.waktuKumpul = waktuKumpul;
 	}
@@ -348,6 +388,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return status == null || status.isEmpty() ? DIKUMPULKAN : status;
 	}
 
+	/**
+	 * Mengisi status baris ini. Lihat {@link #getStatus()} untuk detail perilaku getter.
+	 *
+	 * @param status nilai baru untuk status baris ini.
+	 */
 	public void setStatus(String status) {
 		this.status = status;
 	}
@@ -364,6 +409,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return nilai;
 	}
 
+	/**
+	 * Mengisi nilai/skor yang diberikan instruktur. Lihat {@link #getNilai()} untuk detail perilaku getter.
+	 *
+	 * @param nilai nilai baru untuk nilai/skor yang diberikan instruktur.
+	 */
 	public void setNilai(Double nilai) {
 		this.nilai = nilai;
 	}
@@ -380,6 +430,11 @@ public class PengumpulanTugasKursus extends GeneralValueObject {
 		return catatanPenilaian;
 	}
 
+	/**
+	 * Mengisi catatan/feedback penilaian instruktur. Lihat {@link #getCatatanPenilaian()} untuk detail perilaku getter.
+	 *
+	 * @param catatanPenilaian nilai baru untuk catatan/feedback penilaian instruktur.
+	 */
 	public void setCatatanPenilaian(String catatanPenilaian) {
 		this.catatanPenilaian = catatanPenilaian;
 	}

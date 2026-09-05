@@ -261,6 +261,11 @@ public class MateriKursus extends GeneralValueObject {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan/deskripsi bebas. Lihat {@link #getKeterangan()} untuk detail perilaku getter.
+	 *
+	 * @param keterangan nilai baru untuk keterangan/deskripsi bebas.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -307,6 +312,11 @@ public class MateriKursus extends GeneralValueObject {
 		return tipeKonten == null || tipeKonten.isEmpty() ? VIDEO : tipeKonten;
 	}
 
+	/**
+	 * Mengisi tipe konten materi. Lihat {@link #getTipeKonten()} untuk detail perilaku getter.
+	 *
+	 * @param tipeKonten nilai baru untuk tipe konten materi.
+	 */
 	public void setTipeKonten(String tipeKonten) {
 		this.tipeKonten = tipeKonten;
 	}
@@ -322,6 +332,11 @@ public class MateriKursus extends GeneralValueObject {
 		return durasiMenit == null ? 0 : durasiMenit;
 	}
 
+	/**
+	 * Mengisi estimasi durasi dalam menit. Lihat {@link #getDurasiMenit()} untuk detail perilaku getter.
+	 *
+	 * @param durasiMenit nilai baru untuk estimasi durasi dalam menit.
+	 */
 	public void setDurasiMenit(Integer durasiMenit) {
 		this.durasiMenit = durasiMenit;
 	}
@@ -337,6 +352,11 @@ public class MateriKursus extends GeneralValueObject {
 		return urutan == null ? 0 : urutan;
 	}
 
+	/**
+	 * Mengisi urutan tampil. Lihat {@link #getUrutan()} untuk detail perilaku getter.
+	 *
+	 * @param urutan nilai baru untuk urutan tampil.
+	 */
 	public void setUrutan(Integer urutan) {
 		this.urutan = urutan;
 	}
@@ -351,6 +371,11 @@ public class MateriKursus extends GeneralValueObject {
 		return preview == null ? false : preview;
 	}
 
+	/**
+	 * Mengisi penanda bisa dipratinjau gratis. Lihat {@link #getPreview()} untuk detail perilaku getter.
+	 *
+	 * @param preview nilai baru untuk penanda bisa dipratinjau gratis.
+	 */
 	public void setPreview(Boolean preview) {
 		this.preview = preview;
 	}
@@ -367,6 +392,11 @@ public class MateriKursus extends GeneralValueObject {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Mengisi penanda aktif/nonaktif. Lihat {@link #getAktif()} untuk detail perilaku getter.
+	 *
+	 * @param aktif nilai baru untuk penanda aktif/nonaktif.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
@@ -420,6 +450,11 @@ public class MateriKursus extends GeneralValueObject {
 		return batasWaktuMenit;
 	}
 
+	/**
+	 * Mengisi batas waktu pengerjaan kuis dalam menit. Lihat {@link #getBatasWaktuMenit()} untuk detail perilaku getter.
+	 *
+	 * @param batasWaktuMenit nilai baru untuk batas waktu pengerjaan kuis dalam menit.
+	 */
 	public void setBatasWaktuMenit(Integer batasWaktuMenit) {
 		this.batasWaktuMenit = batasWaktuMenit;
 	}
@@ -436,6 +471,11 @@ public class MateriKursus extends GeneralValueObject {
 		return batasPercobaan;
 	}
 
+	/**
+	 * Mengisi batas maksimal jumlah percobaan kuis. Lihat {@link #getBatasPercobaan()} untuk detail perilaku getter.
+	 *
+	 * @param batasPercobaan nilai baru untuk batas maksimal jumlah percobaan kuis.
+	 */
 	public void setBatasPercobaan(Integer batasPercobaan) {
 		this.batasPercobaan = batasPercobaan;
 	}
@@ -450,6 +490,11 @@ public class MateriKursus extends GeneralValueObject {
 		return acakSoal == null ? false : acakSoal;
 	}
 
+	/**
+	 * Mengisi penanda urutan soal diacak. Lihat {@link #getAcakSoal()} untuk detail perilaku getter.
+	 *
+	 * @param acakSoal nilai baru untuk penanda urutan soal diacak.
+	 */
 	public void setAcakSoal(Boolean acakSoal) {
 		this.acakSoal = acakSoal;
 	}
@@ -464,6 +509,11 @@ public class MateriKursus extends GeneralValueObject {
 		return acakJawaban == null ? false : acakJawaban;
 	}
 
+	/**
+	 * Mengisi penanda urutan pilihan jawaban diacak. Lihat {@link #getAcakJawaban()} untuk detail perilaku getter.
+	 *
+	 * @param acakJawaban nilai baru untuk penanda urutan pilihan jawaban diacak.
+	 */
 	public void setAcakJawaban(Boolean acakJawaban) {
 		this.acakJawaban = acakJawaban;
 	}
@@ -480,6 +530,11 @@ public class MateriKursus extends GeneralValueObject {
 		return jumlahSoalDitampilkan;
 	}
 
+	/**
+	 * Mengisi jumlah soal yang ditampilkan per percobaan. Lihat {@link #getJumlahSoalDitampilkan()} untuk detail perilaku getter.
+	 *
+	 * @param jumlahSoalDitampilkan nilai baru untuk jumlah soal yang ditampilkan per percobaan.
+	 */
 	public void setJumlahSoalDitampilkan(Integer jumlahSoalDitampilkan) {
 		this.jumlahSoalDitampilkan = jumlahSoalDitampilkan;
 	}

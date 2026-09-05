@@ -193,6 +193,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi id unik baris ini. Lihat {@link #getId()} untuk detail perilaku getter.
+	 *
+	 * @param id nilai baru untuk id unik baris ini.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -208,6 +213,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan/deskripsi bebas. Lihat {@link #getKeterangan()} untuk detail perilaku getter.
+	 *
+	 * @param keterangan nilai baru untuk keterangan/deskripsi bebas.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -223,6 +233,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return kode == null ? "" : kode.trim();
 	}
 
+	/**
+	 * Mengisi kode unik baris ini. Lihat {@link #getKode()} untuk detail perilaku getter.
+	 *
+	 * @param kode nilai baru untuk kode unik baris ini.
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
@@ -238,6 +253,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return nama;
 	}
 
+	/**
+	 * Mengisi nama tampilan. Lihat {@link #getNama()} untuk detail perilaku getter.
+	 *
+	 * @param nama nilai baru untuk nama tampilan.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -254,6 +274,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return percobaanKuisKursus;
 	}
 
+	/**
+	 * Mengisi percobaan kuis induk. Lihat {@link #getPercobaanKuisKursus()} untuk detail perilaku getter.
+	 *
+	 * @param percobaanKuisKursus nilai baru untuk percobaan kuis induk.
+	 */
 	public void setPercobaanKuisKursus(PercobaanKuisKursus percobaanKuisKursus) {
 		this.percobaanKuisKursus = percobaanKuisKursus;
 	}
@@ -271,6 +296,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return bankSoal;
 	}
 
+	/**
+	 * Mengisi soal (BankSoal) terkait. Lihat {@link #getBankSoal()} untuk detail perilaku getter.
+	 *
+	 * @param bankSoal nilai baru untuk soal (BankSoal) terkait.
+	 */
 	public void setBankSoal(BankSoal bankSoal) {
 		this.bankSoal = bankSoal;
 	}
@@ -296,6 +326,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return bankSoalDetailDipilih;
 	}
 
+	/**
+	 * Mengisi pilihan jawaban (BankSoalDetail) yang dipilih peserta. Lihat {@link #getBankSoalDetailDipilih()} untuk detail perilaku getter.
+	 *
+	 * @param bankSoalDetailDipilih nilai baru untuk pilihan jawaban (BankSoalDetail) yang dipilih peserta.
+	 */
 	public void setBankSoalDetailDipilih(BankSoalDetail bankSoalDetailDipilih) {
 		this.bankSoalDetailDipilih = bankSoalDetailDipilih;
 	}
@@ -312,6 +347,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return jawabanEsai;
 	}
 
+	/**
+	 * Mengisi teks jawaban esai bebas. Lihat {@link #getJawabanEsai()} untuk detail perilaku getter.
+	 *
+	 * @param jawabanEsai nilai baru untuk teks jawaban esai bebas.
+	 */
 	public void setJawabanEsai(String jawabanEsai) {
 		this.jawabanEsai = jawabanEsai;
 	}
@@ -332,6 +372,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return skor == null ? 0.0 : skor;
 	}
 
+	/**
+	 * Mengisi skor yang diperoleh. Lihat {@link #getSkor()} untuk detail perilaku getter.
+	 *
+	 * @param skor nilai baru untuk skor yang diperoleh.
+	 */
 	public void setSkor(Double skor) {
 		this.skor = skor;
 	}
@@ -349,6 +394,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return benar;
 	}
 
+	/**
+	 * Mengisi penanda jawaban benar/salah. Lihat {@link #getBenar()} untuk detail perilaku getter.
+	 *
+	 * @param benar nilai baru untuk penanda jawaban benar/salah.
+	 */
 	public void setBenar(Boolean benar) {
 		this.benar = benar;
 	}
@@ -364,6 +414,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return urutanTampil == null ? 0 : urutanTampil;
 	}
 
+	/**
+	 * Mengisi urutan tampil soal dalam percobaan. Lihat {@link #getUrutanTampil()} untuk detail perilaku getter.
+	 *
+	 * @param urutanTampil nilai baru untuk urutan tampil soal dalam percobaan.
+	 */
 	public void setUrutanTampil(Integer urutanTampil) {
 		this.urutanTampil = urutanTampil;
 	}
@@ -381,6 +436,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return sudahDinilai == null ? false : sudahDinilai;
 	}
 
+	/**
+	 * Mengisi penanda jawaban sudah final dinilai. Lihat {@link #getSudahDinilai()} untuk detail perilaku getter.
+	 *
+	 * @param sudahDinilai nilai baru untuk penanda jawaban sudah final dinilai.
+	 */
 	public void setSudahDinilai(Boolean sudahDinilai) {
 		this.sudahDinilai = sudahDinilai;
 	}
@@ -396,6 +456,11 @@ public class JawabanPercobaanKuisKursus extends GeneralValueObject {
 		return catatanPenilaian;
 	}
 
+	/**
+	 * Mengisi catatan/feedback penilaian instruktur. Lihat {@link #getCatatanPenilaian()} untuk detail perilaku getter.
+	 *
+	 * @param catatanPenilaian nilai baru untuk catatan/feedback penilaian instruktur.
+	 */
 	public void setCatatanPenilaian(String catatanPenilaian) {
 		this.catatanPenilaian = catatanPenilaian;
 	}
