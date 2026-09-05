@@ -1031,6 +1031,23 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Membulatkan {@code nilai} (kuantitas hasil konversi UOM, dalam satuan dasar produk) ke
+	 * kelipatan terdekat {@link SatuanProduk#getPresisiPembulatan()} milik satuan dasar --
+	 * menutup celah floating-point pada faktor konversi non-bulat (mis. kategori BERAT dengan
+	 * rasio 1/3 menghasilkan 0.333333333333 tanpa pembulatan ini). {@code dasar == null}
+	 * (katalog lama tanpa relasi UOM) dibulatkan ke presisi bawaan 0.01. Dipakai HANYA oleh
+	 * {@link #terapkanSatuanJual} saat ini -- pemanggil lain {@link #faktorUomInputKeDasar}
+	 * (SalesInventoryReceivableHelper Fase B, StokThresholdScheduler Fase C) menghitung
+	 * kuantitasnya sendiri dari faktor mentah dan TIDAK otomatis ikut dibulatkan lewat method
+	 * ini -- perlu dipanggil eksplisit di sana bila presisi yang sama diinginkan.
+	 */
+	private static double bulatkanKePresisi(double nilai, SatuanProduk dasar) {
+		double presisi = dasar == null ? 0.01 : dasar.getPresisiPembulatan().doubleValue();
+		return java.math.BigDecimal.valueOf(Math.round(nilai / presisi))
+				.multiply(java.math.BigDecimal.valueOf(presisi)).doubleValue();
+	}
+
+	/**
 	 * <h3>Checkout final POS Kantin: simpan transaksi penjualan sekaligus seluruh efek sampingnya.</h3>
 	 *
 	 * <p>Method inti alur kasir. Untuk satu payload {@code jsonObject} berisi keranjang belanja
@@ -3977,10 +3994,13 @@ public class KantinHelper {
 	 * Fase B: baris ber-satuan-jual diturunkan jumlah DASARNYA di server.
 	 *
 	 * <p>Baris yang membawa {@code satuan_jual_id} + {@code qty_input} dihitung ulang:
-	 * {@code jumlah = qty_input x faktorUomInputKeDasar(produk, satuan)} -- nilai
-	 * {@code jumlah} kiriman klien DITIMPA (server berwenang; klien hanya pratinjau
-	 * lewat UomKonversi). Faktor hasil hitung disimpan ke baris JSON supaya
-	 * {@code simpanRinci} mempersistankan snapshot tanpa menghitung ulang.
+	 * {@code jumlah = bulatkanKePresisi(qty_input x faktorUomInputKeDasar(produk, satuan), dasar)}
+	 * -- nilai {@code jumlah} kiriman klien DITIMPA (server berwenang; klien hanya pratinjau
+	 * lewat UomKonversi), dan dibulatkan ke {@link SatuanProduk#getPresisiPembulatan()} milik
+	 * satuan dasar produk (lihat {@link #bulatkanKePresisi}) supaya rasio non-bulat (mis. 1/3)
+	 * tidak bocor sebagai desimal panjang ke baris tersimpan. Faktor hasil hitung (BELUM
+	 * dibulatkan) disimpan terpisah ke baris JSON supaya {@code simpanRinci} mempersistankan
+	 * snapshot tanpa menghitung ulang.
 	 * Dipanggil SEBELUM harga grosir dan diskon -- ambang grosir wajib menilai
 	 * qty dasar yang benar. Satuan lintas kategori ditolak dengan pesan yang
 	 * bisa dibaca (dari faktorUomInputKeDasar), bukan exception mentah.</p>
@@ -4017,7 +4037,7 @@ public class KantinHelper {
 				hasil.put("description", salah.getMessage());
 				return false;
 			}
-			baris.put("jumlah", qtyInput * faktor);
+			baris.put("jumlah", bulatkanKePresisi(qtyInput * faktor, produk.getSatuan()));
 			baris.put("faktor_ke_dasar", faktor);
 			// PDF Pack 31-08: kasir memilih satuan PACK produk ber-Pack -> harga baris DITIMPA
 			// harga_pack/faktor (server berwenang; total per pack = persis harga pack, mis.

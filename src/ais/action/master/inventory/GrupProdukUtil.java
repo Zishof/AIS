@@ -41,28 +41,52 @@ public final class GrupProdukUtil {
 				: grup.getHargaJual() != null;
 	}
 
+	/** Hasil {@link #terapkanHargaKeAnggota}: jumlah anggota yang berubah dan yang dilewati. */
+	public static final class HasilTerapkanHarga {
+		public final int diubah;
+		public final int dilewatiKunciManual;
+
+		HasilTerapkanHarga(int diubah, int dilewatiKunciManual) {
+			this.diubah = diubah;
+			this.dilewatiKunciManual = dilewatiKunciManual;
+		}
+	}
+
 	@SuppressWarnings("unchecked")
-	public static int terapkanHargaKeAnggota(Session session, GrupProduk grup) {
+	public static HasilTerapkanHarga terapkanHargaKeAnggota(Session session, GrupProduk grup) {
 		if (grup == null) {
-			return 0;
+			return new HasilTerapkanHarga(0, 0);
 		}
 		boolean salinHpp = ikutHpp(grup);
 		boolean salinJual = ikutHargaJual(grup);
 		if (!salinHpp && !salinJual) {
 			// Kedua toggle mati = grup murni pengelompokan; tidak menyentuh produk anggota.
-			return 0;
+			return new HasilTerapkanHarga(0, 0);
 		}
 		String bahanGrup = grup.getBahanBaku() == null || grup.getBahanBaku().trim().isEmpty()
 				|| "[]".equals(grup.getBahanBaku().trim()) ? null : grup.getBahanBaku();
 		java.util.List<Produk> anggota = session.createCriteria(Produk.class)
 				.add(Restrictions.eq("grupProduk", grup)).list();
 		int diubah = 0;
+		int dilewatiKunciManual = 0;
 		int diproses = 0;
 		for (Produk p : anggota) {
 			boolean berubah = false;
+			// Kontrak Produk.hargaBeliManual ("kunci harga beli dari faktur"): satu-satunya
+			// jalur lain yg menghormatinya adalah KantinHelper.kulakanFakturSimpan -- cakupan
+			// yang sama dipakai di sini supaya produk terkunci tidak tertimpa diam-diam saat
+			// harga grup diterapkan. bahanBaku/HPP SENGAJA TIDAK ikut dikunci: resep selalu jadi
+			// sumber kebenaran HPP di semua jalur lain (ProdukAction, KantinHelper.produkSimpan)
+			// terlepas dari hargaBeliManual, jadi menguncinya di sini hanya akan menyimpang dari
+			// konvensi yang sudah ada.
+			boolean terkunciManual = Boolean.TRUE.equals(p.getHargaBeliManual());
 			if (salinHpp && grup.getHargaBeli() != null && !grup.getHargaBeli().equals(p.getHargaBeli())) {
-				p.setHargaBeli(grup.getHargaBeli());
-				berubah = true;
+				if (terkunciManual) {
+					dilewatiKunciManual++;
+				} else {
+					p.setHargaBeli(grup.getHargaBeli());
+					berubah = true;
+				}
 			}
 			// Resep ikut paket HPP ("HPP termasuk bahan baku"); grup dgn resep kosong TIDAK
 			// menghapus resep lokal anggota -- hanya resep terisi yang menyeragamkan.
@@ -82,7 +106,7 @@ public final class GrupProdukUtil {
 				session.flush();
 			}
 		}
-		return diubah;
+		return new HasilTerapkanHarga(diubah, dilewatiKunciManual);
 	}
 
 	/** Jumlah produk anggota satu grup (dipakai daftar/list di semua platform). */

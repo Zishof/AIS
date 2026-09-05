@@ -4333,15 +4333,22 @@ public class Pegawai extends Karyawan {
 	 * Inti penyaringan SK {@link KenaikanPangkat}: dari koleksi {@code pangkats} yang diberikan,
 	 * pilih SK milik pegawai ini yang berlaku pada {@code sekarang}.
 	 *
-	 * <p>Sebuah SK dianggap berlaku bila memenuhi <b>salah satu</b> dari dua pola:</p>
+	 * <p>Sebuah SK dianggap berlaku bila memenuhi <b>salah satu</b> dari dua pola — <b>keduanya
+	 * mensyaratkan {@code status} bernilai {@code true}</b> (SK sudah disetujui; lihat
+	 * {@link KenaikanPangkat#getStatus()}):</p>
 	 * <ol>
 	 * <li><b>SK terbuka</b> — {@code menjabat} dan {@code status} keduanya benar, dan
 	 * {@code sekarang} sudah melewati (atau tepat pada) tanggal {@code mulai}. Tidak ada batas
 	 * akhir.</li>
-	 * <li><b>SK bertenggat</b> — {@code mulai} dan {@code sampai} keduanya terisi dan
-	 * {@code sekarang} berada di dalam rentang itu (inklusif di kedua ujung, dibandingkan pada
-	 * tingkat tanggal lewat {@code Common.dateFormat1}).</li>
+	 * <li><b>SK bertenggat</b> — {@code status} benar, {@code mulai} dan {@code sampai} keduanya
+	 * terisi, dan {@code sekarang} berada di dalam rentang itu (inklusif di kedua ujung,
+	 * dibandingkan pada tingkat tanggal lewat {@code Common.dateFormat1}).</li>
 	 * </ol>
+	 * <p><b>Riwayat:</b> sebelum diperbaiki, cabang kedua ("SK bertenggat") menerima SK
+	 * <b>tanpa</b> memeriksa {@code status} sama sekali — SK berstatus draft/belum disetujui yang
+	 * kebetulan memiliki {@code mulai}/{@code sampai} mencakup hari ini tetap dianggap berlaku dan
+	 * ikut menggerakkan golongan, jabatan, gaji pokok, insentif, makan, dan transport pegawai.
+	 * Celah ini sudah ditutup dengan menambahkan syarat {@code status} pada cabang kedua.</p>
 	 * <p>Hasilnya diurutkan menurut urutan alami {@code KenaikanPangkat}, sehingga pemanggil bisa
 	 * mengambil elemen ke-0 sebagai SK yang paling relevan.</p>
 	 *
@@ -4386,7 +4393,8 @@ public class Pegawai extends Karyawan {
 							&& kenaikanPangkat.getStatus() && (sekarang.after(kenaikanPangkat.getMulai())
 									|| s.equalsIgnoreCase(Common.dateFormat1.get().format(kenaikanPangkat.getMulai())))) {
 						kenaikanPangkats.add(kenaikanPangkat);
-					} else if (kenaikanPangkat.getPegawai().getId().equals(getId()) && kenaikanPangkat.getMulai() != null
+					} else if (kenaikanPangkat.getPegawai().getId().equals(getId()) && kenaikanPangkat.getStatus()
+							&& kenaikanPangkat.getMulai() != null
 							&& kenaikanPangkat.getSampai() != null
 							&& (sekarang.after(kenaikanPangkat.getMulai())
 									|| s.equalsIgnoreCase(Common.dateFormat1.get().format(kenaikanPangkat.getMulai())))

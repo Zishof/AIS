@@ -46,12 +46,14 @@ import ais.database.model.GeneralValueObject;
  * kategori eksplisit otomatis sekelompok dan bisa saling dikonversi walau secara fisik tidak
  * sepadan -- migrasi data lama WAJIB mengisi kategori yang benar sebelum fitur konversi lintas-UOM
  * diaktifkan; (2) {@link #getPresisiPembulatan()} (default 0.01) disimpan dan dapat diedit lewat
- * {@code SatuanProdukApiHelper.satuanProdukSimpan}, TETAPI pada saat dokumentasi ini ditulis TIDAK
- * ADA jalur baca lain di backend yang mengonsultasikannya -- mesin konversi
- * {@code KantinHelper.faktorUomInputKeDasar}/{@code faktorUomKeAcuan} tidak memanggil getter ini
- * sama sekali, sehingga field ini murni kosmetik pada form Satuan/UOM saat ini: mengubah angkanya
- * TIDAK mengubah pembulatan hasil konversi di mana pun. Verifikasi ulang bila menambah fitur baru
- * yang mengasumsikan presisi ini benar-benar diterapkan.</p>
+ * {@code SatuanProdukApiHelper.satuanProdukSimpan}. Sejak diwire ke {@code KantinHelper.
+ * bulatkanKePresisi}, dipakai HANYA oleh {@code KantinHelper.terapkanSatuanJual} (jalur POS
+ * penjualan Kantin) untuk membulatkan {@code jumlah} hasil konversi UOM ke presisi satuan
+ * dasar produk. Pemanggil {@code faktorUomInputKeDasar} lain di luar jalur itu --
+ * {@code SalesInventoryReceivableHelper} (Fase B) dan {@code StokThresholdScheduler} (Fase C) --
+ * menghitung kuantitasnya sendiri dari faktor mentah dan TIDAK ikut membulatkan lewat presisi
+ * ini kecuali dipanggil eksplisit di sana. Jangan asumsikan presisi ini diterapkan di luar jalur
+ * penjualan Kantin tanpa memverifikasi ulang pemanggilnya.</p>
  */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
@@ -243,14 +245,12 @@ public class SatuanProduk extends GeneralValueObject {
 	}
 
 	/**
-	 * Presisi pembulatan (Rupiah/kuantitas desimal, default {@code 0.01}) yang DIMAKSUDKAN untuk
-	 * hasil konversi satuan ini. Getter null-safe dan menjaga nilai non-positif: {@code null}
-	 * atau {@code <= 0} dibaca sebagai {@code 0.01}.
-	 * <p><b>Field ini saat ini TIDAK FUNGSIONAL</b> -- lihat catatan "Rawan bug rounding/konversi"
-	 * pada javadoc kelas: field disimpan dan dapat diedit dari form Satuan/UOM, tetapi tidak ada
-	 * kode konversi ({@code KantinHelper.faktorUomInputKeDasar}/{@code faktorUomKeAcuan}) yang
-	 * memanggil getter ini. Jangan berasumsi mengubah nilainya memengaruhi pembulatan transaksi
-	 * mana pun sampai ada kode pemanggil yang benar-benar membacanya.</p>
+	 * Presisi pembulatan (Rupiah/kuantitas desimal, default {@code 0.01}) untuk hasil konversi
+	 * satuan ini (kuantitas dalam satuan dasar produk). Getter null-safe dan menjaga nilai
+	 * non-positif: {@code null} atau {@code <= 0} dibaca sebagai {@code 0.01}.
+	 * <p>Dipakai {@code KantinHelper.bulatkanKePresisi} lewat {@code terapkanSatuanJual} (jalur
+	 * POS penjualan Kantin) -- lihat catatan "Rawan bug rounding/konversi" pada javadoc kelas
+	 * untuk cakupan pemanggil lain yang BELUM ikut membulatkan.</p>
 	 */
 	@Column(name = "presisi_pembulatan", nullable = true)
 	public Double getPresisiPembulatan() {

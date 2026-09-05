@@ -411,6 +411,7 @@ public class KenaikanGajiBerkalaAction extends GenericAutowireComposer {
 			status.setSelectedIndex(0);
 		}
 		status.setWidth("90%");
+		row.setVisible(CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE));
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -497,7 +498,13 @@ public class KenaikanGajiBerkalaAction extends GenericAutowireComposer {
 				: gajiPokokBaru.getSelectedItem().getValue()));
 		kenaikanGajiBerkala.setTmt(tmt.getValue());
 		kenaikanGajiBerkala.setNaikBerikutnya(naikBerikutnya.getValue());
-		kenaikanGajiBerkala.setStatus(status.getSelectedItem()==null||status.getSelectedItem().getValue()==null ? null : status.getSelectedItem().getValue().toString());
+		if (CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)) {
+			// Gerbang persetujuan diperiksa ulang di sini (server-side): layar sebelumnya hanya
+			// memeriksa hak baca/tambah/ubah/hapus, sehingga siapa pun yang boleh menyunting
+			// berkas dapat sekaligus menandainya DISETUJUI tanpa hak APPROVE.
+			kenaikanGajiBerkala.setStatus(status.getSelectedItem() == null || status.getSelectedItem().getValue() == null ? null
+					: status.getSelectedItem().getValue().toString());
+		}
 		kenaikanGajiBerkala.setKeterangan(keterangan.getValue());
 
 		if (kenaikanGajiBerkala.getId() != null) {

@@ -548,20 +548,18 @@ public class ReturPembelian extends GeneralValueObject {
 	 * kali. Jejak baliknya memakai kunci sumber berpola
 	 * {@code "koperasi.retur_pembelian:" + id}.</p>
 	 *
-	 * <p><b>Penanda ini tidak dilihat oleh alur penghapusan.</b> Ini kesenjangan yang perlu
-	 * diketahui siapa pun yang menyentuh entity ini: alur hapus retur pembelian memeriksa peran
-	 * pemanggil dan kecocokan toko, lalu langsung menghapus baris <b>tanpa memeriksa apakah
-	 * {@code postingHistory} sudah terisi</b>. Bandingkan dengan pembatalan transaksi POS di
-	 * berkas yang sama, yang justru menolak ({@code "Transaksi sudah diposting ke jurnal, tidak
-	 * bisa dibatalkan dari menu ini."}) begitu penanda posting ditemukan. Akibat dari
-	 * kesenjangan itu ada dua dan keduanya senyap: entri jurnal tertinggal di buku besar tanpa
-	 * dokumen sumber yang dapat ditelusuri, dan perhitungan ulang stok yang mengikuti penghapusan
-	 * mengembalikan barang ke persediaan sehingga stok fisik tidak lagi sejalan dengan nilai
-	 * persediaan yang sudah dikredit di jurnal.</p>
+	 * <p><b>Penanda ini diperiksa oleh alur penghapusan.</b> {@code KantinHelper.returPembelianHapus}
+	 * menolak permintaan hapus ({@code "Retur sudah diposting ke jurnal, tidak bisa dihapus dari
+	 * menu ini."}) begitu field ini terisi, sama seperti pembatalan transaksi POS di berkas yang
+	 * sama menolak begitu penanda posting ditemukan. Tanpa penjaga itu, penghapusan akan
+	 * meninggalkan entri jurnal di buku besar tanpa dokumen sumber yang dapat ditelusuri, dan
+	 * perhitungan ulang stok yang mengikuti penghapusan akan mengembalikan barang ke persediaan
+	 * sehingga stok fisik tidak lagi sejalan dengan nilai persediaan yang sudah dikredit di
+	 * jurnal.</p>
 	 *
-	 * <p>Sampai penjaga itu ditambahkan, perlakukan baris ber-{@code postingHistory} sebagai
-	 * baris yang <b>tidak boleh dihapus</b>: koreksi atas retur yang sudah diposting semestinya
-	 * ditempuh lewat jurnal koreksi, bukan lewat penghapusan dokumen sumber.</p>
+	 * <p>Baris ber-{@code postingHistory} tetap <b>tidak boleh dihapus</b>: koreksi atas retur
+	 * yang sudah diposting semestinya ditempuh lewat jurnal koreksi, bukan lewat penghapusan
+	 * dokumen sumber.</p>
 	 *
 	 * <p>Kolomnya ({@code posting_history}) dibuat otomatis oleh Hibernate saat boot sesuai
 	 * kebijakan repositori yang menyerahkan ALTER TABLE kepada hbm2ddl. Dimuat {@code LAZY};

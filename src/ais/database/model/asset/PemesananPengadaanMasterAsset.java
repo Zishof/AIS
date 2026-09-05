@@ -1796,12 +1796,25 @@ public class PemesananPengadaanMasterAsset extends DataSop {
 	 * bisa tertinggal dari kenyataan. Untuk keputusan yang mengikat, hitung ulang
 	 * lewat {@link #hitungDibayar(Session)} dan bandingkan sendiri.</p>
 	 *
+	 * <p><b>CATATAN PERBAIKAN:</b> Perbandingan sebelumnya memakai
+	 * {@code intValue()} pada kedua sisi, yang memotong bagian pecahan ke bawah
+	 * dan meluap pada nilai di atas ~2,15 miliar (batas {@code int} 32-bit) —
+	 * risiko nyata untuk transaksi pengadaan aset bernilai besar (gedung,
+	 * kendaraan). Perbandingan kini memakai {@code double} secara langsung
+	 * dengan toleransi pembulatan kecil yang eksplisit, sehingga tidak ada lagi
+	 * potensi luapan dan arah pembulatan tidak lagi bergantung pada pemotongan
+	 * implisit tipe data. Sisi kiri dan kanan tetap {@link #getNilai()} dan
+	 * {@link #getDibayar()} — keduanya cache yang dapat basi seperti dicatat di
+	 * atas; pemanggil yang memerlukan kepastian tetap harus menghitung ulang
+	 * lewat {@link #hitungDibayar(Session)}.</p>
+	 *
 	 * @return {@code true} bila nilai pesanan sudah tertutup pembayaran (dengan
-	 *         toleransi pembulatan ke bawah); tidak pernah {@code null}
+	 *         toleransi pembulatan kecil); tidak pernah {@code null}
 	 * @see #hitungDibayar(Session)
 	 */
 	public Boolean getLunas() {
-		lunas = getNilai().intValue() <= getDibayar().intValue();
+		double toleransiPembulatan = 1.0;
+		lunas = (getNilai() - getDibayar()) <= toleransiPembulatan;
 		return lunas;
 	}
 

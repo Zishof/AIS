@@ -594,7 +594,12 @@ public class KenaikanPangkatAction extends GenericAutowireComposer implements Da
 		kenaikanPangkat.setMulai(mulai.getValue());
 		kenaikanPangkat.setSampai(sampai.getValue());
 
-		kenaikanPangkat.setStatus(status.isChecked());
+		if (CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)) {
+			// Gerbang persetujuan diperiksa ulang di sini (server-side): checkPrevilages(APPROVE)
+			// di layar hanya menyembunyikan/menonaktifkan kotak centangnya, bukan mencegah
+			// permintaan simpan yang dibentuk di luar layar ini membawa status=true.
+			kenaikanPangkat.setStatus(status.isChecked());
+		}
 		kenaikanPangkat.setMenjabat(menjabat.isChecked());
 		kenaikanPangkat
 				.setJenis((String) (jenis.getSelectedItem() == null ? null : jenis.getSelectedItem().getValue()));

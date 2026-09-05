@@ -125,7 +125,14 @@ public class PeminjamanMasterAssetHelper {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							List<AssetDetail> assetDetails = (List<AssetDetail>) arg0.getData();
+							List<String> ditolakBarcode = new ArrayList<String>();
 							for (AssetDetail assetDetail : assetDetails) {
+
+								if (sedangDipinjamAktif(assetDetail, peminjamanMasterAsset)) {
+									ditolakBarcode.add(assetDetail.getBarcode());
+									continue;
+								}
+
 								PeminjamanMasterAssetDetail peminjamanAssetDetailDetail = new PeminjamanMasterAssetDetail();
 								peminjamanAssetDetailDetail.setAssetDetail(assetDetail);
 								peminjamanAssetDetailDetail.setKeterangan("");
@@ -142,6 +149,13 @@ public class PeminjamanMasterAssetHelper {
 								Row row = new Row();row.setValign("top");
 								row.setParent(rows);
 								initRow(row, peminjamanAssetDetailDetail);
+							}
+
+							if (!ditolakBarcode.isEmpty()) {
+								MyMessageboxConfig.show(
+										"Unit dengan barcode berikut tidak ditambahkan karena sedang dipinjam aktif pada dokumen peminjaman lain: "
+												+ Common.join(ditolakBarcode, ", "),
+										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 							}
 
 						}
@@ -208,6 +222,35 @@ public class PeminjamanMasterAssetHelper {
 		loadDataDetail(peminjamanMasterAsset);
 
 		return myGroupboxStyled;
+	}
+
+	/**
+	 * Penjaga double-booking: mengecek apakah {@code assetDetail} sedang dipinjam aktif pada
+	 * baris {@link PeminjamanMasterAssetDetail} LAIN ({@code dikembalikan=false}, header berbeda
+	 * dari {@code kecualiHeader}, dan header tersebut masih {@code aktif} menurut alur disposisi
+	 * SOP-nya). Dipanggil sebelum baris peminjaman baru dibuat agar satu unit fisik tidak bisa
+	 * dipinjamkan ke dua peminjam sekaligus.
+	 */
+	@SuppressWarnings("unchecked")
+	private boolean sedangDipinjamAktif(AssetDetail assetDetail, PeminjamanMasterAsset kecualiHeader) {
+		List<PeminjamanMasterAssetDetail> aktifDiUnitLain = HibernateUtil.currentSession()
+				.createCriteria(PeminjamanMasterAssetDetail.class)
+				.add(Restrictions.eq("assetDetail", assetDetail))
+				.add(Restrictions.or(Restrictions.eq("dikembalikan", false), Restrictions.isNull("dikembalikan")))
+				.list();
+
+		for (PeminjamanMasterAssetDetail baris : aktifDiUnitLain) {
+			PeminjamanMasterAsset header = baris.getPeminjamanMasterAsset();
+			if (header == null) {
+				continue;
+			}
+			boolean headerBerbeda = kecualiHeader == null || kecualiHeader.getId() == null
+					|| !kecualiHeader.getId().equals(header.getId());
+			if (headerBerbeda && header.getAktif()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Memuat seluruh {@link PeminjamanMasterAssetDetail} tersimpan milik {@code peminjamanMasterAsset} (kosong bila belum persisten), membersihkan grid, dan merender masing-masing sebagai baris. */

@@ -58,15 +58,16 @@ import ais.ui.util.WaktuUtil;
  * sedang berlaku. Karena itu menambah, menyunting, atau menghapus satu baris di sini dapat mengubah
  * gaji dan jabatan seorang pegawai seketika, tanpa perlu ada proses "penerapan" tersendiri.</p>
  *
- * <h2>Gerbang persetujuan dan celahnya</h2>
+ * <h2>Gerbang persetujuan</h2>
  * <p>Berkas ini berstatus {@link DataSop}, artinya ia dapat ditautkan ke satu alur SOP lewat
  * {@link #getDisposisiSop()}. Ketika tautan itu ada, {@link #getStatus()} menyimpulkan persetujuan
  * dari keadaan alurnya. Ketika tautan itu <b>tidak</b> ada, status dibaca apa adanya dari kolom yang
  * disetel operator lewat sebuah kotak centang di layar pengelola. Pembacaan dokumentasi
  * {@link #getStatus()} sangat dianjurkan sebelum menyentuh apa pun yang berhubungan dengan
- * persetujuan; di sana dicatat pula dua kelemahan nyata: penjagaan hak yang hanya berlaku di sisi
- * tampilan, dan sebuah cabang penyaring di {@code Pegawai} yang menerapkan berkas <b>tanpa</b>
- * memeriksa status sama sekali.</p>
+ * persetujuan; di sana dicatat riwayat dua kelemahan yang <b>sudah ditambal</b>: penjagaan hak yang
+ * sebelumnya hanya berlaku di sisi tampilan (kini diperiksa ulang di sisi peladen saat
+ * penyimpanan), dan sebuah cabang penyaring di {@code Pegawai} yang sebelumnya menerapkan berkas
+ * tanpa memeriksa status sama sekali (kini mensyaratkan status disetujui pada kedua cabangnya).</p>
  *
  * <h2>Banyak getter di sini bukan pembaca murni</h2>
  * <p>Kelas ini memuat dua pola yang harus disadari sebelum memakainya:</p>
@@ -913,30 +914,34 @@ public class KenaikanPangkat extends DataSop {
 	 * lewat sebuah kotak centang pada layar pengelola. Inilah jalur persetujuan yang sesungguhnya
 	 * dipakai untuk berkas tanpa SOP, dan di sinilah dua kelemahan berikut berada.</p>
 	 *
-	 * <h3>Kelemahan yang tercatat</h3>
+	 * <h3>Kelemahan yang sudah ditambal</h3>
 	 * <ul>
-	 * <li><b>Penjagaan hak hanya di sisi tampilan.</b> Layar pengelola memang memeriksa hak
-	 * persetujuan, tetapi pemeriksaan itu hanya dipakai untuk menyembunyikan dan menonaktifkan kotak
-	 * centangnya. Nilai kotak centang tetap dibaca dan disimpan di sisi peladen pada setiap
-	 * penyimpanan, tanpa pemeriksaan ulang. Perlindungan yang hanya hidup di lapisan tampilan tidak
-	 * berlaku bagi permintaan yang dibentuk di luar layar tersebut. Pola yang sama terdapat pada dua
-	 * jalur lain yang juga menulis status berkas ini.</li>
+	 * <li><b>Penjagaan hak sebelumnya hanya di sisi tampilan.</b> Layar pengelola ({@code
+	 * KenaikanPangkatAction}, {@code JadwalKenaikanPangkatAction}, {@code KenaikanPangkatHelper})
+	 * memeriksa hak persetujuan, tetapi pemeriksaan itu tadinya hanya dipakai untuk menyembunyikan
+	 * dan menonaktifkan kotak centangnya — nilai kotak centang tetap dibaca dan disimpan di sisi
+	 * peladen pada setiap penyimpanan tanpa pemeriksaan ulang, sehingga permintaan simpan yang
+	 * dibentuk di luar layar tersebut bisa menyetel status tanpa hak APPROVE. Ketiga titik simpan
+	 * itu kini memeriksa ulang {@code CommonPrivilages.checkPrevilages(APPROVE)} sebelum menerapkan
+	 * nilai kotak centang ke entity; tanpa hak itu, status yang tersimpan (atau default) tidak
+	 * berubah oleh permintaan simpan tersebut.</li>
 	 * <li><b>Tidak ada pemisahan pengusul dan penyetuju.</b> Baik di jalur non-SOP maupun di alur SOP,
 	 * tidak ada satu pun pemeriksaan yang membandingkan siapa yang mengajukan berkas dengan siapa
 	 * yang menyetujuinya. Pemegang hak persetujuan pada menu ini dapat menyetujui berkas buatannya
-	 * sendiri.</li>
+	 * sendiri. <b>Ini belum ditambal</b> — pola yang sama absen di banyak modul SOP lain pada
+	 * basis kode ini, sehingga dianggap di luar cakupan perbaikan gerbang APPROVE di atas.</li>
 	 * </ul>
 	 *
-	 * <h3>Celah pada pemakaian di sisi pembaca</h3>
-	 * <p>Yang paling perlu diketahui: gerbang ini <b>tidak selalu diperiksa</b>. Penyaring di
-	 * {@code Pegawai} yang memilih berkas mana yang berlaku memiliki dua cabang. Cabang pertama
-	 * mensyaratkan {@link #getMenjabat()} <i>dan</i> status ini bernilai {@code true}. Cabang kedua,
-	 * yang berlaku ketika tanggal mulai <b>dan</b> tanggal berakhir sama-sama terisi dan hari ini
-	 * berada di dalam rentangnya, menerima berkas <b>tanpa memeriksa status sama sekali</b>. Karena
-	 * penyaring itulah sumber tunggal bagi penurunan golongan, jabatan struktural, jabatan
-	 * fungsional, gaji pokok, insentif, serta tunjangan makan dan transport, berkas yang belum
-	 * disetujui tetap dapat menggerakkan seluruh nilai tersebut — cukup dengan mengisi tanggal
-	 * berakhir. Jangan menganggap gerbang ini memadai sebagai satu-satunya pengaman.</p>
+	 * <h3>Celah pada pemakaian di sisi pembaca (sudah ditambal)</h3>
+	 * <p>Penyaring di {@code Pegawai} yang memilih berkas mana yang berlaku memiliki dua cabang.
+	 * Cabang pertama mensyaratkan {@link #getMenjabat()} <i>dan</i> status ini bernilai
+	 * {@code true}. Cabang kedua, yang berlaku ketika tanggal mulai <b>dan</b> tanggal berakhir
+	 * sama-sama terisi dan hari ini berada di dalam rentangnya, <b>sebelumnya</b> menerima berkas
+	 * tanpa memeriksa status sama sekali — sehingga berkas draft/belum disetujui bisa menggerakkan
+	 * golongan, jabatan struktural, jabatan fungsional, gaji pokok, insentif, serta tunjangan makan
+	 * dan transport, cukup dengan mengisi tanggal mulai dan tanggal berakhir yang mencakup hari ini.
+	 * Cabang kedua kini juga mensyaratkan status ini bernilai {@code true}, sehingga kedua cabang
+	 * sama-sama menggerbangi seluruh penurunan nilai tersebut pada status persetujuan.</p>
 	 *
 	 * <p>Efek samping berat yang memang benar digerbangi status ini — penutupan berkas sebelumnya,
 	 * penulisan ulang peran pengguna, serta penonaktifan dan pengaktifan akun pegawai — dijalankan

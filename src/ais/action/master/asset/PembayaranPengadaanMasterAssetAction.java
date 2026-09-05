@@ -943,6 +943,17 @@ public class PembayaranPengadaanMasterAssetAction extends GenericAutowireCompose
 			return false;
 		}
 
+		// PENJAGA INTEGRITAS: total dibayar tidak boleh melebihi total nilai tagihan yang
+		// dipilih. Toleransi kecil diberikan untuk selisih pembulatan rupiah antar baris.
+		double toleransiPembulatanHeader = 1.0;
+		if (d - nilai > toleransiPembulatanHeader) {
+			MyMessageboxConfig.show("Mohon maaf, total pembayaran (" + Common.numberFormat.get().format(d)
+					+ ") melebihi total nilai tagihan yang dipilih (" + Common.numberFormat.get().format(nilai)
+					+ "). Langkah yang dapat dilakukan: (1) Periksa kembali nominal pembayaran pada setiap baris tagihan; (2) Pastikan total pembayaran tidak melebihi total nilai tagihan; (3) ulangi proses simpan ini. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
 		Session session = HibernateUtil.currentNativeSession();
 		if (pembayaranPengadaanMasterAsset.getId() != null) {
 			pembayaranPengadaanMasterAsset = (PembayaranPengadaanMasterAsset) session

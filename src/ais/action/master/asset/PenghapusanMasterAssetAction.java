@@ -502,7 +502,8 @@ public class PenghapusanMasterAssetAction extends GenericAutowireComposer implem
 			final MyToolbarbuttonConfig rubah = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 
 			disetujui.setVisible(approve && penghapusanMasterAsset.getDisetujuiOleh() == null);
-			dibatalkan.setVisible(reject && penghapusanMasterAsset.getDisetujuiOleh() != null);
+			dibatalkan.setVisible(reject && penghapusanMasterAsset.getDisetujuiOleh() != null
+					&& penghapusanMasterAsset.getPostingHistory() == null);
 
 			disetujui.setTooltiptext("Persetujuan");
 
@@ -533,8 +534,10 @@ public class PenghapusanMasterAssetAction extends GenericAutowireComposer implem
 										disetujui.setVisible(
 												approve && penghapusanMasterAsset.getDisetujuiOleh() == null);
 										dibatalkan.setVisible(
-												reject && penghapusanMasterAsset.getDisetujuiOleh() != null);
-										rubah.setVisible(edit && penghapusanMasterAsset.getDisetujuiOleh() == null);
+												reject && penghapusanMasterAsset.getDisetujuiOleh() != null
+														&& penghapusanMasterAsset.getPostingHistory() == null);
+										rubah.setVisible(edit && penghapusanMasterAsset.getDisetujuiOleh() == null
+												&& penghapusanMasterAsset.getPostingHistory() == null);
 										hapus.setVisible(delete && penghapusanMasterAsset.getDisetujuiOleh() == null);
 										if (detail != null) {
 											Common.clear(detail);
@@ -555,6 +558,18 @@ public class PenghapusanMasterAssetAction extends GenericAutowireComposer implem
 			dibatalkan.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
+
+					if (penghapusanMasterAsset.getPostingHistory() != null) {
+						PesanFormalHelper.tampilkanGagal("membatalkan persetujuan Penghapusan Barang/Jasa ini",
+								"Dokumen ini sudah diposting ke jurnal akuntansi (memiliki riwayat posting), "
+										+ "sehingga persetujuannya tidak dapat dibatalkan secara langsung dari sini. "
+										+ "Membatalkan persetujuan tanpa membalik jurnal akan membuat data dokumen "
+										+ "dan buku besar tidak lagi sinkron.",
+								new String[] {
+										"Buka dasbor Draft Jurnal, cari dokumen Penghapusan Aset ini, lalu jalankan \"Batalkan Posting\" untuk membalik jurnalnya terlebih dahulu.",
+										"Setelah posting dibalik (riwayat posting kosong), ulangi pembatalan persetujuan dari layar ini." });
+						return;
+					}
 
 					MyMessageboxConfig.show("Apakah yakin ingin membatalkan Penghapusan Barang/Jasa ini ?",
 							"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
@@ -580,8 +595,10 @@ public class PenghapusanMasterAssetAction extends GenericAutowireComposer implem
 										disetujui.setVisible(
 												approve && penghapusanMasterAsset.getDisetujuiOleh() == null);
 										dibatalkan.setVisible(
-												reject && penghapusanMasterAsset.getDisetujuiOleh() != null);
-										rubah.setVisible(edit && penghapusanMasterAsset.getDisetujuiOleh() == null);
+												reject && penghapusanMasterAsset.getDisetujuiOleh() != null
+														&& penghapusanMasterAsset.getPostingHistory() == null);
+										rubah.setVisible(edit && penghapusanMasterAsset.getDisetujuiOleh() == null
+												&& penghapusanMasterAsset.getPostingHistory() == null);
 										hapus.setVisible(delete && penghapusanMasterAsset.getDisetujuiOleh() == null);
 										if (detail != null) {
 											Common.clear(detail);
@@ -596,10 +613,22 @@ public class PenghapusanMasterAssetAction extends GenericAutowireComposer implem
 			aksiButtons.add(dibatalkan);
 
 			rubah.setTooltiptext("Ubah Data");
-			rubah.setVisible(edit && penghapusanMasterAsset.getDisetujuiOleh() == null);
+			rubah.setVisible(edit && penghapusanMasterAsset.getDisetujuiOleh() == null
+					&& penghapusanMasterAsset.getPostingHistory() == null);
 			rubah.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
+					if (penghapusanMasterAsset.getPostingHistory() != null) {
+						PesanFormalHelper.tampilkanGagal("mengubah Penghapusan Barang/Jasa ini",
+								"Dokumen ini sudah diposting ke jurnal akuntansi (memiliki riwayat posting), "
+										+ "sehingga isinya tidak dapat diubah tanpa membalik jurnal terlebih dahulu. "
+										+ "Mengubah nilai/rincian dokumen tanpa membalik jurnal akan membuat data "
+										+ "dokumen dan buku besar tidak lagi sinkron.",
+								new String[] {
+										"Buka dasbor Draft Jurnal, cari dokumen Penghapusan Aset ini, lalu jalankan \"Batalkan Posting\" untuk membalik jurnalnya terlebih dahulu.",
+										"Setelah posting dibalik (riwayat posting kosong), ulangi perubahan data dari layar ini." });
+						return;
+					}
 					init(penghapusanMasterAsset);
 					addWindow.setVisible(true);
 					addWindow.onModal();
@@ -841,6 +870,17 @@ public class PenghapusanMasterAssetAction extends GenericAutowireComposer implem
 		if (penghapusanMasterAsset.getId() != null) {
 			penghapusanMasterAsset = (PenghapusanMasterAsset) session.load(PenghapusanMasterAsset.class,
 					penghapusanMasterAsset.getId());
+			if (penghapusanMasterAsset.getPostingHistory() != null) {
+				PesanFormalHelper.tampilkanGagal("menyimpan perubahan Penghapusan Barang/Jasa ini",
+						"Dokumen ini sudah diposting ke jurnal akuntansi (memiliki riwayat posting), "
+								+ "sehingga isinya tidak dapat diubah tanpa membalik jurnal terlebih dahulu. "
+								+ "Menyimpan perubahan tanpa membalik jurnal akan membuat data dokumen dan "
+								+ "buku besar tidak lagi sinkron.",
+						new String[] {
+								"Buka dasbor Draft Jurnal, cari dokumen Penghapusan Aset ini, lalu jalankan \"Batalkan Posting\" untuk membalik jurnalnya terlebih dahulu.",
+								"Setelah posting dibalik (riwayat posting kosong), ulangi penyimpanan perubahan ini." });
+				return false;
+			}
 		}
 
 		if (disposisiSop != null && disposisiSop.getId() != null) {

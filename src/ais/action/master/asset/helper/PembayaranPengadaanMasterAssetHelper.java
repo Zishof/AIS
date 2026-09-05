@@ -37,6 +37,7 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyGroupboxStyled;
 import ais.ui.util.MyLabelKecil;
+import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
@@ -430,6 +431,10 @@ public class PembayaranPengadaanMasterAssetHelper {
 
 		Double j = nilaitagihan - telahDibayar;
 
+		// Nilai sisa tagihan baris ini, dibekukan untuk dipakai di dalam listener ON_CHANGE/
+		// ON_CLICK di bawah sebagai batas atas nominal yang boleh dibayarkan.
+		final double sisaTagihanBarisIni = Math.max(0.0, j);
+
 		if (penerimaanPengadaanMasterAssetData != null && penerimaanPengadaanMasterAssetData.getId() == null) {
 			row.setVisible(j.intValue() > 0);
 		}
@@ -460,6 +465,16 @@ public class PembayaranPengadaanMasterAssetHelper {
 			public void onEvent(Event arg0) throws Exception {
 
 				Double saldo = Math.abs(dibayar.getValue() == null ? 0.0 : dibayar.getValue());
+				// PENJAGA INTEGRITAS: nominal tidak boleh melebihi sisa tagihan yang belum
+				// lunas pada baris ini. Toleransi kecil diberikan untuk selisih pembulatan.
+				double toleransiPembulatanBaris = 1.0;
+				if (saldo - sisaTagihanBarisIni > toleransiPembulatanBaris) {
+					MyMessageboxConfig.show("Mohon maaf, nominal pembayaran (" + Common.numberFormat.get().format(saldo)
+							+ ") melebihi sisa tagihan yang belum lunas (" + Common.numberFormat.get().format(sisaTagihanBarisIni)
+							+ "). Nominal telah disesuaikan ke batas maksimum yang diizinkan.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					saldo = sisaTagihanBarisIni;
+				}
 				dibayar.setValue(saldo);
 				pembayaranPengadaanMasterAssetDetail.setPilih(pilih.isChecked());
 				pembayaranPengadaanMasterAssetDetail.setDibayar(saldo);
@@ -482,6 +497,15 @@ public class PembayaranPengadaanMasterAssetHelper {
 				dibayar.setDisabled(!pilih.isChecked());
 
 				Double saldo = Math.abs(dibayar.getValue() == null ? 0.0 : dibayar.getValue());
+				// PENJAGA INTEGRITAS: sama seperti pada ON_CHANGE di atas.
+				double toleransiPembulatanBaris = 1.0;
+				if (saldo - sisaTagihanBarisIni > toleransiPembulatanBaris) {
+					MyMessageboxConfig.show("Mohon maaf, nominal pembayaran (" + Common.numberFormat.get().format(saldo)
+							+ ") melebihi sisa tagihan yang belum lunas (" + Common.numberFormat.get().format(sisaTagihanBarisIni)
+							+ "). Nominal telah disesuaikan ke batas maksimum yang diizinkan.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					saldo = sisaTagihanBarisIni;
+				}
 				dibayar.setValue(saldo);
 				pembayaranPengadaanMasterAssetDetail.setPilih(pilih.isChecked());
 				pembayaranPengadaanMasterAssetDetail.setDibayar(saldo);

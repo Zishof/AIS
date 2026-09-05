@@ -68,15 +68,18 @@ import ais.database.model.Pegawai;
  * sebagaimana dinilai saat KGB diproses, sehingga berkas tetap dapat dipertanggungjawabkan meski
  * aturan perhitungan masa kerja berubah kemudian.</p>
  *
- * <h2>Gerbang persetujuan yang lemah</h2>
+ * <h2>Gerbang persetujuan</h2>
  * <p>{@link #getStatus()} menyimpan status pemrosesan berkas dan memang benar-benar dipakai — berbeda
  * dengan field serupa pada {@link Pensiun} dan {@link MutasiPindah} yang tidak pernah ditulis.
- * Nilainya dipilih operator lewat sepasang radio pada layar pengelola. Yang perlu diwaspadai: pilihan
- * itu <b>tidak dijaga hak akses persetujuan apa pun</b> — layar tersebut hanya memeriksa hak baca,
- * tambah, ubah, dan hapus, sehingga siapa pun yang boleh menyunting berkas dapat sekaligus menandainya
- * disetujui, termasuk berkas yang ia buat sendiri. Tidak ada pemisahan pengusul dan penyetuju, tidak
- * ada pemeriksaan kepemilikan, dan tidak ada keterlibatan alur SOP. Perlakukan status di sini sebagai
- * catatan administratif, bukan sebagai bukti persetujuan yang berwenang.</p>
+ * Nilainya dipilih operator lewat sepasang radio pada layar pengelola. Layar tersebut tadinya hanya
+ * memeriksa hak baca, tambah, ubah, dan hapus untuk radio ini, sehingga siapa pun yang boleh
+ * menyunting berkas dapat sekaligus menandainya disetujui, termasuk berkas yang ia buat sendiri;
+ * penyimpanan kini memeriksa ulang {@code CommonPrivilages.checkPrevilages(APPROVE)} sebelum
+ * menerapkan pilihan radio ke entity, sejalan dengan gerbang serupa pada {@link KenaikanPangkat}.
+ * Tidak ada pemisahan pengusul dan penyetuju di sini — sama seperti banyak modul SOP lain pada basis
+ * kode ini — dan tidak ada keterlibatan alur SOP. Berkas ini juga tidak menggerakkan nilai gaji yang
+ * berlaku secara langsung: penurunan gaji pokok yang benar-benar dipakai {@code Pegawai} berasal dari
+ * penanda "terdapat kenaikan gaji berkala" pada {@link KenaikanPangkat}, bukan dari entity ini.</p>
  *
  * @see GeneralValueObject
  * @see KenaikanPangkat
