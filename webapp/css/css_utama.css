@@ -14269,3 +14269,167 @@ html body .ecampus-zul-filter-primary-actions {
         max-width: none !important;
     }
 }
+
+/* ======================================================================
+   Dialog & tombol ZK legacy — normalisasi lintas desktop/mobile
+   ZK 5 membentuk Button dari tabel gambar 3x3. Di browser modern bagian
+   sprite tersebut dapat terlihat sebagai beberapa garis/tombol bertumpuk.
+   Kelas dipasang terpusat oleh MyMessageboxConfig sehingga berlaku untuk
+   seluruh dialog aplikasi tanpa memengaruhi tombol form legacy lainnya.
+   ====================================================================== */
+html body .ais-modern-messagebox {
+    width: calc(100vw - 20px) !important;
+    max-width: 520px !important;
+    box-sizing: border-box !important;
+}
+
+html body .ais-modern-messagebox .ais-modern-messagebox-button {
+    display: inline-block !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    vertical-align: middle !important;
+}
+
+html body .ais-modern-messagebox .ais-modern-messagebox-button > table {
+    width: auto !important;
+    height: auto !important;
+    border: 0 !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+}
+
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-tl,
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-tm,
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-tr,
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-cl,
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-cr,
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-bl,
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-bm,
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-br {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+}
+
+html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-cm {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 84px !important;
+    min-height: 38px !important;
+    box-sizing: border-box !important;
+    padding: 8px 16px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    color: #334155 !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .10) !important;
+    cursor: pointer !important;
+}
+
+html body .ais-modern-messagebox .ais-modern-messagebox-primary .z-button-cm {
+    border-color: var(--ais-messagebox-accent, var(--ais-theme-primary, #0c71c3)) !important;
+    background: var(--ais-messagebox-accent, var(--ais-theme-primary, #0c71c3)) !important;
+    color: #ffffff !important;
+}
+
+html body .ais-modern-messagebox .ais-modern-messagebox-button:hover .z-button-cm,
+html body .ais-modern-messagebox .ais-modern-messagebox-button:focus .z-button-cm {
+    filter: brightness(1.06);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, .18) !important;
+}
+
+html body .ais-modern-messagebox .ais-modern-messagebox-close .z-button-cm {
+    min-width: 38px !important;
+    width: 38px !important;
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+    border-color: rgba(255, 255, 255, .55) !important;
+    background: rgba(15, 23, 42, .22) !important;
+    color: #ffffff !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+}
+
+/* Close bawaan Window/Messagebox lain tetap menjadi satu ikon yang jelas;
+   hilangkan ketergantungan terhadap sprite ol-btn.gif ZK 5. */
+html body .z-window-embedded-close,
+html body .z-window-embedded-close-over,
+html body .z-window-modal-close,
+html body .z-window-modal-close-over,
+html body .z-window-overlapped-close,
+html body .z-window-overlapped-close-over,
+html body .z-window-popup-close,
+html body .z-window-popup-close-over,
+html body .z-window-highlighted-close,
+html body .z-window-highlighted-close-over {
+    position: relative !important;
+    width: 26px !important;
+    height: 26px !important;
+    margin-top: -5px !important;
+    border: 1px solid rgba(255, 255, 255, .48) !important;
+    border-radius: 7px !important;
+    background: rgba(15, 23, 42, .20) none !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
+}
+
+html body .z-window-embedded-close::before,
+html body .z-window-embedded-close-over::before,
+html body .z-window-modal-close::before,
+html body .z-window-modal-close-over::before,
+html body .z-window-overlapped-close::before,
+html body .z-window-overlapped-close-over::before,
+html body .z-window-popup-close::before,
+html body .z-window-popup-close-over::before,
+html body .z-window-highlighted-close::before,
+html body .z-window-highlighted-close-over::before {
+    content: "\00d7";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-family: Arial, sans-serif;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+@media (max-width: 600px) {
+    html body .ais-modern-messagebox .z-hbox > tbody > tr > td {
+        vertical-align: middle !important;
+    }
+
+    html body .ais-modern-messagebox .ais-modern-messagebox-button .z-button-cm {
+        min-height: 42px !important;
+        padding: 10px 14px !important;
+    }
+
+    html body .ais-modern-messagebox .ais-modern-messagebox-close .z-button-cm {
+        width: 42px !important;
+        height: 42px !important;
+        min-width: 42px !important;
+        min-height: 42px !important;
+        padding: 0 !important;
+    }
+}

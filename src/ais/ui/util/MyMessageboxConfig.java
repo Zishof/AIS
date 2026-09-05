@@ -394,9 +394,12 @@ public class MyMessageboxConfig {
 			final Window win = new Window();
 			win.setTitle("");
 			win.setBorder("none");
-			win.setClosable(true);
+			// Dialog sudah mempunyai tombol tutup sendiri di header. Mengaktifkan close bawaan
+			// Window membuat dua tombol bertumpuk, dan sprite ZK 5 tampil pecah di browser mobile.
+			win.setClosable(false);
 			win.setSizable(false);
 			win.setWidth("520px");
+			win.setSclass("ais-modern-messagebox");
 			win.setStyle("border-radius:14px;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.28);"
 					+ "background:#ffffff;border:1px solid #e5e7eb;");
 			win.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
@@ -435,7 +438,8 @@ public class MyMessageboxConfig {
 			subTitle.setStyle("font-size:11px;color:rgba(255,255,255,.86);");
 			subTitle.setParent(headerText);
 
-			Button closeHeader = new Button("X");
+			Button closeHeader = new Button("\u00D7");
+			closeHeader.setSclass("ais-modern-messagebox-button ais-modern-messagebox-close");
 			closeHeader.setTooltiptext("Tutup");
 			closeHeader.setStyle("border:1px solid rgba(255,255,255,.55);background:rgba(15,23,42,.22);"
 					+ "color:#fff;border-radius:8px;width:38px;height:38px;padding:0;"
@@ -488,6 +492,7 @@ public class MyMessageboxConfig {
 			detailButtons.setParent(detailBox);
 
 			final Button copy = new Button("Copy Detail");
+			copy.setSclass("ais-modern-messagebox-button ais-modern-messagebox-secondary");
 			copy.setStyle("border:1px solid #94a3b8;background:#fff;color:#0f172a;border-radius:7px;"
 					+ "padding:5px 10px;font-weight:700;");
 			copy.setParent(detailButtons);
@@ -513,6 +518,7 @@ public class MyMessageboxConfig {
 			footer.setParent(body);
 
 			Button detailBtn = new Button("Detail");
+			detailBtn.setSclass("ais-modern-messagebox-button ais-modern-messagebox-secondary");
 			detailBtn.setStyle("border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;"
 					+ "padding:6px 12px;font-weight:800;");
 			detailBtn.setParent(footer);
@@ -535,6 +541,7 @@ public class MyMessageboxConfig {
 			if (kodeAsli != null && kodeAsli.trim().length() > 0 && EditorLabelBahasa.bolehMenyunting()) {
 				final String kodeUntukEditor = kodeAsli;
 				Button ubahBtn = new Button("Ubah Teks");
+				ubahBtn.setSclass("ais-modern-messagebox-button ais-modern-messagebox-secondary");
 				ubahBtn.setStyle("border:1px solid #cbd5e1;background:#ffffff;color:#334155;"
 						+ "border-radius:8px;padding:6px 12px;font-weight:800;");
 				ubahBtn.setTooltiptext(
@@ -634,8 +641,11 @@ public class MyMessageboxConfig {
 	private static void tambahTombol(Hbox footer, final Window win, final EventListener eventListener, String label,
 			final int kode, String warna, boolean utama) {
 		Button button = new Button(label);
+		button.setSclass("ais-modern-messagebox-button "
+				+ (utama ? "ais-modern-messagebox-primary" : "ais-modern-messagebox-secondary"));
 		button.setStyle(utama
-				? "border:0;background:" + warna + ";color:#fff;border-radius:8px;padding:6px 18px;font-weight:800;"
+				? "--ais-messagebox-accent:" + warna + ";border:0;background:" + warna
+						+ ";color:#fff;border-radius:8px;padding:6px 18px;font-weight:800;"
 				: "border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;"
 						+ "padding:6px 12px;font-weight:800;");
 		button.setParent(footer);
