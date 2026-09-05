@@ -682,6 +682,91 @@ public final class ApotikDemoProvisionHelper {
 				.add(Restrictions.eq("kode", "AJ")).setMaxResults(1).uniqueResult();
 		if (profil.isEmpty() || pasien.isEmpty() || dokter.isEmpty() || jual == null) return 0;
 
+		/*
+		 * Muat seluruh data SAMPLE/UAT sekali di depan. Implementasi sebelumnya
+		 * menjalankan beberapa Criteria tanpa indeks untuk SETIAP baris (hingga
+		 * 3.000 query untuk 500 transaksi). Pada database demo yang sudah besar,
+		 * provisioning dapat terlihat berhenti belasan menit. Map berikut membuat
+		 * jumlah query konstan dan tetap menjaga sifat idempoten.
+		 */
+		Map<String, TransaksiMedis> transaksiPerKode = new java.util.HashMap<String, TransaksiMedis>();
+		List<TransaksiMedis> transaksiAda = session.createQuery(
+				"from TransaksiMedis t where t.kode like :kode")
+				.setString("kode", "TRX-APT-UAT-CTL-%").list();
+		for (TransaksiMedis t : transaksiAda) transaksiPerKode.put(t.getKode(), t);
+
+		Map<Long, TransaksiMedisDetail> detailPerTransaksi =
+				new java.util.HashMap<Long, TransaksiMedisDetail>();
+		List<TransaksiMedisDetail> detailAda = session.createQuery(
+				"from TransaksiMedisDetail d where d.transaksi.kode like :kode")
+				.setString("kode", "TRX-APT-UAT-CTL-%").list();
+		for (TransaksiMedisDetail d : detailAda) {
+			if (d.getTransaksi() != null && d.getTransaksi().getId() != null) {
+				detailPerTransaksi.put(d.getTransaksi().getId(), d);
+			}
+		}
+
+		Map<Long, DetailTransaksiPasien> ledgerPerDetail =
+				new java.util.HashMap<Long, DetailTransaksiPasien>();
+		List<DetailTransaksiPasien> ledgerAda = session.createQuery(
+				"from DetailTransaksiPasien d where d.keterangan like :kode")
+				.setString("kode", "PENJUALAN-TERKENDALI-SAMPLE/UAT-%").list();
+		for (DetailTransaksiPasien d : ledgerAda) {
+			if (d.getTransaksiDetail() != null && d.getTransaksiDetail().getId() != null) {
+				ledgerPerDetail.put(d.getTransaksiDetail().getId(), d);
+			}
+		}
+
+		Map<Long, ApotikBatchKonsumsi> konsumsiPerDetail =
+				new java.util.HashMap<Long, ApotikBatchKonsumsi>();
+		List<ApotikBatchKonsumsi> konsumsiAdaList = session.createQuery(
+				"from ApotikBatchKonsumsi b where b.transaksiDetail.transaksi.kode like :kode")
+				.setString("kode", "TRX-APT-UAT-CTL-%").list();
+		for (ApotikBatchKonsumsi b : konsumsiAdaList) {
+			if (b.getTransaksiDetail() != null && b.getTransaksiDetail().getId() != null) {
+				konsumsiPerDetail.put(b.getTransaksiDetail().getId(), b);
+			}
+		}
+
+		Map<Long, ApotikNarkotikaLog> logPerDetail =
+				new java.util.HashMap<Long, ApotikNarkotikaLog>();
+		List<ApotikNarkotikaLog> logAda = session.createQuery(
+				"from ApotikNarkotikaLog n where n.transaksiDetail.transaksi.kode like :kode")
+				.setString("kode", "TRX-APT-UAT-CTL-%").list();
+		for (ApotikNarkotikaLog n : logAda) {
+			if (n.getTransaksiDetail() != null && n.getTransaksiDetail().getId() != null) {
+				logPerDetail.put(n.getTransaksiDetail().getId(), n);
+			}
+		}
+
+		Map<Long, ApotikPembayaranTransaksi> pembayaranPerTransaksi =
+				new java.util.HashMap<Long, ApotikPembayaranTransaksi>();
+		List<ApotikPembayaranTransaksi> pembayaranAda = session.createQuery(
+				"from ApotikPembayaranTransaksi p where p.transaksi.kode like :kode")
+				.setString("kode", "TRX-APT-UAT-CTL-%").list();
+		for (ApotikPembayaranTransaksi p : pembayaranAda) {
+			if (p.getTransaksi() != null && p.getTransaksi().getId() != null) {
+				pembayaranPerTransaksi.put(p.getTransaksi().getId(), p);
+			}
+		}
+
+		Set<ItemMedis> itemDipakai = new HashSet<ItemMedis>();
+		for (int i = 0; i < JUMLAH_PENJUALAN_TERKENDALI_UAT; i++) {
+			itemDipakai.add(profil.get(i % profil.size()).getItem());
+		}
+		Map<Long, Kadaluarsa> batchPertamaPerItem = new java.util.HashMap<Long, Kadaluarsa>();
+		if (!itemDipakai.isEmpty()) {
+			List<Kadaluarsa> batchAda = session.createCriteria(Kadaluarsa.class)
+					.add(Restrictions.in("item", itemDipakai))
+					.addOrder(org.hibernate.criterion.Order.asc("tanggalKadaluarsa")).list();
+			for (Kadaluarsa k : batchAda) {
+				if (k.getItem() != null && k.getItem().getId() != null
+						&& !batchPertamaPerItem.containsKey(k.getItem().getId())) {
+					batchPertamaPerItem.put(k.getItem().getId(), k);
+				}
+			}
+		}
+
 		int dibuat = 0;
 		for (int i = 1; i <= JUMLAH_PENJUALAN_TERKENDALI_UAT; i++) {
 			ApotikItemProfile p = profil.get((i - 1) % profil.size());
@@ -694,8 +779,8 @@ public final class ApotikDemoProvisionHelper {
 			session.saveOrUpdate(p);
 			Date waktu = tanggalKlinisSample(i);
 			String kode = "TRX-APT-UAT-CTL-" + pad(i, 4);
-			TransaksiMedis transaksi = (TransaksiMedis) session.createCriteria(TransaksiMedis.class)
-					.add(Restrictions.eq("kode", kode)).setMaxResults(1).uniqueResult();
+			TransaksiMedis transaksi = transaksiPerKode.get(kode);
+			boolean transaksiBaru = transaksi == null;
 			if (transaksi == null) {
 				transaksi = new TransaksiMedis();
 				transaksi.setKode(kode);
@@ -714,10 +799,11 @@ public final class ApotikDemoProvisionHelper {
 			transaksi.setOleh("Kasir Apotik Demo");
 			transaksi.setOlehId("seed_demo");
 			session.saveOrUpdate(transaksi);
+			transaksiPerKode.put(kode, transaksi);
 
-			TransaksiMedisDetail detail = (TransaksiMedisDetail) session.createCriteria(TransaksiMedisDetail.class)
-					.add(Restrictions.eq("transaksi", transaksi)).add(Restrictions.eq("item", item))
-					.setMaxResults(1).uniqueResult();
+			TransaksiMedisDetail detail = transaksiBaru ? null
+					: detailPerTransaksi.get(transaksi.getId());
+			boolean detailBaru = detail == null;
 			double harga = item.getDefaultHargaJual() == null ? 0 : item.getDefaultHargaJual().doubleValue();
 			if (detail == null) {
 				detail = new TransaksiMedisDetail();
@@ -734,11 +820,10 @@ public final class ApotikDemoProvisionHelper {
 			detail.setOleh("Kasir Apotik Demo");
 			detail.setOlehId("seed_demo");
 			session.saveOrUpdate(detail);
+			if (transaksi.getId() != null) detailPerTransaksi.put(transaksi.getId(), detail);
 
 			String penandaLedger = "PENJUALAN-TERKENDALI-SAMPLE/UAT-" + pad(i, 4);
-			DetailTransaksiPasien ledger = (DetailTransaksiPasien) session.createCriteria(DetailTransaksiPasien.class)
-					.add(Restrictions.eq("transaksiDetail", detail))
-					.add(Restrictions.eq("keterangan", penandaLedger)).setMaxResults(1).uniqueResult();
+			DetailTransaksiPasien ledger = ledgerPerDetail.get(detail.getId());
 			if (ledger == null) {
 				ledger = new DetailTransaksiPasien();
 				ledger.setTransaksiDetail(detail);
@@ -757,34 +842,31 @@ public final class ApotikDemoProvisionHelper {
 				ledger.setOleh("Kasir Apotik Demo");
 				ledger.setOlehId("seed_demo");
 				session.save(ledger);
+				if (detail.getId() != null) ledgerPerDetail.put(detail.getId(), ledger);
 			}
 
-			List<Kadaluarsa> batch = session.createCriteria(Kadaluarsa.class)
-					.add(Restrictions.eq("item", item)).addOrder(org.hibernate.criterion.Order.asc("tanggalKadaluarsa"))
-					.setMaxResults(1).list();
-			if (!batch.isEmpty()) {
-				long konsumsiAda = ((Number) session.createQuery(
-						"select count(b) from ApotikBatchKonsumsi b where b.transaksiDetail = :detail")
-						.setParameter("detail", detail).uniqueResult()).longValue();
-				if (konsumsiAda == 0) {
+			Kadaluarsa batch = batchPertamaPerItem.get(item.getId());
+			if (batch != null) {
+				if (detailBaru || !konsumsiPerDetail.containsKey(detail.getId())) {
 					ApotikBatchKonsumsi konsumsi = new ApotikBatchKonsumsi();
-					konsumsi.setKadaluarsa(batch.get(0));
+					konsumsi.setKadaluarsa(batch);
 					konsumsi.setTransaksiDetail(detail);
 					konsumsi.setQty(Double.valueOf(1));
 					konsumsi.setWaktu(waktu);
 					konsumsi.setOleh("Kasir Apotik Demo");
 					konsumsi.setOlehId("seed_demo");
 					session.save(konsumsi);
+					if (detail.getId() != null) konsumsiPerDetail.put(detail.getId(), konsumsi);
 				}
 			}
 
-			ApotikNarkotikaLog log = (ApotikNarkotikaLog) session.createCriteria(ApotikNarkotikaLog.class)
-					.add(Restrictions.eq("transaksiDetail", detail)).setMaxResults(1).uniqueResult();
+			ApotikNarkotikaLog log = logPerDetail.get(detail.getId());
 			if (log == null) {
 				log = new ApotikNarkotikaLog();
 				log.setTransaksiDetail(detail);
 				log.setItem(item);
 				dibuat++;
+				if (detail.getId() != null) logPerDetail.put(detail.getId(), log);
 			}
 			log.setQty(Double.valueOf(1));
 			log.setGolonganObat(golongan);
@@ -797,12 +879,12 @@ public final class ApotikDemoProvisionHelper {
 			log.setOlehId("seed_demo");
 			session.saveOrUpdate(log);
 
-			ApotikPembayaranTransaksi pembayaran = (ApotikPembayaranTransaksi) session
-					.createCriteria(ApotikPembayaranTransaksi.class)
-					.add(Restrictions.eq("transaksi", transaksi)).setMaxResults(1).uniqueResult();
+			ApotikPembayaranTransaksi pembayaran = transaksiBaru ? null
+					: pembayaranPerTransaksi.get(transaksi.getId());
 			if (pembayaran == null) {
 				pembayaran = new ApotikPembayaranTransaksi();
 				pembayaran.setTransaksi(transaksi);
+				if (transaksi.getId() != null) pembayaranPerTransaksi.put(transaksi.getId(), pembayaran);
 			}
 			ais.database.model.koperasi.CaraPembayaranKoperasi metode = caraBayar.isEmpty()
 					? null : caraBayar.get((i - 1) % caraBayar.size());
