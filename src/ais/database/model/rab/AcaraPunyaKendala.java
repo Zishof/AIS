@@ -66,39 +66,90 @@ import ais.database.model.GeneralValueObject;
 public class AcaraPunyaKendala extends GeneralValueObject {
 
 	/**
-	 * 
+	 * Versi serialisasi tetap untuk kompatibilitas antar-build; nilainya disalin dari template
+	 * entity lain di modul ini dan tidak mencerminkan riwayat perubahan struktur kelas.
 	 */
 	private static final long serialVersionUID = -8738027816264807168L;
-	private String oleh;private String olehId;public String getOlehId() {return olehId;}public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}this.olehId = olehId;}
+	/** @see #getOleh() */
+	private String oleh;
+	/**
+	 * Mengembalikan ID pelaku yang terakhir mengubah baris ini (jejak audit ringan, tidak
+	 * dipetakan ke kolom database).
+	 *
+	 * @return ID pelaku perubahan terakhir, atau {@code null} bila belum pernah diset
+	 */
+	private String olehId;public String getOlehId() {return olehId;}
+	/**
+	 * Menyetel ID pelaku perubahan. Nilai {@code null} atau blank diabaikan secara senyap
+	 * (mempertahankan nilai lama) — pola berulang di seluruh entity {@code rab}.
+	 *
+	 * @param olehId ID pelaku perubahan; diabaikan bila {@code null} atau blank
+	 */
+	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}this.olehId = olehId;}
+	/** Primary key baris {@code rab.realisasi_workspace_punya_kendala}, dibangkitkan otomatis ({@code IDENTITY}). */
 	private Long id;
 
+	/**
+	 * Menyetel nama pelaku perubahan. Nilai {@code null} atau blank diabaikan secara senyap.
+	 *
+	 * @param oleh nama pelaku perubahan; diabaikan bila {@code null} atau blank
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama pelaku perubahan terakhir.
+	 *
+	 * @return nama pelaku, atau {@code null} bila belum diset
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Hook {@code @PreUpdate} Hibernate: memperbarui {@link #tanggal_dirubah} otomatis sebelum
+	 * baris ini di-{@code UPDATE}. Jangan dipanggil manual dari kode aplikasi.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menyetel waktu perubahan terakhir. Biasanya hanya dipanggil oleh {@link #onUpdate()}.
+	 *
+	 * @param tanggal_dirubah waktu perubahan terakhir
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan waktu perubahan terakhir baris ini.
+	 *
+	 * @return waktu perubahan terakhir; default konstruksi object adalah waktu saat ini
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** Acara yang melaporkan kendala ini; wajib. */
 	private Acara acara;
+	/** Nama/judul singkat kendala; wajib, disimpan sebagai kolom {@code text}. */
 	private String nama;
+	/** Deskripsi rinci kendala yang dijumpai; wajib, disimpan sebagai kolom {@code text}. */
 	private String keterangan;
+	/** Tindak lanjut yang diambil/direncanakan untuk mengatasi kendala; wajib, disimpan sebagai kolom {@code text}. */
 	private String tindakLanjut;
 
+	/** Konstruktor default (wajib untuk entity Hibernate); seluruh field memakai nilai default. */
 	public AcaraPunyaKendala() {
 	}
 
+	/**
+	 * Mengembalikan primary key baris ini.
+	 *
+	 * @return {@link #id}, atau {@code null} bila baris belum tersimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -106,10 +157,20 @@ public class AcaraPunyaKendala extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key secara manual — normalnya hanya dipakai lapisan persistence.
+	 *
+	 * @param id primary key baru
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan acara yang melaporkan kendala ini.
+	 *
+	 * @return {@link #acara}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "acara", nullable = false)
@@ -117,33 +178,68 @@ public class AcaraPunyaKendala extends GeneralValueObject {
 		return acara;
 	}
 
+	/**
+	 * Menyetel acara yang melaporkan kendala ini.
+	 *
+	 * @param acara acara baru
+	 */
 	public void setAcara(Acara acara) {
 		this.acara = acara;
 	}
 
+	/**
+	 * Mengembalikan nama/judul singkat kendala.
+	 *
+	 * @return {@link #nama}
+	 */
 	@Column(name = "nama", nullable = false, columnDefinition = "text")
 	public String getNama() {
 		return nama;
 	}
 
+	/**
+	 * Menyetel nama/judul singkat kendala.
+	 *
+	 * @param nama nama baru
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan deskripsi rinci kendala yang dijumpai.
+	 *
+	 * @return {@link #keterangan}
+	 */
 	@Column(name = "keterangan", nullable = false, columnDefinition = "text")
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/**
+	 * Menyetel deskripsi rinci kendala yang dijumpai.
+	 *
+	 * @param keterangan teks keterangan baru
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan tindak lanjut yang diambil/direncanakan untuk mengatasi kendala.
+	 *
+	 * @return {@link #tindakLanjut}
+	 */
 	@Column(name = "tindak_lanjut", nullable = false, columnDefinition = "text")
 	public String getTindakLanjut() {
 		return tindakLanjut;
 	}
 
+	/**
+	 * Menyetel tindak lanjut yang diambil/direncanakan untuk mengatasi kendala.
+	 *
+	 * @param tindakLanjut teks tindak lanjut baru
+	 */
 	public void setTindakLanjut(String tindakLanjut) {
 		this.tindakLanjut = tindakLanjut;
 	}
