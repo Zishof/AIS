@@ -13,22 +13,42 @@ import java.math.BigDecimal; import java.util.Date; import javax.persistence.*;
  * {@code jurnalPenelitianId} pada superclass; nilai metrik disimpan sebagai angka desimal presisi
  * tinggi agar cocok untuk laporan statistik semacam COUNTER ({@link #getCounterReport()}).
  * </p>
+ *
+ * <p>
+ * Baris di sini adalah OUTPUT hasil agregasi (mirip ringkasan metrik ala Google Scholar/
+ * Project COUNTER), bukan data mentah yang diedit langsung oleh pengguna — diisi lewat proses
+ * batch/ETL penghitungan penggunaan (lihat modul {@code ais.action.master.jurnal} dan uji
+ * {@code JurnalUsageAggregationSelfTest}) yang membaca log kejadian (unduhan/tampilan) lalu
+ * menuliskan satu baris per kombinasi bucket waktu + metrik + dimensi. Karena bersifat
+ * ringkasan, baris lama TIDAK diharapkan diedit ulang secara manual — mengubah
+ * {@link #getMetricValue()} setelah agregasi awal berisiko membuat angka menyimpang dari log
+ * kejadian sumbernya; perbaikan seharusnya lewat re-run proses agregasi, bukan patch manual.
+ * </p>
  */
 @Entity @Table(schema="penelitiandanpengabdian",name="agregat_penggunaan_jurnal")
 public class AgregatPenggunaanJurnal extends JurnalEntityBase {
  private static final long serialVersionUID=1L; private Date bucketStart; private String bucketType,metricKey,dimensionType,dimensionKey,counterReport; private BigDecimal metricValue;
- /** Awal rentang waktu (bucket) agregasi metrik ini. */
+ /**
+  * Awal rentang waktu (bucket) agregasi metrik ini — bersama {@link #getBucketType()}
+  * menentukan panjang jendela waktu yang diringkas (mis. satu hari penuh dimulai dari nilai
+  * ini bila {@code bucketType="HARIAN"}).
+  */
  @Temporal(TemporalType.TIMESTAMP) @Column(name="bucket_start",nullable=false) public Date getBucketStart(){return bucketStart;} public void setBucketStart(Date v){bucketStart=v;}
- /** Satuan rentang waktu bucket (mis. "HARIAN", "BULANAN"). */
+ /** Satuan rentang waktu bucket (mis. "HARIAN", "BULANAN") yang menentukan panjang jendela dari {@link #getBucketStart()}. */
  @Column(name="bucket_type",nullable=false,length=20) public String getBucketType(){return bucketType;} public void setBucketType(String v){bucketType=v;}
- /** Kunci jenis metrik yang diagregasi (mis. "DOWNLOAD", "VIEW"). */
+ /** Kunci jenis metrik yang diagregasi (mis. "DOWNLOAD", "VIEW") — menentukan kejadian sumber apa yang dihitung ke {@link #getMetricValue()}. */
  @Column(name="metric_key",nullable=false,length=80) public String getMetricKey(){return metricKey;} public void setMetricKey(String v){metricKey=v;}
- /** Jenis dimensi pengelompokan metrik (mis. "ARTIKEL", "NEGARA"). */
+ /** Jenis dimensi pengelompokan metrik (mis. "ARTIKEL", "NEGARA") — menentukan makna {@link #getDimensionKey()} pada baris ini. */
  @Column(name="dimension_type",nullable=false,length=60) public String getDimensionType(){return dimensionType;} public void setDimensionType(String v){dimensionType=v;}
- /** Nilai/identitas konkret dari dimensi pengelompokan (mis. id artikel atau kode negara). */
+ /** Nilai/identitas konkret dari dimensi pengelompokan (mis. id artikel atau kode negara), ditafsirkan sesuai {@link #getDimensionType()}. */
  @Column(name="dimension_key",nullable=false,length=255) public String getDimensionKey(){return dimensionKey;} public void setDimensionKey(String v){dimensionKey=v;}
- /** Nilai numerik hasil agregasi metrik untuk kombinasi bucket + metrik + dimensi ini. */
+ /**
+  * Nilai numerik hasil agregasi metrik untuk kombinasi bucket + metrik + dimensi ini.
+  * Disimpan sebagai desimal presisi tinggi (bukan {@code Long}) agar dapat menampung metrik
+  * turunan non-integer (mis. rasio/rata-rata), meski kebanyakan metrik dasar (unduhan,
+  * tampilan) bernilai bulat.
+  */
  @Column(name="metric_value",nullable=false,precision=24,scale=6) public BigDecimal getMetricValue(){return metricValue;} public void setMetricValue(BigDecimal v){metricValue=v;}
- /** Kode standar laporan COUNTER terkait (bila metrik ini bagian dari pelaporan statistik jurnal terstandar), bila ada. */
+ /** Kode standar laporan COUNTER terkait (bila metrik ini bagian dari pelaporan statistik jurnal terstandar, mis. kode "TR"/"IR" pada COUNTER Release 5), bila ada. */
  @Column(name="counter_report",length=40) public String getCounterReport(){return counterReport;} public void setCounterReport(String v){counterReport=v;}
 }
