@@ -16,6 +16,23 @@ import java.math.BigDecimal; import javax.persistence.*; import org.hibernate.en
  * {@link #getApprovalStatus()} melacak alur persetujuan koreksi bila memerlukan otorisasi.
  * Diaudit penuh oleh Hibernate Envers.
  * </p>
+ *
+ * <p>
+ * <b>Investigasi pemakaian:</b> AKTIF, bukan dorman — {@code
+ * ais.action.master.sosial.helper.SocialCorrectionService} mengimplementasikan alur
+ * maker-checker dua langkah lengkap di atas entitas ini: {@code request(...)} membuat baris
+ * berstatus {@code REQUESTED} (memvalidasi tipe REFUND/REVERSAL, nominal, alasan minimal 10
+ * karakter, dan idempotency key request-nya sendiri), lalu {@code approveAndPost(...)}
+ * memverifikasi total refund/reversal tidak melebihi dana transaksi, mengurangi saldo alokasi
+ * ({@link AlokasiDonasi}) yang belum disalurkan, dan menandai baris {@code POSTED}. <b>Catatan
+ * keamanan positif:</b> {@code approveAndPost} SECARA EKSPLISIT menolak persetujuan oleh
+ * pembuat permintaan yang sama ({@code actorId} pemroses harus berbeda dari {@link
+ * #getCreatedBy()}) — mencegah self-approval, kontras dengan sejumlah modul legacy AIS lain di
+ * mana celah self-approval pada alur persetujuan diketahui belum ditambal. Ini menguatkan
+ * kesimpulan bahwa layer {@code Social*} adalah desain baru dengan standar keamanan lebih ketat
+ * daripada rata-rata kode legacy di aplikasi ini, bukan sekadar penamaan Inggris di atas pola
+ * lama.
+ * </p>
  */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=false) @Table(schema="public",name="social_correction_event",uniqueConstraints=@UniqueConstraint(columnNames={"tenant_key","request_id"}))
 public class SocialCorrectionEvent extends SocialRecord { private static final long serialVersionUID=1L; private String targetType,targetReference,correctionType,reason,priorState,resultingState,approvalStatus,actor,requestId; private BigDecimal amount;

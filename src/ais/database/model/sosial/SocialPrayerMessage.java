@@ -14,6 +14,16 @@ import java.util.Date; import javax.persistence.*; import org.hibernate.envers.A
  * konten tidak pantas dari pengguna lain untuk membantu keputusan moderasi. Diaudit penuh
  * oleh Hibernate Envers.
  * </p>
+ *
+ * <p>
+ * <b>Investigasi pemakaian:</b> AKTIF, bukan dorman — {@code
+ * ais.action.master.sosial.helper.SocialDonationService} membuat baris ini langsung dalam
+ * transaksi Hibernate yang sama dengan pembuatan {@link AlokasiDonasi} setiap kali donatur
+ * menyertakan pesan/doa saat berdonasi (bila field pesan tidak kosong), dengan nama tampilan
+ * awal diambil dari nama publik transaksi donasi dan status moderasi selalu dimulai {@code
+ * "PENDING"} — konsisten dengan javadoc yang sudah ada sebelumnya bahwa pesan wajib melalui
+ * moderasi sebelum tayang publik.
+ * </p>
  */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="social_prayer_message")
 public class SocialPrayerMessage extends SocialRecord { private static final long serialVersionUID=1L; private TransaksiDonasi transaction; private String message,displayName,moderationStatus,moderatedBy; private Boolean anonymous; private Date publicAt; private Integer reportsCount;
