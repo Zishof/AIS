@@ -1,32 +1,80 @@
 package ais.database.model.penelitiandanpengabdian;
 
 /**
- * Catatan: kelas ini BUKAN entitas Hibernate (tidak ada anotasi
- * {@code @Entity}/{@code @Table}, tidak ada field persisten) — berbeda dari
- * kebanyakan kelas lain di paket {@code ais.database.model}. Kelas ini murni
- * penyedia templat HTML statis untuk modul penelitian &amp; pengabdian kepada
- * masyarakat dosen: {@link #init()} mengembalikan satu string HTML raksasa
- * berisi kumpulan lampiran baku proposal/laporan hibah penelitian-pengabdian
- * ala DIKTI, di antaranya Format Justifikasi Anggaran, Format Jadwal
- * Kegiatan, Format Susunan Organisasi Tim, Format Biodata Ketua/Anggota Tim
- * Peneliti, Format Surat Pernyataan Ketua Peneliti/Pelaksana, Format Catatan
- * Harian (Logbook), dan Format Laporan Kemajuan (sampul muka + halaman
- * pengesahan). Setiap bagian dibungkus {@code <div class="content-frame">}
- * berisi tabel kosong siap-isi (placeholder {@code &nbsp;}/titik-titik) yang
- * ditampilkan sebagai lampiran umum/contoh format pada layar pengajuan
- * penelitian &amp; pengabdian masyarakat, bukan diisi dari data entitas
- * tersimpan.
+ * Catatan (diverifikasi ulang, lihat riwayat javadoc r78724): kelas ini BUKAN
+ * entitas Hibernate (tidak ada anotasi {@code @Entity}/{@code @Table}, tidak
+ * ada field persisten sama sekali) — berbeda dari kebanyakan kelas lain di
+ * paket {@code ais.database.model}, dan BUKAN pula wrapper/pemegang relasi
+ * seperti {@code LampiranLainMahasiswa} di paket {@code ais.database.model.file}
+ * (entitas mandiri dengan FK ke pemiliknya). Kelas ini murni penyedia templat
+ * HTML statis (constant HTML factory) untuk modul penelitian &amp; pengabdian
+ * kepada masyarakat dosen: {@link #init()} mengembalikan satu string HTML
+ * raksasa (gabungan literal-literal Java, tanpa I/O, tanpa akses DB) berisi
+ * SEMBILAN blok lampiran baku proposal/laporan hibah penelitian-pengabdian
+ * ala pedoman DIKTI, dalam urutan kemunculan:
+ * <ol>
+ * <li>Format Justifikasi Anggaran (rincian honor, peralatan penunjang, bahan
+ * habis pakai, perjalanan, lain-lain, total anggaran per tahun);</li>
+ * <li>Format Jadwal Kegiatan (tabel bulan x tahun per jenis kegiatan);</li>
+ * <li>Format Susunan Organisasi Tim Peneliti/Pelaksana dan pembagian
+ * tugas;</li>
+ * <li>Format Biodata Ketua/Anggota Tim Peneliti/Pelaksana (identitas diri,
+ * riwayat pendidikan, pengalaman penelitian/pengabdian, publikasi, HKI, dll,
+ * ditutup pernyataan tanggung jawab &amp; tanda tangan);</li>
+ * <li>Format Surat Pernyataan Ketua Peneliti/Pelaksana (kop perguruan tinggi,
+ * pernyataan orisinalitas proposal, meterai &amp; tanda tangan);</li>
+ * <li>Format Catatan Harian (Logbook) — tabel tanggal/kegiatan/dokumen
+ * pendukung;</li>
+ * <li>Format Laporan Kemajuan — sampul muka, halaman pengesahan, dan
+ * sistematika laporan (kolom Penelitian vs Pengabdian berdampingan);</li>
+ * <li>Format Laporan Tahunan/Akhir — struktur sampul &amp; halaman pengesahan
+ * yang sama persis dengan Laporan Kemajuan (poin 7), hanya judul &amp;
+ * beberapa catatan kaki yang berbeda; dan</li>
+ * <li>Formulir Evaluasi Atas Capaian Luaran Kegiatan — identitas
+ * ketua/kegiatan, tabel luaran direncanakan vs capaian, lalu rincian bukti
+ * capaian per kategori luaran (publikasi ilmiah, buku ajar, pembicara
+ * seminar, keynote speaker, undangan visiting scientist, capaian luaran
+ * lainnya seperti HKI/TTG/rekayasa sosial/jejaring/penghargaan).</li>
+ * </ol>
+ * Setiap bagian dibungkus {@code <div class="content-frame">} berisi tabel
+ * kosong siap-isi (placeholder {@code &nbsp;}/titik-titik), memakai kelas CSS
+ * {@code font-TitleContent}/{@code font-IsiBab} yang didefinisikan oleh
+ * stylesheet halaman JSP/ZK pemanggil (bukan oleh kelas ini). Konten HANYA
+ * lampiran umum/contoh format kosong untuk ditampilkan sebagai panduan pada
+ * layar pengajuan penelitian &amp; pengabdian masyarakat — bukan diisi dari
+ * data entitas tersimpan, dan tidak mengandung data spesifik dosen/pengguna
+ * mana pun. Pemakai satu-satunya yang ditemukan di kode: field
+ * {@code lampiranUmum} pada
+ * {@link ais.database.model.penelitiandanpengabdian.PenelitianDanPengabdian}
+ * diinisialisasi langsung dari {@link #init()} sebagai NILAI AWAL (default)
+ * saat objek dibuat — bukan dipanggil ulang setiap kali ditampilkan — sehingga
+ * setelah baris itu dieksekusi, isi lampiran umum pada tiap record
+ * {@code PenelitianDanPengabdian} sudah lepas dari kelas ini dan bisa diedit
+ * independen (mis. lewat editor HTML di UI) tanpa memengaruhi record lain.
  */
 public class LampiranUmumPenelitian {
 
 	/**
 	 * Menghasilkan satu blok HTML statis berisi seluruh templat lampiran umum
-	 * penelitian &amp; pengabdian masyarakat (lihat javadoc kelas untuk daftar
-	 * bagiannya). Isinya konstan (hard-coded), tidak bergantung pada state atau
-	 * parameter apa pun.
+	 * penelitian &amp; pengabdian masyarakat — sembilan bagian yang didaftar
+	 * lengkap pada javadoc kelas ({@link LampiranUmumPenelitian}), dari Format
+	 * Justifikasi Anggaran sampai Formulir Evaluasi Atas Capaian Luaran.
+	 * Implementasi membangun string {@code s} lewat rangkaian penambahan
+	 * ({@code s += "..."}) blok demi blok, murni literal HTML tanpa logika
+	 * kondisional, perulangan, maupun substitusi parameter — setiap pemanggilan
+	 * method ini dengan input apa pun (tidak ada parameter) selalu menghasilkan
+	 * string yang identik byte-demi-byte. Karena tanda tangannya {@code static}
+	 * dan tidak mengubah/membaca state instance atau statis lain, method ini
+	 * murni (pure) dan aman dipanggil dari thread mana pun tanpa sinkronisasi.
+	 * Biaya pemanggilannya didominasi alokasi/penggabungan string yang cukup
+	 * besar (ratusan baris literal); pemanggil yang butuh nilai ini berkali-kali
+	 * dalam permintaan yang sama sebaiknya menyimpan hasilnya sendiri alih-alih
+	 * memanggil ulang {@link #init()}, meskipun untuk pemakaian sebagai nilai
+	 * awal field (satu kali per objek baru, lihat javadoc kelas) biaya ini tidak
+	 * signifikan.
 	 *
 	 * @return string HTML gabungan seluruh templat lampiran, siap ditampilkan
-	 *         apa adanya
+	 *         apa adanya (tanpa proses lebih lanjut) oleh komponen UI pemanggil
 	 */
 	public static String init() {
 
