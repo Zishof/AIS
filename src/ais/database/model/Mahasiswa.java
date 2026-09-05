@@ -9594,6 +9594,17 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		this.gelombangPendaftaran = gelombangPendaftaran;
 	}
 
+	/** Gelombang untuk pencocokan biaya; data PMB hanya dipakai bila kolom mahasiswa kosong. */
+	@Transient
+	public GelombangPendaftaran getGelombangPendaftaranUntukBiaya() {
+		GelombangPendaftaran gelombang = getGelombangPendaftaran();
+		if (gelombang != null) {
+			return gelombang;
+		}
+		BiodataCalonMahasiswa calon = getBiodataCalonMahasiswaData();
+		return calon == null ? null : calon.getGelombangPendaftaran();
+	}
+
 	/**
 	 * Objek {@link Dosen} pembimbing akademik — relasi {@code @ManyToOne} ke kolom {@code dosen},
 	 * HANYA BACA ({@code insertable = false, updatable = false}); penulisan kolomnya dilakukan

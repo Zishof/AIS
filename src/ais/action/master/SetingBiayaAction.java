@@ -2727,7 +2727,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				detailBiaya.setAngkatan(mahasiswa.getTahunangkatan());
 				detailBiaya.setJurusan(jurusan);
 				detailBiaya.setJenjang(mahasiswa.getJenjang());
-				detailBiaya.setGelombangPendaftaran(mahasiswa.getGelombangPendaftaran());
+				detailBiaya.setGelombangPendaftaran(mahasiswa.getGelombangPendaftaranUntukBiaya());
 				detailBiaya.setJenisSeleksi(mahasiswa.getJenisSeleksi());
 				detailBiaya.setProgram(mahasiswa.getProgram());
 				detailBiaya.setStatusAwalMahasiswa(mahasiswa.getStatusAwalMahasiswa());

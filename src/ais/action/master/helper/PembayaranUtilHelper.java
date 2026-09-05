@@ -839,7 +839,7 @@ public class PembayaranUtilHelper {
 
 				biayaDefault = SetingBiayaHelper.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 						statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-						mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+						mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 						mahasiswa.getNim());
 				if (PengecualianTagihanList.adalah(biayaDefault)) {
 					return new TreeSet();
@@ -905,14 +905,14 @@ public class PembayaranUtilHelper {
 
 			List<ItemBiaya> detailSettingBiayas = SetingBiayaHelper.getItemBiaya(session, angkatan, jenjang, semester,
 					jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 					mahasiswa.getNim());
 			if (detailSettingBiayas == null) {
 				return PengecualianTagihanList.kosong();
 			}
 			SettingBiaya settingBiayaTerpilih = SetingBiayaHelper.getSettingBiayaTerpilih(session, angkatan,
 					jenjang, semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa,
-					mahasiswa.getJenisSeleksi(), mahasiswa.getGelombangPendaftaran(), paket, jurusan, program,
+					mahasiswa.getJenisSeleksi(), mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, jurusan, program,
 					kelamin, afiliasiCalonMahasiswa, ta, mahasiswa.getNim(), false);
 
 			if (JenisKegiatan.DEBUG_MODE_ANGSURAN) {
@@ -1043,7 +1043,7 @@ public class PembayaranUtilHelper {
 
 			List<DetailBiaya> biayaDefaultBiaya = SetingBiayaHelper.getDetailBiayaBukanDefaultBiaya(session, angkatan,
 					jenjang, semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 					mahasiswa.getNim());
 
 			if (biayaDefaultBiaya != null && !biayaDefaultBiaya.isEmpty()) {

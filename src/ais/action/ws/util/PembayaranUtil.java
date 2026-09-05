@@ -1625,7 +1625,7 @@ public class PembayaranUtil {
 
 			biayaDefault = SetingBiayaAction.getDetailBiayaDefault(session, angkatan, jenjang, semester, jenisKegiatan,
 					statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 					mahasiswa.getNim());
 			if (PengecualianTagihanList.adalah(biayaDefault)) {
 				tutupSessionSetelahPengecualian(session);
@@ -1683,7 +1683,7 @@ public class PembayaranUtil {
 
 		List<ItemBiaya> detailSettingBiayas = SetingBiayaAction.getItemBiaya(session, angkatan, jenjang, semester,
 				jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+				mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 				mahasiswa.getNim());
 		if (detailSettingBiayas == null) {
 			tutupSessionSetelahPengecualian(session);
@@ -1691,7 +1691,7 @@ public class PembayaranUtil {
 		}
 		SettingBiaya settingBiayaTerpilih = SetingBiayaAction.getSettingBiayaTerpilih(session, angkatan, jenjang,
 				semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+				mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 				mahasiswa.getNim(), false);
 
 		Criteria criteria = session.createCriteria(DetailBiaya.class);
@@ -1785,7 +1785,7 @@ public class PembayaranUtil {
 
 		List<DetailBiaya> biayaDefaultBiaya = SetingBiayaAction.getDetailBiayaBukanDefaultBiaya(session, angkatan,
 				jenjang, semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+				mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
 				mahasiswa.getNim());
 		if (!biayaDefaultBiaya.isEmpty()) {
 			if (mahasiswa != null) {

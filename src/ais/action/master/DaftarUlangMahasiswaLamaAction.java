@@ -930,8 +930,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			// Tampilkan tiap data akademik dengan LABEL-nya sendiri (multi-baris) agar mudah dikenali.
 			String jenisSeleksiNama = mahasiswa.getJenisSeleksi() == null ? "-"
 					: mahasiswa.getJenisSeleksi().getNama();
-			String gelombangNama = mahasiswa.getGelombangPendaftaran() == null ? "-"
-					: mahasiswa.getGelombangPendaftaran().getNama();
+			String gelombangNama = mahasiswa.getGelombangPendaftaranUntukBiaya() == null ? "-"
+					: mahasiswa.getGelombangPendaftaranUntukBiaya().getNama();
 			String semesterMasukNama = mahasiswa.getSemesterMulai() == null ? "-"
 					: (mahasiswa.getSemesterMulai() + "");
 			String kelasNama = mahasiswa.getKelas() == null || mahasiswa.getKelas().trim().isEmpty() ? "-"
@@ -2194,8 +2194,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 					namaObjekAnalisis(mahasiswa.getJenisSeleksi()),
 					kriteriaWildcardAnalisis("jenisSeleksi", mahasiswa.getJenisSeleksi()), sudahGagal);
 			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Gelombang",
-					namaObjekAnalisis(mahasiswa.getGelombangPendaftaran()),
-					kriteriaWildcardAnalisis("gelombangPendaftaran", mahasiswa.getGelombangPendaftaran()), sudahGagal);
+					namaObjekAnalisis(mahasiswa.getGelombangPendaftaranUntukBiaya()),
+					kriteriaWildcardAnalisis("gelombangPendaftaran", mahasiswa.getGelombangPendaftaranUntukBiaya()), sudahGagal);
 			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Paket",
 					namaObjekAnalisis(biodata == null ? null : biodata.getPaket()),
 					kriteriaWildcardAnalisis("paket", biodata == null ? null : biodata.getPaket()), sudahGagal);
@@ -2892,7 +2892,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		setting.setStatusAwalMahasiswa(tempHistoryStatusMahasiswa == null
 				? mahasiswa.getStatusAwalMahasiswa() : tempHistoryStatusMahasiswa.getStatusAwalMahasiswa());
 		setting.setJenisSeleksi(mahasiswa.getJenisSeleksi());
-		setting.setGelombangPendaftaran(mahasiswa.getGelombangPendaftaran());
+		setting.setGelombangPendaftaran(mahasiswa.getGelombangPendaftaranUntukBiaya());
 		setting.setPaket(biodata == null ? null : biodata.getPaket());
 		setting.setProgram(tempHistoryStatusMahasiswa == null
 				? mahasiswa.getProgram() : tempHistoryStatusMahasiswa.getProgram());
@@ -2966,8 +2966,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				+ "&searchPaket=" + (paket == null || paket.getId() == null ? -1 : paket.getId())
 				+ "&searchJenisSeleksi=" + (mahasiswa.getJenisSeleksi() == null ? -1
 						: mahasiswa.getJenisSeleksi().getId())
-				+ "&searchGelombangPendaftaran=" + (mahasiswa.getGelombangPendaftaran() == null ? -1
-						: mahasiswa.getGelombangPendaftaran().getId())
+				+ "&searchGelombangPendaftaran=" + (mahasiswa.getGelombangPendaftaranUntukBiaya() == null ? -1
+						: mahasiswa.getGelombangPendaftaranUntukBiaya().getId())
 				+ "&searchKelas=" + (mahasiswa.getKelasPmb() == null
 						|| mahasiswa.getKelasPmb().getKelas() == null ? -1
 						: mahasiswa.getKelasPmb().getKelas().getId())

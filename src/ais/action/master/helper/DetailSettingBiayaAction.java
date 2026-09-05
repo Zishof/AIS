@@ -289,7 +289,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			mydetailBiayas = SetingBiayaHelper.getDefaultSettingBiaya(session, settingBiaya,
 					mahasiswa.getTahunangkatan(), mahasiswa.getJenjang(), smt, settingBiaya.getJenisKegiatan(),
 					statusAwalMahasiswa, tempHistoryStatusMahasiswa.getStatusMahasiswa(),
-					mahasiswa.getJenisSeleksi(), mahasiswa.getGelombangPendaftaran(), paket, mahasiswa.getJurusan(),
+					mahasiswa.getJenisSeleksi(), mahasiswa.getGelombangPendaftaranUntukBiaya(), paket, mahasiswa.getJurusan(),
 					mahasiswa.getProgram(), mahasiswa.getKelamin(), afiliasiCalonMahasiswa);
 		} else {
 			mydetailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa, smt,
@@ -2896,7 +2896,12 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 							: Restrictions.eq("jenisSeleksi", settingBiaya.getJenisSeleksi()))
 
 					.add(settingBiaya.getGelombangPendaftaran() == null ? Restrictions.sqlRestriction("1=1")
-							: Restrictions.eq("gelombangPendaftaran", settingBiaya.getGelombangPendaftaran()))
+							: Restrictions.sqlRestriction(
+									"coalesce({alias}.gelombang_pendaftaran, (select coalesce("
+									+ "case when pmb.prodi_lulus is not null then pmb.gelombang_pendaftaran_diterima end, "
+									+ "pmb.gelombang_pendaftaran) from biodata_calon_mahasiswa pmb "
+									+ "where pmb.id = {alias}.biodata_calon_mahasiswa_long)) = ?",
+									settingBiaya.getGelombangPendaftaran().getId(), org.hibernate.Hibernate.LONG))
 
 					.add(searchjurusan.getSelectedItem() == null || searchjurusan.getSelectedItem().getValue() == null
 							|| searchjurusan.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
