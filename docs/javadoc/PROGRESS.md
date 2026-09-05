@@ -1,5 +1,61 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `asset` TUNTAS 100% (5 Sep 2026, akhir batch 96) — domain KEENAM tuntas
+
+Diverifikasi: **63/63 file** `ais/database/model/asset/` kini punya
+Javadoc substansial. Dikerjakan batch 95-96 (2 batch). Domain
+keenam yang tuntas penuh setelah `akunting`, `payroll`, `koperasi`,
+`inventory`, `employ`.
+
+**Batch 96 (penutup, 33 file, 3 task baru)**:
+- Klaster perbaikan/penyusutan (5 file, r84424-r84456) — biaya
+  perbaikan DIKONFIRMASI tak pernah dikapitalisasi/diposting (murni
+  biaya operasional lepas dari akuntansi aset tetap). Verifikasi
+  NEGATIF keempat pola `task_fe6517bf`. **Task baru
+  `task_440044be`**: cache statis `JenisPerbaikanAsset.mapParameters`
+  tanpa invalidasi lintas-JVM.
+- Klaster pemakaian/peminjaman (5 file, r84431-r84447). **🚨 Task
+  baru `task_b5645347`**: TIDAK ADA penjaga double-booking — unit
+  `AssetDetail` yang sedang dipinjam bisa ditambahkan lagi ke
+  dokumen peminjaman lain, widget pemilih aset tidak memfilter unit
+  yang sedang aktif dipinjam.
+- Klaster pengembalian/penghapusan/retur (5 file, r84429-r84462).
+  `PengembalianMasterAsset` penjaga status BEKERJA BENAR (server-
+  side). **🚨 Task baru `task_b2c6c895`**: tombol "Batalkan"/edit
+  individual pada `PenghapusanMasterAsset` TIDAK memeriksa
+  `postingHistory` (beda dari `batalkanPostingSemua()` dasbor) —
+  dokumen yang sudah dijurnal bisa dibatalkan+diedit tanpa jurnal
+  ikut dibalik, dokumen vs buku besar bisa diam-diam berbeda.
+- Klaster perjanjian-kerjasama/DP/termin (7 file, r84432-r84473).
+  **Konfirmasi perluasan `task_578b720b`**: pola anti-lebih-bayar
+  yang hilang di `task_578b720b` (batch 95) berlaku SAMA — bahkan
+  LEBIH BERISIKO di sini (multi-dokumen/bertahap, akumulasi
+  kesalahan lintas dokumen lebih mudah lolos).
+- Klaster saldo-awal/lokasi/misc (11 file, r84428-r84475) —
+  `DetailTransaksiAsset` DIKOREKSI: bukan log generik semua
+  pergerakan, hanya 4 sumber FK opsional spesifik.
+  `NomorSuratAlurPengadaan` DIKOREKSI: bukan mesin penomoran,
+  katalog lookup statis saja (mesin sesungguhnya di
+  `surat.NomorSurat`).
+
+**Ringkasan pencapaian domain asset (batch 95-96, 6 task
+baru)**: relasi tiga tingkat katalog→kepemilikan→unit-fisik
+dikonfirmasi (`KelompokAsset`→`MasterAsset`→`Asset`→`AssetDetail`→
+`PenyusutanAsset`), siklus hidup penuh terdokumentasi (pengadaan→
+penerimaan→pembayaran→pemakaian/peminjaman→pengembalian→penghapusan/
+retur). Task: `task_c8d09f38` (barcode kembar, SUDAH DIPERBAIKI sesi
+lain saat konsolidasi ini ditulis), `task_efbc8ae8` (indikator
+kepatuhan vendor), `task_578b720b`+konfirmasi-perluasan (anti-lebih-
+bayar, 2 rantai pembayaran), `task_b5645347` (double-booking aset),
+`task_440044be` (cache statis), `task_b2c6c895` (unapprove/edit
+setelah posting).
+
+**Pivot domain berikutnya (batch 97+)**: perlu scan ulang. Kandidat
+sisa dari survei awal: `sirs` (118), `sister` (88), `library` (86),
+`file` (52), `rab` (46), `surat` (28) — `surat` terutama menarik
+karena `NomorSuratAlurPengadaan` (batch 96) baru mengonfirmasi mesin
+penomoran sesungguhnya ada di `surat.NomorSurat`.
+
 ## Batch 95 — SELESAI 100% (4 Sep 2026) — PIVOT ke paket `asset`; 3 task baru (`task_c8d09f38`, `task_efbc8ae8`, `task_578b720b`)
 
 30 file selesai (batch pertama domain baru `asset`/manajemen aset
