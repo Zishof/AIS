@@ -1,5 +1,90 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `surat` TUNTAS 100% (5 Sep 2026) — domain KETUJUH tuntas; 🚨🚨 TEMUAN SANGAT SIGNIFIKAN: bypass persetujuan alur surat (API + ZK), sepupu `task_9f520b16`/`task_b62255d9`
+
+**28/28 file** `ais/database/model/surat/` tuntas dalam SATU batch
+(97) — pivot langsung sukses karena relevansi tinggi dengan
+`NomorSuratAlurPengadaan` (batch 96, paket `asset`). Domain ketujuh
+tuntas penuh setelah `akunting`, `payroll`, `koperasi`, `inventory`,
+`employ`, `asset`.
+
+### 🚨🚨 TEMUAN PALING SIGNIFIKAN BATCH INI — bypass persetujuan alur surat menyeluruh
+
+`task_910db49b` (klaster alur-persetujuan) + `task_7a1b63d1`
+(klaster surat-keluar, tumpang-tindih — GABUNGKAN saat dikerjakan)
+mengonfirmasi pola SAMA seperti `task_b62255d9` (kepegawaian) TAPI
+LEBIH LUAS DAN LEBIH PARAH:
+- Gerbang APPROVE (`AlurPersetujuanSurat*StatusAction.onSave()`)
+  HANYA kontrol visibilitas UI — server-side TIDAK PERNAH memeriksa
+  ulang siapa berhak menyetujui tahap mana.
+- **API LEBIH PARAH**: `SuratApi.disposisi_surat_keluar`/`_masuk`
+  memuat baris SEMATA dari `alurId` kiriman klien (IDOR PENUH),
+  `ApiUtil.currentUser()` menerima token Mahasiswa/Siswa/Penduduk —
+  **akun mahasiswa bisa menyetujui tahapan surat siapa pun**.
+- **NOL pemisahan pengusul/penyetuju** (konseptor & pejabat tanpa
+  perbandingan sama sekali) — API bahkan mencatat pemanggil yang
+  BARU MENYETUJUI sebagai konseptor jenjang berikutnya.
+- **`SuratKeluar.cetak()` TIDAK memeriksa status disetujui SAMA
+  SEKALI** — nomor surat resmi dialokasikan saat SIMPAN bukan saat
+  disetujui; surat lengkap dengan halaman disposisi tercetak SAAT
+  permintaan persetujuan baru dibuat, tanpa pembeda draf/final.
+- **`SuratApi.cetak`**: ambil surat semata dari `request.get("id")`
+  tanpa cek kepemilikan, LALU MEMUTASI entity dengan identitas
+  pemanggil (`setMahasiswa/setDosen/dst`) — PDF ber-identitas
+  pemanggil di atas nomor surat resmi MILIK ORANG LAIN, risiko
+  ter-flush ke DB.
+- Dampak fisik: `SuratUtil.initGambarTandaTangan` menempelkan
+  GAMBAR TANDA TANGAN PEJABAT ke surat cetak hanya berdasar 1 baris
+  `disetujui=true` TANPA verifikasi keutuhan rantai/kewenangan/urutan
+  jenjang — menyalakan SATU bendera lewat API sudah cukup memunculkan
+  tanda tangan resmi pada surat tercetak.
+
+Ini kandidat KUAT untuk masuk jajaran temuan paling kritis seluruh
+inisiatif bersama `task_9f520b16` (RBAC spoofing universal) dan
+`task_b62255d9` (bypass SK kenaikan pangkat) — pola bypass-approval
+kini terkonfirmasi di 3 domain independen (kepegawaian, gaji, dan
+sekarang persuratan), menunjukkan ini KEMUNGKINAN BESAR bukan bug
+terisolasi melainkan kelemahan arsitektural berulang di seluruh
+sistem SOP/disposisi/alur-persetujuan.
+
+### Ringkasan per klaster
+
+- **`NomorSurat.java`** (r84492) + **`KelompokNomorSurat.java`**
+  (r84497) — 100%. Mesin penomoran PUSAT dikonfirmasi dipakai
+  lintas-modul. Mode 1 (counter tersimpan) SUDAH diperbaiki r84073
+  (kunci FIFO+`SELECT FOR NO KEY UPDATE`, aman multi-node); mode 2
+  (hitung-baris) masih rentan race, tapi SUDAH ditambal
+  `KodeUnikUtil.pastikanUnik` (fail-open dengan sufiks). **🚨 Task
+  baru `task_dd537df6`**: `format()` MEMOTONG nomor urut dari KIRI
+  saat melampaui lebar digit (dokumen ke-1000 tercetak "000",
+  mengulang nomor yang sudah terbit — PASTI terjadi pada templat
+  yang tak pernah direset) + token `KODE_JABATAN` diperiksa tapi
+  `KODE_SATKER` yang diganti.
+- **Klaster surat-masuk** (4 file, r84482-r84508). **Task baru
+  `task_ee65a76b`**: `KlasifikasiSuratMasuk.getPostfix()` kondisi
+  terbalik menghapus `prefix` (bukan `postfix`) setiap DIBACA —
+  merusak nomor agenda klasifikasi non-`NomorSurat` secara permanen
+  begitu daftar/formulir dibuka.
+- **Klaster surat-keluar** (7 file, r84481-r84509). **🚨 Task baru
+  `task_7a1b63d1`** (lihat highlight di atas). **Task baru
+  `task_0fe4f54a`**: jendela waktu cetak TERBALIK pada kedua batas
+  (`onSave()` menolak `mulai < sekarang` — semestinya `>` — dan
+  `sampai > sekarang` — semestinya `<`) — surat TIDAK bisa dibuat
+  DI DALAM jendela, bisa dibuat DI LUAR jendela.
+- **Klaster alur-persetujuan** (4 file, r84484-r84504). **🚨 Task
+  baru `task_910db49b`** (lihat highlight di atas, sepupu
+  `task_7a1b63d1` — GABUNGKAN).
+- **Klaster katalog/opsi kecil** (11 file, r84477-r84495). Nol task
+  baru — `PenyampaianSurat` dikonfirmasi dorman (entity dorman baru,
+  total kini 17+), mail-merge `VariableSuratKeluar` dikonfirmasi
+  NYATA dipakai mesin cetak.
+
+**5 task baru batch ini**: `task_dd537df6`, `task_ee65a76b`,
+`task_7a1b63d1`, `task_0fe4f54a`, `task_910db49b` (2 terakhir
+tumpang tindih, gabungkan saat dikerjakan). Domain `surat` terbukti
+SANGAT fertile untuk temuan keamanan kritis — level signifikansi
+setara `payroll` batch 82.
+
 ## 🎉 MILESTONE — paket `asset` TUNTAS 100% (5 Sep 2026, akhir batch 96) — domain KEENAM tuntas
 
 Diverifikasi: **63/63 file** `ais/database/model/asset/` kini punya
