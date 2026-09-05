@@ -19,11 +19,27 @@ import ais.database.model.GeneralValueObject;
 public abstract class DataSop extends GeneralValueObject {
 
 	/**
-	 * 
+	 * Nomor versi serialisasi untuk kontrak {@link java.io.Serializable} yang diwarisi dari
+	 * {@link GeneralValueObject}. Dipertahankan konstan agar instance subclass yang pernah
+	 * diserialisasi tetap dapat dibaca kembali.
 	 */
 	private static final long serialVersionUID = 1L;
-	
+
+	/**
+	 * Kontrak wajib bagi seluruh subclass {@code DataSop}: setiap baris data yang berasosiasi
+	 * dengan mesin SOP (mis. lampiran, catatan, atau data tambahan yang melekat pada satu
+	 * langkah proses) harus dapat menunjuk balik ke {@link DisposisiSop} pemiliknya — instance
+	 * pengajuan SOP konkret yang sedang berjalan. Relasi ini yang memungkinkan data turunan
+	 * tersebut dikaitkan kembali ke SOP dan pengajuan yang benar saat ditampilkan/ditelusuri.
+	 *
+	 * @return {@link DisposisiSop} yang menjadi induk/pemilik baris data ini, atau {@code null}
+	 *         bila belum/tidak diasosiasikan.
+	 */
 	public abstract DisposisiSop getDisposisiSop();
 
+	/**
+	 * @param disposisiSop {@link DisposisiSop} induk/pemilik baru untuk baris data ini; lihat
+	 *                      javadoc {@link #getDisposisiSop()}.
+	 */
 	public abstract void setDisposisiSop(DisposisiSop disposisiSop);
 }

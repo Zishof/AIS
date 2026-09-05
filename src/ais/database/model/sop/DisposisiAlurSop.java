@@ -613,6 +613,37 @@ public class DisposisiAlurSop extends GeneralValueObject {
 				: disposisiSop;
 	}
 
+	/**
+	 * Mengembalikan waktu tindakan aktor pada jenjang ini — sekaligus <b>penanda de facto</b>
+	 * apakah jenjang sudah diproses.
+	 *
+	 * <p>Logikanya tiga lapis:</p>
+	 * <ol>
+	 * <li><b>Jenjang awal mewarisi waktu pengajuan.</b> Bila {@code alurSop.getStart()} bernilai
+	 * benar dan header sudah termuat, waktu diambil dari {@link DisposisiSop#getWaktu()}. Sekali
+	 * lagi karena baris pertama bukan "tindakan disposisi" melainkan momen pengajuan itu sendiri.</li>
+	 * <li><b>Belum ada pelaku berarti belum ada waktu.</b> Bila ketiga slot pelaku
+	 * ({@link #getDiajukanOleh()}, {@link #getMahasiswa()}, {@link #getSiswa()}) kosong, waktu
+	 * dipaksa {@code null}. Inilah cara sistem menandai "jenjang ini masih menunggu": baris
+	 * placeholder untuk tahap berikutnya memang dibuat lebih dulu tanpa pelaku, dan tidak boleh
+	 * terlihat seolah sudah diproses hanya karena punya timestamp.</li>
+	 * <li><b>Sudah ada pelaku tetapi waktu kosong</b> diisi waktu sekarang sebagai jaring pengaman
+	 * agar riwayat tidak menampilkan baris tanpa tanggal.</li>
+	 * </ol>
+	 *
+	 * <p><b>Catatan teknis penting</b> (sudah ada komentar di badan method): pemeriksaan header
+	 * memakai field {@code disposisiSop} langsung disertai {@code Hibernate.isInitialized(...)},
+	 * bukan {@link #getDisposisiSop()}. Ini disengaja agar proxy lazy yang belum termuat dan
+	 * sesinya sudah ditutup — tipikal saat render dasbor setelah {@code OpenSessionInViewListener}
+	 * menutup sesi — tidak di-dereference dan tidak melempar
+	 * {@code LazyInitializationException}; nilai fallback sudah menangani kasus kosong.</p>
+	 *
+	 * <p>Getter ini juga destruktif atas properti persisten: nilai hasil turunan (termasuk
+	 * pengosongan menjadi {@code null}) dapat ikut tersimpan ke kolom {@code waktu} saat flush
+	 * berikutnya.</p>
+	 *
+	 * @return waktu tindakan pada jenjang ini, atau {@code null} bila jenjang belum diproses
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getWaktu() {
 
@@ -637,10 +668,45 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return waktu;
 	}
 
+	/**
+	 * Menyetel waktu tindakan pada jenjang ini.
+	 *
+	 * <p>Umumnya diisi waktu server oleh lapis service. Pada jenjang yang dikonfigurasi
+	 * {@code AlurSop.getTanggalDisposisiBolehDiubah()}, aktor boleh memasukkan tanggal sendiri —
+	 * kelonggaran itu diputuskan di lapis pemanggil (lihat {@code SopService.proses}), bukan di
+	 * sini; setter ini menerima tanggal apa pun, termasuk tanggal mundur atau maju.</p>
+	 *
+	 * @param waktu waktu tindakan pada jenjang ini
+	 */
 	public void setWaktu(Date waktu) {
 		this.waktu = waktu;
 	}
 
+	/**
+	 * Menghitung batas waktu (tenggat) jenjang ini berdasarkan waktu langkah sebelumnya ditambah
+	 * jangka waktu yang ditetapkan definisi jenjang.
+	 *
+	 * <p>Rumusnya sederhana: {@code waktuMaksimal = sebelumnya.getWaktu() + alurSop.getJangkaWaktu()
+	 * hari}. Nilai inilah yang dipakai dasbor untuk menyorot disposisi yang terlambat/mendekati
+	 * tenggat (ada indeks khusus pada kolom {@code waktumaksimal} untuk kebutuhan tersebut).</p>
+	 *
+	 * <p>Perhitungan hanya berjalan bila keempat prasyarat terpenuhi: ada langkah sebelumnya,
+	 * langkah itu punya waktu, definisi jenjang termuat, dan jangka waktu terisi. Bila salah satu
+	 * tidak terpenuhi, nilai lama dipertahankan (dan bisa saja {@code null}, yang berarti "tanpa
+	 * tenggat"). Konsekuensinya: jenjang <b>awal</b> tidak pernah punya tenggat karena tidak punya
+	 * langkah sebelumnya.</p>
+	 *
+	 * <p><b>Kenapa ada cek {@code alurSop != null}</b> (lihat komentar di badan method): getter ini
+	 * ikut dipanggil Hibernate di luar alur render UI biasa — mis. saat {@code dirty check}/flush
+	 * atas entity yang belum lengkap terisi — dan pada saat itu relasi jenjang bisa masih kosong,
+	 * sehingga {@code alurSop.getJangkaWaktu()} akan melempar {@code NullPointerException} meskipun
+	 * {@code getSebelumnya()} dan {@code getWaktu()} sudah dipastikan tidak null. Blok
+	 * {@code try/catch} di sekelilingnya menjadi lapis terakhir: kegagalan dicatat ke audit galat
+	 * dan nilai lama dikembalikan, sehingga perhitungan tenggat tidak pernah menggagalkan
+	 * penyimpanan atau tampilan.</p>
+	 *
+	 * @return tenggat jenjang ini, atau {@code null} bila tidak dapat/tidak perlu dihitung
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getWaktuMaksimal() {
 
@@ -665,10 +731,54 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return waktuMaksimal;
 	}
 
+	/**
+	 * Menyetel tenggat jenjang ini secara manual.
+	 *
+	 * <p>Nilai yang disetel bersifat sementara bila prasyarat perhitungan pada
+	 * {@link #getWaktuMaksimal()} terpenuhi, karena getter tersebut akan menghitung ulang dan
+	 * menimpanya. Setter ini berguna untuk baris yang tenggatnya ditentukan pemanggil (mis. saat
+	 * membuat langkah berikutnya dengan tenggat khusus).</p>
+	 *
+	 * @param waktuMaksimal tenggat jenjang ini
+	 */
 	public void setWaktuMaksimal(Date waktuMaksimal) {
 		this.waktuMaksimal = waktuMaksimal;
 	}
 
+	/**
+	 * Mengembalikan pengguna internal (pegawai/staf) yang memproses jenjang ini — <b>inilah bukti
+	 * "siapa menyetujui/mendisposisi"</b> yang tersimpan di kolom {@code diajukan_oleh}.
+	 *
+	 * <p>Karena kolom ini yang menjadi jejak pertanggungjawaban persetujuan, perlu dipahami betul
+	 * bahwa nilainya <b>tidak selalu berarti "orang ini menekan tombol setujui"</b>. Getter ini
+	 * memodifikasi nilainya sendiri lewat tiga cabang berikut, dan karena ia adalah properti
+	 * persisten dengan akses properti, hasil modifikasi itu <b>ikut tersimpan ke database</b> pada
+	 * flush berikutnya:</p>
+	 * <ol>
+	 * <li><b>Jenjang "kembali ke pengaju"</b> ({@code alurSop.getKembaliKePengaju()}): pelaku
+	 * ditimpa dengan pengaju header ({@link DisposisiSop#getDiajukanOleh()}). Masuk akal secara
+	 * proses — langkah revisi memang dikembalikan kepada pengaju — tetapi artinya baris tersebut
+	 * akan tercatat atas nama pengaju walaupun bukan pengaju yang menyentuhnya.</li>
+	 * <li><b>Pelaku bukan pengguna internal</b>: bila {@link #getMahasiswa()} atau
+	 * {@link #getSiswa()} terisi, {@code diajukanOleh} dikosongkan agar satu baris hanya punya satu
+	 * jenis pelaku (tiga slot pelaku bersifat saling meniadakan).</li>
+	 * <li><b>Jenjang awal</b> ({@code alurSop.getStart()} dan belum punya langkah sebelumnya):
+	 * pelaku diisi dengan pengaju header, karena baris pertama memang merepresentasikan pengaju.</li>
+	 * </ol>
+	 *
+	 * <p><b>Implikasi keamanan yang perlu dicatat.</b> Cabang (1) dan (3) berarti entity ini secara
+	 * sengaja <i>menyalin pengaju ke slot pelaku</i>. Tidak ada satu pun pemeriksaan di kelas ini
+	 * yang membandingkan pelaku jenjang persetujuan dengan pengaju pengajuan — jadi tidak ada
+	 * penjaga <i>self-approval</i> di level entity, dan tidak ada pula pemeriksaan bahwa pelaku
+	 * memang termasuk aktor yang berhak menurut {@code alurSop.getAktorSop()} /
+	 * {@code alurSop.getKhususUsername()}. Verifikasi semacam itu hanya ada di sebagian lapis
+	 * pemanggil (mis. {@code SopUtil.resolveAktor} pada jalur API). Bila kelak ditambahkan penjaga,
+	 * penjaga tersebut harus membedakan penyalinan sah pada cabang (1)/(3) dari pengisian pelaku
+	 * pada jenjang persetujuan biasa.</p>
+	 *
+	 * @return pengguna internal pemroses jenjang ini, atau {@code null} bila jenjang belum diproses
+	 *         atau pelakunya berupa mahasiswa/siswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "diajukan_oleh", nullable = true)
 	public Tbmuser getDiajukanOleh() {
@@ -687,10 +797,39 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return diajukanOleh;
 	}
 
+	/**
+	 * Menetapkan pengguna internal yang memproses jenjang ini.
+	 *
+	 * <p><b>Setter polos, tanpa pemeriksaan apa pun.</b> Siapa pun yang dikirim pemanggil akan
+	 * tercatat sebagai pemroses jenjang: tidak dibandingkan dengan aktor/jabatan/username yang
+	 * ditetapkan {@link AlurSop}, tidak dibandingkan dengan pengaju pengajuan, dan tidak diperiksa
+	 * apakah jenjang ini memang giliran yang bersangkutan. Otorisasi sepenuhnya berada di lapis
+	 * pemanggil; entity ini hanya merekam.</p>
+	 *
+	 * <p>Ingat pula bahwa nilai yang disetel di sini dapat ditimpa kembali oleh
+	 * {@link #getDiajukanOleh()} pada jenjang {@code start} maupun {@code kembaliKePengaju}.</p>
+	 *
+	 * @param diajukanOleh pengguna internal pemroses jenjang ini
+	 */
 	public void setDiajukanOleh(Tbmuser diajukanOleh) {
 		this.diajukanOleh = diajukanOleh;
 	}
 
+	/**
+	 * Mengembalikan mahasiswa yang menjadi pelaku jenjang ini (jalur perguruan tinggi).
+	 *
+	 * <p>Mesin SOP dipakai lintas modul, termasuk pengajuan yang pelakunya bukan pegawai melainkan
+	 * mahasiswa (mis. pengajuan mahasiswa, surat keterangan). Slot ini adalah pasangan
+	 * {@link #getDiajukanOleh()} untuk kasus tersebut, dan ketiga slot pelaku bersifat saling
+	 * meniadakan.</p>
+	 *
+	 * <p>Sama seperti pelaku pegawai, getter ini destruktif: pada jenjang {@code kembaliKePengaju}
+	 * maupun jenjang {@code start}, nilai disalin dari {@link DisposisiSop#getMahasiswa()} sehingga
+	 * baris tersebut tercatat atas nama mahasiswa pengaju. Nilai hasil salinan itu dapat ikut
+	 * tersimpan ke kolom {@code mahasiswa} saat flush.</p>
+	 *
+	 * @return mahasiswa pelaku jenjang ini, atau {@code null} bila bukan jalur mahasiswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa", nullable = true)
 	public Mahasiswa getMahasiswa() {
@@ -708,10 +847,26 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return mahasiswa;
 	}
 
+	/**
+	 * Menetapkan mahasiswa pelaku jenjang ini. Setter polos tanpa validasi wewenang, seperti
+	 * {@link #setDiajukanOleh(Tbmuser)}.
+	 *
+	 * @param mahasiswa mahasiswa pelaku jenjang ini
+	 */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Mengembalikan siswa yang menjadi pelaku jenjang ini (jalur sekolah).
+	 *
+	 * <p>Kembar dari {@link #getMahasiswa()} untuk instalasi sekolah (mis. alur PSB, pengajuan
+	 * siswa). Perilakunya identik: pada jenjang {@code kembaliKePengaju} dan jenjang {@code start},
+	 * nilai disalin dari {@link DisposisiSop#getSiswa()}, dan hasil salinan itu dapat ikut
+	 * tersimpan ke kolom {@code siswa} saat flush.</p>
+	 *
+	 * @return siswa pelaku jenjang ini, atau {@code null} bila bukan jalur siswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "siswa", nullable = true)
 	public Siswa getSiswa() {
@@ -729,10 +884,39 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return siswa;
 	}
 
+	/**
+	 * Menetapkan siswa pelaku jenjang ini. Setter polos tanpa validasi wewenang, seperti
+	 * {@link #setDiajukanOleh(Tbmuser)}.
+	 *
+	 * @param siswa siswa pelaku jenjang ini
+	 */
 	public void setSiswa(Siswa siswa) {
 		this.siswa = siswa;
 	}
 
+	/**
+	 * Mengembalikan isian parameter tambahan dalam bentuk <b>berbasis id</b>, dengan pewarisan dari
+	 * langkah sebelumnya bila baris ini belum punya isian sendiri.
+	 *
+	 * <p>Format tiap barisnya (dipisah baris baru) adalah:
+	 * {@code <idKelompok>-><idParameter><=><nilai><=><url lampiran><=><catatan>}. Berbeda dari
+	 * {@link #getParameterTambahan()} yang menyimpan label agar mudah dibaca manusia, bentuk ini
+	 * memakai id sehingga tetap sahih walau label/urutan parameter kelak diubah admin — inilah
+	 * bentuk yang dipakai untuk mengisi ulang form saat jenjang berikutnya dibuka.</p>
+	 *
+	 * <p><b>Pewarisan.</b> Bila isian baris ini kosong, nilainya diambil dari
+	 * {@link #getSebelumnya()} — dan karena getter pada langkah sebelumnya melakukan hal yang sama,
+	 * pewarisan berantai ke belakang sampai menemukan langkah yang benar-benar mengisi. Efeknya,
+	 * data yang diisi pengaju di awal ikut terbawa sepanjang rantai disposisi tanpa perlu disalin
+	 * eksplisit tiap tahap. Konsekuensinya juga: nilai hasil warisan itu <b>ikut tersimpan</b> ke
+	 * kolom baris ini pada flush berikutnya (getter destruktif atas properti persisten), sehingga
+	 * lama-kelamaan tiap baris menyimpan salinannya sendiri.</p>
+	 *
+	 * <p>Blok {@code try/catch} melindungi dari kegagalan pemuatan rantai langkah sebelumnya
+	 * (proxy lazy lepas sesi); bila gagal, nilai yang sudah ada dikembalikan apa adanya.</p>
+	 *
+	 * @return isian parameter tambahan berbasis id; string kosong bila tidak ada (tidak {@code null})
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahanInds() {
 		try {

@@ -355,9 +355,27 @@ public class AlurSop extends GeneralValueObject {
 		return 0;
 	}
 
+	/**
+	 * Kode pendek tahap (mis. "01", "A1") yang dipakai sebagai identitas manusiawi pada tampilan
+	 * daftar dan ringkasan cabang {@link #ambilRingkasanAlurSetelahnya()}. Bebas diisi operator;
+	 * tidak ada penjaga keunikan di tingkat entitas.
+	 */
 	private String kode;
 
+	/**
+	 * Definisi SOP induk yang memiliki tahap ini (kolom {@code sop}, wajib terisi). Seluruh tahap
+	 * dengan {@code sop} yang sama membentuk satu graf alur; {@link #hitungNomor(Session)} hanya
+	 * menelusuri tahap yang berbagi induk ini.
+	 */
 	private Sop sop;
+	/**
+	 * Tahap pendahulu tunggal (kolom {@code sebelumnya}). Bersama ke-20 kolom
+	 * {@code setelahnyaN}, field ini membentuk relasi dua arah yang <b>disimpan terpisah dan tidak
+	 * dijamin konsisten</b>: {@link #hitungNomor(Session)}-lah yang berusaha menurunkan
+	 * {@code setelahnyaN} dari kumpulan {@code sebelumnya} ketika
+	 * {@link #getAlurSetelahnyaOtomatis()} bernilai benar. Dipakai pula sebagai dasar penomoran
+	 * {@link #nomor}.
+	 */
 	private AlurSop sebelumnya;
 	/**
 	 * Tahap tujuan <b>cabang ke-1</b> dari tahap ini (kolom {@code setelahnya}).
@@ -847,7 +865,22 @@ public class AlurSop extends GeneralValueObject {
 	 */
 	private String opsiSetelahnya20;
 
+	/**
+	 * Penanda tingkat-tahap bahwa <b>keputusan menyetujui berada pada tahap ini</b> -- berbeda
+	 * dari {@code persetujuanAdaDiSini1..20} yang menempel pada masing-masing cabang.
+	 *
+	 * <p><b>Jangan tertukar:</b> nama tanpa angka ini <b>bukan</b> penanda cabang pertama; penanda
+	 * cabang pertama adalah {@link #persetujuanAdaDiSini1}. Seperti seluruh penanda persetujuan di
+	 * kelas ini, isinya hanya metadata deklaratif dan tidak menimbulkan pemeriksaan kewenangan apa
+	 * pun.
+	 */
 	private Boolean persetujuanAdaDiSini;
+	/**
+	 * Penanda tingkat-tahap bahwa <b>keputusan menolak berada pada tahap ini</b> -- pasangan
+	 * negatif {@link #persetujuanAdaDiSini}. Tidak memiliki varian per-cabang: mesin ini hanya
+	 * menyediakan penanda "setuju" per cabang, sedangkan "tolak" hanya dikenal di tingkat tahap.
+	 * Sama seperti penanda persetujuan, isinya deklaratif belaka.
+	 */
 	private Boolean penolakanAdaDiSini;
 
 	/**
@@ -1073,36 +1106,220 @@ public class AlurSop extends GeneralValueObject {
 	private Boolean persetujuanAdaDiSini20;
 
 //	private Tbmrole role;
+	/**
+	 * Daftar username yang secara khusus berwenang pada tahap ini, disimpan sebagai satu string
+	 * berpembatas koma dengan koma pembungkus di kedua ujung (mis. {@code ",budi,siti,"}) agar
+	 * pencocokan {@code indexOf(",nama,")} tidak salah mengenali substring.
+	 *
+	 * <p>Bentuk penyimpanan ini dinormalkan secara paksa oleh getter destruktif
+	 * {@link #getKhususUsername()}. Perlu dicatat: nilai di sini <b>hanya dideklarasikan</b>; yang
+	 * benar-benar mencocokkannya dengan pengguna yang login adalah
+	 * {@code ais.action.master.sop.helper.SopUtil}, dan pemanggilan itu tidak diwajibkan oleh
+	 * kelas ini.
+	 */
 	private String khususUsername;
+	/**
+	 * Nomor jenjang tahap -- nilai <b>turunan</b>, bukan masukan operator. Dihitung ulang oleh
+	 * {@link #hitungNomor(Session)} sebagai {@code nomor(sebelumnya) + 1} (tahap awal bernilai 1).
+	 *
+	 * <p><b>Bukan penjaga urutan:</b> tidak ada satu pun titik dalam mesin ini yang membandingkan
+	 * {@code nomor} untuk menolak lompatan jenjang. Nilainya dipakai untuk pengurutan tampilan
+	 * ({@link #compareTo(GeneralValueObject)}) dan penomoran laporan saja.
+	 */
 	private Integer nomor;
+	/**
+	 * Jangka waktu (dalam satuan hari menurut pemakaian di modul pemantauan) yang dianggap wajar
+	 * bagi aktor untuk menyelesaikan tahap ini; dipakai untuk menandai keterlambatan pada laporan
+	 * dan papan pantau. Getter memberi nilai bawaan 1 bila kolom kosong.
+	 */
 	private Integer jangkaWaktu;
+	/**
+	 * Kode acak sekali-pakai untuk keperluan penandaan/barcode tahap. Diisi <b>otomatis oleh
+	 * getter destruktif</b> {@link #getKodeUnik()} bila masih kosong, dan dikosongkan kembali oleh
+	 * {@link #setId(Long)} ketika id di-{@code null}-kan (penanda "instance ini sedang dijadikan
+	 * baris baru").
+	 */
 	private String kodeUnik;
+	/** Nama tahap yang ditampilkan kepada pengguna (kolom {@code nama}, wajib terisi, maks 255). */
 	private String nama;
+	/**
+	 * Teks opsi bebas tingkat-tahap. Berbeda dari {@code opsiSetelahnyaN} yang melekat pada
+	 * masing-masing cabang, field ini menempel pada tahapnya sendiri dan dipakai sebagai keterangan
+	 * pilihan umum pada tampilan.
+	 */
 	private String opsi;
+	/** Keterangan/uraian bebas tahap ini (kolom {@code keterangan} bertipe {@code text}). */
 	private String keterangan;
+	/**
+	 * Penunjuk form/entitas masukan yang harus diisi aktor saat menjalankan tahap ini (nama kelas
+	 * atau kunci form yang diresolusi oleh lapisan Action). Kosong berarti tahap ini tidak
+	 * meminta isian terstruktur apa pun.
+	 */
 	private String formInputan;
+	/** Judul yang ditampilkan di atas form {@link #formInputan} pada tahap ini. */
 	private String labelFormInputan;
+	/**
+	 * Bila benar, form {@link #formInputan} ditampilkan dalam keadaan <b>terkunci (hanya baca)</b>
+	 * pada tahap ini -- aktor boleh melihat isian tahap sebelumnya tetapi tidak mengubahnya.
+	 *
+	 * <p>Penguncian ini adalah <b>keputusan render</b>: yang benar-benar menolak perubahan adalah
+	 * lapisan UI. Tidak ada pemeriksaan di sisi penyimpanan yang menegakkannya.
+	 */
 	private Boolean bekukanFormTampilan;
+	/**
+	 * Bila benar, daftar dokumen {@link #dokumenAlurSops} pada tahap ini dibekukan: aktor tidak
+	 * disuguhi tombol unggah/hapus berkas. Sama seperti {@link #bekukanFormTampilan}, sifatnya
+	 * penguncian tampilan.
+	 */
 	private Boolean bekukanDokumen;
+	/**
+	 * Penanda bahwa tahap ini adalah <b>tahap awal</b> alur (titik masuk pengajuan).
+	 *
+	 * <p>Berperan ganda: {@link #hitungNomor(Session)} memberi nomor 1 kepada tahap ber-{@code start}
+	 * benar, dan seluruh getter {@code getSetelahnyaN()} <b>membuang</b> tahap tujuan yang
+	 * ber-{@code start} benar sehingga alur tidak dapat kembali ke titik awal lewat cabang biasa.
+	 */
 	private Boolean start;
+	/**
+	 * Bila benar (nilai bawaan), kolom {@code setelahnyaN} tidak diisi manual melainkan
+	 * <b>diturunkan otomatis</b> oleh {@link #hitungNomor(Session)} dari kumpulan tahap yang
+	 * menunjuk tahap ini lewat {@code sebelumnya}. Bila salah, operator menyusun cabang secara
+	 * manual.
+	 */
 	private Boolean alurSetelahnyaOtomatis;
+	/**
+	 * Bila benar, aktor boleh menyimpan tahap ini <b>tanpa memilih cabang lanjutan</b> -- dipakai
+	 * untuk tahap yang boleh berakhir di tempat. Dibaca oleh validasi form di lapisan Action, bukan
+	 * oleh entitas ini.
+	 */
 	private Boolean alurSetelahnyaTidakWajib;
+	/**
+	 * Menentukan bentuk kendali pemilihan cabang di layar: benar (bawaan) berarti cabang
+	 * ditawarkan sebagai daftar pilihan yang harus dipilih aktor; salah berarti lanjutan
+	 * ditetapkan tanpa menanyai aktor.
+	 */
 	private Boolean alurSetelahnyaBerupaPilihan;
+	/**
+	 * Nama aktor tahap ini dalam bentuk teks. <b>Bukan sumber kebenaran:</b> getter destruktif
+	 * {@link #getAktor()} menimpanya dengan {@code getAktorSop().getNama()} setiap kali
+	 * {@link #aktorSop} terisi, sehingga field ini efektif hanya menjadi salinan tampilan bagi
+	 * konfigurasi lama yang belum memakai {@link AktorSop}.
+	 */
 	private String aktor;
+	/**
+	 * Definisi aktor berwenang untuk tahap ini (kolom {@code aktor_sop}).
+	 *
+	 * <p>{@link AktorSop} sendiri juga entitas <b>deklaratif murni</b>: ia menyimpan daftar
+	 * username, daftar role, dan sejumlah predikat struktural ({@code semuaAtasanLangsungPegawai},
+	 * {@code kaprodiPengajuMahasiswa}, {@code dekanPengajuDosen}, dan seterusnya) tanpa satu pun
+	 * method yang mengevaluasi predikat itu terhadap pengguna yang sedang login. Evaluasi
+	 * dilakukan di luar, oleh {@code SopUtil.hitungAktor}.
+	 */
 	private AktorSop aktorSop;
+	/**
+	 * Bila benar, tahap ini <b>dikembalikan kepada pengaju</b> alih-alih kepada seorang aktor
+	 * tetap (dipakai untuk langkah revisi).
+	 *
+	 * <p>Bersifat saling meniadakan dengan {@link #aktorSop}: getter destruktif
+	 * {@link #getAktorSop()} mengembalikan {@code null} setiap kali penanda ini benar, sehingga
+	 * konfigurasi aktor yang tersimpan di basis data menjadi <b>tak terlihat</b> tanpa dihapus.
+	 */
 	private Boolean kembaliKePengaju;
+	/**
+	 * Bila benar, tahap ini dikembalikan kepada <b>aktor tahap sebelumnya</b> (pihak yang terakhir
+	 * memproses), bukan kepada aktor tetap maupun pengaju. Resolusinya dilakukan di luar entitas,
+	 * berdasarkan riwayat {@link ais.database.model.sop.DisposisiAlurSop}.
+	 */
 	private Boolean kembaliKeAktorSebelumnya;
+	/**
+	 * Daftar halaman/menu yang boleh diakses ketika alur berada pada tahap ini, disimpan sebagai
+	 * teks <b>JSON array</b>. Getter {@link #getHalamanMenu()} menggantikan nilai kosong dengan
+	 * {@link #DEFAULT_FORMULA} ({@code "[]"}) sehingga pemanggil selalu menerima JSON yang sah dan
+	 * tidak perlu menjaga diri dari galat penguraian.
+	 */
 	private String halamanMenu;
 
+	/**
+	 * Bila benar (nilai bawaan), aktor tahap ini disediakan kolom catatan disposisi.
+	 *
+	 * <p>Berperan sebagai <b>saklar induk</b>: ketika salah, getter
+	 * {@link #getCatatanWajibDiisi()} dan {@link #getLampiranCatatanWajibDiisi()} memaksa
+	 * turunannya menjadi salah -- termasuk <b>menulis balik</b> ke field, bukan sekadar
+	 * mengembalikan nilai lain.
+	 */
 	private Boolean bolehDiisiCatatan;
+	/**
+	 * Bila benar, aktor tidak boleh menyimpan tahap ini tanpa mengisi catatan. Ditegakkan oleh
+	 * validasi form di {@code DisposisiAlurSopAction.check()}; sekali lagi, penegakan berada di
+	 * luar entitas. Dikendalikan saklar induk {@link #bolehDiisiCatatan}.
+	 */
 	private Boolean catatanWajibDiisi;
+	/**
+	 * Bila benar, aktor wajib melampirkan berkas bersama catatan disposisinya. Hanya berlaku bila
+	 * konfigurasi aplikasi {@code tampilkan_lampiran_catatan_disposisi} menyala. Dikendalikan
+	 * saklar induk {@link #bolehDiisiCatatan}.
+	 */
 	private Boolean lampiranCatatanWajibDiisi;
+	/**
+	 * Bila benar, aktor boleh menyunting sendiri tanggal/waktu disposisi tahap ini alih-alih
+	 * memakai waktu server. Perlu diperhatikan implikasinya terhadap keandalan jejak waktu: dengan
+	 * penanda ini menyala, kolom waktu pada riwayat disposisi menjadi <b>data yang diisi pengguna</b>,
+	 * bukan stempel waktu tepercaya. Nilai bawaan salah.
+	 */
 	private Boolean tanggalDisposisiBolehDiubah;
 
+	/**
+	 * Bila benar, persetujuan pada tahap ini <b>mengakhiri</b> seluruh alur (tidak ada tahap
+	 * lanjutan yang ditunggu).
+	 *
+	 * <p>Nilainya dapat <b>berubah sendiri saat dibaca</b>: bila konfigurasi aplikasi
+	 * {@code sop_alur_terakhir_otomatis_jadi_persetujuan} menyala, getter
+	 * {@link #getJikaProsesDisetujuiMakaSelesai()} menyimpulkan nilai benar untuk setiap tahap yang
+	 * tidak punya cabang lanjutan dan menulisnya kembali ke field.
+	 */
 	private Boolean jikaProsesDisetujuiMakaSelesai;
 
+	/**
+	 * Kumpulan dokumen/berkas yang melekat pada tahap ini, dipetakan lewat tabel relasi
+	 * {@code alur_sop_has_dokumen}.
+	 *
+	 * <p>Field ini <b>bukan sumber kebenaran tunggal</b>: pembacaan lewat
+	 * {@link #getDokumenAlurSops()} dapat menggantinya dengan isi cache statis {@link #mapDokumens}
+	 * atau dengan hasil query mandiri {@code loadDokumenAlurSopDetached}. Dikosongkan oleh
+	 * {@link #setId(Long)} ketika id di-{@code null}-kan.
+	 */
 	private Set<DokumenAlurSop> dokumenAlurSops = new HashSet<DokumenAlurSop>();
 
+	/**
+	 * Mengembalikan dokumen/berkas yang melekat pada tahap ini, <b>sudah tersaring</b> dan aman
+	 * dipakai setelah session Hibernate ditutup.
+	 *
+	 * <p><b>Getter ini jauh dari sepele.</b> Ia menempuh alur berlapis untuk menghindari
+	 * {@code LazyInitializationException} pada koleksi malas yang terlanjur terlepas dari session:</p>
+	 * <ol>
+	 *   <li>Bila {@link #getId()} masih {@code null} (baris belum tersimpan), koleksi di memori
+	 *       dikembalikan apa adanya -- tanpa penyaringan dan tanpa menyentuh cache.</li>
+	 *   <li>Bila cache statis {@link #mapDokumens} sudah memuat entri untuk id ini, entri itulah
+	 *       yang dipakai: bila koleksinya belum terinisialisasi, isinya diambil ulang lewat
+	 *       {@link #loadDokumenAlurSopDetached(Long, Long)}; bila sudah, isinya cukup disaring
+	 *       {@link #filterDokumenAlurSop(Set, Long)}.</li>
+	 *   <li>Bila cache kosong, langkah yang sama dikerjakan atas field {@link #dokumenAlurSops}.</li>
+	 *   <li>Setiap galat pada langkah 2 dan 3 <b>tidak dilemparkan</b>, melainkan jatuh ke query
+	 *       mandiri {@code loadDokumenAlurSopDetached} sebagai jaring pengaman.</li>
+	 * </ol>
+	 *
+	 * <p><b>Getter destruktif:</b> hasil dari alur di atas <b>ditulis kembali</b> ke field
+	 * {@link #dokumenAlurSops} <i>dan</i> ke cache statis {@link #mapDokumens}. Konsekuensinya:
+	 * (a) sekadar membaca koleksi ini mengubah state instance, yang pada Hibernate berbasis
+	 * property dapat ikut terbawa ke snapshot kotor; (b) hasil penyaringan (yang membuang entri
+	 * tidak aktif) menjadi isi cache, sehingga pemanggil berikutnya melihat versi tersaring -- ini
+	 * <b>tidak boleh</b> dipakai sebagai dasar penyimpanan ulang koleksi, karena entri yang tersaring
+	 * akan tampak seolah-olah sudah dilepas dari tahap.</p>
+	 *
+	 * @return himpunan dokumen aktif milik tahap ini; tidak pernah {@code null}
+	 * @see #mapDokumens
+	 * @see #filterDokumenAlurSop(Set, Long)
+	 */
 	@ManyToMany(targetEntity = DokumenAlurSop.class, cascade = { CascadeType.MERGE })
 	@OrderBy(value = "kode asc, nama asc")
 	@JoinTable(name = "alur_sop_has_dokumen", joinColumns = @JoinColumn(name = "alur_sop"), inverseJoinColumns = @JoinColumn(name = "dokumen"))
@@ -1140,6 +1357,16 @@ public class AlurSop extends GeneralValueObject {
 		return dokumenAlurSops;
 	}
 
+	/**
+	 * Mengambil id SOP induk tanpa pernah melempar galat.
+	 *
+	 * <p>Diperlukan karena {@link #sop} dipetakan {@code LAZY}: menyentuhnya di luar session yang
+	 * hidup dapat memicu {@code LazyInitializationException}. Method ini menelan galat apa pun dan
+	 * mengembalikan {@code null}, yang oleh {@link #filterDokumenAlurSop(Set, Long)} diperlakukan
+	 * sebagai "jangan saring berdasarkan SOP".
+	 *
+	 * @return id SOP induk, atau {@code null} bila belum ada atau tidak dapat dibaca
+	 */
 	private Long ambilSopIdAman() {
 		try {
 			return sop == null ? null : sop.getId();
@@ -1148,6 +1375,27 @@ public class AlurSop extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menyaring kumpulan dokumen mentah menjadi himpunan yang layak ditampilkan.
+	 *
+	 * <p>Tiga aturan diterapkan berurutan atas tiap elemen: (1) entri {@code null} atau yang
+	 * penandanya tidak aktif dibuang; (2) id yang sudah pernah muncul dilewati sehingga hasilnya
+	 * bebas duplikat -- perlu karena relasi banyak-ke-banyak dapat memasok baris kembar;
+	 * (3) dokumen yang menyebut SOP induk <b>berbeda</b> dari {@code sopId} dibuang.
+	 *
+	 * <p>Aturan ketiga sengaja <b>gagal-terbuka</b>: bila pembacaan {@code getSop()} melempar galat
+	 * (proxy malas yang sudah terlepas), galat ditelan dan dokumen tetap disertakan, dengan alasan
+	 * yang dicatat pada kode bahwa keanggotaan di tabel relasi {@code alur_sop_has_dokumen} sudah
+	 * cukup menjadi bukti kepemilikan. Konsekuensinya, penyaringan lintas-SOP di sini bersifat
+	 * pembersih tampilan, <b>bukan batas keamanan</b>.
+	 *
+	 * <p>Hasil dikembalikan dalam {@link TreeSet}, sehingga urutan mengikuti {@code compareTo}
+	 * kelas {@link DokumenAlurSop} dan elemen yang dinilai "sama" olehnya akan saling menutupi.
+	 *
+	 * @param sumber kumpulan mentah; {@code null}/kosong menghasilkan himpunan kosong
+	 * @param sopId  id SOP induk pembanding; {@code null} berarti aturan ketiga dilewati
+	 * @return himpunan tersaring; tidak pernah {@code null}
+	 */
 	private Set<DokumenAlurSop> filterDokumenAlurSop(Set<DokumenAlurSop> sumber, Long sopId) {
 		Set<DokumenAlurSop> hasil = new TreeSet<DokumenAlurSop>();
 		if (sumber == null || sumber.isEmpty()) {
@@ -1178,6 +1426,18 @@ public class AlurSop extends GeneralValueObject {
 		return hasil;
 	}
 
+	/**
+	 * Menyaring kumpulan kelompok parameter tambahan, membuang entri {@code null} dan entri yang
+	 * penandanya tidak aktif.
+	 *
+	 * <p>Lebih sederhana daripada {@link #filterDokumenAlurSop(Set, Long)}: tidak ada
+	 * penyaringan berdasarkan SOP induk dan tidak ada pembuangan duplikat berdasarkan id --
+	 * pencegahan duplikat sepenuhnya diserahkan kepada {@link TreeSet} yang menampung hasilnya,
+	 * sehingga bergantung pada {@code compareTo} kelas elemen.
+	 *
+	 * @param sumber kumpulan mentah; {@code null}/kosong menghasilkan himpunan kosong
+	 * @return himpunan tersaring; tidak pernah {@code null}
+	 */
 	private Set<KelompokParameterTambahanAlurSop> filterKelompokParameter(
 			Set<KelompokParameterTambahanAlurSop> sumber) {
 		Set<KelompokParameterTambahanAlurSop> hasil = new TreeSet<KelompokParameterTambahanAlurSop>();
@@ -1193,6 +1453,30 @@ public class AlurSop extends GeneralValueObject {
 		return hasil;
 	}
 
+	/**
+	 * Jaring pengaman terakhir: membaca dokumen tahap ini lewat <b>session Hibernate baru milik
+	 * sendiri</b> dan mengembalikannya sebagai {@code Set} biasa yang tetap aman dipakai setelah
+	 * session itu ditutup.
+	 *
+	 * <p>Sengaja memakai {@code SQL} langsung ke {@code dokumen_alur_sop} yang di-{@code join} ke
+	 * tabel relasi {@code alur_sop_has_dokumen}, <b>bukan</b> membaca ulang koleksi dari entitas
+	 * {@code AlurSop}. Alasannya dijelaskan pada komentar kode: identity map/cache lama dapat
+	 * mengembalikan instance kanonik yang koleksinya masih terikat pada session yang sudah
+	 * ditutup, sehingga {@code Hibernate.initialize()} tetap berakhir
+	 * {@code LazyInitializationException}.
+	 *
+	 * <p><b>Gagal-terbuka dan senyap:</b> galat apa pun hanya dicatat ke audit lalu method
+	 * mengembalikan himpunan kosong. Bagi pemanggil, kegagalan koneksi tidak dapat dibedakan dari
+	 * tahap yang memang tidak punya dokumen.
+	 *
+	 * <p><b>Biaya:</b> membuka session baru pada tiap pemanggilan. Karena pemanggilnya adalah
+	 * getter yang dipakai saat merender grid, method ini berpotensi menjadi sumber pola N+1 bila
+	 * cache tidak menolong.
+	 *
+	 * @param alurSopId id tahap yang dokumennya dicari; tidak boleh {@code null}
+	 * @param sopId     id SOP induk untuk penyaringan lanjutan; boleh {@code null}
+	 * @return himpunan dokumen aktif hasil query, atau himpunan kosong bila gagal
+	 */
 	private Set<DokumenAlurSop> loadDokumenAlurSopDetached(Long alurSopId, Long sopId) {
 		Session session = null;
 		try {
@@ -1217,6 +1501,18 @@ public class AlurSop extends GeneralValueObject {
 		return new TreeSet<DokumenAlurSop>();
 	}
 
+	/**
+	 * Padanan {@link #loadDokumenAlurSopDetached(Long, Long)} untuk kelompok parameter tambahan:
+	 * query {@code SQL} langsung ke {@code kelompok_parameter_tambahan_alur_sop} yang
+	 * di-{@code join} ke tabel relasi {@code alur_sop_has_parameter}, dijalankan pada session
+	 * mandiri, hasilnya disaring {@link #filterKelompokParameter(Set)}.
+	 *
+	 * <p>Sifat gagal-terbuka, senyap, dan berbiaya satu session per pemanggilan berlaku sama --
+	 * lihat javadoc method tersebut.
+	 *
+	 * @param alurSopId id tahap yang parameternya dicari; tidak boleh {@code null}
+	 * @return himpunan kelompok parameter aktif, atau himpunan kosong bila gagal
+	 */
 	private Set<KelompokParameterTambahanAlurSop> loadKelompokParameterDetached(Long alurSopId) {
 		Session session = null;
 		try {
@@ -1237,6 +1533,18 @@ public class AlurSop extends GeneralValueObject {
 		return new TreeSet<KelompokParameterTambahanAlurSop>();
 	}
 
+	/**
+	 * Menutup session Hibernate mandiri yang dibuka oleh kedua method {@code load...Detached}
+	 * dengan cara yang tidak akan pernah melempar galat.
+	 *
+	 * <p>Tiga langkah dijalankan berturut-turut dan masing-masing dibungkus penangkap galat
+	 * tersendiri -- {@code clear()}, {@code disconnect()}, lalu {@code close()} -- sehingga
+	 * kegagalan pada satu langkah tidak menghalangi langkah berikutnya. Urutan ini penting:
+	 * {@code clear()} melepas entitas dari session sebelum koneksi dikembalikan ke kolam, agar
+	 * instance yang sudah diserahkan ke pemanggil tidak lagi terikat.
+	 *
+	 * @param session session yang akan ditutup; {@code null} diabaikan
+	 */
 	private void closeOpenSessionSafely(Session session) {
 		if (session == null) {
 			return;
@@ -1255,6 +1563,17 @@ public class AlurSop extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mengganti kumpulan dokumen tahap ini.
+	 *
+	 * <p><b>Menulis ke dua tempat:</b> selain mengisi field, nilai baru juga dimasukkan ke cache
+	 * statis {@link #mapDokumens} bila {@link #getId()} sudah ada. Karena cache itu JVM-global,
+	 * pemanggilan setter ini <b>seketika mengubah apa yang dilihat seluruh sesi pengguna lain</b>
+	 * di node yang sama, termasuk bila nilai yang diberikan adalah hasil koleksi yang sudah
+	 * tersaring.
+	 *
+	 * @param dokumenAlurSops kumpulan dokumen baru
+	 */
 	public void setDokumenAlurSops(Set<DokumenAlurSop> dokumenAlurSops) {
 		this.dokumenAlurSops = dokumenAlurSops;
 		if (id != null) {
@@ -1262,9 +1581,39 @@ public class AlurSop extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Kumpulan kelompok parameter tambahan (definisi isian dinamis) yang harus ditampilkan pada
+	 * tahap ini, dipetakan lewat tabel relasi {@code alur_sop_has_parameter}.
+	 *
+	 * <p>Seperti {@link #dokumenAlurSops}, isinya dapat digantikan oleh cache statis
+	 * {@link #mapParameters} atau hasil query mandiri saat dibaca lewat
+	 * {@link #getKelompokParameterTambahanAlurSops()}. Memakai {@link TreeSet} sehingga urutan
+	 * elemen bergantung pada {@code compareTo} kelas elemennya.
+	 */
 	private Set<KelompokParameterTambahanAlurSop> kelompokParameterTambahanAlurSops = new TreeSet<KelompokParameterTambahanAlurSop>();
+	/**
+	 * Penanda tahap masih dipakai. Bernilai benar secara bawaan bila kolom kosong.
+	 *
+	 * <p>Berpengaruh <b>dua arah</b>: selain menyembunyikan tahap ini dari daftar, seluruh getter
+	 * {@code getSetelahnyaN()} pada tahap <i>lain</i> membuang rujukan ke tahap yang tidak aktif.
+	 * Menonaktifkan satu tahap karena itu dapat <b>memutus alur</b> tahap-tahap pendahulunya secara
+	 * senyap, tanpa pesan kesalahan maupun perubahan data pada baris pendahulu tersebut.
+	 */
 	private Boolean aktif;
 
+	/**
+	 * Mengembalikan kelompok parameter tambahan (definisi isian dinamis) tahap ini, sudah
+	 * tersaring dan aman dipakai setelah session ditutup.
+	 *
+	 * <p>Alur berlapisnya persis sama dengan {@link #getDokumenAlurSops()} -- termasuk sifat
+	 * <b>destruktifnya</b>, yaitu menulis kembali hasil ke field {@link #kelompokParameterTambahanAlurSops}
+	 * dan ke cache statis {@link #mapParameters} -- hanya berbeda pada cache dan pemuat yang
+	 * dipakai ({@link #loadKelompokParameterDetached(Long)}) serta pada tiadanya penyaringan
+	 * berdasarkan SOP induk.
+	 *
+	 * @return himpunan kelompok parameter aktif; tidak pernah {@code null}
+	 * @see #getDokumenAlurSops()
+	 */
 	@ManyToMany(targetEntity = KelompokParameterTambahanAlurSop.class, cascade = { CascadeType.MERGE })
 	@OrderBy(value = "nomorUrut asc, nama asc")
 	@JoinTable(name = "alur_sop_has_parameter", joinColumns = @JoinColumn(name = "alur_sop"), inverseJoinColumns = @JoinColumn(name = "parameter"))
@@ -1304,6 +1653,15 @@ public class AlurSop extends GeneralValueObject {
 		return kelompokParameterTambahanAlurSops;
 	}
 
+	/**
+	 * Mengganti kumpulan kelompok parameter tambahan tahap ini, sekaligus menulis nilai baru ke
+	 * cache statis {@link #mapParameters} bila id sudah ada.
+	 *
+	 * <p>Konsekuensi lintas-sesi dari penulisan cache itu sama dengan
+	 * {@link #setDokumenAlurSops(Set)}.
+	 *
+	 * @param kelompokParameterTambahanAlurSops kumpulan kelompok parameter baru
+	 */
 	public void setKelompokParameterTambahanAlurSops(
 			Set<KelompokParameterTambahanAlurSop> kelompokParameterTambahanAlurSops) {
 		this.kelompokParameterTambahanAlurSops = kelompokParameterTambahanAlurSops;
@@ -1312,9 +1670,20 @@ public class AlurSop extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan Hibernate/JPA. Seluruh field dibiarkan pada nilai
+	 * bawaannya; perhatikan bahwa banyak getter di kelas ini memasok nilai bawaan sendiri saat
+	 * dibaca (mis. {@link #getAlurSetelahnyaOtomatis()} bernilai benar meski field masih
+	 * {@code null}).
+	 */
 	public AlurSop() {
 	}
 
+	/**
+	 * Mengembalikan kunci utama baris tahap ini.
+	 *
+	 * @return id baris, atau {@code null} bila tahap belum pernah disimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -1322,6 +1691,20 @@ public class AlurSop extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi kunci utama tahap ini.
+	 *
+	 * <p><b>Bukan setter sepele:</b> memberikan {@code null} diperlakukan sebagai perintah
+	 * "jadikan instance ini baris baru" dan memicu dua efek samping -- {@link #kodeUnik}
+	 * dikosongkan (agar {@link #getKodeUnik()} membangkitkan kode baru) dan
+	 * {@link #dokumenAlurSops} diganti himpunan kosong (agar dokumen milik baris lama tidak ikut
+	 * terbawa). Efek ini tidak terjadi bila id diisi nilai bukan {@code null}.
+	 *
+	 * <p>Perhatikan bahwa entri cache statis {@link #mapDokumens} milik id lama <b>tidak</b> ikut
+	 * dibersihkan di sini.
+	 *
+	 * @param id kunci utama baru; {@code null} mereset kodeUnik dan koleksi dokumen
+	 */
 	public void setId(Long id) {
 		if (id == null) {
 			kodeUnik = null;
@@ -1330,32 +1713,82 @@ public class AlurSop extends GeneralValueObject {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan kode tahap yang sudah dirapikan.
+	 *
+	 * @return isi {@link #kode} tanpa spasi tepi, atau string kosong bila belum diisi -- tidak
+	 *         pernah {@code null}
+	 */
 	public String getKode() {
 		return kode == null ? "" : kode.trim();
 	}
 
+	/**
+	 * Mengisi kode tahap apa adanya (tanpa perapian; perapian dilakukan saat dibaca).
+	 *
+	 * @param kode kode pendek tahap
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengembalikan nama tahap yang sudah dirapikan.
+	 *
+	 * <p>Berbeda dari {@link #getKode()}, method ini <b>meneruskan {@code null}</b> alih-alih
+	 * menggantinya dengan string kosong -- pemanggil tetap harus berjaga terhadap {@code null}.
+	 *
+	 * @return isi {@link #nama} tanpa spasi tepi, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Mengisi nama tahap apa adanya.
+	 *
+	 * @param nama nama tahap yang ditampilkan kepada pengguna
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan keterangan tahap.
+	 *
+	 * <p>Nilai {@code null} digantikan string kosong, tetapi isinya <b>tidak</b> di-{@code trim}
+	 * -- berbeda dari {@link #getKode()} dan {@link #getNama()}.
+	 *
+	 * @return isi {@link #keterangan}, atau string kosong bila belum diisi -- tidak pernah
+	 *         {@code null}
+	 */
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan == null ? "" : keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan tahap apa adanya.
+	 *
+	 * @param keterangan uraian bebas mengenai tahap ini
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan definisi SOP induk tahap ini.
+	 *
+	 * <p>Relasi dipetakan {@code LAZY}, sehingga nilai yang tersimpan bisa berupa proxy. Getter
+	 * melewatkannya lebih dulu ke {@code check(...)} milik
+	 * {@link ais.database.model.GeneralValueObject} untuk meresolusi proxy tersebut menjadi
+	 * instance nyata, lalu <b>menulis hasilnya kembali ke field</b> -- karena itu getter ini pun
+	 * tergolong destruktif, meski efeknya berupa penggantian proxy dengan objek setara.
+	 *
+	 * @return SOP induk; dapat {@code null} pada instance yang belum terisi lengkap meski kolomnya
+	 *         wajib di basis data
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sop", nullable = false)
 	public Sop getSop() {
@@ -1363,10 +1796,26 @@ public class AlurSop extends GeneralValueObject {
 		return sop;
 	}
 
+	/**
+	 * Mengisi definisi SOP induk tahap ini.
+	 *
+	 * @param sop SOP pemilik tahap
+	 */
 	public void setSop(Sop sop) {
 		this.sop = sop;
 	}
 
+	/**
+	 * Mengembalikan tahap pendahulu, dengan resolusi proxy malas lewat {@code check(...)} dan
+	 * penulisan balik ke field seperti pada {@link #getSop()}.
+	 *
+	 * <p>Perhatikan asimetri dengan {@code getSetelahnyaN()}: getter arah maju membuang tujuan yang
+	 * merupakan tahap awal atau yang sudah tidak aktif, sedangkan getter arah mundur ini
+	 * <b>tidak</b> melakukan penyaringan apa pun. Tahap pendahulu yang sudah dinonaktifkan tetap
+	 * dikembalikan di sini walaupun hubungan sebaliknya sudah tidak terlihat.
+	 *
+	 * @return tahap pendahulu, atau {@code null} bila tahap ini titik masuk
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sebelumnya", nullable = true)
 	public AlurSop getSebelumnya() {
@@ -1374,6 +1823,15 @@ public class AlurSop extends GeneralValueObject {
 		return sebelumnya;
 	}
 
+	/**
+	 * Mengisi tahap pendahulu.
+	 *
+	 * <p>Tidak ada penjagaan terhadap siklus: menunjuk tahap yang (langsung maupun tidak) berada
+	 * di hilir tahap ini tidak ditolak, dan {@link #hitungNomor(Session)} yang menelusuri rantai
+	 * pendahulu tidak memiliki pembatas kedalaman selain jumlah tahap dalam SOP.
+	 *
+	 * @param sebelumnya tahap pendahulu
+	 */
 	public void setSebelumnya(AlurSop sebelumnya) {
 		this.sebelumnya = sebelumnya;
 	}
