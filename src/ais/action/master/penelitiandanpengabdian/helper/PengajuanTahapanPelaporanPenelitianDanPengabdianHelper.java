@@ -548,7 +548,7 @@ public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements D
 					.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
 			arg0.setVisible(content != null);
 
-			List<String> koresponden = new ArrayList<String>();
+			final List<String> koresponden = new ArrayList<String>();
 			for (String s : pengajuanTahapanPelaporanPenelitianDanPengabdian
 					.getTahapanPelaporanPenelitianDanPengabdian().getPenelitianDanPengabdian().getKorespondensi()
 					.split(",")) {
@@ -557,7 +557,7 @@ public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements D
 				}
 			}
 
-			List<String> korespondenGrup = new ArrayList<String>();
+			final List<String> korespondenGrup = new ArrayList<String>();
 			if (pengajuanTahapanPelaporanPenelitianDanPengabdian.getTahapanPelaporanPenelitianDanPengabdian()
 					.getPenelitianDanPengabdian() != null) {
 
@@ -598,7 +598,7 @@ public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements D
 						.setParent(arg0);
 				new Label(Common.dateFormat.get().format(content.getUploadDate())).setParent(arg0);
 
-				Dosen dsn = pengajuanTahapanPelaporanPenelitianDanPengabdian.getPengajuanPenelitianDanPengabdian()
+				final Dosen dsn = pengajuanTahapanPelaporanPenelitianDanPengabdian.getPengajuanPenelitianDanPengabdian()
 						.getTbmuser() == null ? null
 								: pengajuanTahapanPelaporanPenelitianDanPengabdian.getPengajuanPenelitianDanPengabdian()
 										.getTbmuser().getDosen();
@@ -631,6 +631,16 @@ public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements D
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							boolean berhakUbahStatus = (dsn != null && dsn.yangLoginMerupakanAtasan())
+									|| ((koresponden.contains(tbmuser.getUserId())
+											|| korespondenGrup.contains(tbmuser.hakAkses().getRoleId())));
+							if (!berhakUbahStatus) {
+								Common.selectComboItem(status,
+										pengajuanTahapanPelaporanPenelitianDanPengabdian.getStatus());
+								MyMessageboxConfig.show("Anda tidak berhak mengubah status pengajuan ini",
+										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+								return;
+							}
 							pengajuanTahapanPelaporanPenelitianDanPengabdian
 									.setStatus((String) (status.getSelectedItem() == null
 											|| status.getSelectedItem().getValue() == null ? null
