@@ -894,21 +894,139 @@ public abstract class FileFotoLain extends FileFoto {
 	}
 
 	// Overloads for ambilLinkLampiranLain
+	/**
+	 * Menyusun alamat tampil/unduh untuk satu lampiran, dengan pilihan bawaan: boleh
+	 * memakai alamat berkas statis bila berkasnya ada, alamat mutlak, tanpa thumbnail.
+	 *
+	 * <p>Bentuk terpendek dari keluarga {@code ambilLinkLampiranLain(FileFotoLain, ...)};
+	 * seluruh perilaku, urutan pemeriksaan, dan konsekuensinya dijelaskan pada
+	 * {@link #ambilLinkLampiranLain(FileFotoLain, Boolean, Boolean, Class, boolean,
+	 * boolean, boolean)}.</p>
+	 *
+	 * @param fileFoto lampiran yang hendak ditautkan; boleh {@code null}
+	 * @param usingId  {@code true} membuat tautan meminta pencocokan ke primary key
+	 * @param download {@code true} meminta berkas disajikan sebagai unduhan
+	 * @param clazz    kelas entitas berkas yang dicantumkan pada tautan
+	 * @return alamat lampiran, atau alamat ikon pengganti bila tidak dapat disusun
+	 * @throws Exception praktis tidak pernah dilempar; jalur utamanya menangkap semua
+	 *                   kegagalan dan jatuh ke ikon pengganti
+	 */
 	public static String ambilLinkLampiranLain(FileFotoLain fileFoto, Boolean usingId, Boolean download, Class clazz)
 			throws Exception {
 		return ambilLinkLampiranLain(fileFoto, usingId, download, clazz, true, false, false);
 	}
 
+	/**
+	 * Sama dengan {@link #ambilLinkLampiranLain(FileFotoLain, Boolean, Boolean, Class)}
+	 * namun pemanggil menentukan sendiri apakah alamat berkas statis boleh dipakai.
+	 *
+	 * <p>Varian inilah yang dipakai {@code setupDownloadButtonAction()} dengan
+	 * {@code ketemu = false} untuk memaksa alamat selalu melewati servlet
+	 * {@code AmbilLampiran}; alasannya tercatat pada method tersebut.</p>
+	 *
+	 * @param fileFoto lampiran yang hendak ditautkan; boleh {@code null}
+	 * @param usingId  {@code true} membuat tautan meminta pencocokan ke primary key
+	 * @param download {@code true} meminta berkas disajikan sebagai unduhan
+	 * @param clazz    kelas entitas berkas yang dicantumkan pada tautan
+	 * @param ketemu   {@code true} mengizinkan alamat berkas statis bila berkasnya ada
+	 * @return alamat lampiran, atau alamat ikon pengganti bila tidak dapat disusun
+	 * @throws Exception praktis tidak pernah dilempar
+	 */
 	public static String ambilLinkLampiranLain(FileFotoLain fileFoto, Boolean usingId, Boolean download, Class clazz,
 			boolean ketemu) throws Exception {
 		return ambilLinkLampiranLain(fileFoto, usingId, download, clazz, ketemu, false, false);
 	}
 
+	/**
+	 * Sama dengan varian berparameter {@code ketemu}, ditambah pilihan alamat relatif.
+	 *
+	 * <p>Pakai {@code relative = true} bila hasilnya akan disematkan pada halaman yang
+	 * sudah berada di dalam konteks aplikasi yang sama, sehingga alamatnya tidak ikut
+	 * membekukan nama host permintaan yang sedang berjalan.</p>
+	 *
+	 * @param fileFoto lampiran yang hendak ditautkan; boleh {@code null}
+	 * @param usingId  {@code true} membuat tautan meminta pencocokan ke primary key
+	 * @param download {@code true} meminta berkas disajikan sebagai unduhan
+	 * @param clazz    kelas entitas berkas yang dicantumkan pada tautan
+	 * @param ketemu   {@code true} mengizinkan alamat berkas statis bila berkasnya ada
+	 * @param relative {@code true} menghasilkan alamat relatif terhadap konteks aplikasi
+	 * @return alamat lampiran, atau alamat ikon pengganti bila tidak dapat disusun
+	 * @throws Exception praktis tidak pernah dilempar
+	 */
 	public static String ambilLinkLampiranLain(FileFotoLain fileFoto, Boolean usingId, Boolean download, Class clazz,
 			boolean ketemu, boolean relative) throws Exception {
 		return ambilLinkLampiranLain(fileFoto, usingId, download, clazz, ketemu, relative, false);
 	}
 
+	/**
+	 * Menyusun alamat tampil/unduh untuk satu lampiran &mdash; bentuk lengkap tempat
+	 * seluruh keputusan sebenarnya diambil.
+	 *
+	 * <p><b>Empat kemungkinan alamat, diperiksa berurutan dan yang pertama cocok
+	 * menang:</b></p>
+	 * <ol>
+	 *   <li><b>Lampiran tidak ada</b> ({@code fileFoto == null}) &rarr; langsung
+	 *       mengembalikan alamat ikon pengganti dari {@code iconNggakAda(clazz)}. Tidak
+	 *       ada kesalahan yang dilempar; ketiadaan lampiran adalah keadaan normal.</li>
+	 *   <li><b>Lampiran berupa tautan luar</b> &rarr; dikenali dari {@code getNama()} yang
+	 *       persis bertuliskan {@code "Berupa link file"}; nilai {@code getLink()}
+	 *       dikembalikan apa adanya. Perhatikan bahwa penanda ini berupa <i>teks yang
+	 *       dibandingkan persis</i>, bukan kolom penanda tersendiri &mdash; nama berkas
+	 *       yang kebetulan sama akan ikut dianggap tautan luar.</li>
+	 *   <li><b>Lampiran di Google Drive</b> &rarr; alamat pratinjau Google Drive disusun
+	 *       dari kolom {@code gdrive}.</li>
+	 *   <li><b>Berkas fisik ditemukan</b> dan {@code ketemu = true} &rarr; alamat berkas
+	 *       statis {@code /f<prefix>/<segmen>/<nama>}; bila {@code rezise = true} sebuah
+	 *       thumbnail 128px dibuat lebih dahulu (sekali saja, karena berkas yang sudah ada
+	 *       dipakai ulang) dan alamat thumbnail itulah yang dikembalikan.</li>
+	 * </ol>
+	 * <p>Bila tak satu pun terpenuhi, yang tersisa adalah tautan
+	 * {@code /al?d=<token>} hasil {@code ambilLinkLampiranLainLink(...)} yang sudah
+	 * disusun lebih dahulu di awal method.</p>
+	 *
+	 * <p><b>Tentang pemisahan folder per entitas.</b> Jalur berkas pada langkah 4 memakai
+	 * {@code fileFoto.segmenFolderBerkas()} sehingga berbentuk
+	 * {@code <media>/<NamaKelas>/<id>/<nama>}. Sebelumnya bentuknya hanya
+	 * {@code <media>/<id>/}, sehingga dua entitas <i>berbeda</i> yang kebetulan memiliki
+	 * primary key sama berbagi satu folder dan berkasnya dapat tertukar &mdash; foto
+	 * seseorang muncul pada data orang lain. Segmen nama kelas itulah yang memisahkannya.
+	 * Perlu dicatat bahwa {@code createLinkUri()} dan salah satu cabang penyalinan di
+	 * {@code AmbilLampiran} <b>tidak</b> memakai pola ini, sehingga pemisahan tersebut
+	 * tidak berlaku menyeluruh di semua jalur.</p>
+	 *
+	 * <p><b>Pembersihan nama berkas hanya kosmetik.</b> Nama yang dipakai untuk menyusun
+	 * jalur maupun alamat hanyalah {@code getNama()} dengan spasi, {@code %}, dan
+	 * {@code #} diganti garis bawah. Karakter pemisah direktori tidak disentuh sama
+	 * sekali. Nama kosong diganti {@code "lampiran"}. Karena {@code getNama()} pada
+	 * jalur unggah berasal dari nama berkas yang dikirim pengguna, pemanggil sebaiknya
+	 * tidak menganggap nilai ini sudah bersih; pembersihan yang sesungguhnya &mdash;
+	 * penggantian {@code /} dan {@code \} &mdash; hanya dilakukan
+	 * {@code createFileFotoLain()} pada kasus nama yang kosong, bukan pada nama yang
+	 * dikirim pengguna.</p>
+	 *
+	 * <p><b>Kegagalan selalu berujung ikon pengganti.</b> Seluruh badan method dibungkus
+	 * {@code try-catch} yang mengembalikan alamat {@code iconNggakAda(clazz)}. Karena itu
+	 * method ini praktis tidak pernah melempar, dan pemanggil tidak dapat membedakan
+	 * "lampiran memang tidak ada" dari "terjadi kesalahan saat menyusun alamatnya".
+	 * Untuk keperluan tampilan sifat ini diinginkan; untuk keperluan diagnosis ia
+	 * menyembunyikan masalah, karena kesalahan yang tertangkap juga tidak dicatat.</p>
+	 *
+	 * @param fileFoto lampiran yang hendak ditautkan; {@code null} menghasilkan ikon
+	 *                 pengganti
+	 * @param usingId  {@code true} membuat tautan meminta pencocokan ke primary key,
+	 *                 dengan seluruh konsekuensi yang dijelaskan pada {@code ambil()}
+	 * @param download {@code true} meminta berkas disajikan sebagai unduhan
+	 * @param clazz    kelas entitas berkas yang dicantumkan pada tautan sekaligus penentu
+	 *                 ikon pengganti
+	 * @param ketemu   {@code true} mengizinkan alamat berkas statis bila berkasnya ada;
+	 *                 {@code false} memaksa melalui servlet
+	 * @param relative {@code true} menghasilkan alamat relatif terhadap konteks aplikasi
+	 * @param rezise   {@code true} meminta thumbnail 128px; hanya berlaku pada langkah 4
+	 *                 dan diabaikan pada jalur tautan luar maupun Google Drive
+	 * @return alamat lampiran, atau alamat ikon pengganti
+	 * @throws Exception dideklarasikan demi keseragaman keluarga method ini; jalur
+	 *                   normalnya menangkap semua kegagalan
+	 */
 	public static String ambilLinkLampiranLain(FileFotoLain fileFoto, Boolean usingId, Boolean download, Class clazz,
 			boolean ketemu, boolean relative, boolean rezise) throws Exception {
 		try {
