@@ -50,13 +50,19 @@ import ais.database.model.Jurusan;
  * pernah dibaca.</b> Kriteria pencarian pada {@code hitungDendaItem(...)} menyaring
  * {@code dendaPerItem = true} secara mutlak. Cabang sebaliknya &mdash; denda per transaksi,
  * bukan per eksemplar &mdash; dilayani {@code LibraryUtil.hitungDenda(...)} yang menyaring
- * {@code dendaPerItem = false}, tetapi method itu <b>sudah tidak punya pemanggil hidup</b>: dua
- * satu-satunya rujukannya berada di dalam blok komentar pada {@link KembaliPengadaanItem} dan
- * {@link PeminjamanPengadaanItem}. Akibatnya baris yang {@code dendaPerItem}-nya salah adalah
- * data tidur &mdash; tetap dapat dibuat dan disunting lewat
- * {@code DendaKeterlambatanItemAction}, tampil di daftar, ikut terekam Envers, namun tidak
- * pernah memengaruhi denda siapa pun. Petugas yang mengisi tarif tanpa mencentang "denda per
- * item" akan mendapati dendanya nol tanpa penjelasan.</p>
+ * {@code dendaPerItem = false}, tetapi method itu sudah tidak punya pemanggil hidup dan kini
+ * ditandai {@code @Deprecated}: satu-satunya rujukan yang tersisa terkubur di dalam blok
+ * komentar pada {@link KembaliPengadaanItem} dan {@link PeminjamanPengadaanItem}.</p>
+ * <p><b>{@code DendaKeterlambatanItemAction} tidak lagi menyediakan kendali untuk membuat baris
+ * bertanda salah.</b> Form maupun jalur upload Excel-nya kini memaksa
+ * {@link #getDendaPerItem() dendaPerItem} bernilai benar pada setiap penyimpanan, sehingga tarif
+ * baru tidak bisa lagi jatuh ke cabang mati ini. <b>Namun baris lama yang terlanjur tersimpan
+ * dengan penanda salah (termasuk yang kolomnya masih {@code NULL} karena field ini tidak
+ * diinisialisasi pada versi sebelumnya) tidak otomatis ikut diperbaiki</b> &mdash; baris-baris
+ * itu tetap tampil di daftar, tetap terekam Envers, namun tidak pernah memengaruhi denda siapa
+ * pun sampai disunting ulang atau diperbaiki lewat migrasi data. Audit berapa banyak baris
+ * seperti itu yang masih ada belum tentu sudah dijalankan; jangan asumsikan tabel ini sudah
+ * bersih tanpa memeriksa data sebenarnya.</p>
  *
  * <h3>Cara satu baris dipilih</h3>
  * <p>Sama seperti {@link BatasWaktuPeminjamanItem}, pencocokan memakai empat dimensi profil
@@ -67,13 +73,15 @@ import ais.database.model.Jurusan;
  * mulaiBerlaku} disaring {@code <= tanggal transaksi}. Hasil diurutkan menurun pada
  * {@code jumlahHari} lalu {@code mulaiBerlaku}, dan hanya satu baris teratas yang dipakai.</p>
  *
- * <p><b>Tidak ada baris yang cocok berarti tidak ada denda &mdash; dan berpotensi galat.</b>
- * {@code hitungDendaItem(...)} mengembalikan {@code null} bila tak ada yang cocok. Sebagian
- * pemanggil menanganinya ({@code dendaPerItem == null ? 0.0 : dendaPerItem.getDenda()}), tetapi
- * {@code helper/KembaliPengadaanItemDetailAction} kemudian memanggil
- * {@code dendaPerItem.getKeterangan()} tanpa penjagaan pada baris berikutnya, sehingga layar
- * rincian pengembalian melempar {@code NullPointerException} pada instalasi yang belum mengisi
- * tabel ini sama sekali.</p>
+ * <p><b>Tidak ada baris yang cocok berarti tidak ada denda.</b> {@code hitungDendaItem(...)}
+ * mengembalikan {@code null} bila tak ada yang cocok &mdash; hal yang normal terjadi pada
+ * instalasi yang belum mengisi tabel tarif sama sekali, atau ketika tidak ada tarif dengan
+ * ambang yang terlampaui untuk profil anggota tersebut. Seluruh pemanggil aktif (helper/action
+ * pengembalian yang disebut di atas serta {@code LibraryUtil} sendiri) menjaga baik ketiadaan
+ * baris ({@code dendaPerItem == null}) maupun ketiadaan nilai
+ * ({@code dendaPerItem.getDenda() == null}, lihat catatan pada {@link #getDenda()}) sebelum
+ * memakainya; sebelumnya sebagian pemanggil hanya menjaga salah satunya sehingga menimbulkan
+ * {@code NullPointerException} pada layar rincian pengembalian.</p>
  *
  * <p><b>{@link #getDefaultItem() defaultItem} adalah penanda tidur</b>, persis seperti pada
  * {@link BatasWaktuPeminjamanItem}: tidak dibaca kriteria pencarian mana pun dan tidak disediakan
@@ -428,11 +436,15 @@ public class DendaKeterlambatanItem extends GeneralValueObject {
 	 * {@link #getJumlahHari() ambang} berbeda.</p>
 	 *
 	 * <p><b>Getter ini tidak menormalkan {@code null}.</b> Berbeda dari hampir seluruh getter
-	 * numerik lain di paket ini, kolom yang belum diisi mengembalikan {@code null}. Pemanggil
-	 * di {@code LibraryUtil} dan helper pengembalian menjaga <em>baris</em>-nya
-	 * ({@code dendaPerItem == null ? 0.0 : dendaPerItem.getDenda()}) tetapi tidak menjaga
-	 * <em>nilainya</em>, sehingga tarif yang tersimpan tanpa nominal akan memicu
-	 * {@code NullPointerException} saat hasilnya dikalikan kuantitas.</p>
+	 * numerik lain di paket ini, kolom yang belum diisi mengembalikan {@code null}. Ini
+	 * dipertahankan dengan sengaja: {@code DendaKeterlambatanItemAction} membedakan keterangan
+	 * "belum diisi" ({@code null}, ditampilkan kosong) dari "sengaja nol" pada layar daftar dan
+	 * form suntingnya, sehingga menormalkan di sini akan mengaburkan perbedaan itu. Sebagai
+	 * gantinya, seluruh pemanggil aktif di {@code LibraryUtil} dan helper/action pengembalian
+	 * menjaga baik <em>baris</em>-nya ({@code dendaPerItem == null}) maupun <em>nilainya</em>
+	 * ({@code dendaPerItem.getDenda() == null}) sebelum mengalikannya dengan kuantitas;
+	 * sebelumnya sebagian pemanggil hanya menjaga salah satunya sehingga tarif yang tersimpan
+	 * tanpa nominal memicu {@code NullPointerException}.</p>
 	 *
 	 * @return besaran denda per eksemplar, atau {@code null} bila belum diisi.
 	 */
@@ -470,18 +482,20 @@ public class DendaKeterlambatanItem extends GeneralValueObject {
 	 * <p><b>Inilah saklar yang menentukan apakah sebuah baris tarif hidup atau tidur.</b>
 	 * {@code LibraryUtil.hitungDendaItem(...)} &mdash; satu-satunya jalur perhitungan denda yang
 	 * masih punya pemanggil hidup &mdash; menyaring {@code dendaPerItem = true} secara mutlak.
-	 * Cabang sebaliknya dilayani {@code LibraryUtil.hitungDenda(...)} yang menyaring
-	 * {@code dendaPerItem = false}, tetapi method itu sudah tidak dipanggil dari mana pun: dua
-	 * satu-satunya rujukannya terkubur di dalam blok komentar pada {@link KembaliPengadaanItem}
-	 * dan {@link PeminjamanPengadaanItem}.</p>
+	 * Cabang sebaliknya pernah dilayani {@code LibraryUtil.hitungDenda(...)} yang menyaring
+	 * {@code dendaPerItem = false}; method itu kini ditandai {@code @Deprecated} karena sudah
+	 * tidak dipanggil dari mana pun selain blok komentar pada {@link KembaliPengadaanItem} dan
+	 * {@link PeminjamanPengadaanItem}.</p>
 	 *
-	 * <p>Konsekuensinya, tarif yang disimpan dengan penanda ini bernilai salah &mdash; termasuk
-	 * seluruh tarif yang dibuat tanpa mencentang kotaknya di
-	 * {@code DendaKeterlambatanItemAction}, karena field ini tidak diinisialisasi &mdash; tidak
-	 * akan pernah dipakai. Baris tersebut tetap muncul di daftar, tetap dapat disunting, dan
-	 * tetap terekam Envers, namun dendanya tidak pernah dikenakan kepada siapa pun. Perlu
-	 * dicatat pula bahwa kriteria memakai {@code Restrictions.eq("dendaPerItem", true)}, sehingga
-	 * baris dengan kolom {@code NULL} pun tidak cocok.</p>
+	 * <p><b>{@code DendaKeterlambatanItemAction} kini memaksa penanda ini bernilai benar</b> pada
+	 * setiap penyimpanan (form maupun upload Excel), sehingga tarif baru tidak dapat lagi dibuat
+	 * dengan nilai salah. <b>Baris lama yang terlanjur tersimpan dengan penanda salah &mdash;
+	 * termasuk yang kolomnya {@code NULL} karena field ini tidak diinisialisasi pada versi
+	 * sebelumnya &mdash; tidak otomatis ikut diperbaiki oleh perubahan itu.</b> Baris semacam itu
+	 * tetap muncul di daftar, tetap dapat disunting, dan tetap terekam Envers, namun dendanya
+	 * tidak pernah dikenakan kepada siapa pun sampai disunting ulang atau diperbaiki lewat migrasi
+	 * data. Perlu dicatat pula bahwa kriteria memakai {@code Restrictions.eq("dendaPerItem", true)},
+	 * sehingga baris dengan kolom {@code NULL} pun tidak cocok.</p>
 	 *
 	 * <p>Normalisasi ditulis balik ke field, sehingga getter ini mengubah state objek.</p>
 	 *

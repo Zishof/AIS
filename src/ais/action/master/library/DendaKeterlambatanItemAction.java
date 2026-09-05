@@ -123,7 +123,8 @@ public class DendaKeterlambatanItemAction extends GenericAutowireComposer implem
 	private DendaKeterlambatanItem dendaKeterlambatanItem;
 	private MyToolbarbuttonConfig add;
 	// private MyCheckboxConfig berulang;
-	private MyCheckboxConfig dendaPerItem;
+	// dendaPerItem tidak lagi disunting dari form: lihat catatan pada onSave() dan
+	// DendaKeterlambatanItem#getDendaPerItem().
 
 	private String[] contents = new String[] { "id", "perpustakaan", "mulaiBerlaku", "jumlahHari", "denda",
 			"dendaPerItem", "jenisAnggota", "tipeAnggota", "fakultas", "jurusan", "keterangan" };
@@ -347,6 +348,9 @@ public class DendaKeterlambatanItemAction extends GenericAutowireComposer implem
 							}
 
 							Common.setObjectValues(classMetadata, dendaKeterlambatanItem, contents, 1, sheet, i);
+							// Dipaksa true seperti onSave(): kolom dendaPerItem pada berkas upload
+							// diabaikan agar tarif hasil upload tidak jatuh ke cabang mati.
+							dendaKeterlambatanItem.setDendaPerItem(true);
 
 							session.getTransaction().begin();
 							session.saveOrUpdate(dendaKeterlambatanItem);
@@ -593,11 +597,11 @@ public class DendaKeterlambatanItemAction extends GenericAutowireComposer implem
 		row.appendChild(jumlahHari = new Intbox(dendaKeterlambatanItem.getJumlahHari()));
 		jumlahHari.setWidth("90%");
 
-		row = new MyFormRow();
-		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Denda Per Item"));
-		row.appendChild(dendaPerItem = new MyCheckboxConfig());
-		dendaPerItem.setChecked(dendaKeterlambatanItem.getDendaPerItem());
+		// Baris "Denda Per Item" sengaja dihapus dari form: satu-satunya cabang perhitungan
+		// denda yang masih hidup (LibraryUtil.hitungDendaItem) mensyaratkan dendaPerItem=true,
+		// sehingga tarif yang dibuat dengan kotak itu tidak dicentang tidak pernah dikenakan
+		// kepada siapa pun. onSave() sekarang memaksa nilainya true untuk semua tarif baru/
+		// yang disunting lewat layar ini. Lihat DendaKeterlambatanItem#getDendaPerItem().
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -667,7 +671,8 @@ public class DendaKeterlambatanItemAction extends GenericAutowireComposer implem
 			dendaKeterlambatanItem = dendaKeterlambatanItemDao.load(dendaKeterlambatanItem.getId());
 		}
 
-		dendaKeterlambatanItem.setDendaPerItem(dendaPerItem.isChecked());
+		// Dipaksa true: lihat catatan penghapusan baris "Denda Per Item" di init() di atas.
+		dendaKeterlambatanItem.setDendaPerItem(true);
 		// dendaKeterlambatanItem.setBerulang(berulang.isChecked());
 		dendaKeterlambatanItem.setDenda(denda.getValue());
 		dendaKeterlambatanItem.setJumlahHari(jumlahHari.getValue());

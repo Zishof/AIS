@@ -55,30 +55,46 @@ import ais.database.model.GeneralValueObject;
  * perlu dipahami adalah apa yang dibandingkan: {@code penyiap_user_id} datang
  * dari PAYLOAD PERMINTAAN, bukan dari catatan peladen tentang siapa yang
  * benar-benar menyiapkan obat. Tidak ada tempat di sistem ini yang merekam
- * penyiap secara berwenang, sehingga tidak ada yang dapat dijadikan pembanding.
- * Akibatnya perbandingan itu berbentuk "akun yang login tidak sama dengan nama
- * yang diketik pengirim" — seorang petugas yang bekerja sendirian dapat
+ * penyiap secara berwenang, sehingga tidak ada yang dapat dijadikan pembanding —
+ * {@code AntreanFarmasi.olehId} sempat dipertimbangkan sebagai pembanding
+ * (kolomnya memang otentik, diisi otomatis oleh {@code AuditTimestampInterceptor}
+ * dari sesi peladen, bukan dari payload), tetapi ditolak: {@code resepId} pada
+ * {@code AntreanFarmasi} adalah tautan LONGGAR tanpa FK (lihat javadocnya sendiri),
+ * urutan status tidak ditegakkan sehingga baris "terbaru berstatus DISIAPKAN"
+ * tidak terjamin mewakili episode dispensing yang sedang berjalan, dan
+ * {@code olehId} adalah string komposit (userId + asal panggilan + IP) yang
+ * menuntut logika parsing baru yang tidak dipakai di tempat lain pada basis kode
+ * ini. Membangun perbandingan di atas sinyal serapuh itu berisiko memberi rasa
+ * aman yang salah — lebih baik tidak berpura-pura terverifikasi sama sekali
+ * daripada berpura-pura lewat pembanding yang bisa keliru.</p>
+ *
+ * <p>Akibatnya perbandingan yang ADA berbentuk "akun yang login tidak sama dengan
+ * nama yang diketik pengirim" — seorang petugas yang bekerja sendirian dapat
  * mengetikkan id rekan mana pun dan lolos, meninggalkan catatan yang menyatakan
- * pemeriksaan kedua sudah dilakukan.</p>
+ * pemeriksaan kedua sudah dilakukan. Yang DITAMBAHKAN kemudian
+ * (2026-09, {@code ApotikDispensingHelper.catat}) hanyalah pagar termurah:
+ * {@code penyiap_user_id} kini WAJIB merujuk akun {@code Tbmuser} yang benar-benar
+ * ADA dan AKTIF — menutup kasus nama karangan/typo, tetapi TIDAK menutup kasus
+ * petugas yang mengetikkan id rekan sungguhan mana pun.</p>
  *
  * <p>Ini bukan alasan melonggarkan penolakan yang ada — ia tetap menangkap kasus
  * paling lugu, yaitu petugas yang mengisi namanya sendiri. Tetapi Javadoc ini
  * tidak boleh membiarkan pembacanya mengira jejak {@link #getPenyiapUserId()}
- * adalah fakta terverifikasi. Ia adalah PERNYATAAN pengirim. Setiap laporan atau
- * pemeriksaan yang bersandar padanya perlu menyebutkan sifat itu.</p>
+ * adalah fakta terverifikasi. Ia adalah PERNYATAAN pengirim — kini pernyataan
+ * yang dijamin merujuk akun sungguhan, tapi PERNYATAAN tetap, bukan bukti siapa
+ * yang menyiapkan. Setiap laporan atau pemeriksaan yang bersandar padanya perlu
+ * menyebutkan sifat itu; lihat {@code penyiapKeterangan} pada balasan JSON
+ * {@code ApotikDispensingHelper.baris}.</p>
  *
- * <h3>Catatan tentang "pembatalan" pada paragraf di atas</h3>
+ * <h3>Pembatalan</h3>
  *
- * <p>Kalimat "pembatalan dilakukan dengan menonaktifkan baris" menyatakan
- * BENTUK yang benar bila pembatalan diperlukan, bukan fasilitas yang sudah
- * tersedia. Pada keadaan sekarang {@code ApotikDispensingHelper.proses} hanya
- * mengenal dua aksi — {@code apotik_dispensing_status} dan
- * {@code apotik_dispensing_catat} — dan tidak ada satu pun jalur yang
- * memanggil {@link #setAktif(Boolean)} dengan {@code FALSE}. Penanda aktif
- * karena itu sekarang berjalan SATU ARAH: dinyalakan saat baris dibuat, tidak
- * pernah dipadamkan. Siapa pun yang kelak menambahkan pembatalan hendaknya
- * mengikuti bentuk yang dinyatakan paragraf itu — menonaktifkan, bukan
- * menghapus — dan menambahkan pemeriksaan hak yang setara.</p>
+ * <p>Diimplementasikan lewat {@code apotik_dispensing_batalkan}
+ * (gerbang hak TERPISAH dari {@code apotik_dispensing_catat}): menonaktifkan
+ * baris lewat {@link #setAktif(Boolean)}, tidak pernah menghapusnya, dan
+ * menuntut alasan tertulis lewat {@link #getAlasanBatal()}. Siapa yang
+ * membatalkan dan kapan tidak butuh kolom baru — keduanya terekam otomatis
+ * pada kolom audit generik {@link #getOlehId()}/{@link #getTanggal_dirubah()}
+ * begitu baris di-{@code update}, lihat {@link #onUpdate()}.</p>
  *
  * @see AntreanFarmasi papan antrean penyiapan; status SELESAI di sana bukan bukti pemeriksaan
  * @see ApotikNarkotikaLog register wajib untuk golongan obat terkendali
@@ -119,8 +135,11 @@ public class ApotikDispensingLog extends GeneralValueObject {
 	/** Catatan bebas pemeriksa/konselor. */
 	private String catatan;
 
-	/** Penanda aktif; sekarang berjalan satu arah — lihat dokumentasi class. */
+	/** Penanda aktif; lihat dokumentasi class untuk jalur yang memadamkannya. */
 	private Boolean aktif;
+
+	/** Alasan pembatalan; hanya terisi setelah {@code apotik_dispensing_batalkan}. */
+	private String alasanBatal;
 
 	/** Waktu pemeriksaan/konseling dicatat. */
 	private Date waktu;
@@ -134,11 +153,10 @@ public class ApotikDispensingLog extends GeneralValueObject {
 	/**
 	 * Kait JPA sebelum UPDATE: menyegarkan {@link #getTanggal_dirubah()}.
 	 *
-	 * <p>Pada keadaan sekarang tidak pernah berjalan, karena tidak ada jalur
-	 * yang menyunting baris yang sudah tersimpan. Ia akan mulai berjalan pada
-	 * hari pembatalan ditambahkan — dan justru di situ ia berguna, sebab
-	 * menonaktifkan sebuah catatan keselamatan adalah perbuatan yang waktunya
-	 * perlu diketahui.</p>
+	 * <p>Berjalan pada satu-satunya jalur yang menyunting baris yang sudah
+	 * tersimpan: {@code ApotikDispensingHelper.batalkan}. Justru di situ ia
+	 * berguna, sebab menonaktifkan sebuah catatan keselamatan adalah perbuatan
+	 * yang waktunya perlu diketahui.</p>
 	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
@@ -246,10 +264,15 @@ public class ApotikDispensingLog extends GeneralValueObject {
 	 * <p><b>Pernyataan pengirim, bukan fakta terverifikasi.</b> Nilai ini datang
 	 * dari payload permintaan ({@code penyiap_user_id}); tidak ada catatan
 	 * peladen tentang siapa yang benar-benar menyiapkan obat yang dapat
-	 * dijadikan pembanding, dan karena itu tidak ada yang memverifikasinya.
-	 * Peladen hanya memastikan nilainya BERBEDA dari akun yang sedang login —
-	 * penjagaan yang menangkap petugas yang mengisi namanya sendiri, tetapi
-	 * tidak menangkap petugas yang mengetikkan id rekan mana pun.</p>
+	 * dijadikan pembanding (lihat javadoc class untuk kenapa
+	 * {@code AntreanFarmasi.olehId} ditolak sebagai pembanding), dan karena itu
+	 * identitas penyiap sungguhan tidak diverifikasi. Peladen memastikan DUA
+	 * hal: nilainya merujuk akun {@code Tbmuser} yang ADA dan AKTIF
+	 * ({@code ApotikDispensingHelper.catat}, sejak 2026-09), dan — khusus
+	 * {@link #JENIS_DOUBLE_CHECK} — nilainya BERBEDA dari akun yang sedang
+	 * login. Penjagaan ini menangkap nama karangan/typo dan petugas yang
+	 * mengisi namanya sendiri, tetapi tidak menangkap petugas yang mengetikkan
+	 * id rekan sungguhan mana pun.</p>
 	 *
 	 * <p>Sifat itu perlu disebut setiap kali kolom ini dibaca sebagai bukti.
 	 * Sebuah catatan DOUBLE_CHECK menyatakan bahwa seseorang mengaku memeriksa
@@ -358,10 +381,10 @@ public class ApotikDispensingLog extends GeneralValueObject {
 	 * demikian menjawab berbeda untuk baris yang sama; yang berlaku di jalur
 	 * pencarian adalah kolomnya.</p>
 	 *
-	 * <p><b>Sekarang berjalan satu arah.</b> Tidak ada satu pun aksi yang
-	 * memadamkan penanda ini — lihat dokumentasi class. Selama keadaan itu
-	 * bertahan, seluruh catatan yang pernah dibuat berlaku selamanya, dan
-	 * kesalahan pencatatan tidak dapat dikoreksi lewat aplikasi.</p>
+	 * <p><b>Kini dua arah.</b> {@code ApotikDispensingHelper.batalkan} adalah
+	 * satu-satunya jalur yang memadamkan penanda ini, dan hanya itu — baris
+	 * tidak pernah dihapus. Lihat {@link #getAlasanBatal()} untuk alasan yang
+	 * menyertainya, wajib diisi oleh pemanggil.</p>
 	 *
 	 * @return penanda aktif; {@code TRUE} bila kolom kosong
 	 */
@@ -371,14 +394,40 @@ public class ApotikDispensingLog extends GeneralValueObject {
 	/**
 	 * Menetapkan penanda aktif.
 	 *
-	 * <p>Saat ini hanya dipanggil dengan {@code TRUE}, pada saat baris dibuat.
-	 * Bila pembatalan kelak ditambahkan, inilah setter yang dipakai — jangan
-	 * menghapus barisnya, sebab jejak bahwa sebuah pemeriksaan pernah dicatat
-	 * lalu dibatalkan justru bagian penting dari riwayatnya.</p>
+	 * <p>Dipanggil dengan {@code TRUE} saat baris dibuat, dan dengan
+	 * {@code FALSE} oleh {@code ApotikDispensingHelper.batalkan} saat
+	 * dibatalkan — jangan menghapus barisnya, sebab jejak bahwa sebuah
+	 * pemeriksaan pernah dicatat lalu dibatalkan justru bagian penting dari
+	 * riwayatnya. Siapa yang membatalkan dan kapan TIDAK perlu kolom
+	 * tersendiri: keduanya otomatis terekam oleh
+	 * {@code AuditTimestampInterceptor} pada kolom audit generik
+	 * {@link #getOlehId()} dan {@link #getTanggal_dirubah()} begitu baris ini
+	 * di-{@code update} — lihat javadoc {@link #onUpdate()}.</p>
 	 *
-	 * @param aktif {@code TRUE} bila catatan berlaku
+	 * @param aktif {@code TRUE} bila catatan berlaku, {@code FALSE} bila dibatalkan
 	 */
 	public void setAktif(Boolean aktif) { this.aktif = aktif; }
+
+	/**
+	 * Alasan pembatalan, wajib diisi oleh {@code apotik_dispensing_batalkan}.
+	 *
+	 * <p>Hanya terisi untuk baris yang sudah dibatalkan ({@link #getAktif()}
+	 * {@code FALSE}); {@code null} untuk baris yang masih berlaku. Siapa yang
+	 * membatalkan dan kapan tidak disimpan di sini — keduanya terekam di
+	 * {@link #getOlehId()}/{@link #getTanggal_dirubah()} pada saat UPDATE yang
+	 * sama, lihat {@link #setAktif(Boolean)}.</p>
+	 *
+	 * @return alasan pembatalan, atau {@code null} bila catatan masih aktif
+	 */
+	@Column(name = "alasan_batal", columnDefinition = "text")
+	public String getAlasanBatal() { return alasanBatal; }
+
+	/**
+	 * Menetapkan alasan pembatalan.
+	 *
+	 * @param alasanBatal alasan pembatalan
+	 */
+	public void setAlasanBatal(String alasanBatal) { this.alasanBatal = alasanBatal; }
 
 	/**
 	 * Waktu pemeriksaan/konseling dicatat.
@@ -455,9 +504,10 @@ public class ApotikDispensingLog extends GeneralValueObject {
 	/**
 	 * Stempel perubahan terakhir.
 	 *
-	 * <p>Selama tidak ada jalur yang menyunting baris, nilainya selalu sama
-	 * dengan waktu pembuatan. Ia akan mulai bergerak pada hari pembatalan
-	 * ditambahkan.</p>
+	 * <p>Sama dengan waktu pembuatan selama baris belum dibatalkan; bergerak
+	 * ke waktu pembatalan begitu {@code ApotikDispensingHelper.batalkan}
+	 * meng-{@code update} baris ini — satu-satunya jalur yang menyunting baris
+	 * yang sudah tersimpan.</p>
 	 *
 	 * @return waktu ubah terakhir
 	 */

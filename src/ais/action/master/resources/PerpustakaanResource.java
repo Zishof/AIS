@@ -54,6 +54,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.file.FotoInformasiPerpustakaan;
 import ais.database.model.file.FotoItem;
 import ais.database.model.library.Anggota;
+import ais.database.model.library.AnggotaYangDiblokir;
 import ais.database.model.library.BatasWaktuPeminjamanItem;
 import ais.database.model.library.DataDdcItemDetail;
 import ais.database.model.library.DdcItem;
@@ -1238,11 +1239,15 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 					Common.tampilErrorJikaAdmin(e);
 				}
 
+				// AKAR: kembaliPengadaanItemDetail dan tautan baliknya di peminjamanPengadaanItemDetail
+				// dulu disimpan lewat dua transaksi terpisah (commit di antaranya). Bila commit kedua
+				// gagal (mis. constraint pesananAnggota), kembaliPengadaanItemDetail yang pertama
+				// SUDAH tercommit tanpa tautan balik -- persis pola korupsi yang ditangani tombol
+				// "Check dan Proses Sekarang" di KonfigurasiNewAction. Digabung satu transaksi supaya
+				// kedua sisi commit atau rollback bersama; id IDENTITY sudah tersedia segera setelah
+				// saveOrUpdate (sebelum commit), jadi urutan simpan-lalu-tautkan tetap berlaku.
 				session.getTransaction().begin();
 				session.saveOrUpdate(kembaliPengadaanItemDetail);
-				session.getTransaction().commit();
-
-				session.getTransaction().begin();
 				peminjamanPengadaanItemDetail.setKembaliPengadaanItemDetail(kembaliPengadaanItemDetail);
 				session.saveOrUpdate(peminjamanPengadaanItemDetail);
 				if (kembaliPengadaanItemDetail.getPeminjamanPengadaanItemDetail().getPesananAnggota() != null) {
@@ -1350,6 +1355,26 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 					throw new Exception("Anggota " + myAnggota.getNama() + " masih ada peminjaman item di perpustakaan "
 							+ myPerpustakaan.getNama());
 				}
+			}
+		}
+
+		if (myAnggota != null) {
+			AnggotaYangDiblokir anggotaYangDiblokir = (AnggotaYangDiblokir) session
+					.createCriteria(AnggotaYangDiblokir.class).add(Restrictions.eq("anggota", myAnggota))
+					.add(Restrictions.le("mulai", ais.ui.util.WaktuUtil.getDate()))
+					.add(myPerpustakaan == null || myPerpustakaan.getId() == null
+							? Restrictions.sqlRestriction("true")
+							: Restrictions.or(Restrictions.isNull("perpustakaan"),
+									Restrictions.eq("perpustakaan", myPerpustakaan)))
+					.add(Restrictions.or(Restrictions.isNull("sampai"),
+							Restrictions.ge("sampai", ais.ui.util.WaktuUtil.getDate())))
+					.setMaxResults(1).uniqueResult();
+			if (anggotaYangDiblokir != null) {
+				HibernateUtil.closeSession();
+				throw new Exception("Anggota " + myAnggota.getNama() + " sedang diblokir mulai "
+						+ Common.dateFormat1.get().format(anggotaYangDiblokir.getMulai())
+						+ (anggotaYangDiblokir.getSampai() == null ? ""
+								: " sampai " + Common.dateFormat1.get().format(anggotaYangDiblokir.getSampai())));
 			}
 		}
 

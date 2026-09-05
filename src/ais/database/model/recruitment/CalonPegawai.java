@@ -1865,6 +1865,50 @@ public class CalonPegawai extends GeneralValueObject {
 		this.pernyataan = pernyataan;
 	}
 
+	/**
+	 * Mengembalikan isian dinamis pelamar dalam bentuk TERBACA (berbasis label), dengan
+	 * {@code null} dinormalkan menjadi string kosong.
+	 *
+	 * <p>
+	 * <b>Format penyimpanan.</b> Seluruh isian dinamis satu pelamar dipadatkan menjadi SATU blob
+	 * teks pada kolom bertipe {@code text}: setiap isian menempati satu baris (dipisah
+	 * {@code \n}), dan setiap baris berisi tujuh ruas yang dipisah penanda {@code <=>} —
+	 * berturut-turut label gabungan ({@code namaKelompok->labelInputan}), nilai, URL lampiran,
+	 * nomor urut, id {@link ParameterTambahan}, id
+	 * {@link KelompokParameterTambahanCalonPegawai}, dan keterangan. Penulisannya dilakukan
+	 * {@link #populateParameterTambahan(List)}; pembacaannya oleh
+	 * {@link #ambilDataParameterTambahan()}.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Konsekuensi format ini.</b> Karena isian bukan baris tabel melainkan teks, tidak ada
+	 * satu pun jaminan integritas: nilai yang kebetulan memuat {@code \n} atau {@code <=>} akan
+	 * merusak penguraian baris berikutnya (tidak ada pelolosan karakter di mana pun), isian tidak
+	 * bisa dikueri/diagregasi lewat SQL, dan perubahan definisi parameter tidak tercermin pada
+	 * data lama yang sudah membeku dalam bentuk label. Blob label ini pada dasarnya cuplikan
+	 * tampilan, bukan data — pasangannya {@link #getParameterTambahanInds()} yang berbasis id
+	 * adalah bentuk yang lebih layak dijadikan acuan.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Getter destruktif ringan.</b> Normalisasi {@code null} dilakukan dengan menugaskan
+	 * kembali ke field, bukan sekadar mengembalikan nilai. Untuk baris warisan berkolom
+	 * {@code NULL}, pembacaan pertama saja sudah mengubah state objek menjadi string kosong dan —
+	 * lewat property access Hibernate — berpotensi tersimpan pada {@code flush} berikutnya. Efek
+	 * ini bertaut langsung dengan {@link #getTelahLogin()} yang menyimpulkan status login dari
+	 * hasil getter ini.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan kerahasiaan.</b> Isian dinamis pada modul rekrutmen lazim memuat data pribadi
+	 * bebas (riwayat kesehatan, ekspektasi gaji, referensi, alasan keluar dari pekerjaan
+	 * sebelumnya) beserta tautan lampiran. Semuanya tersimpan dalam satu kolom teks tanpa
+	 * klasifikasi kerahasiaan dan ikut tersalin ke tabel revisi Envers pada setiap perubahan.
+	 * </p>
+	 *
+	 * @return blob isian dinamis berbasis label; string kosong bila belum ada (tidak pernah
+	 *         {@code null})
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahan() {
 		if (parameterTambahan == null) {
@@ -1873,10 +1917,51 @@ public class CalonPegawai extends GeneralValueObject {
 		return parameterTambahan;
 	}
 
+	/**
+	 * Menyetel blob isian dinamis berbasis label secara utuh (mengganti, bukan menambah).
+	 *
+	 * <p>
+	 * Tidak ada validasi format sama sekali: pemanggil bertanggung jawab menyusun teks sesuai
+	 * skema tujuh ruas yang dijelaskan pada {@link #getParameterTambahan()}. Dalam pemakaian
+	 * normal satu-satunya pemanggil adalah {@link #populateParameterTambahan(List)}.
+	 * </p>
+	 *
+	 * <p>
+	 * Menyetel string kosong secara efektif MENGHAPUS seluruh isian dinamis pelamar sekaligus,
+	 * tanpa konfirmasi dan tanpa cadangan selain tabel revisi Envers.
+	 * </p>
+	 *
+	 * @param parameterTambahan blob isian dinamis berbasis label
+	 */
 	public void setParameterTambahan(String parameterTambahan) {
 		this.parameterTambahan = parameterTambahan;
 	}
 
+	/**
+	 * Mengembalikan isian dinamis pelamar dalam bentuk RINGKAS berbasis id, dengan {@code null}
+	 * dinormalkan menjadi string kosong (menugaskan ke field, sama seperti
+	 * {@link #getParameterTambahan()}).
+	 *
+	 * <p>
+	 * Formatnya lebih sederhana daripada versi label: setiap baris berisi
+	 * {@code idKelompok->idParameter<=>nilai<=>urlLampiran}, dengan keterangan ditambahkan
+	 * sebagai ruas keempat. Karena mengacu pada id (bukan label), bentuk inilah yang tetap sahih
+	 * ketika label parameter diubah di kemudian hari, dan bentuk inilah yang seharusnya dipakai
+	 * saat mengisi ulang formulir.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Cacat penulisan yang perlu diketahui.</b> Pada {@link #populateParameterTambahan(List)},
+	 * ruas keterangan hanya ikut ditulis untuk baris KEDUA dan seterusnya — perhatikan bahwa
+	 * penggabungan barisnya menempelkan {@code "<=>" + keterangan} pada cabang "bukan baris
+	 * pertama" saja. Akibatnya keterangan isian pertama selalu hilang dari blob berbasis id ini
+	 * (blob berbasis label tetap memuatnya). Asimetri antara kedua blob tersebut adalah cacat
+	 * nyata, bukan pilihan desain.
+	 * </p>
+	 *
+	 * @return blob isian dinamis berbasis id; string kosong bila belum ada (tidak pernah
+	 *         {@code null})
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahanInds() {
 		if (parameterTambahanInds == null) {
@@ -1885,10 +1970,56 @@ public class CalonPegawai extends GeneralValueObject {
 		return parameterTambahanInds;
 	}
 
+	/**
+	 * Menyetel blob isian dinamis berbasis id secara utuh (mengganti, bukan menambah), tanpa
+	 * validasi format.
+	 *
+	 * @param parameterTambahanInds blob isian dinamis berbasis id
+	 */
 	public void setParameterTambahanInds(String parameterTambahanInds) {
 		this.parameterTambahanInds = parameterTambahanInds;
 	}
 
+	/**
+	 * Menguraikan blob {@link #getParameterTambahan()} menjadi daftar {@link CommonVO} yang siap
+	 * dirender di layar atau laporan.
+	 *
+	 * <p>
+	 * Blob dipecah per baris dengan {@code split("\n")}, lalu setiap baris dipecah lagi dengan
+	 * penanda {@code <=>}. Pemetaan ruas ke {@link CommonVO} adalah: ruas ke-1 menjadi
+	 * {@code name} (label), ruas ke-2 menjadi {@code name1} (nilai), ruas ke-3 menjadi
+	 * {@code name2} (URL lampiran), ruas ke-4 menjadi {@code nomorUrut}, dan ruas ke-5 menjadi
+	 * {@code id}. Setiap ruas diambil secara defensif dengan pemeriksaan panjang larik, sehingga
+	 * baris yang ruasnya kurang lengkap tetap menghasilkan objek dengan nilai kosong alih-alih
+	 * melempar {@link ArrayIndexOutOfBoundsException}.
+	 * </p>
+	 *
+	 * <p>
+	 * Penguraian angka ({@code nomorUrut} dan {@code id}) dibungkus {@code try/catch} dengan nilai
+	 * bawaan {@code 1}; kegagalan dicatat lewat {@code ErrorAuditUtil} tetapi tidak menghentikan
+	 * proses. Ini berarti baris yang rusak diam-diam bergeser ke urutan 1 dan ber-id 1, bukan
+	 * ditolak — data rusak tetap tampil dengan atribut yang salah. Di akhir, hasil diurutkan
+	 * dengan {@code Collections.sort} sesuai urutan alami {@link CommonVO} (berdasarkan
+	 * {@code nomorUrut}).
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Perilaku pada data kosong.</b> Karena {@code "".split("\n")} menghasilkan larik berisi
+	 * satu string kosong, memanggil method ini pada pelamar yang belum mengisi apa pun tetap
+	 * mengembalikan daftar berisi SATU {@link CommonVO} kosong, bukan daftar kosong. Pemanggil
+	 * yang memakai jumlah elemen untuk menyimpulkan "ada isian atau tidak" akan keliru; periksa
+	 * isi labelnya, atau periksa {@link #getParameterTambahan()} langsung.
+	 * </p>
+	 *
+	 * <p>
+	 * Method ini murni membaca — tidak mengubah state entity dan tidak menyentuh database — namun
+	 * bergantung pada {@link #getParameterTambahan()} yang punya efek samping normalisasi
+	 * {@code null}.
+	 * </p>
+	 *
+	 * @return daftar isian dinamis terurut menurut nomor urut; tidak pernah {@code null}, tetapi
+	 *         bisa berisi satu elemen kosong bila belum ada isian
+	 */
 	public List<CommonVO> ambilDataParameterTambahan() {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		String[] splNama = getParameterTambahan().split("\n");
@@ -1927,6 +2058,57 @@ public class CalonPegawai extends GeneralValueObject {
 		return commonVOs;
 	}
 
+	/**
+	 * Membaca kembali isian dinamis dari baris-baris komponen ZK di layar, lalu menuliskannya ke
+	 * {@link #setParameterTambahan(String)} dan {@link #setParameterTambahanInds(String)}.
+	 *
+	 * <p>
+	 * Ini kebalikan dari {@link #ambilDataParameterTambahan()}: dari komponen layar menjadi blob
+	 * teks. Untuk setiap {@link Row}, method mengambil dua atribut yang sebelumnya ditempelkan
+	 * layar — {@code "parameterTambahan"} berisi {@link ParameterTambahan} dan
+	 * {@code "kelompokParameterTambahanCalonPegawai"} berisi
+	 * {@link KelompokParameterTambahanCalonPegawai} — dan MELEWATI baris yang salah satu
+	 * atributnya tidak ada. Nilai isian diambil lewat {@code ParameterTambahan.ambilVal(row, ...)}
+	 * yang tahu cara membaca berbagai jenis komponen masukan, sedangkan keterangan dibaca dari
+	 * atribut {@code "keterangan"} hanya bila ia benar-benar sebuah {@link Textbox}.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Penjagaan kunci lampiran (perbaikan penting).</b> Bila parameter menuntut lampiran
+	 * ({@code getHarusMenyertakanLampiran()}), kunci jenis lampiran dihitung lewat
+	 * {@code LampiranLain.resolveJenisParameterTambahan(CalonPegawai.class, getId(), ...)} —
+	 * bukan dirakit sebagai teks lepas. Pemakaian resolver ini penting: ia menyertakan identitas
+	 * kelas entity ke dalam kunci, sehingga isian dinamis milik modul berbeda yang kebetulan
+	 * memakai pasangan id kelompok/parameter yang sama tidak lagi saling menimpa. Nilai baliknya
+	 * dipakai untuk mengambil {@link LampiranLain} yang sesuai dan menyalin URL unduhnya ke blob.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Perilaku kosong yang perlu diwaspadai.</b> Bila {@code parameterRows} {@code null} atau
+	 * kosong, method langsung {@code return} tanpa menyentuh apa pun — ini penjagaan
+	 * <i>fail-closed</i> yang benar dan mencegah isian pelamar terhapus hanya karena layar belum
+	 * selesai membangun barisnya. Namun bila daftar berisi baris-baris yang SELURUHNYA gagal
+	 * memenuhi syarat atribut, method tetap berjalan sampai akhir dan menulis dua string KOSONG,
+	 * yang berarti menghapus seluruh isian dinamis pelamar. Kegagalan per-baris ditelan
+	 * {@code Common.tampilErrorJikaAdmin(e)} yang hanya menampilkan pesan kepada admin, sehingga
+	 * pelamar biasa tidak akan tahu isiannya hilang.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Cacat keterangan pada blob berbasis id.</b> Pada penggabungan
+	 * {@code parameterTambahanInds}, ruas keterangan hanya ditempelkan pada cabang "bukan baris
+	 * pertama". Keterangan untuk isian pertama karena itu tidak pernah tersimpan pada blob
+	 * berbasis id — lihat {@link #getParameterTambahanInds()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Method ini menulis ke state entity dan bergantung pada {@link #getId()}; memanggilnya pada
+	 * objek yang belum pernah disimpan membuat kunci lampiran dihitung dengan id {@code null}.
+	 * </p>
+	 *
+	 * @param parameterRows daftar baris komponen ZK yang memuat isian dinamis; {@code null} atau
+	 *                      kosong berarti tidak ada perubahan sama sekali
+	 */
 	public void populateParameterTambahan(List<Row> parameterRows) {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return;
