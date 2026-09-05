@@ -63,6 +63,11 @@ final class ApotikKodeTransaksiHelper {
 
 	private static KodeTransaksiMedis dariConstant(String kode) {
 		if ("AJ".equals(kode)) return ConstantValues.apotikJual;
+		if ("BM".equals(kode)) return ConstantValues.beliMasuk;
+		if ("ADT".equals(kode)) return ConstantValues.adjustmentPenambahan;
+		if ("ADK".equals(kode)) return ConstantValues.adjustmentPengurangan;
+		if ("AR".equals(kode)) return ConstantValues.apotikRetur;
+		if ("BR".equals(kode)) return ConstantValues.beliRetur;
 		if ("PROD".equals(kode)) return ConstantValues.produksi;
 		if ("BB".equals(kode)) return ConstantValues.bahanBaku;
 		if ("RAC".equals(kode)) return ConstantValues.jasaRacik;
@@ -71,6 +76,11 @@ final class ApotikKodeTransaksiHelper {
 
 	private static void pasangConstant(String kode, KodeTransaksiMedis nilai) {
 		if ("AJ".equals(kode)) ConstantValues.apotikJual = nilai;
+		else if ("BM".equals(kode)) ConstantValues.beliMasuk = nilai;
+		else if ("ADT".equals(kode)) ConstantValues.adjustmentPenambahan = nilai;
+		else if ("ADK".equals(kode)) ConstantValues.adjustmentPengurangan = nilai;
+		else if ("AR".equals(kode)) ConstantValues.apotikRetur = nilai;
+		else if ("BR".equals(kode)) ConstantValues.beliRetur = nilai;
 		else if ("PROD".equals(kode)) ConstantValues.produksi = nilai;
 		else if ("BB".equals(kode)) ConstantValues.bahanBaku = nilai;
 		else if ("RAC".equals(kode)) ConstantValues.jasaRacik = nilai;

@@ -111,15 +111,12 @@ public final class ApotikPersediaanHelper {
 			tolak(hasil, "Akun Anda tidak berhak mencatat penerimaan barang (Pengadaan/PBF).");
 			return;
 		}
-		if (ConstantValues.beliMasuk == null) {
-			tolak(hasil, "Kode transaksi 'beli masuk' belum terinisialisasi di server. Hubungi admin.");
-			return;
-		}
 		JSONArray items = request == null ? null : request.optJSONArray("items");
 		if (items == null || items.length() == 0) {
 			tolak(hasil, "Minimal satu baris penerimaan.");
 			return;
 		}
+		Long beliMasukId = ApotikKodeTransaksiHelper.pastikanId("BM", "Beli Masuk", 1);
 		Long lokasiId = optLong(request, "lokasi_id");
 		String noFaktur = request.optString("no_faktur", "").trim();
 		String penyedia = request.optString("penyedia", "").trim();
@@ -134,6 +131,8 @@ public final class ApotikPersediaanHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			KodeTransaksiMedis beliMasuk = (KodeTransaksiMedis) session.get(
+					KodeTransaksiMedis.class, beliMasukId);
 			Object lokasi = lokasiId == null ? null
 					: session.get(ais.database.model.asset.Lokasi.class, lokasiId);
 			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
@@ -173,7 +172,7 @@ public final class ApotikPersediaanHelper {
 				if (item == null) {
 					throw new IllegalArgumentException("Baris " + (i + 1) + ": item tidak ditemukan.");
 				}
-				session.save(barisLedger(ConstantValues.beliMasuk, item, qty, hargaBeli, lokasi,
+				session.save(barisLedger(beliMasuk, item, qty, hargaBeli, lokasi,
 						catatan + " " + str(baris.optString("keterangan", "")).trim(), tbmuser));
 				if (!adaColdChain) {
 					java.util.List<?> profil = session
@@ -338,21 +337,21 @@ public final class ApotikPersediaanHelper {
 			tolak(hasil, "Akun Anda tidak berhak menyimpan Stok Opname Apotik.");
 			return;
 		}
-		if (ConstantValues.adjustmentPenambahan == null || ConstantValues.adjustmentPengurangan == null) {
-			tolak(hasil, "Kode transaksi adjustment belum terinisialisasi di server. Hubungi admin.");
-			return;
-		}
 		JSONArray items = request == null ? null : request.optJSONArray("items");
 		if (items == null || items.length() == 0) {
 			tolak(hasil, "Minimal satu baris opname.");
 			return;
 		}
+		Long tambahId = ApotikKodeTransaksiHelper.pastikanId("ADT", "Adjustment Penambahan", 1);
+		Long kurangId = ApotikKodeTransaksiHelper.pastikanId("ADK", "Adjustment Pengurangan", -1);
 		Long lokasiId = optLong(request, "lokasi_id");
 		String catatan = "Opname apotik " + request.optString("keterangan", "").trim();
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			KodeTransaksiMedis tambah = (KodeTransaksiMedis) session.get(KodeTransaksiMedis.class, tambahId);
+			KodeTransaksiMedis kurang = (KodeTransaksiMedis) session.get(KodeTransaksiMedis.class, kurangId);
 			Object lokasi = lokasiId == null ? null
 					: session.get(ais.database.model.asset.Lokasi.class, lokasiId);
 			List<Long> ids = new java.util.ArrayList<Long>();
@@ -384,8 +383,7 @@ public final class ApotikPersediaanHelper {
 				r.put("qtyFisik", fisik);
 				r.put("selisih", selisih);
 				if (Math.abs(selisih) > 0.0001) {
-					KodeTransaksiMedis kode = selisih > 0 ? ConstantValues.adjustmentPenambahan
-							: ConstantValues.adjustmentPengurangan;
+					KodeTransaksiMedis kode = selisih > 0 ? tambah : kurang;
 					session.save(barisLedger(kode, item, Math.abs(selisih), 0, lokasi,
 							catatan + " (sistem " + sistem + " -> fisik " + fisik + ") "
 									+ baris.optString("keterangan", "").trim(),
@@ -422,16 +420,14 @@ public final class ApotikPersediaanHelper {
 			tolak(hasil, "jenis wajib 'penjualan' (obat kembali dari pembeli) atau 'pbf' (kembali ke pemasok).");
 			return;
 		}
-		KodeTransaksiMedis kode = kePbf ? ConstantValues.beliRetur : ConstantValues.apotikRetur;
-		if (kode == null) {
-			tolak(hasil, "Kode transaksi retur belum terinisialisasi di server. Hubungi admin.");
-			return;
-		}
 		JSONArray items = request.optJSONArray("items");
 		if (items == null || items.length() == 0) {
 			tolak(hasil, "Minimal satu baris retur.");
 			return;
 		}
+		Long kodeId = kePbf
+				? ApotikKodeTransaksiHelper.pastikanId("BR", "Beli Retur", -1)
+				: ApotikKodeTransaksiHelper.pastikanId("AR", "Apotik Retur", 1);
 		Long lokasiId = optLong(request, "lokasi_id");
 		String catatan = ("Retur " + (kePbf ? "ke PBF" : "penjualan apotik") + " "
 				+ request.optString("keterangan", "").trim()).trim();
@@ -439,6 +435,7 @@ public final class ApotikPersediaanHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			KodeTransaksiMedis kode = (KodeTransaksiMedis) session.get(KodeTransaksiMedis.class, kodeId);
 			Object lokasi = lokasiId == null ? null
 					: session.get(ais.database.model.asset.Lokasi.class, lokasiId);
 			if (kePbf) {
