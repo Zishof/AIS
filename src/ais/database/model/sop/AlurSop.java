@@ -4230,50 +4230,146 @@ public class AlurSop extends GeneralValueObject {
 		this.persetujuanAdaDiSini10 = persetujuanAdaDiSini10;
 	}
 
+	/**
+	 * Menyatakan bahwa <b>keputusan menyetujui berada pada tahap ini</b> secara keseluruhan --
+	 * penanda tingkat-tahap, bukan tingkat-cabang.
+	 *
+	 * <p><b>Jangan tertukar dengan {@link #getPersetujuanAdaDiSini1()}.</b> Nama tanpa angka ini
+	 * merujuk field yang berbeda dan tidak berpasangan dengan cabang mana pun; penanda cabang
+	 * pertama adalah yang berangka 1. Kekeliruan membaca keduanya sebagai satu hal adalah jebakan
+	 * penamaan paling mudah terjadi di kelas ini.
+	 *
+	 * <p>Seperti seluruh penanda persetujuan di sini, isinya deklaratif belaka: menyalakannya tidak
+	 * menimbulkan pemeriksaan kewenangan apa pun terhadap pihak yang memproses tahap.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini}, atau {@code false} bila kolom kosong
+	 */
 	public Boolean getPersetujuanAdaDiSini() {
 		return persetujuanAdaDiSini == null ? false : persetujuanAdaDiSini;
 	}
 
+	/**
+	 * Menetapkan bahwa keputusan menyetujui berada pada tahap ini.
+	 *
+	 * <p>Tidak ada penjagaan terhadap kombinasi yang bertentangan: tahap yang sama boleh ditandai
+	 * sebagai tempat persetujuan <b>dan</b> tempat penolakan sekaligus lewat
+	 * {@link #setPenolakanAdaDiSini(Boolean)}.
+	 *
+	 * @param persetujuanAdaDiSini penanda tempat keputusan menyetujui
+	 */
 	public void setPersetujuanAdaDiSini(Boolean persetujuanAdaDiSini) {
 		this.persetujuanAdaDiSini = persetujuanAdaDiSini;
 	}
 
+	/**
+	 * Menyatakan apakah daftar dokumen tahap ini dibekukan (tidak boleh ditambah/dihapus aktor).
+	 *
+	 * <p>Sekali lagi, penguncian ini adalah keputusan <b>tampilan</b>: yang menolak perubahan
+	 * adalah lapisan UI, bukan lapisan penyimpanan.
+	 *
+	 * @return isi {@link #bekukanDokumen}, atau {@code false} bila kolom kosong
+	 */
 	public Boolean getBekukanDokumen() {
 		return bekukanDokumen == null ? false : bekukanDokumen;
 	}
 
+	/**
+	 * Menetapkan pembekuan daftar dokumen pada tahap ini.
+	 *
+	 * @param bekukanDokumen penanda pembekuan dokumen
+	 */
 	public void setBekukanDokumen(Boolean bekukanDokumen) {
 		this.bekukanDokumen = bekukanDokumen;
 	}
 
+	/**
+	 * Menyatakan apakah aktor boleh menyunting sendiri tanggal/waktu disposisi tahap ini.
+	 *
+	 * <p><b>Berimplikasi pada keandalan jejak waktu.</b> Ketika bernilai benar, kolom waktu pada
+	 * riwayat disposisi menjadi data yang diisi pengguna dan bukan stempel waktu tepercaya --
+	 * sebuah langkah dapat dicatat seolah terjadi pada tanggal lain. Nilai bawaannya salah, dan
+	 * sebaiknya tetap demikian untuk alur yang jejak waktunya dipakai sebagai bukti.
+	 *
+	 * @return isi {@link #tanggalDisposisiBolehDiubah}, atau {@code false} bila kolom kosong
+	 */
 	public Boolean getTanggalDisposisiBolehDiubah() {
 		return tanggalDisposisiBolehDiubah == null ? false : tanggalDisposisiBolehDiubah;
 	}
 
+	/**
+	 * Menetapkan apakah tanggal disposisi boleh disunting aktor.
+	 *
+	 * @param tanggalDisposisiBolehDiubah penanda kebolehan menyunting tanggal
+	 */
 	public void setTanggalDisposisiBolehDiubah(Boolean tanggalDisposisiBolehDiubah) {
 		this.tanggalDisposisiBolehDiubah = tanggalDisposisiBolehDiubah;
 	}
 
+	/**
+	 * Menyatakan apakah aktor boleh menyimpan tahap ini tanpa memilih cabang lanjutan.
+	 *
+	 * @return isi {@link #alurSetelahnyaTidakWajib}, atau {@code false} bila kolom kosong --
+	 *         artinya secara bawaan pemilihan cabang <b>wajib</b>
+	 */
 	public Boolean getAlurSetelahnyaTidakWajib() {
 		return alurSetelahnyaTidakWajib == null ? false : alurSetelahnyaTidakWajib;
 	}
 
+	/**
+	 * Menetapkan apakah pemilihan cabang lanjutan boleh dilewati.
+	 *
+	 * @param alurSetelahnyaTidakWajib penanda cabang lanjutan tidak wajib
+	 */
 	public void setAlurSetelahnyaTidakWajib(Boolean alurSetelahnyaTidakWajib) {
 		this.alurSetelahnyaTidakWajib = alurSetelahnyaTidakWajib;
 	}
 
+	/**
+	 * Menyatakan apakah tahap ini masih dipakai.
+	 *
+	 * <p><b>Berpengaruh dua arah.</b> Selain menyembunyikan tahap ini dari daftar, nilai salah di
+	 * sini membuat seluruh {@code getSetelahnyaN()} pada tahap <i>lain</i> membuang rujukan ke
+	 * tahap ini -- dan pembuangan itu dilakukan dengan menimpa field menjadi {@code null}.
+	 * Menonaktifkan satu tahap karena itu dapat <b>memutus alur pendahulunya secara senyap</b> dan,
+	 * bila baris pendahulu kemudian disimpan, menghapus konfigurasi cabangnya secara permanen.
+	 *
+	 * @return isi {@link #aktif}, atau {@code true} sebagai <b>nilai bawaan</b> bila kolom kosong
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menetapkan apakah tahap ini masih dipakai.
+	 *
+	 * <p>Perhatikan akibat berantainya yang diuraikan pada {@link #getAktif()}: mematikan penanda
+	 * ini tidak sekadar menyembunyikan satu baris.
+	 *
+	 * @param aktif penanda tahap masih dipakai
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Menyatakan bahwa <b>keputusan menolak berada pada tahap ini</b>.
+	 *
+	 * <p>Pasangan negatif {@link #getPersetujuanAdaDiSini()}, dan seperti itu pula sifatnya:
+	 * deklaratif, tidak menimbulkan pemeriksaan kewenangan. Berbeda dari persetujuan, penolakan
+	 * <b>tidak memiliki varian per-cabang</b> -- mesin ini tidak dapat menyatakan "cabang ke-3
+	 * bermakna menolak" sebagaimana ia dapat menyatakan "cabang ke-3 bermakna menyetujui".
+	 *
+	 * @return isi {@link #penolakanAdaDiSini}, atau {@code false} bila kolom kosong
+	 */
 	public Boolean getPenolakanAdaDiSini() {
 		return penolakanAdaDiSini == null ? false : penolakanAdaDiSini;
 	}
 
+	/**
+	 * Menetapkan bahwa keputusan menolak berada pada tahap ini.
+	 *
+	 * @param penolakanAdaDiSini penanda tempat keputusan menolak
+	 */
 	public void setPenolakanAdaDiSini(Boolean penolakanAdaDiSini) {
 		this.penolakanAdaDiSini = penolakanAdaDiSini;
 	}
@@ -5328,6 +5424,22 @@ public class AlurSop extends GeneralValueObject {
 		this.setelahnya20 = setelahnya20;
 	}
 
+	/**
+	 * Menyatakan apakah aktor wajib melampirkan berkas bersama catatan disposisinya.
+	 *
+	 * <p><b>Getter destruktif:</b> sama seperti {@link #getCatatanWajibDiisi()}, bila saklar induk
+	 * {@link #getBolehDiisiCatatan()} bernilai salah maka method <b>menulis {@code false} ke
+	 * field</b> {@link #lampiranCatatanWajibDiisi} lebih dulu -- konfigurasi lama hilang permanen
+	 * begitu baris disimpan ulang, dan menyalakan kembali saklar induk tidak memulihkannya.
+	 *
+	 * <p>Berbeda dari {@link #getCatatanWajibDiisi()}, nilai bawaannya <b>salah</b>: bila kolom
+	 * kosong, lampiran tidak diwajibkan. Penegakannya sendiri berada di
+	 * {@code DisposisiAlurSopAction.check()} dan hanya berlaku bila konfigurasi aplikasi
+	 * {@code tampilkan_lampiran_catatan_disposisi} menyala.
+	 *
+	 * @return {@code true} bila lampiran catatan wajib; {@code false} bila tidak, atau bila kolom
+	 *         catatan memang tidak disediakan
+	 */
 	public Boolean getLampiranCatatanWajibDiisi() {
 		if (!getBolehDiisiCatatan()) {
 			lampiranCatatanWajibDiisi = false;
@@ -5335,6 +5447,14 @@ public class AlurSop extends GeneralValueObject {
 		return lampiranCatatanWajibDiisi == null ? false : lampiranCatatanWajibDiisi;
 	}
 
+	/**
+	 * Menetapkan kewajiban melampirkan berkas bersama catatan disposisi.
+	 *
+	 * <p>Nilai yang diisikan tetap akan ditimpa menjadi salah saat dibaca selama
+	 * {@link #getBolehDiisiCatatan()} bernilai salah.
+	 *
+	 * @param lampiranCatatanWajibDiisi penanda kewajiban melampirkan berkas
+	 */
 	public void setLampiranCatatanWajibDiisi(Boolean lampiranCatatanWajibDiisi) {
 		this.lampiranCatatanWajibDiisi = lampiranCatatanWajibDiisi;
 	}
