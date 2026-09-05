@@ -3720,162 +3720,512 @@ public class AlurSop extends GeneralValueObject {
 		return false;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-1</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini1()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya() {
 		return opsiSetelahnya == null ? "" : opsiSetelahnya.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-1 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya label pilihan cabang ke-1
+	 */
 	public void setOpsiSetelahnya(String opsiSetelahnya) {
 		this.opsiSetelahnya = opsiSetelahnya;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-2</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini2()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya2} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya2() {
 		return opsiSetelahnya2 == null ? "" : opsiSetelahnya2.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-2 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya2 label pilihan cabang ke-2
+	 */
 	public void setOpsiSetelahnya2(String opsiSetelahnya2) {
 		this.opsiSetelahnya2 = opsiSetelahnya2;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-3</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini3()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya3} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya3() {
 		return opsiSetelahnya3 == null ? "" : opsiSetelahnya3.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-3 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya3 label pilihan cabang ke-3
+	 */
 	public void setOpsiSetelahnya3(String opsiSetelahnya3) {
 		this.opsiSetelahnya3 = opsiSetelahnya3;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-4</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini4()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya4} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya4() {
 		return opsiSetelahnya4 == null ? "" : opsiSetelahnya4.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-4 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya4 label pilihan cabang ke-4
+	 */
 	public void setOpsiSetelahnya4(String opsiSetelahnya4) {
 		this.opsiSetelahnya4 = opsiSetelahnya4;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-5</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini5()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya5} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya5() {
 		return opsiSetelahnya5 == null ? "" : opsiSetelahnya5.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-5 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya5 label pilihan cabang ke-5
+	 */
 	public void setOpsiSetelahnya5(String opsiSetelahnya5) {
 		this.opsiSetelahnya5 = opsiSetelahnya5;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-6</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini6()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya6} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya6() {
 		return opsiSetelahnya6 == null ? "" : opsiSetelahnya6.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-6 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya6 label pilihan cabang ke-6
+	 */
 	public void setOpsiSetelahnya6(String opsiSetelahnya6) {
 		this.opsiSetelahnya6 = opsiSetelahnya6;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-7</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini7()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya7} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya7() {
 		return opsiSetelahnya7 == null ? "" : opsiSetelahnya7.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-7 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya7 label pilihan cabang ke-7
+	 */
 	public void setOpsiSetelahnya7(String opsiSetelahnya7) {
 		this.opsiSetelahnya7 = opsiSetelahnya7;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-8</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini8()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya8} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya8() {
 		return opsiSetelahnya8 == null ? "" : opsiSetelahnya8.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-8 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya8 label pilihan cabang ke-8
+	 */
 	public void setOpsiSetelahnya8(String opsiSetelahnya8) {
 		this.opsiSetelahnya8 = opsiSetelahnya8;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-9</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini9()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya9} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya9() {
 		return opsiSetelahnya9 == null ? "" : opsiSetelahnya9.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-9 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya9 label pilihan cabang ke-9
+	 */
 	public void setOpsiSetelahnya9(String opsiSetelahnya9) {
 		this.opsiSetelahnya9 = opsiSetelahnya9;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-10</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini10()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya10} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya10() {
 		return opsiSetelahnya10 == null ? "" : opsiSetelahnya10.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-10 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya10 label pilihan cabang ke-10
+	 */
 	public void setOpsiSetelahnya10(String opsiSetelahnya10) {
 		this.opsiSetelahnya10 = opsiSetelahnya10;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-1</b>
+	 * ({@link #getSetelahnya()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini1}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini1() {
 		return persetujuanAdaDiSini1 == null ? false : persetujuanAdaDiSini1;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-1 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-1 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini1 penanda makna persetujuan untuk cabang ke-1
+	 */
 	public void setPersetujuanAdaDiSini1(Boolean persetujuanAdaDiSini1) {
 		this.persetujuanAdaDiSini1 = persetujuanAdaDiSini1;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-2</b>
+	 * ({@link #getSetelahnya2()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini2}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini2() {
 		return persetujuanAdaDiSini2 == null ? false : persetujuanAdaDiSini2;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-2 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-2 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya2} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini2 penanda makna persetujuan untuk cabang ke-2
+	 */
 	public void setPersetujuanAdaDiSini2(Boolean persetujuanAdaDiSini2) {
 		this.persetujuanAdaDiSini2 = persetujuanAdaDiSini2;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-3</b>
+	 * ({@link #getSetelahnya3()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini3}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini3() {
 		return persetujuanAdaDiSini3 == null ? false : persetujuanAdaDiSini3;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-3 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-3 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya3} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini3 penanda makna persetujuan untuk cabang ke-3
+	 */
 	public void setPersetujuanAdaDiSini3(Boolean persetujuanAdaDiSini3) {
 		this.persetujuanAdaDiSini3 = persetujuanAdaDiSini3;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-4</b>
+	 * ({@link #getSetelahnya4()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini4}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini4() {
 		return persetujuanAdaDiSini4 == null ? false : persetujuanAdaDiSini4;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-4 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-4 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya4} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini4 penanda makna persetujuan untuk cabang ke-4
+	 */
 	public void setPersetujuanAdaDiSini4(Boolean persetujuanAdaDiSini4) {
 		this.persetujuanAdaDiSini4 = persetujuanAdaDiSini4;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-5</b>
+	 * ({@link #getSetelahnya5()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini5}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini5() {
 		return persetujuanAdaDiSini5 == null ? false : persetujuanAdaDiSini5;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-5 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-5 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya5} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini5 penanda makna persetujuan untuk cabang ke-5
+	 */
 	public void setPersetujuanAdaDiSini5(Boolean persetujuanAdaDiSini5) {
 		this.persetujuanAdaDiSini5 = persetujuanAdaDiSini5;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-6</b>
+	 * ({@link #getSetelahnya6()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini6}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini6() {
 		return persetujuanAdaDiSini6 == null ? false : persetujuanAdaDiSini6;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-6 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-6 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya6} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini6 penanda makna persetujuan untuk cabang ke-6
+	 */
 	public void setPersetujuanAdaDiSini6(Boolean persetujuanAdaDiSini6) {
 		this.persetujuanAdaDiSini6 = persetujuanAdaDiSini6;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-7</b>
+	 * ({@link #getSetelahnya7()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini7}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini7() {
 		return persetujuanAdaDiSini7 == null ? false : persetujuanAdaDiSini7;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-7 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-7 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya7} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini7 penanda makna persetujuan untuk cabang ke-7
+	 */
 	public void setPersetujuanAdaDiSini7(Boolean persetujuanAdaDiSini7) {
 		this.persetujuanAdaDiSini7 = persetujuanAdaDiSini7;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-8</b>
+	 * ({@link #getSetelahnya8()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini8}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini8() {
 		return persetujuanAdaDiSini8 == null ? false : persetujuanAdaDiSini8;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-8 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-8 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya8} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini8 penanda makna persetujuan untuk cabang ke-8
+	 */
 	public void setPersetujuanAdaDiSini8(Boolean persetujuanAdaDiSini8) {
 		this.persetujuanAdaDiSini8 = persetujuanAdaDiSini8;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-9</b>
+	 * ({@link #getSetelahnya9()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini9}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini9() {
 		return persetujuanAdaDiSini9 == null ? false : persetujuanAdaDiSini9;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-9 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-9 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya9} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini9 penanda makna persetujuan untuk cabang ke-9
+	 */
 	public void setPersetujuanAdaDiSini9(Boolean persetujuanAdaDiSini9) {
 		this.persetujuanAdaDiSini9 = persetujuanAdaDiSini9;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-10</b>
+	 * ({@link #getSetelahnya10()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini10}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini10() {
 		return persetujuanAdaDiSini10 == null ? false : persetujuanAdaDiSini10;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-10 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-10 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya10} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini10 penanda makna persetujuan untuk cabang ke-10
+	 */
 	public void setPersetujuanAdaDiSini10(Boolean persetujuanAdaDiSini10) {
 		this.persetujuanAdaDiSini10 = persetujuanAdaDiSini10;
 	}
@@ -3928,162 +4278,512 @@ public class AlurSop extends GeneralValueObject {
 		this.penolakanAdaDiSini = penolakanAdaDiSini;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-11</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini11()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya11} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya11() {
 		return opsiSetelahnya11 == null ? "" : opsiSetelahnya11.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-11 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya11 label pilihan cabang ke-11
+	 */
 	public void setOpsiSetelahnya11(String opsiSetelahnya11) {
 		this.opsiSetelahnya11 = opsiSetelahnya11;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-12</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini12()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya12} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya12() {
 		return opsiSetelahnya12 == null ? "" : opsiSetelahnya12.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-12 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya12 label pilihan cabang ke-12
+	 */
 	public void setOpsiSetelahnya12(String opsiSetelahnya12) {
 		this.opsiSetelahnya12 = opsiSetelahnya12;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-13</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini13()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya13} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya13() {
 		return opsiSetelahnya13 == null ? "" : opsiSetelahnya13.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-13 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya13 label pilihan cabang ke-13
+	 */
 	public void setOpsiSetelahnya13(String opsiSetelahnya13) {
 		this.opsiSetelahnya13 = opsiSetelahnya13;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-14</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini14()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya14} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya14() {
 		return opsiSetelahnya14 == null ? "" : opsiSetelahnya14.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-14 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya14 label pilihan cabang ke-14
+	 */
 	public void setOpsiSetelahnya14(String opsiSetelahnya14) {
 		this.opsiSetelahnya14 = opsiSetelahnya14;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-15</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini15()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya15} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya15() {
 		return opsiSetelahnya15 == null ? "" : opsiSetelahnya15.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-15 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya15 label pilihan cabang ke-15
+	 */
 	public void setOpsiSetelahnya15(String opsiSetelahnya15) {
 		this.opsiSetelahnya15 = opsiSetelahnya15;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-16</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini16()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya16} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya16() {
 		return opsiSetelahnya16 == null ? "" : opsiSetelahnya16.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-16 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya16 label pilihan cabang ke-16
+	 */
 	public void setOpsiSetelahnya16(String opsiSetelahnya16) {
 		this.opsiSetelahnya16 = opsiSetelahnya16;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-17</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini17()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya17} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya17() {
 		return opsiSetelahnya17 == null ? "" : opsiSetelahnya17.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-17 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya17 label pilihan cabang ke-17
+	 */
 	public void setOpsiSetelahnya17(String opsiSetelahnya17) {
 		this.opsiSetelahnya17 = opsiSetelahnya17;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-18</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini18()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya18} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya18() {
 		return opsiSetelahnya18 == null ? "" : opsiSetelahnya18.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-18 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya18 label pilihan cabang ke-18
+	 */
 	public void setOpsiSetelahnya18(String opsiSetelahnya18) {
 		this.opsiSetelahnya18 = opsiSetelahnya18;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-19</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini19()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya19} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya19() {
 		return opsiSetelahnya19 == null ? "" : opsiSetelahnya19.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-19 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya19 label pilihan cabang ke-19
+	 */
 	public void setOpsiSetelahnya19(String opsiSetelahnya19) {
 		this.opsiSetelahnya19 = opsiSetelahnya19;
 	}
 
+	/**
+	 * Mengembalikan label pilihan untuk <b>cabang ke-20</b>, sudah dirapikan.
+	 *
+	 * <p>Label bersifat murni tampilan. Makna keputusan cabang ini ditentukan terpisah oleh
+	 * {@link #getPersetujuanAdaDiSini20()}, sehingga label bertuliskan "Setuju" pun tidak
+	 * membuat perpindahan ini dihitung sebagai persetujuan bila penanda itu bernilai salah.
+	 *
+	 * @return isi {@link #opsiSetelahnya20} tanpa spasi tepi, atau string kosong bila belum
+	 *         diisi -- tidak pernah {@code null}
+	 */
 	public String getOpsiSetelahnya20() {
 		return opsiSetelahnya20 == null ? "" : opsiSetelahnya20.trim();
 	}
 
+	/**
+	 * Mengisi label pilihan cabang ke-20 apa adanya; perapian dilakukan saat dibaca.
+	 *
+	 * @param opsiSetelahnya20 label pilihan cabang ke-20
+	 */
 	public void setOpsiSetelahnya20(String opsiSetelahnya20) {
 		this.opsiSetelahnya20 = opsiSetelahnya20;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-11</b>
+	 * ({@link #getSetelahnya11()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini11}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini11() {
 		return persetujuanAdaDiSini11 == null ? false : persetujuanAdaDiSini11;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-11 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-11 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya11} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini11 penanda makna persetujuan untuk cabang ke-11
+	 */
 	public void setPersetujuanAdaDiSini11(Boolean persetujuanAdaDiSini11) {
 		this.persetujuanAdaDiSini11 = persetujuanAdaDiSini11;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-12</b>
+	 * ({@link #getSetelahnya12()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini12}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini12() {
 		return persetujuanAdaDiSini12 == null ? false : persetujuanAdaDiSini12;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-12 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-12 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya12} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini12 penanda makna persetujuan untuk cabang ke-12
+	 */
 	public void setPersetujuanAdaDiSini12(Boolean persetujuanAdaDiSini12) {
 		this.persetujuanAdaDiSini12 = persetujuanAdaDiSini12;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-13</b>
+	 * ({@link #getSetelahnya13()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini13}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini13() {
 		return persetujuanAdaDiSini13 == null ? false : persetujuanAdaDiSini13;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-13 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-13 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya13} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini13 penanda makna persetujuan untuk cabang ke-13
+	 */
 	public void setPersetujuanAdaDiSini13(Boolean persetujuanAdaDiSini13) {
 		this.persetujuanAdaDiSini13 = persetujuanAdaDiSini13;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-14</b>
+	 * ({@link #getSetelahnya14()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini14}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini14() {
 		return persetujuanAdaDiSini14 == null ? false : persetujuanAdaDiSini14;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-14 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-14 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya14} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini14 penanda makna persetujuan untuk cabang ke-14
+	 */
 	public void setPersetujuanAdaDiSini14(Boolean persetujuanAdaDiSini14) {
 		this.persetujuanAdaDiSini14 = persetujuanAdaDiSini14;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-15</b>
+	 * ({@link #getSetelahnya15()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini15}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini15() {
 		return persetujuanAdaDiSini15 == null ? false : persetujuanAdaDiSini15;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-15 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-15 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya15} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini15 penanda makna persetujuan untuk cabang ke-15
+	 */
 	public void setPersetujuanAdaDiSini15(Boolean persetujuanAdaDiSini15) {
 		this.persetujuanAdaDiSini15 = persetujuanAdaDiSini15;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-16</b>
+	 * ({@link #getSetelahnya16()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini16}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini16() {
 		return persetujuanAdaDiSini16 == null ? false : persetujuanAdaDiSini16;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-16 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-16 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya16} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini16 penanda makna persetujuan untuk cabang ke-16
+	 */
 	public void setPersetujuanAdaDiSini16(Boolean persetujuanAdaDiSini16) {
 		this.persetujuanAdaDiSini16 = persetujuanAdaDiSini16;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-17</b>
+	 * ({@link #getSetelahnya17()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini17}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini17() {
 		return persetujuanAdaDiSini17 == null ? false : persetujuanAdaDiSini17;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-17 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-17 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya17} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini17 penanda makna persetujuan untuk cabang ke-17
+	 */
 	public void setPersetujuanAdaDiSini17(Boolean persetujuanAdaDiSini17) {
 		this.persetujuanAdaDiSini17 = persetujuanAdaDiSini17;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-18</b>
+	 * ({@link #getSetelahnya18()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini18}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini18() {
 		return persetujuanAdaDiSini18 == null ? false : persetujuanAdaDiSini18;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-18 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-18 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya18} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini18 penanda makna persetujuan untuk cabang ke-18
+	 */
 	public void setPersetujuanAdaDiSini18(Boolean persetujuanAdaDiSini18) {
 		this.persetujuanAdaDiSini18 = persetujuanAdaDiSini18;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-19</b>
+	 * ({@link #getSetelahnya19()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini19}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini19() {
 		return persetujuanAdaDiSini19 == null ? false : persetujuanAdaDiSini19;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-19 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-19 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya19} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini19 penanda makna persetujuan untuk cabang ke-19
+	 */
 	public void setPersetujuanAdaDiSini19(Boolean persetujuanAdaDiSini19) {
 		this.persetujuanAdaDiSini19 = persetujuanAdaDiSini19;
 	}
 
+	/**
+	 * Menyatakan apakah melanjutkan alur melalui <b>cabang ke-20</b>
+	 * ({@link #getSetelahnya20()}) bermakna MENYETUJUI pengajuan.
+	 *
+	 * <p>Hanya melaporkan arti cabang; tidak menimbang siapa yang memilihnya dan tidak
+	 * memicu pemeriksaan kewenangan apa pun. Dipakai oleh {@link #ambilOpsiAlurSetujui()}
+	 * dan {@link #ambilAlurSetujui(AlurSop)}.
+	 *
+	 * @return isi {@link #persetujuanAdaDiSini20}, atau {@code false} bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Boolean getPersetujuanAdaDiSini20() {
 		return persetujuanAdaDiSini20 == null ? false : persetujuanAdaDiSini20;
 	}
 
+	/**
+	 * Menetapkan apakah cabang ke-20 bermakna menyetujui.
+	 *
+	 * <p>Tidak ada penjagaan konsistensi: cabang ke-20 boleh ditandai sebagai persetujuan
+	 * meskipun kolom {@link #setelahnya20} masih kosong, dan beberapa cabang sekaligus boleh
+	 * ditandai demikian.
+	 *
+	 * @param persetujuanAdaDiSini20 penanda makna persetujuan untuk cabang ke-20
+	 */
 	public void setPersetujuanAdaDiSini20(Boolean persetujuanAdaDiSini20) {
 		this.persetujuanAdaDiSini20 = persetujuanAdaDiSini20;
 	}
