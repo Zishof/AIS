@@ -300,6 +300,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengeset {@link #id}.
+	 *
+	 * @param id nilai baru untuk {@link #id}.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -315,6 +320,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Mengeset {@link #nama}.
+	 *
+	 * @param nama nilai baru untuk {@link #nama}.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -345,6 +355,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengeset {@link #keterangan}.
+	 *
+	 * @param keterangan nilai baru untuk {@link #keterangan}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -367,6 +382,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return jumlahHariUjian;
 	}
 
+	/**
+	 * Mengeset {@link #jumlahHariUjian}.
+	 *
+	 * @param jumlahHariUjian nilai baru untuk {@link #jumlahHariUjian}.
+	 */
 	public void setJumlahHariUjian(Integer jumlahHariUjian) {
 		this.jumlahHariUjian = jumlahHariUjian;
 	}
@@ -382,6 +402,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian1;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian1}.
+	 *
+	 * @param tanggalUjian1 nilai baru untuk {@link #tanggalUjian1}.
+	 */
 	public void setTanggalUjian1(Date tanggalUjian1) {
 		this.tanggalUjian1 = tanggalUjian1;
 	}
@@ -403,6 +428,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian2;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian2}.
+	 *
+	 * @param tanggalUjian2 nilai baru untuk {@link #tanggalUjian2}.
+	 */
 	public void setTanggalUjian2(Date tanggalUjian2) {
 		this.tanggalUjian2 = tanggalUjian2;
 	}
@@ -420,6 +450,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian3;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian3}.
+	 *
+	 * @param tanggalUjian3 nilai baru untuk {@link #tanggalUjian3}.
+	 */
 	public void setTanggalUjian3(Date tanggalUjian3) {
 		this.tanggalUjian3 = tanggalUjian3;
 	}
@@ -437,6 +472,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian4;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian4}.
+	 *
+	 * @param tanggalUjian4 nilai baru untuk {@link #tanggalUjian4}.
+	 */
 	public void setTanggalUjian4(Date tanggalUjian4) {
 		this.tanggalUjian4 = tanggalUjian4;
 	}
@@ -454,6 +494,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian5;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian5}.
+	 *
+	 * @param tanggalUjian5 nilai baru untuk {@link #tanggalUjian5}.
+	 */
 	public void setTanggalUjian5(Date tanggalUjian5) {
 		this.tanggalUjian5 = tanggalUjian5;
 	}
@@ -471,6 +516,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian6;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian6}.
+	 *
+	 * @param tanggalUjian6 nilai baru untuk {@link #tanggalUjian6}.
+	 */
 	public void setTanggalUjian6(Date tanggalUjian6) {
 		this.tanggalUjian6 = tanggalUjian6;
 	}
@@ -488,6 +538,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian7;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian7}.
+	 *
+	 * @param tanggalUjian7 nilai baru untuk {@link #tanggalUjian7}.
+	 */
 	public void setTanggalUjian7(Date tanggalUjian7) {
 		this.tanggalUjian7 = tanggalUjian7;
 	}
@@ -505,6 +560,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian8;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian8}.
+	 *
+	 * @param tanggalUjian8 nilai baru untuk {@link #tanggalUjian8}.
+	 */
 	public void setTanggalUjian8(Date tanggalUjian8) {
 		this.tanggalUjian8 = tanggalUjian8;
 	}
@@ -522,6 +582,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian9;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian9}.
+	 *
+	 * @param tanggalUjian9 nilai baru untuk {@link #tanggalUjian9}.
+	 */
 	public void setTanggalUjian9(Date tanggalUjian9) {
 		this.tanggalUjian9 = tanggalUjian9;
 	}
@@ -540,6 +605,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tanggalUjian10;
 	}
 
+	/**
+	 * Mengeset {@link #tanggalUjian10}.
+	 *
+	 * @param tanggalUjian10 nilai baru untuk {@link #tanggalUjian10}.
+	 */
 	public void setTanggalUjian10(Date tanggalUjian10) {
 		this.tanggalUjian10 = tanggalUjian10;
 	}
@@ -562,6 +632,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return gelombangPendaftaranPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #gelombangPendaftaranPegawai}.
+	 *
+	 * @param gelombangPendaftaranPegawai nilai baru untuk {@link #gelombangPendaftaranPegawai}.
+	 */
 	public void setGelombangPendaftaranPegawai(GelombangPendaftaranPegawai gelombangPendaftaranPegawai) {
 		this.gelombangPendaftaranPegawai = gelombangPendaftaranPegawai;
 	}
@@ -575,6 +650,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return lokasi;
 	}
 
+	/**
+	 * Mengeset {@link #lokasi}.
+	 *
+	 * @param lokasi nilai baru untuk {@link #lokasi}.
+	 */
 	public void setLokasi(String lokasi) {
 		this.lokasi = lokasi;
 	}
@@ -593,6 +673,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return tampilkanJadwalUjianDiKartuUjian;
 	}
 
+	/**
+	 * Mengeset {@link #tampilkanJadwalUjianDiKartuUjian}.
+	 *
+	 * @param tampilkanJadwalUjianDiKartuUjian nilai baru untuk {@link #tampilkanJadwalUjianDiKartuUjian}.
+	 */
 	public void setTampilkanJadwalUjianDiKartuUjian(Boolean tampilkanJadwalUjianDiKartuUjian) {
 		this.tampilkanJadwalUjianDiKartuUjian = tampilkanJadwalUjianDiKartuUjian;
 	}
@@ -619,6 +704,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return keteranganSetelahBayar;
 	}
 
+	/**
+	 * Mengeset {@link #keteranganSetelahBayar}.
+	 *
+	 * @param keteranganSetelahBayar nilai baru untuk {@link #keteranganSetelahBayar}.
+	 */
 	public void setKeteranganSetelahBayar(String keteranganSetelahBayar) {
 		this.keteranganSetelahBayar = keteranganSetelahBayar;
 	}
@@ -638,6 +728,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return keteranganHeader;
 	}
 
+	/**
+	 * Mengeset {@link #keteranganHeader}.
+	 *
+	 * @param keteranganHeader nilai baru untuk {@link #keteranganHeader}.
+	 */
 	public void setKeteranganHeader(String keteranganHeader) {
 		this.keteranganHeader = keteranganHeader;
 	}
@@ -660,6 +755,11 @@ public class UjianPegawai extends GeneralValueObject {
 		return keteranganSetelahBayarHeader;
 	}
 
+	/**
+	 * Mengeset {@link #keteranganSetelahBayarHeader}.
+	 *
+	 * @param keteranganSetelahBayarHeader nilai baru untuk {@link #keteranganSetelahBayarHeader}.
+	 */
 	public void setKeteranganSetelahBayarHeader(String keteranganSetelahBayarHeader) {
 		this.keteranganSetelahBayarHeader = keteranganSetelahBayarHeader;
 	}

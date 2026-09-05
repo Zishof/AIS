@@ -3001,6 +3001,34 @@ public class CalonPegawai extends GeneralValueObject {
 		this.mengundurkanDiri = mengundurkanDiri;
 	}
 
+	/**
+	 * Mengembalikan kecamatan pada blok alamat KEDUA, dengan koreksi wilayah yatim yang sama
+	 * seperti {@link #getKecamatanCalon()}.
+	 *
+	 * <p>
+	 * <b>Dua blok alamat yang tidak jelas pembagiannya.</b> Kelas ini punya dua set relasi
+	 * wilayah yang menunjuk kolom berbeda: {@code kecamatan_calon_wilayah}/{@code kota_calon}/
+	 * {@code propinsi_calon} (dibaca lewat {@link #getKecamatanCalon()} dan seterusnya) serta
+	 * {@code kecamatan_wilayah}/{@code kota}/{@code propinsi} (dibaca lewat getter ini,
+	 * {@link #getKota()}, dan {@link #getPropinsi()}). Tidak ada dokumentasi asli, penamaan, atau
+	 * kode di WC ini yang menjelaskan pembagian perannya — pada kelas kembarannya di modul
+	 * PPDB/PMB pasangan seperti ini biasanya membedakan alamat calon dari alamat orang
+	 * tua/wali/asal, tetapi di sini tidak ada yang menegaskannya. Konsekuensi praktisnya: kode
+	 * baru yang membaca alamat pelamar harus memeriksa KEDUA blok, karena tidak ada jaminan blok
+	 * mana yang terisi.
+	 * </p>
+	 *
+	 * <p>
+	 * Perilaku getter identik dengan {@link #getKecamatanCalon()}: nilai dilewatkan
+	 * {@code check(...)} (bisa menugaskan {@code null} ke field), lalu bila baris wilayah yang
+	 * tertaut tidak punya induk, seluruh cache {@link Wilayah} ditelusuri untuk mencari baris
+	 * berkode {@code feeder} sama yang punya induk dan relasinya DIGANTI — perubahan yang, lewat
+	 * property access Hibernate, ikut tersimpan ke database. Baca catatan lengkapnya pada
+	 * {@link #getKecamatanCalon()}.
+	 * </p>
+	 *
+	 * @return kecamatan pada blok alamat kedua (mungkin sudah dikoreksi), atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kecamatan_wilayah", nullable = true)
 	public Wilayah getKecamatan() {
@@ -3022,10 +3050,45 @@ public class CalonPegawai extends GeneralValueObject {
 		return kecamatan;
 	}
 
+	/**
+	 * Menyetel kecamatan pada blok alamat kedua.
+	 *
+	 * @param kecamatan kecamatan; {@code null} diperbolehkan
+	 */
 	public void setKecamatan(Wilayah kecamatan) {
 		this.kecamatan = kecamatan;
 	}
 
+	/**
+	 * Mengembalikan propinsi pada blok alamat kedua, <b>yang diturunkan dari kota bila kota
+	 * terisi</b>.
+	 *
+	 * <p>
+	 * <b>Getter destruktif dengan tiga efek samping sekaligus.</b> Berurutan: (1) field
+	 * {@link #propinsi} dilewatkan {@code check(...)} dan hasilnya ditugaskan kembali — bisa
+	 * menjadi {@code null}; (2) field {@link #kota} juga dilewatkan {@code check(...)} dan
+	 * ditugaskan kembali, sehingga MEMBACA PROPINSI dapat mengubah relasi KOTA; (3) bila kota
+	 * terisi dan punya propinsi, field {@link #propinsi} DITIMPA dengan
+	 * {@code kota.getPropinsi()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Efek ketiga itu menjadikan propinsi pada blok ini sebagai nilai turunan, bukan nilai yang
+	 * disimpan: apa pun yang dipasang lewat {@link #setPropinsi(Propinsi)} akan dibuang begitu
+	 * kotanya terisi. Karena penimpaan ditugaskan ke field dan entity memakai property access,
+	 * penyelarasan itu ikut tersimpan ke database pada {@code flush} berikutnya. Perilaku ini
+	 * sekaligus menjelaskan mengapa {@link #getPropinsiCalon()} pada blok alamat pertama dibiarkan
+	 * murni membaca — kedua blok memakai aturan yang BERBEDA untuk hal yang sama, sehingga
+	 * konsistensi propinsi-kota hanya berlaku di satu sisi.
+	 * </p>
+	 *
+	 * <p>
+	 * Nama kolomnya {@code propinsi}, sama persis dengan nama propertinya.
+	 * </p>
+	 *
+	 * @return propinsi pada blok alamat kedua, diturunkan dari {@link #getKota()} bila tersedia;
+	 *         bisa {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "propinsi", nullable = true)
 	public Propinsi getPropinsi() {
@@ -3038,10 +3101,38 @@ public class CalonPegawai extends GeneralValueObject {
 		return propinsi;
 	}
 
+	/**
+	 * Menyetel propinsi pada blok alamat kedua.
+	 *
+	 * <p>
+	 * Nilai yang dipasang di sini bersifat sementara bila {@link #getKota()} terisi: pembacaan
+	 * {@link #getPropinsi()} berikutnya akan menimpanya dengan propinsi milik kota tersebut.
+	 * Untuk mengubah propinsi secara efektif, ubah kotanya.
+	 * </p>
+	 *
+	 * @param propinsi propinsi; {@code null} diperbolehkan
+	 */
 	public void setPropinsi(Propinsi propinsi) {
 		this.propinsi = propinsi;
 	}
 
+	/**
+	 * Mengembalikan kota/kabupaten pada blok alamat kedua, setelah dilewatkan {@code check(...)}
+	 * untuk meredam {@code LazyInitializationException} pada relasi {@code LAZY}.
+	 *
+	 * <p>
+	 * Seperti getter ber-{@code check} lainnya di kelas ini, hasil {@code check} ditugaskan
+	 * kembali ke field, sehingga proxy yang tidak dapat dimuat berubah menjadi {@code null} dan
+	 * berpotensi memutus relasi kota di database pada {@code flush} berikutnya.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilai ini juga menjadi sumber turunan bagi {@link #getPropinsi()}; lihat catatan pada getter
+	 * tersebut.
+	 * </p>
+	 *
+	 * @return kota/kabupaten pada blok alamat kedua, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kota", nullable = true)
 	public Kota getKota() {
@@ -3049,10 +3140,44 @@ public class CalonPegawai extends GeneralValueObject {
 		return kota;
 	}
 
+	/**
+	 * Menyetel kota/kabupaten pada blok alamat kedua. Menyetelnya akan ikut menentukan keluaran
+	 * {@link #getPropinsi()}.
+	 *
+	 * @param kota kota/kabupaten; {@code null} diperbolehkan
+	 */
 	public void setKota(Kota kota) {
 		this.kota = kota;
 	}
 
+	/**
+	 * Merender alamat surel pelamar sebagai tombol ZK di dalam komponen induk yang diberikan,
+	 * lengkap dengan ikon amplop dan tautan {@code mailto:} yang membuka di tab baru.
+	 *
+	 * <p>
+	 * Alamat diambil lewat {@link #getAlamatEmail()}, sehingga pemanggilan method ini ikut
+	 * memicu efek samping getter tersebut — termasuk kemungkinan MENGOSONGKAN alamat surel yang
+	 * dianggap tidak valid, dan tersimpannya pengosongan itu pada {@code flush} berikutnya.
+	 * Merender sebuah grid berisi banyak pelamar karena itu berpotensi menghapus alamat surel
+	 * sejumlah baris sekaligus, tanpa satu pun tindakan pengguna.
+	 * </p>
+	 *
+	 * <p>
+	 * Tombol tetap dibuat dan dipasang meskipun alamat kosong; hanya ikon, gaya, dan tautannya
+	 * yang dilewati. Hasilnya sebuah tombol berlabel kosong — pilihan yang menjaga tata letak
+	 * kolom grid tetap rata.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan arsitektur.</b> Method ini menempatkan kode pembangun komponen ZK di dalam kelas
+	 * entity, sehingga model domain bergantung pada pustaka antarmuka. Akibat praktisnya, entity
+	 * ini tidak dapat dipakai pada konteks tanpa ZK (batch, API, pengujian) tanpa menyeret
+	 * seluruh dependensi tersebut. Pola yang sama berlaku pada {@link #tampilkanHp(Component)} dan
+	 * {@link #putPhoto(Map)}.
+	 * </p>
+	 *
+	 * @param vbox komponen ZK induk tempat tombol dipasang
+	 */
 	public void tampilkanEmail(Component vbox) {
 		String email = getAlamatEmail();
 		Toolbarbutton a;
@@ -3066,6 +3191,56 @@ public class CalonPegawai extends GeneralValueObject {
 
 	}
 
+	/**
+	 * Merender nomor telepon pelamar sebagai tombol ZK bertautan WhatsApp di dalam komponen induk
+	 * yang diberikan.
+	 *
+	 * <p>
+	 * <b>Perhatikan sejak awal:</b> variabel {@code hp} dan {@code telp} di dalam method ini
+	 * KEDUANYA diisi dari {@link #getTeleponPegawai()} — entity ini memang hanya punya satu kolom
+	 * telepon. Seluruh logika bercabang yang membandingkan keduanya, menggabungkannya dengan
+	 * pemisah {@code " / "}, dan menjatuhkan salah satu ke yang lain karena itu tidak pernah
+	 * menghasilkan dua nomor berbeda: kode ini disalin dari kelas kembarannya di modul PPDB/PMB
+	 * yang memang punya kolom HP dan telepon rumah terpisah. Hasil akhirnya selalu satu nomor
+	 * yang sama.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Penyaringan nomor pengisi.</b> Nilai-nilai baku yang dipakai sebagai pengisi kosong pada
+	 * data warisan disaring dan diperlakukan sebagai "tidak ada nomor":
+	 * {@code "08100000000000000000"} dan {@code "0000000000"} untuk HP, serta
+	 * {@code "00000000000000000000"} dan {@code "000000000"} untuk telepon. Perbandingannya
+	 * memakai kesamaan persis setelah {@code trim()}, sehingga varian lain (jumlah nol berbeda,
+	 * ada spasi di tengah) tetap lolos dan akan ditampilkan sebagai nomor sungguhan.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Normalisasi ke format internasional.</b> Sebelum dijadikan tautan, nomor diubah
+	 * bertahap: awalan {@code "08"} menjadi {@code "+62"}, lalu awalan {@code "0"} yang tersisa
+	 * menjadi {@code "+62"}, lalu nomor tanpa {@code "+"} diberi awalan {@code "+62"}. Rantai ini
+	 * mengasumsikan SELURUH pelamar berkode negara Indonesia — nomor luar negeri yang ditulis
+	 * tanpa {@code "+"} akan dirusak menjadi nomor Indonesia yang salah, dan nomor yang memuat
+	 * spasi atau tanda hubung diteruskan apa adanya ke URL.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Blok {@code catch} sebagai jalur cadangan.</b> Bila pembangunan
+	 * {@code MyToolbarbuttonConfig} gagal, method mengulang seluruh proses memakai komponen
+	 * {@link A} biasa. Perhatikan bahwa jalur cadangan ini memanggil {@code a.setImage(...)} pada
+	 * {@link A}, dan bahwa nomor pengisi tidak disaring dari LABEL-nya (hanya dari tautannya),
+	 * sehingga tampilannya bisa berbeda dari jalur utama. Karena keduanya berbagi logika yang
+	 * disalin, perbaikan pada satu jalur mudah terlewat pada jalur lain.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan kerahasiaan.</b> Tautan yang dihasilkan mengirim nomor telepon pelamar sebagai
+	 * parameter kueri ke {@code web.whatsapp.com} — layanan pihak ketiga — beserta teks pesan
+	 * bawaan. Nomor telepon adalah data pribadi, dan pengirimannya ke pihak ketiga terjadi begitu
+	 * pengguna menekan tombol, tanpa peringatan maupun persetujuan.
+	 * </p>
+	 *
+	 * @param vbox komponen ZK induk tempat tombol dipasang
+	 */
 	public void tampilkanHp(Component vbox) {
 		try {
 
@@ -3125,6 +3300,51 @@ public class CalonPegawai extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menyisipkan lokasi foto pelamar ke dalam peta parameter laporan (JasperReports), di bawah
+	 * kunci {@code "foto"}.
+	 *
+	 * <p>
+	 * Foto dicari lewat {@code FileFotoLain.ambil(id, FotoCalonPegawai.DEFAULT_JENIS,
+	 * FotoCalonPegawai.class)}, lalu nilai yang disisipkan dipilih menurut urutan prioritas
+	 * berikut:
+	 * </p>
+	 * <ol>
+	 * <li>berkas fisik di server — dipakai lintasan absolutnya;</li>
+	 * <li>tautan Dropbox (dikenali dari kata {@code "dropbox"} pada tautan) — dipakai bentuk
+	 * mentahnya lewat {@code dropboxLinkRaw()};</li>
+	 * <li>berkas Google Drive — dipakai URL ekspornya lewat {@code exportGDriveUrl()};</li>
+	 * <li>bentuk lain apa pun — dipakai {@code createLinkUri()};</li>
+	 * <li>tidak ada foto sama sekali — dipakai gambar bawaan
+	 * {@code /img/administrator-icon_default.png} dari direktori aplikasi.</li>
+	 * </ol>
+	 *
+	 * <p>
+	 * <b>Ketahanan.</b> Seluruh badan method dibungkus {@code try/catch} yang hanya mencetak jejak
+	 * tumpukan dan mencatat lewat {@code ErrorAuditUtil}. Bila galat terjadi sebelum penyisipan,
+	 * kunci {@code "foto"} tidak pernah masuk ke peta dan laporan akan dirender tanpa foto (atau
+	 * gagal, bergantung pada rancangan berkas laporan) — kegagalannya senyap dari sisi pengguna.
+	 * Perhatikan pula bahwa jalur gambar bawaan hanya dipakai ketika objek foto benar-benar tidak
+	 * ditemukan; bila objeknya ada tetapi seluruh tautannya rusak, peta tetap diisi nilai yang
+	 * tidak dapat dimuat.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan kerahasiaan.</b> Untuk kasus Dropbox dan Google Drive, yang disisipkan adalah
+	 * URL publik/berbagi yang dapat diakses tanpa autentikasi AIS. Setiap laporan yang memuat
+	 * nilai tersebut — dan setiap berkas hasil unduhannya — membawa serta tautan foto pelamar yang
+	 * dapat dibuka siapa pun yang menerimanya.
+	 * </p>
+	 *
+	 * <p>
+	 * Parameter memakai {@link Map} mentah (tanpa tipe generik) mengikuti kontrak
+	 * {@code JasperReports}; anotasi {@code @SuppressWarnings} ada untuk meredam peringatan
+	 * kompilasi yang timbul karenanya.
+	 * </p>
+	 *
+	 * @param parameters peta parameter laporan yang akan diisi kunci {@code "foto"}; diubah di
+	 *                   tempat
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void putPhoto(Map parameters) {
 		try {

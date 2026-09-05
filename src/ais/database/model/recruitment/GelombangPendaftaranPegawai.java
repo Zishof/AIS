@@ -401,6 +401,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return this.mulai;
 	}
 
+	/**
+	 * Mengeset {@link #mulai}.
+	 *
+	 * @param mulai nilai baru untuk {@link #mulai}.
+	 */
 	public void setMulai(Date mulai) {
 		this.mulai = mulai;
 	}
@@ -415,6 +420,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return this.nama;
 	}
 
+	/**
+	 * Mengeset {@link #nama}.
+	 *
+	 * @param nama nilai baru untuk {@link #nama}.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -430,6 +440,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return this.sampai;
 	}
 
+	/**
+	 * Mengeset {@link #sampai}.
+	 *
+	 * @param sampai nilai baru untuk {@link #sampai}.
+	 */
 	public void setSampai(Date sampai) {
 		this.sampai = sampai;
 	}
@@ -445,6 +460,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return this.informasi;
 	}
 
+	/**
+	 * Mengeset {@link #informasi}.
+	 *
+	 * @param informasi nilai baru untuk {@link #informasi}.
+	 */
 	public void setInformasi(String informasi) {
 		this.informasi = informasi;
 	}
@@ -460,6 +480,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Mengeset {@link #aktif}.
+	 *
+	 * @param aktif nilai baru untuk {@link #aktif}.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
@@ -474,6 +499,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return keterangan;
 	}
 
+	/**
+	 * Mengeset {@link #keterangan}.
+	 *
+	 * @param keterangan nilai baru untuk {@link #keterangan}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -495,6 +525,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return tampilFormTambahanSaatRegistrasi;
 	}
 
+	/**
+	 * Mengeset {@link #tampilFormTambahanSaatRegistrasi}.
+	 *
+	 * @param tampilFormTambahanSaatRegistrasi nilai baru untuk {@link #tampilFormTambahanSaatRegistrasi}.
+	 */
 	public void setTampilFormTambahanSaatRegistrasi(Boolean tampilFormTambahanSaatRegistrasi) {
 		this.tampilFormTambahanSaatRegistrasi = tampilFormTambahanSaatRegistrasi;
 	}
@@ -517,6 +552,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return tampilFormTambahanSaatLoginCalonPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #tampilFormTambahanSaatLoginCalonPegawai}.
+	 *
+	 * @param tampilFormTambahanSaatLoginCalonPegawai nilai baru untuk {@link #tampilFormTambahanSaatLoginCalonPegawai}.
+	 */
 	public void setTampilFormTambahanSaatLoginCalonPegawai(Boolean tampilFormTambahanSaatLoginCalonPegawai) {
 		this.tampilFormTambahanSaatLoginCalonPegawai = tampilFormTambahanSaatLoginCalonPegawai;
 	}
@@ -534,6 +574,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return jenis == null || jenis.isEmpty() ? PEGAWAI : jenis;
 	}
 
+	/**
+	 * Mengeset {@link #jenis}.
+	 *
+	 * @param jenis nilai baru untuk {@link #jenis}.
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
@@ -561,6 +606,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return satuanKerja;
 	}
 
+	/**
+	 * Mengeset {@link #satuanKerja}.
+	 *
+	 * @param satuanKerja nilai baru untuk {@link #satuanKerja}.
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
@@ -576,6 +626,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return fungsiKerja == null ? "Sebagai .." : fungsiKerja;
 	}
 
+	/**
+	 * Mengeset {@link #fungsiKerja}.
+	 *
+	 * @param fungsiKerja nilai baru untuk {@link #fungsiKerja}.
+	 */
 	public void setFungsiKerja(String fungsiKerja) {
 		this.fungsiKerja = fungsiKerja;
 	}
@@ -600,6 +655,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return jurusan == null ? "Semua Pendidikan" : jurusan;
 	}
 
+	/**
+	 * Mengeset {@link #jurusan}.
+	 *
+	 * @param jurusan nilai baru untuk {@link #jurusan}.
+	 */
 	public void setJurusan(String jurusan) {
 		this.jurusan = jurusan;
 	}
@@ -616,6 +676,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return lulusan == null ? "Sarjana/S1" : lulusan;
 	}
 
+	/**
+	 * Mengeset {@link #lulusan}.
+	 *
+	 * @param lulusan nilai baru untuk {@link #lulusan}.
+	 */
 	public void setLulusan(String lulusan) {
 		this.lulusan = lulusan;
 	}
@@ -649,6 +714,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 				: persyaratan;
 	}
 
+	/**
+	 * Mengeset {@link #persyaratan}.
+	 *
+	 * @param persyaratan nilai baru untuk {@link #persyaratan}.
+	 */
 	public void setPersyaratan(String persyaratan) {
 		this.persyaratan = persyaratan;
 	}
@@ -677,6 +747,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 				: tanggungJawab;
 	}
 
+	/**
+	 * Mengeset {@link #tanggungJawab}.
+	 *
+	 * @param tanggungJawab nilai baru untuk {@link #tanggungJawab}.
+	 */
 	public void setTanggungJawab(String tanggungJawab) {
 		this.tanggungJawab = tanggungJawab;
 	}
@@ -694,6 +769,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return disclaimer == null ? "melamar pekerjaan di sini tidak dipungut biaya" : disclaimer;
 	}
 
+	/**
+	 * Mengeset {@link #disclaimer}.
+	 *
+	 * @param disclaimer nilai baru untuk {@link #disclaimer}.
+	 */
 	public void setDisclaimer(String disclaimer) {
 		this.disclaimer = disclaimer;
 	}
@@ -709,6 +789,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return pengalaman == null ? "Setidaknya 2 Tahun" : pengalaman;
 	}
 
+	/**
+	 * Mengeset {@link #pengalaman}.
+	 *
+	 * @param pengalaman nilai baru untuk {@link #pengalaman}.
+	 */
 	public void setPengalaman(String pengalaman) {
 		this.pengalaman = pengalaman;
 	}
@@ -725,6 +810,11 @@ public class GelombangPendaftaranPegawai extends GeneralValueObject {
 		return fasilitas == null ? "BPJS Kesehatan, BPJS Ketenagakerjaan" : fasilitas;
 	}
 
+	/**
+	 * Mengeset {@link #fasilitas}.
+	 *
+	 * @param fasilitas nilai baru untuk {@link #fasilitas}.
+	 */
 	public void setFasilitas(String fasilitas) {
 		this.fasilitas = fasilitas;
 	}

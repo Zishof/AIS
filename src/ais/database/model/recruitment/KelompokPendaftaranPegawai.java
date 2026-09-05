@@ -186,6 +186,11 @@ public class KelompokPendaftaranPegawai extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengeset {@link #id}.
+	 *
+	 * @param id nilai baru untuk {@link #id}.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -206,6 +211,11 @@ public class KelompokPendaftaranPegawai extends GeneralValueObject {
 		return gelombangPendaftaran;
 	}
 
+	/**
+	 * Mengeset {@link #gelombangPendaftaran}.
+	 *
+	 * @param gelombangPendaftaran nilai baru untuk {@link #gelombangPendaftaran}.
+	 */
 	public void setGelombangPendaftaran(GelombangPendaftaranPegawai gelombangPendaftaran) {
 		this.gelombangPendaftaran = gelombangPendaftaran;
 	}
@@ -220,6 +230,11 @@ public class KelompokPendaftaranPegawai extends GeneralValueObject {
 		return this.deskripsi;
 	}
 
+	/**
+	 * Mengeset {@link #deskripsi}.
+	 *
+	 * @param deskripsi nilai baru untuk {@link #deskripsi}.
+	 */
 	public void setDeskripsi(String deskripsi) {
 		this.deskripsi = deskripsi;
 	}
@@ -237,6 +252,11 @@ public class KelompokPendaftaranPegawai extends GeneralValueObject {
 		return this.kuota == null ? 30 : kuota;
 	}
 
+	/**
+	 * Mengeset {@link #kuota}.
+	 *
+	 * @param kuota nilai baru untuk {@link #kuota}.
+	 */
 	public void setKuota(int kuota) {
 		this.kuota = kuota;
 	}
@@ -252,6 +272,11 @@ public class KelompokPendaftaranPegawai extends GeneralValueObject {
 		return this.nama;
 	}
 
+	/**
+	 * Mengeset {@link #nama}.
+	 *
+	 * @param nama nilai baru untuk {@link #nama}.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -267,6 +292,11 @@ public class KelompokPendaftaranPegawai extends GeneralValueObject {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Mengeset {@link #aktif}.
+	 *
+	 * @param aktif nilai baru untuk {@link #aktif}.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
@@ -283,6 +313,11 @@ public class KelompokPendaftaranPegawai extends GeneralValueObject {
 		return skorSampai == null ? 0.0 : skorSampai;
 	}
 
+	/**
+	 * Mengeset {@link #skorSampai}.
+	 *
+	 * @param skorSampai nilai baru untuk {@link #skorSampai}.
+	 */
 	public void setSkorSampai(Double skorSampai) {
 		this.skorSampai = skorSampai;
 	}

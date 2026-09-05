@@ -191,6 +191,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 		return dikunci;
 	}
 
+	/**
+	 * Mengeset {@link #dikunci}.
+	 *
+	 * @param dikunci nilai baru untuk {@link #dikunci}.
+	 */
 	public void setDikunci(Tbmuser dikunci) {
 		this.dikunci = dikunci;
 	}
@@ -243,6 +248,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 		return this.id;
 	}
 
+	/**
+	 * Mengeset {@link #id}.
+	 *
+	 * @param id nilai baru untuk {@link #id}.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -258,6 +268,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Mengeset {@link #nama}.
+	 *
+	 * @param nama nilai baru untuk {@link #nama}.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -274,6 +289,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengeset {@link #keterangan}.
+	 *
+	 * @param keterangan nilai baru untuk {@link #keterangan}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -292,6 +312,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 		return ujianPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #ujianPegawai}.
+	 *
+	 * @param ujianPegawai nilai baru untuk {@link #ujianPegawai}.
+	 */
 	public void setUjianPegawai(UjianPegawai ujianPegawai) {
 		this.ujianPegawai = ujianPegawai;
 	}
@@ -313,6 +338,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 		return waktuMulai;
 	}
 
+	/**
+	 * Mengeset {@link #waktuMulai}.
+	 *
+	 * @param waktuMulai nilai baru untuk {@link #waktuMulai}.
+	 */
 	public void setWaktuMulai(Date waktuMulai) {
 		this.waktuMulai = waktuMulai;
 	}
@@ -336,6 +366,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 		return waktuSampai;
 	}
 
+	/**
+	 * Mengeset {@link #waktuSampai}.
+	 *
+	 * @param waktuSampai nilai baru untuk {@link #waktuSampai}.
+	 */
 	public void setWaktuSampai(Date waktuSampai) {
 		this.waktuSampai = waktuSampai;
 	}
@@ -368,6 +403,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 		return gelombangPendaftaranPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #gelombangPendaftaranPegawai}.
+	 *
+	 * @param gelombangPendaftaranPegawai nilai baru untuk {@link #gelombangPendaftaranPegawai}.
+	 */
 	public void setGelombangPendaftaranPegawai(GelombangPendaftaranPegawai gelombangPendaftaranPegawai) {
 		this.gelombangPendaftaranPegawai = gelombangPendaftaranPegawai;
 	}
@@ -417,6 +457,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 	}
 
 	@Override
+	/**
+	 * Mengeset {@link #course}.
+	 *
+	 * @param course nilai baru untuk {@link #course}.
+	 */
 	public void setCourse(String course) {
 		this.course = course;
 	}
@@ -434,6 +479,11 @@ public class JadwalUjianPegawai extends VOPembelajaran {
 	}
 
 	@Override
+	/**
+	 * Mengeset {@link #urutkanotomatis}.
+	 *
+	 * @param urutkanotomatis nilai baru untuk {@link #urutkanotomatis}.
+	 */
 	public void setUrutkanotomatis(Boolean urutkanotomatis) {
 		this.urutkanotomatis = urutkanotomatis;
 	}

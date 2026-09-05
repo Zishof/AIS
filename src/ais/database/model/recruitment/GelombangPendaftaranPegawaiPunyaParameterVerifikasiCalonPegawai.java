@@ -218,6 +218,11 @@ public class GelombangPendaftaranPegawaiPunyaParameterVerifikasiCalonPegawai ext
 		return parameterVerifikasiCalonPegawais;
 	}
 
+	/**
+	 * Mengeset {@link #parameterVerifikasiCalonPegawais}.
+	 *
+	 * @param parameterVerifikasiCalonPegawais nilai baru untuk {@link #parameterVerifikasiCalonPegawais}.
+	 */
 	public void setParameterVerifikasiCalonPegawais(Set<ParameterVerifikasiCalonPegawai> parameterVerifikasiCalonPegawais) {
 		this.parameterVerifikasiCalonPegawais = parameterVerifikasiCalonPegawais;
 	}
@@ -241,6 +246,11 @@ public class GelombangPendaftaranPegawaiPunyaParameterVerifikasiCalonPegawai ext
 		return this.id;
 	}
 
+	/**
+	 * Mengeset {@link #id}.
+	 *
+	 * @param id nilai baru untuk {@link #id}.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -260,6 +270,11 @@ public class GelombangPendaftaranPegawaiPunyaParameterVerifikasiCalonPegawai ext
 		return gelombangPendaftaranPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #gelombangPendaftaranPegawai}.
+	 *
+	 * @param gelombangPendaftaranPegawai nilai baru untuk {@link #gelombangPendaftaranPegawai}.
+	 */
 	public void setGelombangPendaftaranPegawai(GelombangPendaftaranPegawai gelombangPendaftaranPegawai) {
 		this.gelombangPendaftaranPegawai = gelombangPendaftaranPegawai;
 	}
@@ -273,6 +288,11 @@ public class GelombangPendaftaranPegawaiPunyaParameterVerifikasiCalonPegawai ext
 		return nama;
 	}
 
+	/**
+	 * Mengeset {@link #nama}.
+	 *
+	 * @param nama nilai baru untuk {@link #nama}.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -286,6 +306,11 @@ public class GelombangPendaftaranPegawaiPunyaParameterVerifikasiCalonPegawai ext
 		return judul;
 	}
 
+	/**
+	 * Mengeset {@link #judul}.
+	 *
+	 * @param judul nilai baru untuk {@link #judul}.
+	 */
 	public void setJudul(String judul) {
 		this.judul = judul;
 	}
@@ -299,6 +324,11 @@ public class GelombangPendaftaranPegawaiPunyaParameterVerifikasiCalonPegawai ext
 		return keterangan;
 	}
 
+	/**
+	 * Mengeset {@link #keterangan}.
+	 *
+	 * @param keterangan nilai baru untuk {@link #keterangan}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}

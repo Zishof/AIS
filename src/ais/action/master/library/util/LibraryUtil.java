@@ -67,6 +67,7 @@ import ais.database.model.library.JenisAnggota;
 import ais.database.model.library.JenisIdentitasAnggota;
 import ais.database.model.library.JenisInformasiPerpustakaan;
 import ais.database.model.library.JenisItem;
+import ais.database.model.library.ItemPunyaBarcode;
 import ais.database.model.library.KategoriItem;
 import ais.database.model.library.KembaliPengadaanItem;
 import ais.database.model.library.KembaliPengadaanItemDetail;
@@ -1255,6 +1256,46 @@ public class LibraryUtil {
 	// return hitungDendaItem(peminjamanPengadaanItemDetail,
 	// tanggalDikembalikan);
 	// }
+
+	/**
+	 * Memeriksa apakah eksemplar ({@link ItemPunyaBarcode}) pernah ditandai HILANG, RUSAK, atau
+	 * PERBAIKAN pada baris pengembalian mana pun yang tertaut ke eksemplar tersebut.
+	 *
+	 * <p><b>Konteks bug.</b> {@link ItemPunyaBarcode} tidak memiliki field status/kondisi apa pun
+	 * (lihat Javadoc kelas tersebut); satu-satunya penanda kondisi per eksemplar adalah prefiks
+	 * teks bebas {@code "[KONDISI=...]"} pada kolom {@code keterangan} baris
+	 * {@link KembaliPengadaanItemDetail}. Query ketersediaan yang hanya memeriksa
+	 * {@code kembaliPengadaanItemDetail is null} pada {@link PeminjamanPengadaanItemDetail} tidak
+	 * dapat menegakkan kondisi ini, sehingga eksemplar yang sudah dinyatakan hilang/rusak kembali
+	 * terhitung tersedia begitu pengembaliannya diproses. Method ini menutup celah tersebut:
+	 * panggil di samping (bukan pengganti) pemeriksaan {@code kembaliPengadaanItemDetail is null}
+	 * yang sudah ada, sebagai syarat tambahan sebelum eksemplar dianggap dapat dipinjamkan.</p>
+	 *
+	 * <p>Karena sistem ini tidak memiliki mekanisme "hapus tanda kondisi" (mis. setelah eksemplar
+	 * diperbaiki atau ditemukan kembali), penandaan bersifat permanen begitu tercatat: method ini
+	 * memeriksa keberadaan baris pengembalian berkondisi tersebut kapan pun dalam riwayat eksemplar,
+	 * bukan hanya pada pengembalian yang paling baru.</p>
+	 *
+	 * @param itemPunyaBarcode eksemplar yang hendak diperiksa; {@code null} atau belum tersimpan
+	 *                         dianggap tidak bermasalah
+	 * @return {@code true} bila eksemplar pernah dikembalikan dengan kondisi HILANG, RUSAK, atau
+	 *         PERBAIKAN dan karena itu tidak boleh dipinjamkan lagi
+	 */
+	public static boolean eksemplarKondisiTidakTersedia(ItemPunyaBarcode itemPunyaBarcode) {
+		if (itemPunyaBarcode == null || itemPunyaBarcode.getId() == null) {
+			return false;
+		}
+		Session session = HibernateUtil.currentSession();
+		Number count = (Number) session.createCriteria(KembaliPengadaanItemDetail.class)
+				.createAlias("peminjamanPengadaanItemDetail", "ppid")
+				.add(Restrictions.eq("ppid.itemPunyaBarcode", itemPunyaBarcode))
+				.add(Restrictions.or(Restrictions.like("keterangan", "[KONDISI=HILANG]", MatchMode.START),
+						Restrictions.or(Restrictions.like("keterangan", "[KONDISI=RUSAK]", MatchMode.START),
+								Restrictions.like("keterangan", "[KONDISI=PERBAIKAN]", MatchMode.START))))
+				.setProjection(Projections.rowCount()).uniqueResult();
+		return count != null && count.longValue() > 0;
+	}
+
 
 	public static DendaKeterlambatanItem hitungDendaItem(PeminjamanPengadaanItemDetail peminjamanPengadaanItemDetail) {
 		return hitungDendaItem(peminjamanPengadaanItemDetail, ais.ui.util.WaktuUtil.getDate());
