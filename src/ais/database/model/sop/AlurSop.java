@@ -2947,24 +2947,81 @@ public class AlurSop extends GeneralValueObject {
 		this.setelahnya10 = setelahnya10;
 	}
 
+	/**
+	 * Mengembalikan teks opsi tingkat-tahap yang sudah dirapikan.
+	 *
+	 * <p>Jangan tertukar dengan {@code getOpsiSetelahnyaN()}: yang ini menempel pada tahapnya
+	 * sendiri, sedangkan yang itu menempel pada masing-masing cabang.
+	 *
+	 * @return isi {@link #opsi} tanpa spasi tepi, atau string kosong -- tidak pernah {@code null}
+	 */
 	public String getOpsi() {
 		return opsi == null ? "" : opsi.trim();
 	}
 
+	/**
+	 * Mengisi teks opsi tingkat-tahap apa adanya.
+	 *
+	 * @param opsi teks opsi
+	 */
 	public void setOpsi(String opsi) {
 		this.opsi = opsi;
 	}
 
+	/**
+	 * Nilai bawaan untuk kolom bertipe JSON di kelas ini, yaitu representasi teks dari sebuah
+	 * larik JSON kosong ({@code "[]"}). Dipakai {@link #getHalamanMenu()} agar pemanggil selalu
+	 * menerima JSON yang sah dan tidak perlu berjaga terhadap teks kosong.
+	 *
+	 * <p><b>Catatan:</b> field ini {@code public static} dan <b>tidak {@code final}</b>, sehingga
+	 * secara teknis dapat ditimpa dari luar kelas dan perubahannya akan terasa di seluruh JVM.
+	 * Perlakukan sebagai konstanta meskipun bahasa tidak memaksakannya.
+	 */
 	public static String DEFAULT_FORMULA = new JSONArray().toString();
 
+	/**
+	 * Mengembalikan daftar halaman/menu yang boleh diakses selama alur berada pada tahap ini,
+	 * sebagai teks JSON.
+	 *
+	 * @return isi {@link #halamanMenu}, atau {@link #DEFAULT_FORMULA} ({@code "[]"}) bila kosong
+	 *         -- selalu berupa JSON yang sah, tidak pernah {@code null} maupun string kosong
+	 */
 	public String getHalamanMenu() {
 		return halamanMenu == null || halamanMenu.isEmpty() ? DEFAULT_FORMULA : halamanMenu;
 	}
 
+	/**
+	 * Mengisi daftar halaman/menu tahap ini apa adanya.
+	 *
+	 * <p><b>Tidak ada validasi bahwa isinya JSON yang sah.</b> Teks bukan-JSON akan tersimpan dan
+	 * baru menimbulkan galat penguraian di pihak pembaca; hanya nilai kosong yang tertangani, itu
+	 * pun oleh getter.
+	 *
+	 * @param halamanMenu teks JSON berisi larik halaman/menu
+	 */
 	public void setHalamanMenu(String halamanMenu) {
 		this.halamanMenu = halamanMenu;
 	}
 
+	/**
+	 * Mengembalikan definisi aktor yang berwenang pada tahap ini.
+	 *
+	 * <p><b>Getter destruktif dengan konsekuensi konfigurasi:</b> setelah meresolusi proxy malas
+	 * lewat {@code check(...)}, method ini <b>mengosongkan field</b> {@link #aktorSop} bila
+	 * {@link #getKembaliKePengaju()} bernilai benar. Alasannya masuk akal secara domain -- tahap
+	 * "kembali ke pengaju" memang tidak punya aktor tetap -- tetapi caranya berisiko: relasi yang
+	 * tersimpan di basis data menjadi <b>tak terlihat</b> dan, karena pemetaan berbasis properti,
+	 * dapat ikut ditulis {@code null} pada penyimpanan berikutnya. Menyalakan
+	 * {@code kembaliKePengaju} karena itu dapat <b>menghapus konfigurasi aktor secara permanen</b>.
+	 *
+	 * <p><b>Yang tidak dilakukan method ini:</b> ia tidak memeriksa apa pun tentang pengguna yang
+	 * sedang login. Nilai baliknya semata-mata deklarasi; pencocokan aktor dengan pengguna
+	 * dilakukan {@code SopUtil} di lapisan Action/servis, dan tidak ada mekanisme di kelas ini
+	 * yang memaksa pemanggil melakukannya.
+	 *
+	 * @return definisi aktor tahap ini, atau {@code null} bila belum diisi atau bila tahap ini
+	 *         dikembalikan kepada pengaju
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "aktor_sop", nullable = true)
 	public AktorSop getAktorSop() {
@@ -2975,42 +3032,114 @@ public class AlurSop extends GeneralValueObject {
 		return aktorSop;
 	}
 
+	/**
+	 * Menetapkan definisi aktor berwenang untuk tahap ini.
+	 *
+	 * <p>Perhatikan bahwa nilai yang diisikan di sini akan <b>tidak terbaca</b> selama
+	 * {@link #getKembaliKePengaju()} bernilai benar -- lihat {@link #getAktorSop()}.
+	 *
+	 * @param aktorSop definisi aktor
+	 */
 	public void setAktorSop(AktorSop aktorSop) {
 		this.aktorSop = aktorSop;
 	}
 
+	/**
+	 * Mengembalikan penunjuk form/entitas masukan yang harus diisi pada tahap ini.
+	 *
+	 * @return isi {@link #formInputan}, atau string kosong bila tahap ini tidak meminta isian
+	 *         terstruktur -- tidak pernah {@code null}
+	 */
 	public String getFormInputan() {
 		return formInputan == null ? "" : formInputan;
 	}
 
+	/**
+	 * Mengisi penunjuk form masukan tahap ini.
+	 *
+	 * <p>Nilai ini kelak diresolusi menjadi kelas/form nyata oleh lapisan Action; tidak ada
+	 * pemeriksaan di sini bahwa penunjuknya menyebut sesuatu yang benar-benar ada.
+	 *
+	 * @param formInputan penunjuk form masukan
+	 */
 	public void setFormInputan(String formInputan) {
 		this.formInputan = formInputan;
 	}
 
+	/**
+	 * Menyatakan apakah form masukan ditampilkan terkunci (hanya baca) pada tahap ini.
+	 *
+	 * @return isi {@link #bekukanFormTampilan}, atau {@code false} bila kolom kosong
+	 */
 	public Boolean getBekukanFormTampilan() {
 		return bekukanFormTampilan == null ? false : bekukanFormTampilan;
 	}
 
+	/**
+	 * Menetapkan penguncian tampilan form masukan pada tahap ini.
+	 *
+	 * @param bekukanFormTampilan penanda penguncian tampilan
+	 */
 	public void setBekukanFormTampilan(Boolean bekukanFormTampilan) {
 		this.bekukanFormTampilan = bekukanFormTampilan;
 	}
 
+	/**
+	 * Mengembalikan judul yang ditampilkan di atas form masukan tahap ini.
+	 *
+	 * @return isi {@link #labelFormInputan}, atau string kosong -- tidak pernah {@code null}
+	 */
 	public String getLabelFormInputan() {
 		return labelFormInputan == null ? "" : labelFormInputan;
 	}
 
+	/**
+	 * Mengisi judul form masukan tahap ini.
+	 *
+	 * @param labelFormInputan judul form
+	 */
 	public void setLabelFormInputan(String labelFormInputan) {
 		this.labelFormInputan = labelFormInputan;
 	}
 
+	/**
+	 * Menyatakan apakah aktor tahap ini disediakan kolom catatan disposisi.
+	 *
+	 * <p>Berperan sebagai saklar induk bagi {@link #getCatatanWajibDiisi()} dan
+	 * {@link #getLampiranCatatanWajibDiisi()}.
+	 *
+	 * @return isi {@link #bolehDiisiCatatan}, atau {@code true} sebagai <b>nilai bawaan</b> bila
+	 *         kolom kosong
+	 */
 	public Boolean getBolehDiisiCatatan() {
 		return bolehDiisiCatatan == null ? true : bolehDiisiCatatan;
 	}
 
+	/**
+	 * Menetapkan apakah kolom catatan disediakan pada tahap ini.
+	 *
+	 * <p>Mematikan saklar ini akan membuat kedua penanda turunannya <b>ditulis menjadi salah</b>
+	 * pada pembacaan berikutnya, bukan sekadar diabaikan -- lihat {@link #getCatatanWajibDiisi()}.
+	 *
+	 * @param bolehDiisiCatatan penanda ketersediaan kolom catatan
+	 */
 	public void setBolehDiisiCatatan(Boolean bolehDiisiCatatan) {
 		this.bolehDiisiCatatan = bolehDiisiCatatan;
 	}
 
+	/**
+	 * Menyatakan apakah aktor wajib mengisi catatan sebelum menyimpan tahap ini.
+	 *
+	 * <p><b>Getter destruktif:</b> bila saklar induk {@link #getBolehDiisiCatatan()} bernilai
+	 * salah, method <b>menulis {@code false} ke field</b> {@link #catatanWajibDiisi} lebih dulu.
+	 * Konfigurasi "catatan wajib" karena itu <b>hilang permanen</b> begitu kolom catatan
+	 * dimatikan lalu baris disimpan ulang -- menyalakan kembali saklar induk tidak memulihkannya.
+	 *
+	 * <p>Nilai bawaannya benar, sehingga tahap yang belum pernah dikonfigurasi mewajibkan catatan.
+	 *
+	 * @return {@code true} bila catatan wajib diisi; {@code false} bila tidak, atau bila kolom
+	 *         catatan memang tidak disediakan
+	 */
 	public Boolean getCatatanWajibDiisi() {
 		if (!getBolehDiisiCatatan()) {
 			catatanWajibDiisi = false;
@@ -3018,11 +3147,34 @@ public class AlurSop extends GeneralValueObject {
 		return catatanWajibDiisi == null ? true : catatanWajibDiisi;
 	}
 
+	/**
+	 * Menetapkan kewajiban mengisi catatan pada tahap ini.
+	 *
+	 * <p>Nilai yang diisikan akan tetap ditimpa menjadi salah saat dibaca selama
+	 * {@link #getBolehDiisiCatatan()} bernilai salah.
+	 *
+	 * @param catatanWajibDiisi penanda kewajiban mengisi catatan
+	 */
 	public void setCatatanWajibDiisi(Boolean catatanWajibDiisi) {
 		this.catatanWajibDiisi = catatanWajibDiisi;
 	}
 
 
+	/**
+	 * Menyusun ringkasan seluruh cabang lanjutan tahap ini dalam satu baris teks siap tampil,
+	 * berbentuk {@code "<kode> - <nama> (<label opsi>)"} yang dipisahkan koma.
+	 *
+	 * <p>Menggabungkan dua daftar berindeks sejajar: {@link #ambilAlurSetelahnya()} untuk tahap
+	 * tujuan dan {@link #ambilOpsiAlurSetelahnya()} untuk labelnya. Label yang kosong tidak
+	 * ditampilkan dalam kurung, dan entri {@code null} dilewati.
+	 *
+	 * <p><b>Murni baca, dan gagal-terbuka:</b> galat apa pun ditelan setelah dicatat ke audit,
+	 * sehingga hasilnya dapat terpotong -- atau kosong -- tanpa tanda apa pun bagi pemanggil.
+	 * Perlu diingat bahwa daftar sumbernya berasal dari getter destruktif {@code getSetelahnyaN()},
+	 * sehingga memanggil method ini pun ikut menjalankan penyaringan yang menimpa field.
+	 *
+	 * @return ringkasan cabang; string kosong bila tahap ini tidak punya cabang lanjutan
+	 */
 	public String ambilRingkasanAlurSetelahnya() {
 		StringBuilder sb = new StringBuilder();
 		try {
@@ -3047,6 +3199,15 @@ public class AlurSop extends GeneralValueObject {
 		return sb.toString();
 	}
 
+	/**
+	 * Menyatakan apakah tahap ini bercabang, yaitu memiliki <b>lebih dari satu</b> tahap lanjutan
+	 * -- dasar bagi lapisan tampilan untuk memutuskan apakah aktor perlu ditanyai pilihan.
+	 *
+	 * <p>Gagal-terbuka ke arah aman: bila terjadi galat, method mengembalikan {@code false}
+	 * (dianggap tidak bercabang).
+	 *
+	 * @return {@code true} bila jumlah tahap lanjutan lebih dari satu
+	 */
 	public boolean memilikiCabangAlurSetelahnya() {
 		try {
 			return ambilAlurSetelahnya().size() > 1;
@@ -3055,6 +3216,24 @@ public class AlurSop extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah persetujuan pada tahap ini mengakhiri seluruh alur.
+	 *
+	 * <p><b>Getter destruktif yang bergantung pada konfigurasi aplikasi.</b> Bila
+	 * {@code ConstantValues.sop_alur_terakhir_otomatis_jadi_persetujuan} menyala dan field masih
+	 * belum bernilai benar, method memeriksa {@link #ambilAlurSetelahnya()}: bila tahap ini
+	 * ternyata tidak punya cabang lanjutan sama sekali, field <b>ditulis menjadi benar</b>.
+	 * Dengan kata lain, tahap terakhir otomatis berubah menjadi tahap persetujuan penutup.
+	 *
+	 * <p>Dua hal yang perlu disadari: (a) penyimpulan itu memakai hasil {@code getSetelahnyaN()}
+	 * yang sudah menyaring tahap tidak aktif, sehingga <b>menonaktifkan seluruh tahap lanjutan
+	 * dapat mengubah tahap pendahulunya menjadi tahap penutup</b> secara tak sengaja;
+	 * (b) nilai yang sudah terlanjur ditulis benar tidak pernah dikembalikan menjadi salah oleh
+	 * method ini, sehingga perubahannya bersifat satu arah.
+	 *
+	 * @return {@code true} bila persetujuan di tahap ini mengakhiri alur; {@code false} bila tidak
+	 *         atau bila kolom kosong dan penyimpulan otomatis tidak berlaku
+	 */
 	public Boolean getJikaProsesDisetujuiMakaSelesai() {
 
 		if (ConstantValues.sop_alur_terakhir_otomatis_jadi_persetujuan) {
@@ -3070,22 +3249,54 @@ public class AlurSop extends GeneralValueObject {
 		return jikaProsesDisetujuiMakaSelesai == null ? false : jikaProsesDisetujuiMakaSelesai;
 	}
 
+	/**
+	 * Menetapkan apakah persetujuan di tahap ini mengakhiri alur.
+	 *
+	 * @param jikaProsesDisetujuiMakaSelesai penanda tahap penutup
+	 */
 	public void setJikaProsesDisetujuiMakaSelesai(Boolean jikaProsesDisetujuiMakaSelesai) {
 		this.jikaProsesDisetujuiMakaSelesai = jikaProsesDisetujuiMakaSelesai;
 	}
 
+	/**
+	 * Menyatakan apakah tahap ini dikembalikan kepada pengaju alih-alih kepada aktor tetap.
+	 *
+	 * <p>Nilai benar di sini <b>membuang</b> {@link #getAktorSop()} -- lihat javadoc getter
+	 * tersebut untuk konsekuensinya terhadap konfigurasi yang tersimpan.
+	 *
+	 * @return isi {@link #kembaliKePengaju}, atau {@code false} bila kolom kosong
+	 */
 	public Boolean getKembaliKePengaju() {
 		return kembaliKePengaju == null ? false : kembaliKePengaju;
 	}
 
+	/**
+	 * Menetapkan apakah tahap ini dikembalikan kepada pengaju.
+	 *
+	 * @param kembaliKePengaju penanda pengembalian ke pengaju
+	 */
 	public void setKembaliKePengaju(Boolean kembaliKePengaju) {
 		this.kembaliKePengaju = kembaliKePengaju;
 	}
 
+	/**
+	 * Menyatakan apakah tahap ini dikembalikan kepada aktor tahap sebelumnya.
+	 *
+	 * <p>Berbeda dari {@link #getKembaliKePengaju()}, penanda ini <b>tidak</b> membuang
+	 * {@link #getAktorSop()}; kedua konfigurasi dapat menyala bersamaan dan tidak ada aturan di
+	 * kelas ini yang menentukan mana yang menang -- keputusan itu ada pada pemanggil.
+	 *
+	 * @return isi {@link #kembaliKeAktorSebelumnya}, atau {@code false} bila kolom kosong
+	 */
 	public Boolean getKembaliKeAktorSebelumnya() {
 		return kembaliKeAktorSebelumnya == null ? false : kembaliKeAktorSebelumnya;
 	}
 
+	/**
+	 * Menetapkan apakah tahap ini dikembalikan kepada aktor tahap sebelumnya.
+	 *
+	 * @param kembaliKeAktorSebelumnya penanda pengembalian ke aktor sebelumnya
+	 */
 	public void setKembaliKeAktorSebelumnya(Boolean kembaliKeAktorSebelumnya) {
 		this.kembaliKeAktorSebelumnya = kembaliKeAktorSebelumnya;
 	}

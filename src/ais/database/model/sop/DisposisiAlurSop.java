@@ -1683,6 +1683,38 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menyimpulkan apakah jenjang ini <b>selesai</b> — yakni sudah diproses <i>dan</i> merupakan
+	 * titik berakhirnya alur.
+	 *
+	 * <p>Meski ada kolom {@code selesai} yang bisa disetel eksplisit oleh lapis service (mis.
+	 * {@code setSelesai(setujui)} pada {@code ProsesDisposisiSopService}), getter ini
+	 * <b>menghitung ulang</b> nilainya pada tiga cabang:</p>
+	 * <ol>
+	 * <li>Bila {@link #setujui()} benar (jenjang ini titik persetujuan yang tercapai), maka selesai
+	 * = "sudah ada pemroses" ({@code getDiajukanOleh() != null}).</li>
+	 * <li>Bila definisi jenjang menyatakan {@code jikaProsesDisetujuiMakaSelesai} dan sudah ada
+	 * pemroses, maka selesai = "tidak ada langkah lanjutan" ({@code getSetelahnya() == null}) —
+	 * artinya alur benar-benar berhenti di sini, bukan diteruskan.</li>
+	 * <li>Terakhir, <b>tanpa syarat</b>: bila belum ada pemroses pengguna internal, selesai dipaksa
+	 * {@code false}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Batasan yang perlu diketahui:</b> cabang ketiga hanya melihat
+	 * {@link #getDiajukanOleh()} dan mengabaikan pelaku mahasiswa/siswa. Jadi pada jalur pengajuan
+	 * mahasiswa/siswa, jenjang yang sudah diproses oleh mahasiswa/siswa tetap dipaksa "belum
+	 * selesai" oleh cabang ini — berbeda dari {@link #getWaktu()} dan {@link #getAktif()} yang
+	 * memperhitungkan ketiga slot pelaku. Perbedaan ini penting saat menelusuri laporan yang
+	 * memakai {@code selesai} sebagai penyaring.</p>
+	 *
+	 * <p>Karena {@code selesai} adalah properti persisten dan getter ini menulis balik ke field,
+	 * nilai simpulan tersebut dapat ikut tersimpan ke kolom {@code selesai} pada flush berikutnya —
+	 * termasuk pemaksaan {@code false} pada cabang ketiga, yang bisa menimpa nilai yang tadinya
+	 * disetel eksplisit oleh lapis service.</p>
+	 *
+	 * @return {@code true} bila jenjang ini dianggap selesai; {@code false} bila belum atau tidak
+	 *         dapat disimpulkan (tidak pernah {@code null})
+	 */
 	public Boolean getSelesai() {
 		if (getAlurSop() != null && setujui()) {
 			selesai = getDiajukanOleh() != null;
@@ -1698,18 +1730,80 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return selesai == null ? false : selesai;
 	}
 
+	/**
+	 * Menyetel penanda selesai secara eksplisit.
+	 *
+	 * <p>Dipanggil lapis service saat aktor memilih "setujui". Perlu diingat nilai ini tidak
+	 * bertahan tanpa syarat: {@link #getSelesai()} akan menghitung ulang dan dapat menimpanya —
+	 * khususnya memaksa {@code false} selama {@link #getDiajukanOleh()} masih kosong.</p>
+	 *
+	 * @param selesai penanda selesai
+	 */
 	public void setSelesai(Boolean selesai) {
 		this.selesai = selesai;
 	}
 
+	/**
+	 * Mengembalikan penanda bahwa jenjang ini merupakan <b>pengembalian</b> (revisi) ke langkah
+	 * sebelumnya, bukan penerusan maju.
+	 *
+	 * <p>Berbeda dari {@link #getSelesai()} dan {@link #getAktif()}, penanda ini <b>tidak
+	 * diturunkan</b>: ia murni menyimpan apa yang disetel lapis service ketika aktor memilih
+	 * tindakan "kembali ke alur sebelumnya" (yang hanya tersedia bila definisi jenjang menyalakan
+	 * {@code kembaliKeAktorSebelumnya}). Nilai {@code null} diperlakukan sebagai {@code false}
+	 * sehingga baris lama yang belum punya nilai tetap terbaca sebagai penerusan biasa.</p>
+	 *
+	 * @return {@code true} bila jenjang ini adalah pengembalian/revisi; {@code false} bila bukan
+	 */
 	public Boolean getKembali() {
 		return kembali == null ? false : kembali;
 	}
 
+	/**
+	 * Menyetel penanda pengembalian (revisi).
+	 *
+	 * <p>Setter polos tanpa validasi: entity tidak memeriksa apakah definisi jenjang memang
+	 * mengizinkan pengembalian, maupun apakah ada langkah sebelumnya untuk dituju. Pemeriksaan itu
+	 * dilakukan lapis service/API.</p>
+	 *
+	 * @param kembali penanda pengembalian
+	 */
 	public void setKembali(Boolean kembali) {
 		this.kembali = kembali;
 	}
 
+	/**
+	 * Menyimpulkan apakah baris jenjang ini masih <b>aktif</b> (relevan ditampilkan/diproses) atau
+	 * sudah menjadi cabang mati.
+	 *
+	 * <p>Kebutuhan ini muncul karena alur bercabang berbentuk <i>pilihan</i>: ketika sebuah jenjang
+	 * dikonfigurasi {@code alurSetelahnyaBerupaPilihan}, sistem dapat membuat beberapa baris
+	 * placeholder untuk semua kemungkinan tujuan, tetapi pada akhirnya hanya satu cabang yang
+	 * benar-benar ditempuh. Baris placeholder cabang yang tidak jadi dipilih harus disingkirkan
+	 * dari tampilan agar riwayat tidak membingungkan dan agar dasbor tidak menagih tugas yang
+	 * sebenarnya sudah tidak relevan.</p>
+	 *
+	 * <p>Sebuah baris dinyatakan <b>tidak aktif</b> hanya bila <i>seluruh</i> syarat berikut
+	 * terpenuhi sekaligus: baris sudah tersimpan (punya id); header punya penunjuk
+	 * {@code disposisiEnd}; definisi jenjang ini punya jenjang sebelumnya yang menyalakan
+	 * {@code alurSetelahnyaBerupaPilihan}; id {@code disposisiEnd} lebih besar daripada id baris
+	 * ini (artinya proses sudah melangkah melewati baris ini); dan ketiga slot pelaku masih kosong
+	 * (baris ini memang tidak pernah diproses siapa pun). Selain itu, aktif.</p>
+	 *
+	 * <p>Perhatikan bahwa perbandingan "sudah melangkah melewati" memakai <b>urutan id</b>, bukan
+	 * penelusuran rantai — pendekatan murah yang sah selama id di-generate menaik oleh database,
+	 * tetapi tidak akan bermakna bila data dipindahkan/dibuat ulang dengan id yang tidak berurutan
+	 * secara kronologis.</p>
+	 *
+	 * <p>Getter ini destruktif dan tanpa pelindung pengecualian: ia menulis hasil simpulan ke field
+	 * {@code aktif} (sehingga dapat tersimpan saat flush), dan rantai pemanggilannya menyentuh
+	 * banyak relasi lazy ({@code disposisiSop.disposisiEnd}, {@code alurSop.sebelumnya}) yang
+	 * masing-masing dapat memicu kueri tambahan. Nilai ini dipakai antara lain oleh jalur API untuk
+	 * menolak pemrosesan tahap yang sudah tidak aktif.</p>
+	 *
+	 * @return {@code true} bila baris masih relevan; {@code false} bila merupakan cabang yang tidak
+	 *         jadi ditempuh
+	 */
 	public Boolean getAktif() {
 
 		if (getId() != null && getDisposisiSop() != null && getDisposisiSop().getDisposisiEnd() != null
@@ -1726,10 +1820,45 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menyetel penanda aktif secara eksplisit.
+	 *
+	 * <p>Praktis tidak berpengaruh lama: {@link #getAktif()} selalu menghitung ulang dan menimpa
+	 * nilainya. Setter tetap diperlukan agar Hibernate dapat memetakan properti.</p>
+	 *
+	 * @param aktif penanda aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan daftar username aktor untuk jenjang ini dalam bentuk teks yang dinormalisasi,
+	 * yaitu dibungkus dan dipisah titik koma: {@code ";budi;siti;"}.
+	 *
+	 * <p>Bentuk "dibungkus titik koma" itu disengaja supaya pencocokan keanggotaan dapat dilakukan
+	 * dengan pencarian substring sederhana {@code ";" + username + ";"} — tanpa risiko
+	 * {@code "budi"} ikut cocok pada {@code "budiman"}. Normalisasi yang dilakukan: nilai kosong
+	 * atau yang hanya berisi {@code ";"} menjadi string kosong; selain itu nilai di-{@code trim},
+	 * dibungkus titik koma di kedua ujung, lalu titik koma ganda dirapatkan lewat tiga kali
+	 * {@code replaceAll(";;", ";")} berurutan. Pengulangan tiga kali itu adalah cara sederhana
+	 * menangani rentetan titik koma yang lebih panjang (satu kali {@code replaceAll} tidak
+	 * merapatkan {@code ";;;;"} sampai tuntas); rangkaian pemeriksaan {@code equals(";")} sampai
+	 * {@code equals(";;;;")} di bawahnya adalah jaring pengaman untuk sisa yang masih tertinggal.
+	 * Untuk daftar dengan rentetan titik koma yang sangat panjang, hasilnya bisa tetap belum
+	 * sepenuhnya rapat — bukan masalah pada praktiknya karena nilai ini ditulis mesin.</p>
+	 *
+	 * <p>Getter ini destruktif atas properti persisten (kolom {@code username_pengguna}): bentuk
+	 * hasil normalisasi ditulis balik ke field sehingga ikut tersimpan saat flush — sebetulnya
+	 * menguntungkan karena data lama ikut dirapikan seiring pemakaian.</p>
+	 *
+	 * <p><b>Sifatnya sebagai data, bukan penjaga.</b> Nilai di sini mencatat aktor yang
+	 * dituju/dipilih; ia tidak pernah dipakai entity ini untuk menolak penyimpanan. Pencocokan
+	 * antara pengguna yang sedang login dengan daftar aktor yang berhak dilakukan lapis pemanggil
+	 * (mis. {@code SopUtil.resolveAktor} yang juga membaca {@code AlurSop.getKhususUsername()}).</p>
+	 *
+	 * @return daftar username ternormalisasi; string kosong bila tidak ada (tidak {@code null})
+	 */
 	@Column(name = "username_pengguna", nullable = true, columnDefinition = "text")
 	public String getUsernamePengguna() {
 
@@ -1750,6 +1879,15 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return usernamePengguna == null ? "" : usernamePengguna.trim();
 	}
 
+	/**
+	 * Menyetel daftar username aktor untuk jenjang ini.
+	 *
+	 * <p>Nilai boleh ditulis tanpa titik koma pembungkus; {@link #getUsernamePengguna()} yang akan
+	 * menormalkannya. Tidak ada pemeriksaan bahwa username yang dikirim benar-benar ada, aktif,
+	 * atau berhak atas jenjang ini.</p>
+	 *
+	 * @param usernamePengguna daftar username, dipisah titik koma
+	 */
 	public void setUsernamePengguna(String usernamePengguna) {
 		this.usernamePengguna = usernamePengguna;
 	}
