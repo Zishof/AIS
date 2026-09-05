@@ -174,12 +174,18 @@ public class JenisProduk extends GeneralValueObject {
 	 * {@code false} (BEDA dengan pola {@code getAktif()} di kelas ini dan entity lain domain
 	 * inventory/koperasi yang menormalkan {@code null} menjadi {@code true} -- di sini defaultnya
 	 * justru "bukan default"). Field ini disimpan dan dikembalikan API CRUD
-	 * ({@code JenisProdukApiHelper.jenisProdukList}/{@code jenisProdukSimpan}) dan dapat diedit
-	 * dari form Jenis Produk, TETAPI pada saat dokumentasi ini ditulis TIDAK ADA jalur baca lain
-	 * di backend yang mengonsultasikan {@link #getDefaultProduk()} untuk memilih jenis "default"
-	 * mana pun (mis. saat membuat {@link Produk} baru) -- kemungkinan flag UI yang disiapkan untuk
-	 * fitur pra-pilih jenis produk namun belum/tidak jadi dikonsumsi sisi server. Verifikasi ulang
-	 * bila menambah fitur baru yang bergantung pada flag ini.
+	 * ({@code JenisProdukApiHelper.jenisProdukList}/{@code jenisProdukSimpan}) -- TIDAK ada
+	 * kontrolnya sama sekali di form ZK admin ({@code JenisProdukAction}), hanya bisa diisi lewat
+	 * API tersebut (dipakai app eBisnis/Flutter di luar repo ini).
+	 * <p><b>TODO (belum diimplementasikan):</b> pada saat dokumentasi ini ditulis TIDAK ADA jalur
+	 * baca di backend Java yang mengonsultasikan {@link #getDefaultProduk()} untuk memilih jenis
+	 * "default" mana pun (mis. saat membuat {@link Produk} baru) -- tidak ditemukan jalur
+	 * server-side pembuatan {@link Produk} baru yang bisa bermakna memakai flag ini (pembuatan
+	 * Produk didorong klien). Nilai flag SUDAH ikut dikembalikan {@code jenisProdukList} sehingga
+	 * app eBisnis/Flutter mungkin sudah mengonsumsinya sendiri di sisi klien -- jangan asumsikan
+	 * flag ini mati total tanpa memeriksa app tersebut. Sebelum menambah logika baru yang
+	 * bergantung padanya di backend, putuskan dulu apakah "jenis produk default" adalah
+	 * tanggung jawab server (perlu endpoint/logika baru) atau murni konvensi klien.</p>
 	 */
 	public Boolean getDefaultProduk() {
 		if (defaultProduk == null) {
