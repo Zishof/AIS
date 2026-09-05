@@ -146,6 +146,138 @@ public class SopUtil {
 	}
 
 	/**
+	 * Gerbang penegak kewenangan EKSPLISIT di lapisan mesin alur SOP -- lihat javadoc kelas
+	 * {@link AlurSop}, bagian "pemisahan deklarasi kewenangan dari penegakan kewenangan". Sebelum
+	 * method ini ada, tidak ada satu pun titik di mesin generik (entitas maupun helper) yang
+	 * menjawab pertanyaan "bolehkah {@code tbmuser} memproses {@code alurSop} SEKARANG" --
+	 * {@code tampilAktor}/{@code resolveAktor} hanya menjawab "siapa saja yang berwenang", dan
+	 * pemanggil bebas mengabaikan hasilnya (seperti yang selama ini terjadi pada jalur ZK).
+	 *
+	 * <p><b>FAIL-CLOSED:</b> argumen {@code null} mana pun, resolusi aktor yang kosong, maupun
+	 * galat tak terduga selama resolusi SELALU menghasilkan {@code false} (ditolak) -- tidak pernah
+	 * meloloskan secara diam-diam.</p>
+	 *
+	 * <p><b>Satu pengecualian yang disengaja:</b> tahap ber-{@link AlurSop#getKembaliKePengaju()}
+	 * tidak memiliki {@link AlurSop#getAktorSop()} (getter tahap tersebut sengaja mengosongkannya --
+	 * lihat javadocnya), sehingga {@link #resolveAktor} tidak akan pernah menemukan aktor apa pun
+	 * untuknya. Pada tahap demikian yang berwenang memprosesnya adalah PENGAJU pengajuan ini
+	 * sendiri ({@code disposisiSop.getDiajukanOleh()}) -- identitas yang sama dengan yang sudah
+	 * dipakai jalur render sedia ada ({@link #renderAktorTunggal} dipanggil dengan
+	 * {@code disposisiSop.getDiajukanOleh()} setiap kali cabang ini dipilih). Tanpa pengecualian
+	 * ini, gerbang fail-closed akan MEMBEKUKAN seluruh langkah revisi/kembali-ke-pengaju yang
+	 * selama ini berjalan sah.</p>
+	 *
+	 * <p><b>Tidak menimbang status admin.</b> Pemanggil yang ingin mengizinkan admin memproses atas
+	 * nama pihak lain (jalur yang sudah ada dan disengaja -- lihat
+	 * {@code Common.getApakahAdmin()} di {@code DisposisiAlurSopAction.onSave()}) harus memeriksanya
+	 * SENDIRI sebelum memanggil method ini; digabungkan di sini akan membuat jalur admin tidak
+	 * eksplisit bagi pembaca lain yang memanggil gerbang ini tanpa menyadari adanya bypass.</p>
+	 *
+	 * @param tbmuser      pengguna yang mencoba memproses tahap ini; {@code null} selalu ditolak
+	 * @param disposisiSop kasus/pengajuan SOP yang sedang berjalan; {@code null} selalu ditolak
+	 * @param alurSop      definisi tahap yang sedang diproses; {@code null} selalu ditolak
+	 * @return {@code true} hanya bila {@code tbmuser} terbukti termasuk aktor berwenang pada tahap
+	 *         ini untuk pengajuan ini; {@code false} untuk seluruh keadaan lain
+	 */
+	public static boolean pastikanBerwenang(Tbmuser tbmuser, DisposisiSop disposisiSop, AlurSop alur) {
+		if (tbmuser == null || disposisiSop == null || alur == null) {
+			return false;
+		}
+		try {
+			if (Boolean.TRUE.equals(alur.getKembaliKePengaju())) {
+				Tbmuser pengaju = disposisiSop.getDiajukanOleh();
+				return pengaju != null && isSameUser(tbmuser, pengaju);
+			}
+			String jenisPengguna = alur.getAktorSop() != null ? alur.getAktorSop().getJenisPengguna() : "";
+			AktorResolusi resolusi = resolveAktor(tbmuser, alur.getKhususUsername(), jenisPengguna, disposisiSop, alur);
+			return resolusi.ada;
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "SopUtil.pastikanBerwenang");
+			return false;
+		}
+	}
+
+	/**
+	 * Menegakkan bahwa {@code tujuanId} yang diklaim pemanggil (mis. dari parameter request JSON,
+	 * form JSP, atau state ZK) benar-benar salah satu cabang SAH dari {@code alurSopSaatIni} --
+	 * lihat javadoc kelas {@link AlurSop}, bagian "Urutan jenjang tidak ditegakkan": tanpa
+	 * pemeriksaan ini, pemanggil yang mengirim ulang id tahap tujuan sembarang (bukan salah satu
+	 * yang benar-benar dirender sebagai pilihan) dapat melompati jenjang atau memalsukan rute.
+	 *
+	 * @param alurSopSaatIni tahap yang sedang diproses; {@code null} selalu ditolak
+	 * @param tujuanId       id tahap tujuan yang diklaim pemanggil; {@code null} selalu ditolak
+	 * @return {@code true} hanya bila {@code tujuanId} cocok dengan salah satu id pada
+	 *         {@link AlurSop#ambilAlurSetelahnya()} milik {@code alurSopSaatIni}
+	 */
+	public static boolean validasiTransisi(AlurSop alurSopSaatIni, Long tujuanId) {
+		if (alurSopSaatIni == null || tujuanId == null) {
+			return false;
+		}
+		try {
+			for (AlurSop next : alurSopSaatIni.ambilAlurSetelahnya()) {
+				if (next != null && tujuanId.equals(next.getId())) {
+					return true;
+				}
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "SopUtil.validasiTransisi");
+		}
+		return false;
+	}
+
+	/**
+	 * Varian jamak dari {@link #validasiTransisi(AlurSop, Long)} untuk pemanggil yang mengizinkan
+	 * beberapa cabang dipilih sekaligus (mis. checkbox multi-pilih di ZK). Daftar kosong/{@code
+	 * null} dianggap tidak ada yang perlu ditolak (validasi "wajib pilih" adalah urusan pemanggil
+	 * terpisah) -- method ini hanya menolak bila ADA id yang bukan cabang sah.
+	 *
+	 * @param alurSopSaatIni tahap yang sedang diproses
+	 * @param tujuanIds      daftar id tahap tujuan yang diklaim pemanggil
+	 * @return {@code true} bila seluruh id pada {@code tujuanIds} adalah cabang sah dari
+	 *         {@code alurSopSaatIni} (atau daftarnya kosong/{@code null})
+	 */
+	public static boolean validasiTransisi(AlurSop alurSopSaatIni, List<Long> tujuanIds) {
+		if (tujuanIds == null || tujuanIds.isEmpty()) {
+			return true;
+		}
+		for (Long tujuanId : tujuanIds) {
+			if (!validasiTransisi(alurSopSaatIni, tujuanId)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Menjawab: apakah {@code tbmuser} yang mencoba memproses tahap ini SEKALIGUS adalah pengaju
+	 * pengajuan ({@code disposisiSop.getDiajukanOleh()}) -- yaitu, apakah ia akan menyetujui
+	 * pengajuannya sendiri?
+	 *
+	 * <p><b>TIDAK dipanggil di titik mutasi mana pun secara default</b> -- lihat javadoc kelas
+	 * {@link AlurSop}, bagian "self approval": mesin generik ini memang tidak pernah memiliki
+	 * mekanisme pencegahan self-approval, dan banyak modul turunan SENGAJA belum ditambal untuk
+	 * kasus ini di modul masing-masing. Mengaktifkan method ini sebagai gerbang wajib akan mengubah
+	 * perilaku lintas seluruh modul yang memakai mesin ini sekaligus, sehingga keputusan itu perlu
+	 * diangkat ke pengguna/pemilik produk dahulu -- bukan diputuskan sepihak di sini. Method ini
+	 * disediakan agar pemanggil yang SUDAH diinstruksikan mengaktifkan pencegahan self-approval
+	 * punya satu implementasi konsisten untuk dipakai, bukan menulis perbandingan identitas
+	 * sendiri-sendiri di tiap Action/servis.</p>
+	 *
+	 * @param tbmuser      pengguna yang mencoba memproses tahap ini
+	 * @param disposisiSop kasus/pengajuan SOP yang sedang berjalan
+	 * @return {@code true} bila {@code tbmuser} adalah pengaju pengajuan ini sendiri
+	 */
+	public static boolean apakahSelfApproval(Tbmuser tbmuser, DisposisiSop disposisiSop) {
+		if (tbmuser == null || disposisiSop == null) {
+			return false;
+		}
+		try {
+			return isSameUser(tbmuser, disposisiSop.getDiajukanOleh());
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/**
 	 * Tipe implementasi bersarang {@link AktorHitung} milik {@link SopUtil}. Kelas ini memberi nama pada state
 	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
 	 *

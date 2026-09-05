@@ -39,12 +39,12 @@ import ais.database.model.GrupChecklistPenilaianUmum;
  * tingkat KATEGORI (siapa yang boleh memakai/melihat jenis SOP ini sama sekali), bukan pada
  * tingkat langkah persetujuan individual.</p>
  *
- * <p><b>BUG TERKONFIRMASI pada {@link #getJenisPengguna()} (lihat javadoc method untuk detail):</b>
- * saat {@link #aktorSop} terisi, method tersebut secara keliru menulis hasil delegasi ke field
- * {@link #usernamePengguna} (bukan {@link #jenisPengguna}) lalu mengembalikan nilai
- * {@link #jenisPengguna} yang STALE/tidak diperbarui — pola getter destruktif yang mencemari
- * field bertetangga. Ini tampak sebagai kesalahan salin-tempel dari
- * {@link #getUsernamePengguna()} yang lupa mengganti nama variabel target.</p>
+ * <p><b>Bug salin-tempel pada {@link #getJenisPengguna()} (FIXED):</b> sebelum diperbaiki, saat
+ * {@link #aktorSop} terisi, method tersebut secara keliru menulis hasil delegasi ke field
+ * {@link #usernamePengguna} (bukan {@link #jenisPengguna}), tampak sebagai kesalahan
+ * salin-tempel dari {@link #getUsernamePengguna()} yang lupa mengganti nama variabel target.
+ * Sudah ditambal agar menimpa {@link #jenisPengguna}, menyerupai pola delegasi yang benar pada
+ * {@link #getUsernamePengguna()}.</p>
  *
  * @see Sop
  * @see AktorSop
@@ -170,8 +170,8 @@ public class JenisSop extends GeneralValueObject {
 	private String diperuntukkan;
 	/**
 	 * Daftar role/jenis pengguna berpisah-koma yang berwenang atas kategori ini bila
-	 * {@link #aktorSop} tidak diisi. Lihat javadoc {@link #getJenisPengguna()} untuk BUG
-	 * terkonfirmasi terkait field ini saat {@link #aktorSop} terisi.
+	 * {@link #aktorSop} tidak diisi (atau ditimpa oleh delegasi {@link AktorSop#getJenisPengguna()}
+	 * bila terisi); lihat {@link #getJenisPengguna()}.
 	 */
 	private String jenisPengguna;
 	/**
@@ -185,7 +185,7 @@ public class JenisSop extends GeneralValueObject {
 	/**
 	 * FK opsional ke {@link AktorSop} yang, bila diisi, menjadi sumber kebenaran wewenang untuk
 	 * SELURUH kategori ini — menggantikan {@link #jenisPengguna}/{@link #usernamePengguna}
-	 * lokal. Lihat catatan delegasi pada javadoc kelas serta BUG di {@link #getJenisPengguna()}.
+	 * lokal. Lihat catatan delegasi pada javadoc kelas serta {@link #getJenisPengguna()}.
 	 */
 	private AktorSop aktorSop;
 
@@ -317,40 +317,28 @@ public class JenisSop extends GeneralValueObject {
 	/**
 	 * Mengembalikan daftar role/jenis pengguna yang berwenang atas kategori ini.
 	 *
-	 * <p><b>BUG TERKONFIRMASI (getter destruktif salah-field):</b> saat {@link #getAktorSop()}
-	 * tidak {@code null}, cabang ini SEHARUSNYA menimpa {@link #jenisPengguna} dengan
-	 * {@code getAktorSop().getJenisPengguna()} (menyerupai pola delegasi yang benar pada
-	 * {@link #getUsernamePengguna()}) — namun kode yang ada justru menulis hasil tersebut ke
-	 * field {@link #usernamePengguna} (variabel yang SALAH, tampak sebagai salin-tempel dari
-	 * {@link #getUsernamePengguna()} yang lupa mengganti nama variabel target). Akibatnya:</p>
-	 * <ul>
-	 * <li>Method ini TIDAK PERNAH benar-benar mengembalikan nilai jenis-pengguna dari
-	 * {@link #aktorSop} — ia mengembalikan {@link #jenisPengguna} versi LAMA/STALE (biasanya
-	 * {@code null} &rarr; string kosong) karena field yang seharusnya diperbarui tidak pernah
-	 * disentuh pada cabang ini.</li>
-	 * <li>Sebagai efek samping, field {@link #usernamePengguna} tercemar dengan nilai
-	 * jenis-pengguna dari {@link #aktorSop} (bukan username) — bila
-	 * {@link #getUsernamePengguna()} dipanggil SETELAH method ini pada instance yang sama, hasil
-	 * pencemaran ini akan tertimpa lagi dengan benar oleh {@link #getUsernamePengguna()} sendiri
-	 * (yang mendelegasikan dengan benar ke {@code getAktorSop().getUsernamePengguna()}); namun
-	 * bila urutan panggilan terbalik atau {@link #getUsernamePengguna()} tidak pernah dipanggil,
-	 * {@link #usernamePengguna} akan tetap salah berisi data jenis-pengguna.</li>
-	 * </ul>
-	 * <p>Cabang {@code else} (saat {@link #aktorSop} null) TIDAK terpengaruh bug ini dan
-	 * berfungsi sebagaimana mestinya: menormalkan {@link #jenisPengguna} menjadi bentuk
-	 * terbungkus-koma lalu menyingkat kembali ke string kosong bila hasilnya hanya berisi
-	 * kombinasi koma (mengcover 1-4 koma berturutan sebagai kasus khusus, alih-alih pola regex
-	 * umum) — logika ini pada dasarnya menduplikasi (secara manual, tidak lewat helper bersama)
-	 * fungsi yang di {@link AktorSop} sudah dirapikan menjadi
+	 * <p><b>Bug salin-tempel (FIXED):</b> sebelum diperbaiki, saat {@link #getAktorSop()} tidak
+	 * {@code null}, cabang ini keliru menulis hasil delegasi ke field {@link #usernamePengguna}
+	 * (bukan {@link #jenisPengguna}), tampak sebagai salin-tempel dari
+	 * {@link #getUsernamePengguna()} yang lupa mengganti nama variabel target — akibatnya method
+	 * ini tidak pernah benar-benar mengembalikan nilai dari {@link #aktorSop} dan sebagai efek
+	 * samping mencemari {@link #usernamePengguna}. Sudah ditambal agar menimpa
+	 * {@link #jenisPengguna}, menyerupai pola delegasi yang benar pada
+	 * {@link #getUsernamePengguna()}.</p>
+	 * <p>Cabang {@code else} (saat {@link #aktorSop} null) menormalkan {@link #jenisPengguna}
+	 * menjadi bentuk terbungkus-koma lalu menyingkat kembali ke string kosong bila hasilnya hanya
+	 * berisi kombinasi koma (mengcover 1-4 koma berturutan sebagai kasus khusus, alih-alih pola
+	 * regex umum) — logika ini pada dasarnya menduplikasi (secara manual, tidak lewat helper
+	 * bersama) fungsi yang di {@link AktorSop} sudah dirapikan menjadi
 	 * {@code AktorSop.formatCommaSeparated}.</p>
 	 *
-	 * @return nilai jenis-pengguna kategori ini — TIDAK DAPAT DIANDALKAN saat {@link #aktorSop}
-	 *         terisi karena bug di atas; hanya benar saat {@link #aktorSop} null.
+	 * @return nilai jenis-pengguna kategori ini: diturunkan dari {@link #aktorSop} bila terisi,
+	 *         atau field lokal ternormalisasi bila {@link #aktorSop} null.
 	 */
 	@Column(name = "jenis_pengguna", nullable = true, columnDefinition = "text")
 	public String getJenisPengguna() {
 		if (getAktorSop() != null) {
-			usernamePengguna = getAktorSop().getJenisPengguna();
+			jenisPengguna = getAktorSop().getJenisPengguna();
 		} else {
 			jenisPengguna = (jenisPengguna == null || jenisPengguna.trim().equalsIgnoreCase(",") ? ""
 					: "," + jenisPengguna.trim() + ",").replaceAll(",,", ",").replaceAll(",,", ",")
@@ -371,8 +359,8 @@ public class JenisSop extends GeneralValueObject {
 
 	/**
 	 * @param jenisPengguna nilai lokal jenis-pengguna baru. Efektif hanya dipakai selama
-	 *                       {@link #aktorSop} null — lihat BUG pada javadoc
-	 *                       {@link #getJenisPengguna()}.
+	 *                       {@link #aktorSop} null; ditimpa oleh delegasi pada
+	 *                       {@link #getJenisPengguna()} bila {@link #aktorSop} terisi.
 	 */
 	public void setJenisPengguna(String jenisPengguna) {
 		this.jenisPengguna = jenisPengguna;
@@ -380,11 +368,11 @@ public class JenisSop extends GeneralValueObject {
 
 	/**
 	 * Mengembalikan daftar username yang berwenang atas kategori ini. Bila {@link #getAktorSop()}
-	 * tidak {@code null}, field {@link #usernamePengguna} ditimpa DENGAN BENAR oleh
-	 * {@code getAktorSop().getUsernamePengguna()} (berbeda dari {@link #getJenisPengguna()} yang
-	 * memiliki bug penulisan-ke-field-salah — lihat javadocnya). Cabang {@code else} menormalkan
-	 * {@link #usernamePengguna} lokal ke bentuk terbungkus-koma dengan logika manual yang sama
-	 * seperti pada {@link #getJenisPengguna()}.
+	 * tidak {@code null}, field {@link #usernamePengguna} ditimpa oleh
+	 * {@code getAktorSop().getUsernamePengguna()}, pola delegasi yang sama dengan
+	 * {@link #getJenisPengguna()}. Cabang {@code else} menormalkan {@link #usernamePengguna}
+	 * lokal ke bentuk terbungkus-koma dengan logika manual yang sama seperti pada
+	 * {@link #getJenisPengguna()}.
 	 *
 	 * @return username pengguna yang diturunkan dari {@link #aktorSop} (kasus umum, benar), atau
 	 *         field lokal ternormalisasi bila {@link #aktorSop} null.
@@ -413,9 +401,7 @@ public class JenisSop extends GeneralValueObject {
 
 	/**
 	 * @param usernamePengguna nilai lokal username-pengguna baru. Efektif ditimpa kembali oleh
-	 *                          {@link #getUsernamePengguna()} (dengan benar) selama
-	 *                          {@link #aktorSop} terisi, atau (secara keliru, lihat BUG) oleh
-	 *                          {@link #getJenisPengguna()} bila method itu dipanggil setelahnya.
+	 *                          {@link #getUsernamePengguna()} selama {@link #aktorSop} terisi.
 	 */
 	public void setUsernamePengguna(String usernamePengguna) {
 		this.usernamePengguna = usernamePengguna;
@@ -457,9 +443,8 @@ public class JenisSop extends GeneralValueObject {
 
 	/**
 	 * @param aktorSop aktor delegasi wewenang baru untuk kategori ini. Mengisi field ini
-	 *                  mengaktifkan jalur delegasi pada {@link #getJenisPengguna()} (yang
-	 *                  memiliki BUG, lihat javadocnya) dan {@link #getUsernamePengguna()} (yang
-	 *                  benar).
+	 *                  mengaktifkan jalur delegasi pada {@link #getJenisPengguna()} dan
+	 *                  {@link #getUsernamePengguna()}.
 	 */
 	public void setAktorSop(AktorSop aktorSop) {
 		this.aktorSop = aktorSop;

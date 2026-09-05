@@ -152,6 +152,14 @@ public class ProsesDisposisiSopService {
 				if (alurSop == null) return gagal("Definisi alur (langkah) tidak ditemukan.");
 				if (disposisiSop == null) return gagal("Pengajuan tidak ditemukan.");
 
+				// GERBANG SENTRAL: jalur native JSP ini adalah salinan setia onSave() ZK, termasuk
+				// SEBELUM ini menyalin juga ketiadaan gerbang kewenangannya -- lihat
+				// SopUtil.pastikanBerwenang. Jalur ini tidak mengenal konsep admin (tidak ada
+				// Common.getApakahAdmin() di kelas ini), jadi gerbang berlaku tanpa pengecualian.
+				if (!SopUtil.pastikanBerwenang(tbmuser, disposisiSop, alurSop)) {
+					return gagal("Anda tidak berwenang memproses tahap disposisi ini.");
+				}
+
 				opsiRute = alurSop.ambilAlurSetelahnya();
 
 				// "ujung" robust: langkah punya anak bila ADA DisposisiAlurSop lain dgn sebelumnya = langkah ini.
@@ -180,6 +188,13 @@ public class ProsesDisposisiSopService {
 				if (bolehEditProses && !kembali && !ruteOpsional && !bisaSelesaiFinal && opsiRute != null && !opsiRute.isEmpty()
 						&& selanjutnyaAlurSopIds.isEmpty()) {
 					return gagal("Disposisi selanjutnya harus dipilih.");
+				}
+				// GERBANG SENTRAL: selanjutnyaAlurSopIds dikirim langsung sebagai parameter JSP --
+				// tanpa ini, pemanggil bisa mengirim id AlurSop mana pun (lompat jenjang/rute
+				// palsu). Tidak diperiksa saat "kembali" karena rute balik memakai
+				// langkah.getSebelumnya(), bukan selanjutnyaAlurSopIds.
+				if (!kembali && !SopUtil.validasiTransisi(alurSop, selanjutnyaAlurSopIds)) {
+					return gagal("Tahap tujuan yang dipilih tidak dikenali sebagai kelanjutan sah dari tahap ini.");
 				}
 			} catch (Exception e) {
 				Common.tampilErrorJikaAdmin(e);
@@ -422,6 +437,11 @@ public class ProsesDisposisiSopService {
 				boolean ruteOpsional = Boolean.TRUE.equals(start.getAlurSetelahnyaTidakWajib());
 				if (!ruteOpsional && opsiRute != null && !opsiRute.isEmpty() && selanjutnyaAlurSopIds.isEmpty()) {
 					return gagal("Disposisi selanjutnya harus dipilih.");
+				}
+				// GERBANG SENTRAL: lihat catatan yang sama di prosesLangkah() -- rute awal yang
+				// dipilih pengaju tetap wajib berupa cabang sah dari langkah START.
+				if (!SopUtil.validasiTransisi(start, selanjutnyaAlurSopIds)) {
+					return gagal("Tahap tujuan yang dipilih tidak dikenali sebagai kelanjutan sah dari langkah awal SOP ini.");
 				}
 				if (Boolean.TRUE.equals(start.getCatatanWajibDiisi()) && keterangan.trim().isEmpty()) {
 					return gagal("Catatan harus diisi.");

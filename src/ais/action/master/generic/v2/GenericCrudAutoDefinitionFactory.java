@@ -25,9 +25,10 @@ import ais.database.model.GeneralValueObject;
  * tidak pernah menerima nama class dari parameter HTTP secara langsung, tetapi {@code buildAdministrative}
  * dipanggil oleh {@code model_crud_service.jsp} dengan {@code entityKey} yang berasal dari
  * {@code request.getParameter("entity")} pengguna — gerbangnya hanya {@code Common.getApakahAdmin()}
- * ("admin apa pun", bukan hak akses per menu). Karena itu {@link #BLOCKED_CLASS_TOKENS} dan
- * {@link #SIRS_BLOCKED_PACKAGE_PREFIX} adalah satu-satunya pagar untuk kelas yang seharusnya tidak boleh
- * dijelajahi/diubah lewat browser model generik ini, terlepas dari peran admin spesifik apa pun.
+ * ("admin apa pun", bukan hak akses per menu). Karena itu jalur admin ini digerbangi
+ * {@link #ADMINISTRATIVE_BROWSING_ALLOWLIST} (default DENY, entity harus ditambahkan satu per satu),
+ * BUKAN {@link #BLOCKED_CLASS_TOKENS}/{@link #SIRS_BLOCKED_PACKAGE_PREFIX} — dua daftar terakhir itu
+ * hanya berlaku pada jalur menu ({@code tryAutoRegister}, sudah digerbangi privilege per menu).
  */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public final class GenericCrudAutoDefinitionFactory {
@@ -88,9 +89,49 @@ public final class GenericCrudAutoDefinitionFactory {
         return buildForClass(module, page, entityClass, false, sourcePackage, sourceAction, sourceMethods);
     }
 
-    /** Admin model browser: key hanya boleh cocok persis dengan mapped GVO Hibernate. */
+    /**
+     * Daftar-terima eksplisit untuk <b>model browser administratif</b> ({@code buildAdministrative},
+     * dipanggil {@code model_crud_service.jsp} dengan {@code entityKey} MENTAH dari
+     * {@code request.getParameter("entity")} pengguna, gerbangnya hanya {@code Common.getApakahAdmin()}
+     * — "admin apa pun", bukan hak akses per menu). Jalur ini sengaja TIDAK mewarisi perilaku
+     * {@link #BLOCKED_CLASS_TOKENS}/{@link #SIRS_BLOCKED_PACKAGE_PREFIX} (default ALLOW kecuali
+     * diblokir) yang dipakai jalur menu ({@code tryAutoRegister}); sebaliknya jalur ini
+     * <b>default DENY kecuali entity ditambahkan di sini secara sadar</b>, sesuai prinsip
+     * "default deny / default disabled" yang sudah dinyatakan di
+     * {@code webapp/WEB-INF/generic-crud/docs/README.md} untuk seluruh paket Generic CRUD v2.
+     *
+     * <p>Alasan dua aturan berbeda untuk dua jalur yang sama-sama dibangun {@code buildForClass()}:
+     * {@code tryAutoRegister} digerbangi {@code NewUiRouteGuard} per menu/peran — populasinya sama
+     * dengan yang memang berwenang atas layar itu, jadi menambah token blokir ke sana berisiko
+     * menurunkan {@code FULL_CRUD} layar yang sedang dipakai produksi (mis. {@code HukumanPegawai},
+     * {@code GajiPokok}, {@code AnggotaKoperasi}) tanpa manfaat keamanan tambahan. Browser admin ini
+     * sebaliknya tidak punya gerbang per menu sama sekali — satu-satunya cara amannya adalah
+     * default tertutup.</p>
+     *
+     * <p>Entity yang TIDAK ada di sini tetap dapat diakses lewat layar menu-nya sendiri
+     * (tetap digerbangi privilege menu seperti biasa) — daftar ini HANYA mengendalikan browser
+     * model administratif mentah. Isinya sengaja kosong-hampir-kosong: tambahkan satu per satu
+     * setelah entity ditinjau tidak menyimpan data personal/finansial/medis/kepegawaian sensitif,
+     * sama seperti {@link #ALLOWED_CLASS_NAMES} menahan token secara eksplisit tapi arahnya
+     * dibalik.</p>
+     */
+    private static final String[] ADMINISTRATIVE_BROWSING_ALLOWLIST = new String[] {
+        "ais.database.model.Agama"
+    };
+
+    private static boolean isAllowedForAdministrativeBrowsing(Class type) {
+        if (type == null) return false;
+        String name = type.getName();
+        for (int i = 0; i < ADMINISTRATIVE_BROWSING_ALLOWLIST.length; i++) {
+            if (ADMINISTRATIVE_BROWSING_ALLOWLIST[i].equals(name)) return true;
+        }
+        return false;
+    }
+
+    /** Admin model browser: key hanya boleh cocok persis dengan mapped GVO Hibernate DAN terdaftar di {@link #ADMINISTRATIVE_BROWSING_ALLOWLIST}. */
     public static GenericCrudDefinition buildAdministrative(String module, String page, String mappedEntityKey) throws Exception {
         Class entityClass = findMappedClass(mappedEntityKey);
+        if (!isAllowedForAdministrativeBrowsing(entityClass)) return null;
         Class actionClass = resolveAdministrativeAction(entityClass);
         return buildForClass(module, page, entityClass, true,
                 actionClass == null ? null : actionClass.getPackage().getName(),
@@ -108,6 +149,7 @@ public final class GenericCrudAutoDefinitionFactory {
             try { mapped = metadata.getMappedClass(EntityMode.POJO); } catch (Exception invalid) { continue; }
             if (mapped == null || !GeneralValueObject.class.isAssignableFrom(mapped)
                     || Modifier.isAbstract(mapped.getModifiers())) continue;
+            if (!isAllowedForAdministrativeBrowsing(mapped)) continue;
             Map row = new LinkedHashMap();
             row.put("entityKey", mapped.getName()); row.put("displayName", humanize(mapped.getSimpleName()));
             row.put("packageName", mapped.getPackage().getName()); row.put("tableName", metadata.getEntityName());

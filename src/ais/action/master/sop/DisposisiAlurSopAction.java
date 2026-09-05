@@ -1486,6 +1486,17 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 	 * @return {@code true} bila seluruh validasi lolos
 	 */
 	public boolean check() throws Exception {
+		// GERBANG SENTRAL: mesin alur SOP (AlurSop/DisposisiSop) tidak pernah menegakkan sendiri
+		// siapa berhak memproses sebuah tahap -- lihat javadoc kelas AlurSop dan SopUtil.pastikanBerwenang.
+		// Jalur admin eksplisit (Common.getApakahAdmin()) tetap dipertahankan, sama seperti pola
+		// yang sudah ada di onSave() (pemulihan identitas asli saat admin menyunting langkah lama).
+		if (!Common.getApakahAdmin() && !SopUtil.pastikanBerwenang(Common.getCurrentUser(), disposisiSop, alurSop)) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, Anda tidak berwenang memproses tahap disposisi ini. Langkah yang dapat dilakukan: (1) periksa kembali apakah tahap ini memang ditujukan kepada Bapak/Ibu; (2) hubungi admin bila menurut Bapak/Ibu ini adalah kekeliruan.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
 		if (alurSop != null && alurSop.getCatatanWajibDiisi() && keterangan.getValue().trim().isEmpty()) {
 			MyMessageboxConfig.show(
 					"Mohon Bapak/Ibu terlebih dahulu mengisi Catatan. Langkah yang dapat dilakukan: (1) klik kolom Catatan; (2) isikan catatan disposisi secara jelas; (3) lanjutkan menyimpan disposisi.",
@@ -1540,6 +1551,24 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 						selanjutnya.add(a);
 					}
 				}
+			}
+		}
+
+		// GERBANG SENTRAL: tahap tujuan yang terkumpul di atas WAJIB salah satu cabang sah dari
+		// alurSop saat ini -- lihat SopUtil.validasiTransisi. Menutup lompatan jenjang/pemalsuan
+		// tahap tujuan lewat state yang dikirim ulang (lihat javadoc kelas AlurSop).
+		if (!selanjutnya.isEmpty()) {
+			List<Long> tujuanIds = new ArrayList<Long>();
+			for (AlurSop a : selanjutnya) {
+				if (a != null) {
+					tujuanIds.add(a.getId());
+				}
+			}
+			if (!SopUtil.validasiTransisi(alurSop, tujuanIds)) {
+				MyMessageboxConfig.show(
+						"Mohon maaf, tahap tujuan yang dipilih tidak dikenali sebagai kelanjutan sah dari tahap ini. Silakan muat ulang halaman dan pilih kembali.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
 			}
 		}
 
@@ -1677,6 +1706,17 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 			sessionUtama.getTransaction().begin();
 
 			tbmuser = Common.getCurrentUser();
+
+			// GERBANG SENTRAL (mutasi): pengulangan pemeriksaan check() di titik penyimpanan yang
+			// sesungguhnya -- lihat SopUtil.pastikanBerwenang. Admin tetap diizinkan lewat jalur
+			// eksplisit yang sudah ada (identitas asli dikembalikan di bawah, bukan dibiarkan
+			// tersimpan sebagai akun admin yang login).
+			if (!Common.getApakahAdmin() && !SopUtil.pastikanBerwenang(tbmuser, disposisiSop, alurSop)) {
+				MyMessageboxConfig.show(
+						"Mohon maaf, Anda tidak berwenang memproses tahap disposisi ini. Langkah yang dapat dilakukan: (1) periksa kembali apakah tahap ini memang ditujukan kepada Bapak/Ibu; (2) hubungi admin bila menurut Bapak/Ibu ini adalah kekeliruan.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
 
 			// Tangkap identitas ASLI langkah dari DB SEBELUM dimodifikasi. Bila ADMIN (Common.getApakahAdmin)
 			// menyunting langkah yang SUDAH ADA, identitas (aktor/pengaju) ini akan DIKEMBALIKAN di akhir agar

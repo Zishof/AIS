@@ -1969,6 +1969,8 @@
 		<mapping class="ais.database.model.sirs.ApotikBatchKonsumsi" />
 		<mapping class="ais.database.model.sirs.ApotikNarkotikaLog" />
 		<mapping class="ais.database.model.sirs.ApotikDeliveryOrder" />
+		<mapping class="ais.database.model.sirs.ApotikCustomerMembership" />
+		<mapping class="ais.database.model.sirs.ApotikRewardLedger" />
 		<!-- Layar kedua Instalasi Farmasi: antrean obat jadi/racikan untuk pasien. -->
 		<mapping class="ais.database.model.sirs.AntreanFarmasi" />
 		<mapping class="ais.database.model.sirs.TindakanLabDetail" />

@@ -127,6 +127,16 @@ public final class ApotikApiDispatcher {
 			ApotikDeliveryHelper.ubahStatus(tbmuser, payload, hasil);
 		} else if ("apotik_delivery_provision_demo".equals(action)) {
 			ApotikDeliveryHelper.provisionDemo(tbmuser, payload, hasil);
+		} else if ("apotik_membership_list".equals(action)) {
+			ApotikMembershipHelper.daftar(payload, hasil);
+		} else if ("apotik_membership_simpan".equals(action)) {
+			ApotikMembershipHelper.simpan(tbmuser, payload, hasil);
+		} else if ("apotik_membership_poin".equals(action)) {
+			ApotikMembershipHelper.mutasiPoin(tbmuser, payload, hasil);
+		} else if ("apotik_membership_refill".equals(action)) {
+			ApotikMembershipHelper.refill(tbmuser, payload, hasil);
+		} else if ("apotik_membership_provision_demo".equals(action)) {
+			ApotikMembershipHelper.provisionDemo(tbmuser, payload, hasil);
 		} else if ("apotik_metrik_operasional".equals(action)) {
 			ApotikMetrikHelper.metrikOperasional(payload, hasil);
 		} else if (action.startsWith("apotik_posting_pbf_")
