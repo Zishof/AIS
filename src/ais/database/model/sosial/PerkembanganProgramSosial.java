@@ -18,6 +18,7 @@ import java.math.BigDecimal; import java.util.Date; import javax.persistence.*; 
 public class PerkembanganProgramSosial extends SocialRecord { private static final long serialVersionUID=1L; private ProgramDonatur program; private String title,content,mediaJson,milestone,publishStatus,author; private Date updateDate; private BigDecimal amountUsed; private Integer beneficiaryCount;
  /** Program donasi yang menjadi subjek laporan perkembangan ini. */
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="program_id",nullable=false) public ProgramDonatur getProgram(){return program;} public void setProgram(ProgramDonatur v){program=v;}
+ /** Judul singkat entri laporan perkembangan ini, ditampilkan pada daftar update program. */
  @Column(name="title",nullable=false,length=255) public String getTitle(){return title;} public void setTitle(String v){title=trim(v);}
  /** Isi laporan perkembangan program (teks/HTML). */
  @Column(name="content",columnDefinition="TEXT",nullable=false) public String getContent(){return content;} public void setContent(String v){content=v;}

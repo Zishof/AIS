@@ -18,6 +18,7 @@ import javax.persistence.*; import org.hibernate.envers.Audited;
 public class KategoriPenerimaManfaat extends SocialRecord { private static final long serialVersionUID=1L; private String kode,nama,legalBasis,compatibleFundCodes; private Boolean publicVisible;
  /** Kode unik kategori penerima manfaat, unik per tenant. */
  @Column(name="kode",nullable=false,length=60) public String getKode(){return kode;} public void setKode(String v){kode=trim(v);}
+ /** Nama tampilan kategori penerima manfaat (mis. "Fakir", "Miskin", "Amil", "Mualaf"). */
  @Column(name="nama",nullable=false,length=255) public String getNama(){return nama;} public void setNama(String v){nama=trim(v);}
  /** Dasar hukum/syariah bagi kategori ini (mis. rujukan fikih zakat atau regulasi terkait). */
  @Column(name="legal_basis",columnDefinition="TEXT") public String getLegalBasis(){return legalBasis;} public void setLegalBasis(String v){legalBasis=v;}
