@@ -740,7 +740,7 @@ public class TransaksiAction extends GenericAutowireComposer implements GetTrans
 										.executeUpdate();
 
 								session.createSQLQuery(
-										"delete from sirs.detail_transaksi_pasien where racikan_detail in (select id from racikan_detail where racikan in (select id from sirs.racikan where transaksi_detail in (select id from sirs.transaksi_medis_detail where transaksi = "
+										"delete from sirs.detail_transaksi_pasien where racikan_detail in (select id from sirs.racikan_detail where racikan in (select id from sirs.racikan where transaksi_detail in (select id from sirs.transaksi_medis_detail where transaksi = "
 												+ transaksi.getId() + ")));")
 										.executeUpdate();
 

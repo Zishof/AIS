@@ -881,7 +881,7 @@ public class TransaksiTindakanLabAction extends GenericAutowireComposer implemen
 										.executeUpdate();
 
 								session.createSQLQuery(
-										"delete from sirs.detail_transaksi where racikan_detail in (select id from sirs.racikan_detail where racikan in (select id from sirs.racikan where transaksi_detail in (select id from transaksi_detail where transaksi = "
+										"delete from sirs.detail_transaksi_pasien where racikan_detail in (select id from sirs.racikan_detail where racikan in (select id from sirs.racikan where transaksi_detail in (select id from sirs.transaksi_medis_detail where transaksi = "
 												+ transaksi.getId() + ")));")
 										.executeUpdate();
 
@@ -890,7 +890,7 @@ public class TransaksiTindakanLabAction extends GenericAutowireComposer implemen
 								session.createSQLQuery(sql).executeUpdate();
 
 								session.createSQLQuery(
-										"update sirs.detail_transaksi_pasien set racikan = null where transaksi = "
+										"update sirs.transaksi_medis_detail set racikan = null where transaksi = "
 												+ transaksi.getId() + ";")
 										.executeUpdate();
 
@@ -900,7 +900,7 @@ public class TransaksiTindakanLabAction extends GenericAutowireComposer implemen
 										.executeUpdate();
 
 								session.createSQLQuery(
-										"delete from sirs.detail_transaksi where transaksi_detail in (select id from sirs.transaksi_medis_detail where transaksi = "
+										"delete from sirs.transaksi_medis_detail where transaksi_detail in (select id from sirs.transaksi_medis_detail where transaksi = "
 												+ transaksi.getId() + ");")
 										.executeUpdate();
 

@@ -404,7 +404,7 @@ public class PenerimaanOrderDetailAction extends MyDetail {
 									Session session = HibernateUtil.currentSession();
 
 									session.createSQLQuery(
-											"delete from penerimaan_order_detail where penerimaan_order = "
+											"delete from sirs.penerimaan_order_detail where penerimaan_order = "
 													+ penerimaanOrder.getId())
 											.executeUpdate();
 									List<PesananPembelianDetail> pesananPembelianDetails = session
