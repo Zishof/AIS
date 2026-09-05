@@ -200,6 +200,11 @@ public class RuangGelombangPendaftaranPegawaiPegawai extends GeneralValueObject 
 		return this.id;
 	}
 
+	/**
+	 * Mengeset {@link #id}.
+	 *
+	 * @param id nilai baru untuk {@link #id}.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -218,6 +223,11 @@ public class RuangGelombangPendaftaranPegawaiPegawai extends GeneralValueObject 
 		return ruangPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #ruangPegawai}.
+	 *
+	 * @param ruangPegawai nilai baru untuk {@link #ruangPegawai}.
+	 */
 	public void setRuangPegawai(RuangPegawai ruangPegawai) {
 		this.ruangPegawai = ruangPegawai;
 	}
@@ -236,6 +246,11 @@ public class RuangGelombangPendaftaranPegawaiPegawai extends GeneralValueObject 
 		return calonPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #calonPegawai}.
+	 *
+	 * @param calonPegawai nilai baru untuk {@link #calonPegawai}.
+	 */
 	public void setCalonPegawai(CalonPegawai calonPegawai) {
 		this.calonPegawai = calonPegawai;
 	}
@@ -267,6 +282,11 @@ public class RuangGelombangPendaftaranPegawaiPegawai extends GeneralValueObject 
 		return kodeUnik;
 	}
 
+	/**
+	 * Mengeset {@link #kodeUnik}.
+	 *
+	 * @param kodeUnik nilai baru untuk {@link #kodeUnik}.
+	 */
 	public void setKodeUnik(String kodeUnik) {
 		this.kodeUnik = kodeUnik;
 	}

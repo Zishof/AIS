@@ -225,6 +225,11 @@ public class RuangPegawai extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengeset {@link #id}.
+	 *
+	 * @param id nilai baru untuk {@link #id}.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -240,6 +245,11 @@ public class RuangPegawai extends GeneralValueObject {
 		return this.kodeRuangan;
 	}
 
+	/**
+	 * Mengeset {@link #kodeRuangan}.
+	 *
+	 * @param kodeRuangan nilai baru untuk {@link #kodeRuangan}.
+	 */
 	public void setKodeRuangan(String kodeRuangan) {
 		this.kodeRuangan = kodeRuangan;
 	}
@@ -255,6 +265,11 @@ public class RuangPegawai extends GeneralValueObject {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Mengeset {@link #nama}.
+	 *
+	 * @param nama nilai baru untuk {@link #nama}.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
@@ -274,10 +289,20 @@ public class RuangPegawai extends GeneralValueObject {
 		return this.gedung;
 	}
 
+	/**
+	 * Mengeset {@link #gedung}.
+	 *
+	 * @param gedung nilai baru untuk {@link #gedung}.
+	 */
 	public void setGedung(Gedung gedung) {
 		this.gedung = gedung;
 	}
 
+	/**
+	 * Mengeset {@link #kapasitasRuangan}.
+	 *
+	 * @param kapasitasRuangan nilai baru untuk {@link #kapasitasRuangan}.
+	 */
 	public void setKapasitasRuangan(Integer kapasitasRuangan) {
 		this.kapasitasRuangan = kapasitasRuangan;
 	}
@@ -296,6 +321,11 @@ public class RuangPegawai extends GeneralValueObject {
 		return kapasitasRuangan;
 	}
 
+	/**
+	 * Mengeset {@link #gelombangPendaftaranPegawai}.
+	 *
+	 * @param gelombangPendaftaranPegawai nilai baru untuk {@link #gelombangPendaftaranPegawai}.
+	 */
 	public void setGelombangPendaftaranPegawai(GelombangPendaftaranPegawai gelombangPendaftaranPegawai) {
 		this.gelombangPendaftaranPegawai = gelombangPendaftaranPegawai;
 	}
@@ -315,6 +345,11 @@ public class RuangPegawai extends GeneralValueObject {
 		return gelombangPendaftaranPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #penuh}.
+	 *
+	 * @param penuh nilai baru untuk {@link #penuh}.
+	 */
 	public void setPenuh(Integer penuh) {
 		this.penuh = penuh;
 	}
@@ -354,6 +389,11 @@ public class RuangPegawai extends GeneralValueObject {
 		return ujianPegawai;
 	}
 
+	/**
+	 * Mengeset {@link #ujianPegawai}.
+	 *
+	 * @param ujianPegawai nilai baru untuk {@link #ujianPegawai}.
+	 */
 	public void setUjianPegawai(UjianPegawai ujianPegawai) {
 		this.ujianPegawai = ujianPegawai;
 	}
