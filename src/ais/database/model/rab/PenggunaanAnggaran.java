@@ -1601,6 +1601,20 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return value != null && value.trim().length() > 0;
 	}
 
+	/**
+	 * Memeriksa apakah sebuah sesi Hibernate sedang berada di dalam transaksi aktif.
+	 *
+	 * <p><b>Saat ini tidak dipanggil dari mana pun</b> — penelusuran seluruh basis
+	 * kode hanya menemukan deklarasinya, sehingga method ini kode mati. Perannya
+	 * digantikan pemeriksaan {@code tx == null || !tx.isActive()} yang ditulis
+	 * langsung di dalam {@code saveOrUpdateByRef(...)}. Method dipertahankan karena
+	 * tidak berbahaya dan mendokumentasikan pola pemeriksaan yang aman: pemanggilan
+	 * {@code getTransaction()} pada sesi yang sudah tertutup dapat melempar, sehingga
+	 * seluruhnya dibungkus {@code try/catch} yang mengembalikan {@code false}.</p>
+	 *
+	 * @param session sesi yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila sesi ada dan transaksinya aktif
+	 */
 	private static boolean sameTransactionActive(Session session) {
 		try {
 			return session != null && session.getTransaction() != null && session.getTransaction().isActive();
@@ -1609,6 +1623,16 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Membatalkan sebuah transaksi tanpa pernah melempar.
+	 *
+	 * <p>Dipakai di jalur penanganan kesalahan, tempat melempar pengecualian baru
+	 * akan menutupi pengecualian asli. Transaksi hanya dibatalkan bila tidak
+	 * {@code null} dan masih aktif; kegagalan pembatalan itu sendiri ditelan dan
+	 * dicatat lewat {@code ErrorAuditUtil}.</p>
+	 *
+	 * @param tx transaksi yang dibatalkan; boleh {@code null} atau sudah selesai
+	 */
 	private static void rollbackQuietly(Transaction tx) {
 		try {
 			if (tx != null && tx.isActive()) {
@@ -1618,6 +1642,20 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mengosongkan konteks persistensi sebuah sesi tanpa pernah melempar.
+	 *
+	 * <p>Perannya lebih dari sekadar kerapian. Setelah sebuah transaksi gagal,
+	 * cache tingkat pertama sesi masih memuat objek-objek dengan keadaan yang tidak
+	 * lagi sesuai basis data — termasuk objek milik baris yang sudah dihapus proses
+	 * lain. {@code session.clear()} membuang seluruhnya sehingga query berikutnya
+	 * dijamin membaca ulang dari basis data, bukan dari cache basi. Inilah yang
+	 * membuat percobaan ulang di {@code saveOrUpdateByRef(...)} bermakna: tanpa
+	 * pengosongan ini, percobaan kedua akan mengulangi kesalahan yang sama. Lihat
+	 * penjelasan pada {@link #isStaleStateException(Throwable)}.</p>
+	 *
+	 * @param session sesi yang dikosongkan; boleh {@code null}
+	 */
 	private static void clearQuietly(Session session) {
 		try {
 			if (session != null) {
@@ -1627,6 +1665,25 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menutup sesi Hibernate yang dibuka manual, selangkah demi selangkah dan tanpa
+	 * pernah melempar.
+	 *
+	 * <p>Sesi yang diperoleh {@code HibernateUtil.currentNativeSession()} di dalam
+	 * {@link #simpan(Serializable)} <b>tidak</b> dikelola kontainer dan wajib
+	 * ditutup sendiri; bila tidak, koneksinya bocor dan kumpulan koneksi
+	 * (<i>connection pool</i>) akan habis setelah cukup banyak penyimpanan dokumen.
+	 * Karena itu method ini dipanggil dari blok {@code finally}.</p>
+	 *
+	 * <p>Tiga langkahnya — {@code clear()}, {@code disconnect()}, lalu {@code close()}
+	 * bila masih terbuka — masing-masing dibungkus {@code try/catch} terpisah,
+	 * <b>bukan</b> satu blok bersama. Ini disengaja: kegagalan satu langkah tidak
+	 * boleh mencegah langkah berikutnya dijalankan, karena justru langkah terakhirlah
+	 * yang mengembalikan koneksi ke kumpulan. Semua kegagalan dicatat lewat
+	 * {@code ErrorAuditUtil}.</p>
+	 *
+	 * @param session sesi yang ditutup; {@code null} diabaikan
+	 */
 	private static void closeManualSession(Session session) {
 		if (session == null) {
 			return;
@@ -1647,6 +1704,28 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mengenali apakah sebuah pengecualian berasal dari pelanggaran keunikan
+	 * {@code ref}.
+	 *
+	 * <p>Menelusuri seluruh rantai {@code getCause()} — pelanggaran constraint basis
+	 * data biasanya terbungkus beberapa lapis di dalam {@code ConstraintViolationException}
+	 * dan {@code SQLException} — lalu mencocokkan pesan secara <i>case-insensitive</i>
+	 * terhadap dua pola: nama constraint {@code ref_penggunaan_anggaran}, atau
+	 * kombinasi {@code "duplicate key"} bersama kata {@code "ref"}. Pola kedua ada
+	 * sebagai jaring pengaman untuk pesan driver/basis data yang tidak menyebut nama
+	 * constraint.</p>
+	 *
+	 * <p>Bila {@code true}, {@code saveOrUpdateByRef(...)} mencoba ulang sekali
+	 * dengan sesi yang sudah dikosongkan. Perhatikan keterbatasan pendekatan ini:
+	 * pengenalan berbasis <i>teks pesan</i> bersifat rapuh terhadap perubahan versi
+	 * basis data maupun lokalisasi pesan; bila pengenalan gagal, akibatnya bukan
+	 * korupsi data melainkan hilangnya percobaan ulang — kesalahan sekadar dicatat
+	 * dan baris proyeksi tidak diperbarui pada siklus itu.</p>
+	 *
+	 * @param throwable pengecualian yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila berasal dari tabrakan {@code ref} duplikat
+	 */
 	private static boolean isDuplicateRefException(Throwable throwable) {
 		Throwable t = throwable;
 		while (t != null) {
@@ -1673,6 +1752,15 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 	 * Diperlakukan sama seperti konflik ref duplikat: retry SEKALI, memakai session
 	 * yang sudah di-clear() oleh clearQuietly() di catch di bawah (persistence context
 	 * kosong -> query berikutnya pasti fresh dari DB, bukan cache basi).
+	 *
+	 * <p>Berbeda dengan {@link #isDuplicateRefException(Throwable)} yang mencocokkan
+	 * teks pesan, deteksi di sini berbasis <i>tipe</i>
+	 * ({@code instanceof org.hibernate.StaleStateException}) menyusuri seluruh rantai
+	 * {@code getCause()}, sehingga kebal terhadap perubahan kata-kata pesan.</p>
+	 *
+	 * @param throwable pengecualian yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila rantai penyebabnya memuat
+	 *         {@code StaleStateException}
 	 */
 	private static boolean isStaleStateException(Throwable throwable) {
 		Throwable t = throwable;
@@ -1701,11 +1789,80 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 	 * yang isinya bebas ditentukan modul lain — tak mungkin menabrak kunci fitur
 	 * lain. Invarian ini dijaga {@code PenggunaanAnggaranLockSelfTest}. Lihat
 	 * docs/pos dok. 83 &amp; 107.</p>
+	 *
+	 * <p>Cakupan jaminannya perlu dipahami dengan tepat: yang dijamin prefiks adalah
+	 * ketidaksamaan <b>string</b> kunci antarfitur. {@code hashtext()} tetap memetakan
+	 * string ke ruang 32-bit, sehingga tabrakan hash secara teoretis masih mungkin
+	 * dan berada di luar jangkauan mekanisme ini. Akibat terburuk sebuah tabrakan
+	 * hash pun terbatas: dua penulisan yang tak berhubungan saling menunggu sesaat,
+	 * bukan korupsi data.</p>
+	 *
+	 * <p>Bersifat {@code static} dengan visibilitas <i>package-private</i> secara
+	 * sengaja — cukup terbuka untuk diuji {@link PenggunaanAnggaranLockSelfTest}
+	 * yang berada di paket yang sama, tanpa menjadi bagian API publik.
+	 * {@code ref} bernilai {@code null} menghasilkan {@code "rab-ref:null"} dan tidak
+	 * melempar; dalam alur produksi kasus itu tak tercapai karena
+	 * {@code lockRef(...)} sudah menyaringnya lewat {@link #hasText(String)}.</p>
+	 *
+	 * @param ref kunci alami baris RAB; boleh {@code null}
+	 * @return string kunci advisory ber-namespace, tidak pernah {@code null}
+	 * @see PenggunaanAnggaranLockSelfTest
 	 */
 	static String kunciRef(String ref) {
 		return "rab-ref:" + ref;
 	}
 
+	/**
+	 * Mengambil kunci advisory transaksional PostgreSQL atas sebuah {@code ref} RAB.
+	 *
+	 * <h4>Masalah yang dipecahkan</h4>
+	 *
+	 * <p>Baris penggunaan anggaran ditulis dari thread latar belakang yang
+	 * dijadwalkan {@link #simpan(Serializable)}. Bila satu dokumen sumber disimpan
+	 * dua kali beruntun — atau bila dua proses menyentuh dokumen yang sama — dua
+	 * thread dapat menjalankan urutan "cari baris berdasarkan ref, tidak ada, buat
+	 * baru" secara berselang, sehingga keduanya menyisipkan baris dengan {@code ref}
+	 * yang sama. Kunci advisory ini menserialkan seluruh urutan tersebut per
+	 * {@code ref}: thread kedua menunggu sampai transaksi thread pertama selesai,
+	 * lalu menemukan baris yang sudah ada dan memperbaruinya alih-alih membuat
+	 * kembar.</p>
+	 *
+	 * <h4>Rincian teknis yang mudah dirusak</h4>
+	 *
+	 * <ul>
+	 *   <li><b>Transaksional, bukan sesi.</b> Dipakai
+	 *       {@code pg_advisory_xact_lock()}, bukan {@code pg_advisory_lock()},
+	 *       sehingga kunci dilepas otomatis saat transaksi selesai (commit maupun
+	 *       rollback). Tidak ada jalur pelepasan manual, dan karenanya tidak ada
+	 *       risiko kunci tertinggal ketika penulisan gagal.</li>
+	 *   <li><b>Cast ke {@code text} bukan hiasan.</b> {@code pg_advisory_xact_lock()}
+	 *       mengembalikan tipe {@code void} (JDBC type 1111/OTHER) yang tidak dikenali
+	 *       dialect Hibernate 3.6 saat menebak tipe hasil query, memunculkan
+	 *       "No Dialect mapping for JDBC type: 1111". Karena itu hasilnya di-cast ke
+	 *       {@code text} dan tipe skalarnya dideklarasikan eksplisit lewat
+	 *       {@code addScalar("kunci", Hibernate.STRING)} agar penebakan otomatis tidak
+	 *       berjalan. Jangan menyederhanakan query ini.</li>
+	 *   <li><b>Prefiks namespace wajib.</b> Yang dikunci bukan {@code ref} mentah
+	 *       melainkan {@link #kunciRef(String)}, agar ref RAB — yang isinya ditentukan
+	 *       modul lain — tidak menabrak kunci advisory fitur lain yang berbagi ruang
+	 *       kunci global {@code hashtext()} yang sama. Invarian ini dijaga
+	 *       {@link PenggunaanAnggaranLockSelfTest}.</li>
+	 *   <li><b>Parameter terikat.</b> Nilai {@code ref} dikirim lewat
+	 *       {@code setString(...)}, bukan disambung ke dalam SQL, sehingga aman dari
+	 *       penyisipan SQL meski isi ref berasal dari modul lain.</li>
+	 * </ul>
+	 *
+	 * <p>Ref kosong disaring lebih dulu dan menyebabkan method keluar tanpa
+	 * melakukan apa pun — memanggil kunci untuk ref kosong akan menserialkan seluruh
+	 * penulisan yang kebetulan ber-ref kosong menjadi satu antrean. Kegagalan
+	 * eksekusi (mis. basis data tanpa fungsi tersebut) sengaja <b>tidak</b> ditangani
+	 * di sini; ia merambat ke {@code saveOrUpdateByRef(...)} yang membatalkan
+	 * transaksi.</p>
+	 *
+	 * @param session sesi Hibernate yang transaksinya sedang aktif
+	 * @param ref     kunci alami baris; kosong berarti tanpa penguncian
+	 * @see #kunciRef(String)
+	 */
 	private static void lockRef(Session session, String ref) {
 		if (!hasText(ref)) {
 			return;
@@ -1729,6 +1886,30 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 				.setString("ref", kunciRef(ref)).uniqueResult();
 	}
 
+	/**
+	 * Mencari id baris penggunaan anggaran berdasarkan kunci alami {@code ref}, lewat
+	 * SQL native.
+	 *
+	 * <p>Memakai {@code select min(id) ... where ref = :ref}. Pemilihan
+	 * <b>{@code min(id)}</b> disengaja dan penting: bila karena suatu hal terdapat
+	 * beberapa baris ber-ref sama (data lama sebelum constraint unik terpasang, atau
+	 * hasil balapan), yang dipertahankan selalu baris <i>tertua</i>. Aturan yang sama
+	 * dipakai {@link #removeDuplicateRowsByRef(Session, String)} saat menghapus
+	 * kembarannya, sehingga keduanya konsisten dan hasilnya deterministik. Bila tak
+	 * ada baris, agregat mengembalikan {@code NULL} — bukan baris kosong — sehingga
+	 * {@code uniqueResult()} aman.</p>
+	 *
+	 * <p>Query ditulis native, bukan HQL, agar tidak menyentuh konteks persistensi:
+	 * hasilnya id mentah dari basis data, bukan objek dari cache tingkat pertama yang
+	 * mungkin sudah basi. Nilai yang kembali dikonversi secara defensif — cabang
+	 * {@code Number} untuk tipe numerik apa pun yang dikembalikan driver, lalu
+	 * cadangan penguraian dari {@code toString()} yang bila gagal menghasilkan
+	 * {@code null} alih-alih melempar.</p>
+	 *
+	 * @param session sesi Hibernate; {@code null} menghasilkan {@code null}
+	 * @param ref     kunci alami yang dicari; kosong menghasilkan {@code null}
+	 * @return id baris tertua ber-ref tersebut, atau {@code null} bila tidak ada
+	 */
 	private static Long findPenggunaanAnggaranIdByRef(Session session, String ref) {
 		if (session == null || !hasText(ref)) {
 			return null;
@@ -1748,11 +1929,59 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Memuat baris penggunaan anggaran berdasarkan kunci alami {@code ref}.
+	 *
+	 * <p>Dua langkah: cari id lewat
+	 * {@link #findPenggunaanAnggaranIdByRef(Session, String)} (SQL native, bebas
+	 * cache), lalu muat entitasnya dengan {@code session.get(...)}.</p>
+	 *
+	 * <p><b>Peringatan cache tingkat pertama.</b> Langkah kedua dapat mengembalikan
+	 * objek dari konteks persistensi sesi, termasuk objek milik baris yang sementara
+	 * itu sudah dihapus proses lain lewat DELETE native — misalnya
+	 * {@code prosesKasKecil(...)} yang menghapus semua baris sebuah dokumen sebelum
+	 * menulisnya ulang. Hibernate baru menyadarinya ketika UPDATE dijalankan dan
+	 * jumlah baris terpengaruh nol, lalu melempar {@code StaleStateException}. Itulah
+	 * mengapa {@code saveOrUpdateByRef(...)} memperlakukan pengecualian tersebut sama
+	 * seperti tabrakan ref duplikat: kosongkan sesi, ulangi sekali. Lihat
+	 * {@link #isStaleStateException(Throwable)} dan
+	 * {@link #clearQuietly(Session)}.</p>
+	 *
+	 * @param session sesi Hibernate
+	 * @param ref     kunci alami yang dicari
+	 * @return baris yang ditemukan, atau {@code null} bila tidak ada
+	 */
 	private static PenggunaanAnggaran findPenggunaanAnggaranByRef(Session session, String ref) {
 		Long id = findPenggunaanAnggaranIdByRef(session, ref);
 		return id == null ? null : (PenggunaanAnggaran) session.get(PenggunaanAnggaran.class, id);
 	}
 
+	/**
+	 * Menghapus baris-baris kembar yang berbagi {@code ref} yang sama, menyisakan
+	 * yang tertua.
+	 *
+	 * <p>Menjalankan {@code delete ... where ref = :ref and id not in (select min(id)
+	 * ... where ref = :ref)} lewat SQL native. Aturan "yang bertahan adalah
+	 * {@code min(id)}" identik dengan yang dipakai
+	 * {@link #findPenggunaanAnggaranIdByRef(Session, String)}, sehingga baris yang
+	 * disisakan di sini persis baris yang akan ditemukan dan diperbarui
+	 * sesudahnya.</p>
+	 *
+	 * <p><b>Mengapa masih perlu meski ada constraint unik.</b> Method ini dipanggil
+	 * {@code saveOrUpdateByRef(...)} setelah kunci advisory diambil, sebagai
+	 * pembersih data yang sudah terlanjur kembar — dari periode sebelum constraint
+	 * {@code ref_penggunaan_anggaran} dipasang, dari impor, atau dari proses lama
+	 * yang berjalan paralel. Tanpa pembersihan ini, satu baris kembar akan membuat
+	 * anggaran terserap berlipat pada laporan realisasi, dan penulisan berikutnya
+	 * akan terus gagal pada constraint. Karena dijalankan di bawah kunci advisory
+	 * per-ref, ia tidak berlomba dengan proses lain atas ref yang sama.</p>
+	 *
+	 * <p>Nilai {@code ref} dikirim sebagai parameter terikat, bukan disambung ke
+	 * dalam SQL.</p>
+	 *
+	 * @param session sesi Hibernate dengan transaksi aktif; {@code null} diabaikan
+	 * @param ref     kunci alami yang dibersihkan; kosong diabaikan
+	 */
 	private static void removeDuplicateRowsByRef(Session session, String ref) {
 		if (session == null || !hasText(ref)) {
 			return;
@@ -1763,6 +1992,66 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 				.setString("ref", ref).executeUpdate();
 	}
 
+	/**
+	 * Pabrik yang mengubah sebuah dokumen sumber menjadi objek
+	 * {@link PenggunaanAnggaran} sementara — sekaligus <b>gerbang kelayakan</b> yang
+	 * menentukan dokumen mana yang boleh memotong anggaran.
+	 *
+	 * <h4>Peran ganda</h4>
+	 *
+	 * <p>Selain merakit objek, method ini adalah tempat seluruh aturan kelayakan
+	 * berada. Nilai kembalian {@code null} berarti "dokumen ini tidak boleh punya
+	 * baris penggunaan anggaran", dan {@link #prosesSimpan(Serializable, Session)}
+	 * akan berhenti (atau, untuk uang muka, justru membersihkan baris lama).
+	 * Objek yang dihasilkan hanya menempelkan dokumen sumbernya; seluruh atribut
+	 * lain — nilai, workspace, nama, ref — diturunkan belakangan oleh getter
+	 * masing-masing.</p>
+	 *
+	 * <h4>Aturan kelayakan per jenis</h4>
+	 *
+	 * <ul>
+	 *   <li><b>{@link GrupTransaksi}</b> — hanya diterima bila sudah tersimpan,
+	 *       {@code jenisJurnal}-nya {@code Transaksi.JURNAL_UMUM}, dan terkait
+	 *       {@link Workspace}. Jurnal jenis lain (mis. jurnal otomatis dari modul
+	 *       lain) sengaja tidak diproyeksikan agar serapan tidak dihitung dua kali
+	 *       dari dokumen asalnya <i>dan</i> dari jurnalnya.</li>
+	 *   <li><b>{@link UangMuka}</b> — diterima bila sudah tersimpan, terkait
+	 *       {@link Workspace}, dan <b>tidak</b> merujuk permintaan pengadaan.
+	 *       Syarat terakhir adalah lapis pertama penjaga potong-anggaran ganda:
+	 *       bila uang muka dibuat berdasarkan PR, PR-nya sudah memotong anggaran,
+	 *       sehingga uang mukanya tidak boleh memotong lagi. Lapis kedua ada di
+	 *       {@link #getAktif()}, lapis ketiga di
+	 *       {@link #prosesSimpan(Serializable, Session)}.</li>
+	 *   <li><b>{@link PermintaanPengadaanMasterAssetDetail}</b> — diterima bila
+	 *       detailnya sudah tersimpan dan dokumen PR induknya ada serta terkait
+	 *       {@link Workspace}.</li>
+	 *   <li><b>{@link SaldoAwalMasterAssetDetail}</b> dan <b>{@link PembayaranGaji}</b>
+	 *       — diterima bila sudah tersimpan dan terkait {@link Workspace}.</li>
+	 *   <li><b>{@link Pertangungjawaban}</b> — diterima bila sudah tersimpan dan uang
+	 *       muka induknya ada serta terkait {@link Workspace}. Perhatikan bahwa
+	 *       keterkaitan anggaran diperiksa lewat uang muka, bukan lewat LPJ
+	 *       sendiri.</li>
+	 * </ul>
+	 *
+	 * <h4>Yang sengaja tidak dilayani</h4>
+	 *
+	 * <p>{@link KasKecil} dan {@link KasBesar} <b>tidak</b> ditangani di sini dan
+	 * jatuh ke {@code return null} di akhir. Keduanya disaring lebih dulu oleh
+	 * {@link #prosesSimpan(Serializable, Session)} dan diproses jalur khusus
+	 * {@code prosesKasKecil(...)}/{@code prosesKasBesar(...)}, karena satu dokumen kas
+	 * memuat banyak baris anggaran di dalam formula JSON-nya sehingga tidak dapat
+	 * dipetakan satu-dokumen-satu-baris. Jenis {@link Serializable} lain juga
+	 * menghasilkan {@code null}.</p>
+	 *
+	 * <p>Syarat {@code getId() != null} yang muncul di setiap cabang menjaga agar
+	 * proyeksi tidak dibuat untuk dokumen yang belum memiliki identitas — tanpa id,
+	 * {@link #refData(PenggunaanAnggaran)} tak dapat membentuk kunci alami yang
+	 * stabil dan idempotensi penyimpanan akan hilang.</p>
+	 *
+	 * @param serializable dokumen sumber yang baru disimpan; boleh jenis apa pun
+	 * @return objek penggunaan anggaran sementara, atau {@code null} bila dokumen
+	 *         tidak layak memotong anggaran
+	 */
 	private static PenggunaanAnggaran createPenggunaanAnggaranSource(Serializable serializable) {
 		if (serializable instanceof GrupTransaksi) {
 			GrupTransaksi data = (GrupTransaksi) serializable;
@@ -1830,6 +2119,42 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return null;
 	}
 
+	/**
+	 * Menyalin dokumen sumber dan atribut turunannya dari objek sementara ke baris
+	 * yang akan disimpan.
+	 *
+	 * <h4>Mengosongkan dulu, baru mengisi satu</h4>
+	 *
+	 * <p>Langkah pertama method ini mengosongkan <b>kedelapan</b> relasi sumber pada
+	 * {@code target}, baru kemudian mengisi tepat satu sesuai isi {@code source}.
+	 * Inilah satu-satunya tempat yang menegakkan invarian "satu baris menunjuk tepat
+	 * satu dokumen sumber" — setter individual tidak memeriksa apa pun. Pengosongan
+	 * ini penting untuk baris yang sudah ada: bila sebuah dokumen berubah jenis
+	 * kaitannya, relasi lama harus benar-benar dilepas, bukan sekadar tertimpa oleh
+	 * relasi baru.</p>
+	 *
+	 * <h4>Penyalinan bersyarat untuk atribut turunan</h4>
+	 *
+	 * <p>Tiga atribut berikutnya — {@code workspace}, {@code nilai}, dan {@code ref} —
+	 * hanya disalin bila terisi pada {@code source}. Sifat "salin bila ada" ini
+	 * disengaja dan menopang jalur kas: {@code saveKasLine(...)} membentuk objek
+	 * sementara yang <i>sudah</i> membawa ketiganya (karena baris kas tidak dapat
+	 * menurunkannya sendiri dari dokumen), sementara untuk jenis sumber lain
+	 * ketiganya dibiarkan kosong dan akan diturunkan sendiri oleh
+	 * {@link #getWorkspace()}, {@link #getNilai()}, dan {@link #getRef()}. Efek
+	 * sampingnya: nilai atau workspace yang sudah tersimpan pada baris lama tidak
+	 * akan dikosongkan oleh penyalinan ini — hanya bisa berubah menjadi nilai baru,
+	 * tidak menjadi kosong.</p>
+	 *
+	 * <p>Perhatikan bahwa pembacaan {@code source.getWorkspace()} di sini melewati
+	 * getter, sehingga nilai yang disalin sudah melalui pengalihan ke anggaran
+	 * pendahulu bila ada — lihat catatan asimetri pada {@link #getWorkspace()}.
+	 * Parameter {@code null} pada salah satu sisi membuat method keluar tanpa
+	 * melakukan apa pun.</p>
+	 *
+	 * @param target baris yang akan disimpan (baru atau hasil pencarian ref)
+	 * @param source objek sementara pembawa dokumen sumber
+	 */
 	private static void copySource(PenggunaanAnggaran target, PenggunaanAnggaran source) {
 		if (target == null || source == null) {
 			return;
@@ -1872,10 +2197,90 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menyimpan atau memperbarui baris penggunaan anggaran berdasarkan kunci alami
+	 * {@code ref}, dengan satu kali percobaan ulang bila terjadi konflik.
+	 *
+	 * <p>Bentuk ringkas dari
+	 * {@link #saveOrUpdateByRef(Session, PenggunaanAnggaran, String, boolean)} dengan
+	 * {@code retryWhenDuplicate = true}. Inilah bentuk yang dipakai seluruh pemanggil
+	 * di dalam kelas ini.</p>
+	 *
+	 * @param session sesi Hibernate
+	 * @param source  objek sementara pembawa dokumen sumber
+	 * @param ref     kunci alami baris
+	 */
 	private static void saveOrUpdateByRef(Session session, PenggunaanAnggaran source, String ref) {
 		saveOrUpdateByRef(session, source, ref, true);
 	}
 
+	/**
+	 * Inti penulisan proyeksi: menyimpan, memperbarui, atau menghapus satu baris
+	 * penggunaan anggaran secara idempoten berdasarkan kunci alami {@code ref}.
+	 *
+	 * <h4>Urutan kerja</h4>
+	 *
+	 * <ol>
+	 *   <li><b>Pastikan ada transaksi.</b> Bila sesi sudah berada dalam transaksi
+	 *       aktif, transaksi itu dipakai apa adanya dan <b>tidak</b> di-commit di
+	 *       akhir — kepemilikan transaksi tetap pada pemanggil. Bila belum,
+	 *       transaksi baru dibuka dan ditandai {@code startedTransaction} sehingga
+	 *       hanya transaksi milik sendiri yang di-commit. Pola ini membuat method
+	 *       aman dipanggil dari dalam maupun luar transaksi berjalan.</li>
+	 *   <li><b>Kunci advisory.</b> {@code lockRef(...)} menserialkan seluruh langkah
+	 *       berikutnya per {@code ref}, sehingga urutan "cari, tidak ada, buat" tidak
+	 *       dapat berselang dengan proses lain atas ref yang sama.</li>
+	 *   <li><b>Bersihkan kembar.</b> {@code removeDuplicateRowsByRef(...)} menyisakan
+	 *       baris tertua bila terdapat baris ber-ref sama.</li>
+	 *   <li><b>Cari atau buat.</b> Baris dicari lewat
+	 *       {@code findPenggunaanAnggaranByRef(...)}; bila tak ada, dibuat instans
+	 *       baru. Lalu {@code copySource(...)} memindahkan dokumen sumber dan atribut
+	 *       turunannya, dan {@code ref} diset ulang secara eksplisit.</li>
+	 *   <li><b>Putuskan simpan atau hapus.</b> Baris yang sudah punya id
+	 *       <i>dihapus</i> ({@code Common.refreshDelete}) bila
+	 *       {@link #ambilRef()}-nya kini {@code null} — dokumen sumber sudah tidak
+	 *       berhak punya proyeksi — <b>atau</b> bila {@link #getAktif()}-nya
+	 *       {@code false}. Selain itu, baris yang aktif disimpan/diperbarui lewat
+	 *       {@code Common.refreshSaveOrUpdate}. Perhatikan kombinasi yang tidak
+	 *       tertangani: baris <i>baru</i> (belum ber-id) yang tidak aktif tidak
+	 *       masuk cabang mana pun dan sekadar diabaikan — itu memang perilaku yang
+	 *       diinginkan, tak ada yang perlu ditulis.</li>
+	 *   <li><b>Commit</b> hanya bila transaksi dibuka sendiri.</li>
+	 * </ol>
+	 *
+	 * <h4>Penanganan kegagalan dan percobaan ulang</h4>
+	 *
+	 * <p>Setiap kegagalan memicu {@code rollbackQuietly(...)} lalu
+	 * {@code clearQuietly(...)}. Pengosongan konteks persistensi adalah syarat mutlak
+	 * agar percobaan ulang bermakna: tanpanya, query berikutnya masih akan menemukan
+	 * objek basi dari cache tingkat pertama dan gagal dengan cara yang sama.</p>
+	 *
+	 * <p>Percobaan ulang dilakukan <b>sekali saja</b> — rekursi memanggil dirinya
+	 * dengan {@code retryWhenDuplicate = false} sehingga tidak mungkin berulang tanpa
+	 * batas — dan hanya untuk dua jenis kegagalan yang memang dapat disembuhkan
+	 * dengan membaca ulang: tabrakan {@code ref} duplikat
+	 * ({@link #isDuplicateRefException(Throwable)}, artinya proses lain menyisipkan
+	 * lebih dulu — percobaan kedua akan menemukan barisnya dan memperbarui) dan
+	 * {@code StaleStateException} ({@link #isStaleStateException(Throwable)}, artinya
+	 * baris yang hendak diperbarui ternyata sudah dihapus proses lain — percobaan
+	 * kedua akan membuat baris baru). Kegagalan jenis lain hanya dicatat lewat
+	 * {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p><b>Gagal secara senyap.</b> Method ini tidak pernah melempar ke pemanggil.
+	 * Bila percobaan ulang pun gagal, baris proyeksi sekadar tidak diperbarui pada
+	 * siklus itu dan pengguna tidak diberi tahu apa pun — konsisten dengan sifat
+	 * asinkron seluruh jalur ini. Konsekuensinya, angka realisasi dapat tertinggal
+	 * dari dokumen sumbernya sampai dokumen itu disimpan ulang. Ini bukan penjaga
+	 * integritas nilai: tidak ada pemeriksaan pagu, batas, maupun tanda di sepanjang
+	 * jalur ini.</p>
+	 *
+	 * @param session            sesi Hibernate; {@code null} membuat method keluar
+	 * @param source             objek sementara pembawa dokumen sumber;
+	 *                           {@code null} membuat method keluar
+	 * @param ref                kunci alami baris; kosong membuat method keluar
+	 * @param retryWhenDuplicate {@code true} pada pemanggilan pertama; {@code false}
+	 *                           pada percobaan ulang agar rekursi berhenti
+	 */
 	private static void saveOrUpdateByRef(Session session, PenggunaanAnggaran source, String ref,
 			boolean retryWhenDuplicate) {
 		if (session == null || source == null || !hasText(ref)) {
@@ -1928,6 +2333,42 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menulis satu baris penggunaan anggaran yang berasal dari sebuah baris formula
+	 * kas kecil atau kas besar.
+	 *
+	 * <p>Berbeda dari jenis sumber lain, baris kas <b>tidak dapat menurunkan sendiri</b>
+	 * atribut-atributnya dari dokumen: satu dokumen kas memuat banyak baris anggaran
+	 * di dalam kolom {@code formula} berformat JSON. Karena itu method ini merakit
+	 * objek sementara yang sudah lengkap — {@code ref}, dokumen kas, {@code workspace},
+	 * dan {@code nilai} — lalu menyerahkannya ke
+	 * {@link #saveOrUpdateByRef(Session, PenggunaanAnggaran, String)} yang menangani
+	 * penguncian, pembersihan kembar, serta simpan/perbarui secara idempoten. Sifat
+	 * "salin bila terisi" pada {@code copySource(...)} memastikan ketiga atribut itu
+	 * benar-benar sampai ke baris tujuan.</p>
+	 *
+	 * <p>Parameter {@code kasKecil} dan {@code kasBesar} bersifat saling
+	 * meniadakan — pemanggil mengisi salah satunya dan mengirim {@code null} untuk
+	 * yang lain. Method ini <b>tidak memeriksa</b> bahwa hanya satu yang terisi;
+	 * disiplin itu dipegang kedua pemanggilnya, dan {@code copySource(...)} yang
+	 * mendahulukan kas kecil akan mengabaikan kas besar bila keduanya terlanjur
+	 * terisi.</p>
+	 *
+	 * <p>Penjaga masuk menolak {@code session} {@code null}, {@code ref} kosong, dan
+	 * — yang paling penting — {@code workspace} {@code null}. Syarat terakhir
+	 * mencegah baris serapan tanpa baris pagu: elemen formula yang anggarannya tidak
+	 * dapat ditentukan sekadar dilewati, bukan disimpan sebagai baris yatim. Nilai
+	 * {@code null} dinormalkan menjadi {@code 0.0} sehingga kolom nilai tidak pernah
+	 * kosong untuk baris kas.</p>
+	 *
+	 * @param session   sesi Hibernate
+	 * @param ref       kunci alami baris, berformat {@code <key>_KAS_KECIL_<id>} atau
+	 *                  {@code <key>_KAS_BESAR_<id>}
+	 * @param kasKecil  dokumen kas kecil sumber, atau {@code null}
+	 * @param kasBesar  dokumen kas besar sumber, atau {@code null}
+	 * @param workspace baris pagu yang diserap; wajib, {@code null} membatalkan
+	 * @param nilai     nilai serapan; {@code null} diperlakukan sebagai {@code 0.0}
+	 */
 	private static void saveKasLine(Session session, String ref, KasKecil kasKecil, KasBesar kasBesar,
 			Workspace workspace, Double nilai) {
 		if (session == null || !hasText(ref) || workspace == null) {
@@ -1942,6 +2383,61 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		saveOrUpdateByRef(session, penggunaanAnggaran, ref);
 	}
 
+	/**
+	 * Membangun ulang seluruh baris penggunaan anggaran milik sebuah dokumen kas
+	 * kecil: hapus semuanya, lalu tulis kembali dari formula JSON-nya.
+	 *
+	 * <h4>Strategi hapus-lalu-tulis-ulang</h4>
+	 *
+	 * <p>Method dibuka dengan DELETE native atas seluruh baris yang
+	 * {@code kas_kecil}-nya sama dengan dokumen ini, di dalam transaksinya sendiri
+	 * yang langsung di-commit. Baru setelah itu formula diuraikan dan tiap elemennya
+	 * ditulis ulang lewat {@link #saveKasLine(Session, String, KasKecil, KasBesar, Workspace, Double)}.
+	 * Pendekatan ini dipilih karena baris formula dapat <i>dihapus</i> pengguna —
+	 * penulisan idempoten per-ref saja tidak akan pernah membuang baris yang tidak
+	 * lagi ada di formula, sehingga serapannya akan tertinggal selamanya.</p>
+	 *
+	 * <p><b>Konsekuensi yang perlu disadari.</b> Karena penghapusan di-commit lebih
+	 * dulu dan penulisan ulang berjalan sesudahnya sebagai rangkaian transaksi
+	 * terpisah, terdapat jendela waktu ketika serapan dokumen kas ini <b>hilang
+	 * seluruhnya</b> dari laporan realisasi. Bila penguraian formula gagal di
+	 * tengah jalan, sebagian baris tidak akan tertulis kembali sampai dokumen
+	 * disimpan ulang. DELETE ini pula yang menjadi asal-usul
+	 * {@code StaleStateException} yang ditangani
+	 * {@link #isStaleStateException(Throwable)}: proses lain yang sedang memegang
+	 * objek baris tersebut di cache sesinya baru menyadari barisnya lenyap saat
+	 * UPDATE dijalankan.</p>
+	 *
+	 * <h4>Penentuan baris pagu tiap elemen</h4>
+	 *
+	 * <p>Elemen tanpa {@code key} atau tanpa {@code workspace} dilewati. Anggaran
+	 * mula-mula di-resolve langsung dari id pada atribut {@code workspace}. Bila
+	 * hasilnya kosong sementara elemen menyebut {@code akun} biaya, dilakukan
+	 * pencarian cadangan dua tahap terhadap {@link Workspace} pada tahun yang diambil
+	 * dari tanggal dokumen kas: pertama berdasarkan objek {@link Akun} yang sama,
+	 * lalu — bila tetap tak ketemu atau yang ketemu tidak aktif — berdasarkan
+	 * <i>kode</i> akun. Keduanya menerima anggaran yang {@code aktif}-nya
+	 * {@code true} atau {@code null}, diurutkan {@code id} menurun dan diambil satu.
+	 * Pencarian berbasis kode itu penting untuk anggaran tahun berjalan yang dibuat
+	 * ulang tiap tahun sehingga objek akunnya berbeda meski kodenya sama.</p>
+	 *
+	 * <p>Ref tiap baris dibentuk {@code <key>_KAS_KECIL_<id dokumen>} — id dokumen
+	 * disertakan agar {@code key} yang kebetulan sama pada dua dokumen kas berbeda
+	 * tidak bertabrakan.</p>
+	 *
+	 * <p><b>Perbedaan dari {@code prosesKasBesar(...)}.</b> Kedua method hampir
+	 * kembar, dengan satu beda yang disengaja: di sini pencarian cadangan
+	 * <i>tidak</i> menyertakan syarat {@code carryOver}, sedangkan pada kas besar
+	 * anggaran ber-{@code carryOver} ikut diterima. Bila salah satu method disunting,
+	 * periksa apakah perubahan yang sama berlaku untuk kembarannya.</p>
+	 *
+	 * <p>Kegagalan pada tahap penghapusan maupun penguraian ditelan dan dicatat lewat
+	 * {@code ErrorAuditUtil}; method tidak pernah melempar ke pemanggil.</p>
+	 *
+	 * @param kasKecil dokumen kas kecil yang baru disimpan; {@code null} atau belum
+	 *                 ber-id diabaikan
+	 * @param session  sesi Hibernate; {@code null} diabaikan
+	 */
 	private static void prosesKasKecil(KasKecil kasKecil, Session session) {
 		if (kasKecil == null || kasKecil.getId() == null || session == null) {
 			return;
@@ -1999,6 +2495,41 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Membangun ulang seluruh baris penggunaan anggaran milik sebuah dokumen kas
+	 * besar: hapus semuanya, lalu tulis kembali dari formula JSON-nya.
+	 *
+	 * <p>Kembaran {@link #prosesKasKecil(KasKecil, Session)} dengan alur yang sama
+	 * persis — DELETE native seluruh baris milik dokumen di dalam transaksi
+	 * tersendiri, lalu penguraian formula {@code JSONArray} dan penulisan ulang tiap
+	 * elemen lewat
+	 * {@link #saveKasLine(Session, String, KasKecil, KasBesar, Workspace, Double)}
+	 * dengan ref {@code <key>_KAS_BESAR_<id dokumen>}. Seluruh catatan pada method
+	 * kembarannya berlaku di sini, termasuk jendela waktu ketika serapan dokumen ini
+	 * hilang seluruhnya dari laporan, dan perannya sebagai asal-usul
+	 * {@code StaleStateException} yang ditangani jalur percobaan ulang.</p>
+	 *
+	 * <p><b>Satu perbedaan yang disengaja.</b> Pencarian cadangan {@link Workspace}
+	 * di sini menerima anggaran ber-{@code carryOver} bernilai {@code true}
+	 * <i>selain</i> anggaran yang aktif — {@code Restrictions.or(eq("carryOver", true),
+	 * or(isNull("aktif"), eq("aktif", true)))} — sedangkan pada kas kecil syarat
+	 * {@code carryOver} tidak ada. Ini mencerminkan kenyataan bahwa pengeluaran kas
+	 * besar kerap membebani anggaran luncuran dari tahun sebelumnya. Bila salah satu
+	 * dari kedua method disunting, periksa apakah perubahan yang sama perlu berlaku
+	 * di kembarannya.</p>
+	 *
+	 * <p>Perhatikan pula bahwa {@link #getAktif()} tidak memiliki cabang untuk kas
+	 * besar, sehingga penonaktifan dokumen kas besar tidak dengan sendirinya
+	 * mematikan baris-barisnya; pembersihan sepenuhnya bergantung pada method ini
+	 * dijalankan ulang.</p>
+	 *
+	 * <p>Kegagalan ditelan dan dicatat lewat {@code ErrorAuditUtil}; method tidak
+	 * pernah melempar ke pemanggil.</p>
+	 *
+	 * @param kasBesar dokumen kas besar yang baru disimpan; {@code null} atau belum
+	 *                 ber-id diabaikan
+	 * @param session  sesi Hibernate; {@code null} diabaikan
+	 */
 	private static void prosesKasBesar(KasBesar kasBesar, Session session) {
 		if (kasBesar == null || kasBesar.getId() == null || session == null) {
 			return;
@@ -2058,6 +2589,58 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Penyalur (dispatcher) yang menyegarkan proyeksi penggunaan anggaran untuk satu
+	 * dokumen sumber, memakai sesi Hibernate yang diberikan.
+	 *
+	 * <h4>Tiga jalur</h4>
+	 *
+	 * <ol>
+	 *   <li><b>Kas kecil / kas besar</b> disaring lebih dulu dan diserahkan ke
+	 *       {@link #prosesKasKecil(KasKecil, Session)} atau
+	 *       {@link #prosesKasBesar(KasBesar, Session)}, yang membangun ulang seluruh
+	 *       baris dokumen dari formula JSON-nya.</li>
+	 *   <li><b>Enam jenis dokumen lain</b> melewati gerbang kelayakan
+	 *       {@code createPenggunaanAnggaranSource(...)}, kemudian kunci alaminya
+	 *       dibentuk {@link #refData(PenggunaanAnggaran)} dan diserahkan ke
+	 *       {@code saveOrUpdateByRef(...)}. Bila kunci alami tak dapat dibentuk,
+	 *       method berhenti tanpa menulis apa pun.</li>
+	 *   <li><b>Dokumen yang ditolak gerbang</b> ({@code createPenggunaanAnggaranSource}
+	 *       mengembalikan {@code null}) umumnya berhenti begitu saja — kecuali satu
+	 *       kasus khusus di bawah.</li>
+	 * </ol>
+	 *
+	 * <h4>Lapis ketiga penjaga potong-anggaran ganda</h4>
+	 *
+	 * <p>Kasus khusus itu menyangkut {@link UangMuka} berbasis permintaan pengadaan.
+	 * Uang muka semacam itu ditolak gerbang karena PR-nya sudah memotong anggaran.
+	 * Namun sekadar menolak tidaklah cukup: bila uang muka mula-mula dibuat
+	 * <i>tanpa</i> PR — sehingga baris penggunaannya terlanjur tertulis — lalu
+	 * disunting menjadi berbasis PR, baris lama akan tertinggal dan anggaran terpotong
+	 * <b>dua kali</b> untuk satu pengeluaran. Karena itu, khusus untuk uang muka yang
+	 * ditolak gerbang <i>karena</i> merujuk PR, method ini menjalankan
+	 * {@code delete from PenggunaanAnggaran where uangMuka.id = :um} untuk
+	 * membersihkan sisa baris tersebut. Ini lapis ketiga dari penjaga yang sama —
+	 * lapis pertama {@code createPenggunaanAnggaranSource(...)} yang mencegah
+	 * pembuatan, lapis kedua {@link #getAktif()} yang membuat baris lama dihapus saat
+	 * disimpan ulang lewat jalur biasa. Kegagalan penghapusan ditelan dan dicatat
+	 * tersendiri agar tidak menggagalkan sisa proses.</p>
+	 *
+	 * <p><b>Cakupan penjaga ini terbatas pada satu kasus.</b> Ia menutup jalur
+	 * potong-ganda uang muka&ndash;PR, bukan potong-ganda secara umum: tidak ada
+	 * pemeriksaan bahwa dua dokumen berbeda membebani pagu yang sama melebihi
+	 * kapasitasnya, dan sekali lagi tidak ada pembandingan terhadap pagu di titik mana
+	 * pun.</p>
+	 *
+	 * <p>Seluruh badan method dibungkus {@code try/catch} yang mengosongkan sesi lalu
+	 * mencatat kesalahan; method tidak pernah melempar ke pemanggil. Bersifat publik
+	 * dan menerima sesi dari luar sehingga dapat dipakai alur sinkron atau perkakas
+	 * pemulihan data, berbeda dari {@link #simpan(Serializable)} yang selalu
+	 * asinkron.</p>
+	 *
+	 * @param serializable dokumen sumber yang baru disimpan; {@code null} diabaikan
+	 * @param session      sesi Hibernate yang dipakai menulis; {@code null} diabaikan
+	 */
 	public static void prosesSimpan(Serializable serializable, Session session) {
 		if (serializable == null || session == null) {
 			return;
@@ -2107,6 +2690,70 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 	}
 
 	
+	/**
+	 * Titik masuk publik yang menjadwalkan penyegaran proyeksi penggunaan anggaran
+	 * secara <b>asinkron</b> setelah sebuah dokumen sumber disimpan.
+	 *
+	 * <h4>Siapa yang memanggil</h4>
+	 *
+	 * <p>Dipanggil dari {@code ais.database.hibernate.AuditListener} untuk setiap
+	 * entitas yang disimpan aplikasi. Method ini sendiri yang menyaring: hanya
+	 * delapan jenis dokumen yang diproses ({@link UangMuka},
+	 * {@link PermintaanPengadaanMasterAssetDetail},
+	 * {@link SaldoAwalMasterAssetDetail}, {@link PembayaranGaji}, {@link KasKecil},
+	 * {@link KasBesar}, {@link GrupTransaksi}, {@link Pertangungjawaban}); jenis lain
+	 * tidak menimbulkan efek apa pun. Penyaringan di depan ini penting karena
+	 * listener memanggilnya sangat sering.</p>
+	 *
+	 * <h4>Rancangan asinkron dan seluruh konsekuensinya</h4>
+	 *
+	 * <p>Method membuat {@link Thread} baru, <b>menunggu 3 detik</b>, lalu membuka
+	 * sesi Hibernate <i>native</i> sendiri lewat
+	 * {@code HibernateUtil.currentNativeSession()} dan memanggil
+	 * {@link #prosesSimpan(Serializable, Session)}. Jeda itu memberi waktu transaksi
+	 * dokumen sumber untuk benar-benar ter-commit, sehingga sesi baru membaca keadaan
+	 * final dokumen, bukan keadaan setengah jadi. Sesi ditutup pada blok
+	 * {@code finally} lewat {@link #closeManualSession(Session)} — wajib, karena sesi
+	 * native tidak dikelola kontainer dan kebocorannya akan menghabiskan kumpulan
+	 * koneksi.</p>
+	 *
+	 * <p>Rancangan ini menentukan banyak hal yang harus dipahami sebelum menyunting
+	 * kelas ini:</p>
+	 * <ul>
+	 *   <li><b>Tidak dapat menolak apa pun.</b> Karena berjalan setelah transaksi
+	 *       sumber selesai, jalur ini secara arsitektural tidak berada pada posisi
+	 *       untuk membatalkan penyimpanan dokumen. Menambahkan pemeriksaan pagu di
+	 *       sini tidak akan mencegah pelampauan pagu — hanya akan membuat baris
+	 *       serapannya tidak tercatat, yang justru memperburuk keadaan. Pencegahan
+	 *       pagu, bila dikehendaki, harus dipasang di alur penyimpanan dokumen
+	 *       sumbernya.</li>
+	 *   <li><b>Kegagalan tak terlihat.</b> Seluruh kesalahan ditelan dan dicatat
+	 *       lewat {@code ErrorAuditUtil}; pengguna yang menyimpan dokumen tidak
+	 *       menerima peringatan apa pun.</li>
+	 *   <li><b>Ada jendela ketidaksesuaian.</b> Selama sekitar tiga detik (lebih lama
+	 *       bila basis data sibuk) dokumen sudah tersimpan sementara serapannya belum
+	 *       tercatat; laporan RAB yang dibaca pada jendela itu menampilkan angka
+	 *       lama.</li>
+	 *   <li><b>Thread tanpa konteks.</b> Berjalan di luar sesi ZK, sehingga getter
+	 *       yang bergantung pada pengguna aktif tidak dapat diandalkan — inilah
+	 *       alasan setter {@link #setOleh(String)}/{@link #setOlehId(String)}
+	 *       mengabaikan nilai kosong, dan alasan perbaikan pemuatan malas pada
+	 *       {@link #getAktif()} diperlukan.</li>
+	 *   <li><b>Thread tak terbatas.</b> Setiap penyimpanan dokumen yang relevan
+	 *       membuat satu thread baru tanpa kumpulan (<i>thread pool</i>); pada impor
+	 *       massal, jumlahnya sebanyak dokumen yang disimpan. Idempotensi berbasis
+	 *       {@code ref} dan kunci advisory-lah yang menjaga agar penulisan bersamaan
+	 *       tetap menghasilkan satu baris per ref.</li>
+	 * </ul>
+	 *
+	 * <p>Parameter dideklarasikan {@code final} agar dapat ditangkap kelas dalam
+	 * anonim {@link Runnable}-nya — persyaratan Java 1.6/1.7 yang menjadi target
+	 * kompilasi berkas ini.</p>
+	 *
+	 * @param serializable dokumen sumber yang baru disimpan; jenis di luar delapan
+	 *                     yang didukung diabaikan tanpa efek
+	 * @see #prosesSimpan(Serializable, Session)
+	 */
 	public static void simpan(final Serializable serializable) {
 
 		if (serializable instanceof UangMuka || serializable instanceof PermintaanPengadaanMasterAssetDetail
@@ -2115,6 +2762,11 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 				|| serializable instanceof GrupTransaksi || serializable instanceof Pertangungjawaban) {
 			new Thread(new Runnable() {
 
+				/**
+				 * Menunggu transaksi dokumen sumber ter-commit, lalu menyegarkan
+				 * proyeksi penggunaan anggaran pada sesi native tersendiri yang
+				 * ditutup manual di blok {@code finally}.
+				 */
 				@Override
 				public void run() {
 					try {
