@@ -76,6 +76,10 @@ import ais.database.model.GeneralValueObject;
 @Table(schema = "asset", name = "pengiriman_gudang")
 public class PengirimanGudang extends GeneralValueObject {
 
+	/**
+	 * Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable}; tidak perlu
+	 * diubah kecuali bentuk field berubah secara tidak kompatibel.
+	 */
 	private static final long serialVersionUID = 1L;
 
 	/** Dikirim, menunggu konfirmasi terima (barang berada di lokasi transit). */
@@ -87,28 +91,42 @@ public class PengirimanGudang extends GeneralValueObject {
 	/** Dibatalkan sebelum diterima (barang dikembalikan manual ke asal, di luar cakupan otomatis). */
 	public static final String DIBATALKAN = "DIBATALKAN";
 
+	/** Primary key auto-generated (IDENTITY) tabel {@code asset.pengiriman_gudang}. */
 	private Long id;
+	/** Nama pengguna yang terakhir mengubah baris ini; diisi otomatis, lihat {@link #onUpdate()}. */
 	private String oleh;
+	/** Id pengguna yang terakhir mengubah baris ini; diisi otomatis, lihat {@link #onUpdate()}. */
 	private String olehId;
+	/** Waktu perubahan terakhir baris ini; diperbarui otomatis oleh {@link #onUpdate()}. */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	private String kode;
 	private Lokasi lokasiAsal;
 	private Lokasi lokasiTujuan;
 	private Lokasi lokasiTransit;
+	/** Tanggal dokumen ini dikirim; default waktu saat objek dibuat. */
 	private Date tanggalKirim = ais.ui.util.WaktuUtil.getDate();
+	/** Tanggal dokumen ini dikonfirmasi diterima (penuh/sebagian); {@code null} selama {@link #DIKIRIM}. */
 	private Date tanggalTerima;
 	private String status;
+	/** Keterangan bebas saat pengiriman dibuat, opsional. */
 	private String keterangan;
+	/** Keterangan bebas saat penerimaan dikonfirmasi, opsional. */
 	private String keteranganTerima;
+	/** Nama pengguna yang mengirim (mengonfirmasi pengiriman); opsional. */
 	private String dikirimOleh;
+	/** Id pengguna yang mengirim; opsional. */
 	private String dikirimOlehId;
+	/** Nama pengguna yang menerima (mengonfirmasi penerimaan); opsional. */
 	private String diterimaOleh;
+	/** Id pengguna yang menerima; opsional. */
 	private String diterimaOlehId;
 
+	/** Konstruktor default tanpa argumen, dipakai Hibernate untuk instansiasi via refleksi. */
 	public PengirimanGudang() {
 	}
 
+	/** @return primary key baris ini, atau {@code null} untuk instance baru yang belum disimpan. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -116,14 +134,31 @@ public class PengirimanGudang extends GeneralValueObject {
 		return id;
 	}
 
+	/**
+	 * Mengisi primary key. Kolom database bersifat {@code insertable = false} (IDENTITY,
+	 * auto-generate oleh database), sehingga pengisian manual tidak berpengaruh pada
+	 * {@code INSERT}.
+	 *
+	 * @param id primary key.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return nama pengguna yang terakhir mengubah baris ini (audit), atau {@code null} bila
+	 *         belum pernah diubah sejak dimuat.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Mengisi nama pengguna audit. Nilai {@code null}/kosong diabaikan agar jejak lama tidak
+	 * tertimpa hampa.
+	 *
+	 * @param oleh nama pengguna; diabaikan bila {@code null} atau blank.
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -131,10 +166,20 @@ public class PengirimanGudang extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * @return id pengguna yang terakhir mengubah baris ini (audit), atau {@code null} bila belum
+	 *         pernah diubah sejak dimuat.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi id pengguna audit. Nilai {@code null}/kosong diabaikan, sama seperti
+	 * {@link #setOleh(String)}.
+	 *
+	 * @param olehId id pengguna; diabaikan bila {@code null} atau blank.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -142,17 +187,30 @@ public class PengirimanGudang extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Hook siklus hidup JPA yang dipanggil Hibernate tepat sebelum setiap {@code UPDATE}.
+	 * Mendelegasikan ke {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}
+	 * yang mengisi {@link #tanggal_dirubah}, {@link #oleh}, dan {@link #olehId} dengan waktu serta
+	 * identitas pengguna aktif. Dipicu otomatis oleh Hibernate, tidak dipanggil manual.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** @return waktu perubahan terakhir baris ini; tidak pernah {@code null}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal_dirubah")
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Mengisi waktu perubahan terakhir. Field diinisialisasi ke waktu saat objek dibuat, lalu
+	 * ditimpa ulang oleh {@link #onUpdate()} setiap kali baris di-{@code UPDATE}.
+	 *
+	 * @param tanggal_dirubah waktu perubahan.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
@@ -163,6 +221,11 @@ public class PengirimanGudang extends GeneralValueObject {
 		return kode;
 	}
 
+	/**
+	 * Mengisi kode dokumen.
+	 *
+	 * @param kode kode dokumen unik (format {@code "KRM-" + barcode}).
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
@@ -175,6 +238,11 @@ public class PengirimanGudang extends GeneralValueObject {
 		return lokasiAsal;
 	}
 
+	/**
+	 * Mengisi lokasi asal.
+	 *
+	 * @param lokasiAsal lokasi asal (wajib diisi sebelum simpan).
+	 */
 	public void setLokasiAsal(Lokasi lokasiAsal) {
 		this.lokasiAsal = lokasiAsal;
 	}
@@ -187,6 +255,11 @@ public class PengirimanGudang extends GeneralValueObject {
 		return lokasiTujuan;
 	}
 
+	/**
+	 * Mengisi lokasi tujuan.
+	 *
+	 * @param lokasiTujuan lokasi tujuan (wajib diisi sebelum simpan).
+	 */
 	public void setLokasiTujuan(Lokasi lokasiTujuan) {
 		this.lokasiTujuan = lokasiTujuan;
 	}
@@ -199,26 +272,44 @@ public class PengirimanGudang extends GeneralValueObject {
 		return lokasiTransit;
 	}
 
+	/**
+	 * Mengisi lokasi transit virtual.
+	 *
+	 * @param lokasiTransit lokasi transit (wajib diisi sebelum simpan; biasanya dibuat otomatis
+	 *                      oleh {@code PengirimanGudangUtil}, bukan diisi manual).
+	 */
 	public void setLokasiTransit(Lokasi lokasiTransit) {
 		this.lokasiTransit = lokasiTransit;
 	}
 
+	/** @return tanggal dokumen ini dikirim. */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal_kirim")
 	public Date getTanggalKirim() {
 		return tanggalKirim;
 	}
 
+	/**
+	 * Mengisi tanggal kirim.
+	 *
+	 * @param tanggalKirim tanggal kirim.
+	 */
 	public void setTanggalKirim(Date tanggalKirim) {
 		this.tanggalKirim = tanggalKirim;
 	}
 
+	/** @return tanggal dokumen dikonfirmasi diterima; {@code null} selama status {@link #DIKIRIM}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal_terima")
 	public Date getTanggalTerima() {
 		return tanggalTerima;
 	}
 
+	/**
+	 * Mengisi tanggal terima.
+	 *
+	 * @param tanggalTerima tanggal terima, boleh {@code null}.
+	 */
 	public void setTanggalTerima(Date tanggalTerima) {
 		this.tanggalTerima = tanggalTerima;
 	}
@@ -229,60 +320,103 @@ public class PengirimanGudang extends GeneralValueObject {
 		return status == null ? DIKIRIM : status;
 	}
 
+	/**
+	 * Mengisi status dokumen.
+	 *
+	 * @param status salah satu {@link #DIKIRIM}/{@link #DITERIMA}/{@link #DITERIMA_SEBAGIAN}/
+	 *               {@link #DIBATALKAN}; {@code null} diperlakukan sebagai {@link #DIKIRIM} oleh
+	 *               {@link #getStatus()}.
+	 */
 	public void setStatus(String status) {
 		this.status = status;
 	}
 
+	/** @return keterangan bebas saat pengiriman dibuat, boleh {@code null}. */
 	@Column(name = "keterangan", columnDefinition = "text")
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan pengiriman.
+	 *
+	 * @param keterangan teks keterangan, boleh {@code null}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/** @return keterangan bebas saat penerimaan dikonfirmasi, boleh {@code null}. */
 	@Column(name = "keterangan_terima", columnDefinition = "text")
 	public String getKeteranganTerima() {
 		return keteranganTerima;
 	}
 
+	/**
+	 * Mengisi keterangan penerimaan.
+	 *
+	 * @param keteranganTerima teks keterangan, boleh {@code null}.
+	 */
 	public void setKeteranganTerima(String keteranganTerima) {
 		this.keteranganTerima = keteranganTerima;
 	}
 
+	/** @return nama pengguna yang mengirim (mengonfirmasi pengiriman), boleh {@code null}. */
 	@Column(name = "dikirim_oleh", length = 255)
 	public String getDikirimOleh() {
 		return dikirimOleh;
 	}
 
+	/**
+	 * Mengisi nama pengguna pengirim.
+	 *
+	 * @param dikirimOleh nama pengguna, boleh {@code null}.
+	 */
 	public void setDikirimOleh(String dikirimOleh) {
 		this.dikirimOleh = dikirimOleh;
 	}
 
+	/** @return id pengguna yang mengirim, boleh {@code null}. */
 	@Column(name = "dikirim_oleh_id", length = 64)
 	public String getDikirimOlehId() {
 		return dikirimOlehId;
 	}
 
+	/**
+	 * Mengisi id pengguna pengirim.
+	 *
+	 * @param dikirimOlehId id pengguna, boleh {@code null}.
+	 */
 	public void setDikirimOlehId(String dikirimOlehId) {
 		this.dikirimOlehId = dikirimOlehId;
 	}
 
+	/** @return nama pengguna yang menerima (mengonfirmasi penerimaan), boleh {@code null}. */
 	@Column(name = "diterima_oleh", length = 255)
 	public String getDiterimaOleh() {
 		return diterimaOleh;
 	}
 
+	/**
+	 * Mengisi nama pengguna penerima.
+	 *
+	 * @param diterimaOleh nama pengguna, boleh {@code null}.
+	 */
 	public void setDiterimaOleh(String diterimaOleh) {
 		this.diterimaOleh = diterimaOleh;
 	}
 
+	/** @return id pengguna yang menerima, boleh {@code null}. */
 	@Column(name = "diterima_oleh_id", length = 64)
 	public String getDiterimaOlehId() {
 		return diterimaOlehId;
 	}
 
+	/**
+	 * Mengisi id pengguna penerima.
+	 *
+	 * @param diterimaOlehId id pengguna, boleh {@code null}.
+	 */
 	public void setDiterimaOlehId(String diterimaOlehId) {
 		this.diterimaOlehId = diterimaOlehId;
 	}

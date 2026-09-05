@@ -90,14 +90,24 @@ import ais.database.model.GeneralValueObject;
 @Table(schema = "asset", name = "jenis_lokasi")
 public class JenisLokasi extends GeneralValueObject {
 
+	/**
+	 * Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable}; tidak perlu
+	 * diubah kecuali bentuk field berubah secara tidak kompatibel.
+	 */
 	private static final long serialVersionUID = 7645120933115540021L;
 
+	/** Primary key auto-generated (IDENTITY) tabel {@code asset.jenis_lokasi}. */
 	private Long id;
+	/** Nama pengguna yang terakhir mengubah baris ini; diisi otomatis, lihat {@link #onUpdate()}. */
 	private String oleh;
+	/** Id pengguna yang terakhir mengubah baris ini; diisi otomatis, lihat {@link #onUpdate()}. */
 	private String olehId;
 
+	/** Nama jenis lokasi (mis. "Gudang", "Outlet"); wajib diisi. */
 	private String nama;
+	/** Keterangan bebas, opsional. */
 	private String keterangan;
+	/** Status aktif; {@code null} diperlakukan sebagai aktif, lihat {@link #getAktif()}. */
 	private Boolean aktif;
 	/** Warna badge (hex, mis. {@code #16a34a}) untuk penanda visual tipe di tabel/kartu/grafik. */
 	private String warna;
@@ -106,6 +116,7 @@ public class JenisLokasi extends GeneralValueObject {
 	/** Urutan tampil pada daftar/pilihan (kecil = di atas). */
 	private Integer urutan;
 
+	/** Konstruktor default tanpa argumen, dipakai Hibernate untuk instansiasi via refleksi. */
 	public JenisLokasi() {
 	}
 
@@ -128,6 +139,7 @@ public class JenisLokasi extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/** @return id pengguna yang terakhir mengubah baris ini (audit), untuk jejak audit ringan. */
 	public String getOlehId() {
 		return olehId;
 	}
@@ -144,17 +156,31 @@ public class JenisLokasi extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Hook siklus hidup JPA yang dipanggil Hibernate tepat sebelum setiap {@code UPDATE}.
+	 * Mendelegasikan ke {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}
+	 * yang mengisi {@link #tanggal_dirubah}, {@link #oleh}, dan {@link #olehId} dengan waktu serta
+	 * identitas pengguna aktif. Dipicu otomatis oleh Hibernate, tidak dipanggil manual.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** Waktu perubahan terakhir baris ini; diperbarui otomatis oleh {@link #onUpdate()}. */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Mengisi waktu perubahan terakhir. Field diinisialisasi ke waktu saat objek dibuat, lalu
+	 * ditimpa ulang oleh {@link #onUpdate()} setiap kali baris di-{@code UPDATE}.
+	 *
+	 * @param tanggal_dirubah waktu perubahan.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** @return waktu perubahan terakhir baris ini; tidak pernah {@code null}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
@@ -165,6 +191,7 @@ public class JenisLokasi extends GeneralValueObject {
 		return id + "-" + nama;
 	}
 
+	/** @return primary key baris ini, atau {@code null} untuk instance baru yang belum disimpan. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -172,6 +199,13 @@ public class JenisLokasi extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi primary key. Kolom database bersifat {@code insertable = false} (IDENTITY,
+	 * auto-generate oleh database), sehingga pengisian manual tidak berpengaruh pada
+	 * {@code INSERT}.
+	 *
+	 * @param id primary key.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -184,15 +218,27 @@ public class JenisLokasi extends GeneralValueObject {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Mengisi nama jenis lokasi. Tidak melakukan trim di sisi setter — trimming terjadi hanya
+	 * saat dibaca lewat {@link #getNama()}.
+	 *
+	 * @param nama nama jenis lokasi.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/** @return keterangan bebas jenis lokasi ini, boleh {@code null}. */
 	@Column(name = "keterangan", nullable = true)
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan bebas.
+	 *
+	 * @param keterangan teks keterangan, boleh {@code null}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -208,6 +254,12 @@ public class JenisLokasi extends GeneralValueObject {
 		return aktif == null ? Boolean.TRUE : aktif;
 	}
 
+	/**
+	 * Mengisi status aktif.
+	 *
+	 * @param aktif {@code true}/{@code false}; {@code null} diperlakukan sebagai aktif oleh
+	 *              {@link #getAktif()}.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
@@ -221,6 +273,11 @@ public class JenisLokasi extends GeneralValueObject {
 		return warna == null || warna.trim().isEmpty() ? null : warna.trim();
 	}
 
+	/**
+	 * Mengisi warna badge.
+	 *
+	 * @param warna kode warna hex, boleh {@code null}.
+	 */
 	public void setWarna(String warna) {
 		this.warna = warna;
 	}
@@ -233,6 +290,11 @@ public class JenisLokasi extends GeneralValueObject {
 		return ikon == null || ikon.trim().isEmpty() ? null : ikon.trim();
 	}
 
+	/**
+	 * Mengisi kelas ikon.
+	 *
+	 * @param ikon kelas ikon, boleh {@code null}.
+	 */
 	public void setIkon(String ikon) {
 		this.ikon = ikon;
 	}
@@ -245,6 +307,11 @@ public class JenisLokasi extends GeneralValueObject {
 		return urutan == null ? Integer.valueOf(0) : urutan;
 	}
 
+	/**
+	 * Mengisi urutan tampil.
+	 *
+	 * @param urutan urutan tampil, boleh {@code null} (diperlakukan sebagai {@code 0}).
+	 */
 	public void setUrutan(Integer urutan) {
 		this.urutan = urutan;
 	}
