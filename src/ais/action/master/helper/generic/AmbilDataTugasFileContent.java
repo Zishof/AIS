@@ -533,7 +533,7 @@ public class AmbilDataTugasFileContent extends MyWindow {
 								if (siswa != null) {
 									String nama = siswa.getNim().trim() + "_" + siswa.getNama() + "_" + media.getName();
 									tugasFileContent.setNama(nama);
-									tugasFileContent.setMahasiswa(mahasiswa.getId());
+									tugasFileContent.setSiswa(siswa.getId());
 								}
 								if (mahasiswa != null) {
 									String nama = mahasiswa.getNim().trim() + "_" + mahasiswa.getNama() + "_"
@@ -679,7 +679,7 @@ public class AmbilDataTugasFileContent extends MyWindow {
 								if (siswa != null) {
 									String nama = siswa.getNim().trim() + "_" + siswa.getNama() + "_" + media.getName();
 									tugasFileContent.setNama(nama);
-									tugasFileContent.setMahasiswa(mahasiswa.getId());
+									tugasFileContent.setSiswa(siswa.getId());
 								}
 								if (mahasiswa != null) {
 									String nama = mahasiswa.getNim().trim() + "_" + mahasiswa.getNama() + "_"
@@ -802,7 +802,7 @@ public class AmbilDataTugasFileContent extends MyWindow {
 								if (siswa != null) {
 									String nama = siswa.getNim().trim() + "_" + siswa.getNama() + "_" + "gambar.jpg";
 									tugasFileContent.setNama(nama);
-									tugasFileContent.setMahasiswa(mahasiswa.getId());
+									tugasFileContent.setSiswa(siswa.getId());
 								}
 								if (mahasiswa != null) {
 									String nama = mahasiswa.getNim().trim() + "_" + mahasiswa.getNama() + "_"
@@ -882,7 +882,7 @@ public class AmbilDataTugasFileContent extends MyWindow {
 										String nama = siswa.getNim().trim() + "_" + siswa.getNama() + "_"
 												+ "gambar.jpg";
 										tugasFileContent.setNama(nama);
-										tugasFileContent.setMahasiswa(mahasiswa.getId());
+										tugasFileContent.setSiswa(siswa.getId());
 									}
 									if (mahasiswa != null) {
 										String nama = mahasiswa.getNim().trim() + "_" + mahasiswa.getNama() + "_"
@@ -1040,7 +1040,7 @@ public class AmbilDataTugasFileContent extends MyWindow {
 								if (siswa != null) {
 									String nama = siswa.getNim().trim() + "_" + siswa.getNama() + "_" + "gambar.jpg";
 									tugasFileContent.setNama(nama);
-									tugasFileContent.setMahasiswa(mahasiswa.getId());
+									tugasFileContent.setSiswa(siswa.getId());
 								}
 								if (mahasiswa != null) {
 									String nama = mahasiswa.getNim().trim() + "_" + mahasiswa.getNama() + "_"
@@ -1120,7 +1120,7 @@ public class AmbilDataTugasFileContent extends MyWindow {
 										String nama = siswa.getNim().trim() + "_" + siswa.getNama() + "_"
 												+ "gambar.jpg";
 										tugasFileContent.setNama(nama);
-										tugasFileContent.setMahasiswa(mahasiswa.getId());
+										tugasFileContent.setSiswa(siswa.getId());
 									}
 									if (mahasiswa != null) {
 										String nama = mahasiswa.getNim().trim() + "_" + mahasiswa.getNama() + "_"
@@ -1538,7 +1538,7 @@ public class AmbilDataTugasFileContent extends MyWindow {
 							if (siswa != null) {
 								String nama = siswa.getNim().trim() + "_" + siswa.getNama() + "_tugas_berupa_link.txt";
 								tugasFileContent.setNama(nama);
-								tugasFileContent.setMahasiswa(mahasiswa.getId());
+								tugasFileContent.setSiswa(siswa.getId());
 							}
 							if (mahasiswa != null) {
 								String nama = mahasiswa.getNim().trim() + "_" + mahasiswa.getNama()
