@@ -735,13 +735,13 @@ public class AnggotaKoperasi extends VOSiswa {
 	private static final int PIN_AMBANG_KUNCI = 10;
 
 	/** Jeda dasar (percobaan gagal ke-{@link #PIN_AMBANG_TUNDA}) sebelum digandakan bertingkat. */
-	private static final long PIN_DURASI_TUNDA_DASAR_MS = 10_000L;
+	private static final long PIN_DURASI_TUNDA_DASAR_MS = 10000L;
 
 	/** Batas atas jeda bertingkat, agar penggandaan tidak melampaui durasi kunci penuh. */
-	private static final long PIN_DURASI_TUNDA_MAKS_MS = 5 * 60_000L;
+	private static final long PIN_DURASI_TUNDA_MAKS_MS = 5 * 60000L;
 
 	/** Durasi penguncian penuh begitu hitungan gagal mencapai {@link #PIN_AMBANG_KUNCI}. */
-	private static final long PIN_DURASI_KUNCI_MS = 15 * 60_000L;
+	private static final long PIN_DURASI_KUNCI_MS = 15 * 60000L;
 
 	/**
 	 * Memeriksa apakah verifikasi PIN anggota ini sedang tertunda/terkunci akibat rentetan percobaan
