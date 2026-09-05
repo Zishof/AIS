@@ -1,5 +1,66 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `recruitment` TUNTAS 100% (6 Sep 2026, akhir batch 113) — domain KEDELAPAN BELAS tuntas
+
+Diverifikasi: **13/13 file** `ais/database/model/recruitment/` kini punya
+Javadoc substansial. Selesai dalam SATU batch (113, 3 agent paralel —
+laporan akhir agent klaster gelombang/ujian terpotong harness, tapi
+kelengkapan file+commit diverifikasi manual oleh orkestrator lewat
+`svn log`+hitung blok javadoc, semua 7 file terkonfirmasi 100% lengkap
+dan ter-commit bersih). Domain kedelapan belas yang tuntas penuh. Modul
+rekrutmen calon pegawai.
+
+**`CalonPegawai.java`** (1001→3374 baris, r85015-r85067, 198 blok
+javadoc). **Verifikasi presisi mekanisme password** — `getPass()`
+adalah getter DESTRUKTIF yang men-seed `pass = Common.desEncrypter.get()
+.encrypt(getNomorInduk().trim())` (DES REVERSIBEL, bukan hash, passphrase
+`Common.DES_PASS_PHRASE` tertanam global) dari nomor registrasi pelamar
+SENDIRI — ditulis Hibernate sendiri saat load/dirty-check/flush (nol
+pemanggil `setPass()` eksplisit di seluruh WC), dan **nol pembaca juga**
+(login portal karir pakai `Tbmuser.userPassword` terpisah) — kolom
+`calon_pegawai.pass` adalah kredensial DORMAN. **Task baru
+`task_7ae0546a`** — beda dari `task_a1e32ff3` yang soal kolom
+`tbmuser.user_password` via tombol ekspor XLSX (`CalonPegawaiAction`
+baris ~426, `add` yang tampak boolean privilege ternyata Component UI,
+`appendKeToolbar` nol pemeriksaan hak → cukup READ). **Task baru
+`task_303ac313`**: domain KELIMA independen pola bypass-persetujuan
+UI-only — `statusListener` menyetel 4 flag status seleksi via
+`Common.refreshSaveOrUpdate` tanpa re-cek privilege/gelombang/audit
+pengambil keputusan. Temuan arsitektur lain: `getAlamatEmail()`
+destruktif menghapus email tak-valid permanen saat grid dirender;
+`getCetakKartu()` membuang pencacah asli; `noRegistrasi`/`noUjian`
+"cek-lalu-tulis" tanpa kunci unik → risiko password bawaan kembar.
+
+**Klaster verifikasi & dokumen** (5 file, r85030-r85059).
+`CalonPegawaiPunyaVerifikasiBerkas`/`CalonPegawaiPunyaDokumen` DUA
+mekanisme PARALEL tak saling terhubung merujuk pasangan sama, bisa tak
+sinkron (mitigasi defensif `ambilDokumenUtamaDanRapikanDuplikat()` di
+Action). Tabrakan namespace parameter tambahan (`task_484d4bd0`)
+dikonfirmasi instance ke-10 di `CalonPegawai` — TAPI sudah pakai
+mekanisme AMAN (`LampiranLain.resolveJenisParameterTambahan`, hasil fix
+r83920-83971), bukan konkatenasi mentah — tidak seperti instance lama.
+**Task baru `task_a3eb7ecd`**: `KelompokParameterTambahanCalonPegawai`
+getter destruktif meng-assign field null pada entity `@Audited` —
+berpotensi membuat revisi Envers palsu murni dari pembacaan admin
+read-only (kategori distingtif: polusi jejak audit, bukan sekadar
+kehilangan data seperti pola getter-destruktif biasa).
+
+**Klaster gelombang/jadwal/ujian** (7 file, r85032-r85067, semua
+diverifikasi lengkap manual: `GelombangPendaftaranPegawai.java` 821
+baris/77 blok, `UjianPegawai.java` 767/73, `JadwalUjianPegawai.java`
+490/44, `KelompokPendaftaranPegawai.java` 325/33,
+`GelombangPendaftaranPegawaiPunyaParameterVerifikasiCalonPegawai.java`
+336/31, `RuangGelombangPendaftaranPegawaiPegawai.java` 294/25,
+`RuangPegawai.java` 401/37). Berbeda dari `kursus.PercobaanKuisKursus`,
+paket ini TIDAK punya entity submission-jawaban online (`UjianPegawai`
+murni administrasi jadwal/ruang/peserta ujian, bukan platform ujian
+daring) — jadi risiko "skor dipercaya dari klien" seperti
+`task_bee6756e` TIDAK berlaku struktural di sini.
+
+**3 task baru batch 113**: `task_303ac313`, `task_7ae0546a`,
+`task_a3eb7ecd`. Total akumulasi 113 sesi: **1359+ file** dari 7.401
+(~34,8%).
+
 ## 🎉 MILESTONE — paket `epsbed` TUNTAS 100% (6 Sep 2026, akhir batch 112) — domain KETUJUH BELAS tuntas, 0 task baru
 
 Diverifikasi: **15/15 file** `ais/database/model/epsbed/` kini punya
