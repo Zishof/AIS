@@ -400,7 +400,7 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
                                                 .createCriteria(PemakaianReturItemDetail.class)
                                                 .add(Restrictions.eq("pemakaianReturItem", pemakaianReturItem)).list();
                                         session.createSQLQuery(
-                                                "delete from sirs.detail_transaksi_pasien where pemakaian_item_detail in (select id from sirs.pemakaian_item_detail where pemakaian_item = "
+                                                "delete from sirs.detail_transaksi_pasien where pemakaian_retur_item_detail in (select id from sirs.pemakaian_retur_item_detail where pemakaian_retur_item = "
                                                         + pemakaianReturItem.getId() + ");").executeUpdate();
                                         for (PemakaianReturItemDetail pemakaianReturItemDetail : pemakaianReturItemDetails) {
                                             DetailTransaksiPasien detailTransaksi = new DetailTransaksiPasien();
@@ -455,7 +455,7 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
                                         pemakaianReturItem.setTanggalPersetujuan(null);
                                         Common.refreshUpdate(session, pemakaianReturItem);
                                         session.createSQLQuery(
-                                                "delete from sirs.detail_transaksi_pasien where pemakaian_item_detail in (select id from sirs.pemakaian_item_detail where pemakaian_item = "
+                                                "delete from sirs.detail_transaksi_pasien where pemakaian_retur_item_detail in (select id from sirs.pemakaian_retur_item_detail where pemakaian_retur_item = "
                                                         + pemakaianReturItem.getId() + ");").executeUpdate();
                                         disetujuiTanggal.setValue(pemakaianReturItem.getTanggalPersetujuan() == null ? ""
                                                 : Common.dateFormat3.get().format(pemakaianReturItem.getTanggalPersetujuan()));

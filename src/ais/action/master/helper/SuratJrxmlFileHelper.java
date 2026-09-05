@@ -32,6 +32,7 @@ import org.zkoss.zul.Toolbar;
 
 import ais.common.Common;
 import ais.common.CommonMedia;
+import ais.common.CommonPrivilages;
 import ais.common.PesanFormalHelper;
 import ais.common.listener.DataLoader;
 import ais.database.hibernate.StreamingHibernateUtil;
@@ -253,14 +254,51 @@ public class SuratJrxmlFileHelper implements DataLoader {
 
 			@Override
 			public void onEvent(Event event) throws Exception {
+				// FIX (broken access control): tombol "Tambah Format Surat" hanya disembunyikan di UI
+				// (button.setVisible(delete) di FormatTemplateSuratHelper/SuratJrxmlFileHelper) -- pola
+				// ini TIDAK mencegah event onUpload dipicu langsung lewat request AU ZK ke komponen yang
+				// masih ada di desktop meski tersembunyi (pola bypass tombol ZK yang sama seperti
+				// temuan-temuan sebelumnya di proyek ini). Handler ini sekarang menggerbangi ulang hak
+				// akses secara fail-closed, bukan hanya mengandalkan visibilitas tombol.
+				if (!(Common.getCurrentUser().getMahasiswa() == null
+						&& CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE))) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, Anda tidak memiliki hak akses untuk mengunggah berkas format surat ini.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
 				UploadEvent uploadEvent = (UploadEvent) event;
 
 				Media media = uploadEvent.getMedia();if(!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media))return;
 
+				// FIX (RCE): berkas .jrxml/.jasper yang diunggah di sini dikompilasi & dieksekusi APA
+				// ADANYA oleh JasperCompileManager saat laporan dicetak (lihat
+				// ais.action.servlet.AmbilLaporanMahasiswa#laporanSurat) -- JRXML JasperReports mengizinkan
+				// ekspresi Java arbitrer (queryString/field/variable/scriptlet) yang dikompilasi & dimuat
+				// oleh JVM, jadi berkas berbahaya di sini setara RCE penuh di server. Blacklist ini adalah
+				// lapisan pertahanan tambahan (bukan sandbox penuh) yang menolak konstruksi Java yang umum
+				// dipakai untuk eksekusi proses/reflection/deserialisasi/class-loading dinamis.
+				byte[] isiBerkas = null;
+				String namaBerkasLower = media.getName() == null ? "" : media.getName().trim().toLowerCase();
+				if (namaBerkasLower.endsWith(".jrxml") || namaBerkasLower.endsWith(".jasper")) {
+					isiBerkas = bacaSemuaByteMedia(media);
+					if (mengandungKonstruksiJavaBerbahaya(isiBerkas)) {
+						MyMessageboxConfig.show(
+								"Mohon maaf, berkas format surat ini ditolak karena mengandung konstruksi yang tidak "
+										+ "diizinkan (mis. pemanggilan proses sistem, reflection, class loading dinamis, "
+										+ "atau deserialisasi objek) yang berpotensi disalahgunakan saat berkas ini "
+										+ "dikompilasi/dijalankan oleh mesin laporan.",
+								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+						return;
+					}
+				}
+
 				try {
 					Session session = StreamingHibernateUtil.getInstance().currentSession();
 					SuratJrxmlFile suratJrxmlFile = new SuratJrxmlFile();
-					suratJrxmlFile.setFoto(Common.getBlobFromMedia(media));
+					suratJrxmlFile.setFoto(
+							isiBerkas != null ? org.hibernate.Hibernate.createBlob(isiBerkas) : Common.getBlobFromMedia(media));
 					suratJrxmlFile.setKeterangan(media.getFormat());
 					suratJrxmlFile.setFormatTemplateSurat(formatTemplateSurat.getId());
 					suratJrxmlFile.setType(media.getContentType());
@@ -337,6 +375,61 @@ public class SuratJrxmlFileHelper implements DataLoader {
 
 		loadData(null);
 
+	}
+
+	/**
+	 * Membaca seluruh isi {@link Media} upload menjadi {@code byte[]}, dicoba lewat stream lebih
+	 * dulu (hemat memori), lalu fallback ke data string/byte -- meniru urutan percobaan
+	 * {@link Common#getBlobFromMedia(Media)} agar isi berkas bisa dipindai (deteksi konstruksi
+	 * berbahaya) sebelum sekali lagi dipakai untuk membuat {@link java.sql.Blob} yang disimpan.
+	 */
+	private static byte[] bacaSemuaByteMedia(Media media) throws Exception {
+		try {
+			java.io.InputStream in = media.getStreamData();
+			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+			byte[] buffer = new byte[8192];
+			int n;
+			while ((n = in.read(buffer)) != -1) {
+				out.write(buffer, 0, n);
+			}
+			return out.toByteArray();
+		} catch (Exception e) {
+			try {
+				return media.getStringData().getBytes();
+			} catch (Exception ee) {
+				return media.getByteData();
+			}
+		}
+	}
+
+	/** Token (huruf kecil) yang menandakan kemungkinan eksekusi proses sistem, reflection, class loading
+	 * dinamis, deserialisasi objek, atau scriptlet kustom di dalam berkas JRXML/JASPER -- konstruksi yang
+	 * lazim dipakai untuk RCE saat berkas dikompilasi/dijalankan oleh JasperReports. Blacklist berbasis
+	 * substring, bukan parser JRXML penuh, jadi bersifat lapisan pertahanan tambahan (defense-in-depth),
+	 * bukan jaminan sandbox mutlak. */
+	private static final String[] TOKEN_KONSTRUKSI_BERBAHAYA = { "runtime", "processbuilder", "class.forname",
+			"classloader", "getdeclaredmethod", ".invoke(", "javax.script", "scriptengine", "objectinputstream",
+			"readobject", "<scriptlet", "java.lang.reflect", "javax.naming", "system.load", "system.getenv",
+			"urlclassloader", "ldap://", "rmi://" };
+
+	private static boolean mengandungKonstruksiJavaBerbahaya(byte[] isiBerkas) {
+		if (isiBerkas == null || isiBerkas.length == 0) {
+			return false;
+		}
+		String isi;
+		try {
+			// ISO-8859-1: pemetaan 1 byte -> 1 char tanpa gagal decode, aman dipakai untuk berkas
+			// biner (.jasper) maupun teks (.jrxml) sekadar untuk pencocokan substring ASCII.
+			isi = new String(isiBerkas, "ISO-8859-1").toLowerCase();
+		} catch (Exception e) {
+			return false;
+		}
+		for (String token : TOKEN_KONSTRUKSI_BERBAHAYA) {
+			if (isi.contains(token)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 }

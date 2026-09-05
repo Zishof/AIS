@@ -321,7 +321,7 @@ public class PenerimaanOrderKembaliAction extends GenericAutowireComposer {
 												: penerimaanOrderKembali.getDibatalkanOleh().getUserNama());
 
 										session.createSQLQuery(
-												"delete from detail_transaksi where penerimaan_order_kembali_detail in (select id from penerimaan_order_kembali_detail where penerimaan_order_kembali = "
+												"delete from sirs.detail_transaksi_pasien where penerimaan_order_kembali_detail in (select id from sirs.penerimaan_order_kembali_detail where penerimaan_order_kembali = "
 														+ penerimaanOrderKembali.getId() + ");")
 												.executeUpdate();
 
