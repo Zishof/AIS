@@ -57,11 +57,14 @@ public class PendaftaranTenantServlet extends HttpServlet {
 		JenisUsahaTenantSeedService.pastikanSeed();
 		// Worker provisioning latar (daemon; lihat JavaDoc TenantProvisioningWorker).
 		ais.service.tenant.TenantProvisioningWorker.mulai();
+		// Penyapu reservasi username/schema kedaluwarsa (daemon; lihat JavaDoc ReservationExpiryScheduler).
+		ais.service.registration.ReservationExpiryScheduler.mulai();
 	}
 
 	@Override
 	public void destroy() {
 		ais.service.tenant.TenantProvisioningWorker.hentikan();
+		ais.service.registration.ReservationExpiryScheduler.hentikan();
 		super.destroy();
 	}
 

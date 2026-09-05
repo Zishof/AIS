@@ -35,11 +35,11 @@ import ais.database.model.GeneralValueObject;
  * mendahului nilai cadangan getter), dan {@link #getBerlakuMulai()}/{@link #getBerlakuSampai()}
  * sama-sama ditandai {@link TemporalType#DATE}.</p>
  *
- * <h3>Namun {@link #berlakuUntuk(Date)} punya bug batas akhir off-by-one-hari yang berbeda</h3>
+ * <h3>Bug batas akhir off-by-one-hari pada {@link #berlakuUntuk(Date)} — SUDAH DIPERBAIKI</h3>
  * <p>{@link #berlakuSampai} dipetakan {@code DATE} sehingga nilainya (baik yang baru dimuat dari
  * basis data maupun yang di-set lewat form tanggal) secara efektif berkomponen jam
- * {@code 00:00:00} — tengah malam awal hari itu. {@link #berlakuUntuk(Date)} membandingkannya
- * langsung terhadap {@code sekarang} (stempel waktu PENUH, mis. jam 14:00) memakai
+ * {@code 00:00:00} — tengah malam awal hari itu. Sebelumnya {@link #berlakuUntuk(Date)}
+ * membandingkannya langsung terhadap {@code sekarang} (stempel waktu PENUH, mis. jam 14:00) memakai
  * {@code sekarang.after(berlakuSampai)}. Karena {@code 14:00} pada tanggal akhir masa berlaku
  * sudah "setelah" tengah malam tanggal yang sama, method ini menyatakan kupon SUDAH kedaluwarsa
  * sepanjang hari terakhir masa berlakunya (kecuali sesaat tepat pukul {@code 00:00:00}) — padahal
@@ -50,7 +50,14 @@ import ais.database.model.GeneralValueObject;
  * di sini anotasinya justru ada dan benar, tetapi logika perbandingannya tidak menoleransi
  * komponen jam pada {@code sekarang}). Sisi awal masa berlaku tidak mengalami masalah simetris:
  * {@code sekarang.before(berlakuMulai)} pada tanggal mulai yang sama (jam berapa pun setelah tengah
- * malam) tetap {@code false}, sehingga kupon sudah sah sejak awal hari mulainya.</p>
+ * malam) tetap {@code false}, sehingga kupon sudah sah sejak awal hari mulainya, dan sisi itu
+ * sengaja tidak diubah. Perbaikan membandingkan {@code sekarang} terhadap {@link #akhirHari(Date)}
+ * dari {@link #berlakuSampai} (digeser ke {@code 23:59:59.999}), mengikuti idiom Calendar
+ * {@code HOUR_OF_DAY=23}/{@code MINUTE=59}/{@code SECOND=59}/{@code MILLISECOND=999} yang sudah
+ * dipakai berulang di kelas lain pada basis kode ini (mis. {@code JenisDiskonMahasiswa},
+ * {@code BsiCommon}, {@code CommonSirs}) — tidak ditemukan pemanggil {@code berlakuUntuk(Date)}
+ * di basis kode saat perbaikan ini dibuat, jadi perbaikan ini murni menutup kontrak method ini
+ * sendiri.</p>
  */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
@@ -179,9 +186,9 @@ public class KuponKursus extends GeneralValueObject {
 	private Date berlakuMulai;
 	/**
 	 * Akhir masa berlaku kupon, dipetakan {@code DATE}. TANPA inisialisasi field — {@code null}
-	 * berarti tidak ada batas akhir. Lihat javadoc kelas soal bug off-by-one-hari pada
-	 * {@link #berlakuUntuk(Date)} yang timbul dari perbandingan field ini terhadap stempel waktu
-	 * penuh.
+	 * berarti tidak ada batas akhir. Lihat javadoc kelas soal bug off-by-one-hari (sudah diperbaiki)
+	 * pada {@link #berlakuUntuk(Date)} yang timbul dari perbandingan field ini terhadap stempel
+	 * waktu penuh.
 	 */
 	private Date berlakuSampai;
 	/** Batas jumlah pemakaian kupon secara keseluruhan; {@code null} berarti tanpa batas. */
@@ -347,11 +354,13 @@ public class KuponKursus extends GeneralValueObject {
 	/**
 	 * Mengembalikan akhir masa berlaku kupon, dipetakan {@code DATE}. Getter murni-baca tanpa nilai
 	 * cadangan; {@code null} berarti tanpa batas akhir. Lihat javadoc kelas soal bug
-	 * off-by-one-hari pada {@link #berlakuUntuk(Date)}: nilai {@code DATE} (berkomponen jam tengah
-	 * malam) dari field ini dibandingkan langsung terhadap stempel waktu penuh, sehingga kupon
-	 * tampak kedaluwarsa sepanjang hari terakhir masa berlakunya, bukan baru keesokan harinya.
+	 * off-by-one-hari (sudah diperbaiki) pada {@link #berlakuUntuk(Date)}: nilai {@code DATE}
+	 * (berkomponen jam tengah malam) dari field ini kini digeser lewat {@link #akhirHari(Date)}
+	 * sebelum dibandingkan terhadap stempel waktu penuh, sehingga kupon tetap sah sepanjang hari
+	 * terakhir masa berlakunya.
 	 *
 	 * @return akhir masa berlaku, atau {@code null} bila tanpa batas akhir
+	 * @see #akhirHari(Date)
 	 */
 	@Temporal(TemporalType.DATE)
 	public Date getBerlakuSampai() {
@@ -454,24 +463,21 @@ public class KuponKursus extends GeneralValueObject {
 
 	/**
 	 * Menentukan apakah kupon ini sah dipakai pada waktu {@code sekarang}, memeriksa empat syarat
-	 * berurutan: (1) belum melewati {@link #berlakuMulai} bila diisi, (2) belum melewati
-	 * {@link #berlakuSampai} bila diisi, (3) belum mencapai {@link #batasPemakaian} bila diisi
-	 * (dibandingkan terhadap {@link #getJumlahDipakai()} dengan {@code >=}, sehingga pemakaian
+	 * berurutan: (1) belum melewati {@link #berlakuMulai} bila diisi, (2) belum melewati akhir hari
+	 * kalender {@link #berlakuSampai} bila diisi, (3) belum mencapai {@link #batasPemakaian} bila
+	 * diisi (dibandingkan terhadap {@link #getJumlahDipakai()} dengan {@code >=}, sehingga pemakaian
 	 * ke-{@code batasPemakaian} yang ke-N SUDAH ditolak begitu {@code jumlahDipakai} mencapai N,
 	 * bukan N+1 — batas dihitung inklusif dari sisi jumlah pemakaian yang SUDAH terjadi), dan (4)
 	 * {@link #getAktif()}. Argumen {@code null} dinormalkan menjadi {@code new Date()} (waktu
 	 * pemanggilan).
 	 *
-	 * <p><b>Peringatan — bug batas akhir off-by-one-hari:</b> syarat (2) membandingkan
-	 * {@code sekarang} (stempel waktu penuh) langsung terhadap {@link #berlakuSampai} (efektif
-	 * tengah malam tanggal akhir masa berlaku, karena dipetakan {@code @Temporal(DATE)}) memakai
-	 * {@code sekarang.after(berlakuSampai)}. Akibatnya method ini mengembalikan {@code false} untuk
-	 * SELURUH hari kalender terakhir masa berlaku kupon (kecuali persis pukul {@code 00:00:00.000}),
-	 * bukan baru mengembalikan {@code false} keesokan harinya seperti yang secara wajar diharapkan
-	 * dari makna "berlaku sampai [tanggal]". Peserta yang mencoba memakai kupon pada hari terakhir
-	 * yang dijanjikan akan ditolak. Perbaikan yang benar perlu membandingkan {@code sekarang} yang
-	 * dipangkas ke tanggal saja (tanpa komponen jam) terhadap {@link #berlakuSampai}, atau
-	 * menggeser {@link #berlakuSampai} maju satu hari sebelum dibandingkan.</p>
+	 * <p>Syarat (2) membandingkan {@code sekarang} terhadap {@link #akhirHari(Date)} dari
+	 * {@link #berlakuSampai}, bukan terhadap {@link #berlakuSampai} apa adanya — field tersebut
+	 * dipetakan {@code @Temporal(DATE)} sehingga nilainya efektif tengah malam ({@code 00:00:00})
+	 * tanggal akhir masa berlaku; membandingkan langsung terhadap nilai itu akan membuat kupon
+	 * tampak kedaluwarsa sepanjang hari terakhir masa berlakunya. Dengan {@link #akhirHari(Date)}
+	 * (digeser ke {@code 23:59:59.999}), kupon tetap sah SEPANJANG hari kalender yang tercantum di
+	 * {@link #berlakuSampai}, sesuai makna wajar "berlaku sampai [tanggal]".</p>
 	 *
 	 * @param sekarang waktu yang diperiksa; {@code null} dinormalkan menjadi waktu saat ini
 	 * @return {@code true} bila kupon sah dipakai pada waktu tersebut
@@ -483,13 +489,34 @@ public class KuponKursus extends GeneralValueObject {
 		if (berlakuMulai != null && sekarang.before(berlakuMulai)) {
 			return false;
 		}
-		if (berlakuSampai != null && sekarang.after(berlakuSampai)) {
+		if (berlakuSampai != null && sekarang.after(akhirHari(berlakuSampai))) {
 			return false;
 		}
 		if (batasPemakaian != null && getJumlahDipakai() >= batasPemakaian) {
 			return false;
 		}
 		return getAktif();
+	}
+
+	/**
+	 * Menggeser {@code tanggal} ke akhir hari kalendernya ({@code 23:59:59.999}), dipakai
+	 * {@link #berlakuUntuk(Date)} agar batas {@link #berlakuSampai} (bertipe {@code DATE}, efektif
+	 * tengah malam) tetap mencakup seluruh hari terakhir masa berlaku, bukan berhenti di tengah
+	 * malam awal hari itu. Idiom yang sama (Calendar {@code HOUR_OF_DAY=23}/{@code MINUTE=59}/
+	 * {@code SECOND=59}/{@code MILLISECOND=999}) dipakai berulang di kelas-kelas lain pada basis
+	 * kode ini (mis. {@code JenisDiskonMahasiswa}, {@code BsiCommon}, {@code CommonSirs}).
+	 *
+	 * @param tanggal tanggal yang digeser; tidak boleh {@code null}
+	 * @return salinan {@code tanggal} pada jam {@code 23:59:59.999} hari yang sama
+	 */
+	private static Date akhirHari(Date tanggal) {
+		java.util.Calendar kalender = java.util.Calendar.getInstance();
+		kalender.setTime(tanggal);
+		kalender.set(java.util.Calendar.HOUR_OF_DAY, 23);
+		kalender.set(java.util.Calendar.MINUTE, 59);
+		kalender.set(java.util.Calendar.SECOND, 59);
+		kalender.set(java.util.Calendar.MILLISECOND, 999);
+		return kalender.getTime();
 	}
 
 }

@@ -1190,6 +1190,11 @@ try {
             if (enr == null || m == null || enr.getPesertaKursus() == null || !enr.getPesertaKursus().getId().equals(peserta.getId())
                     || !PesertaPunyaProdukKursus.TERBELI.equals(enr.getStatus())) {
                 res.put("status", "error"); res.put("message", "Data tidak valid.");
+            } else if (MateriKursus.QUIZ.equals(m.getTipeKonten()) || MateriKursus.TUGAS.equals(m.getTipeKonten())) {
+                // Materi Quiz/Tugas HARUS diselesaikan lewat selesai_kuis (butuh lulus) atau
+                // upload_tugas -- bukan jalur generik ini, supaya kelulusan tidak bisa dipalsukan
+                // hanya dengan memanggil aksi ini langsung dengan materiKursusId yang diketahui.
+                res.put("status", "error"); res.put("message", "Materi tipe ini harus diselesaikan lewat kuis/pengumpulan tugas.");
             } else {
                 ProgressMateriKursus prog = (ProgressMateriKursus) db.createCriteria(ProgressMateriKursus.class)
                         .add(Restrictions.eq("pesertaPunyaProdukKursus", enr)).add(Restrictions.eq("materiKursus", m))
@@ -1663,22 +1668,31 @@ try {
                 if (j == null) {
                     res.put("status", "error"); res.put("message", "Soal tidak termasuk dalam percobaan ini.");
                 } else {
-                    tx = db.beginTransaction();
+                    boolean detailValid = true;
                     if (PenjelasanBankSoal.KOREKSI_OTOMATIS.equals(soal.getJenisKoreksi())) {
                         Long detailId = longParam(request, "bankSoalDetailId");
                         BankSoalDetail detail = detailId == null ? null : (BankSoalDetail) db.get(BankSoalDetail.class, detailId);
-                        j.setBankSoalDetailDipilih(detail);
-                        j.setSkor(detail == null ? 0.0 : detail.getSkor());
-                        j.setBenar(detail != null && detail.getBetul());
-                        j.setSudahDinilai(true);
+                        if (detail != null && (detail.getBankSoal() == null || !detail.getBankSoal().getId().equals(soal.getId()))) {
+                            detailValid = false;
+                            res.put("status", "error"); res.put("message", "Pilihan jawaban tidak valid untuk soal ini.");
+                        } else {
+                            tx = db.beginTransaction();
+                            j.setBankSoalDetailDipilih(detail);
+                            j.setSkor(detail == null ? 0.0 : detail.getSkor());
+                            j.setBenar(detail != null && detail.getBetul());
+                            j.setSudahDinilai(true);
+                        }
                     } else {
+                        tx = db.beginTransaction();
                         j.setJawabanEsai(nvl(request.getParameter("jawabanEsai")));
                         j.setSkor(0.0);
                         j.setSudahDinilai(false);
                     }
-                    db.update(j);
-                    tx.commit(); tx = null;
-                    res.put("status", "success");
+                    if (detailValid) {
+                        db.update(j);
+                        tx.commit(); tx = null;
+                        res.put("status", "success");
+                    }
                 }
             }
         }

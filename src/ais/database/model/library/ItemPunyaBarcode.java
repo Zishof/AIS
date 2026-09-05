@@ -60,9 +60,11 @@ import ais.database.model.GeneralValueObject;
  *   {@code kembaliPengadaanItemDetail}-nya masih {@code null}. Bukan boolean, bukan tanggal:
  *   tautan ke baris pengembalian itulah penanda tunggal bahwa pinjaman sudah ditutup. Pola
  *   {@code Restrictions.eq("itemPunyaBarcode", ...)} digabung
- *   {@code Restrictions.isNull("kembaliPengadaanItemDetail")} dipakai konsisten di sekitar tiga
- *   puluh titik (meja sirkulasi, pencarian katalog, faset, dasbor pustaka, dan layanan
- *   REST).</li>
+ *   {@code Restrictions.isNull("kembaliPengadaanItemDetail")} juga dipakai di sekitar dua puluh
+ *   titik lain yang <b>bukan</b> tentang ketersediaan eksemplar ini — melainkan tentang status
+ *   pinjaman seorang anggota (kliring wisuda/skripsi, kuota pinjam, dasbor keterlambatan) — dan
+ *   sengaja tidak ikut disentuh oleh perbaikan di bawah karena semantiknya benar apa adanya
+ *   (pinjaman yang sudah ditutup, bahkan dengan buku hilang, memang bukan lagi pinjaman aktif).</li>
  *   <li><b>Hilang dan rusak tidak punya representasi struktural sama sekali.</b> Master
  *   {@code StatusItem} hanya dipakai pada level pendataan saldo awal, {@code ItemHasStatus}
  *   menempel ke judul dan bukan ke eksemplar, dan {@code KoreksiItemDetail} mencatat susut per
@@ -71,16 +73,24 @@ import ais.database.model.GeneralValueObject;
  *   {@code "[KONDISI=BAIK|RUSAK|HILANG|PERBAIKAN] catatan"}.</li>
  * </ul>
  *
- * <h3>Celah yang timbul dari dua fakta di atas</h3>
- * <p>Karena semua query ketersediaan hanya membaca {@code kembaliPengadaanItemDetail is null} dan
- * <b>tidak satu pun</b> membaca prefiks {@code [KONDISI=...]}, eksemplar yang dinyatakan HILANG
- * atau RUSAK tetap memiliki baris pengembalian yang tertaut, sehingga <b>kembali dihitung sebagai
- * TERSEDIA dan dapat dipinjamkan lagi</b>. Alur pengembalian memang melewatkan posting
- * {@code DetailTransaksi} untuk kondisi tersebut (sehingga stok tidak dipulihkan — itu benar),
- * tetapi ketersediaan per eksemplar dihitung dari jalur yang sama sekali berbeda. Perlakukan
- * ketiadaan field status di kelas ini sebagai penyebab akar, bukan sebagai detail kosmetik: selama
- * kondisi eksemplar hanya hidup sebagai awalan string di kolom keterangan, tidak ada query yang
- * dapat menegakkannya secara andal.</p>
+ * <h3>Celah ketersediaan (DITAMBAL 2026-09-06) dan mengapa masih rapuh</h3>
+ * <p>Karena query ketersediaan aslinya hanya membaca {@code kembaliPengadaanItemDetail is null} dan
+ * tidak satu pun membaca prefiks {@code [KONDISI=...]}, eksemplar yang dinyatakan HILANG atau RUSAK
+ * tetap memiliki baris pengembalian yang tertaut, sehingga <b>kembali dihitung sebagai TERSEDIA dan
+ * dapat dipinjamkan lagi</b>. Alur pengembalian memang melewatkan posting {@code DetailTransaksi}
+ * untuk kondisi tersebut (sehingga stok tidak dipulihkan — itu benar), tetapi ketersediaan per
+ * eksemplar dihitung dari jalur yang sama sekali berbeda. Empat titik yang benar-benar menghitung
+ * ketersediaan PER EKSEMPLAR (bukan status pinjaman anggota) kini juga memeriksa
+ * {@link ais.action.master.library.util.LibraryUtil#eksemplarKondisiTidakTersedia(ItemPunyaBarcode)}
+ * atau padanan SQL-nya sebelum menyatakan eksemplar tersedia:
+ * {@code PeminjamanPengadaanItemPunyaItemHelper#loadBarcode} (validasi pemindaian barcode saat
+ * checkout), {@code LibraryItemDetailService#loadHoldings}, {@code LibraryCatalogSearchService}
+ * (facet {@code AVAILABLE} dan {@code loadHoldings} massal), dan {@code LibraryFacetService} (facet
+ * {@code AVAILABLE}). Perlakukan ketiadaan field status di kelas ini tetap sebagai penyebab akar,
+ * bukan detail kosmetik yang sudah selesai: penandaan kondisi masih berupa awalan string bebas
+ * tanpa mekanisme "hapus tanda" (lihat javadoc method di atas), dan titik ketersediaan BARU yang
+ * ditambahkan di masa depan tidak otomatis ikut menegakkannya — pemanggilnya wajib mengikutsertakan
+ * pemeriksaan yang sama secara eksplisit.</p>
  *
  * <h2>Cakupan tenant dan Generic CRUD v2</h2>
  * <p>Satu-satunya field tenant di kelas ini adalah {@code perpustakaan}. Properti itu <b>tidak

@@ -192,7 +192,10 @@ public final class LibraryFacetService {
         JSONArray result = new JSONArray();
         result.put(option("AVAILABLE", "Tersedia sekarang", countWith(session, request,
                 "exists (select 1 from library.item_punya_barcode b where b.item={alias}.id and not exists "
-                + "(select 1 from library.peminjaman_pengadaan_item_detail d where d.item_punya_barcode=b.id and d.kembali_pengadaan_item_detail is null))")));
+                + "(select 1 from library.peminjaman_pengadaan_item_detail d where d.item_punya_barcode=b.id and d.kembali_pengadaan_item_detail is null) "
+                + "and not exists (select 1 from library.kembali_pengadaan_item_detail k join library.peminjaman_pengadaan_item_detail pp "
+                + "on pp.kembali_pengadaan_item_detail=k.id where pp.item_punya_barcode=b.id and "
+                + "(k.keterangan like '[KONDISI=HILANG]%' or k.keterangan like '[KONDISI=RUSAK]%' or k.keterangan like '[KONDISI=PERBAIKAN]%')))")));
         result.put(option("DIGITAL", "Koleksi digital", digitalCount(session, request)));
         result.put(option("LOANED", "Sedang dipinjam", countWith(session, request,
                 "exists (select 1 from library.item_punya_barcode b join library.peminjaman_pengadaan_item_detail d "

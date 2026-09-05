@@ -272,11 +272,11 @@ public class Data extends HttpServlet {
 					&& Boolean.parseBoolean(request.getParameter("usingId").trim());
 			boolean refresh = request.getParameter("refresh") != null
 					&& Boolean.parseBoolean(request.getParameter("refresh").trim());
-			String kondisiTambahan = request.getParameter("kondisiTambahan") != null
-					? request.getParameter("kondisiTambahan").trim()
-					: "";
 
-			FileFotoLain fileFotoLain = FileFotoLain.ambil(usingId, ref, jenis, 0, clazz, refresh, kondisiTambahan);
+			// Parameter "kondisiTambahan" (fragmen SQL mentah diteruskan ke Restrictions.sqlRestriction)
+			// dihapus: tidak ada pemanggil sah yang pernah mengisinya, dan meneruskan nilai dari
+			// permintaan HTTP ke sana adalah celah SQL injection. Lihat FileFotoLain.ambil(...) bagian 4.
+			FileFotoLain fileFotoLain = FileFotoLain.ambil(usingId, ref, jenis, 0, clazz, refresh);
 			File file = (fileFotoLain != null) ? fileFotoLain.ambilFile() : null;
 			if (file == null || !file.exists())
 				file = new File(getServletContext().getRealPath("/img/administrator-icon_default.png"));
@@ -656,11 +656,11 @@ public class Data extends HttpServlet {
 			String jenis = jsonObject.optString("jenis", "").trim();
 			boolean usingId = jsonObject.optBoolean("usingId", false);
 			boolean refresh = jsonObject.optBoolean("refresh", false);
-			String kondisiTambahan = !jsonObject.isNull("kondisiTambahan")
-					? jsonObject.optString("kondisiTambahan").trim()
-					: "";
 
-			FileFotoLain fileFotoLain = FileFotoLain.ambil(usingId, ref, jenis, 0, clazz, refresh, kondisiTambahan);
+			// Parameter "kondisiTambahan" (fragmen SQL mentah diteruskan ke Restrictions.sqlRestriction)
+			// dihapus: tidak ada pemanggil sah yang pernah mengisinya, dan meneruskan nilai dari badan
+			// JSON permintaan ke sana adalah celah SQL injection. Lihat FileFotoLain.ambil(...) bagian 4.
+			FileFotoLain fileFotoLain = FileFotoLain.ambil(usingId, ref, jenis, 0, clazz, refresh);
 
 			if (fileFotoLain != null) {
 				JSONObject objectData = new JSONObject();

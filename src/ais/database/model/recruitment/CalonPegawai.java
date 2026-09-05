@@ -2166,14 +2166,76 @@ public class CalonPegawai extends GeneralValueObject {
 		setParameterTambahan(parameterTambahanStr);
 	}
 
+	/**
+	 * Mengembalikan PIN/kata sandi portal pelamar apa adanya — tanpa enkripsi, tanpa penyamaran,
+	 * dan tanpa pemeriksaan hak apa pun.
+	 *
+	 * <p>
+	 * <b>Field tidur pada modul ini.</b> Pada kelas kembarannya, PIN ini benar-benar dipakai:
+	 * {@code BiodataCalonMahasiswaAction} menampilkannya di {@link Textbox} dan menyimpannya
+	 * kembali, {@code CetakRegistrasiAction} serta {@code DaftarMahasiswaLulusAction}
+	 * mencetaknya sebagai label di layar, dan {@code PmbArkatama} memakainya kembali sebagai
+	 * penampung id registrasi dari sistem luar. Untuk {@code CalonPegawai}, penelusuran seluruh
+	 * WC ini tidak menemukan satu pun pemanggil {@code getPinPassword()} maupun
+	 * {@code setPinPassword(...)}: kolomnya tetap dipetakan Hibernate dan tetap direkam Envers,
+	 * tetapi tidak pernah diisi maupun dibaca oleh kode mana pun.
+	 * </p>
+	 *
+	 * <p>
+	 * Kalaupun kelak dihidupkan, perhatikan bahwa properti ini menyimpan nilai APA ADANYA — tidak
+	 * ada enkripsi seperti {@link #getPass()} apalagi hashing. Menghidupkannya tanpa mengubah
+	 * cara penyimpanan berarti menambah satu lagi kolom kredensial terbaca jelas. Bila memang
+	 * dibutuhkan, gunakan pola {@code PasswordHashService.hash()} seperti pada pendaftaran tenant,
+	 * bukan pola PIN warisan modul PMB.
+	 * </p>
+	 *
+	 * @return PIN portal pelamar, atau {@code null} — dalam praktik selalu {@code null} pada modul
+	 *         ini
+	 */
 	public String getPinPassword() {
 		return pinPassword;
 	}
 
+	/**
+	 * Menyetel PIN/kata sandi portal pelamar apa adanya. Tidak ada pemanggil di WC ini; lihat
+	 * {@link #getPinPassword()}.
+	 *
+	 * @param pinPassword PIN portal dalam bentuk terbaca jelas
+	 */
 	public void setPinPassword(String pinPassword) {
 		this.pinPassword = pinPassword;
 	}
 
+	/**
+	 * Mengembalikan penanda "pelamar pernah login ke portal", yang <b>disimpulkan</b> — bukan
+	 * dicatat pada saat login terjadi.
+	 *
+	 * <p>
+	 * <b>Mekanisme.</b> Bila {@link #getParameterTambahan()} tidak kosong, field
+	 * {@link #telahLogin} DITUGASKAN {@code true}; setelah itu {@code null} dinormalkan menjadi
+	 * {@code false}. Jadi logikanya: "pelamar dianggap pernah login apabila ia pernah mengisi
+	 * setidaknya satu isian dinamis". Ini bukan pencatatan peristiwa login melainkan penebakan
+	 * dari jejak data.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Konsekuensinya ada dua, dan keduanya merugikan.</b> Pertama, penanda ini tidak akurat ke
+	 * dua arah: pelamar yang login lalu keluar tanpa mengisi apa pun tetap dilaporkan belum
+	 * pernah login, sedangkan data isian yang masuk lewat jalur non-login (impor oleh panitia,
+	 * pengisian oleh admin atas nama pelamar) dilaporkan sebagai login. Kedua, penugasan
+	 * {@code true} itu bersifat destruktif dan permanen: karena entity memakai property access,
+	 * Hibernate memanggil getter ini saat <i>dirty check</i>, sehingga nilai simpulan tersebut
+	 * tersimpan ke database dan tidak akan pernah kembali ke {@code false} bahkan bila isian
+	 * dinamisnya kemudian dikosongkan.
+	 * </p>
+	 *
+	 * <p>
+	 * Untuk kebutuhan audit login yang sesungguhnya, penanda ini tidak boleh dijadikan acuan;
+	 * pasangannya {@link #getWaktuLogin()} pun tidak membantu karena tidak ada penulisnya.
+	 * </p>
+	 *
+	 * @return {@code true} bila pelamar dianggap pernah login (tidak pernah {@code null})
+	 */
 	public Boolean getTelahLogin() {
 
 		if (!getParameterTambahan().trim().isEmpty()) {
@@ -2186,66 +2248,251 @@ public class CalonPegawai extends GeneralValueObject {
 		return telahLogin;
 	}
 
+	/**
+	 * Menyetel penanda "pelamar pernah login".
+	 *
+	 * <p>
+	 * Menyetel {@code false} bersifat semu: pemanggilan {@link #getTelahLogin()} berikutnya akan
+	 * mengembalikannya ke {@code true} selama isian dinamis pelamar tidak kosong.
+	 * </p>
+	 *
+	 * @param telahLogin penanda login; {@code null} dibaca sebagai {@code false}
+	 */
 	public void setTelahLogin(Boolean telahLogin) {
 		this.telahLogin = telahLogin;
 	}
 
+	/**
+	 * Mengembalikan waktu login terakhir pelamar apa adanya, tanpa nilai bawaan.
+	 *
+	 * <p>
+	 * <b>Kolom yatim.</b> Tidak ada satu pun pemanggil {@code setWaktuLogin(...)} pada
+	 * {@code CalonPegawai} di WC ini — jalur login portal karir
+	 * ({@code KarirConfigUtil.putKarirSession}) hanya mengisi attribute sesi dan tidak menyentuh
+	 * kolom ini. Nilainya karena itu selalu {@code null} kecuali diisi lewat UPDATE langsung ke
+	 * basis data. Berpasangan dengan {@link #getTelahLogin()} yang menebak, modul ini secara
+	 * praktis TIDAK memiliki audit login pelamar sama sekali.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan pula bahwa properti ini tidak dianotasi {@code @Temporal}, berbeda dengan
+	 * {@link #getTanggalPendaftaran()} dan {@link #getTanggal_dirubah()}. Untuk tipe
+	 * {@link java.util.Date}, ketiadaan {@code @Temporal} membuat perlakuan presisinya bergantung
+	 * pada bawaan penyedia JPA — hal yang tidak pernah terasa selama kolomnya memang tidak pernah
+	 * terisi, tetapi perlu diperbaiki bila fitur ini kelak dihidupkan.
+	 * </p>
+	 *
+	 * @return waktu login terakhir, atau {@code null} (dalam praktik selalu {@code null})
+	 */
 	public Date getWaktuLogin() {
 		return waktuLogin;
 	}
 
+	/**
+	 * Menyetel waktu login terakhir pelamar. Tidak ada pemanggil di WC ini; lihat
+	 * {@link #getWaktuLogin()}.
+	 *
+	 * @param waktuLogin waktu login
+	 */
 	public void setWaktuLogin(Date waktuLogin) {
 		this.waktuLogin = waktuLogin;
 	}
 
+	/**
+	 * Mengembalikan penanda cetak kartu peserta — <b>dan membuang nilai pencacah yang
+	 * sesungguhnya</b>.
+	 *
+	 * <p>
+	 * Perhatikan bentuk ekspresinya: {@code cetakKartu == null ? 0 : 1}. Cabang "tidak null"
+	 * mengembalikan konstanta {@code 1}, bukan {@code cetakKartu}. Padahal tipenya
+	 * {@link Integer} dan namanya menyiratkan pencacah "berapa kali kartu dicetak" — persis pola
+	 * yang dipakai modul PPDB/PMB untuk membatasi pencetakan ulang kartu peserta. Akibatnya
+	 * getter ini hanya bisa menjawab "sudah pernah / belum pernah", dan pelamar yang mencetak
+	 * kartu 12 kali tidak bisa dibedakan dari yang mencetak sekali.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Risiko lanjutan pada persistensi.</b> Karena entity memakai property access, nilai yang
+	 * dipakai Hibernate untuk kolom ini adalah keluaran getter, bukan isi field. Selama alur
+	 * normal (muat lalu {@code flush} dengan {@code dynamicUpdate}) kolom tidak ikut ditulis
+	 * karena tidak dianggap berubah, tetapi pada jalur yang menulis seluruh properti — mis.
+	 * {@code merge} objek detached atau penyalinan antar-sesi — nilai yang tersimpan menjadi
+	 * {@code 1} dan angka aslinya hilang permanen. Bila pencacah ini kelak dipakai untuk
+	 * pembatasan, perbaiki getter-nya lebih dulu.
+	 * </p>
+	 *
+	 * <p>
+	 * Tidak ditemukan pemanggil untuk properti ini pada modul rekrutmen, sehingga saat ini
+	 * dampaknya masih laten.
+	 * </p>
+	 *
+	 * @return {@code 0} bila kartu belum pernah dicetak, {@code 1} bila sudah — tidak pernah
+	 *         mengembalikan jumlah cetak yang sebenarnya
+	 */
 	public Integer getCetakKartu() {
 		return cetakKartu == null ? 0 : 1;
 	}
 
+	/**
+	 * Menyetel pencacah cetak kartu peserta. Nilai yang disimpan di sini tidak akan pernah dapat
+	 * dibaca kembali secara utuh lewat {@link #getCetakKartu()}.
+	 *
+	 * @param cetakKartu jumlah cetak kartu
+	 */
 	public void setCetakKartu(Integer cetakKartu) {
 		this.cetakKartu = cetakKartu;
 	}
 
+	/**
+	 * Mengembalikan nomor telepon/HP pelamar, dengan {@code null} dinormalkan menjadi string
+	 * kosong pada nilai kembalian saja (field tidak ditugaskan ulang, jadi tidak destruktif).
+	 *
+	 * <p>
+	 * Nilainya teks bebas tanpa normalisasi format apa pun di lapisan ini — penyeragaman awalan
+	 * menjadi {@code +62} baru dilakukan saat tampil, lihat {@link #tampilkanHp(Component)}.
+	 * Nomor telepon termasuk data pribadi dan ikut serta sebagai kolom "HP" pada berkas ekspor
+	 * kata sandi massal di {@code CalonPegawaiAction}.
+	 * </p>
+	 *
+	 * @return nomor telepon pelamar, atau string kosong (tidak pernah {@code null})
+	 */
 	@Column(name = "telepon_pegawai")
 	public String getTeleponPegawai() {
 		return this.teleponPegawai == null ? "" : teleponPegawai;
 	}
 
+	/**
+	 * Menyetel nomor telepon/HP pelamar apa adanya, tanpa validasi format maupun pembersihan
+	 * karakter.
+	 *
+	 * @param teleponPegawai nomor telepon sebagai teks
+	 */
 	public void setTeleponPegawai(String teleponPegawai) {
 		this.teleponPegawai = teleponPegawai;
 	}
 
+	/**
+	 * Mengembalikan institusi pendidikan terakhir pelamar apa adanya.
+	 *
+	 * <p>
+	 * Nama properti dan kolomnya ({@code sekolah_asal}) adalah warisan template PPDB/PMB; pada
+	 * konteks rekrutmen isinya bisa berupa sekolah, perguruan tinggi, atau apa pun yang diketik
+	 * pelamar. Disimpan sebagai teks bebas, bukan relasi ke tabel referensi institusi, sehingga
+	 * tidak dapat diandalkan untuk pengelompokan atau statistik — nama institusi yang sama akan
+	 * muncul dalam banyak ejaan berbeda.
+	 * </p>
+	 *
+	 * <p>
+	 * Berbeda dengan {@link #getTeleponPegawai()}, getter ini TIDAK menormalkan {@code null},
+	 * jadi pemanggil wajib menjaganya sendiri.
+	 * </p>
+	 *
+	 * @return nama institusi pendidikan terakhir, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "sekolah_asal")
 	public String getSekolahAsal() {
 		return this.sekolahAsal;
 	}
 
+	/**
+	 * Menyetel nama institusi pendidikan terakhir pelamar.
+	 *
+	 * @param sekolahAsal nama institusi sebagai teks bebas
+	 */
 	public void setSekolahAsal(String sekolahAsal) {
 		this.sekolahAsal = sekolahAsal;
 	}
 
+	/**
+	 * Mengembalikan alamat institusi pendidikan terakhir pelamar apa adanya.
+	 *
+	 * <p>
+	 * Tanpa {@code @Column}, sehingga nama kolom mengikuti nama properti dengan panjang bawaan
+	 * 255 karakter — lebih pendek daripada kolom alamat lain di kelas ini yang berkapasitas 2000
+	 * karakter. Alamat institusi yang panjang berpotensi ditolak database saat {@code flush}.
+	 * </p>
+	 *
+	 * @return alamat institusi pendidikan terakhir, atau {@code null} bila belum diisi
+	 */
 	public String getAlamatSekolahAsal() {
 		return alamatSekolahAsal;
 	}
 
+	/**
+	 * Menyetel alamat institusi pendidikan terakhir pelamar.
+	 *
+	 * @param alamatSekolahAsal alamat institusi (maksimal 255 karakter)
+	 */
 	public void setAlamatSekolahAsal(String alamatSekolahAsal) {
 		this.alamatSekolahAsal = alamatSekolahAsal;
 	}
 
+	/**
+	 * Mengembalikan nomor telepon orang tua pelamar apa adanya, tanpa normalisasi {@code null}
+	 * (berbeda dari {@link #getTeleponPegawai()} yang mengembalikan string kosong).
+	 *
+	 * <p>
+	 * Ini nomor kontak pihak ketiga yang bukan pelamar itu sendiri, sehingga termasuk data
+	 * pribadi milik orang lain yang tersimpan dalam berkas lamaran. Tidak ada mekanisme
+	 * persetujuan tersendiri untuknya.
+	 * </p>
+	 *
+	 * @return nomor telepon orang tua, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "telepon_orang_tua")
 	public String getTeleponOrangTua() {
 		return this.teleponOrangTua;
 	}
 
+	/**
+	 * Menyetel nomor telepon orang tua pelamar.
+	 *
+	 * @param teleponOrangTua nomor telepon sebagai teks
+	 */
 	public void setTeleponOrangTua(String teleponOrangTua) {
 		this.teleponOrangTua = teleponOrangTua;
 	}
 
+	/**
+	 * Mengembalikan waktu pendaftaran pelamar, dengan nilai bawaan <b>waktu server saat ini</b>
+	 * bila kolomnya kosong.
+	 *
+	 * <p>
+	 * <b>Nilai bawaannya bergerak, dan itu menyesatkan.</b> Karena bawaannya
+	 * {@code WaktuUtil.getDate()} dan bukan konstanta, dua pemanggilan berturut-turut pada baris
+	 * yang tanggalnya kosong menghasilkan nilai BERBEDA. Sebuah pelamar lama yang kolom tanggal
+	 * pendaftarannya tidak terisi akan selalu tampak "baru saja mendaftar", dan tampilan itu
+	 * berubah setiap kali layar dimuat ulang. Untuk laporan berbasis periode pendaftaran, jangan
+	 * memakai getter ini — kueri langsung ke kolomnya, yang membedakan {@code NULL} dari nilai
+	 * sungguhan.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilai bawaan hanya DIKEMBALIKAN, tidak ditugaskan ke field, sehingga getter ini tidak
+	 * destruktif dan kolom database tetap {@code NULL}. Kombinasi keduanya berarti nilai bawaan
+	 * itu tidak pernah "mengendap": ia terus dihitung ulang selamanya.
+	 * </p>
+	 *
+	 * <p>
+	 * Properti tidak memakai {@code @Column} (nama kolom mengikuti nama properti) tetapi memakai
+	 * {@code @Temporal(TIMESTAMP)} sehingga bagian jam ikut tersimpan.
+	 * </p>
+	 *
+	 * @return waktu pendaftaran, atau waktu server saat ini bila belum diisi (tidak pernah
+	 *         {@code null})
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggalPendaftaran() {
 		return tanggalPendaftaran == null ? ais.ui.util.WaktuUtil.getDate() : tanggalPendaftaran;
 	}
 
+	/**
+	 * Menyetel waktu pendaftaran pelamar. Menyetelnya secara eksplisit adalah satu-satunya cara
+	 * menghentikan perilaku "bawaan bergerak" yang dijelaskan pada
+	 * {@link #getTanggalPendaftaran()}.
+	 *
+	 * @param tanggalPendaftaran waktu pendaftaran
+	 */
 	public void setTanggalPendaftaran(Date tanggalPendaftaran) {
 		this.tanggalPendaftaran = tanggalPendaftaran;
 	}

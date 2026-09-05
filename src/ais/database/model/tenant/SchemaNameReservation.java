@@ -89,23 +89,30 @@ import ais.database.model.GeneralValueObject;
  * Jangan menambah jalur yang menulis medan-medan ini dari parameter permintaan.
  * </p>
  *
- * <h4>Yang justru perlu diperhatikan: masa berlaku reservasi tidak pernah ditegakkan</h4>
+ * <h4>Masa berlaku reservasi (celah tertutup 2026-09)</h4>
  * <p>
- * {@link #getExpiresAt()} diisi saat reservasi dibuat, dan {@link #STATUS_EXPIRED} tersedia
- * sebagai kode status -- tetapi tidak ada satu pun kode yang membacanya. Pemeriksaan ketersediaan
- * ({@code UsernameReservationService.alasanTidakTersedia}) menghitung reservasi berstatus
- * RESERVED/CONSUMED <b>tanpa memandang {@code expiresAt}</b>, dan tidak ada penyapu yang
- * mengubah reservasi kedaluwarsa menjadi {@link #STATUS_EXPIRED}. Status RESERVED hanya berubah
- * menjadi RELEASED lewat pembatalan mandiri ({@code PendaftaranTenantService.cancel}) atau
- * tindakan admin ({@code PendaftaranTenantAdminService}).
+ * {@link #getExpiresAt()} diisi saat reservasi dibuat. Sampai perbaikan 2026-09, {@link #STATUS_EXPIRED}
+ * tersedia sebagai kode status tetapi tidak ada satu pun kode yang membacanya/menulisnya --
+ * pemeriksaan ketersediaan menghitung reservasi RESERVED/CONSUMED tanpa memandang
+ * {@code expiresAt}, sehingga permohonan yang ditinggalkan sebelum verifikasi email menahan
+ * usernamenya selamanya (penyerobotan nama/penghabisan namespace tanpa perlu satu pun email
+ * terverifikasi, sebab submit formulir bersifat publik). Ini persoalan ketersediaan, bukan
+ * kebocoran data.
  * </p>
  * <p>
- * Akibatnya, permohonan yang ditinggalkan sebelum verifikasi email menahan usernamenya selamanya:
- * pendaftar yang sama tidak dapat memakai ulang username pilihannya, dan -- karena submit
- * formulir bersifat publik -- nama-nama menarik dapat dikunci tanpa perlu satu pun email
- * terverifikasi. Ini persoalan ketersediaan/penyerobotan nama, bukan kebocoran data. Perbaikannya
- * ada di lapisan service (menegakkan {@code expiresAt} pada {@code alasanTidakTersedia} dan/atau
- * menyapu reservasi basi menjadi {@link #STATUS_EXPIRED}), bukan di entitas ini.
+ * Perbaikannya ada di lapisan service, bukan di entitas ini: {@code UsernameReservationService}
+ * (method privat {@code menghalangi}) sekarang jadi SATU-SATUNYA definisi "baris ini masih
+ * mengunci nama", dipakai baik oleh {@code alasanTidakTersedia} (ketersediaan) maupun
+ * {@code reservasi} (reuse-atau-insert saat baris lama sudah tidak menghalangi). Baris RESERVED
+ * yang {@code expiresAt}-nya lewat hanya berhenti menghalangi bila permohonan pemiliknya masih
+ * persis {@code PendaftaranTenant.STATUS_EMAIL_VERIFICATION_PENDING}/{@code STATUS_SUBMITTED} --
+ * permohonan yang sudah melangkah lebih jauh (VERIFIED/REVIEW_PENDING/PROVISIONING_QUEUED/
+ * PROVISIONING/READY/...) TETAP menghalangi tanpa memandang {@code expiresAt}, sehingga job yang
+ * sedang diprovisikan tidak pernah kehilangan reservasinya. Penyapu latar
+ * {@code ReservationExpiryScheduler} (lewat {@code UsernameReservationService.cariKandidatKedaluwarsa}/
+ * {@code kedaluwarsakan}) menandai baris basi -- dan permohonan pemiliknya -- {@link #STATUS_EXPIRED}
+ * secara berkala, sama seperti {@code PendaftaranTenantService.cancel} menandai RELEASED, hanya
+ * dipicu waktu bukan aksi pendaftar.
  * </p>
  *
  * @see TenantRegistry#getSlug()
@@ -142,9 +149,11 @@ public class SchemaNameReservation extends GeneralValueObject {
 	public static final String STATUS_RELEASED = "RELEASED";
 
 	/**
-	 * Reservasi dianggap kedaluwarsa. <b>Belum pernah ditulis kode mana pun</b> -- lihat catatan
-	 * pada Javadoc kelas: {@link #getExpiresAt()} tidak ditegakkan, sehingga reservasi basi tetap
-	 * berstatus {@link #STATUS_RESERVED} dan terus menahan namanya.
+	 * Reservasi dianggap kedaluwarsa: ditulis {@code ReservationExpiryScheduler} (lewat
+	 * {@code UsernameReservationService.kedaluwarsakan}) untuk baris RESERVED yang
+	 * {@link #getExpiresAt()}-nya sudah lewat DAN permohonan pemiliknya masih menunggu verifikasi
+	 * email -- lihat catatan pada Javadoc kelas. Sama seperti {@link #STATUS_RELEASED}, tidak lagi
+	 * menghalangi pemakaian namanya.
 	 */
 	public static final String STATUS_EXPIRED = "EXPIRED";
 
@@ -315,11 +324,11 @@ public class SchemaNameReservation extends GeneralValueObject {
 	 * Saat reservasi seharusnya kedaluwarsa, dihitung {@code UsernameReservationService.reservasi}
 	 * dari konfigurasi masa berlaku (jam).
 	 *
-	 * <p><b>Perhatian: kolom ini tidak pernah dibaca.</b> Tidak ada penyapu yang mengubah
-	 * reservasi lewat tenggat menjadi {@link #STATUS_EXPIRED}, dan
-	 * {@code UsernameReservationService.alasanTidakTersedia} menghitung baris RESERVED/CONSUMED
-	 * tanpa membandingkan tenggatnya dengan waktu sekarang. Reservasi dari permohonan yang
-	 * ditinggalkan karena itu menahan namanya tanpa batas. Lihat uraian pada Javadoc kelas.</p>
+	 * <p>Dibaca {@code UsernameReservationService.menghalangi} (dipakai baik oleh
+	 * {@code alasanTidakTersedia} maupun {@code reservasi}) dan oleh
+	 * {@code ReservationExpiryScheduler} lewat {@code cariKandidatKedaluwarsa} -- keduanya
+	 * mensyaratkan permohonan pemiliknya masih menunggu verifikasi email sebelum tenggat ini
+	 * dianggap membebaskan namanya. Lihat uraian pada Javadoc kelas.</p>
 	 *
 	 * @return tenggat reservasi, atau {@code null}
 	 */

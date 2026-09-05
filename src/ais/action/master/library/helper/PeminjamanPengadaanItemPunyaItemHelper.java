@@ -520,7 +520,9 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 	 * teks (fallback ke ISBN-10/ISBN/ISSN bila tidak ditemukan sebagai barcode — namun penambahan
 	 * hanya berlanjut bila keduanya, item maupun {@code itemPunyaBarcode}, ditemukan). Menolak
 	 * dengan pesan bila: barcode kosong, item tidak ditemukan, salinan barcode tersebut masih
-	 * dipinjam anggota lain (belum ada {@code kembaliPengadaanItemDetail}), atau item yang sama
+	 * dipinjam anggota lain (belum ada {@code kembaliPengadaanItemDetail}), eksemplar itu pernah
+	 * dikembalikan dalam kondisi HILANG/RUSAK/PERBAIKAN (lihat
+	 * {@link LibraryUtil#eksemplarKondisiTidakTersedia(ItemPunyaBarcode)}), atau item yang sama
 	 * sudah ada di grid (bila konfigurasi {@code item_yg_disirkulasikan_tidak_boleh_sama} aktif).
 	 * Bila valid, menambahkan baris detail baru (jumlah 1, terikat ke barcode spesifik) ke grid dan
 	 * menyimpan langsung ke database bila transaksi sudah persisten. Fokus dikembalikan ke kolom
@@ -581,7 +583,8 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 			PeminjamanPengadaanItemDetail belumkembali = (PeminjamanPengadaanItemDetail) session
 					.createCriteria(PeminjamanPengadaanItemDetail.class)
 					.add(Restrictions.eq("itemPunyaBarcode", itemPunyaBarcode))
-					.add(Restrictions.isNull("kembaliPengadaanItemDetail")).addOrder(Order.desc("id")).uniqueResult();
+					.add(Restrictions.isNull("kembaliPengadaanItemDetail")).addOrder(Order.desc("id"))
+					.setMaxResults(1).uniqueResult();
 			if (belumkembali != null) {
 				MyMessageboxConfig.show(
 						"Item dengan barcode " + barcode + " belum dikembalikan oleh anggota "
@@ -599,6 +602,21 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 						});
 				return;
 			}
+		}
+
+		if (LibraryUtil.eksemplarKondisiTidakTersedia(itemPunyaBarcode)) {
+			MyMessageboxConfig.show(
+					"Item dengan barcode " + barcode
+							+ " tercatat dalam kondisi rusak/hilang pada pengembalian sebelumnya, sehingga tidak dapat dipinjamkan.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION, new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							PeminjamanPengadaanItemPunyaItemHelper.this.barcode.focus();
+							PeminjamanPengadaanItemPunyaItemHelper.this.barcode.select();
+						}
+					});
+			return;
 		}
 
 		if (Common.bolehKonfigurasi("item_yg_disirkulasikan_tidak_boleh_sama")) {

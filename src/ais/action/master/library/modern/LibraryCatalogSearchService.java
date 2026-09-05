@@ -222,7 +222,10 @@ public class LibraryCatalogSearchService {
         }
         if ("AVAILABLE".equals(request.getAvailability())) criteria.add(Restrictions.sqlRestriction(
                 "exists (select 1 from library.item_punya_barcode b where b.item={alias}.id and not exists "
-                + "(select 1 from library.peminjaman_pengadaan_item_detail d where d.item_punya_barcode=b.id and d.kembali_pengadaan_item_detail is null))"));
+                + "(select 1 from library.peminjaman_pengadaan_item_detail d where d.item_punya_barcode=b.id and d.kembali_pengadaan_item_detail is null) "
+                + "and not exists (select 1 from library.kembali_pengadaan_item_detail k join library.peminjaman_pengadaan_item_detail pp "
+                + "on pp.kembali_pengadaan_item_detail=k.id where pp.item_punya_barcode=b.id and "
+                + "(k.keterangan like '[KONDISI=HILANG]%' or k.keterangan like '[KONDISI=RUSAK]%' or k.keterangan like '[KONDISI=PERBAIKAN]%')))"));
         else if ("LOANED".equals(request.getAvailability())) criteria.add(Restrictions.sqlRestriction(
                 "exists (select 1 from library.item_punya_barcode b join library.peminjaman_pengadaan_item_detail d "
                 + "on d.item_punya_barcode=b.id where b.item={alias}.id and d.kembali_pengadaan_item_detail is null)"));
@@ -265,7 +268,11 @@ public class LibraryCatalogSearchService {
         if(allowedLibraries!=null&&allowedLibraries.isEmpty())return result;
         Query query = session.createSQLQuery(
                 "select b.item,p.id,coalesce(p.nama,'Lokasi belum ditentukan'),count(b.id),"
-                + "sum(case when loan.item_punya_barcode is null then 1 else 0 end),"
+                + "sum(case when loan.item_punya_barcode is null and not exists "
+                + "(select 1 from library.kembali_pengadaan_item_detail k join library.peminjaman_pengadaan_item_detail pp "
+                + "on pp.kembali_pengadaan_item_detail=k.id where pp.item_punya_barcode=b.id and "
+                + "(k.keterangan like '[KONDISI=HILANG]%' or k.keterangan like '[KONDISI=RUSAK]%' or k.keterangan like '[KONDISI=PERBAIKAN]%')) "
+                + "then 1 else 0 end),"
                 + "coalesce(to_char(max(loan.due_date),'DD-MM-YYYY'),''),coalesce((select max(r.nama) from library.rak_detail rd join library.rak r on r.id=rd.rak where rd.item=b.item and (r.perpustakaan=p.id or r.perpustakaan is null)),''),"
                 + "coalesce((select max(s.status) from library.item_has_status s where s.item=b.item and (s.perpustakaan=p.id or s.perpustakaan is null) and current_date between coalesce(s.mulai,current_date) and coalesce(s.sampai,current_date)),'') "
                 + "from library.item_punya_barcode b join library.item i on i.id=b.item left join library.perpustakaan p on p.id=b.perpustakaan "

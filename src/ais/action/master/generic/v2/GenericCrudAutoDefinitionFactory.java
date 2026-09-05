@@ -20,7 +20,15 @@ import ais.action.master.generic.v2.adapter.GenericCrudReviewedAdapterFactory;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 
-/** Membuat definisi dari metadata Hibernate; tidak pernah menerima nama class dari parameter HTTP. */
+/**
+ * Membuat definisi dari metadata Hibernate. {@code buildForClass}/{@code buildAdministrative} sendiri
+ * tidak pernah menerima nama class dari parameter HTTP secara langsung, tetapi {@code buildAdministrative}
+ * dipanggil oleh {@code model_crud_service.jsp} dengan {@code entityKey} yang berasal dari
+ * {@code request.getParameter("entity")} pengguna — gerbangnya hanya {@code Common.getApakahAdmin()}
+ * ("admin apa pun", bukan hak akses per menu). Karena itu {@link #BLOCKED_CLASS_TOKENS} dan
+ * {@link #SIRS_BLOCKED_PACKAGE_PREFIX} adalah satu-satunya pagar untuk kelas yang seharusnya tidak boleh
+ * dijelajahi/diubah lewat browser model generik ini, terlepas dari peran admin spesifik apa pun.
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public final class GenericCrudAutoDefinitionFactory {
     private static final String[] BLOCKED_CLASS_TOKENS = new String[] {
@@ -30,6 +38,14 @@ public final class GenericCrudAutoDefinitionFactory {
         "queue", "job", "notification", "notifikasi", "webhook", "bank", "rekening", "payment",
         "epsbed"
     };
+    /**
+     * Seluruh modul SIRS (rekam medis, alergi, kepesertaan/asuransi pasien, dsb.) tidak punya sumbu
+     * tenant apa pun di level entity (tidak ada {@code satuanKerja}/{@code yayasan}/dst.), sehingga
+     * {@code GenericCrudAutoEntityAdapter.scopeBindings()} tidak pernah memasang pembatas untuk paket
+     * ini. Diblokir per-paket (bukan per-token nama kelas) supaya entity SIRS baru otomatis ikut
+     * terlindungi tanpa perlu mengingat menambah token setiap kali ada entity baru.
+     */
+    private static final String SIRS_BLOCKED_PACKAGE_PREFIX = "ais.database.model.sirs.";
     private static final String[] AUTO_CREATE_BLOCKED_CLASSES = new String[] {
         "ais.database.model.PembayaranMahasiswa",
         "ais.database.model.TugasPertemuan",
@@ -611,6 +627,7 @@ public final class GenericCrudAutoDefinitionFactory {
 
     private static boolean isBlockedClass(Class type) {
         if (isAllowedClass(type)) return false;
+        if (type != null && type.getName().startsWith(SIRS_BLOCKED_PACKAGE_PREFIX)) return true;
         return containsToken(type.getName(), BLOCKED_CLASS_TOKENS);
     }
     private static boolean isAutoCreateBlocked(Class type) {

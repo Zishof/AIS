@@ -122,7 +122,11 @@ public final class LibraryItemDetailService {
         List<Long> allowed=LibraryScopeResolver.allowedLibraryIds(session);
         if(allowed!=null&&allowed.isEmpty())return result;
         Query query = session.createSQLQuery("select b.barcode,p.id,coalesce(p.nama,'Lokasi tidak diketahui'),"
-                + "case when loan.item_punya_barcode is null then true else false end,"
+                + "case when loan.item_punya_barcode is null and not exists "
+                + "(select 1 from library.kembali_pengadaan_item_detail k join library.peminjaman_pengadaan_item_detail pp "
+                + "on pp.kembali_pengadaan_item_detail=k.id where pp.item_punya_barcode=b.id and "
+                + "(k.keterangan like '[KONDISI=HILANG]%' or k.keterangan like '[KONDISI=RUSAK]%' or k.keterangan like '[KONDISI=PERBAIKAN]%')) "
+                + "then true else false end,"
                 + "coalesce(to_char(loan.due_date,'DD-MM-YYYY'),''),coalesce((select max(r.nama) from library.rak_detail rd join library.rak r on r.id=rd.rak where rd.item=b.item and (r.perpustakaan=p.id or r.perpustakaan is null)),''),"
                 + "(select count(h.id) from library.pesanan_anggota h where h.item=b.item and (h.perpustakaan=p.id or h.perpustakaan is null) and lower(coalesce(h.status,'')) not in ('batal','selesai','diambil') and h.kadaluarsa>=current_timestamp) from library.item_punya_barcode b "
                 + "left join library.perpustakaan p on p.id=b.perpustakaan left join "

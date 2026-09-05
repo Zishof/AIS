@@ -65,8 +65,8 @@ import ais.common.Common;
  *
  * <h3>Jalur pencarian: {@code ambil(...)}</h3>
  * <p>Seluruh pembacaan lampiran melewati {@link #ambil(Long, String)} dan saudaranya, yang
- * mendelegasikan ke {@code FileFotoLain.ambil(usingId, ref, jenis, jumlahCoba, clazz, refresh,
- * kondisiTambahan)}. Ringkas cara kerjanya (lihat {@link ais.database.model.file.FileFotoLain}):</p>
+ * mendelegasikan ke {@code FileFotoLain.ambil(usingId, ref, jenis, jumlahCoba, clazz, refresh)}.
+ * Ringkas cara kerjanya (lihat {@link ais.database.model.file.FileFotoLain}):</p>
  * <ol>
  *   <li>Cek <b>cache berkas di disk</b> lebih dulu ({@code ambilLokasi}) — hasil query
  *       sebelumnya disimpan sebagai JSON per kunci {@code clazz + ref + jenis}. Cache ini

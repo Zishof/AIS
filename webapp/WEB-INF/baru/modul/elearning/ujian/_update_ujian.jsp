@@ -105,6 +105,19 @@ try {
             outWriter.flush();
             return;
         }
+
+        // Cegah lintas-soal: bankSoalDetail yang dikirim HARUS milik BankSoal yang sama
+        // dengan soal yang sedang dijawab (myDetail.getBankSoal()). Tanpa ini, id
+        // BankSoalDetail dari soal/ujian LAIN (termasuk dari modul kursus non-formal,
+        // karena tabel ini dipakai bersama seluruh sistem CBT) bisa dikirim untuk
+        // memalsukan jawaban benar bernilai tinggi. Pola sama seperti _kursus_service.jsp.
+        if (bankSoalDetail.getBankSoal() == null || myDetail.getBankSoal() == null
+                || !bankSoalDetail.getBankSoal().getId().equals(myDetail.getBankSoal().getId())) {
+            outWriter.print("{\"status\":\"error\", \"message\":\"" + Common.getBahasaConfig("Pilihan jawaban tidak valid untuk soal ini.") + "\"}");
+            mySession.getTransaction().rollback();
+            outWriter.flush();
+            return;
+        }
         myDetail.setBankSoalDetail(bankSoalDetail);
     }
 

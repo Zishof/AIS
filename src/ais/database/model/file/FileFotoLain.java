@@ -1315,34 +1315,6 @@ public abstract class FileFotoLain extends FileFoto {
 	}
 
 	/**
-	 * Mencari satu lampiran tanpa syarat SQL tambahan, dengan penghitung percobaan ulang
-	 * yang ditentukan pemanggil.
-	 *
-	 * <p>Menetapkan {@code kondisiTambahan} menjadi teks kosong sehingga jalur
-	 * {@code Restrictions.sqlRestriction(...)} pada method inti dilewati sepenuhnya.
-	 * Inilah bentuk yang dipakai seluruh pemanggil di dalam paket ini; hanya
-	 * {@code ais.action.servlet.Data} yang memakai bentuk tujuh parameter dengan syarat
-	 * tambahan terisi.</p>
-	 *
-	 * <p>Parameter {@code jumlahCoba} adalah penjaga rekursi, bukan pilihan perilaku:
-	 * pemanggil dari luar seharusnya selalu mengirim {@code 0}. Perannya dijelaskan pada
-	 * {@link #ambil(Boolean, Serializable, String, int, Class, boolean, String)}.</p>
-	 *
-	 * @param usingId    {@code true} mencocokkan {@code ref} ke primary key lampiran
-	 * @param ref        acuan pemilik, atau primary key lampiran bila {@code usingId}
-	 * @param jenis      penanda jenis lampiran; diabaikan bila {@code usingId}
-	 * @param jumlahCoba penghitung percobaan ulang; kirim {@code 0} dari luar
-	 * @param clazz      kelas entitas berkas yang dikueri
-	 * @param refresh    {@code true} melewati cache dan langsung bertanya ke basis data
-	 * @return lampiran yang ditemukan, atau {@code null} bila tidak ada
-	 */
-	public static FileFotoLain ambil(Boolean usingId, Serializable ref, String jenis, int jumlahCoba, Class clazz,
-			boolean refresh) {
-		String kondisiTambahan = "";
-		return ambil(usingId, ref, jenis, jumlahCoba, clazz, refresh, kondisiTambahan);
-	}
-
-	/**
 	 * <b>Method inti pencarian lampiran untuk seluruh keluarga entitas berkas.</b> Semua
 	 * varian {@code ambil(...)} lain, seluruh pembungkus di {@code LampiranLain}, jalur
 	 * pemuatan {@code createDownloadUpload(...)}, servlet {@code AmbilLampiran} yang
@@ -1351,7 +1323,7 @@ public abstract class FileFotoLain extends FileFoto {
 	 * <i>semua</i> entitas berkas paket ini, bukan bagi satu entitas saja.
 	 *
 	 * <h2>1. Alur besar: cache dahulu, basis data belakangan</h2>
-	 * <p>Kunci cache dihitung di baris 1490 sebagai
+	 * <p>Kunci cache dihitung di baris 1470 sebagai
 	 * {@code "data_baru_" + (usingId ? "_id" : "")}, lalu {@code ambilLokasi()} dibaca.
 	 * Ada tiga cabang:</p>
 	 * <ul>
@@ -1368,11 +1340,10 @@ public abstract class FileFotoLain extends FileFoto {
 	 *       berujung ketika cache terus-menerus rusak.</li>
 	 * </ul>
 	 *
-	 * <h2>2. Bentuk query dan tiga saklar yang mengubahnya</h2>
-	 * <p>Query disusun sebagai {@code Criteria} pada baris 1517-1523 dengan tiga
-	 * pembatas dan satu pengurutan:</p>
+	 * <h2>2. Bentuk query dan dua saklar yang mengubahnya</h2>
+	 * <p>Query disusun sebagai {@code Criteria} dengan dua pembatas dan satu
+	 * pengurutan:</p>
 	 * <pre>
-	 * .add(kondisiTambahan kosong ? sqlRestriction("true") : sqlRestriction(kondisiTambahan))
 	 * .addOrder(Order.desc("id"))
 	 * .add(usingId || !adaJenis  ? sqlRestriction("true") : eq("jenis", jenis))
 	 * .add(usingId || "id".equals(refName) ? idEq(ref)    : eq(refName, ref))
@@ -1381,8 +1352,10 @@ public abstract class FileFotoLain extends FileFoto {
 	 * <p>Perhatikan pola {@code sqlRestriction("true")}: pembatas tidak dihilangkan
 	 * melainkan diganti dengan syarat yang selalu benar. Secara hasil sama saja, tetapi
 	 * secara pembacaan kode ini membuat "pembatas dimatikan" terlihat seperti "pembatas
-	 * dipasang", sehingga mudah terlewat saat menelaah.</p>
-	 * <p>Variabel {@code adaJenis} dihitung pada baris 1498-1499:
+	 * dipasang", sehingga mudah terlewat saat menelaah. Argumen literal ini tidak pernah
+	 * berasal dari masukan luar &mdash; lihat bagian 4 untuk riwayat kenapa hal ini
+	 * penting.</p>
+	 * <p>Variabel {@code adaJenis} dihitung pada baris 1478-1479:
 	 * penyaringan {@code jenis} <b>dimatikan</b> bila {@code refName} bernilai
 	 * {@code "id"} atau {@code "tbmuser"}, bila nama kelas berawalan {@code "Foto"}, atau
 	 * bila nama kelas berakhiran {@code "FileContent"}. Jadi bahkan tanpa {@code usingId},
@@ -1392,12 +1365,12 @@ public abstract class FileFotoLain extends FileFoto {
 	 * <p>Ini bagian yang paling penting untuk dipahami. Satu nilai {@code boolean}
 	 * mengubah <b>dua</b> pembatas sekaligus:</p>
 	 * <ol>
-	 *   <li><b>Penyaringan {@code jenis} dimatikan.</b> Pada baris 1521-1522,
+	 *   <li><b>Penyaringan {@code jenis} dimatikan.</b> Pada baris 1499-1500,
 	 *       {@code usingId} muncul sebagai suku pertama disjungsi, sehingga argumen
 	 *       {@code jenis} yang dikirim pemanggil tidak pernah dipakai. Lampiran ijazah,
 	 *       lampiran KTP, foto profil, dan berkas apa pun yang tersimpan pada tabel yang
 	 *       sama menjadi tidak terbedakan.</li>
-	 *   <li><b>{@code ref} dicocokkan ke primary key.</b> Pada baris 1523,
+	 *   <li><b>{@code ref} dicocokkan ke primary key.</b> Pada baris 1501,
 	 *       {@code Restrictions.idEq(ref)} menggantikan {@code Restrictions.eq(refName,
 	 *       ref)}. Nilai {@code ref} tidak lagi bermakna "milik siapa berkas ini",
 	 *       melainkan "baris nomor berapa".</li>
@@ -1435,16 +1408,25 @@ public abstract class FileFotoLain extends FileFoto {
 	 * sana). Jadi jalur ini pun dapat menjawab dari cache setelah barisnya tidak lagi
 	 * seharusnya terlihat.</p>
 	 *
-	 * <h2>4. {@code kondisiTambahan}: fragmen SQL mentah</h2>
-	 * <p>Bila terisi, nilainya masuk ke {@code Restrictions.sqlRestriction(kondisiTambahan)}
-	 * pada baris 1518-1519 &mdash; artinya diteruskan ke basis data <b>sebagai potongan
-	 * SQL apa adanya</b>, tanpa parameterisasi dan tanpa pemeriksaan bentuk. Di dalam
-	 * paket ini nilainya selalu kosong. Pemanggil dari luar wajib memperlakukan parameter
-	 * ini sebagai bagian dari kueri, bukan sebagai data: nilai yang berasal dari masukan
-	 * luar tidak boleh sampai ke sini.</p>
+	 * <h2>4. Riwayat: parameter {@code kondisiTambahan} (dihapus)</h2>
+	 * <p>Method ini sebelumnya menerima parameter tujuh, {@code String kondisiTambahan},
+	 * yang nilainya &mdash; bila terisi &mdash; masuk langsung ke
+	 * {@code Restrictions.sqlRestriction(kondisiTambahan)} sebagai pembatas pertama:
+	 * diteruskan ke basis data <b>sebagai potongan SQL apa adanya</b>, tanpa
+	 * parameterisasi dan tanpa pemeriksaan bentuk. {@code ais.action.servlet.Data}
+	 * meneruskan nilai itu langsung dari parameter permintaan HTTP
+	 * ({@code renderFileDirectly}) maupun dari badan JSON permintaan ({@code processFile})
+	 * tanpa validasi maupun allowlist apa pun, sehingga siapa pun yang dapat memanggil
+	 * servlet tersebut dapat menyuntikkan fragmen SQL sembarang ke kueri ini. Tidak ada
+	 * pemanggil lain di seluruh repo yang pernah mengisi parameter ini dengan nilai
+	 * bukan-kosong: di paket ini nilainya selalu kosong, dan halaman JSP yang membaca
+	 * parameter permintaan bernama sama ({@code upload_component.jsp}) tidak pernah
+	 * diisi lewat {@code jsp:param} oleh pemanggil sah mana pun. Karena tidak ada
+	 * kebutuhan nyata, parameter dan jalurnya di {@code Data.java} dihapus sepenuhnya
+	 * alih-alih ditambal dengan penyaringan karakter.</p>
 	 *
 	 * <h2>5. Penanganan khusus {@code FotoAdmin}</h2>
-	 * <p>Dua cabang pada baris 1501-1513 menangani kekhasan {@code FotoAdmin} yang kolom
+	 * <p>Dua cabang pada baris 1481-1493 menangani kekhasan {@code FotoAdmin} yang kolom
 	 * acuannya bertipe {@code String} berisi userid. Bila {@code ref} memang
 	 * {@code String}, {@code refName} dipaksa {@code "tbmuser"} dan {@code usingId}
 	 * dipaksa {@code false}. Bila {@code ref} bukan {@code String} &mdash; keadaan yang
@@ -1480,13 +1462,11 @@ public abstract class FileFotoLain extends FileFoto {
 	 *                        acuan, dan lokasi cache
 	 * @param refresh         {@code true} melewati cache dan langsung bertanya ke basis
 	 *                        data
-	 * @param kondisiTambahan fragmen SQL mentah yang ditambahkan ke query; teks kosong
-	 *                        berarti tanpa syarat tambahan &mdash; lihat bagian 4
 	 * @return lampiran yang ditemukan, atau {@code null} bila tidak ada maupun bila
 	 *         terjadi kegagalan
 	 */
 	public static FileFotoLain ambil(Boolean usingId, Serializable ref, String jenis, int jumlahCoba, Class clazz,
-			boolean refresh, String kondisiTambahan) {
+			boolean refresh) {
 		String keyFilePrefix = "data_baru_" + (usingId ? "_id" : "");
 		String udah = ambilLokasi(keyFilePrefix, ref, jenis, clazz);
 
@@ -1515,8 +1495,6 @@ public abstract class FileFotoLain extends FileFoto {
 				session = StreamingHibernateUtil.getInstance().getSessionFactory().openSession();
 				transaction = session.beginTransaction();
 				FileFotoLain result = (FileFotoLain) session.createCriteria(clazz)
-						.add(kondisiTambahan.trim().isEmpty() ? Restrictions.sqlRestriction("true")
-								: Restrictions.sqlRestriction(kondisiTambahan))
 						.addOrder(Order.desc("id"))
 						.add(usingId || !adaJenis ? Restrictions.sqlRestriction("true")
 								: Restrictions.eq("jenis", jenis))
