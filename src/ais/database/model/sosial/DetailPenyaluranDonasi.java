@@ -30,17 +30,66 @@ public class DetailPenyaluranDonasi extends SocialRecord {
  private Integer beneficiaryCount;
  /** Lokasi penyaluran; deskripsi bebas; bukti penyaluran sebagai JSON mentah (mis. daftar foto/dokumen, tidak divalidasi skema di entitas); referensi jurnal akuntansi terkait; dan status persetujuan detail penyaluran ini (bebas teks). */
  private String location,description,evidenceJson,accountingReference,approvalStatus;
- @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="distribution_id",nullable=false) public PenyaluranDonasi getDistribution(){return distribution;} public void setDistribution(PenyaluranDonasi v){distribution=v;}
- @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="fund_type_id",nullable=false) public JenisDanaSosial getFundType(){return fundType;} public void setFundType(JenisDanaSosial v){fundType=v;}
- @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="program_id") public ProgramDonatur getProgram(){return program;} public void setProgram(ProgramDonatur v){program=v;}
- @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="beneficiary_category_id",nullable=false) public KategoriPenerimaManfaat getBeneficiaryCategory(){return beneficiaryCategory;} public void setBeneficiaryCategory(KategoriPenerimaManfaat v){beneficiaryCategory=v;}
- @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="source_allocation_id",nullable=false) public AlokasiDonasi getSourceAllocation(){return sourceAllocation;} public void setSourceAllocation(AlokasiDonasi v){sourceAllocation=v;}
- @Column(name="amount",nullable=false,precision=19,scale=2) public BigDecimal getAmount(){return amount;} public void setAmount(BigDecimal v){amount=v;}
- @Temporal(TemporalType.DATE) @Column(name="distribution_date",nullable=false) public Date getDistributionDate(){return distributionDate;} public void setDistributionDate(Date v){distributionDate=v;}
- @Column(name="beneficiary_count") public Integer getBeneficiaryCount(){return beneficiaryCount;} public void setBeneficiaryCount(Integer v){beneficiaryCount=v;}
- @Column(name="location",length=255) public String getLocation(){return location;} public void setLocation(String v){location=trim(v);}
- @Column(name="description",columnDefinition="TEXT") public String getDescription(){return description;} public void setDescription(String v){description=v;}
- @Column(name="evidence_json",columnDefinition="TEXT") public String getEvidenceJson(){return evidenceJson;} public void setEvidenceJson(String v){evidenceJson=v;}
- @Column(name="accounting_reference",length=255) public String getAccountingReference(){return accountingReference;} public void setAccountingReference(String v){accountingReference=trim(v);}
- @Column(name="approval_status",length=40) public String getApprovalStatus(){return approvalStatus;} public void setApprovalStatus(String v){approvalStatus=trim(v);}
+ /** Mengembalikan event/batch penyaluran induk, apa adanya (tanpa {@code check()} lazy-resolve — berbeda dari pola getter relasi entitas legacy {@link ProgramDonatur}/{@link PenyaluranDonasi} di paket ini). */
+ @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="distribution_id",nullable=false) public PenyaluranDonasi getDistribution(){return distribution;}
+ /** Menyetel event/batch penyaluran induk. Tanpa validasi; wajib diisi sebelum baris disimpan ({@code nullable=false}). */
+ public void setDistribution(PenyaluranDonasi v){distribution=v;}
+ /** Mengembalikan jenis dana sosial (mis. Zakat/Infaq/Sedekah) detail ini. Dipakai {@link ais.action.master.sosial.helper.SocialDistributionService#post} untuk memvalidasi kecocokan dengan jenis dana {@link #sourceAllocation} dan kompatibilitas dana {@code restricted} terhadap {@link #beneficiaryCategory}. */
+ @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="fund_type_id",nullable=false) public JenisDanaSosial getFundType(){return fundType;}
+ /** Menyetel jenis dana sosial. Tanpa validasi; wajib diisi. */
+ public void setFundType(JenisDanaSosial v){fundType=v;}
+ /** Mengembalikan program donatur legacy terkait, bila detail ini terikat pada satu {@link ProgramDonatur} tertentu. */
+ @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="program_id") public ProgramDonatur getProgram(){return program;}
+ /** Menyetel program donatur terkait. Opsional ({@code program_id} tanpa {@code nullable=false}); tanpa validasi. */
+ public void setProgram(ProgramDonatur v){program=v;}
+ /** Mengembalikan kategori penerima manfaat detail ini. Dipakai bersama {@link #fundType} untuk memvalidasi kompatibilitas dana {@code restricted} pada {@link ais.action.master.sosial.helper.SocialDistributionService#post}. */
+ @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="beneficiary_category_id",nullable=false) public KategoriPenerimaManfaat getBeneficiaryCategory(){return beneficiaryCategory;}
+ /** Menyetel kategori penerima manfaat. Tanpa validasi; wajib diisi. */
+ public void setBeneficiaryCategory(KategoriPenerimaManfaat v){beneficiaryCategory=v;}
+ /** Mengembalikan alokasi donasi sumber yang mendanai penyaluran ini — saldo alokasi inilah yang dikurangi/divalidasi (jumlah baris {@code POSTED} tidak melebihi {@link ais.database.model.sosial.AlokasiDonasi#getAmount()}) oleh {@link ais.action.master.sosial.helper.SocialDistributionService#post}. */
+ @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="source_allocation_id",nullable=false) public AlokasiDonasi getSourceAllocation(){return sourceAllocation;}
+ /** Menyetel alokasi donasi sumber. Tanpa validasi; wajib diisi. */
+ public void setSourceAllocation(AlokasiDonasi v){sourceAllocation=v;}
+ /** Mengembalikan nominal dana yang disalurkan pada detail ini, apa adanya. Divalidasi harus positif ({@code signum()>0}) dan tidak melebihi sisa saldo alokasi sumber saat diposting — lihat {@link ais.action.master.sosial.helper.SocialDistributionService#post}; entitas ini sendiri tidak menegakkan validasi tersebut. */
+ @Column(name="amount",nullable=false,precision=19,scale=2) public BigDecimal getAmount(){return amount;}
+ /** Menyetel nominal dana yang disalurkan. Tanpa validasi pada level entitas. */
+ public void setAmount(BigDecimal v){amount=v;}
+ /** Mengembalikan tanggal penyaluran, apa adanya. Bila belum diisi saat diposting, {@link ais.action.master.sosial.helper.SocialDistributionService#post} mengisinya otomatis dengan waktu posting. */
+ @Temporal(TemporalType.DATE) @Column(name="distribution_date",nullable=false) public Date getDistributionDate(){return distributionDate;}
+ /** Menyetel tanggal penyaluran. Tanpa validasi. */
+ public void setDistributionDate(Date v){distributionDate=v;}
+ /** Mengembalikan jumlah penerima manfaat pada detail ini, apa adanya; boleh {@code null} (kolom tidak {@code nullable=false}). */
+ @Column(name="beneficiary_count") public Integer getBeneficiaryCount(){return beneficiaryCount;}
+ /** Menyetel jumlah penerima manfaat. Tanpa validasi. */
+ public void setBeneficiaryCount(Integer v){beneficiaryCount=v;}
+ /** Mengembalikan lokasi penyaluran, apa adanya. */
+ @Column(name="location",length=255) public String getLocation(){return location;}
+ /** Menyetel lokasi penyaluran, dipangkas spasi awal/akhir lewat {@link SocialRecord#trim(String)}. */
+ public void setLocation(String v){location=trim(v);}
+ /** Mengembalikan deskripsi bebas penyaluran ini, apa adanya. */
+ @Column(name="description",columnDefinition="TEXT") public String getDescription(){return description;}
+ /** Menyetel deskripsi bebas. Tanpa validasi/trim pada setter (berbeda dari {@link #getLocation()}/{@link #setLocation(String)} yang dipangkas). */
+ public void setDescription(String v){description=v;}
+ /** Mengembalikan bukti penyaluran sebagai teks JSON mentah (mis. daftar url foto/dokumen); tidak divalidasi skema di sini. */
+ @Column(name="evidence_json",columnDefinition="TEXT") public String getEvidenceJson(){return evidenceJson;}
+ /** Menyetel bukti penyaluran (teks JSON mentah). Tanpa validasi skema pada setter. */
+ public void setEvidenceJson(String v){evidenceJson=v;}
+ /** Mengembalikan referensi jurnal akuntansi terkait detail ini, apa adanya; teks bebas, tidak divalidasi/dihubungkan lewat foreign key. */
+ @Column(name="accounting_reference",length=255) public String getAccountingReference(){return accountingReference;}
+ /** Menyetel referensi jurnal akuntansi, dipangkas spasi awal/akhir. */
+ public void setAccountingReference(String v){accountingReference=trim(v);}
+ /**
+  * Mengembalikan status persetujuan detail penyaluran ini, apa adanya — bebas teks (bukan enum
+  * tervalidasi pada level entitas); nilai yang diketahui dipakai kode pemanggil antara lain
+  * {@code "POSTED"} (lihat {@link ais.action.master.sosial.helper.SocialDistributionService#post},
+  * yang juga memvalidasi transisi status lewat {@code SocialStateMachine.requireDistribution}
+  * sebelum mengizinkan perubahan ke {@code POSTED}). <b>Verifikasi eksplisit gerbang
+  * persetujuan:</b> kolom ini sendiri hanyalah data; gerbang yang sesungguhnya menegakkan
+  * transisi status yang sah dan privilese {@code FINANCE} berada di layanan
+  * {@code SocialDistributionService} tersebut (server-side, bukan sekadar UI) — lihat javadoc
+  * method {@code post(SocialRequestContext, Long)} untuk alur validasi lengkapnya.
+  */
+ @Column(name="approval_status",length=40) public String getApprovalStatus(){return approvalStatus;}
+ /** Menyetel status persetujuan, dipangkas spasi awal/akhir. Tanpa validasi nilai pada level entitas — validasi transisi status yang sah ditegakkan di layer service, bukan di sini. */
+ public void setApprovalStatus(String v){approvalStatus=trim(v);}
 }
