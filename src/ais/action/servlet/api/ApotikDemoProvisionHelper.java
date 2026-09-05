@@ -79,6 +79,8 @@ public final class ApotikDemoProvisionHelper {
 	private static final int JUMLAH_PENJUALAN_TERKENDALI_UAT = 500;
 	private static final int JUMLAH_FORMULA_RACIKAN_UAT = 500;
 	private static final int JUMLAH_FORMULA_PRODUKSI_UAT = 500;
+	private static final int JUMLAH_COLD_CHAIN_UAT = 100;
+	private static final int JUMLAH_RECALL_UAT = 100;
 	private static final Object LOCK_PROVISION = new Object();
 	private static volatile boolean provisionBerjalan = false;
 	private static volatile boolean provisionPernahDijalankan = false;
@@ -314,6 +316,8 @@ public final class ApotikDemoProvisionHelper {
 			int racikanDibuat = ensureRacikanDemo(session, obatA, obatB);
 			int formulaRacikanDibuat = ensureFormulaRacikanUat(session);
 			int formulaProduksiDibuat = ensureFormulaProduksiUat(session);
+			int profilColdChainDiperbarui = ensureColdChainUat(session);
+			int batchRecallDibuat = ensureRecallUat(session);
 			int pasienKlinisDibuat = ensurePasienKlinisDemo(session);
 			int antreanDibuat = ensureAntreanDemo(session, request);
 			Resep resep = (Resep) session.createCriteria(Resep.class)
@@ -335,6 +339,8 @@ public final class ApotikDemoProvisionHelper {
 			ringkas.put("racikanBaru", racikanDibuat);
 			ringkas.put("formulaRacikanOperasionalBaru", formulaRacikanDibuat);
 			ringkas.put("formulaProduksiOperasionalBaru", formulaProduksiDibuat);
+			ringkas.put("profilColdChainDiperbarui", profilColdChainDiperbarui);
+			ringkas.put("batchRecallBaru", batchRecallDibuat);
 			ringkas.put("pasienKlinisSampleBaru", pasienKlinisDibuat);
 			ringkas.put("antreanBaru", antreanDibuat);
 			ringkas.put("items", items);
@@ -959,6 +965,12 @@ public final class ApotikDemoProvisionHelper {
 			long pembayaranSample = ((Number) session.createQuery(
 					"select count(p) from ApotikPembayaranTransaksi p where p.olehId = :penanda")
 					.setString("penanda", "seed_demo").uniqueResult()).longValue();
+			long coldChain = ((Number) session.createQuery("select count(p) from ApotikItemProfile p "
+					+ "where p.item.kode like 'DEMO-OBT-%' and p.coldChain = true")
+					.uniqueResult()).longValue();
+			long recall = ((Number) session.createQuery("select count(k) from Kadaluarsa k "
+					+ "where k.keterangan like 'BATCH-DEMO-RECALL-%' and k.statusLot = :status")
+					.setString("status", Kadaluarsa.LOT_RECALL).uniqueResult()).longValue();
 			Calendar awal = Calendar.getInstance();
 			awal.set(Calendar.HOUR_OF_DAY, 0);
 			awal.set(Calendar.MINUTE, 0);
@@ -974,6 +986,8 @@ public final class ApotikDemoProvisionHelper {
 			verifikasi.put("resepKlinisLengkap", resepKlinisLengkap);
 			verifikasi.put("penjualanTerkendali", penjualanTerkendali);
 			verifikasi.put("pembayaranSample", pembayaranSample);
+			verifikasi.put("itemColdChain", coldChain);
+			verifikasi.put("batchRecall", recall);
 			verifikasi.put("formulaRacikanOperasional", formulaRacikan);
 			verifikasi.put("formulaProduksiOperasional", formulaProduksi);
 			verifikasi.put("antreanHariIni", antrean);
@@ -984,6 +998,8 @@ public final class ApotikDemoProvisionHelper {
 			verifikasi.put("targetResepKlinisLengkap", JUMLAH_PROFIL_RESEP_UAT);
 			verifikasi.put("targetPenjualanTerkendali", JUMLAH_PENJUALAN_TERKENDALI_UAT);
 			verifikasi.put("targetPembayaranSample", JUMLAH_PENJUALAN_TERKENDALI_UAT);
+			verifikasi.put("targetItemColdChain", JUMLAH_COLD_CHAIN_UAT);
+			verifikasi.put("targetBatchRecall", JUMLAH_RECALL_UAT);
 			verifikasi.put("targetFormulaRacikanOperasional", JUMLAH_FORMULA_RACIKAN_UAT);
 			verifikasi.put("targetFormulaProduksiOperasional", JUMLAH_FORMULA_PRODUKSI_UAT);
 			verifikasi.put("targetAntrean", JUMLAH_ANTREAN_DEMO);
@@ -993,6 +1009,8 @@ public final class ApotikDemoProvisionHelper {
 					&& resepKlinisLengkap >= JUMLAH_PROFIL_RESEP_UAT
 					&& penjualanTerkendali >= JUMLAH_PENJUALAN_TERKENDALI_UAT
 					&& pembayaranSample >= JUMLAH_PENJUALAN_TERKENDALI_UAT
+					&& coldChain >= JUMLAH_COLD_CHAIN_UAT
+					&& recall >= JUMLAH_RECALL_UAT
 					&& formulaRacikan >= JUMLAH_FORMULA_RACIKAN_UAT
 					&& formulaProduksi >= JUMLAH_FORMULA_PRODUKSI_UAT
 					&& antrean >= JUMLAH_ANTREAN_DEMO);
@@ -1000,6 +1018,90 @@ public final class ApotikDemoProvisionHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/**
+	 * Menandai sedikitnya 100 item demo sebagai cold-chain. Penanda ini hanya
+	 * memperkaya profil farmasi dan tidak mengubah saldo maupun kelayakan lot.
+	 */
+	@SuppressWarnings("unchecked")
+	private static int ensureColdChainUat(Session session) {
+		List<ApotikItemProfile> profil = session.createQuery(
+				"from ApotikItemProfile p where p.item.kode like :kode order by p.item.kode")
+				.setString("kode", "DEMO-OBT-%")
+				.setMaxResults(JUMLAH_COLD_CHAIN_UAT).list();
+		int diperbarui = 0;
+		for (ApotikItemProfile p : profil) {
+			if (!Boolean.TRUE.equals(p.getColdChain())) {
+				p.setColdChain(Boolean.TRUE);
+				p.setOleh("seed_demo");
+				p.setOlehId("seed_demo");
+				session.saveOrUpdate(p);
+				diperbarui++;
+			}
+		}
+		return diperbarui;
+	}
+
+	/**
+	 * Membuat lot recall khusus UAT beserta ledger stok sumbernya. Lot ini sengaja
+	 * berstatus tidak layak sehingga tidak pernah dipilih FEFO untuk penjualan;
+	 * batch layak reguler pada item yang sama tetap tersedia untuk kasir.
+	 */
+	@SuppressWarnings("unchecked")
+	private static int ensureRecallUat(Session session) {
+		List<ItemMedis> items = session.createQuery(
+				"from ItemMedis i where i.kode like :kode order by i.kode")
+				.setString("kode", "DEMO-OBT-%")
+				.setMaxResults(JUMLAH_RECALL_UAT).list();
+		int dibuat = 0;
+		int nomor = 0;
+		for (ItemMedis item : items) {
+			nomor++;
+			String penanda = "BATCH-DEMO-RECALL-" + item.getKode();
+			ensureStokRecallUat(session, item);
+			Kadaluarsa batch = (Kadaluarsa) session.createCriteria(Kadaluarsa.class)
+					.add(Restrictions.eq("item", item))
+					.add(Restrictions.eq("keterangan", penanda))
+					.setMaxResults(1).uniqueResult();
+			if (batch == null) {
+				batch = new Kadaluarsa();
+				batch.setItem(item);
+				batch.setQty(Double.valueOf(1));
+				Calendar kalender = Calendar.getInstance();
+				kalender.add(Calendar.DAY_OF_YEAR, 30 + nomor);
+				batch.setTanggalKadaluarsa(kalender.getTime());
+				batch.setKeterangan(penanda);
+				batch.setOlehId("seed_demo");
+				batch.setOleh("Provisioning data sample eBisnis");
+				dibuat++;
+			}
+			batch.setStatusLot(Kadaluarsa.LOT_RECALL);
+			session.saveOrUpdate(batch);
+		}
+		return dibuat;
+	}
+
+	private static void ensureStokRecallUat(Session session, ItemMedis item) {
+		String penanda = "STOK-DEMO-RECALL-" + item.getKode();
+		long ada = ((Number) session.createQuery(
+				"select count(d) from DetailTransaksiPasien d where d.item = :item and d.keterangan = :penanda")
+				.setParameter("item", item).setString("penanda", penanda)
+				.uniqueResult()).longValue();
+		if (ada > 0) return;
+		DetailTransaksiPasien ledger = new DetailTransaksiPasien();
+		ledger.setKodeTransaksi(ConstantValues.beliMasuk);
+		ledger.setItem(item);
+		ledger.setQty(Double.valueOf(1));
+		ledger.setAmount(item.getDefaultHargaBeli() == null
+				? Double.valueOf(0) : item.getDefaultHargaBeli());
+		ledger.setHasilPenghitunganTotal(item.getDefaultHargaBeli() == null
+				? Double.valueOf(0) : item.getDefaultHargaBeli());
+		ledger.setTanggal(new Date());
+		ledger.setKeterangan(penanda);
+		ledger.setOleh("seed_demo");
+		ledger.setOlehId("seed_demo");
+		session.save(ledger);
 	}
 
 	@SuppressWarnings("unchecked")
