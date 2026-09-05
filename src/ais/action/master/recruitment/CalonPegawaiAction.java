@@ -624,6 +624,17 @@ public class CalonPegawaiAction extends GenericAutowireComposer
 				if (status.getSelectedItem() == null) {
 					return;
 				}
+				if (!CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE)) {
+					MyMessageboxConfig.show("Anda tidak memiliki hak untuk mengubah status seleksi.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					Common.createDefaultTimer(new EventListener() {
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							onSearchDefault(arg0);
+						}
+					});
+					return;
+				}
 				String label = status.getSelectedItem().getLabel();
 				if (label.equalsIgnoreCase("Diterima")) {
 					calonPegawai.setTelahDiterima(true);
