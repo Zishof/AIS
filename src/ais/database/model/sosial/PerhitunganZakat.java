@@ -23,17 +23,34 @@ import java.math.BigDecimal; import javax.persistence.*; import org.hibernate.en
  */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="perhitungan_zakat")
 public class PerhitunganZakat extends SocialRecord { private static final long serialVersionUID=1L; private SocialDonorIdentity donorIdentity; private JenisZakat jenisZakat; private KebijakanPerhitunganZakat policy; private String inputJson,resultJson,policyVersion,requestId,currency; private BigDecimal nisabValueSnapshot,rateSnapshot,amount; private Boolean reachedNisab,converted;
+ /** Identitas donatur yang perhitungannya ini, opsional (perhitungan dapat berupa simulasi anonim tanpa donatur terdaftar). */
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="donor_identity_id") public SocialDonorIdentity getDonorIdentity(){return donorIdentity;} public void setDonorIdentity(SocialDonorIdentity v){donorIdentity=v;}
+ /** Jenis zakat yang dihitung pada baris ini (mis. zakat maal, zakat fitrah). */
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="jenis_zakat_id",nullable=false) public JenisZakat getJenisZakat(){return jenisZakat;} public void setJenisZakat(JenisZakat v){jenisZakat=v;}
+ /** Kebijakan/aturan perhitungan zakat yang dipakai sebagai acuan rumus pada saat perhitungan ini dijalankan. */
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="policy_id",nullable=false) public KebijakanPerhitunganZakat getPolicy(){return policy;} public void setPolicy(KebijakanPerhitunganZakat v){policy=v;}
+ /** Input mentah perhitungan dalam format JSON (mis. nilai harta, kepemilikan, tanggal), fleksibel menampung struktur berbeda antar jenis zakat. */
  @Column(name="input_json",columnDefinition="TEXT",nullable=false) public String getInputJson(){return inputJson;} public void setInputJson(String v){inputJson=v;}
+ /** Hasil mentah perhitungan dalam format JSON (rincian komponen perhitungan), fleksibel menampung struktur berbeda antar jenis zakat &mdash; nilai kuncinya diringkas ke kolom terstruktur di bawah. */
  @Column(name="result_json",columnDefinition="TEXT",nullable=false) public String getResultJson(){return resultJson;} public void setResultJson(String v){resultJson=v;}
+ /**
+  * Salinan versi {@link KebijakanPerhitunganZakat} yang dipakai pada perhitungan ini, disimpan
+  * sebagai jejak audit agar tetap diketahui walau kebijakan induk direvisi (versi baru) di
+  * kemudian hari.
+  */
  @Column(name="policy_version",nullable=false,length=40) public String getPolicyVersion(){return policyVersion;} public void setPolicyVersion(String v){policyVersion=trim(v);}
+ /** Pengenal permintaan (request id) dari sisi pemanggil, untuk penelusuran/idempotensi permintaan perhitungan. */
  @Column(name="request_id",length=120) public String getRequestId(){return requestId;} public void setRequestId(String v){requestId=trim(v);}
+ /** Kode mata uang nominal hasil perhitungan (ISO 4217). Default {@code "IDR"} bila belum diset. */
  @Column(name="currency",nullable=false,length=3) public String getCurrency(){return currency==null?"IDR":currency;} public void setCurrency(String v){currency=trim(v);}
+ /** Nilai nisab (ambang batas harta wajib zakat) yang dipakai pada perhitungan ini &mdash; snapshot, tidak berubah walau kebijakan berubah kemudian. */
  @Column(name="nisab_value_snapshot",precision=19,scale=2) public BigDecimal getNisabValueSnapshot(){return nisabValueSnapshot;} public void setNisabValueSnapshot(BigDecimal v){nisabValueSnapshot=v;}
+ /** Tarif/kadar zakat yang dipakai pada perhitungan ini &mdash; snapshot, tidak berubah walau kebijakan berubah kemudian. */
  @Column(name="rate_snapshot",precision=19,scale=8) public BigDecimal getRateSnapshot(){return rateSnapshot;} public void setRateSnapshot(BigDecimal v){rateSnapshot=v;}
+ /** Nominal zakat yang wajib dibayar, hasil akhir perhitungan ini. */
  @Column(name="amount",nullable=false,precision=19,scale=2) public BigDecimal getAmount(){return amount;} public void setAmount(BigDecimal v){amount=v;}
+ /** Menandai apakah harta yang dihitung mencapai ambang nisab (wajib zakat). Default {@code false}. */
  @Column(name="reached_nisab") public Boolean getReachedNisab(){return Boolean.TRUE.equals(reachedNisab);} public void setReachedNisab(Boolean v){reachedNisab=v;}
+ /** Menandai apakah perhitungan ini sudah berlanjut menjadi transaksi donasi sungguhan (lihat {@link TransaksiDonasi#getCalculation()}). Default {@code false}. */
  @Column(name="converted") public Boolean getConverted(){return Boolean.TRUE.equals(converted);} public void setConverted(Boolean v){converted=v;}
 }
