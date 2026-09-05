@@ -673,9 +673,13 @@ public final class HotelApiHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			session.beginTransaction();
 			ais.database.model.hotel.MenginapTamu stay = (ais.database.model.hotel.MenginapTamu) session
 					.get(ais.database.model.hotel.MenginapTamu.class, stayId);
-			Kamar baru = (Kamar) session.get(Kamar.class, kamarBaruId);
+			// Lock kamar TUJUAN (SELECT ... FOR UPDATE) SEBELUM cek VACANT -- sama pola dgn
+			// checkin() (r85219): tanpa ini, dua pindahKamar/checkin konkuren yg menyasar kamar
+			// tujuan yang sama bisa keduanya lolos cek VACANT sebelum salah satu commit.
+			Kamar baru = (Kamar) session.get(Kamar.class, kamarBaruId, org.hibernate.LockOptions.UPGRADE);
 			if (stay == null || baru == null) {
 				tolak(hasil, "Data menginap / kamar tujuan tidak ditemukan.");
 				return;
@@ -690,7 +694,6 @@ public final class HotelApiHelper {
 				return;
 			}
 			Kamar lama = stay.getKamar();
-			session.beginTransaction();
 			lama.setStatusHunian(Kamar.HUNIAN_DIRTY);
 			session.saveOrUpdate(lama);
 			baru.setStatusHunian(Kamar.HUNIAN_OCCUPIED);

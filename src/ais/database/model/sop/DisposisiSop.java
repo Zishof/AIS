@@ -92,7 +92,12 @@ import ais.ui.util.FormSop;
  *
  * <h2>Riwayat/audit</h2>
  * <p>Kelas beranotasi {@link Audited} (Envers), namun {@link #hapus()} menghapus data lewat SQL
- * native sehingga penghapusan <b>tidak</b> meninggalkan jejak revisi.</p>
+ * native sehingga penghapusan <b>tidak</b> meninggalkan jejak revisi Envers. Sejak revisi ini,
+ * celah tersebut dimitigasi dua arah tanpa mengandalkan Envers: (1) {@code hapus()} menolak
+ * (fail-closed, lempar {@link IllegalStateException}) bila pengajuan sudah disetujui atau dokumen
+ * modul terkait sudah diposting ke jurnal, dan (2) setiap penghapusan yang lolos gerbang tersebut
+ * dicatat manual ke {@code error_log} (id, kode SOP, keterangan, pengaju, pelaku, waktu) lewat
+ * {@code catatJejakPenghapusan}. Lihat Javadoc {@link #hapus()} untuk detail dan batas cakupannya.</p>
  *
  * @see DisposisiAlurSop
  * @see AlurSop
@@ -630,7 +635,8 @@ public class DisposisiSop extends GeneralValueObject {
 	}
 
 	/**
-	 * Menghapus pengajuan ini <b>beserta seluruh jejaknya di semua modul</b>, lewat SQL native.
+	 * Menghapus pengajuan ini <b>beserta seluruh jejaknya di semua modul</b>, lewat SQL native —
+	 * dengan gerbang status <b>fail-closed</b> dan pencatatan jejak audit sejak revisi ini.
 	 *
 	 * <p>Ini adalah operasi "batalkan/hapus pengajuan" yang dipanggil dari tombol hapus pada daftar
 	 * pengajuan SOP. Karena mesin SOP dipakai lintas modul dan tidak ada relasi terbalik yang
@@ -641,75 +647,348 @@ public class DisposisiSop extends GeneralValueObject {
 	 * peminjaman, penerimaan, pengembalian, penghapusan, perbaikan, perjanjian kerja sama,
 	 * permintaan pengadaan), persuratan (surat masuk/keluar), sekolah (kelompok pendaftaran PSB),
 	 * catatan administrasi, pengaduan, pengajuan mahasiswa, pengajuan pegawai, ruang PMB, seleksi
-	 * vendor perpustakaan — dan tentu saja {@code disposisi_alur_sop} (baris riwayat jenjang, yang
-	 * tercantum tiga kali dalam daftar; pengulangan itu tidak berbahaya, hanya mubazir). Baru
-	 * setelah itu baris {@code disposisi_sop} sendiri dihapus.</p>
+	 * vendor perpustakaan, dan {@code disposisi_alur_sop} (baris riwayat jenjang). Daftar tabel kini
+	 * sudah dibersihkan dari duplikat (versi sebelumnya mencantumkan {@code disposisi_alur_sop} 3x,
+	 * {@code uang_muka} dan {@code asset.pembayaran_dp_master_asset} masing-masing 2x — pengulangan
+	 * itu tidak berbahaya, hanya mubazir). Baru setelah semua tabel modul bersih, baris
+	 * {@code disposisi_sop} sendiri dihapus.</p>
 	 *
-	 * <p>Setiap perintah dibungkus {@code try/catch} sendiri sehingga tabel yang tidak ada pada
-	 * instalasi tertentu (mis. instalasi tanpa modul sekolah) tidak menggagalkan sisanya. Kegagalan
-	 * dicatat ke audit galat.</p>
+	 * <h2>Gerbang status (baru) — fail-closed</h2>
+	 * <ol>
+	 * <li><b>Sudah disetujui.</b> Bila {@link #getDisposisiSetuju()} tidak {@code null}, method
+	 * menolak dengan {@link IllegalStateException} tanpa menyentuh satu baris pun. Ini menutup
+	 * risiko utama temuan audit: transaksi yang sudah berjalan (dan dokumennya) lenyap tanpa
+	 * jejak.</li>
+	 * <li><b>Dokumen modul sudah diposting ke jurnal.</b> Untuk tabel yang diketahui punya kolom
+	 * {@code posting_history} sendiri pada barisnya —
+	 * {@code akunting.daftar_pengajuan_transfer, dana_talangan, akunting.kas_kecil,
+	 * akunting.penggantian_kas_kecil, akunting.pertangungjawaban, uang_muka,
+	 * asset.pemesanan_pengadaan_master_asset, asset.penerimaan_pengadaan_master_asset,
+	 * asset.penghapusan_master_asset, asset.perbaikan_asset,
+	 * asset.perjanjian_kerjasama_master_asset} (dipetakan dari entity Java masing-masing, bukan
+	 * tebakan) — method memeriksa lewat SQL murni apakah ada baris tertaut dengan
+	 * {@code posting_history is not null}, dan menolak bila ada.
+	 * <p><b>Cakupan sengaja dibatasi</b> pada kesebelas tabel di atas, bukan status
+	 * {@code disetujuiOleh} generik pada ~18 tabel modul lain (mis. {@code surat_keluar},
+	 * {@code pengaduan}, {@code permintaan_pengadaan_master_asset}) yang belum tentu berakibat
+	 * finansial ireversibel bila terhapus. Menambah gerbang tersebut memerlukan audit per-modul
+	 * tersendiri; belum dikerjakan di revisi ini.</p></li>
+	 * </ol>
 	 *
-	 * <h2>Yang perlu diwaspadai</h2>
+	 * <h2>Eksekusi delete &amp; pelaporan kegagalan sebagian (baru)</h2>
+	 * <p>Setiap perintah delete kini dijalankan pada sesi/transaksi sendiri lewat
+	 * {@link #jalankanDanKlasifikasi(String, String)} (bukan {@code Common.updateSql}, yang
+	 * ternyata menelan SEMUA exception SQL secara internal dan tidak pernah melempar ulang —
+	 * lihat {@code CommonSqlHelper.updateSql}), sehingga kegagalan tiap tabel dapat diklasifikasi:
 	 * <ul>
-	 * <li><b>Penghapusan menyeluruh, bukan sekadar membatalkan alur.</b> Dokumen modul yang
-	 * terkait ikut terhapus — termasuk dokumen yang mungkin sudah disetujui dan sudah menimbulkan
-	 * akibat di modul lain.</li>
-	 * <li><b>Tidak meninggalkan jejak Envers.</b> Karena memakai SQL native
-	 * ({@code Common.updateSql}), penghapusan ini melewati sesi Hibernate sehingga anotasi
-	 * {@link Audited} pada kelas ini maupun pada entity modul tidak menghasilkan baris revisi.
-	 * Setelah pemanggilan, praktis tidak ada bukti bahwa pengajuan itu pernah ada.</li>
-	 * <li><b>Tanpa pemeriksaan status maupun wewenang di sini.</b> Method tidak memeriksa apakah
-	 * pengajuan sudah disetujui, sudah diposting, atau siapa yang menghapus — kendalinya hanya
-	 * berupa tampil/tidaknya tombol hapus di UI dan dialog konfirmasi.</li>
-	 * <li><b>Selalu mengembalikan {@code true}</b>, bahkan bila semua perintah gagal, karena setiap
-	 * kegagalan sudah ditelan oleh {@code catch}. Nilai kembaliannya karena itu tidak layak dipakai
-	 * sebagai penanda keberhasilan.</li>
+	 * <li><b>Tabel tidak ada</b> (SQLState PostgreSQL {@code 42P01}, mis. instalasi tanpa modul
+	 * sekolah/library) — dilewati, bukan kegagalan, sama seperti perilaku lama.</li>
+	 * <li><b>Kegagalan sungguhan</b> (mis. pelanggaran foreign key lain, koneksi terputus) —
+	 * dikumpulkan. Bila satu saja terjadi, baris {@code disposisi_sop} <b>TIDAK</b> dihapus (agar
+	 * tidak meninggalkan baris modul yang sudah terlanjur terhapus sebagian menunjuk ke header yang
+	 * sudah tiada / sebaliknya), dan method melempar {@link IllegalStateException} berisi daftar
+	 * tabel yang gagal — pemanggil UI ({@code DisposisiSopAction}) sudah punya blok tangkap yang
+	 * menampilkan pesan ini ke pengguna lewat {@code e.getMessage()}.</li>
+	 * </ul>
+	 * </p>
+	 *
+	 * <h2>Jejak audit (baru) — menutup celah Envers</h2>
+	 * <p>Kelas ini beranotasi {@link Audited} (Envers), namun karena penghapusan memakai SQL native
+	 * yang melewati sesi Hibernate, Envers tidak pernah mencatat revisi untuk operasi ini — baik
+	 * sebelum maupun sesudah revisi ini. Untuk menutup celah itu, {@link #catatJejakPenghapusan}
+	 * dipanggil tepat sebelum eksekusi delete dimulai (setelah kedua gerbang di atas lolos), menulis
+	 * satu baris ke {@code error_log} lewat {@link ais.common.ErrorAuditUtil#record(Throwable, String)}
+	 * berisi id pengajuan, kode+nama SOP, keterangan, dan pengaju — sedangkan pelaku dan waktu
+	 * otomatis disertakan oleh {@code ErrorAuditUtil} sendiri (pengguna sesi aktif +
+	 * {@code new Date()} saat dicatat). Ini bukan pengganti Envers (baris log bebas-format, bukan
+	 * baris revisi terstruktur), tetapi cukup untuk menelusuri "apa yang dihapus, oleh siapa, dan
+	 * kapan" secara manual.</p>
+	 *
+	 * <h2>Yang masih sama seperti sebelumnya</h2>
+	 * <ul>
+	 * <li><b>Penghapusan menyeluruh, bukan sekadar membatalkan alur</b> — begitu kedua gerbang di
+	 * atas lolos, dokumen modul yang tertaut tetap ikut terhapus permanen, bukan sekadar diputus
+	 * relasinya.</li>
 	 * <li>Perintah dirangkai dengan menggabungkan {@link #getId()} langsung ke dalam string SQL.
 	 * Aman di sini karena sumbernya angka dari basis data, tetapi jangan dijadikan pola untuk nilai
 	 * yang berasal dari masukan pengguna.</li>
 	 * </ul>
 	 *
-	 * @return selalu {@code true}
+	 * <h2>Analisis: kenapa TIDAK diganti ke nonaktifkan ({@code aktif=false})</h2>
+	 * <p>Dipertimbangkan sesuai permintaan audit, tetapi <b>tidak diterapkan</b> pada revisi ini:</p>
+	 * <ul>
+	 * <li>Beberapa entity modul turunan sudah menurunkan status {@code aktif}/{@code status}-nya
+	 * sendiri dari {@link #getAktif()} milik header ini (mis. {@code KelompokPendaftaranPsb},
+	 * {@code SuratMasuk}, {@code Pengaduan}, {@code PengajuanMahasiswa}, {@code PengajuanPegawai},
+	 * {@code SeleksiVendor} — lihat Javadoc masing-masing), sehingga sekadar men-nonaktifkan header
+	 * ({@code setAktif(false)} lalu {@code saveOrUpdate}, tanpa SQL native sama sekali) SANGAT
+	 * mungkin sudah cukup menyembunyikan dokumen tersebut dari tampilan tanpa risiko kehilangan
+	 * data — ini arah yang menjanjikan untuk pekerjaan lanjutan.</li>
+	 * <li>Namun sebagian tabel lain (mis. {@code ProsesTransfer}, {@code ProsesTransitori},
+	 * {@code PembayaranPengadaanMasterAsset}, banyak tabel {@code asset.*}) TIDAK menurunkan status
+	 * dari {@code disposisiSop} — mereka punya mesin status sendiri ({@code disetujuiOleh},
+	 * {@code realisasikanOleh}, dst.) yang independen. Mengganti semantik "hapus" menjadi
+	 * "nonaktifkan" pada header <b>tidak otomatis konsisten</b> untuk tabel-tabel ini: dokumennya
+	 * akan tetap tampil aktif di modul masing-masing meski pengajuan SOP induknya sudah
+	 * "dihapus".</li>
+	 * <li>Mengubah semantik tombol "Hapus" (permanen) menjadi "Nonaktifkan" (reversibel, data tetap
+	 * ada) adalah perubahan perilaku yang terlihat pengguna dan berpotensi memengaruhi laporan/
+	 * penghitungan yang menghitung baris tanpa filter {@code aktif} eksplisit di ~29 tabel modul —
+	 * memverifikasi itu satu per satu di luar cakupan sesi dokumentasi ini.</li>
+	 * <li><b>Kesimpulan:</b> gerbang fail-closed (menolak hapus bila sudah disetujui/diposting) pada
+	 * revisi ini sudah menutup skenario kehilangan data yang paling berbahaya (transaksi yang sudah
+	 * berjalan). Migrasi ke soft-delete penuh disarankan sebagai pekerjaan terpisah, per-modul,
+	 * dengan audit status masing-masing tabel.</li>
+	 * </ul>
+	 *
+	 * <p><b>Audit historis:</b> perubahan ini bersifat pencegahan ke depan; belum ada penelusuran
+	 * data yang sudah lama terlanjur terhapus lewat celah ini (butuh akses tabel {@code error_log} /
+	 * backup DB, di luar cakupan sesi ini).</p>
+	 *
+	 * @return {@code true} bila seluruh baris modul (yang ada) dan baris {@code disposisi_sop}
+	 *         berhasil dihapus
+	 * @throws IllegalStateException bila pengajuan sudah disetujui, dokumen modul terkait sudah
+	 *                                diposting ke jurnal, atau sebagian delete gagal sungguhan
 	 */
-	@SuppressWarnings({})
 	public boolean hapus() {
 
 		DisposisiSop disposisiSop = this;
+		Long id = disposisiSop.getId();
+
+		if (disposisiSop.getDisposisiSetuju() != null) {
+			throw new IllegalStateException(
+					"Pengajuan ini sudah disetujui (melewati titik persetujuan pada alur SOP), sehingga tidak "
+							+ "dapat dihapus/dibatalkan. Penghapusan hanya diperbolehkan untuk pengajuan yang "
+							+ "belum mencapai titik disetujui.");
+		}
+
+		String tabelSudahDiposting = cekAdaModulSudahDiposting(id);
+		if (tabelSudahDiposting != null) {
+			throw new IllegalStateException("Dokumen pada tabel " + tabelSudahDiposting
+					+ " yang tertaut pengajuan ini sudah diposting ke jurnal akuntansi, sehingga pengajuan ini "
+					+ "tidak dapat dihapus. Balikkan/batalkan posting jurnalnya terlebih dahulu.");
+		}
+
 		String[] hps = new String[] { "akunting.daftar_pengajuan_transfer", "dana_talangan", "akunting.kas_kecil",
 				"akunting.penggantian_kas_kecil", "akunting.pertangungjawaban", "akunting.proses_transfer",
-				"disposisi_alur_sop", "akunting.proses_transitori", "uang_muka", "uang_muka",
-				"asset.pembayaran_dp_master_asset", "asset.pembayaran_dp_master_asset",
+				"akunting.proses_transitori", "uang_muka", "asset.pembayaran_dp_master_asset",
 				"asset.pembayaran_pengadaan_master_asset", "asset.pembayaran_termin_master_asset",
 				"asset.pemesanan_pengadaan_master_asset", "asset.peminjaman_master_asset",
 				"asset.penerimaan_pengadaan_master_asset", "asset.pengembalian_master_asset",
 				"asset.penghapusan_master_asset", "asset.perbaikan_asset", "asset.perjanjian_kerjasama_master_asset",
-				"asset.permintaan_pengadaan_master_asset", "sekolah.kelompok_pendaftaran_psb", "disposisi_alur_sop",
+				"asset.permintaan_pengadaan_master_asset", "sekolah.kelompok_pendaftaran_psb",
 				"surat.surat_keluar", "surat.surat_masuk", "catatan_administrasi", "pengaduan", "pengajuan_mahasiswa",
 				"pengajuan_pegawai", "ruang_pmb", "library.seleksi_vendor", "disposisi_alur_sop" };
 
+		catatJejakPenghapusan(disposisiSop, id);
+
+		java.util.List<String> kegagalan = new java.util.ArrayList<String>();
 		for (String c : hps) {
-
-			try {
-
-				String sql = "delete from " + c + " where disposisi_sop=" + disposisiSop.getId();
-				Common.updateSql(sql);
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/sop/DisposisiSop.java:290");
+			String sql = "delete from " + c + " where disposisi_sop=" + id;
+			String gagal = jalankanDanKlasifikasi(sql, c);
+			if (gagal != null) {
+				kegagalan.add(gagal);
 			}
-
 		}
 
-		try {
+		if (!kegagalan.isEmpty()) {
+			String ringkasan = "Sebagian data modul terkait pengajuan ini (id=" + id + ") gagal dihapus pada "
+					+ kegagalan.size() + " tabel: " + kegagalan.toString()
+					+ ". Baris disposisi_sop TIDAK dihapus agar tidak ada data yatim; hubungi admin.";
+			ais.common.ErrorAuditUtil.record(null, "DisposisiSop.hapus() gagal sebagian -- " + ringkasan);
+			throw new IllegalStateException(ringkasan);
+		}
 
-			String sql = "delete from disposisi_sop where id=" + disposisiSop.getId();
-			System.out.println("sql -> " + sql);
-			Common.updateSql(sql);
-		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/sop/DisposisiSop.java:301");
+		String sqlHeader = "delete from disposisi_sop where id=" + id;
+		String gagalHeader = jalankanDanKlasifikasi(sqlHeader, "disposisi_sop");
+		if (gagalHeader != null) {
+			throw new IllegalStateException("Baris disposisi_sop (id=" + id + ") gagal dihapus: " + gagalHeader);
 		}
 
 		return true;
 
+	}
+
+	/**
+	 * Tabel modul (subset dari daftar pada {@link #hapus()}) yang diketahui punya kolom
+	 * {@code posting_history} sendiri pada barisnya sendiri — dipetakan langsung dari anotasi
+	 * {@code @JoinColumn(name = "posting_history")} pada entity Java masing-masing, bukan tebakan.
+	 * Tabel modul lain yang hanya punya status {@code disetujuiOleh} (tanpa posting jurnal)
+	 * sengaja TIDAK dimasukkan; lihat catatan cakupan pada Javadoc {@link #hapus()}.
+	 */
+	private static final String[] TABEL_DENGAN_POSTING_HISTORY = new String[] { "akunting.daftar_pengajuan_transfer",
+			"dana_talangan", "akunting.kas_kecil", "akunting.penggantian_kas_kecil", "akunting.pertangungjawaban",
+			"uang_muka", "asset.pemesanan_pengadaan_master_asset", "asset.penerimaan_pengadaan_master_asset",
+			"asset.penghapusan_master_asset", "asset.perbaikan_asset", "asset.perjanjian_kerjasama_master_asset" };
+
+	/**
+	 * Memeriksa apakah ada baris pada {@link #TABEL_DENGAN_POSTING_HISTORY} yang tertaut
+	 * {@code disposisiSop=id} dan sudah punya {@code posting_history is not null} (sudah diposting
+	 * ke jurnal). Query dijalankan pada sesi baru miliknya sendiri (bukan sesi ambient ZK) agar
+	 * tidak memicu auto-flush entity kotor, sama alasannya dengan {@code FlushMode.MANUAL} pada
+	 * {@link #ambil(Session, FormSop)}.
+	 *
+	 * @param id id header pengajuan
+	 * @return nama tabel pertama yang ditemukan sudah diposting, atau {@code null} bila tidak ada
+	 *         (termasuk bila tabelnya sendiri tidak ada pada instalasi ini)
+	 */
+	private static String cekAdaModulSudahDiposting(Long id) {
+		if (id == null) {
+			return null;
+		}
+		org.hibernate.Session session = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			for (String tabel : TABEL_DENGAN_POSTING_HISTORY) {
+				try {
+					Object hasil = session.createSQLQuery("select count(*) from " + tabel
+							+ " where disposisi_sop=" + id + " and posting_history is not null").uniqueResult();
+					long jumlah = hasil == null ? 0L : ((Number) hasil).longValue();
+					if (jumlah > 0) {
+						return tabel;
+					}
+				} catch (Exception eTabel) {
+					// Tabel tidak ada pada instalasi ini (mis. modul nonaktif) -- lewati, bukan kegagalan.
+				}
+			}
+			return null;
+		} finally {
+			if (session != null) {
+				try {
+					session.close();
+				} catch (Exception ignored) {
+				}
+			}
+		}
+	}
+
+	/**
+	 * Menjalankan satu perintah DML pada sesi &amp; transaksi sendiri (mengikuti pola
+	 * {@code CommonSqlHelper.updateSql}), lalu mengklasifikasi hasilnya.
+	 *
+	 * <p><b>Kenapa tidak memakai {@code Common.updateSql} seperti sebelumnya:</b>
+	 * {@code CommonSqlHelper.updateSql} menelan SEMUA exception SQL secara internal (dicatat lewat
+	 * {@code ErrorAuditUtil}, lalu method tetap mengembalikan {@code int} tanpa pernah melempar
+	 * ulang — kecuali deteksi SQL injection). Akibatnya {@code try/catch} di sekitar pemanggilnya
+	 * TIDAK PERNAH benar-benar menangkap kegagalan SQL sungguhan (lihat temuan audit poin 4).
+	 * Method ini mengelola sesi/transaksinya sendiri persis supaya exception SQL asli tetap bisa
+	 * ditangkap dan diklasifikasi di sini.</p>
+	 *
+	 * @param sql              perintah SQL DML yang dijalankan
+	 * @param namaTabelUntukPesan nama tabel, dipakai untuk pesan bila gagal
+	 * @return {@code null} bila berhasil (termasuk bila tabel targetnya memang tidak ada pada
+	 *         instalasi ini — SQLState PostgreSQL {@code 42P01}), atau pesan ringkas "tabel
+	 *         (pesan galat)" bila terjadi kegagalan sungguhan yang wajib dilaporkan ke pemanggil
+	 */
+	private static String jalankanDanKlasifikasi(String sql, String namaTabelUntukPesan) {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction transaction = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			transaction = session.beginTransaction();
+			session.createSQLQuery(sql).executeUpdate();
+			transaction.commit();
+			return null;
+		} catch (Exception e) {
+			try {
+				if (transaction != null && transaction.isActive()) {
+					transaction.rollback();
+				}
+			} catch (Exception ignoredRollback) {
+			}
+			if (tabelTidakDitemukan(e)) {
+				return null;
+			}
+			ais.common.ErrorAuditUtil.record(e, "DisposisiSop.hapus(): gagal menghapus baris pada "
+					+ namaTabelUntukPesan + " (" + sql + ")");
+			return namaTabelUntukPesan + " (" + e.getMessage() + ")";
+		} finally {
+			if (session != null) {
+				try {
+					session.clear();
+				} catch (Exception ignored) {
+				}
+				try {
+					session.disconnect();
+				} catch (Exception ignored) {
+				}
+				try {
+					session.close();
+				} catch (Exception ignored) {
+				}
+			}
+		}
+	}
+
+	/**
+	 * Menelusuri rantai {@code getCause()} untuk mendeteksi apakah sebuah exception SQL disebabkan
+	 * oleh tabel target yang memang tidak ada pada instalasi ini (PostgreSQL SQLState
+	 * {@code 42P01}, "undefined_table") — mengikuti pola pengecekan SQLState yang sama seperti
+	 * {@code CommonSqlHelper.isIgnorableMigrationSqlError}.
+	 *
+	 * @param t exception yang ditangkap saat eksekusi SQL
+	 * @return {@code true} bila akar penyebabnya adalah tabel tidak ditemukan
+	 */
+	private static boolean tabelTidakDitemukan(Throwable t) {
+		int guard = 0;
+		while (t != null && guard < 30) {
+			if (t instanceof java.sql.SQLException) {
+				String state = ((java.sql.SQLException) t).getSQLState();
+				if ("42P01".equalsIgnoreCase(state)) {
+					return true;
+				}
+			}
+			t = t.getCause();
+			guard++;
+		}
+		return false;
+	}
+
+	/**
+	 * Mencatat jejak penghapusan pengajuan SOP ini ke {@code error_log} lewat
+	 * {@link ais.common.ErrorAuditUtil#record(Throwable, String)}, karena penghapusan lewat SQL
+	 * native pada {@link #hapus()} melewati sesi Hibernate sehingga anotasi {@link Audited}
+	 * (Envers) tidak pernah menghasilkan baris revisi untuk operasi ini. Dipanggil SEBELUM delete
+	 * dimulai (setelah kedua gerbang status lolos) sehingga baris log tetap tercatat walau salah
+	 * satu delete di bawahnya gagal.
+	 *
+	 * <p>{@code ErrorAuditUtil.record(...)} otomatis menyertakan pengguna sesi aktif dan stempel
+	 * waktu saat dicatat; parameter {@code info} di sini hanya membawa detail spesifik pengajuan
+	 * ini (id, kode+nama SOP, keterangan, pengaju). Seluruh badan dibungkus {@code try/catch}
+	 * bungkam yang disengaja: kegagalan mencatat jejak tidak boleh menghalangi penghapusan yang
+	 * sudah lolos kedua gerbang di atas.</p>
+	 *
+	 * @param disposisiSop pengajuan yang akan dihapus
+	 * @param id           id pengajuan (disalin terpisah karena diambil sebelum baris dihapus)
+	 */
+	private static void catatJejakPenghapusan(DisposisiSop disposisiSop, Long id) {
+		try {
+			String kodeSop = "-";
+			String namaSop = "-";
+			try {
+				if (disposisiSop.getSop() != null) {
+					kodeSop = String.valueOf(disposisiSop.getSop().getKode());
+					namaSop = String.valueOf(disposisiSop.getSop().getNama());
+				}
+			} catch (Exception ignored) {
+			}
+			String pengaju = "-";
+			try {
+				if (disposisiSop.getDiajukanOleh() != null) {
+					pengaju = String.valueOf(disposisiSop.getDiajukanOleh());
+				} else if (disposisiSop.getMahasiswa() != null) {
+					pengaju = String.valueOf(disposisiSop.getMahasiswa());
+				} else if (disposisiSop.getSiswa() != null) {
+					pengaju = String.valueOf(disposisiSop.getSiswa());
+				}
+			} catch (Exception ignored) {
+			}
+			String info = "PENGHAPUSAN DisposisiSop id=" + id + " | SOP=" + kodeSop + " " + namaSop
+					+ " | keterangan=" + disposisiSop.getKeterangan() + " | pengaju=" + pengaju;
+			ais.common.ErrorAuditUtil.record(null, info);
+		} catch (Exception ignored) {
+			// pencatatan jejak tidak boleh menggagalkan penghapusan yang sudah lolos gerbang status
+		}
 	}
 
 	/**
