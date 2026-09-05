@@ -1847,6 +1847,22 @@ public class AlurSop extends GeneralValueObject {
 //		this.role = role;
 //	}
 
+	/**
+	 * Mengembalikan nomor jenjang tahap ini.
+	 *
+	 * <p><b>Getter destruktif:</b> bila {@link #getId()} masih {@code null} -- yaitu tahap belum
+	 * tersimpan -- method ini <b>mengosongkan field</b> {@link #nomor} lebih dulu, bukan sekadar
+	 * mengembalikan {@code null}. Maksudnya: nomor jenjang adalah nilai turunan yang hanya sah
+	 * setelah {@link #hitungNomor(Session)} berjalan atas baris yang benar-benar ada, sehingga
+	 * nomor yang disalin dari instance lain tidak boleh ikut terbawa ke baris baru.
+	 *
+	 * <p>Perlu ditegaskan sekali lagi bahwa nilai ini <b>tidak dipakai sebagai penjaga urutan</b>:
+	 * tidak ada satu pun titik pada mesin alur ini yang menolak sebuah tahap karena nomornya
+	 * melompat.
+	 *
+	 * @return nomor jenjang, atau {@code null} untuk tahap yang belum tersimpan atau yang belum
+	 *         pernah dihitung
+	 */
 	public Integer getNomor() {
 		if (getId() == null) {
 			nomor = null;
@@ -1854,18 +1870,103 @@ public class AlurSop extends GeneralValueObject {
 		return nomor;
 	}
 
+	/**
+	 * Mengisi nomor jenjang tahap ini secara langsung.
+	 *
+	 * <p>Umumnya <b>tidak</b> dipanggil kode bisnis: nilai ini diturunkan
+	 * {@link #hitungNomor(Session)} dan akan ditimpa pada perhitungan berikutnya.
+	 *
+	 * @param nomor nomor jenjang
+	 */
 	public void setNomor(Integer nomor) {
 		this.nomor = nomor;
 	}
 
+	/**
+	 * Mengembalikan jangka waktu penyelesaian yang wajar bagi tahap ini.
+	 *
+	 * @return isi {@link #jangkaWaktu}, atau {@code 1} sebagai nilai bawaan bila kolom kosong --
+	 *         tidak pernah {@code null}
+	 */
 	public Integer getJangkaWaktu() {
 		return jangkaWaktu == null ? 1 : jangkaWaktu;
 	}
 
+	/**
+	 * Mengisi jangka waktu penyelesaian tahap ini.
+	 *
+	 * <p>Nilai {@code null} diterima apa adanya dan baru berubah menjadi {@code 1} ketika dibaca
+	 * lewat {@link #getJangkaWaktu()}; nilai nol maupun negatif tidak ditolak di sini.
+	 *
+	 * @param jangkaWaktu jangka waktu penyelesaian
+	 */
 	public void setJangkaWaktu(Integer jangkaWaktu) {
 		this.jangkaWaktu = jangkaWaktu;
 	}
 
+	/**
+	 * Menghitung ulang <b>penomoran jenjang</b> dan, bila diizinkan, <b>menyusun ulang topologi
+	 * cabang</b> seluruh tahap milik SOP induk yang sama -- lalu menuliskannya ke basis data.
+	 *
+	 * <p>Ini adalah <b>satu-satunya method di kelas ini yang melakukan penulisan ke basis data</b>,
+	 * dan ia menulis bukan hanya baris {@code this} melainkan <b>baris-baris tahap lain</b> dalam
+	 * SOP yang sama. Karena itu ia patut dibaca sebagai operasi tingkat-SOP yang kebetulan
+	 * dititipkan pada sebuah entitas, bukan sebagai perilaku sebuah baris.</p>
+	 *
+	 * <h3>Jalannya perhitungan</h3>
+	 * <ol>
+	 *   <li>Keluar segera bila {@link #sop} atau id-nya belum ada.</li>
+	 *   <li>Seluruh {@code AlurSop} diambil dari cache tingkat aplikasi
+	 *       {@code ConstantValues.ambilBerdasarClass(AlurSop.class)} -- <b>bukan</b> dari
+	 *       {@code session} -- lalu disaring hanya yang ber-SOP induk sama dan diurutkan dengan
+	 *       {@link #compareTo(GeneralValueObject)}.</li>
+	 *   <li>Setiap tahap ber-{@link #start} benar diberi nomor {@code 1}, disimpan bila berbeda
+	 *       dari nilai lama.</li>
+	 *   <li>Daftar tahap ditelusuri berulang <b>sebanyak jumlah tahap</b> (perulangan bersarang
+	 *       {@code n x n}, dengan variabel luar sengaja tak terpakai dan ditandai
+	 *       {@code @SuppressWarnings("unused")}). Pengulangan sebanyak itu adalah cara kasar
+	 *       untuk membiarkan nomor "merambat" dari hulu ke hilir tanpa penelusuran graf yang
+	 *       sesungguhnya. Pada tiap kunjungan, nomor sebuah tahap ditetapkan menjadi
+	 *       {@code nomor(sebelumnya) + 1}.</li>
+	 *   <li>Bila tahap pendahulu memiliki {@link #getAlurSetelahnyaOtomatis()} bernilai benar,
+	 *       ke-20 kolom {@code setelahnyaN} milik pendahulu itu <b>ditimpa</b> dengan sampai 20
+	 *       tahap pertama yang menunjuknya lewat {@code sebelumnya}, berurutan sesuai
+	 *       {@link #compareTo(GeneralValueObject)}. Bagian ini ditulis sebagai dua puluh blok
+	 *       {@code if} yang identik dan hanya berbeda indeks.</li>
+	 * </ol>
+	 *
+	 * <h3>Hal-hal yang perlu diperhatikan</h3>
+	 * <ul>
+	 *   <li><b>Tidak ada pemeriksaan kewenangan sama sekali.</b> Method ini tidak menanyakan siapa
+	 *       pemanggilnya dan tidak membandingkannya dengan aktor mana pun. Siapa pun yang dapat
+	 *       mencapai pemanggilnya -- {@code AlurSopAction} -- dapat menulis ulang penomoran dan
+	 *       susunan cabang sebuah SOP. Penjagaan, bila ada, sepenuhnya berada pada kendali menu
+	 *       lapisan Action.</li>
+	 *   <li><b>Penulisan langsung, bukan sekadar perhitungan.</b> Nama {@code hitung...}
+	 *       menyesatkan: method ini memanggil {@code session.update()} dan {@code session.flush()}
+	 *       berkali-kali di dalam perulangan bersarang. Pada SOP dengan banyak tahap, jumlah
+	 *       {@code flush} bisa sangat besar.</li>
+	 *   <li><b>Menulis field secara langsung.</b> Penetapan memakai {@code a.nomor = angka} dan
+	 *       {@code sebelumnya.setelahnyaN = diambil}, melewati setter maupun getter. Efeknya,
+	 *       penyaringan yang biasanya dilakukan {@code getSetelahnyaN()} (membuang tahap awal dan
+	 *       tahap tidak aktif) <b>tidak berlaku</b> di sini: kolom dapat terisi tahap yang oleh
+	 *       getter kelak dianggap tidak ada.</li>
+	 *   <li><b>Membaca dari cache, menulis ke session.</b> Sumber daftar adalah cache
+	 *       {@code ConstantValues}, sedangkan sasaran tulis adalah {@code session} yang
+	 *       diberikan pemanggil. {@code session.refresh(...)} dipanggil untuk menjembataninya,
+	 *       tetapi bila cache basi, hasil perhitungan pun mengikuti keadaan basi tersebut.</li>
+	 *   <li><b>Galat ditelan per-iterasi.</b> Seluruh badan perulangan dalam dibungkus penangkap
+	 *       galat yang hanya mencatat ke audit. Satu tahap yang gagal diproses tidak menghentikan
+	 *       yang lain, sehingga penomoran dapat berakhir <b>separuh jadi</b> tanpa ada tanda
+	 *       kegagalan bagi pemanggil -- method ini tidak mengembalikan nilai apa pun.</li>
+	 *   <li><b>Tidak ada penjagaan siklus.</b> Bila rantai {@code sebelumnya} membentuk lingkaran,
+	 *       perulangan tetap berhenti karena jumlah iterasinya tetap, tetapi nomor yang dihasilkan
+	 *       tidak bermakna.</li>
+	 * </ul>
+	 *
+	 * @param session session Hibernate aktif tempat seluruh pembaruan dituliskan; pemanggil
+	 *                bertanggung jawab atas transaksinya
+	 */
 	@SuppressWarnings("unchecked")
 	public void hitungNomor(Session session) {
 		if (sop == null || sop.getId() == null) {
@@ -2128,6 +2229,32 @@ public class AlurSop extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar username yang berwenang pada tahap ini, dalam bentuk string
+	 * berpembatas koma.
+	 *
+	 * <p><b>Getter destruktif dengan dua perilaku yang sangat berbeda:</b></p>
+	 * <ul>
+	 *   <li>Bila {@link #getAktorSop()} terisi, isi field <b>dibuang dan digantikan</b> oleh
+	 *       {@code getAktorSop().getUsernamePengguna()}. Artinya konfigurasi {@code khususUsername}
+	 *       lama menjadi tidak terpakai begitu sebuah {@link AktorSop} dipasang -- tanpa
+	 *       peringatan, dan nilai lamanya hilang dari memori meski masih ada di basis data sampai
+	 *       baris disimpan ulang.</li>
+	 *   <li>Bila tidak, isi field dinormalkan: dibungkus koma di kedua ujung lalu koma ganda
+	 *       diringkas. Peringkasan dilakukan dengan {@code replaceAll(",,", ",")} yang diulang
+	 *       <b>tiga kali</b>, disusul lima perbandingan harfiah terhadap {@code ","} sampai
+	 *       {@code ",,,,"} yang menghasilkan string kosong. Rangkaian ini bekerja untuk kasus
+	 *       lazim, tetapi <b>bukan normalisasi yang lengkap</b>: deretan koma yang lebih panjang
+	 *       dari yang diantisipasi dapat lolos.</li>
+	 * </ul>
+	 *
+	 * <p>Bentuk berkoma-pembungkus itu penting bagi pemanggil: pencocokan di
+	 * {@code SopUtil} mengandalkan pencarian {@code ",nama,"} agar username tidak salah cocok
+	 * sebagai bagian dari username lain.</p>
+	 *
+	 * @return daftar username berpembatas koma yang sudah dirapikan; string kosong bila tidak ada
+	 *         -- tidak pernah {@code null}
+	 */
 	@Column(name = "khusus_username", nullable = true, columnDefinition = "text")
 	public String getKhususUsername() {
 
@@ -2152,10 +2279,30 @@ public class AlurSop extends GeneralValueObject {
 		return khususUsername == null ? "" : khususUsername.trim();
 	}
 
+	/**
+	 * Mengisi daftar username berwenang apa adanya, <b>tanpa normalisasi</b>. Perapian bentuk
+	 * (koma pembungkus, peringkasan koma ganda) baru terjadi saat dibaca lewat
+	 * {@link #getKhususUsername()}.
+	 *
+	 * @param khususUsername daftar username berpembatas koma
+	 */
 	public void setKhususUsername(String khususUsername) {
 		this.khususUsername = khususUsername;
 	}
 
+	/**
+	 * Mengembalikan kode unik tahap ini, <b>membangkitkannya bila belum ada</b>.
+	 *
+	 * <p><b>Getter destruktif:</b> bila field masih {@code null}, method memanggil
+	 * {@code Common.getGeneratedBarCode()} dan <b>menyimpan hasilnya ke field</b>. Sekadar
+	 * membaca properti ini karena itu mengubah state instance -- dan pada entitas terkelola,
+	 * perubahan tersebut dapat ikut tersimpan ke basis data pada {@code flush} berikutnya
+	 * meskipun pemanggil hanya bermaksud membaca.
+	 *
+	 * <p>Tidak ada pemeriksaan tabrakan: keunikan sepenuhnya bergantung pada pembangkit tersebut.
+	 *
+	 * @return kode unik tahap; tidak pernah {@code null} setelah pemanggilan pertama
+	 */
 	@Column(name = "kode_unik", nullable = true)
 	public String getKodeUnik() {
 		if (kodeUnik == null) {
@@ -2164,18 +2311,52 @@ public class AlurSop extends GeneralValueObject {
 		return kodeUnik;
 	}
 
+	/**
+	 * Mengisi kode unik tahap ini secara langsung, menggantikan kode yang mungkin sudah
+	 * dibangkitkan.
+	 *
+	 * @param kodeUnik kode unik baru; {@code null} membuat {@link #getKodeUnik()} membangkitkan
+	 *                 kode baru pada pembacaan berikutnya
+	 */
 	public void setKodeUnik(String kodeUnik) {
 		this.kodeUnik = kodeUnik;
 	}
 
+	/**
+	 * Menyatakan apakah tahap ini adalah tahap awal alur.
+	 *
+	 * @return isi {@link #start}, atau {@code false} bila kolom kosong -- tidak pernah
+	 *         {@code null}, sehingga aman langsung dipakai pada percabangan
+	 */
 	public Boolean getStart() {
 		return start == null ? false : start;
 	}
 
+	/**
+	 * Menetapkan apakah tahap ini tahap awal alur.
+	 *
+	 * <p>Tidak ada penjagaan bahwa sebuah SOP hanya boleh punya satu tahap awal; bila lebih dari
+	 * satu tahap ditandai demikian, {@link #hitungNomor(Session)} akan memberi nomor 1 kepada
+	 * semuanya.
+	 *
+	 * @param start penanda tahap awal
+	 */
 	public void setStart(Boolean start) {
 		this.start = start;
 	}
 
+	/**
+	 * Mengembalikan nama aktor tahap ini sebagai teks.
+	 *
+	 * <p><b>Getter destruktif:</b> bila {@link #getAktorSop()} terisi, field {@link #aktor}
+	 * <b>ditimpa</b> dengan {@code getAktorSop().getNama()}. Pola yang sama dengan
+	 * {@link #getKhususUsername()}: definisi terstruktur selalu menang atas teks lama.
+	 *
+	 * <p>Nilai balik <b>tidak</b> dijaga terhadap {@code null} -- berbeda dari kebanyakan getter
+	 * teks lain di kelas ini yang mengembalikan string kosong.
+	 *
+	 * @return nama aktor, boleh {@code null}
+	 */
 	public String getAktor() {
 		if (getAktorSop() != null) {
 			aktor = getAktorSop().getNama();
@@ -2183,14 +2364,36 @@ public class AlurSop extends GeneralValueObject {
 		return aktor;
 	}
 
+	/**
+	 * Mengisi nama aktor sebagai teks. Berguna hanya untuk konfigurasi lama tanpa
+	 * {@link AktorSop}; bila {@link #aktorSop} terisi, nilai ini akan ditimpa saat dibaca.
+	 *
+	 * @param aktor nama aktor
+	 */
 	public void setAktor(String aktor) {
 		this.aktor = aktor;
 	}
 
+	/**
+	 * Menyatakan apakah kolom-kolom {@code setelahnyaN} disusun otomatis oleh
+	 * {@link #hitungNomor(Session)} dari relasi {@code sebelumnya}.
+	 *
+	 * @return isi {@link #alurSetelahnyaOtomatis}, atau {@code true} sebagai <b>nilai bawaan</b>
+	 *         bila kolom kosong -- perhatikan bahwa bawaannya benar, sehingga tahap yang belum
+	 *         pernah dikonfigurasi akan menyusun cabangnya sendiri
+	 */
 	public Boolean getAlurSetelahnyaOtomatis() {
 		return alurSetelahnyaOtomatis == null ? true : alurSetelahnyaOtomatis;
 	}
 
+	/**
+	 * Menetapkan apakah cabang lanjutan disusun otomatis.
+	 *
+	 * <p>Beralih dari otomatis ke manual <b>tidak</b> membersihkan kolom {@code setelahnyaN} yang
+	 * sudah terlanjur ditulis perhitungan sebelumnya; susunan lama tetap berlaku sampai disunting.
+	 *
+	 * @param alurSetelahnyaOtomatis penanda penyusunan otomatis
+	 */
 	public void setAlurSetelahnyaOtomatis(Boolean alurSetelahnyaOtomatis) {
 		this.alurSetelahnyaOtomatis = alurSetelahnyaOtomatis;
 	}

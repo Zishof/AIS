@@ -1198,6 +1198,42 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		this.sebelumnya = sebelumnya;
 	}
 
+	/**
+	 * Menyusun ulang <b>teks pencarian gabungan</b> untuk baris jenjang ini — kolom yang menjadi
+	 * sasaran pencarian bebas pada dasbor SOP.
+	 *
+	 * <p>Isinya adalah rangkaian nilai yang mungkin diketik pengguna saat mencari sebuah
+	 * pengajuan, digabung dengan pemisah garis bawah:</p>
+	 * <ol>
+	 * <li>Dari definisi jenjang: kode, nama, aktor, dan username khusus.</li>
+	 * <li>Dari header pengajuan: nama pengaju (pengguna internal), atau NIM + nama mahasiswa, atau
+	 * nomor induk + nomor induk nasional + nama siswa.</li>
+	 * <li>Dari pelaku jenjang ini sendiri: dengan tiga kemungkinan yang sama seperti di atas.</li>
+	 * <li>Catatan disposisi ({@link #getKeterangan()}).</li>
+	 * </ol>
+	 *
+	 * <p>Kolom {@code keyword} diindeks GIN {@code gin_trgm_ops} oleh {@code InitIndex}, sehingga
+	 * pencarian "mengandung" dapat berjalan cepat pada tabel yang besar. Karena itu nilainya
+	 * <b>selalu dibangun ulang</b> setiap kali getter dipanggil (baris pertama mengosongkan
+	 * {@code keyword}) — dan karena ini properti persisten, hasil bangun ulang tersebut ikut
+	 * tersimpan saat flush, sehingga indeks tetap segar mengikuti perubahan nama/aktor.</p>
+	 *
+	 * <p><b>Tiga blok {@code try/catch} terpisah</b> bukan kebetulan (lihat komentar di badan
+	 * method): relasi seperti {@code alurSop} dan {@code disposisiSop} bisa berupa instance
+	 * kanonik/berbagi milik {@code AuditTimestampInterceptor} yang proxy-nya terikat pada
+	 * {@link Session} lain yang sudah ditutup. Dengan memisahkan blok, kegagalan pada satu sumber
+	 * data tidak menghapus kontribusi sumber lain: bagian yang gagal dilewati (dicatat ke audit
+	 * galat) dan bagian selebihnya tetap masuk. Konsekuensi yang perlu disadari: bila pemuatan
+	 * gagal saat entity kebetulan sedang di-flush, kolom {@code keyword} bisa tersimpan dalam
+	 * keadaan tidak lengkap sehingga baris tersebut lebih sulit ditemukan lewat pencarian sampai
+	 * ada penyimpanan berikutnya yang berhasil membangunnya penuh.</p>
+	 *
+	 * <p><b>Catatan privasi:</b> kolom ini memuat nama, NIM, dan nomor induk. Setiap fitur yang
+	 * menampilkan atau mengekspor {@code keyword} mentah perlu tunduk pada pembatasan akses yang
+	 * sama dengan data aslinya.</p>
+	 *
+	 * @return teks pencarian gabungan untuk baris jenjang ini
+	 */
 	@Column(name = "keyword", nullable = true, columnDefinition = "text")
 	public String getKeyword() {
 		alurSop = getAlurSop();
@@ -1250,10 +1286,46 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return keyword;
 	}
 
+	/**
+	 * Menyetel teks pencarian gabungan.
+	 *
+	 * <p>Praktis tidak berguna dipanggil dari luar: {@link #getKeyword()} membangun ulang nilainya
+	 * dari nol setiap kali dipanggil, sehingga apa pun yang disetel di sini akan tertimpa pada
+	 * pembacaan berikutnya. Setter tetap ada karena dibutuhkan Hibernate untuk memetakan properti.</p>
+	 *
+	 * @param keyword teks pencarian gabungan
+	 */
 	public void setKeyword(String keyword) {
 		this.keyword = keyword;
 	}
 
+	/**
+	 * Mengembalikan langkah lanjutan dari jenjang ini (mata rantai ke depan), sekaligus
+	 * <b>memperbaiki penunjuk balik</b> pada langkah lanjutan tersebut.
+	 *
+	 * <p>Selain me-resolve proxy lazy lewat {@code check()}, getter ini memanggil
+	 * {@code setelahnya.setSebelumnya(this)} bila baris ini sudah punya id. Tujuannya menjaga
+	 * rantai tetap konsisten dua arah walau salah satu sisi belum tersimpan/terisi: object langkah
+	 * lanjutan yang dibaca dari database mungkin membawa {@code sebelumnya} berupa instance lain
+	 * (atau proxy yang tidak dapat dimuat), sedangkan pemanggil di sini sudah memegang instance
+	 * yang benar. <b>Efek sampingnya perlu disadari</b>: membaca {@code setelahnya} berarti
+	 * <i>menulis</i> ke object lain, dan karena {@code sebelumnya} adalah properti persisten,
+	 * perbaikan itu dapat ikut tersimpan sebagai {@code UPDATE} pada baris langkah lanjutan saat
+	 * flush.</p>
+	 *
+	 * <p>Blok {@code try/catch} di sekelilingnya memastikan kegagalan perbaikan penunjuk balik
+	 * (mis. proxy langkah lanjutan lepas dari sesinya) tidak menggagalkan pembacaan: pada jalur
+	 * catch, {@code setelahnya} tetap di-resolve dan dikembalikan.</p>
+	 *
+	 * <p>Ingat keterbatasannya pada alur bercabang: kolom {@code setelahnya} hanya menampung satu
+	 * penunjuk, sedangkan satu langkah dapat mendisposisi ke beberapa aktor. Untuk kasus itu,
+	 * sumber kebenarannya adalah kumpulan baris anak dengan {@code sebelumnya = langkah ini}, bukan
+	 * nilai yang dikembalikan method ini. {@link #setujui()} dan {@link #getSelesai()} bergantung
+	 * pada nilai ini, sehingga urutan penulisan rantai oleh lapis service (mengisi
+	 * {@code setelahnya} sebelum memperbarui status header) berpengaruh pada hasil yang terbaca.</p>
+	 *
+	 * @return langkah lanjutan, atau {@code null} bila jenjang ini masih ujung rantai
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya", nullable = true)
 	public DisposisiAlurSop getSetelahnya() {
@@ -1268,17 +1340,60 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return setelahnya;
 	}
 
+	/**
+	 * Menetapkan langkah lanjutan dari jenjang ini.
+	 *
+	 * <p>Setter polos tanpa validasi: tidak diperiksa apakah jenjang tujuan termasuk rute yang
+	 * diizinkan definisi ({@code AlurSop.ambilAlurSetelahnya()}), apakah berasal dari pengajuan
+	 * yang sama, atau apakah menciptakan siklus. Karena {@link #setujui()} menyimpulkan status
+	 * persetujuan dari pasangan (jenjang ini, jenjang setelahnya), nilai yang disetel di sini ikut
+	 * menentukan apakah sebuah langkah terbaca sebagai "menyetujui" — satu alasan lagi mengapa
+	 * pembentukan rantai harus dijaga ketat di lapis service.</p>
+	 *
+	 * @param setelahnya langkah lanjutan dari jenjang ini
+	 */
 	public void setSetelahnya(DisposisiAlurSop setelahnya) {
 		this.setelahnya = setelahnya;
 	}
 
+	/**
+	 * Nilai bawaan kolom {@code properti}: representasi teks sebuah {@link JSONObject} kosong
+	 * ({@code "{}"}).
+	 *
+	 * <p>Bersifat {@code public static} dan <b>tidak final</b> mengikuti pola yang sama di banyak
+	 * entity AIS, sehingga secara teknis bisa diubah dari luar; perlakukan sebagai tetapan dan
+	 * jangan menulisinya.</p>
+	 */
 	public static String JSON = new JSONObject().toString();
 
+	/**
+	 * Mengembalikan kantong properti bebas berformat JSON milik baris jenjang ini.
+	 *
+	 * <p>Kolom ini dipakai modul pemanggil untuk menitipkan data tambahan yang tidak layak
+	 * mendapat kolom tersendiri. Bila kosong, yang dikembalikan adalah JSON kosong
+	 * {@code "{}"} ({@link #JSON}) — bukan {@code null} — supaya pemanggil dapat langsung mengurai
+	 * hasilnya tanpa pemeriksaan tambahan.</p>
+	 *
+	 * <p>Nilai bawaan itu hanya diberikan pada pembacaan; ia tidak ditulis balik ke field, jadi
+	 * getter ini termasuk yang <b>tidak</b> destruktif. Perlu dicatat bahwa kolom {@code properti}
+	 * pada tabel ini pernah menjadi perhatian dari sisi kinerja (ukurannya besar dan diindeks GIN
+	 * trigram), sehingga sebaiknya tidak dijadikan tempat menyimpan data bervolume besar.</p>
+	 *
+	 * @return teks JSON properti; {@code "{}"} bila belum diisi
+	 */
 	@Column(name = "properti", nullable = true, columnDefinition = "text")
 	public String getProperti() {
 		return properti == null || properti.isEmpty() ? JSON : properti;
 	}
 
+	/**
+	 * Menyetel kantong properti bebas berformat JSON.
+	 *
+	 * <p>Tidak ada validasi bahwa isinya benar-benar JSON yang sahih; pemanggil bertanggung jawab
+	 * atas bentuk isinya.</p>
+	 *
+	 * @param properti teks JSON properti
+	 */
 	public void setProperti(String properti) {
 		this.properti = properti;
 	}
