@@ -41,29 +41,31 @@ import ais.database.model.Tbmuser;
  * Pencarian menyeluruh di codebase menemukan HANYA SATU titik yang membaca tabel ini untuk
  * keperluan otorisasi/konteks: {@code ais.common.CommonCurrentSessionHelper.getCurrentKoperasi()}
  * — mengambil baris {@code PengurusKoperasi} TERBARU (order by {@code id} desc, maxResults 1)
- * milik {@link Tbmuser} yang sedang login, lalu mengembalikan {@link #koperasi}-nya sebagai
- * "koperasi yang sedang dikelola" untuk sisa sesi (di-cache di {@code HttpSession} atribut
- * {@code CurrentPegawaiKoperasi}). Method tsb SAMA SEKALI TIDAK memeriksa
- * {@link #getAktif()} pada baris yang diambil.</p>
+ * di antara baris ber-{@link #getAktif() aktif} {@code true}/{@code null} milik {@link Tbmuser}
+ * yang sedang login, lalu mengembalikan {@link #koperasi}-nya sebagai "koperasi yang sedang
+ * dikelola" untuk sisa sesi (di-cache di {@code HttpSession} atribut
+ * {@code CurrentPegawaiKoperasi}).</p>
  *
- * <p><b>Catatan keamanan — flag {@code aktif} tidak pernah dikonsultasikan untuk otorisasi.</b>
- * Baris entity ini bisa diedit lewat CRUD generik (manifest {@code general_value_object_inventory}
- * di {@code WEB-INF/generic-crud/}, tidak ada {@code Action} khusus terpisah untuk kelas ini),
- * yang mengekspos {@link #getAktif()}/{@link #setAktif(Boolean)} sebagai kontrol
- * aktif/nonaktifkan-kepengurusan yang tampak berfungsi seperti "cabut akses". Namun karena
- * SATU-SATUNYA konsumen ({@code getCurrentKoperasi()}) mengambil baris terbaru murni
- * berdasarkan {@code id} TANPA memfilter {@code aktif}, menonaktifkan (uncheck) sebuah baris
- * pengurus TIDAK mencabut kemampuan pengguna tsb diperlakukan sebagai pengurus koperasi
- * tersebut — kontrol {@code aktif} di sini secara efektif DEKORATIF untuk tujuan otorisasi.
- * Implikasi: (a) admin yang percaya menonaktifkan pengurus berarti mencabut akses akan
- * TERKECOH; (b) satu pengguna dengan BANYAK baris {@code PengurusKoperasi} (mis. riwayat
- * pindah tugas antar-koperasi) akan selalu terikat ke koperasi dari baris ber-{@code id}
- * TERBESAR, bukan baris yang memang dimaksud aktif saat ini, sehingga menambah baris baru
- * (bahkan yang sengaja dibuat {@code aktif=false} untuk "menonaktifkan" penugasan lama) tetap
- * bisa membajak konteks koperasi pengguna. Belum diverifikasi apakah ada gerbang privilese
- * terpisah (mis. {@code checkPrevilages}) yang membatasi SIAPA yang boleh menambah/mengedit
- * baris {@code PengurusKoperasi} lewat CRUD generik tsb — bila gerbang itu juga longgar,
- * dampaknya meluas ke privilege-escalation lintas-koperasi.</p>
+ * <p><b>Fix keamanan (r84434) — flag {@code aktif} kini dikonsultasikan untuk otorisasi.</b>
+ * Sebelumnya {@code getCurrentKoperasi()} mengambil baris ber-{@code id} TERBESAR TANPA
+ * memfilter {@code aktif} sama sekali, membuat kontrol "Aktif" di layar admin (bila baris ini
+ * pernah diedit) secara efektif DEKORATIF: menonaktifkan (uncheck) sebuah baris pengurus TIDAK
+ * mencabut kemampuan pengguna tsb diperlakukan sebagai pengurus koperasi tersebut, dan satu
+ * pengguna dengan BANYAK baris (mis. riwayat pindah tugas antar-koperasi) selalu terikat ke
+ * baris ber-{@code id} TERBESAR terlepas status aktifnya. Query tsb kini menambahkan
+ * {@code Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))} —
+ * pola yang sudah dipakai konsisten di helper yang sama untuk field {@code aktif} serupa
+ * ({@code Toko}, {@code Pejabat}) — sehingga baris ber-{@code id} terbesar yang AKTIF-lah yang
+ * dipakai; bila SEMUA baris pengguna nonaktif, perilaku fallback existing tetap berlaku
+ * (dianggap tidak punya koperasi, {@code getCurrentKoperasi()} mengembalikan {@code null}).
+ * Verifikasi pemakai CRUD generik ({@code ais.action.master.generic.v2},
+ * {@code GenericCrudAutoDefinitionFactory}): entity ini muncul di katalog admin (gerbang
+ * {@code Common.getApakahAdmin()}, Super Admin saja) tapi READ-ONLY — tidak ada
+ * {@code PengurusKoperasiAction} sehingga create/update dinonaktifkan otomatis oleh factory
+ * ({@code resolveAdministrativeAction} gagal menemukan Action, {@code mutable=false}); manifest
+ * {@code WEB-INF/generic-crud/} (paket v2.1 terpisah) TIDAK live — folder itu berisi spesifikasi
+ * "default disabled" (lihat {@code generated_aliases_disabled/}), bukan kode yang dijalankan.
+ * Jadi tidak ada jalur privilege-escalation tulis lewat CRUD generik untuk entity ini saat ini.</p>
  *
  * @see Koperasi
  * @see Tbmuser
@@ -82,7 +84,7 @@ public class PengurusKoperasi extends GeneralValueObject {
 	 *
 	 */
 	private static final long serialVersionUID = 2463821577548439808L;
-	/** Primary key baris pengurus koperasi ini, di-generate database (IDENTITY). Baris ber-{@code id} TERBESAR milik seorang pengguna yang dipakai {@code getCurrentKoperasi()} — lihat catatan keamanan pada Javadoc kelas. */
+	/** Primary key baris pengurus koperasi ini, di-generate database (IDENTITY). Baris AKTIF ber-{@code id} TERBESAR milik seorang pengguna yang dipakai {@code getCurrentKoperasi()} — lihat catatan fix keamanan pada Javadoc kelas. */
 	private Long id;
 	/** Nama pengguna yang terakhir membuat/mengubah baris ini (audit shadow field — lihat {@link #onUpdate()}). */
 	private String oleh;
@@ -153,9 +155,9 @@ private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 	private Pegawai pegawai;
 	/** Unit koperasi yang dikelola pengurus ini — lihat {@link #getKoperasi()} untuk perilaku fallback ke koperasi konteks saat ini. */
 	private Koperasi koperasi;
-	/** Catatan bebas mengenai baris pengurus ini; SATU-SATUNYA tempat mencatat peran/jabatan (mis. "Ketua", "Bendahara") karena tidak ada field jabatan terstruktur — lihat catatan keamanan pada Javadoc kelas. Juga dipakai {@link #toString()}. */
+	/** Catatan bebas mengenai baris pengurus ini; SATU-SATUNYA tempat mencatat peran/jabatan (mis. "Ketua", "Bendahara") karena tidak ada field jabatan terstruktur — lihat Javadoc kelas. Juga dipakai {@link #toString()}. */
 	private String keterangan;
-	/** Penanda aktif/nonaktif kepengurusan; {@code null} diperlakukan {@code true} (aktif) — lihat {@link #getAktif()}. PERINGATAN: flag ini TIDAK dikonsultasikan oleh satu-satunya konsumen otorisasi ({@code CommonCurrentSessionHelper.getCurrentKoperasi()}), lihat catatan keamanan pada Javadoc kelas. */
+	/** Penanda aktif/nonaktif kepengurusan; {@code null} diperlakukan {@code true} (aktif) — lihat {@link #getAktif()}. Sejak fix r84434, flag ini DIKONSULTASIKAN oleh satu-satunya konsumen otorisasi ({@code CommonCurrentSessionHelper.getCurrentKoperasi()}) — lihat catatan fix pada Javadoc kelas. */
 	private Boolean aktif;
 
 	/** Konstruktor default (dibutuhkan Hibernate); tidak menginisialisasi field apa pun secara eksplisit selain default deklarasi field. */
@@ -191,7 +193,7 @@ private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 	 * skema, TAPI inilah field yang dicocokkan {@code CommonCurrentSessionHelper
 	 * .getCurrentKoperasi()} ({@code Restrictions.eq("tbmuser", getCurrentUser())}) untuk
 	 * menemukan baris {@code PengurusKoperasi} milik pengguna yang sedang login — lihat
-	 * catatan keamanan pada Javadoc kelas.
+	 * catatan fix keamanan pada Javadoc kelas.
 	 *
 	 * @return proxy lazy {@link #tbmuser} diresolusi lewat {@code check()} warisan
 	 *         {@link ais.database.model.GeneralValueObject}, atau {@code null} bila belum di-set
@@ -255,8 +257,9 @@ private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	/**
 	 * @return {@link #aktif}, atau {@code true} bila belum pernah di-set (default aktif).
-	 *         PERINGATAN: nilai kembalian getter ini TIDAK diperiksa oleh
-	 *         {@code CommonCurrentSessionHelper.getCurrentKoperasi()} — lihat catatan keamanan
+	 *         Sejak fix r84434, nilai kembalian getter ini DIPERIKSA (via kondisi setara
+	 *         {@code aktif == true || aktif == null} pada Criteria) oleh
+	 *         {@code CommonCurrentSessionHelper.getCurrentKoperasi()} — lihat catatan fix
 	 *         pada Javadoc kelas.
 	 */
 	public Boolean getAktif() {
