@@ -1,5 +1,44 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `rab` TUNTAS 100% (5 Sep 2026, akhir batch 99) — domain KEDELAPAN tuntas
+
+Diverifikasi: **46/46 file** `ais/database/model/rab/` kini punya
+Javadoc substansial. Dikerjakan batch 98-99 (2 batch). Domain
+kedelapan yang tuntas penuh setelah `akunting`, `payroll`, `koperasi`,
+`inventory`, `employ`, `asset`, `surat`.
+
+**Batch 99 (penutup, 12 file, 0 task baru)**:
+- Klaster InformasiRab (3 file, r84553-r84557) — `InformasiRabKomentar`
+  DIKONFIRMASI relasi langsung tetap ke `InformasiRab` (BUKAN
+  polymorphic seperti `employ.KomunikasiPegawai`). Feed REST bocor
+  nama/kontak/email komentator lintas satuan kerja (memperkuat pola
+  tercatat). Dead-code bug `getAktif()` ditemukan tapi TAK PERNAH
+  dipanggil (filter aktif sesungguhnya di SQL mentah terpisah).
+- Klaster ChecklistLaporan (3 file, r84551-r84561) — flag
+  `diperlukan`/`ada` DIKONFIRMASI murni deskriptif (pola identik
+  `asset.DokumenPenyediaAsset` batch 95), tak ada gerbang yang
+  menolak proses RAB lain karena checklist belum lengkap.
+- Klaster katalog kecil (6 file, r84552-r84562) — `Satuan` vs
+  `HasilSatuan` dikonfirmasi dua konsep berbeda (atomik vs
+  majemuk). **Temuan arsitektur (bukan keamanan)**: `HariLibur`
+  (jalur lama) dan `Kalender` (jalur baru, Generic CRUD v2)
+  memodelkan konsep IDENTIK tapi TIDAK disinkronkan — dua sumber
+  kebenaran hari libur RAB yang independen.
+
+**Ringkasan pencapaian domain rab (batch 98-99, 3 task baru)**:
+entity tenant root `SatuanKerja` akhirnya didokumentasikan langsung
+dari sisinya sendiri (dirujuk ~528 file/~111 entity codebase).
+Hierarki perencanaan RAB dikoreksi jadi TIGA CABANG terpisah
+(capaian-output/penjadwalan/RENSTRA). Task: `task_74114f95`
+(self-predecessor workspace), `task_f70f4cb9` (kebocoran tenant
+RenstraProgram), `task_078519f7` (dugaan QueryException Tor, belum
+terverifikasi runtime). 1 entity dorman baru (`KegiatanSatker`,
+ke-18).
+
+**Pivot domain berikutnya (batch 100+)**: perlu scan ulang. Kandidat
+sisa dari survei awal: `sirs` (118), `sister` (88), `library` (86),
+`file` (52).
+
 ## Batch 98 — SELESAI 100% (5 Sep 2026) — PIVOT ke paket `rab`; 3 task baru (`task_74114f95`, `task_f70f4cb9`, `task_078519f7`)
 
 34 file selesai (batch pertama domain baru `rab`/perencanaan
