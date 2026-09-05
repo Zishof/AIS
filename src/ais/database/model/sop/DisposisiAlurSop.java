@@ -934,10 +934,51 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return parameterTambahanInds;
 	}
 
+	/**
+	 * Menyetel isian parameter tambahan berbasis id (format lihat
+	 * {@link #getParameterTambahanInds()}).
+	 *
+	 * <p>Biasanya dipanggil dari {@link #populateParameterTambahan(List)} (jalur ZK) atau dari
+	 * penyandi pada jalur API. Tidak ada validasi format di sini: string apa pun diterima, dan
+	 * kesalahan format baru terasa saat pembacaan (yang memang dirancang toleran).</p>
+	 *
+	 * @param parameterTambahanInds isian parameter tambahan berbasis id
+	 */
 	public void setParameterTambahanInds(String parameterTambahanInds) {
 		this.parameterTambahanInds = parameterTambahanInds;
 	}
 
+	/**
+	 * Mengurai isian parameter tambahan versi berlabel ({@link #getParameterTambahan()}) menjadi
+	 * daftar {@link CommonVO} yang siap ditampilkan/dicetak, terurut menurut nomor urut.
+	 *
+	 * <p>Sumbernya adalah satu string besar: tiap baris (dipisah {@code \n}) mewakili satu
+	 * parameter, dan tiap baris terdiri atas ruas-ruas yang dipisah penanda {@code <=>} dengan
+	 * urutan: <i>label</i>, <i>nilai</i>, <i>url lampiran</i>, <i>nomor urut</i>, <i>id
+	 * parameter</i> (ruas ke-6 dan ke-7 — id kelompok dan catatan — ditulis oleh
+	 * {@link #populateParameterTambahan(List)} tetapi tidak dibaca di sini). Label sendiri
+	 * berbentuk {@code "<nama kelompok>-><label inputan>"}, dan bagian sebelum {@code ->} disimpan
+	 * terpisah pada {@code name5} agar pemanggil bisa mengelompokkan tampilan per kelompok
+	 * parameter.</p>
+	 *
+	 * <p>Pemetaan ke {@link CommonVO}: {@code id} = id parameter, {@code name} = label lengkap,
+	 * {@code name1} = nilai, {@code name2} = url lampiran, {@code name5} = nama kelompok,
+	 * {@code nomorUrut} = nomor urut. Pengurutan terakhir memakai
+	 * {@code Collections.sort(...)} yang mengikuti {@code compareTo} milik {@code CommonVO}
+	 * (berbasis nomor urut), sehingga urutan tampil mengikuti urutan yang ditetapkan admin pada
+	 * definisi parameter, bukan urutan penyimpanan.</p>
+	 *
+	 * <p><b>Sifat toleran terhadap data cacat.</b> Setiap ruas dibaca dengan pemeriksaan panjang
+	 * array lebih dahulu, dan konversi angka ({@code nomorUrut}, {@code id}) dibungkus
+	 * {@code try/catch} yang jatuh ke nilai bawaan 1 sambil mencatat galat ke audit. Ini
+	 * disengaja: string parameter berumur panjang dan bisa berasal dari versi format yang lebih
+	 * lama, sehingga satu baris rusak tidak boleh menggagalkan seluruh cetakan disposisi. Perlu
+	 * dicatat pula bahwa string kosong tetap menghasilkan satu elemen (hasil {@code split} atas
+	 * string kosong berisi satu elemen kosong), jadi pemanggil sebaiknya menyaring elemen berlabel
+	 * kosong bila tidak ingin menampilkan baris hampa.</p>
+	 *
+	 * @return daftar parameter tambahan terurut; tidak pernah {@code null}
+	 */
 	public List<CommonVO> ambilDataParameterTambahan() {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		String[] splNama = getParameterTambahan().split("\n");
@@ -979,6 +1020,49 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return commonVOs;
 	}
 
+	/**
+	 * Membaca isian parameter tambahan dari baris-baris form ZK lalu menyandikannya menjadi dua
+	 * string yang disimpan pada baris jenjang ini: versi berlabel
+	 * ({@link #setParameterTambahan(String)}) dan versi berbasis id
+	 * ({@link #setParameterTambahanInds(String)}).
+	 *
+	 * <p>Setiap {@link Row} yang dikirim diharapkan membawa tiga atribut yang ditanam saat form
+	 * dibangun: {@code "parameterTambahan"} (definisi parameter), {@code "kelompokParameter
+	 * TambahanAlurSop"} (kelompok tempat parameter itu berada pada jenjang ini), dan opsional
+	 * {@code "keterangan"} berupa {@link Textbox} catatan per parameter. Baris yang tidak membawa
+	 * kedua atribut wajib itu dilewati diam-diam — bentuk form SOP bisa memuat baris hiasan/pemisah
+	 * yang bukan isian.</p>
+	 *
+	 * <p><b>Format yang dihasilkan.</b> Versi berlabel: {@code <namaKelompok>-><labelInputan><=>
+	 * <nilai><=><url><=><nomorUrut><=><idParameter><=><idKelompok><=><catatan>}. Versi berbasis id:
+	 * {@code <idKelompok>-><idParameter><=><nilai><=><url><=><catatan>}. Keduanya menggabungkan
+	 * banyak parameter dengan pemisah baris baru. Dua bentuk disimpan sekaligus karena masing-masing
+	 * punya kegunaan: yang berlabel dipakai untuk menampilkan/mencetak riwayat apa adanya (tahan
+	 * walau definisi parameter kelak dihapus), sedangkan yang berbasis id dipakai untuk mengisi
+	 * ulang form pada jenjang berikutnya (tahan walau label diubah).</p>
+	 *
+	 * <p><b>Lampiran.</b> Untuk parameter yang menandai {@code harusMenyertakanLampiran}, method
+	 * mencari berkas terkait lewat {@code LampiranLain.ambil(getId(), jenis)} dan menyimpan
+	 * tautannya pada ruas {@code url}. Kunci {@code jenis} diperoleh dari
+	 * {@code LampiranLain.resolveJenisParameterTambahan(DisposisiAlurSop.class, getId(),
+	 * "<idKelompok>-><idParameter>")} — pemakaian resolver ini penting karena kunci jenis lampiran
+	 * pernah bertabrakan antar modul; resolver-lah yang memutuskan bentuk kunci yang benar
+	 * (termasuk bentuk lama) tanpa perlu migrasi data. Perhatikan bahwa kelengkapan lampiran
+	 * <b>tidak</b> ditegakkan di sini: bila berkas belum ada, ruas url dibiarkan kosong dan isian
+	 * tetap tersimpan; penolakan "lampiran wajib" dilakukan lapis service/UI.</p>
+	 *
+	 * <p><b>Ketahanan.</b> Seluruh badan perulangan dibungkus {@code try/catch} per baris yang
+	 * menampilkan galat hanya kepada admin ({@code Common.tampilErrorJikaAdmin}); satu baris
+	 * bermasalah tidak membatalkan penyandian baris lain. Method langsung {@code return} tanpa
+	 * menyentuh apa pun bila daftar baris {@code null}/kosong — jadi ia tidak pernah "mengosongkan"
+	 * isian yang sudah ada hanya karena form tidak menyertakan baris parameter.</p>
+	 *
+	 * <p>Method ini hanya mengisi field di memori; penyimpanan ke basis data tetap dilakukan
+	 * pemanggil lewat {@code saveOrUpdate}.</p>
+	 *
+	 * @param parameterRows baris-baris form ZK yang memuat isian parameter tambahan; {@code null}
+	 *                      atau kosong berarti tidak ada yang dikerjakan
+	 */
 	public void populateParameterTambahan(List<Row> parameterRows) {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return;
@@ -1034,6 +1118,23 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		setParameterTambahan(parameterTambahanStr);
 	}
 
+	/**
+	 * Mengembalikan isian parameter tambahan dalam bentuk <b>berlabel</b> (siap dibaca manusia),
+	 * dengan pewarisan dari langkah sebelumnya bila baris ini belum punya isian sendiri.
+	 *
+	 * <p>Format tiap barisnya dijelaskan pada {@link #populateParameterTambahan(List)}, dan
+	 * penguraiannya dilakukan {@link #ambilDataParameterTambahan()}. Bentuk berlabel ini sengaja
+	 * menyimpan nama kelompok dan label inputan apa adanya sehingga riwayat lama tetap terbaca
+	 * meskipun definisi parameternya kelak diubah atau dihapus admin.</p>
+	 *
+	 * <p>Sama seperti {@link #getParameterTambahanInds()}, isian kosong akan diwarisi dari
+	 * {@link #getSebelumnya()} secara berantai; nilai warisan itu ikut tersimpan ke kolom baris ini
+	 * pada flush berikutnya karena ini getter destruktif atas properti persisten. Bedanya, di sini
+	 * pewarisan <b>tidak</b> dibungkus {@code try/catch}, sehingga kegagalan memuat rantai langkah
+	 * sebelumnya akan merambat ke pemanggil.</p>
+	 *
+	 * @return isian parameter tambahan berlabel; string kosong bila tidak ada (tidak {@code null})
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahan() {
 		if (parameterTambahan == null) {
@@ -1047,10 +1148,35 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return parameterTambahan;
 	}
 
+	/**
+	 * Menyetel isian parameter tambahan berlabel.
+	 *
+	 * <p>Tidak ada validasi format; pasangannya yang berbasis id sebaiknya disetel bersamaan agar
+	 * kedua bentuk tetap sinkron (itulah yang dilakukan
+	 * {@link #populateParameterTambahan(List)}).</p>
+	 *
+	 * @param parameterTambahan isian parameter tambahan berlabel
+	 */
 	public void setParameterTambahan(String parameterTambahan) {
 		this.parameterTambahan = parameterTambahan;
 	}
 
+	/**
+	 * Mengembalikan langkah yang mendisposisikan ke jenjang ini (mata rantai ke belakang).
+	 *
+	 * <p>Relasi ini yang membentuk urutan riwayat: dari baris mana pun, rantai
+	 * {@code sebelumnya} dapat ditelusuri mundur sampai jenjang awal. Selain untuk tampilan, ia
+	 * dipakai untuk menghitung tenggat ({@link #getWaktuMaksimal()}), untuk mewarisi isian
+	 * parameter tambahan, dan untuk fitur "kembali ke aktor sebelumnya" (revisi).</p>
+	 *
+	 * <p>Perhatikan bahwa <b>percabangan</b> membuat relasi ini tidak simetris dengan
+	 * {@link #getSetelahnya()}: satu langkah bisa memiliki banyak anak yang semuanya menunjuk ke
+	 * langkah ini sebagai {@code sebelumnya}, sementara kolom {@code setelahnya} hanya menampung
+	 * satu penunjuk. Karena itu kode yang ingin tahu "apakah langkah ini sudah diteruskan" lebih
+	 * andal menghitung baris dengan {@code sebelumnya = id} ini.</p>
+	 *
+	 * @return langkah sebelumnya, atau {@code null} bila ini jenjang awal
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sebelumnya", nullable = true)
 	public DisposisiAlurSop getSebelumnya() {
@@ -1058,6 +1184,16 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return sebelumnya;
 	}
 
+	/**
+	 * Menetapkan langkah sebelumnya bagi jenjang ini.
+	 *
+	 * <p>Setter polos: tidak diperiksa apakah langkah yang ditunjuk berasal dari pengajuan yang
+	 * sama, apakah jenjangnya memang rute sah menuju jenjang ini, ataupun apakah rantai yang
+	 * terbentuk bebas siklus. Selain dipanggil lapis service saat merangkai langkah baru, setter
+	 * ini juga dipanggil dari dalam {@link #getSetelahnya()} untuk memperbaiki penunjuk balik.</p>
+	 *
+	 * @param sebelumnya langkah yang mendisposisikan ke jenjang ini
+	 */
 	public void setSebelumnya(DisposisiAlurSop sebelumnya) {
 		this.sebelumnya = sebelumnya;
 	}
