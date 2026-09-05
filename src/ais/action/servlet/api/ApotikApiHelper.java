@@ -24,10 +24,13 @@ import ais.database.model.sirs.ApotikPembayaranTransaksi;
 import ais.database.model.sirs.AlergiPasien;
 import ais.database.model.sirs.AntreanFarmasi;
 import ais.database.model.sirs.DiagnosaPenyakit;
+import ais.database.model.sirs.Dokter;
+import ais.database.model.sirs.Icd;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
 import ais.database.model.sirs.KodeTransaksiMedis;
 import ais.database.model.sirs.Pasien;
+import ais.database.model.sirs.Pendaftaran;
 import ais.database.model.sirs.Resep;
 import ais.database.model.sirs.ResepDetail;
 import ais.database.model.sirs.TransaksiMedis;
@@ -73,6 +76,132 @@ public final class ApotikApiHelper {
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {
 		hasil.put("status", "91");
 		hasil.put("description", pesan);
+	}
+
+	private static JSONObject referensiKlinis(Long id, String kode, String nama) throws Exception {
+		JSONObject hasil = new JSONObject();
+		hasil.put("id", id == null ? JSONObject.NULL : id);
+		hasil.put("kode", str(kode));
+		hasil.put("nama", str(nama));
+		return hasil;
+	}
+
+	private static JSONObject icdJson(Icd icd) throws Exception {
+		if (icd == null) return null;
+		return referensiKlinis(icd.getId(), icd.getKode(), icd.getNama_indonesia());
+	}
+
+	private static void tambahIcd(JSONArray tujuan, Icd icd) throws Exception {
+		JSONObject nilai = icdJson(icd);
+		if (nilai != null) tujuan.put(nilai);
+	}
+
+	private static String gabungAsal(String instalasi, String poli, String subPoli,
+			String jenis, String sumber) {
+		StringBuilder hasil = new StringBuilder();
+		String[] nilai = new String[] { instalasi, poli, subPoli, jenis, sumber };
+		for (String bagian : nilai) {
+			if (bagian == null || bagian.trim().isEmpty()) continue;
+			if (hasil.length() > 0) hasil.append(" / ");
+			hasil.append(bagian.trim());
+		}
+		return hasil.toString();
+	}
+
+	/**
+	 * Ringkasan identitas dan konteks klinis resep dari relasi SIRS existing.
+	 * Tidak ada diagnosis, fasilitas, atau dokter yang ditebak dari nama obat.
+	 */
+	private static JSONObject informasiResep(Resep resep) throws Exception {
+		JSONObject hasil = new JSONObject();
+		DiagnosaPenyakit diagnosa = resep == null ? null : resep.getDiagnosaPenyakit();
+		Pendaftaran pendaftaran = diagnosa == null ? null : diagnosa.getPendaftaran();
+		Pasien pasien = diagnosa == null ? null : diagnosa.getPasien();
+		if (pasien == null && pendaftaran != null) pasien = pendaftaran.getPasien();
+		Dokter dokter = diagnosa == null ? null : diagnosa.getDokter();
+		if (dokter == null && pendaftaran != null) dokter = pendaftaran.getDokter();
+
+		java.text.SimpleDateFormat tanggal = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		java.text.SimpleDateFormat waktu = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+		Date tanggalResep = diagnosa == null ? null : diagnosa.getTanggal();
+		if (tanggalResep == null && pendaftaran != null) tanggalResep = pendaftaran.getTanggalPendaftaran();
+		hasil.put("tanggalResep", tanggalResep == null ? "" : waktu.format(tanggalResep));
+		hasil.put("catatanResep", resep == null ? "" : str(resep.getKeterangan()));
+
+		if (pasien == null) {
+			hasil.put("pasien", JSONObject.NULL);
+		} else {
+			JSONObject p = referensiKlinis(pasien.getId(), pasien.getKode(), pasien.getNama());
+			p.put("nomorRekamMedis", str(pasien.getKode()));
+			p.put("jenisKelamin", str(pasien.getJenisKelamin()));
+			p.put("tanggalLahir", pasien.getTanggalLahir() == null ? "" : tanggal.format(pasien.getTanggalLahir()));
+			p.put("umur", pasien.getUmur() == null ? JSONObject.NULL : pasien.getUmur());
+			p.put("tempatLahir", str(pasien.getTempatLahir()));
+			p.put("alamat", str(pasien.getAlamatLengkap()).trim().isEmpty()
+					? str(pasien.getAlamat()) : str(pasien.getAlamatLengkap()));
+			p.put("telepon", str(pasien.getNoHp()).trim().isEmpty()
+					? str(pasien.getNoTelp()) : str(pasien.getNoHp()));
+			hasil.put("pasien", p);
+		}
+
+		if (dokter == null) {
+			hasil.put("dokter", JSONObject.NULL);
+		} else {
+			JSONObject d = referensiKlinis(dokter.getId(), dokter.getKode(), dokter.getNama());
+			d.put("kategori", str(dokter.getKategori()));
+			d.put("alamatPraktik", str(dokter.getAlamat()));
+			d.put("keterangan", str(dokter.getKeterangan()));
+			hasil.put("dokter", d);
+		}
+
+		JSONObject dx = new JSONObject();
+		dx.put("kode", diagnosa == null ? "" : str(diagnosa.getKode()));
+		dx.put("ringkasan", diagnosa == null ? "" : str(diagnosa.getKeterangan()));
+		dx.put("keluhanPasien", diagnosa == null ? "" : str(diagnosa.getKeluhanPasien()));
+		dx.put("hasilAnamnesis", diagnosa == null ? "" : str(diagnosa.getKeluhanDiagnosa()));
+		dx.put("kesimpulanPemeriksaan", diagnosa == null ? "" : str(diagnosa.getKesimpulanPemeriksaan()));
+		dx.put("statusMenular", diagnosa == null ? "" : str(diagnosa.getApakahMenular()));
+		JSONArray awal = new JSONArray();
+		JSONArray akhir = new JSONArray();
+		if (diagnosa != null) {
+			tambahIcd(awal, diagnosa.getDiagnosaAwal1());
+			tambahIcd(awal, diagnosa.getDiagnosaAwal2());
+			tambahIcd(awal, diagnosa.getDiagnosaAwal3());
+			tambahIcd(akhir, diagnosa.getDiagnosaAkhir1());
+			tambahIcd(akhir, diagnosa.getDiagnosaAkhir2());
+			tambahIcd(akhir, diagnosa.getDiagnosaAkhir3());
+		}
+		dx.put("icdAwal", awal);
+		dx.put("icdAkhir", akhir);
+		hasil.put("diagnosis", dx);
+
+		String instalasi = diagnosa != null && diagnosa.getInstalasi() != null
+				? str(diagnosa.getInstalasi().getNama()) : "";
+		String poli = diagnosa != null && diagnosa.getPoly() != null
+				? str(diagnosa.getPoly().getNama())
+				: (pendaftaran != null && pendaftaran.getPoly() != null ? str(pendaftaran.getPoly().getNama()) : "");
+		String subPoli = diagnosa != null && diagnosa.getSubpoly() != null
+				? str(diagnosa.getSubpoly().getNama())
+				: (pendaftaran != null && pendaftaran.getSubpoly() != null ? str(pendaftaran.getSubpoly().getNama()) : "");
+		String jenis = pendaftaran == null ? "" : str(pendaftaran.getJenis());
+		String sumber = pendaftaran == null ? "" : str(pendaftaran.getSumberPasien());
+		JSONObject asal = new JSONObject();
+		asal.put("instalasi", instalasi);
+		asal.put("poli", poli);
+		asal.put("subPoli", subPoli);
+		asal.put("jenisPelayanan", jenis);
+		asal.put("sumberPasien", sumber);
+		asal.put("kodeKunjungan", pendaftaran == null ? "" : str(pendaftaran.getKode()));
+		asal.put("tanggalKunjungan", pendaftaran == null || pendaftaran.getTanggalPendaftaran() == null
+				? "" : waktu.format(pendaftaran.getTanggalPendaftaran()));
+		asal.put("statusKunjungan", pendaftaran == null ? "" : str(pendaftaran.getStatusPendaftaran()));
+		asal.put("dokterPengirim", pendaftaran == null ? "" : str(pendaftaran.getNamaDokterPengirim()));
+		asal.put("penjamin", pendaftaran == null ? "" : str(pendaftaran.getNamaPenjamin()));
+		asal.put("ringkasan", gabungAsal(instalasi, poli, subPoli, jenis, sumber));
+		hasil.put("asalResep", asal);
+		hasil.put("dataSample", resep != null && ("RSP-UJI-1".equals(resep.getKode())
+				|| (resep.getKode() != null && resep.getKode().startsWith("RSP-DEMO-"))));
+		return hasil;
 	}
 
 	private static Long tokoId(Tbmuser user, JSONObject request) {
@@ -424,6 +553,7 @@ public final class ApotikApiHelper {
 			// Status "sudah ditebus" = sudah ada TransaksiMedis yang menunjuk resep itu
 			// (FACT_SOURCE: TransaksiMedis.resep FK; Resep sendiri tanpa kolom status).
 			java.util.Set<Long> sudahDitebus = new java.util.HashSet<Long>();
+			java.util.Map<Long, Long> jumlahDetail = new java.util.HashMap<Long, Long>();
 			if (!reseps.isEmpty()) {
 				List<Long> ids = new java.util.ArrayList<Long>();
 				for (Resep r : reseps) {
@@ -434,6 +564,13 @@ public final class ApotikApiHelper {
 						"select distinct tm.resep.id from TransaksiMedis tm where tm.resep.id in (:ids)")
 						.setParameterList("ids", ids).list();
 				sudahDitebus.addAll(tebus);
+				@SuppressWarnings("unchecked")
+				List<Object[]> hitungDetail = session.createQuery(
+						"select rd.resep.id, count(rd) from ResepDetail rd where rd.resep.id in (:ids) group by rd.resep.id")
+						.setParameterList("ids", ids).list();
+				for (Object[] baris : hitungDetail) {
+					jumlahDetail.put((Long) baris[0], Long.valueOf(((Number) baris[1]).longValue()));
+				}
 			}
 
 			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
@@ -445,14 +582,32 @@ public final class ApotikApiHelper {
 				j.put("kode", str(r.getKode()));
 				j.put("keterangan", str(r.getKeterangan()));
 				j.put("ditebus", ditebus);
-				long jumlahBaris = ((Number) session.createQuery(
-						"select count(rd) from ResepDetail rd where rd.resep.id = :id")
-						.setParameter("id", r.getId()).uniqueResult()).longValue();
-				j.put("jumlahBaris", jumlahBaris);
+				j.put("jumlahBaris", jumlahDetail.containsKey(r.getId())
+						? jumlahDetail.get(r.getId()).longValue() : 0);
 				try {
-					j.put("diagnosa", r.getDiagnosaPenyakit() == null ? "" : str(r.getDiagnosaPenyakit()));
+					JSONObject informasi = informasiResep(r);
+					JSONObject pasien = informasi.optJSONObject("pasien");
+					JSONObject dokter = informasi.optJSONObject("dokter");
+					JSONObject diagnosa = informasi.optJSONObject("diagnosis");
+					JSONObject asal = informasi.optJSONObject("asalResep");
+					j.put("diagnosa", diagnosa == null ? "" : diagnosa.optString("ringkasan", ""));
+					j.put("indikasi", diagnosa == null ? "" : diagnosa.optString("kesimpulanPemeriksaan",
+							diagnosa.optString("ringkasan", "")));
+					j.put("pasienNama", pasien == null ? "" : pasien.optString("nama", ""));
+					j.put("nomorRekamMedis", pasien == null ? "" : pasien.optString("nomorRekamMedis", ""));
+					j.put("dokterNama", dokter == null ? "" : dokter.optString("nama", ""));
+					j.put("asalPelayanan", asal == null ? "" : asal.optString("ringkasan", ""));
+					j.put("tanggalResep", informasi.optString("tanggalResep", ""));
+					j.put("dataSample", informasi.optBoolean("dataSample", false));
 				} catch (Exception e) {
 					j.put("diagnosa", "");
+					j.put("indikasi", "");
+					j.put("pasienNama", "");
+					j.put("nomorRekamMedis", "");
+					j.put("dokterNama", "");
+					j.put("asalPelayanan", "");
+					j.put("tanggalResep", "");
+					j.put("dataSample", false);
 				}
 				j.put("oleh", str(r.getOleh()));
 				arr.put(j);
@@ -530,8 +685,10 @@ public final class ApotikApiHelper {
 			hasil.put("resepId", resep.getId());
 			hasil.put("kode", str(resep.getKode()));
 			hasil.put("data", arr);
+			JSONObject informasi = informasiResep(resep);
+			hasil.put("informasiResep", informasi);
 			JSONObject klinis = profilKeselamatanResep(session, resep, details);
-			hasil.put("pasien", klinis.opt("pasien"));
+			hasil.put("pasien", informasi.opt("pasien"));
 			hasil.put("telaahKlinis", klinis);
 			// Klien baru memakai ringkasan racikan di atas untuk tebus resep campuran;
 			// flag dipertahankan agar klien lama tetap dapat memberi peringatan.
@@ -625,12 +782,9 @@ public final class ApotikApiHelper {
 			return hasil;
 		}
 
-		JSONObject p = new JSONObject();
-		p.put("id", pasien.getId());
-		p.put("kode", str(pasien.getKode()));
-		p.put("nama", str(pasien.getNama()));
-		p.put("jenisKelamin", str(pasien.getJenisKelamin()));
-		hasil.put("pasien", p);
+		JSONObject informasi = informasiResep(resep);
+		hasil.put("pasien", informasi.opt("pasien"));
+		hasil.put("informasiResep", informasi);
 
 		java.util.Set<Long> itemResep = new java.util.HashSet<Long>();
 		for (ResepDetail detail : details) {
