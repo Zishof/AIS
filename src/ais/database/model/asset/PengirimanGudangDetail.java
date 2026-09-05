@@ -46,24 +46,38 @@ import ais.database.model.inventory.Produk;
 @Table(schema = "asset", name = "pengiriman_gudang_detail")
 public class PengirimanGudangDetail extends GeneralValueObject {
 
+	/**
+	 * Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable}; tidak perlu
+	 * diubah kecuali bentuk field berubah secara tidak kompatibel.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/** Primary key auto-generated (IDENTITY) tabel {@code asset.pengiriman_gudang_detail}. */
 	private Long id;
+	/** Nama pengguna yang terakhir mengubah baris ini; diisi otomatis, lihat {@link #onUpdate()}. */
 	private String oleh;
+	/** Id pengguna yang terakhir mengubah baris ini; diisi otomatis, lihat {@link #onUpdate()}. */
 	private String olehId;
+	/** Waktu perubahan terakhir baris ini; diperbarui otomatis oleh {@link #onUpdate()}. */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Dokumen pengiriman induk (header) tempat baris detail ini berada; wajib diisi. */
 	private PengirimanGudang pengiriman;
+	/** Produk/barang yang dikirim pada baris ini; wajib diisi. */
 	private Produk produk;
 	private Double qtyKirim;
 	private Double qtyTerima;
+	/** Harga satuan produk saat pengiriman (untuk penilaian persediaan); boleh {@code null}. */
 	private Double hargaSatuan;
 	private Double qtyRusak;
+	/** Alasan bebas mengapa {@link #qtyRusak} ditandai rusak; opsional. */
 	private String alasanRusak;
 
+	/** Konstruktor default tanpa argumen, dipakai Hibernate untuk instansiasi via refleksi. */
 	public PengirimanGudangDetail() {
 	}
 
+	/** @return primary key baris ini, atau {@code null} untuk instance baru yang belum disimpan. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -71,14 +85,31 @@ public class PengirimanGudangDetail extends GeneralValueObject {
 		return id;
 	}
 
+	/**
+	 * Mengisi primary key. Kolom database bersifat {@code insertable = false} (IDENTITY,
+	 * auto-generate oleh database), sehingga pengisian manual tidak berpengaruh pada
+	 * {@code INSERT}.
+	 *
+	 * @param id primary key.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return nama pengguna yang terakhir mengubah baris ini (audit), atau {@code null} bila
+	 *         belum pernah diubah sejak dimuat.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Mengisi nama pengguna audit. Nilai {@code null}/kosong diabaikan agar jejak lama tidak
+	 * tertimpa hampa.
+	 *
+	 * @param oleh nama pengguna; diabaikan bila {@code null} atau blank.
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -86,10 +117,20 @@ public class PengirimanGudangDetail extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * @return id pengguna yang terakhir mengubah baris ini (audit), atau {@code null} bila belum
+	 *         pernah diubah sejak dimuat.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi id pengguna audit. Nilai {@code null}/kosong diabaikan, sama seperti
+	 * {@link #setOleh(String)}.
+	 *
+	 * @param olehId id pengguna; diabaikan bila {@code null} atau blank.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -97,21 +138,40 @@ public class PengirimanGudangDetail extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Hook siklus hidup JPA yang dipanggil Hibernate tepat sebelum setiap {@code UPDATE}.
+	 * Mendelegasikan ke {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}
+	 * yang mengisi {@link #tanggal_dirubah}, {@link #oleh}, dan {@link #olehId} dengan waktu serta
+	 * identitas pengguna aktif. Dipicu otomatis oleh Hibernate, tidak dipanggil manual.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** @return waktu perubahan terakhir baris ini; tidak pernah {@code null}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal_dirubah")
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Mengisi waktu perubahan terakhir. Field diinisialisasi ke waktu saat objek dibuat, lalu
+	 * ditimpa ulang oleh {@link #onUpdate()} setiap kali baris di-{@code UPDATE}.
+	 *
+	 * @param tanggal_dirubah waktu perubahan.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan dokumen pengiriman induk, meresolusi proxy lazy Hibernate lewat
+	 * {@link GeneralValueObject#check(Object)}.
+	 *
+	 * @return {@link PengirimanGudang} induk (wajib, tidak boleh {@code null} pada baris tersimpan).
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pengiriman", nullable = false)
 	public PengirimanGudang getPengiriman() {
@@ -119,10 +179,21 @@ public class PengirimanGudangDetail extends GeneralValueObject {
 		return pengiriman;
 	}
 
+	/**
+	 * Mengisi dokumen pengiriman induk.
+	 *
+	 * @param pengiriman dokumen induk (wajib diisi sebelum simpan).
+	 */
 	public void setPengiriman(PengirimanGudang pengiriman) {
 		this.pengiriman = pengiriman;
 	}
 
+	/**
+	 * Mengembalikan produk/barang yang dikirim, meresolusi proxy lazy Hibernate lewat
+	 * {@link GeneralValueObject#check(Object)}.
+	 *
+	 * @return {@link Produk} terkait (wajib, tidak boleh {@code null} pada baris tersimpan).
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "produk", nullable = false)
 	public Produk getProduk() {
@@ -130,6 +201,11 @@ public class PengirimanGudangDetail extends GeneralValueObject {
 		return produk;
 	}
 
+	/**
+	 * Mengisi produk/barang.
+	 *
+	 * @param produk produk terkait (wajib diisi sebelum simpan).
+	 */
 	public void setProduk(Produk produk) {
 		this.produk = produk;
 	}
@@ -140,6 +216,11 @@ public class PengirimanGudangDetail extends GeneralValueObject {
 		return qtyKirim == null ? Double.valueOf(0d) : qtyKirim;
 	}
 
+	/**
+	 * Mengisi jumlah yang dikirim.
+	 *
+	 * @param qtyKirim jumlah kirim, boleh {@code null} (diperlakukan sebagai {@code 0}).
+	 */
 	public void setQtyKirim(Double qtyKirim) {
 		this.qtyKirim = qtyKirim;
 	}
@@ -150,15 +231,28 @@ public class PengirimanGudangDetail extends GeneralValueObject {
 		return qtyTerima;
 	}
 
+	/**
+	 * Mengisi jumlah yang dikonfirmasi diterima. Diisi oleh {@code PengirimanGudangUtil.terima(...)}
+	 * saat penerimaan dikonfirmasi; boleh sama dengan {@link #getQtyKirim()} (diterima penuh) atau
+	 * lebih kecil (diterima sebagian).
+	 *
+	 * @param qtyTerima jumlah diterima, boleh {@code null} selama belum dikonfirmasi.
+	 */
 	public void setQtyTerima(Double qtyTerima) {
 		this.qtyTerima = qtyTerima;
 	}
 
+	/** @return harga satuan produk saat pengiriman; tidak pernah {@code null}, default {@code 0}. */
 	@Column(name = "harga_satuan")
 	public Double getHargaSatuan() {
 		return hargaSatuan == null ? Double.valueOf(0d) : hargaSatuan;
 	}
 
+	/**
+	 * Mengisi harga satuan.
+	 *
+	 * @param hargaSatuan harga satuan, boleh {@code null} (diperlakukan sebagai {@code 0}).
+	 */
 	public void setHargaSatuan(Double hargaSatuan) {
 		this.hargaSatuan = hargaSatuan;
 	}
@@ -176,15 +270,27 @@ public class PengirimanGudangDetail extends GeneralValueObject {
 		return qtyRusak == null ? Double.valueOf(0d) : qtyRusak;
 	}
 
+	/**
+	 * Mengisi jumlah yang ditandai rusak saat konfirmasi terima.
+	 *
+	 * @param qtyRusak jumlah rusak, boleh {@code null} (diperlakukan sebagai {@code 0}, berarti
+	 *                 seluruh {@link #getQtyTerima()} kondisi baik).
+	 */
 	public void setQtyRusak(Double qtyRusak) {
 		this.qtyRusak = qtyRusak;
 	}
 
+	/** @return alasan bebas mengapa {@link #getQtyRusak()} ditandai rusak, boleh {@code null}. */
 	@Column(name = "alasan_rusak", columnDefinition = "text")
 	public String getAlasanRusak() {
 		return alasanRusak;
 	}
 
+	/**
+	 * Mengisi alasan rusak.
+	 *
+	 * @param alasanRusak teks alasan, boleh {@code null}.
+	 */
 	public void setAlasanRusak(String alasanRusak) {
 		this.alasanRusak = alasanRusak;
 	}
