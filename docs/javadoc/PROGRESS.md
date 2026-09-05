@@ -1,5 +1,197 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉🚨 MILESTONE + TEMUAN PALING SIGNIFIKAN SELURUH INISIATIF — paket `sop` TUNTAS 100% (6 Sep 2026, akhir batch 116) — domain KEDUA PULUH DUA tuntas, akar penyebab bypass-persetujuan TERKONFIRMASI
+
+Diverifikasi: **12/12 file** `ais/database/model/sop/` kini punya
+Javadoc substansial. Selesai dalam SATU batch (116, 4 agent paralel,
+salah satunya `opus` untuk `AlurSop.java`). Domain kedua puluh dua yang
+tuntas penuh. Paket ini adalah MESIN GENERIK ALUR PERSETUJUAN/DISPOSISI
+SOP yang dipakai LINTAS BANYAK MODUL AIS — diinvestigasi khusus karena
+pola "bypass-persetujuan UI-only" sudah dikonfirmasi independen di 6
+domain berbeda (`task_b62255d9` kepegawaian, `task_910db49b`+
+`task_7a1b63d1` persuratan, `task_756755ba` penelitian, `task_303ac313`
+rekrutmen, `task_aeaad0eb` KPI) yang SEMUANYA memakai mesin ini.
+
+**`AlurSop.java`** (2103→5461 baris, 312 anggota, r85149-r85189, 10
+commit bertahap oleh 1 agent `opus`). **TERKONFIRMASI: akar
+arsitektural TUNGGAL, bukan 6 kelalaian terpisah.** `AlurSop` adalah
+definisi/cetak-biru alur (bukan status berjalan — itu di
+`DisposisiAlurSop`), MENDEKLARASIKAN kewenangan lewat `aktorSop` →
+`AktorSop` (predikat `semuaAtasanLangsungPegawai`/
+`kaprodiPengajuMahasiswa`/dst + `khususUsername`) TAPI dari 312 anggota
+TIDAK ADA SATU PUN `bolehDiproses(Tbmuser)`/`validasiAktor(...)`.
+Penegak yang BENAR SUDAH ADA (`SopUtil.hitungAktor`/`resolveAktor`/
+`tampilAktor`) — TAPI penerapannya TIMPANG: jalur REST `SopService.proses`
+memanggil `resolveAktor` di 3 titik dengan `Tbmuser` SUNGGUHAN (BENAR);
+**jalur UI ZK (`DisposisiSopAction`/`TampilanAlurSopAction`/
+`DisposisiAlurSopAction`) SAMA SEKALI TIDAK PERNAH memanggilnya** —
+bukti paling telak: setiap pemanggilan `tampilAktor` di ketiganya
+melewatkan **`null` sebagai `tbmuserCurrent`** DAN MEMBUANG nilai balik
+boolean-nya; `onSave()` langsung `setSelesai(setujuiData)` lalu simpan.
+Urutan jenjang TIDAK ditegakkan (`nomor` cuma kosmetik, hasil
+`hitungNomor(Session)`, tak ada titik yang membandingkannya untuk
+menolak lompatan tahap). Self-approval: kapasitasnya TIDAK PERNAH
+DIBANGUN sama sekali (bukan "ada tapi tak dipakai"). Temuan tambahan:
+`hitungNomor()` (satu-satunya penulis DB entity ini) menulis baris
+tahap LAIN tanpa cek kewenangan apa pun; ke-20 `getSetelahnyaN()`
+getter destruktif bisa MENGHAPUS PERMANEN konfigurasi cabang hanya
+karena tahap tujuan dinonaktifkan sementara; cache statis JVM-global
+`mapDokumens`/`mapParameters` tanpa scoping/kedaluwarsa.
+
+**`DisposisiSop.java`/`DisposisiAlurSop.java`** (r85151-r85188, 9 commit
+bertahap). Header (`DisposisiSop`, satu pengajuan) : detail
+(`DisposisiAlurSop`, satu langkah aktual) — bukan dua konsep berbeda.
+**Konfirmasi presisi dari sisi perekam keputusan**: nol
+`@PrePersist`/listener yang menolak penyimpanan tak-berwenang (hanya
+`@PreUpdate` stempel audit). **Self-approval lebih parah dari dugaan**:
+`DisposisiAlurSop.getDiajukanOleh()` MENYALIN pengaju ke slot pelaku
+jenjang pada 2 cabang (`kembaliKePengaju`/`start`), getter menulis balik
+ke field persisten → tersimpan permanen saat flush. Status "disetujui"
+BISA TERBENTUK SEBAGAI EFEK SAMPING PEMBACAAN: `DisposisiSop
+.getDisposisiSetuju()` menurunkan dari `disposisiEnd` LALU
+MEMPERSISTENSI hasilnya ke field `@ManyToOne`, bukan hasil tindakan
+aktor terverifikasi. **Task baru `task_5b614b5e`**: `DisposisiSop
+.hapus()` menghapus PERMANEN pengajuan + dokumen di ~30 tabel lintas
+modul via SQL native, TANPA cek status, MELEWATI Envers (nol jejak
+revisi), selalu `return true` walau semua perintah gagal — gerbang
+satu-satunya cuma visibilitas tombol.
+
+**`Sop.java`/`AktorSop.java`/`JenisSop.java`/`DataSop.java`**
+(r85145-r85172). **Konfirmasi kunci untuk audit**: `AktorSop
+.buatCriterion(Tbmuser,...)` adalah predikat LENGKAP FUNGSIONAL yang
+SEBENARNYA mampu menjawab "apakah user ini berwenang di baris ini" —
+tapi grep menyeluruh mengonfirmasi SEMUA pemanggilannya ada di jalur
+query/listing (dashboard/kotak-masuk), TIDAK SATU PUN di titik mutasi
+`DisposisiAlurSopAction.onSave()`/`DisposisiSopAction.onSave()`. Ini
+"kunci tersedia tapi pintu tak pernah dikunci" — dikonfirmasi presisi,
+bukan dugaan. Wewenang aktor bersifat DINAMIS (username statis, role
+ID, ATAU flag relasional seperti `semuaAtasanLangsungPegawai` yang
+dievaluasi saat query — BUKAN FK statis ke satu orang), artinya
+validasi di titik mutasi SEBENARNYA MUNGKIN dilakukan (bukan halangan
+struktural). **Task baru `task_503a7871`**: bug salin-tempel
+`JenisSop.getJenisPengguna()` salah menulis ke field `usernamePengguna`.
+
+**Klaster parameter-tambahan/komentar/dokumen/pembatasan** (5 file,
+r85167-r85174, agent penutup). Tabrakan namespace `task_484d4bd0` TIDAK
+berlaku (FK Hibernate biasa, bukan pola `jenis`/`ref`). **Task baru
+`task_c71f0cab`**: `KomentarDisposisi` entity yatim TOTAL (nol Action,
+nol layar CRUD, nol referensi di luar `hibernate.cfg.xml`) — kategori
+"fitur direncanakan tapi tak pernah diimplementasi", perlu keputusan
+biarkan-vs-bersihkan-skema. **Temuan paling penting klaster ini**:
+`PembatasanAlurSop` (entity yang SEHARUSNYA jadi mekanisme
+pembatasan/otorisasi tambahan pada alur) **NOL PEMANGGIL DI SELURUH
+CODEBASE** — bukan "dibaca UI tapi tak ditegakkan server-side", tapi
+SEPENUHNYA terputus dari skema aktif (dead schema total). `DokumenAlurSop`
+dikonfirmasi memakai 2 lapis `LampiranLain` yang aman (namespace unik).
+
+### Task konsolidasi `task_c595deee` — KANDIDAT #1 TERKUAT seluruh inisiatif
+
+Menyatukan `task_b62255d9`/`task_910db49b`/`task_7a1b63d1`/
+`task_756755ba`/`task_303ac313`/`task_aeaad0eb` sebagai gejala dari SATU
+akar arsitektural (dirinci di atas). Rekomendasi: gerbang fail-closed
+`SopUtil.pastikanBerwenang` dipanggil di titik MUTASI (bukan titik
+render), plus validasi transisi cabang — SATU perbaikan menutup celah
+di SEMUA modul turunan. Peringatan eksplisit: jalur admin
+(`Common.getApakahAdmin()`) harus tetap dirancang sah, dan self-approval
+JANGAN diaktifkan default tanpa keputusan user. Audit data historis
+belum dijalankan (butuh kredensial DB produksi).
+
+**4 task baru batch 116**: `task_c595deee` (konsolidasi akar penyebab),
+`task_5b614b5e`, `task_c71f0cab`, `task_503a7871`.
+
+## 🎉 MILESTONE — paket `jurnal` TUNTAS 100% (6 Sep 2026, akhir batch 115) — domain KEDUA PULUH tuntas
+
+Diverifikasi: **13/13 file** `ais/database/model/jurnal/` kini punya
+Javadoc substansial (2 agent paralel + 2 file dikomit manual oleh
+orkestrator setelah agent terhenti di lock WC bersama). Sistem
+integrasi jurnal ilmiah bergaya OJS (Open Journal Systems), AKTIF
+dikembangkan (paket layanan penuh `ais.action.master.jurnal` + 8+
+self-test). `JurnalEntityBase` dikonfirmasi `@MappedSuperclass` (bukan
+filter/interceptor otomatis — tenant-scoping tanggung jawab query
+pemanggil). `ImportSumberOjs` TERVERIFIKASI AMAN (kredensial di
+environment variable deployment, bukan kolom DB). `RentangIpLanggananJurnal`
+AMAN (`getRemoteAddr()` langsung, bukan header `X-Forwarded-For` —
+kontras positif vs `task_78a5b1ab`). Anonimitas reviewer/diskusi
+divalidasi enum tapi tak ditegakkan (perluasan `task_493423ef`, bukan
+task baru). 0 task baru.
+
+## 🎉 MILESTONE — paket `kpi` TUNTAS 100% (6 Sep 2026, akhir batch 117) — domain KEDUA PULUH SATU tuntas
+
+Diverifikasi: **12/12 file** `ais/database/model/kpi/` kini punya
+Javadoc substansial (3 agent paralel). Modul penilaian kinerja pegawai.
+**Task baru `task_aeaad0eb` — domain KEENAM independen pola
+bypass-persetujuan UI-only**: `PengajuanKpi` punya DUA jalur persetujuan
+TAK SINKRON — mesin SOP generik (getter derivasi tanpa tulis-balik
+kolom mentah) DAN alur mandiri independen di `PengajuanKpiAction`
+(listener `onClick` menulis LANGSUNG ke kolom mentah, privilege cuma
+dipakai `setVisible()` tombol). Dampak NYATA: `PenilaianKpi.hitungKpi()`
+query Criteria pada kolom MENTAH — pengajuan yang "tampak disetujui"
+HANYA lewat jalur SOP generik LUPUT dari perhitungan skor, jatuh diam-diam
+ke `NilaiDefaultKpi`. `Kpi.java` dikonfirmasi data MASTER/referensi
+(bukan instance per-pegawai — itu `ItemKpi`). Relasi `FormatKpi`
+(template ber-scope organisasi) → `FormatKpiDetail` (penugasan ke
+Pegawai) → `ItemKpi` (baris item konkret). 1 task baru.
+
+**Total akumulasi batch 115+116+117 gabungan (37 file, 3 paket)**:
+akumulasi sesi: **1432+ file** dari 7.401 (~36,8%).
+
+## 🎉 MILESTONE — 9 paket bank/payment-gateway TUNTAS 100% (6 Sep 2026, akhir batch 114) — domain KESEMBILAN BELAS tuntas, PERLUASAN BESAR task_a1e32ff3
+
+Diverifikasi: **36/36 file** di `ais/database/model/{bni,bri,bsi,cimb,
+doku,faspay,finpay,ipaymu,jatelindo}/` kini punya Javadoc substansial.
+Selesai dalam SATU batch (114, 3 agent paralel). Domain kesembilan belas
+yang tuntas penuh. Setiap gateway punya struktur identik 4-kelas
+(`<Gateway>Request`=header transaksi, `RequestDetail`=rincian item,
+`RequestDetailBiaya`=komponen biaya, `Response`=balasan gateway) —
+`BniRequest.java` dijadikan referensi paling detail, yang lain `@see`
+untuk konsep umum tapi field didokumentasikan penuh per gateway (field
+TIDAK identik lintas bank).
+
+**Klaster BNI (referensi)/BRI/BSI** (12 file, r85088-r85131). Data
+mentah tanpa masking TERKONFIRMASI ketiganya (`va`/`trx_id`/`bill_no`/
+`request`/`response`/`callback`) — perluasan `task_a1e32ff3`. **BRI
+paling terekspos**: body request TIDAK terenkripsi sama sekali (BNI/BSI
+pakai blok `data` ter-enkripsi `BNIHash`). Ke-12 entity `@Audited` →
+payload mentah tergandakan ke tabel `_AUD`. Kredensial (password/API
+key) sendiri BERSIH — cuma di `Konfigurasi`+header HTTP, nol di kolom
+entity. Gerbang akses: ketiganya lewat servlet dasbor SAMA PERSIS dengan
+Mandiri/OCBC (`LogHostToHostAction`), hak `READ` global tanpa scoping
+tenant, entity sendiri nol FK tenant. Autentikasi callback BNI/BSI pakai
+dekripsi `BNIHash.parseData` kriptografis yang layak (gagal dekripsi =
+tolak). **BRI tidak punya endpoint callback aktif sama sekali** —
+servlet-nya tidak terdaftar `web.xml`, status hanya diperbarui polling
+`BriBackandProsess`. **Task baru `task_0b761d97`**: `BsiRequestDetail
+.getKeterangan()` menulis balik label "validator : BNI" yang SALAH
+(harusnya BSI) — akar: `BsiCommon` memang meng-import `com.bni.encrypt
+.BNIHash` (BSI e-Collection satu keluarga produk dengan BNI), bug
+copy-paste warisan dari situ, tersimpan permanen + tergandakan ke `_AUD`.
+
+**Klaster CIMB/Doku/Faspay** (12 file, r85078-r85116). CIMB paling
+minim payload mentah di level entity (tapi tetap bocor via
+`System.out.println` di layer SOAP webservice terpisah). Doku: bocor
+via stdout `DokuResponseServlet`, plus `noRekeningDeposit` (rekening
+bank PRIBADI pembayar) tersimpan mentah. **Faspay**: payload/signature
+mentah DITAMPILKAN LANGSUNG di grid ZK (`FaspayRequestAction`) kepada
+siapa pun berhak READ — tanpa masking kolom, paling mirip struktur BNI
+(request/response + relasi ManyToMany `KegiatanTemporary`).
+
+**Klaster Finpay/Ipaymu/Jatelindo** (12 file, r85082-r85124, agent
+penutup 9 paket). **Finpay & Jatelindo TERKONFIRMASI mengimpor
+`LogHostToHost` DAN mencatat ke tabel `log_host_to_host` YANG SAMA**
+dengan Mandiri/OCBC/BNI — perluasan LANGSUNG cakupan `task_a1e32ff3`
+(bukan sekadar pola serupa). `JatelindoRequest.request`/`callback`
+menyimpan payload H2H mentah utuh persis pola `BniRequest`.
+`JatelindoRequest.getMerchant()` fallback ke `"Mandiri"` — Jatelindo
+dipakai AIS terutama sebagai switching VA Bank Mandiri. **Ipaymu
+berbeda**: lewat jalur logging TERPISAH (`LogPembayaran`, bukan
+`LogHostToHost`), simpan `noRekeningDeposit` (rekening pribadi
+pembayar) mentah — dicatat untuk peninjauan terpisah, verifikasi baru
+dangkal jadi TIDAK di-task-kan (belum ditelusuri exploitability
+`LogPembayaranAction` mendalam).
+
+**1 task baru batch 114**: `task_0b761d97`. Total akumulasi 114 sesi:
+**1395+ file** dari 7.401 (~35,8%).
+
 ## 🎉 MILESTONE — paket `recruitment` TUNTAS 100% (6 Sep 2026, akhir batch 113) — domain KEDELAPAN BELAS tuntas
 
 Diverifikasi: **13/13 file** `ais/database/model/recruitment/` kini punya
