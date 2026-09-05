@@ -629,6 +629,48 @@ public class DisposisiSop extends GeneralValueObject {
 		this.properti = properti;
 	}
 
+	/**
+	 * Menghapus pengajuan ini <b>beserta seluruh jejaknya di semua modul</b>, lewat SQL native.
+	 *
+	 * <p>Ini adalah operasi "batalkan/hapus pengajuan" yang dipanggil dari tombol hapus pada daftar
+	 * pengajuan SOP. Karena mesin SOP dipakai lintas modul dan tidak ada relasi terbalik yang
+	 * dipetakan Hibernate dari header ke dokumen modul, penghapusan dikerjakan dengan menyapu
+	 * daftar tabel yang sudah ditulis tetap (hardcode) di dalam method: dokumen akuntansi
+	 * (pengajuan transfer, dana talangan, kas kecil dan penggantiannya, pertanggungjawaban, proses
+	 * transfer, transitori, uang muka), dokumen aset (pembayaran DP/pengadaan/termin, pemesanan,
+	 * peminjaman, penerimaan, pengembalian, penghapusan, perbaikan, perjanjian kerja sama,
+	 * permintaan pengadaan), persuratan (surat masuk/keluar), sekolah (kelompok pendaftaran PSB),
+	 * catatan administrasi, pengaduan, pengajuan mahasiswa, pengajuan pegawai, ruang PMB, seleksi
+	 * vendor perpustakaan — dan tentu saja {@code disposisi_alur_sop} (baris riwayat jenjang, yang
+	 * tercantum tiga kali dalam daftar; pengulangan itu tidak berbahaya, hanya mubazir). Baru
+	 * setelah itu baris {@code disposisi_sop} sendiri dihapus.</p>
+	 *
+	 * <p>Setiap perintah dibungkus {@code try/catch} sendiri sehingga tabel yang tidak ada pada
+	 * instalasi tertentu (mis. instalasi tanpa modul sekolah) tidak menggagalkan sisanya. Kegagalan
+	 * dicatat ke audit galat.</p>
+	 *
+	 * <h2>Yang perlu diwaspadai</h2>
+	 * <ul>
+	 * <li><b>Penghapusan menyeluruh, bukan sekadar membatalkan alur.</b> Dokumen modul yang
+	 * terkait ikut terhapus — termasuk dokumen yang mungkin sudah disetujui dan sudah menimbulkan
+	 * akibat di modul lain.</li>
+	 * <li><b>Tidak meninggalkan jejak Envers.</b> Karena memakai SQL native
+	 * ({@code Common.updateSql}), penghapusan ini melewati sesi Hibernate sehingga anotasi
+	 * {@link Audited} pada kelas ini maupun pada entity modul tidak menghasilkan baris revisi.
+	 * Setelah pemanggilan, praktis tidak ada bukti bahwa pengajuan itu pernah ada.</li>
+	 * <li><b>Tanpa pemeriksaan status maupun wewenang di sini.</b> Method tidak memeriksa apakah
+	 * pengajuan sudah disetujui, sudah diposting, atau siapa yang menghapus — kendalinya hanya
+	 * berupa tampil/tidaknya tombol hapus di UI dan dialog konfirmasi.</li>
+	 * <li><b>Selalu mengembalikan {@code true}</b>, bahkan bila semua perintah gagal, karena setiap
+	 * kegagalan sudah ditelan oleh {@code catch}. Nilai kembaliannya karena itu tidak layak dipakai
+	 * sebagai penanda keberhasilan.</li>
+	 * <li>Perintah dirangkai dengan menggabungkan {@link #getId()} langsung ke dalam string SQL.
+	 * Aman di sini karena sumbernya angka dari basis data, tetapi jangan dijadikan pola untuk nilai
+	 * yang berasal dari masukan pengguna.</li>
+	 * </ul>
+	 *
+	 * @return selalu {@code true}
+	 */
 	@SuppressWarnings({})
 	public boolean hapus() {
 
@@ -670,6 +712,22 @@ public class DisposisiSop extends GeneralValueObject {
 
 	}
 
+	/**
+	 * Mengembalikan penunjuk pintas ke <b>baris jenjang terakhir</b> yang tercatat pada pengajuan
+	 * ini.
+	 *
+	 * <p>Diperbarui lapis service setiap kali sebuah langkah diproses, dan dipakai luas sebagai
+	 * jalan pintas: dasbor memakainya untuk menampilkan "posisi terakhir" pengajuan,
+	 * {@link DisposisiAlurSop#getAktif()} membandingkan id-nya untuk mendeteksi cabang mati, dan
+	 * {@link #getDisposisiSetuju()} menjadikannya titik awal penyimpulan status persetujuan.</p>
+	 *
+	 * <p>Getter ini hanya me-resolve proxy lazy lewat {@code check()} — tidak destruktif. Namun
+	 * karena ia memuat proxy, pemanggilan berulang dalam satu ekspresi pernah memberi hasil yang
+	 * tidak konsisten pada thread latar; lihat catatan pada {@link #getDisposisiSetuju()} yang
+	 * karena itu mengambilnya sekali ke variabel lokal.</p>
+	 *
+	 * @return baris jenjang terakhir, atau {@code null} bila belum ada
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_end", nullable = true)
 	public DisposisiAlurSop getDisposisiEnd() {
@@ -678,10 +736,77 @@ public class DisposisiSop extends GeneralValueObject {
 		return disposisiEnd;
 	}
 
+	/**
+	 * Menetapkan penunjuk ke baris jenjang terakhir, dengan penyaring "harus sudah tersimpan".
+	 *
+	 * <p>Baris yang {@code null} atau belum punya id disimpan sebagai {@code null} — mencegah
+	 * penunjuk mengarah ke object yang belum ada di basis data (yang akan gagal saat menulis kunci
+	 * asing). Perlu dicatat efek sampingnya: mengirim baris yang belum tersimpan tidak
+	 * mempertahankan nilai lama melainkan <b>menghapus</b> penunjuk yang sudah ada.</p>
+	 *
+	 * <p>Tidak ada pemeriksaan bahwa baris yang ditunjuk milik pengajuan ini, ataupun bahwa ia
+	 * benar-benar langkah paling akhir menurut rantai.</p>
+	 *
+	 * @param disposisiEnd baris jenjang terakhir; {@code null}/tanpa id membuat penunjuk kosong
+	 */
 	public void setDisposisiEnd(DisposisiAlurSop disposisiEnd) {
 		this.disposisiEnd = disposisiEnd == null || disposisiEnd.getId() == null ? null : disposisiEnd;
 	}
 
+	/**
+	 * Mengembalikan baris jenjang yang menjadi <b>titik disetujui</b> pengajuan ini — dan bila
+	 * belum ada, <b>menyimpulkannya sendiri</b> dari konfigurasi alur.
+	 *
+	 * <p>Inilah method paling menentukan di kelas ini: pertanyaan "apakah pengajuan ini sudah
+	 * disetujui?" dijawab dengan memeriksa apakah method ini mengembalikan sesuatu. Perlu dipahami
+	 * bahwa jawabannya <b>tidak selalu berasal dari kolom {@code disposisi_setujui}</b> yang
+	 * tersimpan; sebagian besar badan method justru menghitung ulang, dan hasil perhitungan itu
+	 * ditulis ke field yang persisten sehingga dapat tersimpan pada flush berikutnya.</p>
+	 *
+	 * <h2>Urutan penalaran</h2>
+	 * <ol>
+	 * <li><b>Mengangkat langkah terakhir menjadi titik setuju.</b> Bila belum ada nilai tersimpan,
+	 * {@link #getDisposisiEnd()} diangkat menjadi titik setuju asalkan definisi jenjangnya
+	 * menyalakan {@code jikaProsesDisetujuiMakaSelesai} <i>atau</i>
+	 * {@link DisposisiAlurSop#setujui()} pada langkah itu bernilai benar.</li>
+	 * <li><b>Membatalkan pengangkatan yang belum layak.</b> Bila calon titik setuju ternyata belum
+	 * memenuhi {@code setujui()}, ia dibatalkan ({@code null}) ketika langkah berikutnya bukan
+	 * jenjang persetujuan, atau ketika jenjangnya sendiri tidak menyalakan
+	 * {@code jikaProsesDisetujuiMakaSelesai}. Ini menjaga agar pengajuan yang sekadar diteruskan
+	 * tidak terbaca sebagai disetujui.</li>
+	 * <li><b>Kasus finalisasi.</b> Bila langkah terakhir sudah punya pelaku, tidak punya langkah
+	 * lanjutan, dan jenjangnya menyalakan {@code jikaProsesDisetujuiMakaSelesai}, langkah itu
+	 * ditetapkan sebagai titik setuju — meniru perilaku persetujuan tunggal pada UI ZK.</li>
+	 * <li><b>Penjaga terakhir.</b> Calon yang sudah tersimpan (punya id) tetapi <i>tidak punya
+	 * pelaku sama sekali</i> (ketiga slot kosong) dibatalkan. Artinya baris <i>placeholder</i> yang
+	 * dibuat untuk tahap berikutnya tidak akan pernah dihitung sebagai persetujuan.</li>
+	 * </ol>
+	 *
+	 * <h2>Catatan implementasi yang penting</h2>
+	 * <p>Komentar "ROOT CAUSE FIX" di badan method mendokumentasikan bug yang pernah terjadi:
+	 * {@link #getDisposisiEnd()} dahulu dipanggil berulang kali di dalam satu ekspresi boolean.
+	 * Karena getter itu memuat proxy lazy lewat {@code check()}, dua pemanggilan berturut-turut
+	 * dapat memberi hasil yang tidak konsisten (mis. non-null lalu null) saat dijalankan dari thread
+	 * latar dengan siklus hidup sesi sendiri, sehingga memicu {@code NullPointerException} di rantai
+	 * getter. Perbaikannya: ambil sekali ke variabel lokal ({@code end}, {@code endAlur},
+	 * {@code setuju}, {@code finalCandidate}) lalu periksa variabel itu, bukan getter-nya. Pola ini
+	 * jangan dikembalikan ke bentuk lama.</p>
+	 *
+	 * <p>Seluruh penalaran dibungkus {@code try/catch} yang mencatat galat ke audit; bila terjadi
+	 * kegagalan, nilai yang sudah terbentuk sejauh itu tetap dikembalikan.</p>
+	 *
+	 * <h2>Implikasi keamanan</h2>
+	 * <p>Tidak satu pun cabang di atas memeriksa <b>siapa</b>. Yang diperiksa hanyalah bentuk
+	 * konfigurasi alur dan keberadaan pelaku — bukan apakah pelaku itu aktor yang berwenang pada
+	 * jenjang tersebut, dan bukan apakah ia berbeda dari pengaju di {@link #getDiajukanOleh()}.
+	 * Ditambah sifatnya yang menulis hasil simpulan ke properti persisten, status "disetujui" pada
+	 * sebuah pengajuan dapat terbentuk sebagai konsekuensi terbacanya konfigurasi tertentu, bukan
+	 * semata sebagai hasil tindakan aktor yang terverifikasi. Penjaga wewenang karena itu harus
+	 * dipasang di lapis yang membuat/mengisi baris jenjang, bukan diharapkan dari sini.</p>
+	 *
+	 * @return baris jenjang yang menjadi titik disetujui, atau {@code null} bila pengajuan belum
+	 *         dianggap disetujui
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_setujui", nullable = true)
 	public DisposisiAlurSop getDisposisiSetuju() {
@@ -737,6 +862,21 @@ public class DisposisiSop extends GeneralValueObject {
 		return disposisiSetuju;
 	}
 
+	/**
+	 * Menetapkan baris jenjang yang menjadi titik disetujui pengajuan ini.
+	 *
+	 * <p>Seperti {@link #setDisposisiEnd(DisposisiAlurSop)}, baris yang {@code null} atau belum
+	 * punya id disimpan sebagai {@code null} sehingga penunjuk tidak pernah mengarah ke object yang
+	 * belum tersimpan.</p>
+	 *
+	 * <p><b>Itulah satu-satunya penyaring yang ada.</b> Setter ini tidak memeriksa bahwa baris yang
+	 * ditunjuk milik pengajuan ini, tidak memeriksa bahwa jenjangnya memang jenjang persetujuan,
+	 * tidak memeriksa bahwa pelakunya berwenang, dan tidak memeriksa bahwa pelakunya bukan pengaju.
+	 * Dengan kata lain, menandai sebuah pengajuan sebagai "disetujui" pada lapis entity tidak
+	 * memerlukan bukti apa pun selain sebuah baris jenjang yang sudah tersimpan.</p>
+	 *
+	 * @param a baris jenjang titik disetujui; {@code null}/tanpa id membuat penunjuk kosong
+	 */
 	public void setDisposisiSetuju(DisposisiAlurSop a) {
 		this.disposisiSetuju = a == null || a.getId() == null ? null : a;
 
