@@ -89,3 +89,51 @@ Sudah tersedia dalam paket sebagai spesifikasi/template/config/prototype:
 - expanded test matrix.
 
 Belum boleh diklaim production-ready sebelum Java runtime, Envers bridge, domain adapters, DB migration staging, Ant build, parity tests, dan security tests benar-benar dijalankan pada checkout Git terbaru.
+
+## Blocklist domain medis SIRS ditutup — 6 September 2026
+
+Audit inisiatif Javadoc menyeluruh AIS pada klaster `ais.database.model.sirs` (Pasien,
+AlergiPasien, KepesertaanPasien, dan 121 entity lain) menemukan bahwa seluruh paket ini
+**tidak punya sumbu tenant apa pun** di level entity (tidak ada `satuanKerja`/`yayasan`/dst.),
+sehingga `GenericCrudAutoEntityAdapter.scopeBindings()` selalu kosong untuknya — beda dari
+domain lain yang setidaknya punya pembatas tenant parsial.
+
+`BLOCKED_CLASS_TOKENS` di `GenericCrudAutoDefinitionFactory.java` sama sekali tidak punya
+token domain medis, jadi `isBlockedClass()` meloloskan seluruh entity sirs sebagai `FULL_CRUD`.
+Ini relevan karena `model_crud_service.jsp` (browser model admin generik) menerima `entityKey`
+**mentah** dari `request.getParameter("entity")` dan hanya digerbangi `Common.getApakahAdmin()`
+— cek "admin apa pun" yang kasar, bukan hak akses per menu. Temuan tambahan: `applyScope()`,
+`scopeBindings()`, dan `validateObjectScope()` pada adapter yang sama semuanya langsung
+`return` kosong ketika `Common.getApakahAdmin()==true`, jadi untuk jalur browser admin ini
+`BLOCKED_CLASS_TOKENS` adalah satu-satunya pagar untuk SEMUA domain sensitif, bukan cuma sirs.
+
+Jalur kedua (`pasien_service.jsp` → `dispatcher.jsp` → `tryAutoRegister`) digerbangi
+sesi + `NewUiRouteGuard` per menu `sirs`/`pasien` — risikonya lebih rendah karena populasinya
+sama dengan yang memang sudah berwenang membuka menu Pasien, tapi tetap membypass validasi
+bisnis `PasienAction` dan sama sekali tanpa scoping tenant.
+
+**Perbaikan:** menambahkan blok per-paket (bukan per-token nama kelas) di `isBlockedClass()`:
+
+```java
+private static final String SIRS_BLOCKED_PACKAGE_PREFIX = "ais.database.model.sirs.";
+...
+if (type != null && type.getName().startsWith(SIRS_BLOCKED_PACKAGE_PREFIX)) return true;
+```
+
+Seluruh entity `ais.database.model.sirs.*` — termasuk entity baru di masa depan — otomatis ikut
+terlindungi tanpa bergantung pada kata kunci dalam nama kelasnya. Efeknya mendowngrade
+`FULL_CRUD` menjadi `READ_ONLY` (bukan blokir baca total — itu perilaku bawaan mekanisme
+blocklist ini, sama seperti kelas "bank"/"audit" yang sudah ada). Landed di r85063 (tersapu ke
+commit sesi paralel lain berpesan kosong, diverifikasi `svn diff -c 85063` = persis perubahan
+yang dimaksud, tidak tercampur apa pun di luar itu untuk berkas ini).
+
+Payroll punya gap serupa (nol token blocklist, `FULL_CRUD` via `tryAutoRegister`) dan sudah
+ter-track terpisah — lihat javadoc `PembayaranGaji.java`. Koperasi, asset, dan employ punya
+paket sendiri dan juga nol token blocklist spesifik domain, tapi **sengaja belum diblok
+blanket** di sini karena (tidak seperti sirs) domain-domain itu punya `scopeBindings` parsial
+yang aktif di jalur menu — blok blanket berisiko mematikan CRUD yang mungkin sedang dipakai
+produksi tanpa peninjauan per-kelas. Audit granular untuk ketiganya belum dikerjakan.
+
+Audit data historis (siapa saja yang mungkin sudah mengakses/mengubah data sirs lewat jalur
+CRUD generik ini) belum dijalankan — butuh kredensial database dan log akses yang tidak
+tersedia saat audit ini dilakukan.
