@@ -689,6 +689,49 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Membaca <b>berkas cache metadata</b> lampiran &mdash; lapis penyimpanan ketiga yang
+	 * dijelaskan pada Javadoc kelas ini &mdash; dan mengembalikan isinya sebagai teks JSON.
+	 *
+	 * <p><b>Peran cache ini.</b> {@code ambil()} memanggil method ini <i>lebih dahulu</i>
+	 * daripada membuka koneksi basis data. Bila isinya bukan penanda kosong, seluruh query
+	 * dilewati dan objek lampiran dibangun ulang dari JSON tersebut. Dengan begitu halaman
+	 * yang menampilkan puluhan lampiran sekaligus tidak menghasilkan puluhan koneksi.</p>
+	 *
+	 * <p><b>Tiga nilai kembalian yang bermakna berbeda:</b></p>
+	 * <ul>
+	 *   <li>{@code VOMahasiswa.dataJSON} (penanda kosong bawaan) &rarr; cache belum
+	 *       pernah diisi atau tidak terbaca &mdash; pemanggil harus bertanya ke basis data.
+	 *       Nilai ini juga dikembalikan pada setiap kegagalan, termasuk berkas tidak ada,
+	 *       gagal membaca, maupun {@code jenis} yang tidak dapat di-<i>encode</i>.</li>
+	 *   <li>{@code "0"} &rarr; hasil <b>negatif yang di-cache</b>: basis data pernah
+	 *       ditanya dan memang tidak ada barisnya. Pemanggil tidak perlu bertanya lagi.</li>
+	 *   <li>Teks JSON &rarr; metadata baris lampiran hasil
+	 *       {@code Common.convertToJsonObject(...)}, lengkap dengan {@code class} dan
+	 *       {@code id} yang ditambahkan {@code ambil()} sebelum menulisnya.</li>
+	 * </ul>
+	 *
+	 * <p><b>Bentuk kunci cache.</b> Berkasnya ditentukan oleh
+	 * {@code Common.getFileLocation(clazz, ref, prefix + "_lampiran_" + encode(jenis) + "_"
+	 * + ref)}. Perhatikan bahwa {@code prefix} yang dikirim {@code ambil()} sudah
+	 * memuat pembeda {@code usingId}: {@code "data_baru_"} untuk pencarian berbasis pemilik
+	 * dan {@code "data_baru__id"} untuk pencarian berbasis primary key. <b>Satu baris
+	 * lampiran karena itu dapat memiliki dua berkas cache yang terpisah</b>, dan keduanya
+	 * tidak pernah dibersihkan bersamaan &mdash; sifat inilah yang menjadi akar
+	 * ketidaksinkronan yang dicatat pada {@code delete()} dan {@code resetLokasi()}.</p>
+	 *
+	 * <p>Cache ini <b>tidak mengandung unsur identitas pengguna</b> sama sekali: kuncinya
+	 * hanya kelas, acuan, dan jenis. Isinya karena itu dipakai bersama oleh semua sesi,
+	 * dan tidak dapat dijadikan tempat menyimpan hasil yang sudah tersaring hak akses.</p>
+	 *
+	 * @param prefix awalan kunci cache; oleh pemanggil di kelas ini selalu
+	 *               {@code "data_baru_"} atau {@code "data_baru__id"}
+	 * @param ref    acuan baris pemilik, atau primary key lampiran bila varian {@code _id}
+	 * @param jenis  penanda jenis lampiran; ikut membentuk nama berkas cache
+	 * @param clazz  kelas entitas berkas; ikut menentukan lokasi berkas cache
+	 * @return teks JSON metadata, {@code "0"} untuk hasil negatif, atau
+	 *         {@code VOMahasiswa.dataJSON} bila cache belum ada/gagal dibaca
+	 */
 	public static String ambilLokasi(String prefix, Serializable ref, String jenis, Class clazz) {
 		try {
 			File file = Common.getFileLocation(clazz, ref,
@@ -700,11 +743,86 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Membuang isi berkas cache metadata untuk satu kombinasi
+	 * ({@code clazz}, {@code ref}, {@code jenis}, varian {@code usingId}), sehingga
+	 * pemanggilan {@code ambil()} berikutnya terpaksa bertanya kembali ke basis data.
+	 *
+	 * <p>Pengosongan dilakukan dengan menulis teks kosong, bukan menghapus berkasnya.
+	 * {@code ambilLokasi()} memperlakukan isi kosong sama seperti cache yang belum
+	 * pernah ada, jadi hasilnya setara namun tanpa risiko gagal hapus.</p>
+	 *
+	 * <p><b>Yang membuat method ini mudah dipakai keliru.</b> Kunci cache dibedakan oleh
+	 * parameter {@code usingId}: {@code false} membersihkan berkas berawalan
+	 * {@code "data_baru_"}, {@code true} membersihkan {@code "data_baru__id"}. Keduanya
+	 * merujuk baris lampiran yang sama tetapi merupakan <b>dua berkas berbeda</b>. Satu
+	 * kali panggilan hanya membersihkan salah satunya. Karena itu jalur yang mengubah atau
+	 * menghapus lampiran wajib memanggil method ini untuk <i>kedua</i> varian bila baris
+	 * tersebut memang pernah diakses lewat kedua jalur &mdash; dan hal itu tidak selalu
+	 * terjadi. Contoh nyatanya ada pada {@code delete()} di kelas ini, yang mengunci
+	 * {@code usingId = false} sehingga cache varian {@code _id} milik baris yang sama
+	 * tidak pernah dibersihkan. Selama cache itu masih ada, {@code ambil()} dengan
+	 * {@code usingId=true} akan tetap membangun kembali objek lampiran dari metadata lama
+	 * beserta jalan menuju berkas fisiknya.</p>
+	 *
+	 * <p>Pemanggilnya tersebar: {@code performDelete()} dan {@code hapusAtauUpdate()} di
+	 * kelas ini, jalur unggah pada {@code tampilkanTombolUpload()}, serta pembungkus
+	 * {@code LampiranLain.resetLokasi(Boolean, Long, String)} yang hanya meneruskan ke
+	 * sini dengan {@code clazz = LampiranLain.class}.</p>
+	 *
+	 * @param usingId {@code true} membersihkan cache varian primary key
+	 *                ({@code "data_baru__id"}), {@code false} varian berbasis pemilik
+	 * @param ref     acuan yang membentuk kunci cache
+	 * @param jenis   penanda jenis lampiran yang membentuk kunci cache
+	 * @param clazz   kelas entitas berkas yang membentuk lokasi cache
+	 */
 	public static void resetLokasi(Boolean usingId, Serializable ref, String jenis, Class clazz) {
 		String keyFilePrefix = "data_baru_" + (usingId ? "_id" : "");
 		tulisLokasi("", keyFilePrefix, ref, jenis, clazz);
 	}
 
+	/**
+	 * Menyusun tautan {@code /al?d=<token>} &mdash; bentuk baku alamat lampiran yang
+	 * dilayani servlet {@code ais.action.servlet.AmbilLampiran} (dipetakan ke
+	 * {@code /al} pada {@code web.xml}).
+	 *
+	 * <p><b>Isi token.</b> Seluruh parameter pencarian dikemas menjadi satu objek JSON
+	 * berisi {@code ref}, {@code rezise}, {@code jurusan} (selalu kosong dari sini),
+	 * {@code jenis}, {@code usingId}, {@code download}, dan {@code clazz} (nama kelas
+	 * lengkap). JSON itu dienkripsi dengan {@code Common.desEncrypter} lalu
+	 * di-<i>URL-encode</i> menjadi nilai parameter {@code d}.</p>
+	 *
+	 * <p><b>Enkripsi di sini bukan kendali akses.</b> Ini bagian terpenting untuk
+	 * dipahami sebelum menambah pemanggil baru. Sisi penerima, yaitu
+	 * {@code AmbilLampiran.process()}, membaca setiap nilai dengan pola
+	 * "ambil dari token bila ada, <b>kalau tidak ambil dari parameter permintaan biasa</b>"
+	 * &mdash; lihat baris 308-312 dan 367-378 pada berkas servlet tersebut. Artinya
+	 * {@code ref}, {@code clazz}, {@code jenis}, {@code jurusan}, {@code download}, dan
+	 * {@code usingId} semuanya dapat dikirim sebagai parameter kueri biasa tanpa token
+	 * sama sekali. Enkripsi pada method ini hanya membuat tautan terlihat rapi dan tidak
+	 * mudah diubah <i>tanpa sengaja</i>; ia sama sekali tidak mencegah siapa pun menyusun
+	 * permintaan sendiri dengan nilai pilihannya. Setiap penjagaan yang benar-benar
+	 * membatasi akses harus ditempatkan di sisi servlet atau di dalam {@code ambil()},
+	 * bukan diandalkan dari kerahasiaan token ini.</p>
+	 *
+	 * <p>Perhatikan pula bahwa {@code clazz.getName()} ikut masuk ke dalam token dan pada
+	 * sisi servlet dipakai untuk {@code Class.forName(...)}. Nilai kelas karena itu
+	 * berasal dari permintaan, bukan dari konteks layar yang sedang dibuka.</p>
+	 *
+	 * @param ref      acuan yang akan dicari servlet; primary key lampiran bila
+	 *                 {@code usingId} bernilai {@code true}
+	 * @param jenis    penanda jenis lampiran; diabaikan servlet bila {@code usingId}
+	 * @param usingId  {@code true} membuat servlet mencocokkan {@code ref} ke primary key
+	 *                 sekaligus mematikan penyaringan {@code jenis}
+	 * @param download {@code true} meminta berkas disajikan sebagai unduhan
+	 *                 ({@code Content-Disposition: attachment}) alih-alih ditampilkan
+	 * @param clazz    kelas entitas berkas yang akan dikueri servlet
+	 * @param relative {@code true} menghasilkan alamat relatif terhadap konteks aplikasi
+	 * @param rezise   {@code true} meminta servlet menyajikan thumbnail 128px alih-alih
+	 *                 berkas gambar aslinya
+	 * @return tautan lengkap menuju servlet lampiran
+	 * @throws Exception bila enkripsi atau <i>encoding</i> gagal
+	 */
 	private static String ambilLinkLampiranLainLink(Serializable ref, String jenis, Boolean usingId, Boolean download,
 			Class clazz, boolean relative, boolean rezise) throws Exception {
 		MyJSONObject jsonObject = new MyJSONObject();
@@ -720,10 +838,53 @@ public abstract class FileFotoLain extends FileFoto {
 				+ URLEncoder.encode(encript, "UTF-8");
 	}
 
+	/**
+	 * Menyusun tautan menuju sebuah <b>berkas di disk</b> &mdash; bukan menuju baris
+	 * lampiran di basis data &mdash; dengan alamat mutlak lengkap protokol dan host.
+	 *
+	 * <p>Varian ringkas dari {@link #ambilLinkLampiranLain(File, boolean)}; seluruh
+	 * penjelasan bentuk token, batasan direktori, dan konsekuensinya ada di sana.</p>
+	 *
+	 * @param file berkas yang hendak disajikan
+	 * @return tautan mutlak menuju berkas tersebut
+	 * @throws Exception bila enkripsi atau <i>encoding</i> gagal
+	 */
 	public static String ambilLinkLampiranLain(File file) throws Exception {
 		return ambilLinkLampiranLain(file, false);
 	}
 
+	/**
+	 * Menyusun tautan {@code /al?d=<token>} yang menunjuk <b>langsung ke sebuah berkas di
+	 * disk</b> lewat jalur mutlaknya, tanpa melibatkan baris lampiran mana pun.
+	 *
+	 * <p>Berbeda dari saudara-saudaranya yang mengemas {@code ref}/{@code jenis}/{@code
+	 * clazz}, token di sini hanya berisi satu kunci: {@code "file"} berisi
+	 * {@code file.getAbsolutePath()}. Servlet {@code AmbilLampiran} memeriksa kunci itu
+	 * paling awal (baris 287-301 pada berkas servlet) dan bila terisi langsung menyajikan
+	 * berkasnya, tidak pernah sampai ke jalur pencarian basis data.</p>
+	 *
+	 * <p><b>Pembatas yang menjaga jalur ini.</b> Karena isi token adalah jalur berkas apa
+	 * pun, jalur ini pernah menjadi celah pembacaan berkas sembarang. Penjagaannya
+	 * sekarang berada di sisi servlet: {@code isDalamDirektoriDiizinkan(File)} menolak
+	 * setiap berkas yang &mdash; setelah dinormalkan menjadi <i>canonical path</i>
+	 * sehingga {@code ..} tidak dapat dipakai untuk keluar &mdash; tidak berada di dalam
+	 * direktori media atau direktori aplikasi. Komentar pada penjaga tersebut menyebut
+	 * method inilah satu-satunya pembuat token berkunci {@code "file"}. Pernyataan itu
+	 * benar untuk kode di dalam paket ini; menambah pembuat token semacam ini di tempat
+	 * lain berarti memperluas permukaan yang harus dijaga penjaga tadi, jadi sebaiknya
+	 * dihindari.</p>
+	 *
+	 * <p>Bila berkasnya kelak dipindah atau dihapus, tautan yang sudah terlanjur beredar
+	 * tidak dapat dipulihkan: tidak ada baris basis data yang menjadi acuan sehingga
+	 * servlet akan jatuh ke jalur pencarian biasa dan berakhir pada ikon pengganti.</p>
+	 *
+	 * @param file     berkas yang hendak disajikan; jalur mutlaknya masuk ke dalam token
+	 * @param relative {@code true} menghasilkan alamat relatif terhadap konteks aplikasi
+	 *                 ({@code Common.ROOT}), {@code false} alamat mutlak dengan host
+	 *                 permintaan yang sedang berjalan
+	 * @return tautan menuju berkas tersebut
+	 * @throws Exception bila enkripsi atau <i>encoding</i> gagal
+	 */
 	public static String ambilLinkLampiranLain(File file, boolean relative) throws Exception {
 		MyJSONObject jsonObject = new MyJSONObject();
 		jsonObject.put("file", file.getAbsolutePath());
@@ -807,10 +968,53 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Nama berkas ikon pengganti yang dipakai ketika lampiran tidak ditemukan, varian yang
+	 * menerima objek kelas.
+	 *
+	 * <p>Hanya meneruskan ke {@link #iconNggakAda(String)} dengan nama kelas lengkap.
+	 * Akan melempar {@code NullPointerException} bila {@code clazz} bernilai {@code null};
+	 * pemanggil di dalam kelas ini selalu menyediakan nilai, sedangkan pemanggil pada
+	 * {@code AmbilLampiran} memakai variabel {@code clazz} yang sudah berisi
+	 * {@code LampiranLain.class} sebagai nilai awal sehingga tidak pernah kosong.</p>
+	 *
+	 * @param clazz kelas entitas berkas yang lampirannya tidak ditemukan
+	 * @return nama berkas ikon di dalam direktori {@code /img/}
+	 */
 	public static String iconNggakAda(Class clazz) {
 		return iconNggakAda(clazz.getName());
 	}
 
+	/**
+	 * Nama berkas ikon pengganti yang dipakai ketika lampiran tidak ditemukan, dipilih
+	 * berdasarkan nama kelas entitasnya.
+	 *
+	 * <p>Membedakan dua kemungkinan saja: entitas yang lampirannya berupa <b>foto
+	 * orang</b> mendapat {@code "user_default.png"}, selebihnya mendapat
+	 * {@code "administrator-icon_default.png"}. Golongan pertama didaftar satu per satu:
+	 * {@code FotoAdmin}, {@code FotoMahasiswa}, {@code FotoSiswa}, {@code FotoDosen},
+	 * {@code FotoGuru}, {@code FotoBiodataCalonMahasiswa}, {@code FotoCalonSiswa},
+	 * {@code FotoPegawai}, ditambah {@code PenyediaAsset} yang bukan entitas berkas
+	 * melainkan entitas penyedia aset &mdash; satu-satunya nama di daftar ini yang berasal
+	 * dari luar paket berkas.</p>
+	 *
+	 * <p><b>Daftar ini adalah duplikasi yang mudah tertinggal.</b> Ia tidak diturunkan
+	 * dari {@code RELASI_MAP} maupun dari hierarki kelas, melainkan disusun manual dengan
+	 * perbandingan nama kelas lengkap. Entitas foto orang yang ditambahkan kemudian tanpa
+	 * disisipkan ke sini akan diam-diam menampilkan ikon administrator, dan tidak ada
+	 * pengujian maupun peringatan kompilasi yang menangkapnya. Perbandingan memakai nama
+	 * lengkap sebagai teks, sehingga kelas dengan nama sederhana yang sama di paket lain
+	 * tidak ikut terkena &mdash; sifat yang di sini justru menguntungkan.</p>
+	 *
+	 * <p>Nilai kembaliannya hanyalah nama berkas; pemanggil masih harus menambahkan
+	 * awalan {@code /img/} sendiri, sebagaimana dilakukan
+	 * {@code ambilLinkLampiranLain(FileFotoLain, ...)} dan beberapa cabang penyelamat di
+	 * {@code AmbilLampiran}.</p>
+	 *
+	 * @param clazzName nama kelas lengkap entitas berkas
+	 * @return {@code "user_default.png"} untuk entitas foto orang, selain itu
+	 *         {@code "administrator-icon_default.png"}
+	 */
 	public static String iconNggakAda(String clazzName) {
 		if (clazzName.equals(FotoAdmin.class.getName()) || clazzName.equals(FotoMahasiswa.class.getName())
 				|| clazzName.equals(FotoSiswa.class.getName()) || clazzName.equals(FotoDosen.class.getName())
@@ -823,6 +1027,45 @@ public abstract class FileFotoLain extends FileFoto {
 		return "administrator-icon_default.png";
 	}
 
+	/**
+	 * Menulis isi berkas cache metadata lampiran &mdash; pasangan penulis
+	 * {@link #ambilLokasi(String, Serializable, String, Class)}.
+	 *
+	 * <p><b>Tiga bentuk isi yang ditulis pemanggil</b>, masing-masing dengan arti yang
+	 * dipahami {@code ambilLokasi()}: teks JSON metadata baris (hasil pencarian berhasil),
+	 * {@code "0"} (hasil negatif yang sengaja di-cache agar pencarian yang sama tidak
+	 * mengulang query), dan teks kosong (pembatalan cache lewat {@code resetLokasi()}).</p>
+	 *
+	 * <p><b>Nama berkasnya</b> dibentuk dari {@code prefix + "_lampiran_" + encode(jenis) +
+	 * "_" + ref} di dalam lokasi yang ditentukan {@code Common.getFileLocation(clazz, ref,
+	 * ...)}. Perhatikan bahwa {@code prefix} sudah memuat pembeda {@code usingId}, sehingga
+	 * satu baris lampiran dapat memiliki dua berkas cache terpisah &mdash; lihat catatan
+	 * pada {@code resetLokasi()} tentang akibatnya.</p>
+	 *
+	 * <p><b>Penjagaan {@code ref} bernilai {@code null}.</b> Kode aslinya memanggil
+	 * {@code ref.toString()} tanpa syarat. Nilai {@code null} nyata terjadi pada
+	 * {@code Tbmuser} baru yang belum tertaut ke entitas Pegawai/Guru/Dosen &mdash; dan
+	 * itu terjadi <i>setiap kali proses login berjalan</i>. Akibatnya bukan sekadar satu
+	 * {@code NullPointerException}: karena penulisan cache gagal, pencarian yang sama akan
+	 * kembali menembus basis data pada setiap pemanggilan berikutnya, lalu kembali gagal
+	 * menulis cache, berulang tanpa henti. Placeholder {@code "0"} pada bagian nama berkas
+	 * memutus lingkaran itu. Perhatikan bahwa penjagaan ini hanya dipasang pada rangkaian
+	 * nama; {@code Common.getFileLocation} tetap menerima {@code ref} apa adanya.</p>
+	 *
+	 * <p><b>Kegagalan sengaja senyap.</b> Seluruh badan method dibungkus {@code try-catch}
+	 * yang hanya mencatat ke {@code ErrorAuditUtil}. Ini disengaja: cache adalah
+	 * pengoptimalan, dan kegagalan menulisnya tidak boleh menggagalkan operasi yang sedang
+	 * berjalan. Konsekuensinya, pemanggil <b>tidak pernah tahu</b> apakah cache benar-benar
+	 * tertulis &mdash; termasuk saat method ini dipakai untuk <i>membatalkan</i> cache.
+	 * Pembatalan cache yang gagal tidak menghasilkan tanda apa pun, dan cache lama akan
+	 * terus dipakai {@code ambil()} sampai ada yang berhasil menimpanya.</p>
+	 *
+	 * @param data   isi yang ditulis: JSON metadata, {@code "0"}, atau teks kosong
+	 * @param prefix awalan kunci cache, sudah memuat pembeda varian {@code usingId}
+	 * @param ref    acuan yang membentuk kunci cache; boleh {@code null}
+	 * @param jenis  penanda jenis lampiran yang membentuk kunci cache
+	 * @param clazz  kelas entitas berkas yang menentukan lokasi cache
+	 */
 	private static void tulisLokasi(String data, String prefix, Serializable ref, String jenis, Class clazz) {
 		try {
 			// FIX NPE rutin: ref bisa null (mis. Tbmuser baru tanpa entitas
