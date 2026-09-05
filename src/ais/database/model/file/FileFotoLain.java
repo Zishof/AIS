@@ -1565,6 +1565,37 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Membangun kendali lampiran paling sederhana pada sebuah baris {@code Hbox}: tombol
+	 * unduh, tombol hapus, dan tombol unggah untuk satu jenis lampiran.
+	 *
+	 * <p>Bentuk terpendek dari keluarga {@code createDownloadUpload(...)}, dengan pilihan
+	 * bawaan berupa tampilan berlabel penuh (bukan ikon saja), pencarian berbasis pemilik
+	 * ({@code usingId = false}), tombol unggah ditampilkan, dan tanpa peta penampung
+	 * hasil.</p>
+	 *
+	 * <p><b>Penjagaan acuan kosong.</b> Bila {@code myref} bernilai {@code null} &mdash;
+	 * keadaan yang wajar pada formulir data yang belum pernah disimpan &mdash; sebuah
+	 * acuan sementara dari {@code Common.refSementara()} dipakai sebagai gantinya. Nilai
+	 * itu selalu negatif; alasannya dijelaskan pada {@code createFileFotoLain()}.
+	 * Konsekuensi bagi pemanggil: berkas yang diunggah sebelum data induknya disimpan
+	 * akan tertaut ke acuan sementara, dan alur penyimpanan data induk harus
+	 * memindahkannya ke acuan yang sebenarnya.</p>
+	 *
+	 * <p>Seluruh perilaku pembangunan komponen dijelaskan pada bentuk lengkapnya,
+	 * {@link #createDownloadUpload(Component, Serializable, String, String, Boolean,
+	 * EventListener, Map, Boolean, Boolean, Boolean, Boolean, Integer, Boolean, Boolean,
+	 * Component, Class, boolean)}.</p>
+	 *
+	 * @param row           wadah tempat kendali lampiran ditambahkan
+	 * @param myref         acuan baris pemilik; {@code null} diganti acuan sementara
+	 * @param jenis         penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan    teks keterangan yang tampil pada label dan dialog
+	 * @param harusPdf      {@code true} bila hanya berkas PDF yang boleh diunggah
+	 * @param eventListener penerima pemberitahuan setelah unggah berhasil; boleh
+	 *                      {@code null}
+	 * @param clazz         kelas entitas berkas tempat lampiran disimpan
+	 */
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Class clazz) {
 		Long ref = myref == null ? Common.refSementara() : myref;
@@ -1572,12 +1603,49 @@ public abstract class FileFotoLain extends FileFoto {
 				null, clazz);
 	}
 
+	/**
+	 * Sama dengan {@link #createDownloadUpload(Hbox, Long, String, String, Boolean,
+	 * EventListener, Class)}, ditambah batas ukuran unggah khusus.
+	 *
+	 * <p>Batas ukuran diteruskan apa adanya ke {@code AmbilDataLampiranFileLain} dan
+	 * ditegakkan di sana, bukan di kelas ini. Nilai {@code null} berarti memakai batas
+	 * bawaan aplikasi.</p>
+	 *
+	 * @param row               wadah tempat kendali lampiran ditambahkan
+	 * @param myref             acuan baris pemilik; {@code null} diganti acuan sementara
+	 * @param jenis             penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan        teks keterangan yang tampil pada label dan dialog
+	 * @param harusPdf          {@code true} bila hanya berkas PDF yang boleh diunggah
+	 * @param eventListener     penerima pemberitahuan setelah unggah; boleh {@code null}
+	 * @param cutomUkuranUpload batas ukuran unggah khusus; {@code null} memakai bawaan
+	 * @param clazz             kelas entitas berkas tempat lampiran disimpan
+	 */
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Integer cutomUkuranUpload, Class clazz) {
 		Long ref = myref == null ? Common.refSementara() : myref;
 		createDownloadUpload(row, ref, jenis, keterangan, harusPdf, eventListener, null, cutomUkuranUpload, clazz);
 	}
 
+	/**
+	 * Varian dengan peta penampung hasil <b>dan</b> batas ukuran unggah khusus.
+	 *
+	 * <p>Peta {@code lampiranLains} diisi oleh jalur pemuatan dengan pasangan
+	 * {@code jenis -> lampiran} bila lampirannya memang ada. Gunanya agar layar yang
+	 * membangun banyak kendali lampiran sekaligus dapat memeriksa kelengkapan berkas
+	 * tanpa mengulang pencarian. <b>Perhatikan</b> bahwa peta hanya diisi pada saat
+	 * kendali dibangun; ia tidak diperbarui ketika pengguna kemudian mengunggah atau
+	 * menghapus berkas, sehingga isinya dapat menjadi basi dalam satu tampilan yang sama.</p>
+	 *
+	 * @param row               wadah tempat kendali lampiran ditambahkan
+	 * @param myref             acuan baris pemilik; {@code null} diganti acuan sementara
+	 * @param jenis             penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan        teks keterangan yang tampil pada label dan dialog
+	 * @param harusPdf          {@code true} bila hanya berkas PDF yang boleh diunggah
+	 * @param eventListener     penerima pemberitahuan setelah unggah; boleh {@code null}
+	 * @param lampiranLains     peta penampung hasil pemuatan; boleh {@code null}
+	 * @param cutomUkuranUpload batas ukuran unggah khusus; {@code null} memakai bawaan
+	 * @param clazz             kelas entitas berkas tempat lampiran disimpan
+	 */
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Map<String, FileFotoLain> lampiranLains, Integer cutomUkuranUpload,
 			Class clazz) {
@@ -1586,6 +1654,18 @@ public abstract class FileFotoLain extends FileFoto {
 				true, cutomUkuranUpload, clazz);
 	}
 
+	/**
+	 * Varian dengan peta penampung hasil, memakai batas ukuran unggah bawaan.
+	 *
+	 * @param row           wadah tempat kendali lampiran ditambahkan
+	 * @param myref         acuan baris pemilik; {@code null} diganti acuan sementara
+	 * @param jenis         penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan    teks keterangan yang tampil pada label dan dialog
+	 * @param harusPdf      {@code true} bila hanya berkas PDF yang boleh diunggah
+	 * @param eventListener penerima pemberitahuan setelah unggah; boleh {@code null}
+	 * @param lampiranLains peta penampung hasil pemuatan; boleh {@code null}
+	 * @param clazz         kelas entitas berkas tempat lampiran disimpan
+	 */
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Map<String, FileFotoLain> lampiranLains, Class clazz) {
 		Long ref = myref == null ? Common.refSementara() : myref;
@@ -1593,6 +1673,36 @@ public abstract class FileFotoLain extends FileFoto {
 				true, null, clazz);
 	}
 
+	/**
+	 * Varian tempat pemanggil mulai mengendalikan tampilan dan cara pencarian.
+	 *
+	 * <p>Perhatikan bahwa varian inilah titik pertama {@code usingId} dapat diisi
+	 * pemanggil. Nilai {@code true} membuat seluruh jalur &mdash; pemuatan awal,
+	 * penyusunan tautan unduh, penghapusan, dan penautan hasil unggah &mdash; memakai
+	 * primary key lampiran alih-alih acuan pemilik, dengan segala akibat yang dijelaskan
+	 * pada {@code ambil(Boolean, Serializable, String, int, Class, boolean, String)}.
+	 * Untuk kendali lampiran pada formulir data biasa, {@code false} hampir selalu yang
+	 * dimaksud.</p>
+	 *
+	 * <p>Berbeda dari varian yang lebih pendek, di sini {@code myref} diteruskan apa
+	 * adanya tanpa penggantian acuan sementara &mdash; penggantian itu baru dilakukan
+	 * bentuk lengkapnya.</p>
+	 *
+	 * @param row                wadah tempat kendali lampiran ditambahkan
+	 * @param myref              acuan baris pemilik, atau primary key bila {@code usingId}
+	 * @param jenis              penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan         teks keterangan yang tampil pada label dan dialog
+	 * @param harusPdf           {@code true} bila hanya berkas PDF yang boleh diunggah
+	 * @param eventListener      penerima pemberitahuan setelah unggah; boleh {@code null}
+	 * @param lampiranLains      peta penampung hasil pemuatan; boleh {@code null}
+	 * @param tidakTampilJurusan penanda penyembunyian combo jurusan &mdash; perhatikan
+	 *                           bahwa maknanya terbalik dari namanya; lihat
+	 *                           {@code setupJurusanCombo()}
+	 * @param hanyaIcon          {@code true} menampilkan tombol sebagai ikon tanpa label
+	 * @param usingId            {@code true} memakai primary key lampiran sebagai acuan
+	 * @param tampilUpload       {@code true} menampilkan tombol unggah dan tombol hapus
+	 * @param clazz              kelas entitas berkas tempat lampiran disimpan
+	 */
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Map<String, FileFotoLain> lampiranLains, Boolean tidakTampilJurusan,
 			Boolean hanyaIcon, Boolean usingId, Boolean tampilUpload, Class clazz) {
@@ -1600,6 +1710,29 @@ public abstract class FileFotoLain extends FileFoto {
 				hanyaIcon, usingId, tampilUpload, null, clazz);
 	}
 
+	/**
+	 * Varian pengendali tampilan lengkap dengan batas ukuran unggah khusus.
+	 *
+	 * <p>Menetapkan dua pilihan tata letak yang tidak dapat diubah dari sini:
+	 * {@code vertical = false} (tombol disusun mendatar) dan
+	 * {@code janganPreviewDiLayarUtama = true} (pratinjau tidak dibentangkan di layar
+	 * utama). Pemanggil yang membutuhkan pratinjau di layar utama harus memakai bentuk
+	 * yang lebih panjang.</p>
+	 *
+	 * @param row                wadah tempat kendali lampiran ditambahkan
+	 * @param myref              acuan baris pemilik, atau primary key bila {@code usingId}
+	 * @param jenis              penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan         teks keterangan yang tampil pada label dan dialog
+	 * @param harusPdf           {@code true} bila hanya berkas PDF yang boleh diunggah
+	 * @param eventListener      penerima pemberitahuan setelah unggah; boleh {@code null}
+	 * @param lampiranLains      peta penampung hasil pemuatan; boleh {@code null}
+	 * @param tidakTampilJurusan penanda combo jurusan; maknanya terbalik dari namanya
+	 * @param hanyaIcon          {@code true} menampilkan tombol sebagai ikon tanpa label
+	 * @param usingId            {@code true} memakai primary key lampiran sebagai acuan
+	 * @param tampilUpload       {@code true} menampilkan tombol unggah dan tombol hapus
+	 * @param cutomUkuranUpload  batas ukuran unggah khusus; {@code null} memakai bawaan
+	 * @param clazz              kelas entitas berkas tempat lampiran disimpan
+	 */
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Map<String, FileFotoLain> lampiranLains, Boolean tidakTampilJurusan,
 			Boolean hanyaIcon, Boolean usingId, Boolean tampilUpload, Integer cutomUkuranUpload, Class clazz) {
@@ -1608,6 +1741,31 @@ public abstract class FileFotoLain extends FileFoto {
 
 	}
 
+	/**
+	 * Varian dengan kendali tata letak penuh, tanpa wadah pratinjau dari luar.
+	 *
+	 * <p>Menyerahkan {@code parentPreview} bernilai {@code null} sehingga bentuk
+	 * lengkapnya membuat sendiri wadah pratinjau di dalam susunan komponen yang
+	 * dibangunnya. Pemanggil yang ingin menempatkan pratinjau di bagian lain halaman
+	 * harus memakai bentuk yang menerima {@code parentPreviewAja}.</p>
+	 *
+	 * @param row                       wadah tempat kendali lampiran ditambahkan
+	 * @param myref                     acuan pemilik, atau primary key bila {@code usingId}
+	 * @param jenis                     penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan                teks keterangan pada label dan dialog
+	 * @param harusPdf                  {@code true} bila hanya PDF yang boleh diunggah
+	 * @param eventListener             penerima pemberitahuan setelah unggah
+	 * @param lampiranLains             peta penampung hasil pemuatan; boleh {@code null}
+	 * @param tidakTampilJurusan        penanda combo jurusan; makna terbalik dari namanya
+	 * @param hanyaIcon                 {@code true} menampilkan ikon tanpa label
+	 * @param usingId                   {@code true} memakai primary key sebagai acuan
+	 * @param tampilUpload              {@code true} menampilkan tombol unggah dan hapus
+	 * @param cutomUkuranUpload         batas ukuran unggah khusus; {@code null} bawaan
+	 * @param vertical                  {@code true} menyusun tombol menurun
+	 * @param janganPreviewDiLayarUtama {@code true} menahan pratinjau agar tidak
+	 *                                  dibentangkan di layar utama
+	 * @param clazz                     kelas entitas berkas tempat lampiran disimpan
+	 */
 	public static void createDownloadUpload(Hbox row, Serializable myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Map<String, FileFotoLain> lampiranLains,
 			Boolean tidakTampilJurusan, Boolean hanyaIcon, Boolean usingId, Boolean tampilUpload,
@@ -1618,6 +1776,32 @@ public abstract class FileFotoLain extends FileFoto {
 				clazz);
 	}
 
+	/**
+	 * Varian yang menerima wadah pratinjau dari luar, tanpa pemaksaan pembacaan ulang.
+	 *
+	 * <p>Meneruskan {@code refresh = false} sehingga pemuatan awal boleh memakai cache
+	 * metadata. Bentuk ini dipakai saat kendali lampiran dibangun pertama kali; jalur
+	 * penyusunan ulang setelah unggah atau hapus memanggil bentuk lengkapnya dengan
+	 * {@code refresh = true} supaya keadaan terbaru benar-benar terbaca dari basis data.</p>
+	 *
+	 * @param rowUtama                  wadah tempat kendali lampiran ditambahkan
+	 * @param myrefId                   acuan pemilik, atau primary key bila {@code usingId}
+	 * @param jenis                     penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan                teks keterangan pada label dan dialog
+	 * @param harusPdf                  {@code true} bila hanya PDF yang boleh diunggah
+	 * @param eventListener             penerima pemberitahuan setelah unggah
+	 * @param lampiranLains             peta penampung hasil pemuatan; boleh {@code null}
+	 * @param tidakTampilJurusan        penanda combo jurusan; makna terbalik dari namanya
+	 * @param hanyaIcon                 {@code true} menampilkan ikon tanpa label
+	 * @param usingId                   {@code true} memakai primary key sebagai acuan
+	 * @param tampilUpload              {@code true} menampilkan tombol unggah dan hapus
+	 * @param cutomUkuranUpload         batas ukuran unggah khusus; {@code null} bawaan
+	 * @param vertical                  {@code true} menyusun tombol menurun
+	 * @param janganPreviewDiLayarUtama {@code true} menahan pratinjau di layar utama
+	 * @param parentPreviewAja          wadah pratinjau milik pemanggil; {@code null}
+	 *                                  membuat wadah sendiri
+	 * @param clazz                     kelas entitas berkas tempat lampiran disimpan
+	 */
 	@SuppressWarnings({})
 	public static void createDownloadUpload(final Component rowUtama, Serializable myrefId, final String jenis,
 			final String keterangan, final Boolean harusPdf, final EventListener eventListener, final Map lampiranLains,
@@ -1629,6 +1813,106 @@ public abstract class FileFotoLain extends FileFoto {
 				janganPreviewDiLayarUtama, parentPreviewAja, clazz, false);
 	}
 
+	/**
+	 * <b>Bentuk lengkap pembangun kendali lampiran</b> &mdash; satu-satunya tempat susunan
+	 * komponen ZK untuk mengunduh, mengunggah, meninjau, dan menghapus lampiran benar-benar
+	 * dibentuk. Seluruh varian {@code createDownloadUpload(...)} lain bermuara ke sini.
+	 *
+	 * <h2>Susunan komponen yang dibangun</h2>
+	 * <p>Sebuah {@code Vbox} ditambahkan ke {@code rowUtama}, berisi wadah tombol
+	 * ({@code Hbox} bila {@code hanyaIcon} atau tidak {@code vertical}, selain itu
+	 * {@code Vbox}) dan wadah pratinjau. Wadah tombol juga dipasang sebagai atribut
+	 * {@code "tombol"} pada {@code rowUtama} supaya pemanggil dapat menemukannya kembali,
+	 * dan jumlah lampiran yang berhasil dimuat dipasang sebagai atribut
+	 * {@code "jumlah_upload"} &mdash; nilainya hanya {@code 0} atau {@code 1}, karena
+	 * pencarian memakai {@code setMaxResults(1)}. Wadah pratinjau dibuat sendiri kecuali
+	 * pemanggil menyediakan {@code parentPreviewAja}.</p>
+	 *
+	 * <h2>Pemuatan keadaan awal</h2>
+	 * <p>Satu pemanggilan {@code FileFotoLain.ambil(usingId, ref, jenis, clazz, refresh)}
+	 * menentukan seluruh penampakan awal: tombol unduh dan tombol hapus hanya terlihat
+	 * bila lampirannya ada, seluruh baris disembunyikan bila lampiran tidak ada
+	 * <i>dan</i> {@code tampilUpload} bernilai {@code false}, dan label tombol unduh
+	 * diambil dari nama berkas &mdash; dipangkas pada garis bawah terakhir, lalu
+	 * disingkat 20 karakter bila tombol unggah tidak ditampilkan. Nilai {@code usingId}
+	 * yang diteruskan ke sini ikut menentukan cara pencarian itu; lihat
+	 * {@code ambil(Boolean, Serializable, String, int, Class, boolean, String)}.</p>
+	 *
+	 * <h2>Penyegaran setelah unggah atau hapus</h2>
+	 * <p>{@code resetAfterUploadData} membongkar seluruh isi {@code rowUtama} lalu
+	 * membangunnya kembali lewat pemanggilan rekursif ke method ini dengan
+	 * {@code refresh = true}, dijadwalkan melalui {@code Common.createDefaultTimer(...)}
+	 * agar berjalan setelah putaran event berjalan selesai. Pola bongkar-pasang ini
+	 * berarti setiap referensi komponen yang disimpan pemanggil menjadi tidak berlaku
+	 * setelah unggah atau hapus; ambil kembali lewat atribut {@code "tombol"}.</p>
+	 *
+	 * <h2>Pemeriksaan Google Drive dan penjagaan di sekitarnya</h2>
+	 * <p>Bila kebijakan mengizinkan dan lampiran belum ada di Google Drive, sebuah tombol
+	 * penyalinan ke Drive ditambahkan. Bagian ini dijaga berlapis karena pernah
+	 * menjatuhkan seluruh layar: {@code ambilFile()} dapat mengembalikan berkas
+	 * pengganti {@code logo.png} ketika berkas aslinya hilang atau tidak cocok dengan
+	 * baris ini &mdash; keadaan itu <b>tidak</b> diteruskan ke Google Drive, melainkan
+	 * ditandai dengan label merah "Berkas tidak ditemukan" &mdash; sedangkan
+	 * {@code Common.simpanKeDrive()} masih dapat melempar {@code RuntimeException} lain
+	 * (mis. gangguan jaringan). Sebelum dibungkus, satu baris lampiran bermasalah cukup
+	 * untuk menghentikan seluruh penggambaran grid unggah maupun beranda PMB. Sekarang
+	 * baris itu dilewati dengan catatan ke {@code ErrorAuditUtil} dan baris lain tetap
+	 * tampil.</p>
+	 *
+	 * <h2>Tombol unggah dan tombol hapus</h2>
+	 * <p>Tombol unggah dibangun {@code tampilkanTombolUpload(...)} bila ada pengguna yang
+	 * sedang masuk dan {@code ref} terisi; bila tidak, jalur cadangan memakai
+	 * {@code AmbilDataLampiranFileLain} secara langsung dengan label yang diubah menjadi
+	 * "Ganti" ketika lampirannya sudah ada. Tombol hapus meminta konfirmasi lebih dahulu,
+	 * dan bila disetujui memanggil {@code performDelete(usingId, ref, jenis, clazz)}
+	 * disusul penyegaran tampilan.</p>
+	 *
+	 * <p><b>Perhatikan ketidaksesuaian antara peringatan dan kenyataan.</b> Pesan
+	 * konfirmasi menyebut tindakan ini "bersifat permanen dan tidak dapat dibatalkan".
+	 * Pada jalur non-{@code usingId} yang sesungguhnya terjadi adalah <i>soft delete</i>:
+	 * {@code hapusAtauUpdate()} hanya menimpa kolom acuan pemilik dengan
+	 * {@code SOFT_DELETE_ID} sehingga baris beserta seluruh isi berkasnya tetap ada di
+	 * basis data dan tetap dapat ditemukan lewat pencarian berbasis primary key. Pada
+	 * golongan kelas ber-{@code refField} {@code "id"} bahkan tidak ada perubahan apa pun
+	 * yang dijalankan. Jangan menyimpulkan dari pesan ini bahwa data benar-benar
+	 * dimusnahkan; lihat {@code hapusAtauUpdate()} untuk apa yang sungguh-sungguh
+	 * terjadi.</p>
+	 *
+	 * <h2>Kekhasan lain yang perlu diketahui</h2>
+	 * <p>Tombol hapus dibuat lebih awal tetapi baru ditambahkan ke wadah di dalam blok
+	 * {@code tampilUpload}. Bila {@code tampilUpload} bernilai {@code false}, tombol itu
+	 * tetap dibuat, tetap dipasang ke {@code SetelahUpload}, namun tidak pernah muncul di
+	 * layar &mdash; komponen yatim yang tidak berbahaya tetapi mudah membingungkan saat
+	 * menelusuri kode. Perhatikan pula bahwa {@code jumlah} selalu bernilai {@code 0}
+	 * atau {@code 1}: kendali ini memang hanya melayani satu lampiran per
+	 * ({@code jenis}, {@code ref}), bukan daftar berkas.</p>
+	 *
+	 * @param rowUtama                  wadah tempat seluruh susunan komponen ditambahkan
+	 * @param myrefId                   acuan pemilik, atau primary key bila {@code usingId};
+	 *                                  {@code null} diganti {@code Common.refSementara()}
+	 * @param jenis                     penanda jenis lampiran yang dikelola kendali ini
+	 * @param keterangan                teks keterangan pada label, tooltip, dan dialog
+	 * @param harusPdf                  {@code true} bila hanya PDF yang boleh diunggah
+	 * @param eventListener             penerima pemberitahuan setelah unggah berhasil;
+	 *                                  dipanggil tertunda lewat timer
+	 * @param lampiranLains             peta penampung {@code jenis -> lampiran}, diisi
+	 *                                  hanya saat pemuatan awal; boleh {@code null}
+	 * @param tidakTampilJurusan        penanda combo jurusan; maknanya terbalik dari
+	 *                                  namanya, lihat {@code setupJurusanCombo()}
+	 * @param hanyaIcon                 {@code true} menampilkan tombol sebagai ikon tanpa
+	 *                                  label dan memaksa susunan mendatar
+	 * @param usingId                   {@code true} membuat seluruh jalur memakai primary
+	 *                                  key lampiran alih-alih acuan pemilik
+	 * @param tampilUpload              {@code true} menampilkan tombol unggah dan hapus
+	 * @param cutomUkuranUpload         batas ukuran unggah khusus; {@code null} bawaan
+	 * @param vertical                  {@code true} menyusun tombol menurun
+	 * @param janganPreviewDiLayarUtama {@code true} menahan pratinjau di layar utama
+	 * @param parentPreviewAja          wadah pratinjau milik pemanggil; {@code null}
+	 *                                  membuat wadah sendiri di dalam susunan ini
+	 * @param clazz                     kelas entitas berkas tempat lampiran disimpan
+	 * @param refresh                   {@code true} memaksa pemuatan awal melewati cache
+	 *                                  metadata; dipakai jalur penyegaran setelah unggah
+	 */
 	public static void createDownloadUpload(final Component rowUtama, Serializable myrefId, final String jenis,
 			final String keterangan, final Boolean harusPdf, final EventListener eventListener, final Map lampiranLains,
 			final Boolean tidakTampilJurusan, final Boolean hanyaIcon, final Boolean usingId,
