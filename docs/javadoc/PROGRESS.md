@@ -1,5 +1,31 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 121 — `sisdes.Penduduk` (r85231, tersapu bareng 3 file sesi lain, pesan kosong — isi terverifikasi masuk); 🚨 TEMUAN KEAMANAN, `task_39e03d84`
+
+Beda total dari 2 entity sebelumnya (`KomentarDisposisi`/`SchemaConfig`):
+`Penduduk` (modul Sistem Informasi Desa/`sisdes`) TERNYATA AKTIF —
+salah satu dari LIMA jenis aktor yang bisa login ke AIS (bersama
+`Tbmuser`/`Mahasiswa`/`Siswa`/`BiodataCalonMahasiswa`, lihat javadoc
+kelas `ais.common.UserDetailsServiceImpl` yang sudah lengkap duluan).
+Login lewat `FilterLoginAis`/`Login` servlet mencocokkan `kode`
+(unique, tanpa perlu scoping tenant tambahan) + `getPass()` (DES).
+CRUD di `PendudukAction`/`penduduk.zul`.
+
+**Temuan keamanan (`task_39e03d84`)**: `getPass()` BUKAN getter murni
+— bila `pass` kosong, ia MEMBUAT & MENYIMPAN default password =
+`DES-encrypt(tanggalLahir)` sebagai efek samping BACA (dipicu mis.
+sekadar membuka form edit di `PendudukAction`, yang lalu MENDEKRIPSI
+hasilnya dan menaruhnya sebagai value awal Textbox password — tersamar
+visual tapi plaintext tetap terkirim ke client). Pola sama seperti
+"getter-mutasi-field" sistemik ([[ais-getter-mutasi-field-anti-pattern-sistemik]]),
+tapi keparahan lebih tinggi karena yang dimutasi adalah KREDENSIAL
+LOGIN, bukan field display. `getUmur()`/`getAlamatLengkap()`/
+`getJenisKelamin()`/`getAlamatEmail()` juga pola getter-mutasi (severity
+biasa, bukan kredensial). Perbaikan disarankan: pisah logika default-
+password ke method eksplisit, jangan tampilkan hasil dekripsi apa
+adanya di form edit — didelegasikan ke `task_39e03d84`, TIDAK diperbaiki
+di batch ini (scope javadoc-only).
+
 ## Batch 120 — 2 entity yatim terdokumentasi (6 Sep 2026); KOREKSI SCOPE PENTING: backlog jauh lebih besar dari yang tersirat milestone sebelumnya
 
 `ais.database.model.sop.KomentarDisposisi` (r85171) dan
