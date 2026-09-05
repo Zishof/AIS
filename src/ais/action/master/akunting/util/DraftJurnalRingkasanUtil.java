@@ -19,6 +19,7 @@ import ais.database.model.LogPembayaran;
 import ais.database.model.PengeluaranMahasiswa;
 import ais.database.model.akunting.DaftarPengajuanTransfer;
 import ais.database.model.akunting.Akun;
+import ais.database.model.akunting.DanaTalangan;
 import ais.database.model.akunting.GrupTransaksi;
 import ais.database.model.akunting.KasBesar;
 import ais.database.model.akunting.KasKecil;
@@ -1376,6 +1377,21 @@ public final class DraftJurnalRingkasanUtil {
             } else {
                 pesanJurnal = "Akun Debet/Kredit Kas Besar belum lengkap pada konfigurasi jenis kas.";
             }
+		} else if (entity instanceof DanaTalangan) {
+			DanaTalangan danaTalangan = (DanaTalangan) entity;
+			Akun akunDebet = danaTalangan.getUangMuka() == null
+					|| danaTalangan.getUangMuka().getJenisUangMuka() == null ? null
+					: danaTalangan.getUangMuka().getJenisUangMuka().getAkun();
+			Akun akunKredit = danaTalangan.getJenisUangMuka() == null ? null
+					: danaTalangan.getJenisUangMuka().getAkunKelebihan();
+			if (akunDebet != null && akunKredit != null) {
+				double nominal = Math.abs(angka);
+				jurnal.add(new BarisJurnal(akunDebet, nominal, 0));
+				jurnal.add(new BarisJurnal(akunKredit, 0, nominal));
+				pesanJurnal = "";
+			} else {
+				pesanJurnal = "Akun Debet/Kredit Dana Talangan belum lengkap pada konfigurasi jenis uang muka.";
+			}
         }
         return new Dokumen(id, teksTanggal, uraian == null ? "" : String.valueOf(uraian), angka,
                 jurnal, pesanJurnal);

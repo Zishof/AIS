@@ -1224,8 +1224,30 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 			java.util.Date tglPosting) {
 		int n = 0;
 		Session session = HibernateUtil.currentNativeSession();
+		PostingHistory postingHistory = null;
 		try {
-			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PERSETUJUAN_UANG_MUKA);
+			List<DanaTalangan> kandidat = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+			List<DanaTalangan> daftar = new java.util.ArrayList<DanaTalangan>();
+			for (DanaTalangan dok : kandidat) {
+				Akun akunDebet = dok == null || dok.getUangMuka() == null
+						|| dok.getUangMuka().getJenisUangMuka() == null ? null
+						: dok.getUangMuka().getJenisUangMuka().getAkun();
+				Akun akunKredit = dok == null || dok.getJenisUangMuka() == null ? null
+						: dok.getJenisUangMuka().getAkunKelebihan();
+				if (akunDebet != null && akunKredit != null && dok.getNilai() != null
+						&& Math.abs(dok.getNilai()) > 0.1) {
+					daftar.add(dok);
+				}
+			}
+			// Validasi seluruh kandidat sebelum membuat riwayat posting. Selain mencegah
+			// PostingHistory kosong, ini membuat angka draft hanya diproses bila kedua
+			// akun jurnalnya memang tersedia.
+			if (daftar.isEmpty()) {
+				return 0;
+			}
+
+			postingHistory = new PostingHistory(PostingHistory.JENIS_PERSETUJUAN_UANG_MUKA);
 			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
 			postingHistory.setTbmuser(oleh);
 			postingHistory.setKeterangan("Posting massal dana talangan dari dasbor jurnal"
@@ -1235,17 +1257,15 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 			session.save(postingHistory);
 			session.getTransaction().commit();
 
-			List<DanaTalangan> daftar = kriteriaPostingStatic(session, mulai, sampai)
-					.add(Restrictions.isNull("postingHistory")).list();
-
 			for (DanaTalangan dok : daftar) {
-				if (dok == null || dok.getUangMuka() == null || dok.getJenisUangMuka() == null) {
+				if (dok == null) {
 					continue;
 				}
 				try {
-					Akun akunDebet = dok.getUangMuka().getJenisUangMuka() == null ? null
+					Akun akunDebet = dok.getUangMuka() == null || dok.getUangMuka().getJenisUangMuka() == null ? null
 							: dok.getUangMuka().getJenisUangMuka().getAkun();
-					Akun akunKredit = dok.getJenisUangMuka().getAkunKelebihan();
+					Akun akunKredit = dok.getJenisUangMuka() == null ? null
+							: dok.getJenisUangMuka().getAkunKelebihan();
 					if (akunDebet == null || akunKredit == null) {
 						continue;
 					}
@@ -1258,14 +1278,48 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 							+ Common.numberFormat.get().format(nilai);
 
 					session.getTransaction().begin();
-					CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory, true, ket,
-							dok.getTanggalPersetujuan(), nilai, 0.0, dok, dok.getSatuanKerja(), session);
+					boolean tersimpan = CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null,
+							postingHistory, true, ket, dok.getTanggalPersetujuan(), nilai, 0.0, dok,
+							dok.getSatuanKerja(), session);
+					if (!tersimpan) {
+						session.getTransaction().rollback();
+						ais.common.ErrorAuditUtil.record(
+								new IllegalStateException("Tanggal jurnal Dana Talangan " + dok.getKode()
+										+ " berada pada periode yang sudah closing."),
+								"PostingDanaTalanganAction jalur API");
+						continue;
+					}
 					dok.setPostingHistory(postingHistory);
 					session.update(dok);
 					session.getTransaction().commit();
 					n++;
 				} catch (Exception e) {
-					Common.tampilErrorJikaAdmin(e);
+					try {
+						if (session.getTransaction().isActive()) session.getTransaction().rollback();
+					} catch (Exception rollbackError) {
+						ais.common.ErrorAuditUtil.record(rollbackError,
+								"PostingDanaTalanganAction rollback jalur API");
+					}
+					ais.common.ErrorAuditUtil.record(e, "PostingDanaTalanganAction jalur API");
+				}
+			}
+
+			// Bila semua dokumen gagal, riwayat massal ini tidak merepresentasikan jurnal
+			// apa pun. Hapus kembali agar audit trail tidak dipenuhi riwayat kosong.
+			if (n == 0 && postingHistory != null) {
+				try {
+					session.getTransaction().begin();
+					session.delete(postingHistory);
+					session.getTransaction().commit();
+				} catch (Exception e) {
+					try {
+						if (session.getTransaction().isActive()) session.getTransaction().rollback();
+					} catch (Exception rollbackError) {
+						ais.common.ErrorAuditUtil.record(rollbackError,
+								"PostingDanaTalanganAction rollback hapus riwayat kosong");
+					}
+					ais.common.ErrorAuditUtil.record(e,
+							"PostingDanaTalanganAction hapus riwayat kosong jalur API");
 				}
 			}
 		} finally {
