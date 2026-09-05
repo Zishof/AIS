@@ -317,6 +317,24 @@ public class PencairanDiskonAction extends GenericCrudAction<PencairanDiskon> {
         } else {
             pd.setToko((Toko) (toko.getSelectedItem() == null ? null : toko.getSelectedItem().getValue()));
         }
+
+        // Validasi saldo SERVER-SIDE, sama persis dgn KantinHelper.pencairanDiskonSimpan (jalur API
+        // Flutter) -- tanpa ini, layar ini bisa membuat/menyetujui pencairan dgn nominal melebihi sisa
+        // saldo cashback riil member, dan begitu status BERHASIL, PostingDanaAnggotaUtil menjurnalkan
+        // nominal itu sbg beban riil ke buku besar. Dilewati kalau status DITOLAK (uang tidak sungguh
+        // keluar), sama semantik dgn jalur API.
+        if (!"DITOLAK".equals(pd.getStatus())) {
+            double sisaSaldo = ais.action.servlet.api.KantinHelper.pencairanDiskonSisaSaldo(
+                    session, pd.getAnggotaKoperasi().getId(), pd.getId());
+            if (pd.getNominalCair() > sisaSaldo) {
+                MyMessageboxConfig.show("Mohon maaf, saldo cashback member tidak mencukupi. Sisa saldo saat ini: Rp"
+                        + String.format("%,.0f", sisaSaldo).replace(',', '.')
+                        + ". Langkah yang dapat dilakukan: (1) turunkan nominal pencairan; (2) pastikan transaksi cashback member sudah tercatat; (3) ulangi penyimpanan.", "Peringatan",
+                        MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+                return false;
+            }
+        }
+
         Common.refreshSaveOrUpdate(session, pd);
         return true;
     }

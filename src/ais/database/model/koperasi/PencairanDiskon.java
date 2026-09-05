@@ -40,25 +40,27 @@ import ais.database.model.inventory.Toko;
  * class ini adalah SUMBER debit saldo; keduanya harus dibaca bersama untuk
  * tahu saldo riil member kapan pun.
  *
- * <h3>Dua jalur tulis, HANYA SATU yang tervalidasi saldo</h3>
+ * <h3>Dua jalur tulis, KEDUANYA tervalidasi saldo (sejak perbaikan di bawah)</h3>
  * <ul>
  * <li>{@code KantinHelper.pencairanDiskonSimpan} (API mobile/Flutter) memanggil
- * helper privat {@code pencairanDiskonSisaSaldo} SEBELUM menyimpan, menolak
+ * {@code pencairanDiskonSisaSaldo} SEBELUM menyimpan, menolak
  * (status {@code "91"}) bila {@link #getNominalCair()} melebihi sisa saldo
  * riil member -- didokumentasikan di kode sumber sbg "sumber kebenaran akhir
  * aksi finansial", dilewati hanya saat status yang dipilih {@code DITOLAK}
  * (uang tidak sungguh keluar).</li>
  * <li>{@code PencairanDiskonAction} (layar CRUD ZK admin/kasir, yang menurut
  * javadoc kelasnya sendiri dipakai staf untuk "menyetujui/menolak permintaan
- * pencairan") TIDAK memanggil validasi saldo apa pun di {@code onSave} --
- * hanya memastikan member, cara pembayaran, dan nominal {@code > 0} terisi.
- * Artinya staf pemegang akses layar ini dapat membuat/menyetujui baris dengan
- * {@link #getNominalCair()} berapa pun (melebihi saldo riil sekalipun) dan
- * langsung men-set {@link #getStatus()} ke {@code "BERHASIL"} -- begitu
- * BERHASIL, {@code PostingDanaAnggotaUtil} menjurnalkan nominal itu sbg beban
- * riil ke buku besar (lihat {@link #getPostingHistory()}). Ini adalah CELAH
- * validasi yang nyata (dicatat terpisah utk perbaikan, BUKAN diperbaiki lewat
- * javadoc ini), bukan sekadar potensi risiko.</li>
+ * pencairan") sebelumnya TIDAK memanggil validasi saldo apa pun di
+ * {@code onSave} -- staf pemegang akses layar ini dapat membuat/menyetujui
+ * baris dengan {@link #getNominalCair()} berapa pun (melebihi saldo riil
+ * sekalipun) dan langsung men-set {@link #getStatus()} ke {@code "BERHASIL"},
+ * yang lalu dijurnalkan sbg beban riil ke buku besar oleh
+ * {@code PostingDanaAnggotaUtil} (lihat {@link #getPostingHistory()}). CELAH
+ * ini sudah ditutup: {@code onSave} kini memanggil
+ * {@code KantinHelper.pencairanDiskonSisaSaldo} yang SAMA (kini {@code
+ * public}) dengan semantik identik -- termasuk dilewati saat status
+ * {@code DITOLAK} -- sehingga kedua jalur tulis memakai satu sumber
+ * kebenaran saldo yang sama, tidak lagi bisa saling melenceng.</li>
  * </ul>
  *
  * <h3>Status dan efek finansial</h3>
@@ -91,7 +93,7 @@ public class PencairanDiskon extends GeneralValueObject {
 	private CaraPembayaranKoperasi caraPembayaran;
 
 	// --- DATA NOMINAL & WAKTU ---
-	/** Jumlah saldo (Rupiah) yang ditarik/dicairkan pada baris ini. WASPADA: lihat catatan "Dua jalur tulis" di javadoc kelas -- tidak semua jalur tulis memvalidasi field ini terhadap sisa saldo riil member. */
+	/** Jumlah saldo (Rupiah) yang ditarik/dicairkan pada baris ini. Lihat catatan "Dua jalur tulis" di javadoc kelas -- kedua jalur tulis memvalidasi field ini terhadap sisa saldo riil member (kecuali status DITOLAK). */
 	private Double nominalCair;
 	/** Tanggal dan jam eksekusi pencairan; {@code null} tersimpan dikembalikan sebagai waktu saat ini oleh {@link #getWaktuPencairan()}. */
 	private Date waktuPencairan;

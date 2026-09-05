@@ -7577,9 +7577,9 @@ public class KantinHelper {
 					return;
 				}
 				String pin = baris.optString("pin", "").trim();
-				if (!pin.matches("[0-9]{4,8}")) {
+				if (!pin.matches("[0-9]{6,8}")) {
 					hasil.put("status", "91");
-					hasil.put("description", "Baris " + (i + 1) + ": PIN wajib terdiri dari 4 sampai 8 angka.");
+					hasil.put("description", "Baris " + (i + 1) + ": PIN wajib terdiri dari 6 sampai 8 angka.");
 					return;
 				}
 				AnggotaKoperasi a = null;
@@ -10737,13 +10737,16 @@ public class KantinHelper {
 	 * {@code pembelian_anggota_koperasi} dikurangi total pencairan berstatus BERHASIL/PENDING.
 	 * Dipakai baik oleh form Flutter (live saldo saat memilih anggota) MAUPUN sbg validasi
 	 * server-side di {@link #pencairanDiskonSimpan} -- JSP hanya mengecek ini di klien (bisa
-	 * dilewati), server-side wajib jadi sumber kebenaran akhir utk aksi finansial.
+	 * dilewati), server-side wajib jadi sumber kebenaran akhir utk aksi finansial. Visibilitas
+	 * {@code public} supaya {@code ais.action.master.koperasi.PencairanDiskonAction} (layar CRUD ZK
+	 * yang menulis ke tabel yang sama) memakai query saldo yang SAMA PERSIS, bukan duplikat yang bisa
+	 * melenceng dari sini di kemudian hari.
 	 *
 	 * @param exceptId baris pencairan yang DIKECUALIKAN dari perhitungan "sudah dicairkan" (dipakai
 	 *                 saat MENGUBAH baris yang sudah ada, supaya nominal baris itu sendiri tidak
 	 *                 dihitung dobel); {@code null} saat membuat baris baru.
 	 */
-	private static double pencairanDiskonSisaSaldo(Session session, Long anggotaId, Long exceptId) throws Exception {
+	public static double pencairanDiskonSisaSaldo(Session session, Long anggotaId, Long exceptId) throws Exception {
 		java.sql.Connection conn = session.connection();
 		String exceptCond = exceptId == null ? "" : " AND id != ?";
 		java.sql.PreparedStatement ps = conn.prepareStatement(
