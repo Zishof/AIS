@@ -2469,6 +2469,114 @@ public abstract class FileFotoLain extends FileFoto {
 		return btn;
 	}
 
+	/**
+	 * <b>Satu-satunya jalur penyimpanan lampiran baru</b> untuk seluruh keluarga entitas
+	 * berkas: membuat instance entitas yang diminta, mengisi isi berkas dan metadatanya,
+	 * menghapus lampiran lama yang sejenis, lalu menyimpannya pada koneksi khusus.
+	 *
+	 * <h2>1. Penjagaan kelas &mdash; lapis kedua yang menjadi titik sempit tunggal</h2>
+	 * <p>Sebelum {@code newInstance()} dipanggil, {@code clazz} diperiksa harus merupakan
+	 * subkelas {@code FileFotoLain}; bila tidak, {@code IllegalArgumentException}
+	 * dilempar. Urutannya disengaja: pemeriksaan mendahului konstruksi, sehingga
+	 * konstruktor kelas asing <b>tidak pernah berjalan</b> meski nama kelasnya lolos dari
+	 * pemanggil. Ini penting karena nama kelas pada jalur unggah berasal dari masukan
+	 * klien; lapis pertamanya ada di {@code DoUpload.resolveKelasLampiran}. Menempatkan
+	 * penjagaan di sini membuat setiap pemanggil &mdash; termasuk yang ditambahkan kelak
+	 * &mdash; ikut terlindungi tanpa harus mengulang pemeriksaannya.</p>
+	 *
+	 * <h2>2. Isi berkas dan penamaan</h2>
+	 * <p>Bila {@code file} diberikan dan ada di disk, isinya dibaca seluruhnya ke memori
+	 * lalu dipasang sebagai {@code Blob}, dan nama berkasnya dipakai apa adanya. Bila
+	 * tidak, {@code nama} yang dikirim pemanggil yang dipakai, dan isi berkas disalin dari
+	 * {@code source} lewat {@code copySourceBlobToTarget(...)}.</p>
+	 * <p><b>Nama cadangan ketika nama kosong</b> disusun dari {@code jenis} (atau nama
+	 * kelas bila {@code jenis} juga kosong) ditambah {@code System.currentTimeMillis()}.
+	 * Dua hal perlu dicatat. Pertama, hanya di cabang inilah pemisah direktori {@code /}
+	 * dan {@code \} diganti garis bawah &mdash; nama yang <i>dikirim pemanggil</i> tidak
+	 * mengalami pembersihan itu, padahal nama itulah yang kelak dipakai menyusun jalur
+	 * berkas dan alamat unduh. Kedua, penanda waktu milidetik bukan nilai acak: dua
+	 * unggahan pada milidetik yang sama menghasilkan nama yang sama, dan nama yang
+	 * terbentuk dapat ditebak bila waktu unggahnya diketahui.</p>
+	 *
+	 * <h2>3. Acuan sementara wajib negatif</h2>
+	 * <p>Bila {@code ref} kosong atau bernilai {@code -1}, {@code Common.refSementara()}
+	 * dipakai. Komentar di dalam kode mencatat mengapa nilainya harus negatif: versi
+	 * sebelumnya memakai {@code Math.abs(Common.randLong())} yang menghasilkan angka
+	 * <b>positif</b> pada rentang yang sama dengan id asli. Acuan semacam itu dapat
+	 * menunjuk baris milik entitas lain yang benar-benar ada, sehingga
+	 * {@code hapusAtauUpdate()} pada langkah berikutnya menimpa lampiran milik data lain
+	 * dan berkas yang baru diunggah muncul pada data tersebut. Rentang negatif
+	 * memisahkan acuan sementara dari seluruh id nyata.</p>
+	 *
+	 * <h2>4. Penghapusan lampiran lama, lalu penautan</h2>
+	 * <p>{@code hapusAtauUpdate(target, session, usingId, ref, jenis)} dipanggil lebih
+	 * dahulu supaya satu ({@code ref}, {@code jenis}) hanya menyisakan satu lampiran.
+	 * Perhatikan bahwa pada golongan kelas ber-{@code refField} {@code "id"} langkah ini
+	 * tidak melakukan apa pun, sehingga baris lama <b>tetap ada</b> dan bertambah setiap
+	 * kali pengguna mengunggah ulang. Baris-baris itu tetap dapat ditemukan lewat
+	 * pencarian berbasis primary key; {@code ambil()} yang mengurutkan
+	 * {@code Order.desc("id")} hanya menyembunyikan yang lama, bukan menghapusnya.</p>
+	 * <p>Penautan ke pemilik dilakukan reflektif berdasarkan {@code getRefField(clazz)}:
+	 * {@code "id"} dilewati, {@code "tbmuser"} memakai setter bertipe {@code String}, dan
+	 * selebihnya memakai setter bertipe {@code Long}. Kegagalan menemukan setter hanya
+	 * dicatat lalu diabaikan &mdash; artinya lampiran <b>tetap disimpan</b> meski gagal
+	 * ditautkan ke pemiliknya, dan menjadi baris yatim yang tidak akan pernah ditemukan
+	 * pencarian berbasis pemilik. Penyetelan {@code jenis} dan {@code copyDari} juga
+	 * bersifat "coba saja" dengan cara yang sama.</p>
+	 *
+	 * <h2>5. Metadata audit</h2>
+	 * <p>{@code tanggal_dirubah} diisi {@code WaktuUtil.getDate()}, sedangkan
+	 * {@code olehId} dan {@code oleh} diisi dari pengguna yang dikirim pemanggil.
+	 * Perhatikan bahwa {@code tbmuser} adalah <i>parameter</i>, bukan hasil pembacaan sesi
+	 * di dalam method ini &mdash; nilainya sepenuhnya ditentukan pemanggil, dan
+	 * {@code null} diterima tanpa keluhan (menghasilkan {@code "external_update"}).</p>
+	 *
+	 * <h2>6. Penyimpanan pada koneksi non-autocommit tersendiri</h2>
+	 * <p>Bagian ini terlihat berlebihan tetapi memang diperlukan. Kolom berkas memakai
+	 * PostgreSQL Large Object ({@code oid}) dengan
+	 * {@code hibernate.jdbc.use_streams_for_binary=true}, dan penulisan Large Object
+	 * <b>wajib</b> berada di dalam transaksi. Pada {@code SessionFactory} streaming, kolam
+	 * koneksi c3p0 melepas koneksi antar-pernyataan, sehingga
+	 * {@code beginTransaction()} hanya menyetel {@code autoCommit} pada koneksi sementara
+	 * yang langsung dilepas; ketika {@code save()} menjalankan {@code INSERT} berikutnya,
+	 * ia mengambil koneksi <i>baru</i> yang {@code autoCommit=true} dan gagal dengan
+	 * "Large Objects may not be used in auto-commit mode".</p>
+	 * <p>Penyelesaiannya: satu koneksi diambil langsung dari {@code ConnectionProvider},
+	 * {@code autoCommit} dimatikan padanya, lalu session dibuka <i>di atas</i> koneksi
+	 * itu. Karena koneksinya disuplai pemanggil, Hibernate tidak melepasnya antar
+	 * pernyataan sehingga seluruh {@code INSERT} beserta penulisan Large Object terjadi
+	 * pada koneksi yang sama. Blok {@code finally} mengembalikan {@code autoCommit} ke
+	 * {@code true} sebelum koneksi dikembalikan ke kolam &mdash; penting, karena koneksi
+	 * yang dikembalikan dalam keadaan non-autocommit akan mengacaukan pemakai berikutnya.</p>
+	 * <p><b>Parameter {@code session} tidak dipakai untuk penyimpanan.</b> Ia hanya
+	 * diteruskan ke {@code hapusAtauUpdate()} pada langkah 4. Penyimpanan memakai session
+	 * dan koneksi tersendiri, sehingga penghapusan lama dan penyimpanan baru
+	 * <b>tidak berada dalam satu transaksi</b>: bila penyimpanan gagal setelah penghapusan
+	 * berhasil di-{@code commit}, lampiran lama sudah hilang sementara yang baru tidak
+	 * pernah ada. Pemanggil tidak dapat memulihkan keadaan itu dari sini.</p>
+	 *
+	 * @param tbmuser pengguna yang dicatat sebagai pengubah; {@code null} menghasilkan
+	 *                {@code "external_update"}
+	 * @param session session yang diteruskan ke {@code hapusAtauUpdate()}; <b>tidak</b>
+	 *                dipakai untuk menyimpan
+	 * @param clazz   kelas entitas berkas tujuan; wajib subkelas {@code FileFotoLain}
+	 * @param usingId {@code true} membuat penghapusan lama memakai {@code DELETE} berbasis
+	 *                primary key alih-alih penimpaan kolom acuan
+	 * @param ref     acuan pemilik; {@code null} atau {@code -1} diganti acuan sementara
+	 *                yang negatif
+	 * @param jenis   penanda jenis lampiran yang dilekatkan pada baris baru
+	 * @param source  lampiran sumber untuk penyalinan isi dan {@code copyDari}; boleh
+	 *                {@code null}
+	 * @param file    berkas fisik yang isinya disimpan; {@code null} membuat isi disalin
+	 *                dari {@code source}
+	 * @param nama    nama berkas bila {@code file} tidak diberikan; kosong menghasilkan
+	 *                nama cadangan berbasis penanda waktu
+	 * @return entitas lampiran yang sudah tersimpan, lengkap dengan {@code id}
+	 * @throws IllegalArgumentException bila {@code clazz} bukan subkelas
+	 *                                  {@code FileFotoLain}
+	 * @throws Exception                bila konstruksi entitas atau penyimpanan gagal;
+	 *                                  kegagalan penyimpanan sudah di-rollback lebih dahulu
+	 */
 	@SuppressWarnings("deprecation")
 	public static FileFotoLain createFileFotoLain(Tbmuser tbmuser, Session session, Class clazz, Boolean usingId,
 			Serializable ref, String jenis, FileFotoLain source, File file, String nama) throws Exception {
@@ -2613,6 +2721,27 @@ public abstract class FileFotoLain extends FileFoto {
 		return target;
 	}
 
+	/**
+	 * Menyalin isi berkas dari satu lampiran ke lampiran lain, dipakai ketika lampiran
+	 * baru dibuat tanpa berkas fisik melainkan dari lampiran yang sudah ada.
+	 *
+	 * <p>Pembacaannya melewati {@code readSourceBlobBytes(...)} sehingga aturan Large
+	 * Object tetap dipatuhi &mdash; lihat {@code ambilIsiBlob(...)} untuk latarnya.
+	 * Penyalinan memuat seluruh isi berkas ke memori sebagai {@code byte[]}; untuk berkas
+	 * besar hal ini perlu diperhitungkan pemanggil.</p>
+	 *
+	 * <p><b>Diam pada tiga keadaan</b>, semuanya tanpa keluhan: {@code target} atau
+	 * {@code source} bernilai {@code null}, isi berkas tidak terbaca, dan isi berkas
+	 * kosong. Pada ketiganya {@code target} dibiarkan tanpa isi berkas. Karena
+	 * {@code createFileFotoLain()} tetap melanjutkan penyimpanan setelahnya, hasilnya
+	 * berupa baris lampiran yang ada di basis data namun <b>tidak berisi berkas apa
+	 * pun</b>. Keadaan itu tidak dapat dibedakan dari kegagalan; pemanggil yang perlu
+	 * memastikan isinya tersalin harus memeriksanya sendiri.</p>
+	 *
+	 * @param target lampiran tujuan; boleh {@code null} (tidak melakukan apa-apa)
+	 * @param source lampiran sumber; boleh {@code null} (tidak melakukan apa-apa)
+	 * @throws Exception bila pembacaan isi berkas sumber gagal di luar penanganan internal
+	 */
 	private static void copySourceBlobToTarget(FileFotoLain target, FileFotoLain source) throws Exception {
 		if (target == null || source == null) {
 			return;
@@ -2633,13 +2762,62 @@ public abstract class FileFotoLain extends FileFoto {
 	 * terlewat pada aksi unduh lampiran Pengadaan (2026-08-22). Metode ini menyediakan
 	 * satu jalan masuk yang benar supaya tidak perlu diulang-ulang di tiap pemanggil.</p>
 	 *
+	 * <p><b>Yang tidak diperiksa method ini.</b> Tidak ada pemeriksaan hak akses sama
+	 * sekali: siapa pun yang memegang objek lampiran dapat memperoleh seluruh isinya.
+	 * Method ini juga tidak membedakan lampiran yang masih hidup dari yang sudah
+	 * "dihapus" secara lunak &mdash; baris ber-{@code ref} bernilai {@code SOFT_DELETE_ID}
+	 * dibaca sama saja. Pemanggil bertanggung jawab memastikan objek yang diserahkan
+	 * memang boleh dibaca oleh pengguna yang bersangkutan.</p>
+	 *
+	 * <p>Perlu dicatat pula bahwa seluruh isi berkas dimuat ke memori sekaligus; untuk
+	 * berkas berukuran besar pemanggil sebaiknya mempertimbangkan jalur aliran (stream)
+	 * alih-alih method ini.</p>
+	 *
+	 * @param berkas lampiran yang isinya hendak dibaca; {@code null} menghasilkan
+	 *               {@code null}
 	 * @return isi berkas, atau {@code null} bila berkasnya disimpan di Google Drive
 	 *         (isinya tidak ada di basis data) atau tidak dapat dibaca.
+	 * @throws Exception bila pembacaan gagal di luar penanganan internal
 	 */
 	public static byte[] ambilIsiBlob(FileFotoLain berkas) throws Exception {
 		return readSourceBlobBytes(berkas);
 	}
 
+	/**
+	 * Pelaksana pembacaan isi berkas yang memastikan Large Object dibaca di dalam
+	 * transaksi.
+	 *
+	 * <p><b>Tiga jalur, sesuai keadaan objek yang diberikan:</b></p>
+	 * <ol>
+	 *   <li><b>Tersimpan di Google Drive</b> &rarr; {@code null}, karena isinya memang
+	 *       tidak ada di basis data. Pemeriksaan {@code getGdrive()} sendiri dibungkus
+	 *       {@code try-catch} sebab objek yang sudah terlepas dari session dapat melempar
+	 *       saat propertinya dibaca.</li>
+	 *   <li><b>Belum punya {@code id}</b> &rarr; {@code Blob} yang menempel pada objek
+	 *       dibaca langsung. Objek semacam ini belum tersimpan, jadi isinya masih ada di
+	 *       memori dan tidak ada Large Object yang perlu dibaca dari basis data.</li>
+	 *   <li><b>Sudah tersimpan</b> &rarr; baris dimuat <i>ulang</i> pada session baru di
+	 *       dalam transaksi, dan {@code Blob} hasil pemuatan itulah yang dibaca. Objek
+	 *       yang diberikan pemanggil sengaja tidak dipakai isinya, karena {@code Blob}
+	 *       yang menempel padanya sudah tidak berlaku begitu session asalnya ditutup.</li>
+	 * </ol>
+	 *
+	 * <p><b>Transaksi selalu di-rollback, tidak pernah di-commit.</b> Ini disengaja:
+	 * seluruh pekerjaan di sini hanya pembacaan, dan {@code rollback} adalah cara paling
+	 * murah mengakhiri transaksi tanpa efek samping. Session ditutup di blok
+	 * {@code finally} dengan kegagalan penutupan yang hanya dicatat.</p>
+	 *
+	 * <p>Pemuatan ulang pada jalur ketiga memakai {@code source.getClass()}. Pada objek
+	 * yang berupa proxy Hibernate, nilai itu adalah kelas bayangan hasil <i>enhancement</i>
+	 * dan bukan kelas entitas yang terdaftar &mdash; keadaan yang dapat menggagalkan
+	 * pemuatan. Pemanggil yang bekerja dengan proxy sebaiknya mewujudkannya lebih dahulu.
+	 * Bila objek hasil pemuatan ternyata bukan {@code FileFotoLain}, {@code null}
+	 * dikembalikan alih-alih melempar.</p>
+	 *
+	 * @param source lampiran yang isinya hendak dibaca; boleh {@code null}
+	 * @return isi berkas, atau {@code null} pada ketiga keadaan yang disebut di atas
+	 * @throws Exception bila pembukaan session atau pembacaan aliran gagal
+	 */
 	private static byte[] readSourceBlobBytes(FileFotoLain source) throws Exception {
 		if (source == null) {
 			return null;
@@ -2681,6 +2859,28 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Membaca seluruh isi sebuah {@code Blob} menjadi larik bita, dengan penutupan aliran
+	 * yang terjamin.
+	 *
+	 * <p>Pembungkus tipis di atas {@code IOUtils.toByteArray(...)}. Nilai {@code null}
+	 * pada {@code blob} maupun pada aliran yang dihasilkannya diperlakukan sebagai
+	 * ketiadaan isi, bukan kesalahan. Blok {@code finally} menutup aliran dan mencatat
+	 * kegagalan penutupan tanpa menutupinya &mdash; kesalahan asli dari pembacaan tetap
+	 * naik ke pemanggil.</p>
+	 *
+	 * <p><b>Prasyarat yang tidak diperiksa di sini:</b> pemanggilan
+	 * {@code blob.getBinaryStream()} atas Large Object PostgreSQL hanya sah bila koneksi
+	 * yang bersangkutan sedang berada di dalam transaksi. Method ini tidak membuka
+	 * transaksi sendiri; itu tugas {@code readSourceBlobBytes(...)}. Jangan memanggilnya
+	 * dari jalur lain tanpa memenuhi prasyarat tersebut.</p>
+	 *
+	 * <p>Seluruh isi dimuat ke memori sekaligus; tidak ada batas ukuran yang diterapkan.</p>
+	 *
+	 * @param blob objek berkas biner yang hendak dibaca; boleh {@code null}
+	 * @return isi berkas, atau {@code null} bila {@code blob} atau alirannya {@code null}
+	 * @throws Exception bila pembacaan aliran gagal
+	 */
 	private static byte[] readBlobBytes(Blob blob) throws Exception {
 		if (blob == null) {
 			return null;
@@ -2699,6 +2899,22 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Membatalkan transaksi tanpa pernah melempar, aman dipanggil berulang dan pada
+	 * transaksi yang sudah selesai.
+	 *
+	 * <p>Dipakai pada jalur pembacaan {@code ambil()} dan {@code readSourceBlobBytes()},
+	 * yang keduanya memanggilnya dua kali: sekali di jalur normal, sekali lagi di blok
+	 * {@code finally}. Agar pemanggilan kedua tidak berakibat apa-apa, kedua method itu
+	 * menyetel variabel transaksinya menjadi {@code null} segera setelah pemanggilan
+	 * pertama &mdash; pola yang harus dipertahankan bila kode di sekitarnya diubah.</p>
+	 *
+	 * <p>Kegagalan {@code rollback} hanya dicatat ke {@code ErrorAuditUtil}. Ini memang
+	 * yang diinginkan pada blok {@code finally}: kesalahan saat membereskan tidak boleh
+	 * menutupi kesalahan asli yang sedang menuju pemanggil.</p>
+	 *
+	 * @param transaction transaksi yang hendak dibatalkan; {@code null} diabaikan
+	 */
 	private static void rollbackQuietly(Transaction transaction) {
 		if (transaction != null) {
 			try {
@@ -2708,6 +2924,27 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Menentukan nama yang dicatat pada kolom audit {@code oleh}, dengan urutan
+	 * penelusuran yang tetap.
+	 *
+	 * <p>Diperiksa berurutan dan yang pertama terisi menang: mahasiswa, dosen, pegawai,
+	 * lalu nama pengguna itu sendiri sebagai pilihan terakhir. Urutan ini bermakna bagi
+	 * pengguna yang tertaut ke lebih dari satu peran &mdash; seorang dosen yang juga
+	 * berstatus mahasiswa akan tercatat dengan nama dari sisi mahasiswanya.</p>
+	 *
+	 * <p>Pengguna {@code null} menghasilkan {@code "external_update"}, menandai perubahan
+	 * yang terjadi tanpa sesi pengguna &mdash; misalnya lewat integrasi atau proses
+	 * terjadwal. Nilai itu adalah teks biasa, bukan penanda khusus, sehingga secara teori
+	 * dapat bertabrakan dengan nama pengguna yang kebetulan sama.</p>
+	 *
+	 * <p>Nama yang dikembalikan <b>disalin</b> ke baris lampiran pada saat penyimpanan dan
+	 * tidak pernah disegarkan sesudahnya; lihat {@code getOleh()} untuk alasan mengapa
+	 * sifat itu memang diinginkan pada field audit bayangan.</p>
+	 *
+	 * @param user pengguna yang sedang menyimpan; boleh {@code null}
+	 * @return nama untuk kolom audit, atau {@code "external_update"} bila tanpa pengguna
+	 */
 	private static String getNamaOleh(Tbmuser user) {
 		if (user == null)
 			return "external_update";
@@ -2720,6 +2957,88 @@ public abstract class FileFotoLain extends FileFoto {
 		return user.getUserNama();
 	}
 
+	/**
+	 * <b>Pelaksana penghapusan lampiran untuk seluruh keluarga entitas berkas.</b>
+	 * Namanya sudah menyiratkan intinya: kadang menghapus, kadang hanya memperbarui
+	 * &mdash; dan pada satu golongan kelas, tidak melakukan apa-apa sama sekali.
+	 *
+	 * <h2>Tiga perilaku yang sangat berbeda</h2>
+	 * <ol>
+	 *   <li><b>{@code usingId = true} &rarr; penghapusan sungguhan.</b> HQL
+	 *       {@code delete from <entitas> where id = :ref} dijalankan, ditambah
+	 *       {@code and jenis = :jenis} bila kelasnya memang punya properti {@code jenis}.
+	 *       Barisnya benar-benar hilang.</li>
+	 *   <li><b>{@code usingId = false} pada kelas berrelasi biasa &rarr; penghapusan
+	 *       lunak.</b> HQL {@code update <entitas> set <refField> = :softDel where
+	 *       <refField> = :ref} dijalankan dengan {@code softDel} bernilai
+	 *       {@code SOFT_DELETE_ID}. <b>Baris tetap ada</b> beserta seluruh isi berkasnya,
+	 *       dan primary key-nya tidak berubah. Yang terjadi hanyalah baris itu tidak lagi
+	 *       ditemukan pencarian berbasis pemilik. Pencarian berbasis primary key &mdash;
+	 *       yaitu {@code ambil()} dengan {@code usingId = true}, yang memang tidak melihat
+	 *       kolom acuan pemilik sama sekali &mdash; tetap menemukannya seperti semula.</li>
+	 *   <li><b>{@code usingId = false} pada kelas ber-{@code refField} {@code "id"} &rarr;
+	 *       tidak ada perubahan apa pun.</b> Cabangnya kosong; hanya berisi komentar yang
+	 *       menimbang bahwa primary key tidak boleh ditimpa sembarangan. Golongan ini
+	 *       mencakup {@code TugasFileContent}, {@code PertemuanFileContent},
+	 *       {@code AudioPertemuan}, {@code VideoPertemuan}, <b>serta setiap kelas yang
+	 *       tidak terdaftar di {@code RELASI_MAP}</b> karena {@code getRefField()}
+	 *       mengembalikan {@code "id"} sebagai nilai bawaan.</li>
+	 * </ol>
+	 *
+	 * <p><b>Akibat golongan ketiga.</b> Karena {@code createFileFotoLain()} memanggil
+	 * method ini lebih dahulu lalu tetap menyimpan baris baru, mengunggah ulang lampiran
+	 * pada kelas golongan ini akan <b>menumpuk baris</b>, bukan menggantinya.
+	 * {@code ambil()} yang mengurutkan {@code Order.desc("id")} dengan
+	 * {@code setMaxResults(1)} hanya menampilkan yang terbaru sehingga dari layar terlihat
+	 * seolah berganti; seluruh versi lama tetap tersimpan lengkap dengan isinya dan tetap
+	 * dapat diambil satu per satu lewat primary key masing-masing. Penghapusan lewat
+	 * tombol hapus pada golongan ini juga tidak menghapus apa pun, padahal pesan
+	 * konfirmasinya menyebut tindakan itu permanen.</p>
+	 *
+	 * <h2>Kekhasan {@code tbmuser}</h2>
+	 * <p>Bila {@code refField} bernilai {@code "tbmuser"} ({@code FotoAdmin}), kolomnya
+	 * bertipe {@code String} sehingga sentinel dan {@code ref} sama-sama
+	 * di-{@code String}-kan lebih dahulu agar tipe parameternya cocok.</p>
+	 *
+	 * <h2>Pendeteksian properti {@code jenis}</h2>
+	 * <p>Keberadaan {@code jenis} diperiksa reflektif dengan mencoba
+	 * {@code getMethod("getJenis")} dan menangkap {@code NoSuchMethodException}.
+	 * Perhatikan bahwa pemeriksaan ini <b>berbeda</b> dari perhitungan {@code adaJenis}
+	 * pada {@code ambil()}, yang juga mematikan penyaringan berdasarkan pola nama kelas
+	 * ({@code Foto*}, {@code *FileContent}). Akibatnya, sebuah kelas {@code Foto*} yang
+	 * memiliki properti {@code jenis} akan <b>dihapus dengan penyaringan {@code jenis}
+	 * tetapi dicari tanpa penyaringan itu</b>. Ketidakselarasan antara jalur baca dan
+	 * jalur hapus ini perlu diingat siapa pun yang menelusuri mengapa sebuah lampiran
+	 * tidak hilang setelah dihapus.</p>
+	 *
+	 * <h2>Transaksi dan penanganan kesalahan</h2>
+	 * <p>Method ini memulai transaksinya sendiri pada {@code session} yang diberikan
+	 * dengan {@code session.getTransaction().begin()} lalu meng-{@code commit}-nya
+	 * &mdash; artinya ia <b>mengambil alih</b> transaksi pemanggil, bukan bergabung
+	 * dengannya. Pemanggil yang sudah membuka transaksi pada session yang sama akan
+	 * menemukan transaksinya sudah ter-{@code commit} ketika method ini kembali.</p>
+	 * <p><b>Seluruh kesalahan ditelan.</b> Blok {@code catch} terluar hanya mencoba
+	 * {@code rollback} lalu selesai; tidak ada pelemparan ulang, tidak ada pencatatan,
+	 * dan baris pencatatannya pun dikomentari. Method bertipe {@code void} ini karena itu
+	 * <b>tidak pernah memberi tahu pemanggil apakah penghapusan berhasil</b>. Baik
+	 * {@code performDelete()} maupun {@code createFileFotoLain()} melanjutkan alurnya
+	 * seolah berhasil. Ini jalur kegagalan senyap yang paling perlu diwaspadai pada kelas
+	 * ini: kegagalan penghapusan lama pada {@code createFileFotoLain()} berarti lampiran
+	 * baru tersimpan berdampingan dengan yang lama, tanpa tanda apa pun.</p>
+	 *
+	 * <p>Cache metadata dibatalkan lebih dahulu lewat {@code resetLokasi(...)} &mdash;
+	 * hanya varian yang sesuai {@code usingId}, sesuai catatan pada method tersebut.</p>
+	 *
+	 * @param a       instance entitas yang dipakai untuk mengetahui kelas target lewat
+	 *                {@code ambilClazz()}; boleh berupa instance kosong yang tidak
+	 *                mewakili baris mana pun (lihat {@code performDelete()})
+	 * @param session session Hibernate tempat HQL dijalankan; transaksinya diambil alih
+	 * @param usingId {@code true} menjalankan {@code DELETE} berbasis primary key;
+	 *                {@code false} menjalankan penghapusan lunak atau tidak sama sekali
+	 * @param ref     primary key lampiran bila {@code usingId}, selain itu acuan pemilik
+	 * @param jenis   penanda jenis lampiran; dipakai bila kelasnya punya properti
+	 *                {@code jenis}
+	 */
 	public static void hapusAtauUpdate(FileFotoLain a, Session session, boolean usingId, Serializable ref,
 			String jenis) {
 		try {
