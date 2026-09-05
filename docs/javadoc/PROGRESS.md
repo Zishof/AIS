@@ -1,5 +1,86 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 95 — SELESAI 100% (4 Sep 2026) — PIVOT ke paket `asset`; 3 task baru (`task_c8d09f38`, `task_efbc8ae8`, `task_578b720b`)
+
+30 file selesai (batch pertama domain baru `asset`/manajemen aset
+tetap), semua dikompilasi `-implicit:none` bersih via PowerShell, WC
+mirror disinkron via `svn update`, `cmp` byte-identik. **Catatan
+proses**: 4 dari 5 agent batch ini terkena limit mingguan API
+(reset 9 Sep) tepat di LANGKAH TERAKHIR (sinkronisasi/verifikasi
+akhir) — SELURUH pekerjaan dokumentasi inti sudah ter-commit
+sebelum terputus, diverifikasi lengkap via `svn log`+scan javadoc,
+tidak ada kerja hilang. Konsisten dengan pola "agent rate-limited
+aman, kerja sudah tersimpan" yang sudah tercatat di memori.
+
+- **`Asset.java`** (r84317) + **`AssetDetail.java`** (r84324) +
+  **`MasterAsset.java`** (r84330) + **`KelompokAsset.java`**
+  (r84336) — 100%. **Relasi TIGA TINGKAT dikonfirmasi** (bukan
+  header/detail biasa): `KelompokAsset`(kelompok berjenjang, MURNI
+  TAMPILAN, tidak ada pewarisan akun/umur-pakai nyata) →
+  `MasterAsset`(katalog jenis barang, TIDAK ada kolom tenant) →
+  `Asset`(kepemilikan SATU jenis oleh SATU satuan kerja — bukan
+  unit fisik) → `AssetDetail`(unit fisik individual, barcode/lokasi)
+  → `PenyusutanAsset`. Tenant SATU TINGKAT (`satuan_kerja` langsung
+  di `Asset`/`AssetDetail`, mirip `Toko`) tapi NILAI TIDAK OTORITATIF
+  (diturunkan ulang dari rantai dokumen asal). Hanya `AssetDetail`
+  terdaftar Generic CRUD v2 (READ_ONLY, scope AKTIF — tidak ada gap
+  whitelist di sini). **Task baru `task_c8d09f38`**: penjaga tanggal
+  terbalik `getTahun()`/`getBulan()` (kondisi mustahil true) membuat
+  kolom selalu null → nomor urut barcode SELALU mulai dari 1 →
+  barcode KEMBAR untuk semua unit di kelompok yang resetnya
+  tahunan/bulanan.
+- **`PenyediaAsset.java`** (r84338+, 894→1705 baris) +
+  **`PenyediaAssetPunyaDokumen.java`** (r84338) +
+  **`DokumenPenyediaAsset.java`** (r84333) +
+  **`JenisPenyediaAsset.java`** + **`KategoriPenyediaAsset.java`** +
+  **`StatusPenyediaAsset.java`** — 100%. **Task baru
+  `task_efbc8ae8`**: flag `wajib` dokumen legalitas vendor MURNI
+  DESKRIPTIF (tak ada transaksi pengadaan yang memeriksa kelengkapan
+  dokumen wajib sebelum vendor dipakai — kontras dengan
+  `DokumenAlurSop.wajib` yang justru DITEGAKKAN di modul lain);
+  `reloadDefault()` tidak pernah `setAktif()` (NULL bukan false —
+  fail-open kalau ada query eksplisit `aktif=true`); TIDAK ADA
+  constraint unik (vendor,jenis-dokumen) — duplikat tertutupi diam-
+  diam via `setMaxResults(1)` tanpa urutan pasti.
+- **`PermintaanPengadaanMasterAsset.java`** (r84330-an) +
+  **`PermintaanPengadaanMasterAssetDetail.java`** +
+  **`PemesananPengadaanMasterAsset.java`** (r84342, 909→2625 baris)
+  + **`PemesananPengadaanMasterAssetDetail.java`** — 100%.
+  **KOREKSI dugaan awal**: alur PR→PO di sini pakai FK NYATA
+  berlapis empat (BEDA dari `inventory.PengajuanPembelianGudang`
+  yang murni antrean kerja tanpa FK). **Verifikasi soal
+  `task_b62255d9`**: dokumen hulu (PR) di sini TIDAK BISA berjalan
+  dalam keadaan belum disetujui untuk jalur `pembelianLangsung` —
+  gerbang PR→PO di sini UTUH, beda dari kepegawaian. TAPI
+  `pembelianLangsung` sendiri self-approve (`getDisetujuiOleh()` =
+  `getDibuatOleh()`) — dicatat sebagai batasan diketahui, bukan task
+  (kendali bergeser ke hulu, bukan hilang total).
+- **`PenerimaanPengadaanMasterAsset.java`** (2413 baris) +
+  **`PenerimaanPengadaanMasterAssetDetail.java`** +
+  **`PembayaranPengadaanMasterAsset.java`** (r84339) +
+  **`PembayaranPengadaanMasterAssetDetail.java`** (r84344) — 100%.
+  **🚨 Task baru `task_578b720b`**: TIDAK ADA penjaga anti-lebih-
+  bayar di seluruh rantai pembayaran — nilai dibayar tidak pernah
+  dibandingkan terhadap nilai tagihan di titik simpan manapun;
+  `PemesananPengadaanMasterAsset.getLunas()` pakai `intValue()`
+  (potensi overflow 32-bit + toleransi pembulatan kasar) untuk
+  transaksi aset yang nilainya bisa sangat besar (gedung/kendaraan).
+- **Klaster katalog kecil** (12 file: `JenisAsset`, `SatuanMasterAsset`,
+  `StatusAsset`, `KategoriAsset`, `CaraPengadaanAsset`,
+  `JenisPembayaranBarang`, `JenisPajakPpn`, `JenisPajakBarang`,
+  `JenisPenerimaanBarang`, `JenisPemesananPengadaanAsset`,
+  `JenisPekerjaanPenyedia`, `JenisPengapusanBarang`) — 100%.
+  `JenisPajakBarang.reloadDefault()`/`PEMBAYARAN_TUNAI` dikonfirmasi
+  KODE MATI (tak pernah dipanggil, beda dari saudara sekelasnya).
+
+**3 task baru batch ini**: `task_c8d09f38` (barcode kembar),
+`task_efbc8ae8` (indikator kepatuhan vendor tak ditegakkan),
+`task_578b720b` (anti-lebih-bayar pengadaan aset). Domain `asset`
+terbukti fertile untuk temuan integritas finansial nilai-besar sejak
+batch pertama. Sisa ~33 file paket `asset` untuk batch berikutnya
+(perbaikan/pemakaian/peminjaman/pengembalian/penghapusan/perjanjian-
+kerjasama/saldo-awal/retur/lokasi/misc).
+
 ## 🎉 MILESTONE — paket `employ` TUNTAS 100% (4 Sep 2026, akhir batch 94) — domain KELIMA tuntas
 
 Diverifikasi: **56/56 file** `ais/database/model/employ/` kini

@@ -563,15 +563,10 @@ public class CalonAnggotaKoperasi extends GeneralValueObject {
 	 * </ol>
 	 *
 	 * <p>
-	 * <b>Ketidaksesuaian yang perlu diketahui pada cabang guru.</b> Syarat cabang keempat memeriksa
-	 * {@code getGuru().getNuptk()}, tetapi nilai yang <i>ditugaskan</i> diambil dari
-	 * {@code getDosen().getNuptk()} — sumber yang berbeda dari yang diperiksa. Akibatnya, untuk calon
-	 * yang hanya berelasi guru (dosen kosong) cabang ini melempar {@link NullPointerException}
-	 * alih-alih menghasilkan kode, dan untuk calon yang berelasi guru sekaligus dosen kode yang
-	 * tersimpan adalah NUPTK milik dosennya. Perilaku ini <b>tidak diubah</b> di sini; ia
-	 * didokumentasikan apa adanya agar pemanggil tidak menganggap cabang guru dapat diandalkan.
-	 * Kelas cerminnya, {@link AnggotaKoperasi}, memakai rantai penurunan yang setara — periksa
-	 * keduanya bersama-sama bila cabang ini hendak diperbaiki.
+	 * Cabang keempat memeriksa dan menugaskan dari sumber yang sama, {@code getGuru().getNuptk()},
+	 * sejalan dengan cabang-cabang lainnya yang masing-masing memeriksa dan mengambil nilai dari
+	 * getter identitas yang sama. Kelas cerminnya, {@link AnggotaKoperasi}, memakai rantai penurunan
+	 * yang setara pada {@link AnggotaKoperasi#getKode()}.
 	 * </p>
 	 *
 	 * <p>
@@ -594,7 +589,7 @@ public class CalonAnggotaKoperasi extends GeneralValueObject {
 					&& !getSiswa().getNomorInduk().trim().isEmpty()) {
 				kode = getSiswa().getNomorInduk();
 			} else if (getGuru() != null && getGuru().getNuptk() != null && !getGuru().getNuptk().trim().isEmpty()) {
-				kode = getDosen().getNuptk();
+				kode = getGuru().getNuptk();
 			} else if (kode == null) {
 				kode = BarcodeCommon.generateCode();
 			}

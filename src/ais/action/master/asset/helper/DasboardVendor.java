@@ -228,24 +228,31 @@ public final class DasboardVendor {
 					ais.database.model.asset.PenyediaAssetPunyaDokumen.BELUM);
 
 			// Pemenuhan dokumen WAJIB: vendor yang sudah mengunggah SEMUA dokumen wajib (yang aktif).
+			// Catatan: kolom "aktif" pada DokumenPenyediaAsset bisa NULL (baris bawaan reloadDefault()
+			// tidak pernah memanggil setAktif(...)); idiom di basis kode ini memperlakukan NULL sebagai
+			// aktif (lihat DokumenPenyediaAsset.getAktif() dan DokumenPenyediaAssetAction.initCriteria()),
+			// sehingga setiap query di sini WAJIB toleran NULL, bukan "dok.aktif = true" langsung.
 			d.totalDokumenWajib = ambilLong(session.createQuery(
-					"select count(dok.id) from DokumenPenyediaAsset dok where dok.wajib = true and dok.aktif = true")
+					"select count(dok.id) from DokumenPenyediaAsset dok where dok.wajib = true and (dok.aktif is null or dok.aktif = true)")
 					.uniqueResult());
 			if (d.totalDokumenWajib <= 0) {
-				// Tidak ada dokumen yang diwajibkan → seluruh vendor dianggap "lengkap".
-				d.vendorLengkapWajib = d.total;
+				// Tidak ada dokumen wajib aktif yang terdaftar → kepatuhan TIDAK DAPAT DINILAI.
+				// (Sebelumnya kode ini menganggap seluruh vendor "lengkap", positif palsu yang
+				// menyesatkan karena tidak ada satu pun dokumen yang benar-benar diperiksa.)
+				d.vendorLengkapWajib = 0;
+				d.dokumenWajibTidakTerdaftar = true;
 			} else {
 				List idsLengkap = session.createQuery(
 						"select pd.penyediaAsset.id from PenyediaAssetPunyaDokumen pd join pd.dokumenPenyediaAsset dok "
-								+ "where dok.wajib = true and dok.aktif = true group by pd.penyediaAsset.id "
+								+ "where dok.wajib = true and (dok.aktif is null or dok.aktif = true) group by pd.penyediaAsset.id "
 								+ "having count(distinct pd.dokumenPenyediaAsset.id) >= " + d.totalDokumenWajib).list();
 				d.vendorLengkapWajib = idsLengkap == null ? 0 : idsLengkap.size();
 
 				List rowsUpload = session.createQuery("select dok.nama, count(distinct pd.penyediaAsset.id) "
 						+ "from PenyediaAssetPunyaDokumen pd join pd.dokumenPenyediaAsset dok "
-						+ "where dok.wajib = true and dok.aktif = true group by dok.nama").list();
+						+ "where dok.wajib = true and (dok.aktif is null or dok.aktif = true) group by dok.nama").list();
 				List rowsWajib = session.createQuery(
-						"select dok.nama from DokumenPenyediaAsset dok where dok.wajib = true and dok.aktif = true")
+						"select dok.nama from DokumenPenyediaAsset dok where dok.wajib = true and (dok.aktif is null or dok.aktif = true)")
 						.list();
 				isiDokumenWajibKurang(d, rowsWajib, rowsUpload);
 			}
@@ -498,11 +505,14 @@ public final class DasboardVendor {
 				toDoubleMap(d.perStatusDokumen), false, "Belum ada berkas vendor yang diunggah."));
 
 		LinkedHashMap<String, Double> pemenuhanWajib = new LinkedHashMap<String, Double>();
-		pemenuhanWajib.put("Lengkap", (double) d.vendorLengkapWajib);
-		pemenuhanWajib.put("Belum Lengkap", (double) Math.max(0, d.total - d.vendorLengkapWajib));
+		if (!d.dokumenWajibTidakTerdaftar) {
+			pemenuhanWajib.put("Lengkap", (double) d.vendorLengkapWajib);
+			pemenuhanWajib.put("Belum Lengkap", (double) Math.max(0, d.total - d.vendorLengkapWajib));
+		}
 		sb.append(DashboardUiKit.donut("Pemenuhan Dokumen Wajib",
 				"Berapa banyak vendor yang sudah mengunggah SEMUA dokumen yang diwajibkan.",
-				pemenuhanWajib, false, "Belum ada dokumen yang ditetapkan wajib."));
+				pemenuhanWajib, false,
+				"Belum ada dokumen wajib aktif yang terdaftar — kepatuhan belum dapat dinilai."));
 
 		sb.append(DashboardUiKit.barList("Dokumen Wajib Paling Sering Belum Diunggah",
 				"Dokumen wajib yang paling banyak belum dipenuhi vendor ada di urutan atas — paling perlu ditagih.",
@@ -531,7 +541,9 @@ public final class DasboardVendor {
 		insight.put("Jenis terbanyak", namaTerbanyak(d.perJenis));
 		insight.put("Berkas paling perlu dilengkapi", berkasPalingKosong(d));
 		insight.put("Berkas menunggu diperiksa", jumlahMenungguVerifikasi(d) + " berkas");
-		insight.put("Vendor belum lengkap dokumen wajib", Math.max(0, d.total - d.vendorLengkapWajib) + " vendor");
+		insight.put("Vendor belum lengkap dokumen wajib", d.dokumenWajibTidakTerdaftar
+				? "Tidak dapat dinilai (belum ada dokumen wajib aktif terdaftar)"
+				: Math.max(0, d.total - d.vendorLengkapWajib) + " vendor");
 		insight.put("Dokumen sudah kedaluwarsa", d.dokumenKedaluwarsa + " berkas");
 		insight.put("Dokumen akan kedaluwarsa (≤30 hari)", d.dokumenSegeraKedaluwarsa + " berkas");
 		sb.append(DashboardUiKit.insight("Ringkasan Cepat", "Hal-hal yang paling perlu diperhatikan saat ini.",
@@ -730,6 +742,8 @@ public final class DasboardVendor {
 		final LinkedHashMap<String, Double> dokumenWajibKurang = new LinkedHashMap<String, Double>();
 		long totalDokumenWajib;
 		long vendorLengkapWajib;
+		/** true bila tidak ada dokumen wajib AKTIF terdaftar → kepatuhan tidak dapat dinilai (lihat muatData()). */
+		boolean dokumenWajibTidakTerdaftar;
 		long dokumenKedaluwarsa;
 		long dokumenSegeraKedaluwarsa;
 		final List<String> trenLabel = new ArrayList<String>();
