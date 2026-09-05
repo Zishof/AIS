@@ -61,6 +61,33 @@ public final class RepositorySyncScheduler {
 	}
 
 	public static RepositorySyncService.SyncSummary jalankanSekali() {
+		RepositorySyncService.SyncSummary summary = null;
+		RuntimeException kegagalanTerakhir = null;
+		for (int percobaan = 1; percobaan <= 2; percobaan++) {
+			try {
+				summary = jalankanSatuPercobaan();
+				if (!summary.isConnectionLost() || percobaan >= 2) {
+					return summary;
+				}
+				System.out.println("[Repository] Koneksi database terputus; sinkronisasi dicoba ulang "
+						+ "sekali memakai session baru.");
+			} catch (RuntimeException error) {
+				kegagalanTerakhir = error;
+				if (!HibernateUtil.isConnectionDead(error) || percobaan >= 2) {
+					throw error;
+				}
+				System.out.println("[Repository] Session pertama kehilangan koneksi; membuka session baru "
+						+ "untuk satu percobaan ulang.");
+			}
+		}
+		if (kegagalanTerakhir != null) {
+			throw kegagalanTerakhir;
+		}
+		return summary;
+	}
+
+	/** Satu siklus selalu memiliki session sendiri dan selalu ditutup di finally. */
+	private static RepositorySyncService.SyncSummary jalankanSatuPercobaan() {
 		Session session = null;
 		try {
 			session = HibernateUtil.openSession();
