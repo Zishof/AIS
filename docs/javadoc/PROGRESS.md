@@ -1,5 +1,47 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `repository` TUNTAS 100% (6 Sep 2026, akhir batch 119) — domain KEDUA PULUH EMPAT tuntas, 0 task baru
+
+Diverifikasi: **13/13 file** `ais/database/model/repository/` kini
+punya Javadoc substansial. Selesai dalam SATU batch (119, 2 agent
+paralel). Domain kedua puluh empat yang tuntas penuh. Integrasi
+repositori ilmiah bergaya DSpace (istilah Item/Collection/Bitstream
+baku DSpace) — AKTIF (27+ file service di `ais.action.master.repository`,
+termasuk self-test `RepositoryFileSecuritySelfTest`).
+
+**Klaster item/koleksi/bitstream** (6 file, r85206-r85216). Tidak ada
+`@MappedSuperclass` tenant generik di sini (beda dari `sosial`/`tenant`/
+`jurnal`) — semua entity `extends GeneralValueObject` langsung.
+`RepoBitstream.pathSistem` dikonfirmasi penyimpanan PRIMER independen;
+`LampiranLain` cuma fallback SEKUNDER saat resolusi utama gagal.
+`RepoItemMetadata` dikonfirmasi skema Dublin Core key-value fleksibel
+(bukan kolom tetap). **Kontras positif penting**: `RepoItemContributor`
+JUSTRU PUNYA kolom `sequence_number` eksplisit + diurutkan benar oleh
+`RepositoryPublicService` (`Order.asc("sequenceNumber")`) — berbeda
+dari pola "tanpa urutan penulis" yang berulang di
+`library.ItemPunyaPengarang`/`penelitiandanpengabdian.AnggotaArtikel`.
+Verifikasi keamanan: `RepositoryPublicService` menggabungkan filter
+`accessPolicy=OPEN_ACCESS`+`tenantKey`+`isWithdrawn=false`+`aktif`+status
+sync/workflow sebelum tampil publik; `RepositoryTenantScope.currentKey()`
+SENGAJA tidak backfill otomatis (mencegah kebocoran lintas tenant pada
+baris lama); endpoint publik cuma expose ORCID, bukan NIP/NIM/email
+institusional.
+
+**Klaster event/notifikasi/preferensi** (7 file, r85203-r85212, agent
+penutup). **`RepoWorkflowEvent` DIKONFIRMASI memakai state machine
+INDEPENDEN** (`ais.action.master.repository.RepositoryWorkflowService`)
+— BUKAN mesin `AlurSop`/`DisposisiSop` generik yang baru terkonfirmasi
+akar bypass-persetujuan (`task_c595deee`). Gerbang transisi SERVER-SIDE
+yang SAH: tabel transisi eksplisit (`requireTransition`), cek peran
+aktor (`requireReviewer`/`requireDepositor`), optimistic locking
+(`verifyVersion`) sebelum baris event ditulis — **BUKAN instance baru
+bypass-persetujuan**. Semua entity event (`RepoUsageEvent`/
+`RepoIntegrationEvent`/`RepoHelpFeedback`) append-only tanpa Envers,
+konsisten pola log volume tinggi.
+
+**0 task baru batch 119**. Total akumulasi 119 sesi: **1456+ file**
+dari 7.401 (~37,5%).
+
 ## 🎉 MILESTONE — paket `hotel` TUNTAS 100% (6 Sep 2026, akhir batch 118) — domain KEDUA PULUH TIGA tuntas
 
 Diverifikasi: **11/11 file** `ais/database/model/hotel/` kini punya
