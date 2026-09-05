@@ -546,6 +546,21 @@ public class Artikel extends DataSop {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Mengembalikan id artikel pada sistem repositori eksternal.
+	 *
+	 * <p><b>Sentinel negatif saat belum diisi:</b> kolom ini {@code unique = true, nullable = false}
+	 * di basis data, sementara artikel yang baru dibuat lokal (belum pernah diekspor/didaftarkan ke
+	 * repositori eksternal) tidak punya id asli. Untuk memenuhi kendala kolom tanpa menabrak
+	 * keunikan antar baris, method ini <b>membangkitkan sekali</b> (lalu menyimpannya ke field,
+	 * sehingga panggilan berikutnya konsisten) sebuah angka acak negatif lewat
+	 * {@link ThreadLocalRandom} ketika field masih {@code null}. Nilai negatif dipakai sebagai
+	 * penanda "belum terdaftar di repositori eksternal" dan sengaja tidak akan pernah bentrok
+	 * dengan id repositori asli (yang selalu positif) — lihat pemakaiannya di {@link #getStatus()}.</p>
+	 *
+	 * @return id artikel pada repositori eksternal bila sudah terdaftar (positif), atau sentinel
+	 *         negatif hasil bangkitan acak bila belum
+	 */
 	@Column(name = "article_id", unique = true, nullable = false)
 	public Integer getArticleId() {
 		if (articleId == null) {
@@ -554,10 +569,21 @@ public class Artikel extends DataSop {
 		return articleId;
 	}
 
+	/**
+	 * Menyetel id artikel pada sistem repositori eksternal, biasanya oleh proses
+	 * ekspor/pendaftaran ke repositori tersebut.
+	 *
+	 * @param articleId id artikel baru; nilai positif menandakan sudah terdaftar
+	 */
 	public void setArticleId(Integer articleId) {
 		this.articleId = articleId;
 	}
 
+	/**
+	 * Mengembalikan ISSN (cetak) jurnal tempat artikel diterbitkan.
+	 *
+	 * @return ISSN, atau string kosong bila belum diisi (tidak pernah {@code null})
+	 */
 	public String getIssn() {
 		if (issn == null) {
 			issn = "";
@@ -565,10 +591,20 @@ public class Artikel extends DataSop {
 		return issn;
 	}
 
+	/**
+	 * Menyetel ISSN (cetak) jurnal.
+	 *
+	 * @param issn ISSN baru
+	 */
 	public void setIssn(String issn) {
 		this.issn = issn;
 	}
 
+	/**
+	 * Mengembalikan e-ISSN (elektronik) jurnal tempat artikel diterbitkan.
+	 *
+	 * @return e-ISSN, atau string kosong bila belum diisi (tidak pernah {@code null})
+	 */
 	public String geteIssn() {
 		if (eIssn == null) {
 			eIssn = "";
@@ -576,10 +612,25 @@ public class Artikel extends DataSop {
 		return eIssn;
 	}
 
+	/**
+	 * Menyetel e-ISSN (elektronik) jurnal.
+	 *
+	 * @param eIssn e-ISSN baru
+	 */
 	public void seteIssn(String eIssn) {
 		this.eIssn = eIssn;
 	}
 
+	/**
+	 * Mengembalikan nomor volume jurnal.
+	 *
+	 * <p><b>Ditimpa hasil parse SINTA:</b> bila {@link #sintaArticle} tertaut, teks volume mentah
+	 * dari SINTA ({@code sintaArticle.getVol()}) diuraikan lewat {@link #parseVolumeSinta(String)};
+	 * bila berhasil menemukan angka volume, nilai lokal ditimpa. Bila field lokal masih
+	 * {@code null}, terlebih dulu didefaultkan ke {@code 0}.</p>
+	 *
+	 * @return nomor volume; default {@code 0} bila belum diisi dan tidak dapat diuraikan dari SINTA
+	 */
 	public Integer getVol() {
 		if (vol == null) {
 			vol = 0;
@@ -592,6 +643,33 @@ public class Artikel extends DataSop {
 		return vol;
 	}
 
+	/**
+	 * Menguraikan angka volume dari teks volume mentah hasil pengambilan data SINTA.
+	 *
+	 * <p>Data SINTA untuk bidang volume tidak selalu berupa angka murni — pengambilan data lama
+	 * kadang menyimpan cuplikan sitasi lengkap di bidang yang sama, misalnya
+	 * {@code "2548-9836 5 (1), 14-25"} (ISSN, lalu volume, lalu nomor terbitan dalam kurung, lalu
+	 * rentang halaman). Method ini mencoba beberapa strategi berurutan:</p>
+	 * <ol>
+	 *   <li>Parse langsung sebagai angka utuh ({@link Integer#valueOf(String)}) — berhasil untuk
+	 *       data yang memang hanya berisi angka volume.</li>
+	 *   <li>Bila gagal, coba tiga pola regex berurutan sampai salah satu cocok:
+	 *       <ul>
+	 *         <li>ISSN diikuti angka volume lalu tanda kurung buka, mis.
+	 *             {@code "2548-9836 5 ("};</li>
+	 *         <li>kata "vol"/"volume" (tanpa membedakan huruf besar/kecil) diikuti angka;</li>
+	 *         <li>angka apa pun yang langsung diikuti tanda kurung buka, sebagai jaring pengaman
+	 *             paling longgar.</li>
+	 *       </ul>
+	 *   </li>
+	 * </ol>
+	 * <p>Bila tidak ada pola yang cocok, atau angka yang tertangkap regex ternyata tidak valid
+	 * (mis. terlalu besar untuk {@code Integer}), method mengembalikan {@code null} — pemanggil
+	 * ({@link #getVol()}) mempertahankan nilai volume lokal yang sudah ada dalam kasus ini.</p>
+	 *
+	 * @param nilai teks volume mentah dari SINTA; boleh {@code null}
+	 * @return angka volume hasil parse, atau {@code null} bila kosong atau tidak dapat diuraikan
+	 */
 	private Integer parseVolumeSinta(String nilai) {
 		if (nilai == null || nilai.trim().length() == 0) {
 			return null;
@@ -621,10 +699,23 @@ public class Artikel extends DataSop {
 		return null;
 	}
 
+	/**
+	 * Menyetel nomor volume jurnal secara manual. Lihat catatan penimpaan pada {@link #getVol()}.
+	 *
+	 * @param vol nomor volume baru
+	 */
 	public void setVol(Integer vol) {
 		this.vol = vol;
 	}
 
+	/**
+	 * Mengembalikan nomor terbitan/halaman jurnal.
+	 *
+	 * <p><b>Ditimpa sumber eksternal:</b> bila {@link #sintaArticle} tertaut dan bidang halamannya
+	 * tidak kosong, nilai lokal ditimpa dengan {@code sintaArticle.getPage()}.</p>
+	 *
+	 * @return nomor terbitan/halaman, dapat {@code null} bila belum diisi dan tidak ada data SINTA
+	 */
 	public String getNomor() {
 		if (sintaArticle != null && !sintaArticle.getPage().trim().isEmpty()) {
 			nomor = sintaArticle.getPage();
@@ -632,45 +723,113 @@ public class Artikel extends DataSop {
 		return nomor;
 	}
 
+	/**
+	 * Menyetel nomor terbitan/halaman jurnal secara manual. Lihat catatan penimpaan pada
+	 * {@link #getNomor()}.
+	 *
+	 * @param nomor nomor terbitan/halaman baru
+	 */
 	public void setNomor(String nomor) {
 		this.nomor = nomor;
 	}
 
+	/**
+	 * Mengembalikan URL lisensi (mis. Creative Commons) yang berlaku atas artikel.
+	 *
+	 * @return URL lisensi, dapat {@code null} bila belum diisi
+	 */
 	public String getLicenseURL() {
 		return licenseURL;
 	}
 
+	/**
+	 * Menyetel URL lisensi artikel.
+	 *
+	 * @param licenseURL URL lisensi baru
+	 */
 	public void setLicenseURL(String licenseURL) {
 		this.licenseURL = licenseURL;
 	}
 
+	/**
+	 * Mengembalikan tahun hak cipta artikel.
+	 *
+	 * @return tahun hak cipta, dapat {@code null} bila belum diisi
+	 */
 	public Integer getCopyrightYear() {
 		return copyrightYear;
 	}
 
+	/**
+	 * Menyetel tahun hak cipta artikel.
+	 *
+	 * @param copyrightYear tahun hak cipta baru
+	 */
 	public void setCopyrightYear(Integer copyrightYear) {
 		this.copyrightYear = copyrightYear;
 	}
 
+	/**
+	 * Mengembalikan pemegang hak cipta artikel.
+	 *
+	 * @return pemegang hak cipta yang sudah di-{@code trim()}, atau label universitas dari
+	 *         konfigurasi ({@code Common.getKonfigurasi("label_universitas", "")}) bila belum diisi
+	 *         atau hanya berisi spasi
+	 */
 	public String getCopyrightHolder() {
 		return copyrightHolder == null || copyrightHolder.trim().isEmpty()
 				? Common.getKonfigurasi("label_universitas", "").getNilai()
 				: copyrightHolder.trim();
 	}
 
+	/**
+	 * Menyetel pemegang hak cipta artikel.
+	 *
+	 * @param copyrightHolder pemegang hak cipta baru
+	 */
 	public void setCopyrightHolder(String copyrightHolder) {
 		this.copyrightHolder = copyrightHolder;
 	}
 
+	/**
+	 * Mengembalikan sponsor/penyandang dana artikel.
+	 *
+	 * @return sponsor yang sudah di-{@code trim()}, atau label universitas dari konfigurasi
+	 *         ({@code Common.getKonfigurasi("label_universitas", "")}) bila belum diisi atau hanya
+	 *         berisi spasi
+	 */
 	public String getSponsor() {
 		return sponsor == null || sponsor.trim().isEmpty() ? Common.getKonfigurasi("label_universitas", "").getNilai()
 				: sponsor.trim();
 	}
 
+	/**
+	 * Menyetel sponsor/penyandang dana artikel.
+	 *
+	 * @param sponsor sponsor baru
+	 */
 	public void setSponsor(String sponsor) {
 		this.sponsor = sponsor;
 	}
 
+	/**
+	 * Mengembalikan tahun terbit artikel.
+	 *
+	 * <p><b>Ditimpa sumber eksternal, dengan fallback bertingkat:</b></p>
+	 * <ol>
+	 *   <li>Bila {@link #scholarArticle} tertaut, keterangannya di-parse sebagai JSON dan tahun
+	 *       diambil dari bagian pertama bidang {@code "Tanggal terbit"} (dipisah {@code "/"}).
+	 *       Kegagalan parse (bukan JSON, bidang tidak ada, atau bukan angka) dibiarkan diam-diam —
+	 *       nilai {@link #tahun} lama tetap dipakai.</li>
+	 *   <li>Bila tidak, dan {@link #sintaArticle} tertaut, tahun diambil dari
+	 *       {@code sintaArticle.getTahun()}.</li>
+	 *   <li>Bila setelah kedua langkah di atas tahun masih {@code null} (tidak ada tautan
+	 *       eksternal, atau keduanya gagal mengisi), dipakai tahun kalender berjalan sebagai
+	 *       fallback terakhir.</li>
+	 * </ol>
+	 *
+	 * @return tahun terbit; tidak pernah {@code null}
+	 */
 	public Integer getTahun() {
 
 		if (scholarArticle != null) {
@@ -692,10 +851,25 @@ public class Artikel extends DataSop {
 		return tahun;
 	}
 
+	/**
+	 * Menyetel tahun terbit artikel secara manual. Lihat catatan penimpaan pada
+	 * {@link #getTahun()}.
+	 *
+	 * @param tahun tahun terbit baru
+	 */
 	public void setTahun(Integer tahun) {
 		this.tahun = tahun;
 	}
 
+	/**
+	 * Mengembalikan tautan/referensi ke sumber artikel.
+	 *
+	 * <p><b>Ditimpa sumber eksternal:</b> bila {@link #scholarArticle} tertaut, referensi diambil
+	 * dari {@code scholarArticle.getLink()}; bila tidak, dan {@link #sintaArticle} tertaut,
+	 * referensi diambil dari {@code sintaArticle.getLink()}.</p>
+	 *
+	 * @return tautan referensi, dapat {@code null} bila belum diisi dan tidak ada tautan eksternal
+	 */
 	@Column(name = "referensi", columnDefinition = "text")
 	public String getReferensi() {
 		if (scholarArticle != null) {
@@ -706,10 +880,22 @@ public class Artikel extends DataSop {
 		return referensi;
 	}
 
+	/**
+	 * Menyetel tautan/referensi artikel secara manual. Lihat catatan penimpaan pada
+	 * {@link #getReferensi()}.
+	 *
+	 * @param referensi tautan referensi baru
+	 */
 	public void setReferensi(String referensi) {
 		this.referensi = referensi;
 	}
 
+	/**
+	 * Mengembalikan jurnal penelitian tempat artikel diterbitkan. Proxy lazy diresolusi lebih dulu
+	 * lewat {@code check()}.
+	 *
+	 * @return jurnal terkait, atau {@code null} bila belum disetel
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurnal_penelitian", nullable = true)
 	public JurnalPenelitian getJurnalPenelitian() {
@@ -717,27 +903,81 @@ public class Artikel extends DataSop {
 		return jurnalPenelitian;
 	}
 
+	/**
+	 * Menyetel jurnal penelitian tempat artikel diterbitkan.
+	 *
+	 * @param jurnalPenelitian jurnal terkait; boleh {@code null}
+	 */
 	public void setJurnalPenelitian(JurnalPenelitian jurnalPenelitian) {
 		this.jurnalPenelitian = jurnalPenelitian;
 	}
 
+	/**
+	 * Mengembalikan daftar nama anggota/kontributor artikel dalam bentuk teks bebas.
+	 *
+	 * <p>Catatan: ini adalah kolom teks terpisah, <b>bukan</b> turunan dari relasi
+	 * {@link AnggotaArtikel} — daftar anggota resmi (dengan tautan ke {@link Tbmuser}/
+	 * {@link Mahasiswa}) dikelola lewat entitas {@link AnggotaArtikel}, sedangkan bidang ini hanya
+	 * catatan teks pendukung (mis. untuk ditampilkan apa adanya di cetakan/laporan).</p>
+	 *
+	 * @return daftar anggota yang sudah di-{@code trim()}, atau string kosong bila belum diisi
+	 */
 	@Column(name = "anggota", columnDefinition = "text")
 	public String getAnggota() {
 		return anggota == null ? "" : anggota.trim();
 	}
 
+	/**
+	 * Menyetel daftar nama anggota/kontributor artikel dalam bentuk teks bebas.
+	 *
+	 * @param anggota daftar anggota baru
+	 */
 	public void setAnggota(String anggota) {
 		this.anggota = anggota;
 	}
 
+	/**
+	 * Mengembalikan URL publik/tautan unduh berkas utama artikel.
+	 *
+	 * @return URL berkas, dapat {@code null} bila belum diisi
+	 */
 	public String getPathUrl() {
 		return pathUrl;
 	}
 
+	/**
+	 * Menyetel URL publik/tautan unduh berkas utama artikel.
+	 *
+	 * @param pathUrl URL berkas baru
+	 */
 	public void setPathUrl(String pathUrl) {
 		this.pathUrl = pathUrl;
 	}
 
+	/**
+	 * Mengembalikan status ringkas artikel ini.
+	 *
+	 * <p><b>Aturan penurunan nilai</b> (dievaluasi ulang tiap panggilan, menimpa field
+	 * {@link #status} yang tersimpan):</p>
+	 * <ol>
+	 *   <li>Bila {@link #getDisetujuiOleh()} tidak {@code null} (artikel sudah disetujui lewat
+	 *       rantai disposisi {@link DisposisiSop}), status dipaksa menjadi {@link #DISETUJUI}.</li>
+	 *   <li>Bila tidak, dan field {@link #status} masih {@code null} (belum pernah diset), status
+	 *       didefaultkan ke {@link #BELUM_DIPROSES}.</li>
+	 *   <li>Masih dalam cabang yang sama, bila {@link #getArticleId()} bernilai positif (artikel
+	 *       sudah terdaftar di repositori eksternal, bukan sekadar sentinel negatif bangkitan
+	 *       otomatis), status ditimpa lagi menjadi {@link #DISETUJUI}.</li>
+	 * </ol>
+	 * <p>Konsekuensinya, nilai {@link #DITOLAK}/{@link #SEDANG_DIPROSES} yang mungkin pernah
+	 * disetel manual lewat {@link #setStatus(String)} akan tetap terlihat <em>hanya</em> selama
+	 * artikel belum disetujui lewat disposisi maupun belum terdaftar di repositori eksternal;
+	 * begitu salah satu syarat itu terpenuhi, status otomatis berubah menjadi {@link #DISETUJUI}
+	 * pada panggilan berikutnya.</p>
+	 *
+	 * @return status ringkas artikel: {@link #BELUM_DIPROSES}, {@link #DISETUJUI}, atau nilai lain
+	 *         yang tersimpan di {@link #status} bila kedua syarat penimpaan otomatis di atas belum
+	 *         terpenuhi
+	 */
 	public String getStatus() {
 
 		if (getDisetujuiOleh() != null) {
@@ -757,6 +997,13 @@ public class Artikel extends DataSop {
 		return status;
 	}
 
+	/**
+	 * Menyetel status ringkas artikel secara manual. Lihat catatan penimpaan otomatis pada
+	 * {@link #getStatus()} — nilai di sini dapat tertimpa kembali pada panggilan
+	 * {@link #getStatus()} berikutnya bila salah satu syarat persetujuan terpenuhi.
+	 *
+	 * @param status status baru
+	 */
 	public void setStatus(String status) {
 		this.status = status;
 	}
