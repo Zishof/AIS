@@ -67,7 +67,8 @@ public final class ApotikDemoProvisionHelper {
 	private static final int JUMLAH_BAHAN_RACIKAN_DEMO = 1000;
 	private static final int JUMLAH_RACIKAN_DEMO = 5000;
 	private static final int JUMLAH_ANTREAN_DEMO = 100;
-	private static final int JUMLAH_FORMULA_UAT = 250;
+	private static final int JUMLAH_FORMULA_RACIKAN_UAT = 500;
+	private static final int JUMLAH_FORMULA_PRODUKSI_UAT = 250;
 	private static final Object LOCK_PROVISION = new Object();
 	private static volatile boolean provisionBerjalan = false;
 	private static volatile boolean provisionPernahDijalankan = false;
@@ -609,14 +610,14 @@ public final class ApotikDemoProvisionHelper {
 			verifikasi.put("targetBahanRacikan", JUMLAH_BAHAN_RACIKAN_DEMO);
 			verifikasi.put("targetResepSiapJual", 500);
 			verifikasi.put("targetResepCampuranSiapTebus", 100);
-			verifikasi.put("targetFormulaRacikanOperasional", JUMLAH_FORMULA_UAT);
-			verifikasi.put("targetFormulaProduksiOperasional", JUMLAH_FORMULA_UAT);
+			verifikasi.put("targetFormulaRacikanOperasional", JUMLAH_FORMULA_RACIKAN_UAT);
+			verifikasi.put("targetFormulaProduksiOperasional", JUMLAH_FORMULA_PRODUKSI_UAT);
 			verifikasi.put("targetAntrean", JUMLAH_ANTREAN_DEMO);
 			verifikasi.put("lulus", obat >= JUMLAH_OBAT_DEMO
 					&& bahan >= JUMLAH_BAHAN_RACIKAN_DEMO && resepSiap >= 500
 					&& resepCampuranSiap >= 100
-					&& formulaRacikan >= JUMLAH_FORMULA_UAT
-					&& formulaProduksi >= JUMLAH_FORMULA_UAT
+					&& formulaRacikan >= JUMLAH_FORMULA_RACIKAN_UAT
+					&& formulaProduksi >= JUMLAH_FORMULA_PRODUKSI_UAT
 					&& antrean >= JUMLAH_ANTREAN_DEMO);
 			return verifikasi;
 		} finally {
@@ -696,7 +697,7 @@ public final class ApotikDemoProvisionHelper {
 
 	/**
 	 * Membuat formula Racikan sungguhan (bukan hanya baris item resep) dan
-	 * menautkan 250 resep demo. Ini yang dipakai endpoint kasir racikan dan UAT
+	 * menautkan 500 resep demo. Ini yang dipakai endpoint kasir racikan dan UAT
 	 * tebus resep campuran; seluruh isi adalah DATA SAMPLE, bukan formula klinis.
 	 */
 	@SuppressWarnings("unchecked")
@@ -707,10 +708,10 @@ public final class ApotikDemoProvisionHelper {
 		List<Resep> resep = session.createQuery(
 				"from Resep r where r.kode like :kode and not exists "
 				+ "(select tm.id from TransaksiMedis tm where tm.resep = r) order by r.kode")
-				.setString("kode", "RSP-DEMO-%").setMaxResults(JUMLAH_FORMULA_UAT).list();
+				.setString("kode", "RSP-DEMO-%").setMaxResults(JUMLAH_FORMULA_RACIKAN_UAT).list();
 		if (bahan.size() < 3) return 0;
 		int dibuat = 0;
-		for (int i = 1; i <= JUMLAH_FORMULA_UAT; i++) {
+		for (int i = 1; i <= JUMLAH_FORMULA_RACIKAN_UAT; i++) {
 			String kode = "RAC-UAT-" + pad(i, 4);
 			Racikan racikan = (Racikan) session.createCriteria(Racikan.class)
 					.add(Restrictions.eq("kode", kode)).setMaxResults(1).uniqueResult();
@@ -766,7 +767,7 @@ public final class ApotikDemoProvisionHelper {
 	private static int ensureFormulaProduksiUat(Session session) {
 		List<ItemMedis> hasil = session.createQuery(
 				"from ItemMedis i where i.kode like :kode order by i.kode")
-				.setString("kode", "DEMO-OBT-%").setMaxResults(JUMLAH_FORMULA_UAT).list();
+				.setString("kode", "DEMO-OBT-%").setMaxResults(JUMLAH_FORMULA_PRODUKSI_UAT).list();
 		List<ItemMedis> bahan = session.createQuery(
 				"from ItemMedis i where i.kode like :kode order by i.kode")
 				.setString("kode", "DEMO-BHN-%").setMaxResults(JUMLAH_BAHAN_RACIKAN_DEMO).list();
