@@ -559,7 +559,7 @@ public class ProfileImageUtil {
 			return ((FileFotoLain) fileFoto).createLinkUri();
 		} else if (fileFoto != null) {
 			File file = fileFoto.ambilFile();
-			return LampiranLain.ambilLinkLampiranLain(file);
+			return LampiranLain.ambilLinkLampiranLain(file, true);
 		}
 		return "";
 	}
@@ -620,11 +620,11 @@ public class ProfileImageUtil {
 				u = ((FileFotoLain) fileFoto).createLinkUri();
 				File file = ((FileFotoLain) fileFoto).ambilFile();
 				if (file != null && file.exists()) {
-					u = LampiranLain.ambilLinkLampiranLain(file);
+					u = LampiranLain.ambilLinkLampiranLain(file, true);
 				}
 			} else {
 				File file = getFileFotoLangsungOld(fileFoto, false);
-				u = LampiranLain.ambilLinkLampiranLain(file);
+				u = LampiranLain.ambilLinkLampiranLain(file, true);
 			}
 
 			Iframe iframe = new Iframe(u);
@@ -644,7 +644,7 @@ public class ProfileImageUtil {
 				u = ((FileFotoLain) fileFoto).createLinkUri();
 				File file = ((FileFotoLain) fileFoto).ambilFile();
 				if (file != null && file.exists()) {
-					u = LampiranLain.ambilLinkLampiranLain(file);
+					u = LampiranLain.ambilLinkLampiranLain(file, true);
 				}
 			} else {
 				File file = getFileFotoLangsungOld(fileFoto, false);
@@ -666,7 +666,7 @@ public class ProfileImageUtil {
 				}
 
 				if (file != null && file.exists()) {
-					u = LampiranLain.ambilLinkLampiranLain(file);
+					u = LampiranLain.ambilLinkLampiranLain(file, true);
 				}
 			}
 

@@ -2328,7 +2328,7 @@ public class PenjadwalanUtil {
 						(Integer) semester.getSelectedItem().getValue(), null, semesterPendek, minggu1.isChecked(),
 						minggu2.isChecked(), minggu3.isChecked(), minggu4.isChecked(), minggu5.isChecked(),
 						perkuliahanDimulai.getValue(), perkuliahanSampai.getValue(),
-						(Matakuliah) matakuliah.getSelectedItem().getValue()) != null) {
+						(Matakuliah) matakuliah.getSelectedItem().getValue(), rng) != null) {
 					return false;
 				}
 			}
@@ -3439,7 +3439,8 @@ public class PenjadwalanUtil {
 												kelas.getValue().trim(),
 												(Integer) semester.getSelectedItem().getValue(), null, semesterPendek,
 												true, true, true, true, true, perkuliahanDimulai.getValue(),
-												perkuliahanSampai.getValue(), matakuliah) != null) {
+												perkuliahanSampai.getValue(), matakuliah,
+												(Ruang) ruang.getAttribute("ruang")) != null) {
 											continue;
 										}
 									}
