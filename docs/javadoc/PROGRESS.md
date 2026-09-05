@@ -1,5 +1,51 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `epsbed` TUNTAS 100% (6 Sep 2026, akhir batch 112) — domain KETUJUH BELAS tuntas, 0 task baru
+
+Diverifikasi: **15/15 file** `ais/database/model/epsbed/` kini punya
+Javadoc substansial. Selesai dalam SATU batch (112, 3 agent paralel).
+Domain ketujuh belas yang tuntas penuh. Modul pelaporan resmi
+Dikti/Kemdikbud "EPSBED" (Evaluasi Program Studi Berbasis Evaluasi Diri),
+mendahului feeder PDDIKTI.
+
+**Klaster status lookup** (5 file, r84994-r85004). `EpsbedStatus`/
+`EpsbedStatusAkreditasi`/`EpsbedStatusAktivitasDosen`/`EpsbedJenisKaryaIlmiah`
+semua AKTIF (dipakai `JenjangProgramStudi`/`Dosen`/`EpsbedPublikasiDosen`,
+diekspor layar `ais.action.master.epsbed.*`). **`EpsbedStatusPs`
+TERKONFIRMASI yatim** — nol referensi di seluruh codebase, manifest
+`general_value_object_inventory.csv` menandainya `REVIEW_REQUIRED`, DAN
+ditemukan **duplikat identik** `ais.database.model.EpsbedStatusPs`
+(skema `public`, bukan `epsbed`) yang juga sama sekali tak dipakai —
+sisa refactor pemindahan paket lama.
+
+**Klaster kurikulum & publikasi lookup** (5 file, r84993-r85003). Semua
+AKTIF. Temuan penting: **`EpsbedMediaPublikasi` masih dikonsumsi LANGSUNG
+(LEFT JOIN SQL) oleh laporan akreditasi BAN-PT TERKINI**
+`ais.action.master.akreditasi.LaporanLKPS_3C2_PublikasiDosen` (LKPS-3.C.2)
+— tabel "legasi EPSBED" ini masih jadi sumber data pelaporan akreditasi
+AKTIF, bukan sekadar sisa format lama. Modul `penelitiandanpengabdian`
+(batch 108) dan `epsbed` DIKONFIRMASI dua sistem kode PARALEL untuk
+konsep serupa (media publikasi, sumber dana, peran penulis) — nol
+FK/relasi teknis di antara keduanya, berjalan independen tak sinkron.
+
+**Klaster entity substansial** (5 file, r84997-r85007, agent penutup).
+`KapasitasMahasiswaBaru.java` (369 baris) dipakai LUAS jauh melampaui
+ekspor EPSBED murni: generator NIM PMB, dashboard target SAPTO,
+`LaporanAkreditasi2A`. **`EpsbedPublikasiDosen` vs
+`EpsbedPublikasiIlmiahDosen`**: BUKAN header/detail — dua tabel
+independen untuk konsep sama, tapi `EpsbedPublikasiDosen` punya DAO
+penuh (aktif, dipakai `PublikasiDosenHelper`) sementara
+`EpsbedPublikasiIlmiahDosen` TIDAK punya DAO sama sekali dan helper-nya
+tak pernah diinstansiasi kode mana pun — **yatim/digantikan** versi
+pertama. `FasilitasAkademikJurusan` dikonfirmasi TIDAK berelasi dengan
+`library.Perpustakaan` (kolom numerik independen tingkat prodi).
+`EpsbedJabatanAkademik` terpisah dan bukan pengganti
+`JabatanFungsionalDosen` (dua relasi independen pada `Dosen`, satu untuk
+kepegawaian, satu untuk pelaporan EPSBED, tanpa mapping otomatis).
+
+**0 task baru batch 112**. Total akumulasi 112 sesi: **1346+ file** dari
+7.401 (~34,4%).
+
 ## 🎉 MILESTONE — paket `tenant` TUNTAS 100% (6 Sep 2026, akhir batch 111) — domain KEENAM BELAS tuntas, MODUL PALING KETAT KEAMANAN sepanjang inisiatif
 
 Diverifikasi: **16/16 file** `ais/database/model/tenant/` kini punya
