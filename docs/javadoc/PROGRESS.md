@@ -1,5 +1,33 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `sister` TUNTAS 100% (5 Sep 2026, akhir batch 104) — domain KESEPULUH tuntas
+
+Diverifikasi: **88/88 file** `ais/database/model/sister/` kini
+punya Javadoc substansial. Dikerjakan batch 103-104 (2 batch, sangat
+cepat berkat strategi reference-class+link pada domain berpola
+sangat repetitif). Domain kesepuluh yang tuntas penuh setelah
+`akunting`, `payroll`, `koperasi`, `inventory`, `employ`, `asset`,
+`surat`, `rab`, `sirs`.
+
+**Batch 104 (penutup, 1 file)**: `RefProfilPtSister.java` (r84749)
+— DIKONFIRMASI AKTIF disinkronkan (endpoint `referensi/profil_pt`
+di `SisterEntitasRegistry`+`DataSisterApi`), field lebih mirip
+profil institusi individual daripada katalog kode murni. 0 task
+baru.
+
+**Ringkasan pencapaian domain sister (batch 103-104, 0 task baru —
+domain paling "bersih" sejauh ini, koreksi penting terhadap dugaan
+awal)**: seluruh 88 entity dikonfirmasi terhubung mesin sinkronisasi
+produksi NYATA (`DataSisterApi` + `SisterEntitasRegistry.PETA`) ke
+API eksternal SISTER Kemdikbud — HANYA 1 entity dorman
+(`SertifikasiGuruSister`, modul guru tak pernah diaktifkan). Pelajaran
+metodologis: jangan generalisasi "domain integrasi eksternal = besar
+kemungkinan dorman" dari pola sebelumnya — tetap verifikasi tiap
+domain baru dari kodenya sendiri.
+
+**Pivot domain berikutnya (batch 105+)**: perlu scan ulang. Kandidat
+sisa dari survei awal: `library` (86), `file` (52).
+
 ## Batch 103 — SELESAI 100% (5 Sep 2026) — PIVOT ke paket `sister` (integrasi SISTER Kemdikbud); 87 file; 0 task baru; KOREKSI: domain ini AKTIF, bukan dorman
 
 87 file selesai (batch pertama domain baru `sister`, 88 file total —
