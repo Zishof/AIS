@@ -1446,6 +1446,11 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 						"auto-audit(empty-catch) PostingProsesTransferAction.postingSemua-satuanKerja");
 			}
 
+			final int ukuranBatch = 50;
+			int dipindaiDalamBatch = 0;
+			int tersimpanDalamBatch = 0;
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
 			for (Long id : ids) {
 				try {
 					DaftarPengajuanTransfer dpt = (DaftarPengajuanTransfer) session
@@ -1512,45 +1517,60 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 					SatuanKerja satuanKerja = satuanKerjaPengguna != null ? satuanKerjaPengguna
 							: dpt.getSatuanKerja();
 
-					boolean tersimpan = false;
-					try {
-						session = HibernateUtil.currentNativeSession();
-						session.getTransaction().begin();
-						if (nominal > 0.1) {
-							CommonAkunting.saveTransaksi(akunsDebets.toArray(new Akun[] {}),
-									akunsKredits.toArray(new Akun[] {}), null, null, postingHistory, Boolean.TRUE,
-									ket, tgl, nilaiDebets.toArray(new Double[] {}),
-									nilaiKredits.toArray(new Double[] {}), Double.valueOf(0.0), dpt, satuanKerja,
-									session);
-						} else {
-							CommonAkunting.saveTransaksi(akunsKredits.toArray(new Akun[] {}),
-									akunsDebets.toArray(new Akun[] {}), null, null, postingHistory, Boolean.TRUE,
-									ket, tgl, nilaiKredits.toArray(new Double[] {}),
-									nilaiDebets.toArray(new Double[] {}), Double.valueOf(0.0), dpt, satuanKerja,
-									session);
-						}
-						session.getTransaction().commit();
-						tersimpan = true;
-					} catch (Exception e) {
-						ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
+					if (nominal > 0.1) {
+						CommonAkunting.saveTransaksi(akunsDebets.toArray(new Akun[] {}),
+								akunsKredits.toArray(new Akun[] {}), null, null, postingHistory, Boolean.TRUE,
+								ket, tgl, nilaiDebets.toArray(new Double[] {}),
+								nilaiKredits.toArray(new Double[] {}), Double.valueOf(0.0), dpt, satuanKerja,
+								session);
+					} else {
+						CommonAkunting.saveTransaksi(akunsKredits.toArray(new Akun[] {}),
+								akunsDebets.toArray(new Akun[] {}), null, null, postingHistory, Boolean.TRUE,
+								ket, tgl, nilaiKredits.toArray(new Double[] {}),
+								nilaiDebets.toArray(new Double[] {}), Double.valueOf(0.0), dpt, satuanKerja,
+								session);
 					}
 
-					if (tersimpan) {
-						// Penanda posting hanya dipasang bila jurnalnya BENAR-BENAR tersimpan.
-						// Layar lama memasangnya di luar blok penyimpanan, sehingga dokumen yang
-						// jurnalnya gagal tetap hilang dari daftar draft tanpa punya jurnal.
-						dpt.setPostingHistory(postingHistory);
+					// Jurnal dan penanda dipersistenkan dalam transaksi yang SAMA. Dulu setiap
+					// dokumen memakai dua commit, sehingga 500 dokumen menghasilkan sekitar
+					// 1.000 round-trip transaksi dan request berakhir 502 walau datanya sukses.
+					dpt.setPostingHistory(postingHistory);
+					session.update(dpt);
+					tersimpanDalamBatch++;
+					dipindaiDalamBatch++;
+					if (dipindaiDalamBatch >= ukuranBatch) {
+						session.getTransaction().commit();
+						n += tersimpanDalamBatch;
+						session.clear();
+						dipindaiDalamBatch = 0;
+						tersimpanDalamBatch = 0;
 						session = HibernateUtil.currentNativeSession();
 						session.getTransaction().begin();
-						session.update(dpt);
-						session.getTransaction().commit();
-						n++;
 					}
 				} catch (Exception e) {
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception rollbackGagal) {
+						// kegagalan asli tetap menjadi diagnosis utama
+					}
+					session.clear();
+					// Seluruh dokumen sebelumnya di batch ini ikut rollback dan karena itu
+					// tidak dihitung sebagai sukses. Mereka tetap draft dan aman diulang.
+					dipindaiDalamBatch = 0;
+					tersimpanDalamBatch = 0;
 					ais.common.ErrorAuditUtil.record(e, "auto-audit PostingProsesTransferAction.postingSemua");
+					session = HibernateUtil.currentNativeSession();
+					session.getTransaction().begin();
 				}
 			}
+			session.getTransaction().commit();
+			n += tersimpanDalamBatch;
 		} catch (Exception e) {
+			try {
+				session.getTransaction().rollback();
+			} catch (Exception rollbackGagal) {
+				// kegagalan asli tetap menjadi diagnosis utama
+			}
 			ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
 		} finally {
 			try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransferAction.postingSemua-disconnect"); }
