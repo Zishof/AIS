@@ -80,6 +80,7 @@ public class NisCounter {
 		return id;
 	}
 
+	/** Lihat {@link #getId()}. Hanya dipakai Hibernate saat memuat baris; kolom {@code insertable = false} sehingga penetapan manual di sini tidak pernah ditulis balik ke DB. */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -92,6 +93,7 @@ public class NisCounter {
 		return sekolah;
 	}
 
+	/** Lihat {@link #getSekolah()}. Bersama {@code tahun}/{@code epoch}, menentukan baris pencacah mana yang dikunci oleh {@code KunciEntityHelper.jalankanDenganKunci}. */
 	public void setSekolah(Sekolah sekolah) {
 		this.sekolah = sekolah;
 	}
@@ -102,6 +104,7 @@ public class NisCounter {
 		return tahun;
 	}
 
+	/** Lihat {@link #getTahun()}. Pemanggil bertanggung jawab memakai {@link #TAHUN_TANPA_RESET} bila {@code FormatNis.getResetUrutanTiapTahun()} nonaktif, bukan menyisipkan {@code null}. */
 	public void setTahun(Integer tahun) {
 		this.tahun = tahun;
 	}
@@ -112,6 +115,7 @@ public class NisCounter {
 		return epoch;
 	}
 
+	/** Lihat {@link #getEpoch()}. Pemanggil bertanggung jawab memilih {@link #EPOCH_AWAL} atau tanggal {@code yyyyMMdd} yang tepat; entity ini tidak memvalidasi format. */
 	public void setEpoch(String epoch) {
 		this.epoch = epoch;
 	}
@@ -127,6 +131,7 @@ public class NisCounter {
 		return nilai == null ? 0L : nilai;
 	}
 
+	/** Lihat {@link #getNilai()}. Ditulis HANYA di dalam blok terkunci {@code KunciEntityHelper.jalankanDenganKunci} setelah menambahkan satu ke nilai lama yang dibaca dalam kunci yang sama; menulis di luar blok itu membuka kembali celah tabrakan yang entity ini dirancang untuk menutup. */
 	public void setNilai(Long nilai) {
 		this.nilai = nilai;
 	}
