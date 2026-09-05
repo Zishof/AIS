@@ -66,9 +66,14 @@ public class MyMessageboxConfig {
 						.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
 						.replace("</", "<\\/") : "";
 
-				// Bentuk script pemanggil fungsi global
+				// Pakai dialog alert global JSP bila tersedia. Fallback lama tetap dipertahankan
+				// untuk response yang belum memuat pesan-formal.js.
 				String jsScript = "<script type=\"text/javascript\">"
-						+ "tampilkanToast('" + safeMessage + "', '" + jenis + "');"
+						+ "if(window.AisAlert){window.AisAlert.show({message:'" + safeMessage
+						+ "',type:'" + jenis + "'});}else if(typeof pemberitahuanModal==='function'){"
+						+ "pemberitahuanModal('" + safeMessage + "','" + jenis
+						+ "');}else if(typeof tampilkanToast==='function'){tampilkanToast('" + safeMessage
+						+ "','" + jenis + "');}else{(window.__nativeAlert||window.alert)('" + safeMessage + "');}"
 						+ "</script>";
 
 				// Tulis ke output response

@@ -13428,3 +13428,264 @@ span.z-toolbarbutton.ais-upload-opt-file:hover > a,
 span.z-toolbarbutton.ais-upload-opt-drive:hover > a,
 span.z-toolbarbutton.ais-upload-opt-dropbox:hover > a,
 span.z-toolbarbutton.ais-upload-opt-link:hover > a { opacity: .8; }
+
+/* =====================================================================
+   ALERT GLOBAL ZKOSS — satu tampilan untuk seluruh Messagebox
+   ---------------------------------------------------------------------
+   Kelas ais-alert-zk dipasang otomatis oleh /js/pesan-formal.js. Dengan
+   demikian aturan ini tidak mengubah Window formulir/modal ZK lainnya.
+   ===================================================================== */
+html body .ais-alert-zk.z-window-highlighted,
+html body .ais-alert-zk.z-window-modal {
+    width: min(790px, calc(100vw - 32px)) !important;
+    max-width: calc(100vw - 32px) !important;
+    min-width: 300px !important;
+    border: 0 !important;
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    box-shadow: 0 28px 80px rgba(15, 23, 42, .38) !important;
+    font-family: Poppins, "Segoe UI", Arial, sans-serif !important;
+}
+
+html body.ais-zk-alert-open .z-modal-mask {
+    opacity: .58 !important;
+    background: #0f172a !important;
+    backdrop-filter: blur(5px) !important;
+    -webkit-backdrop-filter: blur(5px) !important;
+}
+
+/* Hilangkan semua gambar slice/corner Breeze pada window alert. */
+html body .ais-alert-zk .z-window-highlighted-tl,
+html body .ais-alert-zk .z-window-highlighted-tr,
+html body .ais-alert-zk .z-window-highlighted-bl,
+html body .ais-alert-zk .z-window-highlighted-br,
+html body .ais-alert-zk .z-window-modal-tl,
+html body .ais-alert-zk .z-window-modal-tr,
+html body .ais-alert-zk .z-window-modal-bl,
+html body .ais-alert-zk .z-window-modal-br {
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+html body .ais-alert-zk .z-window-highlighted-hl,
+html body .ais-alert-zk .z-window-highlighted-hr,
+html body .ais-alert-zk .z-window-highlighted-hm,
+html body .ais-alert-zk .z-window-modal-hl,
+html body .ais-alert-zk .z-window-modal-hr,
+html body .ais-alert-zk .z-window-modal-hm {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: linear-gradient(118deg, #cf6a16 0%, #80506a 44%, #2945d6 100%) !important;
+}
+
+html body .ais-alert-zk .z-window-highlighted-header,
+html body .ais-alert-zk .z-window-modal-header {
+    position: relative !important;
+    min-height: 104px !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 27px 76px 24px 112px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #ffffff !important;
+    font-family: Poppins, "Segoe UI", Arial, sans-serif !important;
+    font-size: 24px !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+}
+
+html body .ais-alert-zk .z-window-highlighted-header::before,
+html body .ais-alert-zk .z-window-modal-header::before {
+    content: "!";
+    position: absolute;
+    left: 34px;
+    top: 24px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .18);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+    color: #ffffff;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+}
+html body .ais-alert-zk-info .z-window-highlighted-header::before,
+html body .ais-alert-zk-info .z-window-modal-header::before { content: "i"; }
+html body .ais-alert-zk-question .z-window-highlighted-header::before,
+html body .ais-alert-zk-question .z-window-modal-header::before { content: "?"; }
+html body .ais-alert-zk-success .z-window-highlighted-header::before,
+html body .ais-alert-zk-success .z-window-modal-header::before { content: "\2713"; }
+
+html body .ais-alert-zk .z-window-highlighted-header::after,
+html body .ais-alert-zk .z-window-modal-header::after {
+    content: "Periksa informasi berikut sebelum melanjutkan.";
+    display: block;
+    margin-top: 7px;
+    color: rgba(255, 255, 255, .92);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.45;
+}
+
+html body .ais-alert-zk .z-window-highlighted-close,
+html body .ais-alert-zk .z-window-modal-close {
+    position: absolute !important;
+    top: 27px !important;
+    right: 24px !important;
+    width: 44px !important;
+    height: 44px !important;
+    margin: 0 !important;
+    border: 1px solid rgba(255, 255, 255, .55) !important;
+    border-radius: 12px !important;
+    background-color: rgba(15, 23, 42, .08) !important;
+    background-position: center !important;
+    box-shadow: none !important;
+    filter: brightness(0) invert(1) !important;
+}
+
+html body .ais-alert-zk .z-window-highlighted-cl,
+html body .ais-alert-zk .z-window-highlighted-cr,
+html body .ais-alert-zk .z-window-highlighted-cm,
+html body .ais-alert-zk .z-window-modal-cl,
+html body .ais-alert-zk .z-window-modal-cr,
+html body .ais-alert-zk .z-window-modal-cm {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: #ffffff !important;
+}
+
+html body .ais-alert-zk .z-window-highlighted-cnt,
+html body .ais-alert-zk .z-window-modal-cnt {
+    max-height: calc(100vh - 180px) !important;
+    box-sizing: border-box !important;
+    padding: 32px 38px 24px !important;
+    overflow: auto !important;
+    background: #ffffff !important;
+}
+
+html body .ais-alert-zk .z-msgbox {
+    display: none !important;
+}
+
+html body .ais-alert-zk .z-messagebox {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+}
+
+html body .ais-alert-zk .z-messagebox .z-label {
+    display: block !important;
+    width: 100% !important;
+    color: #1e293b !important;
+    font-family: Poppins, "Segoe UI", Arial, sans-serif !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    line-height: 1.65 !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+}
+
+html body .ais-alert-zk .z-separator-hor-bar {
+    height: 0 !important;
+    margin: 28px -38px 18px !important;
+    border: 0 !important;
+    border-top: 1px solid #e7edf5 !important;
+    background: transparent !important;
+}
+
+html body .ais-alert-zk .z-messagebox-btn {
+    margin: 0 5px !important;
+}
+
+html body .ais-alert-zk .z-messagebox-btn .z-button-cm {
+    min-width: 112px !important;
+    min-height: 46px !important;
+    box-sizing: border-box !important;
+    padding: 12px 22px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    color: #334155 !important;
+    font-family: Poppins, "Segoe UI", Arial, sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+    box-shadow: none !important;
+}
+
+html body .ais-alert-zk td:first-child > .z-messagebox-btn .z-button-cm {
+    border-color: #db7216 !important;
+    background: linear-gradient(135deg, #ea841e, #c85d0c) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 18px rgba(201, 91, 12, .25) !important;
+}
+
+html body .ais-alert-zk .z-messagebox-btn:hover .z-button-cm {
+    filter: brightness(1.05) !important;
+}
+
+@media only screen and (max-width: 640px) {
+    html body .ais-alert-zk.z-window-highlighted,
+    html body .ais-alert-zk.z-window-modal {
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        min-width: 0 !important;
+        border-radius: 20px !important;
+    }
+    html body .ais-alert-zk .z-window-highlighted-header,
+    html body .ais-alert-zk .z-window-modal-header {
+        min-height: 92px !important;
+        padding: 22px 58px 20px 82px !important;
+        font-size: 18px !important;
+    }
+    html body .ais-alert-zk .z-window-highlighted-header::before,
+    html body .ais-alert-zk .z-window-modal-header::before {
+        left: 20px;
+        top: 22px;
+        width: 46px;
+        height: 46px;
+        font-size: 28px;
+    }
+    html body .ais-alert-zk .z-window-highlighted-header::after,
+    html body .ais-alert-zk .z-window-modal-header::after {
+        font-size: 12px;
+    }
+    html body .ais-alert-zk .z-window-highlighted-close,
+    html body .ais-alert-zk .z-window-modal-close {
+        top: 22px !important;
+        right: 14px !important;
+        width: 38px !important;
+        height: 38px !important;
+    }
+    html body .ais-alert-zk .z-window-highlighted-cnt,
+    html body .ais-alert-zk .z-window-modal-cnt {
+        padding: 24px 20px 18px !important;
+    }
+    html body .ais-alert-zk .z-messagebox .z-label {
+        font-size: 14px !important;
+    }
+    html body .ais-alert-zk .z-separator-hor-bar {
+        margin: 22px -20px 14px !important;
+    }
+    html body .ais-alert-zk .z-messagebox-btn .z-button-cm {
+        min-width: 92px !important;
+        min-height: 42px !important;
+        padding: 10px 15px !important;
+        font-size: 12px !important;
+    }
+}

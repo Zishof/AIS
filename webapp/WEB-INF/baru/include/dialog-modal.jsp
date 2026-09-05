@@ -12,108 +12,44 @@ String _dlgTutup       = Common.getBahasaConfig("Tutup").replace("\\", "\\\\").r
 String _dlgBatal       = Common.getBahasaConfig("Batal").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
 String _dlgYaLanjutkan = Common.getBahasaConfig("Ya, Lanjutkan").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
 String _dlgPemberitahuan = Common.getBahasaConfig("Pemberitahuan").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
-String _dlgOK = Common.getBahasaConfig("OK").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
 %>
+	<script src="<%=request.getContextPath()%>/js/pesan-formal.js?v=20260906"></script>
 	<script type="text/javascript">
 	    (function(){
 	        if (window.__aisDialogModalInitialized) return;
 	        window.__aisDialogModalInitialized = true;
-	        window.__nativeAlert = window.alert;
-	        window.__nativeConfirm = window.confirm;
 
 	        window.pemberitahuanModal = function(msg, jenis) {
 	            var pesan = (msg == null ? "" : String(msg));
-	            var warna = jenis || "bg-primary text-white";
-	            try {
-	                if (typeof tampilkanToast === "function") {
-	                    tampilkanToast(pesan, warna);
-	                    return;
-	                }
-	            } catch (e) {}
-	            try {
-	                if (typeof bootstrap === "undefined" || !document.body) {
-	                    window.__nativeAlert(pesan);
-	                    return;
-	                }
-	                window.confirmVar = window.confirmVar || 0;
-	                window.confirmVar++;
-	                var modalId = "aisInfoModal_" + window.confirmVar;
-	                var modalHtml =
-	                    '<div class="modal fade" id="' + modalId + '" tabindex="-1" aria-hidden="true" style="z-index:12000;">' +
-	                    '<div class="modal-dialog modal-dialog-centered">' +
-	                    '<div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">' +
-	                    '<div class="modal-header border-0" style="background:#e0f2fe;">' +
-	                    '<h6 class="modal-title fw-bold text-primary"><i class="fas fa-info-circle me-2"></i><%= _dlgPemberitahuan %></h6>' +
-	                    '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<%= _dlgTutup %>"></button>' +
-	                    '</div><div class="modal-body p-4" style="white-space:pre-wrap;color:#0f172a;">' + escapeDialogHtml(pesan) + '</div>' +
-	                    '<div class="modal-footer border-0 bg-light">' +
-	                    '<button type="button" class="btn btn-primary rounded-pill px-4" data-bs-dismiss="modal"><%= _dlgOK %></button>' +
-	                    '</div></div></div></div>';
-	                document.body.insertAdjacentHTML("beforeend", modalHtml);
-	                var modalEl = document.getElementById(modalId);
-	                var modal = new bootstrap.Modal(modalEl);
-	                modalEl.addEventListener("hidden.bs.modal", function(){ modalEl.remove(); });
-	                modal.show();
-	            } catch (e) {
-	                window.__nativeAlert(pesan);
+	            if (window.AisAlert) {
+	                return window.AisAlert.show({
+	                    title: '<%= _dlgPemberitahuan %>',
+	                    message: pesan,
+	                    type: jenis || "info",
+	                    closeLabel: '<%= _dlgTutup %>'
+	                });
 	            }
+	            window.__nativeAlert(pesan);
 	        };
 
 	        window.konfirmasiModal = function(msg) {
-	            return new Promise(function(resolve) {
-	                var pesan = (msg == null ? "" : String(msg));
-	                try {
-	                    if (typeof bootstrap === "undefined" || !document.body) {
-	                        resolve(window.__nativeConfirm(pesan));
-	                        return;
-	                    }
-	                    window.confirmVar = window.confirmVar || 0;
-	                    window.confirmVar++;
-	                    var cVar = window.confirmVar;
-	                    var modalId = "aisConfirmModal_" + cVar;
-	                    var modalHtml =
-	                        '<div class="modal fade" id="' + modalId + '" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index:' + (12000 + cVar) + ';">' +
-	                        '<div class="modal-dialog modal-dialog-centered">' +
-	                        '<div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">' +
-	                        '<div class="modal-header border-0" style="background:#fff7ed;">' +
-	                        '<h6 class="modal-title fw-bold text-warning"><i class="fas fa-question-circle me-2"></i><%= _dlgKonfirmasi %></h6>' +
-	                        '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<%= _dlgTutup %>"></button>' +
-	                        '</div><div class="modal-body p-4" style="white-space:pre-wrap;color:#0f172a;">' + escapeDialogHtml(pesan) + '</div>' +
-	                        '<div class="modal-footer border-0 bg-light">' +
-	                        '<button type="button" class="btn btn-light border rounded-pill px-4" data-bs-dismiss="modal" id="' + modalId + '_no"><i class="fas fa-times text-danger me-2"></i><%= _dlgBatal %></button>' +
-	                        '<button type="button" class="btn btn-primary rounded-pill px-4" id="' + modalId + '_yes"><i class="fas fa-check me-2"></i><%= _dlgYaLanjutkan %></button>' +
-	                        '</div></div></div></div>';
-	                    document.body.insertAdjacentHTML("beforeend", modalHtml);
-	                    var modalEl = document.getElementById(modalId);
-	                    var modal = new bootstrap.Modal(modalEl);
-	                    var selesai = false;
-	                    document.getElementById(modalId + "_yes").onclick = function() {
-	                        selesai = true;
-	                        resolve(true);
-	                        modal.hide();
-	                    };
-	                    modalEl.addEventListener("hidden.bs.modal", function(){
-	                        if (!selesai) resolve(false);
-	                        modalEl.remove();
-	                    });
-	                    modal.show();
-	                } catch (e) {
-	                    resolve(window.__nativeConfirm(pesan));
-	                }
-	            });
+	            var pesan = (msg == null ? "" : String(msg));
+	            if (window.AisAlert) {
+	                return window.AisAlert.confirm({
+	                    title: '<%= _dlgKonfirmasi %>',
+	                    message: pesan,
+	                    type: "question",
+	                    confirmLabel: '<%= _dlgYaLanjutkan %>',
+	                    cancelLabel: '<%= _dlgBatal %>',
+	                    closeLabel: '<%= _dlgTutup %>'
+	                });
+	            }
+	            return Promise.resolve(window.__nativeConfirm(pesan));
 	        };
 
 	        window.confirmAsync = window.konfirmasiModal;
-	        window.alert = function(msg) { window.pemberitahuanModal(msg); };
-
-	        function escapeDialogHtml(value) {
-	            return String(value == null ? "" : value)
-	                .replace(/&/g, "&amp;")
-	                .replace(/</g, "&lt;")
-	                .replace(/>/g, "&gt;")
-	                .replace(/"/g, "&quot;")
-	                .replace(/'/g, "&#39;");
-	        }
+	        // Pertahankan kontrak native alert(): tidak mengembalikan nilai.
+	        window.alert = function(msg) { window.pemberitahuanModal(msg, "info"); };
 	    })();
 	
 		
@@ -217,6 +153,18 @@ String _dlgOK = Common.getBahasaConfig("OK").replace("\\", "\\\\").replace("'", 
 	 // FUNGSI BARU: POPUP KONFIRMASI DINAMIS MENGGANTIKAN WINDOW.CONFIRM
 	 // =================================================================
 	 const showConfirmModal = (msg, callbackYes) => {
+	     if (window.AisAlert) {
+	         return window.AisAlert.confirm({
+	             title: '<%= _dlgKonfirmasi %>',
+	             message: (msg == null ? "" : String(msg)),
+	             confirmLabel: '<%= _dlgYaLanjutkan %>',
+	             cancelLabel: '<%= _dlgBatal %>',
+	             closeLabel: '<%= _dlgTutup %>'
+	         }).then(function(disetujui) {
+	             if (disetujui && typeof callbackYes === 'function') callbackYes();
+	             return disetujui;
+	         });
+	     }
 	     window.confirmVar = window.confirmVar || 0;
 	     window.confirmVar++;
 	     var cVar = window.confirmVar;

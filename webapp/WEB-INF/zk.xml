@@ -42,6 +42,13 @@
         <listener-class>ais.common.ZkossListener</listener-class>
     </listener>
 
+    <!-- Alert global: memuat satu skrip per desktop untuk menyeragamkan
+         Messagebox dan Clients.alert tanpa mengubah callback/logika bisnis. -->
+    <listener>
+        <description>Unified alert UI for ZKoss and JSP</description>
+        <listener-class>ais.action.master.helper.AlertGlobalHook</listener-class>
+    </listener>
+
     <!-- Tombol Bantuan mengambang global untuk halaman konten tanpa tombol bawaan.
          Aman (try/catch penuh); dapat dimatikan admin via konfigurasi "bantuan_tombol_global". -->
     <listener>

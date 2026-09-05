@@ -50,7 +50,7 @@ String _htmlLangHdr = "id".equals(_lgKode) ? "id-ID" : _lgKode;
     <script src="<%=request.getContextPath() %>/component/uiux/assets/js/config.js"></script>
     <script src="<%=request.getContextPath() %>/component/uiux/vendors/simplebar/simplebar.min.js"></script>
     <!-- Helper pesan formal (sukses/gagal) reusable -- sejalan dengan ais.common.PesanFormalHelper (Java/ZK) -->
-    <script src="<%=request.getContextPath() %>/js/pesan-formal.js"></script>
+    <script src="<%=request.getContextPath() %>/js/pesan-formal.js?v=20260906"></script>
     <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
     <script data-cfasync="false" src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script data-cfasync="false" src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote.min.js"></script>

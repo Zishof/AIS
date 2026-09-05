@@ -4,6 +4,7 @@
 <%@ page import="java.util.List" %>
 <%@ page import="ais.common.newui.NewUiRoleSwitcherService" %>
 <%@ page import="ais.common.newui.NewUiCsrfUtil" %>
+<script src="<%=request.getContextPath()%>/js/pesan-formal.js?v=20260906"></script>
 <%!
     private String h(Object v) {
         if (v == null) return "";
