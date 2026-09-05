@@ -397,7 +397,7 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
                                                 .createCriteria(KoreksiItemMedisDetail.class)
                                                 .add(Restrictions.eq("koreksiItem", koreksiItem)).list();
                                         session.createSQLQuery(
-                                                "delete from sirs.detail_transaksi_pasien where koreksi_item_detail in (select id from koreksi_item_detail where koreksi_item = "
+                                                "delete from sirs.detail_transaksi_pasien where koreksi_item_detail in (select id from sirs.koreksi_item_medis_detail where koreksi_item = "
                                                         + koreksiItem.getId() + ");").executeUpdate();
                                         for (KoreksiItemMedisDetail koreksiItemDetail : koreksiItemDetails) {
                                             DetailTransaksiPasien detailTransaksi = new DetailTransaksiPasien();
@@ -448,7 +448,7 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
                                         koreksiItem.setTanggalPersetujuan(null);
                                         Common.refreshUpdate(session, koreksiItem);
                                         session.createSQLQuery(
-                                                "delete from sirs.detail_transaksi_pasien where koreksi_item_detail in (select id from koreksi_item_detail where koreksi_item = "
+                                                "delete from sirs.detail_transaksi_pasien where koreksi_item_detail in (select id from sirs.koreksi_item_medis_detail where koreksi_item = "
                                                         + koreksiItem.getId() + ");").executeUpdate();
                                         disetujuiTanggal.setValue(koreksiItem.getTanggalPersetujuan() == null ? ""
                                                 : Common.dateFormat3.get().format(koreksiItem.getTanggalPersetujuan()));

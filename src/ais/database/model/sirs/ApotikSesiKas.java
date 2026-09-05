@@ -54,29 +54,42 @@ import ais.database.model.GeneralValueObject;
  * satu pun tempat yang membaca {@link #getSelisih()} kembali untuk
  * menindaklanjutinya. Ia hanya tersimpan.</p>
  *
- * <h3>Cakupan perhitungan: menurut WAKTU, bukan menurut kasir</h3>
+ * <h3>Cakupan perhitungan: tunai/non-tunai per kasir, ledger penjualan per waktu</h3>
  *
- * <p>Hal ini perlu dipahami sebelum angka-angka di entity ini dipercaya.
- * {@code ApotikSesiKasHelper.penerimaan} menjumlahkan baris
- * {@link ApotikPembayaranTransaksi} dengan syarat {@code b.waktu} berada di
- * antara waktu sesi dibuka dan waktu ia ditutup — TANPA menyaring siapa yang
- * menerima uangnya. Padahal baris pembayaran itu membawa identitas kasirnya
- * pada kolom {@code oleh}/{@code oleh_id}; datanya ada, hanya tidak dipakai.</p>
+ * <p>Riwayat: sampai dengan revisi ini, {@code ApotikSesiKasHelper.penerimaan}
+ * menjumlahkan baris {@link ApotikPembayaranTransaksi} hanya bersyarat
+ * {@code b.waktu} berada di antara waktu sesi dibuka dan waktu ia ditutup —
+ * TANPA menyaring siapa yang menerima uangnya, padahal baris pembayaran itu
+ * sudah membawa identitas kasirnya pada kolom {@code oleh}/{@code oleh_id}.
+ * Pada apotek dengan dua kasir yang sesinya bertumpang tindih — keadaan yang
+ * justru dibayangkan oleh aturan "satu kasir hanya boleh punya satu sesi
+ * BUKA", sebab aturan itu membatasi per kasir dan bukan per apotek — cara lama
+ * itu salah bagi keduanya: masing-masing sesi menghitung SELURUH penerimaan
+ * tunai apotek pada rentang waktunya sendiri, termasuk uang yang masuk ke laci
+ * sebelah, sehingga keduanya tampak memegang uang jauh lebih banyak daripada
+ * isi lacinya dan mencatat selisih kurang yang besar tanpa ada uang yang
+ * benar-benar hilang.</p>
  *
- * <p>Untuk apotek berlaci tunggal, di mana hanya satu kasir bertugas pada satu
- * waktu, cara itu memberi hasil yang benar. Untuk apotek dengan dua kasir yang
- * sesinya bertumpang tindih — keadaan yang justru dibayangkan oleh aturan "satu
- * kasir hanya boleh punya satu sesi BUKA", sebab aturan itu membatasi per
- * kasir dan bukan per apotek — hasilnya salah bagi keduanya: masing-masing
- * sesi menghitung SELURUH penerimaan tunai apotek pada rentang waktunya
- * sendiri, termasuk uang yang masuk ke laci sebelah. Kedua kasir akan tampak
- * memegang uang jauh lebih banyak daripada yang ada di lacinya, dan keduanya
- * akan mencatat selisih kurang yang besar tanpa ada uang yang benar-benar
- * hilang.</p>
+ * <p><b>Sekarang:</b> {@code penerimaan} menyaring {@code b.oleh_id} terhadap
+ * {@link #getUserId()} sesi yang sedang dihitung. Baris milik kasir lain
+ * dikecualikan sepenuhnya; baris lama yang {@code oleh_id}-nya kosong (sebelum
+ * kolom itu terisi) tidak diam-diam dibuang maupun digabungkan ke sesi ini,
+ * melainkan dilaporkan terpisah oleh {@code ApotikSesiKasHelper} sebagai
+ * {@code tunaiTanpaKasir}/{@code nonTunaiTanpaKasir} pada respons JSON —
+ * TIDAK ikut {@link #getTotalTunaiSistem()}/{@link #getSelisih()}, sehingga
+ * baris semacam itu perlu ditelusuri manual bila jumlahnya berarti.</p>
  *
- * <p>Karena itu, sebelum {@link #getSelisih()} dipakai sebagai dasar tindakan
- * terhadap seseorang, pastikan lebih dulu bahwa pada rentang waktu sesi itu
- * memang hanya ada satu kasir yang bertugas.</p>
+ * <p><b>Ledger penjualan ('AJ') TETAP bercakupan waktu, bukan per kasir.</b>
+ * {@code sirs.detail_transaksi_pasien} juga diisi jalur pendaftaran rumah
+ * sakit ({@code CommonPendaftaranUtil}) untuk dispensing yang dibebankan ke
+ * tagihan pasien, di luar sesi kas apotek mana pun — menyaring kolom pelaku di
+ * sana akan diam-diam membuang baris sah. Konsekuensinya:
+ * {@code penjualanBerjalan} pada respons {@code ApotikSesiKasHelper} tetap
+ * bercakupan seluruh apotek (bahkan seluruh rumah sakit untuk kode 'AJ'),
+ * sedangkan tunai/non-tunai di atasnya kini per kasir — sehingga
+ * {@code penjualanTanpaMetode} (selisih keduanya) pada apotek berkasir banyak
+ * HANYA indikatif, bukan angka yang bisa dipertanggungjawabkan ke satu
+ * kasir.</p>
  *
  * @see ApotikPembayaranTransaksi baris pembayaran yang dijumlahkan sesi ini
  * @see ApotikDeliveryOrder#getBiayaKirim() ongkos kirim yang TIDAK ikut dalam rekonsiliasi ini
@@ -382,12 +395,13 @@ public class ApotikSesiKas extends GeneralValueObject {
 	 * sehingga uangnya tidak masuk kas seharusnya dan muncul sebagai selisih
 	 * lebih di laci.</p>
 	 *
-	 * <p><b>Tidak disaring per kasir.</b> Lihat penjelasan lengkap pada
-	 * dokumentasi class: perhitungannya hanya menyaring rentang waktu, sehingga
-	 * pada apotek dengan lebih dari satu kasir yang sesinya bertumpang tindih,
-	 * angka ini memuat penerimaan kasir lain juga.</p>
+	 * <p><b>Disaring per kasir.</b> Lihat penjelasan lengkap pada dokumentasi
+	 * class: hanya baris {@link ApotikPembayaranTransaksi} yang
+	 * {@code oleh_id}-nya cocok dengan {@link #getUserId()} sesi ini yang
+	 * dijumlahkan. Baris lama yang {@code oleh_id}-nya kosong TIDAK ikut di
+	 * sini — lihat {@code tunaiTanpaKasir} pada respons {@code ApotikSesiKasHelper}.</p>
 	 *
-	 * @return penerimaan tunai menurut sistem, atau {@code null} bila belum dihitung
+	 * @return penerimaan tunai kasir ini menurut sistem, atau {@code null} bila belum dihitung
 	 */
 	@Column(name = "total_tunai_sistem")
 	public Double getTotalTunaiSistem() { return totalTunaiSistem; }
@@ -413,10 +427,10 @@ public class ApotikSesiKas extends GeneralValueObject {
 	 * masuk lewat kanal lain, dan karena itu berapa bagian penjualan yang
 	 * memang tidak seharusnya ada di tangan kasir.</p>
 	 *
-	 * <p>Berlaku pula catatan cakupan waktu yang sama seperti
+	 * <p>Berlaku pula catatan cakupan per kasir yang sama seperti
 	 * {@link #getTotalTunaiSistem()}.</p>
 	 *
-	 * @return penerimaan non-tunai, atau {@code null} bila belum dihitung
+	 * @return penerimaan non-tunai kasir ini, atau {@code null} bila belum dihitung
 	 */
 	@Column(name = "total_non_tunai_sistem")
 	public Double getTotalNonTunaiSistem() { return totalNonTunaiSistem; }
@@ -442,14 +456,17 @@ public class ApotikSesiKas extends GeneralValueObject {
 	 * dan tidak ada persetujuan penyelia yang diminta. Untuk memakainya,
 	 * seseorang harus membuka daftar riwayat sesi dan melihatnya sendiri.</p>
 	 *
-	 * <p><b>Jangan menjadikannya dasar tindakan tanpa memeriksa cakupannya
-	 * lebih dulu.</b> Sebagaimana dijelaskan pada dokumentasi class, angka
-	 * pembandingnya dihitung menurut rentang waktu tanpa menyaring kasir. Pada
-	 * apotek dengan dua kasir yang gilirannya bertumpang tindih, keduanya akan
-	 * mencatat selisih kurang yang besar padahal tidak ada uang yang hilang —
-	 * masing-masing "seharusnya" memegang uang yang sebenarnya ada di laci
-	 * sebelah. Sebelum selisih dipakai untuk menilai seseorang, pastikan pada
-	 * rentang waktu itu memang hanya satu kasir yang bertugas.</p>
+	 * <p><b>Sudah disaring per kasir, TETAPI abaikan baris tanpa pelaku
+	 * tercatat.</b> Sebagaimana dijelaskan pada dokumentasi class,
+	 * {@link #getTotalTunaiSistem()} kini hanya menjumlahkan pembayaran yang
+	 * {@code oleh_id}-nya cocok dengan kasir ini, sehingga selisih pada apotek
+	 * berkasir banyak tidak lagi tercampur uang kasir lain. Yang TIDAK ikut
+	 * diperiksa di sini adalah pembayaran lama yang {@code oleh_id}-nya kosong
+	 * dan karenanya tidak masuk ke kasir mana pun — jumlahnya ada di
+	 * {@code tunaiTanpaKasir} pada respons {@code ApotikSesiKasHelper}, bukan
+	 * di selisih ini. Selisih yang tampak pas boleh saja menyembunyikan baris
+	 * semacam itu; periksa {@code tunaiTanpaKasir} juga sebelum menyimpulkan
+	 * laci benar-benar cocok.</p>
 	 *
 	 * @return selisih kas, atau {@code null} bila sesi belum ditutup
 	 */

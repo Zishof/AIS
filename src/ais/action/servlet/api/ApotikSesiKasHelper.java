@@ -41,6 +41,20 @@ import ais.database.model.Tbmuser;
  * metode pembayaran tidak dapat digolongkan tunai/non-tunai; jumlahnya
  * dilaporkan terpisah sebagai {@code penjualanTanpaMetode} agar tidak
  * diam-diam dianggap nol.</p>
+ *
+ * <p><b>Cakupan per kasir, kecuali ledger penjualan.</b> Sejak perbaikan ini,
+ * penerimaan tunai/non-tunai ({@code b.oleh_id} pada
+ * {@code sirs.apotik_pembayaran_transaksi}) disaring per kasir pemegang sesi,
+ * bukan lagi seluruh apotek pada rentang waktu itu -- lihat
+ * {@link ApotikSesiKas}. Baris pembayaran lama yang {@code oleh_id}-nya kosong
+ * tidak dapat diatribusikan ke kasir mana pun; jumlahnya dilaporkan terpisah
+ * sebagai {@code tunaiTanpaKasir}/{@code nonTunaiTanpaKasir}, TIDAK diam-diam
+ * dibuang maupun digabungkan ke kasir yang sedang menutup sesi. Query
+ * penjualan ledger ('AJ') TIDAK disaring per kasir -- {@code sirs.detail_transaksi_pasien}
+ * juga diisi jalur pendaftaran rumah sakit ({@code CommonPendaftaranUtil}) di
+ * luar sesi kas apotek mana pun, sehingga {@code penjualanTanpaMetode} pada
+ * apotek berkasir banyak hanya indikatif, bukan angka yang bisa
+ * dipertanggungjawabkan ke satu kasir.</p>
  */
 public final class ApotikSesiKasHelper {
 
@@ -64,25 +78,47 @@ public final class ApotikSesiKasHelper {
 		return l.isEmpty() ? null : (ApotikSesiKas) l.get(0);
 	}
 
-	/** Penerimaan sejak [mulai] s.d. sekarang: [tunai, nonTunai, penjualanLedger]. */
-	private static double[] penerimaan(Session session, Date mulai, Date sampai) throws Exception {
-		double[] hasil = new double[] { 0, 0, 0 };
+	/**
+	 * Penerimaan kasir [userId] sejak [mulai] s.d. [sampai]: [tunai, nonTunai,
+	 * penjualanLedger, tunaiTanpaKasir, nonTunaiTanpaKasir].
+	 *
+	 * <p>Tunai/non-tunai disaring pada {@code b.oleh_id}: baris yang menunjuk
+	 * kasir LAIN (bukan {@code userId} dan bukan kosong) dikecualikan sepenuhnya
+	 * -- uang itu ada di laci sesi lain, bukan urusan sesi ini. Baris yang
+	 * {@code oleh_id}-nya KOSONG (data lama sebelum kolom ini terisi) tidak
+	 * dapat diatribusikan ke kasir mana pun; jumlahnya masuk
+	 * {@code tunaiTanpaKasir}/{@code nonTunaiTanpaKasir}, TERPISAH dari
+	 * penerimaan kasir ini, supaya tidak diam-diam dibuang maupun digabungkan
+	 * ke sesi yang sedang dihitung.</p>
+	 *
+	 * <p>Penjualan ledger ('AJ') TIDAK disaring per kasir -- lihat javadoc
+	 * class untuk alasannya.</p>
+	 */
+	private static double[] penerimaan(Session session, Date mulai, Date sampai, String userId) throws Exception {
+		double[] hasil = new double[] { 0, 0, 0, 0, 0 };
 		java.sql.PreparedStatement ps = session.connection().prepareStatement(
-				"SELECT COALESCE(c.ada_kembalian, COALESCE(c.nama,'') ilike '%tunai%') tunai, "
+				"SELECT CASE WHEN b.oleh_id = ? THEN 1 "
+						+ "WHEN b.oleh_id IS NULL OR b.oleh_id = '' THEN 0 ELSE -1 END kelompok, "
+						+ "COALESCE(c.ada_kembalian, COALESCE(c.nama,'') ilike '%tunai%') tunai, "
 						+ "COALESCE(SUM(b.nominal),0) "
 						+ "FROM sirs.apotik_pembayaran_transaksi b "
 						+ "LEFT JOIN koperasi.cara_pembayaran_koperasi c ON c.id = b.cara_bayar "
-						+ "WHERE b.waktu >= ? AND b.waktu <= ? GROUP BY 1");
+						+ "WHERE b.waktu >= ? AND b.waktu <= ? GROUP BY 1, 2");
 		try {
-			ps.setTimestamp(1, new java.sql.Timestamp(mulai.getTime()));
-			ps.setTimestamp(2, new java.sql.Timestamp(sampai.getTime()));
+			ps.setString(1, userId);
+			ps.setTimestamp(2, new java.sql.Timestamp(mulai.getTime()));
+			ps.setTimestamp(3, new java.sql.Timestamp(sampai.getTime()));
 			java.sql.ResultSet rs = ps.executeQuery();
 			try {
 				while (rs.next()) {
-					if (rs.getBoolean(1)) {
-						hasil[0] += rs.getDouble(2);
+					int kelompok = rs.getInt(1);
+					if (kelompok < 0) continue; // uang kasir lain -- bukan bagian sesi ini
+					boolean tunai = rs.getBoolean(2);
+					double nominal = rs.getDouble(3);
+					if (kelompok == 1) {
+						if (tunai) hasil[0] += nominal; else hasil[1] += nominal;
 					} else {
-						hasil[1] += rs.getDouble(2);
+						if (tunai) hasil[3] += nominal; else hasil[4] += nominal;
 					}
 				}
 			} finally {
@@ -93,7 +129,17 @@ public final class ApotikSesiKasHelper {
 		}
 
 		// Nilai penjualan pada periode yang sama, untuk memperlihatkan bagian
-		// yang metodenya tidak pernah tercatat.
+		// yang metodenya tidak pernah tercatat. SENGAJA TIDAK disaring per
+		// kasir: sirs.detail_transaksi_pasien juga diisi jalur pendaftaran
+		// rumah sakit (CommonPendaftaranUtil) untuk dispensing yang dibebankan
+		// ke tagihan pasien, bukan dibayar tunai/non-tunai lewat sesi kas
+		// apotek mana pun -- menyaring oleh_id di sini akan diam-diam
+		// membuang baris sah dan mengarang kesan bahwa uangnya hilang.
+		// Akibatnya pada apotek berkasir banyak: penjualanBerjalan tetap
+		// bercakupan seluruh apotek (dan bahkan seluruh rumah sakit untuk
+		// kode 'AJ'), sedangkan tunai/nonTunai di atas kini bercakupan per
+		// kasir -- sehingga penjualanTanpaMetode di bawah cuma indikatif,
+		// tidak boleh dipakai sebagai angka pasti per kasir.
 		java.sql.PreparedStatement psJual = session.connection().prepareStatement(
 				"SELECT COALESCE(SUM(d.hasilpenghitungantotal),0) "
 						+ "FROM sirs.detail_transaksi_pasien d "
@@ -145,11 +191,13 @@ public final class ApotikSesiKasHelper {
 			isiJson(j, s);
 			// Angka berjalan (bukan angka tutup): apa yang sudah masuk sejak
 			// sesi dibuka sampai detik ini.
-			double[] p = penerimaan(session, s.getWaktuBuka(), new Date());
+			double[] p = penerimaan(session, s.getWaktuBuka(), new Date(), s.getUserId());
 			j.put("tunaiBerjalan", p[0]);
 			j.put("nonTunaiBerjalan", p[1]);
 			j.put("penjualanBerjalan", p[2]);
 			j.put("penjualanTanpaMetode", p[2] - (p[0] + p[1]));
+			j.put("tunaiTanpaKasir", p[3]);
+			j.put("nonTunaiTanpaKasir", p[4]);
 			j.put("kasSeharusnya", s.getModalAwal().doubleValue() + p[0]);
 			hasil.put("sesi", j);
 		} finally {
@@ -225,7 +273,7 @@ public final class ApotikSesiKasHelper {
 			}
 			Date sampai = new Date();
 			// Angka sistem dihitung DI SINI, tidak pernah diambil dari klien.
-			double[] p = penerimaan(session, s.getWaktuBuka(), sampai);
+			double[] p = penerimaan(session, s.getWaktuBuka(), sampai, s.getUserId());
 			double kasSeharusnya = s.getModalAwal().doubleValue() + p[0];
 			double selisih = uangFisik - kasSeharusnya;
 
@@ -249,6 +297,8 @@ public final class ApotikSesiKasHelper {
 			j.put("kasSeharusnya", kasSeharusnya);
 			j.put("penjualanBerjalan", p[2]);
 			j.put("penjualanTanpaMetode", p[2] - (p[0] + p[1]));
+			j.put("tunaiTanpaKasir", p[3]);
+			j.put("nonTunaiTanpaKasir", p[4]);
 			hasil.put("status", "00");
 			hasil.put("sesi", j);
 		} catch (Exception e) {

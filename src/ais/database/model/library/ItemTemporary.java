@@ -4,6 +4,7 @@ package ais.database.model.library;
 
 import static javax.persistence.GenerationType.IDENTITY;
 
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.net.URL;
@@ -96,26 +97,33 @@ import ais.database.model.rab.SatuanKerja;
  *       sinkronisasinya searah saja (jurusan &rarr; teks, lihat {@link #getBy_statement()}).</li>
  * </ul>
  *
- * <h3>Peringatan performa: {@link #getImageUrl()} melakukan I/O jaringan</h3>
- * <p>Ini perbedaan paling berbahaya terhadap {@link Item}. Di kelas ini {@link #getImageUrl()}
- * memanggil {@link #checkApakahGambarSudahTersimpanDiLocal()} pada <b>setiap pembacaan</b>,
- * sedangkan pada {@code Item} getter serupa hanya mengembalikan nilai kolom. Lebih jauh, salinan
- * {@code checkApakahGambarSudahTersimpanDiLocal()} di sini <b>belum menerima tiga perbaikan</b>
- * yang sudah diterapkan pada {@code Item}:</p>
+ * <h3>Peringatan performa (historis): {@link #getImageUrl()} sempat melakukan I/O jaringan</h3>
+ * <p>Sampai dengan perbaikan performa 06-09-2026, {@link #getImageUrl()} di kelas ini memanggil
+ * {@link #checkApakahGambarSudahTersimpanDiLocal()} pada <b>setiap pembacaan</b> &mdash; berbeda
+ * dari {@code Item} yang getter serupanya hanya mengembalikan nilai kolom &mdash; dan salinan
+ * {@code checkApakahGambarSudahTersimpanDiLocal()} di sini belum menerima tiga perbaikan yang
+ * sudah lebih dulu diterapkan pada {@code Item}. Ketiganya kini sudah diporting ke kelas ini:</p>
  * <ol>
- *   <li><b>Tanpa batas waktu koneksi/baca.</b> {@code URLConnection} Java tidak punya batas waktu
- *       bawaan, sehingga host gambar yang menggantung membuat thread pemanggil menunggu tanpa
- *       batas &mdash; persis penyebab insiden pembekuan desktop ZK yang dicatat pada javadoc
- *       {@code Item.checkApakahGambarSudahTersimpanDiLocal()}.</li>
- *   <li><b>Tanpa penjaga bentuk URL.</b> Tidak ada padanan {@code isKemungkinanUrlGambar(...)},
- *       sehingga teks bebas yang salah masuk ke kolom URL langsung memicu
+ *   <li><b>Batas waktu koneksi/baca.</b> {@code URLConnection} Java tidak punya batas waktu
+ *       bawaan, sehingga host gambar yang menggantung dapat membuat thread pemanggil menunggu
+ *       tanpa batas &mdash; persis penyebab insiden pembekuan desktop ZK yang dicatat pada javadoc
+ *       {@code Item.checkApakahGambarSudahTersimpanDiLocal()}. Kini dipasang eksplisit lewat
+ *       konfigurasi {@code timeout_ambil_gambar_pustaka_koneksi_ms}/
+ *       {@code timeout_ambil_gambar_pustaka_baca_ms}.</li>
+ *   <li><b>Penjaga bentuk URL</b> lewat {@link #isKemungkinanUrlGambar(String)}, sehingga teks
+ *       bebas yang salah masuk ke kolom URL (mis. isi {@link #getTersediaDi()}) tidak lagi memicu
  *       {@code MalformedURLException}.</li>
- *   <li><b>Tanpa konversi {@code TYPE_INT_RGB}</b> sebelum menulis JPEG, sehingga sampul PNG
- *       ber-alfa dapat memicu {@code NullPointerException} internal {@code JPEGImageWriter}.</li>
+ *   <li><b>Konversi {@code TYPE_INT_RGB}</b> sebelum menulis JPEG, sehingga sampul PNG ber-alfa
+ *       tidak lagi memicu {@code NullPointerException} internal {@code JPEGImageWriter}.</li>
  * </ol>
- * <p>Karena grid "Daftar buku yang sebelumnya sudah diambil" merender banyak baris sekaligus dan
- * setiap baris membaca {@code imageUrl}, risiko itu berlipat sebanyak jumlah baris yang
- * ditampilkan.</p>
+ * <p>Selain itu {@link #getImageUrl()} kini juga <b>tidak lagi</b> memicu unduhan sebagai efek
+ * samping pada setiap pembacaan &mdash; perilakunya sudah disejajarkan dengan {@code Item}: hanya
+ * mengembalikan nilai kolom. Unduhan berkas hanya terjadi bila pemanggil secara eksplisit meminta
+ * {@link #getImagePath()}, {@link #getAdaFileGambar()}, atau
+ * {@link #checkApakahGambarSudahTersimpanDiLocal()}. Grid "Daftar buku yang sebelumnya sudah
+ * diambil" pada {@code AmbilDataDariGoogleBookBanyak} yang merender banyak baris {@code
+ * ItemTemporary} sekaligus tidak lagi otomatis mengunduh sampul tiap baris hanya karena membaca
+ * {@code imageUrl}.</p>
  *
  * <h3>Pola arsitektur lain yang berlaku sama seperti {@link Item}</h3>
  * <p>Field audit bayangan ({@code oleh}, {@code olehId}, {@code tanggal_dirubah} dan
@@ -1508,37 +1516,31 @@ public class ItemTemporary extends GeneralValueObject {
 	}
 
 	/**
-	 * Mengembalikan URL sampul buku &mdash; <b>dan sebagai efek samping mengunduh berkasnya ke disk
-	 * server bila belum ada</b>.
+	 * Mengembalikan URL sampul buku apa adanya (umumnya thumbnail Google Books).
 	 *
-	 * <h3>Perbedaan penting terhadap {@link Item}</h3>
-	 * <p>{@code Item.getImageUrl()} hanya mengembalikan nilai kolom. Getter di kelas ini memanggil
-	 * {@link #checkApakahGambarSudahTersimpanDiLocal()} lebih dulu pada <b>setiap</b> pembacaan.
-	 * Nilai kembalian method tersebut bahkan tidak dipakai &mdash; ia dipanggil semata-mata demi
-	 * efek sampingnya. Artinya sebuah getter yang tampak sepele sesungguhnya dapat:</p>
-	 * <ul>
-	 *   <li>memeriksa keberadaan berkas di disk (I/O disk per pemanggilan);</li>
-	 *   <li>membuka koneksi HTTP ke host gambar pihak ketiga;</li>
-	 *   <li>mengunduh, mendekode, dan menulis berkas JPEG.</li>
-	 * </ul>
-	 *
-	 * <h3>Mengapa ini berisiko</h3>
-	 * <p>Salinan {@code checkApakahGambarSudahTersimpanDiLocal()} di kelas ini belum menerima
-	 * perbaikan batas waktu yang sudah diterapkan pada {@code Item} (lihat javadoc method tersebut).
-	 * {@code URLConnection} Java tidak punya batas waktu bawaan, sehingga host gambar yang
-	 * menggantung akan menahan thread pemanggil tanpa batas. Ketika pemanggilnya adalah renderer
-	 * grid ZK &mdash; dan grid "Daftar buku yang sebelumnya sudah diambil" pada
-	 * {@code AmbilDataDariGoogleBookBanyak} memang membaca kolom ini per baris &mdash; thread yang
-	 * tertahan adalah thread request yang sedang memegang kunci desktop ZK, sehingga seluruh
-	 * interaksi pengguna pada desktop yang sama ikut membeku. Sebelum memakai getter ini pada
-	 * perulangan, pastikan berkas sampul memang sudah tersalin, atau baca kolomnya lewat kueri
-	 * proyeksi.</p>
+	 * <h3>Riwayat: dulu memicu unduhan sebagai efek samping</h3>
+	 * <p>Sampai dengan perbaikan performa 06-09-2026, getter ini memanggil
+	 * {@link #checkApakahGambarSudahTersimpanDiLocal()} pada <b>setiap</b> pembacaan &mdash; nilai
+	 * kembaliannya bahkan tidak dipakai, sekadar demi efek sampingnya (I/O disk, koneksi HTTP ke
+	 * host gambar pihak ketiga, unduh-dekode-tulis JPEG) &mdash; sementara salinan
+	 * {@code checkApakahGambarSudahTersimpanDiLocal()} di kelas ini juga belum punya batas waktu
+	 * koneksi/baca. Karena grid "Daftar buku yang sebelumnya sudah diambil" pada
+	 * {@code AmbilDataDariGoogleBookBanyak} membaca kolom ini untuk setiap baris yang dirender, host
+	 * gambar yang menggantung dapat menahan thread request yang sedang memegang kunci desktop ZK
+	 * tanpa batas, membekukan seluruh interaksi pengguna pada desktop yang sama.</p>
+	 * <p>Getter ini sekarang <b>hanya mengembalikan nilai kolom</b>, sejajar dengan
+	 * {@code Item.getImageUrl()}. Pengambilan berkas hanya terjadi bila pemanggil secara eksplisit
+	 * meminta {@link #getImagePath()}, {@link #getAdaFileGambar()}, atau
+	 * {@link #checkApakahGambarSudahTersimpanDiLocal()} &mdash; yang kini juga sudah dilengkapi
+	 * batas waktu koneksi/baca (lihat javadoc method tersebut). Satu-satunya pemanggil luar kolom
+	 * ini, {@code LibraryUtil.generateImage(ItemTemporary)}, hanya memakai nilai URL mentah (atau
+	 * fallback {@code /AmbilMedia}) untuk ditampilkan; tidak pernah membaca berkas hasil unduhan,
+	 * sehingga perubahan ini tidak mengubah tampilan grid tersebut.</p>
 	 *
 	 * @return URL sampul, atau {@code null}.
 	 */
 	@Column(name = "image_url", columnDefinition = "text", nullable = true)
 	public String getImageUrl() {
-		checkApakahGambarSudahTersimpanDiLocal();
 		return imageUrl;
 	}
 
@@ -1549,11 +1551,13 @@ public class ItemTemporary extends GeneralValueObject {
 	 * <h3>Alur</h3>
 	 * <ol>
 	 *   <li>Sumber URL diambil dari {@link #getImageUrlBesar()}. Method berhenti dan mengembalikan
-	 *       string kosong bila URL kosong atau mengandung {@code "localhost"} &mdash; yang berarti
-	 *       URL sudah menunjuk ke {@code /AmbilMedia} internal, sehingga menyalinnya tidak ada
-	 *       gunanya.</li>
+	 *       string kosong bila URL kosong, mengandung {@code "localhost"} &mdash; yang berarti URL
+	 *       sudah menunjuk ke {@code /AmbilMedia} internal, sehingga menyalinnya tidak ada
+	 *       gunanya &mdash; atau tidak lolos {@link #isKemungkinanUrlGambar(String)}.</li>
 	 *   <li>Direktori tujuan diambil dari konfigurasi {@code lokasi_penyimpanan_lampiran_perpustakaan}
-	 *       (bawaan {@code /opt/gambar_perpus}) dan dibuat bila belum ada.</li>
+	 *       (bawaan {@code /opt/gambar_perpus}) dan dibuat bila belum ada; bila pembuatan gagal,
+	 *       bukan direktori, atau tidak dapat ditulisi, method mengembalikan string kosong alih-alih
+	 *       melempar exception.</li>
 	 *   <li>Nama berkas berbasis ISBN &mdash; atau {@code "_buku" + id} bila ISBN kosong &mdash;
 	 *       disandikan {@code URLEncoder} UTF-8 dan berakhiran {@code .jpg}. Bila berkasnya sudah
 	 *       ada, unduhan dilewati dan jalurnya langsung dikembalikan.</li>
@@ -1563,50 +1567,62 @@ public class ItemTemporary extends GeneralValueObject {
 	 *       JPEG.</li>
 	 * </ol>
 	 *
-	 * <h3>Tiga perbaikan pada {@link Item} yang BELUM ada di sini</h3>
-	 * <p>Method ini adalah salinan versi lama dari
-	 * {@code Item.checkApakahGambarSudahTersimpanDiLocal()}. Tiga perbedaan berikut bersifat
-	 * substantif, bukan kosmetik, dan sebaiknya diketahui siapa pun yang menyentuh kelas ini:</p>
-	 * <ol>
-	 *   <li><b>Tidak ada batas waktu koneksi maupun baca.</b> {@code conn.setConnectTimeout(...)}
-	 *       dan {@code conn.setReadTimeout(...)} tidak pernah dipanggil, sehingga host gambar yang
-	 *       lambat atau menggantung menahan thread pemanggil tanpa batas &mdash; persis mekanisme
-	 *       yang memicu insiden pembekuan desktop ZK yang terdokumentasi pada versi {@code Item}.
-	 *       Konfigurasi {@code timeout_ambil_gambar_pustaka_koneksi_ms} dan
-	 *       {@code timeout_ambil_gambar_pustaka_baca_ms} tidak berpengaruh di sini.</li>
-	 *   <li><b>Tidak ada penjaga bentuk URL.</b> Versi {@code Item} memeriksa lebih dulu lewat
-	 *       {@code isKemungkinanUrlGambar(...)} bahwa nilai benar-benar berpola URL
-	 *       ({@code http://} atau {@code https://}), sehingga teks bebas yang salah masuk ke kolom
-	 *       URL &mdash; seperti catatan lokasi buku &mdash; tidak sampai menjadi {@code new URL(...)}.
-	 *       Di sini pemeriksaan itu tidak ada, sehingga isian semacam itu langsung memicu
-	 *       {@code MalformedURLException}.</li>
-	 *   <li><b>Tidak ada konversi ke {@code TYPE_INT_RGB}</b> sebelum {@code ImageIO.write(...,
-	 *       "JPEG", ...)}. Format JPEG tidak mendukung kanal alfa; menulis {@code BufferedImage}
-	 *       ARGB atau ber-<i>palette</i> (mis. sampul PNG) secara langsung dapat memicu
-	 *       {@code NullPointerException} internal pada {@code JPEGImageWriter}.</li>
-	 * </ol>
-	 * <p>Perbedaan kecil lain: pembuatan direktori di sini tidak memeriksa nilai kembalian
-	 * {@code mkdirs()} maupun izin tulis, dan pemanggilan {@code f.getParentFile().mkdirs()}
-	 * dilakukan tanpa penjaga {@code null}.</p>
+	 * <h3>Batas waktu koneksi (porting dari {@code Item}, perbaikan performa 06-09-2026)</h3>
+	 * <p>{@code URLConnection} Java tidak punya batas waktu bawaan, sehingga sebelum perbaikan ini
+	 * host gambar yang menggantung membuat thread pemanggil menunggu tanpa batas &mdash; persis
+	 * mekanisme insiden pembekuan desktop ZK yang terdokumentasi pada javadoc
+	 * {@code Item.checkApakahGambarSudahTersimpanDiLocal()} (89 kali method tersebut tertangkap
+	 * {@code RUNNABLE} dengan 83&ndash;87 thread {@code ajp-nio} antre di
+	 * {@code UiEngineImpl.doActivate}). Batas waktu koneksi (bawaan 5000&nbsp;ms) dan baca (bawaan
+	 * 10000&nbsp;ms) kini dipasang eksplisit, dapat disetel lewat konfigurasi
+	 * {@code timeout_ambil_gambar_pustaka_koneksi_ms} dan {@code timeout_ambil_gambar_pustaka_baca_ms}.
+	 * Kegagalan membaca konfigurasi tidak membatalkan unduhan &mdash; nilai bawaan tetap dipakai dan
+	 * galatnya dicatat {@code ErrorAuditUtil}.</p>
+	 *
+	 * <h3>Penjaga bentuk URL</h3>
+	 * <p>Nilai sumber divalidasi lebih dulu lewat {@link #isKemungkinanUrlGambar(String)} agar
+	 * benar-benar berpola URL ({@code http://} atau {@code https://}), sehingga teks bebas yang
+	 * salah masuk ke kolom URL &mdash; seperti isi {@link #getTersediaDi()}
+	 * ("Tersedia di perpustakaan kampus 2 GKT Lt.3") &mdash; tidak sampai menjadi
+	 * {@code new URL(...)} dan memicu {@code MalformedURLException}.</p>
+	 *
+	 * <h3>Konversi warna sebelum penulisan JPEG</h3>
+	 * <p>Gambar dibaca lewat {@code CommonFileMediaHelper.bacaGambarAman(...)}, lalu <b>disalin ke
+	 * {@code BufferedImage} bertipe {@code TYPE_INT_RGB}</b> sebelum ditulis. Langkah ini wajib:
+	 * format JPEG tidak mendukung kanal alfa, dan menulis {@code BufferedImage} ARGB atau
+	 * ber-<i>palette</i> (mis. sampul PNG) langsung lewat {@code ImageIO.write} dapat memicu
+	 * {@code NullPointerException} internal pada {@code JPEGImageWriter} &mdash; bug JDK yang sudah
+	 * ditangani dengan pola sama di {@code ItemPunyaGambarFotoHelper}. {@code Graphics2D} yang
+	 * dipakai untuk menyalin dilepas pada blok {@code finally}.</p>
+	 *
+	 * <p>Ketiga perbaikan di atas adalah hasil porting dari
+	 * {@code Item.checkApakahGambarSudahTersimpanDiLocal()}, yang sebelumnya sudah lebih dulu
+	 * menerimanya sementara salinan di kelas ini tertinggal.</p>
 	 *
 	 * <h3>Penanganan galat</h3>
-	 * <p>Seluruh badan dibungkus satu {@code try}/{@code catch} lebar yang mencatat galat lewat
-	 * {@code ErrorAuditUtil} lalu mengembalikan string kosong. Method karena itu tidak pernah
-	 * melempar ke pemanggil, dan string kosong adalah satu-satunya penanda kegagalan &mdash;
-	 * pemanggil tidak dapat membedakan "tidak ada sampul" dari "unduhan gagal".</p>
+	 * <p>{@code IOException} saat pengambilan (mis. HTTP 403/404 dari {@code AmbilMedia}, atau URL
+	 * tak terjangkau) ditangkap khusus dan menghasilkan string kosong: gambar dianggap belum
+	 * tersimpan lokal, dan pemanggil tidak diganggu exception mentah. Galat lain ditangkap
+	 * penangkap terluar dan dicatat {@code ErrorAuditUtil}. Dengan demikian method ini tidak pernah
+	 * melempar ke pemanggil &mdash; nilai kembalian string kosong adalah satu-satunya penanda
+	 * kegagalan; pemanggil tidak dapat membedakan "tidak ada sampul" dari "unduhan gagal".</p>
 	 *
 	 * @return jalur absolut berkas sampul lokal, atau string kosong bila tidak tersedia/gagal.
 	 */
 	public String checkApakahGambarSudahTersimpanDiLocal() {
 		String imga = getImageUrlBesar();
-		if (imga != null && !imga.trim().isEmpty() && !imga.trim().contains("localhost")) {
+		if (imga != null && !imga.trim().isEmpty() && !imga.trim().contains("localhost")
+				&& isKemungkinanUrlGambar(imga)) {
 			try {
 
 				File folder = new File(
 						Common.getKonfigurasi("lokasi_penyimpanan_lampiran_perpustakaan", "/opt/gambar_perpus")
 								.getNilai() + "/");
-				if (!folder.exists()) {
-					folder.mkdirs();
+				if (!folder.exists() && !folder.mkdirs()) {
+					return "";
+				}
+				if (!folder.isDirectory() || !folder.canWrite()) {
+					return "";
 				}
 
 				File f = new File(folder.getAbsolutePath() + "/"
@@ -1615,21 +1631,74 @@ public class ItemTemporary extends GeneralValueObject {
 				boolean exist = f.exists();
 
 				if (!exist) {
-					URL myUrl = new URL(getImageUrlBesar());
-					URLConnection conn = myUrl.openConnection();
+					try {
+						URL myUrl = new URL(imga.trim());
+						URLConnection conn = myUrl.openConnection();
 
-					conn.addRequestProperty("Accept-Language", "en-US");
-					conn.setRequestProperty("User-Agent",
-							"Mozilla/5.0 (Windows; U; Windows NT 6.1; en-GB; rv:1.9.2.13) Gecko/20101203 Firefox/3.6.13 (.NET CLR 3.5.30729)");
+						/*
+						 * BATAS WAKTU WAJIB (perbaikan performa 19-08-2026).
+						 *
+						 * URLConnection Java TIDAK punya batas waktu bawaan: bila host gambar
+						 * lambat/menggantung, thread ini menunggu SELAMANYA. Method ini terpanggil
+						 * saat merender daftar pustaka, jadi thread yang tergantung adalah thread
+						 * request Tomcat yang SEDANG MEMEGANG kunci desktop ZK -- seluruh request
+						 * lain pada desktop yang sama ikut membeku (lihat javadoc
+						 * Item.checkApakahGambarSudahTersimpanDiLocal()).
+						 *
+						 * Nilainya dapat disetel lewat konfigurasi bila ada host yang memang lambat.
+						 */
+						int batasKoneksiMs = 5000;
+						int batasBacaMs = 10000;
+						try {
+							batasKoneksiMs = (int) ais.common.Common.parseAngkaKonfigurasi(ais.common.Common
+									.getKonfigurasi("timeout_ambil_gambar_pustaka_koneksi_ms", "5000").getNilai(), 5000);
+							batasBacaMs = (int) ais.common.Common.parseAngkaKonfigurasi(ais.common.Common
+									.getKonfigurasi("timeout_ambil_gambar_pustaka_baca_ms", "10000").getNilai(), 10000);
+						} catch (Exception eKonf) {
+							ais.common.ErrorAuditUtil.record(eKonf,
+									"ItemTemporary.checkApakahGambarSudahTersimpanDiLocal.timeout");
+						}
+						conn.setConnectTimeout(batasKoneksiMs);
+						conn.setReadTimeout(batasBacaMs);
 
-					BufferedImage img;
-					img = ais.common.CommonFileMediaHelper.bacaGambarAman(conn.getInputStream());
+						conn.addRequestProperty("Accept-Language", "en-US");
+						conn.setRequestProperty("User-Agent",
+								"Mozilla/5.0 (Windows; U; Windows NT 6.1; en-GB; rv:1.9.2.13) Gecko/20101203 Firefox/3.6.13 (.NET CLR 3.5.30729)");
 
-					f.getParentFile().mkdirs();
-					if (!ImageIO.write(img, "JPEG", f)) {
+						BufferedImage img;
+						img = ais.common.CommonFileMediaHelper.bacaGambarAman(conn.getInputStream());
 
+						if (img != null) {
+							File parentFile = f.getParentFile();
+							if (parentFile == null || (!parentFile.exists() && !parentFile.mkdirs())
+									|| !parentFile.canWrite()) {
+								return "";
+							}
+							// JPEG tidak mendukung alpha channel; menulis BufferedImage
+							// ARGB/indexed (mis. sampul PNG) langsung via ImageIO.write ke
+							// format JPEG bisa memicu NullPointerException internal pada
+							// JPEGImageWriter (bug JDK yang sudah ditangani dengan pola sama
+							// di ItemPunyaGambarFotoHelper). Konversi dulu ke TYPE_INT_RGB.
+							BufferedImage rgbImg = new BufferedImage(img.getWidth(), img.getHeight(),
+									BufferedImage.TYPE_INT_RGB);
+							Graphics2D graphics = rgbImg.createGraphics();
+							try {
+								graphics.drawImage(img, 0, 0, null);
+							} finally {
+								graphics.dispose();
+							}
+							if (!ImageIO.write(rgbImg, "JPEG", f)) {
+
+							}
+						}
+						// System.out.println("Simpan ke " + f.getAbsolutePath());
+					} catch (java.io.IOException ioe) {
+						// Gambar tidak bisa diambil dari server (mis. HTTP 403/404 dari
+						// AmbilMedia, atau URL tidak dapat diakses). Anggap gambar belum
+						// tersimpan lokal, jangan ganggu proses pemanggil dengan exception
+						// mentah.
+						return "";
 					}
-					// System.out.println("Simpan ke " + f.getAbsolutePath());
 				}
 				return f.getAbsolutePath();
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/library/ItemTemporary.java:766");
@@ -1637,6 +1706,19 @@ public class ItemTemporary extends GeneralValueObject {
 			}
 		}
 		return "";
+	}
+
+	/**
+	 * Validasi ringan bahwa string yang akan dijadikan URL benar-benar berpola URL (skema
+	 * http/https), bukan teks bebas seperti catatan lokasi buku (mis. "Tersedia di perpustakaan
+	 * kampus 2 GKT Lt.3"). Menghindari MalformedURLException akibat field sumber yang salah isi.
+	 */
+	private boolean isKemungkinanUrlGambar(String value) {
+		if (value == null) {
+			return false;
+		}
+		String v = value.trim().toLowerCase();
+		return v.startsWith("http://") || v.startsWith("https://");
 	}
 
 	/**
@@ -1977,8 +2059,9 @@ public class ItemTemporary extends GeneralValueObject {
 	 * Mengembalikan catatan ketersediaan fisik dalam teks bebas.
 	 *
 	 * <p>Teks bebas semacam ini pernah salah masuk ke kolom URL gambar dan memicu
-	 * {@code MalformedURLException}; {@link Item} sudah dilindungi penjaga
-	 * {@code isKemungkinanUrlGambar(...)}, sedangkan kelas ini belum.</p>
+	 * {@code MalformedURLException}; kelas ini kini dilindungi penjaga
+	 * {@link #isKemungkinanUrlGambar(String)} pada {@link #checkApakahGambarSudahTersimpanDiLocal()},
+	 * sama seperti {@link Item}.</p>
 	 *
 	 * @return catatan ketersediaan, atau {@code null}.
 	 */
@@ -2461,9 +2544,11 @@ public class ItemTemporary extends GeneralValueObject {
 	 * Mengembalikan jalur berkas sampul di disk server, <b>mengunduhnya lebih dulu bila perlu</b>.
 	 *
 	 * <p>Bila {@code imagePath} kosong atau menunjuk berkas yang sudah tidak ada, method memanggil
-	 * {@link #checkApakahGambarSudahTersimpanDiLocal()} yang &mdash; pada kelas ini &mdash; belum
-	 * memiliki batas waktu koneksi/baca. Getter ini karena itu dapat memblokir tanpa batas bila host
-	 * gambar menggantung.</p>
+	 * {@link #checkApakahGambarSudahTersimpanDiLocal()} &mdash; yang dapat membuka koneksi HTTP ke
+	 * host gambar eksternal. Ini menjadikan getter sederhana ini berpotensi <b>memblokir</b> selama
+	 * batas waktu koneksi/baca yang berlaku (bawaan 5 dan 10 detik, dapat disetel lewat konfigurasi
+	 * {@code timeout_ambil_gambar_pustaka_koneksi_ms}/{@code timeout_ambil_gambar_pustaka_baca_ms}).
+	 * Jangan memanggilnya di dalam perulangan render tanpa memastikan berkas sudah tersalin.</p>
 	 *
 	 * @return jalur absolut berkas sampul, atau string kosong bila tidak tersedia.
 	 */
@@ -2487,7 +2572,9 @@ public class ItemTemporary extends GeneralValueObject {
 	/**
 	 * Menyatakan apakah berkas sampul benar-benar ada di disk server, dihitung ulang setiap
 	 * pemanggilan lewat {@link #getImagePath()} &mdash; sehingga mewarisi seluruh biaya dan risiko
-	 * getter tersebut, termasuk kemungkinan unduhan HTTP yang memblokir.
+	 * getter tersebut: pemeriksaan berkas di disk dan kemungkinan unduhan HTTP yang memblokir
+	 * (dibatasi oleh batas waktu koneksi/baca yang sama seperti
+	 * {@link #checkApakahGambarSudahTersimpanDiLocal()}).
 	 *
 	 * @return {@code true} bila berkas sampul ada di disk.
 	 */
