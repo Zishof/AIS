@@ -8,8 +8,17 @@ import java.util.Map;
  * merutekan tiap endpoint ke tabel domainnya (bukan JSON generik). Dihasilkan otomatis dari api_spec.yaml.
  */
 public final class SisterEntitasRegistry {
+	/** Kelas utilitas statis (hanya berisi peta &amp; method statis) — konstruktor privat mencegah instansiasi. */
 	private SisterEntitasRegistry() {}
+	/**
+	 * Peta endpoint SISTER (path dasar, tanpa query string) -&gt; kelas entitas terstruktur tujuan.
+	 * Diisi sekali pada blok statis di bawah; dibaca lewat {@link #kelas(String)}, tidak pernah ditulis
+	 * di luar kelas ini. Endpoint yang tidak terdaftar di sini (mis. {@code referensi/lembaga_sertifikasi},
+	 * {@code sertifikasi_dosen}) ditangani lewat jalur kode khusus di {@link ais.common.DataSisterApi},
+	 * bukan lewat registry ini.
+	 */
 	private static final Map<String, Class<?>> PETA = new HashMap<String, Class<?>>();
+	/** Inisialisasi satu kali seluruh pemetaan endpoint -&gt; kelas entitas (referensi, data_pribadi, tridharma, BKD). */
 	static {
 		PETA.put("referensi/agama", RefAgamaSister.class);
 		PETA.put("referensi/bidang_studi", RefBidangStudiSister.class);
