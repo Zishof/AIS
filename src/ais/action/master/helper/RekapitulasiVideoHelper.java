@@ -376,7 +376,9 @@ public class RekapitulasiVideoHelper {
 	private static void reload(final List<Long> pertemuans, final Paging paging, final MyGrid grid,
 			final Mahasiswa mahasiswa, boolean awal, final Date mulai, final Date sampai, final String cari,
 			final VOPembelajaran perkuliahan) {
-		Session session = StreamingHibernateUtil.getInstance().currentSession();
+		Session session = null;
+		try {
+			session = StreamingHibernateUtil.getInstance().openSession();
 
 		String inPer = "";
 		for (Long id : pertemuans) {
@@ -394,8 +396,11 @@ public class RekapitulasiVideoHelper {
 
 		}
 
-		if (!cari.isEmpty()) {
-			where = where + " and real_file ilike '%" + cari + "%' ";
+		if (cari != null && !cari.isEmpty()) {
+			String cariAman = cari.replace("'", "''");
+			where = where + " and (coalesce(nama, '') ilike '%" + cariAman
+					+ "%' or coalesce(link, '') ilike '%" + cariAman
+					+ "%' or coalesce(keterangan, '') ilike '%" + cariAman + "%') ";
 		}
 
 		String sql = "select count(*) as size from video_pertemuan a where " + where + ";";
@@ -406,7 +411,7 @@ public class RekapitulasiVideoHelper {
 
 		if (awal) {
 
-			Long pointPertemuan = (Long) HibernateUtil.currentSession().createCriteria(Pertemuan.class)
+			Long pointPertemuan = (Long) session.createCriteria(Pertemuan.class)
 					.setProjection(Projections.property("id"))
 					.add(Restrictions.sqlRestriction("date(tanggal) < CURRENT_DATE"))
 					.add(pertemuans.isEmpty() ? Restrictions.sqlRestriction("false")
@@ -445,7 +450,13 @@ public class RekapitulasiVideoHelper {
 
 		grid.setRowRenderer(new DetailPertemuanRenderer(mahasiswa, null));
 
-		StreamingHibernateUtil.getInstance().closeSession();
+		} finally {
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { }
+				try { session.disconnect(); } catch (Exception e) { }
+				try { session.close(); } catch (Exception e) { }
+			}
+		}
 	}
 
 	/**

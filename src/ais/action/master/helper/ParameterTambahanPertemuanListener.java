@@ -256,7 +256,7 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 							String[] spl = pertemuan.getParameterTambahanInds().split("\n");
 							for (String d : spl) {
 								String[] value = d.split("<=>");
-								if (value[0].trim().equalsIgnoreCase(jenis)) {
+								if (value[0].trim().equalsIgnoreCase(LampiranLain.kunciNilaiParameterTambahan(jenis))) {
 									valAsli = value.length > 1 ? value[1].trim() : "";
 
 									try {
@@ -353,7 +353,7 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 									String[] spl = pertemuan.getParameterTambahanInds().split("\n");
 									for (String d : spl) {
 										String[] value = d.split("<=>");
-										if (value[0].trim().equalsIgnoreCase(jenis)) {
+										if (value[0].trim().equalsIgnoreCase(LampiranLain.kunciNilaiParameterTambahan(jenis))) {
 											valAsli = value.length > 1 ? value[1].trim() : "";
 
 											try {
@@ -466,7 +466,7 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 								String[] spl = pertemuan.getParameterTambahanInds().split("\n");
 								for (String d : spl) {
 									String[] value = d.split("<=>");
-									if (value[0].trim().equalsIgnoreCase(jenis)) {
+									if (value[0].trim().equalsIgnoreCase(LampiranLain.kunciNilaiParameterTambahan(jenis))) {
 										valAsli = value.length > 1 ? value[1].trim() : "";
 
 										try {
@@ -542,7 +542,7 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 							String[] spl = pertemuan.getParameterTambahanInds().split("\n");
 							for (String d : spl) {
 								String[] value = d.split("<=>");
-								if (value[0].trim().equalsIgnoreCase(jenis)) {
+								if (value[0].trim().equalsIgnoreCase(LampiranLain.kunciNilaiParameterTambahan(jenis))) {
 									valAsli = value.length > 1 ? value[1].trim() : "";
 
 									try {

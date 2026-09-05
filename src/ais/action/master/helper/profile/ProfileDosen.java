@@ -552,7 +552,10 @@ public class ProfileDosen {
 								a = new Label("Tidak ada jadwal sebagai pembimbing " + Common.getBahasaConfig("KKN")));
 						a.setStyle("font-size:11px;font-weight: bolder;color:red;");
 					} else {
-						for (final KelompokKkn kkn : kkns) {
+						for (KelompokKkn kandidatKkn : kkns) {
+							final KelompokKkn kkn = kandidatKkn == null || kandidatKkn.getId() == null
+									? null : (KelompokKkn) session.get(KelompokKkn.class, kandidatKkn.getId());
+							if (kkn == null) continue;
 							if (kkn.getKkn() != null) {
 								Row row = new MyRowStyled();
 								row.setParent(rowsKkn);
@@ -686,7 +689,10 @@ public class ProfileDosen {
 							a = new Label("Tidak ada jadwal sebagai pembimbing " + Common.getBahasaConfig("PKL")));
 					a.setStyle("font-size:11px;font-weight: bolder;color:red;");
 				} else {
-					for (final KelompokPkl pkl : pkls) {
+					for (KelompokPkl kandidatPkl : pkls) {
+						final KelompokPkl pkl = kandidatPkl == null || kandidatPkl.getId() == null
+								? null : (KelompokPkl) session.get(KelompokPkl.class, kandidatPkl.getId());
+						if (pkl == null || pkl.getPkl() == null) continue;
 						Row row = new MyRowStyled();
 						row.setParent(rowsPkl);
 						Toolbarbutton toolbarbuttonData = new MyToolbarbuttonConfig(pkl.infoSimple() + " "

@@ -756,6 +756,9 @@ public class KegiatanHelper {
 	 * @param params  nilai named parameter, boleh {@code null}
 	 */
 	private static void executeUpdateSafe(Session session, String sql, Map<String, Object> params) {
+		if (!isUsableSession(session)) {
+			return;
+		}
 		Transaction tx = session.getTransaction();
 		boolean isNewTx = (tx == null || !tx.isActive());
 		if (isNewTx)

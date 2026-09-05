@@ -1098,7 +1098,11 @@ public class ProfileMahasiswa {
 				ais.ui.util.ZkCompat.setSpans(row, "2");
 				Rows rowsLocal = (Rows) Common.tampilanScroll1(row).getParent();
 
-				for (final KelompokKkn kelompokKkn : kelompokKkns) {
+				for (KelompokKkn kandidatKelompokKkn : kelompokKkns) {
+					final KelompokKkn kelompokKkn = kandidatKelompokKkn == null
+							|| kandidatKelompokKkn.getId() == null ? null
+							: (KelompokKkn) HibernateUtil.currentSession().get(KelompokKkn.class,
+									kandidatKelompokKkn.getId());
 					// KE-6: kelompokKkn.getKkn() bisa null (data KKN tak lengkap) -> NPE saat
 					// getKkn().getTahunAkademik()/getSemester(). Lewati baris yang Kkn-nya null.
 					if(kelompokKkn == null || kelompokKkn.getKkn() == null) continue;
@@ -1150,8 +1154,12 @@ public class ProfileMahasiswa {
 			ais.ui.util.ZkCompat.setSpans(row, "2");
 			Rows rowsLocal = (Rows) Common.tampilanScroll1(row).getParent();
 
-			for (final KelompokPkl kelompokPkl : kelompokPkls) {
-				if(kelompokPkl == null) continue;
+			for (KelompokPkl kandidatKelompokPkl : kelompokPkls) {
+				final KelompokPkl kelompokPkl = kandidatKelompokPkl == null
+						|| kandidatKelompokPkl.getId() == null ? null
+						: (KelompokPkl) HibernateUtil.currentSession().get(KelompokPkl.class,
+								kandidatKelompokPkl.getId());
+				if(kelompokPkl == null || kelompokPkl.getPkl() == null) continue;
 				row = new MyRowStyled();
 				row.setParent(rowsLocal);
 				toolbarbuttonData = new MyToolbarbuttonConfig(kelompokPkl.getNama() + " ("

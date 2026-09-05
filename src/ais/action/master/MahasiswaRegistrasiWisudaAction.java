@@ -1183,9 +1183,12 @@ public class MahasiswaRegistrasiWisudaAction extends GenericAutowireComposer {
 					mahasiswa.setDosen(((Dosen) dosen.getAttribute("myValue")).getId());
 
 					KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa);
+					if (krsMahasiswa == null || krsMahasiswa.getId() == null) {
+						return;
+					}
 					krsMahasiswa.setDosenPa((Dosen) dosen.getAttribute("myValue"));
 					krsMahasiswa.setKelas(mahasiswa.getKelas());
-					Common.refreshSaveOrUpdate(krsMahasiswa);
+					Common.refreshUpdate(krsMahasiswa);
 
 					Integer tahapanTemp = krsMahasiswa.getTahapan();
 					if (tahapanTemp != null && tahapanTemp == 0) {

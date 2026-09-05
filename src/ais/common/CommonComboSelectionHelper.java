@@ -558,6 +558,10 @@ public class CommonComboSelectionHelper extends Common {
 								// memanggil getter id secara reflektif dgn target null -> NPE. Guard
 								// comboitem.getValue() != null di sini menutup celah yang belum tertangani
 								// oleh dua fix NPE berulang sebelumnya di method ini.
+								Class mappedClass = metadata.getMappedClass(EntityMode.POJO);
+								if (mappedClass != null && !mappedClass.isInstance(comboitem.getValue())) {
+									continue;
+								}
 								Serializable id = metadata.getIdentifier(comboitem.getValue(), EntityMode.POJO);
 								if (identityvalue.equals(id)) {
 									combo.setSelectedItem(comboitem);

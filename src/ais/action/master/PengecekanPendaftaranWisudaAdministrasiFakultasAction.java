@@ -208,6 +208,11 @@ public class PengecekanPendaftaranWisudaAdministrasiFakultasAction extends Gener
 						if (i == MyMessageboxConfig.CANCEL)
 							return;
 						else {
+							if (pendaftaranWisuda == null || pendaftaranWisuda.getId() == null) {
+								MyMessageboxConfig.show("Data pendaftaran wisuda tidak ditemukan. Silakan muat ulang data.",
+										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+								return;
+							}
 							PendaftaranWisudaDao daftarWisudaDao = DaoFactory.getInstance().getPendaftaranWisudaDao();
 							if (pendaftaranWisuda.getId() != null) {
 								pendaftaranWisuda = daftarWisudaDao.load(pendaftaranWisuda.getId());
@@ -241,6 +246,11 @@ public class PengecekanPendaftaranWisudaAdministrasiFakultasAction extends Gener
 						if (i == MyMessageboxConfig.CANCEL)
 							return;
 						else {
+							if (pendaftaranWisuda == null || pendaftaranWisuda.getId() == null) {
+								MyMessageboxConfig.show("Data pendaftaran wisuda tidak ditemukan. Silakan muat ulang data.",
+										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+								return;
+							}
 							PendaftaranWisudaDao daftarWisudaDao = DaoFactory.getInstance().getPendaftaranWisudaDao();
 							if (pendaftaranWisuda.getId() != null) {
 								pendaftaranWisuda = daftarWisudaDao.load(pendaftaranWisuda.getId());

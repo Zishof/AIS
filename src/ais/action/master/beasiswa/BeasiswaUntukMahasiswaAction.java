@@ -49,6 +49,7 @@ import ais.database.model.BiodataMahasiswa;
 import ais.database.model.Konfigurasi;
 import ais.database.model.KrsMahasiswa;
 import ais.database.model.Mahasiswa;
+import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.PendapatanOrangTua;
 import ais.database.model.StatusMahasiswa;
 import ais.database.model.beasiswa.BeasiswaPunyaPersyaratan;
@@ -226,10 +227,14 @@ public class BeasiswaUntukMahasiswaAction extends GenericAutowireComposer {
 			calendar.set(Calendar.MINUTE, 0);
 			calendar.set(Calendar.SECOND, 0);
 			Date sekarang = calendar.getTime();
-			StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa).getStatusMahasiswa();
-			button.setDisabled(
-					mahasiswaDaftarBeasiswa != null || statusMahasiswa.getId().equals(ConstantValues.LULUS.getId())
-							|| sekarang.after(beasiswa.getTanggalTutup()));
+			HistoryStatusMahasiswa historyStatus = ais.action.master.helper.HistoryStatusMahasiswaUtil
+					.currentStatus(mahasiswa);
+			StatusMahasiswa statusMahasiswa = historyStatus == null ? null : historyStatus.getStatusMahasiswa();
+			boolean sudahLulus = statusMahasiswa != null && statusMahasiswa.getId() != null
+					&& ConstantValues.LULUS != null && ConstantValues.LULUS.getId() != null
+					&& statusMahasiswa.getId().equals(ConstantValues.LULUS.getId());
+			boolean sudahTutup = beasiswa.getTanggalTutup() != null && sekarang.after(beasiswa.getTanggalTutup());
+			button.setDisabled(mahasiswaDaftarBeasiswa != null || sudahLulus || sudahTutup);
 			button.setVisible(!button.isDisabled());
 
 			MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("Cetak Bukti", "/img/print.png");

@@ -198,7 +198,7 @@ public class ParameterTambahanAlumniListener implements EventListener {
 				String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataMahasiswa.class,
 						biodataMahasiswa.getId(),
 						kelompokParameterTambahanAlumni.getId() + "->" + parameterTambahan.getId());
-				String jenisKey = jenis.toLowerCase();
+				String jenisKey = LampiranLain.kunciNilaiParameterTambahan(jenis).toLowerCase();
 
 				String val = "";
 				if (mapValParam.containsKey(jenisKey)) {
@@ -467,7 +467,7 @@ public class ParameterTambahanAlumniListener implements EventListener {
 				String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataMahasiswa.class,
 						biodataMahasiswa.getId(),
 						kelompokParameterTambahanAlumni.getId() + "->" + parameterTambahan.getId());
-				String jenisKey = jenis.toLowerCase();
+				String jenisKey = LampiranLain.kunciNilaiParameterTambahan(jenis).toLowerCase();
 
 				MyFormRow row = new MyFormRow();
 				row.setValign("top");

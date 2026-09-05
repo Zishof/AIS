@@ -111,14 +111,14 @@ public class StatusPertemuan extends GeneralValueObject {
 		this.id = id;
 	}
 
-	@Column(name = "nama", nullable = false, length = 255)
+	@Column(name = "nama", nullable = false, length = 100)
 	public String getNama() {
 		return this.nama == null ? "" : this.nama.trim();
 	}
 
 	public void setNama(String nama) {
-		if (nama != null && nama.length() > 255) {
-			nama = nama.substring(0, 255);
+		if (nama != null && nama.length() > 100) {
+			nama = nama.substring(0, 100);
 		}
 		this.nama = nama;
 	}
@@ -226,9 +226,13 @@ public class StatusPertemuan extends GeneralValueObject {
 			return null;
 		}
 
+		String namaStatus = kodeSubCpmk.trim();
+		if (namaStatus.length() > 100) {
+			namaStatus = namaStatus.substring(0, 100);
+		}
 		for (Object o : ConstantValues.ambilBerdasarClass(StatusPertemuan.class).values()) {
 			StatusPertemuan statusPertemuan = (StatusPertemuan) o;
-			if (statusPertemuan != null && statusPertemuan.getNama().equalsIgnoreCase(kodeSubCpmk.trim())) {
+			if (statusPertemuan != null && statusPertemuan.getNama().equalsIgnoreCase(namaStatus)) {
 				statusPertemuan.setKunci(false);
 				return statusPertemuan;
 			}
@@ -237,7 +241,7 @@ public class StatusPertemuan extends GeneralValueObject {
 		try {
 			StatusPertemuan statusPertemuan = new StatusPertemuan();
 			statusPertemuan.setId(Common.randLong());
-			statusPertemuan.setNama(kodeSubCpmk);
+			statusPertemuan.setNama(namaStatus);
 			statusPertemuan.setNomorUrut(100000);
 			statusPertemuan.setKunci(false);
 			statusPertemuan.setAutoCreate(true);

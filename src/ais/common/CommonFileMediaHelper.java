@@ -731,9 +731,12 @@ public class CommonFileMediaHelper extends Common {
 							} else {
 								TugasFileContent tugasFileContent = (TugasFileContent) arg0.getData();
 								if (tugasFileContent != null) {
-									Session session = StreamingHibernateUtil.getInstance().currentSession();
+									Session session = null;
+									Transaction transaction = null;
 
 									try {
+										session = StreamingHibernateUtil.getInstance().openSession();
+										session.connection().setAutoCommit(false);
 
 										final TugasFileContent copy = new TugasFileContent(tugas.getClass().getName());
 
@@ -756,22 +759,29 @@ public class CommonFileMediaHelper extends Common {
 																: pegawai != null ? pegawai.getNama()
 																		: (tbmuser.getUserNama()));
 
-										session.getTransaction().begin();
+										transaction = session.beginTransaction();
 										session.save(copy);
-										session.getTransaction().commit();
+										transaction.commit();
 
 										tugasFileContent = copy;
 
 									} catch (Exception e) {
+										if (transaction != null && transaction.isActive()) {
+											try { transaction.rollback(); } catch (Exception rollbackError) { }
+										}
 										tampilErrorJikaAdmin(e);
 										PesanFormalHelper.tampilkanGagalException(
 												"penyimpanan salinan berkas tugas mahasiswa", e,
 												new String[] {
 														"Ulangi proses pengumpulan/pengambilan berkas tugas ini.",
 														"Periksa apakah berkas yang dipilih masih tersedia di server." });
+									} finally {
+										if (session != null) {
+											try { session.clear(); } catch (Exception clearError) { }
+											try { session.disconnect(); } catch (Exception disconnectError) { }
+											try { session.close(); } catch (Exception closeError) { }
+										}
 									}
-
-									StreamingHibernateUtil.getInstance().closeSession();
 
 									if (eventListener != null) {
 										eventListener.onEvent(arg0);

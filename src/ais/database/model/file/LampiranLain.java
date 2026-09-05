@@ -1654,6 +1654,27 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 		return jenisBaru;
 	}
 
+	/**
+	 * Mengambil kunci jawaban parameter tambahan dari jenis lampiran efektif.
+	 *
+	 * <p>Nilai parameter pada kolom {@code parameterTambahanInds*} tetap memakai format lama
+	 * {@code kelompokId->parameterId}, sedangkan jenis lampiran baru diberi namespace
+	 * {@code nama.kelas#kelompokId->parameterId}. Keduanya sengaja tidak disamakan: namespace
+	 * diperlukan untuk mencegah tabrakan lampiran lintas entitas, tetapi tidak boleh mengubah
+	 * kontrak data jawaban yang sudah tersimpan. Method ini menjadi satu-satunya tempat untuk
+	 * menurunkan jenis lampiran kembali menjadi kunci jawaban yang kompatibel.</p>
+	 *
+	 * @param jenis jenis lampiran mentah atau yang sudah ber-namespace
+	 * @return kunci jawaban tanpa namespace; {@code null} bila masukan {@code null}
+	 */
+	public static String kunciNilaiParameterTambahan(String jenis) {
+		if (jenis == null) {
+			return null;
+		}
+		int pemisah = jenis.lastIndexOf('#');
+		return pemisah < 0 ? jenis : jenis.substring(pemisah + 1);
+	}
+
 	/*
 	 * ================================================================================
 	 * PABRIK KOMPONEN ZK: createDownloadUploadFileLain(...)

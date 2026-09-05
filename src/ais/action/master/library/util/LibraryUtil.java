@@ -1821,7 +1821,7 @@ public class LibraryUtil {
 				return;
 			}
 
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 			ItemAction.pastikanKolomTeksItemTidakTerpotong(session);
 
 			try {
@@ -1967,7 +1967,6 @@ public class LibraryUtil {
 					try { session.disconnect(); } catch (Exception e) { }
 					try { session.close(); } catch (Exception e) { }
 				}
-				HibernateUtil.closeSession();
 			}
 
 			if (skripsi != null && skripsi.getFormatNilaiSkripsi() != null) {

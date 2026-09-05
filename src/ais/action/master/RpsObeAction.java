@@ -7189,6 +7189,10 @@ public class RpsObeAction extends GenericAutowireComposer {
 			combobox.addEventListener("onChange", new EventListener() {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (combobox.getSelectedItem() == null
+							|| !(combobox.getSelectedItem().getValue() instanceof StatusPertemuan)) {
+						return;
+					}
 					pertemuan.setStatusPertemuan((StatusPertemuan) combobox.getSelectedItem().getValue());
 					Session session = null;
 					try {

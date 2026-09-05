@@ -2116,14 +2116,15 @@ public class HasilUjianMahasiswa extends GeneralValueObject {
 					System.out.println("id -> " + id + ", strHasilUjianMahasiswa " + strHasilUjianMahasiswa
 							+ ", hasilUjianMahasiswa => " + hasilUjianMahasiswa);
 					if (hasilUjianMahasiswa != null) {
-						if (hasilUjianMahasiswa.getPertemuanPunyaUjian().getOtomatisMunculKetikaBelumSelesai()
-								&& hasilUjianMahasiswa.getPertemuanPunyaUjian() != null
-								&& (hasilUjianMahasiswa.getPertemuanPunyaUjian().getSampaiUjian() == null
-										|| hasilUjianMahasiswa.getPertemuanPunyaUjian().getSampaiUjian()
+						PertemuanPunyaUjian pertemuanPunyaUjian = hasilUjianMahasiswa.getPertemuanPunyaUjian();
+						if (pertemuanPunyaUjian != null
+								&& Boolean.TRUE.equals(pertemuanPunyaUjian.getOtomatisMunculKetikaBelumSelesai())
+								&& (pertemuanPunyaUjian.getSampaiUjian() == null
+										|| pertemuanPunyaUjian.getSampaiUjian()
 												.after(ais.ui.util.WaktuUtil.getDate()))
 
-								&& (hasilUjianMahasiswa.getPertemuanPunyaUjian().getMulaiUjian() == null
-										|| hasilUjianMahasiswa.getPertemuanPunyaUjian().getMulaiUjian()
+								&& (pertemuanPunyaUjian.getMulaiUjian() == null
+										|| pertemuanPunyaUjian.getMulaiUjian()
 												.before(ais.ui.util.WaktuUtil.getDate()))) {
 
 							ProsesUjianHelper.tampil(hasilUjianMahasiswa.getMahasiswa(),

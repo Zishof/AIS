@@ -43,6 +43,7 @@ import ais.database.model.ErrorLog;
 import ais.database.model.FormatNilaiProposalSkripsi;
 import ais.database.model.FormatNilaiSkripsi;
 import ais.database.model.FormulirKegiatan;
+import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.Kegiatan;
 import ais.database.model.Konfigurasi;
@@ -788,7 +789,7 @@ public class CommonHelperClass {
 			return treeMap;
 		}
 
-		boolean mulaiGanjil = mahasiswa.getSemesterMulai().equals(Perkuliahan.GANJIL);
+		boolean mulaiGanjil = Perkuliahan.GANJIL.equals(mahasiswa.getSemesterMulai());
 		int semester = mulaiGanjil ? 1 : 0;
 		int tahunAkademik = 8;
 		boolean berhenti = false;
@@ -824,10 +825,9 @@ public class CommonHelperClass {
 					String namaSmt = mulaiGanjil ? (semester % 2 == 0 ? Perkuliahan.GANJIL : Perkuliahan.GENAP)
 							: (semester % 2 == 1 ? Perkuliahan.GANJIL : Perkuliahan.GENAP);
 
-					status = (thp != null && thp == 3) ? ""
-							: (krsMahasiswa != null && ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa) != null
-									? ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa).getStatusMahasiswa().getNama()
-									: "");
+					HistoryStatusMahasiswa historyStatus = krsMahasiswa == null ? null
+							: ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
+					status = (thp != null && thp == 3) ? "" : namaStatusMahasiswa(historyStatus);
 
 					treeMap.put(semester, new String[] { tahunAkademikIndex, String.valueOf(semester),
 							(status == null ? "" : status), "", namaSmt });
@@ -841,6 +841,17 @@ public class CommonHelperClass {
 			}
 		}
 		return treeMap;
+	}
+
+	private static String namaStatusMahasiswa(HistoryStatusMahasiswa historyStatus) {
+		return historyStatus == null || historyStatus.getStatusMahasiswa() == null
+				|| historyStatus.getStatusMahasiswa().getNama() == null ? ""
+						: historyStatus.getStatusMahasiswa().getNama();
+	}
+
+	private static String namaStatusMahasiswa(Mahasiswa mahasiswa, int tahap) {
+		return namaStatusMahasiswa(
+				ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahap));
 	}
 
 	/**
@@ -891,12 +902,12 @@ public class CommonHelperClass {
 				// (Logika disederhanakan tanpa mengubah tujuan aslinya)
 				for (Integer semester : treeMap.keySet()) {
 					// Konfigurasi ini dibiarkan serupa agar tidak memutus legacy UI grid
-					if (mahasiswa.getSemesterMulai().equals(Perkuliahan.GANJIL)) {
+					if (Perkuliahan.GANJIL.equals(mahasiswa.getSemesterMulai())) {
 						if (semester % 2 == 1) {
 							if (semester >= mulai && semester <= sampai) {
 								String[] d = Arrays.copyOf(treeMap.get(semester), 5);
 								d[3] = String.valueOf(tahap);
-								d[2] = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahap).getStatusMahasiswa().getNama();
+								d[2] = namaStatusMahasiswa(mahasiswa, tahap);
 								data.add(d);
 							}
 							tahap++;
@@ -905,14 +916,14 @@ public class CommonHelperClass {
 								String[] d1 = Arrays.copyOf(treeMap.get(semester), 5);
 								d1[1] = (semester - 1) + "," + semester;
 								d1[3] = String.valueOf(tahap);
-								d1[2] = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahap).getStatusMahasiswa().getNama();
+								d1[2] = namaStatusMahasiswa(mahasiswa, tahap);
 								data.add(d1);
 
 								tahap++;
 
 								String[] d2 = Arrays.copyOf(treeMap.get(semester), 5);
 								d2[3] = String.valueOf(tahap);
-								d2[2] = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahap).getStatusMahasiswa().getNama();
+								d2[2] = namaStatusMahasiswa(mahasiswa, tahap);
 								data.add(d2);
 							}
 							tahap++;
@@ -923,7 +934,7 @@ public class CommonHelperClass {
 								if (semester >= mulai && semester <= sampai) {
 									String[] d = Arrays.copyOf(treeMap.get(semester), 5);
 									d[3] = String.valueOf(tahap);
-									d[2] = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahap).getStatusMahasiswa().getNama();
+									d[2] = namaStatusMahasiswa(mahasiswa, tahap);
 									data.add(d);
 								}
 								if (k < 2)
@@ -935,14 +946,14 @@ public class CommonHelperClass {
 								String[] d1 = Arrays.copyOf(treeMap.get(semester), 5);
 								d1[1] = (semester - 1) + "," + semester;
 								d1[3] = String.valueOf(tahap);
-								d1[2] = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahap).getStatusMahasiswa().getNama();
+								d1[2] = namaStatusMahasiswa(mahasiswa, tahap);
 								data.add(d1);
 							}
 							tahap++;
 							if (semester >= mulai && semester <= sampai) {
 								String[] d2 = Arrays.copyOf(treeMap.get(semester), 5);
 								d2[3] = String.valueOf(tahap);
-								d2[2] = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahap).getStatusMahasiswa().getNama();
+								d2[2] = namaStatusMahasiswa(mahasiswa, tahap);
 								data.add(d2);
 							}
 						} else if (semester % 2 == 0) {
@@ -950,7 +961,7 @@ public class CommonHelperClass {
 							if (semester >= mulai && semester <= sampai) {
 								String[] d = Arrays.copyOf(treeMap.get(semester), 5);
 								d[3] = String.valueOf(tahap);
-								d[2] = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahap).getStatusMahasiswa().getNama();
+								d[2] = namaStatusMahasiswa(mahasiswa, tahap);
 								data.add(d);
 							}
 						}
