@@ -209,43 +209,88 @@ public final class ApotikSesiKasHelper {
 	// apotik_sesi_kas_buka
 	// =============================================================================================
 
+	/**
+	 * Kunci advisory PostgreSQL untuk menserialkan {@code buka} per kasir.
+	 *
+	 * <p>Idiom yang sama dengan {@code PengadaanPosApiHelper.kunciSinkronBast}:
+	 * seluruh pemakai {@code hashtext(...)} berbagi SATU ruang kunci advisory
+	 * global, sehingga prefiks berbeda wajib dipertahankan agar tidak
+	 * bentrok dengan fitur lain ({@code online-bmt:}, {@code init:}, dst).</p>
+	 */
+	static String kunciBukaSesiKas(String userId) {
+		return "apotik-sesi-kas-buka:" + userId;
+	}
+
 	public static void buka(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		double modal = request == null ? 0 : request.optDouble("modal_awal", 0);
 		if (modal < 0) {
 			tolak(hasil, "Modal awal tidak boleh negatif.");
 			return;
 		}
-		Session session = HibernateUtil.getSessionFactory().openSession();
-		Transaction tx = null;
+		// Menserialkan per kasir: tanpa ini, cek sesiAktif dan penyimpanan sesi
+		// baru berada di jeda yang tidak dikunci, sehingga dua permintaan buka
+		// bersamaan dari akun yang sama dapat sama-sama tidak menemukan sesi
+		// aktif dan sama-sama tersimpan -- melahirkan sesi yatim yang tetap
+		// BUKA selamanya (lihat ApotikSesiKas.getUserId()). Advisory lock tidak
+		// menuntut migrasi DB maupun kolom baru; yang kalah cukup mencoba lagi.
+		Session kunci = HibernateUtil.getSessionFactory().openSession();
+		boolean terkunci = false;
 		try {
-			if (sesiAktif(session, tbmuser.getUserId()) != null) {
-				tolak(hasil, "Masih ada sesi kas yang terbuka atas nama Anda. "
-						+ "Tutup sesi itu lebih dulu sebelum membuka yang baru.");
+			java.sql.PreparedStatement lk = kunci.connection()
+					.prepareStatement("SELECT pg_try_advisory_lock(hashtext(?))");
+			try {
+				lk.setString(1, kunciBukaSesiKas(tbmuser.getUserId()));
+				java.sql.ResultSet lrs = lk.executeQuery();
+				try { terkunci = lrs.next() && lrs.getBoolean(1); } finally { lrs.close(); }
+			} finally { lk.close(); }
+			if (!terkunci) {
+				tolak(hasil, "Permintaan membuka sesi kas Anda sedang diproses. Coba lagi sebentar.");
 				return;
 			}
-			tx = session.beginTransaction();
-			ApotikSesiKas s = new ApotikSesiKas();
-			s.setUserId(tbmuser.getUserId());
-			s.setNamaKasir(str(tbmuser.getUserNama()));
-			s.setStatus(ApotikSesiKas.STATUS_BUKA);
-			s.setWaktuBuka(new Date());
-			s.setModalAwal(Double.valueOf(modal));
-			s.setKeterangan(request == null ? null : request.optString("keterangan", "").trim());
-			s.setOleh(tbmuser.getUserId());
-			s.setOlehId(tbmuser.getUserId());
-			session.save(s);
-			tx.commit();
 
-			JSONObject j = new JSONObject();
-			isiJson(j, s);
-			hasil.put("status", "00");
-			hasil.put("sesi", j);
-		} catch (Exception e) {
-			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
-			ais.common.ErrorAuditUtil.record(e, "ApotikSesiKasHelper.buka");
-			tolak(hasil, "Gagal membuka sesi kas: " + e.getMessage());
+			Session session = HibernateUtil.getSessionFactory().openSession();
+			Transaction tx = null;
+			try {
+				if (sesiAktif(session, tbmuser.getUserId()) != null) {
+					tolak(hasil, "Masih ada sesi kas yang terbuka atas nama Anda. "
+							+ "Tutup sesi itu lebih dulu sebelum membuka yang baru.");
+					return;
+				}
+				tx = session.beginTransaction();
+				ApotikSesiKas s = new ApotikSesiKas();
+				s.setUserId(tbmuser.getUserId());
+				s.setNamaKasir(str(tbmuser.getUserNama()));
+				s.setStatus(ApotikSesiKas.STATUS_BUKA);
+				s.setWaktuBuka(new Date());
+				s.setModalAwal(Double.valueOf(modal));
+				s.setKeterangan(request == null ? null : request.optString("keterangan", "").trim());
+				s.setOleh(tbmuser.getUserId());
+				s.setOlehId(tbmuser.getUserId());
+				session.save(s);
+				tx.commit();
+
+				JSONObject j = new JSONObject();
+				isiJson(j, s);
+				hasil.put("status", "00");
+				hasil.put("sesi", j);
+			} catch (Exception e) {
+				try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
+				ais.common.ErrorAuditUtil.record(e, "ApotikSesiKasHelper.buka");
+				tolak(hasil, "Gagal membuka sesi kas: " + e.getMessage());
+			} finally {
+				HibernateUtil.closeSessionQuietly(session);
+			}
 		} finally {
-			HibernateUtil.closeSessionQuietly(session);
+			try {
+				if (terkunci) {
+					java.sql.PreparedStatement ul = kunci.connection()
+							.prepareStatement("SELECT pg_advisory_unlock(hashtext(?))");
+					try { ul.setString(1, kunciBukaSesiKas(tbmuser.getUserId())); ul.execute(); } finally { ul.close(); }
+				}
+			} catch (Exception eUnlock) {
+				ais.common.ErrorAuditUtil.record(eUnlock, "ApotikSesiKasHelper.buka unlock");
+			}
+			HibernateUtil.closeSessionQuietly(kunci);
 		}
 	}
 

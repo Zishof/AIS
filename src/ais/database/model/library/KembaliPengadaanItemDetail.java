@@ -50,19 +50,20 @@ import ais.database.model.GeneralValueObject;
  *       (pembayaran/pembebasan/pembatalan), nominal, tanggal, dan pelaku.</li>
  * </ul>
  *
- * <p><b>Peringatan penting: {@code dibayarSejumlah} tidak menyimpan pembayaran sebagian.</b>
- * Getter {@link #getDibayarSejumlah()} <b>tidak</b> mengembalikan nilai yang tersimpan apa
- * adanya. Ia menerapkan dua aturan sekaligus: bila {@code telahDibayar} bernilai salah, ia
- * mengembalikan {@code 0.0} berapa pun nilai field sesungguhnya; dan bila {@code telahDibayar}
- * benar sedangkan nominalnya kosong atau di bawah {@code 0.01}, ia mengembalikan seluruh
- * {@link #getDenda() denda}. Karena Hibernate memetakan entity ini dengan <i>property access</i>
- * (anotasi terpasang pada getter), nilai yang dikembalikan getter itulah yang ditulis ke basis
- * data pada setiap <i>flush</i>. Akibatnya pembayaran sebagian &mdash; anggota membayar sebagian
- * denda dan sisanya belum lunas, sehingga {@code telahDibayar} masih salah &mdash; akan
- * <b>tertulis nol</b> ke kolomnya dan hilang tanpa jejak. Konsekuensi lanjutannya: laporan
- * pembayaran denda ({@code LibraryUtil} menyaring {@code dibayarSejumlah &gt; 0.1}) dan
- * penjumlahan pada dasbor perpustakaan sama-sama kehilangan angka tersebut. Rinciannya
- * dijelaskan pada Javadoc {@link #getDibayarSejumlah()}.</p>
+ * <p><b>{@code dibayarSejumlah} menyimpan nilai apa adanya &mdash; termasuk pembayaran
+ * sebagian.</b> Getter {@link #getDibayarSejumlah()} mengembalikan field tersimpan tanpa syarat,
+ * dinormalkan hanya {@code null -> 0.0}. Karena Hibernate memetakan entity ini dengan
+ * <i>property access</i> (anotasi terpasang pada getter), nilai yang dikembalikan getter itulah
+ * yang ditulis ke basis data pada setiap <i>flush</i> &mdash; sehingga getter murni ini penting
+ * agar pembayaran sebagian tidak pernah tertulis nol. Aturan turunan "telahDibayar berarti lunas
+ * penuh" sengaja <b>tidak</b> diterapkan di model; ia menjadi tanggung jawab lapisan yang
+ * menyetel nilai: {@code LibraryOperationsApi.fineAction} menghitung sisa tagihan
+ * ({@code denda - dibayarSejumlah}) sebelum menandai {@code telahDibayar}, dan layar ZK
+ * ({@code helper/KembaliPengadaanItemPunyaItemHelper}) hanya mencentang penanda tersebut ketika
+ * nominal yang diisi sudah mencapai seluruh denda (termasuk biaya penggantian bila ada). Sebelum
+ * perbaikan ini, getter menerapkan dua aturan kondisional berdasarkan {@code telahDibayar} yang
+ * membuat pembayaran sebagian tertulis nol ke basis data dan pembebasan tercatat seolah dibayar
+ * penuh; rinciannya dijelaskan pada Javadoc {@link #getDibayarSejumlah()}.</p>
  *
  * <p><b>Penegakan denda: ada, tetapi hanya pada perhitungan.</b> Modul ini benar-benar
  * menghitung dan menyimpan denda (bukan sekadar tabel referensi deskriptif): tarif diambil dari
@@ -501,9 +502,10 @@ public class KembaliPengadaanItemDetail extends GeneralValueObject {
 	 * (<i>waiver</i>). Yang membedakan keduanya hanyalah teks pada {@link #getKetDenda()}.
 	 * Getter menormalkan {@code null} menjadi {@code false} tanpa menulis balik ke field.</p>
 	 *
-	 * <p><b>Penanda ini adalah gerbang bagi {@link #getDibayarSejumlah()}</b> &mdash; selama ia
-	 * salah, nominal pembayaran yang tersimpan tidak akan pernah terbaca. Lihat peringatan
-	 * pada getter tersebut.</p>
+	 * <p>Penanda ini <b>tidak lagi menjadi gerbang</b> bagi {@link #getDibayarSejumlah()}
+	 * &mdash; getter tersebut selalu mengembalikan nominal yang tersimpan apa adanya, terlepas
+	 * dari nilai penanda ini. Lihat Javadoc getter tersebut untuk rincian pembagian tanggung
+	 * jawab.</p>
 	 *
 	 * @return {@code true} bila denda sudah dianggap selesai; tidak pernah {@code null}.
 	 */
@@ -514,14 +516,14 @@ public class KembaliPengadaanItemDetail extends GeneralValueObject {
 	/**
 	 * Menyetel penanda bahwa denda pada baris ini sudah dianggap selesai.
 	 *
-	 * <p>Layar ZK ({@code helper/KembaliPengadaanItemPunyaItemHelper}) memasang pendengar
-	 * {@code onChange} pada kotak nominal yang <b>mencentang penanda ini secara otomatis untuk
-	 * nominal berapa pun di atas {@code 0.1}</b>. Artinya, lewat layar, pembayaran sebagian
-	 * langsung tercatat sebagai denda selesai &mdash; sisa tagihan lenyap. Sebaliknya jalur API
-	 * ({@code LibraryOperationsApi.fineAction}) menyetel penanda ini hanya bila nominal
-	 * terbayar sudah mencapai denda penuh, sehingga pembayaran sebagian meninggalkan penanda
-	 * bernilai salah. Kedua jalur bersama-sama membuat pembayaran sebagian tidak pernah
-	 * tersimpan dengan benar; lihat {@link #getDibayarSejumlah()}.</p>
+	 * <p>Kedua jalur yang menyetel penanda ini sudah konsisten menerapkan aturan "lunas penuh":
+	 * jalur API ({@code LibraryOperationsApi.fineAction}) menyetelnya benar hanya bila nominal
+	 * terbayar sudah mencapai denda penuh, dan layar ZK
+	 * ({@code helper/KembaliPengadaanItemPunyaItemHelper}) mencentangnya lewat pendengar
+	 * {@code onChange} pada kotak nominal hanya ketika nominal yang diisi sudah mencapai seluruh
+	 * denda (termasuk biaya penggantian bila ada) &mdash; bukan sekadar di atas ambang kecil.
+	 * Pembayaran sebagian karenanya meninggalkan penanda ini bernilai salah sekaligus tetap
+	 * tersimpan apa adanya pada {@link #getDibayarSejumlah()}.</p>
 	 *
 	 * @param telahDibayar penanda penyelesaian denda.
 	 */
@@ -530,68 +532,41 @@ public class KembaliPengadaanItemDetail extends GeneralValueObject {
 	}
 
 	/**
-	 * Mengembalikan nominal denda yang sudah dibayarkan anggota &mdash; <b>bukan nilai mentah
-	 * yang tersimpan</b>.
+	 * Mengembalikan nominal denda yang sudah dibayarkan anggota, dinormalkan ke {@code 0.0}
+	 * bila belum diisi.
 	 *
-	 * <p>Getter ini menerapkan dua aturan turunan sebelum mengembalikan nilai:</p>
-	 * <ol>
-	 *   <li>bila {@link #getTelahDibayar()} bernilai salah, hasilnya selalu {@code 0.0},
-	 *       berapa pun isi field {@code dibayarSejumlah};</li>
-	 *   <li>bila {@link #getTelahDibayar()} benar tetapi {@code dibayarSejumlah} kosong atau
-	 *       lebih kecil dari {@code 0.01}, hasilnya adalah seluruh {@link #getDenda() denda}
-	 *       &mdash; asumsinya penanda "selesai" berarti dibayar penuh.</li>
-	 * </ol>
+	 * <p>Getter ini murni: ia mengembalikan field {@code dibayarSejumlah} apa adanya, tanpa
+	 * bergantung pada {@link #getTelahDibayar()} maupun {@link #getDenda()}. Pembayaran
+	 * sebagian &mdash; anggota membayar sebagian denda sehingga {@code telahDibayar} masih
+	 * salah &mdash; karenanya tetap terbaca dan tetap tersimpan.</p>
 	 *
-	 * <p><b>Mengapa ini berbahaya.</b> Entity dipetakan Hibernate dengan <i>property access</i>
-	 * (anotasi {@code @Id} dan {@code @Column} terpasang pada getter, bukan field), sehingga
-	 * nilai yang <em>dikembalikan getter inilah</em> yang dibaca Hibernate saat menyusun
-	 * pernyataan {@code INSERT}/{@code UPDATE}. Getter yang menurunkan nilai secara kondisional
-	 * karenanya bukan sekadar kenyamanan tampilan: ia ikut menentukan isi basis data. Untuk
-	 * baris dengan pembayaran sebagian &mdash; anggota membayar sebagian denda sehingga
-	 * {@code telahDibayar} masih salah &mdash; aturan pertama membuat nominal yang sudah
-	 * disetel lewat {@link #setDibayarSejumlah(Double)} tertulis sebagai {@code 0.0} pada
-	 * <i>flush</i> berikutnya. Pembayaran itu hilang tanpa jejak di kolomnya sendiri; satu-satunya
-	 * sisa adalah teks log pada {@link #getKetDenda()} bila pembayaran dilakukan lewat jalur
-	 * API.</p>
+	 * <p><b>Mengapa kemurnian ini penting.</b> Entity dipetakan Hibernate dengan
+	 * <i>property access</i> (anotasi {@code @Id} dan {@code @Column} terpasang pada getter,
+	 * bukan field), sehingga nilai yang <em>dikembalikan getter inilah</em> yang dibaca
+	 * Hibernate saat menyusun pernyataan {@code INSERT}/{@code UPDATE}. Getter yang menurunkan
+	 * nilai secara kondisional berdasarkan field lain bukan sekadar kenyamanan tampilan: ia
+	 * ikut menentukan isi basis data. Versi lama getter ini melakukan hal itu &mdash;
+	 * mengembalikan {@code 0.0} setiap kali {@code telahDibayar} salah, dan seluruh
+	 * {@link #getDenda() denda} setiap kali {@code telahDibayar} benar namun nominalnya kosong
+	 * &mdash; sehingga pembayaran sebagian tertulis nol dan pembebasan tercatat sebagai
+	 * penerimaan penuh. Aturan turunan "telahDibayar berarti lunas penuh" kini menjadi
+	 * tanggung jawab lapisan yang menyetel nilai ({@code LibraryOperationsApi.fineAction} dan
+	 * {@code helper/KembaliPengadaanItemPunyaItemHelper}), bukan getter ini; lihat
+	 * {@link #setTelahDibayar(Boolean)}.</p>
 	 *
-	 * <p>Dampak yang dapat diamati:</p>
-	 * <ul>
-	 *   <li>jalur API {@code LibraryOperationsApi.fineAction} menghitung sisa tagihan sebagai
-	 *       {@code denda - dibayarSejumlah}. Karena angka terbayar selalu terbaca {@code 0.0}
-	 *       untuk tagihan yang belum lunas, sisa tagihan tidak pernah berkurang dan anggota
-	 *       dapat diminta membayar cicilan yang sama berulang kali;</li>
-	 *   <li>laporan penerimaan denda ({@code LibraryUtil} menyaring
-	 *       {@code dibayarSejumlah &gt; 0.1}) melewatkan seluruh pembayaran sebagian;</li>
-	 *   <li>penjumlahan pada dasbor perpustakaan
-	 *       ({@code select sum(k.dibayarSejumlah) from KembaliPengadaanItemDetail k})
-	 *       melaporkan penerimaan denda lebih rendah dari kenyataan.</li>
-	 * </ul>
-	 *
-	 * <p>Aturan kedua punya efek berlawanan namun sama-sama diam: begitu petugas mencentang
-	 * "telah dibayar" tanpa mengisi nominal, sistem menganggap denda penuh sudah diterima dan
-	 * mencatatnya sebagai penerimaan &mdash; termasuk untuk kasus pembebasan denda yang
-	 * seharusnya bernilai nol.</p>
-	 *
-	 * <p>Pemanggil yang memerlukan nilai mentah yang benar-benar tersimpan tidak dapat
-	 * memperolehnya lewat kelas ini; bacalah kolomnya langsung lewat query proyeksi.</p>
-	 *
-	 * @return nominal yang dianggap sudah dibayar menurut aturan di atas; tidak pernah
-	 *         {@code null}.
+	 * @return nominal yang sudah dibayarkan sebagaimana tersimpan; tidak pernah {@code null}.
 	 */
 	public Double getDibayarSejumlah() {
-		return getTelahDibayar() ? (dibayarSejumlah == null || dibayarSejumlah < 0.01 ? getDenda() : dibayarSejumlah)
-				: 0.0;
+		return dibayarSejumlah == null ? 0.0 : dibayarSejumlah;
 	}
 
 	/**
 	 * Menyetel nominal denda yang sudah dibayarkan anggota.
 	 *
-	 * <p><b>Perhatian:</b> nilai yang disetel di sini belum tentu bertahan. Bila
-	 * {@link #getTelahDibayar()} bernilai salah, {@link #getDibayarSejumlah()} akan
-	 * mengembalikan {@code 0.0} dan itulah yang ditulis Hibernate ke basis data. Untuk mencatat
-	 * pembayaran secara andal, setel {@code telahDibayar} bernilai benar pada transaksi yang
-	 * sama &mdash; dengan konsekuensi tagihan dianggap selesai meski baru terbayar
-	 * sebagian.</p>
+	 * <p>Nilai yang disetel di sini tersimpan apa adanya dan dibaca kembali tanpa syarat oleh
+	 * {@link #getDibayarSejumlah()}. Pemanggil yang ingin menandai tagihan selesai tetap perlu
+	 * menyetel {@link #setTelahDibayar(Boolean)} secara terpisah &mdash; kedua field ini tidak
+	 * lagi saling menutupi.</p>
 	 *
 	 * @param dibayarSejumlah nominal yang dibayarkan.
 	 */
@@ -606,9 +581,10 @@ public class KembaliPengadaanItemDetail extends GeneralValueObject {
 	 * <p>Kolom dipetakan sebagai {@code text} sehingga dapat menampung riwayat panjang. Jalur
 	 * API menambahkan satu baris log per peristiwa berisi jenis tindakan (pembayaran,
 	 * pembebasan, pembatalan), nominal, tanggal, pelaku, dan alasan &mdash; dengan pemotongan
-	 * pada sekitar 3.900 karakter. Karena {@link #getDibayarSejumlah()} tidak dapat dipercaya
-	 * untuk pembayaran sebagian, teks pada kolom inilah satu-satunya jejak yang tersisa untuk
-	 * merekonstruksi riwayat pembayaran tersebut.</p>
+	 * pada sekitar 3.900 karakter. {@link #getDibayarSejumlah()} kini murni dan dapat dipercaya
+	 * untuk pembayaran sebagian, tetapi baris yang ditulis sebelum perbaikan itu mungkin sudah
+	 * kadung tersimpan {@code 0.0}; untuk baris lama semacam itu, teks pada kolom inilah
+	 * satu-satunya jejak yang tersisa untuk merekonstruksi riwayat pembayaran.</p>
 	 *
 	 * <p>Normalisasi tidak ditulis balik ke field, sehingga getter ini tidak mengubah state.</p>
 	 *

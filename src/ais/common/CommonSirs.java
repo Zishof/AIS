@@ -1070,9 +1070,10 @@ public class CommonSirs {
 	}
 
 	/**
-	 * Mencari aturan {@link Diskon} yang sedang berlaku (aktif, rentang tanggal {@code mulai}/
-	 * {@code sampai} mencakup {@code tanggal}, rentang {@code jumlahMinimal}/{@code jumlahMaksimal}
-	 * mencakup {@code jumlah}) untuk kombinasi asuransi dan komunitas yang diberikan, difilter lagi
+	 * Mencari aturan {@link Diskon} yang sedang berlaku (aktif — {@code NULL} dianggap aktif,
+	 * sejalan dengan {@link Diskon#getAktif()} — rentang tanggal {@code mulai}/{@code sampai}
+	 * mencakup {@code tanggal}, rentang {@code jumlahMinimal}/{@code jumlahMaksimal} mencakup
+	 * {@code jumlah}) untuk kombinasi asuransi dan komunitas yang diberikan, difilter lagi
 	 * berdasarkan item/tindakan/alat medis spesifik bila parameter terkait tidak {@code null}.
 	 * Query dikelompokkan per {@code diskon} ({@code groupProperty}) agar satu aturan diskon dengan
 	 * banyak baris {@link DiskonDetail} tidak muncul berulang dalam hasil.
@@ -1083,7 +1084,8 @@ public class CommonSirs {
 	public static List<Diskon> getDiskonSekarang(ItemMedis item, Tindakan tindakan, AlatMedis alatMedis, Integer jumlah,
 			Date tanggal, Asuransi asuransi, Set<Komunitas> komunitas) {
 		List<Diskon> diskons = HibernateUtil.currentSession().createCriteria(DiskonDetail.class)
-				.createAlias("diskon", "diskon").add(Restrictions.eq("diskon.aktif", true))
+				.createAlias("diskon", "diskon")
+				.add(Restrictions.or(Restrictions.isNull("diskon.aktif"), Restrictions.eq("diskon.aktif", true)))
 				.add(asuransi == null ? Restrictions.isNull("diskon.asuransi")
 						: Restrictions.eq("diskon.asuransi", asuransi))
 

@@ -53,48 +53,42 @@ import ais.database.model.akunting.Akun;
  * menghasilkan potongan 120%, yakni tagihan negatif, tanpa penolakan dari mana pun.</li>
  * </ul>
  *
- * <h3>PERINGATAN — nilai awal field membuat diskon baru mustahil terpilih</h3>
- * Penyaringan aturan diskon di {@code CommonSirs.getDiskonSekarang} memakai empat syarat atas
- * kolom-kolom entitas ini: {@code eq(aktif, true)}, {@code le(mulai, tanggal)},
+ * <h3>Riwayat perbaikan — nilai awal field yang dulu membuat diskon baru mustahil terpilih</h3>
+ * Penyaringan aturan diskon di {@code CommonSirs.getDiskonSekarang} memakai syarat atas
+ * kolom-kolom entitas ini: {@code or(isNull(aktif), eq(aktif, true))}, {@code le(mulai, tanggal)},
  * {@code or(isNull(sampai), ge(sampai, tanggal))}, serta
- * {@code le(jumlahMinimal, jumlah)} dan {@code ge(jumlahMaksimal, jumlah)}. Dua nilai awal field
- * pada kelas ini bertabrakan dengan syarat-syarat itu:
+ * {@code le(jumlahMinimal, jumlah)} dan {@code ge(jumlahMaksimal, jumlah)}. Sebelumnya, dua nilai
+ * awal field pada kelas ini bertabrakan dengan syarat-syarat itu dan membuat <b>setiap</b> aturan
+ * diskon yang disimpan apa adanya tidak pernah terpilih, tanpa pesan kesalahan apa pun:
  * <ol>
- * <li><b>{@code jumlahMaksimal} berawal {@code 0}, padahal getternya bermaksud {@code 100}.</b>
+ * <li><b>{@code jumlahMaksimal} dulu berawal {@code 0}, padahal getternya bermaksud {@code 100}.</b>
  * {@link #getJumlahMaksimal()} menyediakan nilai cadangan {@code 100} untuk keadaan {@code null} —
  * niatnya jelas: batas atas yang longgar bila operator tidak menentukan apa-apa. Namun field-nya
- * sudah diinisialisasi {@code 0} pada deklarasi, sehingga <b>nilai cadangan itu tidak pernah
- * tercapai</b> untuk objek baru: field tidak pernah {@code null}. Form
- * {@code ais.action.master.sirs.DiskonAction} mengisi kotak isian dari {@code getJumlahMaksimal()},
- * jadi yang terlihat operator adalah angka {@code 0}, dan validasi simpan tidak mewajibkan kolom
- * itu diubah. Aturan diskon yang disimpan apa adanya karena itu memiliki {@code jumlahMaksimal = 0},
- * dan syarat {@code ge(jumlahMaksimal, jumlah)} gagal untuk setiap transaksi berkuantitas satu atau
- * lebih — diskon <b>tidak akan pernah terpilih</b>, tanpa pesan kesalahan apa pun.</li>
- * <li><b>{@code sampai} berawal hari ini.</b> Field {@code sampai} diinisialisasi
- * {@code new Date()}, yaitu cap waktu saat objek dibuat. Form mengisi kotak tanggalnya dari nilai
- * itu dan validasi simpan hanya mewajibkan {@code mulai}, bukan {@code sampai}. Aturan yang
- * disimpan apa adanya karena itu berlaku hanya sampai detik pembuatannya; syarat
- * {@code ge(sampai, tanggal)} gagal untuk transaksi mana pun yang terjadi sesudahnya — termasuk
- * transaksi pada hari yang sama beberapa menit kemudian. Perhatikan bahwa kueri memang
- * mentoleransi {@code sampai} yang {@code NULL} sebagai "tanpa batas akhir", tetapi nilai awal
- * bukan {@code NULL} sehingga toleransi itu pun tidak terpakai.</li>
+ * dulu diinisialisasi {@code 0} pada deklarasi, sehingga nilai cadangan itu tidak pernah tercapai
+ * untuk objek baru. Sudah diperbaiki: field ini sekarang <b>tidak diinisialisasi</b> (tetap
+ * {@code null} sampai diisi), sehingga nilai cadangan {@code 100} berlaku untuk baris baru dan
+ * form {@code ais.action.master.sirs.DiskonAction} menampilkan {@code 100}, bukan {@code 0}, pada
+ * kotak isian "Jumlah maksimal mendapatkan diskon".</li>
+ * <li><b>{@code sampai} dulu berawal hari ini.</b> Field {@code sampai} dulu diinisialisasi
+ * {@code new Date()}, yaitu cap waktu saat objek dibuat, sehingga aturan yang disimpan apa adanya
+ * berlaku hanya sampai detik pembuatannya. Sudah diperbaiki: field ini sekarang <b>tidak
+ * diinisialisasi</b> (tetap {@code null}), sehingga toleransi kueri {@code isNull(sampai)} =
+ * "tanpa batas akhir" berlaku langsung untuk baris baru, sejalan dengan {@link TarifKhusus} yang
+ * juga tidak menginisialisasi {@code sampai}.</li>
  * </ol>
- * Keduanya adalah kejadian berulang dari pola "diskon mustahil diberikan" yang sudah dikenal —
- * diskon yang secara sengaja dikonfigurasi diam-diam tidak pernah berlaku — meskipun mekanismenya
- * berbeda dari instance sebelumnya: di sini penyebabnya adalah nilai awal field yang mendahului
- * (dan mematikan) nilai cadangan pada getter, bukan normalisasi {@code null} pada penjaga
- * pemilih-mode. Sampai diperbaiki, setiap aturan diskon <b>wajib</b> diisi {@code jumlahMaksimal}
- * dan {@code sampai} secara eksplisit oleh operator.
+ * {@code ais.action.master.sirs.DiskonAction#onSave} juga kini menolak penyimpanan bila
+ * {@code jumlahMaksimal < jumlahMinimal} atau {@code sampai} lebih awal dari {@code mulai}, untuk
+ * mencegah kombinasi rentang yang tidak mungkin terpenuhi tersimpan tanpa peringatan.
  *
- * <h3>Penanganan {@code aktif} yang tidak seragam dengan tarif khusus</h3>
+ * <h3>Penanganan {@code aktif} kini seragam dengan tarif khusus</h3>
  * {@link #getAktif()} menormalkan {@code null} menjadi {@code true} (anggap aktif bila belum
- * ditentukan), tetapi kueri penyaring memakai {@code eq(aktif, true)} yang <b>ketat</b>: baris
- * dengan kolom {@code aktif} bernilai {@code NULL} di basis data tidak akan terpilih, berlawanan
- * dengan maksud getternya. Bandingkan dengan resolusi {@link TarifKhusus} di
- * {@code CommonTarif.getTarif} yang memakai {@code or(isNull(aktif), eq(aktif, true))} — longgar,
- * dan sesuai dengan maksud getter. Ketidakseragaman ini berarti data diskon yang dibuat di luar
- * form (mis. lewat penyemaian awal atau impor) dapat diam-diam tidak berlaku bila kolom
- * {@code aktif} dibiarkan {@code NULL}.
+ * ditentukan). Kueri penyaring {@code CommonSirs.getDiskonSekarang} sebelumnya memakai
+ * {@code eq(aktif, true)} yang ketat — baris dengan kolom {@code aktif} bernilai {@code NULL} di
+ * basis data (mis. hasil penyemaian awal atau impor yang tidak menyentuh kolom itu) tidak akan
+ * terpilih, berlawanan dengan maksud getternya. Sudah diperbaiki: kueri kini memakai
+ * {@code or(isNull(aktif), eq(aktif, true))}, sama seperti resolusi {@link TarifKhusus} di
+ * {@code CommonTarif.getTarif}, sehingga baris dengan {@code aktif} {@code NULL} ikut dianggap
+ * aktif.
  *
  * <h3>Cakupan diskon tidak berlaku surut ke transaksi yang sudah menempel</h3>
  * Penyaringan tanggal, status aktif, dan rentang kuantitas hanya dilakukan pada saat aturan diskon
@@ -118,8 +112,10 @@ import ais.database.model.akunting.Akun;
  * dan {@code aktif} tidak diberi {@code @Column}, sehingga dipetakan ke kolom bernama sesuai nama
  * properti. {@code mulai} dan {@code sampai} juga tanpa {@code @Temporal}, sehingga tersimpan
  * sebagai stempel waktu penuh — berbeda dari {@link TarifKhusus} yang menandainya
- * {@link TemporalType#DATE}. Perbedaan itulah yang membuat nilai awal {@code sampai} pada kelas ini
- * membawa komponen jam dan langsung kedaluwarsa.</li>
+ * {@link TemporalType#DATE}. Sejak {@code sampai} tidak lagi diinisialisasi ke {@code new Date()},
+ * perbedaan ini tidak lagi berakibat aturan baru langsung kedaluwarsa, tetapi kolomnya tetap
+ * menyimpan komponen jam bila operator mengisi {@code sampai} lewat jalur selain form (form
+ * mengisi dari {@link ais.ui.util.MyDatebox}, yang hanya membawa komponen tanggal).</li>
  * </ul>
  *
  * @see DiskonDetail rincian item/tindakan/alat medis yang berhak atas diskon ini
@@ -241,10 +237,13 @@ public class Diskon extends GeneralValueObject {
 	private Date mulai = new Date();
 
 	/**
-	 * Akhir masa berlaku; diinisialisasi ke waktu pembuatan objek, sehingga aturan yang disimpan
-	 * tanpa penyuntingan langsung kedaluwarsa. Lihat peringatan pada dokumentasi kelas.
+	 * Akhir masa berlaku; sengaja TIDAK diinisialisasi (tetap {@code null} sampai diisi eksplisit
+	 * oleh operator), sejalan dengan toleransi {@code isNull(sampai)} = "tanpa batas akhir" pada
+	 * kueri penyaring {@code CommonSirs.getDiskonSekarang}. Sebelumnya field ini diinisialisasi
+	 * {@code new Date()} sehingga setiap aturan baru langsung kedaluwarsa pada detik pembuatannya;
+	 * lihat riwayat perbaikan pada dokumentasi kelas.
 	 */
-	private Date sampai = new Date();
+	private Date sampai;
 
 	/** Akun buku besar tempat potongan diskon dibukukan; kolomnya {@code NOT NULL}. */
 	private Akun akun;
@@ -253,11 +252,13 @@ public class Diskon extends GeneralValueObject {
 	private Integer jumlahMinimal = 0;
 
 	/**
-	 * Kuantitas maksimal transaksi agar diskon berlaku. Nilai awal {@code 0} bertabrakan dengan
-	 * nilai cadangan {@code 100} pada {@link #getJumlahMaksimal()} dan membuat diskon baru tidak
-	 * pernah terpilih. Lihat peringatan pada dokumentasi kelas.
+	 * Kuantitas maksimal transaksi agar diskon berlaku; sengaja TIDAK diinisialisasi, sehingga
+	 * tetap {@code null} sampai diisi eksplisit oleh operator dan nilai cadangan {@code 100} pada
+	 * {@link #getJumlahMaksimal()} berlaku untuk baris baru. Sebelumnya field ini diinisialisasi
+	 * {@code 0}, yang mematikan nilai cadangan tersebut dan membuat setiap diskon baru tidak pernah
+	 * terpilih. Lihat riwayat perbaikan pada dokumentasi kelas.
 	 */
-	private Integer jumlahMaksimal = 0;
+	private Integer jumlahMaksimal;
 
 	/** Pembatas cakupan: diskon hanya berlaku bagi peserta asuransi ini bila terisi. */
 	private Asuransi asuransi;
@@ -408,13 +409,12 @@ public class Diskon extends GeneralValueObject {
 	 *
 	 * <p>
 	 * Kueri penyaring mentoleransi nilai {@code NULL} sebagai "berlaku tanpa batas akhir"
-	 * ({@code or(isNull(sampai), ge(sampai, tanggal))}), tetapi field ini diinisialisasi
-	 * {@code new Date()} sehingga aturan diskon baru tidak pernah memanfaatkan toleransi tersebut:
-	 * ia justru berlaku hanya sampai detik pembuatannya. Karena field ini tidak ditandai
-	 * {@link TemporalType#DATE} (berbeda dari {@link TarifKhusus#getSampai()}), komponen jamnya ikut
-	 * tersimpan, sehingga aturan menjadi kedaluwarsa bahkan untuk transaksi pada hari yang sama.
-	 * Isilah nilai ini secara eksplisit, atau kosongkan menjadi {@code null} bila diskon dimaksudkan
-	 * berlaku tanpa batas waktu.
+	 * ({@code or(isNull(sampai), ge(sampai, tanggal))}), dan field ini <b>tidak</b> diinisialisasi
+	 * (tetap {@code null} sampai diisi), sehingga aturan diskon baru langsung memanfaatkan toleransi
+	 * tersebut sampai operator mengisi tanggal akhirnya secara eksplisit. Karena field ini tidak
+	 * ditandai {@link TemporalType#DATE} (berbeda dari {@link TarifKhusus#getSampai()}), nilai yang
+	 * diisi lewat jalur selain form (yang memakai {@link ais.ui.util.MyDatebox}, tanggal saja) dapat
+	 * membawa komponen jam.
 	 * </p>
 	 *
 	 * @return akhir masa berlaku, dapat {@code null} yang berarti tanpa batas akhir
@@ -425,8 +425,8 @@ public class Diskon extends GeneralValueObject {
 
 	/**
 	 * Mengisi akhir masa berlaku aturan diskon. Nilai {@code null} berarti berlaku tanpa batas
-	 * akhir. Form tidak mewajibkan pengisian kolom ini, sehingga nilai awal yang langsung
-	 * kedaluwarsa dapat lolos tersimpan.
+	 * akhir. {@code ais.action.master.sirs.DiskonAction#onSave} menolak penyimpanan bila nilai ini
+	 * diisi lebih awal dari {@link #getMulai()}, tetapi tetap tidak mewajibkan kolom ini terisi.
 	 *
 	 * @param sampai akhir masa berlaku, atau {@code null} untuk tanpa batas
 	 */
@@ -488,32 +488,21 @@ public class Diskon extends GeneralValueObject {
 	 *
 	 * <p>
 	 * Nilai cadangan {@code 100} di sini menyatakan maksud penulisnya dengan jelas: bila operator
-	 * tidak menentukan batas atas, pakailah batas yang longgar. Maksud itu <b>tidak pernah
-	 * terlaksana</b>. Field {@link #jumlahMaksimal} sudah diinisialisasi {@code 0} pada
-	 * deklarasinya, sehingga tidak pernah bernilai {@code null} untuk objek yang dibuat lewat
-	 * konstruktor — dan cabang nilai cadangan menjadi kode mati bagi seluruh aturan diskon baru. Ia
-	 * hanya akan berjalan untuk baris lama yang kolomnya benar-benar {@code NULL} di basis data.
+	 * tidak menentukan batas atas, pakailah batas yang longgar. Field {@link #jumlahMaksimal}
+	 * sengaja tidak diinisialisasi pada deklarasinya (dulu diinisialisasi {@code 0}, yang mematikan
+	 * cabang nilai cadangan ini untuk setiap aturan diskon baru — lihat riwayat perbaikan pada
+	 * dokumentasi kelas), sehingga sekarang nilai cadangan berlaku baik untuk objek baru maupun
+	 * baris lama yang kolomnya {@code NULL} di basis data.
 	 * </p>
 	 *
 	 * <p>
-	 * Akibatnya berantai sampai ke penyaringan. {@code ais.action.master.sirs.DiskonAction} mengisi
-	 * kotak isian "Jumlah maksimal mendapatkan diskon" dari getter ini, jadi yang tampil bagi
-	 * operator adalah angka {@code 0}; validasi penyimpanan hanya mewajibkan nama, tanggal mulai,
-	 * dan akun, sehingga angka {@code 0} itu lolos tersimpan. Kueri penyaring
-	 * {@code CommonSirs.getDiskonSekarang} kemudian menerapkan {@code ge(jumlahMaksimal, jumlah)} —
-	 * yang untuk {@code jumlahMaksimal = 0} gagal pada setiap transaksi berkuantitas satu atau
-	 * lebih. Aturan diskon tersebut tidak pernah muncul dalam daftar diskon yang berlaku, tidak
-	 * pernah menempel ke baris transaksi, dan tidak menghasilkan pesan kesalahan apa pun; dari sisi
-	 * operator, diskon yang sudah dikonfigurasi sekadar "tidak jalan".
-	 * </p>
-	 *
-	 * <p>
-	 * Ini kejadian berulang dari pola "diskon mustahil diberikan" yang sudah tercatat pada modul
-	 * ini, dengan mekanisme yang berbeda: pada instance sebelumnya penyebabnya adalah normalisasi
-	 * {@code null} pada getter yang dipakai sebagai penjaga pemilih-mode, sedangkan di sini
-	 * penyebabnya adalah nilai awal field yang mendahului dan mematikan nilai cadangan getter.
-	 * Selama belum diperbaiki, setiap aturan diskon wajib diisi batas maksimalnya secara eksplisit
-	 * dengan angka yang cukup besar.
+	 * {@code ais.action.master.sirs.DiskonAction} mengisi kotak isian "Jumlah maksimal mendapatkan
+	 * diskon" dari getter ini, sehingga operator kini melihat {@code 100} pada form tambah baru,
+	 * bukan {@code 0}. Kueri penyaring {@code CommonSirs.getDiskonSekarang} menerapkan
+	 * {@code ge(jumlahMaksimal, jumlah)}; dengan nilai cadangan {@code 100}, syarat itu terpenuhi
+	 * apa adanya untuk kuantitas transaksi wajar tanpa operator perlu mengubah apa pun.
+	 * {@code DiskonAction#onSave} juga menolak penyimpanan bila nilai ini lebih kecil dari
+	 * {@link #getJumlahMinimal()}.
 	 * </p>
 	 *
 	 * @return kuantitas maksimal, tidak pernah {@code null}
@@ -526,8 +515,8 @@ public class Diskon extends GeneralValueObject {
 	}
 
 	/**
-	 * Mengisi kuantitas maksimal agar diskon berlaku. Wajib diisi secara eksplisit dengan angka
-	 * yang memadai; membiarkan nilai awal {@code 0} membuat diskon tidak pernah terpilih.
+	 * Mengisi kuantitas maksimal agar diskon berlaku. {@code DiskonAction#onSave} menolak
+	 * penyimpanan bila nilai ini diisi lebih kecil dari {@link #getJumlahMinimal()}.
 	 *
 	 * @param jumlahMaksimal kuantitas maksimal
 	 */
@@ -572,14 +561,12 @@ public class Diskon extends GeneralValueObject {
 	 * {@link #setAktif(Boolean)}.
 	 *
 	 * <p>
-	 * Maksud "belum ditentukan berarti aktif" yang dinyatakan nilai cadangan di sini
-	 * <b>tidak dihormati</b> oleh kueri penyaringnya. {@code CommonSirs.getDiskonSekarang} memakai
-	 * {@code eq(aktif, true)} yang ketat, sehingga baris dengan kolom {@code aktif} bernilai
-	 * {@code NULL} — misalnya hasil penyemaian awal atau impor yang tidak menyentuh kolom itu —
-	 * tidak akan terpilih. Bandingkan dengan {@code CommonTarif.getTarif} untuk {@link TarifKhusus}
-	 * yang memakai {@code or(isNull(aktif), eq(aktif, true))} dan justru sejalan dengan maksud
-	 * getternya. Karena field {@link #aktif} juga tidak memiliki nilai awal, aturan diskon yang
-	 * dibuat di luar form berisiko tersimpan dengan {@code NULL} dan diam-diam tidak berlaku.
+	 * Maksud "belum ditentukan berarti aktif" yang dinyatakan nilai cadangan di sini kini juga
+	 * dihormati oleh kueri penyaringnya. {@code CommonSirs.getDiskonSekarang} memakai
+	 * {@code or(isNull(aktif), eq(aktif, true))} — sama seperti {@code CommonTarif.getTarif} untuk
+	 * {@link TarifKhusus} — sehingga baris dengan kolom {@code aktif} bernilai {@code NULL} (mis.
+	 * hasil penyemaian awal atau impor yang tidak menyentuh kolom itu) tetap terpilih, sejalan
+	 * dengan maksud getternya.
 	 * </p>
 	 *
 	 * @return {@code true} bila aturan diskon berlaku, tidak pernah {@code null}

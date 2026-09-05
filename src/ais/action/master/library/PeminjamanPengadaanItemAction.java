@@ -705,7 +705,7 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 											DendaKeterlambatanItem dendaPerItem = LibraryUtil
 													.hitungDendaItem(peminjamanPengadaanItemDetail);
 
-											Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
+											Double denda = (dendaPerItem == null || dendaPerItem.getDenda() == null) ? 0.0 : dendaPerItem.getDenda();
 											denda = denda * peminjamanPengadaanItemDetail.getJumlah();
 
 											if (hanyaYgAdaDenda.isChecked() && denda < 0.01) {
@@ -1618,8 +1618,10 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 				.createCriteria(AnggotaYangDiblokir.class)
 				.add(Restrictions.eq("anggota", anggota.getAttribute("anggota")))
 				.add(Restrictions.le("mulai", ais.ui.util.WaktuUtil.getDate()))
-				.add(Restrictions.or(Restrictions.isNull("perpustakaan"),
-						Restrictions.eq("perpustakaan", currentPerpustakaan)))
+				.add(currentPerpustakaan == null || currentPerpustakaan.getId() == null
+						? Restrictions.sqlRestriction("true")
+						: Restrictions.or(Restrictions.isNull("perpustakaan"),
+								Restrictions.eq("perpustakaan", currentPerpustakaan)))
 				.add(Restrictions.or(Restrictions.isNull("sampai"),
 						Restrictions.ge("sampai", ais.ui.util.WaktuUtil.getDate())))
 				.setMaxResults(1).uniqueResult();

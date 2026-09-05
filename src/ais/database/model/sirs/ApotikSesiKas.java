@@ -223,15 +223,18 @@ public class ApotikSesiKas extends GeneralValueObject {
 	 * {@code sesiAktif} untuk menegakkan aturan "satu kasir, satu sesi
 	 * terbuka".</p>
 	 *
-	 * <p>Penegakan aturan itu berbentuk baca-lalu-tulis tanpa kunci:
+	 * <p>Penegakan aturan itu tetap berbentuk baca-lalu-tulis di level baris:
 	 * {@code buka} memeriksa keberadaan sesi terbuka lebih dulu, baru kemudian
-	 * memulai transaksi dan menyimpan. Di antara keduanya ada jeda, sehingga dua
-	 * permintaan buka yang benar-benar bersamaan dari akun yang sama dapat
-	 * sama-sama tidak menemukan apa pun dan sama-sama menyimpan. Tidak ada
-	 * batasan unik basis data yang menutup jeda itu. Akibatnya terbatas —
-	 * {@code sesiAktif} akan memilih sesi ber-id terbesar sehingga yang lain
-	 * menjadi sesi yatim yang tidak pernah ditutup — tetapi sesi yatim itu akan
-	 * tetap berstatus BUKA selamanya dan mengotori daftar riwayat.</p>
+	 * memulai transaksi dan menyimpan. Sejak perbaikan lomba-tulis, jeda itu
+	 * diserialkan per kasir lewat {@code pg_try_advisory_lock} bertitik-kunci
+	 * {@code ApotikSesiKasHelper.kunciBukaSesiKas(userId)} (idiom yang sama
+	 * dengan {@code PengadaanPosApiHelper.kunciSinkronBast}): kunci ini
+	 * dipegang PostgreSQL sendiri sehingga berlaku lintas seluruh koneksi ke
+	 * basis data yang sama, bukan hanya dalam satu proses JVM — permintaan
+	 * buka kedua dari akun yang sama yang datang SELAGI yang pertama masih
+	 * diproses akan ditolak dengan pesan "sedang diproses", bukan ikut
+	 * menyimpan sesi kedua. Tidak ada batasan unik pada tabel yang menutup
+	 * jeda ini; penjagaannya murni advisory lock di atas.</p>
 	 *
 	 * @return id akun kasir, atau {@code null}
 	 */
