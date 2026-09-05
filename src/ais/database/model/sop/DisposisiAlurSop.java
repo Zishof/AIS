@@ -390,6 +390,26 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan kode langkah — pada praktiknya <b>kode pengajuan induk</b>, bukan kode
+	 * tersendiri milik jenjang ini.
+	 *
+	 * <p>Selama definisi jenjang ({@link #getAlurSop()}) sudah termuat dan header pengajuan sudah
+	 * ada di field, nilai {@code kode} baris ini <b>ditimpa</b> dengan kode header
+	 * ({@code disposisiSop.getKode()}). Tujuannya agar setiap baris riwayat disposisi membawa nomor
+	 * dokumen yang sama sehingga mudah dicari di dasbor dan pada cetakan.</p>
+	 *
+	 * <p><b>Dua hal yang perlu diwaspadai.</b> Pertama, ini adalah <i>getter destruktif</i> pada
+	 * properti yang persisten: karena Hibernate memanggil getter yang sama ketika melakukan
+	 * <i>dirty checking</i>, kode hasil salinan tersebut ikut tersimpan ke kolom {@code kode} pada
+	 * flush berikutnya. Kedua, kondisi pengecekan membaca <b>field</b> {@code disposisiSop} secara
+	 * langsung, bukan lewat {@link #getDisposisiSop()}. Artinya penyalinan hanya terjadi bila header
+	 * kebetulan sudah pernah dimuat (mis. oleh getter lain yang dipanggil sebelumnya); bila belum,
+	 * method ini diam-diam mengembalikan nilai kode lama. Pilihan ini sekaligus melindungi dari
+	 * {@code LazyInitializationException} saat proxy header tidak lagi terhubung ke sesi.</p>
+	 *
+	 * @return kode dokumen (sudah di-{@code trim}); string kosong bila belum ada kode
+	 */
 	public String getKode() {
 		alurSop = getAlurSop();
 		if (alurSop != null && disposisiSop != null) {
@@ -398,10 +418,36 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return kode == null ? "" : kode.trim();
 	}
 
+	/**
+	 * Menyetel kode langkah secara manual.
+	 *
+	 * <p>Perlu diingat nilai yang disetel di sini bersifat sementara pada kondisi umum: begitu
+	 * {@link #getKode()} dipanggil dengan header pengajuan sudah termuat, nilainya ditimpa kembali
+	 * oleh kode header.</p>
+	 *
+	 * @param kode kode dokumen
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengembalikan catatan/disposisi yang ditulis aktor pada jenjang ini.
+	 *
+	 * <p>Ada satu perlakuan khusus: bila jenjang ini adalah <b>jenjang awal</b>
+	 * ({@code alurSop.getStart()}), catatan diambil dari keterangan header pengajuan
+	 * ({@link DisposisiSop#getKeterangan()}). Alasannya, pada langkah pertama yang "menulis catatan"
+	 * sesungguhnya adalah pengaju lewat form pengajuan, bukan lewat kotak disposisi; dengan
+	 * penyalinan ini tampilan riwayat menjadi konsisten — baris pertama memperlihatkan maksud
+	 * pengajuan, baris berikutnya memperlihatkan disposisi tiap aktor.</p>
+	 *
+	 * <p>Seperti {@link #getKode()}, ini getter destruktif atas properti persisten: hasil salinan
+	 * dapat ikut tertulis ke kolom {@code keterangan} saat flush. Kondisi juga memakai field
+	 * {@code disposisiSop} langsung (bukan getter), sehingga penyalinan hanya berlaku ketika header
+	 * kebetulan sudah termuat.</p>
+	 *
+	 * @return catatan jenjang ini; string kosong bila belum ada catatan (tidak pernah {@code null})
+	 */
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		alurSop = getAlurSop();
@@ -412,10 +458,57 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return this.keterangan == null ? "" : keterangan;
 	}
 
+	/**
+	 * Menyetel catatan/disposisi jenjang ini.
+	 *
+	 * <p>Pada jenjang awal nilai ini akan ditimpa kembali oleh keterangan header ketika
+	 * {@link #getKeterangan()} dipanggil; untuk jenjang selain awal, nilai bertahan sebagaimana
+	 * disetel. Kewajiban pengisian catatan (bila {@code AlurSop.getCatatanWajibDiisi()} bernilai
+	 * benar) <b>tidak</b> ditegakkan di sini melainkan di lapis service/UI.</p>
+	 *
+	 * @param keterangan catatan disposisi
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Menjawab pertanyaan: <b>apakah langkah ini merupakan titik persetujuan yang sudah tercapai?</b>
+	 *
+	 * <p>Inilah satu-satunya tempat di entity ini yang "menghitung" makna persetujuan, dan
+	 * penting untuk dipahami bahwa ia adalah <b>fungsi turunan murni</b> — ia membaca konfigurasi
+	 * jenjang pada {@link AlurSop} lalu menyimpulkan; ia tidak memeriksa identitas siapa pun, tidak
+	 * menulis apa pun, dan tidak menolak apa pun.</p>
+	 *
+	 * <p>Aturannya dua cabang:</p>
+	 * <ol>
+	 * <li><b>Langkah ini ujung rantai.</b> Bila {@code alurSop.getPersetujuanAdaDiSini()} bernilai
+	 * benar <i>dan</i> {@link #getSetelahnya()} masih {@code null}, langkah ini dianggap titik
+	 * persetujuan. Dengan kata lain: definisi jenjang menyatakan "persetujuan ada di sini" dan
+	 * proses memang berhenti di sini.</li>
+	 * <li><b>Langkah ini sudah diteruskan.</b> Bila sudah ada {@code setelahnya}, keputusan
+	 * diserahkan ke {@code alurSop.ambilAlurSetujui(setelahnya.getAlurSop())}. Method tersebut
+	 * mencocokkan jenjang tujuan dengan salah satu slot rute {@code setelahnya1..setelahnya20} pada
+	 * definisi, lalu mengembalikan penanda {@code persetujuanAdaDiSini1..20} yang bersesuaian.
+	 * Jadi maknanya: "apakah <i>rute yang benar-benar dipilih</i> merupakan rute persetujuan?" —
+	 * sebuah jenjang bisa punya satu cabang yang berarti menyetujui dan cabang lain yang berarti
+	 * menolak/meneruskan, dan yang menentukan adalah cabang mana yang diambil.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perilaku saat gagal.</b> Seluruh badan method dibungkus {@code try/catch} yang
+	 * mengembalikan {@code false} untuk pengecualian apa pun. Ini menutup dua kasus nyata:
+	 * {@code getAlurSop()} bisa {@code null} pada baris yang belum lengkap (menimbulkan
+	 * {@code NullPointerException}), dan proxy lazy bisa terlepas dari sesinya. Arah kegagalannya
+	 * <i>fail-closed</i> untuk pembacaan (kalau ragu, anggap belum disetujui) — tetapi perlu dicatat
+	 * bahwa fail-closed di sini hanya menyangkut <b>tampilan/penurunan status</b>, bukan penolakan
+	 * penyimpanan; entity tetap menerima data yang dikirim pemanggil.</p>
+	 *
+	 * <p>Pemakai penting method ini: {@link DisposisiSop#getDisposisiSetuju()} (menentukan baris
+	 * mana yang menjadi "titik disetujui" pengajuan) dan {@link #getSelesai()}.</p>
+	 *
+	 * @return {@code true} bila jenjang ini merupakan titik persetujuan yang tercapai; {@code false}
+	 *         bila bukan, atau bila data tidak dapat dievaluasi
+	 */
 	public boolean setujui() {
 		try {
 			DisposisiAlurSop disposisiAlurSop = this;
@@ -430,6 +523,24 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mengembalikan definisi jenjang ({@link AlurSop}) yang sedang dijalankan baris ini.
+	 *
+	 * <p>Relasi inilah yang membawa seluruh <b>aturan</b> jenjang: siapa aktor yang berhak
+	 * ({@code aktorSop}/{@code khususUsername}), apakah "persetujuan ada di sini", rute lanjutan
+	 * apa saja yang tersedia, apakah catatan wajib diisi, berapa jangka waktunya, dan seterusnya.
+	 * Baris {@code DisposisiAlurSop} sendiri hanya mencatat apa yang terjadi; yang menyatakan apa
+	 * yang <i>seharusnya</i> terjadi adalah object yang dikembalikan method ini.</p>
+	 *
+	 * <p>Pemuatan dilakukan lewat {@code check()} milik {@code GeneralValueObject} sehingga proxy
+	 * lazy yang sudah lepas dari sesinya tetap dapat diselesaikan (atau dikembalikan secara aman)
+	 * tanpa melempar {@code LazyInitializationException}. Meski kolom {@code alur_sop} dipetakan
+	 * {@code nullable = false}, banyak kode di paket ini tetap memeriksa hasilnya terhadap
+	 * {@code null} karena baris yang masih dibentuk di memori atau proxy yang gagal dimuat bisa
+	 * memberi {@code null}.</p>
+	 *
+	 * @return definisi jenjang, atau {@code null} bila belum diisi/tidak dapat dimuat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "alur_sop", nullable = false)
 	public AlurSop getAlurSop() {
@@ -437,10 +548,36 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return alurSop;
 	}
 
+	/**
+	 * Menetapkan definisi jenjang untuk baris ini.
+	 *
+	 * <p><b>Tanpa validasi rute.</b> Setter ini menerima {@link AlurSop} mana pun: ia tidak
+	 * memeriksa bahwa jenjang tersebut memang salah satu rute sah dari
+	 * {@link #getSebelumnya()}, tidak memeriksa bahwa jenjang itu milik {@link Sop} yang sama
+	 * dengan pengajuan pada header, dan tidak memeriksa bahwa jenjang itu belum pernah dilewati.
+	 * Konsistensi rantai sepenuhnya menjadi tanggung jawab kode pemanggil (jalur ZK
+	 * {@code DisposisiAlurSopAction}, jalur native {@code ProsesDisposisiSopService}, dan jalur API
+	 * {@code SopService}).</p>
+	 *
+	 * @param alurSop definisi jenjang yang dijalankan baris ini
+	 */
 	public void setAlurSop(AlurSop alurSop) {
 		this.alurSop = alurSop;
 	}
 
+	/**
+	 * Mengembalikan header pengajuan ({@link DisposisiSop}) yang memiliki baris jenjang ini.
+	 *
+	 * <p>Header menyimpan identitas pengajuan: nomor/kode, pengaju, waktu pengajuan, serta penunjuk
+	 * ke baris awal/akhir/titik-setuju. Semua baris jenjang dari satu pengajuan berbagi header yang
+	 * sama, dan dari header itulah beberapa getter di kelas ini menyalin nilai (lihat
+	 * {@link #getKode()}, {@link #getKeterangan()}, {@link #getDiajukanOleh()}).</p>
+	 *
+	 * <p>Sama seperti relasi lain, pemuatan melalui {@code check()} agar aman terhadap proxy lazy
+	 * yang sesinya sudah ditutup.</p>
+	 *
+	 * @return header pengajuan, atau {@code null} bila belum diisi/tidak dapat dimuat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = false)
 	public DisposisiSop getDisposisiSop() {
@@ -448,6 +585,25 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menetapkan header pengajuan pemilik baris jenjang ini, dengan penjaga "jangan turun ke nilai
+	 * kosong".
+	 *
+	 * <p>Baris pertama method melakukan <i>early return</i> bila argumen {@code null} atau belum
+	 * punya id — jadi header yang sudah terpasang tidak akan pernah dihapus/ditimpa oleh object
+	 * hampa. Ini penting karena banyak jalur menyimpan ulang entity hasil rebinding form ZK yang
+	 * kadang membawa header kosong; tanpa penjaga ini kolom {@code disposisi_sop} (yang dipetakan
+	 * {@code nullable = false}) bisa gagal saat {@code INSERT}/{@code UPDATE} atau, lebih buruk,
+	 * memutus baris jenjang dari pengajuannya sehingga riwayat disposisi tampak hilang.</p>
+	 *
+	 * <p><b>Catatan kode:</b> ekspresi ternary setelah early return sebenarnya <b>selalu</b>
+	 * memilih argumen baru, karena kondisi {@code (disposisiSop == null || disposisiSop.getId() ==
+	 * null)} di dalamnya sudah pasti bernilai salah — kasus itu sudah disaring oleh early return di
+	 * atas. Jadi efektifnya method ini setara dengan "abaikan bila kosong, selain itu timpa".
+	 * Cabang tersebut dibiarkan apa adanya karena tidak berdampak pada perilaku.</p>
+	 *
+	 * @param disposisiSop header pengajuan; {@code null} atau header tanpa id diabaikan
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
