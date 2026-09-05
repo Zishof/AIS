@@ -1,5 +1,85 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `library` TUNTAS 100% (6 Sep 2026, akhir batch 106) — domain KESEBELAS tuntas
+
+Diverifikasi: **86/86 file** `ais/database/model/library/` kini punya
+Javadoc substansial. Dikerjakan batch 105-106 (2 batch). Domain kesebelas
+yang tuntas penuh setelah `akunting`, `payroll`, `koperasi`, `inventory`,
+`employ`, `asset`, `surat`, `rab`, `sirs`, `sister`.
+
+**Batch 106 (39 file, 5 klaster paralel)**:
+
+- **Klaster Perpustakaan/Pustakawan/barcode** (4 file: `Perpustakaan.java`
+  r84801, `Pustakawan.java` r84809, `ItemPunyaBarcode.java` r84819,
+  `BatchItemPunyaBarcode.java` r84832). `Perpustakaan` DIKONFIRMASI
+  **flat** (tanpa hierarki cabang/induk-anak) dan punya SEMUA field tenant
+  (`yayasan`/`sekolah`/`fakultas`/`jurusan`/`satuanKerja`, semua nullable) —
+  menjadikannya penghubung ke sistem tenant utama, bukan berdiri sendiri.
+  Dikonfirmasi LANGSUNG dari `GenericCrudAutoEntityAdapter.java:245-272`:
+  `perpustakaan` tidak ada di whitelist `scopeBindings()`, TAPI `Perpustakaan`
+  sendiri justru AMAN (punya properti whitelist sendiri) — sebaliknya
+  `Pustakawan`, `ItemPunyaBarcode`, `BatchItemPunyaBarcode` NOL properti
+  whitelist sama sekali → scope kosong total, terbaca lintas perpustakaan.
+  Mekanisme barcode (`DefaultBarcodeGenerator` read-modify-write tanpa lock,
+  `BarcodeCommon.generateCode()` static counter tanpa sinkronisasi) rawan
+  tabrakan mirip `asset.getindex()` — hanya kolom `barcode` punya
+  `unique=true`, kolom `kode` batch tidak punya batasan unik sama sekali.
+  **`ItemPunyaBarcode` tidak punya field status eksemplar** — tersedia/
+  dipinjam diturunkan dari `kembaliPengadaanItemDetail is null`, tapi
+  hilang/rusak cuma prefiks teks bebas yang tidak dibaca query ketersediaan
+  mana pun → **Task baru `task_84922875`**: eksemplar hilang/rusak tetap
+  terhitung tersedia dan bisa dipinjamkan lagi, plus 2 bug jalur
+  pengembalian terkait (object transient terbuang senyap saat set kembali;
+  `uniqueResult()` tanpa `setMaxResults(1)` melempar exception saat data
+  korup). Getter-menulis-DB reconfirmed di `ItemPunyaBarcode`/
+  `BatchItemPunyaBarcode`.getPerpustakaan() dan `Perpustakaan`.getSatuanKerja()
+  (derivasi destruktif dari sekolah/fakultas). `Pustakawan` ternyata KUNCI
+  resolusi tenant aktif (bukan master data biasa) — resolver pilih id
+  terbesar, fallback tanpa filter yayasan/sekolah, dan bug `ClassCastException`
+  tertelan yang bisa membuat perpustakaan aktif jadi `null` di sesi.
+- **Klaster klasifikasi DDC/UDC/Kategori/Topik/Domain Penelitian** (12 file,
+  r84804-r84837). Pola header/detail 3-lapis dikonfirmasi identik untuk DDC
+  (`DdcItem`→`DataDdcItem`→`DataDdcItemDetail`) dan UDC (`UdcItem`→
+  `DataUdcItem`→`DataUdcItemDetail`) — KEDUANYA menulis balik
+  `Item.ddcItem`/`Item.udcItem` saat baris detail ditambah/dihapus, mekanisme
+  destruktif KEDUA di samping penimpaan via `LabelItem` yang sudah tercatat.
+  `KategoriItem`/`TopikItem`/`DomainPenelitian` dikonfirmasi dimensi
+  independen (bukan tumpang tindih dengan DDC/UDC). Entity yatim baru:
+  `ItemHasTopik` (join Item↔TopikItem, nol pemanggil nyata, berbeda dari
+  `ItemPunyaKategoriItem` yang pola sama tapi aktif dipakai).
+- **Klaster pengarang/penerbit** (8 file, r84798-r84829). `ItemPunyaPengarang`
+  murni banyak-ke-banyak tanpa kolom urutan (tidak ada pengarang utama vs
+  kontributor). `ItemPunyaTerbit` nama MENYESATKAN — tidak menunjuk
+  `Penerbit` sama sekali, isinya konten rich-text + rentang tanggal.
+  `PenerbitPunyaPemeriksa` vs `ItemPunyaPemeriksa` dua jalur penugasan
+  pemeriksa terpisah (tingkat Penerbit vs tingkat Item). Bug salin-tempel:
+  `Pengarang.getKode()` cabang `userIdPengarang != null` keliru menulis
+  `nama` alih-alih `kode`. `ItemPunyaTerbitKomentar` ternyata log pengunjung
+  (endpoint publik pengisi tidak menerima parameter isi komentar sama
+  sekali), bukan penyimpan komentar sungguhan.
+- **Klaster status/tipe/label/rak** (10 file, r84799-r84836). `JenisItem`
+  (format/genre, dc.format) vs `TipeItem` (jenis karya, dc.type) dikonfirmasi
+  DUA SUMBU independen, bukan sinonim. `StatusItem` (kondisi fisik) vs
+  `StatusTerbitItem` (siklus terbit) vs `ItemHasStatus` (riwayat bertanggal)
+  tiga konsep terpisah — `ItemHasStatus` **entity yatim** (nol Dao/Action/
+  pemanggil). `LabelItem.getDeweyDecimalClass()` dikonfirmasi ULANG sebagai
+  AKAR penyebab penimpaan destruktif `Item.ddcItem`. `Labelling` juga
+  **entity yatim** kedua batch ini (pemasangan label nyata lewat
+  `Item.getLabelItem()` langsung, bukan riwayat `Labelling`). `ItemKomentar`
+  kolom `alamat`/`kontak` direpurpose jadi isi ulasan + status moderasi,
+  jauh dari nama kolomnya.
+- **Klaster informasi/misc** (6 file, r84800-r84828, agent terakhir —
+  paket TUNTAS). `LampiranItem` **entity yatim TERKONFIRMASI**: mapping-nya
+  dikomentari di `hibernate.cfg.xml`, sehingga tidak terdaftar Hibernate
+  sama sekali. `SearchHistory` **terverifikasi AMAN** (filter kepemilikan
+  ketat `olehId==user.getUserId()` di semua endpoint API). `HariLiburPerpustakaan`
+  BERBEDA dari `rab.HariLibur`/`Kalender` — satu sumber kebenaran tunggal
+  (cache in-memory), dipakai global lintas-perpustakaan untuk tenggat
+  pengembalian pinjaman.
+
+**1 task baru batch 106**: `task_84922875`. Total akumulasi 106 sesi:
+**1199+ file** dari 7.401 (~30,6%).
+
 ## Batch 105 — SELESAI 100% (5 Sep 2026) — PIVOT ke paket `library` (perpustakaan); 46 file; 5 task baru
 
 46 file selesai (batch pertama domain baru `library`, 86 file
