@@ -93,19 +93,22 @@ import ais.database.model.file.LampiranLain;
  * </p>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN — kredensial.</b> Kelas ini menyimpan DUA field bernuansa kredensial,
- * dan keduanya bermasalah dengan cara yang berbeda:
+ * <b>PERINGATAN KEAMANAN — kredensial.</b> Kelas ini menyimpan DUA field bernuansa kredensial:
  * </p>
  * <ol>
- * <li><b>{@link #getPass()}</b> — <i>getter destruktif yang menyemai kata sandi sendiri</i>. Bila
- * kolom {@code pass} masih kosong sementara {@link #getNomorInduk()} terisi, getter ini MENULIS
+ * <li><b>{@link #getPass()}</b> — sampai perbaikan 2026-09-06, getter ini adalah <i>getter
+ * destruktif yang menyemai kata sandi sendiri</i>: bila kolom {@code pass} masih kosong sementara
+ * {@link #getNomorInduk()} terisi, getter itu MENULIS
  * {@code pass = Common.desEncrypter.get().encrypt(getNomorInduk().trim())} lalu menyalakan
- * {@link #getIs_encripted()}. Artinya kata sandi bawaan setiap pelamar SAMA DENGAN nomor
- * registrasinya sendiri — nilai yang tercetak di kartu pendaftaran, tampil di grid panitia, dan
- * bahkan ikut di {@link #toString()}. Enkripsinya adalah DES ({@code DesEncrypter}) dengan
- * <i>passphrase</i> {@code Common.DES_PASS_PHRASE} yang tertanam permanen di kode sumber dan sama
- * untuk semua instalasi AIS: ini enkripsi REVERSIBEL, <b>bukan</b> hash. Bandingkan dengan pola
- * yang benar pada pendaftaran tenant ({@code ais.database.model.tenant.Pendaftar}) yang memakai
+ * {@link #getIs_encripted()}, sehingga kata sandi bawaan setiap pelamar SAMA DENGAN nomor
+ * registrasinya sendiri (nilai yang tercetak di kartu pendaftaran, tampil di grid panitia, dan
+ * ikut di {@link #toString()}) dienkripsi DES ({@code DesEncrypter}) dengan <i>passphrase</i>
+ * {@code Common.DES_PASS_PHRASE} yang tertanam permanen di kode sumber dan sama untuk semua
+ * instalasi AIS — enkripsi REVERSIBEL, bukan hash. Penyemaian tersebut sudah DIHAPUS: getter kini
+ * murni, hanya mengembalikan nilai kolom apa adanya. Baris yang sempat tersentuh sebelum perbaikan
+ * ini mungkin masih menyimpan kata sandi hasil penyemaian lama sampai ada audit data historis;
+ * lihat rincian dan status di Javadoc {@link #getPass()} itu sendiri. Bandingkan dengan pola yang
+ * benar pada pendaftaran tenant ({@code ais.database.model.tenant.Pendaftar}) yang memakai
  * {@code PasswordHashService.hash()} (PBKDF2-HMAC-SHA256 + salt per-pengguna, satu arah).</li>
  * <li><b>{@link #getPinPassword()}</b> — kolom PIN portal yang di kelas kembarannya
  * ({@code CalonSiswa}/{@code BiodataCalonMahasiswa}) diisi dan ditampilkan apa adanya, namun pada
@@ -117,8 +120,8 @@ import ais.database.model.file.LampiranLain;
  * {@code pass} milik entity ini. Login berjalan lewat {@code Tbmuser} (akun aplikasi biasa,
  * {@code Tbmuser.userPassword}, juga DES) yang ditautkan lewat {@code Tbmuser.calonPegawai}, lalu
  * sesi diisi oleh {@code KarirConfigUtil.putKarirSession(...)}. Jadi kolom {@code pass} di sini
- * adalah kredensial DORMAN yang tetap terisi otomatis dengan rahasia yang bisa ditebak dan bisa
- * didekripsi — beban risiko tanpa manfaat fungsional.
+ * adalah kredensial DORMAN yang tidak lagi terisi otomatis, tetapi baris lama bisa saja masih
+ * berisi rahasia yang bisa ditebak dan bisa didekripsi dari sebelum perbaikan ini.
  * </p>
  *
  * <p>
@@ -162,8 +165,9 @@ import ais.database.model.file.LampiranLain;
  *
  * <p>
  * <b>Getter dengan efek samping di kelas ini</b> (pola berulang yang perlu diwaspadai saat
- * membaca kode): {@link #getPass()} (menyemai kata sandi), {@link #getNama()} dan
- * {@link #getNim()} dan {@link #getNomorInduk()} (menyalin nilai dari field lain),
+ * membaca kode): {@link #getNama()} dan {@link #getNim()} dan {@link #getNomorInduk()} (menyalin
+ * nilai dari field lain) — perhatikan bahwa {@link #getPass()} SEBELUMNYA juga termasuk daftar ini
+ * (menyemai kata sandi) sampai perbaikan 2026-09-06 menjadikannya getter murni,
  * {@link #getAlamatEmail()} (mengosongkan email yang dianggap tidak valid),
  * {@link #getTelahLogin()} (menyimpulkan status login dari isi parameter tambahan),
  * {@link #getKecamatan()}/{@link #getKecamatanCalon()}/{@link #getPropinsi()} (menormalkan relasi
@@ -637,15 +641,19 @@ public class CalonPegawai extends GeneralValueObject {
 	 * Kata sandi terenkripsi DES.
 	 *
 	 * <p>
-	 * <b>PERINGATAN.</b> Field ini disemai secara otomatis oleh {@link #getPass()} dengan hasil
-	 * enkripsi {@link #getNomorInduk()} bila masih kosong. Baca Javadoc {@link #getPass()} untuk
-	 * rincian mekanisme dan implikasinya.
+	 * <b>Riwayat.</b> Sampai perbaikan 2026-09-06, {@link #getPass()} menyemai field ini secara
+	 * otomatis dengan hasil enkripsi {@link #getNomorInduk()} bila masih kosong; penyemaian itu
+	 * sudah DIHAPUS (lihat Javadoc {@link #getPass()}). Baris yang sempat tersentuh sebelum
+	 * perbaikan ini mungkin masih menyimpan kata sandi hasil penyemaian lama sampai ada audit data
+	 * historis.
 	 * </p>
 	 */
 	private String pass;
 	/**
-	 * Penanda apakah {@link #pass} sudah berbentuk sandi terenkripsi. Dinyalakan sebagai EFEK
-	 * SAMPING oleh {@link #getPass()}; lihat {@link #getIs_encripted()}.
+	 * Penanda apakah {@link #pass} sudah berbentuk sandi terenkripsi. Sampai perbaikan
+	 * 2026-09-06 dinyalakan sebagai efek samping oleh {@link #getPass()}; getter itu sekarang
+	 * murni, sehingga field ini hanya berubah lewat {@link #setIs_encripted(Boolean)} langsung.
+	 * Lihat {@link #getIs_encripted()}.
 	 */
 	private Boolean is_encripted;
 
@@ -743,9 +751,8 @@ public class CalonPegawai extends GeneralValueObject {
 	 *
 	 * <p>
 	 * Semua field dibiarkan {@code null} kecuali {@link #getTanggal_dirubah()} yang diinisialisasi
-	 * di deklarasinya. Perhatikan bahwa konstruktor ini TIDAK menyemai kata sandi apa pun —
-	 * penyemaian baru terjadi saat {@link #getPass()} dipanggil dan {@link #getNomorInduk()} sudah
-	 * terisi, yang dalam praktiknya berarti setelah nomor registrasi dibuat.
+	 * di deklarasinya. Konstruktor ini tidak menyemai kata sandi apa pun; sejak perbaikan
+	 * 2026-09-06, {@link #getPass()} juga tidak lagi menyemai apa pun — lihat Javadoc-nya.
 	 * </p>
 	 */
 	public CalonPegawai() {
@@ -1289,12 +1296,11 @@ public class CalonPegawai extends GeneralValueObject {
 	 * </p>
 	 *
 	 * <p>
-	 * <b>PENTING untuk keamanan.</b> Inilah nilai yang dibaca {@link #getPass()} untuk menyemai
-	 * kata sandi bawaan pelamar. Selama {@link #getNoRegistrasi()} masih {@code null}, getter ini
-	 * mengembalikan {@code null} dan penyemaian kata sandi TIDAK terjadi; begitu nomor registrasi
-	 * dibuat (oleh {@code DefaultNoRegGeneratorPegawai} lewat {@code CalonPegawaiAction}),
-	 * pembacaan {@link #getPass()} berikutnya — termasuk pembacaan yang dilakukan Hibernate
-	 * sendiri — langsung menyemai kata sandi yang isinya sama dengan nomor registrasi itu.
+	 * <b>Riwayat keamanan.</b> Sampai perbaikan 2026-09-06, inilah nilai yang dibaca
+	 * {@link #getPass()} untuk menyemai kata sandi bawaan pelamar (kata sandi = nomor registrasi
+	 * ini sendiri) setiap kali kolom {@code pass} masih kosong. Penyemaian itu sudah dihapus —
+	 * {@link #getPass()} kini getter murni — sehingga nilai ini tidak lagi dipakai untuk membentuk
+	 * kata sandi apa pun; lihat Javadoc {@link #getPass()} untuk rinciannya.
 	 * </p>
 	 *
 	 * @return nomor registrasi pelamar, atau {@code null} bila belum dibuat
@@ -1349,116 +1355,53 @@ public class CalonPegawai extends GeneralValueObject {
 	}
 
 	/**
-	 * Mengembalikan kata sandi pelamar dalam bentuk terenkripsi DES, <b>dan menyemainya sendiri
-	 * bila masih kosong</b>.
+	 * Mengembalikan kata sandi pelamar dalam bentuk terenkripsi DES, apa adanya.
 	 *
-	 * <h3>Mekanisme persisnya</h3>
+	 * <h3>Perbaikan keamanan (2026-09-06): penyemaian otomatis dihapus</h3>
 	 * <p>
-	 * Bila field {@link #pass} bernilai {@code null} atau hanya berisi spasi, DAN
-	 * {@link #getNomorInduk()} sudah terisi, getter ini menjalankan dua penugasan:
+	 * Sampai dengan revisi sebelum perbaikan ini, getter ini SECARA DIAM-DIAM menyemai kolom
+	 * {@code pass} bila kosong: {@code pass = Common.desEncrypter.get().encrypt(getNomorInduk()
+	 * .trim())} lalu menyalakan {@link #getIs_encripted()}. Karena entity ini memakai <i>property
+	 * access</i> (anotasi JPA di getter), Hibernate sendiri memanggil {@code getPass()} saat
+	 * memuat/dirty-check/flush, sehingga penyemaian itu tersimpan permanen ke database tanpa ada
+	 * kode aplikasi yang secara sengaja memintanya — dan {@code @Audited} ikut menyalinnya ke
+	 * tabel revisi Envers. Kata sandi bawaan yang dihasilkan SAMA DENGAN nomor registrasi pelamar
+	 * sendiri (lihat {@link #getNomorInduk()}), nilai yang sama sekali tidak rahasia (tampil di
+	 * grid panitia, tercetak di kartu peserta, ikut di {@link #toString()}, dan pada banyak
+	 * instalasi berurutan sehingga bisa ditebak), dienkripsi (bukan di-hash) dengan
+	 * {@code Common.desEncrypter} berpassphrase {@code Common.DES_PASS_PHRASE} yang tertanam
+	 * permanen di kode sumber dan sama untuk seluruh instalasi AIS — enkripsi REVERSIBEL oleh
+	 * siapa pun yang punya akses ke kode. Penelusuran seluruh WC tidak menemukan satu pun pemanggil
+	 * {@code calonPegawai.getPass()}/{@code calonPegawai.setPass(...)} di kode Java mana pun; login
+	 * pelamar ke portal karir memakai {@code Tbmuser.userPassword} lewat
+	 * {@code Tbmuser.calonPegawai}, bukan kolom ini. Karena kolom ini dorman dan penyemaiannya
+	 * murni efek samping getter tanpa manfaat fungsional, penyemaian tersebut DIHAPUS di sini;
+	 * getter sekarang hanya mengembalikan nilai kolom apa adanya, seperti getter JPA biasa.
 	 * </p>
-	 * <ol>
-	 * <li>{@code pass = Common.desEncrypter.get().encrypt(getNomorInduk().trim())} — kata sandi
-	 * dibentuk dari NOMOR REGISTRASI pelamar itu sendiri;</li>
-	 * <li>{@code is_encripted = true} — penanda bahwa nilai tersimpan sudah terenkripsi
-	 * dinyalakan, lihat {@link #getIs_encripted()}.</li>
-	 * </ol>
 	 * <p>
-	 * Bila salah satu syarat tidak terpenuhi, nilai lama dikembalikan apa adanya (bisa
-	 * {@code null}).
+	 * <b>Belum dikerjakan (butuh keputusan/kredensial terpisah):</b> baris lama yang kolom
+	 * {@code pass}-nya sudah kadung disemai sebelum perbaikan ini TETAP berisi kata sandi
+	 * hasil enkripsi nomor registrasi sampai ada audit/pembersihan data historis di database
+	 * (lihat catatan {@link #pass}); {@code DesEncrypter} itu sendiri sengaja TIDAK diubah di sini
+	 * (migrasi ke AES-256-GCM pernah dicoba dan dibatalkan 2026-09-02 — lihat Javadoc
+	 * {@code Common#DES_PASS_PHRASE}); dan pola serupa pada kelas kembaran
+	 * {@link ais.database.model.sekolah.CalonSiswa} /
+	 * {@link ais.database.model.BiodataCalonMahasiswa} belum tentu berlaku sama karena pada
+	 * keduanya kolom {@code pass} kemungkinan benar-benar dipakai untuk login.
 	 * </p>
-	 *
-	 * <h3>Mengapa ini getter destruktif yang benar-benar menulis ke database</h3>
 	 * <p>
-	 * Entity ini memetakan anotasi JPA pada getter, artinya Hibernate memakai <i>property
-	 * access</i>: Hibernate sendiri yang memanggil {@code getPass()} ketika memuat, melakukan
-	 * <i>dirty check</i>, dan mem-{@code flush} objek. Jadi penyemaian di atas tidak menunggu ada
-	 * kode aplikasi yang secara sengaja meminta kata sandi — cukup sebuah baris
-	 * {@code calon_pegawai} ikut terbawa dalam sesi Hibernate yang aktif dan kemudian di-flush,
-	 * maka kolom {@code pass} dan {@code is_encripted} terisi permanen. Anotasi
-	 * {@code dynamicUpdate} tidak mencegahnya; ia hanya membuat {@code UPDATE} berisi kolom yang
-	 * berubah — dan kedua kolom ini memang berubah.
-	 * </p>
-	 *
-	 * <h3>Kualitas kriptografinya</h3>
-	 * <p>
-	 * {@code Common.desEncrypter} adalah {@code DesEncrypter} dengan passphrase
-	 * {@code Common.DES_PASS_PHRASE} yang <b>tertanam permanen di kode sumber dan sama untuk
-	 * seluruh instalasi AIS mana pun</b>. Implikasinya berlapis:
-	 * </p>
-	 * <ul>
-	 * <li>ini ENKRIPSI, bukan HASH — nilainya dapat dikembalikan ke bentuk semula oleh siapa pun
-	 * yang memegang passphrase, dan passphrase itu dapat dibaca oleh siapa pun yang punya akses
-	 * ke kode (termasuk lewat riwayat kontrol versi);</li>
-	 * <li>DES dengan kunci efektif 56 bit sudah lama tidak dianggap aman secara kriptografi;</li>
-	 * <li>enkripsinya deterministik (tanpa IV acak, tanpa salt), sehingga dua pelamar dengan nomor
-	 * registrasi sama menghasilkan ciphertext identik dan pola dapat dikenali langsung dari dump
-	 * database.</li>
-	 * </ul>
-	 * <p>
-	 * Bandingkan dengan pola yang sudah dikonfirmasi benar pada pendaftaran tenant
-	 * ({@code ais.database.model.tenant.Pendaftar}), yang memakai
-	 * {@code PasswordHashService.hash()} — PBKDF2-HMAC-SHA256 dengan salt per-pengguna, fungsi
-	 * satu arah yang tidak bisa dibalik sama sekali. Perlu dicatat bahwa penggantian
-	 * {@code DesEncrypter} ke AES-256-GCM pernah dicoba dan DIBATALKAN (2026-09-02) karena
-	 * sebagian jalur login memverifikasi kata sandi dengan membandingkan ciphertext-ke-ciphertext
-	 * di kueri database, pola yang hanya jalan bila enkripsinya deterministik; rinciannya ada pada
-	 * Javadoc {@code Common#DES_PASS_PHRASE}.
+	 * Temuan ini terpisah dari temuan ekspor kata sandi massal pada {@code CalonPegawaiAction}
+	 * (tombol toolbar "Password penyedia / perusahaan"), yang bekerja pada kolom berbeda
+	 * ({@code Tbmuser.userPassword}) dan tidak melibatkan kolom {@code pass} milik entity ini.
 	 * </p>
 	 *
-	 * <h3>Nilai rahasia yang bukan rahasia</h3>
-	 * <p>
-	 * Bahkan seandainya kriptografinya kuat, kata sandi bawaannya tetap tidak bernilai: isinya
-	 * adalah nomor registrasi pelamar, yang tampil di grid panitia, tercetak di kartu peserta,
-	 * ikut serta pada {@link #toString()} (sehingga masuk ke log dan pesan galat), dan pada banyak
-	 * instalasi dibentuk secara berurutan oleh {@code DefaultNoRegGeneratorPegawai} sehingga bisa
-	 * ditebak dari satu contoh saja.
-	 * </p>
-	 *
-	 * <h3>Siapa yang menulis, siapa yang membaca</h3>
-	 * <p>
-	 * <b>Penulis:</b> hanya getter ini sendiri. Penelusuran seluruh WC tidak menemukan pemanggil
-	 * {@code setPass(...)} pada {@code CalonPegawai}, dan tidak ada pula jalur pendaftaran, layar
-	 * admin, atau skrip yang mengisinya.
-	 * <br>
-	 * <b>Pembaca:</b> tidak ada pemanggil {@code calonPegawai.getPass()} di kode Java mana pun —
-	 * satu-satunya "pembaca" adalah Hibernate saat memetakan kolom. Login pelamar ke portal karir
-	 * TIDAK melewati kolom ini: autentikasi berjalan lewat entity {@code Tbmuser} (kolom
-	 * {@code userPassword}, juga DES) yang ditautkan ke calon pegawai lewat
-	 * {@code Tbmuser.calonPegawai}, lalu sesi diisi oleh
-	 * {@code KarirConfigUtil.putKarirSession(...)}.
-	 * </p>
-	 * <p>
-	 * Kesimpulannya, kolom {@code pass} pada entity ini adalah <b>kredensial dorman</b>: tidak
-	 * pernah dipakai untuk apa pun, tetapi tetap terisi otomatis dengan rahasia yang dapat ditebak
-	 * sekaligus dapat didekripsi, untuk setiap pelamar yang barisnya pernah tersentuh Hibernate.
-	 * Ia menambah permukaan serangan tanpa memberi manfaat fungsional, dan karena kelas ini
-	 * {@code @Audited}, setiap penyemaiannya juga tersalin ke tabel revisi Envers.
-	 * </p>
-	 *
-	 * <h3>Hubungan dengan temuan ekspor kata sandi massal</h3>
-	 * <p>
-	 * Temuan keamanan yang sudah tercatat pada {@code CalonPegawaiAction} (tombol toolbar
-	 * "Password penyedia / perusahaan") adalah masalah TERPISAH dan bekerja pada kolom yang
-	 * berbeda: yang diekspor di sana adalah {@code Tbmuser.userPassword} yang didekripsi menjadi
-	 * teks terbaca ke dalam berkas XLSX, untuk seluruh populasi pelamar tanpa filter kepemilikan,
-	 * lewat tombol yang dipasang tanpa pemeriksaan hak tambahan. Kolom {@code pass} milik entity
-	 * ini tidak ikut dalam ekspor tersebut. Keduanya berbagi akar yang sama — pemakaian enkripsi
-	 * reversibel berkunci global untuk menyimpan kata sandi — tetapi harus diperbaiki secara
-	 * terpisah.
-	 * </p>
-	 *
-	 * @return kata sandi terenkripsi DES; disemai dari {@link #getNomorInduk()} bila sebelumnya
-	 *         kosong, atau {@code null} bila nomor registrasi juga belum ada
+	 * @return kata sandi terenkripsi DES apa adanya, atau {@code null} bila kolom belum pernah
+	 *         terisi
 	 * @see #getIs_encripted()
 	 * @see #setPass(String)
 	 */
 	@Column(name = "pass", nullable = true, length = 100)
 	public String getPass() {
-		if ((pass == null || pass.trim().isEmpty()) && getNomorInduk() != null && !getNomorInduk().trim().isEmpty()) {
-			pass = Common.desEncrypter.get().encrypt(getNomorInduk().trim());
-			is_encripted = true;
-		}
 		return pass;
 	}
 
@@ -1570,9 +1513,10 @@ public class CalonPegawai extends GeneralValueObject {
 	 * <p>
 	 * Setter ini tidak melakukan apa pun terhadap {@link #pass}: menyalakan penanda tidak
 	 * mengenkripsi nilai yang sudah ada, dan mematikannya tidak mendekripsi apa pun. Ia semata
-	 * metadata yang harus dijaga konsistensinya oleh pemanggil — dan di WC ini tidak ada satu pun
-	 * pemanggil untuk {@code CalonPegawai}, sehingga satu-satunya penulisnya adalah efek samping
-	 * {@link #getPass()}.
+	 * metadata yang harus dijaga konsistensinya oleh pemanggil. Sampai perbaikan 2026-09-06,
+	 * satu-satunya penulisnya adalah efek samping {@link #getPass()}; getter itu sekarang murni
+	 * dan tidak lagi menyentuh field ini, sehingga di WC ini tidak ada satu pun pemanggil untuk
+	 * {@code CalonPegawai} — field akan tetap {@code null}/{@code false} kecuali diset manual.
 	 * </p>
 	 *
 	 * @param is_encripted {@code true} bila kolom {@code pass} berisi ciphertext
@@ -1597,11 +1541,10 @@ public class CalonPegawai extends GeneralValueObject {
 	 * <p>
 	 * <b>Bahaya penafsirannya.</b> Nilai {@code false} di sini berarti "belum pernah dinyatakan
 	 * terenkripsi", BUKAN "isinya kata sandi mentah". Baris warisan yang kolomnya {@code NULL}
-	 * akan dilaporkan {@code false} padahal isinya bisa saja ciphertext DES. Kode yang memutuskan
-	 * apakah perlu mendekripsi berdasarkan penanda ini akan salah untuk baris-baris tersebut.
-	 * Karena penandanya hanya dinyalakan sebagai efek samping {@link #getPass()}, satu-satunya
-	 * kombinasi yang benar-benar bisa dipercaya adalah {@code true} yang berasal dari penyemaian
-	 * otomatis itu.
+	 * akan dilaporkan {@code false} padahal isinya bisa saja ciphertext DES peninggalan penyemaian
+	 * otomatis lama pada {@link #getPass()} (dihapus 2026-09-06 — lihat Javadoc-nya). Kode yang
+	 * memutuskan apakah perlu mendekripsi berdasarkan penanda ini akan salah untuk baris-baris
+	 * tersebut.
 	 * </p>
 	 *
 	 * <p>
@@ -2793,11 +2736,11 @@ public class CalonPegawai extends GeneralValueObject {
 	 * </p>
 	 *
 	 * <p>
-	 * <b>PENTING untuk keamanan.</b> Nilai inilah yang, lewat {@link #getNomorInduk()}, menjadi
-	 * bahan kata sandi bawaan pada {@link #getPass()}. Nomor kembar karena itu bukan hanya
-	 * masalah integritas data melainkan juga berarti dua pelamar memiliki kata sandi bawaan yang
-	 * identik. Nomor ini juga tidak rahasia: ia tampil di grid panitia, tercetak di kartu peserta,
-	 * dan ikut serta pada {@link #toString()}.
+	 * <b>Riwayat keamanan.</b> Sampai perbaikan 2026-09-06, nilai inilah yang, lewat
+	 * {@link #getNomorInduk()}, menjadi bahan kata sandi bawaan yang disemai otomatis oleh
+	 * {@link #getPass()}; penyemaian itu sudah dihapus (lihat Javadoc {@link #getPass()}). Nomor
+	 * ini tetap tidak rahasia: ia tampil di grid panitia, tercetak di kartu peserta, dan ikut serta
+	 * pada {@link #toString()}.
 	 * </p>
 	 *
 	 * <p>
@@ -2817,11 +2760,12 @@ public class CalonPegawai extends GeneralValueObject {
 	 * Menyetel nomor registrasi pendaftaran pelamar.
 	 *
 	 * <p>
-	 * <b>Efek berantai yang perlu disadari.</b> Menyetel nomor registrasi pada pelamar yang kolom
-	 * {@code pass}-nya masih kosong berarti mengaktifkan penyemaian kata sandi otomatis pada
-	 * pembacaan {@link #getPass()} berikutnya — termasuk pembacaan yang dilakukan Hibernate
-	 * sendiri. Mengubah nomor registrasi di kemudian hari TIDAK memperbarui kata sandi yang
-	 * terlanjur tersemai, sehingga kata sandi bawaan pelamar bisa berisi nomor registrasi lama.
+	 * <b>Riwayat keamanan.</b> Sampai perbaikan 2026-09-06, menyetel nomor registrasi pada pelamar
+	 * yang kolom {@code pass}-nya masih kosong berarti mengaktifkan penyemaian kata sandi otomatis
+	 * pada pembacaan {@link #getPass()} berikutnya — termasuk pembacaan yang dilakukan Hibernate
+	 * sendiri. {@link #getPass()} sekarang getter murni sehingga efek berantai ini tidak lagi
+	 * terjadi; baris lama yang sempat tersemai sebelum perbaikan tetap bisa berisi kata sandi dari
+	 * nomor registrasi lamanya sampai ada audit data historis.
 	 * </p>
 	 *
 	 * @param noRegistrasi nomor registrasi pendaftaran
