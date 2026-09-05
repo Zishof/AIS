@@ -1,5 +1,55 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 103 — SELESAI 100% (5 Sep 2026) — PIVOT ke paket `sister` (integrasi SISTER Kemdikbud); 87 file; 0 task baru; KOREKSI: domain ini AKTIF, bukan dorman
+
+87 file selesai (batch pertama domain baru `sister`, 88 file total —
+modul integrasi pelaporan dosen ke SISTER Kemdikbud/Kemdikbudristek).
+Strategi reference-class+link dipakai efektif mengingat tingkat
+repetisi tinggi (banyak file Ref*/Trid* berpola nyaris identik).
+
+### 🎯 KOREKSI PENTING dugaan awal: domain ini AKTIF, bukan tumpukan integrasi dorman
+
+Berbeda dari dugaan awal (mengingat 20+ entity dorman sudah
+ditemukan sepanjang inisiatif untuk integrasi eksternal serupa),
+SELURUH klaster di batch ini terkonfirmasi **AKTIF** via mesin
+sinkronisasi produksi nyata: `ais.common.DataSisterApi` (klien HTTP
+lengkap ke `https://sister-api.kemdikbud.go.id/ws.php/1.0` — login
+JWT dengan auto re-login 401, pagination 5 endpoint Tridharma,
+batching flush+clear tiap 50 baris) merutekan tiap baris JSON secara
+REFLEKTIF (snake_case→PascalCase→setter) via
+`ais.database.model.sister.SisterEntitasRegistry.PETA` (peta
+endpoint→kelas). Dipicu dari `DasbordSinkronisasiSister`/
+`SisterAksiHelper`/`DataSisterAction`. Hanya **1 entity dorman**
+ditemukan di seluruh batch: `SertifikasiGuruSister` (modul guru tak
+pernah diaktifkan, hanya sertifikasi DOSEN yang aktif).
+
+- **Klaster Ref*Sister** (37 file, r84695/84699/84709/84717).
+  `RefSdmSister.kode` (id_sdm) = SEED yang mendorong seluruh
+  sinkronisasi lanjutan data_pribadi/Tridharma/BKD per-dosen.
+  `RefUnitKerjaSister` upsert ke `rab.SatuanKerja`.
+- **Klaster Dp*Sister** (7 file, r84696-r84730). Tujuh kelas adalah
+  SAUDARA mandiri (bukan header/detail), hanya bertaut via kesamaan
+  `idSdm` (bukan FK). Data pribadi mentah (NIK/alamat/status
+  kawin/NPWP) TANPA scoping tenant — memperkuat pola tercatat, tidak
+  di-task-kan (risiko murni di sisi tulis, belum ada Action yang
+  membaca-balik).
+- **Klaster Trid*Sister bagian 1&2** (17+16=33 file,
+  r84698-r84747). Semua AKTIF, 0 dorman. Ditemukan
+  `TridKekayaanIntelektualSister` field HAMPIR IDENTIK
+  `TridPublikasiSister` — indikasi salin-tempel dari payload SISTER
+  apa adanya (bukan bug fungsional, mengikuti API eksternal).
+- **Klaster Bkd*Sister+misc** (10 file, r84694-r84731).
+  `SisterEntitasRegistry.PETA` DIKONFIRMASI benar dipanggil 3× di
+  `DataSisterApi` — bukan kelas dorman. Arsitektur TIDAK SERAGAM:
+  `LembagaSertifikasiSister`/`SertifikasiDosenSister` ditangani kode
+  bespoke LANGSUNG (bukan lewat `PETA`). **1 entity dorman**:
+  `SertifikasiGuruSister`.
+
+**0 task baru batch ini** — semua temuan memperkuat pola tercatat
+atau bersifat konfirmasi-negatif (dorman) yang justru menguatkan
+domain ini sebagai pengecualian aktif. Sisa 1 file `sister`
+(`RefProfilPtSister.java`) untuk batch penutup.
+
 ## 🎉 MILESTONE — paket `sirs` TUNTAS 100% (5 Sep 2026, akhir batch 102) — domain KESEMBILAN tuntas
 
 Diverifikasi: **118/118 file** `ais/database/model/sirs/` kini
