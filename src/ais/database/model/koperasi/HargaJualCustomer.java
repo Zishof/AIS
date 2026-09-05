@@ -198,14 +198,30 @@ public class HargaJualCustomer extends GeneralValueObject {
 	 * Tanggal mulai berlakunya versi harga ini (kolom tipe {@code DATE}, tanpa komponen jam).
 	 * {@code nullable = false}. Bersama {@code produk} dan {@code anggotaKoperasi} (termasuk kasus
 	 * {@code NULL} utk harga umum), kombinasi ini diperiksa UNIK oleh
-	 * {@code SalesInventoryHargaHelper} sebelum insert -- lihat catatan race-condition penting di
-	 * Javadoc kelas dan method {@code customerPriceList} pada helper tsb: pengecekan "SELECT
-	 * COUNT(*) ... WHERE tanggal_efektif = ?" TIDAK dikawal kunci baris/constraint DB (berbeda dari
-	 * tabel {@code harga_beli_supplier}/{@code harga_jual_customer} versi skema TENANT yang punya
-	 * {@code CREATE UNIQUE INDEX} parsial), sehingga dua request bersamaan dgn kombinasi
-	 * produk+tanggal(+anggota) yang sama bisa lolos keduanya (TOCTOU) dan menghasilkan dua baris
-	 * "unik" yang sama-sama {@code aktif=true} -- resolusi harga transaksi lalu diam-diam memilih
-	 * baris ber-{@code id} terbesar (paling baru dibuat), bukan menolak/memberi galat.
+	 * {@code SalesInventoryHargaHelper} sebelum insert -- lihat catatan race-condition -- DITAMBAL
+	 * -- di Javadoc kelas dan method {@code customerPriceList} pada helper tsb: pengecekan "SELECT
+	 * COUNT(*) ... WHERE tanggal_efektif = ?" sendirian adalah check-then-insert BIASA, TIDAK
+	 * dikawal kunci baris/constraint DB -- skema {@code koperasi} (shared, dikelola
+	 * {@code hbm2ddl.auto=update}) tidak pernah punya constraint UNIK utk kombinasi ini, beda dari
+	 * skema TENANT yang sudah punya {@code CREATE UNIQUE INDEX} parsial khusus baris umum
+	 * ({@code TenantSchemaMigrationsV10}; kasus customer-khusus tenant masih tanpa index setara --
+	 * gap terpisah, di luar cakupan tambalan ini). Tanpa penjaga DB, dua request bersamaan dgn
+	 * kombinasi produk+tanggal(+anggota) yang sama bisa lolos keduanya (TOCTOU) dan menghasilkan
+	 * dua baris "unik" yang sama-sama {@code aktif=true} -- resolusi harga transaksi lalu diam-diam
+	 * memilih baris ber-{@code id} terbesar (paling baru dibuat), bukan menolak/memberi galat.
+	 *
+	 * <p>Ditutup dgn dua {@code UNIQUE INDEX} parsial lewat
+	 * {@code webapp/sql/migrasi_koperasi_harga_unik_20260905.sql}: {@code uq_koperasi_harga_jual_umum
+	 * (produk, tanggal_efektif) WHERE anggota_koperasi IS NULL} dan
+	 * {@code uq_koperasi_harga_jual_customer (anggota_koperasi, produk, tanggal_efektif) WHERE
+	 * anggota_koperasi IS NOT NULL} -- dua index terpisah krn {@code NULL <> NULL} di Postgres
+	 * (satu index komposit biasa tidak menjaga keunikan baris umum). {@code SalesInventoryHargaHelper}
+	 * {@code .customerPriceSave} sekarang menangkap
+	 * {@code org.hibernate.exception.ConstraintViolationException} pd {@code saveOrUpdate}/
+	 * {@code commit} sbg fallback: request yg kalah race ditolak bersih dgn pesan overlap yang
+	 * sama, bukan error 500 -- pola persis {@code KantinHelper}/{@code PenandaJurnalPenyesuaian}.
+	 * Audit data historis blm dijalankan (butuh kredensial DB produksi); skrip migrasi menyertakan
+	 * query AUDIT read-only utk itu.
 	 *
 	 * @return tanggal efektif versi harga ini.
 	 */

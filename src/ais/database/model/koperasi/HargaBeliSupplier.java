@@ -194,24 +194,27 @@ public class HargaBeliSupplier extends GeneralValueObject {
 	 * {@code nullable = false}. Bersama {@code supplier} dan {@code produk}, kombinasi ini
 	 * diperiksa UNIK oleh {@code SalesInventoryHargaHelper} sebelum insert.
 	 *
-	 * <p><b>Catatan integritas (race condition):</b> pengecekan duplikat ("SELECT COUNT(*) FROM
-	 * koperasi.harga_beli_supplier WHERE supplier = ? AND produk = ? AND tanggal_efektif = ?") di
-	 * {@code SalesInventoryHargaHelper} adalah check-then-insert BIASA -- tidak dikawal
-	 * {@code FOR UPDATE}, advisory lock, atau constraint UNIK di level DB pada tabel
-	 * {@code koperasi.harga_beli_supplier} (berbeda dari tabel versi skema TENANT yang punya
-	 * {@code CREATE UNIQUE INDEX} parsial utk {@code harga_jual_customer}; tabel tenant
-	 * {@code harga_beli_supplier} bahkan tidak punya unique index setara). Dua request simpan
-	 * bersamaan dgn kombinasi supplier+produk+tanggal yang sama karena itu BISA lolos keduanya dan
-	 * menghasilkan dua baris "unik" yang sama-sama {@code aktif=true} -- resolusi harga transaksi
-	 * lalu diam-diam memilih baris ber-{@code id} terbesar (paling baru dibuat, lihat
-	 * {@code ORDER BY tanggal_efektif DESC, id DESC LIMIT 1}), TANPA galat yang memberi tahu user
-	 * bahwa duplikat sudah tercipta. Bila baris pemenang (id terbesar) kelak dinonaktifkan
-	 * (mengira hanya ada satu versi pada tanggal tsb), baris "duplikat" yang lebih lama akan
-	 * diam-diam menjadi harga aktif berikutnya dgn nilai yang mungkin berbeda -- pola race yang
-	 * sama dgn yang sudah ditemukan &amp; ditambal (lewat UNIQUE index) pada penjaga Jurnal
-	 * Penyesuaian. Dilaporkan terpisah via {@code spawn_task} sbg kandidat perbaikan (constraint
-	 * unik parsial di skema {@code koperasi}), bukan ditambal langsung di sini krn di luar cakupan
-	 * (perubahan skema/servlet, bukan Javadoc model).
+	 * <p><b>Catatan integritas (race condition) -- DITAMBAL:</b> pengecekan duplikat ("SELECT
+	 * COUNT(*) FROM koperasi.harga_beli_supplier WHERE supplier = ? AND produk = ? AND
+	 * tanggal_efektif = ?") di {@code SalesInventoryHargaHelper} sendirian adalah check-then-insert
+	 * BIASA -- tidak dikawal {@code FOR UPDATE}/advisory lock, dan skema {@code koperasi} (shared,
+	 * dikelola {@code hbm2ddl.auto=update}, BUKAN katalog migrasi ber-checksum spt schema tenant)
+	 * tidak pernah punya constraint UNIK utk kombinasi ini -- beda dari tabel versi skema TENANT
+	 * yang sudah punya {@code CREATE UNIQUE INDEX} parsial utk baris umum {@code harga_jual_customer}
+	 * ({@code TenantSchemaMigrationsV10}); tabel tenant {@code harga_beli_supplier} bahkan sampai
+	 * saat ini tidak punya unique index setara (gap terpisah, di luar cakupan tambalan ini krn
+	 * menyentuh katalog migrasi tenant ber-checksum, bukan skema {@code koperasi}).
+	 *
+	 * <p>Ditutup dgn {@code UNIQUE INDEX uq_koperasi_harga_beli_supplier (supplier, produk,
+	 * tanggal_efektif)} lewat {@code webapp/sql/migrasi_koperasi_harga_unik_20260905.sql} (dijalankan
+	 * manual di produksi -- hbm2ddl tidak relevan di sini krn index biasa, bukan kolom/tabel baru).
+	 * {@code SalesInventoryHargaHelper.supplierPriceSave} sekarang menangkap
+	 * {@code org.hibernate.exception.ConstraintViolationException} pd {@code saveOrUpdate}/{@code commit}
+	 * sbg fallback: request yg kalah race menabrak index ini ditolak bersih dgn pesan overlap yang
+	 * sama, bukan error 500 -- pola persis {@code KantinHelper} (idempotensi buka sesi kas) &amp;
+	 * {@code PenandaJurnalPenyesuaian} (penjaga Jurnal Penyesuaian). Audit data historis
+	 * (duplikat yg mungkin sudah terlanjur race SEBELUM index ini ada) belum dijalankan -- perlu
+	 * kredensial DB produksi; skrip migrasi menyertakan query AUDIT read-only utk itu.
 	 *
 	 * @return tanggal efektif versi harga ini.
 	 */
