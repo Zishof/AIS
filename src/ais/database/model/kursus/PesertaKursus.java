@@ -473,6 +473,44 @@ public class PesertaKursus extends VOMahasiswa {
 		this.jenisPeserta = jenisPeserta;
 	}
 
+	/**
+	 * Mengembalikan kode unik peserta, diturunkan dari nomor induk entitas identitas asal yang
+	 * pertama ditemukan, dengan fallback pembangkitan barcode bila entitas asal tidak punya nomor
+	 * induk terisi.
+	 *
+	 * <p><b>Getter destruktif yang menimpa field {@code kode} tiap dipanggil</b> (kecuali pada
+	 * cabang terakhir yang mempertahankan nilai lama bila sudah ada) — konsisten dengan pola
+	 * getter destruktif lain di kelas ini ({@link #getTbmuser()}, {@link #getJenisPeserta()}).
+	 * Urutan pemeriksaan dan sumber kode per jenis identitas asal:</p>
+	 * <ol>
+	 * <li>{@code mahasiswa} — kode = NIM ({@link Mahasiswa#getNim()}) apa adanya, boleh
+	 * {@code null}/kosong bila NIM belum diisi (tidak ada fallback barcode di cabang ini).</li>
+	 * <li>{@code siswa} — kode = nomor induk nasional ({@code NISN}) bila terisi, jika tidak jatuh
+	 * ke nomor induk sekolah biasa; juga tanpa fallback barcode.</li>
+	 * <li>{@code dosen} — kode = NIDN bila terisi; bila NIDN kosong dan {@code kode} lama belum
+	 * pernah ada, kode diisi string kosong (bukan barcode); bila {@code kode} lama sudah ada
+	 * (baris tersimpan sebelumnya), barcode baru dibangkitkan alih-alih memakai kode lama —
+	 * perilaku yang tampak tidak simetris dengan cabang {@code guru}/{@code pegawai} di bawah
+	 * yang logikanya identik namun bisa menghasilkan kode berbeda tiap kali dipanggil pada baris
+	 * yang sama bila NIDN tetap kosong.</li>
+	 * <li>{@code guru} — kode = NUPTK bila terisi, dengan pola fallback yang sama seperti
+	 * {@code dosen} di atas (NUPTK).</li>
+	 * <li>{@code pegawai} — kode = {@link Pegawai#getCode()} bila terisi, dengan pola fallback
+	 * yang sama.</li>
+	 * <li>{@code tbmuser} — kode = {@code userId} akun, apa adanya.</li>
+	 * <li>Bila keenam identitas asal {@code null} (peserta mandiri/umum) dan {@code kode} yang
+	 * tersimpan masih kosong, kode baru dibangkitkan lewat {@link BarcodeCommon#generateCode()};
+	 * bila {@code kode} sudah pernah terisi (mis. diisi manual dari form), nilai lama
+	 * dipertahankan tanpa perubahan.</li>
+	 * </ol>
+	 * <p>Kolom ini {@code unique = true} pada level basis data — pembangkitan barcode berulang
+	 * pada cabang {@code dosen}/{@code guru}/{@code pegawai} di atas berisiko menghasilkan nilai
+	 * yang, walau acak, bisa berbeda tiap pemanggilan pada baris tersimpan yang sama (bukan
+	 * idempoten), sehingga sebaiknya tidak dipanggil berulang pada objek yang sama dalam satu
+	 * siklus request tanpa segera menyimpan hasilnya.</p>
+	 *
+	 * @return kode unik peserta sesuai aturan di atas
+	 */
 	@Column(unique = true)
 	public String getKode() {
 		if (mahasiswa != null) {
@@ -502,10 +540,41 @@ public class PesertaKursus extends VOMahasiswa {
 		return kode;
 	}
 
+	/**
+	 * Menetapkan kode unik peserta apa adanya; nilai ini dapat ditimpa kembali oleh
+	 * {@link #getKode()} pada pemanggilan berikutnya sesuai aturan penurunan kode dari identitas
+	 * asal yang dijelaskan di sana.
+	 *
+	 * @param kode kode unik yang ingin ditetapkan
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengembalikan nama peserta, diturunkan dari entitas identitas asal bila belum pernah
+	 * dihitung.
+	 *
+	 * <p><b>Getter dengan efek samping menulis DAN memicu penyimpanan ke basis data</b> — bukan
+	 * sekadar getter destruktif yang menimpa field in-memory seperti {@link #getTbmuser()},
+	 * melainkan satu tingkat lebih jauh: bila {@code nama} masih {@code null} DAN objek ini sudah
+	 * punya {@code id} (baris tersimpan), method ini menghitung nama dari identitas asal yang
+	 * pertama ditemukan (urutan sama seperti {@link #getKode()}: mahasiswa, siswa, dosen, guru,
+	 * pegawai, lalu {@code tbmuser.getUserId()} sebagai fallback terakhir sebelum string kosong),
+	 * memanggil {@link #setNama(String)}, lalu <b>langsung memanggil
+	 * {@code Common.refreshUpdate(session, this)}</b> yang mengeksekusi {@code UPDATE} ke basis
+	 * data seketika itu juga — bukan menunggu akhir transaksi/flush Hibernate biasa. Artinya
+	 * memanggil getter "polos" ini pada baris lama yang {@code nama}-nya kosong dapat menulis ke
+	 * database sebagai efek samping baca, di luar siklus commit/transaksi normal pemanggil.</p>
+	 * <p>Variabel lokal {@code nama} di dalam method ini <b>membayangi (shadow)</b> field
+	 * {@code nama} milik kelas — pola yang sah secara Java namun mudah membingungkan pembaca:
+	 * assignment ke variabel lokal {@code nama} di dalam blok {@code if} tidak langsung mengubah
+	 * field, field baru berubah lewat pemanggilan eksplisit {@link #setNama(String)}.</p>
+	 *
+	 * @return nama peserta; hasil hitungan dari identitas asal (dan tersimpan permanen via
+	 *         {@code refreshUpdate}) bila sebelumnya kosong dan objek sudah punya id, atau nilai
+	 *         field apa adanya (termasuk {@code null}) untuk kasus lain
+	 */
 	public String getNama() {
 		if (nama == null && id != null) {
 			String nama;
@@ -531,69 +600,165 @@ public class PesertaKursus extends VOMahasiswa {
 		return nama;
 	}
 
+	/**
+	 * Menetapkan nama peserta apa adanya; nilai ini dapat dihitung ulang dan ditimpa oleh
+	 * {@link #getNama()} pada pemanggilan berikutnya bila kosong dan objek sudah punya id — lihat
+	 * catatan efek samping penyimpanan basis data di javadoc method tersebut.
+	 *
+	 * @param nama nama peserta yang ingin ditetapkan
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan alamat peserta apa adanya, tanpa perhitungan ulang.
+	 *
+	 * @return alamat peserta, boleh {@code null}
+	 */
 	@Column(name = "alamat", nullable = true, columnDefinition = "text")
 	public String getAlamat() {
 		return alamat;
 	}
 
+	/**
+	 * Menetapkan alamat peserta.
+	 *
+	 * @param alamat alamat peserta; boleh {@code null}
+	 */
 	public void setAlamat(String alamat) {
 		this.alamat = alamat;
 	}
 
+	/**
+	 * Mengembalikan kode identitas mentah milik peserta (mis. nomor KTP/kartu pelajar sesuai
+	 * {@link #getJenisIdentitasPeserta()} yang dipilih), apa adanya.
+	 *
+	 * @return kode identitas, boleh {@code null}
+	 */
 	@Column(name = "kode_identitas", nullable = true)
 	public String getKodeIdentitas() {
 		return kodeIdentitas;
 	}
 
+	/**
+	 * Menetapkan kode identitas mentah milik peserta.
+	 *
+	 * @param kodeIdentitas kode identitas; boleh {@code null}
+	 */
 	public void setKodeIdentitas(String kodeIdentitas) {
 		this.kodeIdentitas = kodeIdentitas;
 	}
 
+	/**
+	 * Mengembalikan label tipe peserta legacy berbentuk teks bebas, apa adanya — salinan label
+	 * {@link #getTipePeserta()} yang dituliskan {@code PesertaKursusAction} pada saat simpan,
+	 * TIDAK tersinkron otomatis dengan FK {@code tipePeserta} setelahnya (lihat catatan
+	 * redundansi FK+String di javadoc kelas).
+	 *
+	 * @return label tipe peserta, boleh {@code null}/tidak sinkron dengan {@link #getTipePeserta()}
+	 */
 	public String getTipe() {
 		return tipe;
 	}
 
+	/**
+	 * Menetapkan label tipe peserta legacy secara manual.
+	 *
+	 * @param tipe label tipe peserta; boleh {@code null}
+	 */
 	public void setTipe(String tipe) {
 		this.tipe = tipe;
 	}
 
+	/**
+	 * Mengembalikan label jenis identitas legacy berbentuk teks bebas, apa adanya — salinan label
+	 * {@link #getJenisIdentitasPeserta()} yang dituliskan {@code PesertaKursusAction} pada saat
+	 * simpan, TIDAK tersinkron otomatis dengan FK {@code jenisIdentitasPeserta} setelahnya (lihat
+	 * catatan redundansi FK+String di javadoc kelas).
+	 *
+	 * @return label jenis identitas, boleh {@code null}/tidak sinkron dengan
+	 *         {@link #getJenisIdentitasPeserta()}
+	 */
 	public String getJenisIdentitas() {
 		return jenisIdentitas;
 	}
 
+	/**
+	 * Menetapkan label jenis identitas legacy secara manual.
+	 *
+	 * @param jenisIdentitas label jenis identitas; boleh {@code null}
+	 */
 	public void setJenisIdentitas(String jenisIdentitas) {
 		this.jenisIdentitas = jenisIdentitas;
 	}
 
+	/**
+	 * Mengembalikan nomor telepon rumah/kantor peserta, apa adanya.
+	 *
+	 * @return nomor telepon, boleh {@code null}
+	 */
 	public String getTelp() {
 		return telp;
 	}
 
+	/**
+	 * Menetapkan nomor telepon rumah/kantor peserta.
+	 *
+	 * @param telp nomor telepon; boleh {@code null}
+	 */
 	public void setTelp(String telp) {
 		this.telp = telp;
 	}
 
+	/**
+	 * Mengembalikan nomor telepon genggam peserta, apa adanya.
+	 *
+	 * @return nomor telepon genggam, boleh {@code null}
+	 */
 	public String getHp() {
 		return hp;
 	}
 
+	/**
+	 * Menetapkan nomor telepon genggam peserta.
+	 *
+	 * @param hp nomor telepon genggam; boleh {@code null}
+	 */
 	public void setHp(String hp) {
 		this.hp = hp;
 	}
 
+	/**
+	 * Mengembalikan alamat surel peserta, apa adanya. Dipetakan ke kolom {@code email_peserta}
+	 * (bukan {@code email}) kemungkinan untuk menghindari tabrakan nama dengan kolom lain pada
+	 * skema yang sama.
+	 *
+	 * @return alamat surel, boleh {@code null}
+	 */
 	@Column(name = "email_peserta")
 	public String getEmail() {
 		return email;
 	}
 
+	/**
+	 * Menetapkan alamat surel peserta.
+	 *
+	 * @param email alamat surel; boleh {@code null}
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
+	/**
+	 * Mengembalikan jenis kode identitas yang dipakai peserta (Email/NIM/NIS/NIDN/NIK), meresolusi
+	 * proxy lazy lewat {@link ais.database.model.GeneralValueObject#check(Object)} bila perlu.
+	 * Berbeda dari {@link #getJenisPeserta()}/{@link #getTipePeserta()}, getter ini tidak punya
+	 * nilai bawaan bila field masih {@code null}. Lihat {@link JenisIdentitasPeserta} untuk
+	 * penjelasan bahwa ini adalah jenis KODE pengenal, bukan jenis dokumen fisik.
+	 *
+	 * @return jenis kode identitas peserta, atau {@code null} bila belum dipilih
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_identitas_peserta", nullable = true)
 	public JenisIdentitasPeserta getJenisIdentitasPeserta() {
@@ -601,10 +766,28 @@ public class PesertaKursus extends VOMahasiswa {
 		return jenisIdentitasPeserta;
 	}
 
+	/**
+	 * Menetapkan jenis kode identitas yang dipakai peserta.
+	 *
+	 * @param jenisIdentitasPeserta jenis kode identitas; boleh {@code null}
+	 */
 	public void setJenisIdentitasPeserta(JenisIdentitasPeserta jenisIdentitasPeserta) {
 		this.jenisIdentitasPeserta = jenisIdentitasPeserta;
 	}
 
+	/**
+	 * Mengembalikan tipe peserta (sumbu kategori identitas), dengan bawaan
+	 * {@code KursusUtil.MAHASISWA} bila field masih {@code null}, lalu meresolusi proxy lazy —
+	 * getter ini punya efek samping menulis field {@code tipePeserta} dengan nilai bawaan
+	 * tersebut, sama seperti {@link #getJenisPeserta()}. <b>Perlu diperhatikan:</b> bawaan
+	 * "Mahasiswa" ini berlaku untuk SEMUA peserta yang field {@code tipePeserta}-nya belum diisi,
+	 * termasuk peserta yang identitas asalnya bukan mahasiswa (mis. {@code siswa}/{@code
+	 * pegawai}/{@code tbmuser}) — bawaan ini murni nilai default kolom, tidak disimpulkan dari
+	 * field identitas asal mana yang terisi. Lihat {@link TipePeserta} untuk penjelasan sumbu ini
+	 * dan perbedaannya dari {@link #getJenisPeserta()}.
+	 *
+	 * @return tipe peserta, tidak pernah {@code null} setelah dipanggil sekali
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tipe_peserta", nullable = true)
 	public TipePeserta getTipePeserta() {
@@ -615,10 +798,24 @@ public class PesertaKursus extends VOMahasiswa {
 		return tipePeserta;
 	}
 
+	/**
+	 * Menetapkan tipe peserta.
+	 *
+	 * @param tipePeserta tipe peserta yang ingin ditetapkan, atau {@code null} untuk memicu
+	 *                    bawaan "Mahasiswa" pada {@link #getTipePeserta()} berikutnya
+	 */
 	public void setTipePeserta(TipePeserta tipePeserta) {
 		this.tipePeserta = tipePeserta;
 	}
 
+	/**
+	 * Mengembalikan penanda apakah peserta masih aktif, dengan bawaan {@code true} bila kolom
+	 * masih {@code null}; nilai bawaan itu ditulis balik ke field sehingga pembacaan biasa dapat
+	 * memunculkan {@code UPDATE} pada entitas {@code dynamicUpdate} ini (pola sama seperti master
+	 * lain di modul ini, mis. {@code JenisJabatanPenelitianDanPengabdian.getAktif()}).
+	 *
+	 * @return {@code true} bila peserta dianggap aktif; tidak pernah {@code null}
+	 */
 	public Boolean getAktif() {
 		if (aktif == null) {
 			aktif = true;
@@ -626,10 +823,23 @@ public class PesertaKursus extends VOMahasiswa {
 		return aktif;
 	}
 
+	/**
+	 * Menetapkan penanda aktif peserta.
+	 *
+	 * @param aktif {@code true} bila peserta masih aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan tanggal pendaftaran peserta, dengan bawaan tanggal saat ini bila field masih
+	 * {@code null} — nilai bawaan ini ditulis balik ke field (berbeda dari
+	 * {@link PesertaPunyaProdukKursus#getWaktuBeli()}/{@link PesertaInginProdukKursus#getWaktuIngin()}
+	 * di entitas sekursus yang TIDAK menulis balik nilai bawaannya).
+	 *
+	 * @return tanggal pendaftaran, tidak pernah {@code null} setelah dipanggil sekali
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggal() {
 		if (tanggal == null) {
@@ -638,10 +848,21 @@ public class PesertaKursus extends VOMahasiswa {
 		return tanggal;
 	}
 
+	/**
+	 * Menetapkan tanggal pendaftaran peserta.
+	 *
+	 * @param tanggal tanggal pendaftaran yang ingin ditetapkan
+	 */
 	public void setTanggal(Date tanggal) {
 		this.tanggal = tanggal;
 	}
 
+	/**
+	 * Mengembalikan pengguna yang membuat baris peserta ini, meresolusi proxy lazy lewat
+	 * {@link ais.database.model.GeneralValueObject#check(Object)} bila perlu.
+	 *
+	 * @return pengguna pembuat baris, atau {@code null} bila belum tercatat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dibuat_oleh", nullable = true)
 	public Tbmuser getDibuatOleh() {
@@ -649,26 +870,61 @@ public class PesertaKursus extends VOMahasiswa {
 		return dibuatOleh;
 	}
 
+	/**
+	 * Menetapkan pengguna yang membuat baris peserta ini.
+	 *
+	 * @param dibuatOleh pengguna pembuat baris
+	 */
 	public void setDibuatOleh(Tbmuser dibuatOleh) {
 		this.dibuatOleh = dibuatOleh;
 	}
 
+	/**
+	 * Mengembalikan jumlah perpanjangan yang sudah/boleh dilakukan peserta ini, apa adanya.
+	 *
+	 * @return jumlah perpanjangan, boleh {@code null}
+	 */
 	public Integer getPerpanjang() {
 		return perpanjang;
 	}
 
+	/**
+	 * Menetapkan jumlah perpanjangan peserta ini.
+	 *
+	 * @param perpanjang jumlah perpanjangan; boleh {@code null}
+	 */
 	public void setPerpanjang(Integer perpanjang) {
 		this.perpanjang = perpanjang;
 	}
 
+	/**
+	 * Mengembalikan batas maksimal (mis. maksimal perpanjangan/kapasitas) untuk peserta ini, apa
+	 * adanya.
+	 *
+	 * @return batas maksimal, boleh {@code null}
+	 */
 	public Integer getMaksimal() {
 		return maksimal;
 	}
 
+	/**
+	 * Menetapkan batas maksimal untuk peserta ini.
+	 *
+	 * @param maksimal batas maksimal; boleh {@code null}
+	 */
 	public void setMaksimal(Integer maksimal) {
 		this.maksimal = maksimal;
 	}
 
+	/**
+	 * Mengembalikan identitas siswa bila peserta ini berasal dari siswa, meresolusi proxy lazy
+	 * lewat {@link ais.database.model.GeneralValueObject#check(Object)} bila perlu sebelum
+	 * dikembalikan. Nilai bukan {@code null} di sini juga memengaruhi {@link #getTbmuser()}
+	 * (dipaksa {@code null} bila siswa terisi).
+	 *
+	 * @return siswa asal peserta, atau {@code null} bila peserta bukan siswa atau berasal dari
+	 *         identitas lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "siswa", nullable = true)
 	public Siswa getSiswa() {
@@ -676,10 +932,26 @@ public class PesertaKursus extends VOMahasiswa {
 		return siswa;
 	}
 
+	/**
+	 * Menetapkan identitas siswa asal peserta ini.
+	 *
+	 * @param siswa siswa asal peserta, atau {@code null} untuk melepas tautan
+	 */
 	public void setSiswa(Siswa siswa) {
 		this.siswa = siswa;
 	}
 
+	/**
+	 * Mengembalikan identitas guru bila peserta ini berasal dari guru, meresolusi proxy lazy
+	 * lewat {@link ais.database.model.GeneralValueObject#check(Object)} bila perlu sebelum
+	 * dikembalikan. Perlu diketahui: berbeda dari {@code mahasiswa}/{@code siswa}/{@code
+	 * dosen}/{@code pegawai}/{@code tbmuser}, tidak ada konstanta {@link TipePeserta} khusus
+	 * "Guru" yang disemai {@code KursusUtil} — peserta yang berasal dari guru tetap harus dipilih
+	 * salah satu {@link TipePeserta} yang ada secara manual di form.
+	 *
+	 * @return guru asal peserta, atau {@code null} bila peserta bukan guru atau berasal dari
+	 *         identitas lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "guru", nullable = true)
 	public Guru getGuru() {
@@ -687,10 +959,23 @@ public class PesertaKursus extends VOMahasiswa {
 		return guru;
 	}
 
+	/**
+	 * Menetapkan identitas guru asal peserta ini.
+	 *
+	 * @param guru guru asal peserta, atau {@code null} untuk melepas tautan
+	 */
 	public void setGuru(Guru guru) {
 		this.guru = guru;
 	}
-	
+
+	/**
+	 * Mengembalikan pengguna yang mengunci baris peserta ini untuk pengeditan, meresolusi proxy
+	 * lazy lewat {@link ais.database.model.GeneralValueObject#check(Object)} bila perlu. Berbeda
+	 * dari kolom lain di kelas ini, kolom join untuk relasi ini tidak beranotasi eksplisit
+	 * {@code nullable} (memakai bawaan {@code nullable = true} milik {@code @JoinColumn}).
+	 *
+	 * @return pengguna yang sedang mengunci baris ini, atau {@code null} bila tidak sedang dikunci
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dikunci")
 	public Tbmuser getDikunci() {
@@ -698,10 +983,22 @@ public class PesertaKursus extends VOMahasiswa {
 		return dikunci;
 	}
 
+	/**
+	 * Menetapkan pengguna yang mengunci baris peserta ini.
+	 *
+	 * @param dikunci pengguna pengunci, atau {@code null} untuk melepas kunci
+	 */
 	public void setDikunci(Tbmuser dikunci) {
 		this.dikunci = dikunci;
 	}
 
+	/**
+	 * Mengembalikan disposisi SOP terkait baris peserta ini (bila pendaftaran peserta berasal dari
+	 * alur disposisi surat), meresolusi proxy lazy lewat
+	 * {@link ais.database.model.GeneralValueObject#check(Object)} bila perlu.
+	 *
+	 * @return disposisi SOP terkait, atau {@code null} bila tidak berasal dari alur disposisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -709,6 +1006,24 @@ public class PesertaKursus extends VOMahasiswa {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menetapkan disposisi SOP terkait baris peserta ini dengan penjaga satu arah: argumen
+	 * {@code null} atau yang belum tersimpan ({@code getId() == null}) diabaikan, sehingga
+	 * tautan disposisi yang sudah ada tidak dapat dilepas kembali lewat setter ini — pola yang
+	 * sama seperti setter blok audit ({@link #setOleh(String)}, {@link #setOlehId(String)}).
+	 *
+	 * <p><b>Catatan kode mati:</b> ekspresi ternary di badan method ini
+	 * ({@code this.disposisiSop != null && (disposisiSop == null || disposisiSop.getId() == null)
+	 * ? this.disposisiSop : disposisiSop}) tidak pernah bisa memilih cabang pertama pada
+	 * praktiknya — kondisi {@code disposisiSop == null || disposisiSop.getId() == null} di dalam
+	 * ternary sudah dijamin bernilai {@code false} oleh early-return di baris sebelumnya (method
+	 * ini sudah berhenti lebih dulu bila kondisi itu benar). Akibatnya baris ini secara efektif
+	 * setara dengan {@code this.disposisiSop = disposisiSop;} sederhana; ternary-nya adalah sisa
+	 * refactoring yang tidak berbahaya (tidak mengubah perilaku) namun membingungkan pembaca.
+	 *
+	 * @param disposisiSop disposisi SOP yang ingin ditautkan; {@code null} atau entitas yang
+	 *                      belum tersimpan diabaikan diam-diam
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
