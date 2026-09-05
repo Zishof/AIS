@@ -390,6 +390,65 @@ public abstract class FileFotoLain extends FileFoto {
 	 */
 	public abstract void setUrl(String url);
 
+	/**
+	 * Membuat tombol ZK untuk mengunggah lampiran <b>langsung ke Google Drive</b>, sebagai
+	 * alternatif jalur unggah biasa yang menyimpan isi berkas ke kolom biner basis data.
+	 *
+	 * <p><b>Cara kerja.</b> Seluruh pekerjaan didelegasikan ke
+	 * {@code AmbilDataLampiranFileLain}: parameter yang diterima method ini dikemas apa
+	 * adanya menjadi satu objek dialog, {@code eventListener} pemanggil dipasang sebagai
+	 * penerima hasil, lalu {@code tampilkanTombolUploadGDrive("")} menghasilkan
+	 * {@code Toolbarbutton} yang sudah membawa perilakunya sendiri. Method ini hanya
+	 * menambahkan dua sentuhan tampilan: ukuran huruf 9px agar seragam dengan tombol
+	 * lampiran lain, dan atribut {@code "janganDisabled"} yang menjadi penanda bagi
+	 * mekanisme penguncian formulir agar tombol ini tetap dapat diklik meski formulir
+	 * induknya sedang dinonaktifkan.</p>
+	 *
+	 * <p><b>Perbedaan dengan {@code tampilkanTombolUpload(...)}.</b> Selain tujuan
+	 * penyimpanan, ada satu beda perilaku yang mudah terlewat: argumen terakhir
+	 * konstruktor {@code AmbilDataLampiranFileLain} di sini bernilai {@code false},
+	 * sedangkan pada {@code tampilkanTombolUpload} bernilai {@code true}. Argumen itu
+	 * menentukan apakah objek diperlakukan sebagai dialog modal yang dipasang ke pohon
+	 * komponen halaman. Di sini objeknya hanya menjadi pabrik tombol, bukan jendela;
+	 * karena itu method ini tidak menyentuh {@code ExecutionsCtrl} sama sekali dan lebih
+	 * aman dipanggil dari konteks selain penanganan event.</p>
+	 *
+	 * <p><b>Parameter yang diterima tetapi tidak dipakai.</b> {@code downloadButton},
+	 * {@code hapusButton}, dan {@code setelahUpload} sengaja ikut dideklarasikan agar
+	 * tanda tangan method ini sejajar dengan {@code tampilkanTombolUpload(...)} sehingga
+	 * pemanggil dapat berpindah jalur unggah tanpa mengubah daftar argumen &mdash; namun
+	 * ketiganya <b>tidak dipakai</b> pada implementasi ini. Akibat praktisnya: setelah
+	 * unggah lewat tombol ini, pembaruan label tombol unduh, penampakan tombol hapus, dan
+	 * pratinjau di layar sepenuhnya menjadi tanggung jawab {@code eventListener} yang
+	 * dikirim pemanggil. Jangan berasumsi tampilan akan menyegarkan dirinya sendiri
+	 * seperti pada jalur unggah biasa.</p>
+	 *
+	 * <p>Nilai {@code ref} dan {@code usingId} diteruskan apa adanya ke dialog dan kelak
+	 * dipakai untuk menautkan hasil unggah; makna keduanya sama persis dengan yang
+	 * dijelaskan pada {@code ambil(Boolean, Serializable, String, int, Class, boolean,
+	 * String)}, termasuk konsekuensi {@code usingId=true} yang mematikan penyaringan
+	 * {@code jenis}.</p>
+	 *
+	 * @param downloadButton    tombol unduh milik pemanggil; <b>tidak dipakai</b> di sini
+	 * @param hapusButton       tombol hapus milik pemanggil; <b>tidak dipakai</b> di sini
+	 * @param eventListener     penerima hasil unggah; satu-satunya jalan bagi pemanggil
+	 *                          untuk mengetahui bahwa berkas sudah terunggah
+	 * @param setelahUpload     penata pratinjau; <b>tidak dipakai</b> di sini
+	 * @param fileFotoLain      lampiran yang sudah ada, bila ada; <b>tidak dipakai</b> di sini
+	 * @param jenis             penanda jenis lampiran yang akan dilekatkan pada hasil unggah
+	 * @param hanyaIcon         menandai gaya tampilan ringkas; <b>tidak dipakai</b> di sini
+	 *                          karena label tombol selalu dikosongkan
+	 * @param cutomUkuranUpload batas ukuran unggah khusus dalam satuan yang dipahami dialog;
+	 *                          {@code null} berarti memakai batas bawaan
+	 * @param keterangan        teks keterangan lampiran yang ditampilkan pada dialog
+	 * @param jurusan           combo jurusan bila konfigurasi mengizinkan pembedaan per
+	 *                          jurusan; boleh {@code null}
+	 * @param harusPdf          {@code true} bila hanya berkas PDF yang boleh diunggah
+	 * @param ref               acuan baris pemilik lampiran
+	 * @param usingId           {@code true} bila {@code ref} bermakna primary key lampiran
+	 * @param clazz             kelas entitas berkas tujuan penyimpanan
+	 * @return tombol ZK siap pasang; pemanggil masih harus menambahkannya ke wadah
+	 */
 	public static Toolbarbutton tampilkanTombolUploadGdrive(final Button downloadButton, final Button hapusButton,
 			final EventListener eventListener, final SetelahUpload setelahUpload, FileFotoLain fileFotoLain,
 			final String jenis, final Boolean hanyaIcon, final Integer cutomUkuranUpload, final String keterangan,
@@ -405,13 +464,53 @@ public abstract class FileFotoLain extends FileFoto {
 
 	// --- Helper Methods ---
 
-	/** Mendapatkan nama field relasi berdasarkan class */
+	/**
+	 * Mendapatkan nama field relasi berdasarkan class.
+	 *
+	 * <p>Satu-satunya pembaca {@code RELASI_MAP}, sehingga seluruh perilaku yang bergantung
+	 * pada pemetaan kelas &rarr; kolom acuan pemilik berpangkal di sini: klausa pencarian
+	 * pada {@code ambil()}, pemilihan setter reflektif pada {@code createFileFotoLain()},
+	 * kolom yang ditimpa sentinel pada {@code hapusAtauUpdate()}, dan penentuan perlu
+	 * tidaknya <i>re-attachment</i> pada {@code refreshFotoTemporaryGDrive()}.</p>
+	 *
+	 * <p><b>Perilaku fail-open yang perlu disadari.</b> Kelas yang tidak terdaftar tidak
+	 * ditolak dan tidak menimbulkan peringatan apa pun; nilainya jatuh ke {@code "id"}.
+	 * Padahal {@code "id"} bukan nilai netral: ia adalah golongan khusus yang membuat
+	 * {@code ambil()} mencocokkan {@code ref} ke primary key sekaligus <b>mematikan
+	 * penyaringan {@code jenis}</b>, dan membuat cabang <i>soft delete</i> pada
+	 * {@code hapusAtauUpdate()} tidak melakukan apa pun. Entitas berkas baru yang lupa
+	 * didaftarkan di {@code RELASI_MAP} karena itu akan langsung mewarisi dua perilaku
+	 * tersebut tanpa ada yang menyadarinya. Pencocokan memakai identitas kelas persis
+	 * ({@code Map.get}), jadi subclass dari kelas terdaftar pun tidak ikut mewarisi
+	 * pemetaan induknya.</p>
+	 *
+	 * @param clazz kelas entitas berkas yang ditanyakan
+	 * @return nama properti acuan pemilik, atau {@code "id"} bila kelas tidak terdaftar
+	 */
 	private static String getRefField(Class clazz) {
 		String field = RELASI_MAP.get(clazz);
 		return field != null ? field : "id";
 	}
 
-	/** Mengambil nama properti setter (misal: "mahasiswa" -> "setMahasiswa") */
+	/**
+	 * Mengambil nama properti setter (misal: "mahasiswa" -&gt; "setMahasiswa").
+	 *
+	 * <p>Dipakai {@code createFileFotoLain()} untuk menemukan setter kolom acuan pemilik
+	 * secara reflektif, sehingga satu jalur penyimpanan dapat melayani belasan entitas
+	 * berkas dengan nama kolom yang berbeda-beda tanpa percabangan.</p>
+	 *
+	 * <p>Nama {@code "id"} diperlakukan khusus dan dipetakan ke {@code "setId"} apa adanya
+	 * agar tidak menghasilkan {@code "setId"} berhuruf besar ganda; selebihnya cukup
+	 * mengapitalkan huruf pertama dengan {@code StringUtils.capitalize}. Perhatikan bahwa
+	 * pemeriksaan {@code "id"} bersifat <i>case-insensitive</i> sedangkan cabang lain
+	 * tidak, dan bahwa hasilnya tidak pernah diverifikasi keberadaannya di sini &mdash;
+	 * kegagalan menemukan setter baru muncul sebagai {@code NoSuchMethodException} di
+	 * pemanggil, yang pada {@code createFileFotoLain()} sengaja hanya dicatat lalu
+	 * diabaikan.</p>
+	 *
+	 * @param fieldName nama properti acuan pemilik dari {@code RELASI_MAP}
+	 * @return nama method setter yang diharapkan ada pada entitas
+	 */
 	private static String getSetterName(String fieldName) {
 		if ("id".equalsIgnoreCase(fieldName))
 			return "setId";
@@ -420,14 +519,102 @@ public abstract class FileFotoLain extends FileFoto {
 
 	// --- Core Logic ---
 
+	/**
+	 * Menyusun alamat untuk mengakses lampiran ini, dengan pilihan bawaan: boleh memakai
+	 * jalur berkas statis bila berkasnya ada ({@code ketemu = true}) dan mengembalikan
+	 * alamat mutlak lengkap dengan protokol dan host ({@code relative = false}).
+	 *
+	 * <p>Bentuk yang paling banyak dipakai pemanggil, termasuk oleh {@code
+	 * ais.action.servlet.Data} saat menyusun jawaban JSON berisi {@code url} lampiran.
+	 * Karena {@code relative = false}, alamat yang dihasilkan mengandung host permintaan
+	 * yang sedang berjalan &mdash; jangan menyimpan hasilnya ke basis data atau ke berkas
+	 * yang berumur panjang, sebab alamat itu ikut basi ketika aplikasi diakses dari nama
+	 * host lain.</p>
+	 *
+	 * <p>Efek samping dan seluruh rincian perilakunya dijelaskan pada
+	 * {@link #createLinkUri(boolean, boolean)}; method ini hanya meneruskan.</p>
+	 *
+	 * @return alamat mutlak lampiran ini
+	 * @throws Exception bila penyusunan alamat gagal total di jalur delegasi
+	 */
 	public String createLinkUri() throws Exception {
 		return createLinkUri(true, false);
 	}
 
+	/**
+	 * Sama dengan {@link #createLinkUri()} namun pemanggil dapat menentukan sendiri apakah
+	 * jalur berkas statis boleh dipakai.
+	 *
+	 * <p>Nilai {@code ketemu = false} memaksa alamat yang dihasilkan selalu berupa
+	 * {@code /al?d=...} yang dilayani servlet {@code AmbilLampiran}, tidak pernah berupa
+	 * alamat berkas statis {@code /f<prefix>/...}. Alasan praktis dipilihnya {@code false}
+	 * pada beberapa pemanggil tercatat pada {@code setupDownloadButtonAction()}: alamat
+	 * berkas statis dapat menjawab 404 dan memicu halaman kesalahan yang memuat ulang
+	 * dirinya sendiri tanpa henti, sehingga pratinjau tidak pernah selesai.</p>
+	 *
+	 * @param ketemu {@code true} mengizinkan pemakaian alamat berkas statis bila berkasnya
+	 *               benar-benar ada; {@code false} memaksa melalui servlet
+	 * @return alamat mutlak lampiran ini
+	 * @throws Exception bila penyusunan alamat gagal total di jalur delegasi
+	 */
 	public String createLinkUri(boolean ketemu) throws Exception {
 		return createLinkUri(ketemu, false);
 	}
 
+	/**
+	 * Menyusun alamat akses lampiran ini, sekaligus &mdash; sebagai efek samping &mdash;
+	 * <b>menyalin berkas fisiknya ke direktori media</b> agar dapat dilayani secara statis.
+	 *
+	 * <p><b>Tiga jalur keluaran, diperiksa berurutan.</b></p>
+	 * <ol>
+	 *   <li><b>Google Drive.</b> Bila kolom {@code gdrive} terisi, seluruh langkah lain
+	 *       dilewati dan alamat ekspor Google Drive dikembalikan. Isi berkas memang tidak
+	 *       ada di basis data pada kasus ini.</li>
+	 *   <li><b>Penyalinan ke direktori media.</b> Bila berkas fisiknya ada dan tidak
+	 *       kosong, sebuah salinan ditulis ke akar direktori media dengan nama hasil
+	 *       enkripsi {@code id + nama kelas sederhana}. Langkah ini dibungkus
+	 *       {@code try-catch} yang sengaja diam: berkas fisik bisa hilang atau baris ini
+	 *       sebenarnya hanya tautan lama, dan halaman tidak boleh gagal hanya karena
+	 *       salinan cache tidak dapat dibuat.</li>
+	 *   <li><b>Penyusunan alamat.</b> Apa pun hasil langkah 2, alamat akhirnya disusun
+	 *       {@code LampiranLain.ambilLinkLampiranLain(...)} dari metadata baris ini.</li>
+	 * </ol>
+	 *
+	 * <p><b>Yang perlu diperhatikan pada langkah 2.</b> Nama berkas salinan dibentuk dari
+	 * {@code Common.desEncrypter.get().encrypt(getId() + getClass().getSimpleName())} yang
+	 * kemudian dibuang seluruh tanda bacanya kecuali {@code _} dan {@code -}, lalu
+	 * di-{@code URLEncoder.encode}. Sifat penting yang mengikutinya: (a) enkripsinya
+	 * <i>deterministik</i>, sehingga satu lampiran selalu menghasilkan nama berkas yang
+	 * sama pada setiap pemanggilan &mdash; inilah yang membuat pemeriksaan
+	 * {@code !fileTujuan.exists()} berfungsi sebagai cache; (b) pembuangan tanda baca
+	 * memperkecil ruang nama, sehingga secara teori dua ciphertext berbeda dapat runtuh
+	 * menjadi nama yang sama, dan yang menang adalah yang lebih dahulu tersalin karena
+	 * salinan berikutnya dilewati oleh pemeriksaan {@code exists()} itu juga; (c) salinan
+	 * diletakkan di <b>akar</b> direktori media, bukan di dalam
+	 * {@code segmenFolderBerkas()} per entitas seperti yang dipakai jalur lain, sehingga
+	 * pemisahan folder per entitas tidak berlaku untuk salinan ini.</p>
+	 *
+	 * <p>Perlu dicatat pula bahwa berkas hasil langkah 2 berada di dalam direktori media
+	 * yang dilayani secara statis. Siapa pun yang dapat menebak atau memperoleh nama
+	 * berkas tersebut dapat mengunduhnya tanpa melewati servlet {@code AmbilLampiran}.
+	 * Kerahasiaan lampiran pada jalur ini karena itu bersandar sepenuhnya pada
+	 * ketidakterdugaan hasil enkripsi nama, bukan pada pemeriksaan hak akses.</p>
+	 *
+	 * <p>Method ini juga menjadi contoh hubungan dua arah antara kelas ini dan
+	 * {@code LampiranLain}: kelas induk memanggil method statis milik subclass-nya untuk
+	 * menyusun alamat, sementara method statis tersebut pada gilirannya kembali memanggil
+	 * {@code ambilLinkLampiranLain(FileFotoLain, ...)} di kelas ini. Perubahan pada salah
+	 * satu sisi selalu berdampak pada sisi yang lain.</p>
+	 *
+	 * @param ketemu   {@code true} mengizinkan alamat berkas statis {@code /f<prefix>/...}
+	 *                 bila berkasnya ada; {@code false} memaksa melalui {@code /al?d=...}
+	 * @param relative {@code true} menghasilkan alamat relatif terhadap konteks aplikasi
+	 *                 ({@code Common.ROOT}), {@code false} menghasilkan alamat mutlak
+	 *                 lengkap dengan protokol dan host permintaan yang sedang berjalan
+	 * @return alamat akses lampiran ini; pada kegagalan penyusunan, jalur delegasi
+	 *         mengembalikan alamat ikon pengganti alih-alih melempar
+	 * @throws Exception bila penyusunan alamat gagal di luar penanganan jalur delegasi
+	 */
 	public String createLinkUri(boolean ketemu, boolean relative) throws Exception {
 		if (getGdrive() != null && !getGdrive().trim().isEmpty()) {
 			return exportGDriveUrl();
@@ -456,6 +643,34 @@ public abstract class FileFotoLain extends FileFoto {
 		return uri;
 	}
 
+	/**
+	 * Memaksa Hibernate "menyadari" kembali relasi pemilik lampiran ini dengan cara
+	 * membaca lalu menulis balik nilai kolom acuannya melalui refleksi.
+	 *
+	 * <p><b>Mengapa terlihat tidak melakukan apa-apa.</b> Isi method ini pada dasarnya
+	 * adalah {@code setX(getX())} &mdash; nilainya tidak berubah sama sekali. Yang
+	 * dituju bukan perubahan nilai, melainkan efek sampingnya pada objek: pemanggilan
+	 * getter memaksa proxy Hibernate yang masih malas ({@code lazy}) untuk terwujud, dan
+	 * pemanggilan setter menandai properti tersebut sebagai tersentuh. Pada objek yang
+	 * berasal dari cache JSON ({@code Common.convertToObject}) atau yang sudah terlepas
+	 * dari session, langkah ini membuat relasinya kembali dapat dipakai tanpa perlu
+	 * membuka session baru.</p>
+	 *
+	 * <p><b>Dua golongan yang sengaja dilewati.</b> {@code "id"} dilewati karena bukan
+	 * relasi melainkan primary key &mdash; menulis balik primary key pada entitas yang
+	 * dikelola adalah tindakan yang justru berbahaya. {@code "tbmuser"} dilewati karena
+	 * kolomnya bertipe {@code String} pada {@code FotoAdmin} dan bukan relasi ORM, jadi
+	 * tidak ada proxy yang perlu diwujudkan.</p>
+	 *
+	 * <p><b>Kegagalan sengaja dibiarkan senyap.</b> Bila getter/setter yang dicari tidak
+	 * ada, {@code NoSuchMethodException} hanya dicatat ke {@code ErrorAuditUtil} lalu
+	 * diabaikan, mengikuti perilaku versi lama yang menggantikan blok {@code if-else}
+	 * raksasa. Artinya method ini <b>tidak pernah menjamin</b> relasinya benar-benar
+	 * tersegarkan; pemanggil tidak boleh menganggap keberhasilannya sebagai prasyarat.
+	 * Perhatikan juga bahwa {@code getRefField(this.getClass())} memakai kelas runtime,
+	 * sehingga pada instance yang berupa proxy Hibernate pemetaan bisa meleset ke default
+	 * {@code "id"} dan seluruh isi method dilewati tanpa jejak.</p>
+	 */
 	public void refreshFotoTemporaryGDrive() {
 		// Menggunakan reflection ringan untuk melakukan re-attachment entity
 		// Menggantikan blok if-else raksasa
