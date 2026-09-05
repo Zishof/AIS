@@ -151,6 +151,9 @@ public class DetailPengumumanAkademisHelper {
 				lampiranPengumumanAkademis.setPengumumanAkademis(pengumumanAkademis);
 				lampiranPengumumanAkademis.setUploadDate(ais.ui.util.WaktuUtil.getDate());
 				session.save(lampiranPengumumanAkademis);
+				// Materialisasikan BLOB sebelum iframe meminta file lewat request terpisah.
+				// Ini mencegah viewer membaca file yang belum selesai dibuat setelah upload.
+				lampiranPengumumanAkademis.ambilFile();
 
 				loadDataAttachment();
 			}

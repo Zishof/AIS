@@ -523,7 +523,8 @@ public class CommonAcademicSyncHelper extends Common {
 	public static Perkuliahan checkKelasJadwalPerkuliahan(Long id, Jurusan jurusan, String program, String hari,
 			Double mulai, Double selesai, String tahunAjaran, String jenisSemester, String kelas, Integer semester,
 			Html tampilWarning, Integer semesterpendek, Boolean minggu1, Boolean minggu2, Boolean minggu3,
-			Boolean minggu4, Boolean minggu5, Date perkuliahanDimulai, Date perkuliahanSampai, Matakuliah matakuliah)
+			Boolean minggu4, Boolean minggu5, Date perkuliahanDimulai, Date perkuliahanSampai, Matakuliah matakuliah,
+			Ruang ruang)
 			throws Exception {
 
 		if (kelas == null || kelas.trim().isEmpty() || hari == null || hari.isEmpty() || mulai == null
@@ -556,6 +557,7 @@ public class CommonAcademicSyncHelper extends Common {
 									.add(Restrictions.eq("tahunAjaran", tahunAjaran))
 									.add(Restrictions.eq("semester", semester))
 									.add(Restrictions.ilike("kelas", kelas.trim(), MatchMode.EXACT))
+									.add(ruang == null ? Restrictions.isNull("ruang") : Restrictions.eq("ruang", ruang))
 									.add(hari == null || hari.trim().equals("")
 											? Restrictions.or(
 													Restrictions.and(Restrictions.isNull("hari"),
@@ -588,6 +590,7 @@ public class CommonAcademicSyncHelper extends Common {
 							.add(Restrictions.eq("jurusan", jurusan)).add(Restrictions.eq("tahunAjaran", tahunAjaran))
 							.add(Restrictions.eq("semester", semester))
 							.add(Restrictions.ilike("kelas", kelas.trim(), MatchMode.EXACT))
+							.add(ruang == null ? Restrictions.isNull("ruang") : Restrictions.eq("ruang", ruang))
 							.add(hari == null || hari.trim().equals("") ? Restrictions.or(
 									Restrictions.and(Restrictions.isNull("hari"), Restrictions.sqlRestriction("true")),
 									Restrictions.and(Restrictions.eq("hari", ""), Restrictions.sqlRestriction("true")))

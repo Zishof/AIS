@@ -5586,17 +5586,19 @@ public class Common {
 	 * @param perkuliahanDimulai tanggal mulai
 	 * @param perkuliahanSampai  tanggal selesai
 	 * @param matakuliah      matakuliah
+	 * @param ruang           ruang kelas; konflik kelas hanya berlaku pada ruang yang sama
 	 * @return entitas {@link Perkuliahan} yang konflik, atau {@code null}
 	 * @throws Exception bila terjadi error DB
 	 */
 	public static Perkuliahan checkKelasJadwalPerkuliahan(Long id, Jurusan jurusan, String program, String hari,
 			Double mulai, Double selesai, String tahunAjaran, String jenisSemester, String kelas, Integer semester,
 			Html tampilWarning, Integer semesterpendek, Boolean minggu1, Boolean minggu2, Boolean minggu3,
-			Boolean minggu4, Boolean minggu5, Date perkuliahanDimulai, Date perkuliahanSampai, Matakuliah matakuliah)
+			Boolean minggu4, Boolean minggu5, Date perkuliahanDimulai, Date perkuliahanSampai, Matakuliah matakuliah,
+			Ruang ruang)
 			throws Exception {
 		return CommonAcademicSyncHelper.checkKelasJadwalPerkuliahan(id, jurusan, program, hari, mulai, selesai,
 				tahunAjaran, jenisSemester, kelas, semester, tampilWarning, semesterpendek, minggu1, minggu2, minggu3,
-				minggu4, minggu5, perkuliahanDimulai, perkuliahanSampai, matakuliah);
+				minggu4, minggu5, perkuliahanDimulai, perkuliahanSampai, matakuliah, ruang);
 	}
 
 	/**

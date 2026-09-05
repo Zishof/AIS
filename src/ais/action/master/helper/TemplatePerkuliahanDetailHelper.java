@@ -724,7 +724,7 @@ public class TemplatePerkuliahanDetailHelper {
 					perkuliahan.getKelas(), (Integer) perkuliahan.getSemester(), html, null, perkuliahan.getMinggu1(),
 					perkuliahan.getMinggu2(), perkuliahan.getMinggu3(), perkuliahan.getMinggu4(),
 					perkuliahan.getMinggu5(), perkuliahan.getPerkuliahanDimulai(), perkuliahan.getPerkuliahanSampai(),
-					perkuliahan.getMatakuliah()))) != null) {
+					perkuliahan.getMatakuliah(), perkuliahan.getRuang()))) != null) {
 				return myPerkuliahan;
 			}
 		} catch (Exception e1) {

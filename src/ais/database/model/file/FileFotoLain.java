@@ -253,10 +253,15 @@ public abstract class FileFotoLain extends FileFoto {
 	}
 
 	public static String ambilLinkLampiranLain(File file) throws Exception {
+		return ambilLinkLampiranLain(file, false);
+	}
+
+	public static String ambilLinkLampiranLain(File file, boolean relative) throws Exception {
 		MyJSONObject jsonObject = new MyJSONObject();
 		jsonObject.put("file", file.getAbsolutePath());
 		String encript = Common.desEncrypter.get().encrypt(jsonObject.toString());
-		return Common.getRequestHostWithProtocol() + "/al?d=" + URLEncoder.encode(encript, "UTF-8");
+		return (relative ? Common.ROOT : Common.getRequestHostWithProtocol()) + "/al?d="
+				+ URLEncoder.encode(encript, "UTF-8");
 	}
 
 	// Overloads for ambilLinkLampiranLain

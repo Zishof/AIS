@@ -9,6 +9,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
 import org.hibernate.Criteria;
@@ -118,6 +120,39 @@ import ais.ui.util.MyWindow;
  * membuat salinan query dan validasi di action lain.</p>
  */
 public class DetailperkuliahanForPenilaianHelper implements DataLoader {
+
+	private static final Pattern POLA_KODE_SUB_CPMK = Pattern
+			.compile("(?i)^\\s*(sub\\s*-?\\s*cpmk\\s*[0-9]+(?:\\.[0-9]+)*)\\b");
+
+	/**
+	 * Mengambil label singkat untuk kepala kolom nilai OBE. Uraian lengkap tetap
+	 * dipasang sebagai tooltip agar tabel tidak melebar dan tetap mudah dibaca.
+	 */
+	static String ambilNamaFormatNilaiRingkas(FormatNilai formatNilai) {
+		if (formatNilai == null) {
+			return "";
+		}
+
+		String nama = formatNilai.getNama();
+		if (nama == null) {
+			return "";
+		}
+
+		String ringkas = nama.trim();
+		boolean formatObe = formatNilai.getCapaianPembelajaranLulusan() != null
+				|| (formatNilai.getKodeSubCpmk() != null && formatNilai.getKodeSubCpmk().trim().length() > 0);
+		if (!formatObe) {
+			return ringkas;
+		}
+
+		int pemisah = ringkas.indexOf(" - ");
+		if (pemisah > 0) {
+			return ringkas.substring(0, pemisah).trim();
+		}
+
+		Matcher matcher = POLA_KODE_SUB_CPMK.matcher(ringkas);
+		return matcher.find() ? matcher.group(1).replaceAll("\\s+", " ").trim() : ringkas;
+	}
 
 	private MyGrid grid;
 	private MyGrid gridKomentar;
@@ -2729,10 +2764,13 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 			Vbox lbl;
 			try {
+				String namaLengkap = formatNilai == null ? "" : formatNilai.getNama();
 				(lbl = RevisiHelper.createNewRevisi(FormatNilai.class, formatNilai,
-						formatNilai == null ? "" : formatNilai.getNama() + " " + formatNilai.getPersen() + "%"))
+						formatNilai == null ? ""
+								: ambilNamaFormatNilaiRingkas(formatNilai) + " " + formatNilai.getPersen() + "%"))
 						.setParent(hb);
 				lbl.setStyle("font-size: xx-small;text-align: center;");
+				lbl.setTooltiptext(namaLengkap);
 				lbl.setParent(hb);
 				lbl.setWidth("100%");
 				lbl.setHeight("100%");
