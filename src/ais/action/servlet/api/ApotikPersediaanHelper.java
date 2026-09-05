@@ -20,6 +20,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.koperasi.CaraPembayaranKoperasi;
 import ais.database.model.sirs.ApotikPbfDokumen;
 import ais.database.model.sirs.ApotikPbfPembayaran;
+import ais.database.model.sirs.ApotikItemProfile;
 import ais.database.model.sirs.DetailTransaksiPasien;
 import ais.database.model.sirs.ItemMedis;
 import ais.database.model.sirs.Kadaluarsa;
@@ -624,8 +625,26 @@ public final class ApotikPersediaanHelper {
 				if (batches.isEmpty()) break;
 
 				List<Long> ids = new java.util.ArrayList<Long>();
-				for (Kadaluarsa k : batches) ids.add(k.getId());
+				List<Long> itemIds = new java.util.ArrayList<Long>();
+				for (Kadaluarsa k : batches) {
+					ids.add(k.getId());
+					if (k.getItem() != null && k.getItem().getId() != null
+							&& !itemIds.contains(k.getItem().getId())) {
+						itemIds.add(k.getItem().getId());
+					}
+				}
 				java.util.Map<Long, Double> konsumsi = ApotikApiHelper.konsumsiPerBatch(session, ids);
+				java.util.Map<Long, ApotikItemProfile> profil =
+						new java.util.HashMap<Long, ApotikItemProfile>();
+				if (!itemIds.isEmpty()) {
+					@SuppressWarnings("unchecked")
+					List<ApotikItemProfile> profiles = session.createCriteria(ApotikItemProfile.class)
+							.createAlias("item", "item")
+							.add(Restrictions.in("item.id", itemIds)).list();
+					for (ApotikItemProfile p : profiles) {
+						profil.put(p.getItem().getId(), p);
+					}
+				}
 				for (Kadaluarsa k : batches) {
 					double awal = k.getQty() == null ? 0 : k.getQty().doubleValue();
 					Double pakai = konsumsi.get(k.getId());
@@ -645,6 +664,20 @@ public final class ApotikPersediaanHelper {
 					j.put("sisa", sisa);
 					j.put("kedaluwarsa",
 							k.getTanggalKadaluarsa() != null && k.getTanggalKadaluarsa().before(awalHari));
+					String statusLot = k.getStatusLot();
+					boolean lotLayak = Kadaluarsa.lotLayak(statusLot);
+					String alasanLot = str(k.getKeterangan()).trim();
+					if (alasanLot.isEmpty() && !lotLayak) {
+						alasanLot = Kadaluarsa.alasanLotDitahan(statusLot);
+					}
+					j.put("statusLot", statusLot);
+					j.put("lotLayak", lotLayak);
+					j.put("alasanLot", alasanLot);
+					Long itemId = k.getItem() == null ? null : k.getItem().getId();
+					ApotikItemProfile p = itemId == null ? null : profil.get(itemId);
+					j.put("coldChain", p != null && Boolean.TRUE.equals(p.getColdChain()));
+					j.put("lokasiId", k.getLokasi() == null ? JSONObject.NULL : k.getLokasi().getId());
+					j.put("lokasiNama", k.getLokasi() == null ? "" : str(k.getLokasi().getNama()));
 					arr.put(j);
 					if (arr.length() >= size) break;
 				}

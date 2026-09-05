@@ -1,8 +1,10 @@
 package ais.database.hibernate;
 
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.util.Iterator;
 
+import javax.persistence.Column;
 import javax.servlet.http.HttpServletRequest;
 
 import org.hibernate.EmptyInterceptor;
@@ -220,10 +222,10 @@ public class AuditTimestampInterceptor extends EmptyInterceptor {
 				state[i] = ais.ui.util.WaktuUtil.getDate();
 				berubah = true;
 			} else if (AuditTrailHelper.PROP_OLEH_ID.equals(propertyNames[i])) {
-				state[i] = AuditTimestampInterceptor.olehId();
+				state[i] = sesuaiPanjangKolom(entity, propertyNames[i], AuditTimestampInterceptor.olehId());
 				berubah = true;
 			} else if (AuditTrailHelper.PROP_OLEH.equals(propertyNames[i])) {
-				state[i] = AuditTimestampInterceptor.oleh();
+				state[i] = sesuaiPanjangKolom(entity, propertyNames[i], AuditTimestampInterceptor.oleh());
 				berubah = true;
 			}
 		}
@@ -241,8 +243,10 @@ public class AuditTimestampInterceptor extends EmptyInterceptor {
 			}
 			GeneralValueObject generalValueObject = (GeneralValueObject) o;
 			generalValueObject.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
-			generalValueObject.setOleh(AuditTimestampInterceptor.oleh());
-			generalValueObject.setOlehId(AuditTimestampInterceptor.olehId());
+			generalValueObject.setOleh(sesuaiPanjangKolom(o,
+					AuditTrailHelper.PROP_OLEH, AuditTimestampInterceptor.oleh()));
+			generalValueObject.setOlehId(sesuaiPanjangKolom(o,
+					AuditTrailHelper.PROP_OLEH_ID, AuditTimestampInterceptor.olehId()));
 			AuditTrailHelper.debug("AuditTimestampInterceptor.ubah metadata entity="
 					+ AuditTrailHelper.describeEntity(o, AuditTrailHelper.safeIdentifier(o)));
 		}
@@ -467,5 +471,26 @@ public class AuditTimestampInterceptor extends EmptyInterceptor {
 			return text.substring(0, maxLength);
 		}
 		return text.substring(0, maxLength - 3) + "...";
+	}
+
+	/**
+	 * Hormati panjang {@link Column} milik entity saat metadata audit diisi.
+	 * Sebagian tabel legacy memakai 60 karakter, sedangkan jejak {@code olehId}
+	 * modern juga memuat call-site dan IP sehingga dapat lebih panjang. Tanpa
+	 * boundary ini, listener dapat menimpa nilai valid dari service lalu membuat
+	 * INSERT bisnis gagal dengan {@code value too long}.
+	 */
+	private static String sesuaiPanjangKolom(Object entity, String propertyName, String value) {
+		if (entity == null || propertyName == null || value == null) return value;
+		try {
+			String getter = "get" + Character.toUpperCase(propertyName.charAt(0))
+					+ propertyName.substring(1);
+			Method method = entity.getClass().getMethod(getter, new Class<?>[0]);
+			Column column = method.getAnnotation(Column.class);
+			if (column != null && column.length() > 0) return limitText(value, column.length());
+		} catch (Exception ignored) {
+			// Entity tanpa anotasi getter memakai panjang asli; jangan ganggu audit.
+		}
+		return value;
 	}
 }
