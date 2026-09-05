@@ -84,13 +84,113 @@ import ais.ui.util.WaktuUtil;
  * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
  * perilakunya tidak disalin ke tempat lain.</p>
  *
+ * <h2>Kedudukan kelas ini dalam keluarga lampiran</h2>
+ * <p>{@code FileFotoLain} adalah <b>superclass abstrak bersama</b> bagi hampir seluruh entitas
+ * berkas pada paket {@link ais.database.model.file}: {@code LampiranLain}, {@code
+ * LampiranLainMahasiswa}, {@code LampiranLainBiodataCalonMahasiswa}, {@code FotoMahasiswa},
+ * {@code FotoMahasiswaLulus}, {@code FotoBiodataCalonMahasiswa}, {@code FotoDosen}, {@code
+ * FotoPegawai}, {@code FotoGuru}, {@code FotoCalonSiswa}, {@code FotoCalonPegawai}, {@code
+ * FotoSiswa}, {@code FotoAdmin}, {@code LampiranPklMahasiswa}, {@code LampiranKknMahasiswa},
+ * {@code LampiranBeasiswaMahasiswa}, {@code TugasFileContent}, {@code PertemuanFileContent},
+ * {@code FotoGambarProduk}, serta entitas streaming {@code AudioPertemuan}/{@code
+ * VideoPertemuan}. Semua nama itu terdaftar di {@code RELASI_MAP} pada blok {@code static}
+ * di bawah.</p>
+ * <p><b>Ini penting untuk dipahami sebelum membaca sisa kelas:</b> {@code LampiranLain} BUKAN
+ * saudara sejajar melainkan salah satu <i>subclass</i>-nya. Praktis seluruh method statis
+ * {@code LampiranLain.ambil(...)}, {@code LampiranLain.resetLokasi(...)}, dan {@code
+ * LampiranLain.ambilLinkLampiranLain(...)} hanyalah pembungkus tipis yang meneruskan
+ * pekerjaan ke method senama di kelas ini dengan {@code clazz = LampiranLain.class}
+ * (lihat {@code LampiranLain} baris 1491-1492 dan 1548-1550). Konsekuensinya: apa pun yang
+ * berlaku pada {@code ambil()} di sini berlaku pula bagi <b>setiap</b> entitas berkas di atas,
+ * bukan hanya bagi {@code LampiranLain}. Perbaikan perilaku pencarian/otorisasi lampiran
+ * karena itu harus dilakukan DI SINI, bukan di masing-masing subclass.</p>
+ *
+ * <h2>Tiga lapis penyimpanan yang dikelola bersamaan</h2>
+ * <ol>
+ *   <li><b>Baris basis data</b> pada tabel milik subclass, dengan kolom biner {@code foto}
+ *       bertipe PostgreSQL Large Object (oid). Ditulis lewat {@code createFileFotoLain()} pada
+ *       koneksi non-autocommit khusus, dibaca lewat {@code ambilIsiBlob()}.</li>
+ *   <li><b>Berkas fisik</b> di direktori media ({@code CommonMedia.getMediaDirectory()}),
+ *       ditata per entitas melalui {@code FileFoto.segmenFolderBerkas()} dan dilayani
+ *       <i>statis</i> lewat awalan URL {@code /f<prefix>/...} tanpa melewati servlet.</li>
+ *   <li><b>Berkas cache metadata</b> berisi JSON hasil {@code Common.convertToJsonObject(...)},
+ *       ditulis {@code tulisLokasi()} dan dibaca {@code ambilLokasi()}. Cache inilah yang
+ *       dipakai {@code ambil()} untuk memintas query basis data sama sekali.</li>
+ * </ol>
+ * <p>Ketiga lapis itu tidak pernah dibuat konsisten secara transaksional. Sebagian besar
+ * keanehan perilaku yang didokumentasikan pada method-method di bawah berakar pada
+ * perbedaan waktu hidup ketiga lapis ini &mdash; terutama lapis (3) yang punya kunci
+ * berbeda untuk {@code usingId=true} dan {@code usingId=false} sehingga satu baris yang
+ * sama dapat punya DUA cache yang dibersihkan pada saat yang berbeda.</p>
+ *
  * @see FileFoto
  */
 @SuppressWarnings({ "rawtypes", "unchecked", "serial" })
 public abstract class FileFotoLain extends FileFoto {
 
 	// Konfigurasi Mapping Kelas ke Nama Field Relasi (Menggantikan if-else raksasa)
+	/**
+	 * Peta kelas entitas berkas &rarr; nama properti Hibernate yang menyimpan acuan
+	 * ({@code ref}) ke baris pemilik lampiran. Menggantikan rangkaian {@code if-else}
+	 * raksasa pada versi lama.
+	 *
+	 * <p><b>Fungsi.</b> Dibaca lewat {@code getRefField(Class)} dan menentukan tiga hal
+	 * sekaligus: (a) properti yang dipakai {@code ambil()} pada klausa {@code
+	 * Restrictions.eq(refName, ref)}; (b) nama setter yang dipanggil secara reflektif oleh
+	 * {@code createFileFotoLain()} saat menautkan lampiran baru ke pemiliknya; (c) kolom
+	 * yang ditimpa nilai sentinel oleh {@code hapusAtauUpdate()} ketika lampiran
+	 * "dihapus".</p>
+	 *
+	 * <p><b>Tiga golongan nilai, dengan perilaku yang berbeda tajam:</b></p>
+	 * <ul>
+	 *   <li>Nama relasi biasa ({@code "mahasiswa"}, {@code "dosen"}, {@code "pegawai"},
+	 *       {@code "siswa"}, {@code "guru"}, {@code "calonSiswa"}, {@code "calonPegawai"},
+	 *       {@code "biodataCalonMahasiswa"}, {@code "persyaratanPkl"}, {@code
+	 *       "persyaratanKkn"}, {@code "persyaratanBeasiswa"}, {@code "produk"}, {@code
+	 *       "ref"}) &rarr; jalur normal: pencarian memakai kolom relasi, penghapusan
+	 *       memakai <i>soft delete</i> dengan menimpa kolom itu dengan
+	 *       {@code SOFT_DELETE_ID}.</li>
+	 *   <li>{@code "tbmuser"} (hanya {@code FotoAdmin}) &rarr; kolomnya bertipe
+	 *       {@code String} berisi userid, bukan angka. Seluruh jalur diberi cabang khusus:
+	 *       konversi {@code ref} ke {@code String} pada {@code ambil()}, setter khusus
+	 *       {@code setTbmuser(String)} pada {@code createFileFotoLain()}, dan sentinel
+	 *       yang di-{@code String.valueOf()}-kan pada {@code hapusAtauUpdate()}.</li>
+	 *   <li>{@code "id"} ({@code TugasFileContent}, {@code PertemuanFileContent},
+	 *       {@code AudioPertemuan}, {@code VideoPertemuan}) &rarr; entitas TIDAK punya
+	 *       kolom acuan pemilik sama sekali; {@code ref} dicocokkan langsung ke primary
+	 *       key. Golongan ini punya dua akibat penting yang dijelaskan pada
+	 *       {@code ambil()} dan {@code hapusAtauUpdate()}: penyaringan {@code jenis}
+	 *       dimatikan, dan penghapusan non-{@code usingId} tidak melakukan apa-apa.</li>
+	 * </ul>
+	 *
+	 * <p><b>Kelas yang tidak terdaftar</b> tidak ditolak: {@code getRefField()}
+	 * mengembalikan {@code "id"} sebagai default, sehingga entitas berkas baru yang lupa
+	 * didaftarkan di sini akan diam-diam berperilaku sebagai golongan ketiga di atas.
+	 * Ini kegagalan yang <i>fail-open</i> dan tidak menghasilkan pesan kesalahan apa pun.</p>
+	 */
 	private static final Map<Class<?>, String> RELASI_MAP = new HashMap<Class<?>, String>();
+
+	/**
+	 * Nilai sentinel yang ditulis ke kolom acuan pemilik untuk menandai lampiran
+	 * "terhapus" &mdash; <b>penghapusan di sini bersifat lunak (soft delete)</b>.
+	 *
+	 * <p>{@code hapusAtauUpdate()} pada jalur non-{@code usingId} tidak menjalankan
+	 * {@code DELETE}, melainkan {@code UPDATE ... SET <refField> = -111111119}. Barisnya
+	 * tetap ada di tabel, kolom binernya tetap berisi seluruh isi berkas, dan primary
+	 * key-nya tidak berubah.</p>
+	 *
+	 * <p><b>Akibat yang harus disadari:</b> karena {@code ambil()} dengan
+	 * {@code usingId=true} mencocokkan {@code ref} ke <i>primary key</i> dan sama sekali
+	 * tidak melihat kolom acuan pemilik, baris yang sudah "dihapus" dengan cara ini
+	 * <b>tetap dapat ditemukan dan diunduh</b>. Nilai sentinel hanya menyembunyikan baris
+	 * dari pencarian berbasis pemilik, bukan dari pencarian berbasis id. Rinciannya
+	 * dijelaskan pada Javadoc {@code ambil(Boolean, Serializable, String, int, Class,
+	 * boolean, String)}.</p>
+	 *
+	 * <p>Nilainya negatif dan berjarak jauh dari rentang id nyata sehingga tidak mungkin
+	 * bertabrakan dengan acuan pemilik yang sah; alasan serupa dipakai pada
+	 * {@code Common.refSementara()} (lihat catatan di {@code createFileFotoLain()}).</p>
+	 */
 	private static final long SOFT_DELETE_ID = -111111119L;
 
 	static {
@@ -119,22 +219,175 @@ public abstract class FileFotoLain extends FileFoto {
 		RELASI_MAP.put(FotoGambarProduk.class, "produk");
 	}
 
+	/**
+	 * Acuan ({@code ref}) ke baris pemilik lampiran ini, sebagaimana tersimpan pada kolom
+	 * yang dipetakan {@code RELASI_MAP} untuk kelas konkretnya.
+	 *
+	 * <p>Subclass mengembalikan isi kolom relasinya masing-masing: {@code LampiranLain}
+	 * mengembalikan kolom {@code ref} generiknya, {@code FotoMahasiswa} mengembalikan id
+	 * mahasiswa, dan seterusnya. Untuk golongan {@code "id"} pada {@code RELASI_MAP}
+	 * (mis. {@code TugasFileContent}) nilainya identik dengan primary key.</p>
+	 *
+	 * <p><b>Nilai yang mungkin muncul dan artinya:</b> nilai positif normal berarti acuan
+	 * ke baris pemilik yang nyata; nilai negatif besar berarti acuan sementara hasil
+	 * {@code Common.refSementara()} untuk data yang belum disimpan (lihat catatan panjang
+	 * pada {@code createFileFotoLain()} tentang mengapa acuan sementara WAJIB negatif);
+	 * dan nilai {@code -111111119} berarti baris ini sudah "dihapus" secara lunak oleh
+	 * {@code hapusAtauUpdate()} namun isinya masih utuh di basis data.</p>
+	 *
+	 * <p>Dipakai antara lain oleh {@code ambilLinkLampiranLain(FileFotoLain, ...)} untuk
+	 * menyusun parameter {@code ref} pada tautan {@code /al?d=...}, dan oleh
+	 * {@code delete()} untuk menentukan kunci cache metadata yang harus dibuang.</p>
+	 *
+	 * @return acuan pemilik, {@code null} bila belum ditautkan ke siapa pun
+	 */
 	public abstract Long ambilRef();
 
+	/**
+	 * Kelas entitas konkret yang mewakili baris ini, dipakai sebagai parameter
+	 * {@code clazz} pada seluruh method statis di kelas ini.
+	 *
+	 * <p>Sengaja tidak memakai {@code getClass()} karena instance yang dikembalikan
+	 * {@code ambil()} bisa berupa hasil {@code Common.convertToObject()} atas cache JSON
+	 * ataupun proxy Hibernate; {@code getClass()} pada proxy akan mengembalikan kelas
+	 * bayangan hasil <i>bytecode enhancement</i>, bukan kelas entitas yang terdaftar di
+	 * {@code RELASI_MAP}. Implementasi subclass mengembalikan literal kelasnya sendiri
+	 * sehingga nilainya stabil pada semua kondisi.</p>
+	 *
+	 * <p>Nilai ini menentukan tabel yang dikueri {@code ambil()}, nama entitas pada HQL
+	 * {@code hapusAtauUpdate()}, folder berkas ({@code FileFoto.segmenFolderBerkas()}),
+	 * berkas cache metadata ({@code Common.getFileLocation(clazz, ...)}), sekaligus ikon
+	 * pengganti yang dipilih {@code iconNggakAda(Class)}.</p>
+	 *
+	 * @return kelas entitas konkret; tidak pernah {@code null} pada implementasi yang benar
+	 */
 	public abstract Class ambilClazz();
 
+	/**
+	 * Penanda jenis lampiran &mdash; label bebas berbentuk teks yang membedakan beberapa
+	 * lampiran milik satu pemilik yang sama (mis. {@code "ktp"}, {@code "ijazah"},
+	 * {@code "foto"}).
+	 *
+	 * <p>Bersama {@code ambilRef()}, nilai inilah yang biasanya membentuk identitas logis
+	 * sebuah lampiran: satu pemilik boleh punya banyak lampiran asalkan {@code jenis}-nya
+	 * berbeda, dan mengunggah ulang dengan {@code jenis} yang sama akan menghapus-lunak
+	 * yang lama lebih dahulu (lihat {@code createFileFotoLain()} langkah 1).</p>
+	 *
+	 * <p><b>Catatan penting.</b> Nilai ini tidak selalu ikut menyaring pencarian. Pada
+	 * {@code ambil()} penyaringan {@code jenis} dimatikan seluruhnya bila
+	 * {@code usingId=true}, dan juga bila kelasnya termasuk golongan yang dianggap tidak
+	 * punya kolom {@code jenis} (nama kelas berawalan {@code Foto}, berakhiran
+	 * {@code FileContent}, atau ber-{@code refField} {@code "id"}/{@code "tbmuser"}).
+	 * Karena itu {@code jenis} <b>tidak boleh diperlakukan sebagai batas keamanan</b>;
+	 * ia adalah label penataan, bukan penyekat namespace.</p>
+	 *
+	 * @return penanda jenis lampiran, dapat {@code null} pada entitas yang tidak memilikinya
+	 */
 	public abstract String getJenis();
 
+	/**
+	 * Tautan luar (URL) sebagai pengganti berkas yang tersimpan di basis data.
+	 *
+	 * <p>Sebagian lampiran tidak diunggah melainkan hanya dirujuk. Pada kasus itu
+	 * {@code getNama()} berisi teks penanda {@code "Berupa link file"} dan seluruh isi
+	 * berkas tidak ada di kolom biner. {@code ambilLinkLampiranLain(FileFotoLain, ...)}
+	 * memeriksa penanda tersebut lebih dahulu dan langsung mengembalikan nilai method ini
+	 * apa adanya sebagai tautan akhir.</p>
+	 *
+	 * <p><b>Konsekuensi keamanan yang perlu diketahui pemanggil:</b> nilai yang dikembalikan
+	 * berasal dari masukan pengguna saat pengisian data dan diteruskan ke peramban tanpa
+	 * pembatasan skema. {@code AmbilLampiran} bahkan membukanya sisi-server dengan
+	 * {@code new URL(link).openStream()} (baris 417 pada berkas servlet tersebut) bila
+	 * tautannya bukan Google Photos &mdash; artinya alamat yang diisi pengguna ditarik oleh
+	 * server, bukan oleh peramban. Setiap penambahan pemanggil baru sebaiknya
+	 * mempertimbangkan hal ini.</p>
+	 *
+	 * @return URL lampiran, atau {@code null}/kosong bila berkasnya memang tersimpan sendiri
+	 */
 	public abstract String getLink();
 
+	/**
+	 * Penanda identitas pengguna yang terakhir mengubah baris ini &mdash; <b>field audit
+	 * bayangan</b>, bukan relasi ORM ke {@code Tbmuser}.
+	 *
+	 * <p>Diisi {@code createFileFotoLain()} langkah 3 dengan hasil
+	 * {@code Common.generateOlehId(tbmuser)}. Bentuknya sengaja berupa teks lepas dan
+	 * bukan foreign key: baris audit harus tetap terbaca meski pengguna yang bersangkutan
+	 * kelak dihapus atau berganti identitas, dan tabel lampiran hidup pada
+	 * {@code SessionFactory} streaming yang terpisah sehingga relasi lintas
+	 * {@code SessionFactory} memang tidak dapat dibentuk. Ini <b>keharusan teknis</b>,
+	 * bukan kelalaian pemodelan.</p>
+	 *
+	 * <p>Nilai ini tidak pernah dipakai untuk otorisasi di kelas ini; tidak ada satu pun
+	 * jalur baca yang membandingkannya dengan pengguna yang sedang aktif.</p>
+	 *
+	 * @return penanda pengubah terakhir, atau {@code null} bila baris berasal dari
+	 *         pembaruan tanpa sesi pengguna
+	 */
 	public abstract String getOlehId();
 
+	/**
+	 * Nama pengguna yang terakhir mengubah baris ini, disalin sebagai teks pada saat
+	 * perubahan &mdash; pasangan {@code getOlehId()} pada pola field audit bayangan.
+	 *
+	 * <p>Diisi {@code createFileFotoLain()} dari {@code getNamaOleh(Tbmuser)}, yang
+	 * mengambil nama dari entitas mahasiswa/dosen/pegawai yang tertaut pada pengguna, dan
+	 * jatuh ke {@code "external_update"} bila perubahan terjadi tanpa sesi pengguna
+	 * (mis. lewat integrasi atau proses terjadwal).</p>
+	 *
+	 * <p>Karena nilainya disalin, ia tetap menampilkan nama <i>pada saat kejadian</i>
+	 * walaupun nama pengguna kemudian diubah. Untuk keperluan audit sifat ini justru
+	 * diinginkan; jangan "diperbaiki" menjadi relasi hidup ke tabel pengguna.</p>
+	 *
+	 * @return nama pengubah terakhir, {@code "external_update"} bila tanpa sesi pengguna
+	 */
 	public abstract String getOleh();
 
+	/**
+	 * Waktu perubahan terakhir baris ini, dalam penamaan gaya lama yang memakai garis
+	 * bawah karena mengikuti nama kolom basis datanya.
+	 *
+	 * <p>Diisi {@code createFileFotoLain()} dengan {@code WaktuUtil.getDate()} &mdash;
+	 * bukan {@code new Date()} &mdash; supaya seluruh aplikasi memakai satu sumber waktu
+	 * yang sama (termasuk saat waktu server digeser untuk keperluan pengujian).</p>
+	 *
+	 * <p>Nilai ini murni informatif: tidak dipakai sebagai penentu urutan pada
+	 * {@code ambil()} (yang mengurutkan dengan {@code Order.desc("id")}), tidak dipakai
+	 * sebagai validator cache berkas ({@code AmbilLampiran} menurunkan ETag dari ukuran
+	 * dan waktu ubah <i>berkas fisik</i>, bukan dari kolom ini), dan tidak ikut menentukan
+	 * penamaan berkas.</p>
+	 *
+	 * @return waktu perubahan terakhir, dapat {@code null} pada baris warisan lama
+	 */
 	public abstract Date getTanggal_dirubah();
 
+	/**
+	 * Alamat berkas hasil penyimpanan, sebagaimana disimpan pada kolom entitas konkret.
+	 *
+	 * <p>Berbeda dari {@code getLink()} yang merupakan tautan luar yang diisi pengguna,
+	 * nilai ini merupakan alamat yang dihasilkan sistem penyimpanan. Tidak semua subclass
+	 * benar-benar mengisinya; sebagian mengembalikan {@code null} secara permanen dan
+	 * mengandalkan {@code ambilFile()} milik {@link FileFoto} untuk menemukan berkasnya.</p>
+	 *
+	 * <p>Pasangan penulisnya adalah {@link #setUrl(String)}. Karena pasangan
+	 * getter/setter ini dideklarasikan abstrak di sini, seluruh subclass wajib
+	 * menyediakannya walaupun tidak memakainya &mdash; sehingga ketiadaan nilai bukan
+	 * pertanda kesalahan.</p>
+	 *
+	 * @return alamat berkas, umumnya {@code null} pada sebagian besar subclass
+	 */
 	public abstract String getUrl();
 
+	/**
+	 * Menyetel alamat berkas hasil penyimpanan; pasangan penulis {@link #getUrl()}.
+	 *
+	 * <p>Setter murni tanpa validasi maupun efek samping pada implementasi subclass:
+	 * tidak ada normalisasi skema, tidak ada pemeriksaan panjang, dan tidak ada
+	 * pembersihan karakter. Pemanggil yang menyusun nilainya dari masukan luar
+	 * bertanggung jawab atas validasinya sendiri.</p>
+	 *
+	 * @param url alamat berkas yang hendak disimpan; boleh {@code null}
+	 */
 	public abstract void setUrl(String url);
 
 	public static Toolbarbutton tampilkanTombolUploadGdrive(final Button downloadButton, final Button hapusButton,
