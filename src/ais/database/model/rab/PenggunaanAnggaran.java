@@ -1056,6 +1056,64 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		this.ref = ref == null || ref.trim().isEmpty() ? null : ref.trim();
 	}
 
+	/**
+	 * Mengembalikan baris pagu ({@link Workspace}) yang diserap baris penggunaan ini,
+	 * diturunkan ulang dari dokumen sumber, dengan pengalihan ke anggaran pendahulu
+	 * bila ada.
+	 *
+	 * <h4>Peran</h4>
+	 *
+	 * <p>Inilah dimensi terpenting entitas ini: {@link Workspace} adalah baris
+	 * anggaran/pagu, dan seluruh perhitungan serapan RAB mengelompokkan
+	 * {@link #getNilai()} berdasarkan hasil method ini. Kolomnya dipetakan
+	 * {@code nullable = false} — sebuah baris penggunaan tanpa baris pagu tidak
+	 * bermakna.</p>
+	 *
+	 * <h4>Tiga tahap</h4>
+	 *
+	 * <p><b>(1) Bangkitkan ulang proxy.</b> Relasi dipetakan
+	 * {@code fetch = FetchType.LAZY}, sehingga nilai yang ada lebih dulu dilewatkan
+	 * ke {@code check(...)} milik {@link GeneralValueObject} agar proxy yang sudah
+	 * terlepas dari sesi Hibernate dapat dipakai — penting karena entitas ini kerap
+	 * dibaca dari thread latar belakang {@link #simpan(Serializable)} dan dari
+	 * laporan di luar sesi ZK.</p>
+	 *
+	 * <p><b>(2) Turunkan ulang dari dokumen sumber.</b> Sama seperti getter kerabatnya,
+	 * method ini menyusuri kedelapan kemungkinan dokumen sumber dalam urutan
+	 * prioritas baku dan <b>menimpa</b> field {@code workspace} dengan anggaran milik
+	 * dokumen sumber terkini (untuk LPJ: anggaran uang muka induknya). Artinya
+	 * memindahkan sebuah jurnal atau uang muka ke anggaran lain otomatis memindahkan
+	 * serapannya pada pembacaan berikutnya. Untuk {@link KasKecil}/{@link KasBesar},
+	 * anggaran dicari di dalam formula JSON dokumen kas: elemen yang {@code key}-nya
+	 * cocok dengan {@link #getRef()} dibaca atribut {@code workspace}-nya lalu
+	 * di-resolve lewat {@code ConstantValues.ambil(...)}. Kedua cabang kas dijaga
+	 * syarat tambahan {@code workspace == null} sehingga hanya berjalan bila field
+	 * masih kosong — nilai yang sudah ditetapkan {@code saveKasLine(...)} tidak
+	 * dihitung ulang.</p>
+	 *
+	 * <p><b>(3) Alihkan ke anggaran pendahulu.</b> Nilai yang dikembalikan
+	 * <b>bukan</b> selalu field {@code workspace}: bila anggaran tersebut memiliki
+	 * {@code getRelasiAnggaranSebelumnya()} yang terisi, yang dikembalikan adalah
+	 * anggaran pendahulu itu. Ini mekanisme revisi/carry-over anggaran RAB — ketika
+	 * sebuah baris pagu direvisi menjadi baris baru, serapan tetap dilaporkan pada
+	 * baris asalnya sehingga riwayat realisasi tidak terpotong oleh revisi.
+	 * <b>Perhatikan asimetri yang mudah menjebak:</b> yang tersimpan ke kolom basis
+	 * data adalah field {@code workspace} (anggaran langsung), sedangkan yang dilihat
+	 * pemanggil adalah anggaran pendahulunya. Kode yang membandingkan hasil getter
+	 * ini dengan isi kolom {@code workspace} di SQL karena itu dapat menyimpulkan
+	 * hal yang keliru. Pengalihan ini juga hanya satu tingkat — tidak ditelusuri
+	 * berantai sampai pendahulu terjauh.</p>
+	 *
+	 * <h4>Fail-open</h4>
+	 *
+	 * <p>Tahap (2) dibungkus {@code try/catch} yang menelan kesalahan (dicatat lewat
+	 * {@code ErrorAuditUtil}), sehingga kegagalan memuat dokumen sumber menyisakan
+	 * anggaran lama alih-alih menggagalkan pembacaan. Bila semuanya gagal dan field
+	 * memang kosong, method mengembalikan {@code null} meski kolomnya
+	 * {@code nullable = false} — pemanggil tetap harus siap menerimanya.</p>
+	 *
+	 * @return baris pagu yang diserap (anggaran pendahulu bila ada), atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "workspace", nullable = false)
 	public Workspace getWorkspace() {
@@ -1132,10 +1190,35 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 						: workspace);
 	}
 
+	/**
+	 * Menyetel baris pagu yang diserap baris ini.
+	 *
+	 * <p>Menyimpan anggaran <i>langsung</i> apa adanya, tanpa pengalihan ke anggaran
+	 * pendahulu — pengalihan itu hanya terjadi pada sisi baca
+	 * {@link #getWorkspace()}. Dipakai {@code saveKasLine(...)} dan
+	 * {@code copySource(...)}; untuk jenis sumber non-kas nilainya akan ditimpa
+	 * getter pada pembacaan berikutnya. Tidak ada validasi bahwa anggaran yang
+	 * disetel masih aktif atau berada dalam cakupan satuan kerja pengguna.</p>
+	 *
+	 * @param workspace baris pagu yang diserap
+	 */
 	public void setWorkspace(Workspace workspace) {
 		this.workspace = workspace;
 	}
 
+	/**
+	 * Mengembalikan dokumen sumber berupa grup transaksi jurnal umum, bila baris ini
+	 * bersumber dari jurnal.
+	 *
+	 * <p>Getter murni tanpa penurunan ulang. Relasi dipetakan EAGER dengan
+	 * {@link FetchMode#SELECT} (satu query terpisah, bukan {@code join}), sehingga
+	 * tidak perlu {@code check(...)} dan aman dibaca di luar sesi. Hanya baris
+	 * bersumber jurnal umum yang mengisi relasi ini —
+	 * {@code createPenggunaanAnggaranSource(...)} menyaring
+	 * {@code jenisJurnal} agar hanya {@code Transaksi.JURNAL_UMUM} yang diproyeksikan.</p>
+	 *
+	 * @return grup transaksi sumber, atau {@code null} bila bukan jenis ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "grup_transaksi", nullable = true)
@@ -1143,10 +1226,31 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return grupTransaksi;
 	}
 
+	/**
+	 * Menyetel dokumen sumber berupa grup transaksi jurnal umum.
+	 *
+	 * <p>Tidak ada penjaga yang memastikan hanya satu dari kedelapan relasi sumber
+	 * terisi; disiplin itu dipegang {@code copySource(...)} yang mengosongkan
+	 * kedelapannya lebih dulu sebelum mengisi satu.</p>
+	 *
+	 * @param grupTransaksi grup transaksi sumber
+	 */
 	public void setGrupTransaksi(GrupTransaksi grupTransaksi) {
 		this.grupTransaksi = grupTransaksi;
 	}
 
+	/**
+	 * Mengembalikan dokumen sumber berupa uang muka, bila baris ini bersumber dari
+	 * uang muka.
+	 *
+	 * <p>Getter murni tanpa penurunan ulang; relasi EAGER dengan
+	 * {@link FetchMode#SELECT}. Ingat bahwa uang muka yang berbasis permintaan
+	 * pengadaan tidak boleh memiliki baris penggunaan sendiri — lihat penjaga
+	 * potong-anggaran ganda pada {@link #getAktif()} dan
+	 * {@link #prosesSimpan(Serializable, Session)}.</p>
+	 *
+	 * @return uang muka sumber, atau {@code null} bila bukan jenis ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "uang_muka", nullable = true)
@@ -1154,10 +1258,44 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return uangMuka;
 	}
 
+	/**
+	 * Menyetel dokumen sumber berupa uang muka.
+	 *
+	 * @param uangMuka uang muka sumber
+	 */
 	public void setUangMuka(UangMuka uangMuka) {
 		this.uangMuka = uangMuka;
 	}
 
+	/**
+	 * Mengembalikan disposisi SOP yang berlaku bagi baris ini, diturunkan ulang dari
+	 * dokumen sumber.
+	 *
+	 * <p><b>Getter yang menghitung ulang dan menimpa field — dan satu-satunya yang
+	 * juga MENGOSONGKAN.</b> Berbeda dengan getter turunan lain di kelas ini yang
+	 * mempertahankan nilai lama ketika tak ada cabang yang cocok, rantai
+	 * {@code if/else} di sini ditutup cabang {@code else} yang menugaskan
+	 * {@code null}. Jadi bila tak satu pun dokumen sumber memiliki disposisi — atau
+	 * bila tak ada dokumen sumber sama sekali — field {@code disposisiSop} dibuang.
+	 * Ini menjaga agar disposisi tidak "menempel" pada baris setelah dokumen
+	 * sumbernya berganti, tetapi juga berarti pembacaan biasa dapat menghapus kolom
+	 * ini pada penyimpanan berikutnya.</p>
+	 *
+	 * <p><b>Urutan prioritas berbeda dari getter lain.</b> Perhatikan bahwa rantai di
+	 * sini <i>tidak</i> dimulai dari {@link GrupTransaksi} — jurnal umum tidak punya
+	 * cabang sama sekali — melainkan dari {@link UangMuka}, lalu PR, saldo awal,
+	 * gaji, kas kecil, kas besar, dan LPJ. Setiap cabang juga mensyaratkan disposisi
+	 * dokumennya tidak {@code null}, sehingga dokumen sumber tanpa disposisi jatuh ke
+	 * cabang berikutnya alih-alih menghentikan pencarian.</p>
+	 *
+	 * <p>Relasi dipetakan {@code fetch = FetchType.LAZY}, karena itu nilai yang ada
+	 * lebih dulu dilewatkan {@code check(...)} agar proxy yang terlepas dari sesi
+	 * dapat dipakai. Berbeda dengan {@link #getWorkspace()}, badan method ini
+	 * <b>tidak</b> dibungkus {@code try/catch}: kegagalan memuat dokumen sumber di
+	 * sini merambat ke pemanggil.</p>
+	 *
+	 * @return disposisi SOP yang berlaku, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -1189,6 +1327,23 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menyetel disposisi SOP baris ini.
+	 *
+	 * <p><b>Setter penjaga:</b> {@code null} maupun disposisi yang belum tersimpan
+	 * ({@code getId() == null}) diabaikan diam-diam sehingga nilai lama bertahan.
+	 * Penjaga ini mencegah relasi menunjuk objek transien yang akan gagal saat flush
+	 * — ingat bahwa relasi ini ber-{@code cascade} PERSIST dan MERGE, sehingga
+	 * menyetel objek belum tersimpan dapat menyeret penyimpanan tak diinginkan.</p>
+	 *
+	 * <p>Perhatikan ketidaksimetrisan yang disengaja terhadap {@link #getDisposisiSop()}:
+	 * setter menolak mengosongkan, sedangkan getter justru dapat mengosongkan sendiri
+	 * lewat cabang {@code else}-nya. Untuk membuang disposisi, ubah dokumen
+	 * sumbernya, bukan panggil setter ini dengan {@code null}.</p>
+	 *
+	 * @param disposisiSop disposisi SOP; diabaikan bila {@code null} atau belum
+	 *                     tersimpan
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
@@ -1196,6 +1351,17 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		this.disposisiSop = disposisiSop;
 	}
 
+	/**
+	 * Mengembalikan dokumen sumber berupa detail saldo awal aset (pengadaan
+	 * langsung/rutin), bila baris ini bersumber dari sana.
+	 *
+	 * <p>Getter murni tanpa penurunan ulang; relasi EAGER dengan
+	 * {@link FetchMode#SELECT}. Baris jenis ini diberi label berawalan
+	 * {@code "Langsung "} oleh {@link #getNama()} dan ref berakhiran {@code _RUTIN}
+	 * oleh {@link #refData(PenggunaanAnggaran)}.</p>
+	 *
+	 * @return detail saldo awal sumber, atau {@code null} bila bukan jenis ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "saldo_awal_master_asset_detail", nullable = true)
@@ -1203,10 +1369,29 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return saldoAwalMasterAssetDetail;
 	}
 
+	/**
+	 * Menyetel dokumen sumber berupa detail saldo awal aset.
+	 *
+	 * @param saldoAwalMasterAssetDetail detail saldo awal sumber
+	 */
 	public void setSaldoAwalMasterAssetDetail(SaldoAwalMasterAssetDetail saldoAwalMasterAssetDetail) {
 		this.saldoAwalMasterAssetDetail = saldoAwalMasterAssetDetail;
 	}
 
+	/**
+	 * Mengembalikan dokumen sumber berupa pembayaran gaji, bila baris ini bersumber
+	 * dari penggajian.
+	 *
+	 * <p>Berbeda dari relasi sumber lain yang dipetakan EAGER, relasi ini
+	 * {@code fetch = FetchType.LAZY} — masuk akal karena {@link PembayaranGaji}
+	 * adalah dokumen berat. Karena itu nilainya dilewatkan {@code check(...)} agar
+	 * proxy yang terlepas dari sesi dapat dibangkitkan ulang; jangan hilangkan
+	 * panggilan itu, atau pembacaan dari luar sesi (termasuk dari thread latar
+	 * belakang {@link #simpan(Serializable)}) akan melempar
+	 * {@code LazyInitializationException}.</p>
+	 *
+	 * @return pembayaran gaji sumber, atau {@code null} bila bukan jenis ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pembayaran_gaji", nullable = true)
 	public PembayaranGaji getPembayaranGaji() {
@@ -1214,10 +1399,27 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return pembayaranGaji;
 	}
 
+	/**
+	 * Menyetel dokumen sumber berupa pembayaran gaji.
+	 *
+	 * @param pembayaranGaji pembayaran gaji sumber
+	 */
 	public void setPembayaranGaji(PembayaranGaji pembayaranGaji) {
 		this.pembayaranGaji = pembayaranGaji;
 	}
 
+	/**
+	 * Mengembalikan dokumen sumber berupa kas kecil, bila baris ini bersumber dari
+	 * salah satu baris formula kas kecil.
+	 *
+	 * <p>Getter murni tanpa penurunan ulang; relasi EAGER dengan
+	 * {@link FetchMode#SELECT}. Perlu diingat bahwa relasi ini menunjuk
+	 * <i>dokumen</i> kas kecil, bukan baris di dalamnya: satu dokumen menghasilkan
+	 * banyak baris penggunaan yang dibedakan lewat {@link #getRef()}
+	 * ({@code <key>_KAS_KECIL_<id dokumen>}).</p>
+	 *
+	 * @return kas kecil sumber, atau {@code null} bila bukan jenis ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "kas_kecil", nullable = true)
@@ -1225,10 +1427,28 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return kasKecil;
 	}
 
+	/**
+	 * Menyetel dokumen sumber berupa kas kecil.
+	 *
+	 * @param kasKecil kas kecil sumber
+	 */
 	public void setKasKecil(KasKecil kasKecil) {
 		this.kasKecil = kasKecil;
 	}
 
+	/**
+	 * Mengembalikan dokumen sumber berupa kas besar, bila baris ini bersumber dari
+	 * salah satu baris formula kas besar.
+	 *
+	 * <p>Getter murni tanpa penurunan ulang; relasi EAGER dengan
+	 * {@link FetchMode#SELECT}. Seperti kas kecil, satu dokumen menghasilkan banyak
+	 * baris penggunaan yang dibedakan lewat {@link #getRef()}
+	 * ({@code <key>_KAS_BESAR_<id dokumen>}). Ingat pula bahwa
+	 * {@link #getAktif()} tidak memiliki cabang untuk jenis ini, sehingga
+	 * penonaktifan dokumen kas besar tidak dengan sendirinya mematikan barisnya.</p>
+	 *
+	 * @return kas besar sumber, atau {@code null} bila bukan jenis ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "kas_besar", nullable = true)
@@ -1236,10 +1456,26 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return kasBesar;
 	}
 
+	/**
+	 * Menyetel dokumen sumber berupa kas besar.
+	 *
+	 * @param kasBesar kas besar sumber
+	 */
 	public void setKasBesar(KasBesar kasBesar) {
 		this.kasBesar = kasBesar;
 	}
 
+	/**
+	 * Mengembalikan dokumen sumber berupa pertanggungjawaban (LPJ) uang muka, bila
+	 * baris ini bersumber dari LPJ.
+	 *
+	 * <p>Getter murni tanpa penurunan ulang; relasi EAGER dengan
+	 * {@link FetchMode#SELECT}. Baris jenis ini istimewa karena nilainya
+	 * <i>negatif</i> — ia mengoreksi turun serapan uang muka sebesar dana yang
+	 * dikembalikan; lihat {@link #getNilai()}.</p>
+	 *
+	 * @return pertanggungjawaban sumber, atau {@code null} bila bukan jenis ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pertangungjawaban", nullable = true)
@@ -1247,10 +1483,30 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return pertangungjawaban;
 	}
 
+	/**
+	 * Menyetel dokumen sumber berupa pertanggungjawaban (LPJ) uang muka.
+	 *
+	 * @param pertangungjawaban pertanggungjawaban sumber
+	 */
 	public void setPertangungjawaban(Pertangungjawaban pertangungjawaban) {
 		this.pertangungjawaban = pertangungjawaban;
 	}
 
+	/**
+	 * Mengembalikan dokumen sumber berupa detail permintaan pengadaan (PR), bila
+	 * baris ini bersumber dari PR.
+	 *
+	 * <p>Getter murni tanpa penurunan ulang; relasi EAGER dengan
+	 * {@link FetchMode#SELECT}. Perhatikan bahwa yang ditunjuk adalah
+	 * <i>detail</i>-nya, bukan dokumen PR: setiap baris detail memotong anggaran
+	 * sendiri sebesar {@code getHargaTotal()}-nya. Sifat/status seperti kode, nama,
+	 * dan flag aktif justru dibaca dari dokumen induknya
+	 * ({@code getPermintaanPengadaanMasterAsset()}) — lihat {@link #getAktif()}
+	 * yang mencatat perbaikan pemuatan malas terkait hal ini.</p>
+	 *
+	 * @return detail permintaan pengadaan sumber, atau {@code null} bila bukan jenis
+	 *         ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "permintaan_pengadaan_master_asset_detail", nullable = true)
@@ -1258,11 +1514,40 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return permintaanPengadaanMasterAssetDetail;
 	}
 
+	/**
+	 * Menyetel dokumen sumber berupa detail permintaan pengadaan (PR).
+	 *
+	 * @param permintaanPengadaanMasterAssetDetail detail permintaan pengadaan sumber
+	 */
 	public void setPermintaanPengadaanMasterAssetDetail(
 			PermintaanPengadaanMasterAssetDetail permintaanPengadaanMasterAssetDetail) {
 		this.permintaanPengadaanMasterAssetDetail = permintaanPengadaanMasterAssetDetail;
 	}
 
+	/**
+	 * Mengembalikan tanggal kejadian dokumen sumber, diturunkan ulang setiap kali
+	 * dipanggil.
+	 *
+	 * <p><b>Getter yang menghitung ulang dan menimpa field.</b> Menyusuri kedelapan
+	 * dokumen sumber dalam urutan prioritas baku dan menugaskan tanggalnya ke field
+	 * {@code waktu}: tanggal transaksi untuk {@link GrupTransaksi}, dan tanggal
+	 * pembuatan untuk uang muka, PR (dari dokumen induknya), saldo awal (dari
+	 * dokumen induknya), gaji, kas kecil, kas besar, serta LPJ.</p>
+	 *
+	 * <p>Inilah dimensi waktu yang dipakai laporan realisasi untuk mengelompokkan
+	 * serapan ke dalam periode. Perhatikan bahwa untuk tujuh dari delapan jenis
+	 * sumber yang dipakai adalah <b>tanggal pembuatan dokumen</b>, bukan tanggal
+	 * transaksi maupun tanggal persetujuan — dokumen yang dibuat pada akhir satu
+	 * periode dan disetujui pada periode berikutnya tetap tercatat pada periode
+	 * pembuatannya. Hanya jurnal umum yang memakai tanggal transaksi sebenarnya.</p>
+	 *
+	 * <p>Cabang-cabangnya tidak mensyaratkan keterkaitan {@link Workspace}, dan bila
+	 * tak ada cabang yang cocok field dipertahankan apa adanya. Badan method tidak
+	 * dibungkus {@code try/catch}, sehingga kegagalan memuat dokumen sumber merambat
+	 * ke pemanggil. Nilai kembalian boleh {@code null}.</p>
+	 *
+	 * @return tanggal kejadian dokumen sumber, atau {@code null}
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getWaktu() {
 		if (getGrupTransaksi() != null) {
@@ -1286,10 +1571,32 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return waktu;
 	}
 
+	/**
+	 * Menyetel cache tanggal kejadian baris.
+	 *
+	 * <p>Akan ditimpa {@link #getWaktu()} bila ada dokumen sumber yang menempel;
+	 * terutama dipakai Hibernate saat memuat baris.</p>
+	 *
+	 * @param waktu tanggal kejadian
+	 */
 	public void setWaktu(Date waktu) {
 		this.waktu = waktu;
 	}
 
+	/**
+	 * Memeriksa apakah sebuah string berisi teks bermakna.
+	 *
+	 * <p>Pembantu {@code null}-aman: mengembalikan {@code true} hanya bila
+	 * {@code value} tidak {@code null} dan masih menyisakan karakter setelah
+	 * dipangkas. Dipakai sebagai penjaga masuk di hampir seluruh method statis alur
+	 * penyimpanan agar {@code ref} kosong tidak pernah mencapai kunci advisory
+	 * maupun query — {@code lockRef(...)} bergantung padanya, sehingga cabang
+	 * {@code null} pada {@link #kunciRef(String)} tak pernah tercapai di
+	 * produksi.</p>
+	 *
+	 * @param value string yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila berisi teks bermakna
+	 */
 	private static boolean hasText(String value) {
 		return value != null && value.trim().length() > 0;
 	}

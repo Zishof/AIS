@@ -46,7 +46,36 @@ import ais.database.model.Pegawai;
  * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
  * session aktif; jangan menaruh query duplikat pada model.</p>
  *
+ * <h2>Makna bisnis: keanggotaan tim pada satu paket pekerjaan</h2>
+ * <p>Baris {@code rab.workspace_punya_pegawai} menautkan satu {@link ais.database.model.Pegawai}
+ * ke satu {@link Workspace} — dengan kata lain, ini tabel penghubung <b>tim/pelaksana</b> pada sisi
+ * manajemen proyek dari modul RAB. Sebuah workspace boleh punya banyak baris seperti ini, dan
+ * seorang pegawai boleh terlibat di banyak workspace, sehingga hubungannya banyak-ke-banyak
+ * murni: entity ini tidak menyimpan atribut tambahan apa pun (tidak ada peran, porsi keterlibatan,
+ * maupun rentang tanggal penugasan) — hanya pasangan dua referensi plus jejak audit.</p>
+ *
+ * <h2>Tidak ada penjaga duplikat</h2>
+ * <p>Skema tidak memiliki batasan {@code UNIQUE(workspace, pegawai)} dan entity tidak memeriksa
+ * apa pun, sehingga pegawai yang sama dapat tercatat berkali-kali pada workspace yang sama.
+ * Penyaringan duplikat, bila ada, hanya terjadi di lapisan layar.</p>
+ *
+ * <h2>Perilaku saat revisi anggaran disalin</h2>
+ * <p>Ketika dokumen anggaran disalin ke revisi/tahun berikutnya, {@code RabUtil} dan {@code
+ * WorkspaceTreeModel} menyalin baris-baris ini dengan pola {@code clone()} &rarr; {@code
+ * setId(null)} &rarr; {@code setWorkspace(workspaceBaru)} &rarr; {@code session.save(...)}.
+ * Artinya keanggotaan tim ikut terbawa apa adanya ke revisi baru, termasuk pegawai yang mungkin
+ * sudah tidak aktif; entity ini tidak menyaringnya.</p>
+ *
+ * <h2>Tenant</h2>
+ * <p>Entity ini <b>tidak</b> menyimpan {@code SatuanKerja}; tenantnya tersirat lewat {@link
+ * #getWorkspace()}. Tidak ada pula pemeriksaan bahwa pegawai yang ditautkan berasal dari satuan
+ * kerja yang sama dengan workspace-nya. Query atas tabel ini yang menyaring berdasarkan pegawai
+ * saja — misalnya untuk menampilkan "pekerjaan saya" — akan melintasi batas tenant kecuali ikut
+ * menautkan {@code workspace.satuanKerja}.</p>
+ *
  * @see GeneralValueObject
+ * @see Workspace
+ * @see Pegawai
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -61,44 +90,85 @@ public class WorkspacePunyaPegawai extends GeneralValueObject {
 	 * 
 	 */
 	private static final long serialVersionUID = -8738027816264807168L;
+	/** Nama/label pengguna penyunting terakhir (field audit bayangan Envers). */
 	private String oleh;
+
+	/** Id pengguna penyunting terakhir, pasangan mesin-terbaca dari {@link #oleh}. */
 	private String olehId;
 
+	/** Mengembalikan id pengguna penyunting terakhir apa adanya. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel id pengguna penyunting terakhir, mengabaikan {@code null} maupun string kosong agar
+	 * jejak audit yang sudah terisi tidak tertimpa nilai kosong dari binding form atau proses impor.
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
+	/** Primary key {@code rab.workspace_punya_pegawai.id}, dibangkitkan database ({@code IDENTITY}). */
 	private Long id;
 
+	/** Menyetel nama penyunting terakhir, mengabaikan {@code null}/string kosong (alasan sama seperti {@link #setOlehId(String)}). */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/** Mengembalikan nama/label penyunting terakhir apa adanya. */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: menstempel audit lewat {@code
+	 * AuditTimestampInterceptor.ubah(this)} sebelum Hibernate menerbitkan {@code UPDATE}. Sengaja
+	 * {@code protected} — hanya provider persistence yang boleh memanggilnya.
+	 *
+	 * <p>Pada baris fisik yang sama ikut dideklarasikan field {@code tanggal_dirubah} (stempel waktu
+	 * perubahan terakhir, diinisialisasi ke waktu server lewat {@code WaktuUtil.getDate()} sehingga
+	 * baris baru selalu punya stempel walau belum pernah melewati jalur {@code @PreUpdate}).
+	 * Penggabungan dua deklarasi dalam satu baris itu hasil penyisipan otomatis lintas entity AIS,
+	 * bukan gaya penulisan yang disengaja.</p>
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Menyetel stempel waktu perubahan terakhir; umumnya diisi interceptor audit atau proses migrasi. */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** Mengembalikan stempel waktu perubahan terakhir, dipetakan sebagai kolom {@code TIMESTAMP}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Pegawai yang ditugaskan pada workspace ini. Kolomnya {@code NOT NULL} — baris tanpa pegawai
+	 * tidak sah — namun tidak ada pemeriksaan bahwa pegawai berasal dari satuan kerja yang sama
+	 * dengan workspace-nya.
+	 */
 	private Pegawai pegawai;
+
+	/**
+	 * Workspace tempat pegawai ini ditugaskan. Kolomnya {@code NOT NULL} dan merupakan satu-satunya
+	 * jalur tenant baris ini.
+	 */
 	private Workspace workspace;
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan JPA/Hibernate, sekaligus dipakai layar RAB saat
+	 * menambahkan anggota tim baru. Kedua sisi relasi belum terisi; pemanggil wajib menyetel
+	 * {@link #setPegawai(Pegawai)} dan {@link #setWorkspace(Workspace)} sebelum menyimpan, karena
+	 * keduanya dipetakan {@code NOT NULL}.
+	 */
 	public WorkspacePunyaPegawai() {
 	}
 
+	/** Mengembalikan primary key baris, dibangkitkan database saat {@code INSERT}. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -106,10 +176,26 @@ public class WorkspacePunyaPegawai extends GeneralValueObject {
 		return this.id;
 	}
 
+	/** Menyetel primary key; umumnya hanya dipakai Hibernate. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan pegawai yang ditugaskan, setelah resolusi proxy lazy lewat {@code check(...)}
+	 * milik {@link GeneralValueObject} (cache in-memory &rarr; session aktif &rarr; reload lewat
+	 * session baru); hasil resolusi ditulis balik ke field.
+	 *
+	 * <p>Relasi ini menembus batas modul: {@link Pegawai} berasal dari paket kepegawaian dan
+	 * membawa data pribadi. Laporan jadwal rencana anggaran menampilkan nama pegawai per baris
+	 * pekerjaan, sehingga siapa pun yang dapat membaca sebuah workspace juga dapat melihat daftar
+	 * pegawai yang ditugaskan padanya — pertimbangkan hal ini ketika membuka akses lintas satker
+	 * pada layar RAB.</p>
+	 *
+	 * <p>Karena {@code cascade} mencakup {@code PERSIST} dan {@code MERGE}, menyimpan baris
+	 * penugasan ikut menyebarkan operasi tersebut ke objek pegawai yang tertaut; jangan menyetel
+	 * objek pegawai hasil rakitan manual di sini, gunakan entity yang benar-benar dimuat.</p>
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai", nullable = false)
 	public Pegawai getPegawai() {
@@ -117,10 +203,22 @@ public class WorkspacePunyaPegawai extends GeneralValueObject {
 		return pegawai;
 	}
 
+	/**
+	 * Menyetel pegawai yang ditugaskan. Tidak ada pemeriksaan duplikat (pegawai yang sama boleh
+	 * ditambahkan berkali-kali pada workspace yang sama), tidak ada pemeriksaan status aktif
+	 * pegawai, dan tidak ada pemeriksaan kesamaan satuan kerja dengan workspace pemilik.
+	 */
 	public void setPegawai(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/**
+	 * Mengembalikan workspace tempat pegawai ini ditugaskan, setelah resolusi proxy lazy; hasilnya
+	 * ditulis balik ke field. Relasi inilah satu-satunya penentu tenant baris ini — entity tidak
+	 * menyimpan {@code SatuanKerja} sendiri — sehingga query yang menyaring hanya berdasarkan
+	 * pegawai wajib ikut menautkan {@code workspace.satuanKerja} bila hasilnya dipakai lintas
+	 * pengguna.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "workspace", nullable = false)
 	public Workspace getWorkspace() {
@@ -128,6 +226,12 @@ public class WorkspacePunyaPegawai extends GeneralValueObject {
 		return workspace;
 	}
 
+	/**
+	 * Menyetel workspace pemilik baris penugasan ini. Layar RAB menyetelnya belakangan: seluruh
+	 * baris tim dibentuk lebih dulu di grid, lalu disambungkan ke workspace yang sedang disunting
+	 * tepat sebelum {@code saveOrUpdate}. Proses salin revisi memakai jalur yang sama —
+	 * {@code clone()}, {@code setId(null)}, lalu setter ini dengan workspace hasil salinan.
+	 */
 	public void setWorkspace(Workspace workspace) {
 		this.workspace = workspace;
 	}
