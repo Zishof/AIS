@@ -48,7 +48,42 @@ import ais.database.model.GeneralValueObject;
  * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
  * session aktif; jangan menaruh query duplikat pada model.</p>
  *
+ * <h2>Makna bisnis: indikator kinerja beserta targetnya</h2>
+ * <p>Baris {@code rab.workspace_punya_indikator} menautkan satu {@link Indikator} — entry katalog
+ * indikator kinerja — ke satu {@link Workspace}, <b>ditambah</b> nilai target yang berlaku khusus
+ * untuk pasangan itu. Berbeda dari tabel penghubung lain di klaster ini yang murni pasangan
+ * referensi, entity ini membawa muatan sendiri: {@link #getNilaiTarget() nilaiTarget} (angka),
+ * {@link #getSatuan() satuan} (satuan pengukuran), {@link #getTarget() target} (teks bebas), dan
+ * {@link #getOutput() output} (teks panjang). Bersama {@link WorkspacePunyaSasaran} ia melengkapi
+ * sisi perencanaan berbasis kinerja: sasaran menyatakan apa yang hendak dicapai, indikator
+ * menyatakan bagaimana pencapaian itu diukur dan seberapa besar targetnya.</p>
+ *
+ * <h2>Tiga jalur penyimpanan target yang tumpang tindih</h2>
+ * <p>Target dapat ditulis di tiga tempat sekaligus dan entity tidak menyelaraskannya:</p>
+ * <ul>
+ *   <li>{@code nilaiTarget} + {@code satuan} — bentuk terstruktur dan dapat dihitung;</li>
+ *   <li>{@code target} — teks bebas tanpa kolom yang dipetakan eksplisit;</li>
+ *   <li>{@code output} — teks panjang ({@code columnDefinition = "text"}) yang di layar dipakai
+ *   untuk uraian keluaran.</li>
+ * </ul>
+ * <p>Tidak ada aturan yang menentukan mana yang menang bila ketiganya terisi dengan nilai berbeda,
+ * sehingga rekap kinerja perlu memilih satu jalur secara sadar.</p>
+ *
+ * <h2>Nullability dan duplikat</h2>
+ * <p>{@code workspace} {@code NOT NULL}, {@code indikator} {@code nullable}: baris tanpa indikator
+ * sah secara skema dan hanya ditolak validasi layar. Tidak ada {@code UNIQUE(workspace,
+ * indikator)}, sehingga indikator yang sama dapat tercatat berkali-kali dengan target berbeda.</p>
+ *
+ * <h2>Tenant</h2>
+ * <p>Entity ini tidak menyimpan {@code SatuanKerja}; tenantnya tersirat lewat {@link
+ * #getWorkspace()}. Sama seperti pada {@link WorkspacePunyaSasaran}, {@link Indikator} punya kolom
+ * satuan kerja sendiri tetapi tidak ada yang memaksa keduanya sama.</p>
+ *
  * @see GeneralValueObject
+ * @see Workspace
+ * @see Indikator
+ * @see WorkspacePunyaSasaran
+ * @see AcaraPunyaIndikator
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -64,48 +99,89 @@ public class WorkspacePunyaIndikator extends GeneralValueObject {
 	 * 
 	 */
 	private static final long serialVersionUID = -8738027816264807168L;
+	/** Nama/label pengguna penyunting terakhir (field audit bayangan Envers). */
 	private String oleh;
+
+	/** Id pengguna penyunting terakhir, pasangan mesin-terbaca dari {@link #oleh}. */
 	private String olehId;
 
+	/** Mengembalikan id pengguna penyunting terakhir apa adanya. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel id pengguna penyunting terakhir, mengabaikan {@code null} maupun string kosong agar
+	 * jejak audit yang sudah terisi tidak tertimpa nilai kosong dari binding form atau proses impor.
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
+	/** Primary key {@code rab.workspace_punya_indikator.id}, dibangkitkan database ({@code IDENTITY}). */
 	private Long id;
 
+	/** Menyetel nama penyunting terakhir, mengabaikan {@code null}/string kosong (alasan sama seperti {@link #setOlehId(String)}). */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/** Mengembalikan nama/label penyunting terakhir apa adanya. */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: menstempel audit lewat {@code
+	 * AuditTimestampInterceptor.ubah(this)} sebelum Hibernate menerbitkan {@code UPDATE}. Sengaja
+	 * {@code protected} — hanya provider persistence yang boleh memanggilnya.
+	 *
+	 * <p>Pada baris fisik yang sama ikut dideklarasikan field {@code tanggal_dirubah} (stempel waktu
+	 * perubahan terakhir, diinisialisasi ke waktu server lewat {@code WaktuUtil.getDate()} sehingga
+	 * baris baru selalu punya stempel walau belum pernah melewati jalur {@code @PreUpdate}).
+	 * Penggabungan dua deklarasi dalam satu baris itu hasil penyisipan otomatis lintas entity AIS,
+	 * bukan gaya penulisan yang disengaja.</p>
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Menyetel stempel waktu perubahan terakhir; umumnya diisi interceptor audit atau proses migrasi. */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** Mengembalikan stempel waktu perubahan terakhir, dipetakan sebagai kolom {@code TIMESTAMP}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** Indikator kinerja yang ditautkan; kolomnya {@code nullable} sehingga baris tanpa indikator sah secara skema. */
 	private Indikator indikator;
+
+	/** Workspace pemilik baris ini; kolom {@code NOT NULL} dan satu-satunya jalur tenant baris ini. */
 	private Workspace workspace;
+
+	/** Nilai target indikator dalam bentuk angka — jalur target yang terstruktur, berpasangan dengan {@link #satuan}. */
 	private Double nilaiTarget;
+
+	/** Satuan pengukuran untuk {@link #nilaiTarget} (mis. dokumen, orang, persen). */
 	private Satuan satuan;
+
+	/** Target dalam bentuk teks bebas — jalur alternatif terhadap {@link #nilaiTarget}, tidak diselaraskan dengan angkanya. */
 	private String target;
+
+	/** Uraian keluaran/output dalam teks panjang ({@code columnDefinition = "text"}). */
 	private String output;
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan JPA/Hibernate, sekaligus dipakai layar RAB saat
+	 * menambahkan baris indikator baru. Seluruh muatan target ({@code nilaiTarget}, {@code satuan},
+	 * {@code target}, {@code output}) berawal {@code null}; tidak ada nilai default.
+	 */
 	public WorkspacePunyaIndikator() {
 	}
 
+	/** Mengembalikan primary key baris, dibangkitkan database saat {@code INSERT}. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -113,10 +189,22 @@ public class WorkspacePunyaIndikator extends GeneralValueObject {
 		return this.id;
 	}
 
+	/** Menyetel primary key; umumnya hanya dipakai Hibernate. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan indikator kinerja yang ditautkan, <b>apa adanya</b> tanpa melewati
+	 * {@code check(...)}. Pemetaannya tidak menyebut {@code fetch} sehingga berlaku default
+	 * {@code @ManyToOne} yaitu {@code EAGER}, ditambah {@code @Fetch(FetchMode.SELECT)} yang memuat
+	 * indikator lewat {@code SELECT} terpisah. Objek karena itu sudah termuat penuh saat entity
+	 * dihidrasi — resolusi proxy tidak diperlukan — dengan harga satu query tambahan per baris saat
+	 * sekumpulan baris indikator dimuat sekaligus.
+	 *
+	 * <p>Dapat mengembalikan {@code null}; validasi di layar RAB-lah yang menolak baris indikator
+	 * kosong, bukan skema.</p>
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "indikator", nullable = true)
@@ -124,10 +212,20 @@ public class WorkspacePunyaIndikator extends GeneralValueObject {
 		return indikator;
 	}
 
+	/**
+	 * Menyetel indikator kinerja yang ditautkan. Tidak ada pemeriksaan duplikat dan tidak ada
+	 * pemeriksaan bahwa satuan kerja pada {@link Indikator} sama dengan satuan kerja workspace
+	 * pemilik.
+	 */
 	public void setIndikator(Indikator indikator) {
 		this.indikator = indikator;
 	}
 
+	/**
+	 * Mengembalikan workspace pemilik baris ini setelah resolusi proxy lazy lewat {@code check(...)};
+	 * hasilnya ditulis balik ke field. Relasi ini satu-satunya penentu tenant baris indikator,
+	 * sehingga query lintas pengguna wajib ikut menautkan {@code workspace.satuanKerja}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "workspace", nullable = false)
 	public Workspace getWorkspace() {
@@ -135,28 +233,56 @@ public class WorkspacePunyaIndikator extends GeneralValueObject {
 		return workspace;
 	}
 
+	/**
+	 * Menyetel workspace pemilik baris indikator ini; disetel belakangan oleh layar RAB, tepat
+	 * sebelum {@code saveOrUpdate}, dan oleh proses salin revisi setelah {@code clone()} +
+	 * {@code setId(null)}.
+	 */
 	public void setWorkspace(Workspace workspace) {
 		this.workspace = workspace;
 	}
 
+	/**
+	 * Mengembalikan uraian keluaran/output sebagai teks panjang. Kolomnya dipetakan
+	 * {@code columnDefinition = "text"} sehingga tidak ada batas panjang praktis — berbeda dari
+	 * {@link #getTarget()} yang memakai kolom string biasa. Nilai dikembalikan apa adanya, termasuk
+	 * {@code null} dan spasi di ujung.
+	 */
 	@Column(name = "output", columnDefinition = "text")
 	public String getOutput() {
 		return output;
 	}
 
+	/** Menyetel uraian keluaran/output; tidak ada normalisasi maupun pembatasan panjang di sisi entity. */
 	public void setOutput(String output) {
 		this.output = output;
 	}
 
+	/**
+	 * Mengembalikan nilai target indikator dalam bentuk angka, apa adanya termasuk {@code null}.
+	 *
+	 * <p>Berbeda dari kolom-kolom nilai pada {@link Workspace} yang memulihkan {@code null} menjadi
+	 * 0,0, di sini {@code null} dipertahankan — dan memang bermakna: "target belum ditetapkan"
+	 * berbeda dari "target nol". Kode rekap kinerja karena itu tidak boleh langsung membuka nilainya
+	 * ke {@code double} tanpa memeriksa {@code null}. Bersama {@link #getSatuan()} inilah jalur
+	 * target yang terstruktur dan dapat dijumlahkan; dua jalur lain ({@link #getTarget()} dan
+	 * {@link #getOutput()}) berbentuk teks dan tidak diselaraskan dengan angka ini.</p>
+	 */
 	@Column(name = "nilai_target")
 	public Double getNilaiTarget() {
 		return nilaiTarget;
 	}
 
+	/** Menyetel nilai target berbentuk angka; {@code null} berarti target belum ditetapkan. */
 	public void setNilaiTarget(Double nilaiTarget) {
 		this.nilaiTarget = nilaiTarget;
 	}
 
+	/**
+	 * Mengembalikan satuan pengukuran untuk {@link #getNilaiTarget()}, setelah resolusi proxy lazy
+	 * lewat {@code check(...)}; hasilnya ditulis balik ke field. Kolomnya {@code nullable}, sehingga
+	 * nilai target tanpa satuan dimungkinkan dan pembacanya harus menampilkan angka telanjang.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan", nullable = true)
 	public Satuan getSatuan() {
@@ -164,14 +290,22 @@ public class WorkspacePunyaIndikator extends GeneralValueObject {
 		return satuan;
 	}
 
+	/** Menyetel satuan pengukuran nilai target; {@code null} diperbolehkan. */
 	public void setSatuan(Satuan satuan) {
 		this.satuan = satuan;
 	}
 
+	/**
+	 * Mengembalikan target dalam bentuk teks bebas, apa adanya. Tidak ada anotasi {@code @Column}
+	 * eksplisit, sehingga kolom memakai nama dan panjang default. Field ini adalah jalur target
+	 * ketiga yang tumpang tindih dengan {@link #getNilaiTarget()} dan {@link #getOutput()}; entity
+	 * tidak menentukan mana yang menang bila isinya berbeda.
+	 */
 	public String getTarget() {
 		return target;
 	}
 
+	/** Menyetel target berbentuk teks bebas, tanpa normalisasi dan tanpa penyelarasan dengan {@link #setNilaiTarget(Double)}. */
 	public void setTarget(String target) {
 		this.target = target;
 	}
