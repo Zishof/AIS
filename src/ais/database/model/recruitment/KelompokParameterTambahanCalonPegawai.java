@@ -142,11 +142,11 @@ private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 	private String nama;
 	/** Catatan/deskripsi bebas untuk kelompok ini. */
 	private String keterangan;
-	/** Penanda kelompok bawaan sistem (hasil {@link #checkCreateDefault()}); lihat catatan getter destruktif di {@link #getDefaultData()}. */
+	/** Penanda kelompok bawaan sistem (hasil {@link #checkCreateDefault()}); default {@code false} bila {@code null}, lihat {@link #getDefaultData()}. */
 	private Boolean defaultData;
-	/** Flag aktif/tidak; lihat catatan getter destruktif di {@link #getAktif()}. */
+	/** Flag aktif/tidak; default {@code true} bila {@code null}, lihat {@link #getAktif()}. */
 	private Boolean aktif;
-	/** Urutan tampil kelompok pada formulir; lihat catatan getter destruktif di {@link #getNomorUrut()}. */
+	/** Urutan tampil kelompok pada formulir; default {@code 1} bila {@code null}, lihat {@link #getNomorUrut()}. */
 	private Integer nomorUrut;
 
 	/**
@@ -236,27 +236,13 @@ private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 	/**
 	 * Penanda kelompok bawaan sistem (dibuat oleh {@link #checkCreateDefault()}).
 	 *
-	 * <p><b>GETTER DESTRUKTIF — memutasi field, bukan sekadar membaca.</b> Berbeda dengan pola
-	 * default aman di file sejenis paket ini (mis. {@link VerifikasiKelengkapanCalonPegawai#getAktif()},
-	 * yang HANYA mengevaluasi ternary tanpa menulis field), getter ini benar-benar meng-{@code assign}
-	 * {@code this.defaultData = false} ke field bila sebelumnya {@code null}. Pada entity yang SEDANG
-	 * dikelola Hibernate ({@code dynamicUpdate = true}, {@code @Audited}), pemanggilan getter ini pada
-	 * baris lama yang belum pernah punya kolom {@code default_data} ter-set (nilai DB {@code NULL})
-	 * mengubah state in-memory entity tersebut menjadi "dirty" HANYA KARENA DIBACA — bila sesi
-	 * Hibernate melakukan flush setelahnya (mis. di akhir request/transaksi yang sama, dipicu operasi
-	 * lain), perubahan ini bisa ikut ter-{@code UPDATE} ke database beserta revisi baru di riwayat
-	 * Envers, padahal tidak ada perubahan data yang benar-benar dimaksudkan pengguna. Getter ini
-	 * dipanggil dari renderer daftar admin ({@code
-	 * KelompokParameterTambahanCalonPegawaiAction}, dalam konteks render baris/tombol hapus) — konteks
-	 * yang secara semantik seharusnya READ-ONLY.
+	 * <p>Mengembalikan default {@code false} tanpa memutasi field {@link #defaultData}, sama seperti
+	 * pola aman di file sejenis paket ini (mis. {@link VerifikasiKelengkapanCalonPegawai#getAktif()}).
 	 *
 	 * @return {@code true} bila kelompok ini adalah kelompok bawaan sistem; {@code false} bila bukan.
 	 */
 	public Boolean getDefaultData() {
-		if (defaultData == null) {
-			defaultData = false;
-		}
-		return defaultData;
+		return defaultData == null ? false : defaultData;
 	}
 
 	/** @param defaultData penanda kelompok bawaan sistem baru. */
@@ -267,19 +253,13 @@ private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 	/**
 	 * Status aktif kelompok.
 	 *
-	 * <p><b>GETTER DESTRUKTIF — sama seperti {@link #getDefaultData()}</b>: bila {@link #aktif}
-	 * bernilai {@code null}, getter ini meng-{@code assign} {@code this.aktif = true} ke field
-	 * sebelum mengembalikannya, bukan sekadar mengevaluasi ternary tanpa efek samping. Risiko dan
-	 * konteks pemanggilan (renderer daftar admin, checkbox aktif) sama seperti dijelaskan di {@link
+	 * <p>Mengembalikan default {@code true} tanpa memutasi field {@link #aktif}; lihat {@link
 	 * #getDefaultData()}.
 	 *
 	 * @return {@code true} bila kelompok ini aktif; {@code false} bila dinonaktifkan.
 	 */
 	public Boolean getAktif() {
-		if (aktif == null) {
-			aktif = true;
-		}
-		return aktif;
+		return aktif == null ? true : aktif;
 	}
 
 	/** @param aktif status aktif baru. */
@@ -290,20 +270,12 @@ private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 	/**
 	 * Urutan tampil kelompok pada formulir.
 	 *
-	 * <p><b>GETTER DESTRUKTIF — sama seperti {@link #getDefaultData()}</b>: bila {@link #nomorUrut}
-	 * bernilai {@code null}, getter ini meng-{@code assign} {@code this.nomorUrut = 1} ke field
-	 * SEBELUM baris {@code return nomorUrut == null ? 1 : nomorUrut;} dijalankan — baris ternary
-	 * tersebut karenanya TIDAK PERNAH mengevaluasi cabang {@code null} (sudah keburu di-assign di
-	 * blok {@code if} sebelumnya); kode redundan yang tidak berbahaya sendiri, namun menandakan
-	 * assignment di blok {@code if} tersebut memang disengaja/tidak disadari sebagai efek samping.
-	 * Risiko dan konteks pemanggilan sama seperti dijelaskan di {@link #getDefaultData()}.
+	 * <p>Mengembalikan default {@code 1} tanpa memutasi field {@link #nomorUrut}; lihat {@link
+	 * #getDefaultData()}.
 	 *
 	 * @return urutan tampil kelompok; {@code 1} bila belum pernah diisi.
 	 */
 	public Integer getNomorUrut() {
-		if (nomorUrut == null) {
-			nomorUrut = 1;
-		}
 		return nomorUrut == null ? 1 : nomorUrut;
 	}
 
@@ -314,9 +286,7 @@ private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	/**
 	 * Bandingkan urutan tampil untuk pengurutan koleksi (mis. {@code TreeSet<KelompokParameterTambahanCalonPegawai>}).
-	 * Memanggil {@link #getNomorUrut()} pada KEDUA sisi — sebagai konsekuensi tidak langsung dari
-	 * getter destruktif di atas, mengurutkan koleksi berisi baris ber-{@code nomorUrut} null akan ikut
-	 * menuliskan default {@code 1} ke field masing-masing baris tersebut.
+	 * Memanggil {@link #getNomorUrut()} pada KEDUA sisi.
 	 *
 	 * @param arg0 objek pembanding; HARUS berupa {@code KelompokParameterTambahanCalonPegawai}
 	 *             ({@code ClassCastException} bila bukan — tidak ada pengecekan tipe).
