@@ -47,7 +47,20 @@ import ais.database.model.rab.Indikator;
  * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
  * session aktif; jangan menaruh query duplikat pada model.</p>
  *
+ * <p><b>Baris tabel penghubung ("has"):</b> satu baris menautkan satu {@link KegiatanTugasJabatan} (modul
+ * LKP/Laporan Kinerja Pegawai) ke satu {@link Indikator}. {@code Indikator} di sini adalah kelas indikator milik
+ * modul RAB ({@code ais.database.model.rab.Indikator}), <b>bukan</b> {@code ItemKpi}/{@code FormatKpi} dari
+ * paket {@code kpi} — dua konsep indikator yang berbeda dan tidak saling terhubung di kode; lihat {@link
+ * ais.action.master.lkp.helper.KegiatanTugasJabatanPunyaIndikatorHelper} yang mengelola grid indikator ini lewat
+ * picker {@code AmbilDataIndikatorBanyak} milik RAB. Selain menaut, baris ini juga membawa target capaian
+ * spesifik-indikator: {@link #getNilaiTarget()} (nilai target numerik), {@link #getSatuan()} (satuan ukur), dan
+ * {@link #getTarget()}/{@link #getOutput()} (deskripsi target/output tekstual) — terpisah dari target
+ * kuantitas/kualitas/waktu/biaya yang dikelola {@link ais.database.model.lkp.TargetKerjaPegawai} per pegawai per
+ * periode.</p>
+ *
  * @see GeneralValueObject
+ * @see KegiatanTugasJabatan
+ * @see Indikator
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -65,30 +78,69 @@ public class KegiatanTugasJabatanPunyaIndikator extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * Mengembalikan id pengguna yang terakhir menyimpan/mengubah baris ini (field audit shadow,
+	 * pasangan {@link #getOleh()}, diisi manual — bukan oleh interceptor otomatis).
+	 *
+	 * @return id pengguna terakhir, dapat {@code null}.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menetapkan id pengguna yang melakukan perubahan. Nilai {@code null} atau kosong/blank
+	 * diabaikan secara diam-diam.
+	 *
+	 * @param olehId id pengguna; diabaikan jika {@code null} atau kosong setelah di-trim.
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
 	private Long id;
 
+	/**
+	 * Menetapkan nama/label pengguna yang melakukan perubahan (pasangan {@link #setOlehId(String)}).
+	 * Nilai {@code null} atau kosong/blank diabaikan secara diam-diam.
+	 *
+	 * @param oleh nama pengguna; diabaikan jika {@code null} atau kosong setelah di-trim.
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama/label pengguna yang terakhir menyimpan/mengubah baris ini.
+	 *
+	 * @return nama pengguna terakhir, dapat {@code null}.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: memperbarui {@link #tanggal_dirubah} melalui {@link
+	 * ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)} pada setiap update baris ini.
+	 * Dipanggil otomatis oleh provider persistence.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menetapkan timestamp perubahan terakhir secara eksplisit.
+	 *
+	 * @param tanggal_dirubah timestamp perubahan terakhir.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan timestamp perubahan terakhir baris ini, diperbarui otomatis oleh {@link
+	 * #onUpdate()}.
+	 *
+	 * @return timestamp perubahan terakhir.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
@@ -101,9 +153,15 @@ public class KegiatanTugasJabatanPunyaIndikator extends GeneralValueObject {
 	private String target;
 	private String output;
 
+	/** Konstruktor default (dibutuhkan Hibernate/JPA). */
 	public KegiatanTugasJabatanPunyaIndikator() {
 	}
 
+	/**
+	 * Mengembalikan id primary key baris penghubung ini.
+	 *
+	 * @return id baris, atau {@code null} untuk instance yang belum tersimpan.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -111,10 +169,20 @@ public class KegiatanTugasJabatanPunyaIndikator extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menetapkan id baris penghubung ini.
+	 *
+	 * @param id id baris.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan {@link Indikator} RAB yang ditautkan ke kegiatan ini. Relasi lazy, opsional.
+	 *
+	 * @return indikator RAB terkait, dapat {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "indikator", nullable = true)
 	public Indikator getIndikator() {
@@ -122,10 +190,21 @@ public class KegiatanTugasJabatanPunyaIndikator extends GeneralValueObject {
 		return indikator;
 	}
 
+	/**
+	 * Menetapkan indikator RAB yang ditautkan ke kegiatan ini.
+	 *
+	 * @param indikator indikator baru.
+	 */
 	public void setIndikator(Indikator indikator) {
 		this.indikator = indikator;
 	}
 
+	/**
+	 * Mengembalikan {@link KegiatanTugasJabatan} (kegiatan/tugas jabatan) pemilik tautan indikator
+	 * ini. Kolom wajib diisi; relasi lazy.
+	 *
+	 * @return kegiatan tugas jabatan pemilik.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kegiatan_tugas_jabatan", nullable = false)
 	public KegiatanTugasJabatan getKegiatanTugasJabatan() {
@@ -133,28 +212,61 @@ public class KegiatanTugasJabatanPunyaIndikator extends GeneralValueObject {
 		return kegiatanTugasJabatan;
 	}
 
+	/**
+	 * Menetapkan kegiatan tugas jabatan pemilik tautan indikator ini.
+	 *
+	 * @param kegiatanTugasJabatan kegiatan pemilik baru.
+	 */
 	public void setKegiatanTugasJabatan(KegiatanTugasJabatan kegiatanTugasJabatan) {
 		this.kegiatanTugasJabatan = kegiatanTugasJabatan;
 	}
 
+	/**
+	 * Mengembalikan deskripsi output/keluaran yang diharapkan dari indikator ini pada kegiatan
+	 * terkait (kolom teks bebas).
+	 *
+	 * @return deskripsi output, dapat {@code null}.
+	 */
 	@Column(name = "output", columnDefinition = "text")
 	public String getOutput() {
 		return output;
 	}
 
+	/**
+	 * Menetapkan deskripsi output/keluaran indikator ini.
+	 *
+	 * @param output deskripsi output baru.
+	 */
 	public void setOutput(String output) {
 		this.output = output;
 	}
 
+	/**
+	 * Mengembalikan nilai target numerik yang harus dicapai untuk indikator ini pada kegiatan
+	 * terkait.
+	 *
+	 * @return nilai target, dapat {@code null} bila belum diisi.
+	 */
 	@Column(name = "nilai_target")
 	public Double getNilaiTarget() {
 		return nilaiTarget;
 	}
 
+	/**
+	 * Menetapkan nilai target numerik indikator ini.
+	 *
+	 * @param nilaiTarget nilai target baru.
+	 */
 	public void setNilaiTarget(Double nilaiTarget) {
 		this.nilaiTarget = nilaiTarget;
 	}
 
+	/**
+	 * Mengembalikan {@link SatuanKegiatanTugasJabatan} (satuan ukur) yang dipakai untuk menyatakan
+	 * {@link #getNilaiTarget()} indikator ini. Relasi lazy, opsional.
+	 *
+	 * @return satuan ukur target, dapat {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan", nullable = true)
 	public SatuanKegiatanTugasJabatan getSatuan() {
@@ -162,14 +274,30 @@ public class KegiatanTugasJabatanPunyaIndikator extends GeneralValueObject {
 		return satuan;
 	}
 
+	/**
+	 * Menetapkan satuan ukur target indikator ini.
+	 *
+	 * @param satuan satuan ukur baru.
+	 */
 	public void setSatuan(SatuanKegiatanTugasJabatan satuan) {
 		this.satuan = satuan;
 	}
 
+	/**
+	 * Mengembalikan deskripsi target tekstual bebas untuk indikator ini (pelengkap {@link
+	 * #getNilaiTarget()} numerik, dipakai bila target lebih tepat dinyatakan sebagai teks).
+	 *
+	 * @return deskripsi target, dapat {@code null}.
+	 */
 	public String getTarget() {
 		return target;
 	}
 
+	/**
+	 * Menetapkan deskripsi target tekstual indikator ini.
+	 *
+	 * @param target deskripsi target baru.
+	 */
 	public void setTarget(String target) {
 		this.target = target;
 	}
