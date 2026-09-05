@@ -1029,10 +1029,36 @@ public class Pendaftaran extends GeneralValueObject {
 		this.pasien = pasien;
 	}
 
+	/**
+	 * Menyetel pasien pendaftaran ini <b>tanpa</b> memperbarui cuplikan komunitas.
+	 * <p>Gunakan {@link #setPasienKomunitas(Pasien)} bila cuplikan komunitas juga perlu diambil
+	 * ulang — itulah yang dilakukan ketiga layar pendaftaran pada saat simpan, dengan memanggil
+	 * setter ini lebih dulu lalu {@code setPasienKomunitas(getPasien())}.</p>
+	 *
+	 * @param pasien pasien yang mendaftar.
+	 */
 	public void setPasien(Pasien pasien) {
 		this.pasien = pasien;
 	}
 
+	/**
+	 * Mengembalikan pasien yang mendaftar, setelah meresolusi proxy lazy-nya lewat
+	 * {@code check(...)}.
+	 *
+	 * <p><b>Perhatikan pemetaannya:</b> kolom {@code pasien} di sini dipetakan
+	 * {@code nullable = true}, berbeda dari {@link BookingRegistrasi#getPasien()} yang
+	 * {@code nullable = false}. Jadi pada tingkat basis data sebuah pendaftaran <b>boleh tidak
+	 * menyebut pasien</b>. Baris seperti itu praktis tidak berguna — {@link #getUmur()} akan
+	 * mengembalikan 0, {@link #getJenisPasien()} jatuh ke nilai tersimpan, dan
+	 * {@link #ambilAlamat()} mengembalikan string kosong — tetapi tidak dicegah, sehingga kode
+	 * yang membaca pendaftaran wajib memeriksa {@code null} sebelum menelusuri data pasien.</p>
+	 *
+	 * <p>Nilai ini menjadi sumber beberapa nilai turunan pada entity ini: {@link #getUmur()},
+	 * {@link #getJenisPasien()}, dan {@link #ambilAlamat()} semuanya membacanya.</p>
+	 *
+	 * @return pasien yang mendaftar, atau {@code null}.
+	 * @see Pasien
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pasien", nullable = true)
 	public Pasien getPasien() {
@@ -1040,26 +1066,97 @@ public class Pendaftaran extends GeneralValueObject {
 		return pasien;
 	}
 
+	/**
+	 * Menyetel jenis perawatan.
+	 * <p><b>Tidak ada validasi</b> terhadap ketiga konstanta {@link #RAWAT_JALAN},
+	 * {@link #RAWAT_INAP}, dan {@link #RAWAT_UGD}; setter ini menerima string sembarang. Pada alur
+	 * normal nilainya ditentukan oleh layar mana yang dipakai, bukan dipilih pengguna.</p>
+	 *
+	 * @param jenis jenis perawatan; idealnya salah satu konstanta {@code RAWAT_*}.
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
 
+	/**
+	 * Mengembalikan jenis perawatan sebagai teks bebas: {@link #RAWAT_JALAN},
+	 * {@link #RAWAT_INAP}, atau {@link #RAWAT_UGD}.
+	 *
+	 * <p>Nilai ini menentukan kelompok field mana yang bermakna pada baris pendaftaran ini —
+	 * seluruh blok rawat inap (ruang, kamar, tempat tidur, data penjamin, sumber pasien, status
+	 * pendaftaran, data pasien keluar) hanya terisi untuk {@link #RAWAT_INAP}. Karena tidak ada
+	 * penjaga di tingkat entity, baris rawat jalan secara teknis tetap dapat memiliki tempat tidur
+	 * atau data penjamin terisi.</p>
+	 *
+	 * <p>Konstanta {@code RAWAT_*} dirujuk di puluhan titik pada basis kode (layar, laporan, dan
+	 * helper), sehingga nilainya berperilaku seperti enum berbasis string. Pembandingannya
+	 * memakai {@code equals} yang peka huruf besar-kecil, jadi data dengan kapitalisasi berbeda
+	 * tidak akan cocok.</p>
+	 *
+	 * <p>Getter ini tidak beranotasi {@link Column @Column}, jadi dipetakan berdasarkan konvensi.</p>
+	 *
+	 * @return jenis perawatan, atau {@code null} bila belum diisi.
+	 */
 	public String getJenis() {
 		return jenis;
 	}
 
+	/**
+	 * Menyetel penanda pasien baru.
+	 * <p>Diisi dari sebuah checkbox pada layar pendaftaran ({@code baru.isChecked()}), sehingga
+	 * pada alur normal nilainya tidak pernah {@code null}.</p>
+	 *
+	 * @param baru {@code true} bila pasien baru pertama kali berkunjung.
+	 */
 	public void setBaru(Boolean baru) {
 		this.baru = baru;
 	}
 
+	/**
+	 * @return penanda pasien baru; {@code false} sebagai nilai awal dari konstruktor, tetapi
+	 *         <b>dapat bernilai {@code null}</b> pada baris lama yang kolomnya {@code NULL}.
+	 *         <p>Berbeda dari {@link BookingRegistrasi#getBaru()} yang memiliki cabang default dan
+	 *         menulis balik {@code false}, getter ini mengembalikan isi field apa adanya. Kode yang
+	 *         menangani keduanya secara seragam — atau yang melakukan <i>unboxing</i> ke
+	 *         {@code boolean} — harus menyadari perbedaan ini agar tidak terkena
+	 *         {@link NullPointerException}.</p>
+	 *         <p>Tidak beranotasi {@link Column @Column}; dipetakan berdasarkan konvensi.</p>
+	 */
 	public Boolean getBaru() {
 		return baru;
 	}
 
+	/**
+	 * Menyetel poliklinik tujuan.
+	 *
+	 * @param poly poliklinik tujuan; boleh {@code null}.
+	 */
 	public void setPoly(Poly poly) {
 		this.poly = poly;
 	}
 
+	/**
+	 * Mengembalikan poliklinik tujuan, setelah meresolusi proxy lazy-nya lewat {@code check(...)}.
+	 *
+	 * <p><b>Berisi satu cabang mati.</b> Method ini masih memuat blok
+	 * {@code if (getJenis() != null && getJenis().equals(RAWAT_UGD)) { ... }} yang <b>badannya
+	 * seluruhnya dikomentari</b> — semula bermaksud memaksa poli menjadi
+	 * {@code ConstantValues.POLI_UGD} untuk pendaftaran UGD. Dalam bentuknya sekarang blok itu
+	 * tidak melakukan apa pun selain memanggil {@link #getJenis()} dua kali. Konsekuensi praktis
+	 * yang perlu diketahui: <b>pendaftaran UGD tidak dipaksa memakai poli UGD</b>; nilainya
+	 * mengikuti apa pun yang disetel layar. Bila laporan mengasumsikan setiap pendaftaran UGD
+	 * berpoli UGD, asumsi itu tidak dijamin oleh kode ini.</p>
+	 *
+	 * <p>Blok mati ini sebaiknya tidak dihapus tanpa keputusan eksplisit: kehadirannya menandai
+	 * niat desain yang belum selesai, dan menghidupkannya kembali akan mengubah data poli pada
+	 * setiap pembacaan pendaftaran UGD — sebuah perubahan berdampak luas karena penulisan balik
+	 * pada getter ikut ter-flush.</p>
+	 *
+	 * <p>Kolomnya {@code poly}, {@code nullable = true}.</p>
+	 *
+	 * @return poliklinik tujuan, atau {@code null}.
+	 * @see Poly
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "poly", nullable = true)
 	public Poly getPoly() {
@@ -1070,10 +1167,68 @@ public class Pendaftaran extends GeneralValueObject {
 		return poly;
 	}
 
+	/**
+	 * Menyetel tenaga medis penanggung jawab pendaftaran ini.
+	 * <p>Kolomnya {@code nullable = false}, sehingga nilai {@code null} akan gagal saat flush.
+	 * Pada alur normal nilainya diturunkan dari jadwal dokter yang dipilih petugas.</p>
+	 *
+	 * @param dokter tenaga medis penanggung jawab.
+	 */
 	public void setDokter(Dokter dokter) {
 		this.dokter = dokter;
 	}
 
+	/**
+	 * Merangkai <b>alamat lengkap pasien</b> menjadi satu baris teks, dari komponen alamat yang
+	 * tersebar di entity {@link Pasien}.
+	 *
+	 * <h3>Cara kerja</h3>
+	 * <p>Method ini bukan accessor JavaBean (namanya tidak berawalan {@code get}/{@code set}),
+	 * sehingga Hibernate mengabaikannya sepenuhnya — ia murni method bantu tampilan. Langkahnya:</p>
+	 * <ol>
+	 *   <li>meresolusi proxy pasien lewat {@code pasien = check(pasien)} — perhatikan bahwa ini
+	 *   dilakukan pada field secara langsung, bukan lewat {@link #getPasien()};</li>
+	 *   <li>memanggil {@code pasien.getAlamatLengkap()} dan menugaskan hasilnya ke variabel lokal
+	 *   {@code alamat};</li>
+	 *   <li><b>lalu langsung menimpa</b> variabel itu dengan rangkaian yang disusun sendiri:
+	 *   alamat + kelurahan + RT + RW + kecamatan + kota + propinsi, masing-masing dijaga terhadap
+	 *   {@code null} dengan mengganti bagian yang kosong menjadi string kosong.</li>
+	 * </ol>
+	 *
+	 * <p>Karena langkah ketiga menimpa hasil langkah kedua, <b>pemanggilan
+	 * {@code getAlamatLengkap()} itu sia-sia</b> — nilainya tidak pernah dipakai. Jangan
+	 * menghapusnya tanpa memeriksa apakah method tersebut memiliki efek samping di
+	 * {@link Pasien} (beberapa getter di model AIS menulis balik ke field), tetapi sadari bahwa
+	 * hasil yang dikembalikan method ini <i>selalu</i> berasal dari rangkaian manual, bukan dari
+	 * alamat lengkap milik pasien. Kedua bentuk itu bisa berbeda bila {@code getAlamatLengkap()}
+	 * memformat alamat dengan cara lain.</p>
+	 *
+	 * <h3>Penanganan galat: menelan seluruh exception</h3>
+	 * <p>Seluruh badan method dibungkus {@code try}/{@code catch (Exception e)}. Blok
+	 * {@code catch}-nya hanya mencatat kejadian lewat
+	 * {@code ais.common.ErrorAuditUtil.record(...)} — sebuah pencatatan yang disisipkan penyapuan
+	 * otomatis ke seluruh blok {@code catch} kosong di basis kode — lalu <b>membiarkan eksekusi
+	 * berlanjut</b>. Akibatnya method ini <b>tidak pernah melempar exception</b> dan pada kondisi
+	 * galat mengembalikan {@code ""} (string kosong), bukan menandakan kegagalan.</p>
+	 *
+	 * <p>Kondisi galat yang realistis: pasien {@code null} ({@link NullPointerException} pada
+	 * {@code pasien.getAlamatLengkap()}) atau proxy lazy yang tidak dapat diresolusi
+	 * ({@code LazyInitializationException}). Pemanggil karena itu tidak dapat membedakan
+	 * "pasien memang tidak beralamat" dari "terjadi kesalahan saat membaca alamat" — keduanya
+	 * tampak sebagai string kosong. Untuk keperluan tampilan hal ini memadai; untuk keperluan
+	 * pencetakan dokumen resmi, periksa lebih dulu bahwa {@link #getPasien()} tidak {@code null}.</p>
+	 *
+	 * <h3>Bentuk hasil</h3>
+	 * <p>Bagian-bagian dirangkai dengan spasi dan label {@code " RT "} serta {@code " RW "} untuk
+	 * nomor RT/RW. Karena bagian yang kosong diganti string kosong <i>tanpa</i> menghapus spasi
+	 * pemisahnya, hasilnya dapat memuat spasi ganda ketika beberapa komponen alamat kosong —
+	 * rapikan dengan {@code replaceAll("\\s+", " ").trim()} bila teks ini dipakai pada dokumen
+	 * cetak yang rapat.</p>
+	 *
+	 * @return alamat pasien dalam satu baris; string kosong bila pasien tidak ada atau terjadi
+	 *         galat. Tidak pernah {@code null}, tidak pernah melempar exception.
+	 * @see Pasien
+	 */
 	public String ambilAlamat() {
 
 		String alamat = "";
@@ -1095,6 +1250,24 @@ public class Pendaftaran extends GeneralValueObject {
 
 	}
 
+	/**
+	 * Mengembalikan tenaga medis penanggung jawab pendaftaran ini, setelah meresolusi proxy
+	 * lazy-nya lewat {@code check(...)}.
+	 *
+	 * <p>Kolomnya {@code dokter}, {@code nullable = false} — setiap pendaftaran wajib menyebut
+	 * tenaga medis. Nilainya diturunkan dari {@link JadwalDokter#getDokter()} milik jadwal yang
+	 * dipilih petugas, sehingga ada <b>duplikasi yang disengaja</b>: field ini menjadi cuplikan
+	 * yang tetap terbaca meskipun jadwal kelak diubah atau dihapus. Bila keduanya perlu
+	 * dibandingkan, perlakukan {@code getJadwalDokter().getDokter()} sebagai kondisi terkini dan
+	 * field ini sebagai kondisi saat pendaftaran dibuat.</p>
+	 *
+	 * <p>Ingat bahwa {@link Dokter} adalah master tenaga medis umum (dokter, bidan, perawat,
+	 * siswa praktek), dan penanda aktif pada master itu tidak dipakai sebagai filter di mana pun —
+	 * sehingga tenaga medis yang sudah dinonaktifkan tetap dapat dipilih di sini.</p>
+	 *
+	 * @return tenaga medis penanggung jawab.
+	 * @see Dokter
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dokter", nullable = false)
 	public Dokter getDokter() {
@@ -1102,15 +1275,80 @@ public class Pendaftaran extends GeneralValueObject {
 		return dokter;
 	}
 
+	/**
+	 * Menyetel nomor antrian pendaftaran.
+	 * <p>Diisi layar pendaftaran dengan hasil
+	 * {@code CommonPendaftaranUtil.generateNomorAntrian(pendaftaran, jadwalDokter)}. Menyetelnya
+	 * manual tidak dicegah, tetapi dapat menimbulkan nomor kembar karena pembangkitan berikutnya
+	 * berbasis nilai maksimum.</p>
+	 *
+	 * @param nomorAntrian nomor antrian pada jadwal yang dituju.
+	 */
 	public void setNomorAntrian(Integer nomorAntrian) {
 		this.nomorAntrian = nomorAntrian;
 	}
 
+	/**
+	 * @return nomor antrian pasien pada jadwal yang dituju (kolom {@code nomor_antrian}), atau
+	 *         {@code null} bila belum dibangkitkan.
+	 *
+	 *         <h3>Dua sumber nomor yang berbeda</h3>
+	 *         <p>{@code CommonPendaftaranUtil.generateNomorAntrian(Pendaftaran, JadwalDokter)}
+	 *         bercabang dua:</p>
+	 *         <ul>
+	 *           <li><b>Bila pendaftaran berasal dari booking</b> ({@link #getBookingRegistrasi()}
+	 *           tidak {@code null}), nomor <b>diwarisi langsung</b> dari
+	 *           {@link BookingRegistrasi#getNomorAntrian()} tanpa perhitungan apa pun. Pasien yang
+	 *           sudah membuat janji temu karena itu mempertahankan nomor antriannya.</li>
+	 *           <li><b>Bila pasien datang langsung</b>, nomor dihitung dari dua query terpisah pada
+	 *           {@link JadwalDokter} yang sama: nilai maksimum {@code nomorAntrian} di antara
+	 *           pendaftaran dengan {@code dilayaniTanggal} hari ini, ditambah satu, lalu
+	 *           <b>ditambah lagi</b> nilai maksimum {@code nomorAntrian} di antara <i>booking</i>
+	 *           pada jadwal itu.</li>
+	 *         </ul>
+	 *
+	 *         <h3>Batasan yang perlu diketahui</h3>
+	 *         <p>Pertama, penjumlahan pada cabang kedua memakai rentang tanggal yang <b>tidak
+	 *         sama</b>: pendaftaran disaring pada tanggal hari ini, sedangkan booking disaring
+	 *         dengan {@code >=} hari ini — yaitu seluruh booking yang akan datang, bukan hanya
+	 *         booking untuk hari yang sama. Akibatnya nomor antrian pasien yang datang langsung
+	 *         dapat melonjak mengikuti booking untuk tanggal-tanggal berikutnya, sehingga deret
+	 *         nomor pada satu hari menjadi tidak berurutan.</p>
+	 *         <p>Kedua, pembangkitannya berupa baca-maksimum-lalu-tulis tanpa penguncian baris dan
+	 *         tanpa batasan unik pada kolomnya, sehingga dua pendaftaran yang disimpan bersamaan
+	 *         pada jadwal yang sama dapat memperoleh nomor yang sama.</p>
+	 *         <p>Ketiga, karena {@link JadwalDokter} membolehkan jadwal kembar untuk kombinasi
+	 *         dokter+hari+shift yang sama, dua baris jadwal yang secara nyata mewakili praktek yang
+	 *         sama memiliki dua deret antrian terpisah yang keduanya dimulai dari 1.</p>
+	 *         <p>Keempat, bila dua pendaftaran berhasil menebus satu booking yang sama (penjaganya
+	 *         hanya di lapisan tampilan — lihat {@link #getBookingRegistrasi()}), keduanya akan
+	 *         mewarisi nomor antrian yang identik lewat cabang pertama.</p>
+	 */
 	@Column(name = "nomor_antrian", nullable = true)
 	public Integer getNomorAntrian() {
 		return nomorAntrian;
 	}
 
+	/**
+	 * Mengembalikan tempat tidur yang ditempati pasien rawat inap, setelah meresolusi proxy
+	 * lazy-nya lewat {@code check(...)}.
+	 *
+	 * <p>Kolomnya {@code tempat_tidur}, {@code nullable = true} — bermakna hanya untuk
+	 * {@link #RAWAT_INAP}. Penempatan dan pemindahan tempat tidur dikelola
+	 * {@code PindahTempatTidurRawatInapAction}, yang saat memindahkan pasien menutup pendaftaran
+	 * lama dengan status {@link #PINDAH} dan membuat pendaftaran baru yang menunjuk tempat tidur
+	 * baru.</p>
+	 *
+	 * <p><b>Tidak ada penjaga hunian ganda di tingkat entity ini.</b> Tidak ada batasan unik yang
+	 * mencegah dua pendaftaran berstatus {@link #TERDAFTAR} menunjuk tempat tidur yang sama, dan
+	 * tidak ada pula pemeriksaan konsistensi bahwa tempat tidur ini benar-benar berada di dalam
+	 * {@link #getKamarPerawatan()} maupun {@link #getRuangPerawatan()} yang tercatat. Ketiga field
+	 * itu disimpan berdampingan sebagai data mandiri, sehingga dapat saling bertentangan bila
+	 * disetel lewat jalur yang berbeda.</p>
+	 *
+	 * @return tempat tidur yang ditempati, atau {@code null}.
+	 * @see TempatTidur
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tempat_tidur", nullable = true)
 	public TempatTidur getTempatTidur() {
@@ -1118,46 +1356,115 @@ public class Pendaftaran extends GeneralValueObject {
 		return tempatTidur;
 	}
 
+	/**
+	 * Menyetel tempat tidur yang ditempati pasien rawat inap.
+	 * <p>Setter ini tidak memeriksa apakah tempat tidur tersebut sedang ditempati pendaftaran lain,
+	 * dan tidak menyelaraskan {@link #setKamarPerawatan(Kamar)} maupun
+	 * {@link #setRuangPerawatan(Ruang)} — lihat catatan pada {@link #getTempatTidur()}.</p>
+	 *
+	 * @param tempatTidur tempat tidur; {@code null} untuk pendaftaran non-rawat-inap.
+	 */
 	public void setTempatTidur(TempatTidur tempatTidur) {
 		this.tempatTidur = tempatTidur;
 	}
 
+	/**
+	 * @return cara atau penanggung biaya perawatan sebagai <b>teks bebas</b> (kolom
+	 *         {@code biaya_perawatan}), atau {@code null}.
+	 *         <p>Perhatikan tipenya {@link String}, bukan angka: field ini <b>bukan</b> nominal
+	 *         biaya melainkan keterangan cara pembiayaan yang diketik petugas. Nominal biaya yang
+	 *         sesungguhnya berada di {@link #getPembayaran()} dan pada baris-baris
+	 *         {@code DetailTransaksiLayanan}. Jangan mencoba menjumlahkan atau mengurutkan field
+	 *         ini secara numerik.</p>
+	 */
 	@Column(name = "biaya_perawatan", nullable = true)
 	public String getBiayaPerawatan() {
 		return biayaPerawatan;
 	}
 
+	/**
+	 * Menyetel keterangan cara/penanggung biaya perawatan.
+	 *
+	 * @param biayaPerawatan teks bebas; boleh {@code null}.
+	 */
 	public void setBiayaPerawatan(String biayaPerawatan) {
 		this.biayaPerawatan = biayaPerawatan;
 	}
 
+	/**
+	 * @return nama penjamin pasien rawat inap (kolom {@code nama_penjamin}), atau {@code null}.
+	 *         <p>Ini bagian dari blok data penjamin — pihak yang menjamin pembiayaan pasien —
+	 *         bersama {@link #getAlamatPenjamin()}, {@link #getPekerjaanPenjamin()}, dan
+	 *         {@link #getPendidikanPenjamin()}. Bedakan dari {@link #getAsuransi()} yang merupakan
+	 *         relasi ke master penjamin korporat, dan dari blok {@code *Pendaftar} yang mencatat
+	 *         orang yang mengantar pasien. Blok ini berisi <b>data pribadi pihak ketiga</b>,
+	 *         sehingga laporan dan ekspor yang memuatnya perlu memperhatikan pembatasan akses.</p>
+	 */
 	@Column(name = "nama_penjamin", nullable = true)
 	public String getNamaPenjamin() {
 		return namaPenjamin;
 	}
 
+	/**
+	 * Menyetel nama penjamin pasien rawat inap.
+	 *
+	 * @param namaPenjamin nama penjamin; boleh {@code null}.
+	 */
 	public void setNamaPenjamin(String namaPenjamin) {
 		this.namaPenjamin = namaPenjamin;
 	}
 
+	/**
+	 * @return alamat penjamin pasien rawat inap (kolom {@code alamat_penjamin}), atau {@code null}.
+	 *         Bagian dari blok data penjamin; lihat {@link #getNamaPenjamin()}.
+	 */
 	@Column(name = "alamat_penjamin", nullable = true)
 	public String getAlamatPenjamin() {
 		return alamatPenjamin;
 	}
 
+	/**
+	 * Menyetel alamat penjamin pasien rawat inap.
+	 *
+	 * @param alamatPenjamin alamat penjamin; boleh {@code null}.
+	 */
 	public void setAlamatPenjamin(String alamatPenjamin) {
 		this.alamatPenjamin = alamatPenjamin;
 	}
 
+	/**
+	 * @return pekerjaan penjamin pasien rawat inap (kolom {@code pekerjaan_penjamin}) sebagai teks
+	 *         bebas, atau {@code null}. Bagian dari blok data penjamin; lihat
+	 *         {@link #getNamaPenjamin()}.
+	 *         <p>Perhatikan ketidakseragaman: pekerjaan disimpan sebagai teks bebas, sedangkan
+	 *         pendidikan penjamin ({@link #getPendidikanPenjamin()}) memakai relasi ke master.</p>
+	 */
 	@Column(name = "pekerjaan_penjamin", nullable = true)
 	public String getPekerjaanPenjamin() {
 		return pekerjaanPenjamin;
 	}
 
+	/**
+	 * Menyetel pekerjaan penjamin pasien rawat inap.
+	 *
+	 * @param pekerjaanPenjamin teks bebas; boleh {@code null}.
+	 */
 	public void setPekerjaanPenjamin(String pekerjaanPenjamin) {
 		this.pekerjaanPenjamin = pekerjaanPenjamin;
 	}
 
+	/**
+	 * Mengembalikan pendidikan terakhir penjamin, setelah meresolusi proxy lazy-nya lewat
+	 * {@code check(...)}.
+	 *
+	 * <p>Satu-satunya relasi pada entity ini yang menunjuk ke luar paket SIRS menuju modul
+	 * kepegawaian ({@code ais.database.model.employ.Pendidikan}), yang berfungsi sebagai master
+	 * jenjang pendidikan bersama. Kolomnya {@code pendidikan_penjamin}, {@code nullable = true}.
+	 * Bagian dari blok data penjamin; lihat {@link #getNamaPenjamin()}.</p>
+	 *
+	 * @return pendidikan terakhir penjamin, atau {@code null}.
+	 * @see ais.database.model.employ.Pendidikan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendidikan_penjamin", nullable = true)
 	public Pendidikan getPendidikanPenjamin() {
@@ -1165,70 +1472,175 @@ public class Pendaftaran extends GeneralValueObject {
 		return pendidikanPenjamin;
 	}
 
+	/**
+	 * Menyetel pendidikan terakhir penjamin.
+	 *
+	 * @param pendidikanPenjamin jenjang pendidikan dari master; boleh {@code null}.
+	 */
 	public void setPendidikanPenjamin(Pendidikan pendidikanPenjamin) {
 		this.pendidikanPenjamin = pendidikanPenjamin;
 	}
 
+	/**
+	 * @return asal pasien rawat inap (kolom {@code sumber_pasien}) sebagai teks bebas, atau
+	 *         {@code null}.
+	 *         <p>Pada data yang lahir dari {@code PendaftaranRawatInapAction} nilainya berupa
+	 *         salah satu konstanta {@code SUMBER_PASIEN_*}: {@link #SUMBER_PASIEN_POLI},
+	 *         {@link #SUMBER_PASIEN_UGD}, {@link #SUMBER_PASIEN_DARI_RS},
+	 *         {@link #SUMBER_PASIEN_DARI_TAMU}, atau {@link #SUMBER_PASIEN_LUAR_DKI}. Pembatasan
+	 *         itu hanya berlaku di lapisan UI — {@link #setSumberPasien(String)} menerima string
+	 *         apa pun.</p>
+	 *         <p>Ingat bahwa nilai {@link #SUMBER_PASIEN_UGD} identik dengan {@link #RAWAT_UGD}
+	 *         meski keduanya menempati kolom berbeda.</p>
+	 */
 	@Column(name = "sumber_pasien", nullable = true)
 	public String getSumberPasien() {
 		return sumberPasien;
 	}
 
+	/**
+	 * Menyetel asal pasien rawat inap. <b>Tanpa validasi</b> terhadap konstanta
+	 * {@code SUMBER_PASIEN_*}.
+	 *
+	 * @param sumberPasien asal pasien; idealnya salah satu konstanta {@code SUMBER_PASIEN_*}.
+	 */
 	public void setSumberPasien(String sumberPasien) {
 		this.sumberPasien = sumberPasien;
 	}
 
+	/**
+	 * @return keterangan tempat pasien pernah dirawat sebelumnya (kolom
+	 *         {@code pernah_dirawat_di}) sebagai teks bebas, atau {@code null}.
+	 *         <p>Ini riwayat yang diketik petugas berdasarkan keterangan pasien, <b>bukan</b>
+	 *         tautan ke pendaftaran sebelumnya di sistem ini. Untuk menelusuri riwayat kunjungan
+	 *         internal, kueri {@code Pendaftaran} berdasarkan pasiennya; untuk menelusuri rantai
+	 *         pemindahan, pakai {@link #getTransferDaripendaftaran()}.</p>
+	 */
 	@Column(name = "pernah_dirawat_di", nullable = true)
 	public String getPernahDirawatDi() {
 		return pernahDirawatDi;
 	}
 
+	/**
+	 * Menyetel keterangan tempat pasien pernah dirawat sebelumnya.
+	 *
+	 * @param pernahDirawatDi teks bebas; boleh {@code null}.
+	 */
 	public void setPernahDirawatDi(String pernahDirawatDi) {
 		this.pernahDirawatDi = pernahDirawatDi;
 	}
 
+	/**
+	 * @return tanggal pasien pernah dirawat sebelumnya (kolom {@code tanggal_pernah_dirawat}),
+	 *         atau {@code null}.
+	 *         <p>Dipetakan {@link TemporalType#TIMESTAMP} sehingga menyimpan jam juga, padahal
+	 *         yang bermakna hanyalah tanggalnya — komponen jam pada field ini tidak memiliki arti
+	 *         dan hanya akan berisi sisa dari nilai yang disetel komponen tanggal di UI.
+	 *         Pertimbangkan hal ini saat membandingkan atau mengelompokkan berdasarkan field
+	 *         ini.</p>
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal_pernah_dirawat", nullable = true)
 	public Date getTanggalPernahDirawat() {
 		return tanggalPernahDirawat;
 	}
 
+	/**
+	 * Menyetel tanggal pasien pernah dirawat sebelumnya.
+	 *
+	 * @param tanggalPernahDirawat tanggal riwayat perawatan; boleh {@code null}.
+	 */
 	public void setTanggalPernahDirawat(Date tanggalPernahDirawat) {
 		this.tanggalPernahDirawat = tanggalPernahDirawat;
 	}
 
+	/**
+	 * @return nama dokter perujuk (kolom {@code nama_dokter_pengirim}) sebagai teks bebas, atau
+	 *         {@code null}.
+	 *         <p><b>Sengaja bukan relasi</b> ke {@link Dokter}: dokter perujuk umumnya berasal dari
+	 *         luar rumah sakit sehingga tidak ada di master tenaga medis. Karena disimpan sebagai
+	 *         teks, nama yang sama dapat tertulis dengan berbagai ejaan dan tidak dapat
+	 *         dikelompokkan secara andal untuk laporan rujukan.</p>
+	 */
 	@Column(name = "nama_dokter_pengirim", nullable = true)
 	public String getNamaDokterPengirim() {
 		return namaDokterPengirim;
 	}
 
+	/**
+	 * Menyetel nama dokter perujuk.
+	 *
+	 * @param namaDokterPengirim teks bebas; boleh {@code null}.
+	 */
 	public void setNamaDokterPengirim(String namaDokterPengirim) {
 		this.namaDokterPengirim = namaDokterPengirim;
 	}
 
+	/**
+	 * @return isi kolom {@code pendaftar} sebagai teks bebas, atau {@code null}.
+	 *
+	 *         <p><b>Waspadai kemiripan nama.</b> Field ini berdiri terpisah dari trio
+	 *         {@link #getNamaPendaftar()}, {@link #getAlamatPendaftar()}, dan
+	 *         {@link #getTelpPendaftar()} yang mencatat identitas pengantar pasien, dan juga
+	 *         terpisah dari {@link #getTbmuser()} yang mencatat petugas rumah sakit. Ketiga
+	 *         "pendaftar" itu mudah tertukar saat menulis laporan.</p>
+	 *
+	 *         <p>Ketiga layar pendaftaran tidak menyediakan input khusus untuk kolom ini, sehingga
+	 *         pada data yang lahir dari alur normal nilainya umumnya {@code null}. Perlakukan
+	 *         sebagai field peninggalan sampai ada pemakai yang jelas — dan bila memerlukan
+	 *         identitas pengantar pasien, pakai {@link #getNamaPendaftar()}.</p>
+	 */
 	@Column(name = "pendaftar", nullable = true)
 	public String getPendaftar() {
 		return pendaftar;
 	}
 
+	/**
+	 * Menyetel isi kolom {@code pendaftar}. Lihat catatan pada {@link #getPendaftar()} mengenai
+	 * kemiripan namanya dengan field lain.
+	 *
+	 * @param pendaftar teks bebas; boleh {@code null}.
+	 */
 	public void setPendaftar(String pendaftar) {
 		this.pendaftar = pendaftar;
 	}
 
+	/**
+	 * @return alamat orang yang mendaftarkan/mengantar pasien (kolom {@code alamat_pendaftar}),
+	 *         atau {@code null}. Bagian dari blok data pengantar bersama
+	 *         {@link #getNamaPendaftar()} dan {@link #getTelpPendaftar()}; berisi <b>data pribadi
+	 *         pihak ketiga</b> sehingga perlu diperhatikan pada laporan dan ekspor.
+	 */
 	@Column(name = "alamat_pendaftar", nullable = true)
 	public String getAlamatPendaftar() {
 		return alamatPendaftar;
 	}
 
+	/**
+	 * Menyetel alamat orang yang mendaftarkan/mengantar pasien.
+	 *
+	 * @param alamatPendaftar alamat pengantar; boleh {@code null}.
+	 */
 	public void setAlamatPendaftar(String alamatPendaftar) {
 		this.alamatPendaftar = alamatPendaftar;
 	}
 
+	/**
+	 * @return nomor telepon orang yang mendaftarkan/mengantar pasien (kolom
+	 *         {@code telp_pendaftar}), atau {@code null}. Dalam praktik inilah kontak darurat yang
+	 *         dihubungi rumah sakit, sehingga kekosongannya berdampak operasional. Bagian dari blok
+	 *         data pengantar; lihat {@link #getAlamatPendaftar()}.
+	 */
 	@Column(name = "telp_pendaftar", nullable = true)
 	public String getTelpPendaftar() {
 		return telpPendaftar;
 	}
 
+	/**
+	 * Menyetel nomor telepon orang yang mendaftarkan/mengantar pasien.
+	 *
+	 * @param telpPendaftar nomor telepon; boleh {@code null}.
+	 */
 	public void setTelpPendaftar(String telpPendaftar) {
 		this.telpPendaftar = telpPendaftar;
 	}
@@ -1243,16 +1655,55 @@ public class Pendaftaran extends GeneralValueObject {
 	// this.petugas = petugas;
 	// }
 
+	/**
+	 * @return waktu pasien keluar dari perawatan (kolom {@code tanggal_keluar},
+	 *         {@link TemporalType#TIMESTAMP}), atau {@code null} bila pasien masih dalam
+	 *         perawatan.
+	 *         <p>Diisi bersamaan dengan perubahan {@link #getStatusPendaftaran()} menjadi
+	 *         {@link #KELUAR} atau {@link #MENINGGAL} oleh {@code DataPasienKeluarAction}.
+	 *         Perlu dicatat bahwa <b>tidak ada penjaga di tingkat entity yang menjaga kedua field
+	 *         itu tetap konsisten</b>: pendaftaran berstatus {@link #TERDAFTAR} secara teknis dapat
+	 *         memiliki tanggal keluar terisi, dan sebaliknya. Bila lama rawat perlu dihitung,
+	 *         periksa keduanya, bukan salah satu saja.</p>
+	 *         <p>Berbeda dari {@link #getTanggalPernahDirawat()}, komponen jam pada field ini
+	 *         bermakna — lama rawat inap dihitung dari selisihnya terhadap
+	 *         {@link #getTanggalPendaftaran()}.</p>
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal_keluar", nullable = true)
 	public Date getTanggalKeluar() {
 		return tanggalKeluar;
 	}
 
+	/**
+	 * Menyetel waktu pasien keluar dari perawatan.
+	 * <p>Setter ini tidak mengubah {@link #setStatusPendaftaran(String)}; keduanya harus disetel
+	 * bersamaan oleh pemanggil.</p>
+	 *
+	 * @param tanggalKeluar waktu pasien keluar; {@code null} bila masih dirawat.
+	 */
 	public void setTanggalKeluar(Date tanggalKeluar) {
 		this.tanggalKeluar = tanggalKeluar;
 	}
 
+	/**
+	 * Mengembalikan penjamin/asuransi yang dipakai pada pendaftaran ini, setelah meresolusi proxy
+	 * lazy-nya lewat {@code check(...)}.
+	 *
+	 * <p>Kolomnya {@code asuransi}, {@code nullable = true} — {@code null} berarti pasien
+	 * umum/bayar sendiri. Berbeda dari blok data penjamin bertipe teks
+	 * ({@link #getNamaPenjamin()} dan kerabatnya) yang mencatat penjamin perorangan, relasi ini
+	 * menunjuk master penjamin korporat.</p>
+	 *
+	 * <p>Nilai ini <b>tidak disalin otomatis</b> dari {@link BookingRegistrasi#getAsuransi()} saat
+	 * booking ditebus; petugas menentukannya ulang pada layar pendaftaran. Bersama
+	 * {@link #getKomunitass()}, field ini merupakan salah satu dari sedikit data pada pendaftaran
+	 * yang benar-benar bersifat historis — tidak ditimpa oleh nilai master seperti yang terjadi
+	 * pada {@link #getJenisPasien()}.</p>
+	 *
+	 * @return penjamin/asuransi, atau {@code null}.
+	 * @see Asuransi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "asuransi", nullable = true)
 	public Asuransi getAsuransi() {
@@ -1260,10 +1711,36 @@ public class Pendaftaran extends GeneralValueObject {
 		return asuransi;
 	}
 
+	/**
+	 * Menyetel penjamin/asuransi pendaftaran ini.
+	 *
+	 * @param asuransi penjamin korporat; {@code null} berarti pasien umum.
+	 */
 	public void setAsuransi(Asuransi asuransi) {
 		this.asuransi = asuransi;
 	}
 
+	/**
+	 * Mengembalikan kelas perawatan <b>tujuan pemindahan</b>, setelah meresolusi proxy lazy-nya
+	 * lewat {@code check(...)}.
+	 *
+	 * <p>Kolomnya {@code pindah_ke_kelas_perawatan}, {@code nullable = true}. Jangan dikacaukan
+	 * dengan {@link #getKelasPerawatan()} yang merupakan kelas perawatan <i>saat ini</i>: field ini
+	 * mencatat ke kelas mana pasien akan/telah dipindahkan, dan hanya bermakna pada alur
+	 * {@code PindahTempatTidurRawatInapAction} yang menutup pendaftaran ini dengan status
+	 * {@link #PINDAH}.</p>
+	 *
+	 * <p>Perhatikan bahwa arah penelusuran rantai pemindahan berbeda antara kedua field: field ini
+	 * menunjuk <i>kelas</i> tujuan (bukan pendaftaran tujuan), sedangkan
+	 * {@link #getTransferDaripendaftaran()} pada pendaftaran <i>berikutnya</i> yang menunjuk
+	 * mundur ke pendaftaran ini. Tidak ada relasi maju dari pendaftaran lama ke pendaftaran baru;
+	 * untuk menemukannya, kueri {@code Pendaftaran} berdasarkan
+	 * {@code transferDaripendaftaran}.</p>
+	 *
+	 * @return kelas perawatan tujuan pemindahan, atau {@code null}.
+	 * @see KelasPerawatan
+	 * @see #PINDAH
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pindah_ke_kelas_perawatan", nullable = true)
 	public KelasPerawatan getPindahKeKelasPerawatan() {
@@ -1271,14 +1748,63 @@ public class Pendaftaran extends GeneralValueObject {
 		return pindahKeKelasPerawatan;
 	}
 
+	/**
+	 * Menyetel kelas perawatan tujuan pemindahan.
+	 *
+	 * @param pindahKeKelasPerawatan kelas perawatan tujuan; {@code null} bila tidak ada pemindahan.
+	 */
 	public void setPindahKeKelasPerawatan(KelasPerawatan pindahKeKelasPerawatan) {
 		this.pindahKeKelasPerawatan = pindahKeKelasPerawatan;
 	}
 
+	/**
+	 * Menyetel umur pasien.
+	 * <p>Nilai yang disetel di sini <b>hanya bertahan selama pendaftaran belum menunjuk pasien</b>
+	 * — lihat penjelasan pada {@link #getUmur()}. Untuk pendaftaran dengan pasien terisi, setter
+	 * ini praktis tanpa efek.</p>
+	 *
+	 * @param umur umur pasien dalam tahun.
+	 */
 	public void setUmur(Integer umur) {
 		this.umur = umur;
 	}
 
+	/**
+	 * Mengembalikan umur pasien dalam tahun, dengan <b>selalu menyalin ulang dari master
+	 * pasien</b> dan menulis balik ke field.
+	 *
+	 * <h3>Perilaku</h3>
+	 * <p>Bila {@link #getPasien()} tidak {@code null}, field {@link #umur} ditimpa dengan
+	 * {@code getPasien().getUmur()} — nilai tersimpan diabaikan. Setelah itu, bila hasilnya masih
+	 * {@code null}, field diisi {@code 0}. Jadi method ini tidak pernah mengembalikan
+	 * {@code null}, dan {@link #setUmur(Integer)} praktis tanpa efek untuk pendaftaran yang sudah
+	 * menunjuk pasien.</p>
+	 *
+	 * <h3>Konsekuensi: umur pada pendaftaran bukan data historis</h3>
+	 * <p>Ini masalah yang sama dengan {@link #getJenisPasien()}, tetapi dampaknya lebih terasa
+	 * karena umur berubah setiap tahun secara alami. {@code Pasien.getUmur()} menghitung umur
+	 * <b>terkini</b> dari tanggal lahir, sehingga:</p>
+	 * <ul>
+	 *   <li>pendaftaran seorang bayi lima tahun lalu, bila dibaca hari ini, akan menampilkan umur
+	 *   lima tahun — bukan umur pasien saat pendaftaran itu dibuat;</li>
+	 *   <li>karena Hibernate mengakses entity ini lewat properti, nilai baru itu ikut
+	 *   <b>ter-flush ke kolom {@code umur}</b> dan menghasilkan baris revisi Envers, sehingga
+	 *   data historis yang mungkin masih tersimpan di kolom itu <i>terhapus</i> begitu barisnya
+	 *   dibaca;</li>
+	 *   <li>laporan epidemiologi atau statistik kunjungan per kelompok umur yang membaca field ini
+	 *   akan menghasilkan angka yang bergeser seiring waktu, bukan angka pada saat kunjungan.
+	 *   Untuk kebutuhan seperti itu, hitung sendiri dari
+	 *   {@code getPasien().getTanggalLahir()} terhadap {@link #getTanggalPendaftaran()}.</li>
+	 * </ul>
+	 *
+	 * <p>Nilai cadangan {@code 0} juga perlu diwaspadai: ia tidak dapat dibedakan dari bayi berusia
+	 * kurang dari satu tahun. Jangan memakai {@code umur == 0} sebagai penanda "data tidak
+	 * tersedia".</p>
+	 *
+	 * <p>Getter ini tidak beranotasi {@link Column @Column}; dipetakan berdasarkan konvensi.</p>
+	 *
+	 * @return umur pasien dalam tahun menurut kondisi saat pembacaan; tidak pernah {@code null}.
+	 */
 	public Integer getUmur() {
 		if (getPasien() != null) {
 			umur = getPasien().getUmur();
@@ -1289,19 +1815,68 @@ public class Pendaftaran extends GeneralValueObject {
 		return umur;
 	}
 
+	/**
+	 * Menyetel nama orang yang mendaftarkan/mengantar pasien.
+	 *
+	 * @param namaPendaftar nama pengantar; boleh {@code null}.
+	 */
 	public void setNamaPendaftar(String namaPendaftar) {
 		this.namaPendaftar = namaPendaftar;
 	}
 
+	/**
+	 * @return nama orang yang mendaftarkan/mengantar pasien (kolom {@code nama_pendaftar}), atau
+	 *         {@code null}.
+	 *         <p>Bagian dari blok data pengantar bersama {@link #getAlamatPendaftar()} dan
+	 *         {@link #getTelpPendaftar()}. Bedakan dari {@link #getTbmuser()} (petugas rumah sakit
+	 *         yang mengetikkan pendaftaran), dari {@link #getOleh()} (jejak audit pengubah
+	 *         terakhir), dan dari {@link #getPendaftar()} (kolom teks terpisah yang jarang
+	 *         dipakai).</p>
+	 */
 	@Column(name = "nama_pendaftar", nullable = true)
 	public String getNamaPendaftar() {
 		return namaPendaftar;
 	}
 
+	/**
+	 * Menyetel kelas perawatan pasien.
+	 * <p>Menyetel {@code null} tidak akan bertahan: pembacaan berikutnya lewat
+	 * {@link #getKelasPerawatan()} akan menggantinya dengan {@code ConstantValues.kelasNormal}.</p>
+	 *
+	 * @param kelasPerawatan kelas perawatan pasien.
+	 */
 	public void setKelasPerawatan(KelasPerawatan kelasPerawatan) {
 		this.kelasPerawatan = kelasPerawatan;
 	}
 
+	/**
+	 * Mengembalikan kelas perawatan pasien, dengan <b>mengisi default dan menulis balik</b> ke
+	 * field.
+	 *
+	 * <p>Bila field masih {@code null}, diisi {@code ConstantValues.kelasNormal} — kelas perawatan
+	 * default seluruh aplikasi — lalu hasilnya dilewatkan {@code check(...)} untuk meresolusi
+	 * proxy lazy dan ditugaskan kembali ke field. Persis sama dengan
+	 * {@link BookingRegistrasi#getKelasPerawatan()}.</p>
+	 *
+	 * <p>Karena Hibernate mengakses lewat properti, pengisian default ini ikut ter-flush: baris
+	 * pendaftaran lama yang kolom {@code kelas_perawatan}-nya {@code NULL} akan ter-UPDATE menjadi
+	 * kelas normal pada flush pertama setelah dibaca, tanpa perintah pengguna, dan menghasilkan
+	 * baris revisi Envers. Informasi "kelas perawatan belum ditentukan" karena itu hilang setelah
+	 * pembacaan pertama.</p>
+	 *
+	 * <p><b>Waspadai {@code ConstantValues.kelasNormal} yang dapat bernilai {@code null}</b> bila
+	 * cache konstanta belum terisi saat inisialisasi aplikasi; nilai kembalian method ini karena
+	 * itu tidak dijamin bukan-{@code null} meskipun ada cabang default.</p>
+	 *
+	 * <p>Nilai ini penting bagi perhitungan biaya: {@code RawatInapCalculationProcessor} membacanya
+	 * lewat rantai {@code kunjunganDokter.getDiagnosaPenyakit().getPendaftaran().getKelasPerawatan()}
+	 * untuk menentukan tarif tindakan, dengan {@code ConstantValues.kelasNormal} sebagai cadangan
+	 * bila hasilnya {@code null}.</p>
+	 *
+	 * @return kelas perawatan pasien; biasanya tidak {@code null}, tetapi lihat peringatan di atas.
+	 * @see KelasPerawatan
+	 * @see BookingRegistrasi#getKelasPerawatan()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelas_perawatan", nullable = true)
 	public KelasPerawatan getKelasPerawatan() {
@@ -1312,10 +1887,37 @@ public class Pendaftaran extends GeneralValueObject {
 		return kelasPerawatan;
 	}
 
+	/**
+	 * Menyetel ruang perawatan pasien rawat inap.
+	 * <p>Tidak menyelaraskan {@link #setKamarPerawatan(Kamar)} maupun
+	 * {@link #setTempatTidur(TempatTidur)}; ketiganya disimpan sebagai data mandiri.</p>
+	 *
+	 * @param ruangPerawatan ruang perawatan; {@code null} untuk pendaftaran non-rawat-inap.
+	 */
 	public void setRuangPerawatan(Ruang ruangPerawatan) {
 		this.ruangPerawatan = ruangPerawatan;
 	}
 
+	/**
+	 * Mengembalikan ruang perawatan pasien rawat inap, setelah meresolusi proxy lazy-nya lewat
+	 * {@code check(...)}.
+	 *
+	 * <p>Kolomnya {@code ruang_perawatan}, {@code nullable = true}. Bersama
+	 * {@link #getKamarPerawatan()} dan {@link #getTempatTidur()}, field ini membentuk trio
+	 * penempatan ruang &rarr; kamar &rarr; tempat tidur yang secara logika berjenjang tetapi
+	 * <b>disimpan sebagai tiga relasi terpisah tanpa penjaga konsistensi</b>. Tidak ada apa pun
+	 * pada entity ini yang memastikan tempat tidur yang tercatat memang berada di kamar yang
+	 * tercatat, ataupun kamar itu berada di ruang yang tercatat — ketiganya dapat saling
+	 * bertentangan bila disetel lewat jalur berbeda. Kode yang menampilkan lokasi pasien sebaiknya
+	 * memilih satu tingkat sebagai sumber kebenaran (biasanya tempat tidur) dan menurunkan sisanya
+	 * dari sana, bukan membaca ketiganya secara terpisah.</p>
+	 *
+	 * <p>Perhatikan bahwa {@link Ruang} berasal dari paket {@code ais.database.model}, bukan dari
+	 * paket SIRS — ia master ruangan bersama lintas modul.</p>
+	 *
+	 * @return ruang perawatan, atau {@code null}.
+	 * @see ais.database.model.Ruang
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ruang_perawatan", nullable = true)
 	public Ruang getRuangPerawatan() {
@@ -1323,10 +1925,27 @@ public class Pendaftaran extends GeneralValueObject {
 		return ruangPerawatan;
 	}
 
+	/**
+	 * Menyetel kamar perawatan pasien rawat inap.
+	 * <p>Tidak menyelaraskan {@link #setRuangPerawatan(Ruang)} maupun
+	 * {@link #setTempatTidur(TempatTidur)}.</p>
+	 *
+	 * @param kamarPerawatan kamar perawatan; {@code null} untuk pendaftaran non-rawat-inap.
+	 */
 	public void setKamarPerawatan(Kamar kamarPerawatan) {
 		this.kamarPerawatan = kamarPerawatan;
 	}
 
+	/**
+	 * Mengembalikan kamar perawatan pasien rawat inap, setelah meresolusi proxy lazy-nya lewat
+	 * {@code check(...)}.
+	 *
+	 * <p>Kolomnya {@code kamar_perawatan}, {@code nullable = true}. Tingkat tengah pada trio
+	 * penempatan; lihat catatan konsistensi pada {@link #getRuangPerawatan()}.</p>
+	 *
+	 * @return kamar perawatan, atau {@code null}.
+	 * @see Kamar
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kamar_perawatan", nullable = true)
 	public Kamar getKamarPerawatan() {
@@ -1334,10 +1953,39 @@ public class Pendaftaran extends GeneralValueObject {
 		return kamarPerawatan;
 	}
 
+	/**
+	 * Menautkan dokumen data pasien keluar ke pendaftaran ini.
+	 * <p>Dipanggil oleh {@code DataPasienKeluarAction} dan
+	 * {@code PindahTempatTidurRawatInapAction}. Setter ini tidak mengubah
+	 * {@link #setStatusPendaftaran(String)} maupun {@link #setTanggalKeluar(Date)}; ketiganya
+	 * disetel terpisah oleh pemanggil.</p>
+	 *
+	 * @param dataPasienKeluar dokumen data pasien keluar; {@code null} bila belum ada.
+	 */
 	public void setDataPasienKeluar(DataPasienKeluar dataPasienKeluar) {
 		this.dataPasienKeluar = dataPasienKeluar;
 	}
 
+	/**
+	 * Mengembalikan dokumen data pasien keluar yang terkait pendaftaran ini, atau {@code null}
+	 * bila pasien belum keluar.
+	 *
+	 * <p>Kolomnya {@code data_pasien_keluar}, {@code nullable = true}. Dokumen ini memuat rincian
+	 * kepulangan (kondisi keluar, cara pulang, dan sejenisnya) yang tidak muat ditampung pada
+	 * baris pendaftaran, dan berdampingan dengan {@link #getStatusPendaftaran()} yang menyimpan
+	 * ringkasan statusnya ({@link #KELUAR} atau {@link #MENINGGAL}) serta
+	 * {@link #getTanggalKeluar()} yang menyimpan waktunya. Ketiganya <b>tidak dijaga konsisten</b>
+	 * oleh entity ini.</p>
+	 *
+	 * <p>Relasi tidak menyatakan {@code fetch = LAZY}, sehingga memakai default
+	 * {@link FetchType#EAGER} diperkuat
+	 * {@link Fetch @Fetch}{@code (}{@link FetchMode#SELECT}{@code )} — itu sebabnya getter ini
+	 * tidak memanggil {@code check(...)}, dengan konsekuensi satu SELECT tambahan pada setiap
+	 * pemuatan pendaftaran.</p>
+	 *
+	 * @return dokumen data pasien keluar, atau {@code null}.
+	 * @see DataPasienKeluar
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "data_pasien_keluar", nullable = true)
@@ -1345,10 +1993,34 @@ public class Pendaftaran extends GeneralValueObject {
 		return dataPasienKeluar;
 	}
 
+	/**
+	 * Menyetel unit/cabang tempat pendaftaran dibuat.
+	 *
+	 * @param lokasi unit/cabang; boleh {@code null} pada tingkat pemetaan.
+	 */
 	public void setLokasi(Lokasi lokasi) {
 		this.lokasi = lokasi;
 	}
 
+	/**
+	 * Mengembalikan unit/cabang tempat pendaftaran dibuat, setelah meresolusi proxy lazy-nya lewat
+	 * {@code check(...)}.
+	 *
+	 * <p>Lokasi berperan sebagai <b>pembatas tenant</b> pada modul SIRS: ia menjadi segmen pada
+	 * pembangkitan {@link #getKode()} dan pada penomoran {@link #getIndex()} lewat
+	 * {@code Common.generateMaxByLokasi(Pendaftaran.class, lokasi)}. Kolomnya sendiri dipetakan
+	 * {@code nullable = true}, sehingga pendaftaran tanpa lokasi secara teknis dapat tersimpan —
+	 * dan baris seperti itu akan lolos dari penyaringan berbasis lokasi di layar mana pun yang
+	 * memakainya. Kode baru yang mengandalkan lokasi untuk pembatasan akses harus menangani
+	 * kemungkinan {@code null} secara gagal-tertutup, bukan mengabaikannya.</p>
+	 *
+	 * <p>Perhatikan pula bahwa <b>tidak ada penjaga yang memastikan lokasi pendaftaran sama dengan
+	 * lokasi jadwal dokter yang dipilih</b> ({@link JadwalDokter#getLokasi()}), sehingga kedua
+	 * nilai dapat berbeda.</p>
+	 *
+	 * @return unit/cabang tempat pendaftaran dibuat, atau {@code null}.
+	 * @see ais.database.model.asset.Lokasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lokasi", nullable = true)
 	public Lokasi getLokasi() {
@@ -1356,18 +2028,52 @@ public class Pendaftaran extends GeneralValueObject {
 		return lokasi;
 	}
 
+	/**
+	 * Menyetel nomor urut pendaftaran di dalam lokasinya.
+	 * <p>Pada alur normal hanya dipanggil sekali saat penyimpanan pertama; mengubahnya kemudian
+	 * dapat menimbulkan nomor urut kembar karena pembangkitannya berbasis nilai maksimum.</p>
+	 *
+	 * @param index nomor urut per lokasi.
+	 */
 	public void setIndex(Long index) {
 		this.index = index;
 	}
 
+	/**
+	 * @return nomor urut pendaftaran di dalam lokasinya, atau {@code null} bila belum tersimpan.
+	 *         <p>Diisi sekali pada penyimpanan pertama dengan
+	 *         {@code Common.generateMaxByLokasi(Pendaftaran.class, lokasi) + 1}. Karena
+	 *         pembangkitannya berupa baca-lalu-tulis tanpa penguncian dan tanpa batasan unik pada
+	 *         kolomnya, dua pendaftaran yang disimpan bersamaan pada lokasi yang sama dapat
+	 *         memperoleh nomor urut yang sama. Jangan memakainya sebagai pengenal unik — gunakan
+	 *         {@link #getKode()} atau {@link #getId()}.</p>
+	 *         <p>Getter ini tidak beranotasi {@link Column @Column}. Perhatikan bahwa
+	 *         {@code index} adalah kata kunci pada beberapa dialek SQL, sehingga nama kolomnya
+	 *         biasanya perlu dikutip oleh dialek Hibernate yang dipakai.</p>
+	 */
 	public Long getIndex() {
 		return index;
 	}
 
+	/**
+	 * Menyetel shift pelayanan pendaftaran ini.
+	 *
+	 * @param shift shift pelayanan; boleh {@code null}.
+	 */
 	public void setShift(Shift shift) {
 		this.shift = shift;
 	}
 
+	/**
+	 * Mengembalikan shift pelayanan, setelah meresolusi proxy lazy-nya lewat {@code check(...)}.
+	 *
+	 * <p>Kolomnya {@code shift}, {@code nullable = true}. Seperti {@link #getDokter()} dan
+	 * {@link #getPoly()}, ini cuplikan dari {@link JadwalDokter#getShift()} milik jadwal terpilih
+	 * dan dapat berbeda dari nilai jadwal terkini bila jadwalnya kemudian diubah.</p>
+	 *
+	 * @return shift pelayanan, atau {@code null}.
+	 * @see Shift
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "shift", nullable = true)
 	public Shift getShift() {
@@ -1375,10 +2081,31 @@ public class Pendaftaran extends GeneralValueObject {
 		return shift;
 	}
 
+	/**
+	 * Menautkan dokumen pembayaran ke pendaftaran ini.
+	 * <p>Setter ini tidak memperbarui {@link #getLunas()} secara langsung — penanda itu dihitung
+	 * ulang pada setiap pembacaan.</p>
+	 *
+	 * @param pembayaran dokumen pembayaran; boleh {@code null}.
+	 */
 	public void setPembayaran(Pembayaran pembayaran) {
 		this.pembayaran = pembayaran;
 	}
 
+	/**
+	 * Mengembalikan dokumen pembayaran yang terkait pendaftaran ini, atau {@code null} bila belum
+	 * ada penagihan.
+	 *
+	 * <p>Kolomnya {@code pembayaran}, {@code nullable = true}. Relasi tidak menyatakan
+	 * {@code fetch = LAZY} sehingga memakai default {@link FetchType#EAGER} diperkuat
+	 * {@link Fetch @Fetch}{@code (}{@link FetchMode#SELECT}{@code )} — itu sebabnya getter ini
+	 * tidak memanggil {@code check(...)}, dan itu pula yang membuat {@link #getLunas()} aman
+	 * membaca field {@link #pembayaran} secara langsung.</p>
+	 *
+	 * @return dokumen pembayaran, atau {@code null}.
+	 * @see Pembayaran
+	 * @see #getLunas()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pembayaran", nullable = true)
@@ -1386,20 +2113,86 @@ public class Pendaftaran extends GeneralValueObject {
 		return pembayaran;
 	}
 
+	/**
+	 * Menyetel penanda lunas — <b>praktis tanpa efek</b>, karena {@link #getLunas()} selalu
+	 * menghitung ulang dari {@link #getPembayaran()}.
+	 *
+	 * @param lunas nilai yang akan segera tertimpa.
+	 */
 	public void setLunas(Boolean lunas) {
 		this.lunas = lunas;
 	}
 
+	/**
+	 * Mengembalikan penanda apakah tagihan pendaftaran ini sudah lunas — <b>selalu dihitung ulang
+	 * dan ditulis balik</b> ke field.
+	 *
+	 * <h3>Rumus</h3>
+	 * <p>Lunas bila dokumen pembayaran ada <i>dan</i> total biayanya tidak melebihi jumlah
+	 * pembayaran tunai ditambah non-tunai:</p>
+	 * <pre>{@code
+	 * lunas = pembayaran != null
+	 *         && pembayaran.getTotalBiaya() <= (pembayaran.getBayarTunai() + pembayaran.getBayarNonTunai());
+	 * }</pre>
+	 * <p>Perhatikan operator {@code <=}, bukan {@code ==}: pembayaran berlebih (misalnya karena
+	 * uang muka atau kelebihan transfer) tetap dianggap lunas. Pendaftaran <b>tanpa</b> dokumen
+	 * pembayaran selalu dianggap <b>belum lunas</b>, bukan "tidak relevan" — sehingga pendaftaran
+	 * yang memang tidak menimbulkan tagihan pun akan tampil sebagai "BELUM LUNAS" pada dasbor.</p>
+	 *
+	 * <h3>Nilai turunan yang ditulis ke kolom</h3>
+	 * <p>Hasil perhitungan ditugaskan ke field {@link #lunas}, dan karena property ini tidak diberi
+	 * {@link javax.persistence.Transient @Transient} ia <b>ikut dipetakan ke kolom basis data</b>.
+	 * Akibatnya {@link #setLunas(Boolean)} praktis tanpa efek, dan kolom {@code lunas} berisi data
+	 * turunan yang di-denormalisasi — nilainya diperbarui setiap kali baris ini dibaca lalu
+	 * di-flush. Jangan memakai kolom itu sebagai sumber kebenaran pada query SQL langsung; hitung
+	 * dari dokumen pembayaran.</p>
+	 *
+	 * <h3>Risiko {@link NullPointerException}</h3>
+	 * <p>Ketiga nilai yang dibandingkan berasal dari {@link Pembayaran} dan bertipe pembungkus.
+	 * Ekspresi di atas melakukan <i>unboxing</i> pada ketiganya, sehingga bila salah satu di antara
+	 * total biaya, bayar tunai, atau bayar non-tunai bernilai {@code null}, method ini melempar
+	 * {@link NullPointerException} — bukan mengembalikan {@code false}. Dokumen pembayaran yang
+	 * baru dibuat dan belum diisi nominalnya karena itu dapat membuat grid yang menampilkan kolom
+	 * status pembayaran gagal dirender. Pemanggil seperti {@code DashboardSirsKomprehensif} memang
+	 * memeriksa {@code getLunas() != null} sebelum memakainya, tetapi pemeriksaan itu tidak
+	 * melindungi apa pun: method ini tidak pernah mengembalikan {@code null}, ia melempar
+	 * exception.</p>
+	 *
+	 * <p>Getter ini tidak beranotasi {@link Column @Column}; dipetakan berdasarkan konvensi.</p>
+	 *
+	 * @return {@code true} bila tagihan sudah tertutup; tidak pernah {@code null}.
+	 * @throws NullPointerException bila dokumen pembayaran ada tetapi salah satu nominalnya
+	 *                              {@code null}.
+	 */
 	public Boolean getLunas() {
 		lunas = pembayaran != null
 				&& pembayaran.getTotalBiaya() <= (pembayaran.getBayarTunai() + pembayaran.getBayarNonTunai());
 		return lunas;
 	}
 
+	/**
+	 * Menyetel sub-poliklinik tujuan.
+	 *
+	 * @param subpoly sub-poliklinik; boleh {@code null}.
+	 */
 	public void setSubpoly(Poly subpoly) {
 		this.subpoly = subpoly;
 	}
 
+	/**
+	 * Mengembalikan sub-poliklinik tujuan, setelah meresolusi proxy lazy-nya lewat
+	 * {@code check(...)}.
+	 *
+	 * <p>Sama seperti pada {@link BookingRegistrasi#getSubpoly()}, sub-poli dipetakan ke entity
+	 * yang <b>sama</b> dengan {@link #getPoly()}, yaitu {@link Poly}, hanya lewat kolom berbeda
+	 * ({@code subpoly}). Hierarki poli &rarr; sub-poli karena itu tidak diwakili oleh dua tipe
+	 * berbeda melainkan oleh dua kolom yang menunjuk tabel yang sama, dan <b>tidak ada penjaga</b>
+	 * yang memastikan nilai {@code subpoly} benar-benar merupakan turunan dari {@code poly}.</p>
+	 *
+	 * @return sub-poliklinik tujuan, atau {@code null}.
+	 * @see Poly
+	 * @see #getPoly()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "subpoly", nullable = true)
 	public Poly getSubpoly() {
@@ -1407,6 +2200,25 @@ public class Pendaftaran extends GeneralValueObject {
 		return subpoly;
 	}
 
+	/**
+	 * Mengembalikan transaksi medis UGD yang terkait pendaftaran ini, atau {@code null}.
+	 *
+	 * <p>Kolomnya {@code transaksi_ugd}, {@code nullable = true}. Relasi ini adalah <b>padanan
+	 * jalur UGD terhadap {@link #getBookingRegistrasi()}</b>: karena
+	 * {@code PendaftaranRawatUgdAction} secara eksplisit menyetel booking ke {@code null} (gawat
+	 * darurat tidak mengenal janji temu), pendaftaran UGD sebagai gantinya menautkan transaksi
+	 * medis di sini lewat {@code transaksi.setPendaftaran(pendaftaran)} pada alur simpannya.</p>
+	 *
+	 * <p>Relasi tidak menyatakan {@code fetch = LAZY} sehingga memakai default
+	 * {@link FetchType#EAGER} diperkuat
+	 * {@link Fetch @Fetch}{@code (}{@link FetchMode#SELECT}{@code )} — sekali lagi satu SELECT
+	 * tambahan per pemuatan pendaftaran, termasuk untuk pendaftaran rawat jalan dan rawat inap
+	 * yang tidak akan pernah mengisinya.</p>
+	 *
+	 * @return transaksi medis UGD, atau {@code null}.
+	 * @see TransaksiMedis
+	 * @see #RAWAT_UGD
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "transaksi_ugd", nullable = true)
@@ -1414,19 +2226,90 @@ public class Pendaftaran extends GeneralValueObject {
 		return transaksiUgd;
 	}
 
+	/**
+	 * Menautkan transaksi medis UGD ke pendaftaran ini.
+	 *
+	 * @param transaksiUgd transaksi medis UGD; boleh {@code null}.
+	 */
 	public void setTransaksiUgd(TransaksiMedis transaksiUgd) {
 		this.transaksiUgd = transaksiUgd;
 	}
 
+	/**
+	 * Mengembalikan penanda apakah pendaftaran ini berisi paket tindakan — <b>selalu dihitung ulang
+	 * dari isi koleksi dan ditulis balik</b> ke field.
+	 *
+	 * <p>Nilainya turunan sederhana {@code !pakets.isEmpty()}, sehingga
+	 * {@link #setMerupakanPaket(Boolean)} praktis tanpa efek dan kolom yang dipetakannya berisi
+	 * data turunan yang di-denormalisasi (property ini tidak diberi
+	 * {@link javax.persistence.Transient @Transient}).</p>
+	 *
+	 * <p><b>Bahaya {@code LazyInitializationException}.</b> Persis seperti
+	 * {@link BookingRegistrasi#getMerupakanPaket()}, method ini membaca field {@link #pakets}
+	 * <i>secara langsung</i>, bukan lewat {@link #getPakets()}. Karena relasi {@code @ManyToMany}
+	 * dimuat malas secara default, memanggil {@code isEmpty()} atasnya pada instance yang sudah
+	 * <i>detached</i> dari {@link org.hibernate.Session} akan melempar
+	 * {@code LazyInitializationException}. Pola {@code check(...)} yang melindungi getter relasi
+	 * lain tidak berlaku untuk koleksi.</p>
+	 *
+	 * @return {@code true} bila ada minimal satu paket tindakan pada pendaftaran ini.
+	 */
 	public Boolean getMerupakanPaket() {
 		merupakanPaket = !pakets.isEmpty();
 		return merupakanPaket;
 	}
 
+	/**
+	 * Menyetel penanda paket — <b>praktis tanpa efek</b>, karena {@link #getMerupakanPaket()}
+	 * selalu menghitung ulang dari isi {@link #getPakets()}. Untuk mengubah nilainya, ubah isi
+	 * koleksi paketnya.
+	 *
+	 * @param merupakanPaket nilai yang akan segera tertimpa.
+	 */
 	public void setMerupakanPaket(Boolean merupakanPaket) {
 		this.merupakanPaket = merupakanPaket;
 	}
 
+	/**
+	 * Mengembalikan booking yang ditebus menjadi pendaftaran ini, atau {@code null} bila pasien
+	 * datang tanpa janji temu.
+	 *
+	 * <h3>Sisi maju dari relasi dua arah</h3>
+	 * <p>Ini pasangan dari {@link BookingRegistrasi#getPendaftaran()}. Keduanya diikat bersamaan
+	 * oleh {@code PendaftaranRawatJalanAction} dan {@code PendaftaranRawatInapAction} pada saat
+	 * simpan: {@code pendaftaran.setBookingRegistrasi(booking)} lebih dulu, lalu — setelah
+	 * pendaftaran tersimpan — {@code booking.setPendaftaran(pendaftaran)} diikuti
+	 * {@code Common.refreshUpdate(session, booking)}. Tidak ada mekanisme di entity yang menjaga
+	 * kedua sisi tetap sinkron; bila salah satu disetel tanpa yang lain, relasinya menjadi
+	 * timpang.</p>
+	 *
+	 * <p>{@code PendaftaranRawatUgdAction} sebaliknya selalu menyetel field ini ke {@code null}
+	 * dan memakai {@link #getTransaksiUgd()} sebagai gantinya.</p>
+	 *
+	 * <h3>Pengaruh pada nomor antrian</h3>
+	 * <p>Keberadaan booking mengubah cara nomor antrian ditentukan:
+	 * {@code CommonPendaftaranUtil.generateNomorAntrian(Pendaftaran, JadwalDokter)} memeriksa field
+	 * ini paling awal dan, bila terisi, <b>langsung mengembalikan</b>
+	 * {@code getBookingRegistrasi().getNomorAntrian()} tanpa perhitungan apa pun. Lihat
+	 * {@link #getNomorAntrian()} untuk rinciannya.</p>
+	 *
+	 * <h3>Penjaga penebusan ganda</h3>
+	 * <p>Perlindungan terhadap satu booking yang ditebus dua kali hanya hidup di lapisan tampilan:
+	 * {@code AmbilDataBookingRegistrasiBanbox} menyaring dengan
+	 * {@code Restrictions.isNull("pendaftaran")}, dan layar booking menyembunyikan tombol
+	 * ubah/hapus untuk booking yang sudah tertaut. Kolom {@code booking_registrasi} di sini tidak
+	 * dipetakan {@code unique} dan alur simpan tidak memeriksa ulang, sehingga dua pendaftaran
+	 * yang disimpan bersamaan dapat sama-sama menunjuk booking yang sama — dan keduanya akan
+	 * mewarisi nomor antrian yang identik.</p>
+	 *
+	 * <p>Relasi tidak menyatakan {@code fetch = LAZY} sehingga memakai default
+	 * {@link FetchType#EAGER} diperkuat
+	 * {@link Fetch @Fetch}{@code (}{@link FetchMode#SELECT}{@code )}; itu sebabnya getter ini
+	 * tidak memanggil {@code check(...)}.</p>
+	 *
+	 * @return booking yang ditebus, atau {@code null}.
+	 * @see BookingRegistrasi#getPendaftaran()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "booking_registrasi", nullable = true)
@@ -1434,10 +2317,42 @@ public class Pendaftaran extends GeneralValueObject {
 		return bookingRegistrasi;
 	}
 
+	/**
+	 * Menautkan booking yang ditebus menjadi pendaftaran ini.
+	 * <p>Setter ini <b>tidak</b> menyetel sisi kebalikannya
+	 * ({@code bookingRegistrasi.setPendaftaran(this)}) dan <b>tidak</b> memeriksa apakah booking
+	 * tersebut sudah ditebus pendaftaran lain — keduanya menjadi tanggung jawab pemanggil.</p>
+	 *
+	 * @param bookingRegistrasi booking yang ditebus; {@code null} untuk pasien tanpa janji temu
+	 *                          (selalu demikian pada alur UGD).
+	 */
 	public void setBookingRegistrasi(BookingRegistrasi bookingRegistrasi) {
 		this.bookingRegistrasi = bookingRegistrasi;
 	}
 
+	/**
+	 * Mengembalikan jadwal praktek yang dituju pendaftaran ini, setelah meresolusi proxy lazy-nya
+	 * lewat {@code check(...)}.
+	 *
+	 * <p>Dari jadwal inilah diturunkan tanggal pelayanan ({@link #getDilayaniTanggal()} membaca
+	 * {@link JadwalDokter#getHari()}) dan nomor antrian
+	 * ({@code CommonPendaftaranUtil.generateNomorAntrian(...)} menghitung per jadwal). Bila
+	 * pendaftaran berasal dari booking, jadwal ini disalin dari
+	 * {@link BookingRegistrasi#getJadwalDokter()}.</p>
+	 *
+	 * <p>Kolomnya {@code jadwal_dokter}, {@code nullable = true} — pendaftaran tanpa jadwal secara
+	 * teknis mungkin, tetapi baris seperti itu tidak dapat menghitung tanggal pelayanan maupun
+	 * nomor antrian, dan akan gagal disimpan karena {@link #getDilayaniTanggal()} memetakan kolom
+	 * {@code NOT NULL} dari nilai yang {@code null}.</p>
+	 *
+	 * <p>Ingat karakteristik {@link JadwalDokter}: rentang berlakunya tidak pernah dipakai sebagai
+	 * filter, sehingga jadwal yang sudah kedaluwarsa tetap dapat dipilih di sini; dan jadwal kembar
+	 * untuk kombinasi dokter+hari+shift yang sama tidak dicegah, sehingga dua pendaftaran untuk
+	 * praktek yang secara nyata sama dapat memakai deret antrian yang berbeda.</p>
+	 *
+	 * @return jadwal praktek yang dituju, atau {@code null}.
+	 * @see JadwalDokter
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jadwal_dokter", nullable = true)
 	public JadwalDokter getJadwalDokter() {
@@ -1445,10 +2360,63 @@ public class Pendaftaran extends GeneralValueObject {
 		return jadwalDokter;
 	}
 
+	/**
+	 * Menyetel jadwal praktek yang dituju pendaftaran ini.
+	 * <p>Menyetelnya <i>setelah</i> {@link #getDilayaniTanggal()} pernah dipanggil tidak akan
+	 * mengubah tanggal pelayanan, karena method itu menyimpan hasil perhitungannya dan hanya
+	 * menghitung ketika tanggal masih {@code null}. Bila jadwal diganti, setel ulang
+	 * {@link #setDilayaniTanggal(Date)} ke {@code null} agar perhitungannya diulang.</p>
+	 *
+	 * @param jadwalDokter jadwal praktek yang dituju.
+	 */
 	public void setJadwalDokter(JadwalDokter jadwalDokter) {
 		this.jadwalDokter = jadwalDokter;
 	}
 
+	/**
+	 * Mengembalikan tanggal pasien akan dilayani, <b>menghitungnya sekali</b> dari hari pada jadwal
+	 * dokter bila belum pernah dihitung.
+	 *
+	 * <h3>Cara kerja</h3>
+	 * <p>Bila {@link #dilayaniTanggal} masih {@code null} dan pendaftaran sudah menunjuk jadwal
+	 * dokter, method ini mengambil kalender aplikasi ({@code ais.ui.util.WaktuUtil.getCalendar()}),
+	 * menempatkannya pada {@link #getTanggalPendaftaran()}, lalu <b>memajukan kalender satu hari
+	 * demi satu hari</b> sampai nama hari kalender cocok (tanpa membedakan huruf besar-kecil)
+	 * dengan {@link JadwalDokter#getHari()}. Nama hari kalender diambil dari
+	 * {@code ais.common.Common.haris} memakai indeks {@code Calendar.DAY_OF_WEEK - 1}. Hasilnya
+	 * disimpan ke field sehingga perhitungan tidak diulang.</p>
+	 *
+	 * <p>Artinya pendaftaran selalu jatuh pada <b>kemunculan pertama hari jadwal tersebut pada atau
+	 * setelah tanggal pendaftaran</b> — paling jauh enam hari ke depan. Bila tanggal pendaftaran
+	 * jatuh tepat pada hari jadwal, perulangan tidak berjalan sama sekali dan tanggal pelayanan
+	 * sama dengan tanggal pendaftaran.</p>
+	 *
+	 * <h3>Bahaya: perulangan dapat berjalan tanpa henti</h3>
+	 * <p>Kondisi berhenti perulangan adalah kecocokan nama hari. Bila
+	 * {@link JadwalDokter#getHari()} berisi nilai yang <b>tidak ada</b> pada
+	 * {@code Common.haris} — salah ketik, ejaan berbeda, string kosong, atau {@code "Jumat"}
+	 * sementara daftar resminya {@code "Jum'at"} dengan tanda petik satu — kondisi itu tidak akan
+	 * pernah tercapai dan perulangan berputar selamanya, menahan thread permintaan dan membebani
+	 * satu inti prosesor. Bila nilainya {@code null}, yang terjadi adalah
+	 * {@link NullPointerException} pada {@code hari.equalsIgnoreCase(currHari)}. Tidak ada
+	 * pembatas jumlah iterasi maupun pemeriksaan nilai hari sebelum perulangan dimulai. Method
+	 * kembar {@link BookingRegistrasi#getDilayaniTanggal()} memiliki bahaya yang persis sama, dan
+	 * karena {@link JadwalDokter#setHari(String)} tidak memvalidasi apa pun, satu baris jadwal
+	 * bermasalah cukup untuk melumpuhkan layar pendaftaran yang memakainya.</p>
+	 *
+	 * <h3>Catatan pemetaan</h3>
+	 * <p>Dipetakan {@link TemporalType#DATE} (tanpa jam) ke kolom {@code dilayani_tanggal}
+	 * berdasarkan konvensi, dan {@code @Column(nullable = false)} — padahal method ini <b>dapat
+	 * mengembalikan {@code null}</b> ketika pendaftaran belum menunjuk jadwal dokter, sehingga
+	 * penyimpanan pendaftaran tanpa jadwal akan gagal pada tingkat basis data alih-alih memberi
+	 * pesan validasi yang informatif. Nilai ini juga menjadi acuan penyaringan pada pembangkitan
+	 * nomor antrian di {@code CommonPendaftaranUtil}.</p>
+	 *
+	 * @return tanggal pelayanan hasil perhitungan, atau {@code null} bila pendaftaran belum
+	 *         menunjuk jadwal dokter dan tanggal belum disetel manual.
+	 * @see JadwalDokter#getHari()
+	 * @see BookingRegistrasi#getDilayaniTanggal()
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(nullable = false)
 	public Date getDilayaniTanggal() {
@@ -1469,6 +2437,22 @@ public class Pendaftaran extends GeneralValueObject {
 		return dilayaniTanggal;
 	}
 
+	/**
+	 * Menyetel tanggal pelayanan secara eksplisit.
+	 * <p>Menyetel nilai bukan-{@code null} <b>mematikan</b> perhitungan otomatis pada
+	 * {@link #getDilayaniTanggal()}, karena perhitungan itu hanya berjalan ketika field masih
+	 * {@code null} — sekaligus menghindari bahaya perulangan tanpa henti yang dijelaskan di sana.
+	 * Sebaliknya, menyetelnya kembali ke {@code null} akan memicu perhitungan ulang pada pembacaan
+	 * berikutnya, yang berguna setelah {@link #setJadwalDokter(JadwalDokter)} mengganti jadwal.</p>
+	 *
+	 * <p>Ketiga layar pendaftaran memanggil setter ini dengan tanggal yang dipilih petugas dari
+	 * kalender jadwal ({@code AmbilJadwalHarian}/{@code AmbilJadwalBulanan}), sehingga pada alur
+	 * normal nilai ini memang ditentukan pengguna dan perhitungan otomatis tidak pernah
+	 * berjalan.</p>
+	 *
+	 * @param dilayaniTanggal tanggal pelayanan; {@code null} mengaktifkan kembali perhitungan
+	 *                        otomatis.
+	 */
 	public void setDilayaniTanggal(Date dilayaniTanggal) {
 		this.dilayaniTanggal = dilayaniTanggal;
 	}
