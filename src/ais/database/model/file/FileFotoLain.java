@@ -2077,6 +2077,28 @@ public abstract class FileFotoLain extends FileFoto {
 
 	// --- Helper UI Methods ---
 
+	/**
+	 * Menggabungkan dua {@code EventListener} menjadi satu yang menjalankan keduanya
+	 * secara berurutan.
+	 *
+	 * <p>Dipakai jalur unggah cadangan pada {@code createDownloadUpload(...)}, tempat
+	 * {@code AmbilDataLampiranFileLain} hanya menerima satu penerima event padahal ada
+	 * dua hal yang harus terjadi setelah unggah: pemberitahuan ke pemanggil, dan
+	 * penyusunan ulang tampilan.</p>
+	 *
+	 * <p><b>Urutan dan penanganan kesalahannya bermakna.</b> {@code original} dijalankan
+	 * lebih dahulu, dan {@code null} pada posisi itu diperbolehkan &mdash; tidak semua
+	 * pemanggil peduli pada hasil unggah. {@code reset} dijalankan sesudahnya dan
+	 * diasumsikan tidak pernah {@code null}. Tidak ada {@code try-catch} di sini, jadi
+	 * kegagalan pada {@code original} <b>membatalkan</b> {@code reset}: tampilan tidak
+	 * tersusun ulang dan pengguna melihat keadaan lama meski berkasnya sudah terunggah.
+	 * Pemanggil yang menyerahkan listener rapuh sebaiknya menangani kesalahannya sendiri
+	 * di dalam listener tersebut.</p>
+	 *
+	 * @param original penerima event milik pemanggil; boleh {@code null}
+	 * @param reset    penerima event penyegar tampilan, dijalankan setelah {@code original}
+	 * @return listener gabungan yang menjalankan keduanya berurutan
+	 */
 	private static EventListener wrapListener(final EventListener original, final EventListener reset) {
 		return new EventListener() {
 			public void onEvent(Event arg0) throws Exception {
@@ -2087,6 +2109,43 @@ public abstract class FileFotoLain extends FileFoto {
 		};
 	}
 
+	/**
+	 * Menjalankan penghapusan lampiran dari sisi UI: membatalkan cache metadata, lalu
+	 * menyerahkan pekerjaan sesungguhnya ke {@code hapusAtauUpdate()}.
+	 *
+	 * <p><b>Cara kerja yang tidak lazim: instance kosong sebagai pembawa kelas.</b>
+	 * Baris {@code clazz.newInstance()} membuat objek entitas baru yang seluruh
+	 * kolomnya kosong dan tidak pernah disimpan. Objek itu tidak mewakili baris mana pun;
+	 * ia hanya dipakai supaya {@code hapusAtauUpdate()} dapat memanggil
+	 * {@code ambilClazz()} untuk mengetahui kelas mana yang sedang dihapus. Karena
+	 * {@code hapusAtauUpdate()} bersifat statis dan tetap menerima {@code clazz} secara
+	 * tidak langsung lewat instance itu, pola ini menuntut setiap subclass memiliki
+	 * konstruktor tanpa argumen yang dapat diakses &mdash; syarat yang tidak diperiksa di
+	 * mana pun dan baru terlihat sebagai kegagalan saat dijalankan.</p>
+	 *
+	 * <p><b>Yang sesungguhnya dihapus.</b> Sangat bergantung pada {@code usingId} dan
+	 * pada golongan {@code refField} kelasnya: {@code usingId = true} menjalankan
+	 * {@code DELETE} sungguhan, {@code usingId = false} pada kelas berrelasi biasa hanya
+	 * menimpa kolom acuan pemilik dengan {@code SOFT_DELETE_ID}, dan {@code usingId =
+	 * false} pada kelas ber-{@code refField} {@code "id"} <b>tidak melakukan apa pun</b>.
+	 * Ketiganya terlihat sama dari sisi pengguna karena tampilan disusun ulang setelahnya
+	 * dan cache sudah dibatalkan. Lihat {@code hapusAtauUpdate()} untuk rinciannya.</p>
+	 *
+	 * <p><b>Cache yang dibatalkan hanya satu varian</b>, yaitu yang sesuai nilai
+	 * {@code usingId} yang dikirim. Varian yang lain tetap utuh; lihat catatan pada
+	 * {@code resetLokasi()}.</p>
+	 *
+	 * <p><b>Penanganan kesalahan.</b> Kegagalan apa pun memicu rollback transaksi lalu
+	 * {@code Common.tampilErrorJikaAdmin(ex)} &mdash; artinya pesan kesalahan hanya
+	 * ditampilkan kepada administrator. Pengguna biasa tidak melihat apa-apa, sementara
+	 * tampilan tetap disusun ulang oleh pemanggil seolah penghapusan berhasil. Session
+	 * selalu ditutup di blok {@code finally}.</p>
+	 *
+	 * @param usingId {@code true} menjalankan penghapusan berbasis primary key
+	 * @param ref     acuan pemilik, atau primary key lampiran bila {@code usingId}
+	 * @param jenis   penanda jenis lampiran yang dihapus
+	 * @param clazz   kelas entitas berkas; harus punya konstruktor tanpa argumen
+	 */
 	private static void performDelete(Boolean usingId, Serializable ref, String jenis, Class clazz) {
 		Session session = StreamingHibernateUtil.getInstance().currentSession();
 		try {
@@ -2101,6 +2160,27 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Membuat tombol lampiran dengan gaya seragam: ukuran huruf 9px dan atribut
+	 * {@code "janganDisabled"}.
+	 *
+	 * <p>Dua bentuk yang dihasilkan: pada mode ikon saja label dikosongkan dan tooltip
+	 * tidak dipasang &mdash; ikon menjadi satu-satunya petunjuk fungsi tombol; pada mode
+	 * biasa label diisi dan teks yang sama dipasang pula sebagai tooltip.</p>
+	 *
+	 * <p>Atribut {@code "janganDisabled"} adalah penanda yang dibaca mekanisme penguncian
+	 * formulir di tempat lain agar tombol lampiran tetap dapat diklik meski formulir
+	 * induknya sedang dinonaktifkan &mdash; pengguna tetap dapat melihat berkas pada
+	 * formulir yang hanya boleh dibaca. Penanda yang sama dipasang pula pada tombol
+	 * unggah di {@code tampilkanTombolUpload()} dan {@code tampilkanTombolUploadGdrive()}.
+	 * <b>Perhatikan</b> bahwa penanda ini melewatkan tombol dari penguncian tampilan saja;
+	 * ia bukan pemberi hak dan tidak boleh dianggap sebagai kendali akses.</p>
+	 *
+	 * @param iconOnly {@code true} membuat tombol tanpa label dan tanpa tooltip
+	 * @param label    teks label sekaligus tooltip pada mode biasa
+	 * @param iconPath jalur berkas ikon tombol
+	 * @return tombol siap pasang; pemanggil masih harus menambahkannya ke wadah
+	 */
 	private static MyToolbarbuttonConfig createButton(boolean iconOnly, String label, String iconPath) {
 		MyToolbarbuttonConfig btn = iconOnly ? new MyToolbarbuttonConfig("", iconPath)
 				: new MyToolbarbuttonConfig(label, iconPath);
@@ -2111,6 +2191,43 @@ public abstract class FileFotoLain extends FileFoto {
 		return btn;
 	}
 
+	/**
+	 * Menambahkan combo jurusan ke wadah tombol, bila konfigurasi aplikasi mengizinkan
+	 * lampiran dibedakan per jurusan.
+	 *
+	 * <p><b>Nama parameternya berlawanan dengan perilakunya.</b> Combo ditambahkan justru
+	 * ketika {@code tidakTampil} bernilai {@code true} &mdash; syaratnya adalah
+	 * {@code tidakTampil && konfigurasi aktif}, bukan sebaliknya. Nama {@code tidakTampil}
+	 * (dan {@code tidakTampilJurusan} pada rantai {@code createDownloadUpload}) karena itu
+	 * menyesatkan; jangan mengandalkan namanya saat menelusuri kode. Perilaku ini tidak
+	 * diubah di sini karena seluruh pemanggil sudah menyesuaikan diri dengannya, dan
+	 * membalik maknanya berarti membalik nilai di setiap pemanggil sekaligus.</p>
+	 *
+	 * <p><b>Bergantung pada konfigurasi basis data.</b> Kuncinya
+	 * {@code "upload_file_di_konfigurasi_tiap_jurusan_bisa_beda"}, dengan nilai bawaan
+	 * {@code Konfigurasi.TIDAK_AKTIF} dan combo hanya muncul bila nilainya {@code "Y"}.
+	 * Perlu diingat bahwa {@code Common.getKonfigurasi(...)} pada aplikasi ini menuliskan
+	 * nilai bawaan ke basis data bila kuncinya belum ada, sehingga mengubah nilai bawaan
+	 * di kode <b>tidak</b> mengubah perilaku pemasangan yang kuncinya sudah pernah
+	 * terbentuk.</p>
+	 *
+	 * <p>Isi combo diambil dari entitas {@code Jurusan} yang aktif; penyaringnya sengaja
+	 * berbentuk "aktif bernilai {@code null} <i>atau</i> {@code true}" agar baris warisan
+	 * lama yang belum pernah mengisi kolom aktif tetap ikut tampil. Combo dipasang
+	 * {@code readonly} sehingga nilainya hanya dapat dipilih dari daftar, tidak diketik.</p>
+	 *
+	 * <p><b>Combo ini tidak ditautkan ke mana pun di sini.</b> Ia hanya ditambahkan ke
+	 * wadah; tidak ada listener yang dipasang dan tidak ada pemanggil di dalam kelas ini
+	 * yang membaca nilainya. Jalur unggah yang benar-benar memakai combo jurusan menerima
+	 * objeknya lewat parameter tersendiri pada {@code tampilkanTombolUpload(...)} &mdash;
+	 * dan {@code createDownloadUpload(...)} mengirim {@code null} di sana. Akibatnya,
+	 * pada jalur ini pilihan jurusan yang dibuat pengguna <b>tidak berpengaruh</b> pada
+	 * lampiran yang diunggah.</p>
+	 *
+	 * @param parent      wadah tempat combo ditambahkan
+	 * @param tidakTampil penanda yang &mdash; berlawanan dengan namanya &mdash; harus
+	 *                    bernilai {@code true} agar combo ditambahkan
+	 */
 	private static void setupJurusanCombo(Component parent, Boolean tidakTampil) {
 		if (tidakTampil && "Y".equals(
 				Common.getKonfigurasi("upload_file_di_konfigurasi_tiap_jurusan_bisa_beda", Konfigurasi.TIDAK_AKTIF)
@@ -2123,6 +2240,53 @@ public abstract class FileFotoLain extends FileFoto {
 		}
 	}
 
+	/**
+	 * Memasang perilaku klik pada tombol unduh: memilih cara terbaik menampilkan atau
+	 * mengunduh satu lampiran sesuai jenis berkas dan tempat penyimpanannya.
+	 *
+	 * <p><b>Empat cabang, diperiksa berurutan:</b></p>
+	 * <ol>
+	 *   <li><b>Berkas {@code .jrxml}/{@code .xml}</b> &rarr; langsung diunduh lewat
+	 *       {@code Filedownload.save(...)}. Berkas definisi laporan memang tidak ada
+	 *       gunanya ditampilkan di peramban.</li>
+	 *   <li><b>Lampiran di Google Drive</b> &rarr; ditampilkan lewat mekanisme Drive.</li>
+	 *   <li><b>Ada tautan tersimpan</b> &rarr; tautan itu dipakai apa adanya.</li>
+	 *   <li><b>Selain itu</b> &rarr; alamat disusun
+	 *       {@code ambilLinkLampiranLain(file, usingId, true, clazz, false)}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Mengapa {@code ketemu = false} pada cabang keempat.</b> Nilai itu memaksa
+	 * alamat selalu berbentuk {@code /al?d=...} yang dilayani servlet, tidak pernah
+	 * berbentuk alamat berkas statis {@code /f/ais/...}. Alasannya praktis: alamat berkas
+	 * statis dapat menjawab 404 dan memunculkan halaman kesalahan yang memuat ulang
+	 * dirinya sendiri tanpa henti, sehingga pratinjau tidak pernah selesai. Komentar di
+	 * dalam kode menyebut jalur servlet sebagai jalur "yang terautentikasi"; anggapan itu
+	 * perlu diperlakukan dengan hati-hati, sebab servlet {@code AmbilLampiran} sendiri
+	 * tidak memeriksa sesi pengguna di dalam {@code process()}-nya, dan berkas
+	 * {@code applicationContext-security.xml} mendeklarasikan pola {@code /al} sebagai
+	 * {@code IS_AUTHENTICATED_ANONYMOUSLY}. Manfaat nyata {@code ketemu = false} di sini
+	 * adalah kestabilan tampilan, bukan penambahan lapisan pemeriksaan hak akses.</p>
+	 *
+	 * <p><b>Cara penyajian setelah alamat diperoleh.</b> Berkas yang dapat dipratinjau
+	 * dibuka pada jendela dalam-halaman berukuran 95% &times; 95%. Selebihnya: alamat
+	 * yang mengandung {@code "AmbilLampiran"} atau perangkat bergerak memakai pengalihan
+	 * ke tab baru, sedangkan sisanya memakai {@code popupCenter} berukuran 1200&times;600
+	 * lewat {@code Clients.evalJavaScript}. Perhatikan bahwa alamat pada cabang ketiga
+	 * berasal dari kolom {@code link} yang diisi pengguna dan disisipkan ke dalam
+	 * potongan JavaScript itu di antara tanda petik tunggal; nilai yang memuat petik
+	 * tunggal akan merusak potongan tersebut.</p>
+	 *
+	 * <p>Bila alamat akhirnya kosong, sebuah pesan sopan berisi tiga langkah penyelesaian
+	 * ditampilkan alih-alih membiarkan tombol tampak tidak berfungsi.</p>
+	 *
+	 * @param btn     tombol yang dipasangi perilaku klik
+	 * @param file    lampiran yang hendak ditampilkan; diasumsikan tidak {@code null}
+	 *                karena pemanggil hanya memasang perilaku ini ketika lampiran ada
+	 * @param usingId {@code true} membuat alamat yang disusun memakai primary key
+	 * @param clazz   kelas entitas berkas yang dicantumkan pada alamat
+	 * @param ket     keterangan lampiran, dipakai sebagai nama berkas pada jalur unduh
+	 *                langsung
+	 */
 	private static void setupDownloadButtonAction(Toolbarbutton btn, final FileFotoLain file, final Boolean usingId,
 			final Class clazz, final String ket) {
 		btn.addEventListener("onClick", new EventListener() {
@@ -2162,6 +2326,73 @@ public abstract class FileFotoLain extends FileFoto {
 
 	// --- Create & Update Logic (Generic) ---
 
+	/**
+	 * Membangun tombol unggah lampiran beserta seluruh alur yang terjadi setelah pengguna
+	 * memilih berkas: dialog unggah, penyimpanan, pembaruan tampilan, penulisan cache,
+	 * dan pemberitahuan ke pemanggil.
+	 *
+	 * <h2>Label tombol</h2>
+	 * <p>Berbunyi "Upload" bila belum ada lampiran dan "Ganti" bila sudah ada, diikuti
+	 * keterangan yang disingkat sepuluh karakter. Pada mode {@code hanyaIcon} label
+	 * dikosongkan dan tooltip tidak dipasang. Penentuan "sudah ada" memakai nilai
+	 * {@code fileFotoLain} pada saat tombol <i>dibangun</i>; tombol tidak mengganti
+	 * labelnya sendiri setelah unggah pertama berhasil.</p>
+	 *
+	 * <h2>Alur ketika berkas selesai dipilih</h2>
+	 * <ol>
+	 *   <li>Cache metadata dibatalkan lewat {@code resetLokasi(usingId, ref, jenis, clazz)}
+	 *       &mdash; hanya varian yang sesuai {@code usingId}, lihat catatan di sana.</li>
+	 *   <li>Bila nama event bukan {@code "Baru"}, {@code createFileFotoLain(...)} dipanggil
+	 *       untuk menyimpan baris lampiran yang sebenarnya. Bila nama event
+	 *       {@code "Baru"}, hasil dialog dipakai apa adanya tanpa penyimpanan &mdash;
+	 *       jalur ini untuk data yang belum tersimpan, dan pemanggilnya yang bertanggung
+	 *       jawab menyimpannya kemudian.</li>
+	 *   <li>Tampilan diperbarui: ikon dan label tombol unduh, penampakan tombol hapus,
+	 *       serta pratinjau lewat {@code SetelahUpload}.</li>
+	 *   <li>Metadata hasil ditulis ke cache, dilengkapi kunci {@code class} dan {@code id}
+	 *       agar {@code ambil()} dapat membangun ulang objeknya kelak.</li>
+	 *   <li>{@code eventListener} milik pemanggil dipanggil <b>tertunda</b> lewat
+	 *       {@code Common.createDefaultTimer(...)}, bukan langsung. Pemanggil karena itu
+	 *       tidak boleh berasumsi listenernya sudah berjalan ketika alur ini selesai.</li>
+	 * </ol>
+	 *
+	 * <h2>Penanganan kesalahan dan penutupan session</h2>
+	 * <p>Kegagalan pada langkah mana pun hanya dicatat ke {@code ErrorAuditUtil} lalu
+	 * dilewati. Akibat praktisnya perlu diketahui: bila penyimpanan gagal, blok
+	 * {@code finally} tetap menutup session dan tetap menjalankan
+	 * {@code resetAfterUpload} sehingga tampilan disusun ulang. Karena cache sudah
+	 * dibatalkan pada langkah 1, penyusunan ulang itu akan membaca keadaan yang sebenarnya
+	 * dan lampiran tampak tidak berubah &mdash; tetapi <b>tanpa pesan kesalahan apa pun
+	 * kepada pengguna</b>, yang mungkin menyimpulkan unggahannya berhasil.</p>
+	 *
+	 * <p>Perhatikan pula bahwa {@code resetLokasi()} pada langkah 1 dijalankan sebelum
+	 * penyimpanan, sehingga bila proses terhenti di tengah jalan cache tetap dalam
+	 * keadaan kosong &mdash; aman, karena pembacaan berikutnya akan bertanya ke basis
+	 * data.</p>
+	 *
+	 * @param downloadButton    tombol unduh yang ikon dan labelnya diperbarui setelah
+	 *                          unggah; boleh {@code null}
+	 * @param hapusButton       tombol hapus yang dimunculkan setelah unggah; boleh
+	 *                          {@code null}
+	 * @param eventListener     penerima pemberitahuan hasil unggah, dipanggil tertunda
+	 * @param setelahUpload     penata pratinjau setelah unggah; boleh {@code null}
+	 * @param fileFotoLain      lampiran yang sudah ada saat tombol dibangun; hanya dipakai
+	 *                          untuk menentukan label "Upload" atau "Ganti"
+	 * @param jenis             penanda jenis lampiran yang dilekatkan pada hasil unggah
+	 * @param hanyaIcon         {@code true} membuat tombol tanpa label dan menahan
+	 *                          pembaruan label tombol unduh
+	 * @param cutomUkuranUpload batas ukuran unggah khusus; {@code null} memakai bawaan
+	 * @param keterangan        keterangan lampiran yang tampil pada label dan dialog
+	 * @param jurusan           combo jurusan yang diteruskan ke dialog; pemanggil di kelas
+	 *                          ini mengirim {@code null}
+	 * @param harusPdf          {@code true} bila hanya PDF yang boleh diunggah
+	 * @param ref               acuan pemilik, atau primary key lampiran bila {@code usingId}
+	 * @param usingId           {@code true} membuat seluruh jalur memakai primary key
+	 * @param resetAfterUpload  penyegar tampilan yang selalu dijalankan di blok
+	 *                          {@code finally}; boleh {@code null}
+	 * @param clazz             kelas entitas berkas tempat lampiran disimpan
+	 * @return tombol unggah siap pasang; pemanggil masih harus menambahkannya ke wadah
+	 */
 	public static MyToolbarbuttonConfig tampilkanTombolUpload(final Button downloadButton, final Button hapusButton,
 			final EventListener eventListener, final SetelahUpload setelahUpload, FileFotoLain fileFotoLain,
 			final String jenis, final Boolean hanyaIcon, final Integer cutomUkuranUpload, final String keterangan,
