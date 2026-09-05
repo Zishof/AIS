@@ -1200,22 +1200,113 @@ public abstract class FileFotoLain extends FileFoto {
 
 	// --- Ambil Methods (Simplified) ---
 
+	/**
+	 * Mencari satu lampiran <b>milik baris pemilik tertentu</b> dengan jenis tertentu,
+	 * memakai cache metadata bila tersedia.
+	 *
+	 * <p>Varian teraman dari keluarga {@code ambil(...)}: {@code usingId} dikunci
+	 * {@code false} sehingga pencarian benar-benar memakai kolom acuan pemilik dan
+	 * penyaringan {@code jenis} tetap hidup untuk kelas yang memilikinya. Pemanggil yang
+	 * hanya ingin "ambilkan lampiran jenis X milik data Y" sebaiknya memakai varian ini
+	 * atau saudaranya yang berparameter {@code refresh}, bukan varian ber-{@code usingId}.</p>
+	 *
+	 * <p>Seluruh mekanisme &mdash; termasuk peran cache, arti golongan {@code refName},
+	 * dan apa yang berubah bila {@code usingId} bernilai {@code true} &mdash; dijelaskan
+	 * pada {@link #ambil(Boolean, Serializable, String, int, Class, boolean, String)}.</p>
+	 *
+	 * @param ref   acuan baris pemilik lampiran
+	 * @param jenis penanda jenis lampiran yang dicari
+	 * @param clazz kelas entitas berkas yang dikueri
+	 * @return lampiran yang ditemukan, atau {@code null} bila tidak ada
+	 */
 	public static FileFotoLain ambil(Serializable ref, String jenis, Class clazz) {
 		return ambil(false, ref, jenis, clazz, false);
 	}
 
+	/**
+	 * Sama dengan {@link #ambil(Serializable, String, Class)}, dengan pilihan memaksa
+	 * pembacaan ulang dari basis data.
+	 *
+	 * <p>Pakai {@code refresh = true} tepat setelah lampiran diubah atau dihapus dalam
+	 * alur yang sama, ketika cache metadata belum tentu sudah dibatalkan. Perlu diingat
+	 * bahwa {@code refresh} hanya memaksa <i>pembacaan</i> ulang untuk varian kunci cache
+	 * yang sedang dipakai; ia tidak menyentuh berkas cache varian yang lain.</p>
+	 *
+	 * @param ref     acuan baris pemilik lampiran
+	 * @param jenis   penanda jenis lampiran yang dicari
+	 * @param clazz   kelas entitas berkas yang dikueri
+	 * @param refresh {@code true} melewati cache dan langsung bertanya ke basis data
+	 * @return lampiran yang ditemukan, atau {@code null} bila tidak ada
+	 */
 	public static FileFotoLain ambil(Serializable ref, String jenis, Class clazz, boolean refresh) {
 		return ambil(false, ref, jenis, clazz, refresh);
 	}
 
+	/**
+	 * Mencari satu lampiran dengan {@code usingId} ditentukan pemanggil.
+	 *
+	 * <p><b>Perhatikan makna {@code usingId} sebelum memakai varian ini.</b> Nilai
+	 * {@code true} mengubah arti {@code ref} dari "acuan baris pemilik" menjadi "primary
+	 * key baris lampiran", sekaligus mematikan penyaringan {@code jenis}. Rinciannya
+	 * beserta akibatnya dijelaskan panjang lebar pada
+	 * {@link #ambil(Boolean, Serializable, String, int, Class, boolean, String)}.</p>
+	 *
+	 * @param usingId {@code true} mencocokkan {@code ref} ke primary key lampiran
+	 * @param ref     acuan pemilik, atau primary key lampiran bila {@code usingId}
+	 * @param jenis   penanda jenis lampiran; diabaikan bila {@code usingId}
+	 * @param clazz   kelas entitas berkas yang dikueri
+	 * @return lampiran yang ditemukan, atau {@code null} bila tidak ada
+	 */
 	public static FileFotoLain ambil(Boolean usingId, Serializable ref, String jenis, Class clazz) {
 		return ambil(usingId, ref, jenis, 0, clazz, false);
 	}
 
+	/**
+	 * Mencari satu lampiran dengan {@code usingId} dan {@code refresh} ditentukan
+	 * pemanggil &mdash; varian yang paling banyak dipakai dari luar kelas ini.
+	 *
+	 * <p>Dipakai antara lain oleh {@code createDownloadUpload(...)} saat memuat keadaan
+	 * awal tombol lampiran, dan oleh servlet {@code AmbilLampiran} yang memanggilnya
+	 * sampai empat kali berturut-turut dengan kombinasi {@code usingId}/{@code refresh}
+	 * yang berbeda sampai salah satunya menemukan sesuatu. Pola berjenjang di servlet itu
+	 * berarti permintaan yang gagal pada jalur ber-{@code usingId} tetap dicoba lagi pada
+	 * jalur berbasis pemilik, dan sebaliknya.</p>
+	 *
+	 * @param usingId {@code true} mencocokkan {@code ref} ke primary key lampiran
+	 * @param ref     acuan pemilik, atau primary key lampiran bila {@code usingId}
+	 * @param jenis   penanda jenis lampiran; diabaikan bila {@code usingId}
+	 * @param clazz   kelas entitas berkas yang dikueri
+	 * @param refresh {@code true} melewati cache dan langsung bertanya ke basis data
+	 * @return lampiran yang ditemukan, atau {@code null} bila tidak ada
+	 */
 	public static FileFotoLain ambil(Boolean usingId, Serializable ref, String jenis, Class clazz, boolean refresh) {
 		return ambil(usingId, ref, jenis, 0, clazz, refresh);
 	}
 
+	/**
+	 * Menghapus lampiran ini lewat lifecycle {@link FileFoto#delete()}, setelah lebih
+	 * dahulu membatalkan berkas cache metadatanya.
+	 *
+	 * <p>Urutannya penting: cache dibatalkan <i>sebelum</i> penghapusan sebenarnya
+	 * dijalankan, sehingga pembacaan berikutnya tidak sempat mengambil metadata basi.</p>
+	 *
+	 * <p><b>Yang perlu diketahui pemanggil: hanya satu dari dua cache yang dibersihkan.</b>
+	 * Baris 1311 mengunci {@code usingId = false} sebagai nilai tetap, sehingga kunci
+	 * cache yang dibuang hanya varian berbasis pemilik ({@code "data_baru_"}). Berkas
+	 * cache varian primary key ({@code "data_baru__id"}) untuk baris yang sama tidak
+	 * disentuh sama sekali. Selama berkas itu masih berisi metadata lama, pemanggilan
+	 * {@code ambil()} dengan {@code usingId=true} atas baris ini akan mengambil jalur
+	 * cache dan membangun kembali objek lampiran dari metadata tersebut tanpa pernah
+	 * menyentuh basis data &mdash; lengkap dengan jalan menuju berkas fisiknya. Efeknya
+	 * bertumpuk dengan sifat penghapusan yang memang lunak: lihat {@code SOFT_DELETE_ID}
+	 * dan {@code hapusAtauUpdate()}, yang pada jalur non-{@code usingId} hanya menimpa
+	 * kolom acuan pemilik dan meninggalkan barisnya utuh.</p>
+	 *
+	 * <p>Perlu dicatat pula bahwa method ini sama sekali tidak menyentuh <b>berkas
+	 * fisik</b> di direktori media maupun salinan yang pernah dibuat
+	 * {@code createLinkUri()} di akar direktori media. Penghapusan pada tingkat model
+	 * hanya berurusan dengan baris dan cache metadata.</p>
+	 */
 	public void delete() {
 		Boolean usingId = false;
 		String keyFilePrefix = "data_baru_" + (usingId ? "_id" : "");
@@ -1223,12 +1314,177 @@ public abstract class FileFotoLain extends FileFoto {
 		super.delete();
 	}
 
+	/**
+	 * Mencari satu lampiran tanpa syarat SQL tambahan, dengan penghitung percobaan ulang
+	 * yang ditentukan pemanggil.
+	 *
+	 * <p>Menetapkan {@code kondisiTambahan} menjadi teks kosong sehingga jalur
+	 * {@code Restrictions.sqlRestriction(...)} pada method inti dilewati sepenuhnya.
+	 * Inilah bentuk yang dipakai seluruh pemanggil di dalam paket ini; hanya
+	 * {@code ais.action.servlet.Data} yang memakai bentuk tujuh parameter dengan syarat
+	 * tambahan terisi.</p>
+	 *
+	 * <p>Parameter {@code jumlahCoba} adalah penjaga rekursi, bukan pilihan perilaku:
+	 * pemanggil dari luar seharusnya selalu mengirim {@code 0}. Perannya dijelaskan pada
+	 * {@link #ambil(Boolean, Serializable, String, int, Class, boolean, String)}.</p>
+	 *
+	 * @param usingId    {@code true} mencocokkan {@code ref} ke primary key lampiran
+	 * @param ref        acuan pemilik, atau primary key lampiran bila {@code usingId}
+	 * @param jenis      penanda jenis lampiran; diabaikan bila {@code usingId}
+	 * @param jumlahCoba penghitung percobaan ulang; kirim {@code 0} dari luar
+	 * @param clazz      kelas entitas berkas yang dikueri
+	 * @param refresh    {@code true} melewati cache dan langsung bertanya ke basis data
+	 * @return lampiran yang ditemukan, atau {@code null} bila tidak ada
+	 */
 	public static FileFotoLain ambil(Boolean usingId, Serializable ref, String jenis, int jumlahCoba, Class clazz,
 			boolean refresh) {
 		String kondisiTambahan = "";
 		return ambil(usingId, ref, jenis, jumlahCoba, clazz, refresh, kondisiTambahan);
 	}
 
+	/**
+	 * <b>Method inti pencarian lampiran untuk seluruh keluarga entitas berkas.</b> Semua
+	 * varian {@code ambil(...)} lain, seluruh pembungkus di {@code LampiranLain}, jalur
+	 * pemuatan {@code createDownloadUpload(...)}, servlet {@code AmbilLampiran} yang
+	 * melayani {@code /al}, dan servlet {@code ais.action.servlet.Data} pada akhirnya
+	 * bermuara ke sini. Karena itu setiap sifat yang dijelaskan di bawah berlaku bagi
+	 * <i>semua</i> entitas berkas paket ini, bukan bagi satu entitas saja.
+	 *
+	 * <h2>1. Alur besar: cache dahulu, basis data belakangan</h2>
+	 * <p>Kunci cache dihitung di baris 1490 sebagai
+	 * {@code "data_baru_" + (usingId ? "_id" : "")}, lalu {@code ambilLokasi()} dibaca.
+	 * Ada tiga cabang:</p>
+	 * <ul>
+	 *   <li>Cache kosong/penanda bawaan, atau {@code refresh = true} &rarr; basis data
+	 *       dikueri (bagian 2 di bawah), hasilnya ditulis balik ke cache.</li>
+	 *   <li>Cache berisi {@code "0"} &rarr; {@code null} dikembalikan tanpa menyentuh
+	 *       basis data. Ini <b>hasil negatif yang di-cache</b>: kalau lampiran kemudian
+	 *       benar-benar diunggah tetapi cache ini tidak dibatalkan, pembacaan akan terus
+	 *       menjawab "tidak ada".</li>
+	 *   <li>Cache berisi JSON &rarr; objek dibangun ulang dengan
+	 *       {@code Common.convertToObject(...)} tanpa query sama sekali. Bila JSON itu
+	 *       menyebut berkas yang sudah tidak ada di disk, satu percobaan ulang dilakukan
+	 *       dengan {@code jumlahCoba = 1}; penghitung inilah yang mencegah rekursi tak
+	 *       berujung ketika cache terus-menerus rusak.</li>
+	 * </ul>
+	 *
+	 * <h2>2. Bentuk query dan tiga saklar yang mengubahnya</h2>
+	 * <p>Query disusun sebagai {@code Criteria} pada baris 1517-1523 dengan tiga
+	 * pembatas dan satu pengurutan:</p>
+	 * <pre>
+	 * .add(kondisiTambahan kosong ? sqlRestriction("true") : sqlRestriction(kondisiTambahan))
+	 * .addOrder(Order.desc("id"))
+	 * .add(usingId || !adaJenis  ? sqlRestriction("true") : eq("jenis", jenis))
+	 * .add(usingId || "id".equals(refName) ? idEq(ref)    : eq(refName, ref))
+	 * .setMaxResults(1)
+	 * </pre>
+	 * <p>Perhatikan pola {@code sqlRestriction("true")}: pembatas tidak dihilangkan
+	 * melainkan diganti dengan syarat yang selalu benar. Secara hasil sama saja, tetapi
+	 * secara pembacaan kode ini membuat "pembatas dimatikan" terlihat seperti "pembatas
+	 * dipasang", sehingga mudah terlewat saat menelaah.</p>
+	 * <p>Variabel {@code adaJenis} dihitung pada baris 1498-1499:
+	 * penyaringan {@code jenis} <b>dimatikan</b> bila {@code refName} bernilai
+	 * {@code "id"} atau {@code "tbmuser"}, bila nama kelas berawalan {@code "Foto"}, atau
+	 * bila nama kelas berakhiran {@code "FileContent"}. Jadi bahkan tanpa {@code usingId},
+	 * seluruh entitas {@code Foto*} sudah tidak menyaring {@code jenis} sama sekali.</p>
+	 *
+	 * <h2>3. Apa persisnya yang terjadi bila {@code usingId = true}</h2>
+	 * <p>Ini bagian yang paling penting untuk dipahami. Satu nilai {@code boolean}
+	 * mengubah <b>dua</b> pembatas sekaligus:</p>
+	 * <ol>
+	 *   <li><b>Penyaringan {@code jenis} dimatikan.</b> Pada baris 1521-1522,
+	 *       {@code usingId} muncul sebagai suku pertama disjungsi, sehingga argumen
+	 *       {@code jenis} yang dikirim pemanggil tidak pernah dipakai. Lampiran ijazah,
+	 *       lampiran KTP, foto profil, dan berkas apa pun yang tersimpan pada tabel yang
+	 *       sama menjadi tidak terbedakan.</li>
+	 *   <li><b>{@code ref} dicocokkan ke primary key.</b> Pada baris 1523,
+	 *       {@code Restrictions.idEq(ref)} menggantikan {@code Restrictions.eq(refName,
+	 *       ref)}. Nilai {@code ref} tidak lagi bermakna "milik siapa berkas ini",
+	 *       melainkan "baris nomor berapa".</li>
+	 * </ol>
+	 * <p>Gabungan keduanya berarti: dengan {@code usingId = true}, pencarian tidak lagi
+	 * memuat satu pun pembatas yang berhubungan dengan <i>kepemilikan</i>. Yang tersisa
+	 * hanyalah nomor baris. Kolom primary key seluruh entitas ini bertipe
+	 * {@code IDENTITY} sehingga nilainya berurutan dan mudah ditebak; menelusuri
+	 * {@code 1, 2, 3, ...} akan melintasi seluruh isi tabel.</p>
+	 * <p><b>Jalur masuk dari luar.</b> Nilai {@code usingId} tidak ditentukan oleh layar
+	 * yang sedang dibuka. Servlet {@code AmbilLampiran} membacanya dengan pola
+	 * "ambil dari token terenkripsi bila ada, kalau tidak ambil dari parameter permintaan
+	 * biasa" (baris 373-375 pada berkas servlet), dan pola yang sama dipakai untuk
+	 * {@code ref}, {@code jenis}, dan {@code clazz} (baris 308-320). Artinya permintaan
+	 * {@code GET /al?usingId=true&ref=<N>} tanpa token apa pun sudah cukup untuk memanggil
+	 * method ini dengan {@code usingId=true} dan {@code ref=N}. Bahkan bila
+	 * {@code usingId} tidak dikirim, servlet tetap mencoba jalur ber-{@code usingId}
+	 * lebih dahulu lalu jatuh ke jalur berbasis pemilik &mdash; empat pemanggilan
+	 * berturut-turut pada baris 384-398 servlet tersebut.</p>
+	 * <p><b>Yang tidak diperiksa di sini.</b> Method ini tidak memanggil
+	 * {@code Common.getCurrentUser()}, tidak menerima parameter pengguna, dan tidak
+	 * membandingkan apa pun dengan sesi yang sedang berjalan. Tidak ada penyaring satuan
+	 * kerja, tidak ada penyaring kepemilikan, dan kolom audit {@code olehId}/{@code oleh}
+	 * tidak ikut dilibatkan. Otorisasi &mdash; bila ada &mdash; sepenuhnya menjadi
+	 * tanggung jawab pemanggil, dan pemanggil berupa servlet tidak melakukannya.</p>
+	 * <p><b>Bertumpuk dengan penghapusan lunak.</b> Karena {@code hapusAtauUpdate()} pada
+	 * jalur non-{@code usingId} hanya menimpa kolom acuan pemilik dengan
+	 * {@code SOFT_DELETE_ID} dan membiarkan barisnya utuh, baris yang sudah "dihapus"
+	 * pengguna tetap memiliki primary key yang sama dan tetap ditemukan lewat
+	 * {@code idEq(ref)}. Penghapusan menyembunyikan berkas dari pencarian berbasis
+	 * pemilik, bukan dari pencarian berbasis id.</p>
+	 * <p><b>Bertumpuk dengan cache.</b> Kunci cache varian {@code "data_baru__id"}
+	 * dibersihkan hanya bila ada yang memanggil {@code resetLokasi()} dengan
+	 * {@code usingId = true}; {@code delete()} tidak melakukannya (lihat catatan di
+	 * sana). Jadi jalur ini pun dapat menjawab dari cache setelah barisnya tidak lagi
+	 * seharusnya terlihat.</p>
+	 *
+	 * <h2>4. {@code kondisiTambahan}: fragmen SQL mentah</h2>
+	 * <p>Bila terisi, nilainya masuk ke {@code Restrictions.sqlRestriction(kondisiTambahan)}
+	 * pada baris 1518-1519 &mdash; artinya diteruskan ke basis data <b>sebagai potongan
+	 * SQL apa adanya</b>, tanpa parameterisasi dan tanpa pemeriksaan bentuk. Di dalam
+	 * paket ini nilainya selalu kosong. Pemanggil dari luar wajib memperlakukan parameter
+	 * ini sebagai bagian dari kueri, bukan sebagai data: nilai yang berasal dari masukan
+	 * luar tidak boleh sampai ke sini.</p>
+	 *
+	 * <h2>5. Penanganan khusus {@code FotoAdmin}</h2>
+	 * <p>Dua cabang pada baris 1501-1513 menangani kekhasan {@code FotoAdmin} yang kolom
+	 * acuannya bertipe {@code String} berisi userid. Bila {@code ref} memang
+	 * {@code String}, {@code refName} dipaksa {@code "tbmuser"} dan {@code usingId}
+	 * dipaksa {@code false}. Bila {@code ref} bukan {@code String} &mdash; keadaan yang
+	 * terjadi pada pengguna baru yang memakai acuan sementara berupa {@code Long} negatif
+	 * &mdash; nilainya diubah menjadi {@code String} supaya query tidak melempar
+	 * {@code ClassCastException}; hasilnya tidak cocok dengan baris mana pun dan
+	 * mengembalikan {@code null}, yang memang benar karena fotonya belum ada.</p>
+	 *
+	 * <h2>6. Transaksi, kesalahan, dan hasil</h2>
+	 * <p>Session dibuka sendiri dari {@code StreamingHibernateUtil} dan selalu ditutup di
+	 * blok {@code finally}; transaksi di-{@code rollback} secara diam bila belum sempat
+	 * di-{@code commit}. Setiap kegagalan menuliskan {@code "0"} ke cache lalu
+	 * mengembalikan {@code null} &mdash; perhatikan bahwa ini berarti <b>kegagalan
+	 * sementara pun ikut di-cache sebagai "tidak ada"</b>, sehingga gangguan koneksi
+	 * sesaat dapat membuat lampiran terlihat hilang sampai ada yang memaksa
+	 * {@code refresh} atau membatalkan cache.</p>
+	 * <p>Pengurutan {@code Order.desc("id")} dengan {@code setMaxResults(1)} berarti bila
+	 * ada lebih dari satu baris yang cocok, yang dikembalikan adalah yang <b>terbaru</b>.
+	 * Duplikat seperti itu memang mungkin terjadi &mdash; lihat catatan pada
+	 * {@code hapusAtauUpdate()} tentang golongan {@code refName} bernilai {@code "id"}
+	 * yang penghapusannya tidak melakukan apa pun sehingga baris lama menumpuk.</p>
+	 *
+	 * @param usingId         {@code true} mematikan penyaringan {@code jenis} sekaligus
+	 *                        mencocokkan {@code ref} ke primary key lampiran &mdash; lihat
+	 *                        bagian 3
+	 * @param ref             acuan baris pemilik, atau primary key lampiran bila
+	 *                        {@code usingId}
+	 * @param jenis           penanda jenis lampiran; <b>diabaikan</b> bila {@code usingId}
+	 *                        atau bila kelasnya termasuk golongan tanpa {@code jenis}
+	 * @param jumlahCoba      penghitung percobaan ulang untuk cache yang menunjuk berkas
+	 *                        hilang atau JSON rusak; kirim {@code 0} dari luar
+	 * @param clazz           kelas entitas berkas yang dikueri; menentukan tabel, kolom
+	 *                        acuan, dan lokasi cache
+	 * @param refresh         {@code true} melewati cache dan langsung bertanya ke basis
+	 *                        data
+	 * @param kondisiTambahan fragmen SQL mentah yang ditambahkan ke query; teks kosong
+	 *                        berarti tanpa syarat tambahan &mdash; lihat bagian 4
+	 * @return lampiran yang ditemukan, atau {@code null} bila tidak ada maupun bila
+	 *         terjadi kegagalan
+	 */
 	public static FileFotoLain ambil(Boolean usingId, Serializable ref, String jenis, int jumlahCoba, Class clazz,
 			boolean refresh, String kondisiTambahan) {
 		String keyFilePrefix = "data_baru_" + (usingId ? "_id" : "");
