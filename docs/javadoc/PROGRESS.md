@@ -1,5 +1,64 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `sosial` TUNTAS 100% (6 Sep 2026, akhir batch 109) — domain KEEMPAT BELAS tuntas, 0 task baru, 2 counter-example positif
+
+Diverifikasi: **24/24 file** `ais/database/model/sosial/` kini punya
+Javadoc substansial. Selesai dalam SATU batch (109, 3 agent paralel).
+Domain keempat belas yang tuntas penuh setelah `akunting`, `payroll`,
+`koperasi`, `inventory`, `employ`, `asset`, `surat`, `rab`, `sirs`,
+`sister`, `library`, `file`, `penelitiandanpengabdian`.
+
+**Klaster donasi legacy inti** (6 file, r84928-r84944). `ProgramDonatur`/
+`PenyaluranDonasi` (72/63 blok javadoc dari 2 awal): getter status
+menimpa dari `DisposisiSop` seperti pola lain, TAPI kedua entity ini
+**tidak membawa kolom nominal dana sama sekali** — disposisinya hanya
+menggerbangi administrasi kegiatan, bukan pergerakan uang. Uang
+sesungguhnya berpindah di `DetailPenyaluranDonasi` (model generasi baru)
+yang **digerbangi server-side dengan benar** oleh `SocialDistributionService
+.post()`: privilese `FINANCE` (`SocialPrivilegeGuard`), validasi state
+machine (`SocialStateMachine.requireDistribution`), tenant check, dan
+validasi saldo alokasi sumber — semua dalam satu transaksi Hibernate.
+**BUKAN instance ke-5 pola bypass-persetujuan UI-only** — sebaliknya,
+counter-example desain yang benar, dicatat eksplisit karena kontras
+tajam dengan 4 domain lain yang gerbangnya bocor.
+
+**Klaster zakat/transaksi kecil** (10 file, r84923-r84934). `JenisZakat`
+(sumbu kalkulasi, punya `formulaKey`) vs `JenisDanaSosial` (sumbu buku
+besar donasi, mencakup zakat+infaq+sedekah+wakaf) dikonfirmasi DUA
+TAKSONOMI PARALEL tanpa FK yang merekonsiliasi — konsistensi (bila ada)
+dijaga di lapisan servis, bukan model. `TransaksiDonasi` vs
+`PembayaranDonasi`: relasi header/log-percobaan (`@ManyToOne`, BUKAN
+`@OneToOne`) — satu transaksi bisa punya banyak baris pembayaran (retry
+gateway). Rumus kalkulasi zakat sendiri TIDAK ada di level entity model
+(dirujuk `formulaKey`, diimplementasikan di lapisan servis) — tidak
+ditemukan bug default-salah seperti pola `Diskon.jumlahMaksimal` yang
+tercatat di domain lain.
+
+**Klaster `Social*` berpenamaan Inggris** (8 file, r84927-r84943).
+**Investigasi TERKONFIRMASI**: ini layer modern bolt-on nyata, bukan
+sekadar kebetulan penamaan — semua mewarisi `@MappedSuperclass
+SocialRecord` (kolom isolasi `tenant_key` generik, BUKAN kolom cakupan
+legacy `yayasan_id`/`sekolah_id`), didukung paket penuh
+`ais.action.master.sosial.helper` (17+ class: `SocialSecurity`
+HMAC/CSRF/constant-time-compare, `SocialRequestContext`,
+`SocialPrivilegeGuard`, `SocialStateMachine`, `SocialCallbackService`
+webhook idempotent+redaction, `SocialCorrectionService` maker-checker,
+plus 4 self-test class) — pola rekayasa yang tidak lazim di kode legacy
+AIS. **`SocialCorrectionService.approveAndPost()` secara eksplisit
+menolak self-approval** — kontras tajam dengan modul legacy lain di
+seluruh inisiatif ini yang celah self-approval-nya sengaja belum
+ditambal. `SosialChannel` (satu-satunya ejaan Indonesia di klaster ini)
+dikonfirmasi BUKAN entity legacy terpisah — dibuat di sesi peluncuran
+paling awal (r78236) sebelum konvensi `Social*` konsisten dipakai.
+`SocialDonorIdentity` TERNYATA TIDAK menyimpan NIK/KTP/dokumen KYC apa
+pun (cuma nama tampilan/kontak) — hipotesis awal data sensitif tidak
+terbukti. Perluasan gap tercatat (bukan task baru): `SocialTenantSetting
+.tenantKey` tidak dikenal whitelist `GenericCrudAutoEntityAdapter
+.scopeBindings()` — instance lain `task_7b6038ac`/`task_90bbdd51`.
+
+**0 task baru batch 109** — batch paling bersih keamanan sejauh ini.
+Total akumulasi 109 sesi: **1293+ file** dari 7.401 (~33,0%).
+
 ## 🎉 MILESTONE — paket `penelitiandanpengabdian` TUNTAS 100% (6 Sep 2026, akhir batch 108) — domain KETIGA BELAS tuntas
 
 Diverifikasi: **20/20 file** `ais/database/model/penelitiandanpengabdian/`
