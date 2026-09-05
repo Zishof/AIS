@@ -68,7 +68,7 @@ public final class ApotikDemoProvisionHelper {
 	private static final int JUMLAH_RACIKAN_DEMO = 5000;
 	private static final int JUMLAH_ANTREAN_DEMO = 100;
 	private static final int JUMLAH_FORMULA_RACIKAN_UAT = 500;
-	private static final int JUMLAH_FORMULA_PRODUKSI_UAT = 250;
+	private static final int JUMLAH_FORMULA_PRODUKSI_UAT = 500;
 	private static final Object LOCK_PROVISION = new Object();
 	private static volatile boolean provisionBerjalan = false;
 	private static volatile boolean provisionPernahDijalankan = false;
@@ -762,7 +762,7 @@ public final class ApotikDemoProvisionHelper {
 		return dibuat;
 	}
 
-	/** 250 formula produksi barang jadi, masing-masing memakai dua bahan demo. */
+	/** 500 formula produksi barang jadi, masing-masing memakai dua bahan demo. */
 	@SuppressWarnings("unchecked")
 	private static int ensureFormulaProduksiUat(Session session) {
 		List<ItemMedis> hasil = session.createQuery(

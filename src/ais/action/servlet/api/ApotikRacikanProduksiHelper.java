@@ -577,6 +577,7 @@ public final class ApotikRacikanProduksiHelper {
 	public static void produksiKatalog(JSONObject request, JSONObject hasil) throws Exception {
 		String keyword = request == null ? "" : request.optString("keyword", "").trim().toLowerCase();
 		Long lokasiId = optLong(request, "lokasi_id");
+		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
 		int size = request == null ? 40 : request.optInt("page_size", 40);
 		if (size < 1) size = 40; if (size > 100) size = 100;
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -588,11 +589,11 @@ public final class ApotikRacikanProduksiHelper {
 			}
 			org.hibernate.Query query = session.createQuery(hql);
 			if (!keyword.isEmpty()) query.setString("keyword", "%" + keyword + "%");
-			List<ItemMedis> induk = query.setMaxResults(size).list();
+			List<ItemMedis> semuaInduk = query.list();
 			// PostgreSQL menolak ORDER BY kolom relasi yang tidak ikut proyeksi
 			// SELECT DISTINCT. Urutkan hasil entity di memori agar kontrak katalog
 			// tetap deterministik tanpa SQL yang tidak portabel.
-			Collections.sort(induk, new java.util.Comparator<ItemMedis>() {
+			Collections.sort(semuaInduk, new java.util.Comparator<ItemMedis>() {
 				@Override
 				public int compare(ItemMedis a, ItemMedis b) {
 					int nama = str(a == null ? null : a.getNama()).compareToIgnoreCase(
@@ -604,6 +605,11 @@ public final class ApotikRacikanProduksiHelper {
 					return bi == null ? 1 : ai.compareTo(bi);
 				}
 			});
+			int total = semuaInduk.size();
+			long offset = ((long) page - 1L) * (long) size;
+			int mulai = offset >= total ? total : (int) offset;
+			int selesai = Math.min(mulai + size, total);
+			List<ItemMedis> induk = semuaInduk.subList(mulai, selesai);
 			JSONArray data = new JSONArray();
 			for (ItemMedis item : induk) {
 				@SuppressWarnings("unchecked")
@@ -629,7 +635,8 @@ public final class ApotikRacikanProduksiHelper {
 				j.put("produksi", true); data.put(j);
 				if (data.length() >= size) break;
 			}
-			hasil.put("status", "00"); hasil.put("data", data); hasil.put("total", data.length());
+			hasil.put("status", "00"); hasil.put("data", data); hasil.put("total", total);
+			hasil.put("page", page); hasil.put("pageSize", size);
 		} finally { HibernateUtil.closeSessionQuietly(session); }
 	}
 
