@@ -158,16 +158,18 @@ public final class LaporanKatalogData {
      * @see LaporanKatalogData
      */
     private static final class Kat {
+        final String id;
         final String nama;
         final List<JSONObject> items = new ArrayList<JSONObject>();
 
         Kat(String nama) {
+            this.id = ais.common.EbisnisLaporanAkses.idKategori(nama);
             this.nama = nama;
         }
     }
 
     /**
-     * @return JSONArray {@code [{kat, items:[{id,judul,ket,produk?,pelanggan?,perToko?,url?}]}]} —
+     * @return JSONArray {@code [{katId,kat, items:[{id,judul,ket,produk?,pelanggan?,perToko?,url?}]}]} —
      *         struktur IDENTIK dengan array {@code REPORTS} di {@code laporan_laporan.jsp}.
      */
     /**
@@ -471,6 +473,7 @@ public final class LaporanKatalogData {
         JSONArray out = new JSONArray();
         for (Kat kk : semua) {
             JSONObject o = new JSONObject();
+            o.put("katId", kk.id);
             o.put("kat", Common.getBahasaConfig(kk.nama));
             JSONArray items = new JSONArray();
             boolean bersatker = kategoriBersatker(kk.nama);
@@ -494,7 +497,8 @@ public final class LaporanKatalogData {
      */
     public static JSONArray katalogKeuangan() throws Exception {
         // Nama kategori MENTAH (sesuai new Kat(...)); dibandingkan setelah getBahasaConfig agar cocok
-        // dengan field "kat" pada output katalog() (yang sudah diterjemahkan).
+        // dengan field "kat" pada output katalog() (yang sudah diterjemahkan). Setiap hasil juga
+        // mempertahankan katId stabil untuk hak akses per-role.
         // SENGAJA HANYA kategori yang laporannya dijalankan NATIVE via mesin laporan (aksi
         // laporan_jalankan / LaporanKantinUtil) — kategori "…Resmi (Akuntansi)" & "Arus Kas & Analisa"
         // yang isinya laporan JRXML/ZK berbasis {@code url} TIDAK diikutkan, supaya menu Laporan
@@ -531,6 +535,8 @@ public final class LaporanKatalogData {
                 }
                 if (itemsNative.length() > 0) {
                     JSONObject katBaru = new JSONObject();
+                    katBaru.put("katId", kat.optString("katId",
+                            ais.common.EbisnisLaporanAkses.idKategori(raw)));
                     katBaru.put("kat", kat.optString("kat"));
                     katBaru.put("items", itemsNative);
                     out.put(katBaru);

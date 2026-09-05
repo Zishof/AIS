@@ -625,6 +625,9 @@ public final class EbisnisMenuKatalog {
 				crud.put(kunci, aksiMenu);
 			}
 			obj.put("crud", crud);
+			// Hak akses kategori + laporan rinci. Default "semua" mempertahankan perilaku
+			// role lama yang belum pernah menyimpan pengaturan ini.
+			obj.put(EbisnisLaporanAkses.KUNCI, EbisnisLaporanAkses.defaultKonfigurasi());
 		} catch (JSONException ex) {
 			// put(String, boolean) tidak pernah benar-benar melempar ini dlm praktik (hanya utk
 			// nilai numerik tak valid spt NaN) -- ditangkap murni krn org.json versi ini mendeklarasikan
@@ -687,6 +690,10 @@ public final class EbisnisMenuKatalog {
 						}
 					}
 				}
+			}
+			if (tersimpan.has(EbisnisLaporanAkses.KUNCI)) {
+				hasil.put(EbisnisLaporanAkses.KUNCI, EbisnisLaporanAkses.normalisasi(
+						tersimpan.optJSONObject(EbisnisLaporanAkses.KUNCI)));
 			}
 		} catch (Exception ex) {
 			ais.common.ErrorAuditUtil.record(ex, "EbisnisMenuKatalog.urai: JSON ebisnisMenu rusak, pakai default");

@@ -208,6 +208,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig aksesLaporanTransaksi;
 	private MyCheckboxConfig aksesLaporan;
 	private MyCheckboxConfig aksesLaporanKeuangan;
+	private MyCheckboxConfig bolehLihatSemuaLaporan;
 	private MyCheckboxConfig aksesRiwayatSinkronisasi;
 	private MyCheckboxConfig aksesLogError;
 	private MyCheckboxConfig aksesKonfigurasi;
@@ -240,6 +241,11 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	/** Checkbox Read untuk baris yang DIBANGKITKAN dari katalog (lihat
 	 *  {@link #appendBarisKatalogSisanya}); baris tulis tangan tetap memakai field sendiri. */
 	private Map<String, MyCheckboxConfig> menuCheckboxMap;
+	/** Pilihan rinci katalog laporan; kunci kategori stabil dan kunci kategori/id laporan. */
+	private Map<String, MyCheckboxConfig> laporanKategoriCheckboxMap;
+	private Map<String, MyCheckboxConfig> laporanItemCheckboxMap;
+	/** Seluruh baris di bawah toggle "Boleh melihat semua laporan", untuk show/hide serentak. */
+	private List<Component> barisAksesLaporan;
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -2364,6 +2370,9 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tokoAksesCheckboxMap = new java.util.LinkedHashMap<Long, MyCheckboxConfig>();
 		crudCheckboxMap = new java.util.LinkedHashMap<String, MyCheckboxConfig>();
 		menuCheckboxMap = new java.util.LinkedHashMap<String, MyCheckboxConfig>();
+		laporanKategoriCheckboxMap = new java.util.LinkedHashMap<String, MyCheckboxConfig>();
+		laporanItemCheckboxMap = new java.util.LinkedHashMap<String, MyCheckboxConfig>();
+		barisAksesLaporan = new java.util.ArrayList<Component>();
 
 		// Semua checkbox "Hak Akses Pedagang" (eBisnis) di bawah ini SEKARANG dibaca dari SATU kolom
 		// JSON Tbmrole.ebisnisMenu (bukan lagi 26 kolom Boolean terpisah -- lihat JavaDoc
@@ -2506,6 +2515,8 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		aksesLaporan.setChecked(ebisnisMenuMap.optBoolean("laporan", true));
 		row.appendChild(aksesLaporanKeuangan = new MyCheckboxConfig("Laporan Keuangan"));
 		aksesLaporanKeuangan.setChecked(ebisnisMenuMap.optBoolean("laporankeuangan", true));
+
+		appendPengaturanAksesLaporan(rows, ebisnisMenuTersimpan);
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -2660,6 +2671,105 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}
 		return hasil;
+	}
+
+	/**
+	 * Tambahkan pengaturan kategori dan laporan per grup pengguna.
+	 *
+	 * <p>Toggle paling atas adalah jalan singkat kompatibel: saat aktif, seluruh katalog boleh
+	 * dilihat dan ratusan pilihan rinci disembunyikan. Saat dinonaktifkan, setiap kategori dan
+	 * laporan tampil. Checkbox kategori menjadi gerbang induk; pilihan laporan di bawahnya tetap
+	 * disimpan ketika kategori dimatikan agar administrator dapat mengaktifkannya kembali tanpa
+	 * mengulang seluruh pilihan.</p>
+	 */
+	private void appendPengaturanAksesLaporan(Rows rows, JSONObject ebisnisMenuTersimpan) throws Exception {
+		final JSONObject konfigurasi = ais.common.EbisnisLaporanAkses.dariMenuRole(ebisnisMenuTersimpan);
+		final boolean semua = konfigurasi.optBoolean(ais.common.EbisnisLaporanAkses.KUNCI_SEMUA, true);
+		final JSONObject kategoriTersimpan = konfigurasi.optJSONObject(
+				ais.common.EbisnisLaporanAkses.KUNCI_KATEGORI);
+		final JSONObject laporanTersimpan = konfigurasi.optJSONObject(
+				ais.common.EbisnisLaporanAkses.KUNCI_LAPORAN);
+
+		MyFormRow rowSemua = new MyFormRow();
+		rowSemua.setParent(rows);
+		rowSemua.appendChild(new ais.ui.util.MyLabelConfig("Hak akses isi laporan"));
+		bolehLihatSemuaLaporan = new MyCheckboxConfig("Boleh melihat semua laporan");
+		bolehLihatSemuaLaporan.setChecked(semua);
+		bolehLihatSemuaLaporan.setTooltiptext(
+				"Aktif: semua kategori dan laporan dapat dilihat. Nonaktif: pilih kategori dan laporan satu per satu.");
+		rowSemua.appendChild(bolehLihatSemuaLaporan);
+
+		JSONArray katalog = ais.action.master.koperasi.helper.LaporanKatalogData.katalog();
+		for (int i = 0; i < katalog.length(); i++) {
+			JSONObject kat = katalog.getJSONObject(i);
+			final String kategoriId = kat.optString("katId",
+					ais.common.EbisnisLaporanAkses.idKategori(kat.optString("kat", "")));
+			boolean kategoriDipilih = kategoriTersimpan != null && kategoriTersimpan.has(kategoriId)
+					? kategoriTersimpan.optBoolean(kategoriId, false) : semua;
+
+			MyFormRow rowKategori = new MyFormRow();
+			rowKategori.setParent(rows);
+			rowKategori.appendChild(new ais.ui.util.MyLabelConfig("Kategori laporan"));
+			final MyCheckboxConfig pilihKategori = new MyCheckboxConfig(kat.optString("kat", kategoriId));
+			pilihKategori.setChecked(kategoriDipilih);
+			pilihKategori.setStyle("font-weight:700;color:#334155;");
+			rowKategori.appendChild(pilihKategori);
+			laporanKategoriCheckboxMap.put(kategoriId, pilihKategori);
+			barisAksesLaporan.add(rowKategori);
+
+			final java.util.List<MyCheckboxConfig> itemKategori =
+					new java.util.ArrayList<MyCheckboxConfig>();
+			JSONArray items = kat.optJSONArray("items");
+			for (int j = 0; items != null && j < items.length(); j++) {
+				JSONObject item = items.getJSONObject(j);
+				String laporanId = item.optString("id", "");
+				String kunci = ais.common.EbisnisLaporanAkses.kunciLaporan(kategoriId, laporanId);
+				boolean laporanDipilih = laporanTersimpan != null && laporanTersimpan.has(kunci)
+						? laporanTersimpan.optBoolean(kunci, false) : semua;
+
+				MyFormRow rowLaporan = new MyFormRow();
+				rowLaporan.setParent(rows);
+				rowLaporan.appendChild(new ais.ui.util.MyLabelConfig("   ↳ "
+						+ item.optString("judul", laporanId)));
+				MyCheckboxConfig pilihLaporan = new MyCheckboxConfig("Boleh lihat");
+				pilihLaporan.setChecked(laporanDipilih);
+				pilihLaporan.setDisabled(!kategoriDipilih);
+				pilihLaporan.setTooltiptext(item.optString("ket", ""));
+				rowLaporan.appendChild(pilihLaporan);
+				laporanItemCheckboxMap.put(kunci, pilihLaporan);
+				itemKategori.add(pilihLaporan);
+				barisAksesLaporan.add(rowLaporan);
+			}
+
+			pilihKategori.addEventListener("onCheck", new EventListener() {
+				@Override public void onEvent(Event event) throws Exception {
+					boolean aktif = pilihKategori.isChecked();
+					for (MyCheckboxConfig item : itemKategori) {
+						item.setDisabled(!aktif);
+					}
+				}
+			});
+		}
+
+		bolehLihatSemuaLaporan.addEventListener("onCheck", new EventListener() {
+			@Override public void onEvent(Event event) throws Exception {
+				aturVisibilitasAksesLaporan();
+			}
+		});
+		aturVisibilitasAksesLaporan();
+	}
+
+	/** Show/hide pengaturan rinci sesuai toggle induk tanpa menghapus pilihan tersimpan. */
+	private void aturVisibilitasAksesLaporan() {
+		boolean tampil = bolehLihatSemuaLaporan == null || !bolehLihatSemuaLaporan.isChecked();
+		if (barisAksesLaporan == null) {
+			return;
+		}
+		for (Component baris : barisAksesLaporan) {
+			if (baris != null) {
+				baris.setVisible(tampil);
+			}
+		}
 	}
 
 	/** Membentuk tab jurnal dari katalog tunggal; default selalu tidak dicentang. */
@@ -3040,6 +3150,25 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 			}
 		}
 		obj.put("crud", crud);
+
+		JSONObject aksesLaporanObj = new JSONObject();
+		aksesLaporanObj.put(ais.common.EbisnisLaporanAkses.KUNCI_SEMUA,
+				bolehLihatSemuaLaporan == null || bolehLihatSemuaLaporan.isChecked());
+		JSONObject kategoriLaporanObj = new JSONObject();
+		if (laporanKategoriCheckboxMap != null) {
+			for (Map.Entry<String, MyCheckboxConfig> en : laporanKategoriCheckboxMap.entrySet()) {
+				kategoriLaporanObj.put(en.getKey(), en.getValue() != null && en.getValue().isChecked());
+			}
+		}
+		aksesLaporanObj.put(ais.common.EbisnisLaporanAkses.KUNCI_KATEGORI, kategoriLaporanObj);
+		JSONObject itemLaporanObj = new JSONObject();
+		if (laporanItemCheckboxMap != null) {
+			for (Map.Entry<String, MyCheckboxConfig> en : laporanItemCheckboxMap.entrySet()) {
+				itemLaporanObj.put(en.getKey(), en.getValue() != null && en.getValue().isChecked());
+			}
+		}
+		aksesLaporanObj.put(ais.common.EbisnisLaporanAkses.KUNCI_LAPORAN, itemLaporanObj);
+		obj.put(ais.common.EbisnisLaporanAkses.KUNCI, aksesLaporanObj);
 
 		return obj.toString();
 	}

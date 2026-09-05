@@ -1142,11 +1142,11 @@ public class PosApi extends HttpServlet {
 				normalisasiStatusKantinHelper(hasil, "draft_jurnal");
 			} else if ("laporan_katalog".equals(action)) {
 				hasil.put("status", "success");
-				hasil.put("kategori", ais.action.master.koperasi.helper.LaporanKatalogData.katalog());
+				hasil.put("kategori", katalogLaporanUntukUser(tbmuser, false));
 				sertakanSatuanKerja(hasil);
 			} else if ("laporan_keuangan_katalog".equals(action)) {
 				hasil.put("status", "success");
-				hasil.put("kategori", ais.action.master.koperasi.helper.LaporanKatalogData.katalogKeuangan());
+				hasil.put("kategori", katalogLaporanUntukUser(tbmuser, true));
 				sertakanSatuanKerja(hasil);
 				JSONArray pendukung = new JSONArray();
 				JSONObject akun = new JSONObject();
@@ -1204,9 +1204,21 @@ public class PosApi extends HttpServlet {
 			} else if ("laporan_keuangan_pendukung".equals(action)) {
 				prosesLaporanKeuanganPendukung(tbmuser, payload, hasil);
 			} else if ("laporan_jalankan".equals(action)) {
-				prosesLaporanJalankan(request, tbmuser, payload, hasil);
+				if (!bolehMenjalankanLaporan(tbmuser, payload.optString("r", ""))) {
+					response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+					hasil.put("status", "error");
+					hasil.put("message", "Laporan ini tidak diizinkan untuk grup pengguna Anda.");
+				} else {
+					prosesLaporanJalankan(request, tbmuser, payload, hasil);
+				}
 			} else if ("laporan_pdf".equals(action)) {
-				prosesLaporanPdf(request, tbmuser, payload, hasil);
+				if (!bolehMenjalankanLaporan(tbmuser, payload.optString("r", ""))) {
+					response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+					hasil.put("status", "error");
+					hasil.put("message", "Ekspor laporan ini tidak diizinkan untuk grup pengguna Anda.");
+				} else {
+					prosesLaporanPdf(request, tbmuser, payload, hasil);
+				}
 			} else if ("detail_transaksi".equals(action)) {
 				prosesDetailTransaksi(tbmuser, payload, hasil);
 			} else if ("laporan_order_list".equals(action)) {
@@ -2398,6 +2410,12 @@ public class PosApi extends HttpServlet {
 		}
 		if ("laporan_order_list".equals(action)) {
 			return menu.optBoolean("laporan", true) || menu.optBoolean("returpenjualan", true);
+		}
+		if (action.startsWith("laporan_keuangan_")) {
+			return menu.optBoolean("laporankeuangan", true) || menu.optBoolean("laporan", true);
+		}
+		if ("laporan_jalankan".equals(action) || "laporan_pdf".equals(action)) {
+			return menu.optBoolean("laporan", true) || menu.optBoolean("laporankeuangan", true);
 		}
 		if (action.startsWith("laporan_")) {
 			return menu.optBoolean("laporan", true);
@@ -6925,6 +6943,43 @@ public class PosApi extends HttpServlet {
 	 * {@link HibernateUtil#closeSession()} -- alpa di sini berarti kebocoran koneksi c3p0 pelan-pelan
 	 * tiap kali laporan dijalankan dari Desktop (lihat COOKBOOK POLA B di {@code HibernateUtil}).</p>
 	 */
+	/**
+	 * Katalog yang sudah dipotong sesuai role. Penyaringan dilakukan di server agar
+	 * kategori/laporan terlarang tidak pernah dikirim ke Desktop/Android/JSP.
+	 */
+	private JSONArray katalogLaporanUntukUser(Tbmuser tbmuser, boolean keuangan) throws Exception {
+		JSONArray katalog = keuangan
+				? ais.action.master.koperasi.helper.LaporanKatalogData.katalogKeuangan()
+				: ais.action.master.koperasi.helper.LaporanKatalogData.katalog();
+		if (tbmuser == null || Common.getApakahAdminLain(tbmuser)) {
+			return katalog;
+		}
+		Tbmrole role = tbmuser.hakAkses();
+		if (role == null) {
+			return katalog; // kompatibilitas akun lama tanpa role efektif
+		}
+		JSONObject menuRole = ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu());
+		return ais.common.EbisnisLaporanAkses.saringKatalog(katalog, menuRole);
+	}
+
+	/**
+	 * Gerbang kedua untuk menjalankan/mengekspor laporan. Menyembunyikan item pada
+	 * katalog saja tidak cukup karena klien yang dimodifikasi dapat mengirim id laporan
+	 * langsung ke API.
+	 */
+	private boolean bolehMenjalankanLaporan(Tbmuser tbmuser, String laporanId) throws Exception {
+		if (tbmuser == null || Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
+		Tbmrole role = tbmuser.hakAkses();
+		if (role == null) {
+			return true; // perilaku historis akun tanpa role
+		}
+		JSONObject menuRole = ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu());
+		return ais.common.EbisnisLaporanAkses.bolehMenjalankan(
+				ais.action.master.koperasi.helper.LaporanKatalogData.katalog(), menuRole, laporanId);
+	}
+
 	private void prosesLaporanJalankan(HttpServletRequest request, Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		HttpSession sesiHttp = request.getSession(true);
 		Object userSebelumnya = sesiHttp.getAttribute("mytbmuser");
