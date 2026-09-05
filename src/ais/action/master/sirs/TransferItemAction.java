@@ -347,7 +347,7 @@ public class TransferItemAction extends GenericAutowireComposer {
 										session.createSQLQuery(
 												"delete from sirs.detail_transaksi_pasien where lokasi = "
 														+ myLokasi.getId()
-														+ "  and transfer_item_detail in (select id from transfer_item_detail where transfer_item = "
+														+ "  and transfer_item_detail in (select id from sirs.transfer_item_detail where transfer_item = "
 														+ transferItem.getId() + ");")
 												.executeUpdate();
 
