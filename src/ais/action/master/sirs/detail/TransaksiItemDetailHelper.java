@@ -409,7 +409,7 @@ public class TransaksiItemDetailHelper extends Borderlayout {
 													.executeUpdate();
 
 											session.createSQLQuery(
-													"delete from racikan_detail where racikan in (select id from sirs.racikan where transaksi_detail = "
+													"delete from sirs.racikan_detail where racikan in (select id from sirs.racikan where transaksi_detail = "
 															+ transaksiDetail.getId() + ");")
 													.executeUpdate();
 

@@ -389,7 +389,7 @@ public class KomunitasPunyaPasienAction extends MyDetail {
 									try {
 
 										Session session = HibernateUtil.currentSession();
-										session.createSQLQuery("delete from komunitas_punya_pasien where komunitas = "
+										session.createSQLQuery("delete from sirs.komunitas_punya_pasien where komunitas = "
 												+ komunitas.getId()).executeUpdate();
 
 										loadData(event);

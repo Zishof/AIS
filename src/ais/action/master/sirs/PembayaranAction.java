@@ -356,7 +356,7 @@ public class PembayaranAction extends GenericAutowireComposer {
 								sesiHapus.getTransaction().begin();
 
 								sesiHapus.createSQLQuery(
-										"delete from deposit_punya_pembayaran where pembayaran = " + pembayaran.getId())
+										"delete from sirs.deposit_punya_pembayaran where pembayaran = " + pembayaran.getId())
 										.executeUpdate();
 
 								sesiHapus.createSQLQuery(
@@ -365,36 +365,36 @@ public class PembayaranAction extends GenericAutowireComposer {
 										.executeUpdate();
 
 								sesiHapus.createSQLQuery(
-										"update diagnosa_penyakit set pembayaran = null, lunas = false where pembayaran = "
+										"update sirs.diagnosa_penyakit set pembayaran = null, lunas = false where pembayaran = "
 												+ pembayaran.getId())
 										.executeUpdate();
 
 								sesiHapus.createSQLQuery(
-										"update data_pasien_keluar set pembayaran = null where pembayaran = "
+										"update sirs.data_pasien_keluar set pembayaran = null where pembayaran = "
 												+ pembayaran.getId())
 										.executeUpdate();
 
 								sesiHapus.createSQLQuery(
-										"update transaksi_retur set pembayaran = null, lunas = false where pembayaran = "
+										"update sirs.transaksi_retur set pembayaran = null, lunas = false where pembayaran = "
 												+ pembayaran.getId())
 										.executeUpdate();
 
 								sesiHapus.createSQLQuery(
-										"update transaksi set pembayaran = null, lunas = false where pembayaran = "
+										"update sirs.transaksi_medis set pembayaran = null, lunas = false where pembayaran = "
 												+ pembayaran.getId())
 										.executeUpdate();
 
 								sesiHapus.createSQLQuery(
-										"update detail_transaksi set pembayaran = null, lunas = false where pembayaran = "
+										"update sirs.detail_transaksi_pasien set pembayaran = null, lunas = false where pembayaran = "
 												+ pembayaran.getId())
 										.executeUpdate();
 								sesiHapus.createSQLQuery(
-										"update detail_transaksi_layanan set pembayaran = null, lunas = false where pembayaran = "
+										"update sirs.detail_transaksi_layanan set pembayaran = null, lunas = false where pembayaran = "
 												+ pembayaran.getId())
 										.executeUpdate();
 
 								sesiHapus.createSQLQuery(
-										"delete from pembayaran_non_tunai where pembayaran = " + pembayaran.getId())
+										"delete from sirs.pembayaran_non_tunai where pembayaran = " + pembayaran.getId())
 										.executeUpdate();
 
 								sesiHapus.createSQLQuery(

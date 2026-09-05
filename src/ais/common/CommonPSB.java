@@ -1168,11 +1168,20 @@ public class CommonPSB {
 	 * NIS terenkripsi (lihat catatan keamanan pada javadoc kelas).</li>
 	 * <li>Bila {@link Siswa} sudah ada dan {@code nim} yang diberikan kosong, NIS LAMA
 	 * dipertahankan (tidak ditimpa kosong); bila {@code nim} diberikan, NIS lama akan diganti.</li>
-	 * <li>Menyalin SELURUH properti yang namanya sama persis di kedua entitas (irisan nama
-	 * properti {@link CalonSiswa} dan {@link Siswa}) lewat metadata Hibernate
-	 * ({@link ClassMetadata}) — properti PSB spesifik yang tidak ada padanannya di
-	 * {@link Siswa} (mis. alamat sekolah asal) dilewati secara proaktif (bukan dianggap error)
-	 * karena memang tidak relevan lagi setelah diterima.</li>
+	 * <li>Menyalin properti yang namanya sama persis di kedua entitas (irisan nama properti
+	 * {@link CalonSiswa} dan {@link Siswa}) lewat metadata Hibernate ({@link ClassMetadata}) —
+	 * properti PSB spesifik yang tidak ada padanannya di {@link Siswa} (mis. alamat sekolah asal)
+	 * dilewati secara proaktif (bukan dianggap error) karena memang tidak relevan lagi setelah
+	 * diterima. <b>{@code pass} dan {@code is_encripted} SENGAJA DIKECUALIKAN</b> dari copy ini
+	 * (perbaikan keamanan 2026-09-06): {@link CalonSiswa#getPass()} memakai property access dan
+	 * menyemai kata sandi dari NISN sebagai efek samping, sehingga sebelum perbaikan ini,
+	 * pemanggilan {@code getPropertyValue(calonSiswaForCopy, "pass", ...)} memicu efek samping
+	 * tersebut dan hasilnya MENIMPA {@code siswa.pass} — baik kata sandi awal
+	 * {@code DES(nim)} yang baru saja di-set pada langkah sebelumnya (siswa baru) maupun kata
+	 * sandi aktif siswa yang sudah ada (termasuk hasil reset manual admin), setiap kali baris ini
+	 * diproses ulang (mis. lewat upload massal {@link #uploadKelulusan} yang tidak menjamin satu
+	 * baris hanya diproses sekali). Kredensial login {@link Siswa} sekarang murni ditentukan oleh
+	 * {@link Siswa} sendiri, tidak pernah ikut tersalin dari {@link CalonSiswa}.</li>
 	 * <li>Menetapkan NIS final, dan sebagai jaring pengaman memastikan {@code sekolah}/
 	 * {@code yayasan} pada siswa tidak kosong bila tersedia pada calon siswa (mengantisipasi
 	 * properti yang gagal tersalin di langkah sebelumnya).</li>
@@ -1263,8 +1272,17 @@ public class CommonPSB {
 			// CommonComboInsertHelper.adaProperti()).
 			java.util.Set<String> propertiSiswa = new java.util.HashSet<String>(
 					java.util.Arrays.asList(classMetadataSiswa.getPropertyNames()));
+			// FIX keamanan: "pass"/"is_encripted" SENGAJA dikecualikan dari copy generik ini.
+			// CalonSiswa.getPass() memakai property access, jadi getPropertyValue(...) di bawah
+			// memanggil getter aslinya -- termasuk efek samping penyemaian DES(NISN) bila pass
+			// kosong -- dan hasilnya menimpa siswa.pass yang baru saja di-set ke DES(nim) di atas
+			// (juga menimpa password siswa LAMA setiap kali baris ini diproses ulang lewat upload
+			// massal, termasuk password yang sudah direset manual oleh admin). Kredensial login
+			// Siswa harus murni milik Siswa sendiri, tidak pernah ikut tersalin dari CalonSiswa.
+			java.util.Set<String> propertiDikecualikan = new java.util.HashSet<String>(
+					java.util.Arrays.asList("pass", "is_encripted"));
 			for (String p : classMetadata.getPropertyNames()) {
-				if (!propertiSiswa.contains(p)) {
+				if (!propertiSiswa.contains(p) || propertiDikecualikan.contains(p)) {
 					continue;
 				}
 				try {
