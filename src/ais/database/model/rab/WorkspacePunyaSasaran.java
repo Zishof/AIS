@@ -47,7 +47,39 @@ import ais.database.model.GeneralValueObject;
  * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
  * session aktif; jangan menaruh query duplikat pada model.</p>
  *
+ * <h2>Makna bisnis: sasaran yang hendak dicapai sebuah paket pekerjaan</h2>
+ * <p>Baris {@code rab.workspace_punya_sasaran} menautkan satu {@link Sasaran} — entry katalog
+ * sasaran/target program — ke satu {@link Workspace}. Bersama {@link WorkspacePunyaIndikator}
+ * (indikator kinerja beserta nilai targetnya) ia membentuk sisi <b>perencanaan berbasis kinerja</b>
+ * dari modul RAB: sasaran menyatakan <i>apa yang hendak dicapai</i>, indikator menyatakan
+ * <i>bagaimana pencapaian itu diukur</i>. Seperti tabel penghubung lain di klaster ini, entity tidak
+ * membawa atribut tambahan — hanya pasangan referensi plus jejak audit.</p>
+ *
+ * <h2>Nullability dan duplikat</h2>
+ * <p>{@code workspace} dipetakan {@code NOT NULL}, sedangkan {@code sasaran} {@code nullable}:
+ * baris tanpa sasaran sah secara skema dan hanya ditolak oleh validasi layar. Tidak ada batasan
+ * {@code UNIQUE(workspace, sasaran)}, sehingga sasaran yang sama dapat tercatat berkali-kali pada
+ * workspace yang sama.</p>
+ *
+ * <h2>Perbedaan strategi fetch antar kedua relasi</h2>
+ * <p>Perhatikan bahwa kedua relasi di kelas ini diperlakukan berbeda: {@link #getSasaran()}
+ * dipetakan tanpa {@code fetch = LAZY} (jadi memakai default {@code EAGER} untuk {@code @ManyToOne})
+ * ditambah {@code @Fetch(FetchMode.SELECT)} dan <b>tidak</b> memanggil {@code check(...)},
+ * sedangkan {@link #getWorkspace()} lazy dan memanggil {@code check(...)}. Konsekuensinya, memuat
+ * sekumpulan baris sasaran akan menerbitkan satu {@code SELECT} tambahan per baris untuk sisi
+ * sasaran (pola N+1 yang melekat pada pemetaan, bukan pada pemanggil).</p>
+ *
+ * <h2>Tenant</h2>
+ * <p>Entity ini tidak menyimpan {@code SatuanKerja}; tenantnya tersirat lewat {@link
+ * #getWorkspace()}. Perlu dicatat bahwa {@link Sasaran} <b>punya</b> kolom satuan kerja sendiri,
+ * tetapi tidak ada apa pun — baik di entity ini maupun di skema — yang memaksa sasaran dan
+ * workspace berasal dari satuan kerja yang sama. Penautan lintas satker karena itu hanya dicegah
+ * oleh penyaringan di layar pemilihan.</p>
+ *
  * @see GeneralValueObject
+ * @see Workspace
+ * @see Sasaran
+ * @see WorkspacePunyaIndikator
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -63,44 +95,83 @@ public class WorkspacePunyaSasaran extends GeneralValueObject {
 	 * 
 	 */
 	private static final long serialVersionUID = -8738027816264807168L;
+	/** Nama/label pengguna penyunting terakhir (field audit bayangan Envers). */
 	private String oleh;
+
+	/** Id pengguna penyunting terakhir, pasangan mesin-terbaca dari {@link #oleh}. */
 	private String olehId;
 
+	/** Mengembalikan id pengguna penyunting terakhir apa adanya. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel id pengguna penyunting terakhir, mengabaikan {@code null} maupun string kosong agar
+	 * jejak audit yang sudah terisi tidak tertimpa nilai kosong dari binding form atau proses impor.
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
+	/** Primary key {@code rab.workspace_punya_sasaran.id}, dibangkitkan database ({@code IDENTITY}). */
 	private Long id;
 
+	/** Menyetel nama penyunting terakhir, mengabaikan {@code null}/string kosong (alasan sama seperti {@link #setOlehId(String)}). */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/** Mengembalikan nama/label penyunting terakhir apa adanya. */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: menstempel audit lewat {@code
+	 * AuditTimestampInterceptor.ubah(this)} sebelum Hibernate menerbitkan {@code UPDATE}. Sengaja
+	 * {@code protected} — hanya provider persistence yang boleh memanggilnya.
+	 *
+	 * <p>Pada baris fisik yang sama ikut dideklarasikan field {@code tanggal_dirubah} (stempel waktu
+	 * perubahan terakhir, diinisialisasi ke waktu server lewat {@code WaktuUtil.getDate()} sehingga
+	 * baris baru selalu punya stempel walau belum pernah melewati jalur {@code @PreUpdate}).
+	 * Penggabungan dua deklarasi dalam satu baris itu hasil penyisipan otomatis lintas entity AIS,
+	 * bukan gaya penulisan yang disengaja.</p>
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Menyetel stempel waktu perubahan terakhir; umumnya diisi interceptor audit atau proses migrasi. */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** Mengembalikan stempel waktu perubahan terakhir, dipetakan sebagai kolom {@code TIMESTAMP}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Sasaran yang ditautkan. Kolomnya {@code nullable}, sehingga baris tanpa sasaran sah secara
+	 * skema meski ditolak validasi layar.
+	 */
 	private Sasaran sasaran;
+
+	/**
+	 * Workspace pemilik baris ini. Kolomnya {@code NOT NULL} dan merupakan satu-satunya jalur tenant
+	 * baris ini.
+	 */
 	private Workspace workspace;
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan JPA/Hibernate, sekaligus dipakai layar RAB saat
+	 * menambahkan baris sasaran baru. Kedua sisi relasi belum terisi; layar mengisi sasaran lebih
+	 * dulu di grid, lalu menyambungkan workspace tepat sebelum menyimpan.
+	 */
 	public WorkspacePunyaSasaran() {
 	}
 
+	/** Mengembalikan primary key baris, dibangkitkan database saat {@code INSERT}. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -108,10 +179,24 @@ public class WorkspacePunyaSasaran extends GeneralValueObject {
 		return this.id;
 	}
 
+	/** Menyetel primary key; umumnya hanya dipakai Hibernate. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan sasaran yang ditautkan, <b>apa adanya</b> tanpa melewati {@code check(...)}.
+	 *
+	 * <p>Ini pengecualian di antara getter relasi klaster Workspace. Pemetaannya tidak menyebut
+	 * {@code fetch}, sehingga berlaku default {@code @ManyToOne} yaitu {@code EAGER}, dan
+	 * {@code @Fetch(FetchMode.SELECT)} memaksa Hibernate memuatnya lewat {@code SELECT} terpisah
+	 * alih-alih ikut dalam {@code JOIN} query induk. Karena objek sudah termuat penuh saat entity
+	 * dihidrasi, resolusi proxy lewat {@code check(...)} memang tidak diperlukan — tetapi harganya
+	 * adalah satu query tambahan per baris ketika sekumpulan baris sasaran dimuat sekaligus.
+	 * Pemetaan inilah sumber pola N+1 di sini, bukan kode pemanggil.</p>
+	 *
+	 * <p>Dapat mengembalikan {@code null}; kolomnya {@code nullable}.</p>
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "sasaran", nullable = true)
@@ -119,10 +204,21 @@ public class WorkspacePunyaSasaran extends GeneralValueObject {
 		return sasaran;
 	}
 
+	/**
+	 * Menyetel sasaran yang ditautkan. Tidak ada pemeriksaan duplikat maupun pemeriksaan bahwa
+	 * satuan kerja pada {@link Sasaran} sama dengan satuan kerja workspace pemilik — penautan
+	 * lintas satker hanya dicegah oleh penyaringan di layar pemilihan.
+	 */
 	public void setSasaran(Sasaran sasaran) {
 		this.sasaran = sasaran;
 	}
 
+	/**
+	 * Mengembalikan workspace pemilik baris ini, setelah resolusi proxy lazy lewat {@code check(...)}
+	 * milik {@link GeneralValueObject}; hasilnya ditulis balik ke field. Relasi ini satu-satunya
+	 * penentu tenant baris ini, sehingga query atas tabel sasaran-workspace wajib menyaring lewat
+	 * {@code workspace} (dan, bila dipakai lintas pengguna, lewat {@code workspace.satuanKerja}).
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "workspace", nullable = false)
 	public Workspace getWorkspace() {
@@ -130,6 +226,12 @@ public class WorkspacePunyaSasaran extends GeneralValueObject {
 		return workspace;
 	}
 
+	/**
+	 * Menyetel workspace pemilik baris sasaran ini. Layar RAB menyetelnya belakangan — seluruh baris
+	 * dibentuk di grid lebih dulu, lalu disambungkan ke workspace yang sedang disunting tepat
+	 * sebelum {@code saveOrUpdate}; proses salin revisi memakai jalur yang sama setelah
+	 * {@code clone()} dan {@code setId(null)}.
+	 */
 	public void setWorkspace(Workspace workspace) {
 		this.workspace = workspace;
 	}
