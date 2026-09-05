@@ -1,5 +1,39 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 122 — paket `sekolah` (156 file, TERBESAR di codebase) dikonfirmasi TUNTAS 100%; addendum 2 file baru `sirs` + 1 task baru (6 Sep 2026)
+
+Scan inventaris ulang menemukan `ais/database/model/sekolah/` (156
+file) sudah **155/156 selesai** dari akumulasi sesi 1-17 (sebelum
+domain-batching dimulai — entity individual besar, kemungkinan
+`Mahasiswa`/`Dosen`/`Siswa`/`CalonSiswa`/`OrangTua`/`LogLogin`/dst).
+Hanya `NisCounter.java` tersisa (class Javadoc sudah lengkap dari sesi
+perbaikan bug sebelumnya, tinggal 5 setter tanpa Javadoc individual) —
+dilengkapi langsung orkestrator tanpa agent (r85233). **Paket `sekolah`
+kini TUNTAS 156/156** — domain PALING BESAR yang pernah dinyatakan
+tuntas di inisiatif ini.
+
+**PENTING — tidak mengubah estimasi total**: 155 file ini SUDAH
+termasuk tally akumulasi lama sejak sesi 1-17, BUKAN file yang lolos
+tak tercatat — jangan hitung ulang total turun berdasarkan penemuan
+ini (koreksi metodologis, catatan internal orkestrator).
+
+**Addendum `sirs`** (paket sudah TUNTAS sejak batch 100-102): ditemukan
+2 file BARU ditambahkan sesi paralel lain SETELAH milestone sirs —
+`ApotikCustomerMembership.java`/`ApotikRewardLedger.java` (program
+loyalitas poin apotik). Didokumentasikan langsung orkestrator
+(r85234-r85235). Ledger APPEND-ONLY, saldo membership = proyeksi cepat
+dari `saldoSetelah` baris ledger terbaru.
+
+**Task baru `task_a7d4741a`**: `ApotikMembershipHelper.mutasiPoin()`
+baca-hitung-tulis saldo poin TANPA row-lock/versi optimistik — race
+condition double-spend poin loyalitas, kategori sama dengan
+`task_b718f355` (check-in ganda kamar hotel, batch 118) tapi subsistem
+berbeda (poin apotik, bukan finansial riil).
+
+**Selaras dengan koreksi scope batch 120** (lihat di bawah): temuan ini
+menguatkan bahwa WC bersama terus berubah lewat sesi paralel lain —
+scan berkala paket "TUNTAS" tetap perlu dilakukan sesekali.
+
 ## Batch 121 — `sisdes.Penduduk` (r85231, tersapu bareng 3 file sesi lain, pesan kosong — isi terverifikasi masuk); 🚨 TEMUAN KEAMANAN, `task_39e03d84`
 
 Beda total dari 2 entity sebelumnya (`KomentarDisposisi`/`SchemaConfig`):

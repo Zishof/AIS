@@ -46,12 +46,28 @@ b.tanggal_yudisium,
 b.no_akta1 as sk1,
 b.no_akta2 as sk2,
 b.skDo as no_sk,
-b.tanggal_lulus,
+coalesce(b.tanggal_lulus, m.tanggal_sidang, js.mulai) as tanggal_lulus,
+case
+	when b.tanggal_masuk is null
+		or coalesce(b.tanggal_lulus, m.tanggal_sidang, js.mulai) is null
+		or coalesce(b.tanggal_lulus, m.tanggal_sidang, js.mulai)::date < b.tanggal_masuk::date
+	then ''
+	else concat(
+		extract(year from age(coalesce(b.tanggal_lulus, m.tanggal_sidang, js.mulai)::date, b.tanggal_masuk::date))::int, ' tahun ',
+		extract(month from age(coalesce(b.tanggal_lulus, m.tanggal_sidang, js.mulai)::date, b.tanggal_masuk::date))::int, ' bulan ',
+		extract(day from age(coalesce(b.tanggal_lulus, m.tanggal_sidang, js.mulai)::date, b.tanggal_masuk::date))::int, ' hari'
+	)
+end as masa_studi,
 m.judul as judul_skripsi,
 h.nama as asal_sekolah,
 i.nama_ayah,
 i.nama_ibu,
-l.ipk,
+(select kl.ipk
+	from krs_mahasiswa kl
+	where kl.mahasiswa = b.id
+		and kl.semester = case when b.semesterlulus is not null then b.semesterlulus else 9 end
+	order by kl.id desc
+	limit 1) as ipk,
 d1.nama as pembimbing1,
 m.pembimbing as id_pembimbing1,
 m.pembimbing2 as id_pembimbing2,
@@ -83,13 +99,22 @@ left join jurusan e on b.jurusan = e."id"
 left join fakultas d on e.fakultas = d."id"
 left join judisium f on  f.id = b.predikat_kelulusan
 left join biodata_calon_mahasiswa g on b.biodata_calon_mahasiswa_long = g.id
-left join biodata_mahasiswa gg on b.id = gg.mahasiswa
-left join nama_sekolah_asal h on gg.nama_sekolah_asal = h.id
-left join biodata_mahasiswa i on b.id = i.mahasiswa
+left join biodata_mahasiswa i on i.id = (
+	select max(bm.id) from biodata_mahasiswa bm where bm.mahasiswa = b.id
+)
+left join nama_sekolah_asal h on i.nama_sekolah_asal = h.id
 left join wilayah j on i.kecamatan_wilayah = j.id
 left join Kota k on i.kota = k.id
-left join krs_mahasiswa l on (l.mahasiswa = b.id and case when b.semesterlulus is not null then l.semester = b.semesterlulus else l.semester = 9 end)
-left join skripsi m on m.mahasiswa = b.id
+left join skripsi m on m.id = coalesce(a.skripsi, (
+	select sm.id
+	from skripsi sm
+	where sm.mahasiswa = b.id
+	order by case when sm.tanggal_sidang is null then 1 else 0 end,
+		sm.tanggal_sidang desc nulls last,
+		sm.id desc
+	limit 1
+))
+left join jadwal_sidang_tugas_akhir js on js.id = m.jadwal_sidang_tugas_akhir
 left join dosen d1 on d1.id = m.pembimbing
 left join dosen d2 on d2.id = m.ketua_sidang
 
@@ -127,6 +152,7 @@ where a.id = $P{id_pendaftaran_wisuda}]]>
 	<field name="sk2" class="java.lang.String"/>
 	<field name="no_sk" class="java.lang.String"/>
 	<field name="tanggal_lulus" class="java.sql.Date"/>
+	<field name="masa_studi" class="java.lang.String"/>
 	<field name="judul_skripsi" class="java.lang.String"/>
 	<field name="asal_sekolah" class="java.lang.String"/>
 	<field name="nama_ayah" class="java.lang.String"/>
@@ -152,41 +178,11 @@ where a.id = $P{id_pendaftaran_wisuda}]]>
 	<field name="status_persetujuan_administrasi_fakultas" class="java.lang.String"/>
 	<field name="status_persetujuan_perpustakaan_fakultas" class="java.lang.String"/>
 	<field name="status_persetujuan_perpustakaan" class="java.lang.String"/>
-	<variable name="tgl_lulus" class="java.lang.Integer">
-		<variableExpression><![CDATA[$V{tgl_masuk} > $V{tgl_keluar} ?($V{tgl_keluar}+30-$V{tgl_masuk}):($V{tgl_keluar}-$V{tgl_masuk})]]></variableExpression>
-	</variable>
-	<variable name="bln_lulus" class="java.lang.Integer">
-		<variableExpression><![CDATA[$V{bln_masuk} > $V{bln_keluar} ? ($V{bln_masuk} + 12 - $V{bln_keluar}) : $V{bln_masuk} - $V{bln_keluar}]]></variableExpression>
-	</variable>
-	<variable name="thn_lulus" class="java.lang.Integer">
-		<variableExpression><![CDATA[$V{bln_masuk} > $V{bln_keluar} ? ($V{thn_keluar} - 1 - $V{thn_masuk}) : $V{thn_keluar} -  $V{thn_masuk}]]></variableExpression>
-	</variable>
-	<variable name="bln_masuk" class="java.lang.Integer">
-		<variableExpression><![CDATA[Integer.parseInt(new SimpleDateFormat("MM").format($F{tanggal_masuk}))]]></variableExpression>
-	</variable>
-	<variable name="bln_keluar" class="java.lang.Integer">
-		<variableExpression><![CDATA[Integer.parseInt(new SimpleDateFormat("MM").format($F{tanggal_lulus}))]]></variableExpression>
-	</variable>
-	<variable name="thn_masuk" class="java.lang.Integer">
-		<variableExpression><![CDATA[Integer.parseInt(new SimpleDateFormat("yyyy").format($F{tanggal_masuk}))]]></variableExpression>
-	</variable>
-	<variable name="thn_keluar" class="java.lang.Integer">
-		<variableExpression><![CDATA[Integer.parseInt(new SimpleDateFormat("yyyy").format($F{tanggal_lulus}))]]></variableExpression>
-	</variable>
-	<variable name="tgl_masuk" class="java.lang.Integer">
-		<variableExpression><![CDATA[Integer.parseInt(new SimpleDateFormat("dd").format($F{tanggal_masuk}))]]></variableExpression>
-	</variable>
-	<variable name="tgl_keluar" class="java.lang.Integer">
-		<variableExpression><![CDATA[Integer.parseInt(new SimpleDateFormat("dd").format($F{tanggal_lulus}))]]></variableExpression>
-	</variable>
-	<variable name="lama_hari_bln_lulus" class="java.lang.Integer">
-		<variableExpression><![CDATA[30]]></variableExpression>
-	</variable>
 	<background>
 		<band splitType="Stretch"/>
 	</background>
 	<title>
-		<band height="151" splitType="Stretch">
+		<band height="146" splitType="Stretch">
 			<staticText>
 				<reportElement x="0" y="7" width="555" height="16" uuid="fb25058f-20a8-45c3-ad43-27f3fe364d84"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
@@ -414,7 +410,7 @@ AKAMA Universitas]]></text>
 		<band splitType="Stretch"/>
 	</detail>
 	<pageFooter>
-		<band height="267">
+		<band height="263">
 			<textField>
 				<reportElement x="15" y="102" width="513" height="135" uuid="ce7cf1f4-aece-4010-86ae-43c293f427d2"/>
 				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_info_bukti_daftar_wisuda" )==null?
@@ -458,7 +454,7 @@ $P{REPORT_PARAMETERS_MAP}.get( "label_info_bukti_daftar_wisuda" )]]></textFieldE
 		</band>
 	</pageFooter>
 	<summary>
-		<band height="429">
+		<band height="425">
 			<textField isBlankWhenNull="true">
 				<reportElement x="194" y="0" width="361" height="16" uuid="8ee86824-29d2-4171-bbbc-03aa37057463"/>
 				<box topPadding="2" leftPadding="3" rightPadding="3">
@@ -644,7 +640,7 @@ $P{REPORT_PARAMETERS_MAP}.get( "label_info_bukti_daftar_wisuda" )]]></textFieldE
 					<rightPen lineWidth="0.25"/>
 				</box>
 				<textElement verticalAlignment="Top"/>
-				<textFieldExpression><![CDATA[new SimpleDateFormat("dd MMMM yyyy", $P{REPORT_LOCALE}).format($F{tanggal_lulus})]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{tanggal_lulus} == null ? "" : new SimpleDateFormat("dd MMMM yyyy", $P{REPORT_LOCALE}).format($F{tanggal_lulus})]]></textFieldExpression>
 			</textField>
 			<staticText>
 				<reportElement x="179" y="128" width="15" height="16" uuid="6095790d-c8b2-41f2-8f8f-6161decc9ca7"/>
@@ -666,7 +662,7 @@ $P{REPORT_PARAMETERS_MAP}.get( "label_info_bukti_daftar_wisuda" )]]></textFieldE
 					<rightPen lineWidth="0.25"/>
 				</box>
 				<textElement verticalAlignment="Top"/>
-				<textFieldExpression><![CDATA[($V{bln_masuk} > $V{bln_keluar} ? ($V{thn_keluar} - 1 - $V{thn_masuk}) : $V{thn_keluar} -  $V{thn_masuk}) + " tahun " + ($V{bln_masuk} > $V{bln_keluar} ? ( $V{bln_keluar} + 12 - $V{bln_masuk}) :  $V{bln_keluar} - $V{bln_masuk}) + " bulan " + ($V{tgl_masuk} > $V{tgl_keluar} ?($V{tgl_keluar}+30-$V{tgl_masuk}):($V{tgl_keluar}-$V{tgl_masuk})) + " hari"]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{masa_studi}]]></textFieldExpression>
 			</textField>
 			<staticText>
 				<reportElement mode="Opaque" x="179" y="144" width="15" height="16" backcolor="#E3E3E3" uuid="16b8cb54-d452-4c2b-ad9c-ae7650a73b32"/>

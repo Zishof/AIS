@@ -672,31 +672,52 @@ public class DisposisiSop extends GeneralValueObject {
 	 * ireversibel (sudah tercatat di jurnal). Tabel modul lain yang punya status
 	 * {@code disetujuiOleh}/final generik (bukan {@code posting_history}) ditangani terpisah oleh
 	 * gerbang ketiga di bawah.</p></li>
-	 * <li><b>Dokumen modul sudah berstatus final/disetujui (tanpa posting_history sendiri).</b> Untuk
-	 * 13 tabel lain yang diaudit satu per satu langsung dari entity Java-nya (kolom fisik dan
-	 * kondisinya BERBEDA-BEDA per tabel, sengaja tidak diseragamkan sebagai {@code disetujuiOleh is
-	 * not null} generik) — lihat {@link #TABEL_DENGAN_STATUS_FINAL} untuk daftar lengkap tabel dan
-	 * kondisi SQL per tabel beserta alasannya — method memeriksa lewat SQL murni apakah ada baris
-	 * tertaut yang sudah memenuhi kondisi final tabelnya, dan menolak bila ada.
-	 * <p><b>Empat tabel dalam daftar {@link #hps} sengaja TIDAK digerbang</b> karena entity Java-nya
-	 * terbukti tidak memiliki kolom fisik yang merepresentasikan "final/disetujui" secara lokal
-	 * (bukan berarti tidak mengenal konsep final, tetapi status itu tersimpan di tempat lain atau
-	 * tidak ada sama sekali pada instalasi ini) — menggerbanginya dengan kolom yang salah/mengarang
-	 * justru bisa membuat gerbang tampak aktif padahal tidak pernah menyala:
+	 * <li><b>Dokumen modul sudah pada status final yang independen dari alur SOP.</b> Karena kriteria
+	 * delete pada tiap tabel modul selalu {@code disposisi_sop = <id header ini>}, dan Gerbang #1 di
+	 * atas SUDAH menolak bila {@code disposisiSop.getDisposisiSetuju() != null}, maka SELURUH tabel
+	 * modul yang status "final"-nya murni <b>derivasi tertulis-balik</b> dari
+	 * {@code getDisposisiSop().getDisposisiSetuju()} sudah tercakup Gerbang #1 secara konstruksi —
+	 * menambah query terpisah pada kolom derivasinya (mis. {@code disetujui_oleh} pada
+	 * {@code asset.pembayaran_dp_master_asset}, {@code pembayaran_pengadaan_master_asset},
+	 * {@code pembayaran_termin_master_asset}, {@code peminjaman_master_asset},
+	 * {@code pengembalian_master_asset}, {@code library.seleksi_vendor},
+	 * {@code akunting.proses_transitori}; atau {@code setujui}/{@code disetuji_oleh} pada
+	 * {@code pengaduan}, {@code pengajuan_mahasiswa}) TIDAK menambah keamanan dan justru berisiko:
+	 * kolom-kolom itu ditulis balik setiap getter dipanggil, sehingga nilai di baris DB bisa BASI
+	 * (mis. pernah disetujui lalu status SOP-nya dibatalkan, tapi getter belum sempat dipanggil ulang
+	 * untuk menuliskan {@code null}) — memeriksa raw SQL pada kolom semacam itu bisa salah menolak
+	 * penghapusan yang seharusnya sah. Diverifikasi langsung dari badan getter tiap entity, bukan
+	 * tebakan.</p>
+	 * <p>Yang genuinely butuh gerbang tersendiri hanya tabel yang TERBUKTI punya jalur status sendiri
+	 * yang TIDAK ikut derivasi dari {@code disposisiSop} (getter polos, tidak pernah menimpa
+	 * nilainya berdasar status SOP) — lihat {@link #TABEL_DENGAN_STATUS_INDEPENDEN} untuk daftar
+	 * lengkap beserta kutipan kode yang membuktikannya:</p>
 	 * <ul>
-	 * <li>{@code surat.surat_keluar} — status persetujuan tersimpan di tabel terpisah
-	 * {@code surat.alur_persetujuan_surat_keluar_status} per jenjang alur, bukan kolom pada
-	 * {@code surat_keluar} sendiri; javadoc entity-nya menegaskan tidak ada satu pun titik pada jalur
-	 * cetak yang memeriksa status tersebut.</li>
-	 * <li>{@code sekolah.kelompok_pendaftaran_psb}, {@code catatan_administrasi},
-	 * {@code ruang_pmb} — entity-nya hanya punya {@code disposisi_sop} (opsional) dan {@code aktif}
-	 * turunan satu-arah (hanya bisa dipaksa {@code false}, bukan representasi "sudah disetujui");
-	 * tidak ditemukan kolom {@code disetujuiOleh}/status lain pada ketiganya.</li>
+	 * <li>{@code asset.permintaan_pengadaan_master_asset.disetujui_oleh} — pada mode
+	 * {@code setujuiManual}, getter berhenti mengikuti disposisi SOP sama sekali.</li>
+	 * <li>{@code pengajuan_pegawai.disetuji_oleh} (ejaan kolom fisik tanpa huruf "u" kedua) — getter
+	 * polos, diisi checkbox "Setujui" manual di UI, tidak pernah derivasi (berbeda dari kolom
+	 * {@code setujui} pada tabel yang sama, yang derivasinya aktif saat SOP terpasang).</li>
+	 * <li>{@code akunting.proses_transfer.realisasikan_oleh} — getter polos, penanda kanonik "dana
+	 * sudah cair" di seluruh aplikasi; sama sekali independen dari {@code disposisiSop}. Risiko
+	 * paling berat di kelompok ini: transfer yang sudah benar-benar cair bisa lenyap tanpa gerbang
+	 * ini bila tidak ditangani terpisah dari {@code disetujui_oleh} tabel yang sama (yang justru
+	 * derivasi, lihat di atas).</li>
+	 * <li>{@code surat.surat_masuk.dikunci} — getter polos ({@code getDikunci()}), diisi lewat
+	 * tindakan "bekukan surat" yang terpisah dari alur persetujuan; javadoc entity mencatat kunci ini
+	 * hanya ditegakkan di lapis perakitan UI (bukan di model), tapi kolom fisiknya tetap sinyal final
+	 * independen yang sah untuk gerbang SQL ini.</li>
 	 * </ul>
-	 * <p>Menggerbangi keempat tabel ini memerlukan keputusan desain tersendiri (mis. join ke tabel
-	 * status terpisah untuk {@code surat_keluar}, atau menetapkan apakah {@code disposisi_sop is not
-	 * null and aktif = true} cukup dianggap "final" untuk tiga lainnya); belum dikerjakan di revisi
-	 * ini.</p></li>
+	 * <p><b>Cakupan yang masih terbuka</b> (bukan diperbaiki di sini): {@code surat.surat_keluar} dan
+	 * status alur persetujuan {@code surat.surat_masuk} sendiri (berbeda dari {@code dikunci} di
+	 * atas) menyimpan status persetujuannya di tabel terpisah
+	 * ({@code surat.alur_persetujuan_surat_{keluar,masuk}_status}, tidak termasuk daftar tabel
+	 * {@link #hps} sama sekali), sehingga baris status itu ikut yatim dan tidak tercermin sebagai
+	 * gerbang di sini. {@code sekolah.kelompok_pendaftaran_psb}, {@code catatan_administrasi}, dan
+	 * {@code ruang_pmb} juga tidak digerbang: entity-nya hanya punya {@code disposisi_sop} (opsional)
+	 * dan {@code aktif} turunan satu-arah, tanpa kolom {@code disetujuiOleh}/status lain apa pun.
+	 * Menggerbangi kelima gap ini memerlukan keputusan desain tersendiri (mis. join ke tabel status
+	 * terpisah); di luar cakupan revisi ini.</p></li>
 	 * </ol>
 	 *
 	 * <h2>Eksekusi delete &amp; pelaporan kegagalan sebagian (baru)</h2>
@@ -796,8 +817,10 @@ public class DisposisiSop extends GeneralValueObject {
 		String tabelSudahFinal = cekAdaModulSudahFinal(id);
 		if (tabelSudahFinal != null) {
 			throw new IllegalStateException("Dokumen pada tabel " + tabelSudahFinal
-					+ " yang tertaut pengajuan ini sudah berstatus final/disetujui, sehingga pengajuan ini tidak "
-					+ "dapat dihapus. Batalkan/tolak status tersebut terlebih dahulu pada modul terkait.");
+					+ " yang tertaut pengajuan ini sudah berada pada status final yang independen dari alur SOP "
+					+ "(mis. sudah disetujui/direalisasikan/dikunci secara manual pada modul tersebut), sehingga "
+					+ "pengajuan ini tidak dapat dihapus. Batalkan status tersebut pada modul terkait terlebih "
+					+ "dahulu.");
 		}
 
 		String[] hps = new String[] { "akunting.daftar_pengajuan_transfer", "dana_talangan", "akunting.kas_kecil",
@@ -895,68 +918,65 @@ public class DisposisiSop extends GeneralValueObject {
 
 	/**
 	 * Tabel modul (subset dari daftar pada {@link #hapus()}, di luar
-	 * {@link #TABEL_DENGAN_POSTING_HISTORY}) yang punya kolom fisik untuk status "final/disetujui"
-	 * generik pada barisnya sendiri, beserta kondisi SQL yang menandakan status itu tercapai.
-	 * Setiap baris {@code {nama tabel, kondisi SQL}} dipetakan langsung dari entity Java
-	 * masing-masing (nama kolom fisik dari {@code @JoinColumn}/{@code @Column}, atau — untuk kolom
-	 * boolean tanpa anotasi tersebut seperti {@code setujui} — dari nama properti apa adanya, karena
-	 * {@code ais.database.hibernate.MyNamingStrategy} yang dipakai proyek ini TIDAK mengubah
-	 * camelCase, hanya memakai nama properti Java sebagai nama kolom).
+	 * {@link #TABEL_DENGAN_POSTING_HISTORY}) yang TERBUKTI punya jalur status final sendiri, yang
+	 * TIDAK ikut derivasi dari {@code getDisposisiSop().getDisposisiSetuju()} — dibedakan dengan
+	 * membaca langsung badan getter tiap entity, bukan menyamaratakan semua kolom
+	 * {@code disetujuiOleh}-like sebagai sinyal independen. Setiap baris {@code {nama tabel, kondisi
+	 * SQL}} dipetakan dari entity Java masing-masing (nama kolom fisik dari
+	 * {@code @JoinColumn}/{@code @Column}).
 	 *
-	 * <p><b>Kondisinya sengaja berbeda-beda per tabel</b>, bukan {@code disetujuiOleh is not null}
-	 * generik untuk semua:</p>
+	 * <p><b>Kenapa daftar ini pendek (hanya 4 tabel), bukan setiap tabel yang punya kolom
+	 * {@code disetujuiOleh}/{@code setujui}:</b> pola yang berulang di banyak entity modul SOP
+	 * (dikonfirmasi identik pada {@code asset.pembayaran_dp_master_asset},
+	 * {@code pembayaran_pengadaan_master_asset}, {@code pembayaran_termin_master_asset},
+	 * {@code peminjaman_master_asset}, {@code pengembalian_master_asset},
+	 * {@code library.seleksi_vendor}, {@code akunting.proses_transitori}, {@code pengaduan.setujui},
+	 * {@code pengajuan_mahasiswa.disetuji_oleh}, dan {@code pengajuan_pegawai.setujui}) adalah getter
+	 * yang MENULIS BALIK nilainya dari {@code getDisposisiSop().getDisposisiSetuju()} setiap kali
+	 * dipanggil — sehingga (a) statusnya sudah tercakup Gerbang #1 pada {@link #hapus()} secara
+	 * konstruksi (kriteria delete selalu {@code disposisi_sop = id} header ini), dan (b) nilai MENTAH
+	 * kolom itu di DB bisa basi (pernah ditulis "disetujui" lalu status SOP dibatalkan, tapi getter
+	 * belum sempat dipanggil ulang untuk menuliskan {@code null} kembali) sehingga query SQL langsung
+	 * padanya berisiko salah menolak penghapusan yang sah. Empat tabel di bawah ini TIDAK mengikuti
+	 * pola derivasi tersebut — getter-nya polos atau punya cabang independen eksplisit:</p>
 	 * <ul>
-	 * <li>{@code asset.pembayaran_dp_master_asset}, {@code asset.pembayaran_pengadaan_master_asset},
-	 * {@code asset.pembayaran_termin_master_asset}, {@code asset.peminjaman_master_asset},
-	 * {@code asset.pengembalian_master_asset}, {@code asset.permintaan_pengadaan_master_asset},
-	 * {@code library.seleksi_vendor} — {@code disetujui_oleh is not null}, gerbang persetujuan utama
-	 * menurut javadoc entity masing-masing.</li>
+	 * <li>{@code asset.permintaan_pengadaan_master_asset} — {@code disetujui_oleh is not null}.
+	 * {@code PermintaanPengadaanMasterAsset.getDisetujuiOleh()} hanya menjalankan derivasi SOP di
+	 * dalam blok {@code if (!getSetujuiManual())}; pada mode {@code setujuiManual = true} (persetujuan
+	 * manual lewat layar PR), nilai kolom dikembalikan apa adanya tanpa validasi silang ke
+	 * disposisi.</li>
+	 * <li>{@code pengajuan_pegawai} — {@code disetuji_oleh is not null} (ejaan kolom fisik tanpa
+	 * huruf "u" kedua). {@code PengajuanPegawai.getDisetujuiOleh()} hanya {@code check(disetujiOleh)}
+	 * lalu {@code return} — polos, tidak pernah derivasi. Beda dari kolom {@code setujui} pada tabel
+	 * yang sama (derivasinya aktif saat SOP terpasang, karena itu SENGAJA tidak dipakai di sini).</li>
 	 * <li>{@code akunting.proses_transfer} — {@code realisasikan_oleh is not null}, BUKAN
-	 * {@code disetujui_oleh}. Javadoc entity menyebut {@code realisasikan_oleh} sebagai "penanda
-	 * kanonik dana sudah cair" di seluruh aplikasi, sedangkan {@code disetujui_oleh} pada tabel ini
-	 * hanyalah tahap menengah yang nilainya bisa "pulih sendiri" dari {@code disposisiSop} (yang
-	 * sudah dicek terpisah oleh gerbang pertama {@link #hapus()}) sehingga bukan sinyal independen
-	 * yang layak dijadikan gerbang tersendiri di sini.</li>
-	 * <li>{@code akunting.proses_transitori} — {@code disetujui_oleh is not null}; javadoc entity
-	 * menyebutnya "gerbang posting yang sesungguhnya" untuk kriteria posting jurnal.</li>
-	 * <li>{@code surat.surat_masuk} — {@code dikunci is not null} (kontrak {@code VoKunci}); javadoc
-	 * entity mencatat kunci ini hanya ditegakkan di lapis perakitan UI, bukan di model, tapi kolom
-	 * fisiknya tetap sinyal final yang sah untuk gerbang SQL ini.</li>
-	 * <li>{@code pengaduan} — {@code setujui = true} (bukan {@code disetuji_oleh}, meski keduanya
-	 * ada); javadoc entity eksplisit menyebut {@code setujui} sebagai "kunci pengaman" yang dipakai
-	 * {@code PengaduanMahasiswaApi} untuk menolak ubah/hapus oleh pelapor.</li>
-	 * <li>{@code pengajuan_mahasiswa} — {@code disetuji_oleh is not null} (ejaan kolom tanpa huruf
-	 * "u", dipertahankan sesuai penamaan aslinya).</li>
-	 * <li>{@code pengajuan_pegawai} — {@code setujui = true} (bukan {@code disetuji_oleh}); javadoc
-	 * entity menyebut seluruh konsumen hilir (payroll, absensi, laporan lembur/konsumsi) menyaring
-	 * dengan {@code setujui = true}, sedangkan {@code disetuji_oleh} HANYA terisi pada mode
-	 * persetujuan manual dan tetap kosong pada pengajuan yang mengalir lewat SOP — tidak valid
-	 * dipakai sendirian sebagai gerbang universal tabel ini.</li>
+	 * {@code disetujui_oleh} (kolom itu pada tabel ini justru derivasi, lihat di atas).
+	 * {@code ProsesTransfer.getRealisasikanOleh()} hanya {@code check(realisasikanOleh)} lalu
+	 * {@code return} — polos. Javadoc entity menyebutnya "penanda kanonik dana sudah cair" di seluruh
+	 * aplikasi; risiko paling berat di kelompok ini karena akibatnya finansial dan ireversibel.</li>
+	 * <li>{@code surat.surat_masuk} — {@code dikunci is not null} (kontrak {@code VoKunci}).
+	 * {@code SuratMasuk.getDikunci()} hanya {@code check(dikunci)} lalu {@code return} — polos, diisi
+	 * lewat tindakan "bekukan surat" yang terpisah dari alur persetujuan (bukan dari
+	 * {@code disposisiSop}). Javadoc entity mencatat kunci ini hanya ditegakkan di lapis perakitan
+	 * UI, bukan di model, tapi kolom fisiknya tetap sinyal final independen yang sah untuk gerbang
+	 * SQL ini.</li>
 	 * </ul>
 	 *
-	 * <p>Lihat Javadoc {@link #hapus()} bagian "Gerbang status" untuk empat tabel yang sengaja TIDAK
-	 * masuk daftar ini karena tidak ditemukan kolom final yang sah.</p>
+	 * <p>Lihat Javadoc {@link #hapus()} bagian "Gerbang status" untuk daftar tabel yang tidak
+	 * digerbang sama sekali (baik karena derivasi murni maupun karena tidak ditemukan kolom final
+	 * yang sah).</p>
 	 */
-	private static final String[][] TABEL_DENGAN_STATUS_FINAL = new String[][] {
-			{ "asset.pembayaran_dp_master_asset", "disetujui_oleh is not null" },
-			{ "asset.pembayaran_pengadaan_master_asset", "disetujui_oleh is not null" },
-			{ "asset.pembayaran_termin_master_asset", "disetujui_oleh is not null" },
-			{ "asset.peminjaman_master_asset", "disetujui_oleh is not null" },
-			{ "asset.pengembalian_master_asset", "disetujui_oleh is not null" },
+	private static final String[][] TABEL_DENGAN_STATUS_INDEPENDEN = new String[][] {
 			{ "asset.permintaan_pengadaan_master_asset", "disetujui_oleh is not null" },
+			{ "pengajuan_pegawai", "disetuji_oleh is not null" },
 			{ "akunting.proses_transfer", "realisasikan_oleh is not null" },
-			{ "akunting.proses_transitori", "disetujui_oleh is not null" },
-			{ "surat.surat_masuk", "dikunci is not null" },
-			{ "pengaduan", "setujui = true" },
-			{ "pengajuan_mahasiswa", "disetuji_oleh is not null" },
-			{ "pengajuan_pegawai", "setujui = true" },
-			{ "library.seleksi_vendor", "disetujui_oleh is not null" }, };
+			{ "surat.surat_masuk", "dikunci is not null" }, };
 
 	/**
-	 * Memeriksa apakah ada baris pada tabel-tabel {@link #TABEL_DENGAN_STATUS_FINAL} yang tertaut
-	 * {@code disposisiSop=id} dan sudah memenuhi kondisi final tabelnya masing-masing. Kembaran
-	 * {@link #cekAdaModulSudahDiposting(Long)} untuk sinyal final generik (non-{@code
-	 * posting_history}); alasan sesi/transaksi tersendiri dan penanganan "tabel tidak ada" sama
+	 * Memeriksa apakah ada baris pada tabel-tabel {@link #TABEL_DENGAN_STATUS_INDEPENDEN} yang
+	 * tertaut {@code disposisiSop=id} dan sudah memenuhi kondisi final tabelnya masing-masing.
+	 * Kembaran {@link #cekAdaModulSudahDiposting(Long)} untuk sinyal final independen non-{@code
+	 * posting_history}; alasan sesi/transaksi tersendiri dan penanganan "tabel tidak ada" sama
 	 * persis dengan method itu.
 	 *
 	 * @param id id header pengajuan
@@ -970,7 +990,7 @@ public class DisposisiSop extends GeneralValueObject {
 		org.hibernate.Session session = null;
 		try {
 			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
-			for (String[] pasangan : TABEL_DENGAN_STATUS_FINAL) {
+			for (String[] pasangan : TABEL_DENGAN_STATUS_INDEPENDEN) {
 				String tabel = pasangan[0];
 				String kondisi = pasangan[1];
 				try {
