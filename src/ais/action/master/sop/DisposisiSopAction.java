@@ -1588,6 +1588,26 @@ public class DisposisiSopAction extends GenericAutowireComposer
 		}
 
 		System.out.println("selanjutnya -> " + selanjutnya);
+
+		// GERBANG SENTRAL: tahap tujuan yang dipilih untuk langkah START WAJIB salah satu cabang
+		// sah dari alurSop -- lihat SopUtil.validasiTransisi dan pola yang sama di
+		// DisposisiAlurSopAction.check(). Tidak perlu SopUtil.pastikanBerwenang di sini: ini
+		// adalah PENGAJUAN BARU, pengaju berhak memulai pengajuannya sendiri.
+		if (!selanjutnya.isEmpty()) {
+			List<Long> tujuanIds = new ArrayList<Long>();
+			for (AlurSop a : selanjutnya) {
+				if (a != null) {
+					tujuanIds.add(a.getId());
+				}
+			}
+			if (!SopUtil.validasiTransisi(alurSop, tujuanIds)) {
+				MyMessageboxConfig.show(
+						"Mohon maaf, tahap tujuan yang dipilih tidak dikenali sebagai kelanjutan sah dari langkah awal SOP ini. Silakan muat ulang halaman dan pilih kembali.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
+		}
+
 		if (alurSop == null || !alurSop.getAlurSetelahnyaTidakWajib()) {
 			if (!alurSops.isEmpty()) {
 				if (radiogroup != null && !radiogroup.getChildren().isEmpty()) {

@@ -82,4 +82,9 @@ public class ApotikRewardLedger extends GeneralValueObject {
 	@Temporal(TemporalType.TIMESTAMP) @Column(name = "tanggal_dirubah")
 	public Date getTanggal_dirubah() { return tanggal_dirubah; }
 	public void setTanggal_dirubah(Date tanggal_dirubah) { this.tanggal_dirubah = tanggal_dirubah; }
+
+	@javax.persistence.PreUpdate
+	protected void onUpdate() {
+		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
+	}
 }
