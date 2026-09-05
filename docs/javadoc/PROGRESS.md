@@ -1,5 +1,38 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `sirs` TUNTAS 100% (5 Sep 2026, akhir batch 102) — domain KESEMBILAN tuntas
+
+Diverifikasi: **118/118 file** `ais/database/model/sirs/` kini
+punya Javadoc substansial. Dikerjakan batch 100-102 (3 batch, domain
+TERBESAR seluruh inisiatif). Domain kesembilan yang tuntas penuh
+setelah `akunting`, `payroll`, `koperasi`, `inventory`, `employ`,
+`asset`, `surat`, `rab`.
+
+**Batch 102 (penutup, 1 file)**: `PaketPerawatanDetail.java`
+(r84692) — dikonfirmasi TIDAK ADA entity `PaketPerawatan` terpisah;
+`Tindakan` itu sendiri berperan ganda sebagai header paket. 0 task
+baru.
+
+**Ringkasan pencapaian domain sirs (batch 100-102, 13 task baru,
+domain PALING fertile untuk temuan klinis-signifikan seluruh
+inisiatif)**: entity medis dikonfirmasi TANPA sumbu tenant sama
+sekali DAN tanpa blocklist CRUD generik (`task_90bbdd51` — mungkin
+temuan paling signifikan domain ini); bug okupansi tempat tidur
+klinis-signifikan (`task_d82932ef`); TIGA bug salin-tempel SQL
+merusak integritas stok obat/alat medis dengan nomor baris pasti
+(`task_e4b1e2e8`); diskon yang diam-diam tak pernah berlaku
+(`task_c5ea50f8`); kebocoran data pasien tak tersamar
+(`task_bb786ad8`); bypass validasi pemeriksa-kedua narkotika
+(`task_de0f7edb`); getLunas buta-deposit (`task_882f4616`); qty sewa
+alat salah aritmetik (`task_710dc62c`); loop tanpa henti jadwal
+dokter (`task_78f65d48`); nomor kartu tanpa masking (`task_ecca6037`);
+selisih kas tak difilter kasir (`task_b7cc049f`); pencarian diagnosa
+nol filter (`task_718c20ed`); konversi satuan tumpang tindih
+(`task_e865807e`).
+
+**Pivot domain berikutnya (batch 103+)**: perlu scan ulang. Kandidat
+sisa dari survei awal: `sister` (88), `library` (86), `file` (52).
+
 ## Batch 101 — SELESAI 100% (5 Sep 2026) — lanjutan paket `sirs`; 82 file; 5 task baru
 
 82 file selesai (lanjutan domain `sirs`), semua dikompilasi bersih,
