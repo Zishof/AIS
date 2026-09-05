@@ -90,6 +90,10 @@ import ais.database.model.inventory.Produk;
 @Table(schema = "asset", name = "mutasi_lokasi")
 public class MutasiLokasi extends GeneralValueObject {
 
+	/**
+	 * Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable}; tidak perlu
+	 * diubah kecuali bentuk field berubah secara tidak kompatibel.
+	 */
 	private static final long serialVersionUID = -6631028994455201991L;
 
 	/** Barang masuk ke lokasi (qty positif). */
@@ -101,9 +105,13 @@ public class MutasiLokasi extends GeneralValueObject {
 	/** Koreksi hasil stok opname (qty berisi selisih, boleh +/-). */
 	public static final String PENYESUAIAN = "PENYESUAIAN";
 
+	/** Primary key auto-generated (IDENTITY) tabel {@code asset.mutasi_lokasi}. */
 	private Long id;
+	/** Nama pengguna yang terakhir mengubah baris ini; diisi otomatis, lihat {@link #onUpdate()}. */
 	private String oleh;
+	/** Id pengguna yang terakhir mengubah baris ini; diisi otomatis, lihat {@link #onUpdate()}. */
 	private String olehId;
+	/** Waktu perubahan terakhir baris ini; diperbarui otomatis oleh {@link #onUpdate()}. */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	private Lokasi lokasi;
@@ -112,13 +120,18 @@ public class MutasiLokasi extends GeneralValueObject {
 	private String jenis;
 	private Double qty;
 	private Double hargaSatuan;
+	/** Tanggal pergerakan stok terjadi (bukan tanggal input); default waktu saat objek dibuat. */
 	private Date tanggal = ais.ui.util.WaktuUtil.getDate();
+	/** Keterangan bebas untuk baris pergerakan ini, opsional. */
 	private String keterangan;
+	/** Kode referensi/penghubung ke dokumen sumber (mis. kode transfer bersama), opsional. */
 	private String referensi;
 
+	/** Konstruktor default tanpa argumen, dipakai Hibernate untuk instansiasi via refleksi. */
 	public MutasiLokasi() {
 	}
 
+	/** @return primary key baris ini, atau {@code null} untuk instance baru yang belum disimpan. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -126,14 +139,31 @@ public class MutasiLokasi extends GeneralValueObject {
 		return id;
 	}
 
+	/**
+	 * Mengisi primary key. Kolom database bersifat {@code insertable = false} (IDENTITY,
+	 * auto-generate oleh database), sehingga pengisian manual tidak berpengaruh pada
+	 * {@code INSERT}.
+	 *
+	 * @param id primary key.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return nama pengguna yang terakhir mengubah baris ini (audit), atau {@code null} bila
+	 *         belum pernah diubah sejak dimuat.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Mengisi nama pengguna audit. Nilai {@code null}/kosong diabaikan agar jejak lama tidak
+	 * tertimpa hampa.
+	 *
+	 * @param oleh nama pengguna; diabaikan bila {@code null} atau blank.
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -141,10 +171,20 @@ public class MutasiLokasi extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * @return id pengguna yang terakhir mengubah baris ini (audit), atau {@code null} bila belum
+	 *         pernah diubah sejak dimuat.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi id pengguna audit. Nilai {@code null}/kosong diabaikan, sama seperti
+	 * {@link #setOleh(String)}.
+	 *
+	 * @param olehId id pengguna; diabaikan bila {@code null} atau blank.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -152,17 +192,30 @@ public class MutasiLokasi extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Hook siklus hidup JPA yang dipanggil Hibernate tepat sebelum setiap {@code UPDATE}.
+	 * Mendelegasikan ke {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}
+	 * yang mengisi {@link #tanggal_dirubah}, {@link #oleh}, dan {@link #olehId} dengan waktu serta
+	 * identitas pengguna aktif. Dipicu otomatis oleh Hibernate, tidak dipanggil manual.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** @return waktu perubahan terakhir baris ini; tidak pernah {@code null}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal_dirubah")
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Mengisi waktu perubahan terakhir. Field diinisialisasi ke waktu saat objek dibuat, lalu
+	 * ditimpa ulang oleh {@link #onUpdate()} setiap kali baris di-{@code UPDATE}.
+	 *
+	 * @param tanggal_dirubah waktu perubahan.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
@@ -175,6 +228,11 @@ public class MutasiLokasi extends GeneralValueObject {
 		return lokasi;
 	}
 
+	/**
+	 * Mengisi lokasi tempat pergerakan terjadi.
+	 *
+	 * @param lokasi lokasi terkait (wajib diisi sebelum simpan).
+	 */
 	public void setLokasi(Lokasi lokasi) {
 		this.lokasi = lokasi;
 	}
@@ -187,6 +245,11 @@ public class MutasiLokasi extends GeneralValueObject {
 		return produk;
 	}
 
+	/**
+	 * Mengisi produk/barang yang bergerak.
+	 *
+	 * @param produk produk terkait (wajib diisi sebelum simpan).
+	 */
 	public void setProduk(Produk produk) {
 		this.produk = produk;
 	}
@@ -199,6 +262,11 @@ public class MutasiLokasi extends GeneralValueObject {
 		return lokasiPasangan;
 	}
 
+	/**
+	 * Mengisi lokasi lawan pada transfer.
+	 *
+	 * @param lokasiPasangan lokasi lawan; boleh {@code null} untuk pergerakan non-transfer.
+	 */
 	public void setLokasiPasangan(Lokasi lokasiPasangan) {
 		this.lokasiPasangan = lokasiPasangan;
 	}
@@ -209,6 +277,11 @@ public class MutasiLokasi extends GeneralValueObject {
 		return jenis;
 	}
 
+	/**
+	 * Mengisi label jenis pergerakan.
+	 *
+	 * @param jenis salah satu {@link #MASUK}/{@link #KELUAR}/{@link #TRANSFER}/{@link #PENYESUAIAN}.
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
@@ -219,6 +292,13 @@ public class MutasiLokasi extends GeneralValueObject {
 		return qty == null ? Double.valueOf(0d) : qty;
 	}
 
+	/**
+	 * Mengisi jumlah bertanda pergerakan. Pemanggil bertanggung jawab menetapkan tanda yang
+	 * benar sesuai konvensi kelas ini (lihat javadoc kelas); helper {@code StokLokasiUtil}
+	 * melakukan ini secara otomatis.
+	 *
+	 * @param qty jumlah bertanda (positif=masuk, negatif=keluar).
+	 */
 	public void setQty(Double qty) {
 		this.qty = qty;
 	}
@@ -229,25 +309,42 @@ public class MutasiLokasi extends GeneralValueObject {
 		return hargaSatuan == null ? Double.valueOf(0d) : hargaSatuan;
 	}
 
+	/**
+	 * Mengisi harga satuan saat pergerakan.
+	 *
+	 * @param hargaSatuan harga satuan, boleh {@code null}.
+	 */
 	public void setHargaSatuan(Double hargaSatuan) {
 		this.hargaSatuan = hargaSatuan;
 	}
 
+	/** @return tanggal pergerakan stok terjadi (bukan tanggal input/simpan baris ini). */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal")
 	public Date getTanggal() {
 		return tanggal;
 	}
 
+	/**
+	 * Mengisi tanggal pergerakan.
+	 *
+	 * @param tanggal tanggal pergerakan.
+	 */
 	public void setTanggal(Date tanggal) {
 		this.tanggal = tanggal;
 	}
 
+	/** @return keterangan bebas untuk baris pergerakan ini, boleh {@code null}. */
 	@Column(name = "keterangan", columnDefinition = "text")
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan bebas.
+	 *
+	 * @param keterangan teks keterangan, boleh {@code null}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
@@ -258,6 +355,11 @@ public class MutasiLokasi extends GeneralValueObject {
 		return referensi;
 	}
 
+	/**
+	 * Mengisi kode referensi/penghubung.
+	 *
+	 * @param referensi kode referensi, boleh {@code null}.
+	 */
 	public void setReferensi(String referensi) {
 		this.referensi = referensi;
 	}

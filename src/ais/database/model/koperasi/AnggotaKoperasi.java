@@ -603,6 +603,23 @@ public class AnggotaKoperasi extends VOSiswa {
 	private Integer pinIterations;
 
 	/**
+	 * Hitungan percobaan verifikasi PIN yang gagal berturut-turut sejak percobaan terakhir yang
+	 * berhasil (atau sejak PIN terakhir disetel ulang). Dipetakan sebagai kolom persisten -- bukan
+	 * penghitung in-memory -- justru agar bertahan lintas permintaan HTTP dan lintas instance
+	 * aplikasi; lihat {@link #verifikasiPin(String)} untuk bagaimana kolom ini menutup celah
+	 * pembatasan laju yang sebelumnya tidak ada.
+	 */
+	private Integer pinGagalBerturutTurut;
+
+	/**
+	 * Batas waktu sampai kapan verifikasi PIN anggota ini ditunda atau dikunci akibat rentetan
+	 * percobaan gagal. {@code null} berarti tidak sedang tertunda/terkunci. Diperiksa oleh
+	 * {@link #verifikasiPin(String)} SEBELUM PIN dibandingkan, sehingga percobaan yang masuk selagi
+	 * tertunda tidak ikut membocorkan hasil pembandingan maupun menambah hitungan kegagalan.
+	 */
+	private Date pinTerkunciSampai;
+
+	/**
 	 * Mengembalikan PIN teks terbuka warisan, sudah dipangkas spasi, atau {@code null} bila kosong.
 	 *
 	 * <p>Hanya relevan bagi anggota yang belum bermigrasi ke penyimpanan ber-hash. Jangan memakai
@@ -675,16 +692,125 @@ public class AnggotaKoperasi extends VOSiswa {
 	public void setPinIterations(Integer pinIterations) { this.pinIterations = pinIterations; }
 
 	/**
+	 * Mengembalikan hitungan percobaan verifikasi PIN gagal berturut-turut anggota ini.
+	 *
+	 * @return hitungan kegagalan berturut-turut, {@code 0} bila belum pernah gagal atau baru direset
+	 */
+	@NotAudited
+	@Column(name = "pin_gagal_berturut_turut")
+	public Integer getPinGagalBerturutTurut() {
+		return pinGagalBerturutTurut == null ? Integer.valueOf(0) : pinGagalBerturutTurut;
+	}
+	/**
+	 * Mengisi hitungan percobaan PIN gagal berturut-turut. Disediakan untuk pemetaan Hibernate; alur
+	 * aplikasi semestinya membiarkan {@link #verifikasiPin(String)}/{@link #aturPinAman(String)} yang
+	 * mengelola nilai ini.
+	 *
+	 * @param pinGagalBerturutTurut hitungan kegagalan berturut-turut baru
+	 */
+	public void setPinGagalBerturutTurut(Integer pinGagalBerturutTurut) { this.pinGagalBerturutTurut = pinGagalBerturutTurut; }
+
+	/**
+	 * Mengembalikan batas waktu penundaan/penguncian verifikasi PIN anggota ini.
+	 *
+	 * @return batas waktu terkunci, atau {@code null} bila tidak sedang tertunda/terkunci
+	 */
+	@NotAudited
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name = "pin_terkunci_sampai")
+	public Date getPinTerkunciSampai() { return pinTerkunciSampai; }
+	/**
+	 * Mengisi batas waktu penundaan/penguncian PIN. Disediakan untuk pemetaan Hibernate; alur
+	 * aplikasi semestinya membiarkan {@link #verifikasiPin(String)}/{@link #aturPinAman(String)} yang
+	 * mengelola nilai ini.
+	 *
+	 * @param pinTerkunciSampai batas waktu terkunci baru, atau {@code null} untuk membuka kunci
+	 */
+	public void setPinTerkunciSampai(Date pinTerkunciSampai) { this.pinTerkunciSampai = pinTerkunciSampai; }
+
+	/** Ambang hitungan gagal berturut-turut mulai diterapkannya jeda bertingkat. */
+	private static final int PIN_AMBANG_TUNDA = 5;
+
+	/** Ambang hitungan gagal berturut-turut mulai diterapkannya penguncian penuh. */
+	private static final int PIN_AMBANG_KUNCI = 10;
+
+	/** Jeda dasar (percobaan gagal ke-{@link #PIN_AMBANG_TUNDA}) sebelum digandakan bertingkat. */
+	private static final long PIN_DURASI_TUNDA_DASAR_MS = 10_000L;
+
+	/** Batas atas jeda bertingkat, agar penggandaan tidak melampaui durasi kunci penuh. */
+	private static final long PIN_DURASI_TUNDA_MAKS_MS = 5 * 60_000L;
+
+	/** Durasi penguncian penuh begitu hitungan gagal mencapai {@link #PIN_AMBANG_KUNCI}. */
+	private static final long PIN_DURASI_KUNCI_MS = 15 * 60_000L;
+
+	/**
+	 * Memeriksa apakah verifikasi PIN anggota ini sedang tertunda/terkunci akibat rentetan percobaan
+	 * gagal sebelumnya, TANPA menyentuh hitungan kegagalan maupun membandingkan PIN apa pun.
+	 *
+	 * <p>Pemanggil sebaiknya memanggil method ini lebih dahulu agar dapat menampilkan pesan "coba
+	 * lagi dalam N detik/menit" yang jelas, alih-alih pesan "PIN salah" yang menyesatkan selama masa
+	 * tunda. Melewatkan pemeriksaan ini tetap aman: {@link #verifikasiPin(String)} memeriksa ulang
+	 * kondisi yang sama sebelum membandingkan PIN.</p>
+	 *
+	 * @return pesan yang menjelaskan sisa waktu tunggu bila sedang tertunda/terkunci, atau
+	 *         {@code null} bila boleh langsung mencoba
+	 * @see #verifikasiPin(String)
+	 */
+	@Transient
+	public String cekPinTerkunci() {
+		if (pinTerkunciSampai == null) return null;
+		long sisaMs = pinTerkunciSampai.getTime() - System.currentTimeMillis();
+		if (sisaMs <= 0) return null;
+		long sisaDetik = (sisaMs + 999) / 1000;
+		if (sisaDetik >= 60) {
+			return "Terlalu banyak percobaan PIN salah. Coba lagi dalam " + ((sisaDetik + 59) / 60) + " menit.";
+		}
+		return "Terlalu banyak percobaan PIN salah. Coba lagi dalam " + sisaDetik + " detik.";
+	}
+
+	/**
+	 * Menaikkan hitungan percobaan PIN gagal berturut-turut anggota ini dan menerapkan jeda
+	 * bertingkat (mulai {@link #PIN_AMBANG_TUNDA} kali gagal) atau penguncian penuh selama
+	 * {@link #PIN_DURASI_KUNCI_MS} (mulai {@link #PIN_AMBANG_KUNCI} kali gagal). Hanya dipanggil
+	 * secara internal oleh {@link #verifikasiPin(String)}.
+	 */
+	private void catatPinGagal() {
+		int gagal = (pinGagalBerturutTurut == null ? 0 : pinGagalBerturutTurut.intValue()) + 1;
+		pinGagalBerturutTurut = Integer.valueOf(gagal);
+		if (gagal >= PIN_AMBANG_KUNCI) {
+			pinTerkunciSampai = new Date(System.currentTimeMillis() + PIN_DURASI_KUNCI_MS);
+		} else if (gagal >= PIN_AMBANG_TUNDA) {
+			int langkah = gagal - PIN_AMBANG_TUNDA; // 0,1,2,3,4 -> 10,20,40,80,160 detik
+			long tundaMs = PIN_DURASI_TUNDA_DASAR_MS << langkah;
+			if (tundaMs <= 0 || tundaMs > PIN_DURASI_TUNDA_MAKS_MS) tundaMs = PIN_DURASI_TUNDA_MAKS_MS;
+			pinTerkunciSampai = new Date(System.currentTimeMillis() + tundaMs);
+		}
+	}
+
+	/**
+	 * Mereset hitungan kegagalan dan penguncian PIN anggota ini. Dipanggil oleh
+	 * {@link #verifikasiPin(String)} saat PIN cocok, dan oleh {@link #aturPinAman(String)} saat PIN
+	 * disetel ulang -- keduanya alasan sah bagi rentetan kegagalan lama untuk tidak lagi relevan.
+	 */
+	private void catatPinBerhasil() {
+		pinGagalBerturutTurut = Integer.valueOf(0);
+		pinTerkunciSampai = null;
+	}
+
+	/**
 	 * Menetapkan PIN transaksi baru bagi anggota ini, menyimpannya sebagai digest PBKDF2 bergaram, dan
 	 * menghapus jejak PIN teks terbuka warisan.
 	 *
 	 * <h4>Apa yang dikerjakan</h4>
 	 * <ol>
-	 * <li><b>Validasi bentuk.</b> Nilai wajib cocok dengan pola {@code [0-9]{4,8}} -- empat sampai
+	 * <li><b>Validasi bentuk.</b> Nilai wajib cocok dengan pola {@code [0-9]{6,8}} -- enam sampai
 	 * delapan angka, tanpa huruf, tanda baca, maupun spasi. Nilai {@code null} atau yang tidak cocok
 	 * ditolak dengan {@link IllegalArgumentException}. Validasi dilakukan di sini, pada entity, agar
 	 * tidak ada jalur pemanggil mana pun (layar admin, API biometrik, maupun impor massal) yang bisa
-	 * menyelundupkan PIN berbentuk aneh dengan melewatkan pemeriksaan sisi antarmuka.</li>
+	 * menyelundupkan PIN berbentuk aneh dengan melewatkan pemeriksaan sisi antarmuka. Ambang naik dari
+	 * empat menjadi enam digit -- PIN empat/lima digit yang SUDAH tersimpan (di-hash sebelum
+	 * perubahan ini) tetap diterima apa adanya oleh {@link #verifikasiPin(String)}, yang tidak
+	 * memeriksa panjang; batas ini hanya berlaku bagi PIN BARU yang ditetapkan lewat method ini.</li>
 	 * <li><b>Pembangkitan digest.</b> {@code PasswordHashService.hash} menghasilkan pasangan
 	 * digest dan garam acak baru. Garam dibuat ulang setiap kali PIN diatur, sehingga menetapkan PIN
 	 * yang sama dua kali tetap menghasilkan digest yang berbeda.</li>
@@ -695,6 +821,9 @@ public class AnggotaKoperasi extends VOSiswa {
 	 * <li><b>Penghapusan warisan.</b> {@link #pin} di-{@code null}-kan. Inilah langkah yang membuat
 	 * populasi baris berPIN teks terbuka menyusut secara alami seiring anggota menyetel ulang
 	 * PIN-nya.</li>
+	 * <li><b>Pembukaan kunci.</b> Hitungan kegagalan berturut-turut dan penguncian/penundaan PIN
+	 * (lihat {@link #verifikasiPin(String)}) direset lewat {@link #catatPinBerhasil()}, sehingga admin
+	 * yang menyetel ulang PIN anggota yang sedang terkunci langsung membuka kuncinya juga.</li>
 	 * </ol>
 	 *
 	 * <h4>Sifat operasi</h4>
@@ -713,24 +842,26 @@ public class AnggotaKoperasi extends VOSiswa {
 	 * anggota yang belum pernah disetel tidak dapat bertransaksi pada alur yang mewajibkan PIN.</p>
 	 *
 	 * <h4>Batasan yang perlu disadari</h4>
-	 * <p>Pola yang diizinkan hanya angka dengan panjang minimum empat, sehingga ruang tebak terkecil
-	 * adalah sepuluh ribu kemungkinan. Kekuatan sesungguhnya karena itu tidak ditentukan oleh method
-	 * ini, melainkan oleh ada tidaknya pembatasan laju percobaan pada sisi verifikasi. Lihat catatan
-	 * pada {@link #verifikasiPin(String)}.</p>
+	 * <p>Pola yang diizinkan kini angka dengan panjang minimum enam, sehingga ruang tebak terkecil
+	 * bagi PIN baru adalah satu juta kemungkinan (naik dari sepuluh ribu saat batas masih empat
+	 * digit). Kekuatan sesungguhnya tetap juga ditentukan oleh pembatasan laju percobaan pada sisi
+	 * verifikasi -- lihat {@link #verifikasiPin(String)}, yang sejak perbaikan ini menegakkan jeda
+	 * bertingkat dan penguncian sementara, bukan lagi sekadar pembanding tanpa pengaman.</p>
 	 *
-	 * @param nilai PIN baru, empat sampai delapan angka
-	 * @throws IllegalArgumentException bila {@code nilai} {@code null} atau tidak berbentuk empat
+	 * @param nilai PIN baru, enam sampai delapan angka
+	 * @throws IllegalArgumentException bila {@code nilai} {@code null} atau tidak berbentuk enam
 	 *                                  sampai delapan angka
 	 * @see #verifikasiPin(String)
 	 * @see #getPinSudahDiatur()
 	 */
 	@Transient
 	public void aturPinAman(String nilai) {
-		if (nilai == null || !nilai.matches("[0-9]{4,8}"))
-			throw new IllegalArgumentException("PIN wajib terdiri dari 4 sampai 8 angka");
+		if (nilai == null || !nilai.matches("[0-9]{6,8}"))
+			throw new IllegalArgumentException("PIN wajib terdiri dari 6 sampai 8 angka");
 		String[] hashSalt = PasswordHashService.hash(nilai);
 		pinHash = hashSalt[0]; pinSalt = hashSalt[1];
 		pinIterations = Integer.valueOf(PasswordHashService.ITERASI); pin = null;
+		catatPinBerhasil();
 	}
 
 	/**
@@ -758,26 +889,54 @@ public class AnggotaKoperasi extends VOSiswa {
 	 * {@link #getPinSudahDiatur()} yang juga hanya mengembalikan boolean. Dengan demikian
 	 * pembandingan tidak dapat dipindahkan ke sisi klien.</p>
 	 *
-	 * <h4>Peringatan: tidak ada pembatasan laju di sekitar method ini</h4>
-	 * <p>Method ini murni sebuah pembanding -- ia <b>tidak</b> menghitung percobaan gagal, tidak
-	 * menunda jawaban, dan tidak mengunci akun. Pembatasan laju, penundaan bertingkat, atau
-	 * penguncian sementara harus disediakan oleh pemanggil. Perlu diketahui bahwa jalur pemanggil
-	 * yang ada saat ini (endpoint verifikasi PIN pada POS) juga belum menyediakannya; percobaan
-	 * gagal hanya dicatat sebagai jejak audit, dan pencatatan tersebut secara sengaja tidak mengunci
-	 * kode transaksi. Digabung dengan panjang PIN minimum empat angka, artinya ruang tebak sepuluh
-	 * ribu kemungkinan dapat disapu habis oleh pemanggil endpoint yang gigih. Siapa pun yang
-	 * menambahkan pemanggil baru wajib memasang pembatasan laju sendiri, dan sebaiknya mengangkat
-	 * kekurangan ini pada jalur yang sudah ada.</p>
+	 * <h4>Pembatasan laju ditegakkan DI SINI, bukan diserahkan ke pemanggil</h4>
+	 * <p>Method ini dulunya murni sebuah pembanding tanpa hitungan percobaan gagal, penundaan, maupun
+	 * penguncian -- kedua jalur pemanggil yang ada (endpoint verifikasi PIN POS dan JSP-nya) sama-sama
+	 * tidak menyediakannya, sehingga ruang tebak sepuluh ribu kemungkinan (PIN empat digit) dapat
+	 * disapu habis dalam hitungan detik. Sejak perbaikan ini, method dibagi tiga langkah, dan
+	 * pencatatannya sengaja ditaruh DI DALAM entity -- bukan dibiarkan jadi tanggung jawab
+	 * pemanggil -- justru supaya kedua jalur pemanggil (dan pemanggil baru mana pun di masa depan)
+	 * otomatis ikut terlindungi tanpa perlu mengingat memasangnya sendiri:</p>
+	 * <ol>
+	 * <li><b>Gerbang penguncian.</b> Bila {@link #cekPinTerkunci()} menyatakan anggota sedang
+	 * tertunda/terkunci, method mengembalikan {@code false} SEKETIKA -- PIN yang dimasukkan tidak
+	 * pernah dibandingkan sama sekali, dan hitungan kegagalan tidak bertambah lagi (menambah hitungan
+	 * selagi terkunci hanya akan memperpanjang kunci tanpa alasan).</li>
+	 * <li><b>Pembandingan.</b> Bila tidak sedang terkunci, jalur PBKDF2+salt atau warisan teks
+	 * terbuka dibandingkan seperti sebelumnya.</li>
+	 * <li><b>Pencatatan hasil.</b> Cocok memanggil {@link #catatPinBerhasil()} (membuka kunci dan
+	 * mereset hitungan); tidak cocok memanggil {@link #catatPinGagal()} (menaikkan hitungan, lalu
+	 * menerapkan jeda bertingkat mulai gagal ke-{@value #PIN_AMBANG_TUNDA} dan penguncian penuh mulai
+	 * gagal ke-{@value #PIN_AMBANG_KUNCI}).</li>
+	 * </ol>
+	 * <p><b>Kewajiban pemanggil:</b> karena langkah di atas MENGUBAH state entity ini (hitungan
+	 * kegagalan dan batas waktu kunci), pemanggil wajib menjalankan pemanggilan ini di dalam transaksi
+	 * Hibernate yang di-commit (langsung atau lewat flush persistence context), sama seperti kewajiban
+	 * pemanggil {@link #aturPinAman(String)}. Sebelum memanggil method ini, pemanggil sebaiknya lebih
+	 * dulu memeriksa {@link #cekPinTerkunci()} sendiri agar dapat menampilkan pesan tunggu yang jelas
+	 * alih-alih pesan "PIN salah" yang menyesatkan selama masa tunda -- lihat javadoc-nya.</p>
+	 * <p>Ini sepenuhnya terpisah dari mekanisme idempotency kode transaksi POS pada
+	 * {@code BiometricApi.recordPosPinVerification}: penguncian di sini mengunci PERCOBAAN PIN
+	 * ANGGOTA, bukan kode transaksi, sehingga percobaan ulang dengan kode transaksi yang sama tetap
+	 * tidak menghanguskan kode tersebut -- ia hanya akan ditolak lebih awal oleh gerbang penguncian
+	 * di atas selama anggota yang bersangkutan masih dalam masa tunda/kunci.</p>
 	 *
 	 * @param nilai PIN yang dimasukkan pembeli
-	 * @return {@code true} bila cocok; {@code false} bila tidak cocok atau anggota belum berPIN
+	 * @return {@code true} bila cocok; {@code false} bila tidak cocok, anggota belum berPIN, atau
+	 *         sedang tertunda/terkunci
 	 * @see #aturPinAman(String)
+	 * @see #cekPinTerkunci()
 	 */
 	@Transient
 	public boolean verifikasiPin(String nilai) {
+		if (cekPinTerkunci() != null) return false;
+		boolean cocok;
 		if (pinHash != null && pinSalt != null)
-			return PasswordHashService.verify(nilai, pinHash, pinSalt, pinIterations);
-		return nilai != null && getPin() != null && getPin().equals(nilai);
+			cocok = PasswordHashService.verify(nilai, pinHash, pinSalt, pinIterations);
+		else
+			cocok = nilai != null && getPin() != null && getPin().equals(nilai);
+		if (cocok) catatPinBerhasil(); else catatPinGagal();
+		return cocok;
 	}
 
 	/**

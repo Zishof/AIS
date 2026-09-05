@@ -1144,14 +1144,55 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 	 * Penyaring dokumen yang layak diposting, disamakan dengan {@link #initCriteria}:
 	 * sudah disetujui, nilainya tidak nol, dan berada dalam rentang tanggal persetujuan.
 	 */
+	private static Set<SatuanKerja> cakupanSatuanKerja(Session session, Tbmuser pengguna) {
+		Set<SatuanKerja> hasil = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
+		if (!hasil.isEmpty() || pengguna == null) {
+			return hasil;
+		}
+
+		// Pada bearer-token POS/eBisnis, pengguna tervalidasi diteruskan sebagai
+		// parameter tetapi tidak menjadi user sesi web/ZK. Bangun cakupan dari hak
+		// akses eksplisitnya agar filter tidak salah menghasilkan nol kandidat.
+		String kodeSatuanKerja = pengguna.hakAkses() == null ? ""
+				: pengguna.hakAkses().getSatuanKerjas();
+		if (kodeSatuanKerja != null && !kodeSatuanKerja.trim().isEmpty()) {
+			org.hibernate.criterion.Criterion criterion = Restrictions.sqlRestriction("false");
+			for (String kode : kodeSatuanKerja.split(",")) {
+				if (kode != null && !kode.trim().isEmpty()) {
+					criterion = Restrictions.or(criterion,
+							Restrictions.ilike("kode", kode.trim(), MatchMode.EXACT));
+				}
+			}
+			@SuppressWarnings("unchecked")
+			List<SatuanKerja> dariHakAkses = session.createCriteria(SatuanKerja.class)
+					.add(criterion).add(Restrictions.eq("defaultItem", true)).list();
+			hasil.addAll(dariHakAkses);
+		}
+
+		// Fallback terakhir tetap fail-closed: hanya satu unit yang benar-benar
+		// melekat pada user, tidak pernah seluruh satuan kerja instalasi.
+		if (hasil.isEmpty()) {
+			SatuanKerja langsung = pengguna.ambilSatuanKerja();
+			if (langsung != null && langsung.getId() != null) {
+				hasil.add(langsung);
+			}
+		}
+		return hasil;
+	}
+
 	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai, java.util.Date sampai) {
+		return kriteriaPostingStatic(session, mulai, sampai, null);
+	}
+
+	private static Criteria kriteriaPostingStatic(Session session, java.util.Date mulai,
+			java.util.Date sampai, Tbmuser pengguna) {
 		// Cakupan penyewa (satuan kerja): tanpa ini, jalur API men-scan/memposting
 		// dokumen dana talangan SELURUH instalasi (lintas Yayasan), bukan hanya milik
 		// penyewa yang sedang memanggil -- lihat catatan sama pada
 		// PostingTransaksiPembayaranGajiAction.kriteriaPostingStatic(). Himpunan kosong
 		// (Yayasan tidak teridentifikasi) fail-CLOSED, bukan fail-open seperti
 		// initCriteria(boolean) pada layar ZK.
-		Set<SatuanKerja> satuanKerjasPengguna = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
+		Set<SatuanKerja> satuanKerjasPengguna = cakupanSatuanKerja(session, pengguna);
 		Criteria c = session.createCriteria(DanaTalangan.class)
 				.add(Restrictions.isNotNull("disetujuiOleh"))
 				.add(Restrictions.ne("nilai", 0.0)).add(Restrictions.isNotNull("nilai"))
@@ -1227,7 +1268,7 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 		PostingHistory postingHistory = null;
 		Exception kegagalanPertama = null;
 		try {
-			List<DanaTalangan> kandidat = kriteriaPostingStatic(session, mulai, sampai)
+			List<DanaTalangan> kandidat = kriteriaPostingStatic(session, mulai, sampai, oleh)
 					.add(Restrictions.isNull("postingHistory")).list();
 			List<DanaTalangan> daftar = new java.util.ArrayList<DanaTalangan>();
 			for (DanaTalangan dok : kandidat) {

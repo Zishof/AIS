@@ -3020,6 +3020,12 @@ public class PosApi extends HttpServlet {
 	 * {@code verifikasi_pin_service.jsp} (memakai {@link AnggotaKoperasi#verifikasiPin(String)}
 	 * untuk PBKDF2+salt dan fallback migrasi data lama) -- PIN TIDAK PERNAH disimpan/dicatat
 	 * di sini, hanya dibandingkan sekali lalu dibuang bersama akhir method.
+	 *
+	 * <p>Sejak perbaikan pembatasan laju, {@link AnggotaKoperasi#verifikasiPin(String)} juga
+	 * mengubah hitungan kegagalan/penguncian PIN milik member ({@link AnggotaKoperasi#cekPinTerkunci()}),
+	 * sehingga method ini kini WAJIB mengecek gerbang tersebut lebih dulu (agar pesan yang tampil ke
+	 * kasir jelas "coba lagi nanti", bukan "PIN salah" yang menyesatkan) dan menjalankan pemanggilan
+	 * di dalam transaksi yang di-commit -- selain itu perubahan tidak pernah tersimpan.</p>
 	 */
 	private void prosesVerifikasiPin(Tbmuser kasir, JSONObject payload, JSONObject hasil) throws Exception {
 		if (payload.isNull("memberId") || payload.isNull("pin")) {
@@ -3031,6 +3037,7 @@ public class PosApi extends HttpServlet {
 		String pinInput = payload.optString("pin", "").trim();
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		org.hibernate.Transaction tx = null;
 		try {
 			AnggotaKoperasi a;
 			try {
@@ -3047,7 +3054,19 @@ public class PosApi extends HttpServlet {
 				return;
 			}
 
+			String pesanTerkunci = a.cekPinTerkunci();
+			if (pesanTerkunci != null) {
+				hasil.put("status", "error");
+				hasil.put("ok", false);
+				hasil.put("message", pesanTerkunci);
+				return;
+			}
+
+			tx = session.beginTransaction();
 			boolean ok = a.verifikasiPin(pinInput);
+			session.saveOrUpdate(a);
+			tx.commit();
+
 			Tbmuser pemilik = penggunaBiometrikMember(session, a);
 			String subjek = pemilik == null || pemilik.getUserId() == null
 					? "MEMBER:" + a.getId() : pemilik.getUserId();
@@ -3056,6 +3075,9 @@ public class PosApi extends HttpServlet {
 			hasil.put("status", "success");
 			hasil.put("ok", ok);
 			hasil.put("pinVerificationEventId", eventId == null ? JSONObject.NULL : eventId);
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) tx.rollback();
+			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

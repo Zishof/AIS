@@ -228,8 +228,8 @@ public final class BiometricApi {
 		String target = clean(request.optString("target_user_id"), 255);
 		String pin = clean(request.optString("pin"), 12);
 		if (target == null) return ApiHelperSupport.status("92", "Pengguna wajib dipilih");
-		if (pin == null || !pin.matches("[0-9]{4,8}"))
-			return ApiHelperSupport.status("92", "PIN wajib terdiri dari 4 sampai 8 angka");
+		if (pin == null || !pin.matches("[0-9]{6,8}"))
+			return ApiHelperSupport.status("92", "PIN wajib terdiri dari 6 sampai 8 angka");
 
 		Session session = HibernateUtil.openSession(); Transaction tx = null;
 		try {
