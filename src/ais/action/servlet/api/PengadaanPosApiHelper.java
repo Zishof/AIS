@@ -2,6 +2,7 @@ package ais.action.servlet.api;
 
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,7 @@ import ais.database.model.asset.SaldoAwalMasterAsset;
 import ais.database.model.asset.SaldoAwalMasterAssetDetail;
 import ais.database.model.akunting.DaftarPengajuanTransfer;
 import ais.database.model.inventory.Produk;
+import ais.database.model.inventory.SatuanProduk;
 import ais.database.model.asset.PermintaanPengadaanMasterAsset;
 import ais.database.model.asset.PermintaanPengadaanMasterAssetDetail;
 import ais.database.model.inventory.Toko;
@@ -298,6 +300,62 @@ public final class PengadaanPosApiHelper {
 		return (Produk) session.createCriteria(Produk.class)
 				.add(Restrictions.eq("masterAsset.id", aset.getId()))
 				.setMaxResults(1).uniqueResult();
+	}
+
+	/** Semua UOM aktif dimuat sekali per respons untuk menghindari query per produk. */
+	@SuppressWarnings("unchecked")
+	private static List<SatuanProduk> daftarUomAktif(Session session) {
+		return session.createCriteria(SatuanProduk.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.addOrder(Order.asc("nama")).list();
+	}
+
+	/** Pilihan UOM yang sah untuk satu produk: aktif dan satu kategori dengan satuan dasarnya. */
+	private static JSONArray pilihanUomProduk(Produk produk, List<SatuanProduk> semua) throws Exception {
+		JSONArray hasil = new JSONArray();
+		if (produk == null) return hasil;
+		SatuanProduk dasar = produk.getSatuan();
+		SatuanProduk bawaan = produk.getSatuanPembelian() == null ? dasar : produk.getSatuanPembelian();
+		String kategori = dasar == null ? (bawaan == null ? null : bawaan.getKategori()) : dasar.getKategori();
+		Map<Long, SatuanProduk> urut = new LinkedHashMap<Long, SatuanProduk>();
+		if (bawaan != null && bawaan.getId() != null) urut.put(bawaan.getId(), bawaan);
+		if (semua != null) for (SatuanProduk uom : semua) {
+			if (uom == null || uom.getId() == null || Boolean.FALSE.equals(uom.getAktif())) continue;
+			if (kategori != null && kategori.equalsIgnoreCase(uom.getKategori())) urut.put(uom.getId(), uom);
+		}
+		for (SatuanProduk uom : urut.values()) {
+			double faktor;
+			try { faktor = KantinHelper.faktorUomInputKeDasar(produk, uom); }
+			catch (IllegalArgumentException tidakSekategori) { continue; }
+			JSONObject j = new JSONObject();
+			j.put("id", uom.getId());
+			j.put("nama", uom.getNama() == null ? "" : uom.getNama());
+			j.put("faktorKeDasar", faktor);
+			j.put("utama", bawaan != null && bawaan.getId() != null && bawaan.getId().equals(uom.getId()));
+			hasil.put(j);
+		}
+		return hasil;
+	}
+
+	/** Menyalin snapshot UOM PR ke JSON agar pilihan yang sama mengalir ke PO. */
+	private static void tambahSnapshotUom(JSONObject json, PermintaanPengadaanMasterAssetDetail detail)
+			throws Exception {
+		if (json == null || detail == null) return;
+		json.put("satuanInputId", detail.getSatuanInputId() == null
+				? JSONObject.NULL : detail.getSatuanInputId());
+		json.put("satuanInputNama", detail.getSatuanInputNama() == null
+				? "" : detail.getSatuanInputNama());
+		json.put("faktorKeDasar", detail.getFaktorKeDasar());
+	}
+
+	/**
+	 * Konversi nilai penerimaan dari UOM PR ke satuan stok dasar. Total nilai harus
+	 * tetap sama: qty dikali faktor, harga per unit dibagi faktor.
+	 */
+	static double[] nilaiKulakanDariUom(double qtyInput, double hargaPerInput, double faktor) {
+		if (Double.isNaN(faktor) || Double.isInfinite(faktor) || faktor <= 0.0)
+			throw new IllegalArgumentException("Faktor UOM pengadaan harus lebih dari nol.");
+		return new double[] { qtyInput * faktor, hargaPerInput / faktor };
 	}
 
 	/**
@@ -602,6 +660,7 @@ public final class PengadaanPosApiHelper {
 					.createCriteria(PermintaanPengadaanMasterAssetDetail.class)
 					.add(Restrictions.eq("permintaanPengadaanMasterAsset.id", pr.getId()))
 					.addOrder(Order.asc("id")).list();
+			List<SatuanProduk> semuaUom = daftarUomAktif(session);
 			JSONArray arr = new JSONArray();
 			for (PermintaanPengadaanMasterAssetDetail d : baris) {
 				JSONObject o = new JSONObject();
@@ -619,6 +678,8 @@ public final class PengadaanPosApiHelper {
 				o.put("hargaTotal", d.getHargaTotal() == null ? 0 : d.getHargaTotal());
 				o.put("jumlahDatang", d.getJumlahDatang());
 				o.put("keterangan", d.getKeterangan() == null ? "" : d.getKeterangan());
+				tambahSnapshotUom(o, d);
+				o.put("uomOptions", pilihanUomProduk(produkBaris, semuaUom));
 				arr.put(o);
 			}
 			hasil.put("status", "00");
@@ -813,6 +874,26 @@ public final class PengadaanPosApiHelper {
 				if (barang == null) {
 					continue;
 				}
+				Produk produkBaris = produkDariMasterAsset(session, barang);
+				SatuanProduk satuanInput = null;
+				Long satuanInputId = Common.angkaAtauNull(b, "satuan_input_id");
+				if (produkBaris != null) {
+					if (satuanInputId != null) {
+						satuanInput = (SatuanProduk) session.get(SatuanProduk.class, satuanInputId);
+						if (satuanInput == null || Boolean.FALSE.equals(satuanInput.getAktif())) {
+							throw new IllegalStateException("UOM pembelian pada baris " + (i + 1)
+									+ " tidak ditemukan atau sudah nonaktif.");
+						}
+					} else {
+						satuanInput = produkBaris.getSatuanPembelian() == null
+								? produkBaris.getSatuan() : produkBaris.getSatuanPembelian();
+					}
+				} else if (satuanInputId != null) {
+					throw new IllegalStateException("Barang pada baris " + (i + 1)
+							+ " belum berpadanan Produk POS sehingga UOM tidak dapat divalidasi.");
+				}
+				double faktorKeDasar = satuanInput == null ? 1.0
+						: KantinHelper.faktorUomInputKeDasar(produkBaris, satuanInput);
 				double jumlah = angkaAman(b, "jumlah");
 				double harga = angkaAman(b, "hargaBeli");
 				double sub = jumlah * harga;
@@ -823,6 +904,10 @@ public final class PengadaanPosApiHelper {
 				d.setHargaBeli(Double.valueOf(harga));
 				d.setHargaTotal(Double.valueOf(sub));
 				d.setKeterangan(b.optString("keterangan", "").trim());
+				d.setSatuanInputId(satuanInput == null ? null : satuanInput.getId());
+				d.setSatuanInputNama(satuanInput == null || satuanInput.getNama() == null
+						? "" : String.valueOf(satuanInput.getNama()));
+				d.setFaktorKeDasar(Double.valueOf(faktorKeDasar));
 				if (tbmuser != null) {
 					d.setOleh(tbmuser.getUserNama());
 					d.setOlehId(tbmuser.getUserId());
@@ -1054,6 +1139,7 @@ public final class PengadaanPosApiHelper {
 			kriteria.setMaxResults(limit);
 			@SuppressWarnings("unchecked")
 			List<Produk> daftar = kriteria.list();
+			List<SatuanProduk> semuaUom = daftarUomAktif(session);
 			JSONArray arr = new JSONArray();
 			for (Produk pr : daftar) {
 				JSONObject o = new JSONObject();
@@ -1064,11 +1150,15 @@ public final class PengadaanPosApiHelper {
 				o.put("hargaBeli", pr.getHargaBeli() == null ? 0 : pr.getHargaBeli());
 				o.put("master_asset_id", pr.getMasterAsset() == null ? JSONObject.NULL
 						: pr.getMasterAsset().getId());
-				// PDF stok & uom (butir 3): PR/PO diinput per satuan PEMBELIAN -- layar
-				// menampilkan labelnya di kolom Jumlah/Harga supaya semantiknya terlihat.
-				o.put("satuanPembelianNama", pr.getSatuanPembelian() != null
-						? String.valueOf(pr.getSatuanPembelian().getNama())
-						: (pr.getSatuan() == null ? "" : String.valueOf(pr.getSatuan().getNama())));
+				SatuanProduk satuanBawaan = pr.getSatuanPembelian() == null
+						? pr.getSatuan() : pr.getSatuanPembelian();
+				o.put("satuanPembelianId", satuanBawaan == null || satuanBawaan.getId() == null
+						? JSONObject.NULL : satuanBawaan.getId());
+				o.put("satuanPembelianNama", satuanBawaan == null || satuanBawaan.getNama() == null
+						? "" : String.valueOf(satuanBawaan.getNama()));
+				// Pilihan per baris PR hanya UOM aktif yang satu kategori dengan satuan stok.
+				// Faktor bersifat pratinjau; server menghitung ulang saat PR disimpan.
+				o.put("uomOptions", pilihanUomProduk(pr, semuaUom));
 				arr.put(o);
 			}
 			hasil.put("status", "00");
@@ -1461,8 +1551,19 @@ public final class PengadaanPosApiHelper {
 				o.put("hargaBeli", d.getHargaBeli() == null ? 0 : d.getHargaBeli());
 				o.put("hargaTotal", d.getHargaTotal() == null ? 0 : d.getHargaTotal());
 				o.put("keterangan", d.getKeterangan() == null ? "" : d.getKeterangan());
-				o.put("pr_detail_id", d.getPermintaanPengadaanMasterAssetDetail() == null ? JSONObject.NULL
-						: d.getPermintaanPengadaanMasterAssetDetail().getId());
+				PermintaanPengadaanMasterAssetDetail asalPr = d.getPermintaanPengadaanMasterAssetDetail();
+				o.put("pr_detail_id", asalPr == null ? JSONObject.NULL : asalPr.getId());
+				if (asalPr != null) {
+					tambahSnapshotUom(o, asalPr);
+				} else {
+					SatuanProduk bawaan = produkBaris == null ? null
+							: (produkBaris.getSatuanPembelian() == null
+									? produkBaris.getSatuan() : produkBaris.getSatuanPembelian());
+					o.put("satuanInputId", bawaan == null ? JSONObject.NULL : bawaan.getId());
+					o.put("satuanInputNama", bawaan == null || bawaan.getNama() == null ? "" : bawaan.getNama());
+					o.put("faktorKeDasar", bawaan == null ? 1.0
+							: KantinHelper.faktorUomInputKeDasar(produkBaris, bawaan));
+				}
 				arr.put(o);
 			}
 			hasil.put("status", "00");
@@ -1762,10 +1863,29 @@ public final class PengadaanPosApiHelper {
 					PermintaanPengadaanMasterAssetDetail asal = (PermintaanPengadaanMasterAssetDetail) session
 							.get(PermintaanPengadaanMasterAssetDetail.class,
 									Long.valueOf((b.get("pr_detail_id") + "").trim()));
-					if (asal != null) {
-						d.setPermintaanPengadaanMasterAssetDetail(asal);
-						prDetailIds.add(asal.getId() + "");
+					if (asal == null) throw new IllegalStateException("Baris PR asal tidak ditemukan.");
+					PermintaanPengadaanMasterAsset headerPr = asal.getPermintaanPengadaanMasterAsset();
+					if (headerPr == null || headerPr.getTanggalPersetujuan() == null
+							|| Boolean.TRUE.equals(headerPr.getTutup())
+							|| Boolean.FALSE.equals(headerPr.getAktif())) {
+						throw new IllegalStateException("Hanya baris PR aktif, sudah disetujui, dan belum ditutup yang dapat dipesan.");
 					}
+					if (tokoId != null && headerPr.getToko() != null
+							&& !tokoId.equals(headerPr.getToko().getId())) {
+						throw new IllegalStateException("Baris PR asal merupakan milik toko lain.");
+					}
+					if (asal.getMasterAsset() == null || barang.getId() == null
+							|| !barang.getId().equals(asal.getMasterAsset().getId())) {
+						throw new IllegalStateException("Barang PO tidak cocok dengan baris PR asal.");
+					}
+					double tersedia = (asal.getJumlah() == null ? 0.0 : asal.getJumlah().doubleValue())
+							- jumlahSudahDipesan(session, asal.getId());
+					if (jumlah > tersedia + TOLERANSI) {
+						throw new IllegalStateException("Jumlah PO melebihi sisa baris PR (tersedia "
+								+ Common.numberFormat.get().format(Math.max(0.0, tersedia)) + ").");
+					}
+					d.setPermintaanPengadaanMasterAssetDetail(asal);
+					prDetailIds.add(asal.getId() + "");
 				}
 				d.setOleh(tbmuser.getUserNama());
 				d.setOlehId(tbmuser.getUserId());
@@ -2071,6 +2191,7 @@ public final class PengadaanPosApiHelper {
 				o.put("hargaBeli", harga);
 				o.put("hargaTotal", sisa * harga);
 				o.put("keterangan", d.getKeterangan() == null ? "" : d.getKeterangan());
+				tambahSnapshotUom(o, d);
 				arr.put(o);
 				total += sisa * harga;
 			}
@@ -2230,6 +2351,7 @@ public final class PengadaanPosApiHelper {
 					o.put("hargaBeli", harga);
 					o.put("hargaTotal", sisa * harga);
 					o.put("keterangan", d.getKeterangan() == null ? "" : d.getKeterangan());
+					tambahSnapshotUom(o, d);
 					arr.put(o);
 					nilaiSisa += sisa * harga;
 				}
@@ -7287,10 +7409,22 @@ public final class PengadaanPosApiHelper {
 					tanpaHarga.append(tanpaHarga.length() == 0 ? "" : ", ").append(nama);
 					continue;
 				}
+				double faktor = 1.0;
+				PemesananPengadaanMasterAssetDetail poDetail = d.getPemesananPengadaanMasterAssetDetail();
+				PermintaanPengadaanMasterAssetDetail prDetail = poDetail == null ? null
+						: poDetail.getPermintaanPengadaanMasterAssetDetail();
+				if (prDetail != null && prDetail.getSatuanInputId() != null) {
+					faktor = prDetail.getFaktorKeDasar().doubleValue();
+				} else {
+					SatuanProduk bawaan = produk.getSatuanPembelian() == null
+							? produk.getSatuan() : produk.getSatuanPembelian();
+					if (bawaan != null) faktor = KantinHelper.faktorUomInputKeDasar(produk, bawaan);
+				}
+				double[] nilaiDasar = nilaiKulakanDariUom(qty, harga, faktor);
 				JSONObject it = new JSONObject();
 				it.put("produk_id", produk.getId());
-				it.put("qty", qty);
-				it.put("harga_beli_satuan", harga);
+				it.put("qty", nilaiDasar[0]);
+				it.put("harga_beli_satuan", nilaiDasar[1]);
 				items.put(it);
 			}
 			if (tanpaPadanan.length() > 0) {
