@@ -1225,6 +1225,7 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 		int n = 0;
 		Session session = HibernateUtil.currentNativeSession();
 		PostingHistory postingHistory = null;
+		Exception kegagalanPertama = null;
 		try {
 			List<DanaTalangan> kandidat = kriteriaPostingStatic(session, mulai, sampai)
 					.add(Restrictions.isNull("postingHistory")).list();
@@ -1253,6 +1254,10 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 			postingHistory.setKeterangan("Posting massal dana talangan dari dasbor jurnal"
 					+ (mulai != null && sampai != null ? " \nTgl:" + Common.dateFormat.get().format(mulai)
 							+ " s.d " + Common.dateFormat.get().format(sampai) : ""));
+			// Commit pada current-session dapat melepaskan/menutup resource JDBC sesuai
+			// konfigurasi Hibernate. Ambil kembali session aktif sebelum setiap unit kerja,
+			// sama seperti mesin posting Uang Muka dan Penggantian Kas Kecil.
+			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
@@ -1277,6 +1282,7 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 					String ket = "Persetujuan dana talangan \"" + dok.getKode() + "\" senilai "
 							+ Common.numberFormat.get().format(nilai);
 
+					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					boolean tersimpan = CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null,
 							postingHistory, true, ket, dok.getTanggalPersetujuan(), nilai, 0.0, dok,
@@ -1294,6 +1300,9 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 					session.getTransaction().commit();
 					n++;
 				} catch (Exception e) {
+					if (kegagalanPertama == null) {
+						kegagalanPertama = e;
+					}
 					try {
 						if (session.getTransaction().isActive()) session.getTransaction().rollback();
 					} catch (Exception rollbackError) {
@@ -1321,6 +1330,11 @@ public class PostingDanaTalanganAction extends GenericAutowireComposer {
 					ais.common.ErrorAuditUtil.record(e,
 							"PostingDanaTalanganAction hapus riwayat kosong jalur API");
 				}
+			}
+			if (n == 0 && kegagalanPertama != null) {
+				throw new IllegalStateException("Posting Dana Talangan gagal pada seluruh "
+						+ daftar.size() + " dokumen. Penyebab pertama: "
+						+ kegagalanPertama.getMessage(), kegagalanPertama);
 			}
 		} finally {
 			try {
