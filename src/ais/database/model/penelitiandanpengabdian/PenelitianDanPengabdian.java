@@ -1532,6 +1532,28 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		this.dibuka = dibuka;
 	}
 
+	/**
+	 * Mengembalikan kategori kegiatan skema ({@link TipePenelitianDanPengabdian}) — sumbu yang
+	 * secara de-facto memisahkan penelitian, pengabdian masyarakat, dan "lainnya".
+	 *
+	 * <p>Tiga baris masternya dibuat sekali oleh {@code InitDataHelper} dengan kode tetap
+	 * {@code 001.000}/{@code 002.000}/{@code 003.000} dan dipegang sebagai singleton di
+	 * {@code ConstantValues.PENELITIAN}, {@code ConstantValues.PENGABDIAN}, dan
+	 * {@code ConstantValues.PENELITIAN_LAINNYA}. Nilai inilah yang dibandingkan modul-modul lain
+	 * saat memilah kegiatan dosen: beban kerja dosen ({@code AsesementAction},
+	 * {@code KinerjaAction}), profil dan biodata dosen, dasbor, serta laporan LKPS akreditasi
+	 * 3.a.2 (penelitian) dan 4.a.2 (pengabdian).
+	 *
+	 * <p>Seperti {@link #getJenisPenelitianDanPengabdian()}, relasi ini {@code LAZY} dan
+	 * hasilnya dilewatkan {@code check(...)} agar proxy teresolusi sebelum dikembalikan.
+	 *
+	 * <p>FK-nya {@code nullable = true}. Kombinasikan dengan saringan pada layar pengajuan yang
+	 * berbunyi "tipe sama <i>atau</i> tipe kosong", dan hasilnya: skema tanpa tipe akan
+	 * ditawarkan pada layar pengajuan penelitian maupun pengabdian sekaligus. Untuk skema baru
+	 * sebaiknya tipe selalu diisi eksplisit.
+	 *
+	 * @return kategori kegiatan skema, atau {@code null} bila belum ditetapkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tipe_penelitian_dan_pengabdian", nullable = true)
 	public TipePenelitianDanPengabdian getTipePenelitianDanPengabdian() {
@@ -1539,10 +1561,30 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return tipePenelitianDanPengabdian;
 	}
 
+	/**
+	 * Menetapkan kategori kegiatan skema. Umumnya diisi dengan salah satu singleton
+	 * {@code ConstantValues.PENELITIAN}/{@code PENGABDIAN}/{@code PENELITIAN_LAINNYA} agar
+	 * penyaringan lintas modul konsisten.
+	 *
+	 * @param tipePenelitianDanPengabdian kategori kegiatan skema
+	 */
 	public void setTipePenelitianDanPengabdian(TipePenelitianDanPengabdian tipePenelitianDanPengabdian) {
 		this.tipePenelitianDanPengabdian = tipePenelitianDanPengabdian;
 	}
 
+	/**
+	 * Mengembalikan tanggal awal periode pengajuan proposal, dipetakan sebagai {@code DATE}
+	 * (tanpa komponen jam).
+	 *
+	 * <p>Bila kolom masih {@code null}, method mengisi field dengan tanggal hari ini
+	 * ({@code WaktuUtil.getDate()}) lalu mengembalikannya — efek samping yang sama seperti pada
+	 * penanda {@code aktif}/{@code dibuka}. Karena nilai ini juga menjadi masukan
+	 * {@link #getSemester()} dan {@link #getTahunAkademik()}, membaca skema warisan pada hari
+	 * yang berbeda dapat menghasilkan semester/tahun akademik yang berbeda pula sebelum nilainya
+	 * sempat tersimpan.
+	 *
+	 * @return tanggal awal periode pengajuan; tidak pernah {@code null}
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalMulaiPengajuan() {
 		if (tanggalMulaiPengajuan == null) {
@@ -1551,10 +1593,34 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return tanggalMulaiPengajuan;
 	}
 
+	/**
+	 * Menetapkan tanggal awal periode pengajuan.
+	 *
+	 * <p>Tidak ada pemeriksaan bahwa tanggal ini mendahului
+	 * {@link #setTanggalSampaiPengajuan(Date)}; periode terbalik tersimpan tanpa keluhan dan
+	 * hanya terlihat sebagai label rentang yang janggal di layar.
+	 *
+	 * @param tanggalMulaiPengajuan tanggal awal periode pengajuan
+	 */
 	public void setTanggalMulaiPengajuan(Date tanggalMulaiPengajuan) {
 		this.tanggalMulaiPengajuan = tanggalMulaiPengajuan;
 	}
 
+	/**
+	 * Mengembalikan tanggal akhir periode pengajuan proposal, dengan pengisian bawaan hari ini
+	 * bila kolom masih {@code null}.
+	 *
+	 * <p><b>Batas waktu ini tidak ditegakkan.</b> Satu-satunya pemakaian nilainya di luar layar
+	 * penyuntingan skema adalah perakitan label rentang tanggal untuk ditampilkan
+	 * ({@code PenelitianDanPengabdianAction}); tidak ada perbandingan dengan tanggal hari ini
+	 * pada jalur penyimpanan proposal, dan saringan pemilihan skema pun tidak menyertakannya.
+	 * Proposal karenanya tetap dapat disimpan jauh setelah tanggal ini terlewat. Bersama
+	 * {@link #getDibuka()} inilah bentuk gerbang UI-only pada modul ini; bila penegakan periode
+	 * memang dikehendaki, ia harus ditambahkan di sisi penyimpanan pengajuan, bukan di entitas
+	 * ini.
+	 *
+	 * @return tanggal akhir periode pengajuan; tidak pernah {@code null}
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalSampaiPengajuan() {
 		if (tanggalSampaiPengajuan == null) {
@@ -1563,10 +1629,28 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return tanggalSampaiPengajuan;
 	}
 
+	/**
+	 * Menetapkan tanggal akhir periode pengajuan. Lihat {@link #getTanggalSampaiPengajuan()}
+	 * untuk catatan bahwa batas ini tidak menghalangi penyimpanan proposal.
+	 *
+	 * @param tanggalSampaiPengajuan tanggal akhir periode pengajuan
+	 */
 	public void setTanggalSampaiPengajuan(Date tanggalSampaiPengajuan) {
 		this.tanggalSampaiPengajuan = tanggalSampaiPengajuan;
 	}
 
+	/**
+	 * Mengembalikan tahun skema; bila kolom masih kosong, method mengisi field dengan tahun
+	 * berjalan menurut {@code WaktuUtil.getCalendar()} lalu mengembalikannya.
+	 *
+	 * <p>Perhatikan bahwa nilai bawaan diambil dari tahun <i>saat dibaca</i>, bukan dari
+	 * {@link #getTanggalMulaiPengajuan()}. Untuk skema warisan yang kolom tahunnya kosong,
+	 * pembacaan pada tahun berikutnya akan menghasilkan angka berbeda — dan karena entitas ini
+	 * {@code dynamicUpdate}, nilai yang "kebetulan" terbentuk itu bisa ikut tersimpan pada flush
+	 * berikutnya.
+	 *
+	 * @return tahun skema; tidak pernah {@code null}
+	 */
 	public Integer getTahun() {
 		if (tahun == null) {
 			tahun = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR);
@@ -1574,10 +1658,29 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return tahun;
 	}
 
+	/**
+	 * Menetapkan tahun skema.
+	 *
+	 * @param tahun tahun anggaran/pelaksanaan skema
+	 */
 	public void setTahun(Integer tahun) {
 		this.tahun = tahun;
 	}
 
+	/**
+	 * Mengembalikan audiens skema — salah satu konstanta {@code UNTUK_*} milik
+	 * {@link PengumumanAkademis} (mis. {@code UNTUK_UMUM}, {@code UNTUK_DOSEN},
+	 * {@code UNTUK_MAHASISWA}) — dengan bawaan {@link PengumumanAkademis#UNTUK_UMUM} bila kolom
+	 * masih kosong.
+	 *
+	 * <p>Nilai ini benar-benar dipakai untuk menyaring: layar pengajuan hanya menampilkan skema
+	 * yang audiensnya cocok dengan konteks pemanggil <i>atau</i> bernilai {@code UNTUK_UMUM}.
+	 * Karena bawaannya justru {@code UNTUK_UMUM}, skema yang audiensnya belum ditetapkan akan
+	 * terlihat oleh semua konteks — condong terbuka, bukan tertutup. Penyaringan ini bersifat
+	 * penyempitan tampilan, bukan pengganti pemeriksaan hak akses layar.
+	 *
+	 * @return kode audiens skema; tidak pernah {@code null}
+	 */
 	public String getDiperuntukkan() {
 		if (diperuntukkan == null) {
 			diperuntukkan = PengumumanAkademis.UNTUK_UMUM;
@@ -1585,10 +1688,29 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return diperuntukkan;
 	}
 
+	/**
+	 * Menetapkan audiens skema. Nilainya sebaiknya diambil dari konstanta {@code UNTUK_*} pada
+	 * {@link PengumumanAkademis}, karena pembandingannya dilakukan sebagai kesamaan string
+	 * persis — string bebas yang salah eja membuat skema tidak pernah cocok dengan konteks mana
+	 * pun kecuali yang mencari {@code UNTUK_UMUM}.
+	 *
+	 * @param diperuntukkan kode audiens skema
+	 */
 	public void setDiperuntukkan(String diperuntukkan) {
 		this.diperuntukkan = diperuntukkan;
 	}
 
+	/**
+	 * Mengembalikan penanda apakah skema boleh ditampilkan pada kanal publik, dengan bawaan
+	 * {@code false} bila kolom masih kosong.
+	 *
+	 * <p>Berbeda dari {@link #getAktif()} dan {@link #getDibuka()} yang condong terbuka, bawaan
+	 * di sini <b>gagal-tertutup</b>: skema warisan tidak mendadak terekspos ke publik hanya
+	 * karena kolomnya belum pernah diisi. Ini perilaku yang diinginkan untuk penanda
+	 * keterbukaan dan layak dijadikan acuan bila ada penanda serupa yang ditambahkan kemudian.
+	 *
+	 * @return {@code true} bila skema boleh tampil di kanal publik; tidak pernah {@code null}
+	 */
 	public Boolean getPublik() {
 		if (publik == null) {
 			publik = false;
@@ -1596,10 +1718,28 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return publik;
 	}
 
+	/**
+	 * Menetapkan penanda tampil di kanal publik.
+	 *
+	 * @param publik {@code true} bila skema boleh diakses kanal publik
+	 */
 	public void setPublik(Boolean publik) {
 		this.publik = publik;
 	}
 
+	/**
+	 * Mengembalikan semester akademik skema ({@link Perkuliahan#GANJIL} atau
+	 * {@link Perkuliahan#GENAP}).
+	 *
+	 * <p>Bila kolom masih kosong, nilainya <i>diturunkan</i> dari
+	 * {@link #getTanggalMulaiPengajuan()} lewat {@code Common.isNowSemensterGanjil(...)} lalu
+	 * ditulis balik ke field. Karena getter tanggal itu sendiri mengisi dirinya dengan tanggal
+	 * hari ini saat kosong, skema warisan tanpa tanggal akan memperoleh semester menurut hari
+	 * pembacaan — bukan menurut periode skema yang sebenarnya. Untuk data historis, isi kolom
+	 * ini secara eksplisit alih-alih mengandalkan penurunan otomatis.
+	 *
+	 * @return kode semester akademik; tidak pernah {@code null}
+	 */
 	public String getSemester() {
 		if (semester == null) {
 			semester = Common.isNowSemensterGanjil(getTanggalMulaiPengajuan()) ? Perkuliahan.GANJIL : Perkuliahan.GENAP;
@@ -1607,10 +1747,26 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return semester;
 	}
 
+	/**
+	 * Menetapkan semester akademik skema secara eksplisit, menimpa penurunan otomatis dari
+	 * tanggal mulai.
+	 *
+	 * @param semester kode semester ({@link Perkuliahan#GANJIL}/{@link Perkuliahan#GENAP})
+	 */
 	public void setSemester(String semester) {
 		this.semester = semester;
 	}
 
+	/**
+	 * Mengembalikan tahun akademik skema (mis. "2026/2027"), diturunkan dari
+	 * {@link #getTanggalMulaiPengajuan()} lewat {@code Common.getCurrentTahunAkademik(Date)}
+	 * bila kolom masih kosong, lalu ditulis balik ke field.
+	 *
+	 * <p>Berlaku peringatan yang sama seperti {@link #getSemester()}: untuk baris tanpa tanggal
+	 * mulai, hasilnya mengikuti hari pembacaan.
+	 *
+	 * @return kode tahun akademik; tidak pernah {@code null}
+	 */
 	public String getTahunAkademik() {
 		if (tahunAkademik == null) {
 			tahunAkademik = Common.getCurrentTahunAkademik(getTanggalMulaiPengajuan());
@@ -1618,14 +1774,38 @@ public class PenelitianDanPengabdian extends GeneralValueObject {
 		return tahunAkademik;
 	}
 
+	/**
+	 * Menetapkan tahun akademik skema secara eksplisit.
+	 *
+	 * @param tahunAkademik kode tahun akademik, mis. "2026/2027"
+	 */
 	public void setTahunAkademik(String tahunAkademik) {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Mengembalikan bobot sks skema untuk perhitungan beban kerja dosen, dengan {@code 0}
+	 * sebagai pengganti nilai {@code null} (tanpa efek samping — field tidak ditulis balik).
+	 *
+	 * <p>Nilai ini dipakai {@code BkdPenelitianDanPengabdianHelper}: ketika sebuah kegiatan
+	 * dihitung sebagai satu kesatuan (bukan per tahapan pelaporan), bobot sks-nya diambil dari
+	 * {@code pengajuan.getPenelitianDanPengabdian().getSks()}. Jadi angka yang diisi
+	 * administrator di sini langsung berpengaruh pada rekap BKD seluruh dosen yang proposalnya
+	 * menunjuk skema ini — termasuk proposal yang sudah lama tersimpan, karena perhitungan BKD
+	 * membaca nilai skema saat laporan dibuat, bukan menyalinnya saat proposal diajukan.
+	 *
+	 * @return bobot sks skema; {@code 0} bila belum diisi
+	 */
 	public Integer getSks() {
 		return sks == null ? 0 : sks;
 	}
 
+	/**
+	 * Menetapkan bobot sks skema. Perubahannya bersifat surut terhadap rekap beban kerja dosen —
+	 * lihat {@link #getSks()}.
+	 *
+	 * @param sks bobot sks skema
+	 */
 	public void setSks(Integer sks) {
 		this.sks = sks;
 	}
