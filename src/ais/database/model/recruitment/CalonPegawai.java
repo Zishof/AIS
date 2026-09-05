@@ -887,34 +887,127 @@ public class CalonPegawai extends GeneralValueObject {
 		this.agama = agama;
 	}
 
+	/**
+	 * Mengembalikan tempat lahir pelamar apa adanya, tanpa normalisasi maupun validasi.
+	 *
+	 * <p>
+	 * Disimpan sebagai teks bebas, bukan relasi ke {@link Kota}, sehingga tidak bisa diandalkan
+	 * untuk agregasi/statistik. Bersama {@link #getTanggalLahir()} nilai ini membentuk pasangan
+	 * tempat-tanggal lahir yang termasuk data pribadi.
+	 * </p>
+	 *
+	 * @return tempat lahir, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "tempat_lahir")
 	public String getTempatLahir() {
 		return this.tempatLahir;
 	}
 
+	/**
+	 * Menyetel tempat lahir pelamar. Tidak ada pembersihan spasi maupun validasi panjang di
+	 * sini; kolomnya memakai panjang bawaan (255 karakter), sehingga masukan yang lebih panjang
+	 * akan ditolak database saat {@code flush}, bukan saat setter dipanggil.
+	 *
+	 * @param tempatLahir tempat lahir sebagai teks bebas
+	 */
 	public void setTempatLahir(String tempatLahir) {
 		this.tempatLahir = tempatLahir;
 	}
 
+	/**
+	 * Mengembalikan tanggal lahir pelamar.
+	 *
+	 * <p>
+	 * Dipetakan {@code TemporalType.DATE} sehingga hanya bagian tanggal yang tersimpan (komponen
+	 * jam diabaikan). Atribut {@code length = 13} pada {@code @Column} tidak berpengaruh apa pun
+	 * untuk tipe tanggal — itu sisa keluaran generator {@code hbm2java} yang aman diabaikan.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan data pribadi.</b> Tanggal lahir termasuk pengenal pribadi yang, digabung dengan
+	 * {@link #getNamaIbu()} dan {@link #getNik()} yang juga tersimpan di baris yang sama,
+	 * membentuk paket identitas yang cukup untuk penyalahgunaan. Semuanya ikut direkam ke tabel
+	 * revisi Envers karena kelas ini {@code @Audited}.
+	 * </p>
+	 *
+	 * @return tanggal lahir, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggal_lahir", length = 13)
 	public Date getTanggalLahir() {
 		return this.tanggalLahir;
 	}
 
+	/**
+	 * Menyetel tanggal lahir pelamar. Tidak ada validasi kewajaran (mis. tanggal di masa depan
+	 * atau usia di bawah batas minimum melamar) baik di sini maupun di layar pendaftaran mandiri.
+	 *
+	 * @param tanggalLahir tanggal lahir; bagian waktu akan diabaikan saat disimpan
+	 */
 	public void setTanggalLahir(Date tanggalLahir) {
 		this.tanggalLahir = tanggalLahir;
 	}
 
+	/**
+	 * Mengembalikan kewarganegaraan pelamar sebagai teks bebas.
+	 *
+	 * <p>
+	 * Informasi yang sama juga tersimpan secara terstruktur pada relasi {@link #getNegara()}.
+	 * Keduanya TIDAK saling disinkronkan: mengubah salah satu tidak memperbarui yang lain, dan
+	 * tidak ada aturan mana yang menjadi acuan. Bila membutuhkan nilai yang bisa diandalkan untuk
+	 * pelaporan, gunakan {@link #getNegara()} yang setidaknya punya nilai bawaan.
+	 * </p>
+	 *
+	 * @return kewarganegaraan sebagai teks, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "kewarganegaraan")
 	public String getKewarganegaraan() {
 		return this.kewarganegaraan;
 	}
 
+	/**
+	 * Menyetel kewarganegaraan sebagai teks bebas.
+	 *
+	 * @param kewarganegaraan teks kewarganegaraan
+	 */
 	public void setKewarganegaraan(String kewarganegaraan) {
 		this.kewarganegaraan = kewarganegaraan;
 	}
 
+	/**
+	 * Mengembalikan alamat surel pelamar, sudah divalidasi dan dinormalisasi.
+	 *
+	 * <p>
+	 * <b>Getter destruktif — hati-hati.</b> Bila field {@link #alamatEmail} terisi dan tidak
+	 * hanya berisi spasi, getter ini menjalankan {@code Common.isValidEmailAddress(...)} dan,
+	 * jika alamat dianggap TIDAK valid, MENIMPA field tersebut dengan string kosong. Karena
+	 * entity memakai <i>property access</i>, Hibernate memanggil getter ini pada saat
+	 * <i>dirty check</i>/{@code flush}, sehingga pengosongan itu benar-benar tersimpan ke
+	 * database: alamat surel pelamar bisa lenyap permanen hanya karena baris tersebut kebetulan
+	 * dibaca oleh sesi Hibernate yang aktif. Tidak ada jejak apa pun tentang nilai lama selain
+	 * tabel revisi Envers.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilai kembaliannya sendiri dinormalisasi lebih lanjut: {@code null} atau alamat yang lebih
+	 * pendek dari 3 karakter dikembalikan sebagai string kosong, selebihnya dikembalikan setelah
+	 * {@code trim()}. Jadi getter ini tidak pernah mengembalikan {@code null} — pemanggil boleh
+	 * langsung memakai {@code .isEmpty()} tanpa penjagaan, dan memang begitulah
+	 * {@code CalonPegawaiAction} memakainya.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Peran dalam alur akun.</b> Alamat inilah yang dipakai {@code CalonPegawaiAction} sebagai
+	 * {@code userId} akun {@code Tbmuser} pelamar pada pendaftaran mandiri (bila kosong, sistem
+	 * jatuh ke "kata pertama nama + 3 digit acak"), sekaligus sebagai tujuan pengiriman surel
+	 * berisi kata sandi awal dalam bentuk TERBACA JELAS, dan sebagai kolom "Email" pada berkas
+	 * ekspor kata sandi massal. Pengosongan diam-diam oleh getter ini karena itu berpotensi
+	 * memutus jalur pemulihan akun pelamar.
+	 * </p>
+	 *
+	 * @return alamat surel yang sudah di-{@code trim}, atau string kosong (tidak pernah
+	 *         {@code null})
+	 */
 	@Column(name = "alamat_email")
 	public String getAlamatEmail() {
 		if (alamatEmail != null && !alamatEmail.trim().isEmpty()) {
@@ -923,97 +1016,306 @@ public class CalonPegawai extends GeneralValueObject {
 		return this.alamatEmail == null || this.alamatEmail.length() < 3 ? "" : this.alamatEmail.trim();
 	}
 
+	/**
+	 * Menyetel alamat surel pelamar apa adanya, tanpa validasi.
+	 *
+	 * <p>
+	 * Validasi baru terjadi pada pembacaan lewat {@link #getAlamatEmail()} — dan pada saat itu
+	 * nilai yang tidak valid tidak sekadar ditolak melainkan dihapus. Bila alamat perlu
+	 * dipertahankan apa adanya untuk keperluan koreksi manual, jangan mengandalkan field ini.
+	 * </p>
+	 *
+	 * @param alamatEmail alamat surel mentah
+	 */
 	public void setAlamatEmail(String alamatEmail) {
 		this.alamatEmail = alamatEmail;
 	}
 
+	/**
+	 * Mengembalikan alamat orang tua pelamar apa adanya.
+	 *
+	 * <p>
+	 * Kolomnya berkapasitas 2000 karakter (teks alamat panjang), dan berbeda dengan
+	 * {@link #getAlamatPegawai()} getter ini TIDAK menormalkan {@code null} menjadi string
+	 * kosong — pemanggil wajib menjaga sendiri kemungkinan {@code null}.
+	 * </p>
+	 *
+	 * @return alamat orang tua, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "alamat_orang_tua", length = 2000)
 	public String getAlamatOrangTua() {
 		return this.alamatOrangTua;
 	}
 
+	/**
+	 * Menyetel alamat orang tua pelamar.
+	 *
+	 * @param alamatOrangTua teks alamat (maksimal 2000 karakter)
+	 */
 	public void setAlamatOrangTua(String alamatOrangTua) {
 		this.alamatOrangTua = alamatOrangTua;
 	}
 
+	/**
+	 * Mengembalikan alamat domisili pelamar, dengan {@code null} dinormalkan menjadi string
+	 * kosong sehingga aman langsung digabung ke teks tampilan atau laporan.
+	 *
+	 * <p>
+	 * Berbeda dengan {@link #getAlamatEmail()}, normalisasi di sini hanya pada nilai kembalian —
+	 * field aslinya tidak ditimpa, jadi getter ini tidak destruktif.
+	 * </p>
+	 *
+	 * @return alamat domisili, atau string kosong (tidak pernah {@code null})
+	 */
 	@Column(name = "alamat_pegawai", length = 2000)
 	public String getAlamatPegawai() {
 		return this.alamatPegawai == null ? "" : alamatPegawai;
 	}
 
+	/**
+	 * Menyetel alamat domisili pelamar.
+	 *
+	 * @param alamatPegawai teks alamat (maksimal 2000 karakter)
+	 */
 	public void setAlamatPegawai(String alamatPegawai) {
 		this.alamatPegawai = alamatPegawai;
 	}
 
+	/**
+	 * Mengembalikan alamat wali pelamar, dengan <b>cadangan otomatis</b>: bila field
+	 * {@link #alamatWali} kosong atau hanya berisi spasi, yang dikembalikan adalah
+	 * {@link #getAlamatAyah()}.
+	 *
+	 * <p>
+	 * Pola ini membuat nilai kembalian tidak bisa dipakai untuk membedakan "wali beralamat sama
+	 * dengan ayah" dari "alamat wali memang belum diisi". Kode yang perlu tahu apakah data wali
+	 * benar-benar ada harus membaca field lewat jalur lain (mis. kueri kolom langsung), bukan
+	 * lewat getter ini. Perhatikan pula asimetrinya: tidak ada cadangan ke
+	 * {@link #getAlamatIbu()}, sehingga keluarga dengan wali pihak ibu tidak tertangani.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilai yang benar-benar ada dikembalikan setelah {@code trim()}; nilai cadangan dari
+	 * {@link #getAlamatAyah()} dikembalikan apa adanya (bisa {@code null}), sehingga getter ini
+	 * TETAP bisa mengembalikan {@code null}.
+	 * </p>
+	 *
+	 * @return alamat wali, atau alamat ayah sebagai cadangan, atau {@code null} bila keduanya
+	 *         kosong
+	 */
 	@Column(name = "alamat_wali")
 	public String getAlamatWali() {
 		return this.alamatWali == null || alamatWali.trim().isEmpty() ? getAlamatAyah() : alamatWali.trim();
 	}
 
+	/**
+	 * Menyetel alamat wali pelamar. Menyetel {@code null} atau string kosong berarti mengaktifkan
+	 * kembali perilaku cadangan pada {@link #getAlamatWali()}.
+	 *
+	 * @param alamatWali teks alamat wali
+	 */
 	public void setAlamatWali(String alamatWali) {
 		this.alamatWali = alamatWali;
 	}
 
+	/**
+	 * Mengembalikan urutan kelahiran pelamar dalam keluarganya ("anak ke-berapa"), dengan
+	 * {@code null} dinormalkan menjadi {@code 0}.
+	 *
+	 * <p>
+	 * Nilai {@code 0} karena itu ambigu: bisa berarti "belum diisi" maupun nilai nol yang
+	 * sengaja disimpan. Karena tidak ada nilai nol yang bermakna untuk urutan anak, dalam praktik
+	 * {@code 0} selalu berarti data belum lengkap.
+	 * </p>
+	 *
+	 * @return urutan kelahiran, atau {@code 0} bila belum diisi (tidak pernah {@code null})
+	 */
 	@Column(name = "anak_ke")
 	public Integer getAnakKe() {
 		return this.anakKe == null ? 0 : anakKe;
 	}
 
+	/**
+	 * Menyetel urutan kelahiran pelamar. Tidak ada validasi terhadap {@link #getDariAnakKe()},
+	 * sehingga kombinasi tak masuk akal (anak ke-5 dari 2 bersaudara) dapat tersimpan.
+	 *
+	 * @param anakKe urutan kelahiran
+	 */
 	public void setAnakKe(Integer anakKe) {
 		this.anakKe = anakKe;
 	}
 
+	/**
+	 * Mengembalikan jumlah bersaudara pelamar ("dari berapa bersaudara"), dengan {@code null}
+	 * dinormalkan menjadi {@code 0}. Berpasangan dengan {@link #getAnakKe()}; keduanya tidak
+	 * saling divalidasi.
+	 *
+	 * @return jumlah bersaudara, atau {@code 0} bila belum diisi (tidak pernah {@code null})
+	 */
 	@Column(name = "dari_anak_ke")
 	public Integer getDariAnakKe() {
 		return this.dariAnakKe == null ? 0 : dariAnakKe;
 	}
 
+	/**
+	 * Menyetel jumlah bersaudara pelamar.
+	 *
+	 * @param dariAnakKe jumlah bersaudara
+	 */
 	public void setDariAnakKe(Integer dariAnakKe) {
 		this.dariAnakKe = dariAnakKe;
 	}
 
+	/**
+	 * Mengembalikan jenis kelamin pelamar sebagai teks bebas.
+	 *
+	 * <p>
+	 * Kolomnya dinyatakan {@code nullable = false} dengan panjang 9 karakter — cukup untuk
+	 * "Perempuan", nilai terpanjang yang dipakai layar. Nilainya diisi dari combobox di
+	 * {@code CalonPegawaiAction} sehingga dalam praktik terbatas pada dua pilihan, tetapi tidak
+	 * ada enum maupun constraint di database yang menegakkannya: jalur tulis lain (impor, CRUD
+	 * generik, skrip) bebas menyimpan teks apa pun sepanjang tidak melebihi 9 karakter.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan ketidaksesuaian kontrak: kolom tidak boleh {@code null} menurut anotasi, tetapi
+	 * getter ini bisa mengembalikan {@code null} untuk objek yang baru dibuat di memori dan belum
+	 * diisi. Kegagalan baru muncul saat {@code flush}, bukan lebih awal.
+	 * </p>
+	 *
+	 * @return teks jenis kelamin, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "jenis_kelamin", nullable = false, length = 9)
 	public String getJenisKelamin() {
 		return this.jenisKelamin;
 	}
 
+	/**
+	 * Menyetel jenis kelamin pelamar sebagai teks bebas (maksimal 9 karakter).
+	 *
+	 * @param jenisKelamin teks jenis kelamin
+	 */
 	public void setJenisKelamin(String jenisKelamin) {
 		this.jenisKelamin = jenisKelamin;
 	}
 
+	/**
+	 * Mengembalikan nama ayah pelamar apa adanya. Selain sebagai data biodata, nilai ini menjadi
+	 * sumber cadangan bagi {@link #getAlamatWali()} lewat {@link #getAlamatAyah()}.
+	 *
+	 * @return nama ayah, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "nama_ayah")
 	public String getNamaAyah() {
 		return this.namaAyah;
 	}
 
+	/**
+	 * Menyetel nama ayah pelamar.
+	 *
+	 * @param namaAyah nama ayah
+	 */
 	public void setNamaAyah(String namaAyah) {
 		this.namaAyah = namaAyah;
 	}
 
+	/**
+	 * Mengembalikan nama ibu kandung pelamar apa adanya.
+	 *
+	 * <p>
+	 * <b>Catatan kerahasiaan.</b> Nama ibu kandung adalah pertanyaan verifikasi identitas baku di
+	 * perbankan dan layanan publik Indonesia. Di sini ia diekspos lewat getter polos tanpa
+	 * penyamaran maupun pembatasan, tersimpan berdampingan dengan {@link #getNik()},
+	 * {@link #getKk()}, dan {@link #getTanggalLahir()} pada baris yang sama, serta ikut disalin
+	 * ke tabel revisi Envers. Gerbang perlindungan satu-satunya ada di layer Action/Helper.
+	 * </p>
+	 *
+	 * @return nama ibu kandung, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "nama_ibu")
 	public String getNamaIbu() {
 		return this.namaIbu;
 	}
 
+	/**
+	 * Menyetel nama ibu kandung pelamar.
+	 *
+	 * @param namaIbu nama ibu kandung
+	 */
 	public void setNamaIbu(String namaIbu) {
 		this.namaIbu = namaIbu;
 	}
 
+	/**
+	 * Mengembalikan nama pelamar — inilah properti yang benar-benar memiliki kolom
+	 * {@code nama_pegawai} dan satu-satunya yang boleh menulisnya.
+	 *
+	 * <p>
+	 * {@link #getNama()} adalah alias baca-saja yang selalu menyalin nilainya dari sini. Bila
+	 * kode Anda perlu MENGUBAH nama pelamar, gunakan {@link #setNamaPegawai(String)}, bukan
+	 * {@link #setNama(String)}.
+	 * </p>
+	 *
+	 * <p>
+	 * Kolomnya {@code nullable = false} tetapi getter ini tidak menjamin apa pun untuk objek yang
+	 * belum diisi; pelanggaran baru terdeteksi database saat {@code flush}.
+	 * </p>
+	 *
+	 * @return nama pelamar, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "nama_pegawai", nullable = false)
 	public String getNamaPegawai() {
 		return this.namaPegawai;
 	}
 
+	/**
+	 * Menyetel nama pelamar. Ini setter yang sesungguhnya untuk kolom {@code nama_pegawai}.
+	 *
+	 * @param namaPegawai nama lengkap pelamar
+	 */
 	public void setNamaPegawai(String namaPegawai) {
 		this.namaPegawai = namaPegawai;
 	}
 
+	/**
+	 * Mengembalikan nomor induk pelamar, sebagai alias baca-saja dari
+	 * {@link #getNoRegistrasi()}.
+	 *
+	 * <p>
+	 * <b>Getter dengan efek samping.</b> Setiap pemanggilan menimpa field {@link #nomorInduk}
+	 * dengan hasil {@link #getNoRegistrasi()}. Pemetaannya {@code insertable = false,
+	 * updatable = false} karena kolom {@code nomor_induk} yang sama juga dipetakan (dan ditulis)
+	 * oleh {@link #getNoRegistrasi()}.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>PENTING untuk keamanan.</b> Inilah nilai yang dibaca {@link #getPass()} untuk menyemai
+	 * kata sandi bawaan pelamar. Selama {@link #getNoRegistrasi()} masih {@code null}, getter ini
+	 * mengembalikan {@code null} dan penyemaian kata sandi TIDAK terjadi; begitu nomor registrasi
+	 * dibuat (oleh {@code DefaultNoRegGeneratorPegawai} lewat {@code CalonPegawaiAction}),
+	 * pembacaan {@link #getPass()} berikutnya — termasuk pembacaan yang dilakukan Hibernate
+	 * sendiri — langsung menyemai kata sandi yang isinya sama dengan nomor registrasi itu.
+	 * </p>
+	 *
+	 * @return nomor registrasi pelamar, atau {@code null} bila belum dibuat
+	 */
 	@Column(name = "nomor_induk", nullable = false, insertable = false, updatable = false)
 	public String getNomorInduk() {
 		nomorInduk = getNoRegistrasi();
 		return this.nomorInduk;
 	}
 
+	/**
+	 * Menyetel field bayangan {@link #nomorInduk}.
+	 *
+	 * <p>
+	 * Nilainya akan ditimpa pada pemanggilan {@link #getNomorInduk()} berikutnya dan tidak pernah
+	 * tersimpan ke database (pemetaan baca-saja). Untuk mengubah nomor yang sesungguhnya gunakan
+	 * {@link #setNoRegistrasi(String)}.
+	 * </p>
+	 *
+	 * @param nomorInduk nilai yang dipasang ke field bayangan
+	 */
 	public void setNomorInduk(String nomorInduk) {
 		this.nomorInduk = nomorInduk;
 	}

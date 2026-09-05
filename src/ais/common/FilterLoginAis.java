@@ -583,11 +583,17 @@ public class FilterLoginAis { // Sesuaikan nama class dengan implementasi Anda
 					.uniqueResult();
 
 			if (diblokirCount != null && diblokirCount.intValue() > 0) {
-				String info = (String) session.createCriteria(AnggotaYangDiblokir.class)
-						.add(Restrictions.eq("tidakBisaLogin", true)).createAlias("anggota", "anggota")
-						.add(Restrictions.eq("anggota.dosen", users.getDosen()))
-						.setProjection(Projections.property("informasiKeMahasiswaTidakBisaLogin")).uniqueResult();
-				return forwardError(req, res, "Akun Anda diblokir oleh perpustakaan karena alasan :<br> " + info);
+				String info;
+				try {
+					info = (String) session.createCriteria(AnggotaYangDiblokir.class)
+							.add(Restrictions.eq("tidakBisaLogin", true)).createAlias("anggota", "anggota")
+							.add(Restrictions.eq("anggota.dosen", users.getDosen()))
+							.setProjection(Projections.property("informasiKeMahasiswaTidakBisaLogin")).uniqueResult();
+				} catch (Exception infoEx) {
+					info = null;
+				}
+				return forwardError(req, res,
+						"Akun Anda diblokir oleh perpustakaan karena alasan :<br> " + (info == null ? "-" : info));
 			}
 
 			if (ConstantValues.aktifkanApakahJumlahLoginDosenDibatasi) {
@@ -623,11 +629,17 @@ public class FilterLoginAis { // Sesuaikan nama class dengan implementasi Anda
 					.add(Restrictions.eq("anggota.siswa", siswa)).setProjection(Projections.rowCount()).uniqueResult();
 
 			if (diblokirCount != null && diblokirCount.intValue() > 0) {
-				String info = (String) session.createCriteria(AnggotaYangDiblokir.class)
-						.add(Restrictions.eq("tidakBisaLogin", true)).createAlias("anggota", "anggota")
-						.add(Restrictions.eq("anggota.siswa", siswa))
-						.setProjection(Projections.property("informasiKeSiswaTidakBisaLogin")).uniqueResult();
-				return forwardError(req, res, "Akun Anda diblokir oleh perpustakaan karena alasan :<br> " + info);
+				String info;
+				try {
+					info = (String) session.createCriteria(AnggotaYangDiblokir.class)
+							.add(Restrictions.eq("tidakBisaLogin", true)).createAlias("anggota", "anggota")
+							.add(Restrictions.eq("anggota.siswa", siswa))
+							.setProjection(Projections.property("informasiKeMahasiswaTidakBisaLogin")).uniqueResult();
+				} catch (Exception infoEx) {
+					info = null;
+				}
+				return forwardError(req, res,
+						"Akun Anda diblokir oleh perpustakaan karena alasan :<br> " + (info == null ? "-" : info));
 			}
 
 			if (ConstantValues.aktifkanApakahJumlahLoginDibatasi) {
@@ -665,11 +677,17 @@ public class FilterLoginAis { // Sesuaikan nama class dengan implementasi Anda
 					.uniqueResult();
 
 			if (diblokirCount != null && diblokirCount.intValue() > 0) {
-				String info = (String) session.createCriteria(AnggotaYangDiblokir.class)
-						.add(Restrictions.eq("tidakBisaLogin", true)).createAlias("anggota", "anggota")
-						.add(Restrictions.eq("anggota.mahasiswa", mahasiswa))
-						.setProjection(Projections.property("informasiKeMahasiswaTidakBisaLogin")).uniqueResult();
-				return forwardError(req, res, "Akun Anda diblokir oleh perpustakaan karena alasan :<br> " + info);
+				String info;
+				try {
+					info = (String) session.createCriteria(AnggotaYangDiblokir.class)
+							.add(Restrictions.eq("tidakBisaLogin", true)).createAlias("anggota", "anggota")
+							.add(Restrictions.eq("anggota.mahasiswa", mahasiswa))
+							.setProjection(Projections.property("informasiKeMahasiswaTidakBisaLogin")).uniqueResult();
+				} catch (Exception infoEx) {
+					info = null;
+				}
+				return forwardError(req, res,
+						"Akun Anda diblokir oleh perpustakaan karena alasan :<br> " + (info == null ? "-" : info));
 			}
 
 			if (ConstantValues.aktifkanApakahJumlahLoginDibatasi) {
