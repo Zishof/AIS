@@ -1,5 +1,81 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 100 — SELESAI 100% (5 Sep 2026) — PIVOT ke paket `sirs` (SIRS/rumah sakit); 8 task baru; 🚨 TEMUAN SIGNIFIKAN: entity medis TANPA sumbu tenant + TANPA blocklist CRUD generik
+
+41 file selesai (batch pertama domain baru `sirs`, 118 file, domain
+TERBESAR yang tersisa — rumah sakit/klinik), semua dikompilasi
+bersih, WC mirror disinkron, `cmp` byte-identik.
+
+### 🚨 TEMUAN SIGNIFIKAN — entity medis lolos CRUD generik tanpa batasan sama sekali
+
+Klaster Pasien mengonfirmasi: modul `sirs` **TIDAK PUNYA sumbu
+tenant di level entity sama sekali** (tidak ada `satuanKerja`/
+`yayasan`/`sekolah` di manapun; `sirs.Satker` BUKAN tenant — cuma
+atribut deskriptif kesatuan dinas pasien TNI/PNS; `sirs.RumahSakit`
+juga bukan discriminator — modul dirancang satu fasilitas per basis
+data). Konsekuensinya: whitelist `scopeBindings()` Generic CRUD v2
+lewat kosong (bukan whitelist lemah — memang TIDAK ADA yang bisa
+diikat). **YANG LEBIH SERIUS**: `BLOCKED_CLASS_TOKENS` (daftar
+blokir terpisah, sudah berisi token seperti password/token/
+lampiran/audit/bank) **SAMA SEKALI TIDAK PUNYA token domain medis**
+— seluruh entity `sirs` (`Pasien`, `AlergiPasien` riwayat alergi
+obat, `KepesertaanPasien` data asuransi/BPJS, dst) lolos sebagai
+`FULL_CRUD` tanpa batasan APAPUN lewat endpoint CRUD generik.
+**🚨 Task baru `task_90bbdd51`**: tambahkan blocklist domain medis
+(bukan sekadar whitelist tenant palsu yang tidak akan berfungsi
+karena properti itu tak ada di entity) + audit domain lain untuk
+gap serupa.
+
+### Ringkasan per klaster
+
+- **Klaster Pasien** (7 file, r84575-r84605). **Task baru
+  `task_d82932ef`**: okupansi tempat tidur — `Pendaftaran.tempatTidur`
+  TIDAK PERNAH dikosongkan saat pasien pulang, `updateTerisi()`
+  menghitung SELURUH riwayat `DataPasienKeluar` — tempat tidur yang
+  masih ditempati tampil KOSONG di widget pemilihan setelah pasien
+  pertama pernah pulang, berisiko diisi pasien kedua (bukan cacat
+  tampilan, tertulis ke DB). `Pasien.getTanggalLahir()` getter
+  destruktif mengisi `null` dengan `new Date()` — pasien tanpa data
+  lahir jadi "lahir hari ini" permanen, berantai ke `getUmur()`=0
+  (kategori dosis obat paling ketat). `KepesertaanPasien` DIKONFIRMASI
+  entity dorman (ke-20-an).
+- **Klaster pendaftaran/dokter** (5 file, r84565-r84603). Penjaga
+  bentrok jadwal dokter TIDAK ADA sama sekali. **Task baru
+  `task_78f65d48`**: nomor antrian dihitung dari DUA predikat
+  tanggal berbeda (booking vs pendaftaran) menyebabkan lompatan; DAN
+  `getDilayaniTanggal()` bisa LOOP TANPA HENTI kalau `JadwalDokter.hari`
+  tidak cocok persis ejaan hari (mis. "Jumat" vs "Jum'at") — menahan
+  thread permintaan.
+- **Klaster transaksi-medis/pembayaran** (7 file, r84567-r84604).
+  Rantai DIKONFIRMASI satu jalur bercabang (bukan dua rantai
+  paralel). Penjaga anti-lebih-bayar HANYA di listener tombol (pola
+  sama `task_578b720b`). **Task baru `task_882f4616`**: `getLunas()`
+  buta-deposit — dua rumus "sudah dibayar" bertentangan di kelas
+  yang sama, getter destruktif MENIMPA kolom `lunas` yang sudah
+  benar. **Task baru `task_710dc62c`**: qty sewa alat per jam salah
+  aritmetik (`Days.daysBetween().toStandardHours()` memotong ke hari
+  bulat — 4 jam ditagih 1 jam, 23 jam juga 1 jam). **Task baru
+  `task_ecca6037`**: nomor kartu pembayaran non-tunai tersimpan
+  teks-biasa tanpa masking, permanen di tabel revisi Envers.
+- **Klaster diagnosis/tindakan** (10 file, r84566-r84597). Data
+  medis PALING SENSITIF. **Task baru `task_718c20ed`**: layar
+  pencarian diagnosa nol filter instalasi/dokter/satuan kerja —
+  siapa pun dengan akses menu bisa cari riwayat diagnosa SELURUH
+  pasien rumah sakit lintas instalasi. `ItemDiagnosaPenyakit`
+  dikonfirmasi entity dorman.
+- **Klaster item-medis/alat** (12 file, r84564-r84588). Katalog
+  DIKONFIRMASI terpisah total dari `inventory.Produk`. **Task baru
+  `task_e865807e`**: dua mekanisme konversi satuan tumpang tindih
+  struktural, berpotensi menyembunyikan inkonsistensi.
+
+**8 task baru batch ini**: `task_e865807e`, `task_718c20ed`,
+`task_78f65d48`, `task_882f4616`, `task_710dc62c`, `task_d82932ef`,
+`task_ecca6037`, `task_90bbdd51`. Domain `sirs` (rumah sakit) domain
+TERBESAR (118 file) dan langsung sangat fertile untuk temuan
+klinis-signifikan + celah privasi data medis sejak batch pertama.
+Sisa ~77 file `sirs` untuk batch berikutnya (apotik/farmasi,
+laboratorium, rawat inap, dsb).
+
 ## 🎉 MILESTONE — paket `rab` TUNTAS 100% (5 Sep 2026, akhir batch 99) — domain KEDELAPAN tuntas
 
 Diverifikasi: **46/46 file** `ais/database/model/rab/` kini punya
