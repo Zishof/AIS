@@ -1,5 +1,57 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 105 — SELESAI 100% (5 Sep 2026) — PIVOT ke paket `library` (perpustakaan); 46 file; 5 task baru
+
+46 file selesai (batch pertama domain baru `library`, 86 file
+total). Semua dikompilasi bersih, WC mirror disinkron, `cmp`
+byte-identik.
+
+- **Klaster Item core** (4 file, r84768-r84790). `ItemTemporary`
+  DIKONFIRMASI cache Google Books API (bukan staging draft→final,
+  nol FK dua arah ke `Item`). **`ItemRevisi` entity dorman** —
+  mekanisme revisi digantikan Hibernate Envers sebelum sempat
+  dipakai. Perluasan gap Generic CRUD v2 (`task_7b6038ac`/
+  `task_90bbdd51`): `perpustakaan` TIDAK ADA di whitelist sama
+  sekali, `defaultSatuanKerja` ≠ `satuanKerja` (tak pernah jadi
+  pembatas), `GenericCrudAutoDefinitionFactory` TANPA blocklist —
+  fail-open, bukan fail-closed. **🚨 Task baru `task_792d4311`**:
+  `ItemTemporary` unduh gambar TANPA fix timeout yang sudah
+  diterapkan ke `Item` pasca-insiden 19-08-2026 — risiko pembekuan
+  desktop berulang.
+- **Klaster Anggota** (9 file, r84753-r84795). `JenisAnggota` vs
+  `TipeAnggota` DUA SUMBU ORTOGONAL (peran kelembagaan vs kelas
+  layanan) meski byte-identik strukturnya. Gerbang blokir anggota
+  DITEGAKKAN nyata di ZK+login, TAPI **🚨 task baru `task_354ad65f`**:
+  endpoint aplikasi desktop `PerpustakaanResource` TIDAK memeriksa
+  blokir sama sekali, DAN blokir login siswa GAGAL TERBUKA karena
+  nama properti salah ketik melempar exception yang ditelan jadi
+  "lolos".
+- **Klaster pengadaan bagian 1** (8 file, r84751-r84778).
+  `Penerimaan` (vendor) vs `Terima` (transfer antar-perpustakaan)
+  DIKONFIRMASI beda, bukan duplikasi. **Task baru `task_09e5223a`**:
+  konstanta salah (`SALDO_AWAL` dipakai, `TERIMA` tak pernah
+  dipakai) + pembatalan tak simetris (eksemplar katalog jadi hantu)
+  + dua granularitas buku besar berbeda tergantung tindakan terakhir
+  petugas.
+- **Klaster pengadaan bagian 2 + peminjaman** (16 file,
+  r84754-r84796). **KOREKSI dikonfirmasi**: `PeminjamanPengadaanItem`
+  adalah PEMINJAMAN BUKU (FK ke `Anggota`, nol FK ke `Penyedia`),
+  BUKAN pengadaan — "Pengadaan" murni warisan penamaan template.
+  Gerbang denda ditegakkan pada PERHITUNGAN, bukan pemblokiran
+  (tunggakan tak dicek saat pinjam baru — perluasan `task_354ad65f`).
+  Penjaga keseimbangan pengadaan TIDAK ADA di semua sub-klaster.
+  **2 task baru**: `task_90a07fac` (getter destruktif menulis 0 untuk
+  pembayaran denda SEBAGIAN — cicilan hilang), `task_a128e0a3` (NPE
+  layar rincian pengembalian + keputusan nasib cabang tarif mati).
+- **Klaster vendor/seleksi** (9 file, r84752-r84781). `SeleksiVendor`
+  ditegakkan nyata via `DisposisiSop`; `SurveyVendor.bolehLihatSemua`
+  flag mati tak pernah dikonsultasikan filter visibilitas. 0 task
+  baru untuk klaster ini.
+
+**5 task baru batch ini**: `task_792d4311`, `task_354ad65f`,
+`task_09e5223a`, `task_90a07fac`, `task_a128e0a3`. Sisa ~40 file
+`library` untuk batch berikutnya (katalog/klasifikasi, dsb).
+
 ## 🎉 MILESTONE — paket `sister` TUNTAS 100% (5 Sep 2026, akhir batch 104) — domain KESEPULUH tuntas
 
 Diverifikasi: **88/88 file** `ais/database/model/sister/` kini
