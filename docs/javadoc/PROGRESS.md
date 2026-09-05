@@ -1,5 +1,74 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `tenant` TUNTAS 100% (6 Sep 2026, akhir batch 111) — domain KEENAM BELAS tuntas, MODUL PALING KETAT KEAMANAN sepanjang inisiatif
+
+Diverifikasi: **16/16 file** `ais/database/model/tenant/` kini punya
+Javadoc substansial. Selesai dalam SATU batch (111, 3 agent `opus`
+paralel). Domain keenam belas yang tuntas penuh setelah `akunting`,
+`payroll`, `koperasi`, `inventory`, `employ`, `asset`, `surat`, `rab`,
+`sirs`, `sister`, `library`, `file`, `penelitiandanpengabdian`, `sosial`,
+`kursus`. Sistem PENDAFTARAN MANDIRI (self-service signup) yang
+memprovisikan TENANT BARU (institusi baru) lengkap dengan schema DB
+sendiri — permukaan serangan besar (endpoint publik yang bisa membuat
+resource baru di sistem), jadi 3 klaster diberi investigasi keamanan
+eksplisit di setiap brief.
+
+**Klaster registrasi & profil** (5 file, r84978-r84989).
+`PendaftaranTenant.java` (369→904 baris): endpoint `/pendaftaran`
+DIKONFIRMASI publik-anonim BY DESIGN, tapi ditahan 4 lapis server-side:
+CSRF per-sesi (`SecureRandom` 32B, constant-time), honeypot
+`website_hp`+elapsed-time terhadap `formInstanceId`, rate limiter
+(10/jam/IP, 5/jam/email, 5/jam/username), dan transaksi 1-blok dengan
+rollback total. Gerbang tahapan status TERVERIFIKASI SERVER-SIDE
+(kolom `status` TIDAK ADA di whitelist 37 parameter yang disalin dari
+klien; status baru selalu hardcode; setiap transisi memeriksa status
+TERSIMPAN) — **domain ini BUKAN instance ke-5 pola bypass-persetujuan
+UI-only**. Entitlement modul TIDAK dapat dimanipulasi pendaftar (union
+dibentuk dari join DB, klien cuma kirim id yang dimuat ulang & divalidasi).
+
+**Klaster infrastruktur provisioning, schema & domain** (6 file,
+r84977-r84991, PALING TEKNIS/SENSITIF). **`SchemaNameReservation`
+DIKONFIRMASI BUKAN SQL injection** — nama schema divalidasi regex ketat
+(`^[a-z][a-z0-9_]{2,30}$`) + daftar reserved words, dan validasi ITU
+DIPANGGIL ULANG di SETIAP titik yang menyisipkan nama ke SQL
+(`TenantSchemaService.pastikanAman` di 8+ titik terpisah:
+`buatSchema`/`schemaAda`/`terapkanMigrasi`/`verifikasiLengkap`/
+`TenantSchemaLocator`/`TenantDataPlaneService`/dst, identifier tetap
+dikutip ganda) — pertahanan BERLAPIS genuinely benar, bukan sekadar
+validasi sekali di hulu. `TenantDomain` matching DIKONFIRMASI LEBIH BAIK
+dari `task_beeb2833` — tidak ada pemetaan host→tenant substring sama
+sekali di paket ini (`TenantContextResolver` menuntut tenant eksplisit),
+`TenantDomain` sendiri saat ini write-only (kolom unique+lowercase,
+kesetaraan penuh untuk pemakaian mendatang). Provisioning TERVERIFIKASI
+fail-closed (registry `PROVISIONING` sampai step ke-16 `MARK_READY`,
+resolver hanya terima READY/ACTIVE, retry idempoten via
+`UNIQUE(job_id,step_code)`). **Task baru `task_e466576e`**: masa
+berlaku reservasi username/schema TIDAK PERNAH ditegakkan
+(`STATUS_EXPIRED` tak pernah di-assign, `expiresAt` tak pernah dibaca) —
+form publik tanpa login bisa mengunci namespace itu SELAMANYA
+(kategori ketersediaan/namespace-squatting, bukan kebocoran data).
+Perluasan gap tercatat: `TenantModuleEntitlement` tidak dikenal
+whitelist `scopeBindings()` — instance lain `task_7b6038ac`/`task_90bbdd51`.
+
+**Klaster verifikasi, audit, consent & kredensial** (5 file,
+r84976-r84989, agent penutup). **`RegistrationCredentialDelivery`
+DIKONFIRMASI TIDAK menyimpan password sama sekali** — entity TIDUR (nol
+field password, nol pemanggil produksi); alur nyata: pendaftar pilih
+password sendiri, langsung di-hash `PasswordHashService.hash()`
+(PBKDF2-HMAC-SHA256, 120.000 iterasi, salt 32B `SecureRandom`) — counter-
+example EKSPLISIT terhadap pola plaintext password yang tercatat luas di
+domain lain (`ResetPasswordGuruSiswaHelper`/`PenyediaAssetAction`/
+`GuruAction`/`MahasiswaAction`). Token email verifikasi: `SecureRandom`
+256-bit, DB cuma simpan SHA-256-nya, kedaluwarsa ditegakkan (48 jam),
+sekali pakai, rate-limited PER-IP DAN PER-KODE (mencegah email-bombing
+lintas IP). Isi `PendaftaranAuditEvent` diverifikasi BERSIH — nol
+password/hash/token mentah di titik penulisan mana pun, IP di-hash
+SHA-256. `TenantMembership` resolver fail-closed (wajib `STATUS_ACTIVE`
+DAN rentang tanggal valid).
+
+**1 task baru batch 111**: `task_e466576e`. Total akumulasi 111 sesi:
+**1331+ file** dari 7.401 (~34,0%).
+
 ## 🎉 MILESTONE — paket `kursus` TUNTAS 100% (6 Sep 2026, akhir batch 110) — domain KELIMA BELAS tuntas, sistem LMS/e-learning penuh
 
 Diverifikasi: **22/22 file** `ais/database/model/kursus/` kini punya
