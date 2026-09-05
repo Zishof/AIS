@@ -221,6 +221,14 @@ public final class SalesInventoryHargaHelper {
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", h.getId());
+		} catch (org.hibernate.exception.ConstraintViolationException eDup) {
+			// Rem terakhir thd race TOCTOU pada cek dobel di atas (lihat
+			// webapp/sql/migrasi_koperasi_harga_unik_20260905.sql, index
+			// uq_koperasi_harga_beli_supplier): dua request simpan yang benar-benar bersamaan
+			// bisa sama-sama lolos cek COUNT(*) sebelum salah satu sempat commit. Yang kalah
+			// menabrak UNIQUE INDEX di sini -- ditolak bersih dgn pesan yang sama, bukan error 500.
+			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
+			tolak(hasil, "Sudah ada versi harga supplier-produk ini pada tanggal efektif yang sama (overlap ditolak).");
 		} catch (Exception e) {
 			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
 			throw e;
@@ -401,6 +409,15 @@ public final class SalesInventoryHargaHelper {
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", h.getId());
+		} catch (org.hibernate.exception.ConstraintViolationException eDup) {
+			// Rem terakhir thd race TOCTOU pada cek dobel di atas (lihat
+			// webapp/sql/migrasi_koperasi_harga_unik_20260905.sql, index
+			// uq_koperasi_harga_jual_umum/uq_koperasi_harga_jual_customer): dua request simpan
+			// yang benar-benar bersamaan bisa sama-sama lolos cek COUNT(*) sebelum salah satu
+			// sempat commit. Yang kalah menabrak UNIQUE INDEX di sini -- ditolak bersih dgn
+			// pesan yang sama, bukan error 500.
+			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
+			tolak(hasil, "Sudah ada versi harga customer-produk ini pada tanggal efektif yang sama (overlap ditolak).");
 		} catch (Exception e) {
 			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
 			throw e;

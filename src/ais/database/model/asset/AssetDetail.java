@@ -275,16 +275,18 @@ public class AssetDetail extends GeneralValueObject {
 	/**
 	 * Tahun perolehan, dipakai pengaturan ulang nomor urut per tahun.
 	 *
-	 * <p><b>Perhatian:</b> lihat {@link #getTahun()} -- field ini tidak pernah terisi otomatis
-	 * karena penjaga di getter-nya terbalik.</p>
+	 * <p><b>Riwayat:</b> sebelum diperbaiki, penjaga di {@link #getTahun()} terbalik sehingga
+	 * field ini tidak pernah terisi otomatis; sudah dibetulkan agar memeriksa field ini sendiri,
+	 * mengikuti pola {@code PerbaikanAsset}.</p>
 	 */
 	private Integer tahun;
 
 	/**
 	 * Bulan perolehan, dipakai pengaturan ulang nomor urut per bulan.
 	 *
-	 * <p><b>Perhatian:</b> lihat {@link #getBulan()} -- field ini tidak pernah terisi otomatis
-	 * karena penjaga di getter-nya terbalik.</p>
+	 * <p><b>Riwayat:</b> sebelum diperbaiki, penjaga di {@link #getBulan()} terbalik sehingga
+	 * field ini tidak pernah terisi otomatis; sudah dibetulkan agar memeriksa field ini sendiri,
+	 * mengikuti pola {@code PerbaikanAsset}.</p>
 	 */
 	private Integer bulan;
 
@@ -779,10 +781,11 @@ public class AssetDetail extends GeneralValueObject {
 	 * periode penyusutan dengan menggeser {@code tanggalBeli} sebanyak {@code tahunKe} bulan,
 	 * sehingga jadwal penyusutan unit semacam itu ikut bergeser tiap kali dibuka.</p>
 	 *
-	 * <p>Kedua -- dan inilah yang menjelaskan cacat pada {@link #getTahun()} dan
-	 * {@link #getBulan()} -- karena getter ini TIDAK PERNAH mengembalikan {@code null},
-	 * penjaga {@code if (getTanggalBeli() == null)} pada kedua getter tersebut tidak akan pernah
-	 * benar. Lihat catatan lengkapnya di sana.</p>
+	 * <p>Kedua, karena getter ini TIDAK PERNAH mengembalikan {@code null}, {@link #getTahun()} dan
+	 * {@link #getBulan()} tidak boleh memeriksa {@code getTanggalBeli() == null} sebagai penjaga
+	 * pengisian pertama kali -- penjaga semacam itu tidak akan pernah benar. Keduanya memeriksa
+	 * field lokalnya sendiri ({@code tahun}/{@code bulan}) sebagai gantinya; lihat catatan riwayat
+	 * di sana.</p>
 	 *
 	 * @return tanggal perolehan hasil penurunan, nilai tersimpan, atau waktu sekarang sebagai
 	 *         cadangan; tidak pernah {@code null}
@@ -1202,23 +1205,22 @@ public class AssetDetail extends GeneralValueObject {
 	 * nomor urut berikutnya. Jumlah {@code null} diperlakukan sebagai nol, sehingga nomor
 	 * pertama selalu {@code 1}.</p>
 	 *
-	 * <h3>Cacat yang perlu diketahui: pembatas tahun dan bulan tidak pernah cocok</h3>
+	 * <h3>Riwayat: pembatas tahun dan bulan sempat tidak pernah cocok</h3>
 	 *
 	 * <p>Pembatas nomor 2 dan 3 di atas menyaring pada properti {@code tahun} dan {@code bulan}
-	 * milik {@code AssetDetail}. Kedua kolom itu TIDAK PERNAH TERISI: satu-satunya kode yang
-	 * seharusnya mengisinya adalah {@link #getTahun()} dan {@link #getBulan()}, dan penjaga di
-	 * kedua getter tersebut terbalik sehingga badannya mustahil dieksekusi (lihat penjelasan di
-	 * sana), sementara tidak ada satu pun tempat lain di basis kode yang memanggil
-	 * {@link #setTahun(Integer)} atau {@link #setBulan(Integer)} untuk entitas ini. Akibatnya,
-	 * pada templat yang mengaktifkan reset per tahun atau per bulan, pembatas
-	 * {@code eq("tahun", ...)} tidak pernah cocok dengan baris mana pun, hitungan selalu nol,
-	 * dan metode ini selalu mengembalikan {@code 1}. Setiap unit baru akan memperoleh nomor
-	 * yang SAMA. Templat yang tidak mengaktifkan reset per tahun/bulan tidak terpengaruh.</p>
-	 *
-	 * <p>Perbandingan yang berguna: entitas sekerabat seperti {@code PerbaikanAsset} memakai
-	 * penjaga yang benar ({@code if (tahun == null)}) sehingga kolom tahun/bulannya terisi
-	 * normal. Perbedaan itu menegaskan bahwa yang salah adalah penjaga di kelas ini, bukan
-	 * rancangan penomorannya.</p>
+	 * milik {@code AssetDetail}. Sebelum diperbaiki, kedua kolom itu TIDAK PERNAH TERISI: penjaga
+	 * di {@link #getTahun()} dan {@link #getBulan()} keliru memeriksa {@code getTanggalBeli() ==
+	 * null} (yang mustahil benar) alih-alih field lokalnya sendiri, sementara tidak ada satu pun
+	 * tempat lain di basis kode yang memanggil {@link #setTahun(Integer)} atau
+	 * {@link #setBulan(Integer)} untuk entitas ini. Akibatnya, pada templat yang mengaktifkan
+	 * reset per tahun atau per bulan, pembatas {@code eq("tahun", ...)} tidak pernah cocok dengan
+	 * baris mana pun, hitungan selalu nol, dan metode ini selalu mengembalikan {@code 1} --
+	 * setiap unit baru memperoleh nomor yang SAMA. Kedua getter kini memeriksa field lokalnya
+	 * ({@code tahun == null} / {@code bulan == null}), mengikuti pola {@code PerbaikanAsset} yang
+	 * sejak awal benar, sehingga kolomnya terisi begitu unit pertama kali dibaca setelah
+	 * disimpan. Baris yang tersimpan SEBELUM perbaikan ini tetap punya {@code tahun}/{@code bulan}
+	 * {@code null} sampai baris itu sendiri diakses ulang -- lihat catatan audit data historis
+	 * yang perlu dijalankan terpisah.</p>
 	 *
 	 * <h3>Sifat lain</h3>
 	 *
@@ -1277,8 +1279,9 @@ public class AssetDetail extends GeneralValueObject {
 	/**
 	 * Menetapkan bulan perolehan unit.
 	 *
-	 * <p>Tidak ada satu pun tempat di basis kode yang memanggil setter ini untuk entitas
-	 * {@code AssetDetail}; lihat {@link #getBulan()}.</p>
+	 * <p>Tidak ada satu pun tempat di basis kode yang memanggil setter ini secara langsung untuk
+	 * entitas {@code AssetDetail} -- kolom ini diisi otomatis lewat {@link #getBulan()} sendiri
+	 * (akses PROPERTI Hibernate menulis balik hasil hitungannya).</p>
 	 *
 	 * @param bulan bulan perolehan (1--12)
 	 */
@@ -1287,30 +1290,31 @@ public class AssetDetail extends GeneralValueObject {
 	}
 
 	/**
-	 * Bulan perolehan unit -- <b>penjaga terbalik, badan metode tidak pernah dieksekusi.</b>
+	 * Bulan perolehan unit -- getter DESTRUKTIF yang MENURUNKAN bulan dari
+	 * {@link #getTanggalBeli()} bila belum terisi.
 	 *
-	 * <p>Maksud metode ini jelas dari isinya: menurunkan bulan dari {@link #getTanggalBeli()}
-	 * bila belum terisi. Namun penjaganya berbunyi {@code if (getTanggalBeli() == null)}, padahal
-	 * niat yang wajar adalah {@code if (bulan == null)} -- bandingkan dengan entitas sekerabat
-	 * {@code PerbaikanAsset} yang memakai bentuk benar tersebut.</p>
+	 * <p>Penjaga memeriksa field lokal ({@code bulan == null}), mengikuti pola benar yang sudah
+	 * lama dipakai entitas sekerabat {@code PerbaikanAsset}. Terisi hanya SEKALI, pada pembacaan
+	 * pertama sesudah baris tersimpan tanpa nilai {@code bulan}; karena entitas ini memakai akses
+	 * PROPERTI, nilai hasil hitungan itu tertulis permanen ke kolom {@code bulan} pada flush
+	 * berikutnya, sehingga panggilan berikutnya tidak lagi menghitung ulang meski
+	 * {@link #getTanggalBeli()} sendiri berubah.</p>
 	 *
-	 * <p>Penjaga itu bahkan tidak sekadar salah arah, melainkan MUSTAHIL benar:
-	 * {@link #getTanggalBeli()} berakhir dengan {@code tanggalBeli == null ? WaktuUtil.getDate()
-	 * : tanggalBeli}, sehingga ia tidak pernah mengembalikan {@code null}. Andaikata penjaga itu
-	 * suatu saat menjadi benar, baris berikutnya ({@code calendar.setTime(getTanggalBeli())})
-	 * justru akan melempar {@code NullPointerException} karena memanggil ulang getter yang baru
-	 * saja dianggap {@code null}. Dengan kata lain, badan metode ini adalah kode mati.</p>
+	 * <p><b>Riwayat.</b> Sebelum diperbaiki, penjaganya keliru berbunyi
+	 * {@code if (getTanggalBeli() == null)} -- padahal {@link #getTanggalBeli()} tidak pernah
+	 * mengembalikan {@code null}, sehingga badan metode ini tidak pernah dieksekusi dan kolom
+	 * {@code bulan} tetap kosong selamanya. Akibatnya, pembatas {@code eq("bulan", ...)} di
+	 * {@link #getindex(NomorSurat)} tidak pernah cocok, dan templat nomor surat yang mengaktifkan
+	 * reset urutan tiap bulan selalu menghasilkan nomor {@code 1} untuk setiap unit baru --
+	 * barcode unit menjadi kembar. Baris yang tersimpan sebelum perbaikan ini masih menyimpan
+	 * {@code bulan = null} sampai baris itu sendiri dibaca ulang; lihat catatan audit data
+	 * historis yang perlu dijalankan terpisah.</p>
 	 *
-	 * <p><b>Akibat nyata.</b> Kolom {@code bulan} pada tabel {@code asset.asset_detail} tetap
-	 * kosong selamanya, dan pembatas {@code eq("bulan", ...)} di {@link #getindex(NomorSurat)}
-	 * tidak pernah cocok. Templat nomor surat yang mengaktifkan reset urutan tiap bulan karena
-	 * itu selalu menghasilkan nomor {@code 1}, sehingga barcode unit menjadi kembar. Catatan ini
-	 * sengaja dituliskan agar pembaca berikutnya tidak menyangka kolom ini memang tidak dipakai.</p>
-	 *
-	 * @return nilai {@code bulan} yang tersimpan apa adanya -- praktis selalu {@code null}
+	 * @return bulan perolehan (1--12); tidak pernah {@code null} karena getter ini sendiri yang
+	 *         mengisinya bila kosong
 	 */
 	public Integer getBulan() {
-		if (getTanggalBeli() == null) {
+		if (bulan == null) {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 			calendar.setTime(getTanggalBeli());
 			bulan = calendar.get(Calendar.MONTH) + 1;
@@ -1321,8 +1325,9 @@ public class AssetDetail extends GeneralValueObject {
 	/**
 	 * Menetapkan tahun perolehan unit.
 	 *
-	 * <p>Tidak ada satu pun tempat di basis kode yang memanggil setter ini untuk entitas
-	 * {@code AssetDetail}; lihat {@link #getTahun()}.</p>
+	 * <p>Tidak ada satu pun tempat di basis kode yang memanggil setter ini secara langsung untuk
+	 * entitas {@code AssetDetail} -- kolom ini diisi otomatis lewat {@link #getTahun()} sendiri
+	 * (akses PROPERTI Hibernate menulis balik hasil hitungannya).</p>
 	 *
 	 * @param tahun tahun perolehan
 	 */
@@ -1331,18 +1336,23 @@ public class AssetDetail extends GeneralValueObject {
 	}
 
 	/**
-	 * Tahun perolehan unit -- <b>penjaga terbalik, badan metode tidak pernah dieksekusi.</b>
+	 * Tahun perolehan unit -- getter DESTRUKTIF yang MENURUNKAN tahun dari
+	 * {@link #getTanggalBeli()} bila belum terisi. Persis sekasus dengan {@link #getBulan()},
+	 * termasuk soal penjaga field lokal dan penulisan permanen pada flush berikutnya; lihat
+	 * penjelasan lengkap di sana.
 	 *
-	 * <p>Persis sekasus dengan {@link #getBulan()}: penjaga {@code if (getTanggalBeli() == null)}
-	 * mustahil benar karena {@link #getTanggalBeli()} selalu mengembalikan nilai, dan seandainya
-	 * benar pun baris di dalamnya akan melempar {@code NullPointerException}. Kolom {@code tahun}
-	 * karena itu tetap kosong selamanya, membuat pembatas reset urutan tiap tahun dan tiap bulan
-	 * pada {@link #getindex(NomorSurat)} tidak pernah cocok dengan baris mana pun.</p>
+	 * <p><b>Riwayat.</b> Sebelum diperbaiki, penjaganya sama kelirunya dengan
+	 * {@link #getBulan()} ({@code if (getTanggalBeli() == null)}, mustahil benar), sehingga kolom
+	 * {@code tahun} tetap kosong selamanya dan pembatas reset urutan tiap tahun maupun tiap bulan
+	 * pada {@link #getindex(NomorSurat)} tidak pernah cocok dengan baris mana pun -- lihat catatan
+	 * audit data historis yang perlu dijalankan terpisah untuk baris yang tersimpan sebelum
+	 * perbaikan ini.</p>
 	 *
-	 * @return nilai {@code tahun} yang tersimpan apa adanya -- praktis selalu {@code null}
+	 * @return tahun perolehan; tidak pernah {@code null} karena getter ini sendiri yang mengisinya
+	 *         bila kosong
 	 */
 	public Integer getTahun() {
-		if (getTanggalBeli() == null) {
+		if (tahun == null) {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 			calendar.setTime(getTanggalBeli());
 			tahun = calendar.get(Calendar.YEAR);
