@@ -120,10 +120,23 @@ public class ProfilRisikoSPI extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * Mengambil ID pengguna yang terakhir mengubah baris ini. Field SHADOW dari riwayat Envers
+	 * ({@code @Audited} pada kelas ini) &mdash; KEHARUSAN TEKNIS untuk menampilkan "terakhir diubah
+	 * oleh siapa" secara murah di layar daftar tanpa query terpisah ke tabel riwayat revisi.
+	 *
+	 * @return ID pengguna terakhir yang mengubah baris ini, atau {@code null} bila belum diisi.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi ID pengguna yang mengubah baris ini; nilai kosong/blank sengaja diabaikan agar
+	 * tidak menimpa jejak yang sudah tercatat.
+	 *
+	 * @param olehId ID pengguna; {@code null} atau string kosong/spasi diabaikan.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -131,6 +144,11 @@ public class ProfilRisikoSPI extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Mengisi nama pengguna yang mengubah baris ini; nilai kosong/blank sengaja diabaikan.
+	 *
+	 * @param oleh nama pengguna; {@code null} atau string kosong/spasi diabaikan.
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -138,10 +156,20 @@ public class ProfilRisikoSPI extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengambil nama pengguna yang terakhir mengubah baris ini.
+	 *
+	 * @return nama pengguna terakhir yang mengubah baris ini, atau {@code null} bila belum diisi.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}, dipanggil otomatis Hibernate sebelum UPDATE, mendelegasikan
+	 * ke {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)} untuk menyegarkan
+	 * {@link #getTanggal_dirubah()} secara otomatis, tanpa kode aplikasi perlu mengelolanya manual.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
@@ -149,15 +177,33 @@ public class ProfilRisikoSPI extends GeneralValueObject {
 
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Mengisi manual waktu terakhir baris ini diubah; dalam praktiknya disegarkan otomatis lewat
+	 * {@link #onUpdate()} pada tiap UPDATE.
+	 *
+	 * @param tanggal_dirubah waktu perubahan terakhir.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengambil waktu terakhir baris ini diubah.
+	 *
+	 * @return waktu perubahan terakhir baris ini.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks singkat baris profil risiko ini untuk log/debug, format
+	 * {@code "<nama unit> - <tahun> (<zona risiko>)"}, mis. "Fakultas Teknik - 2026 (Tinggi)".
+	 *
+	 * @return string gabungan nama unit kerja, tahun penilaian, dan zona risiko hasil hitung
+	 *         {@link #getZonaRisiko()}; "-" bila unit kerja atau namanya belum diisi.
+	 */
 	public String toString() {
 		return (satuanKerja == null || satuanKerja.getNama() == null ? "-" : satuanKerja.getNama())
 				+ " - " + tahun + " (" + getZonaRisiko() + ")";
@@ -173,9 +219,15 @@ public class ProfilRisikoSPI extends GeneralValueObject {
 	private String catatan;
 	private Boolean aktif;
 
+	/** Konstruktor tanpa argumen, wajib ada agar Hibernate dapat menginstansiasi entity ini. */
 	public ProfilRisikoSPI() {
 	}
 
+	/**
+	 * ID primer baris ini, di-generate otomatis oleh database (strategi {@code IDENTITY}).
+	 *
+	 * @return ID unik baris ini, atau {@code null} bila entity belum pernah disimpan.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -183,10 +235,23 @@ public class ProfilRisikoSPI extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi ID baris ini secara manual, terutama saat membangun objek referensi ringan untuk
+	 * relasi {@code JoinColumn} tanpa memuat seluruh baris dari database.
+	 *
+	 * @param id ID baris yang akan diisi.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Unit kerja yang dinilai risikonya pada baris ini &mdash; lihat javadoc kelas bagian
+	 * "Mengapa memakai SatuanKerja" untuk alasan lengkap memakai entity unit organisasi generik
+	 * ini alih-alih tabel unit baru khusus SPI. Relasi wajib ({@code nullable = false}).
+	 *
+	 * @return unit kerja yang dinilai pada baris profil risiko ini.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = false)
 	public SatuanKerja getSatuanKerja() {
@@ -194,77 +259,190 @@ public class ProfilRisikoSPI extends GeneralValueObject {
 		return satuanKerja;
 	}
 
+	/**
+	 * Mengaitkan baris penilaian risiko ini ke satu unit kerja.
+	 *
+	 * @param satuanKerja unit kerja baru yang dinilai.
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Tahun penilaian risiko ini dilakukan &mdash; lihat javadoc kelas bagian "Satu baris per unit
+	 * per tahun": penilaian bersifat periodik, sehingga satu unit kerja bisa punya banyak baris
+	 * profil risiko untuk tahun-tahun berbeda sebagai jejak historis tren risikonya.
+	 *
+	 * @return tahun penilaian risiko.
+	 */
 	@Column(name = "tahun", nullable = false)
 	public Integer getTahun() {
 		return tahun;
 	}
 
+	/**
+	 * Mengisi tahun penilaian risiko ini.
+	 *
+	 * @param tahun tahun baru.
+	 */
 	public void setTahun(Integer tahun) {
 		this.tahun = tahun;
 	}
 
+	/**
+	 * Skor komponen "materialitas" (1&ndash;5) &mdash; seberapa besar nilai keuangan/anggaran yang
+	 * dikelola unit ini, lihat javadoc kelas bagian "Lima komponen skor risiko". Default 1
+	 * (terendah) bila belum diisi, KONSISTEN dengan keempat skor komponen lain di kelas ini agar
+	 * unit yang belum dinilai sama sekali tidak keliru tampil di zona risiko tinggi.
+	 *
+	 * @return skor materialitas (1&ndash;5); 1 bila nilai tersimpan {@code null}.
+	 */
 	@Column(name = "skor_materialitas", nullable = false)
 	public Integer getSkorMaterialitas() {
 		return skorMaterialitas == null ? 1 : skorMaterialitas;
 	}
 
+	/**
+	 * Mengisi skor komponen materialitas (idealnya 1&ndash;5, tidak divalidasi/dibatasi di level
+	 * entity ini &mdash; validasi rentang sepenuhnya tanggung jawab layar input).
+	 *
+	 * @param skorMaterialitas skor materialitas baru.
+	 */
 	public void setSkorMaterialitas(Integer skorMaterialitas) {
 		this.skorMaterialitas = skorMaterialitas;
 	}
 
+	/**
+	 * Skor komponen "dampak operasional" (1&ndash;5) &mdash; seberapa besar dampak ke operasional
+	 * lembaga secara keseluruhan bila unit ini bermasalah, lihat javadoc kelas. Default 1 bila
+	 * belum diisi.
+	 *
+	 * @return skor dampak operasional (1&ndash;5); 1 bila nilai tersimpan {@code null}.
+	 */
 	@Column(name = "skor_dampak_operasional", nullable = false)
 	public Integer getSkorDampakOperasional() {
 		return skorDampakOperasional == null ? 1 : skorDampakOperasional;
 	}
 
+	/**
+	 * Mengisi skor komponen dampak operasional (idealnya 1&ndash;5).
+	 *
+	 * @param skorDampakOperasional skor dampak operasional baru.
+	 */
 	public void setSkorDampakOperasional(Integer skorDampakOperasional) {
 		this.skorDampakOperasional = skorDampakOperasional;
 	}
 
+	/**
+	 * Skor komponen "kualitas pengendalian" (1&ndash;5) &mdash; PENTING: arah skala ini TERBALIK
+	 * dari intuisi biasa, lihat javadoc kelas bagian "Lima komponen skor risiko": SEMAKIN LEMAH
+	 * pengendalian internal unit ini (SDM kurang, SOP tidak berjalan, pemisahan tugas lemah),
+	 * SEMAKIN TINGGI skornya (semakin berisiko) &mdash; bukan semakin tinggi kualitas pengendalian.
+	 * Default 1 bila belum diisi.
+	 *
+	 * @return skor kualitas pengendalian (1&ndash;5, makin tinggi makin LEMAH pengendaliannya);
+	 *         1 bila nilai tersimpan {@code null}.
+	 */
 	@Column(name = "skor_kualitas_pengendalian", nullable = false)
 	public Integer getSkorKualitasPengendalian() {
 		return skorKualitasPengendalian == null ? 1 : skorKualitasPengendalian;
 	}
 
+	/**
+	 * Mengisi skor komponen kualitas pengendalian (idealnya 1&ndash;5, ingat arah skalanya
+	 * terbalik &mdash; lihat {@link #getSkorKualitasPengendalian()}).
+	 *
+	 * @param skorKualitasPengendalian skor kualitas pengendalian baru.
+	 */
 	public void setSkorKualitasPengendalian(Integer skorKualitasPengendalian) {
 		this.skorKualitasPengendalian = skorKualitasPengendalian;
 	}
 
+	/**
+	 * Skor komponen "temuan sebelumnya" (1&ndash;5) &mdash; seberapa banyak/berat temuan audit
+	 * pada pemeriksaan-pemeriksaan sebelumnya di unit ini, lihat javadoc kelas. CATATAN: skor ini
+	 * TIDAK dihitung otomatis dari riwayat {@link TemuanAuditSPI} yang benar-benar tersimpan
+	 * &mdash; nilainya diisi manual oleh staf SPI berdasarkan penilaian kualitatif terhadap
+	 * riwayat temuan, bukan agregasi query otomatis. Default 1 bila belum diisi.
+	 *
+	 * @return skor temuan sebelumnya (1&ndash;5); 1 bila nilai tersimpan {@code null}.
+	 */
 	@Column(name = "skor_temuan_sebelumnya", nullable = false)
 	public Integer getSkorTemuanSebelumnya() {
 		return skorTemuanSebelumnya == null ? 1 : skorTemuanSebelumnya;
 	}
 
+	/**
+	 * Mengisi skor komponen temuan sebelumnya (idealnya 1&ndash;5).
+	 *
+	 * @param skorTemuanSebelumnya skor temuan sebelumnya baru.
+	 */
 	public void setSkorTemuanSebelumnya(Integer skorTemuanSebelumnya) {
 		this.skorTemuanSebelumnya = skorTemuanSebelumnya;
 	}
 
+	/**
+	 * Skor komponen "lama tidak diaudit" (1&ndash;5) &mdash; semakin lama sejak unit ini terakhir
+	 * diaudit, semakin tinggi skornya, lihat javadoc kelas. Sama seperti
+	 * {@link #getSkorTemuanSebelumnya()}, skor ini diisi manual, TIDAK dihitung otomatis dari
+	 * selisih tanggal terhadap riwayat {@link PenugasanAuditSPI} yang sudah pernah dilaksanakan di
+	 * unit ini. Default 1 bila belum diisi.
+	 *
+	 * @return skor lama tidak diaudit (1&ndash;5); 1 bila nilai tersimpan {@code null}.
+	 */
 	@Column(name = "skor_lama_tidak_diaudit", nullable = false)
 	public Integer getSkorLamaTidakDiaudit() {
 		return skorLamaTidakDiaudit == null ? 1 : skorLamaTidakDiaudit;
 	}
 
+	/**
+	 * Mengisi skor komponen lama tidak diaudit (idealnya 1&ndash;5).
+	 *
+	 * @param skorLamaTidakDiaudit skor lama tidak diaudit baru.
+	 */
 	public void setSkorLamaTidakDiaudit(Integer skorLamaTidakDiaudit) {
 		this.skorLamaTidakDiaudit = skorLamaTidakDiaudit;
 	}
 
+	/**
+	 * Catatan bebas tambahan mengenai penilaian risiko baris ini, mis. justifikasi kualitatif di
+	 * balik skor-skor yang diberikan, atau perubahan signifikan sejak penilaian tahun sebelumnya.
+	 *
+	 * @return teks catatan, atau {@code null} bila tidak diisi.
+	 */
 	@Column(name = "catatan", nullable = true, columnDefinition = "text")
 	public String getCatatan() {
 		return catatan;
 	}
 
+	/**
+	 * Mengisi catatan bebas untuk baris penilaian risiko ini.
+	 *
+	 * @param catatan teks catatan baru.
+	 */
 	public void setCatatan(String catatan) {
 		this.catatan = catatan;
 	}
 
+	/**
+	 * Status aktif/nonaktif baris ini; nilai {@code null} SENGAJA diperlakukan sebagai
+	 * {@code true} (aktif) demi kompatibilitas data lama &mdash; konvensi baku entity "data
+	 * master sederhana" di aplikasi ini.
+	 *
+	 * @return {@code true} bila baris profil risiko ini aktif (termasuk saat nilai tersimpan
+	 *         {@code null}).
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Mengubah status aktif/nonaktif baris profil risiko ini. Menonaktifkan (bukan menghapus)
+	 * menjaga integritas referensial baris {@link RencanaAuditTahunanSPI} yang sudah pernah
+	 * mengacu ke sini lewat {@link RencanaAuditTahunanSPI#getProfilRisikoSPI()}.
+	 *
+	 * @param aktif status baru; {@code null} diperlakukan sebagai aktif oleh {@link #getAktif()}.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
