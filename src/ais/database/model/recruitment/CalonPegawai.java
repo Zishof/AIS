@@ -2497,46 +2497,163 @@ public class CalonPegawai extends GeneralValueObject {
 		this.tanggalPendaftaran = tanggalPendaftaran;
 	}
 
+	/**
+	 * Mengembalikan nama dusun pada alamat pelamar apa adanya, sebagai teks bebas (bukan relasi
+	 * ke tabel wilayah).
+	 *
+	 * <p>
+	 * Bersama {@link #getRt()}, {@link #getRw()}, dan {@link #getKelurahanCalon()}, properti ini
+	 * melengkapi bagian alamat yang tidak tercakup hierarki {@link Wilayah}. Tanpa
+	 * {@code @Column}, sehingga nama kolomnya mengikuti nama properti.
+	 * </p>
+	 *
+	 * @return nama dusun, atau {@code null} bila belum diisi
+	 */
 	public String getDusunCalon() {
 		return dusunCalon;
 	}
 
+	/**
+	 * Menyetel nama dusun pada alamat pelamar.
+	 *
+	 * @param dusunCalon nama dusun sebagai teks bebas
+	 */
 	public void setDusunCalon(String dusunCalon) {
 		this.dusunCalon = dusunCalon;
 	}
 
+	/**
+	 * Mengembalikan nomor RT pada alamat pelamar apa adanya.
+	 *
+	 * <p>
+	 * Sengaja bertipe {@link String}, bukan angka, agar nomor berawalan nol (mis. {@code "003"})
+	 * tidak kehilangan digit depannya. Konsekuensinya tidak ada validasi bahwa isinya benar-benar
+	 * angka, dan tidak ada pengurutan numerik yang benar bila dipakai dalam kueri terurut.
+	 * </p>
+	 *
+	 * @return nomor RT sebagai teks, atau {@code null} bila belum diisi
+	 */
 	public String getRt() {
 		return rt;
 	}
 
+	/**
+	 * Menyetel nomor RT pada alamat pelamar.
+	 *
+	 * @param rt nomor RT sebagai teks
+	 */
 	public void setRt(String rt) {
 		this.rt = rt;
 	}
 
+	/**
+	 * Mengembalikan nomor RW pada alamat pelamar apa adanya. Alasan pemilihan tipe {@link String}
+	 * sama dengan {@link #getRt()}.
+	 *
+	 * @return nomor RW sebagai teks, atau {@code null} bila belum diisi
+	 */
 	public String getRw() {
 		return rw;
 	}
 
+	/**
+	 * Menyetel nomor RW pada alamat pelamar.
+	 *
+	 * @param rw nomor RW sebagai teks
+	 */
 	public void setRw(String rw) {
 		this.rw = rw;
 	}
 
+	/**
+	 * Mengembalikan kode pos pada alamat pelamar, dengan {@code null} dinormalkan menjadi string
+	 * kosong pada nilai kembalian saja (field tidak ditugaskan ulang).
+	 *
+	 * <p>
+	 * Bertipe teks dengan alasan yang sama seperti {@link #getRt()}; tidak ada validasi panjang
+	 * lima digit maupun pencocokan dengan {@link #getKecamatanCalon()}.
+	 * </p>
+	 *
+	 * @return kode pos, atau string kosong (tidak pernah {@code null})
+	 */
 	public String getKodePos() {
 		return kodePos == null ? "" : kodePos;
 	}
 
+	/**
+	 * Menyetel kode pos pada alamat pelamar.
+	 *
+	 * @param kodePos kode pos sebagai teks
+	 */
 	public void setKodePos(String kodePos) {
 		this.kodePos = kodePos;
 	}
 
+	/**
+	 * Mengembalikan nama kelurahan/desa pada alamat pelamar apa adanya, sebagai teks bebas.
+	 *
+	 * <p>
+	 * Perhatikan ketidakkonsistenan tingkat pemodelan alamat di kelas ini: kecamatan, kota, dan
+	 * propinsi disimpan sebagai RELASI ke tabel referensi, sedangkan kelurahan dan dusun sebagai
+	 * TEKS BEBAS. Akibatnya alamat pelamar tidak bisa ditelusuri secara terstruktur sampai
+	 * tingkat kelurahan, dan nama kelurahan yang sama akan muncul dalam banyak ejaan.
+	 * </p>
+	 *
+	 * @return nama kelurahan/desa, atau {@code null} bila belum diisi
+	 */
 	public String getKelurahanCalon() {
 		return kelurahanCalon;
 	}
 
+	/**
+	 * Menyetel nama kelurahan/desa pada alamat pelamar.
+	 *
+	 * @param kelurahanCalon nama kelurahan sebagai teks bebas
+	 */
 	public void setKelurahanCalon(String kelurahanCalon) {
 		this.kelurahanCalon = kelurahanCalon;
 	}
 
+	/**
+	 * Mengembalikan kecamatan alamat pelamar, dengan <b>koreksi otomatis</b> bila baris wilayah
+	 * yang tertaut ternyata tidak punya induk.
+	 *
+	 * <p>
+	 * <b>Dua efek samping berlapis.</b> Pertama, nilai dilewatkan {@code check(...)} milik
+	 * {@link GeneralValueObject} untuk meredam {@code LazyInitializationException} pada relasi
+	 * {@code LAZY} — dan {@code check} bisa mengembalikan {@code null}, yang lalu ditugaskan
+	 * kembali ke field. Kedua, bila hasilnya bukan {@code null} tetapi
+	 * {@code getWilayahInduk()}-nya {@code null}, getter menelusuri SELURUH cache wilayah
+	 * ({@code ConstantValues.ambilBerdasarClass(Wilayah.class)}) mencari baris lain dengan kode
+	 * {@code feeder} yang SAMA tetapi punya induk, lalu MENGGANTI relasi kecamatan dengan baris
+	 * temuan itu.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Mengapa koreksi ini ada.</b> Impor data wilayah PDDIKTI/Feeder berjalan dua lintasan:
+	 * lintasan pertama membuat baris wilayah tanpa induk, lintasan kedua mengisi relasi induknya.
+	 * Bila impor terputus, tersisa baris "yatim" berkode {@code feeder} sama dengan baris yang
+	 * benar. Getter ini menambal keadaan itu pada saat pembacaan.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Risikonya.</b> Penambalan dilakukan dengan menugaskan ke field, sehingga — lewat
+	 * property access Hibernate — penggantian relasi ini benar-benar tersimpan ke database pada
+	 * {@code flush} berikutnya, tanpa persetujuan siapa pun dan tanpa jejak selain tabel revisi
+	 * Envers. Bila ada beberapa baris berkode {@code feeder} sama yang punya induk, yang terpilih
+	 * adalah yang pertama ditemui pada iterasi peta — urutan yang tidak deterministik. Selain itu
+	 * penelusuran seluruh cache wilayah dijalankan pada SETIAP pembacaan properti selama kondisi
+	 * "induk kosong" masih berlaku, yang berarti beban komputasi berulang pada perenderan grid
+	 * berisi banyak baris.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan bahwa relasi ini menyimpan alamat "calon" dan terpisah dari {@link #getKecamatan()}
+	 * yang memakai kolom berbeda; lihat catatan pada getter tersebut mengenai duplikasi alamat.
+	 * </p>
+	 *
+	 * @return kecamatan alamat pelamar (mungkin sudah dikoreksi), atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kecamatan_calon_wilayah", nullable = true)
 	public Wilayah getKecamatanCalon() {
@@ -2556,10 +2673,37 @@ public class CalonPegawai extends GeneralValueObject {
 		return kecamatanCalon;
 	}
 
+	/**
+	 * Menyetel kecamatan alamat pelamar.
+	 *
+	 * <p>
+	 * Perhatikan nama parameternya {@code kecamatan} (bukan {@code kecamatanCalon}) — perbedaan
+	 * penamaan ini tidak berpengaruh pada perilaku, tetapi mudah membingungkan karena kelas ini
+	 * punya properti {@link #getKecamatan()} yang benar-benar berbeda.
+	 * </p>
+	 *
+	 * @param kecamatan kecamatan alamat pelamar; {@code null} diperbolehkan
+	 */
 	public void setKecamatanCalon(Wilayah kecamatan) {
 		this.kecamatanCalon = kecamatan;
 	}
 
+	/**
+	 * Mengembalikan propinsi alamat pelamar apa adanya, tanpa nilai bawaan dan tanpa efek
+	 * samping.
+	 *
+	 * <p>
+	 * Berbeda dengan {@link #getPropinsi()} pada blok alamat kedua yang menurunkan nilainya dari
+	 * kota, getter ini murni membaca. Akibatnya propinsi di sini bisa saja tidak konsisten dengan
+	 * {@link #getKotaCalon()} — tidak ada yang menjaganya, baik di entity maupun di layar.
+	 * </p>
+	 *
+	 * <p>
+	 * Nama kolomnya {@code propinsi_calon}, tanpa akhiran {@code _id}.
+	 * </p>
+	 *
+	 * @return propinsi alamat pelamar, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "propinsi_calon", nullable = true)
@@ -2567,10 +2711,26 @@ public class CalonPegawai extends GeneralValueObject {
 		return propinsiCalon;
 	}
 
+	/**
+	 * Menyetel propinsi alamat pelamar. Tidak ada penyelarasan otomatis dengan
+	 * {@link #getKotaCalon()}.
+	 *
+	 * @param propinsiCalon propinsi alamat pelamar; {@code null} diperbolehkan
+	 */
 	public void setPropinsiCalon(Propinsi propinsiCalon) {
 		this.propinsiCalon = propinsiCalon;
 	}
 
+	/**
+	 * Mengembalikan kota/kabupaten alamat pelamar apa adanya, tanpa nilai bawaan dan tanpa efek
+	 * samping (bandingkan dengan {@link #getKota()} yang melewatkan nilainya ke {@code check}).
+	 *
+	 * <p>
+	 * Nama kolomnya {@code kota_calon}, tanpa akhiran {@code _id}.
+	 * </p>
+	 *
+	 * @return kota/kabupaten alamat pelamar, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "kota_calon", nullable = true)
@@ -2578,71 +2738,265 @@ public class CalonPegawai extends GeneralValueObject {
 		return kotaCalon;
 	}
 
+	/**
+	 * Menyetel kota/kabupaten alamat pelamar.
+	 *
+	 * @param kotaCalon kota/kabupaten; {@code null} diperbolehkan
+	 */
 	public void setKotaCalon(Kota kotaCalon) {
 		this.kotaCalon = kotaCalon;
 	}
 
+	/**
+	 * Mengembalikan nomor ujian seleksi pelamar apa adanya.
+	 *
+	 * <p>
+	 * Nomor ini dihasilkan {@code DefaultNoUjianGeneratorPegawai} lewat
+	 * {@code RecruitmentNumberGeneratorSupport}, yang memeriksa keunikan dengan kueri
+	 * {@code select count(1) from calon_pegawai where noujian = :nomor} sebelum memakai sebuah
+	 * nomor. Pemeriksaan semacam itu bersifat "cek lalu tulis" tanpa kunci, sehingga dua proses
+	 * pendaftaran yang berjalan bersamaan bisa lolos pemeriksaan pada nomor yang sama; tidak ada
+	 * indeks unik di kolom ini yang menangkapnya. Pola ini identik dengan yang pernah ditemukan
+	 * pada pencacah nomor lain di AIS.
+	 * </p>
+	 *
+	 * <p>
+	 * Nomor ujian menjadi penghubung ke klaster {@link UjianPegawai}/{@link JadwalUjianPegawai};
+	 * nomor kembar berarti dua pelamar berbagi identitas peserta ujian.
+	 * </p>
+	 *
+	 * @return nomor ujian seleksi, atau {@code null} bila belum dibuat
+	 */
 	public String getNoUjian() {
 		return noUjian;
 	}
 
+	/**
+	 * Menyetel nomor ujian seleksi pelamar. Tidak ada pemeriksaan keunikan di lapisan ini.
+	 *
+	 * @param noUjian nomor ujian
+	 */
 	public void setNoUjian(String noUjian) {
 		this.noUjian = noUjian;
 	}
 
+	/**
+	 * Mengembalikan nomor registrasi pendaftaran pelamar — <b>satu-satunya nilai asli</b> pada
+	 * rantai {@code nim → nomorInduk → noRegistrasi}, dan properti yang benar-benar menulis kolom
+	 * {@code nomor_induk}.
+	 *
+	 * <p>
+	 * Nomor dihasilkan {@code DefaultNoRegGeneratorPegawai} lewat
+	 * {@code RecruitmentNumberGeneratorSupport} dengan pola "cek lalu tulis" yang sama seperti
+	 * dijelaskan pada {@link #getNoUjian()}, sehingga rentan terhadap nomor kembar pada
+	 * pendaftaran bersamaan.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>PENTING untuk keamanan.</b> Nilai inilah yang, lewat {@link #getNomorInduk()}, menjadi
+	 * bahan kata sandi bawaan pada {@link #getPass()}. Nomor kembar karena itu bukan hanya
+	 * masalah integritas data melainkan juga berarti dua pelamar memiliki kata sandi bawaan yang
+	 * identik. Nomor ini juga tidak rahasia: ia tampil di grid panitia, tercetak di kartu peserta,
+	 * dan ikut serta pada {@link #toString()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Kolomnya dinyatakan {@code nullable = false}, tetapi getter ini tetap bisa mengembalikan
+	 * {@code null} untuk objek yang nomornya belum dibuat — pelanggaran baru terdeteksi database
+	 * saat {@code flush}.
+	 * </p>
+	 *
+	 * @return nomor registrasi pendaftaran, atau {@code null} bila belum dibuat
+	 */
 	@Column(name = "nomor_induk", nullable = false)
 	public String getNoRegistrasi() {
 		return noRegistrasi;
 	}
 
+	/**
+	 * Menyetel nomor registrasi pendaftaran pelamar.
+	 *
+	 * <p>
+	 * <b>Efek berantai yang perlu disadari.</b> Menyetel nomor registrasi pada pelamar yang kolom
+	 * {@code pass}-nya masih kosong berarti mengaktifkan penyemaian kata sandi otomatis pada
+	 * pembacaan {@link #getPass()} berikutnya — termasuk pembacaan yang dilakukan Hibernate
+	 * sendiri. Mengubah nomor registrasi di kemudian hari TIDAK memperbarui kata sandi yang
+	 * terlanjur tersemai, sehingga kata sandi bawaan pelamar bisa berisi nomor registrasi lama.
+	 * </p>
+	 *
+	 * @param noRegistrasi nomor registrasi pendaftaran
+	 */
 	public void setNoRegistrasi(String noRegistrasi) {
 		this.noRegistrasi = noRegistrasi;
 	}
 
+	/**
+	 * Mengembalikan alamat ayah pelamar apa adanya. Selain sebagai data biodata, nilai ini
+	 * menjadi cadangan bagi {@link #getAlamatWali()} ketika alamat wali kosong.
+	 *
+	 * @return alamat ayah, atau {@code null} bila belum diisi
+	 */
 	public String getAlamatAyah() {
 		return alamatAyah;
 	}
 
+	/**
+	 * Menyetel alamat ayah pelamar. Ingat bahwa nilai ini juga menjadi keluaran
+	 * {@link #getAlamatWali()} bila alamat wali kosong.
+	 *
+	 * @param alamatAyah alamat ayah sebagai teks
+	 */
 	public void setAlamatAyah(String alamatAyah) {
 		this.alamatAyah = alamatAyah;
 	}
 
+	/**
+	 * Mengembalikan alamat ibu pelamar apa adanya.
+	 *
+	 * <p>
+	 * Berbeda dengan {@link #getAlamatAyah()}, nilai ini tidak pernah dipakai sebagai cadangan
+	 * oleh {@link #getAlamatWali()} — asimetri yang membuat data wali dari pihak ibu tidak
+	 * tertangani.
+	 * </p>
+	 *
+	 * @return alamat ibu, atau {@code null} bila belum diisi
+	 */
 	public String getAlamatIbu() {
 		return alamatIbu;
 	}
 
+	/**
+	 * Menyetel alamat ibu pelamar.
+	 *
+	 * @param alamatIbu alamat ibu sebagai teks
+	 */
 	public void setAlamatIbu(String alamatIbu) {
 		this.alamatIbu = alamatIbu;
 	}
 
+	/**
+	 * Mengembalikan NIK (Nomor Induk Kependudukan, nomor KTP) pelamar apa adanya.
+	 *
+	 * <p>
+	 * <b>Data pribadi tingkat tertinggi, tanpa perlindungan apa pun di lapisan ini.</b> NIK
+	 * adalah pengenal tunggal warga yang dipakai lintas layanan publik dan keuangan. Getter ini
+	 * mengembalikannya utuh: tidak ada penyamaran sebagian, tidak ada pemeriksaan hak, tidak ada
+	 * pencatatan siapa yang membacanya. Nilainya juga tidak divalidasi (panjang 16 digit, format
+	 * angka) baik di sini maupun di setter.
+	 * </p>
+	 *
+	 * <p>
+	 * Perlindungan sepenuhnya bergantung pada layer Action/Helper, dan pada modul ini gerbang
+	 * tersebut lemah: {@code CalonPegawaiAction.initCriteria(...)} tidak menyaring berdasarkan
+	 * kepemilikan/gelombang sama sekali, sehingga setiap pengguna yang bisa membuka layar calon
+	 * pegawai berhadapan dengan seluruh populasi pelamar. Karena kelas ini {@code @Audited},
+	 * setiap perubahan NIK juga tersalin ke tabel revisi Envers yang umumnya tidak punya
+	 * pengendalian akses tersendiri.
+	 * </p>
+	 *
+	 * <p>
+	 * Properti tidak punya {@code @Column} sehingga nama kolom mengikuti nama properti dengan
+	 * panjang bawaan 255 karakter.
+	 * </p>
+	 *
+	 * @return NIK pelamar, atau {@code null} bila belum diisi
+	 */
 	public String getNik() {
 		return nik;
 	}
 
+	/**
+	 * Menyetel NIK pelamar apa adanya, tanpa validasi panjang maupun format.
+	 *
+	 * @param nik NIK sebagai teks
+	 */
 	public void setNik(String nik) {
 		this.nik = nik;
 	}
 
+	/**
+	 * Mengembalikan nomor Kartu Keluarga pelamar apa adanya.
+	 *
+	 * <p>
+	 * Sama seperti {@link #getNik()}, ini data pribadi sensitif yang diekspos tanpa penyamaran,
+	 * tanpa pemeriksaan hak, dan tanpa validasi format. Nomor KK bahkan memiliki cakupan lebih
+	 * luas dari NIK karena ia mengidentifikasi SATU RUMAH TANGGA, bukan hanya pelamar — data
+	 * pihak ketiga yang tidak pernah menyetujui apa pun kepada institusi.
+	 * </p>
+	 *
+	 * @return nomor Kartu Keluarga, atau {@code null} bila belum diisi
+	 */
 	public String getKk() {
 		return kk;
 	}
 
+	/**
+	 * Menyetel nomor Kartu Keluarga pelamar apa adanya, tanpa validasi.
+	 *
+	 * @param kk nomor Kartu Keluarga sebagai teks
+	 */
 	public void setKk(String kk) {
 		this.kk = kk;
 	}
 
+	/**
+	 * Mengembalikan status seleksi "pelamar DITOLAK", dengan {@code null} dinormalkan menjadi
+	 * {@code false}.
+	 *
+	 * <p>
+	 * Salah satu dari empat flag status yang saling meniadakan; lihat {@link #getTelahDiterima()}
+	 * untuk penjelasan lengkap mengenai ketiadaan invariant dan gerbang persetujuan yang hanya
+	 * berlaku di sisi tampilan.
+	 * </p>
+	 *
+	 * <p>
+	 * Alasan penolakan tidak disimpan pada properti tersendiri; dalam praktik panitia
+	 * menuliskannya pada {@link #getKeterangan()} yang berupa teks bebas. Tidak ada pencatatan
+	 * siapa yang menolak dan kapan, selain stempel audit umum {@link #getOleh()} dan
+	 * {@link #getTanggal_dirubah()} yang selalu tertimpa oleh perubahan berikutnya.
+	 * </p>
+	 *
+	 * @return {@code true} bila pelamar ditolak (tidak pernah {@code null})
+	 */
 	public Boolean getDitolak() {
 		return ditolak == null ? false : ditolak;
 	}
 
+	/**
+	 * Menyetel status "pelamar ditolak". Tidak mematikan flag status lain; lihat
+	 * {@link #getTelahDiterima()}.
+	 *
+	 * @param ditolak status ditolak; {@code null} dibaca sebagai {@code false}
+	 */
 	public void setDitolak(Boolean ditolak) {
 		this.ditolak = ditolak;
 	}
 
+	/**
+	 * Mengembalikan status "pelamar MENGUNDURKAN DIRI", dengan {@code null} dinormalkan menjadi
+	 * {@code false}.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #getDitolak()} secara semantik — keputusan datang dari pelamar, bukan
+	 * dari institusi — tetapi diperlakukan sama persis oleh sistem: satu flag di radiogroup yang
+	 * sama, ditulis oleh panitia (bukan oleh pelamar), tanpa pencatatan alasan maupun
+	 * pengambil keputusan. Tidak ada jalur mandiri di portal karir yang memungkinkan pelamar
+	 * menyatakan pengunduran dirinya sendiri, sehingga flag ini sepenuhnya representasi
+	 * sepihak dari sisi panitia.
+	 * </p>
+	 *
+	 * @return {@code true} bila pelamar dinyatakan mengundurkan diri (tidak pernah {@code null})
+	 */
 	public Boolean getMengundurkanDiri() {
 		return mengundurkanDiri == null ? false : mengundurkanDiri;
 	}
 
+	/**
+	 * Menyetel status "pelamar mengundurkan diri". Tidak mematikan flag status lain; lihat
+	 * {@link #getTelahDiterima()}.
+	 *
+	 * @param mengundurkanDiri status mengundurkan diri; {@code null} dibaca sebagai {@code false}
+	 */
 	public void setMengundurkanDiri(Boolean mengundurkanDiri) {
 		this.mengundurkanDiri = mengundurkanDiri;
 	}
