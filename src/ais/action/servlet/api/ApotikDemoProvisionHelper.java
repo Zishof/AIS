@@ -1042,11 +1042,11 @@ public final class ApotikDemoProvisionHelper {
 					+ "and r.diagnosaPenyakit.pendaftaran is not null")
 					.uniqueResult()).longValue();
 			long penjualanTerkendali = ((Number) session.createQuery(
-					"select count(l) from ApotikNarkotikaLog l where l.olehId = :penanda")
-					.setString("penanda", "seed_demo").uniqueResult()).longValue();
+					"select count(l) from ApotikNarkotikaLog l where l.keterangan like :penanda")
+					.setString("penanda", "DATA SAMPLE/UAT%").uniqueResult()).longValue();
 			long pembayaranSample = ((Number) session.createQuery(
-					"select count(p) from ApotikPembayaranTransaksi p where p.olehId = :penanda")
-					.setString("penanda", "seed_demo").uniqueResult()).longValue();
+					"select count(p) from ApotikPembayaranTransaksi p where p.referensi like :penanda")
+					.setString("penanda", "PAY-APT-UAT-%").uniqueResult()).longValue();
 			long coldChain = ((Number) session.createQuery("select count(p) from ApotikItemProfile p "
 					+ "where p.item.kode like 'DEMO-OBT-%' and p.coldChain = true")
 					.uniqueResult()).longValue();
