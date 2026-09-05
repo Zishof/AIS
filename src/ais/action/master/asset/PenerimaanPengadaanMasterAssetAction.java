@@ -1000,7 +1000,7 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 												.executeUpdate();
 
 										session.createSQLQuery(
-												"delete from asset.asset where permintaan_pengadaan_master_asset_detail in (select id from asset.penerimaan_pengadaan_master_asset_detail where penerimaan_pengadaan_master_asset = "
+												"delete from asset.asset where permintaan_pengadaan_master_asset_detail in (select permintaan_pengadaan_master_asset_detail from asset.penerimaan_pengadaan_master_asset_detail where penerimaan_pengadaan_master_asset = "
 														+ penerimaanPengadaanMasterAsset.getId() + ");")
 												.executeUpdate();
 
