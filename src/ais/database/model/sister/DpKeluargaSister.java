@@ -12,58 +12,255 @@ import javax.persistence.TemporalType;
 import org.hibernate.envers.Audited;
 import ais.database.model.GeneralValueObject;
 
-/** Entitas hasil sinkronisasi SISTER untuk endpoint <b>data_pribadi/keluarga</b>. Kolom bernama = field SISTER; {@code kode}=id item (kunci upsert); {@code keterangan}=JSON mentah. @Audited (tabel __audit auto hbm2ddl). */
+/**
+ * Entitas hasil sinkronisasi SISTER untuk endpoint <b>data_pribadi/keluarga</b>. Kolom bernama = field
+ * SISTER; {@code kode}=id item (kunci upsert); {@code keterangan}=JSON mentah. @Audited (tabel __audit auto
+ * hbm2ddl).
+ *
+ * <h2>Mekanisme sinkronisasi &amp; relasi antar entitas</h2>
+ * <p>Mekanisme sinkronisasi, ketiadaan relasi header/detail antar tujuh kelas {@code Dp*Sister}, serta
+ * ketiadaan foreign key ke {@code Pegawai}/{@code Dosen} internal SAMA PERSIS dengan yang dijelaskan lengkap
+ * pada javadoc {@link DpProfilSister} — lihat kelas itu untuk rincian (diisi oleh
+ * {@code ais.common.DataSisterApi#synDataDosen(java.util.List)}, dipetakan lewat
+ * {@link ais.database.model.sister.SisterEntitasRegistry} berdasarkan kunci {@code "data_pribadi/keluarga"},
+ * {@code kode} dipaksa sama dengan {@link #getIdSdm()}). Kelas ini adalah SAUDARA {@code DpProfilSister},
+ * bukan detailnya.</p>
+ *
+ * <h2>Peringatan privasi</h2>
+ * <p>Tabel ini menyimpan status perkawinan serta identitas pasangan ({@link #getNamaPasangan()},
+ * {@link #getNipPasangan()}) — data pribadi pihak ketiga (bukan hanya dosen yang bersangkutan) yang ikut
+ * tersimpan tanpa persetujuan eksplisit tercatat di kode. Sama seperti {@code DpProfilSister}, tidak ada
+ * kolom scoping tenant/satuan-kerja dan (per 5 Sep 2026) tidak ditemukan Action/JSP yang membaca balik tabel
+ * ini untuk ditampilkan — risiko murni pada sisi tulis lewat layar "Data SISTER". Memperkuat pola tercatat
+ * (filter tenant lemah/hilang pada entitas SISTER), bukan temuan baru yang berdiri sendiri.</p>
+ *
+ * @see DpProfilSister
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
 @Table(schema = "public", name = "sister_dp_keluarga")
 public class DpKeluargaSister extends GeneralValueObject {
+	/** Versi serialisasi tetap; lihat konvensi {@link GeneralValueObject#serialVersionUID}. */
 	private static final long serialVersionUID = 1L;
+	/** Primary key baris (surrogate, auto-generate). Bukan {@code idSdm} SISTER — lihat {@link #getIdSdm()}. */
 	private Long id;
+	/** Nama pengguna/proses yang terakhir menulis baris ini; diisi otomatis lewat jalur audit, lihat {@link #setOleh(String)}. */
 	private String oleh;
+	/** Id pengguna/proses yang terakhir menulis baris ini; diisi otomatis lewat jalur audit, lihat {@link #setOlehId(String)}. */
 	private String olehId;
+	/** Stempel waktu perubahan terakhir; diinisialisasi ke saat object dibuat, diperbarui otomatis oleh {@link #onUpdate()}. */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
+	/** Kunci upsert baris; pada jalur sinkronisasi objek data_pribadi nilainya selalu dipaksa sama dengan {@link #getIdSdm()}. */
 	private String kode;
+	/** JSON mentah respons endpoint SISTER untuk satu dosen ({@code data_pribadi/keluarga/{id_sdm}} apa adanya), disimpan berdampingan dengan kolom terstruktur sebagai cadangan. */
 	private String keterangan;
+	/** Penanda baris aktif; lihat {@link #getAktif()} untuk perilaku default {@code true}. */
 	private Boolean aktif;
+	/** Id SDM SISTER milik pemilik baris ini; lihat penjelasan lengkap ketiadaan foreign key pada javadoc {@link DpProfilSister}. */
 	private String idSdm;
+	/** Nama/label status perkawinan dosen/SDM sebagaimana tercatat di SISTER (mis. Kawin, Belum Kawin, Cerai). */
 	private String statusKawin;
+	/** Kode referensi status perkawinan SISTER; padanan id ke tabel referensi status kawin, disimpan sebagai teks/angka mentah tanpa FK. */
 	private Integer idStatusKawin;
+	/** Nama pasangan (suami/istri) dosen/SDM — data pribadi pihak ketiga. */
 	private String namaPasangan;
+	/** NIP pasangan dosen/SDM, bila pasangan berstatus PNS/ASN. */
 	private String nipPasangan;
+	/** Nama/label pekerjaan pasangan dosen/SDM sebagaimana tercatat di SISTER. */
 	private String pekerjaanPasangan;
+	/** Kode referensi pekerjaan pasangan SISTER; padanan id ke tabel referensi pekerjaan, disimpan sebagai teks/angka mentah tanpa FK. */
 	private Integer idPekerjaanPasangan;
 
+	/** Constructor default tanpa argumen, dibutuhkan Hibernate untuk hidrasi entity dari hasil query. */
 	public DpKeluargaSister() {}
+	/**
+	 * Mengembalikan primary key baris.
+	 *
+	 * @return primary key, atau {@code null} bila baris belum tersimpan
+	 */
 	@Id @GeneratedValue(strategy = IDENTITY) @Column(name = "id", insertable = false, unique = true, nullable = false)
 	public Long getId() { return this.id; }
+	/**
+	 * Menyetel primary key baris. Tanpa validasi; kolom dipetakan {@code insertable = false} sehingga nilai
+	 * ini murni hasil generate database.
+	 *
+	 * @param id nilai primary key baru
+	 */
 	public void setId(Long id) { this.id = id; }
+	/**
+	 * Mengembalikan id pengguna/proses yang terakhir menulis baris ini.
+	 *
+	 * @return id pengguna/proses pengubah terakhir, atau {@code null} bila belum pernah terisi
+	 */
 	public String getOlehId() { return olehId; }
+	/**
+	 * Menyetel id pengguna/proses pengubah terakhir, dengan validasi non-trivial: nilai {@code null} atau
+	 * string kosong/spasi diabaikan diam-diam sehingga jejak audit yang sudah terisi tidak bisa terhapus.
+	 * Field ini mendeklarasikan ulang &amp; menimpa {@code oleh}/{@code olehId} milik
+	 * {@link GeneralValueObject} agar terpetakan sebagai kolom pada tabel entitas ini — pola "audit shadow
+	 * field" yang berulang di seluruh entity Sister, keharusan teknis pemetaan Hibernate, bukan bug.
+	 *
+	 * @param olehId id pengguna/proses pengubah; diabaikan bila {@code null}/kosong
+	 */
 	public void setOlehId(String olehId) { if (olehId==null||olehId.trim().isEmpty()) return; this.olehId = olehId; }
+	/**
+	 * Mengembalikan nama pengguna/proses yang terakhir menulis baris ini.
+	 *
+	 * @return nama pengguna/proses pengubah terakhir, atau {@code null} bila belum pernah terisi
+	 */
 	public String getOleh() { return oleh; }
+	/**
+	 * Menyetel nama pengguna/proses pengubah terakhir, dengan validasi non-trivial yang sama seperti
+	 * {@link #setOlehId(String)}: nilai {@code null}/kosong diabaikan diam-diam.
+	 *
+	 * @param oleh nama pengguna/proses pengubah; diabaikan bila {@code null}/kosong
+	 */
 	public void setOleh(String oleh) { if (oleh==null||oleh.trim().isEmpty()) return; this.oleh = oleh; }
+	/**
+	 * Hook {@code @PreUpdate}: dipanggil Hibernate tepat sebelum UPDATE dieksekusi, menyerahkan penetapan
+	 * {@code tanggal_dirubah}/{@code oleh}/{@code olehId} terkini kepada
+	 * {@code AuditTimestampInterceptor.ubah(this)}.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this); }
+	/**
+	 * Mengembalikan stempel waktu perubahan terakhir.
+	 *
+	 * @return waktu perubahan terakhir; tidak pernah {@code null} kecuali sengaja disetel demikian
+	 */
 	@Temporal(TemporalType.TIMESTAMP) public Date getTanggal_dirubah() { return tanggal_dirubah; }
+	/**
+	 * Menyetel stempel waktu perubahan terakhir. Tanpa validasi; biasanya diserahkan ke {@link #onUpdate()}.
+	 *
+	 * @param t waktu perubahan terakhir
+	 */
 	public void setTanggal_dirubah(Date t) { this.tanggal_dirubah = t; }
+	/**
+	 * Mengembalikan kunci upsert baris, dinormalkan: string kosong diubah menjadi {@code null}, selain itu
+	 * di-{@code trim()}.
+	 *
+	 * @return kode ter-trim, atau {@code null} bila belum terisi/kosong
+	 */
 	@Column(name = "kode") public String getKode() { return kode==null||kode.isEmpty()?null:kode.trim(); }
+	/**
+	 * Menyetel kunci upsert baris. Tanpa validasi/normalisasi (normalisasi dilakukan di {@link #getKode()}).
+	 *
+	 * @param kode nilai kode baru
+	 */
 	public void setKode(String kode) { this.kode = kode; }
+	/**
+	 * Mengembalikan JSON mentah respons SISTER untuk baris ini.
+	 *
+	 * @return JSON mentah sebagai teks, atau {@code null} bila belum terisi
+	 */
 	@Column(name = "keterangan", columnDefinition = "text") public String getKeterangan() { return keterangan; }
+	/**
+	 * Menyetel JSON mentah respons SISTER untuk baris ini. Tanpa validasi format.
+	 *
+	 * @param k teks JSON baru
+	 */
 	public void setKeterangan(String k) { this.keterangan = k; }
+	/**
+	 * Mengembalikan status aktif baris. Nilai {@code null} pada kolom dianggap {@code true} (default aktif)
+	 * — pola default-aktif yang berulang di seluruh entity Sister/DataSister.
+	 *
+	 * @return {@code true} bila baris aktif atau kolom {@code null}; {@code false} hanya bila eksplisit disetel demikian
+	 */
 	@Column(name = "aktif") public Boolean getAktif() { return aktif==null?true:aktif; }
+	/**
+	 * Menyetel status aktif baris. Tanpa validasi.
+	 *
+	 * @param a status aktif baru
+	 */
 	public void setAktif(Boolean a) { this.aktif = a; }
+	/**
+	 * Mengembalikan id SDM SISTER milik pemilik baris ini.
+	 *
+	 * @return id SDM SISTER, atau {@code null} bila belum terisi
+	 */
 	@Column(name = "id_sdm", columnDefinition = "text") public String getIdSdm() { return idSdm; }
+	/**
+	 * Menyetel id SDM SISTER milik pemilik baris ini. Tanpa validasi.
+	 *
+	 * @param v id SDM SISTER baru
+	 */
 	public void setIdSdm(String v) { this.idSdm = v; }
+	/**
+	 * Mengembalikan nama/label status perkawinan dosen/SDM.
+	 *
+	 * @return status perkawinan, atau {@code null} bila belum terisi
+	 */
 	@Column(name = "status_kawin", columnDefinition = "text") public String getStatusKawin() { return statusKawin; }
+	/**
+	 * Menyetel nama/label status perkawinan dosen/SDM. Tanpa validasi.
+	 *
+	 * @param v status perkawinan baru
+	 */
 	public void setStatusKawin(String v) { this.statusKawin = v; }
+	/**
+	 * Mengembalikan kode referensi status perkawinan SISTER (padanan id ke tabel referensi status kawin, tanpa FK).
+	 *
+	 * @return kode status perkawinan, atau {@code null} bila belum terisi
+	 */
 	@Column(name = "id_status_kawin") public Integer getIdStatusKawin() { return idStatusKawin; }
+	/**
+	 * Menyetel kode referensi status perkawinan SISTER. Tanpa validasi.
+	 *
+	 * @param v kode status perkawinan baru
+	 */
 	public void setIdStatusKawin(Integer v) { this.idStatusKawin = v; }
+	/**
+	 * Mengembalikan nama pasangan (suami/istri) dosen/SDM.
+	 *
+	 * @return nama pasangan, atau {@code null} bila belum terisi/tidak berlaku
+	 */
 	@Column(name = "nama_pasangan", columnDefinition = "text") public String getNamaPasangan() { return namaPasangan; }
+	/**
+	 * Menyetel nama pasangan dosen/SDM. Tanpa validasi.
+	 *
+	 * @param v nama pasangan baru
+	 */
 	public void setNamaPasangan(String v) { this.namaPasangan = v; }
+	/**
+	 * Mengembalikan NIP pasangan dosen/SDM, bila pasangan berstatus PNS/ASN.
+	 *
+	 * @return NIP pasangan, atau {@code null} bila belum terisi/tidak berlaku
+	 */
 	@Column(name = "nip_pasangan", columnDefinition = "text") public String getNipPasangan() { return nipPasangan; }
+	/**
+	 * Menyetel NIP pasangan dosen/SDM. Tanpa validasi.
+	 *
+	 * @param v NIP pasangan baru
+	 */
 	public void setNipPasangan(String v) { this.nipPasangan = v; }
+	/**
+	 * Mengembalikan nama/label pekerjaan pasangan dosen/SDM.
+	 *
+	 * @return pekerjaan pasangan, atau {@code null} bila belum terisi/tidak berlaku
+	 */
 	@Column(name = "pekerjaan_pasangan", columnDefinition = "text") public String getPekerjaanPasangan() { return pekerjaanPasangan; }
+	/**
+	 * Menyetel nama/label pekerjaan pasangan dosen/SDM. Tanpa validasi.
+	 *
+	 * @param v pekerjaan pasangan baru
+	 */
 	public void setPekerjaanPasangan(String v) { this.pekerjaanPasangan = v; }
+	/**
+	 * Mengembalikan kode referensi pekerjaan pasangan SISTER (padanan id ke tabel referensi pekerjaan, tanpa FK).
+	 *
+	 * @return kode pekerjaan pasangan, atau {@code null} bila belum terisi
+	 */
 	@Column(name = "id_pekerjaan_pasangan") public Integer getIdPekerjaanPasangan() { return idPekerjaanPasangan; }
+	/**
+	 * Menyetel kode referensi pekerjaan pasangan SISTER. Tanpa validasi.
+	 *
+	 * @param v kode pekerjaan pasangan baru
+	 */
 	public void setIdPekerjaanPasangan(Integer v) { this.idPekerjaanPasangan = v; }
+	/**
+	 * Representasi teks ringkas: {@code "id-kode"}.
+	 *
+	 * @return gabungan id dan kode
+	 */
 	@Override public String toString() { return id + "-" + kode; }
 }
