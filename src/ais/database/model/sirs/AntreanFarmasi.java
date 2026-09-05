@@ -220,25 +220,33 @@ public class AntreanFarmasi extends GeneralValueObject {
 	 * terbuka bila baris langsung diubah lewat query ber-id saja.</p>
 	 *
 	 * <p><b>Dari mana nilai pembanding itu datang.</b> Pemanggil menurunkannya
-	 * lewat {@code ApotikApiHelper.tokoId(user, request)}, yang lebih dulu
-	 * mencoba {@code user.getPedagang().getToko().getId()} — turunan sesi, tidak
-	 * dapat dipalsukan klien. Namun bila rantai itu putus di titik mana pun
-	 * (pengguna tanpa {@code Pedagang}, {@code Pedagang} tanpa {@code Toko}, atau
-	 * pengecualian saat menelusurinya), metode itu JATUH KEMBALI membaca
-	 * {@code toko_id} dari payload permintaan. Sejak titik itu, "toko aktif"
-	 * bukan lagi fakta tentang siapa yang login melainkan angka yang dikirim
-	 * pemanggil, dan seluruh penyaringan di paragraf sebelumnya menyaring
-	 * memakai nilai yang dipilih sendiri oleh peminta. Pengguna modul rumah sakit
-	 * pada umumnya memang tidak terikat ke {@code Toko} mana pun, sehingga
-	 * cabang cadangan itu bukan kasus langka.</p>
+	 * lewat {@code ApotikApiHelper.tokoId(user, request)}, yang
+	 * HANYA mencoba {@code user.getPedagang().getToko().getId()} -- turunan sesi, tidak
+	 * dapat dipalsukan klien. Method itu SEBELUMNYA jatuh kembali membaca {@code toko_id}
+	 * dari payload permintaan begitu rantai sesi putus di titik mana pun (pengguna tanpa
+	 * {@code Pedagang}, {@code Pedagang} tanpa {@code Toko}, atau pengecualian saat
+	 * menelusurinya) -- persis kondisi pengguna modul rumah sakit/SIRS pada umumnya, yang
+	 * memang tidak terikat ke {@code Toko} mana pun, sehingga cabang cadangan itu dulu
+	 * BUKAN kasus langka melainkan jalur normal bagi kebanyakan pengguna fitur ini. Sejak
+	 * fallback itu dihapus, rantai sesi yang putus membuat {@code tokoId(...)} mengembalikan
+	 * {@code null} dan keempat pemanggil menolak dengan "Toko/apotek aktif tidak diketahui"
+	 * -- akun tanpa Pedagang/Toko wajib diberi keduanya oleh admin sebelum dapat memakai
+	 * fitur ini, alih-alih diam-diam memilih toko sendiri lewat payload.</p>
+	 *
+	 * <p>{@code antreanFarmasiList} sendiri sebelumnya juga tidak memeriksa hak baca sama
+	 * sekali (satu-satunya penyaring adalah gerbang menu kasar dispatcher); ia kini
+	 * menjaga lewat {@code ApotikApiHelper.bolehLihatMenu(user, "apotik_resep"/"apotik_kasir")}
+	 * sebelum mengizinkan baca, seragam dengan gerbang yang sudah ada di simpan/status/hapus.</p>
 	 *
 	 * <p>Karena baris antrean memuat {@link #getNamaPasien()} dan
 	 * {@link #getNomorRekamMedis()}, dan karena {@code antreanFarmasiList}
 	 * mengembalikan keduanya tanpa penyamaran ketika {@code untuk_layar} tidak
-	 * disetel, akibat dari cabang cadangan itu bersifat kerahasiaan pasien, bukan
-	 * sekadar kerapian data. Catatan ini ditulis di sini supaya siapa pun yang
-	 * menambah jalur baca baru tahu bahwa nilai yang ia pakai untuk menyaring
-	 * belum tentu berasal dari sesi.</p>
+	 * disetel, akibat dari cabang cadangan lama itu bersifat kerahasiaan pasien lintas
+	 * apotek, bukan sekadar kerapian data -- lihat javadoc {@code ApotikApiHelper.tokoId}
+	 * utk riwayat lengkap perbaikannya. Catatan ini tetap ditulis di sini supaya siapa
+	 * pun yang menambah jalur baca baru atas tabel ini tahu bahwa nilai yang ia pakai
+	 * untuk menyaring harus benar-benar berasal dari sesi -- JANGAN pernah kembali
+	 * membaca sumbu pemisah ini dari payload permintaan tanpa validasi hak eksplisit.</p>
 	 *
 	 * @return id toko/apotek pemilik baris, atau {@code null} pada data lama
 	 */

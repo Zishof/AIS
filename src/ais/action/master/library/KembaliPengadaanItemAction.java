@@ -1147,7 +1147,7 @@ public class KembaliPengadaanItemAction extends GenericAutowireComposer {
 							DendaKeterlambatanItem dendaPerItem = LibraryUtil
 									.hitungDendaItem(peminjamanPengadaanItemDetail);
 
-							Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
+							Double denda = (dendaPerItem == null || dendaPerItem.getDenda() == null) ? 0.0 : dendaPerItem.getDenda();
 							denda = denda * peminjamanPengadaanItemDetail.getJumlah();
 							MyDoublebox biayaPenggantian = (MyDoublebox) row.getAttribute("biayaPenggantian");
 							Double replacement = biayaPenggantian == null || biayaPenggantian.getValue() == null

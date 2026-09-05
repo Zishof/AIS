@@ -204,13 +204,30 @@ public final class ApotikApiHelper {
 		return hasil;
 	}
 
+	/**
+	 * Toko/apotek aktif pemanggil -- SATU-SATUNYA sumbu pemisah pasien antar apotek utk
+	 * {@code AntreanFarmasi} (lihat javadoc {@link AntreanFarmasi#getTokoId()}).
+	 *
+	 * <p>Fail-closed dgn sengaja: hanya rantai sesi {@code user.getPedagang().getToko()}
+	 * yang dipercaya. Payload TIDAK PERNAH lagi dipakai sbg sumber toko -- sebelum
+	 * perbaikan ini, akun tanpa {@code Pedagang}/{@code Toko} (mayoritas pengguna modul
+	 * rumah sakit/SIRS, yg memang tidak terikat ke Toko mana pun) jatuh ke fallback yg
+	 * membaca {@code toko_id} kiriman klien mentah-mentah, sehingga siapa pun yg lolos
+	 * gerbang menu kasar bisa memilih toko sembarang dan membaca nama pasien + nomor
+	 * rekam medis apotek lain lewat {@code antreanFarmasiList}. Akibatnya, akun tanpa
+	 * Pedagang/Toko kini ditolak pemanggil dgn "Toko/apotek aktif tidak diketahui" alih-
+	 * alih diam-diam memakai toko pilihannya sendiri. Bila kelak memang ada pemakai sah
+	 * yg perlu memilih toko (mis. penyelia lintas apotek), nilai dari payload HANYA boleh
+	 * diterima setelah divalidasi bahwa akun tsb memang berhak atas toko itu -- jangan
+	 * kembalikan ke pola baca-mentah lama.</p>
+	 */
 	private static Long tokoId(Tbmuser user, JSONObject request) {
 		try {
 			if (user != null && user.getPedagang() != null && user.getPedagang().getToko() != null) {
 				return user.getPedagang().getToko().getId();
 			}
 		} catch (Exception ignored) { }
-		return optLong(request, "toko_id");
+		return null;
 	}
 
 	private static boolean jenisAntreanValid(String jenis) {
@@ -282,6 +299,29 @@ public final class ApotikApiHelper {
 			return true;
 		}
 		return EbisnisMenuKatalog.bolehAksi(EbisnisMenuKatalog.urai(role.getEbisnisMenu()), kunciMenu, aksi);
+	}
+
+	/**
+	 * Gerbang BACA berbasis visibilitas menu -- BUKAN {@link #bolehAksi(Tbmuser, String, String)}.
+	 * Kunci {@code apotik_resep}/{@code apotik_kasir} memang ada di {@code KUNCI_CRUD}, tapi grid
+	 * CRUD-nya hanya pernah memuat lima aksi lama ({@code create/update/delete/approve/reject});
+	 * "view" bukan salah satunya dan tidak pernah disimpan di sana, jadi memanggil
+	 * {@code bolehAksi(user, kunci, "view")} akan SELALU ditolak (fail-closed permanen) utk siapa
+	 * pun selain admin/role kosong -- bukan itu yg dimaksud. Yang benar-benar menandakan pengguna
+	 * "boleh melihat apotek ini" adalah kunci {@code menu.<kunci>}, yg default TERTUTUP utk kedua
+	 * kunci ini ({@code EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF}) sampai admin menyalakannya utk
+	 * peran tsb. Pola identik {@code GrupProdukApiHelper.bolehLihat}.
+	 */
+	private static boolean bolehLihatMenu(Tbmuser tbmuser, String kunciMenu) {
+		if (Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
+		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
+		if (role == null) {
+			return true;
+		}
+		JSONObject menu = EbisnisMenuKatalog.urai(role.getEbisnisMenu()).optJSONObject("menu");
+		return menu != null && menu.optBoolean(kunciMenu, false);
 	}
 
 	/** Stok per item dari ledger -- SQL PERSIS pola AmbilDataItemMedisBanyakBerdasarkanStok
@@ -702,10 +742,31 @@ public final class ApotikApiHelper {
 	// Antrean farmasi -- konsol petugas + layar publik obat jadi/racikan
 	// =============================================================================================
 
-	/** Daftar antrean hari ini. Payload {@code untuk_layar=true} selalu menyamarkan identitas. */
+	/**
+	 * Daftar antrean hari ini. Payload {@code untuk_layar=true} selalu menyamarkan identitas.
+	 *
+	 * <p>Gerbang baca: {@link #bolehLihatMenu(Tbmuser, String)} atas {@code apotik_resep} ATAU
+	 * {@code apotik_kasir} -- sebelumnya method ini sama sekali tidak memeriksa hak apa pun
+	 * (berbeda dari simpan/status/hapus yg sudah menjaga lewat {@link #bolehAksi}), dan satu-
+	 * satunya penyaring adalah gerbang menu kasar {@code PosApi.bolehAksesActionKantin} di
+	 * dispatcher. Digabung dgn fallback lama pada {@link #tokoId} yg kini sudah ditutup, celah
+	 * itu dulu membuat siapa pun yg lolos gerbang menu kasar bisa memilih toko sembarang dan
+	 * membaca nama pasien + nomor rekam medis apotek lain.</p>
+	 *
+	 * <p><b>Keputusan default {@code untuk_layar}.</b> Bentuk paling sensitif (identitas
+	 * terang) adalah bentuk default (dipakai saat {@code untuk_layar} tidak dikirim), bukan
+	 * bentuk tersamarkan -- sengaja TIDAK dibalik di perbaikan ini krn akan memutus konsol
+	 * petugas yg memang menampilkan identitas asli dan tidak selalu mengirim flag ini secara
+	 * eksplisit. Risiko sisa dari pilihan ini kini ditahan oleh gerbang baca di atas (hanya
+	 * akun berhak apotik yg bisa memanggil endpoint ini sama sekali), bukan lagi oleh flag ini.</p>
+	 */
 	public static void antreanFarmasiList(Tbmuser user, JSONObject request, JSONObject hasil) throws Exception {
 		Long tokoId = tokoId(user, request);
 		if (tokoId == null) { tolak(hasil, "Toko/apotek aktif tidak diketahui."); return; }
+		if (!bolehLihatMenu(user, "apotik_resep") && !bolehLihatMenu(user, "apotik_kasir")) {
+			tolak(hasil, "Akun tidak berhak melihat antrean farmasi.");
+			return;
+		}
 		boolean layar = request != null && request.optBoolean("untuk_layar", false);
 		String jenis = request == null ? "" : request.optString("jenis", "").trim().toUpperCase();
 		Date awal = awalHariIni();
