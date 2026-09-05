@@ -269,12 +269,13 @@ public final class GrupProdukApiHelper {
 				}
 				session.flush();
 			}
-			int diterapkan = GrupProdukUtil.terapkanHargaKeAnggota(session, g);
+			GrupProdukUtil.HasilTerapkanHarga hasilTerapkan = GrupProdukUtil.terapkanHargaKeAnggota(session, g);
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
 			hasil.put("id", g.getId());
-			hasil.put("diterapkan", diterapkan);
+			hasil.put("diterapkan", hasilTerapkan.diubah);
+			hasil.put("dilewati_harga_manual", hasilTerapkan.dilewatiKunciManual);
 			hasil.put("anggota_ditambah", anggotaDitambah);
 			hasil.put("anggota_dilepas", anggotaDilepas);
 		} catch (Exception e) {

@@ -230,18 +230,22 @@ public class GrupProdukAction extends GenericCrudAction<GrupProduk> {
 		grup.setHargaJual(hargaJual.getValue() == null ? null : hargaJual.getValue().doubleValue());
 		Common.refreshSaveOrUpdate(session, grup);
 
-		int diterapkan = terapkanHargaKeAnggota(session, grup);
-		if (diterapkan > 0) {
-			ais.ui.util.MyMessageboxConfig.show(
-					"Harga grup diterapkan ke " + diterapkan + " produk anggota di seluruh toko/outlet.",
-					"Informasi", ais.ui.util.MyMessageboxConfig.OK,
+		GrupProdukUtil.HasilTerapkanHarga hasilTerapkan = terapkanHargaKeAnggota(session, grup);
+		if (hasilTerapkan.diubah > 0 || hasilTerapkan.dilewatiKunciManual > 0) {
+			String pesan = "Harga grup diterapkan ke " + hasilTerapkan.diubah
+					+ " produk anggota di seluruh toko/outlet.";
+			if (hasilTerapkan.dilewatiKunciManual > 0) {
+				pesan += " " + hasilTerapkan.dilewatiKunciManual
+						+ " produk dilewati karena harga beli dikunci manual.";
+			}
+			ais.ui.util.MyMessageboxConfig.show(pesan, "Informasi", ais.ui.util.MyMessageboxConfig.OK,
 					ais.ui.util.MyMessageboxConfig.INFORMATION);
 		}
 		return true;
 	}
 
 	/** Delegasi ke logika bersama lintas platform (ZK/JSP/Desktop/Android). */
-	private int terapkanHargaKeAnggota(Session session, GrupProduk grup) {
+	private GrupProdukUtil.HasilTerapkanHarga terapkanHargaKeAnggota(Session session, GrupProduk grup) {
 		return GrupProdukUtil.terapkanHargaKeAnggota(session, grup);
 	}
 
