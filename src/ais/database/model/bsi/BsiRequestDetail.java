@@ -64,28 +64,22 @@ import ais.database.model.sekolah.Tagihan;
  * juga tidak mendukung modul kursus. Pendamping {@link #getDetailBiaya()}
  * menautkan baris ke mata biaya master.
  *
- * <h3>PERHATIAN: penanda validator masih tertulis "BNI"</h3>
+ * <h3>Riwayat: penanda validator sempat tertulis "BNI"</h3>
  *
  * {@link #getKeterangan()} membangkitkan teks keterangan yang berakhir dengan
- * {@code ", validator : BNI"} pada KEDUA cabangnya — bukan {@code "BSI"}
- * maupun {@code "Bank Syariah Indonesia"}. Ini sisa salin-tempel dari paket
+ * {@code ", validator : "} plus nama bank pada KEDUA cabangnya. Sampai dengan
+ * r85129, penanda itu tertulis {@code "BNI"} — sisa salin-tempel dari paket
  * BNI (paket BSI memang dibangun di atas produk gateway yang sama; lihat
- * {@link BsiRequest}). Konsekuensinya:
- *
- * <ul>
- * <li>teks tersebut DIPERSIST — {@link #getKeterangan()} menulis balik hasil
- * pembangkitan ke field, sehingga label yang salah ikut tersimpan permanen di
- * kolom {@code bsi_request_detail.keterangan} dan di tabel revisi
- * {@code bsi_request_detail_AUD};</li>
- * <li>teks itu ditampilkan sebagai label per-rincian pada layar BSI
- * ({@code ais.action.master.bsi.BsiRequestAction});</li>
- * <li>validator pada entitas {@code Kegiatan}/{@code PembayaranSiswa} sendiri
- * TIDAK terpengaruh — jalur itu memakai konfigurasi
- * {@code default_validator_bsi} (default
- * {@code "Bank Syariah Indonesia"}) di {@code ais.action.servlet.Bsiresponse}.
- * Jadi dampaknya adalah label yang menyesatkan, bukan salah kelas akuntansi.
- * Tetap perlu diperbaiki agar penelusuran per-bank tidak keliru.</li>
- * </ul>
+ * {@link BsiRequest}) — dan sudah diperbaiki menjadi {@code "BSI"}. Karena
+ * getter menulis balik hasil pembangkitan ke field, baris lama yang sempat
+ * ter-generate sebelum perbaikan ini mungkin masih menyimpan label
+ * {@code "BNI"} secara permanen di kolom {@code bsi_request_detail.keterangan}
+ * maupun di tabel revisi {@code bsi_request_detail_AUD} — lihat audit data
+ * historis sebelum mengandalkan label ini untuk rekonsiliasi per-bank pada
+ * data lama. Validator pada entitas {@code Kegiatan}/{@code PembayaranSiswa}
+ * sendiri tidak pernah terpengaruh — jalur itu memakai konfigurasi
+ * {@code default_validator_bsi} (default {@code "Bank Syariah Indonesia"}) di
+ * {@code ais.action.servlet.Bsiresponse}.
  *
  * <h3>Catatan keamanan</h3>
  *
@@ -389,18 +383,17 @@ public class BsiRequestDetail extends GeneralValueObject {
 	 * kode, nama, dan {@link #getNilai()}.</li>
 	 * </ul>
 	 * <p>
-	 * <b>CACAT YANG DIKETAHUI — penanda validator salah.</b> Kedua cabang
-	 * mengakhiri teks dengan {@code ", validator : BNI"}, padahal transaksi ini
-	 * milik BSI. Ini sisa salin-tempel dari paket BNI. Karena getter menulis
-	 * balik hasilnya, label yang salah ikut tersimpan permanen di kolom
-	 * {@code keterangan} dan di tabel revisi {@code bsi_request_detail_AUD},
-	 * serta ditampilkan sebagai label per-rincian di layar BSI. Perlu dicatat
-	 * bahwa validator pada {@code Kegiatan}/{@code PembayaranSiswa} TIDAK
-	 * terpengaruh — jalur itu memakai konfigurasi
-	 * {@code default_validator_bsi} di {@code ais.action.servlet.Bsiresponse} —
-	 * sehingga dampaknya adalah label yang menyesatkan, bukan salah kelas
-	 * akuntansi. Jangan memperbaiki tanpa mempertimbangkan data historis yang
-	 * sudah terlanjur berlabel {@code "BNI"}.
+	 * <b>Riwayat perbaikan:</b> kedua cabang mengakhiri teks dengan
+	 * {@code ", validator : BSI"}. Sampai dengan r85129 penanda ini tertulis
+	 * {@code "BNI"} — sisa salin-tempel dari paket BNI — dan karena getter
+	 * menulis balik hasilnya ke field, baris yang sempat ter-generate sebelum
+	 * perbaikan mungkin masih berlabel {@code "BNI"} secara permanen di kolom
+	 * {@code keterangan} maupun di tabel revisi {@code bsi_request_detail_AUD};
+	 * lihat audit data historis sebelum mengandalkan label ini pada data lama.
+	 * Label ini juga ditampilkan sebagai label per-rincian di layar BSI. Perlu
+	 * dicatat bahwa validator pada {@code Kegiatan}/{@code PembayaranSiswa}
+	 * TIDAK terpengaruh — jalur itu memakai konfigurasi
+	 * {@code default_validator_bsi} di {@code ais.action.servlet.Bsiresponse}.
 	 * <p>
 	 * Blok {@code try} pada cabang pertama sengaja menelan seluruh eksepsi:
 	 * {@code pengaturanPembayaranBulanan}/{@code detailBiaya} dapat berupa
@@ -429,12 +422,12 @@ public class BsiRequestDetail extends GeneralValueObject {
 											: bsiRequest.getMahasiswa(),
 									bsiRequest == null || bsiRequest.getJenisKegiatan() == null ? null
 											: bsiRequest.getSemester()))
-							+ ", validator : BNI";
+							+ ", validator : BSI";
 				} catch (Exception exLazy) { ais.common.ErrorAuditUtil.record(exLazy, "auto-audit(empty-catch) src/ais/database/model/bsi/BsiRequestDetail.java:getKeterangan-lazy");
 				}
 			} else if (itemBiaya != null && getNilai() != null) {
 				keterangan = itemBiaya.getKode() + "-" + itemBiaya.getNama() + ", nominal Rp. "
-						+ Common.numberFormat.get().format(getNilai()) + ", validator : BNI";
+						+ Common.numberFormat.get().format(getNilai()) + ", validator : BSI";
 			}
 		}
 		return keterangan;
@@ -444,7 +437,7 @@ public class BsiRequestDetail extends GeneralValueObject {
 	 * Menetapkan keterangan baris rincian.
 	 * <p>
 	 * Mengisi nilai non-kosong akan MEMATIKAN pembangkitan otomatis pada
-	 * {@link #getKeterangan()} — termasuk penanda validator yang keliru.
+	 * {@link #getKeterangan()}.
 	 *
 	 * @param keterangan keterangan baris.
 	 */

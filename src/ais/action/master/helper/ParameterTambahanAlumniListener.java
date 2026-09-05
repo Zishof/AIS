@@ -139,9 +139,9 @@ public class ParameterTambahanAlumniListener implements EventListener {
 	 * sendiri (query {@link ParameterTambahanAlumni} via Criteria, alias ke {@code
 	 * parameterTambahan} dan {@code kelompokParameterTambahanAlumni}) dan menutupnya sebelum
 	 * mengevaluasi jawaban. Berhenti pada kegagalan validasi PERTAMA yang ditemukan (tidak
-	 * mengumpulkan semua kegagalan sekaligus). Catatan: parameter yang punya {@code syaratTampil}
-	 * (field bersyarat) TIDAK dikecualikan di sini — validasi wajib-isi berjalan lepas dari
-	 * status tampil/sembunyi di UI.
+	 * mengumpulkan semua kegagalan sekaligus). Parameter yang punya {@code syaratTampil} hanya
+	 * divalidasi ketika syaratnya terpenuhi. Dengan demikian, field bersyarat yang disembunyikan
+	 * oleh UI tidak akan dianggap kosong dan tidak akan menghambat proses simpan.
 	 *
 	 * @param biodataMahasiswa              biodata alumni yang divalidasi; {@code null} langsung mengembalikan {@code false}
 	 * @param eventListener                 listener yang di-passing sebagai target fokus pada messagebox ({@code tampilMessage=true}), atau dipanggil langsung ({@code onEvent(null)}) bila {@code tampilMessage=false}
@@ -204,9 +204,10 @@ public class ParameterTambahanAlumniListener implements EventListener {
 					val = value.length > 1 ? value[1].trim() : "";
 				}
 
+				boolean lolosSyarat = lolosSyaratTampil(parameterTambahan, mapValParam);
 				boolean isTipeInputanValid = parameterTambahanAlumni.getParameterTambahan() != null && !parameterTambahanAlumni.getParameterTambahan().getTipeDataInputan().equals(ParameterTambahan.TIDAK_ADA);
 				boolean isEmptyValue = (val == null || val.trim().isEmpty() || val.trim().equalsIgnoreCase("null"));
-				boolean wajib = parameterTambahanAlumni.getWajibDiisi() && isTipeInputanValid && isEmptyValue;
+				boolean wajib = lolosSyarat && parameterTambahanAlumni.getWajibDiisi() && isTipeInputanValid && isEmptyValue;
 
 				if (wajib) {
 					if (tampilMessage) {
@@ -223,7 +224,7 @@ public class ParameterTambahanAlumniListener implements EventListener {
 					return false;
 				}
 
-				if (parameterTambahan.getLampiranWajibDiisi() && parameterTambahan.getHarusMenyertakanLampiran()) {
+				if (lolosSyarat && parameterTambahan.getLampiranWajibDiisi() && parameterTambahan.getHarusMenyertakanLampiran()) {
 					String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataMahasiswa.class,
 							biodataMahasiswa.getId(), jenisMentah);
 					LampiranLain lam = LampiranLain.ambil(biodataMahasiswa.getId(), jenis);
@@ -551,7 +552,7 @@ public class ParameterTambahanAlumniListener implements EventListener {
 	 * @param mapValParam        peta jawaban tersimpan (hasil {@link #parseParameterMap}) tempat nilai parameter acuan dicari
 	 * @return {@code true} bila tak bersyarat atau syarat terpenuhi; {@code false} bila ada syarat yang dievaluasi dan tidak terpenuhi
 	 */
-	private boolean lolosSyaratTampil(ParameterTambahan parameterTambahan, Map<String, String[]> mapValParam) {
+	private static boolean lolosSyaratTampil(ParameterTambahan parameterTambahan, Map<String, String[]> mapValParam) {
 		try {
 			String json = parameterTambahan.getSyaratTampil();
 			if (json == null || json.trim().isEmpty()) {
@@ -602,7 +603,7 @@ public class ParameterTambahanAlumniListener implements EventListener {
 	 * @param parameterId id {@link ParameterTambahan} yang jawabannya dicari; {@code null} langsung mengembalikan {@code null}
 	 * @return nilai jawaban (bagian ke-2 dari array hasil split {@code "<=>"}), string kosong bila entri ditemukan tapi tak punya bagian nilai, atau {@code null} bila tak ada entri yang cocok
 	 */
-	private String cariNilaiParam(Map<String, String[]> mapValParam, Long parameterId) {
+	private static String cariNilaiParam(Map<String, String[]> mapValParam, Long parameterId) {
 		if (mapValParam == null || parameterId == null) {
 			return null;
 		}
