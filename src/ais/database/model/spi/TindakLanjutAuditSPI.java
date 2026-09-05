@@ -44,6 +44,29 @@ import ais.database.model.GeneralValueObject;
  * internal maupun audit mutu akademik.
  * </p>
  *
+ * <h3>PENTING: kelas ini TIDAK memakai mesin persetujuan AlurSop/DisposisiSop</h3>
+ * <p>
+ * Berbeda dari {@link PenugasanAuditSPI} (yang extends {@code DataSop} dan otomatis mendapat alur
+ * persetujuan berjenjang lewat mesin SOP/Disposisi), kelas ini extends {@link GeneralValueObject}
+ * BIASA &mdash; TIDAK ada relasi apapun ke {@code DisposisiSop}/{@code AlurSop}. Ini BUKAN
+ * perluasan celah bypass-persetujuan mesin SOP generik (berbeda kasus dari isu itu): di sini
+ * memang SEJAK AWAL tidak ada mesin persetujuan yang dilewati, karena memang tidak ada mesin
+ * persetujuan sama sekali untuk field {@link #getStatus()}. Lihat
+ * {@link ais.action.master.spi.TindakLanjutAuditSPIAction#buildAddForm} &mdash; satu form tunggal
+ * memungkinkan siapapun yang punya akses ke modul SPI (gerbangnya hanya pemeriksaan keamanan
+ * generik di level menu, TANPA scoping peran auditor vs auditee) untuk langsung mencatat status
+ * {@link #SELESAI} pada satu tindak lanjut TANPA ada langkah verifikasi terpisah oleh auditor/SPI
+ * yang menyatakan perbaikan tersebut benar-benar memadai &mdash; berbeda dari
+ * {@link PenugasanAuditSPI#getDisetujuiOleh()} yang mensyaratkan pihak KEDUA (bukan pembuat
+ * dokumen) untuk menyetujui. Konsekuensinya: auditee (atau siapapun yang mengisi form ini atas
+ * nama mereka) bisa menyatakan sendiri bahwa temuan sudah selesai ditindaklanjuti tanpa tanda
+ * tangan/verifikasi independen dari SPI, sesuatu yang berlawanan dengan semangat Three Lines Model
+ * yang justru menjadi prinsip dasar {@link PenugasanAuditSPI}. Temuan ini telah dilaporkan sebagai
+ * task terpisah (BUKAN bagian dari isu bypass-persetujuan AlurSop/DisposisiSop generik, karena
+ * mesin itu memang tidak dipakai di sini sama sekali) untuk dipertimbangkan penambahan langkah
+ * verifikasi auditor sebelum status ini bisa dianggap final.
+ * </p>
+ *
  * @author e-Campus SPI Team
  */
 @Entity
@@ -52,11 +75,21 @@ import ais.database.model.GeneralValueObject;
 @Table(schema = "public", name = "tindak_lanjut_audit_spi")
 public class TindakLanjutAuditSPI extends GeneralValueObject {
 
+	/** Kode status "belum ada tindakan yang dimulai" &mdash; nilai default {@link #getStatus()}. */
 	public static final String BELUM_DIMULAI = "Belum Dimulai";
+	/** Kode status "tindakan perbaikan sedang dikerjakan auditee, belum tuntas". */
 	public static final String SEDANG_BERJALAN = "Sedang Berjalan";
+	/** Kode status "target penyelesaian sudah lewat namun belum selesai". CATATAN: status ini
+	 * TIDAK dihitung/disetel otomatis oleh sistem berdasarkan perbandingan {@link #getTargetDate()}
+	 * dengan tanggal berjalan &mdash; harus dipilih manual oleh pengisi form. */
 	public static final String TERLAMBAT = "Terlambat";
+	/** Kode status "tindakan perbaikan dinyatakan tuntas". PERHATIAN: lihat javadoc kelas bagian
+	 * "PENTING: kelas ini TIDAK memakai mesin persetujuan AlurSop/DisposisiSop" &mdash; status ini
+	 * bisa disetel langsung oleh siapapun yang mengisi form, tanpa verifikasi independen auditor. */
 	public static final String SELESAI = "Selesai";
 
+	/** Peta kode status &rarr; label bahasa manusia (di sini kode dan label sengaja identik),
+	 * sumber tunggal untuk dropdown pilihan status di form tindak lanjut. */
 	public static final Map<String, String> statusLabel = new LinkedHashMap<String, String>();
 	static {
 		statusLabel.put(BELUM_DIMULAI, BELUM_DIMULAI);
@@ -80,18 +113,37 @@ public class TindakLanjutAuditSPI extends GeneralValueObject {
 	private String olehId;
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Konstruktor tanpa argumen, wajib ada agar Hibernate dapat menginstansiasi entity ini. */
 	public TindakLanjutAuditSPI() {
 	}
 
+	/**
+	 * Konstruktor kenyamanan untuk langsung mengaitkan baris tindak lanjut baru ke satu temuan
+	 * yang ditindaklanjuti, dipakai oleh
+	 * {@link ais.action.master.spi.TindakLanjutAuditSPIAction#buildAddForm} saat mencatat entri
+	 * baru dari panel tindak lanjut satu temuan.
+	 *
+	 * @param temuanAuditSPI temuan yang ditindaklanjuti oleh baris ini.
+	 */
 	public TindakLanjutAuditSPI(TemuanAuditSPI temuanAuditSPI) {
 		this.temuanAuditSPI = temuanAuditSPI;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}, dipanggil otomatis Hibernate sebelum UPDATE, mendelegasikan
+	 * ke {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)} untuk menyegarkan
+	 * {@link #getTanggal_dirubah()} secara otomatis, tanpa kode aplikasi perlu mengelolanya manual.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * ID primer baris ini, di-generate otomatis oleh database (strategi {@code IDENTITY}).
+	 *
+	 * @return ID unik baris ini, atau {@code null} bila entity belum pernah disimpan.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -99,10 +151,23 @@ public class TindakLanjutAuditSPI extends GeneralValueObject {
 		return id;
 	}
 
+	/**
+	 * Mengisi ID baris ini secara manual, terutama saat membangun objek referensi ringan untuk
+	 * relasi {@code JoinColumn} tanpa memuat seluruh baris dari database.
+	 *
+	 * @param id ID baris yang akan diisi.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Temuan audit yang ditindaklanjuti oleh baris ini &mdash; satu temuan bisa memiliki BANYAK
+	 * baris tindak lanjut (dicatat progresif dari waktu ke waktu), lihat javadoc kelas. Relasi
+	 * wajib ({@code nullable = false}).
+	 *
+	 * @return temuan audit yang ditindaklanjuti.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "temuan_audit_spi", nullable = false)
 	public TemuanAuditSPI getTemuanAuditSPI() {
@@ -110,112 +175,271 @@ public class TindakLanjutAuditSPI extends GeneralValueObject {
 		return temuanAuditSPI;
 	}
 
+	/**
+	 * Mengaitkan baris tindak lanjut ini ke satu temuan. SENGAJA menolak (mengabaikan diam-diam)
+	 * argumen yang {@code null} atau belum memiliki ID tersimpan &mdash; mencegah baris tindak
+	 * lanjut kehilangan tautan wajibnya ke temuan hanya karena dipanggil dengan objek yang belum
+	 * sempat di-persist.
+	 *
+	 * @param temuanAuditSPI temuan baru yang ditindaklanjuti; diabaikan bila {@code null} atau
+	 *        belum memiliki ID (belum tersimpan).
+	 */
 	public void setTemuanAuditSPI(TemuanAuditSPI temuanAuditSPI) {
 		if (temuanAuditSPI != null && temuanAuditSPI.getId() != null) {
 			this.temuanAuditSPI = temuanAuditSPI;
 		}
 	}
 
+	/**
+	 * Uraian tindakan nyata yang sudah/sedang dilakukan auditee dalam merespons rekomendasi
+	 * auditor. Nilai dikembalikan sudah di-{@code trim()}, dan kolom ini WAJIB terisi (
+	 * {@code nullable = false}) &mdash; formulir {@link ais.action.master.spi.TindakLanjutAuditSPIAction}
+	 * menolak simpan bila kosong.
+	 *
+	 * @return uraian tindak lanjut yang sudah dipangkas spasinya; string kosong bila belum diisi.
+	 */
 	@Column(name = "deskripsi", nullable = false, columnDefinition = "text")
 	public String getDeskripsi() {
 		return deskripsi == null ? "" : deskripsi.trim();
 	}
 
+	/**
+	 * Mengisi uraian tindak lanjut ini.
+	 *
+	 * @param deskripsi uraian tindakan baru.
+	 */
 	public void setDeskripsi(String deskripsi) {
 		this.deskripsi = deskripsi;
 	}
 
+	/**
+	 * Nama penanggung jawab (PIC) pelaksanaan tindak lanjut ini di sisi auditee. SENGAJA berupa
+	 * kolom teks bebas (bukan relasi ke {@link ais.database.model.Tbmuser}) karena PIC yang
+	 * ditunjuk auditee tidak harus memiliki akun pengguna di aplikasi ini.
+	 *
+	 * @return nama PIC, atau {@code null} bila belum diisi.
+	 */
 	@Column(name = "pic_nama")
 	public String getPicNama() {
 		return picNama;
 	}
 
+	/**
+	 * Mengisi nama PIC penanggung jawab tindak lanjut ini.
+	 *
+	 * @param picNama nama PIC baru.
+	 */
 	public void setPicNama(String picNama) {
 		this.picNama = picNama;
 	}
 
+	/**
+	 * Target tanggal penyelesaian tindak lanjut ini, dijanjikan oleh auditee saat pertama kali
+	 * dicatat.
+	 *
+	 * @return target tanggal penyelesaian, atau {@code null} bila belum ditentukan.
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "target_date")
 	public Date getTargetDate() {
 		return targetDate;
 	}
 
+	/**
+	 * Mengisi target tanggal penyelesaian tindak lanjut ini.
+	 *
+	 * @param targetDate target tanggal baru.
+	 */
 	public void setTargetDate(Date targetDate) {
 		this.targetDate = targetDate;
 	}
 
+	/**
+	 * Tanggal aktual tindak lanjut ini benar-benar dinyatakan selesai. CATATAN: field ini TIDAK
+	 * otomatis diisi saat {@link #getStatus()} disetel ke {@link #SELESAI} &mdash; pengisian
+	 * keduanya (status dan tanggal) sepenuhnya independen dan bergantung pada apa yang dimasukkan
+	 * manual lewat form, tidak ada validasi silang di level entity ini.
+	 *
+	 * @return tanggal selesai aktual, atau {@code null} bila belum diisi.
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggal_selesai")
 	public Date getTanggalSelesai() {
 		return tanggalSelesai;
 	}
 
+	/**
+	 * Mengisi tanggal aktual penyelesaian tindak lanjut ini.
+	 *
+	 * @param tanggalSelesai tanggal selesai baru.
+	 */
 	public void setTanggalSelesai(Date tanggalSelesai) {
 		this.tanggalSelesai = tanggalSelesai;
 	}
 
+	/**
+	 * Persentase kemajuan pelaksanaan tindak lanjut ini (0&ndash;100), ditampilkan sebagai bilah
+	 * progres pada panel riwayat &mdash; lihat
+	 * {@link ais.action.master.spi.TindakLanjutAuditSPIAction} method {@code buildRows}.
+	 *
+	 * @return persentase kemajuan, selalu dalam rentang 0&ndash;100 (lihat {@link #setProgressPersen(int)}).
+	 */
 	@Column(name = "progress_persen", nullable = false)
 	public int getProgressPersen() {
 		return progressPersen;
 	}
 
+	/**
+	 * Mengisi persentase kemajuan tindak lanjut ini. Nilai SENGAJA di-<i>clamp</i> (dipaksa masuk
+	 * rentang) ke 0&ndash;100 di sini &mdash; input di luar rentang (mis. dari kesalahan ketik
+	 * atau data impor) tidak akan pernah tersimpan sebagai nilai tidak masuk akal seperti -5 atau
+	 * 150.
+	 *
+	 * @param progressPersen persentase kemajuan baru; nilai di luar 0&ndash;100 dipangkas ke batas
+	 *        terdekat.
+	 */
 	public void setProgressPersen(int progressPersen) {
 		this.progressPersen = Math.max(0, Math.min(100, progressPersen));
 	}
 
+	/**
+	 * Status pelaksanaan tindak lanjut ini, salah satu dari {@link #BELUM_DIMULAI}/
+	 * {@link #SEDANG_BERJALAN}/{@link #TERLAMBAT}/{@link #SELESAI}. PERHATIAN: lihat javadoc kelas
+	 * bagian "PENTING: kelas ini TIDAK memakai mesin persetujuan AlurSop/DisposisiSop" &mdash;
+	 * TIDAK ada verifikasi independen sebelum status bisa disetel ke {@link #SELESAI}. Default
+	 * {@link #BELUM_DIMULAI} bila belum diisi.
+	 *
+	 * @return kode status; {@link #BELUM_DIMULAI} bila nilai tersimpan {@code null}, selalu
+	 *         di-{@code trim()} bila ada isinya.
+	 */
 	@Column(name = "status")
 	public String getStatus() {
 		return status == null ? BELUM_DIMULAI : status.trim();
 	}
 
+	/**
+	 * Mengisi status pelaksanaan tindak lanjut ini TANPA validasi transisi apapun (mis. bisa
+	 * langsung melompat dari {@link #BELUM_DIMULAI} ke {@link #SELESAI} tanpa melalui
+	 * {@link #SEDANG_BERJALAN}) &mdash; lihat javadoc kelas untuk catatan lengkap soal
+	 * ketiadaan gerbang verifikasi pada field ini.
+	 *
+	 * @param status kode status baru, idealnya salah satu dari {@link #BELUM_DIMULAI}/
+	 *        {@link #SEDANG_BERJALAN}/{@link #TERLAMBAT}/{@link #SELESAI}.
+	 */
 	public void setStatus(String status) {
 		this.status = status;
 	}
 
+	/**
+	 * Keterangan bebas tambahan mengenai tindak lanjut ini, mis. kendala pelaksanaan atau catatan
+	 * tambahan yang tidak tercakup di {@link #getDeskripsi()}.
+	 *
+	 * @return teks keterangan, atau {@code null} bila tidak diisi.
+	 */
 	@Column(name = "keterangan", columnDefinition = "text")
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/**
+	 * Mengisi keterangan bebas untuk tindak lanjut ini.
+	 *
+	 * @param keterangan teks keterangan baru.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Status aktif/nonaktif baris tindak lanjut ini; nilai {@code null} SENGAJA diperlakukan
+	 * sebagai {@code true} (aktif) demi kompatibilitas data lama &mdash; konvensi baku entity di
+	 * aplikasi ini.
+	 *
+	 * @return {@code true} bila baris tindak lanjut ini aktif (termasuk saat nilai tersimpan
+	 *         {@code null}).
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Mengubah status aktif/nonaktif baris tindak lanjut ini. Menonaktifkan (bukan menghapus)
+	 * dianjurkan agar riwayat progresif tindak lanjut yang salah entri tetap tersimpan sebagai
+	 * jejak, hanya disembunyikan dari tampilan.
+	 *
+	 * @param aktif status baru; {@code null} diperlakukan sebagai aktif oleh {@link #getAktif()}.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengambil nama pengguna yang terakhir mengubah baris ini. Field SHADOW dari riwayat Envers
+	 * ({@code @Audited} pada kelas ini) &mdash; KEHARUSAN TEKNIS untuk menampilkan "terakhir diubah
+	 * oleh siapa" secara murah di layar daftar tanpa query terpisah ke tabel riwayat revisi.
+	 *
+	 * @return nama pengguna terakhir yang mengubah baris ini, atau {@code null} bila belum diisi.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Mengisi nama pengguna yang mengubah baris ini; nilai kosong/blank sengaja diabaikan agar
+	 * tidak menimpa jejak yang sudah tercatat.
+	 *
+	 * @param oleh nama pengguna; {@code null} atau string kosong/spasi diabaikan.
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) return;
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengambil ID pengguna yang terakhir mengubah baris ini.
+	 *
+	 * @return ID pengguna terakhir yang mengubah baris ini, atau {@code null} bila belum diisi.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi ID pengguna yang mengubah baris ini; nilai kosong/blank sengaja diabaikan.
+	 *
+	 * @param olehId ID pengguna; {@code null} atau string kosong/spasi diabaikan.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) return;
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Mengambil waktu terakhir baris ini diubah.
+	 *
+	 * @return waktu perubahan terakhir baris ini.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Mengisi manual waktu terakhir baris ini diubah; dalam praktiknya disegarkan otomatis lewat
+	 * {@link #onUpdate()} pada tiap UPDATE.
+	 *
+	 * @param tanggal_dirubah waktu perubahan terakhir.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks singkat baris tindak lanjut ini (format {@code "<id>-<deskripsi>"}) untuk
+	 * log/debug.
+	 *
+	 * @return string gabungan ID dan uraian tindak lanjut.
+	 */
 	@Override
 	public String toString() {
 		return id + "-" + deskripsi;
