@@ -52,7 +52,18 @@ import ais.database.model.rab.Sasaran;
  * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
  * session aktif; jangan menaruh query duplikat pada model.</p>
  *
+ * <p><b>Tautan kegiatan ke sasaran:</b> satu baris menautkan {@link #getKegiatanTugasJabatan()} ke satu {@link
+ * Sasaran} — sasaran strategis/rencana kerja milik modul RAB ({@code ais.database.model.rab.Sasaran}) yang
+ * hendak didukung capaian kegiatan tersebut. Berbeda dari {@link KegiatanTugasJabatanPunyaIndikator} yang
+ * menaut ke {@code Indikator} beserta nilai target/satuannya sendiri, baris sasaran ini murni tabel penghubung
+ * tanpa kolom target tambahan — kegiatan yang sama dapat mendukung banyak sasaran sekaligus, dan satu sasaran
+ * dapat didukung banyak kegiatan (relasi many-to-many via tabel eksplisit ini). Fetch kedua relasi memakai
+ * {@code @Fetch(FetchMode.SELECT)} secara eksplisit, berbeda dari kebanyakan model LKP lain yang hanya
+ * mengandalkan {@code fetch = FetchType.LAZY} bawaan {@code @ManyToOne}.</p>
+ *
  * @see GeneralValueObject
+ * @see KegiatanTugasJabatan
+ * @see Sasaran
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -73,30 +84,68 @@ public class KegiatanTugasJabatanPunyaSasaran extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * Mengembalikan id pengguna yang terakhir menyimpan/mengubah baris ini (field audit shadow,
+	 * pasangan {@link #getOleh()}, diisi manual).
+	 *
+	 * @return id pengguna terakhir, dapat {@code null}.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menetapkan id pengguna yang melakukan perubahan. Nilai {@code null} atau kosong/blank
+	 * diabaikan secara diam-diam.
+	 *
+	 * @param olehId id pengguna; diabaikan jika {@code null} atau kosong setelah di-trim.
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
 	private Long id;
 
+	/**
+	 * Menetapkan nama/label pengguna yang melakukan perubahan (pasangan {@link #setOlehId(String)}).
+	 * Nilai {@code null} atau kosong/blank diabaikan secara diam-diam.
+	 *
+	 * @param oleh nama pengguna; diabaikan jika {@code null} atau kosong setelah di-trim.
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama/label pengguna yang terakhir menyimpan/mengubah baris ini.
+	 *
+	 * @return nama pengguna terakhir, dapat {@code null}.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: memperbarui {@link #tanggal_dirubah} melalui {@link
+	 * ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)} pada setiap update baris ini.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menetapkan timestamp perubahan terakhir secara eksplisit.
+	 *
+	 * @param tanggal_dirubah timestamp perubahan terakhir.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan timestamp perubahan terakhir baris ini, diperbarui otomatis oleh {@link
+	 * #onUpdate()}.
+	 *
+	 * @return timestamp perubahan terakhir.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
@@ -105,9 +154,15 @@ public class KegiatanTugasJabatanPunyaSasaran extends GeneralValueObject {
 	private Sasaran sasaran;
 	private KegiatanTugasJabatan kegiatanTugasJabatan;
 
+	/** Konstruktor default (dibutuhkan Hibernate/JPA). */
 	public KegiatanTugasJabatanPunyaSasaran() {
 	}
 
+	/**
+	 * Mengembalikan id primary key baris tautan sasaran ini.
+	 *
+	 * @return id baris, atau {@code null} untuk instance yang belum tersimpan.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -115,10 +170,23 @@ public class KegiatanTugasJabatanPunyaSasaran extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menetapkan id baris tautan sasaran ini.
+	 *
+	 * @param id id baris.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan {@link Sasaran} (sasaran strategis milik modul RAB) yang didukung capaiannya
+	 * oleh kegiatan ini. Relasi dimuat dengan {@code @Fetch(FetchMode.SELECT)} (select terpisah,
+	 * bukan join) dan — berbeda dari kebanyakan relasi lazy lain di paket LKP — <b>tidak</b>
+	 * melewati {@link #check(Object)}, sehingga proxy Hibernate dikembalikan apa adanya.
+	 *
+	 * @return sasaran terkait, dapat {@code null} bila belum ditautkan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "sasaran", nullable = true)
@@ -126,10 +194,21 @@ public class KegiatanTugasJabatanPunyaSasaran extends GeneralValueObject {
 		return sasaran;
 	}
 
+	/**
+	 * Menetapkan sasaran yang ditautkan ke kegiatan ini.
+	 *
+	 * @param sasaran sasaran baru.
+	 */
 	public void setSasaran(Sasaran sasaran) {
 		this.sasaran = sasaran;
 	}
 
+	/**
+	 * Mengembalikan {@link KegiatanTugasJabatan} pemilik tautan sasaran ini. Kolom wajib diisi;
+	 * relasi dimuat dengan {@code @Fetch(FetchMode.SELECT)}, tanpa melewati {@link #check(Object)}.
+	 *
+	 * @return kegiatan tugas jabatan pemilik.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "kegiatan_tugas_jabatan", nullable = false)
@@ -137,6 +216,11 @@ public class KegiatanTugasJabatanPunyaSasaran extends GeneralValueObject {
 		return kegiatanTugasJabatan;
 	}
 
+	/**
+	 * Menetapkan kegiatan tugas jabatan pemilik tautan sasaran ini.
+	 *
+	 * @param kegiatanTugasJabatan kegiatan pemilik baru.
+	 */
 	public void setKegiatanTugasJabatan(KegiatanTugasJabatan kegiatanTugasJabatan) {
 		this.kegiatanTugasJabatan = kegiatanTugasJabatan;
 	}

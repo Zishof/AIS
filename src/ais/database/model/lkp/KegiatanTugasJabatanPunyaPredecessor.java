@@ -46,7 +46,20 @@ import ais.database.model.GeneralValueObject;
  * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
  * session aktif; jangan menaruh query duplikat pada model.</p>
  *
+ * <p><b>Dependensi urutan kegiatan (predecessor):</b> satu baris menyatakan bahwa {@link
+ * #getKegiatanTugasJabatan()} (kegiatan "penerus") baru boleh/relevan dikerjakan setelah {@link
+ * #getKegiatanTugasJabatanPredecessor()} (kegiatan "pendahulu") selesai — pola predecessor/dependency ala project
+ * management, mirip {@code finish-to-start} pada penjadwalan proyek. Kedua ujung relasi sama-sama merujuk ke
+ * {@link KegiatanTugasJabatan} sehingga baris ini pada dasarnya adalah tabel penghubung self-referencing
+ * many-to-many (satu kegiatan bisa memiliki banyak predecessor, dan menjadi predecessor bagi banyak kegiatan
+ * lain). Model ini sendiri tidak melakukan validasi siklus (cycle) — pencegahan predecessor melingkar, bila ada,
+ * berada di lapisan action/helper pemanggil ({@link
+ * ais.action.master.lkp.helper.KegiatanTugasJabatanPunyaPredecessorHelper}). Perhatikan juga penamaan tabel
+ * campur-kapital {@code rab.kegiatanTugasJabatan_punya_predecessor} (bukan snake_case murni seperti tabel LKP
+ * lain) — kemungkinan sisa migrasi/refactor nama kelas yang belum diseragamkan penuh ke skema {@code rab}.</p>
+ *
  * @see GeneralValueObject
+ * @see KegiatanTugasJabatan
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -64,30 +77,68 @@ public class KegiatanTugasJabatanPunyaPredecessor extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * Mengembalikan id pengguna yang terakhir menyimpan/mengubah baris ini (field audit shadow,
+	 * pasangan {@link #getOleh()}, diisi manual).
+	 *
+	 * @return id pengguna terakhir, dapat {@code null}.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menetapkan id pengguna yang melakukan perubahan. Nilai {@code null} atau kosong/blank
+	 * diabaikan secara diam-diam.
+	 *
+	 * @param olehId id pengguna; diabaikan jika {@code null} atau kosong setelah di-trim.
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
 	private Long id;
 
+	/**
+	 * Menetapkan nama/label pengguna yang melakukan perubahan (pasangan {@link #setOlehId(String)}).
+	 * Nilai {@code null} atau kosong/blank diabaikan secara diam-diam.
+	 *
+	 * @param oleh nama pengguna; diabaikan jika {@code null} atau kosong setelah di-trim.
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama/label pengguna yang terakhir menyimpan/mengubah baris ini.
+	 *
+	 * @return nama pengguna terakhir, dapat {@code null}.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: memperbarui {@link #tanggal_dirubah} melalui {@link
+	 * ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)} pada setiap update baris ini.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menetapkan timestamp perubahan terakhir secara eksplisit.
+	 *
+	 * @param tanggal_dirubah timestamp perubahan terakhir.
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan timestamp perubahan terakhir baris ini, diperbarui otomatis oleh {@link
+	 * #onUpdate()}.
+	 *
+	 * @return timestamp perubahan terakhir.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
@@ -96,9 +147,15 @@ public class KegiatanTugasJabatanPunyaPredecessor extends GeneralValueObject {
 	private KegiatanTugasJabatan kegiatanTugasJabatanPredecessor;
 	private KegiatanTugasJabatan kegiatanTugasJabatan;
 
+	/** Konstruktor default (dibutuhkan Hibernate/JPA). */
 	public KegiatanTugasJabatanPunyaPredecessor() {
 	}
 
+	/**
+	 * Mengembalikan id primary key baris predecessor ini.
+	 *
+	 * @return id baris, atau {@code null} untuk instance yang belum tersimpan.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -106,10 +163,22 @@ public class KegiatanTugasJabatanPunyaPredecessor extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menetapkan id baris predecessor ini.
+	 *
+	 * @param id id baris.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan kegiatan "pendahulu" (predecessor) — kegiatan yang harus selesai lebih dulu
+	 * sebelum {@link #getKegiatanTugasJabatan() kegiatan penerus} relevan dikerjakan. Relasi lazy,
+	 * opsional pada level kolom meski secara bisnis baris ini seharusnya selalu memilikinya.
+	 *
+	 * @return kegiatan pendahulu, dapat {@code null} bila belum diisi.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kegiatan_tugas_jabatan_predecessor", nullable = true)
 	public KegiatanTugasJabatan getKegiatanTugasJabatanPredecessor() {
@@ -117,10 +186,25 @@ public class KegiatanTugasJabatanPunyaPredecessor extends GeneralValueObject {
 		return kegiatanTugasJabatanPredecessor;
 	}
 
+	/**
+	 * Menetapkan kegiatan pendahulu (predecessor) baris ini. Parameter bernama {@code
+	 * kegiatanTugasJabatan} pada signature (bukan {@code kegiatanTugasJabatanPredecessor}) hanyalah
+	 * penamaan parameter yang tidak konsisten dengan field yang diisi — perilakunya tetap benar
+	 * (mengisi {@link #kegiatanTugasJabatanPredecessor}), namun berhati-hatilah saat membaca kode
+	 * pemanggil agar tidak tertukar dengan {@link #setKegiatanTugasJabatan(KegiatanTugasJabatan)}.
+	 *
+	 * @param kegiatanTugasJabatan kegiatan yang akan disimpan sebagai predecessor.
+	 */
 	public void setKegiatanTugasJabatanPredecessor(KegiatanTugasJabatan kegiatanTugasJabatan) {
 		this.kegiatanTugasJabatanPredecessor = kegiatanTugasJabatan;
 	}
 
+	/**
+	 * Mengembalikan kegiatan "penerus" — kegiatan yang bergantung pada selesainya {@link
+	 * #getKegiatanTugasJabatanPredecessor() kegiatan pendahulu}. Kolom wajib diisi; relasi lazy.
+	 *
+	 * @return kegiatan penerus (pemilik baris dependensi ini).
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kegiatan_tugas_jabatan", nullable = false)
 	public KegiatanTugasJabatan getKegiatanTugasJabatan() {
@@ -128,6 +212,11 @@ public class KegiatanTugasJabatanPunyaPredecessor extends GeneralValueObject {
 		return kegiatanTugasJabatan;
 	}
 
+	/**
+	 * Menetapkan kegiatan penerus (pemilik baris dependensi) ini.
+	 *
+	 * @param kegiatanTugasJabatan kegiatan penerus baru.
+	 */
 	public void setKegiatanTugasJabatan(KegiatanTugasJabatan kegiatanTugasJabatan) {
 		this.kegiatanTugasJabatan = kegiatanTugasJabatan;
 	}
