@@ -55,9 +55,10 @@ import ais.database.model.GeneralValueObject;
  * {@link #toString()} yang sama-sama destruktif. Perbedaannya hanya nama
  * tabel/kolom ({@code bsi_request_detail_biaya}, FK {@code bsi_request}).
  * <p>
- * Berbeda dari {@link BsiRequestDetail} yang menyimpan sisa salin-tempel
- * berupa penanda validator {@code "BNI"}, kelas ini tidak memuat konstanta
- * teks apa pun sehingga tidak terkena masalah serupa.
+ * Berbeda dari {@link BsiRequestDetail} yang sempat menyimpan sisa
+ * salin-tempel berupa penanda validator {@code "BNI"} (sudah diperbaiki),
+ * kelas ini tidak memuat konstanta teks apa pun sehingga tidak terkena
+ * masalah serupa.
  *
  * <h3>Catatan keamanan</h3>
  *

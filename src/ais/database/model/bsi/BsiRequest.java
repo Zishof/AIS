@@ -67,11 +67,11 @@ import ais.database.model.sekolah.Siswa;
  * {@code https://apibeta.bsi-ecollection.com/}).
  * <p>
  * <b>Kedekatan itu justru membuat paket ini rawan salah salin.</b> Satu
- * contoh nyata yang sudah terkonfirmasi ada di
- * {@link BsiRequestDetail#getKeterangan()}, yang membangkitkan teks berakhiran
- * {@code ", validator : BNI"} — bukan BSI. Jangan pernah menganggap kode BSI
- * pasti benar hanya karena mirip BNI; verifikasi tiap konstanta dan tiap kunci
- * konfigurasi.
+ * contoh nyata yang sempat terjadi (sampai dengan r85129, sudah diperbaiki)
+ * ada di {@link BsiRequestDetail#getKeterangan()}, yang membangkitkan teks
+ * berakhiran {@code ", validator : BNI"} — bukan BSI. Jangan pernah
+ * menganggap kode BSI pasti benar hanya karena mirip BNI; verifikasi tiap
+ * konstanta dan tiap kunci konfigurasi.
  *
  * <h3>Perbedaan NYATA terhadap {@code BniRequest}</h3>
  *
