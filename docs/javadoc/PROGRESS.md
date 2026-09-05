@@ -1,5 +1,60 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `kursus` TUNTAS 100% (6 Sep 2026, akhir batch 110) — domain KELIMA BELAS tuntas, sistem LMS/e-learning penuh
+
+Diverifikasi: **22/22 file** `ais/database/model/kursus/` kini punya
+Javadoc substansial. Selesai dalam SATU batch (110, 4 agent paralel).
+Domain kelima belas yang tuntas penuh setelah `akunting`, `payroll`,
+`koperasi`, `inventory`, `employ`, `asset`, `surat`, `rab`, `sirs`,
+`sister`, `library`, `file`, `penelitiandanpengabdian`, `sosial`.
+
+**Klaster peserta kursus** (7 file, r84946-r84968). `PesertaKursus.java`
+(462→banyak baris) `extends VOMahasiswa` mewarisi mesin penagihan
+mahasiswa besar yang TIDAK PERNAH dipanggil pada instance ini. `JenisPeserta`
+(sumbu status/keteraturan) vs `TipePeserta` (sumbu kategori identitas:
+Umum/Mahasiswa/Dosen/Pegawai/Siswa) independen. `PesertaPunyaProdukKursus`
+= header pembelian (gerbang pembayaran nyata, status Pesan/Terbeli/Batal)
+vs `ProdukPeserta` = detail 1:1 dengan getter destruktif yang hitung ulang
+komponen harga SAAT INI (bukan snapshot pembelian) vs `PesertaInginProdukKursus`
+= wishlist murni tanpa penjaga keunikan.
+
+**Klaster produk & master kursus** (6 file, r84951-r84966).
+`KomponenDataProdukKursus` dikonfirmasi INDEPENDEN dari mekanisme
+parameter tambahan generik (`task_484d4bd0` TIDAK berlaku di sini).
+**Task baru `task_ed048fa6`**: `KuponKursus.berlakuUntuk()` bug
+off-by-one-day — membandingkan stempel waktu PENUH terhadap
+`berlakuSampai` (efektif tengah malam) pakai `.after()`, kupon tampak
+kedaluwarsa sepanjang HARI TERAKHIR masa berlakunya (mekanisme BEDA dari
+bug `Diskon.jumlahMaksimal` yang tercatat di domain lain — pola nilai
+awal field & `@Temporal(DATE)` di sini justru sudah BENAR).
+
+**Klaster materi/kuis/tugas** (6 file, r84949-r84974, inti mekanisme
+LMS). Skor kuis TERVERIFIKASI dihitung ulang server-side (bukan dipercaya
+klien) — TAPI **Task baru `task_bee6756e`**: `jawab_soal_kuis` tidak
+verifikasi `BankSoalDetail` yang dikirim benar-benar milik `BankSoal`
+soal yang sedang dijawab (tabel dipakai BERSAMA seluruh sistem CBT
+akademik) — peserta bisa kirim id detail "betul=true" dari soal lain
+untuk selalu dapat skor penuh. **Task baru `task_9adad01e`**: aksi
+`tandai_selesai` men-set `ProgressMateriKursus.selesai=true` untuk materi
+tipe APAPUN (Quiz/Tugas termasuk) TANPA cek kelulusan/pengumpulan —
+karena penerbitan sertifikat hanya memeriksa flag ini, peserta bisa
+dapat sertifikat penuh tanpa mengerjakan kuis/tugas sama sekali. Kontras
+positif: jalur video (`heartbeat_progress`) dan kuis (`selesai_kuis`)
+sendiri sudah aman server-side.
+
+**Klaster sertifikat/ulasan/berita** (3 file, r84947-r84953, agent
+penutup). `cekDanTerbitkanSertifikat()` TERVERIFIKASI idempoten+
+server-side yang benar (mensyaratkan SEMUA materi selesai tersimpan di
+DB, bukan parameter klien) — TIDAK ada bypass ditemukan di sini
+(kontras dengan `task_9adad01e` yang celahnya justru di hulu, penanda
+"selesai" itu sendiri). `UlasanKursus` filter kepemilikan TERVERIFIKASI
+ketat dari sesi login. `BeritaKursus.getAktif()` diverifikasi NORMAL
+(bukan pola terbalik `InformasiPerpustakaan`/`ItemPunyaTerbit`).
+
+**3 task baru batch 110**: `task_ed048fa6`, `task_9adad01e`,
+`task_bee6756e`. Total akumulasi 110 sesi: **1315+ file** dari 7.401
+(~33,6%).
+
 ## 🎉 MILESTONE — paket `sosial` TUNTAS 100% (6 Sep 2026, akhir batch 109) — domain KEEMPAT BELAS tuntas, 0 task baru, 2 counter-example positif
 
 Diverifikasi: **24/24 file** `ais/database/model/sosial/` kini punya
