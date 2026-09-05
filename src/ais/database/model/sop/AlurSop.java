@@ -2398,6 +2398,30 @@ public class AlurSop extends GeneralValueObject {
 		this.alurSetelahnyaOtomatis = alurSetelahnyaOtomatis;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-1</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini1()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-1, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya", nullable = true)
 	public AlurSop getSetelahnya() {
@@ -2413,18 +2437,63 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-1.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya tahap tujuan cabang ke-1
+	 */
 	public void setSetelahnya(AlurSop setelahnya) {
 		this.setelahnya = setelahnya;
 	}
 
+	/**
+	 * Menyatakan apakah cabang lanjutan ditawarkan kepada aktor sebagai daftar pilihan.
+	 *
+	 * @return isi {@link #alurSetelahnyaBerupaPilihan}, atau {@code true} sebagai nilai bawaan
+	 *         bila kolom kosong
+	 */
 	public Boolean getAlurSetelahnyaBerupaPilihan() {
 		return alurSetelahnyaBerupaPilihan == null ? true : alurSetelahnyaBerupaPilihan;
 	}
 
+	/**
+	 * Menetapkan apakah cabang lanjutan ditawarkan sebagai daftar pilihan.
+	 *
+	 * @param alurSetelahnyaBerupaPilihan penanda bentuk kendali pemilihan cabang
+	 */
 	public void setAlurSetelahnyaBerupaPilihan(Boolean alurSetelahnyaBerupaPilihan) {
 		this.alurSetelahnyaBerupaPilihan = alurSetelahnyaBerupaPilihan;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-2</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya2} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya2()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini2()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-2, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya2", nullable = true)
 	public AlurSop getSetelahnya2() {
@@ -2440,10 +2509,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya2;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-2.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya2()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya2 tahap tujuan cabang ke-2
+	 */
 	public void setSetelahnya2(AlurSop setelahnya2) {
 		this.setelahnya2 = setelahnya2;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-3</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya3} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya3()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini3()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-3, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya3", nullable = true)
 	public AlurSop getSetelahnya3() {
@@ -2459,10 +2562,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya3;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-3.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya3()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya3 tahap tujuan cabang ke-3
+	 */
 	public void setSetelahnya3(AlurSop setelahnya3) {
 		this.setelahnya3 = setelahnya3;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-4</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya4} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya4()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini4()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-4, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya4", nullable = true)
 	public AlurSop getSetelahnya4() {
@@ -2478,10 +2615,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya4;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-4.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya4()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya4 tahap tujuan cabang ke-4
+	 */
 	public void setSetelahnya4(AlurSop setelahnya4) {
 		this.setelahnya4 = setelahnya4;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-5</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya5} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya5()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini5()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-5, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya5", nullable = true)
 	public AlurSop getSetelahnya5() {
@@ -2497,10 +2668,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya5;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-5.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya5()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya5 tahap tujuan cabang ke-5
+	 */
 	public void setSetelahnya5(AlurSop setelahnya5) {
 		this.setelahnya5 = setelahnya5;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-6</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya6} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya6()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini6()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-6, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya6", nullable = true)
 	public AlurSop getSetelahnya6() {
@@ -2516,10 +2721,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya6;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-6.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya6()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya6 tahap tujuan cabang ke-6
+	 */
 	public void setSetelahnya6(AlurSop setelahnya6) {
 		this.setelahnya6 = setelahnya6;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-7</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya7} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya7()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini7()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-7, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya7", nullable = true)
 	public AlurSop getSetelahnya7() {
@@ -2535,10 +2774,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya7;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-7.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya7()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya7 tahap tujuan cabang ke-7
+	 */
 	public void setSetelahnya7(AlurSop setelahnya7) {
 		this.setelahnya7 = setelahnya7;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-8</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya8} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya8()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini8()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-8, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya8", nullable = true)
 	public AlurSop getSetelahnya8() {
@@ -2554,10 +2827,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya8;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-8.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya8()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya8 tahap tujuan cabang ke-8
+	 */
 	public void setSetelahnya8(AlurSop setelahnya8) {
 		this.setelahnya8 = setelahnya8;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-9</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya9} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya9()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini9()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-9, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya9", nullable = true)
 	public AlurSop getSetelahnya9() {
@@ -2573,10 +2880,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya9;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-9.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya9()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya9 tahap tujuan cabang ke-9
+	 */
 	public void setSetelahnya9(AlurSop setelahnya9) {
 		this.setelahnya9 = setelahnya9;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-10</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya10} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya10()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini10()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-10, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya10", nullable = true)
 	public AlurSop getSetelahnya10() {
@@ -2592,6 +2933,16 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya10;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-10.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya10()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya10 tahap tujuan cabang ke-10
+	 */
 	public void setSetelahnya10(AlurSop setelahnya10) {
 		this.setelahnya10 = setelahnya10;
 	}
@@ -3418,6 +3769,30 @@ public class AlurSop extends GeneralValueObject {
 		this.persetujuanAdaDiSini20 = persetujuanAdaDiSini20;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-11</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya11} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya11()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini11()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-11, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya11", nullable = true)
 	public AlurSop getSetelahnya11() {
@@ -3434,10 +3809,44 @@ public class AlurSop extends GeneralValueObject {
 
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-11.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya11()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya11 tahap tujuan cabang ke-11
+	 */
 	public void setSetelahnya11(AlurSop setelahnya11) {
 		this.setelahnya11 = setelahnya11;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-12</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya12} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya12()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini12()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-12, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya12", nullable = true)
 	public AlurSop getSetelahnya12() {
@@ -3454,10 +3863,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya12;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-12.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya12()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya12 tahap tujuan cabang ke-12
+	 */
 	public void setSetelahnya12(AlurSop setelahnya12) {
 		this.setelahnya12 = setelahnya12;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-13</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya13} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya13()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini13()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-13, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya13", nullable = true)
 	public AlurSop getSetelahnya13() {
@@ -3474,10 +3917,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya13;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-13.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya13()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya13 tahap tujuan cabang ke-13
+	 */
 	public void setSetelahnya13(AlurSop setelahnya13) {
 		this.setelahnya13 = setelahnya13;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-14</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya14} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya14()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini14()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-14, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya14", nullable = true)
 	public AlurSop getSetelahnya14() {
@@ -3494,10 +3971,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya14;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-14.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya14()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya14 tahap tujuan cabang ke-14
+	 */
 	public void setSetelahnya14(AlurSop setelahnya14) {
 		this.setelahnya14 = setelahnya14;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-15</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya15} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya15()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini15()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-15, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya15", nullable = true)
 	public AlurSop getSetelahnya15() {
@@ -3514,10 +4025,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya15;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-15.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya15()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya15 tahap tujuan cabang ke-15
+	 */
 	public void setSetelahnya15(AlurSop setelahnya15) {
 		this.setelahnya15 = setelahnya15;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-16</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya16} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya16()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini16()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-16, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya16", nullable = true)
 	public AlurSop getSetelahnya16() {
@@ -3534,10 +4079,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya16;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-16.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya16()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya16 tahap tujuan cabang ke-16
+	 */
 	public void setSetelahnya16(AlurSop setelahnya16) {
 		this.setelahnya16 = setelahnya16;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-17</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya17} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya17()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini17()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-17, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya17", nullable = true)
 	public AlurSop getSetelahnya17() {
@@ -3554,10 +4133,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya17;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-17.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya17()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya17 tahap tujuan cabang ke-17
+	 */
 	public void setSetelahnya17(AlurSop setelahnya17) {
 		this.setelahnya17 = setelahnya17;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-18</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya18} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya18()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini18()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-18, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya18", nullable = true)
 	public AlurSop getSetelahnya18() {
@@ -3574,10 +4187,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya18;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-18.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya18()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya18 tahap tujuan cabang ke-18
+	 */
 	public void setSetelahnya18(AlurSop setelahnya18) {
 		this.setelahnya18 = setelahnya18;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-19</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya19} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya19()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini19()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-19, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya19", nullable = true)
 	public AlurSop getSetelahnya19() {
@@ -3594,10 +4241,44 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya19;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-19.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya19()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya19 tahap tujuan cabang ke-19
+	 */
 	public void setSetelahnya19(AlurSop setelahnya19) {
 		this.setelahnya19 = setelahnya19;
 	}
 
+	/**
+	 * Mengembalikan tahap tujuan <b>cabang ke-20</b>, setelah resolusi proxy malas dan
+	 * <b>dua penyaringan yang membuang nilai</b>.
+	 *
+	 * <p><b>Getter destruktif.</b> Berturut-turut method ini: (1) meresolusi proxy lewat
+	 * {@code check(...)} dan menuliskan hasilnya ke field; (2) mengosongkan field bila tahap
+	 * tujuan ternyata <b>tahap awal</b> ({@link #getStart()} benar), agar alur tidak dapat
+	 * berputar kembali ke titik masuk lewat cabang biasa; (3) mengosongkan field bila tahap
+	 * tujuan <b>sudah tidak aktif</b> ({@link #getAktif()} salah).
+	 *
+	 * <p>Penyaringan kedua dan ketiga bekerja dengan cara <b>menimpa field menjadi
+	 * {@code null}</b>, bukan sekadar mengembalikan {@code null}. Karena Hibernate memakai
+	 * akses berbasis properti, pembacaan biasa terhadap sebuah tahap karena itu dapat membuat
+	 * kolom {@code setelahnya20} ikut ditulis {@code null} ke basis data pada penyimpanan
+	 * berikutnya -- <b>konfigurasi cabang dapat hilang permanen hanya karena tahap tujuannya
+	 * dinonaktifkan sementara.</b> Ini juga sebabnya menonaktifkan satu tahap dapat memutus
+	 * alur pendahulunya secara senyap.
+	 *
+	 * <p>Pasangan berindeks sama: {@link #getOpsiSetelahnya20()} (label) dan
+	 * {@link #getPersetujuanAdaDiSini20()} (apakah cabang ini bermakna menyetujui).
+	 *
+	 * @return tahap tujuan cabang ke-20, atau {@code null} bila belum diisi, merupakan tahap
+	 *         awal, atau sudah tidak aktif
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setelahnya20", nullable = true)
 	public AlurSop getSetelahnya20() {
@@ -3614,6 +4295,16 @@ public class AlurSop extends GeneralValueObject {
 		return setelahnya20;
 	}
 
+	/**
+	 * Menetapkan tahap tujuan cabang ke-20.
+	 *
+	 * <p>Menerima nilai apa pun tanpa penjagaan: tahap awal, tahap tidak aktif, tahap milik
+	 * SOP lain, bahkan tahap ini sendiri (siklus panjang-satu) tidak ditolak di sini.
+	 * Penyaringan baru terjadi saat dibaca lewat {@link #getSetelahnya20()}, sehingga nilai
+	 * yang tersimpan di basis data dapat berbeda dari yang terlihat lewat getter.
+	 *
+	 * @param setelahnya20 tahap tujuan cabang ke-20
+	 */
 	public void setSetelahnya20(AlurSop setelahnya20) {
 		this.setelahnya20 = setelahnya20;
 	}

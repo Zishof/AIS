@@ -1398,6 +1398,74 @@ public class DisposisiAlurSop extends GeneralValueObject {
 		this.properti = properti;
 	}
 
+	/**
+	 * Mengisi {@code Map} parameter laporan dengan seluruh jejak disposisi sebuah pengajuan, agar
+	 * template cetak (JasperReports) dapat menampilkan siapa memproses apa, kapan, dengan jabatan
+	 * apa, dan dengan tanda tangan siapa.
+	 *
+	 * <p>Ini adalah jembatan antara model SOP dan lembar cetak. Karena template dibuat oleh
+	 * pengguna/implementator dan tidak dapat menjalankan kueri sendiri, method ini
+	 * "meratakan" (flatten) seluruh riwayat disposisi menjadi kunci-kunci teks sederhana yang
+	 * tinggal ditempelkan di template.</p>
+	 *
+	 * <h2>Data yang dibaca</h2>
+	 * <p>Seluruh {@code DisposisiAlurSop} milik pengajuan diambil lewat sesi Hibernate berjalan
+	 * ({@code HibernateUtil.currentSession()}), disaring {@code alurSop is not null}, dan
+	 * <b>diurutkan menaik menurut id</b> — jadi urutan pada cetakan mengikuti urutan pembuatan
+	 * baris (kronologis), bukan urutan rantai {@code sebelumnya}/{@code setelahnya}. Pada alur
+	 * bercabang keduanya bisa berbeda, sehingga penomoran "ke-<i>n</i>" pada cetakan sebaiknya
+	 * dibaca sebagai "baris ke-<i>n</i>", bukan "jenjang ke-<i>n</i> menurut alur".</p>
+	 *
+	 * <h2>Kunci untuk pengaju</h2>
+	 * <p>Bila pengaju header adalah pengguna internal yang tertaut ke pegawai, ditambahkan
+	 * {@code jabatanFungsional_sop_pengaju}, {@code jabatanStruktural_sop_pengaju},
+	 * {@code jabatan_sop_pengaju}, serta {@code ttd_pengaju} (path berkas tanda tangan). Jabatan
+	 * dihitung menurut <b>keadaan saat ini</b> ({@code WaktuUtil.getDate()}) lewat riwayat kenaikan
+	 * pangkat pegawai — perlu disadari bahwa mencetak ulang dokumen lama akan menampilkan jabatan
+	 * terbaru pejabat, bukan jabatan pada saat dokumen dulu disetujui.</p>
+	 *
+	 * <h2>Kunci untuk tiap langkah</h2>
+	 * <p>Untuk setiap baris disposisi, kunci yang sama ditulis dalam <b>tiga penamaan sekaligus</b>
+	 * supaya template lama maupun baru tetap jalan:</p>
+	 * <ul>
+	 * <li>berdasarkan nomor urut baris: {@code ..._sop_ke_<n>} (mis. {@code aktor_sop_ke_1},
+	 * {@code oleh_sop_ke_1}, {@code catatan_sop_ke_1}, {@code tanggal_sop_ke_1});</li>
+	 * <li>berdasarkan id definisi jenjang: {@code ..._sop_<idAlurSop>};</li>
+	 * <li>berdasarkan kode definisi jenjang: {@code ..._sop_<kodeAlurSop>} — bentuk yang paling
+	 * stabil dan paling disarankan untuk template baru, karena tidak berubah walau urutan berubah
+	 * atau data dipindah antar basis data.</li>
+	 * </ul>
+	 * <p>Isi kuncinya: aktor jenjang, nama pemroses, satuan kerja pemroses, catatan disposisi, dan
+	 * waktu dalam tiga format ({@code tanggal_} panjang, {@code tgl_} pendek, {@code waktu_}
+	 * lengkap dengan jam). Untuk pemroses yang tertaut pegawai ditambahkan pula nama/kode/mycode
+	 * pegawai, nama aktor SOP, ketiga jabatan, dan path tanda tangan ({@code ttd_ke_<n>},
+	 * {@code ttd_<idAlurSop>}, {@code ttd_pegawai_<idPegawai>}, {@code ttd_pegawai_<kodeAlurSop>}).
+	 * Tanda tangan dipilih menurut peran: guru memakai {@code LampiranLain.TTD_GURU}, dosen memakai
+	 * {@code TTD_DOSEN}, selain itu {@code TTD_PEGAWAI}.</p>
+	 *
+	 * <h2>Hal yang perlu diwaspadai</h2>
+	 * <ul>
+	 * <li><b>Tanda tangan ikut tercetak semata-mata karena baris disposisi ada.</b> Method ini
+	 * hanya membaca; ia tidak memeriksa apakah baris tersebut sah, apakah pemrosesnya memang aktor
+	 * berwenang, atau apakah pengajuan sudah benar-benar disetujui. Dokumen bertanda tangan yang
+	 * dihasilkan karenanya hanya sekuat proses yang menghasilkan baris disposisinya.</li>
+	 * <li><b>Banyak pemanggilan berulang.</b> Getter {@code getDiajukanOleh()},
+	 * {@code getAlurSop()}, dan {@code getWaktu()} dipanggil berkali-kali per baris, dan sebagian
+	 * di antaranya destruktif (menulis balik ke field). Karena method ini memakai sesi berjalan —
+	 * bukan sesi terpisah — pencetakan berpotensi menandai entity sebagai kotor dan memicu
+	 * penulisan saat flush. Kalau perlu mencetak dalam konteks yang sensitif, pertimbangkan sesi
+	 * dengan {@code FlushMode.MANUAL} seperti yang dilakukan
+	 * {@link DisposisiSop#ambil(Session, ais.ui.util.FormSop)}.</li>
+	 * <li><b>Berkas tanda tangan diakses lewat path absolut</b> ({@code ambilFile()
+	 * .getAbsolutePath()}), jadi berkas harus benar-benar ada di penyimpanan server saat mencetak.</li>
+	 * <li>Bila pengajuan {@code null}, method tidak melakukan apa-apa; {@code parameters} yang
+	 * sudah ada tidak pernah dihapus, hanya ditambah/ditimpa per kunci.</li>
+	 * </ul>
+	 *
+	 * @param disposisiSop header pengajuan yang riwayat disposisinya akan diratakan; {@code null}
+	 *                     berarti tidak ada yang dikerjakan
+	 * @param parameters   map parameter laporan yang akan diisi (kunci bertipe {@code String})
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void parameterMap(DisposisiSop disposisiSop, Map parameters) {
 		Date sekarang = WaktuUtil.getDate();
