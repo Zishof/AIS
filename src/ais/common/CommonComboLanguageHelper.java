@@ -1214,7 +1214,10 @@ public class CommonComboLanguageHelper extends Common {
 			}
 
 			try {
-				if (Common.isNumber(defaultBahasa.split(",")[0].trim())) {
+				// String.split membuang trailing empty token. Untuk input "," hasilnya array
+				// kosong, sehingga akses [0] tanpa guard memicu ArrayIndexOutOfBoundsException.
+				String[] splitCommaParts = defaultBahasa.split(",");
+				if (splitCommaParts.length > 0 && Common.isNumber(splitCommaParts[0].trim())) {
 					return defaultBahasa;
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonComboLanguageHelper.java:1166");

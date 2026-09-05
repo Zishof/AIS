@@ -197,6 +197,9 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 						Session session = null;
 						try {
 							session = HibernateUtil.openSession();
+							// Sesi ini hanya membaca daftar target. Read-only mencegah auto-flush
+							// graph Mahasiswa/Kegiatan yang bukan bagian dari perubahan dosen PA.
+							session.setDefaultReadOnly(true);
 							@SuppressWarnings("unchecked")
 							List<Mahasiswa> mahasiswas = session.createCriteria(Mahasiswa.class)
 									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -206,18 +209,7 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 							for (Mahasiswa mahasiswa : mahasiswas) {
 								Dosen prodi = mahasiswa.getJurusan().getKaprodi();
 								if (prodi != null) {
-									org.hibernate.Transaction txMhs = null;
-									try {
-										txMhs = session.beginTransaction();
-										mahasiswa.setDosen(prodi.getId());
-										session.update(mahasiswa);
-										txMhs.commit();
-									} catch (Exception exMhs) {
-										if (txMhs != null && txMhs.isActive()) {
-											try { txMhs.rollback(); } catch (Exception exRollback) { ais.common.ErrorAuditUtil.record(exRollback, "auto-audit(empty-catch) src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-rollback-mahasiswa"); }
-										}
-										ais.common.ErrorAuditUtil.record(exMhs,
-												"auto-audit src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-update-mahasiswa");
+									if (!updateDosenPaMahasiswaDenganRetry(mahasiswa.getId(), prodi.getId())) {
 										continue;
 									}
 
@@ -649,6 +641,56 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 								});
 					}
 				});
+	}
+
+	/**
+	 * Mengubah PA mahasiswa dalam transaksi pendek memakai proxy yang dimuat pada session
+	 * baru. Ini mempertahankan entity listener/audit Hibernate, tetapi tidak me-reattach
+	 * graph hasil pencarian (pemicu flush Kegiatan yang tidak terkait). Lock timeout dicoba
+	 * ulang memakai session BARU.
+	 */
+	private boolean updateDosenPaMahasiswaDenganRetry(Long mahasiswaId, Long dosenId) {
+		Exception kegagalanTerakhir = null;
+		for (int percobaan = 1; percobaan <= 3; percobaan++) {
+			Session session = null;
+			org.hibernate.Transaction transaction = null;
+			try {
+				session = HibernateUtil.openSession();
+				transaction = session.beginTransaction();
+				Mahasiswa mahasiswa = (Mahasiswa) session.load(Mahasiswa.class, mahasiswaId);
+				mahasiswa.setDosen(dosenId);
+				transaction.commit();
+				return true;
+			} catch (Exception e) {
+				kegagalanTerakhir = e;
+				if (transaction != null && transaction.isActive()) {
+					try {
+						transaction.rollback();
+					} catch (Exception rollbackError) {
+						ais.common.ErrorAuditUtil.record(rollbackError,
+								"auto-audit(empty-catch) src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-rollback-mahasiswa");
+					}
+				}
+				if (!HibernateUtil.isLockTimeout(e) || percobaan >= 3) {
+					ais.common.ErrorAuditUtil.record(e,
+							"auto-audit src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-update-mahasiswa");
+					return false;
+				}
+			} finally {
+				HibernateUtil.closeSessionQuietly(session);
+			}
+			try {
+				Thread.sleep(100L * percobaan);
+			} catch (InterruptedException interrupted) {
+				Thread.currentThread().interrupt();
+				if (kegagalanTerakhir != null) {
+					ais.common.ErrorAuditUtil.record(kegagalanTerakhir,
+							"auto-audit DosenPembimbingAkademikAction - retry lock terinterupsi");
+				}
+				return false;
+			}
+		}
+		return false;
 	}
 
 	private Criteria initMahasiswaUntukHapusPa(Session session, Long jurusanId, Integer tahunAngkatan,

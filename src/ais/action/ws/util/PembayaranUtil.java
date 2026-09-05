@@ -1002,9 +1002,11 @@ public class PembayaranUtil {
 			return null;
 		}
 
-		Session session = null;
-		try {
-			session = HibernateUtil.getSessionFactory().openSession();
+		Exception kegagalanTerakhir = null;
+		for (int percobaan = 1; percobaan <= 3; percobaan++) {
+			Session session = null;
+			try {
+				session = HibernateUtil.openSession();
 			@SuppressWarnings("unchecked")
 			List<BiodataCalonMahasiswa> daftar = session.createCriteria(BiodataCalonMahasiswa.class)
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -1047,28 +1049,32 @@ public class PembayaranUtil {
 					skorTerbaik = skor;
 				}
 			}
-			return terbaik;
-		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
-			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit PembayaranUtil.getCalonMahasiswaByNoUjian - resolusi nomor ujian H2H");
-			return null;
-		} finally {
-			if (session != null) {
-				try {
-					session.clear();
-				} catch (Exception ignored) {
+				return terbaik;
+			} catch (Exception e) {
+				kegagalanTerakhir = e;
+				if (!HibernateUtil.isLockTimeout(e) || percobaan >= 3) {
+					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e,
+							"auto-audit PembayaranUtil.getCalonMahasiswaByNoUjian - resolusi nomor ujian H2H");
+					return null;
 				}
-				try {
-					session.disconnect();
-				} catch (Exception ignored) {
+			} finally {
+				// Tiap retry wajib memakai koneksi baru; jangan pakai ulang session yang
+				// transaksinya sudah dibatalkan PostgreSQL karena lock_timeout.
+				HibernateUtil.closeSessionQuietly(session);
+			}
+			try {
+				Thread.sleep(100L * percobaan);
+			} catch (InterruptedException interrupted) {
+				Thread.currentThread().interrupt();
+				if (kegagalanTerakhir != null) {
+					ais.common.ErrorAuditUtil.record(kegagalanTerakhir,
+							"auto-audit PembayaranUtil.getCalonMahasiswaByNoUjian - retry lock terinterupsi");
 				}
-				try {
-					session.close();
-				} catch (Exception ignored) {
-				}
+				return null;
 			}
 		}
+		return null;
 	}
 
 	@SuppressWarnings("rawtypes")

@@ -1168,6 +1168,47 @@ public class HibernateUtil {
     }
 
     /**
+     * Mendeteksi kegagalan sementara karena PostgreSQL tidak memperoleh lock sebelum
+     * batas {@code lock_timeout}. Error ini aman dicoba ulang dengan transaksi dan
+     * session BARU; session/transaksi lama tetap wajib di-rollback lalu ditutup.
+     *
+     * <p>Definisi dipusatkan di sini agar jalur web-service pembayaran dan proses bulk
+     * tidak memelihara daftar pesan/SQLState yang berbeda. SQLState PostgreSQL untuk
+     * {@code lock_not_available} adalah {@code 55P03}; pemeriksaan pesan dipertahankan
+     * untuk driver lama yang membungkus SQLState di dalam exception Hibernate.</p>
+     *
+     * @param e exception yang diperiksa, boleh {@code null}
+     * @return {@code true} hanya untuk kegagalan lock yang bersifat sementara
+     */
+    public static boolean isLockTimeout(Throwable e) {
+        Throwable cur = e;
+        int guard = 0;
+        while (cur != null && guard++ < 12) {
+            if (cur instanceof java.sql.SQLException) {
+                String sqlState = ((java.sql.SQLException) cur).getSQLState();
+                if ("55P03".equals(sqlState)) {
+                    return true;
+                }
+            }
+            String msg = cur.getMessage();
+            if (msg != null) {
+                String low = msg.toLowerCase();
+                if (low.contains("canceling statement due to lock timeout")
+                        || low.contains("lock timeout")
+                        || low.contains("could not obtain lock")) {
+                    return true;
+                }
+            }
+            Throwable next = cur.getCause();
+            if (next == cur) {
+                break;
+            }
+            cur = next;
+        }
+        return false;
+    }
+
+    /**
      * Alias untuk {@link #closeSessionQuietly(Session)}, menutup session yang dibuka manual.
      *
      * <p><b>Tujuan &amp; cara kerja.</b> Memberi nama yang lebih eksplisit ("session yang DIBUKA")
