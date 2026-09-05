@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 101 — SELESAI 100% (5 Sep 2026) — lanjutan paket `sirs`; 82 file; 5 task baru
+
+82 file selesai (lanjutan domain `sirs`), semua dikompilasi bersih,
+WC mirror disinkron, `cmp` byte-identik.
+
+- **Klaster tempat-tidur/fasilitas** (9 file, r84607-r84638). 0 task
+  baru — KONFIRMASI LANJUTAN mendalam `task_d82932ef` (batch 100)
+  dari sisi `TempatTidur.java` sendiri: `PindahTempatTidurRawatInapAction.onSave()`
+  memicu bug ini pada SETIAP transaksi pindah bed (mencemari bed
+  asal permanen), DAN ditemukan campuran gaya pemutakhiran (sebagian
+  Action set `terisi` langsung, sebagian lewat `updateTerisi()`) yang
+  tidak saling menyadari riwayat — detail baru untuk task yang sudah
+  ada, bukan task terpisah. `Instalasi`/`Poly`/`Bagian` DIKONFIRMASI
+  tiga sumbu klasifikasi BERBEDA (bukan nama menyesatkan kali ini).
+- **Klaster apotik/farmasi** (14 file, r84615-r84685). Log narkotika
+  append-only tapi HANYA 1 lapis (`@Audited` mencatat, tak menolak
+  UPDATE/DELETE) — didokumentasikan sebagai keputusan arsitektur,
+  bukan bug. Anti-lebih-bayar distributor DIKONFIRMASI SOLID (lock
+  UPGRADE + transaksi tunggal) — celah malah di `noFaktur` tak unik
+  (faktur ganda = utang ganda). **3 task baru**: `task_bb786ad8`
+  (antrean farmasi bocor nama pasien+no. rekam medis tak tersamar +
+  fallback pemisah tenant rapuh), `task_de0f7edb` (validasi "pemeriksa
+  kedua harus beda orang" bisa dilewati dengan mengetik id sendiri
+  dari payload), `task_b7cc049f` (perhitungan selisih kas TIDAK
+  menyaring per kasir — sesi tumpang tindih saling dituduh kekurangan
+  uang orang lain).
+- **Klaster resep/tarif** (18 file, r84609-r84683, 463 method).
+  **KOREKSI urutan resolusi tarif**: `TarifKhusus` diselesaikan
+  PALING AWAL (bukan override di akhir) — tarif khusus & standar
+  BERBAGI tabel yang sama, saling meniadakan kolom (bukan tumpang
+  tindih). Pajak dikenakan atas jumlah SEBELUM diskon; diskon
+  akumulatif tanpa batas atas (2 diskon 60% → potongan 120%).
+  `Resep`/`Racikan` dikonfirmasi dua entity berdiri sendiri (bukan
+  induk-anak). **Task baru `task_c5ea50f8`**: `Diskon.jumlahMaksimal`
+  default 0 (bukan 100 seperti dimaksud) — SETIAP diskon baru diam-
+  diam TIDAK PERNAH berlaku untuk qty≥1; plus bug presisi tanggal
+  kedaluwarsa (`sampai=new Date()` tanpa `@Temporal(DATE)`).
+- **Klaster pengadaan-inventaris** (22 file, r84612-r84690, 658
+  method). Alur DIKONFIRMASI FK NYATA berlapis empat di kedua
+  tingkat (header & baris) — MIRIP pola `asset` bukan `inventory`.
+  Penjaga anti-lebih-terima/lebih-retur/transfer-stok TIDAK ADA di
+  lapisan Action manapun (bahan FK ada, penjaganya tidak).
+  `PenerimaanOrder.setPostingHistory()` TAK PERNAH DIPANGGIL di
+  seluruh codebase — 4 penjaga anti-hapus-setelah-posting yang
+  bergantung padanya tidak pernah aktif. **🚨 Task baru
+  `task_e4b1e2e8`**: TIGA bug salin-tempel SQL terverifikasi dengan
+  nomor baris pasti, merusak integritas stok — `PemakaianReturItemAction`
+  salin SQL dari `PemakaianItemAction` tanpa rename kolom/tabel
+  (cleanup gagal + hapus baris entity LAIN yang PK-nya kebetulan
+  sama → stok fantom), `PenerimaanOrderKembaliAction` jalur batalkan
+  hapus dari tabel modul LAIN (`library`) + prefix schema hilang
+  (pengurangan stok tak pernah dibalik), `KoreksiItemAction` sub-query
+  tabel salah nama.
+- **Klaster katalog kecil** (19 file, r84608-r84659). 0 task baru —
+  `Tahun` entity dorman baru, `PrioritasPasien` (triase) dikonfirmasi
+  MURNI DESKRIPTIF (nol query `ORDER BY` berbasis field ini — tidak
+  ada mekanisme antrean prioritas yang ditegakkan backend).
+
+**5 task baru batch ini**: `task_c5ea50f8`, `task_bb786ad8`,
+`task_de0f7edb`, `task_b7cc049f`, `task_e4b1e2e8`. Domain `sirs`
+terus sangat fertile — total 13 task baru dari 2 batch pertama.
+Sisa file `sirs` untuk batch berikutnya (perlu scan ulang untuk
+hitung persis).
+
 ## Batch 100 — SELESAI 100% (5 Sep 2026) — PIVOT ke paket `sirs` (SIRS/rumah sakit); 8 task baru; 🚨 TEMUAN SIGNIFIKAN: entity medis TANPA sumbu tenant + TANPA blocklist CRUD generik
 
 41 file selesai (batch pertama domain baru `sirs`, 118 file, domain
