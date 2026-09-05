@@ -1,5 +1,71 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `penelitiandanpengabdian` TUNTAS 100% (6 Sep 2026, akhir batch 108) — domain KETIGA BELAS tuntas
+
+Diverifikasi: **20/20 file** `ais/database/model/penelitiandanpengabdian/`
+kini punya Javadoc substansial. Selesai dalam SATU batch (108, 4 agent
+paralel). Domain ketiga belas yang tuntas penuh setelah `akunting`,
+`payroll`, `koperasi`, `inventory`, `employ`, `asset`, `surat`, `rab`,
+`sirs`, `sister`, `library`, `file`.
+
+**Klaster inti + master data** (5 file, r84902-r84921).
+`PenelitianDanPengabdian.java` (976→1812 baris) **KOREKSI PENTING atas
+dugaan awal**: BUKAN proyek penelitian yang sudah disetujui & berjalan,
+melainkan SKEMA/PROGRAM tawaran yang dibuka LPPM (periode pengajuan,
+audiens, bobot sks, 15 naskah HTML panduan Ditlitabmas) — proposal
+individu ada di `PengajuanPenelitianDanPengabdian` (klaster lain).
+**Relasi Jenis vs Tipe TERBALIK dari intuisi penamaan**: `Tipe...`
+(FK `nullable=true`, opsional) justru sumbu kategori kegiatan FUNGSIONAL
+nyata (Penelitian/Pengabdian/Lainnya via `ConstantValues`, dipakai BKD +
+LKPS akreditasi 3.a.2 & 4.a.2), sedangkan `Jenis...` (FK `nullable=false`,
+wajib) cuma klasifikasi berjenjang (`parent` self-FK) untuk pelabelan UI
+— 3 konstantanya (`PENELITIAN`/`PENGABDIAN`/`LAINNYA`) MATI, nilai tak
+cocok data seed. Jejak asal-usul bersama: keduanya disemai kode identik
+`001.000`-`003.000` sebelum bercabang fungsi. `JenisJabatanPenelitianDanPengabdian`
+entity yatim (nol FK — peran tim cuma teks bebas kolom `keterangan` di
+`AnggotaPengajuanPenelitianDanPengabdian`/`AnggotaArtikel`). Gerbang
+periode buka pengajuan (`dibuka`/tanggal mulai-sampai) TERKONFIRMASI
+kosmetik — saringan pemilihan skema hanya menguji `aktif`+`diperuntukkan`+
+`tipe`, tidak pernah membaca field periode; hanya `setAktif(false)` yang
+efektif menutup pendaftaran.
+
+**Klaster pengajuan/pelaporan** (6 file, r84898-r84918).
+`PengajuanPenelitianDanPengabdian.java` (427→777 baris) status normalnya
+diderivasi dari `DisposisiSop` generik (arsitektur lebih kuat dari 3 domain
+sebelumnya) — TAPI **Task baru `task_756755ba`**: tombol admin "Setujui
+Semua" di helper-nya menulis `status=Disetujui` via sesi Hibernate native
+ke SEMUA hasil pencarian aktif TANPA mengulang cek admin di listener
+`onClick`, melewati alur disposisi sepenuhnya; kombobox approve/reject
+laporan tahap (`PengajuanTahapanPelaporanPenelitianDanPengabdianHelper`)
+sama — status string bebas tanpa keterkaitan workflow, listener `onChange`
+tak mengulang cek `yangLoginMerupakanAtasan()`. Domain KEEMPAT independen
+yang mengkonfirmasi pola bypass-persetujuan UI-only (setelah kepegawaian
+`task_b62255d9`, persuratan `task_910db49b`/`task_7a1b63d1`) — bukti makin
+kuat ini kelemahan arsitektural sistemik SOP/disposisi/alur-persetujuan.
+`FilePengajuanPenelitianDanPengabdian`/`FilePengajuanTahapanPelaporanPenelitianDanPengabdian`
+dikonfirmasi FK langsung ke induknya (bukan paket `file` generik).
+
+**Klaster artikel/publikasi** (6 file, r84899-r84916). `Artikel.java`
+(709→1500 baris): `AnggotaArtikel` dikonfirmasi TANPA kolom urutan penulis
+(pola sama `library.ItemPunyaPengarang`). Status persetujuan juga
+diturunkan dari rantai `DisposisiSop` yang sama; `setDisposisiSop()`
+setter satu-arah defensif menolak melepas tautan valid dengan null.
+`getArticleId()` membangkitkan sentinel negatif via `ThreadLocalRandom`
+sebagai penanda "belum terdaftar di repositori eksternal".
+
+**Klaster lampiran-umum/jurnal/pengumuman** (3 file, r84897-r84905, agent
+penutup). `LampiranUmumPenelitian.java` (799→847 baris) dikonfirmasi BUKAN
+entity mandiri maupun wrapper — murni class utilitas statis (bukan
+`@Entity`) yang method tunggalnya mengembalikan template HTML baku 9
+bagian lampiran proposal DIKTI, dipakai sebagai NILAI DEFAULT AWAL field
+`PenelitianDanPengabdian.lampiranUmum` (bukan dipanggil ulang tiap
+tampil). `JurnalPenelitian`/`PengumumanPenelitian`: `getAktif()` pola
+NORMAL (bukan terbalik) — verifikasi negatif ke-3 terhadap pola
+`getAktif()` logika terbalik yang sebelumnya ditemukan 2x di domain lain.
+
+**1 task baru batch 108**: `task_756755ba`. Total akumulasi 108 sesi:
+**1269+ file** dari 7.401 (~32,4%).
+
 ## 🎉 MILESTONE — paket `file` TUNTAS 100% (6 Sep 2026, akhir batch 107) — domain KEDUA BELAS tuntas
 
 Diverifikasi: **50/50 file** `ais/database/model/file/` kini punya Javadoc
