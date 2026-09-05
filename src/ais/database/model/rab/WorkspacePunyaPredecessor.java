@@ -45,7 +45,50 @@ import ais.database.model.GeneralValueObject;
  * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
  * session aktif; jangan menaruh query duplikat pada model.</p>
  *
+ * <h2>Makna bisnis: sisi ketergantungan antar-pekerjaan</h2>
+ * <p>Baris {@code rab.workspace_punya_predecessor} adalah satu <b>sisi berarah</b> pada graf
+ * ketergantungan pekerjaan RAB: {@link #getWorkspacePredecessor() workspacePredecessor} harus
+ * selesai lebih dulu sebelum {@link #getWorkspace() workspace} dapat dikerjakan. Karena satu
+ * workspace boleh punya banyak baris seperti ini, hubungannya efektif banyak-ke-banyak dan
+ * membentuk graf, bukan pohon — berbeda dari hirarki {@code parentId} pada {@link Workspace} yang
+ * mengurus <i>penguraian</i> anggaran, bukan <i>urutan</i> pengerjaan. Dua struktur itu hidup
+ * berdampingan pada entity yang sama.</p>
+ *
+ * <h2>Tidak ada penjaga siklus, tidak ada penjaga duplikat, tidak ada penjaga diri-sendiri</h2>
+ * <p>Perlu ditegaskan karena ini bukan kelalaian yang tampak dari satu berkas saja: <b>tak satu pun
+ * lapisan</b> mencegah graf ini melingkar.</p>
+ * <ul>
+ *   <li>Entity ini hanya menyimpan dua referensi; ia tidak memeriksa apa pun.</li>
+ *   <li>Skema tidak punya {@code UNIQUE(workspace, workspace_predecessor)}, sehingga pasangan yang
+ *   sama boleh tersimpan berkali-kali.</li>
+ *   <li>Validasi di layar RAB ({@code WorkspaceRevisiAction} dan kerabatnya) hanya memastikan
+ *   kolom predecessor <b>tidak kosong</b> sebelum menyimpan — tidak ada pemeriksaan bahwa
+ *   predecessor berbeda dari workspace pemiliknya, tidak ada penelusuran rantai untuk mendeteksi
+ *   A &rarr; B &rarr; A, dan tidak ada penolakan pasangan ganda.</li>
+ * </ul>
+ * <p>Akibatnya siklus A &rarr; B &rarr; A maupun sisi refleksif A &rarr; A dapat tersimpan.
+ * Konsekuensinya baru terasa pada kode yang menelusuri graf (perhitungan jadwal, urutan pengerjaan,
+ * atau tampilan rantai ketergantungan): penelusuran naif akan berputar tanpa henti. Pola "relasi
+ * induk/pendahulu refleksif tanpa penjaga siklus" ini berulang di beberapa tempat lain pada basis
+ * kode AIS, dan di paket ini juga muncul pada {@link Workspace#getParentId()},
+ * {@link Workspace#getRelasiAnggaranSebelumnya()}, serta {@link JenisWorkspace#getParent()}.</p>
+ *
+ * <h2>Tenant</h2>
+ * <p>Entity ini <b>tidak</b> menyimpan {@code SatuanKerja}. Tenantnya tersirat lewat {@link
+ * #getWorkspace()}, dan tidak ada apa pun yang memaksa {@code workspace} dan {@code
+ * workspacePredecessor} berada pada satker, tahun anggaran, atau revisi yang sama. Query atas tabel
+ * ini yang tidak menautkan {@code workspace.satuanKerja} karena itu dapat melintasi batas
+ * tenant.</p>
+ *
+ * <h2>Asimetri nullability</h2>
+ * <p>{@code workspace} dipetakan {@code nullable = false} (pemilik wajib ada), sedangkan {@code
+ * workspace_predecessor} {@code nullable = true} — baris tanpa predecessor secara skema sah, dan
+ * hanya validasi di layarlah yang menolaknya. Data yang masuk lewat jalur lain (impor, skrip) bisa
+ * meninggalkan baris setengah terisi.</p>
+ *
  * @see GeneralValueObject
+ * @see Workspace
+ * @see TugasPunyaPredecessor
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -60,44 +103,84 @@ public class WorkspacePunyaPredecessor extends GeneralValueObject {
 	 *  
 	 */
 	private static final long serialVersionUID = -8738027816264807168L;
+
+	/** Nama/label pengguna penyunting terakhir (field audit bayangan Envers). */
 	private String oleh;
+
+	/** Id pengguna penyunting terakhir, pasangan mesin-terbaca dari {@link #oleh}. */
 	private String olehId;
 
+	/** Mengembalikan id pengguna penyunting terakhir apa adanya. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel id pengguna penyunting terakhir, mengabaikan {@code null} maupun string kosong agar
+	 * jejak audit yang sudah terisi tidak tertimpa nilai kosong dari binding form atau impor.
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
+	/** Primary key {@code rab.workspace_punya_predecessor.id}, dibangkitkan database ({@code IDENTITY}). */
 	private Long id;
 
+	/** Menyetel nama penyunting terakhir, mengabaikan {@code null}/string kosong (alasan sama seperti {@link #setOlehId(String)}). */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/** Mengembalikan nama/label penyunting terakhir apa adanya. */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: menstempel audit lewat {@code
+	 * AuditTimestampInterceptor.ubah(this)} sebelum Hibernate menerbitkan {@code UPDATE}. Sengaja
+	 * {@code protected} — hanya provider persistence yang boleh memanggilnya.
+	 *
+	 * <p>Pada baris fisik yang sama ikut dideklarasikan field {@code tanggal_dirubah} (stempel waktu
+	 * perubahan terakhir, diinisialisasi ke waktu server lewat {@code WaktuUtil.getDate()} sehingga
+	 * baris baru selalu punya stempel). Penggabungan itu hasil penyisipan otomatis lintas entity
+	 * AIS, bukan gaya penulisan yang disengaja.</p>
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Menyetel stempel waktu perubahan terakhir; umumnya diisi interceptor audit atau proses migrasi. */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** Mengembalikan stempel waktu perubahan terakhir, dipetakan sebagai kolom {@code TIMESTAMP}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Workspace <b>pendahulu</b> — pekerjaan yang harus selesai lebih dulu. Kolomnya {@code
+	 * nullable}, sehingga baris tanpa pendahulu sah secara skema meski ditolak validasi layar.
+	 */
 	private Workspace workspacePredecessor;
+
+	/**
+	 * Workspace <b>pemilik</b> baris ini — pekerjaan yang menunggu. Kolomnya {@code NOT NULL} dan
+	 * merupakan satu-satunya jalur tenant baris ini.
+	 */
 	private Workspace workspace;
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan JPA/Hibernate, sekaligus dipakai helper UI saat
+	 * pengguna menambahkan predecessor baru. Objek yang baru dibuat belum punya kedua sisi relasi;
+	 * lapisan pemanggillah yang mengisi {@link #setWorkspace(Workspace)} dan
+	 * {@link #setWorkspacePredecessor(Workspace)} sebelum menyimpan.
+	 */
 	public WorkspacePunyaPredecessor() {
 	}
 
+	/** Mengembalikan primary key baris, dibangkitkan database saat {@code INSERT}. */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -105,10 +188,22 @@ public class WorkspacePunyaPredecessor extends GeneralValueObject {
 		return this.id;
 	}
 
+	/** Menyetel primary key; umumnya hanya dipakai Hibernate. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan workspace pendahulu — pekerjaan yang harus selesai sebelum {@link
+	 * #getWorkspace()} dapat dikerjakan — setelah resolusi proxy lazy lewat {@code check(...)}
+	 * milik {@link GeneralValueObject} (cache in-memory &rarr; session aktif &rarr; reload lewat
+	 * session baru). Hasil resolusi ditulis balik ke field, sehingga getter ini juga dapat memicu
+	 * query bila dipanggil di dalam perulangan besar; helper UI yang merender grid predecessor
+	 * memanggilnya dua kali per baris (untuk kode dan nama).
+	 *
+	 * <p>Dapat mengembalikan {@code null} — kolomnya {@code nullable}, dan baris tanpa pendahulu
+	 * hanya ditolak oleh validasi layar, bukan oleh skema.</p>
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "workspace_predecessor", nullable = true)
 	public Workspace getWorkspacePredecessor() {
@@ -116,10 +211,32 @@ public class WorkspacePunyaPredecessor extends GeneralValueObject {
 		return workspacePredecessor;
 	}
 
+	/**
+	 * Menyetel workspace pendahulu. Perhatikan bahwa nama parameternya {@code workspace} — mudah
+	 * tertukar dengan {@link #setWorkspace(Workspace)} yang menyetel sisi pemilik; keduanya menerima
+	 * tipe yang sama sehingga kompilator tidak akan menolong bila tertukar.
+	 *
+	 * <p>Tidak ada validasi sama sekali di sini: menyetel objek yang sama dengan {@link
+	 * #getWorkspace()} akan menghasilkan sisi refleksif A &rarr; A, dan menyetel pendahulu yang
+	 * rantainya kembali ke pemilik akan menghasilkan siklus. Keduanya tersimpan tanpa keluhan
+	 * (lihat bagian "Tidak ada penjaga siklus" pada dokumentasi kelas). Pemeriksaan semacam itu —
+	 * bila diperlukan — harus dilakukan di lapisan Action sebelum {@code saveOrUpdate}.</p>
+	 *
+	 * @param workspace workspace yang dijadikan pendahulu
+	 */
 	public void setWorkspacePredecessor(Workspace workspace) {
 		this.workspacePredecessor = workspace;
 	}
 
+	/**
+	 * Mengembalikan workspace pemilik baris ini — pekerjaan yang <b>menunggu</b> pendahulunya —
+	 * setelah resolusi proxy lazy; hasilnya ditulis balik ke field.
+	 *
+	 * <p>Relasi inilah satu-satunya penentu tenant baris ini: entity tidak menyimpan {@code
+	 * SatuanKerja} sendiri. Query yang mencari baris predecessor harus menyaring lewat {@code
+	 * workspace} (pola yang dipakai helper UI: {@code Restrictions.eq("workspace", workspace)}) dan,
+	 * bila hasilnya dipakai lintas pengguna, ikut menautkan {@code workspace.satuanKerja}.</p>
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "workspace", nullable = false)
 	public Workspace getWorkspace() {
@@ -127,6 +244,13 @@ public class WorkspacePunyaPredecessor extends GeneralValueObject {
 		return workspace;
 	}
 
+	/**
+	 * Menyetel workspace pemilik baris ini. Layar RAB menyetelnya belakangan — baris predecessor
+	 * dibentuk lebih dulu di grid, lalu tepat sebelum {@code saveOrUpdate} seluruh baris
+	 * disambungkan ke workspace yang sedang disunting. Tidak ada pemeriksaan bahwa pemilik dan
+	 * pendahulu berbeda, berada pada satker yang sama, atau berada pada tahun/revisi anggaran yang
+	 * sama.
+	 */
 	public void setWorkspace(Workspace workspace) {
 		this.workspace = workspace;
 	}
