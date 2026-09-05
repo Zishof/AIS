@@ -1,5 +1,47 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 MILESTONE — paket `hotel` TUNTAS 100% (6 Sep 2026, akhir batch 118) — domain KEDUA PULUH TIGA tuntas
+
+Diverifikasi: **11/11 file** `ais/database/model/hotel/` kini punya
+Javadoc substansial. Selesai dalam SATU batch (118, 2 agent paralel).
+Domain kedua puluh tiga yang tuntas penuh. Modul hotel/penginapan
+(properti dikelola sistem, kemungkinan kerjasama pihak ketiga via
+`KontrakPemilik`).
+
+**Klaster tamu/kamar/reservasi** (5 file, r85193-r85201). Reservasi
+TIDAK otomatis jadi stay — hanya terhubung eksplisit lewat
+`HotelApiHelper.checkin()` (opsional, walk-in bisa langsung tanpa
+reservasi), yang mempromosikan status + membuat `MenginapTamu`+`Folio`+
+mengubah `Kamar.statusHunian` dalam satu transaksi. **Reservasi TIDAK
+punya gerbang overlap-tanggal** — hanya mengikat tipe kamar (bukan
+kamar fisik spesifik), gerbang riil cuma di titik check-in
+(`statusHunian==VACANT`). **Task baru `task_b718f355`**: race condition
+TOCTOU NYATA di `checkin()` — baca status lalu commit TANPA row-lock/
+constraint DB (nol `LockMode`/`FOR UPDATE`, diverifikasi grep), dua
+check-in konkuren kamar sama bisa keduanya lolos di READ COMMITTED →
+2 `MenginapTamu` aktif + 2 `Folio` untuk kamar fisik sama. Pola IDENTIK
+dengan bug double-booking peminjaman aset yang SUDAH DITAMBAL
+(`PeminjamanMasterAssetHelper.sedangDipinjamAktif()`) — rekomendasi
+perbaikan mengikuti pola yang sama (lock pesimis atau partial unique
+index + fallback constraint violation).
+
+**Klaster billing/owner/dapur** (6 file, r85191-r85201, agent penutup).
+`Folio`/`FolioTransaksi` header/detail append-only BERSIH (saldo=SUM
+baris bertanda `ROOM_CHARGE`/`POS_CHARGE`/`ADJUSTMENT` positif,
+`PAYMENT` negatif; checkout mensyaratkan saldo≤0; koreksi=baris baru
+bukan edit/hapus). **Rumus bagi-hasil pemilik TERVERIFIKASI BENAR**
+(`HotelApiHelper.laporanPemilikGenerate`: `komisi=kotor*persenKomisi/100`,
+`bersih=kotor-komisi-biaya`, konsisten dengan deskripsi field) — kontras
+positif dengan pola bug kalkulasi finansial yang sering ditemukan di
+domain lain. `PropertiHotel` dikonfirmasi gap tenant (nol field
+yayasan/sekolah/satuanKerja, lolos blocklist
+`GenericCrudAutoDefinitionFactory`) — instance lain `task_7b6038ac`/
+`task_90bbdd51`, TAPI jalur resmi (`HotelApiHelper`/`PosApi`) punya
+gate terpisah yang tak terpengaruh — tidak di-task-kan.
+
+**1 task baru batch 118**: `task_b718f355`. Total akumulasi 118 sesi:
+**1443+ file** dari 7.401 (~37,1%).
+
 ## 🎉🚨 MILESTONE + TEMUAN PALING SIGNIFIKAN SELURUH INISIATIF — paket `sop` TUNTAS 100% (6 Sep 2026, akhir batch 116) — domain KEDUA PULUH DUA tuntas, akar penyebab bypass-persetujuan TERKONFIRMASI
 
 Diverifikasi: **12/12 file** `ais/database/model/sop/` kini punya
