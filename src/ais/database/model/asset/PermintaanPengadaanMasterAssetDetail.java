@@ -248,6 +248,12 @@ public class PermintaanPengadaanMasterAssetDetail extends GeneralValueObject {
 	private UangMuka uangMuka;
 	/** Uraian bebas baris. Lihat {@link #getKeterangan()}. */
 	private String keterangan;
+	/** ID UOM yang dipilih pemohon; snapshot agar pilihan tidak berubah mengikuti master. */
+	private Long satuanInputId;
+	/** Nama UOM saat PR disimpan; tetap terbaca walau master kemudian diubah/nonaktif. */
+	private String satuanInputNama;
+	/** Faktor konversi jumlah UOM input ke satuan stok dasar produk. */
+	private Double faktorKeDasar;
 	/** Cache kuantitas yang SUDAH DITERIMA. Lihat {@link #getJumlahDatang()}. */
 	private Double jumlahDatang;
 	/** Satuan kerja, diturunkan dari header. Lihat {@link #getSatuanKerja()}. */
@@ -318,6 +324,40 @@ public class PermintaanPengadaanMasterAssetDetail extends GeneralValueObject {
 	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
+	}
+
+	/** @return ID UOM pembelian yang dipilih pada baris PR, atau {@code null} untuk data lama. */
+	@Column(name = "satuan_input_id", nullable = true)
+	public Long getSatuanInputId() {
+		return satuanInputId;
+	}
+
+	/** @param satuanInputId ID UOM tervalidasi dari katalog produk. */
+	public void setSatuanInputId(Long satuanInputId) {
+		this.satuanInputId = satuanInputId;
+	}
+
+	/** @return nama UOM snapshot pada saat PR disimpan. */
+	@Column(name = "satuan_input_nama", nullable = true, length = 100)
+	public String getSatuanInputNama() {
+		return satuanInputNama;
+	}
+
+	/** @param satuanInputNama nama UOM snapshot. */
+	public void setSatuanInputNama(String satuanInputNama) {
+		this.satuanInputNama = satuanInputNama;
+	}
+
+	/** @return faktor jumlah input ke satuan stok dasar; data lama dianggap {@code 1}. */
+	@Column(name = "faktor_ke_dasar", nullable = true)
+	public Double getFaktorKeDasar() {
+		return faktorKeDasar == null || faktorKeDasar.doubleValue() <= 0.0
+				? Double.valueOf(1.0) : faktorKeDasar;
+	}
+
+	/** @param faktorKeDasar faktor konversi snapshot yang dihitung server. */
+	public void setFaktorKeDasar(Double faktorKeDasar) {
+		this.faktorKeDasar = faktorKeDasar;
 	}
 
 	/**

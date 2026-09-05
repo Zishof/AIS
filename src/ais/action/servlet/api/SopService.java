@@ -576,6 +576,17 @@ public final class SopService {
                 }
             }
 
+            // GERBANG SENTRAL: alurSopIds datang langsung dari body JSON klien -- resolusi aktor
+            // di atas hanya membuktikan tbmuser berwenang pada TAHAP INI, tidak bahwa tujuan yang
+            // diklaim benar-benar salah satu cabang sah dari tahap ini (lihat SopUtil.validasiTransisi
+            // dan javadoc kelas AlurSop, "Urutan jenjang tidak ditegakkan"). Tanpa ini, klien bisa
+            // mengarahkan disposisi ke AlurSop mana pun sekalipun bukan cabang yang dirender.
+            for (AlurSop next : nextNodes) {
+                if (!SopUtil.validasiTransisi(alurSop, next.getId())) {
+                    return ApiHelperSupport.status("97", "Tahap tujuan yang dipilih tidak dikenali sebagai kelanjutan sah dari tahap ini");
+                }
+            }
+
             // ── Transaksi utama: tandai tahap ini sebagai sudah diproses oleh user saat ini ──
             session.getTransaction().begin();
             if (tbmuser.getMahasiswa() != null) {
