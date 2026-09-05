@@ -67,39 +67,90 @@ import ais.database.model.Pegawai;
 public class TugasPunyaPegawai extends GeneralValueObject {
 
 	/**
-	 * 
+	 * Versi serialisasi tetap untuk kompatibilitas antar-build; nilainya disalin dari template
+	 * entity lain di modul ini dan tidak mencerminkan riwayat perubahan struktur kelas.
 	 */
 	private static final long serialVersionUID = -8738027816264807168L;
-	private String oleh;private String olehId;public String getOlehId() {return olehId;}public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}this.olehId = olehId;}
+	/** @see #getOleh() */
+	private String oleh;
+	/**
+	 * Mengembalikan ID pelaku yang terakhir mengubah baris ini (jejak audit ringan, tidak
+	 * dipetakan ke kolom database).
+	 *
+	 * @return ID pelaku perubahan terakhir, atau {@code null} bila belum pernah diset
+	 */
+	private String olehId;public String getOlehId() {return olehId;}
+	/**
+	 * Menyetel ID pelaku perubahan. Nilai {@code null} atau blank diabaikan secara senyap
+	 * (mempertahankan nilai lama) — pola berulang di seluruh entity {@code rab}.
+	 *
+	 * @param olehId ID pelaku perubahan; diabaikan bila {@code null} atau blank
+	 */
+	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}this.olehId = olehId;}
+	/** Primary key baris {@code rab.tugas_punya_pegawai}, dibangkitkan otomatis ({@code IDENTITY}). */
 	private Long id;
 
+	/**
+	 * Menyetel nama pelaku perubahan. Nilai {@code null} atau blank diabaikan secara senyap.
+	 *
+	 * @param oleh nama pelaku perubahan; diabaikan bila {@code null} atau blank
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama pelaku perubahan terakhir.
+	 *
+	 * @return nama pelaku, atau {@code null} bila belum diset
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Hook {@code @PreUpdate} Hibernate: memperbarui {@link #tanggal_dirubah} otomatis sebelum
+	 * baris ini di-{@code UPDATE}. Jangan dipanggil manual dari kode aplikasi.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menyetel waktu perubahan terakhir. Biasanya hanya dipanggil oleh {@link #onUpdate()}.
+	 *
+	 * @param tanggal_dirubah waktu perubahan terakhir
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan waktu perubahan terakhir baris ini.
+	 *
+	 * @return waktu perubahan terakhir; default konstruksi object adalah waktu saat ini
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** Pegawai yang ditugaskan pada {@link #tugas}; wajib. */
 	private Pegawai pegawai;
+	/** Tugas yang penanggung jawabnya dicatat oleh baris ini; wajib. */
 	private Tugas tugas;
+	/** Anggaran yang dialokasikan untuk penugasan pegawai ini pada tugas terkait; default {@code 0.0}. */
 	private Double anggaran = 0.0;
+	/** Jenis tugas (katalog {@link JenisTugas}) yang menaungi penugasan ini; opsional. */
 	private JenisTugas jenisTugas;
 
+	/** Konstruktor default (wajib untuk entity Hibernate); seluruh field memakai nilai default. */
 	public TugasPunyaPegawai() {
 	}
 
+	/**
+	 * Mengembalikan primary key baris ini.
+	 *
+	 * @return {@link #id}, atau {@code null} bila baris belum tersimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -107,19 +158,39 @@ public class TugasPunyaPegawai extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key secara manual — normalnya hanya dipakai lapisan persistence.
+	 *
+	 * @param id primary key baru
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan anggaran yang dialokasikan untuk penugasan ini.
+	 *
+	 * @return {@link #anggaran}; default {@code 0.0}
+	 */
 	@Column(name = "anggaran", nullable = false)
 	public Double getAnggaran() {
 		return anggaran;
 	}
 
+	/**
+	 * Menyetel anggaran yang dialokasikan untuk penugasan ini.
+	 *
+	 * @param anggaran nilai anggaran baru
+	 */
 	public void setAnggaran(Double anggaran) {
 		this.anggaran = anggaran;
 	}
 
+	/**
+	 * Mengembalikan pegawai yang ditugaskan.
+	 *
+	 * @return {@link #pegawai}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pegawai", nullable = false)
@@ -127,10 +198,20 @@ public class TugasPunyaPegawai extends GeneralValueObject {
 		return pegawai;
 	}
 
+	/**
+	 * Menyetel pegawai yang ditugaskan.
+	 *
+	 * @param pegawai pegawai baru
+	 */
 	public void setPegawai(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/**
+	 * Mengembalikan tugas yang penanggung jawabnya dicatat baris ini.
+	 *
+	 * @return {@link #tugas}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "tugas", nullable = false)
@@ -138,10 +219,20 @@ public class TugasPunyaPegawai extends GeneralValueObject {
 		return tugas;
 	}
 
+	/**
+	 * Menyetel tugas yang penanggung jawabnya dicatat baris ini.
+	 *
+	 * @param tugas tugas baru
+	 */
 	public void setTugas(Tugas tugas) {
 		this.tugas = tugas;
 	}
 
+	/**
+	 * Mengembalikan jenis tugas (katalog {@link JenisTugas}) yang menaungi penugasan ini.
+	 *
+	 * @return {@link #jenisTugas}, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "jenis_tugas", nullable = true)
@@ -149,6 +240,11 @@ public class TugasPunyaPegawai extends GeneralValueObject {
 		return jenisTugas;
 	}
 
+	/**
+	 * Menyetel jenis tugas yang menaungi penugasan ini.
+	 *
+	 * @param jenisTugas entri katalog jenis tugas baru
+	 */
 	public void setJenisTugas(JenisTugas jenisTugas) {
 		this.jenisTugas = jenisTugas;
 	}

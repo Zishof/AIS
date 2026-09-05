@@ -66,37 +66,92 @@ import ais.database.model.GeneralValueObject;
 public class TugasPunyaPredecessor extends GeneralValueObject {
 
 	/**
-	 *  
+	 * Versi serialisasi tetap untuk kompatibilitas antar-build; nilainya disalin dari template
+	 * entity lain di modul ini dan tidak mencerminkan riwayat perubahan struktur kelas.
 	 */
 	private static final long serialVersionUID = -8738027816264807168L;
-	private String oleh;private String olehId;public String getOlehId() {return olehId;}public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}this.olehId = olehId;}
+	/** @see #getOleh() */
+	private String oleh;
+	/**
+	 * Mengembalikan ID pelaku yang terakhir mengubah baris ini (jejak audit ringan, tidak
+	 * dipetakan ke kolom database).
+	 *
+	 * @return ID pelaku perubahan terakhir, atau {@code null} bila belum pernah diset
+	 */
+	private String olehId;public String getOlehId() {return olehId;}
+	/**
+	 * Menyetel ID pelaku perubahan. Nilai {@code null} atau blank diabaikan secara senyap
+	 * (mempertahankan nilai lama) — pola berulang di seluruh entity {@code rab}.
+	 *
+	 * @param olehId ID pelaku perubahan; diabaikan bila {@code null} atau blank
+	 */
+	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}this.olehId = olehId;}
+	/** Primary key baris {@code rab.tugas_punya_predecessor}, dibangkitkan otomatis ({@code IDENTITY}). */
 	private Long id;
 
+	/**
+	 * Menyetel nama pelaku perubahan. Nilai {@code null} atau blank diabaikan secara senyap.
+	 *
+	 * @param oleh nama pelaku perubahan; diabaikan bila {@code null} atau blank
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama pelaku perubahan terakhir.
+	 *
+	 * @return nama pelaku, atau {@code null} bila belum diset
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Hook {@code @PreUpdate} Hibernate: memperbarui {@link #tanggal_dirubah} otomatis sebelum
+	 * baris ini di-{@code UPDATE}. Jangan dipanggil manual dari kode aplikasi.
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menyetel waktu perubahan terakhir. Biasanya hanya dipanggil oleh {@link #onUpdate()}.
+	 *
+	 * @param tanggal_dirubah waktu perubahan terakhir
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan waktu perubahan terakhir baris ini.
+	 *
+	 * @return waktu perubahan terakhir; default konstruksi object adalah waktu saat ini
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Tugas yang harus selesai lebih dulu (predecessor) sebelum {@link #tugas} boleh dimulai.
+	 * Tidak ada penjaga siklus pada level model/DAO — pencegahan hanya berupa pengecualian tugas
+	 * yang sudah menjadi predecessor dari daftar pilihan di UI ({@code TugasPunyaPredecessorHelper}
+	 * + {@code AmbilDataTugasBanyak}), bukan validasi transitif (mis. A menunggu B, B menunggu A
+	 * tetap bisa tersimpan bila dibuat lewat jalur lain).
+	 */
 	private Tugas tugasPredecessor;
+	/** Tugas yang bergantung pada selesainya {@link #tugasPredecessor}; wajib. */
 	private Tugas tugas;
 
+	/** Konstruktor default (wajib untuk entity Hibernate); seluruh field memakai nilai default. */
 	public TugasPunyaPredecessor() {
 	}
 
+	/**
+	 * Mengembalikan primary key baris ini.
+	 *
+	 * @return {@link #id}, atau {@code null} bila baris belum tersimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", unique = true, nullable = false)
@@ -104,10 +159,20 @@ public class TugasPunyaPredecessor extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key secara manual — normalnya hanya dipakai lapisan persistence.
+	 *
+	 * @param id primary key baru
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan tugas predecessor (yang harus selesai lebih dulu).
+	 *
+	 * @return {@link #tugasPredecessor}, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "tugas_predecessor", nullable = true)
@@ -115,10 +180,21 @@ public class TugasPunyaPredecessor extends GeneralValueObject {
 		return tugasPredecessor;
 	}
 
+	/**
+	 * Menyetel tugas predecessor.
+	 *
+	 * @param tugas tugas predecessor baru (nama parameter mengikuti kode sumber aslinya,
+	 *              bukan {@link #tugas})
+	 */
 	public void setTugasPredecessor(Tugas tugas) {
 		this.tugasPredecessor = tugas;
 	}
 
+	/**
+	 * Mengembalikan tugas yang bergantung pada predecessor ini.
+	 *
+	 * @return {@link #tugas}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "tugas", nullable = false)
@@ -126,6 +202,11 @@ public class TugasPunyaPredecessor extends GeneralValueObject {
 		return tugas;
 	}
 
+	/**
+	 * Menyetel tugas yang bergantung pada predecessor ini.
+	 *
+	 * @param tugas tugas baru
+	 */
 	public void setTugas(Tugas tugas) {
 		this.tugas = tugas;
 	}
