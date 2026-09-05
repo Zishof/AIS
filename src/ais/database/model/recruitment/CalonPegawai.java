@@ -432,102 +432,356 @@ public class CalonPegawai extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Salinan nama pelamar yang dipetakan ke kolom {@code nama_pegawai} secara READ-ONLY.
+	 * Nilai sebenarnya selalu diambil dari {@link #getNamaPegawai()}; lihat {@link #getNama()}.
+	 */
 	private String nama;
 
+	/**
+	 * Mengembalikan nama pelamar, sebagai alias baca-saja dari {@link #getNamaPegawai()}.
+	 *
+	 * <p>
+	 * <b>Getter dengan efek samping.</b> Setiap pemanggilan MENIMPA field {@link #nama} dengan
+	 * hasil {@link #getNamaPegawai()}, jadi apa pun yang pernah dipasang lewat
+	 * {@link #setNama(String)} akan hilang pada pembacaan berikutnya. Setter-nya secara efektif
+	 * tidak berguna dan hanya ada agar konvensi JavaBean terpenuhi.
+	 * </p>
+	 *
+	 * <p>
+	 * Pemetaannya sengaja dibuat {@code insertable = false, updatable = false}: kolom
+	 * {@code nama_pegawai} yang sama juga dipetakan oleh {@link #getNamaPegawai()}, dan hanya
+	 * properti itulah yang boleh menulis. Tanpa pengaturan ini Hibernate akan menolak pemetaan
+	 * karena dua properti menunjuk satu kolom yang bisa ditulis. Duplikasi properti ini ada agar
+	 * kode generik lintas modul (grid, laporan, pencarian) bisa memakai nama properti seragam
+	 * {@code "nama"} — perhatikan bahwa {@code CalonPegawaiAction.initCriteria(...)} memang
+	 * memfilter dan mengurutkan berdasarkan properti {@code "nama"}, bukan {@code "namaPegawai"}.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan keamanan.</b> Getter inilah yang mengisi kolom "Nama Lengkap" pada berkas ekspor
+	 * kata sandi massal di {@code CalonPegawaiAction}, dan juga dipakai untuk membentuk
+	 * {@code userId} akun {@code Tbmuser} baru (kata pertama nama + 3 digit acak) pada jalur
+	 * ekspor tersebut.
+	 * </p>
+	 *
+	 * @return nama pelamar sebagaimana tersimpan di {@link #getNamaPegawai()}; bisa {@code null}
+	 */
 	@Column(name = "nama_pegawai", nullable = false, insertable = false, updatable = false)
 	public String getNama() {
 		nama = getNamaPegawai();
 		return nama;
 	}
 
+	/**
+	 * Menyetel field bayangan {@link #nama}.
+	 *
+	 * <p>
+	 * <b>Efeknya sementara.</b> Nilai yang dipasang di sini akan ditimpa pada pemanggilan
+	 * {@link #getNama()} berikutnya, dan tidak akan pernah tersimpan ke database karena
+	 * pemetaannya {@code insertable = false, updatable = false}. Untuk benar-benar mengubah nama
+	 * pelamar gunakan {@link #setNamaPegawai(String)}.
+	 * </p>
+	 *
+	 * @param nama nilai yang dipasang ke field bayangan
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Salinan nomor induk yang dipetakan ke kolom {@code nomor_induk_nasional}. Lihat
+	 * {@link #getNim()} untuk penjelasan penamaan yang menyesatkan pada konteks rekrutmen.
+	 */
 	private String nim;
 
+	/**
+	 * Mengembalikan "NIM" pelamar — penamaan warisan dari kelas kembarannya di modul PMB
+	 * ({@code BiodataCalonMahasiswa}); pada modul rekrutmen ini isinya sebenarnya adalah NOMOR
+	 * REGISTRASI pelamar.
+	 *
+	 * <p>
+	 * <b>Getter dengan efek samping.</b> Setiap pemanggilan menimpa {@link #nim} dengan hasil
+	 * {@link #getNomorInduk()}, yang pada gilirannya menimpa dirinya sendiri dari
+	 * {@link #getNoRegistrasi()}. Jadi terdapat rantai tiga properti — {@code nim} →
+	 * {@code nomorInduk} → {@code noRegistrasi} — yang semuanya bermuara pada satu nilai asli
+	 * {@link #noRegistrasi}. Nilai yang dipasang lewat {@link #setNim(String)} tidak bertahan.
+	 * </p>
+	 *
+	 * <p>
+	 * Berbeda dengan {@link #getNama()}, pemetaan di sini TIDAK memakai
+	 * {@code insertable = false, updatable = false}, dan kolomnya pun berbeda
+	 * ({@code nomor_induk_nasional}, bukan {@code nomor_induk}). Artinya kolom
+	 * {@code nomor_induk_nasional} benar-benar ditulis oleh Hibernate dengan nilai hasil
+	 * penyalinan otomatis di atas — sebuah kolom duplikat yang isinya selalu mengekor
+	 * {@code nomor_induk} tanpa ada kode yang pernah menulisnya secara sengaja.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Relevansi keamanan.</b> Nilai inilah (lewat {@link #getNomorInduk()}) yang menjadi bahan
+	 * kata sandi bawaan pada {@link #getPass()}. Nomor registrasi bukan rahasia: ia tampil di
+	 * grid panitia, tercetak di kartu peserta, dan ikut serta di {@link #toString()}.
+	 * </p>
+	 *
+	 * @return nomor registrasi pelamar; bisa {@code null} bila {@link #getNoRegistrasi()} belum
+	 *         terisi
+	 */
 	@Column(name = "nomor_induk_nasional", nullable = false)
 	public String getNim() {
 		nim = getNomorInduk();
 		return nim;
 	}
 
+	/**
+	 * Menyetel field bayangan {@link #nim}. Nilainya akan ditimpa pada pemanggilan
+	 * {@link #getNim()} berikutnya; gunakan {@link #setNoRegistrasi(String)} untuk mengubah nomor
+	 * yang sebenarnya.
+	 *
+	 * @param nim nilai yang dipasang ke field bayangan
+	 */
 	public void setNim(String nim) {
 		this.nim = nim;
 	}
 
+	/** Gelombang/lowongan tempat pelamar mendaftar; lihat {@link #getGelombangPendaftaranPegawai()}. */
 	private GelombangPendaftaranPegawai gelombangPendaftaranPegawai;
+	/** Kelompok/kategori pendaftaran pelamar; lihat {@link #getKelompokPendaftaranPegawai()}. */
 	private KelompokPendaftaranPegawai kelompokPendaftaranPegawai;
+	/** Waktu pendaftaran; lihat {@link #getTanggalPendaftaran()} (punya nilai bawaan dinamis). */
 	private Date tanggalPendaftaran;
+	/** Agama pelamar; lihat {@link #getAgama()}. */
 	private Agama agama;
+	/** Alamat surel pelamar; lihat {@link #getAlamatEmail()} (getter menyensor nilai tak valid). */
 	private String alamatEmail;
+	/**
+	 * PIN/kata sandi portal untuk pelamar.
+	 *
+	 * <p>
+	 * <b>Field tidur.</b> Pada kelas kembarannya ({@code CalonSiswa},
+	 * {@code BiodataCalonMahasiswa}) field ini diisi panitia dan ditampilkan apa adanya di layar,
+	 * tetapi pada {@code CalonPegawai} tidak ada satu pun pemanggil
+	 * {@link #getPinPassword()}/{@link #setPinPassword(String)} di seluruh WC ini. Kolomnya tetap
+	 * dipetakan dan tetap ikut direkam Envers.
+	 * </p>
+	 */
 	private String pinPassword;
+	/** Alamat orang tua pelamar; lihat {@link #getAlamatOrangTua()}. */
 	private String alamatOrangTua;
+	/** Alamat ayah; dipakai sebagai cadangan oleh {@link #getAlamatWali()}. */
 	private String alamatAyah;
+	/** Alamat ibu; lihat {@link #getAlamatIbu()}. */
 	private String alamatIbu;
+	/** Alamat domisili pelamar; lihat {@link #getAlamatPegawai()}. */
 	private String alamatPegawai;
+	/** Nama dusun pada alamat pelamar; lihat {@link #getDusunCalon()}. */
 	private String dusunCalon;
+	/** Nomor RT pada alamat pelamar; disimpan sebagai teks agar angka berawalan nol tidak hilang. */
 	private String rt;
+	/** Nomor RW pada alamat pelamar; disimpan sebagai teks agar angka berawalan nol tidak hilang. */
 	private String rw;
+	/** Kode pos pada alamat pelamar; lihat {@link #getKodePos()}. */
 	private String kodePos;
+	/** Nama kelurahan/desa pada alamat pelamar, sebagai teks bebas (bukan relasi). */
 	private String kelurahanCalon;
+	/** Kecamatan alamat pelamar sebagai relasi {@link Wilayah}; lihat {@link #getKecamatanCalon()}. */
 	private Wilayah kecamatanCalon;
+	/** Propinsi alamat pelamar; lihat {@link #getPropinsiCalon()}. */
 	private Propinsi propinsiCalon;
+	/** Kota/kabupaten alamat pelamar; lihat {@link #getKotaCalon()}. */
 	private Kota kotaCalon;
 
+	/** Alamat wali; bila kosong, {@link #getAlamatWali()} jatuh ke {@link #getAlamatAyah()}. */
 	private String alamatWali;
+	/** Urutan kelahiran pelamar dalam keluarga; lihat {@link #getAnakKe()}. */
 	private Integer anakKe;
+	/** Jumlah bersaudara; lihat {@link #getDariAnakKe()}. */
 	private Integer dariAnakKe;
+	/** Jenis kelamin sebagai teks bebas (bukan enum); lihat {@link #getJenisKelamin()}. */
 	private String jenisKelamin;
+	/**
+	 * NIK (Nomor Induk Kependudukan / nomor KTP) pelamar — data pribadi sangat sensitif yang
+	 * diekspos tanpa penyamaran lewat {@link #getNik()}.
+	 */
 	private String nik;
+	/**
+	 * Nomor Kartu Keluarga pelamar — data pribadi sensitif, diekspos apa adanya lewat
+	 * {@link #getKk()}.
+	 */
 	private String kk;
+	/** Nama ayah pelamar; lihat {@link #getNamaAyah()}. */
 	private String namaAyah;
+	/**
+	 * Nama ibu kandung pelamar. Lazim dipakai lembaga keuangan sebagai pertanyaan verifikasi
+	 * identitas, sehingga sebaiknya diperlakukan setara data rahasia meski di sini diekspos apa
+	 * adanya lewat {@link #getNamaIbu()}.
+	 */
 	private String namaIbu;
+	/** Nama pelamar — sumber nilai sebenarnya untuk {@link #getNama()}. */
 	private String namaPegawai;
+	/** Nomor induk; selalu disalin dari {@link #noRegistrasi} oleh {@link #getNomorInduk()}. */
 	private String nomorInduk;
+	/**
+	 * Nomor registrasi pendaftaran — SATU-SATUNYA nilai asli pada rantai
+	 * {@code nim → nomorInduk → noRegistrasi}, dan sekaligus bahan kata sandi bawaan pada
+	 * {@link #getPass()}. Dihasilkan oleh {@code DefaultNoRegGeneratorPegawai}.
+	 */
 	private String noRegistrasi;
+	/** Catatan bebas panitia mengenai pelamar; lihat {@link #getKeterangan()}. */
 	private String keterangan;
+	/** Kewarganegaraan sebagai relasi {@link Negara}; lihat {@link #getNegara()}. */
 	private Negara negara;
 
+	/** Penanda baris aktif; lihat {@link #getAktif()} (bawaan {@code true} bila {@code null}). */
 	private Boolean aktif;
+	/**
+	 * Kata sandi terenkripsi DES.
+	 *
+	 * <p>
+	 * <b>PERINGATAN.</b> Field ini disemai secara otomatis oleh {@link #getPass()} dengan hasil
+	 * enkripsi {@link #getNomorInduk()} bila masih kosong. Baca Javadoc {@link #getPass()} untuk
+	 * rincian mekanisme dan implikasinya.
+	 * </p>
+	 */
 	private String pass;
+	/**
+	 * Penanda apakah {@link #pass} sudah berbentuk sandi terenkripsi. Dinyalakan sebagai EFEK
+	 * SAMPING oleh {@link #getPass()}; lihat {@link #getIs_encripted()}.
+	 */
 	private Boolean is_encripted;
 
+	/**
+	 * Tautan ke data {@link Pegawai} bila pelamar sudah resmi diangkat menjadi pegawai; relasi
+	 * satu-satu lewat kolom unik. Lihat {@link #getPegawai()}.
+	 */
 	private Pegawai pegawai;
+	/** Flag status seleksi "diterima"; lihat {@link #getTelahDiterima()}. */
 	private Boolean telahDiterima;
+	/** Flag status seleksi "terverifikasi"; lihat {@link #getTerverifikasi()}. */
 	private Boolean terverifikasi;
+	/** Penanda pelamar sudah menyetujui pernyataan/persetujuan pendaftaran; lihat {@link #getPernyataan()}. */
 	private Boolean pernyataan;
+	/**
+	 * Bentuk ringkas (berbasis id) dari isian dinamis pelamar; lihat
+	 * {@link #getParameterTambahanInds()} dan {@link #populateParameterTambahan(List)}.
+	 */
 	private String parameterTambahanInds;
+	/**
+	 * Bentuk terbaca (berbasis label) dari isian dinamis pelamar, disimpan sebagai satu blob teks
+	 * dengan pemisah baris dan {@code <=>}; lihat {@link #getParameterTambahan()}.
+	 */
 	private String parameterTambahan;
+	/** Penanda pelamar pernah login; lihat {@link #getTelahLogin()} (disimpulkan, bukan dicatat). */
 	private Boolean telahLogin;
+	/** Waktu login terakhir pelamar; lihat {@link #getWaktuLogin()} (tidak ada penulis di WC ini). */
 	private Date waktuLogin;
+	/** Pencacah cetak kartu peserta; lihat {@link #getCetakKartu()} (getter merusak nilai asli). */
 	private Integer cetakKartu;
+	/** Nomor ujian seleksi; dihasilkan {@code DefaultNoUjianGeneratorPegawai}. Lihat {@link #getNoUjian()}. */
 	private String noUjian;
+	/** Flag status seleksi "ditolak"; lihat {@link #getDitolak()}. */
 	private Boolean ditolak;
+	/** Flag status seleksi "mengundurkan diri"; lihat {@link #getMengundurkanDiri()}. */
 	private Boolean mengundurkanDiri;
+	/** Tanggal lahir pelamar (data pribadi); lihat {@link #getTanggalLahir()}. */
 	private Date tanggalLahir;
+	/** Tempat lahir pelamar; lihat {@link #getTempatLahir()}. */
 	private String tempatLahir;
+	/**
+	 * Kewarganegaraan sebagai teks bebas — berdampingan dengan relasi {@link #negara} yang
+	 * menyimpan informasi serupa secara terstruktur; keduanya tidak saling disinkronkan.
+	 */
 	private String kewarganegaraan;
+	/** Nomor telepon/HP pelamar; lihat {@link #getTeleponPegawai()} dan {@link #tampilkanHp(Component)}. */
 	private String teleponPegawai;
+	/**
+	 * "Sekolah asal" — penamaan warisan modul PPDB/PMB; pada konteks rekrutmen diisi sebagai
+	 * institusi pendidikan terakhir pelamar. Lihat {@link #getSekolahAsal()}.
+	 */
 	private String sekolahAsal;
+	/** Alamat institusi pendidikan terakhir pelamar; lihat {@link #getAlamatSekolahAsal()}. */
 	private String alamatSekolahAsal;
+	/** Nomor telepon orang tua pelamar; lihat {@link #getTeleponOrangTua()}. */
 	private String teleponOrangTua;
 
+	/** Kota/kabupaten (alamat kedua, terpisah dari {@link #kotaCalon}); lihat {@link #getKota()}. */
 	private Kota kota;
+	/**
+	 * Propinsi (alamat kedua, terpisah dari {@link #propinsiCalon}); lihat {@link #getPropinsi()}
+	 * yang menurunkannya dari {@link #getKota()}.
+	 */
 	private Propinsi propinsi;
+	/** Kecamatan (alamat kedua, terpisah dari {@link #kecamatanCalon}); lihat {@link #getKecamatan()}. */
 	private Wilayah kecamatan;
 
+	/**
+	 * Representasi teks entity dalam bentuk {@code id-nomorInduk-namaPegawai}.
+	 *
+	 * <p>
+	 * Dipakai ZK sebagai label bawaan pada komponen pemilih (combobox/listbox) yang menerima
+	 * objek ini secara langsung, dan muncul pula pada keluaran log/debug.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Dua catatan penting.</b> Pertama, method ini membaca FIELD {@link #nomorInduk} dan
+	 * {@link #namaPegawai} secara langsung, bukan lewat getter-nya; untuk objek yang baru dimuat
+	 * dan belum pernah dibaca lewat {@link #getNomorInduk()}, bagian nomor bisa tampil
+	 * {@code null} walau {@link #getNoRegistrasi()} sebenarnya terisi. Kedua, nilai ini membocorkan
+	 * nomor registrasi ke tempat-tempat yang tidak diniatkan sebagai tampilan data (log aplikasi,
+	 * pesan galat) — dan nomor registrasi itulah bahan kata sandi bawaan pada {@link #getPass()}.
+	 * </p>
+	 *
+	 * @return teks gabungan id, nomor induk, dan nama pelamar
+	 */
 	public String toString() {
 		return id + "-" + nomorInduk + "-" + namaPegawai;
 	}
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan Hibernate/JPA untuk membuat instance saat memuat
+	 * baris dari database, sekaligus dipakai kode layar untuk membuat pelamar baru (mis.
+	 * {@code KarirAction} pada pendaftaran mandiri lewat portal karir).
+	 *
+	 * <p>
+	 * Semua field dibiarkan {@code null} kecuali {@link #getTanggal_dirubah()} yang diinisialisasi
+	 * di deklarasinya. Perhatikan bahwa konstruktor ini TIDAK menyemai kata sandi apa pun —
+	 * penyemaian baru terjadi saat {@link #getPass()} dipanggil dan {@link #getNomorInduk()} sudah
+	 * terisi, yang dalam praktiknya berarti setelah nomor registrasi dibuat.
+	 * </p>
+	 */
 	public CalonPegawai() {
 	}
 
+	/**
+	 * Konstruktor pintas yang hanya menetapkan kunci primer, berguna untuk membentuk referensi
+	 * ringan ke sebuah baris (mis. sebagai nilai pembanding pada kriteria Hibernate) tanpa perlu
+	 * memuat seluruh kolomnya.
+	 *
+	 * <p>
+	 * Objek hasil konstruktor ini bukan entity terkelola dan seluruh field lainnya {@code null};
+	 * jangan disimpan lewat {@code saveOrUpdate} karena akan menimpa baris asli dengan nilai
+	 * kosong.
+	 * </p>
+	 *
+	 * @param id kunci primer baris {@code calon_pegawai} yang dirujuk
+	 */
 	public CalonPegawai(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan kunci primer baris {@code calon_pegawai}.
+	 *
+	 * <p>
+	 * Nilainya dihasilkan database ({@code GenerationType.IDENTITY}, kolom serial PostgreSQL) dan
+	 * karena itu dipetakan {@code insertable = false}: Hibernate tidak menyertakan kolom
+	 * {@code id} dalam pernyataan {@code INSERT} dan membacanya kembali setelah baris terbentuk.
+	 * Konsekuensinya, {@code getId()} bernilai {@code null} sampai objek benar-benar tersimpan —
+	 * hal ini penting untuk {@link #reloadGaleries(CalonPegawai)} dan
+	 * {@link #populateParameterTambahan(List)} yang memakai id sebagai {@code ref} lampiran.
+	 * </p>
+	 *
+	 * @return kunci primer, atau {@code null} bila baris belum pernah disimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -535,10 +789,49 @@ public class CalonPegawai extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel kunci primer secara manual.
+	 *
+	 * <p>
+	 * Dalam pemakaian normal setter ini hanya dipanggil Hibernate. Menyetel id pada objek yang
+	 * sudah terkelola akan membingungkan sesi persistensi; untuk merujuk baris lain, buat instance
+	 * baru lewat {@link #CalonPegawai(Long)}.
+	 * </p>
+	 *
+	 * @param id kunci primer
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan gelombang/lowongan penerimaan tempat pelamar ini terdaftar.
+	 *
+	 * <p>
+	 * Relasi {@code @ManyToOne} ke {@link GelombangPendaftaranPegawai} lewat kolom
+	 * {@code current_gelombang_pendaftaran_pegawai_id} — awalan {@code current_} menandakan bahwa
+	 * secara historis seorang pelamar bisa berpindah gelombang, dan kolom ini menyimpan gelombang
+	 * yang BERLAKU SEKARANG saja (tidak ada riwayat perpindahan di entity ini). Pengambilannya
+	 * memakai {@code FetchMode.SELECT}, yaitu kueri terpisah saat properti diakses, bukan
+	 * {@code JOIN} pada kueri induk.
+	 * </p>
+	 *
+	 * <p>
+	 * {@code cascade = {PERSIST, MERGE}} berarti menyimpan calon pegawai ikut menyimpan objek
+	 * gelombang yang tertaut — perlu diwaspadai bila objek gelombang yang dipasang berasal dari
+	 * sesi lain atau sudah dimodifikasi, karena perubahannya ikut terbawa.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan cakupan data.</b> Relasi ini adalah SATU-SATUNYA penanda "kepemilikan" pada
+	 * entity, tetapi {@code CalonPegawaiAction.initCriteria(...)} sama sekali tidak memfilter
+	 * berdasarkannya. Akibatnya setiap panitia yang bisa membuka layar calon pegawai melihat
+	 * seluruh pelamar dari seluruh gelombang/lowongan, termasuk pada jalur ekspor kata sandi
+	 * massal.
+	 * </p>
+	 *
+	 * @return gelombang pendaftaran pelamar, atau {@code null} bila belum ditetapkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "current_gelombang_pendaftaran_pegawai_id")
@@ -546,10 +839,38 @@ public class CalonPegawai extends GeneralValueObject {
 		return this.gelombangPendaftaranPegawai;
 	}
 
+	/**
+	 * Menyetel gelombang/lowongan penerimaan pelamar.
+	 *
+	 * @param gelombangPendaftaranPegawai gelombang yang dipilih; {@code null} diperbolehkan
+	 *                                    (kolom nullable)
+	 */
 	public void setGelombangPendaftaranPegawai(GelombangPendaftaranPegawai gelombangPendaftaranPegawai) {
 		this.gelombangPendaftaranPegawai = gelombangPendaftaranPegawai;
 	}
 
+	/**
+	 * Mengembalikan agama pelamar.
+	 *
+	 * <p>
+	 * Sebelum dikembalikan, nilai dilewatkan {@code check(...)} milik {@link GeneralValueObject}.
+	 * Helper itu menangani relasi {@code FetchType.LAZY}: bila objek yang tertaut ternyata berupa
+	 * <i>proxy</i> yang sesi Hibernate-nya sudah tertutup — situasi lumrah untuk entity yang
+	 * disimpan di {@code HttpSession} seperti calon pegawai pada portal karir — {@code check}
+	 * mengembalikan {@code null} alih-alih membiarkan {@code LazyInitializationException}
+	 * meledak ke layar.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagai efek sampingnya, getter ini bisa MENIMPA field {@link #agama} menjadi {@code null}.
+	 * Bila objek lalu di-{@code flush}, relasi agama yang sebenarnya ada di database bisa ikut
+	 * terhapus. Ini pola getter destruktif yang berulang di banyak entity AIS dan berlaku pula
+	 * pada {@link #getKecamatan()}, {@link #getKecamatanCalon()}, {@link #getKota()}, dan
+	 * {@link #getPropinsi()}.
+	 * </p>
+	 *
+	 * @return agama pelamar, atau {@code null} bila belum diisi atau proxy-nya tidak dapat dimuat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "agama_id", nullable = true)
 	public Agama getAgama() {
@@ -557,6 +878,11 @@ public class CalonPegawai extends GeneralValueObject {
 		return this.agama;
 	}
 
+	/**
+	 * Menyetel agama pelamar.
+	 *
+	 * @param agama agama yang dipilih; {@code null} diperbolehkan
+	 */
 	public void setAgama(Agama agama) {
 		this.agama = agama;
 	}

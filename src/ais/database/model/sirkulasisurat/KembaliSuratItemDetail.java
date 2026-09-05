@@ -193,9 +193,15 @@ public class KembaliSuratItemDetail extends GeneralValueObject {
 		this.telahDibayar = telahDibayar;
 	}
 
+	/**
+	 * Getter murni: mengembalikan {@code dibayarSejumlah} apa adanya (null -> 0.0), tidak lagi
+	 * bergantung pada {@link #getTelahDibayar()} atau {@link #getDenda()}. Lihat perbaikan bug
+	 * serupa pada {@code ais.database.model.library.KembaliPengadaanItemDetail#getDibayarSejumlah()}
+	 * untuk latar belakang: versi lama getter ini menulis nol ke kolom untuk pembayaran
+	 * sebagian karena entity dipetakan dengan property access (nilai getter yang di-flush ke DB).
+	 */
 	public Double getDibayarSejumlah() {
-		return getTelahDibayar() ? (dibayarSejumlah == null || dibayarSejumlah < 0.01 ? getDenda() : dibayarSejumlah)
-				: 0.0;
+		return dibayarSejumlah == null ? 0.0 : dibayarSejumlah;
 	}
 
 	public void setDibayarSejumlah(Double dibayarSejumlah) {

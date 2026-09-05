@@ -204,10 +204,10 @@ public class KembaliPengadaanItemDetailAction extends MyDetail {
 
 					DendaKeterlambatanItem dendaPerItem = LibraryUtil.hitungDendaItem(peminjamanPengadaanItemDetail);
 
-					Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
+					Double denda = (dendaPerItem == null || dendaPerItem.getDenda() == null) ? 0.0 : dendaPerItem.getDenda();
 					denda = denda * peminjamanPengadaanItemDetail.getJumlah();
 
-					if (!dendaPerItem.getKeterangan().isEmpty()) {
+					if (dendaPerItem != null && !dendaPerItem.getKeterangan().isEmpty()) {
 						textDenda.setValue(dendaPerItem.getKeterangan());
 					} else {
 						textDenda.setValue(Common.numberFormat.get().format(denda));

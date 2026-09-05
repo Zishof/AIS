@@ -269,7 +269,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 							.getPeminjamanPengadaanItemDetail();
 					DendaKeterlambatanItem dendaPerItem = LibraryUtil.hitungDendaItem(peminjamanPengadaanItemDetail);
 
-					Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
+					Double denda = (dendaPerItem == null || dendaPerItem.getDenda() == null) ? 0.0 : dendaPerItem.getDenda();
 					denda = denda * peminjamanPengadaanItemDetail.getJumlah();
 					denda += replacementCharge(kembaliPengadaanItemDetail.getKetDenda());
 
@@ -402,7 +402,14 @@ public class KembaliPengadaanItemPunyaItemHelper {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				telahDibayar.setChecked(dibayarSejumlah.getValue() != null && dibayarSejumlah.getValue() > 0.1);
+				// Hanya anggap lunas bila nominal yang diisi sudah mencapai seluruh denda
+				// (termasuk biaya penggantian bila ada); sebelumnya ambangnya sekadar > 0.1,
+				// sehingga pembayaran sebagian langsung tercentang "telah dibayar" dan sisa
+				// tagihan lenyap.
+				Double nilai = dibayarSejumlah.getValue();
+				double denda = kembaliPengadaanItemDetail.getDenda() == null ? 0.0
+						: kembaliPengadaanItemDetail.getDenda();
+				telahDibayar.setChecked(denda > 0.01 && nilai != null && nilai >= denda);
 			}
 		});
 
@@ -421,7 +428,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 				if (telahDibayar.isChecked()) {
 					DendaKeterlambatanItem dendaPerItem = LibraryUtil.hitungDendaItem(peminjamanPengadaanItemDetail);
 
-					Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
+					Double denda = (dendaPerItem == null || dendaPerItem.getDenda() == null) ? 0.0 : dendaPerItem.getDenda();
 					denda = denda * peminjamanPengadaanItemDetail.getJumlah();
 					Object chargeField = row.getAttribute("biayaPenggantian");
 					if (chargeField instanceof ais.ui.util.MyDoublebox
@@ -524,7 +531,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 
 				DendaKeterlambatanItem dendaPerItem = LibraryUtil.hitungDendaItem(peminjamanPengadaanItemDetail);
 
-				Double denda = dendaPerItem == null ? 0.0 : dendaPerItem.getDenda();
+				Double denda = (dendaPerItem == null || dendaPerItem.getDenda() == null) ? 0.0 : dendaPerItem.getDenda();
 				denda = denda * peminjamanPengadaanItemDetail.getJumlah();
 				Double replacement = biayaPenggantian.getValue() == null ? 0.0 : biayaPenggantian.getValue();
 				denda += replacement;

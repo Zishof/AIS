@@ -241,7 +241,7 @@ public class DiskonAction extends GenericCrudAction<Diskon> {
 
     // ======================== Save logic ========================
 
-    /** Memvalidasi (nama, tanggal mulai, dan akun wajib terisi) dan menyimpan {@link Diskon}; kode di-generate ulang saat entitas baru dibuat. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
+    /** Memvalidasi (nama, tanggal mulai, dan akun wajib terisi; jumlah maksimal tidak boleh lebih kecil dari jumlah minimal; tanggal sampai tidak boleh lebih awal dari tanggal mulai) dan menyimpan {@link Diskon}; kode di-generate ulang saat entitas baru dibuat. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show(
@@ -258,6 +258,19 @@ public class DiskonAction extends GenericCrudAction<Diskon> {
         if (akun.getAttribute("akun") == null) {
             MyMessageboxConfig.show(
                     "Mohon maaf, kolom Akun belum diisi. Mohon Bapak/Ibu memilih terlebih dahulu akun tujuan diskon sebelum menyimpan data.",
+                    "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+            return false;
+        }
+        if (jumlahMaksimal.getValue() != null && jumlahMinimal.getValue() != null
+                && jumlahMaksimal.getValue() < jumlahMinimal.getValue()) {
+            MyMessageboxConfig.show(
+                    "Mohon maaf, Jumlah maksimal mendapatkan diskon tidak boleh lebih kecil dari jumlah minimal. Mohon Bapak/Ibu memeriksa kembali kedua nilai tersebut sebelum menyimpan data.",
+                    "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+            return false;
+        }
+        if (sampai.getValue() != null && mulai.getValue() != null && sampai.getValue().before(mulai.getValue())) {
+            MyMessageboxConfig.show(
+                    "Mohon maaf, tanggal Diskon berlaku sampai tidak boleh lebih awal dari tanggal Diskon berlaku mulai. Mohon Bapak/Ibu memeriksa kembali kedua tanggal tersebut sebelum menyimpan data.",
                     "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
             return false;
         }
