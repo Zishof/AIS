@@ -195,10 +195,8 @@ public class ParameterTambahanAlumniListener implements EventListener {
 			KelompokParameterTambahanAlumni kelompokParameterTambahanAlumni = parameterTambahanAlumni.getKelompokParameterTambahanAlumni();
 
 			if (parameterTambahan != null && kelompokParameterTambahanAlumni != null) {
-				String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataMahasiswa.class,
-						biodataMahasiswa.getId(),
-						kelompokParameterTambahanAlumni.getId() + "->" + parameterTambahan.getId());
-				String jenisKey = LampiranLain.kunciNilaiParameterTambahan(jenis).toLowerCase();
+				String jenisMentah = kelompokParameterTambahanAlumni.getId() + "->" + parameterTambahan.getId();
+				String jenisKey = jenisMentah.toLowerCase();
 
 				String val = "";
 				if (mapValParam.containsKey(jenisKey)) {
@@ -226,6 +224,8 @@ public class ParameterTambahanAlumniListener implements EventListener {
 				}
 
 				if (parameterTambahan.getLampiranWajibDiisi() && parameterTambahan.getHarusMenyertakanLampiran()) {
+					String jenis = LampiranLain.resolveJenisParameterTambahan(BiodataMahasiswa.class,
+							biodataMahasiswa.getId(), jenisMentah);
 					LampiranLain lam = LampiranLain.ambil(biodataMahasiswa.getId(), jenis);
 					if (lam == null) {
 						if (tampilMessage) {

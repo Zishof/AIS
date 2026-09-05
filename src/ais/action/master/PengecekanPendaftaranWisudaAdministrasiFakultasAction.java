@@ -217,6 +217,11 @@ public class PengecekanPendaftaranWisudaAdministrasiFakultasAction extends Gener
 							if (pendaftaranWisuda.getId() != null) {
 								pendaftaranWisuda = daftarWisudaDao.load(pendaftaranWisuda.getId());
 							}
+							if (pendaftaranWisuda == null) {
+								MyMessageboxConfig.show("Data pendaftaran wisuda sudah berubah atau dihapus. Silakan muat ulang data.",
+										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+								return;
+							}
 
 							pendaftaranWisuda.setStatusPendaftaran(jsonObject.toString());
 							pendaftaranWisuda.setStatusPersetujuanAdministrasiFakultas(1);
@@ -254,6 +259,11 @@ public class PengecekanPendaftaranWisudaAdministrasiFakultasAction extends Gener
 							PendaftaranWisudaDao daftarWisudaDao = DaoFactory.getInstance().getPendaftaranWisudaDao();
 							if (pendaftaranWisuda.getId() != null) {
 								pendaftaranWisuda = daftarWisudaDao.load(pendaftaranWisuda.getId());
+							}
+							if (pendaftaranWisuda == null) {
+								MyMessageboxConfig.show("Data pendaftaran wisuda sudah berubah atau dihapus. Silakan muat ulang data.",
+										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+								return;
 							}
 
 							pendaftaranWisuda.setStatusPersetujuanAdministrasiFakultas(0);
