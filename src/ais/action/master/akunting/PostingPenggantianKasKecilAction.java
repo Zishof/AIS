@@ -1277,6 +1277,24 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 		int n = 0;
 		Session session = HibernateUtil.currentNativeSession();
 		try {
+			List<PenggantianKasKecil> kandidat = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNull("postingHistory")).list();
+			List<PenggantianKasKecil> daftar = new java.util.ArrayList<PenggantianKasKecil>();
+			for (PenggantianKasKecil dok : kandidat) {
+				Akun akunDebet = dok == null || dok.getKasKecil() == null
+						|| dok.getKasKecil().getJenisKasKecil() == null ? null
+						: dok.getKasKecil().getJenisKasKecil().getAkun();
+				Akun akunKredit = dok == null ? null : akunKreditTransfer(dok.getDaftarPengajuanTransfer());
+				if (akunDebet != null && akunKredit != null && dok.getNilai() != null && dok.getNilai() > 0.1) {
+					daftar.add(dok);
+				}
+			}
+			// Jangan meninggalkan PostingHistory kosong saat seluruh kandidat belum punya
+			// pemetaan akun. Kondisi ini kini dicegah sebelum realisasi oleh API transfer,
+			// tetapi pagar ini tetap diperlukan untuk data lama dan jalur ZK.
+			if (daftar.isEmpty()) {
+				return 0;
+			}
 			PostingHistory postingHistory = new PostingHistory(PostingHistory.JENIS_PENGGANTIAN_KAS_KECIL);
 			postingHistory.setTanggal(tglPosting == null ? new java.util.Date() : tglPosting);
 			postingHistory.setTbmuser(oleh);
@@ -1287,9 +1305,6 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 			session.getTransaction().begin();
 			session.save(postingHistory);
 			session.getTransaction().commit();
-
-			List<PenggantianKasKecil> daftar = kriteriaPostingStatic(session, mulai, sampai)
-					.add(Restrictions.isNull("postingHistory")).list();
 
 			for (PenggantianKasKecil dok : daftar) {
 				if (dok == null) {
@@ -1319,6 +1334,12 @@ public class PostingPenggantianKasKecilAction extends GenericAutowireComposer {
 					session.getTransaction().commit();
 					n++;
 				} catch (Exception e) {
+					try {
+						if (session.getTransaction().isActive()) session.getTransaction().rollback();
+					} catch (Exception rollbackError) {
+						ais.common.ErrorAuditUtil.record(rollbackError,
+								"PostingPenggantianKasKecilAction rollback jalur API");
+					}
 					ais.common.ErrorAuditUtil.record(e, "PostingPenggantianKasKecilAction jalur API");
 				}
 			}

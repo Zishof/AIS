@@ -662,6 +662,16 @@ public final class ProsesTransferApiHelper {
 			if (caraId != 0) {
 				cara = (CaraPembayaranTransfer) session.get(CaraPembayaranTransfer.class, Long.valueOf(caraId));
 			}
+			if (cara == null) {
+				tolak(hasil, "Cara Pembayaran Transfer wajib dipilih.");
+				return;
+			}
+			if (cara.getAkun() == null && cara.getAkunTransitori() == null) {
+				tolak(hasil, "Cara Pembayaran Transfer \"" + cara.getNama()
+						+ "\" belum memiliki akun kas/bank maupun akun transitori. "
+						+ "Lengkapi pemetaan akun sebelum membuat proses transfer.");
+				return;
+			}
 			Date tglBuat = tanggal(request, "tanggalPembuatan");
 			if (tglBuat == null) {
 				tglBuat = pt.getTanggalPembuatan() == null ? WaktuUtil.getDate() : pt.getTanggalPembuatan();
@@ -888,6 +898,13 @@ public final class ProsesTransferApiHelper {
 						+ "tidak dapat menentukan akun kredit.");
 				return;
 			}
+			if (pt.getCaraPembayaranTransfer().getAkun() == null
+					&& pt.getCaraPembayaranTransfer().getAkunTransitori() == null) {
+				tolak(hasil, "Cara Pembayaran Transfer \"" + pt.getCaraPembayaranTransfer().getNama()
+						+ "\" belum memiliki akun kas/bank maupun akun transitori. "
+						+ "Lengkapi pemetaan akun sebelum proses disetujui.");
+				return;
+			}
 			session.beginTransaction();
 			pt.setDisetujuiOleh(tbmuser);
 			pt.setTanggalPersetujuan(tanggalPersetujuan);
@@ -1024,6 +1041,45 @@ public final class ProsesTransferApiHelper {
 					tolak(hasil, belumBertanda + " baris belum ditandai Transfer atau Transitori. "
 						+ "Tanda itu yang menentukan akun kredit jurnalnya, jadi tanpa tanda "
 						+ "dokumen sumbernya tidak akan terjurnal.");
+					return;
+				}
+
+				CaraPembayaranTransfer cara = pt.getCaraPembayaranTransfer();
+				if (cara == null) {
+					tolak(hasil, "Cara Pembayaran Transfer belum dipilih; realisasi tidak dapat dijurnal.");
+					return;
+				}
+				long akunTransferKosong = 0;
+				long akunTransitoriKosong = 0;
+				if (cara.getAkun() == null) {
+					ps = session.connection().prepareStatement(
+							"SELECT count(*) FROM akunting.daftar_pengajuan_transfer"
+									+ " WHERE proses_transfer = ? AND COALESCE(transfer,false) = true");
+					ps.setLong(1, id);
+					rs = ps.executeQuery();
+					rs.next();
+					akunTransferKosong = rs.getLong(1);
+					rs.close();
+					ps.close();
+				}
+				if (cara.getAkunTransitori() == null) {
+					ps = session.connection().prepareStatement(
+							"SELECT count(*) FROM akunting.daftar_pengajuan_transfer"
+									+ " WHERE proses_transfer = ? AND COALESCE(transitori,false) = true");
+					ps.setLong(1, id);
+					rs = ps.executeQuery();
+					rs.next();
+					akunTransitoriKosong = rs.getLong(1);
+					rs.close();
+					ps.close();
+				}
+				if (akunTransferKosong > 0 || akunTransitoriKosong > 0) {
+					String jenisAkun = akunTransferKosong > 0 && akunTransitoriKosong > 0
+							? "akun kas/bank dan akun transitori"
+							: (akunTransferKosong > 0 ? "akun kas/bank" : "akun transitori");
+					tolak(hasil, "Cara Pembayaran Transfer \"" + cara.getNama() + "\" belum memiliki "
+							+ jenisAkun + " yang diperlukan oleh baris terpilih. "
+							+ "Lengkapi pemetaan akun sebelum realisasi.");
 					return;
 				}
 
