@@ -173,8 +173,8 @@ public class MonitorStokItemAction extends GenericAutowireComposer {
 
 		String sql = "select a.item, max(c.nama) as nama_item, " + "max(a.tanggal) as tanggal_terakhir_pengadaan, "
 				+ "sum((a.qty+a.qty_bonus)*b.jenis) as stok, "
-				+ "max(d.nama) as lokasi, sum(((a.qty+a.qty_bonus)*b.jenis)*(e.harga_jual)) as nilai from detail_transaksi a "
-				+ "inner join kode_transaksi b on (a.kode_transaksi = b.id) left join sirs.item_medis c on (a.item = c.id) "
+				+ "max(d.nama) as lokasi, sum(((a.qty+a.qty_bonus)*b.jenis)*(e.harga_jual)) as nilai from sirs.detail_transaksi_pasien a "
+				+ "inner join sirs.kode_transaksi_medis b on (a.kode_transaksi = b.id) left join sirs.item_medis c on (a.item = c.id) "
 				+ "left join asset.lokasi d on (a.lokasi = d.id) "
 				+ "left join (select item, (case when max(harga_jual) is null then 0 else max(harga_jual) end) as harga_jual from sirs.harga_jual_item where kelas_perawatan = "
 				+ ConstantValues.kelasNormalId() + " group by item ) e on (e.item = a.item) " + "where 1=1 "

@@ -290,7 +290,7 @@ public class PemakaianItemDetailAction extends MyDetail {
 						Session session = HibernateUtil.currentSession();
 						for (ItemMedis item : items) {
 
-							String sql = "select sum((a.qty+a.qty_bonus)*b.jenis) as stok from sirs.detail_transaksi_pasien a inner join kode_transaksi b on (a.kode_transaksi = b.id) where a.item = "
+							String sql = "select sum((a.qty+a.qty_bonus)*b.jenis) as stok from sirs.detail_transaksi_pasien a inner join sirs.kode_transaksi_medis b on (a.kode_transaksi = b.id) where a.item = "
 									+ item.getId() + " and a.lokasi = " + pemakaianItem.getLokasi().getId() + ";";
 							Number number = (Number) session.createSQLQuery(sql).uniqueResult();
 

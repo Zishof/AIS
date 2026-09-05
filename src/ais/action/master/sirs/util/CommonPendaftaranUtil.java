@@ -3099,7 +3099,7 @@ public class CommonPendaftaranUtil {
 
 		if (hapusDulu) {
 			session.createSQLQuery(
-					"delete from sirs.detail_transaksi_layanan where transaksi_detail in (select id from transaksi_detail where transaksi = "
+					"delete from sirs.detail_transaksi_layanan where transaksi_detail in (select id from sirs.transaksi_medis_detail where transaksi = "
 							+ transaksi.getId() + ");")
 					.executeUpdate();
 		}
@@ -3171,7 +3171,7 @@ public class CommonPendaftaranUtil {
 
 		if (hapusDulu) {
 			session.createSQLQuery(
-					"delete from sirs.detail_transaksi_layanan where transaksi_detail in (select id from transaksi_detail where transaksi = "
+					"delete from sirs.detail_transaksi_layanan where transaksi_detail in (select id from sirs.transaksi_medis_detail where transaksi = "
 							+ transaksi.getId() + ");")
 					.executeUpdate();
 		}
