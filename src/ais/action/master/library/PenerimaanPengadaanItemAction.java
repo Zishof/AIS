@@ -43,6 +43,7 @@ import ais.common.CommonPrivilages;
 import ais.database.dao.DaoFactory;
 import ais.database.dao.library.PenerimaanPengadaanItemDao;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.library.BatchItemPunyaBarcode;
 import ais.database.model.library.DetailTransaksi;
 import ais.database.model.library.PemesananPengadaanItem;
 import ais.database.model.library.PemesananPengadaanItemDetail;
@@ -512,6 +513,19 @@ public class PenerimaanPengadaanItemAction extends GenericAutowireComposer {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
 										Session session = HibernateUtil.currentSession();
+
+										Integer countBarcodeSudahDibangkitkan = ((Number) session
+												.createCriteria(BatchItemPunyaBarcode.class)
+												.setProjection(Projections.count("id"))
+												.add(Restrictions.eq("penerimaanPengadaanItem",
+														penerimaanPengadaanItem))
+												.uniqueResult()).intValue();
+										if (!countBarcodeSudahDibangkitkan.equals(0)) {
+											MyMessageboxConfig.show(
+													"Data ini tidak dapat dibatalkan .., karena barcode/eksemplar sudah dibangkitkan dari dokumen ini",
+													"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+											return;
+										}
 
 										penerimaanPengadaanItem.setDisetujuiOleh(null);
 										penerimaanPengadaanItem.setTanggalPersetujuan(null);

@@ -1395,6 +1395,33 @@ public class LibraryUtil {
 		}
 	}
 
+	/**
+	 * Menghitung denda per transaksi (bukan per eksemplar) dengan mengakumulasi tarif
+	 * {@link DendaKeterlambatanItem} berpenanda {@code dendaPerItem = false} pada header
+	 * peminjaman.
+	 *
+	 * <p><b>Method ini sudah tidak punya pemanggil hidup</b> dan sengaja dibiarkan tidak
+	 * dipanggil. Satu-satunya rujukan yang tersisa terkubur di dalam blok komentar pada
+	 * {@link KembaliPengadaanItem} dan {@link PeminjamanPengadaanItem}. Desain yang berlaku
+	 * sekarang menghitung denda per eksemplar lewat
+	 * {@link #hitungDendaItem(PeminjamanPengadaanItemDetail, Date)} dan menyimpannya per baris
+	 * pada {@link KembaliPengadaanItemDetail#getDenda()}, bukan diakumulasi di header seperti
+	 * yang dilakukan method ini.</p>
+	 *
+	 * <p><b>Jangan panggil ulang method ini tanpa desain ulang.</b> Menghubungkannya kembali ke
+	 * alur aktif akan MENGHITUNG GANDA: baris rincian sudah membawa dendanya sendiri lewat
+	 * {@link #hitungDendaItem(PeminjamanPengadaanItemDetail, Date)}, sehingga menjumlahkan hasil
+	 * method ini di atasnya akan mengenakan denda dua kali untuk transaksi yang sama.
+	 * Formulir {@code DendaKeterlambatanItemAction} juga tidak lagi menyediakan kendali untuk
+	 * membuat tarif {@code dendaPerItem = false}; lihat {@link DendaKeterlambatanItem#getDendaPerItem()}.</p>
+	 *
+	 * @param peminjamanPengadaanItem transaksi peminjaman yang hendak dihitung dendanya
+	 * @param tanggalDikembalikan tanggal efektif pengembalian
+	 * @return total denda per transaksi menurut rumus header lama; tidak dipakai jalur aktif mana pun
+	 * @deprecated Cabang perhitungan ini tidak lagi ditegakkan. Gunakan
+	 *             {@link #hitungDendaItem(PeminjamanPengadaanItemDetail, Date)} per baris rincian.
+	 */
+	@Deprecated
 	public static Double hitungDenda(PeminjamanPengadaanItem peminjamanPengadaanItem, Date tanggalDikembalikan) {
 		Double totalDenda = 0.0;
 		Session session = HibernateUtil.currentNativeSession();

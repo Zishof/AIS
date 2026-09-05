@@ -1619,23 +1619,154 @@ public class CalonPegawai extends GeneralValueObject {
 		return is_encripted;
 	}
 
+	/**
+	 * Mengembalikan status "pelamar telah DITERIMA", dengan {@code null} dinormalkan menjadi
+	 * {@code false} (dikembalikan saja, field tidak ditugaskan ulang).
+	 *
+	 * <h3>Satu status, empat kolom</h3>
+	 * <p>
+	 * Status seleksi pelamar sesungguhnya adalah satu nilai berjenjang, tetapi disimpan sebagai
+	 * empat boolean lepas: {@code telahDiterima}, {@link #getTerverifikasi()},
+	 * {@link #getDitolak()}, dan {@link #getMengundurkanDiri()}. Semuanya {@code false} berarti
+	 * "belum diproses". Tidak ada satu pun invariant di entity — tidak ada validasi di setter,
+	 * tidak ada callback siklus hidup, tidak ada constraint database — yang mencegah kombinasi
+	 * mustahil seperti {@code telahDiterima = true} sekaligus {@code ditolak = true}.
+	 * </p>
+	 * <p>
+	 * Konsistensi seluruhnya bergantung pada SATU {@code EventListener} radiogroup di
+	 * {@code ais.action.master.recruitment.CalonPegawaiAction} (sekitar baris 621-663) yang
+	 * selalu menyetel keempat flag sekaligus untuk setiap pilihan. Jalur tulis lain — CRUD
+	 * generik, impor data, skrip pemeliharaan, API — bisa menyimpan baris dalam status tak
+	 * konsisten tanpa hambatan. Pembacaan di layar itu sendiri menutupi masalahnya karena
+	 * memeriksa flag secara berurutan ({@code terverifikasi} lebih dulu, baru
+	 * {@code telahDiterima}, lalu {@code ditolak}, lalu {@code mengundurkanDiri}), sehingga baris
+	 * tak konsisten tetap tampil "wajar" di layar sambil menyimpan data yang bertentangan.
+	 * </p>
+	 *
+	 * <h3>Gerbang persetujuan bersifat UI-only</h3>
+	 * <p>
+	 * Perubahan status seleksi adalah keputusan kelulusan pelamar — persis jenis aksi yang
+	 * seharusnya dijaga server-side. Verifikasi terhadap kode {@code CalonPegawaiAction}
+	 * menunjukkan gerbangnya hanya di tampilan: hak {@code UPDATE} dibaca sekali saat layar
+	 * dibangun ({@code edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE)}) dan
+	 * dipakai untuk memanggil {@code setDisabled(!edit)} pada kelima radio pilihan status.
+	 * Listener {@code onClick} yang benar-benar mengubah data dan memanggil
+	 * {@code Common.refreshSaveOrUpdate(calonPegawai)} TIDAK memeriksa ulang hak tersebut, tidak
+	 * memeriksa apakah pengguna berhak atas gelombang/lowongan yang bersangkutan, dan tidak
+	 * mencatat siapa yang memutuskan (selain stempel audit umum {@link #getOleh()}). Menonaktifkan
+	 * komponen di sisi klien bukan kontrol keamanan: peristiwa yang dikirim ke server tetap
+	 * diproses listener. Pola yang sama sudah dikonfirmasi di beberapa domain lain dalam basis
+	 * kode ini, sehingga temuan di sini bersifat penguatan, bukan kasus tersendiri.
+	 * </p>
+	 * <p>
+	 * Tidak ada pula pemisahan tugas: satu orang yang sama dapat memverifikasi berkas lalu
+	 * menerima pelamar, dan tidak ada mekanisme persetujuan berjenjang maupun penguncian status
+	 * setelah keputusan diambil — status dapat dibolak-balik berapa kali pun.
+	 * </p>
+	 *
+	 * <h3>Apa yang dipicu status "diterima"</h3>
+	 * <p>
+	 * Penelusuran seluruh WC menunjukkan {@code telahDiterima} pada {@code CalonPegawai} hanya
+	 * dibaca oleh {@code CalonPegawaiAction} sendiri: sebagai kriteria penyaringan daftar
+	 * ({@code Restrictions.eq("telahDiterima", true)}) dan untuk memilih radio yang tersorot.
+	 * Berbeda dengan kembarannya di PPDB/PMB, TIDAK ada proses otomatis yang membuat data
+	 * {@link Pegawai} ketika flag ini dinyalakan — pengangkatan tetap langkah manual terpisah
+	 * lewat {@link #getPegawai()}. Karena itu dampak langsung penyalahgunaan flag ini terbatas
+	 * pada tampilan/pelaporan seleksi, bukan penciptaan akun pegawai; meski demikian, ia tetap
+	 * catatan resmi kelulusan pelamar.
+	 * </p>
+	 *
+	 * <p>
+	 * Properti ini tidak punya {@code @Column} sehingga nama kolomnya mengikuti nama properti.
+	 * </p>
+	 *
+	 * @return {@code true} bila pelamar berstatus diterima (tidak pernah {@code null})
+	 * @see #getTerverifikasi()
+	 * @see #getDitolak()
+	 * @see #getMengundurkanDiri()
+	 */
 	public Boolean getTelahDiterima() {
 		return telahDiterima == null ? false : telahDiterima;
 	}
 
+	/**
+	 * Menyetel status "pelamar telah diterima".
+	 *
+	 * <p>
+	 * Setter ini tidak mematikan flag status lain; pemanggil bertanggung jawab penuh menjaga agar
+	 * hanya satu status yang menyala. Lihat {@link #getTelahDiterima()} untuk penjelasan lengkap
+	 * mengenai ketiadaan invariant dan gerbang persetujuan yang hanya di sisi tampilan.
+	 * </p>
+	 *
+	 * @param telahDiterima status diterima; {@code null} akan dibaca sebagai {@code false}
+	 */
 	public void setTelahDiterima(Boolean telahDiterima) {
 		this.telahDiterima = telahDiterima;
 	}
 
+	/**
+	 * Mengembalikan status "berkas pelamar telah TERVERIFIKASI", dengan {@code null} dinormalkan
+	 * menjadi {@code false}.
+	 *
+	 * <p>
+	 * Dalam alur seleksi, verifikasi berkas mendahului keputusan diterima/ditolak; flag ini
+	 * seharusnya menjadi hasil dari klaster {@link VerifikasiKelengkapanCalonPegawai} /
+	 * {@link CalonPegawaiPunyaVerifikasiBerkas} / {@link ParameterVerifikasiCalonPegawai}. Namun
+	 * penulisannya justru datang dari radiogroup status yang sama di {@code CalonPegawaiAction},
+	 * bukan disimpulkan dari kelengkapan berkas: seorang panitia bisa menandai pelamar
+	 * "terverifikasi" tanpa satu pun dokumen benar-benar diperiksa, dan sebaliknya kelengkapan
+	 * berkas yang sudah terpenuhi tidak otomatis menyalakan flag ini.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan bahwa pada radiogroup tersebut "Terverifikasi" adalah pilihan yang SALING
+	 * MENIADAKAN dengan "Diterima": memilih salah satu mematikan yang lain. Jadi flag ini bukan
+	 * tahapan yang tetap menyala setelah pelamar diterima, melainkan status sesaat yang hilang
+	 * begitu keputusan berikutnya diambil — riwayat verifikasi tidak tersimpan di entity ini
+	 * (hanya di tabel revisi Envers).
+	 * </p>
+	 *
+	 * <p>
+	 * Gerbang yang berlaku sama dengan {@link #getTelahDiterima()}: hanya {@code setDisabled}
+	 * di sisi tampilan, tanpa pemeriksaan ulang di listener yang menyimpan.
+	 * </p>
+	 *
+	 * @return {@code true} bila berkas dinyatakan terverifikasi (tidak pernah {@code null})
+	 */
 	@Column(name = "terverifikasi")
 	public Boolean getTerverifikasi() {
 		return terverifikasi == null ? false : terverifikasi;
 	}
 
+	/**
+	 * Menyetel status verifikasi berkas pelamar. Tidak ada pemeriksaan terhadap kelengkapan
+	 * dokumen yang sebenarnya, dan tidak ada flag lain yang ikut disesuaikan.
+	 *
+	 * @param terverifikasi status terverifikasi; {@code null} dibaca sebagai {@code false}
+	 */
 	public void setTerverifikasi(Boolean terverifikasi) {
 		this.terverifikasi = terverifikasi;
 	}
 
+	/**
+	 * Mengembalikan kelompok/kategori pendaftaran pelamar (mis. jalur atau klasifikasi posisi),
+	 * apa adanya tanpa nilai bawaan.
+	 *
+	 * <p>
+	 * Relasi {@code @ManyToOne} ke {@link KelompokPendaftaranPegawai} lewat kolom
+	 * {@code kelompok_pendaftaran_pegawai} — perhatikan nama kolomnya tidak berakhiran
+	 * {@code _id} seperti relasi lain di kelas ini, jadi jangan tertukar saat menulis SQL manual.
+	 * Pengambilannya {@code FetchMode.SELECT} (kueri terpisah saat properti diakses).
+	 * </p>
+	 *
+	 * <p>
+	 * Berbeda dengan {@link #getAgama()}, getter ini tidak melewatkan nilainya ke
+	 * {@code check(...)}, tetapi relasinya juga tidak {@code LAZY} sehingga risiko
+	 * {@code LazyInitializationException} lebih kecil.
+	 * </p>
+	 *
+	 * @return kelompok pendaftaran, atau {@code null} bila belum ditetapkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "kelompok_pendaftaran_pegawai", nullable = true)
@@ -1643,10 +1774,43 @@ public class CalonPegawai extends GeneralValueObject {
 		return kelompokPendaftaranPegawai;
 	}
 
+	/**
+	 * Menyetel kelompok/kategori pendaftaran pelamar.
+	 *
+	 * @param kelompokPendaftaranPegawai kelompok yang dipilih; {@code null} diperbolehkan
+	 */
 	public void setKelompokPendaftaranPegawai(KelompokPendaftaranPegawai kelompokPendaftaranPegawai) {
 		this.kelompokPendaftaranPegawai = kelompokPendaftaranPegawai;
 	}
 
+	/**
+	 * Mengembalikan data {@link Pegawai} yang terbentuk dari pelamar ini, bila ia sudah resmi
+	 * diangkat.
+	 *
+	 * <p>
+	 * Inilah jembatan antara modul rekrutmen dan modul kepegawaian. Kolom {@code pegawai_id}
+	 * dinyatakan {@code unique = true}, sehingga satu baris {@link Pegawai} hanya boleh ditautkan
+	 * ke satu calon pegawai — mencegah dua pelamar berbeda diklaim menjadi orang yang sama.
+	 * Perhatikan bahwa keunikan itu berlaku di sisi ini saja; tidak ada penjagaan sebaliknya yang
+	 * mencegah satu pelamar dibuatkan beberapa baris {@link Pegawai} lewat jalur lain.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Pengangkatan adalah langkah manual.</b> Penelusuran WC ini tidak menemukan kode yang
+	 * mengisi relasi tersebut secara otomatis ketika {@link #getTelahDiterima()} dinyalakan —
+	 * tidak ada pemanggil {@code calonPegawai.setPegawai(...)} pada jalur rekrutmen. Artinya
+	 * status "diterima" dan keberadaan data pegawai adalah dua kenyataan terpisah yang bisa saja
+	 * tidak sinkron: pelamar berstatus diterima tanpa data pegawai, atau relasi pegawai terisi
+	 * pada pelamar yang statusnya ditolak. Tidak ada laporan rekonsiliasi bawaan untuk keduanya.
+	 * </p>
+	 *
+	 * <p>
+	 * {@code cascade = {PERSIST, MERGE}} berarti menyimpan calon pegawai ikut menyimpan objek
+	 * {@link Pegawai} yang tertaut, termasuk perubahan yang tidak disengaja pada objek itu.
+	 * </p>
+	 *
+	 * @return data pegawai hasil pengangkatan, atau {@code null} bila pelamar belum diangkat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "pegawai_id", nullable = true, unique = true)
@@ -1654,14 +1818,49 @@ public class CalonPegawai extends GeneralValueObject {
 		return pegawai;
 	}
 
+	/**
+	 * Menautkan pelamar ini ke data {@link Pegawai} hasil pengangkatan.
+	 *
+	 * <p>
+	 * Tidak ada validasi bahwa pelamar berstatus diterima, tidak ada pemeriksaan bahwa data
+	 * pegawai yang ditautkan memang milik orang yang sama, dan tidak ada pencatatan siapa yang
+	 * menautkan selain stempel audit umum.
+	 * </p>
+	 *
+	 * @param pegawai data pegawai yang ditautkan; {@code null} untuk memutus tautan
+	 */
 	public void setPegawai(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/**
+	 * Mengembalikan penanda bahwa pelamar telah menyetujui pernyataan/persetujuan pendaftaran
+	 * (kebenaran data, kesediaan mengikuti seleksi, dan sejenisnya), dengan {@code null}
+	 * dinormalkan menjadi {@code false}.
+	 *
+	 * <p>
+	 * Nilai {@code false} karena itu ambigu antara "menolak menyetujui" dan "belum pernah
+	 * ditanya" — dan karena nilainya boolean tunggal, tidak ada catatan KAPAN dan pada VERSI
+	 * pernyataan yang mana persetujuan diberikan. Untuk keperluan pembuktian (mis. sengketa
+	 * keabsahan data pelamar), flag ini tidak memadai; jejak yang tersedia hanyalah tabel revisi
+	 * Envers.
+	 * </p>
+	 *
+	 * <p>
+	 * Properti ini tidak punya {@code @Column} sehingga nama kolomnya mengikuti nama properti.
+	 * </p>
+	 *
+	 * @return {@code true} bila pelamar telah menyetujui pernyataan (tidak pernah {@code null})
+	 */
 	public Boolean getPernyataan() {
 		return pernyataan == null ? false : pernyataan;
 	}
 
+	/**
+	 * Menyetel penanda persetujuan pernyataan pendaftaran.
+	 *
+	 * @param pernyataan status persetujuan; {@code null} dibaca sebagai {@code false}
+	 */
 	public void setPernyataan(Boolean pernyataan) {
 		this.pernyataan = pernyataan;
 	}
