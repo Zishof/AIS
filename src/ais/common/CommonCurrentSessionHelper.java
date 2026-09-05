@@ -1484,6 +1484,7 @@ public class CommonCurrentSessionHelper extends Common {
 			if (httpSession == null || httpSession.getAttribute("CurrentPegawaiKoperasi") == null || refresh) {
 				pegawaiKoperasi = (PengurusKoperasi) HibernateUtil.currentSession()
 						.createCriteria(PengurusKoperasi.class).add(Restrictions.eq("tbmuser", getCurrentUser()))
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 						.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
 
 				// System.out.println("======================= Init
