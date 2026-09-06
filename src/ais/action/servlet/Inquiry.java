@@ -33,13 +33,53 @@ import ais.database.model.LogHostToHost;
  * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
  * membuat salinan query dan validasi di action lain.</p>
  *
+ * <h4>Gerbang otentikasi/otorisasi (verifikasi 2026-09-07)</h4>
+ * <p>{@link #doGet} MEMANG memiliki gerbang, dua lapis, bukan anonim seperti servlet
+ * {@code Struk}/{@code AmbilLaporanDaftarPegawai} di paket yang sama:</p>
+ * <ol>
+ *   <li><b>Rahasia bersama {@code PassApp}</b> &mdash; badan JSON permintaan wajib memuat
+ *       {@code PassApp} yang sama persis dengan {@code Common.getKonfigurasi("BrivaPassApp",
+ *       "1234567890").getNilai()}. Nilai bawaan {@code "1234567890"} ini tertulis literal di
+ *       kode DAN ditampilkan apa adanya pada layar konfigurasi admin ({@code
+ *       KonfigurasiNewAction}); bila operator belum pernah mengubahnya di database, rahasia
+ *       ini bukan lagi rahasia.</li>
+ *   <li><b>Daftar putih IP pemanggil</b> &mdash; {@code action.inquery(...)} meneruskan
+ *       {@code request} ke {@code PembayaranUtil.getBankHost(HttpServletRequest)}, yang
+ *       mencocokkan alamat IP pemanggil terhadap entitas {@code BankHost} tersimpan.</li>
+ * </ol>
+ * <p><b>Catatan:</b> {@code getBankHost(HttpServletRequest)} tidak memakai
+ * {@code request.getRemoteAddr()} apa adanya; ia lebih dulu menimpanya dengan header
+ * {@code Cf-Connecting-Ip}/{@code CF-Connecting-IP}/{@code X-Forwarded-For}/{@code X-Real-IP}
+ * bila ADA salah satunya pada permintaan &mdash; header-header ini bisa disetel bebas oleh
+ * pemanggil mana pun kecuali proxy di depan aplikasi menimpa/membersihkannya. Kombinasi ini
+ * (rahasia bawaan yang terdokumentasi + gerbang IP yang bisa dipengaruhi header pemanggil,
+ * ditambah entitas {@code BankHost} berIP {@code "0.0.0.0"} yang bila ada akan cocok dengan
+ * IP mana pun sebagai fallback) berada di luar cakupan file ini untuk ditambal; lihat
+ * {@code ais.action.ws.util.PembayaranUtil#getBankHost(HttpServletRequest)}. Berbeda dari
+ * {@code Payment}, hasil {@code inquery} di sini membocorkan data tagihan (nama, jumlah,
+ * prodi, fakultas, semester) ke pemanggil yang lolos gerbang ini &mdash; sifatnya baca murni,
+ * tetapi tetap PII+finansial bila gerbang berhasil dilewati dengan rahasia bawaan.</p>
+ *
  * @see HttpServlet
  */
 public class Inquiry extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Layanan domain yang benar-benar memvalidasi rahasia {@code PassApp}, mencocokkan IP
+	 * pemanggil terhadap {@code BankHost}, dan mengambil data tagihan; lihat
+	 * {@link ais.action.ws.PembayaranAction#inquery}.
+	 */
 	private PembayaranAction action = new PembayaranAction();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet. Tidak melakukan
+	 * inisialisasi apa pun selain pembuatan {@link #action} pada deklarasi field.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Inquiry() {
@@ -48,6 +88,38 @@ public class Inquiry extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan cek tagihan host-to-host dari bank (kanal BRI Briva): membaca badan
+	 * permintaan sebagai JSON, memverifikasi {@code PassApp} (lihat bagian Keamanan pada
+	 * dokumentasi kelas), lalu meneruskan {@code BrivaNum} ke {@link #action}
+	 * ({@link ais.action.ws.PembayaranAction#inquery}) dan menuliskan balasan JSON berisi
+	 * rincian tagihan.
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>badan permintaan dibaca baris demi baris lalu diurai sebagai {@link JSONObject};</li>
+	 *   <li>{@code PassApp} dicocokkan; gagal &rarr; {@code StatusBill=11}, tidak ada data lain
+	 *       yang diproses;</li>
+	 *   <li>berhasil &rarr; {@code BrivaNum} dibaca, boleh dipotong dari depan sejumlah karakter
+	 *       yang ditentukan konfigurasi {@code substrBriOnline} (bawaan 0, tanpa pemotongan);</li>
+	 *   <li>{@link ais.database.model.LogHostToHost} diisi untuk audit lalu
+	 *       {@code action.inquery(...)} dipanggil; hasilnya ({@code Response}) dituang ke
+	 *       {@code BillDetail} ({@code BillAmount}/{@code BillName}/{@code BrivaNum}) dan
+	 *       info tambahan (jumlah, prodi, fakultas, semester);</li>
+	 *   <li>{@code Response.getResponse_code()} diterjemahkan menjadi {@code StatusBill}
+	 *       ({@code 0}=sukses, {@code 1}=sudah dibayar, {@code 2}=nim/tagihan tidak ditemukan,
+	 *       {@code 3}=kedaluwarsa, {@code 9}=lainnya) lewat {@link ConstantUtil}.</li>
+	 * </ol>
+	 * <p>Balasan selalu berupa {@code application/json} dengan header
+	 * {@code Access-Control-Allow-Origin: *} (CORS terbuka untuk semua origin), terlepas dari
+	 * hasil verifikasi {@code PassApp}.</p>
+	 *
+	 * @param request  permintaan masuk; badan (bukan parameter form) berisi JSON permintaan cek
+	 *                 tagihan
+	 * @param response balasan JSON berisi rincian tagihan atau status kegagalan
+	 * @throws ServletException tidak pernah dilempar keluar method ini; seluruh kegagalan
+	 *                          ditelan oleh blok {@code catch} internal
+	 * @throws IOException      dapat dilempar bila penulisan balasan ({@code writer.write})
+	 *                          gagal
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -137,6 +209,13 @@ public class Inquiry extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP POST dengan perilaku identik {@link #doGet} &mdash; permintaan
+	 * cek tagihan dapat dikirim lewat metode HTTP apa pun karena keduanya diproses sama.
+	 *
+	 * @param request  permintaan masuk; badan berisi JSON permintaan cek tagihan
+	 * @param response balasan JSON berisi rincian tagihan atau status kegagalan
+	 * @throws ServletException diteruskan apa adanya dari {@link #doGet}
+	 * @throws IOException      diteruskan apa adanya dari {@link #doGet}
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */

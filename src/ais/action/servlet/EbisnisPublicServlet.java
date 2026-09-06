@@ -39,12 +39,30 @@ import ais.database.model.Pendaftar;
  * publik sederhana, belum masuk ke aplikasi ZK penuh, jadi sesi ringan ini cukup.</p>
  */
 public class EbisnisPublicServlet extends HttpServlet {
+	/** ID versi serialisasi servlet ini (kontrak {@link java.io.Serializable} bawaan {@code HttpServlet}). */
 	private static final long serialVersionUID = 1L;
 
+	/** Kunci atribut sesi tempat entitas {@link Pendaftar} penuh disimpan setelah login sukses. */
 	public static final String SESSION_PENDAFTAR = "pendaftarEbisnisEntity";
+	/** Kunci atribut sesi untuk pesan flash (sukses/gagal) yang dibaca sekali oleh {@code ebisnis.jsp}. */
 	public static final String SESSION_FLASH = "ebisnisFlash";
+	/** Kunci atribut sesi untuk jenis pesan flash, bernilai {@code "sukses"} atau {@code "error"}. */
 	public static final String SESSION_FLASH_JENIS = "ebisnisFlashJenis";
 
+	/**
+	 * Titik masuk tunggal untuk seluruh permintaan {@code POST}: submit modal daftar/masuk
+	 * ({@code aksi=daftar|login|logout}) dan aksi dashboard self-service ({@code s=...}).
+	 *
+	 * <p>Delegasi penuh ke {@link #prosesPost}; hanya {@link org.json.JSONException} yang
+	 * ditangkap di sini sebagai jaring pengaman terakhir (dicatat lewat
+	 * {@link ais.common.ErrorAuditUtil} dan dibalas JSON kode {@code "91"}) karena galat lain
+	 * sudah ditangani lebih rinci oleh method yang didelegasikan.</p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code aksi}/{@code s}/{@code ajax} menentukan alur
+	 * @param response tanggapan HTTP; berupa JSON (jalur AJAX/dashboard) atau redirect (jalur non-AJAX)
+	 * @throws ServletException bila forward/dispatch gagal
+	 * @throws IOException bila penulisan tanggapan gagal
+	 */
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -59,6 +77,30 @@ public class EbisnisPublicServlet extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menjalankan logika utama {@code POST}: menentukan apakah permintaan adalah aksi
+	 * dashboard ({@code s} terisi, selalu dibalas JSON lewat {@link #prosesDashboard}) atau
+	 * salah satu dari {@code aksi=daftar|login|logout} pada modal publik.
+	 *
+	 * <p><b>{@code daftar}</b>: DIHENTIKAN secara sengaja (lihat catatan kelas) -- tidak lagi
+	 * membuat {@link Pendaftar}, hanya mengalihkan ke wizard {@code /pendaftaran} sambil tetap
+	 * membalas kontrak JSON lama ({@code status:"00"}, {@code redirect:...}) agar JS lama tidak
+	 * rusak. <b>{@code login}</b>: memanggil {@link PendaftarPublicHelper#login}; bila sukses,
+	 * sesi lama di-invalidate lalu dibuat sesi baru (mitigasi <i>session fixation</i>) sebelum
+	 * {@link Pendaftar} dan {@code PendaftarSessionPrincipal} disimpan, dan status tenant
+	 * ditandai ACTIVE lewat {@code TenantOnboardingService.tandaiAktifSaatLogin}.
+	 * <b>{@code logout}</b>: menghapus atribut sesi terkait Pendaftar.</p>
+	 *
+	 * <p>Jalur AJAX ({@code ajax=1}) selalu membalas JSON dan {@code return} lebih awal;
+	 * jalur non-AJAX (atau aksi tak dikenal) jatuh ke redirect balik ke {@code ebisnis.jsp}.</p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code aksi}, {@code s}, {@code ajax},
+	 *                {@code email}/{@code password} (untuk login)
+	 * @param response tanggapan HTTP; JSON atau redirect
+	 * @throws ServletException bila forward gagal
+	 * @throws IOException bila penulisan tanggapan/redirect gagal
+	 * @throws org.json.JSONException bila penyusunan JSON gagal
+	 */
 	private void prosesPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException, org.json.JSONException {
 		String aksi = request.getParameter("aksi");
@@ -132,6 +174,15 @@ public class EbisnisPublicServlet extends HttpServlet {
 		response.sendRedirect(request.getContextPath() + "/ebisnis.jsp");
 	}
 
+	/**
+	 * Melayani {@code GET}: menampilkan dashboard self-service bila sesi Pendaftar aktif,
+	 * atau mengalihkan ke landing page publik {@code ebisnis.jsp} bila belum login.
+	 *
+	 * @param request permintaan HTTP
+	 * @param response tanggapan HTTP; forward ke dashboard atau redirect ke landing page
+	 * @throws ServletException bila forward gagal
+	 * @throws IOException bila redirect gagal
+	 */
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -143,6 +194,33 @@ public class EbisnisPublicServlet extends HttpServlet {
 		response.sendRedirect(request.getContextPath() + "/ebisnis.jsp");
 	}
 
+	/**
+	 * Menjalankan satu aksi dashboard self-service Pendaftar ({@code s=...}), selalu
+	 * membalas {@link JSONObject} (tidak pernah melempar ke pemanggil untuk galat bisnis).
+	 *
+	 * <p>Mensyaratkan sesi Pendaftar aktif ({@link #SESSION_PENDAFTAR}); tanpa itu, dibalas
+	 * {@code status:"91"} "Sesi Anda telah berakhir". Seluruh parameter permintaan disalin ke
+	 * satu {@code payload} JSON yang diteruskan ke {@link PendaftarDashboardHelper}, yang
+	 * SELALU memfilter ulang berdasarkan {@code pendaftar.getId()} milik sesi di server
+	 * (IDOR-safe -- lihat catatan kelas), tidak pernah memercayai ID dari klien.</p>
+	 *
+	 * <p><b>Gerbang program pendaftaran tenant (§11.1):</b> aksi yang namanya berakhiran
+	 * {@code _tambah}, {@code _ubah}, atau {@code _nonaktif} dianggap aksi mutasi dan ditolak
+	 * ({@code code:"TENANT_NOT_READY"}) selama status tenant belum READY/ACTIVE, dicek ulang
+	 * dari basis data lewat {@code TenantOnboardingService.alasanTidakBolehMutasi} -- akun
+	 * legacy dari sebelum program ini tetap lolos (dikenal sebagai G-06).</p>
+	 *
+	 * <p>Aksi tak dikenal dibalas {@code status:"91"} "Aksi tidak dikenal"; galat lain (dari
+	 * helper) dicatat lewat {@link ais.common.ErrorAuditUtil} dan dibalas {@code status:"91"}
+	 * generik agar detail internal tidak bocor ke klien.</p>
+	 *
+	 * @param session sesi HTTP aktif; harus memuat atribut {@link #SESSION_PENDAFTAR}
+	 * @param subAksi nama aksi dashboard, mis. {@code "brand_list"}, {@code "toko_tambah"}
+	 * @param request permintaan HTTP; seluruh parameternya disalin ke payload aksi
+	 * @return objek JSON hasil aksi, selalu memuat {@code status}
+	 * @throws IOException tidak pernah dilempar dalam praktiknya (disediakan oleh kontrak helper)
+	 * @throws org.json.JSONException bila penyusunan JSON gagal
+	 */
 	private JSONObject prosesDashboard(HttpSession session, String subAksi, HttpServletRequest request)
 			throws IOException, org.json.JSONException {
 		JSONObject hasil = new JSONObject();
@@ -224,6 +302,15 @@ public class EbisnisPublicServlet extends HttpServlet {
 		return hasil;
 	}
 
+	/**
+	 * Menerapkan hasil {@link PendaftarPublicHelper#login} ke sesi: menyimpan entitas
+	 * {@link Pendaftar} bila sukses, serta selalu mengisi pesan dan jenis flash
+	 * ({@link #SESSION_FLASH}/{@link #SESSION_FLASH_JENIS}) untuk ditampilkan di
+	 * {@code ebisnis.jsp} pada jalur non-AJAX.
+	 *
+	 * @param session sesi HTTP aktif (sesi baru pasca-invalidate untuk login sukses)
+	 * @param hasil hasil pemrosesan dari helper, memuat status sukses, pesan, dan Pendaftar
+	 */
 	private void terapkanHasil(HttpSession session, HasilProses hasil) {
 		if (hasil.sukses && hasil.pendaftar != null) {
 			session.setAttribute(SESSION_PENDAFTAR, hasil.pendaftar);
@@ -232,6 +319,16 @@ public class EbisnisPublicServlet extends HttpServlet {
 		session.setAttribute(SESSION_FLASH_JENIS, hasil.sukses ? "sukses" : "error");
 	}
 
+	/**
+	 * Menerjemahkan {@link HasilProses} login menjadi JSON kontrak lama untuk klien AJAX:
+	 * {@code status:"00"} dan {@code redirect} ke dashboard bila sukses, atau
+	 * {@code status:"91"} dengan {@code description} berisi pesan galat bila gagal.
+	 *
+	 * @param request permintaan HTTP, dipakai untuk membentuk {@code contextPath} pada redirect
+	 * @param hasil hasil pemrosesan login dari {@link PendaftarPublicHelper}
+	 * @return objek JSON siap ditulis ke tanggapan
+	 * @throws org.json.JSONException bila penyusunan JSON gagal
+	 */
 	private JSONObject jsonDariHasil(HttpServletRequest request, HasilProses hasil) throws org.json.JSONException {
 		JSONObject j = new JSONObject();
 		j.put("status", hasil.sukses ? "00" : "91");
@@ -242,6 +339,14 @@ public class EbisnisPublicServlet extends HttpServlet {
 		return j;
 	}
 
+	/**
+	 * Menulis {@code json} sebagai isi tanggapan bertipe {@code application/json}, tanpa
+	 * membungkus dalam struktur tambahan apa pun.
+	 *
+	 * @param response tanggapan HTTP yang akan diisi
+	 * @param json objek JSON yang akan ditulis apa adanya lewat {@code toString()}
+	 * @throws IOException bila penulisan gagal
+	 */
 	private void tulisJson(HttpServletResponse response, JSONObject json) throws IOException {
 		response.setContentType("application/json; charset=UTF-8");
 		PrintWriter out = response.getWriter();
