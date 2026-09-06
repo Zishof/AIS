@@ -217,7 +217,8 @@ tangkapan layarnya dinyatakan sah.
 | 5.4 | Master Produk & Satuan | P, A | **terverifikasi** — 626 baris |
 | 5.5 | Master & Analisis Harga | P, A | **terverifikasi** — 2.512 + 11.685 |
 | 5.6 | Persediaan & Kartu Stok | P, S, A | **terverifikasi** — saldo 626/626 selisih 0,00 |
-| 5.7 | Stok Opname | P, S, A | **terverifikasi** — 461 dokumen / 1.771 rincian |
+| 5.7 | Laporan Opname (layar legacy 09) | P, S, A | **terverifikasi** — 461 sesi |
+| 5.7b | Rincian Sesi Opname (layar legacy 10) | P, S, A | **terverifikasi** — 1.771 rincian |
 | 5.8 | Pembelian | P, A | **terverifikasi** — 5.578 dokumen, baris & total cocok |
 | 5.9 | Hutang Supplier | P, A | **terverifikasi** — 21 baris |
 | 5.10 | Penjualan / Sales Order | P, S, A | **terverifikasi** — 9.850 dokumen |
@@ -228,6 +229,12 @@ tangkapan layarnya dinyatakan sah.
 | 5.15 | Kas & Jurnal | P, A | bagan akun 11 baris; jurnal belum ada |
 | 5.16 | Laba / Rugi | P, A | menunggu jurnal |
 | 5.17 | Laporan Inventory & Sales | P, A | menunggu tangkapan layar |
+
+> **Layar 5.7 dan 5.7b sempat menampilkan NOL, dan itu bukan soal data.** Rentang 09-10
+> dulu jatuh ke layar Stok Opname POS, yang membaca lewat entitas Hibernate ber-
+> `@Table(schema=...)` sehingga tidak dapat melihat schema tenant. Sejak r86049 keduanya
+> dilayani `si_stock_count_list` / `si_stock_count_detail` pada jalur tenant — lihat
+> [122](122-layar-09-10-laporan-opname.md).
 
 "Terverifikasi" berarti **angka yang akan tampil sudah dibuktikan setara dengan berkas DBF
 aplikasi lama** (doc 120) — bukan berarti tampilannya sudah dibandingkan.

@@ -157,7 +157,10 @@ import ais.ui.util.MyWindow;
  * dengan {@code ConstantValues.Akademik}, {@code roleAdminFakultas}, atau {@code roleAdminJurusan}.
  * Ini satu-satunya tempat di kelas ini yang benar-benar memeriksa peran, dan hanya untuk aksi
  * massal — aksi <i>per-baris</i> yang setara (Ubah Persetujuan, Hapus Data) tidak melewatinya dan
- * hanya bergantung pada flag {@code edit}/{@code delete}.</li>
+ * hanya bergantung pada flag {@code edit}/{@code delete}. Pemeriksaan ini dihitung ke variabel
+ * boolean lokal (default {@code false}) di dalam {@code try}, lalu {@code setVisible} dipanggil
+ * <i>di luar</i> blok {@code try}; kegagalan {@code hakAkses()} karenanya jatuh ke fail-closed
+ * (tombol tersembunyi), bukan mempertahankan visibilitas bawaan.</li>
  * </ol>
  * <p>
  * Yang <b>tidak</b> diperiksa di mana pun: apakah pengguna adalah dosen pengampu perkuliahan yang
@@ -283,8 +286,10 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	 * sesungguhnya ada di listener tombol per-baris — baris yang sudah {@code DISETUJUI} ditolak, baris
 	 * yang masih dirujuk {@link MahasiswaRequestTugasAkhir} ditolak, dan baris bernilai tidak nol
 	 * ditolak bila konfigurasi {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif. Tombol
-	 * massal menerapkan penjaga yang lebih longgar: ia hanya melewati baris yang belum disetujui, tanpa
-	 * memeriksa relasi tugas akhir.
+	 * massal menerapkan penjaga yang sama: selain menyaring baris {@code BELUM_DISETUJUI}, ia juga
+	 * memeriksa relasi {@link MahasiswaRequestTugasAkhir} dan penjaga nilai per baris sebelum menghapus;
+	 * baris yang ditolak salah satu penjaga tersebut dilaporkan ke pengguna lewat kotak pesan, bukan
+	 * dilewati diam-diam.
 	 */
 	protected boolean delete;
 
@@ -316,9 +321,10 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	 * status {@code BELUM_DISETUJUI}.
 	 *
 	 * <p>Sama seperti {@link #approve}, visibilitas tombolnya ditentukan penyaringan peran terpisah.
-	 * Perlu dicatat bahwa aksi "Tolak" massal <b>tidak</b> menerapkan penjaga
-	 * {@code batalkan_persetujuan_harus_memiliki_nilai_nol} yang berlaku pada pencabutan persetujuan
-	 * per-baris — pencabutan massal dapat mengenai baris yang nilainya sudah terisi.
+	 * Aksi "Tolak" massal menerapkan penjaga {@code batalkan_persetujuan_harus_memiliki_nilai_nol} yang
+	 * sama dengan pencabutan persetujuan per-baris: baris {@code DISETUJUI} dengan {@code totalNilai >
+	 * 1.0} dilewati (persetujuannya tidak dicabut) dan dilaporkan ke pengguna lewat kotak pesan setelah
+	 * proses selesai, bukan dilewati diam-diam.
 	 */
 	private boolean reject;
 
@@ -1137,18 +1143,23 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	 *       mengatur {@code setDisabled}, sedangkan {@code setVisible} ditentukan
 	 *       {@link Common#getApakahAdmin()} atau kecocokan {@code roleId} pengguna dengan
 	 *       {@code ConstantValues.Akademik}, {@code roleAdminFakultas}, atau {@code roleAdminJurusan}.
-	 *       Ketiga pemeriksaan itu dibungkus {@code try-catch} yang mencatat ke {@code ErrorAuditUtil}:
-	 *       bila {@code hakAkses()} gagal dimuat, tombol mempertahankan visibilitas bawaannya
-	 *       (<i>terlihat</i>) alih-alih disembunyikan — perilaku fail-open yang perlu diingat.</li>
+	 *       Ketiga pemeriksaan itu menghitung boolean lokal (default {@code false}) di dalam
+	 *       {@code try-catch} yang mencatat ke {@code ErrorAuditUtil}, lalu memanggil
+	 *       {@code setVisible} di luar blok tersebut: bila {@code hakAkses()} gagal dimuat, tombol
+	 *       jatuh ke fail-closed (<i>disembunyikan</i>), bukan mempertahankan visibilitas bawaan.</li>
 	 * </ul>
 	 *
 	 * <p><b>Cakupan aksi massal.</b> Ketiga tombol massal beriterasi atas {@link #detailperkuliahan},
 	 * yaitu daftar yang sedang tampil — bukan hasil query ulang. Bila kotak pencarian sedang terisi,
 	 * aksi hanya mengenai baris yang lolos pencarian, meski teks konfirmasinya berbunyi "semua mahasiswa
-	 * di dalam perkuliahan ini". "Setujui" dan "Tolak" menulis lewat {@code Common.refreshUpdate} tanpa
-	 * penjaga tambahan; "Hapus" hanya menyentuh baris {@code BELUM_DISETUJUI} dan tidak memeriksa relasi
-	 * {@link MahasiswaRequestTugasAkhir} sebagaimana dilakukan tombol hapus per-baris. Ketiganya ditutup
-	 * dengan {@code perkuliahan.belum("detailperkulaiahan")} untuk membatalkan cache
+	 * di dalam perkuliahan ini". "Setujui" menulis lewat {@code Common.refreshUpdate} tanpa penjaga
+	 * tambahan. "Tolak" dan "Hapus" menerapkan penjaga yang sama dengan tombol per-baris yang setara:
+	 * "Tolak" melewati (tidak mencabut persetujuan) baris {@code DISETUJUI} dengan {@code totalNilai >
+	 * 1.0} bila konfigurasi {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif; "Hapus"
+	 * memeriksa relasi {@link MahasiswaRequestTugasAkhir} dan penjaga nilai yang sama sebelum menghapus
+	 * tiap baris {@code BELUM_DISETUJUI}. Baris yang dilewati salah satu penjaga tersebut dikumpulkan
+	 * dan dilaporkan ke pengguna lewat kotak pesan setelah proses selesai, bukan dilewati diam-diam.
+	 * Ketiganya ditutup dengan {@code perkuliahan.belum("detailperkulaiahan")} untuk membatalkan cache
 	 * (perhatikan ejaan kunci cache tersebut, yang memang demikian di seluruh basis kode) lalu
 	 * {@code loadData(true)}.
 	 *
@@ -1337,8 +1348,9 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		button = new MyToolbarbuttonConfig("Setujui", "/img/svg/edit-box-line.svg");
 		button.setDisabled(!approve);
 
+		boolean visibleSetujui = false;
 		try {
-			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
+			visibleSetujui = Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
 					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
 							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
 							|| (ConstantValues.roleAdminFakultas != null
@@ -1346,10 +1358,11 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
 							|| (ConstantValues.roleAdminJurusan != null
 									&& ConstantValues.roleAdminJurusan.getRoleId() != null
-									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId()))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:727");
 			// TODO: handle exception
 		}
+		button.setVisible(visibleSetujui);
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
@@ -1391,8 +1404,9 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		button.setParent(toolbar);
 		button = new MyToolbarbuttonConfig("Tolak", "/img/svg/warning-outline.svg");
 		button.setDisabled(!reject);
+		boolean visibleTolak = false;
 		try {
-			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
+			visibleTolak = Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
 					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
 							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
 							|| (ConstantValues.roleAdminFakultas != null
@@ -1400,10 +1414,11 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
 							|| (ConstantValues.roleAdminJurusan != null
 									&& ConstantValues.roleAdminJurusan.getRoleId() != null
-									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId()))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:777");
 			// TODO: handle exception
 		}
+		button.setVisible(visibleTolak);
 
 		button.addEventListener("onClick", new EventListener() {
 
@@ -1419,23 +1434,23 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
 
-									final List<String> dilewatiKarenaNilai = new ArrayList<String>();
-									for (Long detailperkuliahanid : detailperkuliahan) {
-										Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-												.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
-										if (detailperkuliahan != null) {
-											if (Common.bolehKonfigurasi("batalkan_persetujuan_harus_memiliki_nilai_nol")
-													&& detailperkuliahan.getPersetujuan() != null
-													&& detailperkuliahan.getPersetujuan().equals(Detailperkuliahan.DISETUJUI)
-													&& detailperkuliahan.getTotalNilai() > 1.0) {
-												dilewatiKarenaNilai.add(detailperkuliahan.getMahasiswa() == null ? detailperkuliahanid.toString()
-														: detailperkuliahan.getMahasiswa().getNim() + " - " + detailperkuliahan.getMahasiswa().getNama());
-												continue;
+										final List<String> dilewatiKarenaNilai = new ArrayList<String>();
+										for (Long detailperkuliahanid : detailperkuliahan) {
+											Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
+													.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
+											if (detailperkuliahan != null) {
+												if (Common.bolehKonfigurasi("batalkan_persetujuan_harus_memiliki_nilai_nol")
+														&& detailperkuliahan.getPersetujuan() != null
+														&& detailperkuliahan.getPersetujuan().equals(Detailperkuliahan.DISETUJUI)
+														&& detailperkuliahan.getTotalNilai() > 1.0) {
+													dilewatiKarenaNilai.add(detailperkuliahan.getMahasiswa() == null ? detailperkuliahanid.toString()
+															: detailperkuliahan.getMahasiswa().getNim() + " - " + detailperkuliahan.getMahasiswa().getNama());
+													continue;
+												}
+												detailperkuliahan.setPersetujuan(Detailperkuliahan.BELUM_DISETUJUI);
+												Common.refreshUpdate(detailperkuliahan);
 											}
-											detailperkuliahan.setPersetujuan(Detailperkuliahan.BELUM_DISETUJUI);
-											Common.refreshUpdate(detailperkuliahan);
 										}
-									}
 										perkuliahan.belum("detailperkulaiahan");
 										Common.createDefaultTimer(new EventListener() {
 
@@ -1444,6 +1459,13 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 												DetailperkuliahanHelper.this.loadData(true);
 											}
 										});
+										if (!dilewatiKarenaNilai.isEmpty()) {
+											MyMessageboxConfig.show(
+														"Persetujuan tidak dicabut untuk " + dilewatiKarenaNilai.size()
+																+ " mahasiswa karena nilai sudah terisi (tidak nol): "
+																+ dilewatiKarenaNilai.toString(),
+														"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+										}
 
 									}
 								}
@@ -1457,8 +1479,9 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
 		button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 		button.setDisabled(!delete);
+		boolean visibleHapus = false;
 		try {
-			button.setVisible(Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
+			visibleHapus = Common.getApakahAdmin() || (tbmuser != null && tbmuser.hakAkses() != null
 					&& ((ConstantValues.Akademik != null && ConstantValues.Akademik.getRoleId() != null
 							&& ConstantValues.Akademik.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
 							|| (ConstantValues.roleAdminFakultas != null
@@ -1466,10 +1489,11 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 									&& ConstantValues.roleAdminFakultas.getRoleId().equals(tbmuser.hakAkses().getRoleId()))
 							|| (ConstantValues.roleAdminJurusan != null
 									&& ConstantValues.roleAdminJurusan.getRoleId() != null
-									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId())))));
+									&& ConstantValues.roleAdminJurusan.getRoleId().equals(tbmuser.hakAkses().getRoleId()))));
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailperkuliahanHelper.java:830");
 			// TODO: handle exception
 		}
+		button.setVisible(visibleHapus);
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
@@ -1485,12 +1509,33 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
 
+										final List<String> dilewatiHapus = new ArrayList<String>();
 										for (Long detailperkuliahanid : detailperkuliahan) {
 											Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
 													.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
 											if (detailperkuliahan != null) {
 												if (detailperkuliahan.getPersetujuan()
 														.equals(Detailperkuliahan.BELUM_DISETUJUI)) {
+													Number jumlahRequestTugasAkhir = (Number) HibernateUtil.currentSession()
+															.createCriteria(MahasiswaRequestTugasAkhir.class)
+															.setProjection(org.hibernate.criterion.Projections.rowCount())
+															.add(Restrictions.eq("detailperkuliahan", detailperkuliahan))
+															.uniqueResult();
+													if (jumlahRequestTugasAkhir != null && jumlahRequestTugasAkhir.longValue() > 0L) {
+														dilewatiHapus.add((detailperkuliahan.getMahasiswa() == null ? detailperkuliahanid.toString()
+																: detailperkuliahan.getMahasiswa().getNim() + " - " + detailperkuliahan.getMahasiswa().getNama())
+																+ " (masih dipakai pengajuan tugas akhir)");
+														continue;
+													}
+													if (Common.bolehKonfigurasi("batalkan_persetujuan_harus_memiliki_nilai_nol")
+															&& detailperkuliahan.getPersetujuan() != null
+															&& detailperkuliahan.getPersetujuan().equals(Detailperkuliahan.DISETUJUI)
+															&& detailperkuliahan.getTotalNilai() > 1.0) {
+														dilewatiHapus.add((detailperkuliahan.getMahasiswa() == null ? detailperkuliahanid.toString()
+																: detailperkuliahan.getMahasiswa().getNim() + " - " + detailperkuliahan.getMahasiswa().getNama())
+																+ " (nilai belum nol)");
+														continue;
+													}
 													// currentNativeSession() ditutup di finally + rollback bila commit gagal,
 													// supaya sesi tak bocor & transaksi tak tertinggal aktif.
 													Session session = HibernateUtil.currentNativeSession();
@@ -1522,6 +1567,11 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 												DetailperkuliahanHelper.this.loadData(true);
 											}
 										});
+										if (!dilewatiHapus.isEmpty()) {
+											MyMessageboxConfig.show(
+														"Sebagian data tidak dihapus:\n" + String.valueOf(dilewatiHapus).replace(", ", "\n"),
+														"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+										}
 									}
 								}
 							});
