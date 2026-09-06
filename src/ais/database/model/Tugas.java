@@ -67,72 +67,357 @@ import ais.ui.util.MyLabelAgakKecilBold;
  */
 public abstract class Tugas extends GeneralValueObject {
 
+	/**
+	 * Cetakan awal dokumen JSON kosong ({@code "{}"}) yang dipakai sebagai nilai default berbagai
+	 * kolom teks-JSON milik keluarga {@code Tugas} — terutama {@code syaratAkses} dan
+	 * {@code keteranganNilai} pada subclass konkret.
+	 *
+	 * <p><b>Peringatan: field ini {@code public static} dan TIDAK {@code final}.</b> Nilainya
+	 * dihitung sekali saat kelas dimuat, tetapi karena tidak final siapa pun dapat menimpanya dan
+	 * perubahan itu berlaku untuk SELURUH JVM — termasuk seluruh tenant pada instalasi multi-tenant.
+	 * Bila suatu saat ada kode yang menulis ke sini, seluruh entity yang belum pernah diisi akan
+	 * mendadak memakai default yang berbeda. Perlakukan sebagai konstanta baca-saja; jangan menulis
+	 * ke field ini, dan jangan mengandalkan identitas objeknya (bandingkan isinya, bukan
+	 * referensinya).</p>
+	 *
+	 * <p>Nilai yang sama juga tersedia sebagai {@code VOMahasiswa.dataJSON}; keduanya dipakai
+	 * bergantian di dalam kelas ini (lihat {@link #ambilLokasiTugasFileContent(Serializable, Class)}
+	 * yang mengembalikan {@code VOMahasiswa.dataJSON}, bukan field ini) — perbedaan itu murni
+	 * historis, bukan perbedaan makna.</p>
+	 */
 	public static String JSON = new JSONObject().toString();
 
 	/**
 	 * 
 	 */
+	/**
+	 * Penanda versi serialisasi Java untuk keluarga {@code Tugas}.
+	 *
+	 * <p>Nilainya dikunci agar objek yang sudah pernah diserialisasi (misalnya ke dalam sesi ZK yang
+	 * dipersistensi, atau ke cache lintas-node) tetap dapat dibaca setelah kelas ini diubah. Jangan
+	 * mengganti angka ini hanya karena menambah field atau method; ganti hanya bila kontrak
+	 * serialisasi memang sengaja diputus.</p>
+	 */
 	private static final long serialVersionUID = 5021212497292420069L;
 
+	/**
+	 * Aturan prasyarat yang harus dipenuhi peserta didik sebelum boleh mengumpulkan tugas ini.
+	 *
+	 * <p>Dideklarasikan abstrak karena setiap subclass konkret ({@link Pertemuan},
+	 * {@link TugasPertemuan}, {@link TugasKelompok}) memetakan kolomnya sendiri lewat anotasi
+	 * Hibernate pada tabelnya masing-masing. Kelas ini hanya menetapkan bahwa kontraknya ada,
+	 * sehingga kode generik — misalnya {@link #tampilanSyarat} — dapat bekerja pada ketiganya tanpa
+	 * mengetahui tipe konkretnya.</p>
+	 *
+	 * @return objek syarat ujian/pengumpulan, atau {@code null} bila tugas ini tidak memiliki
+	 *         prasyarat berbentuk {@link SyaratUjian}
+	 */
 	public abstract SyaratUjian getSyaratMengumpulkanTugas();
 
+	/**
+	 * Menyetel aturan prasyarat pengumpulan tugas.
+	 *
+	 * @param syaratMengumpulkanTugas syarat baru, boleh {@code null} untuk mencabut prasyarat
+	 * @see #getSyaratMengumpulkanTugas()
+	 */
 	public abstract void setSyaratMengumpulkanTugas(SyaratUjian syaratMengumpulkanTugas);
 
+	/**
+	 * Format penilaian tunggal yang dipakai untuk menilai pengumpulan tugas ini.
+	 *
+	 * <p>Berpasangan — dan sebagian tumpang tindih — dengan {@link #getFormatNilais()} yang menyimpan
+	 * <i>beberapa</i> format sekaligus dalam bentuk teks. Bila keduanya terisi, perilaku yang
+	 * berlaku ditentukan oleh helper penilaian di lapisan UI, bukan oleh kelas ini.</p>
+	 *
+	 * @return format nilai terpilih, atau {@code null} bila belum ditentukan
+	 */
 	public abstract FormatNilai getFormatNilai();
 
+	/**
+	 * Menyetel format penilaian tunggal untuk tugas ini.
+	 *
+	 * @param formatNilai format nilai baru, boleh {@code null}
+	 * @see #getFormatNilai()
+	 */
 	public abstract void setFormatNilai(FormatNilai formatNilai);
 
+	/**
+	 * Daftar format penilaian dalam bentuk teks (biasanya JSON atau daftar id berpemisah).
+	 *
+	 * <p>Merupakan jalur "banyak format" yang berdampingan dengan {@link #getFormatNilai()} yang
+	 * hanya menampung satu. Isinya diurai di lapisan helper penilaian; kelas ini memperlakukannya
+	 * sebagai teks buram.</p>
+	 *
+	 * @return teks daftar format nilai, atau {@code null}/kosong bila belum diisi
+	 */
 	public abstract String getFormatNilais();
 
+	/**
+	 * Menyetel daftar format penilaian berbentuk teks.
+	 *
+	 * @param formatNilais teks daftar format nilai; tidak divalidasi oleh kelas ini
+	 * @see #getFormatNilais()
+	 */
 	public abstract void setFormatNilais(String formatNilais);
 
+	/**
+	 * Bobot tugas ini terhadap nilai akhir, dinyatakan dalam persen.
+	 *
+	 * <p>Kelas ini tidak menjamin bahwa jumlah bobot seluruh komponen dalam satu pembelajaran sama
+	 * dengan 100; penjumlahan dan validasinya dilakukan di lapisan helper penilaian.</p>
+	 *
+	 * @return bobot dalam persen, atau {@code null} bila belum ditentukan
+	 */
 	public abstract Double getProsentase();
 
+	/**
+	 * Menyetel bobot tugas ini terhadap nilai akhir.
+	 *
+	 * @param prosentase bobot dalam persen; boleh {@code null}, tidak divalidasi di sini
+	 * @see #getProsentase()
+	 */
 	public abstract void setProsentase(Double prosentase);
 
+	/**
+	 * Judul tugas sebagaimana ditampilkan kepada peserta didik.
+	 *
+	 * @return judul tugas, atau {@code null} bila belum diisi
+	 */
 	public abstract String getJudultugas();
 
+	/**
+	 * Menyetel judul tugas.
+	 *
+	 * @param judultugas judul baru
+	 * @see #getJudultugas()
+	 */
 	public abstract void setJudultugas(String judultugas);
 
+	/**
+	 * Menyetel isi/uraian tugas.
+	 *
+	 * @param isitugas uraian tugas, umumnya berupa HTML hasil editor kaya di UI
+	 * @see #getIsitugas()
+	 */
 	public abstract void setIsitugas(String isitugas);
 
+	/**
+	 * Isi/uraian tugas yang dibaca peserta didik.
+	 *
+	 * <p>Umumnya berisi HTML hasil editor kaya. Kelas ini tidak melakukan sanitasi apa pun — penyaji
+	 * yang menuliskannya ke halaman bertanggung jawab menghindari XSS tersimpan.</p>
+	 *
+	 * @return uraian tugas, atau {@code null} bila belum diisi
+	 */
 	public abstract String getIsitugas();
 
+	/**
+	 * Waktu mulai jendela pengumpulan tugas.
+	 *
+	 * <p>Berpasangan dengan {@link #getSelesai()}. Penegakan jendela waktu TIDAK dilakukan di kelas
+	 * ini; pemeriksaannya ada di helper/action yang menerima unggahan, sehingga jalur unggah baru
+	 * harus memeriksanya sendiri.</p>
+	 *
+	 * @return waktu mulai, atau {@code null} bila tanpa batas awal
+	 */
 	public abstract Date getMulai();
 
+	/**
+	 * Menyetel waktu mulai jendela pengumpulan tugas.
+	 *
+	 * @param mulai waktu mulai; boleh {@code null}
+	 * @see #getMulai()
+	 */
 	public abstract void setMulai(Date mulai);
 
+	/**
+	 * Waktu berakhir jendela pengumpulan tugas (tenggat).
+	 *
+	 * @return waktu berakhir, atau {@code null} bila tanpa tenggat
+	 * @see #getMulai()
+	 */
 	public abstract Date getSelesai();
 
+	/**
+	 * Menyetel waktu berakhir jendela pengumpulan tugas.
+	 *
+	 * @param selesai tenggat baru; boleh {@code null}
+	 * @see #getSelesai()
+	 */
 	public abstract void setSelesai(Date selesai);
 
+	/**
+	 * Daftar peserta didik yang dikecualikan dari tugas ini, disimpan sebagai satu string berpemisah
+	 * koma dengan koma pembuka dan penutup (bentuk {@code ",12,45,78,"}).
+	 *
+	 * <p><b>Bentuk penyimpanan ini penting dipahami</b> karena dipakai langsung oleh
+	 * {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)} lewat pemeriksaan
+	 * {@code getMhsYgTidakIkut().contains("," + id + ",")}. Konsekuensinya:</p>
+	 * <ul>
+	 *   <li>Getter ini <b>tidak boleh mengembalikan {@code null}</b> — subclass wajib mengembalikan
+	 *       minimal string kosong, karena pemanggil di atas tidak melakukan penjagaan null. Bila
+	 *       suatu subclass mengembalikan {@code null}, seluruh pembacaan daftar pengumpulan tugas
+	 *       akan gagal dengan {@code NullPointerException}.</li>
+	 *   <li>Koma pembuka/penutup wajib ada, jika tidak entri pertama dan terakhir tidak akan pernah
+	 *       cocok.</li>
+	 *   <li><b>Id yang disimpan tidak membawa penanda jenis orang.</b> Nilai yang dicocokkan
+	 *       ({@code id}) dapat berasal dari {@code Mahasiswa}, {@code BiodataCalonMahasiswa},
+	 *       {@code Siswa}, atau {@code CalonSiswa} — empat tabel dengan urutan id yang berdiri
+	 *       sendiri. Mengecualikan mahasiswa ber-id 45 karena itu juga mengecualikan siswa ber-id 45
+	 *       dari tugas yang sama. Ini varian dari pola tabrakan id lintas-tabel yang berulang di
+	 *       basis kode ini.</li>
+	 * </ul>
+	 *
+	 * @return daftar id yang dikecualikan dalam bentuk {@code ",id,id,"}; jangan mengembalikan
+	 *         {@code null}
+	 */
 	public abstract String getMhsYgTidakIkut();
 
+	/**
+	 * Daftar peserta didik yang secara khusus diizinkan mengunggah ulang jawabannya, memakai bentuk
+	 * string berpemisah koma yang sama dengan {@link #getMhsYgTidakIkut()}.
+	 *
+	 * <p>Dipakai oleh helper unggah untuk membuka kembali kesempatan pengumpulan bagi orang tertentu
+	 * tanpa membuka tugas untuk semua orang. Penegakannya berada di luar kelas ini, dan karena id
+	 * yang disimpan tidak membawa penanda jenis orang, kelemahan tabrakan id lintas-tabel yang
+	 * dijelaskan pada {@link #getMhsYgTidakIkut()} berlaku sama persis di sini — dengan akibat yang
+	 * lebih peka, karena yang diberikan adalah izin, bukan pengecualian.</p>
+	 *
+	 * @return daftar id yang boleh mengunggah ulang dalam bentuk {@code ",id,id,"}
+	 */
 	public abstract String getMhsBolehUploadUlang();
 
+	/**
+	 * Menyetel daftar peserta didik yang dikecualikan dari tugas ini.
+	 *
+	 * @param mhsYgTidakIkut daftar id dalam bentuk {@code ",id,id,"}; penulis wajib menjaga koma
+	 *        pembuka/penutup dan tidak boleh mengirim {@code null}
+	 * @see #getMhsYgTidakIkut()
+	 */
 	public abstract void setMhsYgTidakIkut(String mhsYgTidakIkut);
 
+	/**
+	 * Menyetel daftar peserta didik yang diizinkan mengunggah ulang.
+	 *
+	 * @param mhsBolehUploadUlang daftar id dalam bentuk {@code ",id,id,"}
+	 * @see #getMhsBolehUploadUlang()
+	 */
 	public abstract void setMhsBolehUploadUlang(String mhsBolehUploadUlang);
 
+	/**
+	 * Prasyarat akses tugas ini dalam bentuk dokumen JSON.
+	 *
+	 * <p>Strukturnya adalah peta datar: kunci {@code "<id>_<NamaKelasSingkat>"} dan nilai
+	 * {@code "<nama.kelas.penuh>_<id>"}. Setiap entri berarti "objek pembelajaran ini harus sudah
+	 * dikerjakan/diakses sebelum tugas ini boleh dikumpulkan". Entri ditulis dan dihapus oleh
+	 * listener checkbox di {@link #tampilanSyarat} dan {@link #tampilanLain}.</p>
+	 *
+	 * <p><b>Getter ini tidak boleh mengembalikan {@code null}</b>: hampir semua pemanggil membungkus
+	 * hasilnya langsung dengan {@code new JSONObject(getSyaratAkses())}, yang akan melempar
+	 * {@code JSONException} pada {@code null} atau string kosong. Subclass harus mengembalikan
+	 * setidaknya {@code "{}"} — lihat {@link #JSON}.</p>
+	 *
+	 * @return dokumen JSON prasyarat akses; minimal {@code "{}"}
+	 */
 	public abstract String getSyaratAkses();
 
+	/**
+	 * Menyetel prasyarat akses tugas ini.
+	 *
+	 * @param syaratAkses dokumen JSON prasyarat; kirim {@code "{}"} untuk mengosongkan, jangan
+	 *        {@code null}
+	 * @see #getSyaratAkses()
+	 */
 	public abstract void setSyaratAkses(String syaratAkses);
 
+	/**
+	 * Jenis item penilaian (domain sekolah) tempat nilai tugas ini dibukukan.
+	 *
+	 * <p>Bagian dari tiga serangkai pemetaan nilai ke rapor sekolah bersama
+	 * {@link #getGrupKategoriItemPenilaianSiswa()} dan {@link #getGrupPenilaian()}. Hanya relevan
+	 * untuk instalasi yang memakai modul sekolah; pada instalasi perguruan tinggi umumnya
+	 * {@code null}.</p>
+	 *
+	 * @return jenis item penilaian siswa, atau {@code null}
+	 */
 	public abstract JenisItemPenilaianSiswa getJenisItemPenilaianSiswa();
 
+	/**
+	 * Menyetel jenis item penilaian siswa untuk tugas ini.
+	 *
+	 * @param jenisItemPenilaianSiswa jenis item penilaian; boleh {@code null}
+	 * @see #getJenisItemPenilaianSiswa()
+	 */
 	public abstract void setJenisItemPenilaianSiswa(JenisItemPenilaianSiswa jenisItemPenilaianSiswa);
 
+	/**
+	 * Grup kategori item penilaian (domain sekolah) yang menaungi nilai tugas ini.
+	 *
+	 * @return grup kategori item penilaian siswa, atau {@code null}
+	 * @see #getJenisItemPenilaianSiswa()
+	 */
 	public abstract GrupKategoriItemPenilaianSiswa getGrupKategoriItemPenilaianSiswa();
 
+	/**
+	 * Menyetel grup kategori item penilaian siswa untuk tugas ini.
+	 *
+	 * @param grupKategoriItemPenilaianSiswa grup kategori; boleh {@code null}
+	 * @see #getGrupKategoriItemPenilaianSiswa()
+	 */
 	public abstract void setGrupKategoriItemPenilaianSiswa(
 			GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa);
 
+	/**
+	 * Grup penilaian (domain sekolah) tempat tugas ini dikelompokkan pada rapor.
+	 *
+	 * @return grup penilaian, atau {@code null}
+	 * @see #getJenisItemPenilaianSiswa()
+	 */
 	public abstract GrupPenilaian getGrupPenilaian();
 
+	/**
+	 * Menyetel grup penilaian untuk tugas ini.
+	 *
+	 * @param grupPenilaian grup penilaian; boleh {@code null}
+	 * @see #getGrupPenilaian()
+	 */
 	public abstract void setGrupPenilaian(GrupPenilaian grupPenilaian);
 
+	/**
+	 * Nilai dan keterangan per peserta didik untuk tugas ini, disimpan sebagai satu dokumen JSON
+	 * pada baris tugas — bukan pada baris pengumpulan masing-masing peserta.
+	 *
+	 * <p>Kuncinya dibentuk dari id peserta ditambah akhiran jenis orang, lalu ditambah akhiran
+	 * bidang: {@code "<id>_mhs_nilai"}, {@code "<id>_mhs_ket"}, {@code "<id>_siswa_nilai"},
+	 * {@code "<id>_cal_mhs_ket"}, {@code "<id>_cal_siswa_nilai"}, dan seterusnya. Berbeda dengan
+	 * {@link #getMhsYgTidakIkut()}, di sini jenis orang <i>ikut</i> masuk ke dalam kunci, sehingga
+	 * jalur ini tidak menderita tabrakan id lintas-tabel.</p>
+	 *
+	 * <p><b>Ini adalah field bayangan terhadap kolom nilai pada {@link TugasFileContent}.</b>
+	 * {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)} membaca dokumen ini
+	 * lalu menimpa {@code nilai} dan {@code keterangan} pada objek {@code TugasFileContent} yang
+	 * baru dimuat. Artinya nilai yang terlihat di UI berasal dari sini, bukan dari kolom pada baris
+	 * pengumpulan. Kode yang membaca {@code TugasFileContent} langsung dari basis data — tanpa
+	 * melewati method tersebut — berpotensi melihat nilai yang usang atau kosong.</p>
+	 *
+	 * <p>Seperti {@link #getSyaratAkses()}, getter ini diurai dengan {@code new JSONObject(...)} dan
+	 * karenanya tidak boleh mengembalikan {@code null} atau string kosong.</p>
+	 *
+	 * @return dokumen JSON nilai dan keterangan per peserta; minimal {@code "{}"}
+	 */
 	public abstract String getKeteranganNilai();
 
+	/**
+	 * Menyetel dokumen JSON nilai dan keterangan per peserta didik.
+	 *
+	 * <p>Karena satu dokumen menampung nilai SELURUH peserta, penulisan harus dilakukan dengan pola
+	 * baca-ubah-tulis pada dokumen yang sama. Dua penilai yang menyimpan nilai untuk dua peserta
+	 * berbeda secara bersamaan akan saling menimpa — yang menyimpan belakangan menghapus pekerjaan
+	 * yang menyimpan lebih dulu. Tidak ada penguncian di lapisan model.</p>
+	 *
+	 * @param keteranganNilai dokumen JSON; kirim {@code "{}"} untuk mengosongkan, jangan {@code null}
+	 * @see #getKeteranganNilai()
+	 */
 	public abstract void setKeteranganNilai(String keteranganNilai);
 
 	@SuppressWarnings("rawtypes")

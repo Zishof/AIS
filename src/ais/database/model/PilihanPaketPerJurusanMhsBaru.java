@@ -55,36 +55,64 @@ public class PilihanPaketPerJurusanMhsBaru extends GeneralValueObject {
 	private static final long serialVersionUID = 6643595824435487694L;
 
 	private Long id;
+	/** Nama pelaku (audit shadow, lihat {@link GeneralValueObject}) yang membuat/mengubah baris ini. */
 	private String oleh;
+	/** Id pelaku (audit shadow) yang membuat/mengubah baris ini. */
 	private String olehId;
 
+	/** @return id pelaku terakhir yang mengubah baris ini, atau {@code null} bila belum pernah diisi. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi id pelaku. Nilai kosong/blank diabaikan (fail-safe agar audit shadow tidak
+	 * tertimpa string kosong secara tidak sengaja) &mdash; bukan validasi keamanan.
+	 *
+	 * @param olehId id pelaku; diabaikan jika {@code null} atau hanya berisi spasi
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Mengisi nama pelaku. Nilai kosong/blank diabaikan, sama seperti {@link #setOlehId(String)}.
+	 *
+	 * @param oleh nama pelaku; diabaikan jika {@code null} atau hanya berisi spasi
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/** @return nama pelaku terakhir yang mengubah baris ini, atau {@code null} bila belum pernah diisi. */
 	public String getOleh() {
 		return oleh;
 	}
 
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Mengubah stempel waktu perubahan terakhir secara manual. Nilai default sudah di-set ke
+	 * waktu saat ini pada deklarasi field dan di-refresh otomatis oleh {@link #onUpdate()} pada
+	 * setiap update; setter ini jarang perlu dipanggil langsung.
+	 *
+	 * @param tanggal_dirubah stempel waktu perubahan baru
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** @return stempel waktu perubahan terakhir baris ini. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * @return representasi ringkas berupa {@code jurusanSekolahMahasiswaBaru_paket}, dipakai untuk
+	 * debugging/log. Memanggil {@link #getPaket()} dan {@link #getJurusanSekolahMahasiswaBaru()}
+	 * terlebih dahulu agar relasi lazy dimuat sebelum digabung ke string.
+	 */
 	public String toString() {
 		getPaket();
 		getJurusanSekolahMahasiswaBaru();
@@ -94,6 +122,7 @@ public class PilihanPaketPerJurusanMhsBaru extends GeneralValueObject {
 	private JurusanSekolahMahasiswaBaru jurusanSekolahMahasiswaBaru;
 	private Paket paket;
 
+	/** @return id baris (primary key, auto-generated identity di database). */
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "id", nullable = false, unique = true)
@@ -101,10 +130,15 @@ public class PilihanPaketPerJurusanMhsBaru extends GeneralValueObject {
 		return id;
 	}
 
+	/** @param id id baris. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return jurusan sekolah asal (jenjang mahasiswa baru) yang dipilih pada baris ini; relasi
+	 * lazy, dimuat via {@link GeneralValueObject#check(Object)} saat pertama diakses.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan_sekolah")
 	public JurusanSekolahMahasiswaBaru getJurusanSekolahMahasiswaBaru() {
@@ -112,10 +146,16 @@ public class PilihanPaketPerJurusanMhsBaru extends GeneralValueObject {
 		return jurusanSekolahMahasiswaBaru;
 	}
 
+	/** @param jurusanSekolahMahasiswaBaru jurusan sekolah asal yang dipilih pada baris ini. */
 	public void setJurusanSekolahMahasiswaBaru(JurusanSekolahMahasiswaBaru jurusanSekolahMahasiswaBaru) {
 		this.jurusanSekolahMahasiswaBaru = jurusanSekolahMahasiswaBaru;
 	}
 
+	/**
+	 * @return {@link Paket} pendaftaran yang dipasangkan dengan
+	 * {@link #getJurusanSekolahMahasiswaBaru()} pada baris pilihan ini; relasi lazy, dimuat via
+	 * {@link GeneralValueObject#check(Object)} saat pertama diakses.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "paket")
 	public Paket getPaket() {
@@ -123,6 +163,7 @@ public class PilihanPaketPerJurusanMhsBaru extends GeneralValueObject {
 		return paket;
 	}
 
+	/** @param paket paket pendaftaran yang dipasangkan dengan jurusan sekolah asal ini. */
 	public void setPaket(Paket paket) {
 		this.paket = paket;
 	}
