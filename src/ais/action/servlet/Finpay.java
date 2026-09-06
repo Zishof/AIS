@@ -38,14 +38,70 @@ import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.VirtualAccountBank;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet penerima notifikasi pembayaran <b>FinPay</b>.
+ *
+ * <p>Berbeda dari {@code ais.action.servlet.FinPayResponse} yang dipetakan ke
+ * {@code /FinPayResponse}, kelas ini dipetakan ke {@code /Finpay} dan menangani bentuk
+ * notifikasi bersarang milik FinPay.</p>
+ *
+ * <h4>Bentuk pesan</h4>
+ * <p>Permintaan berupa JSON pada badan dengan struktur bersarang:</p>
+ * <pre>
+ * {
+ *   "order":  { "id": "&lt;nomor VA&gt;", "amount": &lt;nominal&gt; },
+ *   "result": { "payment": { "status": "PAID", "datetime": "&lt;tanggal&gt;" } }
+ * }
+ * </pre>
+ * <p>Hanya {@code status} bernilai {@code "PAID"} yang diperlakukan sebagai pembayaran
+ * nyata; nilai lain diproses sebagai inquiry yang tidak membukukan apa pun. Balasan berupa
+ * teks biasa {@code "OK"}, {@code "ALREADY_PAID"}, atau {@code "ERROR"}.</p>
+ *
+ * <h4>PERINGATAN KEAMANAN &mdash; tanda tangan notifikasi tidak pernah diperiksa</h4>
+ * <ul>
+ *   <li>{@link #process} membaca seluruh header <b>hanya untuk mencetaknya</b> ke
+ *       {@code System.out}. Token maupun tanda tangan yang dikirim FinPay tidak pernah
+ *       diambil, apalagi diverifikasi.</li>
+ *   <li>Pemetaan alamat IP menjadi {@link BankHost} <b>tidak dipakai sebagai gerbang</b>;
+ *       pemrosesan berjalan meskipun hasilnya {@code null}. Pemetaan itu sendiri punya dua
+ *       jalur pelonggaran: konfigurasi
+ *       {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} yang membuat baris
+ *       {@link BankHost} baru untuk IP pemanggil apa pun, dan baris cadangan ber-IP
+ *       {@code 0.0.0.0}.</li>
+ *   <li>Pada {@code applicationContext-security.xml} URL {@code /Finpay} jatuh ke aturan
+ *       penampung {@code /**} yang bernilai {@code IS_AUTHENTICATED_ANONYMOUSLY}.</li>
+ * </ul>
+ * <p>Akibatnya medan {@code result.payment.status} &mdash; satu-satunya penentu apakah sebuah
+ * tagihan dibukukan lunas &mdash; sepenuhnya berada di tangan pengirim pesan, tanpa apa pun
+ * yang membuktikan pesan itu benar berasal dari FinPay.</p>
+ *
+ * <h4>Catatan arsitektur</h4>
+ * <p>Setiap permintaan wajib menghasilkan satu baris {@code LogHostToHost} lewat
+ * {@code PembayaranGatewayHelper.catatLogHostToHost} di blok {@code finally}, tanpa syarat
+ * {@code bankHost}. Ini pola <i>audit shadow</i> yang berlaku di seluruh gerbang pembayaran
+ * AIS dan merupakan fakta arsitektur yang disengaja, bukan cacat.</p>
+ *
+ * @see ais.database.model.VirtualAccountBank
+ * @see ais.action.ws.util.PembayaranGatewayHelper
  */
 public class Finpay extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton pembantu pembayaran, dipakai di {@link #process} untuk memetakan alamat IP
+	 * pemanggil menjadi {@link BankHost}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh kebergantungan diambil lewat field
+	 * statis {@link #pembayaranUtil}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Finpay() {
@@ -53,8 +109,17 @@ public class Finpay extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Servlet ini memperlakukan GET, POST, PUT, dan TRACE secara identik karena bentuk
+	 * pengiriman notifikasi dapat berbeda antar konfigurasi mitra. Kegagalan ditelan
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga pengirim tidak menerima 5xx.</p>
+	 *
+	 * @param request  permintaan masuk dari FinPay
+	 * @param response balasan berisi teks status singkat
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -66,8 +131,14 @@ public class Finpay extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST &mdash; metode yang lazim dipakai FinPay &mdash; dengan
+	 * meneruskannya ke {@link #process}.
+	 *
+	 * @param request  permintaan masuk dari FinPay
+	 * @param response balasan berisi teks status singkat
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -79,8 +150,15 @@ public class Finpay extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP PUT dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Perilaku sama persis dengan {@link #doGet}.</p>
+	 *
+	 * @param request  permintaan masuk dari FinPay
+	 * @param response balasan berisi teks status singkat
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPut(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPut(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -92,8 +170,16 @@ public class Finpay extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP TRACE dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Menimpa perilaku bawaan {@link HttpServlet#doTrace} yang seharusnya hanya memantulkan
+	 * header; di sini TRACE diperlakukan sebagai kanal notifikasi biasa.</p>
+	 *
+	 * @param request  permintaan masuk dari FinPay
+	 * @param response balasan berisi teks status singkat
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doTrace(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doTrace(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -104,6 +190,54 @@ public class Finpay extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Memproses satu notifikasi FinPay: menyelesaikan VA-nya lalu membukukan pembayaran bila
+	 * memang bermode pembayaran.
+	 *
+	 * <p>VA dicari lewat {@link VirtualAccountBank#ambilVa(String, Double, BankHost)}. VA yang
+	 * tidak ditemukan, atau yang totalnya tidak lebih dari 0,1, membuat method berakhir tanpa
+	 * membukukan apa pun. VA yang sudah lunas dijawab {@code "ALREADY_PAID"}.</p>
+	 *
+	 * <h4>Dua cabang pemilik tagihan</h4>
+	 * <ul>
+	 *   <li><b>Sekolah</b> &mdash; bila VA menunjuk {@code siswa} atau {@code calonSiswa},
+	 *       pembukuan diserahkan ke {@link VirtualAccountBank#bayarSiswa}, dengan {@code inquery}
+	 *       diteruskan apa adanya sehingga mode inquiry tidak menyimpan apa pun.</li>
+	 *   <li><b>Perguruan tinggi</b> &mdash; sebuah {@link Kegiatan} dicari atau dibuat, lalu
+	 *       daftar {@code cicilan} pada VA diurai per token: angka murni dan awalan
+	 *       {@code Bulanan-} menunjuk {@link PengaturanPembayaranBulanan}, awalan {@code Item-}
+	 *       menunjuk {@link ItemBiaya}, dan awalan {@code Keranjang-} diserahkan ke
+	 *       {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}. Tiap token menghasilkan
+	 *       satu {@link CicilanPembayaran} yang di-<i>idempoten</i>-kan lewat kolom {@code ref},
+	 *       sekaligus satu entri rincian pada larik JSON yang ikut disimpan ke log H2H.</li>
+	 * </ul>
+	 *
+	 * <p>Pada mode pembayaran, setelah semua token selesai total dan denda dihitung ulang,
+	 * {@link Kegiatan} disimpan, dan VA ditandai lunas lewat
+	 * {@link VirtualAccountBank#updateVa}.</p>
+	 *
+	 * <p><b>Keamanan:</b> method ini menerima {@code bankHost} bernilai {@code null} dan tetap
+	 * memproses; seluruh pemeriksaan yang ada bersifat konsistensi data, <b>bukan</b> otorisasi.
+	 * Lihat peringatan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Apa pun hasilnya, satu baris log H2H selalu ditulis di blok {@code finally} &mdash;
+	 * termasuk jejak <i>stack trace</i> bila terjadi galat.</p>
+	 *
+	 * @param nominalP  nominal setoran yang dilaporkan mitra
+	 * @param tanggalP  tanggal transaksi dalam format {@code Common.databaseDateFormat1}; bila
+	 *                  gagal diurai dipakai waktu server saat ini
+	 * @param va        nomor VA, diambil dari {@code order.id}
+	 * @param bank      label bank yang disimpan sebagai {@code validator} pada data pembayaran
+	 * @param bankHost  host bank hasil pemetaan IP; boleh {@code null} dan tidak menjadi gerbang
+	 * @param request   permintaan asal, diteruskan ke pencatat log H2H
+	 * @param data      payload JSON mentah, disimpan apa adanya pada log H2H
+	 * @param chekLagi  penanda warisan; saat ini tidak dipakai di badan method
+	 * @param inquery   {@code true} untuk inquiry (tidak membukukan), {@code false} untuk
+	 *                  pembayaran
+	 * @param chek      {@code true} untuk melewati pemeriksaan status lunas
+	 * @return {@code "OK"} bila selesai, atau {@code "ALREADY_PAID"} bila tagihan sudah lunas
+	 * @throws Exception bila kegagalan terjadi di luar jangkauan penanganan internal
+	 */
 	@SuppressWarnings("unchecked")
 	public static String doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi, boolean inquery, boolean chek) throws Exception {
@@ -495,6 +629,31 @@ public class Finpay extends HttpServlet {
 		return "OK";
 	}
 
+	/**
+	 * Mengurai payload JSON bersarang FinPay lalu memanggil {@link #doProcess}.
+	 *
+	 * <p>Nomor VA diambil dari {@code order.id} dan nominal dari {@code order.amount}; tanggal
+	 * transaksi dari {@code result.payment.datetime}. Kesalahan pada nominal maupun tanggal
+	 * ditelan sehingga nominal bernilai {@code 0.0} dan tanggal bernilai string kosong &mdash;
+	 * yang kemudian membuat {@link #doProcess} memakai waktu server.</p>
+	 *
+	 * <p>Mode operasi ditentukan medan {@code result.payment.status}: hanya nilai {@code "PAID"}
+	 * (tanpa memandang besar kecil huruf) yang membuat {@code inquery} bernilai {@code false}
+	 * sehingga pembayaran benar-benar dibukukan.</p>
+	 *
+	 * <p><b>Perhatikan:</b> pembacaan {@code order} di awal method tidak dijaga, sehingga payload
+	 * tanpa objek {@code order} menggagalkan method sebelum blok {@code try} yang menangkap
+	 * galat. Sebaliknya, kegagalan membaca {@code result.payment.status} tertangkap dan
+	 * menghasilkan balasan {@code "ERROR"}.</p>
+	 *
+	 * @param data     payload JSON mentah dari FinPay
+	 * @param request  permintaan asal, diteruskan ke pencatat log H2H
+	 * @param bankHost host bank hasil pemetaan IP; boleh {@code null}
+	 * @param bank     label bank yang dipakai sebagai {@code validator}
+	 * @param chek     {@code true} untuk melewati pemeriksaan status lunas
+	 * @return hasil {@link #doProcess}, atau {@code "ERROR"} bila pemrosesan gagal
+	 * @throws Exception bila payload bukan JSON yang sah atau tidak memuat objek {@code order}
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = new JSONObject(data);
@@ -531,6 +690,34 @@ public class Finpay extends HttpServlet {
 		return body;
 	}
 
+	/**
+	 * Membaca notifikasi FinPay dari badan permintaan, memprosesnya, dan menuliskan balasan.
+	 *
+	 * <p>Langkah yang dijalankan berurutan:</p>
+	 * <ol>
+	 *   <li>seluruh nama dan nilai header ditelusuri lalu dicetak ke {@code System.out};</li>
+	 *   <li>badan permintaan dibaca baris demi baris menjadi satu string JSON &mdash; pemisah
+	 *       baris dibuang sehingga payload multi-baris digabung rapat;</li>
+	 *   <li>payload dan <i>query string</i> dicetak ke {@code System.out};</li>
+	 *   <li>alamat IP pemanggil dipetakan menjadi {@link BankHost} dengan label
+	 *       {@code "Finpay"};</li>
+	 *   <li>bila payload tidak kosong, {@link #doProses} dipanggil dengan {@code chek} bernilai
+	 *       {@code false}; payload kosong menghasilkan balasan kosong;</li>
+	 *   <li>hasil ditulis disertai header {@code length} khusus berisi panjang badan balasan, dan
+	 *       header {@code Content-Type} bernilai {@code application/json} &mdash; padahal isinya
+	 *       sebenarnya teks biasa seperti {@code "OK"}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Keamanan:</b> header dibaca semata untuk dicetak, sehingga tanda tangan atau token
+	 * FinPay tidak pernah diverifikasi; hasil pemetaan {@link BankHost} juga tidak pernah diuji
+	 * sebelum pemrosesan dilanjutkan. Pencetakan seluruh header, payload, dan <i>query string</i>
+	 * ke keluaran standar berarti bahan autentikasi apa pun yang dikirim mitra tersalin ke log
+	 * server. Lihat peringatan pada dokumentasi kelas.</p>
+	 *
+	 * @param request  permintaan masuk dari FinPay
+	 * @param response balasan berisi teks status singkat
+	 * @throws Exception bila pembacaan permintaan, penguraian JSON, atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
