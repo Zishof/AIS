@@ -3145,21 +3145,11 @@ public class PenjadwalanHelper {
 	  * layar tetap menyatakan "selesai". Laporan .txt itulah satu-satunya rincian yang diterima pengguna —
 	  * bila unduhannya gagal, kendalanya hanya tersisa di error audit.</p>
 	  *
-	  * <p><b>Catatan pemeliharaan (perilaku terdokumentasi apa adanya, tidak diubah di sini).</b> Dua
-	  * kekeliruan salin-tempel pada badan listener perlu diketahui pemelihara berikutnya:</p>
-	  * <ul>
-	  *   <li>Pada query yang memuat daftar pertemuan SUMBER, tujuh klausanya memakai variabel sumber
-	  *   ({@code copyPerkuliahan}, {@code copyKelompokKkn}, dan seterusnya) kecuali satu: klausa bimbingan
-	  *   tugas akhir memakai {@code mahasiswaRequestTugasAkhir} — pemilik TUJUAN — bukan
-	  *   {@code copyMahasiswaRequestTugasAkhir}. Akibatnya penyalinan agenda bimbingan tugas akhir
-	  *   menyaring pertemuan sumber ke bimbingan tujuan itu sendiri.</li>
-	  *   <li>Pada cabang penyalinan {@link DataPunyaItem}, kondisinya ditulis
-	  *   {@code copyMahasiswaRequestTugasAkhir != null || copyKelompokKkn != null && copyKelompokPkl != null
-	  *   || copySkripsi != null}. Karena {@code &&} mengikat lebih kuat daripada {@code ||}, bagian
-	  *   KKN/PKL menuntut KEDUANYA terisi sekaligus — padahal hanya satu tipe pemilik yang pernah tidak
-	  *   {@code null}, sehingga item pendukung KKN dan PKL tidak pernah ikut tersalin (untuk tugas akhir
-	  *   dan skripsi berjalan normal).</li>
-	  * </ul>
+	  * <p><b>Catatan pemeliharaan.</b> Dua kekeliruan salin-tempel pada badan listener sempat ada
+	  * di sini: query pertemuan SUMBER memakai {@code mahasiswaRequestTugasAkhir} (pemilik TUJUAN)
+	  * alih-alih {@code copyMahasiswaRequestTugasAkhir}; dan kondisi cabang {@link DataPunyaItem} memakai
+	  * {@code &&} yang presedensinya mengalahkan {@code ||} sehingga syarat KKN/PKL tidak pernah true.
+	  * Keduanya telah diperbaiki.</p>
 	  *
 	  * @param toolbar                   komponen ZK induk tempat tombol dipasang
 	  * @param perkuliahan               pemilik agenda TUJUAN berupa perkuliahan, atau {@code null}
