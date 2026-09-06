@@ -2601,7 +2601,7 @@ public class PerjanjianKerjasamaMasterAssetAction extends GenericAutowireCompose
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
-						Clients.evalJavaScript("popupCenter({url: '" + url + "', title: 'Data', w: 1200, h: 600});");
+						Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(url) + "', title: 'Data', w: 1200, h: 600});");
 					}
 				});
 

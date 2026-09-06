@@ -3947,7 +3947,7 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 
 										@Override
 										public void onEvent(Event arg0) throws Exception {
-											Clients.evalJavaScript("popupCenter({url: '" + url
+											Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(url)
 													+ "', title: 'Data', w: 1200, h: 600});");
 										}
 									});
