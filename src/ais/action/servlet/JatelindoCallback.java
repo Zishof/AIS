@@ -41,14 +41,75 @@ import ais.database.model.jatelindo.JatelindoRequestDetail;
 import ais.database.model.jatelindo.JatelindoResponse;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet <i>host-to-host</i> untuk kanal pembayaran <b>Jatelindo</b> (switching biller).
+ *
+ * <p>Pesan dipertukarkan dalam bentuk JSON yang meniru struktur medan ISO 8583, sehingga
+ * kuncinya berupa nama bit, bukan nama yang deskriptif:</p>
+ * <table border="1">
+ *   <caption>Medan yang dipakai kelas ini</caption>
+ *   <tr><th>Kunci</th><th>Arti</th></tr>
+ *   <tr><td>{@code bit3}</td><td>kode proses: {@code 380000} inquiry, {@code 170000} payment</td></tr>
+ *   <tr><td>{@code bit4}</td><td>nilai transaksi</td></tr>
+ *   <tr><td>{@code bit39}</td><td>kode hasil pada balasan</td></tr>
+ *   <tr><td>{@code bit48}</td><td>data tambahan; memuat nomor transaksi dan rincian penagih</td></tr>
+ *   <tr><td>{@code bit62}</td><td>teks siap tampil di mesin/aplikasi mitra</td></tr>
+ *   <tr><td>{@code mti}</td><td>selalu diisi {@code 0210} pada balasan</td></tr>
+ * </table>
+ *
+ * <p>Nomor transaksi diambil dari {@code bit48} dengan cara yang berbeda per kode proses:
+ * pada inquiry dipotong sampai spasi pertama, pada payment diambil dari posisi 10 sampai 26.</p>
+ *
+ * <h4>Kode hasil yang dikirim balik</h4>
+ * <ul>
+ *   <li>{@code 00} &mdash; berhasil;</li>
+ *   <li>{@code 14} &mdash; nomor transaksi tidak dikenal, atau host pemanggil tidak dikenali;</li>
+ *   <li>{@code 34} &mdash; tagihan sudah pernah dibayar;</li>
+ *   <li>{@code 51} &mdash; nilai transaksi tidak sama dengan tagihan ditambah biaya administrasi.</li>
+ * </ul>
+ *
+ * <h4>PERINGATAN KEAMANAN &mdash; tidak ada verifikasi tanda tangan atau MAC</h4>
+ * <p>Berbeda dengan lazimnya pesan ISO 8583, kelas ini <b>tidak memeriksa MAC, tanda tangan,
+ * token, maupun kredensial apa pun</b> atas pesan yang masuk &mdash; tidak pada cabang inquiry
+ * dan tidak pada cabang payment. Satu-satunya penjagaan adalah {@code bankHost != null}, hasil
+ * pemetaan alamat IP oleh {@code PembayaranUtil.getBankHost(String, String)}. Penjagaan itu
+ * lemah karena pemetaan tersebut punya dua jalur pelonggaran: konfigurasi
+ * {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} yang membuat baris
+ * {@link BankHost} baru untuk IP pemanggil apa pun, dan baris cadangan ber-IP {@code 0.0.0.0}
+ * yang menampung sisanya. Pada {@code applicationContext-security.xml},
+ * {@code /JatelindoCallback} jatuh ke aturan penampung {@code /**} yang bernilai
+ * {@code IS_AUTHENTICATED_ANONYMOUSLY}.</p>
+ * <p>Yang membatasi kerugian di sini hanyalah bahwa nomor transaksi harus cocok dengan
+ * {@link JatelindoRequest} yang memang sudah diterbitkan, dan nilai transaksi harus sama
+ * persis; nilai yang benar sendiri dapat dibaca lebih dahulu lewat cabang inquiry.</p>
+ *
+ * <h4>Catatan arsitektur</h4>
+ * <p>Setiap permintaan wajib menghasilkan satu baris {@link LogHostToHost} yang ditulis di blok
+ * {@code finally}, lengkap dengan jejak <i>stack trace</i> bila terjadi galat. Ini pola
+ * <i>audit shadow</i> yang berlaku di seluruh gerbang pembayaran AIS dan merupakan fakta
+ * arsitektur yang disengaja, bukan cacat.</p>
+ *
+ * @see ais.database.model.jatelindo.JatelindoRequest
+ * @see ais.database.model.jatelindo.JatelindoResponse
  */
 public class JatelindoCallback extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton pembantu pembayaran, dipakai untuk memetakan alamat IP pemanggil menjadi
+	 * {@link BankHost} dan untuk mengambil rincian biaya mahasiswa.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh kebergantungan diambil lewat field
+	 * statis {@link #pembayaranUtil}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public JatelindoCallback() {
@@ -58,8 +119,18 @@ public class JatelindoCallback extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process(HttpServletRequest,
+	 * HttpServletResponse)}.
+	 *
+	 * <p>Perilakunya sama dengan POST karena payload selalu dibaca dari badan permintaan, bukan
+	 * dari <i>query string</i>. Kegagalan ditelan {@link Common#tampilErrorJikaAdmin(Exception)}
+	 * sehingga mitra tidak menerima kode status 5xx.</p>
+	 *
+	 * @param request  permintaan masuk dari switching Jatelindo
+	 * @param response balasan yang akan diisi JSON bermedan bit
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -71,8 +142,14 @@ public class JatelindoCallback extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST &mdash; metode yang lazim dipakai Jatelindo &mdash; dengan
+	 * meneruskannya ke {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request  permintaan masuk dari switching Jatelindo
+	 * @param response balasan yang akan diisi JSON bermedan bit
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -83,6 +160,25 @@ public class JatelindoCallback extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mencari {@link Kegiatan} yang sesuai dengan sebuah {@link JatelindoRequest}, atau
+	 * membuatnya bila belum ada.
+	 *
+	 * <p>Pencarian memakai {@code ambilKegiatans(semester, jenisKegiatan)} milik
+	 * {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}. Khusus calon mahasiswa, bila
+	 * pencarian ber-semester gagal dan semester bernilai satu atau kurang, dicoba sekali lagi
+	 * tanpa semester &mdash; menampung data pendaftaran yang semesternya belum pasti.</p>
+	 *
+	 * <p>Kegiatan baru diberi {@code validated = 1} dan {@code validator} berupa nama merchant,
+	 * lalu langsung disimpan. Kegiatan yang sudah ada hanya di-{@code refresh} sehingga nilainya
+	 * tidak ditimpa.</p>
+	 *
+	 * @param jatelindoRequest permintaan Jatelindo yang memuat mahasiswa, semester, tahun
+	 *                         akademik, jenis kegiatan, dan jadwal pembayaran
+	 * @param session          session Hibernate aktif milik pemanggil; transaksi dibuka dan
+	 *                         di-<i>commit</i> di dalam method ini
+	 * @return kegiatan yang ditemukan atau yang baru dibuat
+	 */
 	public static Kegiatan createKegiatan(JatelindoRequest jatelindoRequest, Session session) {
 		Kegiatan kegiatan = null;
 		Double nilaiBiayaHarusDiBayars = jatelindoRequest.getNilaiBiayaHarusDiBayars();
@@ -139,6 +235,27 @@ public class JatelindoCallback extends HttpServlet {
 	}
 
 
+	/**
+	 * Menguji apakah sebuah {@link JatelindoRequest} sudah pernah diproses, sebagai penjaga
+	 * idempotensi terhadap notifikasi ganda.
+	 *
+	 * <p>Penilaian dilakukan atas koleksi {@link KegiatanTemporary} milik permintaan: dianggap
+	 * sudah diproses hanya bila koleksi itu <b>tidak kosong</b> dan <b>seluruh</b> anggotanya
+	 * sudah tertaut ke {@link Kegiatan} yang ber-id. Satu anggota yang belum tertaut membuat
+	 * seluruh permintaan dianggap belum selesai sehingga pemrosesan diulang.</p>
+	 *
+	 * <p><b>Perhatikan:</b> permintaan yang sama sekali tidak memakai keranjang
+	 * ({@code kegiatanTemporarys} kosong) selalu dinilai {@code false}. Untuk jalur itu
+	 * idempotensi ditegakkan di tempat lain, yaitu lewat kolom {@code ref} pada
+	 * {@link CicilanPembayaran} dan lewat pemeriksaan {@code kodeStatus} bernilai {@code "2"}
+	 * yang menghasilkan kode hasil {@code 34}.</p>
+	 *
+	 * <p>Bersifat <i>fail-open</i>: kegagalan membaca koleksi dicatat lalu dijawab {@code false},
+	 * sehingga pemrosesan tetap dicoba.</p>
+	 *
+	 * @param jatelindoRequest permintaan yang diperiksa; {@code null} dijawab {@code false}
+	 * @return {@code true} bila seluruh kegiatan sementara sudah tertaut ke kegiatan nyata
+	 */
 	private static boolean isRequestSudahDiproses(JatelindoRequest jatelindoRequest) {
 		if (jatelindoRequest == null) {
 			return false;
@@ -163,6 +280,41 @@ public class JatelindoCallback extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * Menindaklanjuti pembayaran Jatelindo yang berhasil: mengubah tagihan menjadi pembayaran
+	 * nyata.
+	 *
+	 * <p>{@link JatelindoRequest} dicari dari {@code trxId} milik respons. Seluruh pekerjaan
+	 * hanya dijalankan bila {@code kodeStatus} bernilai {@code "2"} (lunas), dan
+	 * {@link #isRequestSudahDiproses} dipanggil lebih dahulu agar notifikasi berulang tidak
+	 * menggandakan pembayaran.</p>
+	 *
+	 * <h4>Dua bentuk tagihan</h4>
+	 * <ul>
+	 *   <li><b>Keranjang</b> ({@code kegiatanTemporarys} tidak kosong) &mdash; tiap
+	 *       {@link KegiatanTemporary} diproses pada session tersendiri: {@link Kegiatan} nyata
+	 *       dicari atau dibuat, seluruh {@link CicilanPembayaran} yang menunjuk kegiatan
+	 *       sementara dialihkan ke kegiatan nyata (masing-masing pada session tersendiri pula),
+	 *       lalu kegiatan sementara ditandai sudah tertaut. Total dan tunggakan dihitung ulang
+	 *       dari jumlah nilai cicilan.</li>
+	 *   <li><b>Non-keranjang</b> &mdash; {@link #createKegiatan} dipanggil, lalu tiap
+	 *       {@link JatelindoRequestDetail} diubah menjadi {@link CicilanPembayaran}. Setelahnya
+	 *       tunggakan diperbarui dan bukti pembayaran dicetak.</li>
+	 * </ul>
+	 *
+	 * <p>Jenis pembayaran ditentukan dari konfigurasi {@code kode_akun_jatelindo}, dan bila
+	 * nominal lebih dari 0,1 sebuah {@link LogPembayaran} dibuat atau dimutakhirkan.</p>
+	 *
+	 * <p><b>Keamanan:</b> method ini mempercayai penuh {@code kodeStatus} pada
+	 * {@link JatelindoResponse} yang dibentuk dari pesan masuk tanpa verifikasi MAC atau tanda
+	 * tangan; lihat peringatan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Penyimpanan dilakukan dalam banyak transaksi kecil pada beberapa session yang
+	 * di-<i>commit</i> berurutan, sehingga kegagalan di tengah dapat meninggalkan keadaan
+	 * setengah jadi.</p>
+	 *
+	 * @param jatelindoResponse respons yang memuat nomor transaksi dan kode status pembayaran
+	 */
 	@SuppressWarnings({ "unchecked", "static-access" })
 	public static void prosesResponse(JatelindoResponse jatelindoResponse) {
 		Session session = null;
@@ -452,6 +604,22 @@ public class JatelindoCallback extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mencatat satu pesan Jatelindo sebagai baris {@link JatelindoResponse}.
+	 *
+	 * <p>Nomor transaksi diambil dari potongan {@code bit48} sampai spasi pertama. Baris yang
+	 * sudah ada dicari berdasarkan {@code trxId} yang sama, diambil yang id-nya terbesar; bila
+	 * tidak ada, baris baru dibuat. Isi pesan disimpan apa adanya pada kolom {@code keterangan},
+	 * dan status awal selalu {@link JatelindoResponse#SEDANG_DIPROSES} &mdash; status sebenarnya
+	 * baru diisi pemanggil di {@link #process(String, HttpServletRequest, BankHost, boolean)}.</p>
+	 *
+	 * <p>Session Hibernate dibuka sendiri dan ditutup di blok {@code finally}; objek yang
+	 * dikembalikan karena itu bersifat <i>detached</i>.</p>
+	 *
+	 * @param jatelindo pesan masuk dalam bentuk JSON bermedan bit
+	 * @return baris {@link JatelindoResponse} yang tersimpan
+	 * @throws Exception bila {@code bit48} tidak ada atau penyimpanan gagal
+	 */
 	public static JatelindoResponse prosesTransaksi(JSONObject jatelindo) throws Exception {
 		String bit48Request = jatelindo.getString("bit48");
 		String trx_id = bit48Request.split(" ")[0].trim();
@@ -480,6 +648,22 @@ public class JatelindoCallback extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membaca badan permintaan sebagai satu string JSON, memprosesnya, lalu menuliskan balasan.
+	 *
+	 * <p>Alamat IP pemanggil dipetakan lebih dahulu menjadi {@link BankHost} dengan label
+	 * {@code "Jatelindo"}, lalu seluruh pekerjaan diserahkan ke
+	 * {@link #process(String, HttpServletRequest, BankHost, boolean)} dengan
+	 * {@code tetaplanjut} bernilai {@code false}. Balasan selalu dikirim sebagai
+	 * {@code application/json}.</p>
+	 *
+	 * <p>Perhatikan bahwa badan permintaan dibaca baris demi baris dan pemisah barisnya dibuang,
+	 * sehingga payload multi-baris digabung rapat.</p>
+	 *
+	 * @param request  permintaan masuk dari switching Jatelindo
+	 * @param response balasan yang akan diisi JSON bermedan bit
+	 * @throws Exception bila pembacaan permintaan atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), "Jatelindo");
@@ -499,6 +683,56 @@ public class JatelindoCallback extends HttpServlet {
 		writer.write(hasil);
 	}
 
+	/**
+	 * Inti pemrosesan pesan Jatelindo: menjawab inquiry atau membukukan payment.
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>Payload diurai menjadi JSON; nilai transaksi diambil dari {@code bit4}.</li>
+	 *   <li>Nomor transaksi diambil dari {@code bit48}: dipotong sampai spasi pertama bila
+	 *       {@code bit3} bernilai {@code 380000}, atau diambil posisi 10&ndash;26 bila
+	 *       {@code bit3} bernilai {@code 170000}.</li>
+	 *   <li>{@link JatelindoRequest} dicari dari nomor itu. Bila tidak ada, <b>atau</b>
+	 *       {@code bankHost} bernilai {@code null}, balasan diberi kode {@code bit39 = 14}.</li>
+	 *   <li>Bila tagihan sudah berstatus {@code "2"} dan {@code tetaplanjut} bernilai
+	 *       {@code false}, balasan diberi kode {@code 34}.</li>
+	 *   <li>Nilai transaksi harus sama persis dengan {@code amount + biayaAdministrasi};
+	 *       bila tidak, balasan diberi kode {@code 51}.</li>
+	 * </ol>
+	 *
+	 * <h4>Dua cabang transaksi</h4>
+	 * <ul>
+	 *   <li><b>Inquiry</b> ({@code bit3 = 380000}) &mdash; status permintaan disetel
+	 *       {@code "Sedang diproses"} berkode {@code "1"}, lalu {@code bit48} balasan disusun
+	 *       dari nomor rekening alias, nomor VA, nama, jenis transaksi, keterangan, id transaksi,
+	 *       nominal, biaya administrasi, nomor telepon, dan surel &mdash; masing-masing dipotong
+	 *       atau dipadatkan ke lebar tetap oleh {@code Common.maxPanjangSpace} dan
+	 *       {@code Common.maxPanjangNol}. {@code bit62} berisi versi berlabel yang siap
+	 *       ditampilkan.</li>
+	 *   <li><b>Payment</b> ({@code bit3 = 170000}) &mdash; status disetel {@code "Payment
+	 *       Sukses"} berkode {@code "2"}, {@link #prosesResponse} dijalankan untuk membukukan
+	 *       pembayaran, dan {@code bit48} balasan ditambahi nomor referensi baru.</li>
+	 * </ul>
+	 * <p>Kedua cabang mengisi {@code bit39} dengan {@code "00"} bila berhasil, dan blok
+	 * {@code finally} selalu menyetel {@code mti} menjadi {@code "0210"}.</p>
+	 *
+	 * <p><b>Keamanan:</b> tidak ada verifikasi MAC, tanda tangan, atau kredensial pada cabang
+	 * mana pun. Penjagaan {@code bankHost != null} bersifat berbasis IP dan lemah; lihat
+	 * peringatan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Blok {@code finally} selalu menulis satu {@link LogHostToHost}. Alamat IP yang dicatat
+	 * diambil berurutan dari header {@code Cf-Connecting-Ip}, {@code CF-Connecting-IP},
+	 * {@code X-Forwarded-For}, {@code X-Real-IP}, baru {@code getRemoteAddr()} &mdash; sehingga
+	 * nilai yang tercatat berasal dari header yang dapat dipalsukan pemanggil, dan hanya layak
+	 * dipercaya bila di depan aplikasi memang ada proksi yang menimpanya.</p>
+	 *
+	 * @param request     permintaan asal, dipakai untuk pencatatan log H2H; boleh {@code null}
+	 * @param data        payload JSON mentah bermedan bit
+	 * @param bankHost    host bank hasil pemetaan IP; {@code null} membuat balasan berkode 14
+	 * @param tetaplanjut {@code true} memaksa pemrosesan diteruskan walau tagihan sudah lunas
+	 * @return string JSON balasan yang siap dikirim ke mitra
+	 * @throws Exception bila kegagalan terjadi di luar jangkauan penanganan internal
+	 */
 	@SuppressWarnings({})
 	public static String process(String data, HttpServletRequest request, BankHost bankHost, boolean tetaplanjut)
 			throws Exception {

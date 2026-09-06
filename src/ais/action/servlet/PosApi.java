@@ -191,6 +191,81 @@ public class PosApi extends HttpServlet {
 		response.setHeader("Access-Control-Max-Age", "600");
 	}
 
+	/**
+	 * <h3>Titik masuk TUNGGAL seluruh aksi POS.</h3>
+	 *
+	 * Dipanggil {@link #doGet} maupun {@link #doPost}. Aksi ditentukan field
+	 * {@code action} pada body JSON (BUKAN parameter form, BUKAN path URL), sehingga
+	 * satu URL {@code /PosApi} melayani ratusan aksi -- lihat JavaDoc kelas untuk
+	 * pengelompokannya.
+	 *
+	 * <h3>Urutan gerbang (dijalankan persis dalam urutan ini)</h3>
+	 * <ol>
+	 *   <li><b>Header.</b> CORS ({@link #terapkanHeaderCors}), {@code application/json},
+	 *       dan {@code Cache-Control: no-store} -- balasan POS berisi angka penjualan
+	 *       dan identitas member, tidak boleh mengendap di cache mana pun.</li>
+	 *   <li><b>Aksi tanpa token.</b> {@code login}, {@code logout}, dan
+	 *       {@code i18n_kamus} dijawab dan langsung {@code return} -- ketiganya memang
+	 *       harus bisa dipanggil SEBELUM perangkat punya token. {@code i18n_kamus}
+	 *       aman dibuka karena isinya teks antarmuka statis, tanpa data toko/transaksi.</li>
+	 *   <li><b>Identitas.</b> {@link PosDeviceAuthApi#resolveDariRequest} membaca
+	 *       {@code Authorization: Bearer <token>}. Bila gagal DAN aksinya termasuk
+	 *       {@code aksiJspDenganSesi} (berawalan {@code si_} atau
+	 *       {@code laporan_riwayat_penjualan_analitik}), identitas dicoba lagi dari
+	 *       cookie sesi web ({@code Common.getCurrentUser}) -- partial {@code dashboard.jsp}
+	 *       berjalan same-origin dan tidak memegang token perangkat. Fallback ini
+	 *       MEMPERLUAS cara membuktikan identitas, TIDAK melewati gerbang hak akses:
+	 *       {@link #bolehAksesActionKantin} di langkah berikutnya tetap dijalankan.
+	 *       Gagal keduanya -&gt; {@code 401}.</li>
+	 *   <li><b>Otorisasi menu.</b> {@link #bolehAksesActionKantin} -- gerbang LAPIS
+	 *       PERTAMA (kunci menu peran). Ditolak -&gt; {@code 403}. Lapis kedua (hak
+	 *       per-aksi create/update/delete/approve dan cakupan toko/tenant) ditegakkan
+	 *       lagi di dalam masing-masing helper; keduanya wajib, bukan salah satu.</li>
+	 *   <li><b>Jejak audit.</b> Identitas hasil token dititipkan sebagai atribut
+	 *       {@code AuditTimestampInterceptor.ATTR_PENGGUNA_POS} supaya setiap simpanan
+	 *       pada permintaan ini tercatat atas nama kasir yang login -- tanpa ini kolom
+	 *       {@code oleh}/{@code olehId} terisi "external_update" karena klien POS memang
+	 *       tidak punya sesi web.</li>
+	 *   <li><b>Idempotensi.</b> Bila body membawa {@code client_mutation_id} DAN aksinya
+	 *       termasuk mutasi master yang diantre offline, respons eksekusi pertama
+	 *       diputar ulang apa adanya -- kiriman ulang dari antrean tidak menciptakan
+	 *       data ganda. Fail-open: bila penyimpanan idempotensi bermasalah, aksinya
+	 *       tetap dijalankan (lihat {@code MutasiIdempotenEBisnisUtil}).</li>
+	 *   <li><b>Dispatch.</b> Rantai {@code else if} raksasa. Aksi tak dikenal ditawarkan
+	 *       dulu ke {@link #prosesAksiTambahan} (hook subclass per lini produk) sebelum
+	 *       dijawab "Aksi tidak dikenal".</li>
+	 * </ol>
+	 *
+	 * <h3>Dua bentuk balasan yang bercampur di sini</h3>
+	 * <p>Sebagian besar cabang memanggil helper warisan servlet {@code /Data} yang
+	 * memakai konvensi kode angka ({@code "00"}/{@code "91"}/{@code "99"}), lalu
+	 * meratakannya lewat {@link #normalisasiStatusKantinHelper} ke
+	 * {@code status:"success"|"error"} yang dituntut klien. Cabang yang menulis
+	 * {@code hasil} sendiri sudah memakai bentuk akhir dan TIDAK dinormalisasi.
+	 * Mencampur keduanya tanpa sadar adalah sumber bug klasik di berkas ini --
+	 * lihat catatan pada {@code mutasi_stok_simpan}, yang kontraknya 3 keadaan
+	 * ("92" = butuh pilih manual) sehingga sengaja tidak lewat normalisasi standar.</p>
+	 *
+	 * <h3>CATATAN CACAT YANG DIKETAHUI -- {@code return} tanpa {@code tulisJson}</h3>
+	 * <p>Penolakan hak pada cabang {@code sesi_kas_buka} dan {@code pedagang_ubah}
+	 * memakai {@code return} polos di dalam blok {@code try}. Karena
+	 * {@link #tulisJson} baru dipanggil SETELAH {@code catch} di ujung method,
+	 * kedua penolakan itu mengirim {@code 200} dengan BODY KOSONG -- alasan
+	 * penolakannya ("tidak memiliki hak membuka sesi kas" / "mengubah akun pengguna")
+	 * tidak pernah sampai ke kasir, yang hanya melihat galat generik. Aksinya sendiri
+	 * TETAP TERBLOKIR (helper tidak pernah dipanggil), jadi ini cacat keterbacaan
+	 * pesan, BUKAN celah otorisasi. Seluruh {@code return} awal lain di method ini
+	 * memanggil {@code tulisJson} lebih dulu -- dua ini yang menyimpang.</p>
+	 *
+	 * <h3>Amplop galat</h3>
+	 * <p>{@code catch} terluar membungkus SELURUH badan method -- termasuk
+	 * {@link #bacaJsonBody} dan aksi {@code login} yang belum terautentikasi -- lalu
+	 * membalas amplop tetap {@code kode:"KESALAHAN_SISTEM"} berikut {@code teknis}
+	 * yang berisi stack trace Java LENGKAP. Itu keputusan sadar demi panel "Detail
+	 * Error" di POS, tetapi berarti stack trace juga terkirim kepada pemanggil yang
+	 * BELUM login. Pesan {@code solusi} sengaja mengingatkan jangan mengulang
+	 * pembayaran sebelum memastikan transaksi sebelumnya belum tercatat.</p>
+	 */
 	private void proses(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		terapkanHeaderCors(response);
 		response.setContentType("application/json; charset=UTF-8");

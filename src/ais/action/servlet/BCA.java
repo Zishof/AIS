@@ -273,6 +273,119 @@ public class BCA extends HttpServlet {
 	 */
 	private static Pattern p = Pattern.compile("[^a-z0-9 ]", Pattern.CASE_INSENSITIVE);
 
+	/**
+	 * Inti pemroses transaksi VA: memvalidasi permintaan SNAP, memposting pembayaran ke basis
+	 * data bila layak, dan merakit objek balasan {@code responseCode}/{@code virtualAccountData}.
+	 *
+	 * <p><b>Prasyarat keamanan.</b> Metode ini <b>tidak melakukan otentikasi apa pun</b> dan
+	 * mengasumsikan pemanggilnya sudah menuntaskannya.
+	 * {@link #process(HttpServletRequest, HttpServletResponse)} adalah satu-satunya pemanggil di
+	 * seluruh basis kode, dan ia baru sampai ke sini setelah {@code CHANNEL-ID}, {@code X-PARTNER-ID},
+	 * bearer token dari {@link #accessTokens}, dan tanda tangan HMAC-SHA512 semuanya lolos. Jangan
+	 * memanggil metode ini dari jalur baru tanpa mereplikasi rantai tersebut.</p>
+	 *
+	 * <h3>Tiga mode operasi</h3>
+	 * <p>Perilaku ditentukan oleh pasangan flag {@code inquery} dan {@code status}:</p>
+	 * <ul>
+	 *   <li>{@code inquery=true} — penanyaan tagihan. Merakit rincian tagihan tetapi tidak
+	 *       menyimpan {@code CicilanPembayaran} maupun memanggil {@code updateVa}.</li>
+	 *   <li>{@code inquery=false, status=false} — notifikasi pembayaran. Inilah satu-satunya mode
+	 *       yang benar-benar memposting uang.</li>
+	 *   <li>{@code status=true} — penanyaan status transaksi. Melewati penjaga "sudah terbayar"
+	 *       dan pencocokan nominal, serta melewati {@code bayarSiswa}/{@code updateVa}; ia
+	 *       membalas dari kolom {@code notif} yang tersimpan.</li>
+	 * </ul>
+	 *
+	 * <h3>Rantai penjaga, berurutan</h3>
+	 * <p>Rangkaian {@code else if} yang panjang dievaluasi berurutan; penjaga <b>pertama</b> yang
+	 * cocok menentukan balasan dan mencegah pemostingan:</p>
+	 * <ol>
+	 *   <li>VA tidak ditemukan &rarr; {@code 4042412}/{@code 4042512} "Invalid Bill/Virtual Account".</li>
+	 *   <li>Format {@code partnerServiceId}, {@code virtualAccountNo}, atau {@code customerNo}
+	 *       memuat karakter di luar {@link #p} &rarr; "Invalid Field Format".</li>
+	 *   <li>Field wajib kosong &rarr; "Invalid Mandatory Field".</li>
+	 *   <li>{@code virtualAccountNo}/{@code customerNo} bukan angka &rarr; "Invalid Field Format".</li>
+	 *   <li>{@code paidAmount} tidak berakhiran {@code .00} &rarr; {@code 4042513} "Invalid Amount".</li>
+	 *   <li>Tagihan sudah lunas (dua varian pemeriksaan) &rarr; {@code 4042414}/{@code 4042514}
+	 *       "Paid Bill". Penjaga ini <b>dilewati</b> saat {@code status=true}.</li>
+	 *   <li>Tagihan kadaluarsa &rarr; {@code 4042419}/{@code 4042519}. Dilewati bila
+	 *       {@code chekLagi=true}.</li>
+	 *   <li>Nominal tidak sama persis dengan {@code totalBiaya()} &rarr; {@code 4042513}
+	 *       "Invalid Amount".</li>
+	 * </ol>
+	 *
+	 * <h3>Perlakuan nominal</h3>
+	 * <p>Pada mode pembayaran, nominal wajib <b>sama persis</b> dengan
+	 * {@code virtualAccountBankNtt.totalBiaya()} (perbandingan {@code intValue()}), sehingga
+	 * pembayaran nol maupun negatif ikut tertolak selama tagihannya bernilai. Perlu dicatat dua
+	 * hal: pembandingannya memakai {@code int} sehingga pecahan rupiah terpotong, dan seluruh blok
+	 * pemostingan bersyarat {@code getTotal() > 0.1} — VA bernilai nol tidak masuk cabang mana pun
+	 * dan tetap dibalas {@code 2002500 Successful} tanpa ada yang tercatat.</p>
+	 *
+	 * <h3>Efek terhadap basis data</h3>
+	 * <p>Untuk pembayaran mahasiswa/calon mahasiswa: {@code Kegiatan} dicari atau dibuat lalu
+	 * disimpan, kemudian token pada kolom {@code cicilan} milik VA diurai satu per satu menjadi
+	 * baris {@code CicilanPembayaran}. Empat bentuk token dikenali — id polos, {@code Bulanan-},
+	 * {@code Item-}, dan {@code Keranjang-} (yang didelegasikan ke
+	 * {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}). Setiap baris diberi kunci
+	 * {@code ref} deterministik {@code "ntt-<kegiatanId>-<token>-<vaId>"} lalu dicari ulang
+	 * sebelum ditulis, sehingga <b>pengiriman ulang memperbarui baris yang sama alih-alih
+	 * menggandakannya</b>. Untuk siswa/calon siswa, pemostingan didelegasikan ke
+	 * {@code VirtualAccountBank.bayarSiswa}. Terakhir denda dan sisa terhutang dihitung ulang dan
+	 * {@code updateVa} menutup VA.</p>
+	 * <p><b>Perhatikan:</b> penyimpanan {@code Kegiatan} juga berjalan pada mode inquiry dan
+	 * status, sehingga penanyaan saja sudah dapat membuat baris {@code Kegiatan} bernilai
+	 * {@code validated=1}. Baris itu belum bermakna lunas — kelunasan ditentukan oleh
+	 * {@code CicilanPembayaran} dan {@code updateVa} yang hanya berjalan di mode pembayaran.</p>
+	 *
+	 * <h3>Anti-ulang lewat {@code X-EXTERNAL-ID}</h3>
+	 * <p>Setelah pemrosesan, kunci {@code requestId + "_" + xTernal} dan {@code xTernal} sendiri
+	 * dicatat pada {@link #unikId}. Permintaan berikutnya dengan kunci gabungan yang sama dibalas
+	 * "Inconsistent Request", sedangkan {@code X-EXTERNAL-ID} yang sama dengan isi berbeda dibalas
+	 * {@code 409 Conflict}. Ingat bahwa peta ini hanya di memori dan tidak pernah dibersihkan.</p>
+	 *
+	 * <h3>Transaksi dan pencatatan</h3>
+	 * <p>Metode ini membuka {@link Session} Hibernate sendiri dan memakai beberapa transaksi
+	 * pendek berturut-turut, bukan satu transaksi menyeluruh — kegagalan di tengah dapat
+	 * meninggalkan {@code Kegiatan} tersimpan tanpa seluruh {@code CicilanPembayaran}-nya. Blok
+	 * {@code catch} membalas {@code 4002400} dengan status HTTP 401 dan merekam jejak tumpukan;
+	 * blok {@code finally} menjamin session ditutup dan <b>selalu</b> menulis
+	 * {@link LogHostToHost} lewat {@code PembayaranGatewayHelper.catatLogHostToHost}, bahkan
+	 * ketika {@code bankHost} bernilai {@code null}. Pencatatan tanpa syarat itu adalah keputusan
+	 * arsitektur yang disengaja, bukan kelalaian.</p>
+	 *
+	 * @param nominalP           nominal yang dibayarkan dalam rupiah; {@code 0.0} untuk inquiry
+	 * @param paidAmountReq      nilai mentah {@code paidAmount.value} untuk pemeriksaan sufiks
+	 *                           {@code .00}; {@code null} bila body tidak memuatnya
+	 * @param tanggalP           {@code trxDateTime} yang sufiks zona {@code +07:00}-nya sudah
+	 *                           dibuang, siap diurai {@link #dateFormat1}
+	 * @param va                 nomor VA yang dipakai mencari {@link VirtualAccountBank}
+	 * @param partnerServiceId   identitas layanan mitra dari body, divalidasi formatnya
+	 * @param customerNo         nomor pelanggan dari body, divalidasi formatnya
+	 * @param virtualAccountNo   nomor VA dari body, divalidasi formatnya
+	 * @param virtualAccountName nama pemilik VA; ditimpa nama asli bila VA ditemukan
+	 * @param requestId          {@code inquiryRequestId} atau {@code paymentRequestId}
+	 * @param xTernal            nilai header {@code X-EXTERNAL-ID} untuk anti-ulang
+	 * @param trxDateTime        stempel waktu transaksi apa adanya untuk digemakan di balasan
+	 * @param referenceNo        nomor referensi bank untuk digemakan di balasan
+	 * @param bank               label validator yang disimpan pada baris pembayaran; selalu
+	 *                           {@code "BCA"} dari {@link #process}
+	 * @param bankHost           {@link BankHost} hasil pemetaan IP; boleh {@code null} dan tidak
+	 *                           menghentikan pemrosesan — hanya membuat jenis pembayaran jatuh ke
+	 *                           {@code ConstantValues.TUNAI}
+	 * @param request            permintaan asli, dipakai untuk pencatatan log H2H
+	 * @param response           respons, dipakai untuk menetapkan status HTTP 400/404/401
+	 * @param data               body JSON mentah, disimpan ke log dan diteruskan ke pemosting
+	 * @param chekLagi           bila {@code true}, penjaga tagihan kadaluarsa dilewati
+	 * @param inquery            {@code true} untuk penanyaan tagihan, {@code false} untuk pembayaran
+	 * @param status             {@code true} untuk penanyaan status; melewati penjaga kelunasan
+	 *                           dan pencocokan nominal serta tidak memposting apa pun
+	 * @return objek JSON SNAP lengkap berisi {@code responseCode}, {@code responseMessage}, dan
+	 *         {@code virtualAccountData}
+	 * @throws Exception bila perakitan JSON gagal di luar blok yang sudah tertangkap
+	 * @see #process(HttpServletRequest, HttpServletResponse)
+	 * @see VirtualAccountBank#ambilVa(String, Double, BankHost)
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(Double nominalP, String paidAmountReq, String tanggalP, String va,
 			String partnerServiceId, String customerNo, String virtualAccountNo, String virtualAccountName,
@@ -1272,42 +1385,147 @@ public class BCA extends HttpServlet {
 		return responseUtama;
 	}
 
+	/**
+	 * Masa berlaku <i>access token</i> yang <b>diumumkan kepada BCA</b> pada field {@code expiresIn}
+	 * balasan penerbitan token; bernilai {@code 60 * 15 = 900}.
+	 *
+	 * <p>Spesifikasi SNAP menyatakan {@code expiresIn} dalam <b>detik</b>, sehingga 900 berarti 15
+	 * menit — sesuai dengan {@link #expiresIn} yang menghitung 900.000 milidetik. Nama field yang
+	 * berakhiran "Minute" karenanya menyesatkan: satuannya detik, bukan menit.</p>
+	 */
 	private int expiresInMinute = 60 * 15;
+
+	/**
+	 * Masa berlaku token dalam <b>milidetik</b> yang benar-benar ditegakkan oleh {@link Remover};
+	 * bernilai {@code 1000 * 900 = 900_000}, yaitu 15 menit.
+	 *
+	 * <p>Dipakai pada kondisi perulangan {@link Remover#run()}. Karena {@link Remover} adalah kelas
+	 * dalam non-statik, ia membaca field instance ini langsung dari instance {@link BCA} induknya.</p>
+	 */
 	private int expiresIn = 1000 * expiresInMinute;
 
 	/**
-	 * Tipe implementasi bersarang {@link Remover} milik {@link BCA}. Kelas ini memberi nama pada state atau
-	 * perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 * Penjaga masa hidup satu <i>access token</i> B2B: sebuah {@link Runnable} yang berjalan pada
+	 * thread tersendiri, menunggu sampai masa berlaku token habis, lalu mencabut token itu dari
+	 * {@link BCA#accessTokens}.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BCA} dan dapat mengakses state kelas induk.
-	 * Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long startedTime}, {@code String
-	 * token}; operasi lokal: {@code toString()}, {@code setStartedTime()}, {@code run}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * <p><b>Scope:</b> kelas dalam non-statik, sehingga setiap instance terikat pada instance
+	 * {@link BCA} dan membaca {@link BCA#expiresIn} serta {@link BCA#accessTokens} milik induknya.</p>
 	 *
-	 * @see BCA
+	 * <h3>Daur hidup</h3>
+	 * <p>{@link #process(HttpServletRequest, HttpServletResponse)} membuat satu {@code Remover} tiap
+	 * kali token diterbitkan, menjalankannya pada {@link Thread} baru, dan menyimpannya sebagai
+	 * <i>nilai</i> pada {@link BCA#accessTokens} dengan token sebagai kuncinya. Instance ini juga
+	 * berperan sebagai penanda keabsahan: cukup ditemukannya {@code Remover} untuk sebuah token
+	 * sudah berarti token itu masih berlaku.</p>
+	 *
+	 * <h3>Masa berlaku bergeser, bukan tetap</h3>
+	 * <p>Setiap permintaan transaksi yang lolos memanggil {@link #setStartedTime(long)} dengan waktu
+	 * sekarang, sehingga hitungan mundur <b>diulang dari awal</b>. Akibatnya token tidak punya umur
+	 * mutlak: selama BCA memakainya sekurang-kurangnya sekali tiap 15 menit, token itu dapat hidup
+	 * tanpa batas. Ini pola <i>sliding expiration</i>, bukan kedaluwarsa absolut.</p>
+	 *
+	 * <h3>Catatan implementasi</h3>
+	 * <ul>
+	 *   <li>Menunggu dengan <i>polling</i> {@code Thread.sleep(1000)} alih-alih penjadwal, sehingga
+	 *       setiap token yang aktif menahan satu thread OS selama masa berlakunya.</li>
+	 *   <li>Thread dibuat tanpa nama dan tanpa status <i>daemon</i>.</li>
+	 *   <li>Penghapusan dari {@link HashMap} yang tidak sinkron dilakukan dari thread ini, sementara
+	 *       penyisipan terjadi dari thread permintaan — sebuah balapan yang secara teori dapat
+	 *       merusak struktur peta.</li>
+	 *   <li>Bila aplikasi di-restart, seluruh thread dan token hilang; BCA harus meminta token baru.</li>
+	 * </ul>
+	 *
+	 * @see BCA#accessTokens
+	 * @see BCA#expiresIn
 	 */
 	class Remover implements Runnable {
 
+		/**
+		 * Waktu mulai hitungan mundur dalam milidetik zaman ({@code System.currentTimeMillis()}).
+		 *
+		 * <p>Diisi saat token diterbitkan dan <b>disetel ulang</b> oleh {@link #setStartedTime(long)}
+		 * pada setiap pemakaian token yang lolos, sehingga menghasilkan masa berlaku bergeser.
+		 * Dibaca oleh {@link #run()} tanpa penyelarasan memori: ia ditulis dari thread permintaan
+		 * dan dibaca dari thread penghapus tanpa {@code volatile} maupun kunci, sehingga
+		 * pembaruannya tidak dijamin terlihat segera oleh {@link #run()}.</p>
+		 */
 		private long startedTime;
+
+		/**
+		 * Nilai token yang dijaga instance ini; sekaligus kunci yang dipakai untuk mencabutnya
+		 * dari {@link BCA#accessTokens}.
+		 *
+		 * <p>Berupa {@link UUID} acak yang dibuat saat penerbitan. Bersifat rahasia — ia adalah
+		 * <i>bearer token</i>, sehingga siapa pun yang memilikinya dapat memanggil endpoint
+		 * transaksi. Bernilai final secara logika: tidak pernah diubah setelah konstruksi.</p>
+		 */
 		private String token;
 
+		/**
+		 * Menghasilkan representasi teks berbentuk {@code "<startedTime>_<token>"}.
+		 *
+		 * <p>Dipakai oleh pernyataan {@code System.out.println} penelusuran di
+		 * {@link #process(HttpServletRequest, HttpServletResponse)}.</p>
+		 *
+		 * <p><b>Peringatan keamanan:</b> keluarannya memuat <b>nilai token mentah</b>. Setiap
+		 * pemakaian pada log akan membocorkan kredensial <i>bearer</i> ke berkas log server;
+		 * perlakukan log tersebut sebagai data rahasia, dan samarkan nilainya bila baris log ini
+		 * dipertahankan.</p>
+		 *
+		 * @return gabungan stempel waktu mulai dan nilai token, dipisahkan garis bawah
+		 */
 		public String toString() {
 			return startedTime + "_" + token;
 		}
 
+		/**
+		 * Menyetel ulang awal hitungan mundur sehingga masa berlaku token diperpanjang.
+		 *
+		 * <p>Dipanggil {@link #process(HttpServletRequest, HttpServletResponse)} setiap kali sebuah
+		 * permintaan transaksi berhasil menemukan tokennya. Inilah mekanisme yang mengubah masa
+		 * berlaku tetap menjadi masa berlaku bergeser: token yang terus dipakai tidak pernah
+		 * kedaluwarsa.</p>
+		 *
+		 * <p>Perubahan ini tidak diselaraskan dengan thread {@link #run()} yang membacanya.</p>
+		 *
+		 * @param startedTime waktu mulai yang baru dalam milidetik zaman, biasanya
+		 *                    {@code System.currentTimeMillis()}
+		 */
 		public void setStartedTime(long startedTime) {
 			this.startedTime = startedTime;
 		}
 
+		/**
+		 * Membentuk penjaga masa hidup untuk sebuah token yang baru diterbitkan.
+		 *
+		 * <p>Konstruktor hanya menyimpan kedua nilai; hitungan mundur baru berjalan setelah
+		 * instance ini diserahkan ke sebuah {@link Thread} dan {@link #run()} dimulai.</p>
+		 *
+		 * @param startedTime waktu penerbitan token dalam milidetik zaman
+		 * @param token       nilai token yang akan dicabut saat masa berlakunya habis
+		 */
 		public Remover(long startedTime, String token) {
 			this.startedTime = startedTime;
 			this.token = token;
 		}
 
+		/**
+		 * Menunggu sampai masa berlaku token habis, lalu mencabutnya dari {@link BCA#accessTokens}.
+		 *
+		 * <p>Berputar selama {@code startedTime + expiresIn} masih berada di masa depan, tidur satu
+		 * detik tiap putaran. Karena {@link #startedTime} dapat dimajukan
+		 * {@link #setStartedTime(long)} di tengah penantian, perulangan ini otomatis memperpanjang
+		 * dirinya — perilaku yang disengaja untuk mewujudkan masa berlaku bergeser.</p>
+		 *
+		 * <p>Setelah perulangan usai, token dihapus dan permintaan berikutnya yang memakainya akan
+		 * ditolak dengan {@code 401 Invalid Token (B2B)}.</p>
+		 *
+		 * <p><b>Catatan:</b> komentar "2 seconds" pada kode adalah sisa salin-tempel; jeda yang
+		 * sebenarnya adalah {@link BCA#expiresIn}, yakni 15 menit. Pengecualian dari
+		 * {@code Thread.sleep} hanya dicatat lalu perulangan diteruskan, sehingga interupsi tidak
+		 * menghentikan penjaga ini.</p>
+		 */
 		@Override
 		public void run() {
 			// remove element from list 2 seconds after adding it

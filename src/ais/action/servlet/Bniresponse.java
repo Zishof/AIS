@@ -280,10 +280,58 @@ public class Bniresponse extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * Mencari atau membuat {@link Kegiatan} milik pembayar sebuah
+	 * {@link BniRequest}, memakai jenis kegiatan bawaan request tersebut.
+	 *
+	 * <p>
+	 * Pintasan yang meneruskan {@link BniRequest#getJenisKegiatan()} ke
+	 * {@link #createKegiatan(BniRequest, JenisKegiatan, Session)}.
+	 *
+	 * @param bniRequest request pembayaran sumber data kegiatan
+	 * @param session    session Hibernate untuk query dan penyimpanan
+	 * @return kegiatan yang sudah ada atau yang baru dibuat; dapat {@code null} bila
+	 *         request tidak tertaut mahasiswa maupun calon mahasiswa
+	 */
 	public static Kegiatan createKegiatan(BniRequest bniRequest, Session session) {
 		return createKegiatan(bniRequest, bniRequest.getJenisKegiatan(), session);
 	}
 
+	/**
+	 * Mencari {@link Kegiatan} yang sudah ada untuk kombinasi pembayar, semester,
+	 * dan jenis kegiatan tertentu &mdash; atau membuatnya bila belum ada.
+	 *
+	 * <h3>Pencarian</h3>
+	 * Untuk {@link Mahasiswa} dipakai {@code ambilKegiatans(semester, jenisKegiatan)}.
+	 * Untuk {@link BiodataCalonMahasiswa} dipakai pencarian yang sama, dengan
+	 * pelonggaran khusus semester {@code <= 1}: bila tidak ketemu, dicoba lagi tanpa
+	 * batasan semester &mdash; menampung kasus pendaftar baru yang kegiatannya
+	 * dibuat sebelum semester ditetapkan.
+	 *
+	 * <h3>Pembuatan</h3>
+	 * Kegiatan baru diisi jenis kegiatan, jadwal pembayaran, pembayar, semester,
+	 * tahun akademik, tanggal server, {@code validated = 1}, dan nama validator dari
+	 * konfigurasi {@code default_validator_bni} (bawaan {@code "BNI"}). Status
+	 * mahasiswa diambil dari status berjalan untuk mahasiswa, atau
+	 * {@code ConstantValues.AKTIF} untuk calon mahasiswa.
+	 *
+	 * <h3>Penanganan instance detached</h3>
+	 * Bila kegiatan sudah ada, instance-nya bisa saja <i>detached</i> karena berasal
+	 * dari session lama yang sudah tertutup. Karena itu {@code session.refresh(...)}
+	 * hanya dipanggil ketika {@code session.contains(...)} bernilai true; selain itu
+	 * objek dimuat ulang berdasarkan id agar yang dikembalikan selalu instance
+	 * <i>managed</i>. Kegagalan pada jalur ini pun masih dicoba sekali lagi lewat
+	 * pemuatan ulang by id.
+	 *
+	 * @param bniRequest       request pembayaran sumber pembayar, semester, tahun
+	 *                         akademik, jadwal, pengurangan, dan keterangan
+	 * @param jenisKegiatanData jenis kegiatan yang dikehendaki; bila {@code null}
+	 *                         dipakai {@link BniRequest#getJenisKegiatan()}
+	 * @param session          session Hibernate untuk query dan penyimpanan
+	 * @return kegiatan yang sudah ada (dalam keadaan managed) atau yang baru
+	 *         disimpan; {@code null} bila request tidak tertaut mahasiswa maupun
+	 *         calon mahasiswa
+	 */
 	public static Kegiatan createKegiatan(BniRequest bniRequest, JenisKegiatan jenisKegiatanData, Session session) {
 		Kegiatan kegiatan = null;
 		Double nilaiBiayaHarusDiBayars = bniRequest.getNilaiBiayaHarusDiBayars();
@@ -361,17 +409,66 @@ public class Bniresponse extends HttpServlet {
 		return kegiatan;
 	}
 
+	/**
+	 * Membukukan sebuah {@link BniResponse} yang sudah tersimpan &mdash; varian
+	 * normal yang tetap menghormati penjaga idempotensi
+	 * {@link #isRequestSudahDiproses}.
+	 *
+	 * <p>
+	 * Inilah varian yang dipanggil dari jalur callback bank di {@link #process},
+	 * sehingga notifikasi berulang untuk {@code trx_id} yang sama tidak membukukan
+	 * pembayaran dua kali.
+	 *
+	 * @param bniResponse notifikasi pembayaran yang akan dibukukan
+	 * @param hapusDulu   {@code true} membersihkan cicilan/tagihan hasil pemrosesan
+	 *                    sebelumnya sebelum membukukan ulang
+	 * @return {@link BniRequest} yang berhasil dicocokkan dan diproses;
+	 *         {@code null} bila tidak ada request dengan {@code trxId} tersebut atau
+	 *         pemrosesan gagal &mdash; nilai inilah yang menentukan bank dijawab
+	 *         {@code status 000} atau {@code 001}
+	 */
 	@SuppressWarnings("unchecked")
 	public static BniRequest prosesResponse(BniResponse bniResponse, boolean hapusDulu) {
 		return prosesResponse(bniResponse, hapusDulu, false);
 	}
 
 	/**
+	 * Inti pembukuan callback BNI: mencocokkan {@link BniResponse} dengan
+	 * {@link BniRequest} lewat {@code trxId}, lalu mendistribusikan pembayaran ke
+	 * modul yang sesuai.
+	 *
+	 * <h3>Gerbang</h3>
+	 * Seluruh pembukuan hanya berjalan bila request ditemukan <b>dan</b>
+	 * {@code bniResponse.getKodeStatus()} bernilai {@code "000"} &mdash; kode yang
+	 * di {@link #process} hanya diberikan ketika {@code payment_amount} sama persis
+	 * dengan {@code trx_amount}. Callback kurang bayar karenanya tetap tersimpan
+	 * sebagai riwayat, tetapi tidak pernah membukukan pelunasan.
+	 *
+	 * <h3>Jalur pembukuan</h3>
+	 * <ul>
+	 * <li><b>Mahasiswa</b> &mdash; setiap {@link KegiatanTemporary} diangkat menjadi
+	 * {@link Kegiatan} nyata, lalu cicilannya dipindahkan menjadi
+	 * {@link CicilanPembayaran};</li>
+	 * <li><b>Siswa/calon siswa</b> &mdash; dibuat {@link PembayaranSiswa} beserta
+	 * {@link PembayaranSiswaDetail} atas {@link Tagihan} terkait;</li>
+	 * <li><b>Deposit</b> &mdash; saldo {@link DepositSiswa} ditambah lewat
+	 * {@link DepositHelper};</li>
+	 * <li><b>Kursus</b> &mdash; {@link ProdukPeserta} dan
+	 * {@link PesertaPunyaProdukKursus} ditandai lunas.</li>
+	 * </ul>
+	 * Tanggal transaksi diambil dari field {@code datetime_payment} pada keterangan
+	 * response; bila gagal diurai dipakai tanggal bawaan masing-masing objek.
+	 *
+	 * @param bniResponse notifikasi pembayaran yang akan dibukukan
+	 * @param hapusDulu   {@code true} membersihkan cicilan/tagihan hasil pemrosesan
+	 *                    sebelumnya sebelum membukukan ulang
 	 * @param paksaProses bila TRUE, LEWATI guard {@link #isRequestSudahDiproses} (paksa proses ULANG).
 	 *                    Dipakai saat admin menekan "Cek Pembayaran"/"Check Ulang Semua" agar pembayaran
 	 *                    yang TIDAK SENGAJA TERHAPUS tetap bisa dipulihkan walau status terlihat "sudah
 	 *                    diproses". Aman: proses idempoten — CicilanPembayaran dipindah/di-update &
 	 *                    LogPembayaran di-reuse (query dulu), bukan dibuat ganda.
+	 * @return {@link BniRequest} yang berhasil dicocokkan dan diproses, atau
+	 *         {@code null} bila tidak ditemukan/kode status bukan {@code "000"}
 	 */
 	public static BniRequest prosesResponse(BniResponse bniResponse, boolean hapusDulu, boolean paksaProses) {
 		Session session = null;
@@ -997,6 +1094,55 @@ public class Bniresponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Titik masuk bersama {@link #doGet} dan {@link #doPost}: membaca amplop JSON
+	 * dari BNI, mendekode payload terenkripsi memakai kunci bersama, menyimpan
+	 * {@link BniResponse}, membukukan lewat {@link #prosesResponse}, dan menjawab
+	 * bank.
+	 *
+	 * <h3>Urutan kerja</h3>
+	 * <ol>
+	 * <li><b>Saring payload bukan JSON</b> &mdash; badan kosong atau tidak diawali
+	 * <code>{</code> (health-check, pemindai, galat gateway) langsung dijawab
+	 * {@code status 999} tanpa mencatat galat penguraian.</li>
+	 * <li><b>Tentukan kunci</b> &mdash; {@code client_id} dari payload dipakai
+	 * mencari {@link Sekolah} lewat pencocokan {@code bniMerchantId}; kunci diambil
+	 * dari {@link Sekolah#getBniPassword()}, dan bila kolom itu memakai format
+	 * bertahun {@code tahun:kunci;tahun:kunci} dipilih kunci untuk tahun yang cocok
+	 * dengan merchant id tersebut. Cadangannya konfigurasi {@code bni_password}.</li>
+	 * <li><b>Dekode dan verifikasi</b> &mdash;
+	 * {@code BNIHash.parseData(parsedData, merchant_id, Password)}. Kunci yang salah
+	 * menghasilkan keluaran yang bukan JSON sah, sehingga penguraian melempar
+	 * exception dan seluruh pembukuan dibatalkan. <b>Verifikasi ini berlaku pada
+	 * cabang transaksi</b>, yakni cabang yang sama yang membukukan uang.</li>
+	 * <li><b>Validasi nominal</b> &mdash; {@code payment_amount} dibandingkan
+	 * {@code trx_amount}; sama persis memberi {@code kodeStatus "000"}, selisih
+	 * memberi {@code "001"} yang menghentikan pembukuan di
+	 * {@link #prosesResponse}.</li>
+	 * <li><b>Simpan dan bukukan</b> &mdash; {@link BniResponse} disimpan
+	 * ({@code saveOrUpdate} berdasarkan {@code trxId} sehingga callback berulang
+	 * memperbarui baris yang sama), lalu {@link #prosesResponse} dipanggil.</li>
+	 * </ol>
+	 *
+	 * <h3>Respons ke bank</h3>
+	 * {@code status 000} bila {@link #prosesResponse} mengembalikan request yang
+	 * cocok, selain itu {@code 001}. Konfigurasi {@code bni_va_sleep} memaksa
+	 * jawaban {@code 001} sebagai sakelar uji.
+	 *
+	 * <h3>Catatan pencatatan IP</h3>
+	 * Baris {@link BankHost} untuk log diambil dari
+	 * {@link HttpServletRequest#getRemoteAddr()}, sedangkan kolom {@code ip} pada
+	 * {@link LogHostToHost} mengutamakan header {@code Cf-Connecting-Ip},
+	 * {@code CF-Connecting-IP}, {@code X-Forwarded-For}, lalu {@code X-Real-IP}
+	 * sebelum jatuh ke alamat soket. Header-header itu berasal dari pemanggil, jadi
+	 * nilai {@code ip} pada log bersifat informatif dan tidak boleh dijadikan bukti
+	 * asal request; keamanan endpoint ini bertumpu pada kunci bersama BNI, bukan
+	 * pada alamat IP.
+	 *
+	 * @param request  request HTTP dari gateway BNI
+	 * @param response respons yang akan diisi badan JSON status
+	 * @throws Exception bila pembacaan badan request atau penulisan respons gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), "BNI");
@@ -1231,6 +1377,28 @@ public class Bniresponse extends HttpServlet {
 
 	}
 
+	/**
+	 * Alat bantu pengembang untuk mencoba pendekodean satu payload BNI di luar
+	 * konteks servlet: memanggil {@code BNIHash.parseData} atas sebuah contoh
+	 * {@code data} lalu mencetak hasilnya ke {@code System.out}.
+	 *
+	 * <p>
+	 * Method ini <b>tidak pernah dipanggil oleh aplikasi</b> &mdash; hanya titik
+	 * masuk manual saat menelusuri masalah dekode.
+	 *
+	 * <p>
+	 * <b>PERHATIAN.</b> Contoh {@code merchant_id} dan {@code Password} di badan
+	 * method ini tertanam langsung sebagai literal. Nilai semacam itu adalah kunci
+	 * bersama BNI eCollection; walaupun berada di kode mati sehingga tidak dipakai
+	 * pada jalur pembayaran mana pun, nilainya tetap tersimpan di riwayat SVN dan
+	 * harus diperlakukan sebagai bocor bila pernah aktif. Penyapuan kredensial
+	 * terdahulu (yang menghapus default {@code bni_password} tertanam di banyak
+	 * berkas) tidak menyentuh literal di dalam {@code main} ini, dan literal yang
+	 * sama juga masih ada pada {@code Bsiresponse.main}. Jangan menyalin pola ini;
+	 * ambil kunci dari konfigurasi atau {@link Sekolah#getBniPassword()}.
+	 *
+	 * @param argv argumen baris perintah; tidak dipakai
+	 */
 	public static void main(String[] argv) {
 		String parsedData = "TSRNTyEoSx5SFxhiDlJXVmRdR1YAX0xFU35nVk5fCnhLCFsLCmI7UhEjSiNTFhoXDhsETGRkWlEETllFUX5bTgsrOGsrYzlXPDxuag88WjlqJz4wDhsETVBlS1YAVkxFU35nVk5fCjskPR5GTh9GSCgfSyE8FxohHyYcHR8TEgR7SltLVwZbTkhhdxJXAFoKe1cMBycoSRw-IAwZHCETFh8qExRNPRgWHVAlIx0hRFAjTRdGUyhJSBEeO1t9X1dMWmNBSlxgW1ALCyEIFE4mIBkhRjsWPVx3FVt-BmNRB19-CCQJISIZHiInFhtJHxcZFlQhIRkhRk0fTA5CPmILEE5TBloRVF4JJhETGicoFhJHCxMIVw9mSFJVOFMMVCBNXyZMTDEkXB1iCBYJYlhUXWRSUkF4TEpVWAtiCyMTS1IhTyJGPms";
 		String merchant_id = "9556";
