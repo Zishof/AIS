@@ -463,6 +463,46 @@ public class Main extends HttpServlet {
 		return null;
 	}
 
+	/**
+	 * Menentukan halaman utama untuk pengguna yang baru masuk, ketika tidak ada parameter rute
+	 * khusus yang meminta halaman tertentu.
+	 *
+	 * <p><b>Urutan keputusan, menurun.</b> Yang pertama cocok langsung dikembalikan:</p>
+	 * <ol>
+	 *   <li>Role dasar bernama {@code Kantin} ({@link #isKantinUser}) → shell JSP e-Kantin
+	 *       lengkap dengan tab Ringkasan.</li>
+	 *   <li>Pilihan eksplisit halaman utama pada {@link Tbmrole}
+	 *       ({@link #resolveRoleLandingPage}) → e-Kantin, POS Apotik, POS eMedik, atau
+	 *       Inventory.</li>
+	 *   <li>Penanda {@code landingInventory} pada katalog menu e-Bisnis role.</li>
+	 *   <li>Penanda {@code landingKantin} pada katalog yang sama.</li>
+	 *   <li>Member koperasi non-admin, bila konfigurasi terkait aktif
+	 *       ({@link #isKoperasiMemberLandingEnabled}).</li>
+	 *   <li>Pilihan tampilan tingkat entitas (perguruan tinggi, sekolah, atau yayasan) lewat
+	 *       {@link #getPiilhanTampilanDomain} — hanya bila tidak ada parameter versi eksplisit.</li>
+	 *   <li>Parameter versi eksplisit atau konfigurasi global: versi lama (ZK
+	 *       {@code index.zul}), ZK baru ({@code index2.zul}), atau JSP baru.</li>
+	 * </ol>
+	 *
+	 * <p><b>Mengapa urutan ini penting.</b> Pilihan eksplisit administrator pada
+	 * {@link Tbmrole} sengaja ditempatkan di atas penanda {@code landingInventory} dan
+	 * {@code landingKantin}. Sebelumnya penanda itu dievaluasi lebih dulu, sehingga pilihan POS
+	 * Apotik atau eMedik yang baru disimpan administrator terabaikan setelah pengguna masuk.
+	 * Jangan menyusun ulang urutan ini tanpa alasan kuat.</p>
+	 *
+	 * <p>Sesudah halaman terpilih, halaman versi baru masih dapat digantikan halaman pemilihan
+	 * hak akses bila {@link #shouldAskRole} berkata pengguna memiliki lebih dari satu role dan
+	 * belum ditanyai pada sesi ini.</p>
+	 *
+	 * <p><b>Kegagalan bersifat fail-safe, bukan fail-closed.</b> Seluruh exception ditangkap dan
+	 * nilai yang dikembalikan adalah {@code defaultPage}. Karena semua kandidat halaman di sini
+	 * memikul gerbang hak aksesnya sendiri, jatuh ke halaman baku tidak memberi akses tambahan —
+	 * pengguna sekadar mendarat di tampilan ZK lama.</p>
+	 *
+	 * @param request     permintaan servlet
+	 * @param defaultPage halaman yang dipakai bila tidak ada aturan yang cocok atau terjadi galat
+	 * @return jalur halaman tujuan
+	 */
 	private String resolveMainPage(HttpServletRequest request, String defaultPage) {
 		String page = defaultPage;
 		try {
@@ -533,6 +573,23 @@ public class Main extends HttpServlet {
 		return page;
 	}
 
+	/**
+	 * Membaca pilihan halaman utama yang disimpan administrator pada {@link Tbmrole} pengguna.
+	 *
+	 * <p>Nilai yang dikembalikan <b>disaring daftar putih</b>: hanya empat konstanta yang dikenal
+	 * — {@link #PAGE_KANTIN_INDEX}, {@link #PAGE_APOTIK_INDEX}, {@link #PAGE_EMEDIK_INDEX},
+	 * {@link #PAGE_INVENTORY_INDEX} — yang diloloskan. Nilai lain apa pun yang tersimpan di kolom
+	 * itu diabaikan dan menghasilkan {@code null}, sehingga pemanggil melanjutkan ke aturan
+	 * berikutnya.</p>
+	 *
+	 * <p>Penyaringan ini penting: kolom halaman utama adalah teks bebas di basis data, dan tanpa
+	 * daftar putih nilainya akan langsung menjadi jalur yang di-<i>forward</i> — artinya siapa pun
+	 * yang dapat menyunting role dapat menunjuk berkas mana pun di bawah {@code /WEB-INF/}.
+	 * Jangan mengganti pemeriksaan ini dengan pengembalian nilai kolom apa adanya.</p>
+	 *
+	 * @param user pengguna sesi; boleh {@code null} atau tanpa role
+	 * @return salah satu dari empat halaman utama yang dikenal, atau {@code null}
+	 */
 	private String resolveRoleLandingPage(Tbmuser user) {
 		if (user == null || user.hakAkses() == null) {
 			return null;
@@ -545,6 +602,25 @@ public class Main extends HttpServlet {
 		return null;
 	}
 
+	/**
+	 * Menentukan pilihan tampilan (klasik ZK atau baru JSP) di tingkat entitas penyelenggara.
+	 *
+	 * <p>Urutan penelusuran, berhenti pada nilai bukan-default pertama: {@link PerguruanTinggi}
+	 * dari permintaan; lalu — hanya bila {@code Common.chekPtAtauSekolah()} menyatakan instalasi
+	 * ini bermodus sekolah — {@link Sekolah}, kemudian {@link Yayasan} sebagai induknya. Susunan
+	 * ini membuat pilihan unit yang lebih spesifik menang atas induknya.</p>
+	 *
+	 * <p>Nilai yang sama dengan konstanta {@code TAMPILAN_DEFAULT} diperlakukan sebagai "belum
+	 * memilih" dan diteruskan ke tingkat berikutnya, bukan diambil sebagai jawaban.</p>
+	 *
+	 * <p>Kegagalan apa pun — termasuk entitas yang tidak dapat dibaca — dijawab dengan
+	 * mengembalikan {@code PerguruanTinggi.TAMPILAN_DEFAULT}, sehingga pemanggil melanjutkan ke
+	 * aturan parameter dan konfigurasi global. Ini pilihan tampilan, bukan hak akses, jadi
+	 * fail-safe di sini tidak berdampak pada keamanan.</p>
+	 *
+	 * @param request permintaan servlet, dipakai menentukan entitas yang sedang aktif
+	 * @return nilai pilihan tampilan, atau {@code PerguruanTinggi.TAMPILAN_DEFAULT}
+	 */
 	private String getPiilhanTampilanDomain(HttpServletRequest request) {
 		try {
 			PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
@@ -569,11 +645,41 @@ public class Main extends HttpServlet {
 		return PerguruanTinggi.TAMPILAN_DEFAULT;
 	}
 
+	/**
+	 * Menyatakan apakah role dasar pengguna bernama {@code Kantin}.
+	 *
+	 * <p>Pencocokan dilakukan atas {@code roleId} dengan {@code equalsIgnoreCase}, jadi
+	 * bergantung pada <b>nama</b> role, bukan pada penanda kemampuan. Ini pemeriksaan paling
+	 * awal di {@link #resolveMainPage} dan sengaja mendahului pilihan halaman utama pada role,
+	 * supaya pengguna Kantin selalu mendapat shell JSP e-Kantin lengkap.</p>
+	 *
+	 * <p>Karena bertumpu pada nama, mengganti nama role Kantin di basis data akan mematikan
+	 * cabang ini secara diam-diam.</p>
+	 *
+	 * @param user pengguna sesi; boleh {@code null} atau tanpa role
+	 * @return {@code true} bila role dasarnya bernama {@code Kantin}
+	 */
 	private boolean isKantinUser(Tbmuser user) {
 		return user != null && user.hakAkses() != null && user.hakAkses().getRoleId() != null
 				&& "Kantin".equalsIgnoreCase(user.hakAkses().getRoleId());
 	}
 
+	/**
+	 * Menyatakan apakah katalog menu e-Bisnis role pengguna memasang penanda
+	 * {@code landingKantin}.
+	 *
+	 * <p>Penanda dibaca dari JSON pada kolom {@code ebisnisMenu} lewat
+	 * {@code EbisnisMenuKatalog.urai(...)}, dengan nilai bawaan {@code false} bila kunci itu
+	 * tidak ada. Kegagalan penguraian — JSON rusak, kolom kosong — dijawab {@code false}, jadi
+	 * pemeriksaan ini <b>fail-closed</b>: role yang datanya bermasalah tidak memperoleh halaman
+	 * pendaratan khusus, ia hanya melanjutkan ke aturan berikutnya.</p>
+	 *
+	 * <p>Ini penanda halaman pendaratan, bukan pemberian hak akses; halaman tujuannya tetap
+	 * memikul gerbangnya sendiri.</p>
+	 *
+	 * @param user pengguna sesi; boleh {@code null} atau tanpa role
+	 * @return {@code true} bila penanda {@code landingKantin} aktif
+	 */
 	private boolean isKantinMemberLandingRole(Tbmuser user) {
 		try {
 			return user != null && user.hakAkses() != null
@@ -583,6 +689,21 @@ public class Main extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah katalog menu e-Bisnis role pengguna memasang penanda
+	 * {@code landingInventory}.
+	 *
+	 * <p>Kembaran {@link #isKantinMemberLandingRole} dengan kunci yang berbeda; sifat
+	 * fail-closed-nya sama — kegagalan penguraian JSON dijawab {@code false}.</p>
+	 *
+	 * <p>Penanda yang sama juga dibaca gerbang di {@code index.jsp} modul Inventory, tetapi di
+	 * sana ia hanya salah satu dari beberapa syarat: pengguna tanpa {@code landingInventory}
+	 * masih boleh masuk bila memiliki setidaknya satu kunci menu Inventory. Jadi penanda ini
+	 * menentukan ke mana pengguna <i>mendarat</i>, bukan apa yang boleh ia <i>buka</i>.</p>
+	 *
+	 * @param user pengguna sesi; boleh {@code null} atau tanpa role
+	 * @return {@code true} bila penanda {@code landingInventory} aktif
+	 */
 	private boolean isInventoryLandingRole(Tbmuser user) {
 		try {
 			return user != null && user.hakAkses() != null
@@ -593,6 +714,28 @@ public class Main extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah pengguna ini adalah anggota koperasi biasa yang harus langsung mendarat
+	 * di halaman member.
+	 *
+	 * <p>Empat syarat pengecualian diperiksa lebih dulu, dan semuanya mengembalikan
+	 * {@code false}: pengguna atau role-nya {@code null}; role-nya bernama {@code Kantin} (sudah
+	 * ditangani {@link #isKantinUser} lebih awal); ia bukan anggota koperasi; ia seorang pedagang;
+	 * atau ia admin menurut {@code Common.getApakahAdminLain(user)}. Pengecualian admin itulah
+	 * inti aturannya — administrator koperasi harus tetap mendarat di dashboard pengelolaan,
+	 * bukan di layar member.</p>
+	 *
+	 * <p>Barulah setelah itu konfigurasi
+	 * {@code jika_login_sebagai_member_kecuali_admin_maka_langsung_ke_halaman_member} dibaca,
+	 * dengan nilai bawaan "tidak aktif". Perhatikan bahwa {@code Common.getKonfigurasi} menulis
+	 * nilai bawaan ke basis data bila kunci itu belum ada, sehingga baris konfigurasi akan
+	 * muncul sendiri setelah pemanggilan pertama.</p>
+	 *
+	 * <p>Seluruh exception dijawab {@code false} — fail-closed terhadap fitur ini.</p>
+	 *
+	 * @param user pengguna sesi; boleh {@code null}
+	 * @return {@code true} bila pengguna harus diarahkan ke halaman member koperasi
+	 */
 	private boolean isKoperasiMemberLandingEnabled(Tbmuser user) {
 		try {
 			if (user == null || user.hakAkses() == null || "Kantin".equals(user.hakAkses().getRoleId())) {
@@ -609,6 +752,22 @@ public class Main extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah pengguna perlu ditanyai role mana yang ingin dipakai pada sesi ini.
+	 *
+	 * <p>Dijawab {@code true} hanya bila pengguna memiliki <b>lebih dari satu</b> role dan sesi
+	 * belum menyimpan atribut {@code udah_tanya}. Atribut itulah yang membuat pertanyaan muncul
+	 * sekali saja per sesi, bukan pada setiap kunjungan ke {@code /main}.</p>
+	 *
+	 * <p>Pertanyaan ini murni soal kenyamanan, bukan gerbang keamanan: pengguna dengan satu role
+	 * tidak ditanyai, dan role yang dipilih tetap harus berasal dari daftar role miliknya
+	 * sendiri. Seluruh exception dijawab {@code false}, sehingga kegagalan pembacaan role
+	 * membuat pengguna langsung masuk ke halaman biasa alih-alih tersangkut di layar pemilihan.</p>
+	 *
+	 * @param user    pengguna sesi; boleh {@code null}
+	 * @param request permintaan servlet, dipakai membaca sesi
+	 * @return {@code true} bila layar pemilihan hak akses perlu ditampilkan
+	 */
 	private boolean shouldAskRole(Tbmuser user, HttpServletRequest request) {
 		try {
 			if (user == null || request.getSession().getAttribute("udah_tanya") != null) {
