@@ -2759,17 +2759,84 @@ public class HasilUjianSiswaHelper implements DataLoader {
 	}
 
 	/**
-	 * Mengonversi hasil ujian menjadi catatan absensi kelas: setelah konfirmasi, untuk
-	 * setiap peserta yang punya {@code mulaiPada}+{@code selesaiPada} terisi (berarti
-	 * benar-benar mengerjakan), status absensinya pada {@link Pertemuan} terkait diset
-	 * {@link ConstantValues#MASUK} dengan catatan otomatis berisi ringkasan waktu
-	 * pengerjaan dan jumlah soal terjawab (via {@link Pertemuan#populate}). Jam
-	 * masuk/selesai absensi diambil dari catatan absensi yang sudah ada, atau jatuh
-	 * kembali ke jam mulai/selesai baku pertemuan bila belum ada.
+	 * Mengonversi hasil ujian menjadi catatan absensi kelas ("Peserta dianggap hadir").
+	 * Satu-satunya method {@code static} pada kelas ini — sengaja, agar dapat dipanggil
+	 * layar lain tanpa membuat instance helper. Di dalam berkas ini ia dipicu oleh
+	 * tombol "Peserta dianggap hadir" pada toolbar
+	 * {@link #display(PertemuanPunyaUjian, Component)}, yang hanya tampil pada mode
+	 * admin/guru dan bila {@link #pertemuan} terisi.
 	 *
-	 * @param pertemuanPunyaUjian ujian yang hasilnya dikonversi menjadi absensi
-	 * @param eventListener       callback yang dipanggil setelah proses selesai
-	 * @throws Exception diteruskan dari dialog messagebox
+	 * <h4>Alur</h4>
+	 * <ol>
+	 * <li>Menampilkan dialog konfirmasi OK/Batal yang menyebut nama ujian. Seluruh kerja
+	 * berikutnya hanya berjalan bila pengguna memilih OK, dan dijalankan di dalam timer
+	 * bawaan ({@link Common#createDefaultTimer}) agar tidak memblokir benang UI.</li>
+	 * <li>Menyegarkan {@link Pertemuan} dari basis data bila entity-nya sudah tersimpan,
+	 * supaya penulisan absensi berikutnya bertumpu pada keadaan terbaru.</li>
+	 * <li>Mengiterasi seluruh id {@link HasilUjianMahasiswa} milik ujian ini lewat
+	 * {@code pertemuanPunyaUjian.ambilHasilUjianMahasiswa(true)} (argumen {@code true}
+	 * memaksa pengambilan segar, bukan dari cache), lalu memuat tiap entity lewat
+	 * {@link GeneralValueObject#ambilData}.</li>
+	 * <li>Untuk setiap lembar jawaban yang lolos syarat, menulis status absensi lewat
+	 * {@link Pertemuan#populate}.</li>
+	 * <li>Menyimpan {@link Pertemuan} sekali di akhir dengan
+	 * {@code Common.refreshUpdate}, lalu memanggil {@code eventListener} lewat timer
+	 * bawaan.</li>
+	 * </ol>
+	 *
+	 * <h4>Syarat seorang peserta dianggap hadir</h4>
+	 * <p>
+	 * Tiga syarat yang harus terpenuhi bersamaan: peserta teridentifikasi
+	 * ({@code calonSiswa} <i>atau</i> {@code siswa} terisi), <b>dan</b> {@code mulaiPada}
+	 * terisi, <b>dan</b> {@code selesaiPada} terisi. Artinya peserta yang membuka ujian
+	 * tetapi tidak menekan selesai (misalnya terputus jaringan atau kehabisan waktu tanpa
+	 * penutupan yang tercatat) <b>tidak</b> ditandai hadir, meskipun jawabannya
+	 * tersimpan. Ini perbedaan definisi yang penting dibanding tab "Statistik", yang
+	 * mendefinisikan "ikut ujian" cukup dengan adanya minimal satu jawaban tersimpan.
+	 * Pemelihara yang membandingkan angka kedua layar perlu menyadari perbedaan ini.
+	 * </p>
+	 *
+	 * <h4>Nilai yang ditulis</h4>
+	 * <p>
+	 * Status absensi selalu {@link ConstantValues#MASUK} — tidak ada penentuan
+	 * terlambat/izin/alfa, dan tidak ada penurunan status bila peserta mengerjakan di
+	 * luar jam pertemuan. Catatan absensi diisi kalimat otomatis berisi nama ujian,
+	 * rentang waktu pengerjaan, jumlah soal, dan jumlah soal terjawab; jumlah terjawab
+	 * dihitung ulang di sini lewat
+	 * {@link HasilUjianMahasiswa#ambilBankSoalIdTerjawab} atas daftar soal yang
+	 * ditampilkan. Jam masuk dan jam selesai absensi diambil dari catatan absensi yang
+	 * sudah ada untuk peserta tersebut
+	 * ({@code retreiveAbsensiMulai}/{@code retreiveAbsensiSampai}); bila belum ada,
+	 * keduanya jatuh kembali ke jam mulai/selesai baku pertemuan — <b>bukan</b> ke jam
+	 * pengerjaan ujian yang sebenarnya. Jadi jam pada catatan absensi mencerminkan jadwal
+	 * kelas, sedangkan waktu pengerjaan yang sesungguhnya hanya terekam sebagai teks di
+	 * dalam catatan.
+	 * </p>
+	 *
+	 * <h4>Catatan perilaku</h4>
+	 * <ul>
+	 * <li>Kunci peserta yang diteruskan ke {@link Pertemuan#populate} adalah id
+	 * {@code calonSiswa} bila ada, selain itu id {@code siswa}. Karena keduanya berasal
+	 * dari tabel berbeda, id yang sama dapat merujuk peserta berbeda; pembeda yang
+	 * dipakai adalah argumen jenis {@code "Siswa"} pada pemanggilan {@code populate}.</li>
+	 * <li>Operasi ini <b>menimpa</b> status absensi yang sudah ada tanpa memeriksa nilai
+	 * sebelumnya, sehingga peserta yang sebelumnya ditandai alfa/izin secara manual akan
+	 * berubah menjadi masuk. Tidak ada aksi kebalikan (pembatalan) yang disediakan
+	 * kelas ini.</li>
+	 * <li>Tidak ada pemeriksaan otorisasi maupun kepemilikan di dalam method ini; karena
+	 * bersifat {@code static} dan publik, gerbang satu-satunya adalah visibilitas tombol
+	 * pemanggil. Lihat catatan otorisasi pada Javadoc kelas.</li>
+	 * <li>Seluruh pemantauan berjalan lewat {@code System.out.println} — tidak ada jejak
+	 * audit tersimpan atas siapa yang menjalankan konversi massal ini dan kapan.</li>
+	 * </ul>
+	 *
+	 * @param pertemuanPunyaUjian ujian yang hasilnya dikonversi menjadi absensi; pertemuan
+	 *                            tujuan diambil dari
+	 *                            {@code pertemuanPunyaUjian.getPertemuan()}
+	 * @param eventListener       callback yang dipanggil lewat timer bawaan setelah
+	 *                            seluruh penulisan selesai (dipakai pemanggil untuk
+	 *                            menyegarkan layar pertemuan)
+	 * @throws Exception diteruskan dari dialog {@link MyMessageboxConfig}
 	 */
 	public static void ujianDianggapHadir(final PertemuanPunyaUjian pertemuanPunyaUjian,
 			final EventListener eventListener) throws Exception {

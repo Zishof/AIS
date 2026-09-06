@@ -113,16 +113,34 @@ import ais.ui.util.WaktuUtil;
  */
 public class DetailwisudaHelper implements DataLoader, DataCriteria {
 
+	/** Grid daftar peserta wisuda; dibuat di {@link #display} dengan mold paging 50 baris dan diisi ulang tiap {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Acara wisuda yang sedang dibuka. Menjadi satu-satunya penyaring kepemilikan baris di {@link #initCriteria(boolean)}. */
 	private Wisuda wisuda;
+	/** Paging server-side; ukuran halaman {@link Common#ROWS_COUNT_ON_PAGE}, dibuat di akhir {@link #display}. */
 	private Paging paging;
 
+	/** Kotak pencarian NIM mahasiswa (cocok sebagian/contains). */
 	private Textbox nim;
+	/** Kotak pencarian nama mahasiswa (cocok sebagian/contains). */
 	private Textbox nama;
+	/** Filter fakultas; disaring lewat alias {@code jurusan.fakultas} pada mahasiswa peserta. */
 	private Combobox searchfakultas;
+	/** Filter jurusan/program studi; disaring lewat {@code mahasiswa.jurusan}. */
 	private Combobox searchjurusan;
 
+	/**
+	 * Hak ubah pengguna saat ini ({@link CommonPrivilages#UPDATE}), dibaca SEKALI di konstruktor.
+	 * Mengendalikan visibilitas tombol baris "No." (generate no. kursi/registrasi) dan "Ubah".
+	 * Karena hanya mengatur visibilitas komponen, bendera ini bukan gerbang otorisasi sisi server —
+	 * pemeriksaan sebenarnya tetap milik alur tujuan masing-masing tombol.
+	 */
 	private boolean edit;
+	/**
+	 * Hak hapus pengguna saat ini ({@link CommonPrivilages#DELETE}), dibaca SEKALI di konstruktor.
+	 * Mengendalikan visibilitas tombol baris "Hapus" — yang meski bernama hapus sebenarnya hanya
+	 * MELEPAS relasi wisuda dari {@link PendaftaranWisuda}, bukan menghapus barisnya.
+	 */
 	private boolean delete;
 
 	/** Kolom entitas yang diekspor/diimpor pada tombol "Download Peserta"/upload utama, memetakan langsung ke properti {@link PendaftaranWisuda} dan {@link Mahasiswa} terkait. */
@@ -190,10 +208,46 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 	 */
 	class DetailWisudaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Renderer tanpa state sendiri; hak {@link #edit}/{@link #delete} dan konteks acara dibaca dari kelas induk. */
 		public DetailWisudaRenderer() {
 
 		}
 
+		/**
+		 * Mengisi satu baris peserta sesuai urutan kolom yang didefinisikan di {@link #display}:
+		 * foto, No. Reg, No. Kursi, Persetujuan, NIM, Nama, Angkatan, Status, Fakultas, Jurusan,
+		 * judul skripsi, lalu kolom aksi.
+		 *
+		 * <p>
+		 * <b>Efek samping yang perlu diketahui:</b> render bukan operasi baca-saja. Bila
+		 * {@link PendaftaranWisuda#getSkripsi()} masih kosong, method ini mencari {@link Skripsi}
+		 * milik mahasiswa lewat native session tersendiri lalu MENULIS dua hal ke basis data —
+		 * menautkan skripsi itu ke pendaftaran, dan menyalin judulnya ke
+		 * {@link Mahasiswa#setJudulSkripsi(String)} — masing-masing dalam transaksi terpisah.
+		 * Native session itu ditutup manual dan diikuti {@code HibernateUtil.closeSession()},
+		 * karena penulisan terjadi di luar session milik request. Konsekuensinya, sekadar membuka
+		 * atau membalik halaman daftar peserta dapat memicu penulisan dan revisi audit.
+		 * </p>
+		 *
+		 * <p>
+		 * Kolom Status merangkai status keluar, status mahasiswa terkini
+		 * ({@code HistoryStatusMahasiswaUtil.currentStatus}), dan status awal; bagian semester
+		 * berjalan/semester mulai (plus tahapan bila diaktifkan konfigurasi) SENGAJA dilewati untuk
+		 * mahasiswa yang sudah berstatus LULUS, karena bagi mereka angka itu tidak lagi bermakna.
+		 * </p>
+		 *
+		 * <p>
+		 * Tombol aksi dikumpulkan ke satu popup kebab ({@code UIHelper.buatBarisAksi}): Transkrip
+		 * (pratinjau, selalu tampil), No. dan Ubah (hanya bila {@link #edit}; Ubah menolak jalan
+		 * bila data skripsi belum ada), Bukti (selalu tampil — lihat catatan efek samping pada
+		 * {@link #cetakBukti(PendaftaranWisuda)}), dan Hapus (hanya bila {@link #delete}, dan hanya
+		 * melepas relasi wisuda, bukan menghapus baris pendaftaran).
+		 * </p>
+		 *
+		 * @param row  baris grid yang diisi
+		 * @param data objek {@link PendaftaranWisuda} untuk baris ini
+		 * @throws Exception diteruskan dari operasi komponen ZK/Hibernate
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");

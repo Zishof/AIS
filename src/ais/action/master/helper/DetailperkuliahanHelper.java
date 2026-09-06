@@ -100,6 +100,109 @@ import ais.ui.util.MyWindow;
  * Mengimplementasikan {@link DataCriteria} ({@link #initCriteria(boolean)}, dipakai fitur cetak
  * data) dan {@link DataLoader} ({@link #loadData(Object)}).
  * </p>
+ *
+ * <h3>Pembagian tanggung jawab dengan DetailperkuliahanForPenilaianHelper</h3>
+ * <p>
+ * Kedua kelas sama-sama menampilkan grid berisi seluruh {@link Detailperkuliahan} dari satu
+ * {@link Perkuliahan}, dan karena kemiripan nama sering tertukar. Keduanya <b>tidak</b> saling
+ * memanggil, <b>tidak</b> berbagi kode, dan <b>tidak</b> tumpang tindih fungsi. Pembagiannya tegas:
+ * kelas ini mengurus <b>keanggotaan</b> kelas, kelas satunya mengurus <b>nilai</b> peserta.
+ * </p>
+ * <table border="1">
+ * <caption>Perbandingan definitif</caption>
+ * <tr><th>Aspek</th><th>{@code DetailperkuliahanHelper} (kelas ini)</th>
+ *     <th>{@code DetailperkuliahanForPenilaianHelper}</th></tr>
+ * <tr><td>Pertanyaan yang dijawab</td><td><i>Siapa saja peserta kelas ini, dan apakah KRS-nya
+ *     sah?</i></td><td><i>Berapa nilai tiap peserta pada tiap komponen penilaian?</i></td></tr>
+ * <tr><td>Kolom {@link Detailperkuliahan} yang <b>ditulis</b></td>
+ *     <td>{@code persetujuan}, {@code semester}, {@code tahap}, {@code detailNilaiTambahan}
+ *         (catatan teks), {@code mahasiswa}/{@code perkuliahan} (saat pendaftaran &amp; transfer),
+ *         serta penghapusan baris</td>
+ *     <td>{@code totalNilai}, {@code nilaiHuruf}, seluruh {@code DetailperkuliahanPunyaNilai} per
+ *         {@code FormatNilai}, status kunci/verifikasi nilai, komentar penilaian</td></tr>
+ * <tr><td>Kolom nilai</td><td><b>Hanya dibaca</b> — {@code totalNilai}/{@code nilaiHuruf} tampil
+ *     sebagai label, dan {@code totalNilai} dipakai sebagai <i>penjaga</i>: baris bernilai tidak nol
+ *     tidak boleh dihapus / dicabut persetujuannya bila konfigurasi
+ *     {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif</td>
+ *     <td>Ditulis; kelas ini juga yang memiliki mesin hitung ulang, kunci, dan verifikasi</td></tr>
+ * <tr><td>Kontrak antarmuka</td><td>{@link DataCriteria} <i>dan</i> {@link DataLoader} — punya
+ *     {@link #initCriteria(boolean)} sehingga bisa diekspor lewat {@link Common#cetakData}</td>
+ *     <td>Hanya {@link DataLoader}</td></tr>
+ * <tr><td>Integrasi luar</td><td>Feeder Dikti (kirim data perkuliahan / nilai transfer per
+ *     mahasiswa), impor/ekspor Excel daftar peserta, cetak Absensi/UTS/UAS</td>
+ *     <td>Format nilai OBE/CPMK, asisten penilai, gerbang pembayaran untuk entri nilai</td></tr>
+ * <tr><td>Hak akses</td><td>Lima flag konstruktor ({@code delete}/{@code edit}/{@code approve}/
+ *     {@code reject}/{@code create}), ditambah penyaringan peran eksplisit untuk tiga tombol massal
+ *     (lihat di bawah)</td>
+ *     <td>Flag {@code edit}/{@code aktifPenilaianData} dari Action pemanggil</td></tr>
+ * </table>
+ * <p>
+ * Konsekuensi praktis: perubahan yang berkaitan dengan pendaftaran, pembatalan, pemindahan, atau
+ * pengesahan peserta kelas dilakukan <b>di kelas ini</b>; perubahan yang berkaitan dengan angka
+ * nilai dilakukan di {@code DetailperkuliahanForPenilaianHelper}. Satu-satunya titik singgung adalah
+ * pembacaan {@code totalNilai} sebagai penjaga di atas.
+ * </p>
+ *
+ * <h3>Gerbang otorisasi</h3>
+ * <p>
+ * Kelas ini memakai <b>dua lapis</b> kendali yang perlu dibedakan:
+ * </p>
+ * <ol>
+ * <li><b>Lima flag konstruktor</b> ({@code delete}, {@code edit}, {@code approve}, {@code reject},
+ * {@code create}). Nilainya ditentukan oleh Action pemanggil, umumnya dari hak akses menu. Flag ini
+ * hanya mengatur {@code setVisible}/{@code setDisabled} pada tombol — ia menentukan apa yang
+ * <i>tampil</i>, bukan apa yang <i>boleh tersimpan</i>.</li>
+ * <li><b>Penyaringan peran eksplisit</b> untuk tiga tombol massal "Setujui", "Tolak", dan "Hapus":
+ * tombol hanya terlihat bila {@link Common#getApakahAdmin()} atau {@code roleId} pengguna cocok
+ * dengan {@code ConstantValues.Akademik}, {@code roleAdminFakultas}, atau {@code roleAdminJurusan}.
+ * Ini satu-satunya tempat di kelas ini yang benar-benar memeriksa peran, dan hanya untuk aksi
+ * massal — aksi <i>per-baris</i> yang setara (Ubah Persetujuan, Hapus Data) tidak melewatinya dan
+ * hanya bergantung pada flag {@code edit}/{@code delete}.</li>
+ * </ol>
+ * <p>
+ * Yang <b>tidak</b> diperiksa di mana pun: apakah pengguna adalah dosen pengampu perkuliahan yang
+ * sedang dibuka, dan apakah perkuliahan berada dalam cakupan fakultas/program studi pengguna.
+ * Satu-satunya pembeda berbasis profil adalah {@code Common.getCurrentUser().getDosen() == null}
+ * yang menyembunyikan tombol "Pindah Data" dari akun dosen. Pola "penjaga UI tanpa penjaga
+ * penyimpanan" ini sama dengan yang didokumentasikan pada
+ * {@code DetailperkuliahanForPenilaianHelper}.
+ * </p>
+ *
+ * <h3>Jejak audit</h3>
+ * <p>
+ * {@link Detailperkuliahan} beranotasi Envers, sehingga perubahan persetujuan, semester, tahap, dan
+ * keterangan terekam sebagai revisi yang dapat dibaca lewat {@link RevisiHelper#createNewRevisi}
+ * per-baris dan tombol "History" ({@code RevisiDetailPerkuliahanHelper}). Sebagaimana seluruh entity
+ * ber-audit di aplikasi ini, revisi merekam <i>apa</i> dan <i>kapan</i>, tetapi tidak merekam
+ * <i>siapa</i> — repositori tidak mendefinisikan {@code @RevisionEntity}/{@code RevisionListener}
+ * kustom sehingga Envers memakai {@code DefaultRevisionEntity} bawaan yang hanya menyimpan nomor
+ * revisi dan timestamp.
+ * </p>
+ *
+ * <h3>Model sesi dan transaksi</h3>
+ * <p>
+ * Kelas ini memakai <b>tiga</b> pola sesi Hibernate yang berbeda, dan pemilihannya bukan kebetulan:
+ * </p>
+ * <ul>
+ * <li>{@code HibernateUtil.currentSession()} + {@code Common.refreshUpdate(...)} — untuk penulisan
+ * ringan yang berjalan langsung di thread event ZK (auto-save keterangan/semester/tahap, toggle
+ * persetujuan, aksi massal).</li>
+ * <li>{@code HibernateUtil.currentNativeSession()} dengan {@code closeSession()} di {@code finally}
+ * — untuk operasi yang membutuhkan transaksi eksplisit atau pemanggilan
+ * {@code perkuliahan.singkronkan(...)}. Penutupan di {@code finally} dan {@code rollback} pada
+ * kegagalan penting: tanpa itu sesi bocor dan transaksi tertinggal aktif.</li>
+ * <li>{@code HibernateUtil.getSessionFactory().openSession()} — <b>wajib</b> untuk pekerjaan di
+ * {@link Thread} latar ({@link #uploadDataMahasiswa}), karena sesi thread-cache sudah ditutup ketika
+ * request asal selesai sehingga pemakaiannya melempar "Session is closed!".</li>
+ * </ul>
+ * <p>
+ * Tidak ada penguncian baris (<i>pessimistic lock</i>) di mana pun; dua pengguna yang membuka kelas
+ * yang sama secara bersamaan dapat saling menimpa status persetujuan.
+ * </p>
+ *
+ * @see Detailperkuliahan
+ * @see Perkuliahan
+ * @see DetailperkuliahanForPenilaianHelper
  */
 public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
