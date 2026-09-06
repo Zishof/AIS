@@ -458,6 +458,48 @@ public class Bankaltimtara extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Rekonsiliasi manual kanal <b>Virtual Account</b>: menanyakan langsung ke
+	 * gateway Bank Kaltimtara apakah sebuah VA sudah dibayar, dengan cadangan ke
+	 * notifikasi tersimpan bila pengecekan live gagal.
+	 *
+	 * <h3>Dua panggilan berurutan</h3>
+	 * <ol>
+	 * <li><b>Autentikasi</b> ke {@code bankaltimtara_gateway_url_autentication}
+	 * dengan {@code bankaltimtara_username} dan {@code bankaltimtara_password} dari
+	 * konfigurasi, menghasilkan bearer {@code token}.</li>
+	 * <li><b>Cek status</b> ke {@code url_status_va_bankaltimtara} dengan kode VA
+	 * disisipkan sebagai bagian path, memakai token tersebut.</li>
+	 * </ol>
+	 * Keduanya dijalankan lewat proses {@code curl} eksternal
+	 * ({@link #jalankanPerintahAmbilKeluaran}) dengan batas waktu koneksi 10 detik
+	 * dan total 45 detik. Hasilnya diproses {@link #prosesHasilCekVaBankaltimtara},
+	 * yang mencocokkan nominal ke {@link VirtualAccountBank#totalBiaya()} lalu
+	 * menandai lunas bila perlu.
+	 *
+	 * <h3>Cadangan notifikasi tersimpan</h3>
+	 * Bila pengecekan live gagal, dicoba memproses ulang notifikasi terakhir yang
+	 * pernah tersimpan untuk VA tersebut; hasilnya ditandai
+	 * {@code _sumberData = "notifikasi_tersimpan_fallback"} lewat
+	 * {@link #tandaiSumberData} supaya admin tahu angka yang dilihatnya bukan hasil
+	 * pengecekan live. Kegagalan berkode {@code 04}/{@code not found} diperlakukan
+	 * sebagai keadaan bisnis yang wajar &mdash; VA memang belum terbentuk di sisi
+	 * bank &mdash; sehingga sengaja tidak dicatat sebagai error aplikasi
+	 * ({@link #merupakanTransaksiBelumAdaDiBank}).
+	 *
+	 * <p>
+	 * Kredensial yang dipakai di sini adalah kredensial <b>keluar</b>; lihat catatan
+	 * pada javadoc kelas mengenai letak pemeriksaan kredensial dan riwayat perbaikan
+	 * kredensial hardcoded.
+	 *
+	 * @param virtualAccountBankReadOnly VA yang hendak dicek; dipakai untuk dibaca
+	 *                                   kode dan nominalnya, penandaan lunas
+	 *                                   dilakukan lewat session terpisah
+	 * @return objek JSON hasil cek status, baik dari pengecekan live maupun dari
+	 *         cadangan notifikasi tersimpan yang sudah ditandai sumbernya
+	 * @throws Exception bila autentikasi gagal, atau bila pengecekan live dan
+	 *                   cadangan notifikasi tersimpan sama-sama gagal
+	 */
 	public static JSONObject checkPakaiva(final VirtualAccountBank virtualAccountBankReadOnly) throws Exception {
 		String strURL = (Common.getKonfigurasi("bankaltimtara_gateway_url_autentication",
 				"https://api-dev.bankaltimtara.co.id:8300/api/user/auth").getNilai());
