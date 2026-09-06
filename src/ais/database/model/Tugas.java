@@ -760,6 +760,22 @@ public abstract class Tugas extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah sudah ada setidaknya satu pengumpulan untuk tugas ini.
+	 *
+	 * <p>Meskipun namanya menyerupai getter properti — dan karenanya mudah dikira murah — method ini
+	 * <b>membangun seluruh peta pengumpulan lebih dahulu</b> lewat
+	 * {@link #ambilTugasFileContentTotal()}, lalu hanya melihat ukurannya. Untuk tugas dengan banyak
+	 * peserta ini berarti membaca berkas indeks dan memuat setiap baris {@link TugasFileContent} satu
+	 * per satu, hanya untuk menjawab sebuah pertanyaan ya/tidak. Jangan memanggilnya di dalam
+	 * perulangan atau di dalam penyaji baris daftar.</p>
+	 *
+	 * <p>Ikut mewarisi efek samping {@link #ambilTugasFileContentTotal()}, yaitu pengosongan field
+	 * {@link #currentUser} dan penulisan ulang {@link #currentTugasFileContent}. Memanggil method ini
+	 * di tengah alur yang mengandalkan kedua field itu akan merusak keadaan yang sedang dipakai.</p>
+	 *
+	 * @return {@code true} bila ada minimal satu pengumpulan yang terdaftar di indeks
+	 */
 	public boolean tugasFileContent() {
 
 		TreeMap<Long, TugasFileContent> tugasFileContentsa = ambilTugasFileContentTotal();
@@ -768,6 +784,27 @@ public abstract class Tugas extends GeneralValueObject {
 		return ada > 0;
 	}
 	
+	/**
+	 * Menghitung berapa berkas yang sudah dikumpulkan oleh seorang siswa untuk tugas ini.
+	 *
+	 * <p>Memuat seluruh peta pengumpulan tugas ini, lalu menyaringnya di memori dengan membandingkan
+	 * {@code tugasFileContent.getSiswa()} terhadap {@code siswa.getId()}. Penyaringan dilakukan
+	 * setelah semua data dibaca, bukan di dalam kueri — jadi biayanya sama besar berapa pun jumlah
+	 * hasil akhirnya.</p>
+	 *
+	 * <p><b>Perhatikan keterbatasan struktural.</b> Indeks pengumpulan hanya menyimpan satu entri per
+	 * angka id peserta (lihat
+	 * {@link #populateTugasFileContent(TugasFileContent, Class, boolean)}), sehingga peta yang
+	 * dihitung di sini pada praktiknya berisi paling banyak satu baris per orang. Nilai balik yang
+	 * lebih besar dari 1 karenanya tidak dapat diandalkan sebagai hitungan pengumpulan berganda.</p>
+	 *
+	 * <p>Tidak melakukan pemeriksaan hak akses dan tidak menyaring berdasarkan tenant: pemanggil
+	 * dapat menanyakan siswa mana pun, termasuk siswa dari satuan pendidikan lain. Otorisasi harus
+	 * sudah ditegakkan sebelum method ini dipanggil.</p>
+	 *
+	 * @param siswa siswa yang ditanyakan; {@code null} menghasilkan 0
+	 * @return jumlah baris pengumpulan milik siswa tersebut
+	 */
 	public int ambilJumlahTugasFileContent(Siswa siswa) {
 		TreeMap<Long, TugasFileContent> tugasFileContentsa = ambilTugasFileContentTotal();
 		int jumlah = 0;
@@ -783,6 +820,17 @@ public abstract class Tugas extends GeneralValueObject {
 		return jumlah;
 	}
 
+	/**
+	 * Menghitung berapa berkas yang sudah dikumpulkan oleh seorang mahasiswa untuk tugas ini.
+	 *
+	 * <p>Kembaran {@link #ambilJumlahTugasFileContent(Siswa)} untuk domain perguruan tinggi; seluruh
+	 * catatan pada method itu — penyaringan di memori atas seluruh peta, batas satu entri per angka
+	 * id, dan tiadanya pemeriksaan hak akses — berlaku sama di sini.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang ditanyakan; {@code null} menghasilkan 0
+	 * @return jumlah baris pengumpulan milik mahasiswa tersebut
+	 * @see #ambilJumlahTugasFileContent(Siswa)
+	 */
 	public int ambilJumlahTugasFileContent(Mahasiswa mahasiswa) {
 		TreeMap<Long, TugasFileContent> tugasFileContentsa = ambilTugasFileContentTotal();
 		int jumlah = 0;
@@ -798,6 +846,23 @@ public abstract class Tugas extends GeneralValueObject {
 		return jumlah;
 	}
 
+	/**
+	 * Menghitung berapa berkas yang sudah dikumpulkan oleh seorang calon mahasiswa untuk tugas ini.
+	 *
+	 * <p>Kembaran {@link #ambilJumlahTugasFileContent(Siswa)} untuk peserta yang belum berstatus
+	 * mahasiswa penuh — dipakai pada alur seleksi/matrikulasi yang menugaskan calon mahasiswa. Semua
+	 * catatan pada method itu berlaku sama.</p>
+	 *
+	 * <p>Tidak ada kembaran untuk {@code CalonSiswa} meskipun {@link TugasFileContent} memiliki kolom
+	 * identitas untuk jenis itu dan
+	 * {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)} menanganinya. Bila
+	 * hitungan untuk calon siswa dibutuhkan, tambahkan overload yang mengikuti pola yang sama alih-alih
+	 * menyalin logikanya ke pemanggil.</p>
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa yang ditanyakan; {@code null} menghasilkan 0
+	 * @return jumlah baris pengumpulan milik calon mahasiswa tersebut
+	 * @see #ambilJumlahTugasFileContent(Siswa)
+	 */
 	public int ambilJumlahTugasFileContent(BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		TreeMap<Long, TugasFileContent> tugasFileContentsa = ambilTugasFileContentTotal();
 		int jumlah = 0;
@@ -814,10 +879,45 @@ public abstract class Tugas extends GeneralValueObject {
 		return jumlah;
 	}
 	
+	/**
+	 * Menghitung total pengumpulan untuk tugas ini memakai indeks yang sudah ada.
+	 *
+	 * <p>Setara dengan {@code ambilJumlahTugasFileContent(false)}: indeks berkas dipakai apa adanya
+	 * bila sudah pernah dibangun, dan hanya dibangun ulang bila memang belum ada. Untuk memaksa
+	 * pembacaan ulang dari basis data, pakai {@link #ambilJumlahTugasFileContent(boolean)} dengan
+	 * {@code true}.</p>
+	 *
+	 * @return jumlah pengumpulan yang terdaftar pada indeks
+	 * @see #ambilJumlahTugasFileContent(boolean)
+	 */
 	public int ambilJumlahTugasFileContent() {
 		return ambilJumlahTugasFileContent(false);
 	}
 
+	/**
+	 * Menghitung total pengumpulan untuk tugas ini, dengan pilihan membangun ulang indeks lebih
+	 * dahulu.
+	 *
+	 * <p>Bila {@code refresh} bernilai {@code true}, atau bila penanda cache
+	 * {@code "tugas_file_content_<namaKelas>"} belum tercatat lewat {@code udah(...)}, indeks
+	 * dibangun ulang dari basis data melalui {@link #reInitTugasFileContent(Session)} memakai session
+	 * streaming.</p>
+	 *
+	 * <p><b>Session yang dibuka di sini tidak ditutup.</b> Berbeda dengan
+	 * {@link #reInitTugasFileContent()} yang menutup session streaming setelah selesai, cabang di
+	 * method ini memanggil {@code StreamingHibernateUtil.getInstance().currentSession()} lalu
+	 * meneruskannya tanpa penutupan. Pemanggil yang menjalankan method ini di luar daur permintaan
+	 * ZK — misalnya dari thread latar — perlu memastikan session streaming ditutup di tempat lain,
+	 * jika tidak koneksi akan menumpuk.</p>
+	 *
+	 * <p>Penanda cache dikunci pada {@code getClass().getName()}. Pada entity berproksi Hibernate
+	 * nama kelasnya berbeda dari kelas aslinya, sehingga penanda untuk objek yang sama dapat
+	 * tercatat lebih dari sekali dan indeks dibangun ulang lebih sering daripada yang diperlukan.</p>
+	 *
+	 * @param refresh {@code true} untuk memaksa pembangunan ulang indeks dari basis data
+	 * @return jumlah pengumpulan yang terdaftar; 0 bila entity ini belum tersimpan
+	 *         ({@code getId() == null})
+	 */
 	public int ambilJumlahTugasFileContent(boolean refresh) {
 		if (getId() == null) {
 			return 0;
@@ -832,6 +932,22 @@ public abstract class Tugas extends GeneralValueObject {
 		return jumlah;
 	}
 
+	/**
+	 * Mengambil baris pengumpulan milik seorang mahasiswa untuk tugas ini.
+	 *
+	 * <p>Membangun seluruh peta pengumpulan lalu memindainya sampai menemukan baris yang
+	 * {@code mahasiswa}-nya cocok. Karena pencocokan dilakukan setelah semua data dimuat, biayanya
+	 * tidak berkurang meskipun yang dicari hanya satu orang.</p>
+	 *
+	 * <p>Bila entah bagaimana terdapat lebih dari satu baris yang cocok, yang dikembalikan adalah
+	 * yang pertama ditemui menurut urutan iterasi peta — bukan yang terbaru. Untuk tugas yang
+	 * mengizinkan unggah ulang, jangan mengandalkan method ini untuk mendapatkan versi terakhir.</p>
+	 *
+	 * <p>Tidak memeriksa hak akses: pemanggil dapat mengambil pengumpulan mahasiswa mana pun.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang dicari; {@code null} menghasilkan {@code null}
+	 * @return baris pengumpulan milik mahasiswa tersebut, atau {@code null} bila belum mengumpulkan
+	 */
 	public TugasFileContent ambilTugasFileContent(Mahasiswa mahasiswa) {
 		TreeMap<Long, TugasFileContent> tugasFileContentsa = ambilTugasFileContentTotal();
 		TugasFileContent pilih = null;
@@ -847,6 +963,17 @@ public abstract class Tugas extends GeneralValueObject {
 		return pilih;
 	}
 
+	/**
+	 * Mengambil baris pengumpulan milik seorang siswa untuk tugas ini.
+	 *
+	 * <p>Kembaran {@link #ambilTugasFileContent(Mahasiswa)} untuk domain sekolah; seluruh catatannya
+	 * berlaku sama, termasuk tiadanya pemeriksaan hak akses dan tiadanya jaminan bahwa yang
+	 * dikembalikan adalah pengumpulan terbaru.</p>
+	 *
+	 * @param siswa siswa yang dicari; {@code null} menghasilkan {@code null}
+	 * @return baris pengumpulan milik siswa tersebut, atau {@code null} bila belum mengumpulkan
+	 * @see #ambilTugasFileContent(Mahasiswa)
+	 */
 	public TugasFileContent ambilTugasFileContent(Siswa siswa) {
 		TreeMap<Long, TugasFileContent> tugasFileContentsa = ambilTugasFileContentTotal();
 		TugasFileContent pilih = null;
@@ -862,6 +989,29 @@ public abstract class Tugas extends GeneralValueObject {
 		return pilih;
 	}
 
+	/**
+	 * Memuat seluruh pengumpulan untuk tugas ini sebagai peta berkunci id peserta didik.
+	 *
+	 * <p>Jalur ringkas yang dipakai hampir seluruh method pembaca pada kelas ini. Meneruskan ke
+	 * {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int)} dengan peta kosong, tanpa
+	 * kata pencarian, tanpa paging, dan batas 1000 baris.</p>
+	 *
+	 * <p><b>Batas 1000 itu diam.</b> Tugas dengan lebih dari seribu pengumpulan akan terpotong tanpa
+	 * peringatan apa pun kepada pemanggil, dan seluruh hitungan yang diturunkan darinya — termasuk
+	 * {@link #ambilJumlahTugasFileContent()} dan {@link #tugasFileContent()} — ikut terpotong.</p>
+	 *
+	 * <p><b>Efek samping: method ini mengosongkan field {@link #currentUser}.</b> Sebuah method yang
+	 * namanya berawalan {@code ambil} dan tampak seperti pembacaan murni justru menghapus keadaan
+	 * yang mungkin baru saja disetel pemanggil. Akibat langsungnya, blok pemilihan
+	 * {@link #currentTugasFileContent} di dalam
+	 * {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)} tidak akan pernah
+	 * terpicu lewat jalur ini — {@code currentUser} sudah {@code null} sebelum peta dibangun.
+	 * Pemanggil yang membutuhkan pemisahan "pengumpulan saya sendiri" harus menyetel
+	 * {@link #currentUser} lalu memanggil overload yang lebih panjang secara langsung, bukan method
+	 * ini.</p>
+	 *
+	 * @return peta pengumpulan berkunci id peserta didik; kosong bila entity belum tersimpan
+	 */
 	public TreeMap<Long, TugasFileContent> ambilTugasFileContentTotal() {
 		currentUser = null;
 		TreeMap<Long, TugasFileContent> treemap = new TreeMap<Long, TugasFileContent>();
@@ -873,15 +1023,156 @@ public abstract class Tugas extends GeneralValueObject {
 		return d;
 	}
 
+	/**
+	 * Pengguna yang sedang dilayani, dipakai untuk memisahkan "pengumpulan saya sendiri" dari
+	 * pengumpulan orang lain saat peta dibangun.
+	 *
+	 * <p>Bila field ini terisi, {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int,
+	 * boolean)} akan mengeluarkan baris milik pengguna tersebut dari hasil yang dikembalikan dan
+	 * menaruhnya di {@link #currentTugasFileContent}. Ini yang memungkinkan satu halaman menampilkan
+	 * "jawaban Anda" secara terpisah dari daftar jawaban peserta lain.</p>
+	 *
+	 * <p><b>Bukan mekanisme keamanan.</b> Field ini hanya mengatur penempatan baris di UI; tidak ada
+	 * satu pun jalur pada kelas ini yang membatasi <i>apa</i> yang boleh dibaca berdasarkan
+	 * nilainya. Peta yang dikembalikan tetap memuat pengumpulan seluruh peserta. Pembatasan akses
+	 * harus dilakukan di lapisan action/helper.</p>
+	 *
+	 * <p><b>Keadaan yang dapat berubah sendiri dan tidak aman untuk banyak thread.</b> Ini field
+	 * {@code public} pada entity yang dapat dibagi antar permintaan lewat cache. Nilainya dikosongkan
+	 * sebagai efek samping oleh {@link #ambilTugasFileContentTotal()} — jadi menyetelnya lalu
+	 * memanggil jalur ringkas itu akan membuang setelan tersebut. Setel field ini tepat sebelum
+	 * memanggil overload yang panjang, dan jangan berasumsi nilainya bertahan setelahnya.</p>
+	 */
 	public Tbmuser currentUser = null;
+	/**
+	 * Baris pengumpulan milik {@link #currentUser}, ditaruh di sini sebagai nilai balik kedua.
+	 *
+	 * <p>Diisi oleh {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)} — yang
+	 * mengosongkannya di awal, lalu mengisinya bila menemukan baris milik {@link #currentUser}.
+	 * Karena baris itu sekaligus <i>dikeluarkan</i> dari peta yang dikembalikan, field ini adalah
+	 * satu-satunya cara mendapatkannya.</p>
+	 *
+	 * <p><b>Bacalah segera setelah pemanggilan.</b> Nilainya ditimpa oleh pemanggilan berikutnya pada
+	 * entity yang sama, sehingga pola "panggil, lalu baca field" pada entity yang dipakai bersama
+	 * antar permintaan bersifat rapuh. Field ini juga tidak pernah dipersistensi; ia murni tempat
+	 * penampungan sementara di memori.</p>
+	 */
 	public TugasFileContent currentTugasFileContent = null;
 
+	/**
+	 * Memuat pengumpulan untuk tugas ini dengan pencarian dan paging, tanpa memaksa pembangunan ulang
+	 * indeks.
+	 *
+	 * <p>Meneruskan ke {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)}
+	 * dengan {@code refresh} bernilai {@code false}: indeks berkas dipakai apa adanya bila sudah
+	 * pernah dibangun. Gunakan overload lima parameter bila data baru saja berubah dan hasil terkini
+	 * memang dibutuhkan.</p>
+	 *
+	 * @param treemap peta penampung; boleh {@code null} — akan dibuatkan peta kosong
+	 * @param cari kata kunci untuk menyaring berdasarkan nama berkas; kosong berarti tanpa penyaringan
+	 * @param paging komponen paging ZK yang akan diperbarui; boleh {@code null}
+	 * @param banyak jumlah baris per halaman
+	 * @return peta pengumpulan untuk halaman yang diminta
+	 * @see #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)
+	 */
 	public TreeMap<Long, TugasFileContent> ambilTugasFileContentTotal(TreeMap<Long, TugasFileContent> treemap,
 			String cari, Paging paging, int banyak) {
 		boolean refresh = false;
 		return ambilTugasFileContentTotal(treemap, cari, paging, banyak, refresh);
 	}
 
+	/**
+	 * Membangun daftar pengumpulan tugas yang siap ditampilkan: memuat baris dari indeks, menempelkan
+	 * nilai dan keterangan, memisahkan pengumpulan milik pengguna yang sedang dilayani, menyaring
+	 * dengan kata kunci, lalu memotongnya menjadi satu halaman.
+	 *
+	 * <p>Ini mesin utama kelas ini; hampir seluruh pembaca lain bermuara ke sini. Alurnya panjang dan
+	 * memiliki beberapa perilaku yang tidak terlihat dari tanda tangannya, sehingga perlu diuraikan
+	 * satu per satu.</p>
+	 *
+	 * <h3>1. Memuat baris dari indeks berkas</h3>
+	 * <p>Isi berkas indeks dibaca sebagai teks lalu diperiksa: {@code null}, kosong, atau tidak
+	 * diawali {@code "{"} membuat method mengembalikan peta penampung apa adanya. Penjagaan awalan
+	 * ini yang mencegah berkas indeks yang rusak meruntuhkan seluruh halaman.</p>
+	 * <p>Setiap nilai pada dokumen indeks diperlakukan dua cara: bila berupa angka, ia adalah id
+	 * {@link TugasFileContent} dan barisnya dimuat lewat cache entity; bila bukan, ia diperlakukan
+	 * sebagai <b>lintasan berkas</b> yang isinya diurai menjadi objek {@link TugasFileContent}. Jalur
+	 * kedua adalah bentuk lama yang masih didukung. Perhatikan bahwa lintasan itu diambil dari isi
+	 * berkas indeks dan dibuka tanpa pembatasan direktori — bila penyerang dapat memengaruhi isi
+	 * berkas indeks, ia menentukan berkas mana yang dibaca server. Jalur tulis yang ada saat ini
+	 * hanya pernah menulis angka, sehingga celah ini tidak terjangkau dari luar; jangan menambah
+	 * jalur yang menulis lintasan dari masukan pengguna.</p>
+	 * <p>Baris hanya diterima bila {@code getPertemuan()} terisi dan positif <b>dan</b> id pesertanya
+	 * tidak tercantum pada {@link #getMhsYgTidakIkut()}. Pemeriksaan pengecualian itu memakai
+	 * {@code contains("," + id + ",")} pada string, sehingga mewarisi tabrakan id lintas-jenis yang
+	 * diuraikan pada getter tersebut.</p>
+	 * <p>Setiap kegagalan pada satu entri ditelan dan perulangan berlanjut. Satu baris yang rusak
+	 * tidak menghentikan yang lain, tetapi juga tidak pernah dilaporkan ke pemanggil — daftar sekadar
+	 * tampil lebih pendek.</p>
+	 *
+	 * <h3>2. Menulis ulang kolom pemilik pada objek yang dimuat</h3>
+	 * <p>Setiap baris yang lolos dikenai {@code tugasFileContent.setPertemuan(this.getId())}.
+	 * Pembacaan yang menulis — bila objek yang dimuat sedang terikat pada session Hibernate, mutasi
+	 * ini menjadikannya kotor dan dapat ikut tersimpan pada flush berikutnya. Karena nilai yang
+	 * ditulis adalah id {@code this}, baris yang tadinya terambil karena tabrakan id (lihat
+	 * {@link #reInitTugasFileContent(Session)}) akan <b>dipindahkan kepemilikannya secara permanen</b>
+	 * ke objek pembelajaran yang sedang dibaca. Sekadar membuka halaman daftar pengumpulan sudah
+	 * cukup untuk memicunya.</p>
+	 *
+	 * <h3>3. Menempelkan nilai dan keterangan dari dokumen JSON</h3>
+	 * <p>Nilai dan keterangan tidak dibaca dari baris pengumpulan melainkan dari
+	 * {@link #getKeteranganNilai()} milik tugas ini, memakai kunci {@code "<id>_<jenis>_nilai"} dan
+	 * {@code "<id>_<jenis>_ket"}. Nilai yang ditemukan <b>ditimpakan</b> ke objek
+	 * {@link TugasFileContent} lewat {@code setNilai(...)} dan {@code setKeterangan(...)}. Sama seperti
+	 * butir sebelumnya, ini mutasi pada objek yang mungkin terikat session.</p>
+	 * <p>Penurunan kunci di sini memakai urutan yang <b>berbeda</b> dari yang dipakai saat memilih
+	 * kunci peta: di sini urutannya mahasiswa, siswa, calon mahasiswa, calon siswa dengan
+	 * {@code else if} berantai dan hanya memeriksa {@code != null} tanpa memeriksa nilainya positif;
+	 * di tempat lain pada kelas ini urutannya berlapis-timpa dengan pemeriksaan {@code > 0L}. Baris
+	 * yang kolomnya terisi nol — bukan {@code null} — akan menghasilkan kunci yang berbeda antara
+	 * kedua tempat itu, dan nilainya gagal tertempel tanpa pesan kesalahan.</p>
+	 *
+	 * <h3>4. Memisahkan pengumpulan milik pengguna yang sedang dilayani</h3>
+	 * <p>Bila {@link #currentUser} terisi dan salah satu identitasnya cocok dengan baris yang sedang
+	 * diproses, baris itu ditaruh di {@link #currentTugasFileContent} dan <b>tidak dimasukkan ke peta
+	 * yang dikembalikan</b>. Perhatikan bahwa baris seperti itu juga <b>tidak menambah pencacah
+	 * {@code index}</b>, sehingga total yang disetel ke {@link Paging} tidak menghitung pengumpulan
+	 * milik pengguna sendiri. Ini disengaja untuk tampilan "jawaban Anda" yang terpisah, tetapi
+	 * berarti angka total yang terlihat peserta lebih kecil satu daripada angka yang terlihat
+	 * pengajar.</p>
+	 * <p>Cabang ini hanya aktif bila {@link #currentUser} sudah disetel sebelum pemanggilan. Melalui
+	 * {@link #ambilTugasFileContentTotal()} hal itu mustahil, karena method tersebut mengosongkan
+	 * {@link #currentUser} terlebih dahulu.</p>
+	 *
+	 * <h3>5. Penyaringan dan pemotongan halaman</h3>
+	 * <p>Kata kunci {@code cari} dicocokkan terhadap nama berkas secara tidak peka huruf besar-kecil.
+	 * Pemotongan halaman dilakukan <b>di memori</b>, setelah seluruh baris dimuat: jendela
+	 * {@code [banyak * halamanAktif, + banyak)} dipilih dari hasil yang sudah lengkap. Paging di sini
+	 * karenanya hanya menghemat lebar tampilan, bukan biaya pemuatan.</p>
+	 * <p>Bila {@code paging} diberikan, method ini juga mengubah komponen ZK tersebut: menyetel total,
+	 * ukuran halaman, kenaikan halaman, cetakan {@code "os"}, serta menyembunyikan komponen dan
+	 * induknya bila hasil muat dalam satu halaman. Sebuah method pemuat data yang sekaligus menata
+	 * komponen UI — pemanggil dari luar daur ZK harus mengirim {@code null} agar tidak menyentuh
+	 * pohon komponen milik permintaan lain.</p>
+	 *
+	 * <h3>Catatan ketahanan</h3>
+	 * <p>Peta penampung {@code null} sudah ditangani: method membuatkan peta kosong sendiri, sesuai
+	 * komentar perbaikan di dalam badan method — pemanggil dari thread latar sempat mengirim
+	 * {@code null} dan meruntuhkan alur unduhan. Kontraknya kini "selalu mengembalikan peta yang
+	 * sah".</p>
+	 *
+	 * @param treemap peta penampung untuk tahap perantara; boleh {@code null}. Perhatikan bahwa peta
+	 *        yang dikembalikan adalah peta <i>baru</i>, bukan peta ini — peta ini hanya dipakai
+	 *        sebagai penampung antara dan tetap ikut termutasi.
+	 * @param cari kata kunci penyaring nama berkas; {@code null} atau kosong berarti tanpa penyaringan
+	 * @param paging komponen paging ZK yang akan dibaca halaman aktifnya dan diperbarui; kirim
+	 *        {@code null} bila memanggil dari luar daur permintaan ZK
+	 * @param banyak jumlah baris per halaman
+	 * @param refresh {@code true} untuk membangun ulang indeks dari basis data lebih dahulu
+	 * @return peta berisi satu halaman pengumpulan, tidak termasuk pengumpulan milik
+	 *         {@link #currentUser}
+	 * @see #currentTugasFileContent
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, TugasFileContent> ambilTugasFileContentTotal(TreeMap<Long, TugasFileContent> treemap,
 	        String cari, Paging paging, int banyak, boolean refresh) {
