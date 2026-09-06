@@ -1,5 +1,63 @@
 # Progres Javadoc Menyeluruh
 
+## 🚨 Batch 135 — 3 mega-file baru + 2 klaster, 5 agent paralel, 8 task baru (6 dari keamanan/integritas) (6 Sep 2026)
+
+30 file diproses di `ais/action/master/helper/`, termasuk 5 mega-file.
+
+**`AbsensiKehadiranPegawaiHarianHelper.java`** (1763→2169 baris, r85934-
+r85958) — dikonfirmasi helper INDEPENDEN (panel koreksi manual per-
+pegawai-per-bulan), bukan versi rekap dari helper lain. **Task baru
+`task_6608af1e`**: pegawai bisa ubah data absensi DIRINYA SENDIRI
+(yang jadi dasar penggajian `ItemGaji.V_JAM/V_LEM/V_CEP/V_TERL`) lewat
+mode self-service `BiodataPegawaiAction` — konstruktor cuma cek hak
+menu generik, BUKAN hak modul absensi; kembaran dosen PUNYA gerbang
+`tbmuser.ambilDosen()==null` yang TIDAK ADA di versi pegawai.
+
+**`AmbilDataPerkuliahanHelper.java`** (1495→1990 baris) — dikonfirmasi
+BEDA TOTAL dari `AmbilDataPerkuliahanBandbox` (picker radio-tunggal vs
+dialog KRS pilih-banyak dengan validasi SKS/prasyarat/kapasitas),
+bukan subclass.
+
+**`PendaftarKknHelper.java`/`PendaftarPklHelper.java`** (1167/1170→
+1427/1452 baris) — perbandingan KKN vs PKL kali ini **ASIMETRIS
+NYATA**, 3 bug melemahkan SISI PKL SAJA (kolom "Memenuhi Syarat"
+kosong, query tanpa batas hasil bikin `NonUniqueResultException`
+tertelan senyap, tombol Rekap tunjuk laporan yang tidak ada) —
+**task baru `task_c1df6e37`**. Bug "Syarat Lain" (sesi 14)
+DIKONFIRMASI TIDAK menjangkau helper pendaftaran ini (cuma konsumen
+kolom, bukan penulis). **Task baru `task_b5d380ab`**: hak APPROVE
+cuma menjaga SATU checkbox — upload Excel/hapus baris/hitung skor di
+layar SAMA melewatinya total (simetris KKN+PKL).
+
+**`KrsHelper.java`/`DetailpertemuanHelper.java`/`MatakuliahKurikulumHelper.java`**
+(masing-masing ~1034-1154 baris) — **`Detailpertemuan` DIKONFIRMASI
+DEFINITIF terkait `Pertemuan.java`, BUKAN `Perkuliahan`/`Detailperkuliahan`**
+(nol entity bernama itu, cuma nama helper) — TIDAK berkerabat dengan
+`DetailperkuliahanForPenilaianHelper` batch 134. **3 task baru**:
+`task_53275cce` (IDOR unggah absensi — id `Pertemuan` dari baris-0
+file Excel USER cuma dicek null/aktif, TANPA verifikasi kepemilikan
+kelas/tenant — file xlsx buatan sendiri bisa tulis kehadiran lintas
+kelas+tenant), `task_6650b4ea` (gerbang KRS FAIL-OPEN — seluruh rantai
+validasi dalam SATU `try/catch` generik, exception di gerbang MANAPUN
+lanjut ke pendaftaran, bukan menolak), `task_ca5198b1` (gerbang tak
+konsisten combobox "Tahap" vs checkbox "Aktif" bersebelahan).
+
+**Klaster KRS/KKN/PKL + rekapitulasi** (23 file) — sebagian besar
+sudah punya Javadoc class/method-level dari sesi Agustus, sesi ini
+melengkapi field/renderer/method privat. `MainMenuHelper.java`
+DIKONFIRMASI AMAN dari `task_9f520b16` (pola sama seperti
+`MainTreeMenuHelper`, akar tetap murni `DisplayMenu`/`index.jsp`).
+`TransferDataMahasiswaHelper`/`CopyDataMahasiswaHelper` gerbang
+UI-only (konsisten arsitektur satu-institusi, tak dieskalasi). 2 task
+kosmetik non-keamanan: `task_dd4e9185` (caption salah PKL/KKN),
+`task_2d339ef9` (kolom grid salah terpasang).
+
+**8 task baru batch ini** (6 keamanan/integritas + 2 kosmetik):
+`task_6608af1e`, `task_c1df6e37`, `task_b5d380ab`, `task_53275cce`,
+`task_6650b4ea`, `task_ca5198b1`, `task_dd4e9185`, `task_2d339ef9`.
+Total akumulasi: **1960+ file** dari 7.401. Sisa `action/master/
+helper/`: ~298 file.
+
 ## Batch 134 — `ais/action/master/helper/` lanjutan, 5 agent paralel, 1 task baru, task_484d4bd0 AKHIRNYA TUNTAS diverifikasi (6 Sep 2026)
 
 64 file diproses (5 sudah selesai sesi lain, sisanya dilengkapi).
