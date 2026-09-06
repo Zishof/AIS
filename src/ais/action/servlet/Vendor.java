@@ -19,12 +19,25 @@ import ais.common.Common;
  * - redirect memakai request.getContextPath(), bukan Common.ROOT, agar aman pada context /ecampus.
  */
 public class Vendor extends HttpServlet {
+	/** Versi serialisasi tetap 1L; servlet tidak pernah benar-benar diserialisasi ke stream. */
 	private static final long serialVersionUID = 1L;
 
+	/** Konstruktor bawaan tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}. */
 	public Vendor() {
 		super();
 	}
 
+	/**
+	 * Menangani permintaan GET portal vendor. Publik/anonim (tanpa gerbang login di servlet ini
+	 * -- login vendor sendiri ditangani di dalam JSP/sesi portal vendor); servlet ini hanya
+	 * routing dan tidak membaca/mengekspos data vendor (mis. kredensial) secara langsung. Galat
+	 * tak terduga ditangkap dan dibalas halaman fallback HTML alih-alih membiarkan respons kosong.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @param response respons HTTP keluar
+	 * @throws ServletException tidak pernah dilempar, digantikan oleh {@link #handleFatalError}
+	 * @throws IOException jika terjadi galat I/O saat menulis fallback HTML
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -34,6 +47,15 @@ public class Vendor extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menangani permintaan POST portal vendor dengan perilaku identik dengan
+	 * {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @param response respons HTTP keluar
+	 * @throws ServletException tidak pernah dilempar, digantikan oleh {@link #handleFatalError}
+	 * @throws IOException jika terjadi galat I/O saat menulis fallback HTML
+	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -43,6 +65,16 @@ public class Vendor extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Logika inti routing portal vendor: menangani logout, memforward ke ZUL lama (mode
+	 * {@code versilama=true}) atau ke JSP modern portal vendor. Header cache dinonaktifkan agar
+	 * halaman login/status vendor selalu segar.
+	 *
+	 * @param request permintaan HTTP masuk; parameter {@code auth_action} dan {@code versilama}
+	 *        dibaca di sini
+	 * @param response respons HTTP keluar
+	 * @throws Exception diteruskan apa adanya ke pemanggil untuk ditangani {@link #handleFatalError}
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		//response.setCharacterEncoding("UTF-8");
@@ -67,6 +99,14 @@ public class Vendor extends HttpServlet {
 		request.getRequestDispatcher(dispatcherPath).forward(request, response);
 	}
 
+	/**
+	 * Menghapus seluruh atribut sesi terkait login portal vendor (JSP modern) maupun sisa
+	 * atribut modul lama, sehingga pengguna benar-benar keluar dari sesi vendor setelah
+	 * {@code auth_action=logout}. Galat saat membersihkan sesi diredam agar logout tetap
+	 * berlanjut ke redirect (tidak boleh membuat halaman blank).
+	 *
+	 * @param request permintaan HTTP yang membawa sesi yang akan dibersihkan
+	 */
 	private void doLogout(HttpServletRequest request) {
 		try {
 			HttpSession session = request.getSession(false);
@@ -87,6 +127,16 @@ public class Vendor extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengalihkan (redirect) ke halaman utama portal vendor, opsional dengan query string.
+	 * Memakai {@code request.getContextPath()} (bukan {@code Common.ROOT}) agar tetap benar pada
+	 * context path non-default (mis. {@code /ecampus}).
+	 *
+	 * @param request permintaan HTTP masuk, dipakai mengambil context path
+	 * @param response respons HTTP keluar
+	 * @param query query string tambahan (tanpa {@code ?}); boleh {@code null}/kosong
+	 * @throws IOException jika terjadi galat I/O saat mengirim redirect
+	 */
 	private void redirectToVendorHome(HttpServletRequest request, HttpServletResponse response, String query)
 			throws IOException {
 		String contextPath = request.getContextPath();
@@ -100,6 +150,18 @@ public class Vendor extends HttpServlet {
 		response.sendRedirect(response.encodeRedirectURL(url));
 	}
 
+	/**
+	 * Menangani galat fatal tak terduga dari {@link #process}: mencatat galat (jika pemakai
+	 * admin, ditampilkan detailnya lewat {@link Common#tampilErrorJikaAdmin}), lalu menulis
+	 * halaman fallback HTML sederhana (bukan membiarkan respons kosong/blank) berisi tautan
+	 * kembali ke portal vendor. Tidak melakukan apa pun jika respons sudah terkirim sebagian
+	 * ({@code isCommitted()}).
+	 *
+	 * @param request permintaan HTTP masuk, dipakai mengambil context path untuk tautan kembali
+	 * @param response respons HTTP keluar; direset lalu diisi halaman fallback
+	 * @param e galat yang terjadi
+	 * @throws IOException jika terjadi galat I/O saat menulis halaman fallback
+	 */
 	private void handleFatalError(HttpServletRequest request, HttpServletResponse response, Exception e)
 			throws IOException {
 		try {
@@ -129,6 +191,12 @@ public class Vendor extends HttpServlet {
 				+ "</div></div></div></body></html>");
 	}
 
+	/**
+	 * Merapikan nilai string dengan {@code trim()}, memperlakukan {@code null} sebagai string kosong.
+	 *
+	 * @param s nilai mentah; boleh {@code null}
+	 * @return nilai yang sudah di-trim; string kosong jika {@code s} {@code null}
+	 */
 	private String trim(String s) {
 		return s == null ? "" : s.trim();
 	}

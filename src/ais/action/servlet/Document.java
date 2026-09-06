@@ -1125,6 +1125,25 @@ public class Document extends HttpServlet {
         return null;
     }
 
+    /**
+     * Menentukan apakah satu ruang arsip boleh dilihat pengguna tertentu — padanan per-baris dari
+     * penyaring query {@link #addAkreditasiRoleCriterion(Criteria, Object)}.
+     *
+     * <p>Dipakai untuk memeriksa ulang baris yang diambil lewat id langsung, yaitu di
+     * {@link #buildDmsContentData(HttpServletRequest)} dan
+     * {@link #downloadDocument(HttpServletRequest, HttpServletResponse)}, sehingga id yang ditebak
+     * tetap terbentur pemeriksaan yang sama seperti daftar biasa.</p>
+     *
+     * <p>Urutan pemeriksaan: ruang wajib ada dan aktif, wajib lolos
+     * {@link #isSatuanKerjaVisible(Object)}, lalu pengguna administratif langsung diloloskan.
+     * Selain itu, ruang tanpa {@code kodeGrupPengguna} dianggap publik, sedangkan ruang ber-kode
+     * hanya terbuka bagi pengguna yang role-nya tercantum. Pencocokan memakai pola bertanda batas
+     * {@code ",<role>,"} dengan perbandingan huruf kecil, sama seperti pada penyaring query.</p>
+     *
+     * @param akreditasi ruang arsip yang diperiksa; boleh {@code null}
+     * @param user       pengguna saat ini; boleh {@code null} untuk pengunjung anonim
+     * @return {@code true} bila ruang boleh ditampilkan
+     */
     private boolean isAkreditasiVisible(Akreditasi akreditasi, Object user) {
         if (akreditasi == null || !isAktif(akreditasi.getAktif())) {
             return false;
@@ -1146,10 +1165,34 @@ public class Document extends HttpServlet {
                 .indexOf(("," + role.trim() + ",").toLowerCase(Locale.ENGLISH)) >= 0;
     }
 
+    /**
+     * Menentukan apakah satu simpul dokumen masih aktif sekaligus berada dalam cakupan satuan
+     * kerja yang boleh dilihat.
+     *
+     * @param dokumen simpul yang diperiksa; boleh {@code null}
+     * @return {@code true} bila simpul ada, aktif, dan satuan kerjanya terlihat
+     */
     private boolean isDokumenAktif(DokumenAkreditasi dokumen) {
         return dokumen != null && isAktif(dokumen.getAktif()) && isSatuanKerjaVisible(dokumen);
     }
 
+    /**
+     * Memeriksa apakah satuan kerja pemilik sebuah baris termasuk yang boleh dilihat pengguna
+     * saat ini, memakai refleksi terhadap method {@code getSatuanKerja()}.
+     *
+     * <p>Refleksi dipakai agar satu method dapat melayani {@link Akreditasi} maupun
+     * {@link DokumenAkreditasi} tanpa antarmuka bersama.</p>
+     *
+     * <p><b>Sifat fail-open yang perlu diketahui:</b> method mengembalikan {@code true} pada tiga
+     * keadaan berbeda — object {@code null}, kolom satuan kerja {@code null} (isi lintas satuan
+     * kerja), dan <b>kegagalan refleksi apa pun</b>, termasuk ketika method
+     * {@code getSatuanKerja()} tidak ada. Daftar satuan kerja yang kosong juga meloloskan semua.
+     * Perilaku ini sejalan dengan {@link #addSatuanKerjaCriterion(Criteria)} dan dicatat apa
+     * adanya sebagai keadaan yang berlaku sekarang.</p>
+     *
+     * @param obj baris yang diperiksa; boleh {@code null}
+     * @return {@code true} bila baris boleh ditampilkan
+     */
     @SuppressWarnings("unchecked")
     private boolean isSatuanKerjaVisible(Object obj) {
         if (obj == null) {
@@ -1168,10 +1211,44 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Menafsirkan kolom {@code aktif} bertipe {@link Boolean} yang boleh {@code null}.
+     *
+     * <p>Nilai {@code null} diperlakukan sebagai aktif, mengikuti kebiasaan data lama yang belum
+     * pernah mengisi kolom tersebut. Penafsiran ini sama dengan yang dipakai
+     * {@link #addAktifCriterion(Criteria)} di tingkat query.</p>
+     *
+     * @param aktif nilai kolom; boleh {@code null}
+     * @return {@code true} kecuali nilainya benar-benar {@link Boolean#FALSE}
+     */
     private boolean isAktif(Boolean aktif) {
         return aktif == null || aktif.booleanValue();
     }
 
+    /**
+     * Mendeteksi pengguna yang sedang login pada permintaan servlet biasa (non-ZK).
+     *
+     * <p><b>Latar masalah:</b> servlet {@code /document} bukan eksekusi ZK.
+     * {@code Common.getCurrentUser()} tanpa argumen bersandar pada
+     * {@code ExecutionsCtrl}/{@code RequestContext} milik ZK yang tidak tersedia di sini, sehingga
+     * ia mengembalikan {@code null} walau pengguna sudah login — akibatnya tombol unduh
+     * disembunyikan dan endpoint unduh menolak dengan HTTP 401. Karena itu dipakai varian
+     * ber-{@code request} yang membaca langsung atribut sesi.</p>
+     *
+     * <p>Tiga jalur dicoba berurutan: {@code Common.getCurrentUser(request)},
+     * {@code Common.getCurrentUser()}, lalu penelusuran langsung atribut {@link HttpSession}.
+     * Pada jalur ketiga, kunci {@code "mytbmuser"} dan {@code "usersTemp"} didahulukan karena
+     * itulah kunci login yang sesungguhnya disetel saat otentikasi (lihat {@code MainAction} dan
+     * {@code CommonCurrentSessionHelper}); kunci-kunci berikutnya hanyalah jaring pengaman untuk
+     * kompatibilitas dengan alur lama.</p>
+     *
+     * <p>Sesi tidak pernah dibuat di sini: {@code request.getSession(false)} memastikan pengunjung
+     * anonim tidak memicu pembuatan sesi baru.</p>
+     *
+     * @param request permintaan yang sedang dilayani
+     * @return object pengguna dalam bentuk apa pun yang tersimpan di sesi, atau {@code null} bila
+     *         tidak ada yang login
+     */
     private Object getLoggedUser(HttpServletRequest request) {
         // PENTING: servlet /document BUKAN eksekusi ZK. Common.getCurrentUser() tanpa argumen
         // mengandalkan ExecutionsCtrl/RequestContext ZK yang TIDAK tersedia di request servlet biasa,
@@ -1212,6 +1289,30 @@ public class Document extends HttpServlet {
         return null;
     }
 
+    /**
+     * Menentukan nama yang ditampilkan untuk pengguna, mencoba tiga tingkat berurutan.
+     *
+     * <ol>
+     *   <li><b>Nama langsung</b> pada object pengguna ({@code getNama}, {@code getNamaLengkap},
+     *       {@code getName}) — berlaku untuk tipe seperti Mahasiswa, Pegawai, dan Siswa yang
+     *       memang punya nama sendiri.</li>
+     *   <li><b>Nama lewat relasi</b>, untuk akun {@code Tbmuser} dasar yang tidak punya nama
+     *       sendiri: dicoba {@code getBiodataCalonMahasiswa}, {@code getMahasiswa},
+     *       {@code getPegawai}, {@code getSiswa}, {@code getDosen}, {@code getGuru},
+     *       {@code getCalonSiswa}, {@code getCalonPegawai}, {@code getPenduduk}.</li>
+     *   <li><b>Identitas akun</b> sebagai cadangan terakhir ({@code getUserNama},
+     *       {@code getUserId}, {@code getUsername}, {@code getEmail}) — ini identitas akun, bukan
+     *       nama asli.</li>
+     * </ol>
+     *
+     * <p>{@link NoSuchMethodException} pada jalur relasi adalah keadaan <b>wajar</b>, bukan bug:
+     * tidak semua tipe pengguna punya semua relasi yang dicoba. Karena itu setiap percobaan
+     * dibungkus {@code try-catch} sendiri agar kegagalan satu relasi tidak menghentikan percobaan
+     * berikutnya. Urutan dan isi tingkat pertama sengaja dipertahankan apa adanya.</p>
+     *
+     * @param user object pengguna; boleh {@code null}
+     * @return nama tampilan, atau {@code "Pengguna"} bila tidak ada yang dapat ditentukan
+     */
     private String getUserDisplayName(Object user) {
         if (user == null) {
             return "Pengguna";
@@ -1334,6 +1435,22 @@ public class Document extends HttpServlet {
         return "";
     }
 
+    /**
+     * Menentukan apakah pengguna berperan administratif sehingga tidak dibatasi penyaring role.
+     *
+     * <p>Dua sumber diperiksa berurutan: bendera {@code Common.getApakahAdmin()}, lalu daftar kode
+     * role yang dianggap administratif ({@code admin}, {@code am}, {@code adm}, {@code admfak},
+     * {@code admprd}, {@code akademik}, {@code superadmin}) dengan perbandingan tanpa memperhatikan
+     * besar kecil huruf.</p>
+     *
+     * <p>Perlu dicatat bahwa {@code Common.getApakahAdmin()} bersandar pada konteks eksekusi ZK
+     * yang tidak tersedia pada permintaan servlet biasa; pada jalur portal ini penentuan karena
+     * itu praktis bertumpu pada kode role. Kegagalan pemanggilan bendera tersebut ditelan dan
+     * pemeriksaan dilanjutkan ke kode role.</p>
+     *
+     * @param user pengguna saat ini; boleh {@code null}
+     * @return {@code true} bila pengguna dianggap administratif
+     */
     private boolean isAdminUser(Object user) {
         try {
             if (Common.getApakahAdmin()) {
@@ -1419,6 +1536,18 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Mengurai parameter permintaan menjadi {@link Long} secara aman.
+     *
+     * <p>Nilai {@code null}, kosong, maupun bukan angka dikembalikan sebagai {@code null} alih
+     * alih melempar exception. Inilah pintu tunggal yang membuat parameter {@code id},
+     * {@code akreditasi}, dan {@code induk} tidak pernah dipakai sebagai teks bebas di mana pun,
+     * sehingga tidak ada jalan untuk menyusun jalur berkas maupun potongan query dari masukan
+     * pengguna.</p>
+     *
+     * @param value teks parameter; boleh {@code null}
+     * @return nilai numerik, atau {@code null} bila tidak dapat diurai
+     */
     private Long parseLong(String value) {
         try {
             String s = trim(value);
@@ -1431,10 +1560,23 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Memeriksa apakah sebuah teks kosong: {@code null}, panjang nol, atau hanya berisi spasi.
+     *
+     * @param value teks yang diperiksa; boleh {@code null}
+     * @return {@code true} bila teks dianggap kosong
+     */
     private boolean isBlank(String value) {
         return value == null || value.trim().length() == 0;
     }
 
+    /**
+     * Memangkas spasi tepi sebuah teks dan mengubah {@code null} menjadi teks kosong, sehingga
+     * pemanggil tidak perlu memeriksa {@code null} lagi.
+     *
+     * @param value teks masukan; boleh {@code null}
+     * @return teks terpangkas yang tidak pernah {@code null}
+     */
     private String trim(String value) {
         return value == null ? "" : value.trim();
     }
