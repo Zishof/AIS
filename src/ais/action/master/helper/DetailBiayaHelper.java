@@ -41,8 +41,11 @@ import ais.ui.util.MyWindow;
  */
 public class DetailBiayaHelper implements DataLoader {
 
+	/** Grid daftar rincian biaya, dirender ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Baris {@link JenisKegiatanDetail} induk yang rincian biayanya sedang ditampilkan. */
 	private JenisKegiatanDetail jenisKegiatanDetail;
+	/** Snapshot {@link DetailBiaya} milik {@link #jenisKegiatanDetail}, diambil ulang tiap {@link #displayDetailBiaya}. */
 	private DetailBiaya[] detailBiayas;
 
 	/** Perender baris grid: menampilkan kolom item biaya, jenis biaya, nilai, dan tombol hapus. */

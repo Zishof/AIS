@@ -50,10 +50,15 @@ import ais.ui.util.MyMessageboxConfig;
  */
 public class ParameterTambahanCatatanAdministrasiListener implements EventListener {
 
+	/** Daftar baris ZK berisi seluruh baris parameter tambahan yang sedang dirender/dikelola listener ini; dibaca ulang oleh {@link #validate()}, {@link #onSave(CatatanAdministrasi)}, dan {@link #onEvent(Event)}. */
 	private List<Row> parameterRows;
+	/** Komponen {@link Rows} induk (form ZK) tempat baris-baris parameter tambahan ditambahkan. */
 	private Rows rows;
+	/** Entitas catatan administrasi yang formulir parameter tambahannya sedang dikelola oleh listener ini. */
 	private CatatanAdministrasi catatanAdministrasi;
+	/** Peta lampiran yang sudah diunggah, dikunci per jenis parameter tambahan (lihat {@link LampiranLain#resolveJenisParameterTambahan}), diteruskan ke {@link ParameterTambahan#initComponent}. */
 	private Map<String, LampiranLain> lampiranLains;
+	/** Kelompok-kelompok parameter tambahan yang relevan untuk konteks ini (ditentukan pemanggil, bukan otomatis -- lihat javadoc kelas). */
 	private Set<KelompokParameterTambahanCatatanAdministrasi> kelompokParameterTambahanCatatanAdministrasis;
 
 	/**

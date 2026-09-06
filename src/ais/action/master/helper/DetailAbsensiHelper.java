@@ -53,10 +53,15 @@ import ais.database.model.Perkuliahan;
  */
 public class DetailAbsensiHelper implements DataLoader {
 
+	/** Grid utama (mode paging) yang menampilkan daftar peserta {@link #perkuliahan}. */
 	private MyGrid grid;
+	/** Kelas matakuliah yang peserta dan nilainya sedang ditampilkan; diisi oleh {@link #displayDetailPerkuliahan}. */
 	private Perkuliahan perkuliahan;
+	/** Daftar komponen penilaian {@link #perkuliahan}, satu kolom grid dibuat per elemen. */
 	private List<FormatNilai> formatNilais;
+	/** Window pemanggil, diteruskan ke {@link AmbilDataMahasiswaHelper} dan {@link PenilaianHelper} saat membuka dialog anak. */
 	private MyWindow window;
+	/** Penanda semester pendek, diteruskan ke {@link AmbilDataMahasiswaHelper} agar daftar mahasiswa yang ditawarkan sesuai jenis semester. */
 	private Integer semesterPendek;
 
 	/**
@@ -76,6 +81,13 @@ public class DetailAbsensiHelper implements DataLoader {
 	 */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid untuk satu {@link Detailperkuliahan}: NIM, nama mahasiswa, nilai
+		 * per {@link FormatNilai}, total + nilai huruf, tombol hapus, dan tombol ubah nilai.
+		 *
+		 * @param row  baris grid yang akan diisi
+		 * @param data data baris, harus berupa {@link Detailperkuliahan}
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final Detailperkuliahan detailperkuliahan = (Detailperkuliahan) data;
@@ -174,6 +186,7 @@ public class DetailAbsensiHelper implements DataLoader {
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, dipakai saat meneruskan callback muat-ulang ke helper anak. */
 	private DataLoader getDataloader() {
 		return this;
 	}

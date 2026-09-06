@@ -54,15 +54,21 @@ import ais.ui.util.MyComboitemConfig;
 public class AbsensiKehadiranDosenHarianDetailHelper extends MyDetail {
 
 	/**
-	 * 
+	 * Versi serialisasi tetap untuk {@link MyDetail} (komponen ZK yang serializable); dijaga tetap
+	 * agar kompatibel dengan sesi lama yang tersimpan.
 	 */
 	private static final long serialVersionUID = -8709253680548100690L;
+	/** Baris status kehadiran harian dosen yang detailnya sedang ditampilkan; sumber tanggal dan dosen pembanding jadwal. */
 	private StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarian;
 	//
 	// private boolean edit = false;
+	/** Grid berpaging yang menampilkan jadwal {@link Perkuliahan} dosen pada hari terkait. */
 	private MyGrid grid;
+	/** Combobox pemilih tahun akademik; perubahan memicu {@link #loadData(Object)}. */
 	private Combobox tahunAkademik;
+	/** Combobox pemilih jenis semester (Ganjil/Genap); perubahan memicu {@link #loadData(Object)}. */
 	private Combobox jenisSemester;
+	/** Helper (mode hanya-baca) yang membangun sub-detail agenda/aktivitas perkuliahan saat baris jadwal dibuka. */
 	protected AktifitasPerkuliahanHelper aktifitasPerkuliahanHelper;
 
 	/**

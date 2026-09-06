@@ -8254,7 +8254,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 
 		rows.appendChild(createRowNilaiPassword(
 				"API Key aktif. Kosongkan untuk Ollama lokal. Isi jika memakai Gemini, Groq, Cloudflare, OpenAI, DeepSeek, atau provider cloud lain.",
-				"AI_OPENAI_KEY", "AIzaSyAFSzVMA8o9DWZpHCsTQT8Mf4M5SN77e2E"));
+				"AI_OPENAI_KEY", ""));
 
 		rows.appendChild(createRowNilai(
 				"Timeout koneksi/read AI dalam milidetik",
@@ -8313,7 +8313,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 				"AI_GEMINI_MODEL", "gemini-1.5-flash"));
 		rows.appendChild(createRowNilaiPassword(
 				"API Key Gemini",
-				"AI_GEMINI_KEY", "AIzaSyAFSzVMA8o9DWZpHCsTQT8Mf4M5SN77e2E"));
+				"AI_GEMINI_KEY", ""));
 
 		createSpan("Groq API", rows);
 		rows.appendChild(createRowActiveDefault(

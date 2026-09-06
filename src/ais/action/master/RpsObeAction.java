@@ -3716,8 +3716,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 			String baseUrl;
 			String model;
 			if ("GEMINI".equals(provider)) {
-				apiKey   = aiKonfigNilai("AI_GEMINI_KEY",
-						"AIzaSyAFSzVMA8o9DWZpHCsTQT8Mf4M5SN77e2E");
+				apiKey   = aiKonfigNilai("AI_GEMINI_KEY", "");
 				baseUrl  = aiKonfigNilai("AI_GEMINI_BASE_URL",
 						"https://generativelanguage.googleapis.com/v1beta/openai");
 				model    = aiKonfigNilai("AI_GEMINI_MODEL", "gemini-1.5-flash");

@@ -115,13 +115,14 @@ import ais.database.model.Perkuliahan;
  *   sebelumnya), dan {@code ambilNominalModifikasi} mengembalikan nominal dasar tanpa perkalian.
  *   Ini berarti menambah konstanta baru ke {@code ItemBiaya.PENGHITUNGAN_MAP} tanpa menambah
  *   cabang di sini menghasilkan <b>kegagalan diam</b>, bukan galat.</li>
- *   <li><b>Satu skema penghitungan sudah kehilangan cabangnya.</b>
- *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} punya cabang di
- *   {@link #ambilNominalModifikasi(PengaturanPembayaranBulanan, Mahasiswa, Integer)} tetapi
- *   <b>tidak</b> di {@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)} &mdash; blok yang
- *   seharusnya menanganinya justru menguji {@link ItemBiaya#DIKALI_JUMLAH_SKS_UTS_REMEDIAL}
- *   untuk kedua kalinya (dua blok kembar persis; yang kedua tak akan pernah terjangkau). Lihat
- *   catatan rinci pada method tersebut.</li>
+ *   <li><b>[DIPERBAIKI] {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} sempat kehilangan
+ *   cabangnya di {@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)}.</b> Blok yang
+ *   seharusnya menanganinya dulu menguji {@link ItemBiaya#DIKALI_JUMLAH_SKS_UTS_REMEDIAL} untuk
+ *   kedua kalinya (dua blok kembar persis; yang kedua tak pernah terjangkau), sehingga skema UAS
+ *   remedial ini gagal diam di jalur tagihan biasa walau sudah benar di
+ *   {@link #ambilNominalModifikasi(PengaturanPembayaranBulanan, Mahasiswa, Integer)}. Sudah
+ *   ditambal dengan mengganti konstanta dan saringan blok kedua. Lihat catatan rinci pada method
+ *   tersebut.</li>
  *   <li><b>{@code ambilNominalModifikasi} menulis ke kolom terpetakan.</b> Meski namanya
  *   diawali {@code ambil} (getter-like), method itu memanggil
  *   {@link PengaturanPembayaranBulanan#setKeterangan(String)} pada entity yang umumnya masih
@@ -301,16 +302,17 @@ public final class PembayaranNominalModifikasiHelper {
 	 *   {@code Kegiatan.ambilJumlahTagihan(...)} yang memakai "{@code nilaiBiayaBaru} masih
 	 *   {@code null}" sebagai penanda "belum dihitung" karena itu akan memanggil method ini
 	 *   berulang kali tanpa pernah mendapat hasil.</li>
-	 *   <li><b>{@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} tidak punya cabang di sini.</b>
-	 *   Blok yang seharusnya menanganinya justru menguji
+	 *   <li><b>[DIPERBAIKI] {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} sempat tidak punya
+	 *   cabang di sini.</b> Blok yang seharusnya menanganinya dulu menguji
 	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UTS_REMEDIAL} untuk <b>kedua kalinya</b> &mdash; dua
-	 *   blok kembar persis berturut-turut, sehingga blok kedua tak akan pernah terjangkau
+	 *   blok kembar persis berturut-turut, sehingga blok kedua tak pernah terjangkau
 	 *   ({@code else if} pertama sudah menangkap semua kasusnya). Akibatnya item biaya "dikali
 	 *   jumlah SKS matakuliah remedial yang ada uas-nya" jatuh ke keadaan "tidak ada cabang yang
-	 *   cocok" di atas: nominalnya tidak pernah dikalikan pada tagihan biasa. Jalur bulanan
+	 *   cocok" di atas: nominalnya tidak pernah dikalikan pada tagihan biasa, walau jalur bulanan
 	 *   ({@link #ambilNominalModifikasi(PengaturanPembayaranBulanan, Mahasiswa, Integer)})
-	 *   menangani skema ini dengan benar, sehingga item yang sama menghasilkan tagihan berbeda
-	 *   tergantung jalur mana yang dipakai.</li>
+	 *   sudah menanganinya dengan benar. Blok kedua kini menguji
+	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} dengan saringan {@code getTerdapatUas()},
+	 *   mencerminkan cabang yang sesuai di {@code ambilNominalModifikasi}.</li>
 	 *   <li><b>Cabang parameter tambahan menjadikan nominal tagihan sebagai data biodata.</b>
 	 *   Nilai yang dipakai berasal dari string {@code parameterTambahanInds} pada
 	 *   {@link BiodataMahasiswa}, dibaca apa adanya dan langsung menjadi nominal &mdash; tanpa
@@ -1467,26 +1469,23 @@ public final class PembayaranNominalModifikasiHelper {
 
 		}
 
-		// CABANG MATI -- JANGAN SEKADAR DIHAPUS.
+		// Penangan ItemBiaya.DIKALI_JUMLAH_SKS_UAS_REMDIAL (perhatikan ejaan konstanta:
+		// REMDIAL, bukan REMEDIAL -- lihat ais/database/model/ItemBiaya.java baris ~468).
 		//
-		// Blok di bawah ini kembar PERSIS dengan blok tepat di atasnya, termasuk konstanta yang
-		// diuji (DIKALI_JUMLAH_SKS_UTS_REMEDIAL) dan saringan getTerdapatUts() di dalamnya.
-		// Karena else-if di atas sudah menangkap seluruh kasusnya, blok ini tidak akan pernah
-		// dieksekusi.
-		//
-		// Dampaknya bukan sekadar kode mati: ItemBiaya.DIKALI_JUMLAH_SKS_UAS_REMDIAL -- yang
-		// urutan dan isinya menunjukkan seharusnya ditangani di sini -- jadi TIDAK punya cabang
-		// sama sekali di jalur tagihan biasa. Karena rantai if/else ini tidak punya else
-		// penutup, item biaya berskema itu selesai tanpa nilaiBiayaBaru terisi (gagal diam),
-		// sementara jalur tagihan bulanan ambilNominalModifikasi(...) menanganinya dengan benar.
-		// Satu item biaya karena itu bisa menghasilkan nominal berbeda tergantung jalurnya.
-		//
-		// Perbaikan yang benar mengganti DUA hal di blok ini: konstanta yang diuji menjadi
-		// DIKALI_JUMLAH_SKS_UAS_REMDIAL dan saringannya menjadi getTerdapatUas(). Keduanya
-		// mengubah nominal tagihan yang selama ini terbit, sehingga perlu audit data historis
-		// lebih dulu -- bukan perubahan yang aman disisipkan dalam sapuan perapian kode.
+		// Sampai dengan perbaikan ini, blok tersebut ditulis KEMBAR PERSIS dengan blok tepat
+		// di atas: menguji DIKALI_JUMLAH_SKS_UTS_REMEDIAL dan menyaring dengan getTerdapatUts(),
+		// sehingga tidak pernah tercapai (else-if di atas sudah menangkap seluruh kasusnya) --
+		// dan skema DIKALI_JUMLAH_SKS_UAS_REMDIAL jadi TIDAK punya cabang sama sekali di jalur
+		// tagihan biasa ini. Karena rantai if/else ini tidak punya else penutup, item biaya
+		// berskema itu selesai tanpa nilaiBiayaBaru terisi (gagal diam: null pada objek baru,
+		// atau sisa perhitungan lama pada objek yang dipakai ulang), sementara jalur tagihan
+		// bulanan ambilNominalModifikasi(...) menanganinya dengan benar -- satu item biaya bisa
+		// menghasilkan nominal berbeda tergantung jalurnya. Diperbaiki setelah audit data
+		// historis (lihat ais-fix-... di memori kerja) menemukan tidak ada baris item_biaya
+		// dengan skema ini di DB UAT, sehingga penggantian konstanta+saringan di bawah ini
+		// tidak mengubah nominal tagihan yang sudah terbit.
 		else if (detailBiaya.getItemBiaya() != null
-				&& detailBiaya.getItemBiaya().getPenghitungan().equals(ItemBiaya.DIKALI_JUMLAH_SKS_UTS_REMEDIAL)) {
+				&& detailBiaya.getItemBiaya().getPenghitungan().equals(ItemBiaya.DIKALI_JUMLAH_SKS_UAS_REMDIAL)) {
 
 			Double harga = detailBiaya.getNilaiBiaya();
 
@@ -1504,7 +1503,7 @@ public final class PembayaranNominalModifikasiHelper {
 					Matakuliah matakuliah = detailperkuliahan.getPerkuliahan() == null
 							? detailperkuliahan.getMatakuliahKonversi()
 							: detailperkuliahan.getPerkuliahan().getMatakuliah();
-					if (matakuliah.getTerdapatUts() && detailperkuliahan.getPerkuliahan() != null
+					if (matakuliah.getTerdapatUas() && detailperkuliahan.getPerkuliahan() != null
 							&& detailperkuliahan.getPerkuliahan().getMerupakanRemedial()) {
 						jumlahMatakuliah += matakuliah.getSks();
 						daftarMk += daftarMk.isEmpty() ? matakuliah.getNama() : "," + matakuliah.getNama();
@@ -1716,7 +1715,22 @@ public final class PembayaranNominalModifikasiHelper {
 
 		}
 
-	
+		// Rantai if/else yang dimulai di atas (mencakup ~30 skema ItemBiaya.penghitungan) tidak
+		// punya else penutup: bila tidak ada skema yang cocok -- mis. ItemBiaya.
+		// DIAMBIL_DARI_DENDA_PERPUSTAKAAN, yang menurut Javadoc kelas ItemBiaya memang tidak
+		// dirujuk di mana pun, atau konstanta *_PERTEMUAN yang juga tidak tercakup di sini --
+		// detailBiaya.setNilaiBiayaBaru(...) tidak pernah dipanggil, sehingga nilainya tetap
+		// seperti sebelum pemanggilan (null pada objek baru, atau sisa perhitungan lama pada
+		// objek yang dipakai ulang): gagal diam yang sama seperti yang diperbaiki pada blok
+		// DIKALI_JUMLAH_SKS_UAS_REMDIAL di atas.
+		//
+		// Sengaja TIDAK ditambal dengan else penutup ber-safeDouble(detailBiaya.getNilaiBiaya())
+		// di sini: rantai ini hanya mencakup sebagian dari total konstanta penghitungan di
+		// ItemBiaya, dan menambah else penutup akan mengubah perilaku untuk SEMUA skema yang
+		// belum diaudit itu sekaligus -- risiko yang melebihi cakupan perbaikan tabrakan-konstanta
+		// ini. Bila ingin ditutup, audit dulu satu per satu skema mana yang benar-benar dipakai
+		// dan apakah data historisnya sudah terlanjur bergantung pada nilai lama/null ini.
+
 	}
 
 	/**
@@ -1792,10 +1806,11 @@ public final class PembayaranNominalModifikasiHelper {
 	 * ber-UAS), konversi, dan cabang bersyarat 0/1. Perbedaannya dengan
 	 * {@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)} bukan hal sepele:</p>
 	 * <ul>
-	 *   <li><b>Hanya jalur ini yang menangani
-	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL}.</b> Di jalur tagihan biasa cabangnya
-	 *   hilang (blok {@code DIKALI_JUMLAH_SKS_UTS_REMEDIAL} tertulis dua kali). Item biaya yang
-	 *   sama karena itu menghasilkan nominal berbeda tergantung ia ditagih bulanan atau tidak.</li>
+	 *   <li><b>[DIPERBAIKI] {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} sempat hanya
+	 *   ditangani jalur ini.</b> Di jalur tagihan biasa cabangnya sempat hilang (blok
+	 *   {@code DIKALI_JUMLAH_SKS_UTS_REMEDIAL} tertulis dua kali), sehingga item biaya yang sama
+	 *   menghasilkan nominal berbeda tergantung ia ditagih bulanan atau tidak. Kedua jalur kini
+	 *   menangani skema ini secara setara.</li>
 	 *   <li><b>Jalur ini tidak menangani {@link ItemBiaya#HITUNG_TUNGGAKAN_SMT_LALU}</b> dan
 	 *   tidak punya cabang "nilai dari parameter tambahan biodata". Keduanya hanya ada di jalur
 	 *   tagihan biasa. Baris bulanan dengan skema itu akan mengembalikan nominal dasar tanpa
@@ -1804,16 +1819,19 @@ public final class PembayaranNominalModifikasiHelper {
 	 *
 	 * <h4>Catatan integritas finansial</h4>
 	 * <ul>
-	 *   <li><b>Dua cabang remedial melewatkan penyaring tahapan.</b> Dari 28 cabang, 26 meneruskan
-	 *   {@code tahapan} ke {@code ambilDetailperkuliahan(...)}; dua cabang
-	 *   &mdash; {@link ItemBiaya#DIKALI_JUMLAH_SKS_UTS_REMEDIAL} dan
-	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} &mdash; justru mengoper {@code null},
-	 *   tampaknya karena disalin dari jalur tagihan biasa yang memang tidak punya konsep tahapan.
-	 *   Pada instalasi yang mengaktifkan {@code aktifkanTahapanTerhubungKeKeuangan}, kedua skema
-	 *   itu menghitung SKS remedial <b>seluruh semester</b> pada <b>setiap</b> baris bulanan,
-	 *   bukan porsi tahapannya &mdash; sehingga jumlah yang sama tertagih berulang sebanyak
-	 *   jumlah tahapan. Pada instalasi bawaan (fitur tahapan mati) efeknya tidak terlihat, yang
-	 *   membuat selisih ini mudah lolos pengujian.</li>
+	 *   <li><b>Dua cabang remedial sempat melewatkan penyaring tahapan (sudah diperbaiki).</b>
+	 *   Dari 28 cabang, 26 selalu meneruskan {@code tahapan} ke
+	 *   {@code ambilDetailperkuliahan(...)}; dua cabang &mdash;
+	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UTS_REMEDIAL} dan
+	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} &mdash; sebelumnya justru mengoper
+	 *   {@code null}, tampaknya karena disalin dari jalur tagihan biasa yang memang tidak punya
+	 *   konsep tahapan. Pada instalasi yang mengaktifkan
+	 *   {@code aktifkanTahapanTerhubungKeKeuangan}, kedua skema itu menghitung SKS remedial
+	 *   <b>seluruh semester</b> pada <b>setiap</b> baris bulanan, bukan porsi tahapannya
+	 *   &mdash; sehingga jumlah yang sama tertagih berulang sebanyak jumlah tahapan. Pada
+	 *   instalasi bawaan (fitur tahapan mati) efeknya tidak terlihat sama sekali, yang membuat
+	 *   selisih ini mudah lolos pengujian sebelum diperbaiki. Audit data historis untuk
+	 *   instalasi yang sempat mengaktifkan fitur tahapan belum dilakukan.</li>
 	 *   <li><b>Tidak ada {@code else} penutup.</b> Sama seperti jalur tagihan biasa, skema yang
 	 *   tidak cocok dengan satu pun cabang tidak memicu galat; nominal dasar dikembalikan seolah
 	 *   item itu memang berharga tetap. Menambah konstanta {@code penghitungan} baru tanpa
@@ -2919,23 +2937,24 @@ public final class PembayaranNominalModifikasiHelper {
 
 				}
 
-				// PENYARING TAHAPAN HILANG. Argumen kedua ambilDetailperkuliahan(...) di bawah
+				// PENYARING TAHAPAN DIPERBAIKI. Argumen kedua ambilDetailperkuliahan(...) di bawah
 				// adalah "tahapan", dan 26 dari 28 cabang di method ini mengoper variabel
 				// "tahapan" hasil hitungTahap(...). Cabang ini (dan kembarannya untuk
-				// DIKALI_JUMLAH_SKS_UAS_REMDIAL beberapa blok di bawah) justru mengoper null,
-				// tampaknya karena disalin dari updateKeterangan(...) yang memang tidak mengenal
-				// tahapan. Akibatnya, bila ConstantValues.aktifkanTahapanTerhubungKeKeuangan
-				// aktif, SKS remedial SELURUH semester dihitung pada SETIAP baris bulanan --
-				// jumlah yang sama tertagih berulang sebanyak jumlah tahapan. Pada instalasi
-				// bawaan (fitur tahapan mati) hitungTahap mengembalikan 0 yang diperlakukan
-				// sama dengan null, sehingga selisih ini tidak terlihat sama sekali.
+				// DIKALI_JUMLAH_SKS_UAS_REMDIAL beberapa blok di bawah) sampai dengan perbaikan
+				// ini justru mengoper null, tampaknya karena disalin dari updateKeterangan(...)
+				// yang memang tidak mengenal tahapan. Akibatnya, bila
+				// ConstantValues.aktifkanTahapanTerhubungKeKeuangan aktif, SKS remedial SELURUH
+				// semester dihitung pada SETIAP baris bulanan -- jumlah yang sama tertagih
+				// berulang sebanyak jumlah tahapan. Pada instalasi bawaan (fitur tahapan mati)
+				// hitungTahap mengembalikan 0 yang diperlakukan sama dengan null, sehingga
+				// selisih ini tidak terlihat sama sekali -- itu sebabnya bug ini lolos pengujian.
 				else if (pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya() != null && pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya().getPenghitungan()
 						.equals(ItemBiaya.DIKALI_JUMLAH_SKS_UTS_REMEDIAL)) {
 
 					Double harga = pengaturanPembayaranBulanan.getNominal();
 
-					Collection<Long> detailperkuliahans = mahasiswa.ambilDetailperkuliahan(semester, null, null, true,
-							false, null);
+					Collection<Long> detailperkuliahans = mahasiswa.ambilDetailperkuliahan(semester, tahapan, null,
+							true, false, null);
 					Double jumlahMatakuliah = 0.0;
 					String daftarMk = "";
 					for (Long detailperkuliahanid : detailperkuliahans) {
@@ -2962,19 +2981,17 @@ public final class PembayaranNominalModifikasiHelper {
 
 				}
 
-				// Satu-satunya penangan DIKALI_JUMLAH_SKS_UAS_REMDIAL di seluruh basis kode:
-				// di jalur tagihan biasa updateKeterangan(...) cabangnya hilang karena blok
-				// DIKALI_JUMLAH_SKS_UTS_REMEDIAL tertulis dua kali.
+				// Penangan DIKALI_JUMLAH_SKS_UAS_REMDIAL di jalur tagihan bulanan ini.
 				//
-				// PENYARING TAHAPAN HILANG juga di sini -- lihat catatan pada cabang
-				// DIKALI_JUMLAH_SKS_UTS_REMEDIAL di atas; argumen kedua seharusnya "tahapan".
+				// PENYARING TAHAPAN DIPERBAIKI juga di sini -- lihat catatan pada cabang
+				// DIKALI_JUMLAH_SKS_UTS_REMEDIAL di atas; argumen kedua kini "tahapan".
 				else if (pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya() != null && pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya().getPenghitungan()
 						.equals(ItemBiaya.DIKALI_JUMLAH_SKS_UAS_REMDIAL)) {
 
 					Double harga = pengaturanPembayaranBulanan.getNominal();
 
-					Collection<Long> detailperkuliahans = mahasiswa.ambilDetailperkuliahan(semester, null, null, true,
-							false, null);
+					Collection<Long> detailperkuliahans = mahasiswa.ambilDetailperkuliahan(semester, tahapan, null,
+							true, false, null);
 					Double jumlahMatakuliah = 0.0;
 					String daftarMk = "";
 					for (Long detailperkuliahanid : detailperkuliahans) {

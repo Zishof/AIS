@@ -16,6 +16,17 @@ import ais.common.Common;
  * </p>
  * 
  * @author Ravi Mistry
+ *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06):</b> field ini sebelumnya memakai
+ * kunci API Google Books nyata sebagai nilai default hardcoded untuk konfigurasi
+ * {@code google_book_key}. Default itu sudah diganti string kosong — kunci kini
+ * WAJIB diisi lewat konfigurasi database, dan pemanggilan Google Books API akan
+ * gagal dengan jelas (bukan diam-diam memakai kunci lama yang sudah bocor) bila
+ * konfigurasi belum diisi. Kunci lama yang sebelumnya tertanam sudah lama berada
+ * di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di Google Cloud
+ * Console bila masih dipakai produksi.
+ * </p>
  */
 public class ClientCredentials {
 
@@ -23,7 +34,7 @@ public class ClientCredentials {
 	 * Value of the "API key" shown under "Simple API Access".
 	 */
 
-	public static String KEY_PERPUS = "AIzaSyBNXc8pLbWFN0PvDz7qMqlKIAWQlK8A_C4";
+	public static String KEY_PERPUS = "";
 
 	static {
 		ClientCredentials.KEY_PERPUS = Common.getKonfigurasi("google_book_key", ClientCredentials.KEY_PERPUS)

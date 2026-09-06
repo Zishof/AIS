@@ -99,34 +99,151 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk detailperkuliahan for penilaian. Tipe ini membungkus satu variasi kecil
- * dari alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * <b>Mesin penilaian (grading) tingkat kelas</b> untuk satu {@link Perkuliahan}. Kelas ini membangun
+ * seluruh layar &quot;Input Nilai&quot; yang dipakai dosen, asisten dosen, dan admin akademik untuk
+ * mengisi, memverifikasi, mengunci, mencetak, dan menganalisis nilai seluruh mahasiswa yang terdaftar
+ * pada satu jadwal perkuliahan. Ia adalah <b>antarmuka utama</b> di atas entitas
+ * {@link Detailperkuliahan} (satu baris = satu mahasiswa pada satu perkuliahan) dan entitas
+ * {@link FormatNilai} (satu kolom = satu komponen penilaian beserta bobot persennya).
  *
- * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
- * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
- * pada kontrak ini agar tidak menggandakan integrasi.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code MyGrid
- * gridKomentar}, {@code Perkuliahan perkuliahan}, {@code List formatNilais}, {@code Konfigurasi konfigurasi},
- * {@code List statusPertemuan}, {@code EventListener onPerubahanNilai}, {@code Textbox nama};
- * pembacaan/pencarian ({@code loadData()}, {@code loadDataDetailAsisten()}, {@code loadDataKomentar()}); mutasi
- * data ({@code prosesDisplay()}); operasi domain lain ({@code tanamkanRekapKeTabpanel()}, {@code
- * displayAsistenMahasiswa()}, {@code display()}, {@code onLaporan()}, {@code onLaporan()}, {@code onLaporan()});
- * konfigurasi constructor: {@code editDisable}, {@code nilai0MasukPenghitungan}, {@code tbmuser}. Bagian lain
- * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <h3>Peta besar layar</h3>
+ * <p>{@link #display(Perkuliahan, Component, EventListener, MyToolbarbuttonConfig, boolean)} adalah
+ * pintu masuk tunggal; ia memilih perkuliahan induk bila kelas ini paralel, memuat konfigurasi periode
+ * penilaian, lalu menyerahkan pembangunan komponen ke
+ * {@link #prosesDisplay(Perkuliahan, Component, EventListener, MyToolbarbuttonConfig, Boolean)}. Hasilnya
+ * adalah sebuah {@link Tabbox} berisi tujuh tab: <i>Input Nilai</i> (grid utama, dibangun <b>eager</b>),
+ * <i>Asisten Dosen</i>, <i>Rekap Tugas</i>, <i>Rekap Ujian</i>, <i>Rekap Tugas Kelompok</i>,
+ * <i>Rekap Total Nilai</i>, dan <i>Prestasi Belajar</i> &mdash; enam terakhir dibangun <b>lazy</b> saat
+ * tab diklik. Grid utama dirender baris demi baris oleh {@link DetailPerkuliahanRenderer}.</p>
+ *
+ * <h3>Hubungan dengan {@link Detailperkuliahan}</h3>
+ * <p>Kelas ini adalah <b>salah satu penulis utama</b> kolom nilai pada entitas tersebut, namun ia
+ * <b>tidak pernah menulis {@code detailNilai} secara langsung</b>. Semua pengisian nilai per komponen
+ * melalui {@link Detailperkuliahan#populateDetailNilai} (baik langsung dari kelas ini maupun lewat
+ * {@code PerubahanNilaiListener}), semua pembacaan melalui {@code retreiveDetailNilai} /
+ * {@code retreiveDetailNilaiBelumVerify} / {@code retreiveDetailVerifikasiNilai}, dan seluruh
+ * rekapitulasi total melalui {@code hitungTotalNilai} / {@code hitungTotalNilaiSementara}. Kolom
+ * ringkasan {@code totalNilai}, {@code nilaiHuruf}, {@code totalIP}, {@code lulus}, beserta kembaran
+ * &quot;sementara&quot;-nya ditulis lewat setter entitas setelah pemetaan huruf dilakukan
+ * {@code Common.getNilaiHuruf(...)}.</p>
+ *
+ * <p><b>Soal &quot;kunci nilai tidak sepenuhnya beku&quot;.</b> Perilaku itu <b>bukan</b> berasal dari
+ * kelas ini. Yang menyebabkannya adalah {@link Detailperkuliahan#getNilaiHuruf()} dan
+ * {@link Detailperkuliahan#getTotalIP()}: pada baris terkunci keduanya <i>memetakan ulang</i>
+ * {@code totalNilaiKunci} lewat tabel Format Nilai Huruf yang masih bisa diubah admin, dan hanya
+ * memakai snapshot {@code nilaiHurufKunci}/{@code totalIPKunci} sebagai cadangan. Peran kelas ini
+ * justru dua-duanya sisi berlawanan: ia <b>membuat</b> snapshot itu (lihat tombol Kunci, yang memanggil
+ * {@link Detailperkuliahan#bekukanSemuaNilai()} untuk setiap mahasiswa sebelum {@code setDikunci}
+ * dipasang, dan tombol kunci per kolom yang memanggil
+ * {@link Detailperkuliahan#bekukanDetailNilai(FormatNilai)}), dan ia juga <b>satu-satunya tempat
+ * perbedaan itu ditampilkan kepada pengguna</b> &mdash; panel Analisis Nilai Huruf secara eksplisit
+ * melaporkan &quot;snapshot huruf kunci sudah tidak sesuai&quot; dan menghitung berapa banyak baris
+ * yang snapshot-nya menyimpang. Jadi kelas ini memperlakukan pemetaan ulang tersebut sebagai
+ * <b>perilaku yang disengaja</b>, bukan bug yang perlu ditutup di lapisan tampilan.</p>
+ *
+ * <h3>Lapisan penjaga (gate) yang bekerja di sini</h3>
+ * <p>Kemampuan mengubah nilai ditentukan oleh gabungan banyak syarat yang dihitung ulang di beberapa
+ * tempat: bendera {@code edit} dari pemanggil, {@link #editDisable} (konfigurasi
+ * <code>hanya_dosen_yg_boleh_entry_nilai</code>), {@code aktifPenilaian} beserta {@link Konfigurasi}
+ * periode, status {@code perkuliahan.getDikunci()}, kunci per kolom {@code formatNilai.getKunci()},
+ * kunci status pertemuan, batas ketidakhadiran UTS/UAS, status pembayaran mahasiswa
+ * (<code>mhs_yg_belum_bayar_belum_bisa_di_ntry_nilai</code> dan gerbang semester pendek
+ * {@code GateBayarSpUtil}), serta apakah pengguna adalah mahasiswa yang berstatus asisten penilai.
+ * <b>Penjaga sesungguhnya berada di lapisan model</b>: {@code populateDetailNilai} keluar lebih awal
+ * bila komponen terkunci, dan setter ringkasan menolak menulis saat kunci global aktif. Penjaga di
+ * kelas ini bersifat antarmuka &mdash; ia menentukan apa yang tampil, bukan apa yang boleh tersimpan.</p>
+ *
+ * <p><b>Catatan cakupan.</b> Kelas ini <b>tidak memverifikasi bahwa pengguna adalah dosen pengampu
+ * kelas yang sedang dibuka.</b> Ia menerima keputusan itu dari Action pemanggil (
+ * {@code PenilaianAction}, {@code AktifitasPerkuliahanHelper}, {@code FormulirKegiatanAction}) lewat
+ * parameter {@code edit} dan {@code aktifPenilaianData}. Pembeda yang dikenali kelas ini hanyalah
+ * &quot;pengguna mahasiswa vs bukan mahasiswa&quot; ({@code tbmuser.getMahasiswa() == null}) dan
+ * &quot;punya profil dosen vs tidak&quot; ({@code tbmuser.ambilDosen()}). Konsekuensinya, tombol Kunci,
+ * Buka Kunci, Verifikasi, Reset, Masukkan Nilai Absen, dan Hitung Ulang terbuka bagi <b>semua</b> akun
+ * non-mahasiswa yang berhasil mencapai layar ini.</p>
+ *
+ * <h3>Efek samping dan model transaksi</h3>
+ * <p>Hampir seluruh listener di kelas ini membuka {@link Session} Hibernate sendiri
+ * ({@code currentNativeSession()} atau {@code openSession()}), menjalankan
+ * {@code begin/commit}, lalu menutupnya. Beberapa operasi berat berjalan di dalam
+ * {@code Common.createDefaultTimer(...)} atau {@link Thread} latar dengan session dedikasi. Tidak ada
+ * penguncian baris basis data (<i>pessimistic lock</i>) di mana pun: dua pengguna yang membuka kelas
+ * yang sama secara bersamaan dapat saling menimpa nilai. Operasi destruktif (Reset, Buka Kunci, Hapus
+ * komentar, Hapus asisten) selalu meminta konfirmasi melalui {@link MyMessageboxConfig}.</p>
+ *
+ * @see Detailperkuliahan
+ * @see Perkuliahan
+ * @see FormatNilai
+ * @see ais.action.master.helper.util.PerubahanNilaiListener
+ * @see ais.action.master.helper.util.PenilaianUtil
  */
 public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
+	/**
+	 * Pola pengenal <b>kode Sub-CPMK</b> pada awal nama sebuah {@link FormatNilai}, dipakai
+	 * {@link #ambilNamaFormatNilaiRingkas(FormatNilai)} untuk memotong nama komponen OBE yang panjang
+	 * menjadi kodenya saja.
+	 *
+	 * <p>Pola ini bersifat <i>case-insensitive</i> ({@code (?i)}), mengizinkan spasi awal, menerima
+	 * penulisan {@code Sub-CPMK}, {@code SubCPMK}, maupun {@code Sub CPMK} (tanda hubung dan spasi
+	 * sama-sama opsional), lalu menangkap nomor berupa satu angka atau rangkaian angka bertitik seperti
+	 * {@code 1}, {@code 2.3}, atau {@code 1.2.4}. Batas kata {@code \b} di akhir mencegah pola ikut
+	 * memakan karakter berikutnya. Grup tangkap pertama berisi kode utuh, misalnya
+	 * <code>&quot;Sub-CPMK 2.1&quot;</code> dari nama
+	 * <code>&quot;Sub-CPMK 2.1 Mahasiswa mampu menganalisis ...&quot;</code>.</p>
+	 *
+	 * <p>Objek {@link Pattern} sengaja dikompilasi sekali sebagai konstanta {@code static final} karena
+	 * ia dipanggil sekali untuk setiap kolom pada setiap pembangunan ulang layar; mengompilasinya
+	 * berulang kali akan boros. {@link Pattern} bersifat <i>immutable</i> dan aman dipakai banyak
+	 * thread, sedangkan {@link Matcher} yang dihasilkan tidak &mdash; karena itu {@code Matcher} selalu
+	 * dibuat baru di dalam pemanggil.</p>
+	 */
 	private static final Pattern POLA_KODE_SUB_CPMK = Pattern
 			.compile("(?i)^\\s*(sub\\s*-?\\s*cpmk\\s*[0-9]+(?:\\.[0-9]+)*)\\b");
 
 	/**
-	 * Mengambil label singkat untuk kepala kolom nilai OBE. Uraian lengkap tetap
-	 * dipasang sebagai tooltip agar tabel tidak melebar dan tetap mudah dibaca.
+	 * Meringkas nama sebuah {@link FormatNilai} menjadi <b>label pendek untuk kepala kolom</b> pada
+	 * grid Input Nilai. Tanpa peringkasan ini nama komponen OBE &mdash; yang lazimnya berbentuk
+	 * kalimat capaian pembelajaran sepanjang satu paragraf &mdash; akan melebarkan tabel sampai tidak
+	 * terbaca. Uraian lengkapnya tidak dibuang: pemanggil memasangnya kembali sebagai
+	 * {@code tooltiptext} pada label kolom, sehingga dosen tetap bisa membaca teks penuh dengan
+	 * mengarahkan tetikus.
+	 *
+	 * <h3>Urutan keputusan</h3>
+	 * <ol>
+	 * <li><b>Penjagaan null.</b> {@code formatNilai} yang {@code null}, atau yang namanya {@code null},
+	 * menghasilkan string kosong. Metode ini tidak pernah melempar dan tidak pernah mengembalikan
+	 * {@code null}, sehingga pemanggil boleh langsung merangkainya ke dalam label.</li>
+	 * <li><b>Deteksi mode OBE.</b> Sebuah komponen dianggap OBE bila ia terhubung ke Capaian
+	 * Pembelajaran Lulusan ({@code getCapaianPembelajaranLulusan() != null}) <i>atau</i> memiliki kode
+	 * Sub-CPMK yang tidak kosong. Bila <b>bukan</b> OBE &mdash; misalnya komponen klasik
+	 * &quot;UTS&quot;, &quot;UAS&quot;, &quot;Tugas&quot; &mdash; namanya memang sudah pendek dan
+	 * dikembalikan apa adanya setelah {@code trim()}. Peringkasan sengaja tidak diterapkan di luar
+	 * mode OBE agar nama komponen klasik yang kebetulan mengandung tanda hubung tidak ikut terpotong.</li>
+	 * <li><b>Pemotongan pada pemisah eksplisit.</b> Bila nama OBE mengandung urutan
+	 * <code>&quot; - &quot;</code> (spasi, tanda hubung, spasi) pada posisi lebih dari nol, bagian
+	 * sebelum pemisah itulah yang dipakai. Pemeriksaan {@code pemisah > 0} penting: pemisah pada indeks
+	 * nol akan menghasilkan potongan kosong. Konvensi penamaan yang dianjurkan memang menaruh kode di
+	 * depan pemisah ini, misalnya <code>&quot;Sub-CPMK 1.2 - Mampu merancang ...&quot;</code>.</li>
+	 * <li><b>Penyelamat berbasis pola.</b> Bila pemisah tidak ada, {@link #POLA_KODE_SUB_CPMK} dicoba
+	 * pada awal nama. Bila cocok, kode hasil tangkapan dinormalkan &mdash; setiap rentetan spasi
+	 * (termasuk tab dan baris baru) diringkas menjadi satu spasi tunggal oleh
+	 * {@code replaceAll("\\s+", " ")} &mdash; supaya <code>&quot;Sub  -  CPMK   3&quot;</code> tampil
+	 * rapi sebagai <code>&quot;Sub - CPMK 3&quot;</code>.</li>
+	 * <li><b>Menyerah dengan aman.</b> Bila pola pun tidak cocok, nama OBE dikembalikan utuh. Lebih
+	 * baik kolom melebar daripada label kosong yang membuat dosen tidak tahu komponen mana yang sedang
+	 * diisi.</li>
+	 * </ol>
+	 *
+	 * <p><b>Sifat.</b> Metode ini murni: ia tidak menyentuh basis data, tidak mengubah
+	 * {@code formatNilai}, dan tidak menyimpan state. Visibilitasnya sengaja <i>package-private</i> dan
+	 * {@code static} agar dapat dipakai ulang oleh helper penilaian lain dalam paket yang sama tanpa
+	 * membocorkannya ke seluruh aplikasi.</p>
+	 *
+	 * @param formatNilai komponen penilaian yang namanya hendak diringkas; boleh {@code null}.
+	 * @return label pendek siap pakai untuk kepala kolom; string kosong bila masukan tidak memadai,
+	 *         tidak pernah {@code null}.
+	 * @see #POLA_KODE_SUB_CPMK
 	 */
 	static String ambilNamaFormatNilaiRingkas(FormatNilai formatNilai) {
 		if (formatNilai == null) {

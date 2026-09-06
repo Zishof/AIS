@@ -57,11 +57,16 @@ import ais.ui.util.MyWindow;
  */
 public class PengecualianKknMahasiswaHelper implements DataLoader {
 
+	/** Grid daftar pengecualian KKN yang sedang ditampilkan; dibangun di {@link #display()}, diisi ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Combobox filter fakultas pada form pencarian (opsi "Semua" disediakan {@link Common#initFakultasDanJurusanDanSemua}). */
 	private Combobox searchfakultas = new Combobox();
+	/** Combobox filter jurusan/prodi pada form pencarian, mengikuti pilihan {@link #searchfakultas}. */
 	private Combobox searchjurusan = new Combobox();
 
+	/** Textbox filter nama mahasiswa; dicocokkan case-insensitive-anywhere pada {@link #loadData(Object)}. */
 	private Textbox nama;
+	/** KKN yang daftar pengecualiannya dikelola oleh instance ini, diberikan lewat konstruktor. */
 	private Kkn kkn;
 
 	/** @param kkn KKN yang daftar pengecualiannya dikelola */
@@ -73,10 +78,17 @@ public class PengecualianKknMahasiswaHelper implements DataLoader {
 	/** Row renderer grid pengecualian: identitas mahasiswa, keterangan (editable, tersimpan otomatis), dan tombol hapus. */
 	class PengecualianKknMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Konstruktor tanpa argumen; tidak ada state renderer yang perlu diinisialisasi. */
 		public PengecualianKknMahasiswaRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris grid untuk {@code arg1} (harus berupa {@link PengecualianKknMahasiswa}):
+		 * NIM, nama, jurusan, fakultas mahasiswa; textbox keterangan yang tersimpan otomatis saat
+		 * {@code onChange}; serta tombol hapus (dengan konfirmasi) yang memanggil {@link #loadData(Object)}
+		 * ulang setelah baris dihapus.
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {arg0.setValign("top");
 			// TODO Auto-generated method stub

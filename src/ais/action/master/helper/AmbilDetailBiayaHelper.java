@@ -58,14 +58,25 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDetailBiayaHelper {
 
+	/** Grid hasil pencarian {@link DetailBiaya}, dirender ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
 
+	/** Filter tahun akademik pada bagian pencarian (belum dipakai sebagai kriteria query aktif). */
 	private Decimalbox tahunAkademik;
+	/** Combobox Fakultas hasil {@link Common#initFakultasDanJurusanDanSemua}; belum dipakai sebagai filter query aktif. */
 	private Combobox searchfakultas = new Combobox();
+	/** Combobox Jurusan hasil {@link Common#initFakultasDanJurusanDanSemua}; filter aktif pada {@link #onSearchDefault(Event)}. */
 	private Combobox searchjurusan = new Combobox();
 
+	/** Baris {@link JenisKegiatanDetail} target yang set {@code detailBiayas}-nya sedang dipilih ulang. */
 	private JenisKegiatanDetail jenisKegiatanDetail;
 
+	/**
+	 * Snapshot {@link DetailBiaya} yang sudah terpasang pada {@link #jenisKegiatanDetail} saat
+	 * konstruktor dipanggil — dipakai {@link DetailBiayaRenderer} untuk menentukan status centang
+	 * awal tiap baris grid. Tidak diperbarui lagi setelah konstruksi (lihat {@link #save()} untuk
+	 * sumber kebenaran final saat disimpan).
+	 */
 	private DetailBiaya[] detailBiayas;
 
 	/** @param jenisKegiatanDetail baris detail kegiatan yang set {@code detailBiayas}-nya akan dipilih ulang. */
