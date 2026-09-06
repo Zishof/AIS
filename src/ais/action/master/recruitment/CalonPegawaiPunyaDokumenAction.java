@@ -267,7 +267,7 @@ public class CalonPegawaiPunyaDokumenAction extends GenericAutowireComposer impl
 		if (Common.isMobile()) {
 			ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 		} else {
-			String safeUrl = link.replace("'", "\\'");
+			String safeUrl = Common.jsEscape(link);
 			Clients.evalJavaScript("popupCenter({url: '" + safeUrl + "', title: 'Lampiran', w: 1200, h: 650});");
 		}
 	}
