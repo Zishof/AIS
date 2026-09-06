@@ -1049,7 +1049,7 @@ public class AbsensKehadiranPegawaiHarianAction extends GenericAutowireComposer 
 	}
 
 	public Criteria initCriteria(boolean order) {
-		// Tbmuser tbmuser = Common.getCurrentUser();
+		Tbmuser tbmuser = Common.getCurrentUser();
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
 		Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
 		if (parent != null) {
@@ -1061,11 +1061,20 @@ public class AbsensKehadiranPegawaiHarianAction extends GenericAutowireComposer 
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Pegawai.class)
 				.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")));
-		
+
 		if (order)
 			criteria.addOrder(Order.asc("nama"));
 
-		criteria.add(satuanKerjas.size() == 0 ? Restrictions.sqlRestriction("1=1")
+		// Gerbang cakupan satuan kerja: SekolahUtil.ambilSatuanKerjas() dapat mengembalikan himpunan
+		// kosong bukan hanya untuk superadmin, tetapi juga saat konteks Yayasan/SatuanKerja tidak dapat
+		// diresolusi sama sekali -- fail-open lama ("1=1") diam-diam menampilkan SELURUH pegawai lintas
+		// satuan kerja pada kondisi tersebut. Perbaikan: tetap "lihat semua" HANYA bila pengguna memang
+		// diberi hak eksplisit getMelihatDataSatkerLain(); selain itu tutup total (fail-closed), mengikuti
+		// pola yang sama seperti RekeningDosenAction.terapkanCakupanSatuanKerja.
+		boolean bolehLihatSatkerLain = tbmuser != null && tbmuser.hakAkses() != null
+				&& Boolean.TRUE.equals(tbmuser.hakAkses().getMelihatDataSatkerLain());
+		criteria.add(satuanKerjas.size() == 0
+				? (bolehLihatSatkerLain ? Restrictions.sqlRestriction("1=1") : Restrictions.sqlRestriction("1=0"))
 				: Restrictions.or(
 						parent == null ? Restrictions.isNull("satuanKerja") : Restrictions.sqlRestriction("false"),
 						Restrictions.in("satuanKerja", satuanKerjas)))

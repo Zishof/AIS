@@ -678,13 +678,80 @@ public class TagihanUIBuilder {
 			}
 
 			/**
-			 * Titik masuk pemuatan ulang rincian tagihan: menentukan jenis kegiatan & rentang
-			 * semester aktif dari kombobox filter (mengunci pilihan semester ke 0/1 secara
-			 * otomatis untuk jenis kegiatan pendaftaran calon mahasiswa/daftar ulang), membangun
-			 * indikator progres, lalu mendelegasikan penghitungan paralel per kombinasi jenis
-			 * kegiatan × semester ke {@code AsyncTaskManager.executeAsync} (lihat javadoc kelas).
-			 * Tidak melakukan apa pun bila semester yang diminta pemanggil ({@code SMT}) berada di
-			 * masa depan relatif terhadap semester berjalan mahasiswa.
+			 * Titik masuk setiap pemuatan ulang rincian tagihan — dipanggil sekali di akhir
+			 * {@code loadTagihan} dan setiap kali salah satu dari ketiga kombobox filter
+			 * berubah.
+			 *
+			 * <h4>Urutan kerja</h4>
+			 * <ol>
+			 * <li><b>Penjaga tagihan masa depan.</b> Bila pemilik tagihan adalah
+			 * {@link Mahasiswa}, {@code SMT} diberikan pemanggil, dan nilainya melampaui
+			 * {@code currentSemester()}, area hasil dikosongkan dan method langsung
+			 * kembali. Penjaga ini sengaja diletakkan di sini agar parameter langsung dari
+			 * pemanggil tunduk pada aturan yang sama dengan kombobox: rincian tagihan
+			 * semester yang belum berjalan tidak boleh terbuka dengan sendirinya. Perhatikan
+			 * bahwa penjaga ini <b>tidak</b> berlaku untuk {@link BiodataCalonMahasiswa}
+			 * (yang memang beroperasi di semester 0/1) dan tidak berlaku pada jalur kombobox.</li>
+			 * <li><b>Penguncian semester menurut jenis kegiatan.</b> Untuk pemilik bertipe
+			 * {@link Mahasiswa}, bila jenis kegiatan terpilih adalah
+			 * {@code PENDAFTARAN_CALON_MAHASISWA}, kedua kombobox semester dipaksa ke 0 dan
+			 * <b>dinonaktifkan</b>; bila {@code PENDAFTARAN_ULANG_MAHASISWA_BARU}, dipaksa ke
+			 * 1 tetapi tetap dapat diubah. Untuk jenis kegiatan lain, keduanya diaktifkan
+			 * kembali. Ini mencerminkan kenyataan bahwa biaya pendaftaran melekat pada tahap
+			 * pra-perkuliahan, bukan pada semester perkuliahan mana pun.
+			 * <br>
+			 * Catatan implementasi: kombobox "Smt Sampai" hanya dibangun dengan opsi mulai
+			 * dari 1, sehingga permintaan memilih 0 padanya tidak menemukan item yang cocok.
+			 * Hal ini tidak menimbulkan masalah karena rentang untuk
+			 * {@code PENDAFTARAN_CALON_MAHASISWA} kemudian dipaksa ulang menjadi 0..0 di
+			 * dalam penyusunan daftar task, terlepas dari isi kombobox.</li>
+			 * <li><b>Pembacaan rentang.</b> {@code sMulaiOpt}/{@code sSampaiOpt} dibaca dari
+			 * kombobox dengan nilai cadangan 1. Bila pemilik tagihan ada tetapi "Smt Sampai"
+			 * belum memiliki item terpilih, method kembali tanpa berbuat apa-apa —
+			 * melindungi dari pemuatan setengah jadi saat komponen belum selesai
+			 * diinisialisasi.</li>
+			 * <li><b>Sinkronisasi layar pemanggil.</b> Bila {@code actionInstance} ada,
+			 * {@code loadKegiatan(false, sMulaiOpt, sSampaiOpt)} dipanggil agar daftar
+			 * kegiatan di layar induk mengikuti rentang yang sedang ditampilkan.</li>
+			 * <li><b>Penentuan himpunan jenis kegiatan.</b> Bila label terpilih adalah
+			 * "Semua Tagihan" atau "Belum Lunas", <b>seluruh</b> item kombobox yang memiliki
+			 * nilai objek dikumpulkan ke {@code mapsJk}; selain itu hanya satu jenis kegiatan
+			 * terpilih. Kedua label sintetis menghasilkan himpunan task yang <b>identik</b> —
+			 * perbedaannya baru muncul jauh di belakang, saat menentukan apakah blok hasil
+			 * suatu kombinasi ditampilkan: "Belum Lunas" menyembunyikan blok yang sisanya
+			 * nol, sedangkan "Semua Tagihan" menyembunyikan blok yang tagihan, dibayar, dan
+			 * sisanya sama-sama nol. Jadi memilih "Belum Lunas" tidak menghemat
+			 * perhitungan.</li>
+			 * <li><b>Pengosongan dan indikator.</b> Peta {@code semua} dan area hasil
+			 * dikosongkan, indikator mengambang
+			 * {@code KeuanganDashboardEnhanceUtil.showFloatingProgress} dinyalakan, dan
+			 * sebuah kontainer progres inline (judul, keterangan, {@link Progressmeter},
+			 * pencacah) ditempelkan sebagai anak pertama area hasil. Kontainer inline itu
+			 * kelak dilepas oleh {@code updateUI}.</li>
+			 * <li><b>Delegasi.</b> Seluruh perhitungan diserahkan ke
+			 * {@code ais.common.AsyncTaskManager.executeAsync} dengan sepasang
+			 * {@code BackgroundTask}/{@code UITask}.</li>
+			 * </ol>
+			 *
+			 * <h4>Hal yang perlu diketahui pemelihara</h4>
+			 * <ul>
+			 * <li>{@code Executions.getCurrent().getDesktop()} diambil <b>di sini</b>, selagi
+			 * masih berada di benang UI, lalu ditutup ke dalam seluruh task. Inilah satu-satunya
+			 * jalan bagi pekerja latar untuk menyentuh komponen ZK.</li>
+			 * <li>Karena {@code semua.clear()} dilakukan sebelum task berjalan sedangkan
+			 * pengisiannya baru terjadi di akhir, setiap pencetakan yang dipicu di tengah
+			 * pemuatan akan membaca peta kosong.</li>
+			 * <li>{@code gateway} ({@code TampilanPaymentGateway.adaPaymentGatewayYangAktif()})
+			 * dibaca sekali di awal dan hanya menentukan teks serta ikon tombol aksi
+			 * ("Bayar Sekarang" versus "Tagihan dan Pembayaran"), bukan perilakunya — kedua
+			 * varian membuka halaman tujuan yang sama.</li>
+			 * <li>Tidak ada mekanisme pembatalan: bila pengguna mengubah filter selagi
+			 * pemuatan sebelumnya masih berjalan, pemuatan lama tetap berlanjut dan hasilnya
+			 * dapat ikut ditempelkan ke area yang sudah dikosongkan pemuatan baru.</li>
+			 * </ul>
+			 *
+			 * @throws Exception diteruskan dari pembangunan komponen ZK dan dari
+			 *                   {@code AsyncTaskManager.executeAsync}
 			 */
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			private void load() throws Exception {
@@ -804,13 +871,107 @@ public class TagihanUIBuilder {
 						new ais.common.AsyncTaskManager.BackgroundTask() {
 
 							/**
-							 * Menyiapkan daftar {@link java.util.concurrent.Callable} (satu per kombinasi jenis
-							 * kegiatan aktif × semester dalam rentang terpilih) dan menjalankannya pada
-							 * {@link java.util.concurrent.ExecutorService} berukuran {@link #getAsyncThreadPoolSize},
-							 * lalu mengumpulkan hasil ({@code Future.get()}) dan menempelkan potongan UI-nya ke
-							 * {@code myDiv} secara berurutan. Membuka/menutup sesi Hibernate "parent" mandiri
-							 * untuk re-init cache kegiatan sebelum task paralel dimulai (tidak ditahan selama
-							 * task berjalan, agar tidak menahan koneksi pool terlalu lama).
+							 * Badan pekerjaan latar: menyiapkan cache bersama, menyusun dan menjalankan
+							 * seluruh task per kombinasi (jenis kegiatan, semester), lalu memublikasikan
+							 * hasilnya ke layar dan ke peta {@code semua}.
+							 *
+							 * <h4>Tahap 1 — sesi induk dan cache bersama</h4>
+							 * <p>
+							 * Sebuah sesi Hibernate mandiri ("parent") dibuka semata untuk menyegarkan cache
+							 * kegiatan pemilik tagihan ({@code reInitKegiatan}) dan mengambil dua koleksi
+							 * yang akan <b>dipakai bersama oleh seluruh task</b>:
+							 * {@code detailKegiatansTempGlobal} ({@link DetailKegiatan}) dan
+							 * {@code cicilanPembayaransTemp} ({@link CicilanPembayaran}). Untuk pemilik
+							 * bertipe {@link Mahasiswa} yang memiliki {@code biodataCalonMahasiswa}, koleksi
+							 * milik objek calon tersebut <b>ikut digabungkan</b> — inilah yang memungkinkan
+							 * satu layar menampilkan tagihan pendaftaran/daftar ulang bersama tagihan
+							 * semester berjalan.
+							 * </p>
+							 * <p>
+							 * Transaksi induk <b>sengaja di-{@code commit} lebih awal</b>, tepat setelah
+							 * pengambilan di atas dan sebelum task paralel dimulai. Alasannya tercatat pada
+							 * komentar di kode: kueri anak dan pemanggilan payment gateway dapat berlangsung
+							 * lama, sehingga menahan koneksi induk selama itu berisiko koneksi keburu
+							 * ditutup kolam sebelum commit akhir.
+							 * </p>
+							 * <p>
+							 * Perlu dicatat bahwa kedua koleksi bersama itu adalah {@link ArrayList} biasa
+							 * yang kemudian dibaca oleh banyak thread sekaligus. Ini aman selama tidak ada
+							 * yang mengubahnya setelah task dimulai — dan memang tidak ada — tetapi
+							 * merupakan asumsi implisit yang mudah dilanggar oleh perubahan kelak.
+							 * </p>
+							 *
+							 * <h4>Tahap 2 — menyusun daftar task</h4>
+							 * <p>
+							 * Perulangan dijalankan <b>dua kali</b> atas {@code mapsJk.values()}: sekali
+							 * untuk menghitung {@code calcTotalTasks} (dipakai sebagai penyebut persentase
+							 * kemajuan), sekali lagi untuk benar-benar membuat objek
+							 * {@link java.util.concurrent.Callable}. Kedua perulangan memakai syarat saring
+							 * yang sama: jenis kegiatan dilewati bila {@code null}, tanpa id, atau
+							 * <b>tidak aktif</b>. Rentang semesternya adalah {@code SMT..SMT} bila pemanggil
+							 * menentukannya, selain itu {@code sMulaiOpt..sSampaiOpt}; khusus
+							 * {@code PENDAFTARAN_CALON_MAHASISWA} rentangnya dipaksa {@code 0..0}. Bila
+							 * ternyata tidak ada task sama sekali, penyebut dijaga minimal 1 agar
+							 * perhitungan persentase tidak membagi nol.
+							 * </p>
+							 * <p>
+							 * Karena {@code mapsJk} adalah {@link java.util.HashMap}, urutan pemrosesan
+							 * jenis kegiatan tidak ditentukan. Urutan tampilan akhir juga mengikuti urutan
+							 * penyelesaian {@link Future} (yaitu urutan penyusunan task), bukan urutan
+							 * alfabet atau urutan kombobox — sehingga susunan blok pada layar dapat berbeda
+							 * antar pemuatan.
+							 * </p>
+							 *
+							 * <h4>Tahap 3 — eksekusi</h4>
+							 * <p>
+							 * {@code executor.invokeAll(tasks)} menjalankan seluruh task dan <b>memblokir
+							 * sampai semuanya selesai</b>. Karena itu {@code awaitTermination(60, SECONDS)}
+							 * yang menyusul praktis selalu langsung terpenuhi dan bukan batas waktu yang
+							 * efektif; {@code shutdownNow()} berperan sebagai jaring pengaman pada blok
+							 * {@code finally}.
+							 * </p>
+							 *
+							 * <h4>Tahap 4 — publikasi atomik</h4>
+							 * <p>
+							 * Seluruh {@link Future} dipanen lebih dahulu ke dalam koleksi lokal
+							 * ({@code hasilSelesai} dan {@code semuaSelesai}), baru kemudian peta
+							 * {@code semua} dikosongkan dan diisi sekaligus di dalam blok
+							 * {@code synchronized}. Pola ini adalah perbaikan atas dua masalah yang
+							 * tercatat pada komentar di kode: {@link TreeMap} bukan struktur yang aman
+							 * lintas-thread, dan pada rancangan sebelumnya snapshot dimasukkan
+							 * <b>sebelum</b> {@code barisLaporan} selesai diisi, sehingga "Cetak Semua
+							 * Tagihan" kadang membaca snapshot kosong atau sebagian walaupun rincian di
+							 * layar sudah lengkap.
+							 * </p>
+							 * <p>
+							 * Setelah itu potongan UI setiap task dipindahkan ke area hasil di dalam satu
+							 * kurungan {@code Executions.activate}/{@code deactivate}. Anak-anak
+							 * {@code localDiv} disalin ke daftar sementara lebih dahulu sebelum
+							 * dipindahkan, karena memindahkan komponen ZK mengubah daftar anak induknya
+							 * selagi di-iterasi. Bila tidak ada satu pun task yang menghasilkan UI, sebuah
+							 * kotak "Info Pembayaran" berisi pesan bahwa belum ada informasi yang dapat
+							 * ditampilkan dipasang sebagai gantinya.
+							 * </p>
+							 *
+							 * <h4>Penanganan galat dan pelepasan sumber daya</h4>
+							 * <ul>
+							 * <li>{@link org.zkoss.zk.ui.DesktopUnavailableException} ditangkap dan
+							 * <b>diabaikan tanpa dicatat</b>: itu berarti pengguna menutup tab selagi
+							 * perhitungan berjalan, kondisi normal yang tidak perlu memenuhi tabel audit.</li>
+							 * <li>{@link InterruptedException} ditangkap lalu status interupsi benang
+							 * dipulihkan dengan {@code Thread.currentThread().interrupt()}.</li>
+							 * <li>Galat lain di-{@code rollback} (bila transaksi induk masih aktif) dan
+							 * dicatat ke {@code ais.common.ErrorAuditUtil}.</li>
+							 * <li>Blok {@code finally} terluar selalu menutup sesi induk lewat
+							 * {@link #closeOpenedSession(Session)}, dan kedua koleksi bersama dikosongkan
+							 * setelah dipakai sebagai pelepasan memori.</li>
+							 * </ul>
+							 *
+							 * @return selalu {@code null}; hasil nyata dipublikasikan lewat efek samping ke
+							 *         peta {@code semua} dan ke pohon komponen ZK
+							 * @throws Exception dinyatakan demi kontrak
+							 *                   {@code AsyncTaskManager.BackgroundTask}; pada praktiknya
+							 *                   seluruh pengecualian sudah ditangkap di dalam
 							 */
 							@Override
 							public Object doInBackground() throws Exception {

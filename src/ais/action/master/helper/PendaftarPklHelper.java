@@ -145,15 +145,16 @@ import ais.ui.util.MyWindow;
  * <p>
  * Kelas ini adalah salinan {@link PendaftarKknHelper} untuk modul PKL. Keduanya sejajar baris demi
  * baris pada hampir seluruh isinya. Sebelumnya terdapat tiga perbedaan nyata yang bukan sekadar
- * penggantian nama entitas — ketiganya membuat sisi PKL lebih lemah; perbedaan pertama sudah
- * ditambal, dua sisanya masih ada:
+ * penggantian nama entitas — ketiganya membuat sisi PKL lebih lemah; dua yang pertama sudah
+ * ditambal, satu sisanya masih ada:
  * <ul>
  *   <li><b>(Sudah ditambal.)</b> {@link PendaftarPklRenderer} sebelumnya membuat label kolom
  *   "Memenuhi Syarat" tetapi tidak pernah mengisinya, sehingga kolom tersebut selalu kosong di
  *   layar ini. Kini label diisi dari {@code getMemenuhiSyarat()}, sejajar dengan kembarannya;</li>
- *   <li>pencarian {@link MahasiswaPklPersyaratan} saat ekspor memanggil {@code uniqueResult()}
- *   tanpa {@code addOrder(desc(id))} + {@code setMaxResults(1)} yang dipasang kembarannya,
- *   sehingga data rangkap memicu pengecualian;</li>
+ *   <li><b>(Sudah ditambal.)</b> pencarian {@link MahasiswaPklPersyaratan} saat ekspor sebelumnya
+ *   memanggil {@code uniqueResult()} tanpa {@code addOrder(desc(id))} + {@code setMaxResults(1)},
+ *   sehingga data rangkap memicu pengecualian. Kini pembatas yang sama dipasang, sejajar dengan
+ *   kembarannya;</li>
  *   <li>tombol "Rekap" menunjuk nama laporan {@code penerima-pkl} yang tidak ada di direktori
  *   laporan, sedangkan kembarannya menunjuk {@code penerima_kkn} yang tersedia.</li>
  * </ul>
@@ -523,13 +524,14 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 	 * jawaban kosong ke basis data.
 	 *
 	 * <p>
-	 * <b>Perbedaan dari kembarannya di modul KKN.</b> Pencarian baris
-	 * {@link MahasiswaPklPersyaratan} di sini memanggil {@code uniqueResult()} tanpa
+	 * <b>Perbedaan dari kembarannya di modul KKN (sudah ditambal).</b> Pencarian baris
+	 * {@link MahasiswaPklPersyaratan} di sini sebelumnya memanggil {@code uniqueResult()} tanpa
 	 * {@code addOrder(desc(id))} maupun {@code setMaxResults(1)}, sedangkan
-	 * {@code PendaftarKknHelper#cetakDataCustomButton} memasang kedua pembatas tersebut. Bila
-	 * pernah tercipta lebih dari satu baris jawaban untuk kombinasi mahasiswa-pkl-persyaratan
-	 * yang sama, pemanggilan di sini melempar {@code NonUniqueResultException}; pengecualian itu
-	 * ditangkap per-sel sehingga sel bersangkutan kosong tanpa peringatan ke pengguna.
+	 * {@code PendaftarKknHelper#cetakDataCustomButton} sudah memasang kedua pembatas tersebut.
+	 * Bila pernah tercipta lebih dari satu baris jawaban untuk kombinasi mahasiswa-pkl-persyaratan
+	 * yang sama, pemanggilan tanpa pembatas itu melempar {@code NonUniqueResultException} yang
+	 * ditangkap per-sel sehingga sel bersangkutan kosong tanpa peringatan ke pengguna. Kini kedua
+	 * pembatas yang sama dipasang di sini, sejajar dengan kembarannya.
 	 *
 	 * <p>
 	 * <b>Model konkurensi.</b> Pembuatan berkas berjalan di {@link Thread} terpisah, sementara
@@ -775,6 +777,7 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 														.createCriteria(MahasiswaPklPersyaratan.class)
 														.add(Restrictions.eq("mahasiswa", mahasiswa))
 														.add(Restrictions.eq("pkl", pkl))
+														.addOrder(Order.desc("id")).setMaxResults(1)
 														.add(Restrictions.eq("persyaratanPkl", persyaratanPkl))
 														.uniqueResult();
 												if (mahasiswaPklPersyaratan == null) {

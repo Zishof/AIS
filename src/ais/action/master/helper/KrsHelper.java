@@ -409,20 +409,20 @@ public class KrsHelper implements DataLoader {
 	 * dilengkapi {@link UtsDanUasCheckerHelper#checkPembayaranSebelumKRSSudahMemenuhi}); status
 	 * kemahasiswaan harus Aktif ({@code status_mahasiswa_harus_aktif_sebelum_isi_krs}); pelunasan
 	 * minimal semester sebelumnya
-	 * ({@code batas_terendah_persen_pembayaran_semester_yang_lalu_boleh_mengisi_krs}); dan terakhir
-	 * — di luar blok {@code try} — keberadaan {@link BlokirMahasiswa} aktif bertanda {@code krs}.
+	 * ({@code batas_terendah_persen_pembayaran_semester_yang_lalu_boleh_mengisi_krs}); dan terakhir,
+	 * di dalam blok {@code try} yang sama, keberadaan {@link BlokirMahasiswa} aktif bertanda {@code krs}.
 	 * </p>
 	 *
 	 * <p>
-	 * <b>Catatan perilaku yang perlu diperhatikan.</b> Seluruh gerbang selain pemeriksaan
-	 * {@link BlokirMahasiswa} berada di dalam satu blok {@code try} yang diakhiri
-	 * {@code catch (Exception e) { Common.tampilErrorJikaAdmin(e); }}; karena setiap penolakan
-	 * dilakukan lewat {@code return} di dalam blok tersebut, sebuah galat tak terduga pada salah satu
-	 * gerbang (misalnya data pendukung yang belum lengkap) membuat eksekusi melompat ke {@code catch}
-	 * lalu <em>melanjutkan</em> ke pembukaan {@code AmbilDataPerkuliahanHelper}, bukan membatalkannya.
-	 * Selain itu, listener tidak menolak secara eksplisit keadaan "kedua periode KRS tertutup" —
-	 * keadaan itu hanya tercermin pada visibilitas {@link #buttonPerkuliahan}, yang belakangan dapat
-	 * dipaksa tampil oleh {@link Common#checkApakahMahasiswaBolehAmbilKrsLewatPengecualian}.
+	 * <b>Perilaku fail-closed.</b> Seluruh gerbang di atas, termasuk pemeriksaan {@link BlokirMahasiswa},
+	 * berada di dalam satu blok {@code try} yang diakhiri {@code catch (Exception e) { ...; return; }};
+	 * sebuah galat tak terduga pada salah satu gerbang (misalnya data pendukung yang belum lengkap)
+	 * kini menampilkan pesan formal ke pengguna dan MENGHENTIKAN alur, bukan melanjutkan ke pembukaan
+	 * {@code AmbilDataPerkuliahanHelper}. Selain itu, listener kini menolak secara eksplisit keadaan
+	 * "kedua periode KRS tertutup" (baik {@link #konfigurasi} maupun {@link #konfigurasiPerbaikan} tidak
+	 * aktif), KECUALI bila {@link Common#checkApakahMahasiswaBolehAmbilKrsLewatPengecualian} mengizinkan
+	 * pengecualian — sehingga penolakan tidak lagi bergantung semata pada visibilitas
+	 * {@link #buttonPerkuliahan}.
 	 * </p>
 	 *
 	 * @param editable      tidak dipakai langsung dalam badan method; diteruskan untuk kompatibilitas signature
@@ -676,6 +676,12 @@ public class KrsHelper implements DataLoader {
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 								return;
 							}
+						} else if (!Common.checkApakahMahasiswaBolehAmbilKrsLewatPengecualian(mahasiswa, tahunAjaran,
+								semester % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL)) {
+							MyMessageboxConfig.show(
+							"Mohon maaf, waktu pengambilan dan perbaikan " + Common.getBahasa("label_krs") + " untuk semester ini sudah selesai atau belum berlangsung sehingga Bapak/Ibu belum dapat mengambil KRS. Langkah yang dapat dilakukan: (1) tunggu hingga periode pengambilan KRS berikutnya dibuka; (2) apabila memerlukan pengecualian, hubungi bagian Akademik atau Admin Fakultas/Prodi.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+							return;
 						}
 					}
 
@@ -776,30 +782,33 @@ public class KrsHelper implements DataLoader {
 						}
 
 					}
+					Session session = HibernateUtil.currentSession();
+
+					List<String> alasans = session.createCriteria(BlokirMahasiswa.class)
+							.add(Restrictions.isNotNull("keterangan")).add(Restrictions.ne("keterangan", ""))
+							.setProjection(Projections.property("keterangan")).add(Restrictions.eq("mahasiswa", mahasiswa))
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+							.add(Restrictions.eq("krs", true)).list();
+					if (!alasans.isEmpty()) {
+
+						String alas = "";
+						for (String s : alasans) {
+							alas += alas.isEmpty() ? s : "\n\n" + s;
+						}
+
+						try {
+							MyMessageboxConfig.show(alas, "Informasi KRS", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+						} catch (Exception e) {
+							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/KrsHelper.java:640");
+						}
+
+						return;
+					}
 				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
-				}
-
-				Session session = HibernateUtil.currentSession();
-
-				List<String> alasans = session.createCriteria(BlokirMahasiswa.class)
-						.add(Restrictions.isNotNull("keterangan")).add(Restrictions.ne("keterangan", ""))
-						.setProjection(Projections.property("keterangan")).add(Restrictions.eq("mahasiswa", mahasiswa))
-						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-						.add(Restrictions.eq("krs", true)).list();
-				if (!alasans.isEmpty()) {
-
-					String alas = "";
-					for (String s : alasans) {
-						alas += alas.isEmpty() ? s : "\n\n" + s;
-					}
-
-					try {
-						MyMessageboxConfig.show(alas, "Informasi KRS", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-					} catch (Exception e) {
-						e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/KrsHelper.java:640");
-					}
-
+					MyMessageboxConfig.show(
+					"Mohon maaf, terjadi kesalahan saat memeriksa syarat pengambilan KRS sehingga permintaan ini tidak dapat dilanjutkan. Langkah yang dapat dilakukan: (1) coba beberapa saat lagi; (2) apabila kesalahan berlanjut, hubungi Admin atau bagian Akademik/TI.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 					return;
 				}
 

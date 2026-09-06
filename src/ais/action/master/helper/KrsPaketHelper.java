@@ -551,6 +551,16 @@ public class KrsPaketHelper implements DataLoader {
 					return;
 				}
 
+				if (!(konfigurasi != null && konfigurasi.getNilai() != null
+						&& konfigurasi.getNilai().equals(Konfigurasi.AKTIF))
+						&& !Common.checkApakahMahasiswaBolehAmbilKrsLewatPengecualian(mahasiswa, tahunAjaran,
+								semester % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL)) {
+					MyMessageboxConfig.show(
+					"Mohon maaf, waktu pengambilan paket perkuliahan untuk semester ini sudah selesai atau belum berlangsung sehingga Bapak/Ibu belum dapat mengambil KRS. Langkah yang dapat dilakukan: (1) tunggu hingga periode pengambilan KRS berikutnya dibuka; (2) apabila memerlukan pengecualian, hubungi bagian Akademik atau Admin Fakultas/Prodi.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
 				Konfigurasi konfigurasiDosenPembimbingAkademik = Common
 						.getKonfigurasi("dosen_pa_harus_ada_sebelum_isi_krs", Konfigurasi.AKTIF);
 
