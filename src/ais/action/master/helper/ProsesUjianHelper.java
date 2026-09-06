@@ -4845,6 +4845,29 @@ public class ProsesUjianHelper extends MyWindow {
 
 				final EventListener pindahListener = new EventListener() {
 
+					/**
+					 * Menyimpan jawaban ISIAN SINGKAT / RUMPANG peserta ke basis data.
+					 *
+					 * <p>Dipakai oleh soal berjenis {@code JAWABAN_SINGKAT} dan {@code RUMPANG} pada ujian
+					 * berkoreksi otomatis. Seluruh isian pada satu soal disimpan sebagai SATU objek JSON
+					 * ({@code jwb}) di kolom {@code jawaban} milik {@code HasilUjianMahasiswaDetail}: kunci berupa
+					 * huruf opsi berisi teks yang diketik peserta, dan kunci berakhiran {@code _hasil} berisi
+					 * {@code "true"}/{@code "false"} hasil pembandingan dengan kunci jawaban.</p>
+					 *
+					 * <p><b>Yang dikerjakan:</b> memuat kembali detail jawaban dari cache, mengisi ulang seluruh
+					 * relasinya ({@code bankSoal}, {@code hasilUjianMahasiswa}, {@code ujianPunyaSoal}), mencatat
+					 * {@code waktuJawab}, lalu menyimpan lewat {@code Common.refreshUpdate} dan {@code flush}.
+					 * Setelah tersimpan, peta {@link ProsesUjianHelper#hasilUjianMahasiswaDetailsa} disegarkan dan
+					 * — bila peserta sudah berada di soal terakhir — indikator "Tuntas n/N (p%)" beserta progress
+					 * bar ikut diperbarui.</p>
+					 *
+					 * <p>Bila detail jawaban tidak ditemukan (data ujian tidak konsisten), peserta diberi pesan
+					 * agar menekan tombol Refresh.</p>
+					 *
+					 * @param arg0 event ZK pemicu; boleh null — listener ini juga dipanggil sekali saat render
+					 *              untuk menuliskan nilai awal isian
+					 * @throws Exception bila penyimpanan ke basis data gagal
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
@@ -4921,6 +4944,23 @@ public class ProsesUjianHelper extends MyWindow {
 							if (!hanyaLihat) {
 								jawaban.addEventListener("onChange", new EventListener() {
 
+									/**
+									 * Menangani perubahan teks pada SATU kotak isian (soal isian singkat / rumpang).
+									 *
+									 * <p>Menuliskan dua kunci ke objek JSON jawaban: kunci huruf opsi berisi teks yang diketik
+									 * (sudah di-{@code trim}), dan kunci berakhiran {@code _hasil} berisi hasil pembandingan
+									 * <b>tanpa membedakan huruf besar-kecil</b> terhadap kunci jawaban di {@code BankSoalDetail}.
+									 * Sesudah itu {@code pindahListener} dipanggil untuk mempersistensikan seluruh objek JSON.</p>
+									 *
+									 * <p><b>Catatan penilaian:</b> pembandingan dilakukan di SISI SERVER pada saat pengetikan, dan
+									 * hasilnya ikut tersimpan di kolom jawaban. Perubahan kunci jawaban SETELAH ujian berlangsung
+									 * karenanya tidak otomatis mengoreksi penanda benar/salah yang sudah tercatat.</p>
+									 *
+									 * <p>Listener ini hanya dipasang bila bukan mode lihat-saja.</p>
+									 *
+									 * @param arg0 event {@code onChange} ZK dari kotak isian
+									 * @throws Exception bila penyimpanan jawaban gagal
+									 */
 									@Override
 									public void onEvent(Event arg0) throws Exception {
 										jwb.put(bankSoalDetail.getHuruf() + "_hasil", jawaban.getValue().trim()
@@ -4995,6 +5035,31 @@ public class ProsesUjianHelper extends MyWindow {
 
 								pindahListener = new EventListener() {
 
+									/**
+									 * Menyimpan jawaban ESAI peserta beserta lampirannya.
+									 *
+									 * <p><b>Yang dikerjakan:</b></p>
+									 * <ol>
+									 *   <li>Bila kotak esai kosong, isinya diganti otomatis menjadi "Jawaban terdapat di file
+									 *       terlampir" — supaya soal tetap terhitung sebagai TERJAWAB ketika peserta hanya
+									 *       mengunggah berkas.</li>
+									 *   <li>Mengisi ulang seluruh relasi detail jawaban, mencatat {@code waktuJawab}, lalu
+									 *       menyimpan lewat {@code Common.refreshUpdate}.</li>
+									 *   <li>Bila event membawa objek {@code LampiranLain} pada {@code getData()}, berkas tersebut
+									 *       dikaitkan ke id detail jawaban ({@code setRef}) memakai session streaming terpisah,
+									 *       dengan {@code rollback} bila gagal.</li>
+									 *   <li>Menyegarkan {@link ProsesUjianHelper#hasilUjianMahasiswaDetailsa} dan — bila peserta
+									 *       berada di soal terakhir — memperbarui indikator "Tuntas n/N (p%)" dan progress bar.</li>
+									 * </ol>
+									 *
+									 * <p><b>Catatan penilaian:</b> jawaban esai TIDAK dinilai otomatis. Soal esai dipaksa menjadi
+									 * {@code KOREKSI_MANUAL} dan skornya diisi kemudian oleh dosen lewat
+									 * {@code KoreksiHasilUjian}.</p>
+									 *
+									 * @param arg0 event ZK {@code onChange} kotak esai, atau event unggah lampiran yang membawa
+									 *              {@code LampiranLain} pada {@code getData()}
+									 * @throws Exception bila penyimpanan jawaban atau pengaitan lampiran gagal
+									 */
 									@Override
 									public void onEvent(Event arg0) throws Exception {
 
@@ -5127,6 +5192,18 @@ public class ProsesUjianHelper extends MyWindow {
 											"Lampiran Koreksi Ujian", "Lampiran Koreksi Ujian", false,
 											new EventListener() {
 
+												/**
+												 * Callback kosong (no-op) untuk komponen unduh "Lampiran Koreksi Ujian" pada tampilan hasil
+												 * soal esai dalam mode lihat-saja.
+												 *
+												 * <p>{@code LampiranLain.createDownloadUploadFileLain} mewajibkan sebuah callback, padahal di
+												 * konteks ini komponen dibuat dengan seluruh flag unggah/hapus bernilai salah sehingga tidak
+												 * akan pernah ada perubahan yang perlu ditindaklanjuti. Karena itu badan method sengaja
+												 * dikosongkan.</p>
+												 *
+												 * @param arg0 event ZK (tidak dipakai)
+												 * @throws Exception tidak pernah dilempar
+												 */
 												@Override
 												public void onEvent(Event arg0) throws Exception {
 
@@ -5285,10 +5362,50 @@ public class ProsesUjianHelper extends MyWindow {
 
 							EventListener eventListener = new EventListener() {
 
+								/**
+								 * Mengembalikan referensi ke listener drag-and-drop ini sendiri.
+								 *
+								 * <p>Diperlukan karena listener harus memasang DIRINYA SENDIRI pada {@code Listitem} kosong
+								 * yang dibuat ulang setiap kali sebuah opsi dipindahkan keluar dari kolom "Opsi Pasangan"
+								 * ({@code listitem.addEventListener(Events.ON_DROP, getThis())}). Di dalam kelas anonim,
+								 * {@code this} pada baris tersebut tidak dapat dirujuk langsung, sehingga dibungkus method
+								 * kecil ini.</p>
+								 *
+								 * @return listener ini sendiri ({@code this})
+								 */
 								EventListener getThis() {
 									return this;
 								}
 
+								/**
+								 * Menangani drag-and-drop soal MENJODOHKAN sekaligus menilainya seketika.
+								 *
+								 * <p><b>Dua perilaku drop:</b></p>
+								 * <ol>
+								 *   <li><b>Menyusun ulang di dalam satu listbox</b> (asal dan tujuan sama): item disisipkan
+								 *       sebelum atau sesudah target sesuai arah perpindahan.</li>
+								 *   <li><b>Memindahkan antar listbox</b> (dari "Opsi Pasangan" ke kolom jawaban): item
+								 *       dipindahkan; bila slot tujuan adalah slot kosong bertanda {@code "temporary"}, slot itu
+								 *       dilepas dan satu slot kosong baru dibuat di kolom "Opsi Pasangan" supaya jumlah slot
+								 *       tetap sama.</li>
+								 * </ol>
+								 *
+								 * <p><b>Penilaian seketika:</b> sesudah setiap drop, seluruh item di kolom jawaban ditelusuri
+								 * berurutan. Satu pasangan dianggap benar bila nomor opsi yang dipasangkan sama dengan posisi
+								 * barisnya. Jawaban disimpan sebagai teks berformat
+								 * {@code "posisi:benar:nomor,posisi:benar:nomor,..."} dan nilainya dihitung sebagai
+								 * {@code (jumlahBenar * 100) / jumlahOpsi}.</p>
+								 *
+								 * <p><b>PERHATIAN SKALA NILAI (fakta arsitektur, bukan bug):</b> soal menjodohkan menyimpan
+								 * {@code nilai} dalam bentuk PERSENTASE (0-100), bukan poin seperti pilihan ganda. Konversi
+								 * kembali ke poin dikerjakan di
+								 * {@link ProsesUjianHelper#hitungPilihanGanda(HasilUjianMahasiswa,Map)} yang mengalikan
+								 * persentase tersebut dengan skor maksimal soal. Tanpa konversi itu, nilai 100 akan terjumlah
+								 * sebagai 100 POIN dan menggelembungkan nilai akhir melebihi 100.</p>
+								 *
+								 * @param arg0 event {@code onDrop} ZK; di-cast menjadi {@code DropEvent}
+								 * @throws Exception bila penyimpanan jawaban gagal
+								 */
 								@SuppressWarnings("unchecked")
 								@Override
 								public void onEvent(Event arg0) throws Exception {
@@ -5541,6 +5658,24 @@ public class ProsesUjianHelper extends MyWindow {
 
 						EventListener eventListener = new EventListener() {
 
+							/**
+							 * Menangani drag-and-drop soal MENGURUTKAN sekaligus menilainya seketika.
+							 *
+							 * <p>Item yang diseret disisipkan sebelum atau sesudah item target sesuai arah perpindahan.
+							 * Sesudah itu seluruh item ditelusuri berurutan: satu item dianggap benar bila
+							 * {@code bankSoalDetail.getUrutanBenar()} sama dengan posisi barisnya. Label setiap item
+							 * ditulis ulang dengan nomor urut barunya sehingga peserta selalu melihat urutan terkini.</p>
+							 *
+							 * <p>Jawaban disimpan sebagai teks berformat {@code "urutan:idDetail:benar,..."} dan nilainya
+							 * {@code (jumlahBenar * 100) / jumlahItem}.</p>
+							 *
+							 * <p><b>PERHATIAN SKALA NILAI (fakta arsitektur, bukan bug):</b> sama seperti soal menjodohkan,
+							 * {@code nilai} disimpan sebagai PERSENTASE (0-100) dan dikonversi kembali menjadi poin oleh
+							 * {@link ProsesUjianHelper#hitungPilihanGanda(HasilUjianMahasiswa,Map)}.</p>
+							 *
+							 * @param arg0 event {@code onDrop} ZK; di-cast menjadi {@code DropEvent}
+							 * @throws Exception bila penyimpanan jawaban gagal
+							 */
 							@SuppressWarnings("unchecked")
 							@Override
 							public void onEvent(Event arg0) throws Exception {
@@ -5834,6 +5969,30 @@ public class ProsesUjianHelper extends MyWindow {
 
 													pindahListener = new EventListener() {
 
+														/**
+														 * Menyimpan pilihan jawaban peserta pada soal PILIHAN GANDA atau BENAR-SALAH (satu jawaban).
+														 *
+														 * <p><b>Yang dikerjakan:</b></p>
+														 * <ol>
+														 *   <li>Menulis {@code bankSoalDetail} opsi yang dipilih ke {@code HasilUjianMahasiswaDetail}
+														 *       milik soal ini. Karena hanya satu opsi yang boleh dipilih, baris detail yang SAMA
+														 *       ditimpa — bukan ditambah.</li>
+														 *   <li>Mencatat {@code waktuJawab} dan menyalin sisa waktu berjalan ke
+														 *       {@code hasilUjianMahasiswa.setSisaWaktuPengerjaan(...)}.</li>
+														 *   <li>Menyimpan lewat {@code Common.refreshUpdate}, memasukkan hasilnya kembali ke cache
+														 *       {@code GeneralValueObject}, lalu menandai jawaban tersimpan pada
+														 *       {@code UjianRecomputeUtil} sehingga nilai peserta dihitung ulang secara TERJADWAL,
+														 *       bukan pada setiap klik.</li>
+														 *   <li>Mengaitkan lampiran ({@code LampiranLain}) bila event membawanya.</li>
+														 *   <li><b>Auto-lanjut:</b> pada ujian yang mengizinkan navigasi bebas, memilih jawaban langsung
+														 *       memindahkan peserta ke soal berikutnya. Bila sudah berada di soal terakhir, indikator
+														 *       "Tuntas n/N (p%)" dan progress bar diperbarui.</li>
+														 * </ol>
+														 *
+														 * @param arg0 event {@code onCheck} ZK dari radio pilihan jawaban; {@code getData()} dapat
+														 *              berisi {@code LampiranLain}
+														 * @throws Exception bila penyimpanan jawaban gagal
+														 */
 														@Override
 														public void onEvent(Event arg0) throws Exception {
 															Long myHasilUjianMahasiswaDetailid = details.isEmpty()
@@ -5965,6 +6124,36 @@ public class ProsesUjianHelper extends MyWindow {
 
 											pindahListener = new EventListener() {
 
+												/**
+												 * Menyimpan atau MENCABUT satu pilihan jawaban pada soal berganda (checkbox / multiple
+												 * response).
+												 *
+												 * <p><b>Alur:</b></p>
+												 * <ol>
+												 *   <li>{@link ProsesUjianHelper#jumlahDibatasi()} diperiksa lebih dahulu. Bila batas minimal
+												 *       atau maksimal jawaban dilanggar, centang dikembalikan ke keadaan tidak tercentang dan
+												 *       proses dihentikan.</li>
+												 *   <li><b>Dicentang:</b> satu baris {@code HasilUjianMahasiswaDetail} BARU dibuat (atau baris
+												 *       lama dipakai ulang) untuk opsi tersebut, disimpan, dimasukkan ke cache, ditandai ke
+												 *       {@code UjianRecomputeUtil}, lalu id-nya DITAMBAHKAN ke himpunan di
+												 *       {@link ProsesUjianHelper#hasilUjianMahasiswaDetailsa}. Lampiran dikaitkan bila ada.</li>
+												 *   <li><b>Dicabut:</b> id baris dihapus dari himpunan dan barisnya DIHAPUS dari basis data
+												 *       ({@code Common.refreshDelete} diikuti {@code flush}).</li>
+												 * </ol>
+												 *
+												 * <p><b>Perbedaan penting dengan radio:</b> soal berganda menyimpan SATU BARIS PER OPSI yang
+												 * dipilih, sedangkan pilihan ganda menimpa satu baris saja. Itulah sebabnya
+												 * {@link ProsesUjianHelper#hitung(HasilUjianMahasiswaDetail,Map)} perlu menghitung jumlah
+												 * pilihan benar dan salah dengan menelusuri seluruh baris milik satu {@code BankSoal}.</p>
+												 *
+												 * <p>Bila peserta sudah berada di soal terakhir, indikator "Tuntas n/N (p%)" dan progress bar
+												 * diperbarui. Tidak ada auto-lanjut untuk soal berganda, karena peserta masih boleh menambah
+												 * atau mengurangi pilihan.</p>
+												 *
+												 * @param arg0 event {@code onCheck} ZK dari checkbox pilihan jawaban; {@code getData()} dapat
+												 *              berisi {@code LampiranLain}
+												 * @throws Exception bila penyimpanan atau penghapusan jawaban gagal
+												 */
 												@Override
 												public void onEvent(Event arg0) throws Exception {
 
@@ -6217,6 +6406,17 @@ public class ProsesUjianHelper extends MyWindow {
 											"Lampiran Koreksi Ujian", "Lampiran Koreksi Ujian", false,
 											new EventListener() {
 
+												/**
+												 * Callback kosong (no-op) untuk komponen unduh "Lampiran Koreksi Ujian" pada tampilan hasil
+												 * soal pilihan ganda dalam mode lihat-saja.
+												 *
+												 * <p>Kembaran dari callback kosong pada cabang soal esai: komponen dibuat sebagai unduh-saja
+												 * sehingga tidak ada perubahan yang perlu ditindaklanjuti, tetapi
+												 * {@code createDownloadUploadFileLain} tetap mewajibkan sebuah listener.</p>
+												 *
+												 * @param arg0 event ZK (tidak dipakai)
+												 * @throws Exception tidak pernah dilempar
+												 */
 												@Override
 												public void onEvent(Event arg0) throws Exception {
 
@@ -6324,6 +6524,16 @@ public class ProsesUjianHelper extends MyWindow {
 				"Mohon maaf, untuk soal ini jumlah minimal jawaban yang harus dipilih adalah {V1}. Silakan lengkapi pilihan jawaban Anda sesuai ketentuan.",
 				min), "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, new EventListener() {
 
+								/**
+								 * Callback kosong (no-op) untuk pesan peringatan "jumlah MINIMAL jawaban belum terpenuhi".
+								 *
+								 * <p>Varian {@code MyMessageboxConfig.show} yang dipakai di sini mewajibkan sebuah callback,
+								 * sementara peringatan ini murni informatif: penolakan penyimpanan sudah dilakukan lewat nilai
+								 * balik {@code false} milik {@link ProsesUjianHelper#jumlahDibatasi()}.</p>
+								 *
+								 * @param arg0 event ZK dari messagebox (tidak dipakai)
+								 * @throws Exception tidak pernah dilempar
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 
@@ -6336,6 +6546,15 @@ public class ProsesUjianHelper extends MyWindow {
 				"Mohon maaf, untuk soal ini jumlah maksimal jawaban yang boleh dipilih adalah {V1}. Silakan kurangi pilihan jawaban Anda sesuai ketentuan.",
 				maks), "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, new EventListener() {
 
+								/**
+								 * Callback kosong (no-op) untuk pesan peringatan "jumlah MAKSIMAL jawaban terlampaui".
+								 *
+								 * <p>Kembaran dari callback peringatan batas minimal; penolakan penyimpanan sudah dilakukan
+								 * lewat nilai balik {@code false} milik {@link ProsesUjianHelper#jumlahDibatasi()}.</p>
+								 *
+								 * @param arg0 event ZK dari messagebox (tidak dipakai)
+								 * @throws Exception tidak pernah dilempar
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 

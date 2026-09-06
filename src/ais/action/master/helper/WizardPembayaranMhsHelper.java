@@ -972,6 +972,24 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ STEP 1: JENIS & SEMESTER
+    /**
+     * Merender langkah 1 "Jenis &amp; Semester": kartu identitas mahasiswa, combobox Jenis
+     * Pembayaran, combobox Semester, dan kotak opsional "Bayar sekaligus jenis pembayaran
+     * lain" (mode Keranjang).
+     *
+     * <p>Default cerdas: semester berjalan mahasiswa ({@code currentSemester()}) diberi
+     * label "(sekarang)" dan langsung terpilih, mengurangi satu keputusan di langkah
+     * pertama. Combobox jenis dibuat dapat diketik (autocomplete) karena daftar jenis
+     * pembayaran bisa sangat panjang.</p>
+     *
+     * <p><b>Kotak Keranjang</b> hanya ditambahkan bila ada minimal satu jenis yang dapat
+     * dipilih. Isinya dibangun dari item combobox jenis yang SAMA (bukan kueri kedua),
+     * dilengkapi kotak pencarian penyaring dan wadah bergulir ber-batas tinggi 230px agar
+     * daftar panjang tidak memanjangkan langkah 1 melewati layar. Centang yang sudah ada
+     * dipulihkan dari {@link #jenisEkstra} sehingga pilihan pengguna bertahan saat ia
+     * mundur dari langkah berikutnya. Kegagalan membangun daftar ini ditelan (diaudit) dan
+     * sengaja TIDAK menggagalkan langkah 1 — mode Keranjang bersifat opsional.</p>
+     */
     private void renderStep1() {
         Div wrap = new Div();
         wrap.setParent(bodyHost);
@@ -1091,6 +1109,14 @@ public class WizardPembayaranMhsHelper {
         // Filter live: sembunyikan baris yang tidak cocok kata kunci (checkbox tercentang
         // TETAP tercentang meskipun barisnya disembunyikan).
         EventListener filterJenis = new EventListener() {
+            /**
+             * Penyaring langsung daftar jenis tambahan: menyembunyikan baris yang namanya tidak
+             * mengandung kata kunci. Kata kunci diambil dari {@code InputEvent} bila tersedia
+             * (agar {@code onChanging} bereaksi pada ketikan yang BELUM ter-commit ke
+             * Textbox), dengan cadangan {@code cariJenis.getValue()}. Checkbox yang sudah
+             * tercentang TETAP tercentang meskipun barisnya tersembunyi — penyaringan murni
+             * visual dan tidak pernah membatalkan pilihan pengguna.
+             */
             @Override public void onEvent(Event e) throws Exception {
                 String kunci = null;
                 try {
@@ -1115,6 +1141,20 @@ public class WizardPembayaranMhsHelper {
         }
     }
 
+    /**
+     * Memvalidasi langkah 1 sekaligus MENETAPKAN state hasilnya (bukan sekadar memeriksa):
+     * {@link #jenisKegiatan}, {@link #semester}, dan {@link #jenisEkstra}.
+     *
+     * <p>Jenis dan semester wajib terpilih dan bertipe benar — item placeholder
+     * "— pilih semester —" bernilai null sehingga tidak lolos uji {@code instanceof Integer}.
+     * {@link #jenisEkstra} dibangun ULANG dari nol setiap kali dipanggil, mengambil hanya
+     * checkbox yang tercentang dan MENOLAK jenis yang sama dengan jenis utama supaya tidak
+     * ada jenis kembar yang menghasilkan dua draf {@code KegiatanTemporary} untuk kombinasi
+     * yang sama.</p>
+     *
+     * @return {@code true} bila kedua pilihan sah dan state sudah ditetapkan; {@code false}
+     *         setelah menampilkan pesan, dengan {@link #langkah} tidak berubah
+     */
     private boolean validasiStep1() {
         if (cboJenis == null || cboJenis.getSelectedItem() == null
                 || !(cboJenis.getSelectedItem().getValue() instanceof JenisKegiatan)) {
@@ -1156,6 +1196,22 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ STEP 2: PILIH TAGIHAN
+    /**
+     * Merender langkah 2 "Pilih Tagihan": satu kartu per baris tagihan berisi nama item,
+     * badge status (Lunas / Kurang / Belum), trio angka Tagihan-Dibayar-Kekurangan, rincian
+     * penghitungan perkalian bila ada, dan checkbox untuk item yang belum lunas.
+     *
+     * <p>Menampilkan pesan kosong "Tidak ada tagihan ditemukan" bila
+     * {@link #tagihanItems} kosong. Di atas daftar ditampilkan label konteks jenis+semester
+     * yang sedang dimuat — sengaja ada untuk mencegah salah paham: dua sesi yang membuka
+     * SEMESTER berbeda untuk mahasiswa yang sama memang menampilkan item dan nominal
+     * berbeda karena Setting Biaya bersifat per-semester; itu perilaku benar, bukan bug.</p>
+     *
+     * <p>Item lunas dirender pudar dan TANPA checkbox sehingga tidak dapat dibayar dua kali
+     * dari layar ini. Item bernominal Rp 0 disembunyikan oleh penyaring
+     * {@link #hanyaAdaTagihan} yang aktif secara default; jumlah yang disembunyikan
+     * ditampilkan pada label checkbox agar pengguna tahu daftar sedang tidak utuh.</p>
+     */
     @SuppressWarnings("unchecked")
     private void renderStep2() {
         if (tagihanItems.isEmpty()) {
@@ -1199,6 +1255,7 @@ public class WizardPembayaranMhsHelper {
             chkFilter.setChecked(hanyaAdaTagihan);
             chkFilter.setStyle("font-size:12px;color:#475569;cursor:pointer;");
             chkFilter.addEventListener("onCheck", new EventListener() {
+                /** Sakelar penyaring "hanya yang ada tagihannya": menyimpan pilihan ke {@link #hanyaAdaTagihan} lalu {@link #render()} menggambar ulang daftar. Murni tampilan — tidak mengubah centang maupun nominal item mana pun. */
                 @Override public void onEvent(Event e) throws Exception {
                     hanyaAdaTagihan = chkFilter.isChecked();
                     render(); // gambar ulang daftar sesuai filter
@@ -1243,6 +1300,7 @@ public class WizardPembayaranMhsHelper {
                 chk.setChecked(item.dipilih);
                 chk.setStyle("transform:scale(1.4);cursor:pointer;margin-top:4px;flex:0 0 auto;");
                 chk.addEventListener("onCheck", new EventListener() {
+                    /** Checkbox pilih/batal satu item tagihan: menulis {@code item.dipilih} lalu menyegarkan bingkai kartunya saja lewat {@link #updateCardBorder(TagihanItem)} — tanpa menggambar ulang seluruh daftar. */
                     @Override public void onEvent(Event e) throws Exception {
                         item.dipilih = chk.isChecked();
                         updateCardBorder(item);
@@ -1274,6 +1332,17 @@ public class WizardPembayaranMhsHelper {
         }
     }
 
+    /**
+     * Menyegarkan gaya kartu satu item mengikuti keadaan centangnya: bingkai biru + halo
+     * bila dipilih, kembali ke gaya kartu biasa bila tidak (dengan kesuraman {@code .6}
+     * untuk item yang sudah lunas). Dipakai agar respons klik checkbox terasa seketika tanpa
+     * biaya menggambar ulang seluruh langkah 2.
+     *
+     * <p>Aman dipanggil kapan pun: langsung return bila {@code item.cardDiv} masih null
+     * (kartu belum pernah dirender) — lihat catatan basi pada field {@code cardDiv}.</p>
+     *
+     * @param item item yang kartunya akan disegarkan
+     */
     private void updateCardBorder(TagihanItem item) {
         if (item.cardDiv == null) return;
         if (item.dipilih) {
@@ -1283,6 +1352,18 @@ public class WizardPembayaranMhsHelper {
         }
     }
 
+    /**
+     * Memastikan minimal SATU item tagihan tercentang sebelum lanjut ke pengaturan nominal.
+     * Tidak memeriksa nominal sama sekali (itu tugas {@link #validasiStep3()}) dan tidak
+     * mengubah state apa pun.
+     *
+     * <p>Catatan: pemeriksaan menelusuri {@link #tagihanItems} secara utuh, BUKAN hanya
+     * kartu yang sedang tampil — item yang disembunyikan penyaring Rp 0 tetap terhitung bila
+     * entah bagaimana tercentang, sehingga menyembunyikan baris tidak pernah diam-diam
+     * membatalkan pilihan.</p>
+     *
+     * @return {@code true} bila ada item terpilih; {@code false} setelah menampilkan pesan
+     */
     private boolean validasiStep2() {
         for (TagihanItem item : tagihanItems) {
             if (item.dipilih) return true;
