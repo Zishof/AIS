@@ -192,6 +192,42 @@ public class AmbilGaleriFotoImage extends HttpServlet {
 
 	}
 
+	/**
+	 * Mencari baris {@link GaleriFotoImage} yang diminta, menyalin kolom blob
+	 * {@code foto}-nya ke berkas cache lokal (bila belum ada), dan (opsional)
+	 * menghasilkan versi thumbnail.
+	 * <p>
+	 * Langkah kerja:
+	 * <ol>
+	 *   <li>Memastikan direktori cache {@code <webapp>/../media/} ada.</li>
+	 *   <li>Menentukan nama tampilan: bila {@code id} bukan angka valid
+	 *       ({@link Common#isNumber(String)}), dipakai literal {@code "Foto"};
+	 *       bila valid, diambil dari kolom {@code nama} baris {@link GaleriFotoImage}
+	 *       TERBARU (id terbesar) yang berelasi dengan galeri {@code id} tersebut.</li>
+	 *   <li>Bila berkas cache (nama memuat {@code id}, {@code idData}, dan nama
+	 *       tampilan) belum ada: mengambil kolom blob {@code foto} -- dari baris
+	 *       dengan ID barisnya sendiri bila {@code idData} dikirim, atau dari
+	 *       baris terbaru milik galeri {@code id} bila tidak -- lalu menyalinnya
+	 *       ke berkas cache lewat {@link #writeBlobToFile(Blob, File)}.</li>
+	 *   <li>Bila parameter {@code height} dan {@code width} keduanya dikirim (dan
+	 *       bukan literal string {@code "null"}): jika versi thumbnail dengan
+	 *       ukuran itu sudah ada di cache, langsung dikembalikan; jika belum,
+	 *       gambar asli dibaca lewat {@link ais.common.CommonFileMediaHelper#bacaGambarAman(File)}
+	 *       (pembacaan gambar yang aman terhadap berkas rusak/bukan gambar),
+	 *       di-resize lewat {@link #resizeImage(BufferedImage, int, int, int)},
+	 *       disimpan sebagai {@code jpg} baru ke cache, lalu dikembalikan.</li>
+	 * </ol>
+	 * Berbeda dari beberapa servlet {@code Ambil*} sejenis, method ini TIDAK
+	 * memvalidasi hasil akhir lewat {@link Common#isImage(File)} sebelum
+	 * mengembalikannya.
+	 * </p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code id} (ID galeri) dan/atau {@code idData} (ID baris gambar), {@code height}/{@code width} (opsional, ukuran thumbnail)
+	 * @param resp respons HTTP; header {@code Content-Disposition} diisi dengan nama tampilan di sini
+	 * @param streamingSession sesi Hibernate (dibuka pemanggil, sudah dalam transaksi aktif) dipakai untuk seluruh query pada method ini
+	 * @return berkas gambar (asli atau thumbnail) yang harus disajikan, atau {@code /img/book.jpg} sebagai fallback
+	 * @throws Exception bila {@code id}/{@code idData} tidak valid atau query/penyalinan blob gagal; diteruskan ke pemanggil ({@link #process}) yang memicu rollback transaksi
+	 */
 	private File loadFile(HttpServletRequest request, HttpServletResponse resp, Session streamingSession)
 			throws Exception {
 
@@ -279,6 +315,17 @@ public class AmbilGaleriFotoImage extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyalin isi {@code blob} ke {@code file} sekali saja: bila {@code file}
+	 * sudah ada di disk, method langsung kembali tanpa melakukan apa pun (blob
+	 * tidak dibaca ulang). Bila belum ada, method membuat berkas baru lalu
+	 * menyalin seluruh isi {@link Blob#getBinaryStream()} lewat
+	 * {@link #fastChannelCopy(ReadableByteChannel, WritableByteChannel)}, dan
+	 * mencatat path berkas hasil ke konsol server.
+	 *
+	 * @param blob sumber data biner dari kolom {@code foto}; boleh {@code null} hanya bila {@code file} sudah ada
+	 * @param file berkas cache tujuan penulisan
+	 */
 	private void writeBlobToFile(Blob blob, File file) {
 
 		InputStream inputStream = null;
@@ -309,6 +356,16 @@ public class AmbilGaleriFotoImage extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyalin seluruh isi {@code src} ke {@code dest} memakai buffer langsung
+	 * (direct {@link ByteBuffer}) berukuran 16 KiB, dengan pola baca-flip-tulis-
+	 * compact standar NIO sampai {@code src} habis, lalu mengosongkan sisa buffer
+	 * yang belum tertulis.
+	 *
+	 * @param src kanal sumber data biner yang akan disalin
+	 * @param dest kanal tujuan penulisan data biner
+	 * @throws IOException bila operasi baca/tulis pada salah satu kanal gagal
+	 */
 	public void fastChannelCopy(final ReadableByteChannel src, final WritableByteChannel dest) throws IOException {
 		final ByteBuffer buffer = ByteBuffer.allocateDirect(16 * 1024);
 		while (src.read(buffer) != -1) {
@@ -328,6 +385,21 @@ public class AmbilGaleriFotoImage extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengubah ukuran {@code originalImage} menjadi kanvas berukuran
+	 * {@code IMG_WIDTH}&times;{@code IMG_HEIGHT} dengan tipe {@link BufferedImage}
+	 * sesuai parameter {@code type}, memakai penggambaran ulang sederhana
+	 * ({@link Graphics2D#drawImage}) tanpa interpolasi kualitas khusus. Dipakai
+	 * oleh {@link #loadFile(HttpServletRequest, HttpServletResponse, Session)}
+	 * untuk menghasilkan versi thumbnail saat parameter {@code height}/{@code width}
+	 * dikirim.
+	 *
+	 * @param originalImage gambar sumber yang akan digambar ulang
+	 * @param IMG_WIDTH lebar kanvas hasil, dalam piksel
+	 * @param IMG_HEIGHT tinggi kanvas hasil, dalam piksel
+	 * @param type salah satu konstanta tipe {@link BufferedImage} (mis. {@link BufferedImage#TYPE_INT_ARGB})
+	 * @return gambar hasil resize berukuran {@code IMG_WIDTH}&times;{@code IMG_HEIGHT}
+	 */
 	public BufferedImage resizeImage(BufferedImage originalImage, int IMG_WIDTH, int IMG_HEIGHT, int type) {
 		BufferedImage resizedImage = new BufferedImage(IMG_WIDTH, IMG_HEIGHT, type);
 		Graphics2D g = resizedImage.createGraphics();
