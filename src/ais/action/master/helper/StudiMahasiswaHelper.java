@@ -139,42 +139,79 @@ import ais.ui.util.MyWindow;
  */
 public class StudiMahasiswaHelper implements DataLoader {
 
+	/** Grid utama daftar mata kuliah KRS; model barisnya berisi <b>id</b> {@link Detailperkuliahan} (bukan entity), dirender oleh {@link DetailMahasiswaRenderer}. Dibangun di {@link #display} dan diisi ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Grid komentar/diskusi KRS antara mahasiswa dan dosen PA; dibangun di {@link #display} dan diisi ulang oleh {@link #loadDataKomentar()} memakai {@link Common.KomentarRenderer}. */
 	private MyGrid gridKomentar;
+	/** Mahasiswa pemilik KRS yang sedang ditampilkan. Diisi dari parameter {@link #display}; menjadi konteks bagi seluruh query, validasi pembayaran, dan pembatasan SKS. Kelas ini TIDAK memverifikasi bahwa pengguna saat ini berhak melihat mahasiswa ini — penyaringan kepemilikan/cakupan adalah tanggung jawab layar pemanggil. */
 	private Mahasiswa mahasiswa;
+	/** Panel ringkasan informasi jam bentrok jadwal (langsung, paralel, dan paralel-dari-paralel); isinya dibersihkan lalu dibangun ulang setiap kali {@link #loadData(Object)} dipanggil. */
 	private MyDiv jamBentrok = new MyDiv();
+	/** Tahun akademik konteks (format {@code "2024/2025"}); dipakai untuk memilih {@link Konfigurasi} periode KRS, mencetak laporan, memuat komentar, dan menurunkan {@code idSmt} saat mengambil nilai dari Neo Feeder. */
 	private String tahunAjaran;
+	/** Semester konteks. Nilai {@code 0} berarti mode khusus <b>konversi nilai transfer/pindahan</b> (kolom asal muncul, validasi SKS/pembayaran dilewati); nilai &gt; 0 berarti semester perkuliahan biasa. Menentukan pula ganjil/genap lewat {@code semester % 2}. */
 	private Integer semester;
 
+	/** Daftar <b>id</b> {@link Detailperkuliahan} yang sedang tampil di {@link #grid}; menjadi sumber tunggal bagi {@link #loadStatus()}, {@link #lakukanSemuaPersetujuan()}, {@link #lakukanPembatalanSemuaPersetujuan()}, pengiriman ke Feeder, dan hapus massal. Diisi ulang oleh {@link #loadData(Object)}. */
 	private List<Long> detailperkuliahansData;
+	/** Kontainer ZK tempat seluruh layar dirakit (biasanya {@link Tabpanel} detail baris pada layar pemanggil); disimpan agar {@link #display} dapat dipanggil ulang sebagai callback penyegaran. */
 	private Component component;
 
+	/** Komponen HTML milik layar pemanggil tempat keterangan naratif KRS ditulis; diisi lewat {@code KrsMahasiswaAnalisisPopupHelper.pasang} sehingga sekaligus memasang popup analisis KRS. */
 	private Html keterangan;
+	/** Komponen HTML milik layar pemanggil tempat ringkasan jumlah komentar KRS ditulis ("Tidak ada komentar" / "Terdapat N komentar"). */
 	private Html komentarshtml;
+	/** Label status persetujuan gabungan seluruh baris (belum / sebagian / sudah disetujui semua), beserta warnanya; diperbarui oleh {@link #loadStatus()}. */
 	private Label statusPersetujuan;
+	/** Label total SKS yang diambil pada semester ini; dihitung ulang oleh {@link #loadStatus()} dengan menjumlahkan SKS mata kuliah (setelah resolusi ekivalensi) dari SELURUH baris — termasuk baris konversi. */
 	private Label jumlahKRS;
+	/** Label milik layar pemanggil berisi "IPS / IPK", diisi dari {@link KrsMahasiswa#getIps()} dan {@link KrsMahasiswa#getIpk()}. */
 	private Label ipIpk;
 
+	/** Penanda konteks semester pendek ({@code null} = semester reguler, selain itu nomor SP mis. {@link Perkuliahan#SEMESTER_PENDEK}). Mengubah kunci konfigurasi periode KRS yang dipakai, melewati sebagian validasi pembayaran semester sebelumnya, dan ikut menentukan {@code idSmt} untuk Feeder. */
 	private Integer semesterPendek = null;
 
+	/** Bila {@code true}, tombol hapus baris ditampilkan pada kolom aksi. Ditentukan oleh pemanggil dari kombinasi konfigurasi {@code admin_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs} / {@code admin_lain_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs} dengan peran pengguna. */
 	private Boolean tampilHapus = false;
+	/** Bila {@code true}, fitur terkait konversi/paket ditampilkan (turut menjadi syarat tampilnya tombol "Paket"). */
 	private Boolean tampilKonversi = false;
 
+	/** Hak hapus pengguna saat ini, diambil dari {@link CommonPrivilages#checkPrevilages} ({@link CommonPrivilages#DELETE}) di konstruktor lengkap. */
 	private boolean delete = true;
+	/** Hak ubah pengguna saat ini, diambil dari {@link CommonPrivilages#checkPrevilages} ({@link CommonPrivilages#UPDATE}) di konstruktor lengkap; mengunci kotak nilai, semester/tahap, tombol Konversi/Download/Upload. */
 	private boolean update = true;
+	/**
+	 * Hak menyetujui KRS. <b>PERHATIAN:</b> berbeda dengan {@link #delete} dan {@link #update},
+	 * field ini TIDAK pernah diturunkan dari {@link CommonPrivilages} — nilainya di-hardcode
+	 * {@code true} pada deklarasi dan ditulis ulang {@code true} lagi di konstruktor lengkap.
+	 * Akibatnya {@code setDisabled(!approve)} pada tombol "Setujui" dan pada checkbox persetujuan
+	 * per baris tidak pernah aktif: siapa pun yang berhasil membuka layar ini dapat menyetujui KRS,
+	 * tanpa memeriksa hak APPROVE. Perlindungan yang tersisa hanyalah validasi bisnis
+	 * (pembayaran dan batas SKS) serta penyaringan menu di layar pemanggil.
+	 */
 	private boolean approve = true;
+	/** Hak membatalkan persetujuan KRS; sama seperti {@link #approve}, di-hardcode {@code true} dan tidak pernah diturunkan dari {@link CommonPrivilages}, sehingga {@code setDisabled(!reject)} pada tombol "Batalkan" tidak pernah aktif. */
 	private boolean reject = true;
+	/** Label milik layar pemanggil berisi catatan dosen PA pada {@link KrsMahasiswa}; diperbarui setelah {@link CatatanHelper} disimpan. */
 	private Label catatan;
+	/** Label milik layar pemanggil berisi catatan KHS pada {@link KrsMahasiswa}; diperbarui bersamaan dengan {@link #catatan}. */
 	private Label catatanKhs;
 
+	/** Tahap konteks bagi jenjang yang memakai tahapan ({@link ConstantValues#aktifkanTahapan}). Nilai {@code -1} adalah mode khusus yang menyembunyikan toolbar dan kolom asal konversi; {@code 0}/{@code null} berarti tanpa tahapan. */
 	private Integer tahapan;
+	/** Tautan milik layar pemanggil berisi ringkasan "SKS diambil / SKS lulus", ditambah rincian SKS konversi dan bukan-konversi bila ada. */
 	private A sksSksk;
+	/** {@code true} bila layar berada dalam konteks KRS remedial; memilih kunci konfigurasi periode {@link Konfigurasi#KRS_REMEDIAL}/{@link Konfigurasi#PERBAIKAN_KRS_REMEDIAL} dan diteruskan ke query detail, cetak, serta helper komentar/catatan. */
 	private boolean remedial;
 
+	/** Pengguna yang sedang login, di-snapshot saat instance dibuat; dipakai untuk menentukan tampilnya penanda/tombol Feeder, panel rincian konversi, dan pengecualian administrator pada mode konversi. */
 	private Tbmuser tbmuser = Common.getCurrentUser();
+	/** Bila {@code false}, toolbar aksi dan kolom-kolom yang dapat diubah disembunyikan (mode baca saja). Ditentukan oleh layar pemanggil, bukan oleh hak akses pengguna. */
 	private Boolean edit = true;
 
+	/** Konfigurasi "persetujuan KRS oleh dosen" untuk tahun akademik/jenis semester/SP konteks, diambil lewat {@link CommonPenilaian#getKonfigurasiPersetujuanKrsOlehDosen}. Bila tidak aktif, kolom persetujuan tampil sebagai label "Ya/Belum" (bukan checkbox) dan tombol Setujui/Batalkan disembunyikan. */
 	private Konfigurasi konfigurasiPersetujuanKrsDosen = null;
+	/** Header KRS ({@link KrsMahasiswa}) untuk kombinasi mahasiswa/semester/tahap/SP konteks — sumber IPS, IPK, SKS diambil/lulus/konversi, dosen PA, kelas, dan jumlah komentar. Diambil lewat {@code Common.ambilKrsMahasiswaTanpaSinkronisasi} (murni baca) agar jalur tampilan tidak membuka transaksi sinkronisasi kedua. */
 	private KrsMahasiswa krsMahasiswa;
 
 	/**
@@ -277,8 +314,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 	 */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Header KRS induk konteks render; dipakai sebagai argumen {@link StudiMahasiswaHelper#lakukanSatuPersetujuan} saat checkbox persetujuan baris diubah. */
 		private KrsMahasiswa krsMahasiswa;
+		/** Bila {@code true}, resolusi mata kuliah ekivalen ({@code Common.getMatakuliahApakahEkivalen}) dipaksa menghitung ulang dari sumber alih-alih memakai cache. */
 		private boolean refresh;
+		/** Pengguna yang sedang login (snapshot per renderer); menentukan apakah kolom semester/tahap tampil sebagai label baca-saja atau kotak isian, dan apakah kotak nilai dikunci untuk mahasiswa. */
 		private Tbmuser user = Common.getCurrentUser();
 
 		/** @param krsMahasiswa KRS induk konteks render; @param refresh bila {@code true}, paksa hitung ulang mata kuliah ekivalen (bukan dari cache) */

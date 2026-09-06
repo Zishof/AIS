@@ -164,22 +164,97 @@ import ais.ui.util.MyWindow;
  */
 public class TampilStudiMahasiswaHelper {
 
+	/**
+	 * Grid riwayat KRS per semester yang dibangun {@link #initMain(Mahasiswa, DataLoader, Component, Integer)}
+	 * dan dirender oleh {@link DataRenderer}. Disimpan sebagai state instance karena
+	 * {@link #onSearchDefault(Event, boolean)} MEMBANGUN ULANG grid ini (bukan sekadar me-refresh model)
+	 * setiap kali rentang semester diubah atau tombol "Refresh / Hitung IP/IPK" ditekan.
+	 */
 	private MyGrid grid;
+	/**
+	 * Mahasiswa yang sedang ditampilkan. Diisi di {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer)}
+	 * dan menjadi acuan seluruh query tab KRS/SP/Remedial serta {@link DataRenderer}.
+	 */
 	private Mahasiswa mahasiswa;
+	/**
+	 * Bila {@code true}, baris mata kuliah KONVERSI turut ditampilkan pada detail KRS
+	 * (diteruskan ke {@code StudiMahasiswaHelper}). Berasal dari konstruktor, tetapi DITIMPA oleh
+	 * argumen {@code tampilKonversi} pada {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer)}.
+	 */
 	private Boolean tampilKonversi = false;
+	/**
+	 * Menandai tab yang sedang aktif adalah tab <b>Remedial</b>. Diset ulang oleh listener tab bersama
+	 * pada {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer)} SEBELUM {@code initMain} dipanggil,
+	 * lalu dibaca {@link DataRenderer} untuk memilih jenis KRS yang dimuat.
+	 */
 	private boolean remedial = false;
+	/**
+	 * Penanda jenis semester yang dimuat: {@code null} = KRS reguler, {@code Perkuliahan.SEMESTER_PENDEK}
+	 * = tab "KRS SP". Sama seperti {@link #remedial}, nilainya DITIMPA oleh listener tab bersama sesuai
+	 * tab yang diklik, sehingga nilai dari konstruktor hanya berlaku sampai tab pertama dimuat.
+	 */
 	private Integer semesterPendek = null;
 
+	/**
+	 * Cache pengguna yang sedang login ({@code Common.getCurrentUser()}). Dipakai untuk gerbang
+	 * tampilan/otorisasi: visibilitas tombol "Bersihkan KRS Double", akses sinkronisasi Feeder, dan
+	 * pengecekan role saat mengubah Status Awal / menghapus data nilai. Di-<i>refresh</i> ulang di
+	 * beberapa titik ({@link #initMain(Mahasiswa, DataLoader, Component, Integer)} dan dalam listener
+	 * {@link DataRenderer}) karena satu jendela bisa hidup lama.
+	 */
 	private Tbmuser tbmuser;
+	/** Combo batas BAWAH rentang semester yang ditampilkan pada grid KRS. Lihat {@link #onSearchDefault(Event, boolean)}. */
 	private Combobox semesterMulai;
+	/** Combo batas ATAS rentang semester yang ditampilkan pada grid KRS. Lihat {@link #onSearchDefault(Event, boolean)}. */
 	private Combobox semesterSampai;
+	/**
+	 * Tombol toolbar "Refresh / Hitung IP/IPK" pada tab KRS. Menjalankan
+	 * {@link #onSearchDefault(Event, boolean)} dengan {@code keDatabase = true} sehingga hasil hitung
+	 * ulang IP/IPK DITULIS ke database saat baris dirender.
+	 */
 	private MyToolbarbuttonConfig toolbarbuttonLihat;
+	/**
+	 * Parameter ekstrakurikuler dari konstruktor. <b>Tidak dipakai</b> di kelas ini (karena itu ditandai
+	 * {@code @SuppressWarnings("unused")}); dipertahankan agar tanda tangan konstruktor tetap kompatibel
+	 * dengan pemanggil lama.
+	 */
 	@SuppressWarnings("unused")
 	private Integer ekstrakurikuler;
+	/**
+	 * Semester yang diminta pemanggil untuk langsung dipilih/dibuka. Bila tidak {@code null}, kedua combo
+	 * semester dipaksa ke nilai ini dan baris detail pertama ({@link #detailUtama}) otomatis dibuka lewat
+	 * timer setelah grid selesai dirender.
+	 */
 	private Integer smtSelected = null;
+	/**
+	 * Izin ubah dari pemanggil. Bila {@code false}, jendela di-<i>freeze</i> (baca saja) kecuali tombol
+	 * Tutup, combo semester, dan tombol Refresh &mdash; lihat
+	 * {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer)}. Perhatikan bahwa {@code true} SAJA belum
+	 * cukup: pengguna tetap harus lolos gerbang role istimewa/{@code admin_lain_...} agar jendela tidak
+	 * dibekukan.
+	 */
 	private Boolean edit = true;
+	/**
+	 * Baris {@code MyDetail} KRS PERTAMA yang dirender pada grid. Disimpan agar
+	 * {@link #onSearchDefault(Event, boolean)} dapat membukanya otomatis (beserta memicu listener
+	 * pemuatan detailnya) ketika {@link #smtSelected} diisi. Direset ke {@code null} setiap kali grid
+	 * dibangun ulang.
+	 */
 	private MyDetail detailUtama = null;
 
+	/**
+	 * Membentuk helper dengan preferensi tampilan awal. Perhatikan bahwa {@code semesterPendek} dan
+	 * {@code tampilKonversi} yang diberikan di sini bersifat SEMENTARA untuk alur yang memanggil
+	 * {@link #initMain(Mahasiswa, DataLoader, Component, Integer)} secara langsung: pada alur normal
+	 * {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer)} keduanya ditimpa (masing-masing oleh
+	 * listener tab dan oleh argumen {@code tampilKonversi}).
+	 *
+	 * @param semesterPendek {@code Perkuliahan.SEMESTER_PENDEK} untuk memuat KRS semester pendek,
+	 *                       {@code null} untuk KRS reguler.
+	 * @param ekstrakurikuler tidak dipakai kelas ini; lihat {@link #ekstrakurikuler}.
+	 * @param tampilKonversi {@code true} agar baris mata kuliah konversi ikut ditampilkan.
+	 * @param edit {@code false} untuk membuka jendela dalam mode baca saja (di-<i>freeze</i>).
+	 */
 	public TampilStudiMahasiswaHelper(Integer semesterPendek, Integer ekstrakurikuler, Boolean tampilKonversi,
 			Boolean edit) {
 		this.semesterPendek = semesterPendek;

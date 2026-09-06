@@ -127,36 +127,184 @@ import ais.ui.util.MyWindow;
  */
 public class PertemuanHelper {
 
+	/**
+	 * Callback yang dipanggil dengan argumen {@code null} saat window ditutup lewat tombol
+	 * "Selesai" ({@link #init()}), sebagai sinyal bagi pemanggil untuk memuat ulang datanya
+	 * (mis. grid daftar pertemuan). Diisi di dalam timer {@link #display(Pertemuan, DataLoader,
+	 * int, TugasPertemuan, TugasKelompok, PertemuanFileContent, AudioPertemuan, VideoPertemuan)},
+	 * jadi bernilai {@code null} sampai {@code display} benar-benar dijalankan.
+	 */
 	private DataLoader dataLoader;
+	/**
+	 * Modal ZK pembungkus seluruh tab pertemuan. Dibuat sekali (99% x 99%, ditempel ke root
+	 * page saat itu) pada pemanggilan {@code display} pertama, lalu DIPAKAI ULANG pada
+	 * pemanggilan berikutnya — isinya dibersihkan {@code Common.clear(window)} bukan
+	 * di-{@code detach}. Publik agar pemanggil bisa mengatur ukuran/judul sendiri sebelum
+	 * atau sesudah {@code display}.
+	 */
 	public MyWindow window = null;
+	/**
+	 * Menentukan apakah baris South berisi tombol "Selesai" ditampilkan
+	 * ({@code south.setVisible(tampilSelesai)} di {@link #init()}). Disetel {@code false} oleh
+	 * pemanggil yang menyematkan helper ini di dalam layar lain sehingga tombol tutup sendiri
+	 * tidak relevan. Lihat {@link #PertemuanHelper(Mahasiswa, BiodataCalonMahasiswa, boolean)}.
+	 */
 	public boolean tampilSelesai = true;
+	/**
+	 * Entity pertemuan yang sedang ditampilkan — sumber data tunggal seluruh tab. Diisi di
+	 * dalam timer {@code display}, jadi masih {@code null} sesudah constructor. Semua sub-helper
+	 * tab menerima objek yang SAMA ini, sehingga perubahan field catatan/RPS oleh tab
+	 * Pembelajaran langsung terlihat oleh tab lain tanpa reload.
+	 */
 	private Pertemuan pertemuan;
 
+	/**
+	 * Sub-helper tab Video (indeks 5): merender daftar {@link VideoPertemuan} milik pertemuan
+	 * ini. Dibangun di constructor dengan {@code tbmuser} null-safe.
+	 */
 	private VideoPertemuanHelper videoPertemuanHelper;
+	/**
+	 * Sub-helper tab Audio (indeks 4): merender daftar {@link AudioPertemuan} milik pertemuan
+	 * ini. Dibangun di constructor dengan {@code tbmuser} null-safe.
+	 */
 	private AudioPertemuanHelper audioPertemuanHelper;
+	/**
+	 * Sub-helper tab Materi (indeks 2): merender daftar {@link PertemuanFileContent} (file
+	 * materi/konten) milik pertemuan ini.
+	 */
 	private FilePerkuliahanHelper filePerkuliahanHelper;
 
+	/**
+	 * Sub-helper tab Ujian (indeks 6) jalur AKADEMIK ({@link PertemuanPunyaUjian} pada
+	 * perkuliahan/KKN/PKL). Dipilih ketika {@code pertemuan.getJadwalPelajaran()} DAN
+	 * {@code getJadwalUjianPSB()} keduanya {@code null}.
+	 */
 	private PertemuanPunyaUjianHelper pertemuanPunyaUjianHelper;
+	/**
+	 * Sub-helper tab Ujian (indeks 6) jalur SEKOLAH. Dipilih ketika pertemuan berasal dari
+	 * {@code JadwalPelajaran} atau {@code JadwalUjianPSB}. Dibangun di constructor dengan
+	 * {@code tbmuser.getSiswa()} — TIDAK null-safe terhadap {@code tbmuser == null}.
+	 */
 	private PertemuanPunyaUjianSiswaHelper pertemuanPunyaUjianSiswaHelper;
+	/**
+	 * Sub-helper tab Diskusi (indeks 7): forum diskusi pertemuan. Menerima
+	 * {@link #selectedDiskusi} untuk langsung membuka satu utas tertentu (mis. dari notifikasi).
+	 */
 	private PertemuanPunyaDiskusiHelper pertemuanPunyaDiskusiHelper;
+	/**
+	 * Sub-helper tab "Hasil, Evaluasi, Kusioner" (indeks 8). Tidak punya padanan di mode mobile.
+	 */
 	private PertemuanPunyaHasilHelper pertemuanPunyaHasilHelper;
+	/**
+	 * Sub-helper tugas INDIVIDU ({@link TugasPertemuan}) untuk sub-tab tugas utama pertemuan.
+	 * Perhatikan bahwa {@link #initTugas(Component, boolean, boolean)} juga membuat instance
+	 * {@code TugasMandiriHelper} LOKAL baru untuk tiap sub-tab tugas lainnya; field ini hanya
+	 * dipakai untuk tugas bawaan pertemuan ({@code pertemuan.getJudultugas()}).
+	 */
 	private TugasMandiriHelper tugasMandiriHelper;
+	/**
+	 * Sub-helper tab Kehadiran (indeks 0) jalur AKADEMIK (perkuliahan, KKN, PKL). Dipilih
+	 * ketika pertemuan bukan berasal dari jadwal pelajaran/ujian PSB/formulir kegiatan sekolah.
+	 */
 	private AbsensiHelper absensiHelper;
+	/**
+	 * Sub-helper tab Kehadiran (indeks 0) jalur SEKOLAH. Dipilih ketika
+	 * {@code pertemuan.getJadwalPelajaran() != null}, {@code getJadwalUjianPSB() != null}, atau
+	 * {@code getFormulirKegiatan().getSekolah() != null}. Dibangun di constructor dengan
+	 * {@code tbmuser.getSiswa()} — TIDAK null-safe terhadap {@code tbmuser == null}.
+	 */
 	private AbsensiSiswaHelper absensiSiswaHelper;
 
+	/**
+	 * Mahasiswa "pemilik sudut pandang" bila window dibuka dari sisi mahasiswa. Bernilai
+	 * {@code null} untuk admin/dosen/guru. Dipakai sebagai gerbang tampilan di banyak tempat:
+	 * tab "Tugas Individu Baru"/"Tugas Kelompok Baru" hanya di-{@code setVisible} bila field ini
+	 * (dan {@link #biodataCalonMahasiswa}, {@code tbmuser.getPesertaKursus()},
+	 * {@code tbmuser.getSiswa()}) semuanya {@code null}; {@link #initCatatan(boolean)} memakai
+	 * kondisi yang sama untuk memilih tata letak editable vs read-only.
+	 *
+	 * <p><b>Catatan arsitektur:</b> pada constructor 2-argumen nilai parameter dapat DITIMPA oleh
+	 * {@code Common.getCurrentUser().getMahasiswa()} — jadi nilai yang diteruskan pemanggil hanya
+	 * berlaku sebagai fallback ketika sesi login tidak mewakili seorang mahasiswa.</p>
+	 */
 	private Mahasiswa mahasiswa;
 
+	/**
+	 * Referensi ke {@link Textbox} catatan pertemuan pada tab Pembelajaran, disimpan sebagai
+	 * field karena dibutuhkan oleh listener autosave {@code onChange} dan oleh callback hasil
+	 * {@link AIGenerator#generateApa} ("Generate Catatan") yang menuliskan hasil AI ke dalamnya.
+	 * Bernilai {@code null} bila tab Pembelajaran belum pernah dibangun, atau bila tampilan
+	 * read-only ({@code MyHtmlIframe}) yang dipakai untuk calon mahasiswa.
+	 */
 	private Textbox catatan;
+	/**
+	 * Indeks tab yang aktif: 0=Kehadiran, 1=Pembelajaran, 2=Materi, 3=Tugas, 4=Audio, 5=Video,
+	 * 6=Ujian, 7=Diskusi, 8=Hasil/Evaluasi/Kusioner, 9=Dasbor. Diisi dari parameter
+	 * {@code index} milik {@code display} DI DALAM timer, lalu dipakai
+	 * {@link #tampilanDesktop(Component)} ({@code btnTab.pilih(index)}) atau
+	 * {@link #tampilanMobile(Center)} (memilih satu-satunya konten yang dirender).
+	 */
 	private int index = 0;
+	/**
+	 * Calon mahasiswa "pemilik sudut pandang" bila window dibuka dari portal PMB. Bernilai
+	 * {@code null} untuk peran lain. Selain menjadi gerbang tampilan bersama
+	 * {@link #mahasiswa}, field ini secara khusus membuat catatan pertemuan dirender READ-ONLY
+	 * lewat {@code MyHtmlIframe} alih-alih {@link Textbox} yang bisa diedit
+	 * ({@link #initCatatan(boolean)}). Bisa DITIMPA oleh sesi login — lihat {@link #mahasiswa}.
+	 */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	/**
+	 * Tabbox tombol lazy-load milik mode desktop. Disimpan sebagai field karena seluruh elemen
+	 * navigasi Dasbor (kartu KPI, groupbox, baris tabel) memanggil {@code btnTab.pilih(tabIdx)}
+	 * dari dalam listener {@code onClick}-nya. Tetap {@code null} pada mode mobile — jadi jangan
+	 * dipakai di jalur {@link #tampilanMobile(Center)}.
+	 */
 	private ais.ui.util.MyButtonTabbox btnTab;
+	/**
+	 * Tugas individu yang harus otomatis terpilih saat tab Tugas dibangun (mis. saat window
+	 * dibuka langsung dari notifikasi tugas). Juga dipakai sebagai state internal: listener
+	 * "Tugas Individu Baru" menyetel field ini ke tugas yang baru dibuat lalu memanggil ulang
+	 * {@link #initTugas(Component, boolean)} agar tab tugas baru langsung aktif.
+	 */
 	private TugasPertemuan selectedTugasPertemuan = null;
+	/**
+	 * Padanan {@link #selectedTugasPertemuan} untuk tugas KELOMPOK. Kedua field ini saling
+	 * meniadakan: menyetel salah satu selalu disertai me-{@code null}-kan yang lain.
+	 */
 	private TugasKelompok selectedTugasKelompok = null;
 
+	/**
+	 * ID utas diskusi yang otomatis dibuka di tab Diskusi. Publik dan disetel LANGSUNG oleh
+	 * pemanggil (mis. {@code MobileNotifHelper}) sebelum memanggil {@code display}, karena tidak
+	 * ada overload {@code display} yang menerimanya sebagai parameter.
+	 */
 	public Long selectedDiskusi = null;
+	/**
+	 * Materi yang otomatis disorot di tab Materi; diisi lewat overload
+	 * {@link #display(Pertemuan, DataLoader, int, PertemuanFileContent)}.
+	 */
 	private PertemuanFileContent selectedPertemuanFileContent = null;
+	/**
+	 * Audio yang otomatis disorot di tab Audio; diisi lewat overload
+	 * {@link #display(Pertemuan, DataLoader, int, AudioPertemuan)}.
+	 */
 	private AudioPertemuan selectedAudioPertemuan = null;
+	/**
+	 * Video yang otomatis disorot di tab Video; diisi lewat overload
+	 * {@link #display(Pertemuan, DataLoader, int, VideoPertemuan)}.
+	 */
 	private VideoPertemuan selectedVideoPertemuan = null;
+	/**
+	 * User yang sedang membuka window — sumber kebenaran identitas bagi seluruh gerbang
+	 * tampilan di kelas ini ({@code getMahasiswa()}, {@code getSiswa()}, {@code getCalonSiswa()},
+	 * {@code getBiodataCalonMahasiswa()}, {@code getPesertaKursus()}). Diisi di constructor dan
+	 * tidak pernah berubah setelahnya.
+	 *
+	 * <p><b>Perhatian:</b> {@link #initTugas(Component, boolean, boolean)} dan
+	 * {@link #initCatatan(boolean)} men-dereference {@code tbmuser} secara langsung
+	 * ({@code tbmuser.getPesertaKursus()}), sehingga jalur yang meneruskan {@code tbmuser}
+	 * bernilai {@code null} akan melempar {@code NullPointerException} di sana.</p>
+	 */
 	private Tbmuser tbmuser;
 
 	/** Constructor tanpa argumen: pakai user login saat ini ({@code Common.getCurrentUser()}). */
