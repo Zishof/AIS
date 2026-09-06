@@ -1423,6 +1423,33 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					"Koreksi otomatis SEMUA peserta essay via AI (isi Skor & Koreksi) lalu hitung ulang");
 			koreksiAiSemua.setStyle("color:#ffffff;background-color:#7c3aed;border-radius:6px;");
 			koreksiAiSemua.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menjalankan <b>"Koreksi Otomatis via AI"</b> untuk ujian ESAI: mengisi Skor DAN
+				 * teks Koreksi seluruh peserta memakai model bahasa, lalu menghitung ulang nilai.
+				 *
+				 * <p><b>Perbedaan mendasar dari varian pilihan ganda.</b> Pada esai tidak ada
+				 * kunci jawaban yang dapat dicocokkan otomatis, sehingga AI di sini menetapkan
+				 * SKOR — bukan sekadar penjelasan. Ini menjadikan fitur ini satu-satunya jalur di
+				 * kelas ini yang menyerahkan penentuan nilai kepada model bahasa. Konsekuensinya
+				 * untuk integritas nilai perlu disadari: nilai yang dihasilkan tidak deterministik
+				 * antar-pemanggilan dan tidak dapat direproduksi persis. Dosen tetap dapat
+				 * menimpanya lewat editor Nilai per baris pada grid.</p>
+				 *
+				 * <p><b>Tiga tahap</b> sama seperti varian pilihan ganda: pengumpulan tugas di
+				 * thread ZK memakai {@code KoreksiHasilUjian.kumpulkanEssay(hum)} dan
+				 * {@code promptKoreksiEssay(items, bangunKonteksUjian(hum))}; popup progres
+				 * streaming; lalu thread AI berurutan dengan timer pemantau 800 ms. Peserta tanpa
+				 * jawaban esai dilewati, dan bila tidak ada tugas sama sekali pengguna diberi tahu
+				 * lalu proses berhenti.</p>
+				 *
+				 * <p><b>Otorisasi.</b> Tombol pemicu tidak diberi {@code setVisible(...)}
+				 * bersyarat dan listener tidak memeriksa peran, padahal aksinya menulis kolom
+				 * nilai. Perlindungannya bersandar pada kelayakan pemanggil
+				 * {@link HasilUjianMahasiswaHelper#display(PertemuanPunyaUjian, Component)}.</p>
+				 *
+				 * @param event event {@code onClick}; tidak dipakai
+				 * @throws Exception diteruskan dari pembangunan komponen popup
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					// 1) Kumpulkan tugas (di thread ZK, butuh komponen Label): {humId, nama, prompt, items}
@@ -1479,6 +1506,29 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					final String[] statusNow = { "" };
 
 					new Thread(new Runnable() {
+						/**
+						 * Memanggil model AI satu peserta pada satu waktu (berurutan) untuk
+						 * menetapkan skor dan teks koreksi jawaban ESAI.
+						 *
+						 * <p>Bentuknya identik dengan varian pilihan ganda — pembaruan
+						 * {@code statusNow[0]}, pengosongan {@code sink} sebelum tiap panggilan,
+						 * batas 2048 token, kegagalan per peserta ditelan ke {@code ErrorAuditUtil}
+						 * agar perulangan berlanjut, dan {@code done[0]} dinaikkan setelah
+						 * pemrosesan — dengan satu perbedaan penting: penerapan hasil memakai
+						 * {@code terapkanKoreksiEssay(items, resp, humId)} yang menerima
+						 * <b>argumen ketiga berupa id {@link HasilUjianMahasiswa}</b>.</p>
+						 *
+						 * <p>Argumen id itulah yang membuat varian esai dapat MENGHITUNG ULANG
+						 * NILAI peserta setelah skor per butir ditulis; varian pilihan ganda tidak
+						 * memerlukannya karena hanya menyentuh teks penjelasan. Itu pula sebabnya
+						 * pesan penutup varian ini menyebut "Nilai dihitung ulang".</p>
+						 *
+						 * <p><b>Konkurensi.</b> Thread ini menulis {@code statusNow}, {@code sink},
+						 * {@code done}, dan {@code selesai} yang dibaca timer ZK. Tidak ada kunci
+						 * eksplisit — konsistensi bersandar pada sifat atomik penulisan referensi
+						 * dan {@code int}, serta pada {@link StringBuffer} yang tersinkronisasi.
+						 * Timer paling buruk hanya menampilkan status yang tertinggal satu denyut.</p>
+						 */
 						@Override
 						@SuppressWarnings("unchecked")
 						public void run() {
@@ -1506,6 +1556,25 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 					timer.setRepeats(true);
 					timer.addEventListener("onTimer", new EventListener() {
+						/**
+						 * Denyut pemantau progres koreksi AI ESAI, dijalankan ZK setiap 800 ms.
+						 *
+						 * <p>Perilakunya identik dengan pemantau varian pilihan ganda: menghitung
+						 * persen memakai aritmetika {@code long} agar tidak meluap, menyalin
+						 * status, memperbarui kotak aliran HANYA bila isinya berubah, dan
+						 * membungkus seluruh pembaruan komponen dalam {@code try/catch} kosong
+						 * karena desktop ZK bisa sudah dilepas. Pemeriksaan {@code selesai[0]}
+						 * berada di luar {@code try} agar penutupan popup tetap terjadi.</p>
+						 *
+						 * <p><b>Yang berbeda:</b> pesan penutupnya menyebut "Nilai dihitung ulang"
+						 * — pada esai, {@code terapkanKoreksiEssay} memang menuliskan skor dan
+						 * memicu perhitungan ulang nilai, sedangkan varian pilihan ganda hanya
+						 * menulis penjelasan. Setelah popup ditutup, {@code loadData(true)} memuat
+						 * ulang grid sehingga nilai baru langsung terlihat.</p>
+						 *
+						 * @param evtTimer event {@code onTimer}; tidak dipakai
+						 * @throws Exception diteruskan dari pemuatan ulang grid atau messagebox
+						 */
 						@Override
 						public void onEvent(Event evtTimer) throws Exception {
 							try {
@@ -1537,11 +1606,37 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					"/img/Button-Refresh-icon.png");
 			cari.setTooltiptext("Hitung Ulang Semua");
 			cari.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menjalankan <b>"Hitung Ulang Semua"</b> untuk ujian NON-pilihan-ganda (esai dan
+				 * sejenisnya): menghitung ulang nilai seluruh peserta yang termuat di grid dari
+				 * skor per butir yang telah dikoreksi.
+				 *
+				 * <p><b>Berbeda jauh dari varian pilihan ganda.</b> Varian ini TIDAK memakai kolam
+				 * thread; seluruh peserta diproses berurutan dalam SATU thread dan SATU session,
+				 * dengan transaksi terpisah per peserta. Pilihan itu masuk akal untuk esai:
+				 * jumlah peserta yang perlu dihitung ulang biasanya jauh lebih kecil karena hanya
+				 * yang sudah dikoreksi yang bernilai, dan perhitungannya jauh lebih ringan
+				 * (satu query agregat, bukan pemuatan seluruh detail jawaban).</p>
+				 *
+				 * <p>Listener ini menyiapkan bilah pemuatan berikut callback yang memanggil
+				 * {@code loadData(true)}, lalu melepas thread pekerja.</p>
+				 *
+				 * @param event event {@code onClick}; tidak dipakai
+				 * @throws Exception diteruskan dari pembuatan bilah pemuatan
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 
 					final Label label = Common.displayLoadBar(new EventListener() {
 
+						/**
+						 * Callback bilah pemuatan: dijalankan pada thread ZK setelah thread
+						 * pekerja mengosongkan label, memuat ulang grid dengan penanda refresh
+						 * {@code true} agar nilai baru terlihat.
+						 *
+						 * @param arg0 event penanda selesai; tidak dipakai
+						 * @throws Exception diteruskan dari pemuatan ulang grid
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							loadData(true);
@@ -1551,6 +1646,44 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 					new Thread(new Runnable() {
 
+						/**
+						 * Thread pekerja hitung ulang nilai untuk ujian non-pilihan-ganda.
+						 *
+						 * <p><b>Alur per peserta</b> (berurutan, satu transaksi masing-masing):</p>
+						 * <ol>
+						 *   <li>{@code session.refresh(hasilUjianMahasiswa)} menyegarkan objek yang
+						 *       diambil dari map grid agar mencerminkan keadaan database terkini.</li>
+						 *   <li>Bila kurikulum perkuliahan ber-OBE (rantai penjagaan null berlapis
+						 *       sampai {@code apakahObe(tahunAjaran, ganjilGenap)}), detail jawaban
+						 *       dimuat lalu {@code ProsesUjianHelper.hitungObe(...)} memperbarui
+						 *       {@code nilaiObe}. Berbeda dari varian pilihan ganda, di sini
+						 *       {@code formatNilais} TIDAK diserahkan sehingga
+						 *       {@code hitungObe} mengambilnya sendiri — aman karena thread hanya
+						 *       satu, sehingga masalah saling-reset {@code setDefaultPembobotan}
+						 *       yang mendera varian paralel tidak muncul.</li>
+						 *   <li>Nilai pokok dihitung lewat SATU query proyeksi yang mengambil
+						 *       pasangan {@code (nilai, bankSoal.skor)} seluruh detail jawaban,
+						 *       lalu {@code sumNilai = Σ (nilai * 100 / skor)} dan nilai akhir
+						 *       {@code sumNilai / jumlahDetail}. Perhatikan bahwa penyebutnya
+						 *       adalah jumlah baris DETAIL yang terbaca, bukan jumlah soal ujian:
+						 *       soal yang sama sekali tidak dijawab tidak menghasilkan baris detail
+						 *       sehingga tidak menurunkan rata-rata. Rumus ini juga BERBEDA dari
+						 *       {@code ProsesUjianHelper.hitungPilihanGanda}.</li>
+						 *   <li>Nilai hanya ditulis bila {@code sumNilai > 0.1} — ambang penjaga
+						 *       agar peserta yang belum dikoreksi tidak tertimpa nilai 0.</li>
+						 * </ol>
+						 *
+						 * <p><b>Pembagian nol.</b> {@code skor} soal yang bernilai 0 menghasilkan
+						 * {@code Infinity} pada {@code (nilai * 100.0) / skor} — bukan exception.
+						 * Nilai yang tercemar {@code Infinity} akan lolos ambang {@code > 0.1} dan
+						 * tersimpan. Periksa skor soal di bank soal bila menemukan nilai janggal.</p>
+						 *
+						 * <p><b>Sumber daya.</b> Satu session dipakai bersama seluruh peserta,
+						 * dengan {@code flush()} + {@code clear()} setiap 50 peserta dan ditutup
+						 * di {@code finally}. Kegagalan per peserta di-rollback dan dicatat;
+						 * perulangan berlanjut. Label dikosongkan di akhir, di luar {@code try},
+						 * sehingga bilah pemuatan selalu hilang.</p>
+						 */
 						@Override
 						public void run() {
 
@@ -1652,6 +1785,19 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 						pertemuanPunyaUjian.getPertemuan().getPerkuliahan().getGanjilGenap())) {
 			toolbar.appendChild(HasilUjianMahasiswaHelper.hasilObe(pertemuanPunyaUjian, new Ambildata() {
 
+				/**
+				 * Penyedia data peserta untuk laporan <b>Hasil OBE</b>.
+				 *
+				 * <p>Sama seperti penyedia untuk Analisis Butir Soal, mengembalikan
+				 * {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas} sebagai referensi hidup
+				 * yang dievaluasi saat tombol diklik. Thread latar {@code hasilObe} membacanya
+				 * untuk menyusun tabel capaian per CPMK/Sub-CPMK dan berkas Excel-nya.</p>
+				 *
+				 * <p>Tombol pemanggilnya hanya ditambahkan ke toolbar bila kurikulum perkuliahan
+				 * ber-OBE, sehingga penyedia ini tidak pernah dibuat pada perkuliahan non-OBE.</p>
+				 *
+				 * @return {@code Map<Long, Object[]>} hasil ujian seluruh peserta yang termuat
+				 */
 				@Override
 				public Object ambil() {
 					return hasilUjianMahasiswas;
