@@ -1602,17 +1602,109 @@ public class HistoryStatusMahasiswaUtil {
         private final List<String> jejakAturan = new ArrayList<String>();
         private final List<String> saran = new ArrayList<String>();
 
+        /**
+         * Nama status hasil analisis, mis. {@code "Aktif"} atau {@code "Belum ditentukan"}.
+         *
+         * @return nama status; tidak pernah {@code null}.
+         */
         public String getStatusNama() { return statusNama; }
+        /**
+         * Ringkasan satu frasa untuk ditempelkan pada teks status di layar, mis.
+         * {@code "status belum dapat dianalisis"}. Sengaja berhuruf kecil karena disisipkan di tengah
+         * kalimat.
+         *
+         * @return ringkasan; tidak pernah {@code null}.
+         */
         public String getRingkasan() { return ringkasan; }
+        /**
+         * Satu kalimat lengkap yang menyatakan APA yang diputuskan mesin status — bagian pertama popup
+         * analisis.
+         *
+         * @return kalimat keputusan; tidak pernah {@code null}.
+         */
         public String getKeputusanUtama() { return keputusanUtama; }
+        /**
+         * Satu kalimat yang menerjemahkan {@link #getKeputusanUtama()} menjadi konsekuensi praktis bagi
+         * pengguna — bagian kedua popup analisis.
+         *
+         * @return kalimat arti bagi pengguna; tidak pernah {@code null}.
+         */
         public String getArtiBagiPengguna() { return artiBagiPengguna; }
+        /**
+         * Tabel fakta mentah bernama (mis. semester, IPK, persentase pembayaran) dalam urutan sisip
+         * ({@link java.util.LinkedHashMap}), untuk ditampilkan sebagai daftar label-nilai.
+         *
+         * <p><b>Mengembalikan koleksi internal secara langsung, bukan salinan</b> — pemanggil yang
+         * mengubahnya ikut mengubah isi objek analisis ini. Seluruh pemanggil di basis kode hanya
+         * membaca; perlakukan sebagai baca-saja.</p>
+         *
+         * @return peta fakta; tidak pernah {@code null}.
+         */
         public Map<String, String> getFakta() { return fakta; }
+        /**
+         * Kondisi yang benar-benar MENAHAN atau MENGUBAH status — akar masalah yang harus ditampilkan
+         * paling menonjol. Bedakan dari {@link #getPerhatianTambahan()} yang hanya anomali sekunder.
+         *
+         * <p>Mengembalikan koleksi internal secara langsung; perlakukan sebagai baca-saja.</p>
+         *
+         * @return daftar penghambat utama; tidak pernah {@code null}.
+         */
         public List<String> getPenghambatUtama() { return penghambatUtama; }
+        /**
+         * Bukti yang sudah benar dan BUKAN penyebab masalah. Ditampilkan agar pengguna tidak salah
+         * menuduh syarat yang sebenarnya sudah lolos.
+         *
+         * <p>Mengembalikan koleksi internal secara langsung; perlakukan sebagai baca-saja.</p>
+         *
+         * @return daftar kondisi terpenuhi; tidak pernah {@code null}.
+         */
         public List<String> getKondisiTerpenuhi() { return kondisiTerpenuhi; }
+        /**
+         * Anomali sekunder yang layak diperiksa tetapi TIDAK boleh dipresentasikan sebagai akar
+         * masalah. Pemisahan dari {@link #getPenghambatUtama()} inilah yang mencegah kesalahan tafsir
+         * seperti menyimpulkan pembayaran Daftar Ulang 30% sebagai penyebab, padahal penghambat
+         * sebenarnya adalah tagihan wajib lain yang masih 0%.
+         *
+         * <p>Mengembalikan koleksi internal secara langsung; perlakukan sebagai baca-saja.</p>
+         *
+         * @return daftar perhatian tambahan; tidak pernah {@code null}.
+         */
         public List<String> getPerhatianTambahan() { return perhatianTambahan; }
+        /**
+         * Catatan naratif bebas hasil penelusuran bukti, termasuk pesan kegagalan pembacaan bukti bila
+         * analisis berjalan tidak lengkap.
+         *
+         * <p>Mengembalikan koleksi internal secara langsung; perlakukan sebagai baca-saja.</p>
+         *
+         * @return daftar temuan; tidak pernah {@code null}.
+         */
         public List<String> getTemuan() { return temuan; }
+        /**
+         * Rincian per jenis tagihan beserta persentase pelunasannya, dipakai untuk menjelaskan
+         * penghambat yang berkaitan dengan pembayaran.
+         *
+         * <p>Mengembalikan koleksi internal secara langsung; perlakukan sebagai baca-saja.</p>
+         *
+         * @return daftar rincian pembayaran; tidak pernah {@code null}.
+         */
         public List<String> getRincianPembayaran() { return rincianPembayaran; }
+        /**
+         * Jejak aturan yang dievaluasi mesin status beserta hasilnya — menjadikan keputusan status
+         * dapat ditelusuri dan diaudit, bukan sekadar hasil akhir.
+         *
+         * <p>Mengembalikan koleksi internal secara langsung; perlakukan sebagai baca-saja.</p>
+         *
+         * @return daftar jejak aturan; tidak pernah {@code null}.
+         */
         public List<String> getJejakAturan() { return jejakAturan; }
+        /**
+         * Tindakan konkret yang disarankan bagi pengguna untuk menyelesaikan penghambat, mis. melunasi
+         * tagihan tertentu atau menekan Refresh.
+         *
+         * <p>Mengembalikan koleksi internal secara langsung; perlakukan sebagai baca-saja.</p>
+         *
+         * @return daftar saran; tidak pernah {@code null}.
+         */
         public List<String> getSaran() { return saran; }
     }
 

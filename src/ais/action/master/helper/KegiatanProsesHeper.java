@@ -195,8 +195,23 @@ public class KegiatanProsesHeper {
 	private static final ExecutorService WORKER_EXECUTOR = Executors.newFixedThreadPool(
 			Math.max(2, Math.min(3, Runtime.getRuntime().availableProcessors())),
 			new java.util.concurrent.ThreadFactory() {
+				/**
+				 * Pencacah bernomor untuk penamaan thread pool bersama. Bertipe {@link java.util.concurrent.atomic.AtomicInteger}
+				 * karena {@code newThread} dapat dipanggil beberapa thread sekaligus saat pool
+				 * tumbuh; penomoran yang tumpang tindih akan membuat nama thread kembar dan
+				 * menyulitkan pembacaan thread dump saat proses massal dicurigai menggantung.
+				 */
 				private final AtomicInteger nomor = new AtomicInteger(1);
 
+				/**
+				 * Membuat satu thread pekerja pool bersama dengan nama
+				 * {@code KegiatanProses-Worker-N} yang mudah dikenali pada thread dump, dan
+				 * menandainya sebagai <b>daemon</b> agar tidak pernah menahan proses shutdown
+				 * JVM/Tomcat meskipun ada proses massal yang masih berjalan.
+				 *
+				 * @param r tugas yang akan dijalankan thread ini
+				 * @return thread daemon bernama, belum dijalankan
+				 */
 				@Override
 				public Thread newThread(Runnable r) {
 					Thread t = new Thread(r, "KegiatanProses-Worker-" + nomor.getAndIncrement());
@@ -281,6 +296,14 @@ public class KegiatanProsesHeper {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig(labelBtn, icon);
 
 		button.addEventListener("onClick", new EventListener() {
+			/**
+			 * Klik tombol "Singkronkan Data Cicilan": tidak langsung memproses apa pun,
+			 * melainkan menampilkan dialog konfirmasi lebih dulu karena aksi ini membangun
+			 * ulang ringkasan pembayaran seluruh kegiatan. Seluruh pekerjaan sesungguhnya
+			 * berada pada callback konfirmasi di bawahnya.
+			 *
+			 * @param event event klik (tidak dipakai isinya)
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				MyMessageboxConfig.show(
@@ -289,6 +312,17 @@ public class KegiatanProsesHeper {
 								+ "membangun ulang ringkasan pembayaran, lalu menyimpan hasil sinkronisasi. Lanjutkan?",
 						"Peringatan Sistem", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
 						MyMessageboxConfig.QUESTION, new EventListener() {
+							/**
+							 * Callback konfirmasi sinkronisasi. Berhenti diam-diam bila jawaban bukan OK.
+							 * Bila OK: menyalakan ZK server push (menandai apakah <i>method ini</i> yang
+							 * menyalakannya agar dapat dimatikan lagi tanpa mengganggu fitur lain),
+							 * membangun jendela progres yang di-{@code doHighlighted} bukan
+							 * {@code doModal} (agar event-thread ZK tidak tersuspend), menyiapkan wadah
+							 * laporan rinci per-kegiatan, lalu menyerahkan pekerjaan berat ke
+							 * {@code WORKER_EXECUTOR}.
+							 *
+							 * @param ev event jawaban dialog; {@code ev.getData()} berisi kode tombol
+							 */
 							@Override
 							public void onEvent(Event ev) throws Exception {
 								if (Integer.parseInt(ev.getData().toString()) != MyMessageboxConfig.OK) {
@@ -356,6 +390,18 @@ public class KegiatanProsesHeper {
 								final AtomicInteger nomorBarisLaporan = new AtomicInteger(0);
 
 								WORKER_EXECUTOR.execute(new Runnable() {
+									/**
+									 * Tugas latar sinkronisasi cicilan. Membaca peta cicilan-per-kegiatan
+									 * ({@code ambilPetaCicilanPerKegiatan}), membuat pool internal seukuran
+									 * {@code hitungThreadPoolAman}, menjalankan satu sub-tugas per kegiatan, lalu
+									 * menunggu seluruhnya selesai lewat {@code future.get()} sebelum menutup
+									 * jendela progres.
+									 *
+									 * <p>Kasus "tidak ada data" diselesaikan lebih awal dengan pesan tersendiri.
+									 * Blok {@code finally} terluar SELALU melepas server push bila method inilah
+									 * yang menyalakannya dan desktop masih hidup — inilah perbaikan yang mencegah
+									 * browser terus polling dan menahan thread Tomcat selama tab terbuka.</p>
+									 */
 									@Override
 									public void run() {
 										try {
@@ -390,6 +436,19 @@ public class KegiatanProsesHeper {
 
 											for (final Map.Entry<Long, List<Long>> entry : kegGroups.entrySet()) {
 												futures.add(executor.submit(new Runnable() {
+													/**
+													 * Sinkronisasi SATU kegiatan beserta seluruh cicilannya, dijalankan pada pool
+													 * internal. Tiap hasil dicatat ke laporan rinci: berhasil, gagal dengan sebab
+													 * teknis, atau gagal karena exception (lengkap dengan jejaknya) — menggantikan
+													 * laporan agregat lama yang tidak pernah menyebut kegiatan MANA yang gagal.
+													 *
+													 * <p>Nomor baris laporan diambil dari pencacah atomik sekali di awal sehingga
+													 * tiap sub-tugas menulis pada baris miliknya sendiri tanpa saling menimpa.
+													 * Pembaruan progres dilakukan di {@code finally} setiap 10 kegiatan (dan pada
+													 * kegiatan terakhir) agar lalu lintas server push tidak membanjir; nilainya
+													 * dijepit maksimal 98% supaya 100% hanya muncul saat proses benar-benar
+													 * selesai.</p>
+													 */
 													@Override
 													public void run() {
 														int nomorBaris = nomorBarisLaporan.getAndIncrement();
@@ -450,6 +509,14 @@ public class KegiatanProsesHeper {
 												}
 											}
 											Executions.schedule(desktop, new EventListener() {
+												/**
+												 * Penutup sinkronisasi yang dijadwalkan kembali ke thread event ZK: melepas
+												 * jendela progres lalu menyelesaikan laporan rinci sehingga berkasnya otomatis
+												 * terunduh. Keduanya dibungkus try/catch terpisah agar kegagalan melepas
+												 * jendela tidak ikut membatalkan pengunduhan laporan, dan sebaliknya.
+												 *
+												 * @param arg0 event penjadwalan (tidak dipakai isinya)
+												 */
 												@Override
 												public void onEvent(Event arg0) {
 													try {
@@ -490,6 +557,13 @@ public class KegiatanProsesHeper {
 			final String message) {
 		try {
 			Executions.schedule(desktop, new EventListener() {
+				/**
+				 * Menuliskan pesan status dan nilai progres pada thread event ZK. Kedua
+				 * komponen diperiksa null lebih dulu karena method pemanggilnya sengaja
+				 * mengizinkan progressmeter kosong.
+				 *
+				 * @param event event penjadwalan (tidak dipakai isinya)
+				 */
 				@Override
 				public void onEvent(Event event) {
 					if (label != null) {
@@ -508,6 +582,12 @@ public class KegiatanProsesHeper {
 	private static void updateInfo(Desktop desktop, final Label label, final String message) {
 		try {
 			Executions.schedule(desktop, new EventListener() {
+				/**
+				 * Menuliskan pesan informasi tambahan pada thread event ZK; label diperiksa
+				 * null lebih dulu.
+				 *
+				 * @param event event penjadwalan (tidak dipakai isinya)
+				 */
 				@Override
 				public void onEvent(Event event) {
 					if (label != null) {
