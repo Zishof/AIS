@@ -3508,6 +3508,19 @@ public class DetailUjianHelper implements DataLoader {
 						final Textbox jawaban = new Textbox();
 						jawaban.addEventListener("onChange", new EventListener() {
 
+							/**
+							 * Menyimpan teks kunci jawaban satu {@link BankSoalDetail} saat kotak isian diubah (jenis soal
+							 * menjodohkan bernomor).
+							 *
+							 * <p>Nilai di-{@code trim()} lebih dulu lalu langsung ditulis lewat {@code Common.refreshUpdate},
+							 * sehingga tab ini menyimpan seketika tanpa tombol simpan. Perhatikan {@link BankSoalDetail}
+							 * diperbarui APA ADANYA dari objek yang sudah dimuat sebelumnya — tidak ada {@code refresh()}
+							 * lebih dulu seperti pada listener drag-and-drop di bawahnya — jadi perubahan bersamaan pada
+							 * baris yang sama dari sesi lain dapat tertimpa.
+							 *
+							 * @param arg0 event {@code onChange}; tidak dibaca
+							 * @throws Exception diteruskan dari penyimpanan entity
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								bankSoalDetail.setJawaban(jawaban.getValue().trim());
@@ -3588,6 +3601,21 @@ public class DetailUjianHelper implements DataLoader {
 
 					EventListener eventListener = new EventListener() {
 
+						/**
+						 * Menyusun ulang urutan tampilan opsi pasangan saat item ditarik-lepas (soal menjodohkan).
+						 *
+						 * <p>Hanya memindahkan posisi {@link org.zkoss.zul.Listitem} di dalam induknya
+						 * ({@code insertBefore}) bila baik sumber maupun sasaran memang sebuah {@code Listitem}.
+						 * Berbeda dengan listener drag-and-drop soal mengurutkan, perubahan di sini MURNI VISUAL —
+						 * tidak ada kolom urutan yang disimpan ke database, karena opsi pasangan diacak saat ujian
+						 * disajikan sehingga urutan tampilannya di layar pengelola tidak bermakna.
+						 *
+						 * <p>Satu instance listener dipakai bersama oleh {@code Listbox} pembungkus dan setiap item di
+						 * dalamnya, sehingga lepasan di area kosong maupun tepat di atas item lain sama-sama tertangani.
+						 *
+						 * @param arg0 {@link DropEvent} yang membawa komponen sumber dan sasaran
+						 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -3661,6 +3689,28 @@ public class DetailUjianHelper implements DataLoader {
 				final Listbox listbox = new Listbox();
 				EventListener eventListener = new EventListener() {
 
+					/**
+					 * Menukar urutan dua opsi jawaban saat item ditarik-lepas, DAN menyimpan urutan barunya ke
+					 * database (soal mengurutkan).
+					 *
+					 * <p><b>Dua langkah.</b> Pertama posisi visual diperbaiki: arah penyisipan dipilih berdasarkan
+					 * perbandingan indeks ({@code indexOff1 > indexOff2}) supaya menarik ke atas dan ke bawah
+					 * sama-sama menghasilkan posisi yang diharapkan pengguna. Kedua, nilai
+					 * {@code urutanDiujikan} kedua {@link BankSoalDetail} DITUKAR dan disimpan.
+					 *
+					 * <p>Entity diambil dari atribut komponen ({@code getAttribute("bankSoalDetail")}) yang dipasang
+					 * saat item dibangun, lalu keduanya di-{@code refresh()} sebelum ditukar agar nilai urutan yang
+					 * dibaca berasal dari database — bukan dari salinan yang mungkin sudah basi setelah beberapa kali
+					 * tarik-lepas. {@code session.flush()} dipanggil eksplisit di akhir supaya pertukaran tersimpan
+					 * sebagai satu kesatuan sebelum tarikan berikutnya membaca ulang.
+					 *
+					 * <p><b>Pertukaran, bukan penomoran ulang.</b> Karena hanya dua baris yang bertukar nilai, urutan
+					 * item lain tidak digeser. Ini menjaga operasi tetap murah, tetapi berarti urutan visual dan
+					 * {@code urutanDiujikan} hanya konsisten selama seluruh item memang punya nilai urutan yang unik.
+					 *
+					 * @param arg0 {@link DropEvent} yang membawa komponen sumber dan sasaran
+					 * @throws Exception diteruskan dari operasi Hibernate
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
@@ -3752,6 +3802,33 @@ public class DetailUjianHelper implements DataLoader {
 
 						EventListener eventListener = new EventListener() {
 
+							/**
+							 * Menandai satu opsi sebagai jawaban benar, dan — untuk soal berjawaban tunggal — membatalkan
+							 * tanda benar pada seluruh opsi lainnya.
+							 *
+							 * <p>Komponen pemicu dibaca dari {@code arg0.getTarget()} dan di-cast ke {@link Checkbox}. Cast
+							 * ini aman untuk kedua jalur karena {@link Radio} ZK merupakan turunan {@code Checkbox}, sehingga
+							 * satu listener dapat melayani baik radio (pilihan tunggal) maupun checkbox (pilihan jamak).
+							 *
+							 * <p><b>Eksklusivitas ditegakkan di server.</b> Untuk jenis {@code MULTIPLE_COICE} dan
+							 * {@code BENAR_SALAH}, sesudah opsi terpilih disimpan, SELURUH {@link BankSoalDetail} lain pada
+							 * soal yang sama di-{@code setBetul(false)} dan ikut disimpan. Ini tidak mengandalkan perilaku
+							 * {@link Radiogroup} di sisi klien saja, sehingga data tetap konsisten walaupun radio dirender
+							 * di luar grupnya. Untuk jenis lain (pilihan jamak), langkah ini dilewati sehingga beberapa opsi
+							 * boleh benar bersamaan.
+							 *
+							 * <p>Setiap entity di-{@code refresh()} sebelum diubah agar penulisan tidak menimpa perubahan
+							 * yang sudah tersimpan dari tempat lain.
+							 *
+							 * <p>Perhatikan penyuntingan kunci jawaban hanya tersedia bagi pengguna non-peserta: radio dan
+							 * checkbox baru dipasang bila {@code tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null}
+							 * (dan {@code ujianPunyaSoal != null}); selain itu opsi ditampilkan sebagai {@link Label} biasa
+							 * sehingga peserta tidak dapat mengubah — maupun menyimpulkan dari kontrol yang aktif — kunci
+							 * jawabannya.
+							 *
+							 * @param arg0 event {@code onClick} pada radio/checkbox opsi
+							 * @throws Exception diteruskan dari operasi Hibernate
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 
@@ -3869,6 +3946,19 @@ public class DetailUjianHelper implements DataLoader {
 				intbox.setParent(hbox);
 				intbox.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Menyimpan nomor urut soal dalam ujian saat kotak angka diubah.
+					 *
+					 * <p>Nilai dibaca apa adanya dari {@link org.zkoss.zul.Intbox} dan disimpan ke
+					 * {@link UjianPunyaSoal}. Kotak ini hanya dibangun ketika ujian TIDAK memakai penomoran acak;
+					 * pada mode acak yang ditampilkan hanyalah label "Nomor Soal : Random / Acak" tanpa kontrol.
+					 *
+					 * <p>Tidak ada validasi keunikan maupun rentang: dua soal boleh diberi nomor urut yang sama, dan
+					 * kotak yang dikosongkan menyimpan {@code null}.
+					 *
+					 * @param arg0 event {@code onChange}; tidak dibaca
+					 * @throws Exception diteruskan dari penyimpanan entity
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						ujianPunyaSoal.setNomorUrut(intbox.getValue());
@@ -3889,11 +3979,37 @@ public class DetailUjianHelper implements DataLoader {
 			button.setVisible(tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && edit);
 			button.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Membuka form ubah soal ({@code BankSoalAction.onAddExternal}) untuk {@link BankSoal} pada baris
+				 * ini.
+				 *
+				 * <p>Seluruh pemanggilan dibungkus {@code try/catch}: kegagalan pembukaan form biasanya terjadi
+				 * ketika objek soal yang dipegang layar sudah basi terhadap database. Karena itu pesan yang
+				 * ditampilkan bukan tumpukan galat teknis melainkan panduan langkah
+				 * ({@code PesanFormalHelper.tampilkanGagal}) yang meminta pengguna menekan Refresh lalu mencoba
+				 * lagi, sementara galat aslinya tetap dicatat ke {@code ErrorAuditUtil}.
+				 *
+				 * <p>Tombol hanya tampil bila pemanggil mengizinkan {@code edit} dan pengguna bukan
+				 * mahasiswa/siswa.
+				 *
+				 * @param arg0 event {@code onClick}, diteruskan apa adanya ke {@code onAddExternal}
+				 * @throws Exception ditangani di dalam; tidak diteruskan ke pemanggil
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					try {
 						BankSoalAction.onAddExternal(arg0, new EventListener() {
 
+							/**
+							 * Menyegarkan tampilan setelah form ubah soal selesai disimpan, dengan menjalankan
+							 * {@code eventListenerUbah} lewat timer default.
+							 *
+							 * <p>Penjadwalan lewat timer membuat penyegaran berjalan pada permintaan ZK berikutnya, bukan di
+							 * tengah listener form yang baru saja menyimpan.
+							 *
+							 * @param arg0 event dari form bank soal; tidak dibaca
+							 * @throws Exception diteruskan dari penjadwalan timer
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								Common.createDefaultTimer(eventListenerUbah);
@@ -3919,6 +4035,25 @@ public class DetailUjianHelper implements DataLoader {
 			button.setVisible(tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && edit);
 			button.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menggandakan soal ini beserta seluruh opsi jawabannya, lalu membuka form ubah atas SALINANNYA.
+				 *
+				 * <p><b>Penggandaan dilakukan lebih dulu, di luar form.</b> {@link BankSoal} di-{@code clone()},
+				 * {@code id}-nya dikosongkan, dan disimpan sehingga menjadi record baru. Setiap
+				 * {@link BankSoalDetail} milik soal asal juga di-{@code clone()} dengan {@code id} DAN
+				 * {@code kodeUnik} dikosongkan — {@code kodeUnik} wajib dikosongkan agar salinan tidak
+				 * bertabrakan dengan kunci unik milik detail aslinya — lalu ditautkan ke soal salinan.
+				 *
+				 * <p>Form kemudian dibuka dengan MENGOPER dua objek: salinan yang akan disunting dan
+				 * {@code originalBankSoal} sebagai rujukan, sehingga form dapat menampilkan perbandingan atau
+				 * mewarisi hal yang perlu dari soal asal.
+				 *
+				 * <p>Perhatikan salinan sudah tersimpan ke database SEBELUM pengguna menekan simpan di form.
+				 * Bila form dibatalkan, soal salinan tetap ada sebagai record tanpa tautan ke ujian mana pun.
+				 *
+				 * @param arg0 event {@code onClick}, diteruskan apa adanya ke {@code onAddExternal}
+				 * @throws Exception diteruskan dari operasi Hibernate atau pembukaan form
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					final BankSoal originalBankSoal = bankSoal;
@@ -3942,6 +4077,21 @@ public class DetailUjianHelper implements DataLoader {
 
 					BankSoalAction.onAddExternal(arg0, new EventListener() {
 
+						/**
+						 * Menautkan soal hasil penggandaan ke ujian yang sama setelah form ubah selesai disimpan.
+						 *
+						 * <p>Penautan hanya dilakukan bila baris ini memang dibuka dalam konteks sebuah ujian
+						 * ({@code ujianPunyaSoal != null}); soal yang digandakan dari bank soal lepas tidak ditautkan ke
+						 * mana pun. Seperti jalur penautan lain di kelas ini, pasangan ({@code bankSoal}, {@code ujian})
+						 * dicari lebih dulu dan baris baru hanya dibuat bila belum ada.
+						 *
+						 * <p>Perhatikan {@link BankSoal} diambil dari {@code arg0.getData()} — yakni objek yang benar-benar
+						 * disimpan form, bukan salinan yang disiapkan sebelumnya — sehingga penautan tetap benar walaupun
+						 * pengguna mengganti isinya di form.
+						 *
+						 * @param arg0 event yang membawa {@link BankSoal} hasil simpan pada {@code getData()}
+						 * @throws Exception diteruskan dari operasi Hibernate
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -3977,12 +4127,43 @@ public class DetailUjianHelper implements DataLoader {
 			button.setTooltiptext("Hapus Data");
 			button.setVisible(tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null && hapus);
 			button.addEventListener("onClick", new EventListener() {
+				/**
+				 * Meminta konfirmasi sebelum menghapus soal pada baris ini.
+				 *
+				 * <p>Hanya menampilkan kotak tanya OK/Batal; penghapusan dikerjakan listener konfirmasinya.
+				 * Tombol hanya tampil bila pemanggil mengizinkan {@code hapus} dan pengguna bukan
+				 * mahasiswa/siswa.
+				 *
+				 * @param event event {@code onClick}; tidak dibaca
+				 * @throws Exception diteruskan dari penampilan kotak konfirmasi
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 							new EventListener() {
 
+								/**
+								 * Menghapus soal pada baris ini setelah pengguna menekan OK — dengan penjaga soal yang sudah
+								 * dijawab peserta.
+								 *
+								 * <p><b>Dua sasaran penghapusan.</b> Bila baris dibuka dalam konteks ujian
+								 * ({@code ujianPunyaSoal != null}), yang dihapus adalah TAUTAN {@link UjianPunyaSoal} saja
+								 * sehingga {@link BankSoal}-nya tetap ada di bank soal untuk ujian lain. Bila tidak, barulah
+								 * {@link BankSoal} itu sendiri yang dihapus.
+								 *
+								 * <p><b>Penjaga fail-open.</b> Sebelum menghapus tautan, {@link #soalSudahDipakaiHasilUjian}
+								 * memeriksa apakah soal sudah dijawab peserta; bila ya, penghapusan dibatalkan dengan pesan yang
+								 * menjelaskan bahwa hasil ujian terkait harus dihapus lebih dulu. Tanpa penjaga ini penghapusan
+								 * melanggar foreign key {@code hasil_ujian_mahasiswa_detail}, membuat flush gagal dan merusak
+								 * sesi Hibernate sehingga operasi berikutnya ikut bermasalah.
+								 *
+								 * <p>Inilah SATU-SATUNYA jalur penghapusan soal di kelas ini yang memakai penjaga tersebut — dua
+								 * tombol hapus massal pada toolbar ("Hapus Soal Double" dan "Hapus") tidak memakainya.
+								 *
+								 * @param event event konfirmasi yang membawa pilihan tombol pada {@code getData()}
+								 * @throws Exception diteruskan dari penampilan pesan kegagalan
+								 */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
@@ -4078,6 +4259,19 @@ public class DetailUjianHelper implements DataLoader {
 		/** Dipanggil setelah baris diubah/dihapus untuk memuat ulang grid ({@link DetailUjianHelper#loadData(Object)}). */
 		private EventListener ubahEventListener = new EventListener() {
 
+			/**
+			 * Memuat ulang grid soal setelah sebuah baris diubah atau dihapus.
+			 *
+			 * <p>Memanggil {@code loadData(null)} — argumen {@code null} (bukan {@code true}) berarti kata
+			 * kunci pencarian dan posisi paging yang sedang aktif dipertahankan, sehingga pengguna kembali ke
+			 * tampilan yang sama setelah menyunting satu soal alih-alih dilempar ke halaman pertama.
+			 *
+			 * <p>Instance ini dibuat sekali sebagai field {@code ubahEventListener} dan dioper ke setiap
+			 * baris yang dirender, sehingga seluruh baris berbagi satu listener penyegar yang sama.
+			 *
+			 * @param arg0 event pemicu; tidak dibaca
+			 * @throws Exception diteruskan dari {@link DetailUjianHelper#loadData(Object)}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadData(null);
@@ -4797,6 +4991,21 @@ public class DetailUjianHelper implements DataLoader {
 			MyMessageboxConfig.show("Upload soal telah selesai dilakukan, " + terupload + " terupload" + report.getRingkasan(), "Pemberitahuan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, new EventListener() {
 
+						/**
+						 * Memuat ulang daftar soal setelah pengguna menutup kotak pemberitahuan hasil impor Excel.
+						 *
+						 * <p>Dipasang sebagai listener kotak pesan penutup {@link #doUpload(Media, DataLoader, PertemuanPunyaUjian)},
+						 * sehingga penyegaran baru berjalan SETELAH pengguna benar-benar membaca ringkasan hasil impor
+						 * (jumlah baris terupload beserta ringkasan kegagalan) — bukan langsung saat impor selesai.
+						 *
+						 * <p>Penyegaran didelegasikan ke {@code dataLoader} yang dioper pemanggil, bukan ke {@code this},
+						 * karena {@link #doUpload} bersifat statis dan dipakai dari beberapa layar yang berbeda.
+						 * Argumen {@code true} memaksa pengambilan ulang dari database sebab impor mengubah data di luar
+						 * sesi grid.
+						 *
+						 * @param arg0 event penutupan kotak pesan; tidak dibaca
+						 * @throws Exception diteruskan dari {@code dataLoader.loadData}
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							dataLoader.loadData(true);
@@ -5113,6 +5322,22 @@ public class DetailUjianHelper implements DataLoader {
 			MyMessageboxConfig.show("Upload soal telah selesai dilakukan, " + terupload + " terupload", "Pemberitahuan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, new EventListener() {
 
+						/**
+						 * Memuat ulang daftar soal setelah pengguna menutup kotak pemberitahuan hasil impor Excel pada
+						 * varian impor yang sekaligus menautkan soal ke sebuah {@link Ujian}.
+						 *
+						 * <p>Perilakunya sama dengan padanannya di
+						 * {@link #doUpload(Media, DataLoader, PertemuanPunyaUjian)}: penyegaran ditunda sampai kotak
+						 * pesan ditutup, dan didelegasikan ke {@code dataLoader} milik pemanggil dengan argumen
+						 * {@code true} agar data diambil ulang dari database.
+						 *
+						 * <p>Bedanya hanya pada ringkasan yang ditampilkan sebelum listener ini berjalan — varian ini
+						 * melaporkan jumlah terupload saja, tanpa berkas laporan per baris yang diunduh oleh varian
+						 * satunya.
+						 *
+						 * @param arg0 event penutupan kotak pesan; tidak dibaca
+						 * @throws Exception diteruskan dari {@code dataLoader.loadData}
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							dataLoader.loadData(true);

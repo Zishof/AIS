@@ -889,6 +889,45 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					"Isi kolom Koreksi/penjelasan SEMUA peserta via AI (pilihan ganda; skor tetap otomatis)");
 			koreksiAiPg.setStyle("color:#ffffff;background-color:#7c3aed;border-radius:6px;");
 			koreksiAiPg.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menjalankan <b>"Koreksi Otomatis via AI"</b> untuk ujian PILIHAN GANDA:
+				 * mengisi kolom Koreksi/penjelasan seluruh peserta memakai model bahasa,
+				 * TANPA mengubah skor.
+				 *
+				 * <p><b>Perbedaan penting dari varian esai.</b> Pada pilihan ganda skor tetap
+				 * dihitung otomatis oleh mesin penilaian; AI di sini hanya menuliskan penjelasan
+				 * mengapa jawaban peserta benar/salah — nilai peserta tidak disentuh. Karena itu
+				 * pesan penutupnya berbunyi "selesai dikoreksi (penjelasan)", berbeda dari varian
+				 * esai yang menyebut "Nilai dihitung ulang". Konsekuensinya, fitur ini tidak dapat
+				 * mengubah integritas nilai pilihan ganda.</p>
+				 *
+				 * <p><b>Tiga tahap.</b></p>
+				 * <ol>
+				 *   <li><b>Pengumpulan tugas di thread ZK.</b> Untuk setiap peserta pada
+				 *       {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas},
+				 *       {@code KoreksiHasilUjian.kumpulkanPg(hum)} mengumpulkan butir yang layak
+				 *       dikoreksi; peserta tanpa butir dilewati. Prompt dibangun sekali per
+				 *       peserta lewat {@code promptKoreksiPg(items, bangunKonteksUjian(hum))} dan
+				 *       disimpan sebagai {@code Object[]{id, nama, prompt, items}}. Tahap ini
+				 *       WAJIB berjalan di thread ZK karena pengumpulan butir menyentuh komponen
+				 *       dan konteks session. Bila tidak ada tugas sama sekali, pengguna diberi
+				 *       tahu dan proses berhenti.</li>
+				 *   <li><b>Popup progres.</b> Sebuah {@code Window} 560px berisi label status,
+				 *       {@code Progressmeter}, dan {@code Textbox} monospace yang menampilkan
+				 *       aliran keluaran AI secara langsung.</li>
+				 *   <li><b>Thread pemanggil AI + timer pemantau.</b> Lihat Javadoc
+				 *       {@code run()} dan {@code onEvent(evtTimer)} di bawah.</li>
+				 * </ol>
+				 *
+				 * <p><b>Wadah bersama.</b> {@code done[]}, {@code selesai[]}, {@code statusNow[]},
+				 * dan {@code sink} adalah wadah {@code final} yang ditulis thread AI dan dibaca
+				 * timer ZK. {@code sink} sengaja bertipe {@link StringBuffer} (bukan
+				 * {@code StringBuilder}) karena method-methodnya tersinkronisasi — dua thread
+				 * benar-benar mengaksesnya bersamaan.</p>
+				 *
+				 * @param event event {@code onClick}; tidak dipakai
+				 * @throws Exception diteruskan dari pembangunan komponen popup
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					final java.util.List<Object[]> tugas = new java.util.ArrayList<Object[]>();
@@ -944,6 +983,36 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					final String[] statusNow = { "" };
 
 					new Thread(new Runnable() {
+						/**
+						 * Memanggil model AI <b>satu peserta pada satu waktu</b> (berurutan, bukan
+						 * paralel) lalu menerapkan hasilnya sebagai teks koreksi/penjelasan.
+						 *
+						 * <p><b>Mengapa berurutan.</b> Berbeda dari "Hitung Ulang Semua" yang
+						 * memakai kolam 50 thread, pemanggilan AI sengaja diserialkan: layanan AI
+						 * berbatas laju (rate limit) dan berbiaya per panggilan, dan aliran
+						 * keluaran ditampilkan langsung ke satu kotak teks yang akan menjadi
+						 * campur aduk bila beberapa panggilan menulis bersamaan.</p>
+						 *
+						 * <p><b>Alur per iterasi.</b> Memperbarui {@code statusNow[0]} dengan
+						 * nomor urut dan nama peserta, MENGOSONGKAN {@code sink} agar kotak
+						 * aliran hanya memperlihatkan keluaran peserta yang sedang diproses,
+						 * memanggil {@code GenerateAiHelper.panggilAi(prompt, sink, 2048)}
+						 * (batas 2048 token), lalu {@code KoreksiHasilUjian.terapkanKoreksiPg}
+						 * menuliskan hasilnya ke kolom koreksi. Pencacah {@code done[0]}
+						 * dinaikkan SETELAH pemrosesan sehingga meter progres tidak pernah
+						 * mendahului kenyataan.</p>
+						 *
+						 * <p><b>Ketahanan.</b> Kegagalan pada satu peserta ditangkap dan direkam
+						 * ke {@code ErrorAuditUtil}; perulangan tetap berlanjut ke peserta
+						 * berikutnya sehingga satu peserta bermasalah tidak membatalkan seluruh
+						 * proses. Peserta yang gagal tidak ditandai di UI — periksa jejak audit
+						 * bila ada penjelasan yang tidak terisi.</p>
+						 *
+						 * <p><b>Penanda selesai.</b> {@code selesai[0] = true} adalah SATU-SATUNYA
+						 * sinyal yang membuat timer menutup popup. Ia diset di luar {@code try}
+						 * per-iterasi sehingga selalu tercapai selama perulangan tidak dihentikan
+						 * {@link Error} — bila terjadi, popup akan menggantung.</p>
+						 */
 						@Override
 						@SuppressWarnings("unchecked")
 						public void run() {
@@ -968,6 +1037,34 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 					timer.setRepeats(true);
 					timer.addEventListener("onTimer", new EventListener() {
+						/**
+						 * Denyut pemantau progres koreksi AI pilihan ganda, dijalankan ZK setiap
+						 * 800 ms. Merupakan <b>jembatan</b> antara thread AI (yang tidak boleh
+						 * menyentuh komponen ZK) dan antarmuka pengguna.
+						 *
+						 * <p><b>Yang dilakukan setiap denyut.</b> Menghitung persen dari
+						 * {@code done[0]} memakai aritmetika {@code long} ({@code done[0] * 100L})
+						 * agar tidak meluap pada jumlah peserta besar; menyalin
+						 * {@code statusNow[0]} ke label; dan menyalin {@code sink} ke kotak
+						 * aliran hanya bila isinya BERBEDA — perbandingan ini penting agar ZK
+						 * tidak mengirim pembaruan komponen 800 ms sekali tanpa perlu.</p>
+						 *
+						 * <p><b>Penanganan error sengaja senyap.</b> Seluruh pembaruan komponen
+						 * dibungkus {@code try/catch} kosong: bila desktop ZK sudah dilepas
+						 * (pengguna menutup tab) pembaruan akan melempar, dan menampilkan galat
+						 * untuk itu tidak berguna. Pemeriksaan {@code selesai[0]} sengaja berada
+						 * DI LUAR {@code try} agar penutupan popup tetap berjalan meski satu
+						 * pembaruan tampilan gagal.</p>
+						 *
+						 * <p><b>Saat selesai.</b> Timer dihentikan dan dilepas, popup ditutup,
+						 * {@code loadData(true)} memuat ulang grid dengan penanda refresh, lalu
+						 * pesan ringkasan ditampilkan. Perhatikan bahwa jumlah yang dilaporkan
+						 * adalah jumlah tugas, bukan jumlah yang benar-benar berhasil — peserta
+						 * yang gagal dikoreksi tetap ikut terhitung.</p>
+						 *
+						 * @param evtTimer event {@code onTimer}; tidak dipakai
+						 * @throws Exception diteruskan dari pemuatan ulang grid atau messagebox
+						 */
 						@Override
 						public void onEvent(Event evtTimer) throws Exception {
 							try {
@@ -998,11 +1095,44 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 			cari.setParent(toolbar);
 			cari.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menjalankan <b>"Hitung Ulang Semua"</b> untuk ujian PILIHAN GANDA: menghitung
+				 * ulang nilai OBE dan nilai pilihan ganda SELURUH peserta yang sedang termuat di
+				 * grid, secara paralel di latar.
+				 *
+				 * <p>Listener ini hanya menyiapkan bilah pemuatan lalu melepas satu thread
+				 * koordinator. Callback bilah pemuatan (yang dijalankan ZK setelah nilai label
+				 * dikosongkan thread koordinator) memuat ulang grid dengan
+				 * {@code loadData(true)}.</p>
+				 *
+				 * <p><b>Cakupan.</b> Yang diproses adalah isi
+				 * {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas} — yaitu peserta yang
+				 * sedang termuat di grid, bukan seluruh isi database. Bila kotak pencarian sedang
+				 * menyaring nama, hanya peserta hasil saringan itulah yang dihitung ulang.</p>
+				 *
+				 * <p><b>Otorisasi.</b> Tombol pemicu tidak diberi {@code setVisible(...)}
+				 * bersyarat seperti tombol destruktif lain di toolbar ini, dan listener tidak
+				 * memeriksa peran. Karena aksi ini MENULIS kolom nilai seluruh peserta,
+				 * perlindungannya sepenuhnya bergantung pada kelayakan pemanggil
+				 * {@link HasilUjianMahasiswaHelper#display(PertemuanPunyaUjian, Component)}.</p>
+				 *
+				 * @param arg0 event {@code onClick}; tidak dipakai
+				 * @throws Exception diteruskan dari pembuatan bilah pemuatan
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 
 					final Label label = Common.displayLoadBar(new EventListener() {
 
+						/**
+						 * Callback bilah pemuatan: dijalankan pada thread ZK setelah thread
+						 * koordinator mengosongkan nilai label. Memuat ulang grid dengan penanda
+						 * refresh {@code true} agar himpunan soal terjawab dan angka nilai dibaca
+						 * ulang, bukan diambil dari cache yang baru saja menjadi usang.
+						 *
+						 * @param arg0 event penanda selesai; tidak dipakai
+						 * @throws Exception diteruskan dari pemuatan ulang grid
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							loadData(true);
@@ -1011,6 +1141,40 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 					new Thread(new Runnable() {
 
+						/**
+						 * Thread <b>koordinator</b> hitung ulang paralel. Tugasnya menyiapkan
+						 * prasyarat bersama, menyebar satu tugas per peserta ke kolam thread,
+						 * menunggu seluruhnya selesai, lalu mengosongkan label bilah pemuatan.
+						 *
+						 * <p><b>Mengapa paralel.</b> Sebelumnya seluruh peserta diproses berurutan
+						 * dalam satu thread dan satu session, sangat lambat untuk ujian berpeserta
+						 * banyak. Kini tiap peserta diproses pada thread DAN session Hibernate
+						 * sendiri lewat {@code Executors.newFixedThreadPool(DbThreadPool.safe(50))}.
+						 * {@code DbThreadPool.safe} membatasi ukuran kolam terhadap kapasitas
+						 * kolam koneksi database sehingga tidak terjadi kelaparan koneksi.</p>
+						 *
+						 * <p><b>Prasyarat yang WAJIB dihitung sekali di muka:</b>
+						 * {@code formatNilaisPreComputed}. Bila setiap thread memanggil
+						 * {@code Common.getFormatNilais()} sendiri-sendiri,
+						 * {@code setDefaultPembobotan()} dari 50 thread akan saling me-reset
+						 * persentase menjadi 0 sehingga sebagian thread memperoleh
+						 * {@link FormatNilai} kosong dan {@code nilaiObe} hanya terisi satu
+						 * sub-CPMK. Pemuatan di muka memakai {@code ambilFormatNilai(sesPre, true)}
+						 * dengan argumen refresh {@code true} yang WAJIB: penanda
+						 * {@code udah("format_nilai_baru")} sudah diset saat {@code loadData()},
+						 * sehingga tanpa refresh {@code setDefaultPembobotan} dilewati dan
+						 * {@code statusPertemuan} yang null tidak diperbaiki — akibatnya
+						 * {@code ambilMapNomor} melewatkan sub-CPMK tersebut. Session sementara
+						 * {@code sesPre} ditutup segera setelah dipakai.</p>
+						 *
+						 * <p><b>Penyelesaian.</b> {@code executor.shutdown()} lalu
+						 * {@code awaitTermination(Long.MAX_VALUE, NANOSECONDS)} — menunggu tanpa
+						 * batas waktu; interupsi hanya mengembalikan penanda interrupt pada thread
+						 * ini. Setelah itu label dikosongkan sehingga callback ZK berjalan.
+						 * Berbeda dari thread analisis butir soal, pengosongan label di sini
+						 * berada DI LUAR {@code try} sehingga bilah pemuatan tetap hilang meski
+						 * terjadi kegagalan.</p>
+						 */
 						@Override
 						public void run() {
 							try {
@@ -1059,6 +1223,52 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 								for (final Object[] a : hasilUjianMahasiswas.values()) {
 									executor.submit(new Runnable() {
+										/**
+										 * Tugas hitung ulang untuk <b>satu peserta</b>, dijalankan
+										 * pada thread dan session Hibernate miliknya sendiri.
+										 *
+										 * <p><b>Isolasi wajib.</b> Objek {@link HasilUjianMahasiswa}
+										 * yang tersimpan pada map grid TIDAK dipakai untuk menulis.
+										 * Hanya id-nya yang diambil, lalu instance TERKELOLA
+										 * diperoleh ulang dengan {@code session.get(...)} pada
+										 * session milik thread ini. Tanpa isolasi ini, 50 thread
+										 * akan berbagi objek entity yang sama dan saling merusak
+										 * keadaan dirty-check Hibernate.</p>
+										 *
+										 * <p><b>Urutan perhitungan.</b> Menyegarkan
+										 * {@code jumlahSoal} dari konfigurasi ujian, memanggil
+										 * {@code ProsesUjianHelper.hitungObe(...)} dengan
+										 * {@code formatNilaisPreComputed} bersama (aman karena
+										 * hanya dibaca), lalu {@code hitungPilihanGanda(...)}.
+										 * Kegagalan {@code hitungPilihanGanda} SENGAJA ditelan
+										 * ke jejak audit dan tidak melempar keluar, karena
+										 * membiarkannya membatalkan transaksi akan ikut membuang
+										 * {@code nilaiObe} yang sudah benar dihitung sebelumnya.</p>
+										 *
+										 * <p><b>Setelah commit.</b> {@code tx} di-null-kan agar
+										 * blok {@code catch} tidak mencoba me-rollback transaksi
+										 * yang telah selesai, lalu cache MapDB disegarkan lewat
+										 * {@code GeneralValueObject.masukkanDataLangsung(...)}
+										 * berkunci {@code keyhasil} supaya tampilan tidak basi.
+										 * Kegagalan penyegaran cache tidak membatalkan
+										 * keberhasilan simpan.</p>
+										 *
+										 * <p><b>Blok {@code finally}.</b> Menaikkan pencacah atomik
+										 * {@code diproses} dan memperbarui label progres
+										 * ({@link java.util.concurrent.atomic.AtomicInteger} wajib
+										 * di sini karena dinaikkan 50 thread). Pembaruan label
+										 * dibungkus {@code try/catch} sendiri agar galat UI di
+										 * luar Desktop tidak mematikan thread. Session ditutup
+										 * bertahap {@code clear} &rarr; {@code disconnect} &rarr;
+										 * {@code close}, masing-masing dalam try/catch terpisah.</p>
+										 *
+										 * <p><b>Ketahanan.</b> Peserta yang gagal di-rollback dan
+										 * dicatat; peserta lain tidak terpengaruh karena tiap tugas
+										 * punya transaksi sendiri. Tugas yang datanya cacat
+										 * ({@code a} null/pendek, id null, entity tidak ditemukan)
+										 * langsung {@code return} — namun {@code finally} tetap
+										 * berjalan sehingga pencacah progres tetap akurat.</p>
+										 */
 										@Override
 										public void run() {
 											Session session = null;
@@ -1160,12 +1370,44 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 			toolbar.appendChild(HasilUjianMahasiswaHelper.analsisButirSoal(pertemuanPunyaUjian, new Ambildata() {
 
+				/**
+				 * Penyedia data peserta untuk Analisis Butir Soal.
+				 *
+				 * <p>Mengembalikan {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas} sebagai
+				 * referensi HIDUP, bukan salinan. Dievaluasi saat tombol diklik — bukan saat
+				 * tombol dibuat — sehingga selalu memperoleh isi map terbaru hasil
+				 * {@link HasilUjianMahasiswaHelper#loadData(Object)}. Pola pemanggilan tertunda
+				 * inilah alasan {@code analsisButirSoal} menerima {@link Ambildata} alih-alih
+				 * langsung menerima {@code Map}.</p>
+				 *
+				 * <p><b>Perhatian:</b> {@code analsisButirSoal} tidak menjaga hasil {@code null}.
+				 * Selama method ini dipanggil setelah {@code loadData}, map tidak pernah null.</p>
+				 *
+				 * @return {@code Map<Long, Object[]>} hasil ujian seluruh peserta yang termuat
+				 */
 				@Override
 				public Object ambil() {
 					return hasilUjianMahasiswas;
 				}
 			}, new Ambildata() {
 
+				/**
+				 * Penyedia jumlah peserta TERDAFTAR untuk kartu "Peserta Ujian" pada dashboard
+				 * Analisis Butir Soal.
+				 *
+				 * <p>Mengembalikan {@link HasilUjianMahasiswaHelper#jumlahPeserta} agar angka
+				 * pada dashboard SAMA dengan "Jumlah Peserta" di tab Statistik. Tanpa penyedia
+				 * ini, {@code analsisButirSoal} akan memakai ukuran map hasil ujian yang hanya
+				 * mencakup peserta yang punya baris hasil — angka yang lebih kecil dan
+				 * membingungkan bila dibandingkan antar-tab.</p>
+				 *
+				 * <p>Seperti penyedia di atasnya, nilainya dibaca saat tombol diklik sehingga
+				 * sudah terisi hasil {@code loadData}. Dibungkus {@link Integer} karena
+				 * {@code analsisButirSoal} memeriksanya dengan {@code instanceof Number} dan
+				 * hanya memakainya bila {@code > 0}.</p>
+				 *
+				 * @return jumlah peserta terdaftar sebagai {@link Integer}
+				 */
 				@Override
 				public Object ambil() {
 					// Samakan "Peserta Ujian" di dashboard dengan "Jumlah Peserta" di tab Statistik
