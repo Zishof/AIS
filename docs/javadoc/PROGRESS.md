@@ -1,5 +1,26 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 125 — paket `test`+`temporary` TUNTAS 100% (2 file, orkestrator langsung tanpa agent, 6 Sep 2026)
+
+`test/LazyAssociationGetterSelfTest.java` (163→229 baris, r85330) —
+dikonfirmasi bukan entity, melainkan UTILITAS SELF-TEST statis (dipanggil
+dari skrip build/CI) yang memindai seluruh `ais.database.model` mencari
+getter relasi `@ManyToOne`/`@OneToOne(fetch=LAZY)` yang TIDAK memanggil
+`check(...)`/`chek(...)`/`resolveLazy(...)` — inilah alat yang menjaga
+konsistensi pola "getter-resolve-lazy" yang berulang kali disinggung
+sepanjang inisiatif dokumentasi ini.
+
+`temporary/IPKMahasiswa.java` (182→248 baris, r85331) — **PENTING**:
+MESKI nama paketnya `temporary`, entity ini TERKONFIRMASI AKTIF dipakai
+luas (8 Action: dasbor admin, monitor KRS, penilaian, ekspor EPSBED) —
+KONTRAS dengan paket `temp` (beda paket, sudah dikonfirmasi TOTAL
+DORMAN di batch 124). Snapshot cache IPK/IP per semester, dihitung
+ulang oleh proses batch dari nilai matakuliah aktual — bisa menyimpang
+dari perhitungan nyata bila batch belum/gagal berjalan setelah ada
+perubahan nilai.
+
+Total akumulasi domain-batched: **1543+ file** (basis lama + 2).
+
 ## Batch 124 — `kkn`+`pkl` (14 file, kembar), `antarjemput` (8 file), `radius`+`sirkulasisurat`+`temp`+`biometric` (18 file) TUNTAS 100%; 3 task baru (6 Sep 2026)
 
 **`kkn`+`pkl`** (14 file, dua modul kembar KKN/PKL, r85285-r85328).
