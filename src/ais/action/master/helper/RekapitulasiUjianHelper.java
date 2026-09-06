@@ -1163,7 +1163,6 @@ public class RekapitulasiUjianHelper {
 
 	}
 
-	@SuppressWarnings("unchecked")
 	/**
 	 * Implementasi inti pemuatan data grid rekap ujian lewat Hibernate {@link Criteria}
 	 * atas {@link PertemuanPunyaUjian} (join {@code ujian}). Menghitung total baris dan
@@ -1185,6 +1184,7 @@ public class RekapitulasiUjianHelper {
 	 * @param cari        kata kunci pencarian kode/nama ujian
 	 * @param perkuliahan bila terisi, filter tanggal tidak berlaku (semua ujian pada pertemuan cakupan ditampilkan)
 	 */
+	@SuppressWarnings("unchecked")
 	private static void reload(final List<Long> pertemuans, final Paging paging, final MyGrid grid,
 			final Mahasiswa mahasiswa, boolean awal, final Date mulai, final Date sampai, final String cari,
 			final VOPembelajaran perkuliahan) {
@@ -1287,10 +1287,26 @@ public class RekapitulasiUjianHelper {
 	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Pengguna yang sedang login, di-resolve SEKALI saat renderer dibuat (bukan per
+		 * baris). Menentukan cabang perilaku klik baris: mahasiswa/calon mahasiswa/siswa/
+		 * calon siswa mendapat kontrol ikut-ujian, selain itu baris membuka detail
+		 * pertemuan. Karena diambil dari konteks request saat konstruksi, instance
+		 * renderer tidak boleh dipakai ulang lintas session.
+		 */
 		private Tbmuser tbmuser = Common.getCurrentUser();
+		/**
+		 * Callback muat-ulang grid milik pemanggil, dipicu setelah jendela detail
+		 * pertemuan ditutup atau setelah aksi ikut-ujian selesai, sehingga statistik
+		 * peserta dan status baris ikut ter-refresh.
+		 */
 		private EventListener eventListener;
 
 		/**
+		 * Membuat renderer baris rekap ujian. Hanya {@code eventListener} yang disimpan;
+		 * identitas peserta yang dibutuhkan saat render diambil ulang dari
+		 * {@link #tbmuser} (pengguna login), bukan dari kedua parameter pertama.
+		 *
 		 * @param mahasiswa              tidak digunakan langsung (parameter dipertahankan untuk kompatibilitas dengan pola renderer serupa)
 		 * @param biodataCalonMahasiswa  tidak digunakan langsung (parameter dipertahankan untuk kompatibilitas dengan pola renderer serupa)
 		 * @param eventListener          callback yang dipanggil setelah jendela detail/aksi ikut-ujian selesai, untuk memuat ulang grid

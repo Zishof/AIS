@@ -92,14 +92,22 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class VideoPertemuanHelper implements DataLoader {
 
+	/** Pertemuan konteks tunggal (mode "satu pertemuan"); bila diset, {@link #loadData(Object)} memuat seluruh video pertemuan ini via {@link Pertemuan#ambilVideoPertemuanTotal()}. */
 	private Pertemuan pertemuan;
+	/** {@code true} bila pengguna berhak menambah/mengedit/menghapus video (toolbar aksi ditampilkan); diset lewat konstruktor. */
 	private Boolean delete = false;
 
+	/** Daftar id {@link Pertemuan} untuk mode "beberapa pertemuan sekaligus" (lihat {@link #display(List, Component)}); dipakai sebagai filter {@code pertemuan in (...)} saat {@link #pertemuan} tunggal tidak diset. */
 	private List<Number> pertemuans;
+	/** Konteks kurikulum-punya-matakuliah untuk filter video bila tidak ada {@link #pertemuan}/{@link #kurikulumPunyaMatakuliahDetail}; diturunkan dari {@link #kurikulumPunyaMatakuliahDetail} bila keduanya diberikan. */
 	private KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah;
+	/** Konteks detail kurikulum-matakuliah untuk filter video (prioritas tertinggi di {@link #loadData(Object)}); diset di {@link #display}. */
 	private KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail;
+	/** Bila {@code true}, info mata kuliah pertemuan ditampilkan di atas video (lihat {@link #tampilkanKonten}); diset lewat konstruktor. */
 	private boolean tampilkanMk;
+	/** Kontainer ZK tempat konten video (satu video atau grup tab) dirender ulang oleh {@link #loadData(Object)}. */
 	private Center center;
+	/** Video yang tab-nya otomatis dipilih saat data dimuat (mode banyak video); {@code null} berarti tidak ada seleksi otomatis. */
 	private VideoPertemuan selectedVideoPertemuan = null;
 
 	/**

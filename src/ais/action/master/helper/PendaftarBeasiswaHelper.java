@@ -110,19 +110,131 @@ import ais.ui.util.MyWindow;
  * pendaftar yang cocok filter aktif, lalu menuliskannya ke {@code totalSkor}. Tombol "Baru"
  * membuka dialog {@link AmbilDataMahasiswaSeleksiBeasiswaHelper} untuk menambah pendaftar baru.
  * </p>
+ *
+ * <p>
+ * <b>Hubungan dengan {@link Beasiswa} dan aturan beasiswa ganda.</b> Kelas ini bekerja pada
+ * satu {@link Beasiswa} yang diterima lewat {@link #displayPrasyaratBeasiswa} dan menulis
+ * kolom {@code terima} pada {@link MahasiswaDaftarBeasiswa}. Perlu diperhatikan bahwa
+ * {@link Beasiswa#getBolehGanda()} &mdash; yang maknanya <b>terbalik</b> dari namanya:
+ * {@code true} berarti <i>melarang</i> mahasiswa menerima beasiswa lain &mdash; TIDAK
+ * diperiksa di kelas ini sama sekali. Larangan itu hanya ditegakkan di
+ * {@link BeasiswaUntukMahasiswaAction} (form pendaftaran per-mahasiswa), sedangkan tiga jalur
+ * penulisan status pada kelas ini melewatinya:
+ * </p>
+ * <ol>
+ * <li>checkbox "Terima" pada baris grid ({@link PendaftarBeasiswaRenderer});</li>
+ * <li>kolom "Diterima" pada unggah Excel di {@link #displayPrasyaratBeasiswa} &mdash; jalur
+ * massal, dapat mengubah ratusan baris sekaligus;</li>
+ * <li>{@link #terimaBeasiswa(Mahasiswa, Beasiswa, boolean)} sebagai aksi cepat dari layar
+ * lain.</li>
+ * </ol>
+ * <p>
+ * {@link Common#checkApakahMemenuhiSyaratBeasiswa} yang dipanggil pada jalur unggah pun hanya
+ * memeriksa batasan IP, SKKP, SKS, dan penghasilan orang tua &mdash; bukan {@code bolehGanda}.
+ * </p>
+ *
+ * <p>
+ * <b>Konsistensi antar jalur tulis.</b> Ketiga jalur di atas tidak seragam: jalur unggah Excel
+ * menghitung ulang {@code memenuhiSyarat} sebelum menyimpan, sementara checkbox grid dan
+ * {@link #terimaBeasiswa} tidak; jalur unggah dan {@link #terimaBeasiswa} juga tidak memeriksa
+ * flag {@link #approve} yang menjaga checkbox grid, sehingga status penerimaan tetap dapat
+ * diubah lewat unggah walau mode approval sedang tidak aktif.
+ * </p>
+ *
+ * <p>
+ * <b>Konkurensi ekspor/impor.</b> Baik {@link #cetakDataCustomButton} maupun tombol Upload
+ * menjalankan pekerjaannya di {@link Thread} baru sambil komponen ZK ({@link Label},
+ * {@link Intbox}) dipakai sebagai kanal komunikasi lintas-thread yang di-poll
+ * {@link org.zkoss.zul.Timer}. Kemajuan proses ditandai lewat isi {@code label}: teks
+ * persentase selama berjalan, {@code ""} (kosong) sebagai penanda SELESAI, dan {@code "-"}
+ * sebagai penanda GAGAL. Thread ekspor membuka sesi Hibernate/streaming sendiri; thread impor
+ * mengambil ulang {@code currentNativeSession()} tiap iterasi karena Hibernate dapat menutup
+ * sesi sendiri setelah kegagalan fatal pada satu baris (lihat komentar inline).
+ * </p>
+ *
+ * <p>
+ * <b>Cakupan data.</b> Penyaringan pada {@link #initCriteria(boolean)} bersifat murni UI
+ * (fakultas/jenjang/jurusan/angkatan/kata kunci) dan bukan penjagaan kepemilikan data: begitu
+ * sebuah {@link Beasiswa} dapat dibuka, seluruh pendaftarnya lintas fakultas/jurusan dapat
+ * dilihat, diekspor ke Excel (termasuk tautan unduh lampiran persyaratan), dan diubah
+ * statusnya. Penjagaan akses sepenuhnya berada di layar pemanggil.
+ * </p>
  */
 public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 
+	/**
+	 * Grid utama daftar pendaftar (satu baris per {@link MahasiswaDaftarBeasiswa}). Dibuat di
+	 * {@link #displayPrasyaratBeasiswa} dan diisi ulang oleh {@link #loadData(Object)} dengan
+	 * {@link PendaftarBeasiswaRenderer}. Mold {@code paging} dengan ukuran halaman 50, mengikuti
+	 * {@link #paging} eksternal (bukan paging bawaan grid).
+	 */
 	private MyGrid grid;
+	/**
+	 * Beasiswa yang daftar pendaftarnya sedang dikelola; ditetapkan sekali di
+	 * {@link #displayPrasyaratBeasiswa} dan menjadi penyaring wajib pada
+	 * {@link #initCriteria(boolean)} serta seluruh laporan/ekspor/impor di kelas ini.
+	 *
+	 * <p><b>Catatan integritas:</b> aturan "tidak boleh beasiswa ganda" pada
+	 * {@link Beasiswa#getBolehGanda()} &mdash; yang maknanya <i>terbalik</i> dari namanya,
+	 * {@code true} berarti <b>melarang</b> penerimaan ganda &mdash; TIDAK diperiksa di kelas ini.
+	 * Satu-satunya titik yang menegakkannya adalah {@link BeasiswaUntukMahasiswaAction} (form
+	 * pendaftaran per-mahasiswa). Baik checkbox "Terima" pada grid maupun kolom "Diterima" pada
+	 * unggah Excel di {@link #displayPrasyaratBeasiswa} menulis {@code terima=1} tanpa memeriksa
+	 * flag tersebut, sehingga larangan beasiswa ganda dapat terlewati lewat kedua jalur itu.
+	 * {@link Common#checkApakahMemenuhiSyaratBeasiswa} yang dipanggil saat unggah pun hanya
+	 * memeriksa batasan IP/SKKP/SKS/penghasilan orang tua, bukan {@code bolehGanda}.</p>
+	 */
 	private Beasiswa beasiswa;
+	/**
+	 * Kotak kata kunci pencarian pada toolbar. Meski dinamai {@code nim}, isinya dicocokkan
+	 * {@code ilike ANYWHERE} ke KOLOM NIM <b>maupun</b> nama mahasiswa (lihat
+	 * {@link #initCriteria(boolean)}), jadi berlaku sebagai pencarian gabungan NIM/nama.
+	 */
 	private Textbox nim;
+	/**
+	 * Combobox penyaring fakultas (diisi bersama {@link #jurusan} lewat
+	 * {@code Common.initFakultasDanJurusanDanSemua}, termasuk entri "Semua"). Bila entri "Semua"
+	 * terpilih, {@link #initCriteria(boolean)} tidak melepas filter sepenuhnya melainkan hanya
+	 * mensyaratkan {@code fakultas is not null} pada jurusan mahasiswa.
+	 */
 	private Combobox fakultas;
+	/**
+	 * Combobox penyaring {@link Jenjang} (hanya jenjang aktif, ditambah entri "Semua"). Sama
+	 * seperti {@link #fakultas}, pilihan "Semua" diterjemahkan menjadi {@code jenjang is not null}
+	 * pada jurusan mahasiswa, bukan menghilangkan join ke jurusan.
+	 */
 	private Combobox jenjang;
+	/**
+	 * Combobox penyaring jurusan/program studi. Pilihan "Semua" diterjemahkan menjadi
+	 * {@code jurusan is not null} pada {@link Mahasiswa}, sehingga mahasiswa tanpa jurusan tidak
+	 * pernah muncul di grid maupun ekspor Excel apa pun filternya.
+	 */
 	private Combobox jurusan;
 
+	/**
+	 * Kontrol paging eksternal (50 baris per halaman). Total baris dihitung ulang tiap
+	 * {@link #loadData(Object)} lewat {@code Common.initPaging50(initCriteria(false), paging)},
+	 * sehingga jumlah halaman selalu mengikuti filter yang sedang aktif.
+	 */
 	private Paging paging;
+	/** Penyaring tahun angkatan mahasiswa; bila kosong ({@code null}), filter angkatan tidak diterapkan. */
 	private Intbox angkatan;
+	/**
+	 * Checkbox "Belum diterima". Saat tercentang, {@link #initCriteria(boolean)} membatasi hasil
+	 * ke {@code terima = 0} ({@link MahasiswaDaftarBeasiswa#BELUM_DIPROSES}) &mdash; artinya
+	 * pendaftar yang sudah DITOLAK pun ikut tersembunyi, bukan hanya yang sudah diterima.
+	 */
 	private MyCheckboxConfig hanyaYgBelumDiterima;
+	/**
+	 * Mode approval. Ditetapkan dari argumen {@code approve} pada
+	 * {@link #displayPrasyaratBeasiswa}; bila {@code false}, kedua checkbox "Terima"/"Ditolak"
+	 * pada setiap baris dinonaktifkan sehingga grid bersifat baca saja.
+	 *
+	 * <p><b>Cakupan penjagaan:</b> flag ini HANYA menonaktifkan kedua checkbox tersebut. Tombol
+	 * "Hitung Skor", "Baru", hapus baris, serta unggah Excel (yang juga menulis kolom
+	 * {@code terima}) tetap aktif dan tidak memeriksa {@code approve}, sehingga status penerimaan
+	 * masih dapat diubah lewat jalur unggah walau mode approval tidak aktif.</p>
+	 */
 	private boolean approve;
 
 	/**
@@ -134,6 +246,31 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 	class PendaftarBeasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
+		/**
+		 * Merender satu baris pendaftar: NIM, nama, jurusan, SKS/SKSK dan IP/IPK semester berjalan,
+		 * skor total, kolom "Memenuhi Syarat" (label), pasangan checkbox Terima/Ditolak, serta
+		 * tombol ubah &amp; hapus.
+		 *
+		 * <p>Semester yang dipakai untuk menghitung SKS/IP dihitung dari tahun angkatan mahasiswa
+		 * dibandingkan semester &amp; tahun akademik {@link Beasiswa} (memperhitungkan mahasiswa pindahan
+		 * lewat {@code getPindahKeKampusIniMasukSemester}), lalu {@link Common#singkronkanKrsMahasiswa}
+		 * dipanggil per baris &mdash; artinya render grid melakukan sinkronisasi KRS untuk setiap
+		 * mahasiswa yang tampil, bukan sekadar membaca nilai tersimpan.</p>
+		 *
+		 * <p><b>Perilaku checkbox.</b> Keduanya hanya aktif bila {@link #approve} bernilai
+		 * {@code true}. Mencentang "Ditolak" langsung menonaktifkan "Terima", tetapi TIDAK berlaku
+		 * sebaliknya (mencentang "Terima" tidak menonaktifkan "Ditolak") &mdash; eksklusivitasnya
+		 * satu arah saja. Setiap klik langsung menulis kolom {@code terima} lewat
+		 * {@link Common#refreshUpdate} tanpa dialog konfirmasi, tanpa memeriksa
+		 * {@link Beasiswa#getBolehGanda()}, dan tanpa menghitung ulang {@code memenuhiSyarat}.</p>
+		 *
+		 * <p>Label "Memenuhi Syarat" ({@code labelmemenuhiSyarat}) sengaja dibiarkan kosong pada
+		 * implementasi ini &mdash; komponennya dibuat dan ditempel ke baris agar kolom tetap sejajar
+		 * dengan header, tetapi nilainya tidak pernah diisi.</p>
+		 *
+		 * @param row  baris grid ZK tujuan render
+		 * @param data instance {@link MahasiswaDaftarBeasiswa} untuk baris ini
+		 */
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
 			final MahasiswaDaftarBeasiswa mahasiswaDaftarBeasiswa = (MahasiswaDaftarBeasiswa) data;
@@ -319,6 +456,14 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Mengembalikan {@code this} sebagai {@link DataLoader}. Diperlukan karena referensi
+	 * {@code this} di dalam {@link org.zkoss.zk.ui.event.EventListener} anonim akan menunjuk ke
+	 * listener itu sendiri, bukan ke helper; method ini dipakai listener tombol "Baru" untuk
+	 * menyerahkan callback muat-ulang ke {@link AmbilDataMahasiswaSeleksiBeasiswaHelper}.
+	 *
+	 * @return instance helper ini sebagai {@link DataLoader}
+	 */
 	private DataLoader getDataloader() {
 		return this;
 	}

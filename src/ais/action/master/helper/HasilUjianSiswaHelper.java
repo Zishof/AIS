@@ -575,16 +575,152 @@ public class HasilUjianSiswaHelper implements DataLoader {
 
 	/**
 	 * Membangun layar lengkap "Hasil Ujian" untuk {@code pertemuanPunyaUjian} ke dalam
-	 * {@code detail}: toolbar aksi massal (lihat javadoc kelas untuk rincian setiap
-	 * tombol — Ulang Semua/Peserta dianggap hadir/Hitung Ulang Semua/Koreksi Otomatis
-	 * via AI/cetak rekap/download lampiran/lampiran ke Drive/Refresh/pencarian nama),
-	 * tab "Peserta" (grid kartu per peserta, satu halaman menampung hingga 1000 baris)
-	 * dan tab "Statistik", lalu memuat data awal lewat {@link #loadData(Object)}.
-	 * Ketersediaan/visibilitas sebagian tombol bergantung mode helper (admin/guru vs
-	 * satu peserta) dan konfigurasi {@code tampilkan_rekap_hasil_ujian}.
+	 * komponen {@code detail}. Ini adalah titik masuk tunggal kelas ini: pemanggil
+	 * membuat helper lewat konstruktor lalu langsung memanggil method ini dengan sebuah
+	 * {@code Window} modal sebagai induk. Method ini mengisi {@link #pertemuanPunyaUjian},
+	 * menyusun seluruh pohon komponen ZK, dan diakhiri dengan pemanggilan
+	 * {@link #loadData(Object)} untuk memuat data awal.
 	 *
-	 * @param pertemuanPunyaUjian ujian yang hasilnya ditampilkan
-	 * @param detail              komponen ZK induk yang akan diisi tampilan
+	 * <h4>Kerangka tata letak</h4>
+	 * <p>
+	 * Sebuah {@link Borderlayout} dengan tiga region: {@link North} berisi toolbar aksi,
+	 * {@link South} berisi tombol "Tutup" (memanggil {@code detail.detach()}), dan
+	 * {@link Center} berisi {@link Tabbox} dua tab — "Peserta" (memuat {@link #grid})
+	 * dan "Statistik" (memuat {@link #east}, diisi oleh
+	 * {@link #displayStatistik(int, int, int)}).
+	 * </p>
+	 *
+	 * <h4>Isi toolbar, berurutan, beserta gerbang visibilitasnya</h4>
+	 * <ol>
+	 * <li><b>"Ulang Semua"</b> — tampil bila ada pengguna masuk dan helper berada pada
+	 * mode admin/guru; <b>di-{@code disable}</b> bila jendela ujian sudah lewat
+	 * ({@code masihAdaWaktu} = {@code mulaiUjian} sudah lewat/kosong DAN
+	 * {@code sampaiUjian} belum lewat/kosong). Setelah konfirmasi, seluruh
+	 * {@link HasilUjianMahasiswaDetail} milik ujian ini dikosongkan
+	 * ({@code bankSoalDetail}, {@code jawaban}, {@code waktuJawab} di-{@code null}-kan)
+	 * dan setiap {@link HasilUjianMahasiswa} di-{@code reset()}, sehingga semua peserta
+	 * dapat mengerjakan ulang. Perhatikan bahwa baris detail <b>tidak dihapus</b>
+	 * melainkan dikosongkan isinya — struktur soal per peserta dipertahankan.
+	 * Penonaktifan tombol saat waktu habis adalah gerbang <b>tampilan</b>, bukan gerbang
+	 * sisi-server.</li>
+	 * <li><b>"Rekap Hasil Ujian"</b> (cetak Excel) — dibangun lewat
+	 * {@link Common#cetakDataCustomButton} atas {@link HasilUjianMahasiswa} dengan
+	 * kriteria {@code keyhasil is not null} dan {@code pertemuanPunyaUjian = ...},
+	 * ditambah penyempitan opsional ke {@link #siswa}/{@link #calonSiswa} bila helper
+	 * berada pada mode satu peserta (memakai {@code Restrictions.sqlRestriction("true")}
+	 * sebagai penanda "tanpa filter"). Empat kolom tambahan dihitung sendiri lewat
+	 * {@code EventListener dataAdding}: jumlah soal dikerjakan, jumlah belum dikerjakan,
+	 * teks seluruh jawaban ("SOAL;JAWABAN:..."), dan teks soal yang belum dikerjakan;
+	 * kedua kolom teks dipangkas ke 20.000 karakter lewat {@code Common.maxPanjang}
+	 * karena batas panjang sel Excel. Hanya tampil bila konfigurasi
+	 * {@code tampilkan_rekap_hasil_ujian} aktif.</li>
+	 * <li><b>"Peserta dianggap hadir"</b> — hanya pada mode admin/guru dan bila
+	 * {@link #pertemuan} terisi; mendelegasikan ke
+	 * {@link #ujianDianggapHadir(PertemuanPunyaUjian, EventListener)}, lalu menyegarkan
+	 * layar pertemuan lewat {@code PertemuanHelper}.</li>
+	 * <li><b>Cabang menurut jenis ujian.</b> Bila
+	 * {@code ujian.getJenis().equals(BankSoal.PILIHAN_GANDA)}:
+	 * <ul>
+	 * <li>"Hitung Ulang Semua" — menjalankan {@link ProsesUjianHelper#hitungPilihanGanda}
+	 * untuk setiap peserta di {@link #hasilUjianMahasiswas} pada thread latar dengan
+	 * indikator persentase, masing-masing dalam sesi Hibernate native tersendiri yang
+	 * dibuka dan ditutup per peserta;</li>
+	 * <li>tombol analisis butir soal, yang <b>dipinjam langsung</b> dari kembaran
+	 * mahasiswa lewat {@code HasilUjianMahasiswaHelper.analsisButirSoal(...)} — bukti
+	 * konkret bahwa kedua domain berbagi satu mesin ujian.</li>
+	 * </ul>
+	 * Selain pilihan ganda (esai/uraian):
+	 * <ul>
+	 * <li><b>"Koreksi Otomatis via AI"</b> — mengumpulkan jawaban esai yang belum
+	 * dikoreksi per peserta lewat {@link KoreksiHasilUjian#kumpulkanEssay}, menyusun
+	 * prompt lewat {@code promptKoreksiEssay} + {@code bangunKonteksUjian}, lalu pada
+	 * thread latar memanggil {@link GenerateAiHelper#panggilAi} berurutan per peserta dan
+	 * menerapkan hasilnya lewat {@link KoreksiHasilUjian#terapkanKoreksiEssay}. Kemajuan
+	 * ditampilkan pada jendela modal berisi {@code Progressmeter} dan kotak teks aliran
+	 * keluaran LLM, yang disegarkan oleh {@code Timer} 800&nbsp;ms; komunikasi antara
+	 * thread pekerja dan timer memakai array satu elemen ({@code done}, {@code selesai},
+	 * {@code statusNow}) dan {@link StringBuffer} sebagai penampung aliran. Peserta yang
+	 * tidak punya jawaban esai dilewati.</li>
+	 * <li>"Hitung Ulang Semua" versi esai — menghitung ulang nilai dari agregat
+	 * {@link HasilUjianMahasiswaDetail} (lihat catatan integritas di bawah).</li>
+	 * </ul>
+	 * </li>
+	 * <li><b>"Download Lampiran"</b> — hanya pada mode admin/guru; menyalin seluruh
+	 * berkas lampiran jawaban ke direktori sementara sisi server
+	 * {@code /opt/ecampus/lampiran_hasil_ujian_<epochMillis>}, mengelompokkannya per
+	 * folder berdasarkan 55 karakter pertama teks soal, menamai berkas dengan
+	 * {@code NIM_Nama_idLampiran_namaAsli} (di-{@code URLEncoder.encode} agar aman),
+	 * lalu memampatkannya menjadi ZIP dan mengirimkannya lewat {@link Filedownload}.
+	 * Lampiran yang tersimpan di Google Drive atau berupa tautan tidak disalin isinya,
+	 * melainkan ditulis sebagai berkas {@code .txt} berisi URL-nya. Efek samping yang
+	 * perlu diketahui: bila sebuah jawaban berlampiran tetapi kolom {@code jawaban}-nya
+	 * kosong, kolom itu <b>ditulisi</b> teks "Jawaban terdapat di file terlampir" —
+	 * artinya tombol yang secara nama bersifat "unduh" ini juga <b>mengubah data</b>.
+	 * Direktori sementara dan ZIP-nya tidak dibersihkan setelah dikirim.</li>
+	 * <li><b>"Lampiran ke Drive"</b> — <b>tidak diberi {@code setVisible} sama sekali</b>,
+	 * jadi selalu tampil pada setiap mode. Mengunggah seluruh lampiran jawaban ke Google
+	 * Drive <b>milik pengguna yang sedang masuk</b> ({@link GDriveUtilPerPengguna} dengan
+	 * {@code Common.getCurrentUser()}), lalu untuk setiap berkas yang berhasil terkirim
+	 * meng-{@code null}-kan kolom {@code foto}, mengisi {@code gdrive} dengan id berkas
+	 * Drive dan {@code gdriveUsername} dengan pengguna tersebut, dan terakhir memanggil
+	 * {@code FileFoto.hapusTotal(...)} untuk <b>menghapus BLOB aslinya dari basis data</b>.
+	 * Jadi ini operasi pemindahan permanen satu arah, bukan pencadangan. Daftar id
+	 * lampiran dirangkai menjadi klausa {@code IN (...)} pada {@code createSQLQuery};
+	 * nilai-nilainya berasal dari {@code lampiranLain.getId()} bertipe {@code Long}
+	 * sehingga tidak dapat disisipi SQL, namun daftar yang sangat panjang berpotensi
+	 * melewati batas panjang pernyataan. Pengiriman berhenti pada kegagalan pertama
+	 * ({@code break}).</li>
+	 * <li><b>"Soal dan Jawaban"</b> (cetak Excel kedua) — atas
+	 * {@link HasilUjianMahasiswaDetail}, memuat huruf pilihan, teks soal, jawaban benar,
+	 * nilai, jawaban peserta, catatan koreksi, dan waktu jawab. Tidak diberi gerbang
+	 * konfigurasi maupun mode; selalu tampil.</li>
+	 * <li><b>"Refresh"</b> — {@code loadData(true)}, yaitu muat ulang dengan pemaksaan
+	 * penyegaran cache jawaban.</li>
+	 * <li><b>Kotak pencarian {@link #nama} + tombol cari</b> — hanya pada mode admin/guru;
+	 * keduanya memanggil {@code loadData(null)} sehingga memuat ulang <b>tanpa</b>
+	 * pemaksaan penyegaran.</li>
+	 * </ol>
+	 *
+	 * <h4>Kolom grid tab "Peserta"</h4>
+	 * <p>
+	 * Sembilan kolom: penanda detail (40px), "Peserta Ujian" (20%), "Waktu Pengerjaan"
+	 * (15%), "Lama Pengerjaan" (15%), "Skor/Max" (8%, hanya tampil untuk ujian pilihan
+	 * ganda), "Statistik" (15%), "Nilai" (8%), "Keterangan" (sisa), dan "Pelanggaran"
+	 * (13%). Grid dipasang {@code mold="paging"} dengan {@code pageSize} 1000 dan paging
+	 * ganda (atas dan bawah) — pilihan sadar agar seluruh peserta satu kelas muat dalam
+	 * satu halaman; konsekuensinya seluruh baris dirender sekaligus, yang menjadi alasan
+	 * pola pelepasan memori eksplisit di sepanjang berkas ini.
+	 * </p>
+	 *
+	 * <h4>Catatan integritas nilai pada "Hitung Ulang Semua" versi esai</h4>
+	 * <p>
+	 * Rumusnya menjumlahkan {@code (nilai * 100.0) / skor} untuk setiap
+	 * {@link HasilUjianMahasiswaDetail}, lalu membaginya dengan jumlah baris detail.
+	 * Ada tiga perilaku yang perlu diketahui pemelihara:
+	 * </p>
+	 * <ul>
+	 * <li>Penyebut {@code skor} (dari {@code bankSoal.skor}) tidak dijaga terhadap nilai
+	 * nol; soal dengan skor 0 menghasilkan {@code Infinity}/{@code NaN} yang merambat ke
+	 * total.</li>
+	 * <li>Rata-rata dibagi jumlah baris detail yang <b>ada</b>, bukan jumlah soal yang
+	 * ditampilkan ({@code jmlDitampilkan}). Bila sebagian soal belum memiliki baris
+	 * detail sama sekali, pembaginya mengecil sehingga nilai akhir naik.</li>
+	 * <li>Penulisan hanya terjadi bila {@code sumNilai > 0.1}. Peserta yang seluruh
+	 * jawabannya bernilai nol karena itu <b>tidak pernah ditulisi nilai 0</b>; nilai lama
+	 * pada entity dibiarkan apa adanya. Ambang yang sama juga dipakai pada tombol "Hitung
+	 * Ulang" per peserta, yang di sana justru menampilkan pesan "Hasil ujian siswa belum
+	 * Anda koreksi".</li>
+	 * </ul>
+	 * <p>
+	 * Ketiganya bersifat konsisten dengan implementasi kembaran mahasiswa dan
+	 * didokumentasikan sebagai perilaku terpasang, bukan sebagai perubahan yang dilakukan
+	 * di sini.
+	 * </p>
+	 *
+	 * @param pertemuanPunyaUjian ujian yang hasilnya ditampilkan; nilainya juga disimpan
+	 *                            ke field {@link #pertemuanPunyaUjian}
+	 * @param detail              komponen ZK induk yang akan diisi tampilan (umumnya
+	 *                            {@code Window} modal milik pemanggil)
 	 */
 	public void display(final PertemuanPunyaUjian pertemuanPunyaUjian, final Component detail) {
 		this.pertemuanPunyaUjian = pertemuanPunyaUjian;

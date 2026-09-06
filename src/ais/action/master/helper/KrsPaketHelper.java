@@ -133,6 +133,7 @@ public class KrsPaketHelper implements DataLoader {
 	 */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Bila {@code true}, cache resolusi ekivalensi matakuliah ({@code Common#getMatakuliahApakahEkivalen}) dipaksa dibangun ulang saat render. */
 		private boolean refresh;
 
 		/** @param refresh bila {@code true}, cache resolusi ekivalensi matakuliah dipaksa dibangun ulang */

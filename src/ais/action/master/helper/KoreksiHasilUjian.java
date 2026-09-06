@@ -428,6 +428,23 @@ public class KoreksiHasilUjian implements DataCriteria {
 	 * begin/commit/rollback eksplisit, dan ditutup di {@code finally}. Ini mencegah konflik dengan sesi
 	 * thread ZK yang sedang aktif.
 	 *
+	 * <p><b>Gerbang edit di dalam renderer:</b> Setiap kendali yang dapat menulis ke DB (Textbox koreksi
+	 * pada soal PG maupun esai, Doublebox nilai esai) dibungkus satu percabangan yang identik:
+	 * {@code mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+	 * && tbmuser.getSiswa() == null}. Cabang {@code else} merender {@link Label} read-only. Tidak ada
+	 * pemeriksaan lain — bukan dosen pengampu, bukan cakupan satker, bukan status kunci nilai — sehingga
+	 * setiap akun non-peserta yang mencapai layar ini dapat menulis nilai dan koreksi peserta mana pun.
+	 * Pengecualian: {@link Combobox} pengubah pilihan jawaban PG tambahan diberi gerbang
+	 * {@code Common.getApakahAdmin() && adminBolehMerubahJawabanUjian}.
+	 *
+	 * <p><b>Konsistensi hitung ulang:</b> perubahan nilai esai memanggil
+	 * {@link UjianRecomputeUtil#hitungUlangSekarang} tepat setelah {@code tx.commit()}, sehingga total
+	 * nilai peserta ikut tersinkron. Sebaliknya, perubahan pilihan jawaban PG lewat combobox
+	 * <b>tidak</b> memanggil penghitung ulang apa pun — listener-nya hanya menjadwalkan
+	 * {@code loadData(null)}. Total nilai peserta baru tersinkron setelah tombol "Hitung Ulang"
+	 * ({@link ProsesUjianHelper#hitungPilihanGanda}) ditekan. Perubahan teks koreksi memang tidak perlu
+	 * hitung ulang karena tidak menyentuh skor.
+	 *
 	 * <p><b>Catatan bankSoalDetail null:</b> Pada soal PG, {@code bankSoalDetail==null} berarti peserta tidak
 	 * memilih opsi apapun — bukan berarti jawaban hilang. Label khusus dengan pesan penjelasan ("peserta tidak
 	 * memilih jawaban") ditampilkan untuk menghindari kebingungan yang pernah terjadi saat memeriksa skor 0.
@@ -1029,8 +1046,20 @@ public class KoreksiHasilUjian implements DataCriteria {
 	 *         <li><b>Tombol "Hitung Ulang"</b> (hanya untuk ujian PG): memanggil
 	 *             {@link ProsesUjianHelper#hitungPilihanGanda} lewat sesi mandiri dan kemudian memicu
 	 *             listener dari detail untuk refresh baris parent. Hanya tampil untuk jenis PILIHAN_GANDA.</li>
+	 *         <li><b>Tombol "Koreksi Otomatis (AI)"</b>: mengumpulkan seluruh jawaban peserta
+	 *             ({@link #kumpulkanPg} untuk ujian Pilihan Ganda, {@link #kumpulkanEssay} untuk lainnya),
+	 *             merangkainya menjadi prompt bersama konteks OBE mata kuliah
+	 *             ({@link #bangunKonteksUjian}), mengirimnya lewat
+	 *             {@link GenerateAiHelper#jalankanAiStreaming} dengan batas 2048 token, lalu menerapkan
+	 *             hasilnya ke DB ({@link #terapkanKoreksiPg} / {@link #terapkanKoreksiEssay}) dan memuat
+	 *             ulang grid. Untuk esai jalur ini <b>menimpa kolom nilai</b> seluruh soal peserta dalam
+	 *             satu transaksi tanpa konfirmasi per-nilai, lalu menghitung ulang total; untuk Pilihan
+	 *             Ganda hanya kolom koreksi yang ditulis. Tombol disembunyikan bagi akun peserta.</li>
 	 *         <li><b>Tombol "History"</b>: membuka {@link RevisiHasilUjianMahasiswaHelper} sebagai modal;
 	 *             hanya aktif untuk staf (bukan mahasiswa/siswa/calon).</li>
+	 *         <li><b>Tombol "Riwayat Jawaban"</b>: membuka {@link RiwayatJawabanUjianHelper} untuk
+	 *             menelusuri riwayat jawaban peserta (esai maupun Pilihan Ganda) dan mengembalikannya ke
+	 *             jawaban terbaru yang pernah tercatat; hanya aktif untuk staf.</li>
 	 *         <li><b>Tombol "Refresh"</b>: memanggil {@code loadData(true)} untuk muat ulang dari DB.</li>
 	 *       </ul></li>
 	 *   <li>Buat {@link MyGrid} dengan paging {@code mold="paging"} dan {@code pageSize=1} (satu soal per
@@ -1041,6 +1070,24 @@ public class KoreksiHasilUjian implements DataCriteria {
 	 * {@code HibernateUtil.getSessionFactory().openSession()} (bukan currentSession) dengan try-finally,
 	 * karena operasi ini berjalan di dalam event ZK yang sudah memiliki currentSession — membuka sesi baru
 	 * secara eksplisit menghindari konflik transaksi.
+	 *
+	 * <p><b>Gerbang otorisasi yang benar-benar diterapkan di sini:</b> tepat satu predikat, yaitu
+	 * "akun bukan peserta" — {@code mahasiswa == null && biodataCalonMahasiswa == null &&
+	 * tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null}. Predikat itulah yang menentukan
+	 * visibilitas tombol "Ulang Ujian" dan "Koreksi Otomatis (AI)" serta status aktif tombol "History"
+	 * dan "Riwayat Jawaban". Tidak ada pemeriksaan bahwa pengguna adalah dosen pengampu ujian ini, tidak
+	 * ada penyaringan cakupan satuan kerja / fakultas / program studi, dan tidak ada pemeriksaan apakah
+	 * nilai peserta sudah dikunci atau sudah diposting. Keputusan tersebut diserahkan kepada rute menu
+	 * pemanggil ({@link HasilUjianMahasiswaHelper}, {@code HasilUjianSiswaHelper}). Lihat Javadoc kelas
+	 * untuk uraian lengkap dan perbandingannya dengan {@link DetailperkuliahanForPenilaianHelper}.
+	 *
+	 * <p><b>Catatan operasi destruktif:</b> tombol "Ulang Ujian" meng-{@code null}-kan
+	 * {@code bankSoalDetail}, {@code jawaban}, dan {@code waktuJawab} pada <b>seluruh</b>
+	 * {@link HasilUjianMahasiswaDetail} milik peserta, lalu memanggil {@link HasilUjianMahasiswa#reset()}.
+	 * Data lama tidak hilang dari sistem karena entity beranotasi {@code @Audited} sehingga versi
+	 * sebelumnya tetap tersimpan di tabel revisi Envers — namun revisi tersebut tidak merekam identitas
+	 * pelaku (lihat Javadoc kelas). Tombol hanya di-{@code setDisabled(false)} selama jendela waktu ujian
+	 * masih aktif ({@code masihAdaWaktu}), bukan berdasarkan peran pengguna.
 	 *
 	 * <p><b>Sifat/thread-safety:</b> Seluruh method berjalan di thread event ZK. Tidak ada penggunaan thread
 	 * latar. Field instance ({@code grid}, {@code belumDijawab}, dst.) diinisialisasi di sini dan digunakan
