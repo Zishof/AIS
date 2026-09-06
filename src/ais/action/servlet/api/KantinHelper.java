@@ -669,26 +669,46 @@ public class KantinHelper {
 		return hasil;
 	}
 
+	/**
+	 * Menentukan daftar cara pembayaran efektif untuk seorang member. Konfigurasi
+	 * pada Tipe Member merupakan aturan yang lebih spesifik daripada Jenis Member:
+	 * bila daftar tipe berisi ID, daftar itu menggantikan daftar jenis; bila daftar
+	 * tipe kosong, aturan jenis tetap menjadi fallback. Nilai {@code null} berarti
+	 * kedua tingkat belum disetel sehingga cara pembayaran tidak dibatasi.
+	 *
+	 * <p>Aturan override ini penting untuk tipe khusus seperti Siswa/Reward Santri.
+	 * Memakai irisan akan menghapus metode yang sengaja ditambahkan pada tipe hanya
+	 * karena jenis induknya belum ikut diperbarui. Sebaliknya, menambahkan metode
+	 * khusus ke jenis induk akan membukanya untuk seluruh tipe lain yang tidak
+	 * mempunyai pembatasan sendiri.</p>
+	 *
+	 * @param izinJenis daftar ID dari Jenis Member, dipisahkan koma.
+	 * @param izinTipe daftar ID dari Tipe Member, dipisahkan koma.
+	 * @return set ID dari aturan tipe atau fallback jenis; {@code null} bila keduanya kosong.
+	 */
+	public static java.util.Set izinCaraBayarEfektif(String izinJenis, String izinTipe) {
+		java.util.Set tipe = parseIdCaraBayar(izinTipe);
+		if (!tipe.isEmpty()) return tipe;
+		java.util.Set jenis = parseIdCaraBayar(izinJenis);
+		return jenis.isEmpty() ? null : jenis;
+	}
+
 	/** Validasi server-side agar aturan Tipe/Jenis Member tidak dapat dilewati klien lama. */
 	private static String validasiCaraBayarMember(AnggotaKoperasi anggota,
 			CaraPembayaranKoperasi utama, SplitPembayaran split, Long tokoId) {
 		if (anggota == null) return null;
-		java.util.Set izin = null;
+		String izinJenis = "";
 		JenisAnggotaKoperasi jenis = anggota.getJenisAnggotaKoperasi();
 		if (jenis != null) {
-			String csv = jenis.getDaftarCaraPembayaranYangBolehDiPilih();
-			if (csv != null && !csv.replace(",", "").trim().isEmpty()) izin = parseIdCaraBayar(csv);
+			izinJenis = jenis.getDaftarCaraPembayaranYangBolehDiPilih();
 		}
 		TipeAnggotaKoperasi tipe = anggota.getTipeAnggotaKoperasi();
 		if (tipe != null && !tipe.berlakuUntukToko(tokoId)) tipe = null;
+		String izinTipe = "";
 		if (tipe != null) {
-			String csv = tipe.getDaftarCaraPembayaranYangBolehDiPilih();
-			if (csv != null && !csv.replace(",", "").trim().isEmpty()) {
-				java.util.Set izinTipe = parseIdCaraBayar(csv);
-				if (izin == null) izin = izinTipe;
-				else izin.retainAll(izinTipe);
-			}
+			izinTipe = tipe.getDaftarCaraPembayaranYangBolehDiPilih();
 		}
+		java.util.Set izin = izinCaraBayarEfektif(izinJenis, izinTipe);
 		CaraPembayaranKoperasi[] dipakai = new CaraPembayaranKoperasi[] {
 				utama, split.cara2, split.cara3, split.cara4, split.cara5 };
 		if (izin != null) {

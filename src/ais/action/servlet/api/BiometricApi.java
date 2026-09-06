@@ -349,7 +349,7 @@ public final class BiometricApi {
 			if (tokoId == null) tokoId = longValue(payload, "id_toko");
 			if (tokoId == null) tokoId = longValue(payload, "toko_id");
 			if (tipe != null && !tipe.berlakuUntukToko(tokoId)) tipe = null;
-			java.util.Set metodeDiizinkan = irisanMetodeDiizinkan(
+			java.util.Set metodeDiizinkan = metodeDiizinkanEfektif(
 					jenis == null ? "" : jenis.getDaftarCaraPembayaranYangBolehDiPilih(),
 					tipe == null ? "" : tipe.getDaftarCaraPembayaranYangBolehDiPilih());
 			if (metodeDiizinkan != null && !metodeDiizinkan.containsAll(metodeTerpakai)) {
@@ -467,33 +467,9 @@ public final class BiometricApi {
 		return false;
 	}
 
-	/**
-	 * Menghasilkan irisan izin Jenis dan Tipe Member. Nilai {@code null}
-	 * berarti kedua aturan belum disetel sehingga metode tidak dibatasi. Daftar
-	 * kosong non-null berarti kedua aturan memang tidak mempunyai irisan.
-	 */
-	private static java.util.Set irisanMetodeDiizinkan(String izinJenis, String izinTipe) {
-		java.util.Set jenis = parseDaftarId(izinJenis);
-		java.util.Set tipe = parseDaftarId(izinTipe);
-		if (jenis.isEmpty() && tipe.isEmpty()) return null;
-		if (jenis.isEmpty()) return tipe;
-		if (tipe.isEmpty()) return jenis;
-		jenis.retainAll(tipe);
-		return jenis;
-	}
-
-	private static java.util.Set parseDaftarId(String csv) {
-		java.util.Set hasil = new java.util.HashSet();
-		if (csv == null) return hasil;
-		String[] bagian = csv.split(",");
-		for (int i = 0; i < bagian.length; i++) {
-			try {
-				String nilai = bagian[i].trim();
-				if (!nilai.isEmpty()) hasil.add(Long.valueOf(Long.parseLong(nilai)));
-			} catch (Exception ignored) {
-			}
-		}
-		return hasil;
+	/** Daftar efektif mengikuti override Tipe Member dan fallback Jenis Member. */
+	private static java.util.Set metodeDiizinkanEfektif(String izinJenis, String izinTipe) {
+		return KantinHelper.izinCaraBayarEfektif(izinJenis, izinTipe);
 	}
 
 	/** Nama metode yang ditolak, agar pesan operasional tidak berhenti pada ID teknis. */

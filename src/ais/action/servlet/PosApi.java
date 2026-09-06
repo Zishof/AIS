@@ -2891,11 +2891,12 @@ public class PosApi extends HttpServlet {
 	 * SEKALI saat start lewat {@code konfigurasi}, tak pernah menyaring ulang per member -- gap ini
 	 * yang diperbaiki).</p>
 	 *
-	 * <p><b>Jaring pengaman.</b> Bila daftar izin tipe anggotanya KOSONG/NULL, seluruh metode
-	 * aktif dikembalikan dan {@code izinTidakDisetel=true} -- daftar kosong berarti belum
-	 * disetel, dan memblokir pembayaran karena itu menghentikan transaksi alih-alih
-	 * membatasinya. Daftar yang BERISI tetapi tidak cocok satu pun tetap menghasilkan daftar
-	 * kosong: itu pembatasan yang disengaja.</p>
+	 * <p><b>Prioritas aturan.</b> Daftar pada Tipe Member adalah aturan yang lebih spesifik:
+	 * bila berisi ID, daftar tipe menggantikan daftar Jenis Member. Bila daftar tipe kosong,
+	 * aturan jenis menjadi fallback. Dengan demikian metode khusus seperti Reward Santri
+	 * dapat dibuka hanya untuk tipe Siswa tanpa ikut terbuka bagi semua member berjenis
+	 * Biasa. Bila kedua daftar kosong, seluruh metode aktif dikembalikan dan
+	 * {@code izinTidakDisetel=true}.</p>
 	 *
 	 * @param payload berisi {@code id_member} (opsional).
 	 * @param hasil   diisi {@code status="success"}, {@code caraBayar} (array {@code {id, nama, manual}}), {@code izinTidakDisetel}.
@@ -2946,15 +2947,7 @@ public class PosApi extends HttpServlet {
 			boolean izinTidakDisetel = idMember != null
 					&& (izinJenis == null || izinJenis.replace(",", "").trim().isEmpty())
 					&& (izinTipe == null || izinTipe.replace(",", "").trim().isEmpty());
-			java.util.Set izinEfektif = null;
-			if (izinJenis != null && !izinJenis.replace(",", "").trim().isEmpty()) {
-				izinEfektif = parseDaftarIdCaraBayar(izinJenis);
-			}
-			if (izinTipe != null && !izinTipe.replace(",", "").trim().isEmpty()) {
-				java.util.Set izinTipeSet = parseDaftarIdCaraBayar(izinTipe);
-				if (izinEfektif == null) izinEfektif = izinTipeSet;
-				else izinEfektif.retainAll(izinTipeSet);
-			}
+			java.util.Set izinEfektif = KantinHelper.izinCaraBayarEfektif(izinJenis, izinTipe);
 
 			JSONArray arr = new JSONArray();
 			Criteria c = session.createCriteria(CaraPembayaranKoperasi.class)
