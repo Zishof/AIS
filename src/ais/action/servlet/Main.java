@@ -55,6 +55,69 @@ import org.springframework.security.core.userdetails.UserDetails;
  * admin tetap bisa membuka tampilan desktop dari perangkat kecil ketika perlu,
  * dan tautan khusus lama tetap dapat berjalan sesuai perilaku sebelumnya.</p>
  *
+ * <p><b>KOREKSI — pendeteksian mobile itu kini tidak aktif.</b> Method
+ * {@link #shouldRedirectToMobile}, beserta {@link #isDesktopForced},
+ * {@link #isLegacyOrExplicitVersionRequest}, dan {@link #isMobileRequest},
+ * masih ada di berkas ini tetapi <b>tidak dipanggil dari mana pun</b>:
+ * {@link #processRequest} hanya menjalankan {@link #initCommonRequestState}
+ * lalu {@link #forwardToPage}, dan {@link #forwardToPage} tidak pernah
+ * memeriksa perangkat. Keempatnya karena itu berstatus kode mati. Peralihan ke
+ * shell mobile kini ditangani jalur lain ({@code /mobile} beserta
+ * {@code MobileAction}). Uraian di paragraf sebelumnya dipertahankan sebagai
+ * catatan sejarah niat perancangan, bukan sebagai gambaran perilaku berjalan.
+ * Pembaca yang mencari "mengapa ponsel saya tidak dialihkan" harus berhenti di
+ * sini. Method-method itu tetap dibiarkan karena masih menyimpan daftar
+ * heuristik perangkat yang sudah teruji, sehingga berguna bila peralihan ini
+ * dihidupkan kembali.</p>
+ *
+ * <p><b>Pemetaan dan otorisasi.</b> Servlet ini terdaftar di
+ * {@code webapp/WEB-INF/web.xml} sebagai {@code main} dengan {@code url-pattern}
+ * tunggal {@code /main} — pola persis, bukan {@code /main/*}. Spring Security di
+ * {@code applicationContext-security.xml} melindungi {@code /main} dan
+ * {@code /main/**} dengan {@code IS_AUTHENTICATED_REMEMBERED}, sehingga berbeda
+ * dari endpoint {@code /Data} dan {@code /repository}: pintu ini <b>hanya</b>
+ * dapat dijangkau pengguna yang sudah masuk. Karena pemetaannya persis, dua
+ * cabang berbasis jalur di {@link #forwardToPage} — {@code /main/item/{id}} dan
+ * {@code /main/inventory/{fungsi}} — tidak dapat tercapai pada konfigurasi
+ * baku; yang benar-benar hidup adalah varian parameter {@code ?inventory=}.</p>
+ *
+ * <p><b>Urutan pemilihan halaman.</b> {@link #forwardToPage} memutuskan dengan
+ * prioritas menurun: rute jalur khusus, parameter {@code inventory}, parameter
+ * {@code hak_akses}, parameter {@code p} (formulir dan halaman calon anggota),
+ * lalu {@link #resolveMainPage}. Di dalam {@link #resolveMainPage} urutannya
+ * kembali menurun: role Kantin, pilihan eksplisit halaman utama pada
+ * {@link Tbmrole}, penanda {@code landingInventory}, penanda
+ * {@code landingKantin}, member koperasi, dan terakhir pilihan tampilan
+ * lama/ZK-baru/JSP-baru dari parameter atau konfigurasi. Urutan ini pernah
+ * salah — pilihan eksplisit administrator sempat tertimpa penanda role — dan
+ * karena itu jangan disusun ulang tanpa alasan kuat.</p>
+ *
+ * <p><b>Gerbang halaman yang diteruskan.</b> Servlet ini meneruskan, tetapi
+ * tidak memeriksa hak akses per halaman; pemeriksaan itu berada di JSP tujuan.
+ * Contohnya {@code /WEB-INF/baru/modul/inventory/index.jsp} — yang di-{@code
+ * include} seluruh halaman fungsi Inventory — menolak pengguna nonaktif dengan
+ * {@code 401} dan pengguna tanpa satu pun kunci menu Inventory dengan
+ * {@code 403}. Jadi meneruskan ke halaman fungsi lewat parameter
+ * {@code inventory} tidak melewati gerbang mana pun. Pola ini harus
+ * dipertahankan: setiap halaman baru yang ditambahkan ke
+ * {@link #INVENTORY_FUNCTION_PAGES} wajib memikul gerbangnya sendiri.</p>
+ *
+ * <p><b>Efek samping global — perlu diketahui.</b>
+ * {@link #initCommonRequestState} menulis empat variabel statis proses:
+ * {@link Common#REAL_PATH}, {@code Common.REAL_PATH_REPORT_TEMP},
+ * {@link Common#ROOT}, {@link Common#CURRENT_URL_SIMPLE}, dan
+ * {@link Common#CURRENT_URL}. Dua yang terakhir disusun dari
+ * {@code request.getServerName()} dan {@code request.getServerPort()}, yaitu
+ * nilai yang berasal dari header {@code Host} permintaan. Nilainya berlaku
+ * untuk seluruh proses sampai permintaan berikutnya menimpanya — bukan per
+ * permintaan dan bukan per tenant — padahal {@code Common.CURRENT_URL} ikut
+ * dipakai menyusun tautan laporan dan {@code callbackUrl} virtual account bank.
+ * Servlet ini bukan satu-satunya penulisnya; {@code Baru}, {@code Dashboard},
+ * {@code Index}, {@code Login}, {@code Mobile}, {@code New}, dan
+ * {@code FilterJSP} melakukan hal yang sama. Kode baru sebaiknya menyusun URL
+ * absolut dari objek permintaan yang sedang aktif (lihat
+ * {@code ApiHelperSupport.absoluteUrl}), bukan membaca variabel global ini.</p>
+ *
  * <p>Class ini tidak membuka Hibernate session baru. Ia hanya memanggil helper
  * lama yang sudah dipakai aplikasi, sehingga aturan penutupan session tidak
  * berubah. Bila helper lama memakai {@code currentSession()}, session tetap
@@ -62,17 +125,56 @@ import org.springframework.security.core.userdetails.UserDetails;
  * halaman, exception dicatat dengan perilaku lama dan request tetap tidak
  * membuat session tambahan yang tidak perlu. Semua method menggunakan gaya
  * Java 1.6/1.7, tanpa lambda, stream, atau try-with-resources.</p>
+ *
+ * @see Tbmrole#getHalamanUtama()
+ * @see #checkAndSetUserSession(HttpServletRequest, boolean)
  */
 public class Main extends HttpServlet {
 
+	/** Versi serialisasi servlet; tetap {@code 1L} karena kelas ini tidak menyimpan state instance. */
 	private static final long serialVersionUID = 1L;
+	/**
+	 * Halaman utama e-Kantin. Nilainya sengaja dipinjam dari
+	 * {@link Tbmrole#HALAMAN_UTAMA_KANTIN} — bukan disalin sebagai literal — agar nilai yang
+	 * dibandingkan di sini selalu sama persis dengan yang disimpan administrator pada kolom
+	 * halaman utama role.
+	 */
 	private static final String PAGE_KANTIN_INDEX = Tbmrole.HALAMAN_UTAMA_KANTIN;
+	/** Halaman utama POS Apotik; dipinjam dari {@link Tbmrole#HALAMAN_UTAMA_APOTIK}. */
 	private static final String PAGE_APOTIK_INDEX = Tbmrole.HALAMAN_UTAMA_APOTIK;
+	/** Halaman utama POS eMedik; dipinjam dari {@link Tbmrole#HALAMAN_UTAMA_EMEDIK}. */
 	private static final String PAGE_EMEDIK_INDEX = Tbmrole.HALAMAN_UTAMA_EMEDIK;
+	/** Halaman utama Inventory &amp; Sales; dipinjam dari {@link Tbmrole#HALAMAN_UTAMA_INVENTORY}. */
 	private static final String PAGE_INVENTORY_INDEX = Tbmrole.HALAMAN_UTAMA_INVENTORY;
+	/**
+	 * Nama atribut permintaan yang memberi tahu JSP e-Kantin bahwa ia dibuka sebagai halaman
+	 * utama langsung, bukan sebagai bagian shell dashboard. JSP memakainya untuk memutuskan
+	 * apakah perlu merender kerangka halaman sendiri.
+	 */
 	private static final String ATTR_KANTIN_DIRECT_PAGE = "kantinDirectPage";
+	/** Padanan {@link #ATTR_KANTIN_DIRECT_PAGE} untuk halaman POS Apotik dan eMedik. */
 	private static final String ATTR_POS_DIRECT_PAGE = "posDirectPage";
+	/**
+	 * Padanan {@link #ATTR_KANTIN_DIRECT_PAGE} untuk Inventory &amp; Sales. Dipasang pada dua
+	 * jalur: ketika halaman utama role adalah Inventory, dan ketika sebuah halaman fungsi dibuka
+	 * langsung lewat parameter {@code inventory}.
+	 */
 	private static final String ATTR_INVENTORY_DIRECT_PAGE = "inventoryDirectPage";
+	/**
+	 * Daftar putih pemetaan nama fungsi Inventory &amp; Sales ke berkas JSP-nya; kolom pertama
+	 * nama yang boleh dikirim klien, kolom kedua nama berkas di dalam
+	 * {@code /WEB-INF/baru/modul/inventory/}.
+	 *
+	 * <p><b>Fungsi keamanannya.</b> {@link #resolveInventoryFunctionPage} hanya menerima nilai
+	 * yang cocok persis dengan kolom pertama, dan jalur yang disusun selalu berbentuk direktori
+	 * tetap ditambah nama berkas dari kolom kedua. Karena itu nilai parameter {@code inventory}
+	 * tidak pernah masuk ke jalur berkas — {@code ../} maupun jalur absolut tidak dapat
+	 * menembusnya. Setiap halaman baru wajib didaftarkan di sini; jangan sekali-kali
+	 * menggantinya dengan penyusunan nama berkas dari masukan.</p>
+	 *
+	 * <p>Pendaftaran di sini <b>bukan</b> pemberian hak akses: gerbangnya berada di
+	 * {@code index.jsp} modul Inventory yang di-{@code include} setiap halaman fungsi.</p>
+	 */
 	private static final String[][] INVENTORY_FUNCTION_PAGES = {
 			{ "data_supplier", "data_supplier.jsp" },
 			{ "daftar_supplier", "daftar_supplier.jsp" },
