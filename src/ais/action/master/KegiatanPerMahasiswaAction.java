@@ -173,6 +173,7 @@ public class KegiatanPerMahasiswaAction extends GenericAutowireComposer {
 			new Label(kegiatan.getJenisKegiatan() == null ? "" : kegiatan.getJenisKegiatan().getNamaKegiatan())
 					.setParent(arg0);
 			Hbox toolbar = new Hbox();
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Lihat Log", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Lihat Log Data");

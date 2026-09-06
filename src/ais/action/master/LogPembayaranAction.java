@@ -395,6 +395,7 @@ public class LogPembayaranAction extends GenericAutowireComposer implements Data
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 
 		}

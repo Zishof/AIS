@@ -342,6 +342,7 @@ public class RepositoryAction extends GenericAutowireComposer {
                 manage.setSclass("repo-row-action repo-row-action-primary");
                 manage.setParent(actions);
             }
+            ais.ui.util.MenuAksiBaris.pasangSelalu(actions);
             actions.setParent(row);
         }
     }

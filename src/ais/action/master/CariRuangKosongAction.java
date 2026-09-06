@@ -334,6 +334,7 @@ public class CariRuangKosongAction extends GenericAutowireComposer {
 
 			Hbox toolbar = new Hbox();
 			toolbar.setVisible(tbmuser.getMahasiswa() == null);
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Pesan Ruang ini", "/img/svg/edit-box-line.svg");
 			button.setOrient("vertical");

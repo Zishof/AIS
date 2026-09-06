@@ -47,6 +47,7 @@ import ais.action.master.TampilanELearningAction;
 import ais.action.master.helper.MahasiswaPunyaKegiatanKemahasiswaanHelper;
 import ais.action.master.helper.MahasiswaPunyaOrganisasiIntraKampusHelper;
 import ais.action.master.helper.PenilaianMahasiswaHelper;
+import ais.action.master.helper.UndanganWisudaDownloadHelper;
 import ais.action.master.helper.util.PenilaianUtil;
 import ais.action.report.CommonReportHelper;
 import ais.action.report.format1.akademik.LaporanPendidikanLingkunganKampus;
@@ -70,6 +71,7 @@ import ais.database.model.MahasiswaRequestTugasAkhir;
 import ais.database.model.Matakuliah;
 import ais.database.model.OrganisasiIntraKampusPunyaMahasiswa;
 import ais.database.model.PenghargaanMahasiswa;
+import ais.database.model.PendaftaranWisuda;
 import ais.database.model.Perkuliahan;
 import ais.database.model.PrestasiMahasiswa;
 import ais.database.model.Skripsi;
@@ -284,6 +286,24 @@ public class ProfileMahasiswa {
 				}
 			});
 			btnBayarWizard.setParent(hbox);
+		}
+
+		/* Undangan wisuda tampil di dashboard mahasiswa hanya setelah seluruh unit menyetujui
+		 * pendaftaran. Handler memakai helper yang sama dengan layar admin dan pendaftaran
+		 * mahasiswa supaya validasi, Jasper, dan QR dinamis tidak bercabang. */
+		final PendaftaranWisuda pendaftaranWisudaUndangan = ambilPendaftaranWisudaTerakhir();
+		if (UndanganWisudaDownloadHelper.disetujuiSemua(pendaftaranWisudaUndangan)) {
+			MyToolbarbuttonConfig btnUndangan = new MyToolbarbuttonConfig("Undangan", "/img/svg/download.svg");
+			btnUndangan.setStyle("font-weight:bold;border:1px solid #bfdbfe;border-radius:4px;"
+					+ "padding:4px 10px;background:#eff6ff;color:#1d4ed8;");
+			btnUndangan.setTooltiptext("Unduh undangan wisuda");
+			btnUndangan.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					UndanganWisudaDownloadHelper.download(pendaftaranWisudaUndangan);
+				}
+			});
+			btnUndangan.setParent(hbox);
 		}
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Biodata", "/img/online-icon_access.png");
@@ -2521,6 +2541,25 @@ public class ProfileMahasiswa {
 			}
 		});
 		btnRefresh.setParent(toolbar);
+	}
+
+	/** Ambil pendaftaran terbaru untuk menentukan visibilitas tombol Undangan di dashboard. */
+	private PendaftaranWisuda ambilPendaftaranWisudaTerakhir() {
+		if (mahasiswa == null || mahasiswa.getId() == null) {
+			return null;
+		}
+		try {
+			return (PendaftaranWisuda) HibernateUtil.currentSession()
+					.createCriteria(PendaftaranWisuda.class)
+					.add(Restrictions.eq("mahasiswa", mahasiswa))
+					.addOrder(Order.desc("id"))
+					.setMaxResults(1)
+					.uniqueResult();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"ProfileMahasiswa.ambilPendaftaranWisudaTerakhir");
+			return null;
+		}
 	}
 
 

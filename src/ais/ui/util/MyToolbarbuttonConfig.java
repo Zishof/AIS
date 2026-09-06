@@ -53,6 +53,24 @@ public class MyToolbarbuttonConfig extends Toolbarbutton implements AfterCompose
 	}
 
 	/**
+	 * Bila sebuah tombol ditambahkan sesudah Hbox aksi sudah dibentuk menjadi menu, masukkan
+	 * langsung ke popup yang sama. Ini mencegah urutan kode renderer menghasilkan dua pemicu
+	 * pada satu kolom Aksi.
+	 */
+	@Override
+	public void setParent(org.zkoss.zk.ui.Component parent) {
+		if (parent instanceof org.zkoss.zul.Hbox) {
+			Object popup = parent.getAttribute("ais_row_actions_popup");
+			String sclass = getSclass() == null ? "" : getSclass();
+			if (popup instanceof org.zkoss.zul.Div && !sclass.contains("ais-row-action-kebab")) {
+				UIHelper.addToKebab((org.zkoss.zul.Div) popup, this);
+				return;
+			}
+		}
+		super.setParent(parent);
+	}
+
+	/**
 	 * Dipanggil ZK setelah komponen selesai dikomposisi dari ZUL. Hanya tombol
 	 * berlabel "Bantuan" yang terpengaruh; tombol lain dilewati apa adanya.
 	 *

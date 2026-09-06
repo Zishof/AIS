@@ -152,6 +152,7 @@ public class TarifKhususPunyaTindakanDetailAction extends Tabpanel implements On
 			});
 
 			Hbox toolbar = new Hbox();
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 			Toolbarbutton button = new ais.ui.util.MyToolbarbuttonConfig("Tarif", "/img/edit.gif");
 			button.setTooltiptext("Tarif");

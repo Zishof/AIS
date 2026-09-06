@@ -60,9 +60,15 @@ MenuAksiBaris.pasang(toolbar);
 toolbar.setParent(row);
 ```
 
-Tombol aslinya dipindah ke wadah tersembunyi yang tetap berada di pohon komponen, lalu
-diklik ulang lewat `Events.postEvent`. Menyalin listener-nya ke butir menu akan melahirkan
-salinan kedua yang lambat laun berbeda dari aslinya.
+Tombol aslinya dipindahkan langsung ke konten popup yang tetap berada di pohon komponen.
+Listener tidak disalin atau ditulis ulang, sehingga perilaku Ubah/Hapus/Unduh/Cetak tetap
+menggunakan handler asli milik layar.
+
+Mulai 6 September 2026, kontrak ZK diperketat: kolom Aksi harus mempunyai tepat satu
+pemicu menu meskipun hanya tersedia satu aksi. `MenuAksiBaris`, normalisasi pasca-render
+`MyGrid`, dan tombol `MyToolbarbuttonConfig` memakai struktur popup `UIHelper` yang sama.
+Karena itu tombol yang ditambahkan setelah `MenuAksiBaris.pasang(toolbar)` otomatis masuk
+ke popup yang sudah ada dan tidak boleh menghasilkan ikon atau menu kedua.
 
 ## Perbedaan yang disengaja antar kanal
 

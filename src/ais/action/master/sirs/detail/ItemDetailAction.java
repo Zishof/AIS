@@ -150,6 +150,7 @@ public class ItemDetailAction extends MyDetail {
 
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(row);
 
 		}

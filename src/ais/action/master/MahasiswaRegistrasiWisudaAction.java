@@ -723,10 +723,9 @@ public class MahasiswaRegistrasiWisudaAction extends GenericAutowireComposer {
 				}
 			});
 			button.setParent(toolbar);
-			ais.ui.util.MenuAksiBaris.pasang(toolbar);
-			toolbar.setParent(arg0);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/printer.svg");
+			button.setTooltiptext("Cetak Bukti");
 			button.addEventListener("onClick", new EventListener() {
 
 				@Override
@@ -735,6 +734,8 @@ public class MahasiswaRegistrasiWisudaAction extends GenericAutowireComposer {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
+			toolbar.setParent(arg0);
 		}
 
 	}

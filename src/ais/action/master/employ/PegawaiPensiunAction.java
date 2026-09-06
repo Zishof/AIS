@@ -287,6 +287,7 @@ public class PegawaiPensiunAction extends GenericAutowireComposer implements Com
 			});
 			button.setParent(toolbar);
 
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 		}
 	}

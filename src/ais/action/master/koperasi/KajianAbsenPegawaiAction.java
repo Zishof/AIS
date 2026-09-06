@@ -160,6 +160,7 @@ public class KajianAbsenPegawaiAction extends GenericAutowireComposer {
 			} else {
 				Hbox aksi = new Hbox();
 				aksi.setSpacing("6px");
+				ais.ui.util.MenuAksiBaris.pasangSelalu(aksi);
 				aksi.setParent(row);
 
 				MyToolbarbuttonConfig offline = new MyToolbarbuttonConfig("Hadir Offline", "/img/svg/check.svg");

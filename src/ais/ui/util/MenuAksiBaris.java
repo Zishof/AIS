@@ -19,12 +19,9 @@ package ais.ui.util;
  * toolbar.setParent(row);
  * </pre>
  *
- * <p><b>Tombol aslinya TIDAK dibuang.</b> Ia dipindahkan ke wadah tersembunyi yang tetap berada
- * di pohon komponen, lalu diklik ulang lewat {@code Events.postEvent} ketika butir menunya
- * dipilih. Dengan begitu seluruh {@code EventListener} yang sudah terpasang padanya tetap
- * hidup — termasuk yang menutup jendela, menyegarkan grid, atau membuka konfirmasi. Menyalin
- * listener-nya ke butir menu akan melahirkan salinan kedua yang lambat laun berbeda dari
- * aslinya tanpa ada yang menyadarinya.</p>
+ * <p><b>Tombol aslinya TIDAK dibuang.</b> Ia dipindahkan langsung ke konten popup dalam pohon
+ * komponen. Dengan begitu seluruh {@code EventListener} yang sudah terpasang tetap hidup —
+ * termasuk yang menutup jendela, menyegarkan grid, atau membuka konfirmasi.</p>
  *
  * <p><b>Visibilitas dan status nonaktif diwarisi apa adanya.</b> Pada ZK, {@code setVisible}
  * di renderer hampir selalu berarti HAK AKSES ({@code button.setVisible(edit)}), bukan sekadar
@@ -32,20 +29,17 @@ package ais.ui.util;
  * diredupkan — meredupkannya akan memberi tahu pengguna tentang kewenangan yang memang bukan
  * miliknya. Ini berbeda dari versi POS/JSP, dan perbedaannya disengaja.</p>
  *
- * <p><b>Kurang dari dua tombol dibiarkan apa adanya.</b> Menu yang isinya satu butir hanya
- * menyembunyikan satu-satunya aksi di balik klik tambahan.</p>
+ * <p><b>Satu aksi tetap menjadi satu menu.</b> Kolom aksi harus mempunyai tepat satu pemicu
+ * yang konsisten; karena itu satu tombol pun tetap dibungkus ke menu kebab.</p>
  */
 public final class MenuAksiBaris {
-
-	/** Karakter elipsis horizontal (U+22EF), sama dengan yang dipakai versi POS dan JSP. */
-	private static final String LABEL_TOMBOL = "⋯";
 
 	private MenuAksiBaris() {
 	}
 
 	/** Lihat {@link #pasang(org.zkoss.zul.Hbox, String)}; judul tombolnya "Aksi lain". */
 	public static void pasang(org.zkoss.zul.Hbox toolbar) {
-		pasangInternal(toolbar, "Aksi lain", false);
+		pasangInternal(toolbar, "Aksi lain", true);
 	}
 
 	/**
@@ -55,7 +49,7 @@ public final class MenuAksiBaris {
 	 * @param judul   tooltip tombol "…"
 	 */
 	public static void pasang(org.zkoss.zul.Hbox toolbar, String judul) {
-		pasangInternal(toolbar, judul, false);
+		pasangInternal(toolbar, judul, true);
 	}
 
 	/**
@@ -85,85 +79,11 @@ public final class MenuAksiBaris {
 			return;
 		}
 
-		final org.zkoss.zul.Menupopup menu = new org.zkoss.zul.Menupopup();
-		menu.setSclass("ais-menu-aksi-baris");
-
-		// Wadah tersembunyi: tombol aslinya tetap di pohon komponen supaya listener-nya hidup.
-		org.zkoss.zul.Hbox gudang = new org.zkoss.zul.Hbox();
-		gudang.setVisible(false);
-
-		int tampil = 0;
-		for (int i = 0; i < tombol.size(); i++) {
-			final org.zkoss.zul.Toolbarbutton asli = tombol.get(i);
-			org.zkoss.zul.Menuitem butir = new org.zkoss.zul.Menuitem(labelDari(asli));
-			String gambar = asli.getImage();
-			if (gambar != null && gambar.length() > 0) {
-				butir.setImage(gambar);
-			}
-			butir.setVisible(asli.isVisible());
-			butir.setDisabled(asli.isDisabled());
-			if (asli.isVisible()) {
-				tampil++;
-			}
-			butir.addEventListener("onClick", new org.zkoss.zk.ui.event.EventListener() {
-				@Override
-				public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
-					// Diteruskan ke tombol ASLINYA, bukan dikerjakan ulang di sini.
-					org.zkoss.zk.ui.event.Events.postEvent(
-							new org.zkoss.zk.ui.event.Event("onClick", asli));
-				}
-			});
-			menu.appendChild(butir);
-			asli.setParent(gudang);
+		/* Gunakan struktur popup yang sama dengan normalizer global UIHelper. Dengan satu format,
+		 * tombol yang ditambahkan setelah pemanggilan ini dapat langsung diserap ke popup yang
+		 * sudah ada dan tidak membentuk ikon/menu kedua pada kolom Aksi. */
+		if (toolbar.getAttribute("ais_row_actions_popup") == null) {
+			UIHelper.wrapKebab(toolbar);
 		}
-
-		/* Tidak ada satu pun aksi yang boleh dipakai pengguna ini — tombolnya tidak ditampilkan
-		 * sama sekali daripada membuka menu yang seluruh isinya tersembunyi. Tombol aslinya tetap
-		 * dipindah ke gudang supaya kolomnya benar-benar kosong, bukan menyisakan ikon berjajar. */
-		if (tampil == 0) {
-			gudang.setParent(toolbar);
-			return;
-		}
-
-		final org.zkoss.zul.Toolbarbutton pemicu = new org.zkoss.zul.Toolbarbutton(LABEL_TOMBOL);
-		pemicu.setTooltiptext(ais.common.Common.getBahasaConfig(judul));
-		pemicu.setSclass("ais-btn-aksi-baris");
-		pemicu.addEventListener("onClick", new org.zkoss.zk.ui.event.EventListener() {
-			@Override
-			public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
-				menu.open(pemicu, "after_start");
-			}
-		});
-
-		/* Menu di-parent ke AKAR HALAMAN, bukan ke toolbar. Baris grid kerap berada di dalam
-		 * wadah bergulir; menu yang tinggal di dalamnya akan terpotong oleh overflow wadah itu.
-		 * Idiom yang sama sudah dipakai dropdown profil di MainAction. Bila halamannya belum
-		 * tersedia (komponen belum terpasang), menu menumpang pada toolbar — masih berfungsi,
-		 * hanya berpotensi terpotong pada grid yang bergulir. */
-		org.zkoss.zk.ui.Page halaman = toolbar.getPage();
-		if (halaman != null && halaman.getFirstRoot() != null) {
-			menu.setParent(halaman.getFirstRoot());
-		} else {
-			menu.setParent(toolbar);
-		}
-
-		pemicu.setParent(toolbar);
-		gudang.setParent(toolbar);
-	}
-
-	/**
-	 * Label butir menu. {@code tooltiptext} didahulukan karena di renderer sinilah arti tombol
-	 * ditulis — tombolnya sendiri hampir selalu berlabel kosong dan hanya bergambar ikon.
-	 */
-	private static String labelDari(org.zkoss.zul.Toolbarbutton tombol) {
-		String tip = tombol.getTooltiptext();
-		if (tip != null && tip.trim().length() > 0) {
-			return tip;
-		}
-		String label = tombol.getLabel();
-		if (label != null && label.trim().length() > 0) {
-			return label;
-		}
-		return ais.common.Common.getBahasaConfig("Aksi");
 	}
 }

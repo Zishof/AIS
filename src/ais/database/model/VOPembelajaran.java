@@ -3513,11 +3513,70 @@ public abstract class VOPembelajaran extends VoKunci {
 	 */
 	public abstract Integer ambilJumlahDetailperkuliahanLangsung();
 
+	/**
+	 * Menyusun keterangan ringkas objek pembelajaran ini tanpa dosen tambahan.
+	 *
+	 * <p>Setara dengan {@code infoSimple(null)}. Perhatikan bahwa nilai {@code null} disiapkan
+	 * lewat variabel bertipe {@link Dosen} lebih dulu, bukan dituliskan langsung sebagai argumen —
+	 * cara yang diperlukan agar kompilator memilih overload yang benar ketika ada beberapa
+	 * kemungkinan.</p>
+	 *
+	 * @return keterangan ringkas siap tampil, atau {@code "-"} bila wadahnya tidak dikenali atau
+	 *         penyusunannya gagal
+	 */
 	public String infoSimple() {
 		Dosen d = null;
 		return this.infoSimple(d);
 	}
 
+	/**
+	 * Menyusun keterangan ringkas objek pembelajaran ini — bentuk yang paling banyak dipakai untuk
+	 * judul panel, label pilihan, dan baris laporan.
+	 *
+	 * <h4>Bentuk keterangan per jenis wadah</h4>
+	 * <ul>
+	 * <li>{@link Perkuliahan} — nama mata kuliah, bobot SKS, semester (dengan penanda semester
+	 * pendek bila ada), kelas, nama dosen, ruang, lalu hari dan jam. Bagian hari dan jam
+	 * dihilangkan bila perkuliahannya ditandai tanpa jadwal.</li>
+	 * <li>{@code kkn.KelompokKkn} dan {@code pkl.KelompokPkl} — nama kelompok diikuti nama
+	 * kegiatan induknya dalam tanda kurung.</li>
+	 * <li>{@link KrsMahasiswa} — nama mahasiswa, tahun akademik, penanda semester pendek, lalu
+	 * keterangan status. Untuk mahasiswa yang masih aktif, keterangan itu <b>dihitung oleh helper
+	 * KRS</b>, sehingga menyusun keterangan ringkas di sini dapat memicu pekerjaan yang jauh lebih
+	 * berat daripada sekadar merangkai teks. Untuk mahasiswa yang sudah keluar, keterangannya
+	 * dirangkai dari status keluar, predikat kelulusan, dan tiga status pascalulus.</li>
+	 * <li>{@link Skripsi} dan {@link MahasiswaRequestTugasAkhir} — judul, nama format nilainya,
+	 * lalu NIM dan nama mahasiswa. Pada permohonan tugas akhir, judul kosong digantikan judul
+	 * alternatif pertama.</li>
+	 * <li>{@link PertemuanPunyaGrupPertemuan}, {@link JadwalUjianPMB},
+	 * {@code sekolah.JadwalUjianPSB}, {@link FormulirKegiatan} — cukup namanya.</li>
+	 * <li>{@link Wisuda} — moto (bila ada) diikuti nomor urut wisudanya.</li>
+	 * </ul>
+	 * <p><b>{@code sekolah.JadwalPelajaran} tidak punya cabang di sini</b> dan selalu menghasilkan
+	 * {@code "-"}, padahal {@link #infoSangatSimple(Dosen)} justru menanganinya. Sebaliknya,
+	 * {@link Wisuda} ditangani di sini tetapi tidak di sana. Kedua rantai memang tidak
+	 * bercermin.</p>
+	 *
+	 * <h4>Nama dosen</h4>
+	 * <p>Untuk perkuliahan, nama dosen diambil dari {@link #populateDosen()} — sehingga urutannya
+	 * mengikuti kunci peta, yaitu id dosen secara leksikografis, <b>bukan</b> urutan slot yang
+	 * diisi pengguna. Argumen {@code dosenTambahan}, bila diberikan, selalu ditambahkan di ujung
+	 * tanpa memeriksa apakah dosen tersebut sudah ada di daftar; memberikan dosen yang memang
+	 * pengampu akan membuat namanya tercetak dua kali.</p>
+	 *
+	 * <h4>Penanganan kesalahan</h4>
+	 * <p>Seluruh badan dibungkus {@code try/catch} yang mencetak dan mencatat kegagalan lalu
+	 * mengembalikan {@code "-"}. Perlindungan itu memang dibutuhkan: beberapa cabang membaca
+	 * rantai relasi tanpa penjaga — antara lain judul permohonan tugas akhir, moto wisuda, dan
+	 * nama kegiatan induk kelompok KKN/PKL — yang akan melempar bila datanya belum lengkap.
+	 * Konsekuensinya, {@code "-"} pada layar menyatukan tiga keadaan: wadahnya tidak dikenali,
+	 * datanya tidak lengkap, dan penyusunannya gagal. Bandingkan dengan
+	 * {@link #infoSangatSimple(Dosen)} yang tidak punya pembungkus sama sekali.</p>
+	 *
+	 * @param dosenTambahan dosen yang namanya disisipkan di ujung daftar dosen; {@code null}
+	 *                      berarti tidak ada tambahan. Hanya berpengaruh pada cabang perkuliahan
+	 * @return keterangan ringkas siap tampil; tidak pernah {@code null}
+	 */
 	public String infoSimple(Dosen dosenTambahan) {
 		try {
 
@@ -3622,11 +3681,54 @@ public abstract class VOPembelajaran extends VoKunci {
 		return "-";
 	}
 
+	/**
+	 * Menyusun keterangan sangat ringkas objek pembelajaran ini tanpa dosen tambahan.
+	 *
+	 * <p>Setara dengan {@code infoSangatSimple(null)}, memakai cara penyiapan argumen yang sama
+	 * dengan {@link #infoSimple()}.</p>
+	 *
+	 * @return keterangan sangat ringkas, atau {@code "-"} bila wadahnya tidak dikenali
+	 */
 	public String infoSangatSimple() {
 		Dosen d = null;
 		return this.infoSangatSimple(d);
 	}
 
+	/**
+	 * Menyusun keterangan objek pembelajaran ini dalam bentuk sesingkat mungkin — untuk tempat
+	 * sempit seperti judul kolom, sel kalender, dan label ringkas.
+	 *
+	 * <p>Perbedaannya dari {@link #infoSimple(Dosen)} bukan sekadar panjang teks, melainkan
+	 * pemilihan informasi. Untuk perkuliahan, yang tersisa hanya nama mata kuliah dan nama dosen —
+	 * SKS, semester, kelas, ruang, hari, dan jam dibuang seluruhnya. Untuk skripsi dan permohonan
+	 * tugas akhir, yang tersisa justru <b>hanya nama format nilainya</b>, tanpa judul maupun nama
+	 * mahasiswa; teks yang dihasilkan karenanya tidak membedakan satu sidang dari sidang lain
+	 * dengan format yang sama. Untuk KRS, hasilnya {@code "KRS "} diikuti nama mahasiswa.</p>
+	 *
+	 * <h4>Cakupan berbeda dari {@link #infoSimple(Dosen)}</h4>
+	 * <p>Method ini menangani {@code sekolah.JadwalPelajaran} — nama mata pelajaran dan nama guru
+	 * pertamanya — yang tidak ditangani {@link #infoSimple(Dosen)}. Sebaliknya, ia tidak menangani
+	 * {@link Wisuda}, yang di sana ada. Perhatikan bahwa cabang jadwal pelajaran hanya membaca
+	 * guru pertama; sebelas slot guru lainnya diabaikan, berbeda dari
+	 * {@link #populateGuruBuNama()} yang mengumpulkan kedua belasnya.</p>
+	 *
+	 * <h4>Tidak ada pembungkus kesalahan</h4>
+	 * <p><b>Berbeda dari {@link #infoSimple(Dosen)}, method ini tidak dibungkus
+	 * {@code try/catch}.</b> Rantai pembacaan tanpa penjaga — antara lain
+	 * {@code getGrupPertemuan().getNama()} pada cabang pertemuan grup — akan melempar
+	 * {@link NullPointerException} langsung ke pemanggil. Karena method ini biasanya dipanggil
+	 * dari kode render, kegagalannya berujung pada halaman yang tidak jadi tampil, bukan pada teks
+	 * {@code "-"}. Bila keterangan dibutuhkan pada konteks yang tidak boleh gagal, pakai
+	 * {@link #infoSimple(Dosen)} atau bungkus sendiri pemanggilannya.</p>
+	 *
+	 * <p>Argumen {@code dosenTambahan} berperilaku sama seperti pada {@link #infoSimple(Dosen)}:
+	 * hanya berpengaruh pada cabang perkuliahan, selalu disisipkan di ujung, dan tidak diperiksa
+	 * apakah sudah ada di daftar.</p>
+	 *
+	 * @param dosenTambahan dosen yang namanya disisipkan di ujung; {@code null} berarti tidak ada
+	 *                      tambahan
+	 * @return keterangan sangat ringkas, atau {@code "-"} bila wadahnya tidak dikenali
+	 */
 	public String infoSangatSimple(Dosen dosenTambahan) {
 
 		if (this instanceof Perkuliahan) {

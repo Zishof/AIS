@@ -367,6 +367,7 @@ public class UsulanPegawaiPensiunAction extends GenericAutowireComposer implemen
 			});
 			button.setParent(toolbar);
 
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 		}
 	}

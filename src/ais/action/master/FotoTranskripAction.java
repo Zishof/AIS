@@ -467,7 +467,7 @@ public class FotoTranskripAction extends GenericAutowireComposer {
 					"/img/File-Upload-icon.png");
 			fileupload.setUpload(Common.ukuranFileUpload());
 			fileupload.setUpload(Common.ukuranFileUpload());
-			fileupload.setParent(arg0);
+			fileupload.setParent(toolbar);
 			EventListener eventListener = new EventListener() {
 
 				@SuppressWarnings("deprecation")
@@ -524,6 +524,7 @@ public class FotoTranskripAction extends GenericAutowireComposer {
 			};
 			fileupload.addEventListener("onUpload", eventListener);
 
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 		}
 

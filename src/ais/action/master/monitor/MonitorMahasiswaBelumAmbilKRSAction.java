@@ -211,6 +211,7 @@ public class MonitorMahasiswaBelumAmbilKRSAction extends GenericAutowireComposer
 			new Label(mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getNama()).setParent(arg0);
 
 			Hbox toolbar = new Hbox();
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/upload.gif");
 			if (Common.getCurrentUser() != null && Common.getCurrentUser().hakAkses() != null

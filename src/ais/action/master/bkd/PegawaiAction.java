@@ -594,7 +594,6 @@ public class PegawaiAction extends GenericAutowireComposer
 			vbox.setParent(arg0);
 
 			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak Daftar Riwayat Hidup");
 			button.addEventListener("onClick", new EventListener() {
@@ -616,6 +615,8 @@ public class PegawaiAction extends GenericAutowireComposer
 
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
+			toolbar.setParent(vbox);
 
 		}
 	}

@@ -201,6 +201,7 @@ public class FotoBuktiChecklistLaporanAction extends GenericAutowireComposer {
 				}
 			});
 			button.setParent(toolbar);
+			ais.ui.util.MenuAksiBaris.pasangSelalu(toolbar);
 			toolbar.setParent(arg0);
 		}
 
