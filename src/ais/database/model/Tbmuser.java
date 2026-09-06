@@ -3762,6 +3762,18 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Mengembalikan data pelamar/calon pegawai (modul rekrutmen) pemilik akun ini.
+	 *
+	 * <p>Getter relasi baku: hanya me-resolve proxy lazy lewat
+	 * {@link GeneralValueObject#check(Object) check(...)}, tanpa penurunan dari entitas lain
+	 * dan tanpa penyaring keaktifan. Dipakai agar pelamar dapat masuk untuk memantau proses
+	 * lamarannya. Peran yang menyertainya adalah
+	 * {@code ConstantValues.tbmroleCalonPegawai}, ditetapkan konstruktor konversi
+	 * {@link #Tbmuser(GeneralValueObject)}.</p>
+	 *
+	 * @return data calon pegawai, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "calon_pegawai", nullable = true)
 	public CalonPegawai getCalonPegawai() {
@@ -3769,10 +3781,28 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return calonPegawai;
 	}
 
+	/**
+	 * Menetapkan data pelamar/calon pegawai pemilik akun.
+	 *
+	 * @param calonPegawai data calon pegawai; boleh {@code null}
+	 * @see #getCalonPegawai()
+	 */
 	public void setCalonPegawai(CalonPegawai calonPegawai) {
 		this.calonPegawai = calonPegawai;
 	}
 
+	/**
+	 * Mengembalikan data penyedia/vendor aset pemilik akun ini.
+	 *
+	 * <p>Getter relasi baku (hanya {@code check(...)}). Relasi ini punya bobot khusus:
+	 * keberadaannya adalah <b>syarat pertama dan berprioritas tertinggi</b> pada penurunan
+	 * peran di {@link #getUserRole()}, sehingga akun vendor selalu dipetakan ke
+	 * {@code ConstantValues.tbmrolePenyedia}. Lihat peringatan di {@link #getUserRole()}
+	 * mengenai cabang tersebut yang tidak dijaga pemeriksaan {@code null} pada konstanta
+	 * perannya.</p>
+	 *
+	 * @return data penyedia aset, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "penyedia_asset", nullable = true)
 	public PenyediaAsset getPenyediaAsset() {
@@ -3780,10 +3810,29 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return penyediaAsset;
 	}
 
+	/**
+	 * Menetapkan data penyedia/vendor aset pemilik akun.
+	 *
+	 * <p>Penetapan di sini <b>mengubah peran efektif akun</b> pada pemanggilan
+	 * {@link #getUserRole()} berikutnya &mdash; perlakukan sebagai perubahan kewenangan.</p>
+	 *
+	 * @param penyediaAsset data penyedia aset; boleh {@code null}
+	 * @see #getPenyediaAsset()
+	 */
 	public void setPenyediaAsset(PenyediaAsset penyediaAsset) {
 		this.penyediaAsset = penyediaAsset;
 	}
 
+	/**
+	 * Mengembalikan lokasi fisik (modul aset) yang melekat pada akun ini.
+	 *
+	 * <p>Getter relasi baku (hanya {@code check(...)}). Dipakai membatasi pengelolaan aset
+	 * pada lokasi tertentu. Berbeda dari lingkup organisasi lain, lokasi <b>tidak</b> punya
+	 * varian {@code ambilLokasi()} sehingga tidak dapat ditimpa lewat {@link Tbmrole};
+	 * pembatasan berbasis lokasi sepenuhnya mengikuti kolom ini.</p>
+	 *
+	 * @return lokasi akun, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lokasi", nullable = true)
 	public Lokasi getLokasi() {
@@ -3791,10 +3840,31 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return lokasi;
 	}
 
+	/**
+	 * Menetapkan lokasi fisik (modul aset) yang melekat pada akun.
+	 *
+	 * @param lokasi lokasi; boleh {@code null}
+	 * @see #getLokasi()
+	 */
 	public void setLokasi(Lokasi lokasi) {
 		this.lokasi = lokasi;
 	}
 
+	/**
+	 * Mengembalikan data orang tua/wali pemilik akun ini.
+	 *
+	 * <p>Selain {@code check(...)} baku, getter ini <b>menimpa</b> hasilnya dengan
+	 * {@code pegawai.getOrangTua()} bila akun tertaut ke seorang pegawai &mdash; pegawai
+	 * yang anaknya bersekolah di institusi yang sama memakai satu akun untuk kedua peran.</p>
+	 *
+	 * <p>Nilai kembalian method ini dipakai {@link #getAktif()}: akun berperan
+	 * {@link Tbmrole#ORANG_TUA} yang <i>tidak</i> punya data orang tua akan
+	 * <b>dinonaktifkan</b>. Karena penimpaan dari pegawai di atas dapat mengganti nilai yang
+	 * sudah ditetapkan, urutan pemanggilan setter dan getter berpengaruh pada status
+	 * keaktifan akun orang tua.</p>
+	 *
+	 * @return data orang tua/wali, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "orang_tua", nullable = true)
 	public OrangTua getOrangTua() {
@@ -3808,10 +3878,42 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return orangTua;
 	}
 
+	/**
+	 * Menetapkan data orang tua/wali pemilik akun.
+	 *
+	 * <p>Nilai ini akan tertimpa oleh {@link #getOrangTua()} bila akun tertaut ke pegawai
+	 * yang punya data orang tua sendiri. Perhatikan dampaknya terhadap {@link #getAktif()}
+	 * untuk akun berperan {@link Tbmrole#ORANG_TUA}.</p>
+	 *
+	 * @param orangTua data orang tua/wali; boleh {@code null}
+	 */
 	public void setOrangTua(OrangTua orangTua) {
 		this.orangTua = orangTua;
 	}
 
+	/**
+	 * Mengembalikan daftar token push-notification GCP/Firebase milik pengguna ini.
+	 *
+	 * <p>Menyimpan token perangkat untuk pengiriman notifikasi ke aplikasi seluler.
+	 * Formatnya <b>multi-perangkat</b>: beberapa token digabung dalam satu kolom
+	 * {@code text} dengan pemisah <b>titik koma</b> ({@code ";"}) &mdash; berbeda dari
+	 * pemisah koma yang dipakai kolom surel dan id media sosial.</p>
+	 *
+	 * <p>Getter destruktif dan delegatif: bila akun tertaut ke
+	 * {@link ais.database.model.sisdes.Penduduk}, {@link Mahasiswa}, atau
+	 * {@link ais.database.model.sekolah.Siswa} yang sudah ber-{@code id}, field
+	 * {@code gcpToken} <b>ditimpa</b> oleh milik entitas tersebut &mdash; sumber kebenarannya
+	 * ada di tabel masing-masing. Exception ditelan dan hanya dicatat, sehingga pada
+	 * kegagalan nilai lama yang dikembalikan.</p>
+	 *
+	 * <p>Berbeda dari getter multi-nilai lain di kelas ini, method ini <b>tidak</b>
+	 * menormalkan {@code null} menjadi string kosong, jadi pemanggil harus memeriksa
+	 * {@code null}.</p>
+	 *
+	 * @return daftar token GCP dipisah titik koma, atau {@code null}
+	 * @see #setGcpToken(String)
+	 * @see #getToken()
+	 */
 	@Column(name = "gcp_token", columnDefinition = "text")
 	public String getGcpToken() {
 
@@ -3830,10 +3932,60 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return gcpToken;
 	}
 
+	/**
+	 * Menambahkan sebuah token GCP/Firebase ke daftar token perangkat.
+	 *
+	 * <p><b>Bukan setter biasa &mdash; ini operasi tambah, bukan timpa.</b> Meski bernama
+	 * {@code setGcpToken}, method ini mendelegasikan ke
+	 * {@link #tambahToken(String, String)} yang menggabungkan token baru dengan yang sudah
+	 * ada sambil membuang duplikat. Penamaan {@code set...} dipertahankan karena Hibernate
+	 * memerlukannya sebagai pasangan {@link #getGcpToken()} untuk memetakan properti.</p>
+	 *
+	 * <p><b>Konsekuensi penting:</b> karena ini penggabung, <b>daftar token tidak dapat
+	 * dikosongkan lewat setter ini</b> &mdash; memanggilnya dengan {@code null} justru akan
+	 * menyisipkan entri kosong. Termasuk saat Hibernate memuat baris dari database:
+	 * nilai dari kolom digabungkan dengan isi field yang mungkin sudah ada, bukan
+	 * menggantikannya.</p>
+	 *
+	 * @param gcpToken token perangkat yang ditambahkan
+	 * @see #tambahToken(String, String)
+	 */
 	public void setGcpToken(String gcpToken) {
 		this.gcpToken = Tbmuser.tambahToken(gcpToken, this.gcpToken);
 	}
 
+	/**
+	 * Menggabungkan sebuah token GCP ke dalam daftar token yang sudah ada, tanpa duplikat.
+	 *
+	 * <p>Utilitas statis murni (tidak menyentuh keadaan instance) yang dipakai
+	 * {@link #setGcpToken(String)} dan dapat dipakai ulang entitas lain yang menyimpan token
+	 * perangkat dengan format yang sama.</p>
+	 *
+	 * <h3>Cara kerja</h3>
+	 * <ol>
+	 *   <li>Daftar lama dipecah dengan pemisah titik koma; setiap entri yang <b>tidak sama
+	 *   persis</b> (tanpa memandang huruf besar/kecil) dengan {@code gcpToken} disalin ke
+	 *   rangkaian baru &mdash; jadi token yang sudah ada dibuang lebih dulu agar tidak
+	 *   berganda;</li>
+	 *   <li>{@code gcpToken} ditambahkan di <b>akhir</b> daftar, sehingga token yang paling
+	 *   baru dipakai berada paling belakang;</li>
+	 *   <li>seluruh daftar disaring sekali lagi memakai {@link HashSet} untuk membuang entri
+	 *   kosong dan duplikat yang mungkin sudah ada di data lama.</li>
+	 * </ol>
+	 *
+	 * <p><b>Batasan yang perlu diketahui:</b> penyaringan tahap 3 bersifat
+	 * <i>case-sensitive</i>, sementara pembuangan tahap 1 tidak &mdash; sehingga token yang
+	 * sama dengan beda huruf besar/kecil dapat lolos. Method ini juga <b>tidak membatasi
+	 * jumlah token</b>, sehingga pengguna dengan banyak perangkat atau instalasi ulang
+	 * berkali-kali dapat menumbuhkan kolom {@code text} ini tanpa batas. Masukan
+	 * {@code null} akan ikut tergabung sebagai teks {@code "null"} melalui penggabungan
+	 * string.</p>
+	 *
+	 * @param gcpToken       token yang ditambahkan
+	 * @param existingGcpToken daftar token yang sudah ada (dipisah titik koma); boleh
+	 *                         {@code null} atau kosong
+	 * @return daftar token gabungan yang sudah bebas duplikat dan entri kosong
+	 */
 	public static String tambahToken(String gcpToken, String existingGcpToken) {
 		String tokenBaru = "";
 		if (existingGcpToken != null && !existingGcpToken.trim().isEmpty()) {

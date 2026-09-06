@@ -1057,6 +1057,33 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 	 * Membaca nilai KINI dari komponen input ZK (untuk evaluasi skip-logic secara live). Combobox dibaca dari
 	 * value item terpilih (mis. "Bekerja:1" utk pilihan custom, "true"/"false" utk ya/tidak); komponen lain
 	 * via getValue() refleksi. Aman: kembalikan "" bila gagal.
+	 *
+	 * <p><b>Berbeda tujuan dari {@link #ambilValComponent(Component, ParameterTambahan)}.</b> Yang itu
+	 * membaca nilai untuk DISIMPAN dan karena itu memformat hasilnya sesuai tipe parameter (tanggal
+	 * diformat, angka diubah menjadi teks baku, pemilih entity dirangkai menjadi
+	 * {@code "<id>-><label>"}). Method ini hanya perlu nilai untuk DIBANDINGKAN dengan syarat tampil, jadi
+	 * ia sengaja tidak tahu apa-apa tentang {@link ParameterTambahan} — cukup satu {@code Component}
+	 * sebagai argumen.</p>
+	 *
+	 * <p>{@code Combobox} ditangani khusus karena yang bermakna bagi skip-logic adalah VALUE butir
+	 * terpilih, bukan teks yang tampak. Urutan cadangannya: value butir terpilih, lalu label butir
+	 * terpilih, lalu isi teks kotaknya. Untuk pilihan custom nilai yang keluar berbentuk penuh seperti
+	 * {@code "Bekerja:1"}, dan untuk pilihan ya/tidak berupa {@code "true"}/{@code "false"} — bentuk-bentuk
+	 * itulah yang harus dicocokkan saat menulis {@link ParameterTambahan#getSyaratTampil()}.</p>
+	 *
+	 * <p>Komponen lain dibaca lewat REFLEKSI method {@code getValue()}. Pilihan ini disengaja karena
+	 * komponen ZK yang mungkin muncul di sini tidak berbagi satu antarmuka bersama; refleksi menghindari
+	 * rantai {@code instanceof} yang panjang dengan biaya hilangnya pemeriksaan pada waktu kompilasi.</p>
+	 *
+	 * <p><b>Menelan seluruh {@code Throwable} menjadi string kosong.</b> Komponen yang tidak punya
+	 * {@code getValue()}, atau yang melempar {@code WrongValueException} karena isinya belum valid,
+	 * menghasilkan {@code ""} — dan bagi skip-logic {@code ""} tidak akan cocok dengan syarat mana pun,
+	 * sehingga baris yang bergantung padanya menjadi TERSEMBUNYI. Perilaku gagal-sembunyi ini perlu
+	 * disadari saat syarat tampil tampak tidak berfungsi.</p>
+	 *
+	 * @param c komponen yang dibaca; {@code null} menghasilkan string kosong.
+	 * @return nilai kini sebagai teks; tidak pernah {@code null}.
+	 * @see #reevaluasiSkipLogic(java.util.List)
 	 */
 	public static String ambilNilaiComponent(Component c) {
 		if (c == null) {
@@ -1091,6 +1118,46 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 	 * yang PUNYA syaratTampil yang divisibilitasnya dikelola (baris lain tak disentuh, termasuk yang disembunyikan
 	 * karena hanyaTampilDiAdmin). Baris turunan (keterangan/lampiran) ikut sembunyi bila induknya tersembunyi.
 	 * Defensif total: bungkus try/catch agar tak pernah memutus render form.
+	 *
+	 * <p><b>Berjalan dalam TIGA lintasan</b> atas daftar baris yang sama, dan urutannya penting:</p>
+	 * <ol>
+	 * <li><b>Kumpulkan.</b> Membangun peta {@code parameterId -> nilai kini} dari setiap baris yang
+	 * membawa atribut {@code stParamId} dan {@code stComponent}. Peta ini harus lengkap lebih dulu karena
+	 * sebuah syarat boleh merujuk parameter mana pun dalam form, termasuk yang letaknya di BAWAH baris
+	 * yang sedang dinilai.</li>
+	 * <li><b>Nilai.</b> Untuk setiap baris yang membawa {@code stSyaratParam}, syaratnya dievaluasi
+	 * {@code ParameterTambahanHtmlHelper.lolosSyaratTampil} terhadap peta tadi, digabung dengan penjagaan
+	 * admin, lalu visibilitas barisnya ditetapkan. Id parameter yang barisnya tersembunyi dicatat ke dalam
+	 * himpunan {@code hidden}.</li>
+	 * <li><b>Rambatkan.</b> Baris turunan — baris keterangan dan baris lampiran yang membawa
+	 * {@code stChildOf} — ikut disembunyikan bila induknya ada dalam himpunan {@code hidden}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Hanya baris ber-syarat yang visibilitasnya dikelola.</b> Baris tanpa {@code stSyaratParam}
+	 * tidak disentuh sama sekali, termasuk baris yang sudah disembunyikan karena
+	 * {@link ParameterTambahan#getHanyaTampilDiAdmin()}. Ini disengaja supaya evaluasi ulang tidak
+	 * membatalkan penyembunyian yang ditetapkan {@code initComponent}.</p>
+	 *
+	 * <p><b>Penanda {@code stHidByLogic} mencegah saling tindih pada baris turunan.</b> Baris turunan hanya
+	 * DIMUNCULKAN kembali bila sebelumnya memang disembunyikan oleh method ini; penanda itulah yang
+	 * membedakannya dari baris turunan yang tersembunyi karena sebab lain, sehingga penyembunyian milik
+	 * pihak lain tidak ikut dibatalkan.</p>
+	 *
+	 * <p><b>Sifat gagal-tampil.</b> Seluruh badan method dibungkus {@code try/catch} terhadap
+	 * {@code Throwable} yang hanya mencatat ke {@code ErrorAuditUtil}. Bila evaluasi gagal di tengah jalan,
+	 * sebagian baris bisa tertinggal pada visibilitas lamanya — form tetap tampil dan tetap dapat disimpan,
+	 * tetapi skip-logic-nya tidak konsisten. Ini pertukaran yang disengaja: form yang tampil tidak sempurna
+	 * dinilai lebih baik daripada form yang gagal dirender sama sekali.</p>
+	 *
+	 * <p><b>Ini kendali TAMPILAN, bukan kendali data.</b> Baris yang disembunyikan tetap berada dalam
+	 * struktur form dan nilainya TETAP dibaca kembali oleh {@link #ambilVal(Row, ParameterTambahan)} saat
+	 * menyimpan. Jawaban atas pertanyaan yang tidak jadi ditanyakan karena tidak lolos syarat karena itu
+	 * masih bisa ikut tersimpan bila sebelumnya sempat terisi.</p>
+	 *
+	 * @param parameterRows seluruh baris parameter dalam satu form; {@code null} atau kosong membuat method
+	 *                      tanpa efek.
+	 * @see #ambilNilaiComponent(Component)
+	 * @see ParameterTambahan#getSyaratTampil()
 	 */
 	public static void reevaluasiSkipLogic(java.util.List<Row> parameterRows) {
 		try {
@@ -1151,11 +1218,80 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Pintasan {@link #ambilComponent(String, ParameterTambahan, EventListener, boolean)} dengan
+	 * {@code readonly = false} (form dapat disunting).
+	 *
+	 * <p>Perlu diingat mode hanya-baca masih bisa muncul walau argumennya {@code false}: definisi
+	 * parameter sendiri dapat memaksanya lewat {@link ParameterTambahan#getNilaiTidakBolehDiubah()}.</p>
+	 *
+	 * @param val               nilai tersimpan yang akan ditampilkan pada komponen.
+	 * @param parameterTambahan definisi parameter; tipenya menentukan komponen yang dibuat.
+	 * @param eventListener     pendengar {@code onChange} tambahan; boleh {@code null}.
+	 * @return komponen isian, atau {@code null} bila tipenya tidak punya cabang penanganan.
+	 */
 	public static Component ambilComponent(String val, ParameterTambahan parameterTambahan,
 			EventListener eventListener) {
 		return ambilComponent(val, parameterTambahan, eventListener, false);
 	}
 
+	/**
+	 * PABRIK KOMPONEN: menerjemahkan satu definisi parameter beserta nilai tersimpannya menjadi komponen
+	 * isian ZK yang sesuai.
+	 *
+	 * <p>Seluruh badan method adalah satu rantai {@code if/else if} panjang atas
+	 * {@link ParameterTambahan#getTipeDataInputan()}. Urutan cabangnya bermakna: pemeriksaan mode
+	 * HANYA-BACA berada paling depan sehingga menang atas semua tipe, sedangkan
+	 * {@link #CUSTOM_PILIHAN} diperiksa paling belakang sebagai penampung ketujuh tipe pemilih entity.</p>
+	 *
+	 * <p><b>Mode hanya-baca.</b> Aktif bila {@link ParameterTambahan#getNilaiTidakBolehDiubah()} ATAU
+	 * argumen {@code readonly} bernilai {@code true}; keduanya digabung dengan {@code ||} sehingga
+	 * penguncian pada definisi parameter tidak bisa dibatalkan oleh konteks layar. Hasilnya berupa
+	 * {@code Label}: angka diformat {@code Common.numberFormat}, {@code "true"}/{@code "false"} diterjemahkan
+	 * menjadi {@code "Ya"}/{@code "Tidak"}, dan nilai kosong ditampilkan sebagai {@code "{Tidak/belum
+	 * diisi}"} — tetapi teks penanda itu HANYA muncul bila {@code readonly} yang {@code true}, bukan bila
+	 * penguncian berasal dari definisi parameter.</p>
+	 *
+	 * <p><b>Penjagaan batas angka hanya di sisi layar.</b> Untuk tipe {@link #ANGKA} dipasang pendengar
+	 * {@code onChange} yang menolak nilai di luar
+	 * {@link ParameterTambahan#getNilaiMin()}..{@link ParameterTambahan#getNilaiMax()} dengan kotak pesan
+	 * lalu MENGEMBALIKAN komponen ke nilai sebelumnya. Bila nilai sebelumnya {@code null}, komponen diisi
+	 * dengan nilai batas yang dilanggar. Jalur non-ZK (impor, REST) tidak melewati penjagaan ini sama
+	 * sekali.</p>
+	 *
+	 * <p><b>{@link #PILIHAN_OBJECT} membuka sesi Hibernate SENDIRI.</b> Pencarian kandidat di dalam bandbox
+	 * memakai {@code HibernateUtil.getSessionFactory().openSession()} yang terisolasi dari sesi permintaan,
+	 * dan ditutup pada blok {@code finally}. Kriterianya menyisipkan
+	 * {@link ParameterTambahan#getKondisiDataInputan()} sebagai {@code sqlRestriction} MENTAH — isinya
+	 * karena itu harus diperlakukan sebagai kode tepercaya milik pengelola, bukan masukan pengguna. Hasil
+	 * dibatasi 1.000 baris, dan kolom pengurutannya menyesuaikan ada-tidaknya property {@code kode} dan
+	 * {@code nama} pada kelas sasaran yang diperiksa lewat {@code ClassMetadata}.</p>
+	 *
+	 * <p><b>Penanganan nilai lama yang tidak lagi cocok.</b> Beberapa cabang sengaja bertoleransi terhadap
+	 * data warisan: parsing angka menolak string literal {@code "null"} (hasil serialisasi objek
+	 * {@code null} di titik lain) agar tidak melempar {@code NumberFormatException}, dan
+	 * {@link #PILIHAN_CUSTOM} mencoba pencocokan KEDUA terhadap bagian nilai setelah tanda titik dua bila
+	 * pencocokan pertama terhadap butir penuh gagal. Kegagalan parsing tanggal/waktu ditelan dan
+	 * menghasilkan komponen kosong.</p>
+	 *
+	 * <p><b>Nilai balik {@code null} bermakna "tidak ada isian".</b> Tipe yang tidak punya cabang — terutama
+	 * {@link #TIDAK_ADA} — jatuh ke {@code else} terakhir dan mengembalikan {@code null}. Pemanggil WAJIB
+	 * memeriksa hal ini; {@link #initComponent(Row, Rows, String, java.util.List, java.util.Map, Long,
+	 * String, String, ParameterTambahan, EventListener, boolean, String)} memakainya untuk melewatkan
+	 * pembuatan komponen, keterangan, dan lampiran. Perhatikan bahwa
+	 * {@link #ambilComponentCustom(String, ParameterTambahan, EventListener)} justru TIDAK PERNAH
+	 * mengembalikan {@code null} — ia mengembalikan {@code Label} kosong sebagai gantinya.</p>
+	 *
+	 * @param val               nilai tersimpan; format yang diharapkan bergantung pada tipe parameter.
+	 * @param parameterTambahan definisi parameter; tidak boleh {@code null}.
+	 * @param eventListener     pendengar {@code onChange} tambahan milik pemanggil; boleh {@code null}.
+	 *                          Untuk tipe berbasis bandbox, pendengar ini juga dipanggil dengan
+	 *                          {@code Event} buatan saat pengguna memilih.
+	 * @param readonly          {@code true} untuk memaksa mode hanya-baca dari sisi konteks layar.
+	 * @return komponen isian, atau {@code null} bila tipenya tidak punya cabang penanganan.
+	 * @see #ambilValComponent(Component, ParameterTambahan)
+	 * @see #ambilComponentCustom(String, ParameterTambahan, EventListener)
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static Component ambilComponent(final String val, final ParameterTambahan parameterTambahan,
 			final EventListener eventListener, boolean readonly) {
