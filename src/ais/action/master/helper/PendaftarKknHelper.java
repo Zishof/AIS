@@ -98,14 +98,69 @@ import ais.ui.util.MyWindow;
  * <p>
  * Implementasi {@link DataLoader} ({@link #loadData(Object)}) dan {@link DataCriteria}
  * ({@link #initCriteria(boolean)}) memungkinkan kelas ini dipakai ulang sebagai sumber data oleh
- * komponen lain (mis. tombol "Baru" pada {@code AmbilDataMahasiswaSeleksiKknHelper}). Ekspor Excel
+ * komponen lain (mis. tombol "Baru" pada {@link AmbilDataMahasiswaSeleksiKknHelper}). Ekspor Excel
  * pada {@link #cetakDataCustomButton} berjalan di thread terpisah dengan progress bar berbasis
  * polling {@link org.zkoss.zul.Timer}, menuliskan kolom dinamis sesuai daftar
- * {@link ais.database.model.kkn.PersyaratanKkn} milik KKN terkait (termasuk link unduhan lampiran
- * bila persyaratan mewajibkan lampiran). Unggah Excel ({@link #displayPrasyaratKkn}) mem-parsing
- * ulang baris berdasarkan NIM dan kolom "Diterima", membuat baris
- * {@link ais.database.model.kkn.MahasiswaDaftarKkn} baru bila belum ada.
- * </p>
+ * {@link PersyaratanKkn} milik KKN terkait (termasuk link unduhan lampiran bila persyaratan
+ * mewajibkan lampiran). Unggah Excel ({@link #displayPrasyaratKkn}) mem-parsing ulang baris
+ * berdasarkan NIM dan kolom "Diterima", membuat baris {@link MahasiswaDaftarKkn} baru bila belum
+ * ada.
+ *
+ * <h3>Posisi dalam alur KKN</h3>
+ * <p>
+ * Kelas ini adalah layar <b>pendaftaran/seleksi</b>, satu tahap sebelum pembagian kelompok:
+ * <ol>
+ *   <li>mahasiswa (atau petugas) mendaftar lewat
+ *   {@code ais.action.master.kkn.KknUntukMahasiswaAction} — di sanalah kolom
+ *   {@code memenuhiSyarat} dihitung dan disimpan;</li>
+ *   <li>panitia menyeleksi di layar ini ({@code SeleksiPenerimaKknAction} &rarr; helper ini),
+ *   menetapkan {@code totalSkor} dan {@code terima};</li>
+ *   <li>mahasiswa yang diterima dibagi ke kelompok lewat {@link KelompokKknHelper} dan
+ *   {@link ais.database.model.kkn.MahasiswaDapatKelompokKkn}.</li>
+ * </ol>
+ * Pengecualian per-mahasiswa (mahasiswa yang dibebaskan dari sebagian syarat) dikelola terpisah
+ * lewat {@link PengecualianKknMahasiswaHelper}.
+ *
+ * <h3>Catatan otorisasi</h3>
+ * <p>
+ * Hak {@code APPROVE} dari menu diteruskan pemanggil sebagai parameter {@code approve} dan hanya
+ * dipakai untuk menonaktifkan checkbox "Terima" pada grid. Tiga jalur lain yang juga mengubah data
+ * penerimaan tidak memeriksanya sama sekali: tombol "Upload" (impor Excel menulis kolom
+ * {@code terima}), tombol hapus per baris, dan tombol "Hitung Skor" (menulis {@code totalSkor}).
+ * Kelas ini juga tidak melakukan pemeriksaan cakupan satuan kerja/tenant atas {@link #kkn} yang
+ * diterimanya — lihat catatan pada field {@link #kkn}.
+ *
+ * <h3>Hubungan dengan kembarannya di modul PKL</h3>
+ * <p>
+ * {@code PendaftarPklHelper} adalah salinan kelas ini untuk modul PKL. Keduanya sejajar baris demi
+ * baris pada hampir seluruh isinya, namun terdapat tiga perbedaan nyata yang <b>bukan</b> sekadar
+ * penggantian nama entitas — semuanya membuat sisi PKL lebih lemah:
+ * <ul>
+ *   <li>kelas ini mengisi label kolom "Memenuhi Syarat" lewat
+ *   {@link MahasiswaDaftarKkn#getMemenuhiSyarat()}, sedangkan kembarannya membuat label itu tetapi
+ *   tidak pernah mengisinya, sehingga kolom tersebut selalu kosong di layar PKL;</li>
+ *   <li>pencarian {@link MahasiswaKknPersyaratan} saat ekspor di sini memakai
+ *   {@code addOrder(desc(id))} + {@code setMaxResults(1)}, sedangkan kembarannya memanggil
+ *   {@code uniqueResult()} tanpa pembatas sehingga data rangkap memicu pengecualian;</li>
+ *   <li>tombol "Rekap" di sini mencetak laporan {@code penerima_kkn} yang tersedia, sedangkan
+ *   kembarannya menunjuk nama laporan yang tidak ada di direktori laporan.</li>
+ * </ul>
+ *
+ * <h3>Catatan: syarat akademik tidak dievaluasi di kelas ini</h3>
+ * <p>
+ * Ambang SKS/IPK KKN — termasuk pasangan syarat kedua {@code minimalSksBolehIkutKkn2} /
+ * {@code minimalIpkBolehIkutKkn2} yang dikendalikan sakelar "Aktifkan Syarat Lain" pada
+ * {@link Kkn} — <b>tidak</b> dievaluasi di sini. Kelas ini hanya <i>menampilkan</i> hasil evaluasi
+ * yang tersimpan pada kolom {@code memenuhiSyarat}. Jebakan konfigurasi pada pasangan syarat kedua
+ * (getter mengembalikan 0 / 0.0 saat kolomnya {@code null}, padahal nilai awal field-nya 110 / 2.0,
+ * sehingga mengaktifkan "Syarat Lain" tanpa mengisi angkanya justru <i>melonggarkan</i> syarat)
+ * terdokumentasi pada {@link Kkn} dan berlaku bagi jalur yang menghitung {@code memenuhiSyarat},
+ * bukan bagi kelas ini.
+ *
+ * @see PendaftarPklHelper
+ * @see PengecualianKknMahasiswaHelper
+ * @see KelompokKknHelper
+ * @see AmbilDataMahasiswaSeleksiKknHelper
  */
 public class PendaftarKknHelper implements DataLoader, DataCriteria {
 

@@ -86,10 +86,15 @@ import ais.ui.util.MyWindow;
  */
 public class PenilaianPklHelper implements DataLoader {
 
+	/** Grid berpaging yang menampilkan anggota {@link #kelompokPkl}, dirender oleh {@link DetailKelompokPklRenderer}. */
 	private MyGrid grid;
+	/** Kelompok PKL yang anggotanya sedang ditampilkan/dinilai. */
 	private KelompokPkl kelompokPkl;
+	/** Komponen paging grid; dimuat ulang lewat {@link #loadData} setiap kali halaman aktif berubah. */
 	private Paging paging;
+	/** Kotak pencarian toolbar: kata kunci NIM/nama mahasiswa yang menyaring {@link #initCriteria(boolean)}. */
 	private Textbox nim;
+	/** User yang sedang login; menentukan visibilitas tombol Cetak/Singkronkan Nilai (hanya untuk operator, bukan mahasiswa/siswa). */
 	private Tbmuser tbmuser;
 
 	/**
@@ -102,6 +107,7 @@ public class PenilaianPklHelper implements DataLoader {
 	 */
 	class DetailKelompokPklRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** User yang sedang login (dibaca ulang saat renderer dibuat), menentukan hak edit matakuliah/nilai per baris. */
 		Tbmuser tbmuser = Common.getCurrentUser();
 
 		@Override

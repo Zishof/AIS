@@ -92,35 +92,163 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDataPerkuliahanHelper {
 
+	/**
+	 * Tahun ajaran KRS yang sedang diisi (mis. {@code "2025/2026"}). Ditetapkan lewat
+	 * {@link #display} dan dipakai sebagai filter pencarian {@link Perkuliahan} sekaligus disalin ke setiap
+	 * {@link Detailperkuliahan} yang dibuat {@link #save()}.
+	 */
 	private String tahunAjaran;
+
+	/**
+	 * Nomor semester KRS yang sedang diisi. Ditetapkan lewat {@link #display}, dipakai sebagai filter
+	 * pencarian, sebagai dasar perhitungan batas SKS maksimum berdasarkan IPK
+	 * ({@link Common#checkPembatasanSKSBerdasarkanIP}), dan disalin ke {@link Detailperkuliahan} saat simpan.
+	 */
 	private Integer semester;
+
+	/**
+	 * Mahasiswa yang sedang mengisi KRS. Ditetapkan lewat {@link #display} dan menjadi pemilik seluruh baris
+	 * {@link Detailperkuliahan} yang dibuat {@link #save()}, serta dasar pembacaan riwayat KRS, IPK, dan
+	 * pemeriksaan prasyarat.
+	 *
+	 * <p><b>Catatan cakupan akses:</b> kelas ini menerima mahasiswa apa adanya dari pemanggil dan tidak
+	 * memverifikasi sendiri apakah pengguna yang login berhak mengisi KRS mahasiswa tersebut. Penentuan itu
+	 * berada di layar pemanggil ({@code KrsHelper}, {@code StudiMahasiswaHelper}).</p>
+	 */
 	private Mahasiswa mahasiswa;
+
+	/**
+	 * Grid hasil pencarian perkuliahan, dirender baris demi baris oleh {@link MatakuliahRenderer}. Isinya
+	 * diganti total setiap kali {@link #onSearchDefault(Event)} dijalankan ulang.
+	 */
 	private MyGrid grid;
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/**
+	 * Pembantu paging server-side (5 baris per halaman) yang memasangkan {@link org.zkoss.zul.Paging} dengan
+	 * kriteria {@link #initCriteria(boolean)}. Server-side dipilih agar hanya satu halaman perkuliahan yang
+	 * dimuat ke memori, bukan seluruh hasil pencarian.
+	 */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+
+	/**
+	 * Kotak isian kata kunci nama atau kode matakuliah. Dicocokkan secara {@code LIKE} dengan mode
+	 * {@link MatchMode#ANYWHERE} di {@link #initCriteria(boolean)}.
+	 */
 	private Textbox namaMk;
+
+	/**
+	 * Combobox filter fakultas. Mengubah pilihannya memuat ulang isi {@link #jurusanCombobox} agar hanya
+	 * berisi jurusan pada fakultas terpilih.
+	 */
 	private Combobox searchfakultas = new Combobox();
+
+	/**
+	 * Combobox filter jurusan/program studi, isinya bergantung pada {@link #searchfakultas} yang terpilih.
+	 */
 	private Combobox jurusanCombobox = new Combobox();
+
+	/**
+	 * Combobox filter {@link Program} (mis. reguler/karyawan) yang membatasi perkuliahan yang ditampilkan.
+	 */
 	private Combobox programCombobox = new Combobox();
+
+	/**
+	 * Combobox filter semester matakuliah (semester ke berapa matakuliah itu ditawarkan). Nilai awalnya
+	 * mengikuti konfigurasi {@code saat_ambil_krs_secara_default_hanya_pilih_smt_berjalan}, dan pilihannya
+	 * diabaikan bila {@link #semuaSemester} dicentang.
+	 */
 	private Combobox semesterBox;
 
+	/**
+	 * Label penunjuk total SKS yang sedang tercentang, diperbarui {@link #updateStatus(Checkbox)} setiap kali
+	 * pemakai mencentang atau melepas satu matakuliah.
+	 */
 	private Label sksYangdiambil;
+
+	/**
+	 * Penanda semester pendek (SP) yang dibatasi helper ini, atau {@code null} untuk pengambilan KRS reguler.
+	 * Ditetapkan sekali lewat konstruktor; ikut menentukan filter pencarian dan batas SKS maksimum.
+	 */
 	private Integer semesterPendek;
 
+	/**
+	 * Penanda bahwa layar pemanggil perlu dimuat ulang. Disetel {@code true} setelah {@link #save()} berhasil,
+	 * lalu dibaca saat jendela ditutup untuk memutuskan apakah {@link DataLoader} pemanggil dipanggil.
+	 */
 	private Boolean reload = false;
 
+	/**
+	 * Kumpulan perkuliahan yang sedang TERCENTANG, dikunci berdasarkan id {@link Perkuliahan}. Inilah satu-satunya
+	 * sumber kebenaran pilihan pemakai: {@link #updateStatus(Checkbox)} menambah/menghapus entri saat checkbox
+	 * diklik, {@link #hitungSksYangTelahDiambil()} menjumlahkan SKS dari isinya, dan {@link #save()} membuat satu
+	 * {@link Detailperkuliahan} untuk setiap entri.
+	 *
+	 * <p>Karena berbasis {@link HashMap} dan bukan komponen UI, centang tetap bertahan saat pemakai berpindah
+	 * halaman paging atau mengganti filter pencarian.</p>
+	 */
 	private HashMap<Long, Perkuliahan> hashMap = new HashMap<Long, Perkuliahan>();
+
+	/**
+	 * Bandbox filter kelas. Bila terisi, hanya perkuliahan pada kelas tersebut yang ditampilkan.
+	 */
 	private AmbilDataKelasBanbox kelas;
+
+	/**
+	 * Tombol Simpan. Dipegang sebagai field karena {@link #updateStatus(Checkbox)} menonaktifkannya seketika
+	 * begitu total SKS tercentang melebihi batas IPK mahasiswa ({@link #apakahMelebihiKetentuan()}), dan
+	 * mengaktifkannya kembali bila pemakai mengurangi pilihan.
+	 */
 	private MyToolbarbuttonConfig buttonSimpan;
 
+	/**
+	 * Tahapan KRS yang sedang diisi (bila fitur tahapan pengambilan KRS aktif), boleh {@code null}/0.
+	 * Ditetapkan lewat {@link #display} dan ikut menyaring perkuliahan yang boleh diambil pada tahapan itu.
+	 */
 	private Integer tahapan;
+
+	/**
+	 * Combobox filter tahapan KRS, pelengkap tampilan bagi field {@link #tahapan}.
+	 */
 	private Combobox tahapanBox;
+
+	/**
+	 * Himpunan id {@link Matakuliah} yang PERNAH diambil mahasiswa ini di seluruh riwayat KRS-nya. Dipakai
+	 * {@link MatakuliahRenderer} untuk menyembunyikan checkbox pilih pada matakuliah yang sudah pernah diambil
+	 * (kecuali kurikulumnya mengizinkan pengambilan ulang, mis. untuk mengulang atau menabung nilai).
+	 */
 	private Set<Long> matakuliahTelahDiambil = new HashSet<Long>();
+
+	/**
+	 * Himpunan id {@link Perkuliahan} (kelas tertentu, bukan sekadar matakuliahnya) yang pernah diambil
+	 * mahasiswa ini. Lebih spesifik daripada {@link #matakuliahTelahDiambil} sehingga dapat membedakan
+	 * pengambilan ulang matakuliah yang sama di kelas berbeda.
+	 */
 	private Set<Long> perkuliahanTelahDiambil = new HashSet<Long>();
+
+	/**
+	 * Peta id {@link Matakuliah} &rarr; ringkasan riwayat pengambilan (tahun ajaran, semester, nilai) yang
+	 * ditampilkan pada baris grid agar mahasiswa tahu kapan dan dengan nilai berapa matakuliah itu pernah
+	 * diambil. Diisi sekali di {@link #display} lewat {@link #simpanInfoRiwayat(Map, Long, String)}.
+	 */
 	private Map<Long, String> riwayatMatakuliah = new HashMap<Long, String>();
+
+	/**
+	 * Kembaran {@link #riwayatMatakuliah} yang dikunci per id {@link Perkuliahan}, sehingga riwayat dapat
+	 * ditampilkan tepat pada kelas yang bersangkutan bila tersedia.
+	 */
 	private Map<Long, String> riwayatPerkuliahan = new HashMap<Long, String>();
+
+	/**
+	 * Bila {@code true}, helper hanya menampilkan perkuliahan yang ditandai remedial; bila {@code false},
+	 * justru menyingkirkan perkuliahan remedial dari hasil pencarian. Ditetapkan sekali lewat konstruktor.
+	 */
 	private boolean remedial;
+
+	/**
+	 * Checkbox "semua semester". Bila dicentang, filter {@link #semesterBox} diabaikan sehingga matakuliah dari
+	 * seluruh semester ditampilkan — berguna bagi mahasiswa yang mengulang matakuliah semester bawah.
+	 */
 	private Checkbox semuaSemester;
 
 	/**

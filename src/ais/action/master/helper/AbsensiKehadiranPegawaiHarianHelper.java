@@ -1007,6 +1007,16 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 				Common.createDefaultTimer(new EventListener() {
 
+					/**
+					 * Menutup jendela edit dan memuat ulang grid induk SETELAH transaksi simpan selesai dan
+					 * session Hibernate ditutup. Penundaan ke siklus event berikutnya lewat
+					 * {@link Common#createDefaultTimer(EventListener)} bersifat esensial di sini: memanggil
+					 * {@link #loadData(Object)} langsung di dalam listener simpan akan menjalankan seluruh query
+					 * pemuatan di atas session yang baru saja di-{@code close}.
+					 *
+					 * @param arg0 event timer penunda
+					 * @throws Exception diteruskan dari {@link #loadData(Object)}
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						window.detach();
@@ -1083,6 +1093,19 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 		Common.createDefaultTimer(new EventListener() {
 
+			/**
+			 * Badan sebenarnya dari {@link #loadData(Object)}; seluruh langkah yang diuraikan pada dokumentasi
+			 * method tersebut dijalankan di sini, satu siklus event setelah pemanggilan, agar indikator sibuk
+			 * dan komponen lain sempat ter-render lebih dulu.
+			 *
+			 * <p>{@code tbmuser} yang diambil di awal HANYA diteruskan ke
+			 * {@link GeneralValueObject#tampilKunci} sebagai identitas pengunci baris; nilai ini tidak dipakai
+			 * untuk menyaring pegawai mana yang boleh ditampilkan — penentuan cakupan akses sepenuhnya berada di
+			 * pemanggil (lihat dokumentasi field {@link #pegawai}).</p>
+			 *
+			 * @param arg0 event timer penunda dari {@link Common#createDefaultTimer(EventListener)}
+			 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -1363,6 +1386,20 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 												: ""));
 										a.addEventListener("onClick", new EventListener() {
 
+											/**
+											 * Membuka foto absensi online pada tabel "Sejarah Absensi Online" di
+											 * jendela pop-up terpusat lewat fungsi JavaScript {@code popupCenter}.
+											 *
+											 * <p>URL diambil dari label komponen {@link A} yang diklik dan WAJIB
+											 * dilewatkan {@link Common#jsEscape(String)} lebih dulu: label itu berasal
+											 * dari data absensi yang tersimpan, sehingga menyisipkannya mentah ke dalam
+											 * string JavaScript membuka celah injeksi skrip. Pemanggilan
+											 * {@code jsEscape} ini jangan dihapus saat merapikan kode.</p>
+											 *
+											 * @param arg0 event {@code onClick} yang target-nya adalah tautan foto
+											 * @throws Exception diteruskan dari akses komponen ZK bila terjadi
+											 *                   kegagalan
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 												Clients.evalJavaScript(
@@ -1376,6 +1413,19 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 												: ""));
 										a.addEventListener("onClick", new EventListener() {
 
+											/**
+											 * Kembaran listener tautan foto, untuk kolom lokasi: membuka tautan peta
+											 * lokasi scan absensi di jendela pop-up terpusat.
+											 *
+											 * <p>Sama seperti tautan foto, URL berasal dari label komponen {@link A}
+											 * yang isinya data tersimpan, sehingga {@link Common#jsEscape(String)}
+											 * wajib dipertahankan sebelum nilainya disisipkan ke dalam string
+											 * JavaScript.</p>
+											 *
+											 * @param arg0 event {@code onClick} yang target-nya adalah tautan lokasi
+											 * @throws Exception diteruskan dari akses komponen ZK bila terjadi
+											 *                   kegagalan
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 												Clients.evalJavaScript(
@@ -2042,6 +2092,22 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 							GeneralValueObject.tampilKunci(toolbar, statuskehadiranKaryawanHarian, tbmuser,
 									new EventListener() {
+										/**
+										 * Callback yang dijalankan {@link GeneralValueObject#tampilKunci} setelah
+										 * baris berhasil dikunci atau dibuka kuncinya: memuat ulang seluruh grid agar
+										 * kontrol override shift/lembur dan tombol Ubah menyesuaikan status
+										 * {@code getDikunci()} yang baru.
+										 *
+										 * <p>Pemuatan ulang penuh dipilih (bukan sekadar menyegarkan satu baris)
+										 * karena status terkunci menentukan komponen mana saja yang dirender pada
+										 * baris tersebut. Argumen terakhir {@code false} pada {@code tampilKunci}
+										 * menandakan baris ini bukan dokumen berjenjang, sehingga hanya tombol kunci
+										 * sederhana yang ditampilkan.</p>
+										 *
+										 * @param event event yang dikirim {@code tampilKunci} setelah status kunci
+										 *              berubah
+										 * @throws Exception diteruskan dari {@link #loadData(Object)}
+										 */
 										@Override
 										public void onEvent(Event event) throws Exception {
 											loadData(null);

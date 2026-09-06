@@ -80,8 +80,10 @@ import ais.ui.util.WaktuUtil;
  */
 public class AktifitasSkripsiHelper {
 
+	/** Helper penjadwalan sidang/revisi yang didelegasikan saat tombol "Agenda Sidang dan Revisi" diklik. */
 	protected PenjadwalanSkripsiHelper penjadwalanHelper = new PenjadwalanSkripsiHelper();
 
+	/** Mahasiswa pengguna saat ini (bila user login adalah mahasiswa), dipakai untuk personalisasi tampilan timeline; {@code null} bila bukan mahasiswa atau gagal diambil. */
 	private Mahasiswa userMahasiswa = null;
 
 	/** Menyimpan referensi {@link Mahasiswa} pengguna saat ini (bila pengguna login adalah mahasiswa), dipakai untuk personalisasi tampilan timeline. */
@@ -497,6 +499,7 @@ public class AktifitasSkripsiHelper {
 
 	}
 
+	/** Toolbar ekspor tab "Laporan", disimpan sebagai field agar dapat diteruskan ke {@link Report#generateFileReport} sebagai indikator progres. */
 	private Toolbar toolbar;
 
 	/**

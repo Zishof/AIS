@@ -89,15 +89,21 @@ import ais.ui.util.MyWindow;
  */
 public class PenilaianKknHelper implements DataLoader {
 
+	/** Grid berpaging yang menampilkan anggota {@link #kelompokKkn}, dirender oleh {@link DetailKelompokKknRenderer}. */
 	private MyGrid grid;
+	/** Kelompok KKN yang anggotanya sedang ditampilkan/dinilai. */
 	private KelompokKkn kelompokKkn;
+	/** Komponen paging grid; dimuat ulang lewat {@link #loadData} setiap kali halaman aktif berubah. */
 	private Paging paging;
+	/** Kotak pencarian toolbar: kata kunci NIM/nama mahasiswa yang menyaring {@link #initCriteria(boolean)}. */
 	private Textbox nim;
+	/** User yang sedang login; menentukan visibilitas tombol Cetak/Singkronkan Nilai (hanya untuk operator, bukan mahasiswa/siswa). */
 	private Tbmuser tbmuser;
 
 	/** Row renderer grid anggota kelompok KKN: foto+NIM mahasiswa, nama, jurusan, fakultas, matakuliah KKN yang diambil (editable untuk operator, read-only untuk mahasiswa/dosen), total nilai, nilai huruf, dan tombol buka dialog Penilaian. Baris disamarkan ("-") bila mahasiswa yang login bukan pemilik baris. */
 	class DetailKelompokKknRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** User yang sedang login (dibaca ulang saat renderer dibuat), menentukan hak edit matakuliah/nilai per baris. */
 		Tbmuser tbmuser = Common.getCurrentUser();
 
 		@Override

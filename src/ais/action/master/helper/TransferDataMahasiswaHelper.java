@@ -79,13 +79,20 @@ import ais.ui.util.MyWindow;
  */
 public class TransferDataMahasiswaHelper {
 
+	/** Kelas (perkuliahan) asal yang pesertanya akan ditransfer. */
 	private Perkuliahan perkuliahan;
+	/** Grid peserta kelas asal, dirender oleh {@link DetailperkuliahanRenderer}. */
 	private MyGrid grid;
+	/** Kotak filter pencarian: NIM mahasiswa (contains, ILIKE anywhere); dikunci bila {@link #selectedMahasiswa} diisi. */
 	private Textbox nimmahasiswa;
+	/** Kotak filter pencarian: nama mahasiswa (contains, ILIKE anywhere); dikunci bila {@link #selectedMahasiswa} diisi. */
 	private Textbox namamahasiswa;
 
+	/** Combobox pilihan kelas paralel tujuan, diisi di konstruktor (lihat javadoc kelas untuk kriteria kandidatnya). */
 	private Combobox perkuliahanTujuan;
+	/** Bila tidak {@code null}, membatasi/mengunci tampilan pada satu mahasiswa spesifik (lihat javadoc kelas). */
 	private Mahasiswa selectedMahasiswa;
+	/** Filter program studi pada pencarian peserta. */
 	private Combobox program;
 
 	/** Seperti {@link #TransferDataMahasiswaHelper(Perkuliahan, Mahasiswa)} tanpa mahasiswa terpilih (mode transfer massal, seluruh peserta kelas dapat dipilih). */
@@ -132,6 +139,14 @@ public class TransferDataMahasiswaHelper {
 	/** Perender baris grid: checkbox pemilihan (terkunci untuk {@link #selectedMahasiswa} atau mahasiswa berstatus non-aktif), NIM/nama/tahun angkatan/program mahasiswa, total nilai & status persetujuan pada {@code perkuliahan} asal, dan kelas KRS mahasiswa (disinkronkan lewat {@link Common#singkronkanKrsMahasiswa}). */
 	class DetailperkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris peserta kelas asal (lihat javadoc kelas
+		 * {@link DetailperkuliahanRenderer} untuk rincian kolom dan aturan checkbox terkunci).
+		 *
+		 * @param arg0 baris grid yang diisi
+		 * @param arg1 instance {@link Detailperkuliahan} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
