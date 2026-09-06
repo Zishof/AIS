@@ -948,12 +948,18 @@ public class CommonFileMediaHelper extends Common {
 							} else {
 								Object o = arg0.getData();
 								if (o != null) {
-									Session session = StreamingHibernateUtil.getInstance().currentSession();
+									Session session = null;
 									TugasFileContent tugasFileContent = null;
 									try {
-										tugasFileContent = ((TugasFileContent) (o instanceof TugasFileContent ? o
+										session = StreamingHibernateUtil.getInstance().openSession();
+										session.beginTransaction();
+										tugasFileContent = ((TugasFileContent) (o instanceof TugasFileContent
+												? session.get(TugasFileContent.class, ((TugasFileContent) o).getId())
 												: session.createCriteria(TugasFileContent.class)
 														.add(Restrictions.idEq(((Object[]) o)[0])).uniqueResult()));
+										if (tugasFileContent == null) {
+											throw new IllegalStateException("Berkas sumber tugas tidak ditemukan.");
+										}
 
 										if (!(o instanceof TugasFileContent) && ((Object[]) o).length == 1) {
 
@@ -980,12 +986,11 @@ public class CommonFileMediaHelper extends Common {
 																	: pegawai != null ? pegawai.getNama()
 																			: (tbmuser.getUserNama()));
 
-											session.getTransaction().begin();
 											session.save(copy);
-											session.getTransaction().commit();
 
 											tugasFileContent = copy;
 										}
+										session.getTransaction().commit();
 									} catch (Exception e) {
 										tampilErrorJikaAdmin(e);
 										PesanFormalHelper.tampilkanGagalException(
@@ -993,9 +998,10 @@ public class CommonFileMediaHelper extends Common {
 												new String[] {
 														"Ulangi proses pengumpulan/pengambilan berkas tugas ini.",
 														"Periksa apakah berkas yang dipilih masih tersedia di server." });
+										return;
+									} finally {
+										HibernateUtil.closeSessionQuietly(session);
 									}
-
-									StreamingHibernateUtil.getInstance().closeSession();
 
 									if (eventListener != null) {
 										eventListener.onEvent(arg0);

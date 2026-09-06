@@ -258,9 +258,5 @@ public final class KarirConfigUtil {
             } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/KarirConfigUtil.java:250");
             }
         }
-        try {
-            HibernateUtil.closeSession();
-        } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/KarirConfigUtil.java:254");
-        }
     }
 }

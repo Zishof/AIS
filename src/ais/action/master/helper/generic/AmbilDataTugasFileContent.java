@@ -442,7 +442,7 @@ public class AmbilDataTugasFileContent extends MyWindow {
 		return mybutton;
 	}
 
-	private TugasFileContent tugasFileContent = null;
+	private volatile TugasFileContent tugasFileContent = null;
 	private MyCheckboxConfig tampilkan;
 	private Toolbar toolbar;
 	private MyBorderlayout myBorderlayout1;
@@ -497,6 +497,8 @@ public class AmbilDataTugasFileContent extends MyWindow {
 				String tugasName = tugas.getJudultugas() + "-Pertemuan ke " + pertemuan.getPertemuanKe() + " "
 						+ pertemuan.info();
 
+				final java.util.concurrent.atomic.AtomicReference<Throwable> gagalUpload =
+						new java.util.concurrent.atomic.AtomicReference<Throwable>();
 				driveUtilPerPengguna.prosesBackup(f, voPembelajaran.infoSimple(), tugasName, new EventListener() {
 
 					@Override
@@ -507,10 +509,12 @@ public class AmbilDataTugasFileContent extends MyWindow {
 
 						if (fileUpload != null && fileUpload.getId() != null) {
 
+							Session session = null;
 							try {
 
-								Session session = StreamingHibernateUtil.getInstance().currentSession();
-								tugasFileContent = new TugasFileContent(tugas.getClass().getName());
+								session = StreamingHibernateUtil.getInstance().openSession();
+								session.beginTransaction();
+								TugasFileContent tugasFileContent = new TugasFileContent(tugas.getClass().getName());
 								tugasFileContent.setGdrive(fileUpload.getId());
 								tugasFileContent.setGdriveUsername(
 										tbmuser == null ? Common.getCurrentSessionId() : tbmuser.getUserId());
@@ -567,19 +571,15 @@ public class AmbilDataTugasFileContent extends MyWindow {
 														: pegawai != null ? pegawai.getNama()
 																: (tbmuser.getUserNama()));
 
-								session.getTransaction().begin();
 								session.save(tugasFileContent);
 								session.getTransaction().commit();
-								// session.disconnect();
-								if (session.isOpen()) {
-									session.disconnect();
-									session.close();
-								}
-								StreamingHibernateUtil.getInstance().closeSession();
+								AmbilDataTugasFileContent.this.tugasFileContent = tugasFileContent;
 
 							} catch (Exception e) {
-								StreamingHibernateUtil.getInstance().rollbackTransaction();
-								Common.tampilErrorJikaAdmin(e);
+								gagalUpload.set(e);
+								ais.common.ErrorAuditUtil.record(e, "upload-tugas-gdrive simpan metadata");
+							} finally {
+								HibernateUtil.closeSessionQuietly(session);
 							}
 
 						}
@@ -595,8 +595,17 @@ public class AmbilDataTugasFileContent extends MyWindow {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
+						if (gagalUpload.get() != null) {
+							timer.stop();
+							timer.detach();
+							ais.ui.util.MyMessageboxConfig.show("Berkas belum berhasil dikaitkan ke tugas. "
+									+ "Silakan coba kembali atau hubungi admin dengan waktu kejadian.");
+							return;
+						}
 						if (tugasFileContent != null && tugasFileContent.getId() != null) {
-							eventListener.onEvent(new Event("baru", null, tugasFileContent));
+							if (eventListener != null) {
+								eventListener.onEvent(new Event("baru", null, tugasFileContent));
+							}
 							AmbilDataTugasFileContent.this.detach();
 							timer.stop();
 							timer.detach();

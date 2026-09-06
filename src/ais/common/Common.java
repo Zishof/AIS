@@ -486,11 +486,8 @@ public class Common {
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:476");
 				}
 			}
-		} finally {
-			try {
-				HibernateUtil.closeSession();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:482");
-			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "Common.closeNativeSessionQuietly");
 		}
 	}
 

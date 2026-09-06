@@ -3,7 +3,9 @@ package ais.action.master.akunting.util;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -98,18 +100,72 @@ public class CommonAkunting {
 	private static final Object KODE_JURNAL_LOCK = new Object();
 	private static long lastNoJurnalSeq = 0L;
 
+	/**
+	 * Cache khusus satu pekerjaan posting massal pada thread yang sama. Validasi closing,
+	 * pencarian kunci idempotensi, dan pembacaan nomor jurnal tetap dilakukan, tetapi cukup
+	 * sekali di awal batch alih-alih tiga query untuk setiap dokumen.
+	 */
+	private static final ThreadLocal<KonteksPostingMassal> KONTEKS_POSTING_MASSAL =
+			new ThreadLocal<KonteksPostingMassal>();
+
+	private static final class KonteksPostingMassal {
+		private Date maxClosing;
+		private long maxIdGrup;
+		private final Map<String, GrupTransaksi> grupBerdasarKode =
+				new HashMap<String, GrupTransaksi>();
+	}
+
+	/**
+	 * Memulai optimasi query untuk satu batch posting. Wajib dipasangkan dengan
+	 * {@link #selesaiPostingMassal()} di blok finally pada thread yang sama.
+	 */
+	@SuppressWarnings("unchecked")
+	public static void mulaiPostingMassal(Session session, List<String> kodeUnik) {
+		KonteksPostingMassal konteks = new KonteksPostingMassal();
+		konteks.maxClosing = (Date) session.createCriteria(Closing.class)
+				.setProjection(Projections.max("tanggal")).uniqueResult();
+		Long max = (Long) session.createCriteria(GrupTransaksi.class)
+				.setProjection(Projections.max("id")).uniqueResult();
+		konteks.maxIdGrup = max == null ? 0L : max.longValue();
+		if (kodeUnik != null && !kodeUnik.isEmpty()) {
+			List<GrupTransaksi> grup = session.createCriteria(GrupTransaksi.class)
+					.add(Restrictions.in("kodeUnik", kodeUnik)).list();
+			for (GrupTransaksi g : grup) {
+				String kode = g.getKodeUnik();
+				if (kode != null) {
+					konteks.grupBerdasarKode.put(kode, g);
+				}
+			}
+		}
+		KONTEKS_POSTING_MASSAL.set(konteks);
+	}
+
+	/** Membersihkan cache batch agar tidak menahan entity/session pada thread pool server. */
+	public static void selesaiPostingMassal() {
+		KONTEKS_POSTING_MASSAL.remove();
+	}
+
 	public static String generateNoJurnal(JenisTransaksi jenisTransaksi, boolean tambah) {
 		if (jenisTransaksi == null || jenisTransaksi.getNomorSurat() == null) {
 			synchronized (KODE_JURNAL_LOCK) {
-				Session session = HibernateUtil.currentSession();
-				Long max = (Long) session.createCriteria(GrupTransaksi.class).setProjection(Projections.max("id"))
-						.uniqueResult();
+				KonteksPostingMassal konteks = KONTEKS_POSTING_MASSAL.get();
+				Long max = null;
+				if (konteks != null) {
+					max = Long.valueOf(konteks.maxIdGrup);
+				} else {
+					Session session = HibernateUtil.currentSession();
+					max = (Long) session.createCriteria(GrupTransaksi.class)
+							.setProjection(Projections.max("id")).uniqueResult();
+				}
 
 				long base = (max == null) ? 1L : (max.longValue() + 1L);
 				// Jangan pernah memakai nomor lebih kecil dari yang sudah pernah diterbitkan, agar aman
 				// saat banyak thread posting bersamaan sebelum ada yang commit (cegah kode kembar).
 				long seq = Math.max(base, lastNoJurnalSeq + 1L);
 				lastNoJurnalSeq = seq;
+				if (konteks != null) {
+					konteks.maxIdGrup = seq;
+				}
 
 				String kode = "00000000000000000000000" + seq;
 
@@ -580,8 +636,11 @@ public class CommonAkunting {
 			return true;
 		}
 
-		Date maxClosing = (Date) session.createCriteria(Closing.class).setProjection(Projections.max("tanggal"))
-				.uniqueResult();
+		KonteksPostingMassal konteks = KONTEKS_POSTING_MASSAL.get();
+		Date maxClosing = konteks == null
+				? (Date) session.createCriteria(Closing.class).setProjection(Projections.max("tanggal"))
+						.uniqueResult()
+				: konteks.maxClosing;
 		if (maxClosing != null && tanggal != null && tanggal.before(maxClosing)) {
 
 			try {
@@ -696,8 +755,11 @@ public class CommonAkunting {
 					(ais.database.model.koperasi.TransaksiKoperasi) reference);
 		}
 		grupTransaksi.setRef(ref);
-		GrupTransaksi apakahSudahada = (GrupTransaksi) session.createCriteria(GrupTransaksi.class)
-				.add(Restrictions.eq("kodeUnik", grupTransaksi.getKodeUnik())).setMaxResults(1).uniqueResult();
+		String kodeUnik = grupTransaksi.getKodeUnik();
+		GrupTransaksi apakahSudahada = konteks != null && kodeUnik != null
+				? konteks.grupBerdasarKode.get(kodeUnik)
+				: (GrupTransaksi) session.createCriteria(GrupTransaksi.class)
+						.add(Restrictions.eq("kodeUnik", kodeUnik)).setMaxResults(1).uniqueResult();
 		if (apakahSudahada != null) {
 			apakahSudahada.setPostingHistory(postingHistory);
 			Common.refreshUpdate(session, apakahSudahada);
@@ -858,6 +920,9 @@ public class CommonAkunting {
 			grupTransaksi.setTotalDebet(totalDebet);
 			grupTransaksi.setTotalKredit(totalKredit);
 			session.save(grupTransaksi);
+			if (konteks != null && kodeUnik != null) {
+				konteks.grupBerdasarKode.put(kodeUnik, grupTransaksi);
+			}
 
 			if (denda != null && denda > 0.1 && akunDenda != null) {
 

@@ -218,12 +218,12 @@ public class LinimasaApi {
 			}
 
 			JSONObject data = new JSONObject();
-			data.put("hadir", hadir);
-			data.put("izin", izin);
-			data.put("sakit", sakit);
-			data.put("alpa", alpa);
-			data.put("belum", belum);
-			data.put("lainnya", lainnya);
+			data.put("hadir", (Object) Long.valueOf(hadir));
+			data.put("izin", (Object) Long.valueOf(izin));
+			data.put("sakit", (Object) Long.valueOf(sakit));
+			data.put("alpa", (Object) Long.valueOf(alpa));
+			data.put("belum", (Object) Long.valueOf(belum));
+			data.put("lainnya", (Object) Long.valueOf(lainnya));
 			data.put("total_pertemuan", totalPertemuan);
 			jsonObject.put("status", "00");
 			jsonObject.put("data", data);

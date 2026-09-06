@@ -3187,6 +3187,7 @@ public class PenjadwalanHelper {
 		Session lampiranSession = null;
 		try {
 			lampiranSession = StreamingHibernateUtil.getInstance().openSession();
+			lampiranSession.beginTransaction();
 			Session session = lampiranSession;
 
 			List<PertemuanFileContent> pertemuanFileContents = session.createCriteria(PertemuanFileContent.class)

@@ -119,6 +119,7 @@ public final class RepositorySyncScheduler {
 					// kegagalan commit/rollback tetap terlihat di audit.
 					ErrorAuditUtil.record(commitEx,
 							"auto-audit src/ais/action/master/repository/RepositorySyncScheduler.java:commit-or-rollback");
+					throw new IllegalStateException("Sinkronisasi repository gagal menyimpan transaksi.", commitEx);
 				}
 				// connection-lost sudah tercatat oleh RepositorySyncService; jangan duplikasi log
 				// dgn exception sekunder yg cuma menegaskan koneksi sudah mati.

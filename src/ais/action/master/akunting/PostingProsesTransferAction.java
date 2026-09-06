@@ -1337,49 +1337,25 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 		// melaporkan sukses padahal jurnal dan penanda postingnya masih utuh.
 		Session session = HibernateUtil.currentNativeSession();
 		try {
-			List<DaftarPengajuanTransfer> daftar = kriteriaPostingStatic(session, mulai, sampai)
-					.add(Restrictions.isNotNull("postingHistory")).list();
-			final int ukuranBatch = 50;
-			int dipindaiDalamBatch = 0;
-			int dibatalkanDalamBatch = 0;
-			session = HibernateUtil.currentNativeSession();
-			session.getTransaction().begin();
-			for (DaftarPengajuanTransfer dpt : daftar) {
-				try {
-					// Baris transaksi dihapus lebih dulu -- grup_transaksi adalah induknya.
-					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
-							+ " (select id from akunting.grup_transaksi where daftar_pengajuan_transfer="
-							+ dpt.getId() + " and closing is null)").executeUpdate();
-					session.createSQLQuery("delete from akunting.grup_transaksi where daftar_pengajuan_transfer="
-							+ dpt.getId() + " and closing is null").executeUpdate();
-					dpt.setPostingHistory(null);
-					session.update(dpt);
-					dibatalkanDalamBatch++;
-					dipindaiDalamBatch++;
-					if (dipindaiDalamBatch >= ukuranBatch) {
-						session.getTransaction().commit();
-						n += dibatalkanDalamBatch;
-						dipindaiDalamBatch = 0;
-						dibatalkanDalamBatch = 0;
-						session = HibernateUtil.currentNativeSession();
-						session.getTransaction().begin();
-					}
-				} catch (Exception e) {
-					try {
-						session.getTransaction().rollback();
-					} catch (Exception ex) {
-						// rollback gagal: kegagalan aslinya yang dilaporkan
-					}
-					dipindaiDalamBatch = 0;
-					dibatalkanDalamBatch = 0;
-					ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
-					// Jangan lanjutkan session yang baru rollback: state entitas batch masih
-					// berada di first-level cache dan dapat ter-flush ulang secara tidak sengaja.
-					throw new RuntimeException(e);
-				}
+			List<Long> ids = kriteriaPostingStatic(session, mulai, sampai)
+					.add(Restrictions.isNotNull("postingHistory"))
+					.setProjection(Projections.property("id")).list();
+			if (ids == null || ids.isEmpty()) {
+				return 0;
 			}
+			session.getTransaction().begin();
+			// Tiga operasi set-based menggantikan 2 DELETE + 1 UPDATE per dokumen.
+			// Daftar ID tetap berasal dari kriteria bisnis yang sama dengan layar/API.
+			session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
+					+ " (select id from akunting.grup_transaksi where daftar_pengajuan_transfer in (:ids)"
+					+ " and closing is null)").setParameterList("ids", ids).executeUpdate();
+			session.createSQLQuery("delete from akunting.grup_transaksi"
+					+ " where daftar_pengajuan_transfer in (:ids) and closing is null")
+					.setParameterList("ids", ids).executeUpdate();
+			session.createSQLQuery("update akunting.daftar_pengajuan_transfer set posting_history=null"
+					+ " where id in (:ids)").setParameterList("ids", ids).executeUpdate();
 			session.getTransaction().commit();
-			n += dibatalkanDalamBatch;
+			n = ids.size();
 		} catch (Exception e) {
 			try {
 				session.getTransaction().rollback();
@@ -1476,6 +1452,13 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 			int tersimpanDalamBatch = 0;
 			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
+			List<String> kodeUnikBatch = new ArrayList<String>();
+			for (DaftarPengajuanTransfer dpt : daftar) {
+				if (dpt != null && dpt.getId() != null) {
+					kodeUnikBatch.add(DaftarPengajuanTransfer.class.getName() + "_" + dpt.getId());
+				}
+			}
+			CommonAkunting.mulaiPostingMassal(session, kodeUnikBatch);
 			for (DaftarPengajuanTransfer dpt : daftar) {
 				try {
 					if (dpt == null) {
@@ -1591,6 +1574,7 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 			}
 			ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
 		} finally {
+			CommonAkunting.selesaiPostingMassal();
 			try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransferAction.postingSemua-disconnect"); }
 			try { HibernateUtil.closeSession(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) PostingProsesTransferAction.postingSemua-close"); }
 		}
