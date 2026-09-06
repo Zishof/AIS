@@ -49,6 +49,15 @@ import ais.ui.util.WaktuUtil;
  * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
  * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
  * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06)</b>: kredensial gateway {@code bankaltimtara_username}/
+ * {@code bankaltimtara_password} sebelumnya memiliki nilai default hardcode {@code "ubtva1"}/
+ * {@code "12345678"} sebagai fallback {@link Common#getKonfigurasi(String, String)} — sudah diganti
+ * string kosong, pola identik dgn perbaikan di
+ * {@code DownloadTagihanMahasiswaBankBankaltimtara}/{@code DownloadNoRegistrasiCalonMahasiswaBankBankaltimtara}.
+ * Objek {@code login} (username+password JSON) sebelumnya juga dicetak ke stdout/log server via
+ * {@code System.out.println} — baris log tersebut sudah dihapus.
+ * </p>
  *
  * @see MyWindow
  */
@@ -227,14 +236,12 @@ public class DownloadNoUjianCalonMahasiswaBankBankaltimtara extends MyWindow {
 				String strURL = (Common.getKonfigurasi("bankaltimtara_gateway_url_autentication",
 						"https://api-dev.bankaltimtara.co.id:8300/api/user/auth").getNilai());
 
-				String user = Common.getKonfigurasi("bankaltimtara_username", "ubtva1").getNilai();
-				String pwd = Common.getKonfigurasi("bankaltimtara_password", "12345678").getNilai();
+				String user = Common.getKonfigurasi("bankaltimtara_username", "").getNilai();
+				String pwd = Common.getKonfigurasi("bankaltimtara_password", "").getNilai();
 
 				JSONObject login = new JSONObject();
 				login.put("username", user);
 				login.put("password", pwd);
-
-				System.out.println(login + "");
 
 				String[] command = { "curl", "--silent", "--show-error", "--location", strURL, "--header",
 						"Content-type: application/json", "--data-raw", login.toString() };

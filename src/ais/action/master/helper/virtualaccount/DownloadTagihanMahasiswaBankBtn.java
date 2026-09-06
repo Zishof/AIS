@@ -91,10 +91,15 @@ import ais.ui.util.WaktuUtil;
  * </p>
  *
  * <p>
- * <b>Perhatian keamanan</b>: {@link #post(String, String, String)} memakai nilai default hardcode
- * untuk kredensial gateway ({@code btn_company_id="BSTIMPR"}, {@code btn_key} berupa string acak
- * panjang, dan {@code btn_secret}) sebagai fallback ketika baris {@link Konfigurasi} terkait belum
- * ada di database — lihat catatan temuan keamanan pada laporan tugas ini untuk detail lokasi baris.
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06)</b>: {@link #post(String, String, String)} sebelumnya
+ * memakai nilai default hardcode untuk kredensial gateway — {@code btn_key} (string acak panjang)
+ * dan {@code btn_secret} — sebagai fallback ketika baris {@link Konfigurasi} terkait belum ada di
+ * database. Kedua default itu sudah diganti string kosong; kredensial kini WAJIB diisi lewat
+ * konfigurasi database, dan penandatanganan HMAC akan gagal dengan jelas (bukan diam-diam memakai
+ * kredensial lama yang sudah bocor) bila konfigurasi belum diisi. {@code btn_company_id="BSTIMPR"}
+ * TETAP dipertahankan sebagai default (bukan kredensial rahasia, hanya kode identitas
+ * merchant/institusi). Kredensial lama yang sebelumnya tertanam sudah lama berada di riwayat SVN
+ * dan WAJIB dianggap bocor — perlu dirotasi di sisi gateway Bank BTN bila masih dipakai produksi.
  * </p>
  */
 public class DownloadTagihanMahasiswaBankBtn {
@@ -165,8 +170,8 @@ public class DownloadTagihanMahasiswaBankBtn {
 		CloseableHttpClient httpclient = HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
 		try {
 			String prefix = Common.getKonfigurasi("btn_company_id", "BSTIMPR").getNilai();
-			String postfix = Common.getKonfigurasi("btn_key", "zitAhzP3B6HrQhO7yUaiIAENnv3GX3N3").getNilai();
-			String secret = Common.getKonfigurasi("btn_secret", "kNlRLG978n").getNilai();
+			String postfix = Common.getKonfigurasi("btn_key", "").getNilai();
+			String secret = Common.getKonfigurasi("btn_secret", "").getNilai();
 			String message = prefix + ":" + jsonData + ":" + postfix;
 			String signature = encode(secret, message);
 

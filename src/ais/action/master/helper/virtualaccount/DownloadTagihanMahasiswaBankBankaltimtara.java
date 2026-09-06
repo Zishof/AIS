@@ -49,19 +49,23 @@ import ais.ui.util.WaktuUtil;
  * </p>
  *
  * <p>
- * <b>Peringatan keamanan</b>: kredensial gateway bank memiliki nilai default tertanam langsung
- * di kode sebagai fallback {@link Common#getKonfigurasi(String, String)} — {@code
- * bankaltimtara_password} default {@code "12345678"} (lihat {@link #downloadData}) dan {@code
- * bankaltimtara_qris_password} default {@code "PB@|1Kp@paN19112021"} (lihat {@link #qris}).
- * Nilai default ini TIDAK diubah di sini (lihat laporan tugas untuk rekomendasi rotasi
- * kredensial di sisi bank/gateway). <b>Diperbaiki</b>: objek {@code login} berisi
- * username+password JSON sebelumnya juga dicetak ke stdout/log server via
- * {@code System.out.println} di kedua method — baris log tersebut sudah dihapus. Kredensial
- * (lewat header {@code Authorization: Bearer <token>} serta body JSON) tetap dikirim ke proses
- * {@code curl} eksternal lewat argumen baris perintah ({@code --data-raw}), bukan lewat stdin —
- * pada server bersama, argumen proses dapat terlihat oleh user lain lewat {@code ps} (tidak
- * diperbaiki di sini). Bandingkan dengan pola parsing respons terpusat di
- * {@code BankaltimtaraResponseUtil} yang dipakai kedua method ini.
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06)</b>: kredensial gateway bank sebelumnya memiliki
+ * nilai default tertanam langsung di kode sebagai fallback
+ * {@link Common#getKonfigurasi(String, String)} — {@code bankaltimtara_username}/{@code
+ * bankaltimtara_password} default lama {@code "ubtva1"}/{@code "12345678"} (lihat
+ * {@link #downloadData}) dan {@code bankaltimtara_qris_username}/{@code
+ * bankaltimtara_qris_password} default lama {@code "qrisdev"}/{@code "PB@|1Kp@paN19112021"}
+ * (lihat {@link #qris}). Keempat default itu sudah diganti string kosong — kredensial kini
+ * WAJIB diisi lewat konfigurasi database. Kredensial lama yang sebelumnya tertanam sudah lama
+ * berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi bank/gateway bila
+ * masih dipakai produksi. Objek {@code login} berisi username+password JSON sebelumnya juga
+ * dicetak ke stdout/log server via {@code System.out.println} di kedua method — baris log
+ * tersebut sudah dihapus (perbaikan sebelumnya, 1 Sep 2026). Kredensial (lewat header
+ * {@code Authorization: Bearer <token>} serta body JSON) tetap dikirim ke proses {@code curl}
+ * eksternal lewat argumen baris perintah ({@code --data-raw}), bukan lewat stdin — pada server
+ * bersama, argumen proses dapat terlihat oleh user lain lewat {@code ps} (TIDAK diperbaiki di
+ * sini). Bandingkan dengan pola parsing respons terpusat di {@code BankaltimtaraResponseUtil}
+ * yang dipakai kedua method ini.
  * </p>
  */
 public class DownloadTagihanMahasiswaBankBankaltimtara {
@@ -250,8 +254,8 @@ public class DownloadTagihanMahasiswaBankBankaltimtara {
 					String strURL = (Common.getKonfigurasi("bankaltimtara_gateway_url_autentication",
 							"https://api-dev.bankaltimtara.co.id:8300/api/user/auth").getNilai());
 
-					String user = Common.getKonfigurasi("bankaltimtara_username", "ubtva1").getNilai();
-					String pwd = Common.getKonfigurasi("bankaltimtara_password", "12345678").getNilai();
+					String user = Common.getKonfigurasi("bankaltimtara_username", "").getNilai();
+					String pwd = Common.getKonfigurasi("bankaltimtara_password", "").getNilai();
 
 					JSONObject login = new JSONObject();
 					login.put("username", user);
@@ -425,8 +429,8 @@ public class DownloadTagihanMahasiswaBankBankaltimtara {
 		String strURL = (Common.getKonfigurasi("bankaltimtara_gateway_qris_url_autentication",
 				"https://api-dev.bankaltimtara.co.id:8084/api/user/auth").getNilai());
 
-		String user = Common.getKonfigurasi("bankaltimtara_qris_username", "qrisdev").getNilai();
-		String pwd = Common.getKonfigurasi("bankaltimtara_qris_password", "PB@|1Kp@paN19112021").getNilai();
+		String user = Common.getKonfigurasi("bankaltimtara_qris_username", "").getNilai();
+		String pwd = Common.getKonfigurasi("bankaltimtara_qris_password", "").getNilai();
 
 		JSONObject login = new JSONObject();
 		login.put("username", user);
