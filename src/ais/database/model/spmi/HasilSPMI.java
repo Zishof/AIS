@@ -240,6 +240,7 @@ public class HasilSPMI extends DataSop {
 		return this.keterangan;
 	}
 
+	/** @param keterangan keterangan/deskripsi tambahan; opsional. */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}

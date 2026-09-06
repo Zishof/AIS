@@ -294,6 +294,7 @@ public class HasilTemuanSPMI extends GeneralValueObject {
 		return buktiAuditee;
 	}
 
+	/** @param buktiAuditee bukti atau tautan dokumen dari auditee; opsional, lihat {@link #getBuktiAuditee()}. */
 	public void setBuktiAuditee(String buktiAuditee) {
 		this.buktiAuditee = buktiAuditee;
 	}
@@ -306,26 +307,36 @@ public class HasilTemuanSPMI extends GeneralValueObject {
 				? null : statusKesiapanBukti.trim();
 	}
 
+	/**
+	 * @param statusKesiapanBukti status kesiapan bukti; opsional, salah satu
+	 *                            dari {@link #BUKTI_TERSEDIA}, {@link #BUKTI_SEBAGIAN},
+	 *                            atau {@link #BUKTI_BELUM_TERSEDIA} — lihat
+	 *                            {@link #getStatusKesiapanBukti()}.
+	 */
 	public void setStatusKesiapanBukti(String statusKesiapanBukti) {
 		this.statusKesiapanBukti = statusKesiapanBukti;
 	}
 
+	/** @return catatan tambahan dari auditee terkait temuan ini; boleh {@code null}. */
 	@NotAudited
 	@Column(name = "catatan_auditee", nullable = true, columnDefinition = "text")
 	public String getCatatanAuditee() {
 		return catatanAuditee;
 	}
 
+	/** @param catatanAuditee catatan tambahan dari auditee; opsional. */
 	public void setCatatanAuditee(String catatanAuditee) {
 		this.catatanAuditee = catatanAuditee;
 	}
 
+	/** @return rekomendasi auditor atas temuan ini; boleh {@code null}. */
 	@NotAudited
 	@Column(name = "rekomendasi", nullable = true, columnDefinition = "text")
 	public String getRekomendasi() {
 		return rekomendasi;
 	}
 
+	/** @param rekomendasi rekomendasi auditor; opsional. */
 	public void setRekomendasi(String rekomendasi) {
 		this.rekomendasi = rekomendasi;
 	}

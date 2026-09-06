@@ -58,6 +58,7 @@ import ais.database.model.GeneralValueObject;
 @Table(schema = "public", name = "tindak_lanjut_temuan_spmi")
 public class TindakLanjutTemuanSPMI extends GeneralValueObject {
 
+    /** Nomor versi serialisasi tetap untuk kontrak {@link java.io.Serializable}. */
     private static final long serialVersionUID = 7312948576234019801L;
 
     /** Tindak lanjut belum mulai dikerjakan. */
