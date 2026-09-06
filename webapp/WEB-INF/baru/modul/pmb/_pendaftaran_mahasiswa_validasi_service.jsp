@@ -80,6 +80,10 @@
 
         GelombangPendaftaran gel = (GelombangPendaftaran) hibSession.get(GelombangPendaftaran.class, gelId);
 
+        String alasanGelombangTidakBoleh = GelombangPendaftaran.alasanTidakBolehMendaftar(gel,
+                ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request));
+        if (alasanGelombangTidakBoleh != null) { out.print(new JSONObject().put("status", "error").put("message", alasanGelombangTidakBoleh)); return; }
+
         // =========================================================================
         // 2. VALIDASI NISN & NOMOR IDENTITAS (KTP)
         // =========================================================================

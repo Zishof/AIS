@@ -993,7 +993,7 @@ public abstract class VOPembelajaran extends VoKunci {
 	 * bersamaan). Tanpa pemeriksaan tipe, cabang yang kebetulan lebih dulu cocok akan meng-{@code
 	 * cast} {@code this} secara paksa dan melempar {@link ClassCastException}. Dengan pemeriksaan
 	 * itu, cabang yang tidak cocok cukup dilewati.</p>
-	 * <p>Rantai ini mengenal tiga belas subclass. Beberapa turunan {@link VOPembelajaran} tidak
+	 * <p>Rantai ini mengenal empat belas subclass. Beberapa turunan {@link VOPembelajaran} tidak
 	 * punya cabang di sini — di antaranya {@link GrupPertemuan},
 	 * {@code recruitment.JadwalUjianPegawai}, dan {@code kursus.KomponenDataProdukKursus} — sehingga
 	 * pertemuannya tetap masuk peta tetapi relasi baliknya tidak disambungkan. Untuk wadah
@@ -1237,6 +1237,45 @@ public abstract class VOPembelajaran extends VoKunci {
 		return pertemuansTemp;
 	}
 
+	/**
+	 * Membangun ulang indeks pertemuan dari daftar yang <b>sudah</b> disediakan pemanggil, tanpa
+	 * mengueri basis data.
+	 *
+	 * <p>Varian paling ringan dari keluarga {@code reInitPertemuan}: pemanggil sudah tahu persis
+	 * pertemuan mana yang relevan (mis. baru saja membuatnya), sehingga rantai restriksi
+	 * {@code instanceof} yang panjang pada {@link #reInitPertemuan(Session)} tidak diperlukan.
+	 * Karena tidak ada kueri, tidak ada pula penyaringan kepemilikan — <b>daftar apa pun yang
+	 * diberikan akan didaftarkan ke indeks objek ini</b>, termasuk pertemuan milik wadah lain.
+	 * Pemanggil bertanggung jawab penuh atas isi daftarnya.</p>
+	 *
+	 * <h4>Yang dikerjakan</h4>
+	 * <p>Indeks dikosongkan lebih dulu, lalu untuk tiap pertemuan aktif: bila wadah pemiliknya
+	 * memakai penomoran otomatis dan nomor pertemuannya belum sesuai urutan berjalan, nomor itu
+	 * <b>ditulis ulang dan disimpan</b> ke basis data; setelah itu id-nya didaftarkan ke indeks.
+	 * Nomor urut berjalan bertambah untuk setiap pertemuan aktif, termasuk yang nomornya tidak
+	 * ditulis ulang.</p>
+	 *
+	 * <h4>Transaksi</h4>
+	 * <p>Bila session yang diberikan belum punya transaksi aktif, method membukanya sendiri dan
+	 * bertanggung jawab melakukan {@code commit} atau {@code rollback}. Bila pemanggil sudah
+	 * memegang transaksi, penulisan di sini ikut serta di dalamnya dan penutupannya tetap menjadi
+	 * urusan pemanggil. Session-nya sendiri tidak pernah ditutup oleh method ini.</p>
+	 *
+	 * <h4>Penanganan objek kembar pada session</h4>
+	 * <p>Sebelum {@code update}, method memeriksa apakah instance pertemuan memang yang dikelola
+	 * session. Bila bukan — hal yang terjadi ketika objek dengan id sama sudah termuat lebih dulu
+	 * lewat jalur lain — instance lama di-{@code evict} agar Hibernate tidak melempar
+	 * {@code NonUniqueObjectException}. Ini perbaikan yang disengaja, bukan kehati-hatian
+	 * berlebihan.</p>
+	 *
+	 * <p>Kegagalan apa pun memicu {@code rollback} atas transaksi lokal, dicetak, dicatat ke audit,
+	 * lalu ditelan — method tidak melempar ke pemanggil. Akibatnya indeks dapat tertinggal dalam
+	 * keadaan sebagian tanpa pemanggil mengetahuinya.</p>
+	 *
+	 * @param pertemuans daftar pertemuan yang didaftarkan; {@code null} membuat method kembali
+	 *                   tanpa efek — indeks pun tidak dikosongkan
+	 * @param session    session Hibernate; {@code null} membuat method kembali tanpa efek
+	 */
 	public void reInitPertemuan(List<Pertemuan> pertemuans, Session session) {
 		if (pertemuans == null || session == null) return;
 		
@@ -1286,11 +1325,87 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Membangun ulang seluruh data pertemuan objek pembelajaran ini dari basis data — mesin
+	 * sinkronisasi terberat di kelas ini.
+	 *
+	 * <p>Pintu masuk publik yang meneruskan ke bentuk privatnya dengan pengulangan saat kunci macet
+	 * diizinkan. Lihat {@link #reInitPertemuan(Session, boolean)} untuk rincian lengkap alur,
+	 * cakupan subclass, efek samping penulisan, dan mekanisme pengulangannya.</p>
+	 *
+	 * <p><b>Bukan operasi baca.</b> Method ini membuka transaksi, menulis ulang nomor pertemuan,
+	 * menyinkronkan diskusi, ujian, tugas, izin tidak masuk, parameter tambahan, serta berkas
+	 * media setiap pertemuan. Untuk sekadar menampilkan daftar, pakai
+	 * {@link #ambilPertemuan(boolean)} dengan {@code refresh} bernilai salah.</p>
+	 *
+	 * @param session session Hibernate; {@code null} membuat method kembali tanpa efek
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPertemuan(Session session) {
 		reInitPertemuan(session, true);
 	}
 
+	/**
+	 * Pelaksana sinkronisasi pertemuan, dengan bendera yang mengendalikan apakah boleh mengulang
+	 * ketika transaksi dibatalkan karena kunci basis data macet.
+	 *
+	 * <h4>Rantai restriksi: siapa yang ikut dan siapa yang tidak</h4>
+	 * <p>Pertemuan diambil dengan kueri berproyeksi id, dibatasi pada baris yang aktifnya
+	 * {@code null} atau benar, bertanggal, dan merujuk ke {@code this} lewat relasi yang dipilih
+	 * dari rantai {@code instanceof} berisi <b>empat belas</b> cabang. Rantai yang sama persis
+	 * disalin ke {@link #reInitTugas(Session)} dan {@link #reInitUjian(Session)}.</p>
+	 * <p>Cabang penutupnya adalah {@code Restrictions.sqlRestriction("false")} — perilaku
+	 * gagal-tertutup yang menghasilkan nol baris. Sikap itu tepat sebagai perlindungan, tetapi
+	 * berarti <b>tiga subclass {@link VOPembelajaran} yang tidak terdaftar tidak akan pernah dapat
+	 * membangun ulang indeks pertemuannya</b>: {@link GrupPertemuan},
+	 * {@code sekolah.JadwalPertemuanPSB}, dan {@code sekolah.KelasLesSiswa}. Dua yang terakhir
+	 * bahkan punya cabang tersendiri di {@link #masukkanPertemuanLocal}, yang menunjukkan bahwa
+	 * pertemuannya memang ada. Untuk ketiganya, indeks hanya terisi lewat pemanggilan
+	 * {@link #populatePertemuan(Pertemuan)} dari jalur lain, dan setiap pemanggilan dengan
+	 * {@code refresh} justru <b>mengosongkannya</b>. Periksa ulang sebelum menganggap daftar
+	 * pertemuan yang kosong pada wadah tersebut sebagai data yang memang tidak ada.</p>
+	 *
+	 * <h4>Urutan dan penulisan ulang nomor pertemuan</h4>
+	 * <p>Kueri diurutkan menurut {@code pertemuanKe} bila penomorannya manual, dan menurut
+	 * {@code tanggal} bila otomatis, lalu menurut id sebagai pemecah seri. Untuk wadah berpenomoran
+	 * otomatis, nomor pertemuan ditulis ulang menjadi urutan berjalan 1, 2, 3, ... dan disimpan ke
+	 * basis data setiap kali berbeda dari nilai lama. Untuk wadah berpenomoran manual, nomor yang
+	 * diisi pengguna dipertahankan.</p>
+	 *
+	 * <h4>Apa saja yang ikut disinkronkan per pertemuan</h4>
+	 * <p>Untuk setiap pertemuan aktif, method memanggil enam pembangun ulang di dalam session
+	 * utama — diskusi, ujian, tugas pertemuan, tugas kelompok, pengajuan izin tidak masuk, dan
+	 * parameter tambahan — lalu menerapkan izin tidak masuk yang sudah disetujui sebagai isian
+	 * absensi ({@code populate} disusul {@code refreshUpdate}). Setelah itu ia membuka
+	 * <b>session terpisah pada penyimpanan streaming</b> untuk membangun ulang berkas materi,
+	 * berkas tugas, video, dan audio pertemuan; session itu ditutup sendiri pada blok
+	 * {@code finally}, dan kegagalannya tidak membatalkan sinkronisasi utama.</p>
+	 * <p>Karena semua itu terjadi per pertemuan, satu pemanggilan untuk kelas berisi enam belas
+	 * pertemuan berarti ratusan kueri dan belasan session streaming. Inilah alasan method ini
+	 * hanya boleh dipanggil dari alur sinkronisasi eksplisit, bukan dari jalur render halaman.</p>
+	 *
+	 * <h4>Pengulangan saat kunci macet</h4>
+	 * <p>Penyusunan ulang nomor pertemuan dapat berbarengan dengan absensi atau sinkronisasi kelas
+	 * yang menyentuh baris yang sama, dan PostgreSQL membatalkan transaksi dengan
+	 * {@code lock_timeout}. Bila {@code bolehUlangSaatLock} bernilai benar dan
+	 * {@link #adalahLockTimeoutPertemuan(Throwable)} mengenali kegagalannya sebagai macet, method
+	 * menunggu dua ratus milidetik lalu mengulang seluruh unit kerja <b>satu kali</b> pada session
+	 * yang benar-benar baru — transaksi yang sudah dibatalkan tidak boleh dipakai lagi. Pengulangan
+	 * itu memanggil dirinya dengan bendera bernilai salah sehingga tidak dapat berulang tanpa
+	 * batas.</p>
+	 *
+	 * <p>Blok penanganan kesalahan memeriksa {@code session.isOpen()} sebelum menyentuh
+	 * transaksinya. Penjaga itu disengaja: bila session sudah ditutup oleh helper bersarang di
+	 * tengah proses, memanggil {@code getTransaction()} akan melempar "Session is closed!" yang
+	 * menutupi kesalahan aslinya. Pada akhirnya seluruh kegagalan ditelan dan dicatat ke audit;
+	 * method ini tidak melempar ke pemanggil — berbeda dari {@link #reInitTugas(Session)} yang
+	 * justru melempar ulang.</p>
+	 *
+	 * @param session            session Hibernate; {@code null} membuat method kembali tanpa efek.
+	 *                           Tidak pernah ditutup oleh method ini
+	 * @param bolehUlangSaatLock {@code true} bila pengulangan sekali pada session baru diizinkan
+	 *                           ketika kegagalan dikenali sebagai kunci macet
+	 */
 	@SuppressWarnings("unchecked")
 	private void reInitPertemuan(Session session, boolean bolehUlangSaatLock) {
 		if (session == null) return;
@@ -1440,6 +1555,32 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menentukan apakah suatu kegagalan berasal dari kunci basis data yang macet, sehingga layak
+	 * diulang.
+	 *
+	 * <p>Menelusuri seluruh rantai penyebab kesalahan dari luar ke dalam dan mencocokkan pesan tiap
+	 * tingkat — dalam huruf kecil — terhadap empat penanda: {@code "lock timeout"},
+	 * {@code "canceling statement due to lock timeout"}, {@code "deadlock detected"}, dan
+	 * {@code "sqlstate: 40p01"}. Penelusuran rantai diperlukan karena kegagalan basis data
+	 * biasanya sudah terbungkus beberapa lapis pengecualian Hibernate sebelum sampai ke
+	 * pemanggil.</p>
+	 *
+	 * <p><b>Pencocokan berbasis teks pesan, bukan kode kesalahan.</b> Pendekatan ini bekerja untuk
+	 * PostgreSQL berbahasa Inggris, tetapi akan gagal mengenali kondisi yang sama bila server
+	 * dikonfigurasi dengan pesan berbahasa lain, bila driver mengubah susunan pesannya, atau bila
+	 * basis data lain dipakai. Kegagalan mengenali berarti pengulangan tidak dijalankan dan
+	 * sinkronisasi sekadar gagal — tidak ada kerusakan data, hanya indeks yang tertinggal
+	 * sebagian. Penanda {@code sqlstate: 40p01} adalah kode {@code deadlock_detected} milik
+	 * PostgreSQL dan merupakan satu-satunya penanda yang tidak bergantung bahasa.</p>
+	 *
+	 * <p>Pesan yang {@code null} pada suatu tingkat dilewati; penelusuran berhenti ketika rantai
+	 * penyebab habis.</p>
+	 *
+	 * @param error kesalahan yang diperiksa; {@code null} menghasilkan {@code false}
+	 * @return {@code true} bila salah satu tingkat rantai penyebab menyebut kunci macet atau
+	 *         kebuntuan
+	 */
 	private static boolean adalahLockTimeoutPertemuan(Throwable error) {
 		Throwable cek = error;
 		while (cek != null) {
