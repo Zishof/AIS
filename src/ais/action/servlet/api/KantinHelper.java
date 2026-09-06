@@ -1765,6 +1765,13 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setPajak(jsonObject.isNull("pajak") ? 0.0 : Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim())));
 						pembelianAnggotaKoperasi.setDraftPembelianAnggotaKoperasi(draftPembelianAnggotaKoperasi);
 						session.getTransaction().begin();
+						String galatSaldoLunasDraft = gerbangSaldoDeposit(session, anggotaKoperasi,
+								total.doubleValue(), caraPembayaranKoperasiOnline, split);
+						if (galatSaldoLunasDraft != null) {
+							hasil.put("status", "91");
+							hasil.put("description", galatSaldoLunasDraft);
+							return;
+						}
 						session.saveOrUpdate(pembelianAnggotaKoperasi);
 						session.getTransaction().commit();
 
@@ -1801,6 +1808,13 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setPajak(jsonObject.isNull("pajak") ? 0.0 : Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim())));
 						pembelianAnggotaKoperasi.setDraftPembelianAnggotaKoperasi(draftPembelianAnggotaKoperasi);
 						session.getTransaction().begin();
+						String galatSaldoBaru = gerbangSaldoDeposit(session, anggotaKoperasi,
+								total.doubleValue(), caraPembayaranKoperasiOnline, split);
+						if (galatSaldoBaru != null) {
+							hasil.put("status", "91");
+							hasil.put("description", galatSaldoBaru);
+							return;
+						}
 						session.saveOrUpdate(pembelianAnggotaKoperasi);
 						session.getTransaction().commit();
 
@@ -6984,6 +6998,56 @@ public class KantinHelper {
 	/** Tambahan beban deposit yang harus ditolak bila koreksi tidak mempunyai validasi saldo baru. */
 	static double tambahanDepositKoreksi(double depositLama, double depositBaru) {
 		return Math.max(0.0, depositBaru - depositLama);
+	}
+
+	/**
+	 * Menutup gerbang saldo/deposit member SEBELUM header {@link PembelianAnggotaKoperasi} ditulis
+	 * -- {@link #bayar} sebelumnya TIDAK PERNAH memvalidasi saldo di server sama sekali. Satu-
+	 * satunya cek "saldo cukup" ada di client ({@code PosKantinAction.onBayar}), gampang dilewati
+	 * lewat jalur lain yang juga memanggil {@link #bayar} tanpa lewat layar kasir itu (mis.
+	 * {@code KantinMemberApi}, {@code PosApi}, {@code Data.java}, {@code OtomatisPesananScheduler}).
+	 * Rumus "berapa yang memotong deposit" memakai {@link #nominalMetodeKhusus} yang SAMA dengan
+	 * formula akuntansi {@link ais.action.master.sekolah.util.DepositHelper#hitungDeposit(AnggotaKoperasi)}
+	 * (kolom {@code manual=false} atau {@code memotong_deposit=true}), supaya keduanya tidak pernah
+	 * melenceng satu sama lain.
+	 *
+	 * <p><b>Mengunci baris anggota.</b> WAJIB dipanggil pemanggil dari DALAM transaksi yang akan
+	 * menyimpan header itu juga (tepat setelah {@code session.getTransaction().begin()}, sebelum
+	 * {@code saveOrUpdate} header) -- method ini me-refetch {@link AnggotaKoperasi} lewat
+	 * {@code session.get(..., LockOptions.UPGRADE)} sebelum menghitung saldo, sehingga checkout
+	 * KEDUA untuk member yang SAMA menunggu sampai checkout pertama commit (baru melepas kunci)
+	 * sebelum sempat membaca saldo -- pola yang sama dipakai {@code HotelApiHelper} utk mencegah
+	 * double-booking kamar. Menutup dua celah sekaligus: (1) tidak ada gerbang sama sekali (celah
+	 * utama di sini), dan (2) race baca-hitung-tulis (TOCTOU) seperti pola bug peminjaman
+	 * asset/kamar hotel/poin apotik/sirkulasi surat sebelumnya. Dipanggil DI LUAR transaksi yang
+	 * menulis header, kunci ini percuma -- akan terlepas sebelum header sungguhan tersimpan.</p>
+	 *
+	 * @return pesan penolakan (siap dipakai {@code hasil.put("description", ...)}), atau
+	 *         {@code null} bila boleh lanjut (termasuk bila tak ada anggota, atau metode bayar yang
+	 *         dipakai sama sekali tidak memotong deposit).
+	 */
+	private static String gerbangSaldoDeposit(Session session, AnggotaKoperasi anggotaKoperasi,
+			double total, CaraPembayaranKoperasi utama, SplitPembayaran split) {
+		if (anggotaKoperasi == null || anggotaKoperasi.getId() == null) return null;
+		double depositBaru = nominalMetodeKhusus(total, utama,
+				split.cara2, split.nominal2, split.cara3, split.nominal3,
+				split.cara4, split.nominal4, split.cara5, split.nominal5, false);
+		if (depositBaru <= 0.0) return null;
+		AnggotaKoperasi anggotaTerkunci = (AnggotaKoperasi) session.get(
+				AnggotaKoperasi.class, anggotaKoperasi.getId(), org.hibernate.LockOptions.UPGRADE);
+		if (anggotaTerkunci == null) return null;
+		Double saldoObj = ais.action.master.sekolah.util.DepositHelper.hitungDeposit(anggotaTerkunci);
+		double saldo = saldoObj == null ? 0.0 : saldoObj.doubleValue();
+		double minimalSaldo = 0.0;
+		JenisAnggotaKoperasi jenis = anggotaTerkunci.getJenisAnggotaKoperasi();
+		if (jenis != null && jenis.getMinimalSaldo() != null) minimalSaldo = jenis.getMinimalSaldo().doubleValue();
+		if (saldo - depositBaru < minimalSaldo - 0.5) {
+			return "Saldo " + (anggotaTerkunci.getNama() == null ? "member" : anggotaTerkunci.getNama())
+					+ " tidak mencukupi. Saldo saat ini Rp" + Common.numberFormat.get().format(saldo)
+					+ (minimalSaldo > 0 ? " (minimal mengendap Rp" + Common.numberFormat.get().format(minimalSaldo) + ")" : "")
+					+ ", transaksi ini memotong Rp" + Common.numberFormat.get().format(depositBaru) + ".";
+		}
+		return null;
 	}
 
 	/** Toleransi Rp 1 untuk pembulatan alokasi split dari antarmuka kasir. */
