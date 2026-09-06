@@ -768,6 +768,41 @@ public abstract class VOMahasiswa extends VoKunci {
 		return detailKegiatans;
 	}
 
+	/**
+	 * Mengambil seluruh {@link PengeluaranMahasiswa} milik orang ini langsung dari basis data.
+	 *
+	 * <p><b>Satu-satunya method di kelas ini yang tidak memakai berkas indeks.</b> Tidak ada
+	 * {@code ambilLokasiPengeluaran()}, tidak ada {@code reInitPengeluaran()}, dan tidak ada
+	 * parameter {@code refresh}: setiap pemanggilan menembak basis data. Untuk daftar yang
+	 * ditampilkan berulang kali di satu layar, pemanggil sebaiknya menyimpan sendiri hasilnya
+	 * alih-alih memanggil method ini di dalam perulangan.</p>
+	 *
+	 * <p><b>Pola kueri dua langkah.</b> Kueri pertama hanya memproyeksikan kolom {@code id}
+	 * ({@code Projections.property("id")}) terurut menaik, hasilnya dimasukkan ke
+	 * {@link java.util.TreeSet} sehingga terurut sekaligus bebas duplikat; barulah
+	 * {@code ambilDataBanyak} mengubah himpunan id itu menjadi objek lewat cache proses. Pola ini
+	 * menghindari memuat seluruh baris dua kali ketika objeknya sudah ada di cache.</p>
+	 *
+	 * <p><b>Percabangan properti relasi.</b> Restriksi memakai {@code "mahasiswa"} bila
+	 * {@code this instanceof Mahasiswa}, dan {@code "calonMahasiswa"} untuk selainnya. Karena
+	 * cabang kedua bersifat "selain", subclass ketiga ({@code PesertaKursus}) ikut masuk ke sana
+	 * dan menghasilkan kueri yang tidak bermakna.</p>
+	 *
+	 * <p><b>Session dikelola sendiri.</b> Method membuka session baru lewat
+	 * {@code getSessionFactory().openSession()} — bukan session milik thread — lalu pada blok
+	 * {@code finally} menjalankan {@code clear()}, {@code disconnect()}, dan {@code close()}
+	 * masing-masing di dalam {@code try/catch} terpisah agar kegagalan satu langkah tidak
+	 * menggagalkan langkah berikutnya. Karena session-nya terpisah, memanggil method ini di tengah
+	 * transaksi milik pemanggil tidak akan ikut serta dalam transaksi tersebut dan tidak melihat
+	 * perubahan yang belum di-{@code flush}.</p>
+	 *
+	 * <p><b>Kegagalan ditelan.</b> Kesalahan apa pun pada kueri dicetak dan dicatat ke audit, lalu
+	 * method mengembalikan daftar kosong. Pemanggil tidak dapat membedakan "tidak ada pengeluaran"
+	 * dari "kueri gagal".</p>
+	 *
+	 * @return daftar pengeluaran milik orang ini terurut menaik berdasarkan id; kosong bila tidak
+	 *         ada atau bila terjadi kegagalan
+	 */
 	@SuppressWarnings("unchecked")
 	public List<PengeluaranMahasiswa> ambilPengeluaranMahasiswa() {
 		List<PengeluaranMahasiswa> pengeluaranMahasiswas = new ArrayList<PengeluaranMahasiswa>();
@@ -826,8 +861,52 @@ public abstract class VOMahasiswa extends VoKunci {
 
 	// ----------------- PENGELUARAN
 
+	/**
+	 * Nilai sentinel "indeks kosong" — teks {@code "{}"} — yang dikembalikan setiap
+	 * {@code ambilLokasiXxx()} ketika berkas indeksnya tidak ada, kosong, atau gagal dibaca.
+	 *
+	 * <p><b>Dipakai jauh di luar kelas ini.</b> Sekitar seratus tiga puluh rujukan tersebar di
+	 * belasan entity lain — {@link Dosen}, {@code BankSoal}, dan kerabatnya — yang semuanya
+	 * meminjam konstanta ini sebagai nilai balik cache kosong mereka. Karena itu kelas ini secara
+	 * de facto menjadi pemilik konvensi "indeks kosong" bagi seluruh lapisan model, bukan hanya
+	 * bagi dirinya sendiri.</p>
+	 *
+	 * <p><b>Field ini {@code public static} tetapi tidak {@code final}.</b> Saat ini tidak ada
+	 * satu pun kode yang menugaskan nilai baru kepadanya sehingga perilakunya sama dengan
+	 * konstanta; namun secara bahasa, satu baris penugasan di mana pun dalam aplikasi akan
+	 * mengubah arti "indeks kosong" bagi seluruh entity yang meminjamnya sekaligus — termasuk
+	 * mengubahnya menjadi JSON tidak valid yang membuat setiap penguraian berikutnya melempar dan
+	 * ditelan diam-diam oleh blok {@code catch} di pemanggilnya. Perlakukan field ini sebagai
+	 * hanya-baca dan jangan pernah menugaskannya.</p>
+	 *
+	 * <p>Nilainya dihitung sekali saat kelas dimuat dari {@code new JSONObject().toString()},
+	 * bukan ditulis sebagai literal, sehingga bentuk persisnya mengikuti pustaka JSON yang
+	 * dipakai. {@link String} bersifat imutabel, jadi berbagi satu instance ini di antara ratusan
+	 * pemanggil aman dari sisi thread selama tidak ada yang menugaskan ulang.</p>
+	 */
 	public static String dataJSON = new JSONObject().toString();
 
+	/**
+	 * Membaca berkas indeks tagihan ({@link Kegiatan}) milik orang ini dan mengembalikan isinya
+	 * sebagai teks JSON.
+	 *
+	 * <p>Berkas berkunci {@code "kegiatan_" + getId()}, berisi himpunan id kegiatan yang disimpan
+	 * sebagai {@link org.json.JSONObject}. Inilah indeks yang dibaca
+	 * {@link #ambilKegiatansData(boolean, JenisKegiatan)} pada jalur non-refresh, ditulis
+	 * {@link #populateKegiatan(Long)}, dan "dihapus entrinya" oleh
+	 * {@link #removeKegiatan(Serializable)}.</p>
+	 *
+	 * <p>Method ini <b>tidak</b> menghapus berkasnya setelah membaca, sehingga aman dipanggil
+	 * berulang — berbeda dari {@link #ambilLokasiCicilan()}.</p>
+	 *
+	 * <p>Penjaga {@code null} pada id bukan sekadar kehati-hatian teoretis: layar registrasi calon
+	 * mahasiswa merender grid tagihan atas objek yang belum tersimpan, dan tanpa penjaga itu
+	 * pemanggilan {@code getId().toString()} akan melempar {@link NullPointerException} di tengah
+	 * render. Untuk entity transient, berkas belum ditulis, maupun pembacaan gagal, hasilnya sama:
+	 * {@link #dataJSON}.</p>
+	 *
+	 * @return teks JSON berisi himpunan id kegiatan; tidak pernah {@code null}
+	 */
 	public String ambilLokasiKegiatan() {
 		// Null-safe: entitas transient (mis. calon mahasiswa baru yang belum tersimpan)
 		// belum punya id → tak ada file lokasi kegiatan keyed-by-id. Tanpa guard ini
@@ -845,6 +924,25 @@ public abstract class VOMahasiswa extends VoKunci {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks tagihan milik orang ini dengan teks JSON yang diberikan.
+	 *
+	 * <p>Pasangan tulis dari {@link #ambilLokasiKegiatan()}. Isi lama dibuang seluruhnya; untuk
+	 * menambah satu id, pakai {@link #populateKegiatan(Long)} yang membaca dulu lalu menulis
+	 * kembali.</p>
+	 *
+	 * <p><b>Urutan penjaga yang penting.</b> {@link #reInitKegiatan(Session)} memanggil method ini
+	 * untuk mengosongkan indeks <i>sebelum</i> ia sendiri memeriksa apakah id bernilai
+	 * {@code null}. Penjaga id di dalam method inilah yang mencegah {@link NullPointerException}
+	 * pada alur tersebut. Jangan menghapus penjaga itu dengan alasan "pemanggilnya sudah
+	 * memeriksa" — pada satu pemanggil, pemeriksaannya justru datang belakangan.</p>
+	 *
+	 * <p>Kegagalan penulisan dicatat ke audit dan ditelan; pemanggil tidak pernah tahu apakah
+	 * berkas benar-benar tertulis. Karena baca-ubah-tulis pada pemanggilnya tidak atomik, dua
+	 * thread yang memperbarui indeks orang yang sama secara bersamaan dapat saling menimpa.</p>
+	 *
+	 * @param data teks JSON pengganti; tidak divalidasi bentuknya
+	 */
 	public void tulisLokasiKegiatan(String data) {
 		// Null-safe: tanpa id tak ada file keyed-by-id untuk ditulis. reInitKegiatan
 		// memanggil ini SEBELUM cek getId()!=null, jadi guard di sini mencegah NPE.
@@ -859,6 +957,27 @@ public abstract class VOMahasiswa extends VoKunci {
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu id {@link Kegiatan} ke dalam berkas indeks milik orang ini.
+	 *
+	 * <p>Baca indeks yang ada, tambahkan pasangan {@code id -> id}, tulis kembali. Berbeda dari
+	 * {@link #populateHasilUjianMahasiswa(HasilUjianMahasiswa)} yang menerima objek entity dan
+	 * ikut memanggil {@code write()} pada objek tersebut, method ini hanya menerima id dan tidak
+	 * menyentuh entitasnya sama sekali.</p>
+	 *
+	 * <p>Bila id yang sama didaftarkan dua kali, entri kedua hanya menimpa yang pertama dengan
+	 * nilai yang sama — indeks tetap berisi satu kunci, sehingga pemanggilan berulang tidak
+	 * menggandakan apa pun.</p>
+	 *
+	 * <p>Baca-ubah-tulis di sini tidak atomik; pendaftaran bersamaan dari dua thread dapat
+	 * menghilangkan salah satu id dari indeks. Data di basis data tetap utuh dan pemanggilan
+	 * berikutnya dengan {@code refresh} akan memulihkannya. Seluruh kegagalan dicetak, dicatat ke
+	 * audit, lalu ditelan.</p>
+	 *
+	 * @param kegiatanid id kegiatan yang didaftarkan; {@code null} akan memicu kesalahan yang
+	 *                   langsung ditelan sehingga tidak ada yang terdaftar dan tidak ada yang
+	 *                   dilaporkan
+	 */
 	public void populateKegiatan(Long kegiatanid) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiKegiatan());
@@ -869,6 +988,40 @@ public abstract class VOMahasiswa extends VoKunci {
 		}
 	}
 
+	/**
+	 * Membangun ulang berkas indeks tagihan orang ini dari basis data, membuang isi lama.
+	 *
+	 * <p>Urutan kerjanya: kosongkan indeks lebih dulu lewat
+	 * {@link #tulisLokasiKegiatan(String)}, lalu — hanya bila entity sudah punya id — kueri id
+	 * seluruh {@link Kegiatan} miliknya dan daftarkan satu per satu lewat
+	 * {@link #populateKegiatan(Long)}.</p>
+	 *
+	 * <p><b>Pengosongan terjadi lebih dulu, di luar penjaga id.</b> Untuk entity yang sudah
+	 * tersimpan hal ini berarti ada jeda singkat ketika indeks sudah kosong sementara isinya belum
+	 * ditulis ulang; pembacaan bersamaan pada jeda tersebut akan melihat "tidak ada tagihan".
+	 * Untuk entity yang belum tersimpan, pengosongan itu tidak berefek karena
+	 * {@link #tulisLokasiKegiatan(String)} sendiri berhenti pada penjaga id-nya.</p>
+	 *
+	 * <p><b>Penyaringan pada kueri.</b> Hanya kegiatan yang aktif yang diambil — {@code aktif}
+	 * bernilai benar <i>atau</i> {@code null}, sehingga baris lama yang kolom aktifnya belum
+	 * pernah diisi tetap ikut terbawa. Restriksi kepemilikan memakai properti {@code "mahasiswa"}
+	 * untuk {@link Mahasiswa} dan {@code "calonMahasiswa"} untuk selainnya. Urutannya semester,
+	 * lalu jenis kegiatan, lalu id.</p>
+	 *
+	 * <p><b>Yang dikembalikan hanya id, bukan objek.</b> Kueri memakai proyeksi kolom id, jadi
+	 * pemanggil yang membutuhkan objeknya harus melanjutkan dengan {@code ambilDataBanyak} —
+	 * persis yang dilakukan {@link #ambilKegiatansData(boolean, JenisKegiatan)}. Perhatikan bahwa
+	 * penyaringan tambahan (jenis kegiatan, batas minimal/maksimal semester, semester
+	 * {@code null}) <b>tidak</b> dilakukan di sini melainkan di method tersebut, sehingga daftar
+	 * id yang dikembalikan bisa lebih panjang daripada daftar kegiatan yang akhirnya terlihat
+	 * pengguna.</p>
+	 *
+	 * <p>Method mencetak dua baris diagnostik ke keluaran standar setiap kali dipanggil.</p>
+	 *
+	 * @param session session Hibernate yang masih terbuka; tidak dibuka maupun ditutup oleh method
+	 *                ini, dan {@code null} akan melempar {@link NullPointerException}
+	 * @return daftar id kegiatan yang baru didaftarkan; daftar kosong bila entity belum tersimpan
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> reInitKegiatan(Session session) {
 		tulisLokasiKegiatan(new JSONObject().toString());
@@ -890,6 +1043,29 @@ public abstract class VOMahasiswa extends VoKunci {
 		return new ArrayList<Long>();
 	}
 
+	/**
+	 * Menandai satu id {@link Kegiatan} sebagai "terhapus" pada berkas indeks milik orang ini.
+	 *
+	 * <p><b>Kuncinya tidak dibuang — nilainya disetel menjadi string kosong.</b> Inilah konvensi
+	 * penghapusan lunak yang dipakai seluruh indeks di kelas ini: pembaca indeks
+	 * ({@link #ambilKegiatansData(boolean, JenisKegiatan)},
+	 * {@link #ambilHasilUjianMahasiswa(Session, boolean)}) melewati entri yang nilainya kosong.
+	 * Konsekuensinya berkas indeks tumbuh secara monoton — id yang pernah dihapus tetap menempati
+	 * ruang sebagai kunci bernilai kosong sampai
+	 * {@link #reInitKegiatan(Session)} menulis ulang seluruh berkas dari nol.</p>
+	 *
+	 * <p><b>Tidak menyentuh basis data.</b> Baris {@link Kegiatan} tetap ada; yang berubah hanya
+	 * cache tampilan. Karena itu method ini bukan operasi pembatalan tagihan, dan pemanggilan
+	 * berikutnya dengan {@code refresh == true} akan memunculkan kembali kegiatan tersebut selama
+	 * ia masih aktif di basis data.</p>
+	 *
+	 * <p>Baca-ubah-tulis tidak atomik. Kegagalan dicetak, dicatat ke audit, lalu ditelan.</p>
+	 *
+	 * @param id id kegiatan yang ditandai terhapus; dipakai lewat {@code toString()} sehingga
+	 *           tipe {@link Serializable} apa pun diterima, tetapi hanya cocok bila representasi
+	 *           teksnya sama persis dengan kunci yang didaftarkan
+	 *           {@link #populateKegiatan(Long)}
+	 */
 	public void removeKegiatan(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiKegiatan());

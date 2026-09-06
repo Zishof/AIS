@@ -2606,6 +2606,26 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan daftar id akun Facebook yang tertaut ke akun AIS ini.
+	 *
+	 * <p><b>Kredensial login pihak ketiga, bukan sekadar data profil.</b> Nilai inilah yang
+	 * dipakai alur login sosial untuk memetakan identitas Facebook ke akun AIS, sehingga
+	 * kemampuan menulis kolom ini setara dengan kemampuan memberikan akses masuk. Kolomnya
+	 * <b>tidak</b> dideklarasikan {@code unique}.</p>
+	 *
+	 * <p>Formatnya multi-nilai dipisah koma (satu akun AIS boleh ditautkan ke beberapa akun
+	 * Facebook). Sebelum dikembalikan, koma ganda dirapatkan (diulang lima kali sebagai
+	 * penjaga kasar), {@code null} dinormalkan menjadi string kosong, dan nilai yang hanya
+	 * berisi {@code ","} dikosongkan &mdash; pola pembersihan yang sama persis dengan
+	 * {@link #getEmail()}, {@link #getGoogleId()}, {@link #getTwitterId()},
+	 * {@link #getLinkedinId()}, dan {@link #getHp()}. Karena itu method ini
+	 * <b>tidak pernah mengembalikan {@code null}</b>, dan merupakan getter destruktif ringan
+	 * (menulis balik field yang sudah dibersihkan).</p>
+	 *
+	 * @return daftar id Facebook dipisah koma; string kosong bila tidak ada
+	 * @see #appendFacebookId(String)
+	 */
 	public String getFacebookId() {
 		if (facebookId != null && facebookId.contains(",,")) {
 			for (int i = 0; i < 5; i++) {
@@ -2621,15 +2641,46 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return facebookId;
 	}
 
+	/**
+	 * Menetapkan daftar id Facebook yang tertaut, <b>menimpa seluruh isi sebelumnya</b>.
+	 *
+	 * <p>Karena kolom ini bersifat kredensial (lihat {@link #getFacebookId()}), penulisan ke
+	 * sini harus melalui gerbang otorisasi. Untuk menautkan satu akun tambahan tanpa
+	 * menghapus tautan lain, pakai {@link #appendFacebookId(String)}.</p>
+	 *
+	 * @param facebookId daftar id Facebook dipisah koma
+	 */
 	public void setFacebookId(String facebookId) {
 		this.facebookId = facebookId;
 	}
 
+	/**
+	 * Menambahkan satu id Facebook ke daftar tautan tanpa menghapus yang sudah ada.
+	 *
+	 * <p><b>Berbeda dari {@link #appendEmail(String)}, method ini tidak melakukan validasi
+	 * maupun pemeriksaan duplikat apa pun</b> &mdash; nilai {@code null} atau kosong pun akan
+	 * ikut digabung, dan id yang sama dapat masuk berkali-kali. Pemanggil bertanggung jawab
+	 * menyaring masukannya. Pola yang sama berlaku pada {@link #appendGoogleId(String)},
+	 * {@link #appendTwitterId(String)}, dan {@link #appendLinkedinId(String)}; sisa koma
+	 * ganda yang timbul akan dirapikan getter-nya.</p>
+	 *
+	 * @param facebookId id Facebook yang ditambahkan
+	 */
 	public void appendFacebookId(String facebookId) {
 		this.facebookId = this.facebookId == null || this.facebookId.trim().isEmpty() ? facebookId
 				: this.facebookId + "," + facebookId;
 	}
 
+	/**
+	 * Mengembalikan daftar id akun Google yang tertaut ke akun AIS ini.
+	 *
+	 * <p>Kredensial login pihak ketiga dengan format, aturan pembersihan, dan implikasi
+	 * keamanan yang identik dengan {@link #getFacebookId()} &mdash; lihat penjelasan lengkap
+	 * di sana. Tidak pernah mengembalikan {@code null}.</p>
+	 *
+	 * @return daftar id Google dipisah koma; string kosong bila tidak ada
+	 * @see #appendGoogleId(String)
+	 */
 	public String getGoogleId() {
 		if (googleId != null && googleId.contains(",,")) {
 			for (int i = 0; i < 5; i++) {
@@ -2645,15 +2696,39 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return googleId;
 	}
 
+	/**
+	 * Menetapkan daftar id Google yang tertaut, <b>menimpa seluruh isi sebelumnya</b>.
+	 *
+	 * @param googleId daftar id Google dipisah koma
+	 * @see #setFacebookId(String)
+	 */
 	public void setGoogleId(String googleId) {
 		this.googleId = googleId;
 	}
 
+	/**
+	 * Menambahkan satu id Google ke daftar tautan tanpa menghapus yang sudah ada.
+	 *
+	 * <p>Tanpa validasi maupun pemeriksaan duplikat &mdash; lihat catatan lengkap di
+	 * {@link #appendFacebookId(String)}.</p>
+	 *
+	 * @param googleId id Google yang ditambahkan
+	 */
 	public void appendGoogleId(String googleId) {
 		this.googleId = this.googleId == null || this.googleId.trim().isEmpty() ? googleId
 				: this.googleId + "," + googleId;
 	}
 
+	/**
+	 * Mengembalikan daftar id akun Twitter/X yang tertaut ke akun AIS ini.
+	 *
+	 * <p>Kredensial login pihak ketiga dengan format, aturan pembersihan, dan implikasi
+	 * keamanan yang identik dengan {@link #getFacebookId()}. Tidak pernah mengembalikan
+	 * {@code null}.</p>
+	 *
+	 * @return daftar id Twitter/X dipisah koma; string kosong bila tidak ada
+	 * @see #appendTwitterId(String)
+	 */
 	public String getTwitterId() {
 		if (twitterId != null && twitterId.contains(",,")) {
 			for (int i = 0; i < 5; i++) {
@@ -2669,15 +2744,41 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return twitterId;
 	}
 
+	/**
+	 * Menetapkan daftar id Twitter/X yang tertaut, <b>menimpa seluruh isi sebelumnya</b>.
+	 *
+	 * @param twitterId daftar id Twitter/X dipisah koma
+	 * @see #setFacebookId(String)
+	 */
 	public void setTwitterId(String twitterId) {
 		this.twitterId = twitterId;
 	}
 
+	/**
+	 * Menambahkan satu id Twitter/X ke daftar tautan tanpa menghapus yang sudah ada.
+	 *
+	 * <p>Tanpa validasi maupun pemeriksaan duplikat &mdash; lihat catatan lengkap di
+	 * {@link #appendFacebookId(String)}.</p>
+	 *
+	 * @param twitterId id Twitter/X yang ditambahkan
+	 */
 	public void appendTwitterId(String twitterId) {
 		this.twitterId = this.twitterId == null || this.twitterId.trim().isEmpty() ? twitterId
 				: this.twitterId + "," + twitterId;
 	}
 
+	/**
+	 * Mengembalikan daftar id akun LinkedIn yang tertaut ke akun AIS ini.
+	 *
+	 * <p>Kredensial login pihak ketiga dengan format, aturan pembersihan, dan implikasi
+	 * keamanan yang identik dengan {@link #getFacebookId()}. Satu-satunya di antara keempat
+	 * id media sosial yang memetakan nama kolom secara eksplisit ({@code linkedinid}); tiga
+	 * lainnya mengandalkan penamaan bawaan Hibernate. Tidak pernah mengembalikan
+	 * {@code null}.</p>
+	 *
+	 * @return daftar id LinkedIn dipisah koma; string kosong bila tidak ada
+	 * @see #appendLinkedinId(String)
+	 */
 	@Column(name = "linkedinid")
 	public String getLinkedinId() {
 		if (linkedinId != null && linkedinId.contains(",,")) {
@@ -2694,15 +2795,47 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return linkedinId;
 	}
 
+	/**
+	 * Menetapkan daftar id LinkedIn yang tertaut, <b>menimpa seluruh isi sebelumnya</b>.
+	 *
+	 * @param linkedinId daftar id LinkedIn dipisah koma
+	 * @see #setFacebookId(String)
+	 */
 	public void setLinkedinId(String linkedinId) {
 		this.linkedinId = linkedinId;
 	}
 
+	/**
+	 * Menambahkan satu id LinkedIn ke daftar tautan tanpa menghapus yang sudah ada.
+	 *
+	 * <p>Tanpa validasi maupun pemeriksaan duplikat &mdash; lihat catatan lengkap di
+	 * {@link #appendFacebookId(String)}.</p>
+	 *
+	 * @param linkedinId id LinkedIn yang ditambahkan
+	 */
 	public void appendLinkedinId(String linkedinId) {
 		this.linkedinId = this.linkedinId == null || this.linkedinId.trim().isEmpty() ? linkedinId
 				: this.linkedinId + "," + linkedinId;
 	}
 
+	/**
+	 * Mengembalikan profil media sosial terserialkan (kolom {@code text}).
+	 *
+	 * <p>Menyimpan beberapa ruas profil dalam satu kolom dengan pemisah khusus
+	 * {@code "||#||"}. Implementasi kontrak {@link SocialMediaCommonModel} yang dipakai
+	 * bersama entitas lain agar tampilan profil dapat menangani berbagai jenis aktor secara
+	 * seragam.</p>
+	 *
+	 * <p><b>Normalisasi pemisah.</b> Bila nilai memuat {@code "||||"} &mdash; sisa dari ruas
+	 * kosong yang berdempetan pada format lama &mdash; pola itu diganti menjadi
+	 * {@code "||#||"} supaya jumlah ruas hasil pemisahan tetap benar. Penggantian dilakukan
+	 * sekali (bukan berulang), sehingga rangkaian pemisah yang lebih panjang dapat lolos
+	 * tanpa dinormalkan. Getter destruktif ringan: hasil normalisasi ditulis balik ke field,
+	 * dan {@code null} dinormalkan menjadi string kosong sehingga method ini
+	 * <b>tidak pernah mengembalikan {@code null}</b>.</p>
+	 *
+	 * @return profil media sosial terserialkan; string kosong bila belum diisi
+	 */
 	@Column(name = "social_media_profile", columnDefinition = "text")
 	public String getSocialMediaProfile() {
 		if (socialMediaProfile == null) {
@@ -2716,10 +2849,46 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return socialMediaProfile;
 	}
 
+	/**
+	 * Menetapkan profil media sosial terserialkan.
+	 *
+	 * <p>Setter mentah: pemanggil bertanggung jawab menyusun ruas dengan pemisah
+	 * {@code "||#||"} yang benar.</p>
+	 *
+	 * @param socialMediaProfile profil terserialkan
+	 * @see #getSocialMediaProfile()
+	 */
 	public void setSocialMediaProfile(String socialMediaProfile) {
 		this.socialMediaProfile = socialMediaProfile;
 	}
 
+	/**
+	 * Mengembalikan bahasa antarmuka pilihan pengguna.
+	 *
+	 * <p><b>Pengecualian penting dari pola kelas ini:</b> ini satu-satunya getter yang
+	 * secara eksplisit <b>mendahulukan field milik {@code Tbmuser} sendiri</b> di atas
+	 * entitas tertaut, dan yang <b>tidak menulis balik</b> ke field {@code bahasa}. Alasannya
+	 * tercatat pada komentar di dalam badan method: setiap entitas tertaut
+	 * ({@link Dosen}, {@link Mahasiswa}, dan seterusnya) mengembalikan
+	 * {@link #INDONESIA} saat bahasanya {@code null}, sehingga bila didahulukan mereka akan
+	 * <b>menutupi</b> pilihan pengguna dan membuat bahasa selalu "nyangkut" ke Bahasa
+	 * Indonesia. Perilaku menulis-balik yang lama juga sengaja dihapus karena merusak nilai
+	 * tersimpan.</p>
+	 *
+	 * <p>Urutan cadangannya, dipakai hanya bila field sendiri kosong: dosen, mahasiswa,
+	 * siswa, guru, pegawai. Bila semuanya kosong, hasilnya {@link #INDONESIA}. Nilai kosong
+	 * atau berisi spasi saja diperlakukan sebagai belum diisi lewat
+	 * {@link #takKosongBahasa(String)}.</p>
+	 *
+	 * <p>Ditandai {@code @NotAudited}: perubahan bahasa tidak perlu menghasilkan revisi
+	 * Envers karena murni preferensi tampilan. Perhatikan bahwa method ini tetap me-resolve
+	 * lima relasi di awal (dan menulis balik field relasinya), sehingga tetap mahal meski
+	 * nilai bahasanya sendiri tidak ditulis.</p>
+	 *
+	 * @return nama bahasa antarmuka; {@link #INDONESIA} bila belum pernah dipilih (tidak
+	 *         pernah {@code null})
+	 * @see #setBahasa(String)
+	 */
 	@NotAudited
 	public String getBahasa() {
 
@@ -2754,14 +2923,47 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return b == null ? INDONESIA : b;
 	}
 
+	/**
+	 * Menormalkan nilai bahasa: {@code null}, string kosong, dan string berisi spasi saja
+	 * semuanya dipetakan menjadi {@code null}.
+	 *
+	 * <p>Dipakai {@link #getBahasa()} agar seluruh bentuk "belum diisi" diperlakukan sama
+	 * sehingga rantai cadangan tetap berjalan.</p>
+	 *
+	 * @param s nilai bahasa yang dinormalkan
+	 * @return nilai hasil {@code trim()}, atau {@code null} bila dianggap kosong
+	 */
 	private static String takKosongBahasa(String s) {
 		return (s == null || s.trim().isEmpty()) ? null : s.trim();
 	}
 
+	/**
+	 * Menetapkan bahasa antarmuka pilihan pengguna.
+	 *
+	 * <p>Berbeda dari kebanyakan setter di kelas ini, nilai yang ditetapkan di sini
+	 * <b>benar-benar bertahan</b>: {@link #getBahasa()} mendahulukan field ini di atas
+	 * seluruh entitas tertaut. Gunakan salah satu konstanta {@link #INDONESIA},
+	 * {@link #ENGLISH}, {@link #ARAB}, atau {@link #MANDARIN}.</p>
+	 *
+	 * @param bahasa nama bahasa antarmuka
+	 */
 	public void setBahasa(String bahasa) {
 		this.bahasa = bahasa;
 	}
 
+	/**
+	 * Mengembalikan biodata pendaftar PMB (calon mahasiswa) pemilik akun ini.
+	 *
+	 * <p>Relasi {@code @Transient} &mdash; tidak ada kolom kunci asing di
+	 * {@code tbmuser}, sehingga nilainya hanya hidup di memori dan tidak bertahan setelah
+	 * entity dimuat ulang.</p>
+	 *
+	 * <p>Dijaga gerbang {@link #bukanPesertaDidik()}: akun milik staf/administrator selalu
+	 * mengembalikan {@code null}. Selain gerbang itu, method ini hanya mengembalikan field
+	 * apa adanya tanpa penurunan maupun {@code check(...)}.</p>
+	 *
+	 * @return biodata calon mahasiswa, atau {@code null}
+	 */
 	@Transient
 	public BiodataCalonMahasiswa getBiodataCalonMahasiswa() {
 		if (bukanPesertaDidik()) {
@@ -2770,10 +2972,36 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Menetapkan biodata pendaftar PMB pemilik akun.
+	 *
+	 * <p>Karena relasinya {@code @Transient}, nilai ini tidak tersimpan ke database dan harus
+	 * ditetapkan ulang setiap kali akun dimuat.</p>
+	 *
+	 * @param biodataCalonMahasiswa biodata calon mahasiswa; boleh {@code null}
+	 */
 	public void setBiodataCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Mengembalikan username untuk integrasi OJS (Open Journal Systems).
+	 *
+	 * <p>Dipakai menautkan akun AIS ke akun penulis/pengelola jurnal pada instalasi OJS.
+	 * Kolomnya {@code unique = true}.</p>
+	 *
+	 * <p><b>Auto-isi untuk dosen.</b> Bila kosong dan akun ternyata milik dosen (menurut
+	 * {@link #getDosen()}), field diisi dengan {@link #getUserId()} lalu dikembalikan
+	 * &mdash; getter destruktif. Konsekuensi yang perlu diwaspadai: karena kolomnya unik,
+	 * auto-isi ini dapat menimbulkan <b>tabrakan keunikan saat penyimpanan</b> bila ada
+	 * akun lain yang {@code usernameOjs}-nya sudah bernilai sama dengan {@code userId} ini.
+	 * Kegagalannya baru muncul pada {@code flush}, bukan di dalam getter.</p>
+	 *
+	 * <p>String kosong dinormalkan menjadi {@code null} pada nilai kembalian (tetapi tidak
+	 * pada field), sehingga pemanggil hanya menerima {@code null} atau nilai bermakna.</p>
+	 *
+	 * @return username OJS, atau {@code null} bila tidak ada
+	 */
 	@Column(unique = true)
 	public String getUsernameOjs() {
 		if ((usernameOjs == null || usernameOjs.trim().isEmpty()) && getDosen() != null) {
