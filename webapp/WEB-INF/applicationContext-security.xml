@@ -60,6 +60,11 @@
 		<intercept-url pattern="/al/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 		<intercept-url pattern="/pascasarjana/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 		<intercept-url pattern="/jalankan-laporan" access="IS_AUTHENTICATED_REMEMBERED" />
+		<!-- Pertahanan berlapis untuk temuan broken access control AiGenerateServlet: gerbang
+			 utama (session login) sudah ditambal di kode servlet itu sendiri (lihat Javadoc
+			 kelasnya), aturan ini hanya jaring pengaman tambahan di lapisan Spring Security agar
+			 /Ai tidak lagi jatuh pada aturan tangkap-semua anonim di bawah. -->
+		<intercept-url pattern="/Ai" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 	
 		

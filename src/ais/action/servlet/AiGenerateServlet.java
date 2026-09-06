@@ -14,9 +14,12 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import ais.common.Common;
 import ais.database.model.Konfigurasi;
+import ais.database.model.Tbmrole;
+import ais.database.model.Tbmuser;
 
 /**
  * Servlet AI Generator berbasis OpenAI-compatible API &mdash; dipetakan ke <code>/Ai</code>.
@@ -114,21 +117,33 @@ import ais.database.model.Konfigurasi;
  *   <li>pemeriksaan tagihan/kuota Google atas pemakaian tak sah.</li>
  * </ul>
  *
- * <h3>Catatan keamanan lain pada berkas ini</h3>
- * <ul>
- *   <li><b>Tidak ada pemeriksaan autentikasi maupun hak akses.</b> {@link #doGet} dan
- *   {@link #doPost} langsung bekerja tanpa memeriksa {@code Common.getCurrentUser()} maupun
- *   {@code CommonPrivilages.checkPrevilages(...)}, dan pemetaan <code>/Ai</code> tercakup aturan
- *   tangkap-semua <code>&lt;intercept-url pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY"/&gt;</code>.
- *   Siapa pun di internet dapat memakai endpoint ini sebagai proksi LLM gratis atas biaya dan kuota
- *   pemilik instalasi.</li>
- *   <li><b>{@link #debug} bernilai {@code true} secara bawaan</b> dan mencetak seluruh isi
- *   permintaan serta tanggapan AI ke stdout &mdash; termasuk teks yang mungkin memuat data
- *   akademik atau pribadi.</li>
- *   <li><b>{@link #writeError} memantulkan {@code rawResponse} dari penyedia</b> kembali ke
- *   pemanggil, sehingga pesan galat internal penyedia (nama proyek, batas kuota, detail konfigurasi)
- *   dapat terbaca pihak luar.</li>
- * </ul>
+ * <h3>STATUS TEMUAN broken access control &mdash; SUDAH DITAMBAL DI KODE, lihat gerbang di {@link #doGet}/{@link #doPost}</h3>
+ * <p>Sebelum penambalan ini, {@link #doGet} dan {@link #doPost} langsung bekerja tanpa memeriksa
+ * siapa pun &mdash; tidak ada {@code Common.getCurrentUser()}, tidak ada
+ * {@code CommonPrivilages.checkPrevilages(...)}, tidak ada pemeriksaan token &mdash; dan pemetaan
+ * <code>/Ai</code> pada {@code applicationContext-security.xml} tercakup aturan tangkap-semua
+ * <code>&lt;intercept-url pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY"/&gt;</code>, tanpa
+ * aturan khusus untuk <code>/Ai</code>. Siapa pun di internet dapat memakai endpoint ini sebagai
+ * proksi LLM gratis atas biaya dan kuota pemilik instalasi, dengan model bebas dipilih pemanggil
+ * dan prompt kosong pun tetap diteruskan sebagai panggilan berbayar.</p>
+ * <p><b>Kode sekarang menggerbangi kedua method</b> lewat {@link #getLoggedInUser(HttpServletRequest)}
+ * (fail-closed: sesi login wajib ada, lihat Javadoc method itu untuk alasan tidak memakai
+ * {@code Common.getCurrentUser()} biasa), menolak prompt kosong, membatasi model lewat
+ * {@link #isModelDiizinkan(String)}, menyembunyikan {@code raw}/{@code endpoint} dari
+ * {@link #writeError} untuk pemanggil bukan administrator, dan membatasi ukuran badan
+ * permintaan/tanggapan ({@link #MAX_REQUEST_BODY_CHARS}/{@link #MAX_PROVIDER_RESPONSE_CHARS}).
+ * Pemanggil sah yang tersisa &mdash; {@code text_area.jsp}, {@code _deskripsi_dan_pustaka.jsp},
+ * {@code daftar_soal.jsp} (semuanya memanggil dari sesi peramban yang sudah login), serta jalur
+ * server-side {@link #generateText(String, int)} yang dipakai JSP OBE (tidak melewati
+ * {@code doGet}/{@code doPost} sama sekali, sehingga tidak terpengaruh gerbang ini) &mdash; tetap
+ * berfungsi tanpa perubahan.</p>
+ * <p><b>Belum dikerjakan pada penambalan ini</b> (di luar berkas Java): menambahkan
+ * <code>&lt;intercept-url pattern="/Ai" access="IS_AUTHENTICATED_REMEMBERED"/&gt;</code> pada
+ * {@code applicationContext-security.xml} (berkas itu berada di WC SVN <code>^/web</code> yang
+ * terpisah dari WC berkas ini) sebagai lapisan pertahanan berlapis; serta audit terpisah atas jalur
+ * cadangan {@code Common.getCurrentUser(request)} &rarr; {@code SecurityFilter.getCurrentFromUsername}
+ * yang berpotensi spoofing identitas lewat parameter {@code user} pada 31 berkas lain di paket ini
+ * (lihat Javadoc {@link #getLoggedInUser(HttpServletRequest)}).</p>
  *
  * <h3>Debug</h3>
  * <ul>
@@ -138,8 +153,6 @@ import ais.database.model.Konfigurasi;
  *   toggle-nya juga tersedia di layar Konfigurasi ({@code KonfigurasiNewAction}, label "Tampilkan
  *   debug log detail di AiGenerateServlet").</li>
  * </ul>
- *
- * <p><b>Perilaku kode TIDAK diubah pada revisi dokumentasi ini.</b></p>
  *
  * @see #generateText(String, int)
  * @see ais.action.master.helper.ObeAiJspHelper
@@ -224,6 +237,43 @@ public class AiGenerateServlet extends HttpServlet {
 	private static boolean debug = true;
 
 	/**
+	 * Daftar putih nama model bawaan yang boleh diminta pemanggil {@link #doPost} lewat
+	 * field/parameter {@code model}, dipakai {@link #isModelDiizinkan(String)} sebagai bawaan
+	 * konfigurasi {@code AI_MODEL_WHITELIST} (dipisah koma) bila baris itu belum diisi
+	 * administrator.
+	 *
+	 * <p>Berisi model yang sudah dikenal dipakai pemanggil sah saat ini: {@code qwen2.5:7b}
+	 * (bawaan {@code aiModel} pada {@code text_area.jsp}), serta satu model murah per provider
+	 * yang didukung berkas ini, sebagai jaring pengaman bila instalasi berpindah provider tanpa
+	 * mengubah JSP. Administrator dapat mengganti daftar ini lewat konfigurasi tanpa mengubah
+	 * kode.</p>
+	 */
+	private static final String DEFAULT_MODEL_WHITELIST =
+			"qwen2.5:7b,gemini-1.5-flash,gemini-1.5-flash-8b,llama-3.1-8b-instant,"
+			+ "@cf/meta/llama-3.1-8b-instruct,gpt-4o-mini,deepseek-chat";
+
+	/**
+	 * Batas ukuran badan permintaan (dalam karakter) yang diserap {@link #readRequestBody}.
+	 *
+	 * <p>Sebelum penambalan ini, {@link #readRequestBody} menyerap badan permintaan tanpa batas
+	 * sama sekali &mdash; digabung dengan ketiadaan autentikasi, ini membuka peluang penghabisan
+	 * memori dari pemanggil anonim. Nilainya (256&nbsp;KiB karakter) jauh di atas kebutuhan prompt
+	 * JSP mana pun di berkas ini (yang terpanjang memotong konteks editor ke 8000 karakter), tetapi
+	 * cukup kecil untuk membatasi dampak satu permintaan nakal.</p>
+	 */
+	private static final int MAX_REQUEST_BODY_CHARS = 262144;
+
+	/**
+	 * Batas ukuran tanggapan penyedia AI (dalam karakter) yang diserap {@link #readStream}.
+	 *
+	 * <p>Lebih longgar daripada {@link #MAX_REQUEST_BODY_CHARS} karena sumbernya adalah endpoint
+	 * yang dipilih administrator lewat konfigurasi (lihat {@link #getOpenAiEndpoint()}), bukan
+	 * masukan pemanggil anonim &mdash; tetap dibatasi sebagai jaring pengaman terhadap tanggapan
+	 * yang tidak wajar besar.</p>
+	 */
+	private static final int MAX_PROVIDER_RESPONSE_CHARS = 2097152;
+
+	/**
 	 * Menangani HTTP GET &mdash; endpoint pemeriksaan kesehatan (<i>health check</i>) servlet.
 	 *
 	 * <p><b>Tujuan.</b> Tidak memanggil AI sama sekali. Ia hanya melaporkan konfigurasi efektif yang
@@ -234,17 +284,30 @@ public class AiGenerateServlet extends HttpServlet {
 	 * membaca {@link #getActiveAiModel()}, {@link #getOpenAiEndpoint()}, dan {@link #getTimeoutMs()},
 	 * lalu menyusun JSON secara manual dengan {@link StringBuilder} dan menuliskannya. Bentuk
 	 * keluarannya: {@code success}, {@code message}, {@code provider} (selalu literal
-	 * {@code "openai-compatible"}, bukan nama provider yang aktif), {@code model}, {@code endpoint},
-	 * {@code debug}, dan {@code timeoutMs}.</p>
+	 * {@code "openai-compatible"}, bukan nama provider yang aktif), {@code debug}, dan
+	 * {@code timeoutMs} selalu ada; {@code model} dan {@code endpoint} hanya disertakan bila
+	 * pemanggil administrator (lihat gerbang di bawah).</p>
 	 *
-	 * <p><b>Catatan keamanan.</b> Endpoint ini terbuka anonim (lihat Javadoc kelas) dan
-	 * <b>membocorkan alamat endpoint AI internal</b> &mdash; termasuk alamat IP dan porta Ollama
-	 * lokal/proksi bila provider-nya OLLAMA. Kunci API tidak ikut ditampilkan. Nilai {@code provider}
-	 * yang selalu tetap juga menyesatkan: untuk mengetahui provider sesungguhnya, periksa
-	 * {@code endpoint}.</p>
+	 * <h3>GERBANG AUTENTIKASI (fail-closed) &mdash; ditambahkan menyusul temuan broken access control</h3>
+	 * <p>Sebelum penambalan ini, {@code doGet}/{@code doPost} tidak memeriksa siapa pun sehingga
+	 * <code>/Ai</code> terbuka anonim (lihat catatan lama pada Javadoc kelas). Sekarang method ini
+	 * <b>menolak</b> pemanggil tanpa sesi login lewat {@link #getLoggedInUser(HttpServletRequest)}
+	 * dengan HTTP {@link HttpServletResponse#SC_UNAUTHORIZED}. Dipilih pemeriksaan berbasis
+	 * {@link HttpSession} (bukan {@code Common.getCurrentUser()} tanpa argumen, yang bergantung pada
+	 * konteks eksekusi ZK yang tidak ada pada servlet biasa) karena satu-satunya pemanggil sah
+	 * &mdash; {@code text_area.jsp}, {@code _deskripsi_dan_pustaka.jsp}, dan {@code daftar_soal.jsp}
+	 * &mdash; selalu memanggil lewat {@code fetch()}/{@code $.ajax} dari peramban yang sesi HTTP-nya
+	 * sudah terbentuk oleh login ZK, sehingga cookie sesi ikut terkirim otomatis. Lihat pula
+	 * peringatan pada {@link #getLoggedInUser(HttpServletRequest)} soal mengapa
+	 * {@code Common.getCurrentUser(request)} biasa <b>tidak</b> dipakai di sini.</p>
 	 *
-	 * @param request permintaan HTTP; isinya tidak dibaca selain untuk pencatatan log
-	 * @param response tanggapan HTTP; diisi JSON status servlet dengan tipe {@code application/json}
+	 * <p>Setelah lolos gerbang, {@link #isCurrentUserAdmin(Tbmuser)} menentukan apakah field
+	 * {@code model} dan {@code endpoint} disertakan &mdash; keduanya disembunyikan dari pengguna
+	 * biasa karena membocorkan konfigurasi internal (termasuk alamat IP/porta Ollama lokal).</p>
+	 *
+	 * @param request permintaan HTTP; dipakai untuk pencatatan log dan pemeriksaan sesi login
+	 * @param response tanggapan HTTP; diisi JSON status servlet dengan tipe {@code application/json},
+	 *        atau HTTP 401 bila pemanggil belum login
 	 * @throws ServletException bila kontainer melaporkan kegagalan servlet
 	 * @throws IOException bila penulisan respons gagal
 	 */
@@ -252,6 +315,14 @@ public class AiGenerateServlet extends HttpServlet {
 		refreshDebugConfig();
 		long start = System.currentTimeMillis();
 		debugLog("doGet() mulai. remote=" + request.getRemoteAddr() + ", uri=" + request.getRequestURI());
+
+		Tbmuser currentUser = getLoggedInUser(request);
+		if (currentUser == null) {
+			debugLog("doGet() ditolak - tidak ada sesi login.");
+			response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Silakan login terlebih dahulu.");
+			return;
+		}
+		boolean isAdmin = isCurrentUserAdmin(currentUser);
 
 		response.setContentType("application/json");
 
@@ -266,8 +337,10 @@ public class AiGenerateServlet extends HttpServlet {
 		sb.append("\"success\":true,");
 		sb.append("\"message\":\"AiGenerateServlet aktif\",");
 		sb.append("\"provider\":\"openai-compatible\",");
-		sb.append("\"model\":\"").append(escapeJson(model)).append("\",");
-		sb.append("\"endpoint\":\"").append(escapeJson(endpoint)).append("\",");
+		if (isAdmin) {
+			sb.append("\"model\":\"").append(escapeJson(model)).append("\",");
+			sb.append("\"endpoint\":\"").append(escapeJson(endpoint)).append("\",");
+		}
 		sb.append("\"debug\":").append(debug ? "true" : "false").append(",");
 		sb.append("\"timeoutMs\":").append(timeoutMs);
 		sb.append("}");
@@ -283,21 +356,35 @@ public class AiGenerateServlet extends HttpServlet {
 	 * format <i>chat completions</i> ala OpenAI, lalu mengembalikan teks hasilnya sebagai JSON.
 	 * Servlet ini menjadi perantara agar peramban tidak terbentur CORS.</p>
 	 *
+	 * <h3>GERBANG AUTENTIKASI (fail-closed) &mdash; ditambahkan menyusul temuan broken access control</h3>
+	 * <p>Langkah nol, sebelum langkah manapun di bawah: pemanggil <b>wajib</b> punya sesi login,
+	 * diperiksa lewat {@link #getLoggedInUser(HttpServletRequest)}. Bila tidak, method langsung
+	 * membalas JSON {@code success:false} lewat {@link #writeError} dan berhenti &mdash; tidak ada
+	 * byte yang dikirim ke penyedia AI. Lihat penjelasan lengkap alasan pemilihan mekanisme sesi
+	 * (bukan {@code Common.getCurrentUser()} tanpa argumen, dan bukan pula
+	 * {@code Common.getCurrentUser(request)} yang punya jalur cadangan rawan spoof lewat parameter
+	 * {@code user}) pada Javadoc {@link #doGet} dan {@link #getLoggedInUser(HttpServletRequest)}.</p>
+	 *
 	 * <h3>Alur sebelas langkah</h3>
 	 * <ol>
 	 *   <li><b>Membaca body.</b> {@link #readRequestBody(HttpServletRequest)} menyerap seluruh isi
-	 *   request menjadi satu {@link String}. Tidak ada batas ukuran &mdash; body sebesar apa pun
-	 *   masuk ke memori.</li>
+	 *   request menjadi satu {@link String}, kini dibatasi {@link #MAX_REQUEST_BODY_CHARS} karakter
+	 *   &mdash; melebihi itu, pembacaan melempar {@link IOException} yang ditangkap blok
+	 *   {@code catch} di bawah dan diubah menjadi {@link #writeError}.</li>
 	 *   <li><b>Menentukan prompt.</b> Dicari secara berurutan dari field JSON {@code instruksi},
 	 *   {@code prompt}, {@code text}, lalu dari parameter form dengan tiga nama yang sama
 	 *   ({@link #firstNotEmpty(String, String, String, String, String, String)}). Bila semuanya
-	 *   kosong, dipakai prompt bawaan "Buatkan teks akademik yang rapi&hellip;", sehingga permintaan
-	 *   kosong tetap menghasilkan panggilan berbayar ke penyedia alih-alih ditolak.</li>
-	 *   <li><b>Menentukan model.</b> Model boleh <b>ditentukan pemanggil</b> lewat field/parameter
-	 *   {@code model}; bila kosong barulah dipakai {@link #getActiveAiModel()}, lalu
-	 *   {@link #DEFAULT_MODEL}. Perhatikan: nilai dari pemanggil dipakai apa adanya tanpa daftar
-	 *   putih, sehingga klien dapat meminta model yang lebih mahal daripada yang dikonfigurasi
-	 *   administrator.</li>
+	 *   kosong, permintaan <b>ditolak</b> lewat {@link #writeError} tanpa memanggil penyedia AI
+	 *   &mdash; sebelumnya dipakai prompt bawaan "Buatkan teks akademik yang rapi&hellip;" yang
+	 *   membuat permintaan kosong tetap menghasilkan panggilan berbayar.</li>
+	 *   <li><b>Menentukan model.</b> Model boleh diusulkan pemanggil lewat field/parameter
+	 *   {@code model}, tetapi hanya dipakai bila lolos {@link #isModelDiizinkan(String)} (daftar
+	 *   putih {@code AI_MODEL_WHITELIST}, bawaan {@link #DEFAULT_MODEL_WHITELIST}, atau sama dengan
+	 *   {@link #getActiveAiModel()}). Usulan yang tidak lolos <b>diabaikan diam-diam</b> (backward
+	 *   compatible, tidak menggagalkan permintaan) dan diganti {@link #getActiveAiModel()}, lalu
+	 *   {@link #DEFAULT_MODEL} bila itu pun kosong. Sebelum penambalan ini nilai pemanggil dipakai
+	 *   apa adanya tanpa daftar putih, sehingga klien dapat meminta model yang lebih mahal daripada
+	 *   yang dikonfigurasi administrator.</li>
 	 *   <li><b>Membaca temperature dan konfigurasi endpoint.</b> {@code temperature} dari
 	 *   field/parameter, dengan bawaan dari {@code AI_TEMPERATURE_DEFAULT} (0.4). Lalu diambil
 	 *   {@link #getOpenAiEndpoint()}, {@link #getActiveAiKey()}, {@link #getTimeoutMs()}, dan
@@ -328,15 +415,21 @@ public class AiGenerateServlet extends HttpServlet {
 	 * galat kontainer. Blok {@code finally} selalu memanggil {@code conn.disconnect()} dan mencatat
 	 * total waktu.</p>
 	 *
-	 * <p><b>Catatan keamanan.</b> Tidak ada pemeriksaan autentikasi maupun hak akses di sini, dan
-	 * <code>/Ai</code> terbuka anonim. Digabung dengan prompt bawaan pada Langkah 2 dan pemilihan
-	 * model bebas pada Langkah 3, pihak luar dapat memakai instalasi ini sebagai proksi LLM atas
-	 * biaya dan kuota pemilik. Lihat pula peringatan pada {@link #writeError} dan {@link #debug}.</p>
+	 * <p><b>Catatan keamanan &mdash; STATUS: DITAMBAL.</b> Sebelumnya tidak ada pemeriksaan
+	 * autentikasi maupun hak akses sama sekali, dan <code>/Ai</code> terbuka anonim; digabung dengan
+	 * prompt bawaan dan pemilihan model bebas, pihak luar dapat memakai instalasi ini sebagai
+	 * proksi LLM atas biaya dan kuota pemilik. Method ini sekarang menolak pemanggil tanpa sesi
+	 * login (lihat gerbang di atas), menolak prompt kosong, dan membatasi model lewat daftar putih.
+	 * Field {@code raw} dan {@code endpoint} pada respons galat ({@link #writeError}) juga kini
+	 * disembunyikan dari pemanggil non-administrator. Lihat pula peringatan pada {@link #debug}
+	 * (log detail masih mencetak isi prompt/tanggapan ke stdout untuk pemanggil yang SUDAH lolos
+	 * gerbang).</p>
 	 *
 	 * @param request permintaan HTTP; body JSON atau parameter form berisi {@code instruksi}/
 	 *        {@code prompt}/{@code text}, serta opsional {@code model}, {@code temperature},
-	 *        {@code maxTokens}/{@code max_tokens}
-	 * @param response tanggapan HTTP; selalu JSON, baik sukses maupun galat
+	 *        {@code maxTokens}/{@code max_tokens}; pemanggil wajib punya sesi login
+	 * @param response tanggapan HTTP; selalu JSON, baik sukses maupun galat (termasuk galat "belum
+	 *        login" dan "prompt kosong")
 	 * @throws ServletException bila kontainer melaporkan kegagalan servlet
 	 * @throws IOException bila penulisan respons gagal
 	 */
@@ -348,6 +441,14 @@ public class AiGenerateServlet extends HttpServlet {
 
 		request.setCharacterEncoding("UTF-8");
 		response.setContentType("application/json");
+
+		Tbmuser currentUser = getLoggedInUser(request);
+		if (currentUser == null) {
+			debugLog("doPost() ditolak - tidak ada sesi login.");
+			writeError(response, "Sesi login diperlukan untuk memakai layanan AI ini.", "", "", "", false);
+			return;
+		}
+		boolean isAdmin = isCurrentUserAdmin(currentUser);
 
 		String body = "";
 		String prompt = "";
@@ -372,14 +473,15 @@ public class AiGenerateServlet extends HttpServlet {
 					request.getParameter("text"));
 
 			if (isBlank(prompt)) {
-				prompt = "Buatkan teks akademik yang rapi, formal, mudah dipahami, dan siap digunakan.";
-				debugLog("Step 2 - Prompt kosong, memakai prompt default.");
+				debugLog("Step 2 - Prompt kosong, permintaan ditolak.");
+				writeError(response, "Prompt/instruksi tidak boleh kosong.", "", endpoint, model, isAdmin);
+				return;
 			}
 			debugLog("Step 2 selesai. promptLength=" + lengthOf(prompt) + ", promptPreview=" + shortText(prompt, 700));
 
 			debugLog("Step 3 - Menentukan model AI...");
 			String requestedModel = firstNotEmpty(extractJsonValue(body, "model"), request.getParameter("model"));
-			model = isBlank(requestedModel) ? getActiveAiModel() : requestedModel.trim();
+			model = (!isBlank(requestedModel) && isModelDiizinkan(requestedModel)) ? requestedModel.trim() : getActiveAiModel();
 			if (isBlank(model)) {
 				model = DEFAULT_MODEL;
 			}
@@ -452,7 +554,7 @@ public class AiGenerateServlet extends HttpServlet {
 
 			if (statusCode < 200 || statusCode >= 300) {
 				debugLog("Step 10 - Endpoint AI mengembalikan status error. statusCode=" + statusCode);
-				writeError(response, "HTTP " + statusCode + " dari endpoint AI.", rawAiResponse, endpoint, model);
+				writeError(response, "HTTP " + statusCode + " dari endpoint AI.", rawAiResponse, endpoint, model, isAdmin);
 				return;
 			}
 
@@ -462,7 +564,7 @@ public class AiGenerateServlet extends HttpServlet {
 
 			if (isBlank(resultText)) {
 				debugLog("Step 11 - Response AI kosong atau format tidak dikenali.");
-				writeError(response, "Response AI kosong atau format OpenAI-compatible tidak dikenali.", rawAiResponse, endpoint, model);
+				writeError(response, "Response AI kosong atau format OpenAI-compatible tidak dikenali.", rawAiResponse, endpoint, model, isAdmin);
 				return;
 			}
 
@@ -482,7 +584,7 @@ public class AiGenerateServlet extends HttpServlet {
 		} catch (Exception e) {
 			debugException("ERROR doPost() gagal. endpoint=" + endpoint + ", model=" + model + ", statusCode=" + statusCode
 					+ ", rawPreview=" + shortText(rawAiResponse, 1000), e);
-			writeError(response, "Gagal menghubungi AI lokal/OpenAI-compatible endpoint: " + e.getMessage(), rawAiResponse, endpoint, model);
+			writeError(response, "Gagal menghubungi AI lokal/OpenAI-compatible endpoint: " + e.getMessage(), rawAiResponse, endpoint, model, isAdmin);
 		} finally {
 			if (conn != null) {
 				try {
@@ -1009,6 +1111,107 @@ public class AiGenerateServlet extends HttpServlet {
 	}
 
 	/**
+	 * Mengambil pengguna yang sedang login pada sesi HTTP permintaan ini, dipakai gerbang
+	 * autentikasi {@link #doGet} dan {@link #doPost}.
+	 *
+	 * <p><b>Mengapa bukan {@code Common.getCurrentUser()} (tanpa argumen).</b> Overload itu mencari
+	 * request lewat {@code ExecutionsCtrl}/{@code RequestContext} milik ZK, yang <b>tidak tersedia</b>
+	 * pada request servlet biasa seperti <code>/Ai</code> &mdash; selalu mengembalikan {@code null}
+	 * di sini walau pemanggil sudah login lewat halaman ZK, sehingga gerbang akan salah menolak
+	 * semua orang (fail-closed yang keliru, menutup fitur yang sah).</p>
+	 *
+	 * <p><b>Mengapa juga bukan {@code Common.getCurrentUser(request)} begitu saja.</b> Overload
+	 * ber-{@link HttpServletRequest} sudah lebih tepat (ia sendiri membaca
+	 * {@code session.getAttribute("mytbmuser"/"usersTemp")}), <b>tetapi</b> punya jalur cadangan:
+	 * bila sesi kosong, ia mencoba {@code request.getParameter("user")} lalu
+	 * {@code SecurityFilter.getCurrentFromUsername(...)}, yang mengembalikan identitas dari peta
+	 * login global {@code SecurityFilter.dataLogin} berdasarkan <b>nama pengguna semata</b> &mdash;
+	 * tanpa memverifikasi bahwa pemanggil memang memiliki sesi milik nama itu. Memakainya di sini
+	 * akan membuka jalur spoofing identitas hanya dengan menebak/mengetahui username pengguna lain
+	 * yang sedang online, lewat parameter permintaan biasa (mis. {@code ?user=<username>} atau field
+	 * form). Method ini karena itu membaca <b>langsung dan hanya</b> dari atribut
+	 * {@link HttpSession}, sumber kebenaran yang sama yang dipasang saat login
+	 * (lihat {@code MainAction}/{@code CommonCurrentSessionHelper}), tanpa jalur cadangan apa pun.</p>
+	 *
+	 * <p><b>Catatan.</b> Temuan di atas mengenai jalur cadangan {@code Common.getCurrentUser(request)}
+	 * berlaku umum untuk 31 berkas lain di paket ini yang memanggilnya; di luar cakupan penambalan
+	 * berkas ini, layak diaudit terpisah.</p>
+	 *
+	 * @param request permintaan HTTP yang sesinya akan diperiksa
+	 * @return pengguna yang login pada sesi ini, atau {@code null} bila tidak ada sesi atau tidak
+	 *         ada pengguna tersimpan di sesi
+	 */
+	private Tbmuser getLoggedInUser(HttpServletRequest request) {
+		try {
+			HttpSession session = request.getSession(false);
+			if (session == null) {
+				return null;
+			}
+			Object user = session.getAttribute("mytbmuser");
+			if (user == null) {
+				user = session.getAttribute("usersTemp");
+			}
+			return (user instanceof Tbmuser) ? (Tbmuser) user : null;
+		} catch (Exception e) {
+			debugException("getLoggedInUser() gagal membaca sesi.", e);
+			return null;
+		}
+	}
+
+	/**
+	 * Menentukan apakah pengguna yang sudah lolos {@link #getLoggedInUser(HttpServletRequest)}
+	 * adalah administrator, dipakai {@link #doGet} dan {@link #doPost} untuk memutuskan apakah
+	 * rincian teknis (endpoint AI, badan galat mentah penyedia) boleh disertakan pada respons lewat
+	 * {@link #writeError} dan JSON status {@link #doGet}.
+	 *
+	 * @param user pengguna yang sudah dipastikan tidak {@code null} oleh pemanggil
+	 * @return {@code true} bila role aktif pengguna adalah {@link Tbmrole#ADMINISTRATOR}; {@code
+	 *         false} bila tidak, atau bila pemeriksaan role gagal (fail-closed &mdash; rincian tetap
+	 *         disembunyikan bila ragu)
+	 */
+	private boolean isCurrentUserAdmin(Tbmuser user) {
+		try {
+			Tbmrole role = user.hakAkses();
+			return role != null && Tbmrole.ADMINISTRATOR.equals(role.getRoleId());
+		} catch (Exception e) {
+			debugException("isCurrentUserAdmin() gagal memeriksa role.", e);
+			return false;
+		}
+	}
+
+	/**
+	 * Memeriksa apakah nama model yang diusulkan pemanggil {@link #doPost} boleh dipakai, dasar
+	 * penambalan Langkah 3 (lihat Javadoc {@link #doPost}).
+	 *
+	 * <p><b>Cara kerja.</b> Diterima bila (a) sama persis (tanpa membedakan huruf besar/kecil)
+	 * dengan {@link #getActiveAiModel()} yang sedang dikonfigurasi administrator, <b>atau</b>
+	 * (b) tercantum pada daftar konfigurasi {@code AI_MODEL_WHITELIST} (dipisah koma), dengan bawaan
+	 * {@link #DEFAULT_MODEL_WHITELIST} bila baris itu belum diisi. Usulan yang tidak lolos tidak
+	 * menggagalkan permintaan &mdash; pemanggil ({@link #doPost}) jatuh kembali ke
+	 * {@link #getActiveAiModel()} secara diam-diam.</p>
+	 *
+	 * @param model nama model yang diusulkan pemanggil; boleh kosong atau {@code null}
+	 * @return {@code true} bila model boleh dipakai apa adanya
+	 */
+	private boolean isModelDiizinkan(String model) {
+		if (isBlank(model)) {
+			return false;
+		}
+		String trimmed = model.trim();
+		if (trimmed.equalsIgnoreCase(getActiveAiModel())) {
+			return true;
+		}
+		String whitelist = getConfigValue("AI_MODEL_WHITELIST", DEFAULT_MODEL_WHITELIST);
+		String[] allowed = whitelist.split(",");
+		for (int i = 0; i < allowed.length; i++) {
+			if (allowed[i].trim().equalsIgnoreCase(trimmed)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Menyegarkan sakelar {@link #debug} dari konfigurasi {@code AI_DEBUG}.
 	 *
 	 * <p><b>Cara kerja.</b> Membaca {@code Common.getKonfigurasi("AI_DEBUG", Konfigurasi.AKTIF)}.
@@ -1156,14 +1359,18 @@ public class AiGenerateServlet extends HttpServlet {
 	 * kelak endpoint ini menerima teks polos, tambahkan {@code sb.append('\n')} di dalam
 	 * perulangan.</p>
 	 *
-	 * <p><b>Tidak ada batas ukuran.</b> Badan permintaan sebesar apa pun diserap ke memori; tidak ada
-	 * penjaga panjang maksimum. Digabung dengan ketiadaan autentikasi pada {@code /Ai}, ini membuka
-	 * peluang penghabisan memori dari luar.</p>
+	 * <p><b>Batas ukuran &mdash; STATUS: DITAMBAL.</b> Sebelumnya badan permintaan sebesar apa pun
+	 * diserap ke memori tanpa penjaga panjang maksimum, yang digabung dengan ketiadaan autentikasi
+	 * lama pada {@code /Ai} membuka peluang penghabisan memori dari luar. Sekarang pembacaan berhenti
+	 * dan melempar {@link IOException} begitu akumulasi melebihi {@link #MAX_REQUEST_BODY_CHARS}
+	 * karakter; {@link #doPost} menangkapnya di blok {@code catch} umum dan membalasnya sebagai JSON
+	 * galat lewat {@link #writeError}.</p>
 	 *
 	 * @param request permintaan HTTP yang badannya akan dibaca
 	 * @return isi badan permintaan sebagai satu string; kosong bila badan kosong, tidak pernah
 	 *         {@code null}
-	 * @throws IOException bila pembacaan aliran gagal
+	 * @throws IOException bila pembacaan aliran gagal, atau bila badan melebihi
+	 *         {@link #MAX_REQUEST_BODY_CHARS} karakter
 	 */
 	private String readRequestBody(HttpServletRequest request) throws IOException {
 		debugLog("readRequestBody() mulai.");
@@ -1174,6 +1381,9 @@ public class AiGenerateServlet extends HttpServlet {
 			String line;
 			while ((line = reader.readLine()) != null) {
 				sb.append(line);
+				if (sb.length() > MAX_REQUEST_BODY_CHARS) {
+					throw new IOException("Badan permintaan melebihi batas maksimum " + MAX_REQUEST_BODY_CHARS + " karakter.");
+				}
 			}
 		} finally {
 			if (reader != null) {
@@ -1203,11 +1413,15 @@ public class AiGenerateServlet extends HttpServlet {
 	 * {@code content} tidak terdampak karena baris barunya sudah berupa escape {@code \n} di dalam
 	 * string JSON, bukan baris baru sungguhan &mdash; sehingga paragraf pada hasil AI tetap utuh.</p>
 	 *
-	 * <p><b>Tidak ada batas ukuran.</b> Tanggapan sebesar apa pun diserap ke memori.</p>
+	 * <p><b>Batas ukuran &mdash; STATUS: DITAMBAL.</b> Sebelumnya tanggapan sebesar apa pun diserap
+	 * ke memori tanpa batas. Sekarang pembacaan berhenti dan melempar {@link IOException} begitu
+	 * akumulasi melebihi {@link #MAX_PROVIDER_RESPONSE_CHARS} karakter, ditangani sama seperti galat
+	 * jaringan lain oleh pemanggil ({@link #doPost} dan {@link #callAiInternal(String, int)}).</p>
 	 *
 	 * @param inputStream aliran yang akan dibaca; boleh {@code null}
 	 * @return isi aliran sebagai string; kosong bila {@code null} atau memang kosong
-	 * @throws IOException bila pembacaan aliran gagal
+	 * @throws IOException bila pembacaan aliran gagal, atau bila tanggapan melebihi
+	 *         {@link #MAX_PROVIDER_RESPONSE_CHARS} karakter
 	 */
 	private String readStream(InputStream inputStream) throws IOException {
 		debugLog("readStream() mulai. inputStreamNull=" + (inputStream == null));
@@ -1222,6 +1436,9 @@ public class AiGenerateServlet extends HttpServlet {
 			String line;
 			while ((line = br.readLine()) != null) {
 				sb.append(line);
+				if (sb.length() > MAX_PROVIDER_RESPONSE_CHARS) {
+					throw new IOException("Tanggapan penyedia AI melebihi batas maksimum " + MAX_PROVIDER_RESPONSE_CHARS + " karakter.");
+				}
 			}
 		} finally {
 			if (br != null) {
@@ -1250,23 +1467,29 @@ public class AiGenerateServlet extends HttpServlet {
 	 * <b>wajib</b> memeriksa field {@code success}, bukan kode status. Bila kelak diubah menjadi 4xx/5xx,
 	 * seluruh JSP pemanggil harus disesuaikan bersamaan.</p>
 	 *
-	 * <p><b>Peringatan kebocoran informasi.</b> Field {@code raw} memantulkan badan galat penyedia
-	 * <b>apa adanya</b> ke pemanggil, dan {@code endpoint} membocorkan alamat endpoint AI internal
-	 * (termasuk IP/porta Ollama lokal). Karena {@code /Ai} terbuka anonim (lihat Javadoc kelas),
-	 * pihak luar dapat memancing galat untuk memetakan konfigurasi internal, kuota, dan identitas
-	 * proyek penyedia. Kunci API sendiri tidak ikut tercetak, tetapi pesan galat penyedia adakalanya
-	 * memuat potongan pengenal kunci atau nama proyek. Bila hendak diperketat, sembunyikan {@code raw}
-	 * dan {@code endpoint} untuk pemanggil non-admin.</p>
+	 * <p><b>Parameter {@code includeDetail} &mdash; STATUS: DITAMBAL.</b> Sebelumnya field
+	 * {@code raw} memantulkan badan galat penyedia <b>apa adanya</b> ke pemanggil, dan
+	 * {@code endpoint} membocorkan alamat endpoint AI internal (termasuk IP/porta Ollama lokal),
+	 * tanpa syarat &mdash; karena {@code /Ai} dahulu terbuka anonim, pihak luar dapat memancing
+	 * galat untuk memetakan konfigurasi internal, kuota, dan identitas proyek penyedia. Sekarang
+	 * kedua field itu hanya diisi bila {@code includeDetail} bernilai {@code true}; pemanggil di
+	 * {@link #doGet} dan {@link #doPost} mengisinya dari {@link #isCurrentUserAdmin(Tbmuser)},
+	 * sehingga pengguna biasa (yang kini wajib login lebih dulu) tetap menerima field {@code error}
+	 * yang dapat dibaca manusia, tetapi {@code raw} dan {@code endpoint} dikosongkan. Kunci API
+	 * sendiri tidak pernah ikut tercetak di field mana pun.</p>
 	 *
 	 * @param response tanggapan HTTP yang akan ditulisi
 	 * @param message pesan galat yang dapat dibaca manusia
 	 * @param rawResponse badan tanggapan mentah dari penyedia; boleh {@code null}
 	 * @param endpoint URL endpoint yang sedang dituju, untuk diagnosis
 	 * @param model nama model yang sedang dipakai, untuk diagnosis
+	 * @param includeDetail {@code true} bila pemanggil administrator sehingga {@code raw} dan
+	 *        {@code endpoint} boleh disertakan; {@code false} untuk mengosongkan keduanya
 	 * @throws IOException bila penulisan respons gagal
 	 */
-	private void writeError(HttpServletResponse response, String message, String rawResponse, String endpoint, String model) throws IOException {
-		debugLog("writeError() message=" + message + ", endpoint=" + endpoint + ", model=" + model
+	private void writeError(HttpServletResponse response, String message, String rawResponse, String endpoint, String model,
+			boolean includeDetail) throws IOException {
+		debugLog("writeError() message=" + message + ", endpoint=" + endpoint + ", model=" + model + ", includeDetail=" + includeDetail
 				+ ", rawLength=" + lengthOf(rawResponse) + ", rawPreview=" + shortText(rawResponse, 1000));
 
 		StringBuilder out = new StringBuilder();
@@ -1274,9 +1497,9 @@ public class AiGenerateServlet extends HttpServlet {
 		out.append("\"success\":false,");
 		out.append("\"provider\":\"openai-compatible\",");
 		out.append("\"model\":\"").append(escapeJson(model)).append("\",");
-		out.append("\"endpoint\":\"").append(escapeJson(endpoint)).append("\",");
+		out.append("\"endpoint\":\"").append(includeDetail ? escapeJson(endpoint) : "").append("\",");
 		out.append("\"error\":\"").append(escapeJson(message)).append("\",");
-		out.append("\"raw\":\"").append(escapeJson(rawResponse == null ? "" : rawResponse)).append("\"");
+		out.append("\"raw\":\"").append(includeDetail ? escapeJson(rawResponse == null ? "" : rawResponse) : "").append("\"");
 		out.append("}");
 		response.getWriter().write(out.toString());
 	}
