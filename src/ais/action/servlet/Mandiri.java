@@ -1161,9 +1161,35 @@ public class Mandiri extends HttpServlet {
 	 * supaya log konsol tidak penuh oleh transaksi H2H sungguhan yang volumenya
 	 * jauh lebih tinggi daripada cek ulang manual.
 	 *
-	 * @param jejakLangkah jejak langkah-demi-langkah alur {@code doProcess} (boleh
-	 *                     null/kosong) â€” dicetak setelahnya agar cek ulang manual
-	 *                     selalu punya rincian tiap tahap, bukan hanya ringkasan.
+	 * <p>
+	 * Seluruh pembacaan properti VA dibungkus try/catch per baris supaya satu
+	 * relasi Hibernate yang gagal dimuat tidak menggagalkan seluruh dump; kegagalan
+	 * mencetak log tidak boleh mengganggu respons yang dikirim ke bank.
+	 *
+	 * @param va                    nomor Virtual Account yang sedang dicek ulang
+	 * @param nominalP              nominal yang dipakai saat pemrosesan ulang
+	 * @param tanggalP              waktu transaksi mentah dari payload bank
+	 * @param bank                  nama bank pembayar
+	 * @param bankHost              baris {@link BankHost} hasil pencocokan IP; boleh
+	 *                              {@code null}, dicetak sebagai {@code (null)}
+	 * @param inquery               {@code true} bila yang dicek ulang adalah
+	 *                              inquiry, {@code false} bila payment
+	 * @param data                  payload JSON mentah dari bank
+	 * @param virtualAccountBankNtt VA hasil pencarian; {@code null} berarti tidak
+	 *                              ada baris yang cocok sehingga alur tidak pernah
+	 *                              mencapai cabang sukses
+	 * @param status                objek {@code status} respons akhir
+	 *                              (isError/errorCode/statusDescription); boleh
+	 *                              {@code null}
+	 * @param h2hStackTrace         jejak exception atau dump jejak lengkap; bernilai
+	 *                              {@code null} bila tidak ada exception nyata
+	 * @param jsonObjectResponse    badan respons lengkap yang dikirim ke bank
+	 * @param nim                   NIM/nomor induk hasil identifikasi pembayar
+	 * @param nama                  nama hasil identifikasi pembayar
+	 * @param jejakLangkah          jejak langkah-demi-langkah alur {@code doProcess}
+	 *                              (boleh null/kosong) â€” dicetak setelahnya agar cek
+	 *                              ulang manual selalu punya rincian tiap tahap,
+	 *                              bukan hanya ringkasan.
 	 */
 	@SuppressWarnings("unchecked")
 	private static void logDetailCekUlang(String va, double nominalP, String tanggalP, String bank,

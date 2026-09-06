@@ -6648,11 +6648,6 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
-	 * Toko yang berlaku utk kasir yang login -- pedagang DIKUNCI ke tokonya sendiri (TIDAK bisa
-	 * dipalsukan lewat parameter {@code tokoId} di body), admin-kantin (tanpa relasi Pedagang) boleh
-	 * memilih toko manapun lewat parameter. Pola SAMA PERSIS dgn resolusi toko di {@code _pos.jsp}.
-	 */
-	/**
 	 * Daftar toko untuk combo filter di bilah atas aplikasi.
 	 *
 	 * <p>Isinya mengikuti hak akses: peran berizin "seluruh toko" mendapat
@@ -6733,15 +6728,6 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
-	 * Pendaftar (tenant) tempat pengguna ini bernaung, atau {@code null} bila
-	 * ia admin pusat yang boleh melihat seluruh toko.
-	 *
-	 * <p>Sumber utamanya relasi langsung {@code Tbmuser.pendaftar} (diisi lewat
-	 * layar Manajemen Pendaftar). Bila kosong, dicoba turunkan dari
-	 * {@code pedagang -> toko -> pendaftar} supaya akun pedagang lama yang
-	 * belum sempat di-assign tetap terkurung di tenantnya sendiri.</p>
-	 */
-	/**
 	 * Kondisi WHERE untuk filter toko, sekaligus pembatas tenant.
 	 *
 	 * <p>Menggabungkan dua hal dalam satu potongan SQL:</p>
@@ -6787,6 +6773,15 @@ public class PosApi extends HttpServlet {
 				+ pendaftarId.longValue() + ")";
 	}
 
+	/**
+	 * Pendaftar (tenant) tempat pengguna ini bernaung, atau {@code null} bila
+	 * ia admin pusat yang boleh melihat seluruh toko.
+	 *
+	 * <p>Sumber utamanya relasi langsung {@code Tbmuser.pendaftar} (diisi lewat
+	 * layar Manajemen Pendaftar). Bila kosong, dicoba turunkan dari
+	 * {@code pedagang -> toko -> pendaftar} supaya akun pedagang lama yang
+	 * belum sempat di-assign tetap terkurung di tenantnya sendiri.</p>
+	 */
 	private Long pendaftarIdPengguna(Tbmuser tbmuser) {
 		if (tbmuser == null) {
 			return null;
@@ -6822,6 +6817,11 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Toko yang berlaku utk kasir yang login -- pedagang DIKUNCI ke tokonya sendiri (TIDAK bisa
+	 * dipalsukan lewat parameter {@code tokoId} di body), admin-kantin (tanpa relasi Pedagang) boleh
+	 * memilih toko manapun lewat parameter. Pola SAMA PERSIS dgn resolusi toko di {@code _pos.jsp}.
+	 */
 	private Long resolveTokoId(Tbmuser tbmuser, JSONObject payload) {
 		Long tokoDariPayload = ambilTokoIdPayload(payload);
 		// Peran berizin "seluruh toko": pilihan dari klien dipakai, tapi TIDAK
@@ -6956,36 +6956,6 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
-	 * Membaca seluruh body permintaan sebagai teks lalu mem-parse-nya sebagai JSON. Body kosong/tidak
-	 * valid → objek JSON kosong (bukan exception). Sengaja try/finally manual (BUKAN try-with-resources
-	 * -- build Ant proyek ini memakai {@code -source 1.6}, yang tidak mendukung sintaks itu).
-	 */
-	/**
-	 * <h3>Fitur "Laporan-Laporan e-Kantin" (versi Desktop) -- adaptor menuju {@code LaporanKantinUtil}.</h3>
-	 *
-	 * <p>{@link ais.action.master.koperasi.helper.LaporanKantinUtil#build} (mesin ~150 laporan yang
-	 * SAMA dipakai versi web) menerima {@link HttpServletRequest} mentah dan membaca DUA hal dari
-	 * situ yang TIDAK tersedia apa adanya di konteks token {@code PosApi}: (1)
-	 * {@code request.getParameter(...)} -- padahal klien Desktop mengirim JSON body, bukan form params
-	 * -- diselesaikan dengan {@link ParamRequestWrapper} yang membungkus request asli dan menjawab
-	 * {@code getParameter} dari payload JSON; (2) {@code Common.getCurrentUser(request)} -- otentikasi
-	 * cookie-session, sedangkan Desktop otentikasi TOKEN -- diselesaikan dengan MENITIPKAN
-	 * {@code tbmuser} (SUDAH diresolusi dari token oleh {@link #proses}) ke atribut session
-	 * {@code "mytbmuser"} SAMA PERSIS kunci yang dibaca {@code CommonCurrentSessionHelper.getCurrentUser}
-	 * -- dipulihkan di {@code finally} agar tidak membocorkan identitas token ke request lain yang
-	 * kebetulan berbagi {@code HttpSession} (mis. bila kasir yang sama juga login web di browser yang
-	 * sama). TIDAK ADA perubahan pada {@code LaporanKantinUtil}/{@code Common} sama sekali -- adaptor
-	 * murni di sisi pemanggil.</p>
-	 *
-	 * <p><b>Sesi Hibernate:</b> {@code LaporanKantinUtil.build()} memakai
-	 * {@code HibernateUtil.currentSession()} yang (di luar eksekusi ZK) JATUH ke
-	 * {@code currentNativeSession()} -- session ThreadLocal yang TIDAK PERNAH ditutup otomatis di
-	 * konteks servlet POS API ini (tidak ada {@code FilterJSP}/{@code OpenSessionInView} yang menutupnya
-	 * di akhir request). WAJIB ditutup manual di {@code finally} lewat
-	 * {@link HibernateUtil#closeSession()} -- alpa di sini berarti kebocoran koneksi c3p0 pelan-pelan
-	 * tiap kali laporan dijalankan dari Desktop (lihat COOKBOOK POLA B di {@code HibernateUtil}).</p>
-	 */
-	/**
 	 * Katalog yang sudah dipotong sesuai role. Penyaringan dilakukan di server agar
 	 * kategori/laporan terlarang tidak pernah dikirim ke Desktop/Android/JSP.
 	 */
@@ -7022,6 +6992,31 @@ public class PosApi extends HttpServlet {
 				ais.action.master.koperasi.helper.LaporanKatalogData.katalog(), menuRole, laporanId);
 	}
 
+	/**
+	 * <h3>Fitur "Laporan-Laporan e-Kantin" (versi Desktop) -- adaptor menuju {@code LaporanKantinUtil}.</h3>
+	 *
+	 * <p>{@link ais.action.master.koperasi.helper.LaporanKantinUtil#build} (mesin ~150 laporan yang
+	 * SAMA dipakai versi web) menerima {@link HttpServletRequest} mentah dan membaca DUA hal dari
+	 * situ yang TIDAK tersedia apa adanya di konteks token {@code PosApi}: (1)
+	 * {@code request.getParameter(...)} -- padahal klien Desktop mengirim JSON body, bukan form params
+	 * -- diselesaikan dengan {@link ParamRequestWrapper} yang membungkus request asli dan menjawab
+	 * {@code getParameter} dari payload JSON; (2) {@code Common.getCurrentUser(request)} -- otentikasi
+	 * cookie-session, sedangkan Desktop otentikasi TOKEN -- diselesaikan dengan MENITIPKAN
+	 * {@code tbmuser} (SUDAH diresolusi dari token oleh {@link #proses}) ke atribut session
+	 * {@code "mytbmuser"} SAMA PERSIS kunci yang dibaca {@code CommonCurrentSessionHelper.getCurrentUser}
+	 * -- dipulihkan di {@code finally} agar tidak membocorkan identitas token ke request lain yang
+	 * kebetulan berbagi {@code HttpSession} (mis. bila kasir yang sama juga login web di browser yang
+	 * sama). TIDAK ADA perubahan pada {@code LaporanKantinUtil}/{@code Common} sama sekali -- adaptor
+	 * murni di sisi pemanggil.</p>
+	 *
+	 * <p><b>Sesi Hibernate:</b> {@code LaporanKantinUtil.build()} memakai
+	 * {@code HibernateUtil.currentSession()} yang (di luar eksekusi ZK) JATUH ke
+	 * {@code currentNativeSession()} -- session ThreadLocal yang TIDAK PERNAH ditutup otomatis di
+	 * konteks servlet POS API ini (tidak ada {@code FilterJSP}/{@code OpenSessionInView} yang menutupnya
+	 * di akhir request). WAJIB ditutup manual di {@code finally} lewat
+	 * {@link HibernateUtil#closeSession()} -- alpa di sini berarti kebocoran koneksi c3p0 pelan-pelan
+	 * tiap kali laporan dijalankan dari Desktop (lihat COOKBOOK POLA B di {@code HibernateUtil}).</p>
+	 */
 	private void prosesLaporanJalankan(HttpServletRequest request, Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		HttpSession sesiHttp = request.getSession(true);
 		Object userSebelumnya = sesiHttp.getAttribute("mytbmuser");
@@ -7207,6 +7202,11 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membaca seluruh body permintaan sebagai teks lalu mem-parse-nya sebagai JSON. Body kosong/tidak
+	 * valid → objek JSON kosong (bukan exception). Sengaja try/finally manual (BUKAN try-with-resources
+	 * -- build Ant proyek ini memakai {@code -source 1.6}, yang tidak mendukung sintaks itu).
+	 */
 	private static JSONObject bacaJsonBody(HttpServletRequest request) {
 		StringBuilder sb = new StringBuilder();
 		BufferedReader reader = null;

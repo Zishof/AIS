@@ -149,6 +149,12 @@ public class BSI extends HttpServlet {
 	 * (mencegah TransactionException generic), catat detail lokasi ke {@code ErrorAuditUtil}, lalu
 	 * lempar ulang RuntimeException yang jelas supaya ditangkap oleh catch umum method pemanggil
 	 * (yang sudah mengisi rc=ERR-DB & mencatat log H2H) -- bukan silently melanjutkan seolah sukses.</p>
+	 *
+	 * @param session sesi Hibernate yang transaksinya hendak di-commit; {@code null} diperlakukan
+	 *                sama seperti transaksi tidak aktif
+	 * @param lokasi  penanda baris/blok pemanggil, ikut ditulis ke pesan audit agar akar masalah
+	 *                mudah dilacak
+	 * @throws RuntimeException bila transaksi sudah tidak aktif saat hendak di-commit
 	 */
 	private static void commitTransaksiAman(Session session, String lokasi) {
 		Transaction tx = session == null ? null : session.getTransaction();
@@ -164,6 +170,21 @@ public class BSI extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP GET dengan meneruskannya apa adanya ke {@link #process}.
+	 *
+	 * <p>GET dan POST diperlakukan identik; bank boleh memakai keduanya karena parameter dapat
+	 * dikirim sebagai query string maupun sebagai badan JSON (lihat {@link #doProses}).</p>
+	 *
+	 * <p>Setiap {@link Exception} ditelan di sini dan hanya diteruskan ke
+	 * {@code Common.tampilErrorJikaAdmin}. Akibatnya kegagalan tak terduga <b>tidak</b> menjadi
+	 * HTTP 500: bank menerima balasan kosong bertatus 200. Jalur kegagalan yang normal sudah
+	 * ditangani lebih dulu di dalam {@link #process} yang menjawab dengan
+	 * {@link #errorDB(String)}.</p>
+	 *
+	 * @param request  permintaan dari sisi bank
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws ServletException diwariskan dari kontrak {@link HttpServlet}; tidak dilempar sendiri
+	 * @throws IOException      bila penulisan balasan ke {@code response} gagal
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -177,6 +198,13 @@ public class BSI extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP POST — jalur yang sebenarnya dipakai bank — dengan meneruskannya
+	 * ke {@link #process}; perilakunya sama persis dengan {@link #doGet}.
+	 *
+	 * @param request  permintaan dari sisi bank, badan JSON-nya dibaca di {@link #process}
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws ServletException diwariskan dari kontrak {@link HttpServlet}; tidak dilempar sendiri
+	 * @throws IOException      bila penulisan balasan ke {@code response} gagal
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -189,6 +217,74 @@ public class BSI extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Inti gateway: mencari VA, menyusun balasan JSON, dan — hanya bila <b>bukan</b> inquiry —
+	 * mencatat pelunasan ke basis data.
+	 *
+	 * <h4>Urutan pemeriksaan</h4>
+	 * <ol>
+	 *   <li>{@link VirtualAccountBank#ambilVa(String, Double, BankHost)} mencari VA; bila tidak
+	 *       ada, {@code rc=ERR-NOT-FOUND};</li>
+	 *   <li>{@code VirtualAccountBank.isSudahTerbayarUntukPayment} mencegah pembayaran ganda;
+	 *       bila sudah lunas, {@code rc=ERR-ALREADY-PAID};</li>
+	 *   <li><b>pencocokan nominal</b> — pada mode pembayaran, {@code nominalP} harus sama persis
+	 *       (dibandingkan sebagai {@code int}) dengan total tagihan; bila tidak,
+	 *       {@code rc=ERR-PAYMENT-WRONG-AMOUNT}. Total yang dipakai bergantung pada konfigurasi
+	 *       {@code biaya_admin_jangan_dimasukkan_saat_simpan_va}: bila aktif dipakai
+	 *       {@code getTotal()} saja, bila tidak dipakai {@code totalBiaya()} yang sudah termasuk
+	 *       biaya admin;</li>
+	 *   <li>untuk VA berjenis kegiatan mahasiswa, {@code kodeBiller} yang dikirim bank juga
+	 *       dicocokkan dengan {@code prefixKodePembayaran} milik jenis kegiatan — bila berbeda
+	 *       VA dianggap tidak ditemukan.</li>
+	 * </ol>
+	 *
+	 * <h4>Dua cabang pembayar</h4>
+	 * <p>VA milik siswa/calon siswa diproses oleh
+	 * {@link VirtualAccountBank#bayarSiswa}; VA milik mahasiswa/calon mahasiswa diproses di
+	 * tempat, dengan membuat atau memperbarui {@link Kegiatan} beserta baris
+	 * {@link CicilanPembayaran} untuk setiap komponen pada kolom {@code cicilan}. Komponen itu
+	 * dikenali dari awalannya: angka murni dan {@code "Bulanan-"} merujuk
+	 * {@link PengaturanPembayaranBulanan}, {@code "Item-"} merujuk {@link ItemBiaya}, sedangkan
+	 * {@code "Keranjang-"} didelegasikan ke
+	 * {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}.</p>
+	 *
+	 * <h4>Mode inquiry bersifat baca-saja</h4>
+	 * <p>Bila {@code inquery} bernilai {@code true}, seluruh blok penyimpanan dilewati sehingga
+	 * pengecekan tagihan oleh bank tidak pernah tercatat sebagai pembayaran, dan balasan diberi
+	 * {@code PaymentFlagStatus=00}.</p>
+	 *
+	 * <h4>Jaminan pencatatan log H2H</h4>
+	 * <p>Blok {@code finally} <b>selalu</b> memanggil
+	 * {@code PembayaranGatewayHelper.catatLogHostToHost} — tanpa syarat {@code bankHost} — supaya
+	 * permintaan dari IP yang tidak dikenal pun tetap meninggalkan jejak audit. Ini adalah
+	 * keputusan arsitektur yang disengaja, bukan kelalaian pemeriksaan: pencatatan log memang
+	 * dibuat tidak bergantung pada dikenalinya pemanggil.</p>
+	 *
+	 * <p><b>Catatan.</b> Nilai {@code bankHost} {@code null} (IP tak dikenal) tidak menghentikan
+	 * pemrosesan; lihat pembahasan model autentikasi pada javadoc {@link BSI kelas ini}.</p>
+	 *
+	 * @param nominalP    nominal setoran yang dikirim bank; diabaikan saat {@code inquery}
+	 * @param tanggalP    waktu transaksi berformat {@code yyyyMMddHHmmss}; bila gagal diurai,
+	 *                    dipakai waktu server saat ini
+	 * @param va          nomor Virtual Account yang dibayar
+	 * @param companyCode kode biller pengirim, dicocokkan dengan prefix kode pembayaran jenis
+	 *                    kegiatan; boleh kosong untuk melewati pencocokan
+	 * @param RequestID   id transaksi dari bank; hanya diteruskan, tidak dipakai untuk logika
+	 * @param bank        label bank yang disimpan sebagai {@code validator} pada Kegiatan dan
+	 *                    CicilanPembayaran; bernilai {@code "BSI"}
+	 * @param bankHost    host bank hasil pencocokan IP; boleh {@code null} dan tidak menjadi
+	 *                    gerbang
+	 * @param request     permintaan asli, dipakai untuk pencatatan log H2H
+	 * @param data        badan permintaan mentah, disimpan apa adanya ke log H2H
+	 * @param chekLagi    penanda dari pemanggil; pada alur servlet selalu {@code true}
+	 * @param inquery     {@code true} untuk mode tanya tagihan (baca saja), {@code false} untuk
+	 *                    pelunasan
+	 * @param chek        mode pemeriksaan internal; melonggarkan pemeriksaan "sudah terbayar"
+	 * @return objek JSON balasan lengkap dengan {@code rc}, {@code msg}, identitas pembayar,
+	 *         {@code totalNominal}, {@code informasi}, dan {@code rincian}
+	 * @throws Exception bila penyusunan JSON gagal; kegagalan basis data sendiri sudah ditangkap
+	 *                   di dalam dan diubah menjadi {@code rc=ERR-DB}
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String companyCode,
 			String RequestID, String bank, BankHost bankHost, HttpServletRequest request, String data, boolean chekLagi,
@@ -840,6 +936,33 @@ public class BSI extends HttpServlet {
 		return response;
 	}
 
+	/**
+	 * Membaca badan permintaan, menetapkan {@link BankHost} dari alamat IP pemanggil, memanggil
+	 * {@link #doProses}, lalu menuliskan hasilnya sebagai JSON.
+	 *
+	 * <p>Badan permintaan dibaca baris demi baris lalu digabung <b>tanpa pemisah</b>, sehingga
+	 * JSON yang dikirim bank dalam beberapa baris tetap menjadi satu dokumen utuh.</p>
+	 *
+	 * <p>Identifikasi pemanggil memakai
+	 * {@link PembayaranUtil#getBankHost(String, String)} dengan
+	 * {@link HttpServletRequest#getRemoteAddr()} — alamat TCP sebenarnya, <b>bukan</b> header
+	 * {@code X-Forwarded-For} atau sejenisnya yang dapat dipalsukan klien. Nilai yang dihasilkan
+	 * hanya dilekatkan pada log dan pencarian VA; ia <b>tidak</b> dipakai untuk menolak
+	 * permintaan (lihat javadoc {@link BSI kelas ini}).</p>
+	 *
+	 * <p>Bila {@link #doProses} melempar exception, balasan diganti
+	 * {@link #errorDB(String)} sehingga bank tetap menerima JSON berbentuk benar dan tidak
+	 * menganggap tagihan lunas.</p>
+	 *
+	 * <p>Isi badan permintaan dan query string dicetak ke {@link System#out}. Untuk kanal ini
+	 * payload memang tidak terenkripsi dan tidak memuat kredensial, sehingga pencetakan tersebut
+	 * tidak membocorkan rahasia — berbeda dengan {@link Bsiresponse} yang payload-nya harus
+	 * disamarkan.</p>
+	 *
+	 * @param request  permintaan dari sisi bank
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws Exception bila pembacaan badan permintaan atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
@@ -882,6 +1005,24 @@ public class BSI extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyusun balasan JSON berbentuk lengkap namun bertanda gagal, dipakai saat pemrosesan
+	 * melempar exception sebelum sempat menghasilkan balasan.
+	 *
+	 * <p>Struktur balasan sengaja dibuat sama dengan balasan sukses ({@code nomorPembayaran},
+	 * {@code idPelanggan}, {@code nama}, {@code totalNominal}, {@code informasi}, {@code rincian},
+	 * {@code idTagihan}) agar pengurai di sisi bank tidak ikut gagal; yang membedakan hanyalah
+	 * {@code rc} dan {@code msg}. Keduanya dapat diatur lewat konfigurasi
+	 * {@code bsi_paksa_gagal_rc} dan {@code bsi_paksa_gagal_msg}, dengan bawaan {@code ERR-DB}
+	 * dan {@code "Error saat Update Transaksi"}.</p>
+	 *
+	 * <p>Seluruh isi method dibungkus {@code try/catch} sehingga tetap mengembalikan JSON yang
+	 * dapat diurai walaupun pembacaan konfigurasi gagal.</p>
+	 *
+	 * @param va nomor Virtual Account yang sedang diproses; diikutkan agar bank dapat
+	 *           mencocokkan balasan dengan permintaannya
+	 * @return teks JSON balasan gagal
+	 */
 	public static String errorDB(String va) {
 		JSONObject response = new JSONObject();
 		try {
@@ -911,6 +1052,34 @@ public class BSI extends HttpServlet {
 		return response.toString();
 	}
 
+	/**
+	 * Mengurai payload permintaan bank menjadi parameter-parameter terpisah, lalu meneruskannya
+	 * ke {@link #doProcess}.
+	 *
+	 * <p>Setiap nilai dicari lebih dulu di badan JSON; bila tidak ada di sana, dipakai parameter
+	 * query dengan nama yang sama. Pemetaan namanya: {@code nomorPembayaran} menjadi nomor VA,
+	 * {@code kodeBiller} menjadi kode biller, {@code idTransaksi} menjadi id permintaan,
+	 * {@code totalNominal} menjadi nominal setoran, dan {@code tanggalTransaksi} menjadi waktu
+	 * transaksi (bila kosong dipakai waktu server saat ini).</p>
+	 *
+	 * <p>Field {@code action} menentukan mode: nilai {@code "inquiry"} (tanpa membedakan
+	 * besar-kecil huruf) berarti tanya tagihan yang bersifat baca-saja, nilai lain — termasuk
+	 * {@code null} — diperlakukan sebagai <b>pelunasan</b>.</p>
+	 *
+	 * <p>Kegagalan penguraian {@code totalNominal} tidak menghentikan alur: nominal tetap
+	 * {@code 0.0} dan dicatat lewat {@code ErrorAuditUtil}. Pada mode pembayaran nilai nol itu
+	 * hampir pasti tidak sama dengan total tagihan, sehingga permintaan ditolak
+	 * {@link #doProcess} dengan {@code ERR-PAYMENT-WRONG-AMOUNT}.</p>
+	 *
+	 * @param data     badan permintaan mentah; boleh {@code null}, saat itu seluruh nilai diambil
+	 *                 dari parameter query
+	 * @param request  permintaan asli, sumber cadangan parameter dan bahan pencatatan log H2H
+	 * @param bankHost host bank hasil pencocokan IP; boleh {@code null}
+	 * @param bank     label bank yang akan tercatat sebagai {@code validator}
+	 * @param chek     mode pemeriksaan internal, diteruskan apa adanya ke {@link #doProcess}
+	 * @return teks JSON balasan
+	 * @throws Exception bila payload bukan JSON yang sah atau pemrosesan gagal
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);

@@ -48,7 +48,47 @@ import ais.database.model.VirtualAccountBank;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet gateway <b>host-to-host (H2H)</b> Bank BRI (Briva) — pintu masuk callback bank untuk
+ * inquiry tagihan, posting pembayaran, dan pembatalan (reversal) Virtual Account.
+ *
+ * <h3>Otentikasi H2H — FAKTA ARSITEKTUR YANG WAJIB DIPAHAMI</h3>
+ * <p>Verifikasi tanda tangan RSA (SHA256withRSA atas {@code X-Client-Key|X-Timestamp}) hanya
+ * dijalankan pada cabang penerbitan token di {@link #doProses(String, HttpServletRequest,
+ * BankHost, String, boolean)}, yaitu ketika body memuat {@code grantType}. <b>Riwayat.</b> Sampai
+ * dengan perbaikan ini, cabang transaksi — inquiry, payment, dan reversal, yakni jalur yang
+ * benar-benar memutasi data keuangan — sama sekali tidak memeriksa tanda tangan maupun bearer
+ * token: token yang diterbitkan hanya ditulis ke daftar statis kelas ini, tidak pernah dibaca
+ * kembali. Sekarang cabang transaksi memeriksa header {@code Authorization: Bearer &lt;token&gt;}
+ * terhadap token yang diterbitkan cabang penerbitan token (disimpan bersama-aman-thread dengan
+ * masa berlaku di
+ * {@link ais.action.ws.util.PembayaranGatewayHelper#terbitkanTokenH2h(String, String, long)}),
+ * lewat
+ * {@link ais.action.ws.util.PembayaranGatewayHelper#periksaGerbangTokenH2h(String, String, String)}.
+ * <b>Gerbang ini berlaku BERTAHAP lewat konfigurasi</b> {@code gerbang_token_h2h_briva} (nilai
+ * {@code nonaktif}/{@code log}/{@code aktif}, default {@code log}): pada mode {@code log}
+ * permintaan tanpa token sah TETAP diproses seperti sebelumnya, hanya dicatat sebagai peringatan,
+ * sehingga operator dapat mengukur dampak sebelum menyalakan penolakan sungguhan lewat
+ * {@code aktif}. Timestamp {@code X-Timestamp} pada penerbitan token kini juga diperiksa
+ * kesegarannya (toleransi {@code toleransi_menit_timestamp_h2h_briva} menit, default 5 menit)
+ * lewat gerbang {@code gerbang_timestamp_h2h_briva} (default {@code log}).</p>
+ * <p>Penyaring lain yang tersisa pada jalur transaksi: pemetaan IP penelepon ke {@link BankHost}
+ * lewat {@link PembayaranUtil#getBankHost(String, String)} — nilainya boleh {@code null}, dan
+ * {@link VirtualAccountBank#ambilVa(String, Double, BankHost)} menerima VA yang kolom
+ * {@code bankHost}-nya kosong untuk host pemanggil mana pun. Sejak perbaikan ini, jalur POSTING
+ * (payment/reversal — BUKAN inquiry, yang tetap harus berfungsi tanpa IP terdaftar untuk
+ * kebutuhan operasional) dapat dibuat fail-closed terhadap {@code bankHost == null} lewat gerbang
+ * {@code gerbang_bankhost_null_posting_briva}
+ * ({@link ais.action.ws.util.PembayaranGatewayHelper#periksaGerbangBankHostPosting(String, String, BankHost)}),
+ * default {@code nonaktif} karena {@code bankHost == null} bisa jadi kondisi normal hari ini —
+ * menyalakannya tanpa koordinasi dapat menghentikan setelmen.</p>
+ * <p>Ketiga gerbang di atas TIDAK mengubah bentuk/kode respons SNAP pada kasus sukses; mode
+ * {@code aktif} hanya menambah kemungkinan respons "Unauthorized" baru pada kasus yang
+ * sebelumnya diam-diam lolos. Catatan ini adalah dokumentasi keadaan terkini; jangan diubah tanpa
+ * koordinasi dengan pihak bank karena perubahan kontrak H2H berdampak langsung ke setelmen.</p>
+ *
+ * @see ais.action.ws.util.PembayaranGatewayHelper
+ * @see VirtualAccountBank
+ * @see BankHost
  */
 public class Briva extends HttpServlet {
 	private static final long serialVersionUID = 1L;
@@ -95,10 +135,15 @@ public class Briva extends HttpServlet {
 		}
 	}
 
+	/**
+	 * @param tolakTokenGerbang alasan penolakan gerbang token H2H yang SUDAH dievaluasi pemanggil
+	 *                          lewat {@link ais.action.ws.util.PembayaranGatewayHelper#periksaGerbangTokenH2h};
+	 *                          {@code null} bila lolos (termasuk saat gerbang nonaktif/log).
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi, boolean inquery, boolean reversal, boolean chek,
-			JSONObject virtualAccountData) throws Exception {
+			JSONObject virtualAccountData, String tolakTokenGerbang) throws Exception {
 
 		System.out.println("chekLagi -> " + chekLagi + ", inquery -> " + inquery + ", reversal -> " + reversal
 				+ ", chek -> " + chek);
@@ -117,6 +162,16 @@ public class Briva extends HttpServlet {
 			String h2hStackTrace = null;
 
 			VirtualAccountBank virtualAccountBankNtt = null;
+
+			// Gerbang akses H2H (lihat javadoc kelas): tolakTokenGerbang sudah dievaluasi
+			// pemanggil (null bila lolos/gerbang nonaktif/log); tolakBankHostGerbang dievaluasi
+			// di sini karena hanya berlaku pada jalur POSTING (payment/reversal), bukan inquiry.
+			String tolakBankHostGerbang = !inquery
+					? ais.action.ws.util.PembayaranGatewayHelper.periksaGerbangBankHostPosting(bank,
+							"gerbang_bankhost_null_posting_briva", bankHost)
+					: null;
+			String tolakGerbang = tolakTokenGerbang != null ? tolakTokenGerbang : tolakBankHostGerbang;
+
 			try {
 
 				virtualAccountBankNtt = VirtualAccountBank.ambilVa(va,  nominalP, bankHost);
@@ -126,7 +181,15 @@ public class Briva extends HttpServlet {
 							"Kadaluara " + Common.databaseDateFormat.get().format(virtualAccountBankNtt.getKadaluarsa()));
 				}
 
-				if (virtualAccountBankNtt == null) {
+				// Gerbang akses H2H: tolak SEBELUM mengungkap detail VA bila mode gerbang sudah
+				// diaktifkan operator (lihat javadoc kelas).
+				if (tolakGerbang != null) {
+					response = new JSONObject();
+					response.put("responseCode", "4013400");
+					response.put("statusDescription", "Unauthorized. [" + tolakGerbang + "]");
+				}
+
+				else if (virtualAccountBankNtt == null) {
 					response = new JSONObject();
 					response.put("responseCode", "4003400");
 					response.put("statusDescription", "Bad Request");
@@ -677,8 +740,6 @@ public class Briva extends HttpServlet {
 		return response;
 	}
 
-	private static List<String> accessTokens = new ArrayList<String>();
-
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);
@@ -756,16 +817,46 @@ public class Briva extends HttpServlet {
 
 				if (validateSignature) {
 
-					int expiresIn = 1000 * 15;
+					// Kesegaran X-Timestamp (cegah replay tanda tangan lama) -- lihat javadoc kelas;
+					// bertahap lewat konfigurasi gerbang_timestamp_h2h_briva, default log-only.
+					String tolakTimestamp = ais.action.ws.util.PembayaranGatewayHelper.periksaGerbangTimestampH2h(
+							"gerbang_timestamp_h2h_briva", "toleransi_menit_timestamp_h2h_briva", strISOTimeStamp);
 
-					String token = UUID.randomUUID().toString();
-					accessTokens.add(token);
-					JSONObject jsonObject = new JSONObject();
-					jsonObject.put("accessToken", token);
-					jsonObject.put("tokenType", "BearerToken");
-					jsonObject.put("expiresIn", expiresIn);
+					if (tolakTimestamp != null) {
 
-					body = jsonObject.toString();
+						JSONObject jsonObject = new JSONObject();
+						jsonObject.put("responseCode", "4017301");
+						jsonObject.put("responseMessage", "Unathorized. [" + tolakTimestamp + "]");
+
+						body = jsonObject.toString();
+
+					} else {
+
+						int expiresIn = 1000 * 15;
+
+						String token = UUID.randomUUID().toString();
+
+						// Masa berlaku INTERNAL token untuk gerbang periksaGerbangTokenH2h -- sengaja
+						// TERPISAH dari field "expiresIn" di atas (nilai itu bagian kontrak SNAP yang
+						// sudah disepakati bank dan tidak diubah oleh perbaikan ini).
+						long masaBerlakuTokenMillis;
+						try {
+							masaBerlakuTokenMillis = Long.parseLong(
+									Common.getKonfigurasi("masa_berlaku_token_h2h_briva_menit", "15").getNilai().trim())
+									* 60000L;
+						} catch (Exception e) {
+							masaBerlakuTokenMillis = 15 * 60000L;
+						}
+						ais.action.ws.util.PembayaranGatewayHelper.terbitkanTokenH2h("Briva", token,
+								masaBerlakuTokenMillis);
+
+						JSONObject jsonObject = new JSONObject();
+						jsonObject.put("accessToken", token);
+						jsonObject.put("tokenType", "BearerToken");
+						jsonObject.put("expiresIn", expiresIn);
+
+						body = jsonObject.toString();
+					}
 				} else {
 					JSONObject jsonObject = new JSONObject();
 					jsonObject.put("responseCode", "4017300");
@@ -788,8 +879,18 @@ public class Briva extends HttpServlet {
 
 				System.out.println("==> tanggalP " + tanggalP);
 
+				// Gerbang token H2H pada cabang TRANSAKSI (lihat javadoc kelas): sebelum perbaikan
+				// ini, cabang ini tidak pernah memeriksa Authorization/accessTokens sama sekali.
+				String authorization = jsonObjectHeader.isNull("Authorization") ? null
+						: jsonObjectHeader.get("Authorization").toString();
+				if (!jsonObjectHeader.isNull("authorization")) {
+					authorization = jsonObjectHeader.get("authorization").toString();
+				}
+				String tolakTokenGerbang = ais.action.ws.util.PembayaranGatewayHelper.periksaGerbangTokenH2h(bank,
+						"gerbang_token_h2h_briva", authorization);
+
 				body = Briva.doProcess(nominalP, tanggalP, va, bank, bankHost, request, data, true, false, reversal,
-						chek, virtualAccountData).toString();
+						chek, virtualAccountData, tolakTokenGerbang).toString();
 			}
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Briva.java:790");

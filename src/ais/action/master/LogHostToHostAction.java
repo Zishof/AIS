@@ -646,7 +646,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							JSONObject body = OcbcNisp.doProcess(nominalP, tanggalP, va, bank, bankHost, null, data,
 									partnerServiceId, inquiryRequestId, paymentRequestId, trxId, customer_number,
 									partnerReferenceNo, true, (req == null || req.isNull("paidAmount")) && inquiryRequestId != null,
-									(paidStatus != null && paidStatus.equalsIgnoreCase("n")), true);
+									(paidStatus != null && paidStatus.equalsIgnoreCase("n")), true, null);
 
 							XSSFRow row = sheet.createRow(rowIndex);
 							row.createCell(0).setCellValue(logHostToHost.getKode());
@@ -855,7 +855,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 								JSONObject body = OcbcNisp.doProcess(nominalP, tanggalP, va, bank, bankHost, null, data,
 										partnerServiceId, inquiryRequestId, paymentRequestId, trxId, customer_number,
 										partnerReferenceNo, true, (req == null || req.isNull("paidAmount")) && inquiryRequestId != null,
-										(paidStatus != null && paidStatus.equalsIgnoreCase("n")), true);
+										(paidStatus != null && paidStatus.equalsIgnoreCase("n")), true, null);
 
 								tampilkanHasilCekPembayaran(body);
 								refreshSetelahCekPembayaran();
