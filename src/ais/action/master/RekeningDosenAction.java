@@ -35,7 +35,10 @@ import ais.database.dao.RekeningDosenDao;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Bank;
 import ais.database.model.Dosen;
+import ais.database.model.Fakultas;
+import ais.database.model.Jurusan;
 import ais.database.model.RekeningDosen;
+import ais.database.model.Tbmuser;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
@@ -333,7 +336,41 @@ public class RekeningDosenAction extends GenericAutowireComposer {
 				searchdosen.getAttribute("myValue") == null ? Restrictions
 						.sqlRestriction("1=1") : Restrictions.eq("dosen",
 						searchdosen.getAttribute("myValue"))));
+		terapkanCakupanSatuanKerja(criteria);
 		return criteria;
+	}
+
+	/**
+	 * Menerapkan gerbang cakupan satuan kerja (fail-closed) atas kriteria pencarian rekening dosen.
+	 *
+	 * <p>Rekening dosen memuat nomor rekening bank yang sensitif; tanpa gerbang ini, siapa pun yang
+	 * memiliki hak baca pada menu ini dapat melihat rekening seluruh dosen lintas fakultas/jurusan.
+	 * User dengan {@code hakAkses().getMelihatDataSatkerLain() == true} tetap boleh melihat semua data.
+	 * User lain dibatasi ke dosen yang sejurusan/sefakultas dengannya; bila tidak ada cakupan
+	 * jurusan/fakultas yang dapat ditentukan, kriteria ditutup total (tidak mengembalikan baris apa
+	 * pun) alih-alih diam-diam membuka seluruh data.</p>
+	 *
+	 * @param criteria kriteria {@link RekeningDosen} yang akan dibatasi in-place
+	 */
+	private void terapkanCakupanSatuanKerja(Criteria criteria) {
+		Tbmuser tbmuser = Common.getCurrentUser();
+		boolean bolehLihatSatkerLain = tbmuser != null && tbmuser.hakAkses() != null
+				&& Boolean.TRUE.equals(tbmuser.hakAkses().getMelihatDataSatkerLain());
+		if (bolehLihatSatkerLain) {
+			return;
+		}
+
+		Jurusan jurusanScope = tbmuser == null ? null : tbmuser.ambilJurusan();
+		Fakultas fakultasScope = tbmuser == null ? null : tbmuser.ambilFakultas();
+
+		criteria.createAlias("dosen", "rekeningDosenScopeDosen");
+		if (jurusanScope != null) {
+			criteria.add(Restrictions.eq("rekeningDosenScopeDosen.jurusan", jurusanScope));
+		} else if (fakultasScope != null) {
+			criteria.add(Restrictions.eq("rekeningDosenScopeDosen.fakultas", fakultasScope));
+		} else {
+			criteria.add(Restrictions.sqlRestriction("1=0"));
+		}
 	}
 
 	@SuppressWarnings("unchecked")

@@ -799,9 +799,28 @@ public final class SalesInventoryDbfImportHelper {
 			throw new Exception("riwayat " + faktur + " tidak dapat ditempatkan: toko ini belum"
 					+ " punya gudang aktif");
 		}
+		// Nomor urut baris DBF ikut menyusun kunci. Tanpa itu kuncinya hanya
+		// faktur+produk+batch+tanggal -- dan berkas legacy MEMANG memuat beberapa item baris yang
+		// keempatnya sama pada satu faktur (barang sama dibeli dua kali dengan harga berbeda, atau
+		// satu jumlah dipecah menjadi beberapa baris). Baris kedua dan seterusnya lalu dianggap
+		// kiriman ulang dan dilewati, sehingga kuantitasnya hilang.
+		//
+		// Terukur pada data UAT cmnmedika: 562 baris BELI.DBF (13.727,40 unit) dan 51 baris
+		// JUAL.DBF (211,33 unit) lenyap justru karena ini -- persis sebesar selisih antara
+		// mutasi_stok dan berkas sumbernya.
+		//
+		// Idempotensinya TIDAK melemah: nomor urut baris tetap bagi satu berkas DBF, jadi
+		// mengirim ulang muatan yang sama tetap menghasilkan kunci yang sama. Bila pemanggil tidak
+		// mengirim `baris_ke`, bentuk kunci lama dipakai apa adanya -- muatan lama tetap sah.
+		//
+		// MIGRASI: bentuk kunci ini berbeda dari sebelumnya. Penyewa yang sudah pernah mengimpor
+		// dengan bentuk lama harus mengosongkan mutasi_stok legacy-nya sebelum mengimpor ulang;
+		// bila tidak, baris lama (berkunci lama) tidak dikenali dan akan tergandakan.
+		String barisKe = s(r, "baris_ke");
 		String kunci = potong((pembelian ? "LEGACY-BELI-" : "LEGACY-JUAL-") + faktur + "-"
 				+ kodeProduk + "-" + s(r, "nomor_batch") + "-"
-				+ new java.text.SimpleDateFormat("yyyyMMdd").format(tanggal), 128);
+				+ new java.text.SimpleDateFormat("yyyyMMdd").format(tanggal)
+				+ (barisKe.isEmpty() ? "" : "-" + barisKe), 128);
 		java.sql.PreparedStatement cek = session.connection().prepareStatement(
 				SalesInventoryDbfImportTenant.adaMutasiRiwayat(sk));
 		boolean sudah;

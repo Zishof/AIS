@@ -388,7 +388,13 @@ public class SharepointUtilPerPengguna {
 							sharepointCode = new SharepointCode();
 						}
 						sharepointCode.setNama(username);
-						sharepointCode.setKeterangan(kode.trim());
+						// Keamanan: authorization code OAuth Azure AD TIDAK disimpan mentah.
+						// Field ini tidak pernah dibaca kembali di manapun untuk ditukar
+						// menjadi access/refresh token (fitur yatim), jadi menyimpannya
+						// hanya menambah risiko kebocoran tanpa manfaat fungsional.
+						// Dikosongkan eksplisit agar nilai lama pun ikut terhapus saat
+						// baris ini disentuh ulang.
+						sharepointCode.setKeterangan(null);
 
 						session.getTransaction().begin();
 						Common.refreshSaveOrUpdate(session, (sharepointCode));
