@@ -55,17 +55,28 @@ import ais.ui.util.MyWindow;
  */
 public class CatatanHelper {
 
+	/** Mahasiswa pemilik KRS yang diberi catatan; sumber NIM/nama/email untuk notifikasi. */
 	private Mahasiswa mahasiswa;
+	/** Kotak isian catatan Rencana Studi (KRS), di-autowire ke {@link org.zkoss.zul.Textbox} saat {@link #display(EventListener)} dipanggil. */
 	private Textbox catatan;
+	/** Kotak isian catatan Penilaian (KHS), di-autowire ke {@link org.zkoss.zul.Textbox} saat {@link #display(EventListener)} dipanggil. */
 	private Textbox catatanKhs;
+	/** Nomor semester KRS yang sedang diberi catatan. */
 	private Integer semester;
+	/** Dosen Pembimbing Akademik mahasiswa; salah satu penerima notifikasi email catatan KRS. */
 	private Dosen dosenpa;
+	/** Tahun akademik KRS yang sedang diberi catatan. */
 	private String tahunAkademik;
 
+	/** Nomor tahapan kurikulum (bila fitur tahapan aktif); boleh {@code null}. */
 	private Integer tahapan;
+	/** Penanda konteks Semester Pendek/Antara; boleh {@code null} bila bukan semester pendek. */
 	private Integer semesterPendek;
+	/** Penanda apakah KRS ini bersifat remedial, dipakai saat mencetak lampiran PDF KRS. */
 	private boolean remedial;
+	/** Panjang minimal karakter catatan KRS, dibaca dari konfigurasi {@code minimal_catatan_krs} (0 = tidak wajib). */
 	private int minimalCatatanKrs = 0;
+	/** Panjang minimal karakter catatan KHS, dibaca dari konfigurasi {@code minimal_catatan_khs} (0 = tidak wajib). */
 	private int minimalCatatanKhs = 0;
 
 	/**
@@ -313,6 +324,17 @@ public class CatatanHelper {
 		window.onModal();
 	}
 
+	/**
+	 * Mengambil baris {@link KrsMahasiswa} yang menjadi target catatan, membuatnya (sinkronisasi)
+	 * bila belum ada.
+	 *
+	 * <p>Pertama mencoba {@link Common#ambilKrsMahasiswaTanpaSinkronisasi(Mahasiswa, Integer, Integer, Integer)}
+	 * (operasi baca murni); bila baris belum terbentuk, baru dilakukan sinkronisasi sekali lewat
+	 * {@link Common#singkronkanKrsMahasiswa(Mahasiswa, Integer, Integer, Integer, boolean)} — baris KRS
+	 * memang diperlukan sebagai target lampiran/catatan.</p>
+	 *
+	 * @return baris KRS mahasiswa untuk kombinasi semester/tahapan/semester-pendek pada instance ini
+	 */
 	private KrsMahasiswa ambilKrsMahasiswaUntukCatatan() {
 		KrsMahasiswa krsMahasiswa = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
 				semesterPendek);
