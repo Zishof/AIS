@@ -1,7 +1,6 @@
 package ais.common.newui.akademik;
 
 import java.util.Date;
-import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -15,8 +14,8 @@ import org.json.JSONObject;
 
 import ais.common.Common;
 import ais.common.newui.NewUiRouteGuard;
+import ais.action.master.helper.UndanganWisudaDownloadHelper;
 import ais.database.hibernate.HibernateUtil;
-import ais.database.model.BiodataMahasiswa;
 import ais.database.model.Mahasiswa;
 import ais.database.model.PendaftaranWisuda;
 import ais.database.model.Tbmuser;
@@ -88,7 +87,7 @@ public final class NewUiUndanganWisudaController {
         // Disampaikan terbuka agar klien dapat menjelaskan sebab penolakan
         // sebelum pengguna menekan cetak.
         JSONArray syarat = new JSONArray();
-        syarat.put("Biodata mahasiswa terisi, termasuk nama ayah.");
+        syarat.put("Seluruh persetujuan pendaftaran wisuda sudah disetujui.");
         syarat.put("Pendaftaran wisuda sudah memiliki nomor kursi.");
         j.put("syarat", syarat);
     }
@@ -137,21 +136,15 @@ public final class NewUiUndanganWisudaController {
         if (id == null) throw new IllegalArgumentException("Mahasiswa wajib dipilih.");
         Session s = HibernateUtil.openSession();
         Mahasiswa mahasiswa;
-        String namaAyah;
+        java.io.File pdf;
         try {
             mahasiswa = (Mahasiswa) s.get(Mahasiswa.class, id);
             if (mahasiswa == null) throw new IllegalArgumentException("Mahasiswa tidak ditemukan.");
             String halangan = halangan(s, mahasiswa);
             if (halangan != null) throw new IllegalArgumentException(halangan);
-            namaAyah = namaAyah(s, mahasiswa);
+            PendaftaranWisuda daftar = pendaftaranTerakhir(s, mahasiswa);
+            pdf = UndanganWisudaDownloadHelper.generatePdf(daftar);
         } finally { s.close(); }
-
-        Map parameters = ais.common.HashMapGenerator.getRand();
-        parameters.put("mahasiswa", mahasiswa.getId());
-        parameters.put("nama_ayah", namaAyah == null ? "" : namaAyah);
-
-        java.io.File pdf = ais.action.report.Report.generateFileReportSimple(
-                ais.action.report.Report.PDF, parameters, TEMPLATE);
         if (pdf == null || !pdf.exists()) throw new IllegalStateException("PDF undangan gagal dibuat.");
         byte[] isi = java.nio.file.Files.readAllBytes(pdf.toPath());
         j.put("namaFile", "undangan_wisuda_" + nz(mahasiswa.getNim()) + "_"
@@ -161,29 +154,21 @@ public final class NewUiUndanganWisudaController {
 
     /** Mengembalikan alasan penolakan, atau null bila mahasiswa layak cetak. */
     private static String halangan(Session s, Mahasiswa mahasiswa) {
-        String ayah = namaAyah(s, mahasiswa);
-        if (ayah == null || ayah.trim().length() == 0) {
-            return "Biodata mahasiswa belum memuat nama ayah; lengkapi terlebih dahulu.";
-        }
-        PendaftaranWisuda daftar = (PendaftaranWisuda) s.createCriteria(PendaftaranWisuda.class)
-                .add(Restrictions.eq("mahasiswa", mahasiswa))
-                .addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
+        PendaftaranWisuda daftar = pendaftaranTerakhir(s, mahasiswa);
         if (daftar == null) return "Mahasiswa ini belum terdaftar wisuda.";
+        if (!UndanganWisudaDownloadHelper.disetujuiSemua(daftar)) {
+            return "Seluruh persetujuan pendaftaran wisuda belum selesai.";
+        }
         if (daftar.getNoKursi() == null || daftar.getNoKursi().trim().length() == 0) {
             return "Mahasiswa ini belum mendapatkan nomor kursi wisuda.";
         }
         return null;
     }
 
-    private static String namaAyah(Session s, Mahasiswa mahasiswa) {
-        try {
-            BiodataMahasiswa bio = (BiodataMahasiswa) s.createCriteria(BiodataMahasiswa.class)
-                    .add(Restrictions.eq("mahasiswa", mahasiswa))
-                    .setMaxResults(1).uniqueResult();
-            return bio == null ? null : bio.getNamaAyah();
-        } catch (Exception e) {
-            return null;
-        }
+    private static PendaftaranWisuda pendaftaranTerakhir(Session s, Mahasiswa mahasiswa) {
+        return (PendaftaranWisuda) s.createCriteria(PendaftaranWisuda.class)
+                .add(Restrictions.eq("mahasiswa", mahasiswa))
+                .addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
     }
 
     private static Long id(HttpServletRequest r, String nama) {

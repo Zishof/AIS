@@ -186,9 +186,48 @@ public class ClassRoomUtil {
 
 				.authorize("user");
 
+		// Authorization code SEKALI PAKAI sudah berhasil ditukar jadi token: hapus baris
+		// gcalendar_code SEKARANG (bukan hanya menunggu otorisasi ulang berikutnya) agar kode
+		// OAuth mentah tidak tersimpan lama di DB tanpa enkripsi (risiko data-at-rest). Pola sama
+		// dengan ais.common.calendar.CalendarUtil#hapusGCalendarCode, kelas berbeda karena
+		// ClassRoomUtil menyalin struktur CalendarUtil tanpa berbagi kode.
+		hapusGCalendarCode(username);
+
 		credential.setExpiresInSeconds(100000000L);
 
 		return credential;
+	}
+
+	/**
+	 * Hapus baris {@code gcalendar_code} milik {@code username} setelah authorization code
+	 * berhasil ditukar menjadi token OAuth. Code Google bersifat SEKALI PAKAI sehingga baris lama
+	 * yang tertinggal sudah tidak valid ditukar ulang, tapi tetap kredensial sensitif -- jangan
+	 * dibiarkan tersimpan mentah di DB sampai user melakukan otorisasi ulang berikutnya.
+	 */
+	private static void hapusGCalendarCode(String username) {
+		if (username == null) {
+			return;
+		}
+		Session session = HibernateUtil.openSession();
+		org.hibernate.Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			List<?> daftar = session.createCriteria(GCalendarCode.class).add(Restrictions.eq("nama", username))
+					.list();
+			for (int i = 0; i < daftar.size(); i++) {
+				session.delete(daftar.get(i));
+			}
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null) {
+				try {
+					tx.rollback();
+				} catch (Exception abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/classroom/ClassRoomUtil.java:hapusGCalendarCode");
+				}
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
 	}
 
 	public void initService() throws Exception {

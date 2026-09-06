@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.hibernate.Session;
 import org.zkoss.poi.xssf.usermodel.XSSFRow;
@@ -69,6 +70,32 @@ public class ExecuteTemplateQueryAction extends GenericAutowireComposer {
 	private Center center;
 	private MyWindow window;
 
+	/** Boleh diawali tanda kurung/spasi/komentar, tapi statement wajib SELECT atau CTE (WITH ...). */
+	private static final Pattern SELECT_ONLY_PATTERN = Pattern.compile("^[\\s(]*(select|with)\\b",
+			Pattern.CASE_INSENSITIVE);
+	private static final Pattern SQL_BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
+	private static final Pattern SQL_LINE_COMMENT = Pattern.compile("--[^\\r\\n]*");
+
+	/**
+	 * Kata/fungsi yang dilarang meski statement lolos filter SELECT-only di atas:
+	 * DML/DDL yang bisa disisipkan lewat data-modifying CTE ("with x as (delete ...)
+	 * select * from x"), "into" untuk mencegah "select ... into tabel_baru" (yang
+	 * pada PostgreSQL membuat tabel baru), serta fungsi bawaan PostgreSQL yang bisa
+	 * dipanggil langsung di dalam SELECT untuk membaca/menulis berkas OS atau
+	 * menjalankan koneksi/perintah lain (dblink, pg_read_file, lo_import/export, dst).
+	 */
+	private static final String[] FORBIDDEN_KEYWORDS = { "insert", "update", "delete", "truncate", "drop", "alter",
+			"create", "grant", "revoke", "call", "merge", "into", "exec", "execute", "vacuum", "analyze", "reindex",
+			"cluster", "lock", "listen", "notify", "discard", "deallocate", "prepare", "copy", "function",
+			"procedure", "program", "dblink", "dblink_exec", "pg_read_file", "pg_read_binary_file", "pg_ls_dir",
+			"pg_stat_file", "lo_import", "lo_export", "pg_terminate_backend", "pg_cancel_backend", "pg_reload_conf",
+			"pg_rotate_logfile", "set_config" };
+
+	private static String stripSqlComments(String sql) {
+		String tanpaBlok = SQL_BLOCK_COMMENT.matcher(sql).replaceAll(" ");
+		return SQL_LINE_COMMENT.matcher(tanpaBlok).replaceAll(" ");
+	}
+
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(
 			org.zkoss.zk.ui.Page page, org.zkoss.zk.ui.Component parent,
@@ -81,8 +108,14 @@ public class ExecuteTemplateQueryAction extends GenericAutowireComposer {
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		/*
+		 * Layar ini pada dasarnya adalah konsol SQL: hak READ menu saja tidak cukup
+		 * karena Textbox query bisa diedit bebas oleh pengguna sebelum "Execute"
+		 * ditekan. Wajib ADMINISTRATOR, fail-closed bila bukan.
+		 */
 		if (session.getAttribute("usersTemp") == null
-				|| !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+				|| !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)
+				|| !Common.getApakahAdminLain()) {
 			session.removeAttribute("usersTemp");
 			Common.goLogoff();
 			return;
@@ -137,34 +170,32 @@ public class ExecuteTemplateQueryAction extends GenericAutowireComposer {
 			return;
 		}
 
-		if (query.getValue().trim().toLowerCase().contains("update")) {
-			MyMessageboxConfig.show("Isi Template Query tidak boleh ada kata update",
+		String normalized = stripSqlComments(q).trim();
+		while (normalized.endsWith(";")) {
+			normalized = normalized.substring(0, normalized.length() - 1).trim();
+		}
+
+		if (normalized.isEmpty() || normalized.indexOf(';') >= 0) {
+			MyMessageboxConfig.show(
+					"Isi Template Query harus berupa satu pernyataan SELECT tunggal (tidak boleh ada titik koma di tengah)",
 					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 			return;
 		}
 
-		if (query.getValue().trim().toLowerCase().contains("delete")) {
-			MyMessageboxConfig.show("Isi Template Query tidak boleh ada kata delete",
+		if (!SELECT_ONLY_PATTERN.matcher(normalized).find()) {
+			MyMessageboxConfig.show("Isi Template Query hanya boleh berupa pernyataan SELECT",
 					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 			return;
 		}
 
-		if (query.getValue().trim().toLowerCase().contains("truncate")) {
-			MyMessageboxConfig.show("Isi Template Query tidak boleh ada kata truncate",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			return;
-		}
-
-		if (query.getValue().trim().toLowerCase().contains("drop")) {
-			MyMessageboxConfig.show("Isi Template Query tidak boleh ada kata drop",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			return;
-		}
-
-		if (query.getValue().trim().toLowerCase().contains("alter")) {
-			MyMessageboxConfig.show("Isi Template Query tidak boleh ada kata alter",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			return;
+		String bertandaSpasi = " " + normalized.toLowerCase() + " ";
+		for (String forbiddenKeyword : FORBIDDEN_KEYWORDS) {
+			if (Pattern.compile("\\b" + forbiddenKeyword + "\\b").matcher(bertandaSpasi).find()) {
+				MyMessageboxConfig.show(
+						"Isi Template Query tidak boleh mengandung kata '" + forbiddenKeyword + "'",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+				return;
+			}
 		}
 
 		final String filename = Sessions

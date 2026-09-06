@@ -384,6 +384,13 @@ public class GDriveUtilPerPengguna {
 					credential = buatCredentialDariCode(clientSecrets);
 				}
 
+				// Authorization code SEKALI PAKAI sudah berhasil ditukar jadi refresh token: hapus
+				// baris gdrive_code SEKARANG. Sebelumnya hapusCodeDrive() hanya dipanggil di awal
+				// proses koneksi BARU (lihat displayLink()), sehingga kode OAuth mentah tetap
+				// tersimpan tanpa enkripsi di DB sejak berhasil dipakai sampai percobaan koneksi
+				// berikutnya -- jendela paparan data-at-rest yang tidak perlu.
+				hapusCodeDrive(username);
+
 				// Persist refresh token ke DB agar SEMUA node bisa memakainya tanpa otorisasi ulang.
 				simpanRefreshToken(username, credential.getRefreshToken());
 
