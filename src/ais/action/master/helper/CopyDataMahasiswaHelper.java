@@ -308,7 +308,7 @@ public class CopyDataMahasiswaHelper {
 
 		Columns columns = new Columns();
 
-		columns.setParent(grid);
+		columns.setParent(searchgridJadwal);
 
 		MyColumnConfig column = new MyColumnConfig();
 		column.setParent(columns);

@@ -332,12 +332,29 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	private boolean create;
 
 	/**
-	 * @param semesterPendek status semester pendek konteks perkuliahan ({@code null} untuk reguler)
+	 * Membentuk helper dengan konteks semester dan <b>lima izin aksi</b> yang sudah ditentukan Action
+	 * pemanggil. Konstruktor ini hanya menyimpan parameter; tidak ada akses basis data, tidak ada
+	 * komponen ZK yang dibuat, dan {@link #perkuliahan} belum diketahui pada tahap ini. Alur pemakaian
+	 * yang benar adalah: konstruktor &rarr; {@link #display} (yang sekaligus menetapkan perkuliahan dan
+	 * membangun seluruh UI), atau {@link #setPerkuliahan} bila UI dibangun pihak lain.
+	 *
+	 * <p><b>Sifat kelima izin:</b> semuanya hanya mengatur {@code setVisible}/{@code setDisabled} pada
+	 * tombol. Tidak satu pun dari flag ini diperiksa ulang di dalam listener sebelum penulisan ke basis
+	 * data terjadi. Pemanggil karenanya bertanggung jawab penuh menetapkannya sesuai hak akses pengguna;
+	 * lihat bagian "Gerbang otorisasi" pada Javadoc kelas. Tiga tombol massal (Setujui, Tolak, Hapus)
+	 * mendapat lapisan kedua berupa penyaringan peran di dalam {@link #display}, tetapi tombol per-baris
+	 * yang setara tidak.
+	 *
+	 * @param semesterPendek status semester pendek konteks perkuliahan ({@code null} untuk reguler);
+	 *                       diteruskan ke {@code AmbilDataMahasiswaHelper} dan menentukan tagihan mana
+	 *                       yang diperiksa saat unggah Excel
 	 * @param delete         izinkan tombol hapus per baris dan tombol "Hapus" massal
-	 * @param edit           izinkan tombol Pindah Data, Transfer, Copy mhs, dan History
-	 * @param approve        izinkan tombol "Setujui" massal
-	 * @param reject         izinkan tombol "Tolak" massal
-	 * @param create         izinkan tombol "Ambil Mhs"
+	 * @param edit           izinkan tombol Pindah Data, Ubah Persetujuan, Transfer, Copy mhs, dan History
+	 * @param approve        izinkan tombol "Setujui" massal (mengaktifkan; visibilitasnya masih diatur
+	 *                       penyaringan peran)
+	 * @param reject         izinkan tombol "Tolak" massal (mengaktifkan; visibilitasnya masih diatur
+	 *                       penyaringan peran)
+	 * @param create         izinkan tombol "Ambil Mhs"; tidak berpengaruh pada jalur unggah Excel
 	 */
 	public DetailperkuliahanHelper(Integer semesterPendek, boolean delete, boolean edit, boolean approve,
 			boolean reject, boolean create) {
@@ -376,6 +393,40 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	 * transfer/konversi (via {@code feederImporter.nilaiTransfer}) di thread terpisah dengan
 	 * progress bar; kegagalan (koneksi, kredensial, parsing) ditampilkan sebagai pesan error yang
 	 * terlihat pada progress bar, bukan gagal diam-diam.
+	 *
+	 * <p><b>Mengapa {@code static}:</b> method ini adalah <i>titik masuk bersama</i> — selain dipakai
+	 * {@link DetailPerkuliahanRenderer} untuk setiap baris grid, ia juga dipanggil dari layar lain yang
+	 * menampilkan satu {@link Detailperkuliahan} tanpa memiliki instance
+	 * {@code DetailperkuliahanHelper}. Karena itu seluruh state yang dibutuhkan diterima lewat parameter,
+	 * termasuk {@code dataLoader} sebagai callback penyegar sehingga pemanggil bebas menentukan apa yang
+	 * di-refresh setelah proses selesai.
+	 *
+	 * <p><b>Tiga syarat visibilitas tombol</b> (semuanya wajib terpenuhi; bila salah satu gagal, method
+	 * tidak menambahkan apa pun ke {@code vbox} dan selesai diam-diam):
+	 * <ol>
+	 *   <li>{@code tbmuser != null} — ada pengguna yang login.</li>
+	 *   <li>{@link Common#getApakahAdminBolehAksesFeeder()} dan konfigurasi
+	 *       {@code aktifkan_terhubung_langsung_ke_feeder} aktif.</li>
+	 *   <li>Mahasiswa sudah memiliki {@code idRegPd} tidak kosong — tanpa identitas registrasi Dikti,
+	 *       data tidak dapat dipetakan di sisi Feeder.</li>
+	 * </ol>
+	 *
+	 * <p><b>Dua jalur pengiriman</b> ditentukan isi baris: bila {@code detailperkuliahan.getPerkuliahan()}
+	 * ada, dikirim sebagai data perkuliahan biasa lewat {@code PerkuliahanAction.kirimKeFeeder}; bila
+	 * tidak ada tetapi {@code getMatakuliahKonversi()} terisi, dikirim sebagai nilai transfer/konversi
+	 * lewat {@code feederImporter.nilaiTransfer}. Bila keduanya kosong, tidak ada yang dikirim.
+	 *
+	 * <p><b>Threading dan sesi:</b> pengiriman berjalan di {@link Thread} latar agar UI tidak membeku;
+	 * kemajuannya dilaporkan dengan menulis ke {@link Label} progress yang dibuat
+	 * {@code Common.displayLoadBar}. Method ini <b>tidak</b> membuka sesi Hibernate sendiri — ia
+	 * menavigasi relasi pada {@code detailperkuliahan} yang diterima dari pemanggil, sehingga entity
+	 * tersebut harus masih terhubung ke sesi yang hidup ketika thread berjalan. Galat yang terjadi di
+	 * dalam thread ditangkap dan ditulis sebagai teks "Error: ..." pada label progress; ini perbaikan
+	 * atas perilaku lama yang mengosongkan label (terbaca sebagai sukses palsu) meski pengiriman gagal.
+	 *
+	 * <p><b>Berkas log:</b> bila {@code errorLog} terisi, seluruh pesan digabung, ditampilkan sebagai
+	 * kotak pesan, lalu ditulis ke berkas bernama acak di {@code /opt/ecampus/} dan langsung diunduhkan
+	 * lewat {@link Filedownload}. Berkas tersebut tidak pernah dibersihkan otomatis.
 	 *
 	 * @param tbmuser           user yang sedang login
 	 * @param detailperkuliahan baris KRS yang akan dikirim ke feeder
@@ -538,9 +589,91 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	 * Persetujuan (toggle disetujui/belum, dengan pengecekan opsional "nilai harus nol"), dan Hapus
 	 * (dengan pengecekan tidak bisa hapus bila sudah disetujui, masih dipakai pengajuan tugas akhir,
 	 * atau nilai tidak nol).
+	 *
+	 * <p>Kelas ini sengaja berupa <b>inner class non-statis</b>, bukan statis: ia perlu membaca flag
+	 * {@link DetailperkuliahanHelper#edit} dan {@link DetailperkuliahanHelper#delete} milik instance
+	 * pembungkusnya, menyentuh {@link DetailperkuliahanHelper#perkuliahan} sebagai sumber nilai default
+	 * semester/tahap, dan memanggil balik
+	 * {@code DetailperkuliahanHelper.this.loadData(true)} setelah setiap aksi per-baris.
+	 *
+	 * <p><b>Kolom nilai bersifat baca-saja di sini.</b> {@code totalNilai} dan {@code nilaiHuruf} hanya
+	 * dirender sebagai label lewat {@code NilaiHurufAnalisisPopupHelper}, dan {@code totalNilai} dipakai
+	 * sebagai <i>penjaga</i> pada tombol Ubah Persetujuan dan Hapus. Penulisan nilai adalah urusan
+	 * {@link DetailperkuliahanForPenilaianHelper}; lihat tabel pembagian tanggung jawab pada Javadoc
+	 * kelas pembungkus.
+	 *
+	 * <p><b>Model penulisan:</b> ketiga kendali auto-save (keterangan, semester, tahap) dan toggle
+	 * persetujuan menulis lewat {@code HibernateUtil.currentSession()} + {@code Common.refreshUpdate}
+	 * pada thread event ZK, tanpa transaksi eksplisit dan tanpa penguncian baris. Perubahan tersimpan
+	 * seketika saat fokus berpindah — tidak ada tombol Simpan dan tidak ada konfirmasi.
 	 */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris peserta ke dalam sebelas kolom grid, lengkap dengan kendali edit dan tombol
+		 * aksi per-baris.
+		 *
+		 * <p><b>Penjagaan data rusak di awal:</b> parameter {@code data} adalah <i>id</i>
+		 * {@link Detailperkuliahan} (bukan entity — lihat {@link DetailperkuliahanHelper#detailperkuliahan}),
+		 * yang di-resolve lewat {@code GeneralValueObject.ambilData}. Bila baris sudah terhapus atau
+		 * relasi ke {@link Mahasiswa} sudah putus, method menuliskan satu label penjelas lalu
+		 * {@code return} — grid tetap tergambar utuh alih-alih melempar NPE dan mematikan seluruh
+		 * tampilan.
+		 *
+		 * <p><b>Urutan kolom yang dihasilkan</b> (harus tetap sinkron dengan definisi
+		 * {@link MyColumnConfig} di {@link DetailperkuliahanHelper#display}):
+		 * <ol>
+		 *   <li><b>Foto</b> — {@code CommonMedia.tampilkanGambarKecil(mahasiswa)}.</li>
+		 *   <li><b>NIM</b> — dirender sebagai tautan riwayat revisi
+		 *       ({@link RevisiHelper#createNewRevisi}) sehingga NIM sekaligus menjadi pintu masuk ke
+		 *       jejak audit Envers baris ini; di bawahnya indikator "Feeder valid"/"Feeder blm valid"
+		 *       (hanya bila fitur Feeder aktif dan pengguna berhak) serta tombol
+		 *       {@link DetailperkuliahanHelper#kirimKeFeeder}.</li>
+		 *   <li><b>Nama</b> mahasiswa.</li>
+		 *   <li><b>Angkatan</b> — {@code tahunangkatan / semesterMulai}.</li>
+		 *   <li><b>Status</b> — status awal mahasiswa digabung status berjalan; status berjalan diperoleh
+		 *       dengan menyinkronkan {@link KrsMahasiswa} untuk semester/tahap baris ini lebih dulu
+		 *       ({@code Common.singkronkanKrsMahasiswa}), lalu membaca
+		 *       {@code HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa}. Perhatikan bahwa langkah
+		 *       sinkronisasi ini <b>bukan operasi baca murni</b>: ia dapat membuat atau memperbarui baris
+		 *       KRS sebagai efek samping dari sekadar menampilkan daftar.</li>
+		 *   <li><b>Total Nilai</b> — label {@code totalNilai (nilaiHuruf)}, atau
+		 *       {@code "0.0 (Belum dinilai)"}; baca-saja.</li>
+		 *   <li><b>Persetujuan</b> — label "Ya"/"Tidak", diwarnai biru/merah.</li>
+		 *   <li><b>Keterangan</b> — {@link Textbox} {@code detailNilaiTambahan}, auto-save
+		 *       {@code onChange}.</li>
+		 *   <li><b>Smt</b> — {@link Intbox} {@code semester}, auto-save; dikosongkan berarti memakai
+		 *       semester perkuliahan, dan nilai efektifnya ditulis balik ke kotak setelah simpan.</li>
+		 *   <li><b>Tahap</b> — {@link Intbox} {@code tahap}, auto-save; dikosongkan berarti memakai tahap
+		 *       dari {@code kurikulumPunyaMatakuliah}, atau {@code 0} bila kurikulum tidak diketahui.</li>
+		 *   <li><b>Tombol aksi</b> — Pindah Data, Ubah Persetujuan, Hapus Data.</li>
+		 * </ol>
+		 *
+		 * <p><b>Penjaga pada tombol aksi:</b>
+		 * <ul>
+		 *   <li><i>Pindah Data</i> — terlihat bila {@code edit} bernilai benar, baris punya perkuliahan,
+		 *       <b>dan</b> akun bukan dosen ({@code getDosen() == null}).</li>
+		 *   <li><i>Ubah Persetujuan</i> — hanya {@code edit}. Sebelum toggle, bila konfigurasi
+		 *       {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif dan baris sudah
+		 *       {@code DISETUJUI} dengan {@code totalNilai > 1.0}, aksi ditolak. Ambang
+		 *       {@code > 1.0} — bukan {@code > 0.0} — berarti nilai kecil tetap dianggap "nol".</li>
+		 *   <li><i>Hapus Data</i> — hanya {@code delete}. Tiga penjaga berurutan: baris berstatus
+		 *       {@code DISETUJUI} ditolak; baris yang masih dirujuk {@link MahasiswaRequestTugasAkhir}
+		 *       ditolak (dihitung lewat {@code Projections.rowCount()}); dan penjaga nilai yang sama
+		 *       dengan Ubah Persetujuan. Kegagalan basis data (mis. pelanggaran kunci asing) ditangkap
+		 *       dan disampaikan lewat {@code PesanFormalHelper}, bukan gagal diam-diam.</li>
+		 * </ul>
+		 *
+		 * <p><b>Sifat:</b> berjalan di thread event ZK. Setiap aksi yang berhasil menjadwalkan
+		 * {@code loadData(true)} lewat {@code Common.createDefaultTimer} sehingga grid dibangun ulang
+		 * dari basis data, bukan ditambal di tempat.
+		 *
+		 * @param row  baris grid tujuan; komponen anak ditambahkan berurutan sesuai daftar kolom di atas
+		 * @param data id {@link Detailperkuliahan} sebagai objek; {@code toString()}-nya dipakai untuk
+		 *             resolve entity
+		 * @throws Exception diteruskan dari pembangunan komponen ZK; kegagalan resolve entity tidak
+		 *                   melempar melainkan menghasilkan baris berlabel penjelas
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject

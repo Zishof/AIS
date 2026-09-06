@@ -277,7 +277,19 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 */
 	private MyCheckboxConfig lewatiTanggalMerahNasional = null;
 
-	/** Menginisialisasi sub-helper (file/audio/video pertemuan) dan flag privilese tambah/hapus untuk pengguna saat ini. */
+	/**
+	 * Menginisialisasi sub-helper tab lampiran (file/audio/video pertemuan) dan membaca flag
+	 * privilese tambah/hapus untuk pengguna saat ini.
+	 *
+	 * <p>{@link #videoPertemuanHelper} dan {@link #audioPertemuanHelper} dibuat dengan mode
+	 * (tambah=true, hapus=false), sedangkan {@link #filePerkuliahanHelper} dibuat tanpa konteks
+	 * ({@code null, null}) &mdash; konteks kurikulumnya baru diberikan saat tab yang bersangkutan
+	 * diklik pertama kali di {@link #display}. Ketiganya dibuat lebih awal walaupun mungkin tidak
+	 * pernah dipakai (mis. pada mode OBE).</p>
+	 *
+	 * <p>Perhatikan bahwa {@link #tbmuser} TIDAK diisi di sini melainkan pada inisialisasi field,
+	 * yang berjalan sebelum badan konstruktor ini.</p>
+	 */
 	public MatakuliahKurikulumDetailHelper() {
 		filePerkuliahanHelper = new FilePerkuliahanHelper(null, null);
 		videoPertemuanHelper = new VideoPertemuanHelper(true, false);
@@ -291,6 +303,21 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 * pada hari {@code hari} (mis. "Senin") terhitung sejak tanggal mulai
 	 * {@link RencanaTahunAkademik} yang sedang berlaku — dipakai agar tanggal mulai perkuliahan
 	 * default mengikuti hari jadwal kelas yang dipilih.
+	 *
+	 * <p><b>Peringatan pemakaian.</b> Pencarian tanggal dilakukan dengan {@code while (true)} yang
+	 * hanya berhenti ketika nama hari cocok PERSIS (perbandingan {@code equals}) dengan salah satu
+	 * elemen {@code Common.haris}, yaitu {@code {"Minggu", "Senin", "Selasa", "Rabu", "Kamis",
+	 * "Jum'at", "Sabtu"}}. Nilai di luar daftar itu &mdash; termasuk variasi ejaan yang lazim
+	 * seperti {@code "Jumat"} tanpa apostrof, atau beda huruf besar/kecil &mdash; membuat loop
+	 * berputar tanpa henti dan menggantung thread pemanggil. Pemanggil wajib mengoper nilai yang
+	 * berasal dari {@code Common.haris} itu sendiri.</p>
+	 *
+	 * <p>Tidak melakukan apa pun bila {@link #tanggalMulaiPerkuliahan} belum dibuat (konteks tanpa
+	 * {@link #perkuliahan}), {@code hari} {@code null}, atau tidak ada {@link RencanaTahunAkademik}
+	 * berlaku yang punya tanggal mulai. Pada saat dokumentasi ini ditulis method ini belum
+	 * dipanggil dari mana pun di dalam basis kode.</p>
+	 *
+	 * @param hari nama hari tujuan; HARUS salah satu nilai dari {@code Common.haris}
 	 */
 	public void setHariMulai(String hari) {
 		if (tanggalMulaiPerkuliahan != null && hari != null) {
@@ -313,7 +340,22 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 		}
 	}
 
-	/** Varian instance: mengambil tanggal mulai dan flag lewati-tanggal-merah dari state form saat ini, lalu mendelegasikan ke {@link #simpan(Perkuliahan, KurikulumPunyaMatakuliah, List, Date, boolean)}. */
+	/**
+	 * Varian instance: mengambil tanggal mulai dan flag lewati-tanggal-merah dari state form saat
+	 * ini, lalu mendelegasikan ke
+	 * {@link #simpan(Perkuliahan, KurikulumPunyaMatakuliah, List, Date, boolean)}.
+	 *
+	 * <p>Nilai yang dioper diambil dari state layar, bukan dibaca ulang dari basis data:
+	 * {@link #kurikulumPunyaMatakuliah} dan {@link #kurikulumPunyaMatakuliahDetails} berasal dari
+	 * {@link #loadData(Object)} terakhir, sehingga method ini tidak berbuat apa-apa bila data
+	 * belum pernah dimuat (daftar masih {@code null}).</p>
+	 *
+	 * <p>Bila {@link #lewatiTanggalMerahNasional} masih {@code null} &mdash; keadaan normal ketika
+	 * layar dibuka tanpa {@link #perkuliahan} sehingga checkbox-nya tidak pernah dibuat &mdash;
+	 * nilai yang dioper adalah {@code true}, yakni seolah-olah pengguna MENCENTANGnya.</p>
+	 *
+	 * @param perkuliahan kelas nyata tujuan penyalinan RPS
+	 */
 	public void simpan(Perkuliahan perkuliahan) {
 		Date tgl = tanggalMulaiPerkuliahan == null ? null : tanggalMulaiPerkuliahan.getValue();
 		MatakuliahKurikulumDetailHelper.simpan(perkuliahan, kurikulumPunyaMatakuliah, kurikulumPunyaMatakuliahDetails,
@@ -334,8 +376,52 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 * {@code kurikulumPunyaMatakuliahDetails} kosong, {@code tgl} {@code null}, atau
 	 * {@code perkuliahan} belum tersimpan.
 	 *
-	 * @param lewatiTanggalMerahNasional bila {@code true}, tanggal pertemuan yang jatuh pada hari
-	 *                                   libur/tanggal merah nasional dilompati ke minggu berikutnya
+	 * <p>
+	 * <b>Pertemuan yang dipakai ulang tidak diperbarui.</b> Bila sebuah {@link Pertemuan} sudah
+	 * ditemukan (lewat tautan {@code kurikulumPunyaMatakuliahDetail} atau lewat kecocokan
+	 * tanggal), baris itu dibiarkan APA ADANYA: atribut RPS tidak disalin ulang, tanggalnya tidak
+	 * diperbaiki, dan {@link #copyLampiran(KurikulumPunyaMatakuliahDetail, Pertemuan)} TIDAK
+	 * dipanggil. Seluruh penyalinan isi hanya terjadi untuk pertemuan yang benar-benar baru
+	 * dibuat. Konsekuensinya method ini aman dipanggil berulang (tidak menggandakan lampiran),
+	 * tetapi juga tidak dapat dipakai untuk menyegarkan pertemuan yang sudah terlanjur dibuat
+	 * dari template yang kemudian direvisi.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Pencocokan berdasarkan tanggal.</b> Cabang pencarian kedua hanya membandingkan
+	 * {@code (perkuliahan, tanggal)} tanpa melihat nomor pertemuan, sehingga pertemuan yang sudah
+	 * ada pada tanggal tersebut &mdash; apa pun asal-usulnya &mdash; akan dianggap sebagai
+	 * pertemuan untuk baris RPS yang sedang diproses dan dilewati.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Tanggal pertama tidak diperiksa hari libur.</b> Pelompatan tanggal merah dijalankan
+	 * SETELAH penambahan tujuh hari di akhir tiap iterasi, jadi hanya berlaku bagi pertemuan
+	 * kedua dan seterusnya. Tanggal {@code tgl} yang diberikan dipakai apa adanya untuk pertemuan
+	 * pertama walaupun jatuh pada tanggal merah.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Efek samping pada {@code perkuliahan}.</b> Sebelum loop berjalan, {@code perkuliahan}
+	 * diperbarui dan disimpan: {@code tanggalMulaiPerkuliahan} diisi {@code tgl} dan
+	 * {@code lewatiTanggalMerahNasional} diisi nilai parameter. Silabus/SAP milik kurikulum juga
+	 * disalin lebih dulu lewat {@link #copyLampiran(KurikulumPunyaMatakuliah, Perkuliahan)}.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Penjagaan akses.</b> Method statis ini tidak memeriksa peran maupun privilese pengguna;
+	 * penjagaannya berada di layar pemanggil (alur penjadwalan {@code PenjadwalanHelper} /
+	 * {@code PenjadwalanUtil}).
+	 * </p>
+	 *
+	 * @param perkuliahan                kelas nyata tujuan; diabaikan bila {@code null} atau belum
+	 *                                   memiliki id
+	 * @param kurikulumPunyaMatakuliah   matakuliah-dalam-kurikulum sumber silabus/SAP
+	 * @param kurikulumPunyaMatakuliahDetails template RPS yang disalin; diabaikan bila kosong
+	 * @param tgl                        tanggal pertemuan pertama; diabaikan bila {@code null}
+	 * @param lewatiTanggalMerahNasional bila {@code true}, tanggal pertemuan KEDUA dan seterusnya
+	 *                                   yang jatuh pada hari libur/tanggal merah nasional dilompati
+	 *                                   ke minggu berikutnya
 	 */
 	public static void simpan(Perkuliahan perkuliahan, KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah,
 			List<KurikulumPunyaMatakuliahDetail> kurikulumPunyaMatakuliahDetails, Date tgl,
@@ -406,6 +492,20 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 * {@code perkuliahan}, HANYA bila {@code perkuliahan} belum memiliki lampiran jenis tersebut
 	 * (idempoten — tidak menimpa lampiran yang sudah diunggah manual pada kelas). Setiap salinan
 	 * ditandai {@code copyDari} ke {@link LampiranLain} sumber, dalam sesi streaming mandiri.
+	 *
+	 * <p>Sifat idempoten berasal dari pemeriksaan "sudah ada lampiran jenis ini pada
+	 * perkuliahan?", bukan dari perbandingan isi &mdash; bila kelas sudah punya Silabus hasil
+	 * unggah manual, versi kurikulum tidak akan menimpanya. Kedua jenis diperiksa terpisah,
+	 * sehingga Silabus dapat tersalin sementara SAP tidak, atau sebaliknya.</p>
+	 *
+	 * <p>Tiap salinan disimpan dalam transaksi tersendiri pada sesi
+	 * {@link StreamingHibernateUtil}. Bila terjadi galat, transaksi di-rollback dan galatnya
+	 * dicatat, namun sesi streaming TIDAK ditutup pada jalur galat itu (penutupan hanya ada pada
+	 * jalur sukses). Kegagalan tidak pernah dilempar ke pemanggil, jadi penyalinan yang gagal
+	 * tidak menghentikan alur penjadwalan yang memanggilnya.</p>
+	 *
+	 * @param kurikulumPunyaMatakuliah sumber lampiran Silabus/SAP tingkat kurikulum
+	 * @param perkuliahan              kelas nyata tujuan salinan
 	 */
 	public static void copyLampiran(KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah, Perkuliahan perkuliahan) {
 
@@ -460,6 +560,28 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 * pertemuan hasil salinan). Selalu menyalin ulang (tidak mengecek duplikasi) setiap kali
 	 * dipanggil — dipanggil hanya saat {@link Pertemuan} baru pertama kali dibuat di
 	 * {@link #simpan(Perkuliahan, KurikulumPunyaMatakuliah, List, Date, boolean)}.
+	 *
+	 * <p><b>Tidak idempoten.</b> Berbeda dari
+	 * {@link #copyLampiran(KurikulumPunyaMatakuliah, Perkuliahan)} yang memeriksa keberadaan
+	 * lampiran lebih dulu, method ini selalu membuat salinan baru untuk setiap berkas sumber
+	 * tanpa memeriksa apakah salinan serupa sudah ada pada {@code pertemuan}. Memanggilnya dua
+	 * kali untuk pasangan yang sama akan menggandakan seluruh lampiran. Keamanannya dalam praktik
+	 * bergantung pada pemanggil tunggalnya, yang hanya memanggil saat {@link Pertemuan} baru
+	 * pertama kali dibuat.</p>
+	 *
+	 * <p>Untuk berkas, yang disalin adalah METADATA beserta {@code lokasiFisik} yang sama &mdash;
+	 * artinya kedua baris menunjuk berkas fisik yang sama, bukan menggandakan isinya di
+	 * penyimpanan. Untuk video/audio, kolom {@code kurikulumPunyaMatakuliah} dan
+	 * {@code kurikulumPunyaMatakuliahDetail} sengaja dikosongkan agar salinan menjadi milik
+	 * pertemuan saja, sekaligus mencegah salinan itu ikut terhitung pada ringkasan
+	 * {@link #createKeterangan} milik template.</p>
+	 *
+	 * <p>Sama seperti overload-nya, tiap salinan disimpan dalam transaksi tersendiri pada sesi
+	 * {@link StreamingHibernateUtil}, galat di-rollback dan hanya dicatat (tidak dilempar), dan
+	 * sesi streaming tidak ditutup pada jalur galat.</p>
+	 *
+	 * @param kurikulumPunyaMatakuliahDetail baris RPS sumber lampiran
+	 * @param pertemuan                      pertemuan nyata tujuan salinan
 	 */
 	@SuppressWarnings("unchecked")
 	public static void copyLampiran(KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail,

@@ -645,7 +645,7 @@ public class PenilaianPklHelper implements DataLoader {
 		ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
 		groupbox.setStyle("min-height: 200px;");
 		groupbox.setParent(component);
-		groupbox.appendChild(new MyCaptionStyled("Daftar mahasiswa yang mengikuti KKN"));
+		groupbox.appendChild(new MyCaptionStyled("Daftar mahasiswa yang mengikuti PKL"));
 
 		Toolbar toolbar = new Toolbar();
 		// toolbar.setHeight("25px");

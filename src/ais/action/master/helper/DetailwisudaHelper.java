@@ -155,7 +155,24 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 			"mahasiswa.jurusan.fakultas.nama", "mahasiswa.jurusan.nama", "mahasiswa.kelamin", "mahasiswa.tempatlahir",
 			"mahasiswa.tanggallahir" };
 
-	/** Menambahkan tautan foto mahasiswa ke sel Excel tanpa menggagalkan ekspor bila foto tidak tersedia. */
+	/**
+	 * Menambahkan tautan foto mahasiswa ke sel Excel tanpa menggagalkan ekspor bila foto tidak
+	 * tersedia: foto tidak ada, URL kosong, maupun exception apa pun sama-sama berakhir sebagai
+	 * sel bernilai string kosong (exception dicatat lewat {@code ErrorAuditUtil}, tidak
+	 * dilempar ulang). Dipakai oleh KEDUA tombol ekspor — "Download Peserta" dan "Download
+	 * Wisudawan" — pada indeks kolom terakhir masing-masing.
+	 *
+	 * <p>
+	 * URL sengaja dibangun lewat {@code createLinkUri(false)}, yaitu rute servlet aplikasi
+	 * ({@code /al}), bukan URL folder statis {@code /f}, karena sebagian instalasi menutup akses
+	 * langsung ke folder media di tingkat Apache.
+	 * </p>
+	 *
+	 * @param row           baris Excel tujuan
+	 * @param cellIndex     indeks sel yang ditulis
+	 * @param hyperlinkStyle gaya sel untuk tampilan tautan; hanya dipasang bila foto memang ada
+	 * @param mahasiswa     mahasiswa yang fotonya dicari lewat {@link FileFotoLain#ambil}
+	 */
 	private static void tambahLinkFoto(XSSFRow row, int cellIndex, XSSFCellStyle hyperlinkStyle,
 			Mahasiswa mahasiswa) {
 		XSSFCell cell = row.createCell(cellIndex);
@@ -459,11 +476,43 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 	}
 
 	/**
-	 * Mencetak "Kartu Daftar Wisuda" (PDF) untuk satu {@code pendaftaranWisuda}. Bila nomor
-	 * kursi belum diisi, menetapkan nomor kursi otomatis dari id pendaftaran (di-padding nol
-	 * hingga 8 digit) sebelum mencetak. Parameter laporan mencakup yudisium hasil hitung ulang
-	 * ({@link Common#hitungJudisium}), data KRS lulus tersinkron, foto kelulusan, serta seluruh
-	 * properti {@link BiodataMahasiswa}, {@link Mahasiswa}, dan {@link Skripsi} terkait.
+	 * Mencetak "Kartu Daftar Wisuda" (PDF) untuk satu {@code pendaftaranWisuda}. Parameter
+	 * laporan mencakup yudisium hasil hitung ulang ({@link Common#hitungJudisium}), data KRS
+	 * lulus tersinkron, foto kelulusan, serta seluruh properti {@link BiodataMahasiswa},
+	 * {@link Mahasiswa}, dan {@link Skripsi} terkait. Dipanggil dari tombol "Bukti" pada baris
+	 * grid helper ini dan dari tombol "Cetak Bukti" di {@code MahasiswaRegistrasiWisudaAction}.
+	 *
+	 * <p>
+	 * <b>Method ini MENULIS ke basis data sebelum mencetak.</b> Sebelum menyusun laporan ia
+	 * dapat menetapkan No. Kursi dari id pendaftaran yang di-padding nol hingga 8 digit lalu
+	 * menyimpannya lewat {@link Common#refreshSaveOrUpdate(Object)}. Dua hal perlu diketahui
+	 * pemelihara sebelum menyentuh blok tersebut:
+	 * </p>
+	 * <ul>
+	 * <li><b>Syarat penulisannya terbalik dari maksudnya.</b> Kondisi yang dipakai adalah
+	 * {@code getNoKursi() == null || !getNoKursi().isEmpty()}, sehingga nomor kursi yang SUDAH
+	 * terisi justru ditulis ulang setiap kali kartu dicetak, sedangkan nomor bernilai string
+	 * kosong ({@code ""}) — satu-satunya nilai yang benar-benar berarti "belum diisi" selain
+	 * {@code null} — malah dilewati. Bacaan yang sejalan dengan komentar aslinya ("bila nomor
+	 * kursi belum diisi") seharusnya {@code == null || isEmpty()}. Karena rumusnya idempoten
+	 * (selalu id yang sama), dampaknya bukan nomor yang berubah-ubah, melainkan nomor kursi
+	 * hasil penyuntingan manual atau hasil unggah Excel (kolom {@code noKursi} ada di
+	 * {@link #contents}) tertimpa diam-diam, plus satu penulisan dan revisi audit pada setiap
+	 * pencetakan.</li>
+	 * <li><b>Tidak ada pemeriksaan persetujuan di sini.</b> Jalur resmi penomoran,
+	 * {@code GenerateNoKursiDanNoRegistrasiWindow.onGenerateNoKursiWisuda}, mensyaratkan No.
+	 * Registrasi sudah ada DAN kelima status persetujuan (Administrasi, Administrasi Fakultas,
+	 * Keuangan, Perpustakaan, Perpustakaan Fakultas) sudah terpenuhi. Blok di method ini
+	 * menetapkan No. Kursi tanpa satu pun syarat tersebut dan tanpa memeriksa hak {@link #edit},
+	 * padahal tombol "Bukti" yang memanggilnya tampil untuk semua pengguna yang dapat membuka
+	 * daftar peserta.</li>
+	 * </ul>
+	 * <p>
+	 * Kedua hal di atas didokumentasikan apa adanya, BUKAN diubah di sini.
+	 * </p>
+	 *
+	 * @param pendaftaranWisuda pendaftaran yang kartunya dicetak; mahasiswa dan skripsinya dibaca dari sini
+	 * @throws Exception diteruskan dari sinkronisasi KRS, penyimpanan No. Kursi, atau {@link Report#generatePDFReport}
 	 */
 	@SuppressWarnings("unchecked")
 	public static void cetakBukti(PendaftaranWisuda pendaftaranWisuda) throws Exception {
@@ -539,7 +588,15 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
-	/** Memuat/menyegarkan grid dengan halaman peserta wisuda sesuai {@link #initCriteria} dan posisi {@link #paging} saat ini. */
+	/**
+	 * Memuat/menyegarkan grid dengan halaman peserta wisuda sesuai {@link #initCriteria} dan
+	 * posisi {@link #paging} saat ini. Renderer baris dipasang ulang setiap pemanggilan, jadi
+	 * efek samping penulisan judul skripsi pada {@code DetailWisudaRenderer.render} ikut berjalan
+	 * lagi untuk setiap baris halaman yang ditampilkan.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader} agar helper pencarian
+	 *              mahasiswa dapat memicu penyegaran tanpa mengenal tipe konkret kelas ini
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
