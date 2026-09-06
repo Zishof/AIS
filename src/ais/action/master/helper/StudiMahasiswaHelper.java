@@ -1662,6 +1662,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonCatatan.setVisible(semester > 0);
 
 		buttonCatatan.addEventListener("onClick", new EventListener() {
+			/** Membuka {@link CatatanHelper} untuk mencatat catatan dosen PA secara manual (di luar alur otomatis setelah seluruh baris disetujui). Header KRS dibaca ulang tanpa sinkronisasi lalu ditandai {@code masukkanData("catatan")} sebagai jejak aktivitas. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				KrsMahasiswa krsMhs = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
@@ -1672,6 +1673,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 				CatatanHelper catHelper = new CatatanHelper(mahasiswa, semester, tahapan, dosenPembimbingAkademik, tahunAjaran, semesterPendek, remedial);
 
 				catHelper.display(new EventListener() {
+					/** Menyalin catatan dan catatan KHS hasil simpan ke label milik layar pemanggil. Berbeda dengan jalur persetujuan otomatis, layar TIDAK dibangun ulang di sini karena tidak ada data baris yang berubah. */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						KrsMahasiswa krs = (KrsMahasiswa) arg0.getData();
@@ -1694,6 +1696,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 		setujubutton.setDisabled(!approve);
 		
 		setujubutton.addEventListener("onClick", new EventListener() {
+			/**
+			 * Gerbang persetujuan massal. Mengulang validasi keuangan yang sama dengan
+			 * {@link StudiMahasiswaHelper#lakukanSatuPersetujuan} — status pembayaran semester berjalan
+			 * (bila {@code mahasiswa_harus_bayar_sebelum_persetujuan_krs} aktif),
+			 * {@link UtsDanUasCheckerHelper#checkPembayaranSebelumKRSSudahMemenuhi}, lalu ambang
+			 * pelunasan semester sebelumnya — sebelum menampilkan konfirmasi. Validasi batas SKS TIDAK
+			 * dilakukan di sini melainkan di dalam {@link StudiMahasiswaHelper#lakukanSemuaPersetujuan()}.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				Konfigurasi konfigurasi = Common.getKonfigurasi("mahasiswa_harus_bayar_sebelum_persetujuan_krs", Konfigurasi.AKTIF);
@@ -1724,6 +1734,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 				}
 
 				MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin menyetujui KRS ini? Setelah disetujui, KRS mahasiswa akan berstatus disetujui.", "Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+					/** Bila pengguna memilih OK: menandai jejak aktivitas {@code masukkanData("setujui")} pada header KRS lalu menjalankan {@link StudiMahasiswaHelper#lakukanSemuaPersetujuan()}. */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						int i = Integer.parseInt(event.getData().toString());
@@ -1738,9 +1749,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 		setujubutton.setParent(toolbar);
 
 		tolakbutton.addEventListener("onClick", new EventListener() {
+			/** Meminta konfirmasi pembatalan persetujuan seluruh KRS. Berbeda dengan tombol "Setujui", jalur ini TIDAK memeriksa status pembayaran maupun batas SKS — satu-satunya penjaga adalah aturan "baris yang sudah dinilai tidak dapat dibatalkan" di dalam {@link StudiMahasiswaHelper#lakukanPembatalanSemuaPersetujuan()}. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin membatalkan persetujuan KRS ini? Status persetujuan KRS mahasiswa akan dikembalikan menjadi belum disetujui.", "Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+					/** Bila pengguna memilih OK: menandai jejak aktivitas {@code masukkanData("batalkan")} lalu membatalkan persetujuan seluruh baris, itu pun hanya bila grid tidak kosong. */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						int i = Integer.parseInt(event.getData().toString());
@@ -1762,15 +1775,18 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonKonversi.setVisible(semester.equals(0) && Common.getCurrentUser().getMahasiswa() == null);
 
 		buttonKonversi.addEventListener("onClick", new EventListener() {
+			/** Membuka {@link AmbilDataMatakuliahKonversiHelper} pada jendela modal baru untuk menambah mata kuliah hasil konversi nilai transfer/pindahan. Tombol ini hanya tampil pada mode konversi (semester {@code 0}) dan bukan untuk pengguna berperan mahasiswa. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				AmbilDataMatakuliahKonversiHelper ambilDataKonv = new AmbilDataMatakuliahKonversiHelper();
 				MyWindow window = new MyWindow();
 				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(window);
 				ambilDataKonv.display(mahasiswa, semester, tahunAjaran, new DataLoader() {
+					/** Callback {@link DataLoader} anonim yang dipanggil helper konversi setelah data tersimpan; menunda penyegaran grid ke request berikutnya lewat timer. */
 					@Override
 					public void loadData(Object value) {
 						Common.createDefaultTimer(new EventListener() {
+							/** Menyegarkan grid dengan memaksa hitung ulang ekivalensi mata kuliah ({@code loadData(true)}) karena baris konversi yang baru saja ditambahkan belum ada di cache. */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								StudiMahasiswaHelper.this.loadData(true);
@@ -1789,7 +1805,24 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonPaket.setVisible(isPaketVisible);
 		
 		buttonPaket.addEventListener("onClick", new EventListener() {
+			/** Helper pengambilan KRS paket untuk semester pendek, dibuat sekali per listener. */
 			private AmbilDataPaketPerkuliahanHelper ambilDataPaket = new AmbilDataPaketPerkuliahanHelper(semesterPendek);
+			/**
+			 * Gerbang pengambilan KRS paket (hanya tampil untuk konteks semester pendek, pengguna
+			 * non-dosen/non-mahasiswa, berhak ubah, dan {@link StudiMahasiswaHelper#tampilKonversi}
+			 * aktif): memeriksa status pembayaran bila {@code mahasiswa_harus_bayar_sebelum_isi_krs_paket}
+			 * aktif, lalu status kemahasiswaan harus AKTIF bila
+			 * {@code status_mahasiswa_harus_aktif_sebelum_isi_krs_paket} aktif.
+			 *
+			 * <p><b>Perbedaan halus dengan gerbang "Ambilkan Perkuliahan":</b> status diambil lewat
+			 * {@code HistoryStatusMahasiswaUtil.currentStatus(mahasiswa, tahunAjaran, semester)}
+			 * kemudian {@code getStatusMahasiswa()}. Jalur ini (a) mengabaikan argumen tahun akademik
+			 * dan memakai {@code mahasiswa.currentTahapan()} alih-alih tahap layar ini, serta (b) memakai
+			 * getter {@link HistoryStatusMahasiswa#getStatusMahasiswa()} yang MENULIS BALIK hasil
+			 * perhitungannya ke field — berbeda dari jalur "Ambilkan Perkuliahan" yang memanggil
+			 * {@code ambilStatusMahasiswa(semester)} secara langsung. Bila aturan status diubah,
+			 * periksa kedua jalur ini.</p>
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				Konfigurasi konfigBayar = Common.getKonfigurasi("mahasiswa_harus_bayar_sebelum_isi_krs_paket", Konfigurasi.AKTIF);

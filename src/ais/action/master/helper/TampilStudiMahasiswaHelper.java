@@ -616,7 +616,6 @@ public class TampilStudiMahasiswaHelper {
 		return buildMkBelumDiambilHtml(mahasiswa, detailData, null);
 	}
 
-	@SuppressWarnings("unchecked")
 	/**
 	 * HTML daftar MATA KULIAH BELUM DIAMBIL: bandingkan MK pada kurikulum prodi dengan MK yang sudah
 	 * tercatat diambil ({@code detailData}, dicocokkan per KODE). Alat bantu (ekivalensi tak diperiksa
@@ -626,6 +625,7 @@ public class TampilStudiMahasiswaHelper {
 	 *                    perilaku default/awal); bila diisi &rarr; memakai kurikulum ber-id tersebut
 	 *                    (dipilih pengguna dari combo). Jika id tak ditemukan, jatuh ke deteksi otomatis.
 	 */
+	@SuppressWarnings("unchecked")
 	private static String buildMkBelumDiambilHtml(Mahasiswa mahasiswa,
 			List<Map<String, Object>> detailData, Long kurikulumId) {
 		return buildMkBelumDiambilHtml(mahasiswa, detailData, kurikulumId, null);

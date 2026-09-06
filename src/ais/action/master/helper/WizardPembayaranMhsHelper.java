@@ -2004,12 +2004,6 @@ public class WizardPembayaranMhsHelper {
     }
 
     /**
-     * Gate tombol Tunai — replikasi {@code _lanjut_bayar.jsp} dan DaftarUlang: hanya
-     * pengguna admin (bukan akun mahasiswa/calon), konfigurasi
-     * {@code aktifkan_pembayaran_manual} aktif (default AKTIF), tidak termasuk daftar
-     * admin terlarang, dan jenis kegiatan mengizinkan token {@code ;tunai;}.
-     */
-    /**
      * @return true HANYA bila pengguna aktif terbukti admin: akun ter-resolve (bukan null)
      *         dan tidak terkait entitas Mahasiswa maupun BiodataCalonMahasiswa.
      *         Resolusi user memakai {@code Common.getCurrentUser()} (mencakup fallback
@@ -2063,6 +2057,34 @@ public class WizardPembayaranMhsHelper {
                 });
     }
 
+    /**
+     * Gerbang tombol "Bayar Tunai / Kasir" — replikasi aturan {@code _lanjut_bayar.jsp} dan
+     * DaftarUlang, sehingga syarat menerima uang tunai identik di ZK maupun JSP. Tombolnya
+     * baru ditampilkan bila SELURUH syarat berikut terpenuhi:
+     * <ol>
+     * <li>{@link #isUserAdmin()} — akun yang login bukan akun mahasiswa/calon mahasiswa;</li>
+     * <li>akun tersebut masih dapat di-resolve ({@code getCurrentUser()} dengan cadangan
+     * {@code getTbmuser()});</li>
+     * <li>{@code PembayaranGatewayKatalog.adminDilarangBayarLangsung(userId)} bernilai
+     * false — yaitu user TIDAK terdaftar pada konfigurasi
+     * {@code admin_lain_yang_tidak_bisa_membayar_langsung};</li>
+     * <li>{@code PembayaranGatewayKatalog.tunaiAktif(jenisKegiatan)} — konfigurasi
+     * {@code aktifkan_pembayaran_manual} menyala dan jenis kegiatan mengizinkan token
+     * {@code ;tunai;}.</li>
+     * </ol>
+     *
+     * <p><b>Fail-closed.</b> Seluruh badan dibungkus satu try/catch yang mengembalikan
+     * {@code false} pada exception apa pun. Ini disengaja: kegagalan membaca konfigurasi
+     * atau pengguna harus berakhir dengan tombol tunai TIDAK tampil, bukan tampil untuk
+     * pihak yang belum tentu berhak mencatat penerimaan uang.</p>
+     *
+     * <p>Perlu dicatat bahwa gerbang ini hanya menentukan TAMPIL/tidaknya tombol pada
+     * langkah 4; ia bukan pengganti otorisasi atas mahasiswa yang dibayarkan, yang tetap
+     * menjadi tanggung jawab pemanggil (lihat kontrak keamanan pada field {@code mahasiswa}).</p>
+     *
+     * @return {@code true} bila tombol Tunai/Kasir boleh ditampilkan untuk pengguna dan
+     *         jenis kegiatan saat ini
+     */
     private boolean bolehTunai() {
         try {
             if (!isUserAdmin()) return false;
@@ -2747,6 +2769,22 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ DOKU
+    /**
+     * Eksekutor gerbang DOKU. Membangun daftar {@code DokuRequestDetailBiaya} (pasangan
+     * {@link DetailBiaya} + nominal pilihan pengguna) langsung dari item terpilih, merakit
+     * {@code DokuRequestDetail} lewat {@code DokuCommon.populateDokuRequestDetail} atas grid
+     * cicilan tiruan, lalu menyerahkannya ke {@code DokuCommon.onSaveDoku} — mesin yang sama
+     * dengan DaftarUlang, tanpa memerlukan Grid ZK DaftarUlang yang sesungguhnya.
+     *
+     * <p>Biaya administrasi dikirim 0,0 dan nilai bayar sama dengan total, mengikuti pola
+     * pemanggilan DaftarUlang. Langkah dipindah ke Selesai setelah {@code onSaveDoku}
+     * kembali tanpa exception; hasil VA/tautan ditangani di dalam mesin gerbang itu sendiri.</p>
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal, diteruskan karena mesin gerbang memerlukannya untuk
+     *                membuka jendela/redirect pada desktop ZK yang benar
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarDoku(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -2765,6 +2803,17 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ CIMB
+    /**
+     * Eksekutor gerbang CIMB — berstruktur identik dengan {@link #bayarDoku(List, Event)},
+     * hanya berganti keluarga kelas ke {@code CimbRequestDetailBiaya}/
+     * {@code CimbRequestDetail}/{@code CimbCommon.onSaveCimb}. Kemiripan ini disengaja:
+     * tiap gerbang punya keluarga entitas request sendiri sehingga tidak dapat digeneralisasi
+     * tanpa refleksi.
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal yang diteruskan ke mesin gerbang
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarCimb(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -2783,6 +2832,16 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ JATELINDO
+    /**
+     * Eksekutor gerbang JATELINDO (mode satu jenis pembayaran) — berstruktur identik dengan
+     * {@link #bayarDoku(List, Event)} dengan keluarga kelas Jatelindo. Untuk mode Keranjang,
+     * jalurnya berbeda dan ditangani {@link #bayarKeranjangRequest(String, List, Event)}
+     * lewat {@code JatelindoKeranjangPembayaran}.
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal yang diteruskan ke mesin gerbang
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarJatelindo(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -2899,6 +2958,14 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ IPAYMU
+    /**
+     * Eksekutor gerbang IPAYMU — sama dengan {@link #bayarDoku(List, Event)}, namun daftar
+     * rincian biayanya dipisah ke {@link #buildIpaymuDetailBiaya(List)} agar mudah dibaca.
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal yang diteruskan ke mesin gerbang
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarIpaymu(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -2910,6 +2977,19 @@ public class WizardPembayaranMhsHelper {
         render();
     }
 
+    /**
+     * Memetakan item terpilih menjadi daftar {@code IpaymuRequestDetailBiaya}: satu entri per
+     * item, berisi {@link DetailBiaya} asal dan {@code nominalBayar} (nominal yang benar-benar
+     * dibayar sekarang, bukan tagihan penuh). Inilah rincian yang dipakai gerbang untuk
+     * mengalokasikan pembayaran kembali ke item saat callback diterima.
+     *
+     * <p>Berbeda dengan {@link #kumpulkanBiayaTerpilih(List)}, method ini TIDAK menyaring
+     * item bernominal nol — pada titik ini nominal sudah dijamin &gt; 0 oleh
+     * {@link #validasiStep3()}.</p>
+     *
+     * @param dipilih item tagihan terpilih
+     * @return daftar rincian biaya untuk request iPaymu
+     */
     private List<IpaymuRequestDetailBiaya> buildIpaymuDetailBiaya(List<TagihanItem> dipilih) {
         List<IpaymuRequestDetailBiaya> list = new ArrayList<IpaymuRequestDetailBiaya>();
         for (TagihanItem item : dipilih) {
@@ -2922,6 +3002,15 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ FASPAY
+    /**
+     * Eksekutor gerbang FASPAY (mode satu jenis pembayaran); mode Keranjang ditangani
+     * terpisah oleh {@link #bayarKeranjangRequest(String, List, Event)} lewat
+     * {@code FaspayKeranjangPembayaran}.
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal yang diteruskan ke mesin gerbang
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarFaspay(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -2933,6 +3022,14 @@ public class WizardPembayaranMhsHelper {
         render();
     }
 
+    /**
+     * Padanan {@link #buildIpaymuDetailBiaya(List)} untuk keluarga Faspay: satu
+     * {@code FaspayRequestDetailBiaya} per item terpilih berisi {@link DetailBiaya} dan
+     * {@code nominalBayar}.
+     *
+     * @param dipilih item tagihan terpilih
+     * @return daftar rincian biaya untuk request Faspay
+     */
     private List<FaspayRequestDetailBiaya> buildFaspayDetailBiaya(List<TagihanItem> dipilih) {
         List<FaspayRequestDetailBiaya> list = new ArrayList<FaspayRequestDetailBiaya>();
         for (TagihanItem item : dipilih) {
@@ -2945,6 +3042,16 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ FINPAY
+    /**
+     * Eksekutor gerbang FINPAY jalur request. Perlu dibedakan dari saluran katalog
+     * {@code bank_finpay} yang termasuk keluarga "Bank Online" dan dieksekusi
+     * {@link #bayarBankOnline(PembayaranGatewayKatalog.Gateway, List)} dengan flag legacy
+     * {@code finpay} — keduanya adalah kanal berbeda meski namanya mirip.
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal yang diteruskan ke mesin gerbang
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarFinpay(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -2956,6 +3063,12 @@ public class WizardPembayaranMhsHelper {
         render();
     }
 
+    /**
+     * Padanan {@link #buildIpaymuDetailBiaya(List)} untuk keluarga Finpay.
+     *
+     * @param dipilih item tagihan terpilih
+     * @return daftar rincian biaya untuk request Finpay
+     */
     private List<FinpayRequestDetailBiaya> buildFinpayDetailBiaya(List<TagihanItem> dipilih) {
         List<FinpayRequestDetailBiaya> list = new ArrayList<FinpayRequestDetailBiaya>();
         for (TagihanItem item : dipilih) {
@@ -2983,6 +3096,21 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ BNI
+    /**
+     * Eksekutor gerbang BNI (mode satu jenis pembayaran). Berbeda dari gerbang lain,
+     * {@code onSaveBni} menuntut SATU ARGUMEN TAMBAHAN berupa token alokasi cicilan
+     * ({@link #buildTokenCicilan(List)}) — string itulah yang dipakai callback BNI untuk
+     * memecah satu pembayaran menjadi beberapa {@link CicilanPembayaran} per item; token
+     * yang salah membuat alokasi pembayaran rusak meskipun total uangnya benar.
+     *
+     * <p>Mode Keranjang tidak lewat sini melainkan lewat
+     * {@link #bayarKeranjangRequest(String, List, Event)} dan
+     * {@code BniKeranjangPembayaran}.</p>
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal yang diteruskan ke mesin gerbang
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarBni(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -2995,6 +3123,12 @@ public class WizardPembayaranMhsHelper {
         render();
     }
 
+    /**
+     * Padanan {@link #buildIpaymuDetailBiaya(List)} untuk keluarga BNI.
+     *
+     * @param dipilih item tagihan terpilih
+     * @return daftar rincian biaya untuk request BNI
+     */
     private List<BniRequestDetailBiaya> buildBniDetailBiaya(List<TagihanItem> dipilih) {
         List<BniRequestDetailBiaya> list = new ArrayList<BniRequestDetailBiaya>();
         for (TagihanItem item : dipilih) {
@@ -3007,6 +3141,16 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ BSI
+    /**
+     * Eksekutor gerbang BSI (mode satu jenis pembayaran) — seperti
+     * {@link #bayarBni(List, Event)}, termasuk keharusan mengirim token alokasi cicilan
+     * {@link #buildTokenCicilan(List)}. Mode Keranjang ditangani
+     * {@code BsiKeranjangPembayaran}.
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal yang diteruskan ke mesin gerbang
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarBsi(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -3019,6 +3163,12 @@ public class WizardPembayaranMhsHelper {
         render();
     }
 
+    /**
+     * Padanan {@link #buildIpaymuDetailBiaya(List)} untuk keluarga BSI.
+     *
+     * @param dipilih item tagihan terpilih
+     * @return daftar rincian biaya untuk request BSI
+     */
     private List<BsiRequestDetailBiaya> buildBsiDetailBiaya(List<TagihanItem> dipilih) {
         List<BsiRequestDetailBiaya> list = new ArrayList<BsiRequestDetailBiaya>();
         for (TagihanItem item : dipilih) {
@@ -3031,6 +3181,16 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ BRI
+    /**
+     * Eksekutor gerbang BRI (mode satu jenis pembayaran). Berbeda dari BNI/BSI,
+     * {@code onSaveBri} TIDAK menerima token alokasi cicilan — alokasi per item disimpulkan
+     * mesin BRI dari daftar {@code BriRequestDetailBiaya} saja. Perbedaan tanda tangan ini
+     * disengaja mengikuti mesin masing-masing bank, bukan kelalaian.
+     *
+     * @param dipilih item tagihan terpilih beserta nominalnya
+     * @param evt     event klik asal yang diteruskan ke mesin gerbang
+     * @throws Exception bila mesin gerbang gagal
+     */
     @SuppressWarnings("unchecked")
     private void bayarBri(List<TagihanItem> dipilih, Event evt) throws Exception {
         double total = hitungTotalBayar();
@@ -3042,6 +3202,12 @@ public class WizardPembayaranMhsHelper {
         render();
     }
 
+    /**
+     * Padanan {@link #buildIpaymuDetailBiaya(List)} untuk keluarga BRI.
+     *
+     * @param dipilih item tagihan terpilih
+     * @return daftar rincian biaya untuk request BRI
+     */
     private List<BriRequestDetailBiaya> buildBriDetailBiaya(List<TagihanItem> dipilih) {
         List<BriRequestDetailBiaya> list = new ArrayList<BriRequestDetailBiaya>();
         for (TagihanItem item : dipilih) {

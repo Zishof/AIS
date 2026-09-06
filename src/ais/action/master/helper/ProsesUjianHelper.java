@@ -1722,6 +1722,13 @@ public class ProsesUjianHelper extends MyWindow {
 		 * rendering ke UI dilakukan oleh ZK event thread melalui Timer.</p>
 		 */
 		/**
+		 * <b>Catatan pemeliharaan:</b> blok komentar panjang tepat DI ATAS blok ini masih menjelaskan
+		 * loop {@code while(!stop)} versi lama dari {@link #run()}. Sejak countdown dipindahkan ke
+		 * {@link ProsesUjianHelper#COUNTDOWN_SCHEDULER}, blok tersebut menjadi yatim — Javadoc yang
+		 * berlaku bagi sebuah method hanyalah blok TERAKHIR sebelum deklarasinya — dan uraiannya
+		 * sudah tidak lagi sesuai implementasi. Dokumentasi {@code run()} yang berlaku berada tepat
+		 * di atas method {@code run()} itu sendiri.
+		 *
 		 * Jadwalkan tick countdown 1 detik pada {@link ProsesUjianHelper#COUNTDOWN_SCHEDULER}
 		 * (pengganti {@code new Thread(this).start()}). Tick pertama setelah 1 detik — sama
 		 * dengan loop lama yang sleep dulu baru mengurangi.
@@ -1930,6 +1937,21 @@ public class ProsesUjianHelper extends MyWindow {
 	 *   <li><b>Jenis lain:</b> dianggap terjawab apabila {@code jawaban} tidak null dan tidak
 	 *       kosong (fallback aman).</li>
 	 * </ul>
+	 *
+	 * <p><b>KOREKSI terhadap daftar di atas — perilaku NYATA implementasi:</b> loop di dalam
+	 * method ini melewati ({@code continue}) setiap {@code HasilUjianMahasiswaDetail} yang
+	 * {@code getBankSoalDetail()}-nya null. Padahal jawaban ESAI, isian singkat, rumpang,
+	 * menjodohkan, dan mengurutkan justru TIDAK memiliki {@code bankSoalDetail} — teks
+	 * jawabannya tersimpan di kolom {@code jawaban} milik detail itu sendiri. Akibatnya method
+	 * ini hanya pernah mengembalikan {@code true} untuk soal PILIHAN GANDA dan BENAR-SALAH.</p>
+	 *
+	 * <p><b>Dampaknya terbatas pada tampilan.</b> Satu-satunya pemakai method ini adalah
+	 * {@link #tampilNomorSoal(Long)}, yang memakainya untuk mewarnai lingkaran nomor soal. Jadi
+	 * pada ujian esai, lingkaran nomor soal tidak pernah berubah hijau meskipun jawaban sudah
+	 * tersimpan. Perhitungan nilai, daftar "Telah terjawab"/"Belum terjawab", indikator
+	 * "Tuntas n/N", dan penjagaan kelengkapan pada tombol "Selesaikan Ujian" TIDAK memakai
+	 * method ini — semuanya memakai {@code hasilUjianMahasiswa.ambilBankSoalIdTerjawab(...)} —
+	 * sehingga integritas nilai peserta tidak terpengaruh.</p>
 	 *
 	 * <p><b>Thread safety:</b> Murni read-only terhadap cache
 	 * {@link #hasilUjianMahasiswaDetailsa} dan {@code GeneralValueObject} yang keduanya
@@ -6788,6 +6810,18 @@ public class ProsesUjianHelper extends MyWindow {
      * tertentu. Dipanggil dari listener event JS anti-curang. Memakai session terdedikasi
      * + commit agar persist walau session ujian (native) sudah ditutup; dibungkus penuh
      * try/catch supaya kegagalan pencatatan TIDAK pernah mengganggu jalannya ujian.
+     *
+     * <p><b>Cara kerja:</b> membuka session Hibernate baru ({@code HibernateUtil.openSession()}),
+     * menaikkan {@code jumlahPelanggaran} sebanyak satu, menambahkan satu baris bertimestamp ke
+     * {@code logPelanggaran}, dan memangkas log dari DEPAN bila panjangnya melebihi 8.000
+     * karakter agar kolom tidak meluap. Transaksi di-{@code rollback} bila baris hasil ujian
+     * tidak ditemukan atau terjadi kesalahan, dan session SELALU dibersihkan lalu ditutup di
+     * blok {@code finally}.</p>
+     *
+     * @param hasilId id {@code HasilUjianMahasiswa} yang dilanggar; null membuat method tidak
+     *                melakukan apa pun
+     * @param tipe    teks jenis pelanggaran kiriman skrip browser (misalnya "Pindah Tab /
+     *                Sembunyikan Halaman"); null dicatat sebagai "Pelanggaran"
      */
     private static void catatPelanggaranUjian(Long hasilId, String tipe) {
         if (hasilId == null) {
@@ -6853,12 +6887,43 @@ public class ProsesUjianHelper extends MyWindow {
     }
 
     /**
+     * Membangun skrip JavaScript pengawasan ujian (anti-curang) sesuai pengaturan PER-UJIAN.
+     *
+     * <p>Ini adalah builder TUNGGAL yang dipakai ulang oleh dua konteks: jendela CBT berbasis ZK
+     * (lewat {@link #prosesProsesUjian()}) dan halaman ujian berbasis JSP (lewat
+     * {@link #buildCbtAntiCheatScriptJsp(PertemuanPunyaUjian,String)}).</p>
+     *
+     * <p><b>Yang dihasilkan skrip:</b> saklar global {@code window.__cbtOff} beserta fungsi
+     * {@code window.__cbtStop()} (dipakai {@link #hentikanPengawasanUjian()}), fungsi pelapor
+     * pelanggaran {@code rec()}, pembantu masuk layar penuh {@code cbtFS()}, overlay peringatan
+     * {@code warn()}, dan sekumpulan pendengar peristiwa yang dipasang HANYA bila fitur
+     * terkaitnya diaktifkan: {@code visibilitychange} (pindah tab), {@code blur} (Alt+Tab, dengan
+     * cooldown), {@code fullscreenchange}, {@code contextmenu} (blokir klik kanan),
+     * {@code keydown} (blokir Ctrl+W/T/N/R, Ctrl+Tab, Alt+F4, F5, F12, dan PrintScreen), serta
+     * {@code beforeunload}.</p>
+     *
+     * <p><b>Sumber pengaturan:</b> seluruhnya dibaca dari kolom {@code ac_*} pada
+     * {@link PertemuanPunyaUjian}; getter-nya mengembalikan nilai bawaan ketika kolom masih null,
+     * sehingga ujian lama tetap terproteksi seperti sebelum migrasi dari konfigurasi global.
+     * Mengembalikan string KOSONG bila {@code antiCurangAktif} bernilai salah, dan jatuh ke
+     * {@link #buildCbtAntiCheatScriptDefault(String,String)} bila {@code ppu} null atau pembacaan
+     * pengaturan melempar kesalahan (failsafe: pengawasan tetap menyala penuh).</p>
+     *
+     * <p><b>Batas kepercayaan (fakta arsitektur, bukan bug):</b> seluruh deteksi berjalan di
+     * BROWSER peserta. Server hanya menerima laporan lewat {@code onPelanggaran} dan mencatatnya;
+     * penghentian otomatis ujian ketika batas tercapai pun dilakukan skrip ini dengan mengklik
+     * tombol "Selesaikan Ujian". Peserta yang mematikan JavaScript atau memodifikasi halaman
+     * tidak akan tercatat maupun dihentikan. Pengawasan ini bersifat pencegah dan pembukti,
+     * bukan penjamin.</p>
+     *
      * @param ppu           ujian sumber pengaturan anti-curang PER-UJIAN.
      * @param sinkUuid       uuid komponen ZK penerima pelanggaran ({@code onPelanggaran}); {@code null} =
      *                       tak melaporkan (mis. konteks JSP).
      * @param jsAutoSelesai  cuplikan JS yang dijalankan saat batas pelanggaran tercapai (mis.
      *                       {@code "processFinish123()"} pada JSP). Bila kosong/null → default: klik tombol
      *                       ZK "Selesaikan Ujian". Membuat builder ini DIPAKAI ULANG oleh versi ZK &amp; JSP.
+     * @return skrip anti-curang siap-tempel di dalam {@code <script>}; string kosong bila
+     *         anti-curang non-aktif untuk ujian ini
      */
     private static String buildCbtAntiCheatScript(PertemuanPunyaUjian ppu, String sinkUuid, String jsAutoSelesai) {
         // ---- baca pengaturan PER-UJIAN (kolom ac_* di PertemuanPunyaUjian; getter mengembalikan default
@@ -7056,6 +7121,30 @@ public class ProsesUjianHelper extends MyWindow {
     }
 
     /** Fallback saat config tidak tersedia — perilaku default (semua aktif). */
+    /**
+     * Skrip anti-curang BAWAAN (seluruh fitur menyala) — jaring pengaman ketika pengaturan
+     * per-ujian tidak dapat dibaca.
+     *
+     * <p>Dipanggil dari {@link #buildCbtAntiCheatScript(PertemuanPunyaUjian,String,String)} hanya
+     * pada dua keadaan: {@code ppu} bernilai null, atau pembacaan kolom pengaturan {@code ac_*}
+     * melempar kesalahan. Pilihan failsafe-nya sengaja "menyala penuh" supaya masalah konfigurasi
+     * tidak pernah menurunkan tingkat pengawasan ujian.</p>
+     *
+     * <p><b>Perilaku bawaan yang dipasang:</b> batas 3 pelanggaran, masuk layar penuh otomatis,
+     * deteksi pindah tab, deteksi blur jendela dengan cooldown 5 detik, deteksi keluar layar penuh,
+     * blokir klik kanan, blokir Ctrl+W/T/N/R serta Ctrl+Tab, Alt+F4, F5 dan F12, dan peringatan
+     * meninggalkan halaman — semuanya dengan teks peringatan berbahasa Indonesia yang tertanam.</p>
+     *
+     * <p><b>Catatan pemeliharaan:</b> isinya adalah duplikat sadar dari builder utama. Setiap
+     * perubahan perilaku pada builder utama perlu direplikasi ke sini agar keduanya tidak
+     * menyimpang satu sama lain.</p>
+     *
+     * @param sinkUuid      uuid komponen ZK penerima event {@code onPelanggaran}; null membuat
+     *                      fungsi pelapor {@code rec()} menjadi no-op (misalnya konteks JSP)
+     * @param jsAutoSelesai cuplikan JS penyelesai ujian milik halaman; bila kosong atau null,
+     *                      skrip mencari lalu mengklik tombol ZK "Selesaikan Ujian"
+     * @return skrip JavaScript siap-tempel di dalam {@code <script>}
+     */
     private static String buildCbtAntiCheatScriptDefault(String sinkUuid, String jsAutoSelesai) {
         StringBuilder sb = new StringBuilder();
         sb.append("(function(){'use strict';");
@@ -7119,6 +7208,20 @@ public class ProsesUjianHelper extends MyWindow {
     }
 
     /** Mengubah string Java menjadi literal string JavaScript yang aman (single-quote). */
+    /**
+     * Mengubah sebuah string Java menjadi literal string JavaScript berkutip tunggal yang aman.
+     *
+     * <p>Dipakai untuk menyisipkan teks peringatan anti-curang — yang isinya dapat diatur admin
+     * per ujian — ke dalam skrip yang dibangun. Tanpa pengawalan ini, tanda kutip atau backslash
+     * di dalam teks akan memutus sintaks skrip, bahkan berpotensi menjadi jalan penyuntikan kode.</p>
+     *
+     * <p><b>Yang dikawal:</b> backslash menjadi backslash ganda, kutip tunggal menjadi kutip
+     * tunggal terkawal, newline menjadi {@code \n}, dan carriage return dibuang. Nilai null
+     * diperlakukan sebagai string kosong.</p>
+     *
+     * @param s teks yang akan dijadikan literal; boleh null
+     * @return literal string JavaScript lengkap dengan kutip tunggal pembuka dan penutup
+     */
     private static String jsStr(String s) {
         if (s == null) s = "";
         return "'" + s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "") + "'";

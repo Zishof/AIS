@@ -1374,6 +1374,24 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Menandai satu {@link CicilanPembayaran} sebagai TIDAK aktif pada kolom denormalisasi
+	 * kegiatan, lalu menulis segera.
+	 *
+	 * <p><b>Perhatikan bentuk penulisannya:</b> kolom {@code cicilans} ditimpa TOTAL dengan
+	 * {@code ",<id>:false,"} — bukan ditambahi entri baru. Ini disengaja dan bekerja karena
+	 * {@link #ekstrakIdAktif(String)} hanya mengambil id ber-flag {@code true}: hasilnya daftar
+	 * aktif menjadi KOSONG, dan {@link #eksekusiUpdateDenganRetryTerkunci} kemudian membangun
+	 * ulang seluruh rekap dari daftar kosong itu. Jadi efeknya "lupakan seluruh cicilan yang
+	 * ter-cache lalu hitung ulang", bukan "buang satu id ini saja". Pemuatan berikutnya dengan
+	 * {@code refresh=true} akan mengisi ulang daftar dari basis data.</p>
+	 *
+	 * <p>Method ini TIDAK menghapus baris {@link CicilanPembayaran} dari basis data; penghapusan
+	 * entity sesungguhnya adalah tanggung jawab pemanggil.</p>
+	 *
+	 * @param cicilanPembayaran cicilan yang dihapus; {@code null}/tanpa id diabaikan.
+	 * @param kegiatan          kegiatan pemilik; {@code null} diabaikan.
+	 */
 	public static void hapusCicilan(CicilanPembayaran cicilanPembayaran, Kegiatan kegiatan) {
 		if (kegiatan == null || cicilanPembayaran == null || cicilanPembayaran.getId() == null) {
 			return;
@@ -1382,6 +1400,15 @@ public class KegiatanPersistenceHelper {
 		simpanPerubahanAsync(kegiatan, true, true);
 	}
 
+	/**
+	 * Padanan {@link #hapusCicilan(CicilanPembayaran, Kegiatan)} untuk {@link DetailKegiatan}:
+	 * menimpa kolom {@code detailKegiatans} dengan {@code ",<id>:false,"} sehingga daftar aktif
+	 * menjadi kosong dan rekap dibangun ulang saat penulisan segera. Tidak menghapus baris entity
+	 * dari basis data.
+	 *
+	 * @param detailKegiatan detail yang dihapus; {@code null}/tanpa id diabaikan.
+	 * @param kegiatan       kegiatan pemilik; {@code null} diabaikan.
+	 */
 	public static void hapusDetailKegiatan(DetailKegiatan detailKegiatan, Kegiatan kegiatan) {
 		if (kegiatan == null || detailKegiatan == null || detailKegiatan.getId() == null) {
 			return;
@@ -1390,6 +1417,18 @@ public class KegiatanPersistenceHelper {
 		simpanPerubahanAsync(kegiatan, true, true);
 	}
 
+	/**
+	 * Menyusun representasi tekstual daftar aktif dengan format
+	 * {@code ",<id1>:true,<id2>:true,"} — diawali dan diakhiri koma agar pencarian substring
+	 * {@code ",<id>:"} selalu tepat batasnya. Entri yang id-nya tidak dapat ditentukan
+	 * ({@link #getId(Object)} mengembalikan {@code null}) dilewati.
+	 *
+	 * <p>Menerima {@code List} mentah karena dipakai untuk cicilan maupun detail kegiatan;
+	 * pembacaan baliknya oleh {@link #ekstrakIdAktif(String)}.</p>
+	 *
+	 * @param list daftar entity aktif; boleh {@code null} (menghasilkan {@code ","}).
+	 * @return teks daftar aktif; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("rawtypes")
 	private static String bangunStringAktif(List list) {
 		StringBuilder builder = new StringBuilder(",");
@@ -1404,6 +1443,21 @@ public class KegiatanPersistenceHelper {
 		return builder.toString();
 	}
 
+	/**
+	 * Menyusun kunci entri JSON {@code tagihans} dari sisi KONFIGURASI biaya. Bila
+	 * {@code pengaturanBulanan} tersedia, kunci diambil dari item biaya miliknya dan diberi sufiks
+	 * {@code _<realBulan>} (menandai tagihan bulanan); bila tidak, kunci adalah id item biaya
+	 * {@code detailBiaya} tanpa sufiks.
+	 *
+	 * <p>Kehadiran atau ketiadaan garis bawah pada kunci inilah yang dipakai
+	 * {@link #murnikan(JenisKegiatan, String)} untuk memisahkan tagihan angsuran dari non-angsuran,
+	 * jadi format ini bersifat kontrak, bukan sekadar penamaan.</p>
+	 *
+	 * @param detailBiaya       komponen biaya; dipakai bila {@code pengaturanBulanan} tidak dapat
+	 *                          menyediakan kunci.
+	 * @param pengaturanBulanan pengaturan pembayaran bulanan; diutamakan bila lengkap.
+	 * @return kunci JSON, atau {@code null} bila item biaya tidak dapat ditentukan.
+	 */
 	private static String buatKeyTagihan(DetailBiaya detailBiaya, PengaturanPembayaranBulanan pengaturanBulanan) {
 		if (pengaturanBulanan != null && pengaturanBulanan.getDetailBiaya() != null
 				&& pengaturanBulanan.getDetailBiaya().getItemBiaya() != null
@@ -1420,6 +1474,16 @@ public class KegiatanPersistenceHelper {
 		return null;
 	}
 
+	/**
+	 * Menyusun kunci entri JSON {@code tagihans} dari sisi DATA TAGIHAN yang sudah terbentuk.
+	 * Harus menghasilkan kunci yang IDENTIK dengan
+	 * {@link #buatKeyTagihan(DetailBiaya, PengaturanPembayaranBulanan)} untuk pasangan item dan
+	 * bulan yang sama — bila tidak, nominal yang ditulis dari layar dan nominal hasil rekap ulang
+	 * akan mendarat di kunci berbeda dan tagihan tampak berlipat.
+	 *
+	 * @param detail detail kegiatan sumber; {@code null}/tanpa item biaya menghasilkan {@code null}.
+	 * @return kunci JSON, atau {@code null} bila item biaya tidak dapat ditentukan.
+	 */
 	private static String buatKeyTagihan(DetailKegiatan detail) {
 		if (detail == null || detail.getItemBiaya() == null || detail.getItemBiaya().getId() == null) {
 			return null;
@@ -1432,6 +1496,14 @@ public class KegiatanPersistenceHelper {
 		return key;
 	}
 
+	/**
+	 * Membulatkan nominal tagihan ke rupiah terdekat ({@code Math.round}), dengan {@code null}
+	 * dipetakan ke {@code 0}. Bandingkan dengan {@link #safeLong(Double)} pada jalur rekap
+	 * pembayaran yang MEMOTONG, bukan membulatkan.
+	 *
+	 * @param nilai nominal yang mungkin {@code null}.
+	 * @return nominal bulat.
+	 */
 	private static long nominalTagihan(Double nilai) {
 		if (nilai == null) {
 			return 0L;
@@ -1439,6 +1511,14 @@ public class KegiatanPersistenceHelper {
 		return Math.round(nilai.doubleValue());
 	}
 
+	/**
+	 * Membaca diskon terbesar tersimpan untuk satu kunci tagihan, dengan {@code 0.0} sebagai nilai
+	 * aman ketika peta atau kunci tidak tersedia.
+	 *
+	 * @param diskonTerbesarPerKey peta hasil {@link #kumpulkanDiskonTerbesarPerKey(Kegiatan)}.
+	 * @param key                  kunci tagihan.
+	 * @return diskon terbesar, atau {@code 0.0}.
+	 */
 	private static double ambilDiskonTerbesar(Map<String, Double> diskonTerbesarPerKey, String key) {
 		if (diskonTerbesarPerKey == null || key == null) {
 			return 0.0;
@@ -1447,6 +1527,28 @@ public class KegiatanPersistenceHelper {
 		return diskon == null ? 0.0 : diskon.doubleValue();
 	}
 
+	/**
+	 * Memindai SELURUH {@link DetailKegiatan} milik kegiatan — <b>aktif maupun tidak aktif</b> —
+	 * lalu mencatat diskon TERBESAR per kunci tagihan.
+	 *
+	 * <p><b>Mengapa termasuk baris non-aktif.</b> Operasi "Hitung Ulang" menonaktifkan detail lama
+	 * dan membuat detail baru; pada generasi baru itu metadata diskon kerap hilang (bernilai 0)
+	 * walau potongan yang sah sudah pernah diterapkan. Dengan menyimpan diskon terbesar lintas
+	 * generasi, nilai diskon yang benar tetap dapat ditemukan kembali dan tagihan tidak melonjak
+	 * balik ke nominal bruto.
+	 *
+	 * <p>Konsekuensinya: diskon yang memang sudah DICABUT tetap terbawa selama masih ada baris
+	 * historis yang mencatatnya. Penjaga terhadap efek samping itu ada pada
+	 * {@link #diskonEfektif(double[], double)} dan
+	 * {@link #normalisasiNilaiDiskon(String, DetailKegiatan, Double, java.util.Map)}, yang hanya
+	 * memakai ulang diskon historis bila nominal dasarnya belum berubah.</p>
+	 *
+	 * <p>Membuka session sendiri dan selalu menutupnya; kegagalan menghasilkan peta kosong
+	 * (perilaku aman: tanpa diskon historis, nominal apa adanya yang dipakai).</p>
+	 *
+	 * @param kegiatan kegiatan sumber; {@code null}/tanpa id menghasilkan peta kosong.
+	 * @return peta kunci tagihan → diskon terbesar; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	private static Map<String, Double> kumpulkanDiskonTerbesarPerKey(Kegiatan kegiatan) {
 		Map<String, Double> hasil = new HashMap<String, Double>();
@@ -1482,6 +1584,21 @@ public class KegiatanPersistenceHelper {
 		return hasil;
 	}
 
+	/**
+	 * Menurunkan nominal tagihan sebesar SELISIH antara diskon terbesar historis dan diskon yang
+	 * tercatat pada baris detail ini sendiri — bukan sebesar diskon terbesar seluruhnya.
+	 *
+	 * <p>Pengurangan selisih inilah yang mencegah diskon terhitung dua kali: bila baris ini sudah
+	 * mencatat diskonnya sendiri, {@code nilai} yang masuk umumnya sudah neto, sehingga hanya
+	 * kekurangannya terhadap diskon historis yang perlu dipotong. Hasil di-klem agar tidak pernah
+	 * negatif, dan {@code nilai} {@code null} dianggap {@code 0.0}.</p>
+	 *
+	 * @param key                  kunci tagihan baris ini.
+	 * @param detail               detail kegiatan sumber; boleh {@code null}.
+	 * @param nilai                nominal sebelum normalisasi.
+	 * @param diskonTerbesarPerKey peta diskon historis.
+	 * @return nominal setelah normalisasi; tidak pernah negatif dan tidak pernah {@code null}.
+	 */
 	private static Double normalisasiNilaiDiskon(String key, DetailKegiatan detail, Double nilai,
 			Map<String, Double> diskonTerbesarPerKey) {
 		if (nilai == null) {
@@ -1501,6 +1618,31 @@ public class KegiatanPersistenceHelper {
 		return Double.valueOf(hasil);
 	}
 
+	/**
+	 * Menuliskan nominal ke JSON tagihan dengan aturan penggabungan yang berbeda tergantung ada
+	 * tidaknya diskon pada kunci tersebut.
+	 *
+	 * <ul>
+	 * <li>Kunci BELUM ada: nominal ditulis apa adanya.</li>
+	 * <li>Kunci sudah ada dan kunci itu PUNYA diskon historis: dipakai nilai TERKECIL antara yang
+	 * lama dan yang baru ({@code Math.min}). Ini menjaga hasil tetap stabil dan tidak pernah
+	 * melonjak balik ke bruto ketika generasi detail yang sedang dipindai kebetulan kehilangan
+	 * metadata diskonnya.</li>
+	 * <li>Kunci sudah ada dan TANPA diskon: nilai DIJUMLAHKAN. Ini menampung kasus sah beberapa
+	 * baris detail berkontribusi pada satu item biaya yang sama.</li>
+	 * </ul>
+	 *
+	 * <p>Perbedaan perlakuan ini berarti dua baris detail sah yang seharusnya dijumlahkan akan
+	 * di-{@code min}-kan bila salah satunya kebetulan punya diskon tercatat. Kompromi ini
+	 * disengaja: melonjaknya tagihan ke nominal bruto dinilai lebih merugikan daripada tagihan
+	 * yang terlalu kecil dan mudah terlihat saat rekonsiliasi.</p>
+	 *
+	 * @param jsonTagihan         objek JSON tujuan; DIMUTASI.
+	 * @param key                 kunci tagihan.
+	 * @param nilai               nominal baru.
+	 * @param diskonTerbesarPerKey peta diskon historis penentu aturan penggabungan.
+	 * @throws JSONException bila penulisan ke objek JSON gagal.
+	 */
 	private static void putTagihanStabil(JSONObject jsonTagihan, String key, Double nilai,
 			Map<String, Double> diskonTerbesarPerKey) throws JSONException {
 		long nilaiBaru = nominalTagihan(nilai);
