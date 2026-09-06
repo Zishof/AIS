@@ -188,6 +188,10 @@ public class PenjaminanMutuAnalisisHelper extends Div {
 
     // ── Header ────────────────────────────────────────────────────────────────
 
+    /**
+     * Merender kartu judul dasbor (gradient biru) dan kartu pintasan "Review kesesuaian RPS"
+     * yang membuka {@link #bukaReviewKesesuaianRps()}.
+     */
     private void renderHeader() {
         appendHtml(this,
             "<div style='background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:12px;"
@@ -331,6 +335,16 @@ public class PenjaminanMutuAnalisisHelper extends Div {
 		win.doModal();
 	}
 
+	/**
+	 * Memuat pertemuan aktif ({@code aktif=true}) sesuai filter tahun akademik/semester dasbor,
+	 * diurutkan berdasarkan perkuliahan lalu nomor pertemuan, dibatasi 500 baris agar halaman
+	 * ZK tetap responsif. Query tidak menerapkan filter cakupan satuan kerja/prodi lain di
+	 * luar tahun akademik dan semester — staf Penjaminan Mutu yang mengakses dasbor ini
+	 * dianggap berwenang meninjau seluruh mata kuliah pada institusi.
+	 *
+	 * @return daftar pertemuan sesuai filter aktif; daftar kosong (bukan {@code null}) bila
+	 *         query gagal (kegagalan dicatat ke {@link ErrorAuditUtil})
+	 */
 	@SuppressWarnings("unchecked")
 	private List<Pertemuan> loadPertemuanRps() {
 		try {
@@ -351,6 +365,14 @@ public class PenjaminanMutuAnalisisHelper extends Div {
 		}
 	}
 
+	/**
+	 * Menggabungkan nama seluruh dosen pengampu pertemuan (lewat {@link Pertemuan#ambilDosen()})
+	 * menjadi satu teks dipisah koma, untuk ditampilkan pada kolom "Dosen" daftar review RPS.
+	 *
+	 * @param pertemuan pertemuan sumber daftar dosen
+	 * @return nama dosen gabungan, atau {@code "-"} bila tidak ada dosen/nama kosong/terjadi
+	 *         kegagalan (dicatat ke {@link ErrorAuditUtil})
+	 */
 	private String namaDosen(Pertemuan pertemuan) {
 		StringBuilder result = new StringBuilder();
 		try {
@@ -365,6 +387,21 @@ public class PenjaminanMutuAnalisisHelper extends Div {
 		return result.length() == 0 ? "-" : result.toString();
 	}
 
+	/**
+	 * Membangun badge HTML status review kesesuaian RPS untuk satu pertemuan, dari sudut
+	 * pandang {@code reviewer} yang sedang login. Bila perkuliahan sudah menyimpan hasil
+	 * agregat ({@code getSemuaPertemuanSesuaiRps()}), badge memakai nilai agregat tersebut
+	 * ({@code getSemuaNilaiSesuaiRps()}: 1=Sesuai, 2=Tidak Sesuai, lainnya=Belum). Jika belum,
+	 * badge dihitung dari status review milik {@code reviewer} sendiri per dosen pengampu
+	 * ({@link Pertemuan#retreiveAbsensiIdOlehAkademik(Object, Dosen)}), dengan "Tidak Sesuai"
+	 * diprioritaskan bila ada dosen yang ditandai tidak sesuai.
+	 *
+	 * @param pertemuan pertemuan yang dinilai; bila {@code null} langsung dianggap "Belum"
+	 * @param reviewer pengguna yang sedang login sebagai reviewer; bila {@code null} langsung
+	 *        dianggap "Belum"
+	 * @return HTML badge status ("Sesuai"/"Tidak Sesuai"/"Belum"); kegagalan apa pun jatuh ke
+	 *         "Belum" (dicatat ke {@link ErrorAuditUtil})
+	 */
 	private String buildStatusRpsBadge(Pertemuan pertemuan, Tbmuser reviewer) {
 		if (pertemuan == null || reviewer == null) return buildSimpleBadge("Belum", "#64748b", "#f1f5f9");
 		try {
@@ -389,11 +426,31 @@ public class PenjaminanMutuAnalisisHelper extends Div {
 		return buildSimpleBadge("Belum", "#64748b", "#f1f5f9");
 	}
 
+	/**
+	 * Membangun satu badge HTML sederhana (pil berwarna) dengan teks yang sudah di-escape.
+	 *
+	 * @param text teks yang ditampilkan di dalam badge (akan di-{@link #esc(String)})
+	 * @param color warna teks CSS (mis. {@code "#166534"})
+	 * @param background warna latar CSS (mis. {@code "#dcfce7"})
+	 * @return markup HTML {@code <span>} badge siap disisipkan
+	 */
 	private String buildSimpleBadge(String text, String color, String background) {
 		return "<span style='display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;"
 				+ "font-weight:700;color:" + color + ";background:" + background + ";'>" + esc(text) + "</span>";
 	}
 
+	/**
+	 * Membuka window modal berisi kontrol penilaian kesesuaian RPS untuk satu pertemuan,
+	 * mendelegasikan seluruh isi form ke komponen bersama
+	 * {@link AbsensiHelper#createStatusSesuaiOlehAkademik(Pertemuan, Tbmuser)} — komponen yang
+	 * sama dipakai pada halaman aktivitas kelas dosen — sehingga penyimpanan status/catatan
+	 * tetap kompatibel dengan rekap yang sudah ada.
+	 *
+	 * @param pertemuan pertemuan yang akan dinilai
+	 * @param reviewer pengguna (staf SPMI) yang sedang login sebagai reviewer
+	 * @throws Exception diteruskan dari pembangunan komponen ZK atau
+	 *         {@code AbsensiHelper.createStatusSesuaiOlehAkademik}
+	 */
 	private void bukaDetailReviewRps(Pertemuan pertemuan, Tbmuser reviewer) throws Exception {
 		final MyWindow detail = new MyWindow("Penilaian Kesesuaian RPS", "none", true);
 		detail.setWidth("760px");
@@ -427,6 +484,11 @@ public class PenjaminanMutuAnalisisHelper extends Div {
 
     // ── Filter bar ────────────────────────────────────────────────────────────
 
+    /**
+     * Merender bilah filter (Tahun Akademik, Semester, Status) beserta tombol "Cari".
+     * Menekan "Cari" menerapkan pilihan combobox ke field filter ({@link #applyFilter()})
+     * lalu merender ulang hanya {@link #divGrid} (bukan seluruh halaman).
+     */
     private void renderFilter() {
         Div card = new Div();
         card.setStyle("background:#fff;border:1px solid #e2e8f0;border-radius:10px;"
@@ -473,6 +535,13 @@ public class PenjaminanMutuAnalisisHelper extends Div {
         });
     }
 
+    /**
+     * Mengisi {@link #cbTa} dengan opsi "Semua TA" ditambah hingga 12 tahun akademik terbaru
+     * yang benar-benar memiliki data Analisis Butir Soal (SQL native memfilter ujian dengan
+     * {@code formatnilais} terisi dan bukan {@code '{}'}), dan menyorot item sesuai
+     * {@link #filterTa}. Kegagalan query dicatat ke {@link ErrorAuditUtil}; combobox tetap
+     * bisa dipakai dengan opsi "Semua TA" saja bila query gagal.
+     */
     private void isiComboTa() {
         Comboitem semua = new Comboitem("Semua TA");
         semua.setValue("");
@@ -500,6 +569,11 @@ public class PenjaminanMutuAnalisisHelper extends Div {
         if (cbTa.getSelectedItem() == null) cbTa.setSelectedItem(semua);
     }
 
+    /**
+     * Mengisi {@link #cbSemester} dengan opsi tetap (Semua, Ganjil, Genap, Semester Pendek)
+     * dan menyorot item sesuai {@link #filterSemester}; bila tidak ada yang cocok, item
+     * pertama ("Semua") dipilih sebagai default.
+     */
     private void isiComboSemester() {
         String[] labels = { "Semua", "Ganjil", "Genap", "Semester Pendek" };
         String[] vals   = { "",      "Ganjil", "Genap", "Semester Pendek" };
@@ -513,6 +587,11 @@ public class PenjaminanMutuAnalisisHelper extends Div {
             cbSemester.setSelectedItem(cbSemester.getItemAtIndex(0));
     }
 
+    /**
+     * Mengisi {@link #cbStatus} dengan opsi tetap (Semua Status, dan ketiga {@code STATUS_*})
+     * dan menyorot item sesuai {@link #filterStatus}; bila tidak ada yang cocok, item pertama
+     * ("Semua Status") dipilih sebagai default.
+     */
     private void isiComboStatus() {
         String[] labels = { "Semua Status", "Menunggu Review", "Disetujui", "Perlu Revisi" };
         String[] vals   = { "",             STATUS_MENUNGGU,   STATUS_DISETUJUI, STATUS_PERLU_REVISI };
@@ -526,6 +605,11 @@ public class PenjaminanMutuAnalisisHelper extends Div {
             cbStatus.setSelectedItem(cbStatus.getItemAtIndex(0));
     }
 
+    /**
+     * Menyalin nilai combobox filter ({@link #cbTa}, {@link #cbSemester}, {@link #cbStatus})
+     * yang sedang dipilih ke field {@link #filterTa}/{@link #filterSemester}/{@link #filterStatus}.
+     * Dipanggil sebelum {@link #renderDataGrid()} agar query berikutnya memakai filter terbaru.
+     */
     private void applyFilter() {
         if (cbTa != null && cbTa.getSelectedItem() != null)
             filterTa = (String) cbTa.getSelectedItem().getValue();
@@ -539,6 +623,14 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Data Grid
     // =========================================================================
 
+    /**
+     * Memuat data ({@link #loadData()}), menyaring hasilnya di memori berdasarkan
+     * {@link #filterStatus} (status tersimpan di kolom JSON sehingga tidak dapat difilter
+     * langsung oleh Hibernate Criteria), menampilkan kartu ringkasan jumlah per status, lalu
+     * merender tabel baris per ujian lengkap dengan badge status dan tombol aksi ("Detail",
+     * "Setujui"). Merender ke dalam {@link #divGrid} yang sudah dikosongkan oleh pemanggil
+     * (lihat tombol "Cari" pada {@link #renderFilter()} dan {@link #render()}).
+     */
     private void renderDataGrid() {
         List<PertemuanPunyaUjian> list = loadData();
 

@@ -707,6 +707,10 @@ public final class PembayaranNominalModifikasiHelper {
 
 			}
 
+			// Sisa debug: mencetak daftar matakuliah mahasiswa ke stdout server pada SETIAP
+			// perhitungan tagihan. Dibiarkan apa adanya karena menghapusnya berada di luar
+			// lingkup dokumentasi, tetapi ini kebocoran data akademik ke log dan beban I/O
+			// pada layar rekap tagihan massal.
 			System.out.println("daftarMk -> " + daftarMk);
 
 			String mk = "";
@@ -725,6 +729,10 @@ public final class PembayaranNominalModifikasiHelper {
 		else if (detailBiaya.getItemBiaya() != null
 				&& detailBiaya.getItemBiaya().getPenghitungan().equals(ItemBiaya.DIKALI_JUMLAH_MK_KONVERSI)) {
 			Double harga = detailBiaya.getNilaiBiaya();
+			// Perhatikan argumen kedua: null, BUKAN semester. Berbeda dari cabang
+			// DIKALI_JUMLAH_SKS_MK_KONVERSI yang menyaring per semester, cabang "jumlah MK
+			// konversi" ini menghitung seluruh matakuliah konversi sepanjang masa studi. Bila
+			// item biayanya aktif tiap semester, jumlah yang sama ikut ditagihkan berulang.
 			Collection<Long> data = KrsDetailHelper.ambilDetailperkuliahanKonversi(mahasiswa, null);
 
 			double SKSMatakuliahKonversi = data.size();
@@ -1459,6 +1467,24 @@ public final class PembayaranNominalModifikasiHelper {
 
 		}
 
+		// CABANG MATI -- JANGAN SEKADAR DIHAPUS.
+		//
+		// Blok di bawah ini kembar PERSIS dengan blok tepat di atasnya, termasuk konstanta yang
+		// diuji (DIKALI_JUMLAH_SKS_UTS_REMEDIAL) dan saringan getTerdapatUts() di dalamnya.
+		// Karena else-if di atas sudah menangkap seluruh kasusnya, blok ini tidak akan pernah
+		// dieksekusi.
+		//
+		// Dampaknya bukan sekadar kode mati: ItemBiaya.DIKALI_JUMLAH_SKS_UAS_REMDIAL -- yang
+		// urutan dan isinya menunjukkan seharusnya ditangani di sini -- jadi TIDAK punya cabang
+		// sama sekali di jalur tagihan biasa. Karena rantai if/else ini tidak punya else
+		// penutup, item biaya berskema itu selesai tanpa nilaiBiayaBaru terisi (gagal diam),
+		// sementara jalur tagihan bulanan ambilNominalModifikasi(...) menanganinya dengan benar.
+		// Satu item biaya karena itu bisa menghasilkan nominal berbeda tergantung jalurnya.
+		//
+		// Perbaikan yang benar mengganti DUA hal di blok ini: konstanta yang diuji menjadi
+		// DIKALI_JUMLAH_SKS_UAS_REMDIAL dan saringannya menjadi getTerdapatUas(). Keduanya
+		// mengubah nominal tagihan yang selama ini terbit, sehingga perlu audit data historis
+		// lebih dulu -- bukan perubahan yang aman disisipkan dalam sapuan perapian kode.
 		else if (detailBiaya.getItemBiaya() != null
 				&& detailBiaya.getItemBiaya().getPenghitungan().equals(ItemBiaya.DIKALI_JUMLAH_SKS_UTS_REMEDIAL)) {
 
@@ -2065,6 +2091,10 @@ public final class PembayaranNominalModifikasiHelper {
 
 					}
 
+					// Sisa debug: mencetak daftar matakuliah mahasiswa ke stdout server pada SETIAP
+					// perhitungan tagihan. Dibiarkan apa adanya karena menghapusnya berada di luar
+					// lingkup dokumentasi, tetapi ini kebocoran data akademik ke log dan beban I/O
+					// pada layar rekap tagihan massal.
 					System.out.println("daftarMk -> " + daftarMk);
 
 					String mk = "";
@@ -2147,6 +2177,11 @@ public final class PembayaranNominalModifikasiHelper {
 				else if (pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya() != null && pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya().getPenghitungan()
 						.equals(ItemBiaya.DIKALI_JUMLAH_MK_KONVERSI)) {
 					Double harga = pengaturanPembayaranBulanan.getNominal();
+					// Perhatikan argumen kedua: null, BUKAN semester. Berbeda dari cabang
+					// DIKALI_JUMLAH_SKS_MK_KONVERSI yang menyaring per semester, cabang "jumlah MK
+					// konversi" ini menghitung seluruh matakuliah konversi sepanjang masa studi.
+					// Bila item biayanya aktif tiap semester, jumlah yang sama ikut ditagihkan
+					// berulang.
 					Collection<Long> data = KrsDetailHelper.ambilDetailperkuliahanKonversi(mahasiswa, null);
 
 					double SKSMatakuliahKonversi = data.size();
@@ -2884,6 +2919,16 @@ public final class PembayaranNominalModifikasiHelper {
 
 				}
 
+				// PENYARING TAHAPAN HILANG. Argumen kedua ambilDetailperkuliahan(...) di bawah
+				// adalah "tahapan", dan 26 dari 28 cabang di method ini mengoper variabel
+				// "tahapan" hasil hitungTahap(...). Cabang ini (dan kembarannya untuk
+				// DIKALI_JUMLAH_SKS_UAS_REMDIAL beberapa blok di bawah) justru mengoper null,
+				// tampaknya karena disalin dari updateKeterangan(...) yang memang tidak mengenal
+				// tahapan. Akibatnya, bila ConstantValues.aktifkanTahapanTerhubungKeKeuangan
+				// aktif, SKS remedial SELURUH semester dihitung pada SETIAP baris bulanan --
+				// jumlah yang sama tertagih berulang sebanyak jumlah tahapan. Pada instalasi
+				// bawaan (fitur tahapan mati) hitungTahap mengembalikan 0 yang diperlakukan
+				// sama dengan null, sehingga selisih ini tidak terlihat sama sekali.
 				else if (pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya() != null && pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya().getPenghitungan()
 						.equals(ItemBiaya.DIKALI_JUMLAH_SKS_UTS_REMEDIAL)) {
 
@@ -2917,6 +2962,12 @@ public final class PembayaranNominalModifikasiHelper {
 
 				}
 
+				// Satu-satunya penangan DIKALI_JUMLAH_SKS_UAS_REMDIAL di seluruh basis kode:
+				// di jalur tagihan biasa updateKeterangan(...) cabangnya hilang karena blok
+				// DIKALI_JUMLAH_SKS_UTS_REMEDIAL tertulis dua kali.
+				//
+				// PENYARING TAHAPAN HILANG juga di sini -- lihat catatan pada cabang
+				// DIKALI_JUMLAH_SKS_UTS_REMEDIAL di atas; argumen kedua seharusnya "tahapan".
 				else if (pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya() != null && pengaturanPembayaranBulanan.getDetailBiaya().getItemBiaya().getPenghitungan()
 						.equals(ItemBiaya.DIKALI_JUMLAH_SKS_UAS_REMDIAL)) {
 
