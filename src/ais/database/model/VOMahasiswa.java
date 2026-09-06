@@ -2635,6 +2635,33 @@ public abstract class VOMahasiswa extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menjumlahkan seluruh nilai setoran pada satu {@link Kegiatan}, <b>dengan mengeluarkan denda
+	 * yang sudah dibatalkan</b>.
+	 *
+	 * <p>Nilai yang tersimpan pada tiap {@link CicilanPembayaran} adalah gabungan nominal pokok
+	 * <i>dan</i> denda. Karena itu, ketika sebuah denda dibatalkan lewat tombol "Batalkan Denda",
+	 * jumlah setoran tidak boleh sekadar dijumlahkan apa adanya: besaran dendanya harus dikurangi
+	 * kembali. Itulah yang dilakukan method ini — untuk setiap setoran yang
+	 * {@link #dendaCicilanDibatalkan(CicilanPembayaran)} menyatakan dibatalkan, nilai dendanya
+	 * dipotong dari nilai setoran sebelum ditambahkan ke total.</p>
+	 *
+	 * <p>Pembatalan bersifat dapat dikembalikan: sumber kebenarannya adalah daftar id pada
+	 * {@code Kegiatan.pembatalanDenda}, sehingga membatalkan pembatalan membuat dendanya terhitung
+	 * lagi. Nilai denda yang tersimpan pada baris setoran tidak pernah dihapus.</p>
+	 *
+	 * <p>Berbeda dari sebagian besar keluarga {@code hitungTotalCicilan...}, method ini tidak
+	 * memakai ambang 0,1 — setoran bernilai berapa pun ikut dijumlahkan, termasuk nol. Nilai
+	 * {@code null} pada nominal maupun denda diperlakukan sebagai 0,0. Argumen {@code kegiatan}
+	 * yang {@code null} atau tanpa id menghasilkan 0,0.</p>
+	 *
+	 * <p>Bila total dan denda dibutuhkan bersamaan, pakai
+	 * {@link #hitungTotalCicilanDanDendaPembayaran(Kegiatan)} agar daftar setoran tidak diambil
+	 * dua kali.</p>
+	 *
+	 * @param kegiatan kegiatan yang setorannya dijumlahkan
+	 * @return jumlah setoran setelah denda yang dibatalkan dikeluarkan; 0,0 bila tidak ada
+	 */
 	public Double hitungTotalCicilanPembayaran(Kegiatan kegiatan) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;
@@ -2654,6 +2681,24 @@ public abstract class VOMahasiswa extends VoKunci {
 		return total;
 	}
 
+	/**
+	 * Menjumlahkan <b>denda</b> yang masih berlaku pada satu {@link Kegiatan}.
+	 *
+	 * <p>Kebalikan sudut pandang dari {@link #hitungTotalCicilanPembayaran(Kegiatan)}: di sini
+	 * yang dikumpulkan justru komponen dendanya, dan setoran yang dendanya sudah dibatalkan
+	 * dilewati sama sekali alih-alih dikurangkan.</p>
+	 *
+	 * <p>Sumber status pembatalan sama, yaitu {@code Kegiatan.pembatalanDenda} lewat
+	 * {@link #dendaCicilanDibatalkan(CicilanPembayaran)}, sehingga kedua method selalu sepakat
+	 * mengenai denda mana yang aktif. Denda bernilai {@code null} dihitung sebagai 0,0.</p>
+	 *
+	 * <p>Daftar setoran diambil sendiri lewat {@link #ambilCicilan()}; bila angka ini dibutuhkan
+	 * bersama totalnya, pakai {@link #hitungTotalCicilanDanDendaPembayaran(Kegiatan)}.</p>
+	 *
+	 * @param kegiatan kegiatan yang dendanya dijumlahkan
+	 * @return jumlah denda yang belum dibatalkan; 0,0 bila tidak ada atau bila {@code kegiatan}
+	 *         {@code null}/tanpa id
+	 */
 	public Double hitungDendaCicilanPembayaran(Kegiatan kegiatan) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;
@@ -2671,6 +2716,28 @@ public abstract class VOMahasiswa extends VoKunci {
 		return total;
 	}
 
+	/**
+	 * Menghitung total setoran dan total denda satu {@link Kegiatan} dalam <b>satu</b> penelusuran.
+	 *
+	 * <p>Menggabungkan pekerjaan {@link #hitungTotalCicilanPembayaran(Kegiatan)} dan
+	 * {@link #hitungDendaCicilanPembayaran(Kegiatan)} sehingga daftar setoran hanya diambil sekali
+	 * lewat {@link #ambilCicilan()}. Perbedaannya penting: memanggil kedua method terpisah berarti
+	 * dua kali melewati {@link #ambilLokasiCicilan()} yang destruktif, dan pemanggilan kedua
+	 * bekerja atas sumber id yang sudah berkurang. Untuk layar yang menampilkan keduanya
+	 * berdampingan, method inilah yang benar.</p>
+	 *
+	 * <p>Perlakuan pembatalan denda konsisten dengan kedua saudaranya: bila dendanya dibatalkan,
+	 * besarannya dikeluarkan dari nilai setoran <i>dan</i> tidak ikut ke total denda.</p>
+	 *
+	 * <p><b>Bentuk nilai balik.</b> Larik dua elemen dengan indeks 0 berisi total setoran dan
+	 * indeks 1 berisi total denda. Tidak ada konstanta indeks yang disediakan, sehingga pemanggil
+	 * harus mengingat urutannya sendiri; larik dengan isi {@code {0.0, 0.0}} juga dikembalikan
+	 * untuk argumen {@code kegiatan} yang {@code null} atau tanpa id, sehingga nilai baliknya tidak
+	 * pernah {@code null}.</p>
+	 *
+	 * @param kegiatan kegiatan yang dihitung
+	 * @return larik dua elemen: {@code [total setoran, total denda]}; tidak pernah {@code null}
+	 */
 	public Double[] hitungTotalCicilanDanDendaPembayaran(Kegiatan kegiatan) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;
@@ -2696,6 +2763,67 @@ public abstract class VOMahasiswa extends VoKunci {
 		return new Double[] { total, denda };
 	}
 
+	/**
+	 * Menjumlahkan setoran yang membayar satu baris {@link PengaturanPembayaranBulanan} tertentu —
+	 * <b>dan, pada kondisi tertentu, menulis ke basis data</b>.
+	 *
+	 * <p>Method statis ini dipakai {@link #ambilKodeTagihan(Integer, boolean)} dan kode pembayaran
+	 * lain untuk mengetahui berapa yang sudah dibayar atas tagihan bulan tertentu. Meski namanya
+	 * "hitung", ia bukan operasi baca murni; baca bagian efek samping di bawah sebelum
+	 * memanggilnya.</p>
+	 *
+	 * <h4>Penelusuran pertama — pencocokan tepat per bulan</h4>
+	 * <p>Setoran dianggap milik baris bulanan ini bila id item biayanya sama, {@code bayarKe}-nya
+	 * sama, id kegiatannya sama, <i>dan</i> setoran tersebut memang sudah tertaut ke suatu
+	 * {@link PengaturanPembayaranBulanan} yang item biaya serta <b>bulan riilnya</b> sama. Selama
+	 * penelusuran ini, method juga mencatat dua hal: apakah ada setoran yang cocok sama sekali
+	 * ({@code ada}), dan apakah <b>seluruh</b> setoran yang cocok belum tertaut ke baris bulanan
+	 * mana pun ({@code semuaTidakAdaBulanan}).</p>
+	 *
+	 * <h4>Penelusuran kedua — pengisian mundur data lama</h4>
+	 * <p>Hanya dijalankan bila ada setoran yang cocok <b>dan</b> tidak satu pun di antaranya
+	 * tertaut ke baris bulanan. Kondisi itu menandai data warisan: setoran dicatat sebelum fitur
+	 * pembayaran bulanan ada, sehingga kolom penautnya kosong. Pada penelusuran ini setiap setoran
+	 * yang cocok (id kegiatan, {@code bayarKe}, dan id item biaya) dijumlahkan, dan yang kolom
+	 * penautnya masih kosong <b>disetel</b> ke {@code pengaturanPembayaranBulanan} yang sedang
+	 * diminta lalu <b>disimpan ke basis data</b>: satu transaksi dibuka, {@code refreshUpdate}
+	 * dijalankan, transaksi di-commit, session ditutup, disusul
+	 * {@code HibernateUtil.closeSession()}.</p>
+	 *
+	 * <h4>Konsekuensi yang harus dipahami sebelum memanggil</h4>
+	 * <ul>
+	 * <li><b>Bulan yang ditanya pertama mengambil semuanya.</b> Pada penelusuran kedua, seluruh
+	 * setoran warisan untuk item biaya tersebut dijumlahkan ke total baris bulanan yang sedang
+	 * diminta — bukan dibagi menurut bulan. Karena penautannya sekaligus disimpan, pemanggilan
+	 * berikutnya untuk bulan lain tidak lagi memenuhi syarat
+	 * {@code semuaTidakAdaBulanan} dan hanya mendapati pencocokan tepat, yang kini tidak cocok
+	 * lagi. Hasil praktisnya: pada layar yang mengulang dua belas bulan, bulan yang kebetulan
+	 * diproses lebih dulu menampilkan seluruh pembayaran dan sebelas bulan sisanya menampilkan
+	 * nol. Urutan pemanggilanlah yang menentukan pembagiannya, dan hasil itu menjadi permanen di
+	 * basis data.</li>
+	 * <li><b>Menulis dari jalur baca.</b> Membuka layar tagihan dapat mengubah baris
+	 * {@link CicilanPembayaran} beserta jejak auditnya. Tidak ada pemeriksaan hak akses maupun
+	 * penanda bahwa penulisan ini terjadi.</li>
+	 * <li><b>Satu transaksi per baris.</b> Penulisan tidak dikelompokkan; sepuluh setoran warisan
+	 * berarti sepuluh transaksi berurutan. Kegagalan di tengah meninggalkan sebagian baris sudah
+	 * tertaut dan sebagian belum, tanpa mekanisme pengembalian.</li>
+	 * <li><b>Menutup session milik thread.</b> Sama seperti
+	 * {@link #ambilKegiatansData(boolean, JenisKegiatan)}, blok ini memanggil
+	 * {@code HibernateUtil.closeSession()} sehingga session pemanggil dapat ikut tertutup dan
+	 * entity yang sedang dikelola berubah menjadi detached.</li>
+	 * </ul>
+	 *
+	 * <p>Seluruh guard {@code null} di awal (kegiatan, id kegiatan, baris bulanan, master
+	 * biayanya, item biayanya, dan daftar setoran) menghasilkan 0,0. Kegagalan per elemen ditelan
+	 * dan dicatat ke audit; kegagalan penyimpanan dicetak, dicatat, lalu diabaikan sehingga
+	 * penjumlahan tetap berlanjut.</p>
+	 *
+	 * @param kegiatan                    kegiatan yang setorannya dihitung
+	 * @param pengaturanPembayaranBulanan baris bulanan yang ditanyakan; juga menjadi nilai yang
+	 *                                    ditulis pada pengisian mundur
+	 * @param cicilanPembayaransTemp      daftar setoran yang ditelusuri
+	 * @return jumlah nilai setoran yang membayar baris bulanan tersebut; 0,0 bila tidak ada
+	 */
 	public static Double hitungTotalCicilan(Kegiatan kegiatan, PengaturanPembayaranBulanan pengaturanPembayaranBulanan,
 			Collection<CicilanPembayaran> cicilanPembayaransTemp) {
 		if (kegiatan == null || kegiatan.getId() == null || pengaturanPembayaranBulanan == null
@@ -2779,6 +2907,38 @@ public abstract class VOMahasiswa extends VoKunci {
 		return total;
 	}
 
+	/**
+	 * Menjumlahkan setoran yang membayar satu {@link DetailBiaya} pada satu {@link Kegiatan}.
+	 *
+	 * <p>Padanan sederhana dari
+	 * {@link #hitungTotalCicilan(Kegiatan, PengaturanPembayaranBulanan, Collection)} untuk tagihan
+	 * yang <b>tidak</b> dipecah per bulan. Perbedaannya penting dan disengaja:</p>
+	 * <ul>
+	 * <li><b>Tidak ada efek samping.</b> Method ini murni membaca — tidak ada transaksi, tidak ada
+	 * penulisan pengisian mundur, dan tidak ada session yang disentuh. Bila membutuhkan
+	 * penjumlahan yang dijamin tidak mengubah apa pun, gunakan bentuk ini.</li>
+	 * <li><b>Satu penelusuran saja.</b> Tidak ada penelusuran kedua karena tidak ada kolom penaut
+	 * bulanan yang perlu diisi.</li>
+	 * <li><b>Tanpa penangkap kesalahan per elemen.</b> Berbeda dari saudaranya, perulangan di sini
+	 * telanjang; setoran dengan relasi yang tidak lengkap akan melempar ke pemanggil alih-alih
+	 * dilewati diam-diam. Guard {@code null} hanya ada di awal untuk kegiatan, id kegiatan,
+	 * master biaya, item biayanya, dan daftar setoran — masing-masing menghasilkan 0,0.</li>
+	 * </ul>
+	 *
+	 * <p>Sebuah setoran ikut dijumlahkan bila {@code bayarKe}-nya sama dengan yang tercatat pada
+	 * master biaya, id kegiatannya sama, dan id item biayanya sama. Perhatikan bahwa yang
+	 * dibandingkan adalah <b>item biaya</b>, bukan id master biaya itu sendiri — sehingga master
+	 * biaya yang diterbitkan ulang dengan id baru tetap menemukan setoran lamanya, sejalan dengan
+	 * pencocokan longgar pada {@link #ambilDetailKegiatan(Kegiatan, DetailBiaya, boolean)}.</p>
+	 *
+	 * <p>Tidak ada ambang nilai: setoran bernilai berapa pun ikut, termasuk nilai negatif hasil
+	 * pembalikan pembayaran yang mengurangi total.</p>
+	 *
+	 * @param kegiatan               kegiatan yang setorannya dihitung
+	 * @param detailBiaya            master biaya yang ditanyakan
+	 * @param cicilanPembayaransTemp daftar setoran yang ditelusuri
+	 * @return jumlah nilai setoran yang membayar master biaya tersebut; 0,0 bila tidak ada
+	 */
 	public static Double hitungTotalCicilan(Kegiatan kegiatan, DetailBiaya detailBiaya,
 			List<CicilanPembayaran> cicilanPembayaransTemp) {
 		if (kegiatan == null || kegiatan.getId() == null || detailBiaya == null

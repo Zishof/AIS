@@ -3055,6 +3055,17 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return usernameOjs == null || usernameOjs.trim().isEmpty() ? null : usernameOjs;
 	}
 
+	/**
+	 * Menetapkan username untuk integrasi OJS.
+	 *
+	 * <p>Setter mentah tanpa pemeriksaan keunikan, padahal kolomnya {@code unique = true}
+	 * &mdash; tabrakan baru terdeteksi saat {@code flush}. Menetapkan nilai kosong tidak
+	 * bersifat permanen untuk akun dosen: {@link #getUsernameOjs()} akan mengisinya kembali
+	 * secara otomatis dari {@link #getUserId()}.</p>
+	 *
+	 * @param usernameOjs username OJS
+	 * @see #getUsernameOjs()
+	 */
 	public void setUsernameOjs(String usernameOjs) {
 		this.usernameOjs = usernameOjs;
 	}
@@ -4820,6 +4831,16 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return perguruanTinggi;
 	}
 
+	/**
+	 * Menetapkan perguruan tinggi sebagai lingkup organisasi akun.
+	 *
+	 * <p>Nilai ini akan tertimpa pada pemanggilan {@link #getPerguruanTinggi()} berikutnya
+	 * bila akun tertaut ke mahasiswa atau fakultas yang membawa perguruan tingginya sendiri,
+	 * dan dipaksa {@code null} bila akun ternyata milik siswa.</p>
+	 *
+	 * @param perguruanTinggi perguruan tinggi; boleh {@code null}
+	 * @see #getPerguruanTinggi()
+	 */
 	public void setPerguruanTinggi(PerguruanTinggi perguruanTinggi) {
 		this.perguruanTinggi = perguruanTinggi;
 	}
@@ -4860,6 +4881,27 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pedagang", nullable = true)
+	/**
+	 * Mengembalikan data pedagang/petugas toko (modul inventory/POS) pemilik akun ini.
+	 *
+	 * <p>Getter relasi baku (hanya {@link GeneralValueObject#check(Object) check(...)}),
+	 * namun relasi ini berpengaruh besar &mdash; setara
+	 * {@link #getAnggotaKoperasi()}: ia ikut menentukan {@link #getAktif()} dan
+	 * {@link #getUserPassword()}, menjadi jalur pintas paling awal pada
+	 * {@link #getUserNama()}, dan menjadi sumber turunan {@link #getUserId()}.</p>
+	 *
+	 * <p><b>Riwayat perbaikan yang penting dipertahankan</b> (tercatat pada komentar di dalam
+	 * badan method): satu akun dapat sekaligus menjadi anggota koperasi <i>dan</i>
+	 * petugas/pedagang toko. Versi lama mengosongkan relasi ini setiap kali
+	 * {@code anggotaKoperasi} terisi, sehingga kunci asing {@code pedagang} yang baru
+	 * disimpan tampak hilang saat entity dimuat ulang &mdash; dan hanya pada sebagian
+	 * pengguna, yaitu mereka yang juga anggota koperasi. Jangan mengembalikan perilaku
+	 * saling-meniadakan itu.</p>
+	 *
+	 * @return data pedagang, atau {@code null}
+	 * @see #setPedagang(Pedagang)
+	 * @see #getTokoAktifMultiToko()
+	 */
 	public Pedagang getPedagang() {
 		// Akun dapat sekaligus menjadi anggota koperasi dan petugas/pedagang toko.
 		// Versi lama mengosongkan relasi ini setiap kali anggotaKoperasi terisi. Akibatnya
