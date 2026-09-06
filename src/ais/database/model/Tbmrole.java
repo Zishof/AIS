@@ -3408,10 +3408,49 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: kepegawaian;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Kepegawaian.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan tidak berlaku bagi
+	 * {@link #KANTIN} maupun keempat peran akademik yang ditolak paksa &mdash; lihat
+	 * {@link #getKepegawaian()}. Menyimpan {@code null} mengembalikan flag ke bawaan berbasis
+	 * substring {@code "pegawai"}.</p>
+	 *
+	 * @param kepegawaian hak modul; {@code null} berarti kembali ke bawaan berbasis nama
+	 * @see #getKepegawaian()
+	 */
 	public void setKepegawaian(Boolean kepegawaian) {
 		this.kepegawaian = kepegawaian;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat <b>seluruh surat</b>, bukan hanya surat yang
+	 * dikonsepnya sendiri.
+	 *
+	 * <p>Salah satu gerbang pembatas data yang <b>benar-benar ditegakkan di sisi server</b>.
+	 * {@code SuratMasukAction}, {@code SuratKeluarAction}, dan dasbor persuratan
+	 * masing-masing memakainya untuk mempersempit kriteria query Hibernate ke konseptor yang
+	 * bersangkutan. Mematikannya benar-benar menyembunyikan surat milik orang lain, bukan
+	 * sekadar menyembunyikan menu.</p>
+	 *
+	 * <p><b>Struktur keputusannya identik</b> dengan {@link #getMelihatDataPegawaiLain()} dan
+	 * {@link #getMelihatDataSatkerLain()}: daftar-tolak {@link #KANTIN}, penolakan mutlak
+	 * bagi kelima peran pengguna akhir ({@link #DOSEN}, {@link #PEGAWAI}, {@link #GURU},
+	 * {@link #SISWA}, {@link #MAHASISWA}) tanpa membaca kolom, lalu bawaan
+	 * <i>fail-closed</i> yang hanya menyala untuk {@link #ADMINISTRATOR}. <b>Getter
+	 * murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * <p>Perlu dibedakan dari {@link #getAdministrasi()}, yang membuka <i>modul</i>
+	 * persuratan bagi hampir semua peran secara bawaan. Flag ini yang menentukan <i>cakupan
+	 * data</i>-nya &mdash; pemisahan yang tepat: banyak orang boleh memakai modul surat,
+	 * sedikit yang boleh melihat surat semua orang.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh melihat seluruh surat; tidak pernah
+	 *         {@code null}
+	 * @see #setMelihatSemuaSurat(Boolean)
+	 * @see #getMelihatSemuaSop()
+	 * @see #getAdministrasi()
+	 */
 	public Boolean getMelihatSemuaSurat() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -3433,10 +3472,44 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: melihatSemuaSurat;
 	}
 
+	/**
+	 * Menetapkan hak melihat seluruh surat.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>tidak berlaku</b> bagi
+	 * {@link #KANTIN} dan kelima peran pengguna akhir &mdash; lihat
+	 * {@link #getMelihatSemuaSurat()}. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i>.</p>
+	 *
+	 * @param melihatSemuaSurat hak melihat semua surat; {@code null} berarti kembali ke
+	 *                          bawaan fail-closed
+	 * @see #getMelihatSemuaSurat()
+	 */
 	public void setMelihatSemuaSurat(Boolean melihatSemuaSurat) {
 		this.melihatSemuaSurat = melihatSemuaSurat;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh <b>menyunting format/template laporan</b>.
+	 *
+	 * <p>Bawaan <i>fail-closed</i> yang benar: menyala hanya untuk {@link #ADMINISTRATOR},
+	 * mati untuk seluruh peran lain, dengan daftar-tolak {@link #KANTIN} yang mutlak.
+	 * Berbeda dari flag berlingkup luas di sekitarnya, di sini <b>tidak ada</b> penolakan
+	 * kelompok pengguna akhir &mdash; tidak diperlukan, karena bawaannya sudah mati untuk
+	 * semua kecuali Administrator.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * <p>Ditegakkan sungguhan di sisi server oleh {@code CommonReport}, yang memakainya untuk
+	 * memutuskan apakah pengguna boleh menyimpan perubahan template laporan. Ini kewenangan
+	 * yang lebih berdampak daripada namanya: template laporan menentukan apa yang tercetak
+	 * pada dokumen resmi, dan sebagian di antaranya berisi ekspresi yang dieksekusi saat
+	 * laporan dijalankan. Berikan hanya kepada peran yang benar-benar mengelola format
+	 * pelaporan.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh menyunting format laporan; tidak pernah
+	 *         {@code null}
+	 * @see #setUpdateFormatLaporan(Boolean)
+	 */
 	public Boolean getUpdateFormatLaporan() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -3446,18 +3519,103 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: updateFormatLaporan;
 	}
 
+	/**
+	 * Menetapkan hak menyunting format/template laporan.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan dihormati untuk seluruh peran
+	 * kecuali {@link #KANTIN}. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i> untuk semua peran selain {@link #ADMINISTRATOR}.</p>
+	 *
+	 * @param updateFormatLaporan hak menyunting format laporan; {@code null} berarti kembali
+	 *                            ke bawaan fail-closed
+	 * @see #getUpdateFormatLaporan()
+	 */
 	public void setUpdateFormatLaporan(Boolean updateFormatLaporan) {
 		this.updateFormatLaporan = updateFormatLaporan;
 	}
 
+	/**
+	 * Mengembalikan kode peran, dengan cadangan jatuh ke {@link #getRoleId()}.
+	 *
+	 * <p>Kolom {@code kode} adalah pengenal alternatif yang dipakai sebagian modul dan
+	 * pertukaran data yang memerlukan kode berbeda dari kunci primer. Bila tidak diisi, kode
+	 * dianggap sama dengan pengenal peran &mdash; sehingga pemanggil selalu memperoleh nilai
+	 * yang bermakna tanpa perlu memeriksa {@code null} sendiri.</p>
+	 *
+	 * <p><b>Getter murni</b> &mdash; berbeda dari {@link #getRoleName()} yang berpola serupa,
+	 * method ini memakai ternary dan <b>tidak menulis balik</b> nilai cadangan ke field.
+	 * Konsekuensinya kolom {@code kode} tetap {@code null} di basis data selama tidak diisi
+	 * eksplisit, dan tidak ada risiko revisi audit palsu. Ini pola yang benar; sayangnya
+	 * tidak diikuti {@link #getRoleName()}.</p>
+	 *
+	 * <p>Perhatikan bahwa pemeriksaannya hanya {@code kode == null} &mdash; string
+	 * <b>kosong</b> atau berisi spasi saja akan dikembalikan apa adanya, tidak jatuh ke
+	 * cadangan. Ini berbeda dari {@link #getRoleName()} yang juga menangani string kosong.
+	 * Pemanggil yang mengandalkan nilai tak-kosong sebaiknya tetap berjaga.</p>
+	 *
+	 * @return kode peran, atau pengenal peran bila kode belum diisi
+	 * @see #setKode(String)
+	 * @see #getRoleId()
+	 */
 	public String getKode() {
 		return kode == null ? getRoleId() : kode;
 	}
 
+	/**
+	 * Menetapkan kode peran alternatif.
+	 *
+	 * <p>Setter mentah tanpa penjagaan: menerima {@code null} maupun string kosong, dan tidak
+	 * memangkas spasi. Menyimpan {@code null} mengembalikan {@link #getKode()} ke cadangan
+	 * {@link #getRoleId()}; menyimpan string kosong <b>tidak</b> &mdash; ia akan dikembalikan
+	 * apa adanya.</p>
+	 *
+	 * @param kode kode peran; {@code null} berarti kembali ke cadangan pengenal peran
+	 * @see #getKode()
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengembalikan daftar <b>kode satuan kerja tambahan</b> sebagai satu string dipisah
+	 * koma.
+	 *
+	 * <p>Berbeda dari {@link #getSatuanKerja()} yang merupakan kunci asing tunggal, properti
+	 * ini menampung <b>banyak</b> satuan kerja sekaligus &mdash; namun sebagai teks bebas
+	 * tanpa relasi. Dipakai {@code SatuanKerjaTreeModel}, komponen pemilih satuan kerja,
+	 * {@code SekolahUtil}, dan posting dana talangan untuk menyaring data di sisi server,
+	 * sehingga ini <b>gerbang pembatas data yang nyata</b>, bukan sekadar tampilan.</p>
+	 *
+	 * <h3>Normalisasi dan keterbatasannya</h3>
+	 * <p>Method ini memangkas spasi, lalu membersihkan empat bentuk "kosong tapi berisi koma"
+	 * &mdash; {@code ","}, {@code ",,"}, {@code ",,,"}, dan {@code ",,,,"} &mdash; menjadi
+	 * string kosong. Keempatnya diperiksa satu per satu dengan {@code equals} berantai,
+	 * artinya penanganannya <b>harfiah, bukan umum</b>:</p>
+	 * <ul>
+	 *   <li>lima koma atau lebih ({@code ",,,,,"}) <b>tidak</b> tertangani dan lolos apa
+	 *   adanya;</li>
+	 *   <li>bentuk campuran seperti {@code ",a,"} atau {@code "a,,b"} juga tidak
+	 *   dinormalkan.</li>
+	 * </ul>
+	 * <p>Karena hasilnya dipakai untuk menyaring data, entri kosong yang lolos dapat
+	 * menghasilkan kode satuan kerja bernilai string kosong pada daftar hasil pemecahan
+	 * &mdash; yang, bergantung pemanggilnya, dapat mempersempit atau justru memperlebar hasil
+	 * saring secara tidak terduga. Pemanggil sebaiknya membuang entri kosong setelah
+	 * memecah string ini, alih-alih mengandalkan pembersihan di sini.</p>
+	 *
+	 * <p><b>Getter penulis-balik field.</b> Hasil pemangkasan dan pembersihan
+	 * <b>ditugaskan kembali</b> ke field, sehingga sekadar membaca daftar ini menandai entity
+	 * sebagai <i>dirty</i> &mdash; berlaku peringatan revisi audit palsu seperti pada
+	 * dokumentasi kelas. Perhatikan pula bahwa method ini <b>tidak pernah mengembalikan
+	 * {@code null}</b>: nilai {@code null} dinormalkan menjadi string kosong dan ikut
+	 * tertulis ke field.</p>
+	 *
+	 * @return daftar kode satuan kerja dipisah koma; string kosong bila tidak ada, tidak
+	 *         pernah {@code null}
+	 * @see #setSatuanKerjas(String)
+	 * @see #getSatuanKerja()
+	 * @see #getMelihatDataSatkerLain()
+	 */
 	@Column(columnDefinition = "text")
 	public String getSatuanKerjas() {
 		satuanKerjas = (satuanKerjas == null ? "" : satuanKerjas.trim());
@@ -3475,10 +3633,63 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return satuanKerjas;
 	}
 
+	/**
+	 * Menetapkan daftar kode satuan kerja tambahan (dipisah koma).
+	 *
+	 * <p>Setter mentah tanpa penjagaan: tidak memangkas spasi, tidak membersihkan koma
+	 * berlebih, dan tidak memvalidasi bahwa kode-kode di dalamnya benar-benar ada. Seluruh
+	 * normalisasi &mdash; yang terbatas &mdash; terjadi di sisi baca
+	 * ({@link #getSatuanKerjas()}).</p>
+	 *
+	 * <p>Karena nilainya menjadi gerbang pembatas data di sisi server, isi yang keliru di
+	 * sini berdampak langsung pada data apa yang terlihat. Pastikan formatnya berupa kode
+	 * yang dipisah koma tanpa entri kosong.</p>
+	 *
+	 * @param satuanKerjas daftar kode dipisah koma; disimpan apa adanya
+	 * @see #getSatuanKerjas()
+	 */
 	public void setSatuanKerjas(String satuanKerjas) {
 		this.satuanKerjas = satuanKerjas;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Kantin/e-Kantin</b>.
+	 *
+	 * <p><b>Satu-satunya flag modul di kelas ini yang TIDAK memiliki daftar-tolak
+	 * {@link #KANTIN}</b> &mdash; dan memang seharusnya begitu, karena justru peran kasirlah
+	 * yang membutuhkannya. Perhatikan konsekuensinya: peran {@code "Kantin"} mendapat
+	 * nilainya dari aturan bawaan biasa, bukan dari pengecualian.</p>
+	 *
+	 * <p>Struktur keputusannya:</p>
+	 * <ol>
+	 *   <li>{@link #SISWA} dan {@link #MAHASISWA} dikembalikan {@code false} &mdash;
+	 *   peserta didik adalah <i>pembeli</i> di kantin, bukan pengelolanya;</li>
+	 *   <li>selain itu bawaan
+	 *   {@code roleId.toLowerCase().contains("keu") || roleId.equals(ADMINISTRATOR)}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perhatikan kejanggalan pada nilai bawaannya.</b> Ia memakai kata kunci substring
+	 * {@code "keu"} yang sama dengan keluarga flag keuangan &mdash; sehingga peran
+	 * {@link #KANTIN} sendiri (berpengenal {@code "Kantin"}, yang tidak mengandung
+	 * {@code "keu"} dan bukan {@code "am"}) justru <b>tidak</b> memperoleh hak ini secara
+	 * bawaan, sementara peran keuangan memperolehnya. Kekeliruan itu ditutupi di lapisan
+	 * atas oleh {@link #getTampilPos()}, yang menyalakan pintasan POS untuk peran
+	 * {@link #KANTIN} secara eksplisit sebelum jatuh ke method ini. Bila mengandalkan flag
+	 * ini untuk peran kasir, isilah kolomnya secara eksplisit.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * <p>Dipakai sebagai gerbang render halaman di {@code modul/kantin/index.jsp} dan
+	 * bilah navigasi &mdash; gerbang per-halaman yang nyata, namun tidak melindungi endpoint
+	 * layanan di belakangnya. Otorisasi POS yang sesungguhnya ada di
+	 * {@link #getEbisnisMenu()}.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Kantin; tidak pernah
+	 *         {@code null}
+	 * @see #setKantin(Boolean)
+	 * @see #getTampilPos()
+	 * @see #getEbisnisMenu()
+	 */
 	public Boolean getKantin() {
 		if (getRoleId() != null && getRoleId().equals(SISWA)) {
 			return false;
@@ -3492,6 +3703,19 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: kantin;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Kantin/e-Kantin.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>tidak berlaku</b> bagi
+	 * {@link #SISWA} dan {@link #MAHASISWA} &mdash; lihat {@link #getKantin()}.</p>
+	 *
+	 * <p><b>Menyimpan {@code null} bukan tindakan netral</b>: ia mengembalikan flag ke bawaan
+	 * berbasis substring {@code "keu"}, yang secara janggal menyalakannya untuk peran
+	 * keuangan namun tidak untuk peran {@link #KANTIN} sendiri.</p>
+	 *
+	 * @param kantin hak modul; {@code null} berarti kembali ke bawaan berbasis nama
+	 * @see #getKantin()
+	 */
 	public void setKantin(Boolean kantin) {
 		this.kantin = kantin;
 	}
@@ -3499,7 +3723,35 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	/**
 	 * Menentukan apakah pintasan "Dasbor POS" (kasir versi ZK) muncul di halaman
 	 * utama untuk role ini. Default mengikuti role kantin/keuangan/administrator
-	 * supaya pedagang & kasir langsung punya akses tanpa setup tambahan.
+	 * supaya pedagang &amp; kasir langsung punya akses tanpa setup tambahan.
+	 *
+	 * <p>Urutannya: bila kolom {@code tampil_pos} sudah diisi, nilai itu dipakai apa adanya;
+	 * bila belum, peran {@link #KANTIN} memperoleh {@code true} secara eksplisit; selain itu
+	 * hasilnya mengikuti {@link #getKantin()}. Cabang {@link #KANTIN} di tengah itulah yang
+	 * menambal kejanggalan nilai bawaan {@code getKantin()}, yang &mdash; karena memakai
+	 * kata kunci substring {@code "keu"} &mdash; justru tidak mencakup peran kasir itu
+	 * sendiri.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * <h3>PENTING: flag ini hanya mengatur ikon, bukan akses</h3>
+	 * <p>Sama seperti {@link #getEmedic()}, ini adalah <b>centang yang menyesatkan</b>.
+	 * Seluruh pemanggilnya berada di lapisan tampilan ({@code MainAction},
+	 * {@code MobileAction}, layar Grup Pengguna, dan proyeksi {@code HakAksesApi}). Tidak
+	 * ada satu pun gerbang di {@code PosApi} yang membacanya &mdash; otorisasi POS yang
+	 * sesungguhnya ditegakkan lewat {@link #getEbisnisMenu()}, dibantu
+	 * {@link #getTokoAksesJson()} dan {@link #getBolehLihatSemuaToko()} untuk pembatasan per
+	 * toko.</p>
+	 * <p>Karena POS memproses penjualan dan penerimaan uang, selisih antara "ikon hilang" dan
+	 * "akses tercabut" di sini berkonsekuensi nyata: mematikan flag ini <b>tidak</b>
+	 * mencegah pengguna yang mengetahui URL-nya untuk membuka kasir. Untuk benar-benar
+	 * mencabut akses, sunting katalog {@link #getEbisnisMenu()}.</p>
+	 *
+	 * @return {@code true} bila pintasan Dasbor POS ditampilkan; tidak pernah {@code null}
+	 * @see #setTampilPos(Boolean)
+	 * @see #getKantin()
+	 * @see #getEbisnisMenu()
+	 * @see #getEmedic()
 	 */
 	@Column(name = "tampil_pos")
 	public Boolean getTampilPos() {
@@ -3512,6 +3764,20 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return getKantin();
 	}
 
+	/**
+	 * Menetapkan penanda tampil pintasan "Dasbor POS".
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>selalu dihormati</b>, karena
+	 * {@link #getTampilPos()} memeriksa kolomnya lebih dulu sebelum segala penurunan
+	 * bawaan &mdash; termasuk sebelum cabang khusus {@link #KANTIN}.</p>
+	 *
+	 * <p>Ingat bahwa &mdash; seperti dijelaskan pada {@link #getTampilPos()} &mdash; nilai
+	 * ini hanya mengatur <b>visibilitas ikon</b>, sehingga menyimpan {@link Boolean#FALSE}
+	 * di sini <b>bukan</b> tindakan pencabutan akses POS.</p>
+	 *
+	 * @param tampilPos penanda tampil; {@code null} berarti kembali ke bawaan
+	 * @see #getTampilPos()
+	 */
 	public void setTampilPos(Boolean tampilPos) {
 		this.tampilPos = tampilPos;
 	}
@@ -3521,6 +3787,24 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * ini. Dasbor ini mengumpulkan seluruh dasbor koperasi (Simpan Pinjam, Laporan Simpan Pinjam,
 	 * Pembagian SHU, dan Kantin/Toko) dalam satu tempat. Default hanya aktif untuk
 	 * {@link #ADMINISTRATOR}; role lain dapat diaktifkan dari pengaturan role.
+	 *
+	 * <p><b>Getter murni</b> berbentuk ternary tunggal &mdash; tanpa daftar-tolak
+	 * {@link #KANTIN}, tanpa penolakan kelompok pengguna akhir, dan tanpa tulis-balik ke
+	 * field. Bawaannya <i>fail-closed</i> untuk seluruh peran selain
+	 * {@link #ADMINISTRATOR}.</p>
+	 *
+	 * <p>Perlu dibedakan dari konstanta {@link #ANGGOTA_KOPERASI}: flag ini adalah hak
+	 * <i>pengelola</i> koperasi (melihat dasbor Simpan Pinjam, SHU, dan Kantin/Toko),
+	 * sedangkan konstanta itu adalah peran <i>anggota</i>.</p>
+	 *
+	 * <p>Dipakai sebagai gerbang render halaman di {@code modul/koperasi/index.jsp} dan
+	 * {@code DashboardKantinAction} &mdash; gerbang per-halaman yang nyata, namun tidak
+	 * melindungi endpoint layanan di belakangnya.</p>
+	 *
+	 * @return {@code true} bila pintasan dasbor Koperasi ditampilkan; tidak pernah
+	 *         {@code null}
+	 * @see #setDashboardKoperasi(Boolean)
+	 * @see #ANGGOTA_KOPERASI
 	 */
 	@Column(name = "dashboard_koperasi")
 	public Boolean getDashboardKoperasi() {
@@ -3529,10 +3813,55 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: dashboardKoperasi;
 	}
 
+	/**
+	 * Menetapkan penanda tampil pintasan dasbor Koperasi.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan selalu dihormati &mdash; tidak
+	 * ada peran yang dipaksa menyala atau mati. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i> untuk seluruh peran selain {@link #ADMINISTRATOR}.</p>
+	 *
+	 * @param dashboardKoperasi penanda tampil; {@code null} berarti kembali ke bawaan
+	 *                          fail-closed
+	 * @see #getDashboardKoperasi()
+	 */
 	public void setDashboardKoperasi(Boolean dashboardKoperasi) {
 		this.dashboardKoperasi = dashboardKoperasi;
 	}
 
+	/**
+	 * Mengembalikan <b>halaman pendaratan</b> yang dituju pengguna seusai login.
+	 *
+	 * <p>Dibaca {@code ais.action.servlet.Main} dan beberapa JSP kerangka untuk mengalihkan
+	 * pengguna ke modul yang relevan baginya, alih-alih ke halaman utama umum.</p>
+	 *
+	 * <p><b>Ini routing, bukan otorisasi.</b> Mengarahkan seseorang ke sebuah halaman tidak
+	 * memberinya hak apa pun di sana, dan mengosongkan nilai ini tidak mencabut hak apa pun.
+	 * Halaman tujuan tetap menegakkan izinnya sendiri.</p>
+	 *
+	 * <h3>Urutan penurunan</h3>
+	 * <ol>
+	 *   <li>Bila kolomnya terisi (bukan kosong/spasi), nilainya dikembalikan setelah
+	 *   dipangkas.</li>
+	 *   <li>Bila kosong dan perannya {@link #KANTIN}, dikembalikan
+	 *   {@link #HALAMAN_UTAMA_KANTIN}.</li>
+	 *   <li>Selain itu {@code null}, yang berarti "pakai halaman utama umum".</li>
+	 * </ol>
+	 *
+	 * <p>Perhatikan urutannya: pemeriksaan kolom <b>mendahului</b> bawaan {@link #KANTIN}.
+	 * Itu disengaja &mdash; sebagaimana dicatat komentar di dalam badan method &mdash; agar
+	 * pilihan eksplisit administrator ({@link #HALAMAN_UTAMA_APOTIK},
+	 * {@link #HALAMAN_UTAMA_EMEDIK}, {@link #HALAMAN_UTAMA_INVENTORY}) tidak tertimpa default
+	 * historis peran Kantin. Bila urutannya terbalik, peran kasir tidak akan pernah bisa
+	 * diarahkan ke POS Apotek.</p>
+	 *
+	 * <p><b>Getter murni</b> &mdash; memangkas spasi tanpa menulis balik ke field, dan
+	 * menormalkan string kosong menjadi {@code null}.</p>
+	 *
+	 * @return path halaman pendaratan, atau {@code null} bila memakai halaman utama umum
+	 * @see #setHalamanUtama(String)
+	 * @see #HALAMAN_UTAMA_KANTIN
+	 * @see #getDashboardDefaultMain()
+	 */
 	public String getHalamanUtama() {
 		if (halamanUtama != null && !halamanUtama.trim().isEmpty()) {
 			return halamanUtama.trim();
@@ -3542,10 +3871,53 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return getRoleId() != null && getRoleId().equals(KANTIN) ? HALAMAN_UTAMA_KANTIN : null;
 	}
 
+	/**
+	 * Menetapkan halaman pendaratan seusai login.
+	 *
+	 * <p>Setter mentah tanpa penjagaan: tidak memangkas spasi dan tidak memvalidasi bahwa
+	 * path-nya benar-benar ada. Pemangkasan hanya terjadi di sisi baca
+	 * ({@link #getHalamanUtama()}).</p>
+	 *
+	 * <p>Nilai yang wajar berasal dari konstanta {@code HALAMAN_UTAMA_*} di kelas ini.
+	 * Menyimpan {@code null} atau string kosong mengembalikan perilaku ke bawaan &mdash;
+	 * yang untuk peran {@link #KANTIN} berarti {@link #HALAMAN_UTAMA_KANTIN}, dan untuk peran
+	 * lain berarti halaman utama umum.</p>
+	 *
+	 * <p>Karena ini murni routing, menetapkan path yang keliru menghasilkan kesalahan
+	 * navigasi, bukan celah keamanan.</p>
+	 *
+	 * @param halamanUtama path halaman pendaratan; disimpan apa adanya
+	 * @see #getHalamanUtama()
+	 */
 	public void setHalamanUtama(String halamanUtama) {
 		this.halamanUtama = halamanUtama;
 	}
 
+	/**
+	 * Mengembalikan <b>dasbor bawaan</b> yang ditampilkan di halaman utama bagi peran ini.
+	 *
+	 * <p>Dibaca {@code MainAction} untuk memilih dasbor mana yang dimuat pertama kali ketika
+	 * pengguna membuka halaman utama. Berbeda dari {@link #getHalamanUtama()} yang
+	 * mengalihkan ke <i>halaman</i> lain sama sekali, properti ini memilih <i>isi</i> di
+	 * dalam halaman utama yang sama.</p>
+	 *
+	 * <p>Perlu dibedakan pula dari {@link #getDashboard()}, yang menentukan apakah dasbor
+	 * ditampilkan sama sekali. Rangkaiannya: {@code getDashboard()} menentukan "ada dasbor
+	 * atau tidak", properti ini menentukan "dasbor yang mana".</p>
+	 *
+	 * <p><b>Ini pemilihan tampilan, bukan otorisasi.</b> Menyetel sebuah dasbor di sini tidak
+	 * memberi hak atasnya &mdash; dasbor yang bersangkutan tetap menegakkan flag-nya sendiri
+	 * (mis. {@link #getDashboardKoperasi()}, {@link #getDasborRepository()}).</p>
+	 *
+	 * <p><b>Getter murni</b> &mdash; memangkas spasi tanpa menulis balik ke field, dan
+	 * menormalkan string kosong menjadi {@code null}. Kolomnya berkapasitas 500 karakter,
+	 * cukup untuk menampung pengenal dasbor beserta parameternya.</p>
+	 *
+	 * @return pengenal dasbor bawaan, atau {@code null} bila tidak disetel
+	 * @see #setDashboardDefaultMain(String)
+	 * @see #getDashboard()
+	 * @see #getHalamanUtama()
+	 */
 	@Column(name = "dashboard_default_main", length = 500)
 	public String getDashboardDefaultMain() {
 		return dashboardDefaultMain == null || dashboardDefaultMain.trim().isEmpty() ? null
