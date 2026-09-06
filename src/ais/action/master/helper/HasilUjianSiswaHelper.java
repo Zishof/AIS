@@ -1695,13 +1695,31 @@ public class HasilUjianSiswaHelper implements DataLoader {
 
 	/**
 	 * Menampilkan detail koreksi soal-per-soal satu peserta ke dalam panel
-	 * {@code detail} (dibuka saat kartu peserta di-expand). Sinkronisasi
-	 * {@link #pertemuanPunyaUjian} lebih dulu dari data hasil ujian bila tersedia
-	 * (menjaga konsistensi bila helper ini dipakai lintas beberapa ujian). Implementasi
-	 * detail sesungguhnya sepenuhnya didelegasikan ke {@link KoreksiHasilUjian#display}.
+	 * {@code detail}. Dipicu oleh peristiwa {@code onOpen} pada {@link MyDetail} milik
+	 * kartu peserta, yaitu ketika pengguna membentangkan sebuah baris grid.
+	 *
+	 * <p>
+	 * Sebelum mendelegasikan, method ini <b>menyinkronkan ulang</b>
+	 * {@link #pertemuanPunyaUjian} dari {@code tempHasilUjianMahasiswa.getPertemuanPunyaUjian()}
+	 * bila keduanya tersedia. Ini pengaman untuk kasus satu instance helper dipakai
+	 * berpindah-pindah antar ujian: tanpa sinkronisasi tersebut, {@link KoreksiHasilUjian}
+	 * dapat menerima ujian yang berbeda dari pemilik lembar jawaban yang sedang dibuka,
+	 * sehingga jumlah soal yang ditampilkan ({@code jmlDitampilkan}) dan pemetaan soal
+	 * ke jawaban bisa meleset.
+	 * </p>
+	 * <p>
+	 * Seluruh isi panel — daftar soal, jawaban peserta, kunci jawaban, kotak skor dan
+	 * catatan koreksi per soal, serta tombol koreksi AI per peserta — dibangun
+	 * sepenuhnya oleh {@link KoreksiHasilUjian#display}; kelas ini tidak menggambar apa
+	 * pun sendiri di sini. {@link KoreksiHasilUjian} itu sendiri dipakai bersama oleh
+	 * domain siswa dan mahasiswa, karena keduanya beroperasi pada entity
+	 * {@link HasilUjianMahasiswa} yang sama.
+	 * </p>
 	 *
 	 * @param detail                    panel tempat detail koreksi dirender
-	 * @param tempHasilUjianMahasiswa   hasil ujian peserta yang akan dikoreksi/dilihat
+	 * @param tempHasilUjianMahasiswa   lembar jawaban peserta yang akan dikoreksi/dilihat;
+	 *                                  bila {@code null}, sinkronisasi dilewati dan
+	 *                                  {@link KoreksiHasilUjian#display} tetap dipanggil
 	 */
 	public void tampilRow(final MyDetail detail, final HasilUjianMahasiswa tempHasilUjianMahasiswa) {
 		if (tempHasilUjianMahasiswa != null && tempHasilUjianMahasiswa.getPertemuanPunyaUjian() != null) {
@@ -1729,6 +1747,119 @@ public class HasilUjianSiswaHelper implements DataLoader {
 	 */
 	public class DetailPertemuanPunyaUjianRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Menggambar satu baris grid untuk satu peserta. Dipanggil ZK sekali per baris
+		 * setiap kali model grid diganti oleh {@link #loadData(Object)}, dan dipanggil
+		 * ulang secara rekursif oleh beberapa aksi di dalamnya (perubahan data hasil
+		 * ujian dan "Reset Ujian") setelah membersihkan baris dengan
+		 * {@link Common#clear(Component)}.
+		 *
+		 * <h4>Pemetaan model ke data</h4>
+		 * <p>
+		 * {@code arg1} adalah elemen model, bertipe {@link Siswa} atau {@link CalonSiswa}
+		 * (keduanya turunan {@link VOSiswa}). Lembar jawabannya <b>tidak</b> diambil ulang
+		 * dari basis data di sini, melainkan dicari di peta {@link #hasilUjianMahasiswas}
+		 * dengan kunci id peserta — peta itu diisi oleh kolam thread di
+		 * {@link #loadData(Object)}. Karena pengisian peta berjalan asinkron sementara
+		 * grid sudah dirender, baris yang datanya belum selesai dihitung akan
+		 * mendapatkan {@code null} dan method ini <b>keluar lebih awal</b> tanpa
+		 * menggambar apa pun; baris tersebut baru terisi pada siklus render berikutnya.
+		 * Ekspresi ternary bertingkat pemilihan kunci di awal method mengandung dua
+		 * cabang terakhir yang tidak pernah tercapai (duplikat dari dua cabang pertama) —
+		 * sisa penyederhanaan yang tidak berdampak pada hasil.
+		 * </p>
+		 * <p>
+		 * Isi peta adalah {@code Object[]} dua elemen: indeks 0 berisi
+		 * {@link HasilUjianMahasiswa}, indeks 1 berisi {@code Set<Long>} berisi id bank
+		 * soal yang sudah terjawab peserta tersebut (dipakai untuk kolom "Statistik").
+		 * </p>
+		 *
+		 * <h4>Isi kartu, berurutan sesuai kolom</h4>
+		 * <ol>
+		 * <li><b>Detail</b> — {@link MyDetail} dengan pendengar {@code onOpen} yang
+		 * memanggil {@link #tampilRow(MyDetail, HasilUjianMahasiswa)}. Pendengar yang
+		 * sama juga menangani peristiwa bermuatan {@link HasilUjianMahasiswa}, yang
+		 * diartikan sebagai "data berubah, gambar ulang baris ini".</li>
+		 * <li><b>Peserta Ujian</b> — foto kecil ({@link CommonMedia#tampilkanGambarKecil})
+		 * dan blok riwayat revisi ({@link RevisiHelper#createNewRevisi} atas
+		 * {@link HasilUjianMahasiswa}) berisi NIM/no registrasi, lalu nama peserta.</li>
+		 * <li><b>Waktu Pengerjaan</b> — tanggal ujian, jam mulai, dan jam selesai; setiap
+		 * label hanya muncul bila nilainya terisi.</li>
+		 * <li><b>Lama Pengerjaan</b> — berisi beberapa kendali sekaligus: jumlah
+		 * pengulangan ujian ("Ikut ujian ... kali", {@link Intbox} yang langsung
+		 * menyimpan lewat {@code Common.refreshUpdate}); durasi pengerjaan yang
+		 * <b>hanya bagian jamnya</b> yang diformat, karena
+		 * {@code getLamaPengerjaan()} dibentuk dari {@code GregorianCalendar(0,0,0,...)}
+		 * sehingga bagian tanggalnya tidak bermakna; sisa waktu pengerjaan
+		 * ({@link Timebox}, lihat catatan khusus di bawah); nomor soal terakhir yang
+		 * dikerjakan, disimpan ke penyimpanan bebas entity lewat
+		 * {@code put(nilai, "index")} dengan pergeseran satu (tampil 1-berbasis, tersimpan
+		 * 0-berbasis).</li>
+		 * <li><b>Skor/Max</b> — {@code jawabanBenar} dan {@code jawabanBenarMax};
+		 * kolomnya hanya kasatmata untuk ujian pilihan ganda, tetapi labelnya tetap
+		 * dibuat pada semua jenis ujian.</li>
+		 * <li><b>Statistik</b> — jumlah soal, terjawab, dan belum terjawab beserta
+		 * persentasenya. Baris juga diberi warna latar: kemerahan bila pengerjaan
+		 * sebagian (0&nbsp;&lt;&nbsp;persen&nbsp;&lt;&nbsp;100) dan kehijauan bila 100%.
+		 * Perbandingan memakai {@code persen.intValue()} sehingga pengerjaan yang
+		 * membulat ke bawah menjadi 0% (misalnya 1 dari 200 soal) tidak diberi warna.
+		 * Kolom ini juga memuat kotak centang "Lengkapi ulang jawaban".</li>
+		 * <li><b>Nilai</b> — untuk pilihan ganda hanya label baca-saja; untuk esai berupa
+		 * {@link MyDoublebox} yang menyimpan otomatis pada {@code onChange} (mengambil
+		 * ulang entity lewat {@code Restrictions.idEq} lalu {@code session.update}) dengan
+		 * indikator ✓/✗ yang dipudarkan lewat JavaScript sisi klien, ditambah tombol
+		 * "Hitung Ulang" satu peserta.</li>
+		 * <li><b>Keterangan</b> — catatan pengawas ({@link MyTextbox}) dengan pola simpan
+		 * otomatis dan indikator ✓/✗ yang sama.</li>
+		 * <li><b>Pelanggaran</b> — rekap pengawasan anti-curang: jumlah pelanggaran
+		 * (merah bila &gt; 0, hijau "0 (bersih)" bila tidak ada) dan cuplikan
+		 * {@code logPelanggaran} yang dipangkas 400 karakter di layar namun ditampilkan
+		 * utuh sebagai tooltip. Kolom ini juga menampung tombol "Reset Ujian".</li>
+		 * </ol>
+		 *
+		 * <h4>Mengapa "Sisa Waktu" dan "Lengkapi ulang jawaban" memakai HQL bulk update</h4>
+		 * <p>
+		 * Kedua kendali ini <b>tidak</b> disimpan dengan pola biasa
+		 * (setter lalu {@code Common.refreshUpdate}), melainkan lewat
+		 * {@code update HasilUjianMahasiswa set ... where id = :id} langsung. Alasannya
+		 * tercatat pada komentar di badan method: pemetaan Hibernate entity ini berbasis
+		 * akses <b>properti</b>, sehingga saat dirty-check/flush Hibernate memanggil
+		 * {@code getSisaWaktuPengerjaan()}; getter tersebut <b>sengaja menimpa</b> nilai
+		 * in-memory dengan cache "live" dari berkas lewat {@code retreive()}, yang pada
+		 * saat itu masih berisi nilai LAMA karena penulisan cache berkas ({@code put()})
+		 * baru terjadi sesudahnya. Akibatnya perubahan admin selalu batal tersimpan
+		 * ("admin tidak bisa menambah waktu ujian, kembali ke 0 setelah refresh"). Bulk
+		 * update melewati pemuatan entity dan pemanggilan getter, sehingga nilai yang
+		 * tersimpan pasti sesuai masukan admin. Ini adalah wujud konkret <b>pola getter
+		 * yang memutasi field</b> yang tercatat sistemik di {@code ais/database/model/} —
+		 * di sini dampaknya sudah ditambal di sisi pemanggil, bukan di getter-nya.
+		 * Urutan pada penangan {@code onChange} penting dan disengaja: bulk update lebih
+		 * dulu, baru {@code put()} ke cache berkas, baru setter in-memory.
+		 * </p>
+		 *
+		 * <h4>Gerbang pada tombol "Reset Ujian"</h4>
+		 * <p>
+		 * Satu-satunya pemeriksaan peran di dalam berkas ini:
+		 * {@code tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null},
+		 * yaitu "akun bukan mahasiswa dan bukan siswa". Ini gerbang kasar berbasis
+		 * <b>jenis akun</b>, bukan berbasis kepemilikan — tidak ada verifikasi bahwa
+		 * pengguna adalah guru pengampu pertemuan ini, tidak ada penyempitan satuan kerja,
+		 * dan gerbangnya hanya menyembunyikan tombol di tampilan. Perhatikan pula bahwa
+		 * akun {@code calonSiswa} tidak termasuk yang dikecualikan. Aksinya sendiri
+		 * bersifat merusak dan tanpa jejak audit: seluruh {@link HasilUjianMahasiswaDetail}
+		 * peserta dikosongkan, entity utama di-{@code reset()}, dan
+		 * {@code sisaWaktuPengerjaan}, {@code jumlahPelanggaran}, serta
+		 * {@code logPelanggaran} di-{@code null}-kan — termasuk menghapus bukti
+		 * pelanggaran anti-curang. Berbeda dengan tombol "Ulang Semua", aksi ini
+		 * <b>tidak</b> memeriksa apakah jendela ujian masih berlangsung. Transaksinya
+		 * memakai sesi Hibernate tersendiri ({@code openSession}) dengan
+		 * {@code rollback} pada kegagalan dan penutupan sesi di blok {@code finally}.
+		 * </p>
+		 *
+		 * @param arg0 baris grid yang akan diisi komponen
+		 * @param arg1 elemen model: {@link Siswa} atau {@link CalonSiswa}
+		 * @throws Exception diteruskan dari pembangunan komponen ZK
+		 */
 		@SuppressWarnings("unchecked")
 		@Override
 		public void render(final Row arg0, final Object arg1) throws Exception {

@@ -1430,9 +1430,55 @@ public class KoreksiHasilUjian implements DataCriteria {
 	}
 
 	/**
-	 * Kumpulkan seluruh jawaban ESSAY (yang terjawab) milik seorang peserta sebagai daftar
-	 * {@code Object[]{detailId(Long), soal(String), kunci(String), jawaban(String), maxSkor(Double)}}.
-	 * Dipakai bersama koreksi per-peserta & massal. Harus dipanggil pada thread event ZK.
+	 * <b>Tujuan:</b> Mengumpulkan seluruh jawaban <b>esai / jawaban singkat</b> milik satu peserta ujian
+	 * menjadi daftar tuple datar yang siap dirangkai menjadi prompt AI dan, setelah AI menjawab, siap
+	 * dipetakan balik ke baris {@link HasilUjianMahasiswaDetail} yang benar. Method ini adalah tahap
+	 * pertama dari rangkaian tiga langkah koreksi otomatis esai:
+	 * {@code kumpulkanEssay} &rarr; {@link #promptKoreksiEssay} &rarr; {@link #terapkanKoreksiEssay}.
+	 *
+	 * <p><b>Bentuk tuple:</b> setiap elemen daftar adalah {@code Object[]} berukuran lima dengan
+	 * posisi yang <b>wajib dijaga</b> karena {@link #terapkanKoreksiEssay} membacanya berdasarkan indeks:
+	 * <ol start="0">
+	 *   <li>{@code Long} — {@code id} baris {@link HasilUjianMahasiswaDetail} yang akan ditulis.</li>
+	 *   <li>{@code String} — teks soal, sudah dibersihkan dari tag HTML oleh {@link #stripHtml}.</li>
+	 *   <li>{@code String} — kunci jawaban gabungan; seluruh {@code essay} dari
+	 *       {@link BankSoal#ambilBankSoalDetailEssay} disambung dengan baris baru lalu di-{@code trim}.
+	 *       Bisa berupa string kosong bila soal memang tidak punya kunci tertulis.</li>
+	 *   <li>{@code String} — jawaban peserta apa adanya (tanpa pembersihan HTML).</li>
+	 *   <li>{@code Double} — skor maksimal soal ({@link BankSoal#getSkor()}), dipakai sebagai batas atas
+	 *       saat menerapkan nilai dari AI.</li>
+	 * </ol>
+	 *
+	 * <p><b>Cara kerja:</b> Method menelusuri urutan soal yang <i>sudah diacak untuk peserta ini</i>
+	 * ({@code hum.ambilUjianPunyaSoals(..., refresh=true)}) — bukan seluruh bank soal — lalu memetakan
+	 * setiap soal ke himpunan id detail jawabannya lewat
+	 * {@code hum.ambilHasilUjianMahasiswaDetail(false, ...)}. Soal bertipe {@link BankSoal#PILIHAN_GANDA}
+	 * dilewati; itu urusan {@link #kumpulkanPg}. Soal yang sama sekali tidak punya himpunan detail
+	 * ({@code dset == null}) juga dilewati karena tidak ada baris DB untuk ditulisi.
+	 *
+	 * <p><b>Perlakuan jawaban kosong:</b> berbeda dari filter "telah dijawab" di layar, method ini
+	 * <b>sengaja menyertakan</b> soal yang detail-nya ada tetapi jawabannya kosong. Teks jawaban diganti
+	 * penanda {@code "(TIDAK DIJAWAB / kosong)"} agar AI dapat memberi skor 0 disertai catatan, bukan
+	 * membiarkan soal itu tanpa nilai. Karena itu jumlah item yang dikembalikan dapat lebih besar dari
+	 * jumlah soal yang benar-benar dijawab peserta.
+	 *
+	 * <p><b>Penanganan galat:</b> seluruh badan method dibungkus satu {@code try-catch} lebar yang
+	 * mencatat exception ke {@code ErrorAuditUtil} dan mengembalikan daftar <i>sebagian</i> yang sudah
+	 * terkumpul. Method tidak pernah melempar dan tidak pernah mengembalikan {@code null}; pemanggil
+	 * cukup memeriksa {@code isEmpty()}.
+	 *
+	 * <p><b>Sifat:</b> murni-baca — tidak menulis apa pun ke basis data. Meski {@code static}, method ini
+	 * <b>harus dipanggil dari thread event ZK</b> karena {@code GeneralValueObject.ambilData} dan
+	 * {@code ambil*} pada entity bersandar pada sesi Hibernate ThreadLocal.
+	 *
+	 * @param hum peserta ujian yang jawabannya dikumpulkan; diasumsikan tidak {@code null} dan memiliki
+	 *            {@link PertemuanPunyaUjian} — bila tidak, exception ditangkap dan hasilnya daftar kosong
+	 * @return daftar tuple lima elemen (mungkin kosong, tidak pernah {@code null}) dalam urutan soal
+	 *         sebagaimana disajikan kepada peserta; urutan inilah yang menjadi penomoran "Nomor n" pada
+	 *         prompt AI
+	 * @see #promptKoreksiEssay
+	 * @see #terapkanKoreksiEssay
+	 * @see #kumpulkanPg
 	 */
 	public static java.util.List<Object[]> kumpulkanEssay(HasilUjianMahasiswa hum) {
 		java.util.List<Object[]> items = new java.util.ArrayList<Object[]>();
@@ -1484,7 +1530,51 @@ public class KoreksiHasilUjian implements DataCriteria {
 		return items;
 	}
 
-	/** Konteks OBE/mata kuliah dari peserta ujian (nama/SKS/prodi/deskripsi/CPMK) untuk koreksi lebih tepat. */
+	/**
+	 * <b>Tujuan:</b> Menyusun blok teks <i>konteks akademik</i> mata kuliah yang diujikan, untuk
+	 * disisipkan di awal prompt koreksi AI ({@link #promptKoreksiEssay} dan {@link #promptKoreksiPg}).
+	 * Tanpa konteks ini model bahasa hanya melihat soal dan jawaban lepas; dengan konteks ini ia tahu
+	 * mata kuliah, program studi, deskripsi pembelajaran, dan capaian pembelajaran (CPMK) yang menjadi
+	 * acuan, sehingga koreksi lebih terarah pada capaian kurikulum alih-alih pengetahuan umum.
+	 *
+	 * <p><b>Bentuk keluaran:</b> teks polos multi-baris yang dibungkus penanda eksplisit
+	 * {@code "=== KONTEKS MATA KULIAH ... ==="} dan {@code "=== AKHIR KONTEKS ==="}, diakhiri dua baris
+	 * baru. Penanda tersebut disertai instruksi "jangan diulang di jawaban" agar model tidak menyalin
+	 * konteks ke dalam teks koreksi. Isinya, secara berurutan dan semuanya opsional:
+	 * <ul>
+	 *   <li><b>Matakuliah</b> — nama, ditambah kode dalam kurung bila ada.</li>
+	 *   <li><b>Program Studi</b> — dari {@code matakuliah.getJurusan().getNama()}.</li>
+	 *   <li><b>Deskripsi MK</b> — {@code getDeskripsiPembelajaran()}, dengan fallback ke
+	 *       {@code getKeterangan()} bila deskripsi kosong. Tag HTML dibuang dan rentetan spasi diringkas,
+	 *       lalu <b>dipotong pada 400 karakter</b> (ditandai elipsis) agar prompt tidak membengkak.</li>
+	 *   <li><b>CPMK</b> — kolom {@code capaianPembelajaranLulusan} berisi daftar id ber-koma; setiap id
+	 *       di-resolve menjadi entity
+	 *       {@link ais.database.model.obe.CapaianPembelajaranLulusan} lalu ditulis sebagai
+	 *       {@code "  - KODE: Nama"}. Id yang tidak ditemukan dilewati diam-diam.</li>
+	 * </ul>
+	 *
+	 * <p><b>Sikap terhadap galat — sengaja permisif:</b> setiap bagian dibungkus {@code try-catch}
+	 * kosongnya sendiri, dan seluruh badan method dibungkus satu {@code try-catch} lagi. Ini disengaja:
+	 * konteks bersifat <i>penyempurna</i>, bukan syarat. Data induk yang tidak lengkap (mata kuliah tanpa
+	 * jurusan, CPMK yang sudah dihapus, relasi lazy yang gagal dimuat) hanya membuat bagian terkait
+	 * hilang dari prompt, bukan menggagalkan seluruh proses koreksi. Karena itu <b>tidak ada</b>
+	 * pencatatan ke {@code ErrorAuditUtil} di sini, berbeda dari method pengumpul data.
+	 *
+	 * <p><b>Jalan pintas:</b> bila mata kuliah tidak dapat ditentukan — {@code hum} null,
+	 * {@link PertemuanPunyaUjian} null, {@code Ujian} null, atau ujian memang tidak terkait mata kuliah
+	 * (mis. ujian saringan PMB) — method langsung mengembalikan string kosong. Pemanggil menangani ini
+	 * dengan memeriksa panjang sebelum menyisipkan, sehingga prompt tetap valid tanpa konteks.
+	 *
+	 * <p><b>Sifat:</b> murni-baca, tidak mengubah state apa pun. Harus dipanggil dari thread event ZK
+	 * karena {@code GeneralValueObject.ambilData} dan navigasi relasi lazy memerlukan sesi Hibernate
+	 * ThreadLocal yang aktif.
+	 *
+	 * @param hum peserta ujian yang sedang dikoreksi; boleh {@code null}
+	 * @return blok konteks siap sisip, atau string kosong bila konteks tidak tersedia; tidak pernah
+	 *         {@code null}
+	 * @see #promptKoreksiEssay
+	 * @see #promptKoreksiPg
+	 */
 	public static String bangunKonteksUjian(HasilUjianMahasiswa hum) {
 		StringBuilder c = new StringBuilder();
 		try {
@@ -1551,7 +1641,44 @@ public class KoreksiHasilUjian implements DataCriteria {
 		return c.toString();
 	}
 
-	/** Bangun prompt koreksi essay dari daftar item {@link #kumpulkanEssay} + konteks OBE/MK. */
+	/**
+	 * <b>Tujuan:</b> Merangkai teks prompt yang dikirim ke model bahasa untuk mengoreksi jawaban esai
+	 * satu peserta. Tahap kedua dari rangkaian {@link #kumpulkanEssay} &rarr; {@code promptKoreksiEssay}
+	 * &rarr; {@link #terapkanKoreksiEssay}.
+	 *
+	 * <p><b>Susunan prompt:</b>
+	 * <ol>
+	 *   <li>Blok konteks mata kuliah dari {@link #bangunKonteksUjian}, bila tidak kosong.</li>
+	 *   <li>Instruksi peran ("Anda dosen pemeriksa ujian") dan aturan penilaian: skor antara 0 sampai
+	 *       skor maksimal nomor tersebut, <b>0 untuk jawaban kosong</b>, ditambah koreksi singkat yang
+	 *       menyebut bagian yang benar, yang kurang/salah, dan saran perbaikan — dalam Bahasa Indonesia.</li>
+	 *   <li>Satu blok per soal, dinomori {@code 1..n} <b>mengikuti urutan {@code items}</b>, berisi Soal,
+	 *       Kunci jawaban (dilewati bila kosong), Jawaban mahasiswa, dan Skor maksimal.</li>
+	 *   <li>Instruksi format keluaran: <b>hanya</b> JSON array valid tanpa teks/markdown lain, satu objek
+	 *       per nomor sesuai urutan, dengan contoh {@code [{"no":1,"skor":8,"koreksi":"..."}]}, ditutup
+	 *       penegasan bahwa skor tidak boleh melebihi skor maksimal.</li>
+	 * </ol>
+	 *
+	 * <p><b>Kontrak penomoran — penting:</b> nomor pada prompt adalah <i>indeks {@code items} + 1</i>,
+	 * bukan nomor urut soal di bank soal. {@link #terapkanKoreksiEssay} memetakan balik dengan rumus
+	 * yang sama ({@code idx = no - 1}). Menyisipkan, mengurutkan ulang, atau menyaring {@code items}
+	 * di antara kedua pemanggilan akan membuat skor mendarat di soal yang salah.
+	 *
+	 * <p><b>Catatan pertahanan berlapis:</b> instruksi "skor tidak boleh melebihi skor maksimal" di sini
+	 * hanya bersifat imbauan kepada model. Penegakan sesungguhnya ada di
+	 * {@link #terapkanKoreksiEssay}, yang meng-<i>clamp</i> nilai ke rentang {@code [0, maxSkor]} sebelum
+	 * menulis ke basis data. Jangan menghapus clamp itu dengan alasan prompt sudah melarang.
+	 *
+	 * <p><b>Sifat:</b> murni — hanya merangkai {@link String}, tanpa akses basis data, tanpa efek samping,
+	 * dan aman dipanggil dari thread mana pun.
+	 *
+	 * @param items  daftar tuple hasil {@link #kumpulkanEssay}; boleh kosong (prompt tetap terbentuk,
+	 *               hanya tanpa blok soal)
+	 * @param konteks blok konteks dari {@link #bangunKonteksUjian}; {@code null} atau kosong berarti
+	 *                prompt dibangun tanpa konteks mata kuliah
+	 * @return teks prompt siap kirim ke {@link GenerateAiHelper#jalankanAiStreaming}
+	 * @see #terapkanKoreksiEssay
+	 */
 	public static String promptKoreksiEssay(java.util.List<Object[]> items, String konteks) {
 		StringBuilder p = new StringBuilder();
 		if (konteks != null && konteks.length() > 0) {
@@ -1579,8 +1706,57 @@ public class KoreksiHasilUjian implements DataCriteria {
 	}
 
 	/**
-	 * Terapkan hasil koreksi AI (JSON array {no,skor,koreksi}) ke DB: isi nilai (dibatasi skor maks) &amp;
-	 * koreksi tiap {@link HasilUjianMahasiswaDetail}, lalu hitung ulang nilai peserta. Kembalikan jumlah terisi.
+	 * <b>Tujuan:</b> Menerapkan hasil koreksi AI untuk soal esai ke basis data — mengisi kolom
+	 * {@code nilai} dan {@code koreksi} pada setiap {@link HasilUjianMahasiswaDetail} yang bersangkutan,
+	 * lalu menghitung ulang total nilai peserta. Tahap ketiga dan satu-satunya tahap <b>menulis</b> pada
+	 * rangkaian {@link #kumpulkanEssay} &rarr; {@link #promptKoreksiEssay} &rarr;
+	 * {@code terapkanKoreksiEssay}.
+	 *
+	 * <p><b>Cara kerja:</b>
+	 * <ol>
+	 *   <li><b>Ekstraksi JSON toleran.</b> Respons model sering dibungkus prosa atau pagar markdown,
+	 *       maka method mengambil substring antara {@code indexOf('[')} pertama dan
+	 *       {@code lastIndexOf(']')} terakhir sebelum mem-parse dengan {@code org.json.JSONArray}.
+	 *       Bila kurung tidak ditemukan atau tidak berpasangan, method mengembalikan {@code 0} tanpa
+	 *       menyentuh basis data.</li>
+	 *   <li><b>Pemetaan nomor ke item.</b> Untuk tiap objek dibaca {@code no} (default {@code i+1}) lalu
+	 *       {@code idx = no - 1}. Bila {@code idx} di luar rentang {@code items}, dipakai penyelamat
+	 *       {@code idx = i} (posisi objek dalam array); bila itu pun di luar rentang, objek dilewati.
+	 *       Lihat kontrak penomoran pada {@link #promptKoreksiEssay}.</li>
+	 *   <li><b>Clamp skor — penjaga integritas nilai yang wajib dipertahankan.</b> Nilai
+	 *       {@code skor} dari model dibatasi ke rentang {@code [0, maxSkor]}, dengan {@code maxSkor}
+	 *       diambil dari indeks 4 tuple {@code items} (skor soal), bukan dari respons AI. Ini mencegah
+	 *       model memberi nilai negatif atau melebihi bobot soal — kesalahan yang tidak akan tertangkap
+	 *       di layar karena penulisan berlangsung massal tanpa konfirmasi per-nilai.</li>
+	 *   <li><b>Penulisan.</b> Seluruh baris ditulis dalam <b>satu transaksi</b> pada sesi Hibernate
+	 *       mandiri ({@code openSession()} — bukan sesi ThreadLocal, sehingga method aman dipanggil dari
+	 *       callback penyelesaian AI). Baris yang sudah tidak ada di DB ({@code get} mengembalikan
+	 *       {@code null}) dilewati tanpa menaikkan pencacah. Kegagalan memicu {@code rollback} untuk
+	 *       <b>seluruh</b> batch dan dicatat ke {@code ErrorAuditUtil}; sesi selalu ditutup di
+	 *       {@code finally}.</li>
+	 *   <li><b>Hitung ulang.</b> Bila ada minimal satu baris tertulis dan {@code humId} tidak
+	 *       {@code null}, {@link UjianRecomputeUtil#hitungUlangSekarang} dipanggil <b>di luar</b>
+	 *       transaksi di atas, agar total nilai peserta membaca angka yang sudah ter-commit.</li>
+	 * </ol>
+	 *
+	 * <p><b>Jejak audit:</b> {@link HasilUjianMahasiswaDetail} beranotasi {@code @Audited}, dan Envers
+	 * terpasang di level {@code SessionFactory}, sehingga penulisan lewat sesi mandiri di sini tetap
+	 * menghasilkan revisi. Sebagaimana dijelaskan pada Javadoc kelas, revisi tersebut merekam perubahan
+	 * dan waktunya, tetapi tidak merekam identitas pengguna yang memicunya.
+	 *
+	 * <p><b>Sifat:</b> menulis basis data. Tidak melempar exception ke pemanggil — seluruh kegagalan
+	 * (parsing maupun penulisan) dicatat dan menghasilkan nilai kembali {@code 0} atau parsial.
+	 *
+	 * @param items   daftar tuple hasil {@link #kumpulkanEssay}; <b>harus</b> instance yang sama (urutan
+	 *                identik) dengan yang dipakai membangun prompt
+	 * @param jsonResp respons mentah dari model bahasa; boleh mengandung teks pembungkus, boleh
+	 *                 {@code null} (menghasilkan {@code 0})
+	 * @param humId   id {@link HasilUjianMahasiswa} yang total nilainya dihitung ulang; {@code null}
+	 *                melewati tahap hitung ulang
+	 * @return jumlah baris {@link HasilUjianMahasiswaDetail} yang berhasil ditulis; {@code 0} bila
+	 *         respons tidak dapat diurai atau transaksi di-rollback
+	 * @see #promptKoreksiEssay
+	 * @see #terapkanKoreksiPg
 	 */
 	public static int terapkanKoreksiEssay(java.util.List<Object[]> items, String jsonResp, Long humId) {
 		int n = 0;

@@ -400,8 +400,36 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 	 * status "belum diterima" (checkbox {@code hanyaYgBelumDiterima}), angkatan, kata kunci
 	 * NIM/nama, jurusan, jenjang, dan fakultas — implementasi kontrak {@link DataCriteria}.
 	 *
+	 * <p>
+	 * <b>Bentuk criteria.</b> Criteria dibangun berantai dengan {@code createCriteria("mahasiswa")}
+	 * lalu {@code createCriteria("jurusan", LEFT_JOIN)}; nilai yang dikembalikan adalah objek
+	 * criteria TERAKHIR pada rantai itu (sub-criteria jurusan), bukan criteria akar. Untuk
+	 * Hibernate hal ini setara karena eksekusi tetap mengembalikan entitas akar
+	 * {@link MahasiswaDaftarBeasiswa}, tetapi penambahan {@code Restrictions} oleh pemanggil akan
+	 * menempel pada alias jurusan, bukan pada baris pendaftaran.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Kekhasan penyaring.</b> Setiap filter yang "tidak aktif" tidak dihilangkan melainkan
+	 * diganti {@code Restrictions.sqlRestriction("true")} atau {@code isNotNull(...)}. Akibatnya:
+	 * pilihan "Semua" pada jurusan/jenjang/fakultas tetap mensyaratkan kolom terkait tidak
+	 * {@code null}, sehingga mahasiswa tanpa jurusan (atau jurusan tanpa jenjang/fakultas) tidak
+	 * pernah ikut terhitung di paging maupun ekspor. Checkbox "Belum diterima" memfilter
+	 * {@code terima = 0}, yaitu {@link MahasiswaDaftarBeasiswa#BELUM_DIPROSES} saja &mdash;
+	 * pendaftar berstatus DITOLAK ikut tersembunyi, bukan hanya yang sudah diterima.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Cakupan kepemilikan.</b> Tidak ada penyaring satuan kerja/tenant di sini; satu-satunya
+	 * pembatas wajib adalah {@code beasiswa}. Method ini juga dipanggil dari thread latar
+	 * ekspor Excel ({@link #cetakDataCustomButton}), yang berarti {@code HibernateUtil
+	 * .currentSession()} di sana mengembalikan sesi ThreadLocal milik thread tersebut, bukan sesi
+	 * request ZK.
+	 * </p>
+	 *
 	 * @param order bila {@code true}, tambahkan pengurutan (angkatan desc, NIM asc)
-	 * @return criteria siap dieksekusi/dihitung jumlah barisnya
+	 * @return criteria siap dieksekusi/dihitung jumlah barisnya (objek sub-criteria jurusan pada
+	 *         rantai, lihat catatan di atas)
 	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
@@ -440,7 +468,21 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
-	/** Implementasi {@link DataLoader#loadData}: memuat ulang paging dan satu halaman data pendaftar (50 baris) lalu merender ulang grid dengan {@link PendaftarBeasiswaRenderer}. */
+	/**
+	 * Implementasi {@link DataLoader#loadData}: memuat ulang paging dan satu halaman data pendaftar
+	 * (50 baris) lalu merender ulang grid dengan {@link PendaftarBeasiswaRenderer}.
+	 *
+	 * <p>{@link #initCriteria(boolean)} dipanggil DUA kali: sekali tanpa pengurutan untuk
+	 * menghitung total baris (via {@code Common.initPaging50}), sekali dengan pengurutan untuk
+	 * mengambil halaman aktif. Keduanya membangun criteria baru dari awal, jadi tidak ada state
+	 * criteria yang dibagi antar pemanggilan.</p>
+	 *
+	 * <p>Karena {@link PendaftarBeasiswaRenderer#render} memanggil
+	 * {@link Common#singkronkanKrsMahasiswa} untuk setiap baris, satu kali muat halaman berarti
+	 * sinkronisasi KRS untuk 50 mahasiswa.</p>
+	 *
+	 * @param value tidak dipakai; parameter mengikuti kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -1391,6 +1433,16 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 	 * {@code beasiswa}), lalu jatuh ke pencarian berdasarkan pasangan (mahasiswa, beasiswa) bila
 	 * id tidak ditemukan/tidak diisi.
 	 *
+	 * <p>Kedua pencarian selalu dibatasi {@code beasiswa} yang sedang dibuka, sehingga kolom ID
+	 * pada berkas Excel tidak dapat dipakai untuk menyunting baris pendaftaran milik beasiswa
+	 * lain: id yang menunjuk ke beasiswa berbeda tidak akan cocok, dan proses jatuh ke pencarian
+	 * berdasarkan pasangan (mahasiswa, beasiswa) atau membuat baris baru pada beasiswa ini.</p>
+	 *
+	 * @param session  sesi Hibernate milik thread unggah
+	 * @param id       nilai kolom ID pada baris Excel; boleh {@code null}
+	 * @param mahasiswa mahasiswa hasil resolusi kolom NIM; boleh {@code null}
+	 * @param beasiswa  beasiswa yang sedang dibuka; bila {@code null} method langsung
+	 *                  mengembalikan {@code null}
 	 * @return record yang ditemukan, atau {@code null} bila belum ada pendaftaran sebelumnya
 	 */
 	private MahasiswaDaftarBeasiswa cariPendaftarBeasiswa(Session session, Long id, Mahasiswa mahasiswa,
@@ -1414,7 +1466,21 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 		return hasil;
 	}
 
-	/** Mencari {@link Mahasiswa} berdasarkan NIM persis (trim), dipakai sebagai fallback upload Excel saat kolom mahasiswa tidak dapat diresolusi langsung dari sel. */
+	/**
+	 * Mencari {@link Mahasiswa} berdasarkan NIM persis (setelah {@code trim}), dipakai sebagai
+	 * fallback pada unggah Excel saat {@code Common.getSheetContentAsObject} tidak berhasil
+	 * meresolusi sel NIM menjadi entitas.
+	 *
+	 * <p>Pencocokan bersifat {@code eq} (peka huruf besar/kecil dan spasi di tengah), bukan
+	 * {@code ilike}, dan tidak dibatasi status aktif mahasiswa. Bila NIM ternyata tidak unik di
+	 * basis data, {@code uniqueResult()} akan melempar
+	 * {@link org.hibernate.NonUniqueResultException} yang ditangkap sebagai kegagalan baris oleh
+	 * pemanggil.</p>
+	 *
+	 * @param session  sesi Hibernate milik thread unggah
+	 * @param nimExcel isi sel NIM; {@code null}/kosong menghasilkan {@code null}
+	 * @return mahasiswa dengan NIM tersebut, atau {@code null} bila tidak ada
+	 */
 	private Mahasiswa cariMahasiswaDariNim(Session session, String nimExcel) {
 		if (session == null || nimExcel == null || nimExcel.trim().isEmpty()) {
 			return null;
@@ -1429,9 +1495,26 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 	 * pengguna. Dipakai sebagai aksi cepat di luar grid utama (mis. dari layar lain yang hanya
 	 * perlu mengubah satu status tanpa membuka daftar penuh).
 	 *
+	 * <p>
+	 * <b>Prasyarat.</b> Method ini mengasumsikan pendaftaran mahasiswa pada beasiswa tersebut
+	 * SUDAH ada; bila belum, {@code uniqueResult()} mengembalikan {@code null} dan pemanggilan
+	 * {@code setTerima(...)} berikutnya melempar {@link NullPointerException}. Pemanggil wajib
+	 * memastikan barisnya ada lebih dulu.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Perbedaan dari checkbox grid.</b> Tidak seperti {@link PendaftarBeasiswaRenderer},
+	 * method ini tidak mengenal status DITOLAK: {@code checked == false} menulis nilai 0
+	 * ({@link MahasiswaDaftarBeasiswa#BELUM_DIPROSES}) walaupun pesan yang ditampilkan berbunyi
+	 * "ditolak". Method ini juga tidak memeriksa {@link #approve} maupun
+	 * {@link Beasiswa#getBolehGanda()}, dan tidak menghitung ulang {@code memenuhiSyarat}.
+	 * </p>
+	 *
 	 * @param mahasiswa mahasiswa yang statusnya diubah
 	 * @param beasiswa  beasiswa terkait
-	 * @param checked   {@code true} untuk menerima, {@code false} untuk menolak
+	 * @param checked   {@code true} untuk menerima, {@code false} untuk mengembalikan ke status
+	 *                  belum diproses (dilaporkan ke pengguna sebagai "ditolak")
+	 * @throws Exception diteruskan dari operasi Hibernate atau penampilan dialog ZK
 	 */
 	public void terimaBeasiswa(Mahasiswa mahasiswa, Beasiswa beasiswa, boolean checked) throws Exception {
 		Session session = HibernateUtil.currentSession();

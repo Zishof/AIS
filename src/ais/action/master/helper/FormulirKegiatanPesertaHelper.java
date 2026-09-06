@@ -113,21 +113,52 @@ import ais.ui.util.MyWindow;
  */
 public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
+	/** Grid daftar peserta; dibuat di {@link #display} dan diisi ulang tiap {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/**
+	 * Formulir yang pesertanya dikelola. Bila {@code null}, helper berjalan dalam mode rekap
+	 * LINTAS formulir dalam satu {@link #grupFormulirKegiatan} — mode ini juga menonaktifkan
+	 * hampir seluruh tombol aksi (ambil peserta, unggah/unduh, Bersihkan, sinkronisasi) karena
+	 * semuanya mensyaratkan satu formulir tujuan yang pasti.
+	 */
 	private FormulirKegiatan formulirKegiatan;
+	/** Kotak pencarian bebas peserta; dicocokkan ke nama/NIM/NIDN keempat jenis peserta di {@link #initCriteria(boolean)}. */
 	private Textbox nim;
 
+	/** Filter fakultas (konteks perguruan tinggi). Dikunci bila formulir sudah menetapkan fakultas tertentu. */
 	private Combobox searchfakultas = new Combobox();
+	/** Filter jurusan/program studi (konteks perguruan tinggi). Dikunci bila formulir sudah menetapkan jurusan tertentu. */
 	private Combobox searchjurusan = new Combobox();
 
+	/** Filter yayasan (konteks sekolah). Dipasang ke toolbar hanya bila {@link Common#chekPtAtauSekolah()} menandai konteks sekolah. */
 	private Combobox searchyayasan = new Combobox();
+	/** Filter sekolah (konteks sekolah). Dikunci bila formulir sudah menetapkan sekolah tertentu. */
 	private Combobox searchsekolah = new Combobox();
 
+	/** Paging server-side; ukuran halaman {@link Common#ROWS_COUNT_ON_PAGE}, disiapkan di konstruktor. */
 	private Paging paging;
+	/** Filter "Tampilkan di acc" — bila tercentang, hanya peserta ber-{@code acc=true} yang tampil. */
 	private MyCheckboxConfig tampilAcc;
+	/**
+	 * Filter "Belum di acc" — bila tercentang, hanya peserta ber-{@code acc=false} atau {@code null}
+	 * yang tampil. Kedua filter dievaluasi INDEPENDEN dan di-AND-kan di
+	 * {@link #initCriteria(boolean)}, sehingga mencentang keduanya sekaligus menghasilkan
+	 * kondisi yang saling meniadakan (daftar kosong), bukan "tampilkan semua".
+	 */
 	private MyCheckboxConfig tampilBelumAcc;
 
+	/**
+	 * Pengguna yang login, di-resolve SEKALI di konstruktor. Dipakai untuk menentukan visibilitas
+	 * tombol dan hak sunting baris. Karena terikat konteks request saat konstruksi, satu instance
+	 * helper tidak boleh dipakai ulang lintas session.
+	 */
 	private Tbmuser tbmuser;
+	/**
+	 * Grup formulir induk. Punya dua peran: (1) sumber data bila {@link #formulirKegiatan}
+	 * {@code null} (mode rekap lintas formulir), dan (2) lingkup pengecekan duplikasi — seorang
+	 * dosen/guru yang sudah terdaftar di formulir LAIN dalam grup yang sama ditolak saat
+	 * pendaftaran massal.
+	 */
 	private GrupFormulirKegiatan grupFormulirKegiatan;
 
 	/** Menyiapkan combobox filter fakultas/jurusan dan yayasan/sekolah, serta paging server-side. */
@@ -156,10 +187,46 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 	 */
 	class DetailFormulirKegiatanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Renderer tanpa state sendiri; seluruh konteks (formulir, pengguna login) dibaca dari kelas induk. */
 		public DetailFormulirKegiatanRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris peserta. Urutan sel mengikuti definisi kolom di {@link #display}:
+		 * detail (kartu peserta + lampiran persyaratan), identitas peserta, waktu daftar,
+		 * jurusan/sekolah, nilai, keterangan, checkbox "Acc", lalu kolom aksi.
+		 *
+		 * <p>
+		 * Jenis peserta ditentukan dari empat relasi yang saling eksklusif pada
+		 * {@link FormulirKegiatanPeserta} (mahasiswa, dosen, siswa, guru) — bila KEEMPATNYA
+		 * kosong baris disembunyikan dan render dihentikan, karena baris seperti itu tidak punya
+		 * identitas yang bisa ditampilkan.
+		 * </p>
+		 *
+		 * <p>
+		 * <b>Hak sunting ({@code boleh}).</b> Nilai awalnya {@code true} hanya untuk staf murni
+		 * (bukan mahasiswa/siswa/calon/dosen/guru), lalu dinaikkan menjadi {@code true} pada tiga
+		 * kasus pembina: guru pembina formulir, guru pembina siswa yang bersangkutan, dan dosen
+		 * pembina formulir. Bendera ini mengendalikan apakah Nilai dan Keterangan tampil sebagai
+		 * kotak isian (tersimpan lewat {@code onChange}) atau sebagai label statis, dan menjadi
+		 * salah satu syarat munculnya tombol Hapus.
+		 * </p>
+		 *
+		 * <p>
+		 * <b>Catatan cakupan yang perlu diketahui pemelihara:</b> checkbox "Acc" dibuat dan
+		 * dipasang ke baris TANPA memeriksa {@code boleh}, dan listener {@code onCheck}-nya
+		 * menyimpan perubahan langsung lewat {@link Common#refreshSaveOrUpdate(Object)} tanpa
+		 * pemeriksaan ulang di sisi server — berbeda dari Nilai/Keterangan yang bergerbang dan
+		 * dari tombol Hapus yang bergerbang. Padahal bendera {@code acc} inilah yang membuka
+		 * pencetakan sertifikat dan menjadi syarat promosi massal "Singkronkan dg Kegiatan".
+		 * Perilaku ini didokumentasikan apa adanya, BUKAN diubah di sini.
+		 * </p>
+		 *
+		 * @param row  baris grid yang diisi
+		 * @param data objek {@link FormulirKegiatanPeserta} untuk baris ini
+		 * @throws Exception diteruskan dari operasi komponen ZK/Hibernate
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final FormulirKegiatanPeserta formulirKegiatanPeserta = (FormulirKegiatanPeserta) data;
@@ -584,6 +651,11 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 
 	}
 
+	/**
+	 * @return {@code this} sebagai {@link DataLoader}, diteruskan ke helper pemilih peserta massal
+	 *         ({@code AmbilData*Helper}) agar helper tersebut dapat memicu {@link #loadData(Object)}
+	 *         setelah peserta baru disimpan, tanpa perlu mengenal tipe konkret helper ini.
+	 */
 	private DataLoader getDataloader() {
 		return this;
 	}
