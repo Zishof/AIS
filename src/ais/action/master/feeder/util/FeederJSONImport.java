@@ -45,7 +45,6 @@ import ais.database.model.JenisTinggalMahasiswa;
 import ais.database.model.Jenjang;
 import ais.database.model.Jurusan;
 import ais.database.model.Konfigurasi;
-import ais.database.model.KrsMahasiswa;
 import ais.database.model.Kurikulum;
 import ais.database.model.KurikulumPunyaMatakuliah;
 import ais.database.model.LembagaPengangkat;
@@ -2103,6 +2102,185 @@ public class FeederJSONImport {
 		}
 	}
 
+	private static String nilaiJson(JSONObject jsonObject, String key) {
+		try {
+			if (jsonObject != null && !jsonObject.isNull(key)) {
+				String nilai = String.valueOf(jsonObject.get(key)).trim();
+				return nilai.isEmpty() || "null".equalsIgnoreCase(nilai) ? null : nilai;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "FeederJSONImport.nilaiJson key=" + key);
+		}
+		return null;
+	}
+
+	private static boolean statusLulusDariNeoFeeder(JSONObject jsonObject) {
+		String namaStatus = nilaiJson(jsonObject, "nama_status_mahasiswa");
+		String kodeStatus = nilaiJson(jsonObject, "stat_pd");
+		return "lulus".equalsIgnoreCase(namaStatus) || "L".equalsIgnoreCase(kodeStatus);
+	}
+
+	private static StatusMahasiswa statusMahasiswaLulus(Session session) {
+		if (ConstantValues.LULUS != null && ConstantValues.LULUS.getId() != null) {
+			return ConstantValues.LULUS;
+		}
+		return (StatusMahasiswa) session.createCriteria(StatusMahasiswa.class)
+				.add(Restrictions.or(Restrictions.ilike("nama", "Lulus", MatchMode.EXACT),
+						Restrictions.ilike("kodeEpsbed", "L", MatchMode.EXACT)))
+				.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+	}
+
+	private static StatusKeluar statusKeluarLulus(Session session) {
+		return (StatusKeluar) session.createCriteria(StatusKeluar.class)
+				.add(Restrictions.ilike("nama", "Lulus", MatchMode.EXACT))
+				.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+	}
+
+	private static Integer semesterDariPeriodeKeluar(JSONObject jsonObject, Mahasiswa mahasiswa) {
+		String periode = nilaiJson(jsonObject, "id_periode_keluar");
+		if (periode == null || periode.length() < 5) {
+			return null;
+		}
+		try {
+			int tahun = Integer.parseInt(periode.substring(0, 4));
+			String jenisSemester = "2".equals(periode.substring(4, 5))
+					? Perkuliahan.GENAP : Perkuliahan.GANJIL;
+			return Common.getSemester(mahasiswa.getTahunangkatan(), tahun + "/" + (tahun + 1),
+					jenisSemester, mahasiswa.getPindahKeKampusIniMasukSemester(), mahasiswa.getSemesterMulai());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"FeederJSONImport.semesterDariPeriodeKeluar periode=" + periode);
+			return null;
+		}
+	}
+
+	private static String tahunAkademikStatus(JSONObject jsonObject, Mahasiswa mahasiswa, Integer semester) {
+		String periode = nilaiJson(jsonObject, "id_periode_keluar");
+		if (periode != null && periode.length() >= 5) {
+			try {
+				int tahun = Integer.parseInt(periode.substring(0, 4));
+				return tahun + "/" + (tahun + 1);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"FeederJSONImport.tahunAkademikStatus periode=" + periode);
+			}
+		}
+		int tahun = Common.getTahunAkademik(semester, mahasiswa.getTahunangkatan(),
+				mahasiswa.getSemesterMulai());
+		return tahun + "/" + (tahun + 1);
+	}
+
+	private static Session simpanHistoryStatusFeeder(Session session, Mahasiswa mahasiswa,
+			Integer semester, String tahunAkademik, StatusMahasiswa statusMahasiswa) throws Exception {
+		if (semester == null || semester.intValue() <= 0 || statusMahasiswa == null) {
+			return session;
+		}
+
+		HistoryStatusMahasiswa history = (HistoryStatusMahasiswa) session
+				.createCriteria(HistoryStatusMahasiswa.class)
+				.add(Restrictions.isNull("sp"))
+				.add(Restrictions.eq("mahasiswa", mahasiswa))
+				.add(Restrictions.eq("semester", semester))
+				.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
+		if (history == null) {
+			history = new HistoryStatusMahasiswa(tahunAkademik, null, null);
+			history.setMahasiswa(mahasiswa);
+			history.setSemester(semester);
+			history.setTahap(ConstantValues.aktifkanTahapan ? mahasiswa.currentTahapan(semester) : null);
+			history.setStatusAwalMahasiswa(mahasiswa.getStatusAwalMahasiswa());
+		}
+		history.setTahunAkademik(tahunAkademik);
+		history.setStatusMahasiswa(statusMahasiswa);
+		if (statusLulusSama(statusMahasiswa) && mahasiswa.getTanggalLulus() != null) {
+			history.setTanggalStatus(mahasiswa.getTanggalLulus());
+		}
+		return simpanTransaksiFeederDenganRetry(session, history, true);
+	}
+
+	private static boolean statusLulusSama(StatusMahasiswa statusMahasiswa) {
+		if (statusMahasiswa == null) {
+			return false;
+		}
+		if (statusMahasiswa.getId() != null && ConstantValues.LULUS != null
+				&& ConstantValues.LULUS.getId() != null
+				&& ConstantValues.LULUS.getId().equals(statusMahasiswa.getId())) {
+			return true;
+		}
+		return statusMahasiswa.getNama() != null
+				&& "Lulus".equalsIgnoreCase(statusMahasiswa.getNama().trim());
+	}
+
+	private static boolean mahasiswaSudahLulus(Mahasiswa mahasiswa) {
+		try {
+			return mahasiswa != null && mahasiswa.getStatusKeluar() != null
+					&& mahasiswa.getStatusKeluar().getNama() != null
+					&& "Lulus".equalsIgnoreCase(mahasiswa.getStatusKeluar().getNama().trim());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"FeederJSONImport.mahasiswaSudahLulus mahasiswa="
+							+ (mahasiswa == null ? null : mahasiswa.getId()));
+			return false;
+		}
+	}
+
+	/** Sinkronkan status lokal setelah data mahasiswa berhasil ditarik dari Neo Feeder. */
+	private static Session sinkronkanStatusMahasiswaDariNeoFeeder(Session session, Mahasiswa mahasiswa,
+			JSONObject jsonObject) throws Exception {
+		boolean lulus = statusLulusDariNeoFeeder(jsonObject) || mahasiswaSudahLulus(mahasiswa);
+		String kodeStatus = nilaiJson(jsonObject, "stat_pd");
+		if (!lulus && kodeStatus == null) {
+			return session;
+		}
+
+		StatusMahasiswa statusMahasiswa = lulus ? statusMahasiswaLulus(session)
+				: (StatusMahasiswa) ConstantValues.simpleObject(
+						session.createCriteria(StatusMahasiswa.class).addOrder(Order.asc("id"))
+								.add(Restrictions.ilike("kodeEpsbed", kodeStatus)).setMaxResults(1),
+						StatusMahasiswa.class);
+		if (statusMahasiswa == null) {
+			throw new IllegalStateException("Master Status Mahasiswa untuk status Neo Feeder '"
+					+ (lulus ? "Lulus" : kodeStatus) + "' tidak ditemukan.");
+		}
+
+		Integer semesterLulus = null;
+		if (lulus) {
+			StatusKeluar statusKeluar = statusKeluarLulus(session);
+			if (statusKeluar == null) {
+				throw new IllegalStateException("Master Status Keluar 'Lulus' tidak ditemukan.");
+			}
+			mahasiswa.setStatusKeluar(statusKeluar);
+			semesterLulus = semesterDariPeriodeKeluar(jsonObject, mahasiswa);
+			if (semesterLulus == null || semesterLulus.intValue() <= 0) {
+				semesterLulus = mahasiswa.getSemesterLulus();
+			}
+			if (semesterLulus == null || semesterLulus.intValue() <= 0) {
+				semesterLulus = mahasiswa.currentSemester();
+			}
+			mahasiswa.setSemesterLulus(semesterLulus);
+
+			String tanggalKeluar = nilaiJson(jsonObject, "tanggal_keluar");
+			if (tanggalKeluar != null) {
+				try {
+					mahasiswa.setTanggalLulus(Common.dateFormat1.get().parse(tanggalKeluar));
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"FeederJSONImport.sinkronkanStatusMahasiswaDariNeoFeeder tanggal_keluar="
+									+ tanggalKeluar);
+				}
+			}
+			session = simpanTransaksiFeederDenganRetry(session, mahasiswa, true);
+
+			String tahunAkademikLulus = tahunAkademikStatus(jsonObject, mahasiswa, semesterLulus);
+			session = simpanHistoryStatusFeeder(session, mahasiswa, semesterLulus,
+					tahunAkademikLulus, statusMahasiswa);
+		}
+
+		Integer semesterBerjalan = mahasiswa.currentSemester();
+		String tahunAkademikBerjalan = Common.getCurrentTahunAkademik();
+		return simpanHistoryStatusFeeder(session, mahasiswa, semesterBerjalan,
+				tahunAkademikBerjalan, statusMahasiswa);
+	}
+
 	public static void mahasiswa(JSONObject jsonObject) throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		try {
@@ -2375,6 +2553,7 @@ public class FeederJSONImport {
 		}
 
 		session = simpanTransaksiFeederDenganRetry(session, existing, false);
+		session = sinkronkanStatusMahasiswaDariNeoFeeder(session, existing, jsonObject);
 
 		BiodataMahasiswa biodataMahasiswaExisting = existing.ambilBiodata();
 
@@ -2638,39 +2817,7 @@ public class FeederJSONImport {
 		}
 
 		session = simpanTransaksiFeederDenganRetry(session, existing, false);
-
-		try {
-			if (!jsonObject.isNull("stat_pd")) {
-				String stat_pd = jsonObject.getString("stat_pd").trim();
-				StatusMahasiswa statusMahasiswa = (StatusMahasiswa) ConstantValues.simpleObject(
-						session.createCriteria(StatusMahasiswa.class).addOrder(Order.asc("id"))
-								.add(Restrictions.ilike("kodeEpsbed", stat_pd)).setMaxResults(1),
-						StatusMahasiswa.class);
-				System.out.println("statusMahasiswa => " + statusMahasiswa);
-				if (statusMahasiswa != null) {
-					Integer semester = mahasiswa.currentSemester();
-					HistoryStatusMahasiswa historyStatusMahasiswa = (HistoryStatusMahasiswa) session
-							.createCriteria(HistoryStatusMahasiswa.class).add(Restrictions.isNull("sp"))
-							.add(Restrictions.eq("mahasiswa", existing)).add(Restrictions.eq("semester", semester))
-							.setMaxResults(1).uniqueResult();
-
-					KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, null, null);
-
-					if (historyStatusMahasiswa == null) {
-						historyStatusMahasiswa = new HistoryStatusMahasiswa(Common.getCurrentTahunAkademik(),
-								krsMahasiswa.getSksBukanKonversi(), krsMahasiswa.getSemesterPendek());
-						historyStatusMahasiswa.setMahasiswa(existing);
-						historyStatusMahasiswa.setSemester(semester);
-					}
-					historyStatusMahasiswa.setSks(krsMahasiswa.getSksBukanKonversi());
-					historyStatusMahasiswa.setStatusMahasiswa(statusMahasiswa);
-					session = simpanTransaksiFeederDenganRetry(session, historyStatusMahasiswa, true);
-				}
-
-			}
-		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
-		}
+		session = sinkronkanStatusMahasiswaDariNeoFeeder(session, existing, jsonObject);
 
 		BiodataMahasiswa biodataMahasiswaExisting = existing.ambilBiodata();
 		FeederUtil.copyDataJikaKosong(biodataMahasiswa, biodataMahasiswaExisting, BiodataMahasiswa.class);
