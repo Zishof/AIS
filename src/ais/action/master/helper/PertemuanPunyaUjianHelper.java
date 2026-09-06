@@ -4144,7 +4144,27 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		tampilBolekIkutUjianAtauTidak(foot, ppu, mahasiswa, biodataCalonMahasiswa, hasil, refresh, null);
 	}
 
-	/** Bagian kepala (header) kartu peserta: nama ujian + badge jenis. Dipakai ulang. */
+	/**
+	 * Menyusun potongan HTML bagian kepala (header) kartu peserta: nama ujian sebagai judul, plus
+	 * satu badge kecil berisi jenis ujian. Dipakai ulang oleh KETIGA keluaran
+	 * {@link #buatKartuUjianPeserta(PertemuanPunyaUjian, Tbmuser, EventListener)} — kartu normal,
+	 * kartu "kuota penuh", dan kartu "tidak diizinkan" — supaya ketiganya tetap punya kepala yang
+	 * identik walau badan kartunya berbeda.
+	 *
+	 * <p>Berbeda dengan kepala kartu pengelola (dibangun inline di
+	 * {@link #buatKartuUjianRingkas(PertemuanPunyaUjian, Tbmuser, EventListener)}), kepala kartu
+	 * peserta sengaja TIDAK menampilkan badge jenis koreksi maupun penanda Aktif/Non-aktif, karena
+	 * keduanya informasi pengelola, bukan informasi yang berguna bagi peserta.
+	 *
+	 * <p>Kedua argumen di-escape lewat {@code DashboardUiKit.esc(...)} sebelum disisipkan, sehingga
+	 * nama ujian yang mengandung karakter HTML tidak bisa menyuntikkan markup ke dalam kartu.
+	 *
+	 * @param nama  nama ujian yang ditampilkan sebagai judul kartu; pemanggil sudah mengganti
+	 *              {@code null} dengan teks "(Tanpa nama)".
+	 * @param jenis jenis ujian yang sudah dilewatkan {@code Common.getBahasaConfig(...)} sehingga
+	 *              berupa istilah terlokalisasi, bukan konstanta mentah.
+	 * @return potongan HTML kepala kartu, siap disambung dengan badan kartu.
+	 */
 	private String kepalaKartuPeserta(String nama, String jenis) {
 		return "<div class='ppu-kartu-head'><div style='min-width:0;'><div class='ppu-kartu-nama'>"
 				+ ais.ui.util.DashboardUiKit.esc(nama) + "</div><span class='ppu-badge'>"
@@ -4722,7 +4742,26 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		kartu.appendChild(ais.ui.util.DashboardUiKit.html(sb.toString()));
 	}
 
-	/** Satu chip ringkas (label kecil di atas, nilai tebal di bawah) untuk body kartu. */
+	/**
+	 * Menyusun satu "chip" ringkas untuk badan kartu ujian: label kecil di atas, nilai tebal di
+	 * bawah, dibungkus {@code div.ppu-chip} yang diatur oleh {@link #GAYA_KARTU_UJIAN}. Ini adalah
+	 * satuan tampilan terkecil dari kedua kartu — kartu pengelola
+	 * ({@link #buatKartuUjianRingkas(PertemuanPunyaUjian, Tbmuser, EventListener)}) memakainya
+	 * belasan kali (status pelaksanaan, jumlah peserta, progres, statistik nilai, chip per
+	 * Sub-CPMK bila OBE, dan seterusnya), sedangkan kartu peserta
+	 * ({@link #buatKartuUjianPeserta(PertemuanPunyaUjian, Tbmuser, EventListener)}) memakai
+	 * subset yang jauh lebih sedikit.
+	 *
+	 * <p>Kedua argumen di-escape lewat {@code DashboardUiKit.esc(...)}. Konsekuensinya, nilai yang
+	 * memang dimaksudkan mengandung markup TIDAK bisa dikirim lewat method ini — pemanggil yang
+	 * membutuhkan markup (mis. blok penilaian) memakai {@link #penilaianBlok(String, String)} yang
+	 * sengaja tidak meng-escape isinya.
+	 *
+	 * @param label nama informasi (baris atas, huruf kecil).
+	 * @param value isi informasi (baris bawah, tebal); pemanggil sudah memformatnya menjadi teks
+	 *              siap tampil, termasuk mengganti nilai kosong dengan tanda "-".
+	 * @return potongan HTML satu chip.
+	 */
 	private String chip(String label, String value) {
 		return "<div class='ppu-chip'><b>" + ais.ui.util.DashboardUiKit.esc(label) + "</b><span>"
 				+ ais.ui.util.DashboardUiKit.esc(value) + "</span></div>";
@@ -4816,7 +4855,30 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		return sb.toString();
 	}
 
-	/** Satu butir ketentuan dengan ikon status (tipe: "ok" hijau, "warn" jingga, "no" merah). */
+	/**
+	 * Menyusun satu butir daftar pada blok "Ketentuan Ujian", didahului ikon status berwarna.
+	 * Dipakai eksklusif oleh {@link #buatKetentuanUjianHtml(PertemuanPunyaUjian)}.
+	 *
+	 * <p>Pemetaan {@code tipe} ke ikon dan warna:</p>
+	 * <ul>
+	 * <li>{@code "no"} → silang merah ({@code #dc2626}) — sesuatu yang TIDAK tersedia bagi peserta
+	 * (mis. jawaban benar tidak ditampilkan setelah ujian).</li>
+	 * <li>{@code "warn"} → tanda seru jingga ({@code #d97706}) — pembatasan yang perlu
+	 * diperhatikan peserta (mis. ujian dibatasi waktu, tidak boleh kembali ke soal sebelumnya,
+	 * mode anti-curang aktif).</li>
+	 * <li>nilai lain apa pun, termasuk {@code "ok"} dan {@code null} → centang hijau
+	 * ({@code #059669}). Perhatikan bahwa cabang hijau adalah cabang {@code else} tanpa validasi,
+	 * jadi salah ketik pada {@code tipe} akan diam-diam menghasilkan butir hijau, bukan error.</li>
+	 * </ul>
+	 *
+	 * <p>Hanya {@code teks} yang di-escape; {@code tipe} tidak pernah masuk ke keluaran sebagai
+	 * teks (hanya memilih ikon dan warna dari konstanta di dalam method), sehingga tidak menjadi
+	 * jalur penyisipan markup.
+	 *
+	 * @param tipe kode status: {@code "no"}, {@code "warn"}, atau apa pun untuk hijau.
+	 * @param teks kalimat ketentuan dalam bahasa ramah-peserta, akan di-escape.
+	 * @return potongan HTML satu elemen {@code <li>} lengkap dengan ikonnya.
+	 */
 	private String ketItem(String tipe, String teks) {
 		String ic;
 		String warna;
@@ -4898,13 +4960,44 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 						+ li + "</ul>");
 	}
 
-	/** Blok penilaian bergaya kartu-info (judul kecil + isi). */
+	/**
+	 * Membungkus satu blok informasi penilaian bergaya kartu-info (judul kecil di atas, isi di
+	 * bawah) memakai kelas CSS {@code ppu-pnl} dari {@link #GAYA_KARTU_UJIAN}. Dipakai eksklusif
+	 * oleh {@link #buatPenilaianUjianHtml(PertemuanPunyaUjian)} untuk kedua bentuk keluarannya:
+	 * "Cara Nilai Dihitung" (kurikulum non-OBE) dan "Capaian Pembelajaran yang Dinilai"
+	 * (kurikulum OBE).
+	 *
+	 * <p><b>Perhatian saat memakai ulang:</b> {@code judul} di-escape, tetapi {@code isiHtml}
+	 * <b>sengaja TIDAK di-escape</b> — parameter itu memang menerima markup (tag {@code <b>},
+	 * daftar {@code <ul>/<li>}) yang dirakit pemanggil. Karena itu setiap nilai yang berasal dari
+	 * data (nama komponen penilaian, nama Sub-CPMK) HARUS sudah di-escape oleh pemanggil sebelum
+	 * disambungkan ke {@code isiHtml}; {@link #buatPenilaianUjianHtml(PertemuanPunyaUjian)} sudah
+	 * melakukannya lewat {@code DashboardUiKit.esc(...)}. Jangan mengirim string data mentah ke
+	 * parameter ini.
+	 *
+	 * @param judul   judul blok, akan di-escape.
+	 * @param isiHtml isi blok berupa HTML jadi; TIDAK di-escape (lihat peringatan di atas).
+	 * @return potongan HTML satu blok penilaian.
+	 */
 	private String penilaianBlok(String judul, String isiHtml) {
 		return "<div class='ppu-pnl'><div class='ppu-pnl-judul'>" + ais.ui.util.DashboardUiKit.esc(judul)
 				+ "</div><div class='ppu-pnl-isi'>" + isiHtml + "</div></div>";
 	}
 
-	/** Format persen aman-null (mis. 15.0 → "15"). */
+	/**
+	 * Memformat sebuah angka persen menjadi teks siap tampil dengan penanganan {@code null} yang
+	 * aman. Memakai {@code Common.numberFormat} (format angka global aplikasi, mengikuti locale),
+	 * sehingga {@code 15.0} menjadi {@code "15"} dan bukan {@code "15.0"}.
+	 *
+	 * <p>Nilai {@code null} dipetakan ke {@code "0"} — bukan ke tanda hubung atau string kosong —
+	 * karena keluarannya selalu langsung disambung dengan tanda {@code %} pada kalimat penjelasan
+	 * di {@link #buatPenilaianUjianHtml(PertemuanPunyaUjian)}; menampilkan "0%" lebih masuk akal
+	 * bagi peserta daripada "-%". Konsekuensinya, method ini TIDAK bisa membedakan bobot yang
+	 * memang bernilai nol dari bobot yang belum pernah diisi.
+	 *
+	 * @param d nilai persen, boleh {@code null}.
+	 * @return teks angka persen tanpa tanda {@code %}, atau {@code "0"} bila {@code d} null.
+	 */
 	private String fmtPersen(Double d) {
 		return d == null ? "0" : Common.numberFormat.get().format(d);
 	}
@@ -4913,6 +5006,25 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * Menghitung banyaknya nomor soal dari string dipisah koma, mendukung RENTANG dengan tanda "-"
 	 * (mis. "1-10,15,20-25" → 10+1+6 = 17). Nomor unik (overlap tidak dihitung ganda). Selaras dengan
 	 * {@link PertemuanPunyaUjian#ambilMapNomor(java.util.List)} yang juga memuai rentang saat scoring.
+	 *
+	 * <p>Dipakai oleh {@link #buatPenilaianUjianHtml(PertemuanPunyaUjian)} untuk memberi tahu
+	 * peserta BERAPA BANYAK soal yang mengukur tiap Sub-CPMK, tanpa membeberkan deretan nomor
+	 * soalnya yang bersifat teknis. Sumber datanya adalah nilai JSON pada
+	 * {@code ppu.getFormatNilais()} dengan kunci id {@link FormatNilai} — string yang sama yang
+	 * diisi lewat kolom "Nomor Soal" atau lewat "Format Cepat" ({@code 1-10 sub cpmk 2}) di modal
+	 * {@link #bukaPengaturanUjian(PertemuanPunyaUjian, EventListener)}.
+	 *
+	 * <p><b>Toleransi masukan.</b> Method ini sengaja tidak pernah melempar exception: token
+	 * kosong dilewati, token yang bukan angka atau rentang yang tidak berbentuk {@code a-b}
+	 * diabaikan diam-diam, dan rentang terbalik ({@code "10-1"}) tetap dihitung benar karena
+	 * batasnya dinormalisasi lewat {@code Math.min}/{@code Math.max}. Karena hasilnya adalah
+	 * ukuran sebuah {@link java.util.Set}, nomor yang ditulis dua kali — baik langsung
+	 * ({@code "3,3"}) maupun lewat rentang yang tumpang tindih ({@code "1-5,4-8"}) — hanya
+	 * dihitung sekali. Angka negatif dan nol tidak ditolak; keduanya ikut terhitung bila ditulis.
+	 *
+	 * @param nomor daftar nomor soal dipisah koma, boleh berisi rentang; boleh {@code null}.
+	 * @return banyaknya nomor soal unik yang bisa diurai; {@code 0} bila {@code nomor} null,
+	 *         kosong, atau seluruh tokennya tidak valid.
 	 */
 	private int hitungJumlahNomor(String nomor) {
 		if (nomor == null) {

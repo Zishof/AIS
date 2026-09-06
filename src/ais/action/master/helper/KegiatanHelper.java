@@ -2920,6 +2920,32 @@ public class KegiatanHelper {
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
 
 		toolbarbutton.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menangani klik tombol: membangun dan menampilkan popup modal filter "Pilih Tahun Akademik,
+			 * Angkatan, dan Jenis Pembayaran" secara programatik (tanpa .zul), lalu menyerahkan eksekusi
+			 * ke listener tombol "Download Tagihan" di dalamnya.
+			 *
+			 * <p>Seluruh isi popup dirakit di sini: {@link Combobox} tahun akademik mulai/sampai
+			 * ({@code Common.generateTahunAjaran}), Fakultas+Prodi berpasangan
+			 * ({@code Common.initFakultasDanJurusanDanSemua}), kotak cari Mahasiswa, checkbox "Hitung Ulang
+			 * Tagihan" (default tercentang), Jenis Pembayaran ({@link JenisKegiatan} aktif, default
+			 * {@code ConstantValues.PENDAFTARAN_MAHASISWA_LAMA}), Item Biaya ({@link ItemBiaya} aktif,
+			 * opsional), rentang angkatan, checkbox Ganjil/Genap, Status Mahasiswa beserta tahun akademik
+			 * &amp; ganjil/genap status-nya, checkbox "Tagihan Bulanan" dengan rentang bulan, dan checkbox
+			 * "Reset Tagihan Kembali ke Billing".
+			 *
+			 * <p>Semua kontrol dideklarasikan {@code final} karena dibaca dari dalam listener bersarang
+			 * "Download Tagihan" — inilah cara popup ini mengoper nilai filter tanpa objek model
+			 * tersendiri. Popup dipasang ke root page lewat {@code ExecutionsCtrl} dan ditutup dengan
+			 * {@code onModal()} di akhir method, sehingga listener ini memblokir sampai popup selesai.
+			 *
+			 * <p>Overload ini adalah varian paling manual dari tiga {@code prosesDownloadTagihan*} di kelas
+			 * ini: dua overload lainnya sudah menerima {@link DataCriteria}/{@link SettingBiaya} dari layar
+			 * pemanggil sehingga tidak menampilkan popup filter sama sekali.
+			 *
+			 * @param arg0 event {@code onClick} ZK; tidak dibaca
+			 * @throws Exception diteruskan dari perakitan komponen ZK atau dari {@code onModal()}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				final MyWindow window = new MyWindow("Pilih Tahun Akademik, Angkatan, dan Jenis Pembayaran", "none",
@@ -3104,6 +3130,19 @@ public class KegiatanHelper {
 				bulanSampai.setDisabled(true);
 
 				bulanan.addEventListener("onClick", new EventListener() {
+					/**
+					 * Mengaktifkan/menonaktifkan pasangan {@link Intbox} rentang bulan mengikuti status checkbox
+					 * "Tagihan Bulanan".
+					 *
+					 * <p>Kedua intbox dibuat dalam keadaan {@code setDisabled(true)}, jadi listener inilah
+					 * satu-satunya yang membukanya. Karena disable hanya bersifat UI, nilai bulan tetap dibaca
+					 * listener "Download Tagihan" apa pun statusnya — yang menentukan dipakai atau tidaknya rentang
+					 * bulan adalah flag {@code bul} (hasil {@code bulanan.isChecked()}) yang ikut dioper ke
+					 * {@link #doDownloadTagihan}, bukan status disabled ini.
+					 *
+					 * @param arg0 event {@code onClick} checkbox; tidak dibaca
+					 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						bulanMulai.setDisabled(!bulanan.isChecked());
@@ -3126,6 +3165,12 @@ public class KegiatanHelper {
 				MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
 				cancel.setTooltiptext("Tutup");
 				cancel.addEventListener("onClick", new EventListener() {
+					/**
+					 * Menutup popup filter tanpa memproses apa pun ({@code window.detach()}).
+					 *
+					 * @param event event {@code onClick} tombol "Batal"; tidak dibaca
+					 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						window.detach();
@@ -3136,6 +3181,40 @@ public class KegiatanHelper {
 				MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Download Tagihan", "/img/save.gif");
 				save.setTooltiptext("Proses");
 				save.addEventListener("onClick", new EventListener() {
+					/**
+					 * Membaca seluruh filter dari popup, lalu menjalankan pembentukan berkas tagihan di thread
+					 * latar sambil menampilkan indikator sibuk yang dipantau {@link Timer}.
+					 *
+					 * <p><b>Pengambilan filter.</b> Setiap kontrol {@code final} dari popup dibaca ke variabel
+					 * lokal {@code final} (agar bisa ditangkap thread latar): rentang tahun akademik, rentang
+					 * angkatan (null menjadi 0), flag+rentang bulanan, {@link JenisKegiatan}, {@link Fakultas},
+					 * {@link Jurusan}, {@link StatusMahasiswa} beserta tahun akademik dan ganjil/genap status-nya,
+					 * flag Ganjil/Genap, kata kunci mahasiswa, flag hitung ulang, {@link ItemBiaya}, dan flag reset.
+					 * Satu-satunya validasi adalah Jenis Pembayaran wajib terisi — pesan peringatannya berbunyi
+					 * "Jadwal Pembayaran harus diisi" (istilah lama yang tidak sesuai label kontrolnya). Sesudah
+					 * lolos, popup langsung di-{@code detach()}.
+					 *
+					 * <p><b>Kanal progres lintas thread.</b> Sebuah {@link Label} ZK dipakai sebagai variabel
+					 * status bersama antara thread latar dan {@link Timer} di event thread — bukan sebagai
+					 * komponen yang ditampilkan. Konvensinya: nilai awal "Proses load data .." berarti masih
+					 * berjalan, {@code ""} (kosong) berarti selesai sukses, dan {@code "-"} berarti gagal. Dua
+					 * {@link Intbox} ({@code intbox}, {@code colS}) dipakai dengan cara yang sama untuk membawa
+					 * balik jumlah baris dan kolom hasil dari {@link #doDownloadTagihan}. Pola ini menghindari
+					 * pembaruan desktop ZK dari thread non-event (yang membutuhkan server push); thread latar hanya
+					 * menulis nilai, dan seluruh manipulasi UI dikerjakan Timer di event thread.
+					 *
+					 * <p><b>Berkas keluaran.</b> Nama berkas dibentuk dari timestamp yang di-{@code URLEncoder}
+					 * ke {@code /tmp/cetak_data_&lt;timestamp&gt;.xlsx} pada path real webapp, dibuat kosong lebih dulu
+					 * ({@code createNewFile()}) agar Timer dapat merujuknya sebelum thread latar selesai menulis.
+					 *
+					 * <p><b>Eksekusi.</b> {@link Timer} 200 ms berulang dipasang dan di-{@code start()}, lalu
+					 * {@code new Thread(...).start()} menjalankan query + {@link #doDownloadTagihan}. Perhatikan
+					 * thread ini dibuat langsung (tanpa pool) dan berjalan di luar ZK execution maupun transaksi
+					 * request, sehingga membuka session Hibernate-nya sendiri.
+					 *
+					 * @param event event {@code onClick} tombol "Download Tagihan"; tidak dibaca
+					 * @throws Exception diteruskan dari pembuatan berkas sementara/{@code URLEncoder}
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 
@@ -3195,6 +3274,30 @@ public class KegiatanHelper {
 						timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 						timer.setRepeats(true);
 						timer.addEventListener("onTimer", new EventListener() {
+							/**
+							 * Denyut {@link Timer} 200 ms yang memantau {@link Label} status thread latar dan, begitu
+							 * prosesnya selesai, menutup indikator sibuk serta membuka jendela pratinjau hasil.
+							 *
+							 * <p>Tiga kondisi yang dibedakan dari nilai label: {@code "-"} berarti thread latar gagal —
+							 * indikator sibuk dibersihkan dan timer dilepas tanpa membuka apa pun (pesan error-nya sendiri
+							 * sudah ditampilkan thread latar lewat {@code Common.tampilErrorJikaAdmin}); {@code ""} berarti
+							 * sukses — jendela "Cetak Data" dibuka; nilai lain berarti masih berjalan sehingga indikator
+							 * sibuk sekadar disegarkan.
+							 *
+							 * <p>Pada jalur sukses dibangun {@link MyWindow} modal berisi {@link Spreadsheet} yang menunjuk
+							 * berkas hasil lewat path relatif {@code ../../tmp/&lt;nama&gt;}, dibatasi {@code maxrows}/
+							 * {@code maxcolumns} dari kedua {@link Intbox} pembawa nilai (baris ditambah 3 untuk header),
+							 * lalu dikonversi menjadi grid oleh {@code PratinjauXlsxHelper.gantiSpreadsheetDenganGrid}.
+							 * Toolbar bawahnya berisi tombol "Tutup" dan "Download Data". Setelah jendela dimodalkan,
+							 * indikator sibuk dibersihkan dan timer dilepas supaya denyut berhenti.
+							 *
+							 * <p>Seluruh badan dibungkus {@code try/catch} yang pada kegagalan apa pun hanya memanggil
+							 * {@code Clients.clearBusy()} — timer sengaja TIDAK dilepas di jalur ini, sehingga denyut
+							 * berikutnya masih berkesempatan membuka pratinjau bila kegagalannya bersifat sesaat.
+							 *
+							 * @param arg0 event {@code onTimer}; tidak dibaca
+							 * @throws Exception dideklarasikan {@link EventListener}; secara praktis tertangkap di dalam
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								try {
@@ -3239,6 +3342,13 @@ public class KegiatanHelper {
 												"/img/cancel.gif");
 										cancel.setTooltiptext("Tutup");
 										cancel.addEventListener("onClick", new EventListener() {
+											/**
+											 * Menutup jendela pratinjau "Cetak Data" ({@code window.detach()}). Berkas hasil di
+											 * {@code /tmp} tidak ikut dihapus.
+											 *
+											 * @param event event {@code onClick} tombol "Tutup"; tidak dibaca
+											 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+											 */
 											@Override
 											public void onEvent(Event event) throws Exception {
 												window.detach();
@@ -3249,6 +3359,18 @@ public class KegiatanHelper {
 										MyToolbarbuttonConfig print = new MyToolbarbuttonConfig("Download Data",
 												"/img/excel.png");
 										print.addEventListener("onClick", new EventListener() {
+											/**
+											 * Mengirim berkas .xlsx hasil ke browser lewat {@link Filedownload} dengan MIME type
+											 * spreadsheet OpenXML. Berkas dibaca ulang dari disk ({@link FileInputStream}), bukan dari
+											 * memori, karena thread latar menulisnya langsung ke {@code /tmp}.
+											 *
+											 * <p>Kegagalan pengiriman ditelan dan hanya dicatat ke {@code ErrorAuditUtil}: pengguna masih
+											 * melihat pratinjau di layar sehingga kegagalan unduhan tidak dijadikan error yang membatalkan
+											 * jendela.
+											 *
+											 * @param event event {@code onClick} tombol "Download Data"; tidak dibaca
+											 * @throws Exception dideklarasikan {@link EventListener}; kegagalan nyata tertangkap di dalam
+											 */
 											@Override
 											public void onEvent(Event event) throws Exception {
 												try {
@@ -3278,6 +3400,52 @@ public class KegiatanHelper {
 							Clients.showBusy(label.getValue());
 
 							new Thread(new Runnable() {
+								/**
+								 * Badan thread latar: menyusun daftar sasaran ({@link Mahasiswa} atau
+								 * {@link BiodataCalonMahasiswa}) sesuai filter popup, memanggil {@link #doDownloadTagihan}
+								 * untuk menulis berkas .xlsx, lalu menandai hasilnya lewat {@link Label} status.
+								 *
+								 * <p><b>Percabangan sumber data.</b> Bila {@link JenisKegiatan} terpilih adalah
+								 * {@code PENDAFTARAN_CALON_MAHASISWA} atau {@code PENDAFTARAN_ULANG_MAHASISWA_BARU}, sasaran
+								 * diambil dari {@link BiodataCalonMahasiswa}; selain itu dari {@link Mahasiswa}. Keduanya
+								 * menyaring baris aktif dengan pola {@code aktif IS NULL OR aktif = true} (null diperlakukan
+								 * sebagai aktif, demi data lama sebelum kolom itu ada) dan memakai
+								 * {@code Restrictions.sqlRestriction("true")} sebagai kondisi netral ketika sebuah filter
+								 * dikosongkan.
+								 *
+								 * <p><b>Sisi calon mahasiswa.</b> Dua kriteria disiapkan: {@code mhsbaru} =
+								 * {@code prodiLulus IS NOT NULL} (dipakai untuk "Pendaftaran Ulang Mahasiswa Baru", yang menurut
+								 * definisi sudah punya prodi kelulusan), dan {@code calonmhsbaru} untuk pendaftar yang belum
+								 * tentu punya {@code prodiLulus} sehingga fakultas/prodi dicocokkan ke salah satu dari lima
+								 * kolom pilihan {@code prodi1}..{@code prodi5} lewat rangkaian OR. Keenam relasi prodi
+								 * di-{@code LEFT_JOIN} agar baris tanpa salah satu pilihan tidak hilang dari hasil.
+								 *
+								 * <p><b>Dua kuirk penyaringan calon mahasiswa yang perlu diketahui.</b> (1) Saat filter
+								 * Fakultas atau Prodi diisi, {@code calonmhsbaru} dibentuk sebagai
+								 * {@code Restrictions.and(mhsbaru, calonmhsbaruOr)} — artinya syarat
+								 * {@code prodiLulus IS NOT NULL} ikut ditempelkan. Padahal rangkaian OR atas
+								 * {@code prodi1}..{@code prodi5} justru ada untuk menjangkau pendaftar yang BELUM punya
+								 * {@code prodiLulus}; begitu filter fakultas/prodi dipilih, pendaftar tersebut tersaring habis,
+								 * sedangkan tanpa filter (kondisi netral {@code "true"}) mereka ikut terambil. (2) Blok Prodi
+								 * menimpa penuh {@code calonmhsbaru} yang sudah dibentuk blok Fakultas alih-alih
+								 * menggabungkannya, sehingga bila keduanya diisi hanya syarat Prodi yang berlaku — praktis tidak
+								 * berdampak karena prodi sudah menyiratkan fakultasnya. Keduanya dicatat apa adanya di sini;
+								 * penambalannya dilacak terpisah.
+								 *
+								 * <p><b>Sisi mahasiswa aktif.</b> Bila filter Status Mahasiswa diisi, {@link Criteria} akar
+								 * DIGANTI menjadi query {@link HistoryStatusMahasiswa} yang disaring tahun akademik + ganjil/genap
+								 * status (dan kolom {@code sp} sesuai {@code JenisKegiatan.getUntukBayarSP()}), di-{@code
+								 * groupProperty("mahasiswa")}, lalu di-{@code createCriteria("mahasiswa")} sehingga hasil akhirnya
+								 * tetap berupa {@link Mahasiswa}. Karena akarnya diganti, filter yang ditambahkan sesudahnya
+								 * (kata kunci, rentang angkatan, prodi/fakultas) menempel pada kriteria mahasiswa hasil turunan
+								 * itu — bukan pada query awal yang dibuang.
+								 *
+								 * <p><b>Session &amp; error.</b> Setiap cabang membuka session Hibernate sendiri dan menutupnya
+								 * di {@code finally} lewat {@link #closeLocalSessionSafely} — thread ini berada di luar ZK
+								 * execution sehingga tidak boleh memakai session request. Sukses ditandai {@code label.setValue("")};
+								 * kegagalan apa pun ditangkap, dilaporkan lewat {@code Common.tampilErrorJikaAdmin}, dan ditandai
+								 * {@code label.setValue("-")} supaya {@link Timer} berhenti dan indikator sibuk dibersihkan.
+								 */
 								@SuppressWarnings({})
 								@Override
 								public void run() {

@@ -5573,7 +5573,25 @@ public class AbsensiHelper {
 	 */
 	class MahasiswaIzinRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Pengguna yang sedang login, diambil SEKALI di konstruktor renderer ini dan dipakai ulang untuk setiap
+		 * baris yang dirender. Menentukan apakah kolom persetujuan tampil sebagai checkbox yang dapat diklik
+		 * ({@code tbmuser.getMahasiswa() == null}, yaitu akun bukan-mahasiswa) atau sebagai teks "Ya"/"Tidak"
+		 * read-only, dan menentukan kemunculan tombol hapus (pemilik pengajuan, admin, atau asisten absen).
+		 *
+		 * <p>Field ini menaungi ({@code shadow}) field {@link AbsensiHelper#tbmuser} milik kelas induk. Karena
+		 * renderer dibuat ulang pada setiap {@link AbsensiHelper#reloadIzinAbsensi(Pertemuan)}, nilainya selalu
+		 * segar dalam satu siklus render, namun renderer yang bertahan lintas request tetap memakai objek
+		 * pengguna dari saat ia dibuat.</p>
+		 */
 		private Tbmuser tbmuser;
+		/**
+		 * Pertemuan yang daftar pengajuan izin/sakitnya sedang dirender. Diperlukan oleh setiap baris karena
+		 * mencentang checkbox "Setujui" tidak hanya menyimpan {@link PengajuanIzinTidakMasukPerkuliahan}, tetapi
+		 * juga MENULIS status kehadiran mahasiswa yang bersangkutan ke pertemuan ini lewat
+		 * {@link Pertemuan#populate}. Field ini juga menaungi parameter {@code pertemuan} milik method induk yang
+		 * membangun panel izin.
+		 */
 		private Pertemuan pertemuan;
 
 		/**

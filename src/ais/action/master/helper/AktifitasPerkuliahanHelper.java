@@ -252,10 +252,85 @@ public class AktifitasPerkuliahanHelper {
 		return false;
 	}
 
+	/**
+	 * Gerbang otorisasi untuk seluruh laporan <b>rekap satu kelas</b> pada sub-tab "Lap."
+	 * (Kehadiran, Nilai, Kehadiran &amp; Nilai, dan Ketidakhadiran). Keempat laporan itu
+	 * menampilkan baris untuk <i>semua</i> peserta {@link Perkuliahan} — nama, NIM, kehadiran,
+	 * dan nilai mahasiswa lain — sehingga tidak boleh dibuka oleh peserta didik.
+	 *
+	 * <p>Aturannya sederhana: siapa pun yang <b>bukan</b> peserta didik menurut
+	 * {@link #penggunaAdalahPesertaDidik()} boleh membukanya. Dengan kata lain gerbang ini
+	 * berbentuk <i>deny-list</i> (tolak peserta didik), bukan <i>allow-list</i> (izinkan dosen
+	 * pengampu saja). Konsekuensinya yang perlu disadari pemanggil baru:</p>
+	 * <ul>
+	 * <li>Gerbang ini <b>tidak</b> memeriksa apakah dosen yang login benar-benar pengampu
+	 * {@code perkuliahan} yang sedang dibuka, dan tidak memeriksa cakupan satuan kerja/prodi.
+	 * Pembatasan itu — bila diperlukan — harus datang dari menu/action yang membuka panel ini,
+	 * bukan dari sini.</li>
+	 * <li>Bila {@link #penggunaAdalahPesertaDidik()} gagal mengenali sebuah akun mahasiswa
+	 * (mis. {@code tbmuser.hakAkses()} melempar exception sehingga jatuh ke {@code false}),
+	 * gerbang ini <b>fail-open</b>: akun tersebut dianggap berhak. Karena itu konteks eksplisit
+	 * {@code mahasiswa}/{@code biodataCalonMahasiswa} dari constructor adalah pertahanan utama
+	 * dan role aktif hanya pertahanan kedua — lihat javadoc
+	 * {@link #penggunaAdalahPesertaDidik()}.</li>
+	 * </ul>
+	 *
+	 * <p><b>Dipakai dua lapis (sengaja, jangan dihapus salah satunya).</b> Nilai kembaliannya
+	 * dipakai (a) sebagai {@code tab.setVisible(...)} saat keempat tab dibangun, dan (b)
+	 * di-<i>cek ulang</i> di dalam listener {@code onClick} masing-masing tab sebelum laporan
+	 * dirender (lihat pemanggilan berpasangan dengan {@link #tampilkanPenolakanLaporanKelas()}).
+	 * Lapis (a) sendirian tidak cukup: {@code setVisible(false)} pada ZK hanya menyembunyikan
+	 * komponen, sedangkan event {@code onClick} untuk komponen tersebut masih dapat dikirim dari
+	 * klien, sehingga pembatasan yang hanya UI dapat dilewati. Lapis (b) yang benar-benar
+	 * menutup akses.</p>
+	 *
+	 * <p><b>Cakupan gerbang ini terbatas pada empat tab rekap kelas.</b> Sub-tab laporan lain
+	 * pada tab "Lap." — Rencana Perkuliahan, Jurnal Mengajar, Kontrak Perkuliahan, Rencana
+	 * Paralel, Laporan KBM, dan Tugas Individu — sengaja <b>tidak</b> melewati gerbang ini.
+	 * Lima yang pertama berisi data pengajaran tingkat kelas (jadwal, materi, kontrak kuliah)
+	 * yang memang boleh dilihat peserta. Yang terakhir, Tugas Individu
+	 * ({@code LaporanRekapitulasiTugasMandiri}), menyaring barisnya sendiri di dalam kelas
+	 * laporan itu memakai {@code tbmuser.getMahasiswa()}; perhatikan bahwa getter tersebut
+	 * adalah getter yang justru <b>tidak dipercaya</b> oleh
+	 * {@link #penggunaAdalahPesertaDidik()} karena dapat mengembalikan {@code null} untuk akun
+	 * mahasiswa tertentu. Jangan menambah laporan rekap seluruh kelas ke tab "Lap." tanpa
+	 * memasang gerbang ini pada keduanya (visibilitas dan {@code onClick}).</p>
+	 *
+	 * @return {@code true} bila pengguna yang sedang login boleh membuka laporan rekap kelas
+	 *         (yaitu bukan peserta didik); {@code false} bila peserta didik
+	 * @see #penggunaAdalahPesertaDidik()
+	 * @see #tampilkanPenolakanLaporanKelas()
+	 */
 	private boolean bolehMelihatLaporanKelas() {
 		return !penggunaAdalahPesertaDidik();
 	}
 
+	/**
+	 * Menampilkan dialog penolakan baku ketika {@link #bolehMelihatLaporanKelas()} menolak
+	 * sebuah klik pada tab laporan rekap kelas. Pesannya menjelaskan alasan penolakan sekaligus
+	 * mengarahkan peserta didik ke jalur yang sah untuk melihat nilainya sendiri (menu
+	 * nilai/KHS), agar penolakan tidak terbaca sebagai kerusakan sistem.
+	 *
+	 * <p>Method ini <b>hanya menampilkan pesan</b> — ia tidak menghentikan alur apa pun dengan
+	 * sendirinya. Setiap listener yang memakainya wajib langsung {@code return} sesudah
+	 * memanggilnya; tanpa {@code return} tersebut laporan tetap akan dirender dan gerbangnya
+	 * tidak ada gunanya. Pola pemakaian yang benar:</p>
+	 * <pre>
+	 * if (!bolehMelihatLaporanKelas()) {
+	 *     tampilkanPenolakanLaporanKelas();
+	 *     return;
+	 * }
+	 * </pre>
+	 *
+	 * <p>Dialognya dibangun lewat {@code MyMessageboxConfig.show(...)} bertipe
+	 * {@code EXCLAMATION} dengan tombol {@code OK} saja. Karena {@code Messagebox} pada ZK
+	 * bersifat modal dan menahan thread event, method ini meneruskan
+	 * {@link InterruptedException} ke pemanggil alih-alih menelannya — itulah sebabnya seluruh
+	 * listener yang memakainya dideklarasikan {@code throws Exception}.</p>
+	 *
+	 * @throws InterruptedException bila thread event ZK diinterupsi selagi dialog modal terbuka
+	 * @see #bolehMelihatLaporanKelas()
+	 */
 	private void tampilkanPenolakanLaporanKelas() throws InterruptedException {
 		MyMessageboxConfig.show(
 				"Laporan rekap kelas hanya dapat dibuka oleh dosen atau petugas yang berwenang. "
