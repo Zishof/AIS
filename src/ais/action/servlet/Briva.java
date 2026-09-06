@@ -206,9 +206,119 @@ public class Briva extends HttpServlet {
 	}
 
 	/**
-	 * @param tolakTokenGerbang alasan penolakan gerbang token H2H yang SUDAH dievaluasi pemanggil
-	 *                          lewat {@link ais.action.ws.util.PembayaranGatewayHelper#periksaGerbangTokenH2h};
-	 *                          {@code null} bila lolos (termasuk saat gerbang nonaktif/log).
+	 * Inti pemroses transaksi BRIVA: memvalidasi permintaan, memposting atau membatalkan pembayaran
+	 * di basis data, lalu merakit objek balasan.
+	 *
+	 * <p><b>Prasyarat keamanan.</b> Metode ini tidak melakukan otentikasi sendiri. Gerbang token H2H
+	 * sudah dievaluasi pemanggilnya, {@link #doProses}, dan hasilnya diterima lewat
+	 * {@code tolakTokenGerbang}. Gerbang {@code bankHost} untuk jalur posting dievaluasi di sini
+	 * karena hanya berlaku pada payment/reversal, bukan inquiry. Lihat Javadoc kelas untuk sejarah
+	 * dan mode bertahap kedua gerbang tersebut.</p>
+	 *
+	 * <h3>Mode operasi</h3>
+	 * <p>Perilaku ditentukan oleh flag {@code inquery} dan {@code reversal}:</p>
+	 * <ul>
+	 *   <li><b>Inquiry</b> ({@code inquery=true}) — merakit rincian tagihan tanpa menyimpan
+	 *       {@code CicilanPembayaran} dan tanpa memanggil {@code updateVa}.</li>
+	 *   <li><b>Payment</b> ({@code inquery=false, reversal=false}) — memposting uang: menyimpan
+	 *       {@code Kegiatan}, mengurai token cicilan, lalu menutup VA lewat {@code updateVa}.</li>
+	 *   <li><b>Reversal</b> ({@code reversal=true}) — membatalkan pembayaran: melepas kaitan
+	 *       {@code Kegiatan} dari VA, <b>menghapus seluruh baris {@code cicilan_pembayaran} milik
+	 *       VA itu lewat SQL langsung</b>, menghitung ulang total, dan membalas
+	 *       {@code errorCode "00"}.</li>
+	 * </ul>
+	 * <p><b>Catatan:</b> {@link #doProses} selalu meneruskan {@code reversal = false}, sehingga
+	 * jalur reversal tidak terjangkau dari kedua {@code url-pattern} servlet ini. Kode tersebut
+	 * tetap dipelihara untuk dipakai kembali bila endpoint pembatalan diaktifkan.</p>
+	 *
+	 * <h3>Rantai penjaga, berurutan</h3>
+	 * <ol>
+	 *   <li>Gerbang H2H ({@code tolakTokenGerbang}/{@code tolakBankHostGerbang}) bila mode
+	 *       {@code aktif}.</li>
+	 *   <li>VA tidak ditemukan &rarr; {@code 4003400} "Bad Request".</li>
+	 *   <li>VA kadaluarsa &rarr; {@code 4003400}. <b>Penjaga ini dilumpuhkan oleh
+	 *       {@code chek}</b> — lihat bagian di bawah.</li>
+	 *   <li>Reversal atas VA yang belum pernah terbayar &rarr; {@code 4003400}.</li>
+	 *   <li>Tagihan sudah lunas &rarr; {@code 4003400}. <b>Penjaga ini juga dilumpuhkan oleh
+	 *       {@code chek}</b>.</li>
+	 *   <li>Nominal tidak sama persis dengan {@code totalBiaya()} &rarr; {@code 4003400}.</li>
+	 * </ol>
+	 *
+	 * <h3>PERINGATAN: {@code chek} melumpuhkan dua penjaga</h3>
+	 * <p>Parameter {@code chek} muncul sebagai {@code !chek} pada dua tempat, sehingga nilai
+	 * {@code true} membuat keduanya tidak pernah aktif:</p>
+	 * <ul>
+	 *   <li>penjaga <b>VA kadaluarsa</b>, yang bersyarat
+	 *       {@code !reversal && !chek && getKadaluarsa().before(now)};</li>
+	 *   <li>penjaga <b>tagihan sudah dibayar</b>, karena
+	 *       {@link VirtualAccountBank#isSudahTerbayarUntukPayment(VirtualAccountBank, boolean, boolean, boolean)}
+	 *       berbunyi {@code !inquery && !reversal && !chek && isSudahTerbayar(...)} sehingga selalu
+	 *       mengembalikan {@code false} saat {@code chek} bernilai {@code true}.</li>
+	 * </ul>
+	 * <p>{@link #process(HttpServletRequest, HttpServletResponse)} memanggil {@link #doProses}
+	 * dengan {@code chek = true}, sedangkan gateway sejenis ({@code Bankaltimtara}, {@code BMS},
+	 * {@code BSI}, {@code Esmartlink}) semuanya memakai {@code false}. Akibatnya kedua penjaga di
+	 * atas tidak aktif pada endpoint notifikasi pembayaran BRI. Keadaan ini telah dilaporkan
+	 * sebagai temuan tersendiri untuk ditindaklanjuti; jangan menganggapnya perilaku yang
+	 * disengaja.</p>
+	 *
+	 * <h3>Perlakuan nominal</h3>
+	 * <p>Pada mode pembayaran, nominal wajib <b>sama persis</b> dengan
+	 * {@code virtualAccountBankNtt.totalBiaya()} (perbandingan {@code intValue()}), sehingga
+	 * pembayaran nol maupun negatif tertolak selama tagihannya bernilai. Perlu dicatat bahwa
+	 * perbandingannya memakai {@code int} sehingga pecahan rupiah terpotong, dan seluruh blok
+	 * pemostingan bersyarat {@code getTotal() > 0.1} — VA bernilai nol tidak masuk cabang mana pun
+	 * dan tetap dibalas {@code 2003400 Successful} tanpa ada yang tercatat. Karena nilai tagihan
+	 * bukan rahasia, pencocokan ini menghalangi kekeliruan, bukan penyerang.</p>
+	 *
+	 * <h3>Efek terhadap basis data</h3>
+	 * <p>Untuk mahasiswa/calon mahasiswa: {@code Kegiatan} dicari atau dibuat lalu disimpan,
+	 * kemudian token pada kolom {@code cicilan} milik VA diurai menjadi baris
+	 * {@code CicilanPembayaran}. Empat bentuk token dikenali — id polos, {@code Bulanan-},
+	 * {@code Item-}, dan {@code Keranjang-} (didelegasikan ke
+	 * {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}). Setiap baris memakai kunci
+	 * {@code ref} deterministik {@code "ntt-<kegiatanId>-<token>-<vaId>"} dan dicari ulang sebelum
+	 * ditulis, sehingga <b>pengiriman ulang memperbarui baris yang sama alih-alih
+	 * menggandakannya</b> — inilah pengaman utama terhadap pemostingan ganda, mengingat penjaga
+	 * kelunasan sedang tidak aktif. Untuk siswa/calon siswa, pemostingan didelegasikan ke
+	 * {@code VirtualAccountBank.bayarSiswa}.</p>
+	 *
+	 * <h3>Transaksi dan pencatatan</h3>
+	 * <p>Metode ini membuka {@link Session} Hibernate sendiri dan memakai beberapa transaksi pendek
+	 * berturut-turut, bukan satu transaksi menyeluruh — kegagalan di tengah dapat meninggalkan
+	 * {@code Kegiatan} tersimpan tanpa seluruh {@code CicilanPembayaran}-nya. Blok {@code catch}
+	 * membalas {@code errorCode "05"} untuk reversal atau {@code "91" Link Down} untuk selainnya,
+	 * sambil merekam jejak tumpukan. Blok {@code finally} <b>selalu</b> menulis {@link LogHostToHost}
+	 * lewat {@code PembayaranGatewayHelper.catatLogHostToHost}, bahkan ketika {@code bankHost}
+	 * bernilai {@code null}; pencatatan tanpa syarat itu adalah keputusan arsitektur yang
+	 * disengaja, bukan kelalaian.</p>
+	 *
+	 * @param nominalP           nominal yang dibayarkan dalam rupiah, dari
+	 *                           {@code additionalInfo.paymentAmount}; {@code 0.0} bila tidak ada
+	 * @param tanggalP           {@code trxDateTime} yang sufiks zona {@code +07:00}-nya sudah
+	 *                           dibuang, siap diurai {@link #dateFormat1}
+	 * @param va                 nomor VA yang dipakai mencari {@link VirtualAccountBank}
+	 * @param bank               label validator yang disimpan pada baris pembayaran; selalu
+	 *                           {@code "Briva"} dari {@link #process}
+	 * @param bankHost           {@link BankHost} hasil pemetaan IP; boleh {@code null}
+	 * @param request            permintaan asli, dipakai untuk pencatatan log H2H
+	 * @param data               body JSON mentah, menjadi kerangka objek balasan sekaligus disimpan
+	 *                           ke log
+	 * @param chekLagi           penanda pemanggilan ulang; selalu {@code true} dari {@link #doProses}
+	 * @param inquery            {@code true} untuk penanyaan tagihan, {@code false} untuk pembayaran
+	 * @param reversal           {@code true} untuk pembatalan pembayaran; selalu {@code false} dari
+	 *                           {@link #doProses}
+	 * @param chek               bila {@code true}, penjaga VA kadaluarsa dan penjaga tagihan sudah
+	 *                           dibayar <b>tidak aktif</b> — lihat peringatan di atas
+	 * @param virtualAccountData objek yang sudah diisi {@link #doProses} dan disematkan ke balasan
+	 * @param tolakTokenGerbang  alasan penolakan gerbang token H2H yang SUDAH dievaluasi pemanggil
+	 *                           lewat {@link ais.action.ws.util.PembayaranGatewayHelper#periksaGerbangTokenH2h};
+	 *                           {@code null} bila lolos (termasuk saat gerbang nonaktif/log).
+	 * @return objek JSON balasan berisi {@code responseCode}/{@code errorCode} beserta
+	 *         {@code virtualAccountData}
+	 * @throws Exception bila perakitan JSON gagal di luar blok yang sudah tertangkap
+	 * @see #doProses(String, HttpServletRequest, BankHost, String, boolean)
+	 * @see VirtualAccountBank#isSudahTerbayarUntukPayment(VirtualAccountBank, boolean, boolean, boolean)
 	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,

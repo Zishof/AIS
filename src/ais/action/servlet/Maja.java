@@ -42,14 +42,73 @@ import ais.database.model.VirtualAccountBank;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet <i>host-to-host</i> untuk kanal pembayaran <b>Maja</b>.
+ *
+ * <p>Nama kanal tidak dijelaskan di mana pun pada kode; satu-satunya penandanya adalah
+ * literal {@code "Maja"} yang dipakai sebagai label {@code validator} pada data pembayaran
+ * dan sebagai nama saat memetakan alamat IP menjadi {@link BankHost}.</p>
+ *
+ * <h4>Bentuk pesan</h4>
+ * <p>Permintaan berupa JSON pada badan dengan kunci {@code va}, {@code amount}, dan
+ * {@code date}; kunci {@code va} dan {@code date} boleh diambil dari parameter permintaan
+ * bila tidak ada di JSON. Balasan berupa JSON berkunci {@code response_code} dan
+ * {@code response_message}:</p>
+ * <ul>
+ *   <li>{@code 0000} &mdash; berhasil;</li>
+ *   <li>{@code 0005} &mdash; dipakai untuk tiga keadaan berbeda: nilai awal
+ *       {@code "Alamat IP Tidak terdaftar"}, tagihan kedaluwarsa, dan kesalahan internal;</li>
+ *   <li>{@code 0013} &mdash; nominal tidak sesuai;</li>
+ *   <li>{@code 0014} &mdash; tagihan sudah terbayar.</li>
+ * </ul>
+ *
+ * <h4>PERINGATAN KEAMANAN &mdash; endpoint ini TIDAK memiliki autentikasi</h4>
+ * <ul>
+ *   <li>{@link #process} tidak memeriksa tanda tangan, token, kunci API, Basic Auth, maupun
+ *       mTLS.</li>
+ *   <li>Pemetaan alamat IP menjadi {@link BankHost} <b>tidak dipakai sebagai gerbang</b>.
+ *       Pesan bawaan {@code "Alamat IP Tidak terdaftar"} memberi kesan ada penyaringan IP,
+ *       tetapi itu hanya nilai awal yang ditimpa begitu VA ditemukan; pemrosesan tetap
+ *       berjalan meskipun {@code bankHost} bernilai {@code null}. Pemetaan itu sendiri punya
+ *       dua jalur pelonggaran: konfigurasi
+ *       {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} yang membuat baris
+ *       {@link BankHost} baru untuk IP pemanggil apa pun, dan baris cadangan ber-IP
+ *       {@code 0.0.0.0}.</li>
+ *   <li>Pada {@code applicationContext-security.xml} URL {@code /Maja} jatuh ke aturan
+ *       penampung {@code /**} yang bernilai {@code IS_AUTHENTICATED_ANONYMOUSLY}.</li>
+ * </ul>
+ * <p>Berbeda dari sebagian gerbang lain, kanal ini <b>tidak punya mode inquiry</b>: setiap
+ * permintaan yang lolos pemeriksaan nominal langsung membukukan pembayaran. Satu panggilan
+ * tanpa autentikasi karena itu cukup untuk menandai sebuah tagihan lunas.</p>
+ *
+ * <h4>Catatan arsitektur</h4>
+ * <p>Setiap permintaan &mdash; berhasil maupun gagal, dari IP dikenal maupun tidak &mdash;
+ * wajib menghasilkan satu baris {@code LogHostToHost} lewat
+ * {@code PembayaranGatewayHelper.catatLogHostToHost} di blok {@code finally}. Ini pola
+ * <i>audit shadow</i> yang berlaku di seluruh gerbang pembayaran AIS dan merupakan fakta
+ * arsitektur yang disengaja, bukan cacat.</p>
+ *
+ * @see ais.database.model.VirtualAccountBank
+ * @see ais.action.ws.util.PembayaranGatewayHelper
  */
 public class Maja extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton pembantu pembayaran, dipakai di {@link #process} untuk memetakan alamat IP
+	 * pemanggil menjadi {@link BankHost}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh kebergantungan diambil lewat field
+	 * statis {@link #pembayaranUtil}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Maja() {
@@ -59,8 +118,17 @@ public class Maja extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Perilakunya sama dengan POST karena payload selalu dibaca dari badan permintaan.
+	 * Kegagalan ditelan {@link Common#tampilErrorJikaAdmin(Exception)} sehingga mitra tidak
+	 * menerima kode status 5xx; pada kondisi itu badan balasan bisa kosong.</p>
+	 *
+	 * @param request  permintaan masuk dari mitra
+	 * @param response balasan yang akan diisi JSON hasil
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -72,8 +140,15 @@ public class Maja extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Perilaku sama persis dengan {@link #doGet}.</p>
+	 *
+	 * @param request  permintaan masuk dari mitra
+	 * @param response balasan yang akan diisi JSON hasil
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -84,6 +159,59 @@ public class Maja extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membukukan pembayaran satu nomor VA dan menyusun balasan untuk mitra.
+	 *
+	 * <h4>Urutan pemeriksaan</h4>
+	 * <ol>
+	 *   <li>VA dicari lewat {@link VirtualAccountBank#ambilVa(String, Double, BankHost)}. Bila
+	 *       tidak ada, atau totalnya tidak lebih dari 0,1, balasan tetap memakai nilai awal
+	 *       {@code 0005} sehingga mitra menerima pesan {@code "Alamat IP Tidak terdaftar"} yang
+	 *       sebenarnya menyesatkan.</li>
+	 *   <li>{@code nominalP} harus sama persis dengan {@code biayaAdmin + total}; bila tidak,
+	 *       balasan {@code 0013 Invalid Amount}.</li>
+	 *   <li>Pemeriksaan kedaluwarsa berada di belakang syarat {@code !chekLagi}. <b>Perhatikan:</b>
+	 *       satu-satunya pemanggil, {@link #process}, selalu mengirim {@code chekLagi} bernilai
+	 *       {@code true}, sehingga pemeriksaan kedaluwarsa pada praktiknya <b>tidak pernah
+	 *       dijalankan</b> dan VA yang sudah lewat tanggal tetap dapat dibayar.</li>
+	 *   <li>VA yang sudah lunas dibalas {@code 0014 Tagihan sudah terbayar}.</li>
+	 * </ol>
+	 *
+	 * <h4>Dua cabang pemilik tagihan</h4>
+	 * <ul>
+	 *   <li><b>Sekolah</b> &mdash; bila VA menunjuk {@code siswa} atau {@code calonSiswa},
+	 *       pembukuan diserahkan ke {@link VirtualAccountBank#bayarSiswa}.</li>
+	 *   <li><b>Perguruan tinggi</b> &mdash; sebuah {@link Kegiatan} dicari atau dibuat, lalu
+	 *       daftar {@code cicilan} pada VA diurai per token: angka murni dan awalan
+	 *       {@code Bulanan-} menunjuk {@link PengaturanPembayaranBulanan}, awalan {@code Item-}
+	 *       menunjuk {@link ItemBiaya}. Tiap token menghasilkan satu {@link CicilanPembayaran}
+	 *       yang di-<i>idempoten</i>-kan lewat kolom {@code ref}, sekaligus satu entri rincian
+	 *       pada larik JSON yang ikut disimpan ke log H2H. Setelah semua token selesai, total
+	 *       dan denda dihitung ulang, {@link Kegiatan} disimpan, dan VA ditandai lunas lewat
+	 *       {@link VirtualAccountBank#updateVa}.</li>
+	 * </ul>
+	 *
+	 * <p><b>Keamanan:</b> method ini menerima {@code bankHost} bernilai {@code null} dan tetap
+	 * memproses. Seluruh pemeriksaan di atas bersifat konsistensi data, <b>bukan</b> otorisasi;
+	 * lihat peringatan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Kegagalan apa pun menghasilkan {@code 0005 Terjadi kesalahan internal} setelah transaksi
+	 * yang masih aktif di-<i>rollback</i>. Session ditutup dan log H2H ditulis di blok
+	 * {@code finally}.</p>
+	 *
+	 * @param nominalP  nominal setoran yang dilaporkan mitra
+	 * @param tanggalP  tanggal transaksi dalam format {@code Common.databaseDateFormat1}; bila
+	 *                  gagal diurai dipakai waktu server saat ini
+	 * @param va        nomor Virtual Account
+	 * @param bank      label bank yang disimpan sebagai {@code validator} pada data pembayaran
+	 * @param bankHost  host bank hasil pemetaan IP; boleh {@code null} dan tidak menjadi gerbang
+	 * @param request   permintaan asal, diteruskan ke pencatat log H2H
+	 * @param data      payload JSON mentah, disimpan apa adanya pada log H2H
+	 * @param chekLagi  {@code true} melewati pemeriksaan kedaluwarsa; selalu bernilai {@code true}
+	 *                  pada satu-satunya pemanggil
+	 * @return objek JSON balasan berisi {@code response_code} dan {@code response_message}
+	 * @throws Exception bila kegagalan terjadi di luar jangkauan penanganan internal
+	 */
 	@SuppressWarnings({ "unchecked", "static-access" })
 	public static JSONObject doProcess(int nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi) throws Exception {
@@ -667,6 +795,39 @@ public class Maja extends HttpServlet {
 		return jsonObjectResponse;
 	}
 
+	/**
+	 * Membaca permintaan HTTP mentah, memprosesnya, dan menuliskan balasan JSON.
+	 *
+	 * <p>Langkah yang dijalankan berurutan:</p>
+	 * <ol>
+	 *   <li>badan permintaan dibaca baris demi baris menjadi satu string JSON &mdash; pemisah
+	 *       baris dibuang sehingga payload multi-baris digabung rapat;</li>
+	 *   <li>payload dan <i>query string</i> dicetak ke {@code System.out};</li>
+	 *   <li>nomor VA diambil dari kunci {@code va}, dengan cadangan parameter permintaan bernama
+	 *       sama; nominal dari kunci {@code amount}; tanggal dari kunci {@code date} dengan
+	 *       cadangan serupa;</li>
+	 *   <li>alamat IP pemanggil dipetakan menjadi {@link BankHost} dengan label {@code "Maja"};</li>
+	 *   <li>{@link #doProcess} dipanggil dengan {@code chekLagi} bernilai {@code true} &mdash;
+	 *       lihat catatan di sana mengenai pemeriksaan kedaluwarsa yang karenanya tidak pernah
+	 *       berjalan;</li>
+	 *   <li>hasil ditulis sebagai {@code application/json} disertai header {@code length} khusus
+	 *       berisi panjang badan balasan.</li>
+	 * </ol>
+	 *
+	 * <p><b>Keamanan:</b> tidak ada satu pun pemeriksaan kredensial di sini, dan hasil pemetaan
+	 * {@link BankHost} tidak pernah diuji sebelum pemrosesan dilanjutkan. Pencetakan payload dan
+	 * <i>query string</i> ke keluaran standar juga menyalin isi transaksi ke log server.</p>
+	 *
+	 * <p>Perhatikan bahwa {@code req.getInt("amount")} dipanggil tanpa penjagaan, sehingga
+	 * payload tanpa kunci {@code amount} &mdash; atau badan permintaan kosong, yang membuat
+	 * {@code req} bernilai {@code null} &mdash; menggagalkan pemrosesan sebelum sempat masuk ke
+	 * {@link #doProcess}, sehingga tidak ada baris log H2H yang tercatat untuk permintaan
+	 * seperti itu.</p>
+	 *
+	 * @param request  permintaan masuk dari mitra
+	 * @param response balasan yang akan diisi JSON hasil
+	 * @throws Exception bila pembacaan permintaan, penguraian JSON, atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
