@@ -372,6 +372,27 @@ final class SalesInventoryDbfImportTenant {
 	}
 
 	/**
+	 * Mutasi penyesuaian opname — ber-{@code jenis} {@link TenantMutasiStok#OPNAME}, bukan
+	 * menumpang PENGADAAN/PENJUALAN.
+	 *
+	 * <p>Penyesuaian opname memang menggerakkan saldo seperti pembelian atau penjualan, tetapi ia
+	 * BUKAN keduanya. Menumpangkannya membuat laporan pembelian dan penjualan ikut membengkak, dan
+	 * kartu stok menyebut koreksi fisik sebagai "PENGADAAN" — angka saldonya benar, tetapi
+	 * ceritanya salah. Terukur saat pertama kali ditulis begitu: total PENGADAAN membengkak
+	 * 211.554 unit dan PENJUALAN 194.728 unit di atas berkas sumbernya.</p>
+	 *
+	 * <p>{@code arah} ditentukan pemanggil dari tanda selisihnya: fisik lebih banyak = masuk.</p>
+	 */
+	static String sisipMutasiOpname(String skema, boolean masuk) {
+		return "INSERT INTO " + skema + "mutasi_stok (produk_id, gudang_id, tanggal, jenis, arah,"
+				+ " kuantitas, harga_satuan, nilai, nomor_dokumen, keterangan, idempotency_key,"
+				+ " dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, '" + TenantMutasiStok.OPNAME + "', "
+				+ (masuk ? TenantMutasiStok.MASUK : TenantMutasiStok.KELUAR)
+				+ ", ?, ?, ?, ?, ?, ?, now(), ?)";
+	}
+
+	/**
 	 * Rincian opname. {@code selisih} disimpan sebagai kolom tersendiri walau dapat diturunkan
 	 * dari fisik-sistem: nilainya adalah potret saat opname, dan menghitungnya ulang di kemudian
 	 * hari akan memakai angka sistem yang sudah berubah.

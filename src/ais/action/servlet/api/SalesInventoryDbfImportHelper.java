@@ -942,7 +942,7 @@ public final class SalesInventoryDbfImportHelper {
 		if (selisih.signum() != 0) {
 			boolean masuk = selisih.signum() > 0;
 			String kunci = potong("LEGACY-OPNAME-" + nomor + "-" + kodeProduk, 128);
-			jalankan(session, SalesInventoryDbfImportTenant.sisipMutasiRiwayat(sk, masuk),
+			jalankan(session, SalesInventoryDbfImportTenant.sisipMutasiOpname(sk, masuk),
 					new Object[] { produkId, gudangId, sqlTgl, selisih.abs(), hrg, null,
 							nomor, "Migrasi dataopn.dbf; selisih opname " + selisih.toPlainString(),
 							kunci, oleh });
