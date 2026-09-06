@@ -729,6 +729,20 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		this.kodeAdminYgBoleh = kodeAdminYgBoleh;
 	}
 
+	/**
+	 * Grup pengelompokan parameter.
+	 *
+	 * <p>Relasi {@code LAZY}; nilai dilewatkan {@code check(...)} milik {@link GeneralValueObject} yang
+	 * menormalkan proxy Hibernate yang sudah tidak sah (mis. sesi sudah tertutup) menjadi {@code null}
+	 * alih-alih melempar {@code LazyInitializationException}. Karena itu getter ini bisa mengembalikan
+	 * {@code null} untuk baris yang di basis data sebenarnya PUNYA grup — jangan menyimpulkan "tidak
+	 * bergrup" dari {@code null} tanpa memastikan sesi masih terbuka.</p>
+	 *
+	 * <p>{@code cascade = PERSIST, MERGE} berarti menyimpan parameter juga menyimpan grup baru yang
+	 * terpasang padanya.</p>
+	 *
+	 * @return grup pemilik, atau {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "grup_parameter_tambahan", nullable = true)
 	public GrupParameterTambahan getGrupParameterTambahan() {
@@ -736,35 +750,96 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return grupParameterTambahan;
 	}
 
+	/**
+	 * Menetapkan grup pengelompokan parameter.
+	 *
+	 * @param grupParameterTambahan grup; boleh {@code null}.
+	 */
 	public void setGrupParameterTambahan(GrupParameterTambahan grupParameterTambahan) {
 		this.grupParameterTambahan = grupParameterTambahan;
 	}
 
+	/**
+	 * Apakah form menampilkan baris isian keterangan tambahan di bawah komponen utama.
+	 *
+	 * <p>Getter MURNI (memakai ternary, tidak menulis ke field) — beda gaya dari mayoritas getter kelas ini.
+	 * Bila {@code true}, {@link ParameterTambahanAstract#initComponent} menambahkan satu {@code MyFormRow}
+	 * berisi {@code Textbox} 2 baris, atau {@code Label} mati saat mode hanya-baca.</p>
+	 *
+	 * @return {@code true} bila keterangan ditampilkan; tidak pernah {@code null}.
+	 */
 	public Boolean getTampilkanIsianKeterangan() {
 		return tampilkanIsianKeterangan == null ? false : tampilkanIsianKeterangan;
 	}
 
+	/**
+	 * Menetapkan tampil/tidaknya baris keterangan tambahan.
+	 *
+	 * @param tampilkanIsianKeterangan penanda; {@code null} dibaca sebagai {@code false}.
+	 */
 	public void setTampilkanIsianKeterangan(Boolean tampilkanIsianKeterangan) {
 		this.tampilkanIsianKeterangan = tampilkanIsianKeterangan;
 	}
 
+	/**
+	 * Label untuk baris keterangan tambahan.
+	 *
+	 * <p>Getter MURNI dengan default tampilan {@code "Keterangan"} bila field kosong. Default itu hanya ada
+	 * di memori — tidak pernah ditulis balik ke basis data, sehingga kolomnya tetap {@code NULL}.</p>
+	 *
+	 * @return label yang sudah di-{@code trim}, atau {@code "Keterangan"}; tidak pernah {@code null}.
+	 */
 	public String getLabelInputanKeterangan() {
 		return labelInputanKeterangan == null || labelInputanKeterangan.trim().isEmpty() ? "Keterangan"
 				: labelInputanKeterangan.trim();
 	}
 
+	/**
+	 * Menetapkan label baris keterangan tambahan.
+	 *
+	 * @param labelInputanKeterangan label; {@code null}/kosong akan tampil sebagai {@code "Keterangan"}.
+	 */
 	public void setLabelInputanKeterangan(String labelInputanKeterangan) {
 		this.labelInputanKeterangan = labelInputanKeterangan;
 	}
 
+	/**
+	 * Jumlah baris {@code Textbox} untuk tipe {@link ParameterTambahanAstract#TEXT}.
+	 *
+	 * <p>Getter MURNI, default {@code 1} (isian satu baris). Diteruskan langsung ke
+	 * {@code Textbox.setRows(...)} oleh {@link ParameterTambahanAstract#ambilComponent}; nilai {@code 0}
+	 * atau negatif tidak disaring di sini dan akan ditolak komponen ZK.</p>
+	 *
+	 * @return jumlah baris; tidak pernah {@code null}.
+	 */
 	public Integer getJumlahBaris() {
 		return jumlahBaris == null ? 1 : jumlahBaris;
 	}
 
+	/**
+	 * Menetapkan jumlah baris {@code Textbox}.
+	 *
+	 * @param jumlahBaris jumlah baris; sebaiknya bernilai positif.
+	 */
 	public void setJumlahBaris(Integer jumlahBaris) {
 		this.jumlahBaris = jumlahBaris;
 	}
 
+	/**
+	 * Parameter induk untuk pertanyaan bertingkat.
+	 *
+	 * <p>Relasi diri {@code LAZY} dengan normalisasi {@code check(...)} yang sama seperti
+	 * {@link #getGrupParameterTambahan()}. Dipakai untuk menaungi butir-butir turunan di bawah satu
+	 * pertanyaan payung — lihat contoh {@code f18} beserta {@code f18a}..{@code f18d} pada
+	 * {@link #generateKuetionerTracerkemendikbud()}, di mana pertanyaan payung sengaja bertipe
+	 * {@link ParameterTambahanAstract#TIDAK_ADA} sehingga hanya menjadi judul tanpa komponen isian.</p>
+	 *
+	 * <p><b>Tidak ada penjaga siklus.</b> Baik setter maupun getter tidak memeriksa apakah rantai induk
+	 * membentuk lingkaran ({@code A -> B -> A}), sehingga penelusur yang menaiki rantai ini harus membatasi
+	 * kedalamannya sendiri.</p>
+	 *
+	 * @return parameter induk, atau {@code null} bila parameter ini berdiri sendiri.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "parent", nullable = true)
 	public ParameterTambahan getParent() {
@@ -772,23 +847,69 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return parent;
 	}
 
+	/**
+	 * Menetapkan parameter induk.
+	 *
+	 * @param parent induk; tidak diperiksa terhadap siklus maupun terhadap dirinya sendiri.
+	 */
 	public void setParent(ParameterTambahan parent) {
 		this.parent = parent;
 	}
 
+	/**
+	 * Syarat tampil bersyarat (skip-logic) dalam bentuk JSON.
+	 *
+	 * <p>Getter MURNI — satu-satunya getter {@code String} di kelas ini yang boleh mengembalikan
+	 * {@code null}, dan {@code null}/kosong bermakna "parameter SELALU tampil". Format yang dipahami
+	 * {@code ais.common.ParameterTambahanHtmlHelper.lolosSyaratTampil}:</p>
+	 * <pre>
+	 *   {"logika":"AND","syarat":[{"parameterId":123,"nilai":"Bekerja"},{"parameterId":456,"nilai":"Ya"}]}
+	 * </pre>
+	 * <p>Jumlah parameter acuan tidak dibatasi dan penggabungannya bisa {@code AND} atau {@code OR}.
+	 * Evaluasinya dilakukan ulang secara langsung di layar oleh
+	 * {@link ParameterTambahanAstract#reevaluasiSkipLogic(java.util.List)} setiap kali komponen acuan
+	 * berubah.</p>
+	 *
+	 * <p><b>Sekali lagi: ini kendali TAMPILAN.</b> Baris yang tersembunyi karena syarat tidak terpenuhi tetap
+	 * ada di dalam form dan nilainya tetap ikut terbaca saat menyimpan.</p>
+	 *
+	 * @return JSON syarat tampil, atau {@code null}/kosong bila tanpa syarat.
+	 */
 	@javax.persistence.Column(columnDefinition = "text")
 	public String getSyaratTampil() {
 		return syaratTampil;
 	}
 
+	/**
+	 * Menetapkan syarat tampil bersyarat.
+	 *
+	 * @param syaratTampil JSON sesuai format pada {@link #getSyaratTampil()}; JSON yang cacat tidak ditolak
+	 *                     di sini dan akan diperlakukan sebagai "selalu tampil" saat dievaluasi.
+	 */
 	public void setSyaratTampil(String syaratTampil) {
 		this.syaratTampil = syaratTampil;
 	}
 
+	/**
+	 * Menetapkan jurusan pembatas lingkup.
+	 *
+	 * @param jurusan jurusan; {@code null} berarti tidak dibatasi jurusan.
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Jurusan pembatas lingkup parameter.
+	 *
+	 * <p><b>Bukan penjaga akses.</b> Keempat field lingkup ({@code jurusan}, {@code fakultas},
+	 * {@code yayasan}, {@code sekolah}) hanyalah PENANDA; kelas ini tidak pernah menyaring apa pun
+	 * berdasarkan nilainya. Penyaringan sepenuhnya berada di kueri pemanggil, sehingga pemanggil yang lupa
+	 * menambahkan pembatasan akan menampilkan parameter milik lingkup lain. Baris dengan keempatnya
+	 * {@code null} memang dimaksudkan berlaku lintas lingkup.</p>
+	 *
+	 * @return jurusan pembatas, atau {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -796,10 +917,20 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return jurusan;
 	}
 
+	/**
+	 * Menetapkan fakultas pembatas lingkup.
+	 *
+	 * @param fakultas fakultas; {@code null} berarti tidak dibatasi fakultas.
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		this.fakultas = fakultas;
 	}
 
+	/**
+	 * Fakultas pembatas lingkup parameter. Lihat catatan "bukan penjaga akses" pada {@link #getJurusan()}.
+	 *
+	 * @return fakultas pembatas, atau {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "fakultas", nullable = true)
 	public Fakultas getFakultas() {
@@ -807,10 +938,34 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return fakultas;
 	}
 
+	/**
+	 * Menetapkan yayasan pembatas lingkup.
+	 *
+	 * <p>Menolak objek yang belum tersimpan: yayasan yang {@code getId()}-nya masih {@code null} disimpan
+	 * sebagai {@code null}, bukan sebagai objek sementara. Ini mencegah cascade {@code PERSIST} ikut
+	 * membuat baris yayasan baru yang tidak diinginkan hanya karena form mengirim objek kosong.</p>
+	 *
+	 * @param yayasan yayasan yang SUDAH tersimpan; objek tanpa id diperlakukan sebagai {@code null}.
+	 */
 	public void setYayasan(Yayasan yayasan) {
 		this.yayasan = yayasan == null || yayasan.getId() == null ? null : yayasan;
 	}
 
+	/**
+	 * Yayasan pembatas lingkup parameter, dengan penurunan otomatis dari sekolah.
+	 *
+	 * <p><b>Getter memutasi field, dan bersifat MENIMPA.</b> Bila {@link #getSekolah()} tidak {@code null},
+	 * getter ini MENGGANTI field {@code yayasan} dengan yayasan milik sekolah tersebut — membuang nilai yang
+	 * ditetapkan lewat {@link #setYayasan(Yayasan)}. Jadi begitu sebuah sekolah terpasang, yayasan menjadi
+	 * field TURUNAN yang tidak bisa lagi diatur mandiri; setiap pembacaan akan menyelaraskannya kembali dan
+	 * perubahan itu ikut tersimpan bila entity ter-flush.</p>
+	 *
+	 * <p>Aturan ini memang menjaga agar yayasan tidak pernah berbeda dari yayasan sekolahnya, tetapi
+	 * konsekuensinya perlu diketahui: menetapkan yayasan secara eksplisit hanya berlaku selama
+	 * {@code sekolah} masih {@code null}.</p>
+	 *
+	 * @return yayasan pembatas, atau {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "yayasan", nullable = true)
 	public Yayasan getYayasan() {
@@ -821,6 +976,14 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return yayasan;
 	}
 
+	/**
+	 * Sekolah pembatas lingkup parameter.
+	 *
+	 * <p>Menjadi ACUAN bagi {@link #getYayasan()}: selama nilainya tidak {@code null}, yayasan selalu
+	 * diturunkan dari sini. Lihat catatan "bukan penjaga akses" pada {@link #getJurusan()}.</p>
+	 *
+	 * @return sekolah pembatas, atau {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sekolah", nullable = true)
 	public Sekolah getSekolah() {
@@ -828,6 +991,15 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return sekolah;
 	}
 
+	/**
+	 * Menetapkan sekolah pembatas lingkup.
+	 *
+	 * <p>Menolak objek yang belum tersimpan dengan alasan yang sama seperti
+	 * {@link #setYayasan(Yayasan)}. Perlu diingat bahwa mengisi sekolah di sini akan MENIMPA yayasan pada
+	 * pembacaan berikutnya.</p>
+	 *
+	 * @param sekolah sekolah yang SUDAH tersimpan; objek tanpa id diperlakukan sebagai {@code null}.
+	 */
 	public void setSekolah(Sekolah sekolah) {
 		this.sekolah = sekolah == null || sekolah.getId() == null ? null : sekolah;
 	}
@@ -1967,30 +2139,120 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		}
 	}
 
+	/**
+	 * Potongan SQL penyaring kandidat untuk tipe {@link ParameterTambahanAstract#PILIHAN_OBJECT}.
+	 *
+	 * <p>Getter MURNI, default string kosong. Nilai balik dipakai
+	 * {@link ParameterTambahanAstract#ambilComponent} sebagai
+	 * {@code Restrictions.sqlRestriction(getKondisiDataInputan())} — SQL MENTAH tanpa parameter terikat.
+	 * Isinya karena itu harus dianggap kode tepercaya yang hanya boleh ditulis pengelola parameter lewat
+	 * layar master; jangan pernah menyalurkan masukan pengguna akhir ke kolom ini. Bila kosong,
+	 * {@code ambilComponent} memakai {@code sqlRestriction("true")} sehingga seluruh baris menjadi
+	 * kandidat.</p>
+	 *
+	 * @return potongan SQL penyaring; string kosong bila tanpa penyaring.
+	 */
 	public String getKondisiDataInputan() {
 		return kondisiDataInputan == null ? "" : kondisiDataInputan;
 	}
 
+	/**
+	 * Menetapkan potongan SQL penyaring kandidat.
+	 *
+	 * @param kondisiDataInputan SQL mentah; tidak divalidasi maupun di-escape di sini.
+	 */
 	public void setKondisiDataInputan(String kondisiDataInputan) {
 		this.kondisiDataInputan = kondisiDataInputan;
 	}
 
+	/**
+	 * Batas atas nilai untuk tipe {@link ParameterTambahanAstract#ANGKA}.
+	 *
+	 * <p>Getter MURNI dengan default sangat longgar ({@code 100000000.0}) sehingga parameter yang batasnya
+	 * tidak diisi praktis tak terbatas. Penegakannya dilakukan di layar oleh pendengar {@code onChange}
+	 * pada {@code MyDoublebox}: nilai yang melewati batas ditolak dengan kotak pesan dan komponen
+	 * dikembalikan ke nilai sebelumnya.</p>
+	 *
+	 * <p><b>Validasi ini hanya di sisi layar ZK.</b> Jalur non-ZK — impor, REST/API, atau penyimpanan
+	 * langsung — tidak melewatinya sama sekali, jadi jangan mengandalkannya sebagai jaminan integritas
+	 * data.</p>
+	 *
+	 * @return batas atas; tidak pernah {@code null}.
+	 */
 	public Double getNilaiMax() {
 		return nilaiMax == null ? 100000000.0 : nilaiMax;
 	}
 
+	/**
+	 * Menetapkan batas atas nilai.
+	 *
+	 * @param nilaiMax batas atas; tidak diperiksa terhadap {@link #getNilaiMin()}, sehingga rentang
+	 *                 terbalik ({@code max < min}) mungkin terjadi dan membuat isian mustahil valid.
+	 */
 	public void setNilaiMax(Double nilaiMax) {
 		this.nilaiMax = nilaiMax;
 	}
 
+	/**
+	 * Batas bawah nilai untuk tipe {@link ParameterTambahanAstract#ANGKA}.
+	 *
+	 * <p>Getter MURNI dengan default {@code -100000000.0}. Berlaku catatan yang sama seperti
+	 * {@link #getNilaiMax()}: penegakannya hanya di layar ZK.</p>
+	 *
+	 * @return batas bawah; tidak pernah {@code null}.
+	 */
 	public Double getNilaiMin() {
 		return nilaiMin == null ? -100000000.0 : nilaiMin;
 	}
 
+	/**
+	 * Menetapkan batas bawah nilai.
+	 *
+	 * @param nilaiMin batas bawah; tidak diperiksa terhadap {@link #getNilaiMax()}.
+	 */
 	public void setNilaiMin(Double nilaiMin) {
 		this.nilaiMin = nilaiMin;
 	}
 
+	/**
+	 * Membentangkan (expand) SELURUH property objek yang dirujuk sebuah nilai parameter ke dalam map
+	 * parameter laporan.
+	 *
+	 * <p>Hanya berlaku untuk tipe inputan yang nilainya berupa RUJUKAN ke entity lain. Untuk tipe tersebut
+	 * yang tersimpan di {@code parameterTambahanInds} hanyalah id-nya, sehingga laporan tidak bisa
+	 * menampilkan kolom lain dari objek itu tanpa dibentangkan lebih dulu. Method ini memuat objeknya lalu
+	 * menyerahkannya ke {@code Common.insertProperty} yang menuliskan setiap property sebagai
+	 * {@code <jenis_id>.<namaProperty>}.</p>
+	 *
+	 * <p><b>Format nilai berbeda antar tipe — dan ini sumber kerapuhan.</b> Pemisah yang dipakai untuk
+	 * mengambil bagian id tidak seragam:</p>
+	 * <ul>
+	 * <li>{@link ParameterTambahanAstract#PILIHAN_PENYEDIA} dan
+	 * {@link ParameterTambahanAstract#PILIHAN_OBJECT} memakai {@code split("->")}, sesuai bentuk
+	 * {@code "<id>-><label>"} yang dihasilkan {@link ParameterTambahanAstract#ambilValComponent}.</li>
+	 * <li>{@link ParameterTambahanAstract#PILIHAN_SISWA}, {@link ParameterTambahanAstract#PILIHAN_GURU},
+	 * {@link ParameterTambahanAstract#PILIHAN_MAHASISWA},
+	 * {@link ParameterTambahanAstract#PILIHAN_DOSEN} dan
+	 * {@link ParameterTambahanAstract#PILIHAN_KELAS_SISWA} memakai {@code split("-")} — TANDA HUBUNG
+	 * TUNGGAL. Karena {@code ambilValComponent} menulis nilainya dengan {@code "->"}, memotong pada
+	 * {@code "-"} kebetulan tetap menghasilkan id yang benar (bagian sebelum tanda hubung sama saja).
+	 * Ketergantungan kebetulan ini rapuh: bentuk nilai apa pun yang mengandung tanda hubung di dalam
+	 * bagian id akan terpotong salah.</li>
+	 * </ul>
+	 *
+	 * <p>Setiap cabang dibungkus {@code try/catch} yang mencatat ke {@code ErrorAuditUtil} lalu melanjutkan,
+	 * sehingga satu nilai rusak tidak menggagalkan pembentangan parameter lainnya. Untuk
+	 * {@code PILIHAN_SISWA} ada tambahan: kelas siswa ikut dibentangkan dengan akhiran {@code ".kls"}.</p>
+	 *
+	 * <p>Tipe non-rujukan (teks, angka, tanggal, pilihan custom, matriks) tidak ditangani method ini sama
+	 * sekali — nilai mentahnya sudah cukup dan dimasukkan pemanggil.</p>
+	 *
+	 * @param vall    nilai tersimpan parameter ini, lazimnya berbentuk {@code "<id>-><label>"}.
+	 * @param jenis_id awalan kunci pada map, mis. {@code "<kelId>_<ptId>"} atau
+	 *                 {@code "param.kode.<kode>"}.
+	 * @param map      map parameter laporan yang akan ditambahi; diubah di tempat.
+	 * @see #masukkanSemuaParameterKeMap(String, Map)
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void masukkanData(String vall, String jenis_id, Map map) {
 		ParameterTambahan parameterTambahan = this;

@@ -724,28 +724,109 @@ public class LogHostToHost extends GeneralValueObject {
 		return bankHost;
 	}
 
+	/**
+	 * Menyetel mitra host-to-host secara eksplisit.
+	 *
+	 * <p>
+	 * Perlu diingat bahwa nilai yang disetel di sini <b>tidak selalu bertahan saat dibaca
+	 * kembali</b>: {@link #getBankHost()} akan menimpanya dengan hasil pencocokan
+	 * {@link #getIp()} terhadap master {@link BankHost} bila IP tidak kosong dan ada yang cocok.
+	 * Agar nilai eksplisit ini dipertahankan, pastikan {@link #getIp()} kosong atau tidak cocok
+	 * dengan entri mana pun.
+	 * </p>
+	 *
+	 * @param bankHost mitra host-to-host; boleh {@code null}
+	 */
 	public void setBankHost(BankHost bankHost) {
 		this.bankHost = bankHost;
 	}
 
+	/**
+	 * Menyetel waktu terjadinya interaksi host-to-host.
+	 *
+	 * <p>
+	 * Field ini sudah terisi otomatis dengan waktu server saat objek dibuat, jadi setter ini
+	 * umumnya hanya dipakai bila modul integrasi ingin memakai stempel waktu dari mitra
+	 * (misalnya {@code transactionDate} pada payload bank) alih-alih waktu penerimaan lokal.
+	 * Menyimpan waktu mitra memang lebih akurat untuk rekonsiliasi, tetapi menyisakan risiko
+	 * yang harus diantisipasi: nilainya berasal dari pihak luar dan tidak divalidasi di sini,
+	 * sehingga baris log bisa saja bertanggal masa depan atau masa lampau jauh.
+	 * </p>
+	 *
+	 * @param tanggal waktu interaksi; boleh {@code null} (akan menghapus nilai awal)
+	 */
 	public void setTanggal(Date tanggal) {
 		this.tanggal = tanggal;
 	}
 
+	/**
+	 * Mengembalikan waktu terjadinya interaksi host-to-host (presisi TIMESTAMP).
+	 *
+	 * <p>
+	 * Inilah sumbu waktu bisnis entitas ini: penyaringan periode pada layar pemantauan maupun
+	 * pencocokan dengan mutasi bank memakai kolom ini, bukan {@link #getTanggal_dirubah()}.
+	 * </p>
+	 *
+	 * @return waktu interaksi; terisi waktu server saat objek dibuat bila tidak disetel
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal() {
 		return tanggal;
 	}
 
+	/**
+	 * Menyetel nomor induk (NIM/NIS) pembayar.
+	 *
+	 * <p>
+	 * Kolom ini adalah jalur eksplisit untuk mencatat identitas pembayar, terpisah dari
+	 * penanda {@code "NIM ="} yang di-<i>parse</i> {@link #getKode()} dari {@link #getNama()}.
+	 * Karena tidak semua modul integrasi mengisi keduanya, jangan berasumsi
+	 * {@code getNim()} dan {@code getKode()} selalu konsisten — pada banyak baris hanya salah
+	 * satunya yang terisi.
+	 * </p>
+	 *
+	 * @param nim nomor induk pembayar; boleh {@code null}
+	 */
 	public void setNim(String nim) {
 		this.nim = nim;
 	}
 
+	/**
+	 * Mengembalikan nomor induk (NIM/NIS) pembayar bila modul integrasi mengisinya.
+	 *
+	 * <p>
+	 * Method ini <b>tidak memiliki anotasi {@code @Column}</b>, berbeda dari hampir semua
+	 * properti lain di kelas ini. Karena pemetaan kelas ini berbasis properti (anotasi
+	 * {@code @Id} berada pada getter), ketiadaan {@code @Column} tidak membuat properti
+	 * diabaikan — Hibernate tetap memetakannya ke kolom dengan nama turunan properti sesuai
+	 * strategi penamaan yang berlaku. Yang hilang hanyalah {@code columnDefinition = "text"},
+	 * sehingga kolom ini tunduk pada panjang bawaan JPA dan berpotensi menolak nilai panjang —
+	 * risiko yang secara praktis kecil untuk NIM, tetapi patut diketahui bila kolom ini kelak
+	 * dipakai menampung identitas berformat lain.
+	 * </p>
+	 *
+	 * @return nomor induk pembayar, atau {@code null} bila tidak dicatat
+	 */
 	public String getNim() {
 		return nim;
 	}
 
 	/**
+	 * <p>
+	 * Kode hasil menurut protokol mitra, apa adanya. Pada sebagian besar protokol host-to-host
+	 * perbankan, {@code "00"} berarti sukses dan nilai lain berarti gagal dengan sebab tertentu
+	 * — tetapi <b>pemetaan kode ke makna adalah milik masing-masing mitra</b>, bukan milik AIS.
+	 * Karena itu kode yang sama dari dua {@link BankHost} berbeda bisa berarti hal berbeda;
+	 * selalu tafsirkan bersama {@link #getBankHost()} dan {@link #getResponseDescription()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Kolom dibatasi 20 karakter — satu-satunya kolom string di entitas ini yang <i>tidak</i>
+	 * dipetakan sebagai {@code text}. Mitra yang mengembalikan kode lebih panjang dari 20
+	 * karakter akan membuat penyimpanan baris log gagal, sehingga jejak transaksinya justru
+	 * hilang; bila menambah integrasi baru, periksa panjang kode hasilnya lebih dulu.
+	 * </p>
+	 *
 	 * @return the responseCode
 	 */
 	@Column(name = "response_code", length = 20, nullable = true)
@@ -754,6 +835,12 @@ public class LogHostToHost extends GeneralValueObject {
 	}
 
 	/**
+	 * <p>
+	 * Isi dengan kode hasil mentah dari mitra tanpa penerjemahan, agar jurnal tetap dapat
+	 * dibandingkan dengan catatan sisi bank saat rekonsiliasi. Ingat batas 20 karakter pada
+	 * kolomnya (lihat {@link #getResponseCode()}).
+	 * </p>
+	 *
 	 * @param responseCode the responseCode to set
 	 */
 	public void setResponseCode(String responseCode) {
@@ -761,6 +848,14 @@ public class LogHostToHost extends GeneralValueObject {
 	}
 
 	/**
+	 * <p>
+	 * Keterangan hasil menurut protokol mitra, pendamping {@link #getResponseCode()}. Dipetakan
+	 * sebagai {@code text} karena sejumlah mitra mengembalikan kalimat galat panjang, kadang
+	 * beserta potongan pesan teknis dari sistem inti mereka. Karena itu isi kolom ini juga
+	 * berpotensi memuat informasi internal pihak ketiga — perlakukan sebagai data terbatas,
+	 * jangan diteruskan mentah-mentah ke pengguna akhir.
+	 * </p>
+	 *
 	 * @return the responseDescription
 	 */
 	@Column(name = "response_description", columnDefinition = "text", nullable = true)
@@ -769,16 +864,41 @@ public class LogHostToHost extends GeneralValueObject {
 	}
 
 	/**
+	 * <p>
+	 * Isi dengan keterangan hasil mentah dari mitra. Tidak ada pemangkasan panjang maupun
+	 * penyaringan karakter di sini.
+	 * </p>
+	 *
 	 * @param responseDescription the responseDescription to set
 	 */
 	public void setResponseDescription(String responseDescription) {
 		this.responseDescription = responseDescription;
 	}
 
+	/**
+	 * Menyetel kegiatan/agenda yang menjadi konteks transaksi.
+	 *
+	 * @param kegiatan kegiatan terkait; {@code null} untuk transaksi yang tidak melekat pada
+	 *                 kegiatan tertentu (misalnya tagihan kuliah reguler)
+	 */
 	public void setKegiatan(Kegiatan kegiatan) {
 		this.kegiatan = kegiatan;
 	}
 
+	/**
+	 * Mengembalikan kegiatan/agenda yang menjadi konteks transaksi, bila ada.
+	 *
+	 * <p>
+	 * Relasi ini opsional dan dipakai oleh alur pembayaran yang tagihannya terikat pada suatu
+	 * {@link Kegiatan} (pendaftaran acara, wisuda, dan sejenisnya). Anotasi
+	 * {@link org.hibernate.annotations.Fetch} dengan {@code FetchMode.SELECT} memaksa
+	 * pengambilan relasi lewat query terpisah alih-alih {@code JOIN}; pada layar yang
+	 * menampilkan ratusan baris log sekaligus, pola ini adalah sumber klasik masalah N+1 query
+	 * — hindari memanggil getter ini di dalam perulangan render tanpa <i>pre-fetch</i>.
+	 * </p>
+	 *
+	 * @return kegiatan terkait, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "kegiatan", nullable = true)
@@ -786,19 +906,159 @@ public class LogHostToHost extends GeneralValueObject {
 		return kegiatan;
 	}
 
+	/**
+	 * Menyetel kode jenis transaksi menurut protokol mitra.
+	 *
+	 * @param transactionType kode jenis transaksi; maknanya ditentukan mitra, bukan AIS
+	 */
 	public void setTransactionType(Integer transactionType) {
 		this.transactionType = transactionType;
 	}
 
+	/**
+	 * Mengembalikan kode jenis transaksi menurut protokol mitra (misalnya pembeda antara
+	 * inquiry, pembayaran, dan pembatalan).
+	 *
+	 * <p>
+	 * <b>Bukan enumerasi milik AIS.</b> Tidak ada konstanta di codebase ini yang mendefinisikan
+	 * arti angka-angkanya secara terpusat, dan setiap mitra memakai penomoran sendiri. Menyaring
+	 * baris log dengan {@code transactionType = N} tanpa sekaligus menyaring
+	 * {@link #getBankHost()} akan mencampur jenis transaksi yang berbeda-beda dari mitra yang
+	 * berbeda-beda — kesalahan yang mudah terjadi dan sulit terlihat pada laporan agregat.
+	 * </p>
+	 *
+	 * @return kode jenis transaksi, atau {@code null} bila tidak dicatat
+	 */
 	@Column(name = "transaction_type", nullable = true)
 	public Integer getTransactionType() {
 		return transactionType;
 	}
 
+	/**
+	 * Menyimpan <b>payload permintaan mentah</b> ke kolom {@code request}.
+	 *
+	 * <h4>Apa yang sebenarnya terjadi di sini</h4>
+	 * <p>
+	 * Method ini adalah penugasan field telanjang — satu baris, tanpa cabang, tanpa penjagaan.
+	 * Tidak ada pemeriksaan {@code null}, tidak ada pemangkasan panjang, tidak ada normalisasi
+	 * encoding, dan yang paling penting: <b>tidak ada penyamaran (masking), penyaringan, atau
+	 * penghapusan field sensitif apa pun</b>. Apa pun string yang diberikan modul integrasi akan
+	 * mendarat utuh di kolom PostgreSQL {@code text}, yang secara praktis tak terbatas
+	 * panjangnya. Inilah keputusan desain paling berkonsekuensi pada seluruh entitas
+	 * {@link LogHostToHost}, dan menjelaskan mengapa entitas ini digolongkan sebagai aset data
+	 * kritis.
+	 * </p>
+	 *
+	 * <h4>Apa yang biasanya masuk ke sini</h4>
+	 * <p>
+	 * Isi kolom ini bergantung sepenuhnya pada modul yang memanggilnya, dan modulnya bermacam-
+	 * macam: integrasi langsung ke bank (antara lain jalur Virtual Account Bank Mandiri dan OCBC
+	 * NISP), serta jalur agregator/switching pihak ketiga yang <b>menulis ke tabel yang sama
+	 * persis</b>. Karena semua jalur berbagi satu tabel, satu kolom {@code request} dapat berisi
+	 * bentuk pesan yang sama sekali berbeda dari baris ke baris: dokumen JSON, amplop SOAP/XML,
+	 * atau untaian <i>query string</i>. Tidak ada kolom penanda format; satu-satunya petunjuk
+	 * adalah {@link #getBankHost()} dan {@link #getTransactionType()}.
+	 * </p>
+	 * <p>
+	 * Yang konstan pada semua bentuk itu adalah <b>kandungan datanya</b>. Protokol host-to-host
+	 * pembayaran, menurut sifatnya, harus membawa: nomor Virtual Account atau nomor tagihan,
+	 * identitas pembayar (NIM/NIS, kerap juga nama lengkap), nominal tagihan dan nominal yang
+	 * dibayar, nomor referensi transaksi milik mitra ({@code trxId},
+	 * {@code paymentRequestId}, nomor jurnal, nomor terminal), stempel waktu, dan — pada banyak
+	 * protokol — <b>elemen otentikasi</b> berupa {@code signature}, {@code token}, atau
+	 * {@code checksum} yang diturunkan dari kunci rahasia bersama. Semua itu tersimpan apa
+	 * adanya.
+	 * </p>
+	 *
+	 * <h4>Konsekuensi keamanan</h4>
+	 * <p>
+	 * Gabungan "payload utuh" dan "tanpa masking" berarti tabel {@code log_host_to_host}
+	 * merupakan <b>salinan lengkap lalu lintas keuangan institusi</b>. Siapa pun yang memperoleh
+	 * akses baca ke tabel ini — lewat layar pemantauan aplikasi, ekspor laporan, akses SQL
+	 * langsung, maupun salinan basis data untuk keperluan pengujian — memperoleh data yang cukup
+	 * untuk: merekonstruksi riwayat pembayaran seluruh mahasiswa berikut nominalnya; memetakan
+	 * nomor Virtual Account ke identitas orang; dan, bila protokol mitra memakai
+	 * {@code signature} yang tidak mengikat waktu atau <i>nonce</i>, berpotensi menyusun ulang
+	 * permintaan yang tampak sah. Risiko ini diperbesar oleh dua hal struktural: kelas ini
+	 * beranotasi {@link org.hibernate.envers.Audited} sehingga setiap payload otomatis
+	 * <b>diduplikasi</b> ke tabel revisi {@code log_host_to_host_AUD} (membersihkan tabel utama
+	 * saja tidak cukup), dan tidak ada mekanisme retensi/pemangkasan otomatis di kelas ini
+	 * sehingga payload tersimpan selamanya secara bawaan.
+	 * </p>
+	 * <p>
+	 * Kondisi ini bukan temuan baru: ia sudah terdaftar sebagai objek eskalasi keamanan
+	 * <b>{@code task_a1e32ff3}</b> (entitas Tier 1 kritis). Javadoc ini berfungsi sebagai
+	 * rujukan definitif atas mekanismenya. Bila kelak dilakukan perbaikan, titik intervensi yang
+	 * paling murah adalah method ini: menyisipkan penyamar di sini menutup <b>semua</b> jalur
+	 * penulisan sekaligus, karena tidak ada satu pun jalur yang menulis field {@link #request}
+	 * tanpa melewatinya.
+	 * </p>
+	 *
+	 * @param request payload permintaan mentah; diterima apa adanya, termasuk {@code null}
+	 * @see #getRequest()
+	 * @see #setResponse(String)
+	 */
 	public void setRequest(String request) {
 		this.request = request;
 	}
 
+	/**
+	 * Mengembalikan <b>payload permintaan mentah</b> apa adanya.
+	 *
+	 * <h4>Perilaku saat ini</h4>
+	 * <p>
+	 * Method ini mengembalikan referensi string yang tersimpan, tanpa penyalinan, tanpa
+	 * pemangkasan, dan tanpa penyamaran. Pemanggil menerima payload persis seperti yang dicatat
+	 * oleh {@link #setRequest(String)} — termasuk seluruh nomor Virtual Account, identitas
+	 * pembayar, nominal, nomor referensi, dan elemen {@code signature}/{@code token} yang
+	 * kebetulan ikut terbawa di dalamnya.
+	 * </p>
+	 * <p>
+	 * Karena itu <b>setiap pemanggil getter ini adalah titik pembocoran potensial</b>. Sebelum
+	 * menampilkan hasilnya di antarmuka, memasukkannya ke berkas ekspor, atau menuliskannya ke
+	 * log aplikasi, pastikan ada penjagaan otorisasi yang setimpal — dan sadari bahwa penjagaan
+	 * itu <b>tidak</b> disediakan oleh entitas ini. Kelas ini tidak punya kolom penanda
+	 * kepemilikan tenant/satuan kerja sama sekali: tidak ada {@code satuanKerja}, tidak ada
+	 * {@code perguruanTinggi}, tidak ada penanda unit apa pun. Akibatnya <b>penyaringan
+	 * lintas-tenant secara struktural mustahil dilakukan pada tingkat entitas</b>; satu-satunya
+	 * pembeda tak langsung adalah {@link #getBankHost()}, dan itu pun menandai <i>mitra bank</i>,
+	 * bukan <i>pemilik data</i>.
+	 * </p>
+	 *
+	 * <h4>Jejak arsitektur: penangkapan otomatis yang sudah dimatikan</h4>
+	 * <p>
+	 * Badan method ini menyisakan blok kode yang dinonaktifkan (dikomentari) dan sangat
+	 * informatif secara historis. Blok itu dulu bekerja sebagai <i>lazy capture</i>: bila field
+	 * {@link #request} masih kosong, ia mengambil amplop SOAP permintaan yang sedang berjalan
+	 * dari {@code MessageContext} milik Apache Axis melalui
+	 * {@code getRequestMessage().getSOAPPartAsString()}, lalu menyimpannya. Tiga hal dapat
+	 * disimpulkan darinya.
+	 * </p>
+	 * <ol>
+	 * <li><b>Asal-usul entitas.</b> Jurnal ini lahir untuk melayani endpoint web service
+	 * SOAP/Axis — bukan REST — dan seluruh desain "simpan amplop utuh" berasal dari era itu.
+	 * Modul integrasi modern (JSON/REST) menumpang pada tabel yang sama tanpa perubahan skema,
+	 * yang menjelaskan mengapa satu kolom bisa memuat beragam format.</li>
+	 *
+	 * <li><b>Penangkapan kini bersifat eksplisit.</b> Setelah blok itu dimatikan, kolom
+	 * {@code request} <b>hanya</b> terisi bila modul integrasi secara sadar memanggil
+	 * {@link #setRequest(String)}. Modul yang lupa memanggilnya akan menghasilkan baris log
+	 * dengan payload {@code null} — sehingga <b>ketiadaan payload bukan bukti bahwa interaksi
+	 * tidak terjadi</b>. Ini penting saat menggunakan tabel ini sebagai alat forensik: rentang
+	 * baris tanpa {@code request} bisa berarti "modul tidak mencatat", bukan "tidak ada
+	 * transaksi".</li>
+	 *
+	 * <li><b>Getter ini dulunya bermutasi.</b> Dalam bentuk aslinya, sekadar <i>membaca</i>
+	 * {@code getRequest()} dapat mengisi field dan menandai entitas kotor. Dengan blok
+	 * dinonaktifkan, getter ini sekarang murni — satu dari sedikit getter di entitas ini yang
+	 * bebas dari pola tersebut, berbeda dari {@link #getBankHost()}, {@link #getKode()},
+	 * {@link #getNominal()}, dan {@link #getItem()} yang masih bermutasi.</li>
+	 * </ol>
+	 *
+	 * @return payload permintaan mentah, atau {@code null} bila modul integrasi tidak mencatatnya
+	 * @see #setRequest(String)
+	 * @see #getResponse()
+	 */
 	@Column(name = "request", columnDefinition = "text", nullable = true)
 	public String getRequest() {
 		// if (request == null || request.trim().equals("")) {
@@ -812,10 +1072,78 @@ public class LogHostToHost extends GeneralValueObject {
 		return request;
 	}
 
+	/**
+	 * Menyimpan <b>payload jawaban mentah</b> ke kolom {@code response}.
+	 *
+	 * <p>
+	 * Persis seperti {@link #setRequest(String)}, method ini adalah penugasan field telanjang:
+	 * tanpa penjagaan {@code null}, tanpa batas panjang (kolom {@code text}), dan
+	 * <b>tanpa penyamaran data sensitif</b>. Simetri ini disengaja — jurnal hanya berguna untuk
+	 * rekonsiliasi bila kedua sisi percakapan tersimpan dalam bentuk yang bisa dibandingkan
+	 * huruf demi huruf dengan catatan sisi mitra.
+	 * </p>
+	 *
+	 * <p>
+	 * Yang perlu disadari: sisi jawaban sering kali <b>lebih sensitif daripada sisi
+	 * permintaan</b>. Pada alur inquiry, permintaan bank umumnya hanya membawa nomor Virtual
+	 * Account, sedangkan jawaban AIS-lah yang mengungkap <i>siapa</i> pemilik VA itu — nama
+	 * lengkap, nomor induk, rincian komponen tagihan beserta nominal masing-masing, dan status
+	 * tunggakan. Sebaliknya pada alur outbound, jawaban mitra dapat memuat nomor rekening,
+	 * saldo, atau token sesi. Dengan kata lain, kolom ini kerap menjadi tempat data pribadi
+	 * terstruktur berkumpul paling padat di seluruh basis data.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana {@link #setRequest(String)}, method ini adalah titik penyempitan
+	 * (<i>choke point</i>) tunggal untuk seluruh penulisan {@link #response}: menambahkan
+	 * penyamar di sini akan menjangkau semua modul integrasi sekaligus. Rujuk
+	 * {@code task_a1e32ff3} untuk konteks eskalasinya.
+	 * </p>
+	 *
+	 * @param response payload jawaban mentah; diterima apa adanya, termasuk {@code null}
+	 * @see #getResponse()
+	 * @see #setRequest(String)
+	 */
 	public void setResponse(String response) {
 		this.response = response;
 	}
 
+	/**
+	 * Mengembalikan <b>payload jawaban mentah</b> apa adanya.
+	 *
+	 * <h4>Perilaku saat ini</h4>
+	 * <p>
+	 * Sama seperti {@link #getRequest()}: referensi string dikembalikan tanpa penyalinan,
+	 * pemangkasan, maupun penyamaran. Tidak ada pemeriksaan otorisasi di dalam getter, dan
+	 * entitas ini tidak memiliki kolom kepemilikan tenant/satuan kerja yang bisa dipakai untuk
+	 * membatasi siapa boleh melihat baris mana. Perlindungan sepenuhnya bergantung pada lapisan
+	 * pemanggil.
+	 * </p>
+	 *
+	 * <h4>Jejak arsitektur yang sama</h4>
+	 * <p>
+	 * Badan method ini memuat blok nonaktif kembaran dari {@link #getRequest()}: dulu, bila
+	 * field {@link #response} masih kosong, isi amplop SOAP jawaban diambil dari
+	 * {@code MessageContext} Apache Axis lewat {@code getResponseMessage().getSOAPPartAsString()}
+	 * dan disimpan diam-diam. Kesimpulannya sejajar — penangkapan payload kini <b>sepenuhnya
+	 * eksplisit</b> (hanya terisi bila modul memanggil {@link #setResponse(String)}), dan getter
+	 * ini kini murni sehingga membacanya tidak lagi mengotori entitas.
+	 * </p>
+	 * <p>
+	 * Satu implikasi operasional layak digarisbawahi. Karena permintaan dan jawaban ditangkap
+	 * lewat dua panggilan setter terpisah yang dilakukan modul, keduanya bisa <b>tidak
+	 * sinkron</b>: ada baris dengan {@code request} terisi tetapi {@code response} kosong (mitra
+	 * memutus koneksi, atau pemrosesan melempar exception sebelum jawaban terbentuk — periksa
+	 * {@link #getStackTrace()}), dan sebaliknya. Saat memakai tabel ini untuk menghitung tingkat
+	 * keberhasilan integrasi, jangan menyamakan "kolom {@code response} kosong" dengan
+	 * "transaksi gagal"; silangkan dengan {@link #getResponseCode()} yang memang dimaksudkan
+	 * sebagai penanda hasil.
+	 * </p>
+	 *
+	 * @return payload jawaban mentah, atau {@code null} bila tidak dicatat
+	 * @see #setResponse(String)
+	 * @see #getRequest()
+	 */
 	@Column(name = "response", columnDefinition = "text", nullable = true)
 	public String getResponse() {
 		// if (response == null || response.trim().equals("")) {

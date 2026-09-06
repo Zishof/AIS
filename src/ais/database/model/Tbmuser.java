@@ -834,6 +834,50 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	}
 
 
+	/**
+	 * Mengembalikan <b>kunci primer</b> akun, yaitu username yang diketik pengguna di layar
+	 * login.
+	 *
+	 * <p>Kunci primer AIS untuk akun bukan angka melainkan {@code String} sepanjang maksimum
+	 * 255 karakter, unik, dan {@code nullable=false} di tingkat kolom. Nilai ini dipakai di
+	 * ratusan {@code Action} sebagai identitas pelaku transaksi, sebagai kunci cache
+	 * {@link #getUserRoleYgDipakai}, dan sebagai kolom {@code oleh_id} pada jejak audit
+	 * entitas lain.</p>
+	 *
+	 * <h3>Resolusi berjenjang bila field kosong</h3>
+	 * <p>Bila field {@code userId} sendiri kosong (setelah {@link #trimToNull(String)}),
+	 * getter menurunkannya dari entitas tertaut dengan urutan prioritas tetap:</p>
+	 * <ol>
+	 *   <li>{@code anggotaKoperasi.getUserid()}</li>
+	 *   <li>{@code pedagang.getUserid()}</li>
+	 *   <li>{@code mahasiswa.getNim()}</li>
+	 *   <li>{@code siswa.getNomorIndukNasional()}</li>
+	 *   <li>{@code penduduk.getKode()}</li>
+	 * </ol>
+	 * <p>Nilai yang berhasil diturunkan <b>ditulis balik</b> ke field {@code userId}
+	 * (getter destruktif), sehingga pemanggilan berikutnya langsung mengembalikannya.</p>
+	 *
+	 * <h3>Mengapa getter ini sengaja "jalur aman"</h3>
+	 * <p>Berbeda dari getter lain di kelas ini, method ini <b>tidak pernah memanggil
+	 * {@link #getMahasiswa()}, {@link #getSiswa()}, maupun {@link #getAnggotaKoperasi()}</b>,
+	 * melainkan membaca field mentah dan menjaganya dengan {@link #isSafeInitialized(Object)}
+	 * plus {@code try/catch} per-langkah. Alasannya: Hibernate memanggil getter kunci primer
+	 * di tengah proses memuat entity dan proses cache latar belakang memanggilnya setelah
+	 * {@link Session} ditutup &mdash; pada kondisi itu memicu lazy-load atau
+	 * {@link GeneralValueObject#check(Object) check(...)} akan melempar
+	 * {@code LazyInitializationException}/"Session is closed!" dan menggagalkan pemuatan.
+	 * <b>Jangan menambahkan pemanggilan getter delegasi apa pun ke dalam method ini.</b></p>
+	 *
+	 * <h3>Konsekuensi bila mengembalikan {@code null}</h3>
+	 * <p>Meski kolomnya {@code nullable=false}, method ini <b>dapat mengembalikan
+	 * {@code null}</b> untuk object yang belum tersimpan atau yang relasinya belum
+	 * ter-inisialisasi. Ini penting karena nilai tersebut dipakai sebagai <b>kunci</b>
+	 * {@link #getUserRoleYgDipakai} di {@link #hakAkses()}; {@code HashMap} menerima kunci
+	 * {@code null}, sehingga seluruh akun yang sesaat mengembalikan {@code null} akan berbagi
+	 * satu slot cache yang sama. Lihat pembahasan lengkapnya di {@link #hakAkses()}.</p>
+	 *
+	 * @return username/kunci primer akun, atau {@code null} bila belum dapat ditentukan
+	 */
 	@Id
 	@Column(name = "userid", unique = true, nullable = false, length = 255)
 	public String getUserId() {
@@ -892,14 +936,79 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return null;
 	}
 
+	/**
+	 * Menetapkan username/kunci primer akun.
+	 *
+	 * <p><b>Mengubah kunci primer entity yang sudah tersimpan tidak akan menghasilkan
+	 * {@code UPDATE} pada baris yang ada</b>, melainkan diperlakukan Hibernate sebagai
+	 * identitas yang berbeda. Setter ini praktis hanya aman dipanggil sebelum baris pertama
+	 * kali disimpan. Selain itu, nilai lama mungkin masih tertinggal sebagai kunci di
+	 * {@link #getUserRoleYgDipakai} karena cache tersebut tidak pernah membersihkan diri.</p>
+	 *
+	 * @param userId username/kunci primer baru
+	 */
 	public void setUserId(String userId) {
 		this.userId = userId;
 	}
 
+	/**
+	 * Membaca nama tampilan <b>apa adanya</b> dari field, tanpa delegasi ke entitas tertaut.
+	 *
+	 * <p>Ini adalah pasangan "murah dan aman" dari {@link #getUserNama()}: tidak memicu
+	 * lazy-load, tidak menyentuh cache, dan tidak menulis field apa pun. Pakai method ini
+	 * bila hanya butuh label sekilas (mis. di dalam perulangan besar atau saat session
+	 * Hibernate sudah tertutup) dan {@code null} dapat ditoleransi.</p>
+	 *
+	 * <p>Merupakan implementasi/penimpaan pola {@code ambilNama()} yang dipakai lintas entity
+	 * AIS.</p>
+	 *
+	 * @return isi field {@code userNama} apa adanya, dapat {@code null}
+	 * @see #getUserNama()
+	 */
 	public String ambilNama() {
 		return userNama;
 	}
 
+	/**
+	 * Mengembalikan <b>nama orang</b> pemilik akun ini.
+	 *
+	 * <p>Getter delegatif klasik: nama sebenarnya hampir tidak pernah disimpan di kolom
+	 * {@code usernama}, melainkan diambil dari entitas orang yang tertaut. Urutan
+	 * prioritasnya:</p>
+	 * <ol>
+	 *   <li>{@code pedagang.getNama()} &mdash; <b>jalur pintas paling awal</b>, langsung
+	 *   {@code return} sehingga seluruh aturan di bawah dilewati untuk akun kasir/pedagang;</li>
+	 *   <li>{@code dosen.getNama()} (hanya bila dosen aktif);</li>
+	 *   <li>{@code mahasiswa.getNama()};</li>
+	 *   <li>{@code siswa.getNama()};</li>
+	 *   <li>{@code penduduk.getNama()};</li>
+	 *   <li>{@code guru.getNama()} (hanya bila guru aktif);</li>
+	 *   <li>{@code pegawai.getNama()} (hanya bila pegawai aktif);</li>
+	 *   <li>{@code penyediaAsset.getNama()};</li>
+	 *   <li>{@code calonPegawai.getNama()};</li>
+	 *   <li>{@code orangTua.getNamaAyah()};</li>
+	 *   <li>{@code anggotaKoperasi.ambilNama()} (hanya bila tidak kosong).</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping.</b> Method ini me-resolve <i>sembilan</i> relasi sekaligus
+	 * ({@code dosen}, {@code mahasiswa}, {@code siswa}, {@code penduduk},
+	 * {@code anggotaKoperasi}, {@code guru}, {@code pegawai}, {@code penyediaAsset},
+	 * {@code calonPegawai}, {@code orangTua}) dan menulis hasilnya ke field masing-masing,
+	 * lalu menulis hasil akhirnya ke {@code userNama}. Jadi memanggilnya bukan operasi baca
+	 * murni &mdash; lihat catatan getter destruktif pada dokumentasi kelas.</p>
+	 *
+	 * <p><b>Tidak pernah mengembalikan {@code null}</b>: bila tidak ada sumber nama yang
+	 * cocok, {@code userNama} diisi string kosong {@code ""}. Pemanggil yang perlu
+	 * membedakan "belum diisi" dari "kosong" harus memakai {@link #ambilNama()}.</p>
+	 *
+	 * <p><b>Ketergantungan penting:</b> nilai {@code userNama} juga dipakai sebagai
+	 * <i>kunci pencocokan berbasis nama</i> oleh auto-resolusi di {@link #getDosen()},
+	 * {@link #getGuru()}, {@link #getDokter()}, dan {@link #getPegawai()}. Nama yang salah
+	 * atau kembar dapat membuat akun tertaut ke orang yang keliru.</p>
+	 *
+	 * @return nama pemilik akun; string kosong bila tidak dapat ditentukan (tidak pernah
+	 *         {@code null})
+	 */
 	@Column(name = "usernama", nullable = true, length = 255)
 	public String getUserNama() {
 
@@ -946,10 +1055,74 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return this.userNama;
 	}
 
+	/**
+	 * Menetapkan nama tampilan akun.
+	 *
+	 * <p>Perlu disadari bahwa nilai yang ditetapkan di sini <b>akan tertimpa</b> pada
+	 * pemanggilan {@link #getUserNama()} berikutnya bila ada entitas orang yang tertaut,
+	 * karena getter tersebut selalu menurunkan ulang nama dari relasi. Setter ini efektif
+	 * hanya untuk akun murni (administrator/akun sistem) yang tidak punya relasi orang.</p>
+	 *
+	 * @param userNama nama tampilan baru
+	 */
 	public void setUserNama(String userNama) {
 		this.userNama = userNama;
 	}
 
+	/**
+	 * Mengembalikan kata sandi akun dalam bentuk ter-<i>encode</i> DES.
+	 *
+	 * <h3>Peringatan keamanan &mdash; baca sebelum memakai</h3>
+	 * <p><b>Nilai yang dikembalikan bersifat reversibel, bukan hash.</b> AIS memakai
+	 * {@code Common.desEncrypter} (DES simetris dengan kunci di dalam aplikasi), sehingga
+	 * siapa pun yang memperoleh nilai ini beserta kode aplikasi dapat memulihkan kata sandi
+	 * asli. Jalur pemulihan itu memang dipakai secara rutin di basis kode, mis.
+	 * {@code UserDetailsServiceImpl} (autentikasi Spring Security),
+	 * {@code ChangePasswordWindow} (verifikasi sandi lama), {@code TbmuserAction} (layar
+	 * admin), serta {@code PMBAction}/{@code PSBAction} (pengiriman kredensial ke pendaftar).
+	 * Konsekuensinya, hasil method ini <b>tidak boleh</b> dikirim ke antarmuka, ditulis ke
+	 * log, dimasukkan ke respons API, atau diserialkan ke luar proses.</p>
+	 *
+	 * <h3>Getter destruktif dan delegatif</h3>
+	 * <p>Method ini bukan pembaca field. Urutan kerjanya:</p>
+	 * <ol>
+	 *   <li><b>Akun demo.</b> Bila {@code ConstantValues.aktifkan_akun_demo} menyala dan
+	 *   {@code userId} sama dengan {@code "demo"} (tanpa memandang huruf besar/kecil), field
+	 *   {@code userPassword} <b>ditimpa sebuah ciphertext DES yang tertulis langsung di kode
+	 *   sumber</b> lalu dikembalikan segera. Ini kredensial <i>hardcoded</i> yang berlaku
+	 *   sistem-wide begitu saklar demo aktif; pastikan saklar itu mati di lingkungan
+	 *   produksi.</li>
+	 *   <li><b>Delegasi ke peserta didik.</b> Di luar mode demo, bila akun tertaut ke
+	 *   {@link Mahasiswa}, {@link ais.database.model.sekolah.Siswa}, atau
+	 *   {@link ais.database.model.sisdes.Penduduk} yang sudah ber-{@code id}, field
+	 *   {@code userPassword} <b>ditimpa</b> oleh {@code getPass()} milik entitas tersebut.
+	 *   Artinya kata sandi yang disimpan di baris {@code tbmuser} diabaikan untuk aktor-aktor
+	 *   itu &mdash; sumber kebenarannya ada di tabel masing-masing.</li>
+	 *   <li><b>Anggota koperasi dan pedagang: enkripsi di tempat.</b> Bila
+	 *   {@link #getAnggotaKoperasi()} atau {@link #getPedagang()} punya {@code getPass()}
+	 *   tidak {@code null}, nilainya <b>dienkripsi DES saat itu juga</b> lalu dikembalikan.
+	 *   Fakta bahwa nilai itu perlu dienkripsi di sini menunjukkan bahwa kolom {@code pass}
+	 *   pada {@code AnggotaKoperasi} dan {@code Pedagang} menyimpan sandi dalam
+	 *   <b>bentuk polos</b> &mdash; instansi dari pola sandi-plaintext yang sudah tercatat
+	 *   pada beberapa entitas lain yang terhubung ke {@code Tbmuser}. Kedua cabang ini
+	 *   dievaluasi <b>setelah</b> cabang peserta didik dan langsung {@code return}, sehingga
+	 *   untuk akun ganda (mis. siswa yang juga anggota koperasi) sandi koperasi yang
+	 *   menang.</li>
+	 *   <li>Bila tidak satu pun cocok, field {@code userPassword} apa adanya dikembalikan.</li>
+	 * </ol>
+	 * <p>Kegagalan enkripsi pada langkah 3 hanya dicatat ke {@code ErrorAuditUtil} dan
+	 * method tetap mengembalikan nilai {@code userPassword} sebelumnya &mdash; berpotensi
+	 * mengembalikan sandi milik konteks lain. Perlakukan kegagalan itu sebagai kondisi tidak
+	 * terdefinisi.</p>
+	 *
+	 * <p>Apakah nilai yang tersimpan di kolom sudah ter-<i>encode</i> atau belum ditandai
+	 * oleh {@link #getIs_encripted()}.</p>
+	 *
+	 * @return kata sandi ter-encode DES, dapat {@code null} bila akun belum punya sandi
+	 * @see #setUserPassword(String)
+	 * @see #getIs_encripted()
+	 * @see #getUbahPasword()
+	 */
 	@Column(name = "userpassword", nullable = true, length = 255)
 	public String getUserPassword() {
 

@@ -697,6 +697,66 @@ public class CommonVO implements Serializable, Comparable<CommonVO> {
 		this.valueObject = valueObject;
 	}
 
+	/**
+	 * Mengurutkan baris ini terhadap {@code o} memakai salah satu dari dua strategi, dipilih
+	 * berdasarkan apakah {@link #getName5()} kosong.
+	 *
+	 * <h4>Strategi A — {@code name5} kosong: perbandingan bertingkat</h4>
+	 * <p>Berlaku bila {@code getName5().trim()} pada objek <i>ini</i> kosong. Perbandingan dilakukan
+	 * berjenjang dan berhenti pada tingkat pertama yang menghasilkan selisih:</p>
+	 * <ol>
+	 * <li>{@link #getNomorUrut()} — dibandingkan sebagai {@link Integer}, jadi urutannya numerik
+	 * (9 mendahului 10). Karena tidak ada konstruktor yang mengisi {@code nomorUrut} dan getter-nya
+	 * menormalkan {@code null} menjadi 1, tingkat ini hampir selalu menghasilkan 0 kecuali
+	 * pemanggil memang menyetel nomor urut secara eksplisit.</li>
+	 * <li>{@link #getId()} — dibandingkan sebagai {@link String}, jadi urutannya leksikografis.
+	 * Untuk id numerik yang disimpan sebagai teks, ini berarti {@code "10"} mendahului {@code "9"}.
+	 * Ini titik jebakan yang paling sering muncul: daftar yang dibangun dari id primer akan tampak
+	 * "acak" bagi pengguna begitu jumlah barisnya melewati sepuluh.</li>
+	 * <li>{@link #getName()} — dibandingkan sebagai {@link String}, peka huruf besar/kecil (huruf
+	 * kapital mendahului huruf kecil pada urutan Unicode), tanpa memakai {@link
+	 * java.text.Collator} sehingga huruf beraksen tidak disetarakan dengan padanannya.</li>
+	 * </ol>
+	 * <p>Tingkat kedua dan ketiga masing-masing dibungkus {@code try/catch} yang menelan kesalahan
+	 * dan mencatatnya ke audit. Pembungkus itu ada karena {@link #getId()} dan {@link #getName()}
+	 * boleh mengembalikan {@code null}: bila salah satunya {@code null}, {@link
+	 * NullPointerException} yang timbul ditelan dan {@code compare} tetap 0. Dampaknya, baris
+	 * ber-{@code id} {@code null} tidak menggagalkan pengurutan tetapi dianggap "sama" dengan baris
+	 * mana pun yang dibandingkan dengannya — perilaku yang tidak transitif dan bisa membuat
+	 * {@link java.util.Collections#sort} melempar {@code IllegalArgumentException} ("Comparison
+	 * method violates its general contract") pada daftar yang cukup besar.</p>
+	 *
+	 * <h4>Strategi B — {@code name5} terisi: satu kunci gabungan</h4>
+	 * <p>Bila {@code getName5()} objek ini tidak kosong, seluruh perbandingan bertingkat di atas
+	 * ditinggalkan dan diganti perbandingan string tunggal atas
+	 * {@code getName5() + " " + getNomorUrut()}. Ada tiga konsekuensi yang perlu disadari:</p>
+	 * <ul>
+	 * <li>{@code nomorUrut} kini dibandingkan secara <b>leksikografis</b>, bukan numerik, sehingga
+	 * kelompok yang sama dengan nomor urut 2 dan 10 akan tersusun 10 lalu 2.</li>
+	 * <li>{@code id} dan {@code name} tidak lagi ikut menentukan sama sekali; dua baris dengan
+	 * {@code name5} dan {@code nomorUrut} sama menjadi tidak terbedakan oleh comparator ini.</li>
+	 * <li>Pemilihan strategi dilakukan sepihak berdasarkan {@code name5} objek <b>ini</b> saja,
+	 * tanpa melihat {@code o}. Bila satu daftar mencampur baris ber-{@code name5} dan baris tanpa
+	 * {@code name5}, maka {@code a.compareTo(b)} dan {@code b.compareTo(a)} bisa memakai strategi
+	 * yang berbeda dan menghasilkan urutan yang tidak antisimetris. Jaga agar setiap daftar
+	 * konsisten: semua baris memakai {@code name5}, atau tidak satu pun.</li>
+	 * </ul>
+	 *
+	 * <h4>Hubungan dengan {@code equals}/{@code hashCode}</h4>
+	 * <p>Kelas ini tidak meng-override {@link #equals(Object)} maupun {@link #hashCode()}, sehingga
+	 * {@code compareTo} tidak konsisten dengan {@code equals} sebagaimana disarankan kontrak
+	 * {@link Comparable}. Dampak nyatanya: memasukkan dua baris berbeda yang kebetulan sama
+	 * {@code nomorUrut}, {@code id}, dan {@code name} ke dalam {@link java.util.TreeSet} akan
+	 * menyisakan satu saja (yang kedua terbuang tanpa pesan), sementara {@link java.util.HashSet}
+	 * atas objek yang sama akan menyimpan keduanya. Untuk daftar tampilan, gunakan
+	 * {@link java.util.List} dengan {@link java.util.Collections#sort} alih-alih koleksi terurut
+	 * yang otomatis membuang duplikat.</p>
+	 *
+	 * @param o baris pembanding; method ini mengasumsikan non-{@code null} dan akan melempar
+	 *          {@link NullPointerException} yang tidak tertangkap bila diberi {@code null} pada
+	 *          pemanggilan {@code o.getNomorUrut()} maupun {@code o.getName5()}
+	 * @return bilangan negatif, nol, atau positif sesuai urutan baris ini terhadap {@code o}
+	 */
 	@Override
 	public int compareTo(CommonVO o) {
 		int compare = 0;

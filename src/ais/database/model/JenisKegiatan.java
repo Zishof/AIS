@@ -218,20 +218,41 @@ public class JenisKegiatan extends GeneralValueObject {
 		return tanggal_dirubah;
 	}
 
+	/** Nama kegiatan/tagihan sebagaimana tampil di layar mahasiswa dan di kuitansi; kolom {@code nama_kegiatan}. Dipetakan DUA KALI &mdash; lihat {@link #getNama()} dan {@link #getNamaKegiatan()}. */
 	private String namaKegiatan;
 	private String prefixKodePembayaran;
 	private String namaBankPembayaran;
 	private String keterangan;
 	private String penjelasanPembayaran;
 
+	/**
+	 * Keterangan bebas jenis kegiatan, dinormalkan menjadi string kosong bila {@code null}
+	 * agar aman dipakai langsung pada komponen ZK dan template laporan.
+	 *
+	 * <p>Getter murni: hanya membaca, tidak menulis balik ke field (bandingkan dengan
+	 * {@link #getKode()} atau {@link #getNamaBankPembayaran()} yang destruktif). Karena itu
+	 * baris dengan {@code keterangan} {@code NULL} di database tetap {@code NULL} setelah
+	 * dibaca &mdash; string kosong hanya bentuk tampilannya.</p>
+	 *
+	 * @return keterangan; string kosong bila belum diisi
+	 */
 	public String getKeterangan() {
 		return keterangan == null ? "" : keterangan;
 	}
 
+	/**
+	 * Setter keterangan (tanpa validasi, {@code null} diterima apa adanya).
+	 *
+	 * @param keterangan keterangan bebas
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Kode pendek jenis kegiatan yang dipakai gateway pembayaran/bank dan laporan.
+	 * Dapat diturunkan otomatis dari {@code namaKegiatan} &mdash; lihat {@link #getKode()}.
+	 */
 	private String kode;
 	private Boolean defaultKegiatan = false;
 	private Boolean aktif;
@@ -243,9 +264,27 @@ public class JenisKegiatan extends GeneralValueObject {
 	private Boolean digunakanSyaratLogin;
 	private Boolean digunakanSyaratCetakSuratBebasAktif;
 
+	/**
+	 * Batas semester berlakunya jenis kegiatan ini.
+	 *
+	 * <p>Pasangan {@code minSmt}/{@code maxSmt} adalah <b>gerbang keberlakuan</b> yang dibaca
+	 * kembali oleh {@link Kegiatan#getAktif()}: sebuah {@link Kegiatan} otomatis dianggap
+	 * TIDAK aktif bila semesternya di luar rentang ini. Jadi mengubah nilai di sini
+	 * berpengaruh surut terhadap tagihan yang sudah terbentuk, bukan hanya terhadap tagihan
+	 * baru. Nilai default 0..30 berarti &quot;berlaku di semua semester&quot;.</p>
+	 */
 	private Integer minSmt = 0;
 	private Integer maxSmt = 30;
 
+	/**
+	 * Ambang persentase pelunasan sebagai syarat login, beserta 14 varian per jumlah semester
+	 * mundur ({@code persenSyaratLogin1} &hellip; {@code persenSyaratLogin14}).
+	 *
+	 * <p>Varian bernomor menjawab kebutuhan &quot;semester berjalan boleh menunggak, tapi
+	 * semester lalu harus lunas 100%&quot;. Setiap varian yang {@code null} jatuh kembali ke
+	 * {@link #getPersenSyaratLogin()} &mdash; lihat {@link #bolehMasuk} yang memilih varian
+	 * lewat {@code switch} atas jumlah semester mundur.</p>
+	 */
 	private Double persenSyaratLogin;
 	private KanalPembayaran kanalPembayaran;
 	private Boolean bayarHanyaSmtSaatIni;
@@ -286,6 +325,31 @@ public class JenisKegiatan extends GeneralValueObject {
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi13;
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi14;
 
+	/**
+	 * Konfigurasi <b>denda keterlambatan</b> pada tingkat jenis kegiatan.
+	 *
+	 * <p>Enam field ini dibaca oleh {@link DetailBiaya#checkDenda} dan
+	 * {@link DetailBiaya#checkDendaCicilan}:</p>
+	 * <ul>
+	 *   <li>{@code dendaJikaTerlambat} &mdash; saklar UTAMA: apakah jenis kegiatan ini
+	 *       mengenakan denda sama sekali. Default {@code false}.</li>
+	 *   <li>{@code nilaiDendaDalamPersen} &mdash; FORMAT denda: persen dari nominal, atau
+	 *       nominal tetap. Default {@code true} (perhatikan: default-nya berlawanan dengan
+	 *       saklar utama).</li>
+	 *   <li>{@code defaultProsentaseDenda} &mdash; besaran dendanya.</li>
+	 *   <li>{@code dendaDibuatPerProdi} + {@code dendaPerProdi} (JSON {@code prodiId:nilai})
+	 *       &mdash; besaran denda berbeda per program studi.</li>
+	 *   <li>{@code dendaAkanBerlipatTerlambaHari} / {@code maksimalBerlipatTerlambaHari}
+	 *       &mdash; denda berlipat setiap N hari, dengan batas kelipatan.</li>
+	 * </ul>
+	 * <p><b>Catatan penting:</b> {@link DetailBiaya#checkDendaCicilan} hanya sanggup membaca
+	 * konfigurasi ini melalui objek {@link JadwalPembayaran} yang dioper pemanggilnya,
+	 * sedangkan satu-satunya pemanggil produksi
+	 * ({@link ais.database.hibernate.AuditListener} pada {@code onPostInsert}) mengoper
+	 * {@code null}. Akibatnya konfigurasi denda di tingkat jenis kegiatan efektif TIDAK
+	 * berlaku untuk pembayaran angsuran/cicilan &mdash; hanya denda tingkat
+	 * {@link ItemBiaya} yang terpakai di sana.</p>
+	 */
 	private Boolean dendaJikaTerlambat;
 	private Boolean dendaDibuatPerProdi;
 	private Boolean nilaiDendaDalamPersen;
@@ -295,6 +359,7 @@ public class JenisKegiatan extends GeneralValueObject {
 	private String dendaPerProdi;
 	private Boolean untukBayarSP;
 
+	/** Bila {@code true}, baris tagihan bernilai negatif pada jenis kegiatan ini diabaikan saat penjumlahan (bukan dikurangkan). */
 	private Boolean abaikanNilaiMinus;
 
 	/**
@@ -369,28 +434,117 @@ public class JenisKegiatan extends GeneralValueObject {
 		this.id = id;
 	}
 
+	/**
+	 * Nama kegiatan versi <b>hanya-baca</b>.
+	 *
+	 * <p>Perhatikan bahwa kolom {@code nama_kegiatan} dipetakan DUA KALI pada entity ini:
+	 * lewat property {@code nama} (method ini, {@code insertable = false, updatable = false})
+	 * dan lewat property {@code namaKegiatan} ({@link #getNamaKegiatan()}, yang dapat ditulis).
+	 * Keduanya menunjuk field Java yang sama, {@code namaKegiatan}. Pemetaan ganda ini ada
+	 * agar kelas ini memenuhi kontrak {@code getNama()} milik {@link GeneralValueObject}
+	 * &mdash; yang dipakai renderer/combobox ZK dan {@link #compareTo} &mdash; tanpa membuat
+	 * Hibernate menuliskan kolom yang sama dua kali dalam satu {@code INSERT}/{@code UPDATE}
+	 * (yang akan ditolak database). Konsekuensinya {@link #setNama(String)} tetap mengubah
+	 * nilai in-memory, tetapi perubahan itu hanya tersimpan ke database karena property
+	 * {@code namaKegiatan} ikut menuliskannya.</p>
+	 *
+	 * @return nama kegiatan
+	 */
 	@Column(name = "nama_kegiatan", nullable = false, insertable = false, updatable = false, length = 100)
 	public String getNama() {
 		return this.namaKegiatan;
 	}
 
+	/**
+	 * Setter nama kegiatan lewat property hanya-baca {@code nama}; mengubah field yang sama
+	 * dengan {@link #setNamaKegiatan(String)}. Lihat {@link #getNama()} soal pemetaan ganda.
+	 *
+	 * @param namaKegiatan nama kegiatan
+	 */
 	public void setNama(String namaKegiatan) {
 		this.namaKegiatan = namaKegiatan;
 	}
 
+	/**
+	 * Nama kegiatan versi <b>dapat ditulis</b> &mdash; inilah property yang benar-benar
+	 * menuliskan kolom {@code nama_kegiatan} ke database. Lihat {@link #getNama()} mengenai
+	 * pemetaan ganda kolom ini.
+	 *
+	 * <p>Nilainya juga berperan sebagai <i>penanda semantik</i>: {@link #getKode()},
+	 * {@link #getMaxSmt()}, {@link #getDigunakanUntukPengecekanKrs()},
+	 * {@link #getDigunakanSyaratKeaktifan()}, dan {@link #getTagihanJugaUntukAlumni()}
+	 * semuanya mencocokkan nama ini dengan konstanta di
+	 * {@link ais.action.ws.util.ConstantUtil} untuk menentukan perilaku bawaan. Mengganti
+	 * nama kegiatan karena itu bukan sekadar perubahan label &mdash; ia dapat mengubah
+	 * kode pembayaran, batas semester, dan status &quot;syarat keaktifan&quot; baris ini.</p>
+	 *
+	 * @return nama kegiatan
+	 */
 	@Column(name = "nama_kegiatan", nullable = false, length = 100)
 	public String getNamaKegiatan() {
 		return this.namaKegiatan;
 	}
 
+	/**
+	 * Setter nama kegiatan (property yang dituliskan ke database).
+	 *
+	 * @param namaKegiatan nama kegiatan; lihat {@link #getNamaKegiatan()} soal efek sampingnya
+	 *                     terhadap kode pembayaran dan flag bawaan
+	 */
 	public void setNamaKegiatan(String namaKegiatan) {
 		this.namaKegiatan = namaKegiatan;
 	}
 
+	/**
+	 * Setter kode pembayaran secara eksplisit. Nilai yang diisi di sini akan dihormati
+	 * {@link #getKode()} (yang hanya menurunkan kode saat field masih kosong).
+	 *
+	 * @param kode kode pembayaran
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Kode pembayaran jenis kegiatan, dengan <b>penurunan otomatis</b> dari nama kegiatan
+	 * bila kolom {@code kode} masih kosong.
+	 *
+	 * <p>Pemetaan otomatisnya mengikuti konstanta {@link ais.action.ws.util.ConstantUtil}:</p>
+	 * <ul>
+	 *   <li>{@code PENDAFTARAN_MAHASISWA_LAMA} &rarr; {@code PEMBAYARAN_PENDAFTARAN_ULANG}</li>
+	 *   <li>{@code PENDAFTARAN_CALON_MAHASISWA} &rarr;
+	 *       {@code PEMBAYARAN_PENDAFTARAN_CALON_MAHASISWA}</li>
+	 *   <li>{@code PENDAFTARAN_ULANG_MAHASISWA_BARU} &rarr;
+	 *       {@code PEMBAYARAN_PENDAFTARAN_ULANG_MAHASISWA_BARU}</li>
+	 *   <li>{@code PENDAFTARAN_WISUDA} &rarr; {@code PEMBAYARAN_PENDAFTARAN_WISUDA}</li>
+	 * </ul>
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Method ini bukan pembaca murni: pada cabang penurunan
+	 * otomatis ia melakukan {@code kode = ...}, yaitu <i>menulis balik ke field</i>. Karena
+	 * property {@code kode} ikut dipetakan ke kolom database dan Hibernate memanggil getter
+	 * pada setiap {@code dirty check}, konsekuensinya berlapis:</p>
+	 * <ol>
+	 *   <li>Sekadar <b>membaca</b> jenis kegiatan yang {@code kode}-nya masih {@code NULL}
+	 *       di dalam session terbuka akan menandai entity sebagai <i>dirty</i> dan memicu
+	 *       {@code UPDATE jenis_kegiatan SET kode = ...} &mdash; suatu penulisan yang tidak
+	 *       pernah diminta pengguna mana pun.</li>
+	 *   <li>Karena kelas ini {@code @Audited}, Envers akan mencatat <b>revisi baru</b> untuk
+	 *       perubahan itu, lengkap dengan pelaku dan waktu, sehingga jejak audit menampilkan
+	 *       perubahan yang tidak pernah dilakukan siapa pun.</li>
+	 *   <li>Penurunan otomatis bersifat <b>sekali seumur hidup dan tidak dapat dibatalkan
+	 *       dari sisi baca</b>: begitu kode tertulis, cabang penurunan tidak pernah berjalan
+	 *       lagi karena syaratnya field harus kosong. Untuk mengubahnya operator harus
+	 *       memanggil {@link #setKode(String)} secara eksplisit.</li>
+	 * </ol>
+	 *
+	 * <p>Perhatikan pula bahwa pencocokan nama memakai {@link String#equals(Object)} yang
+	 * <i>case sensitive</i> dan tanpa {@code trim()}. Nama kegiatan yang berbeda kapitalisasi
+	 * atau berimbuhan spasi tidak akan cocok, dan {@code kode} tetap {@code null} &mdash;
+	 * kondisi yang perlu diantisipasi pemanggil di jalur gateway pembayaran.</p>
+	 *
+	 * @return kode pembayaran; {@code null} bila field kosong dan nama kegiatan tidak cocok
+	 *         dengan satu pun konstanta bawaan
+	 */
 	public String getKode() {
 		if (kode == null || kode.trim().isEmpty()) {
 			if (getNamaKegiatan() != null && getNamaKegiatan().equals(ConstantUtil.PENDAFTARAN_MAHASISWA_LAMA)) {
@@ -408,15 +562,70 @@ public class JenisKegiatan extends GeneralValueObject {
 		return kode;
 	}
 
+	/**
+	 * Setter penanda kegiatan bawaan.
+	 *
+	 * @param defaultKegiatan {@code true} bila jenis kegiatan ini menjadi pilihan bawaan
+	 */
 	public void setDefaultKegiatan(Boolean defaultKegiatan) {
 		this.defaultKegiatan = defaultKegiatan;
 	}
 
+	/**
+	 * Penanda bahwa jenis kegiatan ini menjadi pilihan bawaan pada form pembuatan tagihan.
+	 *
+	 * <p>Berbeda dari kebanyakan flag di kelas ini, getter ini mengembalikan field apa adanya
+	 * &mdash; termasuk {@code null} bila kolomnya kosong di database. Pemanggil yang melakukan
+	 * auto-unboxing ke {@code boolean} harus berjaga terhadap {@code NullPointerException};
+	 * bandingkan dengan {@link #getDefaultPembayaran()} yang sudah memakai penjaga ternary.</p>
+	 *
+	 * @return {@code true}/{@code false}/{@code null} sesuai isi kolom
+	 */
 	@Column(name = "default_kegiatan")
 	public Boolean getDefaultKegiatan() {
 		return defaultKegiatan;
 	}
 
+	/**
+	 * Status aktif jenis kegiatan &mdash; gerbang yang menentukan apakah katalog ini masih
+	 * boleh dipakai membentuk tagihan baru dan ikut terbawa pada
+	 * {@code CommonHelperClass.jenisKegiatansAktif}.
+	 *
+	 * <h4>Perilaku</h4>
+	 * <ol>
+	 *   <li>Bila field {@code aktif} masih {@code null}, ia <b>diisi</b> {@code true} &mdash;
+	 *       jadi jenis kegiatan yang belum pernah dikonfigurasi dianggap aktif.</li>
+	 *   <li>Bila {@code id} entity ini sama dengan salah satu dari tiga sentinel di
+	 *       {@link ais.common.ConstantValues} &mdash; {@code PENDAFTARAN_CALON_MAHASISWA},
+	 *       {@code PENDAFTARAN_MAHASISWA_LAMA}, atau
+	 *       {@code PENDAFTARAN_ULANG_MAHASISWA_BARU} &mdash; nilainya <b>dipaksa</b>
+	 *       {@code true} berapa pun isi kolomnya.</li>
+	 * </ol>
+	 *
+	 * <h4>GETTER DESTRUKTIF &amp; FLAG SATU ARAH</h4>
+	 * <p>Kedua cabang di atas melakukan penugasan {@code aktif = true} ke field, bukan sekadar
+	 * mengembalikan nilai. Karena property ini dipetakan ke kolom dan Hibernate memanggil
+	 * getter saat {@code flush}, efeknya:</p>
+	 * <ul>
+	 *   <li>Membaca entity yang {@code aktif}-nya {@code NULL} menulis {@code true} ke
+	 *       database tanpa diminta, plus satu revisi Envers palsu.</li>
+	 *   <li>Ketiga sentinel menjadi <b>mustahil dinonaktifkan</b> lewat antarmuka mana pun:
+	 *       operator boleh saja menghilangkan centang &quot;Aktif&quot; dan menyimpannya,
+	 *       tetapi pembacaan berikutnya menuliskan kembali {@code true} ke baris tersebut.
+	 *       Ini pola <i>flag satu arah</i> &mdash; nilainya hanya bisa bergerak ke
+	 *       {@code true}, tidak pernah kembali. Perilaku ini agaknya disengaja sebagai
+	 *       pengaman agar alur pendaftaran/registrasi ulang tidak dapat dimatikan sehingga
+	 *       menutup akses seluruh mahasiswa, tetapi ia menjadikan kolom {@code aktif} pada
+	 *       ketiga baris itu <b>menyesatkan</b> bila dibaca langsung lewat SQL.</li>
+	 * </ul>
+	 *
+	 * <p>Perhatikan juga bahwa perbandingannya dilakukan atas {@code id}, sehingga pada
+	 * instalasi yang konstanta sentinel-nya belum ter-<i>resolve</i> (bernilai {@code null}
+	 * saat awal <i>startup</i>) pemaksaan ini tidak berjalan &mdash; nilai kolom dipakai
+	 * apa adanya. Setiap perbandingan sudah dijaga {@code != null} sehingga tidak melempar.</p>
+	 *
+	 * @return {@code true} bila jenis kegiatan aktif; tidak pernah {@code null}
+	 */
 	public Boolean getAktif() {
 		if (aktif == null) {
 			aktif = true;
@@ -436,10 +645,36 @@ public class JenisKegiatan extends GeneralValueObject {
 		return aktif;
 	}
 
+	/**
+	 * Setter status aktif. Perhatikan bahwa untuk tiga jenis kegiatan sentinel, nilai
+	 * {@code false} yang disimpan di sini akan ditimpa kembali menjadi {@code true} oleh
+	 * {@link #getAktif()} pada pembacaan berikutnya.
+	 *
+	 * @param aktif status aktif yang diinginkan
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Apakah pelunasan tagihan jenis ini menjadi syarat mahasiswa boleh mengisi KRS.
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Bila {@code namaKegiatan} sama dengan
+	 * {@code ConstantUtil.PENDAFTARAN_MAHASISWA_LAMA} (registrasi ulang), field dipaksa
+	 * {@code true} dan ditulis balik &mdash; <i>flag satu arah</i> yang tidak dapat
+	 * dimatikan operator, sekaligus memicu {@code UPDATE} + revisi Envers palsu saat entity
+	 * sekadar dibaca. Logikanya masuk akal (registrasi ulang memang prasyarat KRS), tetapi
+	 * cara penerapannya membuat isi kolom di database tidak dapat dipercaya.</p>
+	 *
+	 * <p>Perhatikan pencocokan di sini memakai {@link String#equalsIgnoreCase(String)} atas
+	 * <b>field</b> {@code namaKegiatan} secara langsung &mdash; berbeda dari
+	 * {@link #getKode()} dan {@link #getMaxSmt()} yang memakai {@code equals()} case-sensitive
+	 * lewat {@link #getNamaKegiatan()}. Ketidakseragaman ini berarti nama kegiatan dengan
+	 * kapitalisasi berbeda dapat mengaktifkan flag KRS namun TIDAK memicu penurunan kode
+	 * pembayaran maupun batas semester bawaannya.</p>
+	 *
+	 * @return {@code true} bila menjadi syarat pengisian KRS; tidak pernah {@code null}
+	 */
 	@Column(name = "digunakan_untuk_pengecekan_krs")
 	public Boolean getDigunakanUntukPengecekanKrs() {
 		if (namaKegiatan != null && namaKegiatan.equalsIgnoreCase(ConstantUtil.PENDAFTARAN_MAHASISWA_LAMA)) {
@@ -448,27 +683,94 @@ public class JenisKegiatan extends GeneralValueObject {
 		return digunakanUntukPengecekanKrs == null ? false : digunakanUntukPengecekanKrs;
 	}
 
+	/**
+	 * Setter syarat KRS. Untuk jenis kegiatan bernama registrasi ulang, nilai {@code false}
+	 * akan ditimpa kembali menjadi {@code true} oleh
+	 * {@link #getDigunakanUntukPengecekanKrs()}.
+	 *
+	 * @param digunakanUntukPengecekanKrs status syarat KRS yang diinginkan
+	 */
 	public void setDigunakanUntukPengecekanKrs(Boolean digunakanUntukPengecekanKrs) {
 		this.digunakanUntukPengecekanKrs = digunakanUntukPengecekanKrs;
 	}
 
+	/**
+	 * Penanda bahwa jenis kegiatan ini menjadi pilihan bawaan pada form pembayaran.
+	 * Getter murni dengan penjaga ternary ({@code null} dibaca sebagai {@code false}) tanpa
+	 * menulis balik ke field.
+	 *
+	 * @return {@code true} bila menjadi pilihan bawaan pembayaran; tidak pernah {@code null}
+	 */
 	@Column(name = "default_pembayaran")
 	public Boolean getDefaultPembayaran() {
 		return defaultPembayaran == null ? false : defaultPembayaran;
 	}
 
+	/**
+	 * Setter penanda bawaan pembayaran.
+	 *
+	 * @param defaultPembayaran status bawaan pembayaran
+	 */
 	public void setDefaultPembayaran(Boolean defaultPembayaran) {
 		this.defaultPembayaran = defaultPembayaran;
 	}
 
+	/**
+	 * Semester paling awal jenis kegiatan ini berlaku; {@code null} dibaca sebagai {@code 0}
+	 * (berlaku sejak semester nol/pendaftaran).
+	 *
+	 * <p>Getter murni &mdash; hanya ternary, tidak menulis balik ke field. Bandingkan dengan
+	 * pasangannya {@link #getMaxSmt()} yang justru destruktif.</p>
+	 *
+	 * @return batas semester bawah; tidak pernah {@code null}
+	 */
 	public Integer getMinSmt() {
 		return minSmt == null ? 0 : minSmt;
 	}
 
+	/**
+	 * Setter batas semester bawah.
+	 *
+	 * @param minSmt semester paling awal jenis kegiatan berlaku
+	 */
 	public void setMinSmt(Integer minSmt) {
 		this.minSmt = minSmt;
 	}
 
+	/**
+	 * Semester paling akhir jenis kegiatan ini berlaku, dengan nilai bawaan yang bergantung
+	 * pada nama kegiatan.
+	 *
+	 * <h4>Nilai bawaan menurut nama</h4>
+	 * <ul>
+	 *   <li>{@code PENDAFTARAN_MAHASISWA_LAMA} (registrasi ulang) &rarr; {@code 14}</li>
+	 *   <li>{@code PENDAFTARAN_CALON_MAHASISWA} &rarr; {@code 1}</li>
+	 *   <li>{@code PENDAFTARAN_ULANG_MAHASISWA_BARU} &rarr; {@code 1}</li>
+	 *   <li>{@code PENDAFTARAN_WISUDA} &rarr; {@code 20}</li>
+	 *   <li>selain itu &rarr; {@code 30}</li>
+	 * </ul>
+	 *
+	 * <h4>GETTER DESTRUKTIF</h4>
+	 * <p>Seluruh cabang di atas menulis balik ke field {@code maxSmt}. Berbeda dari
+	 * {@link #getAktif()} atau {@link #getDigunakanUntukPengecekanKrs()}, penulisan di sini
+	 * dijaga {@code if (maxSmt == null)} sehingga nilai yang sudah diisi operator TIDAK
+	 * ditimpa &mdash; ini bentuk <i>auto-seed</i>, bukan pemaksaan satu arah. Efek sampingnya
+	 * tetap ada: baris yang {@code max_smt}-nya {@code NULL} akan tertulis diam-diam ke
+	 * database pada pembacaan pertama di dalam session terbuka, lengkap dengan revisi Envers.
+	 * Sifat auto-seed ini juga berarti mengubah nama kegiatan TIDAK mengubah batas semester
+	 * yang sudah terlanjur tersimpan.</p>
+	 *
+	 * <h4>Dampak hilir</h4>
+	 * <p>Pasangan {@link #getMinSmt()}/{@code getMaxSmt()} dibaca oleh
+	 * {@link Kegiatan#getAktif()}: sebuah header tagihan yang semesternya berada di luar
+	 * rentang ini otomatis dianggap tidak aktif, yang pada gilirannya mengubah cara
+	 * {@link Kegiatan#getKodeunik()} membentuk kunci unik (memakai barcode acak alih-alih
+	 * format {@code MHS_*}/{@code CAL_MHS_*}). Method ini juga menjadi gerbang pertama
+	 * {@link #bolehMasuk} &mdash; semester di luar rentang langsung diloloskan tanpa
+	 * memeriksa tunggakan sama sekali.</p>
+	 *
+	 * @return batas semester atas; tidak pernah {@code null}
+	 */
 	public Integer getMaxSmt() {
 		if (getNamaKegiatan() != null && getNamaKegiatan().equals(ConstantUtil.PENDAFTARAN_MAHASISWA_LAMA)) {
 			if (maxSmt == null)
@@ -490,6 +792,12 @@ public class JenisKegiatan extends GeneralValueObject {
 		return maxSmt;
 	}
 
+	/**
+	 * Setter batas semester atas. Nilai eksplisit di sini dihormati {@link #getMaxSmt()}
+	 * (yang hanya mengisi bawaan saat field masih {@code null}).
+	 *
+	 * @param maxSmt semester paling akhir jenis kegiatan berlaku
+	 */
 	public void setMaxSmt(Integer maxSmt) {
 		this.maxSmt = maxSmt;
 	}
