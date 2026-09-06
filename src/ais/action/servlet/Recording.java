@@ -1,11 +1,17 @@
 package ais.action.servlet;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -44,6 +50,50 @@ public class Recording extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
 	/**
+	 * Ekstensi berkas video yang diizinkan untuk disimpan lewat {@link #doGet}. Perbandingan
+	 * dilakukan tanpa memandang huruf besar/kecil pada bagian setelah titik terakhir nama berkas.
+	 */
+	private static final Set<String> EKSTENSI_VIDEO_DIIZINKAN = new HashSet<String>(
+			Arrays.asList("webm", "mp4", "mov", "avi", "mkv", "3gp", "m4v"));
+
+	/**
+	 * Pola nama berkas yang dianggap aman: hanya huruf, angka, titik, garis bawah, dan tanda hubung.
+	 * Karakter pemisah direktori ({@code /} dan {@code \}), titik dua (dipakai Windows untuk drive
+	 * letter maupun alternate data stream NTFS), byte nol, dan spasi SENGAJA tidak termasuk di
+	 * pola ini sehingga otomatis ditolak oleh {@link #isNamaBerkasVideoAman(String)}.
+	 */
+	private static final Pattern POLA_NAMA_BERKAS_AMAN = Pattern.compile("^[A-Za-z0-9._-]+$");
+
+	/**
+	 * Memvalidasi bahwa {@code namaBerkas} aman dipakai sebagai nama berkas tunggal (bukan path)
+	 * di dalam direktori laporan bersama: tidak kosong, hanya berisi karakter dalam
+	 * {@link #POLA_NAMA_BERKAS_AMAN}, tidak memuat {@code ".."}, dan berekstensi salah satu dari
+	 * {@link #EKSTENSI_VIDEO_DIIZINKAN}.
+	 *
+	 * <p>Validasi ini adalah lapisan pertama pertahanan terhadap path traversal; lapisan kedua ada
+	 * di {@link #doGet} yang menormalkan hasil gabungan direktori+nama berkas lalu memastikan hasil
+	 * akhirnya tetap berada di bawah direktori laporan sebelum benar-benar menulis berkas.</p>
+	 *
+	 * @param namaBerkas nama berkas video mentah dari klien ({@code video-filename})
+	 * @return {@code true} bila nama berkas lolos semua pemeriksaan di atas
+	 */
+	private static boolean isNamaBerkasVideoAman(String namaBerkas) {
+		if (namaBerkas == null) {
+			return false;
+		}
+		String nama = namaBerkas.trim();
+		if (nama.isEmpty() || nama.contains("..") || !POLA_NAMA_BERKAS_AMAN.matcher(nama).matches()) {
+			return false;
+		}
+		int titikTerakhir = nama.lastIndexOf('.');
+		if (titikTerakhir <= 0 || titikTerakhir == nama.length() - 1) {
+			return false;
+		}
+		String ekstensi = nama.substring(titikTerakhir + 1).toLowerCase(Locale.ROOT);
+		return EKSTENSI_VIDEO_DIIZINKAN.contains(ekstensi);
+	}
+
+	/**
 	 * Konstruktor default tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}.
 	 * Tidak ada state khusus yang diinisialisasi di sini.
 	 *
@@ -70,19 +120,25 @@ public class Recording extends HttpServlet {
 	 * SELALU "OK" walau upload sebenarnya gagal, karena exception pada blok upload hanya
 	 * dicatat ke {@link ais.common.ErrorAuditUtil} dan tidak mengubah respons.</p>
 	 *
-	 * <p><b>Keamanan — path traversal dan tulis berkas sembarang tanpa gerbang otentikasi:</b>
-	 * {@code fileNameVideo} dipakai APA ADANYA untuk membentuk path tujuan tanpa sanitasi
-	 * (tidak ada penolakan {@code ../}, tidak ada pembatasan ekstensi/karakter, tidak ada
-	 * pengecekan bahwa hasil resolusi path tetap berada di dalam direktori laporan). Endpoint
-	 * ini dipetakan di {@code web.xml} sebagai {@code /Recording} tanpa
-	 * {@code security-constraint} khusus, sehingga tunduk pada aturan tangkapan-semua
-	 * {@code IS_AUTHENTICATED_ANONYMOUSLY} — dapat dipanggil siapa pun tanpa login. Akibatnya
-	 * pemanggil anonim berpotensi menulis berkas dengan isi dan nama bebas (termasuk memakai
-	 * {@code ../} untuk keluar dari direktori laporan) ke lokasi mana pun yang terjangkau oleh
-	 * hak tulis proses server, dan {@code Access-Control-Allow-Origin: *} membuka pemanggilan
-	 * lintas-origin dari browser mana pun. Header {@code Access-Control-Allow-Origin} yang
-	 * longgar dikombinasikan dengan tulis berkas sembarang ini adalah kerentanan serius yang
-	 * berdiri sendiri, terlepas dari fungsi rekaman video yang dimaksud.</p>
+	 * <p><b>Keamanan — path traversal dan tulis berkas sembarang (DITAMBAL):</b> {@code fileNameVideo}
+	 * berasal MENTAH dari klien dan endpoint ini tetap dapat dipanggil tanpa login (dipetakan di
+	 * {@code web.xml} sebagai {@code /Recording} tanpa {@code security-constraint} khusus, sehingga
+	 * tunduk pada aturan tangkapan-semua {@code IS_AUTHENTICATED_ANONYMOUSLY} — gerbang login
+	 * SENGAJA tidak ditambahkan di sini karena halaman perekaman klien ({@code capture_video.jsp}
+	 * dan variannya di bawah {@code WEB-INF/u/}) dipakai untuk alur absensi kiosk sebelum pengguna
+	 * login; lihat juga {@code FilterJSP#isUtilityJsp}). Karena itu penulisan berkas sekarang
+	 * dijaga dua lapis sebelum {@link java.nio.file.Files#copy}: (1) {@link
+	 * #isNamaBerkasVideoAman(String)} menolak nama berkas yang mengandung karakter di luar
+	 * {@code [A-Za-z0-9._-]} (termasuk {@code /}, {@code \}, dan {@code :}), mengandung
+	 * {@code ".."}, atau berekstensi di luar {@link #EKSTENSI_VIDEO_DIIZINKAN}; (2) path hasil
+	 * gabungan direktori laporan dan nama berkas dinormalkan dengan {@link
+	 * java.nio.file.Path#normalize()} dan WAJIB tetap berada di bawah direktori laporan
+	 * ({@link java.nio.file.Path#startsWith(Path)}) sebelum benar-benar ditulis — bila salah satu
+	 * gerbang gagal, penulisan berkas dilewati dan percobaannya dicatat lewat {@link
+	 * ais.common.ErrorAuditUtil#record}, namun respons akhir tetap {@code {"status":"OK"}} seperti
+	 * semula agar tidak membocorkan detail penolakan ke pemanggil. {@code Access-Control-Allow-Origin: *}
+	 * dipertahankan karena dipakai juga oleh klien non-browser/origin lain yang memanggil endpoint
+	 * ini; risikonya sudah berkurang signifikan setelah penulisan berkas sembarang ditutup.</p>
 	 *
 	 * @param request  request HTTP masuk; body multipart-nya berisi metadata form (termasuk
 	 *                 {@code video-filename}) dan konten berkas video yang diunggah
@@ -123,9 +179,22 @@ public class Recording extends HttpServlet {
 			}
 
 			if (fileContent != null) {
-				File outputfile = new File(Common.ambilREAL_PATH_REPORT() + "/" + fileNameVideo);
-				System.out.println("outputfile video -> " + outputfile.getAbsolutePath());
-				java.nio.file.Files.copy(fileContent, outputfile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+				if (isNamaBerkasVideoAman(fileNameVideo)) {
+					Path direktoriLaporan = Paths.get(Common.ambilREAL_PATH_REPORT()).toAbsolutePath().normalize();
+					Path berkasTujuan = direktoriLaporan.resolve(fileNameVideo).normalize();
+					if (berkasTujuan.startsWith(direktoriLaporan)) {
+						System.out.println("outputfile video -> " + berkasTujuan.toString());
+						java.nio.file.Files.copy(fileContent, berkasTujuan, StandardCopyOption.REPLACE_EXISTING);
+					} else {
+						ais.common.ErrorAuditUtil.record(
+								new SecurityException("Recording: path hasil normalisasi keluar dari direktori laporan: " + fileNameVideo),
+								"Recording.doGet: percobaan path traversal ditolak");
+					}
+				} else {
+					ais.common.ErrorAuditUtil.record(
+							new SecurityException("Recording: nama berkas video ditolak (karakter/ekstensi tidak diizinkan): " + fileNameVideo),
+							"Recording.doGet: nama berkas video tidak valid");
+				}
 
 				IOUtils.closeQuietly(fileContent);
 			}
