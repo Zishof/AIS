@@ -26,6 +26,8 @@ import ais.database.model.akunting.KelompokLaporanPunyaAkun;
 import ais.database.model.akunting.MasterGrupLaporan;
 import ais.database.model.asset.MasterAsset;
 import ais.database.model.asset.JenisPenerimaanBarang;
+import ais.database.model.asset.JenisPemesananPengadaanAsset;
+import ais.database.model.asset.PenyediaAsset;
 import ais.database.model.inventory.JenisProduk;
 import ais.database.model.inventory.Produk;
 import ais.database.model.inventory.Toko;
@@ -287,6 +289,30 @@ public final class PemetaanAkunHelper {
                 if (jenis.getAkunHutangPenyedia() == null) jenisPenerimaanTanpaHutangVendor++;
             }
 
+            List<Long> jenisPemesananTerminId = referensiTerminBelumPosting(
+                    session.connection(), tokoId, mulai, sampai, true);
+            int jenisPemesananTerminTanpaHutangPekerjaan = 0;
+            int jenisPemesananTerminDipetakan = 0;
+            for (int i = 0; i < jenisPemesananTerminId.size(); i++) {
+                JenisPemesananPengadaanAsset jenis = (JenisPemesananPengadaanAsset) session.get(
+                        JenisPemesananPengadaanAsset.class, jenisPemesananTerminId.get(i));
+                if (jenis != null && jenis.getAkunUtangPekerjaan() == null) {
+                    jenisPemesananTerminTanpaHutangPekerjaan++;
+                }
+            }
+
+            List<Long> penyediaAsetTerminId = referensiTerminBelumPosting(
+                    session.connection(), tokoId, mulai, sampai, false);
+            int penyediaAsetTerminTanpaUtang = 0;
+            int penyediaAsetTerminDipetakan = 0;
+            for (int i = 0; i < penyediaAsetTerminId.size(); i++) {
+                PenyediaAsset py = (PenyediaAsset) session.get(
+                        PenyediaAsset.class, penyediaAsetTerminId.get(i));
+                if (py != null && py.getAkunUtang() == null) {
+                    penyediaAsetTerminTanpaUtang++;
+                }
+            }
+
             if (terapkan) {
                 tx = session.beginTransaction();
                 if (toko == null) {
@@ -393,6 +419,24 @@ public final class PemetaanAkunHelper {
                         jenisPenerimaanDipetakan++;
                     }
                 }
+                for (int i = 0; i < jenisPemesananTerminId.size(); i++) {
+                    JenisPemesananPengadaanAsset jenis = (JenisPemesananPengadaanAsset) session.get(
+                            JenisPemesananPengadaanAsset.class, jenisPemesananTerminId.get(i));
+                    if (jenis != null && (timpa || jenis.getAkunUtangPekerjaan() == null)) {
+                        jenis.setAkunUtangPekerjaan(hutangSementara);
+                        session.saveOrUpdate(jenis);
+                        jenisPemesananTerminDipetakan++;
+                    }
+                }
+                for (int i = 0; i < penyediaAsetTerminId.size(); i++) {
+                    PenyediaAsset py = (PenyediaAsset) session.get(
+                            PenyediaAsset.class, penyediaAsetTerminId.get(i));
+                    if (py != null && (timpa || py.getAkunUtang() == null)) {
+                        py.setAkunUtang(hutangVendor);
+                        session.saveOrUpdate(py);
+                        penyediaAsetTerminDipetakan++;
+                    }
+                }
                 tx.commit();
 
                 // Cadangan untuk produk/supplier baru. Disimpan lewat manager supaya cache konfigurasi
@@ -423,6 +467,9 @@ public final class PemetaanAkunHelper {
             kekurangan.put("jenisPenerimaanTanpaHutangSementara",
                     jenisPenerimaanTanpaHutangSementara);
             kekurangan.put("jenisPenerimaanTanpaHutangVendor", jenisPenerimaanTanpaHutangVendor);
+            kekurangan.put("jenisPemesananTerminTanpaHutangPekerjaan",
+                    jenisPemesananTerminTanpaHutangPekerjaan);
+            kekurangan.put("penyediaAsetTerminTanpaUtang", penyediaAsetTerminTanpaUtang);
             JSONObject perubahan = new JSONObject();
             perubahan.put("relasiToko", tokoDipetakan);
             perubahan.put("masterAsetDibuat", masterDibuat);
@@ -430,6 +477,8 @@ public final class PemetaanAkunHelper {
             perubahan.put("jenisProdukDipetakan", jenisDipetakan);
             perubahan.put("penyediaDipetakan", penyediaDipetakan);
             perubahan.put("jenisPenerimaanDipetakan", jenisPenerimaanDipetakan);
+            perubahan.put("jenisPemesananTerminDipetakan", jenisPemesananTerminDipetakan);
+            perubahan.put("penyediaAsetTerminDipetakan", penyediaAsetTerminDipetakan);
             perubahan.put("konfigurasiCadangan", terapkan ? 6 : 0);
 
             hasil.put("status", "00");
@@ -443,6 +492,8 @@ public final class PemetaanAkunHelper {
             hasil.put("jenisProdukTerkait", jenisId.size());
             hasil.put("penyediaTerkait", penyediaId.size());
             hasil.put("jenisPenerimaanBastTerkait", jenisPenerimaanId.size());
+            hasil.put("jenisPemesananTerminTerkait", jenisPemesananTerminId.size());
+            hasil.put("penyediaAsetTerminTerkait", penyediaAsetTerminId.size());
             hasil.put("akun", akun);
             hasil.put("kekuranganSebelum", kekurangan);
             hasil.put("perubahan", perubahan);
@@ -660,6 +711,47 @@ public final class PemetaanAkunHelper {
                 + " AND COALESCE(b.jenis_penerimaan_barang,"
                 + " (SELECT MIN(j.id) FROM asset.jenis_penerimaan_barang j"
                 + " WHERE COALESCE(j.aktif,true)=true)) IS NOT NULL";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        int parameter = 1;
+        if (tokoId != null) ps.setLong(parameter++, tokoId.longValue());
+        if (pakaiPeriode) {
+            ps.setString(parameter++, mulai);
+            ps.setString(parameter++, sampai);
+        }
+        ResultSet rs = ps.executeQuery();
+        List<Long> keluar = new ArrayList<Long>();
+        while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
+        rs.close();
+        ps.close();
+        return keluar;
+    }
+
+    /**
+     * Master akun yang benar-benar dibaca posting pembayaran termin. Jenis pemesanan
+     * menyediakan akun hutang pekerjaan, sedangkan penyedia aset menyediakan akun
+     * hutang vendor. Hanya relasi milik dokumen eligible yang dikembalikan.
+     */
+    private static List<Long> referensiTerminBelumPosting(Connection conn, Long tokoId,
+            String mulai, String sampai, boolean jenisPemesanan) throws Exception {
+        boolean pakaiPeriode = mulai != null && !mulai.isEmpty()
+                && sampai != null && !sampai.isEmpty();
+        String kolom = jenisPemesanan
+                ? "po.jenis_pemesanan_pengadaan_asset" : "po.penyedia";
+        String sql = "SELECT DISTINCT " + kolom
+                + " FROM asset.pembayaran_termin_master_asset_detail d"
+                + " JOIN asset.pembayaran_termin_master_asset bayar"
+                + " ON bayar.id=d.pembayaran_termin_master_asset"
+                + " JOIN asset.pemesanan_pengadaan_master_asset po"
+                + " ON po.id=d.pemesanan_pengadaan_master_asset"
+                + " WHERE d.posting_history IS NULL AND bayar.disetujui_oleh IS NOT NULL"
+                + " AND COALESCE(d.pilih,false)=true AND COALESCE(d.dibayar,0)<>0"
+                + " AND " + kolom + " IS NOT NULL"
+                + (tokoId == null ? "" : " AND po.toko=?")
+                + (pakaiPeriode
+                        ? " AND (d.tanggal_transaksi IS NULL"
+                                + " OR date(d.tanggal_transaksi) BETWEEN date(?) AND date(?))"
+                        : "")
+                + " ORDER BY " + kolom;
         PreparedStatement ps = conn.prepareStatement(sql);
         int parameter = 1;
         if (tokoId != null) ps.setLong(parameter++, tokoId.longValue());
