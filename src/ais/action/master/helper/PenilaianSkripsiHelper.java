@@ -117,13 +117,49 @@ import ais.ui.util.WaktuUtil;
  */
 public class PenilaianSkripsiHelper implements DataLoader {
 
+	/**
+	 * Grid ZK berisi satu baris per dosen penilai (model diisi dari
+	 * {@link Skripsi#dataDosen(boolean)}, dirender oleh {@link DetailKelompokKknRenderer}). Dibuat
+	 * di {@link #display(Skripsi, Component, EventListener)} dan diisi ulang tiap
+	 * {@link #loadData(Object)}.
+	 */
 	private MyGrid grid;
+
+	/**
+	 * Skripsi yang sedang dinilai — seluruh state layar bergantung padanya. Diisi sekali di
+	 * {@link #display(Skripsi, Component, EventListener)}; semua method lain memperlakukannya
+	 * sebagai konteks implisit, sehingga satu instance helper hanya boleh melayani SATU skripsi.
+	 */
 	private Skripsi skripsi;
+
+	/**
+	 * Callback milik pemanggil yang dipicu setiap kali nilai/penugasan dosen berubah (event data
+	 * berisi {@link #skripsi}), dipakai layar induk untuk menyegarkan ringkasan/daftar miliknya.
+	 * Boleh {@code null} — setiap pemanggilan selalu dijaga pengecekan null.
+	 */
 	private EventListener eventListener;
+
+	/** Footer grid yang menampilkan total nilai akhir skripsi; dibangun ulang tiap {@link #loadData(Object)}. */
 	private Footer footerRataRataNilai;
+
+	/** Footer grid yang menampilkan nilai huruf akhir skripsi; dibangun ulang tiap {@link #loadData(Object)}. */
 	private Footer footerNilaiHuruf;
+
+	/**
+	 * Pengguna yang sedang login, disalin sekali di konstruktor. Menjadi dasar SELURUH keputusan hak
+	 * akses di kelas ini: {@link #bolehKelolaNilai()}, {@link #bolehUbahDosenPenilai()},
+	 * {@link #nilaiDisembunyikanUntukMahasiswa()}, serta pengecekan "dosen ini adalah saya" pada
+	 * {@link #init(Dosen, String)} dan {@link DetailKelompokKknRenderer}. Bisa {@code null} bila
+	 * tidak ada sesi user; semua pemakaian dijaga pengecekan null.
+	 */
 	private Tbmuser tbmuser = null;
 
+	/**
+	 * Menyiapkan helper dengan mengambil identitas pengguna login ({@link Common#getCurrentUser()})
+	 * ke {@link #tbmuser}. Instance baru dibuat setiap kali layar penilaian dibuka (bukan
+	 * singleton), sehingga snapshot user selalu segar; {@link #skripsi} baru terisi kemudian lewat
+	 * {@link #display(Skripsi, Component, EventListener)}.
+	 */
 	public PenilaianSkripsiHelper() {
 		tbmuser = Common.getCurrentUser();
 	}
@@ -286,6 +322,12 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 		MyToolbarbuttonConfig batal = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
 		batal.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menutup window tanpa menyimpan apa pun: penugasan dosen dan riwayat nilai dibiarkan
+			 * seperti semula.
+			 *
+			 * @param event event {@code onClick} tombol "Batal"; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				window.detach();
@@ -295,6 +337,22 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 		MyToolbarbuttonConfig simpan = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
 		simpan.addEventListener("onClick", new EventListener() {
+			/**
+			 * Mengeksekusi penggantian dosen penilai dalam satu rangkaian, berurutan dan tanpa
+			 * transaksi eksplisit sendiri: memvalidasi dosen baru sudah dipilih, memindahkan riwayat
+			 * nilai lama ({@link #pindahkanDetailNilaiDosen}), menulis penugasan baru
+			 * ({@link Skripsi#simpanDosen(Dosen, String)}), menyinkronkan
+			 * {@link MahasiswaRequestTugasAkhir} ({@link #sinkronkanRequestTugasAkhir}), menghitung
+			 * ulang seluruh nilai ({@link #hitungUlangSemuaNilaiDosen(boolean)}), lalu
+			 * {@code saveOrUpdate} + {@code flush}, menutup window, memuat ulang grid, dan memicu
+			 * {@link #eventListener}.
+			 *
+			 * <p>Karena tidak ada transaksi yang membungkus keseluruhan langkah, kegagalan di
+			 * tengah (mis. pada {@code flush}) dapat meninggalkan riwayat nilai sudah dipindah tetapi
+			 * penugasan belum tersimpan. Dicatat apa adanya.</p>
+			 *
+			 * @param event event {@code onClick} tombol "Simpan"; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				Dosen dosenBaru = (Dosen) dosen.getAttribute("myValue");
@@ -357,14 +415,31 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Pembantu tampilan untuk panel identitas {@link #buatDashboardNilai()}.
+	 *
+	 * @return nama mahasiswa pemilik skripsi, atau string kosong bila skripsi/mahasiswa belum ada
+	 */
 	private String getNamaMahasiswa() {
 		return skripsi == null || skripsi.getMahasiswa() == null ? "" : safeString(skripsi.getMahasiswa().getNama());
 	}
 
+	/**
+	 * Pembantu tampilan untuk panel identitas {@link #buatDashboardNilai()}.
+	 *
+	 * @return NIM mahasiswa pemilik skripsi, atau string kosong bila skripsi/mahasiswa belum ada
+	 */
 	private String getNimMahasiswa() {
 		return skripsi == null || skripsi.getMahasiswa() == null ? "" : safeString(skripsi.getMahasiswa().getNim());
 	}
 
+	/**
+	 * Pembantu tampilan untuk panel identitas {@link #buatDashboardNilai()}. Seluruh rantai
+	 * dereferensi dibungkus {@code try/catch} karena mahasiswa tanpa jurusan (atau proxy Hibernate
+	 * yang gagal dimuat) tidak boleh menggagalkan pembangunan dasbor.
+	 *
+	 * @return nama program studi/jurusan mahasiswa, atau string kosong bila tidak tersedia
+	 */
 	private String getNamaJurusan() {
 		try {
 			return skripsi.getMahasiswa().getJurusan() == null ? "" : safeString(skripsi.getMahasiswa().getJurusan().getNama());
@@ -373,6 +448,13 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Pembantu tampilan untuk panel identitas {@link #buatDashboardNilai()}. Sama seperti
+	 * {@link #getNamaJurusan()}, dereferensi berlapis (mahasiswa &rarr; jurusan &rarr; fakultas)
+	 * dibungkus {@code try/catch} agar data tidak lengkap tidak menggagalkan dasbor.
+	 *
+	 * @return nama fakultas mahasiswa, atau string kosong bila tidak tersedia
+	 */
 	private String getNamaFakultas() {
 		try {
 			return skripsi.getMahasiswa().getJurusan() == null || skripsi.getMahasiswa().getJurusan().getFakultas() == null

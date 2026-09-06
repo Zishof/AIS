@@ -1260,6 +1260,32 @@ public class PenjadwalanHelper {
 	/**
 	 * Menambahkan tombol "Download" (cetak/ekspor Excel) ke {@code toolbar} untuk daftar pertemuan milik
 	 * satu pemilik agenda (hanya satu dari kedelapan parameter pemilik yang perlu diisi). Kolom dasar
+	  * <p><b>Pola "delapan pemilik" pada {@code initCriteria}.</b> Kriteria dibangun dengan menambahkan
+	  * delapan klausa sekaligus, di mana pemilik yang {@code null} menyumbang
+	  * {@code Restrictions.sqlRestriction("true")} (klausa tak berpengaruh) dan pemilik yang terisi
+	  * menyumbang {@code Restrictions.eq(...)}. Pola ini dipakai berulang di seluruh kelas ini. Efek
+	  * sampingnya yang penting: bila SEMUA pemilik {@code null}, kriterianya menjadi "true" delapan kali
+	  * — artinya SELURUH baris {@link Pertemuan} di basis data (lintas perkuliahan, lintas prodi, lintas
+	  * satuan kerja) akan ikut terekspor. Pemanggil wajib memastikan tepat satu pemilik terisi; tidak ada
+	  * penjaga di dalam method ini yang menolak pemanggilan tanpa pemilik.</p>
+	  *
+	  * <p>Mode urut mengikuti pemilik yang terisi ({@code getUrutkanotomatis()} milik pemilik tersebut):
+	  * urut {@code pertemuanKe} bila manual, urut {@code tanggal} bila otomatis, dengan {@code id}
+	  * sebagai pemecah seri. Filter aktif ({@code aktif} null-atau-true) selalu dipasang, jadi pertemuan
+	  * non-aktif tidak pernah ikut terekspor walau tampil di grid saat filter "hanya yg aktif"
+	  * dilepas.</p>
+	  *
+	  * <p>Kolom dinamis diambil dari {@code pertemuan.ambilDataParameterTambahan()}, dipetakan sebagai
+	  * {@code CommonVO}: {@code getName()} menjadi judul kolom, {@code getName1()} menjadi nilai sel, dan
+	  * {@code getName2()} — bila terisi — menjadikan sel itu hyperlink bergaya biru bergaris bawah. Judul
+	  * kolom hanya ditulis bila sel judul pada indeks tersebut masih kosong, sehingga baris pertama yang
+	  * membawa parameter tertentu menentukan judulnya untuk seluruh berkas. Bila pertemuan berbeda
+	  * membawa daftar parameter tambahan yang berbeda urutannya, kolom bisa tidak sejajar antarbaris.</p>
+	  *
+	  * <p>Seluruh badan {@code dataAdding} dibungkus try/catch yang hanya mencatat error — satu baris
+	  * yang gagal diolah tidak menggagalkan ekspor, tetapi juga tidak terlihat oleh pengguna sebagai
+	  * kolom yang hilang.</p>
+	  *
 	 * ({@code contents}) diperkaya dengan kolom tambahan per baris lewat {@code dataAdding}: ID, topik,
 	 * tanggal, jam mulai/selesai, dan jenis pertemuan, ditambah kolom dinamis dari
 	 * {@code pertemuan.ambilDataParameterTambahan()} — nilai yang punya URL dijadikan hyperlink berwarna
@@ -1267,6 +1293,13 @@ public class PenjadwalanHelper {
 	 *
 	 * @param toolbar     toolbar ZK tempat tombol ditambahkan
 	 * @param contents    nama-nama field {@link Pertemuan} yang diekspor sebagai kolom dasar
+	  * @param kelompokKkn               pemilik agenda berupa kelompok KKN, atau {@code null}
+	  * @param kelompokPkl               pemilik agenda berupa kelompok PKL, atau {@code null}
+	  * @param mahasiswaRequestTugasAkhir pemilik agenda berupa bimbingan tugas akhir, atau {@code null}
+	  * @param skripsi                   pemilik agenda berupa skripsi, atau {@code null}
+	  * @param krsMahasiswa              pemilik agenda berupa bimbingan KRS, atau {@code null}
+	  * @param formulirKegiatan          pemilik agenda berupa formulir kegiatan, atau {@code null}
+	  * @param wisuda                    pemilik agenda berupa wisuda, atau {@code null}
 	 * @param perkuliahan pemilik agenda (perkuliahan), atau {@code null} bila pemilik jenis lain dipakai
 	 */
 	public static void tampilTombolDownload(Toolbar toolbar, String[] contents, final Perkuliahan perkuliahan,
@@ -1410,10 +1443,34 @@ public class PenjadwalanHelper {
 	 * Menambahkan tombol "Hapus" ke {@code toolbar} yang, setelah lolos validasi
 	 * {@link #bolehHapus} dan konfirmasi pengguna, menghapus PERMANEN seluruh pertemuan (beserta
 	 * {@code tugas_pertemuan} terkait) milik satu pemilik agenda lewat
+	  *
+	  * <p><b>Tombol ini tidak punya gerbang hak akses sendiri.</b> Yang membatasi hanyalah
+	  * {@link #bolehHapus} (gerbang integritas: menolak bila ada pertemuan yang punya kehadiran/materi/
+	  * ujian/tugas) dan dialog konfirmasi. Siapa yang boleh melihat tombol ini sepenuhnya ditentukan
+	  * pemanggil — pada {@link #display(Perkuliahan, Component)} syaratnya bukan mahasiswa dan (bukan
+	  * dosen atau dosennya diizinkan mengubah tanggal perkuliahan). Perhatikan bahwa {@link #bolehHapus}
+	  * bersifat fail-open, sehingga kegagalan tak terduga saat memvalidasi justru melanjutkan ke
+	  * konfirmasi hapus.</p>
+	  *
+	  * <p><b>Hanya jalur perkuliahan yang membersihkan cache.</b> Sebelum menghapus, hanya cabang
+	  * {@code perkuliahan} yang memanggil {@code belum()}; tujuh pemilik lain tidak. Pemanggil untuk
+	  * pemilik selain perkuliahan karena itu perlu memastikan tampilannya benar-benar dimuat ulang dari
+	  * basis data lewat {@code eventListener} yang dikirimkannya.</p>
+	  *
+	  * <p>Kegagalan penghapusan ditangkap dan ditampilkan apa adanya sebagai pesan basis data kepada
+	  * pengguna ("berelasi dengan data lainnya" + {@code e.getMessage()}), bukan diterjemahkan menjadi
+	  * penjelasan domain seperti pada {@link #checkBolehHapus(Pertemuan, boolean)}.</p>
 	 * {@link #hapusPertemuanBesertaTugas} (SQL native, bukan lewat Hibernate delete per-baris).
 	 *
 	 * @param toolbar       toolbar ZK tempat tombol ditambahkan
 	 * @param perkuliahan   pemilik agenda (perkuliahan), atau {@code null} bila pemilik jenis lain dipakai
+	  * @param kelompokKkn               pemilik agenda berupa kelompok KKN, atau {@code null}
+	  * @param kelompokPkl               pemilik agenda berupa kelompok PKL, atau {@code null}
+	  * @param mahasiswaRequestTugasAkhir pemilik agenda berupa bimbingan tugas akhir, atau {@code null}
+	  * @param skripsi                   pemilik agenda berupa skripsi, atau {@code null}
+	  * @param krsMahasiswa              pemilik agenda berupa bimbingan KRS, atau {@code null}
+	  * @param formulirKegiatan          pemilik agenda berupa formulir kegiatan, atau {@code null}
+	  * @param wisuda                    pemilik agenda berupa wisuda, atau {@code null}
 	 * @param eventListener dipanggil setelah penghapusan berhasil agar pemanggil memuat ulang tampilan
 	 */
 	public static void tampilTombolHapus(Toolbar toolbar, final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
@@ -1488,6 +1545,27 @@ public class PenjadwalanHelper {
 	 * @param session      session Hibernate aktif untuk menjalankan SQL native
 	 * @param kolomPemilik nama kolom FK pemilik pada tabel {@code pertemuan} (mis. "perkuliahan",
 	 *                     "kelompok_kkn", "skripsi", dst.)
+	  *
+	  * <p><b>Yang TIDAK ikut terhapus.</b> Hanya dua tabel yang dibersihkan: {@code tugas_pertemuan} lalu
+	  * {@code pertemuan}. Anak-anak pertemuan yang lain — materi ({@code PertemuanFileContent}), video dan
+	  * audio ({@code VideoPertemuan}/{@code AudioPertemuan} yang hidup di session streaming terpisah),
+	  * ujian ({@code PertemuanPunyaUjian}), tugas kelompok ({@code TugasKelompok}), lampiran
+	  * ({@code LampiranLain}), diskusi, dan kehadiran — tidak disentuh sama sekali. Itu aman HANYA karena
+	  * pemanggil sudah menjalankan {@link #bolehHapus}, yang menolak menghapus begitu pertemuan mana pun
+	  * masih memiliki data anak semacam itu. Jangan memanggil method ini dari jalur lain tanpa validasi
+	  * yang sama: hasilnya baris yatim atau kegagalan foreign key.</p>
+	  *
+	  * <p><b>Keamanan query.</b> {@code kolomPemilik} disisipkan langsung ke string SQL (bukan parameter),
+	  * sedangkan {@code idPemilik} diikat sebagai parameter {@code :idPemilik}. Nama kolom karena itu
+	  * WAJIB berasal dari literal yang ditulis di kode — seperti yang dilakukan {@link #tampilTombolHapus}
+	  * saat ini ("perkuliahan", "kelompok_kkn", "kelompok_pkl", "formulir_kegiatan",
+	  * "mahasiswa_request_tugas_akhir", "krs_mahasiswa", "skripsi", "wisuda") — dan TIDAK BOLEH pernah
+	  * berasal dari masukan pengguna, parameter URL, atau konfigurasi yang dapat disunting.</p>
+	  *
+	  * <p>Karena memakai SQL native, penghapusan ini melewati cache level-satu/level-dua Hibernate dan
+	  * listener/interceptor entity — termasuk pencatatan revisi Envers. Pemanggil bertanggung jawab
+	  * memanggil {@code belum()} pada entity pemilik agar cache pertemuannya tidak menyisakan id yang
+	  * sudah tidak ada.</p>
 	 * @param idPemilik    id baris pemilik pada kolom tersebut
 	 */
 	private static void hapusPertemuanBesertaTugas(Session session, String kolomPemilik, Long idPemilik) {

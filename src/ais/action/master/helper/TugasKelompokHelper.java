@@ -167,6 +167,76 @@ import ais.ui.util.WaktuUtil;
  * @see ais.ui.util.DataLoader
  */
 public class TugasKelompokHelper implements DataLoader {
+	/**
+	 * <h3>Pembersih rujukan Format Nilai "yatim" pada satu Tugas Kelompok</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> memperbaiki satu jenis kerusakan data yang membuat
+	 * halaman tugas kelompok gagal dibuka atau gagal disimpan. Setiap tugas kelompok boleh menunjuk ke
+	 * satu komponen penilaian ("Format Nilai", misalnya <i>Tugas 30%</i>). Bila komponen penilaian itu
+	 * kemudian dihapus dari daftar format nilai perkuliahan, kolom penunjuk di baris tugas kelompok
+	 * <b>tidak ikut dikosongkan</b>, sehingga tersisa penunjuk ke baris yang sudah tidak ada lagi &mdash;
+	 * inilah yang disebut rujukan <i>yatim</i> (istilah teknis: <i>orphan foreign key</i>). Ketika
+	 * Hibernate mencoba memuat objek yang ditunjuk, ia melempar galat dan seluruh tampilan ikut gagal.
+	 * Metode ini mengembalikan penunjuk tersebut menjadi kosong sehingga tugas kelompok dapat dibuka,
+	 * disimpan, dan dipetakan ulang ke komponen penilaian yang benar.</p>
+	 *
+	 * <h4>Kapan dipanggil</h4>
+	 * <p>Dipanggil tepat SEBELUM pengguna mengganti pilihan Format Nilai pada kartu tugas kelompok
+	 * (listener {@code onChange} combobox Format Nilai di dalam {@code DetailPerkuliahanRenderer.render}).
+	 * Urutannya sengaja demikian: bersihkan dulu rujukan rusak yang mungkin sudah ada, baru tulis pilihan
+	 * baru. Tanpa langkah ini, pemanggilan {@code Common.refreshUpdate} pada baris yang masih memuat
+	 * rujukan yatim akan gagal sebelum sempat menuliskan nilai penggantinya, dan pengguna terjebak: tidak
+	 * bisa memperbaiki karena perbaikannya sendiri diblokir oleh kerusakan yang hendak diperbaiki.</p>
+	 *
+	 * <h4>Cara kerja &amp; alasan memakai SQL langsung</h4>
+	 * <p>Perbaikan memakai satu perintah SQL bersyarat:</p>
+	 * <pre>update tugas_kelompok t set format_nilai=null
+	 * where t.id=:id and t.format_nilai is not null
+	 *   and not exists (select 1 from formatnilai f where f.id=t.format_nilai)</pre>
+	 * <p>Klausa {@code not exists} membuat perintah ini <b>hanya</b> menyentuh baris yang rujukannya memang
+	 * sudah menggantung; tugas kelompok yang rujukannya masih sah tidak diubah sama sekali (0 baris
+	 * terpengaruh). Klausa {@code t.id=:id} membatasi dampak pada SATU tugas kelompok yang sedang dibuka,
+	 * bukan seluruh tabel &mdash; penting agar operasi pemeliharaan ini tidak pernah berubah menjadi
+	 * pembersihan massal yang tidak disengaja. Parameter id diikat lewat {@code setLong} (bukan disambung
+	 * sebagai teks), sehingga tidak ada celah penyisipan perintah SQL. SQL langsung dipilih karena lapisan
+	 * pemetaan objek justru tidak sanggup memuat baris yang rujukannya rusak; perbaikan harus dikerjakan
+	 * pada tingkat tabel.</p>
+	 *
+	 * <h4>Sesi &amp; transaksi terpisah (disengaja)</h4>
+	 * <p>Metode ini sengaja TIDAK memakai {@code HibernateUtil.currentSession()} milik permintaan ZK,
+	 * melainkan membuka sesi sendiri lewat {@code HibernateUtil.openSession()} beserta transaksi
+	 * tersendiri. Alasannya: sesi permintaan bisa jadi sudah menampung objek {@code TugasKelompok} dalam
+	 * keadaan rusak, dan menjalankan perbaikan di sesi terpisah menjamin perintah tetap berjalan serta
+	 * hasilnya langsung permanen (commit) tanpa terpengaruh isi cache sesi utama. Sesi SELALU ditutup di
+	 * blok {@code finally} lewat {@code HibernateUtil.closeSessionQuietly} sehingga tidak ada koneksi yang
+	 * bocor, dan transaksi di-<i>rollback</i> lebih dulu bila terjadi kegagalan.</p>
+	 *
+	 * <p><b>Konsekuensi pada cache sesi utama.</b> Karena perbaikan terjadi di sesi lain, objek
+	 * {@code TugasKelompok} yang masih dipegang sesi ZK <b>belum</b> mengetahui perubahan tersebut &mdash;
+	 * di memori kolom penunjuknya masih berisi nilai lama. Itulah sebabnya pemanggil ({@code onChange})
+	 * langsung menimpa nilai penunjuk dengan pilihan baru ({@code setFormatNilai}) lalu menyimpannya,
+	 * sehingga keadaan di memori dan di basis data kembali seiring. Bila metode ini dipakai ulang di
+	 * tempat lain, pemanggil WAJIB melakukan {@code session.refresh(...)} atau menimpa nilainya sendiri;
+	 * kalau tidak, penyimpanan berikutnya akan menuliskan kembali rujukan yatim yang baru saja dihapus.</p>
+	 *
+	 * <h4>Perilaku kegagalan: berisik, bukan diam</h4>
+	 * <p>Berbeda dari sebagian besar penjagaan kosmetik di kelas ini yang sengaja diam bila gagal (kartu
+	 * ringkas, analitik, rincian Sub-CPMK), metode ini <b>melempar</b> {@link IllegalStateException} bila
+	 * perbaikan tidak berhasil. Ini disengaja: bila pembersihan gagal, penulisan Format Nilai berikutnya
+	 * hampir pasti juga gagal, sehingga lebih baik pengguna melihat pesan galat yang jelas (memuat id tugas
+	 * kelompok yang bermasalah) daripada mengira pilihannya sudah tersimpan padahal tidak.</p>
+	 *
+	 * <p>Bila {@code tugasKelompok} bernilai {@code null} atau belum memiliki id (belum pernah disimpan),
+	 * metode langsung keluar tanpa melakukan apa pun &mdash; tidak ada baris basis data yang dapat
+	 * diperbaiki untuk data yang memang belum tersimpan.</p>
+	 *
+	 * @param tugasKelompok tugas kelompok yang rujukan Format Nilai-nya hendak diperiksa dan dibersihkan;
+	 *                      boleh {@code null} atau belum ber-id (metode tidak melakukan apa pun)
+	 * @throws IllegalStateException bila perintah perbaikan gagal dijalankan atau gagal di-commit; pesannya
+	 *                               menyertakan id tugas kelompok yang bermasalah
+	 * @see ais.database.model.TugasKelompok#getFormatNilai()
+	 * @see ais.database.model.FormatNilai
+	 */
 	private static void bersihkanFormatNilaiYatim(TugasKelompok tugasKelompok) {
 		if (tugasKelompok == null || tugasKelompok.getId() == null) {
 			return;

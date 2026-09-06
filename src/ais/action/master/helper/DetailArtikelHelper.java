@@ -150,15 +150,97 @@ import ais.ui.util.MyWindow;
  */
 public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 
+	/**
+	 * Grid daftar (bukan formulir) pengajuan Artikel yang dibangun oleh
+	 * {@link #displayPengajuan(Boolean, String, String, JurnalPenelitian, Component, MyWindow, String)}
+	 * dan diisi ulang oleh {@link #loadDataPengajuan()} memakai {@link DetailArtikelRenderer}.
+	 * Berbeda dengan {@link MyGrid} hasil {@link #displayWindowPengajuan(Component, JurnalPenelitian, Artikel)}
+	 * yang merupakan grid <i>form</i> per-satu-Artikel.
+	 */
 	private MyGrid gridPengajuan;
+	/**
+	 * Filter jurnal/publikasi pada toolbar pencarian. Diisi lewat
+	 * {@code Common.insertComboDanSemua(..., JurnalPenelitian.class, Restrictions.eq("aktif", true))}
+	 * sehingga hanya {@link JurnalPenelitian} berstatus aktif yang bisa dipilih, plus entri
+	 * "Semua" bernilai {@code null}. Dikunci ({@code setDisabled(true)}) bila layar dibuka dari
+	 * konteks satu jurnal tertentu. Nilainya dibaca {@link #initCriteria(boolean)}.
+	 */
 	private Combobox searchJurnalPenelitian;
+	/**
+	 * Menyembunyikan seluruh {@link Toolbar} aksi pada layar daftar (tambah, sinkronisasi SINTA,
+	 * impor OJS, ekspor DSpace, cari) — dipakai bila helper ditanam sebagai panel tampil-saja di
+	 * layar lain. Hanya memengaruhi tampilan; tidak menutup jalur simpan/hapus di sisi server.
+	 * Lihat {@link #setReadonly(Boolean)}/{@link #getReadonly()}.
+	 */
 	private Boolean readonly = false;
 
+	/**
+	 * Komponen paging ZK untuk {@link #gridPengajuan}. Halaman aktifnya dipakai
+	 * {@link #loadDataPengajuan()} sebagai {@code setFirstResult} dan total barisnya dihitung
+	 * ulang lewat {@code Common.initPaging(initCriteria(false), paging)} pada setiap pemuatan.
+	 */
 	private Paging paging;
+	/**
+	 * Kunci pembatas kepemilikan daftar Artikel: bila terisi, {@link #initCriteria(boolean)}
+	 * hanya mengambil Artikel yang {@code tbmuser.userId} atau {@code mahasiswa.nim}-nya sama
+	 * dengan nilai ini; bila {@code null}, daftar TIDAK dibatasi sama sekali sehingga seluruh
+	 * Artikel semua pengaju ikut tampil.
+	 *
+	 * <p><b>Catatan arsitektur (penting):</b> pembatasan kepemilikan pada helper ini sepenuhnya
+	 * ditentukan oleh pemanggil, bukan oleh helper. Layar pribadi
+	 * ({@code ProfileDosen}, {@code BiodataDosenAction}, {@code BiodataPegawaiAction},
+	 * {@code BiodataMahasiswaAction}, {@code KinerjaAction}) mengirim userId/NIM pemilik,
+	 * sedangkan layar administratif ({@code ArtikelAction}, {@code JurnalPenelitianAction},
+	 * {@code AsesementAction}) sengaja mengirim {@code null} dan mengandalkan gerbang menu.
+	 * Nilai ini juga diteruskan ke {@link LaporanArtikel} saat mencetak, sehingga cetakan
+	 * mengikuti cakupan yang sama.</p>
+	 */
 	protected String usernamePengajuan;
+	/**
+	 * Sasaran pengajuan menurut konstanta {@link PengumumanAkademis} ({@code UNTUK_UMUM},
+	 * {@code UNTUK_DOSEN}, {@code UNTUK_PEGAWAI}, {@code UNTUK_MAHASISWA}). Menentukan pemilih
+	 * pengaju mana yang ditampilkan pada formulir: {@link #tbmuserD} (pengguna/dosen/pegawai)
+	 * dan/atau {@link #mahasiswa}. Nilai {@code null} diperlakukan sama dengan
+	 * {@code UNTUK_UMUM} (kedua pemilih tampil). Diteruskan pula ke
+	 * {@code tbmuserD.setDiperuntukkan(...)} agar dialog pencarian pengguna ikut tersaring.
+	 */
 	public String diperuntukkanPengajuan;
+	/**
+	 * Kata kunci bebas pencarian pengaju pada toolbar. Dicocokkan secara {@code ilike ANYWHERE}
+	 * ke empat kolom sekaligus oleh {@link #initCriteria(boolean)}: {@code tbmuser.userId},
+	 * {@code tbmuser.userNama}, {@code mahasiswa.nim}, dan {@code mahasiswa.nama}. Hanya
+	 * ditampilkan bila {@link #usernamePengajuan} {@code null} (yaitu pada layar administratif),
+	 * karena pada layar pribadi pengaju sudah terkunci.
+	 */
 	private Textbox cariPengaju;
+	/**
+	 * Pengguna konteks helper. Awalnya diisi konstruktor dari {@code Common.getCurrentUser()}
+	 * (pengguna yang sedang login) dan dipakai sebagai pengaju baku ketika {@link Artikel} baru
+	 * belum punya {@code tbmuser}/{@code mahasiswa}.
+	 *
+	 * <p><b>Perhatikan:</b> field ini <i>ditimpa</i> di
+	 * {@link #displayWindowPengajuan(Component, JurnalPenelitian, Artikel)} ketika
+	 * {@link #usernamePengajuan} tidak {@code null} — saat itu isinya berubah menjadi
+	 * {@link Tbmuser} milik {@code usernamePengajuan}, bukan lagi pengguna yang login. Jadi
+	 * setelah formulir dibangun, {@code tbmuser} bermakna "pemilik data yang sedang dibuka",
+	 * bukan "pengguna yang sedang login". {@link DetailArtikelRenderer#render(Row, Object)} tetap
+	 * memakainya untuk mengambil {@code ambilPegawai()} sebagai konteks tampilan baris.</p>
+	 */
 	private Tbmuser tbmuser = null;
+	/**
+	 * Dosen konteks, dipakai untuk fitur sinkronisasi eksternal: tombol "Singkronkan dg SINTA"
+	 * hanya tampil bila {@code dosen != null} dan {@code dosen.getKodeSinta()} panjangnya lebih
+	 * dari 3 karakter, dan kode itulah yang dikirim ke
+	 * {@link SintaPtCrawler#singkronkanArtikel}. Jalur Google Scholar memakai
+	 * {@code dosen.getGoogleScholar()} namun blok tersebut dimatikan permanen dengan
+	 * {@code if (false && ...)}.
+	 *
+	 * <p>Ketiga konstruktor melakukan penurunan yang sama: bila dosen belum diketahui, diambil
+	 * dari {@code tbmuser.ambilDosen()}. Pada {@link #DetailArtikelHelper()} nama {@code dosen}
+	 * merujuk langsung ke field ini, sedangkan pada dua konstruktor ber-argumen nama tersebut
+	 * dibayangi (<i>shadowed</i>) oleh parameter dan baru disalin ke field lewat
+	 * {@code this.dosen = dosen}.</p>
+	 */
 	private Dosen dosen = null;
 
 	/** Konstruktor default: mengambil user login saat ini dan dosen terkait (bila ada) sebagai konteks pengaju. */
@@ -188,16 +270,116 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		this.dosen = dosen;
 	}
 
+	/**
+	 * Berkas naskah publikasi yang baru saja diunggah pada baris "File / link Publikasi Ilmiah".
+	 * Direset ke {@code null} setiap kali formulir dibangun ulang, lalu diisi dari
+	 * {@code LampiranLain.ambilFile()} oleh listener unggah. Bila masih terisi saat
+	 * {@link #onSave(Event)} berjalan, sebuah record {@link FileArtikel} baru dibuat dan
+	 * {@code artikelData.pathUrl} ditulis ulang menjadi URL servlet
+	 * {@code /FilePengajuanArtikel?id=<idFileArtikel>}.
+	 *
+	 * <p>Perhatikan: {@link #onSave(Event)} selalu <i>menambah</i> {@link FileArtikel} baru dan
+	 * tidak pernah menghapus yang lama, sehingga satu Artikel dapat memiliki banyak record file
+	 * historis; hanya yang terakhir yang tertunjuk oleh {@code pathUrl}.</p>
+	 */
 	private File f = null;
+	/**
+	 * Lampiran hasil pemeriksaan plagiarisme (kategori {@code "Plagiat_Checker"}) yang baru
+	 * diunggah pada sesi formulir ini. Direset {@code null} saat formulir dibangun dan diisi oleh
+	 * listener unggah {@link LampiranLain#createDownloadUploadFileLain}. Pada
+	 * {@link #onSave(Event)} nilainya dipakai untuk menautkan lampiran ke Artikel dengan menulis
+	 * {@code setRef(artikelData.getId())} lewat {@link StreamingHibernateUtil} — transaksi
+	 * terpisah dari transaksi utama, dan kegagalannya hanya di-<i>rollback</i> lalu dicatat
+	 * sehingga penyimpanan Artikel tetap dianggap berhasil walau penautan lampiran gagal.
+	 */
 	protected LampiranLain plagiatCheckerApp;
+	/**
+	 * Lampiran dokumen penelaahan sejawat (kategori {@code "Peer Review"}) yang baru diunggah.
+	 * Perlakuannya identik dengan {@link #plagiatCheckerApp}: direset saat formulir dibangun dan
+	 * ditautkan ke Artikel lewat {@code setRef} pada {@link #onSave(Event)} memakai sesi
+	 * streaming terpisah.
+	 */
 	protected LampiranLain peerReviewApp;
+	/**
+	 * Lampiran Surat Keterangan Publikasi (kategori {@code "Surat Keterangan Publikasi"}) yang
+	 * baru diunggah. Berbeda dengan {@link #plagiatCheckerApp}, listener unggahnya sudah
+	 * menautkan {@code setRef} lebih awal bila Artikel sudah punya id — penautan pada
+	 * {@link #onSave(Event)} karenanya bersifat pengulangan yang aman. Dipakai pula sebagai
+	 * penanda pemenuhan syarat wajib bila
+	 * {@link #surat_keterangan_wajib_diupload_saat_mengajukan_artikel} aktif.
+	 */
 	protected LampiranLain sKeterangan;
+	/**
+	 * Lampiran Surat Tugas Publikasi (kategori {@code "Surat Tugas Publikasi"}) yang baru
+	 * diunggah; perlakuannya sama dengan {@link #sKeterangan}. Dipakai sebagai penanda pemenuhan
+	 * syarat wajib bila {@link #surat_tugas_wajib_diupload_saat_mengajukan_artikel} aktif.
+	 */
 	protected LampiranLain sTugas;
+	/**
+	 * Salinan konfigurasi {@code surat_tugas_wajib_diupload_saat_mengajukan_artikel} (baku
+	 * {@link Konfigurasi#TIDAK_AKTIF}), dibaca sekali saat formulir dibangun. Bila aktif,
+	 * {@link #onSave(Event)} menolak penyimpanan Artikel <i>baru</i> yang belum mengunggah
+	 * {@link #sTugas}, dan untuk Artikel <i>lama</i> memverifikasi keberadaan lampiran
+	 * "Surat Tugas Publikasi" lewat {@link FileFotoLain#ambil}. Label baris formulir juga
+	 * ditambahi tanda bintang bila aktif.
+	 */
 	private boolean surat_tugas_wajib_diupload_saat_mengajukan_artikel;
+	/**
+	 * Salinan konfigurasi {@code surat_keterangan_wajib_diupload_saat_mengajukan_artikel}
+	 * (baku {@link Konfigurasi#TIDAK_AKTIF}). Perilakunya sejajar dengan
+	 * {@link #surat_tugas_wajib_diupload_saat_mengajukan_artikel}, hanya berlaku untuk lampiran
+	 * "Surat Keterangan Publikasi".
+	 */
 	private boolean surat_keterangan_wajib_diupload_saat_mengajukan_artikel;
+	/**
+	 * Konteks disposisi SOP tempat formulir ini dipasang, disetel oleh
+	 * {@link #form(GeneralValueObject, DisposisiSop, MyToolbarbuttonConfig, EventListener)}.
+	 * Nilainya menentukan dua hal sekaligus:
+	 * <ul>
+	 * <li>Bila {@code null}, helper membangun sendiri {@link MyWindow} modal beserta tombol
+	 * Simpan/Tutup dan memasang pembekuan form untuk Artikel berstatus
+	 * {@link PengajuanPenelitianDanPengabdian#DISETUJUI}. Bila tidak {@code null}, seluruh blok
+	 * itu dilewati karena kerangka SOP yang menyediakan wadah dan gerbang wewenangnya sendiri.</li>
+	 * <li>Bila sudah punya id, direkam ke {@code artikelData.disposisiSop} pada
+	 * {@link #onSave(Event)} sebagai jejak alur persetujuan.</li>
+	 * </ul>
+	 */
 	private DisposisiSop disposisiSop;
+	/**
+	 * Mode tampilan formulir. Bila {@code true}, hampir setiap baris pada
+	 * {@link #displayWindowPengajuan(Component, JurnalPenelitian, Artikel)} merender
+	 * {@link Label} baca-saja alih-alih komponen input, dan tombol unggah lampiran dinonaktifkan
+	 * (argumen {@code !persetujuan}). Disetel lewat konstruktor
+	 * {@link #DetailArtikelHelper(Dosen, boolean)} atau {@link #setPersetujuan(boolean)}.
+	 *
+	 * <p><b>Catatan:</b> mode ini murni kosmetik pada sisi tampilan — komponen input tetap
+	 * dibuat (hanya tidak dipasang ke baris) dan {@link #onSave(Event)} tidak memeriksa flag ini
+	 * sama sekali. Dua baris juga tidak mengikuti pola tersebut: baris "Peer Review /
+	 * Penelaahan sejawat" selalu memasang {@link Textbox} yang dapat disunting, dan baris
+	 * "Nomor" pada mode persetujuan menampilkan nilai {@code getVol()} alih-alih
+	 * {@code getNomor()}.</p>
+	 */
 	private boolean persetujuan = false;
+	/**
+	 * Window modal yang dibuat sendiri oleh
+	 * {@link #form(GeneralValueObject, DisposisiSop, MyToolbarbuttonConfig, EventListener)} bila
+	 * formulir dipanggil di luar alur disposisi SOP dan komponen induknya berupa
+	 * {@link Window}. Ditutup lewat {@code detach()} oleh tombol Tutup maupun setelah
+	 * {@link #onSave(Event)} berhasil. Bernilai {@code null} bila formulir ditempel langsung ke
+	 * induk tanpa window (kasus induk bukan {@link Window}).
+	 */
 	private MyWindow window;
+	/**
+	 * Entitas {@link Artikel} yang sedang diisi/disunting formulir — sekaligus nilai yang
+	 * dikembalikan {@link #ambil()} ke kerangka SOP. Diisi dari argumen
+	 * {@code generalValueObject} pada
+	 * {@link #form(GeneralValueObject, DisposisiSop, MyToolbarbuttonConfig, EventListener)} dan
+	 * ditimpa ulang di {@link #displayWindowPengajuan(Component, JurnalPenelitian, Artikel)}.
+	 *
+	 * <p>Pada {@link #onSave(Event)} referensinya diganti dengan instance {@link Artikel} baru
+	 * bila belum punya id, atau di-{@code refresh} dari basis data bila sudah — sehingga nilai
+	 * dari formulir selalu ditulis di atas keadaan terkini, bukan di atas salinan basi.</p>
+	 */
 	private Artikel artikelData;
 	private AmbilDataTbmuserBanbox tbmuserD;
 	private Label labelMahasiswa;
