@@ -992,6 +992,24 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return nilai instanceof Integer ? (Integer) nilai : Integer.valueOf(nilai.toString());
 	}
 
+	/**
+	 * Perbarui label pendamping combobox semester agar menunjukkan tahun akademik yang setara
+	 * dengan semester terpilih, dalam bentuk {@code "TA 2024/2025"}. Perhitungannya
+	 * didelegasikan ke {@code Common.getTahunAkademik} dengan memperhitungkan mahasiswa
+	 * pindahan ({@code semesterPindahan}, {@code null} dibaca sebagai 0) dan semester mulai
+	 * ({@code semesterMulai}, {@code null} dibaca sebagai {@link Perkuliahan#GANJIL}).
+	 *
+	 * <p>Menampilkan {@code "TA -"} pada dua keadaan: semester belum dipilih atau tahun angkatan
+	 * tidak diketahui, dan bila perhitungan melempar kesalahan (yang dicatat lewat
+	 * {@code ErrorAuditUtil}). Jadi label ini bersifat informatif semata — kegagalannya tidak
+	 * pernah menghalangi penyimpanan rentang semester.</p>
+	 *
+	 * @param label            label tujuan yang nilainya ditulis ulang
+	 * @param pilihan          combobox semester sumber nilai, dibaca lewat {@link #ambilSemester}
+	 * @param tahunAngkatan    tahun angkatan mahasiswa/calon; {@code null} membuat label menjadi {@code "TA -"}
+	 * @param semesterPindahan semester saat pindah dari kampus lama; boleh {@code null}
+	 * @param semesterMulai    jenis semester awal masuk; boleh {@code null}
+	 */
 	private void perbaruiTahunAkademik(Label label, Combobox pilihan, Integer tahunAngkatan,
 			Integer semesterPindahan, String semesterMulai) {
 		Integer semester = ambilSemester(pilihan);
@@ -1011,6 +1029,22 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Susun satu kolom kecil berisi combobox semester dengan label tahun akademik di bawahnya,
+	 * lalu isi label itu untuk pertama kali lewat {@link #perbaruiTahunAkademik}. Dipakai dua
+	 * kali oleh {@link #renderRentangSemester} — untuk ujung minimum dan ujung maksimum rentang.
+	 *
+	 * <p>Perhatikan bahwa parameter {@code tahunAkademik} di sini adalah {@link Label} penampil
+	 * TA, BUKAN field {@link #tahunAkademik} milik kelas yang bertipe
+	 * {@link org.zkoss.zul.Combobox} dan berperan sebagai TA acuan resolusi tagihan.</p>
+	 *
+	 * @param pilihan          combobox semester yang dibungkus
+	 * @param tahunAkademik    label penampil tahun akademik hasil hitung
+	 * @param tahunAngkatan    tahun angkatan mahasiswa/calon; boleh {@code null}
+	 * @param semesterPindahan semester saat pindah dari kampus lama; boleh {@code null}
+	 * @param semesterMulai    jenis semester awal masuk; boleh {@code null}
+	 * @return wadah {@link Vbox} berisi kedua komponen, siap dipasang ke induknya
+	 */
 	private Vbox bungkusPilihanSemester(final Combobox pilihan, final Label tahunAkademik,
 			final Integer tahunAngkatan, final Integer semesterPindahan, final String semesterMulai) {
 		Vbox bungkus = new Vbox();
@@ -1022,6 +1056,30 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return bungkus;
 	}
 
+	/**
+	 * Render kendali rentang "Semester berlaku" untuk satu {@link SettingBiayaDetail}: dua
+	 * combobox semester (minimum s.d. maksimum) yang masing-masing disertai label tahun
+	 * akademiknya. Nilai awal kedua ujung diambil dari {@code detail.getMinSmt()} dan
+	 * {@code detail.getMaxSmt()}, dilewatkan {@link #batasiSemester} dengan
+	 * {@code semesterSaatIni} sebagai pengganti sehingga rentang yang belum pernah diisi pun
+	 * tetap menunjuk semester yang masuk akal.
+	 *
+	 * <p><b>Menyimpan langsung tanpa tombol.</b> Kedua combobox memasang listener
+	 * {@link Events#ON_SELECT} yang seketika menulis nilai baru ke {@code detail} dan
+	 * memanggil {@code Common.refreshUpdate(detail)} — tidak ada tombol Simpan dan tidak ada
+	 * konfirmasi. Rentang semester inilah yang menentukan pada semester mana template biaya
+	 * berlaku, sehingga satu kali salah pilih langsung mengubah cakupan penagihan orang
+	 * tersebut. Perlu diketahui pula bahwa kedua ujung disimpan sendiri-sendiri: tidak ada
+	 * pemeriksaan bahwa minimum tidak melampaui maksimum, sehingga rentang terbalik
+	 * (mis. 6 s.d. 3) dapat tersimpan dan menghasilkan rentang kosong.</p>
+	 *
+	 * @param parent           wadah tempat kendali ditempel
+	 * @param detail           binding SettingBiayaDetail yang rentangnya diubah — objek inilah yang disimpan
+	 * @param semesterSaatIni  semester berjalan sebagai nilai pengganti bila rentang belum terisi
+	 * @param tahunAngkatan    tahun angkatan untuk perhitungan label TA; boleh {@code null}
+	 * @param semesterPindahan semester saat pindah dari kampus lama; boleh {@code null}
+	 * @param semesterMulai    jenis semester awal masuk; boleh {@code null}
+	 */
 	private void renderRentangSemester(Vbox parent, final SettingBiayaDetail detail, Integer semesterSaatIni,
 			final Integer tahunAngkatan, final Integer semesterPindahan, final String semesterMulai) {
 		final Combobox minSmt = buatPilihanSemester(batasiSemester(detail.getMinSmt(), semesterSaatIni));
@@ -1057,6 +1115,19 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		});
 	}
 
+	/**
+	 * Isi rentang semester baku sebuah {@link SettingBiayaDetail} yang baru dibuat: minimum dan
+	 * maksimum sama-sama disetel ke semester berjalan (dijepit lewat {@link #batasiSemester}),
+	 * yaitu rentang satu semester saja. Dengan begitu binding baru hanya berlaku untuk semester
+	 * saat itu sampai admin melebarkannya sendiri lewat {@link #renderRentangSemester} —
+	 * pilihan yang aman karena kelalaian mengatur rentang tidak membuat template biaya menagih
+	 * di semester-semester lain.
+	 *
+	 * <p>Hanya mengubah objek di memori; penyimpanannya diserahkan ke pemanggil.</p>
+	 *
+	 * @param detail          binding yang rentangnya diisi
+	 * @param semesterSaatIni semester berjalan sebagai nilai baku
+	 */
 	private void isiSemesterDefault(SettingBiayaDetail detail, Integer semesterSaatIni) {
 		Integer semester = batasiSemester(semesterSaatIni, SEMESTER_MINIMAL);
 		detail.setMinSmt(semester);

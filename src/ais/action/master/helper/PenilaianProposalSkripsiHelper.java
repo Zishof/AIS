@@ -896,6 +896,20 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 			footer.appendChild(myCheckboxConfig);
 			myCheckboxConfig.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menyimpan seketika bendera
+				 * {@link MahasiswaRequestTugasAkhir#getSembunyikanNilaiKemahasiswa()}. Didahului
+				 * {@code refresh} agar perubahan lain yang masuk selagi layar terbuka tidak tertimpa
+				 * salinan lama di memori, lalu {@code refreshUpdate} + {@code flush} sehingga
+				 * efeknya langsung terasa pada sesi mahasiswa.
+				 *
+				 * <p>Checkbox-nya hanya dibuat untuk pengguna non-mahasiswa dan non-siswa, jadi
+				 * gerbang haknya ada di sisi pembuatan komponen. Bendera ini dua arah — bisa
+				 * dinyalakan dan dimatikan kembali — dan tidak meninggalkan jejak audit siapa yang
+				 * mengubahnya.</p>
+				 *
+				 * @param arg0 event {@code onClick}; targetnya dipakai membaca keadaan centang
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					MyCheckboxConfig c = (MyCheckboxConfig) arg0.getTarget();
@@ -1347,6 +1361,22 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 				mahasiswaRequestTugasAkhir.getId() == null ? -Common.randLong() : mahasiswaRequestTugasAkhir.getId(),
 				MahasiswaRequestTugasAkhir.class.getName(), "Proposal", false, new EventListener() {
 
+					/**
+					 * Menautkan berkas naskah proposal yang baru diunggah ke id pengajuan ini.
+					 *
+					 * <p>Penulisan {@code ref} memakai {@link StreamingHibernateUtil} — sesi dan
+					 * transaksi TERPISAH dari sesi ZK biasa — karena unggahan berkas besar berjalan
+					 * di luar siklus request normal. Perhatikan bahwa berbeda dari kembarannya di
+					 * {@code PenilaianSkripsiHelper}, di sini {@code closeSession()} <b>tidak</b>
+					 * berada di blok {@code finally}: bila {@code commit} gagal, sesi streaming tidak
+					 * pernah ditutup. Dicatat apa adanya.</p>
+					 *
+					 * <p>Pengajuan yang belum ber-id sempat memakai kunci sementara acak bernilai
+					 * negatif ({@code -Common.randLong()}) saat komponen unggah dibangun; callback
+					 * inilah yang memperbaiki {@code ref}-nya menjadi id sebenarnya.</p>
+					 *
+					 * @param arg0 event unggah, datanya berupa {@link LampiranLain} yang baru dibuat
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						LampiranLain lainMahasiswa = (LampiranLain) arg0.getData();
@@ -1378,6 +1408,14 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 				MahasiswaRequestTugasAkhir.class.getName() + "_Presentasi", "File Presentasi (PPT)", false,
 				new EventListener() {
 
+					/**
+					 * Kembaran callback unggah naskah proposal, untuk berkas presentasi seminar
+					 * (PPT): menautkan {@code ref} lampiran ke id pengajuan lewat sesi
+					 * {@link StreamingHibernateUtil} yang terpisah, dengan catatan penutupan sesi
+					 * yang sama seperti pada callback proposal.
+					 *
+					 * @param arg0 event unggah, datanya berupa {@link LampiranLain} yang baru dibuat
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						LampiranLain lainMahasiswa = (LampiranLain) arg0.getData();
@@ -1446,8 +1484,35 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		}
 		tanpaPerbaikan.setChecked(mahasiswaRequestTugasAkhir.getTanpaPerbaikan());
 
+		// Satu listener dipakai bersama oleh SEMUA field "Hasil Seminar" di kolom kiri: setiap
+		// perubahan satu field menulis ulang seluruh field sekaligus.
 		EventListener ubah = new EventListener() {
 
+			/**
+			 * Menyalin isi kontrol "Hasil Seminar" (tanggal seminar, waktu mulai/sampai, catatan
+			 * penting, tanpa-perbaikan) ke {@link #mahasiswaRequestTugasAkhir} lalu menyimpannya
+			 * seketika — pola auto-save tanpa tombol Simpan.
+			 *
+			 * <p><b>Cara kerja hak aksesnya perlu diperhatikan:</b> listener ini selalu didaftarkan
+			 * ke kelima kontrol, termasuk ketika pengguna adalah mahasiswa. Yang membedakan adalah
+			 * kontrol tersebut TIDAK dipasang ke halaman bagi mahasiswa (yang tampil hanya label),
+			 * sehingga komponen tetap lepas dan ZK tidak pernah mengirimkan event kepadanya.
+			 * Penjagaan bertumpu pada "komponen tidak terpasang", bukan pada pemeriksaan hak di
+			 * dalam listener.</p>
+			 *
+			 * <p>Syarat tampil seluruh kontrol di blok ini seragam ("bukan mahasiswa"), berbeda dari
+			 * kembarannya di {@code PenilaianSkripsiHelper} yang syaratnya bercampur antara
+			 * bukan-mahasiswa dan bukan-mahasiswa-sekaligus-bukan-siswa. Konsekuensinya di sini,
+			 * pengguna yang tertaut data siswa diperlakukan seperti staf dan dapat mengubah seluruh
+			 * data seminar.</p>
+			 *
+			 * <p>Baris {@code setJadwalSeminarTugasAkhir} beserta kontrolnya sudah dinonaktifkan
+			 * (dikomentari), begitu pula tanggal awal/akhir bimbingan yang kini hanya ditampilkan
+			 * sebagai label baca-saja.</p>
+			 *
+			 * @param arg0 event {@code onChange}/{@code onClick} dari salah satu kontrol; isinya
+			 *             tidak dipakai karena seluruh field dibaca ulang
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				mahasiswaRequestTugasAkhir.setTanggalSeminar(tanggalSeminar.getValue());
@@ -1521,6 +1586,19 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 									: "");
 			ambilDataMatakuliahBanbox.setEventListener(new EventListener() {
 
+				/**
+				 * Menetapkan baris KRS ({@link Detailperkuliahan}) tujuan masuknya nilai seminar
+				 * proposal, menyimpannya seketika, lalu membangun ulang layar agar bagian yang
+				 * bergantung pada KRS (pilihan format nilai, tombol Format Nilai, sinkronisasi
+				 * nilai) ikut menyesuaikan.
+				 *
+				 * <p>Pemilih ini hanya dibuat untuk staf/admin (bukan mahasiswa, bukan siswa, bukan
+				 * dosen). Mengalihkan KRS berarti mengalihkan tujuan nilai akhir ke mata kuliah
+				 * lain; nilai yang sudah tersalin ke KRS lama TIDAK dibersihkan oleh aksi ini.</p>
+				 *
+				 * @param arg0 event pemilihan dari banbox; nilai terpilih dibaca dari atribut
+				 *             {@code "detailperkuliahan"} milik banbox
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					mahasiswaRequestTugasAkhir.setDetailperkuliahan(
@@ -1529,6 +1607,13 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 
 					Common.createDefaultTimer(new EventListener() {
 
+						/**
+						 * Membangun ulang layar pada siklus event berikutnya, supaya
+						 * {@link #display(MahasiswaRequestTugasAkhir, Component)} tidak mengganti
+						 * pohon komponen yang sedang menangani event ini.
+						 *
+						 * @param arg0 event timer; tidak dipakai
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							display(mahasiswaRequestTugasAkhir, component);
@@ -1552,8 +1637,21 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 					}
 					buttonFormatNilai.addEventListener("onClick", new EventListener() {
 
+						/** Helper pengelola format penilaian perkuliahan; dibuat sekali per tombol, dipakai ulang tiap klik. */
 						FormatPenilaianHelper formatPenilaianHelper = new FormatPenilaianHelper();
 
+						/**
+						 * Membuka window pengaturan format penilaian milik {@link Perkuliahan} tujuan
+						 * nilai (bukan {@code FormatNilaiProposalSkripsi} — ini format nilai mata
+						 * kuliah tempat nilai seminar bermuara). Setelah nilai kelas dihitung ulang
+						 * dari sana, layar penilaian dibangun ulang lewat rantai callback
+						 * {@link TampilDetailNilaiInterface}.
+						 *
+						 * <p>Tombolnya hanya dibuat untuk staf/admin, dan hanya bila perkuliahan
+						 * belum dikunci serta kurikulumnya bukan OBE.</p>
+						 *
+						 * @param event event {@code onClick}; isinya tidak dipakai
+						 */
 						@Override
 						public void onEvent(Event event) throws Exception {
 
@@ -1564,6 +1662,20 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 
 							formatPenilaianHelper.display(perkuliahan, addWindow, new TampilDetailNilaiInterface() {
 
+								/**
+								 * Dipanggil balik oleh {@link FormatPenilaianHelper} setiap kali
+								 * format penilaian perkuliahan berubah: memicu perhitungan ulang
+								 * nilai seluruh peserta kelas lewat {@link Common#realoadNilai},
+								 * lalu membangun ulang layar penilaian proposal ini agar nilai yang
+								 * tampil ikut segar.
+								 *
+								 * <p>Cakupan efeknya jauh lebih luas dari satu pengajuan: yang
+								 * dihitung ulang adalah nilai SATU KELAS penuh. Nama method
+								 * {@code realoadNilai} adalah salah ketik yang sudah menyebar ke
+								 * antarmuka bersama, jadi tidak diubah di sini.</p>
+								 *
+								 * @param perkuliahan kelas yang format penilaiannya baru diubah
+								 */
 								@Override
 								public void realoadNilai(final Perkuliahan perkuliahan) {
 
@@ -1571,10 +1683,23 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 											perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi(),
 											new EventListener() {
 
+												/**
+												 * Dipicu setelah perhitungan ulang nilai kelas
+												 * selesai; hanya menjadwalkan pembangunan ulang
+												 * layar.
+												 *
+												 * @param arg0 event penyelesaian; tidak dipakai
+												 */
 												@Override
 												public void onEvent(Event arg0) throws Exception {
 													Common.createDefaultTimer(new EventListener() {
 
+														/**
+														 * Membangun ulang layar penilaian pada
+														 * siklus event berikutnya.
+														 *
+														 * @param arg0 event timer; tidak dipakai
+														 */
 														@Override
 														public void onEvent(Event arg0) throws Exception {
 															display(mahasiswaRequestTugasAkhir, component);
@@ -1627,6 +1752,18 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 				buttonSingkronkan.setParent(toolbar);
 				buttonSingkronkan.addEventListener("onClick", new EventListener() {
 
+					/**
+					 * Mendorong nilai seminar proposal masuk ke komponen nilai kelas: memanggil
+					 * {@link ais.common.GradingHelper#hitungNilaiBerdasarkanFormatNilaiSkripsi}
+					 * untuk perkuliahan tujuan, memakai slot {@link FormatNilai} yang dipilih di
+					 * combobox sebelahnya.
+					 *
+					 * <p>Aksinya berlaku untuk SELURUH peserta kelas tersebut, bukan hanya mahasiswa
+					 * ini. Tidak ada konfirmasi sebelum dijalankan, dan hasilnya tidak dilaporkan
+					 * kembali ke pengguna — layar tidak berubah setelah tombol ditekan.</p>
+					 *
+					 * @param arg0 event {@code onClick}; isinya tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilaiSkripsi(perkuliahan,
@@ -1636,6 +1773,21 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 
 				formatNilai.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Menyimpan slot {@link FormatNilai} tujuan (komponen nilai mana pada mata kuliah
+					 * yang akan diisi nilai seminar proposal), atau {@code null} bila dipilih "Tidak
+					 * Ada".
+					 *
+					 * <p>Penyimpanan dibungkus {@code try/catch} karena format nilai yang dipilih
+					 * bisa saja sudah dihapus admin lain sesaat sebelum combobox ini disimpan (race
+					 * lintas sesi) — sebelumnya kondisi itu meledak sebagai
+					 * {@code ConstraintViolationException} mentah. Sekarang transaksi di-rollback,
+					 * kejadiannya dicatat ke audit, dan pengguna diberi pesan yang bisa dipahami.
+					 * Kegagalan {@code rollback} sendiri ikut ditangkap agar tidak menutupi galat
+					 * aslinya.</p>
+					 *
+					 * @param arg0 event {@code onChange} combobox; pilihan dibaca dari combobox
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
@@ -2172,6 +2324,13 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Refresh", "/img/Button-Refresh-icon.png");
 		button.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Membangun ulang seluruh layar dari state {@link #mahasiswaRequestTugasAkhir} yang ada
+			 * di memori sesi. Perhatikan bahwa ini BUKAN {@code refresh} Hibernate: perubahan yang
+			 * dilakukan sesi lain tidak otomatis terbaca.
+			 *
+			 * @param arg0 event {@code onClick}; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				display(mahasiswaRequestTugasAkhir, component);
@@ -2187,6 +2346,13 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		button.setVisible(Common.getApakahAdmin());
 		button.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Meminta konfirmasi sebelum menghapus seluruh nilai seminar proposal. Tombolnya hanya
+			 * <i>terlihat</i> bagi admin ({@code setVisible(Common.getApakahAdmin())}) — pembatasan
+			 * ini murni di sisi tampilan, tidak ada pemeriksaan hak ulang di dalam listener.
+			 *
+			 * @param arg0 event {@code onClick}; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -2194,6 +2360,26 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 						MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 						new EventListener() {
 
+							/**
+							 * Mengosongkan SELURUH data nilai pengajuan bila pengguna menekan OK:
+							 * string riwayat {@link MahasiswaRequestTugasAkhir#getDetailNilai()}
+							 * dibuang, keenam kolom nilai dosen dinolkan, dan nilai huruf/IP/total
+							 * dikosongkan; lalu pengajuan disimpan dan layar dibangun ulang lewat
+							 * timer.
+							 *
+							 * <p><b>Tidak dapat dibatalkan dan menghapus rincian per komponen
+							 * seluruh dosen sekaligus.</b> Yang dikosongkan hanya baris pengajuan —
+							 * salinan nilai yang sudah terlanjur ditulis ke {@link Detailperkuliahan}
+							 * (KRS/transkrip) TIDAK ikut dibersihkan, sehingga transkrip dapat
+							 * menyimpan nilai lama sementara pengajuannya sudah kosong sampai ada
+							 * penilaian baru. Tidak ada jejak audit siapa yang me-reset. Status
+							 * kelulusan ({@code lulus}) juga tidak ikut dikosongkan.</p>
+							 *
+							 * <p>Kegagalan ditangkap dan disampaikan lewat {@link PesanFormalHelper}
+							 * dengan saran tindak lanjut, bukan sebagai galat mentah.</p>
+							 *
+							 * @param event event kotak konfirmasi; datanya berisi tombol yang ditekan
+							 */
 							@Override
 							public void onEvent(Event event) throws Exception {
 								int i = Integer.parseInt(event.getData().toString());
@@ -2215,6 +2401,12 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 										Common.refreshUpdate(mahasiswaRequestTugasAkhir);
 										Common.createDefaultTimer(new EventListener() {
 
+											/**
+											 * Membangun ulang layar pada siklus event berikutnya
+											 * agar seluruh nilai yang baru dikosongkan tampil.
+											 *
+											 * @param arg0 event timer; tidak dipakai
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 												display(mahasiswaRequestTugasAkhir, component);

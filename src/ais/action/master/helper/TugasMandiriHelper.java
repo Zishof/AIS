@@ -301,6 +301,60 @@ public class TugasMandiriHelper {
 	 * Membersihkan referensi format nilai yatim sebelum Tugas/Pertemuan dimasukkan
 	 * ke persistence-context milik request. Perbaikan memakai session terisolasi
 	 * agar query pembersihan tidak memicu auto-flush entity yang sudah kotor.
+	 *
+	 * <h3>Masalah yang diselesaikan</h3>
+	 * <p>Kolom {@code format_nilai} pada tabel {@code pertemuan} dan {@code tugas_pertemuan} adalah
+	 * kunci asing ke tabel {@code formatnilai}. Baris master format nilai dapat terhapus tanpa ikut
+	 * membersihkan rujukan pada kedua tabel itu, sehingga tertinggal kunci asing yatim — menunjuk id
+	 * yang barisnya sudah tidak ada. Selama entity tugas hanya dibaca, keadaan itu tidak terasa.
+	 * Masalah muncul saat entity tersebut ikut ter-flush: Hibernate mencoba menulis kembali kunci asing
+	 * yang tidak sah dan melemparkan {@code ConstraintViolationException} mentah, yang pada layar
+	 * tampak sebagai kegagalan menyimpan tugas tanpa penjelasan.</p>
+	 *
+	 * <h3>Mengapa memakai sesi terpisah</h3>
+	 * <p>Pembersihan tidak boleh dijalankan pada sesi milik request. Menjalankan query pada sesi itu
+	 * akan memicu <em>auto-flush</em>: Hibernate menulis lebih dahulu seluruh entity kotor yang ada di
+	 * persistence context agar hasil query konsisten — dan justru penulisan itulah yang meledak karena
+	 * kunci asing yatim belum sempat dibereskan. Karena itu metode ini membuka sesi sendiri lewat
+	 * {@code HibernateUtil.openSession()} beserta transaksinya sendiri, sehingga persistence context
+	 * request tidak tersentuh sama sekali.</p>
+	 *
+	 * <h3>Langkah yang dijalankan</h3>
+	 * <ol>
+	 *   <li>Membaca id format nilai yang sedang menempel pada entity, lalu menghitung apakah barisnya
+	 *       masih ada dengan {@code select count(1) from formatnilai where id=:id}. Hasilnya disimpan
+	 *       pada penanda {@code formatNilaiYatim}.</li>
+	 *   <li>Menjalankan {@code update ... set format_nilai=null} pada tabel yang sesuai dengan jenis
+	 *       entity — {@code pertemuan} untuk {@link Pertemuan}, {@code tugas_pertemuan} untuk
+	 *       {@link TugasPertemuan}. Klausa {@code and not exists (select 1 from formatnilai ...)}
+	 *       membuat pembaruan hanya mengenai baris yang rujukannya memang yatim, sehingga tugas yang
+	 *       format nilainya sah tidak ikut dikosongkan.</li>
+	 *   <li>Commit, lalu — hanya bila penanda menyatakan yatim — memanggil
+	 *       {@code tugas.setFormatNilai(null)} agar objek di memori ikut selaras dengan basis data.</li>
+	 * </ol>
+	 *
+	 * <h3>Penanganan kegagalan</h3>
+	 * <p>Setiap kegagalan di-rollback bila transaksi masih aktif, lalu dicatat ke
+	 * {@code ErrorAuditUtil} dan <em>tidak</em> dilempar ulang. Sikap ini disengaja: pembersihan
+	 * bersifat pencegahan, dan kegagalannya tidak boleh menggagalkan aksi pengguna yang sedang
+	 * berjalan. Blok {@code finally} menutup sesi secara berlapis — {@code clear()},
+	 * {@code disconnect()}, lalu {@code close()} — masing-masing dibungkus {@code try}/{@code catch}
+	 * agar satu kegagalan tidak menghalangi langkah penutupan berikutnya dan koneksi tetap
+	 * dikembalikan ke pool.</p>
+	 *
+	 * <h3>Pemakaian</h3>
+	 * <p>Dipanggil di empat titik pada {@link #onUbahPerintahTugas(EventListener)}: pada perubahan
+	 * kotak bobot persen, pada perubahan combobox format nilai, pada perubahan judul, dan pada tombol
+	 * "Simpan Tugas". Ketiga titik pertama melanjutkannya dengan {@code session.refresh(tugas)} agar
+	 * entity pada sesi request memuat ulang kolom yang baru saja dikosongkan. Metode ini menangani
+	 * data lama di basis data; pasangannya,
+	 * {@link #ambilFormatNilaiValid(Session, FormatNilai)}, menangani objek usang yang datang dari
+	 * layar. Keduanya diperlukan.</p>
+	 *
+	 * <p>Argumen {@code null} atau entity yang belum memiliki id langsung diabaikan.</p>
+	 *
+	 * @param tugas entity tugas yang kunci asing format nilainya akan diperiksa dan dibereskan; boleh
+	 *              {@code null}.
 	 */
 	private static void bersihkanFormatNilaiYatim(Tugas tugas) {
 		if (tugas == null || tugas.getId() == null) {
@@ -4974,6 +5028,55 @@ public class TugasMandiriHelper {
 	 * pengumpulan di North region. Bila tugas belum memiliki judul (judultugas kosong),
 	 * metode ini langsung return tanpa melakukan apapun.</p>
 	 *
+	 * <h3>Urutan langkah</h3>
+	 * <ol>
+	 *   <li><strong>Gerbang awal.</strong> Metode langsung kembali bila {@link #uploadTugasGrid} masih
+	 *       {@code null} — UI belum sempat dibangun — atau bila judul tugas kosong, yang berarti
+	 *       pertemuan ini memang belum memiliki tugas. Gerbang ini membuat metode aman dipanggil dari
+	 *       timer maupun dari callback upload kapan saja.</li>
+	 *   <li><strong>Penyegaran konteks.</strong> {@link #tbmuser} dibaca ulang dari sesi, lalu
+	 *       {@code tugas.currentUser} diisi dan {@code tugas.currentTugasFileContent} dikosongkan.
+	 *       Kedua field pada entity itu berperan sebagai kanal keluaran tambahan: entity akan mengisi
+	 *       {@code currentTugasFileContent} bila menemukan baris milik pengguna yang sedang login.</li>
+	 *   <li><strong>Pemuatan data.</strong> {@link #treemapData} dibuat kosong lalu diteruskan ke
+	 *       {@code tugas.ambilTugasFileContentTotal(treemap, cari, paging, 500, refresh)}. Seluruh
+	 *       pemanggilan dibungkus {@code try}/{@code catch}: bila satu berkas bermasalah membuat
+	 *       pemuatan melempar pengecualian, hasilnya diganti dengan {@link #treemapData} yang sudah
+	 *       terisi sebagian, sehingga baris yang sempat termuat tetap ditampilkan alih-alih seluruh
+	 *       daftar gagal.</li>
+	 *   <li><strong>Pencarian baris milik sendiri.</strong> Bila entity belum mengisi
+	 *       {@code currentTugasFileContent}, metode ini mencarinya sendiri dengan menelusuri daftar
+	 *       hasil dan mencocokkan id siswa, mahasiswa, atau calon mahasiswa pada {@link #tbmuser}.
+	 *       Perhatikan bahwa cabang untuk {@link ais.database.model.sekolah.CalonSiswa} tidak
+	 *       disediakan di sini.</li>
+	 *   <li><strong>Penentuan mode penilaian.</strong> {@link #obeFormatNilais} dibangun ulang dari
+	 *       nol, lalu {@link #jsonObjectTugas} dibaca ulang dari kolom {@code keteranganNilai}.
+	 *       Pembacaan ulang ini berarti setiap pemanggilan metode ini <em>membuang</em> perubahan
+	 *       nilai yang belum tersimpan ke basis data — perilaku yang justru dimanfaatkan tombol
+	 *       "Batal".</li>
+	 *   <li><strong>Pemasangan model.</strong> Renderer baru
+	 *       ({@link DetailTugasFileContentRenderer}) dan model baru dipasang ke grid.</li>
+	 *   <li><strong>Kartu status peserta.</strong> Bila yang melihat adalah peserta, region North pada
+	 *       {@link #myborderlayoutlagi} diisi kartu "Tugas yang Anda Upload": berisi baris berkas milik
+	 *       sendiri bila sudah mengumpulkan, atau kalimat "Anda belum mengumpulkan ..." bila belum.
+	 *       Kedua cabang menutup dengan {@link #tempelTombolUploadUtama(Groupbox)} yang memindahkan
+	 *       tombol {@link #upload} ke dalam kartu.</li>
+	 *   <li><strong>Pelepasan rujukan.</strong> Peta dan daftar sementara dikosongkan lalu
+	 *       di-{@code null}-kan. Pola ini muncul di banyak tempat pada berkas ini sebagai upaya
+	 *       menekan jejak memori pada kelas dengan peserta sangat banyak.</li>
+	 * </ol>
+	 *
+	 * <p><strong>Cakupan data.</strong> Batas 500 baris dan kata kunci pada {@link #cari} berlaku di
+	 * sini, sehingga daftar yang tampil adalah satu halaman tersaring — bukan seluruh pengumpulan.
+	 * Bagian lain yang membutuhkan gambaran penuh memakai {@code tugas.ambilTugasFileContentTotal()}
+	 * tanpa argumen.</p>
+	 *
+	 * <p><strong>Cakupan pengguna.</strong> Pemuatan tidak disaring berdasarkan peran: daftar yang
+	 * dikembalikan berisi baris seluruh peserta, baik bagi pengelola maupun bagi peserta. Pembatasan
+	 * yang berlaku bagi peserta terjadi di lapisan tampilan, yaitu pada gerbang visibilitas tombol
+	 * unduh dan pada cabang sel nilai di
+	 * {@link #displayRow(TugasFileContent, List, Component)}.</p>
+	 *
 	 * @param refresh bila {@code true}, paksa invalidasi cache TugasFileContent sebelum reload.
 	 * @throws Exception jika terjadi kesalahan saat mengambil data dari Hibernate.
 	 */
@@ -6230,6 +6333,36 @@ public class TugasMandiriHelper {
 	 * (Blob foto = null) — HANYA untuk mahasiswa yang belum pernah upload. Yang sudah
 	 * upload tidak diubah; yang ditandai "tidak ikut" dilewati. Minta konfirmasi dahulu,
 	 * lalu jalankan proses di latar.
+	 *
+	 * <p><strong>Untuk apa fitur ini.</strong> Sejumlah proses administrasi — rekap kehadiran, syarat
+	 * mengikuti ujian, atau penutupan komponen nilai — bertumpu pada keberadaan baris pengumpulan,
+	 * bukan pada isinya. Ketika kelas dinilai secara luring atau pengumpulan dilakukan di luar sistem,
+	 * pengelola membutuhkan cara menandai bahwa seluruh peserta "sudah mengumpulkan" tanpa harus
+	 * mengunggah berkas satu per satu. Tombol ini menyediakan jalur itu dengan membuat baris
+	 * {@link TugasFileContent} berisi Blob kosong.</p>
+	 *
+	 * <p><strong>Yang dilindungi.</strong> Proses bersifat menambah saja. Peserta yang sudah pernah
+	 * mengunggah tidak disentuh sedikit pun — berkas, tanggal, dan nilainya tetap seperti semula — dan
+	 * peserta yang ditandai pada {@code tugas.getMhsYgTidakIkut()} dilewati. Karena itu menekan tombol
+	 * ini dua kali tidak menghasilkan baris ganda.</p>
+	 *
+	 * <p><strong>Alur.</strong> Kotak konfirmasi ditampilkan lebih dahulu dengan judul tugas
+	 * disisipkan pada pesannya; bila pengguna memilih selain OK, proses dibatalkan. Bila disetujui,
+	 * pekerjaan dijadwalkan lewat {@code Common.createDefaultTimer(...)} agar berjalan pada siklus
+	 * event berikutnya, lalu {@link #prosesAnggapSemuaSudahUpload(Tugas, Pertemuan)} dijalankan.
+	 * Jumlah baris yang benar-benar dibuat dilaporkan kepada pengguna, dan {@code eventListener}
+	 * dipanggil — juga lewat timer — agar daftar pengumpulan dimuat ulang.</p>
+	 *
+	 * <p><strong>Gerbang kewenangan.</strong> Metode ini bersifat {@code static} dan tidak memeriksa
+	 * kewenangan apa pun. Pembatasan sepenuhnya berada pada tombol pemanggilnya di
+	 * {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)}, yang hanya ditampilkan bila
+	 * {@link #tbmuser} bukan pelajar dan pertemuan bukan bagian dari jadwal ujian PMB/PSB. Setiap
+	 * pemanggil baru wajib memasang gerbangnya sendiri.</p>
+	 *
+	 * @param tugas         tugas yang seluruh pesertanya akan ditandai sudah mengumpulkan.
+	 * @param pa            pertemuan induk, dipakai sebagai sumber daftar peserta.
+	 * @param eventListener callback yang dipanggil setelah proses selesai, untuk memuat ulang daftar.
+	 * @throws Exception bila kotak konfirmasi gagal ditampilkan.
 	 */
 	public static void anggapSemuaSudahUpload(final Tugas tugas, final Pertemuan pa, final EventListener eventListener)
 			throws Exception {
@@ -6265,6 +6398,57 @@ public class TugasMandiriHelper {
 	 * Inti proses: untuk tiap mahasiswa peserta yang BELUM upload, buat
 	 * {@link TugasFileContent} dengan Blob foto = null (file kosong). Memakai sesi
 	 * streaming (sama dengan alur upload tugas biasa). Return jumlah baris yang dibuat.
+	 *
+	 * <h3>Langkah</h3>
+	 * <ol>
+	 *   <li>Menyusun dua himpunan id peserta yang sudah pernah mengunggah, dibaca dari
+	 *       {@code tugas.ambilTugasFileContentTotal()} tanpa argumen — yakni seluruh pengumpulan, bukan
+	 *       satu halaman. Pembacaan ini dibungkus {@code try}/{@code catch} pencatat audit; bila gagal,
+	 *       himpunan tetap kosong sehingga proses berlanjut dengan anggapan belum ada yang
+	 *       mengumpulkan.</li>
+	 *   <li>Mengambil daftar peserta: {@code pa.ambilMahasiswa()} dan, dalam
+	 *       {@code try}/{@code catch} tersendiri, {@code pa.ambilSiswa()}. Bila kedua daftar kosong,
+	 *       metode langsung mengembalikan {@code 0}.</li>
+	 *   <li>Membuka sesi streaming beserta transaksinya, lalu menelusuri kedua daftar. Peserta
+	 *       dilewati bila id-nya sudah ada di himpunan "sudah mengunggah" atau tercantum pada
+	 *       {@code mhsYgTidakIkut}.</li>
+	 *   <li>Untuk sisanya dibuat {@link TugasFileContent} baru dengan {@code foto} bernilai
+	 *       {@code null} (berkas kosong), {@code fileMimeType} {@code null}, nama berbentuk
+	 *       "NIM_Nama_(kosong)", {@code pertemuan} berisi {@code tugas.getId()}, tanggal unggah saat
+	 *       ini, keterangan "Dianggap mengumpulkan (file kosong)", serta {@code olehId} dan
+	 *       {@code oleh} yang diisi dari pengguna yang sedang login sebagai jejak audit.</li>
+	 *   <li>Commit, lalu di luar transaksi cache dibersihkan lewat {@code tugas.belum(...)} dan
+	 *       {@code tugas.reInitTugasFileContent()} agar baris baru ikut tampil pada pemuatan
+	 *       berikutnya.</li>
+	 * </ol>
+	 *
+	 * <p><strong>Kolom pemilik yang tidak dipakai diisi bilangan acak negatif.</strong> Selain kolom
+	 * pemiliknya yang sebenarnya, ketiga kolom pemilik lain diisi {@code -Common.randLong()}. Nilai
+	 * negatif acak dipakai — bukan {@code null} — agar baris tetap membawa nilai unik pada kolom-kolom
+	 * itu tanpa pernah cocok dengan id peserta mana pun. Konsekuensinya, kode yang menentukan pemilik
+	 * lewat rangkaian {@code if}/{@code else if} harus tetap memeriksa kolom mahasiswa lebih dahulu,
+	 * sebagaimana dilakukan pada penyusunan kunci JSON nilai dan pada
+	 * {@link #displayRow(TugasFileContent, List, Component)}.</p>
+	 *
+	 * <p><strong>Penanganan kegagalan.</strong> Kegagalan memicu rollback lewat
+	 * {@code StreamingHibernateUtil.getInstance().rollbackTransaction()}, pencatatan audit, dan pesan
+	 * formal berisi langkah lanjutan bagi pengguna. Blok {@code finally} menutup sesi berlapis dengan
+	 * masing-masing langkah dibungkus {@code try}/{@code catch} agar koneksi selalu dikembalikan.
+	 * Perhatikan bahwa nilai balik {@code dibuat} sudah bertambah sebelum commit; bila commit gagal,
+	 * angka yang dilaporkan kepada pengguna dapat lebih besar daripada jumlah baris yang benar-benar
+	 * tersimpan — karena itu pesan kegagalan meminta pengguna memuat ulang halaman dan memeriksa data
+	 * mana saja yang sempat tersimpan.</p>
+	 *
+	 * <p><strong>Peserta calon mahasiswa dan calon siswa tidak dicakup.</strong> Metode ini hanya
+	 * menelusuri {@link Mahasiswa} dan {@link ais.database.model.sekolah.Siswa}; peserta berjenis
+	 * {@link BiodataCalonMahasiswa} maupun {@link ais.database.model.sekolah.CalonSiswa} tidak pernah
+	 * memperoleh baris kosong. Hal itu selaras dengan gerbang tombolnya yang mensyaratkan pertemuan
+	 * bukan bagian dari jadwal ujian PMB/PSB.</p>
+	 *
+	 * @param tugas tugas yang baris pengumpulan kosongnya akan dibuat.
+	 * @param pa    pertemuan induk, sumber daftar peserta.
+	 * @return jumlah baris {@link TugasFileContent} yang dibuat; {@code 0} bila tidak ada peserta atau
+	 *         seluruh peserta sudah mengumpulkan.
 	 */
 	private static int prosesAnggapSemuaSudahUpload(Tugas tugas, Pertemuan pa) {
 		int dibuat = 0;
