@@ -141,7 +141,7 @@
 <!doctype html>
 <html lang="id">
 <head>
-    <script src="<%=rootCtx%>/js/pesan-formal.js?v=20260906"></script>
+    <script src="<%=rootCtx%>/js/pesan-formal.js?v=20260906-2"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title><%=safeHtml(nama.isEmpty() ? "Sistem Informasi Akademik" : nama)%></title>

@@ -17,7 +17,7 @@ import org.zkoss.zul.Script;
 public class AlertGlobalHook implements UiLifeCycle {
 
 	private static final String ATTR_SCRIPT_LOADED = AlertGlobalHook.class.getName() + ".loaded";
-	private static final String SCRIPT_SRC = "~./js/pesan-formal.js?v=20260906";
+	private static final String SCRIPT_SRC = "~./js/pesan-formal.js?v=20260906-2";
 
 	@Override
 	public void afterPageAttached(Page page, Desktop desktop) {

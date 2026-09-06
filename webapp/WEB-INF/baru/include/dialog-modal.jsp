@@ -13,7 +13,7 @@ String _dlgBatal       = Common.getBahasaConfig("Batal").replace("\\", "\\\\").r
 String _dlgYaLanjutkan = Common.getBahasaConfig("Ya, Lanjutkan").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
 String _dlgPemberitahuan = Common.getBahasaConfig("Pemberitahuan").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
 %>
-	<script src="<%=request.getContextPath()%>/js/pesan-formal.js?v=20260906"></script>
+	<script src="<%=request.getContextPath()%>/js/pesan-formal.js?v=20260906-2"></script>
 	<script type="text/javascript">
 	    (function(){
 	        if (window.__aisDialogModalInitialized) return;

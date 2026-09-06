@@ -13437,6 +13437,11 @@ span.z-toolbarbutton.ais-upload-opt-link:hover > a { opacity: .8; }
    ===================================================================== */
 html body .ais-alert-zk.z-window-highlighted,
 html body .ais-alert-zk.z-window-modal {
+    --ais-zk-alert-start: #c96513;
+    --ais-zk-alert-middle: #7c4869;
+    --ais-zk-alert-end: #2847d8;
+    --ais-zk-alert-accent: #d66a12;
+    --ais-zk-alert-shadow: rgba(214, 106, 18, .27);
     width: min(790px, calc(100vw - 32px)) !important;
     max-width: calc(100vw - 32px) !important;
     min-width: 300px !important;
@@ -13444,8 +13449,42 @@ html body .ais-alert-zk.z-window-modal {
     border-radius: 24px !important;
     overflow: hidden !important;
     background: #ffffff !important;
-    box-shadow: 0 28px 80px rgba(15, 23, 42, .38) !important;
+    box-shadow: 0 34px 90px rgba(15, 23, 42, .4),
+                0 3px 10px rgba(15, 23, 42, .14) !important;
     font-family: Poppins, "Segoe UI", Arial, sans-serif !important;
+}
+
+html body .ais-alert-zk-error.z-window-highlighted,
+html body .ais-alert-zk-error.z-window-modal {
+    --ais-zk-alert-start: #c92a3d;
+    --ais-zk-alert-middle: #8b315f;
+    --ais-zk-alert-end: #4338ca;
+    --ais-zk-alert-accent: #dc263f;
+    --ais-zk-alert-shadow: rgba(220, 38, 63, .27);
+}
+html body .ais-alert-zk-success.z-window-highlighted,
+html body .ais-alert-zk-success.z-window-modal {
+    --ais-zk-alert-start: #07865c;
+    --ais-zk-alert-middle: #087d7a;
+    --ais-zk-alert-end: #1759c9;
+    --ais-zk-alert-accent: #07865c;
+    --ais-zk-alert-shadow: rgba(7, 134, 92, .27);
+}
+html body .ais-alert-zk-info.z-window-highlighted,
+html body .ais-alert-zk-info.z-window-modal {
+    --ais-zk-alert-start: #087ea4;
+    --ais-zk-alert-middle: #2561a7;
+    --ais-zk-alert-end: #4338ca;
+    --ais-zk-alert-accent: #087ea4;
+    --ais-zk-alert-shadow: rgba(8, 126, 164, .27);
+}
+html body .ais-alert-zk-question.z-window-highlighted,
+html body .ais-alert-zk-question.z-window-modal {
+    --ais-zk-alert-start: #a96307;
+    --ais-zk-alert-middle: #75506e;
+    --ais-zk-alert-end: #3949c7;
+    --ais-zk-alert-accent: #b76a08;
+    --ais-zk-alert-shadow: rgba(183, 106, 8, .27);
 }
 
 html body.ais-zk-alert-open .z-modal-mask {
@@ -13481,21 +13520,23 @@ html body .ais-alert-zk .z-window-modal-hm {
     margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
-    background: linear-gradient(118deg, #cf6a16 0%, #80506a 44%, #2945d6 100%) !important;
+    background:
+        radial-gradient(circle at 84% -20%, rgba(255, 255, 255, .24), transparent 38%),
+        linear-gradient(118deg, var(--ais-zk-alert-start) 0%, var(--ais-zk-alert-middle) 48%, var(--ais-zk-alert-end) 100%) !important;
 }
 
 html body .ais-alert-zk .z-window-highlighted-header,
 html body .ais-alert-zk .z-window-modal-header {
     position: relative !important;
-    min-height: 104px !important;
+    min-height: 108px !important;
     box-sizing: border-box !important;
     margin: 0 !important;
-    padding: 27px 76px 24px 112px !important;
+    padding: 29px 76px 25px 114px !important;
     border: 0 !important;
     background: transparent !important;
     color: #ffffff !important;
     font-family: Poppins, "Segoe UI", Arial, sans-serif !important;
-    font-size: 24px !important;
+    font-size: 25px !important;
     font-weight: 800 !important;
     line-height: 1.25 !important;
     white-space: normal !important;
@@ -13514,8 +13555,10 @@ html body .ais-alert-zk .z-window-modal-header::before {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(255, 255, 255, .18);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+    border: 1px solid rgba(255, 255, 255, .22);
+    background: linear-gradient(145deg, rgba(255, 255, 255, .26), rgba(255, 255, 255, .11));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24),
+                0 10px 28px rgba(15, 23, 42, .15);
     color: #ffffff;
     font-size: 36px;
     font-weight: 700;
@@ -13538,6 +13581,18 @@ html body .ais-alert-zk .z-window-modal-header::after {
     font-weight: 500;
     line-height: 1.45;
 }
+html body .ais-alert-zk-error .z-window-highlighted-header::after,
+html body .ais-alert-zk-error .z-window-modal-header::after {
+    content: "Tinjau rincian kendala dan langkah perbaikan yang disarankan.";
+}
+html body .ais-alert-zk-success .z-window-highlighted-header::after,
+html body .ais-alert-zk-success .z-window-modal-header::after {
+    content: "Proses telah selesai dan perubahan berhasil diterapkan.";
+}
+html body .ais-alert-zk-info .z-window-highlighted-header::after,
+html body .ais-alert-zk-info .z-window-modal-header::after {
+    content: "Informasi penting untuk membantu tindak lanjut Anda.";
+}
 
 html body .ais-alert-zk .z-window-highlighted-close,
 html body .ais-alert-zk .z-window-modal-close {
@@ -13553,6 +13608,11 @@ html body .ais-alert-zk .z-window-modal-close {
     background-position: center !important;
     box-shadow: none !important;
     filter: brightness(0) invert(1) !important;
+}
+html body .ais-alert-zk .z-window-highlighted-close:hover,
+html body .ais-alert-zk .z-window-modal-close:hover {
+    border-color: rgba(255, 255, 255, .78) !important;
+    background-color: rgba(255, 255, 255, .18) !important;
 }
 
 html body .ais-alert-zk .z-window-highlighted-cl,
@@ -13571,9 +13631,10 @@ html body .ais-alert-zk .z-window-highlighted-cnt,
 html body .ais-alert-zk .z-window-modal-cnt {
     max-height: calc(100vh - 180px) !important;
     box-sizing: border-box !important;
-    padding: 32px 38px 24px !important;
+    padding: 34px 40px 24px !important;
     overflow: auto !important;
-    background: #ffffff !important;
+    background: linear-gradient(180deg, #ffffff 0%, #fdfefe 100%) !important;
+    box-shadow: inset 4px 0 0 var(--ais-zk-alert-accent) !important;
 }
 
 html body .ais-alert-zk .z-msgbox {
@@ -13602,7 +13663,7 @@ html body .ais-alert-zk .z-messagebox .z-label {
 
 html body .ais-alert-zk .z-separator-hor-bar {
     height: 0 !important;
-    margin: 28px -38px 18px !important;
+    margin: 30px -40px 18px !important;
     border: 0 !important;
     border-top: 1px solid #e7edf5 !important;
     background: transparent !important;
@@ -13629,10 +13690,10 @@ html body .ais-alert-zk .z-messagebox-btn .z-button-cm {
 }
 
 html body .ais-alert-zk td:first-child > .z-messagebox-btn .z-button-cm {
-    border-color: #db7216 !important;
-    background: linear-gradient(135deg, #ea841e, #c85d0c) !important;
+    border-color: var(--ais-zk-alert-accent) !important;
+    background: linear-gradient(135deg, var(--ais-zk-alert-accent), var(--ais-zk-alert-start)) !important;
     color: #ffffff !important;
-    box-shadow: 0 8px 18px rgba(201, 91, 12, .25) !important;
+    box-shadow: 0 9px 22px var(--ais-zk-alert-shadow) !important;
 }
 
 html body .ais-alert-zk .z-messagebox-btn:hover .z-button-cm {
@@ -13675,6 +13736,7 @@ html body .ais-alert-zk .z-messagebox-btn:hover .z-button-cm {
     html body .ais-alert-zk .z-window-highlighted-cnt,
     html body .ais-alert-zk .z-window-modal-cnt {
         padding: 24px 20px 18px !important;
+        box-shadow: inset 3px 0 0 var(--ais-zk-alert-accent) !important;
     }
     html body .ais-alert-zk .z-messagebox .z-label {
         font-size: 14px !important;
@@ -13687,5 +13749,13 @@ html body .ais-alert-zk .z-messagebox-btn:hover .z-button-cm {
         min-height: 42px !important;
         padding: 10px 15px !important;
         font-size: 12px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html body .ais-alert-zk,
+    html body .ais-alert-zk * {
+        transition: none !important;
+        animation: none !important;
     }
 }

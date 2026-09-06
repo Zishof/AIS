@@ -75,7 +75,7 @@ String dev = deviceNumber.equalsIgnoreCase("0") ? "devices.length-1" : "0";
 	</div>
 </body>
 <script src="<%=request.getContextPath()%>/js/html5-qrcode.min.js"></script>
-<script src="<%=request.getContextPath()%>/js/pesan-formal.js?v=20260906"></script>
+<script src="<%=request.getContextPath()%>/js/pesan-formal.js?v=20260906-2"></script>
 <script>
 
 	
