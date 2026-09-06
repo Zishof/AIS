@@ -116,7 +116,7 @@ import ais.ui.util.MyWindow;
  *   <li>panitia menyeleksi di layar ini ({@code SeleksiPenerimaKknAction} &rarr; helper ini),
  *   menetapkan {@code totalSkor} dan {@code terima};</li>
  *   <li>mahasiswa yang diterima dibagi ke kelompok lewat {@link KelompokKknHelper} dan
- *   {@link ais.database.model.kkn.MahasiswaDapatKelompokKkn}.</li>
+ *   {@link ais.database.model.MahasiswaDapatKelompokKkn}.</li>
  * </ol>
  * Pengecualian per-mahasiswa (mahasiswa yang dibebaskan dari sebagian syarat) dikelola terpisah
  * lewat {@link PengecualianKknMahasiswaHelper}.

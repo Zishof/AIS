@@ -104,21 +104,75 @@ import ais.ui.util.MyWindow;
  * custom), dengan hyperlink ke berkas lampiran bila persyaratan tersebut mewajibkan lampiran.
  * Baris {@link MahasiswaPklPersyaratan} yang belum ada dibuat otomatis (kosong) saat proses
  * berjalan. Hasil akhir ditampilkan dalam pratinjau spreadsheet sebelum diunduh.
- * </p>
  *
  * <p>
  * <b>Impor Excel</b> (tombol "Upload" pada {@link #displayPrasyaratPkl}): membaca kembali file
  * .xlsx berformat sama (kolom ID di 0, NIM di 1, status diterima di 5), mencocokkan baris lewat id
  * (bila ada) atau membuat baris {@link MahasiswaDaftarPkl} baru berdasarkan NIM, lalu memperbarui
  * status terima/tolak — dijalankan juga di thread terpisah dengan indikator progres serupa.
- * </p>
  *
  * <p>
  * Tombol "Hitung Skor" menjumlahkan skor dari seluruh jawaban {@link MahasiswaPklPersyaratan}
  * bertipe {@link PersyaratanPkl#PILIHAN_CUSTOM} (format nilai {@code "label:skor"}, bagian skor
  * di-parse dari segmen setelah titik dua) untuk setiap mahasiswa hasil filter saat ini, lalu
  * menuliskannya ke {@link MahasiswaDaftarPkl#setTotalSkor}.
- * </p>
+ *
+ * <h3>Posisi dalam alur PKL</h3>
+ * <p>
+ * Kelas ini adalah layar <b>pendaftaran/seleksi</b>, satu tahap sebelum pembagian kelompok:
+ * <ol>
+ *   <li>mahasiswa (atau petugas) mendaftar lewat
+ *   {@code ais.action.master.pkl.PklUntukMahasiswaAction} — di sanalah kolom
+ *   {@code memenuhiSyarat} dihitung dan disimpan;</li>
+ *   <li>panitia menyeleksi di layar ini ({@code SeleksiPenerimaPklAction} &rarr; helper ini),
+ *   menetapkan {@code totalSkor} dan {@code terima};</li>
+ *   <li>mahasiswa yang diterima dibagi ke kelompok lewat {@link KelompokPklHelper} dan
+ *   {@link ais.database.model.MahasiswaDapatKelompokPkl}.</li>
+ * </ol>
+ * Pengecualian per-mahasiswa (mahasiswa yang dibebaskan dari sebagian syarat) dikelola terpisah
+ * lewat {@link PengecualianPklMahasiswaHelper}.
+ *
+ * <h3>Catatan otorisasi</h3>
+ * <p>
+ * Hak {@code APPROVE} dari menu diteruskan pemanggil sebagai parameter {@code approve} dan hanya
+ * dipakai untuk menonaktifkan checkbox "Terima" pada grid. Tiga jalur lain yang juga mengubah data
+ * penerimaan tidak memeriksanya sama sekali: tombol "Upload" (impor Excel menulis kolom
+ * {@code terima}), tombol hapus per baris, dan tombol "Hitung Skor" (menulis {@code totalSkor}).
+ * Kelas ini juga tidak melakukan pemeriksaan cakupan satuan kerja/tenant atas {@link #pkl} yang
+ * diterimanya — lihat catatan pada field {@link #pkl}.
+ *
+ * <h3>Hubungan dengan kembarannya di modul KKN</h3>
+ * <p>
+ * Kelas ini adalah salinan {@link PendaftarKknHelper} untuk modul PKL. Keduanya sejajar baris demi
+ * baris pada hampir seluruh isinya, namun terdapat tiga perbedaan nyata yang <b>bukan</b> sekadar
+ * penggantian nama entitas — ketiganya membuat sisi PKL lebih lemah:
+ * <ul>
+ *   <li>{@link PendaftarPklRenderer} membuat label kolom "Memenuhi Syarat" tetapi tidak pernah
+ *   mengisinya, sehingga kolom tersebut selalu kosong di layar ini; kembarannya mengisi label itu
+ *   dari {@code getMemenuhiSyarat()};</li>
+ *   <li>pencarian {@link MahasiswaPklPersyaratan} saat ekspor memanggil {@code uniqueResult()}
+ *   tanpa {@code addOrder(desc(id))} + {@code setMaxResults(1)} yang dipasang kembarannya,
+ *   sehingga data rangkap memicu pengecualian;</li>
+ *   <li>tombol "Rekap" menunjuk nama laporan {@code penerima-pkl} yang tidak ada di direktori
+ *   laporan, sedangkan kembarannya menunjuk {@code penerima_kkn} yang tersedia.</li>
+ * </ul>
+ * <p>
+ * Perbedaan lain bersifat kosmetik dan tidak mengubah perilaku: kelas ini memakai
+ * {@code ais.common.HashMapGenerator.getRand()} pada tiga penampung parameter laporan sedangkan
+ * kembarannya memakai {@code new HashMap}.
+ *
+ * <h3>Catatan: syarat akademik tidak dievaluasi di kelas ini</h3>
+ * <p>
+ * Ambang SKS/IPK PKL — termasuk pasangan syarat kedua yang dikendalikan sakelar "Aktifkan Syarat
+ * Lain" pada {@link Pkl} — <b>tidak</b> dievaluasi di sini. Kelas ini hanya berurusan dengan kolom
+ * {@code memenuhiSyarat} yang sudah tersimpan (dan bahkan tidak menampilkannya, lihat di atas).
+ * Jebakan konfigurasi pada pasangan syarat kedua terdokumentasi pada {@link Pkl} dan berlaku bagi
+ * jalur yang menghitung {@code memenuhiSyarat}, bukan bagi kelas ini.
+ *
+ * @see PendaftarKknHelper
+ * @see PengecualianPklMahasiswaHelper
+ * @see KelompokPklHelper
+ * @see AmbilDataMahasiswaSeleksiPklHelper
  */
 public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
