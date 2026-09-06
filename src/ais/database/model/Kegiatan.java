@@ -967,10 +967,64 @@ public class Kegiatan extends GeneralValueObject {
 		return amountTerhutang;
 	}
 
+	/**
+	 * Setter kunci unik alami tagihan. Nilai eksplisit di sini dihormati
+	 * {@link #getKodeunik()} untuk entity yang sudah tersimpan, karena getter itu langsung
+	 * mengembalikan nilai tersimpan tanpa menghitung ulang.
+	 *
+	 * @param kodeunik kunci unik alami
+	 */
 	public void setKodeunik(String kodeunik) {
 		this.kodeunik = kodeunik;
 	}
 
+	/**
+	 * Membentuk <b>kunci unik alami</b> sebuah tagihan dari komponen-komponennya. Versi
+	 * statis sehingga dapat dipakai memeriksa keberadaan tagihan sebelum membuatnya.
+	 *
+	 * <h4>Format</h4>
+	 * <ul>
+	 *   <li>Calon mahasiswa: {@code CAL_MHS_<idCalon>-<idJenisKegiatan>} ditambah
+	 *       {@code _<semester>} bila semesternya lebih dari 1.</li>
+	 *   <li>Mahasiswa: {@code MHS_<idMahasiswa>-<idJenisKegiatan>-<semester>}.</li>
+	 *   <li>Selain itu: {@code null}.</li>
+	 * </ul>
+	 * <p>Sesudahnya {@code tambahanKodeUnik} dan {@code _<bulan>} ditempelkan bila terisi,
+	 * memungkinkan beberapa tagihan sejenis berdampingan (mis. tagihan bulanan).</p>
+	 *
+	 * <h4>Yang menentukan keunikan tagihan</h4>
+	 * <p>Kolom {@code kodeunik} bertanda {@code unique = true, nullable = false}, sehingga
+	 * rumus di sinilah yang secara efektif menjadi <b>aturan bisnis</b> &quot;satu mahasiswa
+	 * hanya boleh punya satu tagihan per jenis kegiatan per semester&quot; &mdash; ditegakkan
+	 * oleh indeks unik basis data, bukan oleh pemeriksaan di kode.</p>
+	 *
+	 * <h4>Hal yang perlu diperhatikan</h4>
+	 * <p><b>Calon mahasiswa memperlakukan semester 0 dan 1 sebagai satu.</b> Semester baru
+	 * ditempelkan bila {@code > 1}, sehingga tagihan calon di semester {@code null},
+	 * {@code 0}, dan {@code 1} menghasilkan kunci yang sama persis. Untuk jenis kegiatan
+	 * pendaftaran hal itu memang dikehendaki &mdash; keduanya merujuk peristiwa yang sama,
+	 * dan {@link #getSemster()} pun memaksa {@code 0} untuk pendaftaran calon mahasiswa.</p>
+	 *
+	 * <p><b>Kembalian {@code null} bila prasyarat tidak lengkap.</b> Bila pemilik atau jenis
+	 * kegiatan kosong &mdash; atau, pada cabang mahasiswa, bila {@code semster} masih
+	 * {@code null} &mdash; hasilnya {@code null}. Perhatikan bahwa {@code null} itu kemudian
+	 * masih ditempeli {@code tambahanKodeUnik}/{@code bulan} bila keduanya terisi, sehingga
+	 * dapat menghasilkan string harfiah yang diawali {@code "null"}. Karena kolomnya
+	 * {@code nullable = false}, {@link #getKodeunik()} memasang jalur cadangan berupa barcode
+	 * acak untuk mencegah kegagalan {@code INSERT} yang akan membatalkan seluruh transaksi
+	 * pembayaran.</p>
+	 *
+	 * <p><b>Memakai id, bukan NIM.</b> Kunci disusun dari primary key sehingga tetap stabil
+	 * ketika NIM atau nomor registrasi berubah.</p>
+	 *
+	 * @param mahasiswa        pemilik berupa mahasiswa; boleh {@code null}
+	 * @param calonMahasiswa   pemilik berupa berkas calon; boleh {@code null}
+	 * @param jenisKegiatan    jenis kegiatan yang ditagihkan
+	 * @param semster          semester tagihan
+	 * @param tambahanKodeUnik imbuhan pembeda; boleh {@code null}/kosong
+	 * @param bulan            bulan tagihan untuk tagihan bulanan; boleh {@code null}
+	 * @return kunci unik alami; {@code null} bila prasyaratnya tidak lengkap
+	 */
 	public static String generateKodeUnik(Mahasiswa mahasiswa, BiodataCalonMahasiswa calonMahasiswa,
 			JenisKegiatan jenisKegiatan, Integer semster, String tambahanKodeUnik, Integer bulan) {
 		String kodeunik = null;
@@ -1026,37 +1080,141 @@ public class Kegiatan extends GeneralValueObject {
 		return kodeunik;
 	}
 
+	/**
+	 * Imbuhan pembeda yang ditempelkan pada kunci unik alami &mdash; memungkinkan beberapa
+	 * tagihan sejenis berdampingan untuk mahasiswa dan semester yang sama, yang tanpa imbuhan
+	 * ini akan ditolak indeks unik kolom {@code kodeunik}.
+	 *
+	 * <p>Getter murni. Field-nya diberi nilai awal string kosong pada deklarasi sehingga
+	 * {@link #generateKodeUnik} tidak menempelkan apa pun secara bawaan.</p>
+	 *
+	 * @return imbuhan pembeda; string kosong bila tidak dipakai
+	 */
 	@Column(name = "tambahan_kode_unik", nullable = true)
 	public String getTambahanKodeUnik() {
 		return tambahanKodeUnik;
 	}
 
+	/**
+	 * Setter imbuhan pembeda kunci unik. Perhatikan bahwa mengubahnya pada tagihan yang sudah
+	 * tersimpan tidak mengubah {@link #getKodeunik()}, karena kunci sudah dibekukan.
+	 *
+	 * @param tambahanKodeUnik imbuhan pembeda
+	 */
 	public void setTambahanKodeUnik(String tambahanKodeUnik) {
 		this.tambahanKodeUnik = tambahanKodeUnik;
 	}
 
+	/**
+	 * Bulan yang ditagihkan, untuk jenis kegiatan yang menagih per bulan alih-alih per
+	 * semester. Ikut ditempelkan pada kunci unik alami lewat {@link #generateKodeUnik}.
+	 *
+	 * <p>Getter murni yang mengembalikan field apa adanya, termasuk {@code null} &mdash; yang
+	 * di sini bermakna &quot;tagihan bukan per bulan&quot;, bukan &quot;bulan nol&quot;.</p>
+	 *
+	 * @return bulan tagihan; {@code null} bila tagihan tidak bersifat bulanan
+	 */
 	public Integer getBulan() {
 		return bulan;
 	}
 
+	/**
+	 * Setter bulan tagihan.
+	 *
+	 * @param bulan bulan tagihan; {@code null} bila tidak bersifat bulanan
+	 */
 	public void setBulan(Integer bulan) {
 		this.bulan = bulan;
 	}
 
+	/**
+	 * Status lunas tagihan ini.
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Nilainya selalu diambil ulang dari
+	 * {@link #getApakahLunas()} lalu ditulis balik ke field {@code lunas} yang dipetakan ke
+	 * kolom &mdash; jadi kolom {@code lunas} adalah nilai turunan yang di-<i>cache</i> ke
+	 * basis data, bukan penanda mandiri yang dapat disetel petugas. Menyimpan {@code false}
+	 * lewat {@link #setLunas(Boolean)} tidak akan bertahan.</p>
+	 *
+	 * <p>Rantainya: {@code getLunas()} &rarr; {@link #getApakahLunas()} &rarr;
+	 * {@link #getPersentase()} &rarr; field {@code tagihan}/{@code dibayar}, yang berasal
+	 * dari penguraian snapshot JSON. Jadi status lunas ikut mewarisi ketertinggalan snapshot
+	 * itu terhadap keadaan {@link DetailKegiatan} yang sebenarnya.</p>
+	 *
+	 * @return {@code true} bila persentase pelunasan mencapai 100%
+	 */
 	public Boolean getLunas() {
 		lunas = getApakahLunas();
 		return lunas;
 	}
 
+	/**
+	 * Setter status lunas. <b>Nilai ini tidak akan pernah terbaca kembali</b>:
+	 * {@link #getLunas()} selalu menghitung ulangnya dari persentase pelunasan.
+	 *
+	 * @param lunas status lunas
+	 */
 	public void setLunas(Boolean lunas) {
 		this.lunas = lunas;
 	}
 
+	/**
+	 * Persentase pelunasan tagihan ini (0&ndash;100).
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Selalu diambil ulang dari {@link #getPersentase()} lalu
+	 * ditulis balik ke field yang dipetakan ke kolom &mdash; nilai turunan yang di-cache,
+	 * sama seperti {@link #getLunas()}.</p>
+	 *
+	 * <p>Perhatikan bahwa nilainya <b>dibatasi 100%</b> secara tidak langsung: ia dihitung
+	 * dari field {@code dibayar}, dan {@link #getDibayar()} tidak pernah melebihi
+	 * {@link #getTagihan()}. Untuk mengetahui pelunasan yang sebenarnya termasuk kelebihan
+	 * bayar, pakai {@link #hitungPersentaseLunasAktual()}.</p>
+	 *
+	 * @return persentase pelunasan; tidak pernah melebihi 100
+	 */
 	public Double getPersentaseLunas() {
 		persentaseLunas = getPersentase();
 		return persentaseLunas;
 	}
 
+	/**
+	 * Menghitung persentase pelunasan <b>yang sebenarnya</b>, termasuk kelebihan bayar,
+	 * tanpa mengubah keadaan entity.
+	 *
+	 * <p>Method ini ada karena jalur biasa membatasi diri: {@link #getDibayar()} memangkas
+	 * nilai agar tidak melebihi tagihan, sehingga {@link #getPersentaseLunas()} tidak pernah
+	 * melampaui 100% dan kelebihan bayar tidak terlihat. Di sini dipakai
+	 * {@link #hitungDibayarAktualTanpaBatas()} yang tidak memangkas.</p>
+	 *
+	 * <h4>Pola simpan-pulihkan</h4>
+	 * <p>Baik {@link #hitungTagihan()} maupun {@link #hitungDibayarAktualTanpaBatas()}
+	 * menulis ke field {@code tagihan}/{@code dibayar} sebagai efek samping. Untuk mencegah
+	 * perhitungan ini mengotori entity, kedua field disalin lebih dulu ({@code tagihanLama},
+	 * {@code dibayarLama}) dan <b>dipulihkan</b> sesudahnya. Ini pola yang benar dan patut
+	 * dicontoh &mdash; method ini menjadi satu-satunya penghitung di kelas ini yang benar
+	 * benar bebas efek samping terhadap field yang dipetakan ke kolom.</p>
+	 *
+	 * <p>Perlu dicatat bahwa pemulihannya tidak dibungkus {@code try/finally}: bila salah
+	 * satu penghitung melempar, field tidak akan dipulihkan. Keduanya sendiri sudah
+	 * menangkap seluruh exception secara internal, sehingga dalam praktik jalur itu tidak
+	 * tercapai.</p>
+	 *
+	 * <h4>Aturan hasil</h4>
+	 * <ul>
+	 *   <li>Tagihan di bawah {@code 0.01}: {@code 100.0} bila ada pembayaran positif,
+	 *       selain itu {@code 0.0} &mdash; tagihan nol tanpa pembayaran bukan transaksi
+	 *       lunas.</li>
+	 *   <li>Dibayar mencapai tagihan (dengan toleransi {@code 0.01} untuk galat pembulatan
+	 *       bilangan pecahan): tepat {@code 100.0}, bukan lebih.</li>
+	 *   <li>Selain itu: perbandingan biasa dikali seratus.</li>
+	 * </ul>
+	 * <p>Perhatikan bahwa cabang kedua membulatkan kelebihan bayar menjadi tepat 100%,
+	 * sehingga method ini pun tidak melaporkan angka di atas seratus &mdash; yang
+	 * dibedakannya dari jalur biasa adalah bahwa <i>tagihan</i> dihitung ulang dari JSON
+	 * terkini, bukan bahwa hasilnya boleh melampaui 100.</p>
+	 *
+	 * @return persentase pelunasan aktual; antara {@code 0.0} dan {@code 100.0}
+	 */
 	public Double hitungPersentaseLunasAktual() {
 		Double tagihanLama = tagihan;
 		Double dibayarLama = dibayar;
@@ -1075,10 +1233,32 @@ public class Kegiatan extends GeneralValueObject {
 		return (totalDibayar * 100.0) / totalTagihan;
 	}
 
+	/**
+	 * Setter persentase pelunasan. <b>Nilai ini tidak akan pernah terbaca kembali</b>:
+	 * {@link #getPersentaseLunas()} selalu menghitung ulangnya.
+	 *
+	 * @param persentaseLunas persentase pelunasan
+	 */
 	public void setPersentaseLunas(Double persentaseLunas) {
 		this.persentaseLunas = persentaseLunas;
 	}
 
+	/**
+	 * Jumlah yang telah dibayar menurut kolomnya sendiri.
+	 *
+	 * <p><b>Jangan tertukar dengan {@link #getDibayar()}.</b> Keduanya bernama mirip tetapi
+	 * berbeda sumber: {@code getDibayar()} membaca field hasil penguraian snapshot JSON
+	 * {@link #getBulans()}, sedangkan kolom di sini adalah nilai yang disetel pemanggil dan
+	 * <b>tidak pernah diperbarui</b> oleh mesin perhitungan mana pun di kelas ini. Seluruh
+	 * logika lunas, persentase, dan sisa terhutang memakai {@code getDibayar()}, bukan kolom
+	 * ini. Karena itu kolom ini praktis merupakan <b>field tidur</b> dari sudut pandang
+	 * kelas ini, dan nilainya dapat menyimpang dari kenyataan bila ada jalur luar yang
+	 * mengisinya.</p>
+	 *
+	 * <p>Getter destruktif ringan: {@code null} diisi {@code 0.0} lalu ditulis balik.</p>
+	 *
+	 * @return jumlah telah dibayar menurut kolom; tidak pernah {@code null}
+	 */
 	public Double getJumlahTelahDibayar() {
 		if (jumlahTelahDibayar == null) {
 			jumlahTelahDibayar = 0.0;
@@ -1086,10 +1266,34 @@ public class Kegiatan extends GeneralValueObject {
 		return jumlahTelahDibayar;
 	}
 
+	/**
+	 * Setter jumlah telah dibayar (kolom mandiri; lihat catatan pada getter-nya).
+	 *
+	 * @param jumlahTelahDibayar jumlah telah dibayar
+	 */
 	public void setJumlahTelahDibayar(Double jumlahTelahDibayar) {
 		this.jumlahTelahDibayar = jumlahTelahDibayar;
 	}
 
+	/**
+	 * Berkas {@link UploadVirtualAccount} yang menghasilkan tagihan ini &mdash; menautkan
+	 * header ke proses unggah massal virtual account yang membentuknya.
+	 *
+	 * <p>Getter <b>murni sepenuhnya</b>: tidak memanggil {@code check(...)} seperti relasi
+	 * lain di kelas ini, melainkan mengembalikan field apa adanya. Konsekuensinya, pada
+	 * entity yang sudah <i>detached</i> pemanggil dapat menerima proxy yang belum
+	 * terinisialisasi dan melempar saat dipakai &mdash; risiko yang justru diredam
+	 * {@code check(...)} di getter relasi lainnya.</p>
+	 *
+	 * <p>Perhatikan pula {@code @Fetch(FetchMode.SELECT)} dan tidak adanya
+	 * {@code fetch = FetchType.LAZY} pada {@code @ManyToOne}-nya: relasi ini karena itu
+	 * bersifat <i>eager</i> dan diambil lewat SELECT terpisah setiap kali sebuah
+	 * {@code Kegiatan} dimuat. Pada pemuatan daftar tagihan yang panjang, ini menghasilkan
+	 * pola kueri N+1.</p>
+	 *
+	 * @return berkas unggah virtual account asal; {@code null} bila tagihan tidak berasal
+	 *         dari unggahan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "upload_virtual_account", nullable = true)
@@ -1097,26 +1301,91 @@ public class Kegiatan extends GeneralValueObject {
 		return uploadVirtualAccount;
 	}
 
+	/**
+	 * Setter berkas unggah virtual account asal.
+	 *
+	 * @param uploadVirtualAccount berkas unggah asal; boleh {@code null}
+	 */
 	public void setUploadVirtualAccount(UploadVirtualAccount uploadVirtualAccount) {
 		this.uploadVirtualAccount = uploadVirtualAccount;
 	}
 
+	/**
+	 * Penanda bahwa tagihan ini memakai kunci unik <b>di luar format baku</b>.
+	 *
+	 * <p>Bila {@code true}, {@link #getKodeunik()} tidak membentuk kunci
+	 * {@code MHS_*}/{@code CAL_MHS_*} melainkan memakai barcode acak
+	 * ({@code Common.getGeneratedBarCode()}). Ini melepaskan tagihan dari aturan &quot;satu
+	 * per jenis kegiatan per semester&quot; yang ditegakkan indeks unik &mdash; dipakai untuk
+	 * tagihan insidental yang memang boleh berulang. Perhatikan bahwa {@link #getAktif()}
+	 * yang bernilai {@code false} menghasilkan efek yang sama.</p>
+	 *
+	 * <p>Getter murni dengan penjaga ternary ({@code null} dibaca sebagai {@code false}),
+	 * tanpa menulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila memakai kunci unik di luar format baku; tidak pernah {@code null}
+	 */
 	public Boolean getKodeUnikLain() {
 		return kodeUnikLain == null ? false : kodeUnikLain;
 	}
 
+	/**
+	 * Setter penanda kunci unik di luar format baku.
+	 *
+	 * @param kodeUnikLain status penanda
+	 */
 	public void setKodeUnikLain(Boolean kodeUnikLain) {
 		this.kodeUnikLain = kodeUnikLain;
 	}
 
+	/**
+	 * Nominal denda keterlambatan yang tercatat pada header tagihan ini; {@code null} dibaca
+	 * sebagai {@code 0.0}.
+	 *
+	 * <p>Getter murni (ternary saja, tanpa menulis balik) &mdash; patut dicatat karena
+	 * banyak kerabatnya di kelas ini justru destruktif.</p>
+	 *
+	 * <p>Perhitungan dendanya sendiri tidak terjadi di sini melainkan di
+	 * {@link DetailBiaya#checkDenda} (pembayaran sekaligus) dan
+	 * {@link DetailBiaya#checkDendaCicilan} (angsuran, yang menuliskan hasilnya ke
+	 * {@link CicilanPembayaran}). Pembebasan denda per baris dicatat pada
+	 * {@link #getPembatalanDenda()}. Seperti {@link #getPengurangan()}, nilai di sini
+	 * <b>tidak</b> ikut diperhitungkan {@link #hitungTagihan()}, yang bekerja atas snapshot
+	 * JSON {@link #getTagihans()}.</p>
+	 *
+	 * @return nominal denda; tidak pernah {@code null}
+	 */
 	public Double getDenda() {
 		return denda == null ? 0.0 : denda;
 	}
 
+	/**
+	 * Setter nominal denda pada header tagihan.
+	 *
+	 * @param denda nominal denda
+	 */
 	public void setDenda(Double denda) {
 		this.denda = denda;
 	}
 
+	/**
+	 * Mengambil seluruh {@link CicilanPembayaran} (angsuran) yang tercatat terhadap tagihan
+	 * ini.
+	 *
+	 * <p>Pekerjaannya didelegasikan ke pemilik tagihan &mdash;
+	 * {@link BiodataCalonMahasiswa#ambilCicilanPembayaran(Kegiatan)} bila tagihan milik calon,
+	 * atau {@link Mahasiswa#ambilCicilanPembayaran(Kegiatan)} bila milik mahasiswa. Pola
+	 * &quot;calon dulu, baru mahasiswa&quot; ini konsisten dengan seluruh method
+	 * {@code ambil*} di kelas ini; urutannya penting karena sebuah tagihan pendaftaran dapat
+	 * menunjuk keduanya sekaligus, dan berkas calonlah pemilik yang benar dalam hal itu.</p>
+	 *
+	 * <p>Bila kedua pemilik kosong, dikembalikan daftar kosong &mdash; bukan {@code null},
+	 * sehingga pemanggil dapat langsung melakukan iterasi. Perhatikan bahwa method ini
+	 * memicu {@link #getCalonMahasiswa()} dan {@link #getMahasiswa()} yang keduanya dapat
+	 * mengisi/menimpa foreign key pemilik.</p>
+	 *
+	 * @return daftar angsuran; kosong bila tidak ada atau pemilik tak diketahui
+	 */
 	public List<CicilanPembayaran> ambilCicilan() {
 		if (getCalonMahasiswa() != null) {
 			return getCalonMahasiswa().ambilCicilanPembayaran(this);
@@ -1126,6 +1395,24 @@ public class Kegiatan extends GeneralValueObject {
 		return new ArrayList<CicilanPembayaran>();
 	}
 
+	/**
+	 * Menghitung total angsuran dan total denda yang tercatat terhadap tagihan ini, sebagai
+	 * pasangan nilai.
+	 *
+	 * <p>Seperti {@link #ambilCicilan()}, pekerjaannya didelegasikan ke pemilik tagihan lewat
+	 * {@code hitungTotalCicilanDanDendaPembayaran(this)}. Bila kedua pemilik kosong,
+	 * dikembalikan {@code {0.0, 0.0}} &mdash; bukan {@code null}.</p>
+	 *
+	 * <p><b>Kembalian berupa larik dua elemen tanpa nama.</b> Indeks {@code 0} adalah total
+	 * angsuran dan indeks {@code 1} adalah total denda; urutan itu hanya terbaca dari nilai
+	 * bawaan pada baris terakhir dan dari implementasi di kelas pemilik, tidak dari tipe
+	 * kembaliannya. Pemanggil perlu berhati-hati untuk tidak mempertukarkannya.</p>
+	 *
+	 * <p>Anotasi {@code @SuppressWarnings({})} pada method ini berdaftar kosong sehingga tidak
+	 * menekan peringatan apa pun &mdash; sisa penyuntingan yang tidak berpengaruh.</p>
+	 *
+	 * @return larik dua elemen: {@code [totalAngsuran, totalDenda]}; tidak pernah {@code null}
+	 */
 	@SuppressWarnings({})
 	public Double[] hitungTotalDanDendaFromCicilan() {
 		if (getCalonMahasiswa() != null) {

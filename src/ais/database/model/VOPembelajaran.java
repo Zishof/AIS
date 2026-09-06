@@ -522,6 +522,63 @@ public abstract class VOPembelajaran extends VoKunci {
 		return ambilJumlahPertemuanStatistik(pertemuans, null, null, termasukDiskusi, termasukUjian);
 	}
 
+	/**
+	 * Menghitung statistik atas sekumpulan {@link Pertemuan} — bentuk inti yang dipakai seluruh
+	 * varian {@code ambilJumlahPertemuanStatistik}.
+	 *
+	 * <h4>Susunan larik yang dikembalikan</h4>
+	 * <p>Sepuluh elemen dengan urutan tetap dan tanpa konstanta indeks:</p>
+	 * <ol start="0">
+	 * <li>{@code Integer} — banyaknya pertemuan pada daftar masukan, dihitung sebelum penyaringan
+	 * apa pun sehingga mencakup pertemuan tidak aktif juga;</li>
+	 * <li>{@code Integer} — banyaknya pertemuan aktif yang tanggalnya sudah lewat;</li>
+	 * <li>{@code Integer} — banyaknya pertemuan aktif yang sudah punya isian absensi;</li>
+	 * <li>{@code Integer} — total seluruh hitungan status kehadiran mahasiswa;</li>
+	 * <li>{@code Map<String,Integer>} — rekapitulasi status kehadiran mahasiswa per nama status;</li>
+	 * <li>{@code Integer} — total hitungan status kehadiran dosen;</li>
+	 * <li>{@code Map<String,Integer>} — rekapitulasi status kehadiran dosen per nama status;</li>
+	 * <li>daftar {@link Pertemuan} masukan, diteruskan apa adanya;</li>
+	 * <li>{@code Integer} — total ujian, hanya bila {@code termasukUjian};</li>
+	 * <li>{@code Integer} — total diskusi, hanya bila {@code termasukDiskusi}.</li>
+	 * </ol>
+	 * <p><b>Elemen ke-7 berbeda tipe antar-overload.</b> Di sini ia
+	 * {@code List<Pertemuan>}, sedangkan pada
+	 * {@link #ambilJumlahPertemuanStatistik(Pertemuan, Collection, Dosen)} ia
+	 * {@code Collection<Long>} berisi id peserta. Kode yang menerima larik dari kedua jalur wajib
+	 * memeriksa tipenya sebelum melakukan {@code cast}.</p>
+	 *
+	 * <h4>Penyaringan dan makna parameter penyaring</h4>
+	 * <p>Hanya pertemuan yang penanda {@code aktif}-nya bernilai benar yang diperhitungkan — kecuali
+	 * pada elemen ke-0 yang sudah dihitung lebih dulu. Argumen {@code mahasiswa} dan {@code dosen}
+	 * bukan penyaring daftar pertemuan, melainkan diteruskan ke perhitungan status: memberi
+	 * {@code null} berarti "seluruh peserta", memberi seorang mahasiswa berarti rekapitulasi hanya
+	 * untuk orang tersebut. Karena itu elemen ke-0 sampai ke-2 tidak berubah oleh kedua argumen
+	 * ini, sedangkan elemen ke-3 sampai ke-6 berubah.</p>
+	 *
+	 * <p>Batas "sudah lewat" diukur terhadap waktu sekarang yang diambil sekali di awal lewat
+	 * {@code WaktuUtil.getDate()}, bukan terhadap awal hari — pertemuan hari ini yang jamnya belum
+	 * tiba tetap terhitung belum berlalu bila kolom tanggalnya menyimpan waktu.</p>
+	 *
+	 * <h4>Biaya</h4>
+	 * <p>Untuk setiap pertemuan aktif, method memanggil perhitungan jumlah ujian, jumlah diskusi,
+	 * status mahasiswa, dan status dosen secara terpisah. Kelas dengan enam belas pertemuan
+	 * berarti puluhan pemanggilan berantai; menyalakan {@code termasukDiskusi} dan
+	 * {@code termasukUjian} menggandakannya. Nyalakan hanya bila angkanya benar-benar ditampilkan.</p>
+	 *
+	 * <p>Tidak ada penangkap kesalahan di sepanjang method; kegagalan pada perhitungan status
+	 * diteruskan ke pemanggil lewat {@code throws Exception}.</p>
+	 *
+	 * @param pertemuans      daftar pertemuan yang dihitung; {@code null} menghasilkan larik
+	 *                        dengan seluruh angka bernilai nol
+	 * @param mahasiswa       mahasiswa yang rekapitulasi kehadirannya diminta; {@code null} berarti
+	 *                        seluruh mahasiswa
+	 * @param dosen           dosen yang rekapitulasi kehadirannya diminta; {@code null} berarti
+	 *                        seluruh dosen
+	 * @param termasukDiskusi {@code true} untuk mengisi elemen ke-9
+	 * @param termasukUjian   {@code true} untuk mengisi elemen ke-8
+	 * @return larik statistik sepuluh elemen; tidak pernah {@code null}
+	 * @throws Exception diteruskan dari perhitungan status kehadiran
+	 */
 	public Object[] ambilJumlahPertemuanStatistik(List<Pertemuan> pertemuans, Mahasiswa mahasiswa, Dosen dosen,
 			boolean termasukDiskusi, boolean termasukUjian) throws Exception {
 
@@ -595,6 +652,55 @@ public abstract class VOPembelajaran extends VoKunci {
 				jumlahAbsensiTotalDosen, semuaStatusesDosen, pertemuans, jumlahUjianTotal, jumlahDiskusiTotal };
 	}
 
+	/**
+	 * Menghitung statistik <b>satu</b> pertemuan yang dirinci per peserta — kebalikan sudut pandang
+	 * dari {@link #ambilJumlahPertemuanStatistik(List, Mahasiswa, Dosen, boolean, boolean)} yang
+	 * merinci per pertemuan.
+	 *
+	 * <p>Dipakai layar rincian satu pertemuan: berapa peserta, berapa yang sudah diabsen, dan
+	 * bagaimana sebaran statusnya. Peserta diberikan sebagai koleksi id
+	 * {@link Detailperkuliahan}, yang lalu diubah menjadi objek lewat cache proses; entri yang
+	 * tidak ditemukan di cache atau yang relasi mahasiswanya kosong dilewati diam-diam.</p>
+	 *
+	 * <h4>Larik hasil memakai susunan yang sama, tetapi maknanya bergeser</h4>
+	 * <p>Karena perulangan luarnya kini berjalan atas <i>peserta</i> dan bukan atas pertemuan,
+	 * tiga elemen pertama berubah arti:</p>
+	 * <ul>
+	 * <li>elemen ke-0 adalah banyaknya <b>peserta</b>, bukan banyaknya pertemuan;</li>
+	 * <li>elemen ke-1 ("sudah berlalu") bertambah satu untuk <b>setiap peserta</b> ketika tanggal
+	 * pertemuan sudah lewat, sehingga nilainya menjadi nol atau sama dengan jumlah peserta —
+	 * bukan angka pertemuan seperti yang disugerikan namanya;</li>
+	 * <li>elemen ke-2 ("sudah ada absensi") berperilaku sama: nol atau sama dengan jumlah
+	 * peserta.</li>
+	 * </ul>
+	 * <p>Elemen ke-7 di sini berisi koleksi id peserta ({@code Collection<Long>}), bukan daftar
+	 * {@link Pertemuan}. Pemanggil yang memakai kedua overload harus memeriksa tipe sebelum
+	 * meng-{@code cast}.</p>
+	 *
+	 * <h4>Statistik dosen dihitung terpisah</h4>
+	 * <p>Setelah perulangan peserta selesai, method mengambil daftar dosen dari
+	 * {@code pertemuan.getPerkuliahan().populateDosenBuNama()} — sehingga bagian ini <b>hanya
+	 * berjalan untuk pertemuan yang tertaut ke {@link Perkuliahan}</b>; untuk KKN, PKL, skripsi,
+	 * dan wadah lain, elemen ke-5 dan ke-6 selalu kosong. Argumen {@code dosen} berlaku sebagai
+	 * penyaring: bila diberikan, hanya diskusi dosen tersebut yang ditambahkan, tetapi
+	 * rekapitulasi status kehadiran tetap dikumpulkan untuk <b>seluruh</b> dosen pengampu.
+	 * Ketidaksimetrisan itu ada pada kode dan didokumentasikan apa adanya.</p>
+	 *
+	 * <p><b>Jumlah ujian dan diskusi selalu dihitung</b> di sini — tidak ada bendera untuk
+	 * mematikannya seperti pada overload berbasis daftar. Karena perhitungannya dilakukan sekali
+	 * per peserta, kelas besar berarti banyak pemanggilan berantai.</p>
+	 *
+	 * <p>Method ini tidak melempar: masukan {@code null} pada {@code pertemuan} maupun
+	 * {@code detailperkuliahans} melewati seluruh perhitungan dan menghasilkan larik bernilai
+	 * nol.</p>
+	 *
+	 * @param pertemuan          pertemuan yang dirinci; {@code null} menghasilkan larik nol
+	 * @param detailperkuliahans koleksi id peserta; {@code null} menghasilkan larik nol
+	 * @param dosen              penyaring dosen untuk perhitungan diskusi; {@code null} berarti
+	 *                           seluruh dosen pengampu
+	 * @return larik statistik sepuluh elemen dengan makna yang bergeser sebagaimana dijelaskan di
+	 *         atas
+	 */
 	public Object[] ambilJumlahPertemuanStatistik(Pertemuan pertemuan, Collection<Long> detailperkuliahans, Dosen dosen) {
 
 		int size = (detailperkuliahans != null) ? detailperkuliahans.size() : 0;
