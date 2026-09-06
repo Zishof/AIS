@@ -25,13 +25,34 @@ import ais.database.model.file.FotoBiodataMahasiswa;
 import ais.database.model.file.FotoMahasiswa;
 
 /**
- * Servlet implementation class AmbilFotoMahasiswa
+ * Servlet yang menyajikan foto profil mahasiswa berdasarkan NIM yang dikirim
+ * lewat parameter request {@code nim}.
+ * <p>
+ * Alur kerja {@link #process(HttpServletRequest, HttpServletResponse)}:
+ * mencari {@link Mahasiswa} aktif (atau yang kolom {@code aktif}-nya null,
+ * diperlakukan sebagai aktif) dengan NIM tersebut, lalu mencari baris
+ * {@link BiodataMahasiswa} terbarunya. Foto diprioritaskan dari
+ * {@link FotoBiodataMahasiswa} yang ditandai {@code fotoUtama = true} milik
+ * biodata itu; bila tidak ada, jatuh ke foto terbaru pada
+ * {@link FotoMahasiswa} milik mahasiswa yang sama. Bila mahasiswa tidak
+ * ditemukan, tidak aktif, atau tidak ada foto yang berkasnya bisa dibaca,
+ * servlet menyajikan salah satu gambar default lewat
+ * {@link #kirimFotoDefaultAtau404(ServletContext, HttpServletResponse)}.
+ * </p>
+ * <p>
+ * <b>Catatan keamanan:</b> tidak ada gerbang otentikasi/otorisasi apa pun;
+ * siapa pun yang mengetahui/menebak NIM mahasiswa dapat mengunduh foto profil
+ * mahasiswa tersebut tanpa login. Pola yang sama dengan servlet
+ * {@code AmbilFotoDosen} dan servlet {@code Ambil*} lain di paket ini.
+ * </p>
  */
 public class AmbilFotoMahasiswa extends HttpServlet {
+	/** ID versi serialisasi tetap untuk kontrak {@link java.io.Serializable} milik {@link HttpServlet}. */
 	private static final long serialVersionUID = 1L;
 
 	/**
-	 * @see HttpServlet#HttpServlet()
+	 * Membuat instance servlet. Tidak ada inisialisasi khusus di luar konstruktor
+	 * bawaan {@link HttpServlet#HttpServlet()}.
 	 */
 	public AmbilFotoMahasiswa() {
 		super();
@@ -39,8 +60,16 @@ public class AmbilFotoMahasiswa extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}. Exception apa pun
+	 * yang dilempar oleh {@code process} ditangkap di sini dan diteruskan ke
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga rincian error hanya
+	 * ditampilkan bila pengguna yang sedang login adalah administrator.
+	 *
+	 * @param request permintaan HTTP; parameter {@code nim} berisi NIM mahasiswa yang fotonya diminta
+	 * @param response respons HTTP; isi foto (atau gambar default) ditulis ke output stream-nya
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -52,8 +81,14 @@ public class AmbilFotoMahasiswa extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}, dengan perilaku
+	 * dan penanganan error yang identik dengan {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP; parameter {@code nim} berisi NIM mahasiswa yang fotonya diminta
+	 * @param response respons HTTP; isi foto (atau gambar default) ditulis ke output stream-nya
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -64,6 +99,33 @@ public class AmbilFotoMahasiswa extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mencari foto profil mahasiswa berdasarkan NIM dan menuliskannya ke response.
+	 * <p>
+	 * Langkah kerja:
+	 * <ol>
+	 *   <li>Membaca parameter {@code nim}; bila kosong, membalas status 500 dan berhenti.</li>
+	 *   <li>Mencari {@link Mahasiswa} dengan NIM tersebut yang berstatus aktif (atau
+	 *       kolom {@code aktif} bernilai null, yang diperlakukan sama seperti aktif).
+	 *       Bila tidak ditemukan, jatuh ke {@link #kirimFotoDefaultAtau404(ServletContext, HttpServletResponse)}.</li>
+	 *   <li>Mencari {@link BiodataMahasiswa} terbaru (id terbesar) milik mahasiswa tersebut.</li>
+	 *   <li>Mencari {@link FotoBiodataMahasiswa} milik biodata itu yang ditandai
+	 *       {@code fotoUtama = true}; bila tidak ada, jatuh ke foto terbaru pada
+	 *       {@link FotoMahasiswa} milik mahasiswa yang sama.</li>
+	 *   <li>Membuka berkas fisik foto lewat {@link FileFoto#ambilFile()}; bila gagal
+	 *       atau berkas tidak ada di disk, jatuh ke gambar default.</li>
+	 *   <li>Menuliskan isi berkas ke response sebagai {@code image/png}, dengan
+	 *       header {@code Content-Disposition} berisi nama asli berkas.</li>
+	 * </ol>
+	 * Dua sesi Hibernate dibuka (satu biasa untuk {@link Mahasiswa}/{@link BiodataMahasiswa},
+	 * satu {@link StreamingHibernateUtil} untuk entitas foto) dan keduanya selalu
+	 * ditutup di blok {@code finally}.
+	 * </p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code nim} wajib berisi NIM mahasiswa
+	 * @param resp respons HTTP tujuan penulisan isi foto/gambar default
+	 * @throws Exception diteruskan ke pemanggil ({@link #doGet}/{@link #doPost}) yang menanganinya lewat {@link Common#tampilErrorJikaAdmin(Exception)}
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 
 		String nim = request.getParameter("nim");
@@ -163,6 +225,16 @@ public class AmbilFotoMahasiswa extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyajikan gambar avatar default (lewat {@link #fileDefault(ServletContext)})
+	 * sebagai fallback ketika mahasiswa/foto yang diminta tidak ditemukan atau tidak
+	 * bisa dibaca. Bila tidak satu pun kandidat berkas default tersedia di disk,
+	 * membalas status {@link HttpServletResponse#SC_NOT_FOUND 404}.
+	 *
+	 * @param sc konteks servlet, dipakai untuk resolusi path fisik kandidat gambar default
+	 * @param resp respons HTTP tujuan penulisan gambar default atau status 404
+	 * @throws IOException bila penulisan ke output stream response gagal
+	 */
 	private void kirimFotoDefaultAtau404(ServletContext sc, HttpServletResponse resp) throws IOException {
 		File file = fileDefault(sc);
 		if (file == null || !file.exists() || !file.isFile()) {
@@ -187,6 +259,15 @@ public class AmbilFotoMahasiswa extends HttpServlet {
 		out.flush();
 	}
 
+	/**
+	 * Mencari kandidat berkas gambar avatar default pertama yang benar-benar ada
+	 * di disk, dengan urutan prioritas: {@code /img/user_default.png},
+	 * {@code /img/user_male.png}, {@code /img/USER.png}, lalu
+	 * {@code /component/adminlte/assets/img/avatar.png}.
+	 *
+	 * @param sc konteks servlet, dipakai untuk resolusi path fisik lewat {@link ServletContext#getRealPath(String)}
+	 * @return berkas kandidat pertama yang ditemukan di disk, atau {@code null} bila tidak satu pun ada
+	 */
 	private File fileDefault(ServletContext sc) {
 		String[] daftar = new String[] { "/img/user_default.png", "/img/user_male.png", "/img/USER.png",
 				"/component/adminlte/assets/img/avatar.png" };
