@@ -2859,6 +2859,23 @@ public abstract class VOPembelajaran extends VoKunci {
 		return mhs;
 	}
 
+	/**
+	 * Merangkai nama seluruh dosen pengajar objek pembelajaran ini menjadi satu teks yang dipisah
+	 * koma.
+	 *
+	 * <p>Bekerja atas hasil {@link #populateDosenBuNama()}, sehingga urutannya adalah urutan slot
+	 * ({@code dosen1}, {@code dosen2}, dan seterusnya) — berbeda dari
+	 * {@link #populateDosen()} yang mengurutkan menurut kunci petanya. Dipakai kolom "Dosen" pada
+	 * grid dan laporan.</p>
+	 *
+	 * <p><b>Nama kosong menelan pemisahnya.</b> Pemisah koma dipilih dengan memeriksa apakah teks
+	 * yang sudah terkumpul masih kosong. Bila dosen pertama bernama string kosong, teks terkumpul
+	 * tetap kosong sehingga dosen kedua ikut ditulis tanpa koma di depannya, dan seterusnya sampai
+	 * ada nama yang benar-benar terisi. Nama yang {@code null} tercetak sebagai teks
+	 * {@code "null"} karena penggabungan string tidak menjaganya.</p>
+	 *
+	 * @return nama-nama dosen dipisah koma; {@code ""} bila tidak ada dosen
+	 */
 	public String ambilNamaDosens() {
 		List<Dosen> dosens = populateDosenBuNama();
 		String d = "";
@@ -2869,6 +2886,28 @@ public abstract class VOPembelajaran extends VoKunci {
 		return d;
 	}
 
+	/**
+	 * Mengumpulkan seluruh {@code sekolah.Guru} pengajar objek pembelajaran ini.
+	 *
+	 * <p>Padanan {@link #populateDosenBuNama()} untuk jalur persekolahan. Hanya dua subclass yang
+	 * dikenali; selebihnya menghasilkan daftar kosong.</p>
+	 * <ul>
+	 * <li>{@link FormulirKegiatan} — tiga slot guru pembina, ditambahkan berurutan
+	 * <b>tanpa penyaringan kembar</b>. Guru yang sama diisikan pada dua slot akan muncul dua kali,
+	 * dan ikut terhitung dua kali oleh {@link #populateGuruBuId()} maupun
+	 * {@link #ambilNamaGurus()}.</li>
+	 * <li>{@code sekolah.JadwalPelajaran} — dua belas slot guru. Berbeda dari cabang di atas,
+	 * cabang ini menyaring kembar: setiap slot kedua sampai kedua belas hanya ditambahkan bila
+	 * gurunya belum ada di daftar. Penyaringan itu memakai {@code contains}, yang mengandalkan
+	 * kesetaraan objek {@code Guru}; entity yang sama dimuat sebagai dua instance berbeda tetap
+	 * dapat lolos sebagai kembar.</li>
+	 * </ul>
+	 *
+	 * <p>Kedua cabang membaca relasi guru satu per satu; pada entity yang dimuat lazy, hal itu
+	 * berarti sampai dua belas inisialisasi proxy dalam satu pemanggilan.</p>
+	 *
+	 * @return daftar guru pengajar; kosong bila subclass-nya tidak memakai guru
+	 */
 	public List<Guru> populateGuruBuNama() {
 		List<Guru> gurus = new ArrayList<Guru>();
 		if (this instanceof FormulirKegiatan) {
@@ -2929,6 +2968,20 @@ public abstract class VOPembelajaran extends VoKunci {
 		return gurus;
 	}
 
+	/**
+	 * Merangkai nama seluruh guru pengajar objek pembelajaran ini menjadi satu teks yang dipisah
+	 * koma.
+	 *
+	 * <p>Padanan {@link #ambilNamaDosens()} untuk jalur persekolahan, bekerja atas
+	 * {@link #populateGuruBuNama()}. Kelemahan yang sama berlaku: nama berisi string kosong pada
+	 * urutan pertama menelan pemisah koma bagi nama berikutnya, dan nama {@code null} tercetak
+	 * sebagai teks {@code "null"}.</p>
+	 *
+	 * <p>Untuk {@link FormulirKegiatan}, guru yang diisikan pada dua slot akan tercetak dua kali
+	 * karena cabang tersebut tidak menyaring kembar.</p>
+	 *
+	 * @return nama-nama guru dipisah koma; {@code ""} bila tidak ada guru
+	 */
 	public String ambilNamaGurus() {
 		List<Guru> gurus = populateGuruBuNama();
 		String d = "";
@@ -2941,6 +2994,28 @@ public abstract class VOPembelajaran extends VoKunci {
 
 	// private List<Dosen> daftarDosen = null;
 
+	/**
+	 * Memeriksa apakah seorang dosen termasuk pengajar objek pembelajaran ini.
+	 *
+	 * <p>Membandingkan id terhadap seluruh isi {@link #populateDosenBuNama()} dan berhenti pada
+	 * kecocokan pertama. Berbeda dari {@link #infoDosen(Dosen)} yang menjawab "apa perannya",
+	 * method ini hanya menjawab "termasuk atau tidak" — dan justru karena itu ia bebas dari
+	 * kelemahan {@link #infoDosen(Dosen)} yang tidak membandingkan argumennya pada cabang skripsi
+	 * dan permohonan tugas akhir. Untuk sekadar memeriksa keanggotaan, gunakan method ini.</p>
+	 *
+	 * <p>Cakupannya juga lebih luas: {@link #populateDosenBuNama()} mengenali sepuluh slot
+	 * pembimbing pada kelompok KKN dan PKL, sedangkan {@link #infoDosen(Dosen)} hanya lima.</p>
+	 *
+	 * <p>Perbandingan memakai id, bukan kesetaraan objek, sehingga dua instance entity yang sama
+	 * tetap dikenali. Argumen {@code null} atau dosen tanpa id langsung menghasilkan
+	 * {@code false}. Setiap pemanggilan membangun ulang daftar dosennya, jadi hindari memakai
+	 * method ini di dalam perulangan atas banyak dosen — ambil daftarnya sekali lalu bandingkan
+	 * sendiri.</p>
+	 *
+	 * @param dosenSelected dosen yang diperiksa; {@code null} atau tanpa id menghasilkan
+	 *                      {@code false}
+	 * @return {@code true} bila dosen tersebut termasuk pengajar objek ini
+	 */
 	public boolean ada(Dosen dosenSelected) {
 		if (dosenSelected == null || dosenSelected.getId() == null) {
 			return false;
@@ -2957,6 +3032,20 @@ public abstract class VOPembelajaran extends VoKunci {
 		return ada;
 	}
 
+	/**
+	 * Mengambil id seluruh dosen pengajar objek pembelajaran ini.
+	 *
+	 * <p>Menelusuri {@link #populateDosenBuNama()} dan memetakannya menjadi daftar id, dengan
+	 * urutan dan kembaran yang sama persis dengan daftar sumbernya — termasuk kembaran pada
+	 * {@code pkl.KelompokPkl} yang memeriksa slot pembimbing kelima dua kali. Tidak ada penyaringan
+	 * kembar di sini.</p>
+	 *
+	 * <p>Id yang {@code null} — dosen yang belum tersimpan — ikut masuk sebagai elemen
+	 * {@code null}, karena tidak ada penjaga. Pemanggil yang memakai daftar ini sebagai isi
+	 * restriksi {@code in} pada kueri perlu menyaringnya lebih dulu.</p>
+	 *
+	 * @return daftar id dosen; tidak pernah {@code null}
+	 */
 	public List<Long> populateDosenBuId() {
 		List<Dosen> dosens = populateDosenBuNama();
 		List<Long> ids = new ArrayList<Long>();
@@ -2968,6 +3057,16 @@ public abstract class VOPembelajaran extends VoKunci {
 		return ids;
 	}
 
+	/**
+	 * Mengambil id seluruh guru pengajar objek pembelajaran ini.
+	 *
+	 * <p>Padanan {@link #populateDosenBuId()} untuk jalur persekolahan, bekerja atas
+	 * {@link #populateGuruBuNama()}. Urutan dan kembarannya mengikuti daftar sumber, sehingga
+	 * guru yang diisikan pada dua slot {@link FormulirKegiatan} muncul dua kali. Id {@code null}
+	 * ikut masuk tanpa penjaga.</p>
+	 *
+	 * @return daftar id guru; tidak pernah {@code null}
+	 */
 	public List<Long> populateGuruBuId() {
 		List<Guru> gurus = populateGuruBuNama();
 		List<Long> ids = new ArrayList<Long>();
@@ -2979,6 +3078,63 @@ public abstract class VOPembelajaran extends VoKunci {
 		return ids;
 	}
 
+	/**
+	 * Mengumpulkan seluruh {@link Dosen} pengajar objek pembelajaran ini, berurutan menurut slot.
+	 *
+	 * <p>Method rujukan untuk pertanyaan "siapa saja dosennya" — dipakai
+	 * {@link #ambilNamaDosens()}, {@link #populateDosenBuId()}, {@link #ada(Dosen)},
+	 * {@link #getJumlahDosen()}, {@link #ambilKeyword()}, serta
+	 * {@link #getOrganizer(Pertemuan)} dan {@link #getAttendee(Pertemuan)}. Berbeda dari
+	 * {@link #populateDosen()} yang mengembalikan peta berkunci peran dan karenanya berurutan
+	 * menurut kunci, method ini mengembalikan daftar dengan urutan slot apa adanya:
+	 * {@code dosen1}, {@code dosen2}, dan seterusnya.</p>
+	 *
+	 * <h4>Cakupan per subclass</h4>
+	 * <ul>
+	 * <li>{@link FormulirKegiatan} — tiga dosen pembina;</li>
+	 * <li>{@link KrsMahasiswa} — satu dosen pembimbing akademik, dengan penjaga {@code null} yang
+	 * benar (bandingkan {@link #populateDosen()} yang tidak punya penjaga itu);</li>
+	 * <li>{@link Perkuliahan} — sepuluh slot dosen;</li>
+	 * <li>{@code kkn.KelompokKkn} dan {@code pkl.KelompokPkl} — sepuluh slot pembimbing, dua kali
+	 * lipat cakupan {@link #infoDosen(Dosen)} dan {@link #populateDosen()} yang hanya mengenali
+	 * lima;</li>
+	 * <li>{@link Skripsi} — ketua sidang, pembimbing, pembimbing ketiga, dan lima penguji;</li>
+	 * <li>{@link MahasiswaRequestTugasAkhir} — enam slot dosen;</li>
+	 * <li>{@link GrupPertemuan} dan {@link PertemuanPunyaGrupPertemuan} — satu dosen pembimbing.</li>
+	 * </ul>
+	 * <p>Sembilan subclass lainnya — termasuk seluruh wadah berbasis guru dan wadah ujian —
+	 * menghasilkan daftar kosong.</p>
+	 *
+	 * <h4>Pembimbing kelima kelompok PKL terhitung dua kali</h4>
+	 * <p><b>Pada cabang {@code pkl.KelompokPkl}, slot pembimbing kelima diperiksa dan ditambahkan
+	 * dua kali berturut-turut</b> sebelum pemeriksaan slot keenam. Bila pembimbing kelimanya
+	 * terisi, ia masuk ke daftar sebanyak dua kali. Cabang {@code kkn.KelompokKkn} yang
+	 * bersebelahan dan berpola sama tidak memiliki pengulangan itu, yang menunjukkan hal ini
+	 * sebagai kekeliruan salin-tempel, bukan kesengajaan.</p>
+	 * <p>Dampaknya menyebar ke seluruh pemakai daftar ini: {@link #getJumlahDosen()} melaporkan
+	 * satu dosen lebih banyak daripada kenyataan, {@link #ambilNamaDosens()} mencetak nama
+	 * pembimbing kelima dua kali, {@link #populateDosenBuId()} menghasilkan id kembar,
+	 * {@link #ambilKeyword()} menggandakan namanya pada teks pencarian, dan
+	 * {@link #getOrganizer(Pertemuan)} — yang nilai baliknya {@link java.util.List}, bukan
+	 * {@link java.util.Set} — memasukkan alamat surelnya dua kali sehingga undangan kalender
+	 * terkirim ganda. Satu-satunya pemakai yang kebal adalah {@link #getAttendee(Pertemuan)}
+	 * karena memakai himpunan, dan {@link #ada(Dosen)} karena berhenti pada kecocokan pertama.
+	 * Sampai pengulangan itu dihapus, kode yang membutuhkan jumlah pembimbing PKL yang akurat
+	 * harus menyaring kembar sendiri.</p>
+	 *
+	 * <h4>Penanganan kesalahan</h4>
+	 * <p>Seluruh badan method dibungkus satu {@code try/catch} yang mencetak dan mencatat
+	 * kegagalan lalu mengembalikan daftar sebagian. Karena pembungkusnya tunggal — bukan per
+	 * cabang — kegagalan pada satu slot menghentikan pengumpulan slot berikutnya pada wadah yang
+	 * sama. Kelemahan itu tidak dimiliki {@link #populateDosen()}, yang justru sama sekali tidak
+	 * punya penangkap kesalahan.</p>
+	 *
+	 * <p>Tidak ada penyaringan kembar pada cabang mana pun; dosen yang diisikan pada dua slot
+	 * berbeda akan muncul dua kali. Membaca tiap slot dapat menginisialisasi proxy lazy, sehingga
+	 * satu pemanggilan pada perkuliahan berdosen lengkap berarti sampai sepuluh pemuatan.</p>
+	 *
+	 * @return daftar dosen berurutan menurut slot; kosong bila subclass-nya tidak memakai dosen
+	 */
 	public List<Dosen> populateDosenBuNama() {
 		List<Dosen> dosens = new ArrayList<Dosen>();
 
@@ -3174,6 +3330,26 @@ public abstract class VOPembelajaran extends VoKunci {
 		return dosens;
 	}
 
+	/**
+	 * Menghitung banyaknya dosen pengajar objek pembelajaran ini.
+	 *
+	 * <p>Sekadar mengambil ukuran daftar {@link #populateDosenBuNama()}, sehingga seluruh biaya
+	 * pengumpulan — termasuk inisialisasi proxy lazy setiap slot — tetap dikeluarkan untuk
+	 * menghasilkan satu angka.</p>
+	 *
+	 * <p><b>Angkanya menghitung entri, bukan dosen yang berbeda.</b> Karena
+	 * {@link #populateDosenBuNama()} tidak menyaring kembar, dosen yang menempati dua slot
+	 * terhitung dua kali. Untuk {@code pkl.KelompokPkl}, pembimbing kelima <b>selalu</b> terhitung
+	 * dua kali akibat pengulangan pemeriksaan slot pada method tersebut, sehingga jumlah yang
+	 * dilaporkan lebih besar satu daripada jumlah pembimbing yang sebenarnya.</p>
+	 *
+	 * <p>Dinamai mengikuti konvensi JavaBean ({@code get...}) agar dapat diikat langsung sebagai
+	 * properti oleh komponen ZK dan mesin laporan, meskipun ia bukan pembacaan field melainkan
+	 * perhitungan yang menyentuh banyak relasi. Jangan menempatkannya pada kolom grid yang
+	 * dirender untuk ribuan baris.</p>
+	 *
+	 * @return banyaknya entri dosen; 0 bila tidak ada, tidak pernah {@code null}
+	 */
 	public Integer getJumlahDosen() {
 		List<Dosen> dosens = populateDosenBuNama();
 		int jumlahDosen = dosens.size();

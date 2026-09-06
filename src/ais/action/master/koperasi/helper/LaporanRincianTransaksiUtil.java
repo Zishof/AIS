@@ -229,8 +229,13 @@ public final class LaporanRincianTransaksiUtil {
 			w.append(" AND COALESCE(pr.kode,'')=? ");
 			prm.add(d.kodeProduk.trim());
 		} else if (isi(d.namaProduk)) {
-			w.append(" AND COALESCE(NULLIF(TRIM(a.nama),''),COALESCE(pr.nama,'')) ILIKE ? ");
+			// Laporan produk menampilkan nama master (pr.nama), sedangkan detail
+			// transaksi lama dapat menyimpan label "KODE NAMA" pada a.nama. Jangan
+			// memilih salah satunya dengan COALESCE: bila a.nama terisi, nama master
+			// tidak pernah diperiksa dan popup laporan menjadi kosong.
+			w.append(" AND (COALESCE(pr.nama,'') ILIKE ? OR COALESCE(NULLIF(TRIM(a.nama),''),'') ILIKE ?) ");
 			prm.add(d.namaProduk.trim());
+			prm.add("%" + d.namaProduk.trim() + "%");
 		}
 		if (isi(d.kasir)) {
 			w.append(" AND COALESCE(pak.kasir_login_nama,'') ILIKE ? ");

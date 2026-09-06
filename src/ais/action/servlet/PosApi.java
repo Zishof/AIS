@@ -5330,7 +5330,12 @@ public class PosApi extends HttpServlet {
 	private void prosesLaporanRincianTransaksi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
 			throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
-		if (tokoId == null) {
+		// Akun supervisor/admin boleh membuka rincian lintas toko dalam tenant yang
+		// sama. Pembatas tenant tetap ditegakkan oleh dim.pendaftarId di utility.
+		// Pengguna biasa tetap fail-closed bila toko tidak dapat ditentukan.
+		if (tokoId == null
+				&& !bolehSupervisorAtauAdmin(tbmuser)
+				&& !bolehLihatSemuaToko(tbmuser)) {
 			hasil.put("status", "error");
 			hasil.put("message", "Toko tidak diketahui utk akun ini.");
 			return;
