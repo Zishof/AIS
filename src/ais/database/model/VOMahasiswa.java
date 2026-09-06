@@ -2177,6 +2177,20 @@ public abstract class VOMahasiswa extends VoKunci {
 		return jenisKegiatans.values();
 	}
 
+	/**
+	 * Mengambil setoran pembayaran milik orang ini yang tercatat pada satu {@link Kegiatan}
+	 * tertentu.
+	 *
+	 * <p>Mengambil daftar lengkap lewat {@link #ambilCicilan()} lalu menyaringnya dengan
+	 * {@link #ambilCicilanPembayaran(Kegiatan, List)}. Bila pemanggil sudah memegang daftar
+	 * setoran — misalnya karena sedang mengulang beberapa kegiatan sekaligus — panggil langsung
+	 * varian yang menerima daftar agar cache setoran tidak diambil ulang untuk setiap kegiatan;
+	 * lihat catatan pada {@link #ambilCicilan()} tentang berkas indeks yang habis terpakai.</p>
+	 *
+	 * @param kegiatan kegiatan yang setorannya dicari
+	 * @return setoran bernilai bukan nol pada kegiatan tersebut, bebas duplikat; kosong bila tidak
+	 *         ada
+	 */
 	public List<CicilanPembayaran> ambilCicilanPembayaran(Kegiatan kegiatan) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		List<CicilanPembayaran> cicilanPembayarans = ambilCicilanPembayaran(kegiatan, cicilanPembayaransTemp);
@@ -2184,6 +2198,32 @@ public abstract class VOMahasiswa extends VoKunci {
 		return cicilanPembayarans;
 	}
 
+	/**
+	 * Menyaring daftar setoran yang <b>sudah</b> dipegang pemanggil sehingga tersisa yang tercatat
+	 * pada satu {@link Kegiatan} tertentu, sekaligus membuang setoran kembar.
+	 *
+	 * <p>Sebuah setoran diambil bila nilainya bukan nol (diuji dengan ambang 0,1 sehingga setoran
+	 * sangat kecil diabaikan sementara nilai negatif hasil pembalikan pembayaran tetap dihitung),
+	 * relasi kegiatannya ada, dan id kegiatannya sama dengan yang diminta.</p>
+	 *
+	 * <p><b>Penyaringan duplikat berdasarkan id.</b> Setiap id yang sudah masuk dicatat pada
+	 * {@link java.util.HashSet}, sehingga setoran yang muncul dua kali di daftar sumber hanya
+	 * masuk sekali. Duplikasi memang mungkin terjadi karena daftar sumber digabung dari indeks
+	 * berkas dan kolom denormalisasi kegiatan (lihat
+	 * {@link #ambilCicilan(JenisKegiatan, boolean)}). Setoran yang id-nya masih {@code null} —
+	 * belum tersimpan — tidak pernah masuk hasil, karena penyaringan duplikat mensyaratkan id yang
+	 * dapat dicatat.</p>
+	 *
+	 * <p>Perbandingan per elemen dibungkus penangkap kesalahan yang mencatat ke audit dan
+	 * melanjutkan, sehingga data rusak melewatkan satu baris alih-alih menggagalkan seluruh
+	 * penyaringan. Argumen {@code kegiatan} yang {@code null} atau tanpa id menghasilkan daftar
+	 * kosong, bukan kesalahan. Daftar sumber yang {@code null} <b>akan</b> melempar
+	 * {@link NullPointerException} karena perulangannya berada di luar penangkap.</p>
+	 *
+	 * @param kegiatan              kegiatan yang setorannya dicari
+	 * @param cicilanPembayaransTemp daftar setoran yang akan disaring; tidak boleh {@code null}
+	 * @return setoran pada kegiatan tersebut, bebas duplikat; tidak pernah {@code null}
+	 */
 	public List<CicilanPembayaran> ambilCicilanPembayaran(Kegiatan kegiatan,
 			List<CicilanPembayaran> cicilanPembayaransTemp) {
 
@@ -2214,6 +2254,55 @@ public abstract class VOMahasiswa extends VoKunci {
 		return cicilanPembayarans;
 	}
 
+	/**
+	 * Mengambil setoran pembayaran pada satu semester untuk kode item biaya tertentu,
+	 * <b>hanya bila total yang sudah dibayar untuk kode itu mencapai ambang minimum</b>.
+	 *
+	 * <p>Berbeda dari saudara-saudaranya yang menyaring baris satu per satu, method ini menerapkan
+	 * syarat agregat: sebuah setoran baru dianggap layak muncul bila jumlah seluruh setoran pada
+	 * semester tersebut untuk kode yang sama sudah mencapai nilai ambang. Pola ini dipakai untuk
+	 * pertanyaan semacam "apakah biaya X sudah dibayar cukup" — bukan "setoran apa saja yang
+	 * ada".</p>
+	 *
+	 * <h4>Bentuk parameter {@code kodeItemBiaya}</h4>
+	 * <p>Daftar dipisahkan titik koma, dan setiap potongan boleh membawa ambangnya sendiri setelah
+	 * titik dua: {@code "spp:500000;dpp"}. Potongan tanpa titik dua memperoleh ambang bawaan
+	 * <b>99,0</b> — angka ajaib yang secara praktis berarti "harus ada pembayaran yang bukan
+	 * sekadar receh", bukan nilai yang punya makna khusus dalam mata uang mana pun. Potongan
+	 * kosong diabaikan, kode diperlakukan dalam huruf kecil, dan ambang yang tidak dapat diuraikan
+	 * sebagai angka menyebabkan potongan itu dilewati dengan kesalahan dicetak serta dicatat ke
+	 * audit.</p>
+	 * <p>Bila tidak ada satu pun potongan yang sah, method langsung mengembalikan daftar kosong.
+	 * Berbeda dari {@link #ambilJenisKegiatans(Integer, String)}, di sini argumen {@code null}
+	 * tetap melempar {@link NullPointerException} karena {@code split} dipanggil tanpa penjaga.</p>
+	 *
+	 * <h4>Cara ambang dihitung</h4>
+	 * <p>Untuk setiap setoran yang kodenya terdaftar dan nilainya bukan nol (ambang 0,1), method
+	 * menjumlahkan <b>seluruh</b> setoran pada semester tersebut yang kodenya sama, lalu
+	 * membandingkannya dengan ambang kode itu. Bila mencapai atau melebihi, setoran tersebut
+	 * ditambahkan ke hasil.</p>
+	 * <p>Dua konsekuensi yang perlu disadari:</p>
+	 * <ul>
+	 * <li><b>Sifatnya semua-atau-tidak sama sekali per kode.</b> Karena jumlah yang dibandingkan
+	 * sama untuk setiap setoran berkode sama, seluruh setoran kode itu ikut masuk bila ambang
+	 * tercapai, dan tidak satu pun masuk bila tidak. Hasilnya bukan "setoran yang mencapai
+	 * ambang", melainkan "seluruh setoran dari kode yang totalnya mencapai ambang".</li>
+	 * <li><b>Perhitungan berulang.</b> Penjumlahan total dilakukan ulang di dalam perulangan luar
+	 * untuk setiap setoran yang cocok, sehingga biayanya kuadratik terhadap jumlah setoran pada
+	 * semester itu. Untuk mahasiswa dengan riwayat panjang, hindari memanggilnya di dalam
+	 * perulangan lain.</li>
+	 * </ul>
+	 *
+	 * <p>Daftar sumber diambil lewat {@link #ambilCicilanPembayaran(Integer)}, yang berarti method
+	 * ini mewarisi ketidakamanan {@code null} method tersebut terhadap relasi kegiatan dan
+	 * argumen semester.</p>
+	 *
+	 * @param kodeItemBiaya daftar kode dengan ambang opsional, dipisahkan titik koma; tidak boleh
+	 *                      {@code null}
+	 * @param semester      semester yang dicari; tidak boleh {@code null}
+	 * @return setoran dari kode-kode yang totalnya mencapai ambang; kosong bila tidak ada kode sah
+	 *         atau tidak ada yang mencapai ambang
+	 */
 	public List<CicilanPembayaran> ambilCicilanPembayaran(String kodeItemBiaya, Integer semester) {
 		List<CicilanPembayaran> cicilanPembayarans = new ArrayList<CicilanPembayaran>();
 		Map<String, Double> kodes = new HashMap<String, Double>();
@@ -2368,6 +2457,24 @@ public abstract class VOMahasiswa extends VoKunci {
 		return total;
 	}
 
+	/**
+	 * Menghitung <b>banyaknya</b> setoran yang lolos kriteria
+	 * {@link #ambilCicilanPembayaran(String, Integer)}.
+	 *
+	 * <p>Sekadar mengambil ukuran daftar hasil method tersebut. Karena itu seluruh biaya
+	 * perhitungannya tetap dikeluarkan — termasuk penjumlahan kuadratik per kode — walaupun
+	 * pemanggil hanya membutuhkan satu angka. Bila yang ingin diketahui hanyalah "apakah ada",
+	 * pertimbangkan memeriksa daftar hasilnya secara langsung agar tidak memanggil dua kali.</p>
+	 *
+	 * <p>Karena hasilnya bersifat semua-atau-tidak per kode, angka yang dikembalikan bukan
+	 * "berapa kode yang lunas" melainkan "berapa baris setoran yang berasal dari kode-kode yang
+	 * totalnya mencapai ambang".</p>
+	 *
+	 * @param kodeItemBiaya daftar kode dengan ambang opsional, dipisahkan titik koma; tidak boleh
+	 *                      {@code null}
+	 * @param semester      semester yang dicari; tidak boleh {@code null}
+	 * @return banyaknya baris setoran yang lolos; 0 bila tidak ada
+	 */
 	public int ambilJumlahCicilanPembayaran(String kodeItemBiaya, Integer semester) {
 		return ambilCicilanPembayaran(kodeItemBiaya, semester).size();
 	}

@@ -540,6 +540,20 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	 * ini punya banyak aturan turunan dan jalur pintas yang mengabaikan nilai field ini.
 	 */
 	private Boolean aktif;
+	/**
+	 * Penanda transien (bukan properti JPA &mdash; sengaja tanpa getter/setter publik agar
+	 * Hibernate tidak memetakannya sebagai kolom) yang membedakan nilai {@link #aktif} yang
+	 * SEDANG berisi hasil turunan {@code anggotaKoperasi}/{@code pedagang} dari nilai yang
+	 * benar-benar berasal dari kolom {@code tbmuser.aktif} sendiri (dimuat Hibernate atau
+	 * ditetapkan admin lewat {@link #setAktif(Boolean)}).
+	 *
+	 * <p>Diperlukan karena {@link #getAktif()} menulis balik hasil turunan koperasi/pedagang
+	 * ke field {@link #aktif} yang sama; tanpa penanda ini, veto "aktif milik sendiri" pada
+	 * {@link #getAktif()} dapat "teracuni" oleh hasil turunan panggilan sebelumnya (mis. akun
+	 * tampak terkunci permanen setelah koperasinya sempat non-aktif, walau admin tidak pernah
+	 * menonaktifkan akunnya sendiri).</p>
+	 */
+	private transient boolean aktifTurunanRelasi = false;
 	/** Satuan kerja (lingkup organisasi paling sering dipakai untuk filter data keuangan). */
 	private SatuanKerja satuanKerja;
 
@@ -4011,15 +4025,50 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return tokenFilter;
 	}
 
+	/**
+	 * Mengembalikan pendaftaran kursus/LMS yang menjadi asal akun ini.
+	 *
+	 * <p>Relasi {@code @Transient} tanpa kolom kunci asing; hanya terisi bila object dibuat
+	 * lewat konstruktor konversi {@link #Tbmuser(GeneralValueObject)} dengan masukan
+	 * {@link PesertaKursus}. Tidak bertahan setelah entity dimuat ulang dari database.</p>
+	 *
+	 * @return data peserta kursus, atau {@code null}
+	 */
 	@Transient
 	public PesertaKursus getPesertaKursus() {
 		return pesertaKursus;
 	}
 
+	/**
+	 * Menetapkan pendaftaran kursus/LMS asal akun.
+	 *
+	 * @param pesertaKursus data peserta kursus; boleh {@code null}
+	 * @see #getPesertaKursus()
+	 */
 	public void setPesertaKursus(PesertaKursus pesertaKursus) {
 		this.pesertaKursus = pesertaKursus;
 	}
 
+	/**
+	 * Mengembalikan peran tambahan slot 2 (kolom {@code user_role2}).
+	 *
+	 * <p>Satu dari empat slot peran tambahan ({@code userRole2}..{@code userRole5}) yang
+	 * memungkinkan satu akun memegang beberapa peran sekaligus &mdash; mis. seorang kepala
+	 * unit yang juga menjadi pengelola koperasi. Getter relasi baku (hanya
+	 * {@code check(...)}), berbeda dari {@link #getUserRole()} yang penuh aturan
+	 * penurunan.</p>
+	 *
+	 * <p><b>Slot tambahan TIDAK ikut menentukan peran efektif.</b> {@link #hakAkses()}
+	 * hanya membaca peran utama; slot 2&ndash;5 dipakai lewat
+	 * {@link #ambilRoles()}/{@link #ambilRolesId()}/{@link #ambilRolesIdLower()} dan lewat
+	 * mekanisme pemilih peran yang mengganti peran utama saat pengguna berpindah konteks.
+	 * Konsekuensinya, hak akses <b>tidak</b> digabungkan lintas slot &mdash; ini pilihan
+	 * desain yang menjaga prinsip <i>least privilege</i>, bukan kelalaian.</p>
+	 *
+	 * @return peran tambahan slot 2, atau {@code null}
+	 * @see #ambilRoles()
+	 * @see #getMemilikiHakAksesTambahan()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_role2", nullable = true)
 	public Tbmrole getUserRole2() {
@@ -4027,10 +4076,27 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return userRole2;
 	}
 
+	/**
+	 * Menetapkan peran tambahan slot 2.
+	 *
+	 * <p>Berbeda dari {@link #setUserRole(Tbmrole)}, setter slot tambahan menerima
+	 * {@code null} sehingga peran tambahan <b>dapat dicabut</b>. Setiap penulisan adalah
+	 * perubahan kewenangan dan harus melalui gerbang otorisasi.</p>
+	 *
+	 * @param userRole2 peran tambahan; {@code null} untuk mengosongkan slot
+	 */
 	public void setUserRole2(Tbmrole userRole2) {
 		this.userRole2 = userRole2;
 	}
 
+	/**
+	 * Mengembalikan peran tambahan slot 3 (kolom {@code user_role3}).
+	 *
+	 * <p>Lihat {@link #getUserRole2()} untuk penjelasan lengkap mekanisme slot peran
+	 * tambahan.</p>
+	 *
+	 * @return peran tambahan slot 3, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_role3", nullable = true)
 	public Tbmrole getUserRole3() {
@@ -4038,10 +4104,24 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return userRole3;
 	}
 
+	/**
+	 * Menetapkan peran tambahan slot 3.
+	 *
+	 * @param userRole3 peran tambahan; {@code null} untuk mengosongkan slot
+	 * @see #setUserRole2(Tbmrole)
+	 */
 	public void setUserRole3(Tbmrole userRole3) {
 		this.userRole3 = userRole3;
 	}
 
+	/**
+	 * Mengembalikan peran tambahan slot 4 (kolom {@code user_role4}).
+	 *
+	 * <p>Lihat {@link #getUserRole2()} untuk penjelasan lengkap mekanisme slot peran
+	 * tambahan.</p>
+	 *
+	 * @return peran tambahan slot 4, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_role4", nullable = true)
 	public Tbmrole getUserRole4() {
@@ -4049,10 +4129,26 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return userRole4;
 	}
 
+	/**
+	 * Menetapkan peran tambahan slot 4.
+	 *
+	 * @param userRole4 peran tambahan; {@code null} untuk mengosongkan slot
+	 * @see #setUserRole2(Tbmrole)
+	 */
 	public void setUserRole4(Tbmrole userRole4) {
 		this.userRole4 = userRole4;
 	}
 
+	/**
+	 * Mengembalikan peran tambahan slot 5 (kolom {@code user_role5}).
+	 *
+	 * <p>Slot terakhir &mdash; jumlah peran per akun <b>dibatasi lima secara struktural</b>
+	 * (satu peran utama ditambah empat slot tambahan) karena dipetakan sebagai kolom
+	 * terpisah, bukan tabel relasi. Menambah peran keenam menuntut perubahan skema.</p>
+	 *
+	 * @return peran tambahan slot 5, atau {@code null}
+	 * @see #getUserRole2()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_role5", nullable = true)
 	public Tbmrole getUserRole5() {
@@ -4060,18 +4156,75 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return userRole5;
 	}
 
+	/**
+	 * Menetapkan peran tambahan slot 5.
+	 *
+	 * @param userRole5 peran tambahan; {@code null} untuk mengosongkan slot
+	 * @see #setUserRole2(Tbmrole)
+	 */
 	public void setUserRole5(Tbmrole userRole5) {
 		this.userRole5 = userRole5;
 	}
 
+	/**
+	 * Penanda bahwa akun ini memakai slot peran tambahan.
+	 *
+	 * <p>Dipakai antarmuka untuk memutuskan apakah pemilih peran perlu ditampilkan tanpa
+	 * harus memuat keempat relasi {@code userRole2}..{@code userRole5} lebih dulu.</p>
+	 *
+	 * <p><b>Penanda ini tidak dijaga konsisten oleh kelas ini.</b> Ia adalah field polos yang
+	 * hanya berubah lewat {@link #setMemilikiHakAksesTambahan(Boolean)}; menetapkan atau
+	 * mengosongkan slot peran <b>tidak</b> memutakhirkannya. Jadi nilainya dapat berbeda dari
+	 * keadaan sebenarnya, dan kode yang butuh kepastian harus memeriksa
+	 * {@link #ambilRoles()} alih-alih penanda ini.</p>
+	 *
+	 * <p>Getter menormalkan {@code null} menjadi {@code false}, sehingga aman untuk
+	 * <i>auto-unboxing</i> &mdash; berbeda dari {@link #getRoot()} dan
+	 * {@link #getIs_encripted()} yang tri-state.</p>
+	 *
+	 * @return {@code true} bila akun ditandai memakai peran tambahan (tidak pernah
+	 *         {@code null})
+	 */
 	public Boolean getMemilikiHakAksesTambahan() {
 		return memilikiHakAksesTambahan == null ? false : memilikiHakAksesTambahan;
 	}
 
+	/**
+	 * Menetapkan penanda pemakaian slot peran tambahan.
+	 *
+	 * <p>Pemanggil bertanggung jawab menjaga penanda ini selaras dengan isi slot
+	 * {@code userRole2}..{@code userRole5} yang sebenarnya.</p>
+	 *
+	 * @param memilikiHakAksesTambahan penanda baru
+	 * @see #getMemilikiHakAksesTambahan()
+	 */
 	public void setMemilikiHakAksesTambahan(Boolean memilikiHakAksesTambahan) {
 		this.memilikiHakAksesTambahan = memilikiHakAksesTambahan;
 	}
 
+	/**
+	 * Mengumpulkan seluruh peran akun ini &mdash; peran utama beserta empat slot tambahan
+	 * &mdash; ke dalam satu daftar.
+	 *
+	 * <p>Slot yang kosong dilewati, sehingga daftar hasilnya berisi 0&ndash;5 elemen dan
+	 * urutannya selalu tetap: peran utama lebih dulu, lalu slot 2 sampai 5. Elemen pertama
+	 * karenanya adalah peran yang sama dengan yang dibaca {@link #getUserRole()}.</p>
+	 *
+	 * <p>Dipakai terutama oleh pemilih peran di antarmuka untuk menampilkan pilihan konteks
+	 * yang tersedia bagi pengguna.</p>
+	 *
+	 * <p><b>Daftar ini BUKAN himpunan hak akses efektif.</b> Hak akses yang berlaku pada satu
+	 * saat hanya berasal dari <b>satu</b> peran, yaitu hasil {@link #hakAkses()}; slot
+	 * tambahan baru berlaku setelah pengguna berpindah peran lewat pemilih. Jangan memakai
+	 * daftar ini untuk menggabungkan izin.</p>
+	 *
+	 * <p>Karena memanggil kelima getter peran, method ini ikut memicu penurunan peran
+	 * destruktif di {@link #getUserRole()} beserta seluruh efek sampingnya.</p>
+	 *
+	 * @return daftar peran yang terisi (tidak pernah {@code null}, dapat kosong)
+	 * @see #ambilRolesId()
+	 * @see #hakAkses()
+	 */
 	public List<Tbmrole> ambilRoles() {
 		Tbmuser tbmuser = this;
 		List<Tbmrole> tbmroles = new ArrayList<Tbmrole>();
@@ -4093,6 +4246,32 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return tbmroles;
 	}
 
+	/**
+	 * Mengumpulkan <b>kode</b> ({@code roleId}) seluruh peran akun ini ke dalam sebuah
+	 * himpunan.
+	 *
+	 * <p>Versi ringan {@link #ambilRoles()} untuk kebutuhan pemeriksaan keanggotaan seperti
+	 * {@code ambilRolesId().contains(Tbmrole.DOSEN)}. Dipakai antara lain oleh
+	 * {@link #getAktif()} untuk mendeteksi akun "yatim peran".</p>
+	 *
+	 * <p><b>Pencocokannya peka huruf besar/kecil</b> karena mengembalikan {@code roleId} apa
+	 * adanya; untuk perbandingan yang tidak peka huruf pakai {@link #ambilRolesIdLower()}.
+	 * Kedua varian ini hidup berdampingan dan dipakai bergantian di kelas ini &mdash;
+	 * {@link #getAktif()} memakai varian peka huruf sedangkan {@link #getDosen()},
+	 * {@link #getGuru()}, dan {@link #getDokter()} memakai varian huruf kecil &mdash;
+	 * sehingga penulisan {@code roleId} yang tidak konsisten di data dapat membuat sebagian
+	 * aturan terpicu dan sebagian tidak.</p>
+	 *
+	 * <p>Berupa {@link HashSet}, jadi urutannya tidak dijamin dan duplikat kode peran
+	 * (mis. slot tambahan yang menunjuk peran sama) menyusut menjadi satu elemen.</p>
+	 *
+	 * <p><b>Risiko {@code NullPointerException}:</b> method ini memanggil
+	 * {@code getRoleId()} tanpa memeriksa {@code null}, sehingga baris {@link Tbmrole} yang
+	 * kodenya kosong akan menyisipkan {@code null} ke dalam himpunan.</p>
+	 *
+	 * @return himpunan kode peran (tidak pernah {@code null}, dapat kosong)
+	 * @see #ambilRolesIdLower()
+	 */
 	public Set<String> ambilRolesId() {
 		Tbmuser tbmuser = this;
 		Set<String> tbmroles = new HashSet<String>();
@@ -4114,6 +4293,28 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return tbmroles;
 	}
 
+	/**
+	 * Mengumpulkan kode seluruh peran akun ini dalam <b>huruf kecil</b>.
+	 *
+	 * <p>Varian {@link #ambilRolesId()} untuk perbandingan yang tidak peka huruf besar/kecil,
+	 * dengan pola pemakaian {@code ambilRolesIdLower().contains(Tbmrole.DOSEN.toLowerCase())}.
+	 * Dipakai oleh auto-resolusi berbasis nama di {@link #getDosen()}, {@link #getGuru()},
+	 * dan {@link #getDokter()}.</p>
+	 *
+	 * <p><b>Kurang aman dari {@link #ambilRolesId()}:</b> selain memanggil
+	 * {@code getRoleId()} tanpa pemeriksaan {@code null}, method ini langsung merangkainya
+	 * dengan {@code toLowerCase()} &mdash; sehingga peran yang kodenya {@code null} akan
+	 * melempar {@code NullPointerException} alih-alih sekadar menyisipkan {@code null}.
+	 * Karena ketiga pemanggilnya membungkus pemakaian ini dalam {@code try/catch} yang
+	 * menelan exception, kegagalan tersebut berakibat auto-resolusi dilewati secara
+	 * diam-diam.</p>
+	 *
+	 * <p>Perhatikan pula bahwa {@code toLowerCase()} dipanggil tanpa {@code Locale}
+	 * eksplisit, sehingga bergantung pada <i>locale</i> bawaan JVM.</p>
+	 *
+	 * @return himpunan kode peran dalam huruf kecil (tidak pernah {@code null})
+	 * @see #ambilRolesId()
+	 */
 	public Set<String> ambilRolesIdLower() {
 		Tbmuser tbmuser = this;
 		Set<String> tbmroles = new HashSet<String>();
@@ -4135,6 +4336,41 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return tbmroles;
 	}
 
+	/**
+	 * Cache peran aktif per pengguna, berkunci {@link #getUserId()} &mdash; <b>statis,
+	 * berumur selama proses JVM, dan dibagi seluruh sesi pengguna</b>.
+	 *
+	 * <p>Ini penyimpanan yang dibaca dan ditulis {@link #hakAkses()}, yaitu sumber peran
+	 * efektif bagi hampir seluruh pemeriksaan kewenangan di AIS. Baca dokumentasi
+	 * {@link #hakAkses()} untuk penjelasan mekanisme dan anomalinya secara lengkap.</p>
+	 *
+	 * <h3>Sifat yang perlu diketahui sebelum memakainya</h3>
+	 * <ul>
+	 *   <li><b>{@link HashMap} biasa, bukan {@code ConcurrentHashMap}.</b> Sebagian
+	 *   pengaksesnya menyinkronkan diri pada object map ini
+	 *   ({@link #refreshHakAksesUntukRole(Tbmrole)} dan {@link #bolehEntryTopupAktif()}),
+	 *   sedangkan {@link #hakAkses()} membaca dan menulis <b>tanpa sinkronisasi sama
+	 *   sekali</b>. Campuran itu tidak menjamin <i>visibility</i> antar-<i>thread</i> dan,
+	 *   pada penambahan bersamaan yang memicu <i>resize</i>, dapat merusak struktur internal
+	 *   map.</li>
+	 *   <li><b>Tanpa kedaluwarsa dan tanpa batas ukuran.</b> Tidak ada mekanisme yang
+	 *   membuang entri; map tumbuh seiring jumlah pengguna yang pernah login sejak proses
+	 *   berjalan dan bertahan sampai <i>restart</i>.</li>
+	 *   <li><b>Tanpa enkapsulasi.</b> Dideklarasikan {@code public static} dan
+	 *   non-{@code final}, sehingga siapa pun dapat menulis, mengganti, atau mengosongkannya
+	 *   &mdash; dan memang dilakukan langsung dari luar oleh
+	 *   {@code TbmuserAction} (setelah menyimpan akun), {@code MainAction}/{@code MainAction2}
+	 *   (pemilih peran), serta sejumlah kelas uji mandiri di {@code ais.action.master.jurnal.test}
+	 *   yang menyuntikkan dan membersihkan entri.</li>
+	 *   <li><b>Menyimpan entitas Hibernate, bukan salinan data.</b> Nilai yang tersimpan
+	 *   adalah instance {@link Tbmrole} beserta seluruh proxy lazy-nya (mis. koleksi
+	 *   {@code menus}). Instance itu ter-<i>detach</i> begitu session yang memuatnya
+	 *   ditutup.</li>
+	 * </ul>
+	 *
+	 * @see #hakAkses()
+	 * @see #refreshHakAksesUntukRole(Tbmrole)
+	 */
 	public static Map<String, Tbmrole> getUserRoleYgDipakai = new HashMap<String, Tbmrole>();
 
 	/**
@@ -4142,6 +4378,23 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	 * disimpan. Cache ini dipakai oleh {@link #hakAkses()}, sehingga tanpa refresh
 	 * pengguna yang sedang login masih dapat membaca nilai hak akses lama sampai
 	 * login ulang atau mengganti role.
+	 *
+	 * <p><b>Lingkup yang ditangani method ini.</b> Ia menelusuri seluruh entri cache dan
+	 * mengganti nilai yang {@code roleId}-nya <b>sama dengan</b> {@code roleId} peran yang
+	 * baru disimpan. Artinya method ini menangani skenario <i>"isi sebuah peran diubah"</i>
+	 * &mdash; misalnya administrator menambah atau mencabut sebuah menu pada Grup Pengguna
+	 * tertentu.</p>
+	 *
+	 * <p><b>Skenario yang TIDAK ditangani:</b> <i>"seorang pengguna dipindahkan ke peran
+	 * lain"</i>. Pada kasus itu {@code roleId} peran baru berbeda dari yang tersimpan di
+	 * cache, sehingga tidak ada entri yang cocok dan pemetaan lama tetap bertahan. Karena
+	 * itu {@code TbmuserAction} dan pemilih peran di {@code MainAction} harus menulis
+	 * langsung ke {@link #getUserRoleYgDipakai} berkunci {@code userId} setelah menyimpan
+	 * &mdash; lihat {@link #hakAkses()}.</p>
+	 *
+	 * <p>Menyinkronkan diri pada {@link #getUserRoleYgDipakai}; perlu dicatat bahwa
+	 * {@link #hakAkses()} tidak melakukan hal yang sama, sehingga sinkronisasi di sini tidak
+	 * memberi jaminan menyeluruh.</p>
 	 *
 	 * @param role role terbaru yang telah disimpan
 	 */
@@ -4160,6 +4413,134 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Mengembalikan <b>peran efektif</b> pengguna ini &mdash; jawaban atas pertanyaan
+	 * "kewenangan apa yang berlaku bagi akun ini sekarang".
+	 *
+	 * <p>Ini <b>method otorisasi paling sentral di seluruh AIS</b>: dipanggil dari sekitar
+	 * 300 berkas, mencakup gerbang login ({@code FilterLoginAis},
+	 * {@code UserDetailsServiceImpl}), pembangunan menu ({@code MainMenuHelper}), seluruh
+	 * varian {@code ambilXxx()} di kelas ini, dan puluhan {@code *ApiHelper.bolehAksi()} di
+	 * {@code ais.action.servlet.api}. Dokumentasi ini dimaksudkan sebagai <b>rujukan
+	 * definitif</b> atas mekanismenya.</p>
+	 *
+	 * <h3>Implementasi</h3>
+	 * <p>Badan method hanya beberapa baris: baca {@link #getUserRoleYgDipakai} dengan kunci
+	 * {@link #getUserId()}; bila belum ada, panggil {@link #getUserRole()} lalu simpan
+	 * hasilnya ke cache; kembalikan nilainya. Bila terjadi exception apa pun, kembalikan
+	 * {@link #getUserRole()} langsung tanpa cache.</p>
+	 *
+	 * <p>Jadi ini <b>lapisan cache di atas {@link #getUserRole()}</b>, bukan logika
+	 * kewenangan tersendiri. Peran tambahan {@code userRole2}..{@code userRole5}
+	 * <b>tidak</b> ikut digabungkan &mdash; sesuai prinsip <i>least privilege</i>, hanya satu
+	 * peran yang berlaku pada satu saat.</p>
+	 *
+	 * <h3>Mengapa method ini dapat mengembalikan {@code null} untuk pengguna yang sah</h3>
+	 * <p>Kolom {@code userrole} bersifat {@code nullable=false}, sehingga {@code null} di
+	 * sini <b>bukan</b> berarti "pengguna baru yang belum diberi peran". Yang sebenarnya
+	 * terjadi adalah salah satu dari kondisi anomali berikut &mdash; masing-masing sudah
+	 * diverifikasi ulang terhadap kode saat ini:</p>
+	 * <ol>
+	 *   <li><b>{@link #getUserRole()} sendiri menghasilkan {@code null}.</b> Ada tiga jalan
+	 *   ke sana, diuraikan lengkap pada dokumentasi getter tersebut; yang paling halus
+	 *   adalah cabang penyedia aset yang menimpa {@code userRole} dengan
+	 *   {@code ConstantValues.tbmrolePenyedia} <b>tanpa pemeriksaan {@code null}</b>,
+	 *   sehingga peran nyata terhapus bila cache konstanta belum ter-<i>seed</i>. Yang paling
+	 *   umum adalah {@link GeneralValueObject#check(Object) check(...)} gagal me-resolve
+	 *   proxy {@link Tbmrole} yang sudah ter-<i>detach</i> (session penutup, salinan hasil
+	 *   deserialisasi, atau baris peran yang dihapus).</li>
+	 *   <li><b>{@code null} ikut tersimpan ke cache.</b> Baris {@code put} dijalankan tanpa
+	 *   memeriksa hasilnya, sehingga {@code null} pun masuk sebagai nilai. Untungnya
+	 *   pemeriksaan berikutnya memakai {@code d == null} (bukan {@code containsKey}), jadi
+	 *   entri {@code null} tidak "mengunci" hasil selamanya &mdash; ia memicu pembacaan
+	 *   ulang. Namun pemanggil pada saat itu tetap menerima {@code null}.</li>
+	 *   <li><b>Kunci cache dapat berupa {@code null}.</b> {@link #getUserId()} dapat
+	 *   mengembalikan {@code null} (lihat dokumentasinya), dan {@link HashMap} menerima kunci
+	 *   {@code null}. Akibatnya <b>seluruh akun yang sesaat tidak dapat menentukan
+	 *   {@code userId}-nya berbagi satu slot cache yang sama</b>, sehingga peran milik satu
+	 *   akun dapat terbaca oleh akun lain. Kondisi ini paling mungkin muncul pada object
+	 *   hasil deserialisasi atau yang relasinya belum ter-inisialisasi.</li>
+	 *   <li><b>Akses bersamaan tanpa sinkronisasi.</b> Method ini melakukan {@code get} dan
+	 *   {@code put} pada {@link HashMap} biasa <b>tanpa penguncian</b>, sementara
+	 *   {@link #refreshHakAksesUntukRole(Tbmrole)} dan {@link #bolehEntryTopupAktif()}
+	 *   menyinkronkan diri pada map yang sama. Selain tidak menjamin <i>visibility</i>, pada
+	 *   penulisan bersamaan yang memicu <i>resize</i> struktur internal map dapat rusak.
+	 *   Kegagalan semacam itu tertangkap {@code catch} dan dipetakan menjadi pemanggilan
+	 *   {@link #getUserRole()} langsung.</li>
+	 *   <li><b>Nilai ter-<i>detach</i> yang tampak sah.</b> Cache menyimpan instance
+	 *   {@link Tbmrole} beserta proxy lazy-nya. Method ini dapat mengembalikan object yang
+	 *   <i>bukan</i> {@code null} namun akan melempar
+	 *   {@code LazyInitializationException} begitu pemanggil menyentuh koleksi seperti
+	 *   {@code getMenus()}. Karena banyak pemanggil membungkus pemakaian itu dalam
+	 *   {@code try/catch} yang menelan exception, akibatnya di lapisan atas <b>tidak dapat
+	 *   dibedakan</b> dari peran {@code null}. Inilah sebabnya
+	 *   {@code MainMenuHelper} memakai strategi berlapis dengan
+	 *   {@code Hibernate.isInitialized()} sebelum menyentuh {@code getMenus()}.</li>
+	 * </ol>
+	 *
+	 * <h3>Dampak hilir: pola fail-open di lapisan API</h3>
+	 * <p>Puluhan {@code *ApiHelper.bolehAksi()} di {@code ais.action.servlet.api}
+	 * (mis. {@code MasterKeuanganApiHelper}, {@code AnggaranApiHelper},
+	 * {@code KasKecilApiHelper}, {@code PertangungjawabanApiHelper},
+	 * {@code UangMukaApiHelper}) memakai pola:</p>
+	 * <pre>{@code
+	 * Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
+	 * if (role == null) {
+	 *     return true;   // FAIL-OPEN: izinkan penuh
+	 * }
+	 * }</pre>
+	 * <p>Artinya setiap kondisi anomali di atas berubah menjadi <b>pemberian izin penuh</b>,
+	 * bukan penolakan. Pola ini konsisten dan disengaja di seluruh keluarga API tersebut
+	 * ({@code HotelApiHelper} tercatat sebagai satu-satunya pengecualian yang
+	 * <i>fail-closed</i>), dan keputusan untuk membiarkannya sudah diambil secara eksplisit
+	 * pada sesi audit terdahulu &mdash; lihat catatan panjang pada
+	 * {@code MasterKeuanganApiHelper.bolehAksi}. Perbaikan yang aman ada di
+	 * <b>akar penyebabnya</b>, yaitu memastikan method ini tidak diam-diam mengembalikan
+	 * {@code null} untuk pengguna yang sah, bukan menambal satu per satu pemanggilnya.</p>
+	 * <p>Perlu ditegaskan: perilaku fail-open itu berada di pemanggil, <b>bukan</b> di method
+	 * ini. Method ini sendiri mengembalikan {@code null} secara jujur.</p>
+	 *
+	 * <h3>Keusangan cache: peran lama bertahan sampai proses di-<i>restart</i></h3>
+	 * <p>Tidak ada mekanisme kedaluwarsa. Sekali sebuah {@code userId} terpetakan, ia
+	 * bertahan sampai ada yang menimpanya secara eksplisit. Dua jalur pemutakhiran yang
+	 * tersedia menutupi skenario yang berbeda:</p>
+	 * <ul>
+	 *   <li>{@link #refreshHakAksesUntukRole(Tbmrole)} menangani <b>perubahan isi sebuah
+	 *   peran</b> (mencocokkan berdasarkan {@code roleId});</li>
+	 *   <li>penulisan langsung ke {@link #getUserRoleYgDipakai} berkunci {@code userId},
+	 *   yang dilakukan {@code TbmuserAction} setelah akun disimpan dan
+	 *   {@code MainAction}/{@code MainAction2} saat pengguna berpindah peran, menangani
+	 *   <b>perpindahan pengguna ke peran lain</b> &mdash; skenario yang <b>tidak</b>
+	 *   tercakup oleh {@code refreshHakAksesUntukRole} karena {@code roleId}-nya berbeda.</li>
+	 * </ul>
+	 * <p>Konsekuensinya: setiap jalur yang mengubah peran seorang pengguna <b>tanpa</b>
+	 * melalui kedua mekanisme itu (mis. pengubahan langsung di database, impor massal, atau
+	 * {@code Action} generik yang menulis kolom {@code userrole}) akan menyisakan kewenangan
+	 * lama yang tetap berlaku sampai proses aplikasi di-<i>restart</i>. {@link #setUserRole(Tbmrole)}
+	 * sendiri <b>tidak</b> menyentuh cache.</p>
+	 *
+	 * <h3>Panduan bagi pemanggil</h3>
+	 * <ul>
+	 *   <li>Untuk membaca peran efektif, <b>pakai method ini</b>, bukan
+	 *   {@link #getUserRole()} langsung.</li>
+	 *   <li>Perlakukan hasil {@code null} sebagai <b>kondisi anomali</b>, bukan sebagai
+	 *   "tanpa hak". Putuskan secara sadar apakah anomali itu ditolak (<i>fail-closed</i>,
+	 *   dianjurkan untuk gerbang baru) atau diizinkan; jangan mengandalkan perilaku bawaan.</li>
+	 *   <li>Bila perlu memastikan nilai terbaru dari database, jangan mengandalkan cache
+	 *   &mdash; muat ulang peran lewat session terpisah seperti yang dilakukan
+	 *   {@link #bolehEntryTopupAktif()}.</li>
+	 *   <li>Bila menyentuh koleksi lazy pada hasilnya, periksa
+	 *   {@code Hibernate.isInitialized(...)} lebih dulu.</li>
+	 * </ul>
+	 *
+	 * @return peran efektif pengguna, atau {@code null} pada salah satu kondisi anomali di
+	 *         atas
+	 * @see #getUserRole()
+	 * @see #getUserRoleYgDipakai
+	 * @see #refreshHakAksesUntukRole(Tbmrole)
+	 * @see #bolehEntryTopupAktif()
+	 * @see #ambilRoles()
+	 */
 	public Tbmrole hakAkses() {
 		try {
 

@@ -1877,8 +1877,6 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.lamburMulai = lamburMulai;
 	}
 
-	@Temporal(TemporalType.TIME)
-	@Column(name = "lambur_sampai")
 	/**
 	 * Mengembalikan waktu selesai lembur apa adanya.
 	 *
@@ -1891,6 +1889,8 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 *
 	 * @return waktu selesai lembur; boleh {@code null}
 	 */
+	@Temporal(TemporalType.TIME)
+	@Column(name = "lambur_sampai")
 	public Date getLamburSampai() {
 		return lamburSampai;
 	}
@@ -2386,7 +2386,6 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return !isHoliday || isLiburWajibHadir;
 	}
 
-	@Transient
 	/**
 	 * Mengembalikan pengajuan cuti/izin yang menaungi hari ini.
 	 *
@@ -2414,6 +2413,7 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * @return pengajuan cuti/izin yang disuntikkan pemanggil, atau {@code null} bila tidak ada atau
 	 *         belum disuntikkan
 	 */
+	@Transient
 	public CutiDanIzin getCutiDanIzin() {
 		return cutiDanIzin;
 	}
@@ -2687,7 +2687,6 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.dosen = dosen;
 	}
 
-	@Column(columnDefinition = "text")
 	/**
 	 * Mengembalikan rujukan berkas foto bukti absen kedatangan.
 	 *
@@ -2699,6 +2698,7 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 *
 	 * @return rujukan berkas foto kedatangan; boleh {@code null}
 	 */
+	@Column(columnDefinition = "text")
 	public String getFotoAbsenDatang() {
 		return fotoAbsenDatang == null ? "" : fotoAbsenDatang.trim();
 	}
@@ -2712,13 +2712,13 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.fotoAbsenDatang = fotoAbsenDatang;
 	}
 
-	@Column(columnDefinition = "text")
 	/**
 	 * Mengembalikan rujukan berkas foto bukti absen kepulangan. Lihat catatan pada
 	 * {@link #getFotoAbsenDatang()}.
 	 *
 	 * @return rujukan berkas foto kepulangan; boleh {@code null}
 	 */
+	@Column(columnDefinition = "text")
 	public String getFotoAbsenPulang() {
 		return fotoAbsenPulang == null ? "" : fotoAbsenPulang.trim();
 	}
@@ -2732,7 +2732,6 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.fotoAbsenPulang = fotoAbsenPulang;
 	}
 
-	@Column(columnDefinition = "text")
 	/**
 	 * Mengembalikan keterangan lokasi saat absen kedatangan.
 	 *
@@ -2744,6 +2743,7 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 *
 	 * @return keterangan lokasi kedatangan; boleh {@code null}
 	 */
+	@Column(columnDefinition = "text")
 	public String getLokasiAbsenDatang() {
 		return lokasiAbsenDatang == null ? "" : lokasiAbsenDatang.trim();
 	}
@@ -2757,13 +2757,13 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.lokasiAbsenDatang = lokasiAbsenDatang;
 	}
 
-	@Column(columnDefinition = "text")
 	/**
 	 * Mengembalikan keterangan lokasi saat absen kepulangan. Lihat catatan format bebas pada
 	 * {@link #getLokasiAbsenDatang()}.
 	 *
 	 * @return keterangan lokasi kepulangan; boleh {@code null}
 	 */
+	@Column(columnDefinition = "text")
 	public String getLokasiAbsenPulang() {
 		return lokasiAbsenPulang == null ? "" : lokasiAbsenPulang.trim();
 	}
@@ -4240,9 +4240,6 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.masukjamPertamakali = masukjamPertamakali;
 	}
 
-	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
-	@Fetch(FetchMode.SELECT)
-	@JoinColumn(name = "next", nullable = true)
 	/**
 	 * Mengembalikan baris kehadiran hari berikutnya.
 	 *
@@ -4260,6 +4257,9 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 *
 	 * @return baris kehadiran hari berikutnya, atau {@code null} bila tidak disuntikkan
 	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "next", nullable = true)
 	public StatuskehadiranKaryawanHarian getNext() {
 		return next;
 	}
@@ -4273,9 +4273,6 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.next = next;
 	}
 
-	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
-	@Fetch(FetchMode.SELECT)
-	@JoinColumn(name = "back", nullable = true)
 	/**
 	 * Mengembalikan baris kehadiran hari sebelumnya.
 	 *
@@ -4288,6 +4285,9 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 *
 	 * @return baris kehadiran hari sebelumnya, atau {@code null} bila tidak disuntikkan
 	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "back", nullable = true)
 	public StatuskehadiranKaryawanHarian getBack() {
 		return back;
 	}
