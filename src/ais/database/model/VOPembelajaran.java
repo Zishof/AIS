@@ -3357,6 +3357,29 @@ public abstract class VOPembelajaran extends VoKunci {
 		return jumlahDosen;
 	}
 
+	/**
+	 * Menyusun kode semester akademik gabungan berbentuk {@code <tahun><angka jenis>}, mis.
+	 * {@code "20241"}.
+	 *
+	 * <p>Bagian tahun diambil dari potongan pertama tahun ajaran sebelum garis miring
+	 * ({@code "2024/2025"} menjadi {@code "2024"}); tahun ajaran yang kosong atau {@code null}
+	 * menghasilkan {@code "-"} sebagai gantinya, sehingga kodenya menjadi {@code "-1"} dan bukan
+	 * kode yang sah. Angka jenisnya bernilai 3 untuk semester pendek, 2 untuk genap, dan 1 untuk
+	 * selainnya — termasuk untuk jenis semester yang tidak dikenali, yang karenanya diam-diam
+	 * dianggap ganjil.</p>
+	 *
+	 * <p>Bentuk ini adalah kode semester yang dipakai pelaporan pangkalan data pendidikan tinggi,
+	 * sehingga penyusunannya harus tetap konsisten dengan aturan di sana. Ia juga menjadi bagian
+	 * paling depan dari kunci pengurutan pada {@link #compareTo(GeneralValueObject)}, sehingga
+	 * perubahan bentuknya ikut mengubah urutan tampil daftar perkuliahan.</p>
+	 *
+	 * <p>Seluruh nilainya diperoleh lewat {@link #ambilTahunAjaran()},
+	 * {@link #ambilJenisSemester()}, dan {@link #ambilMerupakanSP()}, yang masing-masing memilah
+	 * subclass dengan rantai {@code instanceof}. Untuk subclass yang tidak dikenali ketiganya,
+	 * kode yang dihasilkan adalah {@code "-1"}.</p>
+	 *
+	 * @return kode semester gabungan; tidak pernah {@code null}
+	 */
 	public String toIdSmt() {
 		String tahunAjaran = ambilTahunAjaran();
 		String jenisSemester = ambilJenisSemester();
@@ -3367,6 +3390,65 @@ public abstract class VOPembelajaran extends VoKunci {
 		return id_smt;
 	}
 
+	/**
+	 * Mengurutkan objek pembelajaran untuk keperluan tampilan, dengan tiga jalur yang sangat
+	 * berbeda.
+	 *
+	 * <h4>Jalur 1 — pembanding {@link Perkuliahan}: urutan jadwal, menurun</h4>
+	 * <p>Bila argumennya {@link Perkuliahan}, kedua sisi disusun menjadi kunci teks berbentuk
+	 * {@code idSmt[_0_pra]_indeksHari_waktu} lalu dibandingkan. Ada empat hal yang perlu
+	 * disadari:</p>
+	 * <ul>
+	 * <li><b>Hasilnya dibalik</b> — yang dikembalikan adalah perbandingan kunci objek ini terhadap
+	 * kunci argumen dalam urutan terbalik, sehingga daftar tersusun menurun: semester terbaru di
+	 * atas.</li>
+	 * <li><b>Indeks hari dihitung mundur</b> dari 10 menurut daftar hari, sehingga hari yang lebih
+	 * awal memperoleh angka lebih besar. Karena kunci dibandingkan sebagai teks, angka 10 dan 9
+	 * dibandingkan secara leksikografis dan {@code "10"} mendahului {@code "9"} — bukan urutan
+	 * numerik. Hari yang tidak dikenali memperoleh nilai bawaan 10, sama dengan hari pertama.</li>
+	 * <li><b>Waktu juga dibalik</b> lewat pengurangan dari 100, agar jam yang lebih awal
+	 * menghasilkan angka lebih besar dan tetap sejalan dengan pembalikan di atas. Nilainya berupa
+	 * bilangan pecahan yang diubah menjadi teks, sehingga panjang digitnya ikut memengaruhi
+	 * perbandingan leksikografis.</li>
+	 * <li><b>Perkuliahan pra-perkuliahan disisipi penanda</b> {@code _0_pra} tepat setelah kode
+	 * semester, yang mengelompokkannya terpisah dari perkuliahan biasa pada semester yang
+	 * sama.</li>
+	 * </ul>
+	 * <p><b>Jalur ini meng-{@code cast} {@code this} ke {@link Perkuliahan} tanpa memeriksanya
+	 * lebih dulu.</b> Yang diperiksa hanyalah tipe argumen. Membandingkan sebuah {@link Skripsi}
+	 * dengan sebuah {@link Perkuliahan} karenanya melempar {@link ClassCastException} yang ditelan
+	 * penangkap di method ini, dan hasilnya menjadi 0 — "dianggap sama". Pada daftar campuran, hal
+	 * itu membuat pembandingnya tidak antisimetris: {@code a.compareTo(b)} memakai jalur 1
+	 * sementara {@code b.compareTo(a)} memakai jalur 2.</p>
+	 *
+	 * <h4>Jalur 2 — pembanding {@link VOPembelajaran} lain: kode semester lalu jenis</h4>
+	 * <p>Kunci gabungan {@code toIdSmt() + ambilJenis()} dibandingkan secara naik. Jauh lebih
+	 * sederhana, tetapi memakai kunci yang sama sekali berbeda dari jalur 1 — sehingga urutan
+	 * sebuah daftar bergantung pada tipe elemen mana yang kebetulan menjadi argumen.</p>
+	 *
+	 * <h4>Jalur 3 — pembanding lain: selalu dianggap sama</h4>
+	 * <p><b>Hasil pemanggilan {@code super.compareTo(arg0)} tidak pernah dipakai.</b> Nilainya
+	 * dihitung lalu dibuang, dan alur tetap jatuh ke {@code return 0} di akhir method. Akibatnya
+	 * membandingkan objek pembelajaran dengan entity jenis lain selalu melaporkan "sama", dan
+	 * pengurutan warisan dari kelas induk tidak pernah berlaku. Perbaikannya cukup mengembalikan
+	 * nilai tersebut, tetapi karena hal itu mengubah urutan yang sudah terlihat pengguna, ia
+	 * dicatat di sini alih-alih diubah.</p>
+	 *
+	 * <h4>Konsistensi</h4>
+	 * <p>Pembanding ini tidak konsisten dengan kesetaraan objek: dua objek berbeda yang berbagi
+	 * kode semester dan jenis yang sama dilaporkan "sama", demikian pula seluruh pasangan yang
+	 * jatuh ke jalur 3 atau ke penangkap kesalahan. Karena itu jangan memakai
+	 * {@link java.util.TreeSet} atau {@link java.util.TreeMap} berkunci objek pembelajaran —
+	 * elemen kembar akan terbuang tanpa pesan. Ketidaktransitifannya juga dapat membuat
+	 * {@link java.util.Collections#sort} melempar pada daftar campuran yang cukup besar.</p>
+	 *
+	 * <p>Seluruh kegagalan — termasuk {@link ClassCastException} dan {@link NullPointerException}
+	 * dari pembacaan penanda pra-perkuliahan — ditelan dan dicatat ke audit, lalu method
+	 * mengembalikan 0.</p>
+	 *
+	 * @param arg0 objek pembanding; {@code null} jatuh ke jalur 3 dan menghasilkan 0
+	 * @return bilangan negatif, nol, atau positif; 0 juga berarti "tidak dapat dibandingkan"
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		try {
@@ -3409,6 +3491,26 @@ public abstract class VOPembelajaran extends VoKunci {
 		return 0;
 	}
 
+	/**
+	 * Menghitung banyaknya peserta objek pembelajaran ini <b>langsung dari basis data</b>, tanpa
+	 * melewati cache mana pun.
+	 *
+	 * <p>Sengaja dibiarkan abstrak karena tiap subclass menyimpan pesertanya di tabel yang
+	 * berbeda: perkuliahan pada rincian perkuliahan, kelompok KKN dan PKL pada tabel
+	 * penghubungnya, skripsi dan permohonan tugas akhir pada relasi mahasiswa tunggalnya, dan
+	 * seterusnya. Menjadikannya abstrak <b>memaksa</b> setiap subclass memutuskan jawabannya —
+	 * satu-satunya kontrak di kelas ini yang memberi jaminan itu, berbeda dari puluhan method
+	 * berantai {@code instanceof} lain yang membiarkan subclass tak terdaftar jatuh ke nilai
+	 * bawaan tanpa peringatan.</p>
+	 *
+	 * <p>Kata "Langsung" pada namanya menandai perbedaannya dari
+	 * {@link #ambilMahasiswaById(boolean)} dan {@link #ambilSiswaById()} yang dapat dilayani dari
+	 * cache: method ini dimaksudkan sebagai angka yang selalu mutakhir, dengan konsekuensi selalu
+	 * menembak basis data. Jangan memanggilnya di dalam perulangan atas banyak wadah.</p>
+	 *
+	 * @return banyaknya peserta menurut basis data; implementasi diharapkan mengembalikan 0
+	 *         alih-alih {@code null} untuk wadah tanpa peserta
+	 */
 	public abstract Integer ambilJumlahDetailperkuliahanLangsung();
 
 	public String infoSimple() {
