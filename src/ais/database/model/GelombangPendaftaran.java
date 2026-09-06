@@ -661,6 +661,68 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		this.perguruanTinggi = perguruanTinggi;
 	}
 
+	/**
+	 * Gerbang kelayakan mendaftar TERPUSAT -- menggabungkan keempat penjaga yang sebelumnya hanya
+	 * dievaluasi terpisah-pisah di titik render (aktif, rentang mulai/sampai, bisaDipilihPendaftarOnline,
+	 * tenant perguruanTinggi), sehingga gelombang yang sudah ditutup/lewat tanggal/bukan utk pendaftar
+	 * online/milik perguruan tinggi lain tidak lagi bisa dipakai mendaftar lewat manipulasi parameter
+	 * gelombangId. FAIL-CLOSED: apa pun yang tidak bisa dipastikan lolos dianggap TIDAK boleh didaftari.
+	 * Dibaca lewat getter (bukan field mentah) supaya konsisten dgn default TRUE-bila-null yang sudah
+	 * dipakai {@link #getAktif()}/{@link #getBisaDipilihPendaftarOnline()}. Semantik "sampai" inklusif
+	 * sampai akhir hari tsb (lihat {@link ais.action.report.helper.LaporanTanggalUtil#akhirHari}).
+	 *
+	 * @param perguruanTinggiPendaftar tenant yang sedang melayani permintaan pendaftaran; {@code null}
+	 *        berarti pemanggil tidak membawa konteks tenant eksplisit sehingga pemeriksaan tenant dilewati
+	 * @return {@code null} bila boleh didaftari, atau pesan alasan penolakan yang aman ditampilkan ke pengguna
+	 */
+	public String alasanTidakBolehMendaftar(PerguruanTinggi perguruanTinggiPendaftar) {
+		if (getId() == null) {
+			return "Gelombang pendaftaran tidak ditemukan.";
+		}
+		if (!Boolean.TRUE.equals(getAktif())) {
+			return "Gelombang pendaftaran ini sudah tidak aktif.";
+		}
+		if (!Boolean.TRUE.equals(getBisaDipilihPendaftarOnline())) {
+			return "Gelombang pendaftaran ini tidak dapat dipilih oleh pendaftar online.";
+		}
+		if (getMulai() == null || getSampai() == null) {
+			return "Gelombang pendaftaran ini belum memiliki rentang tanggal pendaftaran.";
+		}
+		Date sekarang = ais.ui.util.WaktuUtil.getDate();
+		if (getMulai().after(sekarang)) {
+			return "Gelombang pendaftaran ini belum dibuka.";
+		}
+		Date akhirSampai = ais.action.report.helper.LaporanTanggalUtil.akhirHari(getSampai());
+		if (akhirSampai == null || akhirSampai.before(sekarang)) {
+			return "Gelombang pendaftaran ini sudah ditutup.";
+		}
+		if (perguruanTinggiPendaftar != null && perguruanTinggiPendaftar.getId() != null) {
+			PerguruanTinggi pt = getPerguruanTinggi();
+			if (pt == null || pt.getId() == null || !pt.getId().equals(perguruanTinggiPendaftar.getId())) {
+				return "Gelombang pendaftaran ini bukan milik perguruan tinggi Anda.";
+			}
+		}
+		return null;
+	}
+
+	/** @see #alasanTidakBolehMendaftar(PerguruanTinggi) */
+	public boolean bolehDidaftari(PerguruanTinggi perguruanTinggiPendaftar) {
+		return alasanTidakBolehMendaftar(perguruanTinggiPendaftar) == null;
+	}
+
+	/**
+	 * Overload fail-closed statis utk pemanggil yang belum tentu punya instance gelombang (mis. hasil
+	 * {@code session.get}/{@code GeneralValueObject.ambilData} yang bisa {@code null} krn id dari klien
+	 * tidak valid/tidak ditemukan).
+	 */
+	public static String alasanTidakBolehMendaftar(GelombangPendaftaran gelombang,
+			PerguruanTinggi perguruanTinggiPendaftar) {
+		if (gelombang == null) {
+			return "Gelombang pendaftaran tidak ditemukan.";
+		}
+		return gelombang.alasanTidakBolehMendaftar(perguruanTinggiPendaftar);
+	}
+
 	public String getProgram() {
 		return program;
 	}

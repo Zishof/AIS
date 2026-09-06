@@ -783,11 +783,68 @@ public abstract class VOPembelajaran extends VoKunci {
 				jumlahAbsensiTotalDosen, semuaStatusesDosen, detailperkuliahans, jumlahUjianTotal, jumlahDiskusiTotal };
 	}
 
+	/**
+	 * Mengambil satu halaman id pertemuan untuk ditampilkan pada grid berhalaman, memakai cache.
+	 *
+	 * <p>Mengambil peta pertemuan lewat {@link #ambilPertemuan()} lalu meneruskannya ke
+	 * {@link #ambilPertemuan(int, int, boolean, TreeMap)}. Bila pemanggil sudah memegang petanya —
+	 * misalnya karena ingin menampilkan jumlah total sekaligus — panggil langsung varian yang
+	 * menerima peta agar indeks tidak dibaca dua kali.</p>
+	 *
+	 * @param mulai     indeks awal halaman; diabaikan bila {@code tampilHal} bernilai benar
+	 * @param banyak    banyaknya baris per halaman
+	 * @param tampilHal {@code true} agar halaman ditentukan otomatis dari pertemuan terakhir yang
+	 *                  sudah berlalu
+	 * @return larik tiga elemen: daftar id halaman ini, jumlah seluruh pertemuan, dan indeks awal
+	 *         yang benar-benar dipakai
+	 */
 	public Object[] ambilPertemuan(int mulai, int banyak, boolean tampilHal) {
 		TreeMap<String, Long> pertemuansTemp = ambilPertemuan();
 		return ambilPertemuan(mulai, banyak, tampilHal, pertemuansTemp);
 	}
 
+	/**
+	 * Memotong satu halaman dari peta pertemuan yang sudah dipegang pemanggil, dengan kemampuan
+	 * "lompat ke halaman berjalan".
+	 *
+	 * <h4>Susunan nilai balik</h4>
+	 * <p>Larik tiga elemen: (0) {@code List<Long>} berisi id pertemuan pada halaman ini,
+	 * (1) {@code Integer} jumlah seluruh pertemuan pada peta, dan (2) {@code Integer} indeks awal
+	 * yang benar-benar dipakai setelah penyesuaian. Elemen ketiga penting bagi pemanggil karena
+	 * nilai {@code mulai} yang dikirim bisa diubah oleh method ini.</p>
+	 *
+	 * <h4>Bagaimana halaman berjalan ditentukan</h4>
+	 * <p>Bila {@code tampilHal} bernilai benar, method menghitung {@code aktifKe}: banyaknya
+	 * pertemuan yang tanggalnya sudah lewat kemarin. Tanggal itu dibaca dari <b>kunci peta</b>,
+	 * bukan dari entitas — kunci diurai dengan mengambil bagian sebelum garis bawah dan
+	 * memformatnya sebagai tanggal delapan digit. Halaman lalu dipilih sebagai kelipatan
+	 * {@code banyak} yang memuat {@code aktifKe}, atau tepat {@code aktifKe} bila satu baris per
+	 * halaman.</p>
+	 * <p><b>Fitur ini hanya bekerja pada objek pembelajaran yang penomorannya otomatis.</b> Kunci
+	 * peta hanya berbentuk tanggal ketika {@link #getUrutkanotomatis()} bernilai benar; pada
+	 * penomoran manual, {@link #masukkanPertemuanLocal} menyusun kunci dari nomor pertemuan yang
+	 * dipadkan menjadi empat digit. Penjaga panjang minimal delapan karakter pada penguraian
+	 * membuat seluruh kunci empat digit itu dilewati, sehingga {@code aktifKe} tetap nol dan
+	 * {@code tampilHal} selalu mendarat di halaman pertama. Perilaku ini tidak dilaporkan sebagai
+	 * kesalahan — penguraian yang gagal hanya dilewati diam-diam.</p>
+	 *
+	 * <h4>Penyesuaian indeks awal</h4>
+	 * <p>Bila {@code mulai} berada di luar batas peta, ia dikurangi satu halaman; bila lalu menjadi
+	 * negatif, ia disetel nol. Penyesuaian dilakukan sekali saja, sehingga {@code mulai} yang jauh
+	 * melampaui ukuran peta tetap dapat berujung pada halaman kosong — nilai elemen ketiga
+	 * memberi tahu pemanggil apa yang sebenarnya dipakai.</p>
+	 *
+	 * <p>Peta {@code null} menghasilkan larik dengan daftar kosong, jumlah nol, dan {@code mulai}
+	 * apa adanya. Urutan id pada halaman mengikuti urutan kunci peta, yaitu urutan tanggal atau
+	 * nomor pertemuan sesuai penanda penomoran.</p>
+	 *
+	 * @param mulai          indeks awal halaman; dapat disesuaikan oleh method ini
+	 * @param banyak         banyaknya baris per halaman
+	 * @param tampilHal      {@code true} agar halaman ditentukan otomatis dari pertemuan terakhir
+	 *                       yang sudah berlalu
+	 * @param pertemuansTemp peta pertemuan yang dipotong; boleh {@code null}
+	 * @return larik tiga elemen sebagaimana dijelaskan di atas
+	 */
 	public Object[] ambilPertemuan(int mulai, int banyak, boolean tampilHal, TreeMap<String, Long> pertemuansTemp) {
 		int index = 0;
 		List<Long> pertemuans = new ArrayList<Long>();
@@ -840,10 +897,45 @@ public abstract class VOPembelajaran extends VoKunci {
 		return new Object[] { pertemuans, size, mulai };
 	}
 
+	/**
+	 * Mengambil seluruh pertemuan aktif milik objek ini sebagai daftar objek, memakai cache.
+	 *
+	 * <p>Setara dengan {@code ambilPertemuanList(false)}. Berbeda dari
+	 * {@link #ambilPertemuan()} yang mengembalikan peta id, method ini mengembalikan objek
+	 * {@link Pertemuan} yang siap dibaca.</p>
+	 *
+	 * @return daftar pertemuan aktif terurut sesuai kunci cache; kosong bila tidak ada
+	 */
 	public List<Pertemuan> ambilPertemuanList() {
 		return ambilPertemuanList(false);
 	}
 
+	/**
+	 * Mengambil seluruh pertemuan aktif milik objek ini sebagai daftar objek.
+	 *
+	 * <p>Menelusuri peta hasil {@link #ambilPertemuan(boolean)} dan mengubah tiap id menjadi objek
+	 * lewat cache proses, dengan tiga penyaringan berlapis:</p>
+	 * <ol>
+	 * <li>nilai peta yang {@code null} dilewati — peta bisa memuat nilai kosong akibat entri
+	 * indeks yang rusak, dan tanpa penjaga ini pemanggilan {@code toString()} akan melempar;</li>
+	 * <li>objek yang tidak ditemukan di cache proses dilewati;</li>
+	 * <li>pertemuan yang penanda {@code aktif}-nya {@code null} atau salah dilewati.</li>
+	 * </ol>
+	 *
+	 * <p><b>Hanya membaca cache proses.</b> Berbeda dari {@link #ambilPertemuan(boolean)} yang
+	 * menyediakan cadangan kueri basis data untuk id yang belum termuat, method ini tidak. Namun
+	 * karena {@link #ambilPertemuan(boolean)} dipanggil lebih dulu dan sudah memasukkan objek yang
+	 * dijemputnya ke cache, dalam praktiknya seluruh id pada peta biasanya sudah tersedia. Yang
+	 * tetap mungkin hilang adalah objek yang tergusur dari cache di antara kedua langkah.</p>
+	 *
+	 * <p>Penyaringan aktif di sini <b>menggandakan</b> penyaringan yang sudah dilakukan
+	 * {@link #ambilPertemuan(boolean)}. Duplikasi itu tidak mengubah hasil, tetapi berarti
+	 * pertemuan yang statusnya berubah di antara kedua langkah dinilai dua kali.</p>
+	 *
+	 * @param refresh {@code true} untuk membangun ulang indeks dari basis data lebih dulu; lihat
+	 *                {@link #ambilPertemuan(boolean)} untuk efek sampingnya
+	 * @return daftar pertemuan aktif; tidak pernah {@code null}
+	 */
 	public List<Pertemuan> ambilPertemuanList(boolean refresh) {
 		TreeMap<String, Long> pertemuanss = ambilPertemuan(refresh);
 		List<Pertemuan> pertemuans = new ArrayList<Pertemuan>();

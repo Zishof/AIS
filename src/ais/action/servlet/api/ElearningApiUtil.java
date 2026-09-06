@@ -52,6 +52,7 @@ import ais.database.model.Detailperkuliahan;
 import ais.database.model.Dosen;
 import ais.database.model.FormatNilai;
 import ais.database.model.FormulirKegiatan;
+import ais.database.model.GelombangPendaftaran;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.JenisKegiatan;
@@ -64,6 +65,7 @@ import ais.database.model.MatakuliahPunyaBukuBahanAjar;
 import ais.database.model.NamaTugasKelompok;
 import ais.database.model.NilaiHuruf;
 import ais.database.model.PembagianKuotaPerkuliahanBerdasarkantahunAngkatan;
+import ais.database.model.PerguruanTinggi;
 import ais.database.model.Perkuliahan;
 import ais.database.model.PerkuliahanPunyaItem;
 import ais.database.model.Pertemuan;
@@ -2333,6 +2335,25 @@ public class ElearningApiUtil {
 			// ========================================================================
 			// AKHIR LOOPING
 			// ========================================================================
+
+			// 5b. Gerbang kelayakan gelombang pendaftaran -- endpoint ini generik dan dipanggil
+			// TANPA LOGIN oleh formulir PMB publik (lihat Data.java action=simpanDataRinci,
+			// tanpaLogin=true). Sebelum ini, gelombangId dari klien langsung dipercaya: mengubah
+			// parameter cukup utk "mendaftar" ke gelombang yang sudah ditutup/lewat tanggal/bukan
+			// utk pendaftar online/milik perguruan tinggi lain (gelombang menentukan pencocokan
+			// tarif & diskon -- lihat SetingBiayaHelper). Hanya dicek saat CREATE (baru); edit oleh
+			// admin yang sudah login atas pendaftar yang sudah ada tidak digerbang ulang di sini.
+			if (baru && clazz.getName().equalsIgnoreCase(BiodataCalonMahasiswa.class.getName())) {
+				GelombangPendaftaran gelombangDipilih = ((BiodataCalonMahasiswa) generalValueObject)
+						.getGelombangPendaftaran();
+				PerguruanTinggi ptPendaftar = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi();
+				String alasanTidakBolehDaftar = GelombangPendaftaran.alasanTidakBolehMendaftar(gelombangDipilih,
+						ptPendaftar);
+				if (alasanTidakBolehDaftar != null) {
+					warnings.add(alasanTidakBolehDaftar);
+					return null;
+				}
+			}
 
 			// 6. Logic ID Khusus (Tbmuser, Role, Program)
 			if (id != null && (clazz.getName().equalsIgnoreCase(Tbmuser.class.getName())

@@ -352,6 +352,76 @@ final class SalesInventoryDbfImportTenant {
 		return "SELECT 1 FROM " + skema + "mutasi_stok WHERE idempotency_key = ? LIMIT 1";
 	}
 
+	// ================================================================= DOKUMEN RIWAYAT
+
+	/**
+	 * Kepala dokumen pembelian/penjualan dari baris riwayat legacy.
+	 *
+	 * <h4>Mengapa ini bukan mengarang struktur</h4>
+	 * <p>{@code BELI.DBF} dan {@code JUAL.DBF} tidak memuat rekaman header — tetapi memuat
+	 * <b>informasinya</b>: nomor faktur, kode mitra, dan tanggal ada pada SETIAP baris. Yang
+	 * dilakukan di sini normalisasi, bukan penciptaan: baris yang bersepakat pada ketiga medan itu
+	 * memang satu faktur yang sama di aplikasi lama, dan layarnya menampilkannya begitu.</p>
+	 *
+	 * <p>Tanpa ini, layar yang mendaftar faktur pembelian/penjualan kosong sementara aplikasi lama
+	 * menampilkan puluhan ribu baris — kartu stoknya cocok, daftar fakturnya tidak.</p>
+	 *
+	 * <p>Idempotensinya bersandar pada {@code nomor_dokumen}, yang diisi nomor faktur legacy apa
+	 * adanya. Dua faktur berbeda bernomor sama pada mitra berbeda akan menyatu — dan itu memang
+	 * yang terjadi di aplikasi lama, sebab nomor faktur di sanalah kunci yang dilihat pengguna.</p>
+	 */
+	static String sisipDokumenKepala(String skema, boolean pembelian) {
+		String t = pembelian ? "pembelian" : "faktur_penjualan";
+		String kolomMitra = pembelian ? "supplier_id" : "customer_id";
+		return "INSERT INTO " + skema + t
+				+ " (nomor_dokumen, nomor_faktur, tanggal, " + kolomMitra + ", gudang_id, toko_id,"
+				+ "  subtotal, total, status, diposting, keterangan, dibuat_pada, oleh,"
+				+ "  legacy_source_file, legacy_tafsir)"
+				+ " SELECT ?, ?, ?, ?, ?, ?, 0, 0, 'SELESAI', true,"
+				+ "        'Migrasi " + (pembelian ? "BELI.DBF" : "JUAL.DBF") + "', now(), ?, ?, ?"
+				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + t + " d WHERE d.nomor_dokumen = ?)";
+	}
+
+	static String cariDokumenKepala(String skema, boolean pembelian) {
+		return "SELECT id FROM " + skema + (pembelian ? "pembelian" : "faktur_penjualan")
+				+ " WHERE nomor_dokumen = ? LIMIT 1";
+	}
+
+	/**
+	 * Rincian dokumen. {@code batch_no} dan {@code expiry_date} menempati kolomnya sendiri di sini
+	 * — pada {@code mutasi_stok} keduanya hanya dapat dititipkan sebagai teks pada
+	 * {@code keterangan}, sebab tabel itu tidak punya tempatnya.
+	 *
+	 * <p>Penjaganya (dokumen, baris_ke): nomor baris DBF sudah menjadi pembeda pada kunci mutasi,
+	 * dan memakai pembeda yang sama di sini membuat kedua sisi konsisten — satu baris DBF
+	 * menghasilkan tepat satu mutasi dan tepat satu rincian dokumen.</p>
+	 */
+	static String sisipDokumenRinci(String skema, boolean pembelian) {
+		String t = pembelian ? "pembelian_detail" : "faktur_penjualan_detail";
+		String induk = pembelian ? "pembelian_id" : "faktur_penjualan_id";
+		return "INSERT INTO " + skema + t
+				+ " (" + induk + ", baris_ke, produk_id, batch_no, expiry_date, kuantitas,"
+				+ "  harga_satuan, total, dibuat_pada, oleh,"
+				+ "  legacy_source_file, legacy_source_record_no)"
+				+ " SELECT ?, ?, ?, ?, ?, ?, ?, ?, now(), ?, ?, ?"
+				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + t + " x"
+				+ " WHERE x." + induk + " = ? AND x.baris_ke = ?)";
+	}
+
+	/**
+	 * Menambahkan nilai satu baris ke total kepalanya.
+	 *
+	 * <p>Total DIAKUMULASI, bukan dihitung ulang: baris satu faktur tersebar di beberapa bongkah
+	 * permintaan, jadi saat baris pertama masuk totalnya belum dapat diketahui. Pemanggil hanya
+	 * memanggilnya bila rincian benar-benar tersisip — sehingga kiriman ulang tidak menggelembungkan
+	 * totalnya.</p>
+	 */
+	static String tambahTotalDokumen(String skema, boolean pembelian) {
+		String t = pembelian ? "pembelian" : "faktur_penjualan";
+		return "UPDATE " + skema + t + " SET subtotal = COALESCE(subtotal,0) + ?,"
+				+ " total = COALESCE(total,0) + ? WHERE id = ?";
+	}
+
 	// ================================================================= OPNAME (dataopn.dbf)
 
 	/**

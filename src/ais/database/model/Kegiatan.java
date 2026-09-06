@@ -1423,10 +1423,34 @@ public class Kegiatan extends GeneralValueObject {
 		return new Double[] { 0.0, 0.0 };
 	}
 
+	/**
+	 * Mengambil seluruh {@link DetailKegiatan} (baris rincian) milik tagihan ini, tanpa
+	 * memuat ulang dari basis data. Pintasan untuk {@code ambilDetailKegiatan(false)}.
+	 *
+	 * @return kumpulan baris rincian; kosong bila tidak ada atau pemilik tak diketahui
+	 */
 	public Collection<DetailKegiatan> ambilDetailKegiatan() {
 		return ambilDetailKegiatan(false);
 	}
 
+	/**
+	 * Mengambil seluruh {@link DetailKegiatan} milik tagihan ini, dengan pilihan memuat
+	 * ulang dari basis data.
+	 *
+	 * <p>Seperti seluruh method {@code ambil*} di kelas ini, pekerjaannya didelegasikan ke
+	 * pemilik tagihan &mdash; berkas calon lebih dulu, baru mahasiswa. Bila kedua pemilik
+	 * kosong, dikembalikan daftar kosong, bukan {@code null}.</p>
+	 *
+	 * <p><b>Perhatikan bahwa ini BUKAN relasi Hibernate.</b> {@code Kegiatan} tidak memetakan
+	 * koleksi {@code DetailKegiatan}; pengambilannya dilakukan lewat kueri di kelas pemilik.
+	 * Konsekuensinya baris rincian tidak ikut ter-<i>cascade</i> saat header disimpan atau
+	 * dihapus, dan jumlah baris yang dikembalikan di sini tidak harus sepadan dengan daftar
+	 * id pada {@link #getDetailKegiatans()} maupun dengan snapshot JSON
+	 * {@link #getTagihans()} yang menjadi dasar total.</p>
+	 *
+	 * @param refresh {@code true} untuk memaksa pemuatan ulang dari basis data
+	 * @return kumpulan baris rincian; kosong bila tidak ada atau pemilik tak diketahui
+	 */
 	public Collection<DetailKegiatan> ambilDetailKegiatan(boolean refresh) {
 		if (getCalonMahasiswa() != null) {
 			return getCalonMahasiswa().ambilDetailKegiatan(this, refresh);
@@ -1436,6 +1460,19 @@ public class Kegiatan extends GeneralValueObject {
 		return new ArrayList<DetailKegiatan>();
 	}
 
+	/**
+	 * Mengambil baris-baris rincian tagihan ini yang berasal dari satu {@link DetailBiaya}
+	 * tertentu.
+	 *
+	 * <p>Berguna ketika satu komponen biaya menghasilkan lebih dari satu baris &mdash; mis.
+	 * pembayaran bertahap, di mana tiap tahap punya {@link DetailBiaya#getBayarKe()} sendiri.
+	 * Bandingkan dengan {@link #ambilSatuDetailKegiatan(DetailBiaya, boolean)} yang justru
+	 * mengambil tepat satu baris lewat kunci unik.</p>
+	 *
+	 * @param detailBiaya komponen biaya penyaring
+	 * @param refresh     {@code true} untuk memaksa pemuatan ulang dari basis data
+	 * @return daftar baris rincian; kosong bila tidak ada atau pemilik tak diketahui
+	 */
 	public List<DetailKegiatan> ambilDetailKegiatan(DetailBiaya detailBiaya, boolean refresh) {
 		if (getCalonMahasiswa() != null) {
 			return getCalonMahasiswa().ambilDetailKegiatan(this, detailBiaya, refresh);
@@ -1445,6 +1482,39 @@ public class Kegiatan extends GeneralValueObject {
 		return new ArrayList<DetailKegiatan>();
 	}
 
+	/**
+	 * Mencari kembali sebuah {@link DetailKegiatan} yang <b>setara</b> dengan yang dioper,
+	 * berdasarkan kunci uniknya &mdash; dipakai untuk memperoleh instance yang benar-benar
+	 * tersimpan dan terikat session, dari sebuah objek yang mungkin lepas atau baru dibentuk.
+	 *
+	 * <p>Kunci unik disusun {@link DetailKegiatan#kodeUnik} dari salah satu dari dua
+	 * kombinasi, sesuai isi objek masukan:</p>
+	 * <ul>
+	 *   <li>bila {@code detailKegiatan} punya {@link PengaturanPembayaranBulanan} &mdash;
+	 *       dari pengaturan itu beserta item biaya dan {@code bayarKe} milik
+	 *       {@link DetailBiaya}-nya;</li>
+	 *   <li>bila tidak, tetapi punya item biaya sendiri &mdash; dari item biaya itu beserta
+	 *       {@code bayarKe} milik {@code DetailBiaya}-nya.</li>
+	 * </ul>
+	 * <p>Kedua cabang menyertakan {@code this} sebagai header dan
+	 * {@link DetailKegiatan#getKegiatanTemporary()} sebagai header staging &mdash; sehingga
+	 * baris rincian yang masih bernaung di bawah {@link KegiatanTemporary} tetap dapat
+	 * ditemukan.</p>
+	 *
+	 * <p><b>Objek masukan dikembalikan apa adanya bila tak satu pun cabang cocok.</b> Bila
+	 * {@code detailKegiatan} tidak punya pengaturan bulanan maupun item biaya, tidak ada
+	 * pencarian yang dilakukan dan objek yang sama dikembalikan &mdash; bukan {@code null}.
+	 * Pemanggil karenanya tidak dapat membedakan &quot;ditemukan&quot; dari &quot;tidak
+	 * dicari&quot; hanya dari nilai kembaliannya. Perhatikan pula bahwa kedua cabang
+	 * mendereferensi {@code detailKegiatan.getDetailBiaya()} tanpa pemeriksaan {@code null};
+	 * kolom {@code detail_biaya} memang bertanda {@code nullable = false}, sehingga hal itu
+	 * aman untuk baris yang benar-benar tersimpan namun tidak untuk objek yang baru dibentuk
+	 * di memori.</p>
+	 *
+	 * @param detailKegiatan baris rincian acuan; boleh {@code null}
+	 * @param session        session Hibernate; boleh {@code null}/tertutup
+	 * @return baris rincian tersimpan yang setara; objek masukan bila tidak dicari
+	 */
 	public DetailKegiatan ambilByKodeUnik(DetailKegiatan detailKegiatan, Session session) {
 
 		if (detailKegiatan != null && detailKegiatan.getPengaturanPembayaranBulanan() != null) {
@@ -1461,6 +1531,55 @@ public class Kegiatan extends GeneralValueObject {
 		return detailKegiatan;
 	}
 
+	/**
+	 * Mencari satu {@link DetailKegiatan} berdasarkan kunci uniknya, dengan cache dan
+	 * pengelolaan session sendiri. Inti pencarian baris rincian di kelas ini.
+	 *
+	 * <h4>Pengelolaan session</h4>
+	 * <p>Bila session yang dioper {@code null} atau sudah tertutup, method membuka session
+	 * <b>dedikasi</b> sendiri dan menutupnya di {@code finally}. Session milik pemanggil
+	 * tidak pernah ditutup &mdash; ditandai {@code sessionDibukaSendiri}. Pemeriksaan
+	 * {@code isOpen()} pun dibungkus {@code try/catch} karena dapat melempar pada proxy yang
+	 * terputus. Kehati-hatian ini menghindari &quot;Session is closed!&quot; yang pernah
+	 * muncul ketika pola lama menutup session milik request.</p>
+	 *
+	 * <h4>Cache statis {@link #mappingId}</h4>
+	 * <p>Pencarian pertama-tama menengok peta statis {@code Map<idKegiatan, Map<kodeUnik,
+	 * idDetailKegiatan>>}. Bila kunci ditemukan, entity diambil lewat
+	 * {@link GeneralValueObject#ambilData}.</p>
+	 *
+	 * <p><b>Cache ini statis dan tidak pernah dibersihkan.</b> Ia tumbuh sepanjang umur
+	 * aplikasi seiring bertambahnya tagihan yang tersentuh, tanpa batas ukuran, tanpa masa
+	 * kedaluwarsa, dan tanpa penguncian &mdash; sebuah {@link java.util.HashMap} biasa yang
+	 * dibaca dan ditulis banyak thread permintaan sekaligus. Selain berpotensi menahan memori,
+	 * penulisan bersamaan pada {@code HashMap} tidak aman. Cache ini juga tidak dibatalkan
+	 * ketika baris rincian dihapus atau dibentuk ulang, sehingga dapat menyimpan id yang
+	 * sudah tidak ada; jalur pemulihannya adalah {@code ambilData} mengembalikan {@code null}
+	 * sehingga pencarian dilanjutkan ke basis data.</p>
+	 *
+	 * <h4>Pencarian ke basis data</h4>
+	 * <p>Bila cache meleset, dilakukan {@code createCriteria} atas {@code kodeUnik}. Sengaja
+	 * <b>tidak</b> memakai {@code uniqueResult()} melainkan {@code order by id desc} dengan
+	 * {@code setMaxResults(1)}. Alasannya terdokumentasi pada komentar di dalam badan method:
+	 * proses hitung ulang tagihan dapat meninggalkan lebih dari satu baris rincian berkunci
+	 * sama, dan {@code uniqueResult()} akan melempar sehingga hasilnya {@code null} &mdash;
+	 * yang membuat perhitungan tagihan melewatkan diskon dan menghasilkan nilai bruto,
+	 * berganti-ganti dengan nilai neto tergantung cache meleset atau tidak. Mengambil baris
+	 * terbaru membuat hasilnya deterministik sekaligus mendorong hitung ulang memakai ulang
+	 * baris terbaru alih-alih menumpuk duplikat.</p>
+	 *
+	 * <p>Perhatikan bahwa {@link DetailBiaya#hitungTotalKegiatan(Kegiatan, Session)}
+	 * menghadapi masalah duplikat yang sama tetapi <b>tanpa</b> pengurutan, sehingga di sana
+	 * baris yang terpilih tidak deterministik.</p>
+	 *
+	 * <p>Seluruh badan dibungkus {@code try/catch} yang mencetak jejak dan mencatat lewat
+	 * {@code ErrorAuditUtil}, lalu mengembalikan {@code null} &mdash; kegagalan pencarian
+	 * berarti &quot;tidak ada&quot;, bukan pembatalan.</p>
+	 *
+	 * @param kodeUnik kunci unik baris rincian yang dicari
+	 * @param session  session Hibernate; boleh {@code null}/tertutup
+	 * @return baris rincian yang ditemukan; {@code null} bila tidak ada atau terjadi galat
+	 */
 	public DetailKegiatan ambilByKodeUnik(String kodeUnik, Session session) {
 
 		DetailKegiatan detailKegiatan = null;
@@ -1531,6 +1650,22 @@ public class Kegiatan extends GeneralValueObject {
 		return detailKegiatan;
 	}
 
+	/**
+	 * Mengambil satu baris rincian untuk sebuah {@link PengaturanPembayaranBulanan}, dengan
+	 * session dedikasi yang dibuka dan ditutup sendiri.
+	 *
+	 * <p>Sengaja memakai {@link HibernateUtil#openSession()} alih-alih session milik request:
+	 * session dedikasi terisolasi sehingga menutupnya tidak meracuni request, dan karena
+	 * ditutup di {@code finally} ia juga tidak membocorkan koneksi dari kolam c3p0.</p>
+	 *
+	 * <p>Kegagalan apa pun dicatat lewat {@code ErrorAuditUtil} dan menghasilkan {@code null}.</p>
+	 *
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan acuan
+	 * @param detailKegiatansTemp         kumpulan baris rincian sementara; diteruskan ke
+	 *                                    overload ber-session, yang pada praktiknya tidak
+	 *                                    memakainya
+	 * @return baris rincian yang ditemukan; {@code null} bila tidak ada atau terjadi galat
+	 */
 	public DetailKegiatan ambilSatuDetailKegiatan(PengaturanPembayaranBulanan pengaturanPembayaranBulanan,
 			Collection<DetailKegiatan> detailKegiatansTemp) {
 		DetailKegiatan detailKegiatan = null;
@@ -1552,8 +1687,43 @@ public class Kegiatan extends GeneralValueObject {
 		return detailKegiatan;
 	}
 
+	/**
+	 * Cache statis pemetaan {@code idKegiatan -> (kodeUnik -> idDetailKegiatan)}, dipakai
+	 * {@link #ambilByKodeUnik(String, Session)} untuk menghindari kueri berulang saat sebuah
+	 * tagihan dihitung ulang baris demi baris.
+	 *
+	 * <p><b>Perlu diperlakukan dengan hati-hati.</b> Field ini {@code public static} dan
+	 * bersifat non-final dalam arti isinya dapat diubah siapa pun; ia berupa
+	 * {@link HashMap} biasa yang dibaca dan ditulis dari banyak thread permintaan tanpa
+	 * penguncian, tidak pernah dibersihkan, tidak berbatas ukuran, dan tidak dibatalkan saat
+	 * baris rincian berubah atau terhapus. Lihat uraian lengkapnya pada
+	 * {@link #ambilByKodeUnik(String, Session)}.</p>
+	 */
 	public static Map<Long, Map<String, Long>> mappingId = new HashMap<Long, Map<String, Long>>();
 
+	/**
+	 * Mengambil satu baris rincian untuk sebuah {@link PengaturanPembayaranBulanan} memakai
+	 * session yang dioper pemanggil.
+	 *
+	 * <p>Kunci unik disusun {@link DetailKegiatan#kodeUnik} dari pengaturan bulanan tersebut
+	 * beserta item biaya dan {@code bayarKe} milik {@link DetailBiaya}-nya, dengan
+	 * {@code this} sebagai header dan {@code null} sebagai header staging.</p>
+	 *
+	 * <p><b>Parameter {@code detailKegiatansTemp} tidak dipakai.</b> Kumpulan baris rincian
+	 * sementara yang diterima tidak pernah dirujuk di badan method; pencarian selalu menempuh
+	 * {@link #ambilByKodeUnik(String, Session)}. Parameter itu tampaknya sisa dari rancangan
+	 * lama yang menyaring dari koleksi di memori lebih dulu.</p>
+	 *
+	 * <p>Perhatikan pula bahwa {@code pengaturanPembayaranBulanan.getDetailBiaya()}
+	 * didereferensi tanpa pemeriksaan {@code null}; pengaturan bulanan yang belum tertaut
+	 * komponen biaya akan melempar, tertangkap {@code try/catch} di sekitarnya, dan
+	 * menghasilkan {@code null}.</p>
+	 *
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan acuan
+	 * @param detailKegiatansTemp         <b>tidak dipakai</b>
+	 * @param session                     session Hibernate
+	 * @return baris rincian yang ditemukan; {@code null} bila tidak ada atau terjadi galat
+	 */
 	public DetailKegiatan ambilSatuDetailKegiatan(PengaturanPembayaranBulanan pengaturanPembayaranBulanan,
 			Collection<DetailKegiatan> detailKegiatansTemp, Session session) {
 
@@ -1573,6 +1743,14 @@ public class Kegiatan extends GeneralValueObject {
 		return detailKegiatan;
 	}
 
+	/**
+	 * Mengambil baris-baris rincian tagihan ini yang berasal dari sebuah
+	 * {@link PengaturanPembayaranBulanan}, dengan pilihan memuat ulang dari basis data.
+	 *
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan penyaring
+	 * @param refresh                     {@code true} untuk memaksa pemuatan ulang
+	 * @return daftar baris rincian; kosong bila tidak ada atau pemilik tak diketahui
+	 */
 	public List<DetailKegiatan> ambilDetailKegiatan(PengaturanPembayaranBulanan pengaturanPembayaranBulanan,
 			boolean refresh) {
 		if (getCalonMahasiswa() != null) {
@@ -1583,6 +1761,19 @@ public class Kegiatan extends GeneralValueObject {
 		return new ArrayList<DetailKegiatan>();
 	}
 
+	/**
+	 * Mengambil baris-baris rincian tagihan ini untuk sebuah
+	 * {@link PengaturanPembayaranBulanan}, dengan kumpulan baris sementara sebagai bahan
+	 * pertimbangan bagi kelas pemilik.
+	 *
+	 * <p>Berbeda dari overload ber-{@code refresh}, di sini pemilik menerima koleksi yang
+	 * sudah ada di memori sehingga dapat menghindari kueri ulang &mdash; berguna di dalam
+	 * gelung hitung ulang yang sudah memuat seluruh baris rincian sekali di awal.</p>
+	 *
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan penyaring
+	 * @param detailKegiatansTemp         kumpulan baris rincian yang sudah dimuat
+	 * @return daftar baris rincian; kosong bila tidak ada atau pemilik tak diketahui
+	 */
 	public List<DetailKegiatan> ambilDetailKegiatan(PengaturanPembayaranBulanan pengaturanPembayaranBulanan,
 			Collection<DetailKegiatan> detailKegiatansTemp) {
 		if (getCalonMahasiswa() != null) {
@@ -1593,10 +1784,33 @@ public class Kegiatan extends GeneralValueObject {
 		return new ArrayList<DetailKegiatan>();
 	}
 
+	/**
+	 * Mengambil satu baris rincian untuk sebuah {@link DetailBiaya}, tanpa memuat ulang.
+	 * Pintasan untuk {@code ambilSatuDetailKegiatan(detailBiaya, false)}.
+	 *
+	 * @param detailBiaya komponen biaya acuan
+	 * @return baris rincian yang ditemukan; {@code null} bila tidak ada
+	 */
 	public DetailKegiatan ambilSatuDetailKegiatan(DetailBiaya detailBiaya) {
 		return ambilSatuDetailKegiatan(detailBiaya, false);
 	}
 
+	/**
+	 * Mengambil satu baris rincian untuk sebuah {@link DetailBiaya}, dengan session dedikasi
+	 * yang dibuka dan ditutup sendiri.
+	 *
+	 * <p>Overload inilah yang dipanggil {@link #ambilJumlahTagihan(Kegiatan, DetailBiaya,
+	 * boolean)}, sehingga ia berjalan sangat sering &mdash; sekali untuk setiap baris tagihan
+	 * yang dihitung. Karena setiap pemanggilan membuka session Hibernate baru, menghitung
+	 * ulang seluruh tagihan seorang mahasiswa membuka sebanyak itu pula session; masing-masing
+	 * memang ditutup di {@code finally} sehingga tidak bocor, tetapi biayanya nyata pada
+	 * pemrosesan massal. Pemanggil yang sudah memegang session sebaiknya memakai
+	 * {@link #ambilSatuDetailKegiatan(DetailBiaya, boolean, Session)}.</p>
+	 *
+	 * @param detailBiaya komponen biaya acuan
+	 * @param refresh     {@code true} untuk memaksa pemuatan ulang
+	 * @return baris rincian yang ditemukan; {@code null} bila tidak ada atau terjadi galat
+	 */
 	public DetailKegiatan ambilSatuDetailKegiatan(DetailBiaya detailBiaya, boolean refresh) {
 		DetailKegiatan detailKegiatan = null;
 		// Pakai session DEDIKASI (openSession) yang ditutup di finally — bukan currentNativeSession
@@ -1616,10 +1830,43 @@ public class Kegiatan extends GeneralValueObject {
 		return detailKegiatan;
 	}
 
+	/**
+	 * Mengambil satu baris rincian untuk sebuah {@link DetailBiaya} memakai session yang
+	 * dioper pemanggil, tanpa memuat ulang.
+	 *
+	 * @param detailBiaya komponen biaya acuan
+	 * @param session     session Hibernate
+	 * @return baris rincian yang ditemukan; {@code null} bila tidak ada
+	 */
 	public DetailKegiatan ambilSatuDetailKegiatan(DetailBiaya detailBiaya, Session session) {
 		return ambilSatuDetailKegiatan(detailBiaya, false, session);
 	}
 
+	/**
+	 * Mengambil satu baris rincian untuk sebuah {@link DetailBiaya} memakai session yang
+	 * dioper pemanggil &mdash; bentuk terlengkap dari keluarga ini.
+	 *
+	 * <p>Kunci unik disusun {@link DetailKegiatan#kodeUnik} dari item biaya dan
+	 * {@code bayarKe} milik komponen biaya, dengan {@code this} sebagai header, serta
+	 * {@code null} untuk pengaturan bulanan dan header staging.</p>
+	 *
+	 * <p>Penjaga di awal mengembalikan {@code null} bila {@code detailBiaya} atau item
+	 * biayanya kosong &mdash; ditambahkan karena pemanggil seperti
+	 * {@code CommonReportHelper.genSklMap} dapat mengoper elemen yang bukan
+	 * {@link DetailBiaya} maupun {@link PengaturanPembayaranBulanan}, yang sebelumnya
+	 * menghasilkan {@code NullPointerException} di baris penyusunan kunci.</p>
+	 *
+	 * <p><b>Parameter {@code refresh} tidak dipakai.</b> Ia diterima demi keseragaman tanda
+	 * tangan dengan overload lain, tetapi tidak pernah dirujuk; pencarian selalu menempuh
+	 * {@link #ambilByKodeUnik(String, Session)} yang punya kebijakan cache sendiri. Karena
+	 * itu mengoper {@code true} tidak melewati cache statis {@link #mappingId} sebagaimana
+	 * mungkin diharapkan pemanggil.</p>
+	 *
+	 * @param detailBiaya komponen biaya acuan; boleh {@code null}
+	 * @param refresh     <b>tidak dipakai</b>
+	 * @param session     session Hibernate
+	 * @return baris rincian yang ditemukan; {@code null} bila tidak ada atau terjadi galat
+	 */
 	public DetailKegiatan ambilSatuDetailKegiatan(DetailBiaya detailBiaya, boolean refresh, Session session) {
 		DetailKegiatan detailKegiatan = null;
 

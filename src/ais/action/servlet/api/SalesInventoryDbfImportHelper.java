@@ -622,7 +622,7 @@ public final class SalesInventoryDbfImportHelper {
 		}
 		if ("pembelian_legacy".equals(jenis) || "penjualan_legacy".equals(jenis)) {
 			return imporRiwayatTenant(session, sk, r, "pembelian_legacy".equals(jenis), tokoId,
-					oleh);
+					oleh, peringatan);
 		}
 		if ("opname".equals(jenis)) {
 			return imporOpnameTenant(session, sk, r, tokoId, oleh);
@@ -804,7 +804,8 @@ public final class SalesInventoryDbfImportHelper {
 	 * menghasilkan satu baris.</p>
 	 */
 	private static int imporRiwayatTenant(Session session, String sk, JSONObject r,
-			boolean pembelian, Long tokoId, String oleh) throws Exception {
+			boolean pembelian, Long tokoId, String oleh, java.util.Set<String> peringatan)
+			throws Exception {
 		String faktur = s(r, "nomor_faktur");
 		String kodeProduk = s(r, "kode_produk");
 		java.util.Date tanggal = tgl(r, "tanggal");
@@ -874,11 +875,85 @@ public final class SalesInventoryDbfImportHelper {
 						+ s(r, "nomor_batch") + "; ED=" + s(r, "tanggal_expired"))
 				: ("Migrasi JUAL.DBF; customer=" + s(r, "kode_customer") + "; sales="
 						+ s(r, "kode_sales") + "; batch=" + s(r, "nomor_batch"));
+		java.sql.Date sqlTgl = new java.sql.Date(tanggal.getTime());
+		java.math.BigDecimal nilai = kuantitas.multiply(hargaSatuan);
 		jalankan(session, SalesInventoryDbfImportTenant.sisipMutasiRiwayat(sk, pembelian),
-				new Object[] { produkId, gudangId, new java.sql.Date(tanggal.getTime()),
-						kuantitas, hargaSatuan, kuantitas.multiply(hargaSatuan), faktur,
-						keterangan, kunci, oleh });
+				new Object[] { produkId, gudangId, sqlTgl,
+						kuantitas, hargaSatuan, nilai, faktur, keterangan, kunci, oleh });
+
+		// Dokumen (kepala + rincian) dibentuk dari baris yang sama. BELI/JUAL.DBF tidak memuat
+		// rekaman header, tetapi memuat INFORMASINYA -- nomor faktur, kode mitra, dan tanggal ada
+		// pada setiap baris. Tanpa langkah ini layar daftar faktur kosong sementara aplikasi lama
+		// menampilkannya; kartu stoknya cocok, daftar fakturnya tidak.
+		dokumenRiwayat(session, sk, r, pembelian, faktur, sqlTgl, produkId, gudangId, tokoId,
+				kuantitas, hargaSatuan, nilai, oleh, peringatan);
 		return 1;
+	}
+
+	/**
+	 * Membentuk kepala dokumen bila belum ada, lalu menambahkan satu baris rinciannya dan
+	 * mengakumulasi totalnya.
+	 *
+	 * <p>Totalnya DIAKUMULASI, bukan dihitung ulang: baris satu faktur tersebar di beberapa bongkah
+	 * permintaan, sehingga saat baris pertama masuk totalnya belum dapat diketahui. Akumulasinya
+	 * hanya dijalankan bila rinciannya benar-benar tersisip — sehingga kiriman ulang tidak
+	 * menggelembungkan total.</p>
+	 *
+	 * <p>Kegagalan di sini TIDAK didiamkan: ia dilempar seperti kegagalan lain, sebab dokumen yang
+	 * separuh terbentuk (kepala ada, rincian hilang) lebih menyesatkan daripada tidak ada dokumen
+	 * sama sekali — totalnya akan tampak masuk akal padahal isinya tidak lengkap.</p>
+	 */
+	private static void dokumenRiwayat(Session session, String sk, JSONObject r, boolean pembelian,
+			String faktur, java.sql.Date sqlTgl, Long produkId, Long gudangId, Long tokoId,
+			java.math.BigDecimal kuantitas, java.math.BigDecimal hargaSatuan,
+			java.math.BigDecimal nilai, String oleh, java.util.Set<String> peringatan)
+			throws Exception {
+		String kodeMitra = s(r, pembelian ? "kode_supplier" : "kode_customer");
+		Long mitraId = kodeMitra.isEmpty() ? null
+				: satuId(session,
+						SalesInventoryDbfImportTenant.cariKode(sk, pembelian ? "supplier" : "customer"),
+						kodeMitra);
+		if (mitraId == null) {
+			// Kepala dokumen menuntut mitra (kolomnya NOT NULL), dan mitra itu tidak ada di
+			// berkas masternya. Mutasi stoknya SUDAH tersimpan dan tetap sah -- yang tidak
+			// terbentuk hanya dokumennya.
+			//
+			// Karena itu ini PERINGATAN, bukan kegagalan. Melemparnya membuat baris yang
+			// mutasinya berhasil dilaporkan sebagai "gagal" -- pelaporan yang menyesatkan, dan
+			// sempat terjadi: 230 baris JUAL.DBF tercatat gagal padahal mutasinya utuh.
+			peringatan.add("dokumen tanpa "
+					+ (pembelian ? "supplier" : "customer")
+					+ " dikenal (mutasi stoknya tetap tersimpan)");
+			return;
+		}
+		// legacy_tafsir varchar(64) -- lihat catatan yang sama di imporTagihanTenant.
+		String tafsir = potong("Kepala dibentuk dari baris "
+				+ (pembelian ? "BELI.DBF" : "JUAL.DBF") + "; legacy tanpa header", 64);
+		// nomor_dokumen/nomor_faktur juga varchar(64). Nomor faktur legacy jauh lebih pendek,
+		// tetapi dipotong di sini supaya berkas DBF yang tak terduga tidak menggagalkan bongkah.
+		String noDok = potong(faktur, 64);
+		jalankan(session, SalesInventoryDbfImportTenant.sisipDokumenKepala(sk, pembelian),
+				new Object[] { noDok, noDok, sqlTgl, mitraId, gudangId, tokoId, oleh,
+						pembelian ? "BELI.DBF" : "JUAL.DBF", tafsir, noDok });
+		Long dokumenId = satuId(session,
+				SalesInventoryDbfImportTenant.cariDokumenKepala(sk, pembelian), noDok);
+		if (dokumenId == null) {
+			throw new Exception("kepala dokumen " + faktur + " gagal dibuat");
+		}
+		Integer noBaris = noBaris(r);
+		String batch = s(r, "nomor_batch");
+		java.util.Date ed = tgl(r, "tanggal_expired");
+		int n = jalankan(session, SalesInventoryDbfImportTenant.sisipDokumenRinci(sk, pembelian),
+				new Object[] { dokumenId, noBaris, produkId,
+						batch.isEmpty() ? null : potong(batch, 64),
+						ed == null ? null : new java.sql.Date(ed.getTime()),
+						kuantitas, hargaSatuan, nilai, oleh,
+						pembelian ? "BELI.DBF" : "JUAL.DBF", noBaris,
+						dokumenId, noBaris });
+		if (n > 0) {
+			jalankan(session, SalesInventoryDbfImportTenant.tambahTotalDokumen(sk, pembelian),
+					new Object[] { nilai, nilai, dokumenId });
+		}
 	}
 
 	/**
@@ -983,10 +1058,11 @@ public final class SalesInventoryDbfImportHelper {
 		java.math.BigDecimal terbayar = lunas ? nilaiBd : java.math.BigDecimal.ZERO;
 		java.math.BigDecimal sisa = lunas ? java.math.BigDecimal.ZERO : nilaiBd;
 		String status = lunas ? "LUNAS" : "BELUM";
-		String tafsir = lunas
-				? "Status LUNAS ditafsirkan dari TGLBAYAR terisi; rincian pembayaran tidak ada"
-				  + " di berkas sumber."
-				: "Status BELUM ditafsirkan dari TGLBAYAR kosong.";
+		// legacy_tafsir varchar(64): teks ini sengaja pendek, dan tetap dipotong sebagai
+		// penjaga -- perubahan kata di kemudian hari tidak boleh menggagalkan impor.
+		String tafsir = potong(lunas
+				? "LUNAS ditafsirkan dari TGLBAYAR terisi"
+				: "BELUM ditafsirkan dari TGLBAYAR kosong", 64);
 		java.sql.Date sqlTgl = new java.sql.Date(tanggal.getTime());
 		java.sql.Date sqlJatuh = jatuh == null ? null : new java.sql.Date(jatuh.getTime());
 		Integer noBaris = noBaris(r);
