@@ -196,8 +196,14 @@ public class RiwayatKenaikanPangkatFungsionalUntukPegawaiAction extends GenericA
 		if (add != null) { add.setVisible(false); }
 		if (add != null) { add.setTooltiptext("Tambah"); }
 
-		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
-		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
+		// Layar ini SELALU swalayan (pegawai diresolusi dari akun login sendiri di atas, lihat
+		// dokumentasi kelas) -- edit/delete WAJIB tetap false di sini, sama seperti kembarannya
+		// RiwayatKenaikanPangkatGolonganUntukPegawaiAction dan RiwayatKenaikanGajiBerkalaUntukPegawaiAction.
+		// Sebelumnya kode ini keliru memakai CommonPrivilages.checkPrevilages(UPDATE/DELETE) -- hak menu
+		// swalayan ini sendiri (wajar dimiliki pegawai) -- sehingga pegawai bisa mengubah/menghapus riwayat
+		// kenaikan pangkat fungsionalnya sendiri.
+		edit = false;
+		delete = false;
 
 		Common.createDefaultTimer(new EventListener() {
 

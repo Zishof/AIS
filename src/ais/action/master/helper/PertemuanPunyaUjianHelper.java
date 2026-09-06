@@ -5062,6 +5062,40 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * Menampilkan kontribusi bobot dari PPU lain dalam perkuliahan yang sama, dan total gabungan.
 	 * Warna: hijau jika total ≈100%, merah jika &gt;100%, abu-abu jika di bawah.
 	 * Dipanggil statik agar bisa digunakan dari inner class {@link DetailPertemuanRenderer}.
+	 *
+	 * <p><b>Masalah yang dijawab.</b> Satu Sub-CPMK biasanya diukur oleh BEBERAPA ujian pada
+	 * perkuliahan yang sama, dan tiap ujian menyimpan bobotnya sendiri di JSON
+	 * {@code formatNilais} dengan kunci {@code "<idFormatNilai>_bobot"}. Tanpa ringkasan ini,
+	 * dosen yang mengatur bobot pada satu ujian tidak punya cara melihat berapa yang sudah
+	 * dialokasikan ujian lain, sehingga total lintas-ujian gampang melenceng dari 100%. Method ini
+	 * menghitung dan menampilkannya tepat di bawah kotak bobot yang sedang diedit.
+	 *
+	 * <p><b>Cara menghitung.</b> Mengambil SELURUH {@link PertemuanPunyaUjian} yang pertemuannya
+	 * bernaung pada {@code perkuliahan} yang sama (satu criteria dengan alias {@code pertemuan}),
+	 * melewati {@link PertemuanPunyaUjian} yang sedang diedit berdasarkan kesamaan id, lalu untuk
+	 * setiap sisanya mem-parse {@code formatNilais}: bila {@code fn} memang di-assign di ujian itu,
+	 * bobotnya ditambahkan — memakai {@code 100.0} sebagai default bila kunci {@code _bobot} belum
+	 * ada, konsisten dengan default yang dipakai editor bobot dan
+	 * {@link #parameter(PertemuanPunyaUjian, KurikulumPunyaMatakuliah)}. Totalnya adalah
+	 * {@code currentBobot + bobotLain}; ambang warnanya toleran terhadap pembulatan
+	 * ({@code >100.5} merah, {@code >=99.5} hijau, selain itu abu-abu).
+	 *
+	 * <p><b>Catatan biaya dan kegagalan.</b> Query dijalankan tanpa proyeksi dan tanpa batas
+	 * jumlah, lalu diulang untuk SETIAP baris Sub-CPMK yang tercentang saat modal dirender —
+	 * artinya perkuliahan dengan banyak ujian dan banyak Sub-CPMK menghasilkan pengambilan
+	 * berulang atas himpunan baris yang sama. Seluruh badan method dibungkus {@code try/catch}
+	 * yang mencatat error lewat {@code ErrorAuditUtil} lalu mengembalikan {@code null}; JSON
+	 * {@code formatNilais} yang rusak pada ujian lain juga diabaikan per-baris. Ringkasan yang
+	 * gagal dihitung karena itu hanya membuat baris info tidak muncul — tidak pernah menggagalkan
+	 * render modal pengaturan.
+	 *
+	 * @param ppu          ujian yang sedang diedit; dikecualikan dari penjumlahan bobot "lainnya".
+	 * @param fn           komponen penilaian (Sub-CPMK) yang barisnya sedang dirender.
+	 * @param currentBobot bobot yang sedang tampil di kotak input untuk {@code fn} pada {@code ppu}.
+	 * @param session      sesi Hibernate aktif milik pemanggil (tidak dibuka maupun ditutup di sini).
+	 * @param perkuliahan  perkuliahan pemilik pertemuan, sebagai cakupan pencarian ujian lain.
+	 * @return potongan HTML satu baris ringkasan bobot, atau {@code null} bila argumen wajib
+	 *         {@code null}/tanpa id, atau bila terjadi error saat menghitung.
 	 */
 	@SuppressWarnings("unchecked")
 	private static String buildInfoBobotInline(PertemuanPunyaUjian ppu, FormatNilai fn, double currentBobot,
@@ -5226,7 +5260,37 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		window.onModal();
 	}
 
-	/** Gaya CSS untuk tampilan kartu Daftar Ujian Pertemuan (responsif) + modal pengaturan. */
+	/**
+	 * Satu blok {@code <style>} berisi SELURUH gaya CSS tampilan kartu Daftar Ujian Pertemuan
+	 * beserta modal pengaturannya. Disisipkan sekali per pemanggilan
+	 * {@link #display(Pertemuan, Component)}, tepat sebelum {@link #kartuWrap} dibuat, lewat
+	 * {@code DashboardUiKit.html(...)} — bukan lewat berkas {@code .css} terpisah, agar helper ini
+	 * bisa dipasang di halaman ZUL mana pun tanpa pemanggil perlu mendaftarkan stylesheet.
+	 *
+	 * <p><b>Kelas yang didefinisikan di sini</b> dan dipakai oleh perakit HTML di file ini:
+	 * {@code ppu-kartu-wrap} (grid responsif: 1 kolom di HP, 2 kolom di layar lebar),
+	 * {@code ppu-kartu} beserta {@code ppu-kartu-head}/{@code ppu-kartu-nama}/{@code ppu-badge}/
+	 * {@code ppu-aktif-on}/{@code ppu-aktif-off} (kepala kartu), {@code ppu-kartu-body} dan
+	 * {@code ppu-chip} (badan kartu — lihat {@link #chip(String, String)}), {@code ppu-ket},
+	 * {@code ppu-ket-judul} dan {@code ppu-ket-list} (blok Ketentuan Ujian — lihat
+	 * {@link #buatKetentuanUjianHtml(PertemuanPunyaUjian)}), {@code ppu-pnl},
+	 * {@code ppu-pnl-judul} dan {@code ppu-pnl-isi} (blok penilaian — lihat
+	 * {@link #penilaianBlok(String, String)}), {@code ppu-kartu-foot} dengan varian
+	 * {@code ppu-kartu-foot-peserta} serta {@code ppu-gbtngrp} (baris tombol aksi), dan terakhir
+	 * {@code ppu-modal-grid} plus {@code ppu-subcpmk-grid} untuk modal
+	 * {@link #bukaPengaturanUjian(PertemuanPunyaUjian, EventListener)}.
+	 *
+	 * <p><b>Mengapa aturan modal memakai {@code !important}.</b> Blok {@code ppu-modal-grid}
+	 * memaksa sel-sel {@link MyGrid} menumpuk vertikal sehingga satu baris grid tampil sebagai
+	 * FORMULIR, bukan baris tabel yang sangat lebar; sedangkan {@code ppu-subcpmk-grid} justru
+	 * mengembalikan grid Sub-CPMK di dalamnya ke perilaku tabel. Keduanya harus mengalahkan gaya
+	 * bawaan tema ZK yang diterapkan langsung pada kelas {@code z-row}/{@code z-cell}, karena itu
+	 * memakai {@code display:...!important}. Menghapus penanda tersebut membuat modal pengaturan
+	 * kembali melebar dan tidak terbaca di layar sempit.
+	 *
+	 * <p>Karena isinya string statis dan tidak pernah menyisipkan data pengguna, konstanta ini
+	 * tidak punya jalur penyisipan markup.
+	 */
 	private static final String GAYA_KARTU_UJIAN = "<style>"
 			+ ".ppu-kartu-wrap{display:grid;grid-template-columns:1fr;gap:16px;padding:6px 2px 10px 2px;}"
 			+ "@media(min-width:900px){.ppu-kartu-wrap{grid-template-columns:1fr 1fr;}}"

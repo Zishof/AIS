@@ -2112,6 +2112,103 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * <b>Tujuan:</b> Menghitung ulang nilai <b>satu</b> peserta ujian dari sumber datanya
+	 * (rincian jawaban di database), lalu mengembalikan kalimat status siap tampil untuk
+	 * ditampilkan pada messagebox. Merupakan aksi perbaikan yang ditawarkan panel diagnostik
+	 * {@link #bukaPopupPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)}.
+	 *
+	 * <p><b>Mengapa versi satu-peserta perlu ada.</b> Toolbar rekap sudah memiliki "Hitung Ulang
+	 * Semua" yang memproses seluruh kelas memakai kolam 50 thread dan session Hibernate per
+	 * thread. Untuk keperluan diagnosis, cara itu terlalu berat dan terlalu berisiko: dosen yang
+	 * hanya ingin memastikan satu peserta bermasalah tidak seharusnya menyentuh nilai peserta
+	 * lain. Method ini menjalankan pipeline penilaian yang SAMA persis, namun untuk satu id saja,
+	 * secara sinkron di thread pemanggil, sehingga hasilnya dapat langsung dilaporkan.</p>
+	 *
+	 * <p><b>Alur lengkap.</b></p>
+	 * <ol>
+	 *   <li><b>Penjagaan awal.</b> Bila parameter {@code null} atau {@code getId()} {@code null},
+	 *       langsung mengembalikan kalimat "data peserta ujian tidak ditemukan" tanpa membuka
+	 *       session sama sekali.</li>
+	 *   <li><b>Session terdedikasi.</b> Membuka session baru dari {@code SessionFactory}
+	 *       (bukan {@code HibernateUtil.currentSession()} milik ZK) sehingga transaksi ini
+	 *       terpisah dari siklus request dan tidak terpengaruh session ZK yang mungkin sudah
+	 *       ditutup thread lain.</li>
+	 *   <li><b>Refetch terkelola.</b> {@code session.get(HasilUjianMahasiswa.class, id)}
+	 *       mengambil instance TERKELOLA. Ini wajib: objek yang datang dari grid bersifat
+	 *       detached, dan {@code session.update()} atas objek detached hasil cache MapDB bisa
+	 *       menimpa perubahan yang dilakukan proses lain. Bila hasil {@code null} atau
+	 *       {@code getPertemuanPunyaUjian()} {@code null}, dikembalikan kalimat gagal yang
+	 *       menyebut penyebabnya.</li>
+	 *   <li><b>Memuat ulang jawaban dari DATABASE.</b> {@code ambilUjianPunyaSoals(jml, new Label(), true)}
+	 *       mengambil paket soal peserta ini, lalu dipakai overload EMPAT argumen
+	 *       {@code ambilHasilUjianMahasiswaDetail(true, jml, new Label(), ujianPunyaSoals)}.
+	 *       Argumen pertama {@code true} berarti <b>paksa muat ulang</b> — inilah yang membedakan
+	 *       method ini dari pembacaan biasa di layar yang memakai cache MapDB. Cache basi adalah
+	 *       salah satu penyebab paling sering "nilai 0 padahal jawaban ada", sehingga menembus
+	 *       cache adalah inti dari tindakan perbaikan ini.</li>
+	 *   <li><b>Menyegarkan jumlah soal.</b> {@code setJumlahSoal(jmlDitampilkan)} dengan
+	 *       penjagaan null &rarr; {@code 0.0}. Kolom ini ikut basi bila konfigurasi ujian diubah
+	 *       setelah peserta mengerjakan.</li>
+	 *   <li><b>Cabang PILIHAN GANDA.</b> Bila jenis ujian {@code BankSoal.PILIHAN_GANDA}:
+	 *     <ul>
+	 *       <li>Bila kurikulum perkuliahan ber-OBE (rantai penjagaan null berlapis sampai
+	 *           {@code kurikulum.apakahObe(tahunAjaran, ganjilGenap)}), dipanggil
+	 *           {@code ambilFormatNilai(session, true)} lalu
+	 *           {@code ProsesUjianHelper.hitungObe(...)}. Argumen {@code true} pada
+	 *           {@code ambilFormatNilai} memaksa {@code setDefaultPembobotan()} dijalankan;
+	 *           tanpa itu sebagian {@code FormatNilai} dapat memiliki {@code statusPertemuan}
+	 *           null sehingga sub-CPMK-nya terlewat dan {@code nilaiObe} hanya terisi sebagian
+	 *           (kasus yang sama dijelaskan panjang lebar pada blok "Hitung Ulang Semua").</li>
+	 *       <li>Kegagalan {@code hitungObe} <b>sengaja ditelan</b> ke {@code ErrorAuditUtil} dan
+	 *           TIDAK me-rollback transaksi, agar perhitungan pilihan ganda di bawahnya tetap
+	 *           berjalan. Prioritasnya: lebih baik nilai pokok terhitung meski rekap OBE gagal,
+	 *           daripada keduanya gagal.</li>
+	 *       <li>{@code ProsesUjianHelper.hitungPilihanGanda(...)} mengisi
+	 *           {@code jawabanBenar}, {@code jawabanBenarMax}, dan {@code nilai}.</li>
+	 *     </ul>
+	 *   </li>
+	 *   <li><b>Cabang NON-PILIHAN GANDA (esai/manual).</b> Hanya {@code hitungWaktu(...)} yang
+	 *       dipanggil. <b>Perhatikan:</b> untuk ujian esai method ini TIDAK mengubah kolom
+	 *       {@code nilai} — nilai esai adalah hasil koreksi manual dosen (atau AI) dan memang
+	 *       tidak boleh ditimpa oleh perhitungan otomatis. Konsekuensinya, pada ujian esai tombol
+	 *       "Hitung Ulang Peserta Ini" akan melaporkan nilai yang sama seperti sebelumnya; itu
+	 *       perilaku benar, bukan kegagalan. Perbaikan nilai esai dilakukan lewat koreksi jawaban
+	 *       atau tombol "Hitung Ulang" per baris pada kolom Nilai.</li>
+	 *   <li><b>Simpan dan segarkan cache.</b> {@code session.update} + {@code tx.commit()}, lalu
+	 *       {@code tx} di-null-kan agar blok {@code catch} tidak mencoba me-rollback transaksi
+	 *       yang sudah selesai. Setelah commit, {@code GeneralValueObject.masukkanDataLangsung(...)}
+	 *       menimpa entri cache MapDB yang berkunci {@code keyhasil} supaya tampilan tidak
+	 *       menyajikan angka basi. Kegagalan penyegaran cache dicatat namun tidak membatalkan
+	 *       keberhasilan penyimpanan.</li>
+	 *   <li><b>Kalimat status.</b> Mengembalikan ringkasan berisi Skor/Max dan Nilai terbaru,
+	 *       ditutup pengingat bahwa grid perlu ditekan Refresh bila angkanya belum berubah.</li>
+	 * </ol>
+	 *
+	 * <p><b>Kontrak nilai balik.</b> Method ini <b>tidak pernah melempar exception</b>. Setiap
+	 * jalur — sukses, data tidak ditemukan, maupun error — mengembalikan {@code String} berbahasa
+	 * Indonesia yang layak ditampilkan langsung ke pengguna. Pada jalur error, transaksi
+	 * di-rollback (bila masih aktif), exception direkam ke {@code ErrorAuditUtil}, dan pesannya
+	 * disertakan pada kalimat balikan agar administrator dapat menelusuri.</p>
+	 *
+	 * <p><b>Integritas nilai.</b> Method ini adalah salah satu dari beberapa jalur yang MENULIS
+	 * kolom {@code nilai}/{@code jawabanBenar} secara langsung. Ia tidak memverifikasi identitas
+	 * pemanggil; gerbangnya sepenuhnya berada pada konteks UI (hanya dirender di grid rekap
+	 * dosen/admin). Karena perhitungan selalu diturunkan ulang dari rincian jawaban di database,
+	 * pemanggilan berulang bersifat <b>idempoten</b> — tidak ada akumulasi nilai.</p>
+	 *
+	 * <p><b>Session dan transaksi.</b> Session ditutup di {@code finally} dengan penjagaan
+	 * {@code isOpen()}; kegagalan {@code close()} direkam sebagai jejak audit. Transaksi dimulai
+	 * SETELAH pembacaan detail jawaban selesai sehingga jendela kunci database sesingkat mungkin.</p>
+	 *
+	 * @param hasilUjianMahasiswaParam entity peserta yang akan dihitung ulang; boleh
+	 *                                 {@code null}/detached/tanpa id — semua ditangani sebagai
+	 *                                 kalimat gagal yang informatif
+	 * @return kalimat status berbahasa Indonesia siap tampil; tidak pernah {@code null}
+	 * @see ProsesUjianHelper#hitungPilihanGanda
+	 * @see ProsesUjianHelper#hitungObe
+	 * @see #bukaPopupPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)
+	 */
 	private static String hitungUlangNilaiPeserta(HasilUjianMahasiswa hasilUjianMahasiswaParam) {
 		if (hasilUjianMahasiswaParam == null || hasilUjianMahasiswaParam.getId() == null) {
 			return "Nilai belum dapat dihitung ulang karena data peserta ujian tidak ditemukan.";
@@ -2193,6 +2290,84 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * <b>Tujuan:</b> Mesin diagnosis di balik panel "Penjelasan Nilai 0". Membaca kondisi nyata
+	 * rincian jawaban seorang peserta dari database, lalu menyusun teks berbahasa Indonesia yang
+	 * berisi ringkasan angka + daftar kemungkinan penyebab + langkah perbaikan yang disarankan.
+	 *
+	 * <p><b>Prinsip perancangan.</b> Teks yang dihasilkan sengaja dibuka dengan kalimat
+	 * "Nilai 0 tidak selalu berarti peserta belum mengerjakan". Ini menjawab kekeliruan pembacaan
+	 * yang paling sering terjadi: kolom "Soal Terjawab" pada grid hanya menghitung jawaban yang
+	 * DIPILIH/DIISI, sedangkan nilai dihitung dari SKOR jawaban yang tersimpan. Kedua angka itu
+	 * bisa berbeda jauh, dan perbedaannya itulah petunjuk diagnosis.</p>
+	 *
+	 * <p><b>Data yang dikumpulkan (fase baca).</b> Method membuka session Hibernate terdedikasi,
+	 * me-refetch entity ({@code session.get}) dengan fallback ke objek parameter bila hasil
+	 * refetch {@code null}, menentukan apakah ujian bertipe {@code PILIHAN_GANDA}, lalu memindai
+	 * SELURUH {@code HasilUjianMahasiswaDetail} milik peserta ini dan mengakumulasi enam besaran:</p>
+	 * <ul>
+	 *   <li>{@code jumlahDetail} — banyak baris rincian jawaban yang tersimpan;</li>
+	 *   <li>{@code detailSkorPositif} / {@code detailSkorNol} — pemilahan rincian berdasarkan
+	 *       {@code nilai > 0} atau tidak. Rasio keduanya membedakan "salah semua" dari
+	 *       "belum dikoreksi";</li>
+	 *   <li>{@code soalSkorNol} — banyak rincian yang {@code bankSoal}-nya {@code null} atau
+	 *       {@code skor}-nya {@code <= 0}. Ini penanda konfigurasi bank soal yang keliru: soal
+	 *       tanpa bobot tidak akan pernah menyumbang nilai berapa pun jawabannya;</li>
+	 *   <li>{@code totalDiperoleh} — jumlah seluruh {@code nilai} rincian;</li>
+	 *   <li>{@code totalMaks} — jumlah {@code skor} soal, <b>hanya untuk soal yang skornya &gt; 0</b>.
+	 *       Soal berskor 0 sengaja tidak ikut dijumlah dan dialihkan ke pencacah
+	 *       {@code soalSkorNol} supaya tidak menyamarkan masalah konfigurasi tersebut.</li>
+	 * </ul>
+	 *
+	 * <p><b>Ketahanan.</b> Seluruh fase baca dibungkus {@code try/catch} lebar; kegagalan apa pun
+	 * direkam ke {@code ErrorAuditUtil} dan alur TETAP lanjut menyusun teks dengan pencacah
+	 * bernilai nol. Artinya popup selalu terbuka membawa penjelasan generik, tidak pernah
+	 * menampilkan halaman error. Session ditutup di {@code finally} dengan penjagaan
+	 * {@code isOpen()}.</p>
+	 *
+	 * <p><b>Pohon keputusan (fase susun teks).</b> Setelah blok ringkasan angka, penyebab nomor 1
+	 * dipilih dari empat kemungkinan yang saling eksklusif, berurutan dari yang paling spesifik:</p>
+	 * <ol>
+	 *   <li>{@code jumlahDetail == 0} &rarr; rincian jawaban belum tersimpan/terbaca sama sekali,
+	 *       sistem tidak punya dasar menghitung;</li>
+	 *   <li>{@code terjawab >= totalSoal && totalSoal > 0 && detailSkorPositif == 0} &rarr; kasus
+	 *       paling mencurigakan: peserta menjawab SEMUA soal tetapi tidak satu pun berskor.
+	 *       Teks menyebut tiga kemungkinan turunannya (jawaban memang salah semua, kunci jawaban
+	 *       belum sesuai, atau nilai belum dihitung ulang setelah soal/kunci diubah);</li>
+	 *   <li>{@code detailSkorPositif == 0} &rarr; belum ada rincian berskor, namun peserta belum
+	 *       menjawab semua soal;</li>
+	 *   <li>selain itu &rarr; sebagian skor sudah ada tetapi total akhir masih 0, mengarah ke
+	 *       masalah agregasi/cache sehingga disarankan "Hitung Ulang Semua" atau "Sinkronkan Nilai".</li>
+	 * </ol>
+	 * Penyebab nomor 2 hanya muncul bila {@code soalSkorNol &gt; 0}. Penyebab nomor 3 selalu
+	 * muncul namun isinya bercabang: untuk pilihan ganda mengarahkan ke popup perbandingan skor
+	 * per soal, untuk esai mengarahkan ke koreksi jawaban lebih dulu.
+	 *
+	 * <p><b>Catatan tampilan yang diketahui.</b> Karena butir "2." bersyarat, penomoran dalam teks
+	 * dapat melompat dari "1." langsung ke "3." pada ujian yang seluruh soalnya sudah berbobot.
+	 * Ini murni kosmetik dan tidak memengaruhi diagnosis; bila ingin dirapikan, gantilah penomoran
+	 * statis dengan pencacah berjalan.</p>
+	 *
+	 * <p><b>Format keluaran.</b> Plain text ber-{@code \n}, BUKAN HTML — itulah sebabnya
+	 * {@link #bukaPopupPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)} menampilkannya dengan
+	 * {@code Label} ber-{@code setPre(true)} dan {@code white-space:pre-wrap}. Angka desimal
+	 * diformat memakai {@code Common.numberFormat} (ThreadLocal) agar konsisten dengan sisa
+	 * aplikasi.</p>
+	 *
+	 * <p><b>Sifat.</b> {@code static}, read-only terhadap database (tidak ada transaksi maupun
+	 * {@code update}), dan tidak menyentuh field instance. Tidak pernah melempar exception.</p>
+	 *
+	 * @param hasilUjianMahasiswa entity peserta yang didiagnosis; boleh {@code null} atau
+	 *                            detached — bila {@code null} seluruh pencacah tetap 0 dan teks
+	 *                            generik tetap dihasilkan
+	 * @param totalSoal           jumlah soal yang ditampilkan untuk ujian ini, diteruskan apa
+	 *                            adanya dari renderer grid (snapshot)
+	 * @param terjawab            jumlah soal yang dijawab peserta, diteruskan apa adanya dari
+	 *                            renderer grid (snapshot); dipakai pada cabang keputusan nomor 2
+	 * @return teks diagnosis plain text berbahasa Indonesia; tidak pernah {@code null}
+	 * @see #bukaPopupPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)
+	 * @see #bukaPopupPerbandinganSkor(HasilUjianMahasiswa)
+	 */
 	private static String buatPenjelasanNilaiNol(HasilUjianMahasiswa hasilUjianMahasiswa, int totalSoal, int terjawab) {
 		Session session = null;
 		int jumlahDetail = 0;

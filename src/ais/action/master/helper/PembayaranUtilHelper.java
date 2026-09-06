@@ -106,7 +106,51 @@ import ais.database.model.StatusMahasiswa;
  */
 public class PembayaranUtilHelper {
 
+	/**
+	 * Klausa SQL mentah yang selalu benar, dipakai sebagai <b>sentinel netral</b> di dalam
+	 * {@code Restrictions.sqlRestriction(SQL_TRUE)}.
+	 *
+	 * <p>Query tagihan di kelas ini dibangun sebagai satu rantai {@code .add(...)} yang panjang.
+	 * Beberapa filter hanya berlaku bila datanya ada — misalnya
+	 * {@code warganegara != null ? Restrictions.ilike("wnaAtauWni", ...) : Restrictions.sqlRestriction(SQL_TRUE)}.
+	 * Menyisipkan kondisi yang selalu benar membuat rantai itu tetap satu ekspresi tanpa perlu
+	 * memecahnya menjadi {@code if}/{@code else} terpisah untuk setiap kombinasi filter opsional.
+	 * Karena {@code 1=1} tidak menyaring apa pun, hasil query identik dengan query tanpa klausa
+	 * tersebut; biaya tambahannya hanya satu predikat konstan yang dihapus perencana kueri.</p>
+	 *
+	 * <p><b>Perhatikan bedanya dengan {@link #SQL_FALSE}:</b> {@code SQL_TRUE} berarti "filter ini
+	 * tidak berlaku" (buka), sedangkan {@code SQL_FALSE} berarti "tolak semua baris" (tutup).
+	 * Keduanya bukan pasangan yang bisa saling menggantikan: menukar salah satunya mengubah
+	 * kebijakan tagihan dari <i>fail-closed</i> menjadi <i>fail-open</i>. Lihat
+	 * {@link #batasiItemBiayaPembacaan(Criteria, Collection, boolean)} yang memakai
+	 * {@code SQL_FALSE} justru ketika daftar item kosong.</p>
+	 *
+	 * <p>Nilainya sengaja berupa literal konstan, bukan hasil rangkaian string dari input mana
+	 * pun, sehingga tidak ada permukaan injeksi SQL di sini.</p>
+	 */
 	private static final String SQL_TRUE = "1=1";
+	/**
+	 * Klausa SQL mentah yang selalu salah, dipakai sebagai <b>penutup fail-closed</b> di dalam
+	 * {@code Restrictions.sqlRestriction(SQL_FALSE)}.
+	 *
+	 * <p>Dipasang ketika sebuah pembatas <i>seharusnya</i> berlaku tetapi tidak punya nilai untuk
+	 * dibandingkan — kasus nyatanya ada di
+	 * {@link #batasiItemBiayaPembacaan(Criteria, Collection, boolean)}: bila
+	 * {@link SettingBiaya} terpilih tidak memasok satu pun {@link ItemBiaya},
+	 * {@code Restrictions.in("itemBiaya", <kosong>)} akan menghasilkan SQL {@code IN ()} yang
+	 * tidak sah, sedangkan menghilangkan pembatasnya sama sekali akan membuka <i>seluruh</i>
+	 * tagihan. Karena itu daftar kosong diterjemahkan menjadi {@code 1=0} — hasilnya nol baris,
+	 * bukan semua baris.</p>
+	 *
+	 * <p>Inilah kebijakan yang harus dipertahankan: <b>ketiadaan data pembatas berarti tolak,
+	 * bukan izinkan</b>. Menggantinya dengan {@link #SQL_TRUE} atau dengan tidak menambahkan
+	 * klausa apa pun akan membocorkan baris tagihan milik {@link SettingBiaya} lain yang profilnya
+	 * kebetulan sama (angkatan, jenjang, prodi, semester, status) ke layar pembayaran dan ke
+	 * inquiry host-to-host.</p>
+	 *
+	 * <p>Sama seperti {@link #SQL_TRUE}, nilainya literal konstan sehingga tidak membawa risiko
+	 * injeksi SQL.</p>
+	 */
 	private static final String SQL_FALSE = "1=0";
 
 	/**
