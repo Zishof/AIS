@@ -1503,14 +1503,55 @@ public class DetailBiaya extends GeneralValueObject {
 
 //	@Column(name = "nilai_biaya_baru", precision = 15, insertable = false, updatable = false)
 	@Transient
+	/**
+	 * Nominal <b>hasil perhitungan</b> untuk item biaya berpenghitungan perkalian &mdash;
+	 * mis. hasil dari &quot;Rp50.000 x 20 SKS&quot;, sedangkan {@link #getNilaiBiaya()}
+	 * menyimpan harga per unitnya.
+	 *
+	 * <p>Bertanda {@code @Transient} (perhatikan anotasi {@code @Column} yang sengaja
+	 * dikomentari tepat di atasnya): nilai ini hidup di memori saja dan tidak pernah
+	 * tersimpan. Ia diisi {@link #updateKeterangan(Mahasiswa, Integer)}, yang harus dipanggil
+	 * lebih dulu agar nilainya tersedia &mdash; itulah sebabnya
+	 * {@link Kegiatan#ambilJumlahTagihan(DetailKegiatan, Kegiatan, DetailBiaya, boolean)}
+	 * memicu pemanggilan tersebut saat mendapati nilai ini masih {@code null}.</p>
+	 *
+	 * <p>Getter murni. Nilai {@code null} bermakna &quot;belum dihitung&quot; dan bukan
+	 * &quot;nol&quot;; seluruh pemanggil memperlakukannya sebagai penanda untuk jatuh kembali
+	 * ke {@link #getNilaiBiaya()}.</p>
+	 *
+	 * @return nominal hasil perkalian; {@code null} bila belum dihitung
+	 */
 	public Double getNilaiBiayaBaru() {
 		return nilaiBiayaBaru;
 	}
 
+	/**
+	 * Setter nominal hasil perkalian (hanya di memori; tidak tersimpan).
+	 *
+	 * @param nilaiBiayaBaru nominal hasil perhitungan; {@code null} berarti belum dihitung
+	 */
 	public void setNilaiBiayaBaru(Double nilaiBiayaBaru) {
 		this.nilaiBiayaBaru = nilaiBiayaBaru;
 	}
 
+	/**
+	 * Nominal tunggakan semester sebelumnya yang dibawa ke baris ini &mdash; dipakai oleh
+	 * item biaya berpenghitungan {@code ItemBiaya.HITUNG_TUNGGAKAN_SMT_LALU}, yang menagihkan
+	 * sisa utang lama sebagai satu komponen tersendiri.
+	 *
+	 * <p><b>GETTER DESTRUKTIF ringan.</b> Bila field {@code null}, diisi {@code 0.0} lalu
+	 * ditulis balik. Property ini tidak beranotasi eksplisit sehingga Hibernate memetakannya
+	 * ke kolom dengan pengaturan bawaan &mdash; artinya penulisan itu persisten. Dampaknya
+	 * kecil (mengubah {@code NULL} menjadi {@code 0}, yang secara semantik setara), tetapi
+	 * tetap dapat memicu {@code UPDATE} dan revisi Envers pada pembacaan pertama.</p>
+	 *
+	 * <p>Nilai ini punya <b>prioritas tertinggi</b> pada {@link #hitungTotal(DetailKegiatan)}:
+	 * bila melebihi {@code 0.01}, ia mengalahkan nominal master maupun nominal yang sudah
+	 * dibekukan pada {@link DetailKegiatan}. Ambang {@code 0.01} dipakai alih-alih
+	 * perbandingan dengan nol untuk menghindari masalah presisi bilangan pecahan.</p>
+	 *
+	 * @return nominal tunggakan semester lalu; tidak pernah {@code null}
+	 */
 	public Double getTunggakanLalu() {
 		if (tunggakanLalu == null) {
 			tunggakanLalu = 0.0;
@@ -1518,10 +1559,22 @@ public class DetailBiaya extends GeneralValueObject {
 		return tunggakanLalu;
 	}
 
+	/**
+	 * Setter nominal tunggakan semester lalu.
+	 *
+	 * @param tunggakanLalu nominal tunggakan; {@code null} akan diisi {@code 0.0} oleh getter
+	 */
 	public void setTunggakanLalu(Double tunggakanLalu) {
 		this.tunggakanLalu = tunggakanLalu;
 	}
 
+	/**
+	 * Penyaring {@link Paket} biaya sasaran &mdash; memungkinkan satu program studi menawarkan
+	 * beberapa paket biaya berbeda. {@code null} berarti tidak dibatasi paket tertentu.
+	 * Ikut membentuk {@link #key()}. Getter relasi lazy standar dengan {@code check(...)}.
+	 *
+	 * @return paket biaya sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "paket", nullable = true)
 	public Paket getPaket() {
@@ -1529,10 +1582,23 @@ public class DetailBiaya extends GeneralValueObject {
 		return paket;
 	}
 
+	/**
+	 * Setter penyaring paket biaya.
+	 *
+	 * @param paket paket sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setPaket(Paket paket) {
 		this.paket = paket;
 	}
 
+	/**
+	 * Penyaring {@link JenisTinggalMahasiswa} sasaran (mis. tinggal di asrama atau di luar)
+	 * &mdash; memungkinkan komponen biaya yang bergantung pada tempat tinggal mahasiswa.
+	 * {@code null} berarti tidak dibatasi. Ikut membentuk {@link #key()}. Getter relasi lazy
+	 * standar dengan {@code check(...)}.
+	 *
+	 * @return jenis tinggal sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_tinggal_mahasiswa", nullable = true)
 	public JenisTinggalMahasiswa getJenisTinggalMahasiswa() {
@@ -1540,10 +1606,22 @@ public class DetailBiaya extends GeneralValueObject {
 		return jenisTinggalMahasiswa;
 	}
 
+	/**
+	 * Setter penyaring jenis tinggal mahasiswa.
+	 *
+	 * @param jenisTinggalMahasiswa jenis tinggal sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setJenisTinggalMahasiswa(JenisTinggalMahasiswa jenisTinggalMahasiswa) {
 		this.jenisTinggalMahasiswa = jenisTinggalMahasiswa;
 	}
 
+	/**
+	 * Penyaring {@link Kelas} sasaran (mis. pagi, sore, internasional). {@code null} berarti
+	 * tidak dibatasi. Ikut membentuk {@link #key()}. Getter relasi lazy standar dengan
+	 * {@code check(...)}.
+	 *
+	 * @return kelas sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelas", nullable = true)
 	public Kelas getKelas() {
@@ -1551,34 +1629,87 @@ public class DetailBiaya extends GeneralValueObject {
 		return kelas;
 	}
 
+	/**
+	 * Setter penyaring kelas.
+	 *
+	 * @param kelas kelas sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setKelas(Kelas kelas) {
 		this.kelas = kelas;
 	}
 
+	/**
+	 * Nilai penyaring tambahan bebas ke-1 &mdash; salah satu dari tiga slot serbaguna yang
+	 * memungkinkan instalasi menambah dimensi penyaring sendiri tanpa mengubah skema tabel.
+	 *
+	 * <p>Ketiganya ikut membentuk {@link #key()} dan dirangkai apa adanya di sana; perhatikan
+	 * catatan pada {@link #genKey} bahwa nilai yang memuat tanda hubung dapat menggeser batas
+	 * antar komponen kunci. Getter murni.</p>
+	 *
+	 * @return nilai penyaring tambahan ke-1; {@code null} bila tidak dipakai
+	 */
 	public String getNilaiTambahan1() {
 		return nilaiTambahan1;
 	}
 
+	/**
+	 * Setter nilai penyaring tambahan ke-1.
+	 *
+	 * @param nilaiTambahan1 nilai penyaring; {@code null} berarti tidak dipakai
+	 */
 	public void setNilaiTambahan1(String nilaiTambahan1) {
 		this.nilaiTambahan1 = nilaiTambahan1;
 	}
 
+	/**
+	 * Nilai penyaring tambahan bebas ke-2. Lihat {@link #getNilaiTambahan1()}.
+	 *
+	 * @return nilai penyaring tambahan ke-2; {@code null} bila tidak dipakai
+	 */
 	public String getNilaiTambahan2() {
 		return nilaiTambahan2;
 	}
 
+	/**
+	 * Setter nilai penyaring tambahan ke-2.
+	 *
+	 * @param nilaiTambahan2 nilai penyaring; {@code null} berarti tidak dipakai
+	 */
 	public void setNilaiTambahan2(String nilaiTambahan2) {
 		this.nilaiTambahan2 = nilaiTambahan2;
 	}
 
+	/**
+	 * Nilai penyaring tambahan bebas ke-3. Lihat {@link #getNilaiTambahan1()}.
+	 *
+	 * @return nilai penyaring tambahan ke-3; {@code null} bila tidak dipakai
+	 */
 	public String getNilaiTambahan3() {
 		return nilaiTambahan3;
 	}
 
+	/**
+	 * Setter nilai penyaring tambahan ke-3.
+	 *
+	 * @param nilaiTambahan3 nilai penyaring; {@code null} berarti tidak dipakai
+	 */
 	public void setNilaiTambahan3(String nilaiTambahan3) {
 		this.nilaiTambahan3 = nilaiTambahan3;
 	}
 
+	/**
+	 * Penyaring {@link GelombangPendaftaran} sasaran &mdash; memungkinkan biaya berbeda per
+	 * gelombang pendaftaran, pola lazim untuk memberi insentif pendaftar awal. {@code null}
+	 * berarti tidak dibatasi. Ikut membentuk {@link #key()}.
+	 *
+	 * <p>Perhatikan bahwa gelombang pendaftaran juga menjadi salah satu <b>rute diskon</b>
+	 * pada {@link Kegiatan#hitungDiskon} lewat
+	 * {@code gelombangPendaftaran.getJenisDiskonMahasiswa()}; jadi selisih biaya antar
+	 * gelombang dapat diwujudkan lewat dua mekanisme berbeda &mdash; nominal berbeda di sini,
+	 * atau potongan pada mesin diskon. Keduanya dapat aktif bersamaan.</p>
+	 *
+	 * @return gelombang pendaftaran sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "gelombang_pendaftaran", nullable = true)
 	public GelombangPendaftaran getGelombangPendaftaran() {
@@ -1586,10 +1717,33 @@ public class DetailBiaya extends GeneralValueObject {
 		return gelombangPendaftaran;
 	}
 
+	/**
+	 * Setter penyaring gelombang pendaftaran.
+	 *
+	 * @param gelombangPendaftaran gelombang sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setGelombangPendaftaran(GelombangPendaftaran gelombangPendaftaran) {
 		this.gelombangPendaftaran = gelombangPendaftaran;
 	}
 
+	/**
+	 * Tanggal terbit tagihan bawaan bagi baris ini, diturunkan dari hierarki setting biaya.
+	 *
+	 * <p>Bertanda {@code @Transient}: meskipun method ini menugaskan hasilnya ke field
+	 * {@code defaultTanggalTagihan}, penulisan itu tidak sampai ke database. Nilainya
+	 * diturunkan per program studi lewat
+	 * {@link DetailSettingBiaya#ambilDefaultTanggalTagihan(Jurusan)} bila
+	 * {@link SettingBiaya#getTampilkanPerProdi()} menyala, atau dari
+	 * {@link DetailSettingBiaya#getDefaultTanggalTagihan()} bila setting memakai biaya
+	 * default.</p>
+	 *
+	 * <p>Bila tidak satu pun cabang cocok, nilai field sebelumnya dipertahankan &mdash;
+	 * termasuk {@code null}. Berbeda dari {@link #getNilaiBiaya()}, tidak ada pembungkus
+	 * {@code try/catch} di sini, sehingga entity yang sudah terputus dapat melempar
+	 * {@code LazyInitializationException} dari getter ini.</p>
+	 *
+	 * @return tanggal terbit tagihan bawaan; {@code null} bila tidak dapat diturunkan
+	 */
 	@Transient
 	public Date getDefaultTanggalTagihan() {
 		detailSettingBiaya = getDetailSettingBiaya();
@@ -1607,10 +1761,28 @@ public class DetailBiaya extends GeneralValueObject {
 		return defaultTanggalTagihan;
 	}
 
+	/**
+	 * Setter tanggal terbit tagihan bawaan (hanya di memori; tidak tersimpan).
+	 *
+	 * @param defaultTanggalTagihan tanggal terbit tagihan
+	 */
 	public void setDefaultTanggalTagihan(Date defaultTanggalTagihan) {
 		this.defaultTanggalTagihan = defaultTanggalTagihan;
 	}
 
+	/**
+	 * {@link DetailSettingBiaya} induk &mdash; sumber utama nominal, keterangan, tanggal
+	 * tagihan, dan tenggat bawaan bagi baris ini.
+	 *
+	 * <p>Relasi inilah yang membuat {@link #getNilaiBiaya()} bersifat &quot;hidup&quot;:
+	 * seluruh cabang penurunan nominal di sana bermuara ke sini. Mengubah satu
+	 * {@link DetailSettingBiaya} karena itu merambat ke setiap {@code DetailBiaya} yang
+	 * menunjuknya, dan dari situ ke tagihan setiap mahasiswa yang cocok.</p>
+	 *
+	 * <p>Getter relasi lazy standar dengan {@code check(...)}.</p>
+	 *
+	 * @return rincian setting biaya induk; {@code null} bila belum ditautkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "detail_setting_biaya", nullable = true)
 	public DetailSettingBiaya getDetailSettingBiaya() {
@@ -1618,10 +1790,26 @@ public class DetailBiaya extends GeneralValueObject {
 		return detailSettingBiaya;
 	}
 
+	/**
+	 * Setter rincian setting biaya induk.
+	 *
+	 * @param detailSettingBiaya rincian setting biaya induk
+	 */
 	public void setDetailSettingBiaya(DetailSettingBiaya detailSettingBiaya) {
 		this.detailSettingBiaya = detailSettingBiaya;
 	}
 
+	/**
+	 * {@link SettingBiayaDetail} induk &mdash; jalur alternatif penurunan nominal yang
+	 * menyimpan biaya per item dalam satu kolom JSON ({@link SettingBiayaDetail#getBiayas()})
+	 * alih-alih satu baris per item.
+	 *
+	 * <p>Dipakai cabang kedua {@link #getNilaiBiaya()}: id {@link ItemBiaya} baris ini
+	 * dijadikan kunci pencarian di dalam JSON tersebut. Getter relasi lazy standar dengan
+	 * {@code check(...)}.</p>
+	 *
+	 * @return setting biaya detail induk; {@code null} bila tidak memakai jalur ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setting_biaya_detail", nullable = true)
 	public SettingBiayaDetail getSettingBiayaDetail() {
@@ -1629,18 +1817,54 @@ public class DetailBiaya extends GeneralValueObject {
 		return settingBiayaDetail;
 	}
 
+	/**
+	 * Setter setting biaya detail induk.
+	 *
+	 * @param settingBiayaDetail setting biaya detail induk
+	 */
 	public void setSettingBiayaDetail(SettingBiayaDetail settingBiayaDetail) {
 		this.settingBiayaDetail = settingBiayaDetail;
 	}
 
+	/**
+	 * Nomor tahap pembayaran baris ini ketika setting biaya menetapkan pembayaran bertahap
+	 * &mdash; mis. {@code 1} untuk &quot;SPP ke-1&quot;, {@code 2} untuk &quot;SPP ke-2&quot;.
+	 * {@code null} dibaca sebagai {@code 1}.
+	 *
+	 * <p>Getter murni (ternary saja, tanpa menulis balik ke field). Nomor ini dipakai
+	 * {@link #getNama()} untuk menyusun label tahap, dan menjadi salah satu komponen kunci
+	 * unik {@link DetailKegiatan} lewat {@code DetailKegiatan.kodeUnik(...)} &mdash; sehingga
+	 * ia ikut menentukan baris rincian tagihan mana yang dianggap sama.</p>
+	 *
+	 * @return nomor tahap pembayaran; tidak pernah {@code null}
+	 */
 	public Integer getBayarKe() {
 		return bayarKe == null ? 1 : bayarKe;
 	}
 
+	/**
+	 * Setter nomor tahap pembayaran.
+	 *
+	 * @param bayarKe nomor tahap; {@code null} dibaca sebagai {@code 1}
+	 */
 	public void setBayarKe(Integer bayarKe) {
 		this.bayarKe = bayarKe;
 	}
 
+	/**
+	 * {@link SettingBiaya} induk lewat foreign key langsung {@code detail_biaya.setting_biaya}.
+	 *
+	 * <p>Merupakan salah satu dari <b>tiga</b> jalur menuju setting biaya induk yang sama;
+	 * lihat {@link #getSettingBiayaEfektif()} yang memilih di antaranya secara kanonis. Data
+	 * lama boleh jadi belum mengisi foreign key ini, sehingga jangan mengandalkannya secara
+	 * langsung untuk mencapai induk &mdash; pakai {@code getSettingBiayaEfektif()}.</p>
+	 *
+	 * <p>Getter relasi lazy standar dengan {@code check(...)}. Perhatikan bahwa relasi ini
+	 * juga menjadi sumber penimpaan pada {@link #getStatusMahasiswa()} dan
+	 * {@link #getKelamin()}.</p>
+	 *
+	 * @return setting biaya induk lewat FK langsung; {@code null} pada data lama
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "setting_biaya", nullable = true)
 	public SettingBiaya getSettingBiaya() {
@@ -1648,6 +1872,11 @@ public class DetailBiaya extends GeneralValueObject {
 		return settingBiaya;
 	}
 
+	/**
+	 * Setter setting biaya induk (foreign key langsung).
+	 *
+	 * @param settingBiaya setting biaya induk
+	 */
 	public void setSettingBiaya(SettingBiaya settingBiaya) {
 		this.settingBiaya = settingBiaya;
 	}
@@ -1678,6 +1907,74 @@ public class DetailBiaya extends GeneralValueObject {
 		return getSettingBiaya();
 	}
 
+	/**
+	 * Menambahkan <b>denda keterlambatan</b> ke sebuah nominal pembayaran, bila tanggal bayar
+	 * melewati tenggat. Ini mesin denda untuk pembayaran <b>sekaligus</b> (non-angsuran);
+	 * pasangannya untuk angsuran adalah
+	 * {@link #checkDendaCicilan(CicilanPembayaran, JadwalPembayaran, PengaturanPembayaranBulanan)}.
+	 *
+	 * <h4>Menentukan tenggat</h4>
+	 * <p>Dicoba berurutan: {@link PengaturanPembayaranBulanan#getDeadline()}; lalu
+	 * {@link JadwalPembayaran#getEndDate()} bila jenis kegiatan pada jadwal mengaktifkan denda
+	 * atau jadwal itu khusus untuk satu NIM; terakhir
+	 * {@link #getDefaultTanggalDeadline()} milik setting biaya. Tenggat {@code null} berarti
+	 * tidak ada denda.</p>
+	 *
+	 * <h4>Menentukan besaran</h4>
+	 * <p>Bermula dari {@link ItemBiaya#getDefaultProsentaseDenda()}, lalu dapat digantikan:</p>
+	 * <ul>
+	 *   <li>bila {@link JenisKegiatan#getDendaDibuatPerProdi()} menyala, dari peta JSON
+	 *       {@link JenisKegiatan#getDendaPerProdi()} menurut id program studi &mdash; prodi
+	 *       yang tidak tercantum memperoleh {@code 0.0}, bukan nilai bawaan;</li>
+	 *   <li>bila {@link JenisKegiatan#getDendaJikaTerlambat()} menyala, dari
+	 *       {@link JenisKegiatan#getDefaultProsentaseDenda()}.</li>
+	 * </ul>
+	 *
+	 * <h4>Menghitung</h4>
+	 * <p>Denda dikenakan bila item biaya <b>atau</b> jenis kegiatan mengaktifkan denda,
+	 * besarannya lebih dari nol, dan tenggat ada. Keterlambatan ditentukan dengan
+	 * membandingkan tanggal <i>sesudah</i> memastikan keduanya bukan hari yang sama
+	 * ({@code dateFormat83}) &mdash; jadi membayar pada hari tenggat tidak dianggap
+	 * terlambat. Nilai denda dihitung sebagai persen dari nominal atau sebagai rupiah tetap
+	 * menurut {@code getNilaiDendaDalamPersen()}, lalu dikalikan jumlah kelipatan
+	 * keterlambatan.</p>
+	 *
+	 * <h4>Hal yang perlu diperhatikan</h4>
+	 * <p><b>Pembagian bilangan bulat membuat keterlambatan pendek bebas denda.</b> Jumlah
+	 * kelipatan dihitung {@code (Common.getBetweenTwoDates(deadline, tanggalBayar) - 1) /
+	 * kelipatan}. Bila {@code kelipatan} bernilai 7, keterlambatan 1&ndash;7 hari menghasilkan
+	 * pembagi {@code 0}, sehingga {@code d = d * 0} dan dendanya <b>nol</b> &mdash; bukan satu
+	 * kali denda sebagaimana mungkin diharapkan operator. Denda baru muncul pada hari ke-8.
+	 * Sebaliknya bila {@code kelipatan} bernilai {@code 0} (bawaan), pengalian dilewati
+	 * seluruhnya dan denda dikenakan tepat satu kali.</p>
+	 *
+	 * <p><b>Peta denda per prodi memakai field {@code jurusan} mentah.</b> Baris
+	 * {@code jurusan.getId()} di dalam blok per-prodi membaca field, bukan
+	 * {@link #getJurusan()}, sehingga pada entity yang proxy-nya belum dipulihkan atau yang
+	 * memang tidak dibatasi prodi ({@code jurusan} {@code null}) akan terjadi
+	 * {@code NullPointerException}. Exception itu tertangkap {@code try/catch} di sekitarnya
+	 * dan hanya dicatat, sehingga akibatnya adalah denda tetap memakai besaran bawaan dari
+	 * item biaya &mdash; gagal secara diam-diam, bukan gagal terlihat.</p>
+	 *
+	 * <p><b>{@code infoDenda} disetel sebagai efek samping.</b> Method ini menulis penjelasan
+	 * denda ke field {@code infoDenda} (bertanda {@code @Transient}, jadi tidak masuk
+	 * database) yang harus dibaca pemanggil lewat {@link #getInfoDenda()} sesudahnya. Field
+	 * itu dikosongkan di awal setiap pemanggilan, sehingga instance {@code DetailBiaya} yang
+	 * sama tidak dapat dipakai menghitung dua denda secara bersamaan &mdash; kelas ini tidak
+	 * aman untuk pemakaian lintas thread. Penjelasan yang sama juga dicetak ke
+	 * {@code System.out}.</p>
+	 *
+	 * <p><b>Parameter {@code old} tidak dipakai.</b> Parameter bertipe {@link JenisKegiatan}
+	 * bernama {@code old} diterima tetapi tidak pernah dirujuk di badan method; jenis kegiatan
+	 * yang benar-benar dipakai diambil dari {@link #getJenisKegiatan()} milik entity ini.</p>
+	 *
+	 * @param nominalModifikasi           nominal sebelum denda
+	 * @param tanggalBayar                tanggal pembayaran yang diperiksa
+	 * @param jadwalPembayaran            jadwal pembayaran yang berlaku; boleh {@code null}
+	 * @param old                         <b>tidak dipakai</b>
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan sumber tenggat; boleh {@code null}
+	 * @return nominal sesudah ditambah denda; sama dengan masukan bila tidak ada denda
+	 */
 	public Double checkDenda(Double nominalModifikasi, Date tanggalBayar, JadwalPembayaran jadwalPembayaran,
 			JenisKegiatan old, PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
 
@@ -1779,6 +2076,67 @@ public class DetailBiaya extends GeneralValueObject {
 		return nominalModifikasi;
 	}
 
+	/**
+	 * Menghitung <b>denda keterlambatan untuk satu angsuran/cicilan</b>, dan bila ada,
+	 * menuliskannya langsung ke {@link CicilanPembayaran} yang bersangkutan.
+	 *
+	 * <p>Berbeda dari {@link #checkDenda} yang hanya mengembalikan nominal, method ini
+	 * <b>memutasi</b> objek cicilan: {@code setDenda(d)}, {@code setNilaiAsli(nominal)},
+	 * {@code setNilai(nominal + d)}, dan menambahkan penjelasan denda ke keterangannya.
+	 * Nilai kembaliannya adalah besaran denda saja, bukan nominal total.</p>
+	 *
+	 * <h4>Pembatalan denda</h4>
+	 * <p>Di awal, denda dianggap nol bila id {@link PengaturanPembayaranBulanan} terkait
+	 * tercantum pada daftar {@link Kegiatan#getPembatalanDenda()} milik header tagihan
+	 * &mdash; mekanisme pembebasan denda per baris yang bersifat dapat dibatalkan kembali.</p>
+	 *
+	 * <h4>PERBEDAAN PENTING DARI {@link #checkDenda}: konfigurasi denda tingkat jenis
+	 * kegiatan praktis tidak terpakai di sini</h4>
+	 * <p>Dua hal bergabung menghasilkan keadaan ini:</p>
+	 * <ol>
+	 *   <li><b>Sumber jenis kegiatannya berbeda.</b> {@link #checkDenda} membaca
+	 *       {@link #getJenisKegiatan()} milik entity ini, sedangkan method ini hanya membaca
+	 *       {@code jadwalPembayaran.getJenisKegiatan()}. Setiap cabang yang menyangkut
+	 *       konfigurasi denda jenis kegiatan di sini dijaga {@code jadwalPembayaran != null}.
+	 *       Padahal satu-satunya pemanggil produksi &mdash;
+	 *       {@link ais.database.hibernate.AuditListener} pada {@code onPostInsert}, lewat
+	 *       {@link PengaturanPembayaranBulanan#checkDendaCicilan(CicilanPembayaran, JadwalPembayaran)}
+	 *       &mdash; mengoper {@code null} untuk jadwal tersebut. Akibatnya seluruh cabang itu
+	 *       tidak pernah berjalan, dan denda angsuran <b>hanya</b> mengikuti konfigurasi
+	 *       tingkat {@link ItemBiaya}. Sebuah jenis kegiatan yang dikonfigurasi berdenda
+	 *       karena itu mengenakan denda pada pembayaran sekaligus, tetapi tidak pada
+	 *       angsuran.</li>
+	 *   <li><b>Flag yang diperiksa berbeda.</b> Di ketiga tempat yang relevan (pemilihan
+	 *       besaran, gerbang utama, dan penggantian kelipatan/batas/format), method ini
+	 *       memeriksa {@link JenisKegiatan#getNilaiDendaDalamPersen()}, sedangkan
+	 *       {@link #checkDenda} memeriksa {@link JenisKegiatan#getDendaJikaTerlambat()}.
+	 *       Keduanya bukan sinonim: yang pertama sekadar menyatakan SATUAN denda dan
+	 *       berbawaan {@code true}, yang kedua adalah saklar ADA/TIDAKNYA denda dan berbawaan
+	 *       {@code false}. Seandainya {@code jadwalPembayaran} suatu saat diisi, cabang-cabang
+	 *       itu akan salah dalam dua arah: mengenakan denda pada jenis kegiatan yang saklarnya
+	 *       mati (karena bawaan {@code true}), sekaligus mengabaikan denda pada jenis kegiatan
+	 *       yang dendanya berupa nominal tetap.</li>
+	 * </ol>
+	 *
+	 * <h4>Penanganan galat</h4>
+	 * <p>Seluruh perhitungan sesudah pemeriksaan pembatalan dibungkus {@code try/catch} yang
+	 * memperlakukan kegagalan apa pun sebagai &quot;tidak ada denda tambahan&quot;
+	 * ({@code d} tetap {@code 0.0}). Ini disengaja: method ini berjalan dari dalam listener
+	 * {@code onPostInsert}, sehingga exception yang lolos akan menggagalkan proses simpan
+	 * keranjang pembayaran. Konsekuensinya, kegagalan menghitung denda tidak pernah terlihat
+	 * pengguna &mdash; hanya tercatat lewat {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p>Seperti {@link #checkDenda}, blok denda per prodi di sini juga membaca field
+	 * {@code jurusan} mentah sehingga rawan {@code NullPointerException} yang tertangkap
+	 * diam-diam, dan {@code infoDenda} disetel sebagai efek samping.</p>
+	 *
+	 * @param cicilanPembayaran           angsuran yang diperiksa; <b>dimutasi</b> bila ada denda
+	 * @param jadwalPembayaran            jadwal pembayaran; {@code null} dari jalur produksi,
+	 *                                    yang menonaktifkan seluruh cabang konfigurasi jenis
+	 *                                    kegiatan
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan sumber tenggat dan nominal
+	 * @return besaran denda; {@code 0.0} bila tidak ada denda atau perhitungan gagal
+	 */
 	public Double checkDendaCicilan(CicilanPembayaran cicilanPembayaran, JadwalPembayaran jadwalPembayaran,
 			PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
 
@@ -1916,19 +2274,68 @@ public class DetailBiaya extends GeneralValueObject {
 		return d;
 	}
 
+	/**
+	 * Penjelasan denda hasil perhitungan terakhir {@link #checkDenda} atau
+	 * {@link #checkDendaCicilan} &mdash; bertanda {@code @Transient} pada getter-nya sehingga
+	 * tidak tersimpan. Dikosongkan di awal setiap perhitungan; lihat catatan keamanan thread
+	 * pada {@link #checkDenda}.
+	 */
 	private String infoDenda;
 	private String kelamin;
 	private AfiliasiCalonMahasiswa afiliasiCalonMahasiswa;
 
+	/**
+	 * Penjelasan denda dari perhitungan terakhir, mis. &quot;Penambahan denda senilai 2 %
+	 * karena terlambat 10 hari&quot;. Dipakai antarmuka untuk menerangkan kepada mahasiswa
+	 * mengapa nominalnya bertambah.
+	 *
+	 * <p>Getter murni yang menormalkan {@code null} menjadi string kosong tanpa menulis balik.
+	 * Nilainya hanya sahih tepat setelah {@link #checkDenda} atau {@link #checkDendaCicilan}
+	 * dipanggil pada instance yang sama.</p>
+	 *
+	 * @return penjelasan denda; string kosong bila belum ada perhitungan
+	 */
 	@Transient
 	public String getInfoDenda() {
 		return infoDenda == null ? "" : infoDenda;
 	}
 
+	/**
+	 * Setter penjelasan denda (hanya di memori; tidak tersimpan).
+	 *
+	 * @param infoDenda penjelasan denda
+	 */
 	public void setInfoDenda(String infoDenda) {
 		this.infoDenda = infoDenda;
 	}
 
+	/**
+	 * Penyaring jenis kelamin sasaran &mdash; memungkinkan komponen biaya yang hanya berlaku
+	 * bagi mahasiswa laki-laki atau perempuan, mis. biaya asrama.
+	 *
+	 * <p><b>GETTER DESTRUKTIF dengan dua penulisan.</b> Property ini tidak beranotasi
+	 * eksplisit sehingga dipetakan ke kolom dengan pengaturan bawaan, dan kedua penulisan
+	 * di bawah ini persisten:</p>
+	 * <ol>
+	 *   <li><b>Normalisasi menghapus data.</b> Nilai yang bukan persis {@code "Laki-laki"}
+	 *       atau {@code "Perempuan"} <b>diubah menjadi {@code null}</b>. Perbandingannya
+	 *       peka huruf besar/kecil dan tanpa {@code trim()}, sehingga isian yang hanya
+	 *       berbeda kapitalisasi atau berimbuhan spasi &mdash; mis. dari impor Excel
+	 *       &mdash; akan terhapus secara diam-diam, mengubah baris dari &quot;khusus satu
+	 *       jenis kelamin&quot; menjadi &quot;berlaku untuk semua&quot;.</li>
+	 *   <li><b>Penimpaan dari induk.</b> Bila {@link #getSettingBiaya()} terisi, field
+	 *       ditimpa dengan {@link SettingBiaya#getKelamin()} tanpa syarat &mdash; termasuk
+	 *       bila nilai induk itu sendiri {@code null}. Jadi setelan jenis kelamin pada baris
+	 *       ini tidak pernah bertahan selama FK setting biaya terisi; pola yang sama dengan
+	 *       {@link #getStatusMahasiswa()}.</li>
+	 * </ol>
+	 *
+	 * <p>Seperti {@code statusMahasiswa}, yang ditulis di sini adalah sebuah <b>dimensi
+	 * penyaring</b>, sehingga penulisannya mengubah kelompok sasaran baris nominal. Berbeda
+	 * dari {@code statusMahasiswa}, dimensi ini tidak ikut membentuk {@link #key()}.</p>
+	 *
+	 * @return penyaring jenis kelamin; {@code null} bila tidak dibatasi
+	 */
 	public String getKelamin() {
 		if (kelamin != null && !(kelamin.equals("Laki-laki") || kelamin.equals("Perempuan"))) {
 			kelamin = null;
@@ -1941,10 +2348,29 @@ public class DetailBiaya extends GeneralValueObject {
 		return kelamin;
 	}
 
+	/**
+	 * Setter penyaring jenis kelamin. Nilai yang diisi di sini akan dinormalkan dan dapat
+	 * ditimpa oleh {@link #getKelamin()} pada pembacaan berikutnya.
+	 *
+	 * @param kelamin {@code "Laki-laki"}, {@code "Perempuan"}, atau {@code null}
+	 */
 	public void setKelamin(String kelamin) {
 		this.kelamin = kelamin;
 	}
 
+	/**
+	 * Penyaring {@link AfiliasiCalonMahasiswa} sasaran &mdash; memungkinkan biaya khusus bagi
+	 * pendaftar dari afiliasi tertentu (mis. sekolah mitra atau instansi kerja sama).
+	 * {@code null} berarti tidak dibatasi.
+	 *
+	 * <p>Getter relasi lazy standar dengan {@code check(...)}. Seperti {@code wnaAtauWni},
+	 * {@code bahasa}, {@code fakultas}, {@code kelamin}, dan {@code jenisSeleksi}, dimensi
+	 * ini <b>tidak ikut membentuk</b> {@link #key()} &mdash; tampaknya kunci itu memang hanya
+	 * mencakup dimensi yang sudah ada sejak awal, dan tidak diperbarui seiring bertambahnya
+	 * penyaring baru.</p>
+	 *
+	 * @return afiliasi calon mahasiswa sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "afiliasi_calon_mahasiswa", nullable = true)
 	public AfiliasiCalonMahasiswa getAfiliasiCalonMahasiswa() {
@@ -1952,10 +2378,34 @@ public class DetailBiaya extends GeneralValueObject {
 		return afiliasiCalonMahasiswa;
 	}
 
+	/**
+	 * Setter penyaring afiliasi calon mahasiswa.
+	 *
+	 * @param afiliasiCalonMahasiswa afiliasi sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setAfiliasiCalonMahasiswa(AfiliasiCalonMahasiswa afiliasiCalonMahasiswa) {
 		this.afiliasiCalonMahasiswa = afiliasiCalonMahasiswa;
 	}
 
+	/**
+	 * <b>Tenggat pembayaran</b> bawaan bagi baris ini, diturunkan dari hierarki setting biaya
+	 * &mdash; tanggal yang menjadi acuan perhitungan denda keterlambatan.
+	 *
+	 * <p>Bertanda {@code @Transient}, sehingga penulisan ke field tidak sampai ke database.
+	 * Penurunannya sejajar dengan {@link #getDefaultTanggalTagihan()}: per program studi lewat
+	 * {@link DetailSettingBiaya#ambilDefaultTanggalDeadline(Jurusan)} bila
+	 * {@link SettingBiaya#getTampilkanPerProdi()} menyala, atau dari
+	 * {@link DetailSettingBiaya#getDefaultTanggalDeadline()} bila setting memakai biaya
+	 * default; bila tidak satu pun cocok, nilai sebelumnya dipertahankan.</p>
+	 *
+	 * <p>Menjadi tenggat <b>cadangan terakhir</b> pada {@link #checkDenda} (setelah
+	 * {@link PengaturanPembayaranBulanan} dan {@link JadwalPembayaran}), tetapi justru menjadi
+	 * tenggat <b>pertama dan satu-satunya</b> pada {@link #checkDendaCicilan} ketika
+	 * {@code pengaturanPembayaranBulanan} kosong. Tenggat {@code null} berarti tidak ada denda
+	 * sama sekali &mdash; kedua mesin denda mensyaratkan tenggat terisi sebelum menghitung.</p>
+	 *
+	 * @return tenggat pembayaran bawaan; {@code null} bila tidak dapat diturunkan
+	 */
 	@Transient
 	public Date getDefaultTanggalDeadline() {
 		detailSettingBiaya = getDetailSettingBiaya();
@@ -1973,6 +2423,11 @@ public class DetailBiaya extends GeneralValueObject {
 		return defaultTanggalDeadline;
 	}
 
+	/**
+	 * Setter tenggat pembayaran bawaan (hanya di memori; tidak tersimpan).
+	 *
+	 * @param defaultTanggalDeadline tenggat pembayaran
+	 */
 	public void setDefaultTanggalDeadline(Date defaultTanggalDeadline) {
 		this.defaultTanggalDeadline = defaultTanggalDeadline;
 	}

@@ -1420,8 +1420,8 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 			if (prosesTransferId != null) {
 				kriteria.add(Restrictions.eq("prosesTransfer.id", prosesTransferId));
 			}
-			List<Long> ids = kriteria.setProjection(Projections.property("id")).list();
-			if (ids == null || ids.isEmpty()) {
+			List<DaftarPengajuanTransfer> daftar = kriteria.list();
+			if (daftar == null || daftar.isEmpty()) {
 				return 0;
 			}
 
@@ -1451,15 +1451,8 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 			int tersimpanDalamBatch = 0;
 			session = HibernateUtil.currentNativeSession();
 			session.getTransaction().begin();
-			for (Long id : ids) {
+			for (DaftarPengajuanTransfer dpt : daftar) {
 				try {
-					DaftarPengajuanTransfer dpt = (DaftarPengajuanTransfer) session
-							.createCriteria(DaftarPengajuanTransfer.class)
-							.createAlias("disposisiSop", "disposisiSop", Criteria.LEFT_JOIN)
-							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-							.add(Restrictions.or(Restrictions.isNull("disposisiSop.aktif"),
-									Restrictions.eq("disposisiSop.aktif", true)))
-							.add(Restrictions.idEq(id)).uniqueResult();
 					if (dpt == null) {
 						continue;
 					}
@@ -1541,7 +1534,6 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 					if (dipindaiDalamBatch >= ukuranBatch) {
 						session.getTransaction().commit();
 						n += tersimpanDalamBatch;
-						session.clear();
 						dipindaiDalamBatch = 0;
 						tersimpanDalamBatch = 0;
 						session = HibernateUtil.currentNativeSession();
@@ -1553,14 +1545,15 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 					} catch (Exception rollbackGagal) {
 						// kegagalan asli tetap menjadi diagnosis utama
 					}
-					session.clear();
 					// Seluruh dokumen sebelumnya di batch ini ikut rollback dan karena itu
 					// tidak dihitung sebagai sukses. Mereka tetap draft dan aman diulang.
 					dipindaiDalamBatch = 0;
 					tersimpanDalamBatch = 0;
 					ais.common.ErrorAuditUtil.record(e, "auto-audit PostingProsesTransferAction.postingSemua");
-					session = HibernateUtil.currentNativeSession();
-					session.getTransaction().begin();
+					// Session Hibernate menyimpan state entitas batch yang baru di-rollback;
+					// melanjutkannya berisiko mem-flush ulang state tersebut. Hentikan run dan
+					// biarkan dokumen yang belum ter-commit tetap draft untuk percobaan berikutnya.
+					throw new RuntimeException(e);
 				}
 			}
 			session.getTransaction().commit();

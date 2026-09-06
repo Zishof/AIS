@@ -2349,6 +2349,46 @@ public abstract class VOMahasiswa extends VoKunci {
 		return cicilanPembayarans;
 	}
 
+	/**
+	 * Menjumlahkan setoran pembayaran orang ini untuk sekumpulan kode item biaya, pada satu
+	 * semester atau satu tahap.
+	 *
+	 * <h4>Aturan tahap versus semester berlaku di seluruh keluarga {@code hitungTotalCicilan...}</h4>
+	 * <p>Setiap setoran yang lolos penyaringan kode diuji dengan dua cabang berurutan:</p>
+	 * <ol>
+	 * <li><b>Cabang tahap</b> — dipakai bila konfigurasi
+	 * {@code ConstantValues.aktifkanTahapanTerhubungKeKeuangan} menyala, {@code tahap} yang
+	 * diminta terisi dan lebih besar dari nol, tahap pada setoran terisi, dan keduanya sama.</li>
+	 * <li><b>Cabang semester</b> — dipakai bila cabang pertama tidak terpenuhi, dan semester
+	 * kegiatan pada setoran sama dengan {@code semester}.</li>
+	 * </ol>
+	 * <p><b>Kedua cabang bersifat "atau", bukan penyempitan berlapis.</b> Karena cabang semester
+	 * ditulis sebagai {@code else if}, setoran dari tahap yang <i>berbeda</i> tetap ikut
+	 * dijumlahkan selama semesternya cocok. Meminta tahap tertentu karenanya tidak mengecualikan
+	 * setoran tahap lain — ia hanya menambahkan satu cara agar setoran ikut terhitung. Bila
+	 * konfigurasi tahapan dimatikan, cabang pertama tidak pernah aktif dan perhitungan sepenuhnya
+	 * berbasis semester.</p>
+	 *
+	 * <h4>Penyaringan kode pada varian ini</h4>
+	 * <p>Kode item biaya diuji dengan {@code kodes.contains(...)} atas nilai apa adanya, sehingga
+	 * <b>peka huruf besar/kecil</b>. Bandingkan dengan
+	 * {@link #hitungTotalCicilanPembayaran(Integer, Boolean, Integer, String)} yang memakai
+	 * {@code equalsIgnoreCase}. Ketidakserasian ini berarti daftar kode yang bekerja pada satu
+	 * overload bisa gagal total pada yang lain; samakan huruf pada daftar yang diberikan.</p>
+	 *
+	 * <p>Setoran bernilai nol diabaikan lewat ambang 0,1; nilai negatif hasil pembalikan
+	 * pembayaran ikut dijumlahkan sehingga mengurangi total. Setiap setoran yang cocok mencetak
+	 * satu baris diagnostik ke keluaran standar. Kegagalan per elemen (relasi {@code null},
+	 * termasuk {@code semester} yang {@code null} pada cabang kedua) dicetak, dicatat ke audit,
+	 * lalu dilewati sehingga total tetap dikembalikan sebagian.</p>
+	 *
+	 * @param semester semester yang dihitung; dipakai pada cabang kedua
+	 * @param tahap    tahap yang dihitung; hanya berpengaruh bila konfigurasi tahapan menyala dan
+	 *                 nilainya lebih besar dari nol
+	 * @param kodes    daftar kode item biaya, peka huruf besar/kecil; {@code null} akan melempar
+	 *                 kesalahan yang lalu ditelan per elemen sehingga hasilnya 0,0
+	 * @return jumlah nilai setoran yang memenuhi kriteria; 0,0 bila tidak ada
+	 */
 	public Double hitungTotalCicilanPembayaran(Integer semester, Integer tahap, List<String> kodes) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;
@@ -2378,11 +2418,62 @@ public abstract class VOMahasiswa extends VoKunci {
 		return total;
 	}
 
+	/**
+	 * Menjumlahkan setoran pembayaran orang ini untuk <b>satu</b> kode item biaya, dengan opsi
+	 * mengabaikan batas semester maupun tahap.
+	 *
+	 * <p>Mengambil daftar setoran lewat {@link #ambilCicilan()} lalu meneruskan ke
+	 * {@link #hitungTotalCicilanPembayaran(Integer, Boolean, Integer, String, List)}. Bila
+	 * beberapa kode perlu dihitung untuk orang yang sama, ambil daftarnya sekali lalu panggil
+	 * varian berdaftar agar cache setoran tidak diambil ulang setiap kali — lihat catatan pada
+	 * {@link #ambilCicilan()}.</p>
+	 *
+	 * @param semester    semester yang dihitung
+	 * @param sekaliBayar {@code true} untuk menjumlahkan seluruh setoran kode ini tanpa memandang
+	 *                    semester maupun tahap
+	 * @param tahap       tahap yang dihitung
+	 * @param kode        kode item biaya; dibandingkan tanpa peka huruf besar/kecil
+	 * @return jumlah nilai setoran yang memenuhi kriteria; 0,0 bila tidak ada
+	 */
 	public Double hitungTotalCicilanPembayaran(Integer semester, Boolean sekaliBayar, Integer tahap, String kode) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		return hitungTotalCicilanPembayaran(semester, sekaliBayar, tahap, kode, cicilanPembayaransTemp);
 	}
 
+	/**
+	 * Menjumlahkan setoran untuk satu kode item biaya atas daftar yang sudah dipegang pemanggil.
+	 *
+	 * <p>Varian dengan penyaringan paling longgar di keluarga ini karena adanya bendera
+	 * {@code sekaliBayar}, yang diperiksa <b>sebelum</b> cabang tahap dan cabang semester:</p>
+	 * <ol>
+	 * <li><b>{@code sekaliBayar} bernilai benar</b> — seluruh setoran berkode ini dijumlahkan apa
+	 * adanya, tanpa memandang semester maupun tahap. Dipakai untuk biaya yang memang hanya
+	 * ditagihkan sekali sepanjang masa studi (mis. biaya pembangunan), sehingga setoran yang
+	 * dicatat pada semester mana pun tetap dianggap membayar tagihan yang sama.</li>
+	 * <li><b>Cabang tahap</b> — sama seperti pada
+	 * {@link #hitungTotalCicilanPembayaran(Integer, Integer, List)}.</li>
+	 * <li><b>Cabang semester</b> — sama seperti di atas.</li>
+	 * </ol>
+	 *
+	 * <p><b>{@code sekaliBayar} tidak boleh {@code null}.</b> Nilainya dipakai langsung sebagai
+	 * kondisi {@code if}, sehingga {@link Boolean} bernilai {@code null} memicu
+	 * {@link NullPointerException} saat dibuka bungkusnya. Kesalahan itu ditelan oleh penangkap
+	 * per elemen dan hanya membuat setoran tersebut dilewati, sehingga gejalanya bukan kegagalan
+	 * melainkan <b>total yang diam-diam bernilai 0,0</b> — jauh lebih sulit ditelusuri. Selalu
+	 * kirim {@link Boolean#TRUE} atau {@link Boolean#FALSE}.</p>
+	 *
+	 * <p>Kode dibandingkan dengan {@code equalsIgnoreCase}, berbeda dari varian berdaftar kode
+	 * yang peka huruf besar/kecil. Ambang 0,1 untuk nilai bukan nol dan perlakuan nilai negatif
+	 * sama dengan seluruh keluarga ini.</p>
+	 *
+	 * @param semester               semester yang dihitung
+	 * @param sekaliBayar            {@code true} untuk mengabaikan semester dan tahap; tidak boleh
+	 *                               {@code null}
+	 * @param tahap                  tahap yang dihitung
+	 * @param kode                   kode item biaya, tidak peka huruf besar/kecil
+	 * @param cicilanPembayaransTemp daftar setoran yang dijumlahkan
+	 * @return jumlah nilai setoran yang memenuhi kriteria; 0,0 bila tidak ada
+	 */
 	public Double hitungTotalCicilanPembayaran(Integer semester, Boolean sekaliBayar, Integer tahap, String kode,
 			List<CicilanPembayaran> cicilanPembayaransTemp) {
 
@@ -2411,6 +2502,31 @@ public abstract class VOMahasiswa extends VoKunci {
 		return total;
 	}
 
+	/**
+	 * Menjumlahkan setoran yang jenis kegiatannya ditandai <b>dipakai untuk pengecekan KRS</b>.
+	 *
+	 * <p>Berbeda dari saudara-saudaranya yang menyaring berdasarkan kode item biaya, varian ini
+	 * menyaring di tingkat {@link JenisKegiatan} lewat penanda
+	 * {@code getDigunakanUntukPengecekanKrs()}. Penanda itulah yang menentukan tagihan mana yang
+	 * harus lunas sebelum mahasiswa boleh mengisi kartu rencana studi, sehingga daftar jenis
+	 * kegiatan yang ikut dihitung dikelola dari master — bukan dari kode yang ditanam di
+	 * program.</p>
+	 *
+	 * <p>Aturan tahap versus semester sama persis dengan
+	 * {@link #hitungTotalCicilanPembayaran(Integer, Integer, List)}, termasuk sifatnya yang "atau"
+	 * sehingga setoran dari tahap lain tetap terhitung bila semesternya cocok.</p>
+	 *
+	 * <p>Rantai pembacaan {@code cicilanPembayaran.getKegiatan().getJenisKegiatan()
+	 * .getDigunakanUntukPengecekanKrs()} dilakukan tanpa pemeriksaan {@code null} bertingkat;
+	 * kegagalannya ditelan oleh penangkap per elemen dan dicatat ke audit. Akibatnya setoran yang
+	 * jenis kegiatannya belum tertaut hanya dilewati — jumlahnya menjadi lebih kecil tanpa ada
+	 * peringatan kepada pengguna, yang pada konteks ini berarti mahasiswa dapat terlihat belum
+	 * memenuhi syarat KRS karena data master yang tidak lengkap.</p>
+	 *
+	 * @param semester semester yang dihitung
+	 * @param tahap    tahap yang dihitung; hanya berpengaruh bila konfigurasi tahapan menyala
+	 * @return jumlah setoran atas jenis kegiatan penentu KRS; 0,0 bila tidak ada
+	 */
 	public Double hitungTotalCicilanPembayaranPengecekanKrs(Integer semester, Integer tahap) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;
@@ -2434,6 +2550,26 @@ public abstract class VOMahasiswa extends VoKunci {
 		return total;
 	}
 
+	/**
+	 * Menjumlahkan setoran pembayaran orang ini untuk satu {@link JenisKegiatan} tertentu.
+	 *
+	 * <p>Penyaringannya di tingkat jenis kegiatan — id jenis kegiatan pada kegiatan setoran harus
+	 * sama dengan yang diminta — bukan di tingkat kode item biaya seperti sebagian saudaranya.
+	 * Aturan tahap versus semester sama persis dengan keluarga ini, termasuk sifatnya yang "atau".</p>
+	 *
+	 * <p>Rantai {@code getKegiatan().getJenisKegiatan().getId()} dibaca tanpa pemeriksaan
+	 * {@code null}, demikian pula {@code jenisKegiatan.getId()}; kegagalannya ditelan per elemen
+	 * dan dicatat ke audit sehingga setoran yang bersangkutan hanya dilewati. Memanggil method ini
+	 * dengan {@code jenisKegiatan} bernilai {@code null} tidak melempar, melainkan menghasilkan
+	 * 0,0 secara diam-diam.</p>
+	 *
+	 * <p>Daftar sumber diambil lewat {@link #ambilCicilan()} tanpa {@code refresh}.</p>
+	 *
+	 * @param semester      semester yang dihitung
+	 * @param tahap         tahap yang dihitung
+	 * @param jenisKegiatan jenis kegiatan penyaring; {@code null} menghasilkan 0,0
+	 * @return jumlah nilai setoran yang memenuhi kriteria; 0,0 bila tidak ada
+	 */
 	public Double hitungTotalCicilanPembayaran(Integer semester, Integer tahap, JenisKegiatan jenisKegiatan) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;

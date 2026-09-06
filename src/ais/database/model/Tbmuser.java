@@ -2495,11 +2495,17 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	 *
 	 * <h3>Urutan aturan (yang lebih awal menang)</h3>
 	 * <ol>
-	 *   <li><b>Anggota koperasi &mdash; jalur pintas dengan {@code return} langsung.</b>
-	 *   Bila {@link #getAnggotaKoperasi()} terisi, hasilnya adalah
-	 *   {@code anggotaKoperasi.getAktif()} dan method <b>berhenti di situ</b>.</li>
-	 *   <li><b>Pedagang &mdash; jalur pintas dengan {@code return} langsung.</b> Sama
-	 *   polanya, memakai {@code pedagang.getAktif()}.</li>
+	 *   <li><b>Veto oleh {@code Tbmuser} sendiri.</b> Bila kolom {@code aktif} milik baris
+	 *   {@code tbmuser} ini sendiri bernilai {@code false} secara eksplisit (bukan
+	 *   {@code null}, dan bukan sisa tulis-balik dari aturan 2/3 pada panggilan
+	 *   sebelumnya &mdash; lihat {@link #aktifTurunanRelasi}), akun ini <b>diblokir
+	 *   tanpa syarat</b>, termasuk bila entitas koperasi/pedagang tertautnya masih
+	 *   aktif. {@code null} tetap dianggap "tidak memveto" (default mengizinkan).</li>
+	 *   <li><b>Anggota koperasi.</b> Bila {@link #getAnggotaKoperasi()} terisi dan tidak
+	 *   diveto oleh aturan 1, hasilnya mengikuti {@code anggotaKoperasi.getAktif()} dan
+	 *   method <b>berhenti di situ</b>.</li>
+	 *   <li><b>Pedagang.</b> Sama polanya dengan aturan 2, memakai
+	 *   {@code pedagang.getAktif()} bila tidak diveto oleh aturan 1.</li>
 	 *   <li>Bila field {@code aktif} sendiri {@code null}, ia diisi {@code true}
 	 *   (<b>default mengizinkan</b>).</li>
 	 *   <li><b>Akun demo.</b> Saklar {@code ConstantValues.aktifkan_akun_demo} memaksa akun
@@ -2518,15 +2524,16 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	 * </ol>
 	 *
 	 * <h3>Catatan penting bagi yang menonaktifkan akun</h3>
-	 * <p>Aturan 1 dan 2 adalah <b>jalur pintas ber-{@code return} yang dievaluasi paling
-	 * awal</b>, yaitu sebelum field {@code aktif} milik {@code Tbmuser} sendiri ikut
-	 * dipertimbangkan. Artinya, untuk akun yang tertaut ke {@code AnggotaKoperasi} atau
-	 * {@code Pedagang}, <b>mencentang non-aktif pada layar pengguna ({@code TbmuserAction})
-	 * tidak tercermin pada hasil method ini</b> &mdash; status keaktifannya sepenuhnya
-	 * mengikuti baris koperasi/pedagang. Untuk memblokir akun semacam itu, non-aktifkan
-	 * entitas koperasi/pedagangnya, bukan (hanya) akun penggunanya. Perlu dicatat bahwa
-	 * jalur login sosial di {@code FilterLoginAis} sebagian teredam karena kueri
-	 * pemuatannya sudah menyaring kolom {@code aktif} di tingkat database, sedangkan jalur
+	 * <p>Sebelum diperbaiki, aturan koperasi/pedagang dievaluasi <b>sebelum</b> field
+	 * {@code aktif} milik {@code Tbmuser} sendiri ikut dipertimbangkan, sehingga
+	 * mencentang non-aktif pada layar pengguna ({@code TbmuserAction}) tidak berpengaruh
+	 * sama sekali untuk akun bertaut koperasi/pedagang. Sekarang veto aturan 1 dijalankan
+	 * lebih dulu: menonaktifkan {@code Tbmuser} sendiri <b>selalu</b> memblokir akun,
+	 * sedangkan menonaktifkan entitas koperasi/pedagangnya <b>tetap</b> memblokir akun
+	 * meski {@code Tbmuser}-nya sendiri diset aktif &mdash; blokir bersifat gabungan
+	 * (OR), bukan salah satu mengambil alih yang lain. Perlu dicatat bahwa jalur login
+	 * sosial di {@code FilterLoginAis} sebagian teredam karena kueri pemuatannya sudah
+	 * menyaring kolom {@code aktif} di tingkat database, sedangkan jalur
 	 * {@code UserDetailsServiceImpl} menghitung {@code enabled} sepenuhnya di memori lewat
 	 * method ini.</p>
 	 *
@@ -2534,30 +2541,47 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	 * cabang dan me-resolve enam relasi ({@code anggotaKoperasi}, {@code pedagang},
 	 * {@code orangTua}, {@code userRole}, {@code dosen}, {@code guru}, {@code pegawai}),
 	 * sehingga sekadar membacanya dapat mengubah keadaan object dan memicu
-	 * {@code UPDATE}/revisi Envers.</p>
+	 * {@code UPDATE}/revisi Envers. Field transien {@link #aktifTurunanRelasi} dipakai
+	 * untuk membedakan tulis-balik itu dari nilai kolom {@code aktif} yang genuinely
+	 * berasal dari {@code Tbmuser} sendiri; lihat javadoc field tersebut.</p>
 	 *
-	 * <p><b>Ketergantungan pada resolusi peran.</b> Aturan 5 dan 6 memakai
+	 * <p><b>Ketergantungan pada resolusi peran.</b> Aturan 6 dan 7 memakai
 	 * {@link #ambilRolesId()} yang bermuara pada {@link #getUserRole()}. Bila resolusi peran
 	 * sedang anomali (lihat {@link #hakAkses()}), aturan-aturan itu tidak terpicu dan akun
 	 * yang seharusnya dinonaktifkan dapat tampak aktif.</p>
 	 *
 	 * @return {@code true} bila akun boleh dipakai masuk; tidak pernah {@code null} setelah
-	 *         aturan 3 dijalankan, namun cabang 1 dan 2 dapat meneruskan {@code null} dari
-	 *         entitas tertaut
+	 *         aturan 4 dijalankan, namun cabang 2 dan 3 dapat meneruskan {@code null} dari
+	 *         entitas tertaut bila tidak diveto oleh aturan 1
 	 * @see #setAktif(Boolean)
 	 * @see #getUserShow()
+	 * @see #aktifTurunanRelasi
 	 */
 	public Boolean getAktif() {
 
+		boolean vetoOlehTbmuserSendiri = !aktifTurunanRelasi && Boolean.FALSE.equals(aktif);
+
 		if (getAnggotaKoperasi() != null) {
+			if (vetoOlehTbmuserSendiri) {
+				aktif = false;
+				return aktif;
+			}
 			aktif = getAnggotaKoperasi().getAktif();
+			aktifTurunanRelasi = true;
 			return aktif;
 		}
 
 		if (getPedagang() != null) {
+			if (vetoOlehTbmuserSendiri) {
+				aktif = false;
+				return aktif;
+			}
 			aktif = getPedagang().getAktif();
+			aktifTurunanRelasi = true;
 			return aktif;
 		}
+
+		aktifTurunanRelasi = false;
 
 		if (aktif == null) {
 			aktif = true;
@@ -2607,17 +2631,24 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	/**
 	 * Menetapkan status aktif akun (mencentang/melepas centang "Aktif" pada layar pengguna).
 	 *
-	 * <p>Setter mentah dua arah. <b>Perlu diingat bahwa nilai yang ditetapkan di sini dapat
-	 * tidak berpengaruh sama sekali</b> pada hasil {@link #getAktif()}: untuk akun yang
-	 * tertaut ke {@code AnggotaKoperasi} atau {@code Pedagang}, getter berhenti lebih awal
-	 * dan mengembalikan status entitas tersebut; sedangkan untuk akun dosen/guru/pegawai,
-	 * beberapa aturan turunan dapat memaksanya menjadi {@code false}. Baca
-	 * {@link #getAktif()} sebelum mengandalkan setter ini sebagai mekanisme blokir.</p>
+	 * <p>Setter mentah dua arah. Sejak perbaikan veto pada {@link #getAktif()}, nilai
+	 * {@code false} yang ditetapkan di sini <b>selalu</b> memblokir akun (termasuk untuk
+	 * akun yang tertaut ke {@code AnggotaKoperasi} atau {@code Pedagang}); namun bila akun
+	 * tersebut disetel <b>aktif</b> di sini, ia tetap dapat diblokir oleh entitas
+	 * koperasi/pedagang tertaut yang non-aktif, atau oleh beberapa aturan turunan
+	 * dosen/guru/pegawai. Baca {@link #getAktif()} untuk urutan aturan lengkapnya.</p>
+	 *
+	 * <p>Setiap pemanggilan menandai nilai yang ditetapkan sebagai milik {@code Tbmuser}
+	 * sendiri (mereset {@link #aktifTurunanRelasi} ke {@code false}), termasuk saat
+	 * dipanggil Hibernate ketika memuat entity dari database &mdash; ini yang membuat
+	 * veto pada {@link #getAktif()} dapat membedakannya dari tulis-balik internal getter
+	 * itu sendiri.</p>
 	 *
 	 * @param aktif {@code true} untuk mengaktifkan akun
 	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
+		this.aktifTurunanRelasi = false;
 	}
 
 	/**
@@ -4610,15 +4641,62 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return Boolean.TRUE.equals(aktif.getBolehEntryTopup());
 	}
 
+	/**
+	 * Mengembalikan data penduduk (modul SISDES) pemilik akun ini.
+	 *
+	 * <p>Relasi {@code @Transient} tanpa kolom kunci asing dan tanpa
+	 * {@link GeneralValueObject#check(Object) check(...)} &mdash; getter paling polos di
+	 * kelas ini. Nilainya hanya hidup di memori dan diisi konstruktor konversi
+	 * {@link #Tbmuser(GeneralValueObject)} atau setter.</p>
+	 *
+	 * <p>Meski sederhana, relasi ini berpengaruh luas: ia menjadi sumber prioritas tertinggi
+	 * pada {@link #toString()} dan {@link #getToken()}, sumber sandi pada
+	 * {@link #getUserPassword()}, serta penentu peran {@code ConstantValues.tbmrolePenduduk}
+	 * pada {@link #getUserRole()}. Perlu dicatat bahwa {@link Penduduk} juga merupakan
+	 * <b>jenis aktor login tersendiri</b> yang berautentikasi langsung ke tabelnya sendiri
+	 * (lihat dokumentasi kelas), sehingga tidak semua penduduk punya baris
+	 * {@code Tbmuser}.</p>
+	 *
+	 * @return data penduduk, atau {@code null}
+	 */
 	@Transient
 	public Penduduk getPenduduk() {
 		return penduduk;
 	}
 
+	/**
+	 * Menetapkan data penduduk (modul SISDES) pemilik akun.
+	 *
+	 * <p>Karena relasinya {@code @Transient}, nilai ini tidak tersimpan ke database.</p>
+	 *
+	 * @param penduduk data penduduk; boleh {@code null}
+	 * @see #getPenduduk()
+	 */
 	public void setPenduduk(Penduduk penduduk) {
 		this.penduduk = penduduk;
 	}
 
+	/**
+	 * Mengembalikan keanggotaan koperasi pemilik akun ini.
+	 *
+	 * <p>Getter relasi baku (hanya {@code check(...)}), tetapi <b>relasi ini punya pengaruh
+	 * terbesar di antara seluruh relasi di kelas ini</b>. Bila terisi, ia:</p>
+	 * <ul>
+	 *   <li><b>mengambil alih {@link #getAktif()}</b> lewat jalur pintas ber-{@code return}
+	 *   yang dievaluasi paling awal, sehingga status keaktifan akun sepenuhnya mengikuti
+	 *   baris koperasi &mdash; baca peringatan lengkapnya di {@link #getAktif()};</li>
+	 *   <li><b>mengambil alih {@link #getUserPassword()}</b>, dengan sandi koperasi
+	 *   dienkripsi DES saat itu juga;</li>
+	 *   <li>menjadi sumber turunan bagi {@link #getUserId()}, {@link #getUserNama()},
+	 *   {@link #getEmail()}, {@link #getHp()}, {@link #getMahasiswa()},
+	 *   {@link #getSiswa()}, {@link #getDosen()}, {@link #getGuru()}, dan
+	 *   {@link #getPegawai()}.</li>
+	 * </ul>
+	 * <p>Karena itu menautkan atau melepas keanggotaan koperasi mengubah perilaku akun jauh
+	 * melampaui modul koperasi itu sendiri.</p>
+	 *
+	 * @return data keanggotaan koperasi, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "anggota_koperasi", nullable = true)
 	public AnggotaKoperasi getAnggotaKoperasi() {
@@ -4626,21 +4704,90 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return anggotaKoperasi;
 	}
 
+	/**
+	 * Menetapkan keanggotaan koperasi pemilik akun.
+	 *
+	 * <p><b>Perubahan berdampak luas:</b> lihat daftar getter yang perilakunya ikut berubah
+	 * pada {@link #getAnggotaKoperasi()} &mdash; termasuk status aktif dan kata sandi
+	 * akun.</p>
+	 *
+	 * @param anggotaKoperasi data keanggotaan koperasi; boleh {@code null}
+	 */
 	public void setAnggotaKoperasi(AnggotaKoperasi anggotaKoperasi) {
 		this.anggotaKoperasi = anggotaKoperasi;
 	}
 
+	/**
+	 * Waktu terakhir kata sandi diubah. Perhatikan ejaan field yang kurang satu huruf
+	 * ({@code ubahPasword}, bukan {@code ubahPassword}) &mdash; dipertahankan agar pemetaan
+	 * kolom yang sudah ada tidak berubah.
+	 */
 	private Date ubahPasword;
 
+	/**
+	 * Mengembalikan waktu terakhir kata sandi akun diubah.
+	 *
+	 * <p>Dipakai untuk kebijakan seperti memaksa penggantian sandi berkala atau menandai
+	 * akun yang sandinya belum pernah diganti sejak dibuatkan. Getter murni tanpa efek
+	 * samping.</p>
+	 *
+	 * <p><b>Tidak diisi otomatis.</b> {@link #setUserPassword(String)} tidak menyentuhnya,
+	 * sehingga nilainya hanya benar bila setiap alur penggantian sandi memanggil
+	 * {@link #setUbahPasword(Date)} sendiri. Nilai {@code null} karenanya ambigu: bisa
+	 * berarti "belum pernah diganti", bisa juga "diganti lewat jalur yang lupa
+	 * mencatatnya".</p>
+	 *
+	 * @return waktu penggantian sandi terakhir, atau {@code null}
+	 * @see #getUserPassword()
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getUbahPasword() {
 		return ubahPasword;
 	}
 
+	/**
+	 * Menetapkan waktu penggantian kata sandi terakhir.
+	 *
+	 * <p>Harus dipanggil secara eksplisit oleh setiap alur yang mengubah sandi &mdash;
+	 * tidak ada mekanisme otomatis yang melakukannya.</p>
+	 *
+	 * @param ubahPasword waktu penggantian sandi
+	 * @see #getUbahPasword()
+	 */
 	public void setUbahPasword(Date ubahPasword) {
 		this.ubahPasword = ubahPasword;
 	}
 
+	/**
+	 * Mengembalikan perguruan tinggi yang melekat pada akun ini.
+	 *
+	 * <p>Lingkup organisasi tingkat tertinggi pada jenjang pendidikan tinggi; dipakai
+	 * memisahkan data antar-institusi pada instalasi multi-perguruan-tinggi. Berbeda dari
+	 * lingkup akademik lain, relasi ini <b>tidak punya varian {@code ambilPerguruanTinggi()}</b>
+	 * sehingga tidak dapat ditimpa lewat {@link Tbmrole}.</p>
+	 *
+	 * <h3>Urutan penurunan</h3>
+	 * <ol>
+	 *   <li>rantai {@code Mahasiswa → Jurusan → Fakultas → PerguruanTinggi};</li>
+	 *   <li>{@code getFakultas().getPerguruanTinggi()};</li>
+	 *   <li>bila akun ternyata milik siswa, hasilnya dipaksa {@code null} (jenjang sekolah
+	 *   tidak bernaung di bawah perguruan tinggi);</li>
+	 *   <li>selain itu kolom {@code perguruan_tinggi} tersimpan yang dipakai.</li>
+	 * </ol>
+	 *
+	 * <p>Seperti tercatat pada komentar di dalam badan method, setiap simpul rantai diambil
+	 * <b>sekali</b> ke variabel lokal dan diperiksa {@code null} pada setiap loncatan
+	 * &mdash; bukan dengan memanggil getter berulang &mdash; untuk mencegah
+	 * {@code NullPointerException} bila salah satu simpul kosong di tengah rantai, tanpa
+	 * mengubah urutan prioritas.</p>
+	 *
+	 * <p>Seluruh blok dibungkus {@code try/catch} yang menelan
+	 * {@code LazyInitializationException} maupun {@code NullPointerException} (kasus lazim:
+	 * pengguna PMB yang belum punya perguruan tinggi); pada kegagalan, nilai hasil
+	 * {@code check(...)} di awal yang dikembalikan.</p>
+	 *
+	 * @return perguruan tinggi akun, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "perguruan_tinggi", nullable = true)
 	public PerguruanTinggi getPerguruanTinggi() {

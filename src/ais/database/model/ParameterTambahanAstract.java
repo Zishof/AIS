@@ -2126,6 +2126,49 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		return component;
 	}
 
+	/**
+	 * Membangun komponen untuk ketujuh tipe PEMILIH ENTITY khusus yang terdaftar di
+	 * {@link #CUSTOM_PILIHAN} (mahasiswa, siswa, dosen, guru, pegawai, penyedia, kelas siswa).
+	 *
+	 * <p>Dipisahkan dari {@link #ambilComponent(String, ParameterTambahan, EventListener, boolean)} karena
+	 * ketujuhnya berbagi satu pola yang seragam namun berbeda dari tipe lain: masing-masing memakai widget
+	 * banbox pencari khusus modulnya ({@code AmbilDataSiswaBanbox}, {@code AmbilDataPegawaiBanbox}, dan
+	 * seterusnya) yang sudah membawa layar pencarian dan penyaringannya sendiri.</p>
+	 *
+	 * <p><b>Nilai masuk dipotong pada {@code "->"} lebih dulu.</b> Nilai tersimpan berbentuk gabungan
+	 * {@code "<id>-><label>"}; hanya bagian id yang dipakai memuat ulang objeknya, sedangkan label yang
+	 * ikut tersimpan diabaikan di sini karena teks tampilan dibangun ulang dari objek yang segar. Bagian id
+	 * masih diperiksa {@code Common.isNumber} sehingga nilai lama yang bukan angka menghasilkan objek
+	 * {@code null} alih-alih melempar galat.</p>
+	 *
+	 * <p><b>Setiap komponen membawa DUA atribut untuk objek yang sama:</b> satu bernama sesuai jenisnya
+	 * ({@code "mahasiswa"}, {@code "siswa"}, {@code "penyediaAsset"}, dan seterusnya) dan satu lagi
+	 * {@code "myValue"} yang seragam. Yang bernama sesuai jenis itulah yang dibaca kembali
+	 * {@link #ambilValComponent(Component, ParameterTambahan)} dan — untuk penyedia — oleh
+	 * {@link #isiOtomatisParameterTerkaitPenyedia(ParameterTambahan, Component, java.util.List)};
+	 * {@code "myValue"} disediakan bagi kode generik yang tidak ingin tahu jenisnya.</p>
+	 *
+	 * <p><b>Teks tampilan tiap jenis berbeda susunannya</b> — mahasiswa memakai {@code "<nim>-<nama>"},
+	 * siswa {@code "<nomor induk nasional>-<nama>"}, guru dan pegawai {@code "<nim>-<nama>"}, sedangkan
+	 * dosen dan penyedia hanya {@code "<nama>"}. Perlu dicatat susunan ini TIDAK selalu sama dengan yang
+	 * kelak DISIMPAN oleh {@code ambilValComponent} (yang mis. memakai NIDN untuk dosen dan kode untuk
+	 * guru), jadi teks yang tampak di layar tidak dapat diandalkan sebagai cerminan isi yang tersimpan.</p>
+	 *
+	 * <p><b>Tidak pernah mengembalikan {@code null}.</b> Berbeda dari {@code ambilComponent}, variabel
+	 * hasilnya diinisialisasi dengan {@code Label} kosong, sehingga tipe yang tidak cocok dengan satu pun
+	 * cabang menghasilkan label kosong — bukan {@code null}. Akibatnya {@code initComponent} akan
+	 * menganggap baris itu PUNYA komponen dan tetap membangun baris keterangan serta lampirannya. Pada
+	 * praktiknya hal ini tidak terjadi karena pemanggilnya sudah menyaring lewat
+	 * {@link #CUSTOM_PILIHAN}.</p>
+	 *
+	 * @param val               nilai tersimpan berbentuk {@code "<id>-><label>"} atau id saja; boleh
+	 *                          {@code null}.
+	 * @param parameterTambahan definisi parameter; tipenya menentukan banbox yang dipakai.
+	 * @param eventListener     pendengar yang dipasang lewat {@code setEventListener} banbox; boleh
+	 *                          {@code null}.
+	 * @return komponen banbox pemilih, atau {@code Label} kosong bila tipenya tidak cocok. Tidak pernah
+	 *         {@code null}.
+	 */
 	public static Component ambilComponentCustom(String val, ParameterTambahan parameterTambahan,
 			EventListener eventListener) {
 		if (val != null && val.contains("->")) {
@@ -2219,11 +2262,47 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		return component;
 	}
 
+	/**
+	 * Pintasan {@link #ambilVal(Row, ParameterTambahan, String)} dengan nama atribut komponen BAKU
+	 * {@code "component"} — pasangan dari pintasan {@code initComponent} yang juga memakai nama itu.
+	 *
+	 * @param row               baris parameter yang akan dibaca; boleh {@code null} (menghasilkan string
+	 *                          kosong).
+	 * @param parameterTambahan definisi parameter; menentukan cara nilainya diformat.
+	 * @return nilai siap simpan; tidak pernah {@code null}.
+	 */
 	public static String ambilVal(Row row, ParameterTambahan parameterTambahan) {
 		String componentData = "component";
 		return ambilVal(row, parameterTambahan, componentData);
 	}
 
+	/**
+	 * Membaca nilai siap simpan dari sebuah BARIS parameter.
+	 *
+	 * <p>Jalur utamanya sederhana: komponen diambil dari atribut baris bernama {@code componentData} —
+	 * atribut yang dipasang {@link #initComponent(Row, Rows, String, java.util.List, java.util.Map, Long,
+	 * String, String, ParameterTambahan, EventListener, boolean, String)} — lalu diserahkan ke
+	 * {@link #ambilValComponent(Component, ParameterTambahan)}. Karena itu nama atribut yang dipakai saat
+	 * MEMBACA harus sama persis dengan yang dipakai saat MEMBANGUN.</p>
+	 *
+	 * <p><b>Jalur cadangan berbasis posisi anak.</b> Bila atribut itu tidak ada, komponen dicari pada
+	 * indeks 1 dari anak-anak baris, mengikuti susunan baku satu baris parameter: indeks 0 adalah
+	 * {@code Label} judul, indeks 1 adalah komponen masukan. Jumlah anak diperiksa lebih dulu, dan bila
+	 * kurang dari dua baris itu diperlakukan sebagai bernilai KOSONG secara wajar — bukan sebagai galat.
+	 * Rinciannya, termasuk sejarah kenapa pemeriksaan ini menggantikan penangkapan
+	 * {@code IndexOutOfBoundsException} sebagai kendali alur, terdokumentasi pada komentar di dalam badan
+	 * method.</p>
+	 *
+	 * <p>Toleransi itu memang diperlukan: {@code initComponent} mendaftarkan baris ke {@code parameterRows}
+	 * TANPA SYARAT, termasuk baris bertipe {@link #TIDAK_ADA} yang memang tidak punya komponen isian sama
+	 * sekali.</p>
+	 *
+	 * @param row               baris parameter; {@code null} menghasilkan string kosong.
+	 * @param parameterTambahan definisi parameter; menentukan cara nilainya diformat.
+	 * @param componentData     nama atribut tempat komponen dititipkan pada {@code row}.
+	 * @return nilai siap simpan; tidak pernah {@code null}.
+	 * @see #ambilValComponent(Component, ParameterTambahan)
+	 */
 	public static String ambilVal(Row row, ParameterTambahan parameterTambahan, String componentData) {
 		if (row == null) {
 			return "";
@@ -2273,6 +2352,18 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 	 * terganggu. {@code getRawText()} mengembalikan nilai apa adanya dari klien tanpa validasi,
 	 * jadi dipakai lebih dulu; {@code getText()} hanya sebagai cadangan (dibungkus try-catch),
 	 * dan bila semuanya gagal hasilnya null yang diartikan "tidak ada nilai".</p>
+	 *
+	 * <p><b>Urutan percobaannya ada TIGA, bukan dua.</b> {@code getRawText()} dicoba lebih dulu, lalu
+	 * {@code getRawValue()} sebagai lapis kedua (nilai sisi server yang belum tentu berupa teks, karena itu
+	 * diubah lewat {@code toString()}), baru {@code getText()} sebagai upaya terakhir. Ketiganya dibungkus
+	 * {@code try/catch} tersendiri yang mencatat ke {@code ErrorAuditUtil}, sehingga kegagalan satu lapis
+	 * tidak menghalangi lapis berikutnya.</p>
+	 *
+	 * @param inputElement komponen masukan yang dibaca; {@code null} menghasilkan {@code null}.
+	 * @return teks mentah apa adanya, atau {@code null} bila ketiga cara gagal — yang oleh pemanggil
+	 *         diartikan "tidak ada nilai".
+	 * @see #ambilAngkaPertamaAman(String)
+	 * @see #parseTanggalAman(String, java.text.DateFormat)
 	 */
 	private static String ambilTeksMentahAman(org.zkoss.zul.impl.InputElement inputElement) {
 		if (inputElement == null) {
@@ -2305,6 +2396,26 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		return null;
 	}
 
+	/**
+	 * Mengambil angka PERTAMA yang muncul di dalam sebuah teks bebas.
+	 *
+	 * <p>Dipakai sebagai jalur PEMULIHAN ketika {@code Doublebox.getValue()} melempar
+	 * {@code WrongValueException} karena isi komponen bukan angka murni — lazimnya nilai warisan yang dulu
+	 * disimpan sebagai teks bebas (mis. {@code "4 orang"}) sebelum parameternya diubah menjadi bertipe
+	 * angka. Alih-alih menggagalkan seluruh penyimpanan, angka yang bisa diselamatkan diambil.</p>
+	 *
+	 * <p>Pola yang dicari adalah {@code ([+-]?[0-9]+([.,][0-9]+)?)}, dan koma diperlakukan sebagai titik
+	 * desimal sehingga {@code "3,5"} terbaca {@code 3.5}. Perlu disadari konsekuensinya: teks yang memakai
+	 * koma sebagai pemisah RIBUAN akan salah terbaca — {@code "1,500"} menjadi {@code 1.5}, bukan
+	 * {@code 1500}. Ini pertukaran yang disengaja karena penulisan desimal berkoma jauh lebih lazim pada
+	 * data isian berbahasa Indonesia.</p>
+	 *
+	 * <p>Hanya kecocokan PERTAMA yang dipakai, jadi {@code "antara 10 sampai 20"} menghasilkan {@code 10}.</p>
+	 *
+	 * @param raw teks mentah; {@code null} atau kosong menghasilkan {@code null}.
+	 * @return angka pertama yang ditemukan, atau {@code null} bila tidak ada angka sama sekali maupun bila
+	 *         penguraiannya gagal.
+	 */
 	private static Double ambilAngkaPertamaAman(String raw) {
 		if (raw == null || raw.trim().length() == 0) {
 			return null;
@@ -2320,6 +2431,23 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mengurai tanggal dengan format tertentu TANPA pernah melempar exception.
+	 *
+	 * <p>Pembungkus tipis atas {@code DateFormat.parse} yang mengubah setiap kegagalan menjadi
+	 * {@code null}. Dipakai pada jalur PEMULIHAN {@link #ambilValComponent(Component, ParameterTambahan)}:
+	 * ketika {@code Datebox.getValue()} melempar {@code WrongValueException}, teks mentahnya dibaca lewat
+	 * {@link #ambilTeksMentahAman(org.zkoss.zul.impl.InputElement)} lalu diurai di sini. Karena jalur itu
+	 * memang sedang menangani galat, ia tidak boleh ikut melempar galat baru.</p>
+	 *
+	 * <p>Perlu dicatat {@code format} dipakai apa adanya, TERMASUK sifat lenient bawaannya — sebuah
+	 * {@code SimpleDateFormat} yang lenient akan menerima tanggal mustahil seperti bulan ke-13 dan
+	 * menggulungnya ke tahun berikutnya alih-alih menolaknya.</p>
+	 *
+	 * @param raw    teks tanggal; {@code null} atau kosong menghasilkan {@code null}.
+	 * @param format pengurai yang dipakai; {@code null} menghasilkan {@code null}.
+	 * @return tanggal hasil penguraian, atau {@code null} bila gagal.
+	 */
 	private static Date parseTanggalAman(String raw, java.text.DateFormat format) {
 		if (raw == null || raw.trim().length() == 0 || format == null) {
 			return null;
@@ -2331,6 +2459,24 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mengurai tanggal-dan-waktu dengan MENCOBA beberapa format secara berurutan.
+	 *
+	 * <p>Urutan percobaannya: format baku aplikasi {@code Common.dateFormat} lebih dulu, lalu dua pola ISO
+	 * {@code "yyyy-MM-dd'T'HH:mm"} dan {@code "yyyy-MM-dd'T'HH:mm:ss"}. Kedua pola ISO itu ada karena
+	 * kontrol HTML {@code datetime-local} mengirimkan nilainya dalam bentuk tersebut, sehingga isian yang
+	 * datang dari halaman non-ZK tetap terbaca.</p>
+	 *
+	 * <p>Pola ISO diurai dengan {@code setLenient(false)} sehingga tanggal mustahil ditolak alih-alih
+	 * digulung — berbeda dari percobaan pertama yang mewarisi sifat lenient format baku aplikasi.</p>
+	 *
+	 * <p>Dipakai saat MEMBANGUN komponen {@link #TANGGAL_DAN_WAKTU}, bukan hanya saat memulihkan galat,
+	 * sehingga nilai lama yang tersimpan dalam salah satu bentuk ISO tetap tampil dengan benar.</p>
+	 *
+	 * @param raw teks tanggal-dan-waktu; {@code null} atau kosong menghasilkan {@code null}.
+	 * @return tanggal-dan-waktu hasil penguraian, atau {@code null} bila tidak satu pun pola cocok.
+	 * @see #parseTanggalAman(String, java.text.DateFormat)
+	 */
 	private static Date parseTanggalDanWaktu(String raw) {
 		if (raw == null || raw.trim().length() == 0) {
 			return null;
@@ -2352,6 +2498,58 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		return null;
 	}
 
+	/**
+	 * KEBALIKAN dari {@link #ambilComponent(String, ParameterTambahan, EventListener, boolean)}: membaca
+	 * isi sebuah komponen ZK dan mengubahnya menjadi {@code String} siap simpan.
+	 *
+	 * <p>Susunannya cermin dari pabrik komponen — satu rantai {@code if/else if} atas
+	 * {@link ParameterTambahan#getTipeDataInputan()}, dengan pemeriksaan
+	 * {@link ParameterTambahan#getNilaiTidakBolehDiubah()} paling depan. Setiap cabang juga memeriksa
+	 * {@code instanceof} komponennya, sehingga komponen yang tidak sesuai tipe menghasilkan nilai kosong
+	 * alih-alih {@code ClassCastException}.</p>
+	 *
+	 * <p><b>Bentuk simpan per tipe.</b> Tanggal dan waktu diformat kembali memakai format baku aplikasi;
+	 * pilihan ya/tidak menjadi {@code "true"}/{@code "false"}; pilihan banyak dirangkai dengan pemisah
+	 * {@code ";"}; {@link #PILIHAN_OBJECT} menyimpan id dengan {@code "-1"} sebagai penanda "tidak
+	 * dipilih"; dan ketujuh pemilih entity menyimpan bentuk gabungan {@code "<id>-><label>"}. Label sengaja
+	 * ikut disimpan agar laporan tetap dapat menampilkan nama walau entity aslinya kelak terhapus.
+	 * Perhatikan susunan label yang disimpan TIDAK selalu sama dengan yang ditampilkan
+	 * {@link #ambilComponentCustom(String, ParameterTambahan, EventListener)} — dosen disimpan dengan NIDN
+	 * dan guru dengan kode, sedangkan di layar keduanya tampil berbeda.</p>
+	 *
+	 * <p><b>Tiga lapis pertahanan terhadap masukan yang tidak valid.</b> Ini bagian terpenting dari method
+	 * ini dan alasan bentuknya berbelit:</p>
+	 * <ol>
+	 * <li><b>Per-cabang.</b> Cabang angka dan tanggal menangkap {@code WrongValueException} lalu memulihkan
+	 * nilainya dari TEKS MENTAH komponen lewat
+	 * {@link #ambilTeksMentahAman(org.zkoss.zul.impl.InputElement)} dan
+	 * {@link #ambilAngkaPertamaAman(String)}. Bila teks mentah pun gagal, angka masih dicoba diambil dari
+	 * PESAN exception-nya — upaya terakhir yang tampak aneh namun berguna karena pesan ZK memuat kembali
+	 * nilai yang ditolak.</li>
+	 * <li><b>Seluruh rantai.</b> {@code WrongValueException} yang lolos ditangkap di tingkat method dan
+	 * diubah menjadi nilai KOSONG, dengan alasan yang dicatat pada komentar di dalam badan method: nilai
+	 * parameter tambahan berasal dari isian dinamis, jadi ketidakcocokan tipe adalah masalah data — bukan
+	 * galat server — dan tidak boleh menggagalkan penyimpanan field lain maupun membanjiri log produksi.</li>
+	 * <li><b>Cadangan generik.</b> Bila hasilnya masih kosong atau berupa string {@code "null"}, komponen
+	 * dibaca sekali lagi secara generik berdasarkan {@code instanceof} ({@code Textbox}, {@code Combobox},
+	 * {@code Datebox}, {@code Doublebox}, {@code Intbox}). Lapis ini menyelamatkan kasus ketika tipe
+	 * parameter TIDAK COCOK dengan komponen yang sebenarnya dirender — mis. setelah pengelola mengubah tipe
+	 * sebuah parameter yang sudah punya data.</li>
+	 * </ol>
+	 *
+	 * <p><b>Baris baru selalu diganti spasi</b> pada langkah terakhir. Ini keharusan format, bukan
+	 * kosmetik: nilai disimpan dalam kolom banyak-baris tempat {@code "\n"} MEMISAHKAN antar parameter,
+	 * sehingga baris baru di dalam sebuah nilai akan merusak seluruh penguraian kolom itu. Konsekuensinya,
+	 * isian teks bertipe {@link #TEXT} dengan {@code jumlahBaris} lebih dari satu tetap tidak dapat
+	 * menyimpan pergantian baris yang diketik pengguna.</p>
+	 *
+	 * @param component         komponen yang dibaca; {@code null} menghasilkan string kosong.
+	 * @param parameterTambahan definisi parameter; menentukan cara nilainya diformat. Tidak boleh
+	 *                          {@code null}.
+	 * @return nilai siap simpan, sudah bebas baris baru; tidak pernah {@code null}.
+	 * @see #ambilComponent(String, ParameterTambahan, EventListener, boolean)
+	 * @see ParameterTambahan#masukkanSemuaParameterKeMap(String, java.util.Map)
+	 */
 	@SuppressWarnings("unchecked")
 	public static String ambilValComponent(Component component, ParameterTambahan parameterTambahan) {
 		String val = "";
