@@ -1746,6 +1746,24 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return pulangJamTemp;
 	}
 
+	/**
+	 * Menyetel jam pulang. Cermin {@link #setMasukjam(Date)}, dengan satu perbedaan.
+	 *
+	 * <p>
+	 * Sama seperti sisi kedatangan, bila status saat ini adalah <i>masuk</i> maka nilai ini ikut
+	 * ditambahkan ke {@link #getLogAbsensi()} lewat pencatatan log internal — sehingga setter ini
+	 * juga <b>tidak idempoten</b>. Bedanya, di sini <b>tidak ada</b> padanan
+	 * {@link #setMasukjamPertamakali(Date)}: konsep "tembakan pertama yang dikunci" memang hanya
+	 * berlaku bagi kedatangan.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilai selalu mendarat di lapis mentah, bukan di {@link #setPulangJamManual(Date)} maupun
+	 * {@link #setPulangJamState(Date)}.
+	 * </p>
+	 *
+	 * @param pulangJam jam pulang yang akan dicatat; boleh {@code null}
+	 */
 	public void setPulangJam(Date pulangJam) {
 		if (getStatusabsensi() != null && ConstantValues.MASUK != null
 				&& getStatusabsensi().getId().equals(ConstantValues.MASUK.getId())) {
@@ -1755,6 +1773,25 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.pulangJamTemp = pulangJam;
 	}
 
+	/**
+	 * Mengembalikan komponen hari-dalam-bulan, <b>menghitungnya sekali dari {@link #getTanggal()}</b>
+	 * bila kolomnya masih kosong.
+	 *
+	 * <p>
+	 * Pengisian bersifat sekali-jalan: begitu kolom terisi, tanggal tidak pernah dibaca lagi.
+	 * Akibatnya, <b>mengubah {@link #setTanggal(Date)} pada baris yang sudah tersimpan tidak akan
+	 * memperbarui nilai ini</b> — kolom turunan akan tetap menunjuk tanggal lama dan baris muncul di
+	 * rekap periode yang salah. Perilaku yang sama berlaku pada {@link #getBulan()},
+	 * {@link #getTahun()}, dan {@link #getMinggu()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Getter ini juga bermutasi (menulis ke field pada pemanggilan pertama), sehingga ikut
+	 * menyumbang pada masalah entitas-kotor yang dibahas di javadoc kelas.
+	 * </p>
+	 *
+	 * @return hari dalam bulan (1-31), atau {@code null} bila tanggal kehadiran belum diisi
+	 */
 	public Integer getTgl() {
 		if (tanggal != null && tgl == null) {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -1781,6 +1818,23 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.tgl = tgl;
 	}
 
+	/**
+	 * Mengembalikan komponen bulan, menghitungnya sekali dari {@link #getTanggal()} bila kolomnya
+	 * masih kosong.
+	 *
+	 * <p>
+	 * <b>Perhatikan konversi penomorannya.</b> Nilai yang disimpan adalah
+	 * {@code Calendar.MONTH + 1}, yaitu <b>1 sampai 12</b> — bukan 0 sampai 11 seperti bawaan
+	 * {@link java.util.Calendar}. Kode yang membandingkan kolom ini langsung dengan
+	 * {@code calendar.get(Calendar.MONTH)} akan meleset satu bulan.
+	 * </p>
+	 *
+	 * <p>
+	 * Sifat sekali-jalan dan mutasinya sama dengan {@link #getTgl()}.
+	 * </p>
+	 *
+	 * @return bulan (1-12), atau {@code null} bila tanggal kehadiran belum diisi
+	 */
 	public Integer getBulan() {
 		if (tanggal != null && bulan == null) {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -1806,6 +1860,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.bulan = bulan;
 	}
 
+	/**
+	 * Mengembalikan komponen tahun, menghitungnya sekali dari {@link #getTanggal()} bila kolomnya
+	 * masih kosong. Sifat sekali-jalan dan mutasinya sama dengan {@link #getTgl()}.
+	 *
+	 * @return tahun empat digit, atau {@code null} bila tanggal kehadiran belum diisi
+	 */
 	public Integer getTahun() {
 		if (tanggal != null && tahun == null) {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -1824,6 +1884,20 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.tahun = tahun;
 	}
 
+	/**
+	 * Mengembalikan komponen hari-dalam-sepekan, menghitungnya sekali dari {@link #getTanggal()}
+	 * bila kolomnya masih kosong.
+	 *
+	 * <p>
+	 * <b>Namanya menyesatkan.</b> Meski disebut "minggu", yang disimpan adalah
+	 * {@code Calendar.DAY_OF_WEEK} — nomor hari dalam sepekan (1 = Minggu, 7 = Sabtu), <b>bukan</b>
+	 * nomor minggu dalam setahun. Laporan yang dimaksudkan sebagai rekap mingguan tidak dapat
+	 * dibangun dari kolom ini; ia justru berguna untuk memisahkan hari kerja dari akhir pekan.
+	 * </p>
+	 *
+	 * @return nomor hari dalam sepekan (1 = Minggu, 7 = Sabtu), atau {@code null} bila tanggal
+	 *         kehadiran belum diisi
+	 */
 	public Integer getMinggu() {
 		if (tanggal != null && minggu == null) {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -1848,6 +1922,24 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.minggu = minggu;
 	}
 
+	/**
+	 * Mengembalikan waktu mulai lembur, <b>digeser maju agar tidak mendahului jadwal shift</b>.
+	 *
+	 * <p>
+	 * Bila kolom terisi dan shift yang berlaku menetapkan awal lembur yang lebih lambat, nilai
+	 * tersimpan ditimpa dengan awal lembur menurut shift. Maksudnya jelas: mencegah waktu lembur
+	 * dihitung mulai lebih awal daripada yang diizinkan aturan, sehingga upah lembur tidak
+	 * menggelembung.
+	 * </p>
+	 *
+	 * <p>
+	 * Dua catatan. Pertama, <b>getter ini bermutasi</b> — ia menulis hasil penggeseran ke field.
+	 * Kedua, penggeseran hanya terjadi bila kolom sudah terisi; nilai {@code null} dibiarkan
+	 * {@code null} dan tidak pernah diisi dari jadwal shift.
+	 * </p>
+	 *
+	 * @return waktu mulai lembur yang sudah disesuaikan jadwal, atau {@code null}
+	 */
 	@Temporal(TemporalType.TIME)
 	@Column(name = "lambur_mulai")
 	public Date getLamburMulai() {
@@ -2001,6 +2093,45 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jumlahJamMasuk = jumlahJamMasuk;
 	}
 
+	/**
+	 * Menghitung jumlah jam lembur untuk hari ini, <b>sekaligus menetapkan rentang waktu lembur</b>.
+	 *
+	 * <h4>Pemilihan shift dasar</h4>
+	 * <p>
+	 * Method memakai {@link #getDetailJenisShiftPegawaiLembur()} bila terisi, dan jatuh ke
+	 * {@link #getDetailJenisShiftPegawai()} bila tidak. Ini memungkinkan aturan lembur yang berbeda
+	 * dari aturan kerja normal pada hari yang sama.
+	 * </p>
+	 *
+	 * <h4>Tiga jalur perhitungan</h4>
+	 * <ol>
+	 * <li><b>Shift punya batas lembur di dalam jam kerja</b> (awal lembur lebih awal daripada jam
+	 * selesai). Di sini ada dua kemungkinan lagi: bila shift menyalakan penghitungan lembur dari awal
+	 * masuk, <i>seluruh</i> durasi kerja dihitung sebagai lembur; bila tidak, yang dihitung hanyalah
+	 * kelebihan durasi kerja di atas ambang jam reguler. Bila tidak ada kelebihan, rentang lembur
+	 * dikosongkan dan hasilnya nol.</li>
+	 *
+	 * <li><b>Shift menyalakan penghitungan lembur dari awal masuk</b> tanpa memenuhi syarat jalur
+	 * pertama — seluruh jam kerja menjadi lembur.</li>
+	 *
+	 * <li><b>Ada awal lembur dan kepulangan melewatinya</b> — lembur dihitung dari awal lembur
+	 * menurut shift sampai jam pulang, lewat
+	 * {@link #ambilJumlahLemburMasuk(StatuskehadiranKaryawanHarian, Date, Date)}.</li>
+	 * </ol>
+	 *
+	 * <h4>Efek samping yang penting</h4>
+	 * <p>
+	 * Method ini <b>menulis {@link #getLamburMulai()} dan {@link #getLamburSampai()}</b> pada setiap
+	 * jalur — termasuk mengosongkan keduanya ketika tidak ada lembur. Jadi kedua kolom itu bukan
+	 * masukan yang berdiri sendiri melainkan <i>keluaran</i> dari perhitungan ini, dan nilainya
+	 * mencerminkan hasil pemanggilan terakhir. Selain itu hasil akhir selalu dilewatkan tabel
+	 * konversi jam lembur milik shift (lihat penjelasan pada
+	 * {@link #ambilJumlahLemburMasuk(StatuskehadiranKaryawanHarian, Date, Date)}), sehingga angka
+	 * yang dikembalikan bisa berbeda dari durasi sesungguhnya.
+	 * </p>
+	 *
+	 * @return jumlah jam lembur setelah pembatasan dan konversi; {@code 0.0} bila tidak ada lembur
+	 */
 	public Double getJumlahLemburMasuk() {
 		DetailJenisShiftPegawai detailJenisShiftPegawaiLembur = getDetailJenisShiftPegawaiLembur();
 		DetailJenisShiftPegawai shiftPegawai = getDetailJenisShiftPegawai();
@@ -2063,6 +2194,38 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jumlahLemburMasuk;
 	}
 
+	/**
+	 * Menghitung durasi lembur antara dua waktu, lalu menerapkan batas maksimum dan tabel konversi
+	 * milik shift.
+	 *
+	 * <h4>Langkah</h4>
+	 * <ol>
+	 * <li>Kedua waktu dinormalkan ke tanggal <b>hari ini</b> (waktu server), bukan ke
+	 * {@link #getTanggal()} milik baris. Untuk perhitungan selisih murni hal ini tidak menimbulkan
+	 * kesalahan, tetapi ia berbeda dari pendekatan {@link #getNormalizedCalendar(Date)} yang lebih
+	 * baru dan sengaja memakai tanggal baris.</li>
+	 *
+	 * <li>Bila waktu mulai lebih besar daripada waktu selesai, tanggal selesai ditambah satu hari —
+	 * penanganan lembur yang melewati tengah malam.</li>
+	 *
+	 * <li>Selisihnya dihitung dalam detik lalu dibagi menjadi jam, dan hasil negatif dijadikan nol.</li>
+	 *
+	 * <li><b>Batas maksimum lembur diterapkan dengan cara yang berlawanan dengan dugaan.</b> Bila
+	 * shift menetapkan batas lembur (dalam menit) yang <i>lebih besar</i> daripada durasi lembur
+	 * sesungguhnya, durasi justru <b>dinaikkan</b> menjadi batas tersebut. Jadi kolom itu berperilaku
+	 * sebagai <i>lembur minimum yang dijamin</i> di sini, bukan sebagai plafon — perhatikan bahwa
+	 * {@link #konversi(Double, ais.database.model.payroll.DetailJenisShiftPegawai)} memakai kolom yang
+	 * sama sebagai plafon, sehingga kedua pemakaian itu saling bertolak belakang. Bila angka lembur
+	 * tampak tidak masuk akal, periksa dulu titik ini.</li>
+	 *
+	 * <li>Terakhir hasilnya dilewatkan tabel konversi shift.</li>
+	 * </ol>
+	 *
+	 * @param statuskehadiranKaryawanHarian baris kehadiran yang menyediakan konteks shift
+	 * @param lemburMulai                   waktu mulai lembur; {@code null} menghasilkan {@code 0.0}
+	 * @param lemburSampai                  waktu selesai lembur; {@code null} menghasilkan {@code 0.0}
+	 * @return durasi lembur dalam jam setelah pembatasan dan konversi
+	 */
 	public static Double ambilJumlahLemburMasuk(StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarian,
 			Date lemburMulai, Date lemburSampai) {
 
@@ -2123,6 +2286,42 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jumlahLemburMasuk;
 	}
 
+	/**
+	 * Menerapkan <b>tabel konversi jam lembur</b> milik shift terhadap durasi lembur mentah.
+	 *
+	 * <h4>Format tabel</h4>
+	 * <p>
+	 * Tabel disimpan sebagai satu string pada shift, berisi pasangan {@code ambang=hasil} yang
+	 * dipisah titik koma — misalnya {@code "1=0.5;2=1.5;3=2"}. Method menelusuri pasangan
+	 * <b>berurutan</b> dan berhenti pada ambang pertama yang tidak lebih kecil daripada durasi
+	 * lembur, lalu mengembalikan nilai hasil pasangan itu. Koma diterima sebagai pemisah desimal dan
+	 * diterjemahkan menjadi titik, mengakomodasi penulisan angka gaya Indonesia.
+	 * </p>
+	 *
+	 * <h4>Sifat yang perlu diketahui</h4>
+	 * <ul>
+	 * <li><b>Urutan pasangan adalah spesifikasinya.</b> Karena penelusuran berhenti pada kecocokan
+	 * pertama dan tidak ada pengurutan lebih dulu, tabel yang ditulis tidak menaik akan memberi hasil
+	 * yang tidak diharapkan. Ini kesalahan pengisian master yang sepenuhnya senyap.</li>
+	 *
+	 * <li><b>Di sini batas lembur berperan sebagai plafon.</b> Sebelum konversi, durasi dipangkas ke
+	 * batas maksimum shift bila melebihinya — kebalikan dari perlakuan pada
+	 * {@link #ambilJumlahLemburMasuk(StatuskehadiranKaryawanHarian, Date, Date)} yang justru
+	 * menaikkannya. Perbedaan satuan memperumit keadaan: di sini pembandingan dilakukan terhadap
+	 * durasi dalam <i>jam</i>, sedangkan di sana terhadap <i>menit</i>.</li>
+	 *
+	 * <li><b>Durasi yang sangat kecil dilewati.</b> Konversi hanya berjalan bila durasi melebihi
+	 * ambang kecil, sehingga lembur nol tidak ikut dinaikkan menjadi nilai tabel pertama.</li>
+	 *
+	 * <li><b>Kegagalan penguraian ditelan per pasangan.</b> Entri tabel yang rusak dicatat lalu
+	 * dilewati; tabel yang separuhnya salah tetap menghasilkan angka.</li>
+	 * </ul>
+	 *
+	 * @param jumlahLemburMasuk durasi lembur mentah dalam jam
+	 * @param shiftPegawai      shift yang menyediakan tabel konversi dan batas; boleh {@code null}
+	 * @return durasi lembur setelah konversi, atau nilai masukan apa adanya bila shift tidak
+	 *         menyediakan tabel
+	 */
 	private static Double konversi(Double jumlahLemburMasuk, DetailJenisShiftPegawai shiftPegawai) {
 		if (jumlahLemburMasuk > 0.01 && shiftPegawai != null && shiftPegawai.getKonversiJamLembur() != null
 				&& !shiftPegawai.getKonversiJamLembur().trim().isEmpty()) {
@@ -2170,6 +2369,43 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jumlahLemburMasuk = jumlahLemburMasuk;
 	}
 
+	/**
+	 * Menentukan <b>shift yang berlaku</b> bagi orang ini pada hari ini — sumber seluruh
+	 * pembanding "jam berapa seharusnya".
+	 *
+	 * <h4>Tiga lapis penentuan</h4>
+	 * <ol>
+	 * <li><b>Penugasan jenis shift</b> ({@link #getJenisShiftPunyaPegawai()}) menang bila membawa
+	 * rincian shift.</li>
+	 *
+	 * <li><b>Shift manual</b> ({@link #getDetailJenisShiftPegawaiManual()}) menang berikutnya —
+	 * inilah jalur bagi petugas untuk menetapkan shift berbeda pada satu hari tertentu.</li>
+	 *
+	 * <li><b>Pencarian otomatis</b> sebagai jalan terakhir. Ini bagian yang paling berat: bila baris
+	 * sudah tersimpan, shift masih kosong, dan statusnya <i>masuk</i>, method memuat subjek
+	 * kehadiran (pegawai, mahasiswa, siswa), menentukan nama hari dari tanggal, lalu memanggil
+	 * utilitas penggajian untuk mencarikan shift yang cocok berdasarkan orang, jam masuk, tanggal,
+	 * nama hari, dan status libur nasional.</li>
+	 * </ol>
+	 *
+	 * <h4>Mengapa method ini mahal</h4>
+	 * <p>
+	 * Jalur ketiga memanggil {@link #getPegawai()}, {@link #getMahasiswa()}, {@link #getSiswa()},
+	 * {@link #getMasukjam()}, dan {@link #getLiburNasional()} — semuanya getter yang sendirinya
+	 * melakukan pencarian dan mutasi. Satu pemanggilan {@code getDetailJenisShiftPegawai()} karena
+	 * itu dapat memicu beberapa query dan menulis ke setengah lusin field. Karena hampir seluruh
+	 * perhitungan di kelas ini memanggilnya, <b>inilah titik terpanas pada layar rekap kehadiran</b>.
+	 * Bila mengoptimalkan modul kehadiran, mulailah dari sini.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan pula bahwa jalur otomatis memakai {@code tanggal} langsung tanpa penjagaan
+	 * {@code null}, sehingga baris tanpa tanggal akan melempar galat bila sampai ke cabang itu.
+	 * </p>
+	 *
+	 * @return shift yang berlaku, atau {@code null} bila tidak ada yang cocok
+	 * @see #setDetailJenisShiftPegawai(ais.database.model.payroll.DetailJenisShiftPegawai)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "detail_jenis_shift_pegawai", nullable = true)
 	public DetailJenisShiftPegawai getDetailJenisShiftPegawai() {
@@ -2203,6 +2439,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return detailJenisShiftPegawai;
 	}
 
+	/**
+	 * Menyetel shift yang berlaku — <b>sekaligus menyelaraskan penugasan jenis shift</b>.
+	 *
+	 * <p>
+	 * Bila shift yang disetel membawa penugasan jenis shift, penugasan itu ikut disetel lewat
+	 * {@link #setJenisShiftPunyaPegawai(ais.database.model.payroll.JenisShiftPunyaPegawai)}. Ini
+	 * menjaga konsistensi dengan {@link #getDetailJenisShiftPegawai()} yang memberi penugasan
+	 * prioritas tertinggi — tanpa penyelarasan ini, nilai yang baru disetel akan langsung ditimpa
+	 * pada pembacaan berikutnya oleh penugasan lama.
+	 * </p>
+	 *
+	 * @param detailJenisShiftPegawai shift yang berlaku; boleh {@code null}
+	 */
 	public void setDetailJenisShiftPegawai(DetailJenisShiftPegawai detailJenisShiftPegawai) {
 		this.detailJenisShiftPegawai = detailJenisShiftPegawai;
 
@@ -2323,6 +2572,27 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jumlahTerlambat = jumlahTerlambat;
 	}
 
+	/**
+	 * Mengembalikan libur nasional yang jatuh pada tanggal kehadiran ini.
+	 *
+	 * <p>
+	 * <b>Selalu mencari ulang.</b> Berbeda dari relasi lain, getter ini tidak pernah mempercayai
+	 * kolom yang tersimpan: pada setiap pemanggilan ia menanyakan master libur nasional berdasarkan
+	 * {@link #getTanggal()} dan menimpa field dengan hasilnya. Nilai yang disetel lewat
+	 * {@link #setLiburNasional(ais.database.model.payroll.LiburNasional)} karena itu tidak pernah
+	 * bertahan.
+	 * </p>
+	 *
+	 * <p>
+	 * Dua konsekuensi. Pertama, <b>menyunting master libur nasional mengubah data kehadiran
+	 * historis</b> — hari yang dulu hari kerja dapat menjadi hari libur secara retroaktif, beserta
+	 * seluruh dampaknya pada status dan keterangan. Untuk libur nasional yang memang baru ditetapkan
+	 * belakangan, sifat ini justru diinginkan. Kedua, pencarian ini dilakukan per baris; pada layar
+	 * rekap sebulan ia berjalan puluhan kali per orang.
+	 * </p>
+	 *
+	 * @return libur nasional pada tanggal ini, atau {@code null} bila bukan hari libur nasional
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "libur_nasional", nullable = true)
 	public LiburNasional getLiburNasional() {
@@ -2346,6 +2616,26 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.liburNasional = liburNasional;
 	}
 
+	/**
+	 * Menentukan apakah sebuah pengajuan cuti/izin <b>membebaskan</b> orang dari kewajiban hadir.
+	 *
+	 * <p>
+	 * Tidak semua cuti membebaskan. Jawabannya ditentukan oleh master status absensi yang melekat
+	 * pada pengajuan: bila status itu ditandai <i>tidak</i> dihitung sebagai ketidakhadiran, maka
+	 * cuti membebaskan. Inilah yang memisahkan izin sah (cuti tahunan, sakit berketerangan) dari
+	 * izin yang tetap tercatat sebagai absen (mangkir yang dilaporkan, izin tanpa keterangan).
+	 * </p>
+	 *
+	 * <p>
+	 * Pemeriksaannya <b>fail-closed</b> dalam arti yang benar: {@code null}, cuti yang belum
+	 * disetujui, dan cuti tanpa status absensi semuanya menghasilkan "tidak membebaskan". Perhatikan
+	 * juga pemakaian {@code Boolean.FALSE.equals(...)} — penanda master yang bernilai {@code null}
+	 * diperlakukan sebagai "dihitung sebagai ketidakhadiran", yaitu sisi yang lebih ketat.
+	 * </p>
+	 *
+	 * @param cuti pengajuan cuti/izin yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila cuti membebaskan dari kewajiban hadir
+	 */
 	public boolean apakahCutiMembebaskanAbsen(CutiDanIzin cuti) {
 		if (cuti != null && Boolean.TRUE.equals(cuti.getSetujui()) && cuti.getStatusabsensi() != null) {
 			Boolean dihitungAbsen = cuti.getStatusabsensi().getDihitungKetidakhadiran();
@@ -2354,6 +2644,33 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return false;
 	}
 
+	/**
+	 * Menentukan apakah orang ini <b>tidak hadir</b>, tanpa memperhitungkan status hari libur secara
+	 * umum.
+	 *
+	 * <p>
+	 * Jawabannya {@code false} — yakni bukan ketidakhadiran — bila salah satu berlaku:
+	 * ada kehadiran yang tercatat; shift yang berlaku memang khusus dibuat untuk hari libur;
+	 * cuti membebaskan menurut {@link #apakahCutiMembebaskanAbsen(ais.database.model.payroll.CutiDanIzin)};
+	 * atau hari itu libur nasional yang <i>tidak</i> dihitung sebagai ketidakhadiran.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan satu kehalusan pada penanganan libur nasional: hari yang <b>bukan</b> libur nasional
+	 * diperlakukan sebagai hari wajib hadir. Jadi ketiadaan libur nasional tidak membebaskan siapa
+	 * pun; hanya libur nasional yang secara eksplisit ditandai tidak dihitung yang membebaskan.
+	 * </p>
+	 *
+	 * <p>
+	 * Method ini juga memanggil {@code check(...)} atas shift dan karenanya ikut bermutasi.
+	 * </p>
+	 *
+	 * @param adaHadir      apakah ada kehadiran yang tercatat
+	 * @param cuti          pengajuan cuti/izin yang berlaku; boleh {@code null}
+	 * @param liburNasional libur nasional pada hari itu; boleh {@code null}
+	 * @return {@code true} bila hari ini terhitung sebagai ketidakhadiran
+	 * @see #isTidakHadirEfektif(boolean, boolean, ais.database.model.payroll.CutiDanIzin, ais.database.model.payroll.LiburNasional)
+	 */
 	public boolean isTidakHadirTanpaHoliday(boolean adaHadir, CutiDanIzin cuti, LiburNasional liburNasional) {
 		detailJenisShiftPegawai = check(detailJenisShiftPegawai);
 
@@ -2371,6 +2688,32 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return !apakahCutiMembebaskanAbsen(cuti) && isHariWajibHadir;
 	}
 
+	/**
+	 * Menentukan ketidakhadiran <b>efektif</b>, yaitu dengan memperhitungkan status hari libur secara
+	 * umum (akhir pekan, libur rutin) selain libur nasional.
+	 *
+	 * <p>
+	 * Perbedaannya dari
+	 * {@link #isTidakHadirTanpaHoliday(boolean, ais.database.model.payroll.CutiDanIzin, ais.database.model.payroll.LiburNasional)}
+	 * terletak pada parameter tambahan yang menyatakan hari itu libur. Hasilnya {@code true} hanya
+	 * bila hari itu <i>bukan</i> hari libur, <b>atau</b> hari itu libur nasional yang tetap dihitung
+	 * sebagai ketidakhadiran. Dengan kata lain, hari libur biasa tidak pernah menghasilkan
+	 * ketidakhadiran, sedangkan libur nasional yang bertanda tetap dihitung justru menghasilkannya.
+	 * </p>
+	 *
+	 * <p>
+	 * Method ini <b>tidak</b> memeriksa apakah shift khusus dibuat untuk hari libur — pemeriksaan
+	 * yang ada pada kembarannya. Kedua method sengaja dipertahankan berdampingan karena laporan yang
+	 * berbeda memakai definisi ketidakhadiran yang berbeda; pastikan memilih yang sesuai, karena
+	 * keduanya dapat memberi jawaban berlawanan untuk baris yang sama.
+	 * </p>
+	 *
+	 * @param adaHadir      apakah ada kehadiran yang tercatat
+	 * @param isHoliday     apakah hari itu tergolong hari libur
+	 * @param cuti          pengajuan cuti/izin yang berlaku; boleh {@code null}
+	 * @param liburNasional libur nasional pada hari itu; boleh {@code null}
+	 * @return {@code true} bila hari ini terhitung sebagai ketidakhadiran efektif
+	 */
 	public boolean isTidakHadirEfektif(boolean adaHadir, boolean isHoliday, CutiDanIzin cuti,
 			LiburNasional liburNasional) {
 		if (adaHadir || apakahCutiMembebaskanAbsen(cuti)) {
@@ -2433,6 +2776,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.cutiDanIzin = cutiDanIzin;
 	}
 
+	/**
+	 * Mengembalikan libur rutin (mis. akhir pekan) yang berlaku pada tanggal ini.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #getLiburNasional()} yang selalu mencari ulang ke master, getter ini hanya
+	 * menormalkan proxy relasi yang tersimpan lewat {@code check(...)}. Jadi kolom ini benar-benar
+	 * kolom, dan nilainya harus diisi oleh alur yang membentuk baris kehadiran.
+	 * </p>
+	 *
+	 * @return libur rutin pada tanggal ini, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "libur_rutin", nullable = true)
 	public LiburRutin getLiburRutin() {
@@ -2449,6 +2803,25 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.liburRutin = liburRutin;
 	}
 
+	/**
+	 * Mengembalikan akumulasi jam kerja dalam bentuk {@link Date}, hasil konversi dari
+	 * {@link #getJumlahJamMasuk()}.
+	 *
+	 * <p>
+	 * Ini salah satu dari tiga representasi paralel untuk besaran yang sama — desimal
+	 * ({@link #getJumlahJamMasuk()}), {@link Date} (method ini), dan detik bulat
+	 * ({@link #getSecondJamMasuk()}). Bentuk {@link Date} ditujukan untuk tampilan berformat jam:menit,
+	 * bukan untuk aritmetika.
+	 * </p>
+	 *
+	 * <p>
+	 * Getter ini menghitung ulang dan <b>menimpa field</b> pada setiap pemanggilan, sehingga
+	 * nilai yang disetel manual tidak pernah bertahan — dan karena ia memanggil
+	 * {@link #getJumlahJamMasuk()}, seluruh rantai resolusi jam masuk/pulang ikut berjalan.
+	 * </p>
+	 *
+	 * @return akumulasi jam kerja sebagai waktu
+	 */
 	@Temporal(TemporalType.TIME)
 	public Date getWaktuJamMasuk() {
 		waktuJamMasuk = Common.convertNumericToTime(getJumlahJamMasuk());
@@ -2469,6 +2842,13 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.waktuJamMasuk = waktuJamMasuk;
 	}
 
+	/**
+	 * Mengembalikan akumulasi keterlambatan dalam bentuk {@link Date}, hasil konversi dari
+	 * {@link #getJumlahTerlambat()}. Sifat penghitungan ulang dan mutasinya sama dengan
+	 * {@link #getWaktuJamMasuk()}.
+	 *
+	 * @return akumulasi keterlambatan sebagai waktu
+	 */
 	@Temporal(TemporalType.TIME)
 	public Date getWaktuTerlambat() {
 		waktuTerlambat = Common.convertNumericToTime(getJumlahTerlambat());
@@ -2485,6 +2865,18 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.waktuTerlambat = waktuTerlambat;
 	}
 
+	/**
+	 * Mengembalikan akumulasi jam lembur dalam bentuk {@link Date}, hasil konversi dari
+	 * {@link #getJumlahLemburMasuk()}.
+	 *
+	 * <p>
+	 * Perhatikan bahwa {@link #getJumlahLemburMasuk()} juga <b>menulis ulang rentang lembur</b>
+	 * ({@link #getLamburMulai()} dan {@link #getLamburSampai()}) sebagai efek samping, sehingga
+	 * sekadar membaca method tampilan ini ikut mengubah dua kolom lain.
+	 * </p>
+	 *
+	 * @return akumulasi jam lembur sebagai waktu
+	 */
 	@Temporal(TemporalType.TIME)
 	public Date getWaktuLemburMasuk() {
 		waktuLemburMasuk = Common.convertNumericToTime(getJumlahLemburMasuk());
@@ -2501,6 +2893,13 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.waktuLemburMasuk = waktuLemburMasuk;
 	}
 
+	/**
+	 * Mengembalikan akumulasi durasi pulang cepat dalam bentuk {@link Date}, hasil konversi dari
+	 * {@link #getJumlahCepatKeluar()}. Sifat penghitungan ulang dan mutasinya sama dengan
+	 * {@link #getWaktuJamMasuk()}.
+	 *
+	 * @return akumulasi pulang cepat sebagai waktu
+	 */
 	@Temporal(TemporalType.TIME)
 	public Date getWaktuCepatKeluar() {
 		waktuCepatKeluar = Common.convertNumericToTime(getJumlahCepatKeluar());
@@ -2517,6 +2916,34 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.waktuCepatKeluar = waktuCepatKeluar;
 	}
 
+	/**
+	 * Menghitung durasi kerja dalam <b>detik bulat</b>, dari jam masuk sampai jam pulang.
+	 *
+	 * <h4>Perbedaan penting dari {@link #getJumlahJamMasuk()}</h4>
+	 * <p>
+	 * Meski keduanya mengukur "lama kerja", <b>hasilnya tidak selalu sebanding</b>:
+	 * </p>
+	 * <ul>
+	 * <li>Method ini memakai {@link #getMasukjam()}/{@link #getPulangJam()} secara langsung,
+	 * sedangkan {@link #getJumlahJamMasuk()} memakai {@link #ambilMasukjam()}/{@link #ambilPulangjam()}
+	 * yang sudah memperhitungkan shift malam lintas hari. Untuk shift malam, keduanya dapat berbeda
+	 * jauh.</li>
+	 *
+	 * <li>Method ini <b>tidak</b> memotong durasi pada ambang mulai lembur, sehingga jam lembur ikut
+	 * terhitung sebagai jam kerja reguler di sini — berbeda dari {@link #getJumlahJamMasuk()} yang
+	 * memisahkannya.</li>
+	 *
+	 * <li>Penanggalan dinormalkan ke <b>hari ini</b> (waktu server), bukan ke {@link #getTanggal()}
+	 * milik baris.</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * Lintas tengah malam ditangani dengan menambah satu hari pada waktu selesai bila ia mendahului
+	 * waktu mulai. Hasil negatif dijadikan nol, dan data yang tidak lengkap menghasilkan nol.
+	 * </p>
+	 *
+	 * @return durasi kerja dalam detik; {@code 0} bila jam masuk atau jam pulang tidak tersedia
+	 */
 	public Integer getSecondJamMasuk() {
 		Date masukjam = getMasukjam();
 		Date pulangJam = getPulangJam();
@@ -2564,6 +2991,26 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.secondJamMasuk = secondJamMasuk;
 	}
 
+	/**
+	 * Menghitung durasi keterlambatan dalam <b>detik bulat</b>, yaitu selisih antara jam mulai shift
+	 * dan jam masuk sesungguhnya.
+	 *
+	 * <p>
+	 * Seperti {@link #getSecondJamMasuk()}, method ini memakai {@link #getMasukjam()} langsung dan
+	 * menormalkan penanggalan ke hari ini, berbeda dari {@link #getJumlahTerlambat()} yang memakai
+	 * {@link #ambilMasukjam()} dan {@link #getNormalizedCalendar(Date)}. Untuk laporan yang
+	 * menampilkan keduanya berdampingan, siapkan diri menghadapi angka yang tidak persis sama pada
+	 * shift malam.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan pula bahwa versi detik ini <b>tidak mengurangkan toleransi keterlambatan</b> milik
+	 * shift, sedangkan {@link #getJumlahTerlambat()} mengurangkannya. Untuk perhitungan sanksi atau
+	 * potongan, gunakan versi desimal yang menghormati toleransi.
+	 * </p>
+	 *
+	 * @return durasi keterlambatan dalam detik; {@code 0} bila tidak terlambat atau data tidak lengkap
+	 */
 	public Integer getSecondTerlambat() {
 		Date masukjam = getMasukjam();
 		if (masukjam != null && getDetailJenisShiftPegawai() != null
@@ -2616,6 +3063,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.secondTerlambat = secondTerlambat;
 	}
 
+	/**
+	 * Mengembalikan durasi lembur dalam <b>detik bulat</b>, dikonversi dari
+	 * {@link #getJumlahLemburMasuk()}.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #getSecondJamMasuk()} dan {@link #getSecondTerlambat()} yang menghitung
+	 * sendiri dari awal, method ini hanya mengalikan hasil perhitungan desimal. Konsekuensinya, ia
+	 * <b>menghormati</b> batas maksimum dan tabel konversi lembur — dan ikut memicu penulisan ulang
+	 * rentang lembur sebagai efek samping.
+	 * </p>
+	 *
+	 * @return durasi lembur dalam detik
+	 */
 	public Integer getSecondLemburMasuk() {
 		if (getDetailJenisShiftPegawai() != null && getJumlahJamMasuk() != null
 				&& getDetailJenisShiftPegawai().getJumlahSecond() != null) {
@@ -2639,6 +3099,14 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.secondLemburMasuk = secondLemburMasuk;
 	}
 
+	/**
+	 * Mengembalikan durasi pulang cepat dalam <b>detik bulat</b>, dikonversi dari
+	 * {@link #getJumlahCepatKeluar()}. Seperti {@link #getSecondLemburMasuk()}, ia menurunkan nilai
+	 * dari perhitungan desimal alih-alih menghitung sendiri, sehingga toleransi kepulangan ikut
+	 * dihormati.
+	 *
+	 * @return durasi pulang cepat dalam detik
+	 */
 	public Integer getSecondCepatKeluar() {
 		if (getDetailJenisShiftPegawai() != null && getJumlahJamMasuk() != null
 				&& getDetailJenisShiftPegawai().getJumlahSecond() != null) {
@@ -2662,6 +3130,25 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.secondCepatKeluar = secondCepatKeluar;
 	}
 
+	/**
+	 * Mengembalikan subjek kehadiran sebagai {@link Dosen}, <b>dengan penurunan dari relasi
+	 * pegawai</b>.
+	 *
+	 * <p>
+	 * Method memanggil {@link #getPegawai()} lebih dulu; bila pegawai yang diperoleh memiliki data
+	 * dosen, relasi dosen diisi dari sana. Ini adalah kebalikan arah dari {@link #getPegawai()} yang
+	 * menurunkan pegawai dari dosen — kedua getter saling melengkapi sehingga cukup salah satu relasi
+	 * terisi untuk membuat keduanya dapat dibaca.
+	 * </p>
+	 *
+	 * <p>
+	 * Perlu diperhatikan bahwa saling-panggil ini membuat sebuah pembacaan sederhana menyentuh
+	 * beberapa field sekaligus. Bila hanya perlu memeriksa "apakah baris ini milik dosen", biaya
+	 * pemeriksaannya lebih besar daripada yang terlihat.
+	 * </p>
+	 *
+	 * @return dosen subjek kehadiran, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen", nullable = true)
 	public Dosen getDosen() {
@@ -2696,7 +3183,8 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * yang menetapkan mana yang berwenang, jadi periksa keduanya saat menampilkan bukti foto.
 	 * </p>
 	 *
-	 * @return rujukan berkas foto kedatangan; boleh {@code null}
+	 * @return rujukan berkas foto kedatangan yang sudah di-<i>trim</i>; tidak pernah
+	 *         {@code null} — nilai kosong dikembalikan sebagai string kosong
 	 */
 	@Column(columnDefinition = "text")
 	public String getFotoAbsenDatang() {
@@ -2716,7 +3204,8 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * Mengembalikan rujukan berkas foto bukti absen kepulangan. Lihat catatan pada
 	 * {@link #getFotoAbsenDatang()}.
 	 *
-	 * @return rujukan berkas foto kepulangan; boleh {@code null}
+	 * @return rujukan berkas foto kepulangan yang sudah di-<i>trim</i>; tidak pernah
+	 *         {@code null}
 	 */
 	@Column(columnDefinition = "text")
 	public String getFotoAbsenPulang() {
@@ -2741,7 +3230,8 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * nilai ini; untuk koordinat yang terstruktur gunakan {@link #getLat()} dan {@link #getLng()}.
 	 * </p>
 	 *
-	 * @return keterangan lokasi kedatangan; boleh {@code null}
+	 * @return keterangan lokasi kedatangan yang sudah di-<i>trim</i>; tidak pernah
+	 *         {@code null}
 	 */
 	@Column(columnDefinition = "text")
 	public String getLokasiAbsenDatang() {
@@ -2761,7 +3251,8 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * Mengembalikan keterangan lokasi saat absen kepulangan. Lihat catatan format bebas pada
 	 * {@link #getLokasiAbsenDatang()}.
 	 *
-	 * @return keterangan lokasi kepulangan; boleh {@code null}
+	 * @return keterangan lokasi kepulangan yang sudah di-<i>trim</i>; tidak pernah
+	 *         {@code null}
 	 */
 	@Column(columnDefinition = "text")
 	public String getLokasiAbsenPulang() {
@@ -2777,6 +3268,30 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.lokasiAbsenPulang = lokasiAbsenPulang;
 	}
 
+	/**
+	 * Menghitung selisih <b>menit</b> antara jam mulai shift dan jam masuk sesungguhnya.
+	 *
+	 * <h4>Namanya tidak menggambarkan isinya</h4>
+	 * <p>
+	 * Meski disebut "menit absen foto saat hadir", <b>tidak ada satu pun bagian dari perhitungan ini
+	 * yang menyentuh foto</b>. Yang dihitung adalah selisih antara {@code shift.mulai} dan
+	 * {@link #getMasukjam()} — dengan kata lain, keterlambatan (atau kedatangan lebih awal) dalam
+	 * satuan menit. Jangan memakai nilai ini untuk memverifikasi kesesuaian waktu foto bukti dengan
+	 * waktu absen; kolom yang benar-benar berisi informasi foto adalah
+	 * {@link #getFotoAbsenDatang()} dan {@link #getIdFile()}.
+	 * </p>
+	 *
+	 * <h4>Perilaku</h4>
+	 * <p>
+	 * Nilai <b>bertanda</b>: positif berarti datang setelah jam mulai shift (terlambat), negatif
+	 * berarti datang sebelumnya. Tidak ada pemangkasan ke nol seperti pada perhitungan keterlambatan,
+	 * dan tidak ada penanganan lintas tengah malam — untuk shift malam hasilnya karena itu tidak
+	 * dapat dipercaya. Penanggalan dinormalkan ke hari ini, bukan ke tanggal baris. Data yang tidak
+	 * lengkap menghasilkan {@code 0.0}, yang tidak dapat dibedakan dari "tepat waktu".
+	 * </p>
+	 *
+	 * @return selisih dalam menit, bertanda; {@code 0.0} bila jam masuk atau shift tidak tersedia
+	 */
 	public Double getJumlahMenitAbsenFotoSaatHadir() {
 		Date masukjam = getMasukjam();
 		if (masukjam != null && getDetailJenisShiftPegawai() != null
@@ -2817,6 +3332,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jumlahMenitAbsenFotoSaatHadir = jumlahMenitAbsenFotoSaatHadir;
 	}
 
+	/**
+	 * Menghitung selisih <b>menit</b> antara jam selesai shift dan jam pulang sesungguhnya.
+	 *
+	 * <p>
+	 * Cermin {@link #getJumlahMenitAbsenFotoSaatHadir()}, termasuk penamaannya yang menyesatkan:
+	 * <b>tidak ada kaitan dengan foto</b> di dalam perhitungan ini. Nilainya bertanda, tanpa
+	 * pemangkasan ke nol, tanpa penanganan lintas tengah malam, dan dinormalkan ke tanggal hari ini.
+	 * </p>
+	 *
+	 * @return selisih dalam menit, bertanda; {@code 0.0} bila jam pulang atau shift tidak tersedia
+	 */
 	public Double getJumlahMenitAbsenFotoSaatPulang() {
 		Date pulangJam = getPulangJam();
 		if (pulangJam != null && getDetailJenisShiftPegawai() != null
@@ -2857,6 +3383,26 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jumlahMenitAbsenFotoSaatPulang = jumlahMenitAbsenFotoSaatPulang;
 	}
 
+	/**
+	 * Menghitung durasi <b>kedatangan lebih awal</b> dari jam mulai shift, dalam jam desimal, setelah
+	 * dikurangi toleransi.
+	 *
+	 * <p>
+	 * Bila jam masuk mendahului jam mulai shift, selisihnya dihitung lalu dikurangi toleransi
+	 * "boleh datang lebih awal" milik shift; hasil negatif dijadikan nol. Nilai lebih besar dari nol
+	 * inilah yang membuat {@link #getDatangCepat()} bernilai benar.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan bahwa method ini memakai {@link #getMasukjam()} langsung dan menormalkan penanggalan
+	 * ke hari ini — bukan {@link #ambilMasukjam()} dan {@link #getNormalizedCalendar(Date)} yang
+	 * dipakai keluarga perhitungan yang lebih baru. Untuk shift yang melewati tengah malam, hasilnya
+	 * karena itu perlu diperlakukan dengan hati-hati.
+	 * </p>
+	 *
+	 * @return durasi kedatangan lebih awal dalam jam; {@code 0.0} bila tidak lebih awal atau data
+	 *         tidak lengkap
+	 */
 	public Double getJumlahMasukSebelumWaktunya() {
 		Date masukjam = getMasukjam();
 		if (masukjam != null && getDetailJenisShiftPegawai() != null
@@ -2917,6 +3463,25 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jumlahMasukSebelumWaktunya = jumlahMasukSebelumWaktunya;
 	}
 
+	/**
+	 * Menghitung durasi <b>kepulangan setelah jam selesai shift</b>, dalam jam desimal, setelah
+	 * dikurangi toleransi.
+	 *
+	 * <p>
+	 * Cermin {@link #getJumlahMasukSebelumWaktunya()} untuk sisi kepulangan; nilainya yang lebih
+	 * besar dari nol membuat {@link #getPulangTerlambat()} bernilai benar.
+	 * </p>
+	 *
+	 * <p>
+	 * Jangan mempertukarkannya dengan {@link #getJumlahLemburMasuk()}. Keduanya sama-sama mengukur
+	 * "bekerja melampaui jadwal", tetapi besaran ini <b>bukan</b> lembur: ia tidak melewati batas
+	 * maksimum maupun tabel konversi lembur, dan tidak memakai shift lembur khusus. Memakai angka ini
+	 * sebagai dasar pembayaran lembur akan melewati seluruh pembatasan yang sengaja dipasang.
+	 * </p>
+	 *
+	 * @return durasi kepulangan melampaui jadwal dalam jam; {@code 0.0} bila tidak melampaui atau
+	 *         data tidak lengkap
+	 */
 	public Double getJumlahPulangSetelahWaktunya() {
 		Date pulangJam = getPulangJam();
 		if (pulangJam != null && getDetailJenisShiftPegawai() != null
@@ -2976,6 +3541,24 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jumlahPulangSetelahWaktunya = jumlahPulangSetelahWaktunya;
 	}
 
+	/**
+	 * Menyimpulkan apakah orang ini <b>datang lebih cepat</b> dari jadwal.
+	 *
+	 * <p>
+	 * Jawabannya {@code false} bila status kehadiran bukan <i>masuk</i>. Selain itu, nilainya
+	 * diturunkan dari {@link #getJumlahMasukSebelumWaktunya()}: benar bila durasi kedatangan lebih
+	 * awal melebihi ambang kecil (seperseribu jam), yang berfungsi menyaring galat pembulatan agar
+	 * selisih nol tidak salah dibaca sebagai datang cepat.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Getter ini bermutasi</b> — ia menulis ke {@link #detailJenisShiftPegawai},
+	 * {@link #jumlahMasukSebelumWaktunya}, dan {@link #datangCepat}. Nilai yang disetel manual lewat
+	 * {@link #setDatangCepat(Boolean)} hanya bertahan bila shift tidak dapat ditentukan.
+	 * </p>
+	 *
+	 * @return {@code true} bila datang lebih cepat dari jadwal; tidak pernah {@code null}
+	 */
 	public Boolean getDatangCepat() {
 
 		if (getStatusabsensi() != null && ConstantValues.MASUK != null
@@ -3001,6 +3584,25 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.datangCepat = datangCepat;
 	}
 
+	/**
+	 * Menyimpulkan apakah orang ini <b>datang terlambat</b>, diturunkan dari
+	 * {@link #getJumlahTerlambat()} dengan ambang penyaring galat pembulatan yang sama seperti
+	 * {@link #getDatangCepat()}.
+	 *
+	 * <p>
+	 * Karena {@link #getJumlahTerlambat()} sudah mengurangkan toleransi keterlambatan milik shift,
+	 * orang yang datang di dalam masa toleransi <b>tidak</b> ditandai terlambat di sini. Ini yang
+	 * membuatnya cocok dipakai sebagai dasar sanksi, dan sekaligus membuatnya berbeda dari
+	 * {@link #getSecondTerlambat()} yang mengabaikan toleransi.
+	 * </p>
+	 *
+	 * <p>
+	 * Bermutasi seperti {@link #getDatangCepat()}, dan menghasilkan {@code false} bila status bukan
+	 * <i>masuk</i>.
+	 * </p>
+	 *
+	 * @return {@code true} bila datang terlambat melewati toleransi; tidak pernah {@code null}
+	 */
 	public Boolean getDatangTerlambat() {
 
 		if (getStatusabsensi() != null && ConstantValues.MASUK != null
@@ -3026,6 +3628,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.datangTerlambat = datangTerlambat;
 	}
 
+	/**
+	 * Menyimpulkan apakah orang ini <b>pulang lebih cepat</b> dari jadwal, diturunkan dari
+	 * {@link #getJumlahCepatKeluar()} yang sudah menghormati toleransi kepulangan milik shift.
+	 *
+	 * <p>
+	 * Bermutasi dan menghasilkan {@code false} bila status bukan <i>masuk</i>, sama seperti
+	 * {@link #getDatangCepat()}.
+	 * </p>
+	 *
+	 * @return {@code true} bila pulang lebih cepat melewati toleransi; tidak pernah {@code null}
+	 */
 	public Boolean getPulangCepat() {
 
 		if (getStatusabsensi() != null && ConstantValues.MASUK != null
@@ -3051,6 +3664,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.pulangCepat = pulangCepat;
 	}
 
+	/**
+	 * Menyimpulkan apakah orang ini <b>pulang melewati jadwal</b>, diturunkan dari
+	 * {@link #getJumlahPulangSetelahWaktunya()}.
+	 *
+	 * <p>
+	 * Penanda ini sering dipakai sebagai indikasi lembur pada tampilan, tetapi ingat bahwa besaran
+	 * yang mendasarinya <b>bukan</b> lembur resmi — lihat peringatan pada
+	 * {@link #getJumlahPulangSetelahWaktunya()}. Untuk lembur yang sah gunakan
+	 * {@link #getJumlahLemburMasuk()}.
+	 * </p>
+	 *
+	 * @return {@code true} bila pulang melewati jadwal beserta toleransinya; tidak pernah {@code null}
+	 */
 	public Boolean getPulangTerlambat() {
 
 		if (getStatusabsensi() != null && ConstantValues.MASUK != null
@@ -3085,7 +3711,9 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * kehadiran — dan kontrol itu dapat dimatikan seluruhnya lewat {@link #getAbaikanJarak()}.
 	 * </p>
 	 *
-	 * @return jarak terukur; boleh {@code null} bila absensi tidak berbasis lokasi
+	 * @return jarak terukur; tidak pernah {@code null} — absensi tanpa data lokasi
+	 *         menghasilkan {@code 0.0}, yang sayangnya tidak dapat dibedakan dari "berada
+	 *         tepat di titik acuan"
 	 */
 	public Double getJarak() {
 		return jarak == null ? 0.0 : jarak;
@@ -3124,6 +3752,21 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jarakMaks = jarakMaks;
 	}
 
+	/**
+	 * Menghitung durasi kedatangan lebih awal dalam jam desimal, <b>tanpa memperhitungkan
+	 * toleransi</b>.
+	 *
+	 * <p>
+	 * Inilah pembeda utamanya dari {@link #getJumlahMasukSebelumWaktunya()}: besaran itu mengurangkan
+	 * toleransi "boleh datang lebih awal" milik shift, sedangkan method ini mengembalikan selisih
+	 * mentah. Karena {@link #getDatangCepat()} diturunkan dari besaran yang <i>lain</i>, sangat
+	 * mungkin sebuah baris memiliki nilai positif di sini namun tetap tidak ditandai datang cepat.
+	 * Bila menyusun laporan, pilih satu di antara keduanya secara sadar dan konsisten.
+	 * </p>
+	 *
+	 * @return durasi kedatangan lebih awal tanpa toleransi, dalam jam; {@code 0.0} bila tidak lebih
+	 *         awal atau data tidak lengkap
+	 */
 	public Double getJumlahCepat() {
 		Date masukjam = getMasukjam();
 		if (masukjam != null && getDetailJenisShiftPegawai() != null
@@ -3175,6 +3818,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jumlahCepat = jumlahCepat;
 	}
 
+	/**
+	 * Mengembalikan subjek kehadiran sebagai {@link ais.database.model.sekolah.Guru}, <b>dengan
+	 * penurunan dari relasi pegawai</b>.
+	 *
+	 * <p>
+	 * Bekerja persis seperti {@link #getDosen()}: {@link #getPegawai()} dipanggil lebih dulu, dan
+	 * bila pegawai yang diperoleh memiliki data guru, relasi guru diisi dari sana. Bersama
+	 * {@link #getPegawai()} yang menurunkan arah sebaliknya, ketiga getter ini membentuk lingkaran
+	 * penurunan yang membuat satu relasi terisi cukup untuk membaca ketiganya.
+	 * </p>
+	 *
+	 * @return guru subjek kehadiran, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "guru", nullable = true)
 	public Guru getGuru() {
@@ -3209,7 +3865,10 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * jangan dijadikan dasar keputusan bisnis tanpa menelusuri lebih dulu siapa yang menyalakannya.
 	 * </p>
 	 *
-	 * @return penanda pemrosesan; boleh {@code null}
+	 * @return penanda pemrosesan; <b>tidak pernah {@code null}</b> — kolom yang kosong
+	 *         dikembalikan sebagai benar. Perhatikan arah bawaan ini: sebuah baris yang belum
+	 *         pernah disentuh proses apa pun akan tetap tampak "sudah diproses", sehingga
+	 *         penanda ini tidak dapat dipakai untuk menemukan baris yang belum tergarap.
 	 */
 	public Boolean getUdah() {
 		return udah == null ? true : udah;
@@ -3308,6 +3967,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.idFilePulang = idFilePulang;
 	}
 
+	/**
+	 * Mengembalikan subjek kehadiran sebagai {@link ais.database.model.sekolah.Siswa}.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #getDosen()} dan {@link #getGuru()}, getter ini <b>tidak</b> melakukan
+	 * penurunan dari relasi pegawai — memang seharusnya begitu, karena siswa bukan pegawai. Yang
+	 * dilakukannya hanyalah menormalkan proxy relasi lewat {@code check(...)}.
+	 * </p>
+	 *
+	 * @return siswa subjek kehadiran, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "siswa", nullable = true)
 	public Siswa getSiswa() {
@@ -3330,6 +4000,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.siswa = siswa;
 	}
 
+	/**
+	 * Mengembalikan subjek kehadiran sebagai {@link Mahasiswa}. Seperti {@link #getSiswa()}, tidak
+	 * ada penurunan dari relasi pegawai — hanya normalisasi proxy.
+	 *
+	 * @return mahasiswa subjek kehadiran, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa", nullable = true)
 	public Mahasiswa getMahasiswa() {
@@ -3347,6 +4023,42 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Menentukan <b>satuan kerja/unit pemilik</b> baris kehadiran, dengan penurunan berjenjang dari
+	 * subjek kehadiran.
+	 *
+	 * <h4>Urutan penurunan</h4>
+	 * <ol>
+	 * <li>Bila ada pegawai, satuan kerja diambil dari pegawai tersebut.</li>
+	 * <li>Bila ada mahasiswa, satuan kerja ditelusuri dari jurusannya, lalu dari fakultas jurusan
+	 * itu, lalu — bila perguruan tinggi fakultas tersebut punya satuan kerja — kembali ke satuan
+	 * kerja fakultas.</li>
+	 * <li>Bila ada siswa, satuan kerja diambil dari sekolahnya.</li>
+	 * <li>Bila tidak satu pun berlaku, nilai kolom yang tersimpan dipakai apa adanya.</li>
+	 * </ol>
+	 *
+	 * <h4>Mengapa method ini layak diperhatikan</h4>
+	 * <ul>
+	 * <li><b>Ini satu-satunya penanda cakupan data pada entitas ini.</b> Layar dan laporan yang
+	 * membatasi kehadiran per unit bergantung padanya. Karena nilainya <i>diturunkan saat
+	 * pembacaan</i> dan bukan sekadar dibaca dari kolom, memindahkan seseorang ke unit lain akan
+	 * mengubah kepemilikan seluruh baris kehadiran historisnya — termasuk periode ketika ia masih
+	 * berada di unit lama.</li>
+	 *
+	 * <li><b>Getter ini bermutasi</b> dan memanggil {@link #getPegawai()}, {@link #getMahasiswa()},
+	 * serta {@link #getSiswa()} yang masing-masing juga bermutasi.</li>
+	 *
+	 * <li><b>Cabang keempat mengandung kejanggalan.</b> Cabang yang memeriksa satuan kerja milik
+	 * perguruan tinggi justru mengembalikan satuan kerja <i>fakultas</i>, bukan milik perguruan
+	 * tinggi yang baru saja diperiksa. Karena cabang sebelumnya sudah menangani kasus fakultas
+	 * bersatuan kerja, cabang ini praktis hanya tercapai ketika satuan kerja fakultas bernilai
+	 * {@code null} — sehingga hasilnya pun {@code null}. Efeknya: baris kehadiran mahasiswa yang
+	 * unitnya hanya terdefinisi di tingkat perguruan tinggi <b>tidak memperoleh satuan kerja</b>,
+	 * dan akan lolos dari penyaringan berbasis unit.</li>
+	 * </ul>
+	 *
+	 * @return satuan kerja pemilik baris, atau {@code null} bila tidak dapat diturunkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
@@ -3388,6 +4100,27 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Menambahkan satu tembakan waktu ke {@link #getLogAbsensi()} <b>tanpa menduplikasi</b> dan
+	 * <b>terurut</b>.
+	 *
+	 * <p>
+	 * Log yang ada dipecah pada titik koma dan dimasukkan ke dalam himpunan terurut bersama tembakan
+	 * baru, lalu dirangkai kembali. Pemakaian himpunan terurut memberi dua sifat sekaligus: entri
+	 * yang identik otomatis menyatu, dan hasilnya selalu berurutan menaik. Karena format waktu yang
+	 * dipakai menempatkan komponen terbesar di depan, urutan leksikografis kebetulan sama dengan
+	 * urutan kronologis — sifat yang <b>bergantung sepenuhnya pada format</b> dan akan rusak diam-diam
+	 * bila format waktunya diubah.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan bahwa method membaca lewat {@link #getLogAbsensi()}, yang sendirinya menghitung ulang
+	 * log dari keterangan setiap kali dipanggil. Jadi satu penambahan tembakan juga menarik masuk
+	 * seluruh entri sidik jari yang tercatat di keterangan.
+	 * </p>
+	 *
+	 * @param date tembakan waktu yang ditambahkan; {@code null} diabaikan
+	 */
 	private void pushLog(Date date) {
 		if (date != null) {
 			String[] d = getLogAbsensi().split(";");
@@ -3408,6 +4141,25 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menentukan waktu <b>mulai lembur sesungguhnya</b> berdasarkan tembakan mesin absensi.
+	 *
+	 * <p>
+	 * Bila shift lembur khusus terpasang dan {@link #getLamburMulai()} sudah terisi, nilai itu
+	 * dipakai apa adanya. Selain itu method menyisir {@link #getLogAbsensi()} dan mencari tembakan
+	 * <b>paling akhir</b> yang terjadi setelah jam pulang — dengan asumsi tembakan setelah jam pulang
+	 * menandai dimulainya periode lembur.
+	 * </p>
+	 *
+	 * <p>
+	 * Pembandingan memakai bentuk desimal {@code jam,menit}, sehingga <b>tembakan yang jatuh setelah
+	 * tengah malam tidak akan pernah dianggap lebih besar daripada jam pulang</b> dan karenanya
+	 * terlewat. Untuk lembur yang menyeberang hari, itulah alasan
+	 * {@link #ambilLemburSampai(String)} menyediakan jalur cadangan lewat log hari berikutnya.
+	 * </p>
+	 *
+	 * @return waktu mulai lembur, atau {@code null} bila tidak ada tembakan setelah jam pulang
+	 */
 	public Date ambilLemburMulai() {
 
 		detailJenisShiftPegawaiLembur = getDetailJenisShiftPegawaiLembur();
@@ -3448,6 +4200,29 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return waktu;
 	}
 
+	/**
+	 * Menentukan waktu <b>selesai lembur</b> berdasarkan tembakan mesin absensi, dengan jalur
+	 * cadangan ke log hari berikutnya.
+	 *
+	 * <p>
+	 * Bila shift lembur khusus terpasang dan {@link #getLamburSampai()} sudah terisi, nilai itu
+	 * dipakai. Selain itu method menyisir log hari ini untuk tembakan setelah
+	 * {@link #ambilLemburMulai()} dan memilih yang <b>paling awal</b> di antaranya. Bila tidak ada,
+	 * ia beralih ke {@code logNext} — log hari berikutnya yang dipasok pemanggil — dan mengambil
+	 * <b>entri pertama yang berhasil diurai</b>, tanpa memeriksa apakah entri itu masuk akal sebagai
+	 * akhir lembur.
+	 * </p>
+	 *
+	 * <p>
+	 * Jalur cadangan inilah yang menangani lembur yang melewati tengah malam. Karena ia menerima
+	 * entri pertama begitu saja, ketepatannya bergantung pada asumsi bahwa tembakan pertama esok hari
+	 * memang merupakan kepulangan lembur — asumsi yang tidak berlaku bila orang tersebut kembali
+	 * bekerja pagi harinya.
+	 * </p>
+	 *
+	 * @param logNext log absensi hari berikutnya sebagai cadangan; boleh {@code null}/kosong
+	 * @return waktu selesai lembur, atau {@code null} bila tidak dapat ditentukan
+	 */
 	public Date ambilLemburSampai(String logNext) {
 
 		detailJenisShiftPegawaiLembur = getDetailJenisShiftPegawaiLembur();
@@ -3505,6 +4280,35 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return waktu;
 	}
 
+	/**
+	 * Mengambil <b>tembakan sidik jari paling awal</b> yang tertulis di dalam teks
+	 * {@link #getKeterangan()}.
+	 *
+	 * <p>
+	 * Method memecah keterangan pada titik koma, mengambil setiap potongan yang memuat kata
+	 * {@code "Fingerprint"}, membaca bagian setelah koma pertama sebagai waktu, menyaring yang
+	 * tanggalnya sama dengan {@link #getTanggal()}, lalu mengembalikan yang paling awal.
+	 * </p>
+	 *
+	 * <h4>Mengapa mekanisme ini ada</h4>
+	 * <p>
+	 * Ini jalur pemulihan: ketika data mesin absensi tidak masuk ke kolom yang semestinya tetapi
+	 * jejaknya sempat tercatat sebagai catatan teks, kehadiran masih dapat direkonstruksi. Ia hanya
+	 * aktif bila konfigurasi global menyalakannya, dan menjadi salah satu cabang di dalam
+	 * {@link #getMasukjam()}.
+	 * </p>
+	 *
+	 * <h4>Kerapuhan yang melekat</h4>
+	 * <p>
+	 * Seluruh mekanisme bergantung pada <b>format teks bebas</b>: kata kunci yang harus persis,
+	 * posisi koma, dan format waktu tertentu. Tidak ada satu pun yang divalidasi, dan setiap kegagalan
+	 * penguraian ditelan tanpa jejak yang terlihat pengguna. Lebih jauh, keterangan dapat berasal dari
+	 * teks pengajuan cuti yang diketik manusia (lihat {@link #getKeterangan()}), sehingga isi kolom
+	 * ini tidak sepenuhnya dikendalikan sistem.
+	 * </p>
+	 *
+	 * @return tembakan paling awal pada tanggal ini, atau {@code null} bila tidak ada
+	 */
 	public Date mulaiOtomatisUlangAbsenDariKeterangan() {
 		try {
 			TreeSet<String> treeSet = new TreeSet<String>();
@@ -3528,6 +4332,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return null;
 	}
 
+	/**
+	 * Mengambil <b>tembakan sidik jari paling akhir</b> dari teks {@link #getKeterangan()}, sebagai
+	 * pasangan {@link #mulaiOtomatisUlangAbsenDariKeterangan()}.
+	 *
+	 * <p>
+	 * Penguraiannya identik, dengan satu perbedaan yang menentukan: method ini mengembalikan
+	 * {@code null} bila tembakan yang ditemukan <b>kurang dari dua</b>. Alasannya masuk akal — satu
+	 * tembakan tunggal adalah kedatangan, bukan kepulangan, sehingga menganggapnya sebagai jam pulang
+	 * akan menghasilkan durasi kerja nol untuk orang yang sebenarnya bekerja seharian.
+	 * </p>
+	 *
+	 * @return tembakan paling akhir pada tanggal ini, atau {@code null} bila tembakan kurang dari dua
+	 */
 	public Date sampaiOtomatisUlangAbsenDariKeterangan() {
 		try {
 			TreeSet<String> treeSet = new TreeSet<String>();
@@ -3551,6 +4368,30 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return null;
 	}
 
+	/**
+	 * Membaca <b>riwayat peristiwa absensi</b> yang tersimpan sebagai dokumen JSON pada penyimpanan
+	 * pendamping entitas, lalu mengelompokkannya.
+	 *
+	 * <h4>Bentuk data</h4>
+	 * <p>
+	 * Riwayat disimpan sebagai objek JSON datar dengan kunci berpola {@code <stempelwaktu>_<sesuatu>}.
+	 * Method memecah setiap kunci pada garis bawah pertama dan mengelompokkan entri berdasarkan
+	 * bagian pertama, menghasilkan peta terurut dari stempel waktu ke kumpulan entri pada stempel
+	 * itu. Karena stempel waktunya berformat besar-ke-kecil, pengurutan leksikografis peta terurut
+	 * kebetulan sama dengan urutan kronologis — itulah sebabnya
+	 * {@link #mulaiOtomatisUlangAbsenDariSejarah()} cukup mengambil kunci pertama.
+	 * </p>
+	 *
+	 * <h4>Catatan ketahanan</h4>
+	 * <p>
+	 * JSON yang rusak menghasilkan riwayat kosong tanpa galat, dan kunci yang tidak sesuai pola
+	 * dilewati per entri. Riwayat ini bukan kolom tabel biasa melainkan penyimpanan bebas-skema, jadi
+	 * jangan berasumsi isinya seragam antar-baris maupun antar-versi aplikasi.
+	 * </p>
+	 *
+	 * @return peta terurut dari stempel waktu ke kumpulan entri riwayatnya; kosong bila tidak ada
+	 *         riwayat atau riwayat tidak dapat dibaca
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<String, Map<String, String>> ambilSejarah() {
 		String sebelumnya = this.retreive("sejarah");
@@ -3585,6 +4426,31 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return maps;
 	}
 
+	/**
+	 * Mengambil <b>peristiwa absensi paling awal</b> dari riwayat sebagai calon jam masuk.
+	 *
+	 * <p>
+	 * Method membaca {@link #ambilSejarah()} lalu memakai kunci pertamanya — yang, karena pengurutan
+	 * peta, merupakan stempel waktu paling awal. Kunci itu diurai sebagai tanggal berformat
+	 * {@code yyyyMMddHHmmss}.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan penjagaan yang sudah dipasang: kunci <b>diperiksa dengan pola 14 digit sebelum
+	 * diurai</b>. Ini menangani data lama yang menaruh kalimat pesan (bukan stempel waktu) sebagai
+	 * kunci riwayat; tanpa penjagaan itu, satu baris data lama akan melempar galat penguraian setiap
+	 * kali kehadirannya dibaca. Kunci yang lolos pola namun tetap gagal diurai dicatat lalu dilewati,
+	 * bukan menghentikan proses.
+	 * </p>
+	 *
+	 * <p>
+	 * Method ini adalah jaring pengaman terakhir di dalam {@link #getMasukjam()}, dipakai hanya bila
+	 * seluruh sumber lain kosong.
+	 * </p>
+	 *
+	 * @return waktu peristiwa paling awal, atau {@code null} bila riwayat kosong atau kuncinya tidak
+	 *         berbentuk stempel waktu
+	 */
 	public Date mulaiOtomatisUlangAbsenDariSejarah() {
 		try {
 
@@ -3617,6 +4483,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return null;
 	}
 
+	/**
+	 * Mengambil <b>peristiwa absensi paling akhir</b> dari riwayat sebagai calon jam pulang, pasangan
+	 * {@link #mulaiOtomatisUlangAbsenDariSejarah()}.
+	 *
+	 * <p>
+	 * Bekerja dengan cara yang sejajar, tetapi memakai kunci terakhir peta terurut. Sama seperti
+	 * kembarannya, ia berfungsi sebagai jaring pengaman terakhir di dalam {@link #getPulangJam()}
+	 * dan menelan seluruh kegagalan penguraian.
+	 * </p>
+	 *
+	 * @return waktu peristiwa paling akhir, atau {@code null} bila riwayat kosong atau tidak dapat
+	 *         diurai
+	 */
 	public Date sampaiOtomatisUlangAbsenDariSejarah() {
 		try {
 			TreeMap<String, Map<String, String>> maps = this.ambilSejarah();
@@ -4060,6 +4939,38 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		}
 	}
 
+	/**
+	 * Merakit ulang log absensi dengan <b>menggabungkan</b> log yang tersimpan dan seluruh tembakan
+	 * sidik jari yang tertulis di dalam {@link #getKeterangan()}.
+	 *
+	 * <p>
+	 * Kedua sumber dimasukkan ke dalam himpunan terurut sehingga duplikat menyatu dan hasilnya
+	 * berurutan, lalu dirangkai kembali menjadi satu string dipisah titik koma.
+	 * </p>
+	 *
+	 * <h4>Ini adalah mesin di balik {@link #getLogAbsensi()}</h4>
+	 * <p>
+	 * Yang membuatnya berkonsekuensi besar adalah pemakaiannya: {@link #getLogAbsensi()} memanggil
+	 * method ini <b>pada setiap pembacaan</b> dan menugaskan hasilnya kembali ke field. Karena
+	 * {@link #getMasukjam()}, {@link #getPulangJam()}, dan hampir semua perhitungan membaca log,
+	 * penggabungan ini berjalan berkali-kali untuk satu baris. Tiga akibatnya:
+	 * </p>
+	 * <ul>
+	 * <li><b>Log tidak dapat dipangkas secara permanen.</b> Menghapus entri dari kolom log tidak
+	 * berpengaruh selama entri yang sama masih tertulis di keterangan — ia akan ditarik kembali pada
+	 * pembacaan berikutnya.</li>
+	 *
+	 * <li><b>Menyunting keterangan mengubah jam kehadiran.</b> Menambahkan teks bergaya
+	 * {@code "Fingerprint, <waktu>"} ke keterangan akan menyisipkan tembakan baru ke dalam log, dan
+	 * karenanya berpotensi menggeser jam masuk atau jam pulang yang tampil.</li>
+	 *
+	 * <li><b>Berbeda dari</b> {@link #mulaiOtomatisUlangAbsenDariKeterangan()}, penggabungan di sini
+	 * <b>tidak menyaring berdasarkan tanggal</b> — tembakan bertanggal lain yang kebetulan tertulis
+	 * di keterangan tetap ikut masuk ke log hari ini.</li>
+	 * </ul>
+	 *
+	 * @return log absensi hasil penggabungan, dipisah titik koma; string kosong bila tidak ada entri
+	 */
 	public String hitungUlangAbsenDariKeterangan() {
 		String[] d = (logAbsensi == null ? "" : logAbsensi).split(";");
 		TreeSet<String> treeSet = new TreeSet<String>();
@@ -4089,6 +5000,26 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return sb.toString();
 	}
 
+	/**
+	 * Mengembalikan seluruh tembakan mesin absensi hari ini sebagai satu string dipisah titik koma.
+	 *
+	 * <p>
+	 * <b>Bukan pembacaan kolom.</b> Getter ini memanggil
+	 * {@link #hitungUlangAbsenDariKeterangan()} pada setiap pemanggilan — merakit ulang log dari
+	 * gabungan kolom tersimpan dan tembakan sidik jari yang tertulis di {@link #getKeterangan()} —
+	 * lalu <b>menimpa field</b> dengan hasilnya. Baca javadoc method itu untuk memahami akibatnya,
+	 * terutama bahwa log tidak dapat dipangkas secara permanen selama keterangan masih memuat entri
+	 * yang sama.
+	 * </p>
+	 *
+	 * <p>
+	 * Karena hampir setiap perhitungan di kelas ini membaca log, getter ini termasuk yang paling
+	 * sering dipanggil sekaligus paling sering memutasi entitas. Nilai kembaliannya dinormalkan ke
+	 * string kosong sehingga aman langsung dipecah tanpa penjagaan {@code null}.
+	 * </p>
+	 *
+	 * @return log tembakan absensi; tidak pernah {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getLogAbsensi() {
 		logAbsensi = hitungUlangAbsenDariKeterangan();
@@ -4117,6 +5048,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.logAbsensi = logAbsensi;
 	}
 
+	/**
+	 * Mengembalikan shift yang ditetapkan manual oleh petugas untuk hari ini.
+	 *
+	 * <p>
+	 * Bila terisi, shift ini <b>mengalahkan pencarian shift otomatis</b> di dalam
+	 * {@link #getDetailJenisShiftPegawai()} — namun tetap kalah oleh
+	 * {@link #getJenisShiftPunyaPegawai()}. Karena shift menentukan seluruh pembanding perhitungan
+	 * terlambat, cepat, dan lembur, mengisi kolom ini mengubah hasil penilaian kehadiran hari itu
+	 * secara menyeluruh.
+	 * </p>
+	 *
+	 * @return shift manual, atau {@code null} bila tidak ada penetapan manual
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "detail_jenis_shift_pegawai_manual", nullable = true)
 	public DetailJenisShiftPegawai getDetailJenisShiftPegawaiManual() {
@@ -4140,6 +5084,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.detailJenisShiftPegawaiManual = detailJenisShiftPegawaiManual;
 	}
 
+	/**
+	 * Mengembalikan shift khusus yang dipakai sebagai dasar perhitungan lembur.
+	 *
+	 * <p>
+	 * Bila terisi, {@link #getJumlahLemburMasuk()} memakainya menggantikan shift kerja biasa,
+	 * sehingga batas maksimum dan tabel konversi lembur yang berlaku ikut berbeda. Relasi ini juga
+	 * mengubah perilaku {@link #ambilLemburMulai()} dan {@link #ambilLemburSampai(String)}: bila ia
+	 * terisi <i>dan</i> rentang lembur sudah tercatat, kedua method itu memakai rentang tersimpan
+	 * alih-alih menelusuri log.
+	 * </p>
+	 *
+	 * @return shift dasar lembur, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "detail_jenis_shift_pegawai_lembur", nullable = true)
 	public DetailJenisShiftPegawai getDetailJenisShiftPegawaiLembur() {
@@ -4161,6 +5118,23 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.detailJenisShiftPegawaiLembur = detailJenisShiftPegawaiLembur;
 	}
 
+	/**
+	 * Mengembalikan koreksi manual jam masuk, <b>kecuali bila kedatangan ditiadakan</b>.
+	 *
+	 * <p>
+	 * Penanda {@link #getTidakAdaKedatangan()} diperiksa lebih dulu dan, bila menyala, method
+	 * mengembalikan {@code null} tanpa memandang isi kolom. Penjagaan ini menjaga konsistensi dengan
+	 * {@link #getMasukjam()} yang juga menghormati penanda tersebut.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan bahwa penjagaan yang sama <b>tidak</b> mencakup {@link #getTidakAdaKehadiran()},
+	 * meski penanda itu lebih kuat — pengamanannya berlangsung tidak langsung lewat resolusi status.
+	 * </p>
+	 *
+	 * @return koreksi manual jam masuk, atau {@code null} bila tidak ada koreksi atau kedatangan
+	 *         ditiadakan
+	 */
 	@Temporal(TemporalType.TIME)
 	@Column(name = "masuk_jam_manual")
 	public Date getMasukjamManual() {
@@ -4186,6 +5160,13 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.masukjamManual = masukjamManual;
 	}
 
+	/**
+	 * Mengembalikan koreksi manual jam pulang, dikosongkan bila {@link #getTidakAdaKepulangan()}
+	 * menyala. Cermin {@link #getMasukjamManual()}.
+	 *
+	 * @return koreksi manual jam pulang, atau {@code null} bila tidak ada koreksi atau kepulangan
+	 *         ditiadakan
+	 */
 	@Temporal(TemporalType.TIME)
 	@Column(name = "pulang_jam_manual")
 	public Date getPulangJamManual() {
@@ -4205,6 +5186,35 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.pulangJamManual = pulangJamManual;
 	}
 
+	/**
+	 * Mengembalikan tembakan kedatangan pertama yang dikunci, <b>sambil terus mengoreksinya ke
+	 * tembakan yang lebih awal</b> bila ada.
+	 *
+	 * <h4>Perilaku</h4>
+	 * <p>
+	 * Bila kolom sudah terisi, method menyisir {@link #getLogAbsensi()} untuk mencari tembakan pada
+	 * <i>tanggal yang sama</i> yang lebih awal daripada nilai tersimpan, dan bila ketemu ia
+	 * <b>menimpa field</b>. Bila kolom masih kosong, tidak ada penelusuran sama sekali — jadi method
+	 * ini hanya menajamkan nilai yang sudah ada, tidak pernah membuatnya dari nol.
+	 * </p>
+	 *
+	 * <h4>Dua kejanggalan yang perlu dicatat</h4>
+	 * <ul>
+	 * <li><b>Nama kolomnya keliru.</b> Properti ini dipetakan ke kolom bernama
+	 * {@code pulang_jam_pertamakali}, padahal isinya adalah jam <i>masuk</i> pertama kali. Tidak ada
+	 * properti lain yang memakai nama kolom itu sehingga tidak terjadi tabrakan data, tetapi siapa pun
+	 * yang membaca skema basis data secara langsung akan tersesat. Perlakukan sebagai kesalahan
+	 * penamaan warisan, bukan petunjuk arti.</li>
+	 *
+	 * <li><b>Ketegangan dengan sifat "dikunci".</b> Nama dan setternya menyiratkan nilai yang tidak
+	 * boleh berubah, tetapi getter ini justru dapat memundurkannya setiap kali log bertambah dengan
+	 * tembakan yang lebih awal. Yang terkunci sesungguhnya adalah "tidak dapat digeser ke waktu yang
+	 * lebih siang", bukan "tidak dapat berubah".</li>
+	 * </ul>
+	 *
+	 * @return tembakan kedatangan paling awal yang tercatat, atau {@code null} bila belum pernah
+	 *         dikunci
+	 */
 	@Temporal(TemporalType.TIME)
 	@Column(name = "pulang_jam_pertamakali")
 	public Date getMasukjamPertamakali() {
@@ -4233,6 +5243,26 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return masukjamPertamakali;
 	}
 
+	/**
+	 * Mengunci tembakan kedatangan pertama — <b>hanya sekali</b>.
+	 *
+	 * <p>
+	 * Setter ini bersifat tulis-sekali: bila kolom sudah terisi, pemanggilan langsung {@code return}
+	 * tanpa mengubah apa pun. Nilai lama <b>tidak dapat ditimpa maupun dikosongkan</b> lewat setter
+	 * ini, bahkan dengan {@code null}.
+	 * </p>
+	 *
+	 * <p>
+	 * Maksudnya adalah menambatkan jam masuk agar tidak bergeser oleh tembakan susulan sepanjang
+	 * hari. Konsekuensi praktisnya: bila sebuah baris terlanjur mengunci waktu yang salah, satu-satunya
+	 * jalan memperbaikinya adalah lewat koreksi manual {@link #setMasukjamManual(Date)} atau
+	 * penyuntingan langsung di basis data. Perhatikan pula bahwa
+	 * {@link #getMasukjamPertamakali()} tetap dapat memundurkan nilai terkunci ini ke tembakan yang
+	 * lebih awal.
+	 * </p>
+	 *
+	 * @param masukjamPertamakali tembakan kedatangan pertama; diabaikan bila kolom sudah terisi
+	 */
 	public void setMasukjamPertamakali(Date masukjamPertamakali) {
 		if (this.masukjamPertamakali != null) {
 			return;
@@ -4301,6 +5331,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.back = back;
 	}
 
+	/**
+	 * Mengembalikan penugasan jenis shift bagi orang ini.
+	 *
+	 * <p>
+	 * Ini <b>lapisan tertinggi</b> dalam penentuan shift: bila penugasan ini membawa rincian shift,
+	 * {@link #getDetailJenisShiftPegawai()} memakainya dan mengabaikan shift manual maupun pencarian
+	 * otomatis. Getter sendiri sederhana — hanya menormalkan proxy relasi lewat {@code check(...)}.
+	 * </p>
+	 *
+	 * @return penugasan jenis shift, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_shift_punya_pegawai", nullable = true)
 	public JenisShiftPunyaPegawai getJenisShiftPunyaPegawai() {
@@ -4323,6 +5364,24 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.jenisShiftPunyaPegawai = jenisShiftPunyaPegawai;
 	}
 
+	/**
+	 * Mengembalikan jam masuk versi <b>mesin status</b> (tombol masuk yang ditekan pengguna).
+	 *
+	 * <p>
+	 * Bila konfigurasi global menyalakan pembacaan sidik jari dari keterangan, method lebih dulu
+	 * mencoba {@link #mulaiOtomatisUlangAbsenDariKeterangan()} dan, bila berhasil, <b>menimpa field
+	 * ini</b> dengan hasilnya lalu mengembalikannya. Jadi kolom yang secara konseptual mewakili
+	 * "pengguna menekan tombol masuk" dapat terisi oleh data hasil penguraian teks — sesuatu yang
+	 * perlu diketahui saat menelusuri asal-usul sebuah jam masuk.
+	 * </p>
+	 *
+	 * <p>
+	 * Signifikansi kolom ini bergantung pada shift: untuk jenis shift yang mewajibkan mengikuti mesin
+	 * status, inilah satu-satunya sumber jam masuk yang sah.
+	 * </p>
+	 *
+	 * @return jam masuk versi mesin status, atau {@code null}
+	 */
 	@Temporal(TemporalType.TIME)
 	@Column(name = "masuk_jam_state")
 	public Date getMasukjamState() {
@@ -4351,6 +5410,30 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.masukjamState = masukjamState;
 	}
 
+	/**
+	 * Mengembalikan jam pulang versi <b>mesin status</b>, dengan dua perilaku tambahan.
+	 *
+	 * <ol>
+	 * <li>Bila konfigurasi global menyalakan pembacaan sidik jari dari keterangan, hasil
+	 * {@link #sampaiOtomatisUlangAbsenDariKeterangan()} menimpa kolom ini dan langsung dikembalikan
+	 * — sejajar dengan {@link #getMasukjamState()}.</li>
+	 *
+	 * <li><b>Penolakan kepulangan yang bersamaan dengan kedatangan.</b> Bila jam masuk dan jam pulang
+	 * versi mesin status jatuh pada menit yang praktis sama, jam pulang <b>dikosongkan</b>. Ini
+	 * menangani kesalahan lazim ketika pengguna menekan tombol pulang seketika setelah tombol masuk
+	 * (atau satu tekanan terbaca ganda), yang bila dibiarkan akan menghasilkan durasi kerja nol dan
+	 * menandai orang tersebut pulang cepat sepanjang jam kerjanya.</li>
+	 * </ol>
+	 *
+	 * <p>
+	 * Perhatikan bahwa pembandingan memakai bentuk desimal {@code jam,menit} sehingga presisinya
+	 * sebatas menit — dua tekanan berjarak beberapa detik dianggap bersamaan, sedangkan yang berjarak
+	 * satu menit penuh tidak. Method ini <b>menulis ke field</b> pada kedua cabang.
+	 * </p>
+	 *
+	 * @return jam pulang versi mesin status, atau {@code null} bila tidak ada atau ditolak karena
+	 *         bersamaan dengan jam masuk
+	 */
 	@Temporal(TemporalType.TIME)
 	@Column(name = "pulang_jam_state")
 	public Date getPulangJamState() {
@@ -4384,12 +5467,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 *
 	 * <p>
 	 * Bila menyala, {@link #getPulangJam()} langsung mengembalikan {@code null} tanpa memandang
-	 * lapisan sumber mana pun. Getter ini murni — ia benar-benar membaca kolom, tanpa nilai bawaan
-	 * bila {@code null}, sehingga pemanggil wajib memakai pembandingan yang aman terhadap
-	 * {@code null} (pola {@code Boolean.TRUE.equals(...)} seperti yang dipakai di kelas ini).
+	 * lapisan sumber mana pun. Getter mengembalikan {@code false} untuk kolom yang kosong,
+	 * sehingga hasilnya tidak pernah {@code null} — meski kode di kelas ini tetap memakai pola
+	 * {@code Boolean.TRUE.equals(...)} yang aman terhadap {@code null}.
 	 * </p>
 	 *
-	 * @return penanda tidak ada kepulangan; boleh {@code null}
+	 * @return penanda tidak ada kepulangan; tidak pernah {@code null}
 	 */
 	public Boolean getTidakAdaKepulangan() {
 		return tidakAdaKepulangan == null ? false : tidakAdaKepulangan;
@@ -4414,7 +5497,7 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * masuk.
 	 * </p>
 	 *
-	 * @return penanda tidak ada kedatangan; boleh {@code null}
+	 * @return penanda tidak ada kedatangan; tidak pernah {@code null}
 	 */
 	public Boolean getTidakAdaKedatangan() {
 		return tidakAdaKedatangan == null ? false : tidakAdaKedatangan;
@@ -4430,6 +5513,25 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.tidakAdaKedatangan = tidakAdaKedatangan;
 	}
 
+	/**
+	 * Mengembalikan pengguna yang mengunci baris kehadiran ini.
+	 *
+	 * <p>
+	 * Nilai bukan-{@code null} berarti baris sudah dikunci dan seharusnya tidak diubah lagi —
+	 * mekanisme yang berasal dari kelas induk {@link VoKunci} dan penting karena data kehadiran
+	 * menjadi dasar perhitungan gaji.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Entitas ini tidak menegakkan kuncinya sendiri.</b> Tidak ada satu pun setter di kelas ini
+	 * yang memeriksa kolom ini sebelum mengubah nilai, dan tidak ada pula yang mencegah getter-getter
+	 * penyimpul menimpa field pada baris yang terkunci. Penegakan sepenuhnya berada di lapisan
+	 * pemanggil; siapa pun yang menambahkan jalur penulisan baru ke tabel kehadiran wajib memeriksanya
+	 * sendiri.
+	 * </p>
+	 *
+	 * @return pengguna pengunci, atau {@code null} bila baris belum dikunci
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dikunci")
 	public Tbmuser getDikunci() {
@@ -4454,6 +5556,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.dikunci = dikunci;
 	}
 
+	/**
+	 * Mengembalikan disposisi SOP yang menjadi konteks kehadiran hari ini.
+	 *
+	 * <p>
+	 * Relasi opsional ini menautkan baris kehadiran dengan penugasan berbasis SOP — misalnya tugas
+	 * luar yang membuat seseorang tidak berada di kantor secara sah. Getter menormalkan proxy relasi
+	 * sebelum mengembalikannya.
+	 * </p>
+	 *
+	 * @return disposisi SOP terkait, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -4461,6 +5574,11 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menyetel disposisi SOP yang menjadi konteks kehadiran hari ini.
+	 *
+	 * @param disposisiSop disposisi SOP terkait; boleh {@code null}
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
@@ -4480,7 +5598,8 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * berwenang menyalakannya, dan sertakan dalam laporan audit kehadiran.
 	 * </p>
 	 *
-	 * @return bendera pengabaian jarak; boleh {@code null}
+	 * @return bendera pengabaian jarak; tidak pernah {@code null} — kolom kosong berarti
+	 *         tidak diabaikan (bawaan yang aman)
 	 */
 	public Boolean getAbaikanJarak() {
 		return abaikanJarak == null ? false : abaikanJarak;
@@ -4509,7 +5628,8 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * ditelusuri saat audit.
 	 * </p>
 	 *
-	 * @return penanda tidak ada kehadiran; boleh {@code null}
+	 * @return penanda tidak ada kehadiran; tidak pernah {@code null} — kolom kosong berarti
+	 *         penanda padam
 	 */
 	public Boolean getTidakAdaKehadiran() {
 		return tidakAdaKehadiran == null ? false : tidakAdaKehadiran;
@@ -4532,6 +5652,29 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	// ---------------------------------------------------------
 	// 1. HELPER: NORMALISASI KALENDER (PENTING UNTUK AKURASI)
 	// ---------------------------------------------------------
+	/**
+	 * Menggabungkan komponen <b>jam</b> dari sebuah waktu dengan komponen <b>tanggal</b> dari
+	 * {@link #getTanggal()}, menghasilkan kalender yang siap dibandingkan.
+	 *
+	 * <h4>Mengapa helper ini penting</h4>
+	 * <p>
+	 * Kolom-kolom jam di entitas ini dipetakan sebagai waktu murni, sehingga komponen tanggalnya
+	 * tidak bermakna. Untuk menghitung selisih dengan benar, komponen jam harus ditempelkan pada
+	 * suatu tanggal. Helper ini memakai <b>tanggal baris kehadiran</b>, bukan tanggal hari ini —
+	 * dan di situlah letak keunggulannya atas keluarga perhitungan lama di kelas ini
+	 * ({@link #getSecondJamMasuk()}, {@link #getJumlahMasukSebelumWaktunya()}, dan sebagainya) yang
+	 * menormalkan ke waktu server. Perbedaan itu penting ketika baris kehadiran lama dihitung ulang
+	 * pada hari yang berbeda, terutama di sekitar pergantian bulan atau saat pergeseran waktu.
+	 * </p>
+	 *
+	 * <p>
+	 * Milidetik dinolkan agar pembandingan tidak terganggu presisi yang tidak bermakna.
+	 * </p>
+	 *
+	 * @param timePart waktu yang komponen jamnya akan dipakai; boleh {@code null}
+	 * @return kalender pada tanggal baris dengan jam dari {@code timePart}, atau {@code null} bila
+	 *         {@code timePart} maupun tanggal baris tidak tersedia
+	 */
 	private Calendar getNormalizedCalendar(Date timePart) {
 		if (timePart == null || getTanggal() == null)
 			return null;
@@ -4552,6 +5695,42 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	// ---------------------------------------------------------
 	// 2. PERBAIKAN LOGIKA SHIFT MALAM (ANTI DOUBLE-COUNT & SALAH TARIK)
 	// ---------------------------------------------------------
+	/**
+	 * Mengembalikan jam masuk <b>yang sudah dikoreksi untuk shift malam</b> — versi yang seharusnya
+	 * dipakai oleh perhitungan, bukan {@link #getMasukjam()} mentah.
+	 *
+	 * <h4>Dua keadaan yang ditangani</h4>
+	 * <ol>
+	 * <li><b>Baris ini sendiri bershift malam</b> (jam mulai shift lebih besar daripada jam
+	 * selesainya). Dalam keadaan ini jam masuk wajib jatuh pada sore/malam, dan method memilih waktu
+	 * <i>paling awal</i> di antara jam masuk dan jam pulang yang memenuhi syarat itu. Alasannya: pada
+	 * shift malam, mesin absensi kerap melabeli tembakan secara terbalik, sehingga yang tercatat
+	 * sebagai "pulang" bisa jadi justru kedatangan.</li>
+	 *
+	 * <li><b>Baris ini bershift normal tetapi kemarin bershift malam.</b> Bila kepulangan shift malam
+	 * kemarin tumpah ke pagi hari ini, tembakan pagi itu <b>bukan</b> kedatangan hari ini. Method
+	 * mengembalikan {@code null} untuk mencegah satu tembakan dihitung dua kali — sekali sebagai
+	 * kepulangan kemarin, sekali sebagai kedatangan hari ini.</li>
+	 * </ol>
+	 *
+	 * <h4>Ambang yang dipatok mati</h4>
+	 * <p>
+	 * Kedua keadaan memakai ambang jam yang <b>ditulis langsung di dalam kode</b>: kedatangan shift
+	 * malam dianggap sah bila terjadi pada pukul 14.00 atau setelahnya, dan tembakan pagi dianggap
+	 * kepulangan shift kemarin bila terjadi sebelum pukul 12.00. Angka-angka ini tidak berasal dari
+	 * master shift mana pun, sehingga instalasi dengan pola shift yang tidak lazim — misalnya shift
+	 * malam yang dimulai pukul 12.00 — akan mendapat hasil yang salah tanpa cara mengaturnya.
+	 * </p>
+	 *
+	 * <p>
+	 * Keadaan kedua bergantung pada {@link #getBack()} yang harus disuntikkan pemanggil; baris yang
+	 * dimuat sendirian tidak memperoleh koreksi ini sama sekali.
+	 * </p>
+	 *
+	 * @return jam masuk terkoreksi, atau {@code null} bila tembakan yang ada sebenarnya milik
+	 *         kepulangan shift kemarin
+	 * @see #ambilPulangjam()
+	 */
 	public Date ambilMasukjam() {
 		Date masuk = getMasukjam();
 		Date pulang = getPulangJam();
@@ -4587,6 +5766,33 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return masuk;
 	}
 
+	/**
+	 * Mengembalikan jam pulang <b>yang sudah dikoreksi untuk shift malam</b>, pasangan
+	 * {@link #ambilMasukjam()}.
+	 *
+	 * <p>
+	 * Untuk shift normal, method mengembalikan {@link #getPulangJam()} apa adanya. Untuk shift malam,
+	 * kepulangan sesungguhnya jatuh pada tanggal berikutnya, sehingga method melihat ke
+	 * {@link #getNext()} dan memilih tembakan <i>paling awal</i> di antara jam masuk dan jam pulang
+	 * hari berikutnya yang terjadi sebelum pukul 14.00 — kembali memakai ambang yang dipatok mati di
+	 * dalam kode, sebagaimana dibahas pada {@link #ambilMasukjam()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Bila hari berikutnya tidak tersedia atau tidak memuat tembakan yang memenuhi syarat, ada satu
+	 * jalur cadangan: kepulangan pada hari yang sama tetap diterima asalkan terjadi setelah jam masuk
+	 * — menangani kasus orang yang pulang sebelum tengah malam, misalnya karena sakit. Bila itu pun
+	 * tidak ada, method mengembalikan {@code null} yang berarti belum absen pulang.
+	 * </p>
+	 *
+	 * <p>
+	 * Karena bergantung pada {@link #getNext()} yang harus disuntikkan pemanggil, <b>menghitung
+	 * kehadiran shift malam untuk satu hari secara terisolasi tidak akan pernah benar</b>; muat
+	 * sekurang-kurangnya hari berikutnya.
+	 * </p>
+	 *
+	 * @return jam pulang terkoreksi, atau {@code null} bila belum absen pulang
+	 */
 	public Date ambilPulangjam() {
 		Date masuk = getMasukjam();
 		Date pulang = getPulangJam();
@@ -4626,6 +5832,26 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	// ---------------------------------------------------------
 	// 3. KALKULASI DURASI KERJA (CEPAT & AKURAT MENGGUNAKAN MILLISECONDS)
 	// ---------------------------------------------------------
+	/**
+	 * Menghitung selisih dua waktu dalam <b>jam desimal</b>, dengan penanganan lintas tengah malam.
+	 *
+	 * <p>
+	 * Kedua waktu ditempelkan pada tanggal baris lewat {@link #getNormalizedCalendar(Date)}. Bila
+	 * waktu mulai lebih besar daripada waktu selesai, tanggal selesai ditambah satu hari — inilah
+	 * penanganan shift yang menyeberang tengah malam. Selisih dihitung dalam milidetik lalu dibagi
+	 * menjadi jam, dan hasil negatif dijadikan nol.
+	 * </p>
+	 *
+	 * <p>
+	 * Ini adalah versi perhitungan durasi yang <b>lebih baru dan lebih benar</b> daripada keluarga
+	 * {@code getSecond*} yang menormalkan ke tanggal hari ini. Bila menambahkan perhitungan durasi
+	 * baru di kelas ini, pakai method ini beserta {@link #getNormalizedCalendar(Date)}.
+	 * </p>
+	 *
+	 * @param masuk  waktu mulai; {@code null} menghasilkan {@code 0.0}
+	 * @param pulang waktu selesai; {@code null} menghasilkan {@code 0.0}
+	 * @return durasi dalam jam desimal, tidak pernah negatif
+	 */
 	public Double hitungJumlahJamMasuk(Date masuk, Date pulang) {
 		if (masuk == null || pulang == null || getTanggal() == null)
 			return 0.0;
@@ -4644,6 +5870,30 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return Math.max(0.0, hours);
 	}
 
+	/**
+	 * Menghitung <b>jam kerja reguler</b> hari ini — durasi kerja yang sudah dipisahkan dari lembur.
+	 *
+	 * <p>
+	 * Method memakai {@link #ambilMasukjam()} dan {@link #ambilPulangjam()} yang sudah terkoreksi
+	 * untuk shift malam, lalu — dan inilah bagian yang menentukan — <b>memotong durasi pada ambang
+	 * mulai lembur</b> bila shift menetapkan awal lembur yang jatuh sebelum jam selesai. Dengan begitu
+	 * jam yang sudah dihitung sebagai lembur tidak dihitung dua kali sebagai jam kerja reguler.
+	 * </p>
+	 *
+	 * <p>
+	 * Inilah pembeda utamanya dari {@link #getSecondJamMasuk()}, yang mengukur rentang masuk-pulang
+	 * seutuhnya tanpa pemotongan. Untuk perhitungan upah gunakan method ini; untuk sekadar
+	 * menampilkan "berapa lama berada di tempat kerja", versi detik lebih sesuai.
+	 * </p>
+	 *
+	 * <p>
+	 * Field akumulasi dinolkan lebih dulu dan ditimpa dengan hasil baru pada setiap pemanggilan,
+	 * sehingga getter ini bermutasi.
+	 * </p>
+	 *
+	 * @return jam kerja reguler dalam jam desimal; {@code 0.0} bila jam masuk atau jam pulang tidak
+	 *         tersedia
+	 */
 	public Double getJumlahJamMasuk() {
 		this.jumlahJamMasuk = 0.0;
 		Date masuk = ambilMasukjam();
@@ -4669,6 +5919,32 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	// ---------------------------------------------------------
 	// 4. KALKULASI PELANGGARAN (KETERLAMBATAN & PULANG CEPAT)
 	// ---------------------------------------------------------
+	/**
+	 * Menghitung <b>keterlambatan</b> dalam jam desimal, setelah dikurangi toleransi kedatangan milik
+	 * shift.
+	 *
+	 * <p>
+	 * Method memakai {@link #ambilMasukjam()} yang sudah terkoreksi untuk shift malam dan
+	 * {@link #getNormalizedCalendar(Date)} yang menempelkan jam pada tanggal baris. Keterlambatan
+	 * dihitung hanya bila kedatangan sesungguhnya melewati jam mulai shift; toleransi (dalam menit)
+	 * kemudian dikurangkan, dan hasil negatif dijadikan nol.
+	 * </p>
+	 *
+	 * <p>
+	 * Inilah besaran yang selayaknya dipakai untuk sanksi atau potongan, karena ia menghormati
+	 * toleransi — berbeda dari {@link #getSecondTerlambat()} yang tidak. Ia pula yang mendasari
+	 * {@link #getDatangTerlambat()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Berbeda dari {@link #getJumlahJamMasuk()}, method ini <b>tidak</b> menulis ke field akumulasi —
+	 * ia mengembalikan hasil perhitungan langsung. Nilai kolom keterlambatan karena itu hanya berubah
+	 * lewat {@link #getDatangTerlambat()} yang menugaskannya.
+	 * </p>
+	 *
+	 * @return keterlambatan dalam jam desimal; {@code 0.0} bila tidak terlambat, masih dalam
+	 *         toleransi, atau data tidak lengkap
+	 */
 	public Double getJumlahTerlambat() {
 		Date masuk = ambilMasukjam();
 		DetailJenisShiftPegawai shift = getDetailJenisShiftPegawai();
@@ -4688,6 +5964,35 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return 0.0;
 	}
 
+	/**
+	 * Menghitung durasi <b>pulang lebih cepat</b> dalam jam desimal, setelah dikurangi toleransi
+	 * kepulangan milik shift.
+	 *
+	 * <p>
+	 * Method memakai {@link #ambilPulangjam()} yang sudah terkoreksi untuk shift malam. Penanganan
+	 * lintas tengah malamnya dilakukan dua kali dan perlu dipahami terpisah:
+	 * </p>
+	 * <ol>
+	 * <li>Bila shift itu sendiri menyeberang tengah malam, batas jam selesai digeser ke hari
+	 * berikutnya.</li>
+	 * <li>Bila jam masuk sesungguhnya lebih besar daripada jam pulang sesungguhnya — pertanda
+	 * kepulangan jatuh setelah tengah malam — kepulangan sesungguhnya juga digeser ke hari
+	 * berikutnya.</li>
+	 * </ol>
+	 * <p>
+	 * Tanpa keduanya, pekerja shift malam akan tampak pulang berjam-jam lebih cepat setiap hari.
+	 * Perhatikan bahwa langkah pertama membaca jam mulai shift tanpa penjagaan {@code null}, sehingga
+	 * shift yang hanya mengisi jam selesai akan menimbulkan galat.
+	 * </p>
+	 *
+	 * <p>
+	 * Besaran inilah yang mendasari {@link #getPulangCepat()}, dan seperti
+	 * {@link #getJumlahTerlambat()} ia tidak menulis ke field akumulasi.
+	 * </p>
+	 *
+	 * @return durasi pulang cepat dalam jam desimal; {@code 0.0} bila tidak pulang cepat, masih dalam
+	 *         toleransi, atau data tidak lengkap
+	 */
 	public Double getJumlahCepatKeluar() {
 		Date pulang = ambilPulangjam();
 		DetailJenisShiftPegawai shift = getDetailJenisShiftPegawai();

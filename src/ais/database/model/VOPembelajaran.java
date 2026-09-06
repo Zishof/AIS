@@ -64,24 +64,185 @@ import ais.database.model.sop.DisposisiSop;
  * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
  * perilakunya tidak disalin ke tempat lain.</p>
  *
+ *
+ * <h3>Posisi dalam hierarki dan daftar subclass</h3>
+ * <p>Rantainya {@code GeneralValueObject → ais.database.model.sop.DataSop → VoKunci →
+ * VOPembelajaran}, sejajar dengan {@link VOMahasiswa} yang juga turunan langsung
+ * {@link VoKunci}. Keduanya tidak saling mewarisi: {@code VOMahasiswa} memodelkan <i>orang</i>
+ * yang ditagih, {@code VOPembelajaran} memodelkan <i>wadah kegiatan belajar</i> yang punya
+ * pertemuan.</p>
+ * <p>Tujuh belas subclass konkret tersebar di lima modul:</p>
+ * <ul>
+ * <li>perkuliahan: {@link Perkuliahan}, {@link KrsMahasiswa}, {@link GrupPertemuan},
+ * {@link PertemuanPunyaGrupPertemuan};</li>
+ * <li>tugas akhir: {@link Skripsi}, {@link MahasiswaRequestTugasAkhir}, {@link Wisuda};</li>
+ * <li>pengabdian/praktik: {@code kkn.KelompokKkn}, {@code pkl.KelompokPkl},
+ * {@link FormulirKegiatan};</li>
+ * <li>penerimaan &amp; ujian: {@link JadwalUjianPMB}, {@code sekolah.JadwalUjianPSB},
+ * {@code sekolah.JadwalPertemuanPSB}, {@code recruitment.JadwalUjianPegawai};</li>
+ * <li>sekolah &amp; kursus: {@code sekolah.JadwalPelajaran}, {@code sekolah.KelasLesSiswa},
+ * {@code kursus.KomponenDataProdukKursus}.</li>
+ * </ul>
+ *
+ * <h3>Bentuk arsitekturnya: pemilahan berdasarkan {@code instanceof}</h3>
+ * <p>Kelas ini hampir tidak punya state sendiri — hanya satu relasi
+ * {@link #getDisposisiSop()} dan empat kontrak abstrak. Yang membuatnya besar adalah puluhan
+ * method yang <b>memilah perilaku dengan rantai {@code instanceof} atas dirinya sendiri</b>,
+ * lalu meng-{@code cast} {@code this} ke subclass yang bersangkutan. Pola ini adalah kebalikan
+ * dari pengiriman pesan polimorfik: alih-alih tiap subclass mendefinisikan perilakunya,
+ * kelas induk memuat seluruh pengetahuan tentang seluruh subclass.</p>
+ * <p>Konsekuensi praktisnya, yang berlaku di hampir seluruh method di bawah:</p>
+ * <ul>
+ * <li><b>Menambah subclass baru tidak memaksa apa pun.</b> Subclass yang belum terdaftar pada
+ * suatu rantai akan jatuh ke nilai bawaan — {@code "-"}, {@code false}, {@code null}, atau daftar
+ * kosong — tanpa kompilator maupun runtime memberi peringatan. Ketika menambah subclass, telusuri
+ * <b>setiap</b> method di kelas ini dan putuskan cabangnya secara sadar.</li>
+ * <li><b>Cakupan tiap rantai berbeda-beda.</b> Tidak ada satu daftar subclass yang dipakai
+ * seragam. {@link #ambilJenis()} mengenal tujuh, {@link #populateDosenBuNama()} sembilan,
+ * {@link #reInitPertemuan(Session)} empat belas, {@link #ambilHari()} hanya satu. Perbedaan itu
+ * tidak selalu disengaja; beberapa di antaranya dicatat pada dokumentasi method masing-masing.</li>
+ * <li><b>Ketiga mesin sinkronisasi memakai rantai restriksi yang identik</b> —
+ * {@link #reInitPertemuan(Session)}, {@link #reInitTugas(Session)}, dan
+ * {@link #reInitUjian(Session)} menyalin empat belas cabang yang sama persis, ditutup
+ * {@code Restrictions.sqlRestriction("false")} sebagai perilaku gagal-tertutup. Perubahan pada
+ * salah satunya harus diterapkan pada ketiganya.</li>
+ * </ul>
+ *
+ * <h3>Cache pertemuan berbasis berkas</h3>
+ * <p>Seperti {@link VOMahasiswa}, kelas ini menyimpan <i>daftar id</i> pertemuan miliknya pada
+ * berkas JSON per objek, bukan datanya. {@link #ambilLokasiPertemuan()} membaca,
+ * {@link #tulisLokasiPertemuan(String)} menimpa, {@link #populatePertemuan(Pertemuan)} menambah
+ * satu entri, dan {@link #removePertemuan(Serializable)} menandai entri sebagai terhapus dengan
+ * menyetel nilainya menjadi string kosong. Penanda "sudah pernah dibangun" memakai
+ * {@link GeneralValueObject#udah()} tanpa sufiks. Berbeda dari padanannya di
+ * {@link VOMahasiswa}, pasangan baca/tulis di sini <b>tidak</b> memeriksa apakah id sudah ada,
+ * sehingga tidak aman dipanggil pada objek yang belum tersimpan.</p>
+ *
+ * <h3>Yang perlu diwaspadai</h3>
+ * <ul>
+ * <li>{@link #getDisposisiSop()} menulis ke fieldnya sendiri saat dibaca, dan
+ * {@link #setDisposisiSop(DisposisiSop)} tidak dapat mengosongkan relasi — searah saja.</li>
+ * <li>{@link #reInitPertemuan(Session)}, {@link #reInitTugas(Session)}, dan
+ * {@link #reInitUjian(Session)} membuka transaksi, memperbarui nomor pertemuan, dan menulis ke
+ * basis data; ketiganya bukan operasi baca.</li>
+ * <li>{@link #getAttendee(Pertemuan)} dan beberapa method lain memanggil
+ * {@code HibernateUtil.closeSession()} yang menutup session milik thread pemanggil.</li>
+ * <li>Tidak ada penyaringan tenant/kepemilikan di kelas ini. Seluruh kueri dibatasi pada objek
+ * {@code this}; otorisasi harus sudah diselesaikan sebelum sampai ke sini. Perhatikan khususnya
+ * {@link #getOrganizer(Pertemuan)} dan {@link #getAttendee(Pertemuan)} yang mengumpulkan alamat
+ * surel peserta dan pengajar.</li>
+ * </ul>
+ *
+ * @see VOMahasiswa
  * @see VoKunci
  */
 public abstract class VOPembelajaran extends VoKunci {
 	/**
-	 * 
+	 * Versi serialisasi kelas ini, diwarisi seluruh subclass yang tidak mendeklarasikan versinya
+	 * sendiri.
+	 *
+	 * <p>Dipatok eksplisit agar objek yang tersimpan di session HTTP tetap terbaca setelah
+	 * penambahan method pada kelas ini. Perlu dicatat bahwa cache pertemuan tidak ikut
+	 * diserialisasi — ia hidup di berkas indeks dan cache proses — sehingga objek hasil
+	 * deserialisasi harus memanggil {@link #ambilPertemuan(boolean)} dengan {@code refresh} untuk
+	 * mendapatkan daftar yang mutakhir.</p>
 	 */
 	private static final long serialVersionUID = -4193008320801300777L;
 
+	/**
+	 * Mengembalikan pengenal "course" objek pembelajaran ini pada sistem e-learning luar.
+	 *
+	 * <p>Kontrak ini sengaja abstrak karena tiap subclass menyimpannya di kolom yang berbeda —
+	 * ada yang memetakannya ke kolom {@code course} sungguhan, ada yang menurunkannya dari relasi
+	 * lain. Nilainya dipakai jalur integrasi e-learning untuk menautkan wadah kegiatan di AIS
+	 * dengan ruang kelas di sistem luar.</p>
+	 *
+	 * <p>Boleh {@code null} atau kosong pada objek yang belum pernah ditautkan; pemanggil harus
+	 * memeriksanya sendiri.</p>
+	 *
+	 * @return pengenal course pada sistem luar; bisa {@code null}
+	 */
 	public abstract String getCourse();
 
+	/**
+	 * Menyetel pengenal "course" objek pembelajaran ini pada sistem e-learning luar.
+	 *
+	 * <p>Implementasinya menjadi tanggung jawab subclass; kelas ini tidak memvalidasi bentuk
+	 * maupun keunikan nilai yang diberikan.</p>
+	 *
+	 * @param course pengenal course baru; boleh {@code null} untuk memutus tautan
+	 */
 	public abstract void setCourse(String course);
 
+	/**
+	 * Menyatakan apakah nomor pertemuan disusun ulang secara otomatis menurut tanggal.
+	 *
+	 * <p><b>Penanda paling berpengaruh di kelas ini.</b> Ia menentukan tiga hal sekaligus:</p>
+	 * <ol>
+	 * <li><b>Kunci pengurutan cache.</b> Pada {@link #masukkanPertemuanLocal}, bila bernilai
+	 * benar kunci disusun dari tanggal ({@code yyyyMMdd_id}); bila salah, dari nomor pertemuan
+	 * yang dipadkan menjadi empat digit ({@code 0007_id}).</li>
+	 * <li><b>Apakah nomor pertemuan ditimpa.</b> Ketiga mesin {@code reInit...} hanya menulis
+	 * ulang {@code pertemuanKe} ketika penanda ini benar. Bila salah, nomor yang diisi manual
+	 * oleh pengguna dipertahankan.</li>
+	 * <li><b>Urutan kueri.</b> Rantai {@code reInit...} mengurutkan berdasarkan
+	 * {@code pertemuanKe} bila penanda salah, dan berdasarkan {@code tanggal} bila tidak.</li>
+	 * </ol>
+	 *
+	 * <p><b>Nilai {@code null} bukan sama dengan {@code false}.</b> Pemeriksaannya tidak seragam:
+	 * ketiga mesin {@code reInit...} memakai bentuk {@code (nilai != null && !nilai)} yang aman
+	 * terhadap {@code null}, tetapi {@link #masukkanPertemuanLocal} memakai {@code !nilai}
+	 * telanjang sehingga {@code null} memicu {@link NullPointerException} — yang ditelan diam-diam
+	 * dan menyebabkan pertemuan tersebut <b>hilang dari daftar</b>. Subclass wajib memastikan
+	 * getter ini tidak pernah mengembalikan {@code null}.</p>
+	 *
+	 * @return {@code true} bila nomor pertemuan disusun otomatis menurut tanggal; sebaiknya tidak
+	 *         pernah {@code null}
+	 */
 	public abstract Boolean getUrutkanotomatis();
 
+	/**
+	 * Menyetel penanda penyusunan ulang nomor pertemuan otomatis.
+	 *
+	 * <p>Mengubah nilai ini mengubah kunci pengurutan cache pertemuan, sehingga indeks berkas yang
+	 * ada menjadi tidak konsisten dengan penanda barunya. Setelah menyetelnya, bangun ulang indeks
+	 * lewat {@link #reInitPertemuan(Session)} atau panggil
+	 * {@link #ambilPertemuan(boolean)} dengan {@code refresh} bernilai benar.</p>
+	 *
+	 * @param urutkanotomatis {@code true} agar nomor pertemuan disusun otomatis menurut tanggal;
+	 *                        hindari menyetel {@code null}, lihat {@link #getUrutkanotomatis()}
+	 */
 	public abstract void setUrutkanotomatis(Boolean urutkanotomatis);
 
+	/**
+	 * Tautan opsional ke disposisi SOP yang menjadi dasar dibentuknya objek pembelajaran ini.
+	 *
+	 * <p>Satu-satunya state yang benar-benar dimiliki kelas ini; seluruh perilaku lainnya
+	 * diturunkan dari subclass lewat pemilahan {@code instanceof}. Kolomnya
+	 * ({@code disposisi_sop}) boleh kosong, karena mayoritas objek pembelajaran dibuat langsung
+	 * tanpa melalui alur SOP.</p>
+	 */
 	private DisposisiSop disposisiSop;
 
+	/**
+	 * Mengembalikan disposisi SOP yang menjadi dasar objek pembelajaran ini, bila ada.
+	 *
+	 * <p><b>Getter ini menulis ke fieldnya sendiri.</b> Hasil {@code check(...)} — helper warisan
+	 * yang memvalidasi dan menormalkan referensi entity, mengembalikan {@code null} untuk referensi
+	 * yang tidak lagi sah — ditugaskan kembali ke field sebelum dikembalikan. Membaca properti ini
+	 * karenanya dapat mengubah state objek dari sudut pandang Hibernate: entity yang sedang
+	 * terkelola bisa menjadi "kotor" hanya karena dibaca, memicu pembaruan baris beserta revisi
+	 * audit pada {@code flush} berikutnya walaupun pengguna tidak mengubah apa pun. Ini instansi
+	 * dari pola getter-yang-mengubah-field yang tersebar luas di lapisan model AIS, bukan
+	 * kekhususan kelas ini.</p>
+	 *
+	 * <p>Relasi dimuat secara lazy, jadi mengaksesnya di luar session yang masih terbuka akan
+	 * gagal pada pemanggil. Cascade {@code PERSIST} dan {@code MERGE} berarti menyimpan objek
+	 * pembelajaran ikut menyimpan disposisi yang tertaut, tetapi tidak menghapusnya.</p>
+	 *
+	 * @return disposisi SOP yang tertaut, atau {@code null} bila tidak ada maupun bila
+	 *         referensinya dinilai tidak sah oleh {@code check(...)}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -89,6 +250,25 @@ public abstract class VOPembelajaran extends VoKunci {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menautkan objek pembelajaran ini ke sebuah disposisi SOP.
+	 *
+	 * <p><b>Setter searah: relasi ini tidak dapat dikosongkan lewat method ini.</b> Argumen
+	 * {@code null} maupun disposisi yang belum punya id ditolak dengan {@code return} lebih awal,
+	 * sehingga nilai lama tetap bertahan. Perilaku itu melindungi tautan yang sudah ada dari
+	 * penimpaan tidak sengaja oleh formulir CRUD generik yang mengirim seluruh properti termasuk
+	 * yang tidak diisi pengguna — pola yang sama dipakai di beberapa entity AIS lain untuk relasi
+	 * yang bersifat jejak. Konsekuensinya, memutus tautan harus dilakukan lewat pembaruan langsung
+	 * di lapisan persistence, bukan lewat setter ini.</p>
+	 *
+	 * <p>Ekspresi ternari pada badan method tidak berpengaruh: setelah penjaga di atas lolos,
+	 * kondisi {@code disposisiSop == null || disposisiSop.getId() == null} pasti bernilai salah,
+	 * sehingga cabang yang terpilih selalu argumen yang baru. Ia merupakan sisa dari bentuk
+	 * sebelum penjaga ditambahkan dan dapat disederhanakan tanpa mengubah perilaku.</p>
+	 *
+	 * @param disposisiSop disposisi yang ditautkan; {@code null} atau tanpa id diabaikan tanpa
+	 *                     pesan kesalahan
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
