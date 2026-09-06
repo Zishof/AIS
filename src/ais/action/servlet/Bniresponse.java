@@ -1387,22 +1387,23 @@ public class Bniresponse extends HttpServlet {
 	 * masuk manual saat menelusuri masalah dekode.
 	 *
 	 * <p>
-	 * <b>PERHATIAN.</b> Contoh {@code merchant_id} dan {@code Password} di badan
-	 * method ini tertanam langsung sebagai literal. Nilai semacam itu adalah kunci
-	 * bersama BNI eCollection; walaupun berada di kode mati sehingga tidak dipakai
-	 * pada jalur pembayaran mana pun, nilainya tetap tersimpan di riwayat SVN dan
-	 * harus diperlakukan sebagai bocor bila pernah aktif. Penyapuan kredensial
-	 * terdahulu (yang menghapus default {@code bni_password} tertanam di banyak
-	 * berkas) tidak menyentuh literal di dalam {@code main} ini, dan literal yang
-	 * sama juga masih ada pada {@code Bsiresponse.main}. Jangan menyalin pola ini;
-	 * ambil kunci dari konfigurasi atau {@link Sekolah#getBniPassword()}.
+	 * <b>Riwayat keamanan (DIPERBAIKI 2026-09-07).</b> Contoh {@code merchant_id} dan
+	 * {@code Password} di badan method ini tadinya tertanam langsung sebagai literal
+	 * nyata &mdash; kunci bersama BNI eCollection. Walaupun berada di kode mati sehingga
+	 * tidak dipakai pada jalur pembayaran mana pun, nilainya sudah lama tersimpan di
+	 * riwayat SVN dan harus diperlakukan sebagai bocor bila pernah aktif; penyapuan
+	 * kredensial terdahulu (yang menghapus default {@code bni_password} tertanam di
+	 * banyak berkas) tidak menyentuh literal di dalam {@code main} ini. Literal yang
+	 * sama juga sudah ditambal pada {@code Bsiresponse.main}. Kedua nilai di bawah kini
+	 * berupa placeholder {@code "REPLACE_VIA_KONFIGURASI"}; ambil kunci sungguhan dari
+	 * konfigurasi atau {@link Sekolah#getBniPassword()}, jangan menyalin pola literal ini.
 	 *
 	 * @param argv argumen baris perintah; tidak dipakai
 	 */
 	public static void main(String[] argv) {
 		String parsedData = "TSRNTyEoSx5SFxhiDlJXVmRdR1YAX0xFU35nVk5fCnhLCFsLCmI7UhEjSiNTFhoXDhsETGRkWlEETllFUX5bTgsrOGsrYzlXPDxuag88WjlqJz4wDhsETVBlS1YAVkxFU35nVk5fCjskPR5GTh9GSCgfSyE8FxohHyYcHR8TEgR7SltLVwZbTkhhdxJXAFoKe1cMBycoSRw-IAwZHCETFh8qExRNPRgWHVAlIx0hRFAjTRdGUyhJSBEeO1t9X1dMWmNBSlxgW1ALCyEIFE4mIBkhRjsWPVx3FVt-BmNRB19-CCQJISIZHiInFhtJHxcZFlQhIRkhRk0fTA5CPmILEE5TBloRVF4JJhETGicoFhJHCxMIVw9mSFJVOFMMVCBNXyZMTDEkXB1iCBYJYlhUXWRSUkF4TEpVWAtiCyMTS1IhTyJGPms";
-		String merchant_id = "9556";
-		String Password = "5dc99d6f-5266-4981-a021-d9438ad4b7af";
+		String merchant_id = "REPLACE_VIA_KONFIGURASI";
+		String Password = "REPLACE_VIA_KONFIGURASI"; // DIHAPUS 2026-09-07, lihat javadoc method ini
 		String decodeData = BNIHash.parseData(parsedData, merchant_id, Password);
 		System.out.println("==> BniResponse decoded => " + decodeData);
 	}

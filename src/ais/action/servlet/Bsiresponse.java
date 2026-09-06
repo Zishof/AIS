@@ -1091,20 +1091,21 @@ public class Bsiresponse extends HttpServlet {
 	 * pembayaran; ia hanya menjalankan {@code BNIHash.parseData} atas contoh payload, merchant id,
 	 * dan kata sandi yang tertanam langsung di badannya.</p>
 	 *
-	 * <p><b>Catatan keamanan (dicatat, tidak diubah).</b> Nilai {@code merchant_id} dan
-	 * {@code Password} di sini ditulis sebagai literal dan berbentuk kunci rahasia sungguhan
-	 * (UUID). Literal yang sama juga terdapat pada method {@code main} milik
-	 * {@code Bniresponse}. Keduanya luput dari pembersihan kredensial terdahulu yang menyasar
-	 * literal berbeda, sehingga masih tersimpan di riwayat berkas. Karena kata sandi inilah yang
-	 * membuktikan keaslian pemanggil pada {@link #process}, nilai semacam ini sebaiknya tidak
-	 * berada di kode sumber.</p>
+	 * <p><b>Riwayat keamanan (DIPERBAIKI 2026-09-07).</b> Nilai {@code merchant_id} dan
+	 * {@code Password} di sini tadinya ditulis sebagai literal dan berbentuk kunci rahasia
+	 * sungguhan (UUID). Literal yang sama juga terdapat pada method {@code main} milik
+	 * {@code Bniresponse}, dan keduanya sudah ditambal. Kedua literal luput dari pembersihan
+	 * kredensial terdahulu yang menyasar literal berbeda, sehingga sudah lama tersimpan di
+	 * riwayat berkas dan tetap harus dianggap bocor bila pernah aktif. Karena kata sandi
+	 * inilah yang membuktikan keaslian pemanggil pada {@link #process}, nilai di bawah kini
+	 * berupa placeholder {@code "REPLACE_VIA_KONFIGURASI"}.</p>
 	 *
 	 * @param argv argumen baris perintah; tidak dipakai, seluruh masukan tertanam di badan method
 	 */
 	public static void main(String[] argv) {
 		String parsedData = "TSRNTyEoSx5SFxhiDlJXVmRdR1YAX0xFU35nVk5fCnhLCFsLCmI7UhEjSiNTFhoXDhsETGRkWlEETllFUX5bTgsrOGsrYzlXPDxuag88WjlqJz4wDhsETVBlS1YAVkxFU35nVk5fCjskPR5GTh9GSCgfSyE8FxohHyYcHR8TEgR7SltLVwZbTkhhdxJXAFoKe1cMBycoSRw-IAwZHCETFh8qExRNPRgWHVAlIx0hRFAjTRdGUyhJSBEeO1t9X1dMWmNBSlxgW1ALCyEIFE4mIBkhRjsWPVx3FVt-BmNRB19-CCQJISIZHiInFhtJHxcZFlQhIRkhRk0fTA5CPmILEE5TBloRVF4JJhETGicoFhJHCxMIVw9mSFJVOFMMVCBNXyZMTDEkXB1iCBYJYlhUXWRSUkF4TEpVWAtiCyMTS1IhTyJGPms";
-		String merchant_id = "9556";
-		String Password = "5dc99d6f-5266-4981-a021-d9438ad4b7af";
+		String merchant_id = "REPLACE_VIA_KONFIGURASI";
+		String Password = "REPLACE_VIA_KONFIGURASI"; // DIHAPUS 2026-09-07, lihat javadoc method ini
 		String decodeData = BNIHash.parseData(parsedData, merchant_id, Password);
 		System.out.println("==> BsiResponse decoded => " + decodeData);
 	}

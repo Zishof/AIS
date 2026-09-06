@@ -1,5 +1,83 @@
 # Progres Javadoc Menyeluruh
 
+## 🚨🚨🚨🚨🚨 Batch 141 — sapuan menyeluruh 16 servlet bank/pembayaran, PETA LENGKAP `task_e20425e9` di seluruh gateway, 6 task baru (7 Sep 2026)
+
+Lanjutan `ais/action/servlet/`, fokus PRIORITAS TINGGI: seluruh gateway
+bank/pembayaran tersisa, mengingat `task_e20425e9` (verifikasi
+signature H2H cuma di cabang token, bukan transaksi) baru ditemukan
+batch 140. Plus `PosApi.java` (7245 baris, mega-file terbesar KEDUA
+seluruh inisiatif setelah `AbsensiHelper`).
+
+**`PosApi.java`** (7245→7696 baris, 11 commit) — 22 anggota TANPA
+Javadoc + 13 blok Javadoc YATIM (komentar lama tersisip di posisi
+salah, korban pola sisip-di-tengah) ditemukan meski rasio awal
+terlihat tinggi — PELAJARAN: rasio blok:baris BISA menyesatkan,
+selalu verifikasi baca kode. `bolehAksesActionKantin` fail-open
+role-null DAN fallback `true` prefiks `master_keuangan_` DIKONFIRMASI
+MASIH ADA — TAPI keduanya sudah jadi KEPUTUSAN TERCATAT (bukan bug
+baru), penegakan sesungguhnya di lapis `*ApiHelper` (`task_66986071`).
+Task baru `task_d7bc5143` (2 cabang tolak-akses kirim HTTP 200 kosong,
+menyamar sebagai gangguan jaringan — bukan celah otorisasi, cuma bug
+tampilan).
+
+**🗺️ PETA LENGKAP `task_e20425e9` di 13 gateway diperiksa** (verifikasi
+presisi per-endpoint, bukan grep sepintas):
+
+- **RENTAN (nol/lemah verifikasi di cabang transaksi)**: `Mandiri.java`
+  (PALING EKSTREM — nol keyword signature/hmac/token SAMA SEKALI,
+  dikonfirmasi SUMBER `LogHostToHost` TIER 1 `task_a1e32ff3`),
+  `Bankaltimtara.java`, `BSI.java`, `Nagari.java`, `Otto.java`,
+  `BMS.java`, `FasPayResponse.java`, `JatelindoCallback.java`,
+  `Maja.java`, `Flip.java`, `Finpay.java`. `MncBank.java` DIKONFIRMASI
+  LEBIH PARAH dari catatan lama — BUKAN cuma oracle-baca, payload
+  ber-`amt` masuk cabang TULIS dan bisa TANDAI VA LUNAS TANPA SETORAN,
+  TANPA otentikasi sama sekali.
+- **KOREKSI PENTING — `BCA.java` TERNYATA AMAN** (asumsi grep sepintas
+  batch 140 SALAH): `accessTokens` DIBACA sebagai gerbang di cabang
+  transaksi, HMAC-SHA512 dihitung ulang+dibandingkan. Diverifikasi
+  detail per-endpoint (4 endpoint, semua bergerbang).
+- **`Briva.java` RENTAN tapi SUDAH DITAMBAL sesi paralel LAIN di
+  TENGAH batch ini** (r86395) — validasi real-time bahwa temuan
+  ditindaklanjuti cepat.
+- **3 CONTOH POSITIF/RUJUKAN** (dibangun BENAR, verifikasi di cabang
+  transaksi yang sama): `Bniresponse.java`, `Bsiresponse.java`, dan
+  `OnlineBmt.java` (PALING LENGKAP — API key+AES-256-CBC+HMAC-SHA256
+  SEBELUM percabangan, nonce sekali-pakai via UNIQUE constraint DB,
+  ikat kredensial ke pemilik invoice — LAYAK JADI ACUAN perbaikan).
+- **`Briresponse.java`**: aman TAK SENGAJA (tidak terdaftar `web.xml`,
+  servlet fisik tak terjangkau HTTP).
+
+**4 task baru dari peta gateway**: `task_c660eea7` (`Briva.java`
+`chek=true` melumpuhkan 2 penjaga lain, TIDAK tersentuh fix r86395),
+`task_0d2110cf` (`BCA.java` — kunci HMAC-SHA512 hardcode, keluarga
+sama fix Bankaltimtara/BTN yang belum menyapu BCA), `task_c42c9f1c`
+(kredensial BNI/BSI eCollection hardcode di `main()` `Bniresponse`+
+`Bsiresponse`, luput sapuan r82756 karena literal beda — DEAD CODE
+tapi tetap bocor), `task_a1a2c236` (`Nagari.java`/`Otto.java` KLON
+USANG `BMS.java` — bug timeout-pasca-commit BELUM di-backport +
+label bank salah, keduanya sudah ditambal di BMS asli).
+
+**`AmbilLampiran.java`** — `task_b82b25d2` (`usingId=true` matikan
+filter jenis) DIKONFIRMASI PERSIS, TAPI STATUSNYA BERUBAH: `/al`
+publik-anonim TERNYATA DIBUKA SENGAJA atas permintaan pemilik sistem
+(19-08-2026), dengan blok "CATATAN RISIKO" eksplisit di XML — rencana
+mitigasi (endpoint terpisah+token+whitelist jenis) BELUM
+diimplementasikan. Ini risiko yang DITERIMA SADAR, bukan bug tak
+diketahui.
+
+**Task baru `task_38fc45be`**: `AmbilLaporanMahasiswa.java` — endpoint
+publik-anonim TOTAL, `nim` mentah dari klien cetak transkrip/KHS/KRS/
+IPK/struk/surat resmi mahasiswa MANAPUN, nol pemeriksaan sesi/pemilik/
+scoping. KATEGORI BARU (bukan instance `task_493423ef`/`task_b82b25d2`/
+`task_e20425e9`).
+
+**6 task baru batch ini**: `task_d7bc5143`, `task_c660eea7`,
+`task_0d2110cf`, `task_c42c9f1c`, `task_a1a2c236`, `task_38fc45be`.
+Total akumulasi: **2066+ file** dari 7.401. Sisa `action/servlet/`:
+~114 file. `task_e20425e9` kini terpetakan LENGKAP di 13 gateway
+(10 rentan+1 sudah-fixed, 3 aman) — cukup untuk keputusan perbaikan
+menyeluruh tanpa perlu audit gateway lagi.
+
 ## 🚨🚨🚨🚨 Batch 140 — PIVOT ke `ais/action/servlet/` (157 file, endpoint HTTP mentah), 7 task baru — MENEMUKAN AKAR PENYEBAB LANGSUNG 3 temuan top-tier lama (6-7 Sep 2026)
 
 Backlog mega-file `helper/` tuntas — pindah ke `ais/action/servlet/`
