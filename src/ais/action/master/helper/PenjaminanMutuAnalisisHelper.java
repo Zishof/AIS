@@ -768,6 +768,17 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Detail Popup
     // =========================================================================
 
+    /**
+     * Membuka window modal detail review untuk satu ujian: ringkasan info ujian, tombol
+     * pintasan ke Analisis Butir Soal asli ({@link HasilUjianMahasiswaHelper#analsisButirSoal}),
+     * kolom teks catatan/feedback, dan tombol keputusan "Setujui Analisis"/"Perlu Revisi".
+     * Menekan "Perlu Revisi" mewajibkan catatan terisi terlebih dahulu; kedua tombol keputusan
+     * memanggil {@link #simpanStatus(PertemuanPunyaUjian, String, String, Tbmuser)} lalu
+     * merender ulang grid dan menampilkan konfirmasi sukses.
+     *
+     * @param ppu ujian yang sedang direview
+     * @throws Exception diteruskan dari pembangunan komponen ZK
+     */
     private void bukaDetailPopup(final PertemuanPunyaUjian ppu) throws Exception {
         String mkNama = "";
         try {
@@ -910,6 +921,17 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Data loading
     // =========================================================================
 
+    /**
+     * Memuat daftar ujian yang memiliki Analisis Butir Soal: menyaring
+     * {@code ppu.formatNilais} tidak null dan bukan {@link Tugas#JSON} (nilai sentinel "kosong"),
+     * disaring lagi oleh filter tahun akademik/semester dasbor, diurutkan id ujian terbaru
+     * dulu, dibatasi 250 baris. Filter status ({@link #filterStatus}) TIDAK diterapkan di
+     * sini karena status tersimpan di kolom JSON — penyaringannya dilakukan di memori oleh
+     * pemanggil ({@link #renderDataGrid()}).
+     *
+     * @return daftar ujian sesuai filter TA/semester; daftar kosong (bukan {@code null}) bila
+     *         query gagal (dicatat ke {@link ErrorAuditUtil})
+     */
     private List<PertemuanPunyaUjian> loadData() {
         try {
             Session s = HibernateUtil.currentSession();
@@ -935,7 +957,15 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Status helpers
     // =========================================================================
 
-    /** Ambil status dari JSON. Default: {@code menunggu}. */
+    /**
+     * Mengambil status review dari kolom JSON {@code analisisCatatanJson} milik {@code ppu}.
+     * Dipakai juga oleh kelas lain (method ini {@code public static}) yang perlu menampilkan
+     * status tanpa melalui dasbor ini.
+     *
+     * @param ppu ujian yang statusnya diambil
+     * @return nilai kunci {@code "status"} pada JSON, atau {@link #STATUS_MENUNGGU} bila
+     *         kolom kosong, bukan JSON valid, atau kunci tidak ada
+     */
     public static String getStatus(PertemuanPunyaUjian ppu) {
         try {
             String json = ppu.getAnalisisCatatanJson();
@@ -946,6 +976,13 @@ public class PenjaminanMutuAnalisisHelper extends Div {
         }
     }
 
+    /**
+     * Mengambil catatan/feedback reviewer dari kolom JSON {@code analisisCatatanJson}.
+     *
+     * @param ppu ujian yang catatannya diambil
+     * @return nilai kunci {@code "catatan"} pada JSON, atau string kosong bila kolom kosong,
+     *         bukan JSON valid, atau kunci tidak ada
+     */
     private static String getCatatan(PertemuanPunyaUjian ppu) {
         try {
             String json = ppu.getAnalisisCatatanJson();
@@ -956,6 +993,13 @@ public class PenjaminanMutuAnalisisHelper extends Div {
         }
     }
 
+    /**
+     * Membangun badge HTML status review untuk satu ujian: hijau "Disetujui", merah
+     * "Perlu Revisi", atau abu-abu "Menunggu" (default untuk status lain/tidak dikenal).
+     *
+     * @param status salah satu nilai {@code STATUS_*}, atau nilai lain yang dianggap menunggu
+     * @return markup HTML badge siap disisipkan
+     */
     private static String buildStatusBadge(String status) {
         String color, bg, label;
         if (STATUS_DISETUJUI.equals(status)) {
@@ -970,6 +1014,15 @@ public class PenjaminanMutuAnalisisHelper extends Div {
              + label + "</span>";
     }
 
+    /**
+     * Membangun satu kartu ringkasan (angka besar + label) untuk baris kartu status di atas grid.
+     *
+     * @param count angka yang ditampilkan
+     * @param label label di bawah angka (tidak di-escape — dipakai hanya dengan literal tetap)
+     * @param color warna teks CSS
+     * @param bg warna latar CSS
+     * @return markup HTML kartu siap disisipkan
+     */
     private static String buildSummaryCard(int count, String label, String color, String bg) {
         return "<div style='flex:1 1 100px;min-width:90px;border-radius:8px;padding:10px 14px;"
              + "background:" + bg + ";text-align:center;'>"
@@ -982,6 +1035,26 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Simpan status ke DB
     // =========================================================================
 
+    /**
+     * Menyimpan status dan catatan review ke kolom JSON {@code analisisCatatanJson} pada
+     * baris {@link PertemuanPunyaUjian} yang bersangkutan, di dalam transaksi native
+     * Hibernate tersendiri (bukan sesi ZK per-request), lalu mengirim notifikasi ke dosen
+     * ({@link #kirimNotifikasi(PertemuanPunyaUjian, String, String)}). Objek {@code ppu}
+     * yang diteruskan pemanggil (biasanya milik sesi ZK) disinkronkan secara manual
+     * ({@code ppu.setAnalisisCatatanJson(...)}) setelah commit sukses, agar UI dapat
+     * merender ulang tanpa query ulang ke database.
+     *
+     * <p>Kegagalan apa pun (baris tidak ditemukan, error commit) di-rollback dan dicatat ke
+     * {@link ErrorAuditUtil}, lalu ditampilkan sebagai pesan gagal ramah-pengguna via
+     * {@link PesanFormalHelper}. Sesi native selalu ditutup lewat {@link #tutupSesi(Session)}
+     * pada blok {@code finally}.</p>
+     *
+     * @param ppu ujian yang statusnya diubah (id-nya dipakai untuk memuat ulang baris managed)
+     * @param status status baru, salah satu {@code STATUS_*}
+     * @param catatan catatan/feedback reviewer; {@code null} disimpan sebagai string kosong
+     * @param reviewer pengguna yang melakukan perubahan; id-nya disimpan sebagai
+     *        {@code reviewerId} bila tersedia
+     */
     private void simpanStatus(PertemuanPunyaUjian ppu, String status,
             String catatan, Tbmuser reviewer) {
         Session session = null;
@@ -1031,6 +1104,25 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Kirim notifikasi ke dosen
     // =========================================================================
 
+    /**
+     * Mengirim notifikasi (in-app dan/atau email) ke dosen pengampu perkuliahan terkait
+     * {@code ppu} setelah status review berubah. Dijadwalkan lewat
+     * {@link Common#createDefaultTimer(EventListener)} (timer ZK) agar berjalan setelah
+     * transaksi {@link #simpanStatus} yang memanggilnya selesai, dengan sesi Hibernate native
+     * sendiri.
+     *
+     * <p>Penerima ditentukan dari {@code Dosen1/2/3} pada {@link Perkuliahan}: email diambil
+     * langsung dari entitas {@link Dosen}, sementara notifikasi in-app memerlukan pencarian
+     * akun {@link Tbmuser} aktif yang terhubung ke {@code Dosen1}. Bila tidak ditemukan email
+     * maupun userId sama sekali, notifikasi dibatalkan tanpa error. Pengirim email diambil
+     * dari konfigurasi {@code default_email} (auto-seed ke {@code info@zishof.com} bila belum
+     * diisi admin).</p>
+     *
+     * @param ppu ujian yang statusnya berubah
+     * @param status status baru, salah satu {@code STATUS_*}, dipetakan ke label Indonesia
+     *        pada isi notifikasi
+     * @param catatan catatan/feedback reviewer; disertakan dalam isi notifikasi bila tidak kosong
+     */
     private void kirimNotifikasi(final PertemuanPunyaUjian ppu,
             final String status, final String catatan) {
         Common.createDefaultTimer(new EventListener() {
@@ -1117,6 +1209,17 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Utilities
     // =========================================================================
 
+    /**
+     * Menutup sesi Hibernate native yang dibuka manual di luar siklus request ZK biasa
+     * ({@link #simpanStatus} dan {@link #kirimNotifikasi}): melepas koneksi JDBC
+     * ({@code disconnect()}) sebelum {@code close()}, lalu memanggil
+     * {@link HibernateUtil#closeSession()} agar sesi thread-lokal ZK ikut dibersihkan.
+     * Setiap kegagalan pada langkah individual dicatat ke {@link ErrorAuditUtil} tanpa
+     * menghentikan langkah pembersihan lainnya.
+     *
+     * @param session sesi yang akan ditutup; aman dipanggil dengan {@code null} atau sesi
+     *        yang sudah tertutup
+     */
     private static void tutupSesi(Session session) {
         try {
             if (session != null && session.isOpen()) {
@@ -1133,17 +1236,40 @@ public class PenjaminanMutuAnalisisHelper extends Div {
         HibernateUtil.closeSession();
     }
 
+    /**
+     * Menyisipkan {@code html} mentah sebagai komponen {@link org.zkoss.zul.Html} anak dari
+     * {@code parent}. Pemanggil bertanggung jawab meng-escape bagian {@code html} yang
+     * berasal dari input pengguna (lihat {@link #esc(String)}).
+     *
+     * @param parent komponen ZK induk
+     * @param html markup HTML yang akan disisipkan
+     */
     private static void appendHtml(Component parent, String html) {
         new org.zkoss.zul.Html(html).setParent(parent);
     }
 
-    /** Tambahkan HTML dalam sel Div di dalam Row — wungkus agar setParent bekerja. */
+    /**
+     * Menambahkan HTML ke dalam sel {@link Row} lewat pembungkus {@link Div}, karena
+     * {@link org.zkoss.zul.Html} tidak dapat langsung menjadi anak {@link Row} pada versi ZK
+     * yang dipakai (perlu wadah antara agar {@code setParent} berhasil).
+     *
+     * @param row baris grid tempat sel HTML ditambahkan
+     * @param html markup HTML yang akan disisipkan ke dalam sel
+     */
     private static void appendHtmlCell(Row row, String html) {
         Div cell = new Div();
         cell.setParent(row);
         new org.zkoss.zul.Html(html).setParent(cell);
     }
 
+    /**
+     * Meng-escape karakter HTML dasar ({@code &}, {@code <}, {@code >}) pada teks yang
+     * berasal dari data (nama mata kuliah, catatan reviewer, dsb.) sebelum disisipkan ke
+     * markup HTML mentah, mencegah HTML/markup injeksi dari data yang ditampilkan.
+     *
+     * @param s teks sumber; boleh {@code null}
+     * @return teks yang sudah di-escape, tidak pernah {@code null}
+     */
     private static String esc(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
