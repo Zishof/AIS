@@ -81,6 +81,7 @@ public final class ApotikDemoProvisionHelper {
 	private static final int JUMLAH_FORMULA_PRODUKSI_UAT = 500;
 	private static final int JUMLAH_COLD_CHAIN_UAT = 100;
 	private static final int JUMLAH_RECALL_UAT = 100;
+	private static final int STOK_MINIMAL_BAHAN_FORMULA_UAT = 10000;
 	private static final Object LOCK_PROVISION = new Object();
 	private static volatile boolean provisionBerjalan = false;
 	private static volatile boolean provisionPernahDijalankan = false;
@@ -316,6 +317,7 @@ public final class ApotikDemoProvisionHelper {
 			int racikanDibuat = ensureRacikanDemo(session, obatA, obatB);
 			int formulaRacikanDibuat = ensureFormulaRacikanUat(session);
 			int formulaProduksiDibuat = ensureFormulaProduksiUat(session);
+			JSONObject stokBahanFormula = ensureStokBahanFormulaUat(session);
 			int profilColdChainDiperbarui = ensureColdChainUat(session);
 			int batchRecallDibuat = ensureRecallUat(session);
 			int pasienKlinisDibuat = ensurePasienKlinisDemo(session);
@@ -339,6 +341,7 @@ public final class ApotikDemoProvisionHelper {
 			ringkas.put("racikanBaru", racikanDibuat);
 			ringkas.put("formulaRacikanOperasionalBaru", formulaRacikanDibuat);
 			ringkas.put("formulaProduksiOperasionalBaru", formulaProduksiDibuat);
+			ringkas.put("stokBahanFormula", stokBahanFormula);
 			ringkas.put("jumlahProfilResepLengkap", JUMLAH_PROFIL_RESEP_UAT);
 			ringkas.put("profilColdChainDiperbarui", profilColdChainDiperbarui);
 			ringkas.put("batchRecallBaru", batchRecallDibuat);
@@ -956,6 +959,88 @@ public final class ApotikDemoProvisionHelper {
 			}
 		}
 		return dibuat;
+	}
+
+	/**
+	 * Isi ulang stok bahan formula SAMPLE/UAT bila sisa ledger atau batch demo
+	 * turun di bawah ambang aman. Provisioning lama hanya membuat stok satu kali;
+	 * setelah beberapa regression run, formula tetap ada tetapi tidak lagi dapat
+	 * dijual. Penambahan ini dibatasi ketat ke kode {@code DEMO-BHN-*} dan menjaga
+	 * ledger item serta kuantitas batch tetap bertambah dengan nilai yang sama.
+	 */
+	@SuppressWarnings("unchecked")
+	private static JSONObject ensureStokBahanFormulaUat(Session session) throws Exception {
+		List<ItemMedis> items = session.createQuery(
+				"from ItemMedis i where i.kode like :kode order by i.kode")
+				.setString("kode", "DEMO-BHN-%")
+				.setMaxResults(JUMLAH_BAHAN_RACIKAN_DEMO).list();
+		JSONObject hasil = new JSONObject();
+		hasil.put("targetPerBahan", STOK_MINIMAL_BAHAN_FORMULA_UAT);
+		if (items.isEmpty()) {
+			hasil.put("jumlahBahanDitopUp", 0);
+			hasil.put("totalQtyDitopUp", 0);
+			return hasil;
+		}
+
+		List<Long> itemIds = new java.util.ArrayList<Long>();
+		for (ItemMedis item : items) itemIds.add(item.getId());
+		Map<Long, Double> stokItem = ApotikApiHelper.stokPerItem(session, itemIds, null);
+
+		List<Kadaluarsa> batches = session.createQuery(
+				"from Kadaluarsa k where k.item.id in (:ids) and k.keterangan like :penanda")
+				.setParameterList("ids", itemIds)
+				.setString("penanda", "BATCH-DEMO-DEMO-BHN-%").list();
+		Map<Long, Kadaluarsa> batchPerItem = new java.util.HashMap<Long, Kadaluarsa>();
+		List<Long> batchIds = new java.util.ArrayList<Long>();
+		for (Kadaluarsa batch : batches) {
+			if (batch.getItem() == null || batch.getItem().getId() == null) continue;
+			if (!batchPerItem.containsKey(batch.getItem().getId())) {
+				batchPerItem.put(batch.getItem().getId(), batch);
+			}
+			batchIds.add(batch.getId());
+		}
+		Map<Long, Double> konsumsiBatch = ApotikApiHelper.konsumsiPerBatch(session, batchIds);
+
+		int jumlahDitopUp = 0;
+		double totalDitopUp = 0;
+		long penandaWaktu = System.currentTimeMillis();
+		for (ItemMedis item : items) {
+			Kadaluarsa batch = batchPerItem.get(item.getId());
+			if (batch == null) continue;
+			double stok = stokItem.containsKey(item.getId())
+					? stokItem.get(item.getId()).doubleValue() : 0;
+			double terpakai = konsumsiBatch.containsKey(batch.getId())
+					? konsumsiBatch.get(batch.getId()).doubleValue() : 0;
+			double sisaBatch = (batch.getQty() == null ? 0 : batch.getQty().doubleValue()) - terpakai;
+			double tambahan = Math.ceil(Math.max(
+					STOK_MINIMAL_BAHAN_FORMULA_UAT - stok,
+					STOK_MINIMAL_BAHAN_FORMULA_UAT - sisaBatch));
+			if (tambahan <= 0) continue;
+
+			DetailTransaksiPasien ledger = new DetailTransaksiPasien();
+			ledger.setKodeTransaksi(ConstantValues.beliMasuk);
+			ledger.setItem(item);
+			ledger.setQty(Double.valueOf(tambahan));
+			ledger.setQtyBonus(Double.valueOf(0));
+			ledger.setAmount(item.getDefaultHargaBeli() == null
+					? Double.valueOf(0) : item.getDefaultHargaBeli());
+			ledger.setHasilPenghitunganTotal(Double.valueOf(tambahan
+					* (item.getDefaultHargaBeli() == null ? 0 : item.getDefaultHargaBeli().doubleValue())));
+			ledger.setTanggal(new Date());
+			ledger.setKeterangan("STOK-TOPUP-UAT-" + item.getKode() + "-" + penandaWaktu);
+			ledger.setOleh("seed_demo");
+			ledger.setOlehId("seed_demo");
+			session.save(ledger);
+
+			batch.setQty(Double.valueOf((batch.getQty() == null ? 0 : batch.getQty().doubleValue())
+					+ tambahan));
+			session.update(batch);
+			jumlahDitopUp++;
+			totalDitopUp += tambahan;
+		}
+		hasil.put("jumlahBahanDitopUp", jumlahDitopUp);
+		hasil.put("totalQtyDitopUp", totalDitopUp);
+		return hasil;
 	}
 
 	@SuppressWarnings("unchecked")
