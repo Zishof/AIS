@@ -2543,6 +2543,29 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
+				// GERBANG #1 (fail-closed): setVisible() di atas hanya menyembunyikan tombol
+				// dari tampilan, bukan mencegah event onClick yang dikirim langsung ke server.
+				// Wewenang WAJIB diperiksa ulang di sini, sebelum dialog konfirmasi dibuka
+				// maupun Thread latar sempat menulis DB.
+				if (!Common.getApakahAdmin()) {
+					PesanFormalHelper.tampilkanGagal("persetujuan massal pengajuan Artikel",
+							"Aksi \"Setujui Semua\" khusus untuk admin dan wewenang admin Bapak/Ibu "
+									+ "tidak (lagi) terverifikasi saat permintaan ini diproses.",
+							new String[] { "Muat ulang halaman ini.",
+									"Hubungi Administrator bila Bapak/Ibu seharusnya memiliki hak admin." });
+					return;
+				}
+
+				final Tbmuser approverSaatIni = Common.getCurrentUser();
+				if (approverSaatIni == null || approverSaatIni.getUserId() == null) {
+					PesanFormalHelper.tampilkanGagal("persetujuan massal pengajuan Artikel",
+							"Sesi pengguna tidak dapat diidentifikasi.",
+							new String[] { "Login ulang lalu coba kembali." });
+					return;
+				}
+				final String approverUserId = approverSaatIni.getUserId();
+				final String approverNama = approverSaatIni.getUserNama();
+
 				MyMessageboxConfig.show("Apakah yakin ingin mensetujui semua ?", "Pertanyaan",
 						MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 						new EventListener() {
@@ -2552,11 +2575,44 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 								int i = Integer.parseInt(event.getData().toString());
 								if (i == MyMessageboxConfig.OK) {
 
+									// GERBANG #2 (fail-closed): re-check TEPAT sebelum Thread latar
+									// mulai menulis DB -- dialog konfirmasi di atas bisa terbuka lama
+									// sebelum pengguna menekan OK.
+									if (!Common.getApakahAdmin()) {
+										PesanFormalHelper.tampilkanGagal("persetujuan massal pengajuan Artikel",
+												"Wewenang admin Bapak/Ibu tidak lagi terverifikasi.",
+												new String[] { "Muat ulang halaman ini dan ulangi." });
+										return;
+									}
+
+									final java.util.concurrent.atomic.AtomicInteger jumlahBerhasil = new java.util.concurrent.atomic.AtomicInteger(
+											0);
+									final java.util.concurrent.atomic.AtomicInteger jumlahGagal = new java.util.concurrent.atomic.AtomicInteger(
+											0);
+									final java.util.concurrent.atomic.AtomicInteger jumlahDilewati = new java.util.concurrent.atomic.AtomicInteger(
+											0);
+
 									final Label label = Common.displayLoadBar(new EventListener() {
 
 										@Override
 										public void onEvent(Event arg0) throws Exception {
 											loadDataPengajuan();
+											String ringkasan = "Disetujui: " + jumlahBerhasil.get()
+													+ " data. Gagal: " + jumlahGagal.get()
+													+ " data. Dilewati (berstatus Ditolak, sudah Disetujui, atau "
+													+ "masih dalam proses disposisi SOP): " + jumlahDilewati.get()
+													+ " data. Diproses oleh " + approverNama + " (" + approverUserId
+													+ ").";
+											if (jumlahGagal.get() > 0) {
+												PesanFormalHelper.tampilkanGagal(
+														"persetujuan massal pengajuan Artikel", ringkasan,
+														new String[] {
+																"Periksa Error Log untuk detail baris yang gagal.",
+																"Ulangi proses ini bila diperlukan." });
+											} else {
+												PesanFormalHelper.tampilkanSukses(
+														"persetujuan massal pengajuan Artikel", ringkasan);
+											}
 										}
 									});
 
@@ -2580,18 +2636,71 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 																	+ Common.numberFormat.get().format(
 																			(rowIndex++) * 100.0 / artikels.size())
 																	+ " %)");
-													artikel.setStatus(Artikel.DISETUJUI);
+
+													// Hanya baris BELUM_DIPROSES/SEDANG_DIPROSES yang boleh
+													// naik ke DISETUJUI di sini -- baris DITOLAK (atau yang
+													// sudah DISETUJUI) TIDAK disentuh.
+													String statusSaatIni = artikel.getStatus();
+													boolean bolehDisetujui = Artikel.BELUM_DIPROSES
+															.equals(statusSaatIni)
+															|| Artikel.SEDANG_DIPROSES.equals(statusSaatIni);
+
+													// Artikel dengan DisposisiSop aktif punya sumber
+													// kebenaran status TERSENDIRI (lihat
+													// Artikel#getDisetujuiOleh()/getStatus()): menulis status
+													// mentah di sini tidak melewati alur SOP-nya dan akan
+													// menghasilkan status yang tidak konsisten begitu
+													// disposisinya benar-benar diproses -- baris seperti ini
+													// wajib disetujui lewat alur disposisi normal, bukan
+													// tombol massal ini.
+													if (artikel.getDisposisiSop() != null || !bolehDisetujui) {
+														jumlahDilewati.incrementAndGet();
+														HibernateUtil.closeSession();
+														continue;
+													}
 
 													try {
+														Tbmuser approverDalamSesi = (Tbmuser) session
+																.createCriteria(Tbmuser.class)
+																.add(Restrictions.eq("userId", approverUserId))
+																.setMaxResults(1).uniqueResult();
+
+														artikel.setStatus(Artikel.DISETUJUI);
+														artikel.setDisetujuiOleh(approverDalamSesi);
+														artikel.setSetujuiTanggal(ais.ui.util.WaktuUtil.getDate());
+
 														session.getTransaction().begin();
 														Common.refreshUpdate(session, artikel);
 														session.getTransaction().commit();
-													} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailArtikelHelper.java:2054");
-														// TODO: handle exception
+														jumlahBerhasil.incrementAndGet();
+													} catch (Exception e) {
+														jumlahGagal.incrementAndGet();
+														try {
+															if (session.getTransaction() != null
+																	&& session.getTransaction().isActive()) {
+																session.getTransaction().rollback();
+															}
+														} catch (Exception rollbackEx) {
+															ais.common.ErrorAuditUtil.record(rollbackEx,
+																	"DetailArtikelHelper.setujuiSemua: gagal rollback untuk Artikel id="
+																			+ artikel.getId());
+														}
+														ais.common.ErrorAuditUtil.record(e,
+																"DetailArtikelHelper.setujuiSemua: gagal menyetujui Artikel id="
+																		+ artikel.getId() + ", oleh="
+																		+ approverUserId);
 													}
 													HibernateUtil.closeSession();
 
 												}
+
+												ais.common.ErrorAuditUtil.record(null,
+														"DetailArtikelHelper.setujuiSemua: " + approverNama + " ("
+																+ approverUserId + ") menyetujui massal "
+																+ jumlahBerhasil.get() + " Artikel, gagal "
+																+ jumlahGagal.get() + ", dilewati "
+																+ jumlahDilewati.get() + " pada "
+																+ ais.ui.util.WaktuUtil.getDate());
 											} catch (Exception e) {
 												// TODO Auto-generated catch
 												// block

@@ -35,6 +35,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.akunting.ProsesTransferAction;
 import ais.action.master.akunting.util.CommonAkunting;
+import ais.action.master.koperasi.helper.AkunKantinUtil;
 import ais.action.master.helper.AmbilDataRuangBanbox;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.sop.TampilanAlurSopAction;
@@ -114,6 +115,40 @@ import ais.action.master.helper.FilterLanjutHelper;
  * {@code pembayaran_termin_master_asset_detail} jika volume data besar.
  */
 public class PostingPembayaranTerminAction extends GenericAutowireComposer {
+
+	/**
+	 * Resolusi akun debit termin. Dokumen lama boleh belum mempunyai jenis pemesanan;
+	 * dalam kondisi itu gunakan akun hutang sementara yang telah diverifikasi lewat
+	 * pemetaan akun POS/Apotik, bukan membuang transaksi secara diam-diam.
+	 */
+	private static Akun akunDebetTermin(PembayaranTerminMasterAssetDetail detail) {
+		try {
+			if (detail != null && detail.getPemesananPengadaanMasterAsset() != null
+					&& detail.getPemesananPengadaanMasterAsset().getJenisPemesananPengadaanAsset() != null
+					&& detail.getPemesananPengadaanMasterAsset().getJenisPemesananPengadaanAsset()
+							.getAkunUtangPekerjaan() != null) {
+				return detail.getPemesananPengadaanMasterAsset().getJenisPemesananPengadaanAsset()
+						.getAkunUtangPekerjaan();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PostingPembayaranTerminAction.akunDebetTermin");
+		}
+		return AkunKantinUtil.akunKonfigurasi(AkunKantinUtil.CFG_HUTANG_SEMENTARA_TERMIN);
+	}
+
+	/** Resolusi akun kredit termin dengan cadangan eksplisit akun hutang vendor. */
+	private static Akun akunKreditTermin(PembayaranTerminMasterAssetDetail detail) {
+		try {
+			if (detail != null && detail.getPemesananPengadaanMasterAsset() != null
+					&& detail.getPemesananPengadaanMasterAsset().getPenyedia() != null
+					&& detail.getPemesananPengadaanMasterAsset().getPenyedia().getAkunUtang() != null) {
+				return detail.getPemesananPengadaanMasterAsset().getPenyedia().getAkunUtang();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PostingPembayaranTerminAction.akunKreditTermin");
+		}
+		return AkunKantinUtil.akunKonfigurasi(AkunKantinUtil.CFG_HUTANG_VENDOR_TERMIN);
+	}
 
 	/**
 	 * Versi serial untuk serialisasi kelas ini sesuai mekanisme ZK composer.
@@ -515,20 +550,9 @@ public class PostingPembayaranTerminAction extends GenericAutowireComposer {
 
 													try {
 
-														Akun akunDebet = pembayaranTerminMasterAssetDetail
-																.getPemesananPengadaanMasterAsset() == null
-																|| pembayaranTerminMasterAssetDetail
-																		.getPemesananPengadaanMasterAsset()
-																		.getJenisPemesananPengadaanAsset() == null
-																				? null
-																				: pembayaranTerminMasterAssetDetail
-																						.getPemesananPengadaanMasterAsset()
-																						.getJenisPemesananPengadaanAsset()
-																						.getAkunUtangPekerjaan();
+												Akun akunDebet = akunDebetTermin(pembayaranTerminMasterAssetDetail);
 
-														Akun akunKredit = pembayaranTerminMasterAssetDetail
-																.getPemesananPengadaanMasterAsset().getPenyedia()
-																.getAkunUtang();
+												Akun akunKredit = akunKreditTermin(pembayaranTerminMasterAssetDetail);
 														Double nilai = pembayaranTerminMasterAssetDetail.getDibayar();
 
 														if (akunDebet != null && akunKredit != null) {
@@ -728,14 +752,9 @@ public class PostingPembayaranTerminAction extends GenericAutowireComposer {
 			new Label(Common.dateFormat3.get().format(pembayaranTerminMasterAssetDetail.getTanggalTransaksi()))
 					.setParent(arg0);
 
-			Akun akunDebet = pembayaranTerminMasterAssetDetail.getPemesananPengadaanMasterAsset() == null
-					|| pembayaranTerminMasterAssetDetail.getPemesananPengadaanMasterAsset()
-							.getJenisPemesananPengadaanAsset() == null ? null
-									: pembayaranTerminMasterAssetDetail.getPemesananPengadaanMasterAsset()
-											.getJenisPemesananPengadaanAsset().getAkunUtangPekerjaan();
+			Akun akunDebet = akunDebetTermin(pembayaranTerminMasterAssetDetail);
 
-			Akun akunKredit = pembayaranTerminMasterAssetDetail.getPemesananPengadaanMasterAsset().getPenyedia()
-					.getAkunUtang();
+			Akun akunKredit = akunKreditTermin(pembayaranTerminMasterAssetDetail);
 
 			if (akunDebet != null && akunKredit != null) {
 				GrupTransaksi.tampilkanJurnal(akunDebet, nilai, akunKredit, nilai).setParent(arg0);
@@ -821,18 +840,9 @@ public class PostingPembayaranTerminAction extends GenericAutowireComposer {
 
 								Double nilai = pembayaranTerminMasterAssetDetail.getDibayar();
 
-								Akun akunDebet = pembayaranTerminMasterAssetDetail
-										.getPemesananPengadaanMasterAsset() == null
-										|| pembayaranTerminMasterAssetDetail.getPemesananPengadaanMasterAsset()
-												.getJenisPemesananPengadaanAsset() == null
-														? null
-														: pembayaranTerminMasterAssetDetail
-																.getPemesananPengadaanMasterAsset()
-																.getJenisPemesananPengadaanAsset()
-																.getAkunUtangPekerjaan();
+								Akun akunDebet = akunDebetTermin(pembayaranTerminMasterAssetDetail);
 
-								Akun akunKredit = pembayaranTerminMasterAssetDetail.getPemesananPengadaanMasterAsset()
-										.getPenyedia().getAkunUtang();
+								Akun akunKredit = akunKreditTermin(pembayaranTerminMasterAssetDetail);
 
 								if (akunDebet != null && akunKredit != null) {
 									Boolean apakahUangMasuk = true;
@@ -1205,12 +1215,8 @@ public class PostingPembayaranTerminAction extends GenericAutowireComposer {
 					continue;
 				}
 				try {
-					Akun akunDebet = d.getPemesananPengadaanMasterAsset()
-							.getJenisPemesananPengadaanAsset() == null ? null
-									: d.getPemesananPengadaanMasterAsset().getJenisPemesananPengadaanAsset()
-											.getAkunUtangPekerjaan();
-					Akun akunKredit = d.getPemesananPengadaanMasterAsset().getPenyedia() == null ? null
-							: d.getPemesananPengadaanMasterAsset().getPenyedia().getAkunUtang();
+					Akun akunDebet = akunDebetTermin(d);
+					Akun akunKredit = akunKreditTermin(d);
 					Double nilai = d.getDibayar();
 					if (akunDebet == null || akunKredit == null || nilai == null
 							|| nilai == 0.0) {

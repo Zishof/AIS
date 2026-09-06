@@ -453,6 +453,12 @@ public final class PemetaanAkunHelper {
                         ais.action.master.koperasi.helper.AkunKantinUtil.CFG_HPP_TOKO, String.valueOf(hpp.getId()));
                 ais.common.KonfigurasiManager.simpanKonfigurasi(
                         ais.action.master.koperasi.helper.AkunKantinUtil.CFG_PENDAPATAN_TOKO, String.valueOf(pendapatan.getId()));
+                ais.common.KonfigurasiManager.simpanKonfigurasi(
+                        ais.action.master.koperasi.helper.AkunKantinUtil.CFG_HUTANG_SEMENTARA_TERMIN,
+                        String.valueOf(hutangSementara.getId()));
+                ais.common.KonfigurasiManager.simpanKonfigurasi(
+                        ais.action.master.koperasi.helper.AkunKantinUtil.CFG_HUTANG_VENDOR_TERMIN,
+                        String.valueOf(hutangVendor.getId()));
             }
 
             JSONObject kekurangan = new JSONObject();
@@ -479,7 +485,7 @@ public final class PemetaanAkunHelper {
             perubahan.put("jenisPenerimaanDipetakan", jenisPenerimaanDipetakan);
             perubahan.put("jenisPemesananTerminDipetakan", jenisPemesananTerminDipetakan);
             perubahan.put("penyediaAsetTerminDipetakan", penyediaAsetTerminDipetakan);
-            perubahan.put("konfigurasiCadangan", terapkan ? 6 : 0);
+            perubahan.put("konfigurasiCadangan", terapkan ? 8 : 0);
 
             hasil.put("status", "00");
             hasil.put("mode", terapkan ? "TERAPKAN" : "AUDIT");

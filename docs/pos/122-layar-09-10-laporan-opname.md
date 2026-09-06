@@ -1,5 +1,26 @@
 # 122 — Layar 09-10 (Laporan Opname): dari celah menjadi lengkap
 
+> **KOREKSI (2026-09-06, sesudah tangkapan layar aplikasi lama dibuka).** Versi pertama
+> dokumen ini menyatakan layar 09 = daftar sesi opname dan layar 10 = rinciannya. **Keduanya
+> keliru.** Setelah gambar aplikasi lamanya benar-benar dilihat:
+>
+> - **Layar 09 "LAPORAN STOK OPNAME"** adalah daftar **datar** — satu baris per produk per
+>   tanggal, berkolom `TGL.OPNAME`, `#KODE`, `NAMA BARANG`, `SAT.`, `STOK KOMP.`, `STOK FISIK`,
+>   `SELISIH`, `HRG.POKOK`, `TOTAL HARGA`, dengan **satu angka total** di kanan bawah dan tombol
+>   `CETAK`.
+> - **Layar 10 "Mencetak Laporan Opname"** adalah **hasil cetak** layar 09 (pratinjau Report
+>   Designer), bukan rincian per dokumen.
+>
+> Layarnya sudah diperbaiki: tampilan bawaannya kini datar per produk (`mode=produk`), dengan
+> total seluruh periode; tampilan per sesi tetap ada sebagai pilihan, dan penelusuran satu sesi
+> tetap ada — keduanya tambahan di luar paritas, bukan padanan layar 10.
+>
+> **Pelajarannya, dan ini yang penting:** paritas fungsional tidak dapat disimpulkan dari NAMA
+> layar lama. "Laporan Opname" dan "Mencetak Laporan Opname" terdengar persis seperti daftar dan
+> rinciannya. Saya membangun seluruh layar, menulis dokumen, dan memverifikasi tiga lapis data
+> — seluruhnya SETARA — di atas dugaan yang tidak pernah diperiksa terhadap gambarnya.
+> Angka yang setara tidak menyelamatkan bentuk yang salah.
+
 **Tanggal:** 2026-09-06
 **Sifat:** catatan perubahan + hasil verifikasi.
 **Kode:** r86049 (`SalesInventoryOpnameHelper`, `SalesInventoryOpnameTenant`,
@@ -86,7 +107,8 @@ Aksi ber-`toko_id` menerimanya dari muatan, disisipkan `ApiClient` dari pemilih 
 | `SalesInventoryOpnameHelper` | `si_stock_count_list` + `si_stock_count_detail`, dua jalur |
 | `SalesInventoryApiDispatcher` | pendaftaran kedua aksi |
 | `TenantRbac` | `area()` mengenal ejaan `stock`, bukan hanya `stok` |
-| `laporan_opname_screen.dart` | layar 09 (daftar) + 10 (rincian, drill-down) |
+| `laporan_opname_screen.dart` | layar 09 (datar per produk, bawaan) + Per Sesi + penelusuran |
+| `cetak_util.dart` | jahitan uji `POS_TEST_PDF_DIR` supaya hasil cetak dapat dibuktikan |
 | `app_shell.dart` | tujuh titik pendaftaran menu |
 
 ### Tiga keputusan yang pantas dijelaskan
@@ -99,6 +121,13 @@ ini.
 **Jendela bawaan 365 hari, bukan 30.** Opname jarang harian. Jendela 30 hari seperti layar
 persediaan akan tampak kosong pada sebagian besar data sungguhan, dan layar kosong terbaca sebagai
 "tidak ada data" padahal hanya jendelanya yang sempit.
+
+**Jalur cetak diberi jahitan uji, dan itu disengaja.** `Printing.layoutPdf` membuka dialog cetak
+milik sistem operasi — bukan permukaan Flutter, sehingga tidak dapat dipotret. Tanpa jalan lain,
+jalur cetak menjadi satu-satunya bagian aplikasi yang tak pernah terverifikasi otomatis, padahal
+**sembilan dari 48 layar legacy adalah hasil cetak** (10, 13, 16, 26, 29, 36, 42, 46, 48). Jahitannya
+satu `String.fromEnvironment` yang hanya hidup bila `POS_TEST_PDF_DIR` diisi; build produksi tidak
+pernah mengisinya.
 
 **Total dihitung dari rincinya, tidak disimpan di kepala.** Menyimpannya berarti dua sumber
 kebenaran yang dapat berselisih diam-diam sesudah satu baris rinci disunting.

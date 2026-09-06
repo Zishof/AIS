@@ -40,6 +40,9 @@ public final class AkunKantinUtil {
     public static final String CFG_PERSEDIAAN_TOKO = "akun_persediaan_produk_toko";
     public static final String CFG_HPP_TOKO = "akun_hpp_produk_toko";
     public static final String CFG_PENDAPATAN_TOKO = "akun_pendapatan_produk_toko";
+    /** Cadangan termin untuk dokumen pengadaan lama yang belum memiliki jenis pemesanan/penyedia terpetakan. */
+    public static final String CFG_HUTANG_SEMENTARA_TERMIN = "akun_hutang_sementara_termin";
+    public static final String CFG_HUTANG_VENDOR_TERMIN = "akun_hutang_vendor_termin";
 
     private AkunKantinUtil() {
     }

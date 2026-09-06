@@ -1527,76 +1527,6 @@ public class TugasKelompokHelper implements DataLoader {
 		Toolbar tb = new Toolbar();
 		tb.setParent(south);
 
-		MyToolbarbutton btnSimpan = new MyToolbarbutton("fa-save", "Simpan");
-		btnSimpan.setTooltiptext("Simpan semua nilai dan keterangan ke database");
-		btnSimpan.addEventListener("onClick", new EventListener() {
-			@Override
-			public void onEvent(Event ev) throws Exception {
-				java.util.List<String> errors = new java.util.ArrayList<String>();
-				try {
-					Session s = HibernateUtil.currentSession();
-
-					// Nilai OBE: simpan jsonKet (sudah diperbarui via onChange) ke tugas satu kali
-					if (obe) {
-						try {
-							if (tugas.getId() != null) s.refresh(tugas);
-							tugas.belum("tugas_file_content_" + tugas.getClass().getName());
-							tugas.setKeteranganNilai(jsonKet.toString());
-							Common.refreshUpdate(s, tugas);
-						} catch (Exception ex) {
-							errors.add("Simpan nilai OBE: " + ex.getMessage());
-						}
-					}
-
-					// Keterangan + nilai non-OBE per anggota
-					for (int i = 0; i < anggotaRows.size(); i++) {
-						try {
-							NamaTugasKelompokPunyaMahasiswa x = anggotaRows.get(i);
-							if (x.getId() != null) {
-								x = (NamaTugasKelompokPunyaMahasiswa) s.load(
-										NamaTugasKelompokPunyaMahasiswa.class, x.getId());
-							}
-							x.setKeterangan(ketBoxes.get(i).getValue());
-							if (!obe && nilaiBoxes.get(i) != null) {
-								x.setNilai(nilaiBoxes.get(i).getValue());
-							}
-							Common.refreshUpdate(s, x);
-						} catch (Exception ex) {
-							NamaTugasKelompokPunyaMahasiswa r = anggotaRows.get(i);
-							String id = r.getId() != null ? r.getId().toString() : "?";
-							errors.add("Anggota id=" + id + ": " + ex.getMessage());
-						}
-					}
-
-					if (errors.isEmpty()) {
-						ais.ui.util.MyMessageboxConfig.show("Data berhasil disimpan.", "Berhasil",
-								ais.ui.util.MyMessageboxConfig.OK,
-								ais.ui.util.MyMessageboxConfig.INFORMATION, null);
-					} else {
-						StringBuilder sb = new StringBuilder("Sebagian data gagal disimpan:\n");
-						for (String err : errors) sb.append("• ").append(err).append("\n");
-						PesanFormalHelper.tampilkanGagalException(
-								"menyimpan nilai anggota kelompok tugas",
-								new RuntimeException(sb.toString()),
-								new String[] {
-										"Muat ulang halaman lalu masukkan kembali data yang gagal.",
-										"Pastikan Anda belum logout saat menyimpan.",
-										"Hubungi Admin dengan menyertakan screenshot pesan ini."
-								});
-					}
-				} catch (Exception e) {
-					PesanFormalHelper.tampilkanGagalException(
-							"menyimpan nilai anggota kelompok tugas", e,
-							new String[] {
-									"Muat ulang halaman dan masukkan kembali nilai.",
-									"Pastikan Anda belum logout saat menyimpan.",
-									"Hubungi Admin dengan menyertakan screenshot pesan ini."
-							});
-				}
-			}
-		});
-		btnSimpan.setParent(tb);
-
 		MyToolbarbutton btnBatal = new MyToolbarbutton("fa-undo", "Batal");
 		btnBatal.setTooltiptext("Batal: tutup tanpa menyimpan");
 		btnBatal.addEventListener("onClick", new EventListener() {
@@ -4114,31 +4044,39 @@ public class TugasKelompokHelper implements DataLoader {
 	 *   <li>Jendela pemilih {@link ais.action.master.helper.generic.AmbilDataTugasKelompok} dibuka secara
 	 *   modal. Daftar sumbernya disaring dengan {@code createCriteriaDosen} sehingga hanya memuat tugas
 	 *   milik dosen yang bersangkutan &mdash; termasuk tugas dari semester-semester sebelumnya.</li>
-	 *   <li>Setelah sebuah tugas dipilih, objeknya di-<i>clone</i>, {@code id} dikosongkan, keempat field
+	 *   <li>Setelah sebuah tugas dipilih, objeknya di-<i>clone</i>, {@code id} dikosongkan, field-field
+	 *   yang tidak boleh diwarisi dari semester/kelas SUMBER direset (lihat di bawah), keempat field
 	 *   cakupan diarahkan ke kelas yang sedang dibuka (dengan jatuh kembali ke cakupan asal bila layar
 	 *   ini sendiri tidak punya cakupan), lalu disimpan sebagai baris baru.</li>
 	 *   <li>Lampiran instruksi ikut disalin lewat sesi streaming terpisah, dan daftar dimuat ulang di
 	 *   dalam timer sehingga jendela pemilih sempat menutup lebih dulu.</li>
 	 * </ol>
 	 *
-	 * <h4>PENTING: penyalinan bersifat DANGKAL &mdash; banyak field ikut terbawa</h4>
+	 * <h4>Penyalinan bersifat DANGKAL &mdash; field warisan direset eksplisit</h4>
 	 * <p>{@code clone()} yang dipakai diwarisi dari {@code GeneralValueObject} dan merupakan salinan
-	 * dangkal: SELURUH field disalin apa adanya. Yang direset di sini hanyalah {@code id} dan empat field
-	 * cakupan. Akibatnya field berikut ikut terbawa dari tugas semester lama dan perlu disadari
-	 * pemelihara maupun pengguna:</p>
+	 * dangkal: SELURUH field disalin apa adanya oleh {@code super.clone()}. Karena itu, sesudah
+	 * {@code clone()} dan {@code setId(null)}, listener ini secara eksplisit mengosongkan field yang
+	 * masih melekat pada tugas semester LAMA sebelum keempat field cakupan ditulis ulang:</p>
 	 * <ul>
-	 *   <li><b>{@code keteranganNilai}</b> &mdash; blob JSON nilai per anggota, berkunci id peserta. Bagi
-	 *   mahasiswa yang MENGULANG mata kuliah dan hadir di kedua kelas, nilai lamanya akan langsung tampak
-	 *   sebagai nilai yang sudah terisi pada tugas hasil salinan.</li>
-	 *   <li><b>{@code mhsYgTidakIkut}</b> &mdash; daftar id peserta yang dikecualikan. Id yang kebetulan
-	 *   juga terdaftar di kelas baru akan ikut dikecualikan tanpa pernah dicentang siapa pun.</li>
-	 *   <li><b>{@code pertemuan}</b> &mdash; rujukan ke pertemuan semester LAMA tidak direset, sehingga
-	 *   {@code ambilPertemuan()} pada tugas baru masih menunjuk ke sana. Ini berpengaruh nyata: tombol
-	 *   "Anggap Hadir (Pengumpul)" dan "Tdk Upload = Alpa" menulis absensi ke pertemuan yang
-	 *   dikembalikan pemanggilan tersebut.</li>
-	 *   <li><b>{@code mulai} dan {@code selesai}</b> &mdash; jadwal semester lama terbawa, sehingga tugas
-	 *   hasil salinan umumnya langsung berstatus "Sudah ditutup" sampai jadwalnya diperbarui secara
-	 *   manual lewat formulir Instruksi.</li>
+	 *   <li><b>{@code keteranganNilai}</b> dan <b>{@code keteranganNilaiLama}</b> &mdash; blob JSON nilai
+	 *   per anggota. Tanpa direset, mahasiswa yang MENGULANG mata kuliah dan hadir di kedua kelas akan
+	 *   langsung melihat nilai lamanya tampak sebagai nilai yang sudah terisi pada tugas hasil salinan.
+	 *   Mengosongkannya aman: {@link ais.database.model.TugasKelompok#getKeteranganNilai()} jatuh kembali
+	 *   ke {@link ais.database.model.TugasKelompok#DEFAULT_FORMULA} ({@code "{}"}) bila kosong.</li>
+	 *   <li><b>{@code mhsYgTidakIkut}</b> dan <b>{@code mhsBolehUploadUlang}</b> &mdash; daftar id peserta
+	 *   yang dikecualikan/diberi izin unggah ulang. Tanpa direset, id yang kebetulan juga terdaftar di
+	 *   kelas baru akan ikut terpengaruh tanpa pernah dicentang siapa pun.</li>
+	 *   <li><b>{@code pertemuan}</b> dan <b>{@code pertemuanData}</b> &mdash; rujukan ke pertemuan
+	 *   semester LAMA. Tanpa direset, {@code ambilPertemuan()} pada tugas baru masih menunjuk ke sana,
+	 *   dan tombol "Anggap Hadir (Pengumpul)" / "Tdk Upload = Alpa" akan menulis absensi ke pertemuan
+	 *   semester lama itu.</li>
+	 *   <li><b>{@code mulai} dan {@code selesai}</b> &mdash; jadwal semester lama. Dikosongkan sehingga
+	 *   dosen/guru wajib menyetel jadwal baru lewat formulir Instruksi, alih-alih diam-diam mewarisi
+	 *   jadwal yang umumnya sudah lewat (berstatus "Sudah ditutup").</li>
+	 *   <li><b>{@code formatNilai}</b>, <b>{@code jenisItemPenilaianSiswa}</b>, <b>{@code grupPenilaian}</b>,
+	 *   dan <b>{@code grupKategoriItemPenilaianSiswa}</b> &mdash; rujukan komponen penilaian milik
+	 *   perkuliahan/jadwal pelajaran SUMBER. Dikosongkan karena komponen itu bisa saja tidak berlaku (atau
+	 *   tidak ada) pada kelas tujuan; dosen/guru memilih ulang lewat formulir Instruksi.</li>
 	 * </ul>
 	 *
 	 * <h4>Penanganan lampiran</h4>

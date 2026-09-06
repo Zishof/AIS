@@ -22,12 +22,24 @@ import ais.common.Common;
  * - Jika JSP modern belum dipasang, fallback legacy ZUL bisa diaktifkan kembali dari baris komentar.
  */
 public class Karir extends HttpServlet {
+    /** Versi serialisasi tetap 1L; servlet tidak pernah benar-benar diserialisasi ke stream. */
     private static final long serialVersionUID = 1L;
 
+    /** Konstruktor bawaan tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}. */
     public Karir() {
         super();
     }
 
+    /**
+     * Menangani permintaan GET portal karir. Publik/anonim (tanpa gerbang login) sesuai sifat
+     * landing page karir; hanya membungkus {@link #process(HttpServletRequest, HttpServletResponse)}
+     * dengan penanganan galat agar detail teknis tidak bocor ke pengguna non-admin.
+     *
+     * @param request permintaan HTTP masuk
+     * @param response respons HTTP keluar
+     * @throws ServletException jika terjadi galat tak tertangani saat memproses
+     * @throws IOException jika terjadi galat I/O saat forward/redirect
+     */
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         try {
@@ -38,6 +50,15 @@ public class Karir extends HttpServlet {
         }
     }
 
+    /**
+     * Menangani permintaan POST portal karir dengan perilaku identik dengan
+     * {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+     *
+     * @param request permintaan HTTP masuk
+     * @param response respons HTTP keluar
+     * @throws ServletException jika terjadi galat tak tertangani saat memproses
+     * @throws IOException jika terjadi galat I/O saat forward/redirect
+     */
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         try {
@@ -48,6 +69,15 @@ public class Karir extends HttpServlet {
         }
     }
 
+    /**
+     * Logika inti routing portal karir: menangani logout, memforward ke JSP partial modul karir
+     * (mode {@code hanya_tampil_jsp}), atau ke landing page utama.
+     *
+     * @param request permintaan HTTP masuk; parameter {@code auth_action}, {@code hanya_tampil_jsp},
+     *        {@code p}, dan {@code s} dibaca di sini
+     * @param response respons HTTP keluar
+     * @throws Exception diteruskan apa adanya ke pemanggil untuk ditangani doGet/doPost
+     */
     private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
         try {
             Common.ROOT = request.getContextPath();
@@ -81,6 +111,15 @@ public class Karir extends HttpServlet {
         // request.getRequestDispatcher("/WEB-INF/z/x/y/karir.zul").forward(request, response);
     }
 
+    /**
+     * Menyaring nilai parameter path ({@code p}/{@code s}) agar hanya berisi karakter
+     * alfanumerik, {@code _}, dan {@code -}. Ini mencegah path traversal (mis. {@code ../}) atau
+     * karakter berbahaya lain saat nilai dipakai untuk menyusun path JSP tujuan forward.
+     *
+     * @param value nilai parameter mentah dari request, boleh {@code null}
+     * @return nilai yang sudah disaring; string kosong jika {@code value} {@code null} atau tidak
+     *         mengandung karakter valid
+     */
     private String cleanPathPart(String value) {
         if (value == null) {
             return "";
@@ -96,6 +135,13 @@ public class Karir extends HttpServlet {
         return sb.toString();
     }
 
+    /**
+     * Menghapus seluruh atribut sesi terkait login portal karir (calon pegawai) maupun sisa
+     * atribut modul lama, sehingga pengguna benar-benar keluar dari sesi karir setelah
+     * {@code auth_action=logout}.
+     *
+     * @param request permintaan HTTP yang membawa sesi yang akan dibersihkan
+     */
     private void clearKarirSession(HttpServletRequest request) {
         try {
             request.getSession().removeAttribute("KARIR_LOGGED_IN");

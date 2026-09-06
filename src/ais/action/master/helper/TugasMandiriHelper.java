@@ -4343,7 +4343,7 @@ public class TugasMandiriHelper {
 									// Sel 2: Checkbox "Tidak perlu ikut tugas"
 									final MyCheckboxConfig checkboxConfig =
 											new MyCheckboxConfig("Tidak perlu ikut tugas");
-									checkboxConfig.setDisabled(mahasiswa == null);
+									checkboxConfig.setDisabled(!bolehKelolaTugas(tbmuser));
 									checkboxConfig.setChecked(
 											tugas.getMhsYgTidakIkut().contains("," + id + ","));
 									checkboxConfig.setParent(arg0);
@@ -4400,7 +4400,7 @@ public class TugasMandiriHelper {
 									// Sel 3: Checkbox "Boleh Upload Ulang"
 									final MyCheckboxConfig uploadulang =
 											new MyCheckboxConfig("Boleh Upload Ulang");
-									uploadulang.setDisabled(mahasiswa == null);
+									uploadulang.setDisabled(!bolehKelolaTugas(tbmuser));
 									uploadulang.setChecked(
 											tugas.getMhsBolehUploadUlang().contains("," + id + ","));
 									uploadulang.setParent(arg0);
@@ -4693,6 +4693,9 @@ public class TugasMandiriHelper {
 
 								@Override
 								public void onEvent(Event arg0) throws Exception {
+									if (!bolehKelolaTugas(tbmuser)) {
+										return;
+									}
 									Session session = HibernateUtil.currentSession();
 									if (tugas.getId() != null) session.refresh(tugas);
 									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
@@ -4751,6 +4754,9 @@ public class TugasMandiriHelper {
 
 								@Override
 								public void onEvent(Event arg0) throws Exception {
+									if (!bolehKelolaTugas(tbmuser)) {
+										return;
+									}
 									Session session = HibernateUtil.currentSession();
 									if (tugas.getId() != null) session.refresh(tugas);
 									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();

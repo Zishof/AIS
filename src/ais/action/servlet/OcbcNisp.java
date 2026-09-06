@@ -48,13 +48,84 @@ import ais.database.model.VirtualAccountBank;
 import ais.database.model.sekolah.Tagihan;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet gateway <b>host-to-host (H2H)</b> Bank OCBC NISP — pintu masuk callback bank untuk
+ * inquiry tagihan, posting pembayaran, dan pembatalan (reversal) Virtual Account.
+ *
+ * <h3>Rute yang dilayani (web.xml)</h3>
+ * <p>Satu kelas dipetakan ke empat {@code servlet-name} berbeda yang semuanya menunjuk kelas ini;
+ * pembedaan alur dilakukan dengan memeriksa akhiran {@link HttpServletRequest#getRequestURI()}:</p>
+ * <ul>
+ *   <li>{@code /OcbcNisp} — kanal SNAP standar (BI-SNAP): pengambilan token, inquiry
+ *       ({@code 2002400}) dan payment ({@code 2002500}) untuk VA intra-produk;</li>
+ *   <li>{@code /OcbcNisp/transfer-va/inquiry-intrabank} — inquiry antar bank ({@code 2003200}),
+ *       memaksa {@code inquiryRequestId = "123"};</li>
+ *   <li>{@code /OcbcNisp/transfer-va/payment-intrabank} — payment antar bank ({@code 2003300});</li>
+ *   <li>{@code /OcbcNisp/transfer-va/notify-payment-intrabank} — notifikasi pembatalan yang
+ *       diperlakukan sebagai {@code reversal = true} sekaligus {@code intrabank = true}.</li>
+ * </ul>
+ *
+ * <h3>Bentuk respons</h3>
+ * <p>Seluruh jawaban berupa JSON SNAP dengan {@code responseCode} tujuh digit. Tiga digit pertama
+ * dipakai ulang sebagai status HTTP ({@code Integer.parseInt(responseCode.substring(0, 3))}),
+ * sehingga {@code 4042414} menghasilkan HTTP 404 dan {@code 5000001} menghasilkan HTTP 500.</p>
+ *
+ * <h3>Otentikasi H2H — FAKTA ARSITEKTUR YANG WAJIB DIPAHAMI</h3>
+ * <p>Verifikasi tanda tangan RSA (SHA256withRSA atas {@code X-Client-Key|X-Timestamp}) <b>hanya
+ * dijalankan pada cabang penerbitan token</b> di {@link #process(HttpServletRequest,
+ * HttpServletResponse)}, yaitu ketika body memuat {@code grantType} atau header memuat
+ * {@code X-Client-Key}. Cabang transaksi — inquiry, payment, dan reversal, yakni jalur yang benar
+ * benar memutasi data keuangan — <b>tidak memeriksa tanda tangan maupun bearer token</b>. Token
+ * yang diterbitkan disimpan ke {@link #accessTokens} tetapi tidak pernah dibaca kembali oleh kelas
+ * ini. Satu-satunya penyaring yang tersisa pada jalur transaksi adalah:</p>
+ * <ol>
+ *   <li>pemetaan IP penelepon ke {@link BankHost} lewat
+ *       {@link PembayaranUtil#getBankHost(String, String)} — dan itu pun <b>tidak fail-closed</b>:
+ *       {@code bankHost} boleh {@code null}, sementara
+ *       {@link VirtualAccountBank#ambilVa(String, Double, BankHost)} menerima VA yang kolom
+ *       {@code bankHost}-nya kosong untuk host pemanggil mana pun;</li>
+ *   <li>penyaring awalan nomor VA lewat konfigurasi
+ *       {@code prefix_wajib_diterima_pembayaran_ocbc} dan
+ *       {@code bukan_prefix_wajib_diterima_pembayaran_ocbc} — keduanya default kosong, artinya
+ *       nonaktif kecuali diisi operator.</li>
+ * </ol>
+ * <p>Konsekuensinya, pengamanan efektif endpoint ini bertumpu pada pembatasan jaringan/firewall di
+ * luar aplikasi, bukan pada kode. Catatan ini adalah dokumentasi keadaan terkini; jangan diubah
+ * tanpa koordinasi dengan pihak bank karena perubahan kontrak H2H berdampak langsung ke setelmen.
+ * Perlu dicatat pula bahwa nilai {@code X-Timestamp} tidak divalidasi kesegarannya, sehingga
+ * permintaan token yang sudah pernah ditandatangani dapat diputar ulang.</p>
+ *
+ * <h3>Hubungan dengan pencatatan log</h3>
+ * <p>Setiap pemanggilan {@link #doProcess} — berhasil maupun gagal — menulis satu baris
+ * {@link LogHostToHost} melalui {@code PembayaranGatewayHelper.catatLogHostToHost} di blok
+ * {@code finally}. Baris itu menyimpan payload mentah dari bank, sehingga tabel log H2H memuat
+ * data transaksi perbankan sungguhan dan harus diperlakukan sebagai data sensitif.</p>
+ *
+ * @see ais.action.ws.util.PembayaranGatewayHelper
+ * @see VirtualAccountBank
+ * @see LogHostToHost
+ * @see BankHost
  */
 public class OcbcNisp extends HttpServlet {
+	/** Versi serial standar {@link java.io.Serializable} untuk kontrak servlet. */
 	private static final long serialVersionUID = 1L;
 
-	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance(); 
+	/**
+	 * Singleton helper pembayaran bersama, dipakai untuk memetakan alamat IP penelepon menjadi
+	 * {@link BankHost} dan untuk menghitung total serta denda cicilan.
+	 *
+	 * <p>Field sengaja {@code public static} agar servlet bank lain memakai instance yang sama;
+	 * karena itu jangan menugasinya ulang saat runtime.</p>
+	 */
+	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/**
+	 * Format tanggal {@code MMddHHmmss} yang dipakai bank pada field tanggal transaksi.
+	 *
+	 * <p>Dibungkus {@link ThreadLocal} karena {@link SimpleDateFormat} tidak aman dipakai banyak
+	 * thread sekaligus, sedangkan servlet ini dilayani oleh worker thread container. Pola format
+	 * ini <b>tidak memuat tahun</b>; tanggal hasil parse karenanya jatuh pada tahun 1970 dan
+	 * dipakai apa adanya sebagai penanda waktu setoran.</p>
+	 */
 	public static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
 		@Override
 		protected SimpleDateFormat initialValue() {
@@ -63,6 +134,12 @@ public class OcbcNisp extends HttpServlet {
 	};
 
 	/**
+	 * Konstruktor default yang dibutuhkan container servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun selain memanggil konstruktor {@link HttpServlet}.
+	 * Seluruh state per-permintaan dibentuk di dalam
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public OcbcNisp() {
@@ -70,8 +147,23 @@ public class OcbcNisp extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menerima permintaan HTTP GET dan meneruskannya apa adanya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>GET, POST, dan PUT diperlakukan identik: kelas ini tidak membedakan metode HTTP sama
+	 * sekali, karena beberapa kanal bank mengirim inquiry lewat GET sementara payment lewat POST
+	 * atau PUT. Pembedaan alur sepenuhnya bersandar pada akhiran URI dan isi body JSON.</p>
+	 *
+	 * <p>Exception apa pun ditelan oleh {@link Common#tampilErrorJikaAdmin(Exception)} agar tidak
+	 * menghasilkan halaman error container ke arah bank. Efek sampingnya, ketika kegagalan terjadi
+	 * sebelum {@code process} sempat menulis body, bank menerima respons kosong dengan status 200
+	 * bawaan container.</p>
+	 *
+	 * @param request  permintaan dari bank
+	 * @param response respons yang akan diisi JSON SNAP
+	 * @throws ServletException bila container melaporkan kegagalan servlet
+	 * @throws IOException      bila penulisan respons gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -83,8 +175,18 @@ public class OcbcNisp extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menerima permintaan HTTP POST — metode utama yang dipakai bank untuk inquiry, payment, dan
+	 * permintaan token — lalu meneruskannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>Perilaku dan penanganan error identik dengan
+	 * {@link #doGet(HttpServletRequest, HttpServletResponse)}.</p>
+	 *
+	 * @param request  permintaan dari bank
+	 * @param response respons yang akan diisi JSON SNAP
+	 * @throws ServletException bila container melaporkan kegagalan servlet
+	 * @throws IOException      bila penulisan respons gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -95,6 +197,19 @@ public class OcbcNisp extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menerima permintaan HTTP PUT dan meneruskannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>Override ini ada karena sebagian kanal OCBC NISP mengirim notifikasi pembatalan
+	 * (reversal) memakai PUT. Perilaku dan penanganan error identik dengan
+	 * {@link #doGet(HttpServletRequest, HttpServletResponse)}.</p>
+	 *
+	 * @param req  permintaan dari bank
+	 * @param resp respons yang akan diisi JSON SNAP
+	 * @throws ServletException bila container melaporkan kegagalan servlet
+	 * @throws IOException      bila penulisan respons gagal
+	 */
 	@Override
 	protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		try {
