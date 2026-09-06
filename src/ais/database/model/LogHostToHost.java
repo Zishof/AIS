@@ -1790,6 +1790,51 @@ public class LogHostToHost extends GeneralValueObject {
 		return info18;
 	}
 
+	/**
+	 * Mengembalikan kode identitas pembayar — <b>dengan mem-<i>parse</i> ulang string
+	 * {@link #nama} setiap kali dipanggil</b>.
+	 *
+	 * <h4>Mekanisme</h4>
+	 * <p>
+	 * Bila {@link #nama} memuat penanda {@code "NIM ="}, method memotong string pada penanda
+	 * itu, mengambil bagian sesudahnya, memotong lagi pada koma pertama, memangkas spasi, lalu
+	 * <b>menimpa field {@link #kode}</b> dengan hasilnya. Nilai yang mungkin sudah disetel
+	 * eksplisit lewat {@link #setKode(String)} akan tertimpa. Baru setelah itu field
+	 * dikembalikan.
+	 * </p>
+	 *
+	 * <h4>Empat konsekuensi yang harus disadari</h4>
+	 * <ol>
+	 * <li><b>Getter ini bermutasi.</b> Membaca {@code getKode()} pada entitas yang masih terikat
+	 * sesi Hibernate mengubah field dan menandai entitas kotor. Karena kelas dipetakan
+	 * {@code dynamicUpdate = true} dan beranotasi {@link org.hibernate.envers.Audited}, satu
+	 * pembacaan pasif dapat memicu UPDATE plus <b>revisi Envers palsu</b> pada <i>flush</i>
+	 * berikutnya — riwayat audit yang mencatat "perubahan" yang tidak pernah terjadi. Ini
+	 * instansi dari pola <i>getter yang memutasi field</i> yang tersebar sistemik di paket
+	 * {@code ais.database.model}.</li>
+	 *
+	 * <li><b>Ketergantungan pada format teks bebas.</b> Penanda {@code "NIM ="} adalah kontrak
+	 * tak tertulis antara method ini dan setiap modul integrasi yang merangkai {@link #nama}.
+	 * Mengubah cara modul merangkai deskripsi — mengganti spasi, mengganti label, atau memakai
+	 * pemisah selain koma — akan melumpuhkan ekstraksi ini <b>tanpa satu pun galat</b>. Yang
+	 * terlihat hanyalah kolom kode yang tiba-tiba kosong pada baris log baru.</li>
+	 *
+	 * <li><b>Bukan sumber kebenaran identitas.</b> Entitas ini juga punya {@link #getNim()} yang
+	 * diisi eksplisit oleh modul. Keduanya tidak dijaga agar konsisten, dan pada banyak baris
+	 * hanya salah satu yang terisi. Jangan mengasumsikan {@code getKode()} dan
+	 * {@code getNim()} selalu sama.</li>
+	 *
+	 * <li><b>Kegagalan ditelan diam-diam.</b> Seluruh proses potong-memotong dibungkus
+	 * {@code try/catch} yang hanya meneruskan ke {@code Common.tampilErrorJikaAdmin(e)}. Bila
+	 * format menyimpang sehingga pemotongan melempar exception, method tetap mengembalikan nilai
+	 * {@link #kode} sebelumnya seolah tidak terjadi apa-apa.</li>
+	 * </ol>
+	 *
+	 * @return kode identitas pembayar hasil ekstraksi, atau nilai {@link #kode} sebelumnya bila
+	 *         penanda tidak ditemukan; boleh {@code null}
+	 * @see #getNim()
+	 * @see #getNama()
+	 */
 	public String getKode() {
 		if (nama != null && nama.contains("NIM =")) {
 			try {
@@ -1801,10 +1846,72 @@ public class LogHostToHost extends GeneralValueObject {
 		return kode;
 	}
 
+	/**
+	 * Menyetel kode identitas pembayar secara eksplisit.
+	 *
+	 * <p>
+	 * <b>Nilai ini tidak dijamin bertahan.</b> Bila {@link #getNama()} kebetulan memuat penanda
+	 * {@code "NIM ="}, panggilan {@link #getKode()} berikutnya akan menimpanya dengan hasil
+	 * ekstraksi dari string tersebut. Agar nilai eksplisit ini bertahan, {@link #nama} harus
+	 * tidak memuat penanda itu.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan pula bahwa properti ini <b>tidak beranotasi {@code @Column}</b>, sehingga
+	 * kolomnya tunduk pada panjang bawaan JPA alih-alih {@code text} seperti kebanyakan kolom
+	 * lain di entitas ini — sama seperti {@link #getNim()}. Modul pemanggil yang matang
+	 * mengompensasi hal ini dengan memotong nilai sebelum menyetelnya.
+	 * </p>
+	 *
+	 * @param kode kode identitas pembayar; boleh {@code null}
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengembalikan nominal transaksi — <b>dengan mem-<i>parse</i> ulang string {@link #nama}
+	 * setiap kali dipanggil</b>.
+	 *
+	 * <h4>Mekanisme</h4>
+	 * <p>
+	 * Bila {@link #nama} memuat penanda {@code "nominalTagihan ="}, method memotong string pada
+	 * penanda itu, mengambil bagian sesudahnya sampai koma pertama, memangkas spasi, lalu
+	 * mengurainya dengan {@code Double.parseDouble} dan <b>menimpa field {@link #nominal}</b>.
+	 * Semua ini terjadi di dalam getter, bukan saat penyimpanan.
+	 * </p>
+	 *
+	 * <h4>Mengapa ini lebih berisiko daripada {@link #getKode()}</h4>
+	 * <p>
+	 * Selain mewarisi seluruh masalah {@link #getKode()} — getter bermutasi yang memicu revisi
+	 * Envers palsu, dan ketergantungan pada format teks bebas yang bisa berubah tanpa peringatan
+	 * — method ini menyentuh <b>angka uang</b>, sehingga kegagalannya berbentuk lain:
+	 * </p>
+	 * <ul>
+	 * <li><b>Kegagalan penguraian ditelan.</b> Bila potongan yang diambil bukan angka yang sah
+	 * (mis. mengandung pemisah ribuan, simbol mata uang, atau format lokal berkoma),
+	 * {@code Double.parseDouble} melempar {@code NumberFormatException} yang ditangkap dan hanya
+	 * ditampilkan kepada admin. Method tetap mengembalikan nilai {@link #nominal} sebelumnya —
+	 * bisa jadi {@code null}, bisa jadi nominal dari pembacaan sebelumnya. Untuk kolom uang,
+	 * "diam-diam mempertahankan nilai lama" adalah mode kegagalan yang berbahaya.</li>
+	 *
+	 * <li><b>Nilai tersimpan kalah oleh hasil parsing.</b> Nominal yang disetel eksplisit lewat
+	 * {@link #setNominal(Double)} — termasuk yang sudah tersimpan di basis data — akan ditimpa
+	 * begitu {@link #nama} memuat penanda tersebut. Konsekuensinya, <b>menyunting deskripsi
+	 * baris log berarti menyunting nominal yang ditampilkan aplikasi</b>, meski kolom nominal
+	 * di basis data belum tersentuh.</li>
+	 *
+	 * <li><b>Presisi {@code double} untuk uang.</b> Tipe kembalian adalah {@code Double}, bukan
+	 * tipe desimal berpresisi tetap. Untuk pelaporan dan pencocokan rekonsiliasi rupiah dalam
+	 * satuan penuh hal ini jarang menimbulkan masalah, tetapi jangan memakai nilai ini sebagai
+	 * dasar perhitungan akuntansi berantai.</li>
+	 * </ul>
+	 *
+	 * @return nominal transaksi hasil ekstraksi, atau nilai {@link #nominal} sebelumnya bila
+	 *         penanda tidak ada atau penguraian gagal; boleh {@code null}
+	 * @see #getNama()
+	 * @see #getItem()
+	 */
 	public Double getNominal() {
 		if (nama != null && nama.contains("nominalTagihan =")) {
 			try {
@@ -1817,10 +1924,59 @@ public class LogHostToHost extends GeneralValueObject {
 		return nominal;
 	}
 
+	/**
+	 * Menyetel nominal transaksi secara eksplisit.
+	 *
+	 * <p>
+	 * Seperti {@link #setKode(String)}, nilai ini <b>akan ditimpa</b> oleh {@link #getNominal()}
+	 * bila {@link #getNama()} memuat penanda {@code "nominalTagihan ="}. Properti ini juga tidak
+	 * beranotasi {@code @Column}.
+	 * </p>
+	 *
+	 * @param nominal nominal transaksi; boleh {@code null}
+	 */
 	public void setNominal(Double nominal) {
 		this.nominal = nominal;
 	}
 
+	/**
+	 * Mengembalikan rincian item/komponen tagihan, dengan <b>pengisian malas (<i>lazy</i>) dari
+	 * {@link #keterangan}</b> bila kolomnya masih kosong.
+	 *
+	 * <h4>Mekanisme</h4>
+	 * <p>
+	 * Berbeda dari {@link #getKode()} dan {@link #getNominal()} yang mem-<i>parse</i> ulang pada
+	 * <i>setiap</i> pemanggilan, method ini hanya bekerja bila {@link #item} masih {@code null}
+	 * atau kosong. Dalam kondisi itu, bila {@link #keterangan} memuat penanda
+	 * {@code "<br>amount="}, isi setelah penanda sampai {@code "<br>"} berikutnya diambil,
+	 * dipangkas, lalu <b>disimpan ke field {@link #item}</b> dan dikembalikan. Sifat "sekali
+	 * isi" ini membuatnya sedikit lebih jinak: begitu terisi, pembacaan berikutnya murni.
+	 * </p>
+	 *
+	 * <h4>Catatan penting</h4>
+	 * <ul>
+	 * <li><b>Tetap bermutasi pada pemanggilan pertama.</b> Pembacaan pertama pada entitas yang
+	 * terikat sesi Hibernate tetap dapat menandai entitas kotor dan melahirkan revisi Envers.
+	 * Bahwa pembacaan kedua aman tidak menghilangkan risiko pembacaan pertama.</li>
+	 *
+	 * <li><b>Penanda berbentuk HTML.</b> Pemakaian {@code "<br>"} sebagai pemisah mengonfirmasi
+	 * bahwa {@link #keterangan} memang berisi potongan HTML yang dirakit untuk ditampilkan.
+	 * Ini sekaligus peringatan: nilai {@code keterangan} berasal dari payload pihak luar dan
+	 * dirender di antarmuka, sehingga halaman yang menampilkannya tanpa <i>escaping</i>
+	 * membuka jalur injeksi HTML/skrip tersimpan yang sumbernya adalah data bank.</li>
+	 *
+	 * <li><b>Bukan nominal yang sama dengan {@link #getNominal()}.</b> Keduanya berasal dari
+	 * penanda yang berbeda di kolom yang berbeda ({@code "amount="} pada {@code keterangan}
+	 * versus {@code "nominalTagihan ="} pada {@code nama}), dan pada sejumlah alur memang
+	 * bermakna berbeda — nominal yang dibayar versus nominal yang ditagih. Jangan
+	 * mempertukarkannya saat menyusun laporan.</li>
+	 * </ul>
+	 *
+	 * @return rincian item/nominal item, atau {@code null} bila field kosong dan penanda tidak
+	 *         ditemukan di {@link #keterangan}
+	 * @see #getKeterangan()
+	 * @see #getNominal()
+	 */
 	@Column(name = "item", columnDefinition = "text", nullable = true)
 	public String getItem() {
 		if (item == null || item.trim().isEmpty()) {
@@ -1835,6 +1991,18 @@ public class LogHostToHost extends GeneralValueObject {
 		return item;
 	}
 
+	/**
+	 * Menyetel rincian item/komponen tagihan secara eksplisit.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #setKode(String)} dan {@link #setNominal(Double)}, nilai yang disetel
+	 * di sini <b>aman dari penimpaan</b>: {@link #getItem()} hanya melakukan ekstraksi ketika
+	 * field masih kosong. Menyetel nilai non-kosong secara efektif menonaktifkan mekanisme
+	 * pengisian malas tersebut.
+	 * </p>
+	 *
+	 * @param item rincian item; boleh {@code null}
+	 */
 	public void setItem(String item) {
 		this.item = item;
 	}
@@ -1843,16 +2011,86 @@ public class LogHostToHost extends GeneralValueObject {
 	 * Jejak (stack trace) Java bila terjadi error/exception saat memproses request
 	 * inquiry/pembayaran dari Bank. Disimpan apa adanya (kolom text) agar mudah
 	 * ditelusuri tanpa harus membuka log server. Null bila tidak ada error.
+	 *
+	 * <p>
+	 * Tiga hal yang perlu ditambahkan pada catatan di atas.
+	 * </p>
+	 * <ol>
+	 * <li><b>Nilai ini adalah data terbatas, bukan sekadar teks teknis.</b> Jejak tumpukan Java
+	 * mengungkap struktur paket internal, nama kelas dan method, nomor baris, serta — pada
+	 * exception yang membawa pesan — potongan data yang sedang diproses saat galat terjadi.
+	 * Bagi penyerang, ini peta rinci implementasi jalur pembayaran. Perlakukan setara dengan
+	 * {@link #getRequest()}.</li>
+	 *
+	 * <li><b>Terisi bukan berarti transaksi gagal, dan kosong bukan berarti berhasil.</b>
+	 * Sejumlah alur mencatat jejak untuk galat non-fatal yang sudah dipulihkan. Penentu hasil
+	 * yang benar adalah {@link #getResponseCode()}.</li>
+	 *
+	 * <li><b>Ini adalah kolom yang paling sering dibaca layar pemantauan.</b> Fitur "lihat
+	 * detail" pada layar log memakai kolom ini sebagai pintu masuk, lalu pada panel yang sama
+	 * turut menampilkan header HTTP ({@link #getInfo0()}), {@link #getRequest()}, dan
+	 * {@link #getResponse()}. Artinya kewenangan untuk "melihat kenapa transaksi error" pada
+	 * praktiknya juga merupakan kewenangan untuk membaca seluruh payload mentah — sesuatu yang
+	 * perlu diingat saat menimbang siapa yang diberi akses ke menu tersebut.</li>
+	 * </ol>
+	 *
+	 * @return jejak tumpukan Java, atau {@code null} bila tidak ada galat yang dicatat
 	 */
 	@Column(name = "stack_trace", columnDefinition = "text", nullable = true)
 	public String getStackTrace() {
 		return stackTrace;
 	}
 
+	/**
+	 * Menyimpan jejak tumpukan Java untuk baris log ini.
+	 *
+	 * <p>
+	 * Penugasan telanjang tanpa pemangkasan maupun penyaringan; kolomnya bertipe {@code text}
+	 * sehingga jejak sepanjang apa pun diterima. Lihat {@link #getStackTrace()} untuk implikasi
+	 * kerahasiaannya.
+	 * </p>
+	 *
+	 * @param stackTrace jejak tumpukan; boleh {@code null}
+	 */
 	public void setStackTrace(String stackTrace) {
 		this.stackTrace = stackTrace;
 	}
 
+	/**
+	 * Mengembalikan tautan ke proses rekonsiliasi yang sudah mencocokkan baris log ini dengan
+	 * mutasi bank.
+	 *
+	 * <h4>Peran dalam alur rekonsiliasi</h4>
+	 * <p>
+	 * Rekonsiliasi harian bekerja dari arah berlawanan: berkas mutasi yang dikirim bank diurai
+	 * baris demi baris, lalu untuk setiap baris mutasi sistem mencari <b>satu</b>
+	 * {@link LogHostToHost} yang cocok berdasarkan kombinasi kode identitas pembayar, kode hasil
+	 * sukses, jenis transaksi pembayaran, dan kesamaan <i>tanggal</i> (bukan waktu penuh).
+	 * Setelah ketemu, tautan dipasang. Nilai {@code null} pada properti ini karenanya punya arti
+	 * operasional yang tegas: <b>baris log yang belum terekonsiliasi</b> — dan memang persis
+	 * itulah kriteria yang dipakai layar pemantauan selisih.
+	 * </p>
+	 *
+	 * <h4>Dua kehalusan pemetaan yang mudah menjebak</h4>
+	 * <ol>
+	 * <li><b>Relasi ini dan pasangannya sama-sama {@code ManyToOne}.</b> Sisi
+	 * {@link RekonsiliasiHostToHost} juga menyimpan {@code ManyToOne} yang menunjuk balik ke
+	 * {@link LogHostToHost}, sehingga yang terbentuk adalah <b>dua tautan searah yang saling
+	 * menunjuk</b>, bukan satu relasi dua arah. Hibernate tidak menyinkronkan keduanya:
+	 * menyetel satu sisi <b>tidak</b> otomatis mengisi sisi lain, dan keduanya bisa berakhir
+	 * tidak konsisten bila kode hanya memperbarui salah satunya. Bila menulis kode yang
+	 * memasang tautan rekonsiliasi, setel <b>kedua</b> sisi secara eksplisit.</li>
+	 *
+	 * <li><b>{@code FetchMode.SELECT} pada layar berisi banyak baris.</b> Sama seperti
+	 * {@link #getKegiatan()}, relasi ini diambil lewat query terpisah. Memanggilnya di dalam
+	 * perulangan render adalah resep masalah N+1 query pada tabel yang justru merupakan tabel
+	 * paling besar di basis data.</li>
+	 * </ol>
+	 *
+	 * @return proses rekonsiliasi yang menaungi baris ini, atau {@code null} bila baris belum
+	 *         terekonsiliasi
+	 * @see RekonsiliasiHostToHost
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "rekonsiliasi_host_to_host", nullable = true)
@@ -1860,6 +2098,18 @@ public class LogHostToHost extends GeneralValueObject {
 		return rekonsiliasiHostToHost;
 	}
 
+	/**
+	 * Memasang tautan ke proses rekonsiliasi.
+	 *
+	 * <p>
+	 * Ingat bahwa sisi seberang tidak ikut terisi otomatis (lihat
+	 * {@link #getRekonsiliasiHostToHost()}). Menyetel {@code null} mengembalikan baris ini ke
+	 * status "belum terekonsiliasi" dan akan membuatnya muncul kembali di layar pemantauan
+	 * selisih.
+	 * </p>
+	 *
+	 * @param rekonsiliasiHostToHost proses rekonsiliasi terkait; boleh {@code null}
+	 */
 	public void setRekonsiliasiHostToHost(RekonsiliasiHostToHost rekonsiliasiHostToHost) {
 		this.rekonsiliasiHostToHost = rekonsiliasiHostToHost;
 	}

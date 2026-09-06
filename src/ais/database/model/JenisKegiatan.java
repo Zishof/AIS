@@ -1350,30 +1350,111 @@ public class JenisKegiatan extends GeneralValueObject {
 		return true;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-2</b> &mdash;
+	 * elemen indeks 2 pada array {@code aturanSmtMundur} yang disusun
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * <p>Getter murni (ternary saja): {@code null} dibaca sebagai {@code false} tanpa
+	 * menulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila semester mundur ke-2 ikut diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-2.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi = bayarHanyaSmtSaatIniDanSebelumnyalagi;
 	}
 
+	/**
+	 * Apakah tunggakan jenis kegiatan ini menyembunyikan <b>nilai/KHS</b> mahasiswa.
+	 *
+	 * <p>Getter murni dengan penjaga ternary &mdash; berbeda dari saudara-saudaranya
+	 * {@link #getDigunakanUntukPengecekanKrs()} dan
+	 * {@link #getDigunakanUntukPengecekanUjian()} yang keduanya destruktif. Tidak ada
+	 * penurunan otomatis di sini: gerbang nilai harus dinyalakan operator secara eksplisit.</p>
+	 *
+	 * @return {@code true} bila menjadi syarat melihat nilai; tidak pernah {@code null}
+	 */
 	public Boolean getDigunakanUntukPengecekanNilai() {
 		return digunakanUntukPengecekanNilai == null ? false : digunakanUntukPengecekanNilai;
 	}
 
+	/**
+	 * Setter syarat melihat nilai.
+	 *
+	 * @param digunakanUntukPengecekanNilai status syarat nilai
+	 */
 	public void setDigunakanUntukPengecekanNilai(Boolean digunakanUntukPengecekanNilai) {
 		this.digunakanUntukPengecekanNilai = digunakanUntukPengecekanNilai;
 	}
 
+	/**
+	 * Larangan mengangsur: bila {@code true}, tagihan jenis ini harus dilunasi sekaligus
+	 * dan tidak boleh dipecah menjadi {@link CicilanPembayaran}.
+	 *
+	 * <p>Perhatikan bahwa kelas ini menyimpan <b>tiga</b> penanda bermuatan mirip namun
+	 * dengan mesin yang berbeda: {@code tidakBolehMengangsur} (larangan sederhana),
+	 * {@link #getHanyaBerupaAngsuran()} dan {@link #getHanyaBerupaBukanAngsuran()}
+	 * (pasangan yang diolah {@link #modeAngsuranUntukJenjang(Jenjang, Integer, Integer)}
+	 * bersama JSON per-jenjang). Ketiganya tidak saling memvalidasi di tingkat entity,
+	 * sehingga kombinasi yang bertentangan tetap dapat disimpan operator.</p>
+	 *
+	 * @return {@code true} bila angsuran dilarang; tidak pernah {@code null}
+	 */
 	public Boolean getTidakBolehMengangsur() {
 		return tidakBolehMengangsur == null ? false : tidakBolehMengangsur;
 	}
 
+	/**
+	 * Setter larangan mengangsur.
+	 *
+	 * @param tidakBolehMengangsur {@code true} bila angsuran dilarang
+	 */
 	public void setTidakBolehMengangsur(Boolean tidakBolehMengangsur) {
 		this.tidakBolehMengangsur = tidakBolehMengangsur;
 	}
 
+	/**
+	 * Apakah tagihan jenis ini tetap diterbitkan bagi mahasiswa yang sudah lulus (alumni).
+	 *
+	 * <h4>GETTER DESTRUKTIF ber-AUTO-SEED DARI KONFIGURASI GLOBAL</h4>
+	 * <p>Bila field masih {@code null}, nilainya diturunkan lalu <b>ditulis balik</b> ke
+	 * field melalui dua jalur:</p>
+	 * <ol>
+	 *   <li>Bila nama kegiatan mengandung kata &quot;wisuda&quot; (dicek dengan
+	 *       {@code toLowerCase().contains(...)}, jadi cocok sebagian dan tidak peka huruf
+	 *       besar/kecil), nilainya {@code true}. Logikanya: biaya wisuda memang wajar
+	 *       ditagihkan justru kepada yang sudah selesai kuliah.</li>
+	 *   <li>Selain itu, nilainya dibaca dari konfigurasi global lewat
+	 *       {@code retreive("tagihan_juga_untuk_alumni")} dan dibandingkan dengan string
+	 *       {@code "true"} secara tidak peka huruf besar/kecil.</li>
+	 * </ol>
+	 *
+	 * <p><b>Konsekuensi yang perlu diwaspadai.</b> Karena hasilnya ditulis balik ke field
+	 * dan property ini dipetakan ke kolom, nilai konfigurasi global itu <i>dibekukan</i>
+	 * ke dalam baris {@code jenis_kegiatan} pada pembacaan pertama di dalam session yang
+	 * terbuka. Sesudah itu, mengubah konfigurasi global <b>tidak lagi berpengaruh</b>
+	 * terhadap jenis kegiatan yang sudah terlanjur terbaca &mdash; sebagian baris akan
+	 * mengikuti nilai lama dan sebagian mengikuti nilai baru, bergantung pada baris mana
+	 * yang kebetulan pernah dibaca lebih dulu. Ini pola auto-seed yang sama dengan yang
+	 * tercatat pada mekanisme konfigurasi AIS lainnya: nilai bawaan tidak tinggal sebagai
+	 * bawaan, melainkan tertulis permanen ke data.</p>
+	 *
+	 * <p>Pencocokan &quot;wisuda&quot; dengan {@code contains} juga lebih longgar daripada
+	 * pencocokan konstanta yang dipakai {@link #getKode()} dan {@link #getMaxSmt()};
+	 * jenis kegiatan bernama mis. &quot;Denda Wisuda Terlambat&quot; ikut tertangkap.</p>
+	 *
+	 * @return {@code true} bila alumni tetap ditagih; tidak pernah {@code null} setelah
+	 *         penurunan otomatis berjalan
+	 */
 	public Boolean getTagihanJugaUntukAlumni() {
 		if (tagihanJugaUntukAlumni == null) {
 			if (getNamaKegiatan() != null && getNamaKegiatan().toLowerCase().contains("wisuda")) {
@@ -1390,167 +1471,484 @@ public class JenisKegiatan extends GeneralValueObject {
 		return tagihanJugaUntukAlumni;
 	}
 
+	/**
+	 * Setter penanda tagihan untuk alumni. Nilai eksplisit di sini mencegah auto-seed dari
+	 * konfigurasi global pada {@link #getTagihanJugaUntukAlumni()}.
+	 *
+	 * @param tagihanJugaUntukAlumni status penagihan alumni
+	 */
 	public void setTagihanJugaUntukAlumni(Boolean tagihanJugaUntukAlumni) {
 		this.tagihanJugaUntukAlumni = tagihanJugaUntukAlumni;
 	}
 
+	/**
+	 * Apakah pelunasan jenis kegiatan ini menjadi syarat pencetakan surat keterangan
+	 * bebas/aktif.
+	 *
+	 * <p>Getter murni, tetapi perhatikan bahwa bawaannya <b>{@code true}</b> &mdash;
+	 * berlawanan dengan hampir seluruh flag lain di kelas ini yang berbawaan
+	 * {@code false}. Artinya setiap jenis kegiatan baru secara bawaan ikut menghalangi
+	 * pencetakan surat sampai operator mematikannya secara eksplisit. Sikap ini
+	 * <i>fail-closed</i> dan aman, namun mudah mengejutkan karena tidak seragam dengan
+	 * flag-flag tetangganya.</p>
+	 *
+	 * @return {@code true} bila menjadi syarat cetak surat; tidak pernah {@code null}
+	 */
 	public Boolean getDigunakanSyaratCetakSuratBebasAktif() {
 		return digunakanSyaratCetakSuratBebasAktif == null ? true : digunakanSyaratCetakSuratBebasAktif;
 	}
 
+	/**
+	 * Setter syarat cetak surat bebas/aktif.
+	 *
+	 * @param digunakanSyaratCetakSuratBebasAktif status syarat
+	 */
 	public void setDigunakanSyaratCetakSuratBebasAktif(Boolean digunakanSyaratCetakSuratBebasAktif) {
 		this.digunakanSyaratCetakSuratBebasAktif = digunakanSyaratCetakSuratBebasAktif;
 	}
 
+	/**
+	 * Teks penjelasan pembayaran (petunjuk transfer, nomor rekening, catatan) yang
+	 * ditampilkan kepada mahasiswa pada halaman tagihan. Disimpan sebagai {@code text}
+	 * sehingga tidak dibatasi panjang.
+	 *
+	 * <p>Getter murni: {@code null} ditampilkan sebagai string kosong tanpa menulis balik
+	 * ke field.</p>
+	 *
+	 * @return penjelasan pembayaran; string kosong bila belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getPenjelasanPembayaran() {
 		return penjelasanPembayaran == null ? "" : penjelasanPembayaran;
 	}
 
+	/**
+	 * Setter teks penjelasan pembayaran.
+	 *
+	 * @param penjelasanPembayaran teks penjelasan
+	 */
 	public void setPenjelasanPembayaran(String penjelasanPembayaran) {
 		this.penjelasanPembayaran = penjelasanPembayaran;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-3</b> &mdash;
+	 * elemen indeks 3 pada array {@code aturanSmtMundur} yang disusun
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * <p>Getter murni (ternary saja): {@code null} dibaca sebagai {@code false} tanpa
+	 * menulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila semester mundur ke-3 ikut diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi3() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi3 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi3;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-3.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi3 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi3(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi3) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi3 = bayarHanyaSmtSaatIniDanSebelumnyalagi3;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-4</b> &mdash;
+	 * elemen indeks 4 pada array {@code aturanSmtMundur} yang disusun
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * <p>Getter murni (ternary saja): {@code null} dibaca sebagai {@code false} tanpa
+	 * menulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila semester mundur ke-4 ikut diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi4() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi4 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi4;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-4.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi4 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi4(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi4) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi4 = bayarHanyaSmtSaatIniDanSebelumnyalagi4;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-5</b> &mdash;
+	 * elemen indeks 5 pada array {@code aturanSmtMundur} yang disusun
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * <p>Getter murni (ternary saja): {@code null} dibaca sebagai {@code false} tanpa
+	 * menulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila semester mundur ke-5 ikut diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi5() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi5 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi5;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-5.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi5 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi5(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi5) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi5 = bayarHanyaSmtSaatIniDanSebelumnyalagi5;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-6</b> &mdash;
+	 * elemen indeks 6 pada array {@code aturanSmtMundur} yang disusun
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * <p>Getter murni (ternary saja): {@code null} dibaca sebagai {@code false} tanpa
+	 * menulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila semester mundur ke-6 ikut diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi6() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi6 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi6;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-6.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi6 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi6(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi6) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi6 = bayarHanyaSmtSaatIniDanSebelumnyalagi6;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-7</b> &mdash;
+	 * elemen indeks 7 pada array {@code aturanSmtMundur} yang disusun
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * <p>Getter murni (ternary saja): {@code null} dibaca sebagai {@code false} tanpa
+	 * menulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila semester mundur ke-7 ikut diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi7() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi7 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi7;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-7.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi7 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi7(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi7) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi7 = bayarHanyaSmtSaatIniDanSebelumnyalagi7;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-8</b> &mdash;
+	 * elemen indeks 8 pada array {@code aturanSmtMundur} yang disusun
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * <p>Getter murni (ternary saja): {@code null} dibaca sebagai {@code false} tanpa
+	 * menulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila semester mundur ke-8 ikut diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi8() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi8 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi8;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-8.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi8 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi8(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi8) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi8 = bayarHanyaSmtSaatIniDanSebelumnyalagi8;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>3 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 3}.
+	 *
+	 * @return ambang persentase untuk semester mundur ke-3; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin3() {
 		return persenSyaratLogin3 == null ? getPersenSyaratLogin() : persenSyaratLogin3;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-3.
+	 *
+	 * @param persenSyaratLogin3 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin3(Double persenSyaratLogin3) {
 		this.persenSyaratLogin3 = persenSyaratLogin3;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>4 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 4}.
+	 *
+	 * @return ambang persentase untuk semester mundur ke-4; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin4() {
 		return persenSyaratLogin4 == null ? getPersenSyaratLogin() : persenSyaratLogin4;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-4.
+	 *
+	 * @param persenSyaratLogin4 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin4(Double persenSyaratLogin4) {
 		this.persenSyaratLogin4 = persenSyaratLogin4;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>5 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 5}.
+	 *
+	 * @return ambang persentase untuk semester mundur ke-5; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin5() {
 		return persenSyaratLogin5 == null ? getPersenSyaratLogin() : persenSyaratLogin5;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-5.
+	 *
+	 * @param persenSyaratLogin5 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin5(Double persenSyaratLogin5) {
 		this.persenSyaratLogin5 = persenSyaratLogin5;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>6 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 6}.
+	 *
+	 * @return ambang persentase untuk semester mundur ke-6; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin6() {
 		return persenSyaratLogin6 == null ? getPersenSyaratLogin() : persenSyaratLogin6;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-6.
+	 *
+	 * @param persenSyaratLogin6 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin6(Double persenSyaratLogin6) {
 		this.persenSyaratLogin6 = persenSyaratLogin6;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>7 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 7}.
+	 *
+	 * @return ambang persentase untuk semester mundur ke-7; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin7() {
 		return persenSyaratLogin7 == null ? getPersenSyaratLogin() : persenSyaratLogin7;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-7.
+	 *
+	 * @param persenSyaratLogin7 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin7(Double persenSyaratLogin7) {
 		this.persenSyaratLogin7 = persenSyaratLogin7;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>8 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 8}.
+	 *
+	 * @return ambang persentase untuk semester mundur ke-8; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin8() {
 		return persenSyaratLogin8 == null ? getPersenSyaratLogin() : persenSyaratLogin8;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-8.
+	 *
+	 * @param persenSyaratLogin8 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin8(Double persenSyaratLogin8) {
 		this.persenSyaratLogin8 = persenSyaratLogin8;
 	}
 
+	/**
+	 * <b>Saklar utama denda keterlambatan</b> pada tingkat jenis kegiatan; bawaan
+	 * {@code false} (tidak ada denda).
+	 *
+	 * <p>Dibaca {@link DetailBiaya#checkDenda} sebagai penentu apakah konfigurasi denda
+	 * jenis kegiatan (besaran, kelipatan, batas, dan varian per prodi) menggantikan
+	 * konfigurasi denda tingkat {@link ItemBiaya}. Juga menjadi penjaga bagi
+	 * {@link #getDendaDibuatPerProdi()} yang dipaksa {@code false} saat saklar ini mati.</p>
+	 *
+	 * <p><b>Perbedaan bawaan yang perlu diperhatikan.</b> Saklar ini berbawaan
+	 * {@code false} sedangkan flag FORMAT {@link #getNilaiDendaDalamPersen()} berbawaan
+	 * {@code true}. Keduanya sering muncul berdampingan di kode pemanggil, dan
+	 * mempertukarkannya menghasilkan perilaku yang berlawanan secara diam-diam &mdash;
+	 * lihat catatan pada {@link DetailBiaya#checkDendaCicilan}.</p>
+	 *
+	 * @return {@code true} bila jenis kegiatan ini mengenakan denda; tidak pernah {@code null}
+	 */
 	public Boolean getDendaJikaTerlambat() {
 		return dendaJikaTerlambat == null ? false : dendaJikaTerlambat;
 	}
 
+	/**
+	 * Setter saklar utama denda keterlambatan.
+	 *
+	 * @param dendaJikaTerlambat {@code true} untuk mengaktifkan denda
+	 */
 	public void setDendaJikaTerlambat(Boolean dendaJikaTerlambat) {
 		this.dendaJikaTerlambat = dendaJikaTerlambat;
 	}
 
+	/**
+	 * Besaran denda keterlambatan tingkat jenis kegiatan; {@code null} dibaca sebagai
+	 * {@code 0.0}.
+	 *
+	 * <p>Satuannya ditentukan {@link #getNilaiDendaDalamPersen()}: persen dari nominal
+	 * tagihan, atau rupiah tetap. Meskipun namanya mengandung kata
+	 * &quot;prosentase&quot;, nilai ini juga dipakai sebagai nominal tetap ketika flag
+	 * format dimatikan &mdash; penamaan yang menyesatkan pembaca kode.</p>
+	 *
+	 * <p>Nilai {@code 0.0} secara efektif mematikan denda: {@link DetailBiaya#checkDenda}
+	 * mensyaratkan {@code nilaiDenda > 0.0} sebelum menghitung apa pun.</p>
+	 *
+	 * @return besaran denda; tidak pernah {@code null}
+	 */
 	public Double getDefaultProsentaseDenda() {
 		return defaultProsentaseDenda == null ? 0.0 : defaultProsentaseDenda;
 	}
 
+	/**
+	 * Setter besaran denda keterlambatan.
+	 *
+	 * @param defaultProsentaseDenda besaran denda (persen atau rupiah, sesuai flag format)
+	 */
 	public void setDefaultProsentaseDenda(Double defaultProsentaseDenda) {
 		this.defaultProsentaseDenda = defaultProsentaseDenda;
 	}
 
+	/**
+	 * <b>Format</b> denda keterlambatan: {@code true} berarti
+	 * {@link #getDefaultProsentaseDenda()} adalah persen dari nominal tagihan,
+	 * {@code false} berarti nominal rupiah tetap.
+	 *
+	 * <p><b>Bawaannya {@code true}</b> &mdash; berlawanan arah dengan saklar utama
+	 * {@link #getDendaJikaTerlambat()} yang berbawaan {@code false}. Ini penting karena
+	 * flag ini hanyalah penentu SATUAN, bukan penentu ADA/TIDAKNYA denda. Setiap kode
+	 * pemanggil yang memakainya sebagai gerbang &quot;apakah jenis kegiatan ini mengenakan
+	 * denda&quot; akan salah dalam dua arah sekaligus: menyalakan denda pada jenis kegiatan
+	 * yang saklar utamanya mati (karena bawaan {@code true}), sekaligus mengabaikan denda
+	 * pada jenis kegiatan yang dendanya berupa nominal tetap. Lihat
+	 * {@link DetailBiaya#checkDendaCicilan} yang memakai pola tersebut.</p>
+	 *
+	 * @return {@code true} bila denda dinyatakan dalam persen; tidak pernah {@code null}
+	 */
 	public Boolean getNilaiDendaDalamPersen() {
 		return nilaiDendaDalamPersen == null ? true : nilaiDendaDalamPersen;
 	}
 
+	/**
+	 * Setter format denda (persen atau nominal tetap).
+	 *
+	 * @param nilaiDendaDalamPersen {@code true} untuk persen
+	 */
 	public void setNilaiDendaDalamPersen(Boolean nilaiDendaDalamPersen) {
 		this.nilaiDendaDalamPersen = nilaiDendaDalamPersen;
 	}
 
+	/**
+	 * Periode <b>pelipatan</b> denda dalam hari: denda dikalikan
+	 * {@code jumlahHariTerlambat / nilai ini}. Nilai {@code 0} (juga bawaan saat kolom
+	 * {@code NULL}) berarti denda tidak berlipat &mdash; dikenakan sekali saja.
+	 *
+	 * <p>Perhatikan bahwa perhitungan hilir di {@link DetailBiaya#checkDenda} memakai
+	 * pembagian bilangan bulat atas {@code terlambathari} yang sudah dikurangi satu, dan
+	 * hasil pembagian bernilai {@code 0} membuat denda menjadi <b>nol</b> &mdash; bukan
+	 * satu kali denda. Jadi dengan pelipatan 7 hari, keterlambatan 1&ndash;7 hari tidak
+	 * menghasilkan denda sama sekali.</p>
+	 *
+	 * @return periode pelipatan dalam hari; tidak pernah {@code null}
+	 */
 	public Integer getDendaAkanBerlipatTerlambaHari() {
 		return dendaAkanBerlipatTerlambaHari == null ? 0 : dendaAkanBerlipatTerlambaHari;
 	}
 
+	/**
+	 * Setter periode pelipatan denda.
+	 *
+	 * @param dendaAkanBerlipatTerlambaHari periode dalam hari; {@code 0} = tidak berlipat
+	 */
 	public void setDendaAkanBerlipatTerlambaHari(Integer dendaAkanBerlipatTerlambaHari) {
 		this.dendaAkanBerlipatTerlambaHari = dendaAkanBerlipatTerlambaHari;
 	}
 
+	/**
+	 * Batas atas jumlah kelipatan denda. Nilai {@code 0} (juga bawaan) berarti
+	 * <b>tanpa batas</b> &mdash; denda terus berlipat selama keterlambatan berlanjut.
+	 *
+	 * <p>Perhatikan bahwa {@code 0} di sini bermakna &quot;tak terbatas&quot;, bukan
+	 * &quot;maksimal nol kali&quot;; {@link DetailBiaya#checkDenda} menerapkan batas hanya
+	 * bila {@code maksimal > 0}. Bawaan &quot;tanpa batas&quot; ini berarti jenis kegiatan
+	 * yang mengaktifkan pelipatan tanpa mengisi batas dapat menghasilkan denda yang tumbuh
+	 * tanpa plafon.</p>
+	 *
+	 * @return batas kelipatan; {@code 0} berarti tanpa batas; tidak pernah {@code null}
+	 */
 	public Integer getMaksimalBerlipatTerlambaHari() {
 		return maksimalBerlipatTerlambaHari == null ? 0 : maksimalBerlipatTerlambaHari;
 	}
 
+	/**
+	 * Setter batas kelipatan denda.
+	 *
+	 * @param maksimalBerlipatTerlambaHari batas kelipatan; {@code 0} = tanpa batas
+	 */
 	public void setMaksimalBerlipatTerlambaHari(Integer maksimalBerlipatTerlambaHari) {
 		this.maksimalBerlipatTerlambaHari = maksimalBerlipatTerlambaHari;
 	}
 
+	/**
+	 * Penanda bahwa tagihan jenis ini <b>harus</b> berupa angsuran/cicilan bulanan.
+	 *
+	 * <p>Dibaca dari dua tempat dengan makna berbeda: sebagai salah satu dari sepasang
+	 * flag masukan {@link #modeAngsuranUntukJenjang(Jenjang, Integer, Integer)}, dan
+	 * langsung oleh {@link Kegiatan#hitungTagihan()} sebagai penentu kunci JSON mana pada
+	 * kolom {@code tagihans} yang boleh dijumlahkan (hanya kunci ber-garis-bawah, yaitu
+	 * baris angsuran). Karena itu mengubah flag ini pada jenis kegiatan yang tagihannya
+	 * sudah terbentuk akan <b>mengubah total tagihan</b> yang dihitung ulang, bukan hanya
+	 * cara pembayarannya.</p>
+	 *
+	 * @return {@code true} bila wajib angsuran; tidak pernah {@code null}
+	 */
 	public Boolean getHanyaBerupaAngsuran() {
 		return hanyaBerupaAngsuran == null ? false : hanyaBerupaAngsuran;
 	}
 
+	/**
+	 * Setter penanda wajib angsuran. Perhatikan efeknya terhadap penjumlahan total pada
+	 * {@link Kegiatan#hitungTagihan()}.
+	 *
+	 * @param hanyaBerupaAngsuran {@code true} bila wajib angsuran
+	 */
 	public void setHanyaBerupaAngsuran(Boolean hanyaBerupaAngsuran) {
 		this.hanyaBerupaAngsuran = hanyaBerupaAngsuran;
 	}

@@ -1538,10 +1538,32 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Menetapkan jurusan/program studi sebagai lingkup organisasi akun.
+	 *
+	 * @param jurusan jurusan yang ditautkan; boleh {@code null}
+	 * @see #ambilJurusan()
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Mengembalikan jurusan/program studi yang melekat pada akun ini.
+	 *
+	 * <p>Ini varian <b>mentah</b>: membaca lingkup bawaan pengguna tanpa mempertimbangkan
+	 * lingkup yang ditetapkan administrator pada {@link Tbmrole}. Untuk keperluan
+	 * <b>memfilter data berdasar kewenangan</b>, pakai {@link #ambilJurusan()}.</p>
+	 *
+	 * <p><b>Peredam akun demo.</b> Bila {@code ConstantValues.aktifkan_akun_demo} menyala dan
+	 * {@code userId} adalah {@code "demo"}, method mengembalikan (dan menulis)
+	 * {@code null} &mdash; akun demo sengaja dibuat tanpa lingkup organisasi apa pun supaya
+	 * tidak "memiliki" data satuan kerja mana pun. Pola peredam yang sama ada di
+	 * {@link #getFakultas()}, {@link #getYayasan()}, {@link #getSekolah()}, dan
+	 * {@link #getSatuanKerja()}.</p>
+	 *
+	 * @return jurusan akun, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -1556,6 +1578,33 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return jurusan;
 	}
 
+	/**
+	 * Mengembalikan jurusan <b>efektif</b> akun untuk keperluan pembatasan data.
+	 *
+	 * <h3>Beda {@code ambilJurusan()} dan {@link #getJurusan()}</h3>
+	 * <p>Inilah pola {@code ambilXxx()} yang berulang di kelas ini dan <b>wajib dipakai oleh
+	 * kode yang memfilter data berdasar kewenangan</b>. Aturannya:</p>
+	 * <ol>
+	 *   <li>Bila {@link #hakAkses()} punya {@code getJurusan()}, lingkup dari <b>peran</b>
+	 *   itulah yang menang &mdash; administrator dapat mengunci sebuah peran ke satu jurusan
+	 *   tertentu, terlepas dari jurusan asal penggunanya;</li>
+	 *   <li>Selain itu dipakai {@link #getJurusan()} (lingkup bawaan pengguna);</li>
+	 *   <li><b>Pengecualian dosen:</b> bila {@link #ambilDosen()} menghasilkan dosen
+	 *   ber-{@code id}, hasilnya dipaksa {@code null}. Maknanya: dosen tidak dibatasi ke satu
+	 *   jurusan karena lazim mengajar lintas jurusan; pembatasannya ditangani mekanisme lain.
+	 *   Perhatikan bahwa langkah ini <b>menimpa</b> hasil langkah 2, tetapi <b>tidak</b>
+	 *   menjangkau langkah 1 yang sudah {@code return} lebih awal.</li>
+	 * </ol>
+	 *
+	 * <p>Hasil {@code null} berarti "tidak dibatasi jurusan mana pun". Kode pemanggil harus
+	 * sadar bahwa <b>{@code null} di sini berarti akses luas, bukan akses nihil</b> &mdash;
+	 * memperlakukannya sebagai penyaring tanpa memeriksa {@code null} lebih dulu akan
+	 * menghasilkan kueri tanpa batas lingkup.</p>
+	 *
+	 * @return jurusan efektif, atau {@code null} bila tidak dibatasi
+	 * @see #getJurusan()
+	 * @see #hakAkses()
+	 */
 	public Jurusan ambilJurusan() {
 		Tbmrole d = hakAkses();
 		if (d != null && d.getJurusan() != null) {
@@ -1572,10 +1621,27 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return jurusan;
 	}
 
+	/**
+	 * Menetapkan fakultas sebagai lingkup organisasi akun.
+	 *
+	 * @param fakultas fakultas yang ditautkan; boleh {@code null}
+	 * @see #ambilFakultas()
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		this.fakultas = fakultas;
 	}
 
+	/**
+	 * Mengembalikan fakultas yang melekat pada akun ini (varian mentah).
+	 *
+	 * <p>Bila {@link #getJurusan()} terisi dan punya fakultas, nilai itu <b>menimpa</b> field
+	 * {@code fakultas} &mdash; jurusan dianggap sumber kebenaran yang lebih spesifik. Berlaku
+	 * pula peredam akun demo seperti pada {@link #getJurusan()}.</p>
+	 *
+	 * <p>Untuk pembatasan data berdasar kewenangan, pakai {@link #ambilFakultas()}.</p>
+	 *
+	 * @return fakultas akun, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "fakultas", nullable = true)
 	public Fakultas getFakultas() {
@@ -1594,6 +1660,18 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return fakultas;
 	}
 
+	/**
+	 * Mengembalikan fakultas <b>efektif</b> akun untuk keperluan pembatasan data.
+	 *
+	 * <p>Mengikuti pola {@code ambilXxx()} yang sama persis dengan
+	 * {@link #ambilJurusan()}: lingkup dari {@link #hakAkses()} menang lebih dulu, lalu
+	 * {@link #getFakultas()}, lalu dipaksa {@code null} bila akun ternyata milik dosen
+	 * ber-{@code id}. Hasil {@code null} berarti "tidak dibatasi fakultas mana pun", yakni
+	 * akses luas &mdash; bukan akses nihil.</p>
+	 *
+	 * @return fakultas efektif, atau {@code null} bila tidak dibatasi
+	 * @see #ambilJurusan()
+	 */
 	public Fakultas ambilFakultas() {
 
 		Tbmrole d = hakAkses();
@@ -1611,10 +1689,45 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return fakultas;
 	}
 
+	/**
+	 * Menetapkan yayasan sebagai lingkup organisasi akun.
+	 *
+	 * <p><b>Menormalkan object "kosong" menjadi {@code null}:</b> {@link Yayasan} yang belum
+	 * punya {@code id} (belum tersimpan) diperlakukan sama dengan {@code null}. Ini mencegah
+	 * kunci asing menunjuk ke entitas transient dan mencegah kombo ZK yang belum dipilih
+	 * tersimpan sebagai lingkup semu. Pola yang sama dipakai
+	 * {@link #setSekolah(Sekolah)}.</p>
+	 *
+	 * @param yayasan yayasan yang ditautkan; {@code null} atau tanpa {@code id} disimpan
+	 *                sebagai {@code null}
+	 */
 	public void setYayasan(Yayasan yayasan) {
 		this.yayasan = yayasan == null || yayasan.getId() == null ? null : yayasan;
 	}
 
+	/**
+	 * Mengembalikan yayasan yang melekat pada akun ini (varian mentah).
+	 *
+	 * <p>Bila akun milik siswa, yayasan diturunkan dari {@code siswa.getYayasan()}. Berlaku
+	 * pula peredam akun demo seperti pada {@link #getJurusan()}.</p>
+	 *
+	 * <p><b>Kuirk salin-tempel yang perlu diketahui.</b> Cabang {@code else if} untuk guru di
+	 * dalam method ini menulis ke field <b>{@code sekolah}</b>
+	 * ({@code sekolah = getGuru().getSekolah()}), <i>bukan</i> ke {@code yayasan}. Akibatnya
+	 * untuk akun guru: (a) nilai yang dikembalikan tetap {@code yayasan} lama/tersimpan
+	 * &mdash; cabang itu tidak berpengaruh pada nilai kembalian; dan (b) method ini
+	 * diam-diam <b>mengubah field {@code sekolah}</b> sebagai efek samping, padahal
+	 * {@link #getSekolah()} justru <i>menonaktifkan</i> penurunan sekolah-dari-guru
+	 * (cabangnya di sana sengaja di-<i>comment out</i>). Jadi pembacaan
+	 * {@code getYayasan()} lebih dulu dapat mengubah hasil {@code getSekolah()} berikutnya.
+	 * Ini instansi dari pola salin-tempel getter-salah-field yang sudah tercatat pada
+	 * entitas lain; didokumentasikan di sini, bukan diperbaiki, karena kode di sekitarnya
+	 * kemungkinan sudah bergantung pada efek samping tersebut.</p>
+	 *
+	 * <p>Untuk pembatasan data berdasar kewenangan, pakai {@link #ambilYayasan()}.</p>
+	 *
+	 * @return yayasan akun, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "yayasan", nullable = true)
 	public Yayasan getYayasan() {
@@ -1635,6 +1748,17 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return yayasan;
 	}
 
+	/**
+	 * Mengembalikan yayasan <b>efektif</b> akun untuk keperluan pembatasan data.
+	 *
+	 * <p>Mengikuti pola {@code ambilXxx()} yang sama dengan {@link #ambilJurusan()}: lingkup
+	 * dari {@link #hakAkses()} menang lebih dulu, lalu {@link #getYayasan()}, lalu dipaksa
+	 * {@code null} bila akun ternyata milik dosen ber-{@code id}. Hasil {@code null} berarti
+	 * "tidak dibatasi yayasan mana pun".</p>
+	 *
+	 * @return yayasan efektif, atau {@code null} bila tidak dibatasi
+	 * @see #ambilJurusan()
+	 */
 	public Yayasan ambilYayasan() {
 		Tbmrole d = hakAkses();
 		if (d != null && d.getYayasan() != null) {
@@ -1651,6 +1775,22 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return yayasan;
 	}
 
+	/**
+	 * Mengembalikan sekolah yang melekat pada akun ini (varian mentah).
+	 *
+	 * <p>Bila akun milik siswa, sekolah diturunkan dari {@code siswa.getSekolah()}. Berlaku
+	 * pula peredam akun demo seperti pada {@link #getJurusan()}.</p>
+	 *
+	 * <p><b>Cabang guru sengaja dinonaktifkan.</b> Penurunan sekolah dari
+	 * {@code getGuru().getSekolah()} ada di dalam kode namun di-<i>comment out</i>, sehingga
+	 * akun guru memakai kolom {@code sekolah} yang tersimpan, bukan sekolah tempatnya
+	 * mengajar. Perlu dicatat bahwa penurunan itu masih terjadi secara tidak sengaja lewat
+	 * efek samping {@link #getYayasan()} &mdash; lihat penjelasannya di sana.</p>
+	 *
+	 * <p>Untuk pembatasan data berdasar kewenangan, pakai {@link #ambilSekolah()}.</p>
+	 *
+	 * @return sekolah akun, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sekolah", nullable = true)
 	public Sekolah getSekolah() {
@@ -1673,6 +1813,31 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return sekolah;
 	}
 
+	/**
+	 * Mengembalikan sekolah <b>efektif</b> akun untuk keperluan pembatasan data.
+	 *
+	 * <p>Mengikuti pola {@code ambilXxx()} yang sama dengan {@link #ambilJurusan()}: lingkup
+	 * dari {@link #hakAkses()} menang lebih dulu, lalu {@link #getSekolah()}, lalu dipaksa
+	 * {@code null} bila akun ternyata milik dosen ber-{@code id}.</p>
+	 *
+	 * <p><b>Berbeda dari saudara-saudaranya, method ini dibungkus {@code try/catch}
+	 * menyeluruh yang mengembalikan {@code null} pada kegagalan apa pun.</b> Alasannya
+	 * tercatat pada komentar di dalam badan method: ia dipanggil dari alur INIT halaman
+	 * ({@code MyInit.doInit} &rarr; {@code Common.chekPtAtauSekolah}) untuk <b>setiap</b>
+	 * pengguna yang login, termasuk akun yang datanya belum lengkap, sehingga
+	 * {@code NullPointerException} dari relasi setengah jadi tidak boleh menggagalkan
+	 * pemuatan halaman.</p>
+	 *
+	 * <p><b>Konsekuensi keamanan yang perlu disadari pemanggil:</b> karena kegagalan
+	 * dipetakan menjadi {@code null} dan {@code null} bermakna "tidak dibatasi sekolah mana
+	 * pun", perilaku method ini pada kondisi galat adalah <i>fail-open</i> jika hasilnya
+	 * dipakai mentah-mentah sebagai penyaring. Kode yang membatasi data per sekolah harus
+	 * memperlakukan {@code null} secara eksplisit, bukan sekadar meneruskannya ke
+	 * {@code Restrictions.eq(...)}.</p>
+	 *
+	 * @return sekolah efektif, atau {@code null} bila tidak dibatasi maupun bila terjadi galat
+	 * @see #ambilJurusan()
+	 */
 	public Sekolah ambilSekolah() {
 		// Dipanggil dari alur INIT halaman (MyInit.doInit -> Common.chekPtAtauSekolah)
 		// untuk SEMUA user yang login, termasuk user yang datanya belum lengkap
@@ -1699,30 +1864,126 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Menetapkan sekolah sebagai lingkup organisasi akun.
+	 *
+	 * <p>Seperti {@link #setYayasan(Yayasan)}, {@link Sekolah} yang belum punya {@code id}
+	 * dinormalkan menjadi {@code null}.</p>
+	 *
+	 * @param sekolah sekolah yang ditautkan; {@code null} atau tanpa {@code id} disimpan
+	 *                sebagai {@code null}
+	 */
 	public void setSekolah(Sekolah sekolah) {
 		this.sekolah = sekolah == null || sekolah.getId() == null ? null : sekolah;
 	}
 
+	/**
+	 * Menetapkan penanda apakah {@link #getUserPassword()} sudah ter-<i>encode</i> DES.
+	 *
+	 * <p><b>Penanda ini tidak diperbarui otomatis.</b> {@link #setUserPassword(String)} tidak
+	 * menyentuhnya, sehingga pemanggil yang mengubah sandi wajib menyelaraskannya sendiri.
+	 * Ketidakcocokan antara penanda dan isi kolom membuat autentikasi gagal.</p>
+	 *
+	 * @param is_encripted {@code true} bila sandi tersimpan dalam bentuk ter-encode
+	 */
 	public void setIs_encripted(Boolean is_encripted) {
 		this.is_encripted = is_encripted;
 	}
 
+	/**
+	 * Menandai apakah nilai pada kolom {@code userpassword} sudah ter-<i>encode</i> DES atau
+	 * masih tersimpan polos.
+	 *
+	 * <p>Peninggalan migrasi dari penyimpanan sandi polos ke ter-encode: baris lama dapat
+	 * bernilai {@code false}/{@code null}. Getter murni tanpa efek samping, dan
+	 * <b>dapat mengembalikan {@code null}</b> (tri-state) &mdash; pemanggil harus memakai
+	 * {@code Boolean.TRUE.equals(...)} alih-alih <i>auto-unboxing</i> yang berisiko
+	 * {@code NullPointerException}.</p>
+	 *
+	 * @return {@code true}/{@code false}/{@code null}
+	 * @see #getUserPassword()
+	 */
 	public Boolean getIs_encripted() {
 		return is_encripted;
 	}
 
+	/**
+	 * Menetapkan penanda akun {@code root}/supervisor.
+	 *
+	 * <p>Ini penanda hak istimewa tertinggi &mdash; setiap penulisan ke sini adalah perubahan
+	 * kewenangan dan harus melalui gerbang otorisasi yang setara dengan pengubahan peran.</p>
+	 *
+	 * @param root {@code true} untuk menjadikan akun supervisor
+	 * @see #getRoot()
+	 */
 	public void setRoot(Boolean root) {
 		this.root = root;
 	}
 
+	/**
+	 * Penanda akun {@code root}/supervisor.
+	 *
+	 * <p>Dibaca {@code UserDetailsServiceImpl} untuk memberikan otoritas
+	 * {@code ROLE_SUPERVISOR} pada konteks Spring Security &mdash; jalur hak istimewa yang
+	 * <b>terpisah</b> dari mekanisme {@link Tbmrole}, sehingga akun ber-{@code root}
+	 * memperoleh kewenangan yang tidak terlihat pada layar pengaturan peran.</p>
+	 *
+	 * <p>Getter murni tanpa efek samping; <b>dapat mengembalikan {@code null}</b> sehingga
+	 * pemanggil harus memakai {@code Boolean.TRUE.equals(...)}. Bandingkan dengan
+	 * {@link #getSuperadmin()} yang merupakan mekanisme "admin lain" yang berbeda lagi.</p>
+	 *
+	 * @return {@code true} bila akun supervisor; dapat {@code null}
+	 */
 	public Boolean getRoot() {
 		return root;
 	}
 
+	/**
+	 * Menetapkan alamat surel akun.
+	 *
+	 * <p>Setter mentah: <b>menimpa seluruh</b> isi kolom, termasuk daftar multi-alamat yang
+	 * sudah ada, dan tidak memvalidasi format. Untuk menambahkan satu alamat tanpa menghapus
+	 * yang lain, pakai {@link #appendEmail(String)} yang sekaligus memvalidasi dan mencegah
+	 * duplikat. Perhatikan pula bahwa nilai ini akan tertimpa {@link #getEmail()} bila ada
+	 * entitas orang yang tertaut.</p>
+	 *
+	 * @param email alamat surel (boleh berupa daftar dipisah koma)
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
+	/**
+	 * Mengembalikan alamat surel akun.
+	 *
+	 * <p>Kolomnya dideklarasikan {@code unique = true}, namun keunikan itu punya dua batasan
+	 * penting: nilainya boleh memuat <b>beberapa alamat sekaligus yang dipisah koma</b>, dan
+	 * getter ini delegatif sehingga nilai di memori dapat berbeda dari isi kolom.</p>
+	 *
+	 * <h3>Urutan prioritas sumber</h3>
+	 * <p>Dosen, guru, mahasiswa, calon mahasiswa, pegawai, siswa, penduduk, calon siswa,
+	 * penyedia aset, calon pegawai, orang tua, lalu anggota koperasi. Untuk dosen, guru, dan
+	 * pegawai ada syarat tambahan bahwa surelnya tidak boleh kosong; jenis lain langsung
+	 * dipakai apa adanya.</p>
+	 *
+	 * <p><b>Risiko {@code NullPointerException}.</b> Cabang mahasiswa dan calon mahasiswa
+	 * memanggil {@code getEmail().split(",")} <b>tanpa memeriksa {@code null}</b> lebih dulu,
+	 * berbeda dari cabang dosen/guru/pegawai yang dijaga. Untuk mahasiswa yang belum punya
+	 * surel, method ini akan melempar {@code NullPointerException} kecuali entity
+	 * {@link Mahasiswa} kebetulan menjamin nilai non-{@code null} dari getter-nya sendiri.
+	 * Cabang tersebut juga hanya mengambil alamat <b>pertama</b>, membuang sisanya.</p>
+	 *
+	 * <h3>Pembersihan</h3>
+	 * <p>Sebelum dikembalikan, koma ganda {@code ",,"} dirapatkan (diulang lima kali sebagai
+	 * penjaga kasar terhadap koma beruntun), {@code null} dinormalkan menjadi string kosong,
+	 * dan nilai yang hanya berisi {@code ","} dikosongkan. Karena itu method ini
+	 * <b>tidak pernah mengembalikan {@code null}</b>.</p>
+	 *
+	 * <p>Method ini juga merupakan mitra {@link #ambilBerdasarEmail(String)} yang memakainya
+	 * untuk mencocokkan akun pada alur login sosial.</p>
+	 *
+	 * @return alamat surel (mungkin berupa daftar dipisah koma); string kosong bila tidak ada
+	 */
 	@Column(name = "email", unique = true)
 	public String getEmail() {
 		mahasiswa = getMahasiswa();
