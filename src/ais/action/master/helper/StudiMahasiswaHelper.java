@@ -327,6 +327,26 @@ public class StudiMahasiswaHelper implements DataLoader {
 			this.refresh = refresh;
 		}
 
+		/**
+		 * Merender satu baris grid. Urutan pembangunan kolom di sini HARUS sepadan dengan urutan
+		 * deklarasi {@code MyColumnConfig} di {@link StudiMahasiswaHelper#display} (kolom tersembunyi,
+		 * Setujui, empat kolom asal konversi, Kode, Nama, SKS, Dosen, Jadwal, Smt, Tahap, Internal,
+		 * Kelas, Setuju, T/A, Nilai, Aksi) — menambah/menghapus komponen di salah satu tempat tanpa
+		 * menyesuaikan tempat lain akan menggeser seluruh isi kolom.
+		 *
+		 * <p>Langkah utamanya: memuat entity dari id baris ({@link GeneralValueObject#ambilData}) dan
+		 * menyembunyikan baris bila entity atau mata kuliahnya tidak dapat diresolusi; meresolusi mata
+		 * kuliah ekivalen sehingga kode/nama/SKS asal ditampilkan dalam kurung bila berbeda; menyusun
+		 * panel rincian nilai per {@link FormatNilai} berikut baris "Total" dan "Huruf" yang diwarnai
+		 * lulus/tidak lulus; memasang checkbox persetujuan (atau label "Ya/Belum" bila persetujuan oleh
+		 * dosen tidak diaktifkan); serta membangun kolom aksi (pindah data KRS, hapus, kirim satu baris
+		 * ke Neo Feeder) sesuai konteks dan peran pengguna.</p>
+		 *
+		 * @param row  baris ZK yang diisi; menerima atribut {@code "value"} (entity) dan {@code "checkbox"}
+		 *             (checkbox persetujuan) yang kemudian dibaca oleh {@link StudiMahasiswaHelper#apakahMelebihiSks()}
+		 *             dan {@link StudiMahasiswaHelper#lakukanSatuPersetujuan}
+		 * @param data id {@link Detailperkuliahan} dalam bentuk objek model baris
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
@@ -400,6 +420,17 @@ public class StudiMahasiswaHelper implements DataLoader {
 				 * @see DetailMahasiswaRenderer
 				 */
 				class PerubahanNilaiListener implements EventListener {
+					/**
+					 * Menyimpan nilai konversi yang baru diketik lalu memperbarui seluruh tampilan turunannya.
+					 *
+					 * <p>Alur: nilai {@code null} dinormalkan ke {@code 0.0}; nilai disimpan lewat
+					 * {@code Common.updateNilaiKonversi} yang sekaligus menurunkan ulang nilai huruf; label huruf
+					 * diwarnai ulang; checkbox persetujuan dikunci begitu nilai &gt; 1.0 dan otomatis tercentang
+					 * (nilai yang sudah diinput mengunci status disetujui). Terakhir header KRS dibaca ulang
+					 * TANPA sinkronisasi — disengaja, karena perubahan nilai masih berada dalam transaksi request
+					 * ini sehingga transaksi sinkronisasi kedua akan menunggu kuncinya sendiri sampai timeout —
+					 * lalu label IPS/IPK, SKS diambil/lulus, dan popup analisis KRS diperbarui.</p>
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						if (totalNilaiLabel.getValue() == null) {
@@ -456,6 +487,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 			}
 
 			checkbox.addEventListener(Events.ON_CHECK, new EventListener() {
+				/** Meneruskan perubahan centang persetujuan baris ini ke {@link StudiMahasiswaHelper#lakukanSatuPersetujuan} (validasi pembayaran, batas SKS, simpan, dan pemicu {@link CatatanHelper} bila seluruh baris sudah disetujui). */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					lakukanSatuPersetujuan(checkbox, detailperkuliahan, krsMahasiswa, semester);
@@ -477,6 +509,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 			final Textbox nilaiHurufAsal = new Textbox(detailperkuliahan.getNilaiHurufAsal());
 
 			EventListener eventListenerUpdateAsal = new EventListener() {
+				/** Menyimpan keempat field asal konversi (kode, nama, SKS, nilai huruf) sekaligus setiap kali salah satunya diubah; entity di-{@code refresh} lebih dulu agar tidak menimpa perubahan lain pada baris yang sama. Listener yang SAMA dipasang pada keempat kotak isian. */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					Session session = HibernateUtil.currentSession();
@@ -545,6 +578,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 				smt.setWidth("90%");
 				smt.setDisabled(!update);
 				smt.addEventListener("onChange", new EventListener() {
+					/** Menyimpan perubahan nomor semester baris ini (kolom "Smt" mode dapat diubah); nilai {@code null} diabaikan. Perhatikan bahwa mengubah semester memindahkan baris ke rekap semester lain sehingga IPS/SKS kedua semester ikut berubah pada sinkronisasi berikutnya. */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						if (smt.getValue() != null) {
@@ -561,6 +595,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 				thp.setWidth("90%");
 				thp.setDisabled(!update);
 				thp.addEventListener("onChange", new EventListener() {
+					/** Menyimpan perubahan nomor tahap baris ini (kolom "Tahap" mode dapat diubah); nilai {@code null} diabaikan. */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						if (thp.getValue() != null) {
@@ -577,6 +612,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 			internal.setChecked(detailperkuliahan.getInternal());
 			internal.setParent(row);
 			internal.addEventListener("onClick", new EventListener() {
+				/** Menyimpan penanda "Internal" baris ini (menandai mata kuliah yang diselenggarakan di dalam institusi sendiri, dipakai antara lain saat pelaporan konversi). */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					Session session = HibernateUtil.currentSession();

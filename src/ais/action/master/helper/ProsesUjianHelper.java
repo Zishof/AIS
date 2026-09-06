@@ -2254,10 +2254,41 @@ public class ProsesUjianHelper extends MyWindow {
 			tabpanelBelumDijawab.setParent(tabpanels);
 			belumDijawabEventListener = new EventListener() {
 
+				/**
+				 * Mengembalikan referensi ke listener ini sendiri, supaya tombol "Refresh" di dalam panel
+				 * dapat memanggil ulang {@code onEvent} untuk membangun ulang daftar soal.
+				 *
+				 * <p>Idiom ini diperlukan karena kelas anonim tidak memiliki nama yang dapat dirujuk dari
+				 * kelas anonim bersarang di dalamnya — {@code ProsesUjianHelper.this} menunjuk ke jendela
+				 * ujian, bukan ke listener ini.</p>
+				 *
+				 * @return listener ini sendiri ({@code this})
+				 */
 				private EventListener get() {
 					return this;
 				}
 
+				/**
+				 * Membangun ulang tab "Belum terjawab": daftar soal yang belum dijawab peserta beserta
+				 * paginasinya.
+				 *
+				 * <p><b>Cara kerja:</b> isi tab dibersihkan lebih dahulu, lalu seluruh perakitan panel
+				 * ditunda ke {@code Common.createDefaultTimer} agar tab terasa responsif (ZK sempat mengirim
+				 * tampilan kosong ke klien sebelum query berat dijalankan).</p>
+				 *
+				 * <p><b>Arti parameter {@code arg0}:</b> menentukan apakah daftar id soal terjawab diambil
+				 * SEGAR dari basis data atau cukup dari cache. Segar bila event berasal dari klik tab
+				 * {@code tabJawaban} itu sendiri, atau bila {@code arg0.getData()} bertipe {@code Boolean} —
+				 * jalur yang dipakai tombol Refresh di dalam panel lewat
+				 * {@code get().onEvent(new Event("", null, true))}.</p>
+				 *
+				 * <p>Listener ini juga dipakai ulang sebagai callback pesan "masih ada N soal belum dijawab"
+				 * pada tombol "Selesaikan Ujian"; itulah sebabnya ia disimpan ke field
+				 * {@link ProsesUjianHelper#belumDijawabEventListener}.</p>
+				 *
+				 * @param arg0 event ZK pemicu; boleh null (dianggap memakai cache)
+				 * @throws Exception bila pembangunan komponen ZK gagal
+				 */
 				@SuppressWarnings("deprecation")
 				@Override
 				public void onEvent(final Event arg0) throws Exception {
@@ -2265,6 +2296,20 @@ public class ProsesUjianHelper extends MyWindow {
 
 					Common.createDefaultTimer(new EventListener() {
 
+						/**
+						 * Merakit isi panel "Belum terjawab" pada siklus event ZK berikutnya.
+						 *
+						 * <p>Membangun Borderlayout lengkap: toolbar Refresh di North, grid daftar soal di Center,
+						 * dan {@link ProsesUjianHelper#pagingBelumTerjawab} (5 baris per halaman) di bagian bawah.
+						 * Pengisian barisnya didelegasikan ke
+						 * {@link ProsesUjianHelper#reloadBelumDikerjakan(Set,int,int,int)}.</p>
+						 *
+						 * <p>Himpunan {@code idsa} berisi id {@code BankSoal} yang SUDAH terjawab; panel ini
+						 * menampilkan komplemennya, yaitu soal yang id-nya TIDAK ada di {@code idsa}.</p>
+						 *
+						 * @param a event timer ZK sekali-jalan (isinya tidak dipakai)
+						 * @throws Exception bila query atau pembangunan komponen gagal
+						 */
 						@Override
 						public void onEvent(Event a) throws Exception {
 
@@ -2287,6 +2332,16 @@ public class ProsesUjianHelper extends MyWindow {
 							cari.setParent(toolbar);
 							cari.addEventListener("onClick", new EventListener() {
 
+								/**
+								 * Membangun ulang daftar "Belum terjawab" dengan data SEGAR dari basis data.
+								 *
+								 * <p>Memanggil {@code get().onEvent(new Event("", null, true))}; data {@code Boolean.TRUE}
+								 * itulah yang memberi tahu listener induk agar mengambil ulang id soal terjawab dari basis
+								 * data alih-alih memakai cache.</p>
+								 *
+								 * @param arg0 event {@code onClick} ZK dari tombol Refresh (isinya tidak dipakai)
+								 * @throws Exception bila pembangunan ulang panel gagal
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									get().onEvent(new Event("", null, true));
@@ -2357,6 +2412,17 @@ public class ProsesUjianHelper extends MyWindow {
 											: (size / jumlahDataDalamSatuHalamanElearning));
 							Common.initPagingCustom(pagingBelumTerjawab, new EventListener() {
 
+								/**
+								 * Menangani perpindahan halaman pada daftar "Belum terjawab".
+								 *
+								 * <p>Menyimpan halaman aktif ke {@link ProsesUjianHelper#pagingBelumTerjawabActivePage} agar
+								 * posisi paginasi tidak hilang ketika panel dibangun ulang, lalu memanggil
+								 * {@link ProsesUjianHelper#reloadBelumDikerjakan(Set,int,int,int)} dengan offset
+								 * {@code 5 * halamanAktif}.</p>
+								 *
+								 * @param arg0 event paging ZK (isinya tidak dipakai)
+								 * @throws Exception bila render ulang baris gagal
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									pagingBelumTerjawabActivePage = pagingBelumTerjawab.getActivePage();
@@ -2382,10 +2448,30 @@ public class ProsesUjianHelper extends MyWindow {
 			tabpanelTelahDijawab.setParent(tabpanels);
 			tabTelahJawaban.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Mengembalikan referensi ke listener ini sendiri, supaya tombol "Refresh" di dalam panel
+				 * "Telah terjawab" dapat memanggil ulang {@code onEvent}.
+				 *
+				 * <p>Kembaran dari idiom yang sama pada listener tab "Belum terjawab".</p>
+				 *
+				 * @return listener ini sendiri ({@code this})
+				 */
 				private EventListener get() {
 					return this;
 				}
 
+				/**
+				 * Membangun ulang tab "Telah terjawab": daftar soal yang sudah dijawab peserta, lengkap
+				 * dengan jawaban yang dipilih dan paginasinya.
+				 *
+				 * <p>Kembaran simetris dari listener tab "Belum terjawab": isi tab dibersihkan, lalu
+				 * perakitan panel ditunda ke {@code Common.createDefaultTimer}. Data diambil SEGAR dari basis
+				 * data bila event berasal dari klik tab ini sendiri atau bila {@code arg0.getData()} bertipe
+				 * {@code Boolean} (jalur tombol Refresh).</p>
+				 *
+				 * @param arg0 event ZK pemicu; boleh null (dianggap memakai cache)
+				 * @throws Exception bila pembangunan komponen ZK gagal
+				 */
 				@SuppressWarnings("deprecation")
 				@Override
 				public void onEvent(final Event arg0) throws Exception {
@@ -2393,6 +2479,18 @@ public class ProsesUjianHelper extends MyWindow {
 
 					Common.createDefaultTimer(new EventListener() {
 
+						/**
+						 * Merakit isi panel "Telah terjawab" pada siklus event ZK berikutnya.
+						 *
+						 * <p>Strukturnya identik dengan panel "Belum terjawab" (toolbar Refresh, grid, paging 5
+						 * baris); yang berbeda hanya pengisian baris, yang didelegasikan ke
+						 * {@link ProsesUjianHelper#reloadTelahDikerjakan(Set,int,int,int)} — menampilkan soal yang
+						 * id {@code BankSoal}-nya ADA di {@code idsa}, beserta teks jawaban yang dipilih peserta dan
+						 * lampirannya.</p>
+						 *
+						 * @param a event timer ZK sekali-jalan (isinya tidak dipakai)
+						 * @throws Exception bila query atau pembangunan komponen gagal
+						 */
 						@Override
 						public void onEvent(Event a) throws Exception {
 							final Set<Long> idsa = hasilUjianMahasiswa == null ? new HashSet<Long>()
@@ -2414,6 +2512,16 @@ public class ProsesUjianHelper extends MyWindow {
 							cari.setParent(toolbar);
 							cari.addEventListener("onClick", new EventListener() {
 
+								/**
+								 * Membangun ulang daftar "Telah terjawab" dengan data SEGAR dari basis data.
+								 *
+								 * <p>Sama seperti tombol Refresh pada panel "Belum terjawab": memanggil
+								 * {@code get().onEvent(new Event("", null, true))} sehingga listener induk mengambil ulang
+								 * id soal terjawab dari basis data, bukan dari cache.</p>
+								 *
+								 * @param arg0 event {@code onClick} ZK dari tombol Refresh (isinya tidak dipakai)
+								 * @throws Exception bila pembangunan ulang panel gagal
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									get().onEvent(new Event("", null, true));
@@ -2486,6 +2594,16 @@ public class ProsesUjianHelper extends MyWindow {
 
 							Common.initPagingCustom(pagingTelahTerjawab, new EventListener() {
 
+								/**
+								 * Menangani perpindahan halaman pada daftar "Telah terjawab".
+								 *
+								 * <p>Menyimpan halaman aktif ke {@link ProsesUjianHelper#pagingTelahTerjawabActivePage} lalu
+								 * memanggil {@link ProsesUjianHelper#reloadTelahDikerjakan(Set,int,int,int)} dengan offset
+								 * {@code 5 * halamanAktif}.</p>
+								 *
+								 * @param arg0 event paging ZK (isinya tidak dipakai)
+								 * @throws Exception bila render ulang baris gagal
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									pagingTelahTerjawabActivePage = pagingTelahTerjawab.getActivePage();
@@ -2511,6 +2629,20 @@ public class ProsesUjianHelper extends MyWindow {
 			tabpanelStatistik.setParent(tabpanels);
 			tabStatistik.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Membangun tab "Statistik": ringkasan progres pengerjaan ujian peserta.
+				 *
+				 * <p><b>Isi yang ditampilkan:</b> jumlah total soal, jumlah soal yang telah dijawab, jumlah
+				 * yang belum dijawab, persentase ketuntasan, serta diagram lingkaran berbasis CSS dari
+				 * {@link ProsesUjianHelper#buildElearningHtmlPie(String,String,int,int)}.</p>
+				 *
+				 * <p>Berbeda dengan dua tab daftar soal, tab ini SELALU mengambil id soal terjawab segar dari
+				 * basis data (argumen {@code true} pada {@code ambilBankSoalIdTerjawab}) supaya angka
+				 * statistik tidak pernah basi.</p>
+				 *
+				 * @param arg0 event {@code onClick} ZK dari tab Statistik (isinya tidak dipakai)
+				 * @throws Exception bila query atau pembangunan komponen gagal
+				 */
 				@SuppressWarnings("deprecation")
 				@Override
 				public void onEvent(Event arg0) throws Exception {

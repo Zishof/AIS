@@ -489,6 +489,14 @@ public class PertemuanHelper {
 
 			tugasMandiriHelper.createTugas(pertemuan, tabpanelUtama1, new EventListener() {
 
+				/**
+				 * Callback "tugas berubah" untuk sub-tab tugas BAWAAN pertemuan (yang judulnya diambil dari
+				 * {@code pertemuan.getJudultugas()}). Dipanggil oleh {@link TugasMandiriHelper} setiap kali
+				 * tugas disimpan/dihapus, dan membangun ulang seluruh daftar sub-tab lewat
+				 * {@link #initTugas(Component, boolean)} agar judul dan jumlah tab ikut ter-refresh.
+				 *
+				 * @param arg0 event dari sub-helper; isinya tidak dipakai.
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					initTugas(tabpanelFileTugasPertemuan, selectTerakhir);
@@ -530,6 +538,13 @@ public class PertemuanHelper {
 					TugasMandiriHelper tugasMandiriHelper = new TugasMandiriHelper(mahasiswa, biodataCalonMahasiswa);
 					tugasMandiriHelper.createTugas(tugasPertemuan, tabpanelUtama, new EventListener() {
 
+						/**
+						 * Callback "tugas berubah" untuk sub-tab tugas INDIVIDU yang sedang di-preselect lewat
+						 * {@link #selectedTugasPertemuan}. Sama seperti callback tugas bawaan: membangun ulang
+						 * seluruh daftar sub-tab lewat {@link #initTugas(Component, boolean)}.
+						 *
+						 * @param arg0 event dari sub-helper; isinya tidak dipakai.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							initTugas(tabpanelFileTugasPertemuan, selectTerakhir);
@@ -541,6 +556,12 @@ public class PertemuanHelper {
 					TugasKelompokHelper tugasKelompokHelper = new TugasKelompokHelper(mahasiswa, biodataCalonMahasiswa);
 					tugasKelompokHelper.tampilanTugas(selectedTugasKelompok, tabpanelUtama, new EventListener() {
 
+						/**
+						 * Callback "tugas berubah" untuk sub-tab tugas KELOMPOK yang sedang di-preselect lewat
+						 * {@link #selectedTugasKelompok}; membangun ulang daftar sub-tab.
+						 *
+						 * @param arg0 event dari sub-helper; isinya tidak dipakai.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							initTugas(tabpanelFileTugasPertemuan, selectTerakhir);
@@ -550,6 +571,19 @@ public class PertemuanHelper {
 				} else {
 					EventListener eventListener = new EventListener() {
 
+						/**
+						 * Listener {@code onClick} pada tab tugas yang TIDAK di-preselect — inilah mekanisme
+						 * lazy-load per sub-tab: konten baru dibangun saat tab benar-benar diklik, dan hanya bila
+						 * panelnya masih kosong ({@code tabpanelUtama.getChildren().isEmpty()}) sehingga klik
+						 * berulang tidak menumpuk komponen. Memilih {@link TugasMandiriHelper} untuk
+						 * {@link TugasPertemuan} atau {@link TugasKelompokHelper} untuk {@link TugasKelompok}.
+						 *
+						 * <p>Listener yang sama juga dipakai sebagai isi {@code Common.createDefaultTimer(...)} ketika
+						 * {@code buka} bernilai {@code true} (yaitu ketika pertemuan tidak punya tugas bawaan
+						 * sehingga sub-tab pertama perlu dibuka otomatis).</p>
+						 *
+						 * @param arg0 event {@code onClick} dari tab; isinya tidak dipakai.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							if (tabpanelUtama.getChildren().isEmpty()) {
@@ -559,6 +593,12 @@ public class PertemuanHelper {
 											biodataCalonMahasiswa);
 									tugasMandiriHelper.createTugas(tugasPertemuan, tabpanelUtama, new EventListener() {
 
+										/**
+										 * Callback "tugas berubah" untuk tugas individu yang dimuat malas oleh listener klik tab di
+										 * atas; membangun ulang daftar sub-tab lewat {@link #initTugas(Component, boolean)}.
+										 *
+										 * @param arg0 event dari sub-helper; isinya tidak dipakai.
+										 */
 										@Override
 										public void onEvent(Event arg0) throws Exception {
 											initTugas(tabpanelFileTugasPertemuan, selectTerakhir);
@@ -570,6 +610,12 @@ public class PertemuanHelper {
 									tugasKelompokHelper.tampilanTugas((TugasKelompok) tugasPertemuan, tabpanelUtama,
 											new EventListener() {
 
+												/**
+												 * Callback "tugas berubah" untuk tugas kelompok yang dimuat malas oleh listener klik tab di
+												 * atas; membangun ulang daftar sub-tab lewat {@link #initTugas(Component, boolean)}.
+												 *
+												 * @param arg0 event dari sub-helper; isinya tidak dipakai.
+												 */
 												@Override
 												public void onEvent(Event arg0) throws Exception {
 													initTugas(tabpanelFileTugasPertemuan, selectTerakhir);
@@ -597,6 +643,14 @@ public class PertemuanHelper {
 				TugasMandiriHelper tugasMandiriHelper = new TugasMandiriHelper(mahasiswa, biodataCalonMahasiswa);
 				tugasMandiriHelper.createTugas(tugasPertemuanU, tabpanelUtamaU, new EventListener() {
 
+					/**
+					 * Callback "tugas berubah" untuk sub-tab tugas individu TERAKHIR yang dibuka otomatis ketika
+					 * {@code selectTerakhir} bernilai {@code true} dan tidak ada preselect. Berbeda dari callback
+					 * lain: memanggil {@code initTugas(..., true)} sehingga setelah refresh tab terakhir kembali
+					 * dipilih otomatis.
+					 *
+					 * @param arg0 event dari sub-helper; isinya tidak dipakai.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						initTugas(tabpanelFileTugasPertemuan, true);
@@ -610,6 +664,12 @@ public class PertemuanHelper {
 				TugasKelompokHelper tugasKelompokHelper = new TugasKelompokHelper(mahasiswa, biodataCalonMahasiswa);
 				tugasKelompokHelper.tampilanTugas((TugasKelompok) tugasPertemuanU, tabpanelUtamaU, new EventListener() {
 
+					/**
+					 * Padanan callback di atas untuk tugas KELOMPOK terakhir; juga memanggil
+					 * {@code initTugas(..., true)} agar tab terakhir tetap terpilih setelah refresh.
+					 *
+					 * @param arg0 event dari sub-helper; isinya tidak dipakai.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						initTugas(tabpanelFileTugasPertemuan, true);
@@ -624,6 +684,24 @@ public class PertemuanHelper {
 		tabTugasBaru.setParent(tabs1);
 		tabTugasBaru.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Aksi tab "Tugas Individu Baru": MEMBUAT dan LANGSUNG MENYIMPAN satu {@link TugasPertemuan}
+			 * kosong ({@code session.save()} + {@code flush()}) yang mewarisi format nilai, syarat
+			 * mengumpulkan, dan prosentase dari {@code pertemuan}, dengan judul otomatis "Tugas individu
+			 * pertemuan ke N". Tidak ada dialog konfirmasi: satu klik = satu baris tugas baru di basis
+			 * data. Penyegaran UI ditunda ke timer terpisah agar {@code flush} sudah selesai sebelum
+			 * {@code pertemuan.reInitTugasPertemuan(session)} membaca ulang koleksinya.
+			 *
+			 * <p><b>Catatan otorisasi (perluasan pola terdokumentasi "gerbang UI-only"):</b> satu-satunya
+			 * pembatas siapa yang boleh membuat tugas adalah {@code tabTugasBaru.setVisible(...)} pada
+			 * komponen tab — sebuah gerbang TAMPILAN. Listener ini sendiri tidak mengulang pemeriksaan
+			 * {@code mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() ==
+			 * null && tbmuser.getSiswa() == null}, dan juga tidak memeriksa apakah pengguna berhak
+			 * mengajar pada {@code pertemuan} ini. Pola yang sama berlaku pada tab "Tugas Kelompok
+			 * Baru".</p>
+			 *
+			 * @param arg0 event {@code onClick} dari tab; isinya tidak dipakai.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				final TugasPertemuan tugasPertemuan = new TugasPertemuan();
@@ -638,6 +716,15 @@ public class PertemuanHelper {
 
 				Common.createDefaultTimer(new EventListener() {
 
+					/**
+					 * Fase kedua pembuatan tugas individu, dijalankan pada siklus event ZK berikutnya: membaca
+					 * ulang koleksi tugas pertemuan ({@code reInitTugasPertemuan}), menyetel
+					 * {@link #selectedTugasPertemuan} ke tugas yang baru dibuat (dan me-{@code null}-kan
+					 * {@link #selectedTugasKelompok}), lalu membangun ulang sub-tab dengan
+					 * {@code selectTerakhir=false} sehingga tugas barulah yang terpilih, bukan tugas terakhir.
+					 *
+					 * @param arg0 event timer; isinya tidak dipakai.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
@@ -660,6 +747,16 @@ public class PertemuanHelper {
 			tabTugasKelompokBaru.setParent(tabs1);
 			tabTugasKelompokBaru.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Aksi tab "Tugas Kelompok Baru": padanan tugas individu untuk {@link TugasKelompok} —
+				 * membuat dan langsung menyimpan satu tugas kelompok kosong berjudul "Tugas kelompok
+				 * pertemuan ke N" yang mewarisi format nilai/syarat/prosentase dari pertemuan. Tab ini hanya
+				 * dibuat bila pertemuan berasal dari perkuliahan, jadwal pelajaran, kelompok KKN, atau
+				 * kelompok PKL (konteks yang punya rombongan peserta). Berbagi catatan otorisasi yang sama
+				 * dengan tab "Tugas Individu Baru": gerbangnya hanya {@code setVisible} di sisi tampilan.
+				 *
+				 * @param arg0 event {@code onClick} dari tab; isinya tidak dipakai.
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 
@@ -675,6 +772,13 @@ public class PertemuanHelper {
 
 					Common.createDefaultTimer(new EventListener() {
 
+						/**
+						 * Fase kedua pembuatan tugas kelompok: {@code reInitTugasKelompok}, set
+						 * {@link #selectedTugasKelompok} ke tugas baru (dan {@link #selectedTugasPertemuan} ke
+						 * {@code null}), lalu bangun ulang sub-tab agar tugas kelompok baru langsung terpilih.
+						 *
+						 * @param arg0 event timer; isinya tidak dipakai.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -718,6 +822,12 @@ public class PertemuanHelper {
 		// Berisi info VoPembelajaran + ringkasan data semua tab.
 		btnTab.tambahTabLazy(9, "Dasbor", "/img/svg/dashboard-chart.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Dasbor</b> (indeks 9): mendelegasikan seluruh pembangunan ke
+					 * {@link #initDasbor(Div)}.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						initDasbor(panel);
@@ -727,6 +837,15 @@ public class PertemuanHelper {
 		// Tab 0: Kehadiran
 		btnTab.tambahTabLazy(0, "Kehadiran", "/img/svg/person-check.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Kehadiran</b> (indeks 0). Di sinilah percabangan SEKOLAH vs AKADEMIK
+					 * dijalankan: {@link AbsensiSiswaHelper} bila pertemuan berasal dari {@code JadwalPelajaran},
+					 * {@code JadwalUjianPSB}, atau formulir kegiatan bersekolah; selain itu
+					 * {@link AbsensiHelper}. Argumen terakhir {@code false} menandakan mode desktop (bukan
+					 * mobile).
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						if (pertemuan.getJadwalPelajaran() != null || pertemuan.getJadwalUjianPSB() != null
@@ -742,6 +861,13 @@ public class PertemuanHelper {
 		// Tab 1: Pembelajaran (catatan/materi belajar)
 		btnTab.tambahTabLazy(1, "Pembelajaran", "/img/svg/book.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Pembelajaran</b> (indeks 1): menempelkan hasil
+					 * {@link #initCatatan(boolean)} dengan {@code tampilInfo=false} — panel info pertemuan tidak
+					 * diulang di sini karena sudah ada di tab Dasbor.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						panel.appendChild(initCatatan(false));
@@ -753,6 +879,13 @@ public class PertemuanHelper {
 				"Materi (" + pertemuan.ambilJumlahPertemuanFileContent() + ")",
 				"/img/svg/folder-open-thin.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Materi</b> (indeks 2): daftar file konten pertemuan lewat
+					 * {@code filePerkuliahanHelper}, dengan {@link #selectedPertemuanFileContent} sebagai item
+					 * yang otomatis disorot bila window dibuka lewat tautan ke satu file tertentu.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						filePerkuliahanHelper.createFile(pertemuan, null, null, null, panel,
@@ -763,6 +896,13 @@ public class PertemuanHelper {
 		// Tab 3: Tugas
 		btnTab.tambahTabLazy(3, "Tugas (" + jumlahTugas + ")", "/img/svg/card-checklist.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Tugas</b> (indeks 3): memanggil
+					 * {@link #initTugas(Component, boolean)} dengan {@code selectTerakhir=false} sehingga sub-tab
+					 * yang terpilih ditentukan oleh state preselect, bukan otomatis ke tugas terakhir.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						initTugas(panel, false);
@@ -774,6 +914,13 @@ public class PertemuanHelper {
 				"Audio (" + pertemuan.ambilJumlahAudioPertemuan() + ")",
 				"/img/svg/file-audio-thin.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Audio</b> (indeks 4): daftar {@link AudioPertemuan} lewat
+					 * {@code audioPertemuanHelper}, dengan {@link #selectedAudioPertemuan} sebagai item yang
+					 * otomatis disorot.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						audioPertemuanHelper.display(pertemuan, null, null, panel, selectedAudioPertemuan);
@@ -785,6 +932,13 @@ public class PertemuanHelper {
 				"Video (" + pertemuan.ambilJumlahVideoPertemuan() + ")",
 				"/img/svg/camera-video.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Video</b> (indeks 5): daftar {@link VideoPertemuan} lewat
+					 * {@code videoPertemuanHelper}, dengan {@link #selectedVideoPertemuan} sebagai item yang
+					 * otomatis disorot.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						videoPertemuanHelper.display(pertemuan, null, null, panel, selectedVideoPertemuan);
@@ -796,6 +950,16 @@ public class PertemuanHelper {
 				"Ujian (" + pertemuan.ambilJumlahPertemuanPunyaUjian() + ")",
 				"/img/svg/pencil-square.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Ujian</b> (indeks 6). Percabangan SEKOLAH vs AKADEMIK yang sejajar
+					 * dengan tab Kehadiran, tetapi dengan syarat yang LEBIH SEMPIT: di sini hanya
+					 * {@code getJadwalPelajaran()}/{@code getJadwalUjianPSB()} yang diperiksa, sedangkan tab
+					 * Kehadiran juga memperhitungkan {@code getFormulirKegiatan().getSekolah()}. Artinya sebuah
+					 * pertemuan dari formulir kegiatan sekolah memakai helper SISWA untuk kehadiran tetapi helper
+					 * AKADEMIK untuk ujian.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						if (pertemuan.getJadwalPelajaran() != null || pertemuan.getJadwalUjianPSB() != null) {
@@ -811,6 +975,13 @@ public class PertemuanHelper {
 				"Diskusi (" + pertemuan.ambilJumlahPertemuanPunyaDiskusi() + ")",
 				"/img/svg/comment-2-text-line.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Diskusi</b> (indeks 7): forum diskusi pertemuan; argumen {@code false}
+					 * menandakan mode desktop, dan {@link #selectedDiskusi} membuka satu utas tertentu bila
+					 * disetel pemanggil.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						pertemuanPunyaDiskusiHelper.display(pertemuan, panel, false, selectedDiskusi);
@@ -820,6 +991,12 @@ public class PertemuanHelper {
 		// Tab 8: Hasil, Evaluasi, Kusioner
 		btnTab.tambahTabLazy(8, "Hasil, Evaluasi, Kusioner", "/img/svg/chart-line.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					/**
+					 * Pemuat malas tab <b>Hasil, Evaluasi, Kusioner</b> (indeks 8). Tab ini tidak punya padanan
+					 * pada {@link #tampilanMobile(Center)}.
+					 *
+					 * @param panel wadah tab yang disediakan {@code MyButtonTabbox}.
+					 */
 					@Override
 					public void muat(Div panel) throws Exception {
 						pertemuanPunyaHasilHelper.display(pertemuan, panel);
@@ -1271,6 +1448,13 @@ public class PertemuanHelper {
 		gb.setStyle("margin:8px;cursor:pointer;");
 		gb.setTooltiptext("Klik untuk membuka tab");
 		gb.addEventListener("onClick", new EventListener() {
+			/**
+			 * Navigasi kartu Dasbor: memindahkan tab aktif ke {@code tabIdx} lewat
+			 * {@code btnTab.pilih(...)}. Aman dipakai hanya di mode desktop karena {@link #btnTab} bernilai
+			 * {@code null} pada mode mobile — dan mode mobile memang tidak pernah membangun Dasbor.
+			 *
+			 * @param e event {@code onClick} pada groupbox; isinya tidak dipakai.
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				btnTab.pilih(tabIdx);
@@ -1297,6 +1481,12 @@ public class PertemuanHelper {
 		wrap.setStyle("cursor:pointer;flex:1 1 0;min-width:110px;");
 		wrap.setTooltiptext("→ Tab " + label);
 		wrap.addEventListener("onClick", new EventListener() {
+			/**
+			 * Navigasi kartu KPI Dasbor: memindahkan tab aktif ke {@code tabIdx} lewat
+			 * {@code btnTab.pilih(...)} saat kartu diklik.
+			 *
+			 * @param e event {@code onClick} pada pembungkus kartu; isinya tidak dipakai.
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				btnTab.pilih(tabIdx);
@@ -1333,6 +1523,11 @@ public class PertemuanHelper {
 		MyFormRow row = new MyFormRow();
 		row.setStyle("cursor:pointer;");
 		row.addEventListener("onClick", new EventListener() {
+			/**
+			 * Navigasi baris tabel Dasbor: memindahkan tab aktif ke {@code tabIndex} saat baris diklik.
+			 *
+			 * @param e event {@code onClick} pada baris grid; isinya tidak dipakai.
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				btnTab.pilih(tabIndex);
@@ -1429,6 +1624,19 @@ public class PertemuanHelper {
 		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Selesai", "/img/cancel.gif");
 		cancel.setTooltiptext("Tutup");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Aksi tombol "Selesai": memberi tahu pemanggil untuk memuat ulang datanya
+			 * ({@code dataLoader.loadData(null)}) lalu menutup modal dengan {@code window.detach()}.
+			 *
+			 * <p><b>Perhatian:</b> {@link #dataLoader} di-dereference tanpa cek {@code null}, sehingga
+			 * pemanggil yang menampilkan tombol ini WAJIB meneruskan {@code dataLoader} bukan
+			 * {@code null} pada {@code display}. Karena window di-{@code detach}, pemanggilan
+			 * {@code display} berikutnya pada instance helper yang sama akan menemui {@link #window}
+			 * yang sudah lepas dari page — jalur pakai-ulang window hanya benar selama window belum
+			 * pernah ditutup lewat tombol ini.</p>
+			 *
+			 * @param event event {@code onClick} tombol; isinya tidak dipakai.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				dataLoader.loadData(null);

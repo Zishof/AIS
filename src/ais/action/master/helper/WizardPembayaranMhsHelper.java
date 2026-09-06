@@ -184,6 +184,20 @@ public class WizardPembayaranMhsHelper {
      * @see WizardPembayaranMhsHelper
      */
     private static final class TagihanItem {
+        /**
+         * Baris tagihan sumber (satu item biaya pada satu Setting Biaya) yang diwakili kartu
+         * ini. SELALU terisi: baris yang {@code getDetailBiaya()}-nya null dilewati
+         * {@link WizardPembayaranMhsHelper#muatTagihan()} sebelum {@link TagihanItem} dibuat.
+         * Objek inilah yang diteruskan apa adanya ke seluruh gateway (sebagai
+         * {@code XxxRequestDetailBiaya.detailBiaya} maupun sebagai isi grid cicilan tiruan),
+         * sehingga identitas item tagihan yang dibayar tetap sama antara wizard, DaftarUlang,
+         * dan checkout JSP.
+         *
+         * <p><b>Catatan efek samping:</b> {@link #kumpulkanBiayaTerpilih} dan
+         * {@link #bayarBankOnline} MENULIS {@code setNilaiBiayaBaru(nominalBayar)} pada objek
+         * ini sebelum menyerahkannya ke {@code downloadData} bank — kontrak yang memang dituntut
+         * method-method tersebut, bukan penyimpanan nominal milik wizard.</p>
+         */
         final DetailBiaya detailBiaya;
         /**
          * Baris billing BULANAN/angsuran pemilik item ini (null untuk item reguler).
@@ -199,6 +213,17 @@ public class WizardPembayaranMhsHelper {
          * mengikuti flag mencicil pada ItemBiaya. Baris bulanan selalu boleh diubah.
          */
         final boolean bisaDiubah;
+        /**
+         * Nominal TAGIHAN penuh item ini (bukan sisa, bukan yang akan dibayar). Dihitung
+         * {@link WizardPembayaranMhsHelper#muatTagihan()} lewat
+         * {@code Kegiatan.ambilJumlahTagihan} — method yang SAMA dengan renderer
+         * DaftarUlangMahasiswa*Action — bukan {@code DetailBiaya.getNilaiBiaya()} per-unit,
+         * agar item ber-penghitungan PERKALIAN (mis. "UTS Rp 50.000 x 9 matakuliah") tampil
+         * 450.000 dan bukan 50.000. Nilai ini sudah menghormati DetailKegiatan (nilai yang
+         * diubah admin), diskon, parameterTambahan, dan modifikasi nominal slot bulanan.
+         * Item bernilai negatif (baris diskon) tidak pernah sampai ke sini — sudah disaring
+         * lebih dulu karena potongannya sudah tercermin pada item lain.
+         */
         final double nominal;
         /**
          * Rincian proses penghitungan nominal (mis. "Biaya SP Matakuliah Per SKS (Rp.
@@ -210,13 +235,75 @@ public class WizardPembayaranMhsHelper {
          * untuk item tanpa penghitungan (nilai tetap), tidak perlu dijelaskan.
          */
         final String keterangan;
+        /**
+         * Akumulasi pembayaran yang SUDAH tercatat untuk item ini, hasil agregasi
+         * {@link CicilanPembayaran} pada {@link WizardPembayaranMhsHelper#muatTagihan()}.
+         * Kuncinya sengaja meniru {@code DetailPembayaranMahasiswaRenderer} (itemBiaya+bayarKe,
+         * bukan id DetailBiaya) lengkap dengan tiga jalur cadangan (per-PPB, per item+bulan,
+         * per itemBiaya saja) — lihat komentar pembangunan peta di {@code muatTagihan()}.
+         * Tidak {@code final}: nilainya boleh disegarkan bila daftar tagihan dimuat ulang.
+         */
         double sudahDibayar;
+        /**
+         * Sisa yang masih harus dibayar untuk item ini, yaitu
+         * {@code max(0, nominal - sudahDibayar)} — dijepit di nol agar kelebihan bayar
+         * (pembayaran melampaui tagihan) tidak pernah muncul sebagai angka negatif yang
+         * mengurangi total. Dipakai sebagai BATAS ATAS nominal angsuran pada langkah
+         * "Atur Nominal", sebagai penentu badge Lunas/Kurang/Belum, dan sebagai dasar
+         * pra-centang item pada langkah "Pilih Tagihan".
+         */
         double kekurangan;
+        /**
+         * Apakah item ini dicentang untuk dibayar. Diisi awal oleh
+         * {@link WizardPembayaranMhsHelper#muatTagihan()} ({@code kekurangan > 0} =
+         * tercentang otomatis) lalu diubah listener {@code onCheck} pada langkah 2. Hanya
+         * item ber-{@code dipilih == true} yang ikut {@link #getItemsDipilih()},
+         * {@link #hitungTotalBayar()}, dan seluruh eksekutor pembayaran.
+         */
         boolean dipilih;
+        /**
+         * Nominal yang benar-benar akan dibayar SEKARANG untuk item ini (mendukung
+         * angsuran/pembayaran sebagian). Default = {@link #kekurangan} (bayar lunas). Boleh
+         * diturunkan pengguna pada langkah 3 HANYA bila {@link #bisaDiubah}; nilainya dijepit
+         * di {@code [0, kekurangan]} oleh listener {@code onChange} Decimalbox, sehingga
+         * pembayaran tidak pernah bisa melebihi sisa tagihan. Untuk item wajib-penuh nilai ini
+         * dipaksa sama dengan {@link #kekurangan} saat kartu dirender.
+         */
         double nominalBayar;
+        /**
+         * Tanggal yang dicatat pada {@link CicilanPembayaran} item ini. Default tanggal
+         * pembuatan objek (hari ini) dan HANYA dapat diubah pengguna admin/kasir — field
+         * Datebox-nya sengaja tidak dirender untuk akun mahasiswa/calon mahasiswa
+         * ({@link #isUserAdmin()}), sehingga pembayaran mandiri selalu tercatat hari ini.
+         * Diteruskan pula ke grid cicilan tiruan agar tanggal pada token VA konsisten.
+         */
         Date tanggalBayar;
+        /**
+         * Rujukan ke kartu ZK milik item ini pada langkah "Pilih Tagihan", disimpan semata
+         * agar {@link #updateCardBorder(TagihanItem)} dapat mengubah bingkai/kesuraman kartu
+         * seketika saat checkbox diklik tanpa menggambar ulang seluruh daftar. Bernilai null
+         * sebelum langkah 2 dirender, dan menjadi basi (menunjuk komponen yang sudah dilepas)
+         * setiap kali {@code renderBody()} membersihkan {@code bodyHost} — selalu diisi ulang
+         * pada render berikutnya.
+         */
         Div cardDiv;
 
+        /**
+         * Membentuk satu kartu tagihan siap tampil sekaligus MENURUNKAN dua nilai olahan:
+         * {@link #kekurangan} = {@code max(0, nominal - sudahDibayar)} dan {@link #nominalBayar}
+         * yang diawali sama dengan kekurangan (asumsi "bayar lunas", pengguna boleh
+         * menurunkannya belakangan). {@link #tanggalBayar} diawali waktu pembuatan objek.
+         * Konstruktor tidak melakukan kueri apa pun — seluruh angka sudah dihitung pemanggil
+         * ({@link WizardPembayaranMhsHelper#muatTagihan()}).
+         *
+         * @param db           baris {@link DetailBiaya} sumber; tidak boleh null
+         * @param bulanan      slot {@link PengaturanPembayaranBulanan} pemilik baris, atau null untuk item reguler
+         * @param jenis        {@link JenisKegiatan} pemilik item (penting pada mode Keranjang)
+         * @param nominal      tagihan penuh hasil {@code Kegiatan.ambilJumlahTagihan}
+         * @param sudahDibayar akumulasi cicilan yang sudah tercatat untuk item ini
+         * @param bisaDiubah   true bila nominal boleh diangsur/diubah pengguna
+         * @param keterangan   rincian penghitungan perkalian, atau string kosong bila tidak ada
+         */
         TagihanItem(DetailBiaya db, PengaturanPembayaranBulanan bulanan, JenisKegiatan jenis,
                 double nominal, double sudahDibayar, boolean bisaDiubah, String keterangan) {
             this.detailBiaya = db;

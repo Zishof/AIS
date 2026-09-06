@@ -2009,6 +2009,17 @@ public class TampilStudiMahasiswaHelper {
 		return hasil > 0 ? hasil : 0;
 	}
 
+	/**
+	 * Uji apakah satu nomor semester layak dihitung pada ringkasan akademik: tidak {@code null},
+	 * tidak negatif, dan tidak melebihi {@code semesterMaksimal} (lihat
+	 * {@link #semesterAkademikMaksimal(Mahasiswa)}). Semester {@code 0} SENGAJA dianggap valid karena
+	 * dipakai sebagai penanda mata kuliah KONVERSI. Bila {@code semesterMaksimal} negatif, seluruh
+	 * semester dianggap tidak valid (fail-closed).
+	 *
+	 * @param semester nomor semester dari {@link Detailperkuliahan}/KRS; boleh {@code null}.
+	 * @param semesterMaksimal batas atas hasil {@link #semesterAkademikMaksimal(Mahasiswa)}.
+	 * @return {@code true} bila semester boleh ikut dihitung.
+	 */
 	private static boolean semesterAkademikValid(Integer semester, int semesterMaksimal) {
 		return semester != null && semester.intValue() >= 0 && semesterMaksimal >= 0
 				&& semester.intValue() <= semesterMaksimal;
@@ -2361,25 +2372,47 @@ public class TampilStudiMahasiswaHelper {
 		final String prodi = mahasiswa == null || mahasiswa.getJurusan() == null ? "-"
 				: nzTrim(mahasiswa.getJurusan().getNama());
 		return new ais.action.master.helper.DashboardReportKit.SumberLaporan() {
+			/** Judul tetap laporan cetak: "Dasbor Studi Mahasiswa". */
 			public String judul() {
 				return "Dasbor Studi Mahasiswa";
 			}
 
+			/** Subjudul laporan: {@code NIM - Nama} mahasiswa (nilai sudah di-{@code nzTrim}, {@code "-"} bila kosong). */
 			public String subjudul() {
 				return nim + " - " + nama;
 			}
 
+			/** Paragraf pengantar laporan, memuat nama program studi mahasiswa. */
 			public String deskripsi() {
 				return "Ringkasan riwayat pembelajaran mahasiswa: nilai, KRS, kehadiran, dan tugas akhir. Program Studi: "
 						+ prodi + ".";
 			}
 
+			/**
+			 * Susunan bagian laporan, berurutan: KPI Ringkasan Akademik; donut Distribusi Nilai Huruf, Rekap
+			 * Kehadiran dan Komposisi Kelulusan MK; batang SKS per Semester; garis Tren IPK dan Tren IPS;
+			 * lalu tabel Rekap KRS per Semester, Skripsi/TA, Pengajuan Judul TA, Riwayat Pengambilan MK, dan
+			 * MK Belum Diambil.
+			 *
+			 * <p><b>Hal non-obvious:</b> setiap {@code PenyediaBaris} di bawah baru dieksekusi saat
+			 * {@code DashboardReportKit} merender bagiannya (pengambilan data MALAS). Bagian yang bersumber
+			 * dari {@code detailData} memakai data yang sudah dimuat dasbor, tetapi bagian yang memanggil
+			 * {@code dataKrsPerSemester} / {@code dataKehadiran} / {@code dataSkripsi} /
+			 * {@code dataPengajuanJudulTA} / {@code dataMkBelumDiambil} MEMBUKA SESSION HIBERNATE BARU setiap
+			 * kali dipanggil &mdash; dan {@code dataKrsPerSemester} dipanggil EMPAT kali (batang, dua garis,
+			 * satu tabel), sehingga satu kali cetak laporan menjalankan query KRS berulang. Ini konsekuensi
+			 * dari pola "tiap penyedia berdiri sendiri" yang dipakai kit laporan.
+			 */
 			public List<ais.action.master.helper.DashboardReportKit.Bagian> bagian() {
 				List<ais.action.master.helper.DashboardReportKit.Bagian> list = new ArrayList<ais.action.master.helper.DashboardReportKit.Bagian>();
 
 				list.add(ais.action.master.helper.DashboardReportKit.kpi("Ringkasan Akademik",
 						"Angka-angka penting studi mahasiswa.",
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * KPI ringkasan: total mata kuliah, total SKS tercatat, jumlah MK lulus dan belum lulus &mdash;
+							 * seluruhnya dihitung dari {@code detailData} yang sudah dimuat (tanpa query tambahan).
+							 */
 							public List<Object[]> ambil() {
 								int totMk = detailData == null ? 0 : detailData.size();
 								int totSks = 0, lulus = 0;
@@ -2404,6 +2437,11 @@ public class TampilStudiMahasiswaHelper {
 						"Sebaran nilai huruf dari seluruh mata kuliah yang tercatat.",
 						new String[] { "Huruf", "Jumlah" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Baris donut Distribusi Nilai Huruf: menghitung frekuensi nilai huruf dari {@code detailData}
+							 * (di-trim dan di-UPPERCASE); entri kosong atau {@code "-"} dilewati. {@code LinkedHashMap}
+							 * dipakai agar urutan huruf mengikuti urutan kemunculan pertama pada data.
+							 */
 							public List<Object[]> ambil() {
 								java.util.LinkedHashMap<String, Integer> peta = new java.util.LinkedHashMap<String, Integer>();
 								if (detailData != null) {
@@ -2427,6 +2465,11 @@ public class TampilStudiMahasiswaHelper {
 						"Proporsi Hadir / Izin / Sakit / Alpa pada perkuliahan mahasiswa.",
 						new String[] { "Kategori", "Jumlah" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Baris donut Rekap Kehadiran: Hadir/Izin/Sakit/Alpa dari {@link #dataKehadiran(Mahasiswa)}
+							 * (elemen indeks 0-3; indeks 4 berisi total dan sengaja tidak ditampilkan). Membuka session
+							 * Hibernate sendiri.
+							 */
 							public List<Object[]> ambil() {
 								int[] k = dataKehadiran(mahasiswa);
 								List<Object[]> r = new ArrayList<Object[]>();
@@ -2442,6 +2485,10 @@ public class TampilStudiMahasiswaHelper {
 						"Perbandingan mata kuliah yang sudah lulus dibanding yang belum lulus.",
 						new String[] { "Status", "Jumlah" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Baris donut Komposisi Kelulusan MK: mencacah {@code detailData} menjadi dua kelompok Lulus dan
+							 * Belum Lulus berdasarkan kunci {@code "lulus"}.
+							 */
 							public List<Object[]> ambil() {
 								int lulus = 0, belum = 0;
 								if (detailData != null) {
@@ -2463,6 +2510,10 @@ public class TampilStudiMahasiswaHelper {
 				list.add(ais.action.master.helper.DashboardReportKit.batang("SKS Diambil per Semester",
 						"Jumlah SKS yang diambil tiap semester.", new String[] { "Semester", "SKS" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Baris batang SKS Diambil per Semester dari {@link #dataKrsPerSemester(Mahasiswa)}; label diberi
+							 * akhiran {@code " (SP)"} bila jenis semesternya bukan Reguler. Membuka session Hibernate sendiri.
+							 */
 							public List<Object[]> ambil() {
 								List<Object[]> r = new ArrayList<Object[]>();
 								for (String[] k : dataKrsPerSemester(mahasiswa)) {
@@ -2477,6 +2528,12 @@ public class TampilStudiMahasiswaHelper {
 						"Perkembangan IPK dari semester ke semester (garis naik berarti membaik). Nilai diskalakan agar tren tampak jelas.",
 						new String[] { "Semester", "IPK x100" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Baris garis Tren IPK per semester. Nilai IPK (indeks 6 hasil
+							 * {@link #dataKrsPerSemester(Mahasiswa)}) DIKALI 100 dan dibulatkan ke bilangan bulat karena
+							 * grafik garis kit laporan hanya menerima nilai bulat &mdash; karena itu judul kolomnya
+							 * "IPK x100". Membuka session Hibernate sendiri.
+							 */
 							public List<Object[]> ambil() {
 								List<Object[]> r = new ArrayList<Object[]>();
 								for (String[] k : dataKrsPerSemester(mahasiswa)) {
@@ -2491,6 +2548,10 @@ public class TampilStudiMahasiswaHelper {
 						"Perkembangan IPS (indeks prestasi semester) dari semester ke semester. Nilai diskalakan agar tren tampak jelas.",
 						new String[] { "Semester", "IPS x100" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Baris garis Tren IPS per semester; sama seperti tren IPK tetapi memakai IPS (indeks 5) dan juga
+							 * diskalakan 100x. Membuka session Hibernate sendiri.
+							 */
 							public List<Object[]> ambil() {
 								List<Object[]> r = new ArrayList<Object[]>();
 								for (String[] k : dataKrsPerSemester(mahasiswa)) {
@@ -2505,6 +2566,10 @@ public class TampilStudiMahasiswaHelper {
 						"Detail KRS tiap semester (SKS, persetujuan, IPS, IPK).",
 						new String[] { "Smt", "Jenis", "SKS", "MK Disetujui", "MK Belum", "IPS", "IPK", "TA" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Tabel Rekap KRS per Semester: seluruh kolom {@link #dataKrsPerSemester(Mahasiswa)} diteruskan
+							 * apa adanya lewat {@link #keObjectList(List)}. Membuka session Hibernate sendiri.
+							 */
 							public List<Object[]> ambil() {
 								return keObjectList(dataKrsPerSemester(mahasiswa));
 							}
@@ -2514,6 +2579,7 @@ public class TampilStudiMahasiswaHelper {
 						"Data skripsi mahasiswa beserta status sidang.",
 						new String[] { "Judul", "TA", "Pembimbing", "Nilai", "Huruf", "Status", "Tgl Sidang" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/** Tabel Skripsi/Tugas Akhir dari {@link #dataSkripsi(Mahasiswa)}. Membuka session Hibernate sendiri. */
 							public List<Object[]> ambil() {
 								return keObjectList(dataSkripsi(mahasiswa));
 							}
@@ -2523,6 +2589,7 @@ public class TampilStudiMahasiswaHelper {
 						"Riwayat pengajuan judul TA beserta statusnya.",
 						new String[] { "Judul", "Status", "TA", "Dosen", "Keterangan" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/** Tabel Pengajuan Judul TA dari {@link #dataPengajuanJudulTA(Mahasiswa)}. Membuka session Hibernate sendiri. */
 							public List<Object[]> ambil() {
 								return keObjectList(dataPengajuanJudulTA(mahasiswa));
 							}
@@ -2532,6 +2599,10 @@ public class TampilStudiMahasiswaHelper {
 						"Seluruh mata kuliah yang pernah diambil beserta nilai dan status kelulusan.",
 						new String[] { "No", "Kode", "Mata Kuliah", "SKS", "Huruf", "Smt", "Lulus" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Tabel Riwayat Pengambilan Mata Kuliah: menomori ulang dan meratakan {@code detailData} menjadi
+							 * kolom {No, Kode, Mata Kuliah, SKS, Huruf, Smt, Lulus}. Tanpa query tambahan.
+							 */
 							public List<Object[]> ambil() {
 								List<Object[]> r = new ArrayList<Object[]>();
 								if (detailData != null) {
@@ -2551,6 +2622,11 @@ public class TampilStudiMahasiswaHelper {
 						"Mata kuliah kurikulum yang belum tercatat diambil mahasiswa.",
 						new String[] { "No", "Kode", "Mata Kuliah", "SKS", "Smt", "Jenis" },
 						new ais.action.master.helper.DashboardReportKit.PenyediaBaris() {
+							/**
+							 * Tabel MK Belum Diambil. Sengaja memakai kurikulum OTOMATIS dan TANPA filter jenis
+							 * ({@code kurikulumId} dan {@code statusFilter} keduanya {@code null}), sehingga isi laporan cetak
+							 * TIDAK mengikuti pilihan combo Kurikulum/Jenis MK pada dasbor. Membuka session Hibernate sendiri.
+							 */
 							public List<Object[]> ambil() {
 								return keObjectList(dataMkBelumDiambil(mahasiswa, detailData, null, null).rows);
 							}
