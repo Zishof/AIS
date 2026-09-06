@@ -272,6 +272,20 @@ public class AmbilDataPerkuliahanHelper {
 	 */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Membungkus {@link #renderInternal(Row, Perkuliahan)} dengan jaring pengaman per baris: seluruh
+		 * kegagalan ditangkap, dicatat ke {@code ErrorAuditUtil} beserta jejak {@code System.out} bertanda
+		 * mulai/selesai, lalu diganti sebuah baris darurat berisi nama matakuliah dan jenis kegagalan.
+		 *
+		 * <p>Pola ini dipakai karena satu baris yang gagal dirender (mis. relasi Hibernate lazy yang tidak dapat
+		 * dimuat) jika dibiarkan akan menggagalkan render seluruh grid dan membuat layar KRS tampak kosong tanpa
+		 * penjelasan. Pengambilan nama matakuliah untuk pesan darurat pun dibungkus try/catch tersendiri karena
+		 * relasi itulah yang justru sering menjadi sumber kegagalannya.</p>
+		 *
+		 * @param row  baris grid yang akan diisi
+		 * @param arg1 objek data baris, selalu berupa {@link Perkuliahan}
+		 * @throws Exception tidak dilempar dalam praktik karena seluruh kegagalan ditangkap di sini
+		 */
 		@Override
 		public void render(Row row, Object arg1) throws Exception {
 			final Perkuliahan perkuliahan = (Perkuliahan) arg1;
@@ -297,6 +311,30 @@ public class AmbilDataPerkuliahanHelper {
 					+ (perkuliahan == null ? "null" : perkuliahan.getId()));
 		}
 
+		/**
+		 * Merender isi sebenarnya satu baris perkuliahan, langkah demi langkah: checkbox pilih, SKS, dosen,
+		 * jadwal/ruangan, prasyarat, kapasitas versus jumlah terisi, dan label status ketersediaan/riwayat.
+		 *
+		 * <p><b>Checkbox pilih.</b> Status centang HANYA dibaca dari {@link #hashMap}, yaitu pilihan pada KRS
+		 * yang sedang dibuka. {@link #perkuliahanTelahDiambil} sengaja TIDAK dipakai sebagai sumber status
+		 * centang karena himpunan itu juga memuat riwayat semester lain — memakainya akan membuat matakuliah
+		 * lampau tampak seolah sedang dipilih. Checkbox yang belum tercentang dinonaktifkan bila kelas sudah
+		 * penuh.</p>
+		 *
+		 * <p><b>Kapasitas.</b> Kapasitas diambil dari {@code getKapasitasKelas()} dengan cadangan 30 bila kolomnya
+		 * kosong atau gagal dibaca, lalu DIGANTI kuota {@link PembagianKuotaPerkuliahanBerdasarkantahunAngkatan}
+		 * bila ada aturan kuota untuk tahun angkatan mahasiswa ini. Perlu dicatat bahwa cadangan 30 itu adalah
+		 * angka mati: kelas tanpa kapasitas tersimpan akan diperlakukan seolah berkapasitas 30.</p>
+		 *
+		 * <p><b>Pola defensif.</b> Hampir setiap langkah dibungkus try/catch sendiri dengan jejak
+		 * {@code System.out} berlabel nomor langkah, sehingga kegagalan pada satu kolom (mis. relasi dosen atau
+		 * jadwal yang gagal dimuat) hanya mengosongkan kolom itu, bukan menggagalkan baris — dan bila tetap
+		 * lolos ke atas, ditangkap oleh {@link #render(Row, Object)}.</p>
+		 *
+		 * @param row         baris grid yang akan diisi
+		 * @param perkuliahan data perkuliahan baris ini; bila {@code null} method langsung berhenti tanpa efek
+		 * @throws Exception diteruskan ke {@link #render(Row, Object)} untuk ditangani di sana
+		 */
 		private void renderInternal(Row row, final Perkuliahan perkuliahan) throws Exception {
 			if (perkuliahan == null) {
 				System.out.println("[MatakuliahRenderer.renderInternal] perkuliahan null — skip");
@@ -411,6 +449,27 @@ public class AmbilDataPerkuliahanHelper {
 
 			final EventListener checkboxEventListener = new EventListener() {
 
+				/**
+				 * Menangani centang/lepas satu matakuliah pada grid, dengan tiga gerbang berurutan sebelum
+				 * pilihan diterima.
+				 *
+				 * <p>(1) <b>Prasyarat.</b> {@link Common#checkMatakuliahPrasyarat} diperiksa lebih dulu; bila
+				 * mahasiswa belum memenuhi prasyarat matakuliah ini, centang langsung dilepas dan proses berhenti
+				 * — helper itu sendiri yang menampilkan pesan penjelasnya.</p>
+				 *
+				 * <p>(2) <b>Larangan membatalkan pilihan lama.</b> Bila baris ini SUDAH tercentang sejak grid
+				 * dimuat (variabel {@code jml}, artinya matakuliah sudah tercatat pada KRS yang sedang dibuka),
+				 * pembatalan langsung ditolak: centang dikembalikan dan pemakai diarahkan menghapusnya dari papan
+				 * KRS. Ini mencegah baris {@link Detailperkuliahan} yang sudah tersimpan hilang diam-diam hanya
+				 * karena checkbox dilepas.</p>
+				 *
+				 * <p>(3) <b>Pencatatan pilihan.</b> Barulah {@link #hashMap} ditambah atau dikurangi, lalu
+				 * {@link #updateStatus(Checkbox)} dipanggil untuk menghitung ulang total SKS, status tombol
+				 * Simpan, dan status seluruh checkbox lain.</p>
+				 *
+				 * @param arg0 event {@code onCheck} dari checkbox baris ini
+				 * @throws Exception diteruskan dari pemeriksaan prasyarat atau penyegaran status
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 
@@ -535,6 +594,20 @@ public class AmbilDataPerkuliahanHelper {
 			if (checkbox.isVisible() && hashMap.containsKey(perkuliahan.getId())) {
 				Common.createDefaultTimer(new EventListener() {
 
+					/**
+					 * Memulihkan tampilan centang untuk baris yang memang sudah terpilih pada {@link #hashMap},
+					 * lalu menjalankan {@code checkboxEventListener} dengan argumen {@code null} agar total SKS
+					 * dan status checkbox baris lain ikut disegarkan.
+					 *
+					 * <p>Penundaan lewat {@link Common#createDefaultTimer(EventListener)} diperlukan karena
+					 * baris belum selesai terpasang ke grid saat renderer berjalan; menyegarkan status seluruh
+					 * grid pada saat itu akan membaca daftar baris yang belum lengkap. Argumen {@code null}
+					 * dipakai supaya gerbang prasyarat dan larangan pembatalan tidak ikut terpicu — ini
+					 * pemulihan tampilan, bukan tindakan pemakai.</p>
+					 *
+					 * @param arg0 event timer penunda
+					 * @throws Exception diteruskan dari penyegaran status grid
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						checkbox.setChecked(true);
@@ -1118,6 +1191,13 @@ public class AmbilDataPerkuliahanHelper {
 
 			searchfakultas.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menjalankan ulang pencarian saat filter fakultas diganti. Pilihan matakuliah yang sudah
+				 * tercentang tidak hilang karena tersimpan di {@link #hashMap}, bukan pada komponen grid.
+				 *
+				 * @param arg0 event {@code onChange} dari combobox Fakultas
+				 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					onSearchDefault(arg0);
@@ -1127,6 +1207,12 @@ public class AmbilDataPerkuliahanHelper {
 
 			jurusanCombobox.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menjalankan ulang pencarian saat filter jurusan/program studi diganti.
+				 *
+				 * @param arg0 event {@code onChange} dari combobox Jurusan
+				 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					onSearchDefault(arg0);
@@ -1149,6 +1235,14 @@ public class AmbilDataPerkuliahanHelper {
 
 			namaMk.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menjalankan ulang pencarian saat kata kunci nama/kode matakuliah diubah. Pencocokannya
+				 * {@code LIKE} dengan mode {@link MatchMode#ANYWHERE}, sehingga penggalan di tengah nama pun
+				 * ikut ditemukan.
+				 *
+				 * @param arg0 event {@code onChange} dari kotak isian Matakuliah
+				 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					onSearchDefault(arg0);
@@ -1194,6 +1288,13 @@ public class AmbilDataPerkuliahanHelper {
 
 			programCombobox.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menjalankan ulang pencarian saat filter {@link Program} diganti. Nilai awal combobox ini
+				 * diselaraskan dengan program mahasiswa yang bersangkutan saat {@link #display} dibangun.
+				 *
+				 * @param arg0 event {@code onChange} dari combobox Program
+				 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					onSearchDefault(arg0);
@@ -1230,6 +1331,16 @@ public class AmbilDataPerkuliahanHelper {
 			}
 			kelas.setEventListener(new EventListener() {
 
+				/**
+				 * Menjalankan ulang pencarian saat kelas dipilih lewat bandbox. Perhatikan bahwa bandbox ini
+				 * dapat dikunci oleh konfigurasi: bila
+				 * {@code Pada_saat_mengambil_KRS_otomatis_kelas_terisi_dengan_kelas_mahasiswa_dan_tidak_bisa_diubah}
+				 * aktif, kelas terisi otomatis dari data mahasiswa dan dibuat readonly sekaligus disabled
+				 * sehingga listener ini praktis tidak pernah terpicu.
+				 *
+				 * @param arg0 event pemilihan dari bandbox Kelas
+				 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					onSearchDefault(arg0);
@@ -1256,6 +1367,20 @@ public class AmbilDataPerkuliahanHelper {
 
 			final EventListener eventListenerSemester = new EventListener() {
 
+				/**
+				 * Membangun ulang isi combobox semester sesuai keadaan checkbox "Tampilkan semua smt".
+				 *
+				 * <p>Batas atas daftar adalah jumlah semester pada jenjang jurusan mahasiswa. Bila checkbox
+				 * TIDAK dicentang dan semester KRS diketahui, daftar disaring berdasarkan PARITAS: KRS semester
+				 * genap hanya menawarkan semester genap, KRS semester ganjil hanya menawarkan semester ganjil —
+				 * mencerminkan bahwa matakuliah semester genap umumnya hanya dibuka pada semester genap.
+				 * Mencentang checkbox membuka seluruh semester, yang diperlukan mahasiswa yang mengulang
+				 * matakuliah dari semester berlawanan paritas.</p>
+				 *
+				 * @param arg0 event pemicu dari checkbox "Tampilkan semua smt", atau {@code null} saat dipanggil
+				 *             untuk mengisi combobox pertama kali
+				 * @throws Exception diteruskan dari akses data jenjang/komponen ZK
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					int maxSemesterPilihan = mahasiswa.getJurusan().getJenjang().getJumlahSemester();

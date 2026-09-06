@@ -73,13 +73,19 @@ import ais.ui.util.MyWindow;
  */
 public class KelasPmbPunyaBiodataCalonMahasiswaHelper implements DataLoader, DataCriteria {
 
+	/** Grid anggota kelas PMB saat ini, dirender oleh {@link DetailKelasRenderer}. */
 	private MyGrid grid;
+	/** Kelas PMB yang keanggotaannya sedang dikelola. */
 	private KelasPmb kelasPmb;
+	/** Kotak filter pencarian: nama atau no registrasi calon mahasiswa (contains, ILIKE anywhere). */
 	private Textbox nama;
 
+	/** Filter fakultas (dicocokkan ke fakultas prodi1..5 atau prodi kelulusan); dikunci bila {@link #kelasPmb} sudah terikat fakultas tertentu. */
 	private Combobox searchfakultas = new Combobox();
+	/** Filter jurusan/prodi (dicocokkan ke prodi1..5 atau prodi kelulusan); dikunci bila {@link #kelasPmb} sudah terikat jurusan tertentu. */
 	private Combobox searchjurusan = new Combobox();
 
+	/** Kontrol paging server-side, disinkronkan dengan {@link #buildCriteria(Session, boolean)} lewat {@link #loadData(Object)}. */
 	private Paging paging;
 
 	/** Membuat helper: menginisialisasi combobox fakultas/jurusan (opsi "Semua") dan komponen paging server-side yang memanggil {@link #loadData(Object)} saat halaman berganti. */
@@ -104,12 +110,22 @@ public class KelasPmbPunyaBiodataCalonMahasiswaHelper implements DataLoader, Dat
 	 */
 	class DetailKelasRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Bila {@code true}, tombol lepas dari kelas ditampilkan pada tiap baris; ditentukan sekali di konstruktor dari hak akses user saat ini. */
 		private boolean delete = false;
 
+		/** Memeriksa hak {@link CommonPrivilages#DELETE} user saat ini dan menyimpannya ke {@link #delete}. */
 		public DetailKelasRenderer() {
 			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		}
 
+		/**
+		 * Merender satu baris untuk satu {@link BiodataCalonMahasiswa} (lihat javadoc kelas
+		 * {@link DetailKelasRenderer} untuk rincian kolom yang dibangun).
+		 *
+		 * @param arg0 baris grid yang diisi
+		 * @param data instance {@link BiodataCalonMahasiswa} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			arg0.setValign("top");

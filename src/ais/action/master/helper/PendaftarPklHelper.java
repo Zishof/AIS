@@ -448,8 +448,40 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 	 * Membangun tombol toolbar yang, saat diklik, mengekspor seluruh {@link MahasiswaDaftarPkl}
 	 * hasil {@code dataCriteria.initCriteria(true)} (hingga 1.048.576 baris) ke berkas Excel
 	 * sementara di folder {@code /tmp}, dijalankan di thread terpisah dengan indikator progres.
-	 * Lihat javadoc kelas untuk uraian lengkap struktur kolom yang dihasilkan. Setelah selesai,
-	 * berkas ditampilkan dalam jendela pratinjau spreadsheet dengan tombol unduh.
+	 * Setelah selesai, berkas ditampilkan dalam jendela pratinjau spreadsheet dengan tombol unduh.
+	 *
+	 * <p>
+	 * <b>Struktur kolom.</b> Tujuh kolom tetap di depan — ID, NIM, Nama, Jurusan, Fakultas,
+	 * Diterima, Skor — diikuti satu kolom per {@link PersyaratanPkl} (diurutkan menurut nama lalu
+	 * label inputan). Isi kolom persyaratan mengikuti
+	 * {@link PersyaratanPkl#getTipeDataInputan()}: teks/teks-angka dan pilihan custom memakai
+	 * {@code nilaiString}, tanggal memakai {@code nilaiTanggal}, angka memakai {@code nilaiNumber},
+	 * dan ya/tidak memakai {@code nilaiBoolean}. Tipe yang tidak dikenali menuliskan nama
+	 * persyaratannya sendiri sebagai isi sel, bukan nilai jawaban mahasiswa.
+	 *
+	 * <p>
+	 * <b>Efek samping penulisan data.</b> Selama ekspor, setiap kombinasi mahasiswa-persyaratan
+	 * yang belum punya baris {@link MahasiswaPklPersyaratan} akan <i>dibuat</i> (kosong) dan
+	 * disimpan. Jadi tombol "Download" bukan operasi baca-saja: menekannya dapat menambah baris
+	 * jawaban kosong ke basis data.
+	 *
+	 * <p>
+	 * <b>Perbedaan dari kembarannya di modul KKN.</b> Pencarian baris
+	 * {@link MahasiswaPklPersyaratan} di sini memanggil {@code uniqueResult()} tanpa
+	 * {@code addOrder(desc(id))} maupun {@code setMaxResults(1)}, sedangkan
+	 * {@code PendaftarKknHelper#cetakDataCustomButton} memasang kedua pembatas tersebut. Bila
+	 * pernah tercipta lebih dari satu baris jawaban untuk kombinasi mahasiswa-pkl-persyaratan
+	 * yang sama, pemanggilan di sini melempar {@code NonUniqueResultException}; pengecualian itu
+	 * ditangkap per-sel sehingga sel bersangkutan kosong tanpa peringatan ke pengguna.
+	 *
+	 * <p>
+	 * <b>Model konkurensi.</b> Pembuatan berkas berjalan di {@link Thread} terpisah, sementara
+	 * thread ZK memantau kemajuannya lewat {@link org.zkoss.zul.Timer} 200&nbsp;ms yang membaca
+	 * teks sebuah {@link Label} sebagai kanal status: teks kosong berarti selesai (buka
+	 * pratinjau), teks {@code "-"} berarti gagal. Konsekuensinya, thread latar memakai
+	 * {@link HibernateUtil#currentSession()} di luar konteks permintaan ZK dan
+	 * {@link StreamingHibernateUtil} untuk pembacaan lampiran; kegagalan per-sel ditelan dan
+	 * hanya ditampilkan bila pengguna berstatus admin.
 	 *
 	 * @param dataCriteria sumber kriteria data yang akan diekspor (biasanya {@code this})
 	 * @param buttonLabel  label tombol toolbar
@@ -831,15 +863,58 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 	}
 
 	/**
-	 * Membangun panel lengkap pengelolaan pendaftar PKL (toolbar filter/aksi lengkap: cari,
-	 * pengecualian, cetak pendaftar/penerima/rekap, hitung skor, tambah pendaftar baru, download/
-	 * upload Excel; grid berpaging) ke dalam {@code component}, untuk {@code pkl} yang diberikan.
+	 * Membangun panel lengkap pengelolaan pendaftar PKL ke dalam {@code component}, untuk
+	 * {@code pkl} yang diberikan, lalu memuat data awal.
+	 *
+	 * <p>
+	 * Isi toolbar yang dipasang, berurutan: kotak cari NIM/nama, combobox fakultas dan jurusan,
+	 * isian angkatan, checkbox "Belum diterima", tombol "Cari", tombol "Pengecualian"
+	 * ({@link PengecualianPklMahasiswaHelper} — hanya tampil bagi pengguna non-mahasiswa dan bila
+	 * konfigurasi {@code tampilkan_pengecualian_pkl_mahasiswa_di_seleksi} aktif), tiga tombol
+	 * cetak PDF, tombol "Hitung Skor", tombol "Baru"
+	 * ({@link AmbilDataMahasiswaSeleksiPklHelper}), tombol "Download"
+	 * ({@link #cetakDataCustomButton}), dan tombol "Upload".
+	 *
+	 * <p>
+	 * <b>Tombol cetak dan berkas laporannya.</b> "Pendaftar" mencetak {@code pendaftar_pkl} dan
+	 * "Penerima" mencetak {@code pendaftar_pkl_diterima} — keduanya tersedia di direktori
+	 * laporan. Tombol <b>"Rekap" menunjuk nama laporan {@code penerima-pkl} (dengan tanda hubung)
+	 * yang tidak ada</b> di direktori laporan; kembarannya di modul KKN menunjuk
+	 * {@code penerima_kkn} (dengan garis bawah) yang tersedia. Akibatnya tombol "Rekap" pada layar
+	 * PKL selalu gagal saat laporan hendak dihasilkan, meskipun pemeriksaan "ada penerima" di
+	 * atasnya lolos.
+	 *
+	 * <p>
+	 * <b>"Hitung Skor"</b> menghitung ulang {@link MahasiswaDaftarPkl#setTotalSkor} untuk seluruh
+	 * baris hasil filter saat ini. Skor dijumlahkan dari jawaban bertipe
+	 * {@link PersyaratanPkl#PILIHAN_CUSTOM} yang nilainya berformat {@code "label:skor"}; segmen
+	 * setelah titik dua di-parse sebagai bilangan bulat, dan jawaban yang tidak berformat demikian
+	 * dihitung nol tanpa peringatan ke pengguna. Karena berbasis {@link #initCriteria(boolean)},
+	 * tombol ini hanya menghitung ulang baris yang <i>sedang lolos filter</i>, bukan seluruh
+	 * pendaftar PKL ini.
+	 *
+	 * <p>
+	 * <b>"Upload" (impor Excel)</b> membaca kembali berkas berformat sama dengan hasil ekspor:
+	 * kolom 0 = ID baris, kolom 1 = NIM, kolom 5 = status diterima. Baris dicocokkan lewat ID bila
+	 * ada; bila tidak, baris {@link MahasiswaDaftarPkl} <i>baru</i> dibuat berdasarkan NIM lalu
+	 * {@code terima} diisi dari kolom 5. Perlu diperhatikan:
+	 * <ul>
+	 *   <li>jalur ini melewati {@code PklUntukMahasiswaAction#daftar}, sehingga
+	 *   {@code memenuhiSyarat} tidak pernah diisi dan pemeriksaan kuota/persyaratan akademik tidak
+	 *   dijalankan;</li>
+	 *   <li>tombol ini dipasang tanpa memeriksa parameter {@code approve}, sehingga status
+	 *   penerimaan dapat ditulis lewat unggahan berkas walaupun checkbox "Terima" pada grid
+	 *   dinonaktifkan;</li>
+	 *   <li>setiap baris di-commit satu per satu di thread terpisah — kegagalan di tengah berkas
+	 *   meninggalkan sebagian data sudah tersimpan.</li>
+	 * </ul>
 	 *
 	 * @param pkl       kegiatan PKL yang daftar pendaftarnya dikelola
 	 * @param component kontainer ZK tujuan; isi sebelumnya dibersihkan lewat {@link Common#clear}
 	 * @param window    jendela pemanggil, diteruskan ke {@link AmbilDataMahasiswaSeleksiPklHelper}
 	 *                  saat menambah pendaftar baru
-	 * @param approve   izinkan pengguna mengubah status terima/tolak langsung dari grid
+	 * @param approve   izinkan pengguna mengubah status terima/tolak langsung dari grid; lihat
+	 *                  catatan cakupan pada field {@link #approve}
 	 */
 	public void displayPrasyaratPkl(final Pkl pkl, final Component component, final MyWindow window, boolean approve) {
 		this.pkl = pkl;
@@ -1276,7 +1351,21 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 	 * {@link MahasiswaDaftarPkl} terbaru untuk kombinasi mahasiswa-pkl tersebut) dan menampilkan
 	 * pesan konfirmasi informatif sesuai hasilnya.
 	 *
-	 * @param checked {@code true} untuk menerima, {@code false} untuk menolak
+	 * <p>
+	 * <b>Tidak ada pemanggil di dalam basis kode saat ini</b> — method ini tersedia sebagai API
+	 * bantu bagi layar lain, dan sengaja dipertahankan apa adanya.
+	 *
+	 * <p>
+	 * Perilaku yang perlu diketahui bila hendak dipakai: method ini <i>tidak</i> memeriksa
+	 * {@link #approve} maupun hak apa pun, dan hasil query tidak diperiksa {@code null} sehingga
+	 * mahasiswa yang belum pernah mendaftar PKL ini menyebabkan {@link NullPointerException},
+	 * bukan pesan kesalahan yang ramah. Parameter {@code pkl} bersifat lokal dan tidak mengubah
+	 * field {@link #pkl}.
+	 *
+	 * @param mahasiswa mahasiswa yang statusnya diubah
+	 * @param pkl       PKL terkait
+	 * @param checked   {@code true} untuk menerima, {@code false} untuk menolak
+	 * @throws Exception bila penyimpanan gagal
 	 */
 	public void terimaPkl(Mahasiswa mahasiswa, Pkl pkl, boolean checked) throws Exception {
 		Session session = HibernateUtil.currentSession();
