@@ -5195,6 +5195,32 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return html.toString();
 	}
 
+	/**
+	 * Menambahkan satu <b>kartu ringkas</b> ke dokumen HTML yang sedang dirangkai: sebuah kotak putih
+	 * bergaris tepi dengan judul kecil berwarna kelabu di atas dan angka besar bercetak tebal di
+	 * bawahnya. Lima kartu semacam ini berjajar di kepala jendela Analisis Keseluruhan &mdash;
+	 * Mahasiswa, Rata-rata, Belum Verifikasi, Huruf Tidak Sinkron, dan Snapshot Kunci Beda &mdash;
+	 * memberi gambaran keadaan kelas dalam sekali pandang.
+	 *
+	 * <p>Gaya ditulis sebaris ({@code style="..."}) alih-alih memakai kelas CSS karena keluaran ini
+	 * dipasang ke dalam komponen {@link Html} milik ZK, yang tidak menjamin lembar gaya aplikasi ikut
+	 * berlaku di dalamnya. Lebar minimum 130 piksel menjaga kartu tetap terbaca, sementara pembungkus
+	 * di pemanggil memakai {@code flex-wrap} sehingga kartu turun ke baris berikutnya pada layar
+	 * sempit alih-alih terpotong.</p>
+	 *
+	 * <p>Kedua teks dilewatkan {@link #teksAmanHtml(String)} lebih dulu. Untuk pemakaian saat ini
+	 * judul dan angka memang selalu berupa literal atau angka terformat, tetapi pelarian tetap
+	 * diterapkan agar metode ini aman dipakai ulang dengan nilai yang berasal dari data.</p>
+	 *
+	 * <p>Metode menulis <b>langsung ke {@code html}</b> dan tidak mengembalikan apa pun; pemanggil
+	 * bertanggung jawab atas pembuka dan penutup wadah berjajar.</p>
+	 *
+	 * @param html  perangkai dokumen yang sedang dibangun; diubah di tempat.
+	 * @param judul label kecil di atas kartu, misalnya <code>&quot;Belum Verifikasi&quot;</code>.
+	 * @param nilai teks besar di bawah judul, biasanya angka beserta satuannya seperti
+	 *              <code>&quot;12 data&quot;</code>.
+	 * @see #buatHtmlAnalisisKeseluruhanNilai()
+	 */
 	private void tambahKartuRingkas(StringBuilder html, String judul, String nilai) {
 		html.append("<div style='background:white;border:1px solid #dbe5f0;border-radius:8px;padding:10px 12px;min-width:130px;'>")
 				.append("<div style='font-size:11px;color:#64748b;'>").append(teksAmanHtml(judul)).append("</div>")
@@ -5202,6 +5228,46 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 				.append("</div></div>");
 	}
 
+	/**
+	 * Menghitung rata-rata setiap komponen penilaian di seluruh kelas, lalu menambahkan satu butir
+	 * daftar yang menyebut <b>komponen dengan rata-rata terendah dan tertinggi</b>. Butir ini menutup
+	 * bagian Analisis Pintar pada jendela Analisis Keseluruhan.
+	 *
+	 * <p>Temuannya bernilai secara pedagogis: komponen dengan rata-rata terendah menunjukkan bagian
+	 * mata kuliah yang paling sulit dikuasai mahasiswa &mdash; petunjuk bagi dosen untuk meninjau
+	 * kembali metode pengajaran atau tingkat kesukaran soal pada komponen tersebut.
+	 *
+	 * <h3>Larik sejajar</h3>
+	 * <p>Kedua parameter adalah larik <b>sejajar</b> yang diisi pemanggil saat menelusuri mahasiswa:
+	 * indeks ke-<i>i</i> pada keduanya merujuk komponen ke-<i>i</i> pada {@link #formatNilais}.
+	 * {@code jumlahNilaiKomponen} menampung penjumlahan nilai, {@code jumlahDataKomponen} menampung
+	 * banyaknya baris yang ikut dijumlahkan, dan rata-rata diperoleh dengan membagi keduanya.
+	 * Pemisahan pencacah dari penjumlah diperlukan karena tidak setiap mahasiswa berkontribusi pada
+	 * setiap komponen.</p>
+	 *
+	 * <h3>Penyaringan berlapis</h3>
+	 * <p>Sebuah indeks dilewati bila berada di luar batas larik pencacah, bila pencacahnya nol atau
+	 * kurang &mdash; penjagaan pembagian dengan nol sekaligus penanda komponen tanpa data &mdash;
+	 * atau bila komponennya {@code null}, berbobot {@code null}, atau berbobot di bawah 0,01.
+	 * Ambang 0,01 dipakai konsisten di seluruh kelas ini untuk menyatakan &quot;praktis nol&quot; pada
+	 * bilangan pecahan, menghindari perbandingan kesamaan langsung yang tidak dapat diandalkan.</p>
+	 *
+	 * <p>Metode mengembalikan diri lebih awal bila {@link #formatNilais} masih {@code null}. Nilai awal
+	 * sentinel &mdash; {@code rataTerendah} 999999 dan {@code rataTertinggi} &minus;1 &mdash; tidak
+	 * pernah sampai tercetak karena butir hanya ditulis bila nama komponen terendah sudah terisi,
+	 * yang hanya terjadi setelah sedikitnya satu komponen lolos penyaringan. Nama komponen dilarikan
+	 * lewat {@link #teksAmanHtml(String)} sebelum ditempelkan.</p>
+	 *
+	 * <p>Keluaran ditulis sebagai satu elemen {@code <li>} dan karena itu <b>harus dipanggil dari
+	 * dalam daftar berurut yang sudah terbuka</b>; pemanggil satu-satunya menempatkannya sebagai butir
+	 * terakhir sebelum daftar ditutup.</p>
+	 *
+	 * @param html                perangkai dokumen yang sedang dibangun; diubah di tempat.
+	 * @param jumlahNilaiKomponen penjumlahan nilai per komponen, sejajar dengan {@link #formatNilais}.
+	 * @param jumlahDataKomponen  banyaknya baris yang dijumlahkan per komponen, sejajar dengan larik
+	 *                            di atas.
+	 * @see #buatHtmlAnalisisKeseluruhanNilai()
+	 */
 	private void tambahAnalisisKomponen(StringBuilder html, double[] jumlahNilaiKomponen, int[] jumlahDataKomponen) {
 		String komponenTerendah = "";
 		String komponenTertinggi = "";
@@ -5236,6 +5302,53 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Merangkai dokumen HTML lengkap untuk jendela <b>Analisis Nilai Huruf</b> seorang mahasiswa:
+	 * kartu identitas dan nilai, bagian Analisis Pintar, tabel komponen pembentuk nilai, dan
+	 * kesimpulan beserta jarak menuju huruf berikutnya.
+	 *
+	 * <h3>Memilih nilai final atau nilai sementara</h3>
+	 * <p>Keputusan pertama menentukan sisa dokumen. Bila kelas menyembunyikan nilai yang belum
+	 * diverifikasi <b>dan</b> baris ini masih {@link Detailperkuliahan#NOT_VERIFIED}, seluruh analisis
+	 * memakai pasangan kolom <i>sementara</i> ({@code totalNilaiSementara},
+	 * {@code nilaiHurufSementara}) dan pembacaan komponen beralih ke
+	 * {@code retreiveDetailNilaiBelumVerify}. Bendera {@code tampilSementara} itu diteruskan ke
+	 * seluruh metode pembantu agar tidak ada bagian dokumen yang mencampur kedua sumber, dan
+	 * pembaca diberi tahu secara eksplisit lewat catatan berwarna oranye.</p>
+	 *
+	 * <h3>Empat bagian dokumen</h3>
+	 * <ol>
+	 * <li><b>Kartu identitas.</b> NIM dan nama mahasiswa, nilai akhir, nilai huruf, serta rentang
+	 * mulai&ndash;sampai dan bobot IP dari aturan huruf yang cocok. Bila kelas terkunci dan snapshot
+	 * {@code nilaiHurufKunci} berbeda dari huruf yang tampil, perbedaan itu <b>dinyatakan terbuka</b>:
+	 * &quot;Snapshot huruf saat dikunci: X; tampilan dikoreksi mengikuti total menjadi Y&quot;. Inilah
+	 * pengakuan langsung atas pemetaan ulang pada {@link Detailperkuliahan#getNilaiHuruf()} &mdash;
+	 * kelas ini memilih menjelaskannya kepada pengguna alih-alih menyembunyikannya.</li>
+	 * <li><b>Analisis Pintar</b> dari
+	 * {@link #buatHtmlAnalisisPintar(Detailperkuliahan, double, String, String, NilaiHuruf, NilaiHuruf, boolean)}.</li>
+	 * <li><b>Tabel komponen</b> dari {@link #buatHtmlKomponenNilai(Detailperkuliahan, boolean)}.</li>
+	 * <li><b>Kesimpulan.</b> Bila total di bawah 0,01, {@code alasanNilaiJadiNol} ditampilkan dengan
+	 * warna merah sebagai sebab utama. Jika tidak, dinyatakan bahwa total masuk rentang huruf tertentu
+	 * &mdash; atau, bila aturan tidak ditemukan, pengguna diarahkan memeriksa konfigurasi rentang
+	 * nilai huruf untuk prodi, fakultas, dan tahun akademik yang bersangkutan. Ditutup dengan jarak
+	 * menuju huruf berikutnya bila {@link #ambilAturanNilaiHurufBerikut(Detailperkuliahan, double)}
+	 * menemukan target dan selisihnya masih positif.</li>
+	 * </ol>
+	 *
+	 * <p><b>Ketahanan dan keamanan.</b> Pemanggilan {@code alasanNilaiJadiNol} dibungkus penangkap
+	 * galat sehingga kegagalannya menyisakan kesimpulan kosong, bukan menggagalkan jendela. Setiap
+	 * teks yang berasal dari data dilewatkan {@link #teksAmanHtml(String)}, sedangkan angka diformat
+	 * lewat {@code Common.numberFormat} yang bersifat per-utas. Metode ini murni membaca dan tidak
+	 * mengubah entitas mana pun.</p>
+	 *
+	 * <p><b>Prasyarat.</b> {@code detailperkuliahan} diasumsikan tidak {@code null} &mdash; pemanggil
+	 * sudah menjaganya &mdash; sedangkan {@link #perkuliahan} dan {@link #formatNilais} boleh
+	 * {@code null} dan sudah dijaga di dalam.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang dianalisis.
+	 * @return dokumen HTML utuh siap dipasang ke sebuah {@link Html}.
+	 * @see #tampilkanAnalisisNilaiHuruf(Detailperkuliahan)
+	 */
 	private String buatHtmlAnalisisNilaiHuruf(Detailperkuliahan detailperkuliahan) {
 		StringBuilder html = new StringBuilder();
 		boolean tampilSementara = perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()

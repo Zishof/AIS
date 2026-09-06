@@ -51,51 +51,83 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data perkuliahan bandbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Bandbox picker untuk memilih satu {@link Perkuliahan} (kelas matakuliah) aktif dan non-paralel:
+ * popup pencarian dengan filter fakultas, kode/nama matakuliah, dosen (lewat
+ * {@link AmbilDataDosenBanbox}), prodi, program, hari, semester (Ganjil/Genap), dan tahun akademik,
+ * hasil dipilih lewat {@link Radiogroup} (pilih tunggal).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox kodeMk}, {@code Textbox namaMk}, {@code
- * Combobox searchfakultas}, {@code Combobox jurusanCombobox}, {@code Combobox programCombobox}, {@code Combobox
- * semesterBox}; pembacaan/pencarian ({@code onSearchDefault()}, {@code getEventListener()}, {@code
- * setEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Kelas ini mengikuti PERSIS pola "Bandbox picker" AIS yang didokumentasikan lengkap sebagai
+ * referensi pada {@link ais.ui.util.GetEventListener} (konstruktor {@code onOpen} lazy-render +
+ * {@code setOpen(true)} via timer, {@code display()} membangun popup sekali, {@code
+ * onSearchDefault(Event)} dengan idiom {@code Restrictions.sqlRestriction("1=1")} untuk filter
+ * opsional, renderer batin dengan listener {@code onCheck} yang menutup popup lalu memanggil
+ * {@link #eventListener}). <b>Namun berbeda dari &gt;80 subclass sejenis yang dirujuk di sana,
+ * kelas ini TIDAK mendeklarasikan {@code implements GetEventListener}</b> meski
+ * {@link #getEventListener()}/{@link #setEventListener(EventListener)} sudah identik dengan
+ * kontrak interface tersebut — kemungkinan besar terlewat saat penautan referensi pola pada sesi
+ * dokumentasi sebelumnya. Tidak ada kode lain di basis kode ini yang melakukan
+ * {@code instanceof GetEventListener}, sehingga menambah klausa {@code implements} murni bersifat
+ * kosmetik/tipe (tanpa risiko perilaku) namun tetap merupakan perubahan kode, bukan Javadoc semata
+ * — sengaja TIDAK diubah pada revisi dokumentasi ini.
+ * </p>
+ *
+ * <p>
+ * Hasil pilihan disimpan pada instance Bandbox ini sendiri lewat
+ * {@code setAttribute("perkuliahan", perkuliahan)}, {@code setAttribute("myValue", perkuliahan)},
+ * dan {@code setValue(Common.getDeskripsiPerkuliahan(perkuliahan))} — pemanggil membaca kembali
+ * lewat {@code getAttribute(...)} dari dalam {@link #eventListener} miliknya sendiri, bukan lewat
+ * nilai balik method apa pun (pola callback khas keluarga {@code AmbilData*Banbox}).
+ * </p>
  *
  * @see Bandbox
+ * @see ais.ui.util.GetEventListener
  */
 public class AmbilDataPerkuliahanBandbox extends Bandbox {
 
 	/**
-	 * 
+	 * Versi serialisasi tetap untuk {@link Bandbox} (komponen ZK yang serializable); dijaga tetap
+	 * agar kompatibel dengan sesi lama yang tersimpan.
 	 */
 	private static final long serialVersionUID = 4630526859031545820L;
+	/** Grid hasil pencarian perkuliahan di dalam popup (mode paging client-side, lihat komentar pada {@link #display}). */
 	private MyGrid grid;
 
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/**
+	 * Instance {@link ais.ui.util.AmbilDataPagingHelper} yang dibuat mengikuti pola helper pencarian
+	 * lain, namun TIDAK dipakai di mana pun pada kelas ini — pencarian di sini tetap memakai grid mode
+	 * "paging" client-side biasa (lihat {@link #onSearchDefault(Event)} dan {@link #display}). Field
+	 * ini sisa refactor yang belum dituntaskan; aman dibiarkan karena tidak memengaruhi perilaku.
+	 */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/** Textbox filter pencarian berdasarkan kode matakuliah (dicocokkan ANYWHERE, tanpa memandang huruf besar/kecil). */
 	private Textbox kodeMk;
+	/** Textbox filter pencarian berdasarkan nama matakuliah (dicocokkan ANYWHERE, tanpa memandang huruf besar/kecil). */
 	private Textbox namaMk;
+	/** Kombo filter pencarian berdasarkan fakultas; default terpilih fakultas pengguna yang login. */
 	private Combobox searchfakultas = new Combobox();
+	/** Kombo filter pencarian berdasarkan prodi/jurusan, diisi ulang tiap kali {@link #searchfakultas} berubah; default terpilih prodi pengguna yang login. */
 	private Combobox jurusanCombobox = new Combobox();
+	/** Kombo filter pencarian berdasarkan program; default terpilih program pengguna yang login. */
 	private Combobox programCombobox = new Combobox();
+	/** Kombo filter pencarian berdasarkan jenis semester (Ganjil/Genap/Semua); default "Semua". */
 	private Combobox semesterBox;
+	/** Penanda semester pendek untuk filter {@code statusSemesterPendek}; diisi lewat konstruktor {@link #AmbilDataPerkuliahanBandbox(Integer)}, {@code null} berarti bukan semester pendek. */
 	private Integer semesterPendek;
 
+	/** Kombo filter pencarian berdasarkan tahun akademik. */
 	private Combobox tahunAjaran;
 
+	/** Listener yang dipanggil setelah pengguna memilih satu perkuliahan pada popup; kontrak {@link ais.ui.util.GetEventListener} (lihat javadoc kelas). */
 	private EventListener eventListener;
+	/** Bandbox picker dosen bersarang, dipakai sebagai salah satu filter pencarian (dosen1..dosen10 pada {@link Perkuliahan}). */
 	private AmbilDataDosenBanbox dosen1;
+	/** Kombo filter pencarian berdasarkan hari (termasuk opsi "Semua"). */
 	private Combobox hari;
 
+	/** Konstruktor default; {@link #semesterPendek} tetap {@code null} (bukan semester pendek). Memasang listener lazy-render {@code onOpen} standar pola "Bandbox picker" (lihat javadoc kelas). */
 	public AmbilDataPerkuliahanBandbox() {
 		super();
 		addEventListener("onOpen", new EventListener() {
@@ -116,6 +148,13 @@ public class AmbilDataPerkuliahanBandbox extends Bandbox {
 		});
 	}
 
+	/**
+	 * Konstruktor dengan penanda semester pendek eksplisit. Memasang listener lazy-render
+	 * {@code onOpen} standar pola "Bandbox picker" (lihat javadoc kelas).
+	 *
+	 * @param semesterPendek nilai {@link #semesterPendek}; menentukan apakah pencarian dibatasi ke
+	 *                       perkuliahan semester pendek atau reguler
+	 */
 	public AmbilDataPerkuliahanBandbox(Integer semesterPendek) {
 		super();
 		this.semesterPendek = semesterPendek;
@@ -138,21 +177,27 @@ public class AmbilDataPerkuliahanBandbox extends Bandbox {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPerkuliahanBandbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPerkuliahanBandbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Perender baris grid hasil pencarian: satu radio button pilih (menyimpan {@code perkuliahan}
+	 * sebagai atribut baris agar mudah diambil kembali), kode/nama matakuliah (dengan penanda
+	 * "(Paralel)" bila kelas ini paralel, prasyarat lewat
+	 * {@link MatakuliahPrasyaratAction#tampilPrasyarat}, dan nama kurikulum bila ada), SKS, dosen
+	 * (lewat {@link PerkuliahanUIHelper#displayDosenPerkuliahan}), hari, semester, kelas, waktu,
+	 * ruang, dan jumlah mahasiswa yang sudah masuk (lewat
+	 * {@link KrsUtilHelper#ambilJumlahDetailperkuliahan}). Memilih radio button menutup popup,
+	 * menyimpan hasil ke Bandbox induk, lalu memanggil {@link #eventListener} bila terpasang (lihat
+	 * javadoc kelas untuk pola callback ini).
 	 *
 	 * @see AmbilDataPerkuliahanBandbox
 	 */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid untuk satu {@link Perkuliahan}. Tidak melakukan apa pun bila
+		 * {@code arg1} bukan {@link Perkuliahan} atau matakuliahnya kosong.
+		 *
+		 * @param row  baris grid yang akan diisi
+		 * @param arg1 data baris, harus berupa {@link Perkuliahan}
+		 */
 		@Override
 		public void render(Row row, Object arg1) throws Exception {
 			// TODO Auto-generated method stub
@@ -212,6 +257,13 @@ public class AmbilDataPerkuliahanBandbox extends Bandbox {
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form filter + tombol Cari + grid hasil dibungkus
+	 * {@link Radiogroup}) sekali di dalam Bandbox ini, mengunci input teks langsung
+	 * ({@link #setReadonly(boolean) setReadonly(true)}) agar nilai hanya berubah lewat pemilihan di
+	 * grid, lalu memuat data awal lewat {@link #onSearchDefault(Event)}. Lihat javadoc kelas untuk
+	 * pola "Bandbox picker" secara umum.
+	 */
 	public void display() {
 
 		setReadonly(true);
@@ -282,21 +334,22 @@ public class AmbilDataPerkuliahanBandbox extends Bandbox {
 				Restrictions.eq("aktif", true));
 
 		/**
-		 * Event listener lokal milik {@link AmbilDataPerkuliahanBandbox}. Kelas ini menangani event untuk komponen
-		 * induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
-		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPerkuliahanBandbox} dan dapat
-		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
+		 * Listener khusus perubahan {@link #searchfakultas}: mengosongkan dan mengisi ulang
+		 * {@link #jurusanCombobox} dengan prodi milik fakultas yang baru dipilih (tanpa memicu
+		 * pencarian ulang grid — pemuatan ulang grid dipasang terpisah lewat listener
+		 * {@code onChange} kedua yang ditambahkan setelah instance ini, lihat kode di bawah).
 		 *
 		 * @see AmbilDataPerkuliahanBandbox
 		 */
 		class SearchFakultasEventListener implements EventListener {
 
+			/**
+			 * Mengosongkan {@link #jurusanCombobox} lalu mengisinya ulang dari prodi aktif milik
+			 * fakultas yang sedang terpilih di {@link #searchfakultas}; tidak melakukan apa pun bila
+			 * belum ada fakultas terpilih.
+			 *
+			 * @param event event {@code onChange} dari {@link #searchfakultas}; tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				Common.clear(jurusanCombobox);
@@ -588,6 +641,16 @@ public class AmbilDataPerkuliahanBandbox extends Bandbox {
 
 	}
 
+	/**
+	 * Mencari {@link Perkuliahan} aktif dan non-paralel sesuai seluruh filter yang sedang dipilih
+	 * pada popup (dosen1..dosen10 lewat {@link #dosen1}, hari, semester pendek/reguler, fakultas
+	 * lewat alias {@code jurusan.fakultas}, prodi, program, jenis semester, tahun akademik, kode dan
+	 * nama matakuliah — ILIKE ANYWHERE untuk keduanya), dibatasi {@link Common#MAX_RESULT_20} baris
+	 * diurutkan berdasarkan nama matakuliah, lalu me-render ulang grid.
+	 *
+	 * @param event tidak dipakai; parameter standar listener pemanggil ({@code onChange} combobox/
+	 *              textbox atau {@code onClick} tombol Cari)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -652,10 +715,18 @@ public class AmbilDataPerkuliahanBandbox extends Bandbox {
 
 	}
 
+	/**
+	 * @return {@link #eventListener} yang sedang terpasang; lihat kontrak
+	 *         {@link ais.ui.util.GetEventListener#getEventListener()}
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * @param eventListener listener baru yang dipanggil setelah pengguna memilih satu perkuliahan;
+	 *                      lihat kontrak {@link ais.ui.util.GetEventListener#setEventListener(EventListener)}
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}

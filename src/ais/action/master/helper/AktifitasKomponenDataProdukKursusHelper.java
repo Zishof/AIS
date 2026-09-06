@@ -53,8 +53,10 @@ import ais.ui.util.WaktuUtil;
  */
 public class AktifitasKomponenDataProdukKursusHelper {
 
+	/** Helper penjadwalan pertemuan komponen kursus, dipakai tombol "Agenda Kegiatan" pada {@link #initAgendaKomponenDataProdukKursus}. */
 	protected PenjadwalanKomponenDataProdukKursusHelper penjadwalanHelper = new PenjadwalanKomponenDataProdukKursusHelper();
 
+	/** Konstruktor tanpa argumen; tidak ada inisialisasi state khusus selain {@link #penjadwalanHelper}. */
 	public AktifitasKomponenDataProdukKursusHelper() {
 	}
 
