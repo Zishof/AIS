@@ -1864,6 +1864,72 @@ public abstract class VOMahasiswa extends VoKunci {
 		return hasil;
 	}
 
+	/**
+	 * Menghitung <b>sisa tagihan per kode item biaya</b> untuk orang ini pada satu semester —
+	 * method terbesar dan terpadat di kelas ini.
+	 *
+	 * <p>Hasilnya adalah peta {@code kode item biaya -> sisa}, dipakai antara lain oleh syarat
+	 * ujian untuk memutuskan apakah seorang mahasiswa boleh mengikuti ujian: kode yang muncul di
+	 * peta berarti masih ada selisih yang belum lunas.</p>
+	 *
+	 * <h4>Kerangka perhitungan</h4>
+	 * <p>Untuk setiap {@link Kegiatan} pada semester tersebut yang <b>belum</b> berstatus lunas:</p>
+	 * <ol>
+	 * <li>Ambil seluruh setoran untuk jenis kegiatan itu, lalu ringkas menjadi peta
+	 * {@code (id item biaya + "_" + bayarKe) -> total dibayar}. Penggabungan kunci memakai id item
+	 * biaya <i>dan</i> urutan pembayaran, sehingga angsuran pertama dan kedua atas item yang sama
+	 * tidak tercampur. Setoran yang id atau item biayanya {@code null} dilewati.</li>
+	 * <li>Susun daftar komponen yang ditagihkan. Bila ada pengaturan pembayaran bulanan
+	 * ({@code countBulanan > 0}), daftar disusun ulang agar memuat baris bulanan alih-alih baris
+	 * biaya utuh — inilah cara satu tagihan tahunan dipecah menjadi dua belas baris.</li>
+	 * <li>Untuk tiap komponen, hitung {@code sisa = jumlah tagihan - jumlah dibayar} dan
+	 * akumulasikan ke peta hasil berdasarkan <b>kode</b> item biaya.</li>
+	 * </ol>
+	 *
+	 * <h4>Dua cabang yang hampir kembar</h4>
+	 * <p>Badan method menduplikasi seluruh perhitungan untuk {@link Mahasiswa} dan
+	 * {@link BiodataCalonMahasiswa}. Perbedaan nyatanya hanya tiga: helper penyusun daftar biaya
+	 * yang dipakai, penentuan program studi pada cabang calon mahasiswa (memakai program studi
+	 * kelulusan bila ada, kalau tidak pilihan pertama), dan cara daftar bulanan disusun ulang.
+	 * Selebihnya identik baris demi baris. Perubahan pada logika sisa tagihan <b>harus</b>
+	 * diterapkan di kedua cabang; menyunting salah satunya saja adalah sumber ketidaksesuaian
+	 * angka antara layar mahasiswa dan layar pendaftaran. Subclass ketiga
+	 * ({@code PesertaKursus}) tidak masuk cabang mana pun sehingga selalu memperoleh peta
+	 * kosong.</p>
+	 *
+	 * <h4>Penyaringan sisa yang perlu diperhatikan</h4>
+	 * <p>Selisih hanya dicatat bila {@code sisa.intValue() != 0} — perbandingan atas bagian
+	 * <b>bulat</b> dari selisih, bukan atas nilai pecahannya. Akibatnya selisih di bawah satu
+	 * satuan mata uang (mis. 0,5 karena pembulatan) dianggap lunas dan tidak dilaporkan, baik
+	 * untuk kurang bayar maupun lebih bayar. Ini disengaja agar sisa pembulatan tidak menghalangi
+	 * mahasiswa mengikuti ujian, tetapi berarti peta hasil tidak dapat dipakai untuk rekonsiliasi
+	 * keuangan yang menuntut ketelitian penuh.</p>
+	 * <p>Selisih negatif (lebih bayar) tetap dicatat dan ikut mengurangi akumulasi kode yang sama,
+	 * sehingga lebih bayar pada satu komponen dapat menutupi kurang bayar pada komponen lain
+	 * selama kode item biayanya sama.</p>
+	 *
+	 * <h4>Biaya dan efek samping</h4>
+	 * <p>Method ini memanggil {@link #ambilKegiatans(Integer)},
+	 * {@link #ambilCicilan(JenisKegiatan, boolean)} sekali per kegiatan,
+	 * {@code Kegiatan.ambilDetailKegiatan}, serta beberapa helper pembayaran yang masing-masing
+	 * dapat menembak basis data. Untuk mahasiswa dengan banyak jenis kegiatan pada satu semester,
+	 * jumlah kuerinya tumbuh berlipat. Karena {@link #ambilCicilan(JenisKegiatan, boolean)}
+	 * melewati {@link #ambilLokasiCicilan()} yang destruktif, pemanggilan berulang di dalam
+	 * perulangan juga menghabiskan berkas indeks setoran pada putaran pertama.</p>
+	 * <p>Session diperoleh dari {@code HibernateUtil.currentSession()} di awal dan
+	 * <b>tidak</b> ditutup oleh method ini; ia hanya diteruskan ke helper penghitung baris
+	 * bulanan.</p>
+	 *
+	 * <p>Tidak ada penangkap kesalahan di sepanjang method: relasi yang {@code null} pada
+	 * kegiatan, item biaya, maupun pengaturan bulanan akan melempar ke pemanggil.</p>
+	 *
+	 * @param semester semester yang dihitung; diteruskan apa adanya ke helper penyusun biaya
+	 * @param refresh  {@code true} untuk memaksa pembacaan ulang setoran dan rincian tagihan dari
+	 *                 basis data
+	 * @return peta kode item biaya ke sisa tagihan; hanya memuat kode yang selisih bulatnya bukan
+	 *         nol. Kosong bila seluruh tagihan semester itu sudah lunas atau bila objek ini bukan
+	 *         mahasiswa maupun calon mahasiswa
+	 */
 	@SuppressWarnings("unchecked")
 	public Map<String, Double> ambilKodeTagihan(Integer semester, boolean refresh) {
 		Session session = HibernateUtil.currentSession();
@@ -2043,6 +2109,49 @@ public abstract class VOMahasiswa extends VoKunci {
 		return tagihans;
 	}
 
+	/**
+	 * Mengumpulkan {@link JenisKegiatan} apa saja yang pernah menerima setoran pembayaran dari
+	 * orang ini, disaring menurut semester dan daftar kode item biaya.
+	 *
+	 * <p>Dipakai jalur pembayaran untuk menentukan tagihan mana yang relevan dengan setoran yang
+	 * sedang diproses. Hasilnya bebas duplikat karena dikumpulkan melalui peta berkunci id jenis
+	 * kegiatan.</p>
+	 *
+	 * <h4>Bentuk parameter {@code kodeItemBiaya}</h4>
+	 * <p>Berupa daftar kode yang dipisahkan titik koma, misalnya {@code "SPP;DPP;PRAKTIKUM"}.
+	 * Setiap potongan dipangkas spasinya dan dijadikan huruf kecil; potongan kosong diabaikan.
+	 * Pembandingan dengan kode item biaya pada setoran juga dilakukan dalam huruf kecil, sehingga
+	 * pencocokannya tidak peka huruf besar/kecil.</p>
+	 *
+	 * <h4>Penjaga {@code null} yang tidak berfungsi</h4>
+	 * <p>Baris penyiapan daftar kode ditulis sebagai
+	 * {@code kodeItemBiaya == null ? null : new ArrayList<String>()}, seolah-olah nilai
+	 * {@code null} ditangani; namun baris <b>berikutnya</b> langsung memanggil
+	 * {@code kodeItemBiaya.split(";")} tanpa pemeriksaan. Akibatnya memanggil method ini dengan
+	 * {@code kodeItemBiaya} bernilai {@code null} melempar {@link NullPointerException} sebelum
+	 * penjaga itu sempat berarti apa pun, dan pemeriksaan {@code kodes == null} di dalam
+	 * perulangan menjadi kode mati yang tidak pernah benar. Kedua pemanggil yang ada saat ini
+	 * (jalur pembayaran di {@code CommonPaymentHelper}) selalu memberikan nilai, sehingga
+	 * kelemahan ini belum pernah muncul; pemanggil baru harus memastikan sendiri argumennya tidak
+	 * {@code null}.</p>
+	 *
+	 * <h4>Syarat pencocokan</h4>
+	 * <p>Sebuah setoran ikut menyumbang jenis kegiatan bila ketiganya terpenuhi: nilainya bukan
+	 * nol (diuji dengan ambang 0,1 sehingga setoran sangat kecil diabaikan, dan nilai negatif
+	 * hasil pembalikan pembayaran tetap dihitung), kegiatannya ada, dan semesternya cocok
+	 * ({@code semester} bernilai {@code null} berarti seluruh semester). Kode item biayanya harus
+	 * termasuk daftar.</p>
+	 *
+	 * <p><b>Tidak null-safe pada relasi.</b> Perulangan tidak dibungkus penangkap kesalahan,
+	 * sehingga setoran yang item biayanya {@code null}, yang semester kegiatannya {@code null},
+	 * atau yang jenis kegiatannya {@code null} akan melempar ke pemanggil. Daftar sumbernya
+	 * diambil lewat {@link #ambilCicilan()} tanpa {@code refresh}.</p>
+	 *
+	 * @param semester      semester penyaring; {@code null} berarti seluruh semester
+	 * @param kodeItemBiaya daftar kode item biaya dipisahkan titik koma; <b>tidak boleh</b>
+	 *                      {@code null} meskipun tanda tangan method seolah mengizinkannya
+	 * @return jenis kegiatan yang pernah menerima setoran sesuai kriteria; kosong bila tidak ada
+	 */
 	public Collection<JenisKegiatan> ambilJenisKegiatans(Integer semester, String kodeItemBiaya) {
 		Map<Long, JenisKegiatan> jenisKegiatans = new HashMap<Long, JenisKegiatan>();
 		List<String> kodes = kodeItemBiaya == null ? null : new ArrayList<String>();

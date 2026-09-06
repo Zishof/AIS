@@ -1764,6 +1764,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return tgl;
 	}
 
+	/**
+	 * Menyetel komponen hari-dalam-bulan yang diduplikasi dari {@link #getTanggal()}.
+	 *
+	 * <p>
+	 * Kolom ini dan tiga saudaranya ({@link #setBulan(Integer)}, {@link #setTahun(Integer)},
+	 * {@link #setMinggu(Integer)}) sengaja menyimpan data yang secara logika berlebihan demi
+	 * kecepatan pengelompokan laporan. Karena tidak ada mekanisme yang menyelaraskannya secara
+	 * otomatis dengan tanggal, menyetel nilai yang tidak konsisten akan membuat baris muncul pada
+	 * rekap periode yang salah.
+	 * </p>
+	 *
+	 * @param tgl hari dalam bulan (1-31)
+	 */
 	public void setTgl(Integer tgl) {
 		this.tgl = tgl;
 	}
@@ -1777,6 +1790,18 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return bulan;
 	}
 
+	/**
+	 * Menyetel komponen bulan yang diduplikasi dari {@link #getTanggal()}.
+	 *
+	 * <p>
+	 * Perhatikan konvensi penomorannya: {@link #getBulan()} menghasilkan angka <b>1 sampai 12</b>
+	 * (hasil {@code Calendar.MONTH} yang sudah ditambah satu), bukan 0 sampai 11 seperti bawaan
+	 * {@link java.util.Calendar}. Menyetel nilai berbasis nol akan menggeser seluruh rekap bulanan
+	 * satu bulan ke belakang.
+	 * </p>
+	 *
+	 * @param bulan bulan dalam setahun (1-12)
+	 */
 	public void setBulan(Integer bulan) {
 		this.bulan = bulan;
 	}
@@ -1790,6 +1815,11 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return tahun;
 	}
 
+	/**
+	 * Menyetel komponen tahun yang diduplikasi dari {@link #getTanggal()}.
+	 *
+	 * @param tahun tahun empat digit
+	 */
 	public void setTahun(Integer tahun) {
 		this.tahun = tahun;
 	}
@@ -1803,6 +1833,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return minggu;
 	}
 
+	/**
+	 * Menyetel komponen hari-dalam-minggu yang diduplikasi dari {@link #getTanggal()}.
+	 *
+	 * <p>
+	 * Meski namanya "minggu", nilai ini <b>bukan nomor minggu dalam setahun</b> melainkan nomor
+	 * hari dalam sepekan hasil {@code Calendar.DAY_OF_WEEK} — yaitu 1 untuk Minggu sampai 7 untuk
+	 * Sabtu. Penamaan yang menyesatkan ini mudah membuat laporan "rekap per minggu" ditulis salah.
+	 * </p>
+	 *
+	 * @param minggu nomor hari dalam sepekan (1 = Minggu, 7 = Sabtu)
+	 */
 	public void setMinggu(Integer minggu) {
 		this.minggu = minggu;
 	}
@@ -1821,16 +1862,45 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return lamburMulai;
 	}
 
+	/**
+	 * Menyetel waktu mulai lembur.
+	 *
+	 * <p>
+	 * Nilai ini dapat <b>digeser maju</b> oleh {@link #getLamburMulai()} bila jadwal shift
+	 * menetapkan awal lembur yang lebih lambat. Selain itu {@link #getJumlahLemburMasuk()} juga
+	 * menulis ulang field ini sebagai efek samping perhitungannya.
+	 * </p>
+	 *
+	 * @param lamburMulai waktu mulai lembur; boleh {@code null}
+	 */
 	public void setLamburMulai(Date lamburMulai) {
 		this.lamburMulai = lamburMulai;
 	}
 
 	@Temporal(TemporalType.TIME)
 	@Column(name = "lambur_sampai")
+	/**
+	 * Mengembalikan waktu selesai lembur apa adanya.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #getLamburMulai()} yang menyesuaikan diri dengan jadwal shift, getter ini
+	 * murni membaca kolom. Namun perlu diingat bahwa nilainya kerap <b>ditulis ulang sebagai efek
+	 * samping</b> oleh {@link #getJumlahLemburMasuk()}, sehingga isi kolom mencerminkan hasil
+	 * perhitungan lembur terakhir, bukan masukan yang berdiri sendiri.
+	 * </p>
+	 *
+	 * @return waktu selesai lembur; boleh {@code null}
+	 */
 	public Date getLamburSampai() {
 		return lamburSampai;
 	}
 
+	/**
+	 * Menyetel waktu selesai lembur. Lihat catatan penulisan ulang otomatis pada
+	 * {@link #getLamburSampai()}.
+	 *
+	 * @param lamburSampai waktu selesai lembur; boleh {@code null}
+	 */
 	public void setLamburSampai(Date lamburSampai) {
 		this.lamburSampai = lamburSampai;
 	}
@@ -1916,6 +1986,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 //		return jumlahJamMasuk;
 //	}
 
+	/**
+	 * Menyetel akumulasi jam kerja.
+	 *
+	 * <p>
+	 * Nilai yang disetel di sini akan <b>ditimpa</b> pada pemanggilan {@link #getJumlahJamMasuk()}
+	 * berikutnya, karena getter tersebut menghitung ulang dari jam masuk dan jam pulang. Setter ini
+	 * karena itu hanya berguna bagi Hibernate saat memuat baris dari basis data.
+	 * </p>
+	 *
+	 * @param jumlahJamMasuk jumlah jam kerja dalam bentuk desimal
+	 */
 	public void setJumlahJamMasuk(Double jumlahJamMasuk) {
 		this.jumlahJamMasuk = jumlahJamMasuk;
 	}
@@ -2075,6 +2156,16 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jumlahLemburMasuk;
 	}
 
+	/**
+	 * Menyetel akumulasi jam lembur.
+	 *
+	 * <p>
+	 * Seperti {@link #setJumlahJamMasuk(Double)}, nilai ini akan dihitung ulang dan ditimpa oleh
+	 * {@link #getJumlahLemburMasuk()}.
+	 * </p>
+	 *
+	 * @param jumlahLemburMasuk jumlah jam lembur dalam bentuk desimal
+	 */
 	public void setJumlahLemburMasuk(Double jumlahLemburMasuk) {
 		this.jumlahLemburMasuk = jumlahLemburMasuk;
 	}
@@ -2162,6 +2253,15 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 //		return jumlahCepatKeluar;
 //	}
 
+	/**
+	 * Menyetel akumulasi durasi pulang lebih cepat dari jadwal.
+	 *
+	 * <p>
+	 * Akan dihitung ulang dan ditimpa oleh {@link #getJumlahCepatKeluar()}.
+	 * </p>
+	 *
+	 * @param jumlahCepatKeluar durasi pulang cepat dalam bentuk desimal jam
+	 */
 	public void setJumlahCepatKeluar(Double jumlahCepatKeluar) {
 		this.jumlahCepatKeluar = jumlahCepatKeluar;
 	}
@@ -2208,6 +2308,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 //		return jumlahTerlambat;
 //	}
 
+	/**
+	 * Menyetel akumulasi keterlambatan datang.
+	 *
+	 * <p>
+	 * Akan dihitung ulang dan ditimpa oleh {@link #getJumlahTerlambat()}. Karena besaran inilah
+	 * yang lazim menjadi dasar potongan tunjangan kehadiran, jangan mengandalkan nilai yang disetel
+	 * manual di sini untuk keperluan penggajian.
+	 * </p>
+	 *
+	 * @param jumlahTerlambat durasi keterlambatan dalam bentuk desimal jam
+	 */
 	public void setJumlahTerlambat(Double jumlahTerlambat) {
 		this.jumlahTerlambat = jumlahTerlambat;
 	}
@@ -2220,6 +2331,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return liburNasional;
 	}
 
+	/**
+	 * Menyetel libur nasional yang berlaku pada tanggal kehadiran ini.
+	 *
+	 * <p>
+	 * Nilai ini <b>tidak akan bertahan</b>: {@link #getLiburNasional()} selalu mencari ulang libur
+	 * nasional dari master berdasarkan {@link #getTanggal()} pada setiap pemanggilan dan menimpa
+	 * field ini dengan hasilnya.
+	 * </p>
+	 *
+	 * @param liburNasional libur nasional; boleh {@code null}
+	 */
 	public void setLiburNasional(LiburNasional liburNasional) {
 		this.liburNasional = liburNasional;
 	}
@@ -2265,10 +2387,48 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	}
 
 	@Transient
+	/**
+	 * Mengembalikan pengajuan cuti/izin yang menaungi hari ini.
+	 *
+	 * <h4>Properti ini TIDAK disimpan ke basis data</h4>
+	 * <p>
+	 * Perhatikan anotasi {@link java.beans.Transient} pada getter ini: relasi cuti <b>bukan kolom
+	 * tabel</b>, melainkan field sementara yang harus <i>disuntikkan</i> oleh kode pemanggil sebelum
+	 * entitas dipakai. Ini keputusan desain yang berkonsekuensi besar dan mudah terlewat:
+	 * </p>
+	 * <ul>
+	 * <li>Baris kehadiran yang baru dimuat dari basis data <b>selalu</b> memiliki cuti bernilai
+	 * {@code null}, tidak peduli ada tidaknya pengajuan cuti untuk hari itu.</li>
+	 *
+	 * <li>Karena {@link #getStatusabsensi()} dan {@link #getKeterangan()} memberi cuti yang
+	 * disetujui prioritas tertinggi, <b>lupa menyuntikkan cuti berarti orang yang sedang cuti
+	 * tercatat alpa</b>. Inilah sumber kesalahan paling khas pada laporan kehadiran yang ditulis
+	 * baru.</li>
+	 *
+	 * <li>Alasan desainnya adalah kinerja: pemanggil dapat mengambil seluruh cuti sebulan dalam
+	 * satu query lalu menyuntikkannya per baris, alih-alih memicu pemuatan malas ribuan kali. Pola
+	 * yang sama terlihat pada parameter {@code cutiDanIzin} milik
+	 * {@link #status(boolean, java.util.HashMap, StatuskehadiranKaryawanHarian, ais.database.model.payroll.CutiDanIzin)}.</li>
+	 * </ul>
+	 *
+	 * @return pengajuan cuti/izin yang disuntikkan pemanggil, atau {@code null} bila tidak ada atau
+	 *         belum disuntikkan
+	 */
 	public CutiDanIzin getCutiDanIzin() {
 		return cutiDanIzin;
 	}
 
+	/**
+	 * Menyuntikkan pengajuan cuti/izin yang berlaku untuk hari ini.
+	 *
+	 * <p>
+	 * Wajib dipanggil sebelum membaca {@link #getStatusabsensi()} atau {@link #getKeterangan()}
+	 * bila hasilnya harus memperhitungkan cuti — properti ini tidak persisten dan tidak pernah
+	 * terisi sendiri. Lihat {@link #getCutiDanIzin()}.
+	 * </p>
+	 *
+	 * @param cutiDanIzin pengajuan cuti/izin; boleh {@code null}
+	 */
 	public void setCutiDanIzin(CutiDanIzin cutiDanIzin) {
 		this.cutiDanIzin = cutiDanIzin;
 	}
@@ -2280,6 +2440,11 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return liburRutin;
 	}
 
+	/**
+	 * Menyetel libur rutin (mis. akhir pekan) yang berlaku pada tanggal ini.
+	 *
+	 * @param liburRutin libur rutin; boleh {@code null}
+	 */
 	public void setLiburRutin(LiburRutin liburRutin) {
 		this.liburRutin = liburRutin;
 	}
@@ -2290,6 +2455,16 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return waktuJamMasuk;
 	}
 
+	/**
+	 * Menyetel bentuk {@link Date} dari akumulasi jam kerja.
+	 *
+	 * <p>
+	 * Akan ditimpa oleh {@link #getWaktuJamMasuk()} yang selalu mengonversi ulang dari
+	 * {@link #getJumlahJamMasuk()}.
+	 * </p>
+	 *
+	 * @param waktuJamMasuk bentuk waktu dari jumlah jam kerja
+	 */
 	public void setWaktuJamMasuk(Date waktuJamMasuk) {
 		this.waktuJamMasuk = waktuJamMasuk;
 	}
@@ -2300,6 +2475,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return waktuTerlambat;
 	}
 
+	/**
+	 * Menyetel bentuk {@link Date} dari akumulasi keterlambatan. Akan ditimpa oleh
+	 * {@link #getWaktuTerlambat()}.
+	 *
+	 * @param waktuTerlambat bentuk waktu dari jumlah keterlambatan
+	 */
 	public void setWaktuTerlambat(Date waktuTerlambat) {
 		this.waktuTerlambat = waktuTerlambat;
 	}
@@ -2310,6 +2491,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return waktuLemburMasuk;
 	}
 
+	/**
+	 * Menyetel bentuk {@link Date} dari akumulasi jam lembur. Akan ditimpa oleh
+	 * {@link #getWaktuLemburMasuk()}.
+	 *
+	 * @param waktuLemburMasuk bentuk waktu dari jumlah lembur
+	 */
 	public void setWaktuLemburMasuk(Date waktuLemburMasuk) {
 		this.waktuLemburMasuk = waktuLemburMasuk;
 	}
@@ -2320,6 +2507,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return waktuCepatKeluar;
 	}
 
+	/**
+	 * Menyetel bentuk {@link Date} dari akumulasi pulang cepat. Akan ditimpa oleh
+	 * {@link #getWaktuCepatKeluar()}.
+	 *
+	 * @param waktuCepatKeluar bentuk waktu dari jumlah pulang cepat
+	 */
 	public void setWaktuCepatKeluar(Date waktuCepatKeluar) {
 		this.waktuCepatKeluar = waktuCepatKeluar;
 	}
@@ -2361,6 +2554,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return secondJamMasuk;
 	}
 
+	/**
+	 * Menyetel bentuk detik bulat dari akumulasi jam kerja. Akan ditimpa oleh
+	 * {@link #getSecondJamMasuk()} yang menghitungnya ulang.
+	 *
+	 * @param secondJamMasuk jumlah jam kerja dalam detik
+	 */
 	public void setSecondJamMasuk(Integer secondJamMasuk) {
 		this.secondJamMasuk = secondJamMasuk;
 	}
@@ -2407,6 +2606,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return secondTerlambat;
 	}
 
+	/**
+	 * Menyetel bentuk detik bulat dari akumulasi keterlambatan. Akan ditimpa oleh
+	 * {@link #getSecondTerlambat()}.
+	 *
+	 * @param secondTerlambat jumlah keterlambatan dalam detik
+	 */
 	public void setSecondTerlambat(Integer secondTerlambat) {
 		this.secondTerlambat = secondTerlambat;
 	}
@@ -2424,6 +2629,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return secondLemburMasuk;
 	}
 
+	/**
+	 * Menyetel bentuk detik bulat dari akumulasi lembur. Akan ditimpa oleh
+	 * {@link #getSecondLemburMasuk()}.
+	 *
+	 * @param secondLemburMasuk jumlah lembur dalam detik
+	 */
 	public void setSecondLemburMasuk(Integer secondLemburMasuk) {
 		this.secondLemburMasuk = secondLemburMasuk;
 	}
@@ -2441,6 +2652,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return secondCepatKeluar;
 	}
 
+	/**
+	 * Menyetel bentuk detik bulat dari akumulasi pulang cepat. Akan ditimpa oleh
+	 * {@link #getSecondCepatKeluar()}.
+	 *
+	 * @param secondCepatKeluar jumlah pulang cepat dalam detik
+	 */
 	public void setSecondCepatKeluar(Integer secondCepatKeluar) {
 		this.secondCepatKeluar = secondCepatKeluar;
 	}
@@ -2456,42 +2673,106 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return dosen;
 	}
 
+	/**
+	 * Menyetel subjek kehadiran sebagai dosen.
+	 *
+	 * <p>
+	 * Ingat bahwa {@link #getPegawai()} dapat menurunkan pegawai dari relasi ini, sehingga menyetel
+	 * dosen secara tidak langsung juga menentukan pegawainya.
+	 * </p>
+	 *
+	 * @param dosen subjek kehadiran; boleh {@code null}
+	 */
 	public void setDosen(Dosen dosen) {
 		this.dosen = dosen;
 	}
 
 	@Column(columnDefinition = "text")
+	/**
+	 * Mengembalikan rujukan berkas foto bukti absen kedatangan.
+	 *
+	 * <p>
+	 * Isinya berupa rujukan berkas, bukan gambarnya sendiri. Bandingkan dengan {@link #getIdFile()}
+	 * yang menyimpan id berkas pada penyimpanan terpusat — keduanya hidup berdampingan tanpa aturan
+	 * yang menetapkan mana yang berwenang, jadi periksa keduanya saat menampilkan bukti foto.
+	 * </p>
+	 *
+	 * @return rujukan berkas foto kedatangan; boleh {@code null}
+	 */
 	public String getFotoAbsenDatang() {
 		return fotoAbsenDatang == null ? "" : fotoAbsenDatang.trim();
 	}
 
+	/**
+	 * Menyetel rujukan berkas foto bukti absen kedatangan.
+	 *
+	 * @param fotoAbsenDatang rujukan berkas; boleh {@code null}
+	 */
 	public void setFotoAbsenDatang(String fotoAbsenDatang) {
 		this.fotoAbsenDatang = fotoAbsenDatang;
 	}
 
 	@Column(columnDefinition = "text")
+	/**
+	 * Mengembalikan rujukan berkas foto bukti absen kepulangan. Lihat catatan pada
+	 * {@link #getFotoAbsenDatang()}.
+	 *
+	 * @return rujukan berkas foto kepulangan; boleh {@code null}
+	 */
 	public String getFotoAbsenPulang() {
 		return fotoAbsenPulang == null ? "" : fotoAbsenPulang.trim();
 	}
 
+	/**
+	 * Menyetel rujukan berkas foto bukti absen kepulangan.
+	 *
+	 * @param fotoAbsenPulang rujukan berkas; boleh {@code null}
+	 */
 	public void setFotoAbsenPulang(String fotoAbsenPulang) {
 		this.fotoAbsenPulang = fotoAbsenPulang;
 	}
 
 	@Column(columnDefinition = "text")
+	/**
+	 * Mengembalikan keterangan lokasi saat absen kedatangan.
+	 *
+	 * <p>
+	 * Bentuknya teks bebas — pada sebagian alur berisi pasangan koordinat, pada alur lain berisi
+	 * nama tempat hasil pembacaan balik alamat. Karena tidak ada format baku, jangan mem-<i>parse</i>
+	 * nilai ini; untuk koordinat yang terstruktur gunakan {@link #getLat()} dan {@link #getLng()}.
+	 * </p>
+	 *
+	 * @return keterangan lokasi kedatangan; boleh {@code null}
+	 */
 	public String getLokasiAbsenDatang() {
 		return lokasiAbsenDatang == null ? "" : lokasiAbsenDatang.trim();
 	}
 
+	/**
+	 * Menyetel keterangan lokasi saat absen kedatangan.
+	 *
+	 * @param lokasiAbsenDatang keterangan lokasi; boleh {@code null}
+	 */
 	public void setLokasiAbsenDatang(String lokasiAbsenDatang) {
 		this.lokasiAbsenDatang = lokasiAbsenDatang;
 	}
 
 	@Column(columnDefinition = "text")
+	/**
+	 * Mengembalikan keterangan lokasi saat absen kepulangan. Lihat catatan format bebas pada
+	 * {@link #getLokasiAbsenDatang()}.
+	 *
+	 * @return keterangan lokasi kepulangan; boleh {@code null}
+	 */
 	public String getLokasiAbsenPulang() {
 		return lokasiAbsenPulang == null ? "" : lokasiAbsenPulang.trim();
 	}
 
+	/**
+	 * Menyetel keterangan lokasi saat absen kepulangan.
+	 *
+	 * @param lokasiAbsenPulang keterangan lokasi; boleh {@code null}
+	 */
 	public void setLokasiAbsenPulang(String lokasiAbsenPulang) {
 		this.lokasiAbsenPulang = lokasiAbsenPulang;
 	}
@@ -2526,6 +2807,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jumlahMenitAbsenFotoSaatHadir;
 	}
 
+	/**
+	 * Menyetel selisih menit antara waktu absen dan waktu foto bukti pada sisi kedatangan. Akan
+	 * dihitung ulang dan ditimpa oleh {@link #getJumlahMenitAbsenFotoSaatHadir()}.
+	 *
+	 * @param jumlahMenitAbsenFotoSaatHadir selisih dalam menit
+	 */
 	public void setJumlahMenitAbsenFotoSaatHadir(Double jumlahMenitAbsenFotoSaatHadir) {
 		this.jumlahMenitAbsenFotoSaatHadir = jumlahMenitAbsenFotoSaatHadir;
 	}
@@ -2560,6 +2847,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jumlahMenitAbsenFotoSaatPulang;
 	}
 
+	/**
+	 * Menyetel selisih menit antara waktu absen dan waktu foto bukti pada sisi kepulangan. Akan
+	 * dihitung ulang dan ditimpa oleh {@link #getJumlahMenitAbsenFotoSaatPulang()}.
+	 *
+	 * @param jumlahMenitAbsenFotoSaatPulang selisih dalam menit
+	 */
 	public void setJumlahMenitAbsenFotoSaatPulang(Double jumlahMenitAbsenFotoSaatPulang) {
 		this.jumlahMenitAbsenFotoSaatPulang = jumlahMenitAbsenFotoSaatPulang;
 	}
@@ -2614,6 +2907,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jumlahMasukSebelumWaktunya;
 	}
 
+	/**
+	 * Menyetel durasi masuk sebelum shift dimulai. Akan dihitung ulang dan ditimpa oleh
+	 * {@link #getJumlahMasukSebelumWaktunya()}.
+	 *
+	 * @param jumlahMasukSebelumWaktunya durasi dalam bentuk desimal jam
+	 */
 	public void setJumlahMasukSebelumWaktunya(Double jumlahMasukSebelumWaktunya) {
 		this.jumlahMasukSebelumWaktunya = jumlahMasukSebelumWaktunya;
 	}
@@ -2667,6 +2966,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jumlahPulangSetelahWaktunya;
 	}
 
+	/**
+	 * Menyetel durasi pulang setelah shift berakhir. Akan dihitung ulang dan ditimpa oleh
+	 * {@link #getJumlahPulangSetelahWaktunya()}.
+	 *
+	 * @param jumlahPulangSetelahWaktunya durasi dalam bentuk desimal jam
+	 */
 	public void setJumlahPulangSetelahWaktunya(Double jumlahPulangSetelahWaktunya) {
 		this.jumlahPulangSetelahWaktunya = jumlahPulangSetelahWaktunya;
 	}
@@ -2686,6 +2991,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return datangCepat == null ? false : datangCepat;
 	}
 
+	/**
+	 * Menyetel klasifikasi "datang lebih cepat dari jadwal". Akan disimpulkan ulang dan ditimpa
+	 * oleh {@link #getDatangCepat()}.
+	 *
+	 * @param datangCepat klasifikasi kedatangan cepat
+	 */
 	public void setDatangCepat(Boolean datangCepat) {
 		this.datangCepat = datangCepat;
 	}
@@ -2705,6 +3016,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return datangTerlambat == null ? false : datangTerlambat;
 	}
 
+	/**
+	 * Menyetel klasifikasi "datang terlambat". Akan disimpulkan ulang dan ditimpa oleh
+	 * {@link #getDatangTerlambat()}.
+	 *
+	 * @param datangTerlambat klasifikasi keterlambatan
+	 */
 	public void setDatangTerlambat(Boolean datangTerlambat) {
 		this.datangTerlambat = datangTerlambat;
 	}
@@ -2724,6 +3041,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return pulangCepat == null ? false : pulangCepat;
 	}
 
+	/**
+	 * Menyetel klasifikasi "pulang lebih cepat dari jadwal". Akan disimpulkan ulang dan ditimpa
+	 * oleh {@link #getPulangCepat()}.
+	 *
+	 * @param pulangCepat klasifikasi kepulangan cepat
+	 */
 	public void setPulangCepat(Boolean pulangCepat) {
 		this.pulangCepat = pulangCepat;
 	}
@@ -2743,22 +3066,60 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return pulangTerlambat == null ? false : pulangTerlambat;
 	}
 
+	/**
+	 * Menyetel klasifikasi "pulang lebih lambat dari jadwal". Akan disimpulkan ulang dan ditimpa
+	 * oleh {@link #getPulangTerlambat()}.
+	 *
+	 * @param pulangTerlambat klasifikasi kepulangan terlambat
+	 */
 	public void setPulangTerlambat(Boolean pulangTerlambat) {
 		this.pulangTerlambat = pulangTerlambat;
 	}
 
+	/**
+	 * Mengembalikan jarak terukur antara posisi absen dan titik acuan yang diizinkan.
+	 *
+	 * <p>
+	 * Nilai ini dihitung dan disimpan oleh alur absensi berbasis lokasi, bukan oleh entitas ini.
+	 * Bersama {@link #getJarakMaks()} ia membentuk satu-satunya kontrol lokasi yang dimiliki modul
+	 * kehadiran — dan kontrol itu dapat dimatikan seluruhnya lewat {@link #getAbaikanJarak()}.
+	 * </p>
+	 *
+	 * @return jarak terukur; boleh {@code null} bila absensi tidak berbasis lokasi
+	 */
 	public Double getJarak() {
 		return jarak == null ? 0.0 : jarak;
 	}
 
+	/**
+	 * Menyetel jarak terukur posisi absen dari titik acuan.
+	 *
+	 * @param jarak jarak terukur; boleh {@code null}
+	 */
 	public void setJarak(Double jarak) {
 		this.jarak = jarak;
 	}
 
+	/**
+	 * Mengembalikan ambang jarak maksimum yang diizinkan untuk absen.
+	 *
+	 * <p>
+	 * Ambang ini disalin ke baris kehadiran saat absensi terjadi, bukan dibaca dari master pada
+	 * saat pembacaan — sehingga nilai historis tetap mencerminkan aturan yang berlaku pada hari itu
+	 * meski master kemudian diubah. Untuk sebuah kolom pengawasan, sifat ini justru diinginkan.
+	 * </p>
+	 *
+	 * @return ambang jarak maksimum; boleh {@code null}
+	 */
 	public Double getJarakMaks() {
 		return jarakMaks == null ? 0.0 : jarakMaks;
 	}
 
+	/**
+	 * Menyetel ambang jarak maksimum yang diizinkan untuk absen.
+	 *
+	 * @param jarakMaks ambang jarak; boleh {@code null}
+	 */
 	public void setJarakMaks(Double jarakMaks) {
 		this.jarakMaks = jarakMaks;
 	}
@@ -2804,6 +3165,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jumlahCepat;
 	}
 
+	/**
+	 * Menyetel durasi kedatangan lebih awal. Akan dihitung ulang dan ditimpa oleh
+	 * {@link #getJumlahCepat()}.
+	 *
+	 * @param jumlahCepat durasi dalam bentuk desimal jam
+	 */
 	public void setJumlahCepat(Double jumlahCepat) {
 		this.jumlahCepat = jumlahCepat;
 	}
@@ -2819,46 +3186,124 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return guru;
 	}
 
+	/**
+	 * Menyetel subjek kehadiran sebagai guru.
+	 *
+	 * <p>
+	 * Seperti {@link #setDosen(Dosen)}, relasi ini juga dapat menjadi sumber penurunan otomatis
+	 * bagi {@link #getPegawai()}.
+	 * </p>
+	 *
+	 * @param guru subjek kehadiran; boleh {@code null}
+	 */
 	public void setGuru(Guru guru) {
 		this.guru = guru;
 	}
 
+	/**
+	 * Mengembalikan penanda umum "sudah diproses".
+	 *
+	 * <p>
+	 * Nama dan tipe kolom ini tidak menyatakan apa pun tentang <i>proses mana</i> yang dimaksud;
+	 * maknanya ditentukan oleh alur yang memakainya. Perlakukan sebagai penanda kerja internal,
+	 * jangan dijadikan dasar keputusan bisnis tanpa menelusuri lebih dulu siapa yang menyalakannya.
+	 * </p>
+	 *
+	 * @return penanda pemrosesan; boleh {@code null}
+	 */
 	public Boolean getUdah() {
 		return udah == null ? true : udah;
 	}
 
+	/**
+	 * Menyetel penanda umum "sudah diproses". Lihat catatan makna pada {@link #getUdah()}.
+	 *
+	 * @param udah penanda pemrosesan; boleh {@code null}
+	 */
 	public void setUdah(Boolean udah) {
 		this.udah = udah;
 	}
 
+	/**
+	 * Mengembalikan bujur (longitude) posisi absen.
+	 *
+	 * @return bujur posisi absen; boleh {@code null}
+	 */
 	public Double getLng() {
 		return lng;
 	}
 
+	/**
+	 * Menyetel bujur (longitude) posisi absen.
+	 *
+	 * @param lng bujur posisi absen; boleh {@code null}
+	 */
 	public void setLng(Double lng) {
 		this.lng = lng;
 	}
 
+	/**
+	 * Mengembalikan lintang (latitude) posisi absen.
+	 *
+	 * <p>
+	 * Bersama {@link #getLng()}, pasangan koordinat inilah bentuk lokasi yang terstruktur — lebih
+	 * andal daripada {@link #getLokasiAbsenDatang()} yang berformat bebas.
+	 * </p>
+	 *
+	 * @return lintang posisi absen; boleh {@code null}
+	 */
 	public Double getLat() {
 		return lat;
 	}
 
+	/**
+	 * Menyetel lintang (latitude) posisi absen.
+	 *
+	 * @param lat lintang posisi absen; boleh {@code null}
+	 */
 	public void setLat(Double lat) {
 		this.lat = lat;
 	}
 
+	/**
+	 * Mengembalikan id berkas foto bukti absen kedatangan pada penyimpanan berkas terpusat.
+	 *
+	 * <p>
+	 * Hidup berdampingan dengan {@link #getFotoAbsenDatang()} yang menyimpan rujukan berkas dalam
+	 * bentuk teks. Tidak ada aturan di entitas ini yang menetapkan mana yang berwenang bila keduanya
+	 * terisi dan saling bertentangan.
+	 * </p>
+	 *
+	 * @return id berkas foto kedatangan; boleh {@code null}
+	 */
 	public Long getIdFile() {
 		return idFile;
 	}
 
+	/**
+	 * Menyetel id berkas foto bukti absen kedatangan.
+	 *
+	 * @param idFile id berkas; boleh {@code null}
+	 */
 	public void setIdFile(Long idFile) {
 		this.idFile = idFile;
 	}
 
+	/**
+	 * Mengembalikan id berkas foto bukti absen kepulangan. Lihat catatan pada
+	 * {@link #getIdFile()}.
+	 *
+	 * @return id berkas foto kepulangan; boleh {@code null}
+	 */
 	public Long getIdFilePulang() {
 		return idFilePulang;
 	}
 
+	/**
+	 * Menyetel id berkas foto bukti absen kepulangan.
+	 *
+	 * @param idFilePulang id berkas; boleh {@code null}
+	 */
 	public void setIdFilePulang(Long idFilePulang) {
 		this.idFilePulang = idFilePulang;
 	}
@@ -2870,6 +3315,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return siswa;
 	}
 
+	/**
+	 * Menyetel subjek kehadiran sebagai siswa.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #setDosen(Dosen)} dan {@link #setGuru(Guru)}, relasi ini <b>tidak</b>
+	 * dijangkau oleh penurunan otomatis {@link #getPegawai()} — memang seharusnya begitu, karena
+	 * siswa bukan pegawai.
+	 * </p>
+	 *
+	 * @param siswa subjek kehadiran; boleh {@code null}
+	 */
 	public void setSiswa(Siswa siswa) {
 		this.siswa = siswa;
 	}
@@ -2881,6 +3337,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return mahasiswa;
 	}
 
+	/**
+	 * Menyetel subjek kehadiran sebagai mahasiswa. Seperti {@link #setSiswa(Siswa)}, relasi ini
+	 * tidak dijangkau penurunan otomatis {@link #getPegawai()}.
+	 *
+	 * @param mahasiswa subjek kehadiran; boleh {@code null}
+	 */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 	}
@@ -2910,6 +3372,18 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return satuanKerja;
 	}
 
+	/**
+	 * Menyetel satuan kerja/unit pemilik baris kehadiran.
+	 *
+	 * <p>
+	 * Kolom ini adalah satu-satunya sarana pembatasan cakupan data antar unit yang dimiliki entitas
+	 * ini, sehingga mengisinya dengan benar bukan sekadar kerapian data melainkan bagian dari
+	 * kontrol akses. Perhatikan bahwa {@link #getSatuanKerja()} akan menurunkannya sendiri dari
+	 * subjek kehadiran bila kolom masih kosong.
+	 * </p>
+	 *
+	 * @param satuanKerja satuan kerja pemilik; boleh {@code null}
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
@@ -3621,6 +4095,24 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return logAbsensi == null ? "" : logAbsensi;
 	}
 
+	/**
+	 * Menyetel keseluruhan log tembakan mesin absensi hari ini.
+	 *
+	 * <p>
+	 * Formatnya adalah rangkaian waktu yang dipisah titik koma, dan <b>format itu adalah kontrak</b>:
+	 * {@link #getMasukjam()} dan {@link #getPulangJam()} mem-<i>parse</i>-nya untuk mencari tembakan
+	 * paling awal dan paling akhir. Menulis nilai berformat lain tidak menimbulkan galat, hanya
+	 * membuat kedua getter itu diam-diam berhenti menemukan apa pun. Entri yang diawali {@code "700"}
+	 * diperlakukan sebagai penanda khusus dan selalu dilewati.
+	 * </p>
+	 *
+	 * <p>
+	 * Untuk menambah satu tembakan tanpa merusak yang lain, jangan memakai setter ini melainkan
+	 * biarkan {@link #setMasukjam(Date)}/{@link #setPulangJam(Date)} yang menambahkannya.
+	 * </p>
+	 *
+	 * @param logAbsensi seluruh log tembakan, dipisah titik koma; boleh {@code null}
+	 */
 	public void setLogAbsensi(String logAbsensi) {
 		this.logAbsensi = logAbsensi;
 	}
@@ -3633,6 +4125,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return detailJenisShiftPegawaiManual;
 	}
 
+	/**
+	 * Menyetel shift yang ditetapkan manual oleh petugas.
+	 *
+	 * <p>
+	 * Shift manual <b>mengalahkan</b> shift terjadwal pada {@link #getDetailJenisShiftPegawai()},
+	 * sehingga kolom ini secara efektif mengubah seluruh dasar perhitungan terlambat, cepat, dan
+	 * lembur untuk hari yang bersangkutan.
+	 * </p>
+	 *
+	 * @param detailJenisShiftPegawaiManual shift manual; boleh {@code null}
+	 */
 	public void setDetailJenisShiftPegawaiManual(DetailJenisShiftPegawai detailJenisShiftPegawaiManual) {
 		this.detailJenisShiftPegawaiManual = detailJenisShiftPegawaiManual;
 	}
@@ -3644,6 +4147,16 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return detailJenisShiftPegawaiLembur;
 	}
 
+	/**
+	 * Menyetel shift khusus yang dipakai sebagai dasar perhitungan lembur.
+	 *
+	 * <p>
+	 * Bila terisi, {@link #getJumlahLemburMasuk()} memakainya menggantikan shift biasa. Ini
+	 * memungkinkan aturan lembur yang berbeda dari aturan kerja normal pada hari yang sama.
+	 * </p>
+	 *
+	 * @param detailJenisShiftPegawaiLembur shift dasar lembur; boleh {@code null}
+	 */
 	public void setDetailJenisShiftPegawaiLembur(DetailJenisShiftPegawai detailJenisShiftPegawaiLembur) {
 		this.detailJenisShiftPegawaiLembur = detailJenisShiftPegawaiLembur;
 	}
@@ -3657,6 +4170,18 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return masukjamManual;
 	}
 
+	/**
+	 * Menyetel koreksi manual jam masuk.
+	 *
+	 * <p>
+	 * Ini lapisan berprioritas tertinggi setelah penanda ketidakhadiran: bila terisi,
+	 * {@link #getMasukjam()} mengembalikannya langsung dan <b>seluruh penelusuran data mesin absensi
+	 * dilewati</b>. Karena itu kolom ini adalah jalur paling ampuh untuk mengubah kehadiran
+	 * seseorang — dan jalur yang paling perlu diawasi pada audit data yang mendasari gaji.
+	 * </p>
+	 *
+	 * @param masukjamManual jam masuk hasil koreksi manual; boleh {@code null}
+	 */
 	public void setMasukjamManual(Date masukjamManual) {
 		this.masukjamManual = masukjamManual;
 	}
@@ -3670,6 +4195,12 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return pulangJamManual;
 	}
 
+	/**
+	 * Menyetel koreksi manual jam pulang. Lihat catatan prioritas dan pengawasan pada
+	 * {@link #setMasukjamManual(Date)}.
+	 *
+	 * @param pulangJamManual jam pulang hasil koreksi manual; boleh {@code null}
+	 */
 	public void setPulangJamManual(Date pulangJamManual) {
 		this.pulangJamManual = pulangJamManual;
 	}
@@ -3712,10 +4243,32 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "next", nullable = true)
+	/**
+	 * Mengembalikan baris kehadiran hari berikutnya.
+	 *
+	 * <p>
+	 * Tautan ini diperlukan oleh shift yang melewati tengah malam: bila jam mulai shift lebih besar
+	 * daripada jam selesainya, kepulangan sesungguhnya jatuh pada tanggal berikutnya, dan
+	 * {@link #ambilPulangjam()} akan mengambil jam masuk dari baris ini sebagai penggantinya.
+	 * </p>
+	 *
+	 * <p>
+	 * Tautan bersifat manual — <b>tidak</b> dipetakan sebagai relasi yang diisi Hibernate secara
+	 * otomatis, melainkan disuntikkan oleh kode yang memuat rentang hari. Baris yang dimuat
+	 * sendirian karena itu selalu memiliki {@code next} bernilai {@code null}.
+	 * </p>
+	 *
+	 * @return baris kehadiran hari berikutnya, atau {@code null} bila tidak disuntikkan
+	 */
 	public StatuskehadiranKaryawanHarian getNext() {
 		return next;
 	}
 
+	/**
+	 * Menyuntikkan baris kehadiran hari berikutnya. Lihat {@link #getNext()}.
+	 *
+	 * @param next baris kehadiran hari berikutnya; boleh {@code null}
+	 */
 	public void setNext(StatuskehadiranKaryawanHarian next) {
 		this.next = next;
 	}
@@ -3723,10 +4276,27 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "back", nullable = true)
+	/**
+	 * Mengembalikan baris kehadiran hari sebelumnya.
+	 *
+	 * <p>
+	 * Pasangan {@link #getNext()}. Dipakai {@link #ambilMasukjam()} untuk mendeteksi keadaan
+	 * khusus: bila shift kemarin melewati tengah malam dan kepulangannya belum tercatat, jam masuk
+	 * hari ini kemungkinan sebenarnya adalah kepulangan shift kemarin — sehingga jam masuk hari ini
+	 * sengaja dikosongkan agar tidak terhitung dua kali.
+	 * </p>
+	 *
+	 * @return baris kehadiran hari sebelumnya, atau {@code null} bila tidak disuntikkan
+	 */
 	public StatuskehadiranKaryawanHarian getBack() {
 		return back;
 	}
 
+	/**
+	 * Menyuntikkan baris kehadiran hari sebelumnya. Lihat {@link #getBack()}.
+	 *
+	 * @param back baris kehadiran hari sebelumnya; boleh {@code null}
+	 */
 	public void setBack(StatuskehadiranKaryawanHarian back) {
 		this.back = back;
 	}
@@ -3738,6 +4308,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return jenisShiftPunyaPegawai;
 	}
 
+	/**
+	 * Menyetel penugasan jenis shift bagi orang ini.
+	 *
+	 * <p>
+	 * Ini lapisan tertinggi dalam penentuan shift: bila penugasan ini membawa rincian shift,
+	 * {@link #getDetailJenisShiftPegawai()} memakainya dan mengabaikan shift manual maupun
+	 * pencarian otomatis.
+	 * </p>
+	 *
+	 * @param jenisShiftPunyaPegawai penugasan jenis shift; boleh {@code null}
+	 */
 	public void setJenisShiftPunyaPegawai(JenisShiftPunyaPegawai jenisShiftPunyaPegawai) {
 		this.jenisShiftPunyaPegawai = jenisShiftPunyaPegawai;
 	}
@@ -3755,6 +4336,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return masukjamState;
 	}
 
+	/**
+	 * Menyetel jam masuk hasil mesin status (tombol masuk yang ditekan pengguna).
+	 *
+	 * <p>
+	 * Untuk jenis shift yang mewajibkan mengikuti mesin status, kolom inilah <b>satu-satunya</b>
+	 * sumber jam masuk yang sah — bila kosong, orang dianggap belum absen betapapun lengkap data
+	 * mesin sidik jarinya.
+	 * </p>
+	 *
+	 * @param masukjamState jam masuk versi mesin status; boleh {@code null}
+	 */
 	public void setMasukjamState(Date masukjamState) {
 		this.masukjamState = masukjamState;
 	}
@@ -3778,22 +4370,62 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return pulangJamState;
 	}
 
+	/**
+	 * Menyetel jam pulang hasil mesin status. Pasangan {@link #setMasukjamState(Date)}.
+	 *
+	 * @param pulangJamState jam pulang versi mesin status; boleh {@code null}
+	 */
 	public void setPulangJamState(Date pulangJamState) {
 		this.pulangJamState = pulangJamState;
 	}
 
+	/**
+	 * Mengembalikan penanda "tidak ada kepulangan".
+	 *
+	 * <p>
+	 * Bila menyala, {@link #getPulangJam()} langsung mengembalikan {@code null} tanpa memandang
+	 * lapisan sumber mana pun. Getter ini murni — ia benar-benar membaca kolom, tanpa nilai bawaan
+	 * bila {@code null}, sehingga pemanggil wajib memakai pembandingan yang aman terhadap
+	 * {@code null} (pola {@code Boolean.TRUE.equals(...)} seperti yang dipakai di kelas ini).
+	 * </p>
+	 *
+	 * @return penanda tidak ada kepulangan; boleh {@code null}
+	 */
 	public Boolean getTidakAdaKepulangan() {
 		return tidakAdaKepulangan == null ? false : tidakAdaKepulangan;
 	}
 
+	/**
+	 * Menyetel penanda "tidak ada kepulangan". Menyalakannya mengosongkan jam pulang secara paksa.
+	 *
+	 * @param tidakAdaKepulangan penanda; boleh {@code null}
+	 */
 	public void setTidakAdaKepulangan(Boolean tidakAdaKepulangan) {
 		this.tidakAdaKepulangan = tidakAdaKepulangan;
 	}
 
+	/**
+	 * Mengembalikan penanda "tidak ada kedatangan".
+	 *
+	 * <p>
+	 * Bila menyala, {@link #getMasukjam()} langsung mengembalikan {@code null}. Berbeda dari
+	 * {@link #getTidakAdaKehadiran()}, penanda ini <b>tidak</b> memengaruhi
+	 * {@link #getStatusabsensi()} — jadi baris dapat berstatus hadir sekaligus tidak punya jam
+	 * masuk.
+	 * </p>
+	 *
+	 * @return penanda tidak ada kedatangan; boleh {@code null}
+	 */
 	public Boolean getTidakAdaKedatangan() {
 		return tidakAdaKedatangan == null ? false : tidakAdaKedatangan;
 	}
 
+	/**
+	 * Menyetel penanda "tidak ada kedatangan". Lihat perbedaannya dari
+	 * {@link #getTidakAdaKehadiran()} pada {@link #getTidakAdaKedatangan()}.
+	 *
+	 * @param tidakAdaKedatangan penanda; boleh {@code null}
+	 */
 	public void setTidakAdaKedatangan(Boolean tidakAdaKedatangan) {
 		this.tidakAdaKedatangan = tidakAdaKedatangan;
 	}
@@ -3805,6 +4437,19 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return dikunci;
 	}
 
+	/**
+	 * Menyetel pengguna yang mengunci baris kehadiran ini.
+	 *
+	 * <p>
+	 * Penguncian berasal dari kelas induk {@link VoKunci} dan penting karena data kehadiran menjadi
+	 * dasar perhitungan gaji: setelah satu periode gaji diproses, baris kehadiran di dalamnya
+	 * seharusnya tidak boleh bergerak lagi. Perlu dicatat bahwa <b>entitas ini sendiri tidak
+	 * menegakkan kunci tersebut</b> — tidak ada satu pun setter di kelas ini yang menolak perubahan
+	 * ketika baris terkunci. Penegakan sepenuhnya bergantung pada lapisan pemanggil.
+	 * </p>
+	 *
+	 * @param dikunci pengguna pengunci; {@code null} berarti baris tidak terkunci
+	 */
 	public void setDikunci(Tbmuser dikunci) {
 		this.dikunci = dikunci;
 	}
@@ -3825,18 +4470,61 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 				: disposisiSop;
 	}
 
+	/**
+	 * Mengembalikan bendera "abaikan validasi jarak".
+	 *
+	 * <p>
+	 * Bila menyala, absensi tetap diterima meski {@link #getJarak()} melebihi
+	 * {@link #getJarakMaks()}. Karena bendera ini meniadakan satu-satunya kontrol lokasi yang
+	 * dimiliki modul kehadiran, ia layak diperlakukan sebagai kolom istimewa: pantau siapa yang
+	 * berwenang menyalakannya, dan sertakan dalam laporan audit kehadiran.
+	 * </p>
+	 *
+	 * @return bendera pengabaian jarak; boleh {@code null}
+	 */
 	public Boolean getAbaikanJarak() {
 		return abaikanJarak == null ? false : abaikanJarak;
 	}
 
+	/**
+	 * Menyetel bendera "abaikan validasi jarak". Lihat implikasinya pada
+	 * {@link #getAbaikanJarak()}.
+	 *
+	 * @param abaikanJarak bendera pengabaian jarak; boleh {@code null}
+	 */
 	public void setAbaikanJarak(Boolean abaikanJarak) {
 		this.abaikanJarak = abaikanJarak;
 	}
 
+	/**
+	 * Mengembalikan penanda "tidak ada kehadiran" — yang terkuat di antara tiga bendera
+	 * ketidakhadiran.
+	 *
+	 * <p>
+	 * Selain memaksa {@link #getMasukjam()} mengembalikan {@code null}, penanda ini juga memaksa
+	 * {@link #getStatusabsensi()} menjadi status <i>belum absen</i>, yang pada gilirannya membuat
+	 * {@link #getPulangJam()} ikut kosong lewat penjagaan status. Dengan kata lain, menyalakan
+	 * bendera ini secara efektif menghapus seluruh kehadiran hari itu <b>tanpa menghapus data
+	 * mentahnya</b> — {@link #getLogAbsensi()} tetap utuh, sehingga jejak sesungguhnya masih dapat
+	 * ditelusuri saat audit.
+	 * </p>
+	 *
+	 * @return penanda tidak ada kehadiran; boleh {@code null}
+	 */
 	public Boolean getTidakAdaKehadiran() {
 		return tidakAdaKehadiran == null ? false : tidakAdaKehadiran;
 	}
 
+	/**
+	 * Menyetel penanda "tidak ada kehadiran".
+	 *
+	 * <p>
+	 * Ini bendera dengan dampak terluas di seluruh entitas — baca {@link #getTidakAdaKehadiran()}
+	 * sebelum memakainya.
+	 * </p>
+	 *
+	 * @param tidakAdaKehadiran penanda; boleh {@code null}
+	 */
 	public void setTidakAdaKehadiran(Boolean tidakAdaKehadiran) {
 		this.tidakAdaKehadiran = tidakAdaKehadiran;
 	}

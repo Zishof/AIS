@@ -915,6 +915,81 @@ public class DetailBiaya extends GeneralValueObject {
 		this.angkatan = angkatan;
 	}
 
+	/**
+	 * <b>Nominal master</b> komponen biaya ini &mdash; angka rupiah yang menjadi asal-usul
+	 * hampir seluruh tagihan mahasiswa pada AIS.
+	 *
+	 * <h4>INI GETTER DESTRUKTIF YANG PALING BERDAMPAK DI KELAS INI</h4>
+	 * <p>Method ini bukan pembaca. Ia <b>menghitung ulang</b> nominal dari hierarki setting
+	 * biaya, lalu <b>menugaskan hasilnya ke field {@code nilaiBiaya}</b> &mdash; field yang
+	 * dipetakan ke kolom {@code detail_biaya.nilai_biaya} melalui anotasi
+	 * {@code @Column} di atas. Karena kelas ini memakai <i>property access</i>, Hibernate
+	 * memanggil getter ini pada setiap {@code dirty check}/{@code flush}. Rangkaian akibatnya:
+	 * <b>membaca</b> sebuah {@code DetailBiaya} di dalam session yang terbuka dapat
+	 * menghasilkan {@code UPDATE detail_biaya SET nilai_biaya = ...} yang tidak pernah
+	 * diminta siapa pun, ditambah satu revisi Envers ({@code @Audited}) yang mencatatnya
+	 * sebagai perubahan berpelaku dan berwaktu.</p>
+	 *
+	 * <p>Inilah rujukan konkret dari catatan yang selama ini tercantum pada
+	 * {@link CicilanPembayaran#getKegiatan()} dan {@link DetailKegiatan#getBiaya()} bahwa
+	 * {@code DetailBiaya} adalah &quot;master bersama yang dapat berubah dan tersimpan lewat
+	 * getter&quot;. Yang membuatnya berdampak luas adalah sifat {@code DetailBiaya} sebagai
+	 * <b>master bersama</b>: satu baris melayani semua mahasiswa yang cocok dengan kombinasi
+	 * penyaring di {@link #key()}. Jadi penulisan tak sengaja itu bukan mengubah nominal satu
+	 * orang, melainkan nominal seluruh kelompok sasaran.</p>
+	 *
+	 * <h4>Tiga cabang penurunan nominal</h4>
+	 * <p>Dievaluasi berurutan, yang pertama cocok itulah yang menang:</p>
+	 * <ol>
+	 *   <li><b>Per program studi.</b> Bila {@link #getJurusan()} terisi dan
+	 *       {@link SettingBiaya#getTampilkanPerProdi()} menyala, nominal diambil dari
+	 *       {@link DetailSettingBiaya#ambilDefaultBiaya(Jurusan)} &mdash; tarif khusus prodi
+	 *       tersebut.</li>
+	 *   <li><b>Per item biaya dari peta JSON.</b> Bila {@link #getSettingBiayaDetail()} dan
+	 *       {@link #getItemBiaya()} keduanya tersimpan, kolom
+	 *       {@link SettingBiayaDetail#getBiayas()} diurai sebagai objek JSON dan nominal
+	 *       diambil dari kunci berupa id item biaya; bila kunci itu tidak ada, dipakai
+	 *       {@link DetailSettingBiaya#getDefaultBiaya()}.</li>
+	 *   <li><b>Biaya default.</b> Bila {@link SettingBiaya#getGunakanBiayaDefault()} menyala,
+	 *       dipakai {@link DetailSettingBiaya#getDefaultBiaya()}.</li>
+	 * </ol>
+	 * <p>Bila tidak satu pun cocok, nilai yang tersimpan di field dipertahankan. Pada akhir
+	 * method, {@code null} dinormalkan menjadi {@code 0.0} &mdash; juga dengan penulisan ke
+	 * field, sehingga baris yang {@code nilai_biaya}-nya {@code NULL} akan tertulis menjadi
+	 * {@code 0} pada pembacaan pertama.</p>
+	 *
+	 * <h4>Perisai untuk entity yang sudah terputus</h4>
+	 * <p>Nilai kolom yang tersimpan disalin lebih dulu ke {@code nilaiTersimpan}. Bila
+	 * penurunan di atas melempar {@link org.hibernate.LazyInitializationException} atau
+	 * {@link org.hibernate.SessionException} &mdash; yang terjadi ketika relasi lazi menunjuk
+	 * session yang sudah ditutup, lazim pada pemrosesan asinkron &mdash; field dikembalikan
+	 * ke {@code nilaiTersimpan}. Ini penting dan benar: tanpa pemulihan itu, sebuah entity
+	 * yang kebetulan dibaca dalam keadaan terputus akan menuliskan {@code 0.0} menimpa
+	 * nominal yang sah. Exception jenis lain hanya dicatat lewat
+	 * {@code ErrorAuditUtil.record(...)} dan nilai apa pun yang terlanjur tertulis di field
+	 * <b>tidak</b> dipulihkan &mdash; celah sempit yang tersisa dari perisai ini.</p>
+	 *
+	 * <h4>Yang perlu diperhatikan pemanggil</h4>
+	 * <ul>
+	 *   <li><b>Nominal ini bersifat hidup, bukan snapshot.</b> Mengubah
+	 *       {@link DetailSettingBiaya} atau {@link SettingBiayaDetail} induk akan mengubah
+	 *       nilai yang dikembalikan di sini untuk seluruh baris yang menurunkannya &mdash;
+	 *       termasuk baris yang tagihannya sudah terbit. Mekanisme yang disediakan untuk
+	 *       membekukan nominal adalah {@link DetailKegiatan#getBiaya()} (per mahasiswa) dan
+	 *       {@link Kegiatan#simpanNominalTagihanTerkunci} (koreksi manual bernomor lengkap
+	 *       dengan alasan dan pelaku), bukan kolom ini.</li>
+	 *   <li><b>Bukan nominal final.</b> Untuk item biaya berpenghitungan perkalian, nilai di
+	 *       sini adalah harga <b>per unit</b>; hasil perkaliannya ada di
+	 *       {@link #getNilaiBiayaBaru()}. Potongan/diskon juga belum dikurangkan. Nominal
+	 *       final sebuah baris tagihan dihitung
+	 *       {@link Kegiatan#ambilJumlahTagihan(Kegiatan, DetailBiaya, boolean)}.</li>
+	 *   <li><b>Hindari memanggilnya sekadar untuk menampilkan.</b> Pada laporan atau daftar
+	 *       yang menelusuri banyak {@code DetailBiaya} di dalam satu session, setiap
+	 *       pemanggilan berpotensi menambah satu {@code UPDATE} dan satu revisi audit.</li>
+	 * </ul>
+	 *
+	 * @return nominal master baris ini; tidak pernah {@code null} (dinormalkan ke {@code 0.0})
+	 */
 	@Column(name = "nilai_biaya", precision = 15)
 	public Double getNilaiBiaya() {
 		/*
@@ -975,10 +1050,45 @@ public class DetailBiaya extends GeneralValueObject {
 		this.nilaiBiaya = nilaiBiaya;
 	}
 
+	/**
+	 * Setter nama tampilan baris biaya.
+	 *
+	 * <p>Nilai yang diisi di sini <b>tidak bertahan</b> selama {@link #getItemBiaya()}
+	 * terisi, karena {@link #getNama()} selalu menurunkan ulang nama dari item biaya dan
+	 * menimpanya. Lihat javadoc getter tersebut.</p>
+	 *
+	 * @param nama nama tampilan
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Nama tampilan baris biaya sebagaimana muncul di lembar tagihan dan kuitansi mahasiswa.
+	 *
+	 * <p>Diturunkan dari {@link ItemBiaya#getNama()}, dengan imbuhan {@code " ke-N"} bila
+	 * setting biaya induknya menetapkan pembayaran bertahap
+	 * ({@link SettingBiaya#getJumlahPembayaran()} lebih dari satu) &mdash; sehingga mahasiswa
+	 * melihat mis. &quot;SPP ke-1&quot;, &quot;SPP ke-2&quot;. Nomor tahapnya berasal dari
+	 * {@link #getBayarKe()}.</p>
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Kedua cabang menugaskan hasilnya ke field {@code nama},
+	 * yang dipetakan ke kolom {@code detail_biaya.nama} ({@code nullable = false}). Membaca
+	 * entity di dalam session terbuka karenanya dapat menuliskan nama turunan ke database
+	 * beserta revisi Envers. Dampaknya jauh lebih ringan daripada
+	 * {@link #getNilaiBiaya()} karena yang tertulis hanyalah label, bukan angka rupiah;
+	 * namun berarti kolom {@code nama} bukan data mandiri &mdash; mengganti nama sebuah
+	 * {@link ItemBiaya} akan merambat ke seluruh baris {@code DetailBiaya} yang memakainya.</p>
+	 *
+	 * <p>Perhatikan pula bahwa method ini memanggil {@link #getSettingBiayaDetail()} beserta
+	 * rantai {@code getSettingBiaya()} di dalamnya tanpa pembungkus {@code try/catch},
+	 * berbeda dari kehati-hatian yang ditunjukkan {@link #getNilaiBiaya()} terhadap entity
+	 * terputus. Pada entity <i>detached</i>, pemanggilan ini dapat melempar
+	 * {@code LazyInitializationException}.</p>
+	 *
+	 * @return nama tampilan baris biaya; {@code null} bila item biaya kosong dan field belum
+	 *         pernah diisi
+	 */
 	@Column(name = "nama", length = 255, nullable = false)
 	public String getNama() {
 		if (getItemBiaya() != null && getSettingBiayaDetail() != null
@@ -991,10 +1101,30 @@ public class DetailBiaya extends GeneralValueObject {
 		return nama;
 	}
 
+	/**
+	 * Setter penyaring jenis kegiatan.
+	 *
+	 * @param jenisKegiatan jenis kegiatan sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setJenisKegiatan(JenisKegiatan jenisKegiatan) {
 		this.jenisKegiatan = jenisKegiatan;
 	}
 
+	/**
+	 * Penyaring {@link JenisKegiatan} sasaran &mdash; menentukan jenis tagihan mana yang
+	 * memanggil nominal baris ini. {@code null} berarti tidak dibatasi jenis kegiatan
+	 * tertentu.
+	 *
+	 * <p>Relasi inilah yang menghubungkan katalog aturan ({@link JenisKegiatan}) dengan master
+	 * nominal (kelas ini). Ia juga dipakai {@link #checkDenda} sebagai sumber konfigurasi
+	 * denda tingkat jenis kegiatan &mdash; perhatikan bahwa {@link #checkDendaCicilan}
+	 * justru <b>tidak</b> membacanya dari sini melainkan dari {@link JadwalPembayaran} yang
+	 * dioper pemanggil; lihat catatan pada method tersebut.</p>
+	 *
+	 * <p>Getter relasi lazy standar dengan {@code check(...)}.</p>
+	 *
+	 * @return jenis kegiatan sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_kegiatan", nullable = true)
 	public JenisKegiatan getJenisKegiatan() {
@@ -1002,6 +1132,34 @@ public class DetailBiaya extends GeneralValueObject {
 		return jenisKegiatan;
 	}
 
+	/**
+	 * Mengurutkan rincian biaya berdasarkan {@link ItemBiaya#getKode()}.
+	 *
+	 * <p><b>Urutannya terbalik.</b> Perbandingan dilakukan sebagai
+	 * {@code o.itemBiaya.getKode().compareTo(itemBiaya.getKode())} &mdash; argumen sebagai
+	 * penerima dan {@code this} sebagai pembanding, kebalikan dari konvensi
+	 * {@link Comparable}. Akibatnya daftar rincian biaya tersusun <b>menurun</b> menurut kode
+	 * item biaya. Karena seluruh pemanggil memakai pengurutan ini secara konsisten, hasilnya
+	 * stabil; namun perlu diketahui saat membandingkan dengan
+	 * {@link JenisKegiatan#compareTo(GeneralValueObject)} yang menaik.</p>
+	 *
+	 * <p>Seperti kerabatnya, seluruh perbandingan dibungkus {@code try/catch} yang
+	 * mengembalikan {@code 0} pada kegagalan apa pun &mdash; termasuk ketika salah satu kode
+	 * item biaya {@code null} sehingga {@code .trim()} melempar
+	 * {@code NullPointerException}. Perhatikan bahwa pemeriksaan {@code != null} di sana
+	 * dilakukan atas hasil {@code getKode().trim()}, bukan atas {@code getKode()} itu
+	 * sendiri, sehingga pemeriksaan tersebut tidak pernah benar-benar mencegah NPE &mdash;
+	 * yang menahan hanyalah {@code try/catch}-nya. Nilai {@code 0} berarti &quot;dianggap
+	 * sama&quot;, sehingga elemen bermasalah menempati urutan yang tidak deterministik.</p>
+	 *
+	 * <p>Method ini juga menugaskan {@code itemBiaya = getItemBiaya()} pada {@code this}
+	 * <b>dan</b> pada objek pembanding ({@code o.itemBiaya = o.getItemBiaya()}); keduanya
+	 * hanya memulihkan proxy lewat {@code check(...)} sehingga tidak mengubah foreign key.</p>
+	 *
+	 * @param arg0 objek pembanding
+	 * @return hasil perbandingan kode item biaya secara terbalik; {@code 0} bila tidak dapat
+	 *         dibandingkan
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		itemBiaya = getItemBiaya();
@@ -1020,10 +1178,44 @@ public class DetailBiaya extends GeneralValueObject {
 		return 0;
 	}
 
+	/**
+	 * Setter penyaring status mahasiswa.
+	 *
+	 * <p>Nilai yang diisi di sini <b>akan ditimpa</b> oleh {@link #getStatusMahasiswa()}
+	 * pada pembacaan berikutnya bila {@link #getSettingBiaya()} induknya memiliki status
+	 * mahasiswa sendiri. Lihat javadoc getter tersebut.</p>
+	 *
+	 * @param statusMahasiswa status mahasiswa sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setStatusMahasiswa(StatusMahasiswa statusMahasiswa) {
 		this.statusMahasiswa = statusMahasiswa;
 	}
 
+	/**
+	 * Penyaring status mahasiswa sasaran (aktif, cuti, dan seterusnya).
+	 *
+	 * <p><b>GETTER DESTRUKTIF &mdash; menimpa FOREIGN KEY, dan karenanya mengubah SASARAN
+	 * baris ini.</b> Bila {@link #getSettingBiaya()} terisi dan induk itu memiliki status
+	 * mahasiswa sendiri, field {@code statusMahasiswa} ditimpa dengan nilai milik induk lalu
+	 * dikembalikan. Property ini dipetakan ke kolom {@code detail_biaya.status_mahasiswa},
+	 * sehingga penulisannya sampai ke database pada {@code flush} berikutnya.</p>
+	 *
+	 * <p>Perbedaannya dengan getter destruktif lain di kelas ini perlu digarisbawahi: yang
+	 * ditimpa bukan sekadar label atau angka, melainkan <b>salah satu dimensi penyaring</b>
+	 * yang menentukan mahasiswa mana yang memperoleh nominal baris ini &mdash; dimensi yang
+	 * ikut membentuk {@link #key()}. Menimpanya berarti diam-diam <b>memindahkan baris
+	 * nominal ini ke kelompok sasaran yang lain</b>. Bila operator sengaja menyetel status
+	 * mahasiswa berbeda dari induknya (mis. satu rincian khusus mahasiswa cuti di bawah
+	 * setting biaya bagi mahasiswa aktif), penyetelan itu tidak akan bertahan.</p>
+	 *
+	 * <p>Perhatikan pula urutannya: {@code check(...)} dipanggil lebih dulu, lalu penimpaan
+	 * dilakukan tanpa memeriksa apakah field sudah terisi &mdash; jadi ini penimpaan tanpa
+	 * syarat, bukan pengisian nilai kosong (<i>auto-seed</i>) seperti
+	 * {@link #getStatusAwalMahasiswa()}.</p>
+	 *
+	 * @return status mahasiswa sasaran; {@code null} bila tidak dibatasi dan induk pun tidak
+	 *         menentukannya
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_mahasiswa", nullable = true)
 	public StatusMahasiswa getStatusMahasiswa() {
@@ -1036,23 +1228,74 @@ public class DetailBiaya extends GeneralValueObject {
 		return statusMahasiswa;
 	}
 
+	/**
+	 * Penanda bahwa baris ini mewakili sebuah <b>pembayaran</b> dan bukan tagihan &mdash;
+	 * dipakai untuk komponen yang mengurangi jumlah terutang alih-alih menambahnya.
+	 *
+	 * <p>Getter murni yang mengembalikan field apa adanya. Perhatikan bahwa ia
+	 * <b>tidak memasang penjaga ternary</b>, sehingga dapat mengembalikan {@code null} untuk
+	 * baris lama yang kolomnya belum terisi &mdash; walaupun field-nya diberi nilai awal
+	 * {@code false} pada deklarasi, nilai awal itu ditimpa {@code null} dari database saat
+	 * Hibernate memuat baris tersebut. Pemanggil yang melakukan auto-unboxing ke
+	 * {@code boolean} perlu berjaga terhadap {@code NullPointerException}.</p>
+	 *
+	 * @return {@code true}/{@code false}/{@code null} sesuai isi kolom
+	 */
 	@Column(name = "merupakan_pembayaran")
 	public Boolean getMerupakanPembayaran() {
 		return merupakanPembayaran;
 	}
 
+	/**
+	 * Setter penanda pembayaran.
+	 *
+	 * @param merupakanPembayaran {@code true} bila baris ini mewakili pembayaran
+	 */
 	public void setMerupakanPembayaran(Boolean merupakanPembayaran) {
 		this.merupakanPembayaran = merupakanPembayaran;
 	}
 
+	/**
+	 * Penyaring bahasa pengantar sasaran &mdash; memungkinkan nominal berbeda bagi kelas
+	 * berbahasa asing.
+	 *
+	 * <p>Getter murni tanpa anotasi pemetaan eksplisit, sehingga Hibernate memetakannya ke
+	 * kolom bernama {@code bahasa} dengan pengaturan bawaan. Seperti {@code wnaAtauWni} dan
+	 * {@code fakultas}, dimensi ini <b>tidak ikut membentuk</b> {@link #key()}.</p>
+	 *
+	 * @return bahasa pengantar sasaran; {@code null} bila tidak dibatasi
+	 */
 	public String getBahasa() {
 		return bahasa;
 	}
 
+	/**
+	 * Setter penyaring bahasa pengantar.
+	 *
+	 * @param bahasa bahasa pengantar sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setBahasa(String bahasa) {
 		this.bahasa = bahasa;
 	}
 
+	/**
+	 * Penyaring semester mulai belajar ({@link Perkuliahan#GANJIL} atau
+	 * {@link Perkuliahan#GENAP}) &mdash; membedakan nominal bagi mahasiswa yang memulai
+	 * kuliah di semester genap, yang penomoran semesternya bergeser.
+	 *
+	 * <p><b>GETTER DESTRUKTIF ringan (auto-seed literal).</b> Bila field {@code null},
+	 * diisi {@link Perkuliahan#GANJIL} lalu ditulis balik. Karena property ini dipetakan ke
+	 * kolom, baris yang kolomnya {@code NULL} akan tertulis menjadi {@code "Ganjil"} pada
+	 * pembacaan pertama di dalam session terbuka.</p>
+	 *
+	 * <p>Perlu diingat bahwa {@link #key()} membaca dimensi ini sebagai <b>field mentah</b>,
+	 * bukan lewat getter ini. Selama auto-seed belum berjalan, kunci memuat {@code null};
+	 * sesudahnya memuat {@code "Ganjil"}. Dua baris yang secara efektif identik karena itu
+	 * dapat menghasilkan kunci berbeda bergantung pada apakah salah satunya kebetulan sudah
+	 * pernah dibaca lewat getter ini.</p>
+	 *
+	 * @return semester mulai belajar sasaran; tidak pernah {@code null}
+	 */
 	@Column(name = "mulai_belajar_di_semester")
 	public String getMulaiBelajarDiSemester() {
 		if (mulaiBelajarDiSemester == null) {
@@ -1061,10 +1304,39 @@ public class DetailBiaya extends GeneralValueObject {
 		return mulaiBelajarDiSemester;
 	}
 
+	/**
+	 * Setter penyaring semester mulai belajar.
+	 *
+	 * @param mulaiBelajarDiSemester {@link Perkuliahan#GANJIL} atau {@link Perkuliahan#GENAP}
+	 */
 	public void setMulaiBelajarDiSemester(String mulaiBelajarDiSemester) {
 		this.mulaiBelajarDiSemester = mulaiBelajarDiSemester;
 	}
 
+	/**
+	 * Penyaring {@link StatusAwalMahasiswa} sasaran (baru, pindahan, alih jenjang, dan
+	 * seterusnya).
+	 *
+	 * <p><b>GETTER DESTRUKTIF &mdash; mengisi FOREIGN KEY yang kosong (auto-seed).</b> Bila
+	 * setelah {@code check(...)} field masih {@code null}, ia diisi
+	 * {@code ConstantValues.BARU} lalu dikembalikan. Property ini dipetakan ke kolom
+	 * {@code detail_biaya.status_awal_mahasiswa}, sehingga pengisian itu sampai ke database.</p>
+	 *
+	 * <p><b>Perubahan makna yang halus namun berdampak.</b> Pada kolom penyaring, {@code NULL}
+	 * lazimnya berarti &quot;tidak dibatasi &mdash; berlaku untuk semua status awal&quot;,
+	 * sedangkan {@code BARU} berarti &quot;hanya untuk mahasiswa baru&quot;. Auto-seed ini
+	 * karenanya <b>mempersempit sasaran</b> baris nominal: rincian biaya yang semula berlaku
+	 * bagi seluruh mahasiswa berubah menjadi hanya bagi mahasiswa berstatus awal baru, tanpa
+	 * ada yang mengubahnya lewat antarmuka. Mahasiswa pindahan atau alih jenjang dapat
+	 * kehilangan kecocokan dengan baris tersebut sesudahnya.</p>
+	 *
+	 * <p>Berbeda dari {@link #getStatusMahasiswa()} yang menimpa tanpa syarat, penulisan di
+	 * sini hanya terjadi saat field kosong; nilai yang sudah diisi operator tetap dihormati.
+	 * Dimensi ini ikut membentuk {@link #key()}, sehingga auto-seed juga mengubah kunci
+	 * identitas logis baris.</p>
+	 *
+	 * @return status awal mahasiswa sasaran; tidak pernah {@code null} setelah auto-seed
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_awal_mahasiswa", nullable = true)
 	public StatusAwalMahasiswa getStatusAwalMahasiswa() {
@@ -1075,10 +1347,44 @@ public class DetailBiaya extends GeneralValueObject {
 		return statusAwalMahasiswa;
 	}
 
+	/**
+	 * Setter penyaring status awal mahasiswa.
+	 *
+	 * @param statusAwalMahasiswa status awal sasaran; {@code null} akan diisi otomatis
+	 *                            menjadi {@code BARU} oleh {@link #getStatusAwalMahasiswa()}
+	 */
 	public void setStatusAwalMahasiswa(StatusAwalMahasiswa statusAwalMahasiswa) {
 		this.statusAwalMahasiswa = statusAwalMahasiswa;
 	}
 
+	/**
+	 * Keterangan tambahan yang menyertai baris biaya pada lembar tagihan &mdash; mis.
+	 * rincian &quot;(50.000) x 20 SKS&quot; untuk item berpenghitungan perkalian, atau
+	 * catatan khusus prodi.
+	 *
+	 * <p><b>Bertanda {@code @Transient}</b>, sehingga meskipun method ini menugaskan hasilnya
+	 * ke field {@code keterangan}, tulisan itu <b>tidak pernah sampai ke database</b>.
+	 * Sifatnya nilai turunan yang hidup di memori saja &mdash; berbeda dari
+	 * {@link #getNilaiBiaya()} atau {@link #getNama()} yang penulisannya persisten. Inilah
+	 * pembeda yang penting saat menilai getter mana di kelas ini yang benar-benar berbahaya.</p>
+	 *
+	 * <h4>Penurunan nilai</h4>
+	 * <p>Hanya berjalan bila field masih kosong. Dimulai dari {@link ItemBiaya#getNama()},
+	 * lalu ditambahi keterangan dari hierarki setting biaya:</p>
+	 * <ul>
+	 *   <li>Bila {@link SettingBiaya#getTampilkanPerProdi()} menyala dan
+	 *       {@link #getJurusan()} terisi, ditambahkan
+	 *       {@link DetailSettingBiaya#ambilDefaultKeteranganTagihan(Jurusan)}.</li>
+	 *   <li>Bila tidak, dan {@link SettingBiaya#getGunakanBiayaDefault()} menyala,
+	 *       ditambahkan {@link DetailSettingBiaya#getDefaultKeterangan()}.</li>
+	 * </ul>
+	 *
+	 * <p>Keterangan inilah yang diperbarui {@link #updateKeterangan(Mahasiswa, Integer)}
+	 * ketika item biaya berpenghitungan perkalian dihitung untuk seorang mahasiswa &mdash;
+	 * proses yang sekaligus mengisi {@link #getNilaiBiayaBaru()}.</p>
+	 *
+	 * @return keterangan baris biaya; {@code null} bila tidak ada sumber yang dapat diturunkan
+	 */
 	@Transient
 	public String getKeterangan() {
 		if (keterangan == null || keterangan.trim().isEmpty()) {
@@ -1108,6 +1414,19 @@ public class DetailBiaya extends GeneralValueObject {
 		return keterangan;
 	}
 
+	/**
+	 * Setter keterangan baris biaya. Masukan {@code null} diabaikan &mdash; setter
+	 * <b>satu arah</b> yang tidak dapat mengosongkan keterangan yang sudah ada.
+	 *
+	 * <p>Blok besar yang dikomentari di dalam method ini adalah sisa penelusuran lama: dahulu
+	 * sebuah {@code Exception} sengaja dilempar-dan-ditangkap hanya untuk mencetak
+	 * <i>stack trace</i> ketika keterangan diubah menjadi nilai berbeda
+	 * ({@code "Who called me?"}), demi menemukan pemanggil yang menimpa keterangan secara tak
+	 * terduga. Kode itu sudah tidak aktif dan tidak perlu dihidupkan kembali; ia ditinggalkan
+	 * sebagai jejak bahwa penulisan keterangan pernah menjadi sumber masalah.</p>
+	 *
+	 * @param keterangan keterangan baru; diabaikan bila {@code null}
+	 */
 	public void setKeterangan(String keterangan) {
 
 		if (keterangan == null) {
@@ -1126,15 +1445,58 @@ public class DetailBiaya extends GeneralValueObject {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Menghitung ulang keterangan <b>dan nominal hasil perkalian</b> baris ini untuk seorang
+	 * mahasiswa pada semester tertentu, dengan mendelegasikannya ke
+	 * {@link ais.action.master.helper.PembayaranNominalModifikasiHelper#updateKeterangan}.
+	 *
+	 * <p>Meskipun namanya menyebut &quot;keterangan&quot;, method ini adalah pintu masuk
+	 * perhitungan nominal untuk item biaya berpenghitungan perkalian &mdash; mis.
+	 * &quot;Rp50.000 x jumlah SKS yang diambil&quot;. Helper tersebut mengisi
+	 * {@link #getNilaiBiayaBaru()} dengan hasil perkaliannya sekaligus menyusun teks
+	 * keterangan yang menjelaskan perhitungan itu kepada mahasiswa. Karena itu
+	 * {@link Kegiatan#ambilJumlahTagihan(DetailKegiatan, Kegiatan, DetailBiaya, boolean)}
+	 * memanggilnya lebih dulu ketika mendapati {@code nilaiBiayaBaru} masih {@code null}
+	 * pada item berpenghitungan &mdash; tanpa itu, yang terpakai adalah harga per unit yang
+	 * di layar justru ditampilkan tercoret.</p>
+	 *
+	 * <p>Perhatikan bahwa penamaan ini menyembunyikan efek sampingnya: pemanggil yang mengira
+	 * hanya memperbarui teks sebenarnya juga mengubah nominal yang akan dipakai perhitungan
+	 * tagihan berikutnya. Baik {@code keterangan} maupun {@code nilaiBiayaBaru} bertanda
+	 * {@code @Transient}, sehingga perubahannya tinggal di memori dan tidak menulis ke
+	 * {@code detail_biaya}.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang menjadi konteks perhitungan
+	 * @param semester  semester yang menjadi konteks perhitungan
+	 */
 	public void updateKeterangan(Mahasiswa mahasiswa, Integer semester) {
 		ais.action.master.helper.PembayaranNominalModifikasiHelper.updateKeterangan(this, mahasiswa, semester);
 	}
 
+	/**
+	 * Status aktif baris rincian biaya; {@code null} dibaca sebagai {@code true}.
+	 *
+	 * <p>Getter murni (ternary saja, tanpa menulis balik ke field) &mdash; sikap yang benar
+	 * dan patut dicatat, karena banyak kerabatnya di kelas ini justru destruktif.</p>
+	 *
+	 * <p><b>Bawaannya {@code true}</b>: baris yang kolom {@code aktif}-nya {@code NULL}
+	 * &mdash; termasuk seluruh data lama dari sebelum kolom ini ada &mdash; dianggap aktif
+	 * dan ikut menagih. Ini menjaga kompatibilitas data lama, tetapi berarti penonaktifan
+	 * sebuah rincian biaya harus dilakukan dengan menyimpan {@code false} secara eksplisit;
+	 * mengosongkan kolomnya justru menghidupkannya kembali.</p>
+	 *
+	 * @return {@code true} bila rincian biaya masih berlaku; tidak pernah {@code null}
+	 */
 	@Column(name = "aktif")
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Setter status aktif rincian biaya.
+	 *
+	 * @param aktif {@code false} untuk menonaktifkan; {@code null} berarti aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
