@@ -149,6 +149,52 @@ public class GradingHelper {
 		return id != null && source != null && source.indexOf("," + id + ",") >= 0;
 	}
 
+	/**
+	 * Menambah atau menghapus {@code id} dari daftar CSV berpagar koma (bentuk {@code ",id1,id2,"})
+	 * yang dipakai antara lain oleh {@link ais.database.model.Tugas#getMhsYgTidakIkut()}.
+	 *
+	 * <p>Perbandingan token memakai kesamaan STRING PENUH, bukan substring, sehingga id yang menjadi
+	 * substring id lain (mis. id {@code 12} di dalam {@code 120}) tidak ikut terhapus saat id {@code 12}
+	 * dihapus dari daftar. Ini menggantikan pola lama {@code StringUtils.replace(text, id.toString(), "")}
+	 * yang korup pada kasus itu. Satu-satunya cara membangun/mengubah daftar ini; sisi baca yang setara
+	 * ada di {@link #containsId(String, Long)}.</p>
+	 *
+	 * @param csv daftar saat ini; boleh {@code null}, kosong, atau (data lama) tidak berpagar koma di
+	 *        ujungnya
+	 * @param id id yang ditambah/dihapus; bila {@code null} daftar hanya dinormalisasi tanpa perubahan
+	 *        keanggotaan
+	 * @param masukkan {@code true} untuk memastikan id ada di daftar, {@code false} untuk memastikan id
+	 *        tidak ada di daftar
+	 * @return daftar baru dalam bentuk {@code ",id1,id2,"}, atau {@code ""} bila kosong
+	 */
+	public static String ubahIdPadaCsvBerpagarKoma(String csv, Long id, boolean masukkan) {
+		java.util.LinkedHashSet<String> tokens = new java.util.LinkedHashSet<String>();
+		if (csv != null) {
+			for (String token : csv.split(",")) {
+				String t = token.trim();
+				if (!t.isEmpty()) {
+					tokens.add(t);
+				}
+			}
+		}
+		if (id != null) {
+			String idStr = id.toString();
+			if (masukkan) {
+				tokens.add(idStr);
+			} else {
+				tokens.remove(idStr);
+			}
+		}
+		if (tokens.isEmpty()) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder(",");
+		for (String t : tokens) {
+			sb.append(t).append(",");
+		}
+		return sb.toString();
+	}
+
 	private static String escapeHtml(Object value) {
 		return trim(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 				.replace("'", "&#39;");

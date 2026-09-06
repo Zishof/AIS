@@ -512,14 +512,11 @@ public class DetailUjianHelper implements DataLoader {
 									 * memakai {@code Common.refreshUpdate} sehingga tab ini menyimpan langsung tanpa menunggu tombol
 									 * "Simpan" di footer.
 									 *
-									 * <p><b>Kuirk pembentukan daftar.</b> Daftar disimpan sebagai CSV berpagar koma
-									 * ({@code ",id1,id2,"}) dan dibaca di mana-mana dengan {@code contains("," + id + ",")}. Namun
-									 * pembaruan di sini melakukan DUA replace: pertama membuang bentuk berpagar {@code ",id,"}
-									 * (benar), lalu membuang {@code id} sebagai substring TANPA pagar. Replace kedua itu tidak aman
-									 * terhadap id yang menjadi substring id lain — mis. pada daftar {@code ",120,12,"} pembukaan
-									 * centang peserta 12 menyisakan {@code ",0"} sehingga peserta 120 ikut hilang dari pengecualian.
-									 * Pola yang sama tersalin di beberapa berkas lain; penambalannya dilacak terpisah dan sengaja
-									 * tidak dilakukan dalam perubahan dokumentasi ini.
+									 * <p>Daftar disimpan sebagai CSV berpagar koma ({@code ",id1,id2,"}) dan dibaca di mana-mana
+									 * dengan {@code contains("," + id + ",")}. Pembaruannya memakai
+									 * {@link ais.common.GradingHelper#ubahIdPadaCsvBerpagarKoma(String, Long, boolean)} yang
+									 * membandingkan token secara PENUH (bukan substring), sehingga id yang menjadi substring id
+									 * lain (mis. {@code 12} di dalam {@code 120}) tidak ikut terhapus.
 									 *
 									 * <p>Terakhir {@code perbaruiVisibilitasNilai} dipanggil agar blok Nilai Manual/Sub-CPMK
 									 * langsung menyesuaikan status centang yang baru.
@@ -540,13 +537,9 @@ public class DetailUjianHelper implements DataLoader {
 														: siswa != null ? siswa.getId()
 																: calonSiswa != null ? calonSiswa.getId() : null;
 
-										String ids = "," + id + ",";
-										String text = pertemuanPunyaUjian.getMhsYgTidakIkut();
-										text = org.apache.commons.lang3.StringUtils.replace(text, ids, "");
-										text = org.apache.commons.lang3.StringUtils.replace(text, id.toString(), "");
-
-										pertemuanPunyaUjian
-												.setMhsYgTidakIkut(text + (!checkboxConfig.isChecked() ? "" : ids));
+										pertemuanPunyaUjian.setMhsYgTidakIkut(ais.common.GradingHelper
+												.ubahIdPadaCsvBerpagarKoma(pertemuanPunyaUjian.getMhsYgTidakIkut(), id,
+														checkboxConfig.isChecked()));
 										Common.refreshUpdate(session, pertemuanPunyaUjian);
 										perbaruiVisibilitasNilai.onEvent(null);
 									}
@@ -962,13 +955,9 @@ public class DetailUjianHelper implements DataLoader {
 												: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
 														: siswa != null ? siswa.getId()
 																: calonSiswa != null ? calonSiswa.getId() : null;
-										String ids = "," + id + ",";
-										String text = pertemuanPunyaUjian.getMhsYgTidakIkut();
-										text = org.apache.commons.lang3.StringUtils.replace(text, ids, "");
-										text = org.apache.commons.lang3.StringUtils.replace(text, id.toString(), "");
-
-										pertemuanPunyaUjian
-												.setMhsYgTidakIkut(text + (!checkboxConfigAll.isChecked() ? "" : ids));
+										pertemuanPunyaUjian.setMhsYgTidakIkut(ais.common.GradingHelper
+												.ubahIdPadaCsvBerpagarKoma(pertemuanPunyaUjian.getMhsYgTidakIkut(), id,
+														checkboxConfigAll.isChecked()));
 
 										copy.add(mahasiswa);
 									}
@@ -3117,10 +3106,11 @@ public class DetailUjianHelper implements DataLoader {
 												: session.createCriteria(UjianPunyaSoal.class)
 														.add(Restrictions.eq("ujian", ujian)).list();
 
+										List<UjianPunyaSoal> calonHapus = new ArrayList<UjianPunyaSoal>();
 										Set<Long> idSoal = new HashSet<Long>();
 										for (UjianPunyaSoal ujianPunyaSoal : ujianPunyaSoals) {
 											if (idSoal.contains(ujianPunyaSoal.getBankSoal().getId())) {
-												session.delete(ujianPunyaSoal);
+												calonHapus.add(ujianPunyaSoal);
 											} else {
 												idSoal.add(ujianPunyaSoal.getBankSoal().getId());
 											}
@@ -3129,10 +3119,23 @@ public class DetailUjianHelper implements DataLoader {
 										Set<String> Soal = new HashSet<String>();
 										for (UjianPunyaSoal ujianPunyaSoal : ujianPunyaSoals) {
 											if (Soal.contains(ujianPunyaSoal.getBankSoal().getSoal())) {
-												session.delete(ujianPunyaSoal);
+												calonHapus.add(ujianPunyaSoal);
 											} else {
 												Soal.add(ujianPunyaSoal.getBankSoal().getSoal());
 											}
+										}
+
+										// Penjaga fail-closed: bila pemeriksaan soal-terpakai gagal, TIDAK SATU PUN
+										// soal ganda dihapus (lihat javadoc hapusUjianPunyaSoalDenganPenjaga).
+										HasilHapusUjianPunyaSoal hasilHapus;
+										try {
+											hasilHapus = hapusUjianPunyaSoalDenganPenjaga(session, calonHapus);
+										} catch (Exception ePenjaga) {
+											Common.tampilErrorJikaAdmin(ePenjaga);
+											MyMessageboxConfig.show(
+												"Gagal memeriksa apakah soal ganda ini sudah dijawab/dipakai pada hasil ujian mahasiswa, sehingga penghapusan DIBATALKAN sepenuhnya (tidak ada soal yang dihapus) agar data tidak rusak. Silakan coba lagi.",
+												"Penghapusan Dibatalkan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+											return;
 										}
 
 										Common.createDefaultTimer(new EventListener() {
@@ -3148,6 +3151,11 @@ public class DetailUjianHelper implements DataLoader {
 												loadData(true);
 											}
 										});
+
+										MyMessageboxConfig.show(pesanHasilHapusMassal("dihapus", hasilHapus),
+											"Hasil Hapus Soal Double", MyMessageboxConfig.OK,
+											hasilHapus.namaSoalDilewati.isEmpty() ? MyMessageboxConfig.INFORMATION
+													: MyMessageboxConfig.EXCLAMATION);
 
 									} catch (Exception e) {
 										Common.tampilErrorJikaAdmin(e);
@@ -3210,8 +3218,17 @@ public class DetailUjianHelper implements DataLoader {
 												? new ArrayList<UjianPunyaSoal>()
 												: session.createCriteria(UjianPunyaSoal.class)
 														.add(Restrictions.eq("ujian", ujian)).list();
-										for (UjianPunyaSoal ujianPunyaSoal : ujianPunyaSoals) {
-											session.delete(ujianPunyaSoal);
+										// Penjaga fail-closed: bila pemeriksaan soal-terpakai gagal, TIDAK SATU PUN
+										// soal dihapus (lihat javadoc hapusUjianPunyaSoalDenganPenjaga).
+										HasilHapusUjianPunyaSoal hasilHapus;
+										try {
+											hasilHapus = hapusUjianPunyaSoalDenganPenjaga(session, ujianPunyaSoals);
+										} catch (Exception ePenjaga) {
+											Common.tampilErrorJikaAdmin(ePenjaga);
+											MyMessageboxConfig.show(
+												"Gagal memeriksa apakah soal-soal ini sudah dijawab/dipakai pada hasil ujian mahasiswa, sehingga penghapusan DIBATALKAN sepenuhnya (tidak ada soal yang dihapus) agar data tidak rusak. Silakan coba lagi.",
+												"Penghapusan Dibatalkan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+											return;
 										}
 
 										Common.createDefaultTimer(new EventListener() {
@@ -3227,6 +3244,11 @@ public class DetailUjianHelper implements DataLoader {
 												loadData(true);
 											}
 										});
+
+										MyMessageboxConfig.show(pesanHasilHapusMassal("dihapus", hasilHapus),
+											"Hasil Hapus Semua Soal", MyMessageboxConfig.OK,
+											hasilHapus.namaSoalDilewati.isEmpty() ? MyMessageboxConfig.INFORMATION
+													: MyMessageboxConfig.EXCLAMATION);
 
 									} catch (Exception e) {
 										Common.tampilErrorJikaAdmin(e);
@@ -4244,6 +4266,159 @@ public class DetailUjianHelper implements DataLoader {
 		}
 	}
 
+	/** Ukuran potongan klausa {@code IN} saat memeriksa banyak {@link UjianPunyaSoal} sekaligus, agar
+	 * daftar id yang sangat panjang tidak dikirim sebagai satu query {@code IN} raksasa. */
+	private static final int UKURAN_BATCH_IN_SOAL = 500;
+
+	/**
+	 * Varian MASSAL dari {@link #soalSudahDipakaiHasilUjian}: memeriksa SEHIMPUNAN {@link UjianPunyaSoal}
+	 * sekaligus lewat beberapa query ber-{@code IN} (dipecah per {@link #UKURAN_BATCH_IN_SOAL}), bukan
+	 * satu query per baris seperti method di atas. Dipakai oleh tombol hapus massal ("Hapus Soal Double"
+	 * dan "Hapus" pada toolbar) yang bisa memproses ratusan baris sekaligus -- memanggil method per-baris
+	 * di atas untuk tiap baris akan membuka satu session per soal dan sangat lambat.
+	 *
+	 * <p><b>Fail-closed, BERBEDA dari {@link #soalSudahDipakaiHasilUjian}.</b> Bila query gagal
+	 * dijalankan, method ini MELEMPAR exception (bukan diam-diam mengembalikan himpunan kosong) sehingga
+	 * pemanggil WAJIB membatalkan seluruh penghapusan massal, bukan melanjutkan seolah tidak ada soal
+	 * yang terpakai. Ini sengaja berbeda dari sifat fail-open method per-baris (yang TIDAK diubah, dan
+	 * pemanggil lamanya tetap memakai perilaku fail-open itu) karena dampak kesalahan pada jalur massal
+	 * jauh lebih besar: satu kegagalan pemeriksaan bisa membuka jalan penghapusan ratusan soal terpakai
+	 * sekaligus.
+	 *
+	 * @param daftarUjianPunyaSoal kumpulan {@link UjianPunyaSoal} yang akan diperiksa; id null diabaikan
+	 * @return himpunan id {@link UjianPunyaSoal} yang sudah dipakai pada hasil ujian mahasiswa
+	 * @throws Exception bila query database gagal dijalankan (fail-closed: pemanggil harus membatalkan)
+	 */
+	@SuppressWarnings("unchecked")
+	private static Set<Long> idSoalYangSudahDipakaiHasilUjian(List<UjianPunyaSoal> daftarUjianPunyaSoal)
+			throws Exception {
+		List<Long> idList = new ArrayList<Long>();
+		for (UjianPunyaSoal ujianPunyaSoal : daftarUjianPunyaSoal) {
+			if (ujianPunyaSoal != null && ujianPunyaSoal.getId() != null) {
+				idList.add(ujianPunyaSoal.getId());
+			}
+		}
+		Set<Long> hasil = new HashSet<Long>();
+		if (idList.isEmpty()) {
+			return hasil;
+		}
+		org.hibernate.Session session = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.openSession();
+			for (int awal = 0; awal < idList.size(); awal += UKURAN_BATCH_IN_SOAL) {
+				List<Long> potongan = idList.subList(awal, Math.min(awal + UKURAN_BATCH_IN_SOAL, idList.size()));
+				List<Long> ditemukan = session
+						.createCriteria(ais.database.model.HasilUjianMahasiswaDetail.class)
+						.add(org.hibernate.criterion.Restrictions.in("ujianPunyaSoal.id", potongan))
+						.setProjection(org.hibernate.criterion.Projections.distinct(
+								org.hibernate.criterion.Projections.property("ujianPunyaSoal.id")))
+						.list();
+				hasil.addAll(ditemukan);
+			}
+			return hasil;
+		} finally {
+			if (session != null) {
+				try {
+					session.clear();
+				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailUjianHelper.java:idSoalYangSudahDipakaiHasilUjian-clear"); }
+				try {
+					session.disconnect();
+				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailUjianHelper.java:idSoalYangSudahDipakaiHasilUjian-disconnect"); }
+				try {
+					session.close();
+				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailUjianHelper.java:idSoalYangSudahDipakaiHasilUjian-close"); }
+			}
+		}
+	}
+
+	/** Ringkasan hasil {@link #hapusUjianPunyaSoalDenganPenjaga}: jumlah yang benar-benar dihapus, dan
+	 * nama soal yang dilewati karena sudah dipakai pada hasil ujian mahasiswa. */
+	private static final class HasilHapusUjianPunyaSoal {
+		final int jumlahDihapus;
+		final List<String> namaSoalDilewati;
+
+		HasilHapusUjianPunyaSoal(int jumlahDihapus, List<String> namaSoalDilewati) {
+			this.jumlahDihapus = jumlahDihapus;
+			this.namaSoalDilewati = namaSoalDilewati;
+		}
+	}
+
+	/**
+	 * Menghapus {@code calonHapus} dari {@code session} sambil MELEWATI (skip) baris yang sudah dipakai
+	 * pada hasil ujian mahasiswa -- dipakai bersama oleh tombol "Hapus Soal Double" dan "Hapus" (hapus
+	 * seluruh soal ujian) agar keduanya memakai penjaga yang sama seperti tombol hapus per baris pada
+	 * grid ({@link #soalSudahDipakaiHasilUjian}), yang sebelumnya hanya dipasang di jalur per-baris itu.
+	 *
+	 * <p>Pemeriksaan dilakukan SEKALIGUS lewat {@link #idSoalYangSudahDipakaiHasilUjian} (satu-dua query,
+	 * bukan satu per baris) SEBELUM {@code session.delete} pertama dipanggil, sehingga bila pemeriksaan
+	 * gagal TIDAK SATU PUN baris terlanjur dihapus (fail-closed) -- lihat javadoc method itu.
+	 *
+	 * @param session sesi Hibernate aktif tempat {@code session.delete} dipanggil
+	 * @param calonHapus daftar {@link UjianPunyaSoal} yang akan dihapus; duplikat by id diabaikan
+	 * @return jumlah yang benar-benar dihapus dan nama soal yang dilewati
+	 * @throws Exception bila pemeriksaan soal-terpakai gagal (fail-closed: tidak ada yang dihapus)
+	 */
+	private static HasilHapusUjianPunyaSoal hapusUjianPunyaSoalDenganPenjaga(Session session,
+			List<UjianPunyaSoal> calonHapus) throws Exception {
+		List<UjianPunyaSoal> unik = new ArrayList<UjianPunyaSoal>();
+		Set<Long> idTerlihat = new HashSet<Long>();
+		for (UjianPunyaSoal ujianPunyaSoal : calonHapus) {
+			if (ujianPunyaSoal == null) {
+				continue;
+			}
+			if (ujianPunyaSoal.getId() == null || idTerlihat.add(ujianPunyaSoal.getId())) {
+				unik.add(ujianPunyaSoal);
+			}
+		}
+		Set<Long> idSudahDipakai = idSoalYangSudahDipakaiHasilUjian(unik);
+		int jumlahDihapus = 0;
+		List<String> namaSoalDilewati = new ArrayList<String>();
+		for (UjianPunyaSoal ujianPunyaSoal : unik) {
+			if (ujianPunyaSoal.getId() != null && idSudahDipakai.contains(ujianPunyaSoal.getId())) {
+				String nama = ujianPunyaSoal.getBankSoal() == null ? null : ujianPunyaSoal.getBankSoal().getSoal();
+				namaSoalDilewati.add(nama == null || nama.trim().length() == 0 ? "(tanpa teks)" : nama);
+				continue;
+			}
+			session.delete(ujianPunyaSoal);
+			jumlahDihapus++;
+		}
+		return new HasilHapusUjianPunyaSoal(jumlahDihapus, namaSoalDilewati);
+	}
+
+	/** Batas jumlah nama soal yang ditampilkan pada pesan ringkasan hasil hapus massal. */
+	private static final int BATAS_NAMA_SOAL_DITAMPILKAN = 10;
+
+	/**
+	 * Bentuk pesan ringkasan hasil penghapusan massal untuk ditampilkan ke pengguna: jumlah yang berhasil
+	 * dihapus, dan -- bila ada yang dilewati -- jumlah serta (sampai {@value #BATAS_NAMA_SOAL_DITAMPILKAN}
+	 * nama pertama) soal yang dilewati karena sudah dijawab peserta pada hasil ujian mahasiswa, supaya
+	 * pengguna tidak diam-diam kehilangan sebagian penghapusan tanpa keterangan.
+	 *
+	 * @param labelAksi kata kerja untuk baris pertama pesan, mis. "dihapus"
+	 * @param hasil hasil dari {@link #hapusUjianPunyaSoalDenganPenjaga}
+	 */
+	private static String pesanHasilHapusMassal(String labelAksi, HasilHapusUjianPunyaSoal hasil) {
+		StringBuilder pesan = new StringBuilder();
+		pesan.append(hasil.jumlahDihapus).append(" soal berhasil ").append(labelAksi).append(".");
+		if (!hasil.namaSoalDilewati.isEmpty()) {
+			pesan.append(" ").append(hasil.namaSoalDilewati.size())
+					.append(" soal DILEWATI (tidak dihapus) karena sudah dijawab/dipakai pada hasil ujian mahasiswa: ");
+			int batas = Math.min(BATAS_NAMA_SOAL_DITAMPILKAN, hasil.namaSoalDilewati.size());
+			for (int i = 0; i < batas; i++) {
+				if (i > 0) {
+					pesan.append("; ");
+				}
+				String nama = hasil.namaSoalDilewati.get(i);
+				pesan.append(nama.length() > 80 ? nama.substring(0, 80) + "..." : nama);
+			}
+			if (hasil.namaSoalDilewati.size() > batas) {
+				pesan.append("; dan ").append(hasil.namaSoalDilewati.size() - batas).append(" lainnya");
+			}
+			pesan.append(". Hapus dulu hasil ujian mahasiswa yang terkait bila memang ingin menghapus soal ini.");
+		}
+		return pesan.toString();
+	}
+
 	/**
 	 * Row renderer grid daftar soal pada tab "Soal" Detail Ujian. Setiap baris data adalah id
 	 * {@link UjianPunyaSoal} (bukan objek langsung — dimuat via {@link GeneralValueObject#ambilData}); baris
@@ -4320,7 +4495,7 @@ public class DetailUjianHelper implements DataLoader {
 							bankSoal.setMatapelajaran(matapelajaran);
 							ada = true;
 						}
-						if (bankSoal.getGuru() == null || guru != null) {
+						if (bankSoal.getGuru() == null && guru != null) {
 							bankSoal.setGuru(guru);
 							ada = true;
 						}
@@ -4455,7 +4630,7 @@ public class DetailUjianHelper implements DataLoader {
 						bankSoal.setMatapelajaran(matapelajaran);
 						ada = true;
 					}
-					if (bankSoal.getGuru() == null || guru != null) {
+					if (bankSoal.getGuru() == null && guru != null) {
 						bankSoal.setGuru(guru);
 						ada = true;
 					}
@@ -4696,7 +4871,7 @@ public class DetailUjianHelper implements DataLoader {
 							bankSoal.setMatapelajaran(matapelajaran);
 							ada = true;
 						}
-						if (bankSoal.getGuru() == null || guru != null) {
+						if (bankSoal.getGuru() == null && guru != null) {
 							bankSoal.setGuru(guru);
 							ada = true;
 						}
@@ -4875,7 +5050,7 @@ public class DetailUjianHelper implements DataLoader {
 								Matapelajaran matapelajaran = pertemuan == null
 										|| pertemuan.getJadwalPelajaran() == null ? null
 												: pertemuan.getJadwalPelajaran().getMatapelajaran();
-								Guru guru = tbmuser != null && tbmuser.getDosen() != null ? tbmuser.getGuru()
+								Guru guru = tbmuser != null && tbmuser.getGuru() != null ? tbmuser.getGuru()
 										: (pertemuan == null || pertemuan.getJadwalPelajaran() == null ? null
 												: pertemuan.getJadwalPelajaran().getGuru());
 
@@ -4888,7 +5063,7 @@ public class DetailUjianHelper implements DataLoader {
 								if (newBankSoal.getMatapelajaran() == null && matapelajaran != null) {
 									newBankSoal.setMatapelajaran(matapelajaran);
 								}
-								if (newBankSoal.getGuru() == null || guru != null) {
+								if (newBankSoal.getGuru() == null && guru != null) {
 									newBankSoal.setGuru(guru);
 								}
 
@@ -5182,7 +5357,7 @@ public class DetailUjianHelper implements DataLoader {
 								Matapelajaran matapelajaran = pertemuan == null
 										|| pertemuan.getJadwalPelajaran() == null ? null
 												: pertemuan.getJadwalPelajaran().getMatapelajaran();
-								Guru guru = tbmuser != null && tbmuser.getDosen() != null ? tbmuser.getGuru()
+								Guru guru = tbmuser != null && tbmuser.getGuru() != null ? tbmuser.getGuru()
 										: (pertemuan == null || pertemuan.getJadwalPelajaran() == null ? null
 												: pertemuan.getJadwalPelajaran().getGuru());
 
@@ -5195,7 +5370,7 @@ public class DetailUjianHelper implements DataLoader {
 								if (newBankSoal.getMatapelajaran() == null && matapelajaran != null) {
 									newBankSoal.setMatapelajaran(matapelajaran);
 								}
-								if (newBankSoal.getGuru() == null || guru != null) {
+								if (newBankSoal.getGuru() == null && guru != null) {
 									newBankSoal.setGuru(guru);
 								}
 

@@ -1939,7 +1939,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			// sehingga nominal tagihan yang SUDAH TERGENERATE bisa diubah manual massal
 			// (bukan hanya template SettingBiayaDetail di atas).
 			MyToolbarbuttonConfig uploadTagihanAktifCalon = KegiatanHelper.prosesUploadTagihan("Upload",
-					"/img/excel.png", new EventListener() {
+					"/img/excel.png", settingBiaya, new EventListener() {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							loadData(arg0);
@@ -2139,7 +2139,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			// sehingga nominal tagihan yang SUDAH TERGENERATE bisa diubah manual massal
 			// (bukan hanya template SettingBiayaDetail di atas).
 			MyToolbarbuttonConfig uploadTagihanAktifMhs = KegiatanHelper.prosesUploadTagihan("Upload",
-					"/img/excel.png", new EventListener() {
+					"/img/excel.png", settingBiaya, new EventListener() {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							loadData(arg0);
@@ -2191,7 +2191,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		} else {
 
 			MyToolbarbuttonConfig prosesUlang = KegiatanHelper.prosesUploadTagihan("Upload", "/img/excel.png",
-					new EventListener() {
+					settingBiaya, new EventListener() {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {

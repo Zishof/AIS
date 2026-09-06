@@ -227,11 +227,60 @@ import ais.ui.util.WaktuUtil;
  */
 public class PenjadwalanHelper {
 
+	/**
+	 * Perkuliahan yang sedang ditampilkan agendanya. Diisi sekali di awal
+	 * {@link #display(Perkuliahan, Component)} dan sesudah itu hanya dibaca — terutama oleh
+	 * {@link #onSearchDefault(Event)}, yang dipanggil dari belasan listener toolbar/baris tanpa membawa
+	 * parameter apa pun sehingga perlu mengambil konteks perkuliahan dari sini.
+	 *
+	 * <p>Karena itu satu instance {@code PenjadwalanHelper} melayani TEPAT SATU perkuliahan; jangan
+	 * memakai ulang instance yang sama untuk perkuliahan berbeda, dan jangan menyimpannya di scope yang
+	 * hidup lebih lama dari halaman ZK (mis. session attribute) — {@link Perkuliahan} di sini adalah
+	 * entity Hibernate yang menempel pada session desktop saat itu dan punya cache pertemuan internal
+	 * yang di-invalidasi lewat {@code perkuliahan.belum()}.</p>
+	 */
 	private Perkuliahan perkuliahan;
+	/**
+	 * Grid ZK berisi daftar pertemuan. Dibangun di {@link #display(Perkuliahan, Component)} dan dipakai
+	 * ulang oleh {@link #onSearchDefault(Event)}, yang tiap kali pemuatan ulang memasang model
+	 * ({@code SimpleListModel} berisi id pertemuan) DAN {@link PertemuanRenderer} yang baru — bukan
+	 * sekadar mengganti modelnya — agar penomoran ulang ({@code perteKe}) dan penanda baris terakhir
+	 * yang diubah ({@code pertId}) pada renderer ikut ter-reset.
+	 */
 	private MyGrid grid;
+	/*
+	 * Sisa kode lama (dead code): daftar mahasiswa peserta tidak pernah dipakai di kelas ini. Daftar
+	 * peserta dan kehadirannya ditangani AbsensiHelper/AktifitasPerkuliahanHelper per pertemuan, bukan
+	 * di level agenda. Dibiarkan sebagai komentar agar jelas ini memang sengaja tidak ada, bukan
+	 * terhapus tak sengaja.
+	 */
 	// private List<Mahasiswa> mahasiswas;
 
+	/**
+	 * Checkbox toolbar "hanya yg aktif" (default TERCENTANG). Menentukan jalur pemuatan data di
+	 * {@link #onSearchDefault(Event)}, dan kedua jalurnya berbeda bukan hanya pada filternya:
+	 * <ul>
+	 *   <li><b>Tercentang</b> — memakai jalur CACHE milik {@link Perkuliahan}
+	 *   ({@code perkuliahan.udah()}/{@code reInitPertemuan}/{@code ambilPertemuan(0, 1000, false)}),
+	 *   sehingga penomoran ulang "Pertemuan ke-" mode otomatis ikut terjadi.</li>
+	 *   <li><b>Tidak tercentang</b> — query langsung ke {@link Pertemuan} tanpa lewat cache, sehingga
+	 *   pertemuan non-aktif ikut tampil TETAPI penomoran ulang tidak dijalankan.</li>
+	 * </ul>
+	 * Nilainya tidak pernah disimpan ke basis data — murni state tampilan per-halaman.
+	 */
 	private MyCheckboxConfig hanyaYangAktif;
+	/**
+	 * Checkbox toolbar "Urutkan Manual" — kebalikan dari {@code perkuliahan.getUrutkanotomatis()}.
+	 * Berbeda dengan {@link #hanyaYangAktif}, checkbox ini BUKAN state tampilan: listener {@code onClick}
+	 * langsung menulis {@code perkuliahan.setUrutkanotomatis(!isChecked())} ke basis data lewat
+	 * {@code Common.refreshUpdate}, sehingga mempengaruhi semua pengguna lain yang membuka agenda
+	 * perkuliahan ini, bukan hanya sesi yang mengklik.
+	 *
+	 * <p>Checkbox ini hanya DITAMPILKAN bila konfigurasi
+	 * {@code tampilkan_urutkan_manual_di_agenda_pertemuan} aktif — namun perlu diperhatikan bahwa mode
+	 * manual tetap bisa menyala tanpa checkbox ini: {@link #pindahkanUrutanPertemuan} (tombol Naik/Turun
+	 * per baris) juga memaksa {@code urutkanotomatis=false} secara permanen begitu dipakai.</p>
+	 */
 	private MyCheckboxConfig urutkanManual;
 
 	/**
@@ -265,11 +314,75 @@ public class PenjadwalanHelper {
 	 */
 	public static class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Pengguna yang sedang login, di-resolve SEKALI saat renderer dibuat (bukan per baris) lewat
+		 * {@code Common.getCurrentUser()}. Dipakai sebagai satu-satunya sumber keputusan hak akses
+		 * per-baris di {@link #render(Row, Object)}: apakah kolom Tanggal/Waktu dan tombol hapus per
+		 * baris dapat diedit, apakah tombol Naik/Turun urutan muncul, dan apakah kolom "sesuai"
+		 * ditampilkan sebagai checkbox yang bisa diubah atau sekadar ikon baca-saja.
+		 *
+		 * <p><b>Bentuk gerbangnya adalah daftar-larangan berbasis PERAN, bukan kepemilikan data.</b>
+		 * Yang diperiksa adalah "pengguna ini bukan mahasiswa/siswa/calon mahasiswa/calon siswa" plus,
+		 * untuk dosen, {@code perkuliahan.getDosenBisaMerubahTanggalPerkuliahan()}. Renderer TIDAK
+		 * memeriksa apakah pengguna benar-benar pengampu/pemilik perkuliahan ini atau berada dalam
+		 * lingkup satuan kerjanya. Batas itu diasumsikan sudah ditegakkan di sisi pemanggil (action/menu
+		 * yang memutuskan perkuliahan mana yang boleh dibuka); renderer hanya membedakan peran.</p>
+		 */
 		private Tbmuser tbmuser = Common.getCurrentUser();
+		/**
+		 * Id pertemuan yang paling terakhir disentuh aksi pada grid ini (hapus, ubah tanggal, naik/turun
+		 * urutan, absen, video conference, agenda kalender). Dipakai murni untuk kenyamanan tampilan:
+		 * saat grid dirender ulang dan baris dengan id ini ditemui, {@code Clients.scrollIntoView} dipicu
+		 * lewat timer default agar layar kembali ke posisi baris yang barusan diubah, bukan melompat ke
+		 * atas.
+		 *
+		 * <p>Nilai awal {@code -1L} sengaja dipakai sebagai penanda "belum ada" yang tidak akan pernah
+		 * cocok dengan id sungguhan. Field ini hidup hanya selama satu instance renderer; karena
+		 * {@link PenjadwalanHelper#onSearchDefault(Event)} membuat renderer BARU setiap pemuatan ulang,
+		 * penanda ini otomatis hilang setelah scroll dilakukan sekali.</p>
+		 */
 		private Long pertId = -1L;
+		/**
+		 * Perkuliahan pemilik pertemuan-pertemuan yang dirender, diberikan lewat konstruktor. Selain
+		 * dipakai untuk membaca mode urut ({@code getUrutkanotomatis()}) dan izin dosen mengubah tanggal,
+		 * setiap listener yang mengubah data memanggil {@code perkuliahan.belum()} pada field ini untuk
+		 * meng-invalidasi cache pertemuan SEBELUM memicu {@link #eventListener} — tanpa itu grid akan
+		 * dimuat ulang dari cache lama dan perubahan tampak tidak tersimpan.
+		 */
 		private Perkuliahan perkuliahan;
+		/**
+		 * Callback "muat ulang grid" milik pemanggil, diberikan lewat konstruktor. Dipanggil oleh setiap
+		 * aksi baris yang mengubah data setelah perubahan di-commit dan cache di-invalidasi. Pada
+		 * pemakaian dari {@link PenjadwalanHelper#onSearchDefault(Event)} listener ini menunjuk balik ke
+		 * {@code onSearchDefault} sehingga seluruh grid (termasuk renderer ini sendiri) dibangun ulang.
+		 *
+		 * <p>Perhatikan: beberapa pemanggilnya membungkus lewat {@code Common.createDefaultTimer(...)}
+		 * agar dijalankan pada putaran event ZK berikutnya (dipakai setelah penghapusan baris, supaya
+		 * grid tidak dibangun ulang sementara komponen baris yang sedang memicu event masih hidup);
+		 * sebagian lain memanggilnya langsung. Sebagian pemanggil juga meneruskan {@code null} sebagai
+		 * argumen event, jadi implementasi listener ini TIDAK boleh mendereference {@code Event} yang
+		 * diterimanya.</p>
+		 */
 		private EventListener eventListener;
 
+		/**
+		 * Pencacah baris yang bertambah satu setiap kali {@link #render(Row, Object)} dipanggil, dipakai
+		 * sebagai nomor "Pertemuan ke-" pada MODE URUT OTOMATIS.
+		 *
+		 * <p><b>Efek samping yang mudah terlewat:</b> pada mode otomatis, {@code render} tidak sekadar
+		 * menampilkan angka ini — ia juga menulis balik ke entity ({@code pertemuan.setPertemuanKe(perteKe)}).
+		 * Nomor urut karenanya adalah turunan dari POSISI BARIS pada grid saat itu (yang pada mode otomatis
+		 * berarti urutan tanggal), bukan nilai yang pernah disimpan pengguna. Inilah mekanisme di balik
+		 * keluhan "pertemuan 3 jadi 1"/"UTS tadinya pertemuan 8 jadi 6": mengubah atau menyisipkan tanggal
+		 * menggeser posisi baris, dan penomoran mengikuti. Mode manual (lihat
+		 * {@link PenjadwalanHelper#pindahkanUrutanPertemuan}) mematikan perilaku ini dan memakai
+		 * {@code pertemuanManual} yang bisa diketik langsung.</p>
+		 *
+		 * <p>Karena pencacah ini bersifat per-instance dan tidak pernah di-reset di dalam kelas ini,
+		 * penomorannya hanya benar bila renderer dipakai untuk satu kali pemuatan grid dari baris pertama —
+		 * yang memang dijamin {@link PenjadwalanHelper#onSearchDefault(Event)} dengan selalu memasang
+		 * instance renderer baru.</p>
+		 */
 		private Integer perteKe = 0;
 
 		/**
