@@ -1523,21 +1523,82 @@ public abstract class VOMahasiswa extends VoKunci {
 		return kegiatans;
 	}
 
+	/**
+	 * Mencari <b>satu</b> tagihan milik orang ini untuk suatu {@link JenisKegiatan}, tanpa
+	 * membatasi semester.
+	 *
+	 * <p>Setara dengan {@code ambilKegiatans(null, jenisKegiatan)}. Karena semesternya
+	 * {@code null}, pencarian mengambil tagihan pertama yang jenisnya cocok — lihat
+	 * {@link #ambilKegiatans(Integer, JenisKegiatan, boolean)} untuk urutan pencarian dan
+	 * mekanisme mundur ke semester 1 yang berlaku pada kasus ini.</p>
+	 *
+	 * @param jenisKegiatan jenis kegiatan yang dicari
+	 * @return tagihan yang cocok, atau {@code null} bila tidak ada
+	 */
 	public Kegiatan ambilKegiatans(JenisKegiatan jenisKegiatan) {
 		return ambilKegiatans(null, jenisKegiatan);
 	}
 
+	/**
+	 * Mencari <b>satu</b> tagihan milik orang ini untuk pasangan semester dan
+	 * {@link JenisKegiatan} tertentu, memakai cache.
+	 *
+	 * <p>Setara dengan {@code ambilKegiatans(semester, jenisKegiatan, false)}. Gunakan
+	 * {@link #ambilKegiatansRefresh(Integer, JenisKegiatan)} bila data harus dipastikan segar.</p>
+	 *
+	 * @param semester      semester yang dicari; {@code null} berarti semester mana pun
+	 * @param jenisKegiatan jenis kegiatan yang dicari
+	 * @return tagihan yang cocok, atau {@code null} bila tidak ada
+	 */
 	public Kegiatan ambilKegiatans(Integer semester, JenisKegiatan jenisKegiatan) {
 		boolean refresh = false;
 		Kegiatan kegiatan = ambilKegiatans(semester, jenisKegiatan, refresh);
 		return kegiatan;
 	}
 
+	/**
+	 * Mencari satu tagihan seperti {@link #ambilKegiatans(Integer, JenisKegiatan)}, tetapi dengan
+	 * memaksa indeks tagihan dibangun ulang dari basis data lebih dulu.
+	 *
+	 * <p>Meneruskan ke {@link #ambilKegiatansRefresh(Integer, JenisKegiatan, boolean)} dengan
+	 * {@code refresh} bernilai benar. Karena pembangunan ulang indeks menutup session milik thread
+	 * (lihat {@link #ambilKegiatansData(boolean, JenisKegiatan)}), jangan memanggil method ini di
+	 * tengah transaksi tulis.</p>
+	 *
+	 * @param semester      semester yang dicari; {@code null} berarti semester mana pun
+	 * @param jenisKegiatan jenis kegiatan yang dicari
+	 * @return tagihan yang cocok, atau {@code null} bila tidak ada
+	 */
 	public Kegiatan ambilKegiatansRefresh(Integer semester, JenisKegiatan jenisKegiatan) {
 		boolean refresh = true;
 		return ambilKegiatansRefresh(semester, jenisKegiatan, refresh);
 	}
 
+	/**
+	 * Mencari satu tagihan dengan pilihan pembaruan eksplisit, ditambah satu lapis mundur ke
+	 * semester 1.
+	 *
+	 * <p>Hasil {@link #ambilKegiatans(Integer, JenisKegiatan, boolean)} diambil apa adanya;
+	 * kemudian, bila {@code semester} yang diminta memang {@code null} dan tagihan yang ditemukan
+	 * bernilai nol ({@code amount < 0,01}), pencarian diulang dengan semester 1.</p>
+	 *
+	 * <p><b>Lapisan mundur ini duplikat.</b> Blok yang sama persis sudah ada di ujung
+	 * {@link #ambilKegiatans(Integer, JenisKegiatan, boolean)}, sehingga pada praktiknya
+	 * pemeriksaan di sini hampir selalu menemukan hasil yang sudah melewati mundur tersebut dan
+	 * tidak berbuat apa-apa lagi. Ia hanya berbeda ketika pengulangan di dalam sudah gagal
+	 * menemukan tagihan bernilai — dan pada kasus itu pengulangan kedua akan menghasilkan hal yang
+	 * sama sambil menambah satu putaran pencarian penuh. Perlakukan method ini sebagai kompatibel
+	 * dengan pemanggil lama, bukan sebagai jalur yang perlu ditiru.</p>
+	 *
+	 * <p>Ambang {@code 0,01} dipakai alih-alih perbandingan dengan nol karena nilainya bertipe
+	 * pecahan; tagihan bernilai di bawah satu perseratus satuan mata uang diperlakukan sebagai
+	 * "belum ada nilainya".</p>
+	 *
+	 * @param semester      semester yang dicari; mekanisme mundur hanya aktif bila {@code null}
+	 * @param jenisKegiatan jenis kegiatan yang dicari
+	 * @param refresh       {@code true} untuk membangun ulang indeks dari basis data
+	 * @return tagihan yang cocok, atau {@code null} bila tidak ada
+	 */
 	public Kegiatan ambilKegiatansRefresh(Integer semester, JenisKegiatan jenisKegiatan, boolean refresh) {
 
 		Kegiatan kegiatan = ambilKegiatans(semester, jenisKegiatan, refresh);
@@ -1548,6 +1609,65 @@ public abstract class VOMahasiswa extends VoKunci {
 		return kegiatan;
 	}
 
+	/**
+	 * Pencarian satu tagihan yang sesungguhnya: empat tahap berurutan, masing-masing dijalankan
+	 * hanya bila tahap sebelumnya gagal.
+	 *
+	 * <h4>Tahap 0 — penyesuaian semester untuk pendaftaran</h4>
+	 * <p>Bila {@code jenisKegiatan} adalah jenis pendaftaran calon mahasiswa
+	 * ({@code ConstantValues.PENDAFTARAN_CALON_MAHASISWA}), semester dipaksa menjadi 0 apa pun
+	 * yang diminta pemanggil. Tagihan pendaftaran memang dicatat pada semester 0 karena calon
+	 * mahasiswa belum punya semester berjalan. Penyesuaian ini diam-diam mengabaikan argumen
+	 * {@code semester}, jadi pemanggil tidak dapat mencari tagihan pendaftaran pada semester
+	 * lain.</p>
+	 *
+	 * <h4>Tahap 1 — pencocokan yang mengutamakan tagihan bernilai</h4>
+	 * <p>Menelusuri hasil {@link #ambilKegiatans(boolean)} dan mengambil yang pertama cocok
+	 * <b>dan</b> bernilai lebih dari 0,1. Bila {@code semester} bernilai {@code null}, kecocokan
+	 * hanya diukur dari jenis kegiatan; bila terisi, semesternya harus sama persis. Syarat
+	 * "bernilai" ada agar tagihan kosong — baris yang terlanjur dibuat tetapi belum diisi nominal
+	 * — tidak menutupi tagihan sungguhan pada semester lain.</p>
+	 *
+	 * <h4>Tahap 2 — pencocokan tanpa syarat nilai</h4>
+	 * <p>Bila tahap 1 tidak menemukan apa pun, penelusuran diulang dengan kriteria yang sama
+	 * <b>tanpa</b> syarat nilai. Inilah yang membuat tagihan bernilai nol tetap dapat ditemukan
+	 * ketika memang tidak ada alternatif — misalnya saat layar perlu menampilkan bahwa tagihannya
+	 * ada tetapi nominalnya belum ditetapkan.</p>
+	 *
+	 * <h4>Tahap 3 — pencarian ke basis data lewat kode unik</h4>
+	 * <p>Bila cache tetap tidak menghasilkan apa pun, method menyusun kode unik lewat
+	 * {@code Kegiatan.generateKodeUnik} — memakai cabang {@link Mahasiswa} atau
+	 * {@link BiodataCalonMahasiswa} sesuai tipe {@code this}, sehingga kode itu sudah mengandung
+	 * identitas orang yang bersangkutan — lalu mencari satu baris {@link Kegiatan} dengan kolom
+	 * {@code kodeunik} tersebut. Karena identitas ikut terkode, tahap ini tetap terbatas pada
+	 * tagihan milik orang ini walaupun tidak ada restriksi kepemilikan yang eksplisit.</p>
+	 * <p>Tahap ini membuka session-nya <b>sendiri</b> lewat {@code openSession()} dan menutupnya
+	 * pada blok {@code finally} ({@code clear}, {@code disconnect}, {@code close}), sehingga tidak
+	 * mengganggu session pemanggil — berbeda dari jalur bangun ulang di
+	 * {@link #ambilKegiatansData(boolean, JenisKegiatan)}. Kueri memakai {@code setMaxResults(1)}
+	 * tanpa pengurutan, jadi bila kode unik yang sama muncul lebih dari sekali, baris mana yang
+	 * terpilih tidak ditentukan. Kegagalan dicetak, dicatat ke audit, lalu ditelan sehingga
+	 * hasilnya tetap {@code null}.</p>
+	 * <p>Perhatikan bahwa tagihan yang ditemukan lewat tahap ini <b>tidak</b> melalui penyaringan
+	 * yang diterapkan {@link #ambilKegiatansData(boolean, JenisKegiatan)}: status aktif, batas
+	 * semester master, dan keharusan semester tidak {@code null} sama sekali tidak diperiksa. Jadi
+	 * tahap 3 dapat mengembalikan tagihan yang sengaja disembunyikan dari daftar.</p>
+	 *
+	 * <h4>Tahap 4 — mundur ke semester 1</h4>
+	 * <p>Bila {@code semester} yang diminta {@code null} dan tagihan yang akhirnya diperoleh
+	 * bernilai kurang dari 0,01, method memanggil dirinya sendiri sekali dengan semester 1.
+	 * Rekursi ini terbatas satu tingkat karena pada pemanggilan kedua {@code semester} sudah tidak
+	 * {@code null}. Perilaku ini bertujuan mengarahkan pencarian "semester mana pun" ke semester
+	 * pertama ketika yang ditemukan hanyalah tagihan kosong.</p>
+	 *
+	 * @param semester      semester yang dicari; {@code null} berarti semester mana pun dan
+	 *                      mengaktifkan tahap 4. Diabaikan bila jenisnya pendaftaran calon
+	 *                      mahasiswa
+	 * @param jenisKegiatan jenis kegiatan yang dicari; {@code null} membuat seluruh pencocokan
+	 *                      pada tahap 1 dan 2 gagal sehingga langsung jatuh ke tahap 3
+	 * @param refresh       diteruskan ke {@link #ambilKegiatans(boolean)}
+	 * @return tagihan yang cocok, atau {@code null} bila keempat tahap gagal
+	 */
 	public Kegiatan ambilKegiatans(Integer semester, JenisKegiatan jenisKegiatan, boolean refresh) {
 
 		if (jenisKegiatan != null && ConstantValues.PENDAFTARAN_CALON_MAHASISWA != null
@@ -1633,10 +1753,46 @@ public abstract class VOMahasiswa extends VoKunci {
 		return keg;
 	}
 
+	/**
+	 * Mengambil <b>seluruh</b> tagihan milik orang ini pada satu semester yang jenisnya termasuk
+	 * dalam himpunan yang diberikan, memakai cache.
+	 *
+	 * <p>Setara dengan {@code ambilKegiatans(semester, jenisKegiatans, false)}.</p>
+	 *
+	 * @param semester       semester yang dicari; <b>harus</b> tidak {@code null}, lihat
+	 *                       {@link #ambilKegiatans(Integer, Set, boolean)}
+	 * @param jenisKegiatans himpunan jenis kegiatan yang diterima
+	 * @return tagihan yang cocok; kosong bila tidak ada
+	 */
 	public List<Kegiatan> ambilKegiatans(Integer semester, Set<JenisKegiatan> jenisKegiatans) {
 		return ambilKegiatans(semester, jenisKegiatans, false);
 	}
 
+	/**
+	 * Mengambil seluruh tagihan milik orang ini pada satu semester yang jenisnya termasuk dalam
+	 * himpunan yang diberikan.
+	 *
+	 * <p>Himpunan {@link JenisKegiatan} lebih dulu diubah menjadi daftar id, lalu hasil
+	 * {@link #ambilKegiatans(boolean)} disaring: jenis kegiatan pada baris harus ada dan id-nya
+	 * termasuk daftar tersebut, dan semesternya harus sama persis.</p>
+	 *
+	 * <p><b>Semester {@code null} menghasilkan daftar kosong, bukan "semua semester".</b> Syarat
+	 * {@code semester != null} diuji per elemen tanpa cabang alternatif, sehingga memanggil method
+	 * ini dengan {@code null} mengembalikan daftar kosong secara diam-diam. Perilakunya berbeda
+	 * dari {@link #ambilKegiatans(Integer, boolean)} yang justru memperlakukan {@code null}
+	 * sebagai "tanpa batas semester". Himpunan jenis kegiatan yang kosong juga menghasilkan daftar
+	 * kosong dengan alasan yang sama.</p>
+	 *
+	 * <p>Bila himpunan berisi {@link JenisKegiatan} yang id-nya {@code null}, pengumpulan id akan
+	 * melempar {@link NullPointerException} ke pemanggil — bagian ini tidak dibungkus penangkap
+	 * kesalahan.</p>
+	 *
+	 * @param semester       semester yang dicari; {@code null} menghasilkan daftar kosong
+	 * @param jenisKegiatans himpunan jenis kegiatan yang diterima; kosong menghasilkan daftar
+	 *                       kosong
+	 * @param refresh        diteruskan ke {@link #ambilKegiatans(boolean)}
+	 * @return tagihan yang cocok; tidak pernah {@code null}
+	 */
 	public List<Kegiatan> ambilKegiatans(Integer semester, Set<JenisKegiatan> jenisKegiatans, boolean refresh) {
 		List<Long> inds = new ArrayList<Long>();
 		for (JenisKegiatan jenisKegiatan : jenisKegiatans) {
@@ -1654,10 +1810,46 @@ public abstract class VOMahasiswa extends VoKunci {
 		return hasil;
 	}
 
+	/**
+	 * Mengambil seluruh tagihan milik orang ini pada satu semester, apa pun jenisnya, memakai
+	 * cache.
+	 *
+	 * <p>Setara dengan {@code ambilKegiatans(semester, false)}.</p>
+	 *
+	 * @param semester semester yang dicari; {@code null} berarti seluruh semester — perhatikan
+	 *                 bahwa artinya berlawanan dengan
+	 *                 {@link #ambilKegiatans(Integer, Set)}
+	 * @return tagihan yang cocok; kosong bila tidak ada
+	 */
 	public List<Kegiatan> ambilKegiatans(Integer semester) {
 		return ambilKegiatans(semester, false);
 	}
 
+	/**
+	 * Mengambil seluruh tagihan milik orang ini pada satu semester, apa pun jenisnya.
+	 *
+	 * <p>Hasil {@link #ambilKegiatans(boolean)} disaring dengan dua cabang yang saling
+	 * melengkapi:</p>
+	 * <ul>
+	 * <li>{@code semester} terisi — baris diambil bila jenis kegiatannya ada, semesternya ada, dan
+	 * semesternya sama persis;</li>
+	 * <li>{@code semester} bernilai {@code null} — baris diambil selama jenis kegiatannya ada,
+	 * tanpa memandang semester.</li>
+	 * </ul>
+	 *
+	 * <p><b>Perhatikan perbedaan arti {@code null} antar-overload.</b> Di sini {@code null}
+	 * berarti "seluruh semester", sedangkan pada
+	 * {@link #ambilKegiatans(Integer, Set, boolean)} nilai yang sama menghasilkan daftar kosong.
+	 * Perbedaan ini mudah terlewat karena kedua method bernama sama dan hanya dibedakan parameter
+	 * kedua.</p>
+	 *
+	 * <p>Syarat "jenis kegiatannya ada" berlaku pada kedua cabang, sehingga tagihan yang belum
+	 * ditautkan ke master jenis kegiatan tidak pernah ikut terbawa.</p>
+	 *
+	 * @param semester semester yang dicari; {@code null} berarti seluruh semester
+	 * @param refresh  diteruskan ke {@link #ambilKegiatans(boolean)}
+	 * @return tagihan yang cocok; tidak pernah {@code null}
+	 */
 	public List<Kegiatan> ambilKegiatans(Integer semester, boolean refresh) {
 		Collection<Kegiatan> kegiatans = ambilKegiatans(refresh);
 		List<Kegiatan> hasil = new ArrayList<Kegiatan>();
