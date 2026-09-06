@@ -10,14 +10,16 @@ import javax.servlet.http.HttpServletResponse;
 import ais.common.Common;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet tampilan murni yang meneruskan (forward) permintaan ke halaman landing modul Les
+ * ({@code /WEB-INF/baru/les.jsp}). Tidak melakukan pembacaan maupun penulisan apa pun ke
+ * database dan tidak menerapkan gerbang otentikasi/otorisasi sendiri; kontrol akses (bila ada)
+ * sepenuhnya menjadi tanggung jawab konfigurasi keamanan servlet (mis. {@code intercept-url})
+ * atau JSP tujuan.
  */
 public class Les extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	/**
-	 * @see HttpServlet#HttpServlet()
-	 */
+	/** Konstruktor baku servlet, tanpa inisialisasi tambahan. */
 	public Les() {
 		super();
 
@@ -25,8 +27,9 @@ public class Les extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan GET dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -38,8 +41,9 @@ public class Les extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan POST dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -50,6 +54,14 @@ public class Les extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Meneruskan (forward) permintaan apa adanya ke halaman landing modul Les tanpa
+	 * menyertakan attribute tambahan maupun melakukan operasi database.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @param response respons HTTP yang akan di-forward ke JSP
+	 * @throws Exception bila terjadi galat saat forward ke JSP
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
