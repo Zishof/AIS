@@ -4294,6 +4294,78 @@ public class TugasKelompokHelper implements DataLoader {
 		return ambil;
 	}
 
+	/**
+	 * <h3>Varian KANONIK &mdash; tempat seluruh layar daftar Tugas Kelompok dirakit</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> membangun layar daftar tugas kelompok secara utuh: judul
+	 * modul, tiga kartu ringkasan angka, deretan tombol (Tambah Tugas, Ambil Tugas Sebelumnya, Cari,
+	 * Refresh, Recovery), tabel daftar tugas, dan kendali halaman. Seluruh varian {@code display(...)}
+	 * lain akhirnya bermuara ke sini, sehingga inilah satu-satunya tempat tata letak layar ditentukan.</p>
+	 *
+	 * <h4>Menugaskan cakupan: keempat argumen selalu ditulis ke field</h4>
+	 * <p>Keempat argumen cakupan ditugaskan ke field tanpa syarat, termasuk bila bernilai {@code null}.
+	 * Jadi memanggil metode ini bukan hanya "mengisi" cakupan, melainkan <b>menetapkan ulang</b>
+	 * seluruhnya: cakupan lama yang tidak disertakan akan terhapus. Sifat inilah yang membuat varian
+	 * perantara berargumen empat menghapus cakupan jadwal pelajaran yang sudah disetel pemanggilnya.
+	 * Ketiga field cakupan JAMAK ({@code perkuliahans}, {@code kelompokKkns}, {@code kelompokPkls})
+	 * TIDAK disentuh di sini, sehingga nilai yang disetel varian gabungan tetap bertahan.</p>
+	 *
+	 * <p>Komponen induk dibersihkan lebih dulu dengan {@code Common.clear(component)} bila ada, sehingga
+	 * metode ini aman dipanggil berulang &mdash; itulah yang dilakukan tombol Refresh dan callback
+	 * Recovery, yang memanggil ulang dirinya sendiri dengan argumen yang sama persis alih-alih sekadar
+	 * memuat ulang data.</p>
+	 *
+	 * <h4>Dua tata letak, dipilih dari TIPE komponen induk</h4>
+	 * <p>Pemilihan tata letak tidak memakai parameter khusus, melainkan memeriksa apakah induknya bertipe
+	 * {@link Tabpanel}:</p>
+	 * <ul>
+	 *   <li><b>Mode TAB</b> (induk {@code Tabpanel}) &mdash; tampilan penuh satu tab: header modul
+	 *   "Linimasa Tugas Kelompok" dari {@code DashboardUiKit.headerModul}, strip tiga kartu ringkasan
+	 *   lewat {@link #tempelRingkasanTugas(Component)}, toolbar, grid, lalu paging. Semuanya ditanam di
+	 *   dalam satu {@code MyDiv} bertinggi minimum agar tab tidak terlihat kosong saat data belum
+	 *   dimuat.</li>
+	 *   <li><b>Mode SISIP</b> (induk lain) &mdash; tampilan ringkas untuk ditanam di dalam halaman
+	 *   detail: hanya toolbar, grid, dan paging, dirakit di dalam wadah bergulir
+	 *   {@code Common.tampilanScroll1}. Tanpa header modul dan tanpa kartu ringkasan, karena halaman
+	 *   induk sudah memiliki judul dan ringkasannya sendiri.</li>
+	 * </ul>
+	 * <p>Isi toolbar kedua mode sengaja dibuat identik dan dalam urutan yang sama, sehingga pengguna
+	 * menemukan tombol yang sama di posisi yang sama. Konsekuensinya, blok pembuatan toolbar tertulis
+	 * dua kali; setiap penambahan tombol baru harus dilakukan di KEDUA cabang agar tidak muncul di satu
+	 * mode saja.</p>
+	 *
+	 * <h4>Urutan pembuatan yang tidak boleh diubah</h4>
+	 * <p>{@code paging} dan {@code cari} dibuat SEBELUM kedua cabang tata letak, dan {@code loadData}
+	 * dipanggil paling akhir setelah kolom grid terpasang. Urutan ini wajib: {@link #initCriteria(boolean)}
+	 * membaca {@code cari} tanpa penjagaan {@code null}, {@link #tempelRingkasanTugas(Component)} sudah
+	 * memanggil {@code initCriteria} di tengah perakitan mode tab, dan {@code loadData} memerlukan grid
+	 * yang sudah ada beserta kolomnya. Listener perpindahan halaman dipasang pada {@code paging} sejak
+	 * awal sehingga setiap perpindahan memicu {@code loadData} kembali.</p>
+	 *
+	 * <h4>Hak akses tombol</h4>
+	 * <p>Tombol "Tambah Tugas" memakai {@link #bolehKelola(Tbmuser)} &mdash; bentuk pemeriksaan yang
+	 * benar. Tombol "Recovery" (memulihkan tugas kelompok yang terhapus) dijaga
+	 * {@code RecoveryAktivitasPembelajaranHelper.bolehTampil(tbmuser)} dan komponennya tidak dibuat sama
+	 * sekali bila tidak berhak. Sebaliknya "Ambil Tugas Sebelumnya" memakai pemeriksaan gaya lama di
+	 * dalam {@link #createAmbilTugas()}. Tombol Cari dan Refresh sengaja tersedia untuk semua peran
+	 * karena keduanya hanya membaca.</p>
+	 *
+	 * <p><b>Batas yang jujur:</b> seperti seluruh penjagaan di kelas ini, yang dibatasi adalah tombolnya,
+	 * bukan datanya. Tugas kelompok mana yang boleh terlihat sepenuhnya ditentukan cakupan yang
+	 * ditugaskan di awal metode ini &mdash; tidak ada penyaring kepemilikan tambahan di
+	 * {@code initCriteria}. Memanggil metode ini dengan keempat cakupan {@code null} akan menampilkan
+	 * seluruh tabel tugas kelompok.</p>
+	 *
+	 * @param perkuliahan     cakupan perkuliahan, atau {@code null}
+	 * @param kelompokKkn     cakupan kelompok KKN, atau {@code null}
+	 * @param kelompokPkl     cakupan kelompok PKL, atau {@code null}
+	 * @param jadwalPelajaran cakupan jadwal pelajaran (jalur sekolah), atau {@code null}
+	 * @param component       komponen induk; bertipe {@link Tabpanel} untuk mode tab, tipe lain untuk
+	 *                        mode sisip. Boleh {@code null}, meskipun layar tidak akan tampak.
+	 * @see #initCriteria(boolean)
+	 * @see #loadData(Object)
+	 * @see #tempelRingkasanTugas(Component)
+	 */
 	public void display(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final JadwalPelajaran jadwalPelajaran, final Component component) {
 		this.perkuliahan = perkuliahan;

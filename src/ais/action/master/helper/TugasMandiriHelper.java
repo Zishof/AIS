@@ -5012,6 +5012,21 @@ public class TugasMandiriHelper {
 	 * Memuat ulang konten grid daftar berkas tugas yang sudah dikumpulkan (tanpa paksa refresh cache).
 	 * Alias untuk {@link #reloadTugasFileContent(boolean)} dengan nilai {@code refresh = false}.
 	 *
+	 * <p><strong>Kapan memakai varian ini.</strong> Varian tanpa argumen dipakai untuk penyegaran
+	 * biasa: setelah peserta mengunggah berkas, setelah nilai disimpan lewat toolbar Simpan, setelah
+	 * berkas nilai Excel diunggah, setelah halaman paging berpindah, setelah pencarian dijalankan, dan
+	 * setelah setiap aksi kehadiran massal selesai. Pada semua kejadian itu cache
+	 * {@link TugasFileContent} sudah diinvalidasi sendiri oleh pemanggilnya lewat
+	 * {@code tugas.belum("tugas_file_content_" + ...)}, sehingga pembacaan ulang paksa tidak
+	 * diperlukan.</p>
+	 *
+	 * <p>Varian {@link #reloadTugasFileContent(boolean)} dengan argumen {@code true} hanya dipakai di
+	 * dua tempat yang memang menuntut pembacaan ulang penuh dari basis data: tombol "Refresh" pada
+	 * toolbar Kelola, dan tombol "Batal" yang membuang perubahan nilai di memori.</p>
+	 *
+	 * <p>Variabel lokal {@code refresh} sengaja ditulis eksplisit alih-alih meneruskan literal
+	 * {@code false} agar maksudnya terbaca pada titik pemanggilan.</p>
+	 *
 	 * @throws Exception jika terjadi kesalahan saat mengambil data dari Hibernate.
 	 */
 	private void reloadTugasFileContent() throws Exception {
@@ -5406,6 +5421,24 @@ public class TugasMandiriHelper {
 	 * kontak (lihat peserta tanpa email pada layar Tugas). Method ini membuang chip kosong
 	 * (Toolbarbutton/A/Label tanpa teks); bila SEMUA kontak kosong, barisnya disembunyikan agar tidak
 	 * menyisakan ruang kosong.</p>
+	 *
+	 * <p><strong>Cara kerja.</strong> Daftar anak disalin lebih dahulu ke {@link ArrayList} baru
+	 * sebelum ditelusuri. Penyalinan itu wajib: {@code detach()} mengubah daftar anak milik komponen
+	 * induk, dan menelusuri daftar yang sedang diubah akan memicu
+	 * {@code ConcurrentModificationException}. Setiap anak diperiksa menurut tipenya —
+	 * {@link Toolbarbutton} dan {@code org.zkoss.zul.A} lewat {@code getLabel()}, {@link Label} lewat
+	 * {@code getValue()} — dan dilepas bila teksnya {@code null} atau hanya berisi spasi. Tipe lain
+	 * dibiarkan karena tidak dapat dinilai kosong-tidaknya.</p>
+	 *
+	 * <p><strong>Baris kosong disembunyikan seluruhnya.</strong> Bila setelah pembersihan tidak ada
+	 * anak yang tersisa dan wadahnya merupakan {@code HtmlBasedComponent}, wadah itu sendiri
+	 * di-{@code setVisible(false)}. Tanpa langkah ini, wadah kosong tetap menyisakan ruang vertikal
+	 * karena kelas gaya {@code ais-tugas-contact-row} memberinya padding dan jarak antar-chip.</p>
+	 *
+	 * <p><strong>Toleran terhadap kegagalan.</strong> Seluruh proses dibungkus {@code try}/{@code catch}
+	 * yang hanya menampilkan galat kepada admin lewat {@code Common.tampilErrorJikaAdmin}. Perapian
+	 * tampilan tidak boleh menggagalkan render satu baris daftar pengumpulan. Argumen {@code null}
+	 * langsung diabaikan.</p>
 	 *
 	 * @param barisKontak kontainer chip kontak (Div) yang akan dirapikan.
 	 */
@@ -6779,6 +6812,20 @@ public class TugasMandiriHelper {
 	 * sebagai HTML inline. Digunakan untuk memisahkan kelompok tombol dalam toolbar
 	 * ({@link MyHboxToolbar}) sehingga pengelompokan fungsional menjadi jelas secara visual:
 	 * Berkas Tugas | Nilai | Kelola | Kehadiran.</p>
+	 *
+	 * <p><strong>Mengapa berupa {@link Html} dan bukan komponen ZK.</strong> ZK 5 menyediakan
+	 * {@code Separator}, tetapi orientasi vertikalnya tidak berperilaku konsisten di dalam wadah
+	 * ber-{@code display:flex} yang dipakai toolbar ini. Sebuah {@code span} bergaya sebaris jauh
+	 * lebih dapat diprediksi: ia ikut melipat bersama tombol ketika {@code flex-wrap} bekerja pada
+	 * layar sempit, dan tingginya tetap {@code 24px} tanpa memaksa tinggi baris toolbar.</p>
+	 *
+	 * <p><strong>Sifat statis dan tanpa state.</strong> Setiap pemanggilan menghasilkan komponen baru;
+	 * hasilnya tidak boleh dipakai ulang untuk lebih dari satu posisi karena satu komponen ZK hanya
+	 * dapat memiliki satu induk. Pemanggilnya karena itu selalu menulis
+	 * {@code createSeparator().setParent(vbox)} sebagai satu kesatuan.</p>
+	 *
+	 * <p>Dipanggil tiga kali di {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} sehingga
+	 * membagi toolbar menjadi empat kelompok berurutan: Berkas Tugas, Nilai, Kelola, dan Kehadiran.</p>
 	 *
 	 * @return komponen {@link Html} berisi markup separator siap dipasang ke vbox toolbar.
 	 */
