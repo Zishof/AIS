@@ -55,11 +55,16 @@ import ais.ui.util.MyWindow;
  */
 public class DetailRuangDosenHelper implements DataLoader {
 
+	/** Grid utama (mode paging) yang menampilkan daftar dosen pemakai {@link #ruang}. */
 	private MyGrid grid;
+	/** Ruangan yang sedang ditampilkan detail pemakainya; diisi oleh {@link #displayDetailDosen(Ruang, Component)}. */
 	private Ruang ruang;
+	/** Kombo filter pencarian berdasarkan fakultas, berisi opsi "Semua" di baris pertama. */
 	private Combobox searchfakultas = new Combobox();
+	/** Kombo filter pencarian berdasarkan jurusan/prodi, berisi opsi "Semua" di baris pertama. */
 	private Combobox searchjurusan = new Combobox();
 
+	/** Textbox filter pencarian berdasarkan nama dosen (dicocokkan ANYWHERE, tanpa memandang huruf besar/kecil). */
 	private Textbox nama;
 
 	/** Menyiapkan combobox filter fakultas/jurusan (termasuk opsi "Semua") lewat {@link Common#initFakultasDanJurusanDanSemua}. */
@@ -70,10 +75,18 @@ public class DetailRuangDosenHelper implements DataLoader {
 	/** Perender baris grid: menampilkan foto, kode/NIDN, nama, jurusan, fakultas dosen, serta tombol hapus (dengan konfirmasi) yang melepas relasi {@code dosen.ruang}. */
 	class DetailDosenRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Konstruktor kosong; tidak ada state yang perlu disiapkan sebelum render. */
 		public DetailDosenRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris grid untuk satu {@link Dosen}: foto kecil + kode/NIDN, nama, jurusan,
+		 * fakultas, dan tombol hapus yang melepas relasi ruang (bukan menghapus data dosen).
+		 *
+		 * @param arg0 baris grid yang akan diisi
+		 * @param arg1 data baris, harus berupa {@link Dosen}
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {arg0.setValign("top");
 			// TODO Auto-generated method stub

@@ -77,8 +77,10 @@ import ais.ui.util.MyWindow;
  */
 public class DetailSemesterKurikulumHelper {
 
+	/** Daftar nama properti {@link KurikulumPunyaMatakuliah} yang diekspor tombol "Download Kurikulum". */
 	private String[] contents = new String[] { "id", "matakuliah", "semester", "tahap",
 			"jumlahPertemuanPerkuliahanDefault", "indukMatakuliah", "matakuliah.sks", "aktif" };
+	/** Kurikulum yang sedang ditampilkan ringkasannya, diset oleh {@link #display}. */
 	private Kurikulum kurikulum;
 
 	/** Varian {@link #display(Kurikulum, PaketPerkuliahan, Component, MyWindow)} tanpa konteks {@link PaketPerkuliahan}. */

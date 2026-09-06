@@ -63,10 +63,19 @@ import ais.database.model.SettingBiaya;
  */
 public class AmbilDetailSettingBiayaHelper {
 
+	/** Setting biaya induk yang item-nya sedang dikelola oleh dialog ini. */
 	private SettingBiaya settingBiaya;
+	/** Grid hasil pencarian item biaya, dirender ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
+	/** Textbox filter nama item biaya pada bagian pencarian dialog. */
 	private Textbox namaItemBiaya;
 
+	/**
+	 * Relasi {@link DetailSettingBiaya} existing yang ditandai untuk dihapus lewat event
+	 * {@code onCheck} pada {@link ItemBiayaRenderer} (checkbox dilepas). Dieksekusi di akhir
+	 * {@link #save()} — lihat catatan kelas mengenai potensi tumpang tindih dengan jalur hapus
+	 * di dalam loop utama {@link #save()}.
+	 */
 	private Set<DetailSettingBiaya> deleteDetailSettingBiaya = new HashSet<DetailSettingBiaya>();
 
 	/**
@@ -77,8 +86,10 @@ public class AmbilDetailSettingBiayaHelper {
 	 */
 	class ItemBiayaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** DAO item biaya, dipakai semata untuk memperoleh {@link #session} aktif. */
 		private ItemBiayaDao itemBiayaDao = DaoFactory.getInstance().getItemBiayaDao();
 
+		/** Session Hibernate aktif, dipakai {@link #render(Row, Object)} untuk cek relasi existing. */
 		private Session session = itemBiayaDao.getCurrentSession();
 
 		@Override

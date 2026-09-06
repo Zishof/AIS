@@ -150,6 +150,22 @@ public class NilaiValidator {
         }
     }
 
+    /**
+     * Memeriksa syarat minimum persentase pembayaran semester lalu dan semester saat ini
+     * (dipanggil hanya bila konfigurasi {@code mhs_yg_belum_bayar_tidak_bisa_lihat_nilai} aktif —
+     * lihat bagian B pada dokumentasi {@link #checkBolehLihatNilai(Mahasiswa, int, boolean, List)}).
+     * Kedua batas ({@code harusLunasLalu}, {@code harusLunasSaatIni}) diambil dari konfigurasi lewat
+     * {@link #parseDoubleConfig(String, double)}; batas bernilai &lt;= 0.1 melewatkan pengecekan
+     * tersebut. Pesan penolakan menyebut semester atau tahap sesuai konfigurasi
+     * {@link ais.common.ConstantValues#aktifkanTahapanTerhubungKeKeuangan}.
+     *
+     * @param session       Session Hibernate aktif untuk query status pembayaran
+     * @param mahasiswa     mahasiswa yang diperiksa
+     * @param semester      nomor semester yang nilainya akan dilihat
+     * @param tampilWarning {@code true} untuk menampilkan {@link MyMessageboxConfig} saat ditolak
+     * @param warnings      bila tidak {@code null}, pesan penolakan ditambahkan ke daftar ini
+     * @return {@code true} bila kedua syarat pembayaran terpenuhi (atau dilewati karena batas 0)
+     */
     // --- Helper Method untuk Pembayaran ---
     private static boolean validatePembayaran(Session session, Mahasiswa mahasiswa, int semester, boolean tampilWarning, List<String> warnings) {
         Integer tahap = mahasiswa.currentTahapan(semester);
@@ -175,6 +191,16 @@ public class NilaiValidator {
         return true;
     }
 
+    /**
+     * Menyalurkan satu pesan penolakan/peringatan ke messagebox (bila {@code tampilWarning}) dan/atau
+     * ke daftar {@code warnings} (bila tidak {@code null}) — titik tunggal yang dipakai seluruh
+     * jalur penolakan di kelas ini agar perilaku tampil/kumpul konsisten.
+     *
+     * @param msg           isi pesan yang ditampilkan/dikumpulkan
+     * @param title         judul messagebox (diabaikan bila {@code tampilWarning} bernilai {@code false})
+     * @param tampilWarning {@code true} untuk menampilkan {@link MyMessageboxConfig}
+     * @param warnings      bila tidak {@code null}, {@code msg} ditambahkan ke daftar ini
+     */
     // --- Private Utilities untuk Kerapihan ---
     private static void handleWarning(String msg, String title, boolean tampilWarning, List<String> warnings) {
         if (tampilWarning) {
@@ -183,10 +209,27 @@ public class NilaiValidator {
         if (warnings != null) warnings.add(msg);
     }
 
+    /**
+     * Menyusun teks pesan penolakan pembayaran standar, menyebutkan persentase minimum yang
+     * disyaratkan dan periode (semester/tahap) yang belum terpenuhi.
+     *
+     * @param persen  persentase minimum pembayaran yang disyaratkan
+     * @param periode label periode yang ditampilkan pada pesan (mis. "semester 3" atau "tahap 1")
+     * @return teks pesan siap tampil ke pengguna
+     */
     private static String constructMsg(double persen, String periode) {
         return "Untuk melihat nilai, Mahasiswa ini harus melunasi " + persen + "% biaya perkuliahan di " + periode + ". Harap hubungi bagian keuangan.";
     }
 
+    /**
+     * Membaca satu nilai konfigurasi numerik lewat {@link Common#getKonfigurasi(String, String)},
+     * dengan {@code defaultValue} sebagai nilai default konfigurasi sekaligus nilai fallback bila
+     * isi konfigurasi gagal di-parse sebagai {@code double}.
+     *
+     * @param key          kunci konfigurasi yang dibaca
+     * @param defaultValue nilai default (dipakai saat auto-seed konfigurasi maupun saat parse gagal)
+     * @return nilai konfigurasi ter-parse, atau {@code defaultValue} bila gagal
+     */
     private static double parseDoubleConfig(String key, double defaultValue) {
         try {
             return Double.parseDouble(Common.getKonfigurasi(key, String.valueOf(defaultValue)).getNilai().trim());
