@@ -4848,6 +4848,85 @@ public class TugasKelompokHelper implements DataLoader {
 
 	}
 
+	/**
+	 * <h3>Merakit isi formulir "Instruksi Tugas Kelompok"</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> mengisi jendela formulir dengan seluruh kolom isian yang
+	 * diperlukan untuk membuat atau mengubah sebuah tugas kelompok: pemindah pertemuan, pemilih
+	 * perkuliahan, tanggal mulai dan batas akhir, syarat pengumpulan, judul, instruksi (dengan bantuan
+	 * AI bila diinginkan), lampiran, pemetaan Sub-CPMK untuk kurikulum OBE, daftar syarat, serta tombol
+	 * Batal dan Simpan. Jendelanya sendiri sudah dibuat pemanggil; metode ini yang mengisinya.</p>
+	 *
+	 * <p>Beberapa komponen yang dibangun di sini disimpan ke field helper ({@code judul}, {@code isi},
+	 * {@code mulaiWaktuMengumpulkanTugas}, {@code batasWaktuMengumpulkanTugas},
+	 * {@code syaratMengumpulkanTugas}, {@code banboxPerkuliahan}, {@code lampiran}) karena
+	 * {@link #onSave(Event)} membacanya kembali langsung dari field, bukan menerimanya sebagai parameter.
+	 * Objek tugas juga disimpan ke field {@code tugasKelompok}. Konsekuensinya: satu instance helper
+	 * hanya boleh membuka SATU formulir pada satu waktu &mdash; membuka formulir kedua akan menimpa
+	 * field-field ini sehingga penyimpanan memakai komponen milik formulir terakhir. Alur modal yang
+	 * dipakai selama ini mencegah hal tersebut.</p>
+	 *
+	 * <h4>Bagian-bagian formulir</h4>
+	 * <ol>
+	 *   <li><b>Pindahkan ke pertemuan</b> &mdash; combobox berisi seluruh pertemuan pada wadah
+	 *   pembelajaran yang sama, sehingga tugas dapat dipindah "ke pertemuan ke berapa". Bila daftar
+	 *   pertemuan dari cache kosong, pemuatan diulang paksa dari basis data agar dropdown tidak kosong.
+	 *   Pertemuan yang sedang terpilih selalu dipastikan ada dan tersorot, walau tidak termuat dalam
+	 *   daftar. Perpindahan meminta konfirmasi lebih dulu, menyimpan {@code pertemuan} beserta
+	 *   {@code pertemuanData}, lalu menutup formulir. Seluruh blok ini tidak dibangun bila yang login
+	 *   adalah pelajar (termasuk peserta kursus).</li>
+	 *   <li><b>Perkuliahan</b> &mdash; hanya terlihat bila layar tidak punya cakupan sama sekali. Bila
+	 *   layar sudah punya cakupan, cakupan itu langsung ditugaskan ke objek tugas dan pemilihnya
+	 *   disembunyikan. Perkuliahan terpilih disimpan sebagai ATRIBUT komponen bernama
+	 *   {@code "perkuliahan"}, bukan sebagai nilai teks &mdash; itulah yang dibaca {@code onSave}.</li>
+	 *   <li><b>Tanggal mulai &amp; selesai</b> &mdash; batas akhir sengaja boleh dikosongkan, artinya
+	 *   tugas tanpa batas waktu; keterangan penjelasnya ditampilkan tepat di bawahnya.</li>
+	 *   <li><b>Syarat pengumpulan</b> &mdash; daftar {@link SyaratUjian} yang aktif saja. Bila syarat
+	 *   terpilih ditandai "hanya boleh diubah oleh admin", pilihan dikunci dan keterangan penjelas
+	 *   dimunculkan. Listener yang sama dijalankan sekali di awal agar keadaan kunci sudah benar sejak
+	 *   formulir dibuka, bukan baru setelah pengguna mengubah pilihan.</li>
+	 *   <li><b>Judul &amp; instruksi</b> &mdash; judul dibatasi 255 karakter; instruksi memakai penyunting
+	 *   teks kaya. Tombol "Generate Tugas Kelompok" memanggil {@link ais.common.AIGenerator} untuk
+	 *   menyusun langkah pengerjaan secara otomatis; kalimat perintahnya disesuaikan dengan nama mata
+	 *   kuliah atau mata pelajaran yang sedang dibuka. Hasilnya langsung ditulis ke objek tugas, dan
+	 *   bila judul masih kosong ia diisikan otomatis dari topik yang diketik pengguna.</li>
+	 *   <li><b>Pemetaan Sub-CPMK (bobot)</b> &mdash; hanya untuk kurikulum OBE, hanya untuk tugas yang
+	 *   SUDAH tersimpan ({@code id != null}), dan hanya untuk pengelola. Inilah SATU-SATUNYA tempat bobot
+	 *   Sub-CPMK dapat diubah; pada kartu ringkas grid yang sama ditampilkan baca-saja. Perubahan
+	 *   tersimpan otomatis, tidak menunggu tombol Simpan.</li>
+	 *   <li><b>Daftar syarat</b> &mdash; versi dapat diubah untuk pengelola, versi baca-saja untuk
+	 *   pelajar, sama seperti pada penggambaran baris daftar.</li>
+	 *   <li><b>Batal &amp; Simpan</b> &mdash; Batal menjalankan callback pemanggil lalu menutup jendela
+	 *   tanpa menyimpan. Simpan memanggil {@link #onSave(Event)}; hanya bila penyimpanan berhasil
+	 *   jendela ditutup, sehingga formulir tetap terbuka beserta isiannya saat validasi gagal. Setelah
+	 *   berhasil, layar disegarkan sesuai mode: memuat ulang daftar pada mode daftar, atau menggambar
+	 *   ulang kartu tunggal pada mode rinci.</li>
+	 * </ol>
+	 *
+	 * <h4>Catatan bagi pemelihara</h4>
+	 * <ul>
+	 *   <li><b>Penjagaan {@code null} yang terlambat.</b> {@code addWindow.setTitle(...)} dijalankan
+	 *   SEBELUM pemeriksaan {@code if (addWindow != null)}, sehingga pemeriksaan itu tidak pernah
+	 *   melindungi apa pun &mdash; {@code addWindow} yang {@code null} sudah melempar galat di baris
+	 *   sebelumnya. Kedua pemanggil selalu mengisinya lebih dulu, jadi tidak ada gejala.</li>
+	 *   <li><b>Pemeriksaan peran tidak seragam.</b> Blok pemindah pertemuan memakai daftar peran yang
+	 *   dirakit setempat, sedangkan blok Sub-CPMK dan blok syarat memakai bentuk enam suku gaya lama
+	 *   yang tidak menguji {@code tbmuser.getMahasiswa()}. Tidak satu pun memakai
+	 *   {@link #bolehKelola(Tbmuser)}, dan {@code tbmuser} sebagian dipakai tanpa penjagaan {@code null}
+	 *   lebih dulu.</li>
+	 *   <li><b>Penguncian syarat khusus admin.</b> Kunci hanya dipasang bila pengguna berupa dosen atau
+	 *   mahasiswa (atau sesi tanpa pengguna). Peran lain &mdash; siswa, calon siswa, peserta kursus
+	 *   &mdash; tidak ikut terkunci meskipun bukan admin.</li>
+	 *   <li>Perubahan pada blok pemindah pertemuan dan blok Sub-CPMK tersimpan LANGSUNG saat diubah,
+	 *   terpisah dari tombol Simpan. Menekan Batal setelah mengubah keduanya tidak membatalkan apa pun.</li>
+	 * </ul>
+	 *
+	 * @param tugasKelompok tugas yang akan diedit, atau objek baru untuk penambahan; disimpan ke field
+	 *                      agar dapat dibaca kembali oleh {@link #onSave(Event)}
+	 * @throws Exception bila salah satu bagian formulir gagal dirakit
+	 * @see #onSave(Event)
+	 * @see #bangunGridSubCpmk(Component, TugasKelompok, Perkuliahan, boolean)
+	 */
 	private void init(final TugasKelompok tugasKelompok) throws Exception {
 		this.tugasKelompok = tugasKelompok;
 
