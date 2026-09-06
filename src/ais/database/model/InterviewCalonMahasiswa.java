@@ -486,6 +486,31 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		this.onlineMenggunakan = onlineMenggunakan;
 	}
 
+	/**
+	 * Mengembalikan tautan rapat Zoom sesi ini, dengan cadangan dari cache berkas dan pembersihan
+	 * teks di sekitarnya.
+	 *
+	 * <p>Alurnya sama untuk kelima getter tautan di kelas ini ({@link #getZoomLink()},
+	 * {@link #getBbbLink()}, {@link #getSkypeLink()}, {@link #getWaLink()},
+	 * {@link #getLainLink()}):</p>
+	 * <ol>
+	 *   <li>Bila kolom kosong, nilai diambil dari cache berkas lewat {@code retreive("zoomLink")}
+	 *       — mekanisme cadangan {@link GeneralValueObject} yang diisi oleh setter pasangannya.</li>
+	 *   <li>Bila nilainya <b>mengandung spasi</b>, isinya dianggap kalimat bercampur URL dan
+	 *       {@code Common.getUrls()} dipakai untuk memungut URL pertama saja; sisanya dibuang.</li>
+	 *   <li>Hasil akhir di-trim, dan string kosong dinormalkan menjadi {@code null}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Getter ini mengubah state.</b> Kedua langkah pertama menulis balik ke field, sehingga
+	 * membaca properti ini dapat menandai entity kotor dan memicu {@code UPDATE} beserta revisi
+	 * audit palsu. Langkah kedua bahkan bersifat <i>merusak</i>: teks asli yang ditulis pengguna
+	 * digantikan permanen oleh potongan URL pertama begitu objek disimpan. Kegagalan pada langkah
+	 * itu ditelan (hanya dicatat ke audit galat), jadi pemanggil tidak pernah tahu bila ekstraksi
+	 * URL gagal.</p>
+	 *
+	 * @return tautan Zoom yang sudah dibersihkan, atau {@code null} bila tidak ada
+	 * @see #setZoomLink(String)
+	 */
 	@Column(columnDefinition = "text")
 	public String getZoomLink() {
 		if (zoomLink == null || zoomLink.trim().isEmpty()) {
@@ -504,6 +529,20 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return zoomLink == null || zoomLink.trim().isEmpty() ? null : zoomLink.trim();
 	}
 
+	/**
+	 * Menetapkan tautan rapat Zoom sekaligus <b>mencerminkannya ke cache berkas</b> lewat
+	 * {@code put(zoomLink, "zoomLink")}, supaya {@link #getZoomLink()} punya cadangan bila kolom
+	 * basis data kelak kosong.
+	 *
+	 * <p>Pencerminan hanya terjadi untuk nilai non-kosong. Menyetel {@code null} atau string kosong
+	 * <b>mengosongkan kolom tetapi tidak menghapus cache</b>, sehingga {@link #getZoomLink()} akan
+	 * memunculkan kembali tautan lama dari cache — tautan Zoom yang "sudah dihapus" bisa hidup lagi.
+	 * Perilaku ini berlaku sama pada {@link #setBbbLink(String)}, {@link #setSkypeLink(String)}, dan
+	 * {@link #setWaLink(String)}.</p>
+	 *
+	 * @param zoomLink tautan rapat Zoom; {@code null}/kosong mengosongkan kolom tanpa menyentuh
+	 *                 cache
+	 */
 	public void setZoomLink(String zoomLink) {
 		if (zoomLink != null && !zoomLink.trim().isEmpty()) {
 			this.put(zoomLink, "zoomLink");
@@ -511,6 +550,17 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		this.zoomLink = zoomLink;
 	}
 
+	/**
+	 * Mengembalikan tautan rapat Big Blue Button sesi ini.
+	 *
+	 * <p>Alur, efek samping, dan peringatannya identik dengan {@link #getZoomLink()} — termasuk
+	 * cadangan dari cache berkas (kunci {@code "bbbLink"}), pemungutan URL pertama bila nilainya
+	 * mengandung spasi, penulisan balik ke field, dan penelanan galat.</p>
+	 *
+	 * @return tautan Big Blue Button yang sudah dibersihkan, atau {@code null} bila tidak ada
+	 * @see #getZoomLink()
+	 * @see #setBbbLink(String)
+	 */
 	@Column(columnDefinition = "text")
 	public String getBbbLink() {
 		if (bbbLink == null || bbbLink.trim().isEmpty()) {
@@ -529,6 +579,14 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return bbbLink == null || bbbLink.trim().isEmpty() ? null : bbbLink.trim();
 	}
 
+	/**
+	 * Menetapkan tautan rapat Big Blue Button sekaligus mencerminkannya ke cache berkas (kunci
+	 * {@code "bbbLink"}).
+	 *
+	 * @param bbbLink tautan Big Blue Button; {@code null}/kosong mengosongkan kolom tanpa menghapus
+	 *                cache
+	 * @see #setZoomLink(String)
+	 */
 	public void setBbbLink(String bbbLink) {
 		if (bbbLink != null && !bbbLink.trim().isEmpty()) {
 			this.put(bbbLink, "bbbLink");
@@ -536,6 +594,16 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		this.bbbLink = bbbLink;
 	}
 
+	/**
+	 * Mengembalikan tautan panggilan Skype sesi ini.
+	 *
+	 * <p>Alur, efek samping, dan peringatannya identik dengan {@link #getZoomLink()}; kunci cache
+	 * berkasnya {@code "skypeLink"}.</p>
+	 *
+	 * @return tautan Skype yang sudah dibersihkan, atau {@code null} bila tidak ada
+	 * @see #getZoomLink()
+	 * @see #setSkypeLink(String)
+	 */
 	@Column(columnDefinition = "text")
 	public String getSkypeLink() {
 		if (skypeLink == null || skypeLink.trim().isEmpty()) {
@@ -554,6 +622,13 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return skypeLink == null || skypeLink.trim().isEmpty() ? null : skypeLink.trim();
 	}
 
+	/**
+	 * Menetapkan tautan panggilan Skype sekaligus mencerminkannya ke cache berkas (kunci
+	 * {@code "skypeLink"}).
+	 *
+	 * @param skypeLink tautan Skype; {@code null}/kosong mengosongkan kolom tanpa menghapus cache
+	 * @see #setZoomLink(String)
+	 */
 	public void setSkypeLink(String skypeLink) {
 		if (skypeLink != null && !skypeLink.trim().isEmpty()) {
 			this.put(skypeLink, "skypeLink");
@@ -561,6 +636,27 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		this.skypeLink = skypeLink;
 	}
 
+	/**
+	 * Mengembalikan tautan bebas untuk mode {@link #LAIN}.
+	 *
+	 * <p>Alurnya mengikuti {@link #getZoomLink()}, tetapi <b>dua hal berbeda dan patut
+	 * diperhatikan</b>:</p>
+	 * <ol>
+	 *   <li><b>Kunci cache-nya tidak seragam.</b> Getter ini membaca cadangan dari kunci
+	 *       {@code "link_online"}, bukan {@code "lainLink"} seperti pola saudara-saudaranya.</li>
+	 *   <li><b>Pasangannya tidak pernah mengisi cache itu.</b> Berbeda dari keempat setter tautan
+	 *       lain, {@link #setLainLink(String)} <i>tidak</i> memanggil {@code put(...)}. Akibatnya
+	 *       cadangan {@code "link_online"} hanya bisa terisi oleh penulis lain di luar kelas ini;
+	 *       lewat jalur setter biasa, cabang cadangan pada getter ini praktis tidak pernah
+	 *       menghasilkan nilai.</li>
+	 * </ol>
+	 * <p>Perlakukan ketidakseragaman ini sebagai fakta yang ada, bukan sebagai pola yang layak
+	 * ditiru saat menambahkan kanal baru.</p>
+	 *
+	 * @return tautan bebas yang sudah dibersihkan, atau {@code null} bila tidak ada
+	 * @see #getZoomLink()
+	 * @see #setLainLink(String)
+	 */
 	@Column(columnDefinition = "text")
 	public String getLainLink() {
 		if (lainLink == null || lainLink.trim().isEmpty()) {
@@ -579,10 +675,50 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return lainLink == null || lainLink.trim().isEmpty() ? null : lainLink.trim();
 	}
 
+	/**
+	 * Menetapkan tautan bebas untuk mode {@link #LAIN}.
+	 *
+	 * <p><b>Tidak mencerminkan nilai ke cache berkas</b> — berbeda dari {@link #setZoomLink(String)},
+	 * {@link #setBbbLink(String)}, {@link #setSkypeLink(String)}, dan {@link #setWaLink(String)}
+	 * yang semuanya memanggil {@code put(...)}. Lihat penjelasan lengkapnya pada
+	 * {@link #getLainLink()}.</p>
+	 *
+	 * @param lainLink tautan bebas; disimpan apa adanya termasuk {@code null}
+	 */
 	public void setLainLink(String lainLink) {
 		this.lainLink = lainLink;
 	}
 
+	/**
+	 * Membangkitkan URL ruang Jitsi Meet untuk sesi ini — mode {@link #JITSI} tidak menyimpan tautan
+	 * di kolom mana pun, melainkan menurunkannya dari identitas sesi setiap kali dibutuhkan.
+	 *
+	 * <p>Nama ruang disusun dari {@code "GEL_" + getNama() + "_" + getId()}, diberi awalan nama
+	 * konteks aplikasi (dari {@code request.getContextPath()}) yang sudah di-URL-encode, lalu
+	 * dinormalkan: semua karakter selain huruf/angka/spasi diganti garis bawah, huruf dijadikan
+	 * kecil, spasi dirapatkan, dan garis bawah ganda dimampatkan (tiga kali berturut-turut — jadi
+	 * rentetan garis bawah yang sangat panjang bisa tersisa). Hasilnya ditempelkan di belakang
+	 * alamat server dari konfigurasi {@code alamat_server_video_conference}, yang bila belum ada
+	 * akan memakai {@code https://meet.jit.si}.</p>
+	 *
+	 * <p><b>Catatan konfigurasi:</b> {@code Common.getKonfigurasi(...)} pada basis kode ini menulis
+	 * nilai baku ke basis data bila kuncinya belum ada, jadi pemanggilan pertama dapat menciptakan
+	 * baris konfigurasi baru.</p>
+	 *
+	 * <p><b>Catatan keamanan:</b> nama ruang sepenuhnya dapat diprediksi dari nama sesi dan id-nya,
+	 * dan Jitsi publik tidak memerlukan otentikasi untuk masuk ke sebuah ruang. Siapa pun yang dapat
+	 * menebak atau memperoleh kombinasi itu bisa bergabung ke wawancara. Kendali aksesnya harus
+	 * berasal dari sisi server Jitsi (mis. ruang berkata sandi atau server sendiri lewat konfigurasi
+	 * di atas), bukan dari kerahasiaan URL.</p>
+	 *
+	 * <p>Method ini membaca {@code HttpServletRequest} dari eksekusi ZK yang sedang berjalan dan
+	 * jatuh kembali ke {@link RequestContext} bila dipanggil di luar konteks ZK; bila keduanya tidak
+	 * tersedia, pemanggilan berakhir dengan {@code NullPointerException}.</p>
+	 *
+	 * @return URL lengkap ruang Jitsi untuk sesi ini
+	 * @throws Exception bila pengodean URL gagal atau tidak ada {@code HttpServletRequest} yang
+	 *                   dapat dipakai
+	 */
 	public String generateJitsiLink() throws Exception {
 		InterviewCalonMahasiswa interviewCalonMahasiswa = this;
 		String id = "GEL_" + interviewCalonMahasiswa.getNama() + "_" + interviewCalonMahasiswa.getId();
@@ -617,6 +753,16 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return server;
 	}
 
+	/**
+	 * Mengembalikan tautan grup WhatsApp sesi ini.
+	 *
+	 * <p>Alur, efek samping, dan peringatannya identik dengan {@link #getZoomLink()}; kunci cache
+	 * berkasnya {@code "waLink"}.</p>
+	 *
+	 * @return tautan grup WhatsApp yang sudah dibersihkan, atau {@code null} bila tidak ada
+	 * @see #getZoomLink()
+	 * @see #setWaLink(String)
+	 */
 	@Column(columnDefinition = "text")
 	public String getWaLink() {
 		if (waLink == null || waLink.trim().isEmpty()) {
@@ -635,6 +781,14 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return waLink == null || waLink.trim().isEmpty() ? null : waLink.trim();
 	}
 
+	/**
+	 * Menetapkan tautan grup WhatsApp sekaligus mencerminkannya ke cache berkas (kunci
+	 * {@code "waLink"}).
+	 *
+	 * @param waLink tautan undangan grup WhatsApp; {@code null}/kosong mengosongkan kolom tanpa
+	 *               menghapus cache
+	 * @see #setZoomLink(String)
+	 */
 	public void setWaLink(String waLink) {
 		if (waLink != null && !waLink.trim().isEmpty()) {
 			this.put(waLink, "waLink");

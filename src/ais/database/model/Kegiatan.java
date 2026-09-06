@@ -1831,19 +1831,17 @@ public class Kegiatan extends GeneralValueObject {
 	 * terputus. Kehati-hatian ini menghindari &quot;Session is closed!&quot; yang pernah
 	 * muncul ketika pola lama menutup session milik request.</p>
 	 *
-	 * <h4>Cache statis {@link #mappingId}</h4>
-	 * <p>Pencarian pertama-tama menengok peta statis {@code Map<idKegiatan, Map<kodeUnik,
+	 * <h4>Cache {@link #mappingId}</h4>
+	 * <p>Pencarian pertama-tama menengok cache {@code Cache<idKegiatan, ConcurrentMap<kodeUnik,
 	 * idDetailKegiatan>>}. Bila kunci ditemukan, entity diambil lewat
 	 * {@link GeneralValueObject#ambilData}.</p>
 	 *
-	 * <p><b>Cache ini statis dan tidak pernah dibersihkan.</b> Ia tumbuh sepanjang umur
-	 * aplikasi seiring bertambahnya tagihan yang tersentuh, tanpa batas ukuran, tanpa masa
-	 * kedaluwarsa, dan tanpa penguncian &mdash; sebuah {@link java.util.HashMap} biasa yang
-	 * dibaca dan ditulis banyak thread permintaan sekaligus. Selain berpotensi menahan memori,
-	 * penulisan bersamaan pada {@code HashMap} tidak aman. Cache ini juga tidak dibatalkan
-	 * ketika baris rincian dihapus atau dibentuk ulang, sehingga dapat menyimpan id yang
-	 * sudah tidak ada; jalur pemulihannya adalah {@code ambilData} mengembalikan {@code null}
-	 * sehingga pencarian dilanjutkan ke basis data.</p>
+	 * <p><b>Cache ini dibatasi ukuran ({@code maximumSize}) dan kedaluwarsa otomatis
+	 * ({@code expireAfterAccess}) lewat Guava {@link Cache}, serta aman diakses banyak thread
+	 * permintaan sekaligus tanpa penguncian eksternal.</b> Ia tetap tidak dibatalkan secara aktif
+	 * ketika baris rincian dihapus atau dibentuk ulang di luar
+	 * {@link #batalkanCacheDetailKegiatan(Long)}; jalur pemulihannya adalah {@code ambilData}
+	 * mengembalikan {@code null} sehingga pencarian dilanjutkan ke basis data.</p>
 	 *
 	 * <h4>Pencarian ke basis data</h4>
 	 * <p>Bila cache meleset, dilakukan {@code createCriteria} atas {@code kodeUnik}. Sengaja
@@ -1891,11 +1889,11 @@ public class Kegiatan extends GeneralValueObject {
 
 			boolean belumada = false;
 
-			Map<String, Long> kegMap = mappingId.get(getId());
-			if (kegMap == null) {
-				kegMap = new HashMap<String, Long>();
-				mappingId.put(getId(), kegMap);
-			}
+			ConcurrentMap<String, Long> kegMap = mappingId.get(getId(), new Callable<ConcurrentMap<String, Long>>() {
+				public ConcurrentMap<String, Long> call() {
+					return new ConcurrentHashMap<String, Long>();
+				}
+			});
 			Long idData = kegMap.get(kodeUnik);
 			if (idData != null) {
 				belumada = true;
@@ -1976,18 +1974,49 @@ public class Kegiatan extends GeneralValueObject {
 	}
 
 	/**
-	 * Cache statis pemetaan {@code idKegiatan -> (kodeUnik -> idDetailKegiatan)}, dipakai
+	 * Cache pemetaan {@code idKegiatan -> (kodeUnik -> idDetailKegiatan)}, dipakai
 	 * {@link #ambilByKodeUnik(String, Session)} untuk menghindari kueri berulang saat sebuah
 	 * tagihan dihitung ulang baris demi baris.
 	 *
-	 * <p><b>Perlu diperlakukan dengan hati-hati.</b> Field ini {@code public static} dan
-	 * bersifat non-final dalam arti isinya dapat diubah siapa pun; ia berupa
+	 * <p><b>Riwayat perbaikan.</b> Sebelumnya field ini {@code public static} berupa
 	 * {@link HashMap} biasa yang dibaca dan ditulis dari banyak thread permintaan tanpa
-	 * penguncian, tidak pernah dibersihkan, tidak berbatas ukuran, dan tidak dibatalkan saat
-	 * baris rincian berubah atau terhapus. Lihat uraian lengkapnya pada
-	 * {@link #ambilByKodeUnik(String, Session)}.</p>
+	 * penguncian (berisiko merusak struktur internal HashMap, bahkan gelung tak berujung saat
+	 * resize di JDK 7), tidak pernah dibersihkan, tidak berbatas ukuran, dan dapat diubah kode
+	 * mana pun. Kini memakai {@link Cache} Guava: aman untuk banyak thread, dibatasi ukurannya
+	 * dan kedaluwarsa otomatis bila tidak diakses, serta {@code private} &mdash; akses dari luar
+	 * kelas ini (mis. pembatalan entri) wajib lewat {@link #batalkanCacheDetailKegiatan(Long)}
+	 * atau {@link #bersihkanSeluruhCache()}. Peta bagian-dalam tiap {@code idKegiatan} memakai
+	 * {@link ConcurrentHashMap} sehingga tetap aman ditulis bersamaan tanpa penguncian eksternal.</p>
 	 */
-	public static Map<Long, Map<String, Long>> mappingId = new HashMap<Long, Map<String, Long>>();
+	private static final Cache<Long, ConcurrentMap<String, Long>> mappingId = CacheBuilder.newBuilder()
+			.maximumSize(5000).expireAfterAccess(6, TimeUnit.HOURS).build();
+
+	/**
+	 * Membatalkan cache {@link #mappingId} untuk satu {@code idKegiatan}, mengosongkan seluruh
+	 * pemetaan {@code kodeUnik -> idDetailKegiatan} miliknya tanpa menghapus slot cache itu
+	 * sendiri. Dipanggil kode di luar kelas ini (mis. saat {@link DetailKegiatan} milik sebuah
+	 * {@link Kegiatan} dihapus/dibentuk ulang) sebagai pengganti akses langsung ke
+	 * {@link #mappingId} yang kini {@code private}.
+	 *
+	 * @param idKegiatan id {@link Kegiatan} yang cache-nya akan dikosongkan; boleh {@code null}
+	 */
+	public static void batalkanCacheDetailKegiatan(Long idKegiatan) {
+		if (idKegiatan == null) {
+			return;
+		}
+		ConcurrentMap<String, Long> kegMap = mappingId.getIfPresent(idKegiatan);
+		if (kegMap != null) {
+			kegMap.clear();
+		}
+	}
+
+	/**
+	 * Mengosongkan seluruh {@link #mappingId} untuk semua {@link Kegiatan}. Disediakan untuk
+	 * proses hitung ulang massal yang ingin memastikan tidak ada entri cache basi tersisa.
+	 */
+	public static void bersihkanSeluruhCache() {
+		mappingId.invalidateAll();
+	}
 
 	/**
 	 * Mengambil satu baris rincian untuk sebuah {@link PengaturanPembayaranBulanan} memakai

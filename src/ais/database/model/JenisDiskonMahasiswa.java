@@ -753,13 +753,53 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 	}
 
 	/**
-	 * Cari promo global yang berlaku untuk satu baris tagihan. Mengembalikan {@code null}
-	 * bila tidak ada yang cocok. Bila ada beberapa yang cocok, dipilih yang PALING
-	 * MENGUNTUNGKAN mahasiswa (nilai potongan terbesar atas {@code jumlah}).
+	 * Mencari, dari seluruh promo global aktif ({@link #ambilDaftarPromoGlobal()}), satu jenis
+	 * diskon yang berlaku untuk baris tagihan {@code kegiatan}/{@code detailBiaya} dan
+	 * memberikan potongan paling menguntungkan mahasiswa.
+	 *
+	 * <p>Dipanggil sebagai <b>fallback terakhir</b> oleh {@code DetailKegiatan.cariJenisDiskonMahasiswa()}
+	 * dan {@code DetailKegiatan.hitungDiskon(Double)} (juga oleh {@code Kegiatan.java}), hanya
+	 * setelah dipastikan tidak ada diskon tertaut (kelompok mahasiswa, jenis seleksi, atau
+	 * tautan per-orang {@link DiskonMahasiswa}) yang berlaku pada baris itu.</p>
+	 *
+	 * <h4>Validasi awal dan iterasi</h4>
+	 * <p>Bila {@code kegiatan}, {@code detailBiaya}, {@code detailBiaya.getItemBiaya()}, atau
+	 * ID-nya {@code null}, method langsung mengembalikan {@code null} tanpa memeriksa satu pun
+	 * promo — baris tagihan tanpa item biaya yang jelas tidak bisa dicocokkan dengan daftar
+	 * item biaya promo mana pun. Selebihnya, method mengiterasi seluruh promo dari cache,
+	 * melewati (skip) promo dengan {@link #getDiskon()} {@code null} atau {@code <= 0.0} (diskon
+	 * nol/negatif tidak berguna dipilih), lalu menguji kecocokan lewat {@link
+	 * #cocokUntukTagihanGlobal(Kegiatan, DetailBiaya)}.</p>
+	 *
+	 * <h4>Pemilihan "paling menguntungkan" dan hubungannya dengan pembatasan nominal</h4>
+	 * <p>Untuk setiap promo yang cocok, potongan dihitung sebagai {@code dasar * (diskon / 100)}
+	 * bila {@link #getBerupaPersen()} {@code true}, atau {@code diskon} apa adanya (nominal
+	 * tetap) bila {@code false} — {@code dasar} adalah parameter {@code jumlah} (nominal tagihan
+	 * sebelum diskon). Promo dengan potongan terbesar yang ditemukan sejauh ini disimpan sebagai
+	 * kandidat terbaik ({@code potonganTerbaik}/{@code terbaik}); method mengembalikan <b>objek
+	 * jenis diskonnya</b>, bukan nilai potongannya.</p>
+	 * <p><b>Catatan verifikasi rumus (dibandingkan dengan bug diskon-melebihi-nominal yang
+	 * ditemukan pada mesin billing {@code Kegiatan}/{@code DetailKegiatan}, promo global bukan
+	 * per-orang):</b> perhitungan {@code potongan} di sini <b>tidak dibatasi (di-cap)</b> ke
+	 * {@code dasar} — sebuah promo dengan {@code berupaPersen = false} dan {@code diskon} lebih
+	 * besar dari {@code dasar} akan tetap dianggap "menguntungkan" dan bisa terpilih sebagai
+	 * {@code terbaik} meski potongannya melebihi nominal baris. Namun pada seluruh titik
+	 * pemanggilan yang ada saat ini ({@code DetailKegiatan}), pemanggil <b>menghitung ulang
+	 * potongan secara independen</b> dari objek yang dikembalikan method ini dan secara eksplisit
+	 * mengklemnya ({@code if (potongan > jumlahDiskon) potongan = jumlahDiskon;}) sebelum
+	 * dipakai sebagai potongan final. Karena itu, sejauh pemanggilnya tetap disiplin melakukan
+	 * clamp tersebut, celah ini tidak (belum) tereksploitasi lewat jalur promo global — berbeda
+	 * dengan jalur diskon tertaut kelompok mahasiswa/jenis seleksi pada {@code
+	 * DetailKegiatan.hitungDiskon}, yang memang tidak punya clamp sama sekali. Diperlakukan
+	 * sebagai <b>perluasan</b> temuan bug kalkulasi diskon yang sudah tercatat sebelumnya
+	 * (bukan celah baru yang independen), karena mekanismenya (perhitungan tanpa cap yang
+	 * capping-nya didelegasikan ke pemanggil) identik.</p>
 	 *
 	 * @param kegiatan    kegiatan/tagihan yang sedang dihitung
 	 * @param detailBiaya detail biaya baris tagihan (menentukan item biaya & prodi acuan)
 	 * @param jumlah      nominal tagihan sebelum diskon (untuk membandingkan persen vs nominal)
+	 * @return jenis diskon promo global terbaik yang berlaku, atau {@code null} bila tidak ada
+	 * @see #cocokUntukTagihanGlobal(Kegiatan, DetailBiaya)
 	 */
 	public static JenisDiskonMahasiswa cariPromoGlobal(Kegiatan kegiatan, DetailBiaya detailBiaya, Double jumlah) {
 		if (kegiatan == null || detailBiaya == null || detailBiaya.getItemBiaya() == null
@@ -794,6 +834,41 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 	 * Kecocokan promo global untuk satu baris tagihan: item biaya, rentang tanggal, batas
 	 * semester, serta filter Fakultas (Institusi) / Jurusan (Prodi) / Program / Status Awal.
 	 * Berlaku untuk mahasiswa aktif MAUPUN calon mahasiswa (PMB).
+	 *
+	 * <p>Ini adalah pemeriksaan kecocokan promo global yang <b>paling lengkap</b> di kelas ini —
+	 * berbeda dengan {@link #cocokUntukKegiatan}, method ini SELALU menegakkan seluruh enam
+	 * filter secara berurutan (nomor mengikuti komentar pada kode):</p>
+	 * <ol>
+	 * <li><b>Item biaya</b> — baris tagihan ditolak kalau {@code detailBiaya.getItemBiaya()}
+	 * tidak termasuk salah satu dari lima slot Default Item Biaya I..V jenis diskon ini
+	 * ({@link #ambilItemBiayaIds()}). Ini gerbang wajib pertama: promo tanpa item biaya sama
+	 * sekali ({@code ambilItemBiayaIds()} kosong) tidak pernah cocok untuk baris apa pun.</li>
+	 * <li><b>Rentang tanggal</b> — didelegasikan ke {@link #cocokTanggalBerlaku(Kegiatan)}.</li>
+	 * <li><b>Batas semester</b> — hanya diperiksa bila {@code kegiatan.getSemster()} tidak
+	 * {@code null}; dibandingkan langsung terhadap {@link #getSemesterMulai()}/{@link
+	 * #getSemesterSampai()} milik jenis diskon (yang bisa {@code null} berarti tanpa batas).</li>
+	 * <li><b>Jurusan (Prodi) / Fakultas (Institusi)</b> — acuan jurusan dicari berturutan dari
+	 * {@code kegiatan.getJurusan()}, {@code detailBiaya.getJurusan()}, {@code
+	 * kegiatan.getMahasiswa().getJurusan()}, lalu {@code
+	 * kegiatan.getCalonMahasiswa().ambilJurusan()} (prodi kelulusan bila sudah ada, atau pilihan
+	 * prodi pertama saat pendaftaran); fakultas acuan diturunkan dari jurusan itu atau, bila
+	 * tidak ada, dari {@code detailBiaya.getFakultas()}.</li>
+	 * <li><b>Program</b> — acuan diambil dari {@code kegiatan.getProgram()}, lalu calon
+	 * mahasiswa, lalu mahasiswa aktif (fallback berjenjang); dibandingkan case-insensitive.</li>
+	 * <li><b>Status Awal Mahasiswa</b> — acuan diambil dari calon mahasiswa dahulu, baru
+	 * mahasiswa aktif.</li>
+	 * </ol>
+	 * <p>Untuk setiap filter yang diisi ({@code getJurusan()}/{@code getFakultas()}/{@code
+	 * getProgram()}/{@code getStatusAwalMahasiswa()} tidak {@code null}), kegagalan mencocokkan
+	 * ATAU acuan yang tidak ditemukan sama sekali membuat method mengembalikan {@code false}
+	 * (fail-closed per filter). Method ini dipakai baik oleh {@link #cariPromoGlobal} maupun
+	 * langsung sebagai gerbang kedua {@link #cocokUntukKegiatan} untuk jenis diskon berflag
+	 * promo global.</p>
+	 *
+	 * @param kegiatan    kegiatan/tagihan yang diuji
+	 * @param detailBiaya detail biaya baris tagihan
+	 * @return {@code true} bila seluruh filter yang diisi pada jenis diskon ini terpenuhi
+	 * @see #cariPromoGlobal(Kegiatan, DetailBiaya, Double)
 	 */
 	public boolean cocokUntukTagihanGlobal(Kegiatan kegiatan, DetailBiaya detailBiaya) {
 		if (kegiatan == null || detailBiaya == null || detailBiaya.getItemBiaya() == null) {
@@ -879,11 +954,36 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 	 * Versi publik pengecekan rentang tanggal berlaku — dipakai mesin tagihan untuk rute
 	 * Gelombang Pendaftaran / Jenis Seleksi milik CALON mahasiswa yang sebelumnya sama
 	 * sekali tidak memeriksa tanggal (promo berbatas waktu tidak pernah berhenti sendiri).
+	 *
+	 * <p>Sekadar delegasi tipis ke {@link #cocokTanggalBerlaku(Kegiatan)} (yang bersifat
+	 * {@code private}) supaya pemanggil di luar kelas ini (mis. {@code DetailKegiatan}/{@code
+	 * Kegiatan}) bisa memakai logika rentang-tanggal yang sama persis tanpa menduplikasinya.</p>
+	 *
+	 * @param kegiatan kegiatan/tagihan acuan; boleh {@code null}
+	 * @return {@code true} bila tanggal kegiatan berada dalam rentang {@link
+	 *         #getTanggalMulaiBerlaku()}..{@link #getTanggalSampaiBerlaku()} jenis diskon ini
+	 * @see #cocokTanggalBerlaku(Kegiatan)
 	 */
 	public boolean cocokTanggalBerlakuUntuk(Kegiatan kegiatan) {
 		return cocokTanggalBerlaku(kegiatan);
 	}
 
+	/**
+	 * Mengambil {@link HistoryStatusMahasiswa} (riwayat status per-semester) mahasiswa pada
+	 * {@code kegiatan}, dipakai sebagai acuan Program/Status Awal yang lebih akurat pada {@link
+	 * #cocokUntukKegiatan} — status mahasiswa bisa berubah antar semester (mis. pindah program),
+	 * sehingga acuan "saat ini" pada entity {@code Mahasiswa} belum tentu mencerminkan status
+	 * pada semester baris tagihan yang sedang dihitung.
+	 *
+	 * <p><b>Efek samping:</b> memanggil {@code Common.singkronkanKrsMahasiswa(...)}, yang bisa
+	 * membuat/menyinkronkan baris {@link KrsMahasiswa} — berpotensi menulis ke database sekadar
+	 * dari pemanggilan pengecekan kecocokan diskon. Exception ditelan dan dicatat ke {@link
+	 * ais.common.ErrorAuditUtil}; kegagalan membuat method mengembalikan {@code null} (fallback
+	 * ke acuan status "saat ini" di {@link #cocokUntukKegiatan}), bukan melempar exception.</p>
+	 *
+	 * @param kegiatan kegiatan yang menyediakan mahasiswa dan semester acuan
+	 * @return riwayat status mahasiswa pada semester kegiatan, atau {@code null} bila gagal
+	 */
 	private HistoryStatusMahasiswa ambilHistoryStatusMahasiswa(Kegiatan kegiatan) {
 		try {
 			KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(kegiatan.getMahasiswa(), kegiatan.getSemster(),
@@ -896,6 +996,10 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * @return item biaya sasaran diskon slot ke-2 pada level jenis diskon (proxy lazy
+	 *         diresolusi via {@code check()}); boleh {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "item_biaya_2", nullable = true)
 	public ItemBiaya getItemBiaya2() {
@@ -903,10 +1007,17 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 		return itemBiaya2;
 	}
 
+	/**
+	 * @param itemBiaya2 item biaya slot ke-2 baru; {@code null} untuk melepas tautan.
+	 */
 	public void setItemBiaya2(ItemBiaya itemBiaya2) {
 		this.itemBiaya2 = itemBiaya2;
 	}
 
+	/**
+	 * @return item biaya sasaran diskon slot ke-3 pada level jenis diskon (proxy lazy
+	 *         diresolusi via {@code check()}); boleh {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "item_biaya_3", nullable = true)
 	public ItemBiaya getItemBiaya3() {
@@ -914,10 +1025,17 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 		return itemBiaya3;
 	}
 
+	/**
+	 * @param itemBiaya3 item biaya slot ke-3 baru; {@code null} untuk melepas tautan.
+	 */
 	public void setItemBiaya3(ItemBiaya itemBiaya3) {
 		this.itemBiaya3 = itemBiaya3;
 	}
 
+	/**
+	 * @return item biaya sasaran diskon slot ke-4 pada level jenis diskon (proxy lazy
+	 *         diresolusi via {@code check()}); boleh {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "item_biaya_4", nullable = true)
 	public ItemBiaya getItemBiaya4() {
@@ -925,10 +1043,17 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 		return itemBiaya4;
 	}
 
+	/**
+	 * @param itemBiaya4 item biaya slot ke-4 baru; {@code null} untuk melepas tautan.
+	 */
 	public void setItemBiaya4(ItemBiaya itemBiaya4) {
 		this.itemBiaya4 = itemBiaya4;
 	}
 
+	/**
+	 * @return item biaya sasaran diskon slot ke-5 pada level jenis diskon (proxy lazy
+	 *         diresolusi via {@code check()}); boleh {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "item_biaya_5", nullable = true)
 	public ItemBiaya getItemBiaya5() {
@@ -936,10 +1061,20 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 		return itemBiaya5;
 	}
 
+	/**
+	 * @param itemBiaya5 item biaya slot ke-5 baru; {@code null} untuk melepas tautan.
+	 */
 	public void setItemBiaya5(ItemBiaya itemBiaya5) {
 		this.itemBiaya5 = itemBiaya5;
 	}
 
+	/**
+	 * Mengumpulkan semua item biaya slot 1&ndash;5 pada level jenis diskon ini yang tidak
+	 * {@code null} ke dalam satu daftar.
+	 *
+	 * @return daftar item biaya yang tercakup oleh jenis diskon ini, urut slot 1 s.d. 5; tidak
+	 *         pernah {@code null}, boleh kosong.
+	 */
 	public List<ItemBiaya> ambilItemBiayas() {
 		List<ItemBiaya> itemBiayas = new ArrayList<ItemBiaya>();
 		if (getItemBiaya() != null) {
@@ -960,6 +1095,14 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 		return itemBiayas;
 	}
 
+	/**
+	 * Sama seperti {@link #ambilItemBiayas()} tetapi mengembalikan ID-nya saja. Dipakai oleh
+	 * {@link #cocokUntukTagihanGlobal} untuk menguji keanggotaan item biaya baris tagihan pada
+	 * daftar Default Item Biaya I..V jenis diskon ini.
+	 *
+	 * @return daftar ID item biaya slot 1 s.d. 5 yang tidak {@code null}; tidak pernah {@code
+	 *         null}, boleh kosong.
+	 */
 	public List<Long> ambilItemBiayaIds() {
 		List<Long> itemBiayas = new ArrayList<Long>();
 		if (getItemBiaya() != null) {

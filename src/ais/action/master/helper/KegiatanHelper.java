@@ -928,8 +928,9 @@ public class KegiatanHelper {
 	 * <li>Bila {@code kegiatan} belum diketahui, dicari lewat
 	 * {@code biodataCalonMahasiswa.ambilKegiatans(...)}, lalu fallback query {@code kodeunik}
 	 * deterministik ({@link Kegiatan#generateKodeUnik}) bila masih kosong.</li>
-	 * <li>Bila {@code rst=true} dan kegiatan ditemukan: cache {@code Kegiatan.mappingId}
-	 * dibersihkan, dan {@link DetailKegiatan} yang belum dibayar/dikunci/di-posting DIHAPUS
+	 * <li>Bila {@code rst=true} dan kegiatan ditemukan: cache
+	 * {@link Kegiatan#batalkanCacheDetailKegiatan(Long)} dibersihkan, dan {@link DetailKegiatan}
+	 * yang belum dibayar/dikunci/di-posting DIHAPUS
 	 * langsung via SQL ({@link #executeUpdateSafe}) — dibatasi ke {@code item} tertentu bila
 	 * diisi, atau (bila {@code diubahSaatpembayaran}) hanya item yang nilainya TIDAK bisa
 	 * diubah manual.</li>
@@ -988,9 +989,7 @@ public class KegiatanHelper {
 			}
 
 			if (kegiatan != null && kegiatan.getId() != null && rst) {
-				Map<String, Long> mapkeg = Kegiatan.mappingId.get(kegiatan.getId());
-				if (mapkeg != null)
-					mapkeg.clear();
+				Kegiatan.batalkanCacheDetailKegiatan(kegiatan.getId());
 
 				java.util.HashMap<String, Object> params = new java.util.HashMap<String, Object>();
 				params.put("kegId", kegiatan.getId());
@@ -1364,9 +1363,7 @@ public class KegiatanHelper {
 			}
 
 			if (kegiatan != null && kegiatan.getId() != null && rst) {
-				Map<String, Long> mapkeg = Kegiatan.mappingId.get(kegiatan.getId());
-				if (mapkeg != null)
-					mapkeg.clear();
+				Kegiatan.batalkanCacheDetailKegiatan(kegiatan.getId());
 
 				java.util.HashMap<String, Object> params = new java.util.HashMap<String, Object>();
 				params.put("kegId", kegiatan.getId());
