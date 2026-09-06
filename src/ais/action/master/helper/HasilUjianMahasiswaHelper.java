@@ -3942,7 +3942,8 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 							TreeSet<Double> nilaiSet = new TreeSet<Double>(Collections.reverseOrder());
 							for (Object[] a : hasilMap.values())
 								nilaiSet.add(((HasilUjianMahasiswa) a[0]).getNilai());
-							int jumlahPeserta = nilaiSet.size();
+							int jumlahPeserta = hasilMap.size();
+							int jumlahPeringkat = nilaiSet.size();
 
 							// studentId → [nim, nama, prodi, nilaiStr, rankStr, kelompok]
 							LinkedHashMap<Long, String[]> studentMeta =
@@ -3979,8 +3980,8 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 										if (Common.numberFormat.get().format(n).equals(
 												Common.numberFormat.get().format(him.getNilai()))) break;
 									}
-									String kelompok = rangking <= jumlahPeserta / 2 ? "Atas"
-											: rangking > (jumlahPeserta + 1) / 2 ? "Bawah" : "Tengah";
+									String kelompok = rangking <= jumlahPeringkat / 2 ? "Atas"
+											: rangking > (jumlahPeringkat + 1) / 2 ? "Bawah" : "Tengah";
 
 									String nim = "", nama = "", prodi = "";
 									if (him.getMahasiswa() != null) {
@@ -4152,6 +4153,10 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 								.append(" | CPL terkait: <b>").append(cplMap.size()).append("</b>")
 								.append("</span></div>");
 
+							if (cpmkMap.isEmpty()) {
+								html.append("<div style='padding:6px 10px'>Nilai kuis ditampilkan pada Total Skor. "
+										+ "Data CPMK belum tersedia pada rekap ini; capaian OBE belum dapat ditampilkan.</div>");
+							}
 							html.append("<div style='padding:0 6px 12px;overflow-x:auto'>");
 							html.append("<table class='ot'><thead>");
 
@@ -6794,6 +6799,14 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					}
 				}
 
+				if (vboxDa.getChildren().isEmpty()) {
+					new MyLabelKecil("Skor kuis: "
+							+ (hasilUjianMahasiswa.getJawabanBenar() == null ? "-"
+									: Common.numberFormat.get().format(hasilUjianMahasiswa.getJawabanBenar()))
+							+ (hasilUjianMahasiswa.getJawabanBenarMax() == null ? ""
+									: " / " + Common.numberFormat.get().format(hasilUjianMahasiswa.getJawabanBenarMax())))
+							.setParent(vboxDa);
+				}
 			} else {
 
 				Hbox hbSkorPg = new Hbox();
@@ -7021,6 +7034,13 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 						}
 					}
 
+					if (vboxDa.getChildren().isEmpty()) {
+						new MyLabelKecil("Nilai kuis: "
+								+ (hasilUjianMahasiswa.getNilai() == null ? "-"
+										: Common.numberFormat.get().format(hasilUjianMahasiswa.getNilai())))
+								.setParent(vboxDa);
+						new MyLabelKecil("Rincian nilai OBE belum tersedia").setParent(vboxDa);
+					}
 				} else {
 					final HasilUjianMahasiswa himNilaiKlik = hasilUjianMahasiswa;
 					Hbox hbNilaiPg = new Hbox();

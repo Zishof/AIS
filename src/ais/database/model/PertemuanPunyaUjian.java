@@ -1906,28 +1906,26 @@ public class PertemuanPunyaUjian extends GeneralValueObject {
      * {@link #ambilHasilUjianMahasiswa(boolean)} yang mengembalikan semua peserta terdaftar
      * termasuk yang belum mulai.
      *
-     * @param refresh true untuk memaksa reload dari database; false menggunakan cache
+     * @param refresh dipertahankan untuk kompatibilitas; daftar peserta selalu dibaca dari database
      * @return List berisi ID HasilUjianMahasiswa peserta yang telah mulai ujian; tidak pernah null
      */
     public List<Long> ambilHasilUjianMahasiswaTelahIkut(boolean refresh) {
-        List<Long> hasilUjianMahasiswasa = ambilHasilUjianMahasiswa(null, null, refresh, false);
-        List<Long> telahIkt = new ArrayList<Long>();
-        for (Long id : hasilUjianMahasiswasa) {
-            try {
-                if (id != null) {
-                    HasilUjianMahasiswa generalValueObject = (HasilUjianMahasiswa) ambilData(
-                            HasilUjianMahasiswa.class, id.toString());
-                    if (generalValueObject != null && generalValueObject.getMulaiPada() != null) {
-                        telahIkt.add(id);
-                    }
-                }
-            } catch (Exception e) {
-                ais.common.ErrorAuditUtil.record(e, "PertemuanPunyaUjian.ambilHasilUjianMahasiswaTelahIkut");
-            }
+        if (getId() == null) {
+            return new ArrayList<Long>();
         }
-        hasilUjianMahasiswasa.clear();
-        hasilUjianMahasiswasa = null;
-        return telahIkt;
+        Session session = null;
+        try {
+            session = HibernateUtil.openSession();
+            // Jadwal dapat dibuka ulang; hasil sesi sebelumnya tetap termasuk.
+            return session.createCriteria(HasilUjianMahasiswa.class)
+                    .add(Restrictions.eq("pertemuanPunyaUjian", this))
+                    .add(Restrictions.isNotNull("mulaiPada"))
+                    .setProjection(org.hibernate.criterion.Projections.id())
+                    .addOrder(org.hibernate.criterion.Order.asc("id"))
+                    .list();
+        } finally {
+            HibernateUtil.closeSessionQuietly(session);
+        }
     }
 
     /**

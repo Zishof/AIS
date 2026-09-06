@@ -142,7 +142,8 @@ import ais.ui.util.MyWindow;
  *
  * <p>Konsekuensinya, siapa pun yang berhasil menekan tombol-tombol ini memperoleh
  * <b>ekspor massal lintas seluruh basis data</b>: berkas Excel "Proses Tagihan" memuat
- * NIM/No. Registrasi, nama, jenis pembayaran, fakultas, jurusan, status awal, angkatan,
+	 * NIM/No. Registrasi, nama, jenis pembayaran, fakultas, status mahasiswa, jurusan,
+	 * status awal, angkatan,
  * serta tagihan/dibayar/tunggakan per tahun-semester berikut rincian tagihannya untuk
  * SETIAP mahasiswa dan calon mahasiswa yang cocok filter; berkas "Surat Tagihan"
  * menambahkan kolom <b>alamat email</b> dan, bila checkbox kirim dicentang, benar-benar
@@ -241,7 +242,7 @@ public class KegiatanProsesHeper {
 	 * selesai ({@code executor.invokeAll}).
 	 */
 	private static class SuratResult {
-		/** Satu baris per surat yang dibuat, untuk ditulis ke sheet Excel ringkasan (kolom NIM/nama/jenis/fakultas/jurusan/status/angkatan/email/TA/semester/sisa tagihan). */
+		/** Satu baris per surat yang dibuat, untuk ditulis ke sheet Excel ringkasan (kolom NIM/nama/jenis/fakultas/jurusan/status awal/angkatan/email/TA/semester/sisa tagihan). */
 		public List<Object[]> excelRows = new ArrayList<Object[]>();
 		/** File PDF surat tagihan yang dihasilkan (hanya untuk baris dengan sisa tagihan {@code > 0.1}), untuk dikemas ke ZIP hasil akhir. */
 		public List<File> files = new ArrayList<File>();
@@ -1223,7 +1224,7 @@ public class KegiatanProsesHeper {
 										// Konfigurasi Kalkulasi Header Excel
 										final int finalThn = Integer.parseInt(ta.split("/")[0]);
 										final int finalThnSampai = Integer.parseInt(taSampai.split("/")[0]);
-										int maxCols = 7;
+										int maxCols = 8;
 										for (int tahun = finalThn; tahun <= finalThnSampai; tahun++) {
 											if (GANJIL)
 												maxCols += 3;
@@ -1372,8 +1373,9 @@ public class KegiatanProsesHeper {
 												tasks.add(new Callable<Object[]>() {
 													/**
 													 * Menghitung SATU baris Excel untuk SATU mahasiswa, dijalankan paralel.
-													 * Tujuh kolom pertama berisi identitas (NIM, nama, jenis pembayaran, fakultas,
-													 * jurusan, status awal, angkatan), disusul trio Tagihan/Dibayar/Sisa untuk
+												 * Delapan kolom pertama berisi identitas (NIM, nama, jenis pembayaran, fakultas,
+												 * status mahasiswa, jurusan, status awal, angkatan), disusul trio
+												 * Tagihan/Dibayar/Sisa untuk
 													 * setiap tahun × semester yang diminta, lalu grand total per mahasiswa,
 													 * persentase lunas, dan rincian tagihan.
 													 *
@@ -1411,13 +1413,14 @@ public class KegiatanProsesHeper {
 														rowData[1] = mahasiswaData.getNama();
 														rowData[2] = j.getNamaKegiatan();
 														rowData[3] = mahasiswaData.getJurusan().getFakultas().getNama();
-														rowData[4] = mahasiswaData.getJurusan().getNama();
-														rowData[5] = mahasiswaData.getStatusAwalMahasiswa() == null ? ""
+														rowData[4] = "";
+														rowData[5] = mahasiswaData.getJurusan().getNama();
+														rowData[6] = mahasiswaData.getStatusAwalMahasiswa() == null ? ""
 																: mahasiswaData.getStatusAwalMahasiswa().getNama();
-														rowData[6] = mahasiswaData.getTahunangkatan();
+														rowData[7] = mahasiswaData.getTahunangkatan();
 
 														StringBuilder d = new StringBuilder();
-														int m = 7;
+														int m = 8;
 														Double dibayar = 0.0;
 														Double terhutang = 0.0;
 														Session s = null;
@@ -1466,8 +1469,11 @@ public class KegiatanProsesHeper {
 																				// Aktif/Nonaktif hanya dihitung ulang saat layar per-mahasiswa dibuka,
 																				// sehingga hasil proses tagihan massal tidak mengubah status siapa pun.
 																				try {
-																					ais.action.master.helper.HistoryStatusMahasiswaUtil
-																							.currentStatus(mahasiswaData, Ta, smt, true);
+																						HistoryStatusMahasiswa historyStatus = HistoryStatusMahasiswaUtil
+																								.currentStatus(mahasiswaData, Ta, smt, true);
+																						rowData[4] = historyStatus == null
+																								|| historyStatus.getStatusMahasiswa() == null ? ""
+																										: historyStatus.getStatusMahasiswa().getNama();
 																				} catch (Exception eStatus) {
 																					ais.common.ErrorAuditUtil.record(eStatus,
 																							"auto-audit KegiatanProsesHeper: gagal perbarui status keaktifan massal");
@@ -1521,8 +1527,11 @@ public class KegiatanProsesHeper {
 																				// Aktif/Nonaktif hanya dihitung ulang saat layar per-mahasiswa dibuka,
 																				// sehingga hasil proses tagihan massal tidak mengubah status siapa pun.
 																				try {
-																					ais.action.master.helper.HistoryStatusMahasiswaUtil
-																							.currentStatus(mahasiswaData, Ta, smt, true);
+																						HistoryStatusMahasiswa historyStatus = HistoryStatusMahasiswaUtil
+																								.currentStatus(mahasiswaData, Ta, smt, true);
+																						rowData[4] = historyStatus == null
+																								|| historyStatus.getStatusMahasiswa() == null ? ""
+																										: historyStatus.getStatusMahasiswa().getNama();
 																				} catch (Exception eStatus) {
 																					ais.common.ErrorAuditUtil.record(eStatus,
 																							"auto-audit KegiatanProsesHeper: gagal perbarui status keaktifan massal");
@@ -1627,13 +1636,14 @@ public class KegiatanProsesHeper {
 														rowData[2] = j.getNamaKegiatan();
 														rowData[3] = jurusanData == null ? ""
 																: jurusanData.getFakultas().getNama();
-														rowData[4] = jurusanData == null ? "" : jurusanData.getNama();
-														rowData[5] = mhsCalon.getStatusAwalMahasiswa() == null ? ""
+														rowData[4] = "";
+														rowData[5] = jurusanData == null ? "" : jurusanData.getNama();
+														rowData[6] = mhsCalon.getStatusAwalMahasiswa() == null ? ""
 																: mhsCalon.getStatusAwalMahasiswa().getNama();
-														rowData[6] = mhsCalon.getTahun();
+														rowData[7] = mhsCalon.getTahun();
 
 														StringBuilder d = new StringBuilder();
-														int m = 7;
+														int m = 8;
 														Double dibayar = 0.0;
 														Double terhutang = 0.0;
 														Session s = null;
@@ -1796,11 +1806,12 @@ public class KegiatanProsesHeper {
 										rowhead.createCell(1).setCellValue("NAMA");
 										rowhead.createCell(2).setCellValue("JENIS PEMBAYARAN");
 										rowhead.createCell(3).setCellValue(Common.getBahasaConfig("FAKULTAS"));
-										rowhead.createCell(4).setCellValue(Common.getBahasaConfig("JURUSAN"));
-										rowhead.createCell(5).setCellValue("STATUS AWAL");
-										rowhead.createCell(6).setCellValue("ANGKATAN");
+										rowhead.createCell(4).setCellValue("STATUS");
+										rowhead.createCell(5).setCellValue(Common.getBahasaConfig("JURUSAN"));
+										rowhead.createCell(6).setCellValue("STATUS AWAL");
+										rowhead.createCell(7).setCellValue("ANGKATAN");
 
-										int m = 7;
+										int m = 8;
 										for (int tahun = finalThn; tahun <= finalThnSampai; tahun++) {
 											if (GANJIL) {
 												rowhead.createCell(m++).setCellValue("Tag. " + tahun + "1");
@@ -1853,7 +1864,7 @@ public class KegiatanProsesHeper {
 										}
 
 										XSSFRow rowTotal = sheet.createRow(rowIndex);
-										rowTotal.createCell(4).setCellValue("Total Semua");
+										rowTotal.createCell(5).setCellValue("Total Semua");
 
 										DecimalFormat dfTotal = new DecimalFormat("#.##");
 										rowTotal.createCell(finalMaxCols - 5)

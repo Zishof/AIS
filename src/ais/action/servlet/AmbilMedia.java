@@ -36,13 +36,57 @@ import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.FotoAdmin;
 
 /**
- * Servlet implementation class AmbilMedia
+ * Servlet generik "satu untuk semua" bagi sebagian besar kebutuhan penyajian
+ * media/lampiran di AIS. Klien mengirim nama kelas entitas ({@code clazz}),
+ * nama properti kolom yang dipakai untuk mencari baris ({@code property}) dan
+ * nilainya ({@code id}), serta nama properti kolom yang berisi data biner
+ * ({@code foto}) dan properti yang berisi nama tampilan ({@code name}).
+ * Parameter boleh dikirim sebagai parameter request biasa, ATAU digabung
+ * dalam satu JSON terenkripsi lewat parameter {@code d} (didekripsi lewat
+ * {@link Common#desEncrypter}); nilai dari JSON diprioritaskan bila ada.
+ * Parameter {@code file} (di dalam JSON) bahkan memungkinkan servlet
+ * menyajikan path berkas fisik APA ADANYA langsung dari disk tanpa lewat
+ * database sama sekali, asal berkas itu ada.
+ * <p>
+ * Bila {@code clazz} adalah entitas yang mengimplementasikan
+ * {@link FileFotoLain} (mis. {@link ais.database.model.file.FotoAdmin}) dan
+ * properti pencarian bertipe {@code Long}, pengambilan didelegasikan ke
+ * {@link FileFotoLain#ambil(boolean, Object, String, Class)} dengan
+ * {@code usingId} yang NILAINYA DIAMBIL LANGSUNG DARI PARAMETER REQUEST
+ * {@code usingId} milik klien (default {@code false}) -- bila klien mengirim
+ * {@code usingId=true}, berlaku kerentanan yang sama seperti yang telah
+ * dikonfirmasi pada servlet lampiran lain di paket ini (filter kolom
+ * {@code jenis} diabaikan sepenuhnya). Bila entitas TIDAK termasuk kategori
+ * ini (jalur generik, dipakai untuk hampir semua jenis media lain), baris
+ * dicari lewat proyeksi Hibernate {@code SELECT id, <name>, gdrive FROM
+ * <clazz> WHERE <property> = <id>} (dengan filter tambahan opsional
+ * {@code fotoId}/{@code fotoUtama}), lalu kolom {@code foto} dibaca lewat
+ * query terpisah {@code SELECT <foto> FROM <clazz> WHERE id = <id-baris>}.
+ * Hasil bisa berupa redirect ke GDrive/Dropbox, atau berkas lokal (dengan
+ * opsi resize lewat {@code height}/{@code width}).
+ * </p>
+ * <p>
+ * <b>Catatan keamanan (permukaan lebih luas dari servlet {@code Ambil*} lain):</b>
+ * pada jalur generik, {@code clazz}/{@code property}/{@code foto}/{@code name}
+ * adalah nama KELAS dan NAMA KOLOM Hibernate apa pun yang dikirim mentah oleh
+ * klien, dibatasi hanya sejauh kelas tersebut memiliki
+ * {@link org.hibernate.metadata.ClassMetadata} dan nama properti yang diminta
+ * valid pada kelas itu -- servlet ini pada dasarnya berfungsi sebagai ORAKEL
+ * PEMBACAAN KOLOM BINER GENERIK: siapa pun yang mengetahui/menebak kombinasi
+ * {@code clazz}+{@code property}+{@code foto}+{@code id} yang valid dapat
+ * membaca kolom biner ENTITAS Hibernate APA PUN, TIDAK terbatas pada foto
+ * profil seperti servlet {@code Ambil*} lain, dan TIDAK memerlukan entitas
+ * tersebut berhubungan dengan {@link FileFotoLain}/{@code LampiranLain} sama
+ * sekali. Tidak ada gerbang otentikasi/otorisasi apa pun pada servlet ini.
+ * </p>
  */
 public class AmbilMedia extends HttpServlet {
+	/** ID versi serialisasi tetap untuk kontrak {@link java.io.Serializable} milik {@link HttpServlet}. */
 	private static final long serialVersionUID = 1L;
 
 	/**
-	 * @see HttpServlet#HttpServlet()
+	 * Membuat instance servlet. Tidak ada inisialisasi khusus di luar konstruktor
+	 * bawaan {@link HttpServlet#HttpServlet()}.
 	 */
 	public AmbilMedia() {
 		super();
@@ -50,8 +94,13 @@ public class AmbilMedia extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP; lih. parameter generik {@code clazz}/{@code property}/{@code id}/dst. di Javadoc kelas
+	 * @param response respons HTTP; isi media (atau redirect/ikon default) ditulis ke sini
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -59,14 +108,39 @@ public class AmbilMedia extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}, dengan perilaku
+	 * yang identik dengan {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP; lih. parameter generik {@code clazz}/{@code property}/{@code id}/dst. di Javadoc kelas
+	 * @param response respons HTTP; isi media (atau redirect/ikon default) ditulis ke sini
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/**
+	 * Menentukan berkas yang akan disajikan lewat
+	 * {@link #loadFile(HttpServletRequest, HttpServletResponse)}, lalu menyalin
+	 * isinya ke response dengan {@code Content-Type} yang dideteksi lewat
+	 * {@link CommonMedia#getMime(File)}.
+	 * <p>
+	 * Bila {@link #loadFile} mengembalikan {@code null} (berarti response sudah
+	 * di-redirect, mis. lampiran tersimpan di GDrive/Dropbox, atau parameter
+	 * {@code clazz}/{@code id} tidak valid dan sudah dibalas dengan status 400),
+	 * method berhenti tanpa menulis apa pun lagi ke response. Bila berkas yang
+	 * dikembalikan sudah tidak ada di disk atau kosong, membalas
+	 * {@link HttpServletResponse#SC_NOT_FOUND 404} yang ramah. Exception lain
+	 * yang terjadi ditelan dan dicatat lewat
+	 * {@link ais.common.ErrorAuditUtil#record} tanpa mengubah status response.
+	 * </p>
+	 *
+	 * @param request permintaan HTTP; diteruskan apa adanya ke {@link #loadFile(HttpServletRequest, HttpServletResponse)}
+	 * @param resp respons HTTP tujuan penulisan isi berkas
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) {
 
 		try {
@@ -119,6 +193,59 @@ public class AmbilMedia extends HttpServlet {
 
 	}
 
+	/**
+	 * Menentukan berkas/redirect yang harus disajikan berdasarkan kombinasi
+	 * parameter generik {@code clazz}, {@code property}, {@code id}, {@code name},
+	 * {@code foto}, dan beberapa parameter opsional lain -- baik dikirim langsung
+	 * sebagai parameter request, maupun digabung dalam JSON terenkripsi pada
+	 * parameter {@code d}.
+	 * <p>
+	 * Langkah kerja:
+	 * <ol>
+	 *   <li>Mendekripsi &amp; mem-parse parameter {@code d} (bila ada) menjadi
+	 *       {@link org.json.JSONObject}; setiap parameter lain di bawah lebih
+	 *       dulu dicari di JSON ini sebelum jatuh ke parameter request biasa.</li>
+	 *   <li>Bila JSON memuat {@code file} dan berkas pada path itu ada di disk,
+	 *       LANGSUNG mengembalikan berkas itu tanpa menyentuh database sama
+	 *       sekali.</li>
+	 *   <li>Menentukan gambar ikon default berdasarkan {@code clazz} (ikon
+	 *       "administrator" untuk kelas-kelas foto identitas yang dikenal, ikon
+	 *       "book" untuk {@link ais.database.model.file.FotoGambarItem}, atau
+	 *       ikon administrator generik untuk kelas lain).</li>
+	 *   <li>Memvalidasi {@code clazz} dan {@code id} tidak kosong; bila salah
+	 *       satu kosong, membalas {@link HttpServletResponse#SC_BAD_REQUEST 400}
+	 *       dan mengembalikan {@code null}.</li>
+	 *   <li>Memuat {@code clazz} lewat {@link Class#forName(String)} dan
+	 *       menentukan tipe properti {@code property} lewat
+	 *       {@link org.hibernate.metadata.ClassMetadata} kelas itu, lalu
+	 *       meng-konversi {@code id} ke tipe yang sesuai ({@code Integer},
+	 *       {@code Long}, atau {@code Double}; string apa adanya untuk
+	 *       {@link ais.database.model.file.FotoAdmin} bila {@code usingId} tidak diminta).</li>
+	 *   <li>Bila hasil instansiasi {@code clazz} berupa {@link FileFotoLain} dan
+	 *       tipe properti adalah {@code Long}: mendelegasikan ke
+	 *       {@link FileFotoLain#ambil(boolean, Object, String, Class)} dengan
+	 *       {@code usingId} sesuai parameter request (lih. catatan keamanan pada
+	 *       Javadoc kelas). Hasilnya bisa redirect GDrive/Dropbox, atau berkas
+	 *       lokal (dengan resize opsional).</li>
+	 *   <li>Bila tidak (jalur generik): mengambil {@code id}, {@code name}, dan
+	 *       {@code gdrive} baris {@code clazz} yang cocok dengan {@code property}
+	 *       (atau {@code id} langsung bila {@code usingId=true}), dengan filter
+	 *       tambahan opsional {@code fotoId} (ID baris langsung) dan
+	 *       {@code fotoUtama}. Bila kolom {@code gdrive} terisi, redirect ke
+	 *       Google Drive. Bila tidak, kolom {@code foto} (blob) baris tersebut
+	 *       dibaca lewat query terpisah dan disalin ke berkas cache lokal (lewat
+	 *       {@link #writeBlobToFile(Blob, File)}), lalu (opsional) di-resize.</li>
+	 * </ol>
+	 * Pada setiap titik kegagalan (parameter tidak valid, baris/berkas tidak
+	 * ditemukan, dsb.), method jatuh ke ikon default yang disiapkan di langkah
+	 * ketiga.
+	 * </p>
+	 *
+	 * @param request1 permintaan HTTP; lih. penjelasan parameter generik di Javadoc kelas dan langkah-langkah di atas
+	 * @param resp respons HTTP; dipakai untuk redirect GDrive/Dropbox atau balasan status 400/404 secara langsung
+	 * @return berkas yang harus disajikan ke klien, atau {@code null} bila response sudah ditulis/di-redirect langsung oleh method ini
+	 * @throws Exception bila {@code clazz} tidak bisa dimuat, metadata/properti tidak valid, atau query database gagal; diteruskan ke pemanggil ({@link #process}) yang menelannya lewat pencatatan error
+	 */
 	@SuppressWarnings("rawtypes")
 	private File loadFile(HttpServletRequest request1, HttpServletResponse resp) throws Exception {
 
@@ -397,6 +524,20 @@ public class AmbilMedia extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyalin isi {@code blob} ke {@code file} sekali saja: bila {@code file}
+	 * sudah ada di disk, method langsung kembali tanpa melakukan apa pun (blob
+	 * tidak dibaca ulang). Bila belum ada, method membuat berkas baru lalu
+	 * menyalin seluruh isi {@link Blob#getBinaryStream()} lewat
+	 * {@link #fastChannelCopy(ReadableByteChannel, WritableByteChannel)}. Bila
+	 * penyalinan gagal di tengah jalan, berkas parsial yang sudah terlanjur
+	 * dibuat dihapus agar tidak ter-cache sebagai berkas rusak, dan kegagalan
+	 * penutupan kanal (mis. akibat transaksi PostgreSQL yang sudah ter-abort)
+	 * ditelan per-kanal agar tidak mengganggu hasil penyalinan yang sudah selesai.
+	 *
+	 * @param blob sumber data biner dari kolom yang ditunjuk parameter {@code foto}; boleh {@code null} hanya bila {@code file} sudah ada
+	 * @param file berkas cache tujuan penulisan
+	 */
 	private void writeBlobToFile(Blob blob, File file) {
 
 		if (file != null && file.exists()) {
@@ -425,6 +566,16 @@ public class AmbilMedia extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyalin seluruh isi {@code src} ke {@code dest} memakai buffer langsung
+	 * (direct {@link ByteBuffer}) berukuran 16 KiB, dengan pola baca-flip-tulis-
+	 * compact standar NIO sampai {@code src} habis, lalu mengosongkan sisa buffer
+	 * yang belum tertulis.
+	 *
+	 * @param src kanal sumber data biner yang akan disalin
+	 * @param dest kanal tujuan penulisan data biner
+	 * @throws IOException bila operasi baca/tulis pada salah satu kanal gagal
+	 */
 	public void fastChannelCopy(final ReadableByteChannel src, final WritableByteChannel dest) throws IOException {
 		final ByteBuffer buffer = ByteBuffer.allocateDirect(16 * 1024);
 		while (src.read(buffer) != -1) {
