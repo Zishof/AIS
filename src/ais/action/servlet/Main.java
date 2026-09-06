@@ -226,14 +226,50 @@ public class Main extends HttpServlet {
 			{ "cetak_laporan_laba_rugi", "cetak_laporan_laba_rugi.jsp" }
 	};
 
+	/**
+	 * Menangani permintaan {@code GET} ke {@code /main} — jalur normal setelah pengguna berhasil
+	 * masuk — dengan meneruskannya ke {@link #processRequest}.
+	 *
+	 * @param request  permintaan servlet
+	 * @param response tanggapan servlet
+	 * @throws ServletException dideklarasikan demi kontrak {@link HttpServlet}; tidak pernah
+	 *                          benar-benar dilempar karena {@link #processRequest} menangkap
+	 *                          seluruh exception
+	 * @throws IOException      dideklarasikan demi kontrak yang sama
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		processRequest(request, response);
 	}
 
+	/**
+	 * Menangani permintaan {@code POST} ke {@code /main} dengan perilaku yang persis sama dengan
+	 * {@link #doGet}.
+	 *
+	 * <p>Metode tidak dibedakan sama sekali; seluruh pilihan halaman ditentukan parameter dan
+	 * keadaan pengguna, bukan oleh metode HTTP.</p>
+	 *
+	 * @param request  permintaan servlet
+	 * @param response tanggapan servlet
+	 * @throws ServletException lihat catatan pada {@link #doGet}
+	 * @throws IOException      lihat catatan pada {@link #doGet}
+	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		processRequest(request, response);
 	}
 
+	/**
+	 * Titik masuk bersama: menyiapkan state global permintaan, lalu memilih dan meneruskan ke
+	 * halaman tujuan.
+	 *
+	 * <p>Seluruh exception ditangkap dan dicatat di sini, sehingga method ini tidak pernah
+	 * melempar ke container. Konsekuensinya perlu diketahui: bila
+	 * {@link #forwardToPage} gagal <i>sebelum</i> menulis apa pun, pengguna menerima tanggapan
+	 * kosong berstatus {@code 200}, bukan halaman galat. Penyebabnya akan terlihat di catatan
+	 * {@code ErrorAuditUtil} beserta {@code printStackTrace}, bukan di layar.</p>
+	 *
+	 * @param request  permintaan servlet
+	 * @param response tanggapan servlet
+	 */
 	private void processRequest(HttpServletRequest request, HttpServletResponse response) {
 		try {
 			initCommonRequestState(request);
@@ -243,6 +279,29 @@ public class Main extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengisi lima variabel statis {@code Common} dari permintaan yang sedang berjalan.
+	 *
+	 * <p>Yang ditulis: {@link Common#REAL_PATH} dan {@code Common.REAL_PATH_REPORT_TEMP} (jalur
+	 * fisik direktori aplikasi dan direktori laporan, dari {@code ServletContext}),
+	 * {@link Common#ROOT} ({@code contextPath}), serta {@link Common#CURRENT_URL_SIMPLE} dan
+	 * {@link Common#CURRENT_URL} (URL dasar tanpa dan dengan {@code contextPath}).</p>
+	 *
+	 * <p><b>Sifat global, bukan per permintaan.</b> Kelimanya adalah variabel statis tingkat
+	 * proses. Nilai yang ditulis permintaan ini berlaku untuk seluruh utas sampai permintaan
+	 * berikutnya menimpanya. Dua yang terakhir disusun {@link #buildBaseUrl} dari
+	 * {@code getServerName()} dan {@code getServerPort()}, yakni nilai yang bersumber dari header
+	 * {@code Host}. Karena {@code Common.CURRENT_URL} ikut dipakai menyusun tautan laporan dan
+	 * {@code callbackUrl} virtual account bank, nilainya dapat mencerminkan host permintaan lain
+	 * — termasuk permintaan tenant lain pada instalasi multi-tenant. Perilaku ini bukan milik
+	 * kelas ini saja; tujuh servlet lain menulis variabel yang sama.</p>
+	 *
+	 * <p>Kode baru sebaiknya menyusun URL absolut dari objek permintaan yang sedang aktif —
+	 * misalnya lewat {@code ApiHelperSupport.absoluteUrl(request, ...)} — bukan membaca variabel
+	 * global ini.</p>
+	 *
+	 * @param request permintaan servlet yang sedang dilayani
+	 */
 	private void initCommonRequestState(HttpServletRequest request) {
 		ServletContext context = getServletContext();
 		Common.REAL_PATH = context.getRealPath("/");
@@ -252,6 +311,25 @@ public class Main extends HttpServlet {
 		Common.CURRENT_URL = buildBaseUrl(request, true);
 	}
 
+	/**
+	 * Menyusun URL dasar aplikasi dari permintaan yang sedang berjalan.
+	 *
+	 * <p>Skema ditentukan {@code Common.isSecure(request)} — bukan {@code request.isSecure()} —
+	 * karena aplikasi lazim berada di belakang pemutus TLS, sehingga koneksi ke container
+	 * terlihat sebagai {@code http} meski pengguna memakai {@code https}. Porta baku
+	 * ({@code 80} dan {@code 443}) dihilangkan agar URL yang dihasilkan kanonik.</p>
+	 *
+	 * <p><b>Sumber nama host dan porta adalah header {@code Host} permintaan</b>, dan tidak ada
+	 * validasi terhadapnya di sini — tidak ada daftar host yang diizinkan, tidak ada pencocokan
+	 * pola. Bandingkan dengan {@code Repository.publicOrigin()} yang menolak nama host di luar
+	 * pola yang diizinkan sebelum menyusun URL absolut. Karena hasil method ini disimpan ke
+	 * variabel global oleh {@link #initCommonRequestState}, nilai yang tersusun di sini dapat
+	 * terbawa jauh melampaui permintaan yang menghasilkannya.</p>
+	 *
+	 * @param request        permintaan servlet
+	 * @param includeContext {@code true} untuk menyertakan {@code contextPath} di ujung URL
+	 * @return URL dasar tanpa garis miring penutup
+	 */
 	private String buildBaseUrl(HttpServletRequest request, boolean includeContext) {
 		String protocol = Common.isSecure(request) ? "https://" : "http://";
 		int port = request.getServerPort();
@@ -260,6 +338,44 @@ public class Main extends HttpServlet {
 		return protocol + request.getServerName() + portText + context;
 	}
 
+	/**
+	 * Memilih halaman tujuan dan meneruskan permintaan ke sana.
+	 *
+	 * <p><b>Prioritas menurun.</b></p>
+	 * <ol>
+	 *   <li>Jalur {@code /main/item/{id}} → diteruskan ke {@code /pustaka?id={id}}.</li>
+	 *   <li>Parameter {@code inventory} berisi nama fungsi, <i>atau</i> jalur
+	 *       {@code /main/inventory/{fungsi}} → halaman fungsi Inventory hasil
+	 *       {@link #resolveInventoryFunctionPage}; nama fungsi yang tidak terdaftar dijawab
+	 *       {@code 404}.</li>
+	 *   <li>{@code hak_akses=true} → halaman pemilihan hak akses.</li>
+	 *   <li>{@code p=registrasi_calon_anggota} → formulir registrasi calon anggota koperasi.</li>
+	 *   <li>{@code p=halaman_calon_anggota} → halaman e-Kantin, didahului
+	 *       {@link #checkAndSetUserSession} dengan {@code createSession=false}.</li>
+	 *   <li>Selain itu → {@link #resolveMainPage}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Dua cabang berbasis jalur di atas tidak tercapai pada konfigurasi baku.</b> Servlet
+	 * ini dipetakan pada pola persis {@code /main}, sehingga {@code getRequestURI()} dikurangi
+	 * {@code contextPath} selalu menghasilkan tepat {@code "/main"} dan tidak pernah berawalan
+	 * {@code /main/item/} maupun {@code /main/inventory/}. Yang benar-benar hidup adalah varian
+	 * parameter {@code ?inventory=}. Bila suatu saat pemetaan diubah menjadi {@code /main/*},
+	 * cabang {@code /main/item/} perlu ditinjau lebih dulu: nilai {@code id} disisipkan ke
+	 * {@code "/pustaka?id=" + id} tanpa penyandian URL, sehingga karakter {@code &} pada
+	 * masukan akan terbaca sebagai pemisah parameter tambahan oleh {@code /pustaka}.</p>
+	 *
+	 * <p>Setelah halaman terpilih, tiga hal dikerjakan sebelum penerusan: pemetaan bahasa ZUL
+	 * disiapkan bila halaman berekstensi {@code .zul}, dan atribut penanda "halaman langsung"
+	 * dipasang untuk e-Kantin, POS (Apotik/eMedik), atau Inventory sesuai halaman yang dipilih.</p>
+	 *
+	 * <p>Gerbang hak akses per halaman <b>tidak</b> ada di sini; lihat catatan pada Javadoc
+	 * kelas.</p>
+	 *
+	 * @param request  permintaan servlet
+	 * @param response tanggapan servlet
+	 * @throws Exception bila penerusan atau penyiapan bahasa ZUL gagal; ditangkap
+	 *                   {@link #processRequest}
+	 */
 	private void forwardToPage(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		String requestUri = request.getRequestURI();
 		String contextPath = request.getContextPath();
@@ -316,6 +432,24 @@ public class Main extends HttpServlet {
 		dispatcher.forward(request, response);
 	}
 
+	/**
+	 * Menerjemahkan nama fungsi Inventory &amp; Sales menjadi jalur JSP-nya, lewat daftar putih
+	 * {@link #INVENTORY_FUNCTION_PAGES}.
+	 *
+	 * <p>Pencocokan memakai {@code equals} atas nama yang sudah di-{@code trim} — bukan
+	 * {@code startsWith}, bukan {@code contains}, dan peka huruf besar-kecil. Jalur yang
+	 * dikembalikan selalu berbentuk direktori tetap
+	 * {@code /WEB-INF/baru/modul/inventory/} ditambah nama berkas dari kolom kedua tabel, jadi
+	 * nilai yang dikirim klien <b>tidak pernah</b> ikut menyusun jalur berkas. Inilah yang
+	 * menutup jalur traversal lewat parameter {@code inventory}.</p>
+	 *
+	 * <p>Nama yang tidak terdaftar — dan {@code null} — mengembalikan {@code null}, yang oleh
+	 * {@link #forwardToPage} dijawab {@code 404}.</p>
+	 *
+	 * @param functionName nama fungsi dari parameter {@code inventory} atau segmen jalur; boleh
+	 *                     {@code null}
+	 * @return jalur JSP di bawah {@code /WEB-INF/}, atau {@code null} bila tidak terdaftar
+	 */
 	private String resolveInventoryFunctionPage(String functionName) {
 		if (functionName == null) {
 			return null;
