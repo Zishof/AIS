@@ -1,5 +1,64 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 Batch 139 — 9 mega-file terakhir tier terdalam, 6 task baru — MENUTUP backlog mega-file `helper/` (6 Sep 2026)
+
+Scan awal 414-file `helper/` kini TUNTAS dari ujung ke ujung (baris 1
+sampai 414). Batch ini menuntaskan sisa mega-file terbesar yang
+terlewat.
+
+**`ProsesUjianHelper.java`** (6241→7230 baris) — dikonfirmasi lapis
+PELAKSANAAN ujian (mengerjakan real-time), beda dari lapis
+SETUP(`PertemuanPunyaUjianHelper`) dan HASIL(`HasilUjianMahasiswaHelper`
+dkk yang cuma pinjam method statis penilaiannya). **Perluasan
+`task_72b24378`**: `tampil()` — titik akhir SEMUA jalur buka ujian —
+TIDAK memeriksa jatah percobaan sama sekali. **2 task baru**:
+`task_e4587587` (pemilihan soal acak tanpa cegah duplikat — peserta
+bisa dapat soal ganda + kehilangan soal lain), `task_50cd5fcc` (bug
+tampilan indikator terjawab, dampak terbatas, nilai tak terpengaruh).
+
+**`TampilStudiMahasiswaHelper.java`** (4580→5069 baris) — dikonfirmasi
+BINGKAI LUAR modal 5-tab, `StudiMahasiswaHelper` = mesin isi KRS
+dipanggil 1 titik saja. **Task baru `task_4094b5ac`**: token Neo
+Feeder dicetak ke `catalina.out` — pola SAMA muncul **56 kali/34
+file**, cuma 1 titik yang sudah disamarkan.
+
+**`KegiatanProsesHeper.java`**/**`WizardPembayaranMhsHelper.java`** —
+wizard SENDIRI dikonfirmasi AMAN dari pola `task_79e53755` (nol baca
+parameter mentah). TAPI **task baru `task_048cae26`**: 2 dari 5
+PEMANGGIL wizard (`DaftarUlangMahasiswaLamaAction`/`BaruAction`)
+punya pola PERSIS `task_79e53755` — cek hak cuma di cabang `==null`,
+isi parameter URL LEWATI pemeriksaan, akun non-mahasiswa bisa lihat+
+bayar tagihan orang lain. Ekspor massal `KegiatanProsesHeper`
+dikonfirmasi nol scoping (perluasan `task_a1e32ff3`).
+
+**`StudiMahasiswaHelper.java`** (2352→2607 baris) — dikonfirmasi
+SAUDARA (bukan induk/turunan) `KrsHelper` (staf/PA per-semester vs
+mahasiswa-ambil-sendiri). 3 perhitungan SKS BERBEDA dalam satu layar
+(perluasan catatan lama). **Task baru `task_c9c15aea`**: hak
+APPROVE/REJECT di-HARDCODE `true` di konstruktor (beda dari
+`delete`/`update` yang diturunkan `CommonPrivilages` benar) — 3
+gerbang persetujuan (checkbox, tombol Setujui, tombol Batalkan) TIDAK
+PERNAH aktif — instans ke-8 famili "bypass-persetujuan UI-only",
+domain KRS yang belum pernah tersentuh sebelumnya.
+
+**`PertemuanHelper.java`**/**`KegiatanPersistenceHelper.java`**/
+**`HistoryStatusMahasiswaUtil.java`**/**`ManajemenPenjadwalanMahasiswaComposer.java`**
+— hierarki `RekapitulasiPerkuliahanHelper`→`AktifitasPerkuliahanHelper`→
+`PertemuanHelper` (daun) dikonfirmasi definitif.
+`KegiatanPersistenceHelper` = lapisan denormalisasi terpisah tegas
+dari `KegiatanHelper` (stripe lock 1024 + `pg_advisory_xact_lock`).
+**Task baru `task_c334720d`**: textbox "Catatan" autosave tanpa
+gerbang di beberapa jenis pertemuan (jadwal sekolah/KKN/PKL/formulir
+kegiatan) — siapa pun bisa timpa berita acara resmi guru/dosen tanpa
+jejak audit.
+
+**6 task baru batch ini**: `task_e4587587`, `task_50cd5fcc`,
+`task_4094b5ac`, `task_048cae26`, `task_c9c15aea`, `task_c334720d`.
+Total akumulasi: **2020+ file** dari 7.401. **Tier mega-file terdalam
+`ais/action/master/helper/` kini TUNTAS** — sisa backlog adalah file
+kecil-menengah (di bawah ~1000 baris) yang belum tersentuh scan awal,
+plus domain package lain di luar `helper/`.
+
 ## 🚨 Batch 138 — 7 mega-file `opus` lagi, 9 task baru (6 Sep 2026)
 
 **`TugasMandiriHelper.java`** (5427→7025 baris) — dikonfirmasi NOL
