@@ -3306,6 +3306,22 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Mengembalikan <b>peta nilai per komponen</b> sebagai string CSV bertingkat (format lengkapnya
+	 * diuraikan pada Javadoc kelas). Dipetakan ke kolom bertipe {@code text}
+	 * <code>detail_nilai_baru_lagi</code> &mdash; penamaan &quot;baru lagi&quot; adalah jejak sejarah
+	 * migrasi format yang dipertahankan apa adanya.
+	 *
+	 * <p><b>Kunci global membajak pembacaan.</b> Bila {@link #kunciGlobalNilaiAktif()} benar dan
+	 * snapshot {@link #detailNilaiKunci} tersedia, metode <b>menyalin snapshot itu ke field
+	 * {@link #detailNilai}</b> lalu mengembalikannya. Penyalinan dilakukan dengan sengaja, bukan
+	 * sekadar mengembalikan snapshot: dengan begitu perbedaan apa pun antara data live dan snapshot
+	 * langsung dihapuskan dan tidak dapat dipakai sebagai celah untuk melewati kunci. Efek sampingnya
+	 * nyata &mdash; membaca properti ini pada kelas terkunci akan menimpa kolom
+	 * {@code detail_nilai_baru_lagi} dengan isi snapshot saat Hibernate melakukan flush.
+	 *
+	 * @return string peta nilai per komponen; boleh {@code null} pada baris yang belum pernah diisi.
+	 */
 	@Column(name = "detail_nilai_baru_lagi", columnDefinition = "text")
 	public String getDetailNilai() {
 		if (kunciGlobalNilaiAktif() && detailNilaiKunci != null) {
@@ -3316,6 +3332,20 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return detailNilai;
 	}
 
+	/**
+	 * Mengisi peta nilai per komponen, <b>dengan penegakan kunci global</b>: bila kunci aktif dan
+	 * snapshot tersedia, argumen diabaikan dan field dipulihkan dari {@link #detailNilaiKunci}.
+	 *
+	 * <p><b>Setter ini tidak mengenal kunci per komponen.</b> Untuk penulisan massal yang harus
+	 * menghormati komponen yang dikunci satu per satu, gunakan
+	 * {@link #setDetailNilaiMematuhiKunci(String, java.util.List)}. Perlu diingat pula beberapa
+	 * metode internal ({@link #reloadFormatNilai(java.util.List, Boolean)},
+	 * {@link #populateDetailNilai(FormatNilai, FormatNilaiTambahan, Double, Boolean, Boolean, Tbmuser)},
+	 * {@link #bersihkanNilaiKeDefault(java.util.List)}, {@link #refreshNilaiKeDefault()}) menulis
+	 * langsung ke field sehingga tidak melewati penjaga ini.
+	 *
+	 * @param detailNilai string peta nilai baru; diabaikan bila nilai sedang terkunci global.
+	 */
 	public void setDetailNilai(String detailNilai) {
 		if (kunciGlobalNilaiAktif() && detailNilaiKunci != null) {
 			this.detailNilai = detailNilaiKunci;
@@ -3324,6 +3354,16 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.detailNilai = detailNilai;
 	}
 
+	/**
+	 * Mengembalikan <b>peta nilai komponen tambahan</b> ({@link FormatNilaiTambahan}) sebagai string
+	 * CSV tiga kolom per entri (<code>id,nilai,0</code>).
+	 *
+	 * <p>Sama seperti {@link #getDetailNilai()}, kunci global membajak pembacaan: snapshot
+	 * {@link #detailNilaiTambahanKunci} disalin ke field lalu dikembalikan, dengan efek samping
+	 * penulisan yang sama.
+	 *
+	 * @return string peta nilai tambahan; boleh {@code null}.
+	 */
 	@Column(name = "detail_nilai_tambahan_baru_lagi", columnDefinition = "text")
 	public String getDetailNilaiTambahan() {
 		if (kunciGlobalNilaiAktif() && detailNilaiTambahanKunci != null) {
@@ -3332,6 +3372,12 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return detailNilaiTambahan;
 	}
 
+	/**
+	 * Mengisi peta nilai komponen tambahan, dengan penegakan kunci global yang sama seperti
+	 * {@link #setDetailNilai(String)}. Nilai tambahan tidak mengenal kunci per komponen sama sekali.
+	 *
+	 * @param detailNilaiTambahan string peta nilai tambahan baru; diabaikan bila terkunci global.
+	 */
 	public void setDetailNilaiTambahan(String detailNilaiTambahan) {
 		if (kunciGlobalNilaiAktif() && detailNilaiTambahanKunci != null) {
 			this.detailNilaiTambahan = detailNilaiTambahanKunci;
@@ -3340,6 +3386,26 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.detailNilaiTambahan = detailNilaiTambahan;
 	}
 
+	/**
+	 * Mengembalikan <b>kunci korelasi baris ini dengan Feeder PDDikti</b>, berbentuk
+	 * <code>&lt;id_kls&gt;:&lt;id_reg_pd&gt;</code> &mdash; penggabungan identitas kelas kuliah dengan
+	 * identitas registrasi peserta didik.
+	 *
+	 * <p><b>Disusun ulang saat dibaca.</b> Bila kelas induk ada serta {@link #getId_reg_pd()} dan
+	 * {@link #getId_kls()} keduanya terisi, nilai kunci <b>selalu dibangun ulang</b> dan menimpa isi
+	 * tersimpan. Dengan begitu kode Feeder otomatis mengikuti bila identitas kelas berubah setelah
+	 * sinkronisasi, tanpa perlu pemutakhiran manual. Sebagai konsekuensi, membaca properti ini dapat
+	 * mengubah kolom {@code feeder_kode} pada flush berikutnya.
+	 *
+	 * <p><b>Batasan unik.</b> Kolom dideklarasikan {@code unique = true} di seluruh tabel, sehingga
+	 * satu pasangan kelas&ndash;mahasiswa Feeder hanya boleh muncul sekali. String kosong sengaja
+	 * dinormalisasi menjadi {@code null} sebelum dikembalikan &mdash; ini penting karena pada
+	 * PostgreSQL beberapa nilai {@code NULL} tidak saling bertabrakan pada indeks unik, sedangkan
+	 * beberapa string kosong akan bertabrakan dan menggagalkan penyimpanan baris yang memang belum
+	 * tersinkron.
+	 *
+	 * @return kode Feeder, atau {@code null} bila belum dapat disusun.
+	 */
 	@Column(name = "feeder_kode", unique = true)
 	public String getFeeder() {
 		perkuliahan = getPerkuliahan();
@@ -3349,10 +3415,29 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
 
+	/**
+	 * Mengisi kode Feeder secara langsung. Nilai yang diisikan akan <b>ditimpa</b> oleh
+	 * {@link #getFeeder()} pada pembacaan berikutnya bila identitas kelas dan registrasi tersedia.
+	 *
+	 * @param feeder kode Feeder baru.
+	 */
 	public void setFeeder(String feeder) {
 		this.feeder = feeder;
 	}
 
+	/**
+	 * Mengembalikan <b>identitas kelas kuliah pada Feeder PDDikti</b>.
+	 *
+	 * <p>Nilainya diwariskan dari kelas induk: bila {@code Perkuliahan.getFeeder()} terisi, nilai itu
+	 * <b>disalin dan menimpa</b> isi tersimpan pada baris ini. Pewarisan tersebut masuk akal karena
+	 * identitas kelas memang milik kelas, bukan milik masing-masing peserta; menyimpannya di sini
+	 * hanya sebagai penyalinan agar kode Feeder dapat disusun tanpa menelusuri relasi.
+	 *
+	 * <p>String kosong dinormalisasi menjadi {@code null}. Penamaan <i>snake_case</i> mengikuti nama
+	 * field pada API Feeder dan dipertahankan apa adanya.
+	 *
+	 * @return identitas kelas Feeder, atau {@code null} bila belum tersinkron.
+	 */
 	public String getId_kls() {
 		perkuliahan = getPerkuliahan();
 		if (perkuliahan != null && perkuliahan.getFeeder() != null && !perkuliahan.getFeeder().isEmpty()) {
@@ -3361,18 +3446,60 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return id_kls == null || id_kls.trim().isEmpty() ? null : id_kls.trim();
 	}
 
+	/**
+	 * Mengisi identitas kelas Feeder. Akan <b>ditimpa</b> oleh {@link #getId_kls()} bila kelas induk
+	 * sudah memiliki identitas Feeder sendiri.
+	 *
+	 * @param id_kls identitas kelas kuliah pada Feeder.
+	 */
 	public void setId_kls(String id_kls) {
 		this.id_kls = id_kls;
 	}
 
+	/**
+	 * Mengembalikan <b>identitas registrasi peserta didik pada Feeder PDDikti</b>, yaitu penanda
+	 * mahasiswa dari sisi PDDikti.
+	 *
+	 * <p>Berbeda dari {@link #getId_kls()}, nilai ini <b>tidak diturunkan</b> dari relasi mana pun
+	 * dan harus diisi oleh proses sinkronisasi; getter ini murni kecuali normalisasi string kosong
+	 * menjadi {@code null}.
+	 *
+	 * @return identitas registrasi peserta didik, atau {@code null} bila belum tersinkron.
+	 */
 	public String getId_reg_pd() {
 		return id_reg_pd == null || id_reg_pd.trim().isEmpty() ? null : id_reg_pd.trim();
 	}
 
+	/**
+	 * Mengisi identitas registrasi peserta didik pada Feeder.
+	 *
+	 * @param id_reg_pd identitas registrasi peserta didik.
+	 */
 	public void setId_reg_pd(String id_reg_pd) {
 		this.id_reg_pd = id_reg_pd;
 	}
 
+	/**
+	 * Mengembalikan <b>status verifikasi nilai</b> baris ini: {@link #VERIFIED} atau
+	 * {@link #NOT_VERIFIED}.
+	 *
+	 * <p>Dua aturan diterapkan dan keduanya <b>menulis balik ke field</b>. Pertama, {@code null}
+	 * dinormalisasi menjadi {@link #NOT_VERIFIED} sehingga pemanggil dapat langsung memakai
+	 * {@code equals} tanpa pemeriksaan kosong &mdash; sesuatu yang memang dilakukan di banyak tempat
+	 * dalam kelas ini. Kedua, baris <b>nilai konversi</b> (yang memiliki
+	 * {@link #getMatakuliahKonversi()}) <b>selalu dipaksa</b> menjadi {@link #VERIFIED}: nilai yang
+	 * diakui dari institusi lain tidak melalui alur verifikasi dosen sehingga tidak boleh ikut
+	 * disembunyikan oleh opsi &quot;sembunyikan nilai jika belum diverifikasi&quot;.
+	 *
+	 * <p>Perlu disadari aturan kedua memanggil {@link #getMatakuliahKonversi()}, yang berarti getter
+	 * status verifikasi ini ikut membawa efek samping meng-null-kan kunci asing konversi pada baris
+	 * yang juga memiliki kelas.
+	 *
+	 * <p>Status ini berlaku untuk <b>seluruh baris</b> dan mengalahkan status per komponen; lihat
+	 * {@link #retreiveDetailVerifikasiNilai(FormatNilai)}.
+	 *
+	 * @return {@link #VERIFIED} atau {@link #NOT_VERIFIED}; tidak pernah {@code null}.
+	 */
 	public Integer getVerify() {
 		if (verify == null) {
 			verify = NOT_VERIFIED;
@@ -3385,27 +3512,69 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return verify;
 	}
 
+	/**
+	 * Mengisi status verifikasi nilai secara langsung, tanpa normalisasi maupun pemeriksaan
+	 * wewenang. Nilai {@code null} yang diisikan di sini akan dinormalisasi belakangan oleh
+	 * {@link #getVerify()}.
+	 *
+	 * @param verify {@link #VERIFIED} atau {@link #NOT_VERIFIED}.
+	 */
 	public void setVerify(Integer verify) {
 		this.verify = verify;
 	}
 
+	/**
+	 * Mengembalikan identitas pengguna yang melakukan verifikasi nilai, disimpan sebagai teks lepas
+	 * (bukan relasi ke tabel pengguna) sehingga jejaknya tetap terbaca walau akun bersangkutan
+	 * kemudian dihapus.
+	 *
+	 * @return identitas verifikator, atau {@code null} bila belum diverifikasi.
+	 */
 	public String getVerifikator() {
 		return verifikator;
 	}
 
+	/**
+	 * Mengisi identitas verifikator nilai.
+	 *
+	 * @param verifikator identitas pengguna yang memverifikasi.
+	 */
 	public void setVerifikator(String verifikator) {
 		this.verifikator = verifikator;
 	}
 
+	/**
+	 * Mengembalikan stempel waktu saat nilai diverifikasi, dipetakan sebagai
+	 * {@link TemporalType#TIMESTAMP}. Bersama {@link #getVerifikator()} membentuk jejak
+	 * &quot;siapa dan kapan&quot; bagi persetujuan nilai.
+	 *
+	 * @return waktu verifikasi, atau {@code null} bila belum diverifikasi.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getWaktuVerifikasi() {
 		return waktuVerifikasi;
 	}
 
+	/**
+	 * Mengisi stempel waktu verifikasi nilai.
+	 *
+	 * @param waktuVerifikasi waktu verifikasi; boleh {@code null}.
+	 */
 	public void setWaktuVerifikasi(Date waktuVerifikasi) {
 		this.waktuVerifikasi = waktuVerifikasi;
 	}
 
+	/**
+	 * Mengembalikan <b>jumlah SKS asal</b> sebelum konversi. Bila baris ini merupakan nilai konversi
+	 * dan nilainya belum diisi (atau masih 0), SKS diturunkan dari
+	 * {@link #getMatakuliahKonversi()} dan <b>ditulis balik</b> ke field.
+	 *
+	 * <p>Pewarisan itu bersifat sekali-isi: begitu terisi angka bukan-nol, nilai eksplisit
+	 * dipertahankan sehingga konversi dengan SKS berbeda dari mata kuliah tujuan tetap dapat direkam.
+	 * Nilai {@code null} dinormalisasi menjadi {@code 0} agar aman dipakai dalam perhitungan beban.
+	 *
+	 * @return jumlah SKS asal; tidak pernah {@code null}.
+	 */
 	public Integer getSksAsal() {
 		matakuliahKonversi = getMatakuliahKonversi();
 		if (matakuliahKonversi != null && (sksAsal == null || sksAsal == 0)) {
@@ -3414,10 +3583,25 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return sksAsal == null ? 0 : sksAsal;
 	}
 
+	/**
+	 * Mengisi jumlah SKS asal sebelum konversi.
+	 *
+	 * @param sksAsal jumlah SKS pada institusi asal.
+	 */
 	public void setSksAsal(Integer sksAsal) {
 		this.sksAsal = sksAsal;
 	}
 
+	/**
+	 * Mengembalikan <b>kode mata kuliah asal</b> pada institusi sebelumnya untuk baris konversi.
+	 * Mengikuti pola sekali-isi yang sama seperti {@link #getSksAsal()}: bila masih kosong, kode
+	 * diturunkan dari {@link #getMatakuliahKonversi()} dan ditulis balik ke field.
+	 *
+	 * <p>Disimpan sebagai teks lepas karena mata kuliah asal tidak memiliki baris di basis data
+	 * kampus ini.
+	 *
+	 * @return kode mata kuliah asal, atau {@code null} bila tidak diketahui.
+	 */
 	public String getKodeMatakuliahAsal() {
 		matakuliahKonversi = getMatakuliahKonversi();
 		if (matakuliahKonversi != null && (kodeMatakuliahAsal == null || kodeMatakuliahAsal.trim().isEmpty())) {
@@ -3426,10 +3610,21 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return kodeMatakuliahAsal;
 	}
 
+	/**
+	 * Mengisi kode mata kuliah asal sebelum konversi.
+	 *
+	 * @param kodeMatakuliahAsal kode pada institusi asal.
+	 */
 	public void setKodeMatakuliahAsal(String kodeMatakuliahAsal) {
 		this.kodeMatakuliahAsal = kodeMatakuliahAsal;
 	}
 
+	/**
+	 * Mengembalikan <b>nama mata kuliah asal</b> pada institusi sebelumnya untuk baris konversi,
+	 * dengan pola sekali-isi yang sama seperti {@link #getKodeMatakuliahAsal()}.
+	 *
+	 * @return nama mata kuliah asal, atau {@code null} bila tidak diketahui.
+	 */
 	public String getNamaMatakuliahAsal() {
 		matakuliahKonversi = getMatakuliahKonversi();
 		if (matakuliahKonversi != null && (namaMatakuliahAsal == null || namaMatakuliahAsal.trim().isEmpty())) {
@@ -3438,10 +3633,38 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return namaMatakuliahAsal;
 	}
 
+	/**
+	 * Mengisi nama mata kuliah asal sebelum konversi.
+	 *
+	 * @param namaMatakuliahAsal nama pada institusi asal.
+	 */
 	public void setNamaMatakuliahAsal(String namaMatakuliahAsal) {
 		this.namaMatakuliahAsal = namaMatakuliahAsal;
 	}
 
+	/**
+	 * Mengembalikan <b>nilai huruf asal</b> sebelum konversi, menerjemahkannya lebih dulu bila yang
+	 * tersimpan ternyata berupa angka.
+	 *
+	 * <p><b>Dua tahap.</b> Pertama, bila field masih kosong, nilainya diisi dari {@link #nilaiHuruf}
+	 * baris ini &mdash; asumsinya nilai hasil konversi sama dengan nilai asalnya selama tidak
+	 * dinyatakan sebaliknya. Kedua, bila isinya dikenali sebagai angka oleh {@code Common.isNumber},
+	 * angka itu dipetakan ke huruf lewat {@code Common.getNilaiHuruf(...)} dengan konteks lengkap
+	 * (tahun angkatan, jurusan, fakultas, tahun akademik, ganjil/genap, kode mata kuliah, jenis nilai
+	 * huruf). Tahap kedua ini menangani data konversi yang dimasukkan sebagai angka mentah pada kolom
+	 * yang seharusnya berisi huruf.
+	 *
+	 * <p>Bila pemetaan gagal atau tidak menemukan padanan, nilai angka semula dipertahankan apa
+	 * adanya &mdash; lebih baik menampilkan angka daripada mengosongkan data. Kegagalan resolusi
+	 * relasi ditangkap dan dicatat ke {@code ErrorAuditUtil}.
+	 *
+	 * <p><b>Catatan ketahanan.</b> Berbeda dari getter serupa lain di kelas ini, blok penerjemahan
+	 * mengakses {@code mahasiswa.getJurusan().getFakultas()} secara berantai tanpa pemeriksaan
+	 * {@code null} bertingkat; mahasiswa tanpa jurusan akan memicu kesalahan yang tertangkap oleh
+	 * penangkap di sekelilingnya sehingga hasilnya tetap angka semula.
+	 *
+	 * @return nilai huruf asal, atau nilai angka semula bila tidak dapat dipetakan.
+	 */
 	public String getNilaiHurufAsal() {
 		mahasiswa = getMahasiswa();
 		if (nilaiHurufAsal == null || nilaiHurufAsal.trim().isEmpty()) {
@@ -3471,10 +3694,36 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return nilaiHurufAsal;
 	}
 
+	/**
+	 * Mengisi nilai huruf asal sebelum konversi.
+	 *
+	 * @param nilaiHurufAsal nilai huruf (atau angka) pada institusi asal.
+	 */
 	public void setNilaiHurufAsal(String nilaiHurufAsal) {
 		this.nilaiHurufAsal = nilaiHurufAsal;
 	}
 
+	/**
+	 * Mengembalikan <b>tahap kurikulum</b> tempat mata kuliah ini berada (mis. tahap sarjana atau
+	 * profesi pada program bertahap seperti kedokteran).
+	 *
+	 * <p>Bila field masih kosong atau kurang dari 1, tahap diturunkan dari
+	 * {@code Perkuliahan.getKurikulumPunyaMatakuliah().getTahap()} dan ditulis balik. Pengambilan itu
+	 * <b>dijaga</b> oleh {@code org.hibernate.Hibernate.isInitialized(...)}: relasi hanya dibaca bila
+	 * proxy-nya sudah termuat. Penjagaan ini disengaja untuk menghindari pemuatan lazy yang tidak
+	 * diperlukan &mdash; dan lebih penting lagi, kegagalan ketika sesi Hibernate sudah tertutup.
+	 * Bila proxy belum termuat, tahap dibiarkan kosong alih-alih memaksa kueri.
+	 *
+	 * <p><b>Penimpaan pra-perkuliahan.</b> Bila kelas induk ditandai sebagai pra-perkuliahan
+	 * (matrikulasi), tahap <b>dipaksa menjadi {@code null}</b> apa pun isi sebelumnya &mdash; mata
+	 * kuliah matrikulasi tidak menempati tahap kurikulum mana pun. Ini sejalan dengan
+	 * {@link #getSemester()} yang memaksa nilai -1 pada kondisi yang sama.
+	 *
+	 * <p>Berbeda dari kebanyakan getter di kelas ini, nilai kembaliannya <b>boleh {@code null}</b>
+	 * dan tidak dinormalisasi.
+	 *
+	 * @return nomor tahap kurikulum, atau {@code null} bila tidak berlaku/belum diketahui.
+	 */
 	public Integer getTahap() {
 		perkuliahan = getPerkuliahan();
 		if ((tahap == null || tahap < 1) && perkuliahan != null && perkuliahan.getKurikulumPunyaMatakuliah() != null) {
@@ -3494,10 +3743,49 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return tahap;
 	}
 
+	/**
+	 * Mengisi tahap kurikulum secara eksplisit. Nilai kurang dari 1 akan memicu penurunan ulang dari
+	 * kurikulum pada pembacaan berikutnya.
+	 *
+	 * @param tahap nomor tahap kurikulum; boleh {@code null}.
+	 */
 	public void setTahap(Integer tahap) {
 		this.tahap = tahap;
 	}
 
+	/**
+	 * Mengembalikan <b>status kelulusan</b> mata kuliah ini, sekaligus <b>mengoreksi</b> bendera
+	 * tersimpan yang sudah basi.
+	 *
+	 * <p><b>(1) Kunci mendahului.</b> Bila kunci global aktif dan {@link #lulusKunci} tersedia,
+	 * snapshot itu dikembalikan langsung. Berbeda dari {@link #getNilaiHuruf()} dan
+	 * {@link #getTotalIP()}, di sini snapshot dipakai apa adanya tanpa pemetaan ulang.
+	 *
+	 * <p><b>(2) Penyelarasan dengan konfigurasi Nilai Huruf.</b> Bila huruf terisi, status kelulusan
+	 * ditanyakan ke {@code ConstantValues.lulusDariNilaiHuruf(nilaiHuruf, mahasiswa)} yang menelusuri
+	 * tabel {@link NilaiHuruf} dengan prioritas per <b>jurusan</b>, lalu <b>fakultas</b>, lalu
+	 * <b>global</b> &mdash; urutan yang sama seperti {@link #getTotalNilai()}. Bila jawabannya
+	 * berbeda dari bendera tersimpan, bendera <b>diperbarui</b>. Inilah yang memperbaiki data
+	 * historis semacam &quot;huruf A tetapi tersimpan belum lulus&quot;.
+	 *
+	 * <p><b>Pemulihan-diri yang ikut tersimpan.</b> Karena properti ini dipetakan property-access,
+	 * bendera hasil koreksi ikut ter-flush ke basis data &mdash; efek yang di sini memang
+	 * <b>disengaja</b> dan dicatat sebagai pemulihan-diri, berbeda dari sebagian getter lain yang
+	 * efek sampingnya lebih merupakan kebetulan. Konsekuensinya: kelulusan mengikuti konfigurasi
+	 * <i>yang berlaku saat data dibaca</i>, sehingga mengubah tabel Nilai Huruf dapat mengubah status
+	 * kelulusan baris-baris lama secara massal begitu baris itu dibaca.
+	 *
+	 * <p><b>(3) Jatuh-balik heuristik.</b> Bila konfigurasi tidak memberi jawaban dan bendera masih
+	 * {@code null}, dipakai aturan kasar: huruf yang <b>mengandung</b> D, E, atau T dianggap tidak
+	 * lulus, selain itu lulus. Perhatikan ini pemeriksaan &quot;mengandung&quot;, bukan
+	 * &quot;sama dengan&quot;, sehingga huruf majemuk seperti &quot;BD&quot; ikut tergolong tidak
+	 * lulus. Bila huruf sama sekali tidak ada, bendera diisi {@code true}.
+	 *
+	 * <p>Kegagalan pada tahap (2) ditangkap dan dicatat, lalu alur berlanjut ke tahap (3).
+	 * Penjelasan naratif atas status ini tersedia lewat {@link #alasanBelumLulus()}.
+	 *
+	 * @return {@code true} bila mata kuliah dinyatakan lulus.
+	 */
 	public Boolean getLulus() {
 		if (kunciGlobalNilaiAktif() && lulusKunci != null) {
 			return lulusKunci;
@@ -3533,6 +3821,17 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	}
 
 
+	/**
+	 * Mengisi status kelulusan, <b>dengan penegakan kunci global</b>: bila kunci aktif dan
+	 * {@link #lulusKunci} tersedia, argumen diabaikan dan field dipulihkan dari snapshot.
+	 *
+	 * <p>Di luar kondisi terkunci, nilai yang diisikan tetap dapat <b>dikoreksi ulang</b> oleh
+	 * {@link #getLulus()} agar selaras dengan konfigurasi Nilai Huruf yang berlaku, sehingga setter
+	 * ini bukan cara yang andal untuk memaksakan status kelulusan yang bertentangan dengan nilai
+	 * huruf.
+	 *
+	 * @param lulus status kelulusan baru; diabaikan bila nilai sedang terkunci.
+	 */
 	public void setLulus(Boolean lulus) {
 		if (kunciGlobalNilaiAktif() && lulusKunci != null) {
 			this.lulus = lulusKunci;
