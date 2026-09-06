@@ -420,6 +420,48 @@ public abstract class Tugas extends GeneralValueObject {
 	 */
 	public abstract void setKeteranganNilai(String keteranganNilai);
 
+	/**
+	 * Membaca indeks pengumpulan tugas milik satu objek pembelajaran dari berkas cache di luar basis
+	 * data, dan mengembalikan isinya sebagai teks JSON mentah.
+	 *
+	 * <p>Keluarga {@code Tugas} tidak memuat daftar pengumpulan lewat relasi Hibernate. Sebagai
+	 * gantinya dipakai satu berkas per objek pembelajaran yang berisi peta datar
+	 * {@code {"<idPeserta>": <idTugasFileContent>}}. Lokasi berkas ditentukan oleh
+	 * {@code Common.getFileLocation(clazz, id, "tugas_file_content_" + id)}, jadi identitas indeks
+	 * ditentukan oleh <b>pasangan</b> {@code (clazz, id)} — bukan oleh {@code id} saja. Ini yang
+	 * mencegah {@code Pertemuan} ber-id 42 dan {@code TugasKelompok} ber-id 42 berbagi berkas yang
+	 * sama, meskipun keduanya berada di tabel berbeda dengan urutan id yang berdiri sendiri.</p>
+	 *
+	 * <p><b>Gagal selalu berarti "kosong", tidak pernah berarti "error".</b> Argumen {@code null},
+	 * berkas tidak ada, berkas kosong, atau kegagalan I/O apa pun sama-sama menghasilkan
+	 * {@code VOMahasiswa.dataJSON} (yaitu {@code "{}"}). Konsekuensinya penting untuk diketahui
+	 * pemanggil: <i>tidak ada cara membedakan "tugas ini memang belum ada yang mengumpulkan" dari
+	 * "berkas indeksnya hilang atau tidak terbaca"</i>. Bila cache terhapus di tingkat sistem berkas,
+	 * seluruh pengumpulan akan tampak lenyap padahal barisnya masih utuh di basis data — sampai
+	 * {@link #reInitTugasFileContent(Session)} dijalankan untuk membangunnya kembali. Karena itu
+	 * jangan pernah memakai hasil kosong dari method ini sebagai dasar untuk menghapus data atau
+	 * memberi nilai nol.</p>
+	 *
+	 * <p>Nilai balik adalah teks JSON yang <b>belum diurai dan belum divalidasi</b>. Pemanggil wajib
+	 * memeriksa sendiri bahwa isinya benar-benar sebuah objek JSON sebelum membungkusnya dengan
+	 * {@code new JSONObject(...)}; lihat penjagaan awalan {@code "{"} di
+	 * {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)}.</p>
+	 *
+	 * <p><b>Tanpa pemeriksaan otorisasi.</b> Siapa pun yang dapat menyebut sepasang {@code (clazz,
+	 * id)} dapat membaca seluruh indeks pengumpulan objek pembelajaran itu, lintas kelas dan lintas
+	 * tenant. Pemeriksaan hak akses harus sudah dilakukan di lapisan action/helper sebelum method ini
+	 * dipanggil.</p>
+	 *
+	 * @param id id objek pembelajaran pemilik indeks; {@code null} menghasilkan {@code "{}"}
+	 * @param clazz kelas pemilik indeks — menentukan direktori berkas, jadi harus kelas yang sama
+	 *        dengan yang dipakai saat menulis. Perhatikan bahwa memanggil dengan
+	 *        {@code getClass()} pada entity berproksi Hibernate akan menghasilkan kelas proksi;
+	 *        gunakan kelas yang konsisten untuk baca dan tulis.
+	 * @return teks JSON indeks pengumpulan, atau {@code "{}"} bila tidak ada/gagal dibaca; tidak
+	 *         pernah {@code null}
+	 * @see #tulisLokasiTugasFileContent(String, Serializable, Class)
+	 * @see #reInitTugasFileContent(Session)
+	 */
 	@SuppressWarnings("rawtypes")
 	public static String ambilLokasiTugasFileContent(Serializable id, Class clazz) {
 		if (id == null || clazz == null) {
@@ -435,6 +477,33 @@ public abstract class Tugas extends GeneralValueObject {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks pengumpulan tugas milik satu objek pembelajaran dengan teks yang
+	 * diberikan.
+	 *
+	 * <p>Pasangan tulis dari {@link #ambilLokasiTugasFileContent(Serializable, Class)}, memakai
+	 * penurunan lokasi berkas yang persis sama. Penulisan bersifat <b>menimpa seluruh isi</b>, bukan
+	 * menambah; pemanggil bertanggung jawab melakukan baca-ubah-tulis bila hanya ingin mengubah satu
+	 * entri (lihat {@link #populateTugasFileContent(TugasFileContent, Class, boolean)} dan
+	 * {@link #removeTugasFileContent(Serializable, Class)} yang keduanya melakukan itu).</p>
+	 *
+	 * <p><b>Tidak atomik dan tidak terkunci.</b> Dua thread yang memperbarui indeks objek
+	 * pembelajaran yang sama pada saat bersamaan akan saling menimpa: masing-masing membaca dokumen
+	 * lama, menambahkan entrinya sendiri, lalu menulis ulang seluruh dokumen — sehingga entri yang
+	 * ditulis lebih dulu hilang. Pada tugas yang dikumpulkan serentak oleh banyak peserta menjelang
+	 * tenggat, kondisi ini bukan hal teoretis. Akibatnya terbatas pada indeks cache, bukan basis
+	 * data: entri yang hilang dapat dipulihkan dengan {@link #reInitTugasFileContent(Session)}, dan
+	 * baris {@link TugasFileContent} yang sesungguhnya tetap utuh.</p>
+	 *
+	 * <p>Kegagalan I/O ditelan (hanya dicatat ke audit error) dan method tetap kembali normal.
+	 * Pemanggil tidak akan tahu bila penulisan gagal.</p>
+	 *
+	 * @param data teks JSON lengkap yang akan menggantikan isi berkas
+	 * @param id id objek pembelajaran pemilik indeks; tidak boleh {@code null}, berbeda dengan
+	 *        pasangan bacanya method ini akan melempar {@code NullPointerException}
+	 * @param clazz kelas pemilik indeks; harus konsisten dengan yang dipakai saat membaca
+	 * @see #ambilLokasiTugasFileContent(Serializable, Class)
+	 */
 	@SuppressWarnings("rawtypes")
 	public static void tulisLokasiTugasFileContent(String data, Serializable id, Class clazz) {
 		File file = Common.getFileLocation(clazz, id, "tugas_file_content_" + id.toString());
@@ -446,18 +515,125 @@ public abstract class Tugas extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menghapus berkas indeks pengumpulan tugas milik entity ini dari sistem berkas.
+	 *
+	 * <p>Hanya menyentuh cache; tidak ada satu pun baris {@link TugasFileContent} di basis data yang
+	 * dihapus. Dipanggil sebagai langkah pertama {@link #reInitTugasFileContent(Session)} sebelum
+	 * indeks dibangun ulang dari basis data.</p>
+	 *
+	 * <p>Berbeda dengan sepasang method statis di atas yang menerima {@code (id, clazz)} secara
+	 * eksplisit, method ini menurunkan lokasi berkas dari {@code this} lewat
+	 * {@code Common.getFileLocation(this, ...)}. Pastikan pemakaian {@code this} dan pemakaian
+	 * {@code getClass()} pada method statis menghasilkan lokasi yang sama untuk entity yang sama —
+	 * bila entity sedang berupa proksi Hibernate, keduanya harus tetap sepakat, jika tidak yang
+	 * dihapus adalah berkas yang berbeda dari yang ditulis.</p>
+	 *
+	 * <p>Memerlukan {@code getId() != null}; pada entity yang belum tersimpan akan melempar
+	 * {@code NullPointerException}.</p>
+	 */
 	public void bersihkanLokasiTugasFileContent() {
 		File file = Common.getFileLocation(this, "tugas_file_content_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "tugas_file_content");
 
 	}
 
+	/**
+	 * Membangun ulang indeks pengumpulan tugas entity ini memakai session Hibernate streaming yang
+	 * dikelola sendiri.
+	 *
+	 * <p>Pembungkus praktis atas {@link #reInitTugasFileContent(Session)}: membuka session dari
+	 * {@code StreamingHibernateUtil}, mendelegasikan pekerjaan, lalu menutup session itu.</p>
+	 *
+	 * <p><b>Jangan memanggil versi ini bila sudah berada di dalam sebuah unit kerja.</b> Method ini
+	 * menutup session streaming pada akhir eksekusinya. Bila pemanggil masih memegang session yang
+	 * sama untuk pekerjaan lain — misalnya sedang di tengah transaksi — session itu akan tertutup di
+	 * bawah kakinya dan operasi berikutnya gagal. Dalam alur seperti itu panggil
+	 * {@link #reInitTugasFileContent(Session)} dengan session milik pemanggil.</p>
+	 *
+	 * @see #reInitTugasFileContent(Session)
+	 */
 	public void reInitTugasFileContent() {
 		Session session = StreamingHibernateUtil.getInstance().currentSession();
 		reInitTugasFileContent(session);
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Membangun ulang berkas indeks pengumpulan tugas entity ini dari basis data, menggantikan isi
+	 * cache lama sepenuhnya.
+	 *
+	 * <p>Alurnya: menyusun penyaring pemilik, mengambil seluruh {@link TugasFileContent} yang cocok,
+	 * menghapus berkas indeks lama, menulis dokumen kosong, lalu memasukkan kembali setiap baris
+	 * lewat {@link #populateTugasFileContent(TugasFileContent, Class, boolean)}.</p>
+	 *
+	 * <h3>Bagaimana kepemilikan sebuah pengumpulan ditentukan</h3>
+	 * <p>{@link TugasFileContent} <b>tidak memiliki relasi Hibernate ke pemiliknya</b>. Yang ada
+	 * hanyalah dua kolom datar:</p>
+	 * <ul>
+	 *   <li>{@code pertemuan} — sebuah {@code Long} berisi id pemilik. Meskipun namanya
+	 *       {@code pertemuan}, isinya <b>belum tentu id sebuah {@link Pertemuan}</b>: bisa id
+	 *       {@link TugasPertemuan} atau {@link TugasKelompok}, tergantung objek pembelajaran mana
+	 *       yang menaungi pengumpulan itu. Perhatikan baris
+	 *       {@code Restrictions.eq("pertemuan", this.getId())} — yang dimasukkan adalah id
+	 *       {@code this}, apa pun subclass-nya.</li>
+	 *   <li>{@code class_from} — nama kelas Java pemiliknya, yang menjadi satu-satunya pembeda
+	 *       ketika angka pada kolom {@code pertemuan} kebetulan sama.</li>
+	 * </ul>
+	 * <p>Karena {@code Pertemuan}, {@code TugasPertemuan}, dan {@code TugasKelompok} berada di tabel
+	 * berbeda dengan urutan id yang berdiri sendiri, angka id 42 dapat menunjuk ketiganya sekaligus.
+	 * {@code class_from} adalah satu-satunya hal yang memisahkan mereka.</p>
+	 *
+	 * <h3>Ketimpangan penyaring: cabang TugasPertemuan ketat, cabang lain longgar</h3>
+	 * <p>Penyaring yang disusun berbeda untuk kedua cabang:</p>
+	 * <ul>
+	 *   <li>Bila {@code this instanceof TugasPertemuan}, penyaringnya
+	 *       {@code class_from ilike 'ais.database.model.TugasPertemuan%'} — <b>ketat</b>: baris
+	 *       dengan {@code class_from} bernilai {@code NULL} tidak ikut terambil.</li>
+	 *   <li>Untuk selain itu ({@link Pertemuan} dan {@link TugasKelompok}), penyaringnya
+	 *       {@code (class_from is null or class_from ilike '<namaKelas>%')} — <b>longgar</b>: baris
+	 *       ber-{@code class_from} {@code NULL} ikut terambil semata-mata karena angka pada kolom
+	 *       {@code pertemuan} cocok.</li>
+	 * </ul>
+	 * <p>Inilah varian pola tabrakan id anak-versus-induk pada kelas ini. Sebuah baris
+	 * {@link TugasFileContent} lama yang {@code class_from}-nya belum terisi dan {@code pertemuan}-nya
+	 * bernilai 42 akan diakui sebagai milik {@code Pertemuan} ber-id 42 <i>dan</i> milik
+	 * {@code TugasKelompok} ber-id 42 — keduanya akan memasukkannya ke indeksnya masing-masing.
+	 * Akibatnya pengumpulan seorang peserta dapat muncul pada objek pembelajaran yang bukan
+	 * tujuannya, dan ikut terhitung pada {@link #ambilJumlahTugasFileContent()} di sana. Perlu
+	 * dicatat bahwa {@code TugasFileContent} berusaha menutup celah ini dari sisi tulis — konstruktor
+	 * defaultnya mengisi {@code classFrom} dengan {@code Pertemuan.class.getName()} dan getter-nya
+	 * memulihkan nilai {@code null} menjadi nilai yang sama — sehingga baris yang ditulis lewat jalur
+	 * normal aman. Yang berisiko adalah baris warisan yang sudah terlanjur {@code NULL} di basis
+	 * data, karena penyaring di sini dijalankan sebagai SQL mentah dan tidak melewati getter
+	 * tersebut.</p>
+	 *
+	 * <h3>Pembersihan nama kelas berproksi</h3>
+	 * <p>{@code StringUtils.split(getClass().getName(), "_")[0]} memotong nama kelas pada garis bawah
+	 * pertama. Tujuannya membuang akhiran proksi Javassist/CGLIB (bentuk
+	 * {@code ...Pertemuan_$$_javassist_123}) agar penyaring tetap mengenai kelas aslinya. Efek
+	 * sampingnya: seandainya ada kelas domain yang namanya sendiri memuat garis bawah, namanya akan
+	 * ikut terpotong.</p>
+	 *
+	 * <h3>Perbandingan dengan awalan, bukan kesamaan</h3>
+	 * <p>Penyaring memakai {@code ilike '<nama>%'}, bukan kesamaan persis. Nama kelas yang merupakan
+	 * awalan dari nama kelas lain akan saling menyerap — {@code TugasKelompok} akan cocok dengan
+	 * {@code class_from} bernilai {@code TugasKelompokApaPun}. Saat ini tidak ada pasangan nama
+	 * seperti itu di paket ini, tetapi penambahan kelas baru dengan awalan yang sama akan
+	 * memunculkannya tanpa peringatan.</p>
+	 *
+	 * <h3>Biaya dan efek samping</h3>
+	 * <p>Seluruh baris pengumpulan dimuat ke memori sekaligus tanpa paging, lalu berkas indeks
+	 * ditulis ulang satu kali per baris. Untuk tugas dengan ratusan peserta ini berarti ratusan
+	 * operasi baca-ubah-tulis berkas. Di antara penghapusan berkas lama dan selesainya perulangan,
+	 * indeks berada dalam keadaan tidak lengkap — pembaca lain pada saat itu akan melihat lebih
+	 * sedikit pengumpulan daripada yang sebenarnya ada. Tidak ada penguncian yang mencegahnya.</p>
+	 *
+	 * @param session session Hibernate yang dipakai untuk kueri; dimiliki pemanggil dan tidak
+	 *        ditutup oleh method ini
+	 * @see #ambilLokasiTugasFileContent(Serializable, Class)
+	 * @see #populateTugasFileContent(TugasFileContent, Class, boolean)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitTugasFileContent(Session session) {
 		String sqlTambahan = "";
@@ -480,6 +656,34 @@ public abstract class Tugas extends GeneralValueObject {
 		tugasFileContents = null;
 	}
 
+	/**
+	 * Mengosongkan satu entri pada berkas indeks pengumpulan tugas.
+	 *
+	 * <p>Melakukan baca-ubah-tulis: memuat dokumen indeks, menyetel entri berkunci {@code id} menjadi
+	 * string kosong, lalu menulis ulang seluruh dokumen. Entri tidak dihapus melainkan dikosongkan;
+	 * pembacaan berikutnya melewatinya karena
+	 * {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)} mengabaikan nilai
+	 * kosong.</p>
+	 *
+	 * <p><b>Perhatikan makna parameter yang berbeda dari method lain sekeluarga.</b> Pada
+	 * {@link #ambilLokasiTugasFileContent(Serializable, Class)} dan
+	 * {@link #tulisLokasiTugasFileContent(String, Serializable, Class)}, {@code id} adalah id objek
+	 * pembelajaran <i>pemilik indeks</i>. Di sini {@code id} dipakai untuk <b>dua peran sekaligus</b>:
+	 * sebagai penentu berkas indeks yang dibuka <i>dan</i> sebagai kunci entri yang dikosongkan di
+	 * dalamnya. Padahal kunci di dalam dokumen adalah id <i>peserta didik</i>, bukan id objek
+	 * pembelajaran. Kedua nilai itu hanya kebetulan sama ketika angkanya bertabrakan.</p>
+	 * <p>Dengan kata lain, memanggil {@code removeTugasFileContent(42L, Pertemuan.class)} membuka
+	 * indeks milik pertemuan 42 lalu mengosongkan entri milik <i>peserta</i> 42 di dalamnya. Method
+	 * ini hanya masuk akal bila pemanggil memang bermaksud demikian. Untuk sekadar membuang satu
+	 * pengumpulan dari indeks, lebih aman membangun ulang indeks lewat
+	 * {@link #reInitTugasFileContent(Session)} setelah barisnya dihapus di basis data.</p>
+	 *
+	 * <p>Tidak menghapus apa pun di basis data, dan seluruh kegagalan ditelan tanpa memberi tahu
+	 * pemanggil.</p>
+	 *
+	 * @param id id yang berperan ganda seperti diuraikan di atas
+	 * @param clazz kelas pemilik indeks
+	 */
 	@SuppressWarnings("rawtypes")
 	public static void removeTugasFileContent(Serializable id, Class clazz) {
 		try {
@@ -491,6 +695,46 @@ public abstract class Tugas extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu baris pengumpulan ke dalam berkas indeks milik objek pembelajaran yang
+	 * menaunginya.
+	 *
+	 * <p>Menulis entri {@code {"<idPeserta>": <idTugasFileContent>}} lewat baca-ubah-tulis pada
+	 * dokumen indeks. Berkas yang dibuka ditentukan oleh {@code tugasFileContent.getPertemuan()}
+	 * bersama {@code clazz} — jadi baris tersebut harus sudah membawa id pemilik yang benar sebelum
+	 * method ini dipanggil.</p>
+	 *
+	 * <h3>Bagaimana identitas peserta didik dipilih</h3>
+	 * <p>Satu baris {@link TugasFileContent} memiliki empat kolom identitas peserta yang saling
+	 * eksklusif — {@code mahasiswa}, {@code biodataCalonMahasiswa}, {@code siswa}, dan
+	 * {@code calonSiswa} — dan hanya satu angka yang dipakai sebagai kunci. Urutan pemilihannya
+	 * berlapis: mulai dari {@code mahasiswa} bila terisi dan positif, jatuh ke
+	 * {@code biodataCalonMahasiswa} bila tidak, kemudian <b>ditimpa</b> oleh {@code siswa} bila
+	 * terisi dan positif, lalu ditimpa lagi oleh {@code calonSiswa} bila terisi dan positif. Jadi
+	 * prioritas efektifnya adalah calonSiswa &gt; siswa &gt; mahasiswa &gt; biodataCalonMahasiswa,
+	 * bukan urutan penulisan kodenya. Urutan berlapis yang sama diulang di tiga tempat lain pada
+	 * kelas ini; bila salah satu diubah, semuanya harus ikut diubah agar tidak berbeda perilaku.</p>
+	 *
+	 * <p><b>Kunci indeks hanya berupa angka, tanpa penanda jenis orang.</b> Berbeda dengan
+	 * {@link #getKeteranganNilai()} yang kuncinya memuat akhiran {@code _mhs}/{@code _siswa}/
+	 * {@code _cal_mhs}/{@code _cal_siswa}, indeks ini menyimpan angka telanjang. Bila pada satu objek
+	 * pembelajaran terdapat pengumpulan dari seorang mahasiswa ber-id 30 dan seorang siswa ber-id 30,
+	 * keduanya menempati kunci yang sama dan yang didaftarkan belakangan menghapus yang lebih dulu
+	 * dari indeks. Barisnya tetap ada di basis data, tetapi satu di antaranya menjadi tidak terlihat
+	 * sampai indeks dibangun ulang — dan pembangunan ulang akan menghasilkan hasil yang sama.
+	 * Instalasi yang memakai modul perguruan tinggi dan modul sekolah sekaligus paling terpapar
+	 * keadaan ini.</p>
+	 *
+	 * <p>Bila keempat kolom identitas kosong, {@code id} bernilai {@code null} dan
+	 * {@code id.toString()} melempar {@code NullPointerException} yang langsung ditelan blok
+	 * {@code catch} — baris itu diam-diam tidak masuk indeks.</p>
+	 *
+	 * @param tugasFileContent baris pengumpulan yang akan didaftarkan; {@code null} diabaikan
+	 * @param clazz kelas objek pembelajaran pemilik indeks
+	 * @param tulisUlang <b>parameter mati</b> — tidak pernah dibaca di dalam badan method. Nilai apa
+	 *        pun yang dikirim tidak berpengaruh. Dipertahankan demi tanda tangan yang sudah dipakai
+	 *        pemanggil.
+	 */
 	public static void populateTugasFileContent(TugasFileContent tugasFileContent,
 			@SuppressWarnings("rawtypes") Class clazz, boolean tulisUlang) {
 		try {
