@@ -234,7 +234,39 @@ import ais.ui.util.WaktuUtil;
  */
 public class TagihanUIBuilder {
 
-	/** Menentukan ukuran thread pool paralel per pemanggilan {@link #loadTagihan}, dari konfigurasi {@code tagihan_ui_builder_max_thread} (default 4), dibatasi rentang 1-10 dan tidak melebihi jumlah task yang sebenarnya akan diproses. */
+	/**
+	 * Menentukan ukuran kolam thread paralel untuk satu kali pemuatan rincian tagihan.
+	 *
+	 * <p>
+	 * Nilainya dibaca dari konfigurasi {@code tagihan_ui_builder_max_thread} (baku
+	 * {@code "4"}), lalu dijepit ke rentang 1&ndash;10, dan terakhir tidak dibiarkan
+	 * melebihi jumlah task yang benar-benar akan dijalankan — tidak ada gunanya membuka
+	 * sepuluh thread untuk tiga kombinasi (jenis kegiatan, semester).
+	 * </p>
+	 *
+	 * <p>
+	 * Batas atas 10 bersifat keras dan disengaja: setiap task membuka <b>sesi Hibernate
+	 * mandiri</b> sendiri, sehingga ukuran kolam ini berbanding lurus dengan jumlah
+	 * koneksi basis data yang dipakai serentak oleh satu pengguna yang membuka satu
+	 * layar. Menaikkan konfigurasi di luar rentang tersebut tidak akan berpengaruh.
+	 * </p>
+	 * <p>
+	 * Kegagalan membaca atau mengurai konfigurasi ditelan diam-diam dan mengembalikan
+	 * nilai baku 4. Perlu diingat bahwa {@code Common.getKonfigurasi(kunci, baku)} pada
+	 * basis kode ini akan <b>menuliskan nilai baku ke basis data</b> bila kunci belum
+	 * ada, jadi pemanggilan pertama method ini dapat membuat baris konfigurasi baru.
+	 * </p>
+	 * <p>
+	 * Perlu dicatat pula bahwa manfaat nyata dari menaikkan angka ini terbatas: seperti
+	 * diuraikan pada Javadoc kelas, bagian terbesar pekerjaan setiap task berjalan di
+	 * dalam kurungan kunci desktop ZK yang bersifat eksklusif, sehingga para pekerja
+	 * tetap bergiliran pada bagian tersebut.
+	 * </p>
+	 *
+	 * @param totalTasks jumlah kombinasi (jenis kegiatan, semester) yang akan dihitung;
+	 *                   nilai nol atau negatif diperlakukan sebagai satu
+	 * @return ukuran kolam thread, dijamin minimal 1 dan maksimal 10
+	 */
 	private static int getAsyncThreadPoolSize(int totalTasks) {
 		int maxThread = 4;
 		try {
@@ -251,7 +283,42 @@ public class TagihanUIBuilder {
 		return Math.max(1, Math.min(maxThread, Math.max(1, totalTasks)));
 	}
 
-	/** Menutup {@code session} Hibernate mandiri secara bertahap dan aman (clear → disconnect → close), masing-masing langkah dijaga agar galat pada satu langkah tidak menghalangi langkah berikutnya; tidak melakukan apa pun bila {@code session} {@code null}. */
+	/**
+	 * Menutup sesi Hibernate mandiri (yang dibuka lewat {@code openSession()}, bukan sesi
+	 * per-permintaan milik {@code HibernateUtil.currentSession()}) secara bertahap dan
+	 * defensif.
+	 *
+	 * <p>
+	 * Urutannya {@code clear()} &rarr; {@code disconnect()} &rarr; {@code close()}, dan
+	 * <b>setiap langkah dibungkus blok {@code try/catch} tersendiri</b> sehingga
+	 * kegagalan pada satu langkah tidak menghalangi langkah berikutnya. Ini penting
+	 * karena method ini dipanggil dari blok {@code finally} pada jalur penanganan galat:
+	 * bila sebuah pengecualian sudah membuat sesi berada dalam keadaan tidak konsisten,
+	 * yang paling dibutuhkan adalah koneksi tetap dikembalikan ke kolam, bukan
+	 * pengecualian kedua yang menutupi pengecualian pertama.
+	 * </p>
+	 * <p>
+	 * Peran tiap langkah: {@code clear()} melepas seluruh entity dari konteks persistensi
+	 * (mencegah flush tak sengaja atas objek yang sudah tidak relevan dan melepas memori
+	 * lebih awal), {@code disconnect()} mengembalikan koneksi JDBC ke kolam, dan
+	 * {@code close()} menutup sesinya. {@code close()} dijaga dengan pemeriksaan
+	 * {@code isOpen()} agar tidak menutup sesi yang sudah tertutup.
+	 * </p>
+	 * <p>
+	 * Setiap kegagalan dicatat ke {@code ais.common.ErrorAuditUtil} alih-alih ditelan
+	 * sepenuhnya, sehingga masalah kebocoran koneksi tetap dapat ditelusuri.
+	 * </p>
+	 * <p>
+	 * Perhatikan bahwa method ini <b>tidak</b> melakukan {@code commit} maupun
+	 * {@code rollback}; pengelolaan transaksi sepenuhnya menjadi tanggung jawab
+	 * pemanggil. Di berkas ini pola yang sama juga ditulis ulang secara sebaris untuk
+	 * sesi anak (di dalam blok {@code finally} milik {@code call()}) alih-alih memanggil
+	 * method ini — duplikasi yang layak disatukan bila berkas ini dirapikan kelak.
+	 * </p>
+	 *
+	 * @param session sesi yang akan ditutup; {@code null} diperlakukan sebagai
+	 *                "tidak ada yang perlu dilakukan"
+	 */
 	private static void closeOpenedSession(Session session) {
 		if (session == null) {
 			return;

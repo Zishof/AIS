@@ -144,12 +144,13 @@ import ais.ui.util.MyWindow;
  * <h3>Hubungan dengan kembarannya di modul KKN</h3>
  * <p>
  * Kelas ini adalah salinan {@link PendaftarKknHelper} untuk modul PKL. Keduanya sejajar baris demi
- * baris pada hampir seluruh isinya, namun terdapat tiga perbedaan nyata yang <b>bukan</b> sekadar
- * penggantian nama entitas — ketiganya membuat sisi PKL lebih lemah:
+ * baris pada hampir seluruh isinya. Sebelumnya terdapat tiga perbedaan nyata yang bukan sekadar
+ * penggantian nama entitas — ketiganya membuat sisi PKL lebih lemah; perbedaan pertama sudah
+ * ditambal, dua sisanya masih ada:
  * <ul>
- *   <li>{@link PendaftarPklRenderer} membuat label kolom "Memenuhi Syarat" tetapi tidak pernah
- *   mengisinya, sehingga kolom tersebut selalu kosong di layar ini; kembarannya mengisi label itu
- *   dari {@code getMemenuhiSyarat()};</li>
+ *   <li><b>(Sudah ditambal.)</b> {@link PendaftarPklRenderer} sebelumnya membuat label kolom
+ *   "Memenuhi Syarat" tetapi tidak pernah mengisinya, sehingga kolom tersebut selalu kosong di
+ *   layar ini. Kini label diisi dari {@code getMemenuhiSyarat()}, sejajar dengan kembarannya;</li>
  *   <li>pencarian {@link MahasiswaPklPersyaratan} saat ekspor memanggil {@code uniqueResult()}
  *   tanpa {@code addOrder(desc(id))} + {@code setMaxResults(1)} yang dipasang kembarannya,
  *   sehingga data rangkap memicu pengecualian;</li>
@@ -165,7 +166,8 @@ import ais.ui.util.MyWindow;
  * <p>
  * Ambang SKS/IPK PKL — termasuk pasangan syarat kedua yang dikendalikan sakelar "Aktifkan Syarat
  * Lain" pada {@link Pkl} — <b>tidak</b> dievaluasi di sini. Kelas ini hanya berurusan dengan kolom
- * {@code memenuhiSyarat} yang sudah tersimpan (dan bahkan tidak menampilkannya, lihat di atas).
+ * {@code memenuhiSyarat} yang sudah tersimpan (kini ditampilkan apa adanya di kolom "Memenuhi
+ * Syarat", lihat di atas — bukan dihitung ulang).
  * Jebakan konfigurasi pada pasangan syarat kedua terdokumentasi pada {@link Pkl} dan berlaku bagi
  * jalur yang menghitung {@code memenuhiSyarat}, bukan bagi kelas ini.
  *
@@ -254,13 +256,13 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 		 * Beberapa perilaku yang perlu diperhatikan:
 		 * </p>
 		 * <ul>
-		 *   <li><b>Kolom "Memenuhi Syarat" selalu kosong.</b> Label untuk kolom ketujuh dibuat dan
-		 *   dipasang ke baris, tetapi nilainya tidak pernah diisi. Bandingkan dengan kembarannya
+		 *   <li><b>Kolom "Memenuhi Syarat" (sudah ditambal).</b> Label untuk kolom ketujuh dibuat dan
+		 *   dipasang ke baris, lalu diisi dari kolom tersimpan
+		 *   {@link MahasiswaDaftarPkl#getMemenuhiSyarat()} — sejajar dengan kembarannya
 		 *   {@code PendaftarKknHelper.PendaftarKknRenderer} yang pada titik yang sama memanggil
-		 *   {@code setValue(mahasiswaDaftarKkn.getMemenuhiSyarat() ? "Ya" : "Tidak")}. Kolom
-		 *   tersimpan {@link MahasiswaDaftarPkl#getMemenuhiSyarat()} tetap terisi oleh
-		 *   {@code ais.action.master.pkl.PklUntukMahasiswaAction#daftar}, hanya saja tidak
-		 *   ditampilkan di layar seleksi ini.</li>
+		 *   {@code setValue(mahasiswaDaftarKkn.getMemenuhiSyarat() ? "Ya" : "Tidak")}. Kolom ini
+		 *   ditulis oleh {@code ais.action.master.pkl.PklUntukMahasiswaAction#daftar}; nilainya
+		 *   ditampilkan apa adanya di sini, tidak dihitung ulang.</li>
 		 *   <li><b>Penghitungan semester berbiaya.</b> Semester akademik mahasiswa dihitung dari
 		 *   tahun angkatan, semester/tahun akademik PKL, dan riwayat pindah kampus, lalu dipakai
 		 *   memanggil {@link Common#singkronkanKrsMahasiswa} — pemanggilan ini dapat menulis ke
@@ -306,6 +308,7 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
 			final Label labelmemenuhiSyarat = new Label();
 			labelmemenuhiSyarat.setParent(row);
+			labelmemenuhiSyarat.setValue(mahasiswaDaftarPkl.getMemenuhiSyarat() ? "Ya" : "Tidak");
 
 			final MyCheckboxConfig labelTelahTerpenuhi = new MyCheckboxConfig("Terima");
 			labelTelahTerpenuhi.setDisabled(!approve);

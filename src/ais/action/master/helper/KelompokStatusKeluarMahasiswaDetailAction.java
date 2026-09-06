@@ -113,18 +113,73 @@ import ais.ui.util.WaktuUtil;
  * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
  * serta session Hibernate milik request yang aktif.</p>
  *
+ * <p><b>Cakupan akses data mahasiswa keluar (hasil penelusuran seluruh rantai).</b> Kelas ini
+ * tidak memiliki penjagaan kepemilikan data apa pun, dan rantai di atasnya juga tidak:</p>
+ * <ul>
+ * <li>Entitas {@link KelompokStatusKeluarMahasiswa} tidak punya kolom fakultas, jurusan,
+ * sekolah, maupun satuan kerja &mdash; kelompok memang dirancang global.</li>
+ * <li>{@code KelompokStatusKeluarMahasiswaAction.initCriteria(boolean)} (grid induk) menyaring
+ * hanya berdasarkan nama kelompok dan kata kunci NIM/nama, tanpa penyaring kepemilikan.</li>
+ * <li>{@link #initCriteria(boolean)} di kelas ini menyaring hanya berdasarkan FK kelompok dan
+ * status aktif mahasiswa.</li>
+ * <li>Picker {@code AmbilDataMahasiswaBanyak} pada tombol "Ambil Data Mahasiswa" mencari ke
+ * SELURUH {@link Mahasiswa} aktif di basis data; kolom prodi di sana adalah penyaring teks
+ * bebas yang diketik pengguna, bukan pembatas cakupan.</li>
+ * </ul>
+ * <p>Satu-satunya gerbang adalah privilese menu tingkat aksi
+ * ({@link ais.common.CommonPrivilages} CREATE/UPDATE/DELETE) yang dibaca di kelas induk.
+ * Akibatnya siapa pun yang dapat membuka menu ini dapat: melihat seluruh mahasiswa keluar
+ * lintas program studi, memasukkan mahasiswa aktif mana pun ke dalam kelompok, menyunting
+ * langsung sembilan kolom dokumen kelulusan (termasuk NOMOR IJAZAH dan nomor SK), menimpanya
+ * secara massal lewat unggah Excel ({@link #uploadDataMahasiswa}), serta mencetak berkas PDF
+ * ijazah dan transkrip untuk seluruh anggota grid sekaligus. Perlu dicatat bahwa memasukkan
+ * mahasiswa ke kelompok di sini juga MENGELUARKANNYA dari kelompok status keluar sebelumnya,
+ * karena keanggotaan berupa FK tunggal pada baris {@link Mahasiswa}.</p>
+ * <p>Uraian ini adalah dokumentasi keadaan terkini, bukan perubahan perilaku; tidak ada
+ * gerbang yang ditambahkan atau dihapus oleh commit dokumentasi ini.</p>
+ *
  * @see MyDetail
  */
 public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implements DataCriteria {
 
 	/**
-	 * 
+	 * Versi serialisasi kelas. Wajib ada karena {@link MyDetail} (turunan komponen ZK) bersifat
+	 * {@link java.io.Serializable}: ZK dapat menserialisasi pohon komponen saat sesi dipindahkan
+	 * antar node atau dituliskan ke penyimpanan sesi. Nilainya tidak boleh diubah selama bentuk
+	 * serial kelas ini masih kompatibel.
 	 */
 	private static final long serialVersionUID = 5086031585928643232L;
 
+	/**
+	 * Kelompok status keluar yang anggotanya ditampilkan pada baris detail ini. Ditetapkan sekali
+	 * lewat konstruktor dan menjadi SATU-SATUNYA pembatas pada {@link #initCriteria(boolean)}.
+	 *
+	 * <p>Entitas {@link KelompokStatusKeluarMahasiswa} sendiri tidak memiliki kolom
+	 * fakultas/jurusan/satuan kerja, sehingga kelompok bersifat global: keanggotaannya dapat
+	 * mencakup mahasiswa dari program studi mana pun. Keanggotaan disimpan sebagai FK
+	 * {@code kelompokStatusKeluarMahasiswa} pada baris {@link Mahasiswa} (bukan tabel pivot),
+	 * sehingga satu mahasiswa hanya dapat berada di satu kelompok status keluar pada satu waktu
+	 * dan memasukkannya ke kelompok baru otomatis mengeluarkannya dari kelompok sebelumnya.</p>
+	 */
 	private KelompokStatusKeluarMahasiswa kelompokStatusKeluarMahasiswa;
+	/**
+	 * Grid anggota kelompok (satu baris per {@link Mahasiswa}), dibuat di {@link #display()} dan
+	 * diisi ulang oleh {@link #loadData(Object)} dengan {@link MahasiswaRenderer}. Memakai mold
+	 * {@code paging} berukuran 50 baris di sisi klien; seluruh data (maksimum 1500 baris) tetap
+	 * dimuat sekaligus ke memori, bukan per halaman basis data.
+	 */
 	private MyGrid grid;
 
+	/**
+	 * Kotak kata kunci pada toolbar; isinya dicocokkan {@code ilike ANYWHERE} ke nama ATAU NIM
+	 * mahasiswa di {@link #initCriteria(boolean)}. Dibuat di {@link #display()}, sehingga
+	 * {@link #initCriteria(boolean)} tidak boleh dipanggil sebelum {@link #display()} berjalan
+	 * (pembacaan {@code getValue()} pada field yang masih {@code null} akan melempar
+	 * {@link NullPointerException}).
+	 *
+	 * <p>Penyaring ini mempersempit tampilan saja, bukan penjagaan akses: dikosongkan berarti
+	 * seluruh anggota kelompok ditampilkan.</p>
+	 */
 	private Textbox pencarian;
 
 	/**
@@ -173,6 +228,11 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Konstruktor tanpa argumen. Renderer tidak menyimpan state sendiri &mdash; seluruh data yang
+		 * dibutuhkan diambil dari instance {@link KelompokStatusKeluarMahasiswaDetailAction} induk
+		 * (kelas dalam non-statis) dan dari objek {@link Mahasiswa} yang dioper per baris.
+		 */
 		public MahasiswaRenderer() {
 
 		}
@@ -354,6 +414,16 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 	 * (mahasiswa aktif, cocok kata kunci {@code pencarian} bila diisi), menyimpannya ke field
 	 * {@link #mahasiswas}, dan menampilkannya ke grid.
 	 *
+	 * <p>Batas {@code setMaxResults(1500)} bersifat diam: bila kelompok memiliki lebih dari 1500
+	 * anggota, kelebihannya hilang dari grid TANPA peringatan apa pun kepada pengguna. Karena
+	 * field {@link #mahasiswas} yang sama dipakai sebagai sumber cetak massal ijazah/transkrip dan
+	 * sebagai daftar "sudah dipilih" bagi picker {@code AmbilDataMahasiswaBanyak}, pemotongan itu
+	 * ikut memengaruhi ketiga fitur tersebut &mdash; berbeda dari tombol "Hapus Semua" yang
+	 * menjalankan querinya sendiri dengan batas 5000.</p>
+	 *
+	 * <p>Seluruh baris dimuat sekaligus ke memori; paging pada {@link #grid} hanya bekerja di sisi
+	 * klien atas daftar yang sudah termuat itu.</p>
+	 *
 	 * @param value tidak dipakai — signature mengikuti kontrak umum handler event grid AIS
 	 */
 	@SuppressWarnings("unchecked")
@@ -376,6 +446,52 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 	 * "Hapus Semua"), definisi 15 kolom grid (identitas + 9 kolom dokumen kelulusan/keluar), lalu
 	 * memanggil {@link #loadData(Object)} untuk memuat baris pertama kali. Dipanggil sekali per
 	 * pembukaan detail (lihat listener {@code onOpen} di konstruktor).
+	 *
+	 * <p><b>Cetak massal ijazah &amp; transkrip.</b> Kedua tombol bekerja atas field
+	 * {@link #mahasiswas} apa adanya &mdash; yakni seluruh anggota yang termuat di grid, BUKAN
+	 * baris yang dipilih pengguna &mdash; dan tidak meminta konfirmasi lebih dulu. Tiap mahasiswa
+	 * menghasilkan satu berkas PDF yang lalu digabung dengan {@code PDFMergerUtility}; kegagalan
+	 * per mahasiswa hanya dicatat lalu dilewati, sehingga berkas gabungan dapat kekurangan halaman
+	 * tanpa penanda yang terlihat pengguna. Tombol Transkrip lebih dulu menanyakan salah satu dari
+	 * enam varian laporan. Keduanya berjalan di {@link Thread} terpisah dengan indikator kemajuan
+	 * berbasis {@link Label}, dan penggabungan akhir dijalankan dari listener
+	 * {@code Common.displayLoadBar}.</p>
+	 *
+	 * <p><b>Assign massal.</b> Tombol "Ambil Data Mahasiswa" membuka picker
+	 * {@code AmbilDataMahasiswaBanyak} dengan {@link #mahasiswas} sebagai daftar yang sudah
+	 * terpilih. Mahasiswa yang dipilih langsung di-set FK kelompoknya dan disimpan satu per satu
+	 * tanpa konfirmasi; karena keanggotaan berupa FK tunggal pada {@link Mahasiswa}, mahasiswa
+	 * yang sebelumnya berada di kelompok status keluar lain otomatis berpindah ke kelompok ini.</p>
+	 *
+	 * <p><b>Hapus Semua.</b> Tidak menghapus entitas {@link Mahasiswa}, melainkan meng-null-kan FK
+	 * {@code kelompokStatusKeluarMahasiswa} untuk seluruh hasil {@link #initCriteria(boolean)}
+	 * dengan batas 5000 baris &mdash; batas yang BERBEDA dari 1500 pada {@link #loadData(Object)},
+	 * sehingga aksi ini dapat mengeluarkan mahasiswa yang tidak pernah tampil di grid. Sembilan
+	 * kolom dokumen kelulusan yang sudah terisi TIDAK ikut dikosongkan.</p>
+	 *
+	 * <p><b>Susunan kolom.</b> Grid mendefinisikan 16 kolom dan {@link MahasiswaRenderer}
+	 * menempelkan tepat 16 komponen, sehingga jumlahnya cocok. Perlu diperhatikan dua hal:</p>
+	 * <ul>
+	 * <li>Label kolom ke-9 dan ke-10 berbunyi "No.Transkrip" dan "No.SK", padahal yang dirender
+	 * di posisi itu adalah {@code noAkta1} dan {@code noAkta2} &mdash; penamaan layar sengaja
+	 * berbeda dari nama field entitas.</li>
+	 * <li>Kolom "Tgl.SK" dan "Tgl.Yudisium" hanya sejajar berkat pemanggilan
+	 * {@code tanggalYudisium.setParent(arg0)} yang tampak ganda di {@link MahasiswaRenderer}.
+	 * Pemanggilan kedua BUKAN redundansi: di ZK, {@code setParent} pada komponen yang sudah
+	 * berinduk MEMINDAHKANNYA ke urutan terakhir, sehingga {@code tanggalSkRektor} naik ke posisi
+	 * "Tgl.SK" dan {@code tanggalYudisium} turun ke posisi "Tgl.Yudisium". Menghapusnya sebagai
+	 * "baris kembar" akan menukar isi kedua kolom tersebut.</li>
+	 * </ul>
+	 *
+	 * <p><b>Kecocokan ekspor&ndash;impor.</b> Daftar kolom ekspor {@code contents} berisi 13 kolom
+	 * dengan indeks 0=nim, 1=nama, 2=jurusan.nama, 3=tahunangkatan, lalu 4..12 = kesembilan kolom
+	 * dokumen kelulusan. Susunan ini sengaja PERSIS sama dengan yang dibaca
+	 * {@link #uploadDataMahasiswa} (kolom 0 sebagai NIM dan kolom 4&ndash;12 sebagai kesembilan
+	 * field dokumen), sehingga berkas hasil ekspor dapat langsung disunting lalu diunggah kembali.
+	 * Mengubah isi atau urutan {@code contents} tanpa mengubah pembacaan indeks di
+	 * {@link #uploadDataMahasiswa} akan mematahkan alur bolak-balik ini. Perhatikan bahwa kolom
+	 * "Foto" pada grid tidak punya padanan di {@code contents}, jadi susunan kolom berkas ekspor
+	 * memang berbeda satu posisi dari susunan kolom grid.</p>
 	 */
 	public void display() {
 

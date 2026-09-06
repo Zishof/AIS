@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
@@ -169,59 +168,80 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 	// ============================================================ ENTRY POINT (URL lama, opsional)
 	/**
 	 * Entry point ZK otomatis saat {@code pembayaran_online_mahasiswa.zul} (
-	 * {@code apply="ais.action.master.helper.PembayaranOnlineMahasiswa"}) dimuat. Membaca
-	 * parameter URL {@code mahasiswa}/{@code calon_mahasiswa} (id numerik) dan memuat
-	 * {@link Mahasiswa}/{@link BiodataCalonMahasiswa} yang bersangkutan langsung dari database
-	 * berdasarkan id tersebut; bila kedua parameter tidak ada, jatuh ke mahasiswa/calon
-	 * mahasiswa milik {@link Tbmuser} yang sedang login (self-service).
+	 * {@code apply="ais.action.master.helper.PembayaranOnlineMahasiswa"}) dimuat. Tanpa
+	 * parameter {@code mahasiswa}/{@code calon_mahasiswa}, jatuh ke mahasiswa/calon mahasiswa
+	 * milik {@link Tbmuser} yang sedang login (self-service) — tidak berubah dari semula.
 	 *
-	 * <p><b>PERHATIAN KEAMANAN:</b> berbeda dari {@link #onViewExternal}, method ini TIDAK
-	 * memanggil {@link Common#doCheckSecurity()} maupun memverifikasi bahwa id pada parameter
-	 * URL memang milik/berhak diakses oleh pengguna yang sedang login — id dari URL dipakai
-	 * apa adanya untuk memuat data dan (lewat {@link #bayarTunaiManual()}) untuk menyimpan
-	 * transaksi pembayaran. Halaman {@code pembayaran_online_mahasiswa.zul} juga tidak
-	 * terdaftar pada {@code CommonPrivilages#MUST_CHECKED}, sehingga jalur pemeriksaan
-	 * privilege berbasis path tersebut tidak berlaku untuknya. Temuan ini sudah dilaporkan
-	 * terpisah untuk ditambal (lihat task perbaikan terkait); Javadoc ini mencatat FAKTA
-	 * perilaku saat ini, bukan rekomendasi penggunaan.</p>
+	 * <p><b>GERBANG KEAMANAN (fail-closed):</b> parameter URL {@code mahasiswa}/
+	 * {@code calon_mahasiswa} HANYA diterima bila id-nya sama persis dengan
+	 * {@code tbmuser.getMahasiswa()}/{@code tbmuser.getBiodataCalonMahasiswa()} milik pengguna
+	 * yang sedang login — id itu dibandingkan langsung ke objek milik sesi login, TANPA query
+	 * database berdasarkan id dari URL. Tidak ada pengecualian untuk staf/admin: tidak ada satu
+	 * pun tempat di codebase ini yang membentuk tautan ke halaman ini dengan parameter tersebut
+	 * (termasuk kelon struktural {@link ais.action.master.sekolah.helper.PembayaranOnline} yang
+	 * punya lubang identik) — satu-satunya jalur staf yang didukung/didokumentasikan untuk
+	 * membuka data mahasiswa/calon LAIN adalah {@link #onViewExternal}, yang sudah menggerbangi
+	 * dirinya sendiri dengan {@link Common#doCheckSecurity()} sebelum memanggil method ini.
+	 * Ketidakcocokan diaudit ({@link ais.common.ErrorAuditUtil}) dan ditolak dengan pesan —
+	 * TIDAK diam-diam di-fallback ke data milik sendiri, agar percobaan akses tak sah tidak
+	 * tersamarkan sebagai penggunaan normal.</p>
 	 */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
+		Tbmuser tbmuser = Common.getCurrentUser();
+		if (tbmuser == null) {
+			tampilAksesDitolak("Sesi login tidak valid. Silakan login kembali.");
+			return;
+		}
+
 		String pMahasiswa = ExecutionsCtrl.getCurrent().getParameter("mahasiswa");
 		String pCalon = ExecutionsCtrl.getCurrent().getParameter("calon_mahasiswa");
 
-		Session session = null;
-		try {
-			session = HibernateUtil.openSession();
+		if (pMahasiswa != null || pCalon != null) {
+			boolean cocokMahasiswa = pMahasiswa != null && pCalon == null && tbmuser.getMahasiswa() != null
+					&& tbmuser.getMahasiswa().getId() != null
+					&& tbmuser.getMahasiswa().getId().toString().equals(pMahasiswa.trim());
+			boolean cocokCalon = pCalon != null && pMahasiswa == null && tbmuser.getBiodataCalonMahasiswa() != null
+					&& tbmuser.getBiodataCalonMahasiswa().getId() != null
+					&& tbmuser.getBiodataCalonMahasiswa().getId().toString().equals(pCalon.trim());
+			if (!cocokMahasiswa && !cocokCalon) {
+				ais.common.ErrorAuditUtil.record(
+						new SecurityException("Percobaan akses id mahasiswa/calon mahasiswa lain via parameter URL: "
+								+ "mahasiswa=" + pMahasiswa + " calon_mahasiswa=" + pCalon + " oleh userId="
+								+ tbmuser.getId() + " userNama=" + tbmuser.getUserNama()),
+						"SECURITY PembayaranOnlineMahasiswa.doAfterCompose - akses lintas kepemilikan via parameter URL ditolak");
+				tampilAksesDitolak("Anda tidak berhak mengakses data pembayaran mahasiswa/calon mahasiswa lain "
+						+ "lewat tautan ini. Staf/admin: gunakan tombol \"Coba Cara Baru (Eksperimental)\" pada "
+						+ "layar Informasi Pembayaran Mahasiswa.");
+				return;
+			}
+			// id dari URL sudah diverifikasi sama dengan milik tbmuser sendiri — pakai objek
+			// dari sesi login (tepercaya), BUKAN hasil query ulang berdasarkan id URL.
 			if (pMahasiswa != null) {
-				mahasiswa = (Mahasiswa) ConstantValues.simpleObject(
-						session.createCriteria(Mahasiswa.class).add(Restrictions.idEq(Long.parseLong(pMahasiswa))),
-						Mahasiswa.class);
-			} else if (pCalon != null) {
-				calonMahasiswa = (BiodataCalonMahasiswa) ConstantValues.simpleObject(session
-						.createCriteria(BiodataCalonMahasiswa.class)
-						.add(Restrictions.idEq(Long.parseLong(pCalon))), BiodataCalonMahasiswa.class);
-			}
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "auto-audit PembayaranOnlineMahasiswa.doAfterCompose baca param");
-		} finally {
-			if (session != null) {
-				try { session.close(); } catch (Exception eClose) { ais.common.ErrorAuditUtil.record(eClose, "auto-audit(empty-catch) PembayaranOnlineMahasiswa close session param"); }
-			}
-		}
-
-		if (mahasiswa == null && calonMahasiswa == null) {
-			Tbmuser tbmuser = Common.getCurrentUser();
-			if (tbmuser != null && tbmuser.getMahasiswa() != null) {
 				mahasiswa = tbmuser.getMahasiswa();
-			} else if (tbmuser != null && tbmuser.getBiodataCalonMahasiswa() != null) {
+			} else {
 				calonMahasiswa = tbmuser.getBiodataCalonMahasiswa();
 			}
+		} else if (tbmuser.getMahasiswa() != null) {
+			mahasiswa = tbmuser.getMahasiswa();
+		} else if (tbmuser.getBiodataCalonMahasiswa() != null) {
+			calonMahasiswa = tbmuser.getBiodataCalonMahasiswa();
 		}
 
 		buildUI();
+	}
+
+	/**
+	 * Bersihkan {@link #window} lalu tampilkan satu pesan penolakan akses (dipakai
+	 * {@link #doAfterCompose} saat sesi tidak valid atau id URL tidak cocok dengan
+	 * kepemilikan pengguna login). Tidak memuat/membangun bagian UI lain apa pun, sehingga
+	 * tombol "Bayar Tunai/Manual" dkk. tidak pernah dirender untuk permintaan yang ditolak.
+	 */
+	private void tampilAksesDitolak(String pesan) {
+		Common.clear(window);
+		new ais.ui.util.MyLabelConfig(pesan).setParent(window);
 	}
 
 	/**
@@ -989,14 +1009,17 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 	 * di sini diaudit tapi tidak membatalkan transaksi utama). Rollback otomatis dan pesan
 	 * kegagalan ditampilkan bila terjadi exception; sukses memicu {@link #reload(boolean)}.
 	 *
-	 * <p><b>Catatan integritas:</b> nominal yang dipersist di sini diambil langsung dari nilai
-	 * komponen {@link BarisTagihan#nominalBayarBox} TANPA re-validasi terhadap
-	 * {@link BarisTagihan#kekurangan} riil di titik simpan ini — pembatasan nilai ke rentang
-	 * {@code [0, kekurangan]} hanya diterapkan pada listener {@code onChange} komponen tersebut
-	 * (lihat {@link #renderGridTagihan()}), bukan di sini.</p>
+	 * <p><b>Catatan integritas (defense-in-depth):</b> nilai tiap baris di-clamp ULANG ke
+	 * rentang {@code [0, kekurangan]} tepat di titik simpan ini ({@code totalTersimpan}/
+	 * {@code nilaiTersimpanList}, dihitung dari {@link BarisTagihan#kekurangan} server-side)
+	 * sebelum dipakai untuk {@code amount}/{@code amountTerhutang} {@link Kegiatan} maupun
+	 * {@link CicilanPembayaran#setNilai}. Parameter {@code total} dari pemanggil hanya dipakai
+	 * untuk teks konfirmasi di {@link #bayarTunaiManual()} dan TIDAK dipercaya di sini — clamp
+	 * pada listener {@code onChange} komponen (lihat {@link #renderGridTagihan()}) tetap ada
+	 * sebagai lapis UX, tapi bukan satu-satunya penjaga integritas nominal lagi.</p>
 	 *
 	 * @param dipilih baris tagihan terpilih dengan nominal &gt; 0 yang akan disimpan sebagai cicilan
-	 * @param total   jumlah seluruh nominal {@code dipilih}, ditambahkan ke {@code amount} {@link Kegiatan}
+	 * @param total   perkiraan jumlah nominal {@code dipilih} dari sisi client (advisory saja, lihat catatan integritas di atas)
 	 */
 	private void simpanPembayaranTunai(List<BarisTagihan> dipilih, double total) throws Exception {
 		boolean sukses = false;
@@ -1010,8 +1033,20 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 			String validator = Common.getCurrentUser() == null ? "-" : Common.getCurrentUser().getUserNama();
 
 			double totalKekurangan = 0.0;
+			double totalTersimpan = 0.0;
+			List<Double> nilaiTersimpanList = new ArrayList<Double>();
 			for (BarisTagihan baris : dipilih) {
 				totalKekurangan += baris.kekurangan;
+				Double v = baris.nominalBayarBox == null ? null : baris.nominalBayarBox.getValue();
+				double nilai = v == null ? 0.0 : v.doubleValue();
+				if (nilai > baris.kekurangan) {
+					nilai = baris.kekurangan;
+				}
+				if (nilai < 0.0) {
+					nilai = 0.0;
+				}
+				nilaiTersimpanList.add(nilai);
+				totalTersimpan += nilai;
 			}
 
 			Kegiatan kegiatan;
@@ -1035,21 +1070,21 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 				kegiatan.setTahunAkademik(
 						calonMahasiswa != null ? calonMahasiswa.getTahunAkademik() : hitungTahunAkademikMahasiswa(smt));
 				kegiatan.setKeterangan("Pembayaran Online Mahasiswa (Coba Cara Baru) - Tunai");
-				kegiatan.setAmount(total);
+				kegiatan.setAmount(totalTersimpan);
 			} else {
 				double amountLama = kegiatan.getAmount() == null ? 0.0 : kegiatan.getAmount();
-				kegiatan.setAmount(amountLama + total);
+				kegiatan.setAmount(amountLama + totalTersimpan);
 			}
 			kegiatan.setTanggal(WaktuUtil.getDate());
 			kegiatan.setValidated(1);
 			kegiatan.setValidator(validator);
-			kegiatan.setAmountTerhutang(Math.max(0.0, totalKekurangan - total));
+			kegiatan.setAmountTerhutang(Math.max(0.0, totalKekurangan - totalTersimpan));
 			Common.refreshSaveOrUpdate(session, kegiatan);
 
 			int ke = 1;
-			for (BarisTagihan baris : dipilih) {
-				Double v = baris.nominalBayarBox.getValue();
-				double nilai = v == null ? 0.0 : v.doubleValue();
+			for (int i = 0; i < dipilih.size(); i++) {
+				BarisTagihan baris = dipilih.get(i);
+				double nilai = nilaiTersimpanList.get(i).doubleValue();
 				if (nilai <= 0.01) {
 					continue;
 				}

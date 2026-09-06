@@ -107,8 +107,10 @@ import ais.ui.util.MyWindow;
  * </ul>
  *
  * <p>Mode edit grid ditentukan oleh {@link CommonPrivilages#checkPrevilages(String)} dengan hak
- * {@link CommonPrivilages#UPDATE}; baris yang berasal dari {@link CutiDanIzin} yang sudah disetujui tidak
- * dirender sebagai kontrol edit (status kehadirannya mengikuti data cuti/izin).</p>
+ * {@link CommonPrivilages#UPDATE}, DIPAKSA {@code false} bila pegawai yang ditampilkan adalah pengguna yang
+ * sedang login sendiri (gerbang kepemilikan, lihat dokumentasi field {@code edit}); baris yang berasal dari
+ * {@link CutiDanIzin} yang sudah disetujui tidak dirender sebagai kontrol edit (status kehadirannya mengikuti
+ * data cuti/izin).</p>
  *
  * @see MyDetail
  * @see StatuskehadiranKaryawanHarian
@@ -151,11 +153,12 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 	 * tidak pernah diganti; menjadi filter tunggal bagi seluruh query {@link CutiDanIzin},
 	 * {@link StatuskehadiranKaryawanHarian}, dan perhitungan {@link DetailJenisShiftPegawai} di kelas ini.
 	 *
-	 * <p><b>Catatan cakupan akses:</b> kelas ini TIDAK memverifikasi sendiri apakah pengguna yang login berhak
-	 * melihat/mengubah pegawai ini (tidak ada penyaringan satuan kerja maupun pencocokan identitas). Penentuan
-	 * pegawai mana yang boleh dibuka sepenuhnya diserahkan kepada pemanggil — {@code AbsensKehadiranPegawaiHarianAction}
-	 * (menyaring lewat {@code SekolahUtil.ambilSatuanKerjas()}) dan {@code BiodataPegawaiAction} (meresolusi
-	 * pegawai dari akun yang login bila parameternya {@code null}).</p>
+	 * <p><b>Catatan cakupan akses:</b> kelas ini TIDAK menyaring sendiri satuan kerja mana yang boleh dibuka —
+	 * penentuan pegawai mana yang boleh dibuka sepenuhnya diserahkan kepada pemanggil —
+	 * {@code AbsensKehadiranPegawaiHarianAction} (menyaring lewat {@code SekolahUtil.ambilSatuanKerjas()}) dan
+	 * {@code BiodataPegawaiAction} (meresolusi pegawai dari akun yang login bila parameternya {@code null}).
+	 * Namun kelas ini SENDIRI memverifikasi pencocokan identitas: lihat catatan gerbang kepemilikan pada
+	 * {@link #edit}.</p>
 	 */
 	private Pegawai pegawai;
 
@@ -166,21 +169,41 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 	 * UPDATE pada menu yang sedang dibuka — bukan hak khusus modul absensi/penggajian. Baris yang berasal dari
 	 * {@link CutiDanIzin} yang sudah disetujui atau yang sudah {@code getDikunci()} tetap dirender read-only
 	 * meskipun {@code edit} bernilai {@code true}.
+	 *
+	 * <p><b>Gerbang kepemilikan (fail-closed):</b> karena hak UPDATE di atas adalah hak pada MENU yang sedang
+	 * dibuka (mis. menu swalayan "Biodata Pegawai" tempat setiap pegawai lazim punya hak UPDATE atas datanya
+	 * sendiri) dan BUKAN hak khusus modul absensi/penggajian, konstruktor memaksa {@code edit} menjadi
+	 * {@code false} bila {@link #pegawai} yang ditampilkan adalah milik pengguna yang sedang login sendiri —
+	 * mengikuti pola yang sama seperti {@code tbmuser.ambilDosen() == null} pada
+	 * {@link AbsensiKehadiranDosenHarianHelper}. Dengan demikian pegawai tidak pernah dapat mengedit rekap
+	 * kehadiran/lembur miliknya sendiri (dasar perhitungan penggajian) hanya karena kebetulan punya hak UPDATE
+	 * pada menu Biodata Pegawai.</p>
 	 */
 	private boolean edit = false;
 
 	/**
 	 * Membuat panel rekap absensi harian untuk satu {@link Pegawai}. Menentukan mode edit dari
 	 * {@link CommonPrivilages#checkPrevilages(String)} dengan hak {@link CommonPrivilages#UPDATE} (dievaluasi
-	 * sekali di sini, dipakai saat {@link #loadData(Object)} merender baris), dan mendaftarkan listener
-	 * {@code onOpen} yang membersihkan komponen anak lalu memanggil {@link #display()} setiap kali panel ini
-	 * dibuka (lazy render, mengikuti pola siklus hidup {@link MyDetail}).
+	 * sekali di sini, dipakai saat {@link #loadData(Object)} merender baris), lalu memaksa mode edit tersebut
+	 * menjadi {@code false} bila pegawai yang ditampilkan adalah pengguna yang sedang login sendiri (lihat
+	 * dokumentasi {@link #edit}) — gerbang kepemilikan ini dievaluasi sekali di sini dan menentukan baik
+	 * render tombol/checkbox di {@link #loadData(Object)} maupun pemeriksaan ulang di {@link #editJam} dan
+	 * listener override shift/lembur/"Abaikan Jarak". Terakhir, mendaftarkan listener {@code onOpen} yang
+	 * membersihkan komponen anak lalu memanggil {@link #display()} setiap kali panel ini dibuka (lazy render,
+	 * mengikuti pola siklus hidup {@link MyDetail}).
 	 *
 	 * @param pegawai pegawai yang rekap absensinya akan ditampilkan
 	 */
 	public AbsensiKehadiranPegawaiHarianHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		Tbmuser tbmuserPembuat = Common.getCurrentUser();
+		if (edit && tbmuserPembuat != null && tbmuserPembuat.getPegawai() != null && pegawai != null
+				&& tbmuserPembuat.getPegawai().getId().equals(pegawai.getId())) {
+			// Gerbang kepemilikan fail-closed: hak UPDATE di atas adalah hak menu (mis. swalayan Biodata
+			// Pegawai), bukan hak khusus absensi/penggajian -- jangan hapus pemeriksaan ini.
+			edit = false;
+		}
 		addEventListener("onOpen", new EventListener() {
 
 			/**
@@ -937,10 +960,14 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 			 * berikutnya memakai {@link Common#createDefaultTimer(EventListener)}, agar tidak berjalan di atas
 			 * session yang baru saja ditutup.</p>
 			 *
-			 * <p><b>Catatan pemeliharaan:</b> listener ini tidak mengulang pemeriksaan hak {@link #edit} maupun
-			 * status {@code getDikunci()}; pembatasan itu hanya diberlakukan saat merender tombol Ubah di grid.
-			 * Setiap perubahan pada jalur render harus mempertimbangkan bahwa penyimpanan di sini tidak memiliki
-			 * gerbang tersendiri.</p>
+			 * <p><b>Gerbang sisi server (jangan dihapus):</b> tombol Ubah di grid hanya DISEMBUNYIKAN
+			 * ({@code setVisible}) bila {@code edit} salah atau baris terkunci — komponen tersembunyi tetap
+			 * melekat pada halaman ZK sehingga permintaan AU yang dipalsukan (memalsukan UUID komponen) tetap
+			 * dapat memicu listener ini walau tombolnya tidak pernah terlihat. Karena itu listener ini
+			 * MENGULANG sendiri pemeriksaan hak {@link #edit} maupun status {@code getDikunci()} pada baris yang
+			 * baru saja diambil ulang dari database, dan menolak menyimpan bila salah satu gagal — pola
+			 * penyembunyian murni di sisi tampilan saja terbukti berulang kali menjadi celah bypass-persetujuan
+			 * di basis kode ini.</p>
 			 *
 			 * @param event event {@code onClick} dari tombol Simpan (juga dikirim terprogram oleh tombol
 			 *              "Jadikan Hanya Kepulangan")
@@ -949,6 +976,15 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 			@Override
 			public void onEvent(Event event) throws Exception {
 
+				// Gerbang sisi server -- lihat catatan javadoc di atas: jangan mengandalkan
+				// setVisible(false) pada tombol Ubah saja.
+				if (!edit) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, Anda tidak memiliki hak untuk mengubah data kehadiran ini.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
 				Session session = HibernateUtil.currentNativeSession();
 				StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarian = (StatuskehadiranKaryawanHarian) (statuskehadiranKaryawanHarianTemp
 						.getId() == null
@@ -956,6 +992,17 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 								: session.createCriteria(StatuskehadiranKaryawanHarian.class)
 										.add(Restrictions.idEq(statuskehadiranKaryawanHarianTemp.getId()))
 										.setMaxResults(1).uniqueResult());
+				if (statuskehadiranKaryawanHarian != null && statuskehadiranKaryawanHarian.getDikunci() != null) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, baris kehadiran ini sudah dikunci dan tidak dapat diubah lagi.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					if (session.isOpen()) {
+						session.disconnect();
+						session.close();
+					}
+					HibernateUtil.closeSession();
+					return;
+				}
 				if (statuskehadiranKaryawanHarian == null) {
 					statuskehadiranKaryawanHarian = new StatuskehadiranKaryawanHarian();
 					statuskehadiranKaryawanHarian.setTanggal(statuskehadiranKaryawanHarianTemp.getTanggal());
@@ -1638,6 +1685,17 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
+									// Gerbang sisi server: komponen ini hanya DIBUAT bila edit==true, tetapi
+									// dikunci bisa berubah antar-render dan permintaan AU dapat dipalsukan --
+									// jangan hapus pemeriksaan ulang ini.
+									if (arg0 != null && (!edit || statuskehadiranKaryawanHarian.getDikunci() != null)) {
+										checkDetailJenisShiftPegawaiManual.setChecked(
+												statuskehadiranKaryawanHarian.getDetailJenisShiftPegawaiManual() != null);
+										MyMessageboxConfig.show(
+												"Mohon maaf, Anda tidak memiliki hak untuk mengubah data ini.",
+												"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+										return;
+									}
 									detailJenisShiftPegawaiManual
 											.setVisible(checkDetailJenisShiftPegawaiManual.isChecked());
 
@@ -1744,6 +1802,15 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
+									// Gerbang sisi server -- lihat catatan pada listener checkbox "Manual" di atas.
+									if (!edit || statuskehadiranKaryawanHarian.getDikunci() != null) {
+										Common.selectComboItem(true, detailJenisShiftPegawaiManual,
+												statuskehadiranKaryawanHarian.getDetailJenisShiftPegawaiManual());
+										MyMessageboxConfig.show(
+												"Mohon maaf, Anda tidak memiliki hak untuk mengubah data ini.",
+												"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+										return;
+									}
 									Session session = HibernateUtil.currentSession();
 									statuskehadiranKaryawanHarian.setDetailJenisShiftPegawaiManual(
 											(DetailJenisShiftPegawai) (detailJenisShiftPegawaiManual
@@ -1845,6 +1912,16 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
+									// Gerbang sisi server -- lihat catatan pada listener checkbox "Manual" kolom
+									// Shift di atas; jangan hapus.
+									if (arg0 != null && (!edit || statuskehadiranKaryawanHarian.getDikunci() != null)) {
+										checkDetailJenisShiftPegawaiLembur.setChecked(
+												statuskehadiranKaryawanHarian.getDetailJenisShiftPegawaiLembur() != null);
+										MyMessageboxConfig.show(
+												"Mohon maaf, Anda tidak memiliki hak untuk mengubah data ini.",
+												"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+										return;
+									}
 									detailJenisShiftPegawaiLembur
 											.setVisible(checkDetailJenisShiftPegawaiLembur.isChecked());
 
@@ -1959,6 +2036,19 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 
+									// Gerbang sisi server -- lihat catatan pada listener checkbox "Manual" kolom
+									// Shift di atas; jangan hapus.
+									if (arg0 != null && (!edit || statuskehadiranKaryawanHarian.getDikunci() != null)) {
+										lamburMulai.setValue(statuskehadiranKaryawanHarian.getLamburMulai());
+										lamburSampai.setValue(statuskehadiranKaryawanHarian.getLamburSampai());
+										Common.selectComboItem(true, detailJenisShiftPegawaiLembur,
+												statuskehadiranKaryawanHarian.getDetailJenisShiftPegawaiLembur());
+										MyMessageboxConfig.show(
+												"Mohon maaf, Anda tidak memiliki hak untuk mengubah data ini.",
+												"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+										return;
+									}
+
 									statuskehadiranKaryawanHarian.setDetailJenisShiftPegawaiLembur(
 											(DetailJenisShiftPegawai) (detailJenisShiftPegawaiLembur
 													.getSelectedItem() == null ? null
@@ -2041,6 +2131,15 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 									public void onEvent(Event arg0) throws Exception {
 										Session session = HibernateUtil.currentSession();
 										session.refresh(statuskehadiranKaryawanHarian);
+										// Gerbang sisi server -- lihat catatan pada listener checkbox "Manual"
+										// kolom Shift di atas; jangan hapus.
+										if (!edit || statuskehadiranKaryawanHarian.getDikunci() != null) {
+											checkboxConfig.setChecked(statuskehadiranKaryawanHarian.getAbaikanJarak());
+											MyMessageboxConfig.show(
+													"Mohon maaf, Anda tidak memiliki hak untuk mengubah data ini.",
+													"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+											return;
+										}
 										statuskehadiranKaryawanHarian.setAbaikanJarak(checkboxConfig.isChecked());
 										session.update(statuskehadiranKaryawanHarian);
 										session.flush();
