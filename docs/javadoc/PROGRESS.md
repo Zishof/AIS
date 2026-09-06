@@ -1,5 +1,76 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 132 — ticket/spi/spmi/lkp/obe (5 agent paralel), 0 task baru — 4/5 package TERNYATA SUDAH SELESAI sesi paralel (6 Sep 2026)
+
+Pindah dari backlog root (tuntas batch 131) ke domain package. Scan
+awal menandai 5 package sebagai kandidat kerja: `ticket` (nyaris
+mentah, blok 1-5 vs ~30-100 method), `spi`/`spmi`/`lkp`/`obe`
+(dianggap parsial ~60-75% dari rasio blok:method).
+
+**Realita di lapangan**: 4 dari 5 package (`spi`, `obe`, `lkp`,
+sebagian besar `spmi`) TERNYATA SUDAH DISELESAIKAN TUNTAS oleh sesi
+paralel lain (`fauzi`, r85242-85280) tepat SEBELUM batch ini mulai —
+rasio blok:method dari scan awal ternyata sudah mencerminkan
+dokumentasi LENGKAP untuk file-file itu (heuristik "60-75%" meleset,
+bukan berarti belum selesai). Tiap agent memverifikasi dengan MEMBACA
+PENUH file (bukan cuma percaya pesan commit) sebelum menyimpulkan
+"tidak perlu disentuh" — sesuai kebijakan anti-duplikasi kerja. Hanya
+`ticket/` yang genuinely butuh kerja penuh; `spmi` masih menyisakan 3
+celah kecil yang berhasil ditemukan lewat audit baris-per-baris.
+
+**`ticket/`** (3 file, genuinely baru): `Ticket.java` (387→742 baris,
+r85815, `extends DataSop`+workflow SOP), `TicketKategori.java`
+(147→267, r85816), `TicketKomentar.java` (171→315, r85820). Modul
+ticketing internal (kendala/permintaan modul/progress dev). Scoping
+akses (`satuanKerja`/`hakAksesTarget`/flag `internal` komentar)
+dikonfirmasi DITEGAKKAN di `NewUiTicketController` (fail-closed) —
+bukan di level entity, tapi terverifikasi ada. 0 task baru.
+
+**`spi/`** (audit internal SPI) — SUDAH SELESAI sesi lain, 0 file
+disentuh. Rantai relasi terverifikasi:
+`JenisAuditSPI`→`KriteriaAuditSPI`→`ChecklistAuditSPI` (master),
+`ProfilRisikoSPI`→`RencanaAuditTahunanSPI`→`PenugasanAuditSPI`
+(`extends DataSop`, mesin SOP)→`TemuanAuditSPI`→`TindakLanjutAuditSPI`.
+`TemuanAuditSPI` dikonfirmasi AMAN — portal internal staf SPI
+(Three Lines Model, bukan self-service auditee), gerbang generik
+`Common.doCheckSecurity()` konsisten desain. Perbaikan keamanan
+`TindakLanjutAuditSPI` (verifikasi independen status selesai,
+`task_fcc03cad`) SUDAH diterapkan sesi lain — migrasi SQL kolom
+`diverifikasi_oleh`/`tanggal_verifikasi` masih perlu dijalankan manual
+di DB (TODO tercatat di kode baris 113-122).
+
+**`obe/`** (Outcome-Based Education) — SUDAH SELESAI sesi lain, 0 file
+disentuh. Rantai OBE terverifikasi: `ProfilLulusan`→`CapaianLulusan`
+(CPL prodi)→`CapaianPembelajaranLulusan` (**ternyata CPMK level
+matkul**, meski nama class mirip CPL — DIBEDAKAN TOTAL, bukan
+sinonim). `IndikatorKinerja` FK asli ke `CapaianLulusan` (bukan CSV).
+`KategoriCpl`/`ReferensiLulusan` = teks bebas/CSV ID (bukan FK,
+sengaja agar data historis tetap terbuka).
+
+**`lkp/`** (Laporan Kinerja Pegawai) — SUDAH SELESAI sesi lain, 0 file
+disentuh. `KegiatanTugasJabatan` dikonfirmasi TERPISAH TOTAL dari
+sistem `kpi/` (dua mesin penilaian kinerja independen, nama mirip
+tapi tak berkerabat — pola berulang). `KelompokParameterTambahanKegiatan`
+dikonfirmasi AMAN dari `task_484d4bd0` (memakai resolver
+`resolveJenisParameterTambahan` yang benar).
+
+**`spmi/`** (Sistem Penjaminan Mutu Internal) — 95% sudah selesai sesi
+lain, **3 celah kecil dilengkapi**: `HasilSPMI.setKeterangan` (r85817),
+6 method evaluasi tambahan AMI 2026 di `HasilTemuanSPMI` (r85818),
+komentar `serialVersionUID` di `TindakLanjutTemuanSPMI` (r85819).
+Siklus PPEPP terverifikasi: `JenisSPMI`→`StandarSPMI`→`ButirMutuSPMI`→
+`IndikatorSPMI`→`SkenarioSPMI` (master) lalu `HasilSPMI` (`extends
+DataSop`)→`HasilTemuanSPMI`→`TindakLanjutTemuanSPMI` (evaluasi, TIDAK
+pakai mesin SOP — status CRUD murni, self-approval belum ditambal,
+pola lama). Nol FK silang ke `spi` (dua modul independen).
+
+**0 task baru batch ini** — semua temuan mengonfirmasi pola/perbaikan
+yang sudah tercatat. **Pelajaran penting**: sesi paralel independen
+(`fauzi`) kini bergerak SANGAT cepat menyapu domain-package yang sama
+persis dengan target sesi ini — SELALU `svn log -l 5` + baca penuh
+file dulu sebelum menugaskan agent baru ke package manapun, jangan
+percaya scan lama (bisa basi dalam hitungan menit).
+
 ## 🎉 Batch 131 — backlog root-level lepas TUNTAS, 2 mega-file baru ditemukan+diselesaikan, 2 task baru (6 Sep 2026)
 
 Rescan root `ais/database/model/` menunjukkan backlog 485-file TUNTAS —
