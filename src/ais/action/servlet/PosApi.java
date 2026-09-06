@@ -2082,20 +2082,6 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
-	 * Membatalkan (HARD DELETE header+seluruh baris item) satu pesanan yang BELUM lunas -- dipanggil
-	 * dari tombol "Batalkan" di layar Pesanan lokal. Sengaja diimplementasikan LANGSUNG di sini
-	 * (bukan method baru di {@code KantinHelper}) -- jalur existing utk aksi ini di web
-	 * ({@code _draft_pesanan_anggota.jsp}) memakai framework delete generik ({@code /Data
-	 * action:"deleteData"}) yang bergantung pada konteks cookie-session, TIDAK cocok dipanggil dari
-	 * servlet berbasis token ini; logika penggantinya di sini sengaja dibuat SESEDERHANA mungkin
-	 * (tanpa cascade/orphan-removal otomatis dari mapping entity, jadi baris item dihapus manual
-	 * dulu baru header) drpd menambah method baru ke {@code KantinHelper} yang sudah diaudit rapi.
-	 *
-	 * <p>Pesanan yang SUDAH lunas TIDAK boleh dibatalkan lewat sini (sudah jadi transaksi final,
-	 * pembatalannya berarti retur/void -- di luar cakupan Fase 3 ini, tetap harus lewat "Buka
-	 * Aplikasi Lengkap").</p>
-	 */
-	/**
 	 * Gerbang "supervisor-only" (gap-closure permintaan "edit/hapus/batal hanya supervisor") --
 	 * admin global (tanpa Pedagang) ATAU supervisor toko ({@code Pedagang.getSupervisor()==true})
 	 * boleh; kasir biasa DITOLAK. Logika SAMA PERSIS dgn flag {@code isAdmin}/{@code supervisorPedagang}
@@ -2109,12 +2095,6 @@ public class PosApi extends HttpServlet {
 				|| (role != null && ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu()).optBoolean("supervisor", false));
 	}
 
-	/**
-	 * Gerbang CRUD granular ({@code Tbmrole.ebisnisMenu.crud}) khusus menu "Pesanan" -- "layani
-	 * transaksi" (tandai pesanan sudah dilayani) = aksi {@code approve}, "batal pesanan" = aksi
-	 * {@code reject}. Default {@code true} (boleh) selama role belum pernah menyetel grid CRUD-nya --
-	 * TIDAK mengubah perilaku akun yang sudah ada, hanya menambah cara baru utk MEMBATASI role tertentu.
-	 */
 	/**
 	 * Hak per-aksi untuk satu menu {@link ais.common.EbisnisMenuKatalog#KUNCI_CRUD}.
 	 *
@@ -2132,6 +2112,12 @@ public class PosApi extends HttpServlet {
 				ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu()), kunciMenu, aksi);
 	}
 
+	/**
+	 * Gerbang CRUD granular ({@code Tbmrole.ebisnisMenu.crud}) khusus menu "Pesanan" -- "layani
+	 * transaksi" (tandai pesanan sudah dilayani) = aksi {@code approve}, "batal pesanan" = aksi
+	 * {@code reject}. Default {@code true} (boleh) selama role belum pernah menyetel grid CRUD-nya --
+	 * TIDAK mengubah perilaku akun yang sudah ada, hanya menambah cara baru utk MEMBATASI role tertentu.
+	 */
 	private static boolean bolehAksiCrudPesanan(Tbmuser tbmuser, String aksi) {
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
 		if (role == null) {
@@ -2621,6 +2607,20 @@ public class PosApi extends HttpServlet {
 		return true;
 	}
 
+	/**
+	 * Membatalkan (HARD DELETE header+seluruh baris item) satu pesanan yang BELUM lunas -- dipanggil
+	 * dari tombol "Batalkan" di layar Pesanan lokal. Sengaja diimplementasikan LANGSUNG di sini
+	 * (bukan method baru di {@code KantinHelper}) -- jalur existing utk aksi ini di web
+	 * ({@code _draft_pesanan_anggota.jsp}) memakai framework delete generik ({@code /Data
+	 * action:"deleteData"}) yang bergantung pada konteks cookie-session, TIDAK cocok dipanggil dari
+	 * servlet berbasis token ini; logika penggantinya di sini sengaja dibuat SESEDERHANA mungkin
+	 * (tanpa cascade/orphan-removal otomatis dari mapping entity, jadi baris item dihapus manual
+	 * dulu baru header) drpd menambah method baru ke {@code KantinHelper} yang sudah diaudit rapi.
+	 *
+	 * <p>Pesanan yang SUDAH lunas TIDAK boleh dibatalkan lewat sini (sudah jadi transaksi final,
+	 * pembatalannya berarti retur/void -- di luar cakupan Fase 3 ini, tetap harus lewat "Buka
+	 * Aplikasi Lengkap").</p>
+	 */
 	private void prosesBatalPesanan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		if (!bolehSupervisorAtauAdmin(tbmuser) && !bolehAksiCrudPesanan(tbmuser, "delete")
 				&& !bolehAksiCrudPesanan(tbmuser, "reject")) {
