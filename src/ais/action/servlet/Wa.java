@@ -1068,6 +1068,19 @@ public class Wa extends HttpServlet {
 
 						new Thread(new Runnable() {
 
+							/**
+							 * Thread pengirim balasan untuk rute WhatsApp Business Cloud API.
+							 *
+							 * <p>Menyusun payload pesan teks, memanggil {@link #ambilPesan} untuk memperoleh jawaban AI,
+							 * lalu mengirimkannya ke Graph API lewat {@code curl} dengan header
+							 * {@code Authorization: Bearer} berisi konfigurasi {@code token_wa}. Pengiriman dilewati bila
+							 * jawaban memuat penanda menyerah, dan hanya benar-benar dijalankan bila konfigurasi
+							 * {@code aktifkan_reply_chatbot} aktif.</p>
+							 *
+							 * <p>Upaya pengiriman dicatat sebagai {@link NotifikasiWa}, dan {@link Pengaduan} disimpan
+							 * berikut tanggapannya. Seluruh exception ditangkap dan dicatat ke audit error &mdash; tidak
+							 * ada yang merambat keluar karena thread ini sudah lepas dari siklus request.</p>
+							 */
 							@Override
 							public void run() {
 
@@ -1337,6 +1350,16 @@ public class Wa extends HttpServlet {
 
 				new Thread(new Runnable() {
 
+					/**
+					 * Thread pengirim balasan untuk rute Ultramsg.
+					 *
+					 * <p>Memilih teks penutup (statis atau berkode install), menyusun sapaan menurut jam server,
+					 * memanggil {@link #ambilPesan}, lalu mengirim lewat {@link #kirimWaViaUltramsg}. Pesan
+					 * pemanasan yang diawali {@code "kirimkan data pemanasan ke-"} dibalas tanpa memanggil AI.</p>
+					 *
+					 * <p>{@link Pengaduan} hanya disimpan bila tanggapan AI benar-benar terbentuk. Seluruh
+					 * exception ditangkap dan dicatat ke audit error.</p>
+					 */
 					@Override
 					public void run() {
 
@@ -1480,6 +1503,17 @@ public class Wa extends HttpServlet {
 
 					new Thread(new Runnable() {
 
+						/**
+						 * Thread pengirim balasan untuk rute Watzap.
+						 *
+						 * <p>Alurnya sama dengan rute Ultramsg, dengan satu tambahan: jawaban dapat diambil dari cache
+						 * {@link TanyaJawab} pada {@code UserOnlineCounter.mapTanyaJawab}, dan bila kolom
+						 * {@code keterangan}-nya masih kosong, diisi sekali lewat {@link #tanya} lalu disimpan.</p>
+						 *
+						 * <p>Bila balasan berasal dari cache atau dari jalur pemanasan &mdash; ditandai oleh
+						 * {@code tanggapan} yang masih kosong &mdash; pengiriman diserahkan ke thread penunda
+						 * tersendiri. Selain itu pengiriman dilakukan segera dan {@link Pengaduan} disimpan.</p>
+						 */
 						@Override
 						public void run() {
 
@@ -1552,6 +1586,15 @@ public class Wa extends HttpServlet {
 								if (tanggapan.trim().isEmpty()) {
 									new Thread(new Runnable() {
 
+										/**
+										 * Thread penunda pengiriman, dipakai rute Watzap untuk balasan yang tidak berasal dari AI.
+										 *
+										 * <p>Menunggu 1 sampai 29 detik acak sebelum memanggil {@link #kirimWaViaUltramsg}, agar
+										 * kiriman massal tidak terlihat seperti ledakan otomatis oleh penyedia.</p>
+										 *
+										 * <p>Exception apa pun &mdash; termasuk {@link InterruptedException} saat tidur &mdash;
+										 * ditangkap dan dicatat ke audit error, sehingga pesan itu diam-diam tidak terkirim.</p>
+										 */
 										@Override
 										public void run() {
 											try {
@@ -1868,6 +1911,18 @@ public class Wa extends HttpServlet {
 
 		new Thread(new Runnable() {
 
+			/**
+			 * Thread pekerja pengiriman WhatsApp lewat penyedia pihak ketiga.
+			 *
+			 * <p>Menormalkan nomor tujuan, memecah pesan yang melebihi 9999 karakter, memilih format
+			 * perintah Ultramsg atau Watzap menurut konfigurasi {@code chatbot_pakai_watzap}, menjalankan
+			 * {@code curl}, mencatat hasilnya sebagai {@link NotifikasiWa}, lalu opsional memperbarui
+			 * profil AI nomor tujuan.</p>
+			 *
+			 * <p>Bila penyedia melaporkan {@code "file not exist"} dan percobaan ulang diizinkan,
+			 * pengiriman diulang sekali tanpa lampiran. Seluruh exception ditangkap dan dicatat ke audit
+			 * error.</p>
+			 */
 			@Override
 			public void run() {
 

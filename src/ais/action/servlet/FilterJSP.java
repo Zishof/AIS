@@ -724,6 +724,22 @@ public class FilterJSP implements Filter {
 	// HELPER METHODS
 	// ========================================================================
 
+	/**
+	 * Meneruskan permintaan ke berkas tujuan di dalam aplikasi, dengan penjagaan terhadap respons
+	 * yang sudah terlanjur terkirim.
+	 *
+	 * <p>Bila respons sudah ter-commit, method berhenti tanpa melakukan apa pun. Bila belum,
+	 * penyangga dibersihkan lebih dulu agar keluaran parsial dari filter lain tidak bercampur
+	 * dengan halaman tujuan. {@link IllegalStateException} yang muncul saat penerusan ditafsirkan
+	 * sebagai respons yang sudah dikirim pihak lain dan karena itu tidak diteruskan sebagai
+	 * kegagalan.</p>
+	 *
+	 * @param req  permintaan yang sedang dilayani
+	 * @param res  respons tujuan
+	 * @param path jalur berkas tujuan di dalam aplikasi
+	 * @throws ServletException bila penerusan gagal
+	 * @throws IOException      bila operasi masukan/keluaran gagal
+	 */
 	private void forward(HttpServletRequest req, HttpServletResponse res, String path)
 			throws ServletException, IOException {
 		if (isCommitted(res)) {
@@ -740,15 +756,44 @@ public class FilterJSP implements Filter {
 		}
 	}
 
+	/**
+	 * Mengalihkan permintaan ke rute {@code /login} kanonik sambil mempertahankan query string
+	 * aslinya bila ada, sehingga parameter seperti pesan galat tidak hilang saat pengalihan.
+	 *
+	 * @param req permintaan yang sedang dilayani
+	 * @param res respons tujuan
+	 * @throws IOException bila pengalihan gagal
+	 */
 	private void redirectToLogin(HttpServletRequest req, HttpServletResponse res) throws IOException {
 		String q = req.getQueryString();
 		safeSendRedirect(req, res, req.getContextPath() + "/login" + (q != null && !q.isEmpty() ? "?" + q : ""));
 	}
 
+	/**
+	 * Memeriksa apakah respons sudah tidak dapat diubah lagi.
+	 *
+	 * <p>Respons {@code null} sengaja diperlakukan sama dengan respons yang sudah ter-commit,
+	 * sehingga pemanggil cukup memeriksa satu keadaan sebelum menulis.</p>
+	 *
+	 * @param res respons yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila respons {@code null} atau sudah ter-commit
+	 */
 	private static boolean isCommitted(HttpServletResponse res) {
 		return res == null || res.isCommitted();
 	}
 
+	/**
+	 * Melakukan {@code sendRedirect} hanya bila respons masih dapat diubah, mencegah
+	 * {@link IllegalStateException} ketika filter atau servlet lain sudah menulis respons.
+	 *
+	 * <p>Seluruh pengalihan di kelas ini melewati method ini; jangan memanggil
+	 * {@link HttpServletResponse#sendRedirect(String)} langsung.</p>
+	 *
+	 * @param req    permintaan yang sedang dilayani
+	 * @param res    respons tujuan
+	 * @param target URL tujuan pengalihan
+	 * @throws IOException bila pengalihan gagal
+	 */
 	private static void safeSendRedirect(HttpServletRequest req, HttpServletResponse res, String target) throws IOException {
 		if (isCommitted(res)) {
 			return;
@@ -756,6 +801,36 @@ public class FilterJSP implements Filter {
 		res.sendRedirect(target);
 	}
 
+	/**
+	 * Memutuskan apakah sebuah permintaan diserahkan ke pengarah
+	 * ({@link #handleRouting}) atau diteruskan begitu saja ke rantai filter berikutnya.
+	 *
+	 * <p>Meski namanya "ignored", nilai kembaliannya <b>terbalik</b> dari dugaan: method
+	 * mengembalikan {@code true} — artinya permintaan <i>diproses</i> pengarah — untuk jalur yang
+	 * TIDAK cocok dengan satu pun penanda di dalamnya. Penanda yang cocok justru membuat
+	 * permintaan dilewatkan tanpa pengarahan.</p>
+	 *
+	 * <p>Penanda yang dilewatkan mencakup aset statis dan media ({@code .css}, {@code .js},
+	 * {@code .png}, {@code .jpg}, {@code .jpeg}, {@code .webp}, {@code .gif}, {@code .svg},
+	 * {@code .mp4}, {@code .mp3}, {@code .mov}, {@code .wcs}, {@code .dsp}, {@code .wpd}),
+	 * penanda sesi {@code jsessionid}, serta sejumlah rute yang memang punya penanganan sendiri
+	 * ({@code pmb}, {@code psb}, {@code anjungan}, {@code alumni}, {@code hadir},
+	 * {@code daftaranggota}, {@code halamananggota}).</p>
+	 *
+	 * <p><b>Kelonggaran pencocokan yang perlu diketahui:</b> sebagian penanda diuji dengan
+	 * {@code contains}, bukan {@code endsWith} — khususnya {@code "al"}, {@code "pdf"}, dan
+	 * {@code "lampiran"}. Penanda {@code "al"} sangat pendek sehingga cocok dengan sangat banyak
+	 * jalur yang tidak berkaitan (misalnya yang memuat kata "total", "jurnal", atau "legal"),
+	 * membuat permintaan tersebut melewati seluruh aturan pengarahan termasuk penangkap akhir
+	 * {@code .jsp}. Dampaknya terbatas karena seluruh berkas JSP aplikasi ini berada di bawah
+	 * {@code /WEB-INF/} sehingga tidak dapat diakses langsung oleh klien, dan otorisasi sudah
+	 * ditegakkan lebih dulu oleh {@code springSecurityFilterChain}. Perilaku ini dicatat apa
+	 * adanya sebagai keadaan yang berlaku sekarang.</p>
+	 *
+	 * @param p jalur permintaan yang sudah dihuruf-kecilkan oleh
+	 *          {@link #doFilter(ServletRequest, ServletResponse, FilterChain)}
+	 * @return {@code true} bila permintaan perlu diproses pengarah
+	 */
 	private boolean isIgnoredPath(String p) {
 		// Logika tetap, menggunakan 'p' yang sudah lowerCase dari doFilter
 		return !(p.endsWith(".wcs") || p.endsWith(".css") || p.endsWith(".dsp") || p.contains("jsessionid")
@@ -767,11 +842,33 @@ public class FilterJSP implements Filter {
 				|| p.endsWith("zi"));
 	}
 
+	/**
+	 * Menebak apakah sebuah jalur meminta halaman HTML, yaitu jalur yang tidak berakhiran
+	 * {@code .json} maupun {@code .xml}.
+	 *
+	 * <p><b>Tidak dipakai</b> — ditandai {@code @SuppressWarnings("unused")} dan dipertahankan
+	 * sebagai sisa alur halaman pemeliharaan yang kini nonaktif; lihat
+	 * {@link #sendMaintenancePage(HttpServletResponse)}.</p>
+	 *
+	 * @param path jalur permintaan
+	 * @return {@code true} bila jalur dianggap meminta halaman HTML
+	 */
 	@SuppressWarnings("unused")
 	private boolean isHtmlRequest(String path) {
 		return !path.endsWith(".json") && !path.endsWith(".xml");
 	}
 
+	/**
+	 * Menuliskan halaman "sistem sedang inisiasi data" yang memuat ulang dirinya sendiri setiap
+	 * tiga detik.
+	 *
+	 * <p><b>Tidak dipakai</b> — ditandai {@code @SuppressWarnings("unused")} dan dipertahankan
+	 * untuk keperluan pemeliharaan bila mode tunggu perlu dihidupkan kembali. Tidak ada satu pun
+	 * jalur di kelas ini yang memanggilnya.</p>
+	 *
+	 * @param response respons tujuan
+	 * @throws IOException bila penulisan respons gagal
+	 */
 	@SuppressWarnings("unused")
 	private void sendMaintenancePage(HttpServletResponse response) throws IOException {
 		response.setContentType("text/html;charset=UTF-8");
@@ -783,6 +880,36 @@ public class FilterJSP implements Filter {
 		writer.println("</html>");
 	}
 
+	/**
+	 * Memasang header CORS permisif pada <b>setiap</b> respons aplikasi.
+	 *
+	 * <p>Karena filter ini dipetakan ke {@code /*} dan method dipanggil paling awal di
+	 * {@link #doFilter(ServletRequest, ServletResponse, FilterChain)} — sebelum percabangan aset
+	 * statis sekalipun — header berikut berlaku untuk seluruh endpoint tanpa kecuali:</p>
+	 * <ul>
+	 *   <li>{@code Access-Control-Allow-Origin: *};</li>
+	 *   <li>{@code Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE, HEAD};</li>
+	 *   <li>{@code Access-Control-Allow-Headers: X-PINGOTHER, Origin, X-Requested-With,
+	 *       Content-Type, Accept};</li>
+	 *   <li>{@code Access-Control-Max-Age: 1728000} (20 hari).</li>
+	 * </ul>
+	 *
+	 * <h4>Batas dampak yang penting</h4>
+	 * <p>Header {@code Access-Control-Allow-Credentials} <b>tidak</b> dikirim — tidak di sini
+	 * maupun di tempat lain mana pun dalam aplikasi. Spesifikasi CORS melarang penggabungan
+	 * asal-usul wildcard dengan permintaan berkredensial, sehingga peramban <b>tidak</b> akan
+	 * menyertakan cookie sesi pada permintaan lintas-asal ke aplikasi ini dan tidak akan
+	 * memberikan hasilnya ke skrip pemanggil. Akibatnya wildcard di sini membuka data yang memang
+	 * dapat diakses tanpa sesi, bukan data milik pengguna yang sedang login.</p>
+	 *
+	 * <p>Pemasangan memakai {@code addHeader}, bukan {@code setHeader}; bila lapisan lain
+	 * (misalnya reverse proxy atau servlet yang juga memasang header CORS sendiri) menambahkan
+	 * nilai serupa, respons dapat memuat header ganda yang oleh sebagian peramban justru ditolak.
+	 * Pilihan wildcard menyeluruh ini adalah keputusan arsitektur yang sudah dicatat sebelumnya
+	 * dan sengaja tidak diubah di sini.</p>
+	 *
+	 * @param response respons yang akan diberi header
+	 */
 	private void addCorsHeader(HttpServletResponse response) {
 		response.addHeader("Access-Control-Allow-Origin", "*");
 		response.addHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, HEAD");

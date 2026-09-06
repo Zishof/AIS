@@ -1212,6 +1212,31 @@ public class Data extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menjawab {@code action=cari}: mengambil satu baris entity apa pun berdasarkan kunci primernya
+	 * dan mengembalikan seluruh propertinya sebagai JSON.
+	 *
+	 * <p>Field muatan: {@code class} (nama kelas entity) dan {@code id} (kunci primer, diteruskan
+	 * sebagai {@code String} tanpa validasi bentuk). Pembacaan memakai
+	 * {@code GeneralValueObject.ambilData(clazz, id, true)}; argumen terakhir meminta pembacaan
+	 * segar, bukan dari cache.</p>
+	 *
+	 * <p>Bila baris ditemukan, {@code Common.insertProperty(..., 1)} menyalin propertinya ke JSON
+	 * dengan kedalaman relasi satu tingkat, hasilnya dibungkus dalam larik satu elemen di
+	 * {@code hasil.data}, dan status menjadi {@code "00"}. Bila tidak ditemukan, {@code hasil}
+	 * dibiarkan apa adanya.</p>
+	 *
+	 * <p><b>Cakupan — fakta arsitektur.</b> Ini adalah pembacaan reflektif tanpa penyaringan:
+	 * kelas dan kunci berasal dari klien, tidak ada daftar kelas yang diizinkan, dan tidak ada
+	 * penyaringan kolom maupun pemeriksaan tenant/satuan kerja. Kedalaman satu tingkat berarti
+	 * objek relasi ikut terbawa. Karena {@code action=cari} termasuk aksi yang dapat melewati
+	 * gerbang dengan {@code tanpaLogin}, jalur ini perlu diperlakukan sebagai jalur baca publik
+	 * ketika menilai kelas mana yang aman dipetakan Hibernate.</p>
+	 *
+	 * @param jsonObject muatan JSON permintaan
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila {@code Class.forName} gagal atau penyalinan properti melempar
+	 */
 	private static void processCari(JSONObject jsonObject, JSONObject hasil) throws Exception {
 		if (!jsonObject.isNull("class") && !jsonObject.isNull("id")) {
 			Class<?> clazz = Class.forName(jsonObject.optString("class", "").trim());
@@ -1230,6 +1255,35 @@ public class Data extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menjawab {@code downloadExcel}, {@code downloadPdf}, dan {@code downloadDocx}: menjalankan
+	 * kembali pencarian daftar, mengekspor hasilnya menjadi berkas, lalu membalas tautan unduhnya.
+	 *
+	 * <p>Method ini <b>menimpa</b> field {@code action} pada muatan menjadi {@code "daftar"} lalu
+	 * memanggil {@code DaftarDataService.daftar(...)}, sehingga seluruh field penyaring, pengurut,
+	 * dan penomoran halaman yang dikirim halaman untuk grid dipakai apa adanya. Konsekuensinya
+	 * ekspor selalu mencerminkan persis kueri yang sama dengan grid — termasuk gerbang cakupan
+	 * apa pun yang diterapkan {@code DaftarDataService}. Status dan deskripsi dari pencarian
+	 * disalin ke {@code hasil}; bila tanggapan tidak memuat {@code data}, method berhenti dan tidak
+	 * ada berkas dibuat.</p>
+	 *
+	 * <p>Nama berkas dibangkitkan {@code Common.getGeneratedBarCode()} sehingga tidak dapat
+	 * ditebak, ditulis ke direktori {@code /f/} di bawah {@code Common.REAL_PATH}, dan tautannya
+	 * dikembalikan pada field {@code link}. Berkas ini <b>tidak</b> dihapus otomatis — ia menumpuk
+	 * di cakram dan tetap dapat diunduh siapa pun yang memegang tautannya.</p>
+	 *
+	 * <p>Pemetaan format: {@code downloadExcel} → {@code .xlsx} lewat {@code ExcelExporter},
+	 * {@code downloadPdf} → {@code .pdf} lewat {@code PdfGenerator}, {@code downloadDocx} →
+	 * {@code .docx} lewat {@code WordExporter}. Nilai {@code type} lain membuat {@code file} tetap
+	 * {@code null} dan {@code link} berisi string kosong.</p>
+	 *
+	 * @param request    permintaan servlet, diteruskan ke {@code DaftarDataService}
+	 * @param jsonObject muatan JSON permintaan; field {@code action}-nya ditimpa menjadi
+	 *                   {@code "daftar"}
+	 * @param type       nama aksi asli, penentu format ekspor
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila pencarian daftar atau penulisan berkas ekspor gagal
+	 */
 	private static void processDownload(HttpServletRequest request, JSONObject jsonObject, String type,
 			JSONObject hasil) throws Exception {
 		jsonObject.put("action", "daftar");
@@ -1264,6 +1318,32 @@ public class Data extends HttpServlet {
 		hasil.put("link", link);
 	}
 
+	/**
+	 * Menjawab {@code action=linimasa}: mengambil linimasa e-Learning milik pengguna, lalu
+	 * mengembalikan <b>hanya daftar id</b>-nya.
+	 *
+	 * <p>Token pengguna dari sesi disuntikkan ke muatan ({@code jsonObject.put("token", ...)})
+	 * sebelum diteruskan ke {@code LinimasaApi.linimasa(...)}, sehingga API menilai hak akses
+	 * berdasarkan pengguna sesi — bukan berdasarkan token yang mungkin dikirim klien. Nilai token
+	 * yang dikirim klien selalu tertimpa di sini.</p>
+	 *
+	 * <p>Dari tanggapan API, hanya field {@code id} setiap elemen yang disalin ke larik balikan;
+	 * detail tiap butir diambil halaman lewat permintaan terpisah. Pola "id saja" ini menjaga
+	 * tanggapan tetap ringan pada linimasa yang panjang. {@code totalSize} diteruskan apa adanya
+	 * untuk penomoran halaman, dan status selalu {@code "00"} — termasuk ketika API tidak
+	 * mengembalikan data sama sekali (larik kosong).</p>
+	 *
+	 * <p><b>Prasyarat.</b> {@code tbmuser} harus bukan {@code null}; pemanggilan
+	 * {@code tbmuser.getToken()} akan melempar {@code NullPointerException} bila aksi ini
+	 * dijangkau dengan penanda {@code tanpaLogin}. Exception itu ditangkap {@link #ambil} dan
+	 * berubah menjadi {@code status="99"}.</p>
+	 *
+	 * @param request    permintaan servlet, diteruskan ke {@code LinimasaApi}
+	 * @param tbmuser    pengguna sesi; wajib tidak {@code null}
+	 * @param jsonObject muatan JSON permintaan; field {@code token}-nya ditimpa
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila pemanggilan API atau penyusunan JSON gagal
+	 */
 	private static void processLinimasa(HttpServletRequest request, Tbmuser tbmuser, JSONObject jsonObject,
 			JSONObject hasil) throws Exception {
 		jsonObject.put("token", tbmuser.getToken());
@@ -1283,6 +1363,30 @@ public class Data extends HttpServlet {
 		hasil.put("status", "00");
 	}
 
+	/**
+	 * Menjawab enam aksi butir e-Learning — {@code ujian}, {@code tugas}, {@code materi},
+	 * {@code audio}, {@code video}, dan {@code tugas_kelompok} — dengan satu badan kode bersama.
+	 *
+	 * <p>Seperti {@link #processLinimasa}, token pengguna sesi disuntikkan ke muatan sehingga nilai
+	 * yang dikirim klien selalu tertimpa. Selain itu ditambahkan {@code hanyaIdSaja="true"}, yang
+	 * memberi tahu {@code LinimasaApi} agar tidak menyusun objek lengkap — penghematan yang nyata
+	 * pada daftar panjang.</p>
+	 *
+	 * <p>{@code actionType} memilih salah satu dari enam method {@code LinimasaApi.daftar_*}. Nilai
+	 * di luar keenam itu membuat {@code apiResult} tetap objek kosong, sehingga balikannya berupa
+	 * larik kosong dengan status {@code "00"} — bukan galat. Dari tanggapan API hanya field
+	 * {@code id} tiap elemen yang disalin; {@code totalSize} diteruskan apa adanya.</p>
+	 *
+	 * <p><b>Prasyarat.</b> {@code tbmuser} harus bukan {@code null}, dengan alasan yang sama
+	 * seperti {@link #processLinimasa}.</p>
+	 *
+	 * @param request    permintaan servlet, diteruskan ke {@code LinimasaApi}
+	 * @param tbmuser    pengguna sesi; wajib tidak {@code null}
+	 * @param jsonObject muatan JSON permintaan; field {@code token} dan {@code hanyaIdSaja} ditimpa
+	 * @param actionType nama aksi yang menentukan method {@code LinimasaApi} mana yang dipanggil
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila pemanggilan API atau penyusunan JSON gagal
+	 */
 	private static void processGenericLinimasaItem(HttpServletRequest request, Tbmuser tbmuser, JSONObject jsonObject,
 			String actionType, JSONObject hasil) throws Exception {
 		jsonObject.put("token", tbmuser.getToken());
@@ -1317,6 +1421,37 @@ public class Data extends HttpServlet {
 		hasil.put("status", "00");
 	}
 
+	/**
+	 * Menjawab {@code action=ringkasan}: mengambil daftar pembelajaran/perkuliahan milik pengguna
+	 * untuk satu tahun ajaran dan semester, lalu mengembalikan daftar id-nya.
+	 *
+	 * <p>Field muatan: {@code ta} (tahun ajaran) dan {@code smt} (semester) — keduanya
+	 * dinormalkan menjadi {@code null} bila berisi string kosong, yang oleh helper diartikan
+	 * "semua"; {@code cari} sebagai kata kunci; {@code refresh} untuk melewati cache;
+	 * {@code ditampilkanHanya} yang memilih jenis tampilan dan bawaannya
+	 * {@code TampilanELearningAction.PERKULIAHAN}; serta {@code activePage} untuk penomoran
+	 * halaman.</p>
+	 *
+	 * <p>Pekerjaan sesungguhnya dilakukan
+	 * {@code RekapitulasiPerkuliahanHelper.ambilPembelajaran(...)}, helper yang sama dengan yang
+	 * dipakai layar ZK — jadi daftar dan jumlah totalnya konsisten antar kanal. Karena helper itu
+	 * berasal dari dunia ZK, ia menuntut objek {@link Paging} dan sebuah
+	 * {@code EventListener}; keduanya dibuat di sini sebagai boneka, dengan {@code onEvent} yang
+	 * sengaja kosong karena tidak ada UI ZK yang perlu diberi tahu pada jalur servlet ini.
+	 * {@code Paging} tetap dipakai secara nyata: {@code getTotalSize()}-nya diisi helper dan
+	 * dikembalikan sebagai {@code totalSize}.</p>
+	 *
+	 * <p>Balikan berisi {@code totalSize}, {@code data} (larik id sebagai string), dan status
+	 * {@code "00"}.</p>
+	 *
+	 * <p><b>Prasyarat.</b> {@code tbmuser} diteruskan langsung ke helper sebagai penentu cakupan
+	 * data; nilai {@code null} bergantung pada penanganan helper.</p>
+	 *
+	 * @param tbmuser    pengguna sesi, penentu cakupan pembelajaran yang boleh dilihat
+	 * @param jsonObject muatan JSON permintaan
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila pemanggilan helper atau penyusunan JSON gagal
+	 */
 	private static void processRingkasan(Tbmuser tbmuser, JSONObject jsonObject, JSONObject hasil) throws Exception {
 		String ta = jsonObject.optString("ta", null);
 		String smt = jsonObject.optString("smt", null);
