@@ -5727,6 +5727,45 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return html.toString();
 	}
 
+	/**
+	 * Mencari aturan {@link NilaiHuruf} yang <b>seharusnya</b> berlaku untuk sebuah total nilai pada
+	 * satu baris perkuliahan, dengan memakai jalur resolusi yang persis sama dengan yang dipakai sistem
+	 * saat menyimpan nilai.
+	 *
+	 * <p>Kesamaan jalur itulah yang membuat metode ini berguna: karena ia memanggil
+	 * {@code Common.getNilaiHuruf(...)} dengan rangkaian argumen yang identik dengan pemanggilan di
+	 * jalur penyimpanan, selisih antara hasilnya dan huruf yang tersimpan di basis data merupakan bukti
+	 * ketidaksinkronan yang sesungguhnya &mdash; bukan sekadar perbedaan cara menghitung. Seluruh
+	 * deteksi &quot;huruf tidak sinkron&quot; dan &quot;snapshot kunci menyimpang&quot; pada kedua
+	 * jendela analisis bertumpu pada metode ini.</p>
+	 *
+	 * <h3>Delapan penentu pemetaan</h3>
+	 * <p>Rentang huruf di AIS tidak tunggal; ia dipilih berdasarkan total nilai, tahun angkatan
+	 * mahasiswa, jurusan, fakultas, tahun akademik baris ini, jenis semester ganjil/genap, kode mata
+	 * kuliah, serta jenis nilai huruf yang ditetapkan pada mata kuliah tersebut. Keluwesan itu
+	 * memungkinkan satu perguruan tinggi menerapkan skala berbeda antar fakultas atau antar angkatan,
+	 * tetapi juga berarti konfigurasi yang tidak lengkap pada salah satu dimensi membuat pemetaan
+	 * gagal.</p>
+	 *
+	 * <p>Mata kuliah diresolusi dengan pola yang berulang di seluruh berkas ini: dari
+	 * {@code getPerkuliahan().getMatakuliah()} bila perkuliahan ada, atau dari
+	 * {@code getMatakuliahKonversi()} bila tidak &mdash; jalur konversi dipakai baris nilai yang
+	 * berasal dari alih kredit dan tidak terikat jadwal kuliah mana pun. Jurusan dan fakultas
+	 * diturunkan dari mahasiswa, bukan dari kelas, sehingga mahasiswa titipan dari prodi lain tetap
+	 * dinilai memakai skala prodinya sendiri.</p>
+	 *
+	 * <p>Setiap penunjuk dijaga terhadap {@code null} secara berlapis, dan seluruh badan dibungkus
+	 * penangkap galat yang mengembalikan {@code null} bila gagal &mdash; misalnya ketika proksi
+	 * jurusan tidak dapat dimuat di luar sesi Hibernate. Pemanggil memperlakukan {@code null} sebagai
+	 * temuan bermakna, yaitu &quot;rentang nilai huruf tidak ditemukan&quot;, dan menampilkannya
+	 * sebagai anomali tersendiri.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang konteksnya dipakai untuk memilih aturan.
+	 * @param total             nilai akhir yang hendak dipetakan.
+	 * @return aturan huruf yang cocok, atau {@code null} bila tidak ada yang mencakup total tersebut
+	 *         pada kombinasi konteks ini.
+	 * @see #ambilAturanNilaiHurufBerikut(Detailperkuliahan, double)
+	 */
 	private NilaiHuruf ambilAturanNilaiHuruf(Detailperkuliahan detailperkuliahan, double total) {
 		try {
 			Matakuliah matakuliah = detailperkuliahan.getPerkuliahan() == null ? detailperkuliahan.getMatakuliahKonversi()
@@ -5745,6 +5784,36 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Mencari aturan {@link NilaiHuruf} <b>satu tingkat di atas</b> total nilai sekarang, yaitu huruf
+	 * terdekat yang batas bawahnya masih di atas {@code total}. Hasilnya dipakai analisis untuk
+	 * menjawab pertanyaan yang paling sering diajukan mahasiswa: berapa poin lagi yang dibutuhkan
+	 * untuk naik satu huruf.
+	 *
+	 * <h3>Mengapa tidak cukup memindai daftar</h3>
+	 * <p>{@code ConstantValues.nilaiHurufs} memuat aturan huruf dari <b>seluruh</b> prodi, fakultas,
+	 * dan tahun akademik yang ada di sistem. Memilih begitu saja baris dengan {@code mulai} terkecil di
+	 * atas total akan menghasilkan huruf milik prodi lain. Karena itu setiap kandidat harus
+	 * <b>diverifikasi ulang</b>: untuk setiap baris yang batas bawahnya di atas total, metode memanggil
+	 * {@link #ambilAturanNilaiHuruf(Detailperkuliahan, double)} pada nilai batas bawah itu, lalu hanya
+	 * menerima kandidat bila aturan yang benar-benar berlaku pada nilai tersebut memang menghasilkan
+	 * huruf yang sama. Langkah verifikasi ini menyaring aturan yang tidak berlaku bagi mahasiswa
+	 * bersangkutan, dengan biaya satu pemanggilan resolusi penuh per kandidat.</p>
+	 *
+	 * <p>Di antara kandidat yang lolos, dipilih yang batas bawahnya <b>paling rendah</b> &mdash; yakni
+	 * huruf berikutnya yang paling mudah dijangkau, bukan huruf tertinggi. Baris dengan {@code mulai}
+	 * atau {@code nilaiHuruf} bernilai {@code null} dilewati sejak awal.</p>
+	 *
+	 * <p>Seluruh penelusuran dibungkus penangkap galat; kegagalan menyisakan kandidat seadanya
+	 * ({@code null} bila belum ada yang lolos) dan analisis cukup melewatkan butir &quot;jalur tercepat
+	 * naik huruf&quot;. Metode mengembalikan {@code null} secara wajar ketika mahasiswa sudah berada
+	 * pada huruf tertinggi.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang konteksnya dipakai untuk memverifikasi kandidat.
+	 * @param total             nilai akhir sekarang; kandidat harus berbatas bawah di atas angka ini.
+	 * @return aturan huruf berikutnya yang benar-benar berlaku, atau {@code null} bila tidak ada.
+	 * @see #ambilAturanNilaiHuruf(Detailperkuliahan, double)
+	 */
 	private NilaiHuruf ambilAturanNilaiHurufBerikut(Detailperkuliahan detailperkuliahan, double total) {
 		NilaiHuruf kandidat = null;
 		try {
@@ -5768,6 +5837,35 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return kandidat;
 	}
 
+	/**
+	 * Menjumlahkan <b>bobot efektif</b> seluruh komponen penilaian bagi seorang mahasiswa, yakni
+	 * penyebut yang benar-benar dipakai untuk menghitung rata-rata tertimbang nilai akhirnya.
+	 *
+	 * <p>Angka ini bisa berbeda dari 100% karena dua sebab yang perlu dibedakan. Pertama, bobot yang
+	 * didefinisikan admin memang belum berjumlah 100% &mdash; kesalahan konfigurasi yang oleh Analisis
+	 * Pintar dilaporkan sebagai peringatan. Kedua, aturan
+	 * {@code getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir()} sedang aktif dan mengeluarkan
+	 * komponen bernilai nol dari penyebut. Sebab kedua bersifat <b>per mahasiswa</b>: dua mahasiswa
+	 * pada kelas yang sama dapat memiliki penyebut berbeda tergantung komponen mana yang masih kosong.
+	 * Karena itulah metode ini menerima {@code detailperkuliahan} dan bukan sekadar bekerja atas
+	 * {@link #formatNilais}.</p>
+	 *
+	 * <p>Komponen berbobot {@code null} atau di bawah 0,01 selalu dilewati &mdash; komponen tanpa bobot
+	 * tidak pernah membentuk nilai akhir. Pembacaan nilai mengikuti {@code tampilSementara} agar
+	 * penyebut yang dihitung sepadan dengan angka yang sedang ditampilkan; menghitung penyebut dari
+	 * nilai final sementara pembilangnya dari nilai sementara akan menghasilkan kontribusi yang keliru.
+	 * Setiap nilai dilewatkan {@link #nilaiAman(Double)} sehingga {@code null} dan bilangan tidak valid
+	 * diperlakukan sebagai nol.</p>
+	 *
+	 * <p>Mengembalikan {@code 0.0} bila {@link #formatNilais} masih {@code null}. Pemanggil wajib
+	 * menjaga pembagian terhadap hasil ini; keduanya memang sudah melakukannya lewat syarat
+	 * {@code totalBobot > 0.0}.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang bobot efektifnya dihitung.
+	 * @param tampilSementara   {@code true} untuk membaca nilai sementara, {@code false} untuk final.
+	 * @return jumlah bobot dalam persen; {@code 0.0} bila tidak ada komponen yang memenuhi syarat.
+	 * @see #buatHtmlKomponenNilai(Detailperkuliahan, boolean)
+	 */
 	private double hitungTotalBobotEfektif(Detailperkuliahan detailperkuliahan, boolean tampilSementara) {
 		double totalBobot = 0.0;
 		if (formatNilais == null) {
@@ -5788,6 +5886,32 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return totalBobot;
 	}
 
+	/**
+	 * Menentukan komponen penilaian dengan <b>bobot terbesar</b> yang masih ikut membentuk nilai akhir
+	 * seorang mahasiswa. Analisis Pintar memakainya untuk menyarankan &quot;jalur tercepat&quot; menaikkan
+	 * huruf: menaikkan nilai pada komponen berbobot terbesar memberi pertambahan total paling banyak
+	 * per poin usaha.
+	 *
+	 * <p>Penyaringannya sengaja dibuat sepadan dengan {@link #hitungTotalBobotEfektif} agar saran yang
+	 * diberikan konsisten dengan penyebut yang dipakai menghitung kontribusi. Komponen dilewati bila
+	 * berbobot {@code null} atau di bawah 0,01, dan juga bila aturan &quot;nilai 0 tidak masuk
+	 * pembagi&quot; sedang aktif sementara nilainya masih nol. Pengecualian terakhir itu penting:
+	 * menyarankan mahasiswa mengejar komponen yang justru sedang dikeluarkan dari penyebut akan
+	 * menyesatkan, sebab menaikkannya dari nol malah mengubah penyebut dan tidak berdampak sesederhana
+	 * yang diperkirakan.</p>
+	 *
+	 * <p>Pemilihan memakai penanda sentinel {@code bobotTerbesar} bernilai &minus;1 sehingga komponen
+	 * pertama yang lolos selalu terpilih. Bila beberapa komponen berbobot sama besar, yang <b>pertama
+	 * ditemui</b> dalam urutan {@link #formatNilais} yang menang, karena perbandingannya memakai
+	 * &quot;lebih besar dari&quot; dan bukan &quot;lebih besar atau sama dengan&quot;. Mengembalikan
+	 * {@code null} bila {@link #formatNilais} masih {@code null} atau tidak ada komponen yang lolos
+	 * penyaringan; pemanggil sudah menjaganya dan cukup melewatkan butir saran.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang komponennya dinilai.
+	 * @param tampilSementara   {@code true} untuk membaca nilai sementara, {@code false} untuk final.
+	 * @return komponen berbobot terbesar yang masih dihitung, atau {@code null} bila tidak ada.
+	 * @see #buatHtmlAnalisisPintar(Detailperkuliahan, double, String, String, NilaiHuruf, NilaiHuruf, boolean)
+	 */
 	private FormatNilai ambilFormatNilaiBobotTerbesar(Detailperkuliahan detailperkuliahan, boolean tampilSementara) {
 		FormatNilai kandidat = null;
 		double bobotTerbesar = -1.0;
@@ -5812,6 +5936,30 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return kandidat;
 	}
 
+	/**
+	 * Menormalkan sebuah {@link Double} menjadi {@code double} primitif yang <b>selalu layak
+	 * dihitung</b>, memetakan {@code null}, {@code NaN}, dan tak-hingga menjadi {@code 0.0}.
+	 *
+	 * <p>Ketiga keadaan itu benar-benar muncul di jalur penilaian, masing-masing dari sumber berbeda:
+	 * {@code null} dari kolom nilai yang belum pernah diisi, {@code NaN} dari pembagian nol dibagi nol
+	 * pada perhitungan rata-rata kelas kosong, dan tak-hingga dari pembagian dengan bobot bernilai nol.
+	 * Tanpa penormalan ini, satu nilai buruk akan menjalar: {@code NaN} yang ikut dijumlahkan membuat
+	 * seluruh rata-rata menjadi {@code NaN}, dan tercetak sebagai teks yang tidak dapat dipahami di
+	 * tengah tabel analisis.</p>
+	 *
+	 * <p>Metode ini murni, tanpa efek samping, dan dipakai di hampir setiap titik pembacaan nilai pada
+	 * kedua jendela analisis &mdash; termasuk saat membaca bobot {@code getPersen()}, bukan hanya nilai
+	 * mahasiswa.</p>
+	 *
+	 * <p><b>Perhatikan konsekuensinya.</b> Memetakan &quot;tidak ada nilai&quot; menjadi angka nol
+	 * membuat komponen yang belum diisi tidak dapat dibedakan dari komponen yang memang bernilai nol.
+	 * Untuk keperluan analisis ini perbedaan tersebut memang tidak penting, tetapi jangan memakai ulang
+	 * metode ini pada jalur penyimpanan, tempat perbedaan itu justru menentukan &mdash; aturan
+	 * &quot;nilai 0 tidak masuk pembagi&quot; memperlakukan keduanya secara berbeda.</p>
+	 *
+	 * @param nilai angka yang hendak dinormalkan; boleh {@code null}.
+	 * @return angka yang sama, atau {@code 0.0} bila masukan {@code null} atau bukan bilangan berhingga.
+	 */
 	private double nilaiAman(Double nilai) {
 		if (nilai == null || nilai.isNaN() || nilai.isInfinite()) {
 			return 0.0;
@@ -5819,6 +5967,37 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return nilai.doubleValue();
 	}
 
+	/**
+	 * Melarikan karakter khusus HTML pada sebuah teks sebelum ia ditempelkan ke dokumen yang dirangkai
+	 * kedua jendela analisis. Inilah <b>penjagaan tunggal</b> yang mencegah data berujung menjadi
+	 * markah aktif di dalam komponen {@link Html} milik ZK.
+	 *
+	 * <p>Empat karakter dipetakan: {@code &} menjadi {@code &amp;amp;}, {@code <} menjadi
+	 * {@code &amp;lt;}, {@code >} menjadi {@code &amp;gt;}, dan tanda kutip ganda menjadi
+	 * {@code &amp;quot;}. <b>Urutannya tidak boleh diubah</b>: ampersand wajib dilarikan lebih dulu,
+	 * sebab bila dikerjakan belakangan ia akan melarikan ulang ampersand milik entitas yang baru saja
+	 * dibuat dan menghasilkan {@code &amp;amp;lt;} alih-alih {@code &amp;lt;}.</p>
+	 *
+	 * <p>Metode ini wajib dipakai untuk setiap teks yang berasal dari basis data &mdash; nama
+	 * mahasiswa, NIM, nama komponen penilaian, huruf, dan seluruh teks alasan &mdash; karena data itu
+	 * dapat memuat karakter markah, baik karena kesalahan pemasukan maupun dengan sengaja. Nama
+	 * mahasiswa yang mengandung tanda kurang-dari, misalnya, akan merusak struktur tabel analisis bila
+	 * ditempelkan mentah. Literal yang ditulis langsung di dalam kode tidak memerlukannya, tetapi
+	 * melarikannya tetap dilakukan agar pola pemakaiannya seragam dan tidak perlu dipikirkan ulang
+	 * setiap kali.</p>
+	 *
+	 * <p>Tanda kutip <b>tunggal</b> sengaja tidak dilarikan. Itu aman pada pemakaian sekarang karena
+	 * seluruh atribut pada HTML yang dirangkai kelas ini &mdash; yang memang memakai kutip tunggal
+	 * untuk {@code style} &mdash; berisi literal tetap, dan tidak ada satu pun teks hasil pelarian ini
+	 * yang ditempatkan di dalam atribut. Bila kelak sebuah nilai data disisipkan ke dalam atribut,
+	 * pelarian kutip tunggal harus ditambahkan lebih dulu.</p>
+	 *
+	 * <p>Masukan {@code null} menghasilkan string kosong, sehingga pemanggil dapat merangkainya tanpa
+	 * pemeriksaan tambahan. Metode ini murni dan tanpa efek samping.</p>
+	 *
+	 * @param teks teks mentah yang mungkin memuat karakter markah; boleh {@code null}.
+	 * @return teks yang aman ditempelkan ke badan dokumen HTML; tidak pernah {@code null}.
+	 */
 	private String teksAmanHtml(String teks) {
 		if (teks == null) {
 			return "";
