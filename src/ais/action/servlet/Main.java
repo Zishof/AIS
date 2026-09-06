@@ -780,6 +780,25 @@ public class Main extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah permintaan ini seharusnya dialihkan ke shell mobile.
+	 *
+	 * <p><b>KODE MATI — tidak ada pemanggil.</b> Method ini tidak dirujuk dari mana pun di
+	 * seluruh source maupun JSP; {@link #processRequest} langsung menjalankan
+	 * {@link #forwardToPage} yang tidak pernah memeriksa perangkat. Peralihan mobile kini
+	 * ditangani jalur {@code /mobile} beserta {@code MobileAction}. Method ini beserta tiga
+	 * pembantunya — {@link #isDesktopForced}, {@link #isLegacyOrExplicitVersionRequest}, dan
+	 * {@link #isMobileRequest} — dibiarkan karena masih menyimpan heuristik perangkat yang sudah
+	 * teruji.</p>
+	 *
+	 * <p><b>Logika bila dihidupkan kembali.</b> {@code mobile=true} memaksa {@code true} tanpa
+	 * syarat lain. Selain itu, pemaksaan desktop atau permintaan versi eksplisit membatalkan
+	 * peralihan; jalur yang sudah memuat {@code /mobile} juga dibiarkan agar tidak terjadi
+	 * pengalihan berulang. Sisanya diserahkan ke {@link #isMobileRequest}.</p>
+	 *
+	 * @param request permintaan servlet
+	 * @return {@code true} bila permintaan seharusnya dialihkan ke shell mobile
+	 */
 	private boolean shouldRedirectToMobile(HttpServletRequest request) {
 		if (isParameterAktif(request, "mobile")) {
 			return true;
@@ -794,11 +813,45 @@ public class Main extends HttpServlet {
 		return isMobileRequest(request);
 	}
 
+	/**
+	 * Menyatakan apakah permintaan meminta tampilan desktop secara eksplisit.
+	 *
+	 * <p>Empat nama parameter diterima sebagai sinonim: {@code desktop}, {@code forceDesktop},
+	 * {@code full}, dan {@code nonmobile}. Semuanya dinilai {@link #isParameterAktif}, sehingga
+	 * parameter tanpa nilai sekalipun sudah dianggap aktif.</p>
+	 *
+	 * <p><b>Hanya dipanggil dari {@link #shouldRedirectToMobile}</b>, yang saat ini merupakan
+	 * kode mati; lihat catatan di sana.</p>
+	 *
+	 * @param request permintaan servlet
+	 * @return {@code true} bila salah satu penanda desktop aktif
+	 */
 	private boolean isDesktopForced(HttpServletRequest request) {
 		return isParameterAktif(request, "desktop") || isParameterAktif(request, "forceDesktop")
 				|| isParameterAktif(request, "full") || isParameterAktif(request, "nonmobile");
 	}
 
+	/**
+	 * Menyatakan apakah permintaan sudah menyebut versi tampilan atau rute khusus secara
+	 * eksplisit, sehingga tidak boleh dialihkan ke mobile.
+	 *
+	 * <p>Yang dihitung: dua sinonim versi lama ({@code versilama}, {@code versi_lama}), lima
+	 * sinonim ZK baru ({@code zkbaru}, {@code main2}, {@code index2}, {@code versizk},
+	 * {@code versi_zk}), lima sinonim JSP baru ({@code jspbaru}, {@code versibaru},
+	 * {@code versi_baru}, {@code htmlbaru}, {@code versihtml}), serta <b>keberadaan</b> parameter
+	 * {@code hak_akses} dan {@code p}.</p>
+	 *
+	 * <p>Dua yang terakhir diuji dengan {@code getParameter(...) != null}, bukan
+	 * {@link #isParameterAktif} — jadi {@code p} dengan nilai apa pun, termasuk nilai yang tidak
+	 * dikenal, sudah membatalkan peralihan. Itu memang yang diinginkan: rute {@code p} menunjuk
+	 * halaman tertentu yang harus tetap terbuka apa adanya.</p>
+	 *
+	 * <p><b>Hanya dipanggil dari {@link #shouldRedirectToMobile}</b>, yang saat ini merupakan
+	 * kode mati; lihat catatan di sana.</p>
+	 *
+	 * @param request permintaan servlet
+	 * @return {@code true} bila versi atau rute sudah disebut eksplisit
+	 */
 	private boolean isLegacyOrExplicitVersionRequest(HttpServletRequest request) {
 		return isParameterAktif(request, "versilama") || isParameterAktif(request, "versi_lama")
 				|| isParameterAktif(request, "zkbaru") || isParameterAktif(request, "main2")
@@ -809,6 +862,34 @@ public class Main extends HttpServlet {
 				|| request.getParameter("hak_akses") != null || request.getParameter("p") != null;
 	}
 
+	/**
+	 * Menebak apakah permintaan berasal dari ponsel atau tablet kecil, berdasarkan header.
+	 *
+	 * <p>Urutan pemeriksaan, berhenti pada yang pertama cocok:</p>
+	 * <ol>
+	 *   <li><i>Client hint</i> {@code Sec-CH-UA-Mobile} memuat {@code ?1} — sinyal paling
+	 *       modern dan paling murah.</li>
+	 *   <li>Header {@code X-WAP-Profile} atau {@code Profile} ada — peninggalan perangkat WAP;
+	 *       keberadaannya saja sudah cukup, isinya tidak dibaca.</li>
+	 *   <li>{@code User-Agent} memuat salah satu dari sembilan penanda: {@code android},
+	 *       {@code iphone}, {@code ipad}, {@code ipod}, {@code blackberry}, {@code iemobile},
+	 *       {@code opera mini}, {@code mobile}, {@code windows phone}.</li>
+	 * </ol>
+	 *
+	 * <p>{@code User-Agent} yang tidak ada dinilai bukan mobile, sehingga klien yang tidak
+	 * mengirim header ini memperoleh tampilan desktop.</p>
+	 *
+	 * <p><b>Seluruh masukannya berupa header yang dikendalikan klien</b>, jadi hasilnya adalah
+	 * tebakan kenyamanan dan tidak boleh dipakai sebagai dasar keputusan akses. Penanda
+	 * {@code ipad} juga membuat tablet besar ikut dinilai mobile — perilaku yang disengaja pada
+	 * rancangan aslinya.</p>
+	 *
+	 * <p><b>Hanya dipanggil dari {@link #shouldRedirectToMobile}</b>, yang saat ini merupakan
+	 * kode mati; lihat catatan di sana.</p>
+	 *
+	 * @param request permintaan servlet
+	 * @return {@code true} bila header menunjukkan perangkat mobile
+	 */
 	private boolean isMobileRequest(HttpServletRequest request) {
 		String mobileHint = request.getHeader("Sec-CH-UA-Mobile");
 		if (mobileHint != null && mobileHint.toLowerCase().indexOf("?1") >= 0) {
@@ -827,6 +908,29 @@ public class Main extends HttpServlet {
 				|| ua.indexOf("opera mini") >= 0 || ua.indexOf("mobile") >= 0 || ua.indexOf("windows phone") >= 0;
 	}
 
+	/**
+	 * Menilai sebuah penanda boolean yang datang sebagai parameter permintaan — atau, bila
+	 * parameter tidak ada, sebagai atribut permintaan.
+	 *
+	 * <p>Pembacaan atribut sebagai cadangan membuat halaman yang meneruskan ke {@code /main}
+	 * dapat memasang penanda lewat {@code request.setAttribute(...)} tanpa harus menyusun ulang
+	 * string kueri.</p>
+	 *
+	 * <p><b>Nilai yang dianggap aktif</b> setelah di-{@code trim}: string kosong (yaitu parameter
+	 * yang hadir tanpa nilai, seperti {@code ?jspbaru}), {@code true}, {@code 1}, {@code ya},
+	 * {@code y}, dan {@code aktif} — empat yang terakhir mengabaikan besar-kecil huruf. Nilai
+	 * lain, termasuk {@code false} dan {@code 0}, dinilai tidak aktif.</p>
+	 *
+	 * <p>Perhatikan bahwa string kosong bernilai aktif: {@code ?desktop=} sama artinya dengan
+	 * {@code ?desktop=true}. Ini disengaja agar tautan pendek tetap bekerja, tetapi berarti
+	 * penanda tidak dapat dimatikan dengan mengosongkan nilainya — parameternya harus dihapus.</p>
+	 *
+	 * <p>Seluruh exception dijawab {@code false}.</p>
+	 *
+	 * @param request permintaan servlet; boleh {@code null}
+	 * @param name    nama parameter atau atribut; boleh {@code null}
+	 * @return {@code true} bila penanda dinilai aktif
+	 */
 	private boolean isParameterAktif(HttpServletRequest request, String name) {
 		try {
 			String value = request == null || name == null ? null : request.getParameter(name);
@@ -845,6 +949,27 @@ public class Main extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membaca sebuah kunci konfigurasi dan menilai apakah nilainya {@code "aktif"}.
+	 *
+	 * <p>Perbandingan mengabaikan besar-kecil huruf dan meng-{@code trim} nilainya lebih dulu;
+	 * nilai apa pun selain {@code aktif} — termasuk {@code null} — dinilai tidak aktif.</p>
+	 *
+	 * <p><b>Efek samping yang perlu diketahui.</b> {@code Common.getKonfigurasi(key, default)}
+	 * menuliskan nilai bawaan ke basis data bila kunci itu belum ada. Jadi memanggil method ini
+	 * bukan sekadar pembacaan: baris konfigurasi akan tercipta sendiri setelah pemanggilan
+	 * pertama. Mengubah nilai {@code defaultValue} di source karena itu tidak akan berpengaruh
+	 * pada instalasi yang sudah pernah menjalankan kode ini — nilainya sudah tersimpan.</p>
+	 *
+	 * <p>Bila pembacaan konfigurasi gagal sama sekali, hasilnya diturunkan dari
+	 * {@code defaultValue} yang diberikan pemanggil, bukan dari {@code false} — sehingga
+	 * kegagalan basis data tidak diam-diam mematikan fitur yang bawaannya menyala.</p>
+	 *
+	 * @param key          kunci konfigurasi
+	 * @param defaultValue nilai bawaan yang ditulis bila kunci belum ada, sekaligus jawaban
+	 *                     cadangan saat pembacaan gagal
+	 * @return {@code true} bila konfigurasi bernilai {@code "aktif"}
+	 */
 	private boolean isKonfigurasiAktif(String key, String defaultValue) {
 		try {
 			Konfigurasi konfigurasi = Common.getKonfigurasi(key, defaultValue);
@@ -855,6 +980,49 @@ public class Main extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengambil pengguna yang sedang masuk dari sesi HTTP, dan — bila sesi belum terisi —
+	 * membangunnya kembali dari identitas Spring Security.
+	 *
+	 * <p>Ini satu-satunya anggota publik kelas ini dan dipakai lintas servlet:
+	 * {@code Baru}, {@code New}, {@code Login}, {@code Anjungan}, {@code MobileAction},
+	 * {@code TampilanELearningActionMobile}, dan {@code PortalLoginApi} semuanya memanggilnya.
+	 * Karena itu perubahan perilakunya berdampak jauh melampaui berkas ini.</p>
+	 *
+	 * <p><b>Urutan pencarian.</b></p>
+	 * <ol>
+	 *   <li>Sesi yang sudah ada ({@code getSession(false)} — tidak membuat sesi baru) diperiksa
+	 *       untuk atribut {@code mytbmuser}; bila isinya benar-benar bertipe {@link Tbmuser}, itu
+	 *       yang dikembalikan.</li>
+	 *   <li>Bila tidak, atribut {@code login} diperiksa; bila bertipe {@link LogLogin}, pengguna
+	 *       diambil dari catatan login itu.</li>
+	 *   <li>Bila sesi belum ada atau atribut {@code login} kosong, identitas diambil dari
+	 *       {@code request.getUserPrincipal()}. Hanya principal bertipe
+	 *       {@link Authentication} dengan {@link UserDetails} di dalamnya yang diterima;
+	 *       {@code username} darinya diserahkan ke
+	 *       {@code SecurityFilter.getCurrentFromUsername(...)}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Sumber identitas selalu container, bukan permintaan.</b> Tidak ada parameter, header,
+	 * atau cookie aplikasi yang dibaca di sini; identitas hanya dapat berasal dari sesi yang
+	 * sudah diautentikasi atau dari principal yang dipasang Spring Security. Pemeriksaan
+	 * {@code instanceof} yang berlapis-lapis itu penting — atribut sesi bertipe {@code Object},
+	 * dan tanpa pemeriksaan tipe, nilai bertipe lain akan melempar {@code ClassCastException}
+	 * alih-alih dianggap "tidak masuk".</p>
+	 *
+	 * <p>Parameter {@code createSession} tidak dipakai di jalur sesi; ia hanya diteruskan ke
+	 * {@code SecurityFilter.getCurrentFromUsername}, yang memutuskan apakah sesi aplikasi baru
+	 * boleh dibentuk. {@link #forwardToPage} memanggilnya dengan {@code false} untuk halaman
+	 * calon anggota, sedangkan {@link #resolveMainPage} memakai {@code true}.</p>
+	 *
+	 * <p>Seluruh exception ditangkap dan dicatat, lalu {@code null} dikembalikan — pemanggil
+	 * memperlakukan {@code null} sebagai "belum masuk", sehingga kegagalan bersifat fail-closed.</p>
+	 *
+	 * @param request       permintaan servlet
+	 * @param createSession {@code true} bila sesi aplikasi boleh dibentuk saat identitas
+	 *                      dipulihkan dari Spring Security
+	 * @return pengguna yang sedang masuk, atau {@code null} bila tidak ada
+	 */
 	public static Tbmuser checkAndSetUserSession(HttpServletRequest request, boolean createSession) {
 		try {
 			HttpSession session = request.getSession(false);
