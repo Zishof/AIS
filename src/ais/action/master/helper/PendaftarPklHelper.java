@@ -145,8 +145,8 @@ import ais.ui.util.MyWindow;
  * <p>
  * Kelas ini adalah salinan {@link PendaftarKknHelper} untuk modul PKL. Keduanya sejajar baris demi
  * baris pada hampir seluruh isinya. Sebelumnya terdapat tiga perbedaan nyata yang bukan sekadar
- * penggantian nama entitas — ketiganya membuat sisi PKL lebih lemah; dua yang pertama sudah
- * ditambal, satu sisanya masih ada:
+ * penggantian nama entitas — ketiganya membuat sisi PKL lebih lemah. Ketiganya kini sudah
+ * ditambal:
  * <ul>
  *   <li><b>(Sudah ditambal.)</b> {@link PendaftarPklRenderer} sebelumnya membuat label kolom
  *   "Memenuhi Syarat" tetapi tidak pernah mengisinya, sehingga kolom tersebut selalu kosong di
@@ -155,8 +155,16 @@ import ais.ui.util.MyWindow;
  *   memanggil {@code uniqueResult()} tanpa {@code addOrder(desc(id))} + {@code setMaxResults(1)},
  *   sehingga data rangkap memicu pengecualian. Kini pembatas yang sama dipasang, sejajar dengan
  *   kembarannya;</li>
- *   <li>tombol "Rekap" menunjuk nama laporan {@code penerima-pkl} yang tidak ada di direktori
- *   laporan, sedangkan kembarannya menunjuk {@code penerima_kkn} yang tersedia.</li>
+ *   <li><b>(Sudah ditambal.)</b> tombol "Rekap" sebelumnya menunjuk nama laporan
+ *   {@code penerima-pkl} (dengan tanda hubung) yang tidak ada di direktori laporan manapun. Kini
+ *   menunjuk {@code penerima_pkl} (dengan garis bawah, mengikuti konvensi kembarannya
+ *   {@code penerima_kkn}) — berkas {@code webapp/report/penerima_pkl.jrxml} baru dibuat dengan
+ *   mem-port {@code penerima_kkn.jrxml} ke tabel {@code mahasiswa_daftar_pkl}/{@code pkl} (kolom
+ *   dan struktur parameter {@code id_pkl} identik, hanya nama tabel dan judul yang berbeda);
+ *   laporan {@code penerima_kelompok_pkl} yang sudah ada <b>tidak</b> bisa dipakai sebagai
+ *   pengganti karena parameternya (juga bernama {@code id_pkl}) sebenarnya adalah ID
+ *   {@code kelompok_pkl}, bukan ID {@link Pkl}, dan query-nya mensyaratkan mahasiswa sudah dibagi
+ *   ke kelompok — data yang belum ada pada tahap seleksi ini.</li>
  * </ul>
  * <p>
  * Perbedaan lain bersifat kosmetik dan tidak mengubah perilaku: kelas ini memakai
@@ -938,11 +946,12 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 	 * <p>
 	 * <b>Tombol cetak dan berkas laporannya.</b> "Pendaftar" mencetak {@code pendaftar_pkl} dan
 	 * "Penerima" mencetak {@code pendaftar_pkl_diterima} — keduanya tersedia di direktori
-	 * laporan. Tombol <b>"Rekap" menunjuk nama laporan {@code penerima-pkl} (dengan tanda hubung)
-	 * yang tidak ada</b> di direktori laporan; kembarannya di modul KKN menunjuk
-	 * {@code penerima_kkn} (dengan garis bawah) yang tersedia. Akibatnya tombol "Rekap" pada layar
-	 * PKL selalu gagal saat laporan hendak dihasilkan, meskipun pemeriksaan "ada penerima" di
-	 * atasnya lolos.
+	 * laporan. Tombol <b>"Rekap" (sudah ditambal)</b> sebelumnya menunjuk nama laporan
+	 * {@code penerima-pkl} (dengan tanda hubung) yang tidak ada di direktori laporan manapun,
+	 * sehingga selalu gagal saat laporan hendak dihasilkan walaupun pemeriksaan "ada penerima" di
+	 * atasnya lolos. Kini menunjuk {@code penerima_pkl} (dengan garis bawah), berkas
+	 * {@code webapp/report/penerima_pkl.jrxml} baru yang di-port dari {@code penerima_kkn.jrxml}
+	 * kembarannya ke tabel {@code mahasiswa_daftar_pkl}/{@code pkl}.
 	 *
 	 * <p>
 	 * <b>"Hitung Skor"</b> menghitung ulang {@link MahasiswaDaftarPkl#setTotalSkor} untuk seluruh
@@ -1128,7 +1137,7 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 				}
 
 				parameters.put("id_pkl", pkl.getId());
-				Report.generatePDFReport(Report.PDF, parameters, "penerima-pkl", ais.ui.util.WaktuUtil.getDate());
+				Report.generatePDFReport(Report.PDF, parameters, "penerima_pkl", ais.ui.util.WaktuUtil.getDate());
 			}
 
 		});

@@ -62,6 +62,7 @@ import ais.action.master.kkn.KknUntukMahasiswaAction;
 import ais.action.report.Report;
 import ais.common.Common;
 import ais.common.CommonMedia;
+import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
 import ais.common.PesanFormalHelper;
 import ais.common.listener.DataLoader;
@@ -123,12 +124,18 @@ import ais.ui.util.MyWindow;
  *
  * <h3>Catatan otorisasi</h3>
  * <p>
- * Hak {@code APPROVE} dari menu diteruskan pemanggil sebagai parameter {@code approve} dan hanya
- * dipakai untuk menonaktifkan checkbox "Terima" pada grid. Tiga jalur lain yang juga mengubah data
- * penerimaan tidak memeriksanya sama sekali: tombol "Upload" (impor Excel menulis kolom
- * {@code terima}), tombol hapus per baris, dan tombol "Hitung Skor" (menulis {@code totalSkor}).
- * Kelas ini juga tidak melakukan pemeriksaan cakupan satuan kerja/tenant atas {@link #kkn} yang
- * diterimanya — lihat catatan pada field {@link #kkn}.
+ * Hak {@code APPROVE} dari menu diteruskan pemanggil sebagai parameter {@code approve} dan dipakai
+ * untuk menonaktifkan checkbox "Terima" pada grid. Tiga jalur lain yang juga mengubah data
+ * penerimaan — tombol "Upload" (impor Excel menulis kolom {@code terima}), tombol hapus per baris,
+ * dan tombol "Hitung Skor" (menulis {@code totalSkor}) — tidak bergantung pada field {@code approve}
+ * ini; masing-masing memeriksa ulang haknya sendiri secara independen tepat sebelum menulis data,
+ * langsung lewat {@code CommonPrivilages.checkPrevilages(...)} di dalam listener-nya: "Upload"
+ * menuntut {@code APPROVE} (menulis {@code terima} setara keputusan penerimaan), tombol hapus
+ * menuntut {@code DELETE}, dan "Hitung Skor" menuntut {@code UPDATE}. Karena pemeriksaan ini dibaca
+ * langsung dari hak pengguna saat listener dijalankan (bukan dari status tampil/nonaktif komponen
+ * UI), event ZK yang terlanjur dipicu ke komponen yang seharusnya tersembunyi/nonaktif tetap
+ * ditolak. Kelas ini juga tidak melakukan pemeriksaan cakupan satuan kerja/tenant atas {@link #kkn}
+ * yang diterimanya — lihat catatan pada field {@link #kkn}.
  *
  * <h3>Hubungan dengan kembarannya di modul PKL</h3>
  * <p>
@@ -206,10 +213,14 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 	 * Diisi pemanggil dari hak {@code CommonPrivilages.APPROVE}.
 	 *
 	 * <p>
-	 * <b>Cakupan terbatas:</b> flag ini hanya menonaktifkan checkbox "Terima" pada
-	 * {@link PendaftarKknRenderer}. Tombol "Upload" (impor Excel) yang dipasang di
-	 * {@link #displayPrasyaratKkn} tetap tampil dan tetap menulis kolom {@code terima}
-	 * tanpa membaca flag ini, demikian pula tombol hapus per baris.
+	 * <b>Cakupan:</b> flag ini hanya menonaktifkan checkbox "Terima" pada
+	 * {@link PendaftarKknRenderer}; nilainya dibaca sekali di {@link #displayPrasyaratKkn} sehingga
+	 * hanya layak dipakai sebagai kendali tampilan (UI-state), bukan sebagai gerbang keamanan.
+	 * Tombol "Upload" (impor Excel), tombol hapus per baris, dan tombol "Hitung Skor" TIDAK membaca
+	 * field ini — masing-masing memeriksa ulang haknya sendiri secara independen langsung lewat
+	 * {@code CommonPrivilages.checkPrevilages(...)} di dalam listener-nya ({@code APPROVE},
+	 * {@code DELETE}, dan {@code UPDATE}) tepat sebelum menulis data, dan menolak dengan pesan
+	 * {@link MyMessageboxConfig} bila gagal.
 	 * </p>
 	 */
 	private boolean approve;
@@ -256,9 +267,11 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 		 *   ({@link Common#refreshUpdate}) tanpa dialog konfirmasi maupun jejak audit; ia hanya
 		 *   dinonaktifkan (bukan disembunyikan) bila {@link PendaftarKknHelper#approve} bernilai
 		 *   {@code false}.</li>
-		 *   <li><b>Tombol hapus</b> menghapus baris pendaftaran secara permanen tanpa memeriksa
-		 *   {@link PendaftarKknHelper#approve}; kegagalan karena relasi ditangani dengan pesan
-		 *   kesalahan, bukan pencegahan.</li>
+		 *   <li><b>Tombol hapus</b> menghapus baris pendaftaran secara permanen; sebelum menghapus,
+		 *   listener-nya memeriksa ulang hak {@code CommonPrivilages.DELETE} pengguna saat ini
+		 *   (independen dari {@link PendaftarKknHelper#approve}) dan membatalkan dengan pesan
+		 *   peringatan bila gagal. Kegagalan karena relasi tetap ditangani dengan pesan kesalahan
+		 *   terpisah.</li>
 		 * </ul>
 		 *
 		 * @param row  baris ZK tujuan; sel ditambahkan berurutan sebagai anak {@code row}
@@ -361,6 +374,15 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
+										// Gerbang diperiksa ulang di sini (server-side): tombol ini sebelumnya
+										// dipasang tanpa memeriksa hak sama sekali; event onClick dapat dipicu
+										// ke komponen ini di luar jalur render normal.
+										if (!CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE)) {
+											MyMessageboxConfig.show(
+													"Mohon maaf, Anda tidak memiliki hak untuk menghapus data pendaftaran ini.",
+													"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+											return;
+										}
 										try {
 
 											Common.refreshDelete(HibernateUtil.currentSession(), mahasiswaDaftarKkn);
@@ -925,7 +947,9 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 	 * setelah titik dua di-parse sebagai bilangan bulat, dan jawaban yang tidak berformat
 	 * demikian dihitung nol tanpa peringatan ke pengguna. Karena berbasis
 	 * {@link #initCriteria(boolean)}, tombol ini hanya menghitung ulang baris yang <i>sedang
-	 * lolos filter</i>, bukan seluruh pendaftar KKN ini.
+	 * lolos filter</i>, bukan seluruh pendaftar KKN ini. Listener {@code onClick}-nya memeriksa
+	 * ulang hak {@code CommonPrivilages.UPDATE} sebelum penghitungan dijalankan, independen dari
+	 * parameter {@code approve}.
 	 *
 	 * <p>
 	 * <b>"Upload" (impor Excel)</b> membaca kembali berkas berformat sama dengan hasil ekspor:
@@ -936,9 +960,10 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 	 *   <li>jalur ini melewati {@code KknUntukMahasiswaAction#daftar}, sehingga
 	 *   {@code memenuhiSyarat} tidak pernah diisi dan pemeriksaan kuota/persyaratan akademik
 	 *   tidak dijalankan;</li>
-	 *   <li>tombol ini dipasang tanpa memeriksa parameter {@code approve}, sehingga status
-	 *   penerimaan dapat ditulis lewat unggahan berkas walaupun checkbox "Terima" pada grid
-	 *   dinonaktifkan;</li>
+	 *   <li>listener {@code onUpload}-nya memeriksa ulang hak {@code CommonPrivilages.APPROVE}
+	 *   (menulis {@code terima} setara keputusan penerimaan) tepat sebelum berkas diproses, dan
+	 *   menolak dengan pesan peringatan bila gagal — pemeriksaan ini independen dari parameter
+	 *   {@code approve} maupun status tampil/nonaktif checkbox "Terima" pada grid;</li>
 	 *   <li>setiap baris di-commit satu per satu di thread terpisah — kegagalan di tengah berkas
 	 *   meninggalkan sebagian data sudah tersimpan.</li>
 	 * </ul>
@@ -1109,6 +1134,16 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
+				// Gerbang diperiksa di sini (server-side): tombol ini sebelumnya dipasang tanpa
+				// memeriksa hak sama sekali, sehingga siapa pun yang membuka layar ini dapat
+				// menimpa totalSkor seluruh baris yang lolos filter.
+				if (!CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE)) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, Anda tidak memiliki hak untuk menghitung ulang skor seleksi ini.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
 				Common.createDefaultTimer(new EventListener() {
 
 					@SuppressWarnings("unchecked")
@@ -1177,6 +1212,16 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 		upload.addEventListener("onUpload", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				// Gerbang diperiksa di sini (server-side), sebelum berkas apa pun disimpan/diproses:
+				// tombol ini sebelumnya dipasang tanpa memeriksa hak sama sekali, sehingga pengguna
+				// tanpa hak APPROVE (checkbox "Terima" tampak nonaktif baginya) tetap dapat menulis
+				// kolom terima secara massal lewat unggahan Excel.
+				if (!CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, Anda tidak memiliki hak untuk menetapkan status penerimaan lewat upload data.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
 				UploadEvent uploadEvent = (UploadEvent) event;
 				Media media = uploadEvent.getMedia();if(!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media))return;
 				if (media.getName().toLowerCase().endsWith("xlsx")) {

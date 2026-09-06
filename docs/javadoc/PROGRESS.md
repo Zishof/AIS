@@ -1,5 +1,71 @@
 # Progres Javadoc Menyeluruh
 
+## 🚨🚨 Batch 136 — 15 mega/file besar, 5 agent `opus`+umum paralel, 8 task baru (6 Sep 2026)
+
+Lanjutan mega-file `ais/action/master/helper/`. Batch dengan TERBANYAK
+task baru sejauh ini di klaster helper (8, mayoritas keamanan/integritas
+finansial NYATA).
+
+**`HasilUjianSiswaHelper.java`** (2187→2932 baris) — VERIFIKASI TUNTAS:
+TIDAK ADA mesin ujian terpisah untuk sekolah, memakai ULANG rantai 3
+lapis `Ujian→PertemuanPunyaUjian→HasilUjianMahasiswa` yang sama
+(polimorfik 4 kolom peserta saling eksklusif) — kembaran UI paralel
+`HasilUjianMahasiswaHelper`, bahkan pinjam langsung methodnya.
+
+**`TagihanUIBuilder.java`** (1832→2585 baris) — BUKAN penampil murni,
+merakit angka SENDIRI dan DITULIS DUA KALI (cabang bulanan vs
+reguler). **Task baru `task_4921b2eb`**: cabang reguler pakai tanggal
+HARI INI untuk hitung denda (bukan tanggal bayar sebenarnya seperti
+cabang bulanan) — tagihan yang SUDAH LUNAS TEPAT WAKTU tetap dendanya
+NAIK terus tiap hari dilihat; peredam `batalkanDenda` TIDAK PERNAH
+diisi otomatis saat bayar, cuma checkbox manual satu titik.
+
+**`KoreksiHasilUjian.java`**/**`DetailperkuliahanHelper.java`** —
+Envers TIDAK punya `RevisionEntity` kustom di manapun (grep menyeluruh)
+— jejak audit rekam APA+KAPAN tapi TIDAK SIAPA, koreksi nilai pasca-
+simpan tak bisa diatribusikan ke user manapun. Otorisasi cuma perluasan
+`task_ed9feded`. **`DetailperkuliahanHelper` DIKONFIRMASI DEFINITIF
+TERPISAH TOTAL** dari `DetailperkuliahanForPenilaianHelper` (yang satu
+keanggotaan kelas, yang lain mesin nilai — 0 overlap kode). **Task baru
+`task_cfa1fd71`**: asimetri penjaga massal-vs-per-baris di
+`DetailperkuliahanHelper` (3 gap, termasuk fail-open exception pada
+cek peran).
+
+**`RekapitulasiUjianHelper.java`**/**`FormulirKegiatanPesertaHelper.java`**/
+**`DetailwisudaHelper.java`** — **2 task baru**: `task_5b7fe1c8`
+(checkbox "Acc" TANPA GERBANG SAMA SEKALI — lebih parah dari pola
+UI-only yang biasa, umpan cetak sertifikat+promosi massal) dan
+`task_1abb778e` (kondisi TERBALIK di `cetakBukti()` menimpa nomor
+kursi yang sudah diisi manual/Excel, diam-diam, tiap kali cetak,
+melewati alur persetujuan resmi).
+
+**`PendaftarBeasiswaHelper.java`**/**`MatakuliahKurikulumDetailHelper.java`**/
+**`KelompokStatusKeluarMahasiswaDetailAction.java`**/**`DetailGrupSoalHelper.java`**
+— **3 task baru**: `task_bbb5c4d7` (163 file tulis ke `/tmp/` dalam
+webroot, nama tebak-mudah, tak pernah dihapus — KEMUNGKINAN tumpang
+tindih dengan `task_a1e32ff3` yang sudah ada [195 titik/158 file],
+PERLU rekonsiliasi sesi berikutnya), `task_67382dcc` (IDOR PARAH —
+NOL gerbang kepemilikan di seluruh rantai, siapa pun berakses menu
+bisa tulis nomor ijazah mahasiswa MANAPUN + cetak massal),
+`task_6114fb1b` (bug fungsional paging/pencarian, bukan keamanan).
+
+**`KonfigurasiKalenderAkademikHelper.java`**/**`KrsPaketHelper.java`**/
+**`VideoPertemuanHelper.java`**/**`PembayaranOnlineMahasiswa.java`** —
+`KonfigurasiKalenderAkademikHelper` DIKONFIRMASI TIDAK terpapar bug
+`getHari()`. 🚨 **Task baru PALING SEVERE batch ini, `task_79e53755`**:
+`PembayaranOnlineMahasiswa.doAfterCompose()` (entry point ZK LIVE)
+memuat mahasiswa dari PARAMETER URL MENTAH tanpa `doCheckSecurity()`
+SAMA SEKALI (halaman tidak terdaftar di allowlist `MUST_CHECKED`) —
+user manapun bisa LIHAT tagihan/riwayat pembayaran ORANG LAIN, DAN
+pakai tombol "Bayar Tunai/Manual" (nol gerbang role) untuk MENANDAI
+TAGIHAN ORANG LAIN LUNAS TANPA TRANSAKSI BANK NYATA — potensi
+kecurangan finansial nyata, bukan sekadar kebocoran info.
+
+**8 task baru batch ini** (severity tinggi): `task_79e53755`,
+`task_67382dcc`, `task_4921b2eb`, `task_5b7fe1c8`, `task_1abb778e`,
+`task_cfa1fd71`, `task_bbb5c4d7`, `task_6114fb1b`. Total akumulasi:
+**1975+ file** dari 7.401. Sisa `action/master/helper/`: ~283 file.
+
 ## 🚨 Batch 135 — 3 mega-file baru + 2 klaster, 5 agent paralel, 8 task baru (6 dari keamanan/integritas) (6 Sep 2026)
 
 30 file diproses di `ais/action/master/helper/`, termasuk 5 mega-file.
