@@ -4397,12 +4397,11 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		 * Menggambar satu baris komentar sebagai empat sel: isi komentar, penulis, tanggal, dan
 		 * toolbar aksi.
 		 *
-		 * <p>Isi komentar dirender melalui {@code MyHtml}, artinya <b>ditafsirkan sebagai HTML</b>,
-		 * bukan sebagai teks biasa. Itu memungkinkan komentar memuat penekanan dan pemformatan
-		 * sederhana, tetapi juga berarti kebersihan isinya bergantung sepenuhnya pada penyaringan di
-		 * sisi penulisan ({@code KomentarPerkuliahanHelper}), bukan di sini. Perbedaan sikap ini
-		 * mencolok bila dibandingkan dengan panel analisis pada kelas yang sama, yang melarikan
-		 * setiap teks melalui {@link #teksAmanHtml(String)} sebelum menempelkannya ke HTML.</p>
+		 * <p>Isi komentar dirender melalui {@code MyHtml}, artinya <b>ditafsirkan sebagai HTML</b>.
+		 * Sejak perbaikan XSS tersimpan, isinya dilewatkan {@link #teksAmanHtml(String)} lebih dulu
+		 * di sini juga (bukan hanya bergantung pada penyaringan di sisi penulisan
+		 * {@code KomentarPerkuliahanHelper}), sehingga karakter markah pada komentar mentah tidak
+		 * ditafsirkan sebagai tag HTML.</p>
 		 *
 		 * <p>Nama penulis dan tanggal ditampilkan sebagai label biasa; tanggal diformat dengan
 		 * {@code Common.dateFormat} yang bersifat per-utas. Tombol hapus dipasang di dalam sebuah
