@@ -25,12 +25,30 @@ import net.sourceforge.barbecue.BarcodeFactory;
 import net.sourceforge.barbecue.BarcodeImageHandler;
 
 /**
- * Servlet implementation class LaporanPesananItem
+ * Servlet pencetak laporan PDF gabungan untuk satu atau beberapa {@link PesananAnggota}
+ * (pesanan item perpustakaan oleh anggota) sekaligus, lengkap dengan barcode Code128 dari
+ * kode masing-masing pesanan. Berbeda dari {@link AmbilLaporanPerpustakaan} yang mencetak
+ * satu transaksi per panggilan, servlet ini menerima daftar id dipisah koma dan menggabungkan
+ * semuanya ke satu berkas PDF unduhan.
+ *
+ * <p><b>Keamanan:</b> endpoint ini tidak terdaftar eksplisit di
+ * {@code applicationContext-security.xml}, sehingga tunduk pada aturan tangkapan-semua
+ * {@code IS_AUTHENTICATED_ANONYMOUSLY} — dapat diakses tanpa login. Parameter {@code id}
+ * pada {@link #process} diterima sebagai daftar primary key mentah tanpa pengecekan
+ * kepemilikan/cabang, sehingga siapa pun yang mengetahui atau menebak id pesanan dapat
+ * mengunduh laporannya. Pola gerbang otentikasi yang hilang pada servlet {@code Ambil*}/
+ * {@code Laporan*} semacam ini sudah tercatat sebagai isu berulang di modul lain.</p>
+ *
+ * @see HttpServlet
  */
 public class LaporanPesananItem extends HttpServlet {
+	/** Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable} servlet ini. */
 	private static final long serialVersionUID = 1L;
 
 	/**
+	 * Konstruktor default tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}.
+	 * Tidak ada state khusus yang diinisialisasi di sini.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public LaporanPesananItem() {
@@ -39,6 +57,17 @@ public class LaporanPesananItem extends HttpServlet {
 	}
 
 	/**
+	 * Menangani GET dengan mendelegasikan ke {@link #process}; kegagalan apa pun ditelan dan
+	 * hanya ditampilkan ke pengguna bila konteks saat ini adalah administrator, lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param request  request HTTP masuk; parameter {@code id} (daftar id dipisah koma)
+	 *                 menentukan pesanan mana saja yang dicetak, lihat {@link #process}
+	 * @param response response HTTP keluar; diisi berkas PDF unduhan oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar keluar karena {@link #process} dibungkus
+	 *                          try/catch di sini; dipertahankan hanya karena tanda tangan
+	 *                          {@link HttpServlet#doGet}
+	 * @throws IOException      idem, ditelan oleh blok catch
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -52,6 +81,13 @@ public class LaporanPesananItem extends HttpServlet {
 	}
 
 	/**
+	 * Menangani POST dengan perilaku identik seperti {@link #doGet}: mendelegasikan ke
+	 * {@link #process} dan menelan kegagalan lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param request  request HTTP masuk; parameter sama seperti pada {@link #doGet}
+	 * @param response response HTTP keluar; diisi berkas PDF unduhan oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar keluar, lihat catatan pada {@link #doGet}
+	 * @throws IOException      idem
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -64,6 +100,33 @@ public class LaporanPesananItem extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membentuk satu berkas PDF gabungan berisi barcode dan ringkasan tiap
+	 * {@link PesananAnggota} yang id-nya diminta, lalu menuliskannya sebagai unduhan
+	 * ({@code Content-Disposition: attachment}) ke {@code response}.
+	 *
+	 * <p>Alur: (1) baca parameter {@code id}, pecah per koma, dan parse setiap bagian sebagai
+	 * {@code Long} tanpa validasi lanjutan (nilai non-numerik akan melempar
+	 * {@code NumberFormatException} yang berujung {@code Exception} ke pemanggil); (2) buka
+	 * sesi Hibernate baru dan muat seluruh {@link PesananAnggota} yang id-nya termasuk dalam
+	 * daftar tersebut; (3) untuk tiap pesanan, susun teks ringkasan (anggota, perpustakaan,
+	 * ISBN/nama item, status, tanggal) dan pastikan berkas PNG barcode Code128 dari kode
+	 * pesanan sudah ada di direktori {@code /report} pada konteks servlet (dibuat sekali saja
+	 * bila belum ada — nama berkas memakai kode pesanan, BUKAN input bebas klien); (4) sesi
+	 * selalu dibersihkan (clear/disconnect/close) di blok {@code finally}; (5) panggil
+	 * {@link Report#generateFileReport} dengan template {@code "library/pesanan"} dan daftar
+	 * peta hasil langkah (3); (6) tulis berkas PDF hasil ke {@code response} lewat aliran byte
+	 * biasa dengan header {@code Content-Disposition} memaksa unduhan bernama
+	 * {@code pesanan_anggota.pdf}.</p>
+	 *
+	 * @param request  request HTTP masuk; parameter {@code id} berisi daftar primary key
+	 *                 {@link PesananAnggota} dipisah koma
+	 * @param resp     response HTTP keluar; content-type diatur ke {@code application/pdf},
+	 *                 badan berisi berkas PDF gabungan
+	 * @throws Exception bila {@code id} kosong/null (menyebabkan {@code NullPointerException}
+	 *                    pada {@code split}), bila salah satu bagian bukan angka valid, bila
+	 *                    pembuatan barcode/laporan gagal, atau bila penulisan respons gagal
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 		String myid = request.getParameter("id");
