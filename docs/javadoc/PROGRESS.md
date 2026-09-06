@@ -1,5 +1,79 @@
 # Progres Javadoc Menyeluruh
 
+## 🚨🚨🚨 Batch 137 — 5 mega-file `opus`, termasuk file TERBESAR seluruh inisiatif, 12 task baru (1 sudah ditambal paralel) (6 Sep 2026)
+
+Tier mega-file terdalam yang ditemukan. 5 agent `opus` dedicated,
+masing-masing 1-2 file raksasa.
+
+**`AbsensiHelper.java`** (7287→7750 baris, **FILE TERBESAR SELURUH
+INISIATIF**, mengalahkan `GenericRevisiHelper` 6860 baris) — mesin
+kehadiran PER-`Pertemuan` (akademik), DIKONFIRMASI **nol relasi**
+dengan keluarga `*KehadiranPegawai*` (presensi harian/payroll) —
+domain terpisah total, dipakai 31 file lintas modul. **Task baru
+`task_e4a73f7a`**: peran "perwakilan/ketua kelas" YANG TIDAK ADA SAMA
+SEKALI di codebase (0 hasil grep) dipakai sebagai syarat tampilan,
+konfirmasi kehadiran tertulis TANPA cek apa pun; bug penguncian
+first-come membuat hanya entri pertama yang bisa diedit.
+
+**`HasilUjianMahasiswaHelper.java`** (6113→8843 baris) — dikonfirmasi
+mesin analisis butir soal TUNGGAL se-aplikasi (`analsisButirSoal`
+dipinjam `HasilUjianSiswaHelper`+`PenjaminanMutuAnalisisHelper`).
+Dokumentasi lama soal DP/TK/rekomendasi **4 klaim SALAH** dikoreksi
+(bukan 27%-atas-bawah, kategori DP beda, rekomendasi cuma dari DP,
+penyebut TK cuma yang menjawab). **`task_ff7bf3e7`** (ambang DP beda
+dashboard-vs-Excel + pembagian-nol tanpa penjaga) SUDAH DITAMBAL sesi
+paralel di r86103 SAAT agent masih kerja — dikonfirmasi bukan
+duplikasi kerja.
+
+**`PertemuanPunyaUjianHelper.java`** (5630→6181 baris, ternyata 32/37
+anggota SUDAH didokumentasikan sesi lampau) — lapis SCHEDULING/SETUP
+siklus ujian (sebelum peserta kerjakan soal). **2 task baru**:
+`task_d45feed7` (gerbang peran pengelola dieja 4 cara beda, beberapa
+jalur lupa cek `Mahasiswa`/`BiodataCalonMahasiswa`/`PesertaKursus`),
+`task_72b24378` (off-by-one jatah ujian — tombol "Lihat Hasil" salah
+memulai percobaan baru saat jatah PERSIS habis). Kembaran sekolah
+`PertemuanPunyaUjianSiswaHelper.java` diduga warisi kedua bug, BELUM
+diperiksa.
+
+**`DetailUjianHelper.java`**/**`KegiatanHelper.java`** —
+`KegiatanHelper` DIKONFIRMASI DEFINITIF berkerabat NYATA dengan
+`Kegiatan` billing (import+FK langsung), BEDA dari
+Kedosenan/Kemahasiswaan. **5 task baru**: `task_aa90e390` (upload
+Excel — id `DetailKegiatan` mentah kolom-7 TANPA scoping, bisa tulis
+ULANG BIAYA BARIS TAGIHAN MANAPUN di seluruh DB), `task_db7b2432`
+(filter kebalik diam-diam CEGAH pembuatan tagihan subset pendaftar),
+`task_6b09af9c` (string-replace tanpa pagar koma korup daftar id di
+8 titik/4 file, dipakai `GradingHelper`), `task_4a35acd8` (hapus
+massal lewati penjaga FK per-baris), `task_5b255512` (kondisi terbalik
+timpa kepemilikan BankSoal orang lain).
+
+**`AktifitasPerkuliahanHelper.java`**/**`PembayaranUtilHelper.java`**
+— **4 task baru**: 🚨 `task_821b3e36` (STORED XSS nyata — 3 kolom
+deskripsi perkuliahan dirender HTML mentah via `MyHtml`, potensi
+pembajakan sesi admin, PENGULANGAN bug r85805 yang tak tertambal
+tuntas), `task_07c7feec` (nol yang SAH dibuang, diganti fallback
+salah), `task_1c0b5000` (mode angsuran pakai basis nominal SALAH +
+tulis ke DATA MASTER BERSAMA tanpa gerbang/jejak audit), `task_0e8b686c`
+(flag `aktif` tak hentikan tagihan bulanan + dedup `TreeSet` bisa
+hapus baris tagihan diam-diam). Dikonfirmasi `getDetailBiaya*` yang
+dipanggil `TagihanUIBuilder` (batch 136) MEMANG rentan pola ini.
+
+**12 task baru batch ini** (1 sudah ditambal paralel `task_ff7bf3e7`):
+`task_e4a73f7a`, `task_d45feed7`, `task_72b24378`, `task_aa90e390`,
+`task_db7b2432`, `task_6b09af9c`, `task_4a35acd8`, `task_5b255512`,
+`task_821b3e36`, `task_07c7feec`, `task_1c0b5000`, `task_0e8b686c`.
+Total akumulasi: **1990+ file** dari 7.401. Sisa `action/master/
+helper/`: ~278 file (banyak sisa masih mega-file besar:
+`TugasMandiriHelper` 5427, `PenjadwalanHelper` 4294, `TugasKelompokHelper`
+4340, `DetailArtikelHelper` 3101, dst).
+
+**Catatan operasional PENTING**: `build/maven/classes` sempat
+DIKOSONGKAN TOTAL oleh proses lain di tengah sesi — fallback
+`-sourcepath` WAJIB dipakai kalau ini terulang, TAPI ikut meng-compile
+file lain yang mungkin sedang `M` (work-in-progress) sesi paralel
+lain — SELALU saring error kompilasi PER NAMA FILE sebelum
+menyimpulkan ada regresi.
+
 ## 🚨🚨 Batch 136 — 15 mega/file besar, 5 agent `opus`+umum paralel, 8 task baru (6 Sep 2026)
 
 Lanjutan mega-file `ais/action/master/helper/`. Batch dengan TERBANYAK
