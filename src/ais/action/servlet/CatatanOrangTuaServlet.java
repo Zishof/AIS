@@ -165,7 +165,7 @@ public class CatatanOrangTuaServlet extends HttpServlet {
     /**
      * Menulis halaman HTML error sederhana (ikon peringatan, judul, pesan) langsung ke
      * {@code response} sebagai pengganti redirect sukses — dipakai oleh {@link #process}
-     * setiap kali validasi parameter {@code siswa} gagal atau terjadi exception.
+     * setiap kali validasi parameter {@code token} gagal atau terjadi exception.
      *
      * <p>Pesan yang ditampilkan di-escape lewat {@link #esc(String)} untuk mencegah HTML/
      * XSS injection walau nilainya saat ini selalu literal konstan yang dipilih oleh kode

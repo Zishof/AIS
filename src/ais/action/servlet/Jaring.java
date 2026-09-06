@@ -36,14 +36,77 @@ import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.VirtualAccountBank;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet gateway <b>host-to-host (H2H)</b> Bank Jaring — pintu masuk callback bank untuk
+ * notifikasi pembayaran Virtual Account mahasiswa/calon mahasiswa.
+ *
+ * <h3>Otentikasi H2H — FAKTA ARSITEKTUR YANG WAJIB DIPAHAMI</h3>
+ * <p>Berbeda dengan gateway bergaya SNAP seperti {@link Briva} yang memverifikasi tanda tangan
+ * RSA dan bearer token pada cabang transaksinya, kelas ini <b>sama sekali tidak memiliki
+ * mekanisme verifikasi tanda tangan/HMAC/bearer token</b> — tidak ada cabang penerbitan token,
+ * tidak ada pembacaan header {@code Authorization}, dan tidak ada satu pun kelas
+ * {@code java.security.Signature}/{@code KeyFactory} yang dipakai di berkas ini. Satu-satunya
+ * medan yang menyerupai penjaga adalah parameter {@code ack} pada body/parameter permintaan —
+ * jalur posting hanya berjalan bila {@code ack} bernilai {@code "00"} (lihat
+ * {@link #process(HttpServletRequest, HttpServletResponse)}) — namun ini sekadar penanda protokol
+ * yang dikirim mentah oleh pemanggil, <b>bukan</b> tanda tangan atau bukti kepemilikan kunci
+ * apa pun; siapa saja yang mengirim {@code ack=00} melewatinya.</p>
+ * <p>Penyaring identitas pemanggil yang sesungguhnya hanyalah pemetaan alamat IP ke
+ * {@link BankHost} lewat {@link PembayaranUtil#getBankHost(String, String)}, dan hasilnya
+ * <b>boleh {@code null}</b> — nilai itu diteruskan apa adanya ke seluruh alur tanpa penjaga
+ * penolakan (tidak ada padanan gerbang {@code gerbang_bankhost_null_posting_*} seperti yang sudah
+ * ditambahkan pada {@link Briva} setelah audit token H2H-nya). Lebih jauh,
+ * {@link VirtualAccountBank#ambilVa(String, Double, BankHost)} mencocokkan baris VA dengan
+ * kriteria <code>bankHost IS NULL OR bankHost = :bankHostPemanggil</code> — klausa pertama tidak
+ * bersyarat pada identitas pemanggil sama sekali, sehingga VA "netral" (kolom {@code bankHost}
+ * kosong di basis data — kondisi wajar untuk VA yang belum pernah tersentuh bank mana pun) dapat
+ * diposting oleh pemanggil <b>mana pun</b>, termasuk yang IP-nya sama sekali tidak terdaftar di
+ * {@link BankHost}. Gabungan fakta-fakta ini berarti pengesahan pembayaran lewat endpoint ini
+ * bertumpu sepenuhnya pada kerahasiaan nomor VA dan ketepatan nominal ({@code amount} harus sama
+ * persis dengan {@code totalBiaya()}, lihat {@link #process}) — untuk VA netral, tidak ada lapis
+ * kriptografis maupun IP sama sekali yang menghalangi pemanggil tak dikenal. Ini bukan regresi
+ * yang diperkenalkan Javadoc ini; ini adalah keadaan kode sejak awal, didokumentasikan di sini
+ * agar tidak keliru dianggap sudah tertutup oleh pemetaan {@link BankHost} atau oleh
+ * {@code ack}.</p>
+ *
+ * @see ais.action.ws.util.PembayaranGatewayHelper
+ * @see VirtualAccountBank
+ * @see BankHost
+ * @see Briva
  */
 public class Jaring extends HttpServlet {
+	/**
+	 * Versi serialisasi {@link java.io.Serializable} yang diwarisi dari {@link HttpServlet}.
+	 *
+	 * <p>Bernilai tetap {@code 1L}: servlet ini tidak pernah diserialisasi antarnode, sehingga nilai
+	 * ini semata memenuhi kontrak {@code Serializable} dan meredam peringatan kompilator.</p>
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran, dipakai {@link #process(HttpServletRequest, HttpServletResponse)}
+	 * untuk memetakan alamat IP pemanggil menjadi {@link BankHost} lewat
+	 * {@link PembayaranUtil#getBankHost(String, String)} dan untuk menjumlahkan cicilan lewat
+	 * {@code getTotalDanDendaFromCicilan}.
+	 *
+	 * <p><b>Perhatikan:</b> {@link BankHost} hasil pemetaan ini <i>tidak pernah dijadikan syarat
+	 * penolakan</i> di kelas ini — nilai {@code null} tetap diteruskan ke seluruh alur dan hanya
+	 * memengaruhi jenis pembayaran (jatuh ke {@code ConstantValues.TUNAI} bila {@code bankHost}
+	 * atau {@code bankHost.getJenisPembayaran()} kosong). Lihat Javadoc kelas untuk konsekuensi
+	 * keamanannya.</p>
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Membentuk instance servlet.
+	 *
+	 * <p>Konstruktor tanpa argumen yang dibutuhkan wadah servlet: Tomcat membuat satu instance
+	 * {@link Jaring} lalu memakainya kembali untuk kedua {@code url-pattern} yang dipetakan ke
+	 * kelas ini. Tidak ada state yang disiapkan di sini — inisialisasi terjadi pada penginisialisasi
+	 * field {@link #pembayaranUtil}.</p>
+	 *
+	 * <p>Karena instance dipakai bersama oleh banyak thread permintaan, jangan menambahkan field
+	 * instance yang dapat berubah dan bergantung pada satu permintaan; pakai variabel lokal.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Jaring() {
@@ -53,8 +116,25 @@ public class Jaring extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan mendelegasikannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>GET dan POST diperlakukan identik — keduanya sekadar meneruskan ke {@link #process}. Jalur
+	 * GET disediakan agar endpoint mudah diuji manual dan agar permintaan yang salah metode tetap
+	 * menghasilkan balasan JSON, bukan halaman galat wadah servlet.</p>
+	 *
+	 * <p><b>Penanganan galat:</b> setiap {@link Exception} ditangkap dan diserahkan ke
+	 * {@code Common.tampilErrorJikaAdmin}. Karena {@link #process} sendiri sudah membungkus seluruh
+	 * logiknya dalam blok {@code try/catch/finally} yang selalu menulis
+	 * {@link ais.database.model.LogHostToHost} dan selalu menulis badan respons, lapisan
+	 * penangkapan di sini praktis hanya menjaring kegagalan di luar itu (mis. saat membaca body
+	 * permintaan).</p>
+	 *
+	 * @param request  permintaan dari Jaring
+	 * @param response respons yang akan diisi JSON
+	 * @throws ServletException bila wadah servlet melaporkan kegagalan
+	 * @throws IOException      bila penulisan respons gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -66,8 +146,20 @@ public class Jaring extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan mendelegasikannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>Inilah metode yang sesungguhnya dipakai Jaring untuk mengirim notifikasi pembayaran
+	 * Virtual Account. Isinya sama persis dengan {@link #doGet}.</p>
+	 *
+	 * <p><b>Penanganan galat:</b> sama dengan {@link #doGet} — pengecualian ditelan oleh
+	 * {@code Common.tampilErrorJikaAdmin} sehingga tidak merambat ke wadah servlet.</p>
+	 *
+	 * @param request  permintaan dari Jaring
+	 * @param response respons yang akan diisi JSON
+	 * @throws ServletException bila wadah servlet melaporkan kegagalan
+	 * @throws IOException      bila penulisan respons gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {

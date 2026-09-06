@@ -35,14 +35,61 @@ import ais.database.model.ipaymu.IpaymuRequestDetail;
 import ais.database.model.ipaymu.IpaymuResponse;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet penerima notifikasi pembayaran <b>iPaymu</b>, terpasang di {@code web.xml} pada URL
+ * {@code /IPayMuResponse}.
+ *
+ * <p>Bentuk pesan berupa pasangan {@code nama=nilai} yang dipisah {@code &} pada badan permintaan
+ * (bukan JSON seperti {@link Finpay} atau {@link FinPayResponse}); lihat {@link #process}. Alur
+ * kerjanya dua tahap: {@link #prosesTransaksi} menyimpan seluruh medan mentah sebagai satu baris
+ * {@link IpaymuResponse}, lalu {@link #prosesResponse} mencocokkannya ke {@link IpaymuRequest} yang
+ * sudah dibuat lebih dulu (saat mahasiswa/calon mahasiswa memulai pembayaran) dan membukukan
+ * tagihan bila statusnya berhasil.</p>
+ *
+ * <h4>PERINGATAN KEAMANAN &mdash; tidak ada verifikasi tanda tangan sama sekali</h4>
+ * <ul>
+ *   <li>Tidak ada satu pun medan pada payload iPaymu (termasuk {@code sid}) yang diperiksa
+ *       terhadap tanda tangan atau kredensial rahasia sebelum dipercaya. {@link #prosesResponse}
+ *       mencari {@link IpaymuRequest} semata dari medan {@code sid} (disimpan sebagai
+ *       {@code nama}) dan langsung membukukan pembayaran bila {@code status} bernilai
+ *       {@link IpaymuResponse#BERHASIL}.</li>
+ *   <li>Ini pola yang sama dengan {@link Finpay} (lihat peringatan pada javadoc kelas tersebut):
+ *       siapa pun yang mengetahui atau menebak nilai {@code sid} sebuah permintaan pembayaran yang
+ *       masih berjalan dapat mengirim POST palsu ke {@code /IPayMuResponse} dengan
+ *       {@code status=Berhasil} dan membukukannya sebagai lunas, tanpa pembayaran nyata terjadi di
+ *       sisi iPaymu.</li>
+ *   <li>Tidak ada pemetaan alamat IP pemanggil ke {@code BankHost} atau mekanisme setara yang
+ *       membatasi siapa yang boleh memanggil endpoint ini; rute jatuh ke aturan penampung
+ *       {@code IS_AUTHENTICATED_ANONYMOUSLY} pada {@code applicationContext-security.xml}.</li>
+ * </ul>
+ *
+ * <h4>Catatan idempotensi</h4>
+ * <p>Penautan {@link IpaymuResponse} ke {@link IpaymuRequest} hanya dilakukan sekali (dijaga
+ * {@code ipaymuRequest.getIpaymuResponse() == null}), tetapi blok pembukuan di bawahnya
+ * <b>tidak</b> ikut dijaga kondisi yang sama &mdash; ia berjalan setiap kali status
+ * {@code BERHASIL} diterima untuk {@code sid} yang sama. Perlindungan terhadap pembukuan ganda
+ * bertumpu sepenuhnya pada kunci {@code ref} per baris {@link CicilanPembayaran} (pola
+ * <i>upsert</i> yang sama dipakai di seluruh gerbang pembayaran AIS), bukan pada pemeriksaan
+ * eksplisit di method ini.
+ *
+ * @see FinPayResponse
+ * @see Finpay
  */
 public class IPayMuResponse extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/** Singleton pembantu pembayaran, dipakai di {@link #prosesResponse} untuk memutakhirkan tunggakan. */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh kebergantungan diambil lewat field statis
+	 * {@link #pembayaranUtil}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public IPayMuResponse() {
@@ -52,8 +99,17 @@ public class IPayMuResponse extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>iPaymu lazimnya mengirim notifikasi lewat POST, tetapi GET diperlakukan identik untuk
+	 * berjaga-jaga terhadap konfigurasi mitra yang berbeda. Kegagalan ditelan
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga pengirim tidak menerima 5xx.</p>
+	 *
+	 * @param request  permintaan masuk dari iPaymu
+	 * @param response balasan berisi teks status singkat {@code "00"}
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -65,8 +121,14 @@ public class IPayMuResponse extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST &mdash; metode yang lazim dipakai iPaymu &mdash; dengan
+	 * meneruskannya ke {@link #process}.
+	 *
+	 * @param request  permintaan masuk dari iPaymu
+	 * @param response balasan berisi teks status singkat {@code "00"}
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -77,6 +139,46 @@ public class IPayMuResponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mencocokkan satu {@link IpaymuResponse} ke {@link IpaymuRequest} yang menunggu, lalu
+	 * membukukan pembayaran bila statusnya berhasil.
+	 *
+	 * <p>Pencocokan memakai {@code Restrictions.ilike("nama", ipaymuResponse.getNama(),
+	 * MatchMode.EXACT)} &mdash; membandingkan medan {@code sid} pada respons terhadap medan
+	 * {@code nama} pada {@link IpaymuRequest} tanpa memandang besar-kecil huruf, tanpa syarat
+	 * lain. Bila cocok dan {@link IpaymuRequest} belum punya {@link IpaymuResponse} tertaut,
+	 * keduanya ditautkan.</p>
+	 *
+	 * <p>Bila status bernilai {@link IpaymuResponse#BERHASIL} (tanpa memandang besar-kecil huruf
+	 * dan spasi tepi), pembukuan dijalankan:</p>
+	 * <ol>
+	 *   <li>{@link Kegiatan} pemilik tagihan dicari lewat {@code ambilKegiatans} pada
+	 *       {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}; bila tidak ditemukan, satu baris
+	 *       baru dibuat dengan {@code validator="iPaymu"} dan nominal dari
+	 *       {@code ipaymuRequest.getNilaiBiayaHarusDiBayars()};</li>
+	 *   <li>bila {@code ipaymuRequest.getAmount() &gt; 0.1}, satu baris {@link LogPembayaran}
+	 *       dicatat;</li>
+	 *   <li>setiap {@link IpaymuRequestDetail} (cicilan ke-1 dan seterusnya) diubah menjadi satu
+	 *       baris {@link CicilanPembayaran}, di-<i>upsert</i> lewat kunci {@code ref} berbentuk
+	 *       {@code "ipaymuRequestDetail-" + id} sehingga notifikasi berulang tidak menggandakan
+	 *       cicilan;</li>
+	 *   <li>total dan denda dihitung ulang dari seluruh {@link CicilanPembayaran} kegiatan lewat
+	 *       {@link PembayaranUtil#getTotalDanDendaFromCicilan}, lalu {@link Kegiatan} disimpan dan
+	 *       tunggakannya dimutakhirkan lewat {@link PembayaranUtil#updateTunggakan};</li>
+	 *   <li>bukti pembayaran dicetak lewat {@link CommonReportHelper} sesuai jenis pemilik
+	 *       ({@link Mahasiswa} atau {@link BiodataCalonMahasiswa}).</li>
+	 * </ol>
+	 *
+	 * <p><b>Keamanan:</b> method ini tidak melakukan verifikasi apa pun terhadap keaslian
+	 * {@code ipaymuResponse} &mdash; lihat peringatan pada javadoc kelas.</p>
+	 *
+	 * <p>Sesi Hibernate dibuka khusus untuk pemanggilan ini dan selalu dibersihkan
+	 * (<i>clear</i>/<i>disconnect</i>/<i>close</i>, masing-masing ditelan bila gagal) pada blok
+	 * {@code finally}.</p>
+	 *
+	 * @param ipaymuResponse baris respons iPaymu yang baru saja disimpan oleh
+	 *                       {@link #prosesTransaksi}
+	 */
 	@SuppressWarnings("unchecked")
 	public static void prosesResponse(IpaymuResponse ipaymuResponse) {
 		Session session = null;
@@ -220,6 +322,19 @@ public class IPayMuResponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membangun satu {@link IpaymuResponse} dari medan-medan mentah notifikasi iPaymu, menyimpannya
+	 * tanpa syarat, lalu meneruskannya ke {@link #prosesResponse}.
+	 *
+	 * <p>Medan yang diambil: {@code sid} (disimpan sebagai {@code nama}, dipakai sebagai kunci
+	 * pencocokan ke {@link IpaymuRequest}), {@code status}, {@code merchant}, {@code trx_id},
+	 * {@code product}, {@code buyer}, {@code no_rekening_deposit}, dan {@code comments}. Baris
+	 * disimpan apa adanya <b>sebelum</b> statusnya diperiksa &mdash; termasuk notifikasi gagal atau
+	 * belum tentu asli &mdash; sehingga tabel {@link IpaymuResponse} berfungsi sebagai log mentah
+	 * seluruh percakapan, bukan hanya transaksi yang dibukukan.</p>
+	 *
+	 * @param param peta nama-nilai hasil urai badan permintaan oleh {@link #process}
+	 */
 	public static void prosesTransaksi(Map<String, String> param) {
 		IpaymuResponse ipaymuResponse = new IpaymuResponse();
 		Session session = null;
@@ -247,6 +362,24 @@ public class IPayMuResponse extends HttpServlet {
 		prosesResponse(ipaymuResponse);
 	}
 
+	/**
+	 * Membaca notifikasi iPaymu dari badan permintaan, mengurainya, memprosesnya, dan menuliskan
+	 * balasan.
+	 *
+	 * <p>Badan permintaan dibaca baris demi baris menjadi satu string (pemisah baris dibuang),
+	 * lalu diurai manual: dipecah dengan pemisah {@code &} menjadi token, dan tiap token dipecah
+	 * lagi dengan pemisah {@code =} menjadi pasangan nama-nilai. Kegagalan pengurain satu token
+	 * (mis. token tanpa {@code =}, atau nilai yang sendiri mengandung {@code =}) ditelan per token
+	 * sehingga token bermasalah cukup dilewati tanpa menggagalkan token lain.</p>
+	 *
+	 * <p>Peta hasil urai diteruskan ke {@link #prosesTransaksi}, lalu balasan teks biasa
+	 * {@code "00"} dituliskan &mdash; format balasan yang diharapkan iPaymu untuk menandakan
+	 * notifikasi diterima.</p>
+	 *
+	 * @param request  permintaan masuk dari iPaymu
+	 * @param response balasan berisi teks status singkat {@code "00"}
+	 * @throws Exception bila pembacaan permintaan atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 

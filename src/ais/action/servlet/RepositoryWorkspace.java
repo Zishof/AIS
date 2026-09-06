@@ -25,7 +25,6 @@ import ais.action.master.repository.RepositoryPublicService;
 import ais.action.master.repository.RepositoryWorkflowService;
 import ais.action.master.repository.RepositoryWorkflowService.DraftInput;
 import ais.action.master.repository.RepositoryWorkflowService.ItemPage;
-import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.repository.RepoItem;
@@ -93,7 +92,7 @@ public class RepositoryWorkspace extends HttpServlet {
      * @throws IOException bila penulisan tanggapan gagal
      */
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        Tbmuser user = Common.getCurrentUser(request);
+        Tbmuser user = getLoggedInUser(request);
         if (user == null) { renderState(request,response,HttpServletResponse.SC_UNAUTHORIZED,"Sesi telah berakhir","Silakan masuk kembali untuk membuka workspace repository."); return; }
         securityHeaders(response);
         try {
@@ -196,7 +195,7 @@ public class RepositoryWorkspace extends HttpServlet {
      * @throws IOException bila penulisan tanggapan gagal
      */
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        Tbmuser user = Common.getCurrentUser(request);
+        Tbmuser user = getLoggedInUser(request);
         if (user == null) { response.sendError(HttpServletResponse.SC_UNAUTHORIZED); return; }
         securityHeaders(response);
         String requestId = Long.toHexString(System.currentTimeMillis()) + "-" + Integer.toHexString(System.identityHashCode(request));
@@ -409,6 +408,35 @@ public class RepositoryWorkspace extends HttpServlet {
      * @return {@code true} hanya bila keduanya tidak {@code null} dan seluruh karakternya sama
      */
     private boolean constantTime(String a, String b) { if (a == null || b == null) return false; int diff=a.length()^b.length(); int n=Math.min(a.length(),b.length()); for(int i=0;i<n;i++)diff|=a.charAt(i)^b.charAt(i); return diff==0; }
+
+    /**
+     * Membaca pengguna yang sedang login LANGSUNG dari {@link HttpSession}, dipakai {@link #doGet}
+     * dan {@link #doPost} sebagai SATU-SATUNYA gerbang login workspace ini.
+     *
+     * <p><b>Kenapa bukan {@code Common.getCurrentUser(request)}.</b> Method itu, bila sesi tidak
+     * memuat pengguna, jatuh ke {@code request.getParameter("user")} lalu mencari peta login
+     * GLOBAL ({@code SecurityFilter.dataLogin}) tanpa memverifikasi bahwa request ini memang
+     * berasal dari sesi milik user tersebut. Karena {@code /repository-workspace} tidak punya
+     * aturan {@code intercept-url} khusus di {@code applicationContext-security.xml} (jatuh ke
+     * catch-all {@code IS_AUTHENTICATED_ANONYMOUSLY}), penyerang anonim yang menebak/mengetahui
+     * username seorang administrator/reviewer repository yang SEDANG ONLINE dapat memalsukan
+     * identitas lewat {@code ?user=<username>} dan lolos SELURUH gerbang otorisasi di bawah
+     * ({@code isRepositoryAdministrator}, {@code isRepositoryAdmin}, {@code canDeposit}, dsb) --
+     * termasuk aksi administratif (export, ORCID, gabung authority) yang token CSRF-nya TIDAK
+     * mencegah pemalsuan ini karena token itu terikat ke sesi PENYERANG sendiri, bukan ke
+     * identitas yang diklaim.</p>
+     *
+     * @param request permintaan HTTP saat ini
+     * @return pengguna yang sesi HTTP-nya benar-benar memuat atribut login, atau {@code null}
+     *         bila tidak ada sesi atau sesi tidak memuat pengguna yang login
+     */
+    private Tbmuser getLoggedInUser(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) return null;
+        Object user = session.getAttribute("mytbmuser");
+        if (user == null) user = session.getAttribute("usersTemp");
+        return (user instanceof Tbmuser) ? (Tbmuser) user : null;
+    }
 
     /**
      * Menentukan apakah {@code action} termasuk aksi yang setelah selesai mengarahkan pengguna

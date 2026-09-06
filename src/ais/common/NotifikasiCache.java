@@ -524,6 +524,9 @@ public final class NotifikasiCache {
 	 * menggagalkan startup.
 	 */
 	public static synchronized void warmupStartup() {
+		if (AppStartupListener.isContextStopping()) {
+			return;
+		}
 		warmupDihentikan = false;
 		Thread lama = warmupThread;
 		if (lama != null && lama.isAlive()) {
@@ -558,7 +561,7 @@ public final class NotifikasiCache {
 	 * Membatalkan warm-up startup saat webapp dihentikan/redeploy. Method ini tidak
 	 * mengakses Hibernate sehingga aman dipanggil paling awal dari contextDestroyed.
 	 */
-	public static void hentikanWarmup() {
+	public static synchronized void hentikanWarmup() {
 		warmupDihentikan = true;
 		Thread t = warmupThread;
 		warmupThread = null;

@@ -14,6 +14,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
@@ -159,6 +160,34 @@ public class Data extends HttpServlet {
 	}
 
 	/**
+	 * Membaca pengguna yang sedang login LANGSUNG dari {@link HttpSession}, dipakai
+	 * {@link #ambil}, {@link #checkGDriveConnectionInternal}, dan {@link #pushToDriveInternal}
+	 * sebagai SATU-SATUNYA sumber identitas pemanggil di kelas ini.
+	 *
+	 * <p><b>Kenapa bukan {@code Common.getCurrentUser(request)}.</b> Method itu, bila sesi tidak
+	 * memuat pengguna, jatuh ke {@code request.getParameter("user")} lalu mencari peta login
+	 * GLOBAL ({@code SecurityFilter.dataLogin}) tanpa memverifikasi bahwa request ini memang
+	 * berasal dari sesi milik user tersebut. Karena {@code /Data} tidak punya aturan
+	 * {@code intercept-url} khusus (jatuh ke catch-all {@code IS_AUTHENTICATED_ANONYMOUSLY}, lihat
+	 * Javadoc kelas), penyerang anonim yang menebak/mengetahui username pengguna yang SEDANG
+	 * ONLINE dapat memalsukan identitas lewat {@code ?user=<username>} dan lolos gerbang
+	 * "sudah masuk" di {@link #ambil} tanpa {@code tanpaLogin=true} sama sekali -- termasuk aksi
+	 * tulis reflektif {@code simpanDataRinci}/{@code hapusDataRinci} yang dieksekusi Hibernate
+	 * atas nama identitas yang dispoof.</p>
+	 *
+	 * @param request permintaan HTTP saat ini
+	 * @return pengguna yang sesi HTTP-nya benar-benar memuat atribut login, atau {@code null}
+	 *         bila tidak ada sesi atau sesi tidak memuat pengguna yang login
+	 */
+	private static Tbmuser getLoggedInUser(HttpServletRequest request) {
+		HttpSession session = request.getSession(false);
+		if (session == null) return null;
+		Object user = session.getAttribute("mytbmuser");
+		if (user == null) user = session.getAttribute("usersTemp");
+		return (user instanceof Tbmuser) ? (Tbmuser) user : null;
+	}
+
+	/**
 	 * Menangani permintaan {@code GET} ke {@code /Data} dengan meneruskannya apa adanya ke
 	 * {@link #processRequest}.
 	 *
@@ -290,7 +319,7 @@ public class Data extends HttpServlet {
 
 		try {
 			res.put("status", "Sukses");
-			Tbmuser user = Common.getCurrentUser(request);
+			Tbmuser user = getLoggedInUser(request);
 
 			if (user != null && user.getUserId() != null) {
 				String username = user.getUserId();
@@ -371,7 +400,7 @@ public class Data extends HttpServlet {
 		JSONObject res = new JSONObject();
 		try {
 			res.put("status", "Gagal");
-			final Tbmuser user = Common.getCurrentUser(request);
+			final Tbmuser user = getLoggedInUser(request);
 			String idStr = request.getParameter("id");
 			String clazzStr = request.getParameter("clazz");
 
@@ -735,7 +764,7 @@ public class Data extends HttpServlet {
 				System.out.println("request -> " + datasearch);
 			}
 			log = jsonObject.optString("log_response", "");
-			Tbmuser tbmuser = Common.getCurrentUser(request);
+			Tbmuser tbmuser = getLoggedInUser(request);
 			String tanpaLogin = jsonObject.optString("tanpaLogin", "");
 			String action = jsonObject.optString("action", "");
 			boolean belumLogin = tbmuser == null || tbmuser.getUserId() == null;

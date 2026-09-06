@@ -83,6 +83,11 @@ public final class RingkasanKampusCache {
 
 	private static final ConcurrentHashMap<String, Snapshot> CACHE = new ConcurrentHashMap<String, Snapshot>();
 	private static final Object BUILD_LOCK = new Object();
+	/** Thread/pool milik cache harus dapat dihentikan sebelum classloader webapp dilepas. */
+	private static final ConcurrentHashMap<Thread, Boolean> ASYNC_THREADS = new ConcurrentHashMap<Thread, Boolean>();
+	private static final ConcurrentHashMap<ExecutorService, Boolean> ACTIVE_POOLS = new ConcurrentHashMap<ExecutorService, Boolean>();
+	private static volatile Thread warmupThread = null;
+	private static volatile boolean lifecycleDihentikan = false;
 
 	/** Penanda "sedang membangun" per (TA|sem) — single-flight: hanya SATU builder per kunci. */
 	private static final ConcurrentHashMap<String, Boolean> BUILDING = new ConcurrentHashMap<String, Boolean>();
@@ -129,6 +134,9 @@ public final class RingkasanKampusCache {
 			}
 			return s;
 		}
+		if (sedangBerhenti()) {
+			return s != null ? s : new Snapshot(ta, sem);
+		}
 		// Belum ada snapshot siap (cold start). Hanya SATU thread yang membangun; pemanggil lain
 		// menunggu TERBATAS lalu memakai apa adanya — jangan biarkan banyak thread macet berjam-jam.
 		if (BUILDING.putIfAbsent(k, Boolean.TRUE) == null) {
@@ -166,6 +174,9 @@ public final class RingkasanKampusCache {
 	 * snapshot masih segar atau sudah ada builder lain. Pengganti aman dari "spawn thread per render".
 	 */
 	public static void ensureBuiltAsync(final String ta, final String sem) {
+		if (sedangBerhenti()) {
+			return;
+		}
 		final String k = key(ta, sem);
 		Snapshot s = CACHE.get(k);
 		if (s != null && s.siap && (System.currentTimeMillis() - s.dibangunPada) <= TTL_MS) {
@@ -174,18 +185,34 @@ public final class RingkasanKampusCache {
 		if (BUILDING.putIfAbsent(k, Boolean.TRUE) != null) {
 			return;
 		}
+		if (sedangBerhenti()) {
+			BUILDING.remove(k);
+			return;
+		}
 		Thread t = new Thread(new Runnable() {
 			@Override
 			public void run() {
 				try {
-					build(ta, sem);
-				} catch (Throwable ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/common/RingkasanKampusCache.java:182");
+					if (!sedangBerhenti() && !Thread.currentThread().isInterrupted()) {
+						build(ta, sem);
+					}
+				} catch (Throwable ig) {
+					if (!sedangBerhenti()) {
+						ais.common.ErrorAuditUtil.record(ig, "RingkasanKampusCache.ensureBuiltAsync");
+					}
 				} finally {
 					BUILDING.remove(k);
+					ASYNC_THREADS.remove(Thread.currentThread());
 				}
 			}
 		}, "ringkasan-ensure");
 		t.setDaemon(true);
+		ASYNC_THREADS.put(t, Boolean.TRUE);
+		if (sedangBerhenti()) {
+			ASYNC_THREADS.remove(t);
+			BUILDING.remove(k);
+			return;
+		}
 		t.start();
 	}
 
@@ -205,7 +232,15 @@ public final class RingkasanKampusCache {
 	}
 
 	private static Snapshot build(String ta, String sem) {
+		if (sedangBerhenti()) {
+			Snapshot existing = CACHE.get(key(ta, sem));
+			return existing != null ? existing : new Snapshot(ta, sem);
+		}
 		synchronized (BUILD_LOCK) {
+			if (sedangBerhenti()) {
+				Snapshot existing = CACHE.get(key(ta, sem));
+				return existing != null ? existing : new Snapshot(ta, sem);
+			}
 			Snapshot existing = CACHE.get(key(ta, sem));
 			if (existing != null && existing.siap && (System.currentTimeMillis() - existing.dibangunPada) < 2000) {
 				return existing;
@@ -218,6 +253,7 @@ public final class RingkasanKampusCache {
 			// PARALEL: tiap sub-build (mahasiswa/dosen/calon/siswa/guru) pakai sesi sendiri, jalan
 			// SERENTAK -> total lebih cepat (yang lambat = mahasiswa, jalan bareng yang lain).
 			ExecutorService pool = Executors.newFixedThreadPool(6, daemonFactory("ringkasan-build"));
+			ACTIVE_POOLS.put(pool, Boolean.TRUE);
 			try {
 				List<Future<?>> fs = new ArrayList<Future<?>>();
 				fs.add(pool.submit(subBuild(s, "mahasiswa")));
@@ -229,18 +265,35 @@ public final class RingkasanKampusCache {
 				for (Future<?> f : fs) {
 					try {
 						f.get();
-					} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/common/RingkasanKampusCache.java:232");
+					} catch (InterruptedException berhenti) {
+						Thread.currentThread().interrupt();
+						break;
+					} catch (Exception ig) {
+						if (!sedangBerhenti()) {
+							ais.common.ErrorAuditUtil.record(ig, "RingkasanKampusCache.build");
+						}
 					}
 				}
 			} catch (Throwable t) {
-				try {
-					Common.tampilErrorJikaAdmin(t instanceof Exception ? (Exception) t : new Exception(t));
-				} catch (Throwable ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/common/RingkasanKampusCache.java:238");
+				if (!sedangBerhenti()) {
+					try {
+						Common.tampilErrorJikaAdmin(t instanceof Exception ? (Exception) t : new Exception(t));
+					} catch (Throwable ig) {
+						ais.common.ErrorAuditUtil.record(ig, "RingkasanKampusCache.build.tampilError");
+					}
 				}
 			} finally {
-				pool.shutdown();
+				ACTIVE_POOLS.remove(pool);
+				if (sedangBerhenti() || Thread.currentThread().isInterrupted()) {
+					pool.shutdownNow();
+				} else {
+					pool.shutdown();
+				}
 				progressFase = "Selesai";
 				progressAktif = false;
+			}
+			if (sedangBerhenti() || Thread.currentThread().isInterrupted()) {
+				return existing != null ? existing : s;
 			}
 			s.dibangunPada = System.currentTimeMillis();
 			s.siap = true;
@@ -265,6 +318,9 @@ public final class RingkasanKampusCache {
 		// (ribuan query). Akurasi sama (entity & currentStatus identik); memori dijaga clear() per batch.
 		final int batchSize = 200;
 		for (int i = 0; i < ids.size(); i += batchSize) {
+			if (sedangBerhenti() || Thread.currentThread().isInterrupted()) {
+				return;
+			}
 			List<Long> chunk = new ArrayList<Long>(ids.subList(i, Math.min(i + batchSize, ids.size())));
 			List<Mahasiswa> batch;
 			Session batchSession = null;
@@ -396,8 +452,12 @@ public final class RingkasanKampusCache {
 		return new Runnable() {
 			@Override
 			public void run() {
-				Session se = HibernateUtil.openSession();
+				if (sedangBerhenti() || Thread.currentThread().isInterrupted()) {
+					return;
+				}
+				Session se = null;
 				try {
+					se = HibernateUtil.openSession();
 					if ("mahasiswa".equals(jenis)) {
 						buildMahasiswa(se, s);
 					} else if ("dosen".equals(jenis)) {
@@ -411,7 +471,10 @@ public final class RingkasanKampusCache {
 					} else if ("wisuda".equals(jenis)) {
 						buildWisuda(se, s);
 					}
-				} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/common/RingkasanKampusCache.java:404");
+				} catch (Throwable t) {
+					if (!sedangBerhenti()) {
+						ais.common.ErrorAuditUtil.record(t, "RingkasanKampusCache.subBuild." + jenis);
+					}
 					// gagal-diam: satu jenis gagal tak menjatuhkan yang lain.
 				} finally {
 					HibernateUtil.closeSessionQuietly(se);
@@ -748,23 +811,96 @@ public final class RingkasanKampusCache {
 	}
 
 	/** Warm-up cache TA/semester berjalan saat aplikasi start (di latar, tak memblokir). */
-	public static void warmupStartup() {
+	public static synchronized void warmupStartup() {
+		if (AppStartupListener.isContextStopping()) {
+			return;
+		}
+		lifecycleDihentikan = false;
+		Thread lama = warmupThread;
+		if (lama != null && lama.isAlive()) {
+			lama.interrupt();
+		}
 		Thread t = new Thread(new Runnable() {
 			@Override
 			public void run() {
 				try {
 					// Beri jeda agar SessionFactory & ConstantValues siap lebih dulu.
 					Thread.sleep(90000);
+					if (sedangBerhenti() || Thread.currentThread().isInterrupted()) {
+						return;
+					}
 					String ta = Common.getCurrentTahunAkademik();
 					String sem = Common.getSemesterString();
 					// Lewat builder terkoalesai (set penanda BUILDING) supaya pemanggil get() saat
 					// cold-start tidak ikut memicu build kedua di belakang lock.
 					ensureBuiltAsync(ta, sem);
-				} catch (Throwable ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/common/RingkasanKampusCache.java:753");
+				} catch (InterruptedException berhenti) {
+					Thread.currentThread().interrupt();
+				} catch (Throwable ig) {
+					if (!sedangBerhenti()) {
+						ais.common.ErrorAuditUtil.record(ig, "RingkasanKampusCache.warmupStartup");
+					}
+				} finally {
+					if (warmupThread == Thread.currentThread()) {
+						warmupThread = null;
+					}
 				}
 			}
 		}, "RingkasanKampusCache-Warmup");
 		t.setDaemon(true);
+		warmupThread = t;
 		t.start();
+	}
+
+	/**
+	 * Hentikan warm-up dan seluruh builder cache sebelum Hibernate serta classloader ditutup.
+	 * Idempoten dan tidak membuka sesi/database baru sehingga aman dipanggil paling awal saat shutdown.
+	 */
+	public static synchronized void hentikanUntukShutdown() {
+		lifecycleDihentikan = true;
+		Thread warmup = warmupThread;
+		warmupThread = null;
+		if (warmup != null && warmup != Thread.currentThread()) {
+			warmup.interrupt();
+		}
+		for (ExecutorService pool : ACTIVE_POOLS.keySet()) {
+			if (pool != null) {
+				pool.shutdownNow();
+			}
+		}
+		for (Thread thread : ASYNC_THREADS.keySet()) {
+			if (thread != null && thread != Thread.currentThread()) {
+				thread.interrupt();
+			}
+		}
+		long batas = System.currentTimeMillis() + 5000L;
+		tungguThread(warmup, batas);
+		for (Thread thread : ASYNC_THREADS.keySet()) {
+			tungguThread(thread, batas);
+		}
+		ACTIVE_POOLS.clear();
+		ASYNC_THREADS.clear();
+		BUILDING.clear();
+		progressAktif = false;
+		progressFase = "Dihentikan";
+	}
+
+	private static void tungguThread(Thread thread, long batas) {
+		if (thread == null || thread == Thread.currentThread()) {
+			return;
+		}
+		long sisa = batas - System.currentTimeMillis();
+		if (sisa <= 0L) {
+			return;
+		}
+		try {
+			thread.join(sisa);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	private static boolean sedangBerhenti() {
+		return lifecycleDihentikan || AppStartupListener.isContextStopping();
 	}
 }

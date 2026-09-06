@@ -390,7 +390,12 @@ public class AppStartupListener implements ServletContextListener {
 		System.out.println("Aplikasi dimatikan. Membersihkan resource...");
 		contextStopping = true;
 
-		// Batalkan warm-up yang masih menunggu sebelum Hibernate/classloader ditutup.
+		// Batalkan seluruh warm-up/builder yang masih menunggu sebelum Hibernate/classloader ditutup.
+		try {
+			RingkasanKampusCache.hentikanUntukShutdown();
+		} catch (Throwable abaikan) {
+			System.err.println("Gagal menghentikan RingkasanKampusCache: " + abaikan.getMessage());
+		}
 		try {
 			NotifikasiCache.hentikanWarmup();
 		} catch (Throwable abaikan) {

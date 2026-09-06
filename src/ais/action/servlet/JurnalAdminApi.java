@@ -61,7 +61,7 @@ public final class JurnalAdminApi extends HttpServlet{
   * @param r tanggapan HTTP; selalu diisi JSON {@code {ok, ...}} atau {@code {ok:false, code, message}}
   * @throws java.io.IOException bila penulisan tanggapan gagal
   */
- private void handle(HttpServletRequest q,HttpServletResponse r)throws java.io.IOException{String trace=Long.toHexString(System.currentTimeMillis())+Integer.toHexString(System.identityHashCode(q));r.setContentType("application/json; charset=UTF-8");r.setHeader("Cache-Control","no-store");r.setHeader("X-Content-Type-Options","nosniff");r.setHeader("X-Request-Id",trace);JSONObject out=new JSONObject();try{Tbmuser user=Common.getCurrentUser(q);if(user==null)throw new SecurityException("Login diperlukan.");String action=text(q.getParameter("action"),"capabilities");if("capabilities".equals(action))capabilities(out,user,q);else if("health".equals(action))out.put("data",new JurnalHealthService().check(user));else if("workspace".equals(action)){JSONObject data=new JurnalWorkspaceService().load(req(q,"module"),optionalId(q,"journalId"),integer(q,"page",0),integer(q,"size",25),user);out.put("data",data);}else{if(!"POST".equalsIgnoreCase(q.getMethod())||!NewUiCsrfUtil.isValid(q))throw new SecurityException("Token CSRF tidak valid.");command(action,q,out,user,trace);}out.put("ok",true);}catch(SecurityException e){r.setStatus(403);fail(out,"FORBIDDEN",e.getMessage());}catch(IllegalArgumentException e){r.setStatus(422);fail(out,"VALIDATION_FAILED",e.getMessage());}catch(Exception e){r.setStatus(500);fail(out,"INTERNAL_ERROR","Perintah jurnal gagal. ID: "+trace);ais.common.ErrorAuditUtil.record(e,"JurnalAdminApi:"+trace);}finally{try{r.getWriter().write(out.toString());}catch(Exception ignored){}HibernateUtil.closeSession();}}
+ private void handle(HttpServletRequest q,HttpServletResponse r)throws java.io.IOException{String trace=Long.toHexString(System.currentTimeMillis())+Integer.toHexString(System.identityHashCode(q));r.setContentType("application/json; charset=UTF-8");r.setHeader("Cache-Control","no-store");r.setHeader("X-Content-Type-Options","nosniff");r.setHeader("X-Request-Id",trace);JSONObject out=new JSONObject();try{Tbmuser user=getLoggedInUser(q);if(user==null)throw new SecurityException("Login diperlukan.");String action=text(q.getParameter("action"),"capabilities");if("capabilities".equals(action))capabilities(out,user,q);else if("health".equals(action))out.put("data",new JurnalHealthService().check(user));else if("workspace".equals(action)){JSONObject data=new JurnalWorkspaceService().load(req(q,"module"),optionalId(q,"journalId"),integer(q,"page",0),integer(q,"size",25),user);out.put("data",data);}else{if(!"POST".equalsIgnoreCase(q.getMethod())||!NewUiCsrfUtil.isValid(q))throw new SecurityException("Token CSRF tidak valid.");command(action,q,out,user,trace);}out.put("ok",true);}catch(SecurityException e){r.setStatus(403);fail(out,"FORBIDDEN",e.getMessage());}catch(IllegalArgumentException e){r.setStatus(422);fail(out,"VALIDATION_FAILED",e.getMessage());}catch(Exception e){r.setStatus(500);fail(out,"INTERNAL_ERROR","Perintah jurnal gagal. ID: "+trace);ais.common.ErrorAuditUtil.record(e,"JurnalAdminApi:"+trace);}finally{try{r.getWriter().write(out.toString());}catch(Exception ignored){}HibernateUtil.closeSession();}}
  /**
   * Mengeksekusi satu aksi tulis (mutasi) berdasarkan nama {@code a}, memanggil tepat satu
   * method pada satu service Jurnal terkait, dan mengisi {@code o} dengan hasilnya.
@@ -128,6 +128,28 @@ public final class JurnalAdminApi extends HttpServlet{
   else if("cancelImport".equals(a))new ais.action.master.jurnal.importer.OjsImportExecutionService().cancel(id(q,"jobId"),u);
   else throw new IllegalArgumentException("Aksi jurnal tidak dikenal.");
  }
+ /**
+  * Membaca pengguna yang sedang login LANGSUNG dari {@link HttpSession}, dipakai {@link #handle}
+  * sebagai SATU-SATUNYA gerbang login servlet ini.
+  *
+  * <p><b>Kenapa bukan {@code Common.getCurrentUser(request)}.</b> Method itu, bila sesi tidak
+  * memuat pengguna, jatuh ke {@code request.getParameter("user")} lalu mencari peta login
+  * GLOBAL ({@code SecurityFilter.dataLogin}) tanpa memverifikasi bahwa request ini memang
+  * berasal dari sesi milik user tersebut. Karena {@code /jurnal-admin-api} tidak punya aturan
+  * {@code intercept-url} khusus di {@code applicationContext-security.xml} (jatuh ke catch-all
+  * {@code IS_AUTHENTICATED_ANONYMOUSLY}), penyerang anonim yang menebak/mengetahui username
+  * editor/admin jurnal yang SEDANG ONLINE dapat memalsukan identitas lewat {@code ?user=<username>}
+  * dan lolos gerbang login satu-satunya di {@link #handle} -- termasuk aksi pembayaran
+  * ({@code settlePayment}/{@code preparePayment}), penerbitan DOI/URN, dan impor pengguna OJS,
+  * yang token CSRF-nya TIDAK mencegah pemalsuan ini karena token itu terikat ke sesi PENYERANG
+  * sendiri, bukan ke identitas yang diklaim.</p>
+  *
+  * @param q permintaan HTTP saat ini
+  * @return pengguna yang sesi HTTP-nya benar-benar memuat atribut login, atau {@code null}
+  *         bila tidak ada sesi atau sesi tidak memuat pengguna yang login
+  */
+ private Tbmuser getLoggedInUser(HttpServletRequest q){HttpSession s=q.getSession(false);if(s==null)return null;Object u=s.getAttribute("mytbmuser");if(u==null)u=s.getAttribute("usersTemp");return(u instanceof Tbmuser)?(Tbmuser)u:null;}
+
  /**
   * Menyusun payload {@code capabilities}: daftar entri menu/modul Jurnal beserta hak
   * buka/baca pengguna saat ini untuk masing-masing (lihat {@link JurnalAksesKatalog}), serta
