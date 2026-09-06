@@ -3697,6 +3697,35 @@ public class ProsesUjianHelper extends MyWindow {
 				hasilUjianMahasiswaDetail.getNilai() == null ? 0.0 : hasilUjianMahasiswaDetail.getNilai(), 100.0 };
 	}
 
+	/**
+	 * Menentukan SKOR MAKSIMAL yang mungkin diraih dari satu {@code BankSoal}.
+	 *
+	 * <p><b>Untuk apa:</b> menjadi penyebut pada setiap perhitungan persentase — baik pada
+	 * agregasi {@link #hitungPilihanGanda(HasilUjianMahasiswa,Map)} maupun pada kolom "Max" per
+	 * Sub-CPMK di {@link #hitungObe(HasilUjianMahasiswa,Map)} dan {@link #rincianSkorSubCpmk}.</p>
+	 *
+	 * <p><b>Urutan penentuan (tiga tingkat, berhenti pada yang pertama valid):</b></p>
+	 * <ol>
+	 *   <li>Bila soal TIDAK memakai skor per-jawaban ({@code skorJawabanBerbeda} tidak benar) dan
+	 *       {@code bankSoal.getSkor()} lebih besar dari nol, nilai itulah yang dipakai.</li>
+	 *   <li>Selain itu, skor seluruh {@code BankSoalDetail} yang ditandai BENAR dijumlahkan; bila
+	 *       hasilnya lebih besar dari nol, itulah maksimalnya. Bila penjumlahan nol, sistem masih
+	 *       mencoba {@code bankSoal.getSkor()} sekali lagi.</li>
+	 *   <li><b>Fallback 1.0 (satu poin netral).</b> Bila soal memiliki kunci jawaban benar tetapi
+	 *       seluruh kolom skornya kosong, mengembalikan 0 akan membuat penyebut nol sehingga
+	 *       persentase Sub-CPMK MUSTAHIL dihitung dan kolom Skor/Max tampil kosong. Karena itu
+	 *       nilai 1.0 dikembalikan agar soal tetap dapat dinilai secara relatif.</li>
+	 * </ol>
+	 *
+	 * <p><b>Penanganan error:</b> kegagalan membaca detail soal ditampilkan lewat
+	 * {@code Common.tampilErrorJikaAdmin} dan perhitungan tetap dilanjutkan dengan skor seadanya.
+	 * Sengaja tidak melempar exception karena pemanggilnya berada di jalur perhitungan massal
+	 * seluruh peserta — satu soal rusak tidak boleh menggagalkan nilai satu kelas.</p>
+	 *
+	 * @param bankSoal soal yang akan diukur; null menghasilkan {@code 0.0}
+	 * @return skor maksimal soal; minimal {@code 1.0} bila soal memiliki kunci benar, atau
+	 *         {@code 0.0} bila {@code bankSoal} null
+	 */
 	private static Double ambilSkorMaksimalBankSoal(BankSoal bankSoal) {
 		if (bankSoal == null) {
 			return 0.0;
@@ -3728,6 +3757,33 @@ public class ProsesUjianHelper extends MyWindow {
 		return 1.0;
 	}
 
+	/**
+	 * Menjumlahkan skor maksimal SELURUH soal yang benar-benar DITAMPILKAN kepada seorang peserta.
+	 *
+	 * <p><b>Untuk apa:</b> menjadi penyebut {@code jawabanBenarMax} pada
+	 * {@link #hitungPilihanGanda(HasilUjianMahasiswa,Map)}. Penyebut ini harus mengikuti soal yang
+	 * DITAMPILKAN (hasil pengacakan {@link #randomPosisiton(List,boolean,Label,Integer)}) — bukan
+	 * seluruh bank soal — supaya peserta yang mendapat 20 soal acak dari 100 soal tidak dinilai
+	 * terhadap 100 soal.</p>
+	 *
+	 * <p><b>Cara kerja:</b> memuat kembali daftar {@code UjianPunyaSoal} milik peserta lewat
+	 * {@code hasilUjianMahasiswa.ambilUjianPunyaSoals(jmlDitampilkan, label, true)} — argumen
+	 * {@code true} memaksa pengambilan segar dari basis data — lalu menjumlahkan
+	 * {@link #ambilSkorMaksimalBankSoal(BankSoal)} untuk setiap soalnya.</p>
+	 *
+	 * <p><b>Catatan:</b> {@code new Label()} dilewatkan sekadar sebagai penampung pesan progres
+	 * karena method ini dipanggil di luar konteks tampilan; label tersebut memang dibuang.</p>
+	 *
+	 * <p><b>Perhatian pemakaian:</b> hasil method ini dan penjumlahan per-soal di
+	 * {@link #hitungPilihanGanda(HasilUjianMahasiswa,Map)} dapat berada pada SKALA yang berbeda
+	 * (misalnya pada soal ber-{@code skorJawabanBerbeda}). Karena itu pemanggilnya memasang
+	 * penjaga anti nilai&gt;100: bila penyebut dari method ini lebih kecil daripada skor yang
+	 * didapat, penyebut dikembalikan ke penjumlahan per-soal yang sudah pasti seskala.</p>
+	 *
+	 * @param hasilUjianMahasiswa hasil ujian peserta; null atau tanpa {@code pertemuanPunyaUjian}
+	 *                            menghasilkan {@code 0.0}
+	 * @return total skor maksimal seluruh soal yang ditampilkan kepada peserta ini
+	 */
 	private static Double ambilSkorMaksimalSoalDitampilkan(HasilUjianMahasiswa hasilUjianMahasiswa) {
 		if (hasilUjianMahasiswa == null || hasilUjianMahasiswa.getPertemuanPunyaUjian() == null) {
 			return 0.0;
@@ -3788,6 +3844,12 @@ public class ProsesUjianHelper extends MyWindow {
 	 * @param hasilUjianMahasiswaDetails peta lengkap jawaban peserta (untuk perhitungan skor per soal)
 	 */
 	/**
+	 * <b>Catatan pemeliharaan:</b> blok komentar panjang tepat DI ATAS blok ini menjelaskan
+	 * mekanisme perhitungan OBE secara umum, namun secara teknis ia yatim — Javadoc yang berlaku
+	 * bagi sebuah method hanyalah blok TERAKHIR sebelum deklarasinya, yaitu blok ini. Uraian
+	 * lengkap mekanismenya (kapan aktif, bagaimana Sub-CPMK diagregasi, format JSON hasil) kini
+	 * didokumentasikan pada overload dua-argumen {@link #hitungObe(HasilUjianMahasiswa,Map)}.
+	 *
 	 * Overload hitungObe yang menerima formatNilais yang sudah di-pre-compute.
 	 * Gunakan ini dari konteks multi-thread agar setDefaultPembobotan tidak dipanggil
 	 * bersamaan dari 50 thread paralel (race condition saling reset persen=0).
@@ -3889,6 +3951,53 @@ public class ProsesUjianHelper extends MyWindow {
 		hasilUjianMahasiswa.setNilaiObe(jsonObjectHasil.toString());
 	}
 
+	/**
+	 * Menghitung dan menyimpan pemetaan skor ujian ke format penilaian OBE (Outcome-Based
+	 * Education) untuk satu peserta.
+	 *
+	 * <p><b>Kapan aktif:</b> hanya bila rantai {@code pertemuanPunyaUjian - pertemuan -
+	 * perkuliahan - kurikulum} lengkap DAN
+	 * {@code kurikulum.apakahObe(tahunAjaran, ganjilGenap)} bernilai benar. Bila tidak, method
+	 * tetap menulis {@code nilaiObe} berisi JSON kosong — jadi ia TIDAK pernah meninggalkan kolom
+	 * apa adanya.</p>
+	 *
+	 * <p><b>Cara kerja:</b></p>
+	 * <ol>
+	 *   <li>Memuat {@code FormatNilai} (daftar Sub-CPMK) lewat session Hibernate TERSENDIRI yang
+	 *       dibuka dan ditutup di blok {@code finally}, supaya tidak mengganggu session ujian.</li>
+	 *   <li>{@code pertemuanPunyaUjian.ambilMapNomor(formatNilais)} memetakan NOMOR URUT soal ke
+	 *       Sub-CPMK; nomor urut inilah satu-satunya kunci penghubung soal dengan Sub-CPMK.</li>
+	 *   <li>Daftar soal diambil dengan {@code refresh=false} — disengaja: pemanggilan dari
+	 *       "Hitung Ulang Semua" berjalan puluhan thread paralel, dan {@code refresh=true} akan
+	 *       membuat cache berkas soal dibersihkan-dan-diisi secara tumpang tindih sehingga soal
+	 *       terbaca sebagian dan Sub-CPMK hilang.</li>
+	 *   <li>Soal dengan {@code BankSoal} yang sudah pernah dihitung DILEWATI
+	 *       ({@code bankSoalSudahDihitung}), agar baris soal ganda — akibat ujian ulang yang
+	 *       menambah {@code UjianPunyaSoal} untuk Sub-CPMK yang diulang — tidak menggelembungkan
+	 *       skor maupun skor maksimalnya.</li>
+	 *   <li>Sub-CPMK yang TIDAK dikerjakan peserta ini (kasus remedial sebagian) tetap ditulis ke
+	 *       JSON dengan nilai 0 dan {@code _max} 0, supaya kolom laporan tidak kosong melompong.</li>
+	 *   <li>Untuk tiap soal: {@code _max} ditambah {@link #ambilSkorMaksimalBankSoal(BankSoal)},
+	 *       dan nilainya ditambah hasil {@link #hitung(HasilUjianMahasiswaDetail,Map)} atas jawaban
+	 *       peserta pada soal tersebut.</li>
+	 *   <li>Hasil akhir ditulis sebagai JSON ke {@code hasilUjianMahasiswa.setNilaiObe(...)} dengan
+	 *       kunci berupa id {@code FormatNilai} dan pasangannya berakhiran {@code _max}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Penanganan error:</b> kesalahan per-soal maupun kesalahan menyeluruh SELALU dicetak
+	 * beserta konteksnya ({@code [HITUNG-OBE-ERROR] peserta=... soalNo=... bankSoal=...}). Ini
+	 * disengaja: versi lama membisukan {@code printStackTrace} sehingga NPE membuat
+	 * {@code jsonObjectHasil.put(...)} terlewat tanpa jejak, dan kolom Skor/Max serta Nilai tampil
+	 * KOSONG justru untuk peserta yang MENJAWAB.</p>
+	 *
+	 * <p><b>Pilih overload yang mana:</b> gunakan {@link #hitungObe(HasilUjianMahasiswa,Map,List)}
+	 * bila memanggil dari konteks multi-thread — overload tersebut menerima {@code formatNilais}
+	 * yang sudah dihitung sebelumnya sehingga {@code setDefaultPembobotan} tidak dijalankan
+	 * bersamaan oleh puluhan thread yang saling mereset persen menjadi 0.</p>
+	 *
+	 * @param hasilUjianMahasiswa        hasil ujian peserta yang kolom {@code nilaiObe}-nya ditulis
+	 * @param hasilUjianMahasiswaDetails peta lengkap jawaban peserta (bankSoalId ke himpunan detailId)
+	 */
 	@SuppressWarnings("unchecked")
 	public static void hitungObe(HasilUjianMahasiswa hasilUjianMahasiswa,
 			Map<Long, Set<Long>> hasilUjianMahasiswaDetails) {

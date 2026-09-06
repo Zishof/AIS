@@ -521,12 +521,28 @@ public class WizardPembayaranMhsHelper {
     private boolean hanyaAdaTagihan = true;
 
     // ============================================================ ENTRY POINT
+    /**
+     * Menyiapkan satu sesi wizard untuk satu mahasiswa. Konstruktor sengaja HANYA menyimpan
+     * kedua argumen: tidak ada kueri, tidak ada komponen ZK yang dibuat, dan tidak ada
+     * pemeriksaan apa pun di sini — validasi mahasiswa dilakukan {@link #tampilkan()},
+     * gerbang konfigurasi oleh {@link #buka(Mahasiswa, EventListener)}. Satu instance
+     * mewakili satu jendela; membuka wizard dua kali berarti dua instance dengan state
+     * langkah yang terpisah.
+     *
+     * <p>Bersifat publik agar pemanggil yang perlu mengatur jendela sendiri dapat memakainya,
+     * namun jalur yang dianjurkan tetap {@link #buka(Mahasiswa, EventListener)} karena
+     * hanya jalur itu yang menghormati konfigurasi ON/OFF {@link #KONFIGURASI_AKTIF}.</p>
+     *
+     * @param mhs       mahasiswa yang tagihannya akan dibayar; kepemilikan/otorisasi WAJIB
+     *                  sudah dipastikan pemanggil (lihat kontrak keamanan pada field
+     *                  {@code mahasiswa})
+     * @param onSelesai callback opsional saat jendela ditutup, boleh {@code null}
+     */
     public WizardPembayaranMhsHelper(Mahasiswa mhs, EventListener onSelesai) {
         this.mahasiswa = mhs;
         this.onSelesai = onSelesai;
     }
 
-    /** Buka wizard pembayaran dalam window popup. */
     /**
      * Konfigurasi ON/OFF Wizard Pembayaran Mahasiswa (menu Konfigurasi &gt; Pembayaran
      * Mahasiswa). Default AKTIF — fitur murni aditif (menambah tombol/jendela, tidak
@@ -547,6 +563,23 @@ public class WizardPembayaranMhsHelper {
         }
     }
 
+    /**
+     * Pintu masuk resmi wizard: memeriksa gerbang konfigurasi {@link #aktif()} lalu membuka
+     * jendela lima langkah untuk {@code mhs}. Bila fitur dimatikan administrator, method
+     * hanya menampilkan pesan informasi dan RETURN tanpa membuat jendela apa pun.
+     *
+     * <p><b>Gerbang yang TIDAK dilakukan di sini.</b> Method ini tidak memeriksa siapa
+     * pengguna yang sedang login dan tidak memeriksa apakah pengguna itu berhak atas
+     * {@code mhs}. Ia mempercayai sepenuhnya objek {@link Mahasiswa} yang diberikan
+     * pemanggil — lihat kontrak keamanan lengkap pada field {@code mahasiswa}. Pemanggil
+     * yang membangun objek mahasiswa dari masukan pengguna (parameter URL, id yang dikirim
+     * klien) WAJIB memverifikasi kepemilikannya terhadap sesi login lebih dulu.</p>
+     *
+     * @param mhs       mahasiswa target; bila null atau belum tersimpan, {@link #tampilkan()}
+     *                  akan menolak dengan pesan dan tidak membuka jendela
+     * @param onSelesai callback opsional saat jendela ditutup, boleh {@code null}
+     * @throws Exception bila perakitan komponen ZK gagal
+     */
     public static void buka(Mahasiswa mhs, EventListener onSelesai) throws Exception {
         if (!aktif()) {
             MyMessageboxConfig.show(
@@ -558,6 +591,24 @@ public class WizardPembayaranMhsHelper {
         new WizardPembayaranMhsHelper(mhs, onSelesai).tampilkan();
     }
 
+    /**
+     * Merakit dan menampilkan jendela wizard: kerangka flex (header, stepper, badan yang
+     * menggulir, footer), render langkah aktif, penyuntikan CSS mobile, lalu
+     * {@code doHighlighted()} dan pemusatan posisi.
+     *
+     * <p>Menolak lebih dulu (pesan + return, tanpa jendela) bila mahasiswa null atau belum
+     * punya id — objek transient tidak dapat dijadikan pemilik {@link Kegiatan} maupun
+     * Virtual Account, sehingga lebih baik gagal di depan daripada gagal di tengah
+     * pembayaran.</p>
+     *
+     * <p>Tata letak mengikuti {@code Common.isMobile()}: pada mobile jendela dipaksa satu
+     * layar penuh lewat kelas {@code wz-mhs-mobile} dan CSS yang disuntikkan
+     * {@link #injectCssMobile(boolean)}; pada desktop jendela 660px terpusat. Penyetelan
+     * posisi dibungkus try/catch karena {@code setPosition} dapat gagal pada varian ZK
+     * tertentu dan kegagalan kosmetik itu tidak boleh membatalkan pembukaan jendela.</p>
+     *
+     * @throws Exception bila perakitan komponen ZK gagal
+     */
     public void tampilkan() throws Exception {
         if (mahasiswa == null || mahasiswa.getId() == null) {
             alertar("Data mahasiswa belum tersedia.");

@@ -3233,6 +3233,11 @@ public class TampilStudiMahasiswaHelper {
 		semesterSampai.setReadonly(true);
 
 		EventListener searchListener = new EventListener() {
+			/**
+			 * Listener bersama kedua combo rentang semester: memuat ulang grid KRS lewat
+			 * {@link #onSearchDefault(Event, boolean)} dengan {@code keDatabase = false}, yaitu hanya
+			 * MENAMPILKAN ulang tanpa menulis hasil hitung IP/IPK ke database.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				onSearchDefault(null, false);
@@ -3245,6 +3250,11 @@ public class TampilStudiMahasiswaHelper {
 		toolbarbuttonLihat = new MyToolbarbuttonConfig("Refresh / Hitung IP/IPK", "/img/options.png");
 		hbox.appendChild(toolbarbuttonLihat);
 		toolbarbuttonLihat.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol "Refresh / Hitung IP/IPK": me-refresh entitas mahasiswa ({@code mahasiswa.reInit()}) lalu
+			 * memuat ulang grid dengan {@code keDatabase = true}, sehingga hasil sinkronisasi KRS dan
+			 * perhitungan IP/IPK benar-benar DITULIS ke database saat tiap baris dirender.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				mahasiswa.reInit();
@@ -3255,6 +3265,7 @@ public class TampilStudiMahasiswaHelper {
 		final MyToolbarbuttonConfig download = new MyToolbarbuttonConfig("Download Semua KRS", "/img/excel.png");
 		hbox.appendChild(download);
 		download.addEventListener("onClick", new EventListener() {
+			/** Tombol "Download Semua KRS": mengunduh berkas rekap seluruh KRS mahasiswa lewat {@code PenilaianUtil.downloadSemuaKRS}. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				PenilaianUtil.downloadSemuaKRS(mahasiswa);
@@ -3276,10 +3287,18 @@ public class TampilStudiMahasiswaHelper {
 					"Pindahkan KRS Ke Semester Atas (smt +1)", "/img/excel.png");
 			hbox.appendChild(pindahkanSemesterKeAtas);
 			pindahkanSemesterKeAtas.addEventListener("onClick", new EventListener() {
+				/**
+				 * Tombol "Pindahkan KRS Ke Semester Atas (smt +1)" &mdash; hanya dibuat untuk mahasiswa PINDAHAN
+				 * atau ALIH PRODI. Menggeser NOMOR SEMESTER seluruh KRS mahasiswa naik satu tingkat
+				 * ({@code PenilaianUtil.pindahkanSemuaKRS(mahasiswa, 1)}), lalu memuat ulang grid lewat timer
+				 * dengan {@code keDatabase = true}. Perhatikan: aksi ini mengubah data secara massal dan
+				 * langsung, TANPA dialog konfirmasi.
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					PenilaianUtil.pindahkanSemuaKRS(mahasiswa, 1);
 					Common.createDefaultTimer(new EventListener() {
+						/** Muat ulang grid setelah pergeseran semester selesai; dijalankan lewat timer agar UI sempat menyelesaikan permintaan sebelumnya. */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							onSearchDefault(null, true);
@@ -3292,10 +3311,15 @@ public class TampilStudiMahasiswaHelper {
 					"Pindahkan KRS Ke Semester Bawah (smt -1)", "/img/excel.png");
 			hbox.appendChild(pindahkanSemesterKeBawah);
 			pindahkanSemesterKeBawah.addEventListener("onClick", new EventListener() {
+				/**
+				 * Tombol "Pindahkan KRS Ke Semester Bawah (smt -1)": kebalikan dari tombol geser ke atas
+				 * ({@code PenilaianUtil.pindahkanSemuaKRS(mahasiswa, -1)}). Juga tanpa dialog konfirmasi.
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					PenilaianUtil.pindahkanSemuaKRS(mahasiswa, -1);
 					Common.createDefaultTimer(new EventListener() {
+						/** Muat ulang grid setelah pergeseran semester selesai; dijalankan lewat timer agar UI sempat menyelesaikan permintaan sebelumnya. */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							onSearchDefault(null, true);
@@ -3308,6 +3332,10 @@ public class TampilStudiMahasiswaHelper {
 		final MyToolbarbuttonConfig kurikulum = new MyToolbarbuttonConfig("Lihat Kurikulum", "/img/excel.png");
 		hbox.appendChild(kurikulum);
 		kurikulum.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol "Lihat Kurikulum": membuka jendela modal {@code LaporanKurikulumMahasiswa} berisi riwayat
+			 * kurikulum yang pernah melekat pada mahasiswa.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				LaporanKurikulumMahasiswa laporanKurikulum = new LaporanKurikulumMahasiswa(mahasiswa, null);
@@ -3323,6 +3351,11 @@ public class TampilStudiMahasiswaHelper {
 		final MyToolbarbuttonConfig catatanMurikulum = new MyToolbarbuttonConfig("Catatan", "/img/print.png");
 		hbox.appendChild(catatanMurikulum);
 		catatanMurikulum.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol "Catatan": mencetak PDF laporan {@code catatan_konsultasi} (catatan konsultasi dosen PA)
+			 * untuk perkuliahan mahasiswa ini. Parameter laporan diambil dari
+			 * {@code HashMapGenerator.getRand()} agar berkas hasil bersifat unik per permintaan.
+			 */
 			@SuppressWarnings("unchecked")
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -3335,6 +3368,10 @@ public class TampilStudiMahasiswaHelper {
 
 		MyToolbarbuttonConfig buttonBiodata = new MyToolbarbuttonConfig("Biodata", "/img/online-icon_access.png");
 		buttonBiodata.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol "Biodata": mencetak biodata mahasiswa lewat
+			 * {@code CommonReportHelper.onCetakBiodataMahasiswa} atas {@code mahasiswa.ambilBiodata()}.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				BiodataMahasiswa biodataMahasiswa = mahasiswa.ambilBiodata();
@@ -3348,12 +3385,25 @@ public class TampilStudiMahasiswaHelper {
 			MyToolbarbuttonConfig buttonTagihan = new MyToolbarbuttonConfig("Ambil Nilai",
 					"/img/Finance-Invoice-icon.png");
 			buttonTagihan.addEventListener("onClick", new EventListener() {
+				/**
+				 * Tombol "Ambil Nilai" (hanya tampil bila pengguna boleh mengakses Feeder dan konfigurasi
+				 * {@code aktifkan_terhubung_langsung_ke_feeder} aktif): meminta konfirmasi sebelum menarik nilai
+				 * mahasiswa dari Neo Feeder. Hanya perkuliahan yang BELUM dinilai yang akan terisi &mdash; nilai
+				 * yang sudah ada di sistem tidak ditimpa.
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					MyMessageboxConfig.show(
 							"Data nilai yang sudah diinputkan di sistem atau nilai mahasiswa lebih dari 0, tidak bisa diambil dari Feeder. Hanya perkuliahan yg belum dinilai saja yg bisa diambil.\nApakah Anda yakin ingin melanjutkan?",
 							"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
 							MyMessageboxConfig.QUESTION, new EventListener() {
+								/**
+								 * Lanjutan tombol "Ambil Nilai" setelah pengguna menekan OK: mengambil parameter koneksi dari
+								 * {@code EksporFromFeederAction.koneksi()}, memastikan alamat Feeder merespons
+								 * ({@code EksporFromFeederAction.exists}) dan menghentikan proses dengan pesan formal bila tidak,
+								 * lalu menjalankan penarikan nilai pada THREAD TERPISAH sambil menampilkan bilah proses.
+								 * Penekanan CANCEL tidak melakukan apa pun.
+								 */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
@@ -3375,6 +3425,12 @@ public class TampilStudiMahasiswaHelper {
 
 										final List<String> errorLog = new ArrayList<String>();
 										final Label myLabelProsesDetail = Common.displayLoadBar(new EventListener() {
+											/**
+											 * Callback penutup bilah proses "Ambil Nilai" (dijalankan di thread UI setelah thread pekerja
+											 * selesai): menampilkan pesan hasil bila ada, menggabungkan seluruh {@code errorLog} menjadi satu
+											 * berkas teks di {@code /opt/ecampus/} yang otomatis diunduh pengguna bila terjadi error, lalu
+											 * memuat ulang grid KRS lewat timer dengan {@code keDatabase = true}.
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 												if (arg0 != null && !arg0.getName().isEmpty()) {
@@ -3407,6 +3463,7 @@ public class TampilStudiMahasiswaHelper {
 												}
 
 												Common.createDefaultTimer(new EventListener() {
+													/** Muat ulang grid setelah penarikan nilai dari Feeder selesai, sekaligus menulis hasil hitung IP/IPK ke database. */
 													@Override
 													public void onEvent(Event arg0) throws Exception {
 														onSearchDefault(null, true);
@@ -3416,6 +3473,14 @@ public class TampilStudiMahasiswaHelper {
 										});
 
 										new Thread(new Runnable() {
+											/**
+											 * Pekerja latar tombol "Ambil Nilai": login ke Neo Feeder, lalu memanggil
+											 * {@code MahasiswaAction.ambilNilaiDariFeeder} untuk mahasiswa ini. Bila token kosong/berawalan
+											 * "error", proses dihentikan dengan pesan gagal login. Penanda sukses ({@code setValue("")})
+											 * SENGAJA diletakkan di akhir blok {@code try} agar exception apa pun setelah pemanggilan tidak
+											 * salah dianggap sukses (perbaikan "gagal diam-diam"). Berjalan di luar thread UI, sehingga
+											 * satu-satunya jalur komunikasi ke pengguna adalah {@code myLabelProsesDetail}.
+											 */
 											@Override
 											public void run() {
 												try {
@@ -3457,10 +3522,16 @@ public class TampilStudiMahasiswaHelper {
 
 		MyToolbarbuttonConfig buttonHistory = new MyToolbarbuttonConfig("History", "/img/jadwal.png");
 		buttonHistory.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol "History": membuka {@code RevisiDetailPerkuliahanDariMahasiswaHelper} (riwayat revisi
+			 * detail perkuliahan) sebagai jendela modal, dengan callback yang me-refresh mahasiswa dan memuat
+			 * ulang grid bila ada perubahan.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				RevisiDetailPerkuliahanDariMahasiswaHelper revisiHelper = new RevisiDetailPerkuliahanDariMahasiswaHelper(
 						mahasiswa, new EventListener() {
+							/** Callback setelah jendela riwayat revisi ditutup: {@code mahasiswa.reInit()} lalu muat ulang grid dengan penulisan hasil hitung ke database. */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								mahasiswa.reInit();

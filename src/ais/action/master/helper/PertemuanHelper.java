@@ -1730,6 +1730,19 @@ public class PertemuanHelper {
 
 			catatan.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Autosave field <b>Catatan</b> pada tampilan ADMIN/DOSEN/GURU: menyegarkan entity dari basis
+				 * data ({@code Common.refresh}), menyalin isi textbox ke {@code pertemuan.setCatatan(...)},
+				 * lalu menyimpan seketika ({@code Common.refreshSaveOrUpdate}). Tidak ada tombol simpan
+				 * terpisah — setiap {@code onChange} (blur/enter) langsung menulis ke basis data.
+				 *
+				 * <p>{@code Common.refresh} dipanggil LEBIH DULU agar perubahan bidang lain oleh sesi lain
+				 * tidak tertimpa oleh salinan entity yang basi; namun karena tidak ada penguncian, dua
+				 * pengguna yang mengedit catatan pertemuan yang sama tetap saling menimpa (last-write-wins).</p>
+				 *
+				 * @param arg0 event {@code onChange} dari textbox; isinya tidak dipakai (nilai diambil
+				 *             langsung dari {@link #catatan}).
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					Common.refresh(pertemuan);
@@ -1756,6 +1769,14 @@ public class PertemuanHelper {
 			LampiranLain.createDownloadUploadFileLain(hbox1, pertemuan.getId(), LampiranLain.CATATAN_PERKULIAHAN,
 					"Catatan", false, new EventListener() {
 
+						/**
+						 * Listener KOSONG yang diwajibkan tanda tangan
+						 * {@link LampiranLain#createDownloadUploadFileLain} untuk bar lampiran "Catatan
+						 * Perkuliahan" pada tampilan admin/dosen/guru. Tidak ada aksi lanjutan setelah unggah/unduh
+						 * karena isi lampiran tidak memengaruhi komponen lain di layar ini.
+						 *
+						 * @param arg0 event dari utilitas lampiran; sengaja diabaikan.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -1768,6 +1789,12 @@ public class PertemuanHelper {
 					pertemuan.getPerkuliahan() == null ? "Laporan Hasil" : LampiranLain.LHP, false,
 					new EventListener() {
 
+						/**
+						 * Listener KOSONG untuk bar lampiran "Laporan Hasil Pembelajaran" (LHP) pada tampilan
+						 * admin/dosen/guru — lihat catatan pada listener lampiran Catatan di atas.
+						 *
+						 * @param arg0 event dari utilitas lampiran; sengaja diabaikan.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -1817,6 +1844,15 @@ public class PertemuanHelper {
 								.getNilai().trim(),
 						null, new EventListener() {
 
+							/**
+							 * Callback HASIL AKHIR tombol "Generate Catatan" ({@link AIGenerator#generateApa}): mengambil
+							 * teks jawaban model dari {@code arg0.getData()}, mengubah penanda tebal gaya WhatsApp menjadi
+							 * HTML ({@code Wa.ubahKeBold}), mengganti newline dengan {@code <br>}, menaruhnya di textbox
+							 * {@link #catatan}, lalu MENYIMPANNYA ke {@code pertemuan}. Inilah callback yang menulis ke
+							 * basis data; pasangannya di bawah hanya memperbarui tampilan.
+							 *
+							 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 
@@ -1830,6 +1866,13 @@ public class PertemuanHelper {
 							}
 						}, tanyaMengajar, new EventListener() {
 
+							/**
+							 * Callback PRATINJAU tombol "Generate Catatan": memformat dan menaruh teks hasil ke textbox
+							 * {@link #catatan} TANPA menyimpan ke basis data — dipakai untuk menampilkan hasil sementara
+							 * selagi pengguna masih bisa membatalkan/mengulang generasi.
+							 *
+							 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								catatan.setValue(ais.action.servlet.Wa.ubahKeBold((arg0.getData() + ""))
@@ -1859,6 +1902,14 @@ public class PertemuanHelper {
 
 				indikator.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Autosave field RPS <b>Indikator Capaian</b> ({@code pertemuan.setIndikator}). Field ini
+					 * hanya dibangun bila {@code pertemuan.getPerkuliahan() != null}, yaitu untuk pertemuan
+					 * perkuliahan yang punya Rencana Pembelajaran Semester. Pola sama dengan autosave Catatan:
+					 * {@code refresh} lalu {@code refreshSaveOrUpdate}, tanpa tombol simpan.
+					 *
+					 * @param arg0 event {@code onChange} dari textbox; isinya tidak dipakai.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						Common.refresh(pertemuan);
@@ -1903,6 +1954,12 @@ public class PertemuanHelper {
 									.getNilai().trim(),
 							null, new EventListener() {
 
+								/**
+								 * Callback HASIL AKHIR tombol "Generate Indikator Capaian": memformat teks hasil model dan
+								 * MENYIMPANNYA ke {@code pertemuan.setIndikator}.
+								 *
+								 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 
@@ -1916,6 +1973,12 @@ public class PertemuanHelper {
 								}
 							}, tanyaMengajar, new EventListener() {
 
+								/**
+								 * Callback PRATINJAU tombol "Generate Indikator Capaian": hanya memperbarui textbox, tidak
+								 * menyimpan.
+								 *
+								 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									indikator.setValue(ais.action.servlet.Wa.ubahKeBold((arg0.getData() + ""))
@@ -1940,6 +2003,11 @@ public class PertemuanHelper {
 
 				metodePembelajaran.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Autosave field RPS <b>Metode Pembelajaran</b> ({@code pertemuan.setMetodePembelajaran}).
+					 *
+					 * @param arg0 event {@code onChange} dari textbox; isinya tidak dipakai.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						Common.refresh(pertemuan);
@@ -1979,6 +2047,12 @@ public class PertemuanHelper {
 									.getNilai().trim(),
 							null, new EventListener() {
 
+								/**
+								 * Callback HASIL AKHIR tombol "Generate Metode Pembelajaran": memformat teks hasil model dan
+								 * MENYIMPANNYA ke {@code pertemuan.setMetodePembelajaran}.
+								 *
+								 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 
@@ -1992,6 +2066,12 @@ public class PertemuanHelper {
 								}
 							}, tanyaMengajar, new EventListener() {
 
+								/**
+								 * Callback PRATINJAU tombol "Generate Metode Pembelajaran": hanya memperbarui textbox, tidak
+								 * menyimpan.
+								 *
+								 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									metodePembelajaran.setValue(ais.action.servlet.Wa.ubahKeBold((arg0.getData() + ""))
@@ -2016,6 +2096,13 @@ public class PertemuanHelper {
 
 				pengalamanBelajar.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Autosave field RPS <b>Pengalaman Belajar</b> ({@code pertemuan.setPengalamanBelajar}).
+					 * Berbeda dari Catatan/Indikator/Metode Pembelajaran, field ini TIDAK punya tombol
+					 * "Generate ..." berbantuan AI.
+					 *
+					 * @param arg0 event {@code onChange} dari textbox; isinya tidak dipakai.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						Common.refresh(pertemuan);
@@ -2044,6 +2131,12 @@ public class PertemuanHelper {
 
 				waktupembelajaran.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Autosave field RPS <b>Waktu Pembelajaran</b> ({@code pertemuan.setWaktupembelajaran}) —
+					 * teks bebas satu baris, mis. "2 x 50 menit". Tidak punya tombol "Generate ...".
+					 *
+					 * @param arg0 event {@code onChange} dari textbox; isinya tidak dipakai.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						Common.refresh(pertemuan);
@@ -2072,6 +2165,12 @@ public class PertemuanHelper {
 
 				tugasDanPenilaian.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Autosave field RPS <b>Tugas dan Penilaian</b> ({@code pertemuan.setTugasDanPenilaian}) —
+					 * field RPS terakhir; tidak punya tombol "Generate ...".
+					 *
+					 * @param arg0 event {@code onChange} dari textbox; isinya tidak dipakai.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						Common.refresh(pertemuan);
@@ -2182,6 +2281,25 @@ public class PertemuanHelper {
 
 					catatan.addEventListener("onChange", new EventListener() {
 
+						/**
+						 * Autosave field <b>Catatan</b> pada tampilan PESERTA (cabang {@code else} dari pemeriksaan
+						 * peran di awal {@link #initCatatan(boolean)}). Sama persis dengan autosave versi
+						 * admin/dosen/guru: menyegarkan entity, menyalin isi textbox ke
+						 * {@code pertemuan.setCatatan(...)}, lalu menyimpan seketika ke basis data.
+						 *
+						 * <p><b>Cakupan peran yang perlu diperhatikan.</b> Textbox yang memasang listener ini hanya
+						 * dibangun ketika DUA syarat terpenuhi: (a) {@code pertemuan.getPerkuliahan() == null} —
+						 * yakni pertemuan berasal dari jadwal pelajaran sekolah, KKN, PKL, atau formulir kegiatan,
+						 * bukan perkuliahan; dan (b) {@code biodataCalonMahasiswa == null}. Untuk pertemuan
+						 * perkuliahan seluruh isi RPS dan catatan dirender READ-ONLY ({@code MyHtmlIframe} +
+						 * {@link Label}), dan calon mahasiswa selalu read-only. Di luar dua kasus itu — mahasiswa,
+						 * siswa, dan peserta kursus pada pertemuan non-perkuliahan — catatan/berita acara pertemuan
+						 * dapat disunting dan langsung tersimpan oleh peserta, tanpa jejak audit tersendiri di kelas
+						 * ini. Perilaku ini didokumentasikan apa adanya; penilaian apakah ini disengaja (catatan
+						 * bersama) atau kelalaian gerbang peran dilacak terpisah dan tidak diubah di sini.</p>
+						 *
+						 * @param arg0 event {@code onChange} dari textbox; isinya tidak dipakai.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							Common.refresh(pertemuan);
@@ -2248,6 +2366,20 @@ public class PertemuanHelper {
 												"Kamu adalah Pengajar atau Dosen atau Guru ").getNilai().trim(),
 										null, new EventListener() {
 
+											/**
+											 * Callback HASIL AKHIR tombol "Generate Catatan" pada cabang PESERTA: memformat teks hasil
+											 * model dan MENYIMPANNYA ke {@code pertemuan.setCatatan}.
+											 *
+											 * <p>Tombol pemicunya dibangun di balik syarat {@code tbmuser.getMahasiswa() == null &&
+											 * tbmuser.getSiswa() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null &&
+											 * tbmuser.getCalonSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null}. Perhatikan
+											 * {@code getSiswa()} tertulis TIGA KALI sementara {@code getPesertaKursus()} — yang ikut
+											 * diperiksa pada percabangan peran utama di awal method — tidak diperiksa sama sekali; pola
+											 * salin-tempel yang sama muncul pada seluruh gerbang tombol "Generate ..." di kelas ini.
+											 * Dicatat apa adanya, tidak diubah di sini.</p>
+											 *
+											 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 
@@ -2261,6 +2393,12 @@ public class PertemuanHelper {
 											}
 										}, tanyaMengajar, new EventListener() {
 
+											/**
+											 * Callback PRATINJAU tombol "Generate Catatan" pada cabang PESERTA: hanya memperbarui textbox
+											 * {@link #catatan}, tidak menyimpan ke basis data.
+											 *
+											 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 												catatan.setValue(ais.action.servlet.Wa.ubahKeBold((arg0.getData() + ""))
@@ -2285,6 +2423,13 @@ public class PertemuanHelper {
 			LampiranLain.createDownloadUploadFileLain(hbox1, pertemuan.getId(), LampiranLain.CATATAN_PERKULIAHAN,
 					"Catatan", false, new EventListener() {
 
+						/**
+						 * Listener KOSONG untuk bar lampiran "Catatan Perkuliahan" pada cabang PESERTA. Berbeda dari
+						 * versi admin/dosen/guru, {@code createDownloadUploadFileLain} di sini dipanggil dengan
+						 * argumen izin unggah bernilai {@code false} sehingga peserta hanya dapat mengunduh.
+						 *
+						 * @param arg0 event dari utilitas lampiran; sengaja diabaikan.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -2297,6 +2442,12 @@ public class PertemuanHelper {
 					pertemuan.getPerkuliahan() == null ? "Laporan Hasil" : LampiranLain.LHP, false,
 					new EventListener() {
 
+						/**
+						 * Listener KOSONG untuk bar lampiran "Laporan Hasil Pembelajaran" (LHP) pada cabang PESERTA;
+						 * juga hanya-unduh — lihat catatan pada listener lampiran Catatan di atas.
+						 *
+						 * @param arg0 event dari utilitas lampiran; sengaja diabaikan.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -2407,6 +2558,20 @@ public class PertemuanHelper {
 
 		Common.createDefaultTimer(new EventListener() {
 
+			/**
+			 * Badan timer pembuka window (dijalankan {@code Common.createDefaultTimer} pada siklus event
+			 * ZK berikutnya, bukan inline). Urutannya: salin {@code index} ke field instance; bersihkan
+			 * isi {@link #window} bila sedang dipakai ulang; buat {@link MyWindow} baru 99% x 99% dan
+			 * tempelkan ke root page saat ini bila belum ada; isi field {@link #dataLoader} dan
+			 * {@link #pertemuan}; panggil {@link #init()} untuk membangun seluruh tab; terakhir tampilkan
+			 * sebagai modal ({@code setVisible(true)} + {@code onModal()}).
+			 *
+			 * <p>Penundaan lewat timer inilah yang menyebabkan seluruh field state instance
+			 * ({@code pertemuan}, {@code dataLoader}, {@code index}) masih bernilai lama tepat setelah
+			 * {@code display} kembali — pemanggil tidak boleh mengandalkan isinya secara sinkron.</p>
+			 *
+			 * @param arg0 event timer; isinya tidak dipakai.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				PertemuanHelper.this.index = index;
