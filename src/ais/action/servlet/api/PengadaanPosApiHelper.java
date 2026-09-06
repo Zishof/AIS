@@ -310,18 +310,26 @@ public final class PengadaanPosApiHelper {
 				.addOrder(Order.asc("nama")).list();
 	}
 
+	/** Menyamakan kompatibilitas katalog lama dengan KantinHelper: kategori kosong = UNIT. */
+	private static String kategoriUomPengadaan(SatuanProduk uom) {
+		if (uom == null || uom.getKategori() == null || uom.getKategori().trim().length() == 0) {
+			return "UNIT";
+		}
+		return uom.getKategori().trim();
+	}
+
 	/** Pilihan UOM yang sah untuk satu produk: aktif dan satu kategori dengan satuan dasarnya. */
 	private static JSONArray pilihanUomProduk(Produk produk, List<SatuanProduk> semua) throws Exception {
 		JSONArray hasil = new JSONArray();
 		if (produk == null) return hasil;
 		SatuanProduk dasar = produk.getSatuan();
 		SatuanProduk bawaan = produk.getSatuanPembelian() == null ? dasar : produk.getSatuanPembelian();
-		String kategori = dasar == null ? (bawaan == null ? null : bawaan.getKategori()) : dasar.getKategori();
+		String kategori = kategoriUomPengadaan(dasar == null ? bawaan : dasar);
 		Map<Long, SatuanProduk> urut = new LinkedHashMap<Long, SatuanProduk>();
 		if (bawaan != null && bawaan.getId() != null) urut.put(bawaan.getId(), bawaan);
 		if (semua != null) for (SatuanProduk uom : semua) {
 			if (uom == null || uom.getId() == null || Boolean.FALSE.equals(uom.getAktif())) continue;
-			if (kategori != null && kategori.equalsIgnoreCase(uom.getKategori())) urut.put(uom.getId(), uom);
+			if (kategori.equalsIgnoreCase(kategoriUomPengadaan(uom))) urut.put(uom.getId(), uom);
 		}
 		for (SatuanProduk uom : urut.values()) {
 			double faktor;
@@ -896,6 +904,14 @@ public final class PengadaanPosApiHelper {
 						: KantinHelper.faktorUomInputKeDasar(produkBaris, satuanInput);
 				double jumlah = angkaAman(b, "jumlah");
 				double harga = angkaAman(b, "hargaBeli");
+				if (Double.isNaN(jumlah) || Double.isInfinite(jumlah) || jumlah <= 0) {
+					throw new IllegalStateException("Jumlah barang pada baris " + (i + 1)
+							+ " harus lebih dari 0.");
+				}
+				if (Double.isNaN(harga) || Double.isInfinite(harga) || harga < 0) {
+					throw new IllegalStateException("Harga beli pada baris " + (i + 1)
+							+ " tidak valid.");
+				}
 				double sub = jumlah * harga;
 				PermintaanPengadaanMasterAssetDetail d = new PermintaanPengadaanMasterAssetDetail();
 				d.setPermintaanPengadaanMasterAsset(pr);

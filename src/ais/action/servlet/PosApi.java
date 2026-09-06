@@ -4652,7 +4652,9 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesTransaksiBackupTokoList(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
-		if (tokoId == null) {
+		// Admin/supervisor boleh menelusuri agregat "Semua Toko". Pedagang tetap
+		// fail-closed pada toko miliknya agar parameter kosong tidak melebar tenant.
+		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) {
 			hasil.put("status", "error");
 			hasil.put("message", "Toko tidak diketahui utk akun ini.");
 			return;
@@ -5342,10 +5344,14 @@ public class PosApi extends HttpServlet {
 		}
 		ais.action.master.koperasi.helper.LaporanRincianTransaksiUtil.Dimensi dim =
 				new ais.action.master.koperasi.helper.LaporanRincianTransaksiUtil.Dimensi();
+		dim.idTransaksi = payload.optString("idTransaksi", "");
 		dim.kodeProduk = payload.optString("kodeProduk", "");
 		dim.namaProduk = payload.optString("namaProduk", "");
 		dim.kasir = payload.optString("kasir", "");
 		dim.metode = payload.optString("metode", "");
+		dim.kelompokPembayaran = payload.optString("kelompokPembayaran", "");
+		dim.toko = payload.optString("toko", "");
+		dim.pendaftarId = pendaftarIdPengguna(tbmuser);
 		dim.pelanggan = payload.optString("pelanggan", "");
 		dim.kodePelanggan = payload.optString("kodePelanggan", "");
 		dim.pelangganKosong = payload.optBoolean("pelangganKosong", false);

@@ -770,7 +770,129 @@ public final class LaporanKantinUtil {
             boolean hanyaAktif = "true".equalsIgnoreCase(request.getParameter("hanyaAktif"));
             boolean hanyaStokTidakNol = "true".equalsIgnoreCase(request.getParameter("hanyaStokTidakNol"));
 
-            if ("pnj_faktur".equals(r)) {
+            if ("omzet_transaksi".equals(r)) {
+                judul = "Detail Omzet Transaksi";
+                catatan = "Padanan sheet Worksheet. Satu baris adalah satu nota aktif; klik baris/angka untuk melihat seluruh item transaksi penyusunnya.";
+                String[] cara = { "c1", "c2", "c3", "c4", "c5" };
+                String metode = LaporanRincianTransaksiUtil.daftarMetodePembayaranNota(cara);
+                String saldo = LaporanRincianTransaksiUtil.nilaiSaldoNota("h", cara);
+                String piutang = LaporanRincianTransaksiUtil.nilaiPiutangNota("h", cara);
+                StringBuilder w = new StringBuilder(" where 1=1 ");
+                w.append(kondToko("h.toko", tokoId, prm));
+                w.append(klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, prm));
+                w.append(" and exists (select 1 from koperasi.pembelian ax where ax.pembelian_anggota_koperasi=h.id and coalesce(ax.aktif,true)=true) ");
+                if (qp != null) {
+                    w.append(" and exists (select 1 from koperasi.pembelian px left join koperasi.produk prx on prx.id=px.produk"
+                            + " where px.pembelian_anggota_koperasi=h.id and coalesce(px.aktif,true)=true"
+                            + " and (lower(coalesce(prx.kode,px.kode,'')) like :qp or lower(coalesce(prx.nama,px.nama,'')) like :qp)) ");
+                    prm.put("qp", qp);
+                }
+                if (qc != null) {
+                    w.append(" and (lower(coalesce(a.nama,'')) like :qc or lower(coalesce(a.kode,'')) like :qc"
+                            + " or lower(coalesce(a.kode_identitas,'')) like :qc) ");
+                    prm.put("qc", qc);
+                }
+                if (qk != null) {
+                    w.append(" and lower(coalesce(h.kasir_login_nama,'')) like :qk ");
+                    prm.put("qk", qk);
+                }
+                String bulan = "case extract(month from h.tanggal_pembayaran)"
+                        + " when 1 then 'Januari' when 2 then 'Februari' when 3 then 'Maret'"
+                        + " when 4 then 'April' when 5 then 'Mei' when 6 then 'Juni'"
+                        + " when 7 then 'Juli' when 8 then 'Agustus' when 9 then 'September'"
+                        + " when 10 then 'Oktober' when 11 then 'November' else 'Desember' end";
+                sql = "select cast(h.id as text), coalesce(ta.nama,a.tipe,'Umum'), coalesce(a.nama,'Umum / Non-Anggota'),"
+                    + " 'Penjualan POS', 'Belanja', " + bulan + ", cast(extract(year from h.tanggal_pembayaran) as text),"
+                    + " coalesce(sk.nama,'-'), coalesce(nullif(" + metode + ",''),'Metode tidak tercatat'),"
+                    + " coalesce(h.kode,cast(h.id as text)), coalesce(h.total_biaya,0), " + piutang + ","
+                    + " coalesce(t.nama,'-'), case when " + saldo + " > 0 then 'Ya' else 'Tidak' end, 0,"
+                    + " coalesce((select string_agg(coalesce(nullif(trim(pri.nama),''),nullif(trim(ix.nama),''),'Produk')"
+                    + " || ' x' || trim(to_char(coalesce(ix.qty,0),'FM999999990.###')), ', ' order by ix.id)"
+                    + " from koperasi.pembelian ix left join koperasi.produk pri on pri.id=ix.produk"
+                    + " where ix.pembelian_anggota_koperasi=h.id and coalesce(ix.aktif,true)=true),'-'),"
+                    + " h.tanggal_pembayaran, " + KASIR_NOTA + ", ''"
+                    + " from koperasi.pembelian_anggota_koperasi h"
+                    + " join koperasi.toko t on t.id=h.toko"
+                    + " left join koperasi.anggota_koperasi a on a.id=h.anggota_koperasi"
+                    + " left join koperasi.tipe_anggota_koperasi ta on ta.id=a.tipe_anggota_koperasi"
+                    + " left join rab.satuan_kerja sk on sk.id=a.satuan_kerja"
+                    + LaporanRincianTransaksiUtil.joinCaraPembayaranNota("h", cara)
+                    + w + " order by h.tanggal_pembayaran desc, h.id desc";
+                tipe = new String[]{"text","text","text","text","text","text","text","text","text","text","num","num","text","text","num","text","tgl","text","text"};
+                String[] label = {"No. Transaksi","Tipe Pengguna","Nama","Jenis Transaksi","Jenis Tagihan","Bulan","Tahun","Sekolah / Unit","Mode","Nomor Pembayaran","Nominal","Tunggakan","Toko","Autodebet","Donasi","Keterangan","Tanggal","Admin / Kasir","Penerima Transfer"};
+                for (int i = 0; i < label.length; i++) kolom.add(new Kolom(label[i], tipe[i]));
+
+            } else if ("omzet_tunai_produk".equals(r) || "omzet_saldo_produk".equals(r)) {
+                boolean laporanSaldo = "omzet_saldo_produk".equals(r);
+                judul = laporanSaldo ? "Omzet Saldo per Produk" : "Omzet Tunai / Non-Saldo per Produk";
+                catatan = laporanSaldo
+                        ? "Padanan sheet SALDO. Pada split payment, qty, omzet, HPP, dan profit dialokasikan proporsional sebesar porsi pembayaran Saldo."
+                        : "Padanan sheet TUNAI. Agar total tetap rekonsiliasi, kolom ini mencakup seluruh pembayaran yang tidak memotong Saldo (Tunai/QRIS/Transfer/Voucher non-saldo). Split payment dialokasikan proporsional.";
+                tokoIdCol = "p.toko";
+                String[] cara = { "c1", "c2", "c3", "c4", "c5" };
+                String saldo = LaporanRincianTransaksiUtil.nilaiSaldoNota("h", cara);
+                String rasioSaldo = "(case when coalesce(h.total_biaya,0)>0 then least(1.0,greatest(0.0,("
+                        + saldo + ")/nullif(coalesce(h.total_biaya,0),0))) else 0.0 end)";
+                String faktor = laporanSaldo ? rasioSaldo : "(1.0-" + rasioSaldo + ")";
+                StringBuilder w = new StringBuilder(" where 1=1 ");
+                w.append(kondToko("p.toko", tokoId, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
+                if (qp != null) {
+                    w.append(" and (lower(coalesce(pr.kode,p.kode,'')) like :qp or lower(coalesce(pr.nama,p.nama,'')) like :qp) ");
+                    prm.put("qp", qp);
+                }
+                if (qk != null) {
+                    w.append(" and lower(coalesce(h.kasir_login_nama,'')) like :qk ");
+                    prm.put("qk", qk);
+                }
+                String produk = "coalesce(nullif(trim(pr.nama),''),nullif(trim(p.nama),''),'Produk tanpa nama')";
+                String kategori = "coalesce(nullif(trim(jp.nama),''),'Umum')";
+                String qtyAlokasi = "(coalesce(p.qty,0)*" + faktor + ")";
+                String omzetAlokasi = "(" + OMZET + "*" + faktor + ")";
+                String hppAlokasi = "(coalesce(p.qty,0)*coalesce(pr.hargabeli,0)*" + faktor + ")";
+                sql = "select cast(row_number() over (order by sum(" + omzetAlokasi + ") desc) as text), "
+                    + produk + ", " + kategori + ","
+                    + " case when sum(" + qtyAlokasi + ")=0 then 0 else sum(" + hppAlokasi + ")/sum(" + qtyAlokasi + ") end,"
+                    + " case when sum(" + qtyAlokasi + ")=0 then 0 else sum(" + omzetAlokasi + ")/sum(" + qtyAlokasi + ") end,"
+                    + " sum(" + qtyAlokasi + "), sum(" + omzetAlokasi + "), sum(" + omzetAlokasi + "-" + hppAlokasi + ")"
+                    + " from koperasi.pembelian p"
+                    + " left join koperasi.produk pr on pr.id=p.produk"
+                    + " left join koperasi.jenis_produk jp on jp.id=pr.jenis_produk"
+                    + " join koperasi.pembelian_anggota_koperasi h on h.id=p.pembelian_anggota_koperasi"
+                    + LaporanRincianTransaksiUtil.joinCaraPembayaranNota("h", cara)
+                    + w + " and " + faktor + " > 0"
+                    + " group by " + produk + ", " + kategori
+                    + " order by 7 desc, 2 asc";
+                tipe = new String[]{"text","text","text","num","num","num","num","num"};
+                kolom.add(new Kolom("No","text")); kolom.add(new Kolom("Produk","text"));
+                kolom.add(new Kolom("Kategori","text")); kolom.add(new Kolom("Modal Rata-rata","num"));
+                kolom.add(new Kolom("Harga Rata-rata","num")); kolom.add(new Kolom("Terjual","num"));
+                kolom.add(new Kolom("Omzet","num")); kolom.add(new Kolom("Profit","num"));
+                // Modal/harga adalah rata-rata berbobot dan tidak boleh dijumlahkan sebagai grand total.
+                H.grandTotal = false;
+
+            } else if ("omzet_rekapan".equals(r)) {
+                judul = "Rekapan Omzet per Toko";
+                catatan = "Padanan sheet REKAPAN. Saldo mengikuti flag manual=false atau memotong_deposit=true; sisanya masuk Tunai/Non-Saldo. Klik nilai untuk melihat nota penyusun.";
+                String[] cara = { "c1", "c2", "c3", "c4", "c5" };
+                String saldoMentah = LaporanRincianTransaksiUtil.nilaiSaldoNota("h", cara);
+                String saldo = "least(coalesce(h.total_biaya,0),greatest(0," + saldoMentah + "))";
+                StringBuilder w = new StringBuilder(" where 1=1 ");
+                w.append(kondToko("h.toko", tokoId, prm));
+                w.append(klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, prm));
+                w.append(" and exists (select 1 from koperasi.pembelian ax where ax.pembelian_anggota_koperasi=h.id and coalesce(ax.aktif,true)=true) ");
+                sql = "select coalesce(t.nama,'-'), sum(greatest(coalesce(h.total_biaya,0)-" + saldo + ",0)),"
+                    + " sum(" + saldo + "), sum(coalesce(h.total_biaya,0))"
+                    + " from koperasi.pembelian_anggota_koperasi h join koperasi.toko t on t.id=h.toko"
+                    + LaporanRincianTransaksiUtil.joinCaraPembayaranNota("h", cara)
+                    + w + " group by t.id,t.nama order by t.nama";
+                tipe = new String[]{"text","num","num","num"};
+                kolom.add(new Kolom("Toko","text"));
+                kolom.add(new Kolom("Tunai / Non-Saldo","num"));
+                kolom.add(new Kolom("Saldo","num"));
+                kolom.add(new Kolom("Total Omzet","num"));
+
+            } else if ("pnj_faktur".equals(r)) {
                 judul = "Daftar Faktur Penjualan";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and h.toko = :tokoId "); prm.put("tokoId", tokoId); }

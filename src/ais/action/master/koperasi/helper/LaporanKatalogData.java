@@ -181,7 +181,8 @@ public final class LaporanKatalogData {
     private static final java.util.Set<String> LAPORAN_BERFILTER_KASIR =
             new java.util.HashSet<String>(java.util.Arrays.asList(
                     "pnj_per_barang", "pnj_barang_laku",
-                    "pnj_rincian_barang", "pnj_detail_transaksi"));
+                    "pnj_rincian_barang", "pnj_detail_transaksi",
+                    "omzet_transaksi", "omzet_tunai_produk", "omzet_saldo_produk"));
 
     public static JSONArray katalog() throws Exception {
         List<Kat> semua = new ArrayList<Kat>();
@@ -202,6 +203,24 @@ public final class LaporanKatalogData {
         k.items.add(item("pnj_per_jam", "Penjualan per Jam", "Omzet & transaksi tiap jam operasional (jam ramai).", false, false, true, null));
         k.items.add(item("pnj_per_kategori", "Penjualan per Kategori", "Rekap penjualan per kategori produk.", false, false, true, null));
         k.items.add(item("retur_barang", "Retur Barang", "Daftar transaksi retur barang.", true, false, false, null));
+        semua.add(k);
+
+        // Padanan native dari empat sheet "Laporan omset 5 Juli.xlsx". Dipisahkan
+        // menjadi empat laporan supaya masing-masing dapat difilter, ditelusuri ke
+        // nota penyusun, serta diekspor ke XLSX/PDF melalui mesin laporan yang sama.
+        k = new Kat("Omzet");
+        k.items.add(item("omzet_transaksi", "Detail Omzet Transaksi",
+                "Padanan sheet Worksheet: identitas transaksi, anggota, metode bayar, toko, item, dan nominal.",
+                true, true, false, null));
+        k.items.add(item("omzet_tunai_produk", "Omzet Tunai / Non-Saldo per Produk",
+                "Padanan sheet TUNAI: produk, kategori, modal, harga, qty, omzet, dan profit yang tidak memotong saldo.",
+                true, false, true, null));
+        k.items.add(item("omzet_saldo_produk", "Omzet Saldo per Produk",
+                "Padanan sheet SALDO: produk, kategori, modal, harga, qty, omzet, dan profit yang memotong saldo anggota.",
+                true, false, true, null));
+        k.items.add(item("omzet_rekapan", "Rekapan Omzet per Toko",
+                "Padanan sheet REKAPAN: perbandingan omzet Tunai/Non-Saldo, Saldo, dan total per toko.",
+                false, false, false, null));
         semua.add(k);
 
         k = new Kat("Accurate POS");
