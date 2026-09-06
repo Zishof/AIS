@@ -3968,6 +3968,30 @@ public abstract class VOPembelajaran extends VoKunci {
 		return ambilTahunAjaran();
 	}
 
+	/**
+	 * Mengambil semester objek pembelajaran ini sebagai angka.
+	 *
+	 * <p>Empat wadah membacanya dari kolomnya sendiri: {@link Perkuliahan}, {@link KrsMahasiswa},
+	 * {@link Skripsi}, dan {@link MahasiswaRequestTugasAkhir}.</p>
+	 *
+	 * <p><b>Tiga wadah menjawab 1 secara tetap</b> — {@code kkn.KelompokKkn},
+	 * {@code pkl.KelompokPkl}, dan {@link PertemuanPunyaGrupPertemuan}. Angka itu bukan semester
+	 * yang sesungguhnya melainkan nilai pengganti agar perhitungan yang membutuhkan semester tidak
+	 * gagal; ketiga wadah tersebut memang tidak menyelenggarakan kegiatannya per semester.
+	 * Pemanggil yang menampilkan angka ini kepada pengguna perlu memeriksa jenis wadahnya lebih
+	 * dulu, karena "semester 1" pada kelompok KKN tidak berarti apa-apa.</p>
+	 *
+	 * <p><b>Nilai bawaannya {@code -1}, bukan {@code null} maupun 0.</b> Bilangan negatif dipilih
+	 * agar dapat dibedakan dari semester yang sah, tetapi karena tipenya {@link Integer} biasa,
+	 * tidak ada yang mencegah nilai itu ikut terbawa ke dalam perhitungan atau tersimpan sebagai
+	 * data. Pemanggil harus memeriksanya secara eksplisit.</p>
+	 *
+	 * <p>Kolom semester yang kosong pada keempat wadah pertama dikembalikan sebagai {@code null}
+	 * apa adanya — jadi nilai baliknya dapat berupa angka sah, {@code -1}, atau {@code null},
+	 * ketiganya dengan arti yang berbeda.</p>
+	 *
+	 * @return semester; {@code -1} bila wadahnya tidak dikenali, {@code null} bila kolomnya kosong
+	 */
 	public Integer ambilSemester() {
 		if (this instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) this;
@@ -3991,6 +4015,33 @@ public abstract class VOPembelajaran extends VoKunci {
 		return -1;
 	}
 
+	/**
+	 * Menyebut jenis semester objek pembelajaran ini — ganjil atau genap — sebagai teks.
+	 *
+	 * <p>Dua cara berbeda dipakai:</p>
+	 * <ul>
+	 * <li><b>Dibaca dari kolom</b> pada {@link Perkuliahan}, {@link FormulirKegiatan},
+	 * {@code kkn.KelompokKkn}, {@code pkl.KelompokPkl}, dan {@link PertemuanPunyaGrupPertemuan}.
+	 * Nilainya apa adanya, termasuk bila kolomnya kosong.</li>
+	 * <li><b>Dihitung dari angka semester</b> pada {@link KrsMahasiswa}, {@link Skripsi}, dan
+	 * {@link MahasiswaRequestTugasAkhir}: semester genap bila habis dibagi dua, ganjil bila tidak.
+	 * Aturan ini mengasumsikan penomoran semester berjalan dari 1, sehingga semester 0 — yang
+	 * dipakai tagihan pendaftaran — akan dilaporkan genap.</li>
+	 * </ul>
+	 *
+	 * <p><b>Ketiga cabang penghitung tidak null-safe.</b> Operasi sisa bagi membuka bungkus
+	 * {@link Integer} secara otomatis, sehingga angka semester yang kosong melempar
+	 * {@link NullPointerException}. Method ini <b>tidak punya penangkap kesalahan</b>, jadi
+	 * kegagalannya diteruskan ke pemanggil — termasuk lewat {@link #toIdSmt()} yang memanggilnya
+	 * dan karenanya ikut gagal. Bandingkan dengan {@link #ambilTahunAjaran()} yang dibungkus dan
+	 * berujung pada {@code "-"}.</p>
+	 *
+	 * <p>Kelompok KKN dan PKL mengembalikan {@code null} — bukan {@code "-"} — bila kegiatan
+	 * induknya belum ditetapkan, sehingga nilai baliknya dapat berupa teks jenis semester,
+	 * {@code null}, atau {@code "-"} untuk wadah yang tidak dikenali.</p>
+	 *
+	 * @return teks jenis semester, {@code null}, atau {@code "-"}
+	 */
 	public String ambilJenisSemester() {
 		if (this instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) this;
@@ -4020,6 +4071,51 @@ public abstract class VOPembelajaran extends VoKunci {
 		return "-";
 	}
 
+	/**
+	 * Merangkai teks kata kunci pencarian untuk objek pembelajaran ini — gabungan nama pengajar
+	 * dan penanda isi yang relevan, dipisah spasi.
+	 *
+	 * <p>Dipakai fitur pencarian bebas pada daftar pembelajaran: alih-alih menyusun kueri yang
+	 * menjangkau banyak tabel, sistem membandingkan kata yang diketik pengguna terhadap teks
+	 * gabungan ini. Karena itu, apa yang <b>tidak</b> masuk ke teks ini tidak akan pernah
+	 * ditemukan lewat pencarian.</p>
+	 *
+	 * <h4>Isi teks per jenis wadah</h4>
+	 * <ul>
+	 * <li>{@link Perkuliahan} — nama seluruh dosen, nama mata kuliah, kode mata kuliah;</li>
+	 * <li>{@code kkn.KelompokKkn} dan {@code pkl.KelompokPkl} — nama pembimbing, nama kelompok,
+	 * nama kegiatan induknya;</li>
+	 * <li>{@link FormulirKegiatan} — hanya nama kegiatannya;</li>
+	 * <li>{@link KrsMahasiswa} — NIM dan nama mahasiswa, catatan KRS, catatan KHS, nama dosen
+	 * pembimbing akademik;</li>
+	 * <li>{@link Skripsi} — nama dosen, judul, kata kunci yang diisi mahasiswa, NIM dan nama
+	 * mahasiswa;</li>
+	 * <li>{@link MahasiswaRequestTugasAkhir} — nama dosen, NIM dan nama mahasiswa, judul;</li>
+	 * <li>{@link PertemuanPunyaGrupPertemuan} — nama dosen, nama grup, jenis grup.</li>
+	 * </ul>
+	 * <p>Sepuluh subclass lain menghasilkan teks kosong, sehingga <b>tidak pernah ditemukan oleh
+	 * pencarian bebas</b> — termasuk {@link Wisuda}, {@code sekolah.JadwalPelajaran}, dan seluruh
+	 * wadah ujian. Perhatikan pula bahwa {@link Perkuliahan} tidak menyertakan kelas maupun ruang,
+	 * dan {@link Skripsi} tidak menyertakan nama format nilainya.</p>
+	 *
+	 * <h4>Nilai kosong ikut tercetak</h4>
+	 * <p>Penggabungan dilakukan dengan operator penjumlahan string tanpa penjaga {@code null},
+	 * sehingga kolom yang kosong — misalnya catatan KRS atau kata kunci skripsi — masuk ke teks
+	 * sebagai kata {@code "null"}. Akibatnya mencari kata "null" akan memunculkan seluruh baris
+	 * yang salah satu kolomnya kosong. Pemanggil tidak dapat membedakannya dari kolom yang memang
+	 * berisi teks tersebut.</p>
+	 *
+	 * <h4>Biaya</h4>
+	 * <p>Setiap cabang memanggil pengumpulan dosen tersendiri, yang dapat menginisialisasi sampai
+	 * sepuluh proxy lazy, dan perangkaian dilakukan dengan penjumlahan string di dalam perulangan
+	 * sehingga menyalin ulang teksnya pada setiap iterasi. Untuk daftar panjang, susun teks ini
+	 * sekali dan simpan hasilnya alih-alih memanggilnya per baris yang dirender. Rantai pembacaan
+	 * seperti {@code getMatakuliah().getNama()} tidak dijaga {@code null} dan method ini tidak
+	 * punya penangkap kesalahan.</p>
+	 *
+	 * @return teks kata kunci yang sudah dipangkas spasi ujungnya; {@code ""} bila wadahnya tidak
+	 *         dikenali
+	 */
 	public String ambilKeyword() {
 
 		if (this instanceof Perkuliahan) {
