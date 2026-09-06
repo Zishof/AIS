@@ -308,11 +308,153 @@ public class TugasMandiriHelper {
 		}
 	}
 
+	/**
+	 * Grid ZK yang memuat daftar berkas pengumpulan tugas ("Telah upload").
+	 *
+	 * <p>Dibuat sekali di dalam {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} dan
+	 * dipakai ulang oleh {@link #reloadTugasFileContent(boolean)} sebagai target
+	 * {@code setModel()}/{@code setRowRenderer()}. Setiap baris grid mewakili satu
+	 * {@link TugasFileContent} — yaitu satu berkas yang dikirim oleh satu peserta — dan dirender
+	 * oleh {@link DetailTugasFileContentRenderer} melalui {@link #displayRow(TugasFileContent, List, Component)}.</p>
+	 *
+	 * <p><strong>Peran sebagai penanda siklus hidup.</strong> Field ini sekaligus dipakai sebagai
+	 * penanda "UI sudah dibangun". {@link #reloadTugasFileContent(boolean)} langsung {@code return}
+	 * bila field ini masih {@code null}, sehingga pemanggilan reload yang datang dari timer atau dari
+	 * callback upload tidak meledak ketika {@code createTugas} belum sempat membangun grid (mis. tugas
+	 * belum berjudul sehingga blok pembangunan grid dilewati seluruhnya).</p>
+	 *
+	 * <p><strong>Kolom.</strong> Grid ini memiliki tiga kolom: (1) identitas peserta beserta kotak
+	 * pencarian di header, (2) tanggal dan waktu pengumpulan, dan (3) kolom tunggal
+	 * "Nilai &amp; Keterangan" yang menampung ringkasan nilai read-only plus tombol "Edit Nilai".
+	 * Lebar kolom disesuaikan bila {@link #mobile} bernilai {@code true}.</p>
+	 *
+	 * <p><strong>Catatan konkurensi.</strong> Field ini adalah state per-instance dan per-desktop ZK.
+	 * Satu instance {@code TugasMandiriHelper} melayani satu tab tugas pada satu desktop; jangan
+	 * membagikan instance atau grid ini lintas sesi pengguna.</p>
+	 */
 	private MyGrid uploadTugasGrid;
+	/**
+	 * Mahasiswa yang sedang login, bila layar tugas ini dibuka dari sudut pandang peserta kuliah.
+	 *
+	 * <p>Diisi sekali lewat {@link #TugasMandiriHelper(Mahasiswa, BiodataCalonMahasiswa)} dan tidak
+	 * pernah diubah lagi. Bernilai {@code null} bila yang membuka layar adalah dosen, admin, atau
+	 * pegawai — dan juga {@code null} untuk beberapa jalur pemanggil lain (lihat catatan di bawah).</p>
+	 *
+	 * <p><strong>Cara field ini dipakai.</strong></p>
+	 * <ul>
+	 *   <li>Sebagai gerbang visibilitas tombol pengelolaan: {@code rubah} ("Ubah Instruksi Tugas"),
+	 *       {@code ambil} ("Ambil Tugas"), {@link #hapus}, dan {@link #buttonMasukkanNilai} hanya
+	 *       ditampilkan ketika field ini {@code null}.</li>
+	 *   <li>Sebagai identitas pengunggah pada {@code Common.uploadTugas(tugas, mahasiswa,
+	 *       biodataCalonMahasiswa, listener)} di jalur perguruan tinggi.</li>
+	 *   <li>Sebagai kunci pemeriksaan {@code tugas.getMhsBolehUploadUlang()} — bila id mahasiswa ini
+	 *       terdaftar di sana, tombol {@link #upload} tetap ditampilkan walaupun jendela waktu tugas
+	 *       sudah lewat.</li>
+	 *   <li>Sebagai penentu apakah kartu kontak (HP/e-mail) peserta lain ditampilkan pada
+	 *       {@link #displayRow(TugasFileContent, List, Component)}.</li>
+	 * </ul>
+	 *
+	 * <p><strong>Perbedaan penting dengan {@link #peserta}.</strong> Field ini berasal dari
+	 * <em>argumen konstruktor</em>, bukan dari pengguna yang sedang login. {@link #peserta} dihitung
+	 * ulang di dalam {@code createTugas} langsung dari {@link #tbmuser} dan karenanya mencakup pula
+	 * siswa, calon siswa, calon mahasiswa, dan peserta kursus. Untuk keputusan yang menyangkut peran
+	 * pengguna, {@link #peserta} (atau {@link #bolehKelolaTugas(Tbmuser)}) adalah sumber kebenaran yang
+	 * tepat; field ini hanya menggambarkan konteks pemanggilan.</p>
+	 */
 	private Mahasiswa mahasiswa;
+	/**
+	 * Calon mahasiswa (pendaftar PMB) yang sedang login, bila layar tugas dibuka dari konteks
+	 * penerimaan mahasiswa baru.
+	 *
+	 * <p>Kembaran {@link #mahasiswa} untuk jalur PMB: dipakai pada ujian/tugas yang melekat pada
+	 * {@code JadwalUjianPMB}, ketika peserta belum berstatus mahasiswa penuh sehingga belum memiliki
+	 * baris {@link Mahasiswa}. Diisi sekali lewat
+	 * {@link #TugasMandiriHelper(Mahasiswa, BiodataCalonMahasiswa)} dan tidak pernah diubah.</p>
+	 *
+	 * <p>Perannya sejajar dengan {@link #mahasiswa}: menjadi salah satu operand gerbang visibilitas
+	 * tombol pengelolaan, identitas pengunggah pada {@code Common.uploadTugas}, dan kunci pencarian di
+	 * {@code tugas.getMhsBolehUploadUlang()}. Karena {@link TugasFileContent} menyimpan pemilik berkas
+	 * pada empat kolom terpisah ({@code mahasiswa}, {@code siswa}, {@code biodataCalonMahasiswa},
+	 * {@code calonSiswa}), id calon mahasiswa di sini dibandingkan dengan
+	 * {@code TugasFileContent.getBiodataCalonMahasiswa()}, bukan dengan kolom mahasiswa.</p>
+	 *
+	 * <p>Sama seperti {@link #mahasiswa}, field ini menggambarkan konteks pemanggilan, bukan peran
+	 * pengguna yang login; lihat {@link #peserta} untuk penanda peran yang sebenarnya.</p>
+	 */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	/**
+	 * Entitas tugas yang sedang ditampilkan dan dikelola oleh instance helper ini.
+	 *
+	 * <p>{@link Tugas} adalah antarmuka yang diimplementasikan oleh dua entitas berbeda, dan helper ini
+	 * bekerja untuk keduanya tanpa membedakan pemanggilnya:</p>
+	 * <ul>
+	 *   <li>{@link Pertemuan} — tugas yang melekat langsung pada satu pertemuan perkuliahan atau satu
+	 *       pertemuan jadwal pelajaran. Judul, instruksi, jendela waktu, dan format nilai tugas
+	 *       disimpan sebagai kolom pada baris pertemuan itu sendiri.</li>
+	 *   <li>{@link TugasPertemuan} — sub-tugas yang menggantung pada sebuah {@link Pertemuan} lewat
+	 *       kolom {@code pertemuan}. Sebuah pertemuan dapat memiliki banyak {@code TugasPertemuan},
+	 *       dan hanya varian inilah yang dapat dipindahkan ke pertemuan lain lewat combo "Pertemuan"
+	 *       pada {@link #onUbahPerintahTugas(EventListener)}.</li>
+	 * </ul>
+	 *
+	 * <p><strong>Waktu pengisian.</strong> Berbeda dengan {@link #mahasiswa} dan
+	 * {@link #biodataCalonMahasiswa} yang datang dari konstruktor, field ini baru diisi di awal
+	 * {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} dari argumen {@code tugas}, lalu
+	 * ditulis ulang beberapa kali oleh listener {@code ubahTugas} dan {@link #buttonMasukkanNilai}
+	 * ketika dialog "Ubah Instruksi Tugas" mengembalikan entity yang sudah disegarkan.</p>
+	 *
+	 * <p><strong>Data yang disimpan pada entity ini dan dibaca helper.</strong> {@code judultugas},
+	 * {@code isitugas}, {@code mulai}, {@code selesai}, {@code formatNilai} + {@code prosentase}
+	 * (penilaian non-OBE), {@code formatNilais} (peta JSON Sub-CPMK untuk penilaian OBE),
+	 * {@code jenisItemPenilaianSiswa} + {@code grupPenilaian} + {@code grupKategoriItemPenilaianSiswa}
+	 * (penilaian jenjang sekolah), {@code syaratMengumpulkanTugas}, {@code keteranganNilai} (peta JSON
+	 * nilai dan keterangan per peserta), {@code mhsYgTidakIkut} dan {@code mhsBolehUploadUlang}
+	 * (daftar id berformat {@code ,id,} yang digabung menjadi satu kolom teks).</p>
+	 *
+	 * <p><strong>Catatan tentang {@code mhsYgTidakIkut}/{@code mhsBolehUploadUlang}.</strong> Kedua
+	 * kolom itu adalah daftar id yang dirangkai sebagai teks dengan pembatas koma di kedua sisi setiap
+	 * id, sehingga pengujian keanggotaan selalu ditulis {@code contains("," + id + ",")} — bukan
+	 * pemecahan string. Konsekuensinya penghapusan anggota harus membuang pola {@code ,id,} DAN pola
+	 * {@code id} telanjang, persis seperti yang dilakukan listener checkbox pada tab
+	 * "Peserta yg tdk perlu ikt".</p>
+	 */
 	private Tugas tugas;
 
+	/**
+	 * Membuat helper Tugas Mandiri untuk satu konteks tampilan.
+	 *
+	 * <p>Konstruktor ini sengaja dibuat sangat ringan: ia hanya menyimpan dua argumen ke field
+	 * {@link #mahasiswa} dan {@link #biodataCalonMahasiswa}, tanpa menyentuh basis data, tanpa membaca
+	 * pengguna yang sedang login, dan tanpa membangun satu pun komponen ZK. Seluruh pekerjaan berat
+	 * baru terjadi ketika {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} dipanggil.
+	 * Karena itu instansiasi helper ini aman dilakukan di dalam loop render maupun di dalam listener.</p>
+	 *
+	 * <p><strong>Arti kedua argumen.</strong> Keduanya menyatakan "dari sudut pandang siapa layar ini
+	 * dibuka", bukan "siapa yang login":</p>
+	 * <ul>
+	 *   <li>Keduanya {@code null} — layar dibuka dari sudut pandang pengelola (dosen, admin, pegawai)
+	 *       ATAU dari jalur pemanggil yang memang tidak meneruskan identitas peserta. Contoh jalur
+	 *       kedua: {@code DetailpertemuanHelper} memanggil {@code new PertemuanHelper(null, null)} dan
+	 *       {@code HasilUjianSiswaHelper} memanggil {@code new PertemuanHelper()} tanpa argumen, yang
+	 *       pada gilirannya membangun helper ini dengan dua {@code null} meskipun yang login adalah
+	 *       seorang siswa.</li>
+	 *   <li>{@code mahasiswa} terisi — layar dibuka oleh/untuk seorang mahasiswa peserta kuliah.
+	 *       Tombol pengelolaan disembunyikan dan seluruh tab pengelolaan tidak dibangun.</li>
+	 *   <li>{@code biodataCalonMahasiswa} terisi — layar dibuka oleh/untuk seorang calon mahasiswa
+	 *       pada konteks ujian/tugas PMB.</li>
+	 * </ul>
+	 *
+	 * <p><strong>Peringatan pemakaian.</strong> Karena kombinasi "dua {@code null}" tidak identik
+	 * dengan "yang login adalah pengelola", kedua field ini tidak layak dipakai sendirian sebagai
+	 * gerbang otorisasi. Penanda peran yang benar dihitung ulang di dalam {@code createTugas} sebagai
+	 * {@link #peserta} dari {@link #tbmuser} hasil {@code Common.getCurrentUser()}, dan tersedia pula
+	 * lewat {@link #bolehKelolaTugas(Tbmuser)} serta {@link #bolehUpload(Tbmuser)}.</p>
+	 *
+	 * @param mahasiswa              mahasiswa peserta yang menjadi sudut pandang tampilan, atau
+	 *                               {@code null} bila layar dibuka bukan sebagai mahasiswa.
+	 * @param biodataCalonMahasiswa  calon mahasiswa (PMB) yang menjadi sudut pandang tampilan, atau
+	 *                               {@code null} bila layar dibuka bukan sebagai calon mahasiswa.
+	 */
 	public TugasMandiriHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
@@ -3467,14 +3609,8 @@ public class TugasMandiriHelper {
 															: siswa != null ? siswa.getId()
 																	: calonSiswa != null
 																			? calonSiswa.getId() : null;
-											String ids = "," + id + ",";
-											String text = tugas.getMhsYgTidakIkut();
-											text = org.apache.commons.lang3.StringUtils.replace(
-													text, ids, "");
-											text = org.apache.commons.lang3.StringUtils.replace(
-													text, id.toString(), "");
-											tugas.setMhsYgTidakIkut(
-													text + (!checkboxConfig.isChecked() ? "" : ids));
+											tugas.setMhsYgTidakIkut(ais.common.GradingHelper.ubahIdPadaCsvBerpagarKoma(
+													tugas.getMhsYgTidakIkut(), id, checkboxConfig.isChecked()));
 											Common.refreshUpdate(session, tugas);
 											tabpanelFileTugasPertemuan.getLinkedTab()
 													.setLabel(tugas.getJudultugas());
@@ -3500,14 +3636,8 @@ public class TugasMandiriHelper {
 															: siswa != null ? siswa.getId()
 																	: calonSiswa != null
 																			? calonSiswa.getId() : null;
-											String ids = "," + id + ",";
-											String text = tugas.getMhsBolehUploadUlang();
-											text = org.apache.commons.lang3.StringUtils.replace(
-													text, ids, "");
-											text = org.apache.commons.lang3.StringUtils.replace(
-													text, id.toString(), "");
-											tugas.setMhsBolehUploadUlang(
-													text + (!uploadulang.isChecked() ? "" : ids));
+											tugas.setMhsBolehUploadUlang(ais.common.GradingHelper.ubahIdPadaCsvBerpagarKoma(
+													tugas.getMhsBolehUploadUlang(), id, uploadulang.isChecked()));
 											Common.refreshUpdate(session, tugas);
 											tabpanelFileTugasPertemuan.getLinkedTab()
 													.setLabel(tugas.getJudultugas());
@@ -3822,14 +3952,8 @@ public class TugasMandiriHelper {
 															: siswa != null ? siswa.getId()
 																	: calonSiswa != null
 																			? calonSiswa.getId() : null;
-											String ids = "," + id + ",";
-											String text = tugas.getMhsYgTidakIkut();
-											text = org.apache.commons.lang3.StringUtils.replace(
-													text, ids, "");
-											text = org.apache.commons.lang3.StringUtils.replace(
-													text, id.toString(), "");
-											tugas.setMhsYgTidakIkut(
-													text + (!checkboxConfigAll.isChecked() ? "" : ids));
+											tugas.setMhsYgTidakIkut(ais.common.GradingHelper.ubahIdPadaCsvBerpagarKoma(
+													tugas.getMhsYgTidakIkut(), id, checkboxConfigAll.isChecked()));
 											copy.add(mahasiswa);
 										}
 									}
@@ -3886,14 +4010,8 @@ public class TugasMandiriHelper {
 															: siswa != null ? siswa.getId()
 																	: calonSiswa != null
 																			? calonSiswa.getId() : null;
-											String ids = "," + id + ",";
-											String text = tugas.getMhsBolehUploadUlang();
-											text = org.apache.commons.lang3.StringUtils.replace(
-													text, ids, "");
-											text = org.apache.commons.lang3.StringUtils.replace(
-													text, id.toString(), "");
-											tugas.setMhsBolehUploadUlang(
-													text + (!checkboxConfigAllUpload.isChecked() ? "" : ids));
+											tugas.setMhsBolehUploadUlang(ais.common.GradingHelper.ubahIdPadaCsvBerpagarKoma(
+													tugas.getMhsBolehUploadUlang(), id, checkboxConfigAllUpload.isChecked()));
 											copy.add(mahasiswa);
 										}
 									}

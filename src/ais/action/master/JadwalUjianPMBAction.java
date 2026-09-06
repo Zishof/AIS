@@ -625,12 +625,8 @@ public class JadwalUjianPMBAction extends GenericAutowireComposer implements Dat
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						Long id = ruangPMB.getId();
-						String ids = "," + id + ",";
-						String text = jadwalUjianPMB.getRuanganYgIkut();
-						text = org.apache.commons.lang3.StringUtils.replace(text, ids, "");
-						text = org.apache.commons.lang3.StringUtils.replace(text, id.toString(), "");
-
-						jadwalUjianPMB.setRuanganYgIkut(text + (!checkboxConfig.isChecked() ? "" : ids));
+						jadwalUjianPMB.setRuanganYgIkut(ais.common.GradingHelper.ubahIdPadaCsvBerpagarKoma(
+								jadwalUjianPMB.getRuanganYgIkut(), id, checkboxConfig.isChecked()));
 						ruanganYgIkut = jadwalUjianPMB.getRuanganYgIkut();
 					}
 				});
@@ -714,12 +710,8 @@ public class JadwalUjianPMBAction extends GenericAutowireComposer implements Dat
 					) {
 
 						Long id = ruangPMB.getId();
-						String ids = "," + id + ",";
-						String text = jadwalUjianPMB.getRuanganYgIkut();
-						text = org.apache.commons.lang3.StringUtils.replace(text, ids, "");
-						text = org.apache.commons.lang3.StringUtils.replace(text, id.toString(), "");
-
-						jadwalUjianPMB.setRuanganYgIkut(text + (!checkboxConfigAll.isChecked() ? "" : ids));
+						jadwalUjianPMB.setRuanganYgIkut(ais.common.GradingHelper.ubahIdPadaCsvBerpagarKoma(
+								jadwalUjianPMB.getRuanganYgIkut(), id, checkboxConfigAll.isChecked()));
 
 						copy.add(ruangPMB);
 					}

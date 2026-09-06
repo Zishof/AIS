@@ -2901,13 +2901,9 @@ public class TugasKelompokHelper implements DataLoader {
 												: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
 														: siswa != null ? siswa.getId()
 																: calonSiswa != null ? calonSiswa.getId() : null;
-										String ids = "," + id + ",";
-										String text = tugasKelompok.getMhsYgTidakIkut();
-										text = org.apache.commons.lang3.StringUtils.replace(text, ids, "");
-										text = org.apache.commons.lang3.StringUtils.replace(text, id.toString(), "");
+										tugasKelompok.setMhsYgTidakIkut(ais.common.GradingHelper.ubahIdPadaCsvBerpagarKoma(
+												tugasKelompok.getMhsYgTidakIkut(), id, checkboxConfig.isChecked()));
 
-										tugasKelompok
-												.setMhsYgTidakIkut(text + (!checkboxConfig.isChecked() ? "" : ids));
 										Common.refreshUpdate(session, tugasKelompok);
 									}
 								});
@@ -3041,13 +3037,8 @@ public class TugasKelompokHelper implements DataLoader {
 												: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
 														: siswa != null ? siswa.getId()
 																: calonSiswa != null ? calonSiswa.getId() : null;
-										String ids = "," + id + ",";
-										String text = tugasKelompok.getMhsYgTidakIkut();
-										text = org.apache.commons.lang3.StringUtils.replace(text, ids, "");
-										text = org.apache.commons.lang3.StringUtils.replace(text, id.toString(), "");
-
-										tugasKelompok
-												.setMhsYgTidakIkut(text + (!checkboxConfigAll.isChecked() ? "" : ids));
+										tugasKelompok.setMhsYgTidakIkut(ais.common.GradingHelper.ubahIdPadaCsvBerpagarKoma(
+												tugasKelompok.getMhsYgTidakIkut(), id, checkboxConfigAll.isChecked()));
 
 										copy.add(mahasiswa);
 									}

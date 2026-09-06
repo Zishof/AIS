@@ -229,16 +229,21 @@ import ais.ui.util.SmartDateTimeUtil;
  * {@code ais/database/model/}.</li>
  * </ul>
  *
- * <p><b>FAKTA ARSITEKTUR — gerbang peran ditulis ulang manual, bukan lewat satu helper.</b>
- * Predikat "pengguna saat ini pengelola/dosen, bukan peserta" tidak punya method tunggal; ia
- * dieja ulang dengan tangan di ~20 titik dan TIDAK seragam. Ejaan terlengkap ada di kontrol
- * "Pindahkan ke pertemuan" ({@code mahasiswa}, {@code biodataCalonMahasiswa},
- * {@code tbmuser.getMahasiswa()}, {@code getBiodataCalonMahasiswa()}, {@code getPesertaKursus()},
- * {@code getSiswa()}, {@code getCalonSiswa()} semuanya {@code null}); ejaan lain menghilangkan
- * salah satu peran dan justru mengulang {@code getSiswa() == null} dua sampai tiga kali. Selain
- * itu semua gerbang ini bersifat UI-only ({@code setVisible(...)}) — listener {@code onClick}
- * tidak memeriksa ulang peran. Jangan menyalin salah satu ejaan ke kode baru; lihat tugas
- * penyeragaman {@code task_d45feed7}. Perlu dicatat pula bahwa file ini TIDAK memeriksa
+ * <p><b>Gerbang peran disentralisasi lewat {@link #apakahPengelola}.</b> Predikat "pengguna saat
+ * ini pengelola/dosen, bukan peserta" SEBELUMNYA dieja ulang dengan tangan di ~20 titik dan TIDAK
+ * seragam — ejaan terlengkap (kontrol "Pindahkan ke pertemuan") memeriksa {@code mahasiswa},
+ * {@code biodataCalonMahasiswa}, {@code tbmuser.getMahasiswa()}, {@code getBiodataCalonMahasiswa()},
+ * {@code getPesertaKursus()}, {@code getSiswa()}, {@code getCalonSiswa()} semuanya {@code null},
+ * sementara ejaan lain menghilangkan salah satu peran dan justru mengulang
+ * {@code getSiswa() == null} dua sampai tiga kali; lihat {@code task_d45feed7}. Seluruh titik itu
+ * kini memanggil {@link #apakahPengelola} yang mengikuti ejaan terlengkap tersebut. Gerbang
+ * visibilitas ({@code setVisible(...)}) tetap UI-only untuk sebagian besar tombol, TETAPI enam
+ * listener {@code onClick} yang mengubah/membocorkan data ("Kelola Soal Ujian",
+ * {@link #prosesUlangSoal} "Singkronkan Soal Peserta", "Ambil Bahan Ujian", "Buat Ujian", "Ubah",
+ * "Hapus") kini memeriksa ulang {@link #apakahPengelola} sendiri di awal {@code onEvent} dan
+ * fail-closed (menampilkan peringatan lalu {@code return}) bila dipicu tanpa lewat tombol yang
+ * sesungguhnya tersembunyi. Tombol lain (mis. "Rekap Hasil Ujian", "History", "Rekap" pengawasan)
+ * masih murni UI-only karena hanya membaca data. Perlu dicatat pula bahwa file ini TIDAK memeriksa
  * kepemilikan mata kuliah sama sekali: tidak ada padanan {@code getMelihatDataSatkerLain()}
  * atau pemeriksaan bahwa dosen yang login benar-benar mengampu
  * {@code pertemuan.getPerkuliahan()}; cakupan data sepenuhnya diserahkan kepada
@@ -284,6 +289,30 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	public PertemuanPunyaUjianHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
+	}
+
+	/**
+	 * Predikat tunggal "pengguna saat ini adalah pengelola/dosen, bukan peserta", menggantikan
+	 * ejaan manual yang sebelumnya diulang tidak seragam di ~20 titik pada file ini (lihat
+	 * Javadoc kelas dan {@code task_d45feed7}). Mengikuti ejaan TERLENGKAP yang dipakai kontrol
+	 * "Pindahkan ke pertemuan": seseorang dianggap peserta (bukan pengelola) bila identitas
+	 * peserta {@code mahasiswa}/{@code biodataCalonMahasiswa} milik helper terisi, ATAU
+	 * {@link Tbmuser} yang login tertaut ke {@link Mahasiswa}, {@link BiodataCalonMahasiswa},
+	 * peserta kursus, siswa, maupun calon siswa.
+	 *
+	 * <p>Fail-closed: {@code tbmuser == null} mengembalikan {@code false} (bukan pengelola).
+	 *
+	 * @param tbmuser               pengguna yang login saat ini, boleh {@code null}.
+	 * @param mahasiswa             identitas peserta mahasiswa aktif (konteks helper), atau {@code null}.
+	 * @param biodataCalonMahasiswa identitas peserta calon mahasiswa/PMB (konteks helper), atau {@code null}.
+	 * @return {@code true} bila pengguna adalah pengelola/dosen, {@code false} bila peserta atau tidak login.
+	 */
+	private static boolean apakahPengelola(Tbmuser tbmuser, Mahasiswa mahasiswa,
+			BiodataCalonMahasiswa biodataCalonMahasiswa) {
+		return tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
+				&& tbmuser.getMahasiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getCalonSiswa() == null;
 	}
 
 	/**
@@ -363,6 +392,13 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+
+				if (!apakahPengelola(Common.getCurrentUser(), mahasiswa, biodataCalonMahasiswa)) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, Anda tidak memiliki hak untuk menyinkronkan soal peserta ini.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
 
 				final MyWindow window = new MyWindow("Pilih Tanggal Ujian", "none", true);
 				window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
@@ -1880,17 +1916,16 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		 * database dan entri cache {@code ProsesUjianHelper.kuotaUjian} milik peserta ini dibuang.</li>
 		 * </ul>
 		 *
-		 * <p><b>Gerbang peran di dalam method ini tidak seragam.</b> Predikat "pengguna adalah
-		 * pengelola" dieja ulang manual di empat blok dengan isi berbeda: blok "Kelola Soal Ujian"
-		 * dan blok tiga checkbox autosave memeriksa {@code getPesertaKursus()}/{@code getSiswa()}/
-		 * {@code getCalonSiswa()} tetapi TIDAK memeriksa {@code tbmuser.getMahasiswa()} maupun
-		 * {@code getBiodataCalonMahasiswa()}, sedangkan visibilitas tombol Hasil/Preview/Ubah/Hapus
-		 * memeriksa keduanya tetapi justru TIDAK memeriksa {@code getPesertaKursus()} — padahal
-		 * peserta kursus diperlakukan sebagai peserta pada dua blok lain di method yang sama. Hanya
-		 * blok "Pindahkan ke pertemuan" yang mengejanya lengkap. Pada beberapa varian
-		 * {@code getSiswa() == null} bahkan ditulis dua sampai tiga kali. Jangan menyalin salah
-		 * satu ejaan ini ke kode baru; penyeragamannya ditangani terpisah lewat
-		 * {@code task_d45feed7}.
+		 * <p><b>Gerbang peran di dalam method ini memakai {@link #apakahPengelola}.</b> Blok
+		 * "Kelola Soal Ujian", blok tiga checkbox autosave, blok "Pindahkan ke pertemuan", dan
+		 * visibilitas tombol Hasil/Preview/Ubah/Hapus SEBELUMNYA masing-masing mengeja ulang
+		 * predikat "pengguna adalah pengelola" secara manual dan tidak seragam — sebagian
+		 * menghilangkan {@code tbmuser.getMahasiswa()}/{@code getBiodataCalonMahasiswa()}, sebagian
+		 * lain menghilangkan {@code getPesertaKursus()} padahal peserta kursus diperlakukan sebagai
+		 * peserta pada blok lain di method yang sama (lihat {@code task_d45feed7}). Keempatnya kini
+		 * memanggil {@link #apakahPengelola} yang sama, dan tombol "Ubah"/"Hapus" tambahan
+		 * memeriksa ulang perannya sendiri di awal listener {@code onClick} (fail-closed) karena
+		 * keduanya mengubah/menghapus data.
 		 *
 		 * @param arg0 baris grid tujuan yang akan diisi komponen.
 		 * @param data instance {@link PertemuanPunyaUjian} yang akan dirender (di-cast langsung, NPE
@@ -1918,9 +1953,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 			HasilUjianHelper.reinitUjian(ujian, pertemuan);
 
-			if (tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-					&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-					&& tbmuser.getCalonSiswa() == null) {
+			if (apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa)) {
 				// Sebelumnya berupa MyDetail (expander "+") yang membuka konten soal INLINE.
 				// Diubah: konten soal dibuka PENUH di dalam MyWindow tersendiri (bukan Detail),
 				// sesuai permintaan agar "full menginduk ke MyWindow".
@@ -1933,6 +1966,12 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 					@Override
 					public void onEvent(Event ev) throws Exception {
+						if (!apakahPengelola(Common.getCurrentUser(), mahasiswa, biodataCalonMahasiswa)) {
+							MyMessageboxConfig.show(
+									"Mohon maaf, Anda tidak memiliki hak untuk mengelola soal ujian ini.",
+									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+							return;
+						}
 						boolean tampilMenuSoalDiManajemenUjian = Common
 								.bolehKonfigurasi("tampil_menu_soal_di_manajemen_ujian");
 						MyWindow win = new MyWindow();
@@ -1985,10 +2024,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 			 * langsung (setPertemuan(Pertemuan)); hasil ujian terkait ikut otomatis. Hanya untuk
 			 * pengelola (bukan mahasiswa/siswa/calon).
 			 */
-			if (pertemuan != null && tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-					&& tbmuser.getMahasiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-					&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
-					&& tbmuser.getCalonSiswa() == null) {
+			if (pertemuan != null && apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa)) {
 				final ais.database.model.VOPembelajaran pembelajaranPindah = pertemuan.ambilVOPembelajaran();
 				if (pembelajaranPindah != null) {
 					vbox.appendChild(new MyLabelKecil("Pindahkan ke pertemuan :"));
@@ -2094,9 +2130,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 			}
 
 			if (!tampilInfo) {
-				if (tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-						&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
-						&& tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null) {
+				if (apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa)) {
 
 					final MyCheckboxConfig otomatisMunculKetikaBelumSelesai = new MyCheckboxConfig(
 							"Apabila peserta belum selesai ujian dan tiba-tiba terputus koneksi / baterai ponselnya habis / browser-nya crash dan bermasalah dll, saat login ulang, secara otomatis tampilan ujian akan muncul dengan melanjutkan waktu terakhir berhenti.");
@@ -3123,9 +3157,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 				if (pertemuanPunyaUjian != null) {
 					button = new MyToolbarbuttonConfig("Hasil", "/img/album.png");
 					button.setOrient("vertical");
-					button.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-							&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-							&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+					button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 					button.addEventListener("onClick", new EventListener() {
 
 						@Override
@@ -3146,9 +3178,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 				button = new MyToolbarbuttonConfig("Preview", "/img/eye-icon.png");
 				button.setOrient("vertical");
-				button.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-						&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-						&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+				button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 				button.setTooltiptext("Preview");
 				button.addEventListener("onClick", new EventListener() {
 					@Override
@@ -3162,13 +3192,16 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 				button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 				button.setOrient("vertical");
-				button.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-						&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-						&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+				button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 				button.setTooltiptext("Ubah Data");
 				button.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
+						if (!apakahPengelola(Common.getCurrentUser(), mahasiswa, biodataCalonMahasiswa)) {
+							MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk mengubah data ini.",
+									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+							return;
+						}
 						UjianAction.onAddExternal(event, new EventListener() {
 
 							@Override
@@ -3183,14 +3216,17 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 				button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 				button.setOrient("vertical");
-				button.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-						&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-						&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+				button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 				// button.setDisabled(count > 0);
 				button.setTooltiptext("Hapus Data");
 				button.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
+						if (!apakahPengelola(Common.getCurrentUser(), mahasiswa, biodataCalonMahasiswa)) {
+							MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk menghapus data ini.",
+									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+							return;
+						}
 						MyMessageboxConfig.show(
 				"Apakah Bapak/Ibu yakin ingin menghapus data ini? Perlu diperhatikan bahwa data yang telah dihapus tidak dapat dikembalikan. Silakan pilih OK untuk melanjutkan penghapusan atau Batal untuk membatalkan.",
 				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
@@ -4003,16 +4039,16 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * alur normal aplikasi.</li>
 	 * </ul>
 	 *
-	 * <p><b>Pemilih peran ada di sini, dan ejaannya tidak lengkap.</b> Variabel lokal
-	 * {@code pengelola} adalah SATU-SATUNYA penentu apakah seorang pengguna melihat kartu
-	 * pengelola (dengan Kelola Soal, Ubah, Hapus, Gandakan) atau kartu peserta. Predikatnya
-	 * memeriksa field {@link #mahasiswa}/{@link #biodataCalonMahasiswa} milik helper ini beserta
-	 * {@code tbmuser.getPesertaKursus()}/{@code getSiswa()}/{@code getCalonSiswa()}, tetapi TIDAK
-	 * memeriksa {@code tbmuser.getMahasiswa()} maupun {@code tbmuser.getBiodataCalonMahasiswa()}.
-	 * Akibatnya, bila helper dikonstruksi dengan identitas kosong
-	 * ({@code new PertemuanPunyaUjianHelper(null, null)}), akun yang {@link Tbmuser}-nya tertaut ke
-	 * {@link Mahasiswa}/{@link BiodataCalonMahasiswa} tetap dianggap pengelola. Jalur pemanggilan
-	 * lewat {@code PertemuanHelper} tidak terdampak karena konstruktornya sengaja mengambil ulang
+	 * <p><b>Pemilih peran ada di sini.</b> Variabel lokal {@code pengelola} adalah SATU-SATUNYA
+	 * penentu apakah seorang pengguna melihat kartu pengelola (dengan Kelola Soal, Ubah, Hapus,
+	 * Gandakan) atau kartu peserta, lewat {@link #apakahPengelola}. SEBELUMNYA predikat ini
+	 * memeriksa {@code tbmuser.getPesertaKursus()}/{@code getSiswa()}/{@code getCalonSiswa()}
+	 * tetapi TIDAK memeriksa {@code tbmuser.getMahasiswa()} maupun
+	 * {@code tbmuser.getBiodataCalonMahasiswa()}, sehingga bila helper dikonstruksi dengan
+	 * identitas kosong ({@code new PertemuanPunyaUjianHelper(null, null)}), akun yang
+	 * {@link Tbmuser}-nya tertaut ke {@link Mahasiswa}/{@link BiodataCalonMahasiswa} tetap
+	 * dianggap pengelola; {@link #apakahPengelola} menutup celah ini. Jalur pemanggilan lewat
+	 * {@code PertemuanHelper} tidak terdampak karena konstruktornya sengaja mengambil ulang
 	 * identitas dari sesi login, begitu pula {@code UjianOnlineCalonMahasiswaAction} yang selalu
 	 * mengirim {@link BiodataCalonMahasiswa} non-null; yang memakai identitas kosong adalah
 	 * {@code JadwalUjianAction} (masih dijaga {@code CommonPrivilages}) dan
@@ -4045,9 +4081,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		if (kartuWrap != null) {
 			// Tampilan KARTU untuk semua peran. Pengelola → kartu ringkas + modal
 			// pengaturan; peserta (mahasiswa/siswa/calon/biodata) → kartu ikut ujian.
-			boolean pengelola = tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-					&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
-					&& tbmuser.getCalonSiswa() == null;
+			boolean pengelola = apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa);
 
 			Common.clear(kartuWrap);
 			if (pertemuanPunyaUjian.isEmpty()) {
@@ -5615,18 +5649,27 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * {@link #display(Pertemuan, Component)} sendiri (re-render toolbar &amp; kartu dari awal).</li>
 	 * </ul>
 	 *
-	 * <p><b>Sifat gerbang toolbar: UI-only, dan tidak seragam.</b> Semua pembatasan tombol di atas
-	 * dilakukan lewat {@code setVisible(...)} saja; TIDAK ada listener {@code onClick} di method
-	 * ini yang memeriksa ulang peran pengguna sebelum menjalankan aksinya. Predikat perannya pun
-	 * dieja ulang manual di tiap tombol dengan varian yang menghilangkan
+	 * <p><b>Sifat gerbang toolbar.</b> Visibilitas tombol di atas memakai {@link #apakahPengelola}
+	 * secara seragam (SEBELUMNYA dieja ulang manual per tombol dengan varian yang menghilangkan
 	 * {@code tbmuser.getMahasiswa()}/{@code getBiodataCalonMahasiswa()} dan justru menulis
-	 * {@code tbmuser.getSiswa() == null} dua kali (lihat Javadoc kelas dan
-	 * {@code task_d45feed7}). Perlu dicatat pula dua tombol yang SAMA SEKALI tanpa gerbang
-	 * visibilitas sehingga tampil untuk semua peran termasuk peserta: <b>Lihat Peserta Ujian</b>
-	 * (membuka {@code /pages/master/hasil_ujian_mahasiswa.zul}, yang penjagaannya diserahkan
-	 * sepenuhnya ke halaman tujuan) dan <b>Refresh</b>. Tombol <b>Format Nilai</b> memakai
-	 * varian predikat yang lebih pendek lagi — tanpa {@code getPesertaKursus()} — namun ditambah
-	 * syarat {@code perkuliahan.getDikunci() == null}.
+	 * {@code tbmuser.getSiswa() == null} dua kali; lihat {@code task_d45feed7}). Enam listener
+	 * {@code onClick} yang mengubah/membocorkan data — "Kelola Soal Ujian", "Ambil Bahan Ujian",
+	 * "Buat Ujian", "Singkronkan Soal Peserta" ({@link #prosesUlangSoal}), serta "Ubah"/"Hapus"
+	 * pada {@link DetailPertemuanRenderer#render(Row, Object)} — memeriksa ulang
+	 * {@link #apakahPengelola} sendiri di awal {@code onEvent} (fail-closed); tombol lain yang
+	 * murni membaca data ("Rekap Hasil Ujian", "Rekap Semua Hasil Ujian", "History", "Rekap"
+	 * pengawasan) tetap UI-only. Dua tombol SAMA SEKALI tanpa gerbang visibilitas, tampil untuk
+	 * semua peran termasuk peserta: <b>Lihat Peserta Ujian</b> (membuka
+	 * {@code /pages/master/hasil_ujian_mahasiswa.zul}) dan <b>Refresh</b>. Ini disengaja, bukan
+	 * kelalaian — {@code HasilUjianMahasiswaAction.doAfterCompose} sendiri sudah menangani
+	 * identitas peserta ({@code tbmuser.getMahasiswa()}/{@code getBiodataCalonMahasiswa()}/
+	 * {@code getSiswa()}/{@code getCalonSiswa()} bukan {@code null}) dengan menyembunyikan kontrol
+	 * admin-only (ubah kuota, tombol reset) sambil tetap menampilkan grid peserta aktif, jadi
+	 * halaman tujuan MEMANG dirancang bisa dibuka peserta; dan <b>Refresh</b> hanya memanggil ulang
+	 * {@link #loadData(Object)} yang sudah menentukan kartu sesuai peran lewat
+	 * {@link #apakahPengelola}, sehingga tidak butuh gerbang sendiri. Tombol <b>Format Nilai</b>
+	 * kini turut memakai {@link #apakahPengelola}, ditambah syarat
+	 * {@code perkuliahan.getDikunci() == null} yang tetap dipertahankan.
 	 *
 	 * <p><b>Cakupan data tidak diperiksa di sini.</b> {@code display} tidak menyaring berdasarkan
 	 * satuan kerja maupun berdasarkan mata kuliah yang diampu pengguna; ia menerima
@@ -5662,13 +5705,18 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		toolbar.setHeight("25px");
 		toolbar.setParent(div);
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ambil Bahan Ujian", "/img/new.gif");
-		button.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
 			public void onEvent(Event event) throws Exception {
+
+				if (!apakahPengelola(Common.getCurrentUser(), mahasiswa, biodataCalonMahasiswa)) {
+					MyMessageboxConfig.show(
+							"Mohon maaf, Anda tidak memiliki hak untuk mengambil bahan ujian ini.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
 
 				List<Ujian> ujians = HibernateUtil.currentSession().createCriteria(PertemuanPunyaUjian.class)
 						.add(Restrictions.eq("pertemuan", pertemuan)).setProjection(Projections.property("ujian"))
@@ -5746,13 +5794,17 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		button.setParent(toolbar);
 
 		button = new MyToolbarbuttonConfig("Buat Ujian", "/img/new.gif");
-		button.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
 			public void onEvent(Event event) throws Exception {
+
+				if (!apakahPengelola(Common.getCurrentUser(), mahasiswa, biodataCalonMahasiswa)) {
+					MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk membuat ujian ini.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
 
 				Ujian ujian = new Ujian();
 				ujian.setDosen(pertemuan.getPerkuliahan() == null ? null : pertemuan.getPerkuliahan().getDosen1());
@@ -5820,9 +5872,8 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 				final MyToolbarbuttonConfig buttonFormatNilai = new MyToolbarbuttonConfig("Format Nilai",
 						"/img/svg/edit-box-line.svg");
 				buttonFormatNilai.setParent(toolbar);
-				buttonFormatNilai.setVisible(
-						perkuliahan.getDikunci() == null && mahasiswa == null && biodataCalonMahasiswa == null
-								&& tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null);
+				buttonFormatNilai.setVisible(perkuliahan.getDikunci() == null
+						&& apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 
 				if (perkuliahan.getKurikulum() != null && perkuliahan.getKurikulum()
 						.apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
@@ -5874,9 +5925,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 		MyToolbarbuttonConfig buttonFormatNilai = new MyToolbarbuttonConfig("Rekap Hasil Ujian",
 				"/img/svg/edit-box-line.svg");
-		buttonFormatNilai.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		buttonFormatNilai.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 		buttonFormatNilai.setParent(toolbar);
 		buttonFormatNilai.addEventListener("onClick", new EventListener() {
 
@@ -5895,9 +5944,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		});
 
 		buttonFormatNilai = new MyToolbarbuttonConfig("Rekap Semua Hasil Ujian", "/img/svg/edit-box-line.svg");
-		buttonFormatNilai.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		buttonFormatNilai.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 		buttonFormatNilai.setParent(toolbar);
 		buttonFormatNilai.addEventListener("onClick", new EventListener() {
 
@@ -5942,17 +5989,13 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 //		}
 
 		button = prosesUlangSoal(pertemuan, "Singkronkan Soal Peserta", "/img/svg/refresh-cw.svg");
-		button.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 		button.setParent(toolbar);
 
 		// Tombol Rekap: rekap pelanggaran pengawasan ujian (anti-curang) per peserta.
 		button = new MyToolbarbuttonConfig("Rekap", "/img/print.png");
 		button.setTooltiptext("Rekap pengawasan ujian (jumlah & log pelanggaran per peserta)");
-		button.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -5967,9 +6010,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		button.setParent(toolbar);
 
 		button = new MyToolbarbuttonConfig("History", "/img/jadwal.png");
-		button.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		button.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
@@ -6073,10 +6114,10 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * Perhatikan bahwa kedua cabang menghasilkan JUMLAH kolom yang sama, sehingga kontrak urutan
 	 * di atas tetap terjaga pada kurikulum OBE maupun non-OBE.
 	 *
-	 * <p>Lebar dan visibilitas kolom ditentukan lewat predikat peran yang dieja ulang manual —
-	 * termasuk varian dengan {@code getSiswa() == null} ganda yang dicatat pada Javadoc kelas.
-	 * Di sini dampaknya terbatas pada tampilan (kolom melebar atau menyempit), bukan pada hak
-	 * akses, karena kontrol yang sesungguhnya dijaga di dalam renderer.
+	 * <p>Lebar dan visibilitas kolom ditentukan lewat {@link #apakahPengelola} (SEBELUMNYA predikat
+	 * peran dieja ulang manual di sini, termasuk varian dengan {@code getSiswa() == null} ganda;
+	 * lihat Javadoc kelas). Di sini dampaknya terbatas pada tampilan (kolom melebar atau
+	 * menyempit), bukan pada hak akses, karena kontrol yang sesungguhnya dijaga di dalam renderer.
 	 *
 	 * @param grid    grid tujuan; kolom ditambahkan sebagai anak {@link Columns} baru. Grid yang
 	 *                sudah punya {@link Columns} sebaiknya tidak dikirim ke sini.
@@ -6093,9 +6134,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		MyColumnConfig column = new MyColumnConfig();
 		column.setParent(columns);
 		column.setLabel("");
-		column.setWidth(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null ? "40px" : "0px");
+		column.setWidth(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa) ? "40px" : "0px");
 
 		column = new MyColumnConfig();
 		column.setParent(columns);
@@ -6121,9 +6160,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 				&& (mahasiswa != null || biodataCalonMahasiswa != null
 						|| (tbmuser != null && tbmuser.getPesertaKursus() != null) || tbmuser.getSiswa() != null
 						|| tbmuser.getCalonSiswa() != null)) ? "12%" : "0px");
-		column.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		column.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 
 		column = new MyColumnConfig();
 		column.setParent(columns);
@@ -6133,9 +6170,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		column.setWidth(mahasiswa != null || biodataCalonMahasiswa != null
 				|| (tbmuser != null && tbmuser.getPesertaKursus() != null) || tbmuser.getSiswa() != null
 				|| tbmuser.getCalonSiswa() != null ? "12%" : "10%");
-		column.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null);
+		column.setVisible(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa));
 
 		column = new MyColumnConfig();
 		column.setParent(columns);
@@ -6170,9 +6205,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		column = new MyColumnConfig();
 		column.setParent(columns);
 		column.setLabel("Aktif");
-		column.setWidth(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
-				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null ? "40px" : "0px");
+		column.setWidth(apakahPengelola(tbmuser, mahasiswa, biodataCalonMahasiswa) ? "40px" : "0px");
 
 		column = new MyColumnConfig();
 		column.setParent(columns);

@@ -158,6 +158,24 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 	}
 
 	/**
+	 * Predikat tunggal "pengguna saat ini adalah pengelola/dosen, bukan peserta", padanan
+	 * {@code PertemuanPunyaUjianHelper.apakahPengelola} pada berkas universitas (lihat
+	 * {@code task_d45feed7}) untuk domain sekolah. Beberapa titik di file ini sebelumnya hanya
+	 * memeriksa {@code tbmuser.getSiswa()}/{@code getCalonSiswa()} (bahkan diulang) tanpa
+	 * memeriksa field {@link #siswa}/{@link #calonSiswa} milik helper ini. Fail-closed:
+	 * {@code tbmuser == null} mengembalikan {@code false}.
+	 *
+	 * @param tbmuser    pengguna yang login saat ini, boleh {@code null}.
+	 * @param siswa      identitas peserta siswa (konteks helper), atau {@code null}.
+	 * @param calonSiswa identitas peserta calon siswa/PPDB (konteks helper), atau {@code null}.
+	 * @return {@code true} bila pengguna adalah pengelola/dosen, {@code false} bila peserta atau tidak login.
+	 */
+	private static boolean apakahPengelola(Tbmuser tbmuser, Siswa siswa, CalonSiswa calonSiswa) {
+		return tbmuser != null && siswa == null && calonSiswa == null && tbmuser.getSiswa() == null
+				&& tbmuser.getCalonSiswa() == null;
+	}
+
+	/**
 	 * Menghasilkan tombol toolbar yang membuka dialog filter (yayasan/sekolah/prodi, rentang
 	 * tanggal, dosen, atau dibatasi hanya ujian pada {@code pertemuan} ini saja) untuk mencetak
 	 * laporan Excel berisi rincian jawaban tiap peserta per soal ujian yang cocok filter (kolom:
@@ -1971,8 +1989,7 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 				if (pertemuanPunyaUjian != null) {
 					button = new MyToolbarbuttonConfig("Hasil", "/img/album.png");
 					button.setOrient("vertical");
-					button.setVisible(tbmuser != null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
-							&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+					button.setVisible(apakahPengelola(tbmuser, siswa, calonSiswa));
 					button.addEventListener("onClick", new EventListener() {
 
 						@Override
@@ -1992,8 +2009,7 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 
 				button = new MyToolbarbuttonConfig("Preview", "/img/eye-icon.png");
 				button.setOrient("vertical");
-				button.setVisible(tbmuser != null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
-						&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+				button.setVisible(apakahPengelola(tbmuser, siswa, calonSiswa));
 				button.setTooltiptext("Preview");
 				button.addEventListener("onClick", new EventListener() {
 					@Override
@@ -2013,12 +2029,16 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 
 				button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 				button.setOrient("vertical");
-				button.setVisible(tbmuser != null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
-						&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+				button.setVisible(apakahPengelola(tbmuser, siswa, calonSiswa));
 				button.setTooltiptext("Ubah Data");
 				button.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
+						if (!apakahPengelola(Common.getCurrentUser(), siswa, calonSiswa)) {
+							MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk mengubah data ini.",
+									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+							return;
+						}
 						UjianAction.onAddExternal(event, new EventListener() {
 
 							@Override
@@ -2039,13 +2059,17 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 
 				button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 				button.setOrient("vertical");
-				button.setVisible(tbmuser != null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
-						&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+				button.setVisible(apakahPengelola(tbmuser, siswa, calonSiswa));
 				// button.setDisabled(count > 0);
 				button.setTooltiptext("Hapus Data");
 				button.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
+						if (!apakahPengelola(Common.getCurrentUser(), siswa, calonSiswa)) {
+							MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk menghapus data ini.",
+									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+							return;
+						}
 						MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
 								MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 								new EventListener() {

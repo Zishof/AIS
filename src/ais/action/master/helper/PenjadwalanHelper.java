@@ -402,6 +402,26 @@ public class PenjadwalanHelper {
 		 * disembunyikan ({@code setVisible(false)}) bila data kosong/null atau id-nya tidak valid.
 		 * Lihat javadoc {@link PertemuanRenderer} untuk rincian komponen yang dibangun.
 		 *
+		  * <p><b>Semua penyuntingan pada baris ini bersifat SIMPAN-SEKETIKA.</b> Tidak ada tombol simpan
+		  * per baris: setiap {@code onChange}/{@code onCheck} pada topik, indikator, waktu pembelajaran,
+		  * pengalaman belajar, tugas dan penilaian, dua buku rujukan, metode pembelajaran, status
+		  * pertemuan, checkbox aktif, tanggal, serta jam mulai/selesai langsung memanggil
+		  * {@code Common.refreshUpdate}/{@code refreshSaveOrUpdate} ke basis data. Konsekuensinya tidak ada
+		  * jalan "batal" bagi pengguna, dan tidak ada validasi lintas-field (mis. jam selesai tidak
+		  * dicek harus sesudah jam mulai, dan tanggal tidak dicek terhadap masa perkuliahan).</p>
+		  *
+		  * <p><b>Dua penanganan defensif yang sengaja ada dan jangan dihapus:</b> (1) combobox status
+		  * pertemuan bersifat {@code readonly}, tetapi ZK tetap dapat mengirim {@code onChange} dengan
+		  * pilihan kosong dari sisi klien — listenernya karena itu mengembalikan pilihan lama dan berhenti
+		  * alih-alih mendereference item {@code null}; (2) parsing jam mulai/selesai dibungkus try/catch
+		  * karena kolomnya berupa {@code String} bebas di basis data sehingga bisa berisi nilai yang tidak
+		  * sesuai format.</p>
+		  *
+		  * <p><b>Baris yang datanya tidak dapat diresolusi disembunyikan, bukan dilewati.</b> Bila
+		  * {@code arg1} {@code null}, atau {@code GeneralValueObject.ambilData} mengembalikan {@code null}/
+		  * entity tanpa id, baris di-{@code setVisible(false)} dan {@code perteKe} TIDAK ikut bertambah —
+		  * jadi id yang menggantung di model tidak menggeser penomoran pertemuan berikutnya.</p>
+		  *
 		 * @param arg0 baris grid ZK yang akan diisi
 		 * @param arg1 nilai model baris — biasanya id {@link Pertemuan} dalam bentuk {@code String}
 		 */
@@ -882,6 +902,21 @@ public class PenjadwalanHelper {
 				new Label().setParent(arg0);
 			}
 
+			/*
+			 * Kolom terakhir: penanda "sesuai" (verifikasi pengelola bahwa pelaksanaan pertemuan sesuai
+			 * rencana). Hanya pengelola (bukan mahasiswa/calon mahasiswa/dosen/siswa/calon siswa) yang
+			 * mendapat checkbox; peran lain hanya melihat ikon centang atau ikon peringatan.
+			 *
+			 * CATATAN PEMELIHARAAN (perilaku terdokumentasi apa adanya, TIDAK diubah di sini): checkbox
+			 * di bawah menampilkan nilai pertemuan.getSesuai(), tetapi listener onCheck-nya menulis ke
+			 * pertemuan.setAktif(...) — bukan setSesuai(...). Akibatnya kolom "sesuai" tidak pernah
+			 * tersimpan dari layar ini, dan mencentang/melepas centangnya justru mengaktifkan/menonaktifkan
+			 * pertemuan itu sendiri (kolom aktif juga menjadi filter default "hanya yg aktif" pada
+			 * PenjadwalanHelper.onSearchDefault, sehingga melepas centang membuat pertemuan hilang dari
+			 * grid). Pola getter/setter tertukar ini sudah pernah ditemukan di beberapa listener checkbox
+			 * ZK lain di basis kode ini; perbaikannya perlu keputusan terpisah karena berpotensi mengubah
+			 * arti data historis kolom aktif/sesuai yang sudah terlanjur tersimpan.
+			 */
 			if (tbmuser.getMahasiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
 					&& tbmuser.getDosen() == null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null) {
 				final MyCheckboxConfig sesuai = new MyCheckboxConfig("");
