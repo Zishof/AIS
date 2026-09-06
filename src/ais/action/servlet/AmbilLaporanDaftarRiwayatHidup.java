@@ -30,22 +30,47 @@ import ais.database.model.employ.GajiPokok;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class AmbilLaporanMahasiswa
+ * Servlet endpoint yang menghasilkan dan mengirimkan laporan "Daftar Riwayat Hidup" (CV/resume)
+ * seorang {@link Pegawai}: memuat data pribadi, foto, serta gaji pokok terkini ({@link GajiPokok})
+ * pegawai tersebut ke template laporan {@code employ/daftar_riwayat_hidup}, lalu mengembalikan
+ * hasilnya dalam format HTML (ditampilkan langsung) atau berkas lain sesuai parameter
+ * {@code type} (lihat {@link Report}).
+ *
+ * <p>
+ * Identitas pegawai target ditentukan sepenuhnya dari parameter permintaan {@code email}
+ * dan/atau {@code userId} — bukan dari sesi login pengguna yang sedang aktif. Bila
+ * {@link Tbmuser} untuk email tersebut belum ada tetapi ditemukan {@link Pegawai} yang cocok,
+ * servlet ini bahkan MEMBUAT baris {@link Tbmuser} baru sebagai efek samping dari permintaan
+ * GET/POST biasa (auto-provisioning akun agar pegawai tersebut punya login sistem).
+ * </p>
+ *
+ * <p>
+ * <b>Catatan keamanan (dilaporkan, tidak diperbaiki sesuai instruksi tugas — pola broken access
+ * control yang sudah berulang kali tercatat pada servlet {@code Ambil*} lain, mis.
+ * {@code AmbilLaporanDaftarPegawai} dan {@code AmbilLaporanMahasiswa}):</b> tidak ada pengecekan
+ * bahwa {@code email}/{@code userId} pada permintaan cocok dengan pengguna yang sedang login
+ * (tidak ada pemanggilan {@code Common.getCurrentUser(...)} atau validasi sesi apa pun) — satu-
+ * satunya gerbang adalah menolak nilai literal {@code "default@liferay.com"} atau parameter
+ * {@code email} yang kosong. Siapa pun yang mengetahui/menebak alamat email seorang pegawai dapat
+ * memanggil endpoint ini secara langsung dan mengunduh CV LENGKAP pegawai tersebut — termasuk
+ * data pribadi dan {@link GajiPokok} (gaji pokok, data finansial sensitif) — tanpa otentikasi
+ * maupun otorisasi apa pun selain mengetahui satu alamat email. Ini adalah kerentanan IDOR
+ * (Insecure Direct Object Reference) yang mengekspos PII dan data gaji lintas-pengguna.
+ * </p>
  */
 public class AmbilLaporanDaftarRiwayatHidup extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	/**
-	 * @see HttpServlet#HttpServlet()
-	 */
+	/** Konstruktor baku servlet, tanpa inisialisasi tambahan. */
 	public AmbilLaporanDaftarRiwayatHidup() {
 		super();
 		// TODO Auto-generated constructor stub
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan GET dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -57,8 +82,9 @@ public class AmbilLaporanDaftarRiwayatHidup extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan POST dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -69,6 +95,28 @@ public class AmbilLaporanDaftarRiwayatHidup extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membangun dan mengirimkan laporan daftar riwayat hidup pegawai. Alur: (1) mencetak seluruh
+	 * parameter permintaan ke {@link System#out} untuk keperluan debug; (2) menolak permintaan
+	 * bila parameter {@code email} kosong atau bernilai literal {@code "default@liferay.com"}
+	 * dengan menampilkan pesan HTML "harus login"; (3) mencari {@link Tbmuser} aktif berdasarkan
+	 * {@code userId}/{@code email}, atau bila tidak ada mencari {@link Pegawai} aktif berdasarkan
+	 * {@code email} lalu meng-auto-provisioning {@link Tbmuser} baru untuknya bila belum punya
+	 * akun; (4) bila tidak ditemukan {@link Pegawai} yang terhubung, menampilkan pesan HTML "belum
+	 * terhubung ke data pegawai"; (5) menyusun parameter laporan dari data {@link Pegawai}, foto
+	 * (via {@link CommonMedia#loadPathFileFotoLangsung(Tbmuser)}), dan {@link GajiPokok} terkini
+	 * (bila ada), lalu menghasilkan berkas laporan via
+	 * {@link Report#generateFileReport(String, Map, String, java.util.Date, java.util.Locale)};
+	 * dan (6) menuliskan hasilnya ke response — sebagai HTML inline bila {@code type} adalah
+	 * {@link Report#HTML}, atau sebagai aliran biner ({@code application/&lt;type&gt;}) untuk
+	 * format lain. Sesi Hibernate yang dibuka untuk pencarian pengguna selalu dibersihkan dan
+	 * ditutup pada blok {@code finally}.
+	 *
+	 * @param request permintaan HTTP masuk, membawa parameter {@code type}, {@code email}, dan
+	 *                {@code userId}
+	 * @param response respons HTTP tempat laporan (HTML atau berkas biner) dituliskan
+	 * @throws Exception bila terjadi galat query database, pembuatan laporan, atau I/O berkas
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
