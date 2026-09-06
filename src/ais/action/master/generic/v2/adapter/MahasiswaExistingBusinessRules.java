@@ -40,20 +40,7 @@ public final class MahasiswaExistingBusinessRules {
         if (statusKeluar != null && mahasiswa.getSemesterLulus() == null) {
             errors.add("semesterLulus:Semester lulus/keluar/DO wajib diisi ketika status keluar dipilih.");
         }
-        if (Boolean.TRUE.equals(mahasiswa.getMerupakanPindahan())) {
-            required(errors, "pindahanDariKampus", mahasiswa.getPindahanDariKampus(),
-                    "Kampus asal mahasiswa pindahan wajib diisi.");
-            required(errors, "namaProdiPindah", mahasiswa.getNamaProdiPindah(),
-                    "Program studi asal mahasiswa pindahan wajib diisi.");
-            required(errors, "nimPindahan", mahasiswa.getNimPindahan(),
-                    "NIM asal mahasiswa pindahan wajib diisi.");
-            if (mahasiswa.getSksYangDiakui() == null) {
-                errors.add("sksYangDiakui:Jumlah SKS yang diakui wajib diisi.");
-            }
-            if (mahasiswa.getTanggalPindah() == null) {
-                errors.add("tanggalPindah:Tanggal pindah wajib diisi.");
-            }
-        }
+        // Informasi pindahan opsional pada penyimpanan biodata, termasuk perubahan Dosen PA.
         if (Boolean.TRUE.equals(mahasiswa.getMerupakanAlihProdi()) && mahasiswa.getTanggalPindahProdi() == null) {
             errors.add("tanggalPindahProdi:Tanggal alih program studi wajib diisi.");
         }

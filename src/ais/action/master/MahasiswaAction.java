@@ -7327,23 +7327,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		mahasiswa.setStatusAwalMahasiswa((StatusAwalMahasiswa) (statusAwalMahasiswa.getSelectedItem() == null ? null
 				: statusAwalMahasiswa.getSelectedItem().getValue()));
 
-		if (mahasiswa.getMerupakanPindahan() && pindahanDariKampus.getValue().trim().isEmpty()) {
-			MyMessageboxConfig.show(
-					"Mohon maaf, karena mahasiswa ini merupakan mahasiswa pindahan, maka data asal kampus (pindah dari kampus) wajib diisi. Langkah yang dapat dilakukan: (1) buka tab Pindahan; (2) isikan nama kampus asal mahasiswa pindahan pada kolom yang tersedia; (3) setelah data terisi, silakan menyimpan kembali data ini.",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			tabPindahan.setSelected(true);
-			pindahanDariKampus.focus();
-			return false;
-		}
 
-		if (mahasiswa.getMerupakanPindahan() && namaProdiPindah.getValue().trim().isEmpty()) {
-			MyMessageboxConfig.show(
-					"Mohon maaf, karena mahasiswa ini merupakan mahasiswa pindahan, maka nama program studi lama (prodi asal) wajib diisi. Langkah yang dapat dilakukan: (1) buka tab Pindahan; (2) isikan nama program studi lama mahasiswa pada kolom yang tersedia; (3) setelah data terisi, silakan menyimpan kembali data ini.",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			tabPindahan.setSelected(true);
-			sksYangDiakui.focus();
-			return false;
-		}
 
 		if (statusKeluar.getSelectedItem() != null && statusKeluar.getSelectedItem().getValue() != null
 				&& (semesterLulus.getValue() == null || semesterLulus.getSelectedItem().getValue() == null)) {
@@ -7353,32 +7337,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			return false;
 		}
 
-		if (mahasiswa.getMerupakanPindahan() && nimPindahan.getValue().trim().isEmpty()) {
-			MyMessageboxConfig.show(
-					"Mohon maaf, karena mahasiswa ini merupakan mahasiswa pindahan, maka NIM lama (NIM asal) wajib diisi. Langkah yang dapat dilakukan: (1) buka tab Pindahan; (2) isikan NIM lama mahasiswa pada kolom yang tersedia; (3) setelah data terisi, silakan menyimpan kembali data ini.",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			tabPindahan.setSelected(true);
-			nimPindahan.focus();
-			return false;
-		}
 
-		if (mahasiswa.getMerupakanPindahan() && (sksYangDiakui.getValue() == null)) {
-			MyMessageboxConfig.show(
-					"Mohon maaf, karena mahasiswa ini merupakan mahasiswa pindahan, maka jumlah SKS yang diakui wajib diisi. Langkah yang dapat dilakukan: (1) buka tab Pindahan; (2) isikan jumlah SKS yang diakui pada kolom yang tersedia; (3) setelah data terisi, silakan menyimpan kembali data ini.",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			tabPindahan.setSelected(true);
-			sksYangDiakui.focus();
-			return false;
-		}
 
-		if (mahasiswa.getMerupakanPindahan() && tanggalPindah.getValue() == null) {
-			MyMessageboxConfig.show(
-					"Mohon maaf, karena mahasiswa ini merupakan mahasiswa pindahan, maka tanggal pindah wajib diisi. Langkah yang dapat dilakukan: (1) buka tab Pindahan; (2) isikan tanggal pindah mahasiswa pada kolom tanggal yang tersedia; (3) setelah data terisi, silakan menyimpan kembali data ini.",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			tabPindahan.setSelected(true);
-			tanggalPindah.focus();
-			return false;
-		}
 
 		// if (mahasiswa.getMerupakanAlihProdi() &&
 		// alihProdiMahasiswa.getAttribute("mahasiswa") == null) {

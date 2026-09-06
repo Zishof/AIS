@@ -2402,26 +2402,82 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		}
 	}
 
+	/**
+	 * Apakah nilai parameter ini terkunci (hanya baca).
+	 *
+	 * <p>Getter MURNI, default {@code false}. Bila {@code true},
+	 * {@link ParameterTambahanAstract#ambilComponent} merender {@code Label} mati alih-alih komponen isian,
+	 * dan {@link ParameterTambahanAstract#ambilValComponent} membaca kembali nilainya DARI TEKS LABEL
+	 * tersebut — termasuk membalik pemformatan angka lewat {@code numberFormat.parse}. Karena itu nilai
+	 * pulang-pergi lewat representasi tampilannya; parameter terkunci bertipe
+	 * {@link ParameterTambahanAstract#ANGKA} bergantung pada pemformat yang simetris agar nilainya tidak
+	 * bergeser tiap kali disimpan ulang.</p>
+	 *
+	 * <p>Flag ini setara dengan argumen {@code readonly} pada {@code ambilComponent}: yang satu melekat pada
+	 * definisi parameter, yang lain ditentukan konteks layar. Keduanya digabung dengan {@code ||}.</p>
+	 *
+	 * @return {@code true} bila nilai terkunci; tidak pernah {@code null}.
+	 */
 	public Boolean getNilaiTidakBolehDiubah() {
 		return nilaiTidakBolehDiubah == null ? false : nilaiTidakBolehDiubah;
 	}
 
+	/**
+	 * Menetapkan penguncian nilai.
+	 *
+	 * @param nilaiTidakBolehDiubah penanda; {@code null} dibaca sebagai {@code false}.
+	 */
 	public void setNilaiTidakBolehDiubah(Boolean nilaiTidakBolehDiubah) {
 		this.nilaiTidakBolehDiubah = nilaiTidakBolehDiubah;
 	}
 
+	/**
+	 * Nilai awal yang dipakai bila isian tersimpan masih kosong.
+	 *
+	 * <p>Getter MURNI, default string kosong. Diterapkan di awal
+	 * {@link ParameterTambahanAstract#initComponent}: bila {@code val} yang masuk {@code null} atau kosong,
+	 * nilai ini yang dipakai membangun komponen.</p>
+	 *
+	 * <p><b>Ini default TAMPILAN, bukan default penyimpanan.</b> Nilainya baru benar-benar tersimpan bila
+	 * pengguna menyimpan formnya. Membuka form lalu keluar tanpa menyimpan tidak meninggalkan jejak, dan
+	 * jalur non-ZK tidak pernah menerapkannya. Konsekuensi lain: mengubah nilai default kelak akan
+	 * mengubah tampilan awal SEMUA baris lama yang isiannya masih kosong.</p>
+	 *
+	 * @return nilai awal; tidak pernah {@code null}.
+	 */
 	public String getNilaiDefault() {
 		return nilaiDefault == null ? "" : nilaiDefault;
 	}
 
+	/**
+	 * Menetapkan nilai awal isian.
+	 *
+	 * @param nilaiDefault nilai awal; formatnya harus cocok dengan {@link #getTipeDataInputan()} (mis.
+	 *                     teks angka untuk tipe {@code ANGKA}) karena akan langsung di-parse saat membangun
+	 *                     komponen.
+	 */
 	public void setNilaiDefault(String nilaiDefault) {
 		this.nilaiDefault = nilaiDefault;
 	}
 
+	/**
+	 * Batas panjang karakter {@code Textbox} untuk tipe {@link ParameterTambahanAstract#TEXT}.
+	 *
+	 * <p>Getter MURNI dengan default {@code 100000} — praktis tanpa batas. Diteruskan ke
+	 * {@code Textbox.setMaxlength(...)}, jadi pembatasannya hanya di sisi peramban dan tidak ditegakkan
+	 * ulang di server maupun oleh basis data.</p>
+	 *
+	 * @return batas panjang karakter; tidak pernah {@code null}.
+	 */
 	public Integer getJumlahText() {
 		return jumlahText == null ? 100000 : jumlahText;
 	}
 
+	/**
+	 * Menetapkan batas panjang karakter isian teks.
+	 *
+	 * @param jumlahText batas panjang; {@code null} dibaca sebagai {@code 100000}.
+	 */
 	public void setJumlahText(Integer jumlahText) {
 		this.jumlahText = jumlahText;
 	}

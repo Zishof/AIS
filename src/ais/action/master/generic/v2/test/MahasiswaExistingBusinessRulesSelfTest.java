@@ -26,10 +26,17 @@ public final class MahasiswaExistingBusinessRulesSelfTest {
         valid = minimumValid(new Mahasiswa() {
             private static final long serialVersionUID = 1L;
             public Boolean getMerupakanPindahan() { return Boolean.TRUE; }
+            public Integer getSksYangDiakui() { return null; }
+            public Date getTanggalPindah() { return null; }
         });
         errors = MahasiswaExistingBusinessRules.validate(null, valid);
-        check(has(errors, "pindahanDariKampus:"), "Kampus asal pindahan tidak diwajibkan");
-        check(has(errors, "nimPindahan:"), "NIM pindahan tidak diwajibkan");
+        check(errors.isEmpty(), "Informasi pindahan kosong harus boleh disimpan: " + errors);
+        valid.setPindahanDariKampus("Kampus Asal");
+        valid.setNamaProdiPindah("Farmasi");
+        valid.setNimPindahan("ASAL-001");
+        errors = MahasiswaExistingBusinessRules.validate(null, valid);
+        check(errors.isEmpty(), "Informasi pindahan sebagian harus boleh disimpan: " + errors);
+        check("ASAL-001".equals(valid.getNimPindahan()), "Informasi pindahan tidak boleh dihapus");
 
         valid = minimumValid(new Mahasiswa() {
             private static final long serialVersionUID = 1L;

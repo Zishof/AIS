@@ -802,6 +802,22 @@ public class JenisKegiatan extends GeneralValueObject {
 		this.maxSmt = maxSmt;
 	}
 
+	/**
+	 * Apakah pelunasan tagihan jenis ini menjadi syarat mahasiswa boleh mengikuti ujian.
+	 *
+	 * <p><b>GETTER DESTRUKTIF (auto-seed).</b> Bila field masih {@code null}, nilainya diisi
+	 * dari {@link #getDigunakanUntukPengecekanKrs()} lalu ditulis balik ke field &mdash;
+	 * asumsinya &quot;yang menghalangi KRS juga menghalangi ujian&quot;. Karena
+	 * {@code getDigunakanUntukPengecekanKrs()} sendiri destruktif dan memaksa {@code true}
+	 * untuk registrasi ulang, satu kali pembacaan entity dapat menuliskan DUA kolom sekaligus
+	 * ke database beserta revisi Envers untuk keduanya.</p>
+	 *
+	 * <p>Berbeda dari kerabatnya, getter ini tidak memasang penjaga ternary di akhir; ia
+	 * mengembalikan hasil {@code getDigunakanUntukPengecekanKrs()} yang memang tidak pernah
+	 * {@code null}, sehingga hasilnya tetap aman dari {@code NullPointerException}.</p>
+	 *
+	 * @return {@code true} bila menjadi syarat mengikuti ujian; tidak pernah {@code null}
+	 */
 	public Boolean getDigunakanUntukPengecekanUjian() {
 		if (digunakanUntukPengecekanUjian == null) {
 			digunakanUntukPengecekanUjian = getDigunakanUntukPengecekanKrs();
@@ -809,10 +825,37 @@ public class JenisKegiatan extends GeneralValueObject {
 		return digunakanUntukPengecekanUjian;
 	}
 
+	/**
+	 * Setter syarat ujian. Nilai eksplisit di sini dihormati oleh
+	 * {@link #getDigunakanUntukPengecekanUjian()} karena auto-seed hanya berjalan saat field
+	 * masih {@code null}.
+	 *
+	 * @param digunakanUntukPengecekanUjian status syarat ujian
+	 */
 	public void setDigunakanUntukPengecekanUjian(Boolean digunakanUntukPengecekanUjian) {
 		this.digunakanUntukPengecekanUjian = digunakanUntukPengecekanUjian;
 	}
 
+	/**
+	 * Apakah pelunasan tagihan jenis ini menentukan status <b>keaktifan</b> mahasiswa pada
+	 * semester berjalan (dipakai laporan status, surat keterangan aktif, dan pelaporan
+	 * eksternal).
+	 *
+	 * <p><b>GETTER DESTRUKTIF dengan dua perilaku berbeda:</b></p>
+	 * <ul>
+	 *   <li>Untuk {@code PENDAFTARAN_MAHASISWA_LAMA} (registrasi ulang) nilainya
+	 *       <b>dipaksa</b> {@code true} tanpa syarat &mdash; <i>flag satu arah</i> yang tidak
+	 *       dapat dimatikan operator.</li>
+	 *   <li>Untuk {@code PENDAFTARAN_ULANG_MAHASISWA_BARU} nilainya hanya di-<i>auto-seed</i>
+	 *       {@code true} saat field masih {@code null}, sehingga pilihan operator dihormati.</li>
+	 * </ul>
+	 * <p>Perbedaan halus antara kedua cabang ini mudah luput saat membaca sekilas; keduanya
+	 * sama-sama menulis balik ke field sehingga sama-sama dapat memicu {@code UPDATE} dan
+	 * revisi Envers palsu, tetapi hanya cabang pertama yang menjadikan kolom database
+	 * menyesatkan secara permanen.</p>
+	 *
+	 * @return {@code true} bila menentukan keaktifan; tidak pernah {@code null}
+	 */
 	public Boolean getDigunakanSyaratKeaktifan() {
 		if (getNamaKegiatan() != null && getNamaKegiatan().equals(ConstantUtil.PENDAFTARAN_MAHASISWA_LAMA)) {
 			digunakanSyaratKeaktifan = true;
@@ -824,58 +867,206 @@ public class JenisKegiatan extends GeneralValueObject {
 		return digunakanSyaratKeaktifan == null ? false : digunakanSyaratKeaktifan;
 	}
 
+	/**
+	 * Setter syarat keaktifan. Untuk jenis kegiatan registrasi ulang nilai {@code false}
+	 * akan ditimpa kembali menjadi {@code true} pada pembacaan berikutnya.
+	 *
+	 * @param digunakanSyaratKeaktifan status syarat keaktifan
+	 */
 	public void setDigunakanSyaratKeaktifan(Boolean digunakanSyaratKeaktifan) {
 		this.digunakanSyaratKeaktifan = digunakanSyaratKeaktifan;
 	}
 
+	/**
+	 * Apakah tunggakan tagihan jenis ini <b>memblokir login</b> mahasiswa ke sistem.
+	 *
+	 * <p>Getter murni (ternary saja, tanpa menulis balik ke field) &mdash; sikap yang tepat
+	 * untuk sebuah gerbang akses. Nilainya menjadi saringan pertama pada
+	 * {@link #apakahBoleh(Mahasiswa, int, List)}: jenis kegiatan yang mengembalikan
+	 * {@code false} di sini dilewati sepenuhnya, tunggakan berapa pun tidak diperiksa.</p>
+	 *
+	 * @return {@code true} bila menjadi syarat login; tidak pernah {@code null}
+	 */
 	public Boolean getDigunakanSyaratLogin() {
 		return digunakanSyaratLogin == null ? false : digunakanSyaratLogin;
 	}
 
+	/**
+	 * Setter penanda syarat login.
+	 *
+	 * @param digunakanSyaratLogin {@code true} bila tunggakan jenis ini memblokir login
+	 */
 	public void setDigunakanSyaratLogin(Boolean digunakanSyaratLogin) {
 		this.digunakanSyaratLogin = digunakanSyaratLogin;
 	}
 
+	/**
+	 * Ambang persentase pelunasan dasar (semester berjalan / semester mundur yang tidak punya
+	 * varian sendiri) agar mahasiswa boleh login; {@code null} dibaca sebagai {@code 0.0}.
+	 *
+	 * <p>Nilai ini juga menjadi <i>fallback</i> bagi keempat belas varian bernomor
+	 * {@code getPersenSyaratLogin1()} &hellip; {@code getPersenSyaratLogin14()}. Perhatikan
+	 * ambang {@code 0.0} berarti pemeriksaan dilewati sepenuhnya: {@link #bolehMasuk} hanya
+	 * memeriksa tagihan bila {@code persenSyarat > 0.1}.</p>
+	 *
+	 * @return ambang persentase; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin() {
 		return persenSyaratLogin == null ? 0.0 : persenSyaratLogin;
 	}
 
+	/**
+	 * Setter ambang persentase pelunasan dasar.
+	 *
+	 * @param persenSyaratLogin ambang persentase (0&ndash;100)
+	 */
 	public void setPersenSyaratLogin(Double persenSyaratLogin) {
 		this.persenSyaratLogin = persenSyaratLogin;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>satu semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi.
+	 *
+	 * @return ambang persentase untuk semester mundur ke-1; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin1() {
 		return persenSyaratLogin1 == null ? getPersenSyaratLogin() : persenSyaratLogin1;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-1.
+	 *
+	 * @param persenSyaratLogin1 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin1(Double persenSyaratLogin1) {
 		this.persenSyaratLogin1 = persenSyaratLogin1;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>dua semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi.
+	 *
+	 * @return ambang persentase untuk semester mundur ke-2; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin2() {
 		return persenSyaratLogin2 == null ? getPersenSyaratLogin() : persenSyaratLogin2;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-2.
+	 *
+	 * @param persenSyaratLogin2 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin2(Double persenSyaratLogin2) {
 		this.persenSyaratLogin2 = persenSyaratLogin2;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan: hanya <b>semester berjalan</b> yang diperiksa.
+	 *
+	 * <p>Merupakan elemen ke-0 dari deret sembilan flag {@code bayarHanyaSmtSaatIni},
+	 * {@code ...DanSebelumnya}, {@code ...DanSebelumnyalagi}, {@code ...lagi3} &hellip;
+	 * {@code ...lagi8} yang disusun {@link #apakahBoleh(Mahasiswa, int, List)} menjadi array
+	 * {@code aturanSmtMundur}. Indeks array berarti &quot;berapa semester mundur dari
+	 * semester berjalan&quot;.</p>
+	 *
+	 * @return {@code true} bila hanya semester berjalan yang diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIni() {
 		return bayarHanyaSmtSaatIni == null ? false : bayarHanyaSmtSaatIni;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-0.
+	 *
+	 * @param bayarHanyaSmtSaatIni status aturan
+	 */
 	public void setBayarHanyaSmtSaatIni(Boolean bayarHanyaSmtSaatIni) {
 		this.bayarHanyaSmtSaatIni = bayarHanyaSmtSaatIni;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>satu semester mundur</b> (elemen ke-1
+	 * array {@code aturanSmtMundur} pada {@link #apakahBoleh(Mahasiswa, int, List)}).
+	 *
+	 * @return {@code true} bila semester mundur ke-1 ikut diperiksa; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnya() {
 		return bayarHanyaSmtSaatIniDanSebelumnya == null ? false : bayarHanyaSmtSaatIniDanSebelumnya;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-1.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnya status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnya(Boolean bayarHanyaSmtSaatIniDanSebelumnya) {
 		this.bayarHanyaSmtSaatIniDanSebelumnya = bayarHanyaSmtSaatIniDanSebelumnya;
 	}
 
+	/**
+	 * <b>Gerbang login berbasis tunggakan.</b> Memeriksa seluruh jenis kegiatan yang ditandai
+	 * sebagai syarat login, lalu mengisi {@code warning} dengan pesan penolakan untuk setiap
+	 * semester yang tunggakannya melampaui ambang. Dipanggil dari alur autentikasi mahasiswa.
+	 *
+	 * <h4>Alur</h4>
+	 * <ol>
+	 *   <li><b>Muat katalog.</b> Bekerja atas cache statis
+	 *       {@code CommonHelperClass.jenisKegiatansAktif}. Bila cache masih {@code null},
+	 *       {@code Common.reloadJenisKegiatans()} dipanggil; bila setelah itu tetap
+	 *       {@code null}, method <b>keluar diam-diam</b>.</li>
+	 *   <li><b>Saring.</b> Jenis kegiatan yang {@link #getDigunakanSyaratLogin()}-nya
+	 *       {@code false} dilewati.</li>
+	 *   <li><b>Tentukan cakupan semester.</b> Sembilan flag {@code bayarHanyaSmt*} disusun
+	 *       menjadi array; indeks {@code i} berarti &quot;semester berjalan dikurangi
+	 *       {@code i}&quot;. Bila setidaknya satu flag menyala, hanya semester-semester yang
+	 *       flag-nya aktif yang diperiksa. Bila tidak ada satu pun yang menyala, sistem
+	 *       memeriksa <b>seluruh</b> semester dari {@link #getMinSmt()} sampai semester
+	 *       berjalan.</li>
+	 *   <li><b>Hormati cuti.</b> Semester yang mahasiswanya punya
+	 *       {@link PendaftaranCutiMahasiswa} dengan {@code getPersetujuan()} bernilai benar
+	 *       dilewati &mdash; mahasiswa cuti resmi tidak diblokir karena tidak membayar
+	 *       semester tersebut.</li>
+	 *   <li><b>Periksa.</b> Sisanya diserahkan ke {@link #bolehMasuk}.</li>
+	 * </ol>
+	 *
+	 * <h4>Catatan perilaku yang perlu diketahui</h4>
+	 * <p><b>Fail-open pada kegagalan pemuatan katalog.</b> Bila cache jenis kegiatan gagal
+	 * dimuat, method langsung {@code return} tanpa mengisi {@code warning} sama sekali
+	 * &mdash; pemanggil akan menyimpulkan &quot;tidak ada halangan&quot; dan mengizinkan
+	 * login. Untuk sebuah gerbang akses, sikap ini adalah <i>fail-open</i>: gangguan pada
+	 * pemuatan katalog membuka akses, bukan menutupnya. Perlu diingat bahwa gerbang ini
+	 * bersifat administratif (penagihan), bukan pengendali kerahasiaan data, sehingga
+	 * dampaknya adalah kebocoran akses bagi penunggak, bukan kebocoran data.</p>
+	 *
+	 * <p><b>Cache statis lintas-permintaan.</b> {@code jenisKegiatansAktif} adalah cache
+	 * statis tingkat aplikasi. Perubahan konfigurasi jenis kegiatan oleh operator baru
+	 * berlaku setelah cache di-<i>reload</i>; sampai saat itu gerbang login masih memakai
+	 * aturan lama. Karena elemen di dalamnya adalah entity yang mungkin sudah
+	 * <i>detached</i>, pemanggilan getter destruktif atasnya (mis. {@link #getMaxSmt()} lewat
+	 * {@link #bolehMasuk}) tidak akan menuliskan apa pun ke database &mdash; efek samping
+	 * penulisan hanya terjadi bila entity yang sama juga terikat pada session yang terbuka.</p>
+	 *
+	 * <p><b>Cuti tanpa persetujuan tetap ditagih.</b> Syaratnya {@code cuti == null ||
+	 * !cuti.getPersetujuan()} &mdash; artinya pengajuan cuti yang belum disetujui
+	 * diperlakukan sama dengan tidak mengajukan cuti sama sekali. Ini konsisten dengan
+	 * kebijakan bahwa cuti baru meniadakan kewajiban setelah disahkan.</p>
+	 *
+	 * <p><b>Deret sembilan versus empat belas.</b> Array cakupan hanya menyusun sembilan flag
+	 * ({@code bayarHanyaSmtSaatIni} sampai {@code ...lagi8}), sedangkan kelas ini menyediakan
+	 * flag {@code ...lagi9} sampai {@code ...lagi14} <i>dan</i> ambang persen sampai
+	 * {@link #getPersenSyaratLogin14()}. Enam flag cakupan terakhir karena itu tidak pernah
+	 * dibaca dari jalur ini &mdash; field tidur (<i>dormant</i>) yang tetap tampil pada form
+	 * konfigurasi. Operator yang mencentangnya akan mengira ia mengaktifkan pemeriksaan
+	 * semester mundur ke-9 sampai ke-14, padahal tidak ada efeknya; bila tidak ada flag lain
+	 * yang menyala, sistem justru jatuh ke cabang &quot;periksa semua semester&quot;.</p>
+	 *
+	 * @param mahasiswa  mahasiswa yang sedang mencoba masuk
+	 * @param currentSmt semester berjalan mahasiswa tersebut
+	 * @param warning    daftar keluaran; setiap pelanggaran menambahkan satu pesan
+	 * @throws Exception diteruskan dari {@link #bolehMasuk} maupun dari pemuatan katalog
+	 */
 	public static void apakahBoleh(Mahasiswa mahasiswa, int currentSmt, List<String> warning) throws Exception {
 		// 1. Reload data jika null
 		if (ais.common.CommonHelperClass.jenisKegiatansAktif == null) {
@@ -937,6 +1128,75 @@ public class JenisKegiatan extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Memeriksa apakah seorang mahasiswa memenuhi ambang pelunasan jenis kegiatan ini pada
+	 * <b>satu</b> semester tertentu. Merupakan inti pemeriksaan yang dipanggil berulang oleh
+	 * {@link #apakahBoleh(Mahasiswa, int, List)}.
+	 *
+	 * <h4>Urutan gerbang</h4>
+	 * <ol>
+	 *   <li><b>Rentang semester.</b> {@code smtMulai == 0}, atau berada di luar
+	 *       {@link #getMinSmt()}&ndash;{@link #getMaxSmt()}, langsung diloloskan. Perhatikan
+	 *       bahwa {@link #getMaxSmt()} adalah getter destruktif ber-auto-seed.</li>
+	 *   <li><b>Pengecualian semester ganjil/genap.</b> Mahasiswa yang mulai belajar di
+	 *       semester {@link Perkuliahan#GENAP} diloloskan pada {@code smtMulai == 1}, karena
+	 *       semester 1 bagi mereka tidak pernah benar-benar ada.</li>
+	 *   <li><b>Pilih ambang.</b> {@code switch} atas {@code smtMundur} memilih salah satu dari
+	 *       {@code getPersenSyaratLogin1()} &hellip; {@code getPersenSyaratLogin14()};
+	 *       {@code default} (termasuk {@code smtMundur == 0}) memakai
+	 *       {@link #getPersenSyaratLogin()}.</li>
+	 *   <li><b>Bypass administratif.</b>
+	 *       {@code Common.checkBaypassStatusPembayaranMahasiswa(...)} memberi jalan keluar
+	 *       bagi mahasiswa yang statusnya dikecualikan (mis. penerima beasiswa penuh atau
+	 *       keringanan yang disetujui).</li>
+	 *   <li><b>Ambang nol berarti tidak diperiksa.</b> Seluruh pemeriksaan tagihan hanya
+	 *       berjalan bila {@code persenSyarat > 0.1}. Ambang {@code 0} &mdash; yang juga
+	 *       merupakan nilai bawaan saat kolomnya {@code NULL} &mdash; menonaktifkan gerbang.</li>
+	 *   <li><b>Ambil header tagihan.</b> Untuk jenis kegiatan pendaftaran calon mahasiswa
+	 *       atau daftar ulang mahasiswa baru, {@link Kegiatan} dicari lebih dulu lewat
+	 *       {@link BiodataCalonMahasiswa} (karena tagihannya melekat pada berkas calon,
+	 *       bukan pada NIM). Bila tidak ketemu, pencarian jatuh ke
+	 *       {@code mahasiswa.ambilKegiatans(smtMulai, this)}.</li>
+	 *   <li><b>Bandingkan.</b> Bila {@link Kegiatan#getPersentase()} di bawah ambang, sebuah
+	 *       dialog modal ZK ditampilkan dan pesan peringatan ditambahkan ke {@code warning},
+	 *       lalu {@code false} dikembalikan.</li>
+	 * </ol>
+	 *
+	 * <h4>Catatan penting</h4>
+	 * <p><b>Tagihan yang tidak ditemukan berarti LOLOS.</b> Bila {@code kegiatan} bernilai
+	 * {@code null} &mdash; mahasiswa belum pernah dibuatkan header tagihan untuk semester
+	 * tersebut &mdash; perbandingan dilewati dan method mengembalikan {@code true}. Ini
+	 * kebijakan <i>fail-open</i> yang disengaja dan memang perlu (mahasiswa tidak boleh
+	 * diblokir karena bagian keuangan belum menerbitkan tagihannya), tetapi berarti gerbang
+	 * ini <b>tidak bisa dipakai untuk membuktikan</b> bahwa seorang mahasiswa lunas &mdash;
+	 * hanya untuk membuktikan bahwa ia tidak tercatat menunggak.</p>
+	 *
+	 * <p><b>Persentase dihitung ulang dari JSON, bukan dari kolom.</b>
+	 * {@link Kegiatan#getPersentase()} menurunkan angkanya dari field {@code tagihan} dan
+	 * {@code dibayar}, yang pada gilirannya berasal dari penguraian kolom JSON
+	 * {@code tagihans}/{@code bulans}. Jika kedua field itu belum dihitung ulang
+	 * ({@link Kegiatan#hitungTagihan()} / {@link Kegiatan#hitungDibayar()}), nilai yang
+	 * dibandingkan adalah nilai tersimpan terakhir &mdash; bukan keadaan terkini.</p>
+	 *
+	 * <p><b>Efek samping antarmuka di dalam method model.</b> Blok besar di tengah method ini
+	 * membangun jendela modal ZK ({@link ais.ui.util.MyWindow}) berisi halaman informasi
+	 * pembayaran, lengkap dengan tombol yang memanggil {@code Common.goLogoff()}. Menempatkan
+	 * kode presentasi di dalam kelas entity berarti method ini <b>tidak dapat dipakai ulang</b>
+	 * dari konteks non-ZK (REST, penjadwal, batch) tanpa efek samping. Seluruh blok itu
+	 * dibungkus {@code try/catch} yang mencatat error dan melanjutkan, sehingga pada konteks
+	 * tanpa halaman ZK aktif ({@code ExecutionsCtrl.getCurrentCtrl()} bernilai {@code null})
+	 * pemeriksaan tetap berjalan benar &mdash; hanya dialognya yang tidak muncul. Pesan
+	 * peringatan tetap ditambahkan ke {@code warning} di luar blok tersebut, sehingga
+	 * pemanggil non-UI tetap menerima hasil yang benar.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang diperiksa
+	 * @param smtMulai  semester yang sedang diperiksa
+	 * @param smtMundur jarak semester ke belakang dari semester berjalan; menentukan varian
+	 *                  ambang persen mana yang dipakai
+	 * @param warning   daftar keluaran; satu pesan ditambahkan bila pemeriksaan gagal
+	 * @return {@code true} bila mahasiswa boleh masuk untuk semester ini
+	 * @throws Exception diteruskan dari pengambilan data cuti/tagihan
+	 */
 	public boolean bolehMasuk(Mahasiswa mahasiswa, int smtMulai, int smtMundur, List<String> warning) throws Exception {
 		// Validasi batas rentang semester
 		if (smtMulai == 0 || getMinSmt() > smtMulai || getMaxSmt() < smtMulai) {
