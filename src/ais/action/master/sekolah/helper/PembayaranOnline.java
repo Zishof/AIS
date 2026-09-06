@@ -2519,7 +2519,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 		if (va == null || va.getLink().isEmpty())
 			return;
 		if (popupType == 1)
-			Clients.evalJavaScript("popupCenter({url: '" + va.getLink() + "', title: 'Book', w: 1200, h: 600});");
+			Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(va.getLink()) + "', title: 'Book', w: 1200, h: 600});");
 		else if (popupType == 2)
 			Common.displayWindowIframe(va.getLink(), true, "600px", "95%", "Pembayaran Online");
 		else

@@ -1263,15 +1263,15 @@ public class WizardPembayaranSiswaHelper {
                     ambilTagihanTerpilih(dipilih), param, fee, null, null, bankHost, akun, sekolah);
 
             if (va != null && va.getLink() != null && !va.getLink().trim().isEmpty()) {
-                String link = va.getLink().replace("'", "%27");
+                String link = va.getLink();
                 if ("finpay".equals(linkKey)) {
                     try {
                         ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
                     } catch (Exception ex) {
-                        Clients.evalJavaScript("window.open('" + link + "','_blank');");
+                        Clients.evalJavaScript("window.open('" + Common.jsEscape(link) + "','_blank');");
                     }
                 } else {
-                    Clients.evalJavaScript("window.open('" + link + "','_blank');");
+                    Clients.evalJavaScript("window.open('" + Common.jsEscape(link) + "','_blank');");
                 }
                 langkah = 5;
                 render();
