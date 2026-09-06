@@ -921,15 +921,18 @@ public class PenjadwalanHelper {
 			 * rencana). Hanya pengelola (bukan mahasiswa/calon mahasiswa/dosen/siswa/calon siswa) yang
 			 * mendapat checkbox; peran lain hanya melihat ikon centang atau ikon peringatan.
 			 *
-			 * CATATAN PEMELIHARAAN (perilaku terdokumentasi apa adanya, TIDAK diubah di sini): checkbox
-			 * di bawah menampilkan nilai pertemuan.getSesuai(), tetapi listener onCheck-nya menulis ke
-			 * pertemuan.setAktif(...) — bukan setSesuai(...). Akibatnya kolom "sesuai" tidak pernah
-			 * tersimpan dari layar ini, dan mencentang/melepas centangnya justru mengaktifkan/menonaktifkan
-			 * pertemuan itu sendiri (kolom aktif juga menjadi filter default "hanya yg aktif" pada
-			 * PenjadwalanHelper.onSearchDefault, sehingga melepas centang membuat pertemuan hilang dari
-			 * grid). Pola getter/setter tertukar ini sudah pernah ditemukan di beberapa listener checkbox
-			 * ZK lain di basis kode ini; perbaikannya perlu keputusan terpisah karena berpotensi mengubah
-			 * arti data historis kolom aktif/sesuai yang sudah terlanjur tersimpan.
+			 * RIWAYAT BUG (diperbaiki): checkbox ini sebelumnya menampilkan pertemuan.getSesuai() tetapi
+			 * listener onCheck-nya menulis ke pertemuan.setAktif(...) alih-alih setSesuai(...) — salin-
+			 * tempel dari checkbox "Aktif" pada kolom lain di renderer yang sama. Akibatnya kolom "sesuai"
+			 * tidak pernah tersimpan dari layar ini, dan mencentang/melepas centangnya justru
+			 * mengaktifkan/menonaktifkan pertemuan itu sendiri (kolom aktif juga menjadi filter default
+			 * "hanya yg aktif" pada PenjadwalanHelper.onSearchDefault, sehingga melepas centang membuat
+			 * pertemuan hilang dari grid tanpa penjelasan). Data historis TIDAK dibackfill: checkbox
+			 * "Aktif" yang sah (lihat baris ~771 di atas) menulis lewat setAktif(...) +
+			 * Common.refreshSaveOrUpdate(pertemuan) yang identik dengan jalur bug ini, sehingga revisi
+			 * Envers (@Audited di kelas Pertemuan) tidak dapat membedakan penonaktifan yang sah dari yang
+			 * disebabkan bug ini; baris ber-aktif=false yang sudah terlanjur tersimpan dibiarkan apa
+			 * adanya.
 			 */
 			if (tbmuser.getMahasiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
 					&& tbmuser.getDosen() == null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null) {
@@ -940,7 +943,7 @@ public class PenjadwalanHelper {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
-						pertemuan.setAktif(sesuai.isChecked());
+						pertemuan.setSesuai(sesuai.isChecked());
 						Common.refreshSaveOrUpdate(pertemuan);
 					}
 				});

@@ -7,9 +7,31 @@ import org.json.JSONObject;
 import ais.database.hibernate.HibernateUtil;
 
 /**
- * <h3>Laporan Opname — layar legacy 09 (daftar sesi) dan 10 (rincian sesi).</h3>
+ * <h3>Laporan Opname — layar legacy 09, dan cetaknya layar 10.</h3>
  *
  * <p>Dua aksi: {@code si_stock_count_list} dan {@code si_stock_count_detail}.</p>
+ *
+ * <h4>KOREKSI: apa sebenarnya layar 09 dan 10 itu</h4>
+ * <p>Versi pertama kelas ini menduga 09 = daftar sesi dan 10 = rinciannya. Dugaan itu
+ * <b>keliru</b>, dan baru terlihat setelah tangkapan layar aplikasi lamanya benar-benar
+ * dibuka:</p>
+ * <ul>
+ * <li><b>Layar 09 "LAPORAN STOK OPNAME"</b> adalah daftar <b>datar</b> — satu baris per
+ * produk per tanggal, berkolom TGL.OPNAME, #KODE, NAMA BARANG, SAT., STOK KOMP., STOK FISIK,
+ * SELISIH, HRG.POKOK, TOTAL HARGA, dengan <b>satu angka total</b> di kanan bawah dan tombol
+ * CETAK. Bukan daftar sesi.</li>
+ * <li><b>Layar 10 "Mencetak Laporan Opname"</b> adalah <b>hasil cetak</b> layar 09 (pratinjau
+ * Report Designer), bukan rincian per dokumen.</li>
+ * </ul>
+ * <p>Karena itu {@code si_stock_count_list} bawaannya {@code mode=produk} — bentuk datar yang
+ * sepadan dengan layar 09. Mode {@code sesi} tetap ada karena berguna (ia menjawab "opname apa
+ * saja yang pernah dilakukan"), tetapi ia menjawab pertanyaan yang <b>tidak</b> ditanyakan layar
+ * lamanya, jadi ia bukan bawaan. {@code si_stock_count_detail} melayani penelusuran satu sesi —
+ * tambahan di atas paritas, bukan padanan layar 10.</p>
+ *
+ * <p>Pelajarannya: paritas fungsional tidak dapat disimpulkan dari NAMA layar lama. "Laporan
+ * Opname" dan "Mencetak Laporan Opname" terdengar seperti daftar dan rinciannya; keduanya
+ * ternyata satu laporan dan cetaknya.</p>
  *
  * <h4>Mengapa aksi ini ada, padahal layar Stok Opname sudah ada</h4>
  * <p>Gerbang izin di {@code PosApi} sudah menyediakan cabang {@code si_stock_count_*} dengan
@@ -62,6 +84,16 @@ public final class SalesInventoryOpnameHelper {
 	 */
 	public static void stockCountList(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
+		// Bawaannya PER PRODUK, karena itulah bentuk layar legacy 09: daftar datar satu baris
+		// per produk per tanggal dengan satu total di bawah. Mode "sesi" menjawab pertanyaan
+		// lain ("opname apa saja yang pernah dilakukan") dan tetap tersedia, tetapi
+		// menjadikannya bawaan berarti layar ini menjawab pertanyaan yang tidak ditanyakan
+		// layar lamanya.
+		String mode = request == null ? "" : request.optString("mode", "").trim().toLowerCase();
+		if (!"sesi".equals(mode)) {
+			stockCountRows(ctx, request, hasil);
+			return;
+		}
 		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
 		int size = request == null ? 20 : request.optInt("page_size", 20);
 		if (size < 1) size = 20;
@@ -204,6 +236,154 @@ public final class SalesInventoryOpnameHelper {
 				+ " LEFT JOIN koperasi.toko t ON t.id = o.toko"
 				+ where
 				+ " GROUP BY DATE(o.waktuopname), o.toko";
+	}
+
+	/**
+	 * Mode <b>per produk</b> — padanan langsung layar legacy 09 ("LAPORAN STOK OPNAME").
+	 *
+	 * <p>Satu baris per produk per tanggal, berkolom sama dengan legacy: TGL.OPNAME, #KODE,
+	 * NAMA BARANG, SAT., STOK KOMP., STOK FISIK, SELISIH, HRG.POKOK, TOTAL HARGA.</p>
+	 *
+	 * <h4>Totalnya dihitung atas SELURUH rentang, bukan halaman aktif</h4>
+	 * <p>Legacy menampilkan satu angka di kanan bawah yang menjumlahkan seluruh baris pada
+	 * periodenya. Menjumlahkan halaman aktif saja menghasilkan angka yang berubah setiap kali
+	 * halaman digeser — terlihat seperti total, berperilaku seperti bukan. Karena itu
+	 * totalnya dikueri terpisah dari paginasinya.</p>
+	 */
+	private static void stockCountRows(EbisnisActorContextResolver.ActorContext ctx,
+			JSONObject request, JSONObject hasil) throws Exception {
+		int page = Math.max(1, request == null ? 1 : request.optInt("page", 1));
+		int size = request == null ? 20 : request.optInt("page_size", 20);
+		if (size < 1) size = 20;
+		if (size > 100) size = 100;
+		String keyword = request == null || request.isNull("keyword") ? null
+				: request.optString("keyword", "").trim();
+		String dari = request == null ? "" : request.optString("dari", "").trim();
+		String sampai = request == null ? "" : request.optString("sampai", "").trim();
+		if (dari.isEmpty()) dari = mundur(365);
+		if (sampai.isEmpty()) sampai = hariIni();
+		if (!dari.matches("\\d{4}-\\d{2}-\\d{2}") || !sampai.matches("\\d{4}-\\d{2}-\\d{2}")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Format tanggal harus yyyy-MM-dd.");
+			return;
+		}
+		Long tokoId = ctx.admin
+				? ais.common.Common.angkaAtauNull(request, "toko_id")
+				: ctx.tokoId;
+		boolean hanyaBerselisih = request != null && request.optBoolean("hanya_berselisih", false);
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			boolean jalurTenant = SalesInventoryOpnameTenant.aktif(ctx);
+			java.util.List<Object> params = new java.util.ArrayList<Object>();
+			String select;
+			if (jalurTenant) {
+				String skema = SalesInventoryOpnameTenant.skema(ctx.tenant);
+				StringBuilder where = new StringBuilder(
+						SalesInventoryOpnameTenant.whereDasar(dari, sampai));
+				where.append(SalesInventoryOpnameTenant.syaratTokoOpname(skema, tokoId));
+				if (keyword != null && !keyword.isEmpty()) {
+					where.append(" AND (COALESCE(p.kode,'') ILIKE ?"
+							+ " OR COALESCE(p.nama,'') ILIKE ?) ");
+					String k = "%" + keyword + "%";
+					params.add(k); params.add(k);
+				}
+				select = SalesInventoryOpnameTenant.selectBarisProduk(skema, where.toString());
+			} else {
+				select = selectBarisProdukLegacy(dari, sampai, tokoId, keyword, params);
+			}
+
+			String filterLuar = hanyaBerselisih ? " WHERE t.selisih <> 0 " : "";
+			String bungkus = "SELECT * FROM (" + select + ") t" + filterLuar
+					+ " ORDER BY t.tanggal DESC, t.kode ASC";
+
+			// Total SELURUH rentang -- bukan halaman aktif. Lihat javadoc.
+			java.sql.PreparedStatement psT = session.connection().prepareStatement(
+					"SELECT COUNT(*), COALESCE(SUM(c.selisih),0), COALESCE(SUM(c.nilai),0),"
+					+ " COALESCE(SUM(CASE WHEN c.selisih > 0 THEN c.selisih ELSE 0 END),0),"
+					+ " COALESCE(SUM(CASE WHEN c.selisih < 0 THEN -c.selisih ELSE 0 END),0)"
+					+ " FROM (" + bungkus + ") c");
+			for (int i = 0; i < params.size(); i++) psT.setObject(i + 1, params.get(i));
+			java.sql.ResultSet rsT = psT.executeQuery();
+			long total = 0;
+			double selisihTotal = 0, nilaiTotal = 0, lebihTotal = 0, kurangTotal = 0;
+			if (rsT.next()) {
+				total = rsT.getLong(1);
+				selisihTotal = rsT.getDouble(2);
+				nilaiTotal = rsT.getDouble(3);
+				lebihTotal = rsT.getDouble(4);
+				kurangTotal = rsT.getDouble(5);
+			}
+			rsT.close(); psT.close();
+
+			java.sql.PreparedStatement ps = session.connection()
+					.prepareStatement(bungkus + " LIMIT ? OFFSET ?");
+			int idx = 1;
+			for (int i = 0; i < params.size(); i++) ps.setObject(idx++, params.get(i));
+			ps.setInt(idx++, size);
+			ps.setInt(idx++, (page - 1) * size);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("idSesi", rs.getLong(1));
+				java.sql.Date tgl = rs.getDate(2);
+				j.put("tanggal", tgl == null ? "" : tgl.toString());
+				j.put("kode", str(rs.getString(3)));
+				j.put("nama", str(rs.getString(4)));
+				j.put("satuan", str(rs.getString(5)));
+				j.put("stokSistem", rs.getDouble(6));
+				j.put("stokFisik", rs.getDouble(7));
+				j.put("selisih", rs.getDouble(8));
+				j.put("harga", rs.getDouble(9));
+				j.put("nilai", rs.getDouble(10));
+				arr.put(j);
+			}
+			rs.close(); ps.close();
+			hasil.put("status", "00");
+			hasil.put("mode", "produk");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", size);
+			hasil.put("dari", dari);
+			hasil.put("sampai", sampai);
+			// Tanpa akhiran "Halaman": ini memang total seluruh rentang, padanan langsung
+			// angka di kanan bawah layar legacy.
+			hasil.put("selisihBersih", selisihTotal);
+			hasil.put("totalLebih", lebihTotal);
+			hasil.put("totalKurang", kurangTotal);
+			hasil.put("nilaiSelisih", nilaiTotal);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Baris datar jalur legacy; kolom sama dan berurutan sama dengan jalur tenant. */
+	private static String selectBarisProdukLegacy(String dari, String sampai, Long tokoId,
+			String keyword, java.util.List<Object> params) {
+		StringBuilder where = new StringBuilder(
+				" WHERE o.waktuopname >= DATE '" + dari + "'"
+				+ " AND o.waktuopname < (DATE '" + sampai + "' + INTERVAL '1 day') ");
+		if (tokoId != null) {
+			where.append(" AND o.toko = ? ");
+			params.add(tokoId);
+		}
+		if (keyword != null && !keyword.isEmpty()) {
+			where.append(" AND (COALESCE(p.kode,'') ILIKE ? OR COALESCE(p.nama,'') ILIKE ?) ");
+			String k = "%" + keyword + "%";
+			params.add(k); params.add(k);
+		}
+		return "SELECT o.id AS id_sesi, DATE(o.waktuopname) AS tanggal,"
+				+ " COALESCE(p.kode,'') AS kode, COALESCE(p.nama,'') AS nama,"
+				+ " COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)') AS satuan,"
+				+ " COALESCE(o.stoksistem,0) AS sistem, COALESCE(o.stokfisik,0) AS fisik,"
+				+ " COALESCE(o.selisih,0) AS selisih, COALESCE(p.hargabeli,0) AS harga,"
+				+ " COALESCE(o.selisih,0) * COALESCE(p.hargabeli,0) AS nilai"
+				+ " FROM koperasi.stok_opname o"
+				+ " LEFT JOIN koperasi.produk p ON p.id = o.produk"
+				+ " LEFT JOIN koperasi.satuan_produk sp ON sp.id = p.satuan"
+				+ where;
 	}
 
 	/**

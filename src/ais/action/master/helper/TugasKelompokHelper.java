@@ -4218,6 +4218,21 @@ public class TugasKelompokHelper implements DataLoader {
 						if (tugasKelompokCopy != null && !tugasKelompokCopy.getJudul().isEmpty()) {
 							TugasKelompok tugasKelompok = (TugasKelompok) tugasKelompokCopy.clone();
 							tugasKelompok.setId(null);
+							// clone() adalah salinan dangkal: field berikut milik semester/kelas SUMBER dan
+							// wajib direset, jika tidak nilai lama, pengecualian mahasiswa, dan absensi
+							// pertemuan lama ikut terbawa ke tugas baru secara diam-diam.
+							tugasKelompok.setKeteranganNilai(null);
+							tugasKelompok.setKeteranganNilaiLama(null);
+							tugasKelompok.setMhsYgTidakIkut(null);
+							tugasKelompok.setMhsBolehUploadUlang(null);
+							tugasKelompok.setPertemuan(null);
+							tugasKelompok.setPertemuanData(null);
+							tugasKelompok.setMulai(null);
+							tugasKelompok.setSelesai(null);
+							tugasKelompok.setFormatNilai(null);
+							tugasKelompok.setJenisItemPenilaianSiswa(null);
+							tugasKelompok.setGrupPenilaian(null);
+							tugasKelompok.setGrupKategoriItemPenilaianSiswa(null);
 							tugasKelompok.setPerkuliahan(
 									perkuliahan == null ? tugasKelompokCopy.getPerkuliahan() : perkuliahan);
 							tugasKelompok.setKelompokKkn(

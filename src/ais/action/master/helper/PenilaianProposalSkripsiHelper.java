@@ -400,14 +400,6 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 	 * pembatasan sepenuhnya berupa "kotak isian tidak dibuat". Nilai yang diketik juga tidak
 	 * divalidasi terhadap batas 0-100 maupun terhadap bobot komponen.</p>
 	 *
-	 * <p><b>Cacat yang dicatat, belum diperbaiki:</b> pada cabang baris SUB-KOMPONEN, atribut
-	 * {@code "komponen"} yang dititipkan ke baris berisi objek komponen INDUK, bukan sub-komponennya
-	 * sendiri (kembarannya di {@code PenilaianSkripsiHelper} menitipkan komponen anak yang benar).
-	 * Jalur pengetikan nilai biasa tidak terpengaruh karena listener {@code onChange} memakai
-	 * variabel yang benar, tetapi tombol "Hitung Ulang" — yang menyapu seluruh baris lewat atribut
-	 * tersebut — akan menulis nilai anak ke slot induk pada format nilai berkomponen berjenjang.
-	 * Lihat komentar di titik kejadiannya dan pada Javadoc tombol "Hitung Ulang".</p>
-	 *
 	 * @param dosen dosen penilai yang dialognya dibuka (pemilik nilai/catatan yang ditampilkan).
 	 * @param jenis nama peran dosen ini pada format nilai (nilai dari
 	 *              {@code dosen1}..{@code dosen6} milik
@@ -679,26 +671,15 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 						row.setValign("top");
 						row.setAttribute("nilai", nilai);
 						row.setValign("top");
-						// CACAT DICATAT (belum diperbaiki): baris SUB-KOMPONEN ini menitipkan objek
-						// INDUK, bukan komponenPenilaianProposalSkripsi miliknya sendiri.
-						// Kembarannya di PenilaianSkripsiHelper menitipkan komponen anak yang benar.
-						// Listener onChange di bawah tidak terpengaruh (ia memakai variabel yang
-						// benar), tetapi tombol "Hitung Ulang" yang menyapu baris lewat atribut
-						// "komponen" akan menulis nilai anak ke slot induk. Lihat Javadoc
-						// init(Dosen, String).
-						row.setAttribute("komponen", parent);
+						row.setAttribute("komponen", komponenPenilaianProposalSkripsi);
 						row.setValign("top");
 						row.setAttribute("dosen", dosen);
 						nilai.addEventListener("onChange", new EventListener() {
 
 							/**
 							 * Kembaran listener nilai komponen tunggal, untuk komponen ANAK
-							 * (sub-komponen). Perilaku dan catatan hak aksesnya sama; bedanya
-							 * komponen yang disimpan adalah {@code komponenPenilaianProposalSkripsi}
-							 * — variabel yang <i>benar</i>, sehingga jalur pengetikan nilai biasa
-							 * tidak terkena cacat atribut {@code "komponen"} yang dicatat tepat di
-							 * atas. Komponen induk yang punya anak tidak menerima nilai langsung;
-							 * barisnya hanya judul.
+							 * (sub-komponen). Perilaku dan catatan hak aksesnya sama. Komponen induk
+							 * yang punya anak tidak menerima nilai langsung; barisnya hanya judul.
 							 *
 							 * @param arg0 event {@code onChange} kotak nilai, diteruskan apa adanya
 							 *             ke {@code hitungUlang}
@@ -821,13 +802,6 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 			 * {@code "nilai"}/{@code "komponen"} yang dititipkan ke tiap baris saat dibangun — lalu
 			 * memanggil {@code hitungUlang} dengan event bernama {@code "Hitung Ulang"} sehingga
 			 * total dihitung ulang dari basis data, bukan dari hasil di memori.
-			 *
-			 * <p><b>Inilah jalur yang terkena cacat atribut {@code "komponen"}</b> yang dicatat pada
-			 * pembangunan baris sub-komponen di atas: untuk format nilai yang komponennya berjenjang,
-			 * setiap baris anak menyerahkan objek INDUK, sehingga
-			 * {@link MahasiswaRequestTugasAkhir#populateDetailNilai} menulis nilai anak ke slot
-			 * induk (dengan bobot induk) dan tiap anak berikutnya menimpa entri yang sama. Untuk
-			 * format yang seluruh komponennya datar, tombol ini bekerja sebagaimana mestinya.</p>
 			 *
 			 * <p>Baris read-only tidak punya atribut {@code "nilai"}, sehingga aman dilewati.</p>
 			 *

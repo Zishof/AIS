@@ -1929,29 +1929,37 @@ public class ProsesUjianHelper extends MyWindow {
 	 * memastikan {@code getBankSoalDetail()} tidak null — urutan pengecekan null yang keliru
 	 * dalam ekspresi OR bercabang.</p>
 	 *
-	 * <p><b>Logika deteksi terjawab:</b></p>
+	 * <p><b>Logika deteksi terjawab</b> (selaras dengan
+	 * {@link HasilUjianMahasiswa#ambilBankSoalIdTerjawab(java.util.Map)}):</p>
 	 * <ul>
-	 *   <li><b>Pilihan Ganda / Benar-Salah:</b> field {@code jawaban} di {@code BankSoalDetail}
-	 *       tidak kosong (peserta sudah memilih opsi).</li>
-	 *   <li><b>Esai:</b> field {@code jawaban} tidak kosong (peserta sudah mengetik teks).</li>
-	 *   <li><b>Jenis lain:</b> dianggap terjawab apabila {@code jawaban} tidak null dan tidak
-	 *       kosong (fallback aman).</li>
+	 *   <li><b>Pilihan Ganda / Benar-Salah:</b> {@code HasilUjianMahasiswaDetail} punya
+	 *       {@code BankSoalDetail} terpilih dengan id tidak null (peserta sudah memilih
+	 *       opsi).</li>
+	 *   <li><b>Esai, isian singkat, rumpang, menjodohkan, mengurutkan:</b> jenis-jenis ini tidak
+	 *       punya {@code BankSoalDetail} — jawabannya tersimpan sebagai teks/JSON di kolom
+	 *       {@code jawaban} milik {@code HasilUjianMahasiswaDetail} itu sendiri, jadi diperiksa
+	 *       lewat {@code detail.getJawaban()} tidak null dan tidak kosong setelah
+	 *       {@code trim()}. Ini termasuk teks otomatis "Jawaban terdapat di file terlampir" pada
+	 *       esai berlampiran — itu memang dianggap terjawab.</li>
 	 * </ul>
 	 *
-	 * <p><b>KOREKSI terhadap daftar di atas — perilaku NYATA implementasi:</b> loop di dalam
-	 * method ini melewati ({@code continue}) setiap {@code HasilUjianMahasiswaDetail} yang
-	 * {@code getBankSoalDetail()}-nya null. Padahal jawaban ESAI, isian singkat, rumpang,
-	 * menjodohkan, dan mengurutkan justru TIDAK memiliki {@code bankSoalDetail} — teks
-	 * jawabannya tersimpan di kolom {@code jawaban} milik detail itu sendiri. Akibatnya method
-	 * ini hanya pernah mengembalikan {@code true} untuk soal PILIHAN GANDA dan BENAR-SALAH.</p>
+	 * <p><b>Riwayat perbaikan:</b> implementasi sebelumnya melewati ({@code continue}) setiap
+	 * detail yang {@code getBankSoalDetail()}-nya null — padahal itu justru kondisi normal untuk
+	 * esai/isian singkat/rumpang/menjodohkan/mengurutkan — sehingga method ini hanya pernah
+	 * mengembalikan {@code true} untuk soal pilihan ganda/benar-salah. Bug kedua: yang dibaca
+	 * saat itu adalah {@code detail.getBankSoalDetail().getJawaban()}, yaitu TEKS OPSI di bank
+	 * soal (hampir selalu tidak kosong), bukan jawaban peserta — sehingga pemeriksaan pilihan
+	 * ganda praktis hanya memastikan "opsi itu ada", bukan "peserta memilihnya". Kedua bug sudah
+	 * diperbaiki; definisi di atas adalah perilaku saat ini.</p>
 	 *
-	 * <p><b>Dampaknya terbatas pada tampilan.</b> Satu-satunya pemakai method ini adalah
-	 * {@link #tampilNomorSoal(Long)}, yang memakainya untuk mewarnai lingkaran nomor soal. Jadi
-	 * pada ujian esai, lingkaran nomor soal tidak pernah berubah hijau meskipun jawaban sudah
-	 * tersimpan. Perhitungan nilai, daftar "Telah terjawab"/"Belum terjawab", indikator
-	 * "Tuntas n/N", dan penjagaan kelengkapan pada tombol "Selesaikan Ujian" TIDAK memakai
-	 * method ini — semuanya memakai {@code hasilUjianMahasiswa.ambilBankSoalIdTerjawab(...)} —
-	 * sehingga integritas nilai peserta tidak terpengaruh.</p>
+	 * <p><b>Dampak historis (sebelum perbaikan), terbatas pada tampilan.</b> Satu-satunya
+	 * pemakai method ini adalah {@link #tampilNomorSoal(Long)}, yang memakainya untuk mewarnai
+	 * lingkaran nomor soal. Jadi pada ujian esai, lingkaran nomor soal tidak pernah berubah
+	 * hijau meskipun jawaban sudah tersimpan. Perhitungan nilai, daftar "Telah
+	 * terjawab"/"Belum terjawab", indikator "Tuntas n/N", dan penjagaan kelengkapan pada tombol
+	 * "Selesaikan Ujian" TIDAK memakai method ini — semuanya memakai
+	 * {@code hasilUjianMahasiswa.ambilBankSoalIdTerjawab(...)} — sehingga integritas nilai
+	 * peserta tidak pernah terpengaruh.</p>
 	 *
 	 * <p><b>Thread safety:</b> Murni read-only terhadap cache
 	 * {@link #hasilUjianMahasiswaDetailsa} dan {@code GeneralValueObject} yang keduanya
@@ -1969,9 +1977,12 @@ public class ProsesUjianHelper extends MyWindow {
 			try {
 				HasilUjianMahasiswaDetail detail = (HasilUjianMahasiswaDetail)
 						GeneralValueObject.ambilData(HasilUjianMahasiswaDetail.class, id.toString());
-				if (detail == null || detail.getBankSoalDetail() == null) continue;
-				String jawaban = detail.getBankSoalDetail().getJawaban();
-				if (jawaban != null && !jawaban.isEmpty()) {
+				if (detail == null) continue;
+				if (detail.getBankSoalDetail() != null && detail.getBankSoalDetail().getId() != null) {
+					return true;
+				}
+				String jawaban = detail.getJawaban();
+				if (jawaban != null && !jawaban.trim().isEmpty()) {
 					return true;
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/ProsesUjianHelper.java:1675");

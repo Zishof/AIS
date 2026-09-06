@@ -1678,6 +1678,23 @@ public class PertemuanHelper {
 	 *                   pertama grid.
 	 * @return {@link Borderlayout} siap di-{@code appendChild} ke panel tab Pembelajaran.
 	 */
+	/**
+	 * Predikat peran: benar hanya untuk admin/dosen/guru yang login sebagai {@link #tbmuser}
+	 * (bukan mahasiswa, siswa, peserta kursus, calon siswa, maupun calon mahasiswa). Dipakai
+	 * untuk menggerbangi seluruh tombol AI "Generate ..." pada tab Pembelajaran
+	 * ({@link #initCatatan(boolean)}) secara konsisten satu sama lain — sebelumnya tiap gerbang
+	 * menyalin-tempel syarat ini sendiri-sendiri, salah satunya menulis {@code getSiswa()} tiga
+	 * kali sekaligus lupa memeriksa {@code getPesertaKursus()}, sehingga peserta kursus tetap
+	 * bisa menekan tombol Generate.
+	 *
+	 * @return {@code true} bila {@link #tbmuser} berperan admin/dosen/guru.
+	 */
+	private boolean bolehGenerateCatatanAi() {
+		return tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getPesertaKursus() == null && tbmuser.getCalonSiswa() == null
+				&& tbmuser.getBiodataCalonMahasiswa() == null;
+	}
+
 	@SuppressWarnings("deprecation")
 	private Borderlayout initCatatan(boolean tampilInfo) throws Exception {
 		if (pertemuan != null) {
@@ -1801,9 +1818,7 @@ public class PertemuanHelper {
 						}
 					}, null, false, false, false, true, null, false, false);
 
-			if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-					&& tbmuser.getSiswa() == null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
-					&& tbmuser.getBiodataCalonMahasiswa() == null) {
+			if (bolehGenerateCatatanAi()) {
 				MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("Generate Catatan",
 						"/img/svg/gear.svg");
 				toolbarbutton.setParent(hbox);
@@ -1923,9 +1938,7 @@ public class PertemuanHelper {
 
 				new MyLabelAgakKecil("*) Contoh: Mahasiswa mampu menjelaskan dan mendiskusikan ....").setParent(row);
 
-				if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-						&& tbmuser.getSiswa() == null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
-						&& tbmuser.getBiodataCalonMahasiswa() == null) {
+				if (bolehGenerateCatatanAi()) {
 
 					row = new MyFormRow();
 					row.setParent(rows);

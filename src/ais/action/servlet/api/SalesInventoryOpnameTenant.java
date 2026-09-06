@@ -106,6 +106,40 @@ final class SalesInventoryOpnameTenant {
 	}
 
 	/**
+	 * {@code SELECT} untuk mode <b>per produk</b> — bentuk yang dipakai layar legacy 09.
+	 *
+	 * <h4>Mengapa mode ini ada</h4>
+	 * <p>Layar legacy "LAPORAN STOK OPNAME" bukan daftar sesi: ia daftar <b>datar</b> satu baris
+	 * per produk per tanggal, berkolom TGL.OPNAME, #KODE, NAMA BARANG, SAT., STOK KOMP., STOK
+	 * FISIK, SELISIH, HRG.POKOK, TOTAL HARGA, dengan satu angka total di kanan bawah. Daftar sesi
+	 * menjawab pertanyaan lain ("opname apa saja yang pernah dilakukan"), dan berguna — tetapi ia
+	 * bukan padanan layar 09. Keduanya karena itu disediakan, dan mode per produk yang menjadi
+	 * bawaan.</p>
+	 *
+	 * <p>Kolom, berurutan: id_sesi, tanggal, kode, nama, satuan, sistem, fisik, selisih, harga,
+	 * nilai. {@code id_sesi} ikut supaya baris tetap dapat ditelusuri ke dokumennya.</p>
+	 */
+	static String selectBarisProduk(String skema, String where) {
+		String harga = "COALESCE(NULLIF(d.harga_satuan,0), COALESCE(p.harga_beli_terakhir,0))";
+		return "SELECT o.id AS id_sesi,"
+				+ " o.tanggal AS tanggal,"
+				+ " COALESCE(p.kode,'') AS kode,"
+				+ " COALESCE(p.nama,'') AS nama,"
+				+ " COALESCE(NULLIF(TRIM(s.nama),''),'(Belum diatur)') AS satuan,"
+				+ " COALESCE(d.kuantitas_sistem,0) AS sistem,"
+				+ " COALESCE(d.kuantitas_fisik,0) AS fisik,"
+				+ " COALESCE(d.selisih,0) AS selisih,"
+				+ " " + harga + " AS harga,"
+				+ " COALESCE(d.selisih,0) * " + harga + " AS nilai"
+				+ " FROM " + skema + "stok_opname_detail d"
+				+ " JOIN " + skema + "stok_opname o ON o.id = d.stok_opname_id"
+				+ " LEFT JOIN " + skema + "produk p ON p.id = d.produk_id"
+				+ " LEFT JOIN " + skema + "satuan s ON s.id = p.satuan_id"
+				+ where
+				+ " AND COALESCE(d.legacy_deleted, false) = false";
+	}
+
+	/**
 	 * {@code SELECT} pengganti untuk {@code si_stock_count_detail}: rincian satu dokumen.
 	 *
 	 * <p>Kolom, berurutan: produk_id, kode, nama, satuan, sistem, fisik, selisih, harga, nilai,
