@@ -28,6 +28,7 @@ import ais.action.maintenance.LoginAlumniAction;
 import ais.action.master.helper.AmbilDataDosenSkripsiBanbox;
 import ais.action.master.helper.AmbilDataMahasiswaBanbox;
 import ais.action.master.helper.ParameterTambahanAlumniListener;
+import ais.action.master.helper.UndanganWisudaDownloadHelper;
 import ais.action.report.Report;
 import ais.action.report.format1.akademik.LaporanTranskipAkademik;
 import ais.common.ChecklistPenilaianHelper;
@@ -871,6 +872,19 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 			}
 		});
 		cetak.setParent(toolbar);
+
+		MyToolbarbutton undangan = new MyToolbarbutton("fa-download", "Undangan");
+		undangan.setVisible(UndanganWisudaDownloadHelper.disetujuiSemua(pendaftaranWisuda));
+		undangan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				if (!pastikanPendaftaranWisudaMasihAda(HibernateUtil.currentSession())) {
+					return;
+				}
+				UndanganWisudaDownloadHelper.download(PendaftaranWisudaMahasiswaAction.this.pendaftaranWisuda);
+			}
+		});
+		undangan.setParent(toolbar);
 
 		MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-certificate", "Cek Data Transkrip dan Preview Ijazah");
 		toolbarbutton.addEventListener("onClick", new EventListener() {

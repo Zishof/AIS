@@ -39,6 +39,7 @@ import org.zkoss.zul.West;
 import ais.action.master.helper.AmbilDataDosenBanbox;
 import ais.action.master.helper.AmbilDataNegaraBanbox;
 import ais.action.master.helper.DetailwisudaHelper;
+import ais.action.master.helper.UndanganWisudaDownloadHelper;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.report.Report;
 import ais.common.Common;
@@ -708,6 +709,17 @@ public class MahasiswaRegistrasiWisudaAction extends GenericAutowireComposer {
 								}
 							});
 
+				}
+			});
+			button.setParent(toolbar);
+
+			button = new MyToolbarbuttonConfig("", "/img/svg/download.svg");
+			button.setTooltiptext("Undangan");
+			button.setVisible(UndanganWisudaDownloadHelper.disetujuiSemua(pendaftaranWisuda));
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					UndanganWisudaDownloadHelper.download(pendaftaranWisuda);
 				}
 			});
 			button.setParent(toolbar);
