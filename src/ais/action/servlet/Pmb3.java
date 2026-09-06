@@ -33,14 +33,28 @@ import ais.database.model.file.LampiranLain;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet endpoint PMB (Penerimaan Mahasiswa Baru) varian "3": menyiapkan empat kumpulan data
+ * (pengumuman akademis, gelombang pendaftaran/jalur aktif, daftar program studi/jurusan, dan
+ * forum diskusi pengumuman) dalam bentuk JSON, ditambah URL banner khusus perguruan tinggi, lalu
+ * meneruskan (forward) permintaan ke {@code /WEB-INF/u/pmb3.jsp} untuk dirender. Merupakan
+ * varian beranda PMB yang sejalur dengan {@code Pmb} dan {@link Pmb2} — struktur logikanya
+ * sangat mirip (populate {@link PengumumanAkademis}/{@link GelombangPendaftaran}/{@link Jurusan}
+ * lalu forward ke JSP berbeda); dibanding {@link Pmb2}, varian ini menambahkan key JSON yang
+ * berbeda (mis. {@code cover} bukan {@code gambar}), forum diskusi gabungan lintas-pengumuman
+ * ({@code forumData}), dan banner kop PMB per perguruan tinggi.
+ *
+ * <p>
+ * Sama seperti {@link Pmb2}, data di-scope per {@link PerguruanTinggi} (tenant) berdasarkan
+ * {@link PerguruanTinggiUtil#getPerguruanTinggi(HttpServletRequest)}: gelombang pendaftaran yang
+ * ditampilkan hanya yang cocok dengan perguruan tinggi terpilih (diperbaiki r85516 — sebelumnya
+ * listing gelombang tidak ikut disaring per tenant walau {@link Jurusan} sudah disaring, sehingga
+ * berpotensi menampilkan gelombang milik perguruan tinggi lain pada instalasi multi-tenant).
+ * </p>
  */
 public class Pmb3 extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	/**
-	 * @see HttpServlet#HttpServlet()
-	 */
+	/** Konstruktor baku servlet, tanpa inisialisasi tambahan. */
 	public Pmb3() {
 		super();
 
@@ -48,8 +62,9 @@ public class Pmb3 extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan GET dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -61,8 +76,9 @@ public class Pmb3 extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan POST dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -73,6 +89,21 @@ public class Pmb3 extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengonversi satu {@link PengumumanAkademis} (pengumuman akademis) menjadi
+	 * {@link JSONObject} untuk beranda PMB varian 3: menyertakan id, sampul (diambil dari URL
+	 * gambar pertama pada HTML isi pengumuman, atau gambar default {@code /img/pengumuman.png}
+	 * bila tidak ada), judul, dan isi. Berbeda dengan {@link Pmb2}, key {@code link} dan
+	 * {@code lampiran} pada varian ini masih berupa placeholder {@code "#"} (belum ditautkan ke
+	 * data nyata).
+	 *
+	 * @param pengumumanAkademis pengumuman akademis yang akan dikonversi
+	 * @param request permintaan HTTP, dipakai untuk membentuk URL gambar default
+	 * @param session sesi Hibernate aktif (tidak dipakai langsung, disediakan untuk konsistensi
+	 *                 signature dengan method {@code populate} lain)
+	 * @return objek JSON representasi pengumuman
+	 * @throws Exception bila terjadi galat saat mengekstrak URL gambar
+	 */
 	private JSONObject populate(PengumumanAkademis pengumumanAkademis, HttpServletRequest request, Session session)
 			throws Exception {
 
@@ -91,6 +122,20 @@ public class Pmb3 extends HttpServlet {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengonversi satu {@link GelombangPendaftaran} (gelombang/jalur pendaftaran) menjadi
+	 * {@link JSONObject}: id, sampul (lampiran {@link LampiranLain#ICON_GELOMBANG_PMB} atau
+	 * gambar default {@code /img/jalur.png} bila belum diunggah), nama, info, keterangan, dan
+	 * tautan brosur (lampiran info tambahan {@code "INFO_PMB"}) bila ada. Key {@code biaya}
+	 * sengaja dinonaktifkan (dikomentari) pada kode ini.
+	 *
+	 * @param gelombangPendaftaran gelombang pendaftaran yang akan dikonversi
+	 * @param request permintaan HTTP, dipakai untuk membentuk URL gambar default
+	 * @param session sesi Hibernate aktif (tidak dipakai langsung, disediakan untuk konsistensi
+	 *                 signature dengan method {@code populate} lain)
+	 * @return objek JSON representasi gelombang pendaftaran
+	 * @throws Exception bila terjadi galat saat mengambil lampiran
+	 */
 	private JSONObject populate(GelombangPendaftaran gelombangPendaftaran, HttpServletRequest request, Session session)
 			throws Exception {
 
@@ -116,6 +161,21 @@ public class Pmb3 extends HttpServlet {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengonversi satu {@link Jurusan} (program studi) menjadi {@link JSONObject}: id, sampul
+	 * ikon program studi (lampiran {@link LampiranLain#ICON_JURUSAN} atau gambar default
+	 * {@code /img/prodi.png} bila belum diunggah), nama, deskripsi ringkas (dipotong 50 karakter
+	 * via {@link Common#simpleString(String, int)}), deskripsi lengkap ({@code infoRinci}),
+	 * keterangan, dan tautan lampiran info tambahan ({@link LampiranLain#INFO_JURUSAN}) bila ada.
+	 * Key {@code link} pada varian ini masih berupa placeholder {@code "#"}.
+	 *
+	 * @param jurusan program studi yang akan dikonversi
+	 * @param request permintaan HTTP, dipakai untuk membentuk URL gambar default
+	 * @param session sesi Hibernate aktif (tidak dipakai langsung, disediakan untuk konsistensi
+	 *                 signature dengan method {@code populate} lain)
+	 * @return objek JSON representasi program studi
+	 * @throws Exception bila terjadi galat saat mengambil lampiran
+	 */
 	private JSONObject populate(Jurusan jurusan, HttpServletRequest request, Session session) throws Exception {
 
 		LampiranLain lampiranLain = LampiranLain.ambil(jurusan.getId(), LampiranLain.ICON_JURUSAN);
@@ -140,6 +200,23 @@ public class Pmb3 extends HttpServlet {
 		return jsonObject;
 	}
 
+	/**
+	 * Membangun data beranda PMB varian 3: mengambil daftar pengumuman akademis aktif untuk
+	 * perguruan tinggi terpilih (maksimal 100 baris), menyaring gelombang pendaftaran yang aktif,
+	 * bisa dipilih pendaftar online, berada dalam rentang tanggal berjalan, dan cocok dengan
+	 * tenant terpilih lalu mengurutkannya, mengambil daftar jurusan aktif pada perguruan tinggi
+	 * terpilih, menggabungkan seluruh diskusi ({@link DiskusiPengumumanAkademis}) milik
+	 * pengumuman-pengumuman yang diambil menjadi {@code forumData}, dan menentukan URL banner
+	 * (lampiran {@link LampiranLain#KOP_PMB_PT} milik perguruan tinggi bila ada, atau
+	 * {@code /img/banner_pmb.jpg} sebagai default). Seluruh data diteruskan sebagai request
+	 * attribute ({@code pengumumanData}, {@code jalurData}, {@code prodiData},
+	 * {@code forumData}, {@code banner}) ke {@code /WEB-INF/u/pmb3.jsp}. Sesi Hibernate yang
+	 * dibuka di awal selalu dibersihkan dan ditutup pada blok {@code finally}.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @param response respons HTTP yang akan di-forward ke JSP
+	 * @throws Exception bila terjadi galat query database atau saat forward ke JSP
+	 */
 	@SuppressWarnings({ "unchecked" })
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
