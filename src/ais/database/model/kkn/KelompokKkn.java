@@ -950,6 +950,31 @@ public class KelompokKkn extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menghitung jumlah anggota kelompok ini langsung dari berkas indeks JSON, TANPA memuat/
+	 * mem-parsing berkas detail masing-masing anggota (berbeda dari
+	 * {@link #ambilMahasiswaDapatKelompokKkn(String, String, String, boolean)} yang memuat detail
+	 * penuh setiap anggota) — sehingga jauh lebih murah untuk sekadar menampilkan "jumlah anggota"
+	 * pada daftar kelompok tanpa perlu detailnya. Mengimplementasikan method abstrak
+	 * {@code ambilJumlahDetailperkuliahanLangsung()} yang dideklarasikan pada superclass
+	 * {@link ais.database.model.VOPembelajaran} — nama method ini juga sisa penamaan generik lintas
+	 * modul akademik (lihat catatan serupa pada javadoc
+	 * {@link #reInitMahasiswaDapatKelompokKkn(Collection)}).
+	 *
+	 * <p>Alur: parse berkas indeks lewat {@link #amanJadikanJSONObject(String)}, lalu iterasi
+	 * setiap kunci dan tambahkan {@code jumlah} HANYA bila nilainya tidak kosong/blank — konsisten
+	 * dengan semantik "entri kosong = dianggap terhapus" yang dijelaskan pada javadoc
+	 * {@link #removeMahasiswaDapatKelompokKkn(Serializable)}. Kegagalan membaca nilai suatu kunci
+	 * (blok {@code try}/{@code catch} dalam loop) hanya membuat entri tersebut TIDAK dihitung
+	 * (tidak menaikkan {@code jumlah}), bukan menggagalkan seluruh perhitungan; kegagalan yang lebih
+	 * luas (mis. gagal membaca berkas indeks sama sekali, blok {@code try}/{@code catch} terluar)
+	 * membuat method ini mengembalikan {@code jumlah} apa adanya pada titik kegagalan (biasanya
+	 * {@code 0} bila kegagalan terjadi sebelum loop sempat berjalan) — TIDAK PERNAH melempar
+	 * exception ke pemanggil.</p>
+	 *
+	 * @return jumlah entri ber-nilai tidak kosong pada berkas indeks JSON kelompok ini; {@code 0}
+	 *         bila berkas tidak ada/kosong/gagal dibaca.
+	 */
 	@Override
 	@SuppressWarnings("unchecked")
 	public Integer ambilJumlahDetailperkuliahanLangsung() {
@@ -975,6 +1000,7 @@ public class KelompokKkn extends VOPembelajaran {
 		return jumlah;
 	}
 
+	/** @return sertifikat yang diterbitkan untuk kelompok ini, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila belum ada sertifikat. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sertifikat", nullable = true)
 	public Sertifikat getSertifikat() {
@@ -982,34 +1008,53 @@ public class KelompokKkn extends VOPembelajaran {
 		return sertifikat;
 	}
 
+	/** @param sertifikat sertifikat yang diterbitkan untuk kelompok ini. */
 	public void setSertifikat(Sertifikat sertifikat) {
 		this.sertifikat = sertifikat;
 	}
 
+	/** @return nomor Surat Keputusan (SK) penempatan kelompok ini, atau {@code null} bila belum diisi. */
 	public String getNoSk() {
 		return noSk;
 	}
 
+	/** @param noSk nomor Surat Keputusan (SK) penempatan kelompok ini. */
 	public void setNoSk(String noSk) {
 		this.noSk = noSk;
 	}
 
+	/** @return tanggal Surat Keputusan (SK) penempatan kelompok ini, atau {@code null} bila belum diisi. */
 	@Temporal(TemporalType.DATE)
 	public Date getTglSk() {
 		return tglSk;
 	}
 
+	/** @param tglSk tanggal Surat Keputusan (SK) penempatan kelompok ini. */
 	public void setTglSk(Date tglSk) {
 		this.tglSk = tglSk;
 	}
 
+	/** Data course/kurikulum kelompok ini dalam format JSON teks; dipetakan {@code columnDefinition = "text"}. Lihat {@link #getCourse()} untuk perilaku default. */
 	private String course;
+	/** Path absolut berkas JSON representasi lengkap objek ini di disk (bukan berkas indeks anggota); diisi/dipakai oleh {@link #getOrCreateFileLocation()} dan {@code write()} milik superclass. */
 	private String fileLocation;
+	/** Lokasi geografis ({@link Lokasi}) penempatan kelompok ini; boleh {@code null}. */
 	private Lokasi lokasi;
+	/** Jarak (satuan tidak dinormalisasi secara eksplisit di kelas ini, mengikuti konvensi pemanggil) lokasi kelompok dari suatu titik acuan. Default {@code 1.0} bila belum diisi. */
 	private Double jarak;
+	/** Menandai apakah anggota kelompok diurutkan otomatis oleh sistem. Default {@code true} bila belum diisi. */
 	private Boolean urutkanotomatis;
+	/** Menandai apakah kelompok ini masih berlaku/ditampilkan. Default {@code true} bila belum diisi. */
 	private Boolean aktif;
 
+	/**
+	 * @return data course/kurikulum kelompok ini sebagai teks JSON; bila field {@link #course}
+	 *         belum pernah diisi atau kosong/blank, method ini mengembalikan representasi JSON
+	 *         objek KOSONG ({@code new JSONObject().toString()}, yakni {@code "{}"}) — bukan
+	 *         {@code null} — sehingga pemanggil yang langsung mem-parsing hasilnya sebagai JSON
+	 *         tidak perlu menangani kasus {@code null} secara terpisah. Mengimplementasikan method
+	 *         abstrak dari superclass {@link ais.database.model.VOPembelajaran}.
+	 */
 	@Override
 	@Column(columnDefinition = "text")
 	public String getCourse() {
@@ -1017,15 +1062,30 @@ public class KelompokKkn extends VOPembelajaran {
 		return course == null || course.trim().isEmpty() ? new JSONObject().toString() : course;
 	}
 
+	/** @param course data course/kurikulum kelompok ini sebagai teks JSON. */
 	@Override
 	public void setCourse(String course) {
 		this.course = course;
 	}
 
+	/** @return path absolut berkas JSON representasi lengkap objek ini di disk, TANPA memicu penulisan bila belum ada (getter pasif — bandingkan dengan {@link #getOrCreateFileLocation()}); {@code null} bila belum pernah ditulis. */
 	public String getFileLocation() {
 		return fileLocation;
 	}
 
+	/**
+	 * @return path absolut berkas JSON representasi lengkap objek ini di disk, MENJAMIN berkas
+	 *         tersebut ada dan valid sebelum mengembalikan path-nya. Method ini <b>bukan getter
+	 *         pasif</b> (ditandai {@code @Transient} — bukan kolom basis data): ia memicu
+	 *         penulisan ulang lewat {@code write()} (method superclass) bila salah satu dari tiga
+	 *         kondisi berikut terpenuhi: (1) {@link #fileLocation} masih {@code null}; (2) path
+	 *         yang tersimpan TIDAK diakhiri {@code getId() + ".json"} (mis. id berubah setelah
+	 *         entity di-persist pertama kali, sehingga path lama sudah tidak relevan); atau (3)
+	 *         berkas pada path tersebut TERNYATA TIDAK ADA di disk (mis. terhapus manual/oleh
+	 *         proses lain di luar kendali aplikasi). Pemanggil yang butuh JAMINAN berkas selalu
+	 *         valid (bukan sekadar membaca apa adanya) harus memakai method ini, bukan
+	 *         {@link #getFileLocation()}.
+	 */
 	@javax.persistence.Transient
 	public String getOrCreateFileLocation() {
 		if (fileLocation == null || !fileLocation.endsWith(getId() + ".json")
@@ -1035,19 +1095,23 @@ public class KelompokKkn extends VOPembelajaran {
 		return fileLocation;
 	}
 
+	/** @param fileLocation path absolut berkas JSON representasi lengkap objek ini di disk. */
 	public void setFileLocation(String fileLocation) {
 		this.fileLocation = fileLocation;
 	}
 
+	/** @return data feeder/integrasi sistem eksternal, di-trim; {@code null} bila field {@link #feeder} belum pernah diisi atau isinya kosong/blank setelah trim (BUKAN string kosong seperti beberapa field lain di kelas ini). */
 	@Column(columnDefinition = "text")
 	public String getFeeder() {
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
 
+	/** @param feeder data feeder/integrasi sistem eksternal (teks bebas, biasanya JSON). */
 	public void setFeeder(String feeder) {
 		this.feeder = feeder;
 	}
 
+	/** @return dosen pembimbing slot ke-6, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. Di luar jangkauan flag wewenang penilaian granular {@code dosen1}..{@code dosen5} milik {@link KomponenPenilaianKkn} — lihat javadoc kelas. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing6", nullable = true)
 	public Dosen getDosen_pembimbing6() {
@@ -1055,10 +1119,12 @@ public class KelompokKkn extends VOPembelajaran {
 		return dosen_pembimbing6;
 	}
 
+	/** @param dosen_pembimbing6 dosen pembimbing slot ke-6. */
 	public void setDosen_pembimbing6(Dosen dosen_pembimbing6) {
 		this.dosen_pembimbing6 = dosen_pembimbing6;
 	}
 
+	/** @return dosen pembimbing slot ke-7, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing7", nullable = true)
 	public Dosen getDosen_pembimbing7() {
@@ -1066,10 +1132,12 @@ public class KelompokKkn extends VOPembelajaran {
 		return dosen_pembimbing7;
 	}
 
+	/** @param dosen_pembimbing7 dosen pembimbing slot ke-7. */
 	public void setDosen_pembimbing7(Dosen dosen_pembimbing7) {
 		this.dosen_pembimbing7 = dosen_pembimbing7;
 	}
 
+	/** @return dosen pembimbing slot ke-8, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing8", nullable = true)
 	public Dosen getDosen_pembimbing8() {
@@ -1077,10 +1145,12 @@ public class KelompokKkn extends VOPembelajaran {
 		return dosen_pembimbing8;
 	}
 
+	/** @param dosen_pembimbing8 dosen pembimbing slot ke-8. */
 	public void setDosen_pembimbing8(Dosen dosen_pembimbing8) {
 		this.dosen_pembimbing8 = dosen_pembimbing8;
 	}
 
+	/** @return dosen pembimbing slot ke-9, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing9", nullable = true)
 	public Dosen getDosen_pembimbing9() {
@@ -1088,10 +1158,12 @@ public class KelompokKkn extends VOPembelajaran {
 		return dosen_pembimbing9;
 	}
 
+	/** @param dosen_pembimbing9 dosen pembimbing slot ke-9. */
 	public void setDosen_pembimbing9(Dosen dosen_pembimbing9) {
 		this.dosen_pembimbing9 = dosen_pembimbing9;
 	}
 
+	/** @return dosen pembimbing slot ke-10, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing10", nullable = true)
 	public Dosen getDosen_pembimbing10() {
@@ -1099,10 +1171,12 @@ public class KelompokKkn extends VOPembelajaran {
 		return dosen_pembimbing10;
 	}
 
+	/** @param dosen_pembimbing10 dosen pembimbing slot ke-10. */
 	public void setDosen_pembimbing10(Dosen dosen_pembimbing10) {
 		this.dosen_pembimbing10 = dosen_pembimbing10;
 	}
 
+	/** @return lokasi geografis penempatan kelompok ini, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lokasi", nullable = true)
 	public Lokasi getLokasi() {
@@ -1110,33 +1184,45 @@ public class KelompokKkn extends VOPembelajaran {
 		return lokasi;
 	}
 
+	/** @param lokasi lokasi geografis penempatan kelompok ini. */
 	public void setLokasi(Lokasi lokasi) {
 		this.lokasi = lokasi;
 	}
 
+	/** @return jarak lokasi kelompok dari titik acuan; default {@code 1.0} bila field {@link #jarak} belum pernah diisi. */
 	public Double getJarak() {
 		return jarak == null ? 1.0 : jarak;
 	}
 
+	/** @param jarak jarak lokasi kelompok dari titik acuan. */
 	public void setJarak(Double jarak) {
 		this.jarak = jarak;
 	}
 
+	/**
+	 * @return {@code true} bila anggota kelompok ini diurutkan otomatis oleh sistem; default
+	 *         {@code true} bila field {@link #urutkanotomatis} belum pernah diisi (fail-open).
+	 *         Mengimplementasikan method abstrak dari superclass
+	 *         {@link ais.database.model.VOPembelajaran}.
+	 */
 	@Override
 	public Boolean getUrutkanotomatis() {
 		// TODO Auto-generated method stub
 		return urutkanotomatis == null ? true : urutkanotomatis;
 	}
 
+	/** @param urutkanotomatis {@code true} agar anggota kelompok ini diurutkan otomatis oleh sistem. */
 	@Override
 	public void setUrutkanotomatis(Boolean urutkanotomatis) {
 		this.urutkanotomatis = urutkanotomatis;
 	}
-	
+
+	/** @return {@code true} bila kelompok ini masih berlaku/ditampilkan; default {@code true} bila field {@link #aktif} belum pernah diisi (fail-open). */
 	public Boolean getAktif() {
-		return aktif == null ? true : aktif; 
+		return aktif == null ? true : aktif;
 	}
 
+	/** @param aktif {@code true} agar kelompok ini tetap berlaku/ditampilkan, {@code false} untuk menonaktifkannya tanpa menghapus baris. */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
