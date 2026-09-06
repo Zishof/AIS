@@ -904,6 +904,57 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 
 		/**
+		 * Gerbang tunggal yang menentukan apakah nilai komponen atau nilai huruf seorang mahasiswa
+		 * BOLEH diubah. Dipakai oleh {@link #render(Row, Object)} pada KEDUA jalur entry nilai &mdash;
+		 * kolom komponen ({@code formatNilai} bukan {@code null}) dan kotak nilai huruf mode
+		 * {@code getHanyaInputNilaiHuruf()} ({@code formatNilai} bernilai {@code null}, karena kotak
+		 * itu menulis ke SELURUH {@link #formatNilais} sekaligus).
+		 *
+		 * <p>Sebelumnya kedua jalur memakai syarat yang disalin terpisah dan perlahan menyimpang:
+		 * jalur kotak huruf kehilangan {@link #editDisable} (kebijakan
+		 * <code>hanya_dosen_yg_boleh_entry_nilai</code>) dan gerbang tunggakan
+		 * {@link #mhsYgBelumBayarBelumBisaDiEntryNilai}, sehingga akun non-dosen tetap mendapat kotak
+		 * isian nilai huruf walau kebijakan itu aktif. Method ini menyatukan sumbernya sehingga kedua
+		 * jalur tidak bisa menyimpang lagi.</p>
+		 *
+		 * @param detailperkuliahan baris nilai yang diperiksa; dipakai untuk gerbang tunggakan
+		 *                          pembayaran.
+		 * @param formatNilai       komponen yang diperiksa penguncinya; {@code null} untuk jalur nilai
+		 *                          huruf, yang membuat method ini memeriksa kunci SELURUH
+		 *                          {@link #formatNilais} sekaligus &mdash; bila SATU SAJA terkunci,
+		 *                          kotak huruf ikut dikunci, karena {@code populateDetailNilai} akan
+		 *                          diam-diam melewati komponen terkunci itu sementara total tetap
+		 *                          tertulis.
+		 * @param warningUts        hasil {@link #checkWarningUts(Detailperkuliahan, Map)} baris ini.
+		 * @param warningUas        hasil {@link #checkWarningUas(Detailperkuliahan, Map)} baris ini.
+		 * @return {@code true} bila nilai TIDAK boleh diubah (harus tampil sebagai label baca-saja).
+		 */
+		private boolean nilaiTidakBolehDiubah(Detailperkuliahan detailperkuliahan, FormatNilai formatNilai,
+				String warningUts, String warningUas) {
+			if (editDisable || perkuliahan.getDikunci() != null || !edit
+					|| (!warningUts.trim().isEmpty() && statusPertemuanUts.trim().isEmpty())
+					|| (!warningUas.trim().isEmpty() && statusPertemuanUas.trim().isEmpty())
+					|| (tbmuser.getMahasiswa() != null && !mahasiswaBolehUbahNilai)
+					|| (mhsYgBelumBayarBelumBisaDiEntryNilai && !PenilaianMahasiswaHelper.checkBolehLihatNilai(
+							detailperkuliahan.getMahasiswa(), detailperkuliahan.getSemester()))
+					|| (!aktifPenilaian && (konfigurasi.getNilai() == null
+							|| !konfigurasi.getNilai().equals(Konfigurasi.AKTIF)))) {
+				return true;
+			}
+			if (formatNilai != null) {
+				return formatNilai.getKunci() != null || (formatNilai.getStatusPertemuan() != null
+						&& formatNilai.getStatusPertemuan().getKunci());
+			}
+			for (FormatNilai fn : formatNilais) {
+				if (fn.getKunci() != null
+						|| (fn.getStatusPertemuan() != null && fn.getStatusPertemuan().getKunci())) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/**
 		 * Membangun <b>satu baris utuh</b> layar Input Nilai untuk seorang mahasiswa: dari foto sampai
 		 * kotak centang verifikasi, lengkap dengan seluruh listener yang menyimpan perubahan ke basis
 		 * data. Inilah metode terpanjang dan paling berpengaruh di kelas ini &mdash; hampir setiap
@@ -1096,20 +1147,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 			final List<PerubahanNilaiListener> checkboxs = new ArrayList<PerubahanNilaiListener>();
 			for (FormatNilai formatNilai : formatNilais) {
 				MyCheckboxConfig verify = new MyCheckboxConfig();
-				if (editDisable || (perkuliahan.getDikunci() != null || !edit || formatNilai.getKunci() != null
-						|| (formatNilai.getStatusPertemuan() != null && formatNilai.getStatusPertemuan().getKunci())
-						|| (!warningUts.trim().isEmpty() && statusPertemuanUts.trim().isEmpty())
-
-						|| (!warningUas.trim().isEmpty() && statusPertemuanUas.trim().isEmpty())
-
-						|| (tbmuser.getMahasiswa() != null && !mahasiswaBolehUbahNilai) ||
-
-						(mhsYgBelumBayarBelumBisaDiEntryNilai
-								&& !PenilaianMahasiswaHelper.checkBolehLihatNilai(detailperkuliahan.getMahasiswa(),
-										detailperkuliahan.getSemester()))
-
-						|| (!aktifPenilaian && (konfigurasi.getNilai() == null
-								|| !konfigurasi.getNilai().equals(Konfigurasi.AKTIF))))) {
+				if (nilaiTidakBolehDiubah(detailperkuliahan, formatNilai, warningUts, warningUas)) {
 
 					MyDoublebox doublebox = new MyDoublebox();
 					NilaiLoader.startLoad(detailperkuliahan, formatNilai, doublebox);
@@ -1287,15 +1325,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 			if (perkuliahan.getHanyaInputNilaiHuruf()) {
 				columnMahasiswa.setWidth("85%");
 
-				if (perkuliahan.getDikunci() != null || !edit
-						|| (!warningUts.trim().isEmpty() && statusPertemuanUts.trim().isEmpty())
-
-						|| (!warningUas.trim().isEmpty() && statusPertemuanUas.trim().isEmpty())
-
-						|| (tbmuser.getMahasiswa() != null && !mahasiswaBolehUbahNilai) ||
-
-						(!aktifPenilaian && (konfigurasi.getNilai() == null
-								|| !konfigurasi.getNilai().equals(Konfigurasi.AKTIF)))) {
+				if (nilaiTidakBolehDiubah(detailperkuliahan, null, warningUts, warningUas)) {
 
 					ais.ui.util.NilaiHurufAnalisisPopupHelper.buatLabel(detailperkuliahan.getNilaiHuruf(), detailperkuliahan)
 							.setParent(row);

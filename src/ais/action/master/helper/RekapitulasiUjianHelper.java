@@ -129,6 +129,12 @@ public class RekapitulasiUjianHelper {
 		refresh.setTooltiptext("Refresh");
 		refresh.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Pertemuan TERAKHIR yang dimasukkan ke combobox oleh {@code PertemuanEvent} — bukan
+			 * pertemuan yang dipilih pengguna. Hanya dipakai untuk kasus daftar berisi tepat satu
+			 * pertemuan, yaitu agar item tunggal itu dapat langsung diaktifkan lewat
+			 * {@code Common.selectComboItem}. Direset ke {@code null} setiap pengisian ulang.
+			 */
 			private Pertemuan pdata;
 
 			@Override

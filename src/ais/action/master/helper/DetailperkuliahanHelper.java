@@ -1112,6 +1112,56 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	 * tombol dan hak yang mengaturnya) serta grid berisi seluruh peserta perkuliahan (page size
 	 * besar — 10000 — sehingga efektif menampilkan semua baris sekaligus).
 	 *
+	 * <p>Ini adalah titik masuk utama kelas: ia menetapkan {@link #perkuliahan}, membersihkan
+	 * {@code component}, membangun toolbar dan kolom, lalu menutup dengan {@code loadData(null)} untuk
+	 * pengisian pertama. Seluruh field UI ({@link #nama}, {@link #grid}) baru ada setelah method ini
+	 * selesai.
+	 *
+	 * <p><b>Toolbar, dikelompokkan menurut kendali aksesnya:</b>
+	 * <ul>
+	 *   <li><i>Tanpa kendali</i> — kotak pencarian "Mhs :", Refresh, cetak Absensi/UTS/UAS, tombol
+	 *       cetak/ekspor data ({@link Common#cetakData}), Upload Data (.xlsx), serta unduh/unggah data
+	 *       mahasiswa dari {@code MahasiswaAction.createUploadDanDownloadData}. Perhatikan bahwa Upload
+	 *       Data <b>membuat baris {@link Detailperkuliahan} baru</b> tetapi tidak dikendalikan flag
+	 *       {@link #create} — lihat {@link #uploadDataMahasiswa}. Seluruh toolbar disembunyikan bila
+	 *       tidak ada pengguna login ({@code toolbar.setVisible(tbmuser != null)}).</li>
+	 *   <li><i>Konfigurasi</i> — "Singkronkan" hanya terlihat bila
+	 *       {@code aktifkan_tombol_sinkronkan_semua} aktif; ia menjalankan
+	 *       {@code perkuliahan.singkronkan(session)} di {@link Thread} latar dan memantau
+	 *       penyelesaiannya dengan {@link Timer} 500&nbsp;ms yang menunggu label progres menjadi kosong.
+	 *       Sesi {@code currentNativeSession()} ditutup di {@code finally} agar tidak bocor bila
+	 *       sinkronisasi gagal.</li>
+	 *   <li><i>Flag konstruktor saja</i> — "Ambil Mhs" ({@link #create}), "Transfer" dan "Copy mhs"
+	 *       ({@link #edit}), "History" ({@link #edit}).</li>
+	 *   <li><i>Flag konstruktor <b>dan</b> penyaringan peran</i> — "Setujui", "Tolak", "Hapus". Flag
+	 *       mengatur {@code setDisabled}, sedangkan {@code setVisible} ditentukan
+	 *       {@link Common#getApakahAdmin()} atau kecocokan {@code roleId} pengguna dengan
+	 *       {@code ConstantValues.Akademik}, {@code roleAdminFakultas}, atau {@code roleAdminJurusan}.
+	 *       Ketiga pemeriksaan itu dibungkus {@code try-catch} yang mencatat ke {@code ErrorAuditUtil}:
+	 *       bila {@code hakAkses()} gagal dimuat, tombol mempertahankan visibilitas bawaannya
+	 *       (<i>terlihat</i>) alih-alih disembunyikan — perilaku fail-open yang perlu diingat.</li>
+	 * </ul>
+	 *
+	 * <p><b>Cakupan aksi massal.</b> Ketiga tombol massal beriterasi atas {@link #detailperkuliahan},
+	 * yaitu daftar yang sedang tampil — bukan hasil query ulang. Bila kotak pencarian sedang terisi,
+	 * aksi hanya mengenai baris yang lolos pencarian, meski teks konfirmasinya berbunyi "semua mahasiswa
+	 * di dalam perkuliahan ini". "Setujui" dan "Tolak" menulis lewat {@code Common.refreshUpdate} tanpa
+	 * penjaga tambahan; "Hapus" hanya menyentuh baris {@code BELUM_DISETUJUI} dan tidak memeriksa relasi
+	 * {@link MahasiswaRequestTugasAkhir} sebagaimana dilakukan tombol hapus per-baris. Ketiganya ditutup
+	 * dengan {@code perkuliahan.belum("detailperkulaiahan")} untuk membatalkan cache
+	 * (perhatikan ejaan kunci cache tersebut, yang memang demikian di seluruh basis kode) lalu
+	 * {@code loadData(true)}.
+	 *
+	 * <p><b>Sebelas kolom</b> didefinisikan dengan lebar yang bergantung konteks: enam kolom terakhir
+	 * disetel {@code "0%"} bila tidak ada pengguna login; kolom "Smt" juga {@code "0%"} untuk pra-
+	 * perkuliahan; dan kolom "Tahap" hanya berlebar bila {@code ConstantValues.aktifkanTahapanKurikulum}
+	 * aktif. Urutan kolom di sini <b>wajib</b> tetap sejalan dengan urutan komponen yang ditambahkan
+	 * {@link DetailPerkuliahanRenderer#render}.
+	 *
+	 * <p><b>Sifat:</b> berjalan di thread event ZK; membangun komponen dan memasang listener saja,
+	 * tanpa penulisan basis data sendiri. Aman dipanggil ulang — {@code Common.clear(component)}
+	 * membersihkan tampilan sebelumnya lebih dulu.
+	 *
 	 * @param perkuliahan      perkuliahan yang daftar mahasiswanya ditampilkan
 	 * @param perkuliahanAsli  perkuliahan asli (sebelum kemungkinan substitusi/redirect), dipakai
 	 *                         untuk cetak laporan absensi
@@ -1685,6 +1735,58 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	 * request asal selesai) yang ditutup rapi di {@code finally}; kegagalan simpan per baris di-
 	 * rollback agar tidak menggagalkan baris berikutnya. Hasil akhir dilaporkan per baris via
 	 * {@link ais.common.LaporanUpload}, lalu {@code eventListener} dipanggil.
+	 *
+	 * <p><b>Format berkas yang diharapkan:</b> baris pertama adalah judul dan dilewati; pembacaan mulai
+	 * dari indeks baris 1. Empat kolom, sesuai konstanta {@code contents} pada {@link #display} dan
+	 * berkas unduhan yang dihasilkan {@link Common#cetakData}:
+	 * <ol start="0">
+	 *   <li>mahasiswa — dibaca dua tahap: {@code Common.getSheetContentAsObject(..., Mahasiswa.class)}
+	 *       lebih dulu, lalu <b>fallback</b> ke pencarian NIM {@code ConstantValues.ambilByNim(...)}.
+	 *       Fallback itu penting: tanpanya, satu sel yang tidak terbaca sebagai objek/ID membuat baris
+	 *       gagal dicocokkan meski NIM-nya jelas benar.</li>
+	 *   <li>semester — bila kosong, dipakai {@code perkuliahan.getSemester()}.</li>
+	 *   <li>tahap — dipakai apa adanya, boleh {@code null}.</li>
+	 *   <li>persetujuan — bila kosong, dipakai {@code Detailperkuliahan.BELUM_DISETUJUI}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Gerbang pembayaran.</b> Sebelum baris dibuat, {@code Common.checkStatusPembayaranMahasiswa}
+	 * memeriksa status pembayaran mahasiswa pada semester bersangkutan (dengan penanda semester pendek
+	 * dari {@link #semesterPendek}). Bila belum bayar, baris dicatat sebagai "dilewati" beserta
+	 * alasannya dan proses lanjut ke baris berikutnya. Pemeriksaan ini dibungkus {@code try-catch}
+	 * sendiri yang hanya mencatat ke {@code ErrorAuditUtil} — artinya bila pemeriksaan itu sendiri
+	 * gagal, baris <b>tetap diproses</b> (fail-open).
+	 *
+	 * <p><b>Idempoten terhadap baris yang sudah ada.</b> Untuk tiap mahasiswa dicari
+	 * {@link Detailperkuliahan} yang sudah ada pada perkuliahan ini ({@code setMaxResults(1)}, urut
+	 * {@code id} menurun). Bila ketemu, baris tersebut <b>dibiarkan apa adanya</b> — nilai semester,
+	 * tahap, dan persetujuan dari berkas <b>tidak</b> menimpanya, meskipun tetap dilaporkan sebagai
+	 * "berhasil". Baris baru hanya dibuat bila belum ada. Karena itu berkas ini berfungsi sebagai alat
+	 * <i>pendaftaran</i> peserta, bukan alat pembaruan massal.
+	 *
+	 * <p><b>Isolasi kegagalan per baris.</b> Setiap penyimpanan dibungkus transaksi tersendiri, dan
+	 * kegagalan wajib memicu {@code rollback} sebelum dilempar ulang. Tanpa rollback, transaksi
+	 * tertinggal aktif sehingga {@code begin()} pada baris berikutnya melempar "Transaction already
+	 * active" — satu baris bermasalah akan menggagalkan seluruh baris sesudahnya tanpa jejak. Exception
+	 * yang dilempar ulang ditangkap {@code catch} tingkat baris, dicatat ke laporan lewat
+	 * {@code catatGagal}, dan iterasi lanjut.
+	 *
+	 * <p><b>Model sesi.</b> Thread latar ini <b>wajib</b> memakai
+	 * {@code HibernateUtil.getSessionFactory().openSession()}, bukan {@code currentNativeSession()}:
+	 * sesi thread-cache sudah ditutup ketika request unggah selesai, sehingga pemakaiannya melempar
+	 * "Session is closed!" pada {@code createCriteria}. Sesi ditutup bertahap di {@code finally}
+	 * ({@code clear} &rarr; {@code disconnect} &rarr; {@code close}), masing-masing dibungkus
+	 * {@code try-catch} agar kegagalan satu langkah tidak menghalangi langkah berikutnya.
+	 *
+	 * <p><b>Pelaporan kemajuan.</b> Thread latar menulis persentase ke sebuah {@link Label}; di thread
+	 * ZK sebuah {@link Timer} 200&nbsp;ms membaca label itu untuk memperbarui indikator sibuk. Label
+	 * kosong menjadi penanda selesai — saat itu timer melepas dirinya, indikator dibersihkan, dan
+	 * {@code laporan.selesaikan(eventListener)} menampilkan rincian per baris sekaligus memanggil
+	 * callback. Label sengaja dikosongkan di akhir blok {@code run()}, <i>di luar</i> {@code finally},
+	 * dan {@code catch} terluar hanya mencatat — sehingga kegagalan pada tingkat berkas (mis. .xlsx
+	 * rusak) tetap menutup indikator dengan laporan kosong, bukan menggantung.
+	 *
+	 * <p><b>Sifat:</b> kembali seketika; pekerjaan sesungguhnya berlangsung asinkron. Pemanggil tidak
+	 * boleh berasumsi data sudah tersimpan saat method ini selesai — gunakan {@code eventListener}.
 	 *
 	 * @param file          berkas .xlsx yang diunggah
 	 * @param eventListener callback dipanggil setelah laporan hasil selesai disusun

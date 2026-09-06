@@ -108,6 +108,129 @@ import ais.ui.util.WaktuUtil;
  * diberikan langsung oleh pemanggil (bukan dari kombobox) tunduk pada aturan yang sama: tagihan
  * semester yang belum berjalan (lebih besar dari semester berjalan mahasiswa) tidak ditampilkan.
  * </p>
+ *
+ * <h3>Posisi dalam rantai billing — bukan sekadar penampil</h3>
+ * <p>
+ * Nama kelas ini ("UIBuilder") mudah disalahpahami sebagai lapisan tampilan murni. Penelusuran
+ * memastikan bahwa <b>kelas ini ikut menghitung nominal tagihan</b>, bukan hanya menampilkan angka
+ * yang sudah jadi. Pembagian tanggung jawabnya sebagai berikut:
+ * </p>
+ * <ul>
+ * <li><b>Yang didelegasikan</b> (tidak dihitung ulang di sini): resolusi item biaya yang berlaku
+ * ({@code PembayaranUtilHelper.getDetailBiayaMahasiswa}/{@code getDetailBiayaCalonMahasiswa},
+ * {@code PembayaranUtil.getPengaturanPembayaranSemua}), nominal per item beserta seluruh diskon
+ * dan modifikasinya ({@link Kegiatan#ambilJumlahTagihan}), perhitungan denda keterlambatan
+ * ({@link DetailBiaya#checkDenda} — yang juga menjadi tujuan akhir
+ * {@link PengaturanPembayaranBulanan#checkDenda}), dan akumulasi pembayaran
+ * ({@link VOMahasiswa#hitungTotalCicilan}).</li>
+ * <li><b>Yang dirakit sendiri di sini</b>: penggabungan keempat primitif di atas menjadi angka
+ * akhir per baris — pemilihan antara nominal dan hasil denda, penggantian nominal nol dengan
+ * jumlah yang sudah dibayar, pembalikan tanda untuk item {@link ItemBiaya#DIKALI_NILAI_MINUS},
+ * penjumlahan {@code totalTagihan}/{@code totalDibayar}/{@code totalBelumDibayar}, persentase
+ * pelunasan, serta penentuan baris mana yang layak tampil dan layak masuk laporan.</li>
+ * </ul>
+ * <p>
+ * Perakitan tersebut <b>ditulis dua kali</b> dalam dua cabang yang hampir identik: cabang tagihan
+ * <i>bulanan</i> ({@link PengaturanPembayaranBulanan} tidak {@code null}) dan cabang tagihan
+ * <i>reguler</i> ({@link DetailBiaya} langsung). Duplikasi ini adalah sumber risiko utama
+ * pemeliharaan berkas ini: setiap perbaikan rumus wajib diterapkan pada <b>kedua</b> cabang.
+ * </p>
+ *
+ * <h3>Perbedaan nyata antara kedua cabang perakitan</h3>
+ * <p>
+ * Kedua cabang tidak sepenuhnya setara. Perbedaan yang sudah terverifikasi:
+ * </p>
+ * <ol>
+ * <li><b>Tanggal acuan denda.</b> Cabang bulanan menelusuri {@link CicilanPembayaran} yang cocok
+ * (item biaya sama, {@code bayarKe} sama, kegiatan sama, dan bulan sama) lalu memakai
+ * {@code cp.getTanggal()} — <b>tanggal pembayaran yang sebenarnya</b> — sebagai acuan denda.
+ * Cabang reguler selalu memakai {@code WaktuUtil.getDate()}, yaitu <b>hari ini</b>, tanpa
+ * menelusuri cicilan sama sekali. Karena {@link DetailBiaya#checkDenda} menghitung keterlambatan
+ * sebagai {@code deadline.before(tanggalBayar)} dan dapat berlipat menurut jumlah hari terlambat,
+ * konsekuensinya: untuk item reguler yang tenggatnya sudah lewat, denda tetap dihitung (dan terus
+ * bertambah setiap hari) walaupun mahasiswa sudah melunasinya tepat waktu. Lihat bagian
+ * "Catatan integritas finansial" di bawah.</li>
+ * <li><b>Argumen konteks bulanan.</b> Cabang bulanan meneruskan objek
+ * {@link PengaturanPembayaranBulanan} sehingga {@code checkDenda} dapat memakai
+ * {@code pengaturanPembayaranBulanan.getDeadline()} sebagai tenggat; cabang reguler meneruskan
+ * {@code null} sehingga tenggat hanya dapat berasal dari {@link JadwalPembayaran} atau, sebagai
+ * cadangan, {@code detailBiaya.getDefaultTanggalDeadline()}.</li>
+ * <li><b>Urutan syarat pembatalan denda.</b> Cabang bulanan menguji
+ * {@code batalkanDenda}/{@code jumlah nol} lebih dulu baru {@code menggunakanDendaCustom}; cabang
+ * reguler membalik urutannya. Karena kedua syarat menghasilkan keluaran yang sama
+ * ({@code jumlah} apa adanya), pembalikan urutan ini <b>tidak</b> mengubah hasil — semata
+ * perbedaan gaya penulisan hasil salin-tempel, dicatat agar tidak disangka bug.</li>
+ * </ol>
+ *
+ * <h3>Catatan integritas finansial (fakta terverifikasi, bukan perubahan)</h3>
+ * <ol>
+ * <li><b>Denda item reguler dihitung terhadap hari ini, bukan tanggal bayar.</b> Bila sebuah
+ * {@link ItemBiaya}/{@link JenisKegiatan} mengaktifkan denda keterlambatan dan tenggatnya terisi,
+ * maka setelah tenggat terlampaui nilai {@code jumlah} baris reguler dinaikkan menjadi hasil
+ * denda ({@code jumlah = hasilDenda > jumlah ? hasilDenda : jumlah}) tanpa memperhatikan bahwa
+ * pembayaran sudah masuk. Akibatnya {@code sisa = jumlah - telahDibayar} menjadi positif dan
+ * membesar dari hari ke hari untuk tagihan yang sebenarnya sudah lunas. Penanda
+ * {@code DetailKegiatan.batalkanDenda} yang dapat meredamnya <b>tidak</b> diisi otomatis saat
+ * pembayaran — satu-satunya penulisnya adalah kotak centang manual pada
+ * {@code DetailPembayaranMahasiswaRenderer}. Cabang bulanan tidak terdampak.</li>
+ * <li><b>Perbandingan finansial memakai {@code intValue()}.</b> Hampir seluruh keputusan angka di
+ * berkas ini membandingkan lewat {@code Double.intValue()}:
+ * {@code hasilDenda.intValue() > jumlah.intValue()}, {@code jumlah.intValue() == 0},
+ * {@code totalBelumDibayar.intValue() != 0}, dan seterusnya. Dua konsekuensi: pecahan di bawah satu
+ * rupiah dipangkas menjadi nol (umumnya justru diinginkan, karena sisa pembulatan dianggap lunas),
+ * dan nilai di atas {@code Integer.MAX_VALUE} (sekitar Rp2,15&nbsp;miliar) melipat sehingga
+ * perbandingannya tidak lagi bermakna.</li>
+ * <li><b>{@code totalValid} secara aljabar sama dengan dua kali {@code jumlah}.</b> Ekspresi
+ * {@code jumlah + belumDibayar + telahDibayar} dengan {@code belumDibayar = jumlah - telahDibayar}
+ * selalu menyusut menjadi dua kali {@code jumlah}. Jadi syarat {@code totalValid != 0} yang
+ * menentukan apakah sebuah baris ditampilkan <i>dan</i> apakah baris tersebut masuk ke snapshot
+ * laporan sesungguhnya hanya berarti "nominalnya bukan nol".</li>
+ * <li><b>Snapshot laporan dipublikasikan secara atomik.</b> Peta {@code semua} dikosongkan di awal
+ * pemuatan, lalu diisi sekali saja di dalam blok {@code synchronized} setelah seluruh
+ * {@link Future} terkumpul. Ini perbaikan atas insiden "layar lunas tetapi PDF masih menyisakan
+ * tagihan": sebelumnya pekerja paralel menulis langsung ke {@link TreeMap} yang bukan thread-safe,
+ * dan snapshot dimasukkan sebelum {@code barisLaporan} selesai diisi. Efek sampingnya: selama
+ * pemuatan berlangsung, {@code semua} berada dalam keadaan kosong, sehingga pencetakan yang
+ * dipicu di tengah proses menghasilkan laporan hampa, bukan laporan basi.</li>
+ * </ol>
+ *
+ * <h3>Catatan paralelisme (fakta arsitektur)</h3>
+ * <p>
+ * Walaupun setiap kombinasi dijalankan sebagai {@link java.util.concurrent.Callable} terpisah,
+ * <b>bagian terbesar pekerjaan setiap task berjalan di dalam kurungan
+ * {@code Executions.activate(desktop)} sampai {@code deactivate(desktop)}</b> — bukan hanya
+ * pembaruan label/progress sebagaimana tertulis pada komentar di kode. Kurungan itu mencakup
+ * seluruh perulangan per item biaya, termasuk pemanggilan {@link Kegiatan#ambilJumlahTagihan},
+ * {@code checkDenda}, dan {@link VOMahasiswa#hitungTotalCicilan}, hingga penyusunan footer total.
+ * Karena kunci desktop ZK bersifat eksklusif, para pekerja praktis <b>berjalan bergiliran</b> pada
+ * bagian tersebut; keuntungan paralel terbatas pada tahap pengambilan data sebelum kurungan.
+ * </p>
+ * <p>
+ * Konsekuensi penting lainnya: seluruh isi kurungan itu hanya dijalankan bila
+ * {@code desktop != null && desktop.isAlive()}. Bila tidak ada desktop hidup, task tetap selesai
+ * tetapi mengembalikan peta kosong — tanpa potongan UI <b>dan tanpa snapshot laporan</b>. Jadi
+ * kelas ini tidak dapat dipakai sebagai sumber angka pada konteks tanpa sesi ZK aktif (mis. tugas
+ * terjadwal atau layanan latar).
+ * </p>
+ * <p>
+ * {@code executor.invokeAll(tasks)} sudah memblokir sampai seluruh task selesai, sehingga
+ * {@code awaitTermination(60, SECONDS)} yang menyusul praktis tidak pernah menjadi batas waktu
+ * yang efektif; {@code shutdownNow()} pada blok {@code finally} berperan sebagai jaring pengaman
+ * bila terjadi pengecualian sebelum penutupan normal.
+ * </p>
+ *
+ * <h3>Catatan otorisasi (fakta arsitektur)</h3>
+ * <p>
+ * Kelas ini <b>tidak melakukan pemeriksaan otorisasi maupun kepemilikan apa pun</b>. Pemilik
+ * tagihan sepenuhnya ditentukan oleh objek {@link VOMahasiswa} yang diserahkan pemanggil; tidak ada
+ * verifikasi bahwa pengguna yang sedang masuk berhak melihat keuangan mahasiswa tersebut, dan tidak
+ * ada penyempitan satuan kerja. Tombol "Bayar Sekarang"/"Tagihan dan Pembayaran" membuka
+ * {@code /common/daftarulang_mahasiswa_lama.zul} dengan id mahasiswa, jenis kegiatan, dan semester
+ * sebagai <b>parameter URL</b>; nilai-nilainya berasal dari objek yang sudah dimuat sehingga tidak
+ * ada peningkatan hak di sini, tetapi halaman tujuan itulah yang wajib memvalidasi ulang
+ * kepemilikan — pola parameter URL semacam ini sudah tercatat berulang sebagai sumber masalah di
+ * basis kode ini.
+ * </p>
  */
 public class TagihanUIBuilder {
 

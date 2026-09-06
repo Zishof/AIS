@@ -674,6 +674,11 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ambil Data Mahasiswa", "/img/new.gif");
 		button.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Helper pencarian mahasiswa untuk ditambahkan sebagai peserta, dibuat SEKALI sebagai
+			 * field listener (bukan per klik) sehingga jendela yang sama dipakai ulang setiap tombol
+			 * "Ambil Data Mahasiswa" ditekan, berikut state pencarian terakhirnya.
+			 */
 			private AmbilDataMahasiswaMendaftarWisudaHelper dataMahasiswaHelper = new AmbilDataMahasiswaMendaftarWisudaHelper();
 
 			@Override
