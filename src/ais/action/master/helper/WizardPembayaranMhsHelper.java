@@ -1716,8 +1716,10 @@ public class WizardPembayaranMhsHelper {
         // --- Tunai / manual di kasir (khusus admin, gate identik _lanjut_bayar.jsp) ---
         if (bolehTunai()) {
             tambahTombolBayar(btnWrap, "💵 Bayar Tunai / Kasir", "#16a34a", "#dcfce7", new EventListener() {
+                /** Kartu "Bayar Tunai / Kasir" (hanya tampil bila {@link #bolehTunai()}): meminta konfirmasi nominal lebih dulu, baru menjalankan {@link #bayarTunai(List)} yang mencatat uang sebagai diterima. */
                 @Override public void onEvent(Event e) throws Exception {
                     konfirmasiBayar("Tunai / Kasir", new EventListener() {
+                        /** Aksi terkonfirmasi saluran tunai: mencatat pembayaran langsung ke basis data (bukan menerbitkan tagihan ke bank). */
                         @Override public void onEvent(Event ev) throws Exception { bayarTunai(dipilih); }
                     });
                 }
@@ -1732,8 +1734,15 @@ public class WizardPembayaranMhsHelper {
                 String emoji = PembayaranGatewayKatalog.KATEGORI_BANK_ONLINE.equals(g.kategori) ? "🏦" : "💳";
                 if ("qris".equals(g.id)) emoji = "🔳";
                 tambahTombolBayar(btnWrap, emoji + " " + g.label, "#1e40af", "#eff6ff", new EventListener() {
+                    /**
+                     * Kartu satu saluran daring dari {@link PembayaranGatewayKatalog}. Event klik
+                     * ditangkap sebagai {@code final} karena beberapa mesin gerbang
+                     * memerlukannya untuk membuka jendela/redirect pada desktop ZK yang benar,
+                     * dan event itu harus tetap terjangkau dari dalam callback konfirmasi.
+                     */
                     @Override public void onEvent(final Event e) throws Exception {
                         konfirmasiBayar(g.label, new EventListener() {
+                            /** Aksi terkonfirmasi saluran daring: menyalurkan ke eksekutor yang sesuai lewat {@link #prosesPayment(PembayaranGatewayKatalog.Gateway, List, Event)}. */
                             @Override public void onEvent(Event ev) throws Exception { prosesPayment(g, dipilih, e); }
                         });
                     }
@@ -1773,8 +1782,10 @@ public class WizardPembayaranMhsHelper {
             final PembayaranGatewayKatalog.Gateway g = PembayaranGatewayKatalog.cari(idGw);
             if (g == null || !PembayaranGatewayKatalog.aktif(g)) continue;
             tambahTombolBayar(btnWrap, "🛒 " + g.label, "#4338ca", "#eef2ff", new EventListener() {
+                /** Kartu saluran keranjang keluarga VA Bank Online — satu Virtual Account untuk seluruh jenis pembayaran terpilih. */
                 @Override public void onEvent(Event e) throws Exception {
                     konfirmasiBayar(g.label + " (Keranjang)", new EventListener() {
+                        /** Aksi terkonfirmasi: menyimpan draf keranjang lalu menerbitkan satu VA lewat {@link #bayarKeranjangVaOnline(PembayaranGatewayKatalog.Gateway, List)}. */
                         @Override public void onEvent(Event ev) throws Exception {
                             bayarKeranjangVaOnline(g, dipilih);
                         }
@@ -1793,8 +1804,10 @@ public class WizardPembayaranMhsHelper {
             PembayaranGatewayKatalog.Gateway g = PembayaranGatewayKatalog.cari(idGw);
             if (g == null || !PembayaranGatewayKatalog.aktif(g)) continue;
             tambahTombolBayar(btnWrap, "🛒 " + label, "#1e40af", "#eff6ff", new EventListener() {
+                /** Kartu saluran keranjang gerbang request-based (BNI/BSI/Faspay/Jatelindo); event ditangkap {@code final} karena mesin gerbang memerlukannya. */
                 @Override public void onEvent(final Event e) throws Exception {
                     konfirmasiBayar(label + " (Keranjang)", new EventListener() {
+                        /** Aksi terkonfirmasi: menyimpan draf keranjang lalu mendelegasikan ke {@link #bayarKeranjangRequest(String, List, Event)}. */
                         @Override public void onEvent(Event ev) throws Exception {
                             bayarKeranjangRequest(idGw, dipilih, e);
                         }
@@ -2044,6 +2057,18 @@ public class WizardPembayaranMhsHelper {
                 "Konfirmasi Pembayaran",
                 MyMessageboxConfig.YES.intValue() | MyMessageboxConfig.NO.intValue(),
                 MyMessageboxConfig.QUESTION, new EventListener() {
+                    /**
+                     * Callback dialog konfirmasi pembayaran. Menjalankan aksi HANYA pada jawaban
+                     * {@code "onYes"} — jawaban lain (Tidak, atau dialog ditutup) diabaikan
+                     * diam-diam.
+                     *
+                     * <p>Penjaga {@link #sedangProses} dinaikkan sebelum aksi dan diturunkan di
+                     * {@code finally}, sehingga aksi tidak dapat berjalan bersarang di dalam
+                     * dirinya sendiri. Perlu dicatat bahwa dialog ini ASINKRON: klik tombol
+                     * saluran hanya membuka dialog dan langsung kembali, sehingga penjaga baru
+                     * aktif saat pengguna menekan Ya — ia melindungi dari re-entransi, bukan
+                     * dari pengguna yang sengaja membuka lalu menyetujui dua dialog berturut-turut.</p>
+                     */
                     @Override public void onEvent(Event e) throws Exception {
                         if (!"onYes".equals(e.getName())) return;
                         if (sedangProses) return;
@@ -2547,6 +2572,12 @@ public class WizardPembayaranMhsHelper {
                     MyMessageboxConfig.YES.intValue() | MyMessageboxConfig.NO.intValue()
                             | MyMessageboxConfig.CANCEL.intValue(),
                     MyMessageboxConfig.QUESTION, new EventListener() {
+                        /**
+                         * Callback pilihan metode Bankaltimtara: {@code onYes} = Virtual Account,
+                         * {@code onNo} = QRIS, jawaban lain (Batal/tutup) RETURN tanpa membuat
+                         * transaksi apa pun. Pilihan diteruskan sebagai flag {@code pakaiva} ke
+                         * {@link #eksekusiBankaltimtara(PembayaranGatewayKatalog.Gateway, List, boolean)}.
+                         */
                         @Override public void onEvent(Event e) throws Exception {
                             boolean pakaiva;
                             if ("onYes".equals(e.getName())) pakaiva = true;
@@ -3263,6 +3294,18 @@ public class WizardPembayaranMhsHelper {
         return PembayaranGatewayKatalog.buatGridCicilanMock(biayas, noms, bulanans, tanggals);
     }
 
+    /**
+     * Menjumlahkan {@code nominalBayar} seluruh item TERPILIH — yaitu uang yang akan
+     * benar-benar diproses pada eksekusi berikutnya. Inilah angka yang dikirim ke setiap
+     * mesin gerbang sebagai total transaksi dan yang ditampilkan pada dialog konfirmasi,
+     * sehingga nilainya harus selalu konsisten dengan rincian per item yang menyertainya.
+     *
+     * <p>Bandingkan {@link #hitungTotalKekuranganDipilih()} yang menjumlahkan SISA tagihan.
+     * Angka ini tidak memasukkan biaya administrasi saluran, yang baru ditambahkan mesin
+     * gerbang dan muncul pada kartu VA langkah Selesai.</p>
+     *
+     * @return total nominal yang akan dibayar sekarang
+     */
     private double hitungTotalBayar() {
         double total = 0;
         for (TagihanItem item : tagihanItems) {
@@ -3271,6 +3314,14 @@ public class WizardPembayaranMhsHelper {
         return total;
     }
 
+    /**
+     * Menyaring {@link #tagihanItems} menjadi daftar item yang tercentang, dalam urutan
+     * tampil. Selalu mengembalikan daftar BARU (bukan tampilan atas daftar asli), sehingga
+     * eksekutor gerbang boleh memakainya tanpa risiko terpengaruh perubahan centang
+     * berikutnya.
+     *
+     * @return daftar item terpilih; kosong bila tidak ada yang tercentang
+     */
     private List<TagihanItem> getItemsDipilih() {
         List<TagihanItem> list = new ArrayList<TagihanItem>();
         for (TagihanItem item : tagihanItems) {
@@ -3334,6 +3385,18 @@ public class WizardPembayaranMhsHelper {
         return hasil;
     }
 
+    /**
+     * Nama pengguna yang dicatat sebagai {@code validator} pada {@link Kegiatan},
+     * {@link CicilanPembayaran}, dan {@link KegiatanTemporary} yang dibuat wizard —
+     * jejak audit "siapa yang mencatat pembayaran ini".
+     *
+     * <p>Mundur ke string {@code "System"} bila pengguna tidak dapat di-resolve, agar
+     * kolom validator tidak pernah null dan baris tetap tersimpan. Nilai {@code "System"}
+     * karenanya berarti "pengguna tidak teridentifikasi saat pencatatan", bukan sebuah akun
+     * nyata.</p>
+     *
+     * @return nama pengguna aktif, atau {@code "System"} bila tidak dapat di-resolve
+     */
     private String getCurrentUserNama() {
         try {
             Tbmuser u = Common.getTbmuser();
@@ -3342,16 +3405,53 @@ public class WizardPembayaranMhsHelper {
         return "System";
     }
 
+    /**
+     * Menampilkan satu kotak pesan informasi. Dipakai untuk seluruh pemberitahuan wizard:
+     * kegagalan validasi, kegagalan pemuatan tagihan, dan kegagalan eksekusi gerbang.
+     *
+     * <p>Kegagalan menampilkan kotak pesan itu sendiri ditelan (diaudit) — bila desktop ZK
+     * sudah tidak hidup, tidak ada gunanya melempar exception baru dari jalur pelaporan
+     * kesalahan.</p>
+     *
+     * @param msg pesan yang ditampilkan kepada pengguna
+     */
     private static void alertar(String msg) {
         try {
             MyMessageboxConfig.show(msg, "Info", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/WizardPembayaranMhsHelper.java:2150"); /* ignore */ }
     }
 
+    /**
+     * Memformat nominal menjadi teks rupiah dengan pemisah ribuan dan TANPA angka desimal
+     * ({@code "Rp 1,500,000"}). Pembulatan hanya terjadi pada tampilan; nilai yang diproses
+     * dan disimpan tetap {@code double} penuh, sehingga angka pada layar dapat berbeda
+     * sepersekian rupiah dari nilai sebenarnya untuk tagihan berdesimal.
+     *
+     * @param v nominal
+     * @return teks rupiah siap tampil
+     */
     private static String formatRp(double v) {
         return "Rp " + String.format("%,.0f", v);
     }
 
+    /**
+     * Meng-escape teks sebelum ditempelkan ke markup komponen {@code Html} ZK, yang merender
+     * string apa adanya. Menangani {@code &}, {@code <}, {@code >}, dan {@code "}; null
+     * menjadi string kosong.
+     *
+     * <p><b>Batas yang harus dijaga:</b> tanda kutip TUNGGAL sengaja tidak di-escape. Aman
+     * selama nilai yang di-escape hanya ditempatkan pada teks atau pada atribut
+     * berkutip-ganda. Di berkas ini ada satu penempatan pada atribut berkutip-tunggal
+     * ({@code <img src='...'>} pada kartu QR langkah Selesai), dan itu aman semata karena
+     * nilainya dibangun sendiri oleh {@link #simpanInfoVa} dalam bentuk
+     * {@code /report/crcode_<id>.png} dengan {@code id} bertipe numerik — bukan data dari
+     * pengguna atau dari bank. Menempatkan nilai apa pun yang berasal dari luar ke dalam
+     * atribut berkutip-tunggal WAJIB memakai pelolos yang juga menangani {@code '}
+     * (mis. {@code Common.jsEscape} untuk konteks JavaScript).</p>
+     *
+     * @param s teks sumber, boleh null
+     * @return teks aman untuk konteks teks/atribut berkutip-ganda HTML
+     */
     private static String escHtml(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");

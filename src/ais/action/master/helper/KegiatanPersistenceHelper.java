@@ -1669,6 +1669,36 @@ public class KegiatanPersistenceHelper {
 	// 3. PERSISTENCE ASYNC
 	// ========================================================================
 
+	/**
+	 * Gerbang tunggal seluruh penulisan kolom denormalisasi — setiap perubahan di kelas ini
+	 * bermuara ke sini.
+	 *
+	 * <p><b>Mode segera</b> ({@code immediateUpdate=true}): tugas yang sedang antre untuk kegiatan
+	 * ini dibatalkan lebih dulu, lalu penulisan dijalankan SINKRON pada thread pemanggil. Dipakai
+	 * saat pemanggil butuh nilai yang sudah pasti tersimpan (mis. sesudah refresh atau penghapusan).
+	 *
+	 * <p><b>Mode tertunda</b> ({@code immediateUpdate=false}): bila sudah ada tugas antre yang
+	 * belum selesai, isinya DIPERBARUI di tempat dan tidak ada tugas baru dijadwalkan — inilah
+	 * debounce yang membuat rentetan penyuntingan menghasilkan satu penulisan. Bila belum ada,
+	 * satu tugas dijadwalkan {@link #ASYNC_DELAY_SECONDS} detik ke depan.
+	 *
+	 * <p><b>Parameter {@code refreshOrDelete} saat ini tidak dipakai</b> di badan method. Seluruh
+	 * pemanggil meneruskan nilai yang sama dengan {@code immediateUpdate}, sehingga perilakunya
+	 * sepenuhnya ditentukan parameter ketiga. Parameter ini dipertahankan demi kestabilan tanda
+	 * tangan bagi pemanggil yang ada.</p>
+	 *
+	 * <p><b>Catatan konkurensi:</b> pembatalan {@code future.cancel(false)} tidak menghentikan
+	 * tugas yang badannya SUDAH mulai berjalan. Bila itu terjadi bersamaan dengan mode segera,
+	 * dua penulisan untuk kegiatan yang sama bisa berjalan beriringan — keduanya tetap aman karena
+	 * {@link #eksekusiUpdateDenganRetry} menyerialkan lewat stripe lock dan advisory lock, dan
+	 * karena isi tulisan dihitung ulang dari basis data di dalam kunci.</p>
+	 *
+	 * @param kegiatan        kegiatan yang kolom denormalisasinya akan ditulis; {@code null}/tanpa
+	 *                        id diabaikan.
+	 * @param refreshOrDelete saat ini tidak berpengaruh (lihat catatan di atas).
+	 * @param immediateUpdate {@code true} untuk menulis sinkron sekarang, {@code false} untuk
+	 *                        menempuh antrean debounce.
+	 */
 	private static void simpanPerubahanAsync(final Kegiatan kegiatan, boolean refreshOrDelete, boolean immediateUpdate) {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return;
@@ -1699,6 +1729,15 @@ public class KegiatanPersistenceHelper {
 			final PendingKegiatanData data = new PendingKegiatanData(kegiatan.getCicilans(),
 					kegiatan.getDetailKegiatans(), kegiatan);
 			data.future = asyncExecutor.schedule(new Runnable() {
+				/**
+				 * Badan tugas terjadwal: mengambil DAN membuang entri terbaru milik kegiatan ini dari
+				 * {@link #pendingTasks}, lalu menulis isinya. Karena yang dipakai adalah entri hasil
+				 * {@code remove} — bukan salinan yang ditangkap saat penjadwalan — perubahan yang masuk selama
+				 * jeda debounce ikut tertulis.
+				 *
+				 * <p>Bila entri sudah tidak ada (mode segera keburu membatalkan dan menghapusnya), tugas ini
+				 * tidak melakukan apa-apa.</p>
+				 */
 				@Override
 				public void run() {
 					PendingKegiatanData latest = pendingTasks.remove(id);
@@ -1712,6 +1751,15 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Membungkus {@link #eksekusiUpdateDenganRetryTerkunci(Kegiatan, String, String)} dalam stripe
+	 * lock per kegiatan ({@link #getKegiatanLock(Long)}), sehingga dua penulisan untuk kegiatan
+	 * yang sama tidak pernah berjalan bersamaan di dalam satu JVM.
+	 *
+	 * @param kegiatan             kegiatan sasaran; {@code null}/tanpa id diabaikan.
+	 * @param cicilansBaru         nilai kolom {@code cicilans} yang akan ditulis.
+	 * @param detailKegiatansBaru  nilai kolom {@code detailKegiatans} yang akan ditulis.
+	 */
 	private static void eksekusiUpdateDenganRetry(Kegiatan kegiatan, String cicilansBaru, String detailKegiatansBaru) {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return;
@@ -1724,6 +1772,14 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Membuat array 1024 objek monitor untuk penguncian ber-stripe. Jumlah stripe dipilih cukup
+	 * besar agar sinkronisasi massal ribuan kegiatan jarang mengalami tabrakan palsu (dua kegiatan
+	 * berbeda yang id-nya sama modulo jumlah stripe ikut terserialisasi), sementara biaya memorinya
+	 * tetap dapat diabaikan.
+	 *
+	 * @return array monitor yang seluruhnya sudah terinisialisasi.
+	 */
 	private static Object[] buatKegiatanLocks() {
 		// Bulk sinkronisasi pembayaran dapat memproses ribuan kegiatan bersamaan. Dengan 64
 		// stripe, kegiatan yang berbeda tetapi memiliki id modulo sama ikut terserialisasi dan
@@ -1736,6 +1792,14 @@ public class KegiatanPersistenceHelper {
 		return locks;
 	}
 
+	/**
+	 * Memetakan id kegiatan ke salah satu monitor pada {@link #kegiatanLocks} lewat modulo, dengan
+	 * id negatif dinegasikan lebih dulu agar indeks tidak pernah negatif. Id {@code null} dipetakan
+	 * ke stripe 0.
+	 *
+	 * @param idKegiatan id kegiatan; boleh {@code null}.
+	 * @return monitor untuk kegiatan tersebut; tidak pernah {@code null}.
+	 */
 	private static Object getKegiatanLock(Long idKegiatan) {
 		long value = idKegiatan == null ? 0L : idKegiatan.longValue();
 		if (value < 0L) {
@@ -1744,6 +1808,45 @@ public class KegiatanPersistenceHelper {
 		return kegiatanLocks[(int) (value % kegiatanLocks.length)];
 	}
 
+	/**
+	 * Inti penulisan denormalisasi. Dipanggil hanya dari dalam stripe lock, dan mengulang hingga
+	 * {@link #MAX_RETRY} kali dengan backoff berjitter bila terjadi kegagalan.
+	 *
+	 * <p><b>Alur satu percobaan:</b></p>
+	 * <ol>
+	 * <li>Buka session baru dengan {@code FlushMode.MANUAL} supaya tidak ada flush otomatis yang
+	 * menulis kolom di luar kendali method ini.</li>
+	 * <li>Muat baris {@link Kegiatan} dari basis data; bila sudah tidak ada, berhenti tanpa
+	 * kesalahan.</li>
+	 * <li>Muat cicilan dan detail kegiatan yang aktif menurut teks daftar yang diberikan.</li>
+	 * <li>Bangun ulang {@code bulans} ({@link #bangunRekapPembayaran(java.util.List)}) dan
+	 * {@code tagihans} ({@code bangunRekapTagihan} dengan {@code live=false} dan
+	 * {@code validasiItemAsing=false}), lalu hitung {@code tagihan}, {@code dibayar}, dan
+	 * {@code persentase}.</li>
+	 * <li>Salin hasilnya ke object {@code kegiatan} MILIK PEMANGGIL — perlu karena penulisan
+	 * memakai bulk-update HQL yang tidak menyegarkan instance mana pun.</li>
+	 * <li>Bila {@link #databaseSudahSama(Session, Long, Kegiatan, String, String)} menyatakan
+	 * tidak ada perubahan, selesai tanpa membuka transaksi sama sekali (idempoten dan hemat lock).</li>
+	 * <li>Buka transaksi, longgarkan {@code statement_timeout} ke 300 detik dan
+	 * {@code lock_timeout} ke 120 detik untuk transaksi ini saja, ambil
+	 * {@code pg_advisory_xact_lock} agar penulisan juga terserialisasi LINTAS node JVM, jalankan
+	 * {@link #HQL_UPDATE_KEGIATAN}, lalu commit.</li>
+	 * </ol>
+	 *
+	 * <p><b>Mengapa timeout dilonggarkan lewat SQL, bukan {@code Query.setTimeout}:</b>
+	 * {@code setTimeout} memakai {@code Statement.cancel()} yang oleh PostgreSQL dilaporkan sebagai
+	 * pembatalan atas permintaan pengguna sehingga sulit dibedakan dari kegagalan sungguhan.
+	 * Advisory lock dibungkus CTE dan dikembalikan sebagai skalar INTEGER karena tipe {@code void}
+	 * PostgreSQL tidak dikenali auto-discovery Hibernate 3.</p>
+	 *
+	 * <p>Setelah {@link #MAX_RETRY} kegagalan, kesalahan hanya dilaporkan ke admin dan kolom
+	 * denormalisasi dibiarkan basi — konsisten dengan sifatnya sebagai data turunan yang selalu
+	 * dapat dibangun ulang.</p>
+	 *
+	 * @param kegiatan            kegiatan sasaran (instance milik pemanggil, akan disinkronkan).
+	 * @param cicilansBaru        nilai kolom {@code cicilans} yang akan ditulis.
+	 * @param detailKegiatansBaru nilai kolom {@code detailKegiatans} yang akan ditulis.
+	 */
 	private static void eksekusiUpdateDenganRetryTerkunci(Kegiatan kegiatan, String cicilansBaru,
 			String detailKegiatansBaru) {
 		Long idKegiatan = kegiatan.getId();
@@ -1855,6 +1958,22 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Membandingkan ketujuh kolom denormalisasi yang tersimpan di basis data dengan nilai yang
+	 * hendak ditulis, memakai {@link #isSama(Object, Object)} agar angka dibandingkan dengan
+	 * toleransi. Bila seluruhnya sama, pemanggil melewati transaksi penulisan sepenuhnya.
+	 *
+	 * <p>Inilah yang membuat penulisan berulang bersifat idempoten dan tidak menimbulkan kontensi
+	 * lock yang tidak perlu saat sinkronisasi massal. Kegagalan query dipetakan ke {@code false}
+	 * (anggap berbeda) sehingga kesalahan pemeriksaan tidak sampai membatalkan penulisan yang sah.</p>
+	 *
+	 * @param session            session aktif milik pemanggil.
+	 * @param idKegiatan         id kegiatan yang diperiksa.
+	 * @param kegiatan           instance berisi nilai hasil hitung yang akan ditulis.
+	 * @param cicilansBaru       nilai kolom {@code cicilans} yang akan ditulis.
+	 * @param detailKegiatansBaru nilai kolom {@code detailKegiatans} yang akan ditulis.
+	 * @return {@code true} bila basis data sudah identik dengan nilai yang hendak ditulis.
+	 */
 	private static boolean databaseSudahSama(Session session, Long idKegiatan, Kegiatan kegiatan, String cicilansBaru,
 			String detailKegiatansBaru) {
 		try {
@@ -1873,6 +1992,17 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Memuat {@link CicilanPembayaran} berdasarkan daftar id, dipecah menjadi beberapa query
+	 * berukuran maksimum {@link #MAX_IN_CLAUSE_SIZE} agar klausa {@code IN (...)} tidak melampaui
+	 * batas parameter bind maupun menghasilkan rencana eksekusi yang buruk.
+	 *
+	 * <p>Urutan hasil mengikuti urutan pengembalian tiap potongan, bukan urutan {@code ids}.</p>
+	 *
+	 * @param session session aktif; {@code null} menghasilkan daftar kosong.
+	 * @param ids     daftar id; {@code null}/kosong menghasilkan daftar kosong.
+	 * @return daftar cicilan; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	private static List<CicilanPembayaran> loadCicilanByIds(Session session, List<Long> ids) {
 		List<CicilanPembayaran> result = new ArrayList<CicilanPembayaran>();
@@ -1887,6 +2017,14 @@ public class KegiatanPersistenceHelper {
 		return result;
 	}
 
+	/**
+	 * Padanan {@link #loadCicilanByIds(Session, java.util.List)} untuk {@link DetailKegiatan},
+	 * dengan pemecahan potongan yang sama.
+	 *
+	 * @param session session aktif; {@code null} menghasilkan daftar kosong.
+	 * @param ids     daftar id; {@code null}/kosong menghasilkan daftar kosong.
+	 * @return daftar detail kegiatan; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	private static List<DetailKegiatan> loadDetailKegiatanByIds(Session session, List<Long> ids) {
 		List<DetailKegiatan> result = new ArrayList<DetailKegiatan>();
@@ -1901,6 +2039,26 @@ public class KegiatanPersistenceHelper {
 		return result;
 	}
 
+	/**
+	 * Membangun rekap pembayaran: JSON {@code bulans} berisi rincian tiap cicilan, dan total
+	 * {@code dibayar}.
+	 *
+	 * <p><b>Kunci JSON</b> berbentuk
+	 * {@code <idItemBiaya>_<realBulan>_<tanggal>-<idCicilan>}, dengan {@code realBulan} bernilai
+	 * {@code "0"} bila cicilan tidak terkait pengaturan bulanan. Karena id cicilan ikut masuk ke
+	 * kunci, setiap pembayaran menempati entri sendiri dan tidak pernah saling menimpa.
+	 *
+	 * <p>Cicilan yang tidak punya item biaya, tanggal, atau id DILEWATI — sehingga baris yang belum
+	 * lengkap tidak ikut menambah total. Item ber-penghitungan
+	 * {@code DIKALI_NILAI_MINUS} dipaksa bernilai negatif ({@code -Math.abs}) agar berlaku sebagai
+	 * pengurang, dan nominal ditulis lewat {@link #safeLong(Double)} yang MEMOTONG pecahan —
+	 * sementara {@code totalDibayar} dijumlahkan dari nilai penuh sebelum pemotongan, sehingga total
+	 * dan penjumlahan rincian dapat berselisih beberapa rupiah pada data berpecahan.</p>
+	 *
+	 * @param listCicilan cicilan aktif; boleh {@code null}.
+	 * @return rekap berisi {@code bulans} dan {@code dibayar}; tidak pernah {@code null}.
+	 * @throws JSONException bila penyusunan objek JSON gagal.
+	 */
 	private static RekapPembayaran bangunRekapPembayaran(List<CicilanPembayaran> listCicilan) throws JSONException { 
 		RekapPembayaran rekap = new RekapPembayaran();
 		JSONObject jsonBulans = new JSONObject();
@@ -1944,6 +2102,21 @@ public class KegiatanPersistenceHelper {
 	// (getDetailBiayaMahasiswa) DAN (2) belum ada pembayaran sama sekali. Item yang sudah
 	// dibayar TIDAK PERNAH disentuh. Dapat dimatikan via konfigurasi 'tagihan_buang_item_asing'.
 	// ============================================================
+	/**
+	 * Membaca gerbang konfigurasi {@code tagihan_buang_item_asing} yang mengaktifkan penyaringan
+	 * item biaya "asing" (tidak berlaku bagi mahasiswa ini dan belum pernah dibayar) saat rekap
+	 * tagihan dibangun. Default-nya AKTIF.
+	 *
+	 * <p>Kegagalan pembacaan konfigurasi dipetakan ke {@code false}, yakni fail-safe ke arah TIDAK
+	 * menyaring: bila status gerbang tidak dapat dipastikan, seluruh item tetap dihitung sehingga
+	 * tidak ada tagihan yang hilang secara diam-diam.</p>
+	 *
+	 * <p><b>Perhatian:</b> {@code Common.getKonfigurasi(nama, default)} pada basis kode ini akan
+	 * MENULIS nilai default ke basis data bila kunci belum ada. Jadi pemanggilan pertama method ini
+	 * dapat membuat baris konfigurasi baru sebagai efek samping.</p>
+	 *
+	 * @return {@code true} bila penyaringan item asing aktif.
+	 */
 	private static boolean buangItemAsingAktif() {
 		try {
 			return ais.database.model.Konfigurasi.AKTIF.equals(Common

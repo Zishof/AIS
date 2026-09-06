@@ -1850,6 +1850,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonCetakKRS.setOrient("vertical");
 		buttonCetakKRS.setVisible(semester > 0);
 		buttonCetakKRS.addEventListener("onClick", new EventListener() {
+			/** Mencetak Kartu Rencana Studi lewat {@link CommonReportHelper#cetakKRS} untuk konteks semester/tahap/semester-pendek/remedial saat ini. Label tombol mengikuti istilah lokal {@code label_krs}. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				CommonReportHelper.cetakKRS(mahasiswa, semester, tahapan, semesterPendek, remedial);
@@ -1861,6 +1862,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonCetakNilai.setOrient("vertical");
 		buttonCetakNilai.setVisible(semester > 0);
 		buttonCetakNilai.addEventListener(Events.ON_CLICK, new EventListener() {
+			/** Mencetak Kartu Hasil Studi/daftar nilai semester ini lewat {@link CommonReportHelper#cetakNilai}. */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				CommonReportHelper.cetakNilai(mahasiswa, semester, tahapan, semesterPendek, remedial, tahunAjaran);
@@ -1879,9 +1881,19 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonHapusSemua.setDisabled(!delete);
 		
 		buttonHapusSemua.addEventListener("onClick", new EventListener() {
+			/** Meminta konfirmasi penghapusan SELURUH baris KRS semester ini. Tombol hanya tampil bila konfigurasi {@code tampilkan_tombol_hapus_semua_di_krs} aktif, semester &gt; 0, dan pengguna bukan dosen maupun mahasiswa; ketersediaannya juga mengikuti hak {@link CommonPrivilages#DELETE}. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin menghapus KRS ini? Data KRS yang telah dihapus tidak dapat dikembalikan.", "Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+					/**
+					 * Bila pengguna memilih OK: menandai jejak aktivitas {@code masukkanData("hapus_semua_krs")},
+					 * lalu untuk setiap baris menghapus {@link Komentar} terkait sebelum menghapus
+					 * {@link Detailperkuliahan}-nya, dan menyegarkan grid lewat timer.
+					 *
+					 * <p><b>Perhatikan:</b> berbeda dari tombol hapus per baris, jalur massal ini tidak
+					 * memeriksa apakah baris sudah disetujui atau sudah bernilai — seluruh baris dihapus apa
+					 * adanya, dan kegagalan pada satu baris menghentikan sisa perulangan.</p>
+					 */
 					@SuppressWarnings("unchecked")
 					@Override
 					public void onEvent(Event event) throws Exception {
@@ -1902,6 +1914,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 								}
 							}
 							Common.createDefaultTimer(new EventListener() {
+								/** Menyegarkan grid setelah penghapusan massal selesai. */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									loadData(true);
@@ -1928,6 +1941,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonUTS.setVisible(isUTSVisible);
 		
 		buttonUTS.addEventListener("onClick", new EventListener() {
+			/** Mencetak kartu ujian tengah semester. Konfigurasi {@code tanya_tombol_cetak_kartu} menentukan apakah pengguna masih ditanya lebih dulu; kunci konfigurasi visibilitas tombol berbeda untuk semester reguler dan semester pendek. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				boolean tanya = Konfigurasi.TIDAK_AKTIF.equals(Common.getKonfigurasi("tanya_tombol_cetak_kartu", Konfigurasi.AKTIF).getNilai());
@@ -1950,6 +1964,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonUAS.setVisible(isUASVisible);
 		
 		buttonUAS.addEventListener("onClick", new EventListener() {
+			/** Mencetak kartu ujian akhir semester; perilaku dan konfigurasinya sejajar dengan tombol UTS. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				boolean tanya = Konfigurasi.TIDAK_AKTIF.equals(Common.getKonfigurasi("tanya_tombol_cetak_kartu", Konfigurasi.AKTIF).getNilai());
@@ -1962,6 +1977,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonAktif.setOrient("vertical");
 		buttonAktif.setVisible(semester > 0);
 		buttonAktif.addEventListener("onClick", new EventListener() {
+			/** Mencetak Surat Keterangan Aktif Kuliah untuk tahun akademik dan jenis semester (ganjil/genap) konteks. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				CommonReportHelper.prosesCetakKetAktif(mahasiswa, tahunAjaran, jenisSemester);
@@ -1972,6 +1988,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		final MyToolbarbuttonConfig buttonKurikulum = new MyToolbarbuttonConfig("Kurikulum", "/img/excel.png");
 		buttonKurikulum.setOrient("vertical");
 		buttonKurikulum.addEventListener("onClick", new EventListener() {
+			/** Membuka laporan "Riwayat Kurikulum" ({@link LaporanKurikulumMahasiswa}) sebagai jendela modal — berguna saat mata kuliah mahasiswa berasal dari beberapa versi kurikulum sekaligus. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				LaporanKurikulumMahasiswa laporanKurikulum = new LaporanKurikulumMahasiswa(mahasiswa, semester);
@@ -1990,6 +2007,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonDownload.setDisabled(!update);
 		buttonDownload.setVisible(semester.equals(0) && Common.getCurrentUser().getMahasiswa() == null);
 		buttonDownload.addEventListener("onClick", new EventListener() {
+			/** Mengunduh berkas Excel berisi baris konversi yang sedang tampil, sebagai templat pengisian nilai massal ({@link PenilaianUtil#downloadPenilaianKonversi}). Hanya tersedia pada mode konversi dan bukan untuk pengguna berperan mahasiswa. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				PenilaianUtil.downloadPenilaianKonversi(detailperkuliahansData);
@@ -2004,6 +2022,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonUpload.setUpload(Common.ukuranFileUpload());
 		
 		buttonUpload.addEventListener("onUpload", new EventListener() {
+			/**
+			 * Mengunggah kembali berkas Excel nilai konversi. Berkas diperiksa lebih dulu oleh
+			 * {@code AmbilDataTugasFileContent.checkFile}, lalu ekstensinya wajib {@code xlsx} (format
+			 * lain ditolak dengan petunjuk penyimpanan ulang). Isi berkas disalin ke direktori
+			 * {@code /temp} aplikasi memakai nama asli unggahan — nama yang sama akan menimpa berkas
+			 * sementara sebelumnya — sebelum diproses {@link PenilaianUtil#uploadPenilaianKonversi}.
+			 * Aliran masuk dan keluar selalu ditutup di blok {@code finally}.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				UploadEvent uploadEvent = (UploadEvent) event;
@@ -2032,6 +2058,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 					PenilaianUtil.uploadPenilaianKonversi(mahasiswa, fileForPenilaian, tbmuser);
 
 					MyMessageboxConfig.showFormatCb("Proses unggah nilai konversi telah berhasil dilakukan. Berkas: {V1}.", "Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, new EventListener() {
+						/** Membangun ulang seluruh layar setelah pengguna menutup pesan sukses, agar nilai konversi hasil unggahan langsung terlihat. */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							display(mahasiswa, tahunAjaran, semester, tahapan, component, keterangan, komentarshtml, ipIpk, sksSksk, catatan, catatanKhs);
