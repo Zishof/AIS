@@ -5100,6 +5100,115 @@ public class TugasMandiriHelper {
 		}
 	}
 
+	/**
+	 * Membangun seluruh isi satu baris pengumpulan tugas: identitas peserta, waktu pengumpulan, sel
+	 * nilai &amp; keterangan, dan tombol unduh berkas.
+	 *
+	 * <p>Metode ini adalah inti tampilan daftar "Telah upload". Ia dipanggil dari dua tempat dengan
+	 * wadah yang berbeda, dan sengaja menerima {@link Component} generik alih-alih {@link Row} agar
+	 * keduanya dapat dilayani:</p>
+	 * <ul>
+	 *   <li>dari {@link DetailTugasFileContentRenderer#render(Row, Object)}, dengan {@code arg0}
+	 *       berupa {@link Row} — setiap komponen yang di-{@code setParent} ke sana menjadi satu sel;</li>
+	 *   <li>dari {@link #reloadTugasFileContent(boolean)}, dengan {@code arg0} berupa {@code Hbox} di
+	 *       dalam kartu "Tugas yang Anda Upload" milik peserta — di sini komponen yang sama tersusun
+	 *       mendatar, bukan sebagai sel tabel.</li>
+	 * </ul>
+	 *
+	 * <h3>Bagian 1 — identitas peserta</h3>
+	 * <p>{@link TugasFileContent} menyimpan pemilik berkas pada empat kolom id terpisah
+	 * ({@code mahasiswa}, {@code siswa}, {@code biodataCalonMahasiswa}, {@code calonSiswa}), sehingga
+	 * langkah pertama adalah memulihkan entitasnya lewat
+	 * {@code ConstantValues.ambil(NamaKelas, id)}. Cabang yang dipakai berurutan: siswa lebih dahulu,
+	 * lalu mahasiswa, dan cabang terakhir menganggap pemiliknya calon mahasiswa. Cabang terakhir itu
+	 * bersifat penampung sisa — ia tidak menguji {@link CalonSiswa}, sehingga berkas milik calon siswa
+	 * akan jatuh ke sana dan menghasilkan entitas {@code null} yang ditangani dengan label kosong.</p>
+	 *
+	 * <p>Setiap cabang melakukan tiga hal: memanggil
+	 * {@code tugasFileContent.ubahRealNameSesuaiDenganNIM(entitas)} agar nama berkas yang tersimpan
+	 * diberi awalan NIM/nomor induk pemiliknya, mengambil nama tampilan berkas lewat
+	 * {@code ambilRealNameSesuaiDenganNIM(entitas)}, lalu menyusun kartu berisi foto profil hasil
+	 * {@link #fotoKartuUpload(ais.database.model.GeneralValueObject)} berdampingan dengan label
+	 * "nomor induk / nama".</p>
+	 *
+	 * <p><strong>Baris kontak.</strong> Di bawah label nama dapat muncul baris chip berisi nomor HP
+	 * dan alamat surel peserta, hasil {@code tampilkanHp()} dan {@code tampilkanEmail()} milik
+	 * entitas, yang kemudian dibersihkan dari chip kosong oleh
+	 * {@link #rapikanBarisKontak(Component)}. Perhatikan bahwa syarat kemunculannya tidak seragam:
+	 * cabang mahasiswa memasangnya hanya bila field {@link #mahasiswa} bernilai {@code null},
+	 * sedangkan cabang siswa dan cabang calon mahasiswa memasangnya tanpa syarat. Karena
+	 * {@link #mahasiswa} berasal dari argumen konstruktor dan bukan dari peran pengguna yang login,
+	 * syarat itu tidak setara dengan "yang melihat adalah pengelola".</p>
+	 *
+	 * <h3>Bagian 2 — waktu pengumpulan</h3>
+	 * <p>Sebuah {@link Label} berisi {@code uploadDate} yang diformat dengan nama hari dari
+	 * {@code SmartDateTimeUtil.getDayString} ditambah format tanggal standar. Bila {@code uploadDate}
+	 * kosong, label dibiarkan kosong sehingga kolom tetap sejajar.</p>
+	 *
+	 * <h3>Bagian 3 — sel "Nilai &amp; Keterangan"</h3>
+	 * <p>Isi sel ini ditentukan tiga cabang yang saling eksklusif.</p>
+	 * <ol>
+	 *   <li><strong>Peserta ditandai tidak perlu ikut.</strong> Bila id pemilik berkas tercantum pada
+	 *       {@code tugas.getMhsYgTidakIkut()}, sel hanya berisi keterangan merah bahwa yang
+	 *       bersangkutan tidak perlu mengumpulkan dan tidak perlu dinilai. Cabang ini sengaja berlaku
+	 *       juga ketika penandaan dilakukan <em>setelah</em> peserta terlanjur mengunggah berkas.</li>
+	 *   <li><strong>Pengelola ({@code !peserta}).</strong> Sel berisi ringkasan read-only —
+	 *       baris keterangan bila ada, lalu satu baris nilai untuk setiap Sub-CPMK pada mode OBE atau
+	 *       satu baris "Nilai" pada mode non-OBE — ditambah tombol "Edit Nilai". Tombol itu membuka
+	 *       jendela modal berisi kotak keterangan dan satu kotak nilai per komponen. Menekan Simpan di
+	 *       dalam popup menulis nilai ke {@link #jsonObjectTugas}, lalu <em>langsung</em> menyimpannya
+	 *       ke basis data: {@code session.refresh(tugas)}, invalidasi cache berkas, penulisan
+	 *       {@code setKeteranganNilai(jsonObjectTugas.toString())}, dan {@code Common.refreshUpdate}.
+	 *       Setelah tersimpan, ringkasan di baris dibangun ulang di tempat tanpa memuat ulang seluruh
+	 *       grid. Bila penyimpanan gagal, popup tetap terbuka dan menampilkan pesan merah.</li>
+	 *   <li><strong>Peserta.</strong> Sel hanya menampilkan nilai sebagai teks read-only, dan hanya
+	 *       bila baris ini memang milik mahasiswa yang sedang login. Untuk baris milik peserta lain
+	 *       sel dibiarkan kosong.</li>
+	 * </ol>
+	 *
+	 * <p><strong>Sumber angka nilai.</strong> Pada mode non-OBE, nilai dibaca dari kunci
+	 * {@code <kunci>_nilai} pada {@link #jsonObjectTugas} dan jatuh kembali ke kolom
+	 * {@code tugasFileContent.getNilai()} bila kunci itu belum ada — jalur mundur bagi data lama yang
+	 * dinilai sebelum penyimpanan berbasis JSON diberlakukan. Pola yang sama berlaku untuk keterangan,
+	 * yang jatuh kembali ke {@code tugasFileContent.getKeterangan()}. Pada mode OBE tidak ada jalur
+	 * mundur: nilai yang tidak ditemukan di JSON dianggap {@code 0.0}.</p>
+	 *
+	 * <h3>Bagian 4 — tombol unduh berkas</h3>
+	 * <p>Tombol bergambar ikon sesuai jenis berkas, berlabel nama berkas. Visibilitasnya adalah
+	 * satu-satunya gerbang berbasis peran yang sepenuhnya fail-closed di metode ini: tombol tampil
+	 * bila {@link #tbmuser} bukan pelajar sama sekali, ATAU bila salah satu identitas pelajar pada
+	 * {@link #tbmuser} cocok persis dengan kolom pemilik yang bersesuaian pada baris ini. Dengan
+	 * begitu seorang peserta tidak dapat mengunduh berkas peserta lain walaupun barisnya terlihat di
+	 * grid.</p>
+	 *
+	 * <p><strong>Perilaku klik.</strong> Tiga jalur, diperiksa berurutan: berkas yang sudah dipindah
+	 * ke Google Drive ditampilkan lewat {@code tampilGDrive}; berkas berupa tautan luar dipakai apa
+	 * adanya bila diawali {@code http}; selain itu tautan internal dibangun lewat
+	 * {@code createLinkUri()}. Berkas yang dapat dipratinjau dibuka di jendela ZK
+	 * ({@code Common.displayWindow}), sedangkan sisanya diarahkan ke tab peramban baru. Bila tidak ada
+	 * tautan yang dapat dibentuk, ditampilkan pesan bahwa berkas tidak ditemukan.</p>
+	 *
+	 * <p><strong>Catatan tentang {@code hbox.setVisible(...)}.</strong> Wadah tombol unduh diberi
+	 * syarat {@code mahasiswa == null || mahasiswa.getId().equals(tugasFileContent.getMahasiswa())}.
+	 * Variabel {@code mahasiswa} di titik itu adalah entitas <em>pemilik baris</em> yang baru saja
+	 * dipulihkan dari {@code tugasFileContent.getMahasiswa()}, bukan pengguna yang login — sehingga
+	 * ruas kedua selalu benar dan syarat itu efektif selalu terpenuhi. Gerbang yang benar-benar
+	 * bekerja adalah {@code setVisible} pada tombol unduh itu sendiri.</p>
+	 *
+	 * <p><strong>Efek samping yang perlu diketahui.</strong> Metode ini bukan murni presentasi:
+	 * {@code ubahRealNameSesuaiDenganNIM} berpotensi mengubah state entitas berkas, dan tombol Simpan
+	 * pada popup menulis ke basis data. Karena itu metode ini harus dijalankan pada event thread ZK
+	 * dengan sesi Hibernate dan konteks pengguna yang aktif.</p>
+	 *
+	 * @param tugasFileContent baris pengumpulan yang akan digambarkan.
+	 * @param obeFormatNilais  daftar Sub-CPMK yang berlaku; diterima sebagai argumen namun untuk
+	 *                         penentuan mode metode ini membaca {@link #obeFormatNilais} milik
+	 *                         instance, bukan argumen ini.
+	 * @param arg0             wadah tujuan — {@link Row} pada grid, atau {@code Hbox} pada kartu
+	 *                         status peserta.
+	 * @throws Exception bila pemulihan entitas peserta, pembangunan komponen, atau pembacaan berkas
+	 *                   gagal.
+	 */
 	private void displayRow(final TugasFileContent tugasFileContent, List<FormatNilai> obeFormatNilais, Component arg0)
 			throws Exception {
 
@@ -5519,10 +5628,74 @@ public class TugasMandiriHelper {
 		 */
 		private List<FormatNilai> obeFormatNilais;
 
+		/**
+		 * Membuat renderer baris untuk satu siklus pemuatan grid pengumpulan.
+		 *
+		 * <p>Konstruktor ini hanya menyimpan rujukan daftar Sub-CPMK yang berlaku saat renderer dibuat.
+		 * Ia tidak menyentuh basis data, tidak membaca pengguna yang login, dan tidak membangun komponen
+		 * apa pun — seluruh pekerjaan baru terjadi ketika ZK memanggil
+		 * {@link #render(Row, Object)} untuk setiap baris yang terlihat.</p>
+		 *
+		 * <p><strong>Instance baru pada setiap pemuatan.</strong>
+		 * {@link TugasMandiriHelper#reloadTugasFileContent(boolean)} selalu membuat renderer baru
+		 * sebelum memasang model, bukan memakai ulang renderer lama. Dengan begitu perubahan mode
+		 * penilaian — misalnya pengelola baru saja mencentang Sub-CPMK pada dialog ubah instruksi —
+		 * langsung tercermin pada baris yang dirender berikutnya, tanpa perlu jalur pembaruan
+		 * tersendiri.</p>
+		 *
+		 * <p><strong>Kelas dalam non-statis.</strong> Karena {@link DetailTugasFileContentRenderer}
+		 * adalah kelas dalam biasa, setiap instance memegang rujukan tersembunyi ke instance
+		 * {@link TugasMandiriHelper} yang melahirkannya. Rujukan itulah yang membuat
+		 * {@link #render(Row, Object)} dapat membaca {@link TugasMandiriHelper#peserta} dan memanggil
+		 * {@link TugasMandiriHelper#displayRow(TugasFileContent, List, Component)}. Konsekuensinya,
+		 * renderer ini terikat pada satu desktop ZK dan tidak boleh disimpan atau dibagikan lintas
+		 * sesi.</p>
+		 *
+		 * @param obeFormatNilais daftar Sub-CPMK yang dinilai pada tugas ini; kosong berarti mode
+		 *                        penilaian nilai tunggal (non-OBE).
+		 */
 		public DetailTugasFileContentRenderer(List<FormatNilai> obeFormatNilais) {
 			this.obeFormatNilais = obeFormatNilais;
 		}
 
+		/**
+		 * Merender satu baris grid pengumpulan tugas.
+		 *
+		 * <p>Dipanggil oleh ZK untuk setiap elemen model yang perlu ditampilkan. Argumen {@code arg1}
+		 * selalu berupa {@link TugasFileContent} karena model grid dibangun dari
+		 * {@code new SimpleListModel(pertemuanFileContent)} yang isinya sudah homogen; tidak ada
+		 * pemeriksaan tipe defensif di sini.</p>
+		 *
+		 * <p><strong>Tugas metode ini hanya dua.</strong> Pertama, menyetel perataan vertikal ke atas
+		 * dan kelas gaya {@code ais-tugas-upload-row} pada baris. Kedua, memasang indikator status
+		 * penilaian — dan itu pun hanya untuk pengelola. Seluruh isi sel didelegasikan sepenuhnya ke
+		 * {@link TugasMandiriHelper#displayRow(TugasFileContent, List, Component)}.</p>
+		 *
+		 * <p><strong>Indikator warna.</strong> Bila {@link TugasMandiriHelper#peserta} bernilai
+		 * {@code false}, baris diberi garis tepi kiri setebal 4 piksel: hijau ({@code #16a34a}) bila
+		 * {@code tugasFileContent.getNilai()} tidak {@code null} dan lebih besar dari {@code 0.1},
+		 * merah ({@code #dc2626}) bila tidak. Garis ini memungkinkan pengelola memindai daftar panjang
+		 * dan langsung melihat siapa yang belum dinilai. Bagi peserta, indikator sengaja tidak dipasang
+		 * karena status penilaian peserta lain bukan urusannya.</p>
+		 *
+		 * <p><strong>Perhatian: sumber angka indikator berbeda dari sumber angka yang ditampilkan.</strong>
+		 * Indikator ini membaca kolom {@code nilai} pada baris {@link TugasFileContent}, sedangkan
+		 * angka nilai yang benar-benar ditampilkan di sel "Nilai &amp; Keterangan" dibaca dari dokumen
+		 * JSON {@link TugasMandiriHelper#jsonObjectTugas}. Keduanya tidak selalu sinkron: nilai yang
+		 * disimpan lewat popup "Edit Nilai" hanya menulis dokumen JSON. Akibatnya sebuah baris dapat
+		 * menampilkan nilai yang sudah terisi namun tetap bergaris merah sampai jalur lain menuliskan
+		 * kolom {@code nilai}. Batas {@code 0.1} dipakai — bukan {@code 0} — agar nilai nol yang berarti
+		 * "belum diisi" tidak terbaca sebagai sudah dinilai.</p>
+		 *
+		 * <p>Metode ini tidak menangkap pengecualian. Kegagalan pada
+		 * {@link TugasMandiriHelper#displayRow(TugasFileContent, List, Component)} akan naik ke ZK dan
+		 * menggagalkan render baris tersebut; isolasi kegagalan pemuatan dilakukan satu lapis di atas,
+		 * di dalam {@link TugasMandiriHelper#reloadTugasFileContent(boolean)}.</p>
+		 *
+		 * @param arg0 baris ZK yang akan diisi komponen.
+		 * @param arg1 elemen model, selalu berupa {@link TugasFileContent}.
+		 * @throws Exception bila pembangunan komponen sel gagal.
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

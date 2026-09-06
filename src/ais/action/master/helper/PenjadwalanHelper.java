@@ -386,6 +386,20 @@ public class PenjadwalanHelper {
 		private Integer perteKe = 0;
 
 		/**
+		  * Membuat renderer untuk satu kali pemuatan grid agenda. Konstruktor hanya menyimpan kedua
+		  * dependensinya — tidak ada query maupun akses basis data di sini; seluruh pekerjaan terjadi pada
+		  * {@link #render(Row, Object)} yang dipanggil ZK per baris.
+		  *
+		  * <p><b>Satu instance untuk satu kali muat.</b> Pencacah nomor pertemuan ({@code perteKe}) dan
+		  * penanda baris terakhir yang disentuh ({@code pertId}) adalah state per-instance yang tidak pernah
+		  * di-reset, sehingga renderer TIDAK boleh dipakai ulang untuk pemuatan berikutnya — penomorannya
+		  * akan melanjutkan dari angka sebelumnya. {@link PenjadwalanHelper#onSearchDefault(Event)} karena
+		  * itu selalu membuat instance baru setiap kali grid dimuat ulang.</p>
+		  *
+		  * <p>Pengguna yang sedang login diambil sendiri lewat {@code Common.getCurrentUser()} saat instance
+		  * dibuat, bukan lewat parameter — jadi renderer harus dibuat pada thread permintaan ZK yang
+		  * konteks penggunanya aktif, bukan pada thread latar.</p>
+		  *
 		 * @param perkuliahan   perkuliahan pemilik pertemuan-pertemuan yang akan dirender
 		 * @param eventListener dipanggil setiap kali suatu aksi pada baris (edit tanggal, hapus,
 		 *                      naik/turun urutan, absen, dst.) mengubah data, agar pemanggil memuat

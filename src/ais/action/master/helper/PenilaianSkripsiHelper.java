@@ -114,6 +114,71 @@ import ais.ui.util.WaktuUtil;
  * sendiri (dicek lewat perbandingan id dosen login terhadap dosen baris). Nilai dapat disembunyikan
  * dari mahasiswa lewat flag {@code Skripsi#getSembunyikanNilaiKemahasiswa()}.
  * </p>
+ *
+ * <h3>Kesimpulan atas "bug slot dosen 1/2 tertukar"</h3>
+ * <p>
+ * Bug penamaan yang sudah dikonfirmasi pada entity {@link Skripsi} dan
+ * {@link ais.database.model.FormatNilaiSkripsi} <b>memang terpapar di helper ini</b> — kelas inilah
+ * tempat pasangan silang itu dirakit dan ditampilkan ke pengguna. Namun helper ini <b>tidak
+ * menambah kesalahan baru</b>: ia memakai pertukaran itu secara konsisten. Pemetaan yang sama
+ * diulang di <b>empat</b> tempat pada berkas ini —
+ * {@link #nilaiDosen(CommonVO)}, {@link #persenDosen(CommonVO)},
+ * {@link DetailKelompokKknRenderer#render(Row, Object)}, dan pembangun parameter "Berita Acara" di
+ * dalam {@link #display(Skripsi, Component, EventListener)} — dan keempatnya memasangkan label
+ * {@code dosen1} dengan {@code nilai_ketua_sidang} + {@code prosentasi_nilai_ketua_sidang}, serta
+ * {@code dosen2} dengan {@code nilai_pembimbing} + {@code prosentasi_nilai_pembimbing}. Pemetaan
+ * itu sama persis dengan yang dipakai {@link Skripsi#dataDosen(boolean)} saat mengambil
+ * <i>orang</i>-nya (slot 1 = kolom {@code pembimbing}, slot 2 = kolom {@code ketua_sidang}), dengan
+ * {@link Skripsi#simpanDosen(Dosen, String)} saat menyimpan penugasan, dan dengan
+ * {@link Skripsi#cariNilaiDariDosen} saat menulis nilai.
+ * </p>
+ * <p>
+ * Artinya: <b>tidak ada nilai yang tertukar antar dosen</b>. Yang tertukar semata-mata nama kolom
+ * basis data terhadap peran default yang diwakilinya. Risiko nyatanya jatuh pada pembacaan langsung
+ * tabel {@code skripsi}/{@code format_nilai_skripsi} di luar kode ini — laporan ad-hoc, query SQL
+ * manual, integrasi eksternal — dan pada siapa pun yang "merapikan" salah satu dari empat salinan
+ * di atas tanpa merapikan sisanya: begitu satu salinan diluruskan sendirian, layar dan berita acara
+ * akan menampilkan nilai milik dosen yang salah. Perbaikan sesungguhnya menuntut migrasi data dan
+ * penggantian serentak di kedua entity beserta seluruh pemakainya. Bandingkan
+ * {@code PenilaianProposalSkripsiHelper} — kembaran untuk seminar proposal — yang penamaannya
+ * <b>bersih</b> ({@code dosen1} &rarr; {@code nilaiDosen1} &rarr; {@code prosentasiNilaiPembimbing1});
+ * jangan menyalin asumsi penamaan antar-kedua modul.
+ * </p>
+ * <p>
+ * Satu ketimpangan yang <i>tidak</i> saling meniadakan: {@link #populateKomponen(String)} tidak
+ * punya cabang untuk label {@code dosen21} (Pembimbing III), sehingga peran itu jatuh ke nilai awal
+ * {@code "dosen1"} dan melihat daftar komponen penilaian milik slot pertama — baik saat entri nilai
+ * maupun saat mencetak blanko.
+ * </p>
+ *
+ * <h3>Ringkasan gerbang hak akses</h3>
+ * <p>
+ * Semua pembatasan di kelas ini dilakukan pada saat <b>membangun komponen</b> — kontrol yang tidak
+ * boleh dipakai tidak dipasang ke halaman (diganti label), sehingga ZK tidak pernah mengirimkan
+ * event kepadanya. Tidak ada listener yang memeriksa ulang hak di dalam dirinya sendiri. Pola ini
+ * memadai selama tiap kontrol memang dipasang bersyarat, tetapi rapuh terhadap perubahan yang
+ * memasang kontrol tanpa syarat.
+ * </p>
+ * <ul>
+ * <li><b>Entri nilai per komponen</b> ({@link #init(Dosen, String)}) hanya editable bila pengguna
+ * bukan mahasiswa <i>dan</i> (bukan dosen sama sekali <i>atau</i> dosen yang identik dengan pemilik
+ * baris). Konsekuensinya: setiap staf/admin non-dosen dapat mengisi nilai atas nama dosen mana pun,
+ * dan tidak ada jejak audit yang membedakan nilai yang diisi dosen sendiri dari yang diisi staf.
+ * Dosen hanya bisa menilai perannya sendiri.</li>
+ * <li><b>Data administratif sidang</b> memakai syarat yang <i>tidak seragam</i>: sebagian kontrol
+ * ("Telah Sidang", jadwal, lokasi) menuntut bukan-mahasiswa <b>dan</b> bukan-siswa, sebagian lagi
+ * ("Catatan Penting", "Tanpa Perbaikan") hanya bukan-mahasiswa. Pengguna yang tertaut data siswa
+ * karena itu dapat mengubah sebagian field saja. Pemeriksaan sejenis di {@link #init(Dosen, String)}
+ * juga hanya menyebut mahasiswa, tidak menyebut siswa.</li>
+ * <li><b>Mengganti dosen penilai</b> ({@link #bolehUbahDosenPenilai()}) menuntut bukan-mahasiswa dan
+ * bukan-dosen, jadi khusus staf/admin.</li>
+ * <li><b>Memilih KRS tujuan, format nilai, dan sinkronisasi nilai kelas</b> menuntut
+ * bukan-mahasiswa, bukan-siswa, dan bukan-dosen.</li>
+ * <li><b>"Reset" seluruh nilai</b> hanya <i>disembunyikan</i> dari non-admin lewat
+ * {@code setVisible}; "Hitung Ulang Semua Nilai" bahkan tidak dibatasi sama sekali.</li>
+ * <li><b>Tidak ada pembatasan cakupan</b> berdasarkan program studi/fakultas/satuan kerja: siapa pun
+ * yang bisa membuka layar suatu skripsi memperoleh hak yang sama atas skripsi tersebut.</li>
+ * </ul>
  */
 public class PenilaianSkripsiHelper implements DataLoader {
 
@@ -905,6 +970,21 @@ public class PenilaianSkripsiHelper implements DataLoader {
 	 * ({@code dosen1}..{@code dosen7}) yang dicek ditentukan dari kecocokan {@code jenis} terhadap
 	 * label peran pada {@link ais.database.model.FormatNilaiSkripsi} skripsi ini.
 	 *
+	 * <p><b>Celah pemetaan yang dicatat apa adanya:</b> rantai {@code if/else} penentu {@code kolom}
+	 * hanya menangani {@code dosen1}..{@code dosen7} dan <b>melewatkan {@code dosen21}</b>
+	 * (Pembimbing III). Label itu karena itu tidak pernah cocok, dan variabel {@code kolom} bertahan
+	 * pada nilai awalnya {@code "dosen1"} — sehingga Pembimbing III selalu melihat (dan menilai, dan
+	 * mencetak blanko atas) daftar komponen milik slot pertama, bukan miliknya sendiri. Berbeda dari
+	 * penamaan tertukar slot 1/2 yang konsisten dan karenanya tidak berdampak, celah ini adalah
+	 * ketimpangan sepihak. Dicatat, tidak diperbaiki di sini karena memperbaikinya mengubah komponen
+	 * mana yang muncul pada data yang sudah berjalan.</p>
+	 *
+	 * <p>Kueri memakai {@code Projections.groupProperty} untuk membuang duplikat komponen yang muncul
+	 * lewat lebih dari satu baris penghubung. Komponen dianggap berlaku bila kolom kebolehan perannya
+	 * bernilai {@code true} <i>atau</i> {@code null}, dan bila {@code aktif} bernilai {@code true}
+	 * <i>atau</i> {@code null} — jadi kolom yang belum pernah diisi bersikap permisif, bukan
+	 * menutup.</p>
+	 *
 	 * @param jenis label peran dosen (mis. {@code FormatNilaiSkripsi#getDosen1()})
 	 * @return peta komponen induk ke daftar komponen anaknya (terurut alami/{@code Comparable})
 	 */
@@ -975,6 +1055,20 @@ public class PenilaianSkripsiHelper implements DataLoader {
 	 * kotak catatan dosen dan lampiran per peran. Footer menampilkan total nilai peran ini beserta
 	 * nilai hurufnya. Tombol "Hitung Ulang" memaksa kalkulasi ulang paksa (bypass cache); tombol
 	 * "Selesai" menutup window dan memuat ulang grid pemanggil.
+	 *
+	 * <p><b>Gerbang hak edit.</b> Kotak isian hanya dibuat bila pengguna login BUKAN mahasiswa DAN
+	 * (bukan dosen sama sekali ATAU dosen yang id-nya sama dengan {@code dosen} baris ini); selain
+	 * itu yang tampil hanyalah label read-only. Dua konsekuensi yang perlu disadari: (1) pengguna
+	 * non-mahasiswa yang tidak tertaut data dosen — yaitu seluruh staf/admin — lolos syarat kedua,
+	 * sehingga dapat mengisi nilai atas nama dosen mana pun, dan tidak ada apa pun yang mencatat
+	 * bahwa nilai tersebut bukan diisi oleh dosennya; (2) syaratnya hanya menyebut mahasiswa, tidak
+	 * menyebut siswa, berbeda dari {@link #bolehKelolaNilai()} yang menutup keduanya. Method ini
+	 * sendiri tidak memeriksa apa pun sebelum membuka window — pembatasan sepenuhnya berupa "kotak
+	 * isian tidak dibuat".</p>
+	 *
+	 * <p>Nilai yang diketik tidak divalidasi terhadap batas 0-100 maupun terhadap bobot komponen,
+	 * dan setiap perubahan langsung tersimpan sampai ke {@link Detailperkuliahan} tanpa tombol
+	 * Simpan.</p>
 	 *
 	 * @param dosen dosen yang nilainya dientri
 	 * @param jenis peran dosen tersebut (label dari {@code FormatNilaiSkripsi})
