@@ -70,7 +70,11 @@ final class SalesInventoryDbfImportTenant {
 			//   hutang_legacy  <- Tran_Hut.DBF
 			//   akun_legacy    <- account.dbf   -- ke {S}.akun, sesuai keputusan akuntansi
 			//                                      se-tenant
-			"opname", "piutang_legacy", "hutang_legacy", "akun_legacy" };
+			"opname", "piutang_legacy", "hutang_legacy", "akun_legacy",
+			// Turunan, bukan data baru: membangun ulang saldo_stok dari mutasi_stok.
+			// Tanpa langkah ini layar Persediaan kosong bagi SETIAP pengguna bertoko,
+			// sebab penyaring toko menuntut adanya baris saldo_stok.
+			"saldo_stok" };
 
 	static boolean jenisDidukung(String jenis) {
 		for (int i = 0; i < JENIS_DIDUKUNG.length; i++) {
@@ -428,6 +432,58 @@ final class SalesInventoryDbfImportTenant {
 	 * Kepala opname per tanggal. {@code dataopn.dbf} tidak punya nomor dokumen, jadi nomornya
 	 * dibentuk dari tanggalnya — sekaligus menjadi penjaga idempotensinya.
 	 */
+	/**
+	 * Membangun ulang {@code saldo_stok} dari {@code mutasi_stok}, per (produk, gudang).
+	 *
+	 * <p>Dijalankan sebagai langkah penutup impor. Isinya murni turunan, jadi aman diulang:
+	 * baris lama dibuang lebih dulu, bukan ditambahkan.</p>
+	 *
+	 * <p>Produk yang saldonya NOL tetap dibuatkan barisnya. Itu disengaja: baris
+	 * {@code saldo_stok} adalah pernyataan "gudang ini menangani produk ini", dan produk yang
+	 * kebetulan habis tidak boleh lenyap dari layar persediaan — justru itu yang ingin dilihat.</p>
+	 */
+	static String[] bangunSaldoStok(String skema) {
+		return new String[] {
+			"DELETE FROM " + skema + "saldo_stok",
+			"INSERT INTO " + skema + "saldo_stok"
+					+ " (produk_id, gudang_id, kuantitas, nilai, dihitung_pada, dibuat_pada, oleh)"
+					+ " SELECT m.produk_id, m.gudang_id,"
+					+ " COALESCE(SUM(m.arah * m.kuantitas),0) AS kuantitas,"
+					+ " COALESCE(SUM(m.arah * m.kuantitas),0)"
+					+ " * COALESCE((SELECT p.harga_beli_terakhir FROM " + skema + "produk p"
+					+ " WHERE p.id = m.produk_id),0) AS nilai,"
+					+ " LOCALTIMESTAMP, LOCALTIMESTAMP, 'impor-legacy'"
+					+ " FROM " + skema + "mutasi_stok m"
+					+ " WHERE m.gudang_id IS NOT NULL"
+					+ " GROUP BY m.produk_id, m.gudang_id"
+		};
+	}
+
+	/** Gudang tunggal milik satu toko, atau tidak ada bila jumlahnya bukan satu. */
+	static String gudangTunggalToko(String skema) {
+		return "SELECT g.id FROM " + skema + "gudang g WHERE g.toko_id = ?"
+				+ " AND COALESCE(g.aktif, true) = true";
+	}
+
+	/**
+	 * Baris saldo NOL untuk produk yang belum pernah punya mutasi.
+	 *
+	 * <p>Tanpa ini, produk yang masuk lewat master tetapi tidak pernah dibeli maupun dijual
+	 * tidak muncul di layar Persediaan bagi pengguna bertoko — pada data UAT cmnmedika 70 dari
+	 * 626 produk. Aplikasi lama menampilkan seluruh 626.</p>
+	 *
+	 * <p>{@code gudangId} disambung sebagai literal karena sudah tervalidasi pemanggil sebagai
+	 * hasil kueri, bukan masukan pengguna.</p>
+	 */
+	static String saldoNolProdukTanpaMutasi(String skema, long gudangId) {
+		return "INSERT INTO " + skema + "saldo_stok"
+				+ " (produk_id, gudang_id, kuantitas, nilai, dihitung_pada, dibuat_pada, oleh)"
+				+ " SELECT p.id, " + gudangId + ", 0, 0, LOCALTIMESTAMP, LOCALTIMESTAMP, 'impor-legacy'"
+				+ " FROM " + skema + "produk p"
+				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + "saldo_stok ss"
+				+ " WHERE ss.produk_id = p.id)";
+	}
+
 	static String sisipOpnameKepala(String skema) {
 		return "INSERT INTO " + skema + "stok_opname"
 				+ " (nomor_dokumen, tanggal, gudang_id, status, keterangan, diposting,"

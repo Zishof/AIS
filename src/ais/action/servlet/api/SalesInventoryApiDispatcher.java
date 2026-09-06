@@ -49,6 +49,9 @@ public final class SalesInventoryApiDispatcher {
 			if (tctx != null) {
 				ctx.isiTenant(tctx);
 			}
+			// Nama toko diisi DI SINI, sesudah konteks tenant terpasang -- lihat
+			// lengkapiNamaToko untuk alasan mengapa bukan di resolver.
+			lengkapiNamaToko(ctx);
 		} catch (ais.service.tenant.TenantAccessException e) {
 			hasil.put("status", "error");
 			// Kunci "kode", bukan "code": ApiClient Flutter membaca json['kode'] dan
@@ -280,6 +283,52 @@ public final class SalesInventoryApiDispatcher {
 	 * penyatuan menjadi satu Session per request adalah pekerjaan lanjutan §9.4 yang menuntut
 	 * perubahan tanda tangan seluruh helper.</p>
 	 */
+	/**
+	 * Mengisi {@code ctx.tokoNama} bila tokonya sudah diketahui tetapi namanya belum.
+	 *
+	 * <p>{@code isiTokoDariPedagangAtauMultiToko} mengisi nama hanya pada cabang Pedagang;
+	 * cabang toko-aktif-multi-toko berhenti sesudah id. Akibatnya kepala cetakan menulis
+	 * "Toko: (global)" dan pemilih toko tampil tanpa nama, padahal tokonya jelas.</p>
+	 *
+	 * <h4>Mengapa lewat SQL asli, bukan memuat entitas Toko</h4>
+	 * <p>Entitas {@code Toko} ber-schema tersemat. Memuatnya pada jalur tenant akan membaca
+	 * {@code koperasi.toko}, sedangkan tokonya ada di {@code {S}.toko} — dan id yang sama
+	 * bisa ada di keduanya. Nama yang KELIRU lebih buruk daripada nama yang kosong: yang
+	 * kosong kelihatan, yang keliru tidak.</p>
+	 *
+	 * <p>Gagal diam-diam bila apa pun salah: nama toko adalah hiasan, dan tidak boleh
+	 * menggagalkan aksi yang sebenarnya diminta.</p>
+	 */
+	private static void lengkapiNamaToko(EbisnisActorContextResolver.ActorContext ctx) {
+		if (ctx == null || ctx.tokoId == null
+				|| (ctx.tokoNama != null && ctx.tokoNama.trim().length() > 0)) {
+			return;
+		}
+		org.hibernate.Session session = null;
+		try {
+			String skema = SalesInventoryTenantSchema.aktif(ctx)
+					? SalesInventoryTenantSchema.skema(ctx.tenant) : "koperasi.";
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			java.sql.PreparedStatement ps = session.connection()
+					.prepareStatement("SELECT nama FROM " + skema + "toko WHERE id = ?");
+			ps.setLong(1, ctx.tokoId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (rs.next()) {
+				String n = rs.getString(1);
+				ctx.tokoNama = n == null ? "" : n;
+			}
+			rs.close();
+			ps.close();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"SalesInventoryApiDispatcher.lengkapiNamaToko (hiasan -- aksi diteruskan)");
+		} finally {
+			if (session != null) {
+				ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+			}
+		}
+	}
+
 	private static ais.service.tenant.TenantContext konteksTenantBilaAda(Tbmuser tbmuser,
 			JSONObject payload, HttpServletRequest request) {
 		org.hibernate.Session session = ais.database.hibernate.HibernateUtil.getSessionFactory()

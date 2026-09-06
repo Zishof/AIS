@@ -1,6 +1,6 @@
 # Progres Javadoc Menyeluruh
 
-## 🚨🚨🚨🚨 Batch 140 — PIVOT ke `ais/action/servlet/` (157 file, endpoint HTTP mentah), 6 task baru — MENEMUKAN AKAR PENYEBAB LANGSUNG 3 temuan top-tier lama (6-7 Sep 2026)
+## 🚨🚨🚨🚨 Batch 140 — PIVOT ke `ais/action/servlet/` (157 file, endpoint HTTP mentah), 7 task baru — MENEMUKAN AKAR PENYEBAB LANGSUNG 3 temuan top-tier lama (6-7 Sep 2026)
 
 Backlog mega-file `helper/` tuntas — pindah ke `ais/action/servlet/`
 (157 file, rata-rata 4.3 blok Javadoc, BEDA total dari `helper/`: ini
@@ -44,10 +44,15 @@ jadi proksi LLM gratis atas biaya pemilik instalasi.
 **`Data.java`/`Repository.java`/`Main.java`** — `Data.java`
 mengonfirmasi ULANG `task_b1e610b6` (endpoint `/Data` tulis reflektif,
 `simpanDataRinci`/`simpanBatchDataRinci`/`hapusDataRinci` tak
-dikecualikan dari bypass `tanpaLogin`). `Repository.java`/`Main.java`
-TERNYATA sudah dirancang aman (CSRF, rate limit, token OAI ber-HMAC,
-whitelist path) — 0 task baru, `Main.java` malah punya kode MATI
-terkonfirmasi (deteksi mobile redirect nol pemanggil).
+dikecualikan dari bypass `tanpaLogin`). `Repository.java` TERNYATA
+sudah dirancang aman (CSRF, rate limit, token OAI ber-HMAC, whitelist
+path). `Main.java` punya kode MATI terkonfirmasi (deteksi mobile
+redirect nol pemanggil). **Task baru `task_337a5ef8`**: peracunan
+header `Host` pada `Common.CURRENT_URL` (variabel statis PROSES,
+ditulis 8 kelas termasuk `/index`/`/login` yang anonim) dipakai
+sebagai `callbackUrl` dikirim ke gateway pembayaran Finpay di 4 helper
+VA — penyerang tak terautentikasi bisa arahkan notifikasi pembayaran
+bank ke host sendiri.
 
 **`OcbcNisp.java`/`Document.java`/`FilterJSP.java`/`Login.java`** —
 🚨 **Task baru PALING SEVERE batch ini, `task_e20425e9`**: verifikasi
@@ -66,9 +71,10 @@ limiting dikonfirmasi TETAP TIDAK ADA.
 laporan whitelist tidak scoping per-satker — siapa pun anonim bisa
 unduh laporan stok institusi manapun.
 
-**6 task baru batch ini**: `task_525c5fcf`, `task_dcaeb88c`,
-`task_ed389780`, `task_d05d8e11`, `task_e20425e9`, `task_11e5ae35`.
-Total akumulasi: **2050+ file** dari 7.401. Sisa `action/servlet/`:
+**7 task baru batch ini**: `task_525c5fcf`, `task_dcaeb88c`,
+`task_ed389780`, `task_d05d8e11`, `task_e20425e9`, `task_11e5ae35`,
+`task_337a5ef8`. Total akumulasi: **2050+ file** dari 7.401. Sisa
+`action/servlet/`:
 ~130 file (masih banyak servlet bank-gateway/H2H besar: `BCA.java`,
 `Briva.java`, dan sejenisnya — PRIORITAS TINGGI mengingat pola
 `task_e20425e9` baru ditemukan di 3 gateway sekaligus).

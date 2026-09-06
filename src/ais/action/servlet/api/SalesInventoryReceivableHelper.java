@@ -795,9 +795,21 @@ public final class SalesInventoryReceivableHelper {
 			}
 			if (ctx.tokoId != null && !ctx.admin) {
 				// Lingkup toko ditegakkan lewat faktur; piutang tenant tidak punya toko.
-				where.append(" AND ").append(jalurTenant
-						? SalesInventoryReceivableTenant.kolomTokoPiutang() : "d.toko")
-						.append(" = ?");
+				//
+				// Baris yang tokonya TIDAK DIKETAHUI ikut ditampilkan, dan itu disengaja.
+				// Piutang legacy dapat menunjuk faktur yang tidak ada di berkas penjualan
+				// sama sekali (terukur pada data cmnmedika: 2402-000091, Rp 273.000).
+				// Tanpa pengecualian ini barisnya tersaring keluar dari SETIAP pengguna
+				// bertoko, dan satu-satunya yang dapat melihatnya adalah admin -- yang
+				// memang dirancang tanpa toko. Akibatnya pemilik melihat piutangnya lebih
+				// kecil daripada yang sebenarnya, tanpa tanda apa pun bahwa ada yang
+				// disembunyikan. Tampil dua kali pada tenant bertoko banyak lebih baik
+				// daripada hilang diam-diam: hanya yang pertama yang kelihatan lalu bisa
+				// diperbaiki.
+				String kolomToko = jalurTenant
+						? SalesInventoryReceivableTenant.kolomTokoPiutang() : "d.toko";
+				where.append(" AND (").append(kolomToko).append(" = ? OR ")
+						.append(kolomToko).append(" IS NULL)");
 			}
 			if (!q.isEmpty()) {
 				where.append(" AND (LOWER(").append(jalurTenant

@@ -110,23 +110,35 @@ public final class SalesInventoryMasterHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			// Jalur ditentukan LEBIH DULU: klausa di bawah menyebut kolom yang berbeda
+			// di tiap jalur, dan menyusunnya sebelum jalur diketahui adalah persis
+			// cacat yang membuat layar ini menampilkan galat pada tenant.
+			boolean jalurTenant = SalesInventoryMasterTenant.aktif(ctx);
 			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
 			if (keyword != null && !keyword.isEmpty()) {
-				where.append(" AND (p.kode ILIKE ? OR p.nama ILIKE ? OR COALESCE(p.alamat,'') ILIKE ? OR COALESCE(sp.wilayah,'') ILIKE ?) ");
 				String k = "%" + keyword + "%";
-				params.add(k); params.add(k); params.add(k); params.add(k);
+				if (jalurTenant) {
+					// Tiga penampung: kode, nama, alamat. Model tenant tidak punya
+					// wilayah pemasok, jadi tidak ada penampung keempat.
+					where.append(SalesInventoryMasterTenant.kunciSupplier());
+					params.add(k); params.add(k); params.add(k);
+				} else {
+					where.append(" AND (p.kode ILIKE ? OR p.nama ILIKE ? OR COALESCE(p.alamat,'') ILIKE ? OR COALESCE(sp.wilayah,'') ILIKE ?) ");
+					params.add(k); params.add(k); params.add(k); params.add(k);
+				}
 			}
-			if ("aktif".equals(filterAktif)) {
-				where.append(" AND COALESCE(sp.aktif, true) = true ");
-			} else if ("nonaktif".equals(filterAktif)) {
-				where.append(" AND COALESCE(sp.aktif, true) = false ");
+			if ("aktif".equals(filterAktif) || "nonaktif".equals(filterAktif)) {
+				boolean mauAktif = "aktif".equals(filterAktif);
+				where.append(jalurTenant
+						? SalesInventoryMasterTenant.aktifSupplier(mauAktif)
+						: " AND COALESCE(sp.aktif, true) = " + (mauAktif ? "true" : "false") + " ");
 			}
 			String orderBy = "p.kode ASC";
 			if ("nama".equals(sort)) orderBy = "p.nama ASC";
-			else if ("wilayah".equals(sort)) orderBy = "COALESCE(sp.wilayah,'') ASC, p.nama ASC";
-
-			boolean jalurTenant = SalesInventoryMasterTenant.aktif(ctx);
+			else if ("wilayah".equals(sort) && !jalurTenant) {
+				orderBy = "COALESCE(sp.wilayah,'') ASC, p.nama ASC";
+			}
 			String dasar;
 			String pilih;
 			if (jalurTenant) {
@@ -430,21 +442,30 @@ public final class SalesInventoryMasterHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryMasterTenant.aktif(ctx);
 			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
 			if (keyword != null && !keyword.isEmpty()) {
-				where.append(" AND (a.kode ILIKE ? OR a.nama ILIKE ? OR COALESCE(a.alamat,'') ILIKE ? "
-						+ "OR COALESCE(a.telp,'') ILIKE ? OR COALESCE(a.hp,'') ILIKE ? OR COALESCE(cp.wilayah,'') ILIKE ?) ");
 				String k = "%" + keyword + "%";
-				for (int i = 0; i < 6; i++) params.add(k);
+				if (jalurTenant) {
+					where.append(SalesInventoryMasterTenant.kunciCustomer());
+					params.add(k); params.add(k); params.add(k);
+				} else {
+					where.append(" AND (a.kode ILIKE ? OR a.nama ILIKE ? OR COALESCE(a.alamat,'') ILIKE ? "
+							+ "OR COALESCE(a.telp,'') ILIKE ? OR COALESCE(a.hp,'') ILIKE ? OR COALESCE(cp.wilayah,'') ILIKE ?) ");
+					for (int i = 0; i < 6; i++) params.add(k);
+				}
 			}
-			if ("aktif".equals(filterAktif)) {
-				where.append(" AND COALESCE(cp.aktif, true) = true ");
-			} else if ("nonaktif".equals(filterAktif)) {
-				where.append(" AND COALESCE(cp.aktif, true) = false ");
+			if ("aktif".equals(filterAktif) || "nonaktif".equals(filterAktif)) {
+				boolean mauAktif = "aktif".equals(filterAktif);
+				where.append(jalurTenant
+						? SalesInventoryMasterTenant.aktifCustomer(mauAktif)
+						: " AND COALESCE(cp.aktif, true) = " + (mauAktif ? "true" : "false") + " ");
 			}
 			if (salesOwnerId != null) {
-				where.append(" AND cp.sales_owner = ? ");
+				// Kepemilikan sales ada di customer.salesperson_id pada model tenant,
+				// bukan kolom pada profilnya.
+				where.append(jalurTenant ? " AND a.salesperson_id = ? " : " AND cp.sales_owner = ? ");
 				params.add(salesOwnerId);
 			}
 			if (hanyaProfil) {
@@ -454,9 +475,10 @@ public final class SalesInventoryMasterHelper {
 			}
 			String orderBy = "a.kode ASC";
 			if ("nama".equals(sort)) orderBy = "a.nama ASC";
-			else if ("wilayah".equals(sort)) orderBy = "COALESCE(cp.wilayah,'') ASC, a.nama ASC";
+			else if ("wilayah".equals(sort) && !jalurTenant) {
+				orderBy = "COALESCE(cp.wilayah,'') ASC, a.nama ASC";
+			}
 
-			boolean jalurTenant = SalesInventoryMasterTenant.aktif(ctx);
 			String dasar;
 			String pilihCust;
 			String urutCust = " ORDER BY a.kode ASC LIMIT ? OFFSET ?";
@@ -775,6 +797,7 @@ public final class SalesInventoryMasterHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryMasterTenant.aktif(ctx);
 			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
 			if (idTunggal != null) {
@@ -782,16 +805,20 @@ public final class SalesInventoryMasterHelper {
 				params.add(idTunggal);
 			}
 			if (keyword != null && !keyword.isEmpty()) {
-				where.append(" AND (s.kode ILIKE ? OR s.nama ILIKE ? OR COALESCE(s.area,'') ILIKE ?) ");
 				String k = "%" + keyword + "%";
+				// Model tenant tidak punya s.area; wilayahnya datang dari penugasan
+				// (sa.wilayah), dan kunciSales() sudah menyebutnya.
+				where.append(jalurTenant
+						? SalesInventoryMasterTenant.kunciSales()
+						: " AND (s.kode ILIKE ? OR s.nama ILIKE ? OR COALESCE(s.area,'') ILIKE ?) ");
 				params.add(k); params.add(k); params.add(k);
 			}
-			if ("aktif".equals(filterAktif)) {
-				where.append(" AND COALESCE(s.aktif, true) = true ");
-			} else if ("nonaktif".equals(filterAktif)) {
-				where.append(" AND COALESCE(s.aktif, true) = false ");
+			if ("aktif".equals(filterAktif) || "nonaktif".equals(filterAktif)) {
+				boolean mauAktif = "aktif".equals(filterAktif);
+				where.append(jalurTenant
+						? SalesInventoryMasterTenant.aktifSales(mauAktif)
+						: " AND COALESCE(s.aktif, true) = " + (mauAktif ? "true" : "false") + " ");
 			}
-			boolean jalurTenant = SalesInventoryMasterTenant.aktif(ctx);
 			if (tokoId != null) {
 				// Toko sales berada di penugasan pada model tenant, bukan kolom pada salesnya.
 				where.append(jalurTenant

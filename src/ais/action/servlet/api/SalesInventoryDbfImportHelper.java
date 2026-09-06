@@ -47,6 +47,83 @@ public final class SalesInventoryDbfImportHelper {
 
 	private static final int MAKS_BARIS = 500;
 
+	/**
+	 * Membangun ulang {@code saldo_stok} dari buku besar {@code mutasi_stok}.
+	 *
+	 * <p>Impor legacy menulis mutasi tetapi tidak pernah membentuk saldo, dan penyaring toko
+	 * pada layar Persediaan menuntut adanya baris {@code saldo_stok} — sehingga layar itu kosong
+	 * bagi SETIAP pengguna bertoko sementara admin melihat seluruh 626 produk. Gejalanya bukan
+	 * galat melainkan daftar kosong, jenis kegagalan yang paling mudah disangka "memang belum
+	 * ada datanya".</p>
+	 */
+	private static void bangunUlangSaldoStok(EbisnisActorContextResolver.ActorContext ctx,
+			JSONObject hasil) throws Exception {
+		String sk = SalesInventoryDbfImportTenant.skema(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			String[] perintah = SalesInventoryDbfImportTenant.bangunSaldoStok(sk);
+			int dihapus = 0, dibuat = 0;
+			java.sql.Statement st = session.connection().createStatement();
+			dihapus = st.executeUpdate(perintah[0]);
+			dibuat = st.executeUpdate(perintah[1]);
+			st.close();
+
+			// Produk tanpa satu pun mutasi tidak mendapat baris di atas, dan karena itu
+			// lenyap dari layar Persediaan bagi pengguna bertoko. Aplikasi lama
+			// menampilkannya. Gudangnya TIDAK ditebak: hanya diisi bila tokonya punya
+			// tepat satu gudang.
+			int nol = 0;
+			String catatanNol;
+			Long gudangTunggal = null;
+			int jumlahGudang = 0;
+			if (ctx.tokoId != null) {
+				java.sql.PreparedStatement pg = session.connection()
+						.prepareStatement(SalesInventoryDbfImportTenant.gudangTunggalToko(sk));
+				pg.setLong(1, ctx.tokoId.longValue());
+				java.sql.ResultSet rg = pg.executeQuery();
+				while (rg.next()) {
+					jumlahGudang++;
+					gudangTunggal = Long.valueOf(rg.getLong(1));
+				}
+				rg.close(); pg.close();
+			}
+			if (ctx.tokoId == null) {
+				catatanNol = "dilewati: toko aktor tidak diketahui";
+			} else if (jumlahGudang != 1) {
+				catatanNol = "dilewati: toko punya " + jumlahGudang
+						+ " gudang, tidak ada gudang tunggal yang jelas";
+			} else {
+				java.sql.Statement sn = session.connection().createStatement();
+				nol = sn.executeUpdate(SalesInventoryDbfImportTenant
+						.saldoNolProdukTanpaMutasi(sk, gudangTunggal.longValue()));
+				sn.close();
+				catatanNol = nol + " baris nol pada gudang " + gudangTunggal;
+			}
+
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("jenis", "saldo_stok");
+			hasil.put("dihapus", dihapus);
+			hasil.put("dibuat", dibuat);
+			hasil.put("nolDitambahkan", nol);
+			hasil.put("catatanNol", catatanNol);
+			hasil.put("description", "saldo_stok dibangun ulang dari mutasi_stok: "
+					+ dihapus + " dihapus, " + dibuat + " dibuat; produk tanpa mutasi: "
+					+ catatanNol + ".");
+		} catch (Exception e) {
+			if (tx != null) {
+				try { tx.rollback(); } catch (Exception ignored) {
+					ais.common.ErrorAuditUtil.record(ignored, "bangunUlangSaldoStok.rollback");
+				}
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	private static String s(JSONObject r, String k) {
 		return r.isNull(k) ? "" : r.optString(k, "").trim();
 	}
@@ -105,12 +182,15 @@ public final class SalesInventoryDbfImportHelper {
 		}
 		String jenis = request.optString("jenis", "").trim();
 		JSONArray rows = request.optJSONArray("rows");
-		if (rows == null || rows.length() == 0) {
+		// Langkah turunan tidak membawa baris; menuntut `rows` di sini akan menolaknya
+		// dengan alasan yang tidak ada hubungannya.
+		boolean langkahTurunan = jalurTenant && "saldo_stok".equals(jenis);
+		if (!langkahTurunan && (rows == null || rows.length() == 0)) {
 			hasil.put("status", "91");
 			hasil.put("description", "rows kosong.");
 			return;
 		}
-		if (rows.length() > MAKS_BARIS) {
+		if (!langkahTurunan && rows.length() > MAKS_BARIS) {
 			hasil.put("status", "91");
 			hasil.put("description", "Maksimal " + MAKS_BARIS + " baris per batch.");
 			return;
@@ -118,6 +198,14 @@ public final class SalesInventoryDbfImportHelper {
 		Long tokoId = ctx.admin && !request.isNull("toko_id")
 				? Long.valueOf((request.get("toko_id") + "").trim())
 				: ctx.tokoId;
+
+		// "saldo_stok" bukan impor data melainkan langkah TURUNAN: ia membangun ulang
+		// saldo dari mutasi_stok. Karena itu ia tidak membaca `rows`, tidak punya kunci
+		// idempotensi, dan ditangani sebelum jalur potongan biasa.
+		if (jalurTenant && "saldo_stok".equals(jenis)) {
+			bangunUlangSaldoStok(ctx, hasil);
+			return;
+		}
 		boolean opnameAwal = request.optBoolean("buat_opname_awal", false);
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
