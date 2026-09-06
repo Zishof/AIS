@@ -2475,7 +2475,7 @@ public class MainAction2 extends GenericAutowireComposer {
 		if (value == null) {
 			return "";
 		}
-		return value.replace("\\", "\\\\").replace("'", "\\'").replace("\r", "").replace("\n", "");
+		return value.replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/").replace("\r", "").replace("\n", "");
 	}
 
 
