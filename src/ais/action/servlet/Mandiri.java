@@ -44,14 +44,82 @@ import ais.database.model.VirtualAccountBank;
 import ais.database.model.sekolah.Tagihan;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet endpoint <b>Host-to-Host (H2H) Bank Mandiri</b> untuk Virtual Account
+ * (VA) pembayaran: menerima request <i>inquiry</i> (tampilkan rincian tagihan)
+ * dan <i>payment</i> (catat pelunasan) yang dikirim langsung oleh sistem Bank
+ * Mandiri ke server AIS.
+ *
+ * <h3>Protokol</h3>
+ * Bank mengirim HTTP request (GET/POST) berisi body JSON dengan salah satu dari
+ * dua amplop di tingkat akar:
+ * <ul>
+ * <li>{@code InquiryRequest} &rarr; dijawab dengan {@code InquiryResponse}
+ * (berisi identitas pembayar, {@code billInfo1}..{@code billInfo8}, dan rincian
+ * {@code billDetails.BillDetail});</li>
+ * <li>{@code paymentRequest} &rarr; dijawab dengan {@code paymentResponse}
+ * (tanpa rincian tagihan, hanya status).</li>
+ * </ul>
+ * Nomor VA dibaca dari {@code billKey1}, nominal dari {@code billKey2}
+ * (inquiry) atau {@code paymentAmount} (payment), dan waktu transaksi dari
+ * {@code trxDateTime}. Setiap respons selalu memuat objek {@code status} dengan
+ * {@code isError}/{@code errorCode}/{@code statusDescription}; kode error yang
+ * dipakai: {@code 00} sukses, {@code B5} tagihan tidak ditemukan/nominal tidak
+ * cocok, {@code B8} tagihan sudah lunas, {@code C0} tagihan kedaluwarsa,
+ * {@code 87} masalah database provider, {@code 89} timeout.
+ *
+ * <h3>PENTING &mdash; model autentikasi endpoint ini</h3>
+ * Kelas ini <b>tidak melakukan verifikasi tanda tangan digital, MAC, maupun
+ * token</b> atas payload bank. Satu-satunya pengenalan pemanggil adalah
+ * pencocokan alamat IP pemanggil terhadap tabel {@link BankHost} lewat
+ * {@link PembayaranUtil#getBankHost(String, String)} di {@link #process}, dan
+ * hasilnya (objek {@code bankHost}) <b>tidak dipakai sebagai gerbang</b>: alur
+ * {@link #doProcess} sengaja tetap berjalan walau {@code bankHost} bernilai
+ * {@code null} supaya seluruh lalu lintas tetap tercatat pada Log
+ * Host-to-Host. Konsekuensinya, kendali akses efektif endpoint ini bertumpu
+ * sepenuhnya pada pembatasan jaringan/firewall di depan aplikasi. Lihat catatan
+ * rinci pada {@link #process}.
+ *
+ * <h3>Hubungan dengan Log Host-to-Host</h3>
+ * Pada blok {@code finally} di {@link #doProcess}, seluruh request &mdash;
+ * sukses maupun gagal &mdash; diteruskan ke
+ * {@code PembayaranGatewayHelper.catatLogHostToHost(...)} bersama
+ * <b>payload JSON mentah</b> apa adanya. Kelas ini karenanya merupakan salah
+ * satu penyumbang utama isi tabel {@code LogHostToHost}, termasuk data pribadi
+ * pembayar (nama, NIM/nomor induk, nominal) yang ikut tersimpan permanen.
+ *
+ * @see Bankaltimtara
+ * @see Bniresponse
+ * @see VirtualAccountBank
+ * @see LogHostToHost
  */
 public class Mandiri extends HttpServlet {
+	/** Versi serialisasi standar {@link HttpServlet}; tidak dipakai secara fungsional. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; dipakai di sini untuk memetakan alamat IP
+	 * pemanggil ke baris {@link BankHost} dan untuk menghitung total/denda
+	 * cicilan sebuah {@link Kegiatan}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/**
+	 * Formatter {@code yyyyMMddHHmmss} untuk field {@code trxDateTime} dari bank.
+	 * Dibungkus {@link ThreadLocal} karena {@link SimpleDateFormat} tidak aman
+	 * dipakai bersama antar-thread, sementara servlet ini dilayani banyak thread
+	 * Tomcat sekaligus.
+	 *
+	 * <p>
+	 * Catatan: bank hanya mengirim 10 digit ({@code MMddHHmmss}); tahun disisipkan
+	 * dari jam server saat parsing di {@link #doProcess}.
+	 */
 	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		/**
+		 * Membuat instance formatter baru untuk setiap thread yang pertama kali
+		 * mengakses {@link #dateFormat}.
+		 *
+		 * @return formatter pola {@code yyyyMMddHHmmss} milik thread pemanggil
+		 */
 		@Override
 		protected SimpleDateFormat initialValue() {
 			return new SimpleDateFormat("yyyyMMddHHmmss");
@@ -59,6 +127,9 @@ public class Mandiri extends HttpServlet {
 	};
 
 	/**
+	 * Konstruktor tanpa argumen yang dibutuhkan kontainer servlet untuk
+	 * meng-instansiasi endpoint ini.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Mandiri() {
@@ -66,6 +137,18 @@ public class Mandiri extends HttpServlet {
 	}
 
 	/**
+	 * Menangani request HTTP GET dari Bank Mandiri dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>
+	 * Seluruh exception ditelan di sini (dicatat ke Error Log) supaya kegagalan
+	 * internal tidak pernah membuat koneksi ke bank putus tanpa respons; badan
+	 * respons error yang wajar sudah disusun di lapisan {@link #doProses}.
+	 *
+	 * @param request  request masuk dari gateway bank
+	 * @param response respons yang akan diisi badan JSON
+	 * @throws ServletException bila kontainer servlet gagal memproses request
+	 * @throws IOException      bila terjadi kegagalan I/O saat menulis respons
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -80,6 +163,19 @@ public class Mandiri extends HttpServlet {
 	}
 
 	/**
+	 * Menangani request HTTP POST dari Bank Mandiri &mdash; jalur normal
+	 * inquiry/payment H2H &mdash; dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>
+	 * Sama seperti {@link #doGet}, exception ditelan dan dicatat ke Error Log agar
+	 * bank selalu menerima balasan.
+	 *
+	 * @param request  request masuk dari gateway bank; badan request dibaca sebagai
+	 *                 JSON mentah
+	 * @param response respons yang akan diisi badan JSON
+	 * @throws ServletException bila kontainer servlet gagal memproses request
+	 * @throws IOException      bila terjadi kegagalan I/O saat menulis respons
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
