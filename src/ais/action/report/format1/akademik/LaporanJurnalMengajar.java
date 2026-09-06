@@ -163,7 +163,7 @@ public class LaporanJurnalMengajar extends MyWindow {
 	private void onCetakHtml() {
 		try {
 			String html = buildJurnalHtmlPage();
-			String escaped = html.replace("\\", "\\\\").replace("`", "\\`");
+			String escaped = html.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${");
 			org.zkoss.zk.ui.util.Clients.evalJavaScript(
 				"(function(){" +
 				"var w=window.open('','_blank','width=1200,height=860,scrollbars=yes,resizable=yes');" +

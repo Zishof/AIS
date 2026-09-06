@@ -662,7 +662,7 @@ public class CommonReport {
 
     private static void tampilToastUnduh(String namaFile) {
         try {
-            String pesan = "Berhasil mengunduh: " + namaFile.replace("'", "\\'").replace("\\", "\\\\");
+            String pesan = "Berhasil mengunduh: " + namaFile.replace("\\", "\\\\").replace("'", "\\'");
             Clients.evalJavaScript(
                 "(function(){var d=document,t=d.createElement('div');t.setAttribute('style'," +
                 "'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;" +
