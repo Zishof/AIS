@@ -548,7 +548,9 @@ public class HistoryStatusMahasiswaUtil {
                     if (masuk) {
                         if (!modeSemesterPendek) {
                             KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, null, null);
-                            HistoryStatusMahasiswa historyStatusMahasiswa = getHistoryStatusMahasiswa(krsMahasiswa);
+                            // Ini adalah jalur sinkronisasi eksplisit. Paksa evaluasi dari database agar
+                            // perubahan tagihan/pembayaran tidak berhenti pada cache status lama.
+                            HistoryStatusMahasiswa historyStatusMahasiswa = getHistoryStatusMahasiswa(krsMahasiswa, true);
 
                             if (nonAktifkan && historyStatusMahasiswa != null && historyStatusMahasiswa.getId() != null) {
                                 prosesNonAktifkanStatusSingkronisasi(session, mahasiswa, semester, krsMahasiswa, historyStatusMahasiswa);
@@ -573,7 +575,7 @@ public class HistoryStatusMahasiswaUtil {
                                 KrsMahasiswa krsSp = Common.singkronkanKrsMahasiswa(mahasiswa, semester, null,
                                         Perkuliahan.SEMESTER_PENDEK);
                                 if (krsSp != null) {
-                                    getHistoryStatusMahasiswa(krsSp);
+                                    getHistoryStatusMahasiswa(krsSp, true);
                                 }
                             }
                         } catch (Exception eSp) {
@@ -866,12 +868,10 @@ public class HistoryStatusMahasiswaUtil {
      * {@code semester > 1}. Bila berlaku, {@link #cekPembayaranMahasiswa} menentukan Aktif↔Nonaktif
      * dua arah, dan {@link KegiatanHelper#updateBatasStudiMahasiswa} dipanggil untuk mencatat
      * status batas studi.</li>
-     * <li><b>Semester 1 selalu Aktif</b>: bila status saat ini Nonaktif tapi semester adalah 1,
-     * dipaksa Aktif (mahasiswa baru tidak boleh langsung Nonaktif tanpa proses tagihan berjalan).</li>
      * <li><b>Aturan syarat-aktif kegiatan</b> (permintaan user 2026-08-02 &amp; 2026-08-05, kasus
      * KIP-K/UKT UBT dan UIN Mahmud Yunus Batusangkar): berlaku independen dari konfigurasi di atas
-     * (checkbox per-{@code JenisKegiatan} sudah jadi opt-in eksplisit admin) untuk {@code semester >
-     * 1}. Aktif→Nonaktif via {@link #cekPembayaranMahasiswa}; Nonaktif→Aktif via
+     * (checkbox per-{@code JenisKegiatan} sudah jadi opt-in eksplisit admin) untuk semua semester.
+     * Aktif→Nonaktif via {@link #cekPembayaranMahasiswa}; Nonaktif→Aktif via
      * {@link #adaKegiatanSyaratAktifLunasSemua} — method BERBEDA sengaja dipakai untuk tiap arah
      * karena semantik "belum ada kegiatan sama sekali" harus dibaca berbeda (lihat Javadoc kedua
      * method itu).</li>
@@ -903,6 +903,7 @@ public class HistoryStatusMahasiswaUtil {
 
         Konfigurasi konfLambat = Common.getKonfigurasi("mhs_all_lambat_bayar_langsung_tidak_aktif", "", semester, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(), mahasiswa.getProgram(), mahasiswa.getStatusAwalMahasiswa());
         boolean berubah = (konfLambat != null && Konfigurasi.AKTIF.equals(konfLambat.getNilai())) && (tahunAkademikMulai == tahunMulai || (tahunAkademikMulai + 1) == tahunMulai);
+        StatusPembayaranSyaratAktif statusPembayaranSyaratAktif = null;
 
         if (berubah && semester != null && semester > 1) {
             history.put("", "checkStatusPembayaranMahasiswa");
@@ -910,21 +911,23 @@ public class HistoryStatusMahasiswaUtil {
                 try { CommonHelperClass.reloadJenisKegiatans(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/HistoryStatusMahasiswaUtil.java:457");}
             }
 
-            boolean checkStatusPembayaran = cekPembayaranMahasiswa(semester, tahap, mahasiswa);
+            statusPembayaranSyaratAktif = evaluasiPembayaranSyaratAktif(semester, tahap, mahasiswa);
+            boolean checkStatusPembayaran = statusPembayaranSyaratAktif != StatusPembayaranSyaratAktif.BELUM_BAYAR;
             history.put(String.valueOf(checkStatusPembayaran), "checkStatusPembayaranMahasiswa");
 
-            if (mahasiswa != null) KegiatanHelper.updateBatasStudiMahasiswa(mahasiswa, session, semester, checkStatusPembayaran);
+            if (mahasiswa != null && statusPembayaranSyaratAktif != StatusPembayaranSyaratAktif.TANPA_TAGIHAN) {
+                KegiatanHelper.updateBatasStudiMahasiswa(mahasiswa, session, semester, checkStatusPembayaran);
+            }
 
-            if (isStatusEqual(history.getStatusMahasiswa(), ConstantValues.AKTIF) && !checkStatusPembayaran) {
+            if (isStatusEqual(history.getStatusMahasiswa(), ConstantValues.AKTIF)
+                    && statusPembayaranSyaratAktif == StatusPembayaranSyaratAktif.BELUM_BAYAR) {
                 history.setStatusMahasiswa(ConstantValues.TIDAK_AKTIF);
                 isDataModified = true;
-            } else if (isStatusEqual(history.getStatusMahasiswa(), ConstantValues.TIDAK_AKTIF) && checkStatusPembayaran) {
+            } else if (isStatusEqual(history.getStatusMahasiswa(), ConstantValues.TIDAK_AKTIF)
+                    && statusPembayaranSyaratAktif == StatusPembayaranSyaratAktif.SUDAH_BAYAR) {
                 history.setStatusMahasiswa(ConstantValues.AKTIF);
                 isDataModified = true;
             }
-        } else if (semester != null && semester == 1 && isStatusEqual(history.getStatusMahasiswa(), ConstantValues.TIDAK_AKTIF)) {
-            history.setStatusMahasiswa(ConstantValues.AKTIF);
-            isDataModified = true;
         }
 
         // ATURAN WAJIB (permintaan user 2026-08-02, KIP-K/UKT UBT): kalau mahasiswa berstatus
@@ -938,12 +941,15 @@ public class HistoryStatusMahasiswaUtil {
         // reuse cekPembayaranMahasiswa (baypass-aware, refresh=true) agar konsisten dgn semantik
         // yg sudah ada, bukan ambang baru.
         try {
-            if (semester != null && semester > 1) {
+            if (semester != null && semester > 0) {
                 if (CommonHelperClass.jenisKegiatansUntukSyaratAktif == null) {
                     try { CommonHelperClass.reloadJenisKegiatans(); } catch (Exception eReload) { ais.common.ErrorAuditUtil.record(eReload, "auto-audit(empty-catch) src/ais/action/master/helper/HistoryStatusMahasiswaUtil.java:syaratAktifBelumBayar"); }
                 }
+                if (statusPembayaranSyaratAktif == null) {
+                    statusPembayaranSyaratAktif = evaluasiPembayaranSyaratAktif(semester, tahap, mahasiswa);
+                }
                 if (isStatusEqual(history.getStatusMahasiswa(), ConstantValues.AKTIF)
-                        && !cekPembayaranMahasiswa(semester, tahap, mahasiswa)) {
+                        && statusPembayaranSyaratAktif == StatusPembayaranSyaratAktif.BELUM_BAYAR) {
                     history.setStatusMahasiswa(ConstantValues.TIDAK_AKTIF);
                     isDataModified = true;
                 } else if (isStatusEqual(history.getStatusMahasiswa(), ConstantValues.TIDAK_AKTIF)
@@ -956,7 +962,7 @@ public class HistoryStatusMahasiswaUtil {
                         // sekali (aman utk arah Aktif->NonAktif: tak ada bukti = jangan hukum), tapi kalau
                         // dipakai terbalik utk NonAktif->Aktif, "tak ada bukti" akan SALAH dibaca sbg
                         // "sudah lunas" dan mempromosikan mahasiswa yg belum py tagihan sama sekali.
-                        && adaKegiatanSyaratAktifLunasSemua(semester, tahap, mahasiswa)) {
+                        && statusPembayaranSyaratAktif == StatusPembayaranSyaratAktif.SUDAH_BAYAR) {
                     history.setStatusMahasiswa(ConstantValues.AKTIF);
                     isDataModified = true;
                 }
@@ -1035,7 +1041,9 @@ public class HistoryStatusMahasiswaUtil {
      * entity {@code Kegiatan} basi dari cache JVM, lihat komentar inline "GERBANG STATUS WAJIB
      * DATA SEGAR"), menyaring yang benar-benar berlaku untuk semester ini lewat
      * {@link #kegiatanSyaratAktifBerlaku}, lalu mensyaratkan SEMUA kegiatan berlaku sudah
-     * lunas {@code >= 10%}. Nilai pembayaran dihitung dari rekap
+     * memiliki nominal tagihan positif dan mensyaratkan SEMUA tagihan positif tersebut sudah
+     * memiliki pembayaran yang diakui {@code >= 0,1%}. Kegiatan dengan tagihan nol tidak
+     * memengaruhi status Aktif/Nonaktif. Nilai pembayaran dihitung dari rekap
      * {@code Kegiatan.bulans} dan {@code Kegiatan.tagihans} yang sudah dimuat.
      *
      * @param semester  semester yang dicek
@@ -1044,24 +1052,8 @@ public class HistoryStatusMahasiswaUtil {
      * @return {@code true} bila tidak ada kegiatan bersyarat-aktif berlaku yang belum dibayar sama sekali (atau bypass aktif)
      */
     private static boolean cekPembayaranMahasiswa(Integer semester, Integer tahap, Mahasiswa mahasiswa) {
-        boolean check = true;
-        if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, CommonHelperClass.jenisKegiatansUntukSyaratAktif)) {
-            // GERBANG STATUS WAJIB DATA SEGAR (refresh=true): tanpa ini persentase dibaca dari
-            // entity Kegiatan yang di-cache di memori JVM. Kasus nyata (UBT, KIP-Kuliah):
-            // pembayaran KIP baru saja di-upload (lunas di DB), tapi cek ini masih membaca
-            // kegiatan basi ber-persentase 0 -> status mahasiswa DIBALIK ke Tidak Aktif dan
-            // tersimpan, padahal sudah membayar.
-            List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, CommonHelperClass.jenisKegiatansUntukSyaratAktif, true);
-            if (kegiatanDibayars != null) {
-                for (Kegiatan keg : kegiatanDibayars) {
-                    if (!kegiatanSyaratAktifBerlaku(keg, semester)) {
-                        continue;
-                    }
-                    check &= (keg != null && keg.hitungPersentaseLunasAktual() >= 0.1);
-                }
-            }
-        }
-        return check;
+        return evaluasiPembayaranSyaratAktif(semester, tahap, mahasiswa)
+                != StatusPembayaranSyaratAktif.BELUM_BAYAR;
     }
 
     /**
@@ -1075,29 +1067,54 @@ public class HistoryStatusMahasiswaUtil {
      */
     private static boolean adaKegiatanSyaratAktifLunasSemua(Integer semester, Integer tahap, Mahasiswa mahasiswa) {
         try {
-            if (Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, CommonHelperClass.jenisKegiatansUntukSyaratAktif)) {
-                return true;
-            }
-            List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, CommonHelperClass.jenisKegiatansUntukSyaratAktif, true);
-            if (kegiatanDibayars == null || kegiatanDibayars.isEmpty()) {
-                return false;
-            }
-            boolean adaTagihanYangBerlaku = false;
-            for (Kegiatan keg : kegiatanDibayars) {
-                if (!kegiatanSyaratAktifBerlaku(keg, semester)) {
-                    continue;
-                }
-                adaTagihanYangBerlaku = true;
-                if (keg == null || keg.hitungPersentaseLunasAktual() < 0.1) {
-                    return false;
-                }
-            }
-            return adaTagihanYangBerlaku;
+            return evaluasiPembayaranSyaratAktif(semester, tahap, mahasiswa)
+                    == StatusPembayaranSyaratAktif.SUDAH_BAYAR;
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e,
                     "auto-audit(empty-catch) HistoryStatusMahasiswaUtil.adaKegiatanSyaratAktifLunasSemua");
             return false;
         }
+    }
+
+    private enum StatusPembayaranSyaratAktif {
+        TANPA_TAGIHAN, BELUM_BAYAR, SUDAH_BAYAR
+    }
+
+    /**
+     * Membaca tagihan syarat aktif sebagai hasil tiga-keadaan. Kegiatan tanpa nominal tagihan
+     * tidak dianggap belum bayar maupun sudah bayar, sehingga tidak boleh mengubah status.
+     */
+    private static StatusPembayaranSyaratAktif evaluasiPembayaranSyaratAktif(Integer semester,
+            Integer tahap, Mahasiswa mahasiswa) {
+        if (Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa,
+                CommonHelperClass.jenisKegiatansUntukSyaratAktif)) {
+            return StatusPembayaranSyaratAktif.SUDAH_BAYAR;
+        }
+
+        // refresh=true wajib: status harus mengikuti tagihan dan cicilan committed terbaru.
+        List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester,
+                CommonHelperClass.jenisKegiatansUntukSyaratAktif, true);
+        boolean adaTagihanPositif = false;
+        if (kegiatanDibayars != null) {
+            for (Kegiatan kegiatan : kegiatanDibayars) {
+                if (!kegiatanSyaratAktifBerlaku(kegiatan, semester)
+                        || !kegiatanMemilikiTagihan(kegiatan)) {
+                    continue;
+                }
+                adaTagihanPositif = true;
+                if (kegiatan.hitungPersentaseLunasAktual() < 0.1) {
+                    return StatusPembayaranSyaratAktif.BELUM_BAYAR;
+                }
+            }
+        }
+        return adaTagihanPositif ? StatusPembayaranSyaratAktif.SUDAH_BAYAR
+                : StatusPembayaranSyaratAktif.TANPA_TAGIHAN;
+    }
+
+    /** Tagihan nol/kosong bukan bukti belum bayar dan tidak boleh mengubah status mahasiswa. */
+    private static boolean kegiatanMemilikiTagihan(Kegiatan kegiatan) {
+        return kegiatan != null && kegiatan.getTagihan() != null
+                && kegiatan.getTagihan().doubleValue() > 0.01d;
     }
 
     /**
@@ -1279,10 +1296,15 @@ public class HistoryStatusMahasiswaUtil {
                     if (!kegiatanSyaratAktifBerlaku(kegiatan, semester)) {
                         continue;
                     }
-                    adaTagihanSyaratAktif = true;
-                    double persen = kegiatan.hitungPersentaseLunasAktual().doubleValue();
                     String nama = kegiatan.getJenisKegiatan().getNamaKegiatan();
                     if (nama == null || nama.trim().isEmpty()) nama = "Tagihan syarat aktif";
+                    if (!kegiatanMemilikiTagihan(kegiatan)) {
+                        hasil.rincianPembayaran.add(nama
+                                + ": tagihan Rp0 - tidak memengaruhi status Aktif/Nonaktif");
+                        continue;
+                    }
+                    adaTagihanSyaratAktif = true;
+                    double persen = kegiatan.hitungPersentaseLunasAktual().doubleValue();
                     boolean memenuhi = persen >= 0.1;
                     hasil.rincianPembayaran.add(nama + ": " + formatPersen(persen) + "% - "
                             + (memenuhi ? "memenuhi bukti pembayaran" : "belum ada pembayaran yang diakui"));
@@ -1319,6 +1341,7 @@ public class HistoryStatusMahasiswaUtil {
             hasil.jejakAturan.add("Status dasar dibaca dari HistoryStatusMahasiswa untuk semester dan tahap yang dipilih.");
             hasil.jejakAturan.add("Pengajuan cuti yang disetujui mengubah status tampilan menjadi Cuti.");
             hasil.jejakAturan.add("Jenis kegiatan hanya menjadi syarat aktif bila flag domainnya true; data legacy NULL biasa tidak dihitung.");
+            hasil.jejakAturan.add("Kegiatan dengan nominal tagihan Rp0 tidak mengaktifkan atau menonaktifkan mahasiswa.");
             hasil.jejakAturan.add("Pembayaran diperiksa dari CicilanPembayaran yang sudah committed, bukan rekap asynchronous Kegiatan.bulans.");
             hasil.jejakAturan.add("Semester dalam daftar Paksa Aktif mengalahkan status pembayaran, kecuali status terminal Lulus/DO/Keluar.");
             hasil.jejakAturan.add("Lulus/DO/Keluar dievaluasi dari status keluar setelah mencapai semester minimal jenjang.");
@@ -1392,19 +1415,19 @@ public class HistoryStatusMahasiswaUtil {
                             + gabungkanAlasan(tagihanBelumMemenuhi) + ".");
                     hasil.saran.add("Pastikan cicilan tersimpan pada tagihan dan semester yang sama, lalu klik Refresh.");
                 } else if (!adaTagihanSyaratAktif && belumAdaKrs) {
-                    hasil.ringkasan = "belum ada tagihan syarat aktif dan belum ada pengambilan KRS/SKS semester ini";
-                    hasil.keputusanUtama = "Status Nonaktif belum dapat didukung oleh bukti pembayaran maupun KRS "
-                            + "pada semester ini.";
-                    hasil.artiBagiPengguna = "Sistem tidak menemukan tagihan syarat aktif yang dapat diperiksa dan "
-                            + "KRS masih 0 SKS.";
-                    hasil.penghambatUtama.add("Tidak ditemukan tagihan syarat aktif yang berlaku pada semester ini.");
+                    hasil.ringkasan = "tidak ada tagihan syarat aktif bernominal positif; status pembayaran tidak menjadi penentu";
+                    hasil.keputusanUtama = "Status Nonaktif bukan disebabkan pembayaran karena tidak ada tagihan "
+                            + "syarat aktif bernominal positif pada semester ini; KRS juga masih 0 SKS.";
+                    hasil.artiBagiPengguna = "Tagihan Rp0 dikecualikan dari aturan status. Periksa KRS dan riwayat "
+                            + "penetapan status akademik.";
+                    hasil.penghambatUtama.add("Belum ada pengambilan SKS bukan konversi pada semester ini.");
                 } else if (!adaTagihanSyaratAktif) {
-                    hasil.ringkasan = "belum ada tagihan syarat aktif yang dapat menjadi bukti aktivasi semester ini";
-                    hasil.keputusanUtama = "Status Nonaktif dipertahankan karena sistem tidak menemukan tagihan "
-                            + "syarat aktif yang berlaku pada semester ini.";
-                    hasil.artiBagiPengguna = "Pengaturan tagihan perlu diperiksa sebelum pembayaran dapat menjadi "
-                            + "bukti aktivasi status.";
-                    hasil.penghambatUtama.add("Tidak ditemukan tagihan syarat aktif yang cocok dengan mahasiswa dan semester.");
+                    hasil.ringkasan = "tidak ada tagihan syarat aktif bernominal positif; status berasal dari history akademik";
+                    hasil.keputusanUtama = "Status Nonaktif bukan disebabkan pembayaran karena tidak ada tagihan "
+                            + "syarat aktif bernominal positif pada semester ini.";
+                    hasil.artiBagiPengguna = "Tagihan Rp0 tidak mengaktifkan atau menonaktifkan mahasiswa. Periksa "
+                            + "history status atau penetapan akademik bila status ini tidak sesuai.";
+                    hasil.penghambatUtama.add("Status Nonaktif berasal dari history atau penetapan akademik lain, bukan dari tagihan Rp0.");
                 } else if (belumAdaKrs) {
                     hasil.ringkasan = "pembayaran wajib sudah memenuhi ketentuan, tetapi belum ada pengambilan KRS/SKS semester ini";
                     hasil.keputusanUtama = "Seluruh tagihan syarat aktif sudah mempunyai pembayaran, tetapi KRS "
@@ -1431,10 +1454,6 @@ public class HistoryStatusMahasiswaUtil {
                     hasil.keputusanUtama = "Status Aktif berlaku karena semester ini tercantum dalam Paksa Aktif.";
                     hasil.artiBagiPengguna = "Paksa Aktif mengalahkan pemeriksaan pembayaran dan KRS biasa, "
                             + "kecuali bila mahasiswa memiliki status terminal.";
-                } else if (semester != null && semester.intValue() == 1) {
-                    hasil.ringkasan = "semester pertama menggunakan aturan status Aktif awal";
-                    hasil.keputusanUtama = "Status Aktif berlaku karena semester pertama menggunakan aturan status awal.";
-                    hasil.artiBagiPengguna = "Pada semester pertama, status awal mahasiswa menjadi dasar aktivasi utama.";
                 } else if (bypassPembayaran) {
                     hasil.ringkasan = "status akademik Aktif dan bypass pembayaran berlaku";
                     hasil.keputusanUtama = "Status Aktif berlaku karena bypass pembayaran ditemukan pada konteks ini.";
