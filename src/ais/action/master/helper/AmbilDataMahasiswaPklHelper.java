@@ -60,30 +60,43 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDataMahasiswaPklHelper {
 
+	/** Kegiatan PKL tujuan penugasan mahasiswa, ditetapkan di {@link #display(Pkl, DataLoader, MyWindow)}. */
 	private Pkl pkl;
+	/** Grid kandidat mahasiswa hasil pencarian, diisi ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
 
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/** Paging server-side per 5 baris (pola {@code AmbilDataPagingHelper}); saat ini disiapkan tapi belum dipakai langsung oleh {@link #onSearchDefault(Event)}. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/** Textbox filter NIM mahasiswa (cocok anywhere, case-insensitive). */
 	private Textbox nim;
+	/** Textbox filter nama mahasiswa (cocok anywhere, case-insensitive). */
 	private Textbox nama;
+	/** Filter tahun angkatan mahasiswa; kosong berarti semua angkatan ditampilkan. */
 	private Decimalbox tahunangkatan;
 
+	/** Combobox filter fakultas pada form pencarian, diinisialisasi ulang tiap {@link #display(Pkl, DataLoader, MyWindow)}. */
 	private Combobox searchfakultas;
+	/** Combobox filter jurusan/prodi pada form pencarian, mengikuti pilihan {@link #searchfakultas}. */
 	private Combobox searchjurusan;
 
-	/** Membuat helper dan menginisialisasi combobox pencarian fakultas/jurusan (termasuk opsi "Semua"). */
+	/** Konstruktor tanpa argumen; state (pkl, grid, filter combobox) baru ditetapkan saat {@link #display(Pkl, DataLoader, MyWindow)} dipanggil. */
 	public AmbilDataMahasiswaPklHelper() {
 	}
 
 	/** Perender baris grid: checkbox status tertaut (dicentang bila relasi {@link MahasiswaDapatPkl} sudah ada) plus label NIM, nama, dan tahun angkatan mahasiswa. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** DAO {@link MahasiswaDapatPkl} dipakai untuk memperoleh {@link #session} Hibernate aktif. */
 		private MahasiswaDapatPklDao mahasiswaDapatPklDao = DaoFactory.getInstance().getMahasiswaDapatPklDao();
 
+		/** Sesi Hibernate aktif, dipakai untuk mengecek status keterkaitan tiap kandidat mahasiswa. */
 		private Session session = mahasiswaDapatPklDao.getCurrentSession();
 
+		/**
+		 * Merender satu baris kandidat mahasiswa ({@code arg1}, harus {@link Mahasiswa}): checkbox
+		 * (tercentang bila mahasiswa sudah tertaut ke {@link #pkl} ini), NIM, nama, dan tahun angkatan.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

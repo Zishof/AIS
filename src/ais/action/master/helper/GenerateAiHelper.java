@@ -36,6 +36,7 @@ public class GenerateAiHelper {
 		void selesai(String hasil) throws Exception;
 	}
 
+	/** Kelas utilitas statis; tidak dimaksudkan untuk diinstansiasi. */
 	private GenerateAiHelper() {
 	}
 
@@ -80,6 +81,15 @@ public class GenerateAiHelper {
 		}
 	}
 
+	/**
+	 * Varian NON-streaming paling ringkas: memanggil AI dan menunggu jawaban lengkap sebelum
+	 * mengembalikannya (tanpa {@code sink} sehingga tidak ada teks bertahap), batas token keluaran
+	 * default 900.
+	 *
+	 * @param prompt teks prompt/pertanyaan yang dikirim sebagai pesan role {@code user}
+	 * @return isi jawaban AI, atau string kosong bila gagal/kosong (lihat
+	 *         {@link #panggilAi(String, int, StringBuffer, int)} untuk detail penanganan galat)
+	 */
 	public static String panggilAi(String prompt) {
 		return panggilAi(prompt, 1, null, 900);
 	}
@@ -94,6 +104,37 @@ public class GenerateAiHelper {
 		return panggilAi(prompt, 1, sink, maxTokens);
 	}
 
+	/**
+	 * Implementasi kanonik pemanggilan server AI (satu-satunya tempat request HTTP dibentuk dan
+	 * dikirim) — seluruh overload publik {@code panggilAi} bermuara ke sini. Endpoint
+	 * ({@code ai_rpsobe_base_url}) dan model ({@code ai_rpsobe_model}) SEPENUHNYA berasal dari
+	 * {@link Common#getKonfigurasi(String, String)} (default server Ollama publik
+	 * {@code http://38.47.182.162:11434/v1}, model {@code qwen2.5:1.5b-instruct-q4_K_M}) — TIDAK
+	 * ada header {@code Authorization}/API key yang dikirim, konsisten dengan sifat Ollama
+	 * self-hosted/tanpa autentikasi; berbeda dari integrasi Gemini pada {@code AiGenerateServlet}/
+	 * {@code ObeAiJspHelper} yang memakai API key.
+	 *
+	 * <p>Bila {@code sink} tidak {@code null}, request dikirim dengan {@code "stream": true} dan
+	 * respons dibaca baris demi baris ala Server-Sent Events (prefiks {@code data:}, penanda akhir
+	 * {@code [DONE]}); setiap potongan token yang tiba langsung ditambahkan ke {@code sink} agar
+	 * pemanggil (mis. {@link #jalankanAiStreaming}) dapat menampilkannya bertahap. Baris yang bukan
+	 * JSON valid dilewati (parser tahan-banting). Bila {@code sink} {@code null}, seluruh respons
+	 * dibaca sekaligus lalu di-parse sebagai satu objek JSON (format OpenAI-compatible
+	 * {@code choices[0].message.content}, atau fallback field {@code content}/{@code response}).</p>
+	 *
+	 * <p>Saat respons kosong/gagal dan pesan errornya mengindikasikan kondisi SEMENTARA (mengandung
+	 * kata seperti "busy", "pending", "try again", "loading", "timeout", "unavailable"), method
+	 * mencoba ulang secara rekursif hingga maksimal 3 percobaan dengan jeda meningkat
+	 * ({@code 1500ms * attempt}). Kegagalan akhir maupun exception dicatat ke
+	 * {@link ais.common.ErrorAuditUtil} dan mengembalikan string kosong (bukan melempar exception)
+	 * agar pemanggil dapat melakukan fallback (mis. kamus internal) dengan aman.</p>
+	 *
+	 * @param prompt    teks prompt yang dikirim sebagai pesan role {@code user}
+	 * @param attempt   nomor percobaan saat ini (dimulai dari 1); dipakai membatasi retry rekursif
+	 * @param sink      penampung token streaming (boleh {@code null} untuk mode non-streaming)
+	 * @param maxTokens batas token keluaran ({@code max_tokens} pada payload request)
+	 * @return isi jawaban AI (bisa string kosong bila server tidak dapat dihubungi/gagal permanen)
+	 */
 	private static String panggilAi(String prompt, int attempt, StringBuffer sink, int maxTokens) {
 		HttpURLConnection conn = null;
 		try {
@@ -286,6 +327,28 @@ public class GenerateAiHelper {
 		jalankanAiStreaming(judul, prompt, cb, 900);
 	}
 
+	/**
+	 * Implementasi kanonik {@link #jalankanAiStreaming(String, String, HasilAi)}: membangun popup
+	 * modal non-closable berisi label progres dan kotak teks readonly yang menampilkan token AI
+	 * secara bertahap, menjalankan {@link #panggilAi(String, StringBuffer, int)} pada thread
+	 * terpisah (agar tidak memblokir thread event ZK), lalu memakai {@link org.zkoss.zul.Timer}
+	 * polling (setiap 1200ms) untuk menyalin isi buffer streaming ke kotak teks dan mendeteksi
+	 * selesainya thread AI (ditandai {@code aiResult[0]} tidak lagi {@code null}).
+	 *
+	 * <p>Begitu thread selesai: timer dihentikan dan dilepas, popup ditutup, lalu — bila hasil
+	 * kosong/kegagalan — ditampilkan {@link MyMessageboxConfig} informasi (beserta pesan error
+	 * teknis bila ada) TANPA memanggil {@code cb}; bila berhasil, {@code cb.selesai(hasil)}
+	 * dipanggil di thread event ZK (aman untuk memanipulasi komponen UI), dengan exception dari
+	 * callback dicatat ke {@link ais.common.ErrorAuditUtil} agar tidak menghentikan alur polling
+	 * yang sudah selesai.</p>
+	 *
+	 * @param judul     judul popup progres
+	 * @param prompt    teks prompt yang dikirim ke AI
+	 * @param cb        callback yang dipanggil dengan hasil akhir di thread event ZK; tidak
+	 *                  dipanggil bila hasil kosong/gagal
+	 * @param maxTokens batas token keluaran yang diteruskan ke {@link #panggilAi(String, StringBuffer, int)}
+	 * @throws Exception diteruskan apa adanya dari operasi ZK (mis. pembentukan komponen/{@code onModal})
+	 */
 	public static void jalankanAiStreaming(final String judul, final String prompt, final HasilAi cb,
 			final int maxTokens) throws Exception {
 		final MyWindow loadingWin = new MyWindow(judul, "none", false);

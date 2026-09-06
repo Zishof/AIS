@@ -903,6 +903,124 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 			return warning;
 		}
 
+		/**
+		 * Membangun <b>satu baris utuh</b> layar Input Nilai untuk seorang mahasiswa: dari foto sampai
+		 * kotak centang verifikasi, lengkap dengan seluruh listener yang menyimpan perubahan ke basis
+		 * data. Inilah metode terpanjang dan paling berpengaruh di kelas ini &mdash; hampir setiap
+		 * aturan penilaian yang dirasakan dosen di layar diputuskan di sini.
+		 *
+		 * <h3>Urutan sel yang dihasilkan</h3>
+		 * <ol>
+		 * <li><b>Foto</b> mahasiswa lewat {@code CommonMedia.tampilkanGambarKecil}.</li>
+		 * <li><b>Identitas</b>: sebuah {@code Vbox} dari {@code RevisiHelper.createNewRevisi} sehingga
+		 * NIM dapat diklik untuk melihat riwayat revisi baris ini, dengan nama mahasiswa di bawahnya.
+		 * Bila {@link #checkWarningUts(Detailperkuliahan, Map)} atau
+		 * {@link #checkWarningUas(Detailperkuliahan, Map)} menghasilkan teks, peringatan itu ditempel
+		 * sebagai HTML merah di dalam kotak yang sama, dengan baris baru diterjemahkan menjadi
+		 * {@code <br>}. Bila integrasi Feeder aktif, lencana &quot;Feeder valid&quot; atau
+		 * &quot;Feeder blm valid&quot; ditambahkan, disusul tombol kirim-ke-Feeder dari
+		 * {@code DetailperkuliahanHelper.kirimKeFeeder}.</li>
+		 * <li><b>Semester</b> baris ini sebagai label sederhana.</li>
+		 * <li><b>Rekap kehadiran</b>: rincian jumlah per kode status diambil dari peta {@code statuses}
+		 * hasil {@code Perkuliahan.hitungStatus(statusPertemuan, mahasiswaId)}, ditampilkan
+		 * berdampingan, diakhiri total {@code T} dan persentase kehadiran dari
+		 * {@code detailperkuliahan.hitungPersenKehadiran()}.</li>
+		 * <li><b>Kolom komponen nilai</b>, satu sel untuk setiap {@link FormatNilai} &mdash; bagian
+		 * terpenting, diuraikan di bawah.</li>
+		 * <li><b>Total</b> berupa angka dan huruf, yang diberi tautan popup analisis lewat
+		 * {@code NilaiHurufAnalisisPopupHelper.pasangLink}.</li>
+		 * <li><b>Verifikasi</b>: kotak centang &quot;semua&quot; per mahasiswa, atau sekadar label
+		 * &quot;Ya/Belum&quot; bila pengguna adalah dosen yang tidak berhak memverifikasi nilainya
+		 * sendiri.</li>
+		 * </ol>
+		 *
+		 * <h3>Keputusan besar: sel nilai dapat diedit atau tidak</h3>
+		 * <p>Untuk setiap komponen, sebuah syarat gabungan panjang menentukan apakah sel tampil sebagai
+		 * <b>label baca-saja</b> atau sebagai <b>kotak isian</b>. Sel dikunci bila salah satu terpenuhi:
+		 * {@link #editDisable} menyala; kelas sudah dikunci ({@code perkuliahan.getDikunci() != null});
+		 * layar dibuka tanpa izin ubah ({@code !edit}); kolom itu sendiri dikunci
+		 * ({@code formatNilai.getKunci() != null}); status pertemuan kolom itu dikunci; peringatan UTS
+		 * muncul sementara {@link #statusPertemuanUts} kosong; peringatan UAS muncul sementara
+		 * {@link #statusPertemuanUas} kosong; pengguna adalah mahasiswa yang bukan asisten penilai;
+		 * mahasiswa belum melunasi tagihan sementara kebijakan
+		 * {@link #mhsYgBelumBayarBelumBisaDiEntryNilai} menyala; atau periode penilaian tertutup dan
+		 * {@link #aktifPenilaian} mati.</p>
+		 *
+		 * <p>Pada <b>cabang terkunci</b>, sel diisi label &quot;Load..&quot; yang nilainya diisi
+		 * belakangan secara asinkron oleh {@code NilaiLoader.startLoad}. Perlu dicatat bahwa cabang ini
+		 * tetap membuat sebuah {@code MyDoublebox} beserta {@code PerubahanNilaiListener}-nya, namun
+		 * kotak itu <b>tidak pernah dipasang ke baris</b>; ia hanya diperlukan sebagai wadah oleh
+		 * listener verifikasi dan tidak pernah sampai ke peramban. Pada <b>cabang terbuka</b>, sebuah
+		 * {@code MyDoublebox} dipasang, diberi listener {@code onChange} berupa
+		 * {@code PerubahanNilaiListener}, dan diisi asinkron oleh {@code NilaiLoader}.</p>
+		 *
+		 * <p>Bila {@link #adaProsesVerifikasiNilai} menyala, setiap sel nilai berbagi tempat dengan
+		 * kotak centang verifikasi per komponen. Kotak itu dinonaktifkan bila kelas terkunci atau bila
+		 * pengguna adalah dosen yang kelasnya tidak mengizinkan verifikasi mandiri; jika tidak, ia
+		 * memasang listener yang menyegarkan entitas, memeriksa apakah <i>semua</i> komponen sudah
+		 * tercentang, menulis status {@link Detailperkuliahan#VERIFIED} atau
+		 * {@link Detailperkuliahan#NOT_VERIFIED} beserta identitas verifikator dan waktunya, lalu
+		 * menyimpan dalam transaksi tersendiri.</p>
+		 *
+		 * <h3>Mode &quot;hanya input nilai huruf&quot;</h3>
+		 * <p>Bila {@code perkuliahan.getHanyaInputNilaiHuruf()} menyala, seluruh kolom komponen
+		 * disembunyikan dan digantikan satu kotak teks huruf. Nilai angka disintesis dari
+		 * <b>titik tengah rentang</b> huruf yang diketik: {@code (mulai + sampai) / 2}. Pencarian
+		 * aturan huruf berjenjang tiga tingkat pada {@code ConstantValues.nilaiHurufs} &mdash; cocok
+		 * jurusan mahasiswa, lalu cocok fakultasnya, lalu <b>cocok huruf saja tanpa memandang
+		 * jurusan/fakultas mana pun</b>. Tingkat ketiga itu membuat skala penilaian milik program studi
+		 * lain dapat terpakai bila prodi mahasiswa belum punya definisi huruf sendiri.</p>
+		 *
+		 * <p>Setelah huruf ditemukan, listener menulis nilai hasil sintesis ke <i>seluruh</i> komponen
+		 * melalui {@code populateDetailNilai}, memasang {@code totalIP}, {@code totalNilai}, dan
+		 * {@code nilaiHuruf}, lalu menghitung ulang trio kolom &quot;sementara&quot; dan menyimpannya
+		 * dalam satu transaksi. Sebelum semua itu, gerbang pembayaran semester pendek
+		 * {@code GateBayarSpUtil.alasanBlokir} dijalankan dan menghentikan penyimpanan bila mahasiswa
+		 * belum lunas.</p>
+		 *
+		 * <p><b>Perbedaan gerbang yang perlu diketahui.</b> Syarat yang mengunci kotak huruf ini
+		 * <b>lebih pendek</b> daripada syarat yang mengunci kolom komponen: ia tidak menyertakan
+		 * {@link #editDisable}, tidak menyertakan {@code formatNilai.getKunci()}, dan tidak
+		 * menyertakan kebijakan {@link #mhsYgBelumBayarBelumBisaDiEntryNilai}. Akibatnya, pada kelas
+		 * yang memakai mode ini, pengguna non-dosen tetap memperoleh kotak isian meskipun kebijakan
+		 * <code>hanya_dosen_yg_boleh_entry_nilai</code> sedang aktif. Perlindungan terakhir tetap ada
+		 * di lapisan model &mdash; {@code populateDetailNilai} menolak menulis komponen terkunci dan
+		 * setter ringkasan menolak menulis saat kunci global aktif &mdash; sehingga yang bocor adalah
+		 * gerbang <i>siapa</i>, bukan gerbang <i>kapan</i>.</p>
+		 *
+		 * <h3>Sel Total dan peringatan &quot;nilai 0&quot;</h3>
+		 * <p>Angka yang ditampilkan mengikuti kebijakan penyembunyian: bila kelas menyembunyikan nilai
+		 * yang belum diverifikasi dan baris masih {@code NOT_VERIFIED}, yang tampil adalah pasangan
+		 * kolom sementara. Label dan peringatan dibungkus dalam <b>satu</b> {@code Vbox} agar keduanya
+		 * jatuh pada sel yang sama; sebelumnya peringatan dipasang sebagai sel tambahan dan terdorong
+		 * ke kolom sempit di ujung baris sehingga tak terbaca. Bila total di bawah 0,01 padahal
+		 * komponen sudah terisi, {@code detailperkuliahan.alasanNilaiJadiNol(...)} dipanggil untuk
+		 * menjelaskan sebabnya &mdash; komponen terkunci ber-snapshot nol, bobot persen kosong,
+		 * kehadiran di bawah minimal, atau aturan nilai 0 &mdash; sehingga dosen tahu tindakan apa yang
+		 * harus diambil.</p>
+		 *
+		 * <h3>Efek samping yang tidak terduga dari sebuah perender</h3>
+		 * <p>Metode ini <b>menulis</b>, bukan sekadar menggambar. Ia memperbarui {@link #tbmuser} milik
+		 * kelas induk di tengah jalan; ia mengubah lebar {@link #columnMahasiswa} dan visibilitas
+		 * seluruh {@link #columns} berdasarkan mode nilai huruf &mdash; artinya kolom grid ditata ulang
+		 * setiap kali sebuah baris dirender, bukan sekali saat grid dibangun; dan bila kolom aturan
+		 * nilai 0 pada {@link Perkuliahan} masih {@code null}, ia mengisinya dengan
+		 * {@link #nilai0MasukPenghitungan} pada objek dalam memori. Ia juga menyetel ulang keadaan
+		 * tercentang keempat kotak centang toolbar dari nilai {@link #perkuliahan} pada setiap baris.
+		 * Semua listener yang dipasang membuka transaksi Hibernate sendiri tanpa penguncian baris,
+		 * sehingga dua penilai yang bekerja bersamaan pada kelas yang sama dapat saling menimpa.</p>
+		 *
+		 * @param row  baris grid yang akan diisi; setiap komponen yang di-{@code setParent} ke sini
+		 *             menjadi satu sel, sehingga <b>jumlah dan urutan</b> pemasangan harus sepadan
+		 *             dengan definisi kolom yang dibangun {@link #prosesDisplay}.
+		 * @param data id {@link Detailperkuliahan} dalam bentuk objek; diubah menjadi teks lalu
+		 *             diselesaikan menjadi entitas melalui {@code GeneralValueObject.ambilData}.
+		 * @throws Exception bila pembangunan komponen atau pembacaan data gagal; ZK akan menampilkan
+		 *                   galat render kepada pengguna.
+		 * @see ais.action.master.helper.util.PerubahanNilaiListener
+		 * @see ais.action.master.helper.util.NilaiLoader
+		 * @see Detailperkuliahan#populateDetailNilai
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");

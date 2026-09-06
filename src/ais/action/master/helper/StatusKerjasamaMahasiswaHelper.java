@@ -47,7 +47,9 @@ import ais.ui.util.MyWindow;
  */
 public class StatusKerjasamaMahasiswaHelper implements DataLoader {
 
+	/** Grid daftar mahasiswa penerima status kerjasama, dirender ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Status kerjasama mahasiswa yang daftar penerimanya sedang ditampilkan. */
 	private StatusKerjasamaMahasiswa statusKerjasamaMahasiswa;
 
 	/** Perender baris grid: menampilkan NIM, nama, jurusan, fakultas mahasiswa, dan tombol hapus. */

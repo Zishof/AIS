@@ -181,6 +181,18 @@ public class RekapitulasiPerkuliahanHelper {
 		});
 	}
 
+	/**
+	 * Membangun isi satu tabpanel (dipakai untuk keenam tab pada {@link #display}): toolbar filter
+	 * (kata kunci, tahun akademik, semester) + tombol refresh di area North, dan area Center yang
+	 * diisi grid hasil lewat {@link #reload}. Perubahan pada kata kunci ({@code onOK}) atau kedua
+	 * combobox filter ({@code onChange}) memicu {@link #reload} ulang; sebuah timer default juga
+	 * memuat data pertama kali begitu komponen selesai dirender.
+	 *
+	 * @param tabpanelUtamaPerkuliahan tabpanel tujuan yang diisi
+	 * @param tbmuser                  pengguna yang datanya ditampilkan
+	 * @param tampilStatistik          diteruskan apa adanya ke {@link #reload}/{@link #ambilPembelajaran}
+	 * @param ditampilkanHanya         jenis kegiatan yang ditampilkan pada tab ini (konstanta {@code TampilanELearningAction})
+	 */
 	private static void tampilPerkuliahan(Tabpanel tabpanelUtamaPerkuliahan, final Tbmuser tbmuser,
 			final boolean tampilStatistik, final Integer ditampilkanHanya) {
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
@@ -507,6 +519,25 @@ public class RekapitulasiPerkuliahanHelper {
 		return perkuliahans;
 	}
 
+	/**
+	 * Mengosongkan {@code center} lalu mengisinya ulang: memanggil {@link #ambilPembelajaran} untuk
+	 * mendapatkan data + mengonfigurasi {@link Paging}, membangun grid dengan lebar kolom berbeda
+	 * tergantung {@code tampilStatistik} dan jenis kegiatan (Sidang/Bimbingan memakai proporsi kolom
+	 * berbeda dari kegiatan lain), merender setiap baris lewat
+	 * {@link Common#getDeskripsiPerkuliahanHbox}, dan menambahkan baris paging di akhir grid bila
+	 * komponen paging tersebut "aktif" (diset oleh {@link #ambilPembelajaran} pada jalur non-mahasiswa/
+	 * dosen).
+	 *
+	 * @param tbmuser          pengguna yang datanya ditampilkan
+	 * @param center           kontainer ZK tujuan; dikosongkan lebih dulu bila tidak {@code null}
+	 * @param ta               tahun akademik filter
+	 * @param smt              semester filter
+	 * @param cari             kata kunci pencarian
+	 * @param refreh           diteruskan ke {@link #ambilPembelajaran} untuk membersihkan cache lazy
+	 * @param page             halaman yang diminta; {@code -1} berarti halaman aktif saat ini
+	 * @param tampilStatistik  bila {@code true}, memakai lebar kolom mode ringkas statistik
+	 * @param ditampilkanHanya jenis kegiatan yang ditampilkan (konstanta {@code TampilanELearningAction})
+	 */
 	@SuppressWarnings({ "deprecation" })
 	private static void reload(final Tbmuser tbmuser, final Center center, final String ta, final String smt,
 			final String cari, boolean refreh, final int page, final boolean tampilStatistik,
@@ -617,6 +648,7 @@ public class RekapitulasiPerkuliahanHelper {
 	}
 
 
+	/** Menutup {@code session} lewat {@link ais.common.ElearningSessionUtil#closeQuietly}, menelan kegagalan agar tidak menghentikan alur pemanggil. */
 	private static void closeHibernateSessionQuietly(Session session) {
 		ais.common.ElearningSessionUtil.closeQuietly(session);
 	}

@@ -71,8 +71,10 @@ import ais.ui.util.WaktuUtil;
  */
 public class AktifitasJadwalUjianPMBHelper {
 
+	/** Helper dialog penjadwalan agenda ujian PMB, dibuka lewat tombol "Agenda Ujian PMB" pada {@link #initAgendaJadwalUjianPMB}. */
 	protected PenjadwalanUjianPMBHelper penjadwalanHelper = new PenjadwalanUjianPMBHelper();
 
+	/** Konstruktor kosong; tidak ada state yang perlu disiapkan sebelum {@link #initDetail} dipanggil. */
 	public AktifitasJadwalUjianPMBHelper() {
 
 	}

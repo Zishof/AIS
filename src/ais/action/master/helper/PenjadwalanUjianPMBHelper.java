@@ -63,10 +63,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class PenjadwalanUjianPMBHelper {
 
+	/** Jadwal ujian PMB yang sesi-sesi ({@link Pertemuan}) nya sedang dijadwalkan/dikelola. */
 	private JadwalUjianPMB jadwalUjianPMB;
+	/** Grid yang menampilkan satu baris per {@link Pertemuan} milik {@link #jadwalUjianPMB}. */
 	private MyGrid grid;
+	/** Callback yang dipanggil setelah {@link #save()} berhasil, untuk menyegarkan tampilan pemanggil. */
 	private DataLoader dataLoader;
 
+	/** Tanggal pertemuan terakhir yang ditambahkan lewat tombol "Tambah Pertemuan"; dipakai sebagai basis penggeseran tujuh hari untuk tanggal default pertemuan berikutnya. */
 	private Date currDate;
 
 	/**
@@ -85,10 +89,22 @@ public class PenjadwalanUjianPMBHelper {
 	 */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Konstruktor kosong; tidak ada state yang perlu disiapkan sebelum render. */
 		public PertemuanRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris grid untuk satu {@link Pertemuan}: textbox topik, tanggal (readonly,
+		 * dipilih lewat popup), jam mulai/selesai, combobox jenis pertemuan ({@link StatusPertemuan}
+		 * aktif), dan tombol hapus. Setiap kontrol memicu simpan-langsung ({@code onChange}) ke
+		 * database lewat {@link Common#refreshUpdate}; tombol hapus memakai
+		 * {@link PenjadwalanHelper#checkBolehHapus(Pertemuan)} sebagai gerbang sebelum konfirmasi dan
+		 * penghapusan sesungguhnya.
+		 *
+		 * @param arg0 baris grid yang akan diisi
+		 * @param arg1 data baris, harus berupa {@link Pertemuan}
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
