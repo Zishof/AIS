@@ -163,6 +163,19 @@ import ais.ui.util.MyWindow;
  */
 public class KegiatanProsesHeper {
 
+	/**
+	 * Batas atas ukuran pool thread sekali-pakai yang dibuat tiap permintaan proses massal:
+	 * jumlah prosesor yang tersedia, dijepit ke rentang 2..8.
+	 *
+	 * <p>Jepitan BAWAH 2 menjaga agar mesin berprosesor tunggal tetap memproses dua tugas
+	 * serentak (pekerjaan ini didominasi tunggu I/O basis data, bukan CPU). Jepitan ATAS 8
+	 * mencegah mesin berinti banyak membuka puluhan koneksi Hibernate sekaligus dan menghabiskan
+	 * connection pool.</p>
+	 *
+	 * <p>Nilai ini BUKAN ukuran {@link #WORKER_EXECUTOR} (pool bersama, maks 3) melainkan batas
+	 * pool INTERNAL di dalam tiap tugas latar — lihat {@link #getSafeThreadPoolSize(int)} yang
+	 * masih memangkasnya lagi agar tidak melebihi jumlah pekerjaan yang ada.</p>
+	 */
 	private static final int DEFAULT_THREAD_POOL_SIZE = Math.max(2,
 			Math.min(8, Runtime.getRuntime().availableProcessors()));
 
@@ -1949,6 +1962,20 @@ public class KegiatanProsesHeper {
 
 		toolbarbutton.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Klik tombol "Surat Tagihan": membangun popup filter varian surat — sama
+			 * dengan popup Proses Tagihan namun DITAMBAH field khusus surat (Tanggal Surat,
+			 * Tanggal Jatuh Tempo, Nomor Surat, checkbox Kirim Email, Cara Pembayaran, dan
+			 * Prosentase Denda). Belum memproses apa pun.
+			 *
+			 * <p>Combo "Cara Pembayaran" adalah SATU-SATUNYA tempat di kelas ini yang
+			 * memakai {@code Common.getSatuanKerja()}: ia menyaring pilihan
+			 * {@link JenisPembayaran} ke satuan kerja pengguna login. Penyaringan itu
+			 * berlaku pada daftar rekening/cara bayar saja, BUKAN pada daftar mahasiswa
+			 * yang akan disurati.</p>
+			 *
+			 * @param arg0 event klik (tidak dipakai isinya)
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -2170,6 +2197,12 @@ public class KegiatanProsesHeper {
 				MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
 				cancel.setTooltiptext("Tutup");
 				cancel.addEventListener("onClick", new EventListener() {
+					/**
+					 * Tombol "Batal" pada popup Surat Tagihan: melepas jendela tanpa membuat surat
+					 * maupun mengirim email apa pun.
+					 *
+					 * @param event event klik (tidak dipakai isinya)
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						window.detach();
@@ -2180,6 +2213,22 @@ public class KegiatanProsesHeper {
 				MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Proses Surat Tagihan", "/img/save.gif");
 				save.setTooltiptext("Proses");
 				save.addEventListener("onClick", new EventListener() {
+					/**
+					 * Tombol "Proses Surat Tagihan" — titik mulai pembuatan surat massal.
+					 * Mengambil snapshot seluruh nilai filter ke variabel {@code final}, MEWAJIBKAN
+					 * Jenis Pembayaran terisi ("Semua" ditolak dengan pesan, karena satu surat
+					 * harus mengacu pada satu jenis tagihan), menutup popup, menyiapkan berkas
+					 * Excel ringkasan + berkas ZIP hasil beserta Timer pemantau, merakit
+					 * {@code baseParameters} report yang dipakai bersama seluruh tugas paralel,
+					 * lalu menyerahkan pekerjaan ke {@code WORKER_EXECUTOR}.
+					 *
+					 * <p>Perlu diperhatikan bahwa checkbox "Kirim Email" dibaca di sini dan
+					 * diteruskan sebagai {@code final} ke tugas latar: bila tercentang, proses ini
+					 * benar-benar MENGIRIM email ke setiap alamat mahasiswa/calon yang tagihannya
+					 * belum lunas — aksi yang tidak dapat ditarik kembali.</p>
+					 *
+					 * @param event event klik (tidak dipakai isinya)
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 
@@ -2240,6 +2289,19 @@ public class KegiatanProsesHeper {
 						timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 						timer.setRepeats(true);
 						timer.addEventListener("onTimer", new EventListener() {
+							/**
+							 * Timer pemantau (200 ms, berulang) proses Surat Tagihan, berpola sama dengan
+							 * Timer Proses Tagihan namun berakhir berbeda: saat Label KOSONG (proses
+							 * selesai), ia menambahkan Excel ringkasan ke daftar berkas, mengemas seluruh
+							 * berkas menjadi satu ZIP lewat {@code Common.createZip}, lalu langsung
+							 * mengunduhkannya. Label berisi {@code "-"} berarti gagal: busy dibersihkan dan
+							 * timer dilepas.
+							 *
+							 * <p>Daftar berkas dikosongkan setelah pengemasan agar Timer yang sempat
+							 * berdetak ulang tidak mengemas berkas yang sama dua kali.</p>
+							 *
+							 * @param arg0 event timer (tidak dipakai isinya)
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								try {
@@ -2481,6 +2543,24 @@ public class KegiatanProsesHeper {
 									}
 								}
 
+								/**
+								 * Tugas latar "Proses Surat Tagihan". Berstruktur sama dengan tugas Proses
+								 * Tagihan (memuat subjek, menjalankan Callable paralel, merakit Excel di thread
+								 * ini), namun tiap tugas mengembalikan {@link SuratResult} — bukan satu baris —
+								 * karena satu subjek dapat menghasilkan BEBERAPA baris dan beberapa berkas PDF
+								 * bila diproses lintas beberapa tahun × semester.
+								 *
+								 * <p>Cakupan pemilihan subjek identik dengan Proses Tagihan dan sama-sama tanpa
+								 * penyempitan satuan kerja/perguruan tinggi; lihat paragraf "Cakupan data dan
+								 * otorisasi" pada javadoc kelas. Keluaran di sini bahkan lebih sensitif: Excel
+								 * ringkasannya memuat kolom ALAMAT EMAIL, dan bila checkbox kirim dicentang
+								 * email berlampiran PDF benar-benar dikirimkan ke seluruh alamat tersebut.</p>
+								 *
+								 * <p>Hasil seluruh tugas digabung thread ini menjadi satu Excel ringkasan plus
+								 * kumpulan PDF yang dikemas ke ZIP. Penggabungan dilakukan setelah
+								 * {@code invokeAll} selesai sehingga tidak ada state bersama yang ditulis
+								 * banyak thread.</p>
+								 */
 								@SuppressWarnings({ })
 								@Override
 								public void run() {
@@ -2628,6 +2708,24 @@ public class KegiatanProsesHeper {
 										// TASK MAHASISWA
 										for (final Mahasiswa mahasiswaData : mahasiswas) {
 											tasks.add(new Callable<SuratResult>() {
+												/**
+												 * Tugas paralel Surat Tagihan untuk SATU mahasiswa. Untuk tiap kombinasi tahun
+												 * × semester yang cocok, memanggil {@code KegiatanHelper.checkKegiatanMahasiswa}
+												 * lalu method lokal {@code kirim(...)} yang menghitung sisa tagihan, menambah
+												 * baris ke Excel, dan — hanya bila sisa lebih dari 0,1 — membuat PDF surat serta
+												 * (opsional) mengirim emailnya.
+												 *
+												 * <p>Seluruh hasil ditulis ke {@link SuratResult} LOKAL milik tugas ini, tanpa
+												 * state bersama antar tugas, sehingga aman dijalankan paralel tanpa penguncian.</p>
+												 *
+												 * <p>Ambang 0,1 dipakai — bukan nol persis — karena sisa tagihan dijumlahkan
+												 * sebagai bilangan pecahan; tanpa ambang itu, selisih sepersekian rupiah akan
+												 * menghasilkan surat tagihan (dan email) untuk mahasiswa yang sebenarnya sudah
+												 * lunas.</p>
+												 *
+												 * @return wadah berisi baris Excel, berkas PDF, dan nama berkas milik tugas ini
+												 * @throws Exception bila terjadi kegagalan yang tidak tertangani
+												 */
 												@Override
 												public SuratResult call() throws Exception {
 													SuratResult localResult = new SuratResult();
@@ -2712,6 +2810,20 @@ public class KegiatanProsesHeper {
 										// TASK CALON MAHASISWA
 										for (final BiodataCalonMahasiswa mhsCalon : biodataCalonMahasiswas) {
 											tasks.add(new Callable<SuratResult>() {
+												/**
+												 * Padanan tugas Surat Tagihan untuk CALON mahasiswa. Sama dengan versi
+												 * mahasiswa, namun nomor semester ditetapkan mengikuti jenis kegiatan (0 untuk
+												 * PENDAFTARAN_CALON_MAHASISWA, 1/2 untuk lainnya) dan baris hanya diisi pada
+												 * tahun yang sama persis dengan tahun pendaftaran calon.
+												 *
+												 * <p>Method {@code kirim(...)} yang sama membedakan kedua jenis subjek dari
+												 * {@code kegiatan.getMahasiswa()}/{@code getCalonMahasiswa()} dan memilih
+												 * template report yang sesuai ({@code Surat_Tagihan_Mahasiswa} untuk mahasiswa,
+												 * {@code Surat_Tagihan} untuk calon).</p>
+												 *
+												 * @return wadah berisi baris Excel, berkas PDF, dan nama berkas milik tugas ini
+												 * @throws Exception bila terjadi kegagalan yang tidak tertangani
+												 */
 												@Override
 												public SuratResult call() throws Exception {
 													SuratResult localResult = new SuratResult();
