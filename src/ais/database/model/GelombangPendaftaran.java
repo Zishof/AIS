@@ -1700,62 +1700,149 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return gelombang.alasanTidakBolehMendaftar(perguruanTinggiPendaftar);
 	}
 
+	/**
+	 * Mengembalikan program (misalnya reguler atau karyawan) yang berlaku pada gelombang ini.
+	 *
+	 * @return program (misalnya reguler atau karyawan) yang berlaku pada gelombang ini; boleh {@code null} bila kolom belum diisi
+	 */
 	public String getProgram() {
 		return program;
 	}
 
+	/**
+	 * Menyetel program (misalnya reguler atau karyawan) yang berlaku pada gelombang ini.
+	 *
+	 * @param program nilai baru; boleh {@code null}
+	 */
 	public void setProgram(String program) {
 		this.program = program;
 	}
 
+	/**
+	 * Mengembalikan apakah calon dikunci pada program gelombang dan tidak boleh memilih program lain.
+	 *
+	 * @return apakah calon dikunci pada program gelombang dan tidak boleh memilih program lain; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getTidakBolehMemilihProgramLain() {
 		return tidakBolehMemilihProgramLain == null ? false : tidakBolehMemilihProgramLain;
 	}
 
+	/**
+	 * Menyetel apakah calon dikunci pada program gelombang dan tidak boleh memilih program lain.
+	 *
+	 * @param tidakBolehMemilihProgramLain nilai baru; boleh {@code null}
+	 */
 	public void setTidakBolehMemilihProgramLain(Boolean tidakBolehMemilihProgramLain) {
 		this.tidakBolehMemilihProgramLain = tidakBolehMemilihProgramLain;
 	}
 
+	/**
+	 * Mengembalikan apakah mahasiswa pindahan diizinkan mendaftar pada gelombang ini.
+	 *
+	 * @return apakah mahasiswa pindahan diizinkan mendaftar pada gelombang ini; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getMahasiswaPindahanBolehMendaftar() {
 		return mahasiswaPindahanBolehMendaftar == null ? true : mahasiswaPindahanBolehMendaftar;
 	}
 
+	/**
+	 * Menyetel apakah mahasiswa pindahan diizinkan mendaftar pada gelombang ini.
+	 *
+	 * @param mahasiswaPindahanBolehMendaftar nilai baru; boleh {@code null}
+	 */
 	public void setMahasiswaPindahanBolehMendaftar(Boolean mahasiswaPindahanBolehMendaftar) {
 		this.mahasiswaPindahanBolehMendaftar = mahasiswaPindahanBolehMendaftar;
 	}
 
+	/**
+	 * Mengembalikan apakah calon dikunci pada status awal bawaan gelombang.
+	 *
+	 * @return apakah calon dikunci pada status awal bawaan gelombang; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getHarusIkutStatusAwalDefault() {
 		return harusIkutStatusAwalDefault == null ? false : harusIkutStatusAwalDefault;
 	}
 
+	/**
+	 * Menyetel apakah calon dikunci pada status awal bawaan gelombang.
+	 *
+	 * @param harusIkutStatusAwalDefault nilai baru; boleh {@code null}
+	 */
 	public void setHarusIkutStatusAwalDefault(Boolean harusIkutStatusAwalDefault) {
 		this.harusIkutStatusAwalDefault = harusIkutStatusAwalDefault;
 	}
 
+	/**
+	 * Mengembalikan apakah berkas wajib terverifikasi sebelum kartu ujian dapat dicetak. Bawaannya
+	 * <b>padam</b> bila kolom kosong.
+	 *
+	 * <p>
+	 * Ini salah satu dari tiga gerbang verifikasi berkas yang berdiri sendiri-sendiri —
+	 * bersama {@link #getDokumenHarusDiverivikasiSebelumBisaSimpan()} dan
+	 * {@link #getDokumenHarusDiverivikasiSebelumBisaIkutUjian()}. Ketiganya <b>tidak saling
+	 * menyiratkan</b>: mewajibkan verifikasi sebelum cetak kartu tidak otomatis mewajibkannya sebelum
+	 * ujian. Rancangan ini memberi keluwesan, tetapi menuntut ketiganya disetel secara sadar —
+	 * membiarkan semuanya kosong berarti verifikasi berkas tidak pernah menjadi syarat apa pun,
+	 * betapapun lengkap daftar {@link #getVerifikasiKelengkapanCalonMahasiswas()}.
+	 * </p>
+	 *
+	 * <p>
+	 * (Ejaan nama properti mengandung salah ketik yang sudah telanjur dipakai lintas modul.)
+	 * </p>
+	 *
+	 * @return penanda gerbang verifikasi; tidak pernah {@code null}
+	 */
 	public Boolean getDokumenHarusDiverivikasiSebelumBisaCetakKartuUjian() {
 		return dokumenHarusDiverivikasiSebelumBisaCetakKartuUjian == null ? false
 				: dokumenHarusDiverivikasiSebelumBisaCetakKartuUjian;
 	}
 
+	/**
+	 * Menyetel gerbang verifikasi berkas sebelum cetak kartu ujian.
+	 *
+	 * @param dokumenHarusDiverivikasiSebelumBisaCetakKartuUjian penanda; {@code null} berarti padam
+	 */
 	public void setDokumenHarusDiverivikasiSebelumBisaCetakKartuUjian(
 			Boolean dokumenHarusDiverivikasiSebelumBisaCetakKartuUjian) {
 		this.dokumenHarusDiverivikasiSebelumBisaCetakKartuUjian = dokumenHarusDiverivikasiSebelumBisaCetakKartuUjian;
 	}
 
+	/**
+	 * Mengembalikan apakah berkas wajib terverifikasi sebelum calon boleh mengikuti ujian. Bawaannya
+	 * <b>padam</b> bila kolom kosong. Lihat catatan tentang ketiga gerbang verifikasi yang berdiri
+	 * sendiri-sendiri pada {@link #getDokumenHarusDiverivikasiSebelumBisaCetakKartuUjian()}.
+	 *
+	 * @return penanda gerbang verifikasi; tidak pernah {@code null}
+	 */
 	public Boolean getDokumenHarusDiverivikasiSebelumBisaIkutUjian() {
 		return dokumenHarusDiverivikasiSebelumBisaIkutUjian == null ? true
 				: dokumenHarusDiverivikasiSebelumBisaIkutUjian;
 	}
 
+	/**
+	 * Menyetel gerbang verifikasi berkas sebelum mengikuti ujian.
+	 *
+	 * @param dokumenHarusDiverivikasiSebelumBisaIkutUjian penanda; {@code null} berarti padam
+	 */
 	public void setDokumenHarusDiverivikasiSebelumBisaIkutUjian(Boolean dokumenHarusDiverivikasiSebelumBisaIkutUjian) {
 		this.dokumenHarusDiverivikasiSebelumBisaIkutUjian = dokumenHarusDiverivikasiSebelumBisaIkutUjian;
 	}
 
+	/**
+	 * Mengembalikan rujukan acara kalender yang terkait gelombang ini.
+	 *
+	 * @return rujukan acara kalender yang terkait gelombang ini; boleh {@code null} bila kolom belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getCalendarEvent() {
 		return calendarEvent == null || calendarEvent.trim().isEmpty() ? new JSONObject().toString() : calendarEvent;
 	}
 
+	/**
+	 * Menyetel rujukan acara kalender yang terkait gelombang ini.
+	 *
+	 * @param calendarEvent nilai baru; boleh {@code null}
+	 */
 	public void setCalendarEvent(String calendarEvent) {
 		this.calendarEvent = calendarEvent;
 	}
@@ -1769,6 +1856,18 @@ public class GelombangPendaftaran extends GeneralValueObject {
 	public static Integer WA = 6;
 	public static Integer LAIN = 7;
 
+	/**
+	 * Mengembalikan sarana konferensi video yang dipakai gelombang ini, mengacu pada konstanta yang
+	 * dideklarasikan tepat di atas method ini.
+	 *
+	 * <p>
+	 * Bawaannya <b>tidak aktif</b> bila kolom kosong, dan nilai bawaan itu <b>ditulis ke field</b>.
+	 * Nilai ini menentukan tautan mana di antara keluarga {@code get*Link} yang dipakai; untuk pilihan
+	 * Jitsi, tautan tidak disimpan melainkan dibangkitkan lewat {@link #generateJitsiLink()}.
+	 * </p>
+	 *
+	 * @return kode sarana konferensi video; tidak pernah {@code null}
+	 */
 	public Integer getOnlineMenggunakan() {
 		if (onlineMenggunakan == null) {
 			onlineMenggunakan = TIDAK_AKTIF;
@@ -1776,10 +1875,39 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return onlineMenggunakan;
 	}
 
+	/**
+	 * Menyetel sarana konferensi video yang dipakai gelombang ini. Gunakan konstanta yang
+	 * dideklarasikan di kelas ini, bukan angka mentah.
+	 *
+	 * @param onlineMenggunakan kode sarana; {@code null} berarti tidak aktif
+	 */
 	public void setOnlineMenggunakan(Integer onlineMenggunakan) {
 		this.onlineMenggunakan = onlineMenggunakan;
 	}
 
+	/**
+	 * Mengembalikan tautan ruang konferensi Zoom, <b>dengan pemulihan dari penyimpanan pendamping dan
+	 * penyaringan URL</b>.
+	 *
+	 * <h4>Dua perilaku tambahan</h4>
+	 * <ol>
+	 * <li><b>Pemulihan.</b> Bila kolom kosong, nilai diambil dari penyimpanan pendamping entitas
+	 * (penyimpanan bebas-skema milik kelas induk) dengan kunci yang sama. Ini menjelaskan mengapa
+	 * tautan yang tampak hilang dari kolom kadang tetap muncul.</li>
+	 *
+	 * <li><b>Penyaringan URL.</b> Bila nilai mengandung spasi — pertanda admin menempelkan seluruh
+	 * undangan rapat, bukan tautannya saja — method mengekstrak URL pertama yang ditemukan dan
+	 * <b>membuang sisanya</b>. Ini praktis, tetapi berarti keterangan tambahan yang sengaja ditulis
+	 * admin ikut hilang; dan bila tidak ada URL sama sekali, nilai menjadi kosong.</li>
+	 * </ol>
+	 *
+	 * <p>
+	 * Kedua langkah <b>menulis ke field</b>. Hasil akhir dinormalkan: nilai kosong dikembalikan
+	 * sebagai {@code null}, bukan string kosong.
+	 * </p>
+	 *
+	 * @return tautan Zoom yang sudah dipangkas, atau {@code null} bila tidak ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getZoomLink() {
 		if (zoomLink == null || zoomLink.trim().isEmpty()) {
@@ -1798,6 +1926,19 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return zoomLink == null || zoomLink.trim().isEmpty() ? null : zoomLink.trim();
 	}
 
+	/**
+	 * Menyetel tautan ruang konferensi Zoom.
+	 *
+	 * <p>
+	 * Selain mengisi field, setter <b>juga menuliskan nilai ke penyimpanan pendamping</b> entitas bila
+	 * nilainya tidak kosong — itulah sumber yang dibaca kembali oleh {@link #getZoomLink()} ketika
+	 * kolom utama kosong. Konsekuensinya, menyetel {@code null} atau string kosong <b>tidak menghapus
+	 * salinan di penyimpanan pendamping</b>, sehingga tautan lama dapat muncul kembali. Untuk
+	 * benar-benar menghapus tautan, salinan pendamping itu harus dibersihkan tersendiri.
+	 * </p>
+	 *
+	 * @param zoomLink tautan Zoom; boleh {@code null}
+	 */
 	public void setZoomLink(String zoomLink) {
 		if (zoomLink != null && !zoomLink.trim().isEmpty()) {
 			this.put(zoomLink, "zoomLink");
@@ -1805,6 +1946,13 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		this.zoomLink = zoomLink;
 	}
 
+	/**
+	 * Mengembalikan tautan ruang konferensi BigBlueButton. Perilakunya identik dengan
+	 * {@link #getZoomLink()}: pemulihan dari penyimpanan pendamping bila kolom kosong, lalu
+	 * penyaringan URL bila nilainya mengandung spasi.
+	 *
+	 * @return tautan BigBlueButton, atau {@code null} bila tidak ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getBbbLink() {
 		if (bbbLink == null || bbbLink.trim().isEmpty()) {
@@ -1823,6 +1971,12 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return bbbLink == null || bbbLink.trim().isEmpty() ? null : bbbLink.trim();
 	}
 
+	/**
+	 * Menyetel tautan ruang konferensi BigBlueButton. Seperti {@link #setZoomLink(String)}, nilai
+	 * tidak kosong juga disalin ke penyimpanan pendamping dan salinan itu tidak ikut terhapus.
+	 *
+	 * @param bbbLink tautan BigBlueButton; boleh {@code null}
+	 */
 	public void setBbbLink(String bbbLink) {
 		if (bbbLink != null && !bbbLink.trim().isEmpty()) {
 			this.put(bbbLink, "bbbLink");
@@ -1830,6 +1984,11 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		this.bbbLink = bbbLink;
 	}
 
+	/**
+	 * Mengembalikan tautan ruang konferensi Skype. Perilakunya identik dengan {@link #getZoomLink()}.
+	 *
+	 * @return tautan Skype, atau {@code null} bila tidak ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getSkypeLink() {
 		if (skypeLink == null || skypeLink.trim().isEmpty()) {
@@ -1848,6 +2007,12 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return skypeLink == null || skypeLink.trim().isEmpty() ? null : skypeLink.trim();
 	}
 
+	/**
+	 * Menyetel tautan ruang konferensi Skype. Seperti {@link #setZoomLink(String)}, nilai tidak kosong
+	 * juga disalin ke penyimpanan pendamping.
+	 *
+	 * @param skypeLink tautan Skype; boleh {@code null}
+	 */
 	public void setSkypeLink(String skypeLink) {
 		if (skypeLink != null && !skypeLink.trim().isEmpty()) {
 			this.put(skypeLink, "skypeLink");
@@ -1855,6 +2020,18 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		this.skypeLink = skypeLink;
 	}
 
+	/**
+	 * Mengembalikan tautan sarana konferensi lain di luar pilihan baku.
+	 *
+	 * <p>
+	 * Perilakunya sama dengan {@link #getZoomLink()}, dengan satu <b>ketidakseragaman yang mudah
+	 * menjebak</b>: kunci yang dipakai untuk memulihkan nilai dari penyimpanan pendamping <b>berbeda
+	 * dari nama propertinya</b> — ia memakai kunci bergaya lama, bukan pola yang dipakai keempat
+	 * tautan lain. Kode yang menyalin nilai antar penyimpanan harus memperhitungkan hal ini.
+	 * </p>
+	 *
+	 * @return tautan sarana lain, atau {@code null} bila tidak ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getLainLink() {
 		if (lainLink == null || lainLink.trim().isEmpty()) {
@@ -1873,10 +2050,57 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return lainLink == null || lainLink.trim().isEmpty() ? null : lainLink.trim();
 	}
 
+	/**
+	 * Menyetel tautan sarana konferensi lain.
+	 *
+	 * <p>
+	 * Berbeda dari keempat setter tautan lainnya, method ini <b>tidak</b> menuliskan nilai ke
+	 * penyimpanan pendamping — ia hanya mengisi field. Asimetri ini berarti nilai yang disetel di sini
+	 * dapat <b>tertimpa</b> pada pembacaan berikutnya bila penyimpanan pendamping masih memuat nilai
+	 * lama, karena {@link #getLainLink()} tetap membacanya ketika kolom kosong.
+	 * </p>
+	 *
+	 * @param lainLink tautan sarana lain; boleh {@code null}
+	 */
 	public void setLainLink(String lainLink) {
 		this.lainLink = lainLink;
 	}
 
+	/**
+	 * Membangkitkan tautan ruang konferensi Jitsi untuk gelombang ini — <b>tanpa menyimpannya</b>.
+	 *
+	 * <h4>Cara nama ruang dibentuk</h4>
+	 * <p>
+	 * Nama ruang dirakit dari jalur konteks aplikasi digabung penanda gelombang berbentuk
+	 * {@code GEL_<nama>_<id>}, lalu dinormalkan: seluruh karakter selain huruf dan angka diganti garis
+	 * bawah, huruf dijadikan kecil, dan garis bawah berulang dipadatkan. Hasilnya digabungkan dengan
+	 * alamat server yang diambil dari konfigurasi runtime, dengan server Jitsi publik sebagai
+	 * bawaannya.
+	 * </p>
+	 *
+	 * <h4>Yang perlu diketahui</h4>
+	 * <ul>
+	 * <li><b>Nama ruang bersifat deterministik dan dapat ditebak.</b> Karena hanya diturunkan dari
+	 * jalur konteks, nama gelombang, dan id — semuanya bukan rahasia — siapa pun yang mengetahui
+	 * ketiganya dapat menyusun ulang nama ruang yang sama dan bergabung. Pada server Jitsi publik yang
+	 * tidak mensyaratkan otentikasi, ini berarti ruang ujian atau wawancara <b>tidak terlindungi oleh
+	 * ketidakteraturan nama</b>. Bila kerahasiaan sesi penting, sandi ruang harus disetel di sisi
+	 * server konferensi.</li>
+	 *
+	 * <li><b>Membutuhkan konteks permintaan HTTP.</b> Method mengambil jalur konteks dari eksekusi ZK
+	 * yang sedang berjalan, dan bila tidak ada, dari konteks permintaan cadangan. Dipanggil dari luar
+	 * kedua konteks itu, ia akan gagal.</li>
+	 *
+	 * <li><b>Pemadatan garis bawah dilakukan tiga kali berturut-turut</b>, bukan lewat pengulangan
+	 * sampai tuntas. Untaian garis bawah yang sangat panjang karenanya dapat menyisakan sebagian.</li>
+	 *
+	 * <li>Tautan <b>tidak disimpan</b> ke kolom mana pun — ia dibangkitkan ulang setiap kali
+	 * diperlukan. Itulah sebabnya pilihan Jitsi tidak memiliki kolom tautan tersendiri.</li>
+	 * </ul>
+	 *
+	 * @return alamat lengkap ruang konferensi Jitsi
+	 * @throws Exception bila konteks permintaan tidak tersedia atau penyandian jalur gagal
+	 */
 	public String generateJitsiLink() throws Exception {
 		GelombangPendaftaran gelombangPendaftaran = this;
 		String id = "GEL_" + gelombangPendaftaran.getNama() + "_" + gelombangPendaftaran.getId();
@@ -1911,6 +2135,12 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return server;
 	}
 
+	/**
+	 * Mengembalikan tautan grup atau percakapan WhatsApp. Perilakunya identik dengan
+	 * {@link #getZoomLink()}: pemulihan dari penyimpanan pendamping, lalu penyaringan URL.
+	 *
+	 * @return tautan WhatsApp, atau {@code null} bila tidak ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getWaLink() {
 		if (waLink == null || waLink.trim().isEmpty()) {
@@ -1929,6 +2159,12 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return waLink == null || waLink.trim().isEmpty() ? null : waLink.trim();
 	}
 
+	/**
+	 * Menyetel tautan grup atau percakapan WhatsApp. Seperti {@link #setZoomLink(String)}, nilai tidak
+	 * kosong juga disalin ke penyimpanan pendamping.
+	 *
+	 * @param waLink tautan WhatsApp; boleh {@code null}
+	 */
 	public void setWaLink(String waLink) {
 		if (waLink != null && !waLink.trim().isEmpty()) {
 			this.put(waLink, "waLink");
@@ -1936,11 +2172,64 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		this.waLink = waLink;
 	}
 
+	/**
+	 * Membangun tombol konferensi video untuk gelombang, dalam bentuk tombol kecil (bukan tombol
+	 * penuh).
+	 *
+	 * <p>
+	 * Pintasan bagi varian berparameter lengkap
+	 * {@link #createVideoConrefrence(GelombangPendaftaran, Component, boolean, boolean, EventListener)}.
+	 * (Nama method mengandung salah ketik yang sudah telanjur dipakai lintas modul.)
+	 * </p>
+	 *
+	 * @param gelombangPendaftaran gelombang yang konferensinya dibuka
+	 * @param hbox                 wadah tempat komponen ditambahkan
+	 * @param vertical             apakah komponen disusun menurun
+	 * @param eventListener        penerima kejadian klik tambahan; boleh {@code null}
+	 * @return tombol yang dibangun
+	 * @throws Exception bila pembangunan komponen atau tautan gagal
+	 */
 	public static Button createVideoConrefrence(final GelombangPendaftaran gelombangPendaftaran, Component hbox,
 			boolean vertical, final EventListener eventListener) throws Exception {
 		return createVideoConrefrence(gelombangPendaftaran, hbox, vertical, false, eventListener);
 	}
 
+	/**
+	 * Membangun komponen antarmuka untuk membuka <b>konferensi video</b> gelombang, menyesuaikan diri
+	 * dengan sarana yang dipilih pada {@link #getOnlineMenggunakan()}.
+	 *
+	 * <h4>Peran</h4>
+	 * <p>
+	 * Inilah satu-satunya tempat pilihan sarana konferensi diterjemahkan menjadi tombol yang benar:
+	 * method membaca kode sarana, mengambil tautan yang sesuai dari keluarga {@code get*Link} (atau
+	 * membangkitkannya lewat {@link #generateJitsiLink()} untuk Jitsi), lalu merakit komponen beserta
+	 * label, ikon, dan perilaku bukanya. Parameter {@code button} memilih antara tombol penuh dan
+	 * tombol kecil, sedangkan {@code vertical} mengatur arah susunan.
+	 * </p>
+	 *
+	 * <h4>Mengapa method sepanjang ini berada di kelas entitas</h4>
+	 * <p>
+	 * Penempatannya di dalam entitas — bukan di lapisan antarmuka — adalah keputusan yang layak
+	 * diketahui: method ini mengimpor komponen ZK, sehingga <b>kelas model ini bergantung pada
+	 * kerangka antarmuka</b>. Akibat praktisnya, entitas tidak dapat dipakai di lingkungan tanpa
+	 * pustaka ZK, dan pengujian yang memuat kelas ini ikut menyeret ketergantungan tersebut. Bila
+	 * kelak dirapikan, memindahkan method ini beserta {@link #generateJitsiLink()} ke kelas pembantu
+	 * antarmuka akan memutus ketergantungan itu.
+	 * </p>
+	 *
+	 * <p>
+	 * Seluruh parameter yang dirujuk dari dalam penangan kejadian ditandai {@code final} sebagaimana
+	 * dituntut kelas dalam anonim pada Java 7.
+	 * </p>
+	 *
+	 * @param gelombangPendaftaran gelombang yang konferensinya dibuka
+	 * @param hbox                 wadah tempat komponen ditambahkan
+	 * @param vertical             apakah komponen disusun menurun
+	 * @param button               {@code true} untuk tombol penuh, {@code false} untuk tombol kecil
+	 * @param eventListener        penerima kejadian klik tambahan; boleh {@code null}
+	 * @return tombol yang dibangun
+	 * @throws Exception bila pembangunan komponen atau tautan gagal
+	 */
 	public static Button createVideoConrefrence(final GelombangPendaftaran gelombangPendaftaran, Component hbox,
 			boolean vertical, boolean button, final EventListener eventListener) throws Exception {
 
@@ -2305,6 +2594,38 @@ public class GelombangPendaftaran extends GeneralValueObject {
 
 	}
 
+	/**
+	 * Mengumpulkan <b>alamat surel seluruh calon mahasiswa</b> pada gelombang ini, sebagai daftar
+	 * penerima undangan konferensi.
+	 *
+	 * <h4>Cara kerja</h4>
+	 * <p>
+	 * Method menanyakan surel milik calon yang aktif (atau yang penanda aktifnya belum diisi) pada
+	 * gelombang ini, memakai pengelompokan agar nilai kembar menyatu di sisi basis data. Setiap nilai
+	 * yang diperoleh kemudian <b>dipecah lagi pada koma</b> — karena satu calon dapat mencantumkan
+	 * lebih dari satu surel dalam satu kolom — lalu setiap potongan disaring dengan pemeriksaan
+	 * kesahihan format sebelum dimasukkan ke himpunan hasil.
+	 * </p>
+	 *
+	 * <h4>Yang perlu diwaspadai</h4>
+	 * <ul>
+	 * <li><b>Tidak ada penyaringan tenant.</b> Penyaringan hanya berdasarkan gelombang. Selama
+	 * gelombang itu sendiri dimiliki tenant yang benar, hasilnya benar — tetapi ingat bahwa gelombang
+	 * tanpa pemilik akan tampak milik setiap pembaca (lihat {@link #getPerguruanTinggi()}).</li>
+	 *
+	 * <li><b>Menutup sesi Hibernate setelah query.</b> Method memakai sesi native lalu menutupnya
+	 * sendiri. Bila pemanggil masih memerlukan sesi itu untuk menavigasi relasi malas setelahnya, ia
+	 * akan menemui sesi yang sudah tertutup — panggil method ini terakhir, atau muat ulang apa yang
+	 * diperlukan sesudahnya.</li>
+	 *
+	 * <li><b>Ini adalah daftar data pribadi.</b> Nilai kembaliannya adalah kumpulan alamat surel
+	 * seluruh pendaftar pada satu gelombang. Perlakukan sesuai: jangan menampilkannya sebagai satu
+	 * daftar terbuka, dan pada pengiriman undangan pastikan alamat tidak saling terlihat antar
+	 * penerima.</li>
+	 * </ul>
+	 *
+	 * @return himpunan alamat surel yang sahih; tidak pernah {@code null}, tetapi boleh kosong
+	 */
 	@SuppressWarnings("unchecked")
 	public Set<String> ambilAttendee() {
 		Set<String> emails = new HashSet<String>();
@@ -2326,18 +2647,38 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return emails;
 	}
 
+	/**
+	 * Mengembalikan apakah berkas wajib terverifikasi sebelum data pendaftaran dapat disimpan.
+	 *
+	 * @return apakah berkas wajib terverifikasi sebelum data pendaftaran dapat disimpan; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getDokumenHarusDiverivikasiSebelumBisaSimpan() {
 		return dokumenHarusDiverivikasiSebelumBisaSimpan == null ? true : dokumenHarusDiverivikasiSebelumBisaSimpan;
 	}
 
+	/**
+	 * Menyetel apakah berkas wajib terverifikasi sebelum data pendaftaran dapat disimpan.
+	 *
+	 * @param dokumenHarusDiverivikasiSebelumBisaSimpan nilai baru; boleh {@code null}
+	 */
 	public void setDokumenHarusDiverivikasiSebelumBisaSimpan(Boolean dokumenHarusDiverivikasiSebelumBisaSimpan) {
 		this.dokumenHarusDiverivikasiSebelumBisaSimpan = dokumenHarusDiverivikasiSebelumBisaSimpan;
 	}
 
+	/**
+	 * Mengembalikan apakah satu orang dilarang mendaftar dua kali pada gelombang ini.
+	 *
+	 * @return apakah satu orang dilarang mendaftar dua kali pada gelombang ini; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getTidakBolehMendaftarMhsYgSama() {
 		return tidakBolehMendaftarMhsYgSama == null ? true : tidakBolehMendaftarMhsYgSama;
 	}
 
+	/**
+	 * Menyetel apakah satu orang dilarang mendaftar dua kali pada gelombang ini.
+	 *
+	 * @param tidakBolehMendaftarMhsYgSama nilai baru; boleh {@code null}
+	 */
 	public void setTidakBolehMendaftarMhsYgSama(Boolean tidakBolehMendaftarMhsYgSama) {
 		this.tidakBolehMendaftarMhsYgSama = tidakBolehMendaftarMhsYgSama;
 	}
@@ -2347,10 +2688,35 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return tidakBolehNikSama == null ? false : tidakBolehNikSama;
 	}
 
+	/**
+	 * Menyetel apakah nomor induk kependudukan yang sama dilarang dipakai lebih dari sekali pada
+	 * gelombang ini.
+	 *
+	 * @param tidakBolehNikSama penanda; {@code null} berarti diizinkan
+	 */
 	public void setTidakBolehNikSama(Boolean tidakBolehNikSama) {
 		this.tidakBolehNikSama = tidakBolehNikSama;
 	}
 
+	/**
+	 * Mengembalikan apakah calon wajib melunasi tagihan registrasi sebelum dapat masuk ke akunnya.
+	 *
+	 * <p>
+	 * <b>Bila kolom kosong, nilainya diambil dari konfigurasi global</b> dan hasilnya ditulis ke
+	 * field. Pola ini berbeda dari getter bawaan lain di kelas ini yang memakai nilai tetap: di sini
+	 * gelombang mewarisi kebijakan seluruh instalasi selama ia belum menyatakan pendiriannya sendiri.
+	 * </p>
+	 *
+	 * <p>
+	 * Dua konsekuensi. Pertama, <b>mengubah konfigurasi global mengubah perilaku seluruh gelombang
+	 * yang kolomnya kosong</b> secara serentak. Kedua, karena nilai bawaan ditulis ke field, gelombang
+	 * yang tersimpan setelah dibaca akan <b>membekukan</b> nilai konfigurasi saat itu dan berhenti
+	 * mengikuti perubahan berikutnya — sehingga dua gelombang dengan pengaturan yang sama di layar
+	 * dapat berperilaku berbeda tergantung kapan masing-masing terakhir disimpan.
+	 * </p>
+	 *
+	 * @return penanda wajib bayar sebelum masuk; dapat {@code null} bila konfigurasi tidak dapat dibaca
+	 */
 	public Boolean getHarusBayarSebelumBisaLogin() {
 		if (harusBayarSebelumBisaLogin == null) {
 			harusBayarSebelumBisaLogin = Common.bolehKonfigurasi("calon_mahasiswa_harus_melakukan_pembayaran_sebelum_bisa_login");
@@ -2358,173 +2724,416 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return harusBayarSebelumBisaLogin;
 	}
 
+	/**
+	 * Menyetel apakah calon wajib melunasi tagihan registrasi sebelum dapat masuk ke akunnya.
+	 * Menyetel {@code null} mengembalikan gelombang ke kebijakan konfigurasi global — lihat
+	 * {@link #getHarusBayarSebelumBisaLogin()}.
+	 *
+	 * @param harusBayarSebelumBisaLogin penanda; {@code null} berarti mengikuti konfigurasi global
+	 */
 	public void setHarusBayarSebelumBisaLogin(Boolean harusBayarSebelumBisaLogin) {
 		this.harusBayarSebelumBisaLogin = harusBayarSebelumBisaLogin;
 	}
 
+	/**
+	 * Mengembalikan apakah calon memilih sendiri jalur seleksinya pada formulir pendaftaran, alih-alih memakai jalur utama gelombang.
+	 *
+	 * @return apakah calon memilih sendiri jalur seleksinya pada formulir pendaftaran, alih-alih memakai jalur utama gelombang; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getJenisSeleksiDipilihDiFormPendaftaran() {
 		return jenisSeleksiDipilihDiFormPendaftaran == null ? false : jenisSeleksiDipilihDiFormPendaftaran;
 	}
 
+	/**
+	 * Menyetel apakah calon memilih sendiri jalur seleksinya pada formulir pendaftaran, alih-alih memakai jalur utama gelombang.
+	 *
+	 * @param jenisSeleksiDipilihDiFormPendaftaran nilai baru; boleh {@code null}
+	 */
 	public void setJenisSeleksiDipilihDiFormPendaftaran(Boolean jenisSeleksiDipilihDiFormPendaftaran) {
 		this.jenisSeleksiDipilihDiFormPendaftaran = jenisSeleksiDipilihDiFormPendaftaran;
 	}
 
+	/**
+	 * Mengembalikan apakah rentang tanggal pendaftaran ditampilkan kepada calon mahasiswa.
+	 *
+	 * @return apakah rentang tanggal pendaftaran ditampilkan kepada calon mahasiswa; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getTampilkanMasaPendaftaranKeCalonMahasiswa() {
 		return tampilkanMasaPendaftaranKeCalonMahasiswa == null ? true : tampilkanMasaPendaftaranKeCalonMahasiswa;
 	}
 
+	/**
+	 * Menyetel apakah rentang tanggal pendaftaran ditampilkan kepada calon mahasiswa.
+	 *
+	 * @param tampilkanMasaPendaftaranKeCalonMahasiswa nilai baru; boleh {@code null}
+	 */
 	public void setTampilkanMasaPendaftaranKeCalonMahasiswa(Boolean tampilkanMasaPendaftaranKeCalonMahasiswa) {
 		this.tampilkanMasaPendaftaranKeCalonMahasiswa = tampilkanMasaPendaftaranKeCalonMahasiswa;
 	}
 
+	/**
+	 * Mengembalikan teks informasi yang ditampilkan kepada calon mahasiswa pada halaman gelombang,
+	 * dinormalkan menjadi string kosong bila belum diisi.
+	 *
+	 * <p>
+	 * Bedakan dari {@link #getKeterangan()} yang bersifat administratif internal. Karena teks ini
+	 * dirender pada halaman publik, isinya harus diperlakukan sebagai konten yang terlihat pendaftar.
+	 * </p>
+	 *
+	 * @return teks informasi; tidak pernah {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getInfo() {
 		return info == null ? "" : info;
 	}
 
+	/**
+	 * Menyetel teks informasi yang ditampilkan kepada calon mahasiswa.
+	 *
+	 * @param info teks informasi; boleh {@code null}
+	 */
 	public void setInfo(String info) {
 		this.info = info;
 	}
 
+	/**
+	 * Mengembalikan teks informasi yang ditampilkan setelah calon menyelesaikan ujian daring.
+	 *
+	 * @return teks informasi yang ditampilkan setelah calon menyelesaikan ujian daring; boleh {@code null} bila kolom belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getInfoSetelahUjianOnline() {
 		return infoSetelahUjianOnline == null ? "" : infoSetelahUjianOnline;
 	}
 
+	/**
+	 * Menyetel teks informasi yang ditampilkan setelah calon menyelesaikan ujian daring.
+	 *
+	 * @param infoSetelahUjianOnline nilai baru; boleh {@code null}
+	 */
 	public void setInfoSetelahUjianOnline(String infoSetelahUjianOnline) {
 		this.infoSetelahUjianOnline = infoSetelahUjianOnline;
 	}
 
+	/**
+	 * Mengembalikan teks informasi yang ditampilkan pada tahap wawancara.
+	 *
+	 * @return teks informasi yang ditampilkan pada tahap wawancara; boleh {@code null} bila kolom belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getInfoSaatInterview() {
 		return infoSaatInterview == null ? "" : infoSaatInterview;
 	}
 
+	/**
+	 * Menyetel teks informasi yang ditampilkan pada tahap wawancara.
+	 *
+	 * @param infoSaatInterview nilai baru; boleh {@code null}
+	 */
 	public void setInfoSaatInterview(String infoSaatInterview) {
 		this.infoSaatInterview = infoSaatInterview;
 	}
 
+	/**
+	 * Mengembalikan apakah gelombang ini menyelenggarakan ujian daring. Bawaannya <b>benar</b> bila
+	 * kolom kosong.
+	 *
+	 * <p>
+	 * Sekali lagi pola bawaan permisif: gelombang yang belum pernah menyatakan pendiriannya dianggap
+	 * menyelenggarakan ujian daring. Padukan dengan {@link #getUjianOnlineOtomatisDiterima()} dan
+	 * {@link #getNilaiMinimalUjianOnlineOtomatisDiterima()} untuk menentukan apakah kelulusan
+	 * ditetapkan otomatis.
+	 * </p>
+	 *
+	 * @return penanda keberadaan ujian daring; tidak pernah {@code null}
+	 */
 	public Boolean getTerdapatUjianOnline() {
 		return terdapatUjianOnline == null ? true : terdapatUjianOnline;
 	}
 
+	/**
+	 * Menyetel apakah gelombang ini menyelenggarakan ujian daring. Menyetel {@code null} sama dengan
+	 * menyalakannya.
+	 *
+	 * @param terdapatUjianOnline penanda; {@code null} berarti menyelenggarakan
+	 */
 	public void setTerdapatUjianOnline(Boolean terdapatUjianOnline) {
 		this.terdapatUjianOnline = terdapatUjianOnline;
 	}
 
+	/**
+	 * Mengembalikan apakah gelombang ini menyelenggarakan tahap wawancara.
+	 *
+	 * @return apakah gelombang ini menyelenggarakan tahap wawancara; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getTerdapatInterview() {
 		return terdapatInterview == null ? true : terdapatInterview;
 	}
 
+	/**
+	 * Menyetel apakah gelombang ini menyelenggarakan tahap wawancara.
+	 *
+	 * @param terdapatInterview nilai baru; boleh {@code null}
+	 */
 	public void setTerdapatInterview(Boolean terdapatInterview) {
 		this.terdapatInterview = terdapatInterview;
 	}
 
+	/**
+	 * Mengembalikan apakah pengunggahan pas foto bersifat wajib. Bawaannya <b>benar</b> bila kolom
+	 * kosong.
+	 *
+	 * <p>
+	 * Perhatikan hubungannya dengan {@link #getTampilkanUploadFoto()}: bila kolom pengunggahan tidak
+	 * ditampilkan sementara penanda wajib ini menyala, calon dapat menghadapi syarat yang tidak dapat
+	 * dipenuhinya. Kedua penanda tidak saling menjaga, jadi konsistensinya menjadi tanggung jawab
+	 * admin. (Ejaan nama properti mengandung salah ketik warisan.)
+	 * </p>
+	 *
+	 * @return penanda kewajiban unggah foto; tidak pernah {@code null}
+	 */
 	public Boolean getFotoWajibDiuplad() {
 		return fotoWajibDiuplad == null ? true : fotoWajibDiuplad;
 	}
 
+	/**
+	 * Menyetel apakah pengunggahan pas foto bersifat wajib. Menyetel {@code null} sama dengan
+	 * mewajibkannya.
+	 *
+	 * @param fotoWajibDiuplad penanda; {@code null} berarti wajib
+	 */
 	public void setFotoWajibDiuplad(Boolean fotoWajibDiuplad) {
 		this.fotoWajibDiuplad = fotoWajibDiuplad;
 	}
 
+	/**
+	 * Mengembalikan apakah kolom pengunggahan pas foto ditampilkan pada formulir.
+	 *
+	 * @return apakah kolom pengunggahan pas foto ditampilkan pada formulir; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getTampilkanUploadFoto() {
 		return tampilkanUploadFoto == null ? true : tampilkanUploadFoto;
 	}
 
+	/**
+	 * Menyetel apakah kolom pengunggahan pas foto ditampilkan pada formulir.
+	 *
+	 * @param tampilkanUploadFoto nilai baru; boleh {@code null}
+	 */
 	public void setTampilkanUploadFoto(Boolean tampilkanUploadFoto) {
 		this.tampilkanUploadFoto = tampilkanUploadFoto;
 	}
 
+	/**
+	 * Mengembalikan apakah calon langsung masuk ke akunnya begitu selesai mendaftar, tanpa memasukkan sandi.
+	 *
+	 * @return apakah calon langsung masuk ke akunnya begitu selesai mendaftar, tanpa memasukkan sandi; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getOtomatisLoginSetelahDaftar() {
 		return otomatisLoginSetelahDaftar == null ? true : otomatisLoginSetelahDaftar;
 	}
 
+	/**
+	 * Menyetel apakah calon langsung masuk ke akunnya begitu selesai mendaftar, tanpa memasukkan sandi.
+	 *
+	 * @param otomatisLoginSetelahDaftar nilai baru; boleh {@code null}
+	 */
 	public void setOtomatisLoginSetelahDaftar(Boolean otomatisLoginSetelahDaftar) {
 		this.otomatisLoginSetelahDaftar = otomatisLoginSetelahDaftar;
 	}
 
+	/**
+	 * Mengembalikan tanggal jatuh tempo tagihan registrasi bagi calon pada gelombang ini.
+	 *
+	 * @return tanggal jatuh tempo tagihan registrasi bagi calon pada gelombang ini; boleh {@code null} bila kolom belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalTagihanRegistrasi() {
 		return tanggalTagihanRegistrasi;
 	}
 
+	/**
+	 * Menyetel tanggal jatuh tempo tagihan registrasi bagi calon pada gelombang ini.
+	 *
+	 * @param tanggalTagihanRegistrasi nilai baru; boleh {@code null}
+	 */
 	public void setTanggalTagihanRegistrasi(Date tanggalTagihanRegistrasi) {
 		this.tanggalTagihanRegistrasi = tanggalTagihanRegistrasi;
 	}
 
+	/**
+	 * Mengembalikan tanggal jatuh tempo tagihan daftar ulang.
+	 *
+	 * @return tanggal jatuh tempo tagihan daftar ulang; boleh {@code null} bila kolom belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalTagihanDaftarUlang() {
 		return tanggalTagihanDaftarUlang;
 	}
 
+	/**
+	 * Menyetel tanggal jatuh tempo tagihan daftar ulang.
+	 *
+	 * @param tanggalTagihanDaftarUlang nilai baru; boleh {@code null}
+	 */
 	public void setTanggalTagihanDaftarUlang(Date tanggalTagihanDaftarUlang) {
 		this.tanggalTagihanDaftarUlang = tanggalTagihanDaftarUlang;
 	}
 
+	/**
+	 * Mengembalikan apakah hanya alumni yang boleh mendaftar pada gelombang ini.
+	 *
+	 * @return apakah hanya alumni yang boleh mendaftar pada gelombang ini; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getHarusSebagaiAlumni() {
 		return harusSebagaiAlumni == null ? false : harusSebagaiAlumni;
 	}
 
+	/**
+	 * Menyetel apakah hanya alumni yang boleh mendaftar pada gelombang ini.
+	 *
+	 * @param harusSebagaiAlumni nilai baru; boleh {@code null}
+	 */
 	public void setHarusSebagaiAlumni(Boolean harusSebagaiAlumni) {
 		this.harusSebagaiAlumni = harusSebagaiAlumni;
 	}
 
+	/**
+	 * Mengembalikan apakah calon otomatis dinyatakan diterima bila nilai ujian daringnya mencapai ambang minimum.
+	 *
+	 * @return apakah calon otomatis dinyatakan diterima bila nilai ujian daringnya mencapai ambang minimum; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getUjianOnlineOtomatisDiterima() {
 		return ujianOnlineOtomatisDiterima == null ? false : ujianOnlineOtomatisDiterima;
 	}
 
+	/**
+	 * Menyetel apakah calon otomatis dinyatakan diterima bila nilai ujian daringnya mencapai ambang minimum.
+	 *
+	 * @param ujianOnlineOtomatisDiterima nilai baru; boleh {@code null}
+	 */
 	public void setUjianOnlineOtomatisDiterima(Boolean ujianOnlineOtomatisDiterima) {
 		this.ujianOnlineOtomatisDiterima = ujianOnlineOtomatisDiterima;
 	}
 
+	/**
+	 * Mengembalikan ambang nilai kelulusan otomatis ujian daring.
+	 *
+	 * @return ambang nilai kelulusan otomatis ujian daring; boleh {@code null} bila kolom belum diisi
+	 */
 	public Double getNilaiMinimalUjianOnlineOtomatisDiterima() {
 		return nilaiMinimalUjianOnlineOtomatisDiterima == null ? 1.0 : nilaiMinimalUjianOnlineOtomatisDiterima;
 	}
 
+	/**
+	 * Menyetel ambang nilai kelulusan otomatis ujian daring.
+	 *
+	 * @param nilaiMinimalUjianOnlineOtomatisDiterima nilai baru; boleh {@code null}
+	 */
 	public void setNilaiMinimalUjianOnlineOtomatisDiterima(Double nilaiMinimalUjianOnlineOtomatisDiterima) {
 		this.nilaiMinimalUjianOnlineOtomatisDiterima = nilaiMinimalUjianOnlineOtomatisDiterima;
 	}
 
+	/**
+	 * Mengembalikan apakah calon langsung dinyatakan diterima begitu mendaftar. Bawaannya
+	 * <b>padam</b> bila kolom kosong.
+	 *
+	 * <p>
+	 * Menyalakan penanda ini <b>melewati seluruh tahap seleksi</b> — ujian, wawancara, dan verifikasi
+	 * berkas tidak lagi menentukan hasil. Pilihan bawaan yang padam di sini tepat: berbeda dari
+	 * penanda lain di kelas ini, nilai bawaan yang permisif akan berbahaya.
+	 * </p>
+	 *
+	 * @return penanda penerimaan otomatis; tidak pernah {@code null}
+	 */
 	public Boolean getOtomatisDiterimaSaatDaftar() {
 		return otomatisDiterimaSaatDaftar == null ? false : otomatisDiterimaSaatDaftar;
 	}
 
+	/**
+	 * Menyetel apakah calon langsung dinyatakan diterima begitu mendaftar. Menyalakannya melewati
+	 * seluruh tahap seleksi — lihat {@link #getOtomatisDiterimaSaatDaftar()}.
+	 *
+	 * @param otomatisDiterimaSaatDaftar penanda; {@code null} berarti padam
+	 */
 	public void setOtomatisDiterimaSaatDaftar(Boolean otomatisDiterimaSaatDaftar) {
 		this.otomatisDiterimaSaatDaftar = otomatisDiterimaSaatDaftar;
 	}
 
+	/**
+	 * Mengembalikan apakah kode QR mahasiswa ditampilkan setelah calon memperoleh nomor induk.
+	 *
+	 * @return apakah kode QR mahasiswa ditampilkan setelah calon memperoleh nomor induk; boleh {@code null} bila kolom belum diisi
+	 */
 	public Boolean getTampilkanQrCodeMahasiswaSetelahDapatNim() {
 		return tampilkanQrCodeMahasiswaSetelahDapatNim == null ? true : tampilkanQrCodeMahasiswaSetelahDapatNim;
 	}
 
+	/**
+	 * Menyetel apakah kode QR mahasiswa ditampilkan setelah calon memperoleh nomor induk.
+	 *
+	 * @param tampilkanQrCodeMahasiswaSetelahDapatNim nilai baru; boleh {@code null}
+	 */
 	public void setTampilkanQrCodeMahasiswaSetelahDapatNim(Boolean tampilkanQrCodeMahasiswaSetelahDapatNim) {
 		this.tampilkanQrCodeMahasiswaSetelahDapatNim = tampilkanQrCodeMahasiswaSetelahDapatNim;
 	}
 
+	/**
+	 * Mengembalikan apakah status pembayaran registrasi ditampilkan di halaman awal calon. Bawaannya
+	 * <b>benar</b> bila kolom kosong; nilai pengganti tidak ditulis ke field.
+	 *
+	 * @return penanda tampilan status pembayaran registrasi; tidak pernah {@code null}
+	 */
 	@Column(name = "tampilkan_status_bayar_registrasi_di_pmb")
 	public Boolean getTampilkanStatusPembayaranRegistrasiDiHalamanAwal() {
 		return tampilkanStatusPembayaranRegistrasiDiHalamanAwal == null ? true
 				: tampilkanStatusPembayaranRegistrasiDiHalamanAwal;
 	}
 
+	/**
+	 * Menyetel apakah status pembayaran registrasi ditampilkan di halaman awal calon.
+	 *
+	 * @param tampilkanStatusPembayaranRegistrasiDiHalamanAwal penanda; {@code null} berarti ditampilkan
+	 */
 	public void setTampilkanStatusPembayaranRegistrasiDiHalamanAwal(
 			Boolean tampilkanStatusPembayaranRegistrasiDiHalamanAwal) {
 		this.tampilkanStatusPembayaranRegistrasiDiHalamanAwal = tampilkanStatusPembayaranRegistrasiDiHalamanAwal;
 	}
 
+	/**
+	 * Mengembalikan apakah status pembayaran daftar ulang ditampilkan di halaman awal calon.
+	 * Bawaannya <b>benar</b> bila kolom kosong.
+	 *
+	 * @return penanda tampilan status pembayaran daftar ulang; tidak pernah {@code null}
+	 */
 	@Column(name = "tampilkan_status_bayar_daftar_ulang_di_pmb")
 	public Boolean getTampilkanStatusPembayaranDaftarUlangDiHalamanAwal() {
 		return tampilkanStatusPembayaranDaftarUlangDiHalamanAwal == null ? true
 				: tampilkanStatusPembayaranDaftarUlangDiHalamanAwal;
 	}
 
+	/**
+	 * Menyetel apakah status pembayaran daftar ulang ditampilkan di halaman awal calon.
+	 *
+	 * @param tampilkanStatusPembayaranDaftarUlangDiHalamanAwal penanda; {@code null} berarti ditampilkan
+	 */
 	public void setTampilkanStatusPembayaranDaftarUlangDiHalamanAwal(
 			Boolean tampilkanStatusPembayaranDaftarUlangDiHalamanAwal) {
 		this.tampilkanStatusPembayaranDaftarUlangDiHalamanAwal = tampilkanStatusPembayaranDaftarUlangDiHalamanAwal;
 	}
 
+	/**
+	 * Mengembalikan pengelompokan gelombang untuk keperluan rekap, setelah proxy relasinya
+	 * dinormalkan.
+	 *
+	 * <p>
+	 * Master ini <b>dipakai bersama</b> oleh jalur penerimaan mahasiswa baru dan jalur penerimaan
+	 * siswa baru — satu-satunya master yang dibagi di antara keduanya. Perhatikan bahwa ia
+	 * <b>tidak</b> dibagi dengan jalur rekrutmen pegawai, yang memiliki strukturnya sendiri.
+	 * </p>
+	 *
+	 * @return kelompok gelombang, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelompok_gelombang")
 	public KelompokGelombang getKelompokGelombang() {
@@ -2532,6 +3141,11 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return kelompokGelombang;
 	}
 
+	/**
+	 * Menyetel pengelompokan gelombang untuk keperluan rekap.
+	 *
+	 * @param kelompokGelombang kelompok gelombang; boleh {@code null}
+	 */
 	public void setKelompokGelombang(KelompokGelombang kelompokGelombang) {
 		this.kelompokGelombang = kelompokGelombang;
 	}

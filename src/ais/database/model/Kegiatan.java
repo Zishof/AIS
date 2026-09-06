@@ -123,8 +123,23 @@ public class Kegiatan extends GeneralValueObject {
 
 	/** Nomor versi serialisasi Java; dipertahankan agar objek lama tetap dapat dibaca. */
 	private static final long serialVersionUID = 2413822577548439808L;
+	/**
+	 * Primary key {@code kegiatan.id}, dihasilkan database.
+	 *
+	 * @see #getId()
+	 */
 	private Long id;
+	/**
+	 * Nama pelaku perubahan terakhir (field audit bayangan).
+	 *
+	 * @see #getOleh()
+	 */
 	private String oleh;
+	/**
+	 * Id pelaku perubahan terakhir (field audit bayangan).
+	 *
+	 * @see #getOlehId()
+	 */
 	private String olehId;
 
 	/**
@@ -150,6 +165,11 @@ public class Kegiatan extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Imbuhan pembeda kunci unik alami, memungkinkan tagihan sejenis berdampingan.
+	 *
+	 * @see #getTambahanKodeUnik()
+	 */
 	private String tambahanKodeUnik = "";
 
 	/**
@@ -186,6 +206,11 @@ public class Kegiatan extends GeneralValueObject {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * Stempel waktu perubahan terakhir; juga menjadi sumber nilai {@link #getTanggal()}.
+	 *
+	 * @see #getTanggal_dirubah()
+	 */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	/**
@@ -246,55 +271,260 @@ public class Kegiatan extends GeneralValueObject {
 //				+ getPersentaseLunas() + "%";
 	}
 
+	/**
+	 * Nomor referensi pembayaran bagi gateway bank; dibangkitkan otomatis tanpa jaminan keunikan.
+	 *
+	 * @see #getRefNumber()
+	 */
 	private String refNumber;
+	/**
+	 * KUNCI UNIK ALAMI tagihan (kolom unik, non-null); dibekukan setelah entity punya id.
+	 *
+	 * @see #getKodeunik()
+	 */
 	private String kodeunik;
+	/**
+	 * Pemilik tagihan berupa mahasiswa ber-NIM; dapat ditimpa getter-nya dari berkas calon.
+	 *
+	 * @see #getMahasiswa()
+	 */
 	private Mahasiswa mahasiswa;
+	/**
+	 * Pemilik tagihan berupa berkas calon; dapat diisi getter-nya dari mahasiswa untuk kegiatan pendaftaran.
+	 *
+	 * @see #getCalonMahasiswa()
+	 */
 	private BiodataCalonMahasiswa calonMahasiswa;
+	/**
+	 * Jenis tagihan yang ditagihkan header ini; ikut membentuk kunci unik alami.
+	 *
+	 * @see #getJenisKegiatan()
+	 */
 	private JenisKegiatan jenisKegiatan;
 
+	/**
+	 * Tahun angkatan pemilik; diturunkan ulang dan ditulis balik oleh getter-nya.
+	 *
+	 * @see #getTahunAngkatan()
+	 */
 	private Integer tahunAngkatan;
+	/**
+	 * Program studi tagihan; diturunkan ulang dari pemilik tanpa memperhatikan semester.
+	 *
+	 * @see #getJurusan()
+	 */
 	private Jurusan jurusan;
 
+	/**
+	 * Tahun akademik tagihan; dihitung ulang dari angkatan dan semester mulai pemilik.
+	 *
+	 * @see #getTahunAkademik()
+	 */
 	private String tahunAkademik;
+	/**
+	 * Program yang berlaku pada semester tagihan ini, diambil dari {@link HistoryStatusMahasiswa}.
+	 *
+	 * @see #getProgram()
+	 */
 	private String program;
+	/**
+	 * Tanggal tagihan; kolom ini SELALU ditimpa getter-nya dengan {@code tanggal_dirubah}.
+	 *
+	 * @see #getTanggal()
+	 */
 	private Date tanggal;
+	/**
+	 * Tanggal pembayaran pertama; kolom mandiri, tidak diturunkan.
+	 *
+	 * @see #getTanggalBayarAwal()
+	 */
 	private Date tanggalBayarAwal;
+	/**
+	 * Tanggal pembayaran terakhir; kolom mandiri, tidak diturunkan.
+	 *
+	 * @see #getTanggalBayarTerakhir()
+	 */
 	private Date tanggalBayarTerakhir;
+	/**
+	 * Semester yang ditagihkan (ejaan bawaan tanpa huruf e); ikut membentuk kunci unik alami.
+	 *
+	 * @see #getSemster()
+	 */
 	private Integer semster;
+	/**
+	 * Penanda pembayaran sudah divalidasi petugas, bertipe Integer mengikuti bentuk kolom lama.
+	 *
+	 * @see #getValidated()
+	 */
 	private Integer validated;
+	/**
+	 * Nama petugas yang memvalidasi pembayaran.
+	 *
+	 * @see #getValidator()
+	 */
 	private String validator;
+	/**
+	 * Nominal pengurang di luar mekanisme diskon; TIDAK ikut diperhitungkan {@link #hitungTagihan()}.
+	 *
+	 * @see #getPengurangan()
+	 */
 	private Double pengurangan;
+	/**
+	 * Keterangan bebas tagihan; anotasi kolom text-nya salah tempat di setter sehingga diabaikan.
+	 *
+	 * @see #getKeterangan()
+	 */
 	private String keterangan;
+	/**
+	 * Kolom yang SELALU ditimpa getter-nya dengan jumlah yang sudah dibayar; namanya menyesatkan.
+	 *
+	 * @see #getAmount()
+	 */
 	private Double amount;
+	/**
+	 * Nominal denda keterlambatan pada header; TIDAK ikut diperhitungkan {@link #hitungTagihan()}.
+	 *
+	 * @see #getDenda()
+	 */
 	private Double denda;
 
+	/**
+	 * Status mahasiswa pada semester tagihan ini; kolom mandiri, tidak diturunkan.
+	 *
+	 * @see #getStatusMahasiswa()
+	 */
 	private StatusMahasiswa statusMahasiswa;
+	/**
+	 * Status awal pada semester tagihan ini, diturunkan dari {@link HistoryStatusMahasiswa}.
+	 *
+	 * @see #getStatusAwalMahasiswa()
+	 */
 	private StatusAwalMahasiswa statusAwalMahasiswa;
+	/**
+	 * Kode pengenal pemilik (NIM atau nomor registrasi); diturunkan ulang oleh getter-nya.
+	 *
+	 * @see #getKode()
+	 */
 	private String kode;
 
+	/**
+	 * Jadwal pembayaran yang berlaku; sumber tenggat denda, namun tidak dibaca mesin denda dari sini.
+	 *
+	 * @see #getJadwalPembayaran()
+	 */
 	private JadwalPembayaran jadwalPembayaran;
+	/**
+	 * Sisa terhutang; nilai turunan yang di-cache ke kolom dan tidak pernah negatif.
+	 *
+	 * @see #getAmountTerhutang()
+	 */
 	private Double amountTerhutang = 0.0;
+	/**
+	 * Status lunas; nilai turunan yang di-cache ke kolom, bukan penanda mandiri.
+	 *
+	 * @see #getLunas()
+	 */
 	private Boolean lunas = false;
+	/**
+	 * Persentase pelunasan; nilai turunan yang di-cache ke kolom, dibatasi 100 persen.
+	 *
+	 * @see #getPersentaseLunas()
+	 */
 	private Double persentaseLunas = 0.0;
 
+	/**
+	 * Status lunas hasil perbandingan persentase; hanya dihitung sekali per instance.
+	 *
+	 * @see #getApakahLunas()
+	 */
 	private Boolean apakahLunas = null;
+	/**
+	 * Persentase pelunasan hasil pembagian dibayar terhadap tagihan.
+	 *
+	 * @see #getPersentase()
+	 */
 	private Double persentase = null;
 
+	/**
+	 * Bulan yang ditagihkan untuk tagihan bulanan; ikut ditempelkan pada kunci unik alami.
+	 *
+	 * @see #getBulan()
+	 */
 	private Integer bulan;
 
+	/**
+	 * Kolom mandiri yang TIDAK dipakai mesin perhitungan mana pun di kelas ini; mudah tertukar dengan {@code dibayar}.
+	 *
+	 * @see #getJumlahTelahDibayar()
+	 */
 	private Double jumlahTelahDibayar = 0.0;
 
+	/**
+	 * Berkas unggah virtual account asal; relasi eager sehingga menimbulkan kueri N+1.
+	 *
+	 * @see #getUploadVirtualAccount()
+	 */
 	private UploadVirtualAccount uploadVirtualAccount;
+	/**
+	 * Penanda memakai kunci unik di luar format baku, melepaskan tagihan dari aturan keunikan.
+	 *
+	 * @see #getKodeUnikLain()
+	 */
 	private Boolean kodeUnikLain;
+	/**
+	 * SNAPSHOT JSON PEMBAYARAN; sumber tunggal {@link #hitungDibayar()} dan seluruh status pelunasan.
+	 *
+	 * @see #getBulans()
+	 */
 	private String bulans;
+	/**
+	 * SNAPSHOT JSON TAGIHAN; sumber tunggal {@link #hitungTagihan()} dan total yang dilihat mahasiswa.
+	 *
+	 * @see #getTagihans()
+	 */
 	private String tagihans;
+	/**
+	 * Status aktif header; dipaksa false satu arah bila semester di luar rentang jenis kegiatan.
+	 *
+	 * @see #getAktif()
+	 */
 	private Boolean aktif;
 
+	/**
+	 * Total dibayar hasil penguraian snapshot JSON; dipangkas agar tidak melebihi tagihan.
+	 *
+	 * @see #getDibayar()
+	 */
 	private Double dibayar;
+	/**
+	 * Total tagihan hasil penguraian snapshot JSON.
+	 *
+	 * @see #getTagihan()
+	 */
 	private Double tagihan;
+	/**
+	 * Daftar keanggotaan angsuran berbentuk ",id:true," dengan hapus lunak; terpisah dari relasi basis data.
+	 *
+	 * @see #getCicilans()
+	 */
 	private String cicilans;
+	/**
+	 * Daftar keanggotaan baris rincian berbentuk ",id:true," dengan hapus lunak; terpisah dari relasi basis data.
+	 *
+	 * @see #getDetailKegiatans()
+	 */
 	private String detailKegiatans;
+	/**
+	 * Daftar id pengaturan bulanan yang dibebaskan denda, ber-delimiter koma; dapat dibatalkan kembali.
+	 *
+	 * @see #getPembatalanDenda()
+	 */
 	private String pembatalanDenda;
+	/**
+	 * Snapshot JSON nominal terkunci hasil koreksi manual, lengkap dengan alasan, pelaku, waktu, dan riwayat.
+	 *
+	 * @see #getNominalTagihanKunciJson()
+	 */
 	private String nominalTagihanKunciJson;
 
 	/** Konstruktor kosong wajib bagi Hibernate/JPA dan bagi form CRUD generik. */

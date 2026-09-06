@@ -2674,6 +2674,31 @@ public abstract class VOPembelajaran extends VoKunci {
 		return dosens;
 	}
 
+	/**
+	 * Mengambil id seluruh siswa yang terdaftar pada kelas dari objek pembelajaran ini.
+	 *
+	 * <p><b>Hanya bekerja untuk {@code sekolah.JadwalPelajaran}.</b> Seluruh subclass lain
+	 * mengembalikan daftar kosong tanpa kesalahan — bukan karena tidak punya peserta, melainkan
+	 * karena jalur peserta mereka memakai {@link #ambilMahasiswaById(boolean)}. Jadi daftar kosong
+	 * dari method ini tidak boleh dibaca sebagai "tidak ada peserta".</p>
+	 *
+	 * <p>Pesertanya diambil dari tabel penghubung kelas-siswa, disaring pada kelas yang tertaut
+	 * jadwal pelajaran ini, diurutkan menurut nomor urut lalu nama siswa. Kueri memproyeksikan
+	 * kolom id saja sehingga entitas siswanya tidak dimuat.</p>
+	 *
+	 * <p><b>Menutup session milik thread.</b> Method mengambil session lewat
+	 * {@code currentNativeSession()} lalu menutupnya tiga lapis: {@code disconnect()},
+	 * {@code close()}, dan {@code HibernateUtil.closeSession()}. Pemanggilan terakhir menutup
+	 * session milik thread yang sedang berjalan, sehingga memanggil method ini di tengah alur yang
+	 * masih memegang entity terkelola membuat entity tersebut detached dan akses lazy berikutnya
+	 * gagal.</p>
+	 *
+	 * <p>Bila kelas pada jadwal pelajaran belum ditetapkan, restriksi akan dibangun atas
+	 * {@code null} dan kueri tidak menghasilkan baris; tidak ada penjaga maupun penangkap
+	 * kesalahan di method ini.</p>
+	 *
+	 * @return daftar id siswa terurut; kosong untuk subclass selain jadwal pelajaran
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilSiswaById() {
 		List<Long> siswas = new ArrayList<Long>();
@@ -2693,6 +2718,24 @@ public abstract class VOPembelajaran extends VoKunci {
 		return siswas;
 	}
 
+	/**
+	 * Mengambil seluruh {@code sekolah.Siswa} yang terdaftar pada kelas dari objek pembelajaran
+	 * ini sebagai objek utuh.
+	 *
+	 * <p>Kembaran {@link #ambilSiswaById()} yang mengembalikan entitas alih-alih id. Kueri,
+	 * penyaringan, pengurutan, dan pengelolaan session-nya identik baris demi baris — termasuk
+	 * pembatasan hanya untuk {@code sekolah.JadwalPelajaran} dan pemanggilan
+	 * {@code HibernateUtil.closeSession()} yang menutup session milik thread. Perbedaannya hanya
+	 * pada langkah terakhir: id hasil proyeksi diubah menjadi objek {@code Siswa} lewat pemuat
+	 * massal.</p>
+	 *
+	 * <p>Karena keduanya menjalankan kueri yang sama, memanggil {@link #ambilSiswaById()} lalu
+	 * method ini berarti menembak basis data dua kali untuk data yang sama. Pilih salah satu
+	 * sesuai kebutuhan.</p>
+	 *
+	 * @return daftar siswa terurut menurut nomor urut lalu nama; kosong untuk subclass selain
+	 *         jadwal pelajaran
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Siswa> ambilSiswa() {
 		List<Siswa> siswas = new ArrayList<Siswa>();
@@ -2712,10 +2755,53 @@ public abstract class VOPembelajaran extends VoKunci {
 		return siswas;
 	}
 
+	/**
+	 * Mengambil id seluruh mahasiswa peserta objek pembelajaran ini, memakai cache.
+	 *
+	 * <p>Setara dengan {@code ambilMahasiswaById(false)}. Untuk wadah persekolahan, pesertanya
+	 * diambil lewat {@link #ambilSiswaById()} sebagai gantinya.</p>
+	 *
+	 * @return daftar id mahasiswa; kosong bila wadahnya tidak dikenali atau belum punya peserta
+	 */
 	public List<Long> ambilMahasiswaById() {
 		return ambilMahasiswaById(false);
 	}
 
+	/**
+	 * Mengambil id seluruh mahasiswa peserta objek pembelajaran ini.
+	 *
+	 * <p>Cara pengambilannya berbeda menurut bentuk keanggotaan wadahnya:</p>
+	 * <ul>
+	 * <li><b>Satu peserta saja</b> — {@link KrsMahasiswa}, {@link Skripsi}, dan
+	 * {@link MahasiswaRequestTugasAkhir} masing-masing hanya menaungi satu mahasiswa, sehingga
+	 * daftarnya berisi tepat satu id.</li>
+	 * <li><b>Banyak peserta lewat cache pemilik</b> — {@link Perkuliahan} mendelegasikan ke
+	 * mekanisme cachenya sendiri, sehingga {@code refresh} berlaku di sana.</li>
+	 * <li><b>Banyak peserta lewat tabel penghubung</b> — {@code kkn.KelompokKkn} dan
+	 * {@code pkl.KelompokPkl} menelusuri anggota kelompoknya, dan {@code refresh} diteruskan ke
+	 * pengambilan anggota tersebut.</li>
+	 * </ul>
+	 * <p>Parameter {@code refresh} karenanya hanya berpengaruh pada tiga cabang terakhir; pada
+	 * cabang berpeserta tunggal ia diabaikan.</p>
+	 *
+	 * <h4>Dua cabang yang sengaja dikosongkan</h4>
+	 * <p>{@link GrupPertemuan} dan {@link PertemuanPunyaGrupPertemuan} punya cabangnya sendiri
+	 * yang badannya kosong — hanya melakukan {@code cast} ke variabel yang ditandai tidak terpakai.
+	 * Bentuk itu menandakan tempat yang sengaja disediakan tetapi belum diisi, bukan kelalaian:
+	 * keanggotaan grup pertemuan memang belum dimodelkan lewat jalur ini. Hasilnya sama dengan
+	 * subclass yang tidak terdaftar sama sekali, yaitu daftar kosong.</p>
+	 *
+	 * <p><b>Tidak null-safe.</b> Ketiga cabang berpeserta tunggal memanggil
+	 * {@code getMahasiswa().getId()} tanpa memeriksa apakah relasi mahasiswanya terisi, dan method
+	 * ini tidak punya penangkap kesalahan. Perhatikan pula bahwa pemeriksaan seperti
+	 * {@code if (krsMahasiswa != null)} setelah {@code cast} dari {@code this} selalu bernilai
+	 * benar — pemeriksaan itu tidak melindungi apa pun dan tidak boleh disalahartikan sebagai
+	 * penjaga.</p>
+	 *
+	 * @param refresh {@code true} untuk memaksa pembacaan ulang daftar peserta dari basis data;
+	 *                hanya berpengaruh pada perkuliahan, kelompok KKN, dan kelompok PKL
+	 * @return daftar id mahasiswa; tidak pernah {@code null}
+	 */
 	public List<Long> ambilMahasiswaById(boolean refresh) {
 		List<Long> mhs = new ArrayList<Long>();
 
