@@ -423,6 +423,59 @@ public class DetailBiaya extends GeneralValueObject {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Menghitung nominal baris biaya ini menurut mesin total <b>ringkas</b> milik kelas ini.
+	 *
+	 * <h4>Rumusnya</h4>
+	 * <p>Tiga sumber nilai dicoba berurutan:</p>
+	 * <ol>
+	 *   <li>Bila {@link #getTunggakanLalu()} melebihi {@code 0.01}, nilai itulah yang dipakai
+	 *       &mdash; baris ini sedang mewakili tunggakan semester lalu, dan nominal masternya
+	 *       tidak relevan.</li>
+	 *   <li>Bila {@code detailKegiatan} diberikan, dipakai {@link DetailKegiatan#getBiaya()}
+	 *       &mdash; yaitu nominal yang sudah <i>dibekukan</i> untuk mahasiswa tertentu.</li>
+	 *   <li>Selain itu dipakai {@link #getNilaiBiayaBaru()} bila ada, jika tidak
+	 *       {@link #getNilaiBiaya()} &mdash; nominal master bersama.</li>
+	 * </ol>
+	 *
+	 * <h4>PERBEDAAN PENTING DENGAN MESIN TOTAL YANG LAIN</h4>
+	 * <p>Hasil method ini <b>tidak setara</b> dengan
+	 * {@link Kegiatan#ambilJumlahTagihan(Kegiatan, DetailBiaya, boolean)}, yang merupakan
+	 * mesin total lengkap dan dipakai jalur tampilan tagihan mahasiswa. Method di sini
+	 * <b>melewatkan seluruh</b> hal berikut:</p>
+	 * <ul>
+	 *   <li><b>Potongan/diskon.</b> Tidak ada pengurangan
+	 *       {@code jumlah - hitungDiskon(...)}. Nominal yang dikembalikan adalah nilai BRUTO,
+	 *       sedangkan mesin lengkap mengembalikan nilai NETO.</li>
+	 *   <li><b>Nominal terkunci.</b> Tidak berkonsultasi dengan
+	 *       {@link Kegiatan#ambilNominalTagihanTerkunci}, sehingga koreksi manual bernomor
+	 *       yang sudah disetujui petugas diabaikan.</li>
+	 *   <li><b>Penanda {@code bukanTagihan}.</b> Tidak memeriksa
+	 *       {@link DetailKegiatan#getBukanTagihan()}, sehingga baris yang seharusnya
+	 *       bernilai nol tetap menyumbang nominal.</li>
+	 *   <li><b>Item berpenghitungan perkalian.</b> Tidak memicu
+	 *       {@link #updateKeterangan(Mahasiswa, Integer)}, sehingga untuk item yang bernilai
+	 *       &quot;(50.000) x N SKS&quot; dan {@code nilaiBiayaBaru}-nya belum terhitung, yang
+	 *       terpakai adalah nilai <b>per unit</b> &mdash; angka yang di layar justru dicoret.</li>
+	 *   <li><b>Pembalikan tanda.</b> Tidak menerapkan
+	 *       {@code ItemBiaya.DIKALI_NILAI_MINUS}, sehingga item pengurang dikembalikan
+	 *       sebagai bilangan positif.</li>
+	 * </ul>
+	 *
+	 * <p>Perbedaan ini bermakna karena {@link #hitungTotalKegiatan(Kegiatan, Session)}
+	 * &mdash; yang bermuara ke sini &mdash; dipakai luas oleh servlet gateway bank dan
+	 * pembangkit virtual account untuk menentukan <b>nominal yang harus dibayar</b>. Nominal
+	 * di lembar tagihan (mesin lengkap, neto) dengan nominal pada virtual account (mesin ini,
+	 * bruto) karenanya dapat berbeda untuk baris yang sama. Sebagian selisih itu tertutup
+	 * karena pemanggil di jalur bank umumnya mengoper {@link DetailKegiatan} yang
+	 * {@code biaya}-nya sudah berisi hasil perhitungan mesin lengkap, sehingga cabang (2) di
+	 * atas yang terpakai; selisih baru muncul ketika {@link DetailKegiatan} belum terbentuk
+	 * atau belum dihitung ulang, dan pemanggilan jatuh ke cabang (3).</p>
+	 *
+	 * @param detailKegiatan baris rincian milik mahasiswa yang nominalnya sudah dibekukan;
+	 *                       boleh {@code null} untuk memakai nominal master
+	 * @return nominal baris ini (bruto, tanpa potongan)
+	 */
 	public Double hitungTotal(DetailKegiatan detailKegiatan) {
 		Double total = getTunggakanLalu() > 0.01 ? getTunggakanLalu()
 				: (detailKegiatan == null ? (getNilaiBiayaBaru() == null ? getNilaiBiaya() : getNilaiBiayaBaru())
@@ -430,10 +483,41 @@ public class DetailBiaya extends GeneralValueObject {
 		return total;
 	}
 
+	/**
+	 * Nominal baris ini menurut nominal <b>master</b> semata, tanpa konteks mahasiswa mana pun.
+	 * Pintasan untuk {@code hitungTotal(null)}.
+	 *
+	 * <p>Karena tidak ada {@link DetailKegiatan}, hasilnya selalu bruto dan selalu mengikuti
+	 * nilai master terkini &mdash; termasuk seluruh keterbatasan yang diuraikan pada
+	 * {@link #hitungTotal(DetailKegiatan)}. Perlu diingat pula bahwa jalur ini memanggil
+	 * {@link #getNilaiBiaya()} yang destruktif.</p>
+	 *
+	 * @return nominal master baris ini (bruto)
+	 */
 	public Double hitungTotal() {
 		return hitungTotal(null);
 	}
 
+	/**
+	 * Nominal baris ini untuk sebuah {@link Kegiatan} tertentu, dengan session diambil
+	 * sendiri dari {@link HibernateUtil#currentNativeSession()}.
+	 *
+	 * <p>Bila {@code kegiatan} {@code null} atau belum tersimpan, langsung jatuh ke
+	 * {@link #hitungTotal()} (nominal master). Kegagalan apa pun ditangani dengan
+	 * {@code Common.tampilErrorJikaAdmin(e)} lalu tetap mengembalikan
+	 * {@link #hitungTotal()} &mdash; sikap <i>fail-soft</i>: gangguan basis data
+	 * menghasilkan nominal master, bukan pembatalan transaksi. Untuk jalur pembayaran hal
+	 * ini berarti nominal yang ditagihkan dapat menyimpang dari nominal khusus mahasiswa
+	 * tanpa pesan galat yang terlihat pengguna biasa.</p>
+	 *
+	 * <p>Session yang diambil dilepas kembali lewat
+	 * {@code KegiatanPersistenceHelper.closeOpenedSession(session)} di {@code finally};
+	 * helper itulah yang memutuskan apakah session tersebut memang milik method ini dan
+	 * karenanya boleh ditutup.</p>
+	 *
+	 * @param kegiatan header tagihan sebagai konteks; boleh {@code null}
+	 * @return nominal baris ini untuk kegiatan tersebut
+	 */
 	public Double hitungTotalKegiatan(Kegiatan kegiatan) {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return hitungTotal();
@@ -451,6 +535,40 @@ public class DetailBiaya extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Nominal baris ini untuk sebuah {@link Kegiatan} dengan session yang dioper pemanggil
+	 * &mdash; varian yang dipakai servlet gateway bank agar seluruh pembacaan berada pada
+	 * satu session/transaksi yang sama.
+	 *
+	 * <h4>Alur</h4>
+	 * <ol>
+	 *   <li>{@code kegiatan} kosong/belum tersimpan &rarr; {@link #hitungTotal()}.</li>
+	 *   <li>Session tidak siap (lihat {@link #isSessionSiapDipakai(Session)}) &rarr;
+	 *       dilimpahkan ke {@link #hitungTotalKegiatan(Kegiatan)} yang membuka sessionnya
+	 *       sendiri.</li>
+	 *   <li>Cari satu {@link DetailKegiatan} yang menautkan baris biaya ini dengan kegiatan
+	 *       tersebut, lalu serahkan ke {@link #hitungTotal(DetailKegiatan)}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Pencarian memakai {@code setMaxResults(1)} atas kriteria tanpa pengurutan.</b>
+	 * Pilihan ini menghindari {@code NonUniqueResultException} ketika proses hitung ulang
+	 * meninggalkan lebih dari satu {@link DetailKegiatan} untuk pasangan yang sama &mdash;
+	 * masalah yang memang terdokumentasi pada {@link Kegiatan#ambilByKodeUnik(String, Session)}.
+	 * Bedanya, di sana pemilihannya dibuat deterministik dengan {@code order by id desc}
+	 * (mengambil hasil hitung ulang terbaru), sedangkan di sini tanpa {@code addOrder}
+	 * sehingga baris mana yang terambil bergantung pada urutan yang kebetulan dikembalikan
+	 * basis data. Bila duplikat itu berbeda nominal, nominal yang dipakai jalur pembayaran
+	 * dapat berubah-ubah antar pemanggilan.</p>
+	 *
+	 * <p>Kriteria disusun atas {@code detailBiaya.id} bila entity ini sudah tersimpan, dan
+	 * atas objeknya sendiri bila belum &mdash; menghindari perbandingan terhadap {@code id}
+	 * yang masih {@code null}. Kegagalan query ditangani <i>fail-soft</i> menjadi
+	 * {@link #hitungTotal()}.</p>
+	 *
+	 * @param kegiatan header tagihan sebagai konteks; boleh {@code null}
+	 * @param session  session Hibernate milik pemanggil; boleh {@code null}/tertutup
+	 * @return nominal baris ini untuk kegiatan tersebut
+	 */
 	public Double hitungTotalKegiatan(Kegiatan kegiatan, Session session) {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return hitungTotal();
@@ -478,6 +596,19 @@ public class DetailBiaya extends GeneralValueObject {
 		return hitungTotal(detailKegiatan);
 	}
 
+	/**
+	 * Memeriksa apakah sebuah session masih layak dipakai untuk query.
+	 *
+	 * <p>Pemeriksaan {@code session.isOpen()} sendiri dapat melempar pada proxy yang sudah
+	 * terputus, sehingga seluruhnya dibungkus {@code try/catch} yang mengembalikan
+	 * {@code false}. Sikapnya <i>fail-closed</i> dan tepat: bila keadaan session tidak dapat
+	 * dipastikan, ia diperlakukan sebagai tidak siap dan pemanggil membuka session sendiri
+	 * &mdash; lebih baik daripada melempar &quot;Session is closed!&quot; di tengah
+	 * perhitungan tagihan.
+	 *
+	 * @param session session yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila session tidak {@code null} dan masih terbuka
+	 */
 	private boolean isSessionSiapDipakai(Session session) {
 		try {
 			return session != null && session.isOpen();
@@ -486,6 +617,12 @@ public class DetailBiaya extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Primary key {@code detail_biaya.id}, dihasilkan database ({@code IDENTITY}) sehingga
+	 * {@code insertable = false}.
+	 *
+	 * @return primary key; {@code null} bila entity belum tersimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -493,19 +630,56 @@ public class DetailBiaya extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Setter primary key.
+	 *
+	 * @param id primary key rincian biaya
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Tahun akademik sasaran (mis. {@code "2025/2026"}); salah satu dimensi penyaring yang
+	 * menentukan mahasiswa mana yang memperoleh nominal ini. {@code null} berarti tidak
+	 * dibatasi tahun akademik tertentu.
+	 *
+	 * <p>Getter murni &mdash; mengembalikan field apa adanya tanpa menulis balik.</p>
+	 *
+	 * @return tahun akademik sasaran; {@code null} bila tidak dibatasi
+	 */
 	@Column(name = "tahun_akademik", nullable = true, length = 20)
 	public String getTahunAkademik() {
 		return this.tahunAkademik;
 	}
 
+	/**
+	 * Setter tahun akademik sasaran.
+	 *
+	 * @param tahunAkademik tahun akademik; {@code null} berarti tidak dibatasi
+	 */
 	public void setTahunAkademik(String tahunAkademik) {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * <b>Item biaya</b> yang dinominalkan baris ini &mdash; relasi terpenting kelas ini,
+	 * karena {@link ItemBiaya} yang menentukan nama komponen biaya, cara penghitungannya
+	 * (tetap, dikali SKS/matakuliah, tunggakan semester lalu, atau pengurang bertanda
+	 * negatif), serta konfigurasi dendanya sendiri.
+	 *
+	 * <p>Hampir seluruh mesin penagihan mensyaratkan relasi ini terisi: baik
+	 * {@link Kegiatan#ambilJumlahTagihan(Kegiatan, DetailBiaya, boolean)} maupun
+	 * {@link Kegiatan#ambilSatuDetailKegiatan(DetailBiaya, boolean, Session)} langsung
+	 * mengembalikan nol/{@code null} bila {@code getItemBiaya()} kosong.</p>
+	 *
+	 * <p>Getter relasi lazy standar: {@code check(...)} memulihkan proxy yang mungkin sudah
+	 * terputus. Ia menulis balik ke field, tetapi hanya mengganti proxy dengan objek setara
+	 * sehingga nilai foreign key tidak berubah &mdash; bukan getter destruktif dalam arti
+	 * yang dimaksud pada javadoc kelas.</p>
+	 *
+	 * @return item biaya; {@code null} bila baris belum lengkap
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "item_biaya", nullable = true)
 	public ItemBiaya getItemBiaya() {
@@ -513,19 +687,50 @@ public class DetailBiaya extends GeneralValueObject {
 		return this.itemBiaya;
 	}
 
+	/**
+	 * Setter item biaya.
+	 *
+	 * @param itemBiaya item biaya yang dinominalkan baris ini
+	 */
 	public void setItemBiaya(ItemBiaya itemBiaya) {
 		this.itemBiaya = itemBiaya;
 	}
 
+	/**
+	 * Penyaring kewarganegaraan sasaran (WNA atau WNI) &mdash; memungkinkan nominal berbeda
+	 * bagi mahasiswa asing. {@code null} berarti tidak dibatasi.
+	 *
+	 * <p>Getter murni. Perhatikan bahwa dimensi ini <b>tidak</b> ikut membentuk
+	 * {@link #key()}, sehingga dua baris yang hanya berbeda kewarganegaraan sasaran akan
+	 * berkunci sama &mdash; keterbatasan yang sama dengan {@code jenisSeleksi}; lihat
+	 * {@link #genKey}.</p>
+	 *
+	 * @return penyaring kewarganegaraan; {@code null} bila tidak dibatasi
+	 */
 	@Column(name = "wna_atau_wni", length = 20)
 	public String getWnaAtauWni() {
 		return this.wnaAtauWni;
 	}
 
+	/**
+	 * Setter penyaring kewarganegaraan.
+	 *
+	 * @param wnaAtauWni penyaring kewarganegaraan; {@code null} berarti tidak dibatasi
+	 */
 	public void setWnaAtauWni(String wnaAtauWni) {
 		this.wnaAtauWni = wnaAtauWni;
 	}
 
+	/**
+	 * Penyaring jenis seleksi sasaran (jalur masuk mahasiswa). {@code null} berarti tidak
+	 * dibatasi jalur tertentu.
+	 *
+	 * <p>Getter relasi lazy standar dengan {@code check(...)}. Perhatikan bahwa dimensi ini
+	 * <b>tidak ikut membentuk kunci</b> pada {@link #genKey} walaupun diterima sebagai
+	 * parameter di sana &mdash; lihat catatan pada method tersebut.</p>
+	 *
+	 * @return jenis seleksi sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_seleksi", nullable = true)
 	public JenisSeleksi getJenisSeleksi() {
@@ -533,23 +738,62 @@ public class DetailBiaya extends GeneralValueObject {
 		return this.jenisSeleksi;
 	}
 
+	/**
+	 * Setter penyaring jenis seleksi.
+	 *
+	 * @param jenisSeleksi jenis seleksi sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setJenisSeleksi(JenisSeleksi jenisSeleksi) {
 		this.jenisSeleksi = jenisSeleksi;
 	}
 
+	/**
+	 * Penyaring program sasaran (mis. reguler, karyawan, internasional). {@code null} berarti
+	 * tidak dibatasi. Getter murni.
+	 *
+	 * @return program sasaran; {@code null} bila tidak dibatasi
+	 */
 	@Column(name = "program")
 	public String getProgram() {
 		return this.program;
 	}
 
+	/**
+	 * Setter penyaring program.
+	 *
+	 * @param program program sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setProgram(String program) {
 		this.program = program;
 	}
 
+	/**
+	 * Setter penyaring program studi. Perhatikan bahwa mengubah nilai ini juga mengubah
+	 * jenjang yang dilaporkan {@link #getJenjang()}, karena getter itu menurunkan jenjang
+	 * dari program studi.
+	 *
+	 * @param jurusan program studi sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Penyaring <b>program studi</b> sasaran. {@code null} berarti nominal berlaku untuk
+	 * seluruh program studi.
+	 *
+	 * <p>Dimensi yang paling banyak dikonsultasikan: selain menjadi bagian {@link #key()},
+	 * ia menentukan nominal per-prodi lewat
+	 * {@link DetailSettingBiaya#ambilDefaultBiaya(Jurusan)} pada {@link #getNilaiBiaya()},
+	 * keterangan per-prodi pada {@link #getKeterangan()}, tanggal tagihan/deadline per-prodi
+	 * pada {@link #getDefaultTanggalTagihan()} dan {@link #getDefaultTanggalDeadline()},
+	 * serta besaran denda per-prodi pada {@link #checkDenda} dan
+	 * {@link #checkDendaCicilan}.</p>
+	 *
+	 * <p>Getter relasi lazy standar dengan {@code check(...)}.</p>
+	 *
+	 * @return program studi sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -557,10 +801,25 @@ public class DetailBiaya extends GeneralValueObject {
 		return jurusan;
 	}
 
+	/**
+	 * Setter penyaring fakultas.
+	 *
+	 * @param fakultas fakultas sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		this.fakultas = fakultas;
 	}
 
+	/**
+	 * Penyaring fakultas sasaran. {@code null} berarti tidak dibatasi.
+	 *
+	 * <p>Getter relasi lazy standar. Seperti {@code wnaAtauWni} dan {@code jenisSeleksi},
+	 * dimensi ini <b>tidak ikut membentuk</b> {@link #key()} &mdash; penyaringan berbasis
+	 * fakultas pada praktiknya sudah tercakup oleh {@link #getJurusan()}, karena setiap
+	 * program studi bernaung di bawah satu fakultas.</p>
+	 *
+	 * @return fakultas sasaran; {@code null} bila tidak dibatasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "fakultas", nullable = true)
 	public Fakultas getFakultas() {
@@ -568,6 +827,27 @@ public class DetailBiaya extends GeneralValueObject {
 		return fakultas;
 	}
 
+	/**
+	 * Jenjang sasaran (S1, S2, D3, dan seterusnya).
+	 *
+	 * <p><b>GETTER DESTRUKTIF &mdash; menimpa FOREIGN KEY.</b> Bila {@link #getJurusan()}
+	 * terisi, field {@code jenjang} <b>ditimpa</b> dengan {@code jurusan.getJenjang()} tanpa
+	 * syarat, lalu dikembalikan. Karena property ini dipetakan ke kolom
+	 * {@code detail_biaya.jenjang}, sekadar membaca entity di dalam session terbuka akan
+	 * menuliskan foreign key hasil turunan itu ke database, beserta satu revisi Envers.</p>
+	 *
+	 * <p>Secara semantik penurunan itu masuk akal &mdash; jenjang memang melekat pada program
+	 * studi, dan menyimpannya membuat penyaringan berbasis jenjang dapat dilakukan dengan
+	 * satu kolom tanpa {@code JOIN}. Namun konsekuensinya kolom {@code jenjang} <b>bukan
+	 * data mandiri</b>: nilai apa pun yang diisi operator lewat {@link #setJenjang(Jenjang)}
+	 * akan hilang pada pembacaan berikutnya selama {@code jurusan} terisi, dan mengubah
+	 * jenjang sebuah {@link Jurusan} akan merambat ke seluruh baris {@code DetailBiaya}
+	 * yang menunjuk program studi itu. Kemandirian kolom ini hanya berlaku ketika
+	 * {@code jurusan} kosong (nominal berlaku lintas prodi), dan pada kasus itu
+	 * {@code check(...)} sekadar memulihkan proxy.</p>
+	 *
+	 * @return jenjang sasaran; {@code null} bila tidak dapat diturunkan maupun diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenjang", nullable = true)
 	public Jenjang getJenjang() {
@@ -579,25 +859,58 @@ public class DetailBiaya extends GeneralValueObject {
 		return this.jenjang;
 	}
 
+	/**
+	 * Setter jenjang sasaran. Perhatikan bahwa nilai yang diisi di sini akan <b>ditimpa</b>
+	 * oleh {@link #getJenjang()} pada pembacaan berikutnya bila {@link #getJurusan()} terisi.
+	 *
+	 * @param jenjang jenjang sasaran
+	 */
 	public void setJenjang(Jenjang jenjang) {
 		this.jenjang = jenjang;
 	}
 
+	/**
+	 * Penyaring semester sasaran. {@code null} berarti nominal berlaku di semua semester.
+	 *
+	 * <p>Getter murni. Perhatikan bahwa badan method sengaja hanya berisi {@code return}
+	 * &mdash; tanpa penjaga ternary, tanpa penurunan nilai &mdash; sehingga {@code null}
+	 * benar-benar diteruskan ke pemanggil sebagai &quot;tidak dibatasi&quot;, bukan
+	 * dikonversi menjadi {@code 0} yang justru berarti &quot;semester nol&quot;.</p>
+	 *
+	 * @return semester sasaran; {@code null} bila tidak dibatasi
+	 */
 	@Column(name = "semester")
 	public Integer getSemester() {
 
 		return this.semester;
 	}
 
+	/**
+	 * Setter penyaring semester.
+	 *
+	 * @param semester semester sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setSemester(Integer semester) {
 		this.semester = semester;
 	}
 
+	/**
+	 * Penyaring tahun angkatan sasaran &mdash; memungkinkan nominal berbeda bagi angkatan
+	 * berbeda, yang merupakan pola lazim ketika biaya kuliah dinaikkan hanya untuk mahasiswa
+	 * baru. {@code null} berarti berlaku untuk semua angkatan. Getter murni.
+	 *
+	 * @return tahun angkatan sasaran; {@code null} bila tidak dibatasi
+	 */
 	@Column(name = "angkatan")
 	public Integer getAngkatan() {
 		return this.angkatan;
 	}
 
+	/**
+	 * Setter penyaring tahun angkatan.
+	 *
+	 * @param angkatan tahun angkatan sasaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setAngkatan(Integer angkatan) {
 		this.angkatan = angkatan;
 	}
@@ -645,6 +958,19 @@ public class DetailBiaya extends GeneralValueObject {
 		return this.nilaiBiaya;
 	}
 
+	/**
+	 * Setter nominal master baris ini.
+	 *
+	 * <p><b>Nilai yang diisi di sini tidak dijamin bertahan.</b> {@link #getNilaiBiaya()}
+	 * menghitung ulang nominal dari {@link DetailSettingBiaya}/{@link SettingBiayaDetail}
+	 * setiap kali dipanggil dan menimpa field ini, sehingga nominal yang ditetapkan langsung
+	 * lewat setter hanya bertahan selama induk setting biaya tidak memenuhi salah satu dari
+	 * tiga cabang penurunan di getter tersebut. Untuk menetapkan nominal yang benar-benar
+	 * tetap bagi seorang mahasiswa, mekanisme yang disediakan adalah nominal terkunci pada
+	 * {@link Kegiatan#simpanNominalTagihanTerkunci}, bukan setter ini.</p>
+	 *
+	 * @param nilaiBiaya nominal master
+	 */
 	public void setNilaiBiaya(Double nilaiBiaya) {
 		this.nilaiBiaya = nilaiBiaya;
 	}

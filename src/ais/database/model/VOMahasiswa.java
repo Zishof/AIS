@@ -1289,15 +1289,124 @@ public abstract class VOMahasiswa extends VoKunci {
 		return cicilanPembayarans;
 	}
 
+	/**
+	 * Mengambil seluruh tagihan ({@link Kegiatan}) milik orang ini dari cache, tanpa memaksa
+	 * pembaruan.
+	 *
+	 * <p>Setara dengan {@code ambilKegiatans(false)}, yang pada gilirannya bermuara ke
+	 * {@link #ambilKegiatansData(boolean, JenisKegiatan)} dengan jenis kegiatan {@code null}.
+	 * Bersama {@link #ambilCicilan()}, method inilah separuh dari mesin penagihan mahasiswa:
+	 * {@code ambilKegiatans} menjawab "apa yang ditagihkan", {@code ambilCicilan} menjawab "berapa
+	 * yang sudah dibayar".</p>
+	 *
+	 * <p>Hasilnya sudah tersaring (hanya kegiatan aktif, bersemester, dan berada dalam batas
+	 * semester master jenis kegiatan) serta terurut menaik berdasarkan semester. Rincian penuh
+	 * penyaringan dan efek sampingnya ada pada
+	 * {@link #ambilKegiatansData(boolean, JenisKegiatan)} — baca dokumentasi tersebut sebelum
+	 * memanggil method ini di dalam perulangan.</p>
+	 *
+	 * @return tagihan milik orang ini terurut menaik berdasarkan semester; kosong bila tidak ada
+	 */
 	public Collection<Kegiatan> ambilKegiatans() {
 		return ambilKegiatans(false);
 	}
 
+	/**
+	 * Mengambil seluruh tagihan milik orang ini tanpa penyaringan jenis kegiatan, dengan pilihan
+	 * memaksa pembangunan ulang indeks dari basis data.
+	 *
+	 * <p>Setara dengan {@code ambilKegiatansData(refresh, null)}.</p>
+	 *
+	 * @param refresh {@code true} untuk membangun ulang indeks dari basis data; lihat
+	 *                {@link #ambilKegiatansData(boolean, JenisKegiatan)} untuk efek sampingnya
+	 *                terhadap session Hibernate
+	 * @return tagihan milik orang ini terurut menaik berdasarkan semester; kosong bila tidak ada
+	 */
 	public Collection<Kegiatan> ambilKegiatans(boolean refresh) {
 		JenisKegiatan jenisKegiatan = null;
 		return ambilKegiatansData(refresh, jenisKegiatan);
 	}
 
+	/**
+	 * Inti pengambilan tagihan: menyusun daftar id {@link Kegiatan} milik orang ini, mengubahnya
+	 * menjadi objek, menyaringnya berlapis, lalu mengurutkannya menurut semester.
+	 *
+	 * <p>Seluruh overload {@code ambilKegiatans} bermuara ke method ini, dan
+	 * {@link #ambilCicilan(JenisKegiatan, boolean)} serta
+	 * {@link #ambilDetailKegiatanSaja(boolean)} memakainya sebagai sumber kegiatan. Karena itu
+	 * perilaku method ini menentukan apa yang muncul di seluruh layar tagihan.</p>
+	 *
+	 * <h4>Tahap 1 — dari mana daftar id berasal</h4>
+	 * <p>Ada dua jalur yang saling meniadakan.</p>
+	 * <p><b>Jalur bangun ulang</b> dipakai bila {@code refresh} bernilai benar <i>atau</i> bila
+	 * penanda {@code udah("kegiatan_pembayaran")} belum pernah terpasang. Perhatikan bahwa
+	 * pemeriksaan penanda itu sendiri bersifat test-and-set: pemanggilan pertama untuk suatu
+	 * entity selalu melaporkan "belum" dan sekaligus memasang penandanya, sehingga jalur ini
+	 * otomatis dilalui sekali per entity per masa hidup berkas penanda. Di dalamnya,
+	 * {@link #reInitKegiatan(Session)} dijalankan atas session hasil
+	 * {@code HibernateUtil.currentNativeSession()}.</p>
+	 * <p><b>Jalur cache</b> dipakai bila keduanya tidak terpenuhi: indeks berkas dibaca lewat
+	 * {@link #ambilLokasiKegiatan()}, setiap kunci yang nilainya tidak kosong diuraikan menjadi
+	 * {@link Long}. Entri bernilai kosong — penanda "dihapus" dari
+	 * {@link #removeKegiatan(Serializable)} — dilewati, demikian pula kunci yang tidak dapat
+	 * diuraikan sebagai angka. Bila hasilnya kosong, method langsung mengembalikan daftar kosong
+	 * tanpa menyentuh cache objek; jalan pintas ini disengaja untuk menghindari
+	 * {@code ambilDataBanyak} dengan himpunan kunci kosong.</p>
+	 *
+	 * <h4>Efek samping pada session Hibernate — perlu perhatian khusus</h4>
+	 * <p>Pada jalur bangun ulang, blok {@code finally} menjalankan {@code disconnect()} dan
+	 * {@code close()} atas session yang dipakai, <b>lalu</b> memanggil
+	 * {@code HibernateUtil.closeSession()}. Pemanggilan terakhir itu menutup session milik thread
+	 * yang sedang berjalan — bukan hanya session lokal method ini. Konsekuensinya, memanggil
+	 * method ini (langsung maupun lewat {@code ambilKegiatans}, {@code ambilCicilan}, atau
+	 * {@code ambilDetailKegiatanSaja}) di tengah alur yang masih memegang session/transaksi
+	 * sendiri dapat membuat session pemanggil ikut tertutup, sehingga entity terkelola berubah
+	 * menjadi detached dan akses lazy berikutnya gagal. Pastikan pemanggilan yang mungkin masuk ke
+	 * jalur bangun ulang dilakukan di luar transaksi tulis.</p>
+	 *
+	 * <h4>Tahap 2 — penyaringan berlapis</h4>
+	 * <p>Objek diperoleh lewat {@code ambilDataBanyak}; bila hasilnya {@code null}, method
+	 * mengembalikan daftar kosong. Selanjutnya setiap kegiatan diuji berurutan dan dilewati
+	 * (bukan dibatalkan) bila salah satu syarat berikut tidak terpenuhi:</p>
+	 * <ol>
+	 * <li>Objeknya bukan {@code null} dan id-nya bukan {@code null}.</li>
+	 * <li>Id-nya belum pernah masuk — dijaga {@link java.util.HashSet} sehingga hasilnya bebas
+	 * duplikat. Duplikasi memang mungkin terjadi karena daftar id bisa berasal dari indeks berkas
+	 * yang tumpang tindih.</li>
+	 * <li>{@code getAktif()} bernilai benar. <b>Perhatikan bahwa getter ini bukan pembacaan
+	 * murni:</b> {@link Kegiatan#getAktif()} menormalkan {@code null} menjadi {@code true}, dan
+	 * bila semester kegiatan berada di luar batas master jenis kegiatan ia <i>menulis</i>
+	 * {@code false} ke field entity tersebut. Menampilkan daftar tagihan karenanya dapat mengotori
+	 * entity {@link Kegiatan} yang sedang terkelola dan memicu pembaruan baris beserta revisi
+	 * audit walaupun pengguna hanya membuka layar. Ini instansi dari pola getter-yang-mengubah-
+	 * field yang tersebar luas di lapisan model, bukan kekhususan method ini.</li>
+	 * <li>Bila {@code jenisKegiatan} diberikan, jenis kegiatan pada baris harus ada dan id-nya
+	 * sama.</li>
+	 * <li>Semesternya tidak {@code null}.</li>
+	 * <li>Bila jenis kegiatannya ada, semesternya harus berada dalam rentang
+	 * {@code minSmt}..{@code maxSmt} master jenis kegiatan; batas yang bernilai {@code null}
+	 * dianggap tidak membatasi. Penyaringan ini <b>tidak</b> ada pada kueri di
+	 * {@link #reInitKegiatan(Session)}, sehingga indeks berkas dapat memuat id yang tidak akan
+	 * pernah muncul di sini — perbedaan yang normal dan disengaja, tetapi berarti panjang indeks
+	 * bukan ukuran jumlah tagihan yang terlihat pengguna.</li>
+	 * </ol>
+	 *
+	 * <h4>Tahap 3 — pengurutan</h4>
+	 * <p>Hasil diurutkan dengan {@code Common.compareBySmt}, yaitu perbandingan menaik atas
+	 * semester. Pembanding tersebut menelan kesalahan dan mengembalikan 0 bila semester salah satu
+	 * sisi {@code null} — kondisi yang seharusnya sudah tersaring pada tahap 2, tetapi berarti
+	 * pembanding itu tidak transitif bila dipakai di tempat lain.</p>
+	 *
+	 * <h4>Penanganan kesalahan dan diagnostik</h4>
+	 * <p>Kegagalan pada jalur bangun ulang maupun penguraian JSON dicetak dan dicatat ke audit
+	 * lalu ditelan; method melanjutkan dengan daftar id apa adanya. Method juga mencetak isi
+	 * daftar id ke keluaran standar setiap kali dipanggil.</p>
+	 *
+	 * @param refresh       {@code true} untuk memaksa membangun ulang indeks dari basis data
+	 * @param jenisKegiatan penyaring jenis kegiatan; {@code null} berarti seluruh jenis
+	 * @return tagihan yang lolos seluruh penyaringan, bebas duplikat, terurut menaik berdasarkan
+	 *         semester; tidak pernah {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public Collection<Kegiatan> ambilKegiatansData(boolean refresh, JenisKegiatan jenisKegiatan) {
 		List<Long> keydataUtama = new ArrayList<Long>();

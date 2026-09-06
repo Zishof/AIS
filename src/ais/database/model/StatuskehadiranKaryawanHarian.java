@@ -1295,6 +1295,92 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menyimpulkan dan mengembalikan <b>jam masuk</b> yang berlaku untuk baris kehadiran ini.
+	 *
+	 * <p>
+	 * Bersama {@link #getPulangJam()}, inilah method terpenting sekaligus terumit di kelas ini.
+	 * Ia bukan pembacaan kolom melainkan mesin resolusi berlapis: lima sumber jam masuk yang
+	 * berbeda (lihat javadoc kelas) diadu menurut urutan prioritas yang ketat, dan pada beberapa
+	 * cabang hasilnya <b>dituliskan kembali ke field</b>.
+	 * </p>
+	 *
+	 * <h4>Urutan resolusi</h4>
+	 * <ol>
+	 * <li><b>Penanda ketidakhadiran menang mutlak.</b> Bila {@link #getTidakAdaKehadiran()} atau
+	 * {@link #getTidakAdaKedatangan()} menyala, method langsung mengembalikan {@code null}.
+	 * Tidak ada data absensi apa pun yang dapat menembus dua bendera ini — sehingga menyalakan
+	 * salah satunya adalah cara paling ampuh untuk "menghapus" kehadiran seseorang tanpa
+	 * menyentuh data mentahnya.</li>
+	 *
+	 * <li><b>Koreksi manual.</b> {@link #masukjamManual} yang terisi langsung dikembalikan.
+	 * Seluruh penelusuran otomatis di bawahnya dilewati.</li>
+	 *
+	 * <li><b>Mesin status masuk/pulang.</b> Bila jenis shift yang berlaku mewajibkan mengikuti
+	 * state masuk dan pulang, {@link #masukjamState} dikembalikan apa adanya — termasuk bila
+	 * bernilai {@code null}, yang berarti orang itu dianggap belum absen meski mesin sidik jari
+	 * mencatat kehadirannya. Bila shift tidak mewajibkannya, {@link #masukjamState} tetap
+	 * dipakai selama tidak kosong.</li>
+	 *
+	 * <li><b>Penjagaan status.</b> Bila {@link #getStatusabsensi()} bukan status <i>masuk</i>,
+	 * method mengembalikan {@code null}. Perhatikan bahwa pemanggilan ini sendiri menjalankan
+	 * seluruh rantai simpulan status — termasuk mutasinya.</li>
+	 *
+	 * <li><b>Penarikan otomatis dari keterangan.</b> Bila konfigurasi global mengaktifkan
+	 * pembacaan sidik jari dari teks keterangan, waktu hasil penguraian keterangan dipakai dan
+	 * <b>disimpan ke {@link #masukjamTemp}</b>.</li>
+	 *
+	 * <li><b>Tembakan pertama yang dikunci.</b> {@link #getMasukjamPertamakali()} yang terisi
+	 * dikembalikan, mencegah jam masuk bergeser oleh tembakan susulan.</li>
+	 *
+	 * <li><b>Koreksi urutan terbalik.</b> Bila jam masuk mentah ternyata lebih akhir daripada
+	 * jam pulang, keduanya <b>ditukar</b> lewat {@link #setPulangJam(Date)} dan
+	 * {@link #setMasukjam(Date)}. Ini penyembuhan otomatis untuk mesin absensi yang salah
+	 * melabeli tembakan, tetapi juga berarti method ini dapat mengubah dua kolom sekaligus saat
+	 * sekadar dibaca — dan karena {@link #setMasukjam(Date)} ikut memanggil
+	 * {@code pushLog(...)}, ia bahkan dapat menambah entri baru ke {@link #logAbsensi}.</li>
+	 *
+	 * <li><b>Penyesuaian ke waktu shift.</b> Bila shift menyalakan penyesuaian otomatis ke
+	 * waktu shift, seluruh entri {@link #logAbsensi} ditelusuri untuk mencari tembakan yang
+	 * <i>paling dekat</i> dengan jam mulai shift — bukan yang paling awal. Untuk pola kerja
+	 * bershift ini lebih masuk akal, tetapi konsekuensinya seseorang yang tiba jauh lebih awal
+	 * tidak akan tercatat datang cepat.</li>
+	 *
+	 * <li><b>Penelusuran tembakan paling awal.</b> Sebagai jalur umum, method menukar
+	 * {@link #masukjamTemp} dan {@link #pulangJamTemp} bila urutannya terbalik, lalu menyisir
+	 * {@link #logAbsensi} untuk mencari tembakan paling awal yang <b>tanggalnya sama dengan
+	 * {@link #getTanggal()}</b> dan memakainya sebagai jam masuk.</li>
+	 *
+	 * <li><b>Jaring pengaman terakhir.</b> Bila sampai di sini jam masuk masih kosong, method
+	 * mencoba memulihkannya dari riwayat, lalu dari keterangan.</li>
+	 * </ol>
+	 *
+	 * <h4>Yang perlu diwaspadai</h4>
+	 * <ul>
+	 * <li><b>Method ini menulis ke banyak field</b> — {@link #masukjamTemp},
+	 * {@link #pulangJamTemp}, {@link #detailJenisShiftPegawai}, {@link #statusabsensi}, dan
+	 * berpotensi {@link #logAbsensi}. Pada entitas yang terikat sesi Hibernate, satu pembacaan
+	 * dapat memicu UPDATE dan revisi audit. Pada layar rekap sebulan untuk seratus pegawai,
+	 * efeknya berlipat tiga ribu kali.</li>
+	 *
+	 * <li><b>Entri log yang diawali {@code "700"} selalu dilewati</b> pada setiap penelusuran —
+	 * konvensi tak tertulis untuk menandai entri yang bukan tembakan absensi sesungguhnya.</li>
+	 *
+	 * <li><b>Setiap kegagalan penguraian ditelan.</b> Entri log yang formatnya menyimpang
+	 * dicatat ke {@code ErrorAuditUtil} lalu dilewati, sehingga log yang rusak sebagian tetap
+	 * menghasilkan jawaban — hanya saja jawabannya dihitung dari entri yang tersisa.</li>
+	 *
+	 * <li><b>Hasilnya tidak stabil terhadap perubahan master.</b> Karena jenis shift, konfigurasi
+	 * global, dan status cuti semuanya ikut menentukan, jam masuk yang ditampilkan untuk hari
+	 * yang sudah lewat dapat berubah bila salah satu master itu disunting kemudian.</li>
+	 * </ul>
+	 *
+	 * @return jam masuk yang berlaku, atau {@code null} bila orang ini dianggap tidak hadir /
+	 *         tidak datang / belum absen menurut aturan di atas
+	 * @see #setMasukjam(Date)
+	 * @see #getPulangJam()
+	 * @see #getLogAbsensi()
+	 */
 	@Temporal(TemporalType.TIME)
 	@Column(name = "masuk_jam")
 	public Date getMasukjam() {
@@ -1429,6 +1515,42 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return masukjamTemp;
 	}
 
+	/**
+	 * Menyetel jam masuk — <b>dengan efek samping yang jauh melampaui satu field</b>.
+	 *
+	 * <p>
+	 * Nilai selalu mendarat di {@link #masukjamTemp} (lapis mentah), bukan di
+	 * {@link #masukjamManual} maupun {@link #masukjamState}. Tetapi sebelum itu, bila
+	 * {@link #getStatusabsensi()} saat ini adalah status <i>masuk</i>, method melakukan dua hal
+	 * tambahan:
+	 * </p>
+	 * <ol>
+	 * <li>memanggil {@link #setMasukjamPertamakali(Date)}, sehingga nilai ini ikut menjadi
+	 * "tembakan pertama yang dikunci" dan akan menang pada pembacaan berikutnya; dan</li>
+	 * <li>memanggil {@code pushLog(...)}, yang <b>menambahkan entri baru ke
+	 * {@link #logAbsensi}</b>.</li>
+	 * </ol>
+	 *
+	 * <h4>Tiga konsekuensi</h4>
+	 * <ul>
+	 * <li><b>Setter ini tidak idempoten.</b> Memanggilnya dua kali dengan nilai yang sama
+	 * menambahkan dua entri ke log absensi. Dalam kode yang menyetel jam masuk di dalam
+	 * perulangan perbaikan data, ini membuat log membengkak.</li>
+	 *
+	 * <li><b>Perilakunya bergantung pada status saat ini.</b> Karena syaratnya adalah status
+	 * <i>masuk</i>, menyetel jam masuk pada baris yang statusnya masih <i>belum absen</i> hanya
+	 * mengisi {@link #masukjamTemp} tanpa mengunci maupun mencatat log. Urutan operasi karena
+	 * itu berpengaruh: setel status lebih dulu, baru jam.</li>
+	 *
+	 * <li><b>Pemanggilan {@link #getStatusabsensi()} di dalam setter</b> berarti setter ini
+	 * ikut menjalankan seluruh rantai simpulan status beserta mutasinya. Sebuah setter yang
+	 * memicu resolusi status adalah hal yang tidak diduga; ingat ini saat menelusuri mengapa
+	 * sebuah entitas menjadi kotor.</li>
+	 * </ul>
+	 *
+	 * @param masukjam jam masuk yang akan dicatat; boleh {@code null}
+	 * @see #getMasukjam()
+	 */
 	public void setMasukjam(Date masukjam) {
 
 		if (getStatusabsensi() != null && ConstantValues.MASUK != null
@@ -1439,6 +1561,52 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.masukjamTemp = masukjam;
 	}
 
+	/**
+	 * Menyimpulkan dan mengembalikan <b>jam pulang</b> yang berlaku untuk baris kehadiran ini.
+	 *
+	 * <p>
+	 * Method ini adalah cermin dari {@link #getMasukjam()}: struktur, urutan prioritas, dan
+	 * seluruh peringatannya sejajar. Bacalah javadoc {@link #getMasukjam()} lebih dulu; di sini
+	 * hanya dicatat hal-hal yang <b>berbeda</b>.
+	 * </p>
+	 *
+	 * <h4>Perbedaan dari sisi kedatangan</h4>
+	 * <ol>
+	 * <li><b>Hanya satu penanda ketidakhadiran yang diperiksa.</b> Method ini memeriksa
+	 * {@link #getTidakAdaKepulangan()} saja. Ia <b>tidak</b> memeriksa
+	 * {@link #getTidakAdaKehadiran()} — padahal {@link #getMasukjam()} memeriksanya.
+	 * Asimetri ini nyata dan berkonsekuensi: sebuah baris yang ditandai "tidak ada kehadiran"
+	 * akan mengembalikan {@code null} untuk jam masuk, tetapi masih bisa mengembalikan jam
+	 * pulang yang tidak {@code null} bila lapisan lain mengisinya. Pengaman tidak langsungnya
+	 * ada pada langkah penjagaan status (karena {@link #getStatusabsensi()} memaksa status
+	 * menjadi <i>belum absen</i> ketika bendera itu menyala), tetapi pengaman itu baru bekerja
+	 * setelah cabang koreksi manual dan cabang mesin status dilewati. Artinya
+	 * {@link #pulangJamManual} yang terisi tetap dikembalikan meski kehadiran ditiadakan.</li>
+	 *
+	 * <li><b>Penelusuran mencari yang paling AKHIR.</b> Sementara {@link #getMasukjam()}
+	 * menyisir {@link #logAbsensi} untuk tembakan paling awal, method ini mencari yang paling
+	 * akhir pada tanggal yang sama.</li>
+	 *
+	 * <li><b>Penyesuaian ke waktu shift memakai jam selesai.</b> Bila shift menyalakan
+	 * penyesuaian otomatis, tembakan yang dipilih adalah yang paling dekat dengan jam selesai
+	 * shift, bukan jam mulai.</li>
+	 *
+	 * <li><b>Tidak ada padanan "tembakan pertama yang dikunci".</b> Tidak ada
+	 * {@code pulangJamPertamakali}; konsep mengunci tembakan pertama memang hanya relevan bagi
+	 * kedatangan.</li>
+	 * </ol>
+	 *
+	 * <p>
+	 * Sama seperti sisi kedatangan, method ini menukar {@link #masukjamTemp} dan
+	 * {@link #pulangJamTemp} bila urutannya terbalik, menelan seluruh kegagalan penguraian, dan
+	 * melewati entri log yang diawali {@code "700"}.
+	 * </p>
+	 *
+	 * @return jam pulang yang berlaku, atau {@code null} bila tidak ada kepulangan yang tercatat
+	 *         atau status bukan <i>masuk</i>
+	 * @see #getMasukjam()
+	 * @see #setPulangJam(Date)
+	 */
 	@Temporal(TemporalType.TIME)
 	@Column(name = "pulang_jam")
 	public Date getPulangJam() {

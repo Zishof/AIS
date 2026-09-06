@@ -3538,6 +3538,29 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Mengembalikan jenis kelamin pemilik akun.
+	 *
+	 * <p>Getter delegatif murni: nilainya selalu diturunkan dari entitas orang yang tertaut,
+	 * dengan urutan prioritas mahasiswa, dosen, pegawai, siswa, calon mahasiswa, calon siswa,
+	 * lalu penduduk.</p>
+	 *
+	 * <p><b>Tidak ada nilai cadangan.</b> Bila tidak satu pun relasi terisi, field
+	 * {@code kelamin} tidak disentuh dan nilainya dikembalikan apa adanya &mdash; umumnya
+	 * {@code null}. Berbeda dari {@link #getUserNama()}, {@link #getEmail()}, dan
+	 * {@link #getHp()} yang menormalkan hasil kosong menjadi string {@code ""}, jadi
+	 * pemanggil <b>wajib memeriksa {@code null}</b>.</p>
+	 *
+	 * <p>Perhatikan pula bahwa nama properti sumbernya tidak seragam antar entitas
+	 * ({@code getKelamin()} pada mahasiswa/dosen/pegawai, {@code getJenisKelamin()} pada
+	 * siswa/calon/penduduk), dan tidak ada normalisasi format nilai &mdash; sehingga
+	 * kode yang membandingkan hasilnya harus toleran terhadap perbedaan penulisan.</p>
+	 *
+	 * <p>Getter destruktif: me-resolve tujuh relasi dan menulis balik field
+	 * {@code kelamin}.</p>
+	 *
+	 * @return jenis kelamin menurut entitas tertaut, atau {@code null}
+	 */
 	public String getKelamin() {
 		mahasiswa = getMahasiswa();
 		dosen = getDosen();
@@ -3565,10 +3588,41 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return kelamin;
 	}
 
+	/**
+	 * Menetapkan jenis kelamin.
+	 *
+	 * <p>Nilai ini akan tertimpa pada pemanggilan {@link #getKelamin()} berikutnya bila ada
+	 * entitas orang yang tertaut &mdash; setter praktis hanya efektif untuk akun tanpa
+	 * relasi orang.</p>
+	 *
+	 * @param kelamin jenis kelamin
+	 */
 	public void setKelamin(String kelamin) {
 		this.kelamin = kelamin;
 	}
 
+	/**
+	 * Merender alamat surel akun sebagai tombol ZK bertautan {@code mailto:} ke dalam
+	 * komponen induk yang diberikan.
+	 *
+	 * <p><b>Method presentasi di dalam kelas entity.</b> Ini pelanggaran pemisahan lapisan
+	 * yang disengaja dan lazim di basis kode AIS: entity membawa serta cara menampilkan
+	 * dirinya agar layar daftar/detail tidak perlu mengulang kode yang sama. Konsekuensinya
+	 * {@code Tbmuser} bergantung pada ZK ({@code org.zkoss.zk.ui.Component},
+	 * {@code Toolbarbutton}) sehingga tidak dapat dipakai di konteks non-ZK tanpa membawa
+	 * pustaka itu.</p>
+	 *
+	 * <p>Tombol <b>selalu dibuat dan dilekatkan</b> ke {@code vbox}, bahkan ketika surelnya
+	 * kosong; hanya ikon, gaya, dan tautannya yang ditambahkan bila ada isi. Jadi jangan
+	 * mengandalkan method ini untuk menyembunyikan baris kosong.</p>
+	 *
+	 * <p>Perlu diingat bahwa {@link #getEmail()} yang dipanggil di dalamnya dapat memuat
+	 * <b>beberapa alamat dipisah koma</b>; seluruh rangkaian itu dijadikan satu nilai
+	 * {@code mailto:} tanpa dipecah.</p>
+	 *
+	 * @param vbox komponen ZK induk tempat tombol dilekatkan
+	 * @see #tampilkanHp(Component)
+	 */
 	public void tampilkanEmail(Component vbox) {
 		String email = getEmail();
 		Toolbarbutton a;
@@ -3582,6 +3636,31 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 
 	}
 
+	/**
+	 * Mengembalikan nomor telepon/HP pemilik akun.
+	 *
+	 * <p>Getter delegatif dengan urutan prioritas: dosen, mahasiswa, calon mahasiswa, guru,
+	 * siswa, calon siswa, penyedia aset, calon pegawai, pegawai, penduduk, anggota koperasi.
+	 * Nama properti sumbernya beragam ({@code getTelp}, {@code getHp},
+	 * {@code getTeleponGuru}, {@code getTeleponSiswa}, {@code getTeleponPegawai},
+	 * {@code getNoHp}); khusus pegawai dipakai {@code getHp()} dan jatuh ke
+	 * {@code getTelp()} bila kosong.</p>
+	 *
+	 * <p><b>Kuirk urutan yang perlu diketahui.</b> Blok pembuka method me-resolve sepuluh
+	 * relasi, tetapi <b>{@code guru} tidak termasuk</b> &mdash; padahal cabang
+	 * {@code else if (guru != null)} membacanya. Akibatnya cabang guru hanya terpicu bila
+	 * field {@code guru} kebetulan sudah terisi oleh pemanggilan getter lain sebelumnya,
+	 * sehingga hasil method ini <b>bergantung pada urutan pemanggilan</b> getter di kelas
+	 * ini. Perhatikan pula bahwa cabang guru diletakkan setelah cabang calon mahasiswa,
+	 * bukan berdampingan dengan cabang dosen.</p>
+	 *
+	 * <p>Aturan pembersihan sama dengan {@link #getEmail()}: koma ganda dirapatkan,
+	 * {@code null} menjadi string kosong, nilai yang hanya berisi {@code ","} dikosongkan
+	 * &mdash; sehingga method ini <b>tidak pernah mengembalikan {@code null}</b>.</p>
+	 *
+	 * @return nomor telepon/HP; string kosong bila tidak ada
+	 * @see #tampilkanHp(Component)
+	 */
 	public String getHp() {
 		mahasiswa = getMahasiswa();
 		dosen = getDosen();
@@ -3632,10 +3711,41 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return hp;
 	}
 
+	/**
+	 * Menetapkan nomor telepon/HP.
+	 *
+	 * <p>Nilai ini akan tertimpa pada pemanggilan {@link #getHp()} berikutnya bila ada
+	 * entitas orang yang tertaut.</p>
+	 *
+	 * @param hp nomor telepon/HP
+	 */
 	public void setHp(String hp) {
 		this.hp = hp;
 	}
 
+	/**
+	 * Merender nomor HP akun sebagai tombol ZK bertautan ke WhatsApp Web di dalam komponen
+	 * induk yang diberikan.
+	 *
+	 * <p>Pasangan {@link #tampilkanEmail(Component)}; berlaku catatan pemisahan lapisan yang
+	 * sama, dan tombol juga <b>selalu dibuat</b> meski nomornya kosong.</p>
+	 *
+	 * <h3>Normalisasi nomor ke format internasional Indonesia</h3>
+	 * <p>Sebelum dipakai pada tautan, nomor dinormalkan bertahap: awalan {@code "08"} dan
+	 * awalan {@code "0"} diganti {@code "+62"}, lalu nomor yang belum berawalan {@code "+"}
+	 * diberi awalan {@code "+62"}. <b>Asumsinya seluruh nomor adalah nomor Indonesia</b>,
+	 * sehingga nomor luar negeri tanpa awalan {@code "+"} akan dirusak. Nomor sentinel
+	 * {@code "00000000000000000000"} dan {@code "000000000"} sengaja dikecualikan agar tidak
+	 * menghasilkan tautan.</p>
+	 *
+	 * <p>Nomor hasil normalisasi disisipkan langsung ke URL {@code https://web.whatsapp.com/send}
+	 * tanpa penyandian URL; nilai HP yang memuat karakter khusus dapat menghasilkan tautan
+	 * yang tidak sah. Normalisasi dilakukan pada variabel lokal, sehingga field
+	 * {@code hp} tidak ikut berubah &mdash; label tombol tetap memakai nomor asli.</p>
+	 *
+	 * @param vbox komponen ZK induk tempat tombol dilekatkan
+	 * @see #tampilkanEmail(Component)
+	 */
 	public void tampilkanHp(Component vbox) {
 		Toolbarbutton a;
 		String hp = getHp();
