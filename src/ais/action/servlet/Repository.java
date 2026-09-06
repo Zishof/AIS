@@ -551,6 +551,34 @@ public class Repository extends HttpServlet {
         ais.common.ErrorAuditUtil.record(failure,"Repository home degraded component="+component+" request="+requestId);
     }
 
+    /**
+     * Menyusun objek {@link Query} dari parameter permintaan untuk seluruh jalur pencarian.
+     *
+     * <p>Parameter yang dibaca: {@code q} (kata kunci), {@code field} (ruas yang dicari),
+     * {@code author}, {@code subject}, {@code language}, {@code identifier}, {@code program},
+     * {@code scope}, {@code fullText}, {@code semantic} (boolean), tiga penyaring frasa
+     * {@code exact}/{@code any}/{@code without}, {@code collection}, {@code type},
+     * {@code access}, {@code year}, {@code yearFrom}, {@code yearUntil}, {@code sort}, serta
+     * {@code page} dan {@code size}.</p>
+     *
+     * <p>Semua nilai teks dilewatkan {@link #clean} sehingga {@code null} menjadi string kosong
+     * dan tidak pernah ada {@code NullPointerException} di hilir. Nilai angka dilewatkan
+     * {@link #parseInteger}/{@link #parseLong} yang mengembalikan {@code null} untuk masukan tak
+     * valid, bukan melempar. Halaman bawaan adalah 1 dan ukuran bawaan
+     * {@code RepositoryPublicService.DEFAULT_PAGE_SIZE}.</p>
+     *
+     * <p>Identitas koleksi diambil lebih dulu dari atribut {@code repoRouteCollectionId} yang
+     * dipasang perutean {@code /collection/{id}}; hanya bila atribut itu tidak ada barulah
+     * parameter {@code collection} dipakai. Dengan begitu rute URL bersih menang atas parameter,
+     * dan pengunjung tidak dapat mencampuradukkan koleksi lewat parameter tambahan pada URL
+     * koleksi.</p>
+     *
+     * <p>Sebelum dikembalikan, objek dilewatkan {@code service.normalize(q)} — di situlah batas
+     * atas ukuran halaman dan nilai pengurut yang diizinkan ditegakkan, bukan di kelas ini.</p>
+     *
+     * @param request permintaan servlet
+     * @return objek {@link Query} yang sudah dinormalkan layanan
+     */
     private Query queryFrom(HttpServletRequest request) {
         Query q = new Query();
         q.keyword = clean(request.getParameter("q"));
@@ -581,6 +609,29 @@ public class Repository extends HttpServlet {
         return service.normalize(q);
     }
 
+    /**
+     * Menuliskan hasil pencarian sebagai JSON untuk aksi {@code action=search}.
+     *
+     * <p>Struktur balikan: {@code status} ("OK"), {@code requestId}, metadata penomoran halaman
+     * ({@code page}, {@code pageSize}, {@code total}, {@code totalPages}, {@code searchField}),
+     * larik {@code items}, dan objek {@code facets}.</p>
+     *
+     * <p>Tiap elemen {@code items} adalah kartu ringkas — {@code id}, {@code title},
+     * {@code authors}, {@code abstract}, {@code year}, {@code documentType},
+     * {@code accessPolicy}, {@code collection}, {@code oaiIdentifier}, {@code programStudy},
+     * {@code publicFileCount}, {@code pdfAvailable}, {@code superseded}, {@code viewCount},
+     * {@code downloadCount}. Perhatikan bahwa yang disalin hanya ruas kartu; berkas dan metadata
+     * lengkap tidak pernah ikut, sehingga API ini tidak dapat dipakai memanen naskah lengkap.</p>
+     *
+     * <p>{@code facets} memuat sepuluh peta hitungan: {@code type}, {@code access}, {@code year},
+     * {@code author}, {@code subject}, {@code language}, {@code program}, {@code source},
+     * {@code license}, dan {@code fullText}.</p>
+     *
+     * @param response  tanggapan servlet
+     * @param result    hasil pencarian dari {@code RepositoryPublicService}
+     * @param requestId pengenal permintaan yang ikut dikembalikan ke klien
+     * @throws Exception bila penyusunan JSON atau penulisan tanggapan gagal
+     */
     private void writeSearchJson(HttpServletResponse response, SearchResult result, String requestId) throws Exception {
         JSONObject root = new JSONObject();
         root.put("status", "OK");
@@ -623,6 +674,22 @@ public class Repository extends HttpServlet {
         writeJson(response, root, HttpServletResponse.SC_OK);
     }
 
+    /**
+     * Menuliskan daftar saran ketik-cepat sebagai JSON untuk aksi {@code action=suggest}.
+     *
+     * <p>Balikan berisi {@code status} ("OK"), {@code requestId}, dan larik {@code suggestions}
+     * yang tiap elemennya memuat {@code type} (jenis saran: judul, penulis, subjek, dan
+     * seterusnya), {@code label} (teks yang ditampilkan), {@code detail} (keterangan pendamping),
+     * serta {@code value} (nilai yang dimasukkan ke kotak pencarian bila saran dipilih).</p>
+     *
+     * <p>Jumlah saran dibatasi delapan oleh pemanggil di {@link #process}, dan jalur ini termasuk
+     * yang dibatasi laju 300 permintaan per jam per alamat IP.</p>
+     *
+     * @param response    tanggapan servlet
+     * @param suggestions daftar saran dari {@code RepositoryPublicService}
+     * @param requestId   pengenal permintaan yang ikut dikembalikan ke klien
+     * @throws Exception bila penyusunan JSON atau penulisan tanggapan gagal
+     */
     private void writeSuggestionJson(HttpServletResponse response, List<Suggestion> suggestions, String requestId) throws Exception {
         JSONObject root = new JSONObject(); root.put("status", "OK"); root.put("requestId", requestId);
         JSONArray rows = new JSONArray();
@@ -633,9 +700,83 @@ public class Repository extends HttpServlet {
         root.put("suggestions", rows); writeJson(response, root, HttpServletResponse.SC_OK);
     }
 
+    /**
+     * Memastikan token CSRF yang dikirim formulir cocok dengan token yang tersimpan di sesi.
+     *
+     * <p>Token yang diharapkan dibaca dari atribut sesi {@link #CSRF}, yang diisi sekali per sesi
+     * di {@link #process} berupa gabungan dua {@link UUID}. Pembandingan memakai
+     * {@link #constantTime} agar durasi pemeriksaan tidak membocorkan seberapa banyak karakter
+     * awal yang sudah benar.</p>
+     *
+     * <p>Sesi {@code null} — pemanggil yang belum pernah memuat halaman mana pun — diperlakukan
+     * sebagai gagal, sama seperti token yang salah. Kegagalan melempar {@link SecurityException},
+     * yang oleh {@link #processSafely} diterjemahkan menjadi halaman status {@code 403}.</p>
+     *
+     * @param session  sesi HTTP; boleh {@code null}
+     * @param supplied token yang dikirim klien pada parameter {@code csrf}
+     * @throws SecurityException bila token tidak sah atau sesi sudah berakhir
+     */
     private void verifyPublicCsrf(HttpSession session,String supplied){String expected=session==null?null:(String)session.getAttribute(CSRF);if(!constantTime(expected,supplied))throw new SecurityException("Token keamanan tidak valid atau sesi telah berakhir.");}
+    /**
+     * Membandingkan dua string dengan waktu yang tidak bergantung pada posisi perbedaan pertama.
+     *
+     * <p>Perbedaan panjang dan perbedaan tiap karakter diakumulasikan lewat operasi XOR ke dalam
+     * satu variabel, dan perulangan selalu berjalan sepanjang string terpendek — tidak ada
+     * {@code return} lebih awal. Ini mencegah serangan pengukuran waktu yang menebak token
+     * karakter demi karakter.</p>
+     *
+     * <p>Perlu dicatat bahwa perbedaan panjang tetap memengaruhi jumlah putaran, jadi jaminannya
+     * berlaku untuk isi token yang panjangnya sama — cukup untuk token CSRF yang panjangnya
+     * tetap. {@code null} pada salah satu sisi langsung bernilai gagal.</p>
+     *
+     * @param a string pembanding pertama; boleh {@code null}
+     * @param b string pembanding kedua; boleh {@code null}
+     * @return {@code true} hanya bila keduanya bukan {@code null} dan isinya sama persis
+     */
     private boolean constantTime(String a,String b){if(a==null||b==null)return false;int diff=a.length()^b.length(),n=Math.min(a.length(),b.length());for(int i=0;i<n;i++)diff|=a.charAt(i)^b.charAt(i);return diff==0;}
+    /**
+     * Menyaring URL tujuan pengalihan agar tidak pernah keluar dari portal Repository —
+     * penangkal <i>open redirect</i>.
+     *
+     * <p>Nilai diterima hanya bila sudah berupa {@code contextPath + "/repository"} persis, atau
+     * berlanjut dengan {@code /} atau {@code ?}. Bentuk tanpa {@code contextPath}
+     * ({@code /repository}, {@code /repository/...}, {@code /repository?...}) juga diterima dan
+     * diberi awalan {@code contextPath}. <b>Semua nilai lain diganti</b> dengan halaman depan
+     * Repository — termasuk URL absolut ke situs luar, jalur ke bagian aplikasi lain, dan bentuk
+     * yang menyerupai jalur tetapi tidak cocok seperti {@code /repository-workspace}, yang
+     * tersaring karena awalan yang diuji selalu menyertakan pemisah.</p>
+     *
+     * <p>Dipakai pada dua tempat: parameter {@code queryValue} saat menyimpan pencarian, dan
+     * parameter {@code returnTo} saat mengembalikan pengguna setelah aksi.</p>
+     *
+     * @param request permintaan servlet, untuk membaca {@code contextPath}
+     * @param value   URL yang diusulkan klien; boleh {@code null}
+     * @return URL yang aman untuk {@code sendRedirect}, selalu di dalam portal Repository
+     */
     private String safeRepositoryUrl(HttpServletRequest request,String value){String context=request.getContextPath(),v=clean(value),local=context+"/repository";if(v.equals(local)||v.startsWith(local+"/")||v.startsWith(local+"?"))return v;if(v.equals("/repository")||v.startsWith("/repository/")||v.startsWith("/repository?"))return context+v;return local;}
+    /**
+     * Menyajikan halaman status berbingkai portal (bukan halaman galat mentah container) untuk
+     * kondisi seperti {@code 401} sesi berakhir, {@code 403} akses ditolak, dan {@code 400}
+     * permintaan tidak valid.
+     *
+     * <p>Kode status HTTP tetap disetel sebenarnya, lalu atribut {@code repoView="state"} beserta
+     * {@code repoStateCode}, {@code repoStateTitle}, {@code repoStateMessage}, dan
+     * {@code repoRequestId} dipasang sebelum diteruskan ke {@link #JSP}. Dengan begitu pengunjung
+     * tetap melihat tajuk dan navigasi portal, dan {@code requestId} yang tampil dapat ia sebutkan
+     * saat melapor.</p>
+     *
+     * <p>{@code repoPublicUser} ikut diisi ulang di sini karena halaman status dapat muncul
+     * sebelum {@link #process} sempat memasangnya.</p>
+     *
+     * @param request   permintaan servlet
+     * @param response  tanggapan servlet
+     * @param status    kode status HTTP yang dikirim
+     * @param title     judul singkat untuk pengunjung
+     * @param message   penjelasan untuk pengunjung
+     * @param requestId pengenal permintaan yang ditampilkan di halaman
+     * @throws ServletException bila penerusan ke JSP gagal
+     * @throws IOException      bila penulisan tanggapan gagal
+     */
     private void renderState(HttpServletRequest request,HttpServletResponse response,int status,String title,String message,String requestId)throws ServletException,IOException{response.setStatus(status);request.setAttribute("repoView","state");request.setAttribute("repoStateCode",Integer.valueOf(status));request.setAttribute("repoStateTitle",title);request.setAttribute("repoStateMessage",message);request.setAttribute("repoRequestId",requestId);request.setAttribute("repoPublicUser",Common.getCurrentUser(request));forwardRepositoryJsp(request,response);}
 
     private void citation(HttpServletRequest request, HttpServletResponse response) throws Exception {

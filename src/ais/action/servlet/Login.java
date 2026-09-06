@@ -419,6 +419,18 @@ public class Login extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * Mengambil nilai {@code message} dari keluaran JSON yang tertangkap
+	 * {@link AjaxLoginResponseWrapper}.
+	 *
+	 * <p>Isi diperiksa lebih dulu: hanya teks yang diawali {@code &#123;} yang dicoba diurai,
+	 * sehingga keluaran HTML tidak menimbulkan galat penguraian. Hasilnya dilewatkan
+	 * {@link #bersihkanPesanLogin(String)} sebelum dikembalikan.</p>
+	 *
+	 * @param content isi respons yang tertangkap; boleh {@code null}
+	 * @return pesan yang ditemukan, atau {@code null} bila isi bukan JSON atau tidak memuat
+	 *         {@code message}
+	 */
 	private static String ambilPesanDariJsonLogin(String content) {
 		if (content == null) {
 			return null;
@@ -438,6 +450,21 @@ public class Login extends HttpServlet {
 		return null;
 	}
 
+	/**
+	 * Menuliskan objek JSON sebagai respons akhir endpoint login AJAX.
+	 *
+	 * <p>Bila respons belum ter-commit, penyangga dibersihkan lebih dulu agar keluaran parsial
+	 * dari alur otentikasi lama tidak bercampur dengan JSON, lalu tipe isi dan header anti-cache
+	 * dipasang ulang. Kegagalan {@code resetBuffer()} sengaja diabaikan karena sebagian container
+	 * menolaknya setelah respons tersentuh.</p>
+	 *
+	 * <p>Header anti-cache penting di sini agar hasil otentikasi tidak tersimpan di cache
+	 * peramban maupun proxy bersama.</p>
+	 *
+	 * @param response     respons tujuan
+	 * @param jsonResponse objek yang akan ditulis
+	 * @throws IOException bila penulisan gagal
+	 */
 	private static void tulisJsonLogin(HttpServletResponse response, JSONObject jsonResponse) throws IOException {
 		if (!response.isCommitted()) {
 			try {
@@ -455,6 +482,44 @@ public class Login extends HttpServlet {
 		writer.flush();
 	}
 
+	/**
+	 * Memeriksa status akun <b>sebelum</b> kata sandi diverifikasi, agar pengguna menerima alasan
+	 * yang tepat ketika akunnya memang dinonaktifkan alih-alih pesan "kata sandi salah" yang
+	 * menyesatkan.
+	 *
+	 * <h4>Empat tipe akun yang dicoba berurutan</h4>
+	 * <ol>
+	 *   <li>{@link Mahasiswa} — dicocokkan dengan {@code nim} atau {@code userOrtu} yang tidak
+	 *       kosong;</li>
+	 *   <li>{@link Siswa} — dicocokkan dengan {@code nomorInduk}, {@code nomorIndukNasional}, atau
+	 *       {@code userOrtu};</li>
+	 *   <li>{@link Penduduk} — dicocokkan dengan {@code kode};</li>
+	 *   <li>{@link Tbmuser} — dicocokkan dengan {@code userId}, sekaligus memeriksa apakah hak
+	 *       aksesnya masih aktif.</li>
+	 * </ol>
+	 * <p>Pencocokan seluruhnya memakai {@link org.hibernate.criterion.Restrictions#eq}, yaitu
+	 * pembandingan persis tanpa pola {@code LIKE}. Pencarian dibatasi konteks perguruan tinggi
+	 * bila konteks itu tersedia.</p>
+	 *
+	 * <h4>Sifat fail-open yang disengaja</h4>
+	 * <p>Method mengembalikan {@link AjaxLoginPrecheck#ok()} ketika tidak ada akun yang cocok
+	 * maupun ketika terjadi exception. Ini disengaja: pemeriksaan ini hanya bertugas memperbaiki
+	 * <i>pesan</i>, sedangkan keputusan menerima atau menolak login tetap sepenuhnya milik
+	 * {@code SecurityFilter.doAutoLogin}. Dengan begitu kegagalan di sini tidak pernah
+	 * meloloskan kredensial yang salah.</p>
+	 *
+	 * <p>Perlu dicatat bahwa perbedaan pesan antara akun tidak aktif dan akun tidak ditemukan
+	 * dapat dipakai membedakan kedua keadaan itu tanpa mengetahui kata sandi.</p>
+	 *
+	 * <p>Session Hibernate dibuka terdedikasi dan <b>setelah</b>
+	 * {@code PerguruanTinggiUtil.getPerguruanTinggi} dipanggil — sebelumnya dipakai sesi native
+	 * bersama yang ditutup oleh pemanggilan itu sehingga query berikutnya gagal dengan
+	 * "Session is closed!". Sesi ditutup di blok {@code finally}.</p>
+	 *
+	 * @param username nama pengguna yang dicoba
+	 * @param request  permintaan yang dipakai menentukan konteks perguruan tinggi
+	 * @return hasil pemeriksaan; tidak pernah {@code null}
+	 */
 	@SuppressWarnings({ })
 	private static AjaxLoginPrecheck cekStatusAwalAjaxLogin(String username, HttpServletRequest request) {
 		Session dbSession = null;
@@ -566,6 +631,21 @@ public class Login extends HttpServlet {
 		return AjaxLoginPrecheck.ok();
 	}
 
+	/**
+	 * Menghapus atribut pesan galat sisa dari permintaan dan sesi sebelum percobaan login baru
+	 * dijalankan.
+	 *
+	 * <p>Tanpa pembersihan ini, pesan galat dari percobaan sebelumnya — termasuk
+	 * {@code SPRING_SECURITY_LAST_EXCEPTION} yang tersimpan di sesi — dapat terbaca kembali oleh
+	 * {@link #ambilPesanErrorLoginAjax} dan ditampilkan sebagai alasan penolakan percobaan yang
+	 * sekarang, sehingga pengguna melihat pesan yang keliru.</p>
+	 *
+	 * <p>Sesi tidak pernah dibuat di sini karena dipakai {@code getSession(false)}, dan setiap
+	 * penghapusan dibungkus {@code try-catch} sendiri agar satu kegagalan tidak menghentikan
+	 * sisanya.</p>
+	 *
+	 * @param request permintaan yang sedang dilayani
+	 */
 	private static void bersihkanAtributErrorLogin(HttpServletRequest request) {
 		String[] keys = new String[] { "login_error", "loginError", "LOGIN_ERROR", "error", "errorMessage",
 				"message", "SPRING_SECURITY_LAST_EXCEPTION", "AUTHENTICATION_EXCEPTION",
@@ -590,6 +670,28 @@ public class Login extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menggali alasan penolakan login dari berbagai tempat yang mungkin diisi alur otentikasi
+	 * lama, lalu mengembalikan pesan pertama yang bermakna.
+	 *
+	 * <p>Empat sumber ditelusuri berurutan:</p>
+	 * <ol>
+	 *   <li>atribut permintaan pada sepuluh kunci yang dikenal, termasuk
+	 *       {@code SPRING_SECURITY_LAST_EXCEPTION};</li>
+	 *   <li>atribut sesi pada kunci yang sama;</li>
+	 *   <li>parameter {@code login_error}, {@code error}, atau {@code message} pada URL pengalihan
+	 *       yang tertangkap {@link AjaxLoginResponseWrapper};</li>
+	 *   <li>isi HTML yang tertangkap, disaring {@link #ambilPesanPentingDariHtml(String)}.</li>
+	 * </ol>
+	 * <p>Bila semuanya kosong, dipakai {@code defaultMessage}. Seluruh pesan dilewatkan
+	 * {@link #bersihkanPesanLogin(String)} sehingga markup tidak ikut terbawa ke JSON.</p>
+	 *
+	 * @param request        permintaan yang sedang dilayani
+	 * @param ajaxResponse   pembungkus respons yang menangkap keluaran alur lama; boleh
+	 *                       {@code null}
+	 * @param defaultMessage pesan cadangan bila tidak ada sumber yang memberi hasil
+	 * @return pesan alasan penolakan yang siap ditampilkan
+	 */
 	private static String ambilPesanErrorLoginAjax(HttpServletRequest request, AjaxLoginResponseWrapper ajaxResponse,
 			String defaultMessage) {
 		String[] keys = new String[] { "login_error", "loginError", "LOGIN_ERROR", "error", "errorMessage",
@@ -644,6 +746,17 @@ public class Login extends HttpServlet {
 		return defaultMessage;
 	}
 
+	/**
+	 * Mengubah atribut bernilai sembarang menjadi teks, dengan perlakuan khusus untuk
+	 * {@link Throwable} yang diambil {@link Throwable#getMessage()}-nya saja.
+	 *
+	 * <p>Perlakuan khusus itu penting karena beberapa kunci atribut galat berisi object exception
+	 * utuh; tanpa itu, yang tertulis ke pesan adalah nama kelas exception, bukan keterangan yang
+	 * berguna bagi pengguna.</p>
+	 *
+	 * @param obj nilai atribut; boleh {@code null}
+	 * @return teks hasil konversi, atau {@code null} bila masukan {@code null}
+	 */
 	private static String stringDariObjek(Object obj) {
 		if (obj == null) {
 			return null;
@@ -654,6 +767,19 @@ public class Login extends HttpServlet {
 		return String.valueOf(obj);
 	}
 
+	/**
+	 * Mengambil satu nilai parameter dari query string sebuah URL pengalihan, lalu memecah
+	 * penyandiannya sebagai UTF-8.
+	 *
+	 * <p>Penguraian dilakukan manual karena yang tersedia hanyalah teks URL hasil tangkapan
+	 * {@link AjaxLoginResponseWrapper}, bukan object permintaan. URL tanpa tanda tanya langsung
+	 * dikembalikan sebagai {@code null}, dan pasangan tanpa tanda sama dengan diperlakukan sebagai
+	 * nilai kosong.</p>
+	 *
+	 * @param url       URL pengalihan; boleh {@code null}
+	 * @param parameter nama parameter yang dicari
+	 * @return nilai parameter yang sudah dipecah penyandiannya, atau {@code null} bila tidak ada
+	 */
 	private static String ambilParameterDariUrl(String url, String parameter) {
 		if (url == null || parameter == null || url.indexOf('?') < 0) {
 			return null;
@@ -675,6 +801,19 @@ public class Login extends HttpServlet {
 		return null;
 	}
 
+	/**
+	 * Mencari kalimat bermakna di dalam keluaran HTML halaman login lama, sebagai upaya terakhir
+	 * menentukan alasan penolakan.
+	 *
+	 * <p>Isi dibersihkan lebih dulu dari markup oleh {@link #bersihkanPesanLogin(String)}, lalu
+	 * dicari kata kunci yang dikenal seperti {@code "akun anda tidak aktif"},
+	 * {@code "pengguna tidak ditemukan"}, {@code "tidak diizinkan"}, {@code "diblokir"}, dan
+	 * {@code "kuota"}. Potongan diambil dari posisi kata kunci hingga titik pertama, dengan batas
+	 * paling panjang 260 karakter agar tidak menarik seluruh halaman.</p>
+	 *
+	 * @param html isi HTML yang tertangkap; boleh {@code null}
+	 * @return kalimat yang ditemukan, atau {@code null} bila tidak ada kata kunci yang cocok
+	 */
 	private static String ambilPesanPentingDariHtml(String html) {
 		String text = bersihkanPesanLogin(html);
 		if (text == null || text.length() == 0) {
@@ -697,6 +836,20 @@ public class Login extends HttpServlet {
 		return null;
 	}
 
+	/**
+	 * Menyulih teks bercampur markup menjadi kalimat polos yang aman dimasukkan ke JSON respons.
+	 *
+	 * <p>Blok {@code <script>} dan {@code <style>} dibuang beserta isinya lebih dulu — bukan hanya
+	 * tagnya — supaya kode di dalamnya tidak ikut menjadi teks pesan. Setelah itu seluruh tag
+	 * sisanya dilucuti, lima entitas HTML umum dikembalikan ke karakter aslinya, deretan spasi
+	 * dirapatkan, dan hasilnya dipotong pada 320 karakter.</p>
+	 *
+	 * <p>Pemotongan panjang itu penting karena sumber pesan dapat berupa halaman HTML utuh;
+	 * tanpanya, seluruh halaman dapat ikut terkirim sebagai pesan galat.</p>
+	 *
+	 * @param pesan teks mentah; boleh {@code null}
+	 * @return teks polos yang sudah dirapikan, atau {@code null} bila masukan {@code null}
+	 */
 	private static String bersihkanPesanLogin(String pesan) {
 		if (pesan == null) {
 			return null;
