@@ -25,6 +25,7 @@ import ais.database.model.akunting.KelompokLaporan;
 import ais.database.model.akunting.KelompokLaporanPunyaAkun;
 import ais.database.model.akunting.MasterGrupLaporan;
 import ais.database.model.asset.MasterAsset;
+import ais.database.model.asset.JenisPenerimaanBarang;
 import ais.database.model.inventory.JenisProduk;
 import ais.database.model.inventory.Produk;
 import ais.database.model.inventory.Toko;
@@ -182,6 +183,8 @@ public final class PemetaanAkunHelper {
         String kodeUtang = p.optString("kodeUtang", "310.600").trim();
         String kodePendapatan = p.optString("kodePendapatan", "410.900").trim();
         String kodeHpp = p.optString("kodeHpp", "510.900").trim();
+        String kodeHutangSementara = p.optString("kodeHutangSementara", "310.400").trim();
+        String kodeHutangVendor = p.optString("kodeHutangVendor", "310.500").trim();
         String mulai = p.optString("mulai", "").trim();
         String sampai = p.optString("sampai", "").trim();
         if (mulai.isEmpty() || sampai.isEmpty()) {
@@ -198,6 +201,10 @@ public final class PemetaanAkunHelper {
             Akun utang = akunKantinDariKode(session, kodeUtang, "Utang Usaha Toko");
             Akun pendapatan = akunKantinDariKode(session, kodePendapatan, "Pendapatan Penjualan Toko");
             Akun hpp = akunKantinDariKode(session, kodeHpp, "Beban Pokok Penjualan Toko");
+            Akun hutangSementara = akunKantinDariKode(session, kodeHutangSementara,
+                    "Hutang Sementara Penerimaan Barang");
+            Akun hutangVendor = akunKantinDariKode(session, kodeHutangVendor,
+                    "Hutang Vendor Pengadaan");
 
             JSONArray akun = new JSONArray();
             akun.put(relasiAkun("Kas/Tunai", kas));
@@ -206,6 +213,8 @@ public final class PemetaanAkunHelper {
             akun.put(relasiAkun("Utang supplier", utang));
             akun.put(relasiAkun("Pendapatan penjualan", pendapatan));
             akun.put(relasiAkun("HPP", hpp));
+            akun.put(relasiAkun("Hutang sementara BAST", hutangSementara));
+            akun.put(relasiAkun("Hutang vendor pengadaan", hutangVendor));
 
             List<Long> produkId = produkBelumPosting(session.connection(), tokoId, mulai, sampai);
             Set<Long> jenisId = new HashSet<Long>();
@@ -250,6 +259,19 @@ public final class PemetaanAkunHelper {
             for (int i = 0; i < penyediaId.size(); i++) {
                 Penyedia py = (Penyedia) session.get(Penyedia.class, penyediaId.get(i));
                 if (py != null && py.getAkunUtang() == null) penyediaTanpaUtang++;
+            }
+
+            List<Long> jenisPenerimaanId = jenisPenerimaanBastBelumPosting(
+                    session.connection(), tokoId, mulai, sampai);
+            int jenisPenerimaanTanpaHutangSementara = 0;
+            int jenisPenerimaanTanpaHutangVendor = 0;
+            int jenisPenerimaanDipetakan = 0;
+            for (int i = 0; i < jenisPenerimaanId.size(); i++) {
+                JenisPenerimaanBarang jenis = (JenisPenerimaanBarang) session.get(
+                        JenisPenerimaanBarang.class, jenisPenerimaanId.get(i));
+                if (jenis == null) continue;
+                if (jenis.getAkun() == null) jenisPenerimaanTanpaHutangSementara++;
+                if (jenis.getAkunHutangPenyedia() == null) jenisPenerimaanTanpaHutangVendor++;
             }
 
             if (terapkan) {
@@ -323,6 +345,24 @@ public final class PemetaanAkunHelper {
                         penyediaDipetakan++;
                     }
                 }
+                for (int i = 0; i < jenisPenerimaanId.size(); i++) {
+                    JenisPenerimaanBarang jenis = (JenisPenerimaanBarang) session.get(
+                            JenisPenerimaanBarang.class, jenisPenerimaanId.get(i));
+                    if (jenis == null) continue;
+                    boolean berubah = false;
+                    if (timpa || jenis.getAkun() == null) {
+                        jenis.setAkun(hutangSementara);
+                        berubah = true;
+                    }
+                    if (timpa || jenis.getAkunHutangPenyedia() == null) {
+                        jenis.setAkunHutangPenyedia(hutangVendor);
+                        berubah = true;
+                    }
+                    if (berubah) {
+                        session.saveOrUpdate(jenis);
+                        jenisPenerimaanDipetakan++;
+                    }
+                }
                 tx.commit();
 
                 // Cadangan untuk produk/supplier baru. Disimpan lewat manager supaya cache konfigurasi
@@ -349,12 +389,16 @@ public final class PemetaanAkunHelper {
             kekurangan.put("jenisProdukTanpaPendapatan", jenisTanpaPendapatan);
             kekurangan.put("jenisProdukTanpaHpp", jenisTanpaHpp);
             kekurangan.put("penyediaTanpaUtang", penyediaTanpaUtang);
+            kekurangan.put("jenisPenerimaanTanpaHutangSementara",
+                    jenisPenerimaanTanpaHutangSementara);
+            kekurangan.put("jenisPenerimaanTanpaHutangVendor", jenisPenerimaanTanpaHutangVendor);
             JSONObject perubahan = new JSONObject();
             perubahan.put("relasiToko", tokoDipetakan);
             perubahan.put("masterAsetDibuat", masterDibuat);
             perubahan.put("masterAsetDipetakan", masterDipetakan);
             perubahan.put("jenisProdukDipetakan", jenisDipetakan);
             perubahan.put("penyediaDipetakan", penyediaDipetakan);
+            perubahan.put("jenisPenerimaanDipetakan", jenisPenerimaanDipetakan);
             perubahan.put("konfigurasiCadangan", terapkan ? 6 : 0);
 
             hasil.put("status", "00");
@@ -366,6 +410,7 @@ public final class PemetaanAkunHelper {
             hasil.put("produkBelumPosting", produk.size());
             hasil.put("jenisProdukTerkait", jenisId.size());
             hasil.put("penyediaTerkait", penyediaId.size());
+            hasil.put("jenisPenerimaanBastTerkait", jenisPenerimaanId.size());
             hasil.put("akun", akun);
             hasil.put("kekuranganSebelum", kekurangan);
             hasil.put("perubahan", perubahan);
@@ -493,6 +538,42 @@ public final class PemetaanAkunHelper {
         List<Long> keluar = new ArrayList<Long>();
         while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
         rs.close(); ps.close();
+        return keluar;
+    }
+
+    /**
+     * Jenis penerimaan yang benar-benar dipakai BAST disetujui namun belum dijurnal.
+     * Dokumen API lama dapat mempunyai FK jenis {@code null}; dalam keadaan itu jenis aktif
+     * pertama adalah nilai efektif yang juga dipakai fallback entity dan mesin posting.
+     */
+    private static List<Long> jenisPenerimaanBastBelumPosting(Connection conn, Long tokoId,
+            String mulai, String sampai) throws Exception {
+        boolean pakaiPeriode = mulai != null && !mulai.isEmpty()
+                && sampai != null && !sampai.isEmpty();
+        String sql = "SELECT DISTINCT COALESCE(b.jenis_penerimaan_barang,"
+                + " (SELECT MIN(j.id) FROM asset.jenis_penerimaan_barang j"
+                + " WHERE COALESCE(j.aktif,true)=true)) AS jenis_id"
+                + " FROM asset.penerimaan_pengadaan_master_asset b"
+                + " WHERE b.posting_history IS NULL AND b.disetujui_oleh IS NOT NULL"
+                + " AND COALESCE(b.aktif,true)=true AND COALESCE(b.nilai,0)<>0"
+                + (tokoId == null ? "" : " AND b.toko=?")
+                + (pakaiPeriode
+                        ? " AND date(b.tanggal_persetujuan) BETWEEN date(?) AND date(?)" : "")
+                + " AND COALESCE(b.jenis_penerimaan_barang,"
+                + " (SELECT MIN(j.id) FROM asset.jenis_penerimaan_barang j"
+                + " WHERE COALESCE(j.aktif,true)=true)) IS NOT NULL";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        int parameter = 1;
+        if (tokoId != null) ps.setLong(parameter++, tokoId.longValue());
+        if (pakaiPeriode) {
+            ps.setString(parameter++, mulai);
+            ps.setString(parameter++, sampai);
+        }
+        ResultSet rs = ps.executeQuery();
+        List<Long> keluar = new ArrayList<Long>();
+        while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
+        rs.close();
+        ps.close();
         return keluar;
     }
 

@@ -74,21 +74,46 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDataMatakuliahKurikulumHelper {
 
+	/** Kurikulum konteks: mata kuliah yang dipilih/dihapus di popup ini akan diikat ke kurikulum ini. */
 	private Kurikulum kurikulum;
+	/** Grid hasil pencarian mata kuliah, dirender ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
+	/** Komponen paging grid; perpindahan halaman memicu pencarian ulang lewat {@link #onSearchDefault(Event)}. */
 	private Paging paging;
 
+	/** Filter pencarian: kode mata kuliah (cocok sebagian, {@link MatchMode#ANYWHERE}). */
 	private Textbox kodeMk;
+	/** Filter pencarian: nama mata kuliah (cocok sebagian, {@link MatchMode#ANYWHERE}). */
 	private Textbox namaMk;
+	/** Filter pencarian: program studi/jurusan mata kuliah. */
 	private Combobox jurusan = new Combobox();
+	/** Filter pencarian: fakultas; memilih fakultas menyaring pilihan {@link #jurusan}. */
 	private Combobox fakultas = new Combobox();
+	/** Filter pencarian: jenjang program studi mata kuliah. */
 	private Combobox jenjang = new Combobox();
+	/** Filter pencarian: hanya mata kuliah milik universitas (menonaktifkan {@link #fakultas}/{@link #jurusan} saat dicentang). */
 	private MyCheckboxConfig milikUniversitas = new MyCheckboxConfig("Milik Universitas");
+	/** Filter pencarian: hanya mata kuliah ekstrakurikuler. */
 	private MyCheckboxConfig extraKulikuler = new MyCheckboxConfig();
+	/**
+	 * Penampung sementara baris {@link KurikulumPunyaMatakuliah} yang dicentang untuk dihapus dari
+	 * kurikulum, dikumpulkan oleh {@link MatakuliahRenderer} dan dieksekusi saat {@link #save()}.
+	 */
 	private Map<Long, KurikulumPunyaMatakuliah> deletedMatakuliahs = new HashMap<Long, KurikulumPunyaMatakuliah>();
+	/** Semester kurikulum yang sedang diedit; dipakai sebagai bagian kunci pencarian/penyimpanan {@link KurikulumPunyaMatakuliah}. */
 	private Integer semester;
+	/**
+	 * Bila tidak {@code null}, popup ini sedang mengedit sub-mata kuliah (modul) dari induk ini;
+	 * pencarian dibatasi hanya pada mata kuliah ber-{@code merupakanModul=true} (lihat
+	 * {@link #initCriteria(boolean)}) dan baris baru yang disimpan diikat ke induk ini.
+	 */
 	private KurikulumPunyaMatakuliah indukMatakuliah;
 
+	/**
+	 * Menyiapkan combobox filter fakultas/jurusan/jenjang (jenjang dibatasi ke yang aktif atau
+	 * belum diisi status aktifnya) dan menghubungkan {@link #paging} ke {@link #onSearchDefault(Event)}
+	 * sehingga perpindahan halaman otomatis memuat ulang data.
+	 */
 	public AmbilDataMatakuliahKurikulumHelper() {
 		Common.initFakultasDanJurusanDanSemua(fakultas, jurusan, null, null);
 		Common.insertCombo(jenjang = new Combobox(), "nama", Jenjang.class,
@@ -119,6 +144,26 @@ public class AmbilDataMatakuliahKurikulumHelper {
 	 */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid untuk sebuah {@link Matakuliah}: label identitas/SKS/status/flag
+		 * ekstra-uts-uas, badge kelompok mata kuliah (ambil kelompok terbaru berdasarkan id, bukan
+		 * riwayat penuh), badge jurusan, daftar kurikulum lain yang memakai mata kuliah ini
+		 * (menampilkan nama kurikulum dan semester), serta checkbox status "sudah termasuk kurikulum
+		 * ini pada semester ini" yang diisi belakangan lewat {@link Common#createDefaultTimer} agar
+		 * tidak memblokir render baris lain.
+		 *
+		 * <p>Pengambilan daftar kurikulum lain (variabel {@code kurikulumPunyaMatakuliahs}) sengaja
+		 * dibungkus try/catch: query {@code .list()} di sini dapat memicu auto-flush Hibernate atas
+		 * perubahan tertunda (mis. dari {@link AmbilDataMatakuliahKurikulumHelper#save()} sebelumnya)
+		 * yang dapat bentrok dengan baris {@code kurikulum_punya_matakuliah} yang sedang dikunci
+		 * pengguna lain (lock timeout). Kegagalan pada satu baris tidak boleh menggagalkan seluruh
+		 * grid; badge kurikulum baris tersebut cukup dilewati.</p>
+		 *
+		 * @param arg0 baris ZK tujuan render.
+		 * @param arg1 data baris, harus berupa {@link Matakuliah}.
+		 * @throws Exception diteruskan apa adanya dari operasi ZK/Hibernate (di luar blok try/catch
+		 *         lokal untuk daftar kurikulum lain).
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -218,6 +263,21 @@ public class AmbilDataMatakuliahKurikulumHelper {
 
 	}
 
+	/**
+	 * Menyimpan hasil centang/hapus pada grid ke dalam {@link KurikulumPunyaMatakuliah}: untuk tiap
+	 * baris grid yang checkbox-nya dicentang, membuat (atau memperbarui bila sudah ada) baris
+	 * {@link KurikulumPunyaMatakuliah} untuk kombinasi kurikulum/mata kuliah/semester ini; untuk
+	 * baris yang tidak dicentang tetapi sebelumnya sudah termasuk kurikulum, baris terkait dihapus
+	 * lewat {@link #hapusJikaTidakDipakaiPerkuliahan(Session, KurikulumPunyaMatakuliah)}. Baris yang
+	 * dicentang untuk dihapus lewat interaksi checkbox tersembunyi di {@link MatakuliahRenderer}
+	 * (dikumpulkan di {@link #deletedMatakuliahs}) juga diproses di akhir agar konsisten dengan
+	 * baris yang tidak lagi tampil di grid saat ini (mis. setelah filter berubah).
+	 *
+	 * <p>Kegagalan per baris ditangkap dan dicatat lewat {@link ais.common.ErrorAuditUtil#record}
+	 * agar satu baris bermasalah tidak menggagalkan penyimpanan baris lain. Mata kuliah yang gagal
+	 * dihapus karena masih dipakai perkuliahan berjalan dikumpulkan dan ditampilkan sebagai satu
+	 * pesan peringatan di akhir, bukan dilempar sebagai error.</p>
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 
@@ -307,6 +367,12 @@ public class AmbilDataMatakuliahKurikulumHelper {
 	 * save(). Cek dulu apakah masih dipakai Perkuliahan sebelum menghapus, supaya
 	 * baris yang masih dipakai dilewati dgn pesan yang jelas alih-alih membuat
 	 * transaksi Postgres macet ("current transaction is aborted") utk sisa request.
+	 *
+	 * @param session sesi Hibernate aktif tempat cek dan delete dijalankan.
+	 * @param kurikulumPunyaMatakuliah baris yang akan dihapus bila tidak dipakai perkuliahan mana pun.
+	 * @return {@code true} bila baris berhasil dihapus (atau tidak dipakai perkuliahan apa pun);
+	 *         {@code false} bila masih dipakai setidaknya satu {@link ais.database.model.Perkuliahan}
+	 *         (baris tidak dihapus) atau bila pengecekan/penghapusan gagal karena exception.
 	 */
 	private boolean hapusJikaTidakDipakaiPerkuliahan(Session session,
 			KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah) {
@@ -326,6 +392,22 @@ public class AmbilDataMatakuliahKurikulumHelper {
 		}
 	}
 
+	/**
+	 * Membangun dan menampilkan (modal) popup pencarian/pemilihan mata kuliah untuk diikat ke
+	 * {@code kurikulum} pada {@code semester} tertentu: form filter (fakultas/prodi/kode/nama/
+	 * jenjang/milik-universitas/ekstrakurikuler), grid hasil pencarian dengan checkbox pilih-semua,
+	 * dan tombol Cari/Simpan/Batal. Tombol Simpan memanggil {@link #save()} lalu
+	 * {@code dataLoader.loadData(null)} untuk memuat ulang layar pemanggil sebelum menutup popup.
+	 *
+	 * @param kurikulum kurikulum tujuan; menentukan default filter fakultas/jurusan/jenjang dari
+	 *        {@link Kurikulum#getJurusan()} dan disimpan ke {@link #kurikulum} untuk dipakai
+	 *        {@link #save()}/{@link MatakuliahRenderer}.
+	 * @param dataLoader callback pemuat ulang data pada layar pemanggil, dipanggil setelah
+	 *        {@link #save()} berhasil dijalankan dari tombol Simpan.
+	 * @param semester semester kurikulum yang diedit, disimpan ke {@link #semester}.
+	 * @param indukMatakuliah bila tidak {@code null}, popup membatasi pencarian ke mata kuliah yang
+	 *        merupakan modul (sub-mata kuliah) dari induk ini; disimpan ke {@link #indukMatakuliah}.
+	 */
 	public void display(final Kurikulum kurikulum, final DataLoader dataLoader, final Integer semester,
 			final KurikulumPunyaMatakuliah indukMatakuliah) {
 
@@ -600,6 +682,22 @@ public class AmbilDataMatakuliahKurikulumHelper {
 		}
 	}
 
+	/**
+	 * Membentuk {@link Criteria} pencarian {@link Matakuliah} sesuai filter yang sedang terisi di
+	 * form: hanya mata kuliah aktif atau belum berstatus (null); cocok sebagian ({@code ILIKE
+	 * ANYWHERE}) pada nama dan kode; jenjang, jurusan, dan fakultas (lewat alias {@code jurusan})
+	 * disaring hanya bila combobox terkait sudah memilih item; hanya modul ({@code merupakanModul})
+	 * bila {@link #indukMatakuliah} tidak {@code null}; hanya ekstrakurikuler bila
+	 * {@link #extraKulikuler} dicentang; hanya milik universitas bila {@link #milikUniversitas}
+	 * dicentang. Filter yang tidak aktif diisi dengan {@code Restrictions.sqlRestriction("1=1")}
+	 * (klausa selalu-benar) alih-alih dihilangkan, agar struktur query tetap seragam.
+	 *
+	 * @param order parameter dipertahankan untuk kompatibilitas tanda tangan pemanggil; tidak
+	 *        memengaruhi pengurutan hasil query pada implementasi saat ini (pengurutan default
+	 *        Hibernate/tanpa {@code addOrder} eksplisit).
+	 * @return {@link Criteria} siap dieksekusi ({@code .list()}, {@code setMaxResults}, dsb.) oleh
+	 *         pemanggil.
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Matakuliah.class)
@@ -628,6 +726,15 @@ public class AmbilDataMatakuliahKurikulumHelper {
 
 	}
 
+	/**
+	 * Menjalankan ulang pencarian mata kuliah: menyinkronkan {@link #paging} dengan jumlah total
+	 * baris hasil filter saat ini lewat {@link Common#initPaging(Criteria, Paging)}, lalu memuat
+	 * satu halaman ({@link Common#ROWS_COUNT_ON_PAGE} baris, maksimum 50) sesuai halaman aktif ke
+	 * {@link #grid} dengan {@link MatakuliahRenderer} sebagai perender baris.
+	 *
+	 * @param event event pemicu (klik tombol Cari, ganti combobox, dsb.); tidak dipakai langsung
+	 *        oleh method ini selain menandai bahwa pemanggil memang meminta pencarian ulang.
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);

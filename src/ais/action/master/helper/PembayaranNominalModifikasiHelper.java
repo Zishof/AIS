@@ -1693,6 +1693,137 @@ public final class PembayaranNominalModifikasiHelper {
 	
 	}
 
+	/**
+	 * Menghitung nominal satu baris {@link PengaturanPembayaranBulanan} untuk seorang mahasiswa
+	 * pada semester tertentu &mdash; jalur tagihan <b>bulanan/cicilan</b>.
+	 *
+	 * <p>Ini kembaran {@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)} untuk skema
+	 * pembayaran per bulan. Perbedaan pokoknya ada tiga: harga dasarnya diambil dari
+	 * {@link PengaturanPembayaranBulanan#getNominal()} (bukan {@code DetailBiaya.nilaiBiaya}),
+	 * hasilnya <b>dikembalikan</b> alih-alih ditulis ke field, dan daftar matakuliah yang ikut
+	 * dihitung disaring lagi per <b>tahapan</b> pembayaran.</p>
+	 *
+	 * <h4>Empat gerbang pulang cepat</h4>
+	 * <ol>
+	 *   <li>{@code pengaturanPembayaranBulanan} {@code null} &rarr; {@code 0.0};</li>
+	 *   <li>{@link ItemBiaya} pada {@code detailBiaya}-nya tanpa skema penghitungan (lihat
+	 *   {@link #isTanpaPenghitungan(ItemBiaya)}) &rarr; nominal dasar apa adanya. Perhatikan
+	 *   bahwa {@code detailBiaya} {@code null} juga jatuh ke sini, karena {@code itemBiaya}
+	 *   ikut menjadi {@code null};</li>
+	 *   <li>{@code mahasiswa} atau {@code semester} {@code null} &rarr; nominal dasar apa
+	 *   adanya;</li>
+	 *   <li>{@link PengaturanPembayaranBulanan#getDikalikanDenganKondisiKhusus()} tidak menyala
+	 *   &rarr; nominal dasar apa adanya, seluruh rantai rumus dilewati.</li>
+	 * </ol>
+	 * <p>Nominal dasar sendiri sudah dinormalkan: {@code getNominal()} yang {@code null} dibaca
+	 * sebagai {@code 0.0}. Method ini karena itu <b>tidak pernah mengembalikan {@code null}</b>.</p>
+	 *
+	 * <h4>Gerbang {@code dikalikanDenganKondisiKhusus}</h4>
+	 * <p>Gerbang keempat pantas digarisbawahi karena tidak punya padanan di jalur tagihan biasa.
+	 * {@code dikalikanDenganKondisiKhusus} adalah <b>checkbox per baris bulanan</b>: selama tidak
+	 * dicentang, skema {@code penghitungan} yang dipilih di master {@link ItemBiaya} sama sekali
+	 * tidak berlaku dan mahasiswa ditagih nominal datar. Jadi dua sumber kebenaran mengatur hal
+	 * yang sama &mdash; master biaya menyatakan "kalikan jumlah SKS", baris bulanan bisa
+	 * membatalkannya secara diam-diam. Menambah baris bulanan baru lewat CRUD generik (yang tidak
+	 * mencentang apa pun secara bawaan) berarti membuat baris yang mengabaikan skema biayanya,
+	 * dan sebaliknya mencentangnya pada baris nominal datar akan mengubah nominal itu menjadi
+	 * harga satuan yang dikalikan. Tidak ada persetujuan terpisah untuk perubahan itu; jejaknya
+	 * hanya revisi Envers kolom {@code dikalikandengankondisikhusus}.</p>
+	 *
+	 * <h4>Penyaring tahapan</h4>
+	 * <p>Sebelum masuk rantai, method menghitung
+	 * {@code tahapan = pengaturanPembayaranBulanan.hitungTahap(mahasiswa, semester)} dan
+	 * meneruskannya sebagai penyaring ke {@code Mahasiswa.ambilDetailperkuliahan(...)}, sehingga
+	 * setiap baris bulanan hanya menagih porsi matakuliah tahapannya sendiri. Dua hal yang perlu
+	 * diketahui:</p>
+	 * <ul>
+	 *   <li>{@link PengaturanPembayaranBulanan#hitungTahap(Mahasiswa, Integer)} mengembalikan
+	 *   {@code 0} bila {@code ConstantValues.aktifkanTahapanTerhubungKeKeuangan} mati (bawaan
+	 *   repo), dan nilai {@code 0} diperlakukan sama dengan {@code null} oleh
+	 *   {@code ambilDetailperkuliahan(...)}. Pada instalasi bawaan, penyaring ini karena itu
+	 *   tidak berefek apa-apa.</li>
+	 *   <li>{@code hitungTahap} memanggil {@code getRealBulan()}, yang <b>menulis balik ke kolom
+	 *   terpetakan {@code realbulan}</b>. Jadi sekadar menghitung nominal sudah bisa mengotori
+	 *   entity ini &mdash; perwujudan pola getter-mutasi-field yang lazim di
+	 *   {@code ais/database/model/}.</li>
+	 * </ul>
+	 *
+	 * <h4>Efek samping yang tidak tersirat dari namanya</h4>
+	 * <p>Meski berawalan {@code ambil}, setiap cabang rumus memanggil
+	 * {@link PengaturanPembayaranBulanan#setKeterangan(String)} dengan rincian perhitungan.
+	 * Berbeda dari {@code DetailBiaya.keterangan} yang {@code @Transient},
+	 * {@code PengaturanPembayaranBulanan.keterangan} adalah <b>kolom terpetakan</b>. Pada
+	 * instance yang masih dikelola sesi Hibernate, dirty-checking akan menerbitkan {@code UPDATE}
+	 * beserta revisi Envers hanya karena seseorang membuka layar tagihan. Catatan operator yang
+	 * pernah diketik di kolom itu ikut tertimpa. Inilah alasan {@code KegiatanHelper} menandai
+	 * entity ini read-only saat hitung ulang massal, dan alasan pemanggil baru sebaiknya bekerja
+	 * pada salinan yang sudah detach.</p>
+	 *
+	 * <h4>Cakupan rumus dan bedanya dengan jalur tagihan biasa</h4>
+	 * <p>Rantainya menangani 28 cabang: keluarga berbasis SKS KRS, komponen praktek/diskusi/
+	 * simulasi, komponen UTS/UAS (per matakuliah maupun per SKS, reguler maupun semester
+	 * pendek), remedial (jumlah matakuliah, empat varian bobot SKS, serta SKS ber-UTS dan
+	 * ber-UAS), konversi, dan cabang bersyarat 0/1. Perbedaannya dengan
+	 * {@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)} bukan hal sepele:</p>
+	 * <ul>
+	 *   <li><b>Hanya jalur ini yang menangani
+	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL}.</b> Di jalur tagihan biasa cabangnya
+	 *   hilang (blok {@code DIKALI_JUMLAH_SKS_UTS_REMEDIAL} tertulis dua kali). Item biaya yang
+	 *   sama karena itu menghasilkan nominal berbeda tergantung ia ditagih bulanan atau tidak.</li>
+	 *   <li><b>Jalur ini tidak menangani {@link ItemBiaya#HITUNG_TUNGGAKAN_SMT_LALU}</b> dan
+	 *   tidak punya cabang "nilai dari parameter tambahan biodata". Keduanya hanya ada di jalur
+	 *   tagihan biasa. Baris bulanan dengan skema itu akan mengembalikan nominal dasar tanpa
+	 *   perkalian, tanpa peringatan.</li>
+	 * </ul>
+	 *
+	 * <h4>Catatan integritas finansial</h4>
+	 * <ul>
+	 *   <li><b>Dua cabang remedial melewatkan penyaring tahapan.</b> Dari 28 cabang, 26 meneruskan
+	 *   {@code tahapan} ke {@code ambilDetailperkuliahan(...)}; dua cabang
+	 *   &mdash; {@link ItemBiaya#DIKALI_JUMLAH_SKS_UTS_REMEDIAL} dan
+	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} &mdash; justru mengoper {@code null},
+	 *   tampaknya karena disalin dari jalur tagihan biasa yang memang tidak punya konsep tahapan.
+	 *   Pada instalasi yang mengaktifkan {@code aktifkanTahapanTerhubungKeKeuangan}, kedua skema
+	 *   itu menghitung SKS remedial <b>seluruh semester</b> pada <b>setiap</b> baris bulanan,
+	 *   bukan porsi tahapannya &mdash; sehingga jumlah yang sama tertagih berulang sebanyak
+	 *   jumlah tahapan. Pada instalasi bawaan (fitur tahapan mati) efeknya tidak terlihat, yang
+	 *   membuat selisih ini mudah lolos pengujian.</li>
+	 *   <li><b>Tidak ada {@code else} penutup.</b> Sama seperti jalur tagihan biasa, skema yang
+	 *   tidak cocok dengan satu pun cabang tidak memicu galat; nominal dasar dikembalikan seolah
+	 *   item itu memang berharga tetap. Menambah konstanta {@code penghitungan} baru tanpa
+	 *   menambah cabang di kedua method menghasilkan kegagalan diam.</li>
+	 *   <li><b>Rincian keterangan menyimpan {@code keterangan} yang formatnya tidak seragam.</b>
+	 *   Cabang {@link ItemBiaya#DIKALI_JUMLAH_SKS_MATAKULIAH_TIDAK_MENGULANG} mencetak jumlah SKS
+	 *   sebagai {@code double} mentah ({@code "x 20.0 SKS"}), sedangkan cabang sejenis lain
+	 *   membulatkannya lebih dulu ke {@code int}. Perbedaan kosmetik, tetapi teks inilah satu-
+	 *   satunya rekaman rumus yang tersimpan permanen, sehingga selisih format menyulitkan
+	 *   pembacaan ulang secara otomatis.</li>
+	 *   <li><b>Warisan cacat yang sama dengan jalur tagihan biasa.</b>
+	 *   {@code DIKALI_JUMLAH_MK_KONVERSI} tetap memanggil
+	 *   {@code KrsDetailHelper.ambilDetailperkuliahanKonversi(mahasiswa, null)} sehingga
+	 *   mengabaikan semester; varian "SP" tetap menambahkan SKS konversi non-SP; dan seluruh
+	 *   cabang keluarga ujian tetap membuang baris ber-{@code perkuliahan} {@code null} lewat
+	 *   {@code continue} sebelum ternary konversinya, sehingga sisi konversi ternary itu kode
+	 *   mati.</li>
+	 *   <li><b>Aritmetika uang memakai {@code double}.</b> Hasil dikembalikan tanpa pembulatan;
+	 *   pembulatan (kalau ada) terjadi di lapisan pemanggil.</li>
+	 *   <li><b>Biaya query.</b> Setiap cabang memuat {@link Detailperkuliahan} satu per satu
+	 *   lewat {@link GeneralValueObject#ambilData(Class, String)}. Karena tagihan bulanan berarti
+	 *   banyak baris per mahasiswa per semester, jalur inilah yang paling mahal di antara
+	 *   keduanya &mdash; satu layar rekap bisa memicu ribuan query.</li>
+	 * </ul>
+	 *
+	 * @param pengaturanPembayaranBulanan baris pengaturan pembayaran bulanan yang dihitung;
+	 *                                    {@code null} menghasilkan {@code 0.0}
+	 * @param mahasiswa                   mahasiswa yang ditagih; {@code null} membuat nominal
+	 *                                    dasar dikembalikan apa adanya
+	 * @param semester                    semester berjalan; {@code null} membuat nominal dasar
+	 *                                    dikembalikan apa adanya
+	 * @return nominal setelah modifikasi; {@code 0.0} adalah hasil yang sah (mis. mahasiswa tidak
+	 *         mengambil SKS apa pun) dan tidak pernah {@code null}
+	 * @see PengaturanPembayaranBulanan#ambilNominalModifikasi(Mahasiswa, Integer)
+	 * @see #updateKeterangan(DetailBiaya, Mahasiswa, Integer)
+	 */
 	public static Double ambilNominalModifikasi(PengaturanPembayaranBulanan pengaturanPembayaranBulanan,
 			Mahasiswa mahasiswa, Integer semester) {
 

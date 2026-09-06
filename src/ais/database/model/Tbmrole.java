@@ -2110,7 +2110,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		}
 		return keuangan == null
 				? (getRoleId() != null
-						&& (getRoleId().toLowerCase().contains("keu") || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
+						&& (getRoleId().equalsIgnoreCase(Tbmrole.KEUANGAN) || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
 				: keuangan;
 	}
 
@@ -2177,7 +2177,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		}
 		return pembayaran == null
 				? (getRoleId() != null
-						&& (getRoleId().toLowerCase().contains("keu") || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
+						&& (getRoleId().equalsIgnoreCase(Tbmrole.KEUANGAN) || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
 				: pembayaran;
 	}
 
@@ -2237,7 +2237,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		}
 		return akunting == null
 				? (getRoleId() != null
-						&& (getRoleId().toLowerCase().contains("keu") || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
+						&& (getRoleId().equalsIgnoreCase(Tbmrole.KEUANGAN) || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
 				: akunting;
 	}
 
@@ -3699,7 +3699,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 		return kantin == null
 				? (getRoleId() != null
-						&& (getRoleId().toLowerCase().contains("keu") || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
+						&& (getRoleId().equalsIgnoreCase(Tbmrole.KEUANGAN) || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
 				: kantin;
 	}
 
@@ -4034,10 +4034,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * @see #getKeuangan()
 	 */
 	public Boolean getBolehEntryTopup() {
-		return bolehEntryTopup == null
-				? (getRoleId() != null
-						&& (getRoleId().toLowerCase().contains("keu") || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
-				: bolehEntryTopup;
+		return bolehEntryTopup == null ? Boolean.FALSE : bolehEntryTopup;
 	}
 
 	/**

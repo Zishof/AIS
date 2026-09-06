@@ -24,6 +24,7 @@ import ais.ui.util.MyWindow;
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public final class RecoveryAktivitasPembelajaranHelper {
 
+	/** Kelas utilitas statis murni; tidak boleh diinstansiasi. */
 	private RecoveryAktivitasPembelajaranHelper() {
 	}
 
@@ -37,6 +38,19 @@ public final class RecoveryAktivitasPembelajaranHelper {
 				&& user.getCalonSiswa() == null && user.getBiodataCalonMahasiswa() == null;
 	}
 
+	/**
+	 * Membuka dialog pilihan Recovery Ujian dengan dua opsi: mengembalikan relasi ujian yang hilang
+	 * dari pertemuan ({@link RevisiPertemuanPunyaUjianHelper}), atau mengembalikan master ujian
+	 * beserta seluruh soalnya ({@link RevisiUjianHelper}). Kedua opsi dibatasi ke
+	 * {@code pembelajaran} (mata kuliah/kelas yang sedang dibuka) lewat parameter konstruktor
+	 * masing-masing helper. Tombol pemicu dialog ini tidak pernah dirender untuk akun peserta
+	 * (lihat {@link #bolehTampil(ais.database.model.Tbmuser)}).
+	 *
+	 * @param pembelajaran konteks mata kuliah/kelas yang membatasi cakupan recovery.
+	 * @param callback     callback yang diteruskan ke helper revisi terpilih saat restore berhasil;
+	 *                     boleh {@code null}.
+	 * @throws Exception diteruskan apa adanya dari konstruktor helper revisi terpilih.
+	 */
 	public static void bukaRecoveryUjian(final VOPembelajaran pembelajaran, final EventListener callback)
 			throws Exception {
 		final MyWindow pilihan = buatPilihan("Recovery Ujian",
@@ -66,6 +80,18 @@ public final class RecoveryAktivitasPembelajaranHelper {
 		tampilkan(pilihan);
 	}
 
+	/**
+	 * Membuka dialog pilihan Recovery Tugas dengan dua opsi: mengembalikan tugas yang melekat
+	 * langsung pada pertemuan ({@link RevisiTugasHelper} dengan kelas {@link Pertemuan}), atau tugas
+	 * tambahan yang dibuat di dalam pertemuan ({@link RevisiTugasHelper} dengan kelas
+	 * {@link TugasPertemuan}). Kedua opsi dibatasi ke {@code pembelajaran} (mata kuliah/kelas yang
+	 * sedang dibuka).
+	 *
+	 * @param pembelajaran konteks mata kuliah/kelas yang membatasi cakupan recovery.
+	 * @param callback     callback yang diteruskan ke {@link RevisiTugasHelper} saat restore
+	 *                     berhasil; boleh {@code null}.
+	 * @throws Exception diteruskan apa adanya dari konstruktor {@link RevisiTugasHelper}.
+	 */
 	public static void bukaRecoveryTugas(final VOPembelajaran pembelajaran, final EventListener callback)
 			throws Exception {
 		final MyWindow pilihan = buatPilihan("Recovery Tugas",
@@ -92,11 +118,30 @@ public final class RecoveryAktivitasPembelajaranHelper {
 		tampilkan(pilihan);
 	}
 
+	/**
+	 * Membuka langsung jendela Recovery Tugas Kelompok (tanpa dialog pilihan, karena hanya ada satu
+	 * jenis entitas untuk tugas kelompok) yang dibatasi ke pembelajaran aktif lewat
+	 * {@link RevisiTugasHelper}.
+	 *
+	 * @param pembelajaran konteks mata kuliah/kelas yang membatasi cakupan recovery.
+	 * @param callback     callback yang diteruskan ke {@link RevisiTugasHelper} saat restore
+	 *                     berhasil; boleh {@code null}.
+	 * @throws Exception diteruskan apa adanya dari konstruktor {@link RevisiTugasHelper}.
+	 */
 	public static void bukaRecoveryTugasKelompok(VOPembelajaran pembelajaran, EventListener callback)
 			throws Exception {
 		tampilkan(new RevisiTugasHelper(TugasKelompok.class, pembelajaran, callback));
 	}
 
+	/**
+	 * Membangun window dialog pilihan (belum ditampilkan) berisi judul, deskripsi, dan wadah vertikal
+	 * kosong yang siap diisi tombol pilihan lewat {@link #tambahPilihan}.
+	 *
+	 * @param judul      judul window.
+	 * @param penjelasan kalimat penjelasan singkat yang ditampilkan di atas daftar pilihan.
+	 * @return window yang sudah berisi label penjelasan dan separator, belum berisi tombol pilihan
+	 *         dan belum ditampilkan (belum dipanggil {@link #tampilkan(MyWindow)}).
+	 */
 	private static MyWindow buatPilihan(String judul, String penjelasan) {
 		MyWindow window = new MyWindow();
 		window.setTitle(judul);
@@ -116,6 +161,18 @@ public final class RecoveryAktivitasPembelajaranHelper {
 		return window;
 	}
 
+	/**
+	 * Menambahkan satu tombol pilihan (toolbarbutton selebar penuh) ke wadah pertama window dialog
+	 * yang dibuat {@link #buatPilihan}.
+	 *
+	 * @param window   window dialog target, hasil {@link #buatPilihan}.
+	 * @param label    teks tombol.
+	 * @param image    path ikon tombol (relatif terhadap webapp, mis. {@code "/img/jadwal.png"}).
+	 * @param tooltip  teks tooltip yang muncul saat kursor diarahkan ke tombol.
+	 * @param listener callback yang dijalankan saat tombol diklik (biasanya menutup dialog lalu
+	 *                 membuka helper revisi terkait).
+	 * @throws Exception diteruskan apa adanya dari operasi ZK di dalamnya.
+	 */
 	private static void tambahPilihan(MyWindow window, String label, String image, String tooltip,
 			EventListener listener) throws Exception {
 		Component parent = window.getFirstChild();
@@ -127,6 +184,13 @@ public final class RecoveryAktivitasPembelajaranHelper {
 		button.setParent(parent);
 	}
 
+	/**
+	 * Menempelkan window ke root halaman ZK saat ini dan menampilkannya sebagai dialog modal.
+	 *
+	 * @param window window yang akan ditampilkan (dialog pilihan atau helper revisi).
+	 * @throws Exception diteruskan apa adanya dari operasi ZK di dalamnya (mis. bila tidak ada
+	 *                    konteks eksekusi ZK aktif).
+	 */
 	private static void tampilkan(MyWindow window) throws Exception {
 		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(window);
 		window.setVisible(true);

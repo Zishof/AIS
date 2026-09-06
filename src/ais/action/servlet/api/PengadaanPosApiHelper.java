@@ -24,6 +24,7 @@ import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.Konfigurasi;
 import ais.database.model.asset.MasterAsset;
+import ais.database.model.asset.JenisPenerimaanBarang;
 import ais.database.model.asset.PembayaranTerminMasterAsset;
 import ais.database.model.asset.PembayaranTerminMasterAssetDetail;
 import ais.database.model.asset.PemesananPengadaanMasterAsset;
@@ -4450,6 +4451,23 @@ public final class PengadaanPosApiHelper {
 		return jml;
 	}
 
+	/** Jenis penerimaan aktif pertama, yaitu fallback resmi yang dipakai entity untuk dokumen lama. */
+	private static JenisPenerimaanBarang jenisPenerimaanDefault(Session session) {
+		return (JenisPenerimaanBarang) session.createCriteria(JenisPenerimaanBarang.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+				.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+	}
+
+	/** Tambahkan kontrak jenis penerimaan dan kesiapan akun jurnal ke JSON BAST. */
+	private static void tulisJenisPenerimaan(JSONObject tujuan,
+			PenerimaanPengadaanMasterAsset bast) throws Exception {
+		JenisPenerimaanBarang jenis = bast == null ? null : bast.getJenisPenerimaanBarang();
+		tujuan.put("jenis_penerimaan_barang_id", jenis == null ? JSONObject.NULL : jenis.getId());
+		tujuan.put("jenisPenerimaanBarang", jenis == null || jenis.getNama() == null ? "" : jenis.getNama());
+		tujuan.put("akunHutangSementaraSiap", jenis != null && jenis.getAkun() != null);
+		tujuan.put("akunHutangVendorSiap", jenis != null && jenis.getAkunHutangPenyedia() != null);
+	}
+
 	/**
 	 * Daftar BAST pada lingkup toko pemanggil. Param opsional: {@code cari}
 	 * (kode/keterangan/nomor tagihan), {@code status} (DRAFT/DISETUJUI), {@code page},
@@ -4518,6 +4536,7 @@ public final class PengadaanPosApiHelper {
 				o.put("toko", bast.getToko() == null ? "" : bast.getToko().getNama());
 				o.put("dibuatOleh", bast.getDibuatOleh() == null ? "" : bast.getDibuatOleh().getUserNama());
 				o.put("disetujuiOleh", bast.getDisetujuiOleh() == null ? "" : bast.getDisetujuiOleh().getUserNama());
+				tulisJenisPenerimaan(o, bast);
 				arr.put(o);
 			}
 			hasil.put("status", "00");
@@ -4581,6 +4600,7 @@ public final class PengadaanPosApiHelper {
 			h.put("toko", bast.getToko() == null ? "" : bast.getToko().getNama());
 			h.put("dibuatOleh", bast.getDibuatOleh() == null ? "" : bast.getDibuatOleh().getUserNama());
 			h.put("disetujuiOleh", bast.getDisetujuiOleh() == null ? "" : bast.getDisetujuiOleh().getUserNama());
+			tulisJenisPenerimaan(h, bast);
 
 			@SuppressWarnings("unchecked")
 			List<PenerimaanPengadaanMasterAssetDetail> baris = session
@@ -4715,6 +4735,31 @@ public final class PengadaanPosApiHelper {
 			}
 			bast.setPemesananPengadaanMasterAsset(po);
 			bast.setTampaPemesanan(Boolean.valueOf(po == null));
+
+			// Versi API lama tidak mengirim jenis penerimaan, padahal mesin jurnal BAST membaca
+			// akun dari master ini. Simpan nilai efektif secara eksplisit agar BAST baru tidak
+			// bergantung pada cache statis dan tetap konsisten setelah restart/deploy.
+			JenisPenerimaanBarang jenisPenerimaan = null;
+			if (!request.isNull("jenis_penerimaan_barang_id")
+					&& !(request.get("jenis_penerimaan_barang_id") + "").trim().isEmpty()) {
+				Long jenisId = Long.valueOf((request.get("jenis_penerimaan_barang_id") + "").trim());
+				jenisPenerimaan = (JenisPenerimaanBarang) session.get(JenisPenerimaanBarang.class, jenisId);
+				if (jenisPenerimaan == null || Boolean.FALSE.equals(jenisPenerimaan.getAktif())) {
+					tolak(hasil, "Jenis Penerimaan Barang tidak ditemukan atau sudah tidak aktif.");
+					return;
+				}
+			} else if (bast.getJenisPenerimaanBarang() != null
+					&& bast.getJenisPenerimaanBarang().getId() != null) {
+				jenisPenerimaan = (JenisPenerimaanBarang) session.get(JenisPenerimaanBarang.class,
+						bast.getJenisPenerimaanBarang().getId());
+			} else {
+				jenisPenerimaan = jenisPenerimaanDefault(session);
+			}
+			if (jenisPenerimaan == null) {
+				tolak(hasil, "Master Jenis Penerimaan Barang aktif belum tersedia. Hubungi admin.");
+				return;
+			}
+			bast.setJenisPenerimaanBarang(jenisPenerimaan);
 
 			/* ================== SATU PENERIMAAN UNTUK SATU TERMIN ==================
 			 *
@@ -4905,6 +4950,7 @@ public final class PengadaanPosApiHelper {
 			hasil.put("id", bast.getId());
 			hasil.put("kode", bast.getKode());
 			hasil.put("nilai", total);
+			hasil.put("jenis_penerimaan_barang_id", jenisPenerimaan.getId());
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {

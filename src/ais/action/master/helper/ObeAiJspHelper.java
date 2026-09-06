@@ -22,12 +22,38 @@ import ais.database.model.obe.ReferensiLulusan;
  * tahan-banting, parser format COCOK/USUL_BARU, dan pembuat entitas OBE. Dipakai oleh
  * service JSP di webapp/WEB-INF/baru/modul/elearning/obe/_generate_*_ai.jsp.
  * Panggilan AI memakai {@link ais.action.servlet.AiGenerateServlet#generateText(String,int)}.
+ *
+ * <p>Kelas ini sendiri TIDAK menyimpan/memanggil kredensial layanan AI apa pun — itu
+ * seluruhnya berada di {@code AiGenerateServlet} (provider/model/API key dipilih via
+ * konfigurasi {@code AI_PROVIDER_AKTIF}, dsb.). Semua method di sini murni membangun
+ * teks prompt/konteks dari data OBE tersimpan, mem-parsing hasil balasan AI (yang tidak
+ * dapat dipercaya format-nya secara ketat), atau menuliskan entitas OBE baru ke database
+ * — tidak ada panggilan jaringan langsung dari kelas ini.</p>
  */
 public class ObeAiJspHelper {
 
 	// ---------------------------------------------------------------------
 	// Konteks OBE komprehensif
 	// ---------------------------------------------------------------------
+	/**
+	 * Membangun teks konteks OBE/RPS yang sudah tersimpan untuk satu matakuliah, dipakai
+	 * sebagai bagian prompt saat meminta AI menghasilkan usulan CPL/CPMK/Bahan Kajian/dsb.
+	 * Konteks mencakup identitas matakuliah, program studi, CPL/CPMK (beserta Sub-CPMK dari
+	 * kolom formula JSON), Bahan Kajian, dan pustaka utama/pendukung — masing-masing
+	 * dibersihkan dari markup HTML ({@link #bersih(String)}) dan dipotong panjangnya
+	 * ({@link #potong(String, int)}) agar prompt tidak membengkak.
+	 *
+	 * <p>Bersifat tahan-banting: setiap bagian opsional diperiksa null/kosong sebelum
+	 * disertakan, dan kegagalan parsing sub-bagian (mis. JSON formula CPMK yang rusak)
+	 * ditelan diam-diam agar satu bagian yang cacat tidak menggagalkan seluruh konteks.</p>
+	 *
+	 * @param kpm relasi kurikulum-matakuliah (deskripsi singkat, minimal ketercapaian,
+	 *        pustaka, catatan); boleh {@code null}
+	 * @param mk matakuliah sumber (nama, SKS, jurusan, CPL/CPMK/Bahan Kajian); boleh
+	 *        {@code null}
+	 * @return teks konteks siap disisipkan ke prompt AI, diawali dan diakhiri penanda
+	 *         batas konteks; tidak pernah {@code null}
+	 */
 	public static String bangunKonteks(KurikulumPunyaMatakuliah kpm, Matakuliah mk) {
 		StringBuilder k = new StringBuilder();
 		k.append("=== KONTEKS RPS/OBE YANG SUDAH TERSIMPAN ===\n");
@@ -100,6 +126,20 @@ public class ObeAiJspHelper {
 		return k.toString();
 	}
 
+	/**
+	 * Menerjemahkan CSV berisi id entitas {@link GeneralValueObject} (mis. CPL, Bahan Kajian,
+	 * Referensi Lulusan) menjadi teks ringkas {@code "kode=nama; kode=nama; ..."} untuk
+	 * disisipkan ke konteks prompt AI. Kode/nama diambil lewat refleksi ({@code getKode()}/
+	 * {@code getNama()}) karena {@code clazz} bervariasi antar pemanggil; id yang gagal
+	 * ditemukan atau method refleksi yang gagal dilewati diam-diam tanpa menggagalkan
+	 * entri lain.
+	 *
+	 * @param clazz kelas entitas target, harus subtipe {@link GeneralValueObject} dengan
+	 *        method {@code getKode()} dan/atau {@code getNama()}
+	 * @param csv daftar id dipisah koma; boleh {@code null}/kosong
+	 * @return teks ringkas gabungan, tidak pernah {@code null}; kosong bila {@code csv}
+	 *         kosong atau tidak ada id yang berhasil ditemukan
+	 */
 	private static String daftarKodeNama(Class<?> clazz, String csv) {
 		if (csv == null || csv.trim().isEmpty()) return "";
 		StringBuilder b = new StringBuilder();
@@ -122,6 +162,18 @@ public class ObeAiJspHelper {
 	// ---------------------------------------------------------------------
 	// Parser JSON tahan-banting
 	// ---------------------------------------------------------------------
+	/**
+	 * Mengekstrak array JSON dari balasan mentah model AI, yang sering membungkus JSON
+	 * dengan teks pengantar atau code-fence Markdown. Strategi: (1) buang fence
+	 * ({@link #buangFence(String)}), (2) ambil substring antara {@code '['} pertama dan
+	 * {@code ']'} terakhir dan coba parse langsung; (3) bila gagal/tidak ditemukan, jatuh
+	 * ke pemindaian brace-depth ({@link #pindaiObjek(String)}) dan membungkus objek-objek
+	 * yang berhasil ditemukan menjadi satu array.
+	 *
+	 * @param resp balasan mentah dari AI; boleh {@code null}
+	 * @return array JSON hasil parsing, tidak pernah {@code null}; kosong bila tidak ada
+	 *         objek yang berhasil diekstrak
+	 */
 	public static JSONArray ekstrakArray(String resp) {
 		if (resp == null) return new JSONArray();
 		String s = buangFence(resp.trim());
@@ -136,6 +188,15 @@ public class ObeAiJspHelper {
 		return arr;
 	}
 
+	/**
+	 * Mengekstrak satu objek JSON dari balasan mentah model AI, dengan strategi yang sama
+	 * dengan {@link #ekstrakArray(String)} (buang fence, ambil substring {@code '{'}..{@code '}'},
+	 * jatuh ke pemindaian brace-depth bila gagal).
+	 *
+	 * @param resp balasan mentah dari AI; boleh {@code null}
+	 * @return objek JSON hasil parsing, tidak pernah {@code null}; kosong bila tidak ada
+	 *         objek yang berhasil diekstrak
+	 */
 	public static JSONObject ekstrakObjek(String resp) {
 		if (resp == null) return new JSONObject();
 		String s = buangFence(resp.trim());
@@ -148,6 +209,15 @@ public class ObeAiJspHelper {
 		return list.isEmpty() ? new JSONObject() : list.get(0);
 	}
 
+	/**
+	 * Membuang code-fence Markdown ({@code ```}) yang sering dipakai model AI membungkus
+	 * blok JSON, mengembalikan hanya isi di dalam fence pertama-ke-terakhir bila ditemukan
+	 * pasangan yang valid.
+	 *
+	 * @param s teks balasan yang sudah di-{@code trim()} oleh pemanggil
+	 * @return isi di dalam fence (di-{@code trim()}), atau {@code s} apa adanya bila tidak
+	 *         ada fence yang cocok
+	 */
 	private static String buangFence(String s) {
 		int fence = s.indexOf("```");
 		if (fence >= 0) {
@@ -159,6 +229,18 @@ public class ObeAiJspHelper {
 		return s;
 	}
 
+	/**
+	 * Cadangan terakhir untuk mengekstrak objek JSON dari teks bebas: memindai karakter demi
+	 * karakter sambil melacak kedalaman kurung kurawal ({@code depth}) dan menghormati
+	 * string literal (termasuk escape {@code \\}) agar {@code '{'}/{@code '}'} di dalam
+	 * string tidak dihitung sebagai pembuka/penutup blok. Setiap kali {@code depth} kembali
+	 * ke nol, substring yang terkumpul dicoba di-parse sebagai satu {@link JSONObject};
+	 * kegagalan parse pada satu blok dilewati tanpa menghentikan pemindaian sisa teks.
+	 *
+	 * @param s teks yang sudah melalui {@link #buangFence(String)}
+	 * @return daftar objek JSON yang berhasil diekstrak, sesuai urutan kemunculan; tidak
+	 *         pernah {@code null}, boleh kosong
+	 */
 	private static List<JSONObject> pindaiObjek(String s) {
 		List<JSONObject> hasil = new ArrayList<JSONObject>();
 		int depth = 0, mulai = -1;
@@ -202,11 +284,26 @@ public class ObeAiJspHelper {
 	 * @see ObeAiJspHelper
 	 */
 	public static class Seleksi {
+		/** Kode-kode entitas yang dinilai AI "cocok" (sudah ada dan sesuai), dalam huruf besar. */
 		public List<String> cocok = new ArrayList<String>();
+		/** Usulan entitas baru dari AI; tiap elemen berupa pasangan {@code [kode, deskripsi]}. */
 		public List<String[]> baru = new ArrayList<String[]>(); // [kode, deskripsi]
+		/** Alasan/penjelasan yang diberikan AI untuk pilihan "cocok"-nya; string kosong bila tidak ada. */
 		public String alasan = "";
 	}
 
+	/**
+	 * Mem-parsing balasan teks AI berformat baris {@code COCOK:}, {@code ALASAN_COCOK:}, dan
+	 * blok {@code USUL_BARU} (diikuti baris berawalan {@code -}) menjadi struktur
+	 * {@link Seleksi}. Parsing baris-demi-baris dan case-insensitive pada penanda kunci
+	 * (dicocokkan via {@code toUpperCase()}), sehingga toleran terhadap variasi kapitalisasi
+	 * balasan model AI. Baris usulan baru dengan format {@code "- KODE: deskripsi"} dipecah
+	 * pada {@code ':'} pertama; baris {@code "TIDAK ADA"} di dalam blok usulan dilewati.
+	 *
+	 * @param resp balasan mentah dari AI; boleh {@code null}
+	 * @return hasil parsing, tidak pernah {@code null}; seluruh field bernilai kosong/default
+	 *         bila {@code resp} {@code null} atau tidak cocok format apa pun
+	 */
 	public static Seleksi parseSeleksi(String resp) {
 		Seleksi h = new Seleksi();
 		if (resp == null) return h;
@@ -243,6 +340,17 @@ public class ObeAiJspHelper {
 	// ---------------------------------------------------------------------
 	// CSV helper (dedupe, aman-null)
 	// ---------------------------------------------------------------------
+	/**
+	 * Menambahkan {@code id} ke daftar CSV bila belum ada (dedupe berbasis perbandingan
+	 * string), dipakai untuk merangkai kolom relasi CSV (mis. {@code capaianLulusan} pada
+	 * {@link Matakuliah}) setelah entitas baru dibuat oleh AI.
+	 *
+	 * @param csv daftar id yang sudah ada, dipisah koma; boleh {@code null}/kosong
+	 * @param id id yang akan ditambahkan; bila {@code null}, {@code csv} dikembalikan apa
+	 *        adanya tanpa perubahan
+	 * @return CSV baru dengan {@code id} ditambahkan di akhir (bila belum ada), atau {@code csv}
+	 *         (dinormalkan ke string kosong bila {@code null}) bila {@code id} sudah ada/tidak valid
+	 */
 	public static String appendId(String csv, Long id) {
 		if (id == null) return csv == null ? "" : csv;
 		String sid = String.valueOf(id);
@@ -254,6 +362,21 @@ public class ObeAiJspHelper {
 	// ---------------------------------------------------------------------
 	// Pembuat entitas OBE (dipanggil dalam transaksi terbuka)
 	// ---------------------------------------------------------------------
+	/**
+	 * Membuat dan menyimpan satu {@link CapaianPembelajaranLulusan} (CPMK) baru hasil usulan
+	 * AI, khusus untuk matakuliah {@code mk} ({@code khususBuatMk}). Dipanggil di dalam
+	 * transaksi Hibernate yang sudah terbuka milik pemanggil; method ini melakukan
+	 * {@code s.save(e)} lalu {@code s.flush()} agar {@code getId()} langsung tersedia untuk
+	 * dipakai memperbarui CSV relasi ({@link #appendId(String, Long)}) pada langkah
+	 * berikutnya dalam transaksi yang sama.
+	 *
+	 * @param s sesi Hibernate aktif dengan transaksi terbuka
+	 * @param mk matakuliah pemilik CPMK ini; boleh {@code null} (jurusan tidak diisi)
+	 * @param pt perguruan tinggi pemilik entitas
+	 * @param kode kode CPMK
+	 * @param nama nama/deskripsi CPMK
+	 * @return id entitas yang baru disimpan
+	 */
 	public static Long buatCapaianPembelajaran(Session s, Matakuliah mk, PerguruanTinggi pt, String kode, String nama) {
 		CapaianPembelajaranLulusan e = new CapaianPembelajaranLulusan();
 		e.setKode(kode);
@@ -267,6 +390,18 @@ public class ObeAiJspHelper {
 		return e.getId();
 	}
 
+	/**
+	 * Membuat dan menyimpan satu {@link CapaianLulusan} (CPL) baru hasil usulan AI, khusus
+	 * untuk matakuliah {@code mk}. Kontrak transaksi/flush sama dengan
+	 * {@link #buatCapaianPembelajaran(Session, Matakuliah, PerguruanTinggi, String, String)}.
+	 *
+	 * @param s sesi Hibernate aktif dengan transaksi terbuka
+	 * @param mk matakuliah pemilik CPL ini; boleh {@code null} (jurusan tidak diisi)
+	 * @param pt perguruan tinggi pemilik entitas
+	 * @param kode kode CPL
+	 * @param nama nama/deskripsi CPL
+	 * @return id entitas yang baru disimpan
+	 */
 	public static Long buatCapaianLulusan(Session s, Matakuliah mk, PerguruanTinggi pt, String kode, String nama) {
 		CapaianLulusan e = new CapaianLulusan();
 		e.setKode(kode);
@@ -280,6 +415,20 @@ public class ObeAiJspHelper {
 		return e.getId();
 	}
 
+	/**
+	 * Membuat dan menyimpan satu {@link BahanKajian} baru hasil usulan AI, khusus untuk
+	 * matakuliah {@code mk}. Kontrak transaksi/flush sama dengan
+	 * {@link #buatCapaianPembelajaran(Session, Matakuliah, PerguruanTinggi, String, String)}.
+	 * Berbeda dari CPL/CPMK, kode di sini opsional — hanya diisi bila tidak kosong, sehingga
+	 * skema penomoran otomatis (bila ada) tidak tertimpa nilai kosong.
+	 *
+	 * @param s sesi Hibernate aktif dengan transaksi terbuka
+	 * @param mk matakuliah pemilik bahan kajian ini; boleh {@code null} (jurusan tidak diisi)
+	 * @param pt perguruan tinggi pemilik entitas
+	 * @param kode kode bahan kajian; boleh {@code null}/kosong (tidak diisi ke entitas)
+	 * @param nama nama/deskripsi bahan kajian
+	 * @return id entitas yang baru disimpan
+	 */
 	public static Long buatBahanKajian(Session s, Matakuliah mk, PerguruanTinggi pt, String kode, String nama) {
 		BahanKajian e = new BahanKajian();
 		if (kode != null && !kode.trim().isEmpty()) e.setKode(kode);
@@ -293,6 +442,18 @@ public class ObeAiJspHelper {
 		return e.getId();
 	}
 
+	/**
+	 * Membuat dan menyimpan satu {@link ReferensiLulusan} (pustaka) baru hasil usulan AI.
+	 * Kontrak transaksi/flush sama dengan
+	 * {@link #buatCapaianPembelajaran(Session, Matakuliah, PerguruanTinggi, String, String)}.
+	 * Berbeda dari CPL/CPMK/Bahan Kajian, entitas ini tidak terikat ke satu matakuliah
+	 * tertentu (tidak ada parameter {@code mk}/{@code khususBuatMk}).
+	 *
+	 * @param s sesi Hibernate aktif dengan transaksi terbuka
+	 * @param pt perguruan tinggi pemilik entitas
+	 * @param nama nama/judul referensi
+	 * @return id entitas yang baru disimpan
+	 */
 	public static Long buatReferensi(Session s, PerguruanTinggi pt, String nama) {
 		ReferensiLulusan e = new ReferensiLulusan();
 		e.setNama(nama);
@@ -306,11 +467,28 @@ public class ObeAiJspHelper {
 	// ---------------------------------------------------------------------
 	// util string
 	// ---------------------------------------------------------------------
+	/**
+	 * Membersihkan teks untuk disisipkan ke prompt AI: membuang tag HTML, mengganti entitas
+	 * {@code &nbsp;} dengan spasi, menormalkan spasi berurutan menjadi satu spasi, lalu
+	 * {@code trim()}.
+	 *
+	 * @param s teks sumber (biasanya kolom rich-text/HTML dari entitas OBE); boleh {@code null}
+	 * @return teks bersih, tidak pernah {@code null}
+	 */
 	public static String bersih(String s) {
 		if (s == null) return "";
 		return s.replaceAll("<[^>]*>", " ").replaceAll("&nbsp;", " ").replaceAll("\\s+", " ").trim();
 	}
 
+	/**
+	 * Memotong teks hingga {@code maks} karakter, menambahkan {@code "..."} bila teks
+	 * dipotong, dipakai agar bagian-bagian konteks yang sangat panjang tidak membengkakkan
+	 * ukuran prompt AI secara berlebihan.
+	 *
+	 * @param s teks sumber; boleh {@code null}
+	 * @param maks panjang maksimum sebelum tanda potong ditambahkan
+	 * @return teks yang sudah dipotong (bila perlu), tidak pernah {@code null}
+	 */
 	public static String potong(String s, int maks) {
 		if (s == null) return "";
 		s = s.trim();

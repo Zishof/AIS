@@ -441,7 +441,7 @@ public class AiGenerateServlet extends HttpServlet {
 	private String getActiveAiKey() {
 		String provider = getActiveAiProvider();
 		if ("GEMINI".equals(provider)) {
-			return getConfigValue("AI_GEMINI_KEY", "AIzaSyAFSzVMA8o9DWZpHCsTQT8Mf4M5SN77e2E");
+			return getConfigValue("AI_GEMINI_KEY", "");
 		}
 		if ("GROQ".equals(provider)) {
 			return getConfigValue("AI_GROQ_KEY", "");
