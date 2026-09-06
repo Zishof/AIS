@@ -71,9 +71,11 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 	private Pegawai kenek2;
 	private Pegawai kenek3;
 
+	/** Konstruktor default (dibutuhkan Hibernate). */
 	public KendaraanAntarJemput() {
 	}
 
+	/** @return ID unik baris kendaraan (primary key, auto-increment via {@code IDENTITY}). */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -81,14 +83,21 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		return id;
 	}
 
+	/** @param id lihat {@link #getId()}. Normalnya tidak perlu diisi manual — dihasilkan DB saat insert. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/** @return ID pengguna (username) yang terakhir mengubah baris ini. Field audit shadow — lihat {@link #getOleh()}. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Setter {@link #getOlehId()}. Nilai kosong/blank diabaikan (no-op) agar jejak audit lama
+	 * tidak tertimpa saat proses simpan tidak membawa identitas pengguna — pola baku di semua
+	 * entitas modul antarjemput.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -96,10 +105,12 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/** @return nama pengguna yang terakhir mengubah baris ini (field audit shadow, diisi via {@link #onUpdate()}). */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/** Setter {@link #getOleh()}. Nilai kosong/blank diabaikan (no-op), sama seperti {@link #setOlehId(String)}. */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -107,29 +118,44 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: dipanggil otomatis oleh Hibernate tepat sebelum baris ini
+	 * di-UPDATE, memperbarui {@link #tanggal_dirubah} (dan field audit terkait) lewat
+	 * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** @return timestamp terakhir baris ini diubah; diisi otomatis saat objek dibuat dan diperbarui via {@link #onUpdate()}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** @param tanggal_dirubah lihat {@link #getTanggal_dirubah()}. */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** @return kode singkat kendaraan ini, di-trim; {@code null} bila belum diisi. */
 	@Column(name = "kode", length = 50)
 	public String getKode() {
 		return kode == null ? null : kode.trim();
 	}
 
+	/** @param kode lihat {@link #getKode()}. */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * @return nama kendaraan, di-trim. Bila belum diisi manual, jatuh berurutan ke nama
+	 *         {@link #getAssetDetail()} lalu {@link #getAsset()} (dua sumber aset inventaris
+	 *         AIS); hasil fallback itu ikut di-cache ke field {@link #nama} in-memory (pola yang
+	 *         sama seperti {@link JadwalAntarJemput#getNama()}).
+	 */
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
 		if (nama == null && getAssetDetail() != null) {
@@ -141,44 +167,54 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		return nama == null ? null : nama.trim();
 	}
 
+	/** @param nama lihat {@link #getNama()}. */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/** @return keterangan/catatan bebas untuk kendaraan ini. */
 	@Column(name = "keterangan")
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/** @param keterangan lihat {@link #getKeterangan()}. */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/** @return nomor polisi/plat kendaraan, selalu dikembalikan huruf besar (di-trim lalu {@code toUpperCase()}); {@code null} bila belum diisi. */
 	@Column(name = "nomor_polisi", length = 30)
 	public String getNomorPolisi() {
 		return nomorPolisi == null ? null : nomorPolisi.trim().toUpperCase();
 	}
 
+	/** @param nomorPolisi lihat {@link #getNomorPolisi()}; nilai apa adanya disimpan (normalisasi huruf besar hanya terjadi saat dibaca lewat getter). */
 	public void setNomorPolisi(String nomorPolisi) {
 		this.nomorPolisi = nomorPolisi;
 	}
 
+	/** @return kapasitas jumlah tempat duduk penumpang; default {@code 0} bila belum di-set. */
 	public Integer getKapasitasDuduk() {
 		return kapasitasDuduk == null ? 0 : kapasitasDuduk;
 	}
 
+	/** @param kapasitasDuduk lihat {@link #getKapasitasDuduk()}. */
 	public void setKapasitasDuduk(Integer kapasitasDuduk) {
 		this.kapasitasDuduk = kapasitasDuduk;
 	}
 
+	/** @return {@code true} bila kendaraan aktif/beroperasi; default {@code true} bila belum di-set (tidak di-cache ke field). */
 	public Boolean getAktif() {
 		return aktif == null ? Boolean.TRUE : aktif;
 	}
 
+	/** @param aktif lihat {@link #getAktif()}. */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/** @return aset inventaris AIS (level induk) yang berkorespondensi dengan kendaraan ini, bila dicatat sebagai aset; sumber fallback kedua untuk {@link #getNama()}. Dilewatkan {@code check()} agar proxy Hibernate yang sudah dihapus/tidak valid tidak ikut terekspos ke pemanggil. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "asset")
 	public Asset getAsset() {
@@ -186,10 +222,12 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		return asset;
 	}
 
+	/** @param asset lihat {@link #getAsset()}. */
 	public void setAsset(Asset asset) {
 		this.asset = asset;
 	}
 
+	/** @return detail aset inventaris AIS (lebih spesifik dari {@link #getAsset()}) yang berkorespondensi dengan kendaraan ini; sumber fallback pertama untuk {@link #getNama()}. Dilewatkan {@code check()} agar proxy Hibernate yang sudah dihapus/tidak valid tidak ikut terekspos ke pemanggil. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "asset_detail")
 	public AssetDetail getAssetDetail() {
@@ -197,10 +235,12 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		return assetDetail;
 	}
 
+	/** @param assetDetail lihat {@link #getAssetDetail()}. */
 	public void setAssetDetail(AssetDetail assetDetail) {
 		this.assetDetail = assetDetail;
 	}
 
+	/** @return sopir default kendaraan ini; dipakai sebagai fallback sopir jadwal bila jadwal tidak menentukan sopirnya sendiri — lihat {@link JadwalAntarJemput#getSopir()}. Dilewatkan {@code check()} agar proxy Hibernate yang sudah dihapus/tidak valid tidak ikut terekspos ke pemanggil. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sopir")
 	public Pegawai getSopir() {
@@ -208,10 +248,12 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		return sopir;
 	}
 
+	/** @param sopir lihat {@link #getSopir()}. */
 	public void setSopir(Pegawai sopir) {
 		this.sopir = sopir;
 	}
 
+	/** @return kenek/pendamping default pertama kendaraan ini, bila ada. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kenek1")
 	public Pegawai getKenek1() {
@@ -219,10 +261,12 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		return kenek1;
 	}
 
+	/** @param kenek1 lihat {@link #getKenek1()}. */
 	public void setKenek1(Pegawai kenek1) {
 		this.kenek1 = kenek1;
 	}
 
+	/** @return kenek/pendamping default kedua kendaraan ini, bila ada. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kenek2")
 	public Pegawai getKenek2() {
@@ -230,10 +274,12 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		return kenek2;
 	}
 
+	/** @param kenek2 lihat {@link #getKenek2()}. */
 	public void setKenek2(Pegawai kenek2) {
 		this.kenek2 = kenek2;
 	}
 
+	/** @return kenek/pendamping default ketiga kendaraan ini, bila ada. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kenek3")
 	public Pegawai getKenek3() {
@@ -241,6 +287,7 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 		return kenek3;
 	}
 
+	/** @param kenek3 lihat {@link #getKenek3()}. */
 	public void setKenek3(Pegawai kenek3) {
 		this.kenek3 = kenek3;
 	}
