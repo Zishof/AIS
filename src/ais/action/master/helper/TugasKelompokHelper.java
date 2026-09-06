@@ -5382,6 +5382,84 @@ public class TugasKelompokHelper implements DataLoader {
 
 	}
 
+	/**
+	 * <h3>Menyimpan isi formulir "Instruksi Tugas Kelompok"</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> memeriksa isian formulir, lalu menyimpannya ke basis data
+	 * &mdash; menambah baris baru bila tugas belum pernah disimpan, atau memperbarui baris yang ada bila
+	 * sudah. Setelah itu lampiran instruksi ditautkan ke tugas dan pemberitahuan dikirim ke peserta.
+	 * Mengembalikan {@code true} bila berhasil, sehingga pemanggil tahu apakah jendela boleh ditutup.</p>
+	 *
+	 * <h4>Dua pemeriksaan wajib-isi</h4>
+	 * <p>Perkuliahan wajib dipilih &mdash; tetapi HANYA bila pemilihnya sedang terlihat. Bila layar sudah
+	 * punya cakupan, pemilih itu disembunyikan dan pemeriksaan dilewati karena perkuliahan sudah
+	 * ditentukan dari cakupan. Judul wajib diisi dan tidak boleh berupa spasi belaka. Kedua kegagalan
+	 * memunculkan peringatan lalu mengembalikan {@code false}; formulir sengaja TIDAK ditutup sehingga
+	 * isian pengguna tidak hilang dan tinggal dilengkapi.</p>
+	 *
+	 * <p>Tidak ada pemeriksaan lain. Secara khusus, tanggal mulai dan batas akhir tidak diperiksa
+	 * urutannya, sehingga batas akhir yang lebih awal daripada tanggal mulai akan tersimpan apa adanya
+	 * &mdash; menghasilkan tugas yang menurut gerbang waktu di penggambaran baris sudah ditutup sejak
+	 * sebelum dibuka.</p>
+	 *
+	 * <h4>Memuat ulang entity sebelum menulis</h4>
+	 * <p>Bila tugas sudah memiliki {@code id}, field {@code tugasKelompok} DITUKAR dengan hasil
+	 * {@code session.load} pada sesi berjalan, baru kemudian diisi nilai dari formulir. Tujuannya agar
+	 * pembaruan bekerja pada objek yang benar-benar dikelola sesi, bukan pada objek lepas yang mungkin
+	 * sudah basi. Perhatikan bahwa penukaran ini juga terlihat dari luar: pemanggil yang masih memegang
+	 * objek lama tidak akan melihat perubahan, sedangkan {@link #init(TugasKelompok)} membaca ulang field
+	 * ini saat menggambar ulang kartu setelah penyimpanan.</p>
+	 *
+	 * <h4>PENTING: keempat cakupan ditulis TANPA SYARAT</h4>
+	 * <p>Setelah nilai dari formulir disalin, keempat penanda cakupan ditulis langsung dari FIELD helper:</p>
+	 * <pre>tugasKelompok.setKelompokKkn(kelompokKkn);
+	 * tugasKelompok.setKelompokPkl(kelompokPkl);
+	 * tugasKelompok.setJadwalPelajaran(jadwalPelajaran);</pre>
+	 * <p>Tidak ada pemeriksaan {@code null} di sini, sehingga field helper yang kosong akan MENGHAPUS
+	 * penanda yang sudah tersimpan pada tugas. Selama helper dibuka lewat {@code display(...)} atau
+	 * {@link #tampilanTugas} hal ini tidak menimbulkan masalah, karena field cakupannya memang sudah
+	 * sesuai dengan tugas yang diedit. Masalah muncul bila helper dibuat tanpa cakupan &mdash; seperti
+	 * pada {@link #onAddExternal}: menyimpan lewat jalur itu akan mengosongkan kelompok KKN, kelompok
+	 * PKL, dan jadwal pelajaran milik tugas. Perkuliahan tidak ikut terdampak karena diambil dari atribut
+	 * pemilih, bukan dari field cakupan.</p>
+	 *
+	 * <h4>Penautan lampiran: gagal tanpa membatalkan penyimpanan</h4>
+	 * <p>Tugas disimpan lebih dulu lewat {@code Common.refreshSaveOrUpdate}, baru lampiran ditautkan
+	 * dengan menyetel {@code ref} ke id tugas. Penautan berjalan pada SESI STREAMING terpisah dengan
+	 * transaksinya sendiri. Konsekuensinya bersifat sengaja dan perlu diketahui: bila penautan lampiran
+	 * gagal, <b>tugas tetap tersimpan</b> &mdash; yang di-<i>rollback</i> hanya transaksi lampiran. Itulah
+	 * sebabnya pesan kegagalannya secara eksplisit memberi tahu pengguna bahwa data tugas sudah tersimpan
+	 * dan yang perlu diperiksa hanyalah lampirannya. Sesi streaming SELALU ditutup di blok
+	 * {@code finally} sehingga tidak ada koneksi yang bocor. Langkah ini dilewati bila pengguna tidak
+	 * mengunggah lampiran baru.</p>
+	 *
+	 * <h4>Pemberitahuan ke peserta</h4>
+	 * <p>{@code CommonEmail.infoAdaTugasKelompokPerkuliahan} dipanggil di akhir, TANPA membedakan tambah
+	 * dan ubah. Jadi setiap kali tombol Simpan ditekan &mdash; termasuk untuk perbaikan kecil seperti
+	 * memperbaiki salah ketik judul &mdash; pemberitahuan dikirim ulang. Pemanggilan ini juga berada di
+	 * luar blok {@code try}, sehingga kegagalan pengiriman akan merambat ke pemanggil meskipun data sudah
+	 * tersimpan dengan selamat.</p>
+	 *
+	 * <h4>Hak akses</h4>
+	 * <p>Metode ini {@code public} dan TIDAK memeriksa wewenang siapa pun: siapa saja yang berhasil
+	 * memanggilnya dapat menulis ke tugas kelompok mana pun yang sedang dipegang field. Penjagaan berada
+	 * seluruhnya pada tombol-tombol yang membuka formulir. Bila kelak diperlukan pemeriksaan kepemilikan
+	 * per data &mdash; misalnya memastikan pengguna benar dosen pengampu perkuliahan yang bersangkutan
+	 * &mdash; di sinilah tempat yang tepat, karena inilah satu-satunya jalur yang benar-benar menulis
+	 * entity dari formulir.</p>
+	 *
+	 * <p>Field {@code banboxPerkuliahan}, {@code judul}, {@code isi}, dan kedua pemilih tanggal dibaca
+	 * tanpa penjagaan {@code null}, sehingga metode ini hanya boleh dipanggil setelah
+	 * {@link #init(TugasKelompok)} merakit formulirnya. Parameter {@code event} tidak dipakai.</p>
+	 *
+	 * @param event tidak dipakai; disediakan agar tanda tangan seragam dengan penangan aksi lain
+	 * @return {@code true} bila data tersimpan (pemanggil boleh menutup jendela); {@code false} bila
+	 *         validasi wajib-isi gagal (jendela harus tetap terbuka)
+	 * @throws Exception bila penyimpanan entity atau pengiriman pemberitahuan gagal; kegagalan penautan
+	 *                   lampiran TIDAK dilemparkan melainkan dilaporkan ke pengguna
+	 * @see #init(TugasKelompok)
+	 * @see #onAddExternal(Event, EventListener, TugasKelompok, Mahasiswa, BiodataCalonMahasiswa)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (banboxPerkuliahan.isVisible() && banboxPerkuliahan.getAttribute("perkuliahan") == null) {
 			MyMessageboxConfig.show("Perkuliahan harus diisi", "Peringatan", MyMessageboxConfig.OK,
