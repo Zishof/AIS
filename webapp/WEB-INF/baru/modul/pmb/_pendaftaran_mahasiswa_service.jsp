@@ -194,7 +194,15 @@
             Criteria crit = sessionLocal.createCriteria(GelombangPendaftaran.class);
             if(ta != null && !ta.isEmpty() && !ta.equals("undefined")) crit.add(Restrictions.eq("tahunAkademik", ta));
             crit.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
-            
+            crit.add(Restrictions.or(Restrictions.isNull("bisaDipilihPendaftarOnline"),
+                    Restrictions.eq("bisaDipilihPendaftarOnline", true)));
+            crit.add(Restrictions.and(Restrictions.le("mulai", ais.ui.util.WaktuUtil.getDate()),
+                    Restrictions.ge("sampai", ais.ui.util.WaktuUtil.getDate())));
+            ais.database.model.PerguruanTinggi ptGelombangDropdown = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request);
+            crit.add(ptGelombangDropdown == null || ptGelombangDropdown.getId() == null
+                    ? Restrictions.sqlRestriction("1=1")
+                    : Restrictions.eq("perguruanTinggi", ptGelombangDropdown));
+
             crit.createAlias("jenisSeleksi", "js", Criteria.LEFT_JOIN);
             crit.setProjection(Projections.projectionList()
                 .add(Projections.property("id")).add(Projections.property("nama"))

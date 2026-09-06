@@ -179,8 +179,13 @@ public class Pmb2 extends HttpServlet {
 			for (Long gelId : gelombangsAktif.keySet()) {
 				GelombangPendaftaran gelombangPendaftaran1 = (GelombangPendaftaran) ConstantValues
 						.ambil(GelombangPendaftaran.class.getName(), gelId);
+				PerguruanTinggi ptGelombang1 = gelombangPendaftaran1 == null ? null
+						: gelombangPendaftaran1.getPerguruanTinggi();
+				boolean ptCocok1 = selectedPerguruanTinggi == null || selectedPerguruanTinggi.getId() == null
+						|| (ptGelombang1 != null && ptGelombang1.getId() != null
+								&& ptGelombang1.getId().equals(selectedPerguruanTinggi.getId()));
 				if (gelombangPendaftaran1 != null && gelombangPendaftaran1.getBisaDipilihPendaftarOnline()
-						&& gelombangPendaftaran1.getAktif()
+						&& gelombangPendaftaran1.getAktif() && ptCocok1
 						&& (gelombangPendaftaran1.getMulai().before(sekarang) || Common.dateFormat8.get()
 								.format(gelombangPendaftaran1.getMulai()).equals(Common.dateFormat8.get().format(sekarang)))
 						&& (gelombangPendaftaran1.getSampai().after(sekarang) || Common.dateFormat8.get()

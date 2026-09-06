@@ -952,6 +952,59 @@ public abstract class VOPembelajaran extends VoKunci {
 		return pertemuans;
 	}
 
+	/**
+	 * Menyisipkan satu {@link Pertemuan} ke peta kerja dengan kunci yang menentukan urutan
+	 * tampilnya, sekaligus menyambungkan relasi baliknya ke {@code this}.
+	 *
+	 * <h4>Bentuk kunci menentukan urutan</h4>
+	 * <p>Peta yang dipakai adalah {@link TreeMap}, sehingga urutan iterasinya adalah urutan
+	 * leksikografis kuncinya. Ada dua bentuk kunci, dipilih menurut
+	 * {@link #getUrutkanotomatis()} pada wadah pemilik pertemuan (bukan pada {@code this}):</p>
+	 * <ul>
+	 * <li><b>Penomoran manual</b> — {@code NNNN_id}, dengan nomor pertemuan dipadkan nol menjadi
+	 * empat digit. Padding itu yang membuat urutan leksikografis sama dengan urutan numerik;
+	 * batasnya empat digit, sehingga nomor pertemuan 10000 ke atas akan terpotong dan salah urut.
+	 * Nomor pertemuan yang {@code null} menghasilkan kunci berawalan {@code "null"} yang jatuh
+	 * setelah seluruh kunci berangka.</li>
+	 * <li><b>Penomoran otomatis</b> — {@code yyyyMMdd_id}. Tanggal yang {@code null} menghasilkan
+	 * awalan kosong sehingga pertemuan tak bertanggal <b>melompat ke urutan paling awal</b>, bukan
+	 * ke akhir.</li>
+	 * </ul>
+	 * <p>Bagian {@code _id} pada kedua bentuk memastikan dua pertemuan bertanggal atau bernomor
+	 * sama tidak saling menimpa di dalam peta.</p>
+	 *
+	 * <h4>Bahaya {@code null} pada penanda penomoran</h4>
+	 * <p>Pemeriksaannya ditulis {@code !pembelajaran.getUrutkanotomatis()} tanpa penjaga
+	 * {@code null}, sehingga wadah yang penandanya belum terisi memicu
+	 * {@link NullPointerException} saat pembungkus {@link Boolean} dibuka. Kesalahan itu ditangkap
+	 * oleh {@code catch} di method ini dan hanya dicatat ke audit — akibatnya
+	 * {@code pertemuansTemp.put(...)} tidak pernah dijalankan dan <b>pertemuan tersebut hilang dari
+	 * daftar tanpa jejak yang terlihat pengguna</b>. Gejalanya berupa jumlah pertemuan yang lebih
+	 * sedikit dari semestinya, bukan pesan kesalahan. Pastikan {@link #getUrutkanotomatis()} pada
+	 * setiap subclass selalu mengembalikan nilai.</p>
+	 *
+	 * <h4>Penyambungan relasi balik dan pemeriksaan tipe</h4>
+	 * <p>Setelah penyisipan, method menyetel relasi pemilik pada objek pertemuan kembali ke
+	 * {@code this} agar pembacaan berikutnya tidak perlu menginisialisasi proxy lazy. Rantai
+	 * {@code else if} yang melakukannya memeriksa <b>dua</b> syarat: relasi bersangkutan pada
+	 * pertemuan tidak kosong, <i>dan</i> {@code this} memang instance subclass yang cocok.</p>
+	 * <p>Syarat kedua ditambahkan sebagai perbaikan: satu baris {@link Pertemuan} dapat memiliki
+	 * lebih dari satu kolom relasi terisi sekaligus (mis. kelompok KKN dan formulir kegiatan
+	 * bersamaan). Tanpa pemeriksaan tipe, cabang yang kebetulan lebih dulu cocok akan meng-{@code
+	 * cast} {@code this} secara paksa dan melempar {@link ClassCastException}. Dengan pemeriksaan
+	 * itu, cabang yang tidak cocok cukup dilewati.</p>
+	 * <p>Rantai ini mengenal tiga belas subclass. Beberapa turunan {@link VOPembelajaran} tidak
+	 * punya cabang di sini — di antaranya {@link GrupPertemuan},
+	 * {@code recruitment.JadwalUjianPegawai}, dan {@code kursus.KomponenDataProdukKursus} — sehingga
+	 * pertemuannya tetap masuk peta tetapi relasi baliknya tidak disambungkan. Untuk wadah
+	 * tersebut, pembacaan relasi pemilik akan menginisialisasi proxy seperti biasa.</p>
+	 *
+	 * <p>Argumen {@code null}, pertemuan tanpa id, dan peta {@code null} sama-sama membuat method
+	 * kembali tanpa efek.</p>
+	 *
+	 * @param pertemuansTemp peta kerja yang disisipi; boleh {@code null} (diabaikan)
+	 * @param pertemuan      pertemuan yang disisipkan; {@code null} atau tanpa id diabaikan
+	 */
 	private void masukkanPertemuanLocal(TreeMap<String, Long> pertemuansTemp, Pertemuan pertemuan) {
 		if (pertemuan != null && pertemuan.getId() != null && pertemuansTemp != null) {
 			try {
@@ -1013,10 +1066,77 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Mengambil peta pertemuan aktif milik objek pembelajaran ini dari cache, tanpa memaksa
+	 * pembaruan.
+	 *
+	 * <p>Setara dengan {@code ambilPertemuan(false)}. Kunci petanya menentukan urutan tampil dan
+	 * bentuknya bergantung pada penanda penomoran; lihat {@link #masukkanPertemuanLocal}.</p>
+	 *
+	 * @return peta kunci-urutan ke id pertemuan; tidak pernah {@code null}
+	 */
 	public TreeMap<String, Long> ambilPertemuan() {
 		return ambilPertemuan(false);
 	}
 
+	/**
+	 * Inti pengambilan pertemuan: memastikan indeks ada, mengubah id menjadi objek, dan menyusunnya
+	 * menjadi peta terurut.
+	 *
+	 * <p>Hampir seluruh method pertemuan di kelas ini bermuara ke sini —
+	 * {@link #ambilJumlahPertemuan()}, {@link #ambilPertemuanList(boolean)},
+	 * {@link #ambilPertemuan(int, int, boolean)}, dan
+	 * {@link #ambilJumlahPertemuanStatistik(boolean, boolean)}.</p>
+	 *
+	 * <h4>Tahap 1 — memastikan indeks ada</h4>
+	 * <p>Bila {@code refresh} bernilai benar <i>atau</i> penanda {@link GeneralValueObject#udah()}
+	 * melaporkan indeks belum pernah dibangun, method membuka session baru lewat
+	 * {@code openSession()} dan menjalankan {@link #reInitPertemuan(Session)} di atasnya, lalu
+	 * menutup session itu sendiri pada blok {@code finally}. Perhatikan bahwa pemeriksaan penanda
+	 * bersifat test-and-set: pemanggilan pertama untuk suatu objek selalu melaporkan "belum" dan
+	 * sekaligus memasang penandanya, sehingga jalur pembangunan ulang otomatis dilalui sekali per
+	 * objek per masa hidup berkas penanda — bukan hanya ketika pemanggil memintanya.</p>
+	 * <p>Karena {@link #reInitPertemuan(Session)} menyinkronkan diskusi, ujian, tugas, izin, dan
+	 * berkas media setiap pertemuan sekaligus menulis ulang nomor pertemuan, tahap ini jauh lebih
+	 * mahal dan lebih berdampak daripada namanya menyiratkan. Session yang dipakai terpisah dari
+	 * session pemanggil, sehingga perubahan yang belum di-{@code flush} oleh pemanggil tidak
+	 * terlihat di sini — dan sebaliknya, penulisan di sini ter-{@code commit} secara mandiri.</p>
+	 *
+	 * <h4>Tahap 2 — dari indeks ke objek</h4>
+	 * <p>Indeks dibaca lewat {@link #ambilLokasiPertemuan()}. Setiap kunci yang nilainya tidak
+	 * kosong dicari di cache proses; yang ditemukan dan berstatus aktif langsung disisipkan lewat
+	 * {@link #masukkanPertemuanLocal}, sedangkan yang tidak ditemukan dikumpulkan sebagai
+	 * "belum ada".</p>
+	 *
+	 * <h4>Tahap 3 — menjemput yang belum ada dari basis data</h4>
+	 * <p>Bila ada id yang belum termuat, method membuka session kedua dan mengueri seluruhnya
+	 * sekaligus dengan {@code Restrictions.in}, dibatasi pada pertemuan yang aktifnya {@code null}
+	 * atau benar. Hasilnya dimasukkan ke cache proses lalu disisipkan ke peta. Session ini pun
+	 * ditutup sendiri. Berbeda dari tahap 1, kegagalan di sini tidak mengulang apa pun — id yang
+	 * gagal dijemput sekadar tidak muncul.</p>
+	 * <p>Perhatikan bahwa restriksi kueri ini <b>hanya</b> membatasi status aktif dan daftar id;
+	 * tidak ada pembatasan kepemilikan. Keamanan bergantung sepenuhnya pada asumsi bahwa id di
+	 * berkas indeks memang milik objek ini. Berkas indeks yang tercemar id milik wadah lain akan
+	 * membuat pertemuan asing muncul di daftar ini.</p>
+	 *
+	 * <h4>Tahap 4 — pemotongan khusus Perkuliahan</h4>
+	 * <p>Bila {@code this} adalah {@link Perkuliahan} dengan penomoran manual, peta dipotong pada
+	 * {@code jumlahMaksimalPertemuan}: hanya sekian entri pertama yang dipertahankan. Pemotongan
+	 * dilakukan <b>setelah</b> pengurutan, sehingga yang dibuang adalah pertemuan bernomor
+	 * terbesar. Batas yang {@code null} diperlakukan sebagai nol, yang berarti <b>seluruh
+	 * pertemuan dibuang</b> — perkuliahan berpenomoran manual yang belum diisi batas maksimalnya
+	 * akan tampak tidak punya pertemuan sama sekali. Pemotongan ini tidak berlaku bagi subclass
+	 * lain maupun bagi perkuliahan berpenomoran otomatis.</p>
+	 *
+	 * <p>Seluruh kegagalan pada tahap 2 dan 3 ditelan dan dicatat ke audit, sehingga method
+	 * mengembalikan peta sebagian alih-alih melempar. Satu-satunya kesalahan yang benar-benar
+	 * diteruskan adalah {@link NullPointerException} dari {@link #ambilLokasiPertemuan()} pada
+	 * objek yang belum tersimpan.</p>
+	 *
+	 * @param refresh {@code true} untuk memaksa membangun ulang indeks lewat
+	 *                {@link #reInitPertemuan(Session)}
+	 * @return peta kunci-urutan ke id pertemuan; tidak pernah {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<String, Long> ambilPertemuan(boolean refresh) {
 		Session sessionTemp = null;

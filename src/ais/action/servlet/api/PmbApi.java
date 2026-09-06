@@ -449,13 +449,10 @@ public final class PmbApi {
 			GelombangPendaftaran gelombang = (GelombangPendaftaran) session.get(GelombangPendaftaran.class,
 					Long.valueOf(gelombangId));
 			Date sekarang = WaktuUtil.getDate();
-			boolean dibuka = gelombang != null
-					&& (gelombang.getAktif() == null || Boolean.TRUE.equals(gelombang.getAktif()))
-					&& gelombang.getMulai() != null && gelombang.getSampai() != null
-					&& !gelombang.getMulai().after(sekarang) && !gelombang.getSampai().before(sekarang);
-			if (!dibuka) {
-				return ApiHelperSupport.status("90",
-						"Gelombang pendaftaran ini sudah ditutup. Silakan pilih gelombang lain.");
+			PerguruanTinggi ptPendaftar = PerguruanTinggiUtil.getPerguruanTinggi(request);
+			String alasanTidakBolehDaftar = GelombangPendaftaran.alasanTidakBolehMendaftar(gelombang, ptPendaftar);
+			if (alasanTidakBolehDaftar != null) {
+				return ApiHelperSupport.status("90", alasanTidakBolehDaftar);
 			}
 
 			Jurusan prodi1 = (Jurusan) session.get(Jurusan.class, Long.valueOf(prodi1Id));

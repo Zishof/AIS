@@ -165,8 +165,14 @@
         /* ── 1. Ambil semua gelombang aktif ─────────────────────────────── */
         List<GelombangPendaftaran> rawList = new ArrayList<GelombangPendaftaran>();
         try {
+            ais.database.model.PerguruanTinggi ptGelombangList = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggi(request);
             Criteria cr = sess.createCriteria(GelombangPendaftaran.class)
-                    .add(Restrictions.eq("aktif", true));
+                    .add(Restrictions.eq("aktif", true))
+                    .add(Restrictions.or(Restrictions.isNull("bisaDipilihPendaftarOnline"),
+                            Restrictions.eq("bisaDipilihPendaftarOnline", true)))
+                    .add(ptGelombangList == null || ptGelombangList.getId() == null
+                            ? Restrictions.sqlRestriction("1=1")
+                            : Restrictions.eq("perguruanTinggi", ptGelombangList));
             if (ta != null && !ta.trim().isEmpty())
                 cr.add(Restrictions.eq("tahunAkademik", ta.trim()));
             if (seleksiParam != null && !seleksiParam.trim().isEmpty()) {

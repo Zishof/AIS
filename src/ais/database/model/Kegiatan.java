@@ -1925,16 +1925,115 @@ public class Kegiatan extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menghitung nominal final satu baris tagihan dari sebuah {@link DetailBiaya}, tanpa
+	 * memuat ulang. Pintasan untuk {@code ambilJumlahTagihan(kegiatan, detailBiaya, false)}.
+	 *
+	 * @param kegiatan    header tagihan sebagai konteks; boleh {@code null}
+	 * @param detailBiaya komponen biaya yang dihitung
+	 * @return nominal final baris ini (neto, setelah potongan)
+	 */
 	public static Double ambilJumlahTagihan(Kegiatan kegiatan, DetailBiaya detailBiaya) {
 		return ambilJumlahTagihan(kegiatan, detailBiaya, false);
 	}
 
+	/**
+	 * Menghitung nominal final satu baris tagihan dari sebuah {@link DetailBiaya}, dengan
+	 * mencari lebih dulu {@link DetailKegiatan} yang bersesuaian.
+	 *
+	 * <p>Pencarian dilewati &mdash; dan {@code null} dioper sebagai baris rincian &mdash;
+	 * bila {@code detailBiaya} atau {@code kegiatan} kosong, atau bila header tagihan belum
+	 * tersimpan ({@code getId() == null}). Untuk header yang belum tersimpan hal itu memang
+	 * perlu, karena kunci unik baris rincian menyertakan id header.</p>
+	 *
+	 * <p>Perhatikan bahwa pencarian tersebut memanggil
+	 * {@link #ambilSatuDetailKegiatan(DetailBiaya, boolean)} yang membuka session Hibernate
+	 * tersendiri pada setiap pemanggilan.</p>
+	 *
+	 * @param kegiatan    header tagihan sebagai konteks; boleh {@code null}
+	 * @param detailBiaya komponen biaya yang dihitung; boleh {@code null}
+	 * @param refresh     {@code true} untuk memaksa pemuatan ulang baris rincian
+	 * @return nominal final baris ini (neto, setelah potongan)
+	 */
 	public static Double ambilJumlahTagihan(Kegiatan kegiatan, DetailBiaya detailBiaya, boolean refresh) {
 		DetailKegiatan detailKegiatan = (detailBiaya == null || kegiatan == null || kegiatan.getId() == null) ? null
 				: kegiatan.ambilSatuDetailKegiatan(detailBiaya, refresh);
 		return ambilJumlahTagihan(detailKegiatan, kegiatan, detailBiaya, refresh);
 	}
 
+	/**
+	 * <b>Mesin total lengkap</b> untuk satu baris tagihan &mdash; bentuk paling mendasar dari
+	 * keluarga {@code ambilJumlahTagihan}, tempat seluruh aturan nominal AIS berkumpul.
+	 * Inilah rujukan yang benar untuk pertanyaan &quot;berapa yang harus dibayar mahasiswa
+	 * untuk komponen biaya ini&quot;.
+	 *
+	 * <h4>Urutan penentuan nominal</h4>
+	 * <ol>
+	 *   <li><b>Penjaga awal.</b> Komponen biaya atau item biayanya kosong &rarr; {@code 0.0}.</li>
+	 *   <li><b>Bukan tagihan.</b> Bila {@link DetailKegiatan#getBukanTagihan()} menyala
+	 *       &rarr; {@code 0.0}. Baris semacam itu tampil pada rincian tetapi tidak menagih.</li>
+	 *   <li><b>Nominal terkunci.</b> Bila petugas pernah mengoreksi nominal baris ini lewat
+	 *       {@link #simpanNominalTagihanTerkunci}, nilai snapshot itu dikembalikan
+	 *       <b>apa adanya</b> &mdash; mengabaikan seluruh langkah berikutnya, termasuk
+	 *       potongan. Ini disengaja: angka yang sudah disetujui petugas adalah angka final.</li>
+	 *   <li><b>Item berpenghitungan perkalian.</b> Untuk item yang bukan
+	 *       {@code ItemBiaya.TIDAK_ADA_PENGHITUNGAN} dan yang
+	 *       {@link DetailBiaya#getNilaiBiayaBaru()}-nya belum terhitung,
+	 *       {@link DetailBiaya#updateKeterangan(Mahasiswa, Integer)} dipanggil lebih dulu.
+	 *       Tanpa langkah ini yang terpakai adalah harga <b>per unit</b> &mdash; angka yang
+	 *       di layar justru ditampilkan tercoret &mdash; dan perkalian dengan nol akan salah
+	 *       menghasilkan harga satuan alih-alih nol.</li>
+	 *   <li><b>Nilai dasar {@code ni}.</b> Harga per unit untuk item tanpa penghitungan,
+	 *       atau hasil perkalian bila tersedia.</li>
+	 *   <li><b>Nilai kerja {@code jumlah}.</b> Untuk item
+	 *       {@code HITUNG_TUNGGAKAN_SMT_LALU} dipakai
+	 *       {@link DetailBiaya#getTunggakanLalu()}; selain itu dipakai nominal yang sudah
+	 *       dibekukan pada {@link DetailKegiatan#getBiaya()}, atau {@code ni} bila baris
+	 *       rincian belum ada.</li>
+	 *   <li><b>Skor parameter tambahan.</b> Bila item biaya tertaut sebuah
+	 *       {@link ParameterTambahan}, nominal digantikan skor milik pemilik tagihan
+	 *       ({@code ambilSkor}) &mdash; mekanisme biaya yang bergantung pada isian formulir,
+	 *       mis. nilai tes atau pilihan fasilitas.</li>
+	 *   <li><b>Koreksi nol.</b> Bila {@code jumlah} nol sedangkan {@code ni} tidak,
+	 *       {@code ni} dipakai dan &mdash; bila baris rincian sudah tersimpan dan nilainya
+	 *       berbeda &mdash; nominal itu <b>ditulis balik ke basis data</b> lewat
+	 *       {@link #simpanKoreksiBiayaTerisolasi}.</li>
+	 *   <li><b>Potongan.</b> {@link #hitungDiskon} dikurangkan dari {@code jumlah}.</li>
+	 *   <li><b>Penjaga akhir bukan-tagihan</b> dan <b>pembalikan tanda</b> untuk item
+	 *       {@code DIKALI_NILAI_MINUS}, yang dijadikan negatif dengan {@code -Math.abs(...)}.</li>
+	 * </ol>
+	 *
+	 * <h4>Hal yang perlu diperhatikan</h4>
+	 * <p><b>Method &quot;pembaca&quot; ini menulis ke basis data.</b> Dua langkah &mdash;
+	 * koreksi nol dan {@link #hitungDiskon} &mdash; melakukan {@code UPDATE} terhadap
+	 * {@link DetailKegiatan} lewat session dedikasi yang di-commit sendiri, terlepas dari
+	 * transaksi pemanggil. Menampilkan lembar tagihan karenanya dapat mengubah data, dan
+	 * penulisan itu <b>tidak ikut ter-rollback</b> bila transaksi pemanggil dibatalkan.</p>
+	 *
+	 * <p><b>Perbandingan nominal memakai {@code intValue()}.</b> Baik penjaga koreksi nol
+	 * maupun perbandingan dengan nilai tersimpan membandingkan bagian bulatnya saja. Selisih
+	 * pecahan di bawah satu rupiah karena itu tidak terdeteksi &mdash; pada praktik penagihan
+	 * rupiah hal ini tidak berdampak, tetapi berarti nominal berpecahan tidak pernah
+	 * dikoreksi. Perhatikan pula bahwa {@code intValue()} atas nilai yang melampaui
+	 * jangkauan {@code int} (di atas sekitar 2,1 miliar) akan meluap dan menghasilkan
+	 * perbandingan yang keliru &mdash; jangkauan yang dapat tercapai pada tagihan berdenominasi
+	 * rupiah untuk program tertentu.</p>
+	 *
+	 * <p><b>Kegagalan menghasilkan nominal parsial, bukan galat.</b> Seluruh badan dibungkus
+	 * {@code try/catch} yang mencatat lalu melanjutkan dengan nilai {@code jumlah} seadanya.
+	 * Bila kegagalan terjadi sebelum potongan dikurangkan, yang dikembalikan adalah nominal
+	 * <b>bruto</b> &mdash; mahasiswa ditagih lebih besar dari seharusnya tanpa pesan galat
+	 * apa pun. Blok penutup {@code DIKALI_NILAI_MINUS} berada di luar {@code try} dan
+	 * mendereferensi {@code detailBiaya.getItemBiaya()} tanpa pemeriksaan {@code null};
+	 * penjaga di langkah 1 sudah melakukan {@code return} lebih dulu untuk kasus itu,
+	 * sehingga jalur tersebut aman.</p>
+	 *
+	 * @param detailKegiatan baris rincian milik mahasiswa; boleh {@code null}
+	 * @param kegiatan       header tagihan sebagai konteks; boleh {@code null}
+	 * @param detailBiaya    komponen biaya yang dihitung; boleh {@code null}
+	 * @param refresh        diteruskan ke pencarian baris rincian di dalam {@link #hitungDiskon}
+	 * @return nominal final baris ini (neto); {@code 0.0} bila bukan tagihan atau data kurang
+	 */
 	public static Double ambilJumlahTagihan(DetailKegiatan detailKegiatan, Kegiatan kegiatan, DetailBiaya detailBiaya,
 			boolean refresh) {
 			Double jumlah = 0.0;
@@ -2026,6 +2125,23 @@ public class Kegiatan extends GeneralValueObject {
 		return jumlah;
 	}
 
+	/**
+	 * Menghitung nominal final satu baris tagihan <b>bulanan</b>, dengan {@link Mahasiswa}
+	 * dan semester dioper eksplisit sebagai konteks modifikasi nominal.
+	 *
+	 * <p>Komponen biaya diambil dari {@link PengaturanPembayaranBulanan#getDetailBiaya()},
+	 * dan baris rincian dicari lewat
+	 * {@link #ambilSatuDetailKegiatan(PengaturanPembayaranBulanan, Collection)} dengan
+	 * memanfaatkan koleksi yang sudah dimuat pemanggil. Pencarian dilewati bila header
+	 * tagihan kosong/belum tersimpan atau pengaturan bulanannya kosong.</p>
+	 *
+	 * @param kegiatan                    header tagihan sebagai konteks
+	 * @param detailKegiatans             baris rincian yang sudah dimuat
+	 * @param mahasiswa                   mahasiswa konteks modifikasi nominal
+	 * @param semester                    semester konteks modifikasi nominal
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan yang dihitung
+	 * @return nominal final baris ini (neto)
+	 */
 	public static Double ambilJumlahTagihan(Kegiatan kegiatan, Collection<DetailKegiatan> detailKegiatans,
 			Mahasiswa mahasiswa, Integer semester, PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
 		DetailBiaya detailBiaya = pengaturanPembayaranBulanan == null ? null
@@ -2038,6 +2154,40 @@ public class Kegiatan extends GeneralValueObject {
 				pengaturanPembayaranBulanan);
 	}
 
+	/**
+	 * Mesin total untuk satu baris tagihan <b>bulanan</b>, dengan {@link Mahasiswa} dan
+	 * semester sebagai konteks modifikasi nominal.
+	 *
+	 * <p>Alurnya sejajar dengan
+	 * {@link #ambilJumlahTagihan(DetailKegiatan, Kegiatan, DetailBiaya, boolean)} &mdash;
+	 * penjaga awal, penanda bukan-tagihan, nominal terkunci, skor parameter tambahan, koreksi
+	 * nol dengan penulisan balik, potongan, dan pembalikan tanda &mdash; dengan satu
+	 * perbedaan pokok: <b>nilai dasarnya berasal dari pengaturan bulanan</b>, yaitu
+	 * {@link PengaturanPembayaranBulanan#getNominal()}, atau
+	 * {@link PengaturanPembayaranBulanan#ambilNominalModifikasi(Mahasiswa, Integer)} bila
+	 * mahasiswa dan semester diketahui. Modifikasi itulah yang memungkinkan angsuran seorang
+	 * mahasiswa berbeda dari angsuran baku.</p>
+	 *
+	 * <p><b>Tidak memicu perhitungan item perkalian.</b> Berbeda dari varian
+	 * non-bulanan, overload ini tidak memanggil
+	 * {@link DetailBiaya#updateKeterangan(Mahasiswa, Integer)} ketika
+	 * {@code nilaiBiayaBaru} belum terhitung. Untuk jalur bulanan hal itu wajar &mdash;
+	 * nominal diambil dari pengaturan bulanan, bukan dari perkalian komponen biaya &mdash;
+	 * tetapi berarti komponen berpenghitungan perkalian yang ditagihkan secara bulanan tidak
+	 * memperoleh perlakuan yang sama pada kedua jalur.</p>
+	 *
+	 * <p>Berlaku pula catatan pada varian non-bulanan mengenai penulisan ke basis data dari
+	 * dalam method pembaca, perbandingan dengan {@code intValue()}, dan kegagalan yang
+	 * menghasilkan nominal bruto secara diam-diam.</p>
+	 *
+	 * @param detailKegiatan              baris rincian; boleh {@code null}
+	 * @param detailBiaya                 komponen biaya; boleh {@code null}
+	 * @param kegiatan                    header tagihan sebagai konteks; boleh {@code null}
+	 * @param mahasiswa                   mahasiswa konteks modifikasi nominal; boleh {@code null}
+	 * @param semester                    semester konteks modifikasi nominal; boleh {@code null}
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan; {@code null} menghasilkan {@code 0.0}
+	 * @return nominal final baris ini (neto)
+	 */
 	public static Double ambilJumlahTagihan(DetailKegiatan detailKegiatan, DetailBiaya detailBiaya, Kegiatan kegiatan,
 			Mahasiswa mahasiswa, Integer semester, PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
 		Double jumlah = 0.0;
@@ -2110,6 +2260,20 @@ public class Kegiatan extends GeneralValueObject {
 		return jumlah;
 	}
 
+	/**
+	 * Menghitung nominal final satu baris tagihan <b>bulanan</b>, dengan mahasiswa konteks
+	 * diambil dari header tagihan alih-alih dioper terpisah.
+	 *
+	 * <p>Varian ringkas dari
+	 * {@link #ambilJumlahTagihan(Kegiatan, Collection, Mahasiswa, Integer, PengaturanPembayaranBulanan)}
+	 * untuk pemanggil yang tidak memegang objek {@link Mahasiswa} sendiri.</p>
+	 *
+	 * @param kegiatan                    header tagihan sebagai konteks
+	 * @param detailKegiatans             baris rincian yang sudah dimuat
+	 * @param semester                    semester konteks modifikasi nominal
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan yang dihitung
+	 * @return nominal final baris ini (neto)
+	 */
 	public static Double ambilJumlahTagihan(Kegiatan kegiatan, Collection<DetailKegiatan> detailKegiatans,
 			Integer semester, PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
 		DetailBiaya detailBiaya = pengaturanPembayaranBulanan == null ? null
@@ -2121,6 +2285,38 @@ public class Kegiatan extends GeneralValueObject {
 		return ambilJumlahTagihan(detailKegiatan, detailBiaya, kegiatan, semester, pengaturanPembayaranBulanan);
 	}
 
+	/**
+	 * Mesin total untuk satu baris tagihan <b>bulanan</b>, dengan mahasiswa konteks diambil
+	 * dari {@code kegiatan.getMahasiswa()} alih-alih dioper terpisah.
+	 *
+	 * <p>Isinya nyaris identik dengan
+	 * {@link #ambilJumlahTagihan(DetailKegiatan, DetailBiaya, Kegiatan, Mahasiswa, Integer, PengaturanPembayaranBulanan)}
+	 * &mdash; ketiga varian bulanan dan non-bulanan di kelas ini merupakan salinan yang
+	 * berkembang terpisah, sehingga perbaikan pada satu di antaranya perlu ditinjau untuk
+	 * yang lain.</p>
+	 *
+	 * <p><b>Perbedaan nyata pada koreksi nol.</b> Kedua varian lain hanya menulis balik
+	 * nominal ke {@link DetailKegiatan} bila nilainya memang <i>berbeda</i> dari yang
+	 * tersimpan ({@code detailKegiatan.getBiaya().intValue() != jumlah.intValue()}). Overload
+	 * ini <b>menghilangkan pemeriksaan itu</b>: begitu {@code jumlah} nol dan {@code ni}
+	 * tidak, ia langsung memanggil {@link #simpanKoreksiBiayaTerisolasi} untuk setiap baris
+	 * rincian yang sudah tersimpan. Akibatnya jalur ini melakukan {@code UPDATE} yang tidak
+	 * perlu &mdash; menulis nilai yang sudah sama &mdash; pada setiap perhitungan, masing
+	 * masing dalam transaksi tersendiri, beserta revisi Envers untuk perubahan yang nihil.
+	 * Efeknya terasa pada hitung ulang massal, dan menyulitkan pembacaan jejak audit karena
+	 * riwayat nominal dipenuhi entri yang tidak mengubah apa pun.</p>
+	 *
+	 * <p>Berlaku pula catatan pada varian lain mengenai penulisan ke basis data dari dalam
+	 * method pembaca, perbandingan dengan {@code intValue()}, dan kegagalan yang menghasilkan
+	 * nominal bruto secara diam-diam.</p>
+	 *
+	 * @param detailKegiatan              baris rincian; boleh {@code null}
+	 * @param detailBiaya                 komponen biaya; boleh {@code null}
+	 * @param kegiatan                    header tagihan sebagai konteks; boleh {@code null}
+	 * @param semester                    semester konteks modifikasi nominal; boleh {@code null}
+	 * @param pengaturanPembayaranBulanan pengaturan bulanan; {@code null} menghasilkan {@code 0.0}
+	 * @return nominal final baris ini (neto)
+	 */
 	public static Double ambilJumlahTagihan(DetailKegiatan detailKegiatan, DetailBiaya detailBiaya, Kegiatan kegiatan,
 			Integer semester, PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
 			Double jumlah = 0.0;
