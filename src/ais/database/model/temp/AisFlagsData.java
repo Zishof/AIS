@@ -23,39 +23,52 @@ public class AisFlagsData implements java.io.Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    // Gunakan length = 512. Sangat lega untuk menampung long path, 
+    // Gunakan length = 512. Sangat lega untuk menampung long path,
     // performa B-Tree tetap di puncak, dan dijamin tidak akan error index row size.
+    /** Kunci flag (primary key string), mis. path/identifier fitur atau proses yang ditandai. */
     @Id
     @Column(name = "flag_key", unique = true, nullable = false, length = 512)
     private String flagKey;
 
     // Untuk value, biarkan menggunakan TEXT karena value tidak di-index (Primary Key)
+    /** Nilai flag (kolom {@code TEXT} bebas format, tidak di-index — bisa string sederhana atau data terstruktur mis. JSON). */
     @Column(name = "flag_value", columnDefinition = "TEXT")
     private String flagValue;
 
+    /** Konstruktor kosong (wajib untuk Hibernate). */
     // Default constructor (Wajib untuk Hibernate)
     public AisFlagsData() {
     }
 
+    /**
+     * Konstruktor lengkap untuk membuat pasangan flag/nilai baru.
+     *
+     * @param flagKey   kunci flag (primary key).
+     * @param flagValue nilai flag.
+     */
     public AisFlagsData(String flagKey, String flagValue) {
         this.flagKey = flagKey;
         this.flagValue = flagValue;
     }
 
     // --- GETTER & SETTER ---
-    
+
+    /** @return kunci flag (primary key). */
     public String getFlagKey() {
         return flagKey;
     }
 
+    /** @param flagKey kunci flag yang akan diset. */
     public void setFlagKey(String flagKey) {
         this.flagKey = flagKey;
     }
 
+    /** @return nilai flag. */
     public String getFlagValue() {
         return flagValue;
     }
 
+    /** @param flagValue nilai flag yang akan diset. */
     public void setFlagValue(String flagValue) {
         this.flagValue = flagValue;
     }
