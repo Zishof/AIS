@@ -17,6 +17,7 @@ import ais.common.EbisnisMenuKatalog;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
+import ais.database.model.inventory.Toko;
 import ais.database.model.sirs.ApotikBatchKonsumsi;
 import ais.database.model.sirs.ApotikItemProfile;
 import ais.database.model.sirs.ApotikNarkotikaLog;
@@ -208,25 +209,36 @@ public final class ApotikApiHelper {
 	 * Toko/apotek aktif pemanggil -- SATU-SATUNYA sumbu pemisah pasien antar apotek utk
 	 * {@code AntreanFarmasi} (lihat javadoc {@link AntreanFarmasi#getTokoId()}).
 	 *
-	 * <p>Fail-closed dgn sengaja: hanya rantai sesi {@code user.getPedagang().getToko()}
-	 * yang dipercaya. Payload TIDAK PERNAH lagi dipakai sbg sumber toko -- sebelum
-	 * perbaikan ini, akun tanpa {@code Pedagang}/{@code Toko} (mayoritas pengguna modul
-	 * rumah sakit/SIRS, yg memang tidak terikat ke Toko mana pun) jatuh ke fallback yg
-	 * membaca {@code toko_id} kiriman klien mentah-mentah, sehingga siapa pun yg lolos
-	 * gerbang menu kasar bisa memilih toko sembarang dan membaca nama pasien + nomor
-	 * rekam medis apotek lain lewat {@code antreanFarmasiList}. Akibatnya, akun tanpa
-	 * Pedagang/Toko kini ditolak pemanggil dgn "Toko/apotek aktif tidak diketahui" alih-
-	 * alih diam-diam memakai toko pilihannya sendiri. Bila kelak memang ada pemakai sah
-	 * yg perlu memilih toko (mis. penyelia lintas apotek), nilai dari payload HANYA boleh
-	 * diterima setelah divalidasi bahwa akun tsb memang berhak atas toko itu -- jangan
-	 * kembalikan ke pola baca-mentah lama.</p>
+	 * <p>Fail-closed dgn sengaja. Urutan kepercayaan adalah: toko yg mengunci akun
+	 * {@code Pedagang}, pilihan multi-toko yg sudah divalidasi dan disimpan server, lalu
+	 * {@code toko_id} eksplisit hanya untuk administrator resmi. Id kiriman administrator
+	 * tetap divalidasi harus menunjuk master {@link Toko} aktif. Akun non-admin tanpa scope
+	 * server tidak pernah boleh memilih toko mentah-mentah dari payload; ini menutup IDOR
+	 * nama pasien dan nomor rekam medis antar apotek tanpa memblokir konsol admin lintas
+	 * toko.</p>
 	 */
 	private static Long tokoId(Tbmuser user, JSONObject request) {
 		try {
 			if (user != null && user.getPedagang() != null && user.getPedagang().getToko() != null) {
 				return user.getPedagang().getToko().getId();
 			}
+			if (user != null && user.getTokoAktifMultiToko() != null) {
+				return user.getTokoAktifMultiToko();
+			}
 		} catch (Exception ignored) { }
+		Long diminta = optLong(request, "toko_id");
+		if (diminta == null || !Common.getApakahAdminLain(user)) return null;
+		Session session = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			Toko toko = (Toko) session.get(Toko.class, diminta);
+			return toko != null && Boolean.TRUE.equals(toko.getAktif()) ? toko.getId() : null;
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"ApotikApiHelper.tokoId: validasi toko admin gagal -- fail-closed");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
 		return null;
 	}
 
