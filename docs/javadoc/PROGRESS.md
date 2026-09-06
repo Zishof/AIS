@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## 🔀 Batch 133 — PIVOT ke `ais/action/master/helper/` (414 file, backlog genuinely terbuka), 5 agent paralel, 3 task baru (6 Sep 2026)
+
+Seluruh `ais/database/model/` (2289 file) kini SATURATED antara sesi
+ini dan sesi paralel (`fauzi`) — batch 132 membuktikan 4/5 package
+target sudah selesai sebelum agent mulai. Pindah ke `ais/action/master/
+helper/` (414 file, rata-rata cuma 9.4 blok Javadoc/file — backlog
+GENUINELY masih terbuka, beda total dari model/).
+
+**`PembayaranNominalModifikasiHelper.java`** (2632→3145 baris,
+r85831-r85848). Ternyata BUKAN 50-90 method seperti dugaan ukuran
+file — cuma 5 anggota, 2 di antaranya raksasa (`updateKeterangan`
+~1300 baris/36 cabang, `ambilNominalModifikasi` ~1270 baris/28
+cabang). Dikonfirmasi sebagai MESIN RUMUS di belakang `DetailBiaya`/
+`PengaturanPembayaranBulanan` (delegasi 1-baris) — nama menyesatkan,
+BUKAN modifikasi nominal bebas admin, nominal diturunkan deterministik
+dari harga dasar × `ItemBiaya.penghitungan` × fakta KRS. Nol jejak
+audit (nol `posting_history`). **2 task finansial baru**:
+`task_050a110c` (blok `DIKALI_JUMLAH_SKS_UTS_REMEDIAL` tertulis DUA
+KALI persis, `UAS_REMDIAL` tidak dapat cabang sama sekali → `nilaiBiayaBaru`
+gagal-diam di jalur non-bulanan) dan `task_b2cc8c91` (2 dari 28 cabang
+`ambilNominalModifikasi` lupa oper parameter `tahapan` → SKS remedial
+tertagih BERULANG per-tahapan bila fitur `aktifkanTahapanTerhubungKeKeuangan`
+aktif — overcharging berlipat). **Catatan alat BARU**: `Edit` dengan
+`replace_all` bisa memotong indentasi blok bersarang (BUKAN cuma
+masalah EOL yang sudah dikenal) — tertangkap lewat `svn diff`
+baris-terhapus, BUKAN kompilasi.
+
+**Klaster keamanan-sensitif** (5 file, r85823-r85837):
+`ResetPasswordHelper.java` — bug password-predictable (`password =
+id`) SAMA PERSIS dengan `task_99c9a86a`, instance independen baru
+(bukan superclass) — perluasan, bukan task baru. `IsiAngketParameterUmumListener.java`
+— dikonfirmasi BAGIAN jalur rentan `task_484d4bd0`, plus desync
+`buildJenis()` render-time vs save-time (namespace lampiran baru bisa
+"hilang" gagal-aman). `CatatanHelper.java` TERNYATA helper KRS/KHS
+dosen PA, TIDAK terkait 3 entity Catatan* yang sudah dikonfirmasi aman.
+`KomentarHelper`/`KomentarPerkuliahanHelper` — nol fitur anonim,
+tidak relevan `task_493423ef`.
+
+**Klaster akademik/billing** (5 file, r85824-r85848): `RincianPerkuliahanTagihanHelper`
+dikonfirmasi TAMPILAN SAJA (tidak hitung ulang nominal, bersih dari
+riwayat bug `Kegiatan`). `AngketPerkuliahanHelper` SQL native
+parameterized (aman injection). 0 task baru.
+
+**Klaster analisis besar** (5 file, r85828-r85852): `BroadcastHelper`
+(otorisasi ada di Action pemanggil, bukan celah baru). `PenjaminanMutuAnalisisHelper`
+independen dari package `spmi/` (nyimpan status sendiri di JSON).
+`UndanganWisudaDownloadHelper` aman path-traversal. `HapusBahasaTakBermaknaHelper`
+= pembersih label UI sampah pakai Ollama+heuristik fail-safe. **Task
+baru `task_d1f5ce07`**: `AiGenerateServlet.getActiveAiKey()` (dipanggil
+dari `ObeAiJspHelper`) punya default HARDCODE API key Gemini ASLI —
+pola identik token WA/kredensial VA bank yang sudah ditambal
+sebelumnya, auto-seed `getKonfigurasi()` memperparah risiko.
+
+**Klaster misc + penutup `Revisi*Helper`** (6 file, r85827-r85840):
+**KONFIRMASI PENTING** — 2 subclass `Revisi*Helper` yang tertunda
+SEJAK SESI PERTAMA inisiatif ini (`RevisiPertemuanPunyaUjianHelper`,
+`RevisiTugasHelper`) KINI TUNTAS, tertaut `{@link GenericRevisiHelper}`
+sesuai pola referensi.
+
+**3 task baru batch ini**: `task_050a110c`, `task_b2cc8c91`,
+`task_d1f5ce07`. **22 file diproses** (21 diedit, 1 sudah lengkap).
+Total akumulasi: **1866+ file** dari 7.401. Sisa `ais/action/master/
+helper/`: ~392 file.
+
 ## Batch 132 — ticket/spi/spmi/lkp/obe (5 agent paralel), 0 task baru — 4/5 package TERNYATA SUDAH SELESAI sesi paralel (6 Sep 2026)
 
 Pindah dari backlog root (tuntas batch 131) ke domain package. Scan

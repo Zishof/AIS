@@ -121,34 +121,39 @@ import ais.database.model.sekolah.Yayasan;
  *   {@link #getBacaRepository()}, {@link #getKalenderAkademik()},
  *   {@link #getInfoKegiatan()}. Grup Pengguna yang baru dibuat <b>langsung</b> memiliki
  *   hak-hak ini tanpa dicentang.</li>
- *   <li><b>Default berbasis COCOK-SEBAGIAN nama</b> &mdash; lihat peringatan di bawah.</li>
+ *   <li><b>Default berbasis COCOK-PERSIS nama</b> &mdash; lihat catatan di bawah.</li>
  *   <li><b>Default MATI</b> ({@code null} &rarr; {@code false}, <i>fail-closed</i>):
  *   {@link #getEmedic()}, {@link #getBolehVerifikasiMemberMelebihiLimit()},
- *   {@link #getBolehLihatSemuaToko()}, {@link #getMengajukanPengajuanPegawaiLain()}.
- *   Ini pola yang dianjurkan untuk flag baru.</li>
+ *   {@link #getBolehLihatSemuaToko()}, {@link #getMengajukanPengajuanPegawaiLain()},
+ *   {@link #getBolehEntryTopup()}. Ini pola yang dianjurkan untuk flag baru.</li>
  * </ul>
  *
- * <h3>PERINGATAN: hak yang menyala karena kebetulan penamaan</h3>
- * <p>Beberapa default diturunkan dengan <b>pencocokan substring</b> pada pengenal atau
- * nama peran, bukan dengan pencocokan persis:</p>
- * <ul>
- *   <li>{@link #getKeuangan()}, {@link #getPembayaran()}, {@link #getAkunting()},
- *   {@link #getKantin()}, {@link #getBolehEntryTopup()} menyala bila
- *   {@code roleId.toLowerCase().contains("keu")};</li>
- *   <li>{@link #getKepegawaian()} menyala bila {@code roleId} mengandung
- *   {@code "pegawai"};</li>
- *   <li>{@link #getBolehAksesFeeder()} / {@link #getBolehAksesSister()} menyala bila
- *   <b>{@code roleName}</b> mengandung {@code "admin"} atau {@code "akademik"};</li>
- *   <li>{@link #getAksesGerbangPesantren()} menyala bila {@code roleName} mengandung
- *   {@code "satpam"}, {@code "keamanan pondok"}, atau {@code "keamanan pesantren"}.</li>
- * </ul>
- * <p>Akibatnya, membuat Grup Pengguna dengan pengenal seperti {@code "keu_lihat_saja"}
- * &mdash; yang secara niat hanya boleh membaca &mdash; akan <b>diam-diam</b> memberikan
- * {@link #getBolehEntryTopup()} bernilai {@code true}, dan itu adalah gerbang
- * transaksional sungguhan di {@code KantinHelper}/{@code PosApi}. Penamaan peran di AIS
- * karena itu bukan sekadar label kosmetik: <b>ia menentukan hak</b> selama kolomnya
- * masih {@code null}. Selalu centang/kosongkan flag secara eksplisit alih-alih
- * mengandalkan nilai bawaan.</p>
+ * <h3>RIWAYAT: hak yang pernah menyala karena kebetulan penamaan (FIXED)</h3>
+ * <p>Sampai dok audit keamanan 2026-09-06, beberapa default di sini diturunkan lewat
+ * <b>pencocokan substring</b> pada pengenal atau nama peran, alih-alih pencocokan persis:
+ * {@link #getKeuangan()}, {@link #getPembayaran()}, {@link #getAkunting()},
+ * {@link #getKantin()}, dan {@link #getBolehEntryTopup()} menyala bila
+ * {@code roleId.toLowerCase().contains("keu")}; {@link #getKepegawaian()} menyala bila
+ * {@code roleId} mengandung {@code "pegawai"}; {@link #getBolehAksesFeeder()} /
+ * {@link #getBolehAksesSister()} menyala bila <b>{@code roleName}</b> mengandung
+ * {@code "admin"} atau {@code "akademik"}; dan {@link #getAksesGerbangPesantren()} menyala
+ * bila {@code roleName} mengandung {@code "satpam"}, {@code "keamanan pondok"}, atau
+ * {@code "keamanan pesantren"}. Akibatnya, membuat Grup Pengguna dengan pengenal seperti
+ * {@code "keu_lihat_saja"} &mdash; yang secara niat hanya boleh membaca &mdash; secara
+ * diam-diam memberi {@link #getBolehEntryTopup()} bernilai {@code true}, padahal itu adalah
+ * gerbang <b>transaksional sungguhan</b> di {@code KantinHelper}/{@code PosApi}.</p>
+ * <p><b>Status sekarang:</b> {@link #getBolehEntryTopup()} sudah diubah <i>fail-closed</i>
+ * tanpa syarat ({@code null} &rarr; {@code false}), mengikuti pola
+ * {@link #getBolehVerifikasiMemberMelebihiLimit()}. Keenam getter lain di atas sudah diganti
+ * dari pencocokan substring menjadi pencocokan persis ({@code equalsIgnoreCase} terhadap
+ * {@link #KEUANGAN} / {@code "pegawai"} untuk {@code roleId}, {@code equals} terhadap
+ * {@code "admin"} / {@code "akademik"} / {@code "satpam"} / {@code "keamanan pondok"} /
+ * {@code "keamanan pesantren"} untuk {@code roleName}) sehingga hanya peran yang namanya
+ * <b>sama persis</b> dengan kata kunci tersebut yang memperoleh hak secara bawaan. Audit data
+ * UAT (57 baris {@code tbmrole}, 2026-09-06) tidak menemukan satu pun peran yang bergantung
+ * pada default substring lama, tetapi data produksi belum diverifikasi &mdash; tetap
+ * dianjurkan mencentang/mengosongkan flag secara eksplisit alih-alih mengandalkan nilai
+ * bawaan.</p>
  *
  * <h2>Getter yang menulis balik field (anti-pola sistemik)</h2>
  * <p>Sebagian besar getter di kelas ini <b>mengubah state object saat sekadar
@@ -256,9 +261,12 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * {@link #getDasborRepository()}, {@link #getDasboardAntarJemput()},
 	 * {@link #getTampilkanSpmi()}, dan {@link #getTampilkanGaji()}.</p>
 	 *
-	 * <p>Ia juga muncul sebagai <i>alternatif</i> pada default berbasis substring
-	 * {@code "keu"} di {@link #getKeuangan()}, {@link #getPembayaran()},
-	 * {@link #getAkunting()}, {@link #getKantin()}, dan {@link #getBolehEntryTopup()}.</p>
+	 * <p>Ia juga muncul sebagai <i>alternatif</i> pada default berbasis pencocokan persis
+	 * dengan {@link #KEUANGAN} di {@link #getKeuangan()}, {@link #getPembayaran()},
+	 * {@link #getAkunting()}, dan {@link #getKantin()} &mdash; sejak perbaikan dok audit
+	 * 2026-09-06, keempatnya membandingkan {@code roleId} persis, bukan lagi lewat substring.
+	 * {@link #getBolehEntryTopup()} sudah tidak lagi membaca konstanta ini sama sekali: nilai
+	 * bawaannya kini <i>fail-closed</i> tanpa syarat.</p>
 	 *
 	 * <p><b>Bukan jalur privilese tertinggi.</b> Peran ini tetap tunduk pada seluruh gerbang
 	 * yang membaca kelas ini. Yang benar-benar melewati semuanya adalah
@@ -266,29 +274,30 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * mekanisme {@code Tbmrole} sepenuhnya.</p>
 	 *
 	 * <p>Karena nilainya sesingkat dua huruf, ia <b>tidak</b> ikut tersentuh oleh pencocokan
-	 * substring {@code "admin"} pada {@link #defaultAksesFeederSister()} &mdash; peran ini
-	 * lolos di sana lewat perbandingan persis, bukan lewat namanya.</p>
+	 * (baik dulu secara substring, maupun sekarang secara persis) atas kata {@code "admin"}
+	 * pada {@link #defaultAksesFeederSister()} &mdash; peran ini lolos di sana lewat
+	 * perbandingan persis pada {@code roleId}, bukan lewat namanya.</p>
 	 */
 	public static final String ADMINISTRATOR = "am";
 	/**
 	 * Pengenal peran <b>Keuangan</b>, bernilai {@code "keu"}.
 	 *
-	 * <p><b>Peringatan penting.</b> Konstanta ini nyaris tidak pernah dipakai lewat
-	 * perbandingan persis. Yang justru dipakai di lima getter adalah pencocokan
-	 * <b>substring</b> atas literal {@code "keu"}:</p>
-	 * <pre>{@code getRoleId().toLowerCase().contains("keu")}</pre>
-	 * <p>Lihat {@link #getKeuangan()}, {@link #getPembayaran()}, {@link #getAkunting()},
-	 * {@link #getKantin()}, dan {@link #getBolehEntryTopup()}. Akibatnya <b>setiap</b> Grup
-	 * Pengguna yang pengenalnya sekadar <i>mengandung</i> potongan huruf {@code "keu"}
-	 * &mdash; termasuk maksud yang sama sekali berbeda seperti {@code "keu_lihat_saja"},
-	 * {@code "bekuan"}, atau {@code "penyekuan"} &mdash; akan mendapat kelima hak itu secara
-	 * bawaan selama kolom-kolomnya belum pernah diisi administrator.</p>
+	 * <p><b>RIWAYAT (FIXED dok audit 2026-09-06).</b> Sampai perbaikan itu, konstanta ini
+	 * nyaris tidak pernah dipakai lewat perbandingan persis &mdash; empat getter
+	 * ({@link #getKeuangan()}, {@link #getPembayaran()}, {@link #getAkunting()},
+	 * {@link #getKantin()}) dan gerbang transaksional {@link #getBolehEntryTopup()} memakai
+	 * pencocokan <b>substring</b> {@code getRoleId().toLowerCase().contains("keu")}, sehingga
+	 * pengenal apa pun yang sekadar <i>mengandung</i> potongan huruf {@code "keu"} &mdash;
+	 * termasuk maksud berbeda seperti {@code "keu_lihat_saja"}, {@code "bekuan"}, atau
+	 * {@code "penyekuan"} &mdash; mendapat hak itu secara bawaan.</p>
 	 *
-	 * <p>Yang membuat ini bukan sekadar masalah kosmetik: {@link #getBolehEntryTopup()}
-	 * adalah gerbang <b>transaksional sungguhan</b> di {@code KantinHelper} dan
-	 * {@code PosApi}, bukan sekadar penentu visibilitas tombol. Karena itu, saat membuat
-	 * peran baru, isilah flag keuangan secara eksplisit alih-alih membiarkannya
-	 * {@code null}.</p>
+	 * <p><b>Sekarang:</b> keempat getter modul memakai
+	 * {@code getRoleId().equalsIgnoreCase(KEUANGAN)} (pencocokan persis, tidak peka huruf
+	 * besar-kecil), dan {@link #getBolehEntryTopup()} sudah <i>fail-closed</i> tanpa syarat
+	 * ({@code null} &rarr; {@code false}) sehingga tidak lagi bergantung pada konstanta ini
+	 * sama sekali. Hanya peran berpengenal <b>persis</b> {@code "keu"} (tidak peka huruf
+	 * besar-kecil) atau {@link #ADMINISTRATOR} yang memperoleh keempat flag modul itu secara
+	 * bawaan.</p>
 	 */
 	public static final String KEUANGAN = "keu";
 	/**
@@ -304,7 +313,9 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * {@link #defaultAksesFeederSister()} memakai {@code equals} yang peka huruf besar-kecil.
 	 * Baris peran yang tersimpan sebagai {@code "akademik"} karena itu tetap mendapat
 	 * e-learning namun <b>tidak</b> mendapat akses Feeder/SISTER lewat jalur perbandingan
-	 * persis &mdash; ia baru lolos lewat pencocokan substring atas {@code roleName}.</p>
+	 * persis pada {@code roleId} &mdash; ia baru lolos lewat tahap kedua, yang membandingkan
+	 * {@code roleName} (atau {@code roleId} sebagai cadangan) persis dengan {@code "akademik"}
+	 * setelah dikecilkan hurufnya.</p>
 	 */
 	public static final String AKADEMIK = "Akademik";
 	/**
@@ -652,9 +663,10 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * Kunci primer peran &mdash; kolom {@code roleid}. Lihat {@link #getRoleId()}.
 	 *
 	 * <p>Bertipe {@link String} dan diisi manual oleh administrator, bukan angka yang
-	 * dibangkitkan sistem. Karena nilainya ikut menentukan hak bawaan lewat pencocokan
-	 * substring pada belasan getter, field ini bukan sekadar pengenal teknis &mdash; lihat
-	 * peringatan pada {@link #KEUANGAN} dan pada dokumentasi kelas.</p>
+	 * dibangkitkan sistem. Karena nilainya ikut menentukan hak bawaan lewat pencocokan persis
+	 * (bukan lagi substring sejak perbaikan dok audit 2026-09-06) pada belasan getter, field
+	 * ini bukan sekadar pengenal teknis &mdash; lihat peringatan pada {@link #KEUANGAN} dan
+	 * pada dokumentasi kelas.</p>
 	 */
 	private String roleId;
 	/**
@@ -841,8 +853,8 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * Nama tampil peran &mdash; kolom {@code rolename}. Lihat {@link #getRoleName()}.
 	 *
 	 * <p>Bukan sekadar label: {@link #defaultAksesFeederSister()} dan
-	 * {@link #getAksesGerbangPesantren()} menurunkan hak bawaannya dengan mencocokkan
-	 * substring pada nilai field ini.</p>
+	 * {@link #getAksesGerbangPesantren()} menurunkan hak bawaannya dengan mencocokkan nilai
+	 * field ini persis (tidak peka huruf besar-kecil) terhadap sejumlah kata kunci tetap.</p>
 	 */
 	private String roleName;
 	/**
@@ -900,14 +912,15 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	private Boolean pengadaan;
 	/**
 	 * Hak modul Keuangan. Lihat {@link #getKeuangan()} &mdash; bawaannya diturunkan lewat
-	 * <b>pencocokan substring</b> {@code "keu"} pada {@code roleId}; lihat peringatan pada
-	 * {@link #KEUANGAN}.
+	 * <b>pencocokan persis</b> ({@code equalsIgnoreCase}) terhadap {@link #KEUANGAN} pada
+	 * {@code roleId}; lihat peringatan historis pada {@link #KEUANGAN}.
 	 */
 	private Boolean keuangan;
 	/**
 	 * Hak modul Kepegawaian. Lihat {@link #getKepegawaian()} &mdash; bawaannya diturunkan
-	 * lewat pencocokan substring {@code "pegawai"} pada {@code roleId}, yang justru
-	 * <b>tidak</b> cocok dengan konstanta {@link #PEGAWAI} ({@code "peg"}).
+	 * lewat pencocokan persis ({@code equalsIgnoreCase}) terhadap {@code "pegawai"} pada
+	 * {@code roleId}, yang justru <b>tidak</b> cocok dengan konstanta {@link #PEGAWAI}
+	 * ({@code "peg"}).
 	 */
 	private Boolean kepegawaian;
 	/**
@@ -933,7 +946,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	private Boolean absenLangsung;
 	/**
 	 * Hak modul Pembayaran. Lihat {@link #getPembayaran()} &mdash; pola bawaannya sama persis
-	 * dengan {@link #keuangan}, termasuk pencocokan substring {@code "keu"}.
+	 * dengan {@link #keuangan}, termasuk pencocokan persis terhadap {@link #KEUANGAN}.
 	 */
 	private Boolean pembayaran;
 	/**
@@ -944,7 +957,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	/**
 	 * Hak akses dasbor Neo Feeder &mdash; kolom {@code boleh_akses_feeder}. Lihat
 	 * {@link #getBolehAksesFeeder()}; bawaannya diturunkan dari
-	 * {@link #defaultAksesFeederSister()} yang mencocokkan substring pada <b>nama</b> peran.
+	 * {@link #defaultAksesFeederSister()} yang mencocokkan <b>nama</b> peran secara persis.
 	 */
 	private Boolean bolehAksesFeeder;
 	/**
@@ -1108,7 +1121,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	private Set<Menu> menus = new HashSet<Menu>();
 	/**
 	 * Hak modul Akuntansi. Lihat {@link #getAkunting()} &mdash; pola bawaannya sama persis
-	 * dengan {@link #keuangan}, termasuk pencocokan substring {@code "keu"}.
+	 * dengan {@link #keuangan}, termasuk pencocokan persis terhadap {@link #KEUANGAN}.
 	 */
 	private Boolean akunting;
 	/**
@@ -1118,8 +1131,8 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	private Boolean kinerja;
 	/**
 	 * Hak modul Kantin/e-Kantin. Lihat {@link #getKantin()} &mdash; bawaannya diturunkan
-	 * lewat pencocokan substring {@code "keu"}, dan merupakan satu-satunya flag yang
-	 * <b>tidak</b> memiliki daftar-tolak {@link #KANTIN}.
+	 * lewat pencocokan persis terhadap {@link #KEUANGAN}, dan merupakan satu-satunya flag
+	 * yang <b>tidak</b> memiliki daftar-tolak {@link #KANTIN}.
 	 */
 	private Boolean kantin;
 	/**
@@ -1141,8 +1154,9 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	private Boolean emedic;
 	/**
 	 * Hak melakukan entri topup saldo. Lihat {@link #getBolehEntryTopup()} &mdash; gerbang
-	 * <b>transaksional sungguhan</b>, namun bawaannya diturunkan lewat pencocokan substring
-	 * {@code "keu"}. Kombinasi paling berisiko di kelas ini; lihat {@link #KEUANGAN}.
+	 * <b>transaksional sungguhan</b>. Sejak perbaikan dok audit 2026-09-06, bawaannya
+	 * <i>fail-closed</i> tanpa syarat ({@code null} &rarr; {@code false}) dan tidak lagi
+	 * diturunkan dari {@code roleId}; lihat riwayatnya di {@link #KEUANGAN}.
 	 */
 	private Boolean bolehEntryTopup;
 	/**
@@ -1320,10 +1334,10 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * apa pun.</p>
 	 *
 	 * <p>Karena {@code roleId} sudah terisi, seluruh cabang penurunan hak bawaan berbasis
-	 * pengenal <b>aktif</b> pada object ini &mdash; termasuk pencocokan substring
-	 * {@code "keu"} dan {@code "pegawai"}. Sebuah object yang dibuat hanya sebagai rujukan
-	 * query dengan demikian tetap akan menjawab pertanyaan hak seolah-olah ia peran
-	 * sungguhan, meski tidak ada satu pun kolomnya yang dimuat.</p>
+	 * pengenal <b>aktif</b> pada object ini &mdash; termasuk pencocokan persis terhadap
+	 * {@link #KEUANGAN} ({@code "keu"}) dan {@code "pegawai"}. Sebuah object yang dibuat
+	 * hanya sebagai rujukan query dengan demikian tetap akan menjawab pertanyaan hak
+	 * seolah-olah ia peran sungguhan, meski tidak ada satu pun kolomnya yang dimuat.</p>
 	 *
 	 * @param roleId pengenal peran, menjadi kunci primer
 	 * @see #Tbmrole(String, String)
@@ -1345,10 +1359,13 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 *
 	 * <p>Dengan {@code roleName} terisi, penurunan hak bawaan berbasis <b>nama</b> ikut
 	 * aktif: {@link #defaultAksesFeederSister()} dan {@link #getAksesGerbangPesantren()}
-	 * mencocokkan substring pada nilai itu. Memberi nama seperti
-	 * {@code "Administrasi Umum"} pada peran baru karena itu akan diam-diam mengaktifkan
-	 * akses dasbor Feeder dan SISTER, karena namanya mengandung {@code "admin"}. Pilih nama
-	 * dengan sadar, atau isi flag terkait secara eksplisit.</p>
+	 * mencocokkan nilai itu <b>persis</b> (tidak peka huruf besar-kecil) terhadap kata kunci
+	 * tetap seperti {@code "admin"}/{@code "akademik"} atau {@code "satpam"}. Memberi peran
+	 * baru nama yang <b>persis sama</b> dengan salah satu kata kunci itu &mdash; mis.
+	 * {@code "Admin"} &mdash; karena itu akan diam-diam mengaktifkan akses dasbor Feeder dan
+	 * SISTER; nama yang sekadar mengandungnya, seperti {@code "Administrasi Umum"}, tidak lagi
+	 * cukup sejak perbaikan dok audit 2026-09-06. Pilih nama dengan sadar, atau isi flag
+	 * terkait secara eksplisit.</p>
 	 *
 	 * @param roleId   pengenal peran, menjadi kunci primer
 	 * @param roleName nama tampil peran
@@ -1370,19 +1387,24 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 *
 	 * <h3>Bukan sekadar pengenal &mdash; ia menentukan hak</h3>
 	 * <p>Nilai method ini dibaca oleh <b>hampir seluruh getter flag</b> di kelas ini untuk
-	 * menurunkan nilai bawaan ketika kolom yang bersangkutan masih {@code null}. Ada tiga
-	 * gaya pemakaian, dan ketiganya perlu dipahami:</p>
+	 * menurunkan nilai bawaan ketika kolom yang bersangkutan masih {@code null}. Ada dua
+	 * gaya pemakaian saat ini:</p>
 	 * <ul>
 	 *   <li><b>Perbandingan persis</b> ({@code equals}) &mdash; mis. daftar-tolak
 	 *   {@link #KANTIN} dan pemberian hak bawaan bagi {@link #ADMINISTRATOR}. Peka huruf
 	 *   besar-kecil.</li>
 	 *   <li><b>Perbandingan tanpa peduli huruf</b> ({@code equalsIgnoreCase}) &mdash; lewat
-	 *   {@link #isRole(String)} dan pada {@link #getElearning()}.</li>
-	 *   <li><b>Pencocokan substring</b> ({@code toLowerCase().contains(...)}) &mdash; yang
-	 *   paling berisiko. Lihat peringatan pada {@link #KEUANGAN}: pengenal yang sekadar
-	 *   <i>mengandung</i> {@code "keu"} memperoleh lima hak keuangan secara bawaan,
-	 *   termasuk gerbang transaksional {@link #getBolehEntryTopup()}.</li>
+	 *   {@link #isRole(String)}, pada {@link #getElearning()}, dan sejak perbaikan dok audit
+	 *   2026-09-06 juga pada {@link #getKeuangan()}, {@link #getPembayaran()},
+	 *   {@link #getAkunting()}, {@link #getKantin()}, dan {@link #getKepegawaian()} (lihat
+	 *   peringatan historis pada {@link #KEUANGAN}).</li>
 	 * </ul>
+	 * <p><b>RIWAYAT:</b> sebelum perbaikan itu, kelima getter modul di atas memakai
+	 * <b>pencocokan substring</b> ({@code toLowerCase().contains(...)}) alih-alih perbandingan
+	 * persis, sehingga pengenal yang sekadar <i>mengandung</i> {@code "keu"} memperoleh lima
+	 * hak keuangan secara bawaan &mdash; termasuk gerbang transaksional
+	 * {@link #getBolehEntryTopup()}, yang sejak perbaikan itu sudah <i>fail-closed</i> tanpa
+	 * syarat dan tidak lagi membaca {@code roleId} sama sekali.</p>
 	 * <p>Karena itu <b>mengganti nama pengenal sebuah peran bukan perubahan kosmetik</b>: ia
 	 * dapat menambah atau mencabut hak pada setiap kolom yang masih {@code null}.</p>
 	 *
@@ -1462,9 +1484,9 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * penyimpanan, kolom {@code rolename} yang semula sengaja dikosongkan akan terisi
 	 * pengenalnya. Itu tidak berbahaya secara langsung, namun perlu diketahui bahwa
 	 * <b>penurunan hak berbasis nama ikut terpengaruh</b>: {@link #defaultAksesFeederSister()}
-	 * membaca {@code getRoleName()}, jadi peran berpengenal seperti {@code "adminkeu"} yang
-	 * semula tanpa nama akan &mdash; setelah tulis-balik ini &mdash; punya nama yang
-	 * mengandung {@code "admin"}, sehingga lolos pencocokan substring di sana. Perilaku
+	 * membaca {@code getRoleName()}, jadi peran berpengenal persis {@code "admin"} yang
+	 * semula tanpa nama akan &mdash; setelah tulis-balik ini &mdash; punya nama yang sama
+	 * persis dengan {@code "admin"}, sehingga lolos pencocokan persis di sana. Perilaku
 	 * bawaannya konsisten sebelum dan sesudah karena getter yang sama sudah dipakai, tetapi
 	 * ini menunjukkan betapa berlapisnya ketergantungan antar-nilai di kelas ini.</p>
 	 * <p>Bandingkan dengan {@link #toString()}, yang sengaja membaca field mentah justru
@@ -1492,20 +1514,22 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * kembali ke field.</p>
 	 *
 	 * <p><b>Ini bukan sekadar label.</b> Nilai yang disimpan di sini ikut menentukan hak
-	 * bawaan pada dua tempat, keduanya lewat pencocokan substring tanpa peduli huruf
-	 * besar-kecil:</p>
+	 * bawaan pada dua tempat, keduanya lewat pencocokan persis tanpa peduli huruf
+	 * besar-kecil (sejak perbaikan dok audit 2026-09-06; sebelumnya keduanya memakai
+	 * pencocokan substring):</p>
 	 * <ul>
-	 *   <li>{@link #defaultAksesFeederSister()} &mdash; nama yang mengandung {@code "admin"}
-	 *   atau {@code "akademik"} mengaktifkan {@link #getBolehAksesFeeder()} dan
-	 *   {@link #getBolehAksesSister()};</li>
-	 *   <li>{@link #getAksesGerbangPesantren()} &mdash; nama yang mengandung
+	 *   <li>{@link #defaultAksesFeederSister()} &mdash; nama yang <b>sama persis</b> dengan
+	 *   {@code "admin"} atau {@code "akademik"} mengaktifkan {@link #getBolehAksesFeeder()}
+	 *   dan {@link #getBolehAksesSister()};</li>
+	 *   <li>{@link #getAksesGerbangPesantren()} &mdash; nama yang <b>sama persis</b> dengan
 	 *   {@code "satpam"}, {@code "keamanan pondok"}, atau {@code "keamanan pesantren"}
 	 *   mengaktifkan hak memproses izin keluar/masuk di pos keamanan.</li>
 	 * </ul>
 	 * <p>Karena itu <b>mengganti nama sebuah peran dapat mengubah hak aksesnya</b> selama
-	 * kolom-kolom itu masih {@code null}. Nama seperti "Administrasi Umum" atau
-	 * "Wakil Kepala Akademik" akan diam-diam membuka akses dasbor Feeder/SISTER. Setelah
-	 * mengganti nama, isilah flag terkait secara eksplisit bila hak itu tidak dikehendaki.</p>
+	 * kolom-kolom itu masih {@code null}. Memberi nama persis "Admin" atau "Akademik" akan
+	 * diam-diam membuka akses dasbor Feeder/SISTER; nama yang sekadar memuat kata itu, seperti
+	 * "Administrasi Umum" atau "Wakil Kepala Akademik", tidak lagi cukup. Setelah mengganti
+	 * nama, isilah flag terkait secara eksplisit bila hak itu tidak dikehendaki.</p>
 	 *
 	 * @param roleName nama tampil peran; {@code null} atau kosong diterima
 	 * @see #getRoleName()
@@ -2046,10 +2070,9 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 *
 	 * <p>Getter pertama dari <b>empat bersaudara</b> yang badannya identik baris demi baris
 	 * &mdash; bersama {@link #getPembayaran()}, {@link #getAkunting()}, dan
-	 * {@link #getKepegawaian()} (yang hanya berbeda pada kata kunci substringnya). Struktur
-	 * ini juga dipakai {@link #getKantin()} dan {@link #getBolehEntryTopup()} dalam bentuk
-	 * yang lebih ringkas. Bila menyunting salah satunya, periksa apakah saudaranya perlu
-	 * ikut berubah.</p>
+	 * {@link #getKepegawaian()} (yang hanya berbeda pada kata kunci pembandingnya). Struktur
+	 * ini juga dipakai {@link #getKantin()} dalam bentuk yang lebih ringkas. Bila menyunting
+	 * salah satunya, periksa apakah saudaranya perlu ikut berubah.</p>
 	 *
 	 * <p>Urutannya:</p>
 	 * <ol>
@@ -2057,27 +2080,29 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 *   <li>{@link #MAHASISWA}, {@link #SISWA}, {@link #DOSEN}, {@link #GURU} <b>ditulisi
 	 *   {@code false}</b> ke field, di luar penjagaan {@code null} &mdash; centang
 	 *   administrator diabaikan dan terhapus permanen pada penyimpanan berikutnya;</li>
-	 *   <li>bila kolom masih {@code null}, nilainya diturunkan dari <b>pencocokan
-	 *   substring</b>.</li>
+	 *   <li>bila kolom masih {@code null}, nilainya diturunkan dari <b>perbandingan
+	 *   persis</b>.</li>
 	 * </ol>
 	 *
-	 * <h3>PERINGATAN: hak yang menyala karena kebetulan penamaan</h3>
-	 * <p>Nilai bawaan pada langkah 3 dihitung sebagai:</p>
-	 * <pre>{@code getRoleId().toLowerCase().contains("keu") || getRoleId().equals(ADMINISTRATOR)}</pre>
-	 * <p>Perhatikan bahwa ini <b>pencocokan substring, bukan perbandingan persis</b> dengan
-	 * konstanta {@link #KEUANGAN}. Akibatnya setiap Grup Pengguna yang pengenalnya sekadar
-	 * <i>mengandung</i> potongan huruf {@code "keu"} akan memperoleh hak ini secara bawaan
+	 * <h3>RIWAYAT: hak yang pernah menyala karena kebetulan penamaan (FIXED)</h3>
+	 * <p>Sampai perbaikan dok audit 2026-09-06, nilai bawaan pada langkah 3 dihitung sebagai
+	 * {@code getRoleId().toLowerCase().contains("keu") || getRoleId().equals(ADMINISTRATOR)}
+	 * &mdash; <b>pencocokan substring, bukan perbandingan persis</b> dengan konstanta
+	 * {@link #KEUANGAN}. Akibatnya setiap Grup Pengguna yang pengenalnya sekadar
+	 * <i>mengandung</i> potongan huruf {@code "keu"} memperoleh hak ini secara bawaan
 	 * &mdash; termasuk pengenal yang maksudnya justru membatasi, seperti
-	 * {@code "keu_lihat_saja"} atau {@code "keu_readonly"}, dan bahkan kebetulan murni
-	 * seperti {@code "bekuan"} atau {@code "penyekuan"}.</p>
-	 * <p>Yang membuat pola ini serius bukanlah flag ini sendiri, melainkan bahwa
-	 * <b>lima flag memakai kata kunci yang sama</b>, dan salah satunya &mdash;
-	 * {@link #getBolehEntryTopup()} &mdash; adalah <b>gerbang transaksional sungguhan</b> di
-	 * {@code KantinHelper} dan {@code PosApi}, bukan sekadar penentu visibilitas. Satu
-	 * keputusan penamaan karena itu dapat diam-diam memberi kewenangan menambah saldo.
-	 * <b>Selalu isi flag keuangan secara eksplisit</b> alih-alih membiarkannya {@code null},
-	 * dan hindari menaruh {@code "keu"} pada pengenal peran yang tidak dimaksudkan berhak
-	 * keuangan.</p>
+	 * {@code "keu_lihat_saja"} atau {@code "keu_readonly"}, dan bahkan kebetulan murni seperti
+	 * {@code "bekuan"} atau {@code "penyekuan"}. Yang membuat pola ini serius bukanlah flag ini
+	 * sendiri, melainkan bahwa <b>lima flag memakai kata kunci yang sama</b>, dan salah
+	 * satunya &mdash; {@link #getBolehEntryTopup()} &mdash; adalah <b>gerbang transaksional
+	 * sungguhan</b> di {@code KantinHelper} dan {@code PosApi}, bukan sekadar penentu
+	 * visibilitas.</p>
+	 * <p><b>Sekarang:</b> langkah 3 memakai
+	 * {@code getRoleId().equalsIgnoreCase(KEUANGAN) || getRoleId().equals(ADMINISTRATOR)}
+	 * &mdash; perbandingan persis, tidak peka huruf besar-kecil &mdash; dan
+	 * {@link #getBolehEntryTopup()} sudah <i>fail-closed</i> tanpa syarat sehingga tidak lagi
+	 * bergantung pada {@code roleId} sama sekali. <b>Tetap isi flag keuangan secara
+	 * eksplisit</b> alih-alih membiarkannya {@code null}.</p>
 	 *
 	 * <p><b>Getter penulis-balik field</b> pada langkah 2 &mdash; berlaku peringatan revisi
 	 * audit palsu seperti pada {@link #getElearning()}.</p>
@@ -2122,9 +2147,9 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * {@link #getKeuangan()}.</p>
 	 *
 	 * <p><b>Menyimpan {@code null} bukan tindakan netral.</b> Ia mengembalikan flag ke
-	 * penurunan berbasis substring {@code "keu"}, yang untuk peran bernama tepat justru
-	 * berarti <b>menyala</b>. Untuk menutup akses, simpan {@link Boolean#FALSE} secara
-	 * eksplisit.</p>
+	 * penurunan berbasis perbandingan persis dengan {@link #KEUANGAN}, yang untuk peran
+	 * bernama tepat justru berarti <b>menyala</b>. Untuk menutup akses, simpan
+	 * {@link Boolean#FALSE} secara eksplisit.</p>
 	 *
 	 * @param keuangan hak modul; {@code null} berarti kembali ke bawaan berbasis nama
 	 * @see #getKeuangan()
@@ -2138,13 +2163,13 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 *
 	 * <p>Badannya <b>identik baris demi baris</b> dengan {@link #getKeuangan()}: daftar-tolak
 	 * {@link #KANTIN}, penulisan paksa {@code false} bagi {@link #MAHASISWA},
-	 * {@link #SISWA}, {@link #DOSEN}, dan {@link #GURU}, lalu bawaan berbasis pencocokan
-	 * substring {@code "keu"} atau perbandingan persis dengan {@link #ADMINISTRATOR}.</p>
+	 * {@link #SISWA}, {@link #DOSEN}, dan {@link #GURU}, lalu bawaan berbasis perbandingan
+	 * persis dengan {@link #KEUANGAN} atau dengan {@link #ADMINISTRATOR}.</p>
 	 *
-	 * <p>Seluruh peringatan pada {@link #getKeuangan()} berlaku sama di sini &mdash;
-	 * terutama bahwa hak ini dapat menyala semata-mata karena pengenal peran mengandung
-	 * potongan huruf {@code "keu"}, dan bahwa getter ini menulis balik ke field sehingga
-	 * dapat menerbitkan revisi audit palsu.</p>
+	 * <p>Seluruh catatan pada {@link #getKeuangan()} berlaku sama di sini &mdash; termasuk
+	 * riwayat hak yang pernah menyala semata-mata karena pengenal peran <i>mengandung</i>
+	 * potongan huruf {@code "keu"} (sudah diperbaiki), dan bahwa getter ini menulis balik ke
+	 * field sehingga dapat menerbitkan revisi audit palsu.</p>
 	 *
 	 * <p>Perlu dibedakan dari {@link #getKeuangan()} (modul keuangan secara umum) dan
 	 * {@link #getAkunting()} (pembukuan/jurnal): flag ini menyangkut penerimaan dan
@@ -2186,7 +2211,8 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 *
 	 * <p>Setter mentah tanpa penjagaan; berperilaku persis seperti
 	 * {@link #setKeuangan(Boolean)}, termasuk bahwa {@code null} berarti kembali ke bawaan
-	 * berbasis substring {@code "keu"} dan karena itu bukan tindakan netral.</p>
+	 * berbasis perbandingan persis dengan {@link #KEUANGAN} dan karena itu bukan tindakan
+	 * netral.</p>
 	 *
 	 * @param pembayaran hak modul; {@code null} berarti kembali ke bawaan berbasis nama
 	 * @see #getPembayaran()
@@ -2202,10 +2228,11 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * <p>Getter ketiga dari empat bersaudara: badannya <b>identik baris demi baris</b> dengan
 	 * {@link #getKeuangan()} dan {@link #getPembayaran()} &mdash; daftar-tolak
 	 * {@link #KANTIN}, penulisan paksa {@code false} bagi keempat peran akademik, lalu bawaan
-	 * berbasis pencocokan substring {@code "keu"} atau {@link #ADMINISTRATOR}.</p>
+	 * berbasis perbandingan persis dengan {@link #KEUANGAN} atau {@link #ADMINISTRATOR}.</p>
 	 *
-	 * <p>Seluruh peringatan pada {@link #getKeuangan()} berlaku sama di sini, termasuk sifat
-	 * penulis-balik field dan risiko hak yang menyala karena penamaan.</p>
+	 * <p>Seluruh catatan pada {@link #getKeuangan()} berlaku sama di sini, termasuk sifat
+	 * penulis-balik field dan riwayat hak yang pernah menyala karena penamaan (sudah
+	 * diperbaiki).</p>
 	 *
 	 * <p>Perhatikan bahwa modul akuntansi termasuk yang paling sensitif di AIS &mdash; ia
 	 * menyentuh jurnal dan buku besar. Meski demikian, pemanggil flag ini seluruhnya berada
@@ -2310,7 +2337,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 	/**
 	 * Apakah role ini boleh mengakses dasbor "Neo Feeder". Default (saat admin belum mengatur): AKTIF untuk
-	 * ADMINISTRATOR, AKADEMIK, serta role yang NAMA-nya mengandung "akademik"/"admin"; selain itu nonaktif.
+	 * ADMINISTRATOR, AKADEMIK, serta role yang NAMA-nya sama persis dengan "akademik"/"admin"; selain itu nonaktif.
 	 * Menggantikan gerbang lama berbasis {@code Common.getKonfigurasi(...)}.
 	 *
 	 * <p>Neo Feeder adalah kanal pelaporan data pendidikan tinggi ke Kementerian, sehingga
@@ -2320,10 +2347,11 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * penentu visibilitas pintasan.</p>
 	 *
 	 * <p><b>Perhatikan sumber nilai bawaannya.</b> Karena
-	 * {@link #defaultAksesFeederSister()} ikut mencocokkan substring pada <b>nama</b> peran,
-	 * hak ini dapat menyala semata-mata karena penamaan &mdash; peran bernama
-	 * "Administrasi Umum" atau "Staf Akademik Fakultas" akan memperolehnya tanpa pernah
-	 * dicentang. Lihat peringatan lengkapnya pada method tersebut.</p>
+	 * {@link #defaultAksesFeederSister()} ikut mencocokkan <b>nama</b> peran secara persis,
+	 * hak ini dapat menyala semata-mata karena penamaan &mdash; peran bernama tepat "Admin"
+	 * atau "Akademik" akan memperolehnya tanpa pernah dicentang, meski nama yang sekadar
+	 * memuat kata itu (mis. "Administrasi Umum") sejak perbaikan dok audit 2026-09-06 tidak
+	 * lagi cukup. Lihat peringatan lengkapnya pada method tersebut.</p>
 	 *
 	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
 	 *
@@ -2343,7 +2371,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 *
 	 * <p>Setter mentah tanpa penjagaan. <b>Menyimpan {@code null} bukan tindakan netral</b>:
 	 * ia mengembalikan flag ke {@link #defaultAksesFeederSister()}, yang untuk peran bernama
-	 * mengandung "admin" atau "akademik" justru berarti <b>menyala</b>. Untuk menutup akses,
+	 * persis "admin" atau "akademik" justru berarti <b>menyala</b>. Untuk menutup akses,
 	 * simpan {@link Boolean#FALSE} secara eksplisit.</p>
 	 *
 	 * @param bolehAksesFeeder hak akses Feeder; {@code null} berarti kembali ke bawaan
@@ -2399,7 +2427,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 	/**
 	 * Nilai bawaan akses Feeder/SISTER bila admin belum mengaturnya: AKTIF untuk role ADMINISTRATOR,
-	 * AKADEMIK, atau role yang namanya mengandung "akademik"/"admin" (abaikan besar/kecil huruf).
+	 * AKADEMIK, atau role yang namanya sama persis dengan "akademik"/"admin" (abaikan besar/kecil huruf).
 	 *
 	 * <p>Dipakai bersama oleh {@link #getBolehAksesFeeder()} dan
 	 * {@link #getBolehAksesSister()}, yang karenanya selalu bernilai sama selama kolomnya
@@ -2411,29 +2439,38 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 *   ({@code "am"}) dan {@link #AKADEMIK} ({@code "Akademik"}). Memakai {@code equals}
 	 *   sehingga <b>peka huruf besar-kecil</b>: baris peran yang tersimpan sebagai
 	 *   {@code "akademik"} huruf kecil tidak lolos di tahap ini.</li>
-	 *   <li><b>Pencocokan substring pada {@code roleName}</b> &mdash; bukan {@code roleId}
-	 *   &mdash; terhadap {@code "akademik"} dan {@code "admin"}, setelah dikecilkan
-	 *   hurufnya.</li>
+	 *   <li><b>Perbandingan persis pada {@code roleName}</b> &mdash; bukan {@code roleId}
+	 *   &mdash; terhadap {@code "akademik"} dan {@code "admin"}, setelah dikecilkan hurufnya.
+	 *   Sejak perbaikan dok audit 2026-09-06 ini memakai {@code equals}, bukan lagi
+	 *   {@code contains(...)}.</li>
 	 * </ol>
 	 *
-	 * <h3>PERINGATAN: satu-satunya penurunan hak berbasis NAMA TAMPIL</h3>
-	 * <p>Bersama {@link #getAksesGerbangPesantren()}, method ini adalah satu dari hanya dua
-	 * tempat di kelas ini yang menurunkan hak dari {@link #getRoleName()} alih-alih dari
-	 * {@code roleId}. Ini penting karena nama tampil adalah teks bebas yang lazim diubah
-	 * administrator tanpa menganggapnya perubahan berdampak &mdash; sekadar "memperjelas
-	 * penamaan". Padahal:</p>
+	 * <h3>Satu-satunya (bersama {@link #getAksesGerbangPesantren()}) penurunan hak berbasis
+	 * NAMA TAMPIL</h3>
+	 * <p>Method ini adalah satu dari hanya dua tempat di kelas ini yang menurunkan hak dari
+	 * {@link #getRoleName()} alih-alih dari {@code roleId}. Ini penting karena nama tampil
+	 * adalah teks bebas yang lazim diubah administrator tanpa menganggapnya perubahan
+	 * berdampak &mdash; sekadar "memperjelas penamaan".</p>
+	 *
+	 * <h3>RIWAYAT: pencocokan substring pada nama tampil (FIXED)</h3>
+	 * <p>Sampai perbaikan dok audit 2026-09-06, tahap 2 memakai {@code contains(...)}, bukan
+	 * {@code equals}, sehingga:</p>
 	 * <ul>
 	 *   <li>substring {@code "admin"} tercakup oleh kata yang sangat umum dalam bahasa
 	 *   Indonesia: <i>Administrasi</i>, <i>Administratur</i>, <i>Tata Usaha Administrasi</i>
-	 *   &mdash; sehingga banyak peran ketatausahaan biasa akan memperoleh akses pelaporan
+	 *   &mdash; sehingga banyak peran ketatausahaan biasa memperoleh akses pelaporan
 	 *   Kementerian tanpa diniatkan;</li>
 	 *   <li>substring {@code "akademik"} tercakup oleh <i>Staf Akademik</i>,
 	 *   <i>Kalender Akademik</i>, <i>Wakil Dekan Bidang Akademik</i>, dan sejenisnya.</li>
 	 * </ul>
-	 * <p>Lebih halus lagi: {@link #getRoleName()} <b>jatuh ke {@code roleId}</b> bila nama
+	 * <p><b>Sekarang</b>, tahap 2 mensyaratkan nama (atau pengenal yang menjadi cadangannya,
+	 * lihat di bawah) yang <b>sama persis</b> dengan {@code "admin"} atau {@code "akademik"}
+	 * setelah dikecilkan hurufnya, sehingga contoh-contoh di atas tidak lagi lolos.</p>
+	 * <p>Yang tidak berubah: {@link #getRoleName()} <b>jatuh ke {@code roleId}</b> bila nama
 	 * kosong, sehingga peran tanpa nama pun tetap dinilai berdasarkan pengenalnya di tahap 2
-	 * &mdash; pengenal seperti {@code "adminkeu"} lolos di sini meski tidak lolos di tahap 1.
-	 * Perhatikan pula bahwa memanggil {@code getRoleName()} berarti method ini
+	 * &mdash; pengenal persis {@code "admin"} (tanpa nama tampil terisi) lolos di sini meski
+	 * tidak lolos di tahap 1, yang membandingkan terhadap {@link #ADMINISTRATOR}
+	 * ({@code "am"}). Perhatikan pula bahwa memanggil {@code getRoleName()} berarti method ini
 	 * <b>berpotensi menulis balik field</b> lewat getter tersebut, meski badannya sendiri
 	 * tidak menugaskan apa pun.</p>
 	 * <p>Karena kedua flag yang memakainya adalah gerbang server-side sungguhan, isilah
@@ -2452,7 +2489,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		String nm = getRoleName();
 		if (nm != null) {
 			String low = nm.toLowerCase();
-			if (low.contains("akademik") || low.contains("admin")) {
+			if (low.equals("akademik") || low.equals("admin")) {
 				return true;
 			}
 		}
@@ -2791,8 +2828,8 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		if (isRole(ADMINISTRATOR) || isRole(KEAMANAN_PONDOK)
 				|| isRole("Keamanan Pondok") || isRole("Keamanan Pesantren") || isRole("Satpam")) return Boolean.TRUE;
 		String namaRole = getRoleName() == null ? "" : getRoleName().trim().toLowerCase(java.util.Locale.ENGLISH);
-		return Boolean.valueOf(namaRole.indexOf("keamanan pondok") >= 0
-				|| namaRole.indexOf("keamanan pesantren") >= 0 || namaRole.indexOf("satpam") >= 0);
+		return Boolean.valueOf(namaRole.equals("keamanan pondok")
+				|| namaRole.equals("keamanan pesantren") || namaRole.equals("satpam"));
 	}
 
 	/**
@@ -3404,7 +3441,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		}
 		return kepegawaian == null
 				? (getRoleId() != null
-						&& (getRoleId().toLowerCase().contains("pegawai") || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
+						&& (getRoleId().equalsIgnoreCase("pegawai") || getRoleId().equals(Tbmrole.ADMINISTRATOR)))
 				: kepegawaian;
 	}
 
