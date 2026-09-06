@@ -7282,13 +7282,20 @@ public class AbsensiHelper {
 	 * daftar entri {@code "<id>,...mahasiswa"} atau {@code "<id>,...siswa"} dipisah {@code ";"}, mencatat SIAPA
 	 * SAJA yang sudah mengonfirmasi — untuk menentukan tampilan per dosen:
 	 * <ul>
-	 * <li>bila {@code mahasiswa} yang sedang login DITEMUKAN sebagai salah satu entri, kartu EDITABLE
-	 * {@link #bolehKonfirmasi} ditampilkan (mahasiswa ini melihat/mengubah konfirmasinya sendiri);</li>
+	 * <li>SELURUH entri dipindai (loop TIDAK berhenti pada entri pertama — sebelum perbaikan, sebuah
+	 * {@code break} membuatnya berhenti begitu satu entri ditemukan, sehingga mahasiswa yang entrinya bukan
+	 * yang pertama tak pernah bisa melihat/mengedit konfirmasinya sendiri); bila {@code mahasiswa} yang sedang
+	 * login DITEMUKAN sebagai salah satu entri (di posisi mana pun), kartu EDITABLE {@link #bolehKonfirmasi}
+	 * ditampilkan (mahasiswa ini melihat/mengubah konfirmasinya sendiri);</li>
 	 * <li>entri milik mahasiswa LAIN ditampilkan sebagai ringkasan read-only (nama, status, jam, keterangan);</li>
 	 * <li>bila belum ada entri sama sekali: admin/dosen (viewer bukan mahasiswa) melihat pesan "Belum ada
 	 * konfirmasi..", sedangkan mahasiswa yang belum pernah mengonfirmasi melihat kartu editable agar bisa
-	 * menjadi yang pertama.</li>
+	 * menjadi yang pertama — termasuk ketika entri mahasiswa LAIN sudah ada (bukan hanya saat kosong total,
+	 * berbeda dari perilaku sebelum perbaikan).</li>
 	 * </ul>
+	 * <p>{@link #bolehKonfirmasi} sendiri memberlakukan gerbang fail-closed
+	 * ({@link #merupakanPesertaPertemuan}): kartu editable hanya benar-benar dapat menulis bila {@code
+	 * mahasiswa} terverifikasi sebagai peserta {@code pertemuan}.</p>
 	 *
 	 * @param pertemuan pertemuan yang konfirmasinya ditampilkan; label kosong dikembalikan bila {@code null}
 	 * @param mahasiswa mahasiswa yang sedang login (menentukan kartu mana yang editable), atau {@code null}
@@ -7345,10 +7352,6 @@ public class AbsensiHelper {
 			boolean tidakAda = false;
 
 			for (String nn : nilais) {
-
-				if (tidakAda) {
-					break;
-				}
 
 				try {
 					if (nn.toLowerCase().endsWith("mahasiswa") || nn.toLowerCase().endsWith("siswa")) {
@@ -7423,17 +7426,15 @@ public class AbsensiHelper {
 				row.appendChild(new MyLabelAgakKecilBoldBiru(
 						"Belum ada konfirmasi dari Ketua/Perwakilan Kelas terkait kehadiran dosen"));
 			} else if (!ada && mahasiswa != null) {
-				if (!tidakAda) {
-					Row row;
-					row = new MyFormRow();
-					row.setParent(rowssub);
-					groupbox = new Groupbox();
-					groupbox.setWidth("95%");
-					groupbox.setParent(row);
+				Row row;
+				row = new MyFormRow();
+				row.setParent(rowssub);
+				groupbox = new Groupbox();
+				groupbox.setWidth("95%");
+				groupbox.setParent(row);
 
-					groupbox.appendChild(new Caption("Oleh : " + mahasiswa.getNama()));
-					groupbox.appendChild(bolehKonfirmasi(dosen, pertemuan, mahasiswa));
-				}
+				groupbox.appendChild(new Caption("Oleh : " + mahasiswa.getNama()));
+				groupbox.appendChild(bolehKonfirmasi(dosen, pertemuan, mahasiswa));
 			}
 		}
 
