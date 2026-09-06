@@ -225,6 +225,70 @@ import ais.ui.util.WaktuUtil;
  * Penggunaan {@code @SuppressWarnings("deprecation")} diperlukan karena beberapa API ZK 5
  * telah ditandai deprecated di versi yang lebih baru.</p>
  *
+ * <p><strong>Hubungan dengan mekanisme Tugas Kelompok — hasil penelusuran kode.</strong><br>
+ * Meskipun namanya berpasangan dengan {@code TugasKelompokHelper}, kelas ini tidak memiliki
+ * ketergantungan apa pun terhadap mekanisme tugas kelompok. Tidak ada {@code import} maupun rujukan
+ * ke {@code ais.database.model.NamaTugasKelompok}, {@code NamaTugasKelompokPunyaMahasiswa}, atau
+ * kelas bernama {@code TugasKelompok} di berkas ini. Kedua mekanisme berbagi konsep umum yang sama —
+ * keduanya menggantung pada {@link Pertemuan} dan menyimpan berkas sebagai
+ * {@link ais.database.model.file.TugasFileContent} — tetapi jalur datanya terpisah penuh:</p>
+ * <ul>
+ *   <li><em>Tugas Mandiri</em> (kelas ini): satuan pengumpulan adalah <strong>individu</strong>.
+ *       Setiap {@link ais.database.model.file.TugasFileContent} menunjuk satu peserta lewat salah
+ *       satu dari empat kolom id ({@code mahasiswa}, {@code siswa}, {@code biodataCalonMahasiswa},
+ *       {@code calonSiswa}), dan menunjuk tugasnya lewat kolom {@code pertemuan} yang berisi
+ *       {@code tugas.getId()}. Tidak ada entitas kelompok di antara peserta dan berkas.</li>
+ *   <li><em>Tugas Kelompok</em>: satuan pengumpulan adalah kelompok, dengan entitas perantara
+ *       tersendiri untuk mendaftar anggota. Berkas dimiliki kelompok, bukan individu.</li>
+ * </ul>
+ * <p>Karena itu perubahan pada salah satu mekanisme tidak otomatis berlaku pada yang lain, dan
+ * keduanya perlu diaudit terpisah.</p>
+ *
+ * <p><strong>Peta entitas yang benar-benar dipakai kelas ini.</strong></p>
+ * <ul>
+ *   <li>{@link ais.database.model.Tugas} — antarmuka; implementasinya {@link Pertemuan} dan
+ *       {@link ais.database.model.TugasPertemuan}.</li>
+ *   <li>{@link ais.database.model.file.TugasFileContent} — satu berkas pengumpulan milik satu
+ *       peserta. Turunan {@link ais.database.model.file.FileFoto}, sehingga berbagi mekanisme BLOB,
+ *       tautan Google Drive, dan pratinjau.</li>
+ *   <li>{@link ais.database.model.file.LampiranLain} dengan jenis
+ *       {@code LampiranLain.TUGAS_MANDIRI_PERKULIAHAN} — lampiran soal/instruksi milik pengelola,
+ *       berbeda dari berkas jawaban peserta.</li>
+ *   <li>Peserta: {@link ais.database.model.Mahasiswa},
+ *       {@link ais.database.model.sekolah.Siswa},
+ *       {@link ais.database.model.BiodataCalonMahasiswa},
+ *       {@link ais.database.model.sekolah.CalonSiswa}.</li>
+ *   <li>Penilaian perguruan tinggi: {@link ais.database.model.FormatNilai} (tunggal maupun
+ *       Sub-CPMK OBE).</li>
+ *   <li>Penilaian sekolah: {@link ais.database.model.sekolah.JenisPenilaian} &rarr;
+ *       {@link ais.database.model.sekolah.GrupPenilaian} &rarr;
+ *       {@link ais.database.model.sekolah.GrupKategoriItemPenilaianSiswa} &rarr;
+ *       {@link ais.database.model.sekolah.KategoriItemPenilaianSiswa} &rarr;
+ *       {@link ais.database.model.sekolah.JenisItemPenilaianSiswa}.</li>
+ *   <li>Prasyarat: {@link ais.database.model.SyaratUjian}. Absensi:
+ *       {@link ais.database.model.Statusabsensi} lewat {@code Pertemuan.populate(...)}.</li>
+ * </ul>
+ *
+ * <p><strong>Tempat penyimpanan nilai — penting untuk diketahui sebelum menyunting.</strong><br>
+ * Nilai tugas mandiri tidak disimpan pada kolom {@code nilai} milik masing-masing
+ * {@link ais.database.model.file.TugasFileContent}, melainkan pada satu dokumen JSON di kolom
+ * {@code keteranganNilai} milik baris {@link ais.database.model.Tugas}. Kolom {@code nilai} pada
+ * berkas tetap dibaca sebagai jalur mundur bagi data lama dan dipakai sebagai sumber indikator warna
+ * baris, sehingga kedua sumber itu dapat berbeda. Rincian bentuk kunci JSON dijelaskan pada
+ * {@code jsonObjectTugas}.</p>
+ *
+ * <p><strong>Ringkasan gerbang kewenangan.</strong><br>
+ * Kelas ini tidak memiliki satu titik pemeriksaan kewenangan terpusat. Pembedaan peran dilakukan
+ * lewat tiga dasar yang berbeda dan tidak selalu selaras: (1) {@code peserta}, dihitung dari
+ * {@link ais.database.model.Tbmuser} sesi berjalan; (2) field {@code mahasiswa} dan
+ * {@code biodataCalonMahasiswa} yang berasal dari argumen konstruktor dan hanya menyatakan konteks
+ * pemanggilan; dan (3) rantai perbandingan {@code == null} terhadap kelima tautan pelajar pada
+ * {@link ais.database.model.Tbmuser}, yang disalin berulang dengan variasi kecil. Bentuk terpusat
+ * dari dasar ketiga tersedia lewat {@code bolehKelolaTugas(Tbmuser)} dan {@code bolehUpload(Tbmuser)}.
+ * Perlu diperhatikan pula bahwa daftar pengumpulan yang menjadi model grid tidak disaring per
+ * pengguna: {@code Tugas.ambilTugasFileContentTotal(...)} memakai {@code currentUser} hanya untuk
+ * menandai baris milik pengguna, bukan untuk membatasi baris yang dikembalikan.</p>
+ *
  * @author AIS System
  * @version 2.0
  * @since 2010

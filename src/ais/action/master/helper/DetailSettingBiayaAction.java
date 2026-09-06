@@ -329,8 +329,21 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	 */
 	private Tbmuser tbmuser;
 
+	/**
+	 * Listener pemuatan ulang grid yang dipakai bersama oleh komponen-komponen di dalam sel
+	 * baris. Diteruskan ke {@code DetailPembayaranMahasiswaRenderer.tampilkanKunci} agar aksi
+	 * kunci/buka-kunci tagihan dapat menyegarkan tampilan tanpa harus mengenal struktur layar
+	 * ini. Memanggil {@link #loadData(Object)} dengan argumen {@code true}, yaitu memuat ulang
+	 * dengan {@code refresh} menyala (baca ulang dari basis data) namun TANPA reset ke default
+	 * billing — reset adalah jalur terpisah lewat argumen {@code rst}.
+	 */
 	private EventListener refrsh = new EventListener() {
 
+		/**
+		 * Muat ulang grid dengan pembacaan ulang dari basis data.
+		 *
+		 * @param arg0 event pemicu; tidak dipakai
+		 */
 		@Override
 		public void onEvent(Event arg0) throws Exception {
 			loadData(true);
@@ -632,6 +645,37 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Tentukan nominal yang DITAMPILKAN pada satu sel tagihan aktif, dengan memilih antara nilai
+	 * template (aturan biaya) dan nilai aktif yang sudah tersimpan pada {@link DetailKegiatan}.
+	 * Ada dua jalur sumber template:
+	 *
+	 * <ul>
+	 * <li><b>Pembayaran bulanan</b> — bila {@code pengaturanPembayaranBulanan} terisi, template
+	 * diambil dari {@link PengaturanPembayaranBulanan#ambilNominalModifikasi} bila mahasiswa dan
+	 * semester Kegiatan diketahui (agar potongan/penyesuaian per mahasiswa ikut terhitung), dan
+	 * jatuh ke {@code getNominal()} apa adanya bila tidak.</li>
+	 * <li><b>Biaya biasa</b> — bila {@code detailBiaya} terisi, untuk item biaya yang punya
+	 * penghitungan (bukan {@link ItemBiaya#TIDAK_ADA_PENGHITUNGAN}) dipanggil lebih dulu
+	 * {@code detailBiaya.updateKeterangan(mahasiswa, semester)} yang menghitung ulang nominal
+	 * hasil perkalian (mis. tarif per SKS x jumlah SKS). Template lalu diambil dari
+	 * {@code getNilaiBiayaBaru()} bila ada, jika tidak dari {@code getNilaiBiaya()}.</li>
+	 * </ul>
+	 *
+	 * <p><b>Catatan arsitektur:</b> pemanggilan {@code updateKeterangan} di jalur tampilan
+	 * memang menulis ke objek {@link DetailBiaya}, tetapi kolom sasarannya
+	 * ({@code nilaiBiayaBaru}) bertanda {@code @Transient} — nilainya hidup di memori saja dan
+	 * tidak pernah dipersistensikan, sehingga render grid ini tidak mengotori entitas Hibernate
+	 * dan tidak menghasilkan UPDATE atau revisi audit palsu. Kegagalan perhitungannya ditelan
+	 * dan hanya dicatat lewat {@code ErrorAuditUtil}, sehingga sel tetap menampilkan nominal
+	 * dasar alih-alih menggagalkan seluruh baris.</p>
+	 *
+	 * @param detailKegiatan              tagihan yang sudah terbentuk untuk item ini; {@code null} bila belum ada
+	 * @param detailBiaya                 baris aturan biaya sumber template; boleh {@code null}
+	 * @param pengaturanPembayaranBulanan pengaturan cicilan bulanan bila item ini ditagih bulanan; boleh {@code null}
+	 * @param kegiatan                    Kegiatan pemilik tagihan, sumber konteks mahasiswa dan semester; boleh {@code null}
+	 * @return nominal untuk ditampilkan; {@code 0.0} bila tidak ada sumber nominal sama sekali
+	 */
 	private Double ambilNominalTagihanTampilan(DetailKegiatan detailKegiatan, DetailBiaya detailBiaya,
 			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, Kegiatan kegiatan) {
 		if (pengaturanPembayaranBulanan != null) {
@@ -662,6 +706,39 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return pilihNominalAktifAtauTemplate(detailKegiatan, nominalTemplate);
 	}
 
+	/**
+	 * Aturan pemilihan akhir antara nominal AKTIF (nilai yang sudah tersimpan di
+	 * {@link DetailKegiatan#getBiaya()}, termasuk hasil ubah manual admin) dan nominal TEMPLATE
+	 * dari aturan biaya. Urutannya:
+	 *
+	 * <ol>
+	 * <li>Belum ada {@link DetailKegiatan} sama sekali &rarr; pakai template (tagihan belum
+	 * terbentuk, yang tampil adalah rencana).</li>
+	 * <li>{@code detailKegiatan.getBukanTagihan()} bernilai {@code true} &rarr; kembalikan
+	 * {@code 0.0}; inilah cara resmi menyatakan "item ini tidak ditagihkan untuk orang ini",
+	 * dan cara itu disediakan lewat centang "Aktif" pada sel.</li>
+	 * <li>Selain itu pakai nominal aktif, KECUALI bila nominal aktif kosong/nol sedangkan
+	 * template bernominal — saat itu template yang dipakai.</li>
+	 * </ol>
+	 *
+	 * <p><b>Konsekuensi yang perlu disadari.</b> Karena aturan nomor 3, nominal aktif bernilai
+	 * nol TIDAK dapat menutupi template yang bernominal: menurunkan tagihan menjadi Rp0 lewat
+	 * kotak nominal tidak akan bertahan di tampilan, karena sel akan kembali menunjukkan angka
+	 * template. Ini disengaja dan selaras dengan {@code Kegiatan.ambilJumlahTagihan} —
+	 * tujuannya agar baris lama yang terlanjur bernilai nol dari template usang tidak menutupi
+	 * template terbaru. Pembebasan penuh karenanya harus dilakukan lewat penanda
+	 * {@code bukanTagihan} (aturan nomor 2), bukan dengan mengetik nol.</p>
+	 *
+	 * <p>Perbandingan nol dilakukan dengan {@code intValue()}, yang memotong bagian pecahan;
+	 * nominal di bawah satu rupiah karenanya dianggap nol. Untuk mata uang rupiah yang dipakai
+	 * modul ini hal tersebut tidak berdampak, dan penyempitan {@code double} ke {@code int} di
+	 * Java menjepit (bukan melipat) nilai besar sehingga nominal di atas dua miliar tetap
+	 * terbaca bukan nol.</p>
+	 *
+	 * @param detailKegiatan  tagihan tersimpan untuk item ini; boleh {@code null}
+	 * @param nominalTemplate nominal menurut aturan biaya; {@code null} diperlakukan sebagai {@code 0.0}
+	 * @return nominal efektif yang ditampilkan pada sel
+	 */
 	private Double pilihNominalAktifAtauTemplate(DetailKegiatan detailKegiatan, Double nominalTemplate) {
 		Double nominalAman = nominalTemplate == null ? 0.0 : nominalTemplate;
 		if (detailKegiatan == null) {
@@ -815,6 +892,22 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Jepit satu nomor semester ke rentang sah
+	 * [{@link #SEMESTER_MINIMAL}, {@link #SEMESTER_MAKSIMAL}], dengan
+	 * {@code semesterSaatIni} sebagai nilai pengganti bila masukannya tidak dapat dipakai.
+	 *
+	 * <p>Urutannya: nilai {@code null} atau di luar rentang diganti {@code semesterSaatIni};
+	 * bila hasilnya masih {@code null} atau di bawah batas bawah, dipakai
+	 * {@link #SEMESTER_MINIMAL}; terakhir hasilnya dipotong ke {@link #SEMESTER_MAKSIMAL}.
+	 * Dengan begitu method ini TIDAK PERNAH mengembalikan {@code null} maupun nilai di luar
+	 * rentang, berapa pun masukannya — sifat yang diandalkan {@link #buatPilihanSemester} agar
+	 * selalu ada item combobox yang cocok untuk dipilih.</p>
+	 *
+	 * @param semester        nilai yang hendak dipakai, mis. {@code detail.getMinSmt()}; boleh {@code null}
+	 * @param semesterSaatIni nilai pengganti bila {@code semester} tidak sah; boleh {@code null}
+	 * @return nomor semester yang dijamin berada dalam rentang sah
+	 */
 	private Integer batasiSemester(Integer semester, Integer semesterSaatIni) {
 		Integer hasil = semester;
 		if (hasil == null || hasil < SEMESTER_MINIMAL || hasil > SEMESTER_MAKSIMAL) {
@@ -826,6 +919,21 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return Math.min(hasil, SEMESTER_MAKSIMAL);
 	}
 
+	/**
+	 * Hitung semester berjalan seorang calon mahasiswa sebagai nilai awal rentang berlaku
+	 * {@link SettingBiayaDetail}. Jenis semester diambil dari kalender sistem
+	 * ({@code Common.isNowSemensterGanjil()}), lalu {@code Common.getSemester} menurunkan nomor
+	 * semester dari tahun angkatan dengan memperhitungkan mahasiswa pindahan
+	 * ({@code getPindahDariKampusLamaDiSemester()}) dan semester mulai
+	 * ({@code getSemesterMulai()}). Hasilnya dijepit lewat {@link #batasiSemester}.
+	 *
+	 * <p>Bersifat fail-safe: setiap kegagalan perhitungan ditangkap, dicatat lewat
+	 * {@code ErrorAuditUtil}, dan diganti {@link #SEMESTER_MINIMAL} — layar tetap dapat
+	 * dirender walau data tahun/semester calon mahasiswa tidak lengkap.</p>
+	 *
+	 * @param mahasiswa biodata calon mahasiswa yang sedang dirender
+	 * @return nomor semester berjalan dalam rentang sah; tidak pernah {@code null}
+	 */
 	private Integer semesterSaatIni(BiodataCalonMahasiswa mahasiswa) {
 		try {
 			String jenisSemester = Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP;
@@ -839,6 +947,16 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Bangun combobox pilihan nomor semester berisi seluruh nilai
+	 * {@link #SEMESTER_MINIMAL}..{@link #SEMESTER_MAKSIMAL}, dibuat {@code setReadonly(true)}
+	 * agar hanya bisa dipilih dari daftar (bukan diketik). Nilai tiap item disimpan sebagai
+	 * {@link Integer}, bukan {@link String} — pasangan bacanya adalah {@link #ambilSemester}.
+	 *
+	 * @param semesterTerpilih nomor semester yang langsung dipilih; sebaiknya sudah dilewatkan
+	 *                         {@link #batasiSemester} agar dijamin ada padanannya dalam daftar
+	 * @return combobox siap dipasang ke baris rentang semester
+	 */
 	private Combobox buatPilihanSemester(Integer semesterTerpilih) {
 		Combobox pilihan = new Combobox();
 		pilihan.setReadonly(true);
@@ -852,6 +970,20 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return pilihan;
 	}
 
+	/**
+	 * Baca nomor semester dari combobox hasil {@link #buatPilihanSemester}. Mengembalikan
+	 * {@code null} bila belum ada item terpilih — berbeda dari pola
+	 * {@code getSelectedItem().getValue().toString()} yang dipakai di tempat lain pada kelas
+	 * ini, method ini memang menjaga {@code null} sehingga aman dipanggil sebelum pengguna
+	 * memilih apa pun.
+	 *
+	 * <p>Nilai item dibaca sebagai {@link Integer} bila memang bertipe itu, dan selain itu
+	 * diurai dari bentuk teksnya — pertahanan agar tetap bekerja bila combobox diisi pihak lain
+	 * dengan nilai bertipe {@link String}.</p>
+	 *
+	 * @param pilihan combobox semester yang hendak dibaca
+	 * @return nomor semester terpilih, atau {@code null} bila belum ada pilihan
+	 */
 	private Integer ambilSemester(Combobox pilihan) {
 		if (pilihan.getSelectedItem() == null || pilihan.getSelectedItem().getValue() == null) {
 			return null;

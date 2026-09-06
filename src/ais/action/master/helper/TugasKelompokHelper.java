@@ -3720,6 +3720,69 @@ public class TugasKelompokHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * <h3>Penyusun kriteria daftar Tugas Kelompok</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> menyusun "pertanyaan ke basis data" yang menentukan tugas
+	 * kelompok mana saja yang boleh muncul di daftar. Semua penyaring yang sedang aktif &mdash; kata
+	 * kunci pencarian dan cakupan layar (perkuliahan, KKN, PKL, atau jadwal pelajaran) &mdash;
+	 * digabungkan di sini menjadi satu kriteria. Dipakai bersama oleh tiga pemanggil sehingga daftar,
+	 * penghitung halaman, dan kartu ringkasan di atas daftar selalu memakai penyaring yang sama persis.</p>
+	 *
+	 * <h4>Semua penyaring bersifat MENAMBAH (AND), bukan memilih salah satu</h4>
+	 * <p>Setiap penyaring ditulis dengan pola "bila kosong, jangan menyaring":</p>
+	 * <pre>.add(perkuliahan == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("perkuliahan", perkuliahan))</pre>
+	 * <p>{@code Restrictions.sqlRestriction("true")} adalah syarat yang selalu benar, jadi penyaring itu
+	 * seolah tidak ada. Karena seluruhnya digabung dengan AND, mengisi dua cakupan sekaligus akan
+	 * mempersempit hasil, bukan memperluasnya. Penting untuk pasangan tunggal/jamak: bila
+	 * {@code perkuliahan} DAN {@code perkuliahans} sama-sama terisi, hasilnya adalah tugas yang memenuhi
+	 * KEDUANYA &mdash; bukan gabungan keduanya. Delapan penyaring diterapkan berurutan: kata kunci,
+	 * jadwal pelajaran, perkuliahan, kelompok KKN, kelompok PKL, ketiga varian jamaknya, lalu SQL
+	 * tambahan.</p>
+	 *
+	 * <h4>Pencarian kata kunci</h4>
+	 * <p>Bila kotak cari tidak kosong, kata kunci dicocokkan secara tidak peka huruf besar-kecil dan di
+	 * mana saja di dalam teks ({@code MatchMode.ANYWHERE}) pada tiga kolom sekaligus: {@code judul},
+	 * {@code nama} (isi instruksi), dan {@code keterangan}, digabung dengan OR. Nilai kata kunci
+	 * diteruskan sebagai parameter terikat oleh Hibernate, sehingga karakter khusus apa pun yang diketik
+	 * pengguna aman dan tidak dapat mengubah struktur kueri.</p>
+	 *
+	 * <h4>Dua catatan penting bagi pemelihara</h4>
+	 * <ol>
+	 *   <li><b>Tidak ada pembatas kepemilikan atau unit kerja.</b> Kriteria ini tidak pernah menanyakan
+	 *   siapa yang sedang login, dan tidak menyaring berdasarkan dosen pengampu, program studi, maupun
+	 *   satuan kerja. Pembatasan sepenuhnya bergantung pada cakupan yang diisi pemanggil: semua
+	 *   pemanggil di dalam kode selalu mengisi salah satu dari perkuliahan, kelompok KKN, kelompok PKL,
+	 *   atau jadwal pelajaran, sehingga hasilnya selalu terbatas pada satu kelas. Namun bila seluruh
+	 *   field cakupan dibiarkan kosong, kriteria ini akan mencakup SELURUH tabel tugas kelompok lintas
+	 *   kelas dan lintas program studi. Setiap pemanggil baru wajib memastikan cakupannya terisi.</li>
+	 *   <li><b>{@code sqlTambahan} ditempelkan mentah.</b> Berbeda dari penyaring lain, isinya menjadi
+	 *   bagian klausa WHERE apa adanya tanpa parameterisasi. Ia hanya boleh diisi potongan SQL yang
+	 *   ditulis tetap di dalam kode, TIDAK PERNAH nilai dari masukan pengguna atau parameter URL.
+	 *   Satu-satunya jalur pengisinya, {@link #display(String, Component)}, pada revisi ini tidak
+	 *   dipanggil dari mana pun sehingga jalur ini praktis tidak aktif.</li>
+	 * </ol>
+	 *
+	 * <p><b>Selalu kriteria baru.</b> Setiap pemanggilan membangun objek {@link Criteria} yang baru di
+	 * atas {@code HibernateUtil.currentSession()}. Ini memang diperlukan: objek {@code Criteria}
+	 * Hibernate tidak dapat dipakai ulang setelah dieksekusi, dan {@link #loadData(Object)} maupun
+	 * {@link #tempelRingkasanTugas(Component)} perlu menjalankan beberapa kueri berbeda (hitung jumlah,
+	 * hitung yang lewat batas, ambil satu halaman) di atas penyaring yang sama.</p>
+	 *
+	 * <p><b>Prasyarat pemanggilan.</b> Field {@code cari} dibaca tanpa penjagaan {@code null}, sehingga
+	 * metode ini hanya boleh dipanggil setelah salah satu varian {@code display(...)} membuat kotak
+	 * pencarian. Kedua pemanggil internal sudah menjaga hal ini dengan memeriksa {@code cari == null}
+	 * lebih dulu.</p>
+	 *
+	 * @param order {@code true} untuk menambahkan pengurutan tampilan (tanggal mulai terbaru lebih dulu,
+	 *              lalu id terbesar sebagai pemecah seri agar urutan stabil antar-halaman);
+	 *              {@code false} untuk kriteria tanpa urutan &mdash; dipakai oleh kueri penghitungan
+	 *              ({@code COUNT}), yang tidak memerlukan pengurutan dan pada sebagian basis data justru
+	 *              menolak kolom urut yang tidak ikut diagregasi
+	 * @return kriteria siap pakai; pemanggil masih boleh menambahkan pembatas atau proyeksi sendiri
+	 * @see #loadData(Object)
+	 * @see #tempelRingkasanTugas(Component)
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria crit = session.createCriteria(TugasKelompok.class)
@@ -3754,6 +3817,50 @@ public class TugasKelompokHelper implements DataLoader {
 		return crit;
 	}
 
+	/**
+	 * <h3>Memuat ulang satu halaman daftar Tugas Kelompok</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> mengambil data terbaru dari basis data lalu menggambar
+	 * ulang isi daftar. Inilah yang dijalankan setiap kali pengguna menekan Cari, menekan Refresh,
+	 * berpindah halaman, atau setelah sebuah tugas ditambah, diubah, dipindah, maupun dihapus &mdash;
+	 * sehingga layar selalu menampilkan keadaan terkini tanpa perlu memuat ulang seluruh halaman.</p>
+	 *
+	 * <p>Metode ini adalah pemenuhan kontrak {@link ais.common.listener.DataLoader}, yang memungkinkan
+	 * layar lain memicu pemuatan ulang tanpa perlu mengetahui isi kelas ini. Parameter {@code value}
+	 * merupakan bagian dari kontrak tersebut dan <b>sengaja diabaikan</b>: seluruh penyaring sudah
+	 * tersimpan sebagai state helper dan dibaca ulang lewat {@link #initCriteria(boolean)}, jadi seluruh
+	 * pemanggil di dalam kelas ini meneruskan {@code null}.</p>
+	 *
+	 * <h4>Penjagaan "layar belum siap"</h4>
+	 * <p>Bila {@code cari} masih {@code null}, metode langsung keluar tanpa melakukan apa pun. Kotak
+	 * pencarian baru dibuat oleh {@code display(...)}, sedangkan {@code initCriteria} membacanya tanpa
+	 * penjagaan {@code null}; keluar lebih awal mencegah {@code NullPointerException} bila pemuatan
+	 * dipicu sebelum layar selesai dirakit &mdash; misalnya oleh callback yang tiba lebih dulu.</p>
+	 *
+	 * <h4>Hemat memori: hanya satu halaman yang diambil</h4>
+	 * <p>Pemuatan berlangsung dua langkah. Pertama {@code Common.initPaging1} menjalankan kueri
+	 * penghitungan ({@code COUNT}) di atas kriteria tanpa urutan untuk menentukan jumlah halaman.
+	 * Kedua, baris diambil dengan {@code setMaxResults} sebesar satu halaman dan {@code setFirstResult}
+	 * sebesar nomor halaman aktif dikali ukuran halaman. Dengan begitu hanya baris yang benar-benar
+	 * terlihat yang masuk ke memori &mdash; seluruh tabel TIDAK pernah dimuat, berapa pun banyaknya
+	 * tugas kelompok yang ada. Bila {@code paging} belum terpasang, halaman aktif dianggap 0 sehingga
+	 * yang tampil adalah halaman pertama.</p>
+	 *
+	 * <p><b>Renderer selalu baru.</b> Sebuah {@link DetailPerkuliahanRenderer} baru dibuat pada setiap
+	 * pemuatan, bukan dipakai ulang. Ini disengaja dan memiliki akibat yang terlihat pengguna: field
+	 * {@code kemarin} milik renderer (acuan waktu untuk menilai "belum mulai" / "telah selesai") ikut
+	 * disegarkan, sehingga status tugas ikut mutakhir setiap kali daftar dimuat ulang. Sebaliknya,
+	 * halaman yang dibiarkan terbuka lama tanpa dimuat ulang akan mempertahankan status lamanya.</p>
+	 *
+	 * <p>Model dipasang lewat {@code setModelCheckMobile} agar tata letak grid otomatis menyesuaikan
+	 * perangkat, dan kelas gaya grid disetel ulang setiap kali karena pemasangan model dapat
+	 * menggantikannya.</p>
+	 *
+	 * @param value tidak dipakai; ada semata-mata untuk memenuhi antarmuka
+	 *              {@link ais.common.listener.DataLoader}. Boleh {@code null}.
+	 * @see #initCriteria(boolean)
+	 * @see DetailPerkuliahanRenderer#render(Row, Object)
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -3772,6 +3879,58 @@ public class TugasKelompokHelper implements DataLoader {
 		grid.setSclass("fgrid ais-data-grid");
 	}
 
+	/**
+	 * <h3>Mode RINCI &mdash; menampilkan SATU tugas kelompok saja</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> menampilkan satu tugas kelompok tertentu secara utuh di
+	 * dalam halaman lain &mdash; misalnya di halaman detail sebuah pertemuan perkuliahan. Yang muncul
+	 * bukan daftar berisi banyak tugas, melainkan satu kartu tugas itu saja, lengkap dengan seluruh
+	 * kontrolnya: instruksi, unggah/unduh berkas, kelompok dan anggota, serta penilaian.</p>
+	 *
+	 * <p>Perbedaannya dengan varian {@code display(...)} bukan pada tampilan kartunya &mdash; keduanya
+	 * memakai {@link DetailPerkuliahanRenderer} yang sama persis &mdash; melainkan pada apa yang
+	 * mengelilinginya. Mode rinci tidak membangun header modul, toolbar, kotak pencarian, tombol Tambah,
+	 * kartu ringkasan, maupun paging, karena semua itu milik halaman induk yang menampungnya.</p>
+	 *
+	 * <h4>Tiga akibat dari menyetel {@code tampilRinci = false}</h4>
+	 * <ol>
+	 *   <li><b>Informasi perkuliahan tambahan dilewati.</b> Di dalam {@code render}, blok dosen pengampu,
+	 *   riwayat revisi, prasyarat mata kuliah, serta jadwal hari/jam/ruangan hanya dibangun bila
+	 *   {@code tampilRinci} bernilai benar. Pada mode ini semuanya dilewati karena halaman induk sudah
+	 *   menampilkan informasi tersebut &mdash; menampilkannya lagi hanya akan mengulang.</li>
+	 *   <li><b>Perilaku setelah menyimpan berubah.</b> Setelah {@link #onSave(Event)} berhasil,
+	 *   {@link #init(TugasKelompok)} tidak memanggil {@link #loadData(Object)} (tidak ada daftar untuk
+	 *   dimuat ulang), melainkan membersihkan komponen induk lalu memanggil metode ini kembali sehingga
+	 *   kartu tunggal digambar ulang dengan data terbaru.</li>
+	 *   <li><b>Daftar tidak pernah dimuat.</b> Model grid diisi langsung dengan sebuah daftar berisi
+	 *   satu objek yang sudah ada di tangan, tanpa menjalankan kueri apa pun. Itulah sebabnya
+	 *   {@code initCriteria} dan {@code loadData} tidak terlibat sama sekali di jalur ini.</li>
+	 * </ol>
+	 *
+	 * <p><b>Penyalinan cakupan dari objek tugas.</b> Empat field cakupan ({@code perkuliahan},
+	 * {@code kelompokKkn}, {@code kelompokPkl}, {@code jadwalPelajaran}) diisi dari tugas yang diterima,
+	 * bukan dari parameter. Ini diperlukan agar cabang penilaian di dalam {@code render} memilih dunia
+	 * yang benar (format nilai perkuliahan versus rantai penilaian sekolah), dan agar formulir
+	 * "Instruksi Tugas Kelompok" yang dibuka dari kartu ini menyembunyikan pemilih perkuliahan karena
+	 * cakupannya sudah tertentu.</p>
+	 *
+	 * <p><b>Tinggi grid di perangkat bergerak.</b> Pada ponsel, baris pembungkus diberi tinggi tetap yang
+	 * sangat besar. Ini kompensasi atas keterbatasan tata letak ZK 5 di dalam wadah yang dapat digulir:
+	 * tanpa tinggi eksplisit, isi kartu yang panjang akan terpotong. Nilainya sengaja dilebihkan; ruang
+	 * berlebih tidak terlihat karena wadah induk hanya menggulir sejauh isinya.</p>
+	 *
+	 * <p><b>Ukuran halaman grid tidak relevan di sini.</b> Grid tetap dipasang bermold {@code paging}
+	 * dengan ukuran halaman 50 demi keseragaman dengan mode daftar, tetapi karena modelnya hanya berisi
+	 * satu baris, kendali halaman tidak pernah benar-benar tampil.</p>
+	 *
+	 * @param tugasKelompok tugas yang akan ditampilkan; menjadi satu-satunya isi model grid dan juga
+	 *                      sumber keempat field cakupan
+	 * @param component     komponen induk tempat kartu ditanam; disimpan ke field {@code component} agar
+	 *                      dapat dibersihkan dan digambar ulang setelah penyimpanan berhasil
+	 * @param eventListener callback yang dijalankan setiap kali data berubah, agar halaman induk dapat
+	 *                      menyegarkan dirinya sendiri; boleh {@code null}
+	 * @see #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)
+	 */
 	public void tampilanTugas(TugasKelompok tugasKelompok, Component component, EventListener eventListener) {
 		this.tugasKelompok = tugasKelompok;
 		this.eventListener = eventListener;
