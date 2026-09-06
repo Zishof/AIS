@@ -1373,6 +1373,27 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ STEP 3: ATUR NOMINAL
+    /**
+     * Merender langkah 3 "Atur Nominal": panduan pengisian, kartu TOTAL berjalan, lalu satu
+     * kartu per item TERPILIH berisi trio angka Tagihan/Sudah Dibayar/Sisa dan kolom nominal.
+     *
+     * <p>Perlakuan kolom nominal bergantung {@code TagihanItem.bisaDiubah}:</p>
+     * <ul>
+     * <li><b>boleh dicicil</b> — {@code Decimalbox} berformat ribuan yang diawali sisa
+     * tagihan; nilainya dijepit {@code [0, kekurangan]} oleh listener {@code onChange};</li>
+     * <li><b>wajib penuh</b> — tidak ada kolom isian sama sekali: {@code nominalBayar}
+     * DIPAKSA sama dengan {@code kekurangan} dan hanya ditampilkan sebagai teks terkunci.
+     * Pemaksaan di sisi render inilah yang membuat item "Tagihan Default = Ya" tidak dapat
+     * diangsur meski pengguna memanipulasi tampilan.</li>
+     * </ul>
+     *
+     * <p>Kolom "Tanggal Bayar" hanya dirender untuk pengguna admin/kasir
+     * ({@link #isUserAdmin()}); akun mahasiswa/calon mahasiswa tidak diberi pilihan tanggal
+     * sehingga pembayaran mandiri selalu tercatat pada tanggal berjalan.</p>
+     *
+     * <p>Panduan di kepala langkah menegaskan bahwa BELUM ada pembayaran yang diproses di
+     * sini — eksekusi baru terjadi setelah saluran dipilih pada langkah 4.</p>
+     */
     private void renderStep3() {
         double totalKekurangan = hitungTotalKekuranganDipilih();
         bodyHost.appendChild(new Html(
@@ -1430,6 +1451,19 @@ public class WizardPembayaranMhsHelper {
                 dec.setStyle("font-size:14px;font-weight:700;box-sizing:border-box;");
                 dec.setFormat("#,##0.##");
                 dec.addEventListener("onChange", new EventListener() {
+                    /**
+                     * Menjepit nominal angsuran satu item ke rentang sah lalu menyegarkan kartu
+                     * total. Nilai negatif dipaksa 0; nilai yang melewati {@code kekurangan}
+                     * (dengan toleransi 0,01 untuk galat pembulatan {@code double}) dipaksa
+                     * turun ke {@code kekurangan} DAN kotak isiannya ikut ditulis ulang, sehingga
+                     * angka yang terlihat pengguna selalu sama dengan angka yang akan diproses —
+                     * inilah penjaga utama agar pembayaran tidak pernah melebihi sisa tagihan.
+                     *
+                     * <p>Bila pembacaan nilai gagal, {@code nominalBayar} disetel 0 (bukan
+                     * dibiarkan pada nilai lama). Arahnya sengaja konservatif: kegagalan
+                     * membuat item itu tidak terbayar dan tertangkap {@link #validasiStep3()},
+                     * bukan menghasilkan tagihan yang lebih besar dari yang dimaksud.</p>
+                     */
                     @Override public void onEvent(Event e) throws Exception {
                         try {
                             double v = dec.getValue() != null ? dec.getValue().doubleValue() : 0;
@@ -1467,6 +1501,7 @@ public class WizardPembayaranMhsHelper {
                 dte.setValue(item.tanggalBayar != null ? item.tanggalBayar : new Date());
                 dte.setWidth("100%");
                 dte.addEventListener("onChange", new EventListener() {
+                    /** Menyimpan tanggal bayar pilihan admin/kasir ke {@code item.tanggalBayar}; nilai null (kolom dikosongkan) ditoleransi karena seluruh pemakai nilai ini sudah mundur ke {@code WaktuUtil.getDate()} bila null. */
                     @Override public void onEvent(Event e) throws Exception {
                         item.tanggalBayar = dte.getValue();
                     }
@@ -1479,6 +1514,22 @@ public class WizardPembayaranMhsHelper {
         }
     }
 
+    /**
+     * Membangun ulang isi kartu "TOTAL YANG AKAN DIPROSES SEKARANG" dari state terkini.
+     * Dipanggil sekali saat langkah 3 dirender dan sekali lagi setiap kali sebuah nominal
+     * diubah, sehingga angka total selalu mengikuti isian tanpa menggambar ulang langkah.
+     *
+     * <p>Selain total, kartu menyatakan KONSEKUENSI angka tersebut: bila sisa setelah
+     * pembayaran &le; 0,01 disebut melunasi seluruh item terpilih, selain itu disebut
+     * angsuran beserta perkiraan sisanya. Ambang 0,01 (bukan nol persis) dipakai karena
+     * total dijumlahkan sebagai {@code double} sehingga sisa sepersekian sen adalah hal
+     * biasa dan tidak boleh dilaporkan sebagai "belum lunas".</p>
+     *
+     * <p>Kartu juga mengingatkan bahwa biaya administrasi saluran, bila ada, baru muncul
+     * pada langkah berikutnya — angka di sini adalah nilai tagihan murni.</p>
+     *
+     * @param totalCard kartu tujuan; {@code null} membuat method tidak berbuat apa-apa
+     */
     private void rebuiltTotalCard(Div totalCard) {
         if (totalCard == null) return;
         double total = hitungTotalBayar();
@@ -1497,6 +1548,18 @@ public class WizardPembayaranMhsHelper {
             + " Biaya administrasi kanal pembayaran, jika ada, akan ditampilkan pada langkah berikutnya.</div>"));
     }
 
+    /**
+     * Menjumlahkan SISA TAGIHAN seluruh item terpilih — yaitu berapa yang perlu dibayar
+     * untuk melunasi semuanya, terlepas dari nominal yang sedang diisi pengguna. Bandingkan
+     * dengan {@link #hitungTotalBayar()} yang menjumlahkan {@code nominalBayar} (berapa yang
+     * AKAN dibayar sekarang); selisih keduanya itulah sisa angsuran yang dilaporkan kartu
+     * total.
+     *
+     * <p>Tiap suku dijepit di nol ({@code Math.max}) sehingga item yang kelebihan bayar tidak
+     * mengurangi total item lain.</p>
+     *
+     * @return total sisa tagihan item terpilih, tidak pernah negatif
+     */
     private double hitungTotalKekuranganDipilih() {
         double total = 0.0;
         for (TagihanItem item : tagihanItems) {
@@ -1505,6 +1568,17 @@ public class WizardPembayaranMhsHelper {
         return total;
     }
 
+    /**
+     * Merakit potongan HTML satu kotak angka kecil (label di atas, nominal rupiah di bawah)
+     * untuk grid tiga kolom Tagihan/Sudah Dibayar/Sisa pada kartu langkah 3. Label
+     * di-escape; nominal diformat {@link #formatRp(double)} dan dibungkus
+     * {@code word-break} agar angka panjang tidak melebarkan kartu di layar sempit.
+     *
+     * @param label teks kecil di atas angka
+     * @param nilai nominal yang ditampilkan
+     * @param warna warna CSS untuk angka (pembeda visual antar ketiga kotak)
+     * @return potongan HTML siap disambung ke markup kartu
+     */
     private String kotakNominal(String label, double nilai, String warna) {
         return "<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:7px;min-width:0;'>"
                 + "<div style='font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;'>"
@@ -1512,6 +1586,19 @@ public class WizardPembayaranMhsHelper {
                 + ";font-weight:800;margin-top:2px;word-break:break-word;'>" + formatRp(nilai) + "</div></div>";
     }
 
+    /**
+     * Memastikan pembayaran yang akan diproses masuk akal sebelum saluran ditawarkan: setiap
+     * item TERPILIH harus bernominal &gt; 0, dan total keseluruhan juga harus &gt; 0.
+     *
+     * <p>Pemeriksaan per-item ada terpisah dari pemeriksaan total agar kasus "satu item
+     * dikosongkan sementara item lain terisi" tetap tertangkap — kalau hanya total yang
+     * diperiksa, item bernominal nol akan lolos dan menghasilkan baris cicilan/token VA
+     * bernilai nol yang membingungkan di sisi bank. Batas ATAS tidak diperiksa di sini
+     * karena sudah dijamin listener {@code onChange} Decimalbox dan oleh pemaksaan nominal
+     * pada item wajib-penuh.</p>
+     *
+     * @return {@code true} bila seluruh nominal sah; {@code false} setelah menampilkan pesan
+     */
     private boolean validasiStep3() {
         for (TagihanItem item : tagihanItems) {
             if (!item.dipilih) continue;

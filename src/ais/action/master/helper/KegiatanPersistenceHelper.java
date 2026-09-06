@@ -357,6 +357,21 @@ public class KegiatanPersistenceHelper {
 	// 1. PENGAMBILAN DETAIL KEGIATAN DAN CICILAN
 	// ========================================================================
 
+	/**
+	 * Mengambil seluruh {@link DetailKegiatan} milik satu {@link Kegiatan} <b>dan sekaligus
+	 * menyinkronkan kolom denormalisasi</b> {@code Kegiatan.detailKegiatans}.
+	 *
+	 * <p><b>Method ini MENULIS ke basis data meskipun namanya terdengar seperti pembacaan.</b>
+	 * Setelah daftar terkumpul, {@link #updateDetailKegiatan(java.util.List, Kegiatan, boolean)}
+	 * dipanggil dan menjadwalkan penulisan lewat antrean async. Untuk kebutuhan laporan atau
+	 * render berulang yang harus bebas efek samping, gunakan
+	 * {@link #ambilDetailKegiatanReadOnly(Kegiatan, boolean)}.</p>
+	 *
+	 * @param kegiatan kegiatan pemilik detail; {@code null}/tanpa id menghasilkan daftar kosong.
+	 * @param refresh  bila {@code true}, paksa query ke basis data dan abaikan id aktif yang
+	 *                 sudah ter-cache pada object {@code kegiatan}.
+	 * @return daftar detail kegiatan; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<DetailKegiatan> ambilDetailKegiatanSaja(Kegiatan kegiatan, boolean refresh) {
 		return ambilDetailKegiatanInternal(kegiatan, refresh, true);
@@ -370,6 +385,28 @@ public class KegiatanPersistenceHelper {
 		return ambilDetailKegiatanInternal(kegiatan, refresh, false);
 	}
 
+	/**
+	 * Implementasi bersama {@link #ambilDetailKegiatanSaja(Kegiatan, boolean)} dan
+	 * {@link #ambilDetailKegiatanReadOnly(Kegiatan, boolean)}.
+	 *
+	 * <p><b>Sumber id</b> ditentukan {@code refresh}: bila {@code false}, id diambil dari cache
+	 * {@code kegiatan.ambilDetailKegiatansAktifIds()}; query basis data baru dijalankan bila cache
+	 * kosong DAN kegiatan belum pernah menjalankan operasi ini ({@code udah(...)}). Bila
+	 * {@code true}, query selalu dijalankan.
+	 *
+	 * <p><b>Retry koneksi.</b> Query dibungkus perulangan dua percobaan: kegagalan yang dikenali
+	 * {@link #isConnectionFailure(Throwable)} pada percobaan pertama memicu satu kali pengulangan
+	 * dengan session baru (koneksi c3p0 basi adalah penyebab lazim); kegagalan jenis lain langsung
+	 * dilempar. Perhatikan bahwa blok {@code finally} di dalam perulangan sudah menutup session
+	 * tiap percobaan, dan {@code closeOpenedSession} di {@code finally} terluar bersifat
+	 * idempoten.</p>
+	 *
+	 * @param kegiatan          kegiatan pemilik detail.
+	 * @param refresh           paksa baca dari basis data.
+	 * @param sinkronkanKegiatan bila {@code true}, tulis balik kolom denormalisasi lewat antrean
+	 *                           async; bila {@code false}, murni baca.
+	 * @return daftar detail kegiatan; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	private static List<DetailKegiatan> ambilDetailKegiatanInternal(Kegiatan kegiatan, boolean refresh,
 			boolean sinkronkanKegiatan) {
@@ -430,6 +467,20 @@ public class KegiatanPersistenceHelper {
 		return hasilDetailKegiatan;
 	}
 
+	/**
+	 * Menelusuri seluruh rantai {@code getCause()} untuk memutuskan apakah sebuah kegagalan
+	 * berasal dari koneksi basis data yang putus/basi — dikenali dari nama kelas
+	 * ({@code JDBCConnectionException}, {@code EOFException}, {@code SocketException}) atau dari
+	 * pesan ({@code "connection has been closed"}, {@code "i/o error"}).
+	 *
+	 * <p>Pencocokan berbasis nama dan teks pesan memang rapuh terhadap perubahan versi driver,
+	 * tetapi dipakai karena kegagalan yang relevan datang terbungkus beberapa lapis pembungkus
+	 * Hibernate/c3p0 yang tidak punya tipe bersama. Salah menilai hanya berakibat satu percobaan
+	 * ulang yang tidak perlu, atau hilangnya satu percobaan ulang — bukan kesalahan data.</p>
+	 *
+	 * @param error kegagalan yang diperiksa; boleh {@code null}.
+	 * @return {@code true} bila kegagalan berasal dari lapisan koneksi.
+	 */
 	private static boolean isConnectionFailure(Throwable error) {
 		Throwable current = error;
 		while (current != null) {
@@ -750,10 +801,44 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Membandingkan dua nilai rupiah dengan toleransi 1 rupiah. Dipakai
+	 * {@link #diskonEfektif(double[], double)} untuk membedakan bentuk data historis
+	 * {@code biaya=bruto} dan {@code biaya=neto} tanpa salah klasifikasi akibat pembulatan
+	 * floating point pada diskon berbasis persen.
+	 *
+	 * @param kiri  nilai pertama.
+	 * @param kanan nilai kedua.
+	 * @return {@code true} bila selisihnya tidak lebih dari 1.
+	 */
 	private static boolean hampirSama(double kiri, double kanan) {
 		return Math.abs(kiri - kanan) <= 1.0;
 	}
 
+	/**
+	 * Varian per-MAHASISWA dari {@link #ambilDetailKegiatanSaja(Kegiatan, boolean)}: mengambil
+	 * detail kegiatan untuk SELURUH kegiatan milik satu mahasiswa/calon mahasiswa sekaligus, lalu
+	 * menyinkronkan kolom denormalisasi tiap kegiatan lewat
+	 * {@link #sinkronkanDetailPerKegiatan(java.util.List, java.util.Map, boolean)}.
+	 *
+	 * <p>Percabangan {@code student instanceof Mahasiswa} memilih kolom {@code mahasiswa} atau
+	 * {@code calonMahasiswa} pada kriteria {@link Kegiatan} — pola dua-sisi yang sama dengan
+	 * {@code KegiatanHelper}. Saat {@code refresh=false}, id dikumpulkan dari {@code jsonLokasi...}
+	 * dan dari cache tiap kegiatan tanpa menyentuh basis data.</p>
+	 *
+	 * <p><b>Menulis ke basis data</b> lewat antrean async, termasuk MENGOSONGKAN
+	 * {@code detailKegiatans} bagi kegiatan pada {@code kegiatansCache} yang ternyata tidak punya
+	 * detail sama sekali (hanya bila {@code refresh=true}).</p>
+	 *
+	 * @param student                  {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}
+	 *                                 pemilik kegiatan.
+	 * @param jsonLokasiDetailKegiatan snapshot JSON id detail kegiatan; dipakai hanya bila
+	 *                                 {@code refresh=false}.
+	 * @param kegiatansCache           kegiatan yang sudah dimuat pemanggil, agar object yang sama
+	 *                                 yang disinkronkan (bukan salinan baru).
+	 * @param refresh                  paksa baca dari basis data.
+	 * @return daftar detail kegiatan seluruh kegiatan mahasiswa tersebut.
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<DetailKegiatan> ambilDetailKegiatanSaja(VOMahasiswa student, String jsonLokasiDetailKegiatan,
 			Collection<Kegiatan> kegiatansCache, boolean refresh) {
@@ -812,6 +897,19 @@ public class KegiatanPersistenceHelper {
 		return detailKegiatans;
 	}
 
+	/**
+	 * Memuat seluruh {@link CicilanPembayaran} satu kegiatan dan menyimpan snapshot pembayaran
+	 * secara TERISOLASI (transaksi sendiri). Pintasan untuk
+	 * {@code ambilCicilan(kegiatan, refresh, true)}.
+	 *
+	 * <p>Gunakan overload tiga-parameter dengan {@code simpanTerisolasi=false} bila pemanggil
+	 * sendiri sedang memegang transaksi yang akan menyimpan kegiatan yang sama — jika tidak,
+	 * transaksi kedua di sini akan menunggu lock milik transaksi pemanggil sendiri.</p>
+	 *
+	 * @param kegiatan kegiatan pemilik cicilan.
+	 * @param refresh  paksa baca dari basis data.
+	 * @return daftar cicilan; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<CicilanPembayaran> ambilCicilan(Kegiatan kegiatan, boolean refresh) {
 		return ambilCicilan(kegiatan, refresh, true);
@@ -881,6 +979,25 @@ public class KegiatanPersistenceHelper {
 		return hasilCicilan;
 	}
 
+	/**
+	 * Varian per-MAHASISWA dari {@link #ambilCicilan(Kegiatan, boolean)}: memuat cicilan seluruh
+	 * kegiatan milik satu mahasiswa/calon mahasiswa, opsional disaring per {@link JenisKegiatan},
+	 * lalu menyinkronkan snapshot pembayaran tiap kegiatan lewat
+	 * {@link #sinkronkanCicilanPerKegiatan(java.util.List, java.util.Map, boolean)}.
+	 *
+	 * <p><b>Pintasan penting:</b> mahasiswa dengan flag {@code getTidakAdaTagihan()} bernilai
+	 * {@code TRUE} langsung mendapat daftar KOSONG tanpa query apa pun — dan karena kembali lebih
+	 * awal, snapshot pembayaran kegiatannya juga TIDAK disinkronkan. Kolom denormalisasi kegiatan
+	 * mahasiswa seperti ini karena itu mempertahankan nilai terakhirnya. Flag ini hanya diperiksa
+	 * untuk {@link Mahasiswa}, tidak untuk calon mahasiswa.</p>
+	 *
+	 * @param student           {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}.
+	 * @param jsonLokasiCicilan snapshot JSON id cicilan; dipakai hanya bila {@code refresh=false}.
+	 * @param kegiatansCache    kegiatan yang sudah dimuat pemanggil.
+	 * @param jenisKegiatanData bila tidak {@code null}, batasi hanya pada jenis kegiatan ini.
+	 * @param refresh           paksa baca dari basis data.
+	 * @return daftar cicilan; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<CicilanPembayaran> ambilCicilan(Object student, String jsonLokasiCicilan,
 			Collection<Kegiatan> kegiatansCache, JenisKegiatan jenisKegiatanData, boolean refresh) {
@@ -947,6 +1064,21 @@ public class KegiatanPersistenceHelper {
 		return hasilCicilan;
 	}
 
+	/**
+	 * Menyaring koleksi {@link DetailKegiatan} yang SUDAH dimuat pemanggil agar hanya menyisakan
+	 * milik {@code kegiatan}, lalu menyinkronkan kolom denormalisasi kegiatan tersebut. Tidak
+	 * melakukan query apa pun — dipakai ketika pemanggil sudah memuat detail untuk banyak kegiatan
+	 * sekaligus dan tinggal membagikannya per kegiatan.
+	 *
+	 * <p><b>Tetap menulis</b> ke basis data lewat
+	 * {@link #updateDetailKegiatan(java.util.List, Kegiatan, boolean)}.</p>
+	 *
+	 * @param temp     koleksi sumber; bila {@code null} dikembalikan daftar kosong.
+	 * @param kegiatan kegiatan penyaring; {@code null}/tanpa id membuat {@code temp} dikembalikan
+	 *                 apa adanya tanpa sinkronisasi.
+	 * @param refresh  diteruskan ke sinkronisasi denormalisasi.
+	 * @return sub-daftar detail milik {@code kegiatan}.
+	 */
 	public static Collection<DetailKegiatan> ambilDetailKegiatan(Collection<DetailKegiatan> temp, Kegiatan kegiatan,
 			boolean refresh) {
 		if (kegiatan == null || kegiatan.getId() == null || temp == null) {
@@ -965,6 +1097,15 @@ public class KegiatanPersistenceHelper {
 		return list;
 	}
 
+	/**
+	 * Mengindeks koleksi {@link Kegiatan} menjadi peta id → kegiatan, melewati entri {@code null}
+	 * atau yang belum punya id. Tujuannya agar sinkronisasi selalu menulis ke INSTANCE yang sama
+	 * dengan yang dipegang pemanggil, bukan ke salinan hasil query baru — sehingga nilai
+	 * denormalisasi yang dihitung ikut terlihat oleh layar pemanggil.
+	 *
+	 * @param kegiatansCache koleksi sumber; boleh {@code null}.
+	 * @return peta id → kegiatan; tidak pernah {@code null}.
+	 */
 	private static Map<Long, Kegiatan> mapKegiatan(Collection<Kegiatan> kegiatansCache) {
 		Map<Long, Kegiatan> result = new HashMap<Long, Kegiatan>();
 		if (kegiatansCache == null) {
@@ -978,6 +1119,19 @@ public class KegiatanPersistenceHelper {
 		return result;
 	}
 
+	/**
+	 * Membaca id dari snapshot JSON berbentuk {@code {"<id>":"<nilai>"}} — KUNCI-nya yang diambil
+	 * sebagai id, bukan nilainya; nilai hanya dipakai sebagai penanda "terisi" (entri bernilai
+	 * kosong dilewati).
+	 *
+	 * <p>Kunci yang tidak dapat diurai menjadi angka dilewati diam-diam (dicatat ke
+	 * {@code ErrorAuditUtil}), dan JSON yang rusak seluruhnya menghasilkan daftar kosong alih-alih
+	 * kegagalan — sengaja permisif karena kolom ini hanya cache turunan yang selalu dapat dibangun
+	 * ulang dari basis data.</p>
+	 *
+	 * @param jsonData teks JSON snapshot; boleh {@code null}/kosong.
+	 * @return daftar id; tidak pernah {@code null}.
+	 */
 	private static List<Long> ekstrakIdDariJson(String jsonData) {
 		List<Long> result = new ArrayList<Long>();
 		if (isEmpty(jsonData)) {
@@ -1001,6 +1155,24 @@ public class KegiatanPersistenceHelper {
 		return result;
 	}
 
+	/**
+	 * Mengelompokkan daftar {@link DetailKegiatan} gabungan menurut kegiatan pemiliknya lalu
+	 * memperbarui kolom {@code detailKegiatans} tiap kegiatan.
+	 *
+	 * <p><b>Pembersihan kegiatan tanpa detail.</b> Bila {@code refresh=true}, kegiatan yang ada di
+	 * {@code mapKegiatanUtama} tetapi TIDAK muncul di daftar detail akan dikosongkan
+	 * ({@code setDetailKegiatans("")}) dan ditulis segera. Mekanismenya: tiap kegiatan yang sudah
+	 * tertangani DIHAPUS dari {@code mapKegiatanUtama} di dalam perulangan, sehingga sisa isi peta
+	 * tepat berisi kegiatan yang perlu dikosongkan. Karena peta pemanggil ikut termutasi, method
+	 * ini tidak boleh dipanggil dua kali dengan peta yang sama.</p>
+	 *
+	 * <p>Bila daftar detail seluruhnya kosong, seluruh isi peta langsung dikosongkan (tetap hanya
+	 * bila {@code refresh=true}).</p>
+	 *
+	 * @param detailKegiatans  detail gabungan lintas kegiatan.
+	 * @param mapKegiatanUtama peta id → kegiatan milik pemanggil; DIMUTASI oleh method ini.
+	 * @param refresh          bila {@code false}, pembersihan kegiatan tanpa detail dilewati.
+	 */
 	private static void sinkronkanDetailPerKegiatan(List<DetailKegiatan> detailKegiatans,
 			Map<Long, Kegiatan> mapKegiatanUtama, boolean refresh) {
 		if (detailKegiatans == null || detailKegiatans.isEmpty()) {
@@ -1044,6 +1216,21 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Padanan {@link #sinkronkanDetailPerKegiatan(java.util.List, java.util.Map, boolean)} untuk
+	 * {@link CicilanPembayaran}: mengelompokkan cicilan per kegiatan, menyetel
+	 * {@code tanggal_dirubah} bila {@code refresh}, lalu memperbarui snapshot pembayaran.
+	 *
+	 * <p>Perbedaan dari versi detail: kegiatan yang tidak punya cicilan TIDAK dikosongkan begitu
+	 * saja melainkan diproses ulang dengan daftar KOSONG lewat
+	 * {@link #updatePembayaran(java.util.List, Kegiatan, boolean)} — sehingga {@code bulans} dan
+	 * {@code dibayar} ikut dihitung ulang menjadi nol, bukan sekadar dikosongkan teksnya.
+	 * {@code mapKegiatanUtama} juga DIMUTASI di sini.</p>
+	 *
+	 * @param cicilanPembayarans cicilan gabungan lintas kegiatan.
+	 * @param mapKegiatanUtama   peta id → kegiatan milik pemanggil; DIMUTASI oleh method ini.
+	 * @param refresh            bila {@code false}, kegiatan tanpa cicilan tidak diproses ulang.
+	 */
 	private static void sinkronkanCicilanPerKegiatan(List<CicilanPembayaran> cicilanPembayarans,
 			Map<Long, Kegiatan> mapKegiatanUtama, boolean refresh) {
 		if (cicilanPembayarans == null || cicilanPembayarans.isEmpty()) {
@@ -1092,6 +1279,22 @@ public class KegiatanPersistenceHelper {
 	// 2. UPDATE STATE KEGIATAN
 	// ========================================================================
 
+	/**
+	 * Menyetel kolom {@code cicilans} kegiatan dari daftar cicilan aktif lalu menjadwalkan
+	 * penulisan denormalisasi.
+	 *
+	 * <p>Nilai {@code refresh} diteruskan sebagai DUA argumen sekaligus ke
+	 * {@link #simpanPerubahanAsync(Kegiatan, boolean, boolean)}, yaitu {@code refreshOrDelete} dan
+	 * {@code immediateUpdate}. Artinya {@code refresh=true} memaksa penulisan SEGERA (melewati
+	 * debounce 15 detik), sedangkan {@code refresh=false} menempuh antrean tertunda.</p>
+	 *
+	 * <p>Kegagalan tidak dilempar ke pemanggil, hanya ditampilkan bagi admin lewat
+	 * {@code Common.tampilErrorJikaAdmin} — konsisten dengan sifat kolom ini sebagai data turunan.</p>
+	 *
+	 * @param listCp   cicilan aktif kegiatan.
+	 * @param kegiatan kegiatan sasaran; {@code null}/tanpa id diabaikan diam-diam.
+	 * @param refresh  {@code true} untuk menulis segera, {@code false} untuk menunda.
+	 */
 	public static void updatePembayaran(List<CicilanPembayaran> listCp, Kegiatan kegiatan, boolean refresh) {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return;
@@ -1104,6 +1307,26 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Menyetel SATU entri nominal tagihan pada JSON {@code Kegiatan.tagihans} untuk kombinasi
+	 * {@link DetailBiaya}/{@link PengaturanPembayaranBulanan} tertentu, lalu — hanya bila hasilnya
+	 * BERBEDA dari nilai lama — menjadwalkan penulisan tertunda.
+	 *
+	 * <p>Nilai disimpan sebagai {@code String} dari {@code nilai.intValue()}, jadi pecahan rupiah
+	 * DIPOTONG. Hasil akhir dilewatkan {@link #murnikan(JenisKegiatan, String)} agar kunci yang
+	 * tidak sesuai sifat jenis kegiatan (hanya angsuran / hanya bukan angsuran) ikut tersaring.
+	 *
+	 * <p>Berbeda dari overload berbasis daftar cicilan, method ini SELALU memakai jalur tertunda
+	 * ({@code immediateUpdate=false}) karena dipanggil per field saat pengguna menyunting nominal
+	 * di layar — penulisan segera akan menghasilkan satu transaksi per ketikan.</p>
+	 *
+	 * @param detailBiaya       komponen biaya; dipakai bila {@code pengaturanBulanan} tidak
+	 *                          menyediakan kunci.
+	 * @param pengaturanBulanan pengaturan pembayaran bulanan; bila ada, kuncinya diberi sufiks
+	 *                          {@code _<realBulan>}.
+	 * @param kegiatan          kegiatan sasaran; {@code null} diabaikan.
+	 * @param nilai             nominal tagihan baru; {@code null} diabaikan.
+	 */
 	public static void updatePembayaran(DetailBiaya detailBiaya, PengaturanPembayaranBulanan pengaturanBulanan,
 			Kegiatan kegiatan, Double nilai) {
 		if (kegiatan == null || nilai == null) {
@@ -1129,6 +1352,16 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Menyetel kolom {@code detailKegiatans} kegiatan dari daftar detail aktif lalu menjadwalkan
+	 * penulisan denormalisasi. Sepenuhnya sejajar dengan
+	 * {@link #updatePembayaran(java.util.List, Kegiatan, boolean)}, termasuk pemakaian
+	 * {@code refresh} sebagai penentu segera-vs-tertunda dan penelanan kegagalan.
+	 *
+	 * @param listDk   detail kegiatan aktif.
+	 * @param kegiatan kegiatan sasaran; {@code null}/tanpa id diabaikan diam-diam.
+	 * @param refresh  {@code true} untuk menulis segera, {@code false} untuk menunda.
+	 */
 	public static void updateDetailKegiatan(List<DetailKegiatan> listDk, Kegiatan kegiatan, boolean refresh) {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return;

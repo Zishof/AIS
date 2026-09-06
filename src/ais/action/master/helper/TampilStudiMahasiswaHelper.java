@@ -4003,6 +4003,13 @@ public class TampilStudiMahasiswaHelper {
 	 * @see #render(Row, Object)
 	 */
 	class DataRenderer extends ais.ui.util.MyRowRenderer {
+		/**
+		 * Bila {@code true}, tiap baris yang dirender turut MENULIS hasil sinkronisasi KRS dan perhitungan
+		 * IP/IPK ke database ({@code Common.singkronkanKrsMahasiswa} dan
+		 * {@code HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa} dijalankan dalam mode simpan).
+		 * Karena itu render grid BUKAN operasi baca murni ketika flag ini menyala; nilainya berasal dari
+		 * {@link TampilStudiMahasiswaHelper#onSearchDefault(Event, boolean)}.
+		 */
 		private boolean keDatabase;
 
 		/** @param keDatabase diteruskan ke {@code Common.singkronkanKrsMahasiswa} — {@code true} memaksa sinkronisasi KRS ke database saat baris dirender. */
@@ -4090,6 +4097,11 @@ public class TampilStudiMahasiswaHelper {
 			final A sks = new A();
 
 			sks.addEventListener("onClick", new EventListener() {
+				/**
+				 * Klik pada label SKS/SKSK baris: menyinkronkan ulang KRS semester ini dengan penulisan ke
+				 * database ({@code keDatabase = true}, terlepas dari flag renderer) lalu mengunduh berkas KRS
+				 * untuk SKS kumulatif tersebut lewat {@code PenilaianUtil.downloadSemuaKRS}.
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					KrsMahasiswa krs = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek,
@@ -4101,6 +4113,28 @@ public class TampilStudiMahasiswaHelper {
 			detail.setParent(arg0);
 
 			EventListener eventListener = new EventListener() {
+				/**
+				 * Pemuat isi expander {@code MyDetail} satu baris semester. Dipasang pada event {@code onOpen} DAN
+				 * disimpan sebagai atribut {@code "eventListener"} pada detail, sehingga
+				 * {@link TampilStudiMahasiswaHelper#onSearchDefault(Event, boolean)} dapat memicunya secara manual
+				 * ketika baris dibuka otomatis untuk {@link TampilStudiMahasiswaHelper#smtSelected}.
+				 *
+				 * <p>Isi hanya dibangun saat detail dalam keadaan TERBUKA; saat ditutup, {@code Common.clear}
+				 * mengosongkannya sehingga membuka ulang selalu memuat data segar. Pekerjaan render nilai/komentar
+				 * didelegasikan ke {@code StudiMahasiswaHelper.display(...)} &mdash; kelas inilah yang menjadi
+				 * mesin isi KRS, sedangkan {@code TampilStudiMahasiswaHelper} hanya menyediakan bingkai jendela,
+				 * grid per semester, dan editor status.
+				 *
+				 * <p><b>Gerbang hapus nilai:</b> hak "boleh menghapus langsung data nilai" dihitung di sini dari
+				 * dua konfigurasi &mdash; {@code admin_lain_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs}
+				 * (daftar role dipisah titik koma) ATAU
+				 * {@code admin_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs} yang digabung dengan
+				 * {@code Common.getApakahAdmin()} &mdash; lalu diteruskan ke konstruktor
+				 * {@code StudiMahasiswaHelper}. Perhatikan bahwa {@code currentUser.hakAkses()} di sini dipakai
+				 * tanpa penjagaan null (berbeda dengan blok serupa pada
+				 * {@link TampilStudiMahasiswaHelper#tampil(Mahasiswa, DataLoader, Boolean, Integer)}), sehingga
+				 * pengguna tanpa hak akses akan memicu {@code NullPointerException} alih-alih ditolak dengan rapi.
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					Common.clear(detail);
@@ -4179,6 +4213,11 @@ public class TampilStudiMahasiswaHelper {
 					for (int i = 0; i < 9; i++)
 						new Label().setParent(arg0);
 					Common.createDefaultTimer(new EventListener() {
+						/**
+						 * Pengisi tertunda baris <b>Tahap -1 (Konversi lama)</b>: memasang popup analisis KRS pada kolom
+						 * keterangan dan menuliskan jumlah komentar. Dijalankan lewat timer agar tidak memperlambat render
+						 * awal grid &mdash; {@code krsMahasiswa.getKomentars()} melakukan query sendiri per baris.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
@@ -4196,6 +4235,11 @@ public class TampilStudiMahasiswaHelper {
 						new Label().setParent(arg0);
 
 					Common.createDefaultTimerNoBusy(new EventListener() {
+						/**
+						 * Pengisi tertunda baris <b>semester 0 (Konversi)</b>; isinya sama dengan varian Tahap -1, tetapi
+						 * memakai timer TANPA indikator sibuk ({@code createDefaultTimerNoBusy}) sehingga baris konversi
+						 * tidak membuat layar berkedip "loading".
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							ais.ui.util.KrsMahasiswaAnalisisPopupHelper.pasang(
@@ -4215,6 +4259,19 @@ public class TampilStudiMahasiswaHelper {
 					kelasPa.setWidth("90%");
 					kelasPa.setParent(arg0);
 					kelasPa.setEventListener(new EventListener() {
+						/**
+						 * Pemilihan Kelas pada satu baris semester. Menyimpan SEKETIKA: nama kelas ditulis ke
+						 * {@link KrsMahasiswa} lalu di-commit pada transaksi native session tersendiri &mdash; tidak ada
+						 * tombol "Simpan" terpisah, dan pengosongan pilihan ({@code kelas == null}) juga langsung
+						 * tersimpan sebagai {@code null}.
+						 *
+						 * <p>Bila baris ini adalah semester BERJALAN mahasiswa dan bukan semester pendek, nilai yang sama
+						 * juga ditulis ke {@code mahasiswa.kelas} pada transaksi KEDUA yang terpisah. Karena keduanya
+						 * bukan satu transaksi, kegagalan pada transaksi kedua meninggalkan KRS sudah tersimpan sementara
+						 * data induk mahasiswa belum &mdash; sifat yang perlu diingat saat menelusuri ketidakcocokan
+						 * kelas. Exception di-rollback lalu dilempar ulang, dan session dibersihkan/diputus/ditutup
+						 * berlapis pada blok {@code finally}.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							Kelas kelas = (Kelas) kelasPa.getAttribute("kelas");
@@ -4262,6 +4319,12 @@ public class TampilStudiMahasiswaHelper {
 					dosenPa.setWidth("90%");
 					dosenPa.setParent(arg0);
 					dosenPa.setEventListener(new EventListener() {
+						/**
+						 * Pemilihan Dosen PA pada satu baris semester. Perilakunya persis sejajar dengan pemilih Kelas:
+						 * simpan seketika ke {@link KrsMahasiswa}, lalu transaksi KEDUA yang terpisah untuk menulis
+						 * {@code mahasiswa.dosen} bila baris ini semester berjalan dan bukan semester pendek &mdash;
+						 * dengan konsekuensi atomisitas yang sama.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							Dosen dosen = (Dosen) dosenPa.getAttribute("dosen");
@@ -4338,6 +4401,29 @@ public class TampilStudiMahasiswaHelper {
 
 					status.setWidth("100%");
 					status.addEventListener("onChange", new EventListener() {
+						/**
+						 * Perubahan combo <b>Status Mahasiswa</b> pada satu baris semester. Alurnya:
+						 * <ol>
+						 * <li>Ambil {@link HistoryStatusMahasiswa} baris ini (tanpa menulis ke database).</li>
+						 * <li>Validasi transisi lewat {@code HistoryStatusMahasiswaUtil.checkStatus} dengan memperhitungkan
+						 *     semester, tahapan, dan apakah ini semester pendek. Bila DITOLAK, combo dikembalikan ke status
+						 *     lama dan tidak ada penulisan apa pun.</li>
+						 * <li>Bila diterima: status baru dicatat sebagai {@code "status_force"} pada
+						 *     {@link HistoryStatusMahasiswa} lalu di-commit pada transaksi native session tersendiri.</li>
+						 * <li>Bila kode EPSBED status berakhir Keluar/Drop/Lulus ({@code "K"}/{@code "D"}/{@code "L"}),
+						 *     Dosen PA dan Kelas DIKOSONGKAN dan disembunyikan &mdash; termasuk {@code update mahasiswa set
+						 *     dosen=null / kelas=null} lewat SQL native bila baris ini semester berjalan; selain itu
+						 *     keduanya ditampilkan kembali.</li>
+						 * <li>Terakhir, grid dimuat ulang lewat timer dengan penulisan ke database.</li>
+						 * </ol>
+						 *
+						 * <p><b>Hal non-obvious:</b> pembacaan kode EPSBED pada langkah 4 memakai {@code tempHsm} yang
+						 * mungkin masih berisi status LAMA bila validasi menolak &mdash; jadi penolakan transisi tidak
+						 * membuat Kelas/Dosen PA ikut berubah. Blok pengosongan Kelas/Dosen PA memakai
+						 * {@code HibernateUtil.currentSession()} (session terikat thread) TANPA transaksi eksplisit dan
+						 * tanpa penutupan pada {@code finally} &mdash; berbeda dari blok-blok lain di kelas ini yang
+						 * memakai native session dengan transaksi sendiri.
+						 */
 						@Override
 						public void onEvent(Event event) throws Exception {
 							if (status.getSelectedItem() == null)
@@ -4433,6 +4519,7 @@ public class TampilStudiMahasiswaHelper {
 							}
 
 							Common.createDefaultTimer(new EventListener() {
+								/** Muat ulang grid setelah perubahan Status Mahasiswa tersimpan, sekaligus menulis hasil hitung IP/IPK ke database. */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									onSearchDefault(null, true);
@@ -4471,6 +4558,14 @@ public class TampilStudiMahasiswaHelper {
 					}
 					statusAwal.setWidth("100%");
 					statusAwal.addEventListener("onChange", new EventListener() {
+						/**
+						 * Perubahan combo <b>Status Awal Mahasiswa</b>: menulis {@code statusAwalMahasiswa} baru ke
+						 * {@link HistoryStatusMahasiswa} baris ini pada transaksi native session tersendiri (simpan
+						 * seketika), lalu memuat ulang grid lewat timer. Berbeda dengan combo Status, di sini TIDAK ada
+						 * validasi transisi &mdash; pembatasan hanya berupa penonaktifan komponen di sisi UI
+						 * (semester 1, konfigurasi {@code status_awal_mahasiswa_hanya_boleh_diubah_oleh}, kelompok
+						 * mahasiswa, dan setelan "status awal selalu ikut data utama").
+						 */
 						@Override
 						public void onEvent(Event event) throws Exception {
 							if (statusAwal.getSelectedItem() == null)
@@ -4511,6 +4606,7 @@ public class TampilStudiMahasiswaHelper {
 							}
 
 							Common.createDefaultTimer(new EventListener() {
+								/** Muat ulang grid setelah perubahan Status Awal tersimpan, sekaligus menulis hasil hitung IP/IPK ke database. */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									onSearchDefault(null, true);
@@ -4531,6 +4627,13 @@ public class TampilStudiMahasiswaHelper {
 					tanggalStatus.setParent(vbox2);
 					tanggalStatus.setWidth("100%");
 					tanggalStatus.addEventListener("onChange", new EventListener() {
+						/**
+						 * Perubahan <b>Tanggal Status</b>: menulis {@code tanggalStatus} ke {@link HistoryStatusMahasiswa}
+						 * baris ini dan commit seketika. Perhatikan dua hal: entitas diambil dengan flag tulis
+						 * ({@code getHistoryStatusMahasiswa(krsMahasiswa, true)}) sehingga baris riwayat dibuat bila belum
+						 * ada; dan setelah commit dipanggil {@code tempHsm.write(...)} yang mencatat jejak "tulis ulang"
+						 * berikut nama kelas pemanggil. Tidak ada pemuatan ulang grid setelahnya.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							HistoryStatusMahasiswa tempHsm = HistoryStatusMahasiswaUtil
@@ -4577,6 +4680,12 @@ public class TampilStudiMahasiswaHelper {
 					program.setParent(vbox2);
 					program.setWidth("100%");
 					program.addEventListener("onChange", new EventListener() {
+						/**
+						 * Perubahan combo <b>Program</b> pada satu baris semester: menulis program baru ke
+						 * {@link HistoryStatusMahasiswa} dan commit seketika, lalu memuat ulang grid lewat timer. Combo
+						 * ini dikunci pada semester 1 dan bila mahasiswa memakai {@code programMahasiswa} atau
+						 * {@code programSelaluIkutDataUtama}.
+						 */
 						@Override
 						public void onEvent(Event event) throws Exception {
 							if (program.getSelectedItem() == null)
@@ -4616,6 +4725,7 @@ public class TampilStudiMahasiswaHelper {
 							}
 
 							Common.createDefaultTimer(new EventListener() {
+								/** Muat ulang grid setelah perubahan Program tersimpan, sekaligus menulis hasil hitung IP/IPK ke database. */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									onSearchDefault(null, true);
@@ -4628,6 +4738,11 @@ public class TampilStudiMahasiswaHelper {
 					keterangan.setParent(arg0);
 					keterangan.setWidth("90%");
 					keterangan.addEventListener("onChange", new EventListener() {
+						/**
+						 * Perubahan kolom <b>Keterangan</b> baris semester: menulis teks ke
+						 * {@link HistoryStatusMahasiswa} dan commit seketika, diikuti {@code tempHsm.write(...)} sebagai
+						 * jejak "tulis ulang" &mdash; sama seperti Tanggal Status, dan juga tanpa memuat ulang grid.
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							HistoryStatusMahasiswa tempHsm = HistoryStatusMahasiswaUtil
@@ -4749,6 +4864,11 @@ public class TampilStudiMahasiswaHelper {
 
 					LampiranLain.createDownloadUploadFileLain(hbox1, krsMahasiswa.getId(), "KRS_DISETUJUI", "Catatan",
 							false, new EventListener() {
+								/**
+								 * Callback wajib {@code LampiranLain.createDownloadUploadFileLain} untuk lampiran KRS bertipe
+								 * {@code "KRS_DISETUJUI"}. SENGAJA dikosongkan: unggah/unduh lampiran tidak perlu memicu
+								 * pembangunan ulang baris grid, sehingga tidak ada pekerjaan lanjutan setelah berkas berpindah.
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 								}
@@ -4925,6 +5045,14 @@ public class TampilStudiMahasiswaHelper {
 
 		if (smtSelected != null) {
 			Common.createDefaultTimer(new EventListener() {
+				/**
+				 * Pembuka otomatis baris semester yang diminta. Dijalankan lewat timer SETELAH grid selesai
+				 * dirender &mdash; hanya pada saat itulah {@link #detailUtama} sudah terisi oleh
+				 * {@link DataRenderer#render(Row, Object)}. Selain membuka expander, listener pemuat detail yang
+				 * disimpan pada atribut {@code "eventListener"} dipanggil MANUAL, karena {@code setOpen(true)}
+				 * dari sisi server tidak selalu memicu event {@code onOpen}; tanpa pemanggilan ini expander akan
+				 * terbuka dalam keadaan kosong.
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (detailUtama != null) {

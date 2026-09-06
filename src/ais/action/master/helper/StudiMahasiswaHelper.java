@@ -1382,6 +1382,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 			detailAgendaKonsultasi.setParent(tabpanels);
 			detailAgendaKonsultasi.setHeight("500px");
 			tabAgendaKonsultasi.addEventListener("onClick", new EventListener() {
+				/** Memuat isi tab "Agenda Konsultasi Mahasiswa" secara lazy — hanya saat tab pertama kali diklik dan panelnya masih kosong — dengan mendelegasikan pembangunan isi ke {@link AktifitasKrsMahasiswaHelper#initDetail}. Menghindari biaya query agenda pada setiap pembukaan layar KRS. */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (detailAgendaKonsultasi.getChildren().isEmpty()) {
@@ -1460,8 +1461,35 @@ public class StudiMahasiswaHelper implements DataLoader {
 
 			final Konfigurasi k = konfigurasi;
 			buttonPerkuliahan.addEventListener("onClick", new EventListener() {
+				/** Helper pemilihan mata kuliah, dibuat sekali per listener sehingga state pemilihan bertahan antar-klik selama layar tidak dibangun ulang. */
 				private AmbilDataPerkuliahanHelper ambilDataPerkuliahanHelper = new AmbilDataPerkuliahanHelper(semesterPendek, remedial);
 
+				/**
+				 * Gerbang berlapis "Ambilkan Perkuliahan" — dosen PA/staf mengambilkan KRS untuk mahasiswa.
+				 * Setiap pemeriksaan yang gagal menampilkan pesan beserta langkah pemulihan lalu
+				 * menghentikan proses; hanya bila SEMUA lolos {@link AmbilDataPerkuliahanHelper} dibuka.
+				 * Urutannya:
+				 * <ol>
+				 * <li>Seluruh {@link SyaratUjian} bertanda {@code krs} dan aktif diperiksa lewat
+				 * {@link SyaratUjianAction#checkSyaratSyaratUjian}; peringatan digabung menjadi satu pesan.</li>
+				 * <li>Bila periode KRS utama tidak aktif tetapi periode perbaikan aktif, mahasiswa wajib
+				 * sudah pernah mengambil KRS (grid tidak boleh kosong).</li>
+				 * <li>Status kemahasiswaan harus AKTIF pada semester ini — dibaca lewat
+				 * {@link Common#getHistoryStatusMahasiswa(KrsMahasiswa)} lalu
+				 * {@link HistoryStatusMahasiswa#ambilStatusMahasiswa(Integer)}, yaitu mesin aturan status,
+				 * BUKAN kolom status yang tersimpan.</li>
+				 * <li>Dosen PA wajib ada; kelas wajib terisi bila dikonfigurasikan demikian.</li>
+				 * <li>Status pembayaran semester berjalan (kunci konfigurasi berbeda untuk semester pendek),
+				 * dilanjutkan {@link UtsDanUasCheckerHelper#checkPembayaranSebelumKRSSudahMemenuhi}.</li>
+				 * <li>Pelunasan minimal semester sebelumnya sesuai ambang persentase konfigurasi.</li>
+				 * <li>Terakhir — di LUAR blok {@code try} di atas — tidak boleh ada {@link BlokirMahasiswa}
+				 * aktif bertanda {@code krs} untuk mahasiswa ini.</li>
+				 * </ol>
+				 * <p><b>Catatan pemeliharaan:</b> butir 1-6 dibungkus satu {@code try} yang menangkap
+				 * {@link Exception} dan hanya menampilkannya kepada admin, sehingga kegagalan teknis pada
+				 * pemeriksaan tersebut membuat alur JATUH KE bagian blokir dan berlanjut, bukan berhenti.
+				 * Pemeriksaan blokir sengaja diletakkan di luar {@code try} agar tetap fail-closed.</p>
+				 */
 				@SuppressWarnings("unchecked")
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -1593,6 +1621,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 			buttonPerkuliahan.setParent(toolbar);
 
 			Common.createDefaultTimer(new EventListener() {
+				/** Pemeriksaan susulan (dijalankan pada request berikutnya agar tidak memperlambat perakitan layar): bila mahasiswa memperoleh pengecualian khusus untuk mengambil KRS di luar jadwal, tombol "Ambilkan Perkuliahan" tetap ditampilkan meski seluruh periode konfigurasi tertutup. */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (Common.checkApakahMahasiswaBolehAmbilKrsLewatPengecualian(mahasiswa, tahunAjaran, jenisSemester)) {
@@ -1607,6 +1636,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonKomentar.setVisible(semester > 0);
 
 		buttonKomentar.addEventListener("onClick", new EventListener() {
+			/** Membuka {@link KomentarHelper} untuk diskusi KRS antara mahasiswa dan dosen PA. Header KRS dibaca ulang tanpa sinkronisasi lalu ditandai {@code masukkanData("komentar")} sebagai jejak aktivitas, dan dosen PA saat itu diteruskan sebagai lawan bicara. Layar dibangun ulang setelah jendela komentar ditutup. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				KrsMahasiswa krsMhs = Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan,
@@ -1617,6 +1647,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 				KomentarHelper komentarHelper = new KomentarHelper(mahasiswa, tahunAjaran, semester, tahapan, semesterPendek, remedial, dosenPembimbingAkademik);
 
 				komentarHelper.display(new EventListener() {
+					/** Membangun ulang seluruh layar setelah jendela komentar ditutup, agar ringkasan jumlah komentar dan grid komentar ikut segar. */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						display(mahasiswa, tahunAjaran, semester, tahapan, component, keterangan, komentarshtml, ipIpk, sksSksk, catatan, catatanKhs);
