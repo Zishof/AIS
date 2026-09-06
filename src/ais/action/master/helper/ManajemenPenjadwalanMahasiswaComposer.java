@@ -1462,6 +1462,19 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ambil data Mahasiswa", "/img/new.gif");
 		button.setTooltiptext("Pilih mahasiswa yang akan dimasukkan ke kelas ini");
 		button.addEventListener("onClick", new EventListener() {
+			/**
+			 * Aksi tombol <b>"Ambil data Mahasiswa"</b>: memvalidasi konteks kelas lewat
+			 * {@code ambilKonteksKelasTervalidasi()} (berhenti diam-diam bila ada filter wajib yang belum
+			 * diisi — pesannya sudah ditampilkan oleh validator), lalu membuka picker
+			 * {@link AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper} dengan konteks tahun ajaran,
+			 * program, jurusan, semester, dan kelas yang sama persis dengan layar ini.
+			 *
+			 * <p>Aksi ini hanya MENAMBAH baris {@code penjadwalan_mahasiswa}; pembentukan KRS baru terjadi
+			 * lewat tombol "Singkronisasikan" yang terpisah.</p>
+			 *
+			 * @param event event {@code onClick}; isinya tidak dipakai.
+			 * @throws Exception diteruskan dari pembukaan picker.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				KonteksKelas ctx = ambilKonteksKelasTervalidasi();
@@ -1471,6 +1484,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 				AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper dataMahasiswaHelper = new AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper(
 						ctx.tahunAjaran, ctx.program, ctx.jurusan, ctx.semester, ctx.kelas);
 				dataMahasiswaHelper.display(new DataLoader() {
+					/**
+					 * Callback dari picker mahasiswa: memuat ulang grid roster agar mahasiswa yang baru ditambahkan
+					 * langsung terlihat.
+					 *
+					 * @param value data hasil pilihan dari picker; diteruskan apa adanya ke
+					 *              {@code loadDataMahasiswa(...)}.
+					 */
 					@Override
 					public void loadData(Object value) {
 						loadDataMahasiswa(value);
@@ -1483,6 +1503,14 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		button = new MyToolbarbuttonConfig("Singkronisasikan", "/img/process-accept-icon-kecil.png");
 		button.setTooltiptext("Bentuk KRS otomatis: daftarkan semua mahasiswa di daftar ini ke perkuliahan kelas ini");
 		button.addEventListener("onClick", new EventListener() {
+			/**
+			 * Aksi tombol <b>"Singkronisasikan"</b> — tahap pertama: memvalidasi konteks kelas, mengambil
+			 * pengguna login untuk dijadikan pencatat perubahan, lalu menampilkan dialog konfirmasi.
+			 * Pekerjaan sesungguhnya berjalan di listener konfirmasi dan timer di dalamnya.
+			 *
+			 * @param event event {@code onClick}; isinya tidak dipakai.
+			 * @throws Exception diteruskan dari validasi konteks atau penampilan dialog.
+			 */
 			@SuppressWarnings("unchecked")
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -1495,6 +1523,14 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 						"Apakah yakin ingin meng-singkronisasikan data mahasiswa dengan jadwal perkuliahan ini ?",
 						"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 						new EventListener() {
+							/**
+							 * Jawaban dialog konfirmasi "Singkronisasikan": berhenti bila pengguna tidak menekan OK, dan
+							 * bila OK membungkus proses panjang dalam {@code Common.createDefaultTimer(...)} disertai pesan
+							 * tunggu "Sedang melakukan singkronisasi.. harap menunggu.." agar UI tidak tampak membeku.
+							 *
+							 * @param event event dialog yang membawa tombol pilihan pada {@code getData()}.
+							 * @throws Exception diteruskan dari penjadwalan timer.
+							 */
 							@Override
 							public void onEvent(Event event) throws Exception {
 								int i = Integer.parseInt(event.getData().toString());
@@ -1502,6 +1538,37 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 									return;
 								}
 								Common.createDefaultTimer(new EventListener() {
+									/**
+									 * Inti aksi <b>"Singkronisasikan"</b>: membentuk {@link Detailperkuliahan} (KRS) untuk SETIAP
+									 * mahasiswa pada roster &times; SETIAP {@link Perkuliahan} pada {@link #perkuliahans}, sambil
+									 * menyusun ringkasan BERHASIL/GAGAL/DILEWATI per mahasiswa.
+									 *
+									 * <p><b>Penjaga per mahasiswa</b> (dievaluasi berurutan, sebelum perulangan perkuliahan):</p>
+									 * <ol>
+									 * <li>Batas SKS menurut IP ({@code Common.checkPembatasanSKSBerdasarkanIP}) — bila terlampaui,
+									 * mahasiswa DILEWATI <b>tanpa</b> menambah pesan apa pun ke ringkasan, sehingga operator tidak
+									 * melihat alasan mahasiswa itu tidak terproses. Penjaga lain selalu meninggalkan jejak.</li>
+									 * <li>Status pembayaran semester berjalan ({@code Common.checkStatusPembayaranMahasiswa}) —
+									 * bila belum lunas, dicatat sebagai GAGAL beserta NIM dan nama.</li>
+									 * </ol>
+									 *
+									 * <p><b>Penjaga per perkuliahan:</b> {@link #checkMahasiswaBentrok} memastikan matakuliah yang
+									 * sama belum diambil di perkuliahan lain pada tahun ajaran dan semester berjalan. KRS baru
+									 * ditulis lewat {@code KrsUtilHelper.simpanKrsJikaBelumAda} yang bersifat idempoten (menghasilkan
+									 * DILEWATI bila sudah ada), sedangkan KRS yang sudah ada diperbarui lewat
+									 * {@code session.update}. Persetujuan langsung disetel {@code Detailperkuliahan.DISETUJUI} —
+									 * jalur ini memang mewakili penjadwalan paket oleh operator, bukan pengajuan KRS oleh mahasiswa.</p>
+									 *
+									 * <p><b>Transaksi per baris:</b> setiap pasangan mahasiswa &times; perkuliahan memakai transaksi
+									 * sendiri dan di-commit terpisah. Konsekuensinya proses ini TIDAK atomik — kegagalan di tengah
+									 * meninggalkan sebagian KRS sudah terbentuk, dan pemulihannya adalah menjalankan ulang aksi ini
+									 * (aman karena idempoten) atau memakai "Batalkan Singkronisasi". Blok {@code finally} menutup
+									 * session pada setiap iterasi.</p>
+									 *
+									 * @param arg0 event timer; isinya tidak dipakai.
+									 * @throws Exception tidak diteruskan ke pemanggil — seluruh kegagalan ditangkap dan
+									 *                   dilaporkan lewat {@code PesanFormalHelper}.
+									 */
 									@Override
 									public void onEvent(Event arg0) throws Exception {
 										try {
@@ -1637,6 +1704,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		button = new MyToolbarbuttonConfig("Batalkan Singkronisasi", "/img/svg/trash.svg");
 		button.setTooltiptext("Hapus kembali KRS yang belum dinilai untuk mahasiswa di daftar ini");
 		button.addEventListener("onClick", new EventListener() {
+			/**
+			 * Aksi tombol <b>"Batalkan Singkronisasi"</b> — tahap pertama: memvalidasi konteks kelas lalu
+			 * menampilkan dialog konfirmasi.
+			 *
+			 * @param event event {@code onClick}; isinya tidak dipakai.
+			 * @throws Exception diteruskan dari validasi konteks atau penampilan dialog.
+			 */
 			@SuppressWarnings("unchecked")
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -1648,6 +1722,23 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 						"Apakah yakin ingin menghapus kembali singkronisasi jadwal mahasiswa yang ada di daftar ini ?",
 						"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 						new EventListener() {
+							/**
+							 * Jawaban dialog konfirmasi "Batalkan Singkronisasi": bila OK, menghapus {@link Detailperkuliahan}
+							 * milik setiap mahasiswa roster pada setiap perkuliahan di {@link #perkuliahans}.
+							 *
+							 * <p><b>Hanya KRS yang belum dinilai</b> yang dihapus: kriteria menyaring
+							 * {@code totalNilai <= 0.1}, sehingga KRS yang sudah punya nilai tidak ikut terhapus. Baris
+							 * {@code nilai} yang menggantung dihapus lebih dulu lewat SQL langsung (id-nya berasal dari
+							 * entity hasil query, bukan dari masukan pengguna), baru {@link Detailperkuliahan}-nya.</p>
+							 *
+							 * <p>Berbeda dari aksi "Singkronisasikan", di sini tidak ada ringkasan per mahasiswa — operator
+							 * hanya menerima satu pesan berhasil di akhir, sehingga jumlah baris yang benar-benar terhapus
+							 * tidak terlihat. Seluruh penghapusan berjalan pada session request yang sama tanpa transaksi
+							 * eksplisit.</p>
+							 *
+							 * @param event event dialog yang membawa tombol pilihan pada {@code getData()}.
+							 * @throws Exception tidak diteruskan — kegagalan dilaporkan lewat {@code PesanFormalHelper}.
+							 */
 							@Override
 							public void onEvent(Event event) throws Exception {
 								int i = Integer.parseInt(event.getData().toString());
@@ -1697,6 +1788,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		button = new MyToolbarbuttonConfig("Bersihkan Daftar", "/img/svg/trash.svg");
 		button.setTooltiptext("Kosongkan seluruh daftar mahasiswa pada kelas & semester ini");
 		button.addEventListener("onClick", new EventListener() {
+			/**
+			 * Aksi tombol <b>"Bersihkan Daftar"</b> — tahap pertama: memvalidasi konteks kelas lalu
+			 * menampilkan dialog konfirmasi.
+			 *
+			 * @param event event {@code onClick}; isinya tidak dipakai.
+			 * @throws Exception diteruskan dari validasi konteks atau penampilan dialog.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				final KonteksKelas ctx = ambilKonteksKelasTervalidasi();
@@ -1706,6 +1804,27 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 				MyMessageboxConfig.show("Apakah yakin ingin menghapus semua data mahasiswa yang ada di daftar ini ?",
 						"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 						new EventListener() {
+							/**
+							 * Jawaban dialog konfirmasi <b>"Bersihkan Daftar"</b>: bila OK, menghapus SELURUH baris
+							 * {@code penjadwalan_mahasiswa} untuk kombinasi kelas + tahun ajaran + semester pada konteks,
+							 * lewat satu perintah SQL langsung, lalu memuat ulang grid.
+							 *
+							 * <p>Aksi ini hanya mengosongkan ROSTER; {@link Detailperkuliahan}/KRS yang terlanjur terbentuk
+							 * lewat "Singkronisasikan" TIDAK ikut terhapus dan harus dibersihkan lebih dulu lewat
+							 * "Batalkan Singkronisasi".</p>
+							 *
+							 * <p><b>Catatan penyusunan SQL.</b> Perintah dirakit dengan perangkaian teks, dan
+							 * {@code ctx.tahunAjaran} disisipkan ke dalam literal berkutip. Nilai itu berasal dari
+							 * {@code tahunAjaran.getSelectedItem().getValue()}, yakni nilai objek {@code Comboitem} yang
+							 * dibangun server lewat {@code Common.generateTahunAjaran(...)} — bukan teks bebas dari klien —
+							 * sehingga jalur ini tidak dapat disuntik lewat masukan pengguna biasa; {@code kelas.getId()}
+							 * dan {@code semester} keduanya numerik hasil query/pilihan server. Perangkaian teks tetap pola
+							 * yang rapuh bila kelak sumber nilainya berubah menjadi combobox yang dapat diketik; parameter
+							 * terikat akan lebih aman.</p>
+							 *
+							 * @param event event dialog yang membawa tombol pilihan pada {@code getData()}.
+							 * @throws Exception tidak diteruskan — kegagalan dilaporkan lewat {@code PesanFormalHelper}.
+							 */
 							@Override
 							public void onEvent(Event event) throws Exception {
 								int i = Integer.parseInt(event.getData().toString());
@@ -1739,6 +1858,15 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		toolbarCari.setParent(groupbox);
 
 		final EventListener pemicuCari = new EventListener() {
+			/**
+			 * Pemicu pencarian bersama toolbar roster: dipakai ulang sebagai listener {@code Events.ON_OK}
+			 * pada kotak {@link #nim}, {@link #nama}, dan {@link #angkatan} sekaligus sebagai
+			 * {@code onClick} tombol "Cari". Seluruhnya memuat ulang daftar lewat
+			 * {@code loadDataMahasiswa(null)}, yang membaca nilai ketiga kotak itu sendiri.
+			 *
+			 * @param arg0 event pemicu; isinya tidak dipakai.
+			 * @throws Exception diteruskan dari pemuatan data.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadDataMahasiswa(null);
@@ -1918,10 +2046,39 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 		private boolean delete = false;
 
+		/**
+		 * Menentukan sekali di muka apakah pengguna berhak menghapus
+		 * ({@code CommonPrivilages.checkPrevilages(DELETE)}), agar pemeriksaan hak tidak diulang untuk
+		 * setiap baris yang digambar.
+		 *
+		 * <p>Hasilnya hanya dipakai untuk {@code setVisible} tombol Hapus — sebuah gerbang TAMPILAN.
+		 * Listener hapusnya sendiri tidak mengulang pemeriksaan hak, sehingga perlindungan bergantung
+		 * pada tombol yang tidak dirender. Ini perluasan pola "gerbang UI-only" yang sudah dikenal di
+		 * basis kode, dicatat di sini agar terlihat saat modul ini disentuh lagi.</p>
+		 */
 		public DetailKelasRenderer() {
 			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		}
 
+		/**
+		 * Menggambar satu baris roster: NIM (dibungkus tombol revisi {@link RevisiHelper} sehingga
+		 * riwayat perubahan baris dapat dibuka), Nama, Angkatan, Fakultas, Program Studi, Program,
+		 * status Pembayaran, dan tombol Hapus.
+		 *
+		 * <p>Status pembayaran dihitung per baris dengan mengambil {@link Kegiatan} jenis
+		 * "Pendaftaran Mahasiswa Lama" untuk semester baris tersebut; bila tidak ada, ditampilkan
+		 * "Belum bayar". Karena dilakukan di dalam renderer, satu query dijalankan untuk SETIAP baris
+		 * yang tampil (pola N+1) — dampaknya terbatas karena grid berpaging sepuluh baris.</p>
+		 *
+		 * <p>Pembacaan relasi jurusan dan fakultas dijaga terhadap {@code null} agar satu data tidak
+		 * lengkap tidak menggagalkan seluruh tabel. Namun {@code mahasiswa} sendiri TIDAK dijaga: baris
+		 * {@code PenjadwalanMahasiswa} yang kehilangan relasi mahasiswanya akan melempar
+		 * {@code NullPointerException} dan menggagalkan render tabel.</p>
+		 *
+		 * @param row  baris grid yang sedang digambar.
+		 * @param data elemen model, selalu berupa {@link PenjadwalanMahasiswa}.
+		 * @throws Exception diteruskan dari pembangunan komponen atau query status pembayaran.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
@@ -1953,11 +2110,28 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 			button.setVisible(delete);
 			button.setTooltiptext("Hapus Data");
 			button.addEventListener("onClick", new EventListener() {
+				/**
+				 * Aksi tombol Hapus pada satu baris roster: menampilkan dialog konfirmasi penghapusan mahasiswa
+				 * dari daftar penjadwalan.
+				 *
+				 * @param event event {@code onClick}; isinya tidak dipakai.
+				 * @throws Exception diteruskan dari penampilan dialog.
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					MyMessageboxConfig.show("Apakah yakin ingin menghapus mahasiswa penjadwalan ini ?", "Pertanyaan",
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 							new EventListener() {
+								/**
+								 * Jawaban dialog konfirmasi hapus baris: bila OK, menghapus satu baris
+								 * {@code PenjadwalanMahasiswa} lewat {@code Common.refreshDelete(...)} lalu memuat ulang grid.
+								 *
+								 * <p>Hanya keanggotaan roster yang dihapus — {@link Detailperkuliahan}/KRS mahasiswa tersebut
+								 * tidak ikut terhapus, sejajar dengan perilaku tombol "Bersihkan Daftar".</p>
+								 *
+								 * @param event event dialog yang membawa tombol pilihan pada {@code getData()}.
+								 * @throws Exception tidak diteruskan — kegagalan dilaporkan lewat {@code PesanFormalHelper}.
+								 */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
