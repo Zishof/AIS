@@ -182,7 +182,7 @@ public class KurikulumPunyaMatakuliahPunyaItemHelper implements DataLoader {
 					if (Common.isMobile()) {
 						ExecutionsCtrl.getCurrent().sendRedirect(jsonObject.getString("previewLink"), "_blank");
 					} else {
-						Clients.evalJavaScript("popupCenter({url: '" + jsonObject.getString("previewLink")
+						Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(jsonObject.getString("previewLink"))
 								+ "', title: 'Book', w: 1200, h: 600});");
 					}
 

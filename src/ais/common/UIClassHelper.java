@@ -338,7 +338,7 @@ public class UIClassHelper {
 					} else {
 
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 
 					}
 
@@ -410,7 +410,7 @@ public class UIClassHelper {
 					} else {
 
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 
 					}
 
