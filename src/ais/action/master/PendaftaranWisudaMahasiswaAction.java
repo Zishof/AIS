@@ -142,8 +142,7 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 		mahasiswa = (Mahasiswa) bandboxMahasiswa.getAttribute("mahasiswa");
 
 		Session session = HibernateUtil.currentSession();
-		skripsi = (Skripsi) session.createCriteria(Skripsi.class).add(Restrictions.eq("mahasiswa", mahasiswa))
-				.setMaxResults(1).uniqueResult();
+		skripsi = ambilSkripsiUntukWisuda(session, mahasiswa);
 		if (skripsi == null) {
 			skripsi = new Skripsi();
 		}
@@ -187,8 +186,7 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 		mahasiswa = (Mahasiswa) bandboxMahasiswa.getAttribute("mahasiswa");
 
 		Session session = HibernateUtil.currentSession();
-		skripsi = (Skripsi) session.createCriteria(Skripsi.class).add(Restrictions.eq("mahasiswa", mahasiswa))
-				.setMaxResults(1).uniqueResult();
+		skripsi = ambilSkripsiUntukWisuda(session, mahasiswa);
 		if (skripsi == null) {
 			MyMessageboxConfig.showFormatCb("Mohon maaf, data \"{V1}\" belum lengkap dan harus dilengkapi terlebih dahulu. Langkah yang dapat dilakukan: (1) Tekan tombol \"OK\" untuk membuka formulir \"{V1}\"; (2) Lengkapi seluruh isian yang diperlukan; (3) Simpan data, kemudian ulangi proses ini.", "Informasi",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, new EventListener() {
@@ -236,8 +234,7 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 				init(skripsi, pendaftaranWisuda == null ? new PendaftaranWisuda() : pendaftaranWisuda);
 			} else {
 
-				skripsi = (Skripsi) session.createCriteria(Skripsi.class).add(Restrictions.eq("mahasiswa", mahasiswa))
-						.setMaxResults(1).uniqueResult();
+				skripsi = ambilSkripsiUntukWisuda(session, mahasiswa);
 				if (pendaftaranWisuda != null && skripsi != null) {
 					init(skripsi, pendaftaranWisuda);
 					return;
@@ -892,20 +889,32 @@ public class PendaftaranWisudaMahasiswaAction extends GenericAutowireComposer {
 		toolbar.appendChild(toolbarbutton);
 	}
 
+	static Skripsi ambilSkripsiUntukWisuda(Session session, Mahasiswa mahasiswa) {
+		if (mahasiswa == null) {
+			return null;
+		}
+		// Formulir dan validasi harus membaca record yang sama, termasuk saat semester sama.
+		Skripsi hasil = (Skripsi) session.createCriteria(Skripsi.class)
+				.add(Restrictions.eq("mahasiswa", mahasiswa))
+				.add(Restrictions.gt("totalNilai", 0.1))
+				.addOrder(Order.desc("semester")).addOrder(Order.desc("id"))
+				.setMaxResults(1).uniqueResult();
+		if (hasil == null) {
+			hasil = (Skripsi) session.createCriteria(Skripsi.class)
+					.add(Restrictions.eq("mahasiswa", mahasiswa))
+					.addOrder(Order.desc("semester")).addOrder(Order.desc("id"))
+					.setMaxResults(1).uniqueResult();
+		}
+		return hasil;
+	}
+
 	@SuppressWarnings("unchecked")
 	private boolean checkQuota(Mahasiswa mahasiswa) throws Exception {
 		this.mahasiswa = mahasiswa;
 		Session session = HibernateUtil.currentSession();
 
 		if (Common.bolehKonfigurasi("data_skripsi_harus_diinput_sebelum_daftar_wisuda")) {
-			skripsi = (Skripsi) session.createCriteria(Skripsi.class).add(Restrictions.eq("mahasiswa", mahasiswa))
-					.addOrder(Order.desc("semester")).add(Restrictions.gt("totalNilai", 0.1)).setMaxResults(1)
-					.uniqueResult();
-
-			if (skripsi == null) {
-				skripsi = (Skripsi) session.createCriteria(Skripsi.class).add(Restrictions.eq("mahasiswa", mahasiswa))
-						.addOrder(Order.desc("semester")).setMaxResults(1).uniqueResult();
-			}
+			skripsi = ambilSkripsiUntukWisuda(session, mahasiswa);
 
 			if (skripsi == null) {
 				MyMessageboxConfig.showFormat("Mohon maaf, data \"{V1}\" belum tersedia di dalam sistem dan harus diunggah terlebih dahulu sebelum pendaftaran wisuda dapat diproses. Langkah yang dapat dilakukan: (1) Buka menu data \"{V1}\"; (2) Unggah berkas yang diperlukan; (3) Simpan data, kemudian ulangi proses pendaftaran wisuda.", "Peringatan",
