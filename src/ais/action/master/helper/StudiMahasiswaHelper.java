@@ -793,6 +793,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 
 												final List<String> errorLog = new ArrayList<String>();
 												final Label myLabelProsesDetail = Common.displayLoadBar(new EventListener() {
+															/** Dipanggil saat bilah proses selesai: menampilkan pesan akhir bila ada, dan bila {@code errorLog} tidak kosong, merangkai seluruh galat menjadi satu berkas teks di direktori {@code tmp} aplikasi lalu menawarkannya untuk diunduh. Diakhiri dengan penyegaran grid. */
 															@Override
 															public void onEvent(Event arg0) throws Exception {
 																if (arg0 != null && !arg0.getName().isEmpty()) {
@@ -2329,7 +2330,6 @@ public class StudiMahasiswaHelper implements DataLoader {
 														Filedownload.save(file, "text/plain");
 													}
 													Common.createDefaultTimer(new EventListener() {
-														/** Dipanggil saat bilah proses selesai: menampilkan pesan akhir bila ada, dan bila {@code errorLog} tidak kosong, merangkai seluruh galat menjadi satu berkas teks di direktori {@code tmp} aplikasi lalu menawarkannya untuk diunduh. Diakhiri dengan penyegaran grid. */
 														/** Menyegarkan grid dengan hitung ulang ekivalensi setelah nilai dari Feeder tersimpan. */
 														@Override
 														public void onEvent(Event arg0) throws Exception {
