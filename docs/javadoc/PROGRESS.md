@@ -1,5 +1,67 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 Batch 131 — backlog root-level lepas TUNTAS, 2 mega-file baru ditemukan+diselesaikan, 2 task baru (6 Sep 2026)
+
+Rescan root `ais/database/model/` menunjukkan backlog 485-file TUNTAS —
+sisa file berblok-Javadoc-rendah semua sudah selesai/tiny (VoKunci,
+VOMahasiswaDosen, VOPesertaPembelajaran, CommonSorter,
+SettingBiayaPengecualianSemesterSelfTest). Rescan lebih lebar
+menemukan 2 MEGA-FILE tersembunyi (blok sedikit tapi baris SANGAT
+banyak — heuristik jumlah-blok gagal menangkap file besar dgn cakupan
+parsial): `Detailperkuliahan.java` (2113 baris, 16 blok) dan
+`Tbmrole.java` (1122 baris, 19 blok, companion langsung `Tbmuser.java`
+batch 128). Ditambah klaster kecil sisa dokumentasi parsial.
+
+**`Detailperkuliahan.java`** (agent `opus`, 2113→4279 baris,
+135/135 method + 48/48 field, r85778-r85789, 7 commit). Dikonfirmasi
+anak (detail) SEJATI dari `Perkuliahan.java` — 1 baris = 1 mahasiswa ×
+1 kelas, dirujuk **268 file** (leverage tinggi). Getter destruktif
+paling agresif ditemukan: `getMatakuliahKonversi()` meng-`null`-kan FK
+`matakuliah_konversi` di DB permanen HANYA karena baris dibaca (dipicu
+tak langsung dari `toString()`). Nilai kunci ternyata TIDAK sepenuhnya
+beku — `getNilaiHuruf()`/`getTotalIP()` pada baris terkunci tetap
+memetakan ulang dari tabel Format Nilai Huruf yang bisa berubah. 0
+task baru (pola getter-destruktif sudah tercakup, kategori integritas
+data bukan keamanan).
+
+**`Tbmrole.java`** (agent `opus`, 1122→4626 baris, 213 blok, nol
+anggota tanpa Javadoc, r85784-r85802, 5 commit). FK tunggal
+`Tbmuser.getUserRole()`→`tbmrole.roleid`; slot `userRole2..5` adalah
+PEMILIHAN peran aktif (bukan gabungan hak). **TIDAK ADA hierarki
+peran** (dikonfirmasi tuntas — yang dikira pewarisan cuma snapshot
+`copyDari` sekali-buat atau struktur render pohon menu). 4 lapis izin
+yang TIDAK saling validasi (flag Boolean→`job_has_menu`→`RolePrivilage`
+→katalog JSON), 10 flag mati sebagai kontrol akses. **2 task baru**:
+`task_561fea15` (`ebisnis_menu` — SATU-SATUNYA kolom `@NotAudited` di
+entity ini, padahal itu lapisan otorisasi NYATA POS/apotek/akuntansi
+[100+ titik `bolehAksi`] — perubahan izin paling menentukan tak
+berjejak Envers) dan `task_cf867b3d` (hak bawaan dari PENCOCOKAN
+SUBSTRING nama peran — `getBolehEntryTopup()` gerbang transaksional
+nyata menyala kalau `roleId` MENGANDUNG `"keu"`, peran `"keu_readonly"`
+diam-diam dapat hak topup saldo).
+
+**Klaster kecil sisa**: `PerformaLog.java` (r85779, dikonfirmasi AMAN
+— murni metrik JVM, bukan payload/PII), `IsiAngketParameterUmum.java`
+(r85782, **DIKONFIRMASI RENTAN** `task_484d4bd0` — `populate
+ParameterTambahan` panggil `LampiranLain.ambil()` mentah tanpa
+`resolveJenisParameterTambahan`, kunci grup-checklist paling telanjang
+`<idGrup>-><idParameter>` tanpa marker kelas sama sekali; dicatat
+sebagai perluasan, bukan task baru), `NeoFeederSync.java` (r85776),
+`AngketPenilaianDosen.java` (r85777), `ChecklistPenilaianDosenOleh
+Mahasiswa.java` (r85780). `VOSiswa.java`/`WaProfile.java`/
+`TanyaJawab.java` sudah selesai sesi paralel lain sebelum batch ini
+mulai — diverifikasi via `svn log`, sengaja tidak disentuh.
+
+**2 task baru batch ini**: `task_561fea15`, `task_cf867b3d`. **Backlog
+root-level 485-file kini TUNTAS** (semua file sudah pada tingkat
+dokumentasi lengkap atau sudah diverifikasi selesai sesi lain). Total
+akumulasi: **1844+ file** dari 7.401. Fokus sesi berikutnya: kembali
+ke domain package yang belum tersentuh (`config`, `sisdes`,
+`kedokteran`, `ojs`, `sapto`, `beasiswa`, `streaming` — TAPI ini
+diklaim sesi paralel lain, HINDARI kolisi; cek `svn log` package
+tersebut dulu), atau audit ulang kualitas Javadoc template-generik di
+package yang sudah "selesai" secara superfisial.
+
 ## Batch 130 — 81 file lepas root (5 agent paralel, 1 `opus`), 4 task baru, total 280/485 root selesai (6 Sep 2026)
 
 Lanjutan backlog root: mega-file+base-class prioritas tinggi (4 file,
