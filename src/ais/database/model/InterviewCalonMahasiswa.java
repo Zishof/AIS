@@ -1327,41 +1327,128 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 
 	}
 
+	/**
+	 * Mengembalikan waktu mulai sesi interview.
+	 *
+	 * <p><b>Tidak pernah {@code null}.</b> Bila kolomnya kosong, yang dikembalikan adalah
+	 * {@link WaktuUtil#getDate()} — waktu <i>saat method dipanggil</i>. Konsekuensinya:</p>
+	 * <ul>
+	 *   <li>sesi yang belum dijadwalkan tidak dapat dibedakan dari sesi yang dijadwalkan mulai
+	 *       sekarang;</li>
+	 *   <li>nilainya <b>berubah setiap kali dibaca</b>, sehingga dua pembacaan berturut-turut dalam
+	 *       satu permintaan bisa menghasilkan waktu berbeda;</li>
+	 *   <li>bersama {@link #getSampai()} yang berperilaku sama, sesi tanpa jadwal tampak sebagai
+	 *       jendela selebar nol yang selalu bergeser mengikuti jam sekarang.</li>
+	 * </ul>
+	 * <p>Ini juga menjadi nilai cadangan bagi {@code InterviewPunyaCalonMahasiswa.getMulai()} ketika
+	 * peserta tidak punya jadwal sendiri — jadi fallback per peserta pun tidak pernah berujung
+	 * {@code null}. Bila yang dibutuhkan adalah "apakah sesi ini sudah dijadwalkan", periksa kolom
+	 * mentahnya lewat kueri, bukan lewat getter ini.</p>
+	 *
+	 * @return waktu mulai tersimpan, atau waktu sekarang bila kolomnya kosong
+	 * @see #getSampai()
+	 * @see InterviewPunyaCalonMahasiswa#getMulai()
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getMulai() {
 		return mulai == null ? WaktuUtil.getDate() : mulai;
 	}
 
+	/**
+	 * Menetapkan waktu mulai sesi interview.
+	 *
+	 * <p>Tidak ada validasi terhadap {@link #setSampai(Date)}; jadwal yang berakhir sebelum mulai
+	 * tidak akan ditolak di lapisan model. Referensi {@link Date} disimpan langsung tanpa
+	 * penyalinan defensif.</p>
+	 *
+	 * @param mulai waktu mulai; {@code null} mengembalikan perilaku pengganti pada
+	 *              {@link #getMulai()}
+	 */
 	public void setMulai(Date mulai) {
 		this.mulai = mulai;
 	}
 
+	/**
+	 * Mengembalikan waktu berakhir sesi interview.
+	 *
+	 * <p>Perilaku dan seluruh peringatannya identik dengan {@link #getMulai()}: tidak pernah
+	 * {@code null}, dan kolom kosong diganti waktu saat pemanggilan.</p>
+	 *
+	 * @return waktu berakhir tersimpan, atau waktu sekarang bila kolomnya kosong
+	 * @see #getMulai()
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getSampai() {
 		return sampai == null ? WaktuUtil.getDate() : sampai;
 	}
 
+	/**
+	 * Menetapkan waktu berakhir sesi interview, tanpa validasi terhadap {@link #setMulai(Date)}.
+	 *
+	 * @param sampai waktu berakhir; {@code null} mengembalikan perilaku pengganti pada
+	 *               {@link #getSampai()}
+	 */
 	public void setSampai(Date sampai) {
 		this.sampai = sampai;
 	}
 
+	/**
+	 * Mengembalikan catatan bebas mengenai sesi.
+	 *
+	 * <p>Salah satu dari sedikit getter di kelas ini yang benar-benar murni — nilainya dikembalikan
+	 * apa adanya, termasuk {@code null}.</p>
+	 *
+	 * @return keterangan, atau {@code null} bila belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/**
+	 * Menetapkan catatan bebas mengenai sesi. Isinya tidak dibatasi panjang maupun disaring.
+	 *
+	 * @param keterangan catatan bebas
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan penanda sesi masih berlaku.
+	 *
+	 * <p><b>Baku aktif:</b> kolom {@code null} dibaca sebagai {@code true}, jadi baris lama yang
+	 * belum pernah diisi penanda ini ikut dianggap aktif. Berbeda dengan getter lain di kelas ini,
+	 * penggantian tersebut tidak ditulis balik ke field.</p>
+	 *
+	 * <p>Penyaringan berdasarkan penanda ini adalah tanggung jawab pemanggil; kelas ini tidak
+	 * menghalangi operasi apa pun pada sesi yang tidak aktif.</p>
+	 *
+	 * @return {@code true} bila sesi berlaku; tidak pernah {@code null}
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menetapkan penanda sesi masih berlaku.
+	 *
+	 * @param aktif {@code false} untuk menonaktifkan sesi; {@code null} dibaca kembali sebagai
+	 *              {@code true}
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan pegawai yang bertugas sebagai pewawancara pada sesi ini.
+	 *
+	 * <p>Relasi wajib ({@code nullable = false}) yang dimuat malas; {@code check(pegawai)}
+	 * meresolusi proxy dan hasilnya <b>ditugaskan kembali ke field</b> — penugasan itu bagian dari
+	 * kontrak pemuatan malas pada model ini dan tidak boleh dihilangkan.</p>
+	 *
+	 * @return pewawancara sesi ini
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai", nullable = false)
 	public Pegawai getPegawai() {
@@ -1369,18 +1456,60 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return pegawai;
 	}
 
+	/**
+	 * Menetapkan pegawai pewawancara sesi ini.
+	 *
+	 * <p>Kolomnya wajib di basis data, tetapi setter ini menerima {@code null} tanpa keluhan —
+	 * kegagalannya baru muncul sebagai galat batasan saat {@code flush}.</p>
+	 *
+	 * @param pegawai pewawancara sesi
+	 */
 	public void setPegawai(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/**
+	 * Mengembalikan daya tampung peserta sesi.
+	 *
+	 * <p><b>Baku {@code 3000}</b> bila kolomnya kosong — angka yang sengaja sangat besar sehingga
+	 * praktis berarti "tanpa batas". Jangan menganggap nilai ini sebagai kapasitas ruangan fisik
+	 * yang sebenarnya bila kolomnya memang belum pernah diisi.</p>
+	 *
+	 * <p>Kelas ini tidak menegakkan batas tersebut; pemeriksaan jumlah peserta terhadap kapasitas
+	 * harus dilakukan lapisan aksi saat menambahkan {@link InterviewPunyaCalonMahasiswa}.</p>
+	 *
+	 * @return daya tampung peserta; tidak pernah {@code null}
+	 */
 	public Integer getKapasitasRuangan() {
 		return kapasitasRuangan == null ? 3000 : kapasitasRuangan;
 	}
 
+	/**
+	 * Menetapkan daya tampung peserta sesi. Nilai negatif maupun nol tidak ditolak di sini.
+	 *
+	 * @param kapasitasRuangan daya tampung; {@code null} mengembalikan nilai baku {@code 3000}
+	 */
 	public void setKapasitasRuangan(Integer kapasitasRuangan) {
 		this.kapasitasRuangan = kapasitasRuangan;
 	}
 
+	/**
+	 * Mengembalikan daftar id gelombang pendaftaran yang boleh mengikuti sesi ini, sebagai string
+	 * id dipisah koma.
+	 *
+	 * <p><b>Getter ini mengubah state:</b> nilai {@code null} diganti string kosong dan penugasan
+	 * itu ditulis balik ke field, sehingga membaca properti ini dapat menandai entity kotor dan
+	 * memicu revisi audit palsu.</p>
+	 *
+	 * <p>Relasi banyak-ke-banyak ini disimpan sebagai <b>daftar berkoma dalam satu kolom</b>, bukan
+	 * lewat tabel penghubung. Akibatnya tidak ada integritas referensial: id gelombang yang sudah
+	 * dihapus tetap tertinggal di string dan baru tersaring saat
+	 * {@link #ambilGelombangPendaftaran()} gagal menemukannya.</p>
+	 *
+	 * @return daftar id dipisah koma; string kosong bila belum ada, tidak pernah {@code null}
+	 * @see #ambilGelombangPendaftaran()
+	 * @see #ambilGelombangPendaftaranId()
+	 */
 	public String getGelombangPendaftaranLain() {
 		if (gelombangPendaftaranLain == null) {
 			gelombangPendaftaranLain = "";
@@ -1388,6 +1517,27 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return gelombangPendaftaranLain;
 	}
 
+	/**
+	 * Memuat objek {@link GelombangPendaftaran} yang boleh mengikuti sesi ini, diurutkan sesuai
+	 * urutan alami {@code GelombangPendaftaran}.
+	 *
+	 * <p>Daftar id berkoma dari {@link #getGelombangPendaftaranLain()} dipecah, lalu tiap id
+	 * dicari satu per satu ke basis data dengan penyaring <b>hanya gelombang yang aktif</b>
+	 * ({@code aktif} bernilai {@code true} atau {@code null}). Id yang bukan angka dipetakan ke
+	 * {@code -1L} sehingga pasti tidak ditemukan, dan id yang gelombangnya sudah dihapus atau
+	 * dinonaktifkan hilang dari hasil tanpa pemberitahuan. Duplikat dibuang.</p>
+	 *
+	 * <p><b>Catatan kinerja:</b> method ini menembakkan <i>satu kueri per id</i> (pola N+1) dan
+	 * memakai {@code HibernateUtil.currentSession()}, jadi ia harus dipanggil di dalam konteks
+	 * sesi Hibernate yang aktif dan sebaiknya tidak dipanggil di dalam perulangan baris tampilan.</p>
+	 *
+	 * <p>Bila yang dibutuhkan hanya id-nya, pakai {@link #ambilGelombangPendaftaranId()} yang tidak
+	 * menyentuh basis data sama sekali.</p>
+	 *
+	 * @return daftar gelombang pendaftaran yang aktif dan terdaftar pada sesi ini; kosong bila
+	 *         tidak ada yang cocok
+	 * @see #ambilGelombangPendaftaranId()
+	 */
 	public List<GelombangPendaftaran> ambilGelombangPendaftaran() {
 
 		List<GelombangPendaftaran> gelombangPendaftarans = new ArrayList<GelombangPendaftaran>();
@@ -1410,6 +1560,21 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return gelombangPendaftarans;
 	}
 
+	/**
+	 * Memecah daftar id gelombang pendaftaran menjadi {@code List<Long>} terurut, <b>tanpa
+	 * menyentuh basis data</b>.
+	 *
+	 * <p>Berbeda dari {@link #ambilGelombangPendaftaran()}, method ini tidak memverifikasi bahwa
+	 * gelombangnya benar-benar ada maupun masih aktif — id yang sudah dihapus tetap muncul di
+	 * hasil. Pakai ini bila yang dibutuhkan sekadar himpunan id (misalnya untuk menyusun penyaring
+	 * kueri), dan pakai {@link #ambilGelombangPendaftaran()} bila objeknya yang diperlukan.</p>
+	 *
+	 * <p>Entri yang bukan angka dilewati secara senyap lewat blok {@code catch} kosong; duplikat
+	 * dibuang dan hasilnya diurutkan menaik.</p>
+	 *
+	 * @return daftar id gelombang pendaftaran terurut; kosong bila tidak ada entri yang sah
+	 * @see #ambilGelombangPendaftaran()
+	 */
 	public List<Long> ambilGelombangPendaftaranId() {
 
 		List<Long> gelombangPendaftarans = new ArrayList<Long>();
@@ -1431,22 +1596,67 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return gelombangPendaftarans;
 	}
 
+	/**
+	 * Menetapkan daftar id gelombang pendaftaran yang boleh mengikuti sesi ini.
+	 *
+	 * <p>Format yang diharapkan adalah id dipisah koma. Isinya <b>tidak divalidasi</b>: id yang
+	 * bukan angka atau menunjuk gelombang yang tidak ada akan diterima di sini dan baru tersaring
+	 * saat {@link #ambilGelombangPendaftaran()} dipanggil.</p>
+	 *
+	 * @param gelombangPendaftaranLain daftar id dipisah koma
+	 */
 	public void setGelombangPendaftaranLain(String gelombangPendaftaranLain) {
 		this.gelombangPendaftaranLain = gelombangPendaftaranLain;
 	}
 
+	/**
+	 * Mengembalikan penanda bahwa peserta sesi ini wajib mengikuti ujian.
+	 *
+	 * <p><b>Baku tidak wajib:</b> kolom {@code null} dibaca sebagai {@code false}. Perhatikan bahwa
+	 * arah bakunya berlawanan dengan {@link #getAktif()} yang baku {@code true} — jangan
+	 * menyamakan pola keduanya.</p>
+	 *
+	 * @return {@code true} bila peserta wajib ujian; tidak pernah {@code null}
+	 */
 	public Boolean getHrsUjian() {
 		return hrsUjian == null ? false : hrsUjian;
 	}
 
+	/**
+	 * Menetapkan penanda kewajiban ujian bagi peserta sesi ini.
+	 *
+	 * @param hrsUjian {@code true} bila peserta wajib ujian; {@code null} dibaca kembali sebagai
+	 *                 {@code false}
+	 */
 	public void setHrsUjian(Boolean hrsUjian) {
 		this.hrsUjian = hrsUjian;
 	}
 
+	/**
+	 * Menetapkan jurusan yang menaungi sesi ini.
+	 *
+	 * <p><b>Berdampak pada fakultas.</b> Karena {@link #getFakultas()} menurunkan nilainya dari
+	 * jurusan bila jurusan terisi, menyetel jurusan di sini secara efektif <i>menimpa</i> fakultas
+	 * yang pernah disetel lewat {@link #setFakultas(Fakultas)}.</p>
+	 *
+	 * @param jurusan jurusan penaung; {@code null} untuk sesi lintas jurusan
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Mengembalikan jurusan yang menaungi sesi ini.
+	 *
+	 * <p>Relasi opsional yang dimuat malas; {@code check(jurusan)} meresolusi proxy dan hasilnya
+	 * ditugaskan kembali ke field sesuai kontrak pemuatan malas pada model ini.</p>
+	 *
+	 * <p>Bersama {@link #getFakultas()}, ini satu-satunya cara mempersempit ruang lingkup sesi —
+	 * entity ini tidak punya kolom satuan kerja, dan penyaringannya tidak ditegakkan di lapisan
+	 * model.</p>
+	 *
+	 * @return jurusan penaung, atau {@code null} bila sesi tidak dibatasi jurusan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -1454,6 +1664,30 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return jurusan;
 	}
 
+	/**
+	 * Mengembalikan fakultas yang menaungi sesi ini, <b>diturunkan dari jurusan bila jurusan
+	 * terisi</b>.
+	 *
+	 * <p><b>Peringatan — getter ini mengubah state dan mengabaikan nilai tersimpan.</b> Setelah
+	 * meresolusi proxy, method ini memeriksa {@link #getJurusan()}; bila jurusan ada, field
+	 * {@code fakultas} <i>ditimpa</i> dengan {@code getJurusan().getFakultas()}. Akibatnya:</p>
+	 * <ul>
+	 *   <li>nilai yang disetel lewat {@link #setFakultas(Fakultas)} <b>tidak dapat dibaca kembali</b>
+	 *       selama jurusan terisi — setter itu efektif tidak berpengaruh pada sesi berjurusan;</li>
+	 *   <li>penimpaan ditulis balik ke field, jadi sekadar membaca properti ini dapat menandai
+	 *       entity kotor, memicu {@code UPDATE}, dan <b>mengubah isi kolom {@code fakultas} di
+	 *       basis data</b> mengikuti fakultas jurusan saat itu;</li>
+	 *   <li>bila jurusan kelak dipindahkan ke fakultas lain, fakultas sesi ini ikut berubah secara
+	 *       retroaktif pada pembacaan berikutnya.</li>
+	 * </ul>
+	 * <p>Kolom {@code fakultas} karena itu hanya benar-benar menyimpan nilai mandiri untuk sesi yang
+	 * jurusannya kosong. Ini instance dari pola getter-mutasi-field yang tersebar luas pada model
+	 * AIS, dengan tambahan sifat menurunkan nilai dari relasi lain.</p>
+	 *
+	 * @return fakultas jurusan bila jurusan terisi, selain itu fakultas yang tersimpan; dapat
+	 *         {@code null}
+	 * @see #getJurusan()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "fakultas", nullable = true)
 	public Fakultas getFakultas() {
@@ -1464,6 +1698,15 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		return fakultas;
 	}
 
+	/**
+	 * Menetapkan fakultas yang menaungi sesi ini.
+	 *
+	 * <p><b>Hanya berpengaruh bila jurusan kosong.</b> Selama {@link #getJurusan()} mengembalikan
+	 * nilai, {@link #getFakultas()} akan menimpa apa pun yang disetel di sini dengan fakultas milik
+	 * jurusan tersebut.</p>
+	 *
+	 * @param fakultas fakultas penaung; {@code null} untuk sesi lintas fakultas
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		this.fakultas = fakultas;
 	}
