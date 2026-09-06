@@ -683,6 +683,22 @@ public class KegiatanProsesHeper {
 		final MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
 
 		toolbarbutton.addEventListener("onClick", new EventListener() {
+			/**
+			 * Klik tombol "Proses Tagihan": membangun SELURUH popup filter (Fakultas,
+			 * Prodi, Mahasiswa, Hitung Ulang, rentang Tahun Akademik, Jenis Pembayaran,
+			 * rentang Tahun Angkatan, Ganjil/Genap, Status Mahasiswa, Reset Tagihan,
+			 * Bersihkan Item Tak Sesuai (Massal), dan Reset Item Biaya) lalu
+			 * menampilkannya modal. Belum ada satu pun data yang dibaca atau diubah di
+			 * sini — pemrosesan baru dimulai dari listener tombol "Proses Tagihan" di
+			 * dalam popup.
+			 *
+			 * <p>Dua nilai default berasal dari luar: jenis pembayaran dari argumen
+			 * pemanggil (dan dikunci bila {@code lockJenis}), serta tahun angkatan dari
+			 * atribut {@code "defaultTahunAngkatan"} pada tombol yang diset overload
+			 * 5-parameter — bila ada, kedua Intbox angkatan ikut di-disable.</p>
+			 *
+			 * @param arg0 event klik (tidak dipakai isinya)
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				final MyWindow window = new MyWindow("Pilih Tahun Akademik, Angkatan, dan Jenis Pembayaran", "none",
@@ -878,6 +894,16 @@ public class KegiatanProsesHeper {
 				// MENGHAPUS DATA permanen utk seluruh mahasiswa yg cocok filter, jadi wajib
 				// dikonfirmasi eksplisit). Batal -> centang otomatis dilepas lagi.
 				bersihkanMassal.addEventListener("onCheck", new EventListener() {
+					/**
+					 * Reaksi saat checkbox "Bersihkan Item Tak Sesuai (Massal)" DICENTANG.
+					 * Konfirmasi sengaja diminta pada saat pencentangan, bukan saat tombol Proses
+					 * ditekan, sehingga alur pemrosesan di bawah tidak perlu diubah sama sekali
+					 * namun pengguna tetap menyadari bahwa opsi ini MENGHAPUS PERMANEN item
+					 * tagihan untuk SELURUH mahasiswa yang cocok filter — bukan satu orang.
+					 * Melepas centang tidak memicu apa pun.
+					 *
+					 * @param arg0 event onCheck (tidak dipakai isinya)
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						if (!bersihkanMassal.isChecked()) {
@@ -887,6 +913,13 @@ public class KegiatanProsesHeper {
 								"PERINGATAN: opsi ini akan MENGHAPUS PERMANEN item tagihan yang terdeteksi tidak sesuai (belum dibayar & tidak cocok Setting Biaya yang berlaku) untuk SELURUH mahasiswa yang cocok dengan filter Fakultas/Prodi/Angkatan/Tahun Akademik/Jenis Pembayaran di atas, bukan hanya satu mahasiswa. Tindakan ini TIDAK DAPAT DIBATALKAN. Item yang SUDAH ADA PEMBAYARAN tidak akan ikut terhapus. Apakah Bapak/Ibu yakin ingin melanjutkan?",
 								"Konfirmasi Bersihkan Massal", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
 								MyMessageboxConfig.QUESTION, new EventListener() {
+									/**
+									 * Callback konfirmasi pembersihan massal: bila jawaban BUKAN OK, centang
+									 * dilepas kembali secara otomatis sehingga keadaan default yang aman (tidak
+									 * menghapus apa pun) selalu pulih ketika pengguna ragu.
+									 *
+									 * @param ev event jawaban dialog
+									 */
 									@Override
 									public void onEvent(Event ev) throws Exception {
 										if (Integer.parseInt(ev.getData().toString()) != MyMessageboxConfig.OK) {
@@ -916,6 +949,11 @@ public class KegiatanProsesHeper {
 				MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
 				cancel.setTooltiptext("Tutup");
 				cancel.addEventListener("onClick", new EventListener() {
+					/**
+					 * Tombol "Batal" pada popup filter: melepas jendela tanpa memproses apa pun.
+					 *
+					 * @param event event klik (tidak dipakai isinya)
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						window.detach();
@@ -926,6 +964,19 @@ public class KegiatanProsesHeper {
 				MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Proses Tagihan", "/img/save.gif");
 				save.setTooltiptext("Proses");
 				save.addEventListener("onClick", new EventListener() {
+					/**
+					 * Tombol "Proses Tagihan" di dalam popup — titik mulai pemrosesan massal yang
+					 * sesungguhnya. Membaca seluruh nilai filter menjadi variabel {@code final}
+					 * (wajib karena akan dibaca thread pekerja), me-{@code setDisabled} tombol asal
+					 * sebagai penjaga klik ganda, menutup popup, menyiapkan berkas Excel sementara
+					 * beserta Timer pemantau progres, lalu menyerahkan pekerjaan berat ke
+					 * {@code WORKER_EXECUTOR}.
+					 *
+					 * <p>Perhatikan bahwa nilai filter di-<i>snapshot</i> pada saat klik: mengubah
+					 * isian popup setelah ini tidak berpengaruh karena popup memang sudah dilepas.</p>
+					 *
+					 * @param event event klik (tidak dipakai isinya)
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 
@@ -982,6 +1033,24 @@ public class KegiatanProsesHeper {
 						timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 						timer.setRepeats(true);
 						timer.addEventListener("onTimer", new EventListener() {
+							/**
+							 * Timer pemantau (200 ms, berulang) yang menjembatani thread pekerja dengan
+							 * layar. Ia tidak memproses data apa pun, melainkan hanya membaca sebuah Label
+							 * yang dipakai sebagai kanal status oleh thread pekerja:
+							 * <ul>
+							 * <li>berisi {@code "-"} — pemrosesan gagal: busy dibersihkan, timer dilepas,
+							 * tombol asal diaktifkan kembali;</li>
+							 * <li>KOSONG — pemrosesan selesai: membuka jendela pratinjau {@link Spreadsheet}
+							 * atas berkas Excel hasil beserta tombol Tutup dan Download Data;</li>
+							 * <li>selain itu — masih berjalan: pesan progres ditampilkan sebagai busy.</li>
+							 * </ul>
+							 *
+							 * <p>Seluruh badan dibungkus try/catch yang membersihkan busy dan mengaktifkan
+							 * kembali tombol, supaya kegagalan merender pratinjau tidak meninggalkan layar
+							 * terkunci dalam keadaan sibuk.</p>
+							 *
+							 * @param arg0 event timer (tidak dipakai isinya)
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								try {
@@ -1026,6 +1095,12 @@ public class KegiatanProsesHeper {
 												"/img/cancel.gif");
 										cancel.setTooltiptext("Tutup");
 										cancel.addEventListener("onClick", new EventListener() {
+											/**
+											 * Tombol "Tutup" pada jendela pratinjau Excel: melepas jendela pratinjau saja;
+											 * berkas hasil tetap ada di direktori sementara.
+											 *
+											 * @param event event klik (tidak dipakai isinya)
+											 */
 											@Override
 											public void onEvent(Event event) throws Exception {
 												window.detach();
@@ -1036,6 +1111,13 @@ public class KegiatanProsesHeper {
 										MyToolbarbuttonConfig print = new MyToolbarbuttonConfig("Download Data",
 												"/img/excel.png");
 										print.addEventListener("onClick", new EventListener() {
+											/**
+											 * Tombol "Download Data" pada jendela pratinjau: mengunduh berkas Excel hasil
+											 * sebagai lampiran xlsx. Kegagalan pengunduhan diaudit dan ditelan agar jendela
+											 * pratinjau tetap dapat dipakai.
+											 *
+											 * @param event event klik (tidak dipakai isinya)
+											 */
 											@Override
 											public void onEvent(Event event) throws Exception {
 												try {

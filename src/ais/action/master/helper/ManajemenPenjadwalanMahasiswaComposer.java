@@ -140,88 +140,354 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardComposer implements OnSearchDefaultListener {
 
+	/**
+	 * Versi serialisasi warisan {@link GenericForwardComposer}. Nilainya berpola tanggal
+	 * ({@code 2010-11-24 09:04}) mengikuti konvensi contoh komponen kalender ZK asal kode ini.
+	 */
 	protected static final long serialVersionUID = 201011240904L;
+	/**
+	 * Model data kalender: kumpulan {@code SimpleCalendarEvent} hasil query {@link Perkuliahan}
+	 * yang cocok dengan filter aktif. Dibangun ulang seluruhnya oleh {@code initCalendarModel()}
+	 * setiap kali {@link #onRefresh(Event)} lolos debounce.
+	 */
 	protected SimpleCalendarModel cm;
+	/**
+	 * Komponen kalender ZK utama (di-wire dari ZUL lewat id {@code calendars}). Jam mulai/selesai
+	 * dan zona waktunya dikonfigurasi di {@link #doAfterCompose(Component)} dari
+	 * {@link Konfigurasi} {@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/
+	 * {@code penjadwalan_timezone}.
+	 */
 	protected Calendars calendars;
+	/**
+	 * 288 slot waktu berformat {@code HH:mm} berjarak 5 menit (00:00..23:55), diisi
+	 * {@link #initTimeDropdown(Page)} dan dipakai sebagai sumber pilihan waktu pada dialog detail
+	 * jadwal.
+	 */
 	protected List<String> dateTime = new LinkedList<String>();
 
+	/**
+	 * Filter tahun akademik, diisi {@code Common.generateTahunAjaran(...)}. Bagian dari kunci
+	 * debounce {@link #bangunKunciRefresh()} dan dari {@code KonteksKelas} yang divalidasi
+	 * {@code ambilKonteksKelasTervalidasi()}.
+	 */
 	protected Combobox tahunAjaran;
+	/**
+	 * Filter semester, diisi angka 1..23 di {@link #doAfterCompose(Component)} dengan default 1
+	 * (ganjil berjalan) atau 2 (genap berjalan) menurut {@code Common.isNowSemensterGanjil()}.
+	 */
 	protected Combobox semester;
+	/**
+	 * Filter nama kelas (mis. {@code "A"}), disetel ke {@code "A"} sebagai nilai awal. Berupa teks
+	 * bebas: {@code ambilKonteksKelasTervalidasi()} menerjemahkannya menjadi entity {@code Kelas}
+	 * lewat pencarian berdasarkan nama, dan menolak konteks bila tidak ada kelas yang cocok.
+	 */
 	protected AmbilDataKelasBanbox kelas;
+	/**
+	 * Filter fakultas. Di-{@code setDisabled(true)} bila pengguna hanya berwenang pada satu
+	 * fakultas ({@code tbmuser.ambilFakultas() != null}), sekaligus dipaksa terpilih ke fakultas
+	 * tersebut. Perubahannya memicu {@code FakultasEventListener} yang mengisi ulang
+	 * {@link #jurusan}.
+	 */
 	protected Combobox fakultas;
+	/**
+	 * Filter program studi. Isinya bergantung pada {@link #fakultas} yang terpilih, dan
+	 * di-{@code setDisabled(true)} bila pengguna hanya berwenang pada satu jurusan
+	 * ({@code tbmuser.ambilJurusan() != null}).
+	 */
 	protected Combobox jurusan;
+	/**
+	 * Filter program (Reguler, Ekstensi, dan seterusnya), diisi {@code Common.initPrograms(...)}.
+	 */
 	protected Combobox program;
+	/**
+	 * Menandai apakah layar sedang mengelola jadwal REMEDIAL. Diteruskan ke
+	 * {@code PenjadwalanUtil.init(...)} dari {@link #init(Perkuliahan)} sehingga dialog detail
+	 * menyesuaikan aturannya. Bernilai {@code false} secara bawaan dan tidak pernah diubah dari
+	 * dalam kelas ini — disediakan untuk sub-kelas yang menimpanya.
+	 */
 	protected Boolean merupakanRemedial = false;
+	/**
+	 * Penanda bahwa combobox {@link #jurusan} sedang diisi ulang akibat perubahan
+	 * {@link #fakultas}. Selama bernilai {@code true}, {@link #onRefresh(Event)} menolak bekerja
+	 * sehingga pengosongan-lalu-pengisian ulang combobox tidak memicu render kalender di tengah
+	 * keadaan filter yang belum konsisten. Selalu dikembalikan ke {@code false} lewat blok
+	 * {@code finally}.
+	 */
 	private boolean sedangSinkronFilter;
+	/**
+	 * Kunci filter dari {@link #onRefresh(Event)} yang terakhir benar-benar dieksekusi (lihat
+	 * {@link #bangunKunciRefresh()}). Dipakai bersama {@link #waktuRefreshTerakhir} untuk menolak
+	 * panggilan berturut-turut yang kombinasi filternya identik.
+	 */
 	private String kunciRefreshTerakhir;
+	/**
+	 * Cap waktu (milidetik) refresh terakhir yang dieksekusi. Panggilan dengan kunci sama dalam
+	 * jendela 500 ms diabaikan — inilah debounce yang mencegah kalender di-render berkali-kali saat
+	 * beberapa event {@code onChange} filter terpicu nyaris bersamaan.
+	 */
 	private long waktuRefreshTerakhir;
 
+	/**
+	 * Tanggal mulai pada dialog detail slot jadwal. Diinisialisasi langsung (bukan lewat wiring
+	 * ZUL) agar tidak {@code null} pada jalur yang membacanya sebelum dialog dibangun.
+	 */
 	protected MyDatebox ppbegin = new MyDatebox();
+	/**
+	 * Jam mulai pada dialog detail slot jadwal.
+	 */
 	protected MyTimebox waktuMulai;
+	/**
+	 * Tanggal selesai pada dialog detail slot jadwal; sejajar dengan {@link #ppbegin}.
+	 */
 	protected MyDatebox ppend = new MyDatebox();
+	/**
+	 * Jam selesai pada dialog detail slot jadwal.
+	 */
 	protected MyTimebox waktuSelesai;
+	/**
+	 * Penanda "sepanjang hari" pada dialog detail slot jadwal; bila dicentang, jam mulai/selesai
+	 * tidak dipakai.
+	 */
 	protected MyCheckboxConfig ppallDay;
+	/**
+	 * Pilihan warna tampilan slot pada kalender.
+	 */
 	protected Combobox ppcolor;
+	/**
+	 * Isi/keterangan slot jadwal yang ditampilkan sebagai teks event pada kalender.
+	 */
 	protected Textbox ppcnt;
+	/**
+	 * Penanda slot terkunci — slot yang terkunci tidak dapat digeser lewat drag pada kalender.
+	 */
 	protected MyCheckboxConfig pplocked;
+	/**
+	 * Penanda bahwa perkuliahan ini merupakan KELAS PARALEL dari perkuliahan lain; bila dicentang,
+	 * {@link #perkuliahan_paralel} menentukan perkuliahan induknya.
+	 */
 	protected MyCheckboxConfig merupakan_paralel;
+	/**
+	 * Perkuliahan induk yang diikuti bila {@link #merupakan_paralel} dicentang.
+	 */
 	protected Combobox perkuliahan_paralel;
 
+	/**
+	 * Pilihan hari (Senin..Minggu) pada dialog detail jadwal, diisi dari {@code Common.haris}.
+	 * Dibuat ulang secara terprogram di {@link #doAfterCompose(Component)}, menimpa instance hasil
+	 * wiring ZUL bila ada.
+	 */
 	protected Combobox hari;
 
+	/**
+	 * Penanda perkuliahan berlangsung pada minggu ke-1 dalam bulan. Kelima penanda minggu hanya
+	 * ditampilkan bila konfigurasi {@link #tampilkanMingguPerkuliahan} aktif.
+	 */
 	protected MyCheckboxConfig minggu1;
+	/**
+	 * Penanda perkuliahan berlangsung pada minggu ke-2 dalam bulan.
+	 */
 	protected MyCheckboxConfig minggu2;
+	/**
+	 * Penanda perkuliahan berlangsung pada minggu ke-3 dalam bulan.
+	 */
 	protected MyCheckboxConfig minggu3;
+	/**
+	 * Penanda perkuliahan berlangsung pada minggu ke-4 dalam bulan.
+	 */
 	protected MyCheckboxConfig minggu4;
+	/**
+	 * Penanda perkuliahan berlangsung pada minggu ke-5 dalam bulan.
+	 */
 	protected MyCheckboxConfig minggu5;
 
+	/**
+	 * Matakuliah yang diampu pada slot jadwal yang sedang dibuat/diedit.
+	 */
 	protected Combobox matakuliah;
+	/**
+	 * Dosen pengampu ke-1. Kelas ini menyediakan sepuluh slot dosen
+	 * ({@code dosen1}..{@code dosen10}) untuk tim pengajar; jumlah baris yang tampak dikendalikan
+	 * {@link #jumlahDosen} lewat {@code rowdosen1}..{@code rowdosen10}.
+	 */
 	protected AmbilDataDosenBanbox dosen1;
+	/**
+	 * Dosen pengampu ke-2; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen2;
 
+	/**
+	 * Filter waktu perkuliahan: PAGI, SIANG, SORE, atau MALAM. Dibuat secara terprogram di
+	 * {@link #doAfterCompose(Component)}.
+	 */
 	protected Combobox waktu;
 	// protected Textbox kelas;
+	/**
+	 * Kurikulum acuan matakuliah pada slot jadwal.
+	 */
 	protected Combobox kurikulum;
 
+	/**
+	 * Perkuliahan yang sedang dibuka pada dialog detail — kosong berisi hari/jam hasil drag
+	 * kalender ketika membuat baru, atau entity lengkap ketika mengedit slot yang sudah ada.
+	 */
 	protected Perkuliahan perkuliahan;
+	/**
+	 * Id seluruh {@link Perkuliahan} yang cocok dengan filter kelas aktif, diisi saat kalender
+	 * di-render ulang. Menjadi sumber iterasi aksi massal roster: "Singkronisasikan" membentuk KRS
+	 * untuk setiap mahasiswa &times; setiap id di sini, dan "Batalkan Singkronisasi" menghapusnya
+	 * kembali.
+	 *
+	 * <p>Karena diisi oleh alur render kalender, aksi massal bergantung pada kalender yang sudah
+	 * ter-refresh lebih dulu; nilai basi di sini berarti aksi massal bekerja pada himpunan
+	 * perkuliahan yang tidak lagi sesuai layar.</p>
+	 */
 	protected List<Long> perkuliahans;
 
+	/**
+	 * Grid baris dosen pada dialog detail jadwal, wadah {@code rowdosen1}..{@code rowdosen10}.
+	 */
 	protected MyGrid gridDosen;
 
+	/**
+	 * Pengguna yang sedang login, diambil sekali saat instance composer dibuat.
+	 *
+	 * <p>Perhatikan bahwa {@link #doAfterCompose(Component)} dan beberapa listener memanggil
+	 * {@code Common.getCurrentUser()} LAGI secara lokal alih-alih memakai field ini — keduanya
+	 * menunjuk pengguna yang sama, jadi perbedaannya hanya gaya penulisan.</p>
+	 */
 	protected Tbmuser tbmuser = Common.getCurrentUser();
 
+	/**
+	 * Format jam {@code HH.mm} untuk label slot pada kalender.
+	 *
+	 * <p>{@link SimpleDateFormat} TIDAK aman-thread, tetapi instance ini milik satu composer yang
+	 * hidup pada satu desktop ZK dan hanya disentuh dari event thread, sehingga aman dalam pemakaian
+	 * di kelas ini.</p>
+	 */
 	protected SimpleDateFormat dateFormat = new SimpleDateFormat("HH.mm");
+	/**
+	 * Filter/pemilih ruang. Dibuat ulang secara terprogram di {@link #doAfterCompose(Component)}
+	 * beserta listener yang memicu {@link #onRefresh(Event)} setiap nilainya berubah.
+	 */
 	protected AmbilDataRuangBanbox ruang;
+	/**
+	 * Kapasitas peserta kelas pada dialog detail jadwal.
+	 */
 	protected Decimalbox kapasitasKelas;
+	/**
+	 * Pemilih slot jam perkuliahan baku (mis. sesi ke-1, ke-2) pada dialog detail jadwal.
+	 */
 	protected AmbilDataJamPerkuliahanBanbox jamPerkuliahan;
 
+	/**
+	 * Penanda periode Semester Pendek. Bernilai {@code null} untuk semester reguler dan diteruskan
+	 * apa adanya ke {@code PenjadwalanUtil.init(...)} serta ke pemeriksaan batas SKS pada aksi
+	 * "Singkronisasikan". Tidak pernah diubah dari dalam kelas ini — disediakan untuk sub-kelas.
+	 */
 	protected Integer semesterPendek = null;
 
+	/**
+	 * Jumlah dosen pengampu yang aktif (1..10); menentukan baris {@code rowdosen*} mana yang
+	 * ditampilkan pada dialog detail jadwal.
+	 */
 	protected Combobox jumlahDosen;
+	/**
+	 * Baris grid untuk {@link #dosen1} pada dialog detail jadwal.
+	 */
 	protected Row rowdosen1;
+	/**
+	 * Penanda perkuliahan tanpa dosen pengampu; bila dicentang, seluruh baris dosen disembunyikan.
+	 */
 	protected MyCheckboxConfig merupakan_tanpa_dosen;
+	/**
+	 * Baris grid untuk {@link #dosen2}.
+	 */
 	protected Row rowdosen2;
+	/**
+	 * Baris grid untuk {@link #dosen3}.
+	 */
 	protected Row rowdosen3;
+	/**
+	 * Dosen pengampu ke-3; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen3;
+	/**
+	 * Baris grid untuk {@link #dosen4}.
+	 */
 	protected Row rowdosen4;
+	/**
+	 * Dosen pengampu ke-4; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen4;
+	/**
+	 * Baris grid untuk {@link #dosen5}.
+	 */
 	protected Row rowdosen5;
+	/**
+	 * Dosen pengampu ke-5; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen5;
+	/**
+	 * Baris grid untuk {@link #dosen6}.
+	 */
 	protected Row rowdosen6;
+	/**
+	 * Dosen pengampu ke-6; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen6;
+	/**
+	 * Baris grid untuk {@link #dosen7}.
+	 */
 	protected Row rowdosen7;
+	/**
+	 * Dosen pengampu ke-7; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen7;
+	/**
+	 * Baris grid untuk {@link #dosen8}.
+	 */
 	protected Row rowdosen8;
+	/**
+	 * Dosen pengampu ke-8; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen8;
+	/**
+	 * Baris grid untuk {@link #dosen9}.
+	 */
 	protected Row rowdosen9;
+	/**
+	 * Dosen pengampu ke-9; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen9;
+	/**
+	 * Baris grid untuk {@link #dosen10}.
+	 */
 	protected Row rowdosen10;
+	/**
+	 * Dosen pengampu ke-10 — slot terakhir yang didukung; lihat {@link #dosen1}.
+	 */
 	protected AmbilDataDosenBanbox dosen10;
 
+	/**
+	 * Tanggal awal rentang berlakunya jadwal perkuliahan pada dialog detail.
+	 */
 	protected MyDatebox perkuliahanDimulai;
+	/**
+	 * Tanggal akhir rentang berlakunya jadwal perkuliahan pada dialog detail.
+	 */
 	protected MyDatebox perkuliahanSampai;
 
+	/**
+	 * Region {@link Center} pada ZUL tempat {@code initDataMahasiswa()} menyuntikkan seluruh UI
+	 * roster mahasiswa (penjelasan, toolbar aksi, toolbar pencarian, dan grid) secara terprogram —
+	 * panel ini sengaja dibiarkan kosong di ZUL.
+	 */
 	protected Center panelDaftarMahasiswa;
+	/**
+	 * Komponen paging roster mahasiswa. Dibuat secara terprogram di
+	 * {@link #doAfterCompose(Component)} dan dihubungkan ke {@code loadDataMahasiswa(null)} lewat
+	 * {@code Common.initPaging(...)}.
+	 */
 	protected Paging paging;
 
 	/**
