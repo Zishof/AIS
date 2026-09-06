@@ -2383,7 +2383,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 						if (Common.isMobile()) {
 							ExecutionsCtrl.getCurrent().sendRedirect(sintaArticle.getLink(), "_blank");
 						} else {
-							Clients.evalJavaScript("popupCenter({url: '" + sintaArticle.getLink()
+							Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(sintaArticle.getLink())
 									+ "', title: 'Artikel', w: 1200, h: 600});");
 						}
 					}
@@ -2441,7 +2441,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 						if (Common.isMobile()) {
 							ExecutionsCtrl.getCurrent().sendRedirect(scholarArticle.getLink(), "_blank");
 						} else {
-							Clients.evalJavaScript("popupCenter({url: '" + scholarArticle.getLink()
+							Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(scholarArticle.getLink())
 									+ "', title: 'Artikel', w: 1200, h: 600});");
 						}
 					}
@@ -2475,7 +2475,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 							if (Common.isMobile()) {
 								ExecutionsCtrl.getCurrent().sendRedirect(scholarAuthor.getKeterangan(), "_blank");
 							} else {
-								Clients.evalJavaScript("popupCenter({url: '" + scholarAuthor.getKeterangan()
+								Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(scholarAuthor.getKeterangan())
 										+ "', title: 'Author', w: 1200, h: 600});");
 							}
 						}

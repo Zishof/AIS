@@ -970,7 +970,7 @@ public class FilePerkuliahanHelper {
 						if (Common.isMobile()) {
 							ExecutionsCtrl.getCurrent().sendRedirect(pertemuanFileContent.getLink(), "_blank");
 						} else {
-							Clients.evalJavaScript("popupCenter({url: '" + pertemuanFileContent.getLink()
+							Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(pertemuanFileContent.getLink())
 									+ "', title: 'Book', w: 1200, h: 600});");
 						}
 					} else if (pertemuanFileContent.getGdrive() != null) {
@@ -1001,7 +1001,7 @@ public class FilePerkuliahanHelper {
 									ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 								} else {
 									Clients.evalJavaScript(
-											"popupCenter({url: '" + link + "', title: 'data', w: 1200, h: 600});");
+											"popupCenter({url: '" + Common.jsEscape(link) + "', title: 'data', w: 1200, h: 600});");
 								}
 
 							}
