@@ -110,8 +110,23 @@ public class DetailBiaya extends GeneralValueObject {
 	 * 
 	 */
 	private static final long serialVersionUID = -1930910520143688237L;
+	/**
+	 * Primary key {@code detail_biaya.id}, dihasilkan database.
+	 *
+	 * @see #getId()
+	 */
 	private Long id;
+	/**
+	 * Nama pelaku perubahan terakhir (field audit bayangan).
+	 *
+	 * @see #getOleh()
+	 */
 	private String oleh;
+	/**
+	 * Id pelaku perubahan terakhir (field audit bayangan).
+	 *
+	 * @see #getOlehId()
+	 */
 	private String olehId;
 
 	/**
@@ -171,6 +186,11 @@ public class DetailBiaya extends GeneralValueObject {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * Stempel waktu perubahan terakhir; nilai awal dari {@link ais.ui.util.WaktuUtil#getDate()}.
+	 *
+	 * @see #getTanggal_dirubah()
+	 */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	/**
@@ -215,41 +235,216 @@ public class DetailBiaya extends GeneralValueObject {
 				+ (detailSettingBiaya == null ? "" : "-" + detailSettingBiaya.toString());
 	}
 
+	/**
+	 * Dimensi penyaring: tahun akademik sasaran. Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getTahunAkademik()
+	 */
 	private String tahunAkademik;
+	/**
+	 * Dimensi penyaring: jenis kegiatan/tagihan sasaran. Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getJenisKegiatan()
+	 */
 	private JenisKegiatan jenisKegiatan;
+	/**
+	 * Komponen biaya yang dinominalkan baris ini; relasi terpenting kelas ini. Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getItemBiaya()
+	 */
 	private ItemBiaya itemBiaya;
+	/**
+	 * Dimensi penyaring: kewarganegaraan sasaran. TIDAK ikut membentuk {@link #key()}.
+	 *
+	 * @see #getWnaAtauWni()
+	 */
 	private String wnaAtauWni;
+	/**
+	 * Dimensi penyaring: jalur seleksi sasaran. TIDAK ikut membentuk {@link #key()} walau diterima {@link #genKey} sebagai parameter.
+	 *
+	 * @see #getJenisSeleksi()
+	 */
 	private JenisSeleksi jenisSeleksi;
+	/**
+	 * Dimensi penyaring: paket biaya sasaran. Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getPaket()
+	 */
 	private Paket paket;
+	/**
+	 * Dimensi penyaring: gelombang pendaftaran sasaran. Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getGelombangPendaftaran()
+	 */
 	private GelombangPendaftaran gelombangPendaftaran;
+	/**
+	 * Dimensi penyaring: program sasaran (reguler/karyawan/dsb.). Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getProgram()
+	 */
 	private String program;
+	/**
+	 * Dimensi penyaring: fakultas sasaran. TIDAK ikut membentuk {@link #key()}; penyaringan setara umumnya sudah tercakup {@code jurusan}.
+	 *
+	 * @see #getFakultas()
+	 */
 	private Fakultas fakultas;
+	/**
+	 * Dimensi penyaring: program studi sasaran; dimensi yang paling banyak dikonsultasikan (nominal, keterangan, tanggal, dan denda per prodi).
+	 *
+	 * @see #getJurusan()
+	 */
 	private Jurusan jurusan;
+	/**
+	 * Jenjang sasaran. BUKAN data mandiri: ditimpa getter-nya dari {@code jurusan.getJenjang()} selama jurusan terisi.
+	 *
+	 * @see #getJenjang()
+	 */
 	private Jenjang jenjang;
+	/**
+	 * Dimensi penyaring: semester sasaran; {@code null} berarti berlaku di semua semester. Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getSemester()
+	 */
 	private Integer semester;
+	/**
+	 * Dimensi penyaring: tahun angkatan sasaran. Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getAngkatan()
+	 */
 	private Integer angkatan;
+	/**
+	 * NOMINAL MASTER baris ini, kolom {@code nilai_biaya}. Dihitung ulang dan ditulis balik oleh getter-nya pada setiap pembacaan.
+	 *
+	 * @see #getNilaiBiaya()
+	 */
 	private Double nilaiBiaya;
+	/**
+	 * Nominal hasil perkalian untuk item berpenghitungan; {@code @Transient}, diisi {@link #updateKeterangan(Mahasiswa, Integer)}.
+	 *
+	 * @see #getNilaiBiayaBaru()
+	 */
 	private Double nilaiBiayaBaru;
+	/**
+	 * Nominal tunggakan semester sebelumnya; berprioritas tertinggi pada {@link #hitungTotal(DetailKegiatan)}.
+	 *
+	 * @see #getTunggakanLalu()
+	 */
 	private Double tunggakanLalu;
+	/**
+	 * Nama tampilan baris biaya; diturunkan dan ditulis balik oleh getter-nya dari item biaya.
+	 *
+	 * @see #getNama()
+	 */
 	private String nama;
+	/**
+	 * Dimensi penyaring: status mahasiswa sasaran. Ditimpa TANPA SYARAT oleh getter-nya dari SettingBiaya induk.
+	 *
+	 * @see #getStatusMahasiswa()
+	 */
 	private StatusMahasiswa statusMahasiswa;
+	/**
+	 * Penanda baris ini mewakili pembayaran, bukan tagihan; getter-nya dapat mengembalikan {@code null}.
+	 *
+	 * @see #getMerupakanPembayaran()
+	 */
 	private Boolean merupakanPembayaran = false;
+	/**
+	 * Dimensi penyaring: bahasa pengantar sasaran. TIDAK ikut membentuk {@link #key()}.
+	 *
+	 * @see #getBahasa()
+	 */
 	private String bahasa;
+	/**
+	 * Dimensi penyaring: semester mulai belajar; di-auto-seed getter-nya menjadi {@link Perkuliahan#GANJIL} bila kosong.
+	 *
+	 * @see #getMulaiBelajarDiSemester()
+	 */
 	private String mulaiBelajarDiSemester = Perkuliahan.GANJIL;
+	/**
+	 * Dimensi penyaring: status awal mahasiswa. Diisi getter-nya menjadi {@code BARU} bila kosong, sehingga MEMPERSEMPIT sasaran baris.
+	 *
+	 * @see #getStatusAwalMahasiswa()
+	 */
 	private StatusAwalMahasiswa statusAwalMahasiswa;
+	/**
+	 * Nomor tahap pembayaran; {@code null} dibaca sebagai {@code 1}. Ikut membentuk kunci unik {@link DetailKegiatan}.
+	 *
+	 * @see #getBayarKe()
+	 */
 	private Integer bayarKe;
+	/**
+	 * Dimensi penyaring: jenis tempat tinggal mahasiswa. Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getJenisTinggalMahasiswa()
+	 */
 	private JenisTinggalMahasiswa jenisTinggalMahasiswa;
+	/**
+	 * Dimensi penyaring: kelas sasaran (pagi/sore/internasional). Ikut membentuk {@link #key()}.
+	 *
+	 * @see #getKelas()
+	 */
 	private Kelas kelas;
+	/**
+	 * Rincian setting biaya induk; sumber utama nominal, keterangan, tanggal tagihan, dan tenggat bawaan.
+	 *
+	 * @see #getDetailSettingBiaya()
+	 */
 	private DetailSettingBiaya detailSettingBiaya;
+	/**
+	 * Setting biaya detail induk; jalur alternatif yang menyimpan biaya per item dalam satu kolom JSON.
+	 *
+	 * @see #getSettingBiayaDetail()
+	 */
 	private SettingBiayaDetail settingBiayaDetail;
 
+	/**
+	 * Nilai penyaring tambahan bebas ke-1; ikut membentuk {@link #key()}.
+	 *
+	 * @see #getNilaiTambahan1()
+	 */
 	private String nilaiTambahan1;
+	/**
+	 * Nilai penyaring tambahan bebas ke-2; ikut membentuk {@link #key()}.
+	 *
+	 * @see #getNilaiTambahan2()
+	 */
 	private String nilaiTambahan2;
+	/**
+	 * Nilai penyaring tambahan bebas ke-3; ikut membentuk {@link #key()}.
+	 *
+	 * @see #getNilaiTambahan3()
+	 */
 	private String nilaiTambahan3;
+	/**
+	 * Setting biaya induk lewat foreign key langsung; salah satu dari tiga jalur, lihat {@link #getSettingBiayaEfektif()}.
+	 *
+	 * @see #getSettingBiaya()
+	 */
 	private SettingBiaya settingBiaya;
+	/**
+	 * Keterangan tambahan baris biaya; {@code @Transient} sehingga penulisan getter-nya tidak tersimpan.
+	 *
+	 * @see #getKeterangan()
+	 */
 	private String keterangan;
+	/**
+	 * Tanggal terbit tagihan bawaan; {@code @Transient}, diturunkan dari hierarki setting biaya.
+	 *
+	 * @see #getDefaultTanggalTagihan()
+	 */
 	private Date defaultTanggalTagihan;
+	/**
+	 * Tenggat pembayaran bawaan; {@code @Transient}, menjadi acuan perhitungan denda keterlambatan.
+	 *
+	 * @see #getDefaultTanggalDeadline()
+	 */
 	private Date defaultTanggalDeadline;
+	/**
+	 * Status aktif baris rincian biaya; {@code null} dibaca sebagai {@code true} demi kompatibilitas data lama.
+	 *
+	 * @see #getAktif()
+	 */
 	private Boolean aktif;
 
 	/** Konstruktor kosong wajib bagi Hibernate/JPA dan bagi form CRUD generik. */
@@ -2281,7 +2476,17 @@ public class DetailBiaya extends GeneralValueObject {
 	 * pada {@link #checkDenda}.
 	 */
 	private String infoDenda;
+	/**
+	 * Dimensi penyaring: jenis kelamin sasaran. Dinormalkan destruktif lalu ditimpa dari SettingBiaya induk oleh getter-nya.
+	 *
+	 * @see #getKelamin()
+	 */
 	private String kelamin;
+	/**
+	 * Dimensi penyaring: afiliasi calon mahasiswa sasaran. TIDAK ikut membentuk {@link #key()}.
+	 *
+	 * @see #getAfiliasiCalonMahasiswa()
+	 */
 	private AfiliasiCalonMahasiswa afiliasiCalonMahasiswa;
 
 	/**

@@ -4843,6 +4843,17 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return pendaftar;
 	}
 
+	/**
+	 * Menetapkan tenant ({@link ais.database.model.Pendaftar}) tempat akun bernaung.
+	 *
+	 * <p><b>Perubahan lingkup tenant.</b> Seperti dijelaskan pada {@link #getPendaftar()},
+	 * nilai {@code null} berarti akun melihat data <b>seluruh</b> tenant, sehingga
+	 * mengosongkan relasi ini adalah pelebaran kewenangan &mdash; bukan penyempitan.
+	 * Perlakukan penulisan ke sini sebagaimana penulisan ke peran.</p>
+	 *
+	 * @param pendaftar tenant penaung; {@code null} menjadikan akun lintas-tenant
+	 * @see #getPendaftar()
+	 */
 	public void setPendaftar(ais.database.model.Pendaftar pendaftar) {
 		this.pendaftar = pendaftar;
 	}
@@ -4858,6 +4869,17 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return pedagang;
 	}
 
+	/**
+	 * Menetapkan relasi ke pedagang/petugas toko (modul inventory/POS).
+	 *
+	 * <p><b>Perubahan berdampak luas,</b> setara dengan
+	 * {@link #setAnggotaKoperasi(AnggotaKoperasi)}: relasi ini ikut menentukan
+	 * {@link #getAktif()} dan {@link #getUserPassword()}, serta menjadi jalur pintas paling
+	 * awal pada {@link #getUserNama()} dan sumber turunan {@link #getUserId()}.</p>
+	 *
+	 * @param pedagang data pedagang; boleh {@code null}
+	 * @see #getPedagang()
+	 */
 	public void setPedagang(Pedagang pedagang) {
 		this.pedagang = pedagang;
 	}
@@ -4874,20 +4896,86 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return tokoAktifMultiToko;
 	}
 
+	/**
+	 * Menetapkan toko yang sedang dipilih aktif oleh pengguna multi-toko.
+	 *
+	 * <p>Menerima id toko polos ({@code Long}), bukan objek {@code Toko} &mdash; lihat
+	 * alasannya pada {@link #getTokoAktifMultiToko()} dan javadoc field
+	 * {@link #tokoAktifMultiToko}. Setter <b>tidak memvalidasi</b> bahwa id yang diberikan
+	 * benar-benar merupakan toko yang boleh diakses pengguna ini; pemeriksaan itu adalah
+	 * tanggung jawab pemanggil, dan karena nilai ini menentukan lingkup data toko yang
+	 * terlihat, kelalaian memeriksanya berarti pengguna dapat berpindah ke toko yang bukan
+	 * haknya. Nilai {@code null} mengembalikan pengguna ke perilaku toko tunggal.</p>
+	 *
+	 * @param tokoAktifMultiToko id toko yang dipilih; {@code null} untuk mengosongkan pilihan
+	 * @see #getTokoAktifMultiToko()
+	 */
 	public void setTokoAktifMultiToko(Long tokoAktifMultiToko) {
 		this.tokoAktifMultiToko = tokoAktifMultiToko;
 	}
 
+	/**
+	 * Mengembalikan salinan transien data pegawai yang ditetapkan secara eksplisit.
+	 *
+	 * <p>Ditandai {@code @Transient} sehingga tidak dipetakan ke kolom mana pun. Perannya
+	 * adalah menjadi <b>jalur pintas berprioritas tertinggi</b> di {@link #getPegawai()}:
+	 * nilai yang ditetapkan lewat {@link #setPegawai(Pegawai)} disalin ke sini agar tidak
+	 * tertimpa rantai auto-resolusi (dosen, guru, orang tua, pencocokan nama) yang berjalan
+	 * setelahnya.</p>
+	 *
+	 * <p>Karena tidak tersimpan, nilai ini hilang setiap kali entity dimuat ulang &mdash;
+	 * setelah itu {@link #getPegawai()} kembali sepenuhnya bergantung pada kolom
+	 * {@code pegawai} dan auto-resolusi.</p>
+	 *
+	 * @return salinan transien data pegawai, atau {@code null}
+	 * @see #getPegawai()
+	 */
 	@Transient
 	public Pegawai getPegawaiTransien() {
 		pegawaiTransien = check(pegawaiTransien);
 		return pegawaiTransien;
 	}
 
+	/**
+	 * Menetapkan salinan transien data pegawai.
+	 *
+	 * <p>Umumnya tidak dipanggil langsung &mdash; {@link #setPegawai(Pegawai)} sudah
+	 * mengisinya secara otomatis untuk pegawai ber-{@code id}. Memanggilnya sendiri berarti
+	 * memaksa {@link #getPegawai()} mengembalikan nilai ini tanpa melalui auto-resolusi.</p>
+	 *
+	 * @param pegawaiTransien salinan transien data pegawai; boleh {@code null}
+	 * @see #getPegawaiTransien()
+	 */
 	public void setPegawaiTransien(Pegawai pegawaiTransien) {
 		this.pegawaiTransien = pegawaiTransien;
 	}
 
+	/**
+	 * Menentukan apakah akun ini tergolong <b>administrator tingkat tinggi</b>
+	 * ("admin lain").
+	 *
+	 * <p>Mendelegasikan sepenuhnya ke {@code Common.getApakahAdminLain(this)}, yaitu
+	 * mekanisme hak istimewa yang <b>terpisah dari {@link Tbmrole}</b> maupun dari penanda
+	 * {@link #getRoot()}. Jadi AIS memiliki <b>tiga</b> jalur hak istimewa yang berdiri
+	 * sendiri-sendiri: peran ({@link #hakAkses()}), penanda {@code root}
+	 * ({@link #getRoot()}), dan "admin lain" (method ini).</p>
+	 *
+	 * <p><b>Signifikansi keamanan.</b> Nilai ini dipakai sebagai <i>gerbang pintas</i> di
+	 * banyak pemeriksaan kewenangan &mdash; pola yang lazim di lapisan API adalah
+	 * {@code if (Common.getApakahAdminLain(tbmuser)) return true;} yang dijalankan
+	 * <b>sebelum</b> pemeriksaan peran mana pun, sehingga mengabaikan seluruh pembatasan
+	 * berbasis {@link Tbmrole} termasuk lingkup satuan kerja dan tenant. Setiap perubahan
+	 * pada penentu "admin lain" karenanya berdampak sistem-wide.</p>
+	 *
+	 * <p>Ditandai {@code @Transient} (bukan kolom, melainkan hasil perhitungan) dan diberi
+	 * nama berpola {@code getXxx} agar dapat dipakai sebagai properti dari ZK/JSP. Komentar
+	 * {@code TODO} yang tersisa di badan method adalah peninggalan pembuatan otomatis oleh
+	 * IDE, bukan penanda pekerjaan yang belum selesai.</p>
+	 *
+	 * @return {@code true} bila akun tergolong administrator tingkat tinggi
+	 * @see #getRoot()
+	 * @see #hakAkses()
+	 */
 	@Transient
 	public boolean getSuperadmin() {
 		// TODO Auto-generated method stub
