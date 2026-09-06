@@ -5521,6 +5521,62 @@ public class TugasKelompokHelper implements DataLoader {
 		return true;
 	}
 
+	/**
+	 * <h3>Menandai ALPA seluruh anggota kelompok yang tidak mengumpulkan tugas</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> menghemat pekerjaan dosen dengan mengisi absensi secara
+	 * borongan. Setelah batas pengumpulan lewat, dosen menekan satu tombol dan sistem menandai semua
+	 * mahasiswa yang kelompoknya TIDAK mengumpulkan berkas sebagai alpa (mangkir) pada pertemuan yang
+	 * bersangkutan &mdash; tanpa perlu mencentang satu per satu di daftar hadir.</p>
+	 *
+	 * <h4>Penilaian dilakukan PER KELOMPOK, bukan per orang</h4>
+	 * <p>Untuk setiap kelompok pada tugas ini, sistem mencari berkas yang diunggah kelompok tersebut.
+	 * Bila kelompok itu TIDAK memiliki berkas sama sekali, SELURUH anggotanya ditandai alpa dengan status
+	 * "tidak ada alasan". Sebaliknya bila kelompok sudah mengumpulkan, seluruh anggotanya dilewati.
+	 * Konsekuensinya melekat pada sifat tugas kelompok: satu orang yang mengunggah menyelamatkan seluruh
+	 * anggota, dan sebaliknya kelompok yang lalai membuat semua anggotanya alpa &mdash; kontribusi
+	 * masing-masing anggota tidak dinilai di sini.</p>
+	 *
+	 * <p>Peserta yang terdaftar pada daftar pengecualian tugas ({@code mhsYgTidakIkut}) DILEWATI, karena
+	 * mereka memang tidak diwajibkan mengumpulkan. Keterangan absensi yang dicatat menyebut judul tugas
+	 * dan batas waktunya, sehingga alasan penandaan tetap dapat ditelusuri kemudian; bila tugas tidak
+	 * punya batas waktu, dipakai tanggal saat tombol ditekan.</p>
+	 *
+	 * <p>Waktu mulai dan selesai kehadiran diambil dari catatan absensi mahasiswa yang bersangkutan pada
+	 * pertemuan itu; bila belum ada, dipakai jam mulai dan jam selesai pertemuan sebagai gantinya.</p>
+	 *
+	 * <h4>Konfirmasi dan pelaksanaan tertunda</h4>
+	 * <p>Karena aksinya mengubah banyak baris sekaligus, pengguna diminta konfirmasi lebih dulu.
+	 * Pekerjaan sesungguhnya baru berjalan setelah pengguna menekan OK, dan dibungkus
+	 * {@code Common.createDefaultTimer} sehingga dijalankan pada putaran event berikutnya &mdash; kotak
+	 * dialog sempat menutup dan antarmuka tidak terlihat membeku selama proses berlangsung. Callback
+	 * {@code eventListener} juga dijalankan lewat timer setelah seluruh penandaan selesai, agar layar
+	 * pemanggil menyegarkan diri.</p>
+	 *
+	 * <h4>Catatan bagi pemelihara</h4>
+	 * <ul>
+	 *   <li><b>Tidak ada pemeriksaan wewenang.</b> Metode ini {@code public static} dan langsung menulis
+	 *   absensi begitu pengguna mengonfirmasi. Penjagaan sepenuhnya berada pada tombol pemanggilnya
+	 *   &mdash; dan gerbang tombol itu adalah bentuk paling longgar di kelas ini, karena hanya menguji
+	 *   field helper tanpa melihat pengguna yang sedang login.</li>
+	 *   <li><b>Hanya mahasiswa yang diproses.</b> Kueri anggota menyaring {@code isNotNull("mahasiswa")},
+	 *   sehingga anggota kelompok yang berupa siswa (jalur sekolah) tidak pernah ditandai.</li>
+	 *   <li><b>Pertemuan sasaran berasal dari pemanggil.</b> Absensi ditulis ke pertemuan yang diserahkan
+	 *   sebagai parameter, yang di layar diambil dari {@code tugasKelompok.ambilPertemuan()}. Bila
+	 *   rujukan pertemuan pada tugas menunjuk ke semester lain &mdash; misalnya pada tugas hasil salinan
+	 *   "Ambil Tugas Sebelumnya", yang tidak mereset rujukan itu &mdash; absensi akan tertulis ke
+	 *   pertemuan semester tersebut.</li>
+	 *   <li>Pemeriksaan {@code tugas == null} di dalam penyusunan keterangan tidak pernah bernilai benar,
+	 *   karena {@code tugas} sudah dipakai di baris-baris sebelumnya.</li>
+	 * </ul>
+	 *
+	 * @param tugas         tugas kelompok yang pengumpulannya diperiksa; judul dan batas waktunya dipakai
+	 *                      pada keterangan absensi
+	 * @param pa            pertemuan yang absensinya diisi
+	 * @param eventListener callback yang dijalankan setelah seluruh penandaan selesai
+	 * @throws Exception bila dialog konfirmasi gagal ditampilkan
+	 * @see #uploadTugasDiangapHadir(TugasKelompok, Pertemuan, EventListener)
+	 */
 	public static void tidakUploadTugasDiangapTidakHadir(final TugasKelompok tugas, final Pertemuan pa,
 			final EventListener eventListener) throws Exception {
 		MyMessageboxConfig.show(
@@ -5601,6 +5657,46 @@ public class TugasKelompokHelper implements DataLoader {
 				});
 	}
 
+	/**
+	 * <h3>Menandai HADIR seluruh anggota kelompok yang mengumpulkan tugas</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> kebalikan dari
+	 * {@link #tidakUploadTugasDiangapTidakHadir}. Sekali tekan, semua mahasiswa yang kelompoknya SUDAH
+	 * mengumpulkan berkas ditandai hadir pada pertemuan yang bersangkutan &mdash; berguna untuk kelas
+	 * daring, tempat pengumpulan tugas dipakai sebagai bukti kehadiran.</p>
+	 *
+	 * <p>Alurnya bercermin persis: konfirmasi lebih dulu, pelaksanaan ditunda lewat timer, penilaian
+	 * dilakukan PER KELOMPOK, dan waktu hadir diambil dari catatan absensi yang ada dengan jam pertemuan
+	 * sebagai cadangan. Yang membedakan hanyalah syarat dan hasilnya: di sini kelompok yang MEMILIKI
+	 * berkas membuat seluruh anggotanya ditandai hadir, dan keterangan absensinya mencatat kapan berkas
+	 * itu terakhir diunggah.</p>
+	 *
+	 * <h4>Dua perbedaan dari kembarannya yang perlu diketahui</h4>
+	 * <ol>
+	 *   <li><b>Daftar pengecualian TIDAK diperiksa.</b> Berbeda dari {@link #tidakUploadTugasDiangapTidakHadir}
+	 *   yang melewati peserta pada {@code mhsYgTidakIkut}, metode ini menandai hadir seluruh anggota
+	 *   kelompok tanpa terkecuali &mdash; termasuk peserta yang justru dikecualikan dari kewajiban tugas
+	 *   ini. Ketidaksimetrisan ini tampaknya tidak disengaja.</li>
+	 *   <li><b>Keterangan absensi salah label.</b> Teks yang dicatat berbunyi "... dengan nama file :
+	 *   &lt;nilai&gt;", padahal nilai yang disisipkan adalah {@code o.getNama()}, yaitu NAMA MAHASISWA,
+	 *   bukan nama berkas. Sisa salin-tempel; berdampak pada keterbacaan catatan absensi saja, tidak pada
+	 *   status kehadiran yang tersimpan.</li>
+	 * </ol>
+	 *
+	 * <p>Catatan pemelihara lain berlaku sama seperti pada kembarannya: tidak ada pemeriksaan wewenang
+	 * (metode {@code public static}, dijaga hanya oleh tombol pemanggil yang gerbangnya paling longgar di
+	 * kelas ini), hanya anggota bertipe mahasiswa yang diproses sehingga jalur sekolah terlewat, dan
+	 * pertemuan sasaran sepenuhnya berasal dari pemanggil sehingga rujukan pertemuan yang salah &mdash;
+	 * misalnya pada tugas hasil salinan lintas semester &mdash; akan menulis absensi ke pertemuan yang
+	 * keliru.</p>
+	 *
+	 * @param tugas         tugas kelompok yang pengumpulannya diperiksa; judulnya dipakai pada keterangan
+	 *                      absensi
+	 * @param pa            pertemuan yang absensinya diisi
+	 * @param eventListener callback yang dijalankan setelah seluruh penandaan selesai
+	 * @throws Exception bila dialog konfirmasi gagal ditampilkan
+	 * @see #tidakUploadTugasDiangapTidakHadir(TugasKelompok, Pertemuan, EventListener)
+	 */
 	public static void uploadTugasDiangapHadir(final TugasKelompok tugas, final Pertemuan pa,
 			final EventListener eventListener) throws Exception {
 		MyMessageboxConfig.show(
