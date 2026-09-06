@@ -734,7 +734,8 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 
 	    if (className.equals("LampiranLain")) propertyName = "ref";
 	    else if (className.equals("FotoGambarProduk")) propertyName = "produk";
-	    else if (className.equals("LampiranLainMahasiswa") || className.equals("FotoMahasiswa")) propertyName = "mahasiswa";
+	    else if (className.equals("LampiranLainMahasiswa") || className.equals("FotoMahasiswa")
+	            || className.equals("FotoMahasiswaLulus")) propertyName = "mahasiswa";
 	    else if (className.equals("LampiranLainBiodataCalonMahasiswa") || className.equals("FotoBiodataCalonMahasiswa")) propertyName = "biodataCalonMahasiswa";
 	    else if (className.equals("FotoDosen")) propertyName = "dosen";
 	    else if (className.equals("FotoPegawai")) propertyName = "pegawai";
@@ -834,6 +835,14 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 			obj.setOleh(namaOleh);
 		} else if (a instanceof FotoMahasiswa) {
 			FotoMahasiswa obj = (FotoMahasiswa) a;
+			obj.setMahasiswa(idRef);
+			obj.setNama(namaFile);
+			obj.setLink(link);
+			obj.setKeterangan(keteranganFile);
+			obj.setOlehId(olehId);
+			obj.setOleh(namaOleh);
+		} else if (a instanceof FotoMahasiswaLulus) {
+			FotoMahasiswaLulus obj = (FotoMahasiswaLulus) a;
 			obj.setMahasiswa(idRef);
 			obj.setNama(namaFile);
 			obj.setLink(link);

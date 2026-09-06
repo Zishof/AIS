@@ -149,7 +149,9 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 				return;
 			}
 
-			String url = foto.createLinkUri();
+			// Gunakan rute servlet aplikasi (/al), bukan URL folder statis /f yang
+			// dapat ditolak Apache pada instalasi yang menutup akses langsung media.
+			String url = foto.createLinkUri(false);
 			if (url == null || url.trim().isEmpty()) {
 				cell.setCellValue("");
 				return;
