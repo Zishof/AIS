@@ -47,14 +47,29 @@ import ais.ui.util.MyWindow;
  */
 public class KomentarHelper {
 
+	/**
+	 * Dosen pemilik sesi login saat ini (penulis komentar), diambil dari
+	 * {@code Common.getCurrentUser().getDosen()} pada konstruktor. Bukan penerima notifikasi —
+	 * bandingkan dengan {@link #dosenpa}. Selalu tercatat (tidak ada mode komentar anonim pada
+	 * kelas ini); komentar yang tersimpan selalu dapat diatribusikan ke pengguna login via
+	 * {@code Komentar.setTbmuser(Tbmuser)} pada {@link #display(EventListener)}.
+	 */
 	private Dosen dosen;
+	/** Mahasiswa pemilik KRS yang diberi komentar; sumber NIM/nama/email untuk notifikasi. */
 	private Mahasiswa mahasiswa;
+	/** Kotak isian teks komentar, di-autowire ke {@link org.zkoss.zul.Textbox} saat {@link #display(EventListener)} dipanggil. */
 	private Textbox komentar;
+	/** Tahun akademik KRS yang diberi komentar. */
 	private String tahunAkademik;
+	/** Nomor semester KRS yang diberi komentar. */
 	private Integer semester;
+	/** Penanda konteks Semester Pendek/Antara; boleh {@code null} bila bukan semester pendek. */
 	private Integer semesterPendek;
+	/** Dosen Pembimbing Akademik mahasiswa; salah satu penerima notifikasi email komentar (boleh {@code null}). */
 	private Dosen dosenpa;
+	/** Nomor tahapan kurikulum (bila fitur tahapan aktif); boleh {@code null}. */
 	private Integer tahapan;
+	/** Penanda apakah KRS ini bersifat remedial, dipakai saat mencetak lampiran PDF KRS. */
 	private boolean remedial;
 
 	/**

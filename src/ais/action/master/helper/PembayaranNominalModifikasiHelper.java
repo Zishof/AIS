@@ -25,28 +25,198 @@ import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.Perkuliahan;
 
 /**
- * Helper terpusat untuk menghitung nominal tagihan mahasiswa.
+ * Helper terpusat untuk menghitung <b>nominal tagihan mahasiswa</b> ketika item biaya yang
+ * ditagih bukan harga tetap, melainkan harga satuan yang harus <b>dikalikan sesuatu</b>
+ * (jumlah SKS yang diambil, jumlah matakuliah ber-UTS, jumlah matakuliah remedial, ada/tidaknya
+ * konversi, tunggakan semester lalu, dan seterusnya).
  *
- * Semua rumus yang sebelumnya tersebar di DetailBiaya.updateKeterangan(...) dan
- * PengaturanPembayaranBulanan.ambilNominalModifikasi(...) dipusatkan di class ini
- * agar perubahan rumus biaya cukup dilakukan di satu tempat.
+ * <h2>Apa yang sebenarnya dimaksud &quot;modifikasi nominal&quot;</h2>
  *
- * Aturan utama:
- * - TIDAK_ADA_PENGHITUNGAN selalu memakai nominal asli.
- * - DetailBiaya non-bulanan memakai nilaiBiaya sebagai harga dasar.
- * - PengaturanPembayaranBulanan memakai nominal bulanan sebagai harga dasar.
- * - Hasil 0 adalah nilai sah, bukan nilai kosong, sehingga tidak boleh dipaksa
- *   kembali ke nominal awal.
+ * <p>Nama kelas ini mudah disalahpahami. Kelas ini <b>bukan</b> pintu bagi operator untuk
+ * mengetikkan nominal tagihan seorang mahasiswa sesuka hati; kelas ini tidak menerima satu pun
+ * nominal dari parameter pemanggil dan tidak punya jalur "isi angka bebas". Yang dilakukannya
+ * adalah <b>menurunkan</b> nominal secara deterministik dari tiga sumber yang seluruhnya berupa
+ * data master atau data akademik:</p>
+ *
+ * <ol>
+ *   <li><b>Harga dasar.</b> {@link DetailBiaya#getNilaiBiaya()} pada jalur tagihan biasa, atau
+ *   {@link PengaturanPembayaranBulanan#getNominal()} pada jalur tagihan bulanan/cicilan.</li>
+ *   <li><b>Skema perkalian.</b> {@link ItemBiaya#getPenghitungan()} &mdash; sebuah string yang
+ *   dipilih operator dari combobox {@code ItemBiaya.PENGHITUNGAN_MAP}. String inilah yang
+ *   memilih cabang rumus di kedua method besar kelas ini.</li>
+ *   <li><b>Fakta akademik mahasiswa.</b> Isi KRS-nya ({@link Detailperkuliahan} /
+ *   {@link Perkuliahan} / {@link Matakuliah}), status lulus, matakuliah konversi, dan tunggakan
+ *   semester sebelumnya &mdash; semuanya dibaca lewat {@link Mahasiswa} dan
+ *   {@link KrsDetailHelper}.</li>
+ * </ol>
+ *
+ * <p>Konsekuensi penting untuk penilaian risiko: <b>permukaan otorisasi yang sesungguhnya bukan
+ * di kelas ini</b>, melainkan (a) di layar master {@code ItemBiaya} (siapa boleh mengubah
+ * {@code penghitungan} dan harga satuan), (b) di layar {@code DetailSettingBiaya} /
+ * {@code PengaturanPembayaranBulanan} (siapa boleh mengubah harga per prodi/per bulan), dan
+ * (c) di layar KRS (siapa boleh mengubah matakuliah yang diambil mahasiswa, karena mengubah KRS
+ * berarti mengubah tagihan). Kelas ini sendiri <b>tidak memeriksa hak akses sama sekali</b> dan
+ * memang tidak seharusnya &mdash; ia dipanggil dari dalam render tabel tagihan dan dari getter
+ * entity, tempat pemeriksaan hak akses sudah (seharusnya) dilakukan lebih dulu. Lihat bagian
+ * &quot;Batasan&quot; di bawah untuk hal yang justru <i>tidak</i> aman.</p>
+ *
+ * <h2>Dua jalur, dua method</h2>
+ *
+ * <table border="1">
+ *   <caption>Perbandingan kedua jalur</caption>
+ *   <tr><th></th><th>{@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)}</th>
+ *       <th>{@link #ambilNominalModifikasi(PengaturanPembayaranBulanan, Mahasiswa, Integer)}</th></tr>
+ *   <tr><td>Untuk</td><td>tagihan biasa (satu baris rincian biaya per semester)</td>
+ *       <td>tagihan bulanan/cicilan (satu baris per bulan)</td></tr>
+ *   <tr><td>Harga dasar</td><td>{@code DetailBiaya.nilaiBiaya}</td>
+ *       <td>{@code PengaturanPembayaranBulanan.nominal}</td></tr>
+ *   <tr><td>Hasil ditulis ke</td><td>{@code DetailBiaya.nilaiBiayaBaru} (efek samping)</td>
+ *       <td>nilai kembalian {@code Double}</td></tr>
+ *   <tr><td>Rincian perhitungan ditulis ke</td><td>{@code DetailBiaya.keterangan} ({@code @Transient})</td>
+ *       <td>{@code PengaturanPembayaranBulanan.keterangan} (<b>kolom terpetakan</b>)</td></tr>
+ *   <tr><td>Penyaring tahapan</td><td>tidak ada (selalu {@code null})</td>
+ *       <td>{@link PengaturanPembayaranBulanan#hitungTahap(Mahasiswa, Integer)}</td></tr>
+ *   <tr><td>Gerbang tambahan</td><td>tidak ada</td>
+ *       <td>{@link PengaturanPembayaranBulanan#getDikalikanDenganKondisiKhusus()} harus menyala</td></tr>
+ * </table>
+ *
+ * <h2>Aturan utama (invarian yang dituju)</h2>
+ * <ul>
+ *   <li>{@link ItemBiaya#TIDAK_ADA_PENGHITUNGAN} &mdash; atau {@code penghitungan}
+ *   {@code null}/kosong &mdash; selalu memakai nominal asli tanpa perkalian apa pun.</li>
+ *   <li>{@link DetailBiaya} non-bulanan memakai {@code nilaiBiaya} sebagai harga dasar.</li>
+ *   <li>{@link PengaturanPembayaranBulanan} memakai nominal bulanan sebagai harga dasar.</li>
+ *   <li><b>Hasil {@code 0} adalah nilai sah, bukan nilai kosong.</b> Mahasiswa yang tidak
+ *   mengambil satu SKS pun memang harus ditagih {@code 0} untuk item berbasis SKS; hasil itu
+ *   tidak boleh dipaksa kembali ke nominal awal. Aturan ini yang membedakan kelas ini dari
+ *   implementasi lama yang menganggap {@code 0} sebagai "belum dihitung".</li>
+ * </ul>
+ *
+ * <h2>Rantai pemanggil</h2>
+ * <ul>
+ *   <li>{@link DetailBiaya#updateKeterangan(Mahasiswa, Integer)} &rarr;
+ *   {@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)}. Dipicu antara lain oleh
+ *   {@code Kegiatan.ambilJumlahTagihan(...)} saat mendapati {@code nilaiBiayaBaru} masih
+ *   {@code null}.</li>
+ *   <li>{@link PengaturanPembayaranBulanan#ambilNominalModifikasi(Mahasiswa, Integer)} &rarr;
+ *   {@link #ambilNominalModifikasi(PengaturanPembayaranBulanan, Mahasiswa, Integer)}.</li>
+ *   <li>{@code PembayaranUtilHelper} dan {@code DetailPembayaranMahasiswaRenderer} memanggil
+ *   bentuk statisnya langsung saat menyusun tabel tagihan di layar.</li>
+ *   <li>{@code KegiatanPersistenceHelper} memakai {@link #isTanpaPenghitungan(ItemBiaya)} untuk
+ *   memutuskan apakah sebuah item perlu dihitung ulang sama sekali.</li>
+ * </ul>
+ *
+ * <h2>Batasan dan jebakan yang perlu diketahui</h2>
+ * <ul>
+ *   <li><b>Rantai {@code if/else-if} tanpa {@code else} penutup.</b> Kedua method besar memilih
+ *   cabang dengan membandingkan {@code penghitungan} satu per satu. Bila tidak ada satu pun
+ *   cabang yang cocok, <b>tidak ada nilai yang ditulis</b>: {@code updateKeterangan} meninggalkan
+ *   {@code nilaiBiayaBaru} apa adanya (mungkin {@code null}, mungkin sisa perhitungan
+ *   sebelumnya), dan {@code ambilNominalModifikasi} mengembalikan nominal dasar tanpa perkalian.
+ *   Ini berarti menambah konstanta baru ke {@code ItemBiaya.PENGHITUNGAN_MAP} tanpa menambah
+ *   cabang di sini menghasilkan <b>kegagalan diam</b>, bukan galat.</li>
+ *   <li><b>Satu skema penghitungan sudah kehilangan cabangnya.</b>
+ *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} punya cabang di
+ *   {@link #ambilNominalModifikasi(PengaturanPembayaranBulanan, Mahasiswa, Integer)} tetapi
+ *   <b>tidak</b> di {@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)} &mdash; blok yang
+ *   seharusnya menanganinya justru menguji {@link ItemBiaya#DIKALI_JUMLAH_SKS_UTS_REMEDIAL}
+ *   untuk kedua kalinya (dua blok kembar persis; yang kedua tak akan pernah terjangkau). Lihat
+ *   catatan rinci pada method tersebut.</li>
+ *   <li><b>{@code ambilNominalModifikasi} menulis ke kolom terpetakan.</b> Meski namanya
+ *   diawali {@code ambil} (getter-like), method itu memanggil
+ *   {@link PengaturanPembayaranBulanan#setKeterangan(String)} pada entity yang umumnya masih
+ *   dikelola sesi Hibernate. Pada instance terkelola, dirty-checking akan menerbitkan
+ *   {@code UPDATE} beserta revisi Envers walau tidak ada yang "diubah" secara semantik. Ini
+ *   perwujudan pola getter-mutasi-field yang sudah terdokumentasi luas di
+ *   {@code ais/database/model/}, dan alasan {@code KegiatanHelper} menandai entity ini read-only
+ *   saat hitung ulang massal.</li>
+ *   <li><b>Tidak ada jejak audit perubahan nominal.</b> Kelas ini tidak menulis
+ *   {@code posting_history}, tidak memanggil {@code Common.catatLog}, dan tidak menyimpan nominal
+ *   sebelum/sesudah. Jejak yang ada hanyalah (a) revisi Envers pada tabel master yang diubah
+ *   operator ({@code item_biaya}, {@code detail_biaya}, {@code pengaturan_pembayaran_bulanan}),
+ *   dan (b) string {@code keterangan} yang merekam rumusnya dalam bentuk teks bebas
+ *   (mis. {@code "SPP (500.000) x 20 SKS, sbb : Kalkulus:3sks, ..."}). Karena itu, untuk
+ *   merekonstruksi "mengapa tagihan mahasiswa X berubah" seseorang harus menggabungkan riwayat
+ *   Envers master biaya dengan riwayat KRS &mdash; kelas ini sendiri tidak mencatat apa pun.</li>
+ *   <li><b>Biaya query berat, tanpa cache.</b> Setiap cabang memuat ulang seluruh
+ *   {@link Detailperkuliahan} mahasiswa satu per satu lewat
+ *   {@link GeneralValueObject#ambilData(Class, String)} (N+1 query). Untuk satu baris tagihan
+ *   ini sudah mahal; dipanggil dari renderer tabel untuk ratusan mahasiswa, biayanya berlipat.
+ *   Pemanggil massal wajib menyiapkan sesi/cache-nya sendiri.</li>
+ *   <li><b>Aritmetika {@code double} untuk uang.</b> Seluruh perkalian memakai {@code double}
+ *   tanpa pembulatan eksplisit, sehingga hasil seperti {@code 1.0000000000000002} mungkin muncul
+ *   dan baru dibulatkan (atau tidak) di lapisan tampilan/posting.</li>
+ * </ul>
+ *
+ * @see ItemBiaya#getPenghitungan()
+ * @see DetailBiaya#updateKeterangan(Mahasiswa, Integer)
+ * @see PengaturanPembayaranBulanan#ambilNominalModifikasi(Mahasiswa, Integer)
  */
 public final class PembayaranNominalModifikasiHelper {
 
+	/**
+	 * Konstruktor privat: kelas ini murni kumpulan method statis dan tidak boleh diinstansiasi.
+	 *
+	 * <p>Dipasangkan dengan modifier {@code final} pada kelasnya, ini menutup dua jalur
+	 * penyalahgunaan sekaligus: membuat objeknya dan mewarisinya untuk menimpa rumus biaya.</p>
+	 */
 	private PembayaranNominalModifikasiHelper() {
 	}
 
+	/**
+	 * Menormalkan {@code Double} yang mungkin {@code null} menjadi {@code 0.0}.
+	 *
+	 * <p>Dipakai di jalur "pulang cepat" {@link #updateKeterangan(DetailBiaya, Mahasiswa, Integer)}
+	 * agar {@code nilaiBiayaBaru} selalu terisi angka ketika perhitungan memang tidak berlaku,
+	 * sehingga pemanggil tidak perlu membedakan "belum dihitung" dari "tidak perlu dihitung".</p>
+	 *
+	 * <p><b>Perhatikan asimetrinya:</b> normalisasi ini hanya dipakai pada jalur pulang cepat.
+	 * Di dalam rantai perhitungan, harga dasar diambil langsung lewat
+	 * {@code detailBiaya.getNilaiBiaya()} tanpa {@code safeDouble}, sehingga item biaya berskema
+	 * perkalian yang harganya {@code null} akan melempar {@code NullPointerException} saat
+	 * di-unbox pada perkalian &mdash; bukan menghasilkan {@code 0}.</p>
+	 *
+	 * @param value nilai yang mungkin {@code null}
+	 * @return {@code value} apa adanya, atau {@code 0.0} bila {@code value} {@code null};
+	 *         tidak pernah {@code null}
+	 */
 	private static Double safeDouble(Double value) {
 		return value == null ? Double.valueOf(0.0) : value;
 	}
 
+	/**
+	 * Menentukan apakah sebuah {@link ItemBiaya} <b>tidak</b> memakai skema perkalian apa pun,
+	 * sehingga nominalnya dipakai apa adanya.
+	 *
+	 * <p>Tiga keadaan diperlakukan sama sebagai "tanpa penghitungan":</p>
+	 * <ul>
+	 *   <li>{@code itemBiaya} sendiri {@code null} &mdash; rincian biaya yatim, tidak ada skema
+	 *   yang bisa dibaca;</li>
+	 *   <li>{@code penghitungan} {@code null} atau kosong setelah {@code trim()} &mdash; data
+	 *   lama dari sebelum kolom ini ada, atau operator belum memilih apa pun;</li>
+	 *   <li>{@code penghitungan} persis {@link ItemBiaya#TIDAK_ADA_PENGHITUNGAN} &mdash; operator
+	 *   memilih "Tidak ada penghitungan" secara sadar.</li>
+	 * </ul>
+	 *
+	 * <p><b>Sikap fail-safe:</b> saat ragu, method ini mengembalikan {@code true}, yaitu
+	 * "pakai nominal asli". Itu pilihan yang benar untuk keuangan &mdash; data yang tidak
+	 * lengkap tidak boleh menghasilkan tagihan yang dikalikan angka acak. Bandingkan dengan
+	 * kebalikannya (default "hitung"), yang akan mengubah harga tetap menjadi
+	 * {@code 0} setiap kali skema tidak terbaca.</p>
+	 *
+	 * <p><b>Perbandingan memakai konstanta, bukan kunci combobox.</b> Yang dibandingkan adalah
+	 * <i>label</i> ({@code "Tidak ada penghitungan"}), bukan kunci numeriknya di
+	 * {@code ItemBiaya.PENGHITUNGAN_MAP}. Artinya nilai kolom {@code penghitungan} di basis data
+	 * memang menyimpan labelnya; mengganti teks label di kemudian hari akan memutus pencocokan
+	 * ini untuk seluruh baris lama.</p>
+	 *
+	 * <p><b>Dipanggil dari:</b> kedua method besar kelas ini sebagai gerbang paling awal, dan
+	 * dari {@code KegiatanPersistenceHelper} untuk memutuskan apakah sebuah item biaya perlu
+	 * dihitung ulang sama sekali sebelum menyusun tagihan.</p>
+	 *
+	 * @param itemBiaya item biaya yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila nominal harus dipakai apa adanya tanpa perkalian
+	 */
 	public static boolean isTanpaPenghitungan(ItemBiaya itemBiaya) {
 		if (itemBiaya == null) {
 			return true;
