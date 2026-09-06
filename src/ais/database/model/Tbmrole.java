@@ -863,24 +863,105 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 */
 	private Boolean aktif;
 
+	/**
+	 * Hak modul e-Learning. Lihat {@link #getElearning()} &mdash; bawaan menyala untuk
+	 * ADMINISTRATOR/MAHASISWA/DOSEN/AKADEMIK, dipaksa mati untuk PENDUDUK dan KANTIN.
+	 */
 	private Boolean elearning;
+	/**
+	 * Hak modul Perpustakaan. Lihat {@link #getPustaka()} &mdash; <b>bawaan menyala untuk
+	 * semua peran</b> kecuali KANTIN.
+	 */
 	private Boolean pustaka;
+	/**
+	 * Hak melihat dasbor umum &mdash; kolom {@code dashboard_boleh}. Lihat
+	 * {@link #getDashboard()}; bawaan menyala untuk semua peran kecuali KANTIN.
+	 */
 	private Boolean dashboard;
+	/**
+	 * Hak modul Workflow/persetujuan. Lihat {@link #getWorkflow()} &mdash; bawaan menyala
+	 * untuk semua peran kecuali KANTIN.
+	 */
 	private Boolean workflow;
+	/**
+	 * Hak modul Kegiatan &amp; Prestasi. Lihat {@link #getKegiatanDanPrestasi()} &mdash; pola
+	 * bawaannya sama persis dengan {@link #elearning}.
+	 */
 	private Boolean kegiatanDanPrestasi;
+	/**
+	 * Hak modul Administrasi. Lihat {@link #getAdministrasi()} &mdash; bawaan menyala untuk
+	 * semua peran kecuali KANTIN.
+	 */
 	private Boolean administrasi;
+	/**
+	 * Hak modul Pengadaan. Lihat {@link #getPengadaan()} &mdash; bawaan menyala, namun
+	 * dipaksa mati untuk peran peserta didik dan pengajar.
+	 */
 	private Boolean pengadaan;
+	/**
+	 * Hak modul Keuangan. Lihat {@link #getKeuangan()} &mdash; bawaannya diturunkan lewat
+	 * <b>pencocokan substring</b> {@code "keu"} pada {@code roleId}; lihat peringatan pada
+	 * {@link #KEUANGAN}.
+	 */
 	private Boolean keuangan;
+	/**
+	 * Hak modul Kepegawaian. Lihat {@link #getKepegawaian()} &mdash; bawaannya diturunkan
+	 * lewat pencocokan substring {@code "pegawai"} pada {@code roleId}, yang justru
+	 * <b>tidak</b> cocok dengan konstanta {@link #PEGAWAI} ({@code "peg"}).
+	 */
 	private Boolean kepegawaian;
+	/**
+	 * Hak modul Presensi Kehadiran. Lihat {@link #getPresensiKehadiran()} &mdash; dipaksa
+	 * menyala untuk DOSEN/PEGAWAI/GURU tanpa membaca kolom ini.
+	 */
 	private Boolean presensiKehadiran;
+	/**
+	 * Hak memproses izin keluar/masuk di pos keamanan pesantren &mdash; kolom
+	 * {@code akses_gerbang_pesantren}. Lihat {@link #getAksesGerbangPesantren()}.
+	 */
 	private Boolean aksesGerbangPesantren;
+	/**
+	 * Hak menyetujui transaksi member yang melampaui limit &mdash; kolom
+	 * {@code boleh_verifikasi_member_melebihi_limit}. Lihat
+	 * {@link #getBolehVerifikasiMemberMelebihiLimit()}; <i>fail-closed</i>.
+	 */
 	private Boolean bolehVerifikasiMemberMelebihiLimit;
+	/**
+	 * Hak melakukan absensi langsung. Lihat {@link #getAbsenLangsung()} &mdash; bawaan
+	 * menyala hanya untuk peran {@link #Presensi}.
+	 */
 	private Boolean absenLangsung;
+	/**
+	 * Hak modul Pembayaran. Lihat {@link #getPembayaran()} &mdash; pola bawaannya sama persis
+	 * dengan {@link #keuangan}, termasuk pencocokan substring {@code "keu"}.
+	 */
 	private Boolean pembayaran;
+	/**
+	 * Hak modul Kalender Akademik. Lihat {@link #getKalenderAkademik()} &mdash; bawaan
+	 * menyala untuk semua peran <b>kecuali</b> ADMINISTRATOR dan KANTIN.
+	 */
 	private Boolean kalenderAkademik;
+	/**
+	 * Hak akses dasbor Neo Feeder &mdash; kolom {@code boleh_akses_feeder}. Lihat
+	 * {@link #getBolehAksesFeeder()}; bawaannya diturunkan dari
+	 * {@link #defaultAksesFeederSister()} yang mencocokkan substring pada <b>nama</b> peran.
+	 */
 	private Boolean bolehAksesFeeder;
+	/**
+	 * Hak akses dasbor SISTER &mdash; kolom {@code boleh_akses_sister}. Lihat
+	 * {@link #getBolehAksesSister()}; bawaannya identik dengan {@link #bolehAksesFeeder}.
+	 */
 	private Boolean bolehAksesSister;
+	/**
+	 * Hak melihat Info Kegiatan. Lihat {@link #getInfoKegiatan()} &mdash; bawaan menyala
+	 * untuk semua peran kecuali ADMINISTRATOR dan KANTIN.
+	 */
 	private Boolean infoKegiatan;
+	/**
+	 * Izin <b>MENGELOLA</b> dasbor repository &mdash; kolom {@code repository}. Lihat
+	 * {@link #getDasborRepository()}; bawaan hanya untuk ADMINISTRATOR. Bandingkan dengan
+	 * {@link #bacaRepository} yang merupakan izin membaca.
+	 */
 	private Boolean dasborRepository;
 	/**
 	 * Izin MEMBACA artefak repository di aplikasi mobile/desktop.
@@ -889,23 +970,99 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * terpublikasi terbuka untuk semua grup kecuali dimatikan.
 	 */
 	private Boolean bacaRepository;
+	/**
+	 * Hak melihat dasbor Antar Jemput &mdash; kolom {@code antar_jemput}. Lihat
+	 * {@link #getDasboardAntarJemput()}; bawaan hanya untuk ADMINISTRATOR.
+	 *
+	 * <p>Perhatikan salah eja historis pada nama field ({@code dasboard}, bukan
+	 * {@code dashboard}) yang ikut terbawa ke nama getter/setter publiknya. Jangan
+	 * diperbaiki tanpa menyisir seluruh pemanggil dan pemetaan ZK.</p>
+	 */
 	private Boolean dasboardAntarJemput;
+	/**
+	 * Hak melihat modul SPMI (penjaminan mutu internal) &mdash; kolom {@code spmi}. Lihat
+	 * {@link #getTampilkanSpmi()}; bawaan hanya untuk ADMINISTRATOR.
+	 */
 	private Boolean tampilkanSpmi;
+	/**
+	 * Hak melihat modul Gaji &mdash; kolom {@code gaji}. Lihat {@link #getTampilkanGaji()};
+	 * bawaan hanya untuk ADMINISTRATOR.
+	 */
 	private Boolean tampilkanGaji;
+	/**
+	 * Hak melihat data pegawai selain dirinya sendiri. Lihat
+	 * {@link #getMelihatDataPegawaiLain()} &mdash; salah satu flag yang benar-benar menjadi
+	 * <b>gerbang pembatas data</b> di sisi server, bukan sekadar visibilitas menu.
+	 */
 	private Boolean melihatDataPegawaiLain;
+	/**
+	 * Hak mengajukan pengajuan atas nama pegawai lain. Lihat
+	 * {@link #getMengajukanPengajuanPegawaiLain()}; <i>fail-closed</i>.
+	 */
 	private Boolean mengajukanPengajuanPegawaiLain;
+	/**
+	 * Hak melihat data satuan kerja selain miliknya. Lihat
+	 * {@link #getMelihatDataSatkerLain()} &mdash; gerbang pembatas data lintas unit yang
+	 * nyata di sisi server.
+	 */
 	private Boolean melihatDataSatkerLain;
+	/**
+	 * Hak melihat seluruh surat, bukan hanya yang dikonsep sendiri. Lihat
+	 * {@link #getMelihatSemuaSurat()} &mdash; gerbang pembatas data yang nyata.
+	 */
 	private Boolean melihatSemuaSurat;
+	/**
+	 * Hak melihat seluruh SOP. Lihat {@link #getMelihatSemuaSop()} &mdash; gerbang pembatas
+	 * data yang nyata.
+	 */
 	private Boolean melihatSemuaSop;
+	/**
+	 * Hak menyunting format/template laporan. Lihat {@link #getUpdateFormatLaporan()};
+	 * bawaan hanya untuk ADMINISTRATOR.
+	 */
 	private Boolean updateFormatLaporan;
+	/**
+	 * Lingkup Program studi yang melekat pada peran ini. Lihat {@link #getProgram()}.
+	 *
+	 * <p>Bagian dari kelompok lingkup organisasi yang <b>menimpa</b> lingkup pribadi setiap
+	 * akun pemakai peran ini &mdash; lihat {@link Tbmuser#ambilProgram()}.</p>
+	 */
 	private Program program;
 
+	/**
+	 * Lingkup Jurusan yang melekat pada peran ini. Lihat {@link #getJurusan()} dan
+	 * {@link Tbmuser#ambilJurusan()}.
+	 */
 	private Jurusan jurusan;
+	/**
+	 * Lingkup Fakultas yang melekat pada peran ini. Lihat {@link #getFakultas()} &mdash;
+	 * nilainya <b>diturunkan dari {@link #jurusan}</b> bila jurusan terisi.
+	 */
 	private Fakultas fakultas;
+	/**
+	 * Lingkup Yayasan yang melekat pada peran ini. Lihat {@link #getYayasan()} &mdash;
+	 * nilainya <b>diturunkan dari {@link #sekolah}</b> bila sekolah terisi.
+	 */
 	private Yayasan yayasan;
+	/**
+	 * Lingkup Sekolah yang melekat pada peran ini. Lihat {@link #getSekolah()}.
+	 */
 	private Sekolah sekolah;
+	/**
+	 * Jenis jabatan yang diasosiasikan dengan peran ini. Lihat {@link #getJenisJabatan()}
+	 * &mdash; data referensi kepegawaian, bukan gerbang otorisasi.
+	 */
 	private JenisJabatan jenisJabatan;
+	/**
+	 * Halaman pendaratan seusai login. Lihat {@link #getHalamanUtama()} &mdash;
+	 * <i>routing</i>, bukan otorisasi.
+	 */
 	private String halamanUtama;
+	/**
+	 * Dasbor bawaan yang ditampilkan di halaman utama &mdash; kolom
+	 * {@code dashboard_default_main}. Lihat {@link #getDashboardDefaultMain()}; pemilihan
+	 * tampilan, bukan otorisasi.
+	 */
 	private String dashboardDefaultMain;
 
 	/**
@@ -949,12 +1106,44 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * {@link #getMenus()}.</p>
 	 */
 	private Set<Menu> menus = new HashSet<Menu>();
+	/**
+	 * Hak modul Akuntansi. Lihat {@link #getAkunting()} &mdash; pola bawaannya sama persis
+	 * dengan {@link #keuangan}, termasuk pencocokan substring {@code "keu"}.
+	 */
 	private Boolean akunting;
+	/**
+	 * Hak modul Kinerja. Lihat {@link #getKinerja()} &mdash; bawaan menyala untuk semua peran
+	 * kecuali KANTIN, SISWA, dan MAHASISWA.
+	 */
 	private Boolean kinerja;
+	/**
+	 * Hak modul Kantin/e-Kantin. Lihat {@link #getKantin()} &mdash; bawaannya diturunkan
+	 * lewat pencocokan substring {@code "keu"}, dan merupakan satu-satunya flag yang
+	 * <b>tidak</b> memiliki daftar-tolak {@link #KANTIN}.
+	 */
 	private Boolean kantin;
+	/**
+	 * Penanda tampil pintasan Dasbor POS &mdash; kolom {@code tampil_pos}. Lihat
+	 * {@link #getTampilPos()}; <b>hanya visibilitas ikon</b>, otorisasi POS yang sebenarnya
+	 * ada di {@link #ebisnisMenu}.
+	 */
 	private Boolean tampilPos;
+	/**
+	 * Penanda tampil pintasan dasbor Koperasi &mdash; kolom {@code dashboard_koperasi}.
+	 * Lihat {@link #getDashboardKoperasi()}; bawaan hanya untuk ADMINISTRATOR.
+	 */
 	private Boolean dashboardKoperasi;
+	/**
+	 * Penanda tampil pintasan dasbor eMedic &mdash; lihat {@link #getEmedic()}.
+	 * <b>Hanya visibilitas ikon</b>: halaman eMedik menegakkan izinnya lewat
+	 * {@link #ebisnisMenu}, bukan lewat flag ini.
+	 */
 	private Boolean emedic;
+	/**
+	 * Hak melakukan entri topup saldo. Lihat {@link #getBolehEntryTopup()} &mdash; gerbang
+	 * <b>transaksional sungguhan</b>, namun bawaannya diturunkan lewat pencocokan substring
+	 * {@code "keu"}. Kombinasi paling berisiko di kelas ini; lihat {@link #KEUANGAN}.
+	 */
 	private Boolean bolehEntryTopup;
 	/**
 	 * Satu kolom JSON konsolidasi utk SEMUA hak akses menu POS/e-Kantin (Kasir Desktop, Kasir Android,
@@ -973,9 +1162,31 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * kolom JSON extensible tanpa ALTER TABLE lagi.</p>
 	 */
 	private String ebisnisMenu;
+	/**
+	 * Daftar toko yang boleh diakses peran ini, dalam bentuk JSON &mdash; kolom
+	 * {@code toko_akses_json}. Lihat {@link #getTokoAksesJson()}; gerbang pembatas data
+	 * yang nyata di {@code PosApi}/{@code KantinHelper}.
+	 */
 	private String tokoAksesJson;
+	/**
+	 * Hak akses modul Jurnal Ilmiah dalam bentuk JSON &mdash; kolom
+	 * {@code jurnal_akses_json}. Lihat {@link #getJurnalAksesJson()}; ditafsirkan
+	 * <b>hanya</b> lewat {@code JurnalAksesKatalog}.
+	 */
 	private String jurnalAksesJson;
+	/**
+	 * Izin melihat seluruh toko aktif &mdash; kolom {@code boleh_lihat_semua_toko}. Lihat
+	 * {@link #getBolehLihatSemuaToko()}; <i>fail-closed</i>.
+	 */
 	private Boolean bolehLihatSemuaToko;
+	/**
+	 * Lingkup Satuan Kerja tunggal yang melekat pada peran ini &mdash; kolom
+	 * {@code satuan_kerja}. Lihat {@link #getSatuanKerja()}.
+	 *
+	 * <p>Bandingkan dengan {@link #satuanKerjas} (berakhiran {@code s}) yang menampung
+	 * <b>banyak</b> kode satuan kerja sebagai teks dipisah koma. Keduanya berdampingan dan
+	 * mudah tertukar.</p>
+	 */
 	private SatuanKerja satuanKerja;
 
 	/**
@@ -1361,6 +1572,57 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>e-Learning</b>.
+	 *
+	 * <p>Getter flag paling rumit di kelas ini, dan contoh terbaik dari pola "kolom
+	 * {@code null} berarti tebak" yang dijelaskan pada dokumentasi kelas. Ia mengevaluasi
+	 * <b>empat blok berurutan</b>, dan blok yang belakangan dapat menimpa hasil blok
+	 * sebelumnya:</p>
+	 * <ol>
+	 *   <li><b>Daftar-tolak {@link #KANTIN}.</b> Langsung mengembalikan {@code false} tanpa
+	 *   menyentuh kolom. Kasir tidak pernah mendapat e-Learning, bahkan bila dicentang.</li>
+	 *   <li><b>Penurunan bawaan bila kolom {@code null}.</b> Menyala untuk
+	 *   {@code "am"}, {@code "mhs"}, {@code "dosen"}, dan {@code "Akademik"} &mdash;
+	 *   dibandingkan dengan {@code equalsIgnoreCase}. Nilainya <b>ditulis balik ke
+	 *   field</b>.</li>
+	 *   <li><b>Penolakan {@link #PENDUDUK}.</b> Menulis {@code false} ke field, menimpa
+	 *   apa pun dari langkah sebelumnya.</li>
+	 *   <li><b>Pemaksaan {@code "mhs"} dan {@code "dosen"}.</b> Menulis {@code true} ke
+	 *   field <b>tanpa memeriksa apakah kolomnya sudah diisi</b>.</li>
+	 * </ol>
+	 *
+	 * <h3>Konsekuensi penting: langkah 4 mengabaikan pilihan administrator</h3>
+	 * <p>Perhatikan bahwa langkah 4 berada <b>di luar</b> penjagaan
+	 * {@code if (elearning == null)}. Artinya bagi peran {@link #MAHASISWA} dan
+	 * {@link #DOSEN}, administrator yang secara sadar <b>mematikan</b> e-Learning di layar
+	 * Grup Pengguna akan mendapati pilihannya <b>diabaikan diam-diam</b> &mdash; getter
+	 * memaksa nilainya kembali {@code true} setiap kali dibaca, dan bahkan
+	 * <b>menuliskannya kembali ke basis data</b> pada penyimpanan berikutnya. Praktisnya
+	 * e-Learning tidak dapat dicabut dari mahasiswa dan dosen lewat antarmuka. Ini tampak
+	 * disengaja (keduanya adalah pengguna inti modul), namun layar administrasi tidak
+	 * memberi tanda apa pun bahwa centangnya tidak berpengaruh.</p>
+	 *
+	 * <h3>PERHATIAN: getter penulis-balik field</h3>
+	 * <p>Ketiga langkah terakhir menugaskan nilai ke field {@code elearning}, bukan sekadar
+	 * mengembalikannya. Sekadar <b>membaca</b> hak e-Learning karena itu menandai entity
+	 * sebagai <i>dirty</i>, memicu {@code UPDATE} beserta {@link #onUpdate()}, dan
+	 * menerbitkan <b>revisi audit Envers palsu</b>. Untuk entity otorisasi, ini berarti
+	 * riwayat perubahan hak akses memuat catatan yang tidak pernah dilakukan manusia.</p>
+	 *
+	 * <h3>Cakupan penegakan</h3>
+	 * <p>Sebagian besar pemanggil memakai nilai ini untuk mengatur <b>visibilitas</b>
+	 * pintasan dan menu ({@code MainAction}, {@code MainAction2}, JSP navigasi). Penegakan
+	 * yang lebih dari sekadar tampilan ada di {@code MenuInitializer} dan
+	 * {@code ProfileAdminSekolah}. Seperti flag modul lain di kelas ini, ia <b>tidak</b>
+	 * melindungi endpoint {@code _service_*.jsp} di belakang layar &mdash; untuk itu andalkan
+	 * {@code RolePrivilage} atau {@link #getEbisnisMenu()}.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul e-Learning; tidak pernah
+	 *         {@code null}
+	 * @see #setElearning(Boolean)
+	 * @see #getKegiatanDanPrestasi()
+	 */
 	public Boolean getElearning() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1391,10 +1653,64 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return elearning == null ? false : elearning;
 	}
 
+	/**
+	 * Menetapkan hak akses modul e-Learning.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. <b>Nilai yang disimpan di sini belum tentu
+	 * berlaku</b>: seperti dijelaskan pada {@link #getElearning()}, peran
+	 * {@link #MAHASISWA} dan {@link #DOSEN} akan memaksa nilainya kembali {@code true}, dan
+	 * peran {@link #KANTIN} serta {@link #PENDUDUK} akan memaksanya {@code false},
+	 * mengabaikan apa pun yang ditetapkan di sini.</p>
+	 *
+	 * <p>Menyimpan {@code null} berarti mengembalikan flag ke penurunan bawaan berbasis
+	 * {@code roleId}, bukan berarti "tidak punya hak".</p>
+	 *
+	 * @param elearning hak modul e-Learning; {@code null} berarti kembali ke bawaan
+	 * @see #getElearning()
+	 */
 	public void setElearning(Boolean elearning) {
 		this.elearning = elearning;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Kegiatan &amp; Prestasi</b>
+	 * (kegiatan kemahasiswaan, lomba, penghargaan).
+	 *
+	 * <p>Strukturnya sengaja dibuat sejajar dengan {@link #getElearning()}, dengan
+	 * <b>satu perbedaan penting</b>: blok pemaksaan terakhir untuk {@code "mhs"} dan
+	 * {@code "dosen"} <b>tidak ada</b> di sini. Urutannya:</p>
+	 * <ol>
+	 *   <li>daftar-tolak {@link #KANTIN} &mdash; kembalikan {@code false};</li>
+	 *   <li>bila kolom {@code null}, menyala untuk {@code "am"}, {@code "mhs"},
+	 *   {@code "dosen"}, {@code "Akademik"} ({@code equalsIgnoreCase}), ditulis balik ke
+	 *   field;</li>
+	 *   <li>{@link #PENDUDUK} dipaksa {@code false}, ditulis balik ke field;</li>
+	 *   <li>kembalikan kolomnya, dengan {@code null} diperlakukan sebagai {@code false}.</li>
+	 * </ol>
+	 *
+	 * <p>Karena tidak ada blok pemaksaan, administrator <b>dapat</b> mencabut hak ini dari
+	 * mahasiswa dan dosen &mdash; berbeda dari {@link #getElearning()}. Ketidaksamaan antara
+	 * dua getter yang tampak kembar ini mudah luput saat menyunting salah satunya; bila
+	 * mengubah salah satu, periksa apakah yang lain perlu ikut berubah.</p>
+	 *
+	 * <p>Berbeda pula dari sebagian besar flag "bawaan menyala" di kelas ini, nilai akhirnya
+	 * jatuh ke <b>{@code false}</b> bila kolom masih {@code null} dan peran tidak termasuk
+	 * keempat pengenal di langkah 2. Jadi peran baru yang bernama bebas <b>tidak</b>
+	 * memperoleh hak ini secara bawaan &mdash; perilaku <i>fail-closed</i> yang lebih
+	 * disukai.</p>
+	 *
+	 * <p><b>Getter penulis-balik field</b>: berlaku seluruh peringatan revisi audit palsu
+	 * seperti pada {@link #getElearning()}.</p>
+	 *
+	 * <p>Pemanggilnya seluruhnya berada di lapisan tampilan ({@code MainAction2}, JSP menu
+	 * dan akses cepat) &mdash; tidak ada gerbang server-side yang membaca flag ini, sehingga
+	 * mematikannya hanya menyembunyikan pintasan.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Kegiatan &amp; Prestasi;
+	 *         tidak pernah {@code null}
+	 * @see #setKegiatanDanPrestasi(Boolean)
+	 * @see #getElearning()
+	 */
 	public Boolean getKegiatanDanPrestasi() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1419,10 +1735,45 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return kegiatanDanPrestasi == null ? false : kegiatanDanPrestasi;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Kegiatan &amp; Prestasi.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Berbeda dari {@link #setElearning(Boolean)}, nilai
+	 * yang disimpan di sini <b>dihormati</b> untuk mahasiswa dan dosen karena
+	 * {@link #getKegiatanDanPrestasi()} tidak memiliki blok pemaksaan. Yang tetap
+	 * mengabaikannya hanyalah peran {@link #KANTIN} dan {@link #PENDUDUK}.</p>
+	 *
+	 * @param kegiatanDanPrestasi hak modul; {@code null} berarti kembali ke bawaan
+	 * @see #getKegiatanDanPrestasi()
+	 */
 	public void setKegiatanDanPrestasi(Boolean kegiatanDanPrestasi) {
 		this.kegiatanDanPrestasi = kegiatanDanPrestasi;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Perpustakaan</b>.
+	 *
+	 * <p>Salah satu flag paling permisif di kelas ini: bila kolomnya masih {@code null}
+	 * &mdash; keadaan setiap Grup Pengguna yang baru dibuat &mdash; hasilnya
+	 * <b>{@code true}</b>. Satu-satunya pengecualian adalah daftar-tolak {@link #KANTIN}.
+	 * Perpustakaan dengan demikian terbuka secara bawaan bagi seluruh peran, dan baru
+	 * tertutup bila administrator secara eksplisit menyimpan {@link Boolean#FALSE}.</p>
+	 *
+	 * <p>Pilihan <i>fail-open</i> ini masuk akal untuk layanan yang memang ditujukan bagi
+	 * seluruh sivitas, namun perlu diingat saat merancang peran berhak-minimum: peran baru
+	 * <b>tidak</b> dimulai dari nol hak.</p>
+	 *
+	 * <p><b>Getter murni</b> &mdash; memakai ternary tanpa menulis balik ke field, sehingga
+	 * bebas dari masalah revisi audit palsu. Ini pola yang sebaiknya diikuti getter lain di
+	 * kelas ini.</p>
+	 *
+	 * <p>Penegakannya nyata di sisi server pada {@code PustakaApi}, selain dipakai luas untuk
+	 * visibilitas menu.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses perpustakaan; tidak pernah
+	 *         {@code null}
+	 * @see #setPustaka(Boolean)
+	 */
 	public Boolean getPustaka() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1431,10 +1782,43 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return pustaka == null ? true : pustaka;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Perpustakaan.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Menyimpan {@code null} <b>tidak</b> mencabut hak
+	 * &mdash; ia mengembalikan flag ke bawaan yang bernilai {@code true}. Untuk benar-benar
+	 * menutup akses, simpan {@link Boolean#FALSE} secara eksplisit.</p>
+	 *
+	 * @param pustaka hak modul; {@code null} berarti kembali ke bawaan menyala
+	 * @see #getPustaka()
+	 */
 	public void setPustaka(Boolean pustaka) {
 		this.pustaka = pustaka;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat <b>dasbor umum</b> &mdash; kolom
+	 * {@code dashboard_boleh}.
+	 *
+	 * <p>Nama kolomnya sengaja diberi akhiran {@code _boleh} karena {@code dashboard} adalah
+	 * kata kunci yang sudah dipakai di tempat lain pada skema. Perhatikan pula bahwa
+	 * {@code length = 255} pada anotasi kolom tidak berpengaruh untuk tipe
+	 * {@link Boolean}; ia sisa penyalinan dari kolom teks.</p>
+	 *
+	 * <p>Sama seperti {@link #getPustaka()}: <b>berdefault menyala</b> bagi seluruh peran
+	 * kecuali {@link #KANTIN}, dan merupakan <b>getter murni</b> tanpa tulis-balik.</p>
+	 *
+	 * <p>Perlu dibedakan dari {@link #getDashboardDefaultMain()}, yang memilih dasbor
+	 * <i>mana</i> yang tampil, sedangkan flag ini menentukan apakah dasbor tampil sama
+	 * sekali. Perlu dibedakan pula dari flag dasbor per-modul seperti
+	 * {@link #getDashboardKoperasi()} dan {@link #getDasborRepository()}.</p>
+	 *
+	 * <p>Seluruh pemanggilnya berada di lapisan tampilan; tidak ada gerbang server-side yang
+	 * membacanya.</p>
+	 *
+	 * @return {@code true} bila dasbor umum boleh ditampilkan; tidak pernah {@code null}
+	 * @see #setDashboard(Boolean)
+	 */
 	@Column(name = "dashboard_boleh", length = 255)
 	public Boolean getDashboard() {
 
@@ -1444,10 +1828,36 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return dashboard == null ? true : dashboard;
 	}
 
+	/**
+	 * Menetapkan hak melihat dasbor umum.
+	 *
+	 * <p>Setter mentah tanpa penjagaan; {@code null} mengembalikan flag ke bawaan menyala,
+	 * bukan mencabutnya.</p>
+	 *
+	 * @param dashboard hak melihat dasbor; {@code null} berarti kembali ke bawaan menyala
+	 * @see #getDashboard()
+	 */
 	public void setDashboard(Boolean dashboard) {
 		this.dashboard = dashboard;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Workflow</b> (alur
+	 * persetujuan/disposisi).
+	 *
+	 * <p>Berpola sama dengan {@link #getPustaka()} dan {@link #getDashboard()}:
+	 * <b>berdefault menyala</b> untuk seluruh peran kecuali {@link #KANTIN}, dan merupakan
+	 * <b>getter murni</b> tanpa tulis-balik.</p>
+	 *
+	 * <p>Berbeda dari kedua flag itu, yang satu ini benar-benar dipakai sebagai <b>gerbang
+	 * persetujuan di sisi server</b> pada {@code PosApi} &mdash; selain pemakaian
+	 * visibilitas menu yang biasa. Karena bawaannya menyala, sebuah Grup Pengguna baru
+	 * langsung memperoleh kewenangan alur persetujuan di jalur tersebut tanpa pernah
+	 * dicentang. Bila merancang peran berhak-minimum, matikan flag ini secara eksplisit.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses workflow; tidak pernah {@code null}
+	 * @see #setWorkflow(Boolean)
+	 */
 	public Boolean getWorkflow() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1456,6 +1866,16 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return workflow == null ? true : workflow;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Workflow.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Ingat bahwa {@code null} berarti <b>menyala</b>
+	 * (lihat {@link #getWorkflow()}), dan bahwa flag ini menjadi gerbang persetujuan nyata di
+	 * {@code PosApi} &mdash; jadi menyimpan {@code null} di sini bukan tindakan netral.</p>
+	 *
+	 * @param workflow hak modul; {@code null} berarti kembali ke bawaan menyala
+	 * @see #getWorkflow()
+	 */
 	public void setWorkflow(Boolean workflow) {
 		this.workflow = workflow;
 	}
@@ -1468,6 +1888,26 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * Kolom ini <b>DIAUDIT</b> (Envers) sama seperti kolom {@link Tbmrole} lainnya — tidak memakai
 	 * {@code @NotAudited}; kolomnya ditambahkan otomatis ke tabel utama maupun tabel audit oleh
 	 * {@code hbm2ddl=update} saat startup.
+	 *
+	 * <h3>PENTING: flag ini hanya mengatur ikon, bukan akses</h3>
+	 * <p>Perlu ditegaskan agar tidak menyesatkan administrator maupun penyunting kode
+	 * berikutnya: <b>mematikan flag ini tidak mencabut akses ke modul eMedic</b>. Seluruh
+	 * pemanggilnya berada di lapisan tampilan ({@code MainAction},
+	 * {@code NewUiModuleShortcutService}, layar Grup Pengguna, dan proyeksi
+	 * {@code HakAksesApi}). Halaman {@code modul/emedik/index.jsp} sendiri menegakkan izinnya
+	 * lewat {@link #getEbisnisMenu()}, <b>bukan</b> lewat flag ini, dan begitu pula
+	 * {@code EmedikApi} di sisi server.</p>
+	 * <p>Akibatnya flag ini adalah <b>centang yang menyesatkan</b>: mematikannya hanya
+	 * menghilangkan pintasan dari halaman utama, sementara pengguna yang mengetahui URL-nya
+	 * tetap dapat masuk. Karena modul eMedic menyimpan rekam medis, selisih antara "ikon
+	 * hilang" dan "akses tercabut" di sini berkonsekuensi nyata. Untuk benar-benar mencabut
+	 * akses, sunting katalog {@link #getEbisnisMenu()}. Hal yang sama berlaku pada
+	 * {@link #getTampilPos()}.</p>
+	 *
+	 * @return {@code true} bila pintasan eMedic ditampilkan; tidak pernah {@code null}
+	 * @see #setEmedic(Boolean)
+	 * @see #getEbisnisMenu()
+	 * @see #getTampilPos()
 	 */
 	public Boolean getEmedic() {
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1476,10 +1916,43 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return emedic == null ? Boolean.FALSE : emedic;
 	}
 
+	/**
+	 * Menetapkan penanda tampil pintasan &amp; dasbor eMedic.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Ingat bahwa &mdash; seperti dijelaskan panjang pada
+	 * {@link #getEmedic()} &mdash; nilai ini hanya mengatur <b>visibilitas ikon</b>, sehingga
+	 * menyimpan {@link Boolean#FALSE} di sini <b>bukan</b> tindakan pencabutan akses.</p>
+	 *
+	 * @param emedic penanda tampil; {@code null} berarti kembali ke bawaan mati
+	 * @see #getEmedic()
+	 */
 	public void setEmedic(Boolean emedic) {
 		this.emedic = emedic;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Administrasi</b> (persuratan,
+	 * kearsipan, dan tata usaha umum).
+	 *
+	 * <p>Berpola sama dengan {@link #getPustaka()}, {@link #getDashboard()}, dan
+	 * {@link #getWorkflow()}: <b>berdefault menyala</b> bagi seluruh peran kecuali
+	 * {@link #KANTIN}, dan merupakan <b>getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * <p>Perhatikan bahwa penjagaannya jauh lebih longgar daripada flag administrasi lain di
+	 * kelas ini: tidak ada penolakan bagi kelompok pengguna akhir ({@link #roleEndUser()}),
+	 * sehingga peran {@link #MAHASISWA}, {@link #SISWA}, {@link #DOSEN}, {@link #GURU}, dan
+	 * {@link #PEGAWAI} <b>semuanya memperoleh flag ini secara bawaan</b>. Bandingkan dengan
+	 * {@link #getMelihatSemuaSurat()} yang menolak kelompok itu secara tegas &mdash; di
+	 * sanalah pembatasan data persuratan yang sesungguhnya berada.</p>
+	 *
+	 * <p>Seluruh pemanggilnya berada di lapisan tampilan ({@code MainAction2}, JSP navigasi
+	 * dan menu seluler); tidak ada gerbang server-side yang membacanya.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Administrasi; tidak pernah
+	 *         {@code null}
+	 * @see #setAdministrasi(Boolean)
+	 * @see #getMelihatSemuaSurat()
+	 */
 	public Boolean getAdministrasi() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1488,10 +1961,54 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return administrasi == null ? true : administrasi;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Administrasi.
+	 *
+	 * <p>Setter mentah tanpa penjagaan; {@code null} mengembalikan flag ke bawaan menyala,
+	 * bukan mencabutnya.</p>
+	 *
+	 * @param administrasi hak modul; {@code null} berarti kembali ke bawaan menyala
+	 * @see #getAdministrasi()
+	 */
 	public void setAdministrasi(Boolean administrasi) {
 		this.administrasi = administrasi;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Pengadaan</b> (barang dan jasa).
+	 *
+	 * <p>Menggabungkan dua mekanisme yang berbeda:</p>
+	 * <ol>
+	 *   <li><b>Daftar-tolak {@link #KANTIN}</b> &mdash; kembalikan {@code false} langsung.</li>
+	 *   <li><b>Penolakan kelompok akademik</b> &mdash; {@link #MAHASISWA}, {@link #SISWA},
+	 *   {@link #DOSEN}, dan {@link #GURU} <b>ditulisi {@code false}</b> ke field. Perhatikan
+	 *   bahwa ini terjadi <b>di luar</b> penjagaan {@code null}, sehingga mencentang
+	 *   pengadaan untuk keempat peran itu di layar Grup Pengguna akan diabaikan &mdash; dan
+	 *   lebih jauh lagi, nilai {@code false} itu akan <b>tertulis kembali ke basis data</b>
+	 *   pada penyimpanan berikutnya, menghapus pilihan administrator secara permanen.</li>
+	 *   <li>Selain itu, kolomnya dikembalikan dengan bawaan <b>{@code true}</b>.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perhatikan asimetri daftar penolakannya.</b> Empat peran ditolak, tetapi
+	 * {@link #PEGAWAI} <b>tidak</b> &mdash; padahal ia termasuk {@link #roleEndUser()} yang
+	 * ditolak pada getter berlingkup luas lainnya. Jadi peran Pegawai memperoleh akses
+	 * Pengadaan secara bawaan. Ini tampak disengaja (staf pengadaan umumnya berperan
+	 * Pegawai), namun berbeda dari pola {@code roleEndUser()} yang dipakai di tempat lain,
+	 * sehingga mudah dikira kelalaian.</p>
+	 *
+	 * <p>Karena bawaannya {@code true}, setiap Grup Pengguna baru yang bernama bebas langsung
+	 * memperoleh akses Pengadaan. Matikan secara eksplisit bila tidak dikehendaki.</p>
+	 *
+	 * <p><b>Getter penulis-balik field</b> pada langkah 2 &mdash; berlaku seluruh peringatan
+	 * revisi audit palsu seperti pada {@link #getElearning()}.</p>
+	 *
+	 * <p>Seluruh pemanggilnya berada di lapisan tampilan; tidak ada gerbang server-side yang
+	 * membacanya.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Pengadaan; tidak pernah
+	 *         {@code null}
+	 * @see #setPengadaan(Boolean)
+	 */
 	public Boolean getPengadaan() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1509,10 +2026,74 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return pengadaan == null ? true : pengadaan;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Pengadaan.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. <b>Nilai yang disimpan tidak berlaku</b> bagi peran
+	 * {@link #MAHASISWA}, {@link #SISWA}, {@link #DOSEN}, {@link #GURU}, dan {@link #KANTIN}
+	 * &mdash; lihat {@link #getPengadaan()}. Untuk peran lain, {@code null} berarti kembali
+	 * ke bawaan menyala.</p>
+	 *
+	 * @param pengadaan hak modul; {@code null} berarti kembali ke bawaan menyala
+	 * @see #getPengadaan()
+	 */
 	public void setPengadaan(Boolean pengadaan) {
 		this.pengadaan = pengadaan;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Keuangan</b>.
+	 *
+	 * <p>Getter pertama dari <b>empat bersaudara</b> yang badannya identik baris demi baris
+	 * &mdash; bersama {@link #getPembayaran()}, {@link #getAkunting()}, dan
+	 * {@link #getKepegawaian()} (yang hanya berbeda pada kata kunci substringnya). Struktur
+	 * ini juga dipakai {@link #getKantin()} dan {@link #getBolehEntryTopup()} dalam bentuk
+	 * yang lebih ringkas. Bila menyunting salah satunya, periksa apakah saudaranya perlu
+	 * ikut berubah.</p>
+	 *
+	 * <p>Urutannya:</p>
+	 * <ol>
+	 *   <li>daftar-tolak {@link #KANTIN} &mdash; kembalikan {@code false};</li>
+	 *   <li>{@link #MAHASISWA}, {@link #SISWA}, {@link #DOSEN}, {@link #GURU} <b>ditulisi
+	 *   {@code false}</b> ke field, di luar penjagaan {@code null} &mdash; centang
+	 *   administrator diabaikan dan terhapus permanen pada penyimpanan berikutnya;</li>
+	 *   <li>bila kolom masih {@code null}, nilainya diturunkan dari <b>pencocokan
+	 *   substring</b>.</li>
+	 * </ol>
+	 *
+	 * <h3>PERINGATAN: hak yang menyala karena kebetulan penamaan</h3>
+	 * <p>Nilai bawaan pada langkah 3 dihitung sebagai:</p>
+	 * <pre>{@code getRoleId().toLowerCase().contains("keu") || getRoleId().equals(ADMINISTRATOR)}</pre>
+	 * <p>Perhatikan bahwa ini <b>pencocokan substring, bukan perbandingan persis</b> dengan
+	 * konstanta {@link #KEUANGAN}. Akibatnya setiap Grup Pengguna yang pengenalnya sekadar
+	 * <i>mengandung</i> potongan huruf {@code "keu"} akan memperoleh hak ini secara bawaan
+	 * &mdash; termasuk pengenal yang maksudnya justru membatasi, seperti
+	 * {@code "keu_lihat_saja"} atau {@code "keu_readonly"}, dan bahkan kebetulan murni
+	 * seperti {@code "bekuan"} atau {@code "penyekuan"}.</p>
+	 * <p>Yang membuat pola ini serius bukanlah flag ini sendiri, melainkan bahwa
+	 * <b>lima flag memakai kata kunci yang sama</b>, dan salah satunya &mdash;
+	 * {@link #getBolehEntryTopup()} &mdash; adalah <b>gerbang transaksional sungguhan</b> di
+	 * {@code KantinHelper} dan {@code PosApi}, bukan sekadar penentu visibilitas. Satu
+	 * keputusan penamaan karena itu dapat diam-diam memberi kewenangan menambah saldo.
+	 * <b>Selalu isi flag keuangan secara eksplisit</b> alih-alih membiarkannya {@code null},
+	 * dan hindari menaruh {@code "keu"} pada pengenal peran yang tidak dimaksudkan berhak
+	 * keuangan.</p>
+	 *
+	 * <p><b>Getter penulis-balik field</b> pada langkah 2 &mdash; berlaku peringatan revisi
+	 * audit palsu seperti pada {@link #getElearning()}.</p>
+	 *
+	 * <p>Penegakannya nyata di sisi server pada dasbor dan laporan Reimbursement
+	 * ({@code ReimbursementLaporanAction}, {@code ReimbursementDashboardAction}), selain
+	 * pemakaian visibilitas menu yang biasa.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Keuangan; tidak pernah
+	 *         {@code null}
+	 * @see #setKeuangan(Boolean)
+	 * @see #KEUANGAN
+	 * @see #getPembayaran()
+	 * @see #getAkunting()
+	 * @see #getBolehEntryTopup()
+	 */
 	public Boolean getKeuangan() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1533,10 +2114,53 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: keuangan;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Keuangan.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan tidak berlaku bagi
+	 * {@link #KANTIN} maupun keempat peran akademik yang ditolak paksa &mdash; lihat
+	 * {@link #getKeuangan()}.</p>
+	 *
+	 * <p><b>Menyimpan {@code null} bukan tindakan netral.</b> Ia mengembalikan flag ke
+	 * penurunan berbasis substring {@code "keu"}, yang untuk peran bernama tepat justru
+	 * berarti <b>menyala</b>. Untuk menutup akses, simpan {@link Boolean#FALSE} secara
+	 * eksplisit.</p>
+	 *
+	 * @param keuangan hak modul; {@code null} berarti kembali ke bawaan berbasis nama
+	 * @see #getKeuangan()
+	 */
 	public void setKeuangan(Boolean keuangan) {
 		this.keuangan = keuangan;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Pembayaran</b>.
+	 *
+	 * <p>Badannya <b>identik baris demi baris</b> dengan {@link #getKeuangan()}: daftar-tolak
+	 * {@link #KANTIN}, penulisan paksa {@code false} bagi {@link #MAHASISWA},
+	 * {@link #SISWA}, {@link #DOSEN}, dan {@link #GURU}, lalu bawaan berbasis pencocokan
+	 * substring {@code "keu"} atau perbandingan persis dengan {@link #ADMINISTRATOR}.</p>
+	 *
+	 * <p>Seluruh peringatan pada {@link #getKeuangan()} berlaku sama di sini &mdash;
+	 * terutama bahwa hak ini dapat menyala semata-mata karena pengenal peran mengandung
+	 * potongan huruf {@code "keu"}, dan bahwa getter ini menulis balik ke field sehingga
+	 * dapat menerbitkan revisi audit palsu.</p>
+	 *
+	 * <p>Perlu dibedakan dari {@link #getKeuangan()} (modul keuangan secara umum) dan
+	 * {@link #getAkunting()} (pembukuan/jurnal): flag ini menyangkut penerimaan dan
+	 * pembayaran tagihan. Karena ketiganya berbagi kata kunci bawaan yang sama, dalam
+	 * praktiknya ketiganya nyaris selalu menyala atau mati bersamaan selama kolomnya belum
+	 * pernah diisi &mdash; pemisahan ketiga flag ini baru bermakna setelah administrator
+	 * mengaturnya secara eksplisit.</p>
+	 *
+	 * <p>Seluruh pemanggilnya berada di lapisan tampilan ({@code MainAction2},
+	 * {@code MobileAction}, JSP navigasi); tidak ada gerbang server-side yang membacanya.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Pembayaran; tidak pernah
+	 *         {@code null}
+	 * @see #setPembayaran(Boolean)
+	 * @see #getKeuangan()
+	 */
 	public Boolean getPembayaran() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1557,10 +2181,46 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: pembayaran;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Pembayaran.
+	 *
+	 * <p>Setter mentah tanpa penjagaan; berperilaku persis seperti
+	 * {@link #setKeuangan(Boolean)}, termasuk bahwa {@code null} berarti kembali ke bawaan
+	 * berbasis substring {@code "keu"} dan karena itu bukan tindakan netral.</p>
+	 *
+	 * @param pembayaran hak modul; {@code null} berarti kembali ke bawaan berbasis nama
+	 * @see #getPembayaran()
+	 */
 	public void setPembayaran(Boolean pembayaran) {
 		this.pembayaran = pembayaran;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Akuntansi</b> (pembukuan, jurnal,
+	 * buku besar).
+	 *
+	 * <p>Getter ketiga dari empat bersaudara: badannya <b>identik baris demi baris</b> dengan
+	 * {@link #getKeuangan()} dan {@link #getPembayaran()} &mdash; daftar-tolak
+	 * {@link #KANTIN}, penulisan paksa {@code false} bagi keempat peran akademik, lalu bawaan
+	 * berbasis pencocokan substring {@code "keu"} atau {@link #ADMINISTRATOR}.</p>
+	 *
+	 * <p>Seluruh peringatan pada {@link #getKeuangan()} berlaku sama di sini, termasuk sifat
+	 * penulis-balik field dan risiko hak yang menyala karena penamaan.</p>
+	 *
+	 * <p>Perhatikan bahwa modul akuntansi termasuk yang paling sensitif di AIS &mdash; ia
+	 * menyentuh jurnal dan buku besar. Meski demikian, pemanggil flag ini seluruhnya berada
+	 * di lapisan tampilan ({@code MainAction2}, JSP menu), sehingga <b>mematikannya hanya
+	 * menyembunyikan menu</b>. Otorisasi akuntansi yang sesungguhnya ditegakkan lewat
+	 * {@code RolePrivilage} dan &mdash; untuk jalur eBisnis &mdash;
+	 * {@link #getEbisnisMenu()} melalui {@code EbisnisMenuKatalog.bolehAksiAkuntansi(...)}.
+	 * Jangan mengandalkan flag ini sebagai kontrol akses.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Akuntansi; tidak pernah
+	 *         {@code null}
+	 * @see #setAkunting(Boolean)
+	 * @see #getKeuangan()
+	 * @see #getEbisnisMenu()
+	 */
 	public Boolean getAkunting() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1581,10 +2241,50 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: akunting;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Akuntansi.
+	 *
+	 * <p>Setter mentah tanpa penjagaan; berperilaku persis seperti
+	 * {@link #setKeuangan(Boolean)}. Ingat bahwa nilai ini hanya mengatur visibilitas menu
+	 * &mdash; menyimpan {@link Boolean#FALSE} <b>tidak</b> mencabut kewenangan akuntansi yang
+	 * ditegakkan {@code RolePrivilage} dan {@link #getEbisnisMenu()}.</p>
+	 *
+	 * @param akunting hak modul; {@code null} berarti kembali ke bawaan berbasis nama
+	 * @see #getAkunting()
+	 */
 	public void setAkunting(Boolean akunting) {
 		this.akunting = akunting;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat <b>Kalender Akademik</b>.
+	 *
+	 * <p>Memiliki nilai bawaan yang <b>terbalik dari kebiasaan</b> di kelas ini: bila kolom
+	 * masih {@code null}, hasilnya {@code true} untuk seluruh peran <b>kecuali</b>
+	 * {@link #ADMINISTRATOR}, yang justru memperoleh {@code false}. Bandingkan dengan
+	 * belasan flag lain yang justru memberi hak bawaan hanya kepada Administrator.</p>
+	 *
+	 * <p>Ini bukan kekeliruan melainkan pilihan yang masuk akal: kalender akademik adalah
+	 * informasi bagi sivitas yang menjalani perkuliahan, sedangkan Administrator adalah
+	 * pengelola sistem yang halaman utamanya sengaja tidak dipenuhi pintasan yang tidak
+	 * relevan baginya. Pola bawaan "menyala untuk semua kecuali Administrator" yang sama juga
+	 * dipakai {@link #getInfoKegiatan()}.</p>
+	 *
+	 * <p>Perhatikan bahwa nilai bawaan {@code false} bagi Administrator itu <b>hanya
+	 * bawaan</b> &mdash; administrator dapat menyalakannya secara eksplisit, dan nilai
+	 * tersimpan akan dihormati. Yang mutlak hanyalah daftar-tolak {@link #KANTIN}.</p>
+	 *
+	 * <p><b>Getter murni</b> &mdash; memakai ternary bersarang tanpa menulis balik ke field,
+	 * sehingga bebas dari masalah revisi audit palsu.</p>
+	 *
+	 * <p>Seluruh pemanggilnya berada di lapisan tampilan; tidak ada gerbang server-side yang
+	 * membacanya.</p>
+	 *
+	 * @return {@code true} bila kalender akademik boleh ditampilkan; tidak pernah
+	 *         {@code null}
+	 * @see #setKalenderAkademik(Boolean)
+	 * @see #getInfoKegiatan()
+	 */
 	public Boolean getKalenderAkademik() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -1594,6 +2294,16 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: kalenderAkademik;
 	}
 
+	/**
+	 * Menetapkan hak melihat Kalender Akademik.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Menyimpan {@code null} mengembalikan flag ke bawaan
+	 * yang bergantung peran: {@code false} untuk {@link #ADMINISTRATOR}, {@code true} untuk
+	 * peran lainnya.</p>
+	 *
+	 * @param kalenderAkademik hak melihat kalender; {@code null} berarti kembali ke bawaan
+	 * @see #getKalenderAkademik()
+	 */
 	public void setKalenderAkademik(Boolean kalenderAkademik) {
 		this.kalenderAkademik = kalenderAkademik;
 	}

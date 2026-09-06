@@ -2688,6 +2688,21 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		}
 	}
 
+	/**
+	 * Mengisi nilai akhir angka, <b>dengan penegakan kunci</b>.
+	 *
+	 * <p>Bila kunci global aktif dan snapshot {@link #totalNilaiKunci} tersedia, argumen
+	 * <b>diabaikan sepenuhnya</b> dan field justru dipulihkan dari snapshot. Sikapnya bukan sekadar
+	 * &quot;tidak menyimpan&quot; melainkan &quot;mengembalikan ke nilai beku&quot;, sehingga upaya
+	 * penulisan dari jalur mana pun tidak meninggalkan bekas walau objeknya sempat dipegang di
+	 * memori.
+	 *
+	 * <p>Perhatikan penjagaan ini <b>tidak</b> berlaku bila snapshot masih {@code null}, yaitu pada
+	 * baris lama yang terkunci sebelum kolom snapshot diperkenalkan; pada kasus itu penulisan
+	 * diterima seperti biasa.
+	 *
+	 * @param totalNilai nilai akhir angka baru; diabaikan bila nilai sedang terkunci.
+	 */
 	public void setTotalNilai(Double totalNilai) {
 		if (kunciGlobalNilaiAktif() && totalNilaiKunci != null) {
 			this.totalNilai = totalNilaiKunci;
@@ -2696,6 +2711,50 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.totalNilai = totalNilai;
 	}
 
+	/**
+	 * Mengembalikan <b>nilai akhir angka</b> baris ini. Jauh dari sekadar pengembali field: metode
+	 * ini menjalankan lima lapis logika dan <b>menulis balik</b> hasilnya ke {@link #totalNilai}.
+	 *
+	 * <p><b>(1) Kunci mendahului segalanya.</b> Bila kunci global aktif dan {@link #totalNilaiKunci}
+	 * ada, snapshot itu dikembalikan langsung tanpa perhitungan apa pun.
+	 *
+	 * <p><b>(2) Normalisasi.</b> Nilai {@code null} menjadi {@code 0.0}, dan nilai di atas 100
+	 * dipangkas menjadi {@code 100.0}.
+	 *
+	 * <p><b>(3) Koreksi &quot;nilai tersimpan ternyata skala IP&quot;.</b> Ini cabang yang paling
+	 * perlu dipahami. Bila nilai tersimpan berada pada rentang 0,1&ndash;4,0 <b>sementara nilai
+	 * hurufnya terisi</b> dan bukan &quot;E&quot; atau &quot;T&quot;, nilai itu dianggap keliru
+	 * tersimpan sebagai bobot IP (skala 0&ndash;4) alih-alih skala 0&ndash;100. Metode lalu mencari
+	 * baris {@link NilaiHuruf} yang cocok dan menggantinya dengan <b>titik tengah rentang</b> huruf
+	 * tersebut. Pencarian bertingkat: per <b>jurusan</b> mahasiswa lebih dulu, lalu per
+	 * <b>fakultas</b>, terakhir <b>global</b> tanpa memandang keduanya. <b>Perhatikan risikonya:</b>
+	 * mahasiswa yang memang memperoleh nilai sah yang sangat rendah (mis. 3,5 dari 100) akan ikut
+	 * terkoreksi naik menjadi titik tengah rentang hurufnya, karena kedua kondisi itu tidak dapat
+	 * dibedakan dari angka semata. Cabang ini bertujuan menyembuhkan data warisan, bukan menilai
+	 * ulang.
+	 *
+	 * <p><b>(4) Penyembunyian nilai belum terverifikasi.</b> Bila kelas mengaktifkan opsi tersebut
+	 * dan baris berstatus {@link #NOT_VERIFIED}, hasilnya dipaksa {@code 0.0}.
+	 *
+	 * <p><b>(5) Jatuh-balik ke nilai sementara.</b> Bila tidak sedang disembunyikan namun nilai final
+	 * mendekati nol sedangkan {@link #getTotalNilaiSementara()} berisi angka, nilai sementara itulah
+	 * yang dipakai. Dengan begitu nilai yang sudah diketik tetapi belum diverifikasi tetap terlihat
+	 * oleh pengelola.
+	 *
+	 * <p><b>Perlindungan terhadap sesi Hibernate yang sudah tertutup.</b> Cabang (3) dibungkus
+	 * penangkap kesalahan karena {@link #mahasiswa} dapat berupa instance kanonik bersama
+	 * (dari {@code AuditTimestampInterceptor}) yang proxy jurusannya terikat pada sesi lain yang
+	 * sudah ditutup. Bila itu terjadi, koreksi dilewati dan nilai dipakai apa adanya &mdash; getter
+	 * ini tidak boleh menjatuhkan layar hanya karena resolusi relasi gagal.
+	 *
+	 * <p><b>Penting: metode ini tidak menghitung ulang dari komponen.</b> Ia membaca angka tersimpan,
+	 * bukan menjumlahkan {@link #detailNilai}. Rekalkulasi hanya terjadi lewat
+	 * {@link #hitungTotalNilai(Boolean, java.util.List)}. Perbedaan itulah yang melahirkan kondisi
+	 * desync yang ditangani {@link #refreshNilaiKeDefault()} dan dijelaskan
+	 * {@link #alasanNilaiJadiNol(Boolean, java.util.List)}.
+	 *
+	 * @return nilai akhir angka pada rentang 0&ndash;100; tidak pernah {@code null}.
+	 */
 	@Column(name = "total_nilai", nullable = true, precision = 15)
 	public Double getTotalNilai() {
 		if (kunciGlobalNilaiAktif() && totalNilaiKunci != null) {
@@ -2771,6 +2830,13 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return totalNilai;
 	}
 
+	/**
+	 * Mengisi nilai akhir huruf, <b>dengan penegakan kunci</b> yang sama seperti
+	 * {@link #setTotalNilai(Double)}: bila kunci global aktif dan {@link #nilaiHurufKunci} tersedia,
+	 * argumen diabaikan dan field dipulihkan dari snapshot.
+	 *
+	 * @param nilaiHuruf nilai huruf baru; diabaikan bila nilai sedang terkunci.
+	 */
 	public void setNilaiHuruf(String nilaiHuruf) {
 		if (kunciGlobalNilaiAktif() && nilaiHurufKunci != null) {
 			this.nilaiHuruf = nilaiHurufKunci;
@@ -2779,6 +2845,41 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.nilaiHuruf = nilaiHuruf;
 	}
 
+	/**
+	 * Mengembalikan <b>nilai akhir dalam huruf</b> (A/B/C/D/E/T dan seterusnya), menghitungnya ulang
+	 * bila yang tersimpan dinilai tidak lagi sahih.
+	 *
+	 * <p><b>Jalur terkunci yang perlu dicermati.</b> Ketika kunci global aktif dan
+	 * {@link #nilaiHurufKunci} ada, metode <b>tidak langsung</b> mengembalikan snapshot huruf itu.
+	 * Ia lebih dulu memetakan ulang {@link #totalNilaiKunci} lewat
+	 * {@link #ambilNilaiHurufSesuaiTotal(Double)} dan mengembalikan hasilnya bila ada; snapshot huruf
+	 * hanya dipakai sebagai cadangan. Konsekuensinya penting untuk dipahami: <b>huruf yang dibekukan
+	 * tidak sepenuhnya beku</b> &mdash; bila admin mengubah rentang pada tabel Format Nilai Huruf,
+	 * huruf yang ditampilkan untuk kelas terkunci pun ikut berubah, sementara angkanya tetap.
+	 * Perilaku ini konsisten dengan {@link #getTotalIP()} yang menerapkan pola sama.
+	 *
+	 * <p><b>Penyembunyian nilai.</b> Bila kelas menyembunyikan nilai yang belum diverifikasi dan
+	 * baris berstatus {@link #NOT_VERIFIED}, huruf dikosongkan.
+	 *
+	 * <p><b>Kapan huruf dihitung ulang.</b> Perhitungan dipicu bila huruf tersimpan kosong, bernilai
+	 * &quot;E&quot;, <b>atau basi</b>. Pemeriksaan kebasian adalah bagian terpenting: tabel Format
+	 * Nilai Huruf dapat diubah admin kapan saja, sehingga huruf yang dulu benar bisa tidak lagi
+	 * memiliki baris yang rentang {@code mulai}&ndash;{@code sampai}-nya mencakup nilai angka
+	 * sekarang. Bila tidak ada satu pun baris yang cocok, huruf dianggap basi dan dihitung ulang
+	 * &mdash; jangan pernah menampilkan huruf lama yang sudah tidak sesuai tabel.
+	 *
+	 * <p>Perhitungan ulang memakai {@code Common.getNilaiHuruf(...)} dengan konteks lengkap (tahun
+	 * angkatan, jurusan, fakultas, tahun akademik, ganjil/genap, kode mata kuliah, jenis nilai huruf),
+	 * dan hanya dijalankan bila nilai angka lebih dari 0,1 serta mahasiswa diketahui. Kegagalan
+	 * resolusi relasi ditangkap dan dicatat; huruf sebelumnya dipertahankan alih-alih melempar
+	 * kesalahan.
+	 *
+	 * <p><b>Efek samping.</b> Metode memanggil {@link #getTotalNilai()} (yang sendiri menulis balik),
+	 * lalu menulis hasilnya ke field {@link #nilaiHuruf}. Nilai kembalian selalu sudah dipangkas
+	 * spasinya dan tidak pernah {@code null} &mdash; string kosong dipakai sebagai ganti.
+	 *
+	 * @return nilai huruf, atau string kosong bila belum dapat ditentukan atau sedang disembunyikan.
+	 */
 	@Column(name = "nilai_huruf", nullable = true, length = 2)
 	public String getNilaiHuruf() {
 		if (kunciGlobalNilaiAktif() && nilaiHurufKunci != null) {
@@ -2847,6 +2948,12 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return nilaiHuruf == null ? "" : nilaiHuruf.trim();
 	}
 
+	/**
+	 * Mengisi bobot nilai pada skala IP, <b>dengan penegakan kunci</b>: bila kunci global aktif dan
+	 * {@link #totalIPKunci} tersedia, argumen diabaikan dan field dipulihkan dari snapshot.
+	 *
+	 * @param totalIP bobot IP baru; diabaikan bila nilai sedang terkunci.
+	 */
 	public void setTotalIP(Double totalIP) {
 		if (kunciGlobalNilaiAktif() && totalIPKunci != null) {
 			this.totalIP = totalIPKunci;
@@ -2855,6 +2962,32 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.totalIP = totalIP;
 	}
 
+	/**
+	 * Mengembalikan <b>bobot nilai pada skala IP</b> (umumnya 0,00&ndash;4,00), yakni angka yang
+	 * dikalikan SKS untuk menghitung IPS dan IPK. Bersama {@link #getNilaiHuruf()}, inilah keluaran
+	 * yang paling banyak dikonsumsi modul transkrip dan laporan akademik.
+	 *
+	 * <p><b>Jalur terkunci.</b> Sama seperti {@link #getNilaiHuruf()}, snapshot {@link #totalIPKunci}
+	 * bukan jawaban pertama: metode memetakan ulang {@link #totalNilaiKunci} lewat
+	 * {@link #ambilNilaiHurufSesuaiTotal(Double)} dan memakai {@code getNilaiDiIPK()} dari hasilnya
+	 * bila ada, dengan snapshot sebagai cadangan. Berlaku catatan yang sama: perubahan pada tabel
+	 * Format Nilai Huruf dapat menggeser bobot IP kelas yang sudah terkunci.
+	 *
+	 * <p><b>Penyembunyian nilai.</b> Bila kelas menyembunyikan nilai yang belum diverifikasi dan
+	 * baris berstatus {@link #NOT_VERIFIED}, bobot dipaksa {@code 0.0}.
+	 *
+	 * <p><b>Kapan dihitung ulang.</b> Bila bobot tersimpan {@code null}, mendekati nol, <b>atau
+	 * melebihi 4,01</b>. Batas atas itu berfungsi sebagai deteksi data keliru: bobot IP tidak mungkin
+	 * melampaui 4, jadi angka yang lebih besar menandakan nilai skala 0&ndash;100 salah tersimpan ke
+	 * kolom ini dan harus dipetakan ulang. Perhitungan hanya berjalan bila nilai angka lebih dari 0,1
+	 * dan mahasiswa diketahui.
+	 *
+	 * <p>Kegagalan resolusi relasi ditangkap dan dicatat, dengan bobot sebelumnya dipertahankan.
+	 * Sebagai penutup, {@code null} selalu dinormalisasi menjadi {@code 0.0} sehingga pemanggil dapat
+	 * mengalikannya dengan SKS tanpa pemeriksaan tambahan.
+	 *
+	 * @return bobot IP; tidak pernah {@code null}.
+	 */
 	@Column(name = "nilai_ip", nullable = true, precision = 15)
 	public Double getTotalIP() {
 		if (kunciGlobalNilaiAktif() && totalIPKunci != null) {
@@ -2905,10 +3038,50 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return totalIP;
 	}
 
+	/**
+	 * Mengisi status persetujuan KRS, dengan normalisasi {@code null} menjadi
+	 * {@link #BELUM_DISETUJUI} sehingga kolom yang dideklarasikan wajib tidak pernah kosong.
+	 *
+	 * @param persetujuan {@link #DISETUJUI} atau {@link #BELUM_DISETUJUI}; {@code null} diperlakukan
+	 *                    sebagai belum disetujui.
+	 */
 	public void setPersetujuan(Integer persetujuan) {
 		this.persetujuan = persetujuan == null ? BELUM_DISETUJUI : persetujuan;
 	}
 
+	/**
+	 * Mengembalikan <b>status persetujuan KRS</b> baris ini, setelah menerapkan sejumlah aturan yang
+	 * dapat <b>menaikkan maupun menurunkan</b> status tersimpan.
+	 *
+	 * <p><b>Aturan yang menaikkan.</b> Baris <b>nilai konversi</b> (yang memiliki
+	 * {@link #getMatakuliahKonversi()}) selalu dianggap {@link #DISETUJUI} &mdash; masuk akal karena
+	 * nilai yang diakui dari institusi lain memang tidak melalui alur persetujuan KRS. Selain itu
+	 * nilai tersimpan yang lebih besar dari {@link #DISETUJUI} dinormalisasi turun menjadi
+	 * {@link #DISETUJUI}, sehingga kolom ini efektif hanya bernilai 0 atau 1.
+	 *
+	 * <p><b>Aturan yang menurunkan.</b> Dua kondisi memaksa status kembali ke
+	 * {@link #BELUM_DISETUJUI}, dan keduanya bersifat <b>pencabutan otomatis</b>:</p>
+	 * <ol>
+	 *   <li><b>Kurikulum tidak mengizinkan.</b> Bila kurikulum kelas mengaktifkan
+	 *       {@code getNonAktifkanYgTerlanjurMengambilTidakSesuaiTahunAngkatan()} dan
+	 *       {@code kurikulum.bolehAmbil(mahasiswa)} menolak, persetujuan dicabut. Ini menangani
+	 *       mahasiswa yang <i>terlanjur</i> mengambil mata kuliah di luar kurikulum angkatannya.</li>
+	 *   <li><b>Kelas sudah tidak aktif.</b> Bila {@code Perkuliahan.getAktif()} bernilai salah,
+	 *       persetujuan dicabut.</li>
+	 * </ol>
+	 *
+	 * <p><b>Sifat gagal-terbuka.</b> Ketiga blok aturan dibungkus penangkap kesalahan terpisah yang
+	 * mencatat ke {@code ErrorAuditUtil}. Bila sebuah aturan tidak dapat dievaluasi (mis. relasi
+	 * kurikulum tidak teresolusi), aturan itu <b>dilewati</b> dan status tetap seperti sebelumnya
+	 * &mdash; pencabutan tidak terjadi. Jadi kegagalan teknis condong mempertahankan persetujuan,
+	 * bukan mencabutnya.
+	 *
+	 * <p><b>Efek samping.</b> Seperti getter turunan lain di kelas ini, hasilnya <b>ditulis balik</b>
+	 * ke field {@link #persetujuan}; pencabutan otomatis karenanya ikut tersimpan saat flush.
+	 * Nilai kembalian dinormalisasi sehingga tidak pernah {@code null}.
+	 *
+	 * @return {@link #DISETUJUI} atau {@link #BELUM_DISETUJUI}.
+	 */
 	@Column(name = "persetujuan", nullable = false, length = 1)
 	public Integer getPersetujuan() {
 		Kurikulum kurikulum = null;
@@ -2947,10 +3120,44 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return persetujuan == null ? BELUM_DISETUJUI : persetujuan;
 	}
 
+	/**
+	 * Mengisi mata kuliah tujuan untuk baris nilai konversi.
+	 *
+	 * <p>Setter ini menulis apa adanya tanpa pemeriksaan, namun perlu disadari bahwa nilainya
+	 * <b>tidak akan bertahan</b> bila baris ini juga memiliki {@link #perkuliahan} &mdash;
+	 * {@link #getMatakuliahKonversi()} akan meng-null-kannya pada pembacaan berikutnya.
+	 *
+	 * @param matakuliahKonversi mata kuliah tujuan konversi; boleh {@code null}.
+	 */
 	public void setMatakuliahKonversi(Matakuliah matakuliahKonversi) {
 		this.matakuliahKonversi = matakuliahKonversi;
 	}
 
+	/**
+	 * Mengembalikan mata kuliah tujuan bagi baris <b>nilai konversi</b>, sekaligus <b>menegakkan
+	 * sifat saling meniadakan</b> antara jalur kelas dan jalur konversi.
+	 *
+	 * <p><b>Peringatan efek samping yang merusak data.</b> Bila {@link #getPerkuliahan()} tidak
+	 * {@code null}, metode ini <b>menetapkan field {@link #matakuliahKonversi} menjadi {@code null}</b>
+	 * lalu mengembalikan {@code null}. Karena relasi ini dipetakan property-access, penulisan itu
+	 * bukan sekadar di memori: pada flush berikutnya Hibernate akan menerbitkan UPDATE yang
+	 * <b>mengosongkan kolom kunci asing {@code matakuliah_konversi}</b> di basis data, dan Envers
+	 * mencatatnya sebagai revisi baru. Dengan kata lain, sekadar <i>membaca</i> baris yang memiliki
+	 * kelas sekaligus mata kuliah konversi akan menghapus rujukan konversinya secara permanen.
+	 *
+	 * <p>Perilaku itu tampaknya disengaja sebagai penegakan aturan &mdash; sebuah baris tidak boleh
+	 * sekaligus merupakan pengambilan kelas dan nilai konversi &mdash; dan seluruh kelas ini memang
+	 * konsisten mengutamakan {@code perkuliahan}. Namun sifatnya <b>merusak dan tidak dapat
+	 * dibatalkan</b>, jadi jangan pernah memanggil getter ini pada objek yang sengaja dibiarkan
+	 * mengisi kedua jalur, mis. saat migrasi data. Perhatikan pula getter ini dipanggil secara tidak
+	 * langsung dari banyak tempat, termasuk {@link #toString()}, {@link #getNama()},
+	 * {@link #getVerify()}, dan {@link #getPersetujuan()}.
+	 *
+	 * <p>Bila kelas tidak ada, relasi diresolusi lewat {@link GeneralValueObject#check(Object)} dan
+	 * hasilnya dikembalikan seperti biasa.
+	 *
+	 * @return mata kuliah konversi, atau {@code null} bila baris ini merupakan pengambilan kelas.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "matakuliah_konversi", nullable = true)
 	public Matakuliah getMatakuliahKonversi() {
@@ -2962,6 +3169,27 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return matakuliahKonversi;
 	}
 
+	/**
+	 * Membandingkan dua baris nilai berdasarkan {@link #totalNilai} secara <b>menurun</b> &mdash;
+	 * nilai lebih besar diurutkan lebih dahulu. Dipakai untuk daftar peringkat dan tampilan yang
+	 * mengurutkan mahasiswa dari nilai tertinggi.
+	 *
+	 * <p>Perbandingan membaca <b>field</b> {@code totalNilai} secara langsung, bukan lewat
+	 * {@link #getTotalNilai()}. Ini disengaja demi kinerja pengurutan &mdash; getter tersebut mahal
+	 * dan menulis balik &mdash; namun berarti urutan didasarkan pada angka mentah tersimpan, tanpa
+	 * koreksi skala IP, penyembunyian nilai belum terverifikasi, maupun jatuh-balik ke nilai
+	 * sementara. Untuk baris yang belum pernah direkalkulasi, urutannya bisa berbeda dari angka yang
+	 * dilihat pengguna di layar.
+	 *
+	 * <p>Objek yang bukan {@code Detailperkuliahan}, serta pasangan yang salah satu nilainya
+	 * {@code null}, dianggap <b>setara</b> (mengembalikan {@code 0}). Perlu dicatat konsekuensinya:
+	 * relasi ini tidak konsisten dengan {@code equals} dan tidak transitif ketika ada nilai
+	 * {@code null}, sehingga tidak layak dipakai sebagai pembanding pada koleksi terurut seperti
+	 * {@code TreeSet}; pemakaiannya terbatas pada pengurutan daftar biasa.
+	 *
+	 * @param arg0 objek pembanding; boleh berupa tipe lain.
+	 * @return bilangan negatif/nol/positif menurut urutan menurun nilai total.
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		if (arg0 instanceof Detailperkuliahan) {
@@ -2975,6 +3203,18 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return 0;
 	}
 
+	/**
+	 * Mengembalikan kelas lain yang <b>diikuti</b> oleh baris ini pada skema kelas gabungan atau
+	 * paralel &mdash; mahasiswa terdaftar secara administratif pada satu kelas
+	 * ({@link #getPerkuliahan()}) tetapi mengikuti perkuliahan dan penilaian pada kelas lain.
+	 *
+	 * <p>Relasi opsional, dimuat {@link FetchType#LAZY} dan diresolusi lewat
+	 * {@link GeneralValueObject#check(Object)} yang hasilnya ditulis balik ke field. Berbeda dari
+	 * {@link #getMatakuliahKonversi()}, getter ini tidak menegakkan aturan apa pun dan tidak
+	 * meng-null-kan relasinya.
+	 *
+	 * @return kelas yang diikuti, atau {@code null} bila tidak memakai skema kelas gabungan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ikuti_perkuliahan", nullable = true)
 	public Perkuliahan getIkutiPerkuliahan() {
@@ -2982,10 +3222,25 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return ikutiPerkuliahan;
 	}
 
+	/**
+	 * Mengisi kelas yang diikuti pada skema kelas gabungan/paralel.
+	 *
+	 * @param ikutiPerkuliahan kelas yang diikuti; boleh {@code null}.
+	 */
 	public void setIkutiPerkuliahan(Perkuliahan ikutiPerkuliahan) {
 		this.ikutiPerkuliahan = ikutiPerkuliahan;
 	}
 
+	/**
+	 * Mengembalikan <b>paket perkuliahan</b> yang menjadi asal pengambilan mata kuliah ini, yakni
+	 * paket KRS siap-pakai yang dipilih mahasiswa alih-alih menyusun mata kuliah satu per satu.
+	 * Berguna untuk menelusuri kembali dari mana sebuah baris KRS berasal.
+	 *
+	 * <p>Relasi opsional, dimuat {@link FetchType#LAZY} dan diresolusi lewat
+	 * {@link GeneralValueObject#check(Object)} yang hasilnya ditulis balik ke field.
+	 *
+	 * @return paket perkuliahan asal, atau {@code null} bila mata kuliah diambil secara lepas.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "paket_perkuliahan", nullable = true)
 	public PaketPerkuliahan getPaketPerkuliahan() {
@@ -2993,10 +3248,40 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return paketPerkuliahan;
 	}
 
+	/**
+	 * Mengisi paket perkuliahan asal pengambilan.
+	 *
+	 * @param paketPerkuliahan paket asal; boleh {@code null}.
+	 */
 	public void setPaketPerkuliahan(PaketPerkuliahan paketPerkuliahan) {
 		this.paketPerkuliahan = paketPerkuliahan;
 	}
 
+	/**
+	 * Mengembalikan <b>tahun akademik pengambilan</b> mata kuliah ini dalam format
+	 * <code>YYYY/YYYY</code> (mis. <code>2024/2025</code>).
+	 *
+	 * <p><b>Dihitung, bukan sekadar dibaca.</b> Bila mahasiswa dan nomor semester diketahui (dan
+	 * semester bukan 0), tahun akademik <b>selalu dihitung ulang</b> dan menimpa isi tersimpan.
+	 * Perhitungannya menyerahkan pekerjaan pada {@code Common.getTahunAkademik(...)} dengan tiga
+	 * masukan: nomor semester yang <b>sudah dikurangi</b>
+	 * {@code mahasiswa.getPindahKeKampusIniMasukSemester()}, tahun angkatan mahasiswa, dan semester
+	 * mulai mahasiswa.
+	 *
+	 * <p>Pengurangan tersebut adalah inti penanganan <b>mahasiswa pindahan</b>: seorang mahasiswa
+	 * yang masuk kampus ini pada semester 3 menjalani semester 5 kurikulum pada tahun akademik
+	 * <i>kedua</i>-nya di sini, bukan ketiga. Tanpa koreksi itu seluruh tahun akademik mahasiswa
+	 * pindahan akan bergeser.
+	 *
+	 * <p><b>Efek samping.</b> Hasil perhitungan <b>ditulis balik</b> ke field
+	 * {@link #tahunAkademik}, sehingga membaca properti ini dapat mengubah nilai tersimpan saat
+	 * flush. Bila mahasiswa atau semester tidak diketahui, nilai tersimpan dikembalikan apa adanya
+	 * &mdash; yang bisa jadi {@code null}. Nilai ini ikut menentukan aturan {@link NilaiHuruf} mana
+	 * yang dipakai, sehingga kekeliruan di sini merambat ke nilai huruf dan bobot IP.
+	 *
+	 * @return tahun akademik dalam format <code>YYYY/YYYY</code>, atau {@code null} bila tidak dapat
+	 *         ditentukan.
+	 */
 	public String getTahunAkademik() {
 		mahasiswa = getMahasiswa();
 		if (mahasiswa != null && mahasiswa.getTahunangkatan() != null && getSemester() != null
@@ -3010,6 +3295,13 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return tahunAkademik;
 	}
 
+	/**
+	 * Mengisi tahun akademik pengambilan secara eksplisit. Nilai yang diisikan akan <b>ditimpa</b>
+	 * oleh {@link #getTahunAkademik()} pada pembacaan berikutnya bila mahasiswa dan semester dapat
+	 * ditentukan.
+	 *
+	 * @param tahunAkademik tahun akademik dalam format <code>YYYY/YYYY</code>.
+	 */
 	public void setTahunAkademik(String tahunAkademik) {
 		this.tahunAkademik = tahunAkademik;
 	}
