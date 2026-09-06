@@ -40,14 +40,25 @@ public class Bantuan extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/** Konstruktor tanpa argumen yang diwajibkan JPA/Hibernate. */
 	public Bantuan() {
 	}
 
+	/**
+	 * <i>Callback</i> JPA {@link javax.persistence.PreUpdate} yang memperbarui
+	 * {@link #getWaktuUbah()} (lewat {@code AuditTimestampInterceptor}, sama seperti pola audit
+	 * di entity lain paket ini) pada setiap UPDATE baris.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * Mengembalikan primary key baris panduan.
+	 *
+	 * @return id baris; {@code null} selama objek belum pernah disimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -55,6 +66,12 @@ public class Bantuan extends GeneralValueObject {
 		return id;
 	}
 
+	/**
+	 * Menyetel primary key baris panduan. Hanya relevan bagi Hibernate saat mengisi objek dari
+	 * hasil query, karena kolom dipetakan {@code insertable = false}.
+	 *
+	 * @param id nilai primary key
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
@@ -75,38 +92,75 @@ public class Bantuan extends GeneralValueObject {
 		return isi;
 	}
 
+	/**
+	 * Menyetel isi panduan HTML.
+	 *
+	 * @param isi isi panduan baru; boleh {@code null}
+	 */
 	public void setIsi(String isi) {
 		this.isi = isi;
 	}
 
+	/**
+	 * Mengembalikan waktu terakhir panduan ini disunting administrator (presisi TIMESTAMP).
+	 *
+	 * @return waktu penyuntingan terakhir; boleh {@code null} bila belum pernah disunting manual
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "waktu_ubah")
 	public Date getWaktuUbah() {
 		return waktuUbah;
 	}
 
+	/**
+	 * Menyetel waktu penyuntingan terakhir.
+	 *
+	 * @param waktuUbah waktu baru; boleh {@code null}
+	 */
 	public void setWaktuUbah(Date waktuUbah) {
 		this.waktuUbah = waktuUbah;
 	}
 
+	/**
+	 * Mengembalikan identitas administrator yang terakhir menyunting panduan ini.
+	 *
+	 * @return nama/identitas penyunting; boleh {@code null}
+	 */
 	@Column(name = "oleh")
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Menyetel identitas administrator penyunting.
+	 *
+	 * @param oleh nama/identitas penyunting; boleh {@code null}
+	 */
 	public void setOleh(String oleh) {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan id administrator yang terakhir menyunting panduan ini, pendamping
+	 * {@link #getOleh()}.
+	 *
+	 * @return id penyunting; boleh {@code null}
+	 */
 	@Column(name = "oleh_id")
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel id administrator penyunting.
+	 *
+	 * @param olehId id penyunting; boleh {@code null}
+	 */
 	public void setOlehId(String olehId) {
 		this.olehId = olehId;
 	}
 
+	/** Representasi teks baris, berupa id digabung {@link #kunci}. */
 	public String toString() {
 		return id + "-" + kunci;
 	}
