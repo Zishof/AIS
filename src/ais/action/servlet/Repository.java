@@ -1320,8 +1320,7 @@ public class Repository extends HttpServlet {
         String scheme = clean(request.getScheme()).toLowerCase();
         String host = clean(request.getServerName());
         int port = request.getServerPort();
-        if (!("http".equals(scheme) || "https".equals(scheme)) || host.length() == 0
-                || !host.matches("[A-Za-z0-9.-]+|[0-9a-fA-F:]+") || port < 1 || port > 65535)
+        if (!("http".equals(scheme) || "https".equals(scheme)) || !Common.isValidRequestHostFormat(host, port))
             throw new IllegalStateException("Origin publik Repository tidak valid.");
         String authority = host.indexOf(':') >= 0 ? "[" + host + "]" : host;
         boolean defaultPort = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
