@@ -307,8 +307,10 @@ public class Main extends HttpServlet {
 		Common.REAL_PATH = context.getRealPath("/");
 		Common.REAL_PATH_REPORT_TEMP = context.getRealPath("/report");
 		Common.ROOT = request.getContextPath();
-		Common.CURRENT_URL_SIMPLE = buildBaseUrl(request, false);
-		Common.CURRENT_URL = buildBaseUrl(request, true);
+		if (Common.sanitizedRequestHostForCurrentUrl(request) != null) {
+			Common.CURRENT_URL_SIMPLE = buildBaseUrl(request, false);
+			Common.CURRENT_URL = buildBaseUrl(request, true);
+		}
 	}
 
 	/**
