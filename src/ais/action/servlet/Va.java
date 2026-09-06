@@ -1148,6 +1148,57 @@ public class Va extends HttpServlet {
 	// =========================================================================================
     // IMPLEMENTASI METHOD H2H INQUIRY
     // =========================================================================================
+    /**
+     * Menjalankan {@code action=inquiry}: mengembalikan identitas pemilik VA berikut rincian
+     * tagihannya kepada host bank, tanpa memposting pembayaran.
+     *
+     * <h4>Dua skenario</h4>
+     * <ol>
+     *   <li><b>Siswa sekolah</b> &mdash; dipilih bila VA punya relasi {@code siswa} atau
+     *       {@code calonSiswa}. Identitas diambil dari nomor induk dan nama siswa, sedangkan
+     *       {@code fakultas} diisi nama yayasan dan {@code prodi} diisi nama sekolah. Rincian
+     *       tagihan diambil dengan memanggil {@code VirtualAccountBank.bayarSiswa} dalam
+     *       <b>mode simulasi</b> (argumen ke-lima bernilai {@code true}), yang mengembalikan
+     *       daftar {@link Tagihan} per kelompok tanpa memposting pembayaran. Balasan memuat
+     *       {@code noref} berupa gabungan {@code id.kodeVA};</li>
+     *   <li><b>Mahasiswa/calon mahasiswa</b> &mdash; jalur selain di atas. Bila VA tidak menunjuk
+     *       {@link Mahasiswa} maupun {@link BiodataCalonMahasiswa}, balasan langsung berstatus
+     *       {@code 02}. Selain itu status ditentukan oleh kolom {@code kegiatan} pada VA:
+     *       {@code null} berarti belum dibayar sehingga status {@code 00} "Inquiry Sukses",
+     *       sedangkan yang sudah terisi berarti status {@code 02} "Tagihan Telah Dibayar".</li>
+     * </ol>
+     *
+     * <h4>Penguraian token cicilan</h4>
+     * <p>Kolom {@code cicilan} pada VA berisi daftar token yang dipisahkan koma. Tiga bentuk
+     * token dikenali:</p>
+     * <ul>
+     *   <li><b>angka polos</b> &mdash; id {@link PengaturanPembayaranBulanan}; nominalnya dihitung
+     *       ulang secara dinamis lewat {@code ambilNominalModifikasi(mahasiswa, semester)};</li>
+     *   <li>{@code Bulanan-<id>-<nilai>} &mdash; id pembayaran bulanan dengan nominal yang sudah
+     *       dipatok pada token; nilai dibaca dari potongan terakhir;</li>
+     *   <li>{@code Item-<idItem>-<nilai>-...} &mdash; id {@link ItemBiaya} dengan nominal pada
+     *       potongan ketiga.</li>
+     * </ul>
+     * <p>Untuk dua bentuk terakhir, item ber-{@code penghitungan} {@link ItemBiaya#DIKALI_NILAI_MINUS}
+     * dibalik tandanya menjadi negatif (potongan/diskon). Nominal yang gagal diurai dicatat ke
+     * audit error dan dianggap nol.</p>
+     *
+     * <p>Setelah seluruh token dijumlahkan, {@code VirtualAccountBank.updateTotal(vaNtt, total)}
+     * dipanggil &mdash; jadi method ini <b>menulis ke basis data</b> meskipun namanya "inquiry".
+     * Nilai {@code nominal} pada balasan diambil dari {@code vaNtt.getTotal()} sesudah pembaruan
+     * itu, bukan dari variabel {@code total} lokal.</p>
+     *
+     * @param vaNtt      VA yang ditanyakan; dijamin tidak {@code null} oleh pemanggil
+     * @param session    session Hibernate aktif milik {@link #doProses}
+     * @param bank       nama bank pemanggil, diteruskan ke {@code bayarSiswa}
+     * @param data       badan permintaan mentah, disimpan sebagai jejak pada jalur siswa
+     * @param jsonObject objek balasan awal; selalu diganti objek baru di dalam method ini
+     * @param rincian    array rincian yang akan diisi; dimodifikasi di tempat
+     * @param nim        penampung NIM; diisi ulang dari data VA
+     * @param nama       penampung nama; diisi ulang dari data VA
+     * @return badan balasan JSON dalam bentuk string
+     * @throws Exception bila query atau pembentukan JSON gagal
+     */
     private static String prosesH2HInquiry(VirtualAccountBank vaNtt, Session session, String bank, String data, 
             JSONObject jsonObject, JSONArray rincian, String nim, String nama) throws Exception {
         
@@ -1336,6 +1387,85 @@ public class Va extends HttpServlet {
 	// =========================================================================================
 	// IMPLEMENTASI METHOD H2H PAYMENT
 	// =========================================================================================
+	/**
+	 * Menjalankan {@code action=payment}: memposting setoran bank menjadi data keuangan nyata
+	 * &mdash; {@link Kegiatan} tervalidasi berikut baris-baris {@link CicilanPembayaran} &mdash;
+	 * lalu menandai VA sebagai terbayar.
+	 *
+	 * <p>Ini adalah method paling berdampak di kelas ini: keluarannya bukan sekadar balasan JSON,
+	 * melainkan perubahan permanen pada pembukuan tagihan mahasiswa/siswa.</p>
+	 *
+	 * <h4>Penentuan tanggal transaksi</h4>
+	 * <p>Tanggal diambil dari parameter {@code tanggal} milik bank lewat
+	 * {@link #parseTanggalPayment}. Khusus jalur siswa, bila VA sudah punya relasi
+	 * {@code pembayaran}, tanggal ditimpa dengan tanggal revisi Envers pertama entitas
+	 * {@code PembayaranSiswa} yang menunjuk VA ini &mdash; supaya posting ulang tidak menggeser
+	 * tanggal pembayaran yang sudah tercatat. Kegagalan membaca jejak audit tidak menghentikan
+	 * proses, hanya menghasilkan peringatan di konsol.</p>
+	 *
+	 * <h4>Skenario 1 &mdash; siswa sekolah</h4>
+	 * <p>Dipilih bila VA punya relasi {@code siswa} atau {@code calonSiswa}. Seluruh posting
+	 * didelegasikan ke {@code VirtualAccountBank.bayarSiswa} dalam mode nyata (argumen ke-lima
+	 * {@code false}), yang mengembalikan daftar {@link Tagihan} yang berhasil dilunasi untuk
+	 * disusun menjadi array {@code rincian}.</p>
+	 *
+	 * <h4>Skenario 2 &mdash; mahasiswa/calon mahasiswa</h4>
+	 * <p>Berjalan dalam beberapa transaksi berturutan:</p>
+	 * <ol>
+	 *   <li>{@link Kegiatan} dicari dari kolom {@code kegiatan} pada VA; bila kosong, dicari
+	 *       berdasarkan kombinasi mahasiswa/calon, jenis kegiatan, dan semester; bila tetap tidak
+	 *       ada, dibuat baru. Kegiatan diisi identitas, tahun akademik, tanggal, {@code validated=1},
+	 *       dan {@code validator} berisi nama bank, lalu disimpan dan di-commit. Sesudah commit,
+	 *       {@link #pastikanSessionAktif} dipakai supaya session tetap hidup;</li>
+	 *   <li>daftar {@link DetailBiaya} dimuat dari kolom {@code detailbiaya} VA untuk menghitung
+	 *       {@code nilaiBiayaHarusDiBayars};</li>
+	 *   <li>satu transaksi dibuka untuk seluruh cicilan. Token pada kolom {@code cicilan} diurai
+	 *       sama seperti pada {@link #prosesH2HInquiry} &mdash; angka polos, {@code Bulanan-},
+	 *       {@code Item-} &mdash; dan setiap token disimpan lewat {@link #saveCicilan} dengan
+	 *       referensi unik berpola {@code ntt-<idKegiatan>-<token>-<idVA>}. Ada satu bentuk token
+	 *       tambahan yang tidak dikenal jalur inquiry, yaitu {@code Keranjang-}: token keranjang
+	 *       belanja multi-jenis yang diproses oleh
+	 *       {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}; karena helper itu mengelola
+	 *       transaksinya sendiri, transaksi batch ditutup lalu dibuka kembali di sekitarnya.
+	 *       Bila kolom {@code cicilan} kosong, cicilan dibuat langsung dari daftar
+	 *       {@link DetailBiaya};</li>
+	 *   <li>total dan denda dihitung ulang dari seluruh cicilan lewat
+	 *       {@code PembayaranUtil.getTotalDanDendaFromCicilan}, lalu {@code amount},
+	 *       {@code denda}, dan {@code amountTerhutang} pada {@link Kegiatan} diperbarui dan
+	 *       di-commit;</li>
+	 *   <li>terakhir {@code VirtualAccountBank.updateVa} menandai VA sebagai terbayar dan
+	 *       mengaitkannya dengan kegiatan yang baru dibuat. Bila VA belum punya {@link BankHost},
+	 *       host pemanggil dipasang di sini.</li>
+	 * </ol>
+	 *
+	 * <p>Status balasan tidak diasumsikan sukses: ia dibaca ulang dari
+	 * {@code VirtualAccountBank.isSudahTerbayar(vaNtt)} sesudah posting, sehingga bernilai
+	 * {@code 00} hanya bila VA benar-benar tercatat lunas.</p>
+	 *
+	 * <h4>Catatan tentang {@code tetapberhasil}</h4>
+	 * <p>Pemeriksaan kesesuaian nominal <b>tidak</b> dilakukan di sini melainkan di
+	 * {@link #doProses} sebelum method ini dipanggil, dan pemeriksaan itu dilewati ketika
+	 * {@code tetapberhasil} bernilai {@code true}. Parameter {@code tetapberhasil} dan
+	 * {@code nominal} diterima method ini demi kelengkapan konteks, tetapi tidak lagi
+	 * memengaruhi jalur posting di dalamnya.</p>
+	 *
+	 * @param vaNtt         VA yang dibayar; dijamin tidak {@code null} oleh pemanggil
+	 * @param session       session Hibernate aktif milik {@link #doProses}
+	 * @param bank          nama bank pemanggil; disimpan sebagai {@code validator} kegiatan
+	 * @param data          badan permintaan mentah, disimpan sebagai jejak
+	 * @param jsonObject    objek balasan awal; selalu diganti objek baru di dalam method ini
+	 * @param rincian       array rincian yang akan diisi; dimodifikasi di tempat
+	 * @param nim           penampung NIM; diisi ulang dari data VA
+	 * @param nama          penampung nama; diisi ulang dari data VA
+	 * @param tanggalP      tanggal setoran versi bank dalam bentuk string mentah
+	 * @param bankHost      host bank pemanggil; dipakai menentukan jenis pembayaran cicilan
+	 * @param tetapberhasil bendera lewati-pemeriksaan-nominal; hanya informatif di sini
+	 * @param nominal       nominal setoran hasil parsing; hanya informatif di sini
+	 * @return badan balasan JSON dalam bentuk string
+	 * @throws Exception bila salah satu transaksi atau query gagal
+	 * @see #saveCicilan
+	 * @see #parseTanggalPayment
+	 */
 	@SuppressWarnings("unchecked")
 	private static String prosesH2HPayment(VirtualAccountBank vaNtt, Session session, String bank, String data,
 			JSONObject jsonObject, JSONArray rincian, String nim, String nama, String tanggalP, BankHost bankHost,
@@ -1846,6 +1976,26 @@ public class Va extends HttpServlet {
 	// =========================================================================================
 
 	// Method Helper untuk menghemat baris penulisan logic Date
+	/**
+	 * Mengurai string tanggal setoran menjadi {@link Date} memakai format yang berbeda-beda
+	 * menurut bank pengirim.
+	 *
+	 * <p>Pemetaan format dipilih dari potongan nama bank (huruf kecil):</p>
+	 * <ul>
+	 *   <li>mengandung {@code ntt} &rarr; {@code Common.datetimeFormat2s};</li>
+	 *   <li>mengandung {@code btn} &rarr; {@code Common.datetimeFormat1s};</li>
+	 *   <li>mengandung {@code bmi} &rarr; {@code Common.dateFormat9};</li>
+	 *   <li>selain itu &rarr; {@code Common.datetimeFormat1s}.</li>
+	 * </ul>
+	 *
+	 * <p>Bila {@code tanggalP} kosong atau penguraiannya gagal, dipakai waktu sekarang dari
+	 * {@code WaktuUtil.getDate()} &mdash; jadi format yang salah tidak menggagalkan posting,
+	 * melainkan diam-diam mengubah tanggal transaksi menjadi waktu server.</p>
+	 *
+	 * @param tanggalP string tanggal dari payload bank; boleh {@code null}/kosong
+	 * @param bank     nama bank pengirim; menentukan format yang dipakai
+	 * @return tanggal hasil penguraian, atau waktu sekarang bila tidak dapat diurai
+	 */
 	private static Date parseTanggalPayment(String tanggalP, String bank) {
 		Date tanggal = ais.ui.util.WaktuUtil.getDate();
 		if (tanggalP == null || tanggalP.isEmpty())
@@ -1865,6 +2015,39 @@ public class Va extends HttpServlet {
 
 	// Method Helper untuk menyimpan Cicilan ke Database (Mencegah duplikasi baris
 	// logic panjang)
+	/**
+	 * Menyimpan satu baris {@link CicilanPembayaran} untuk sebuah komponen tagihan yang dibayar.
+	 *
+	 * <p>Bila {@code checkCicilanLama} bernilai {@code true}, cicilan dengan {@code ref} yang sama
+	 * dicari lebih dulu; bila ditemukan, method <b>tidak melakukan apa pun</b>. Inilah penjaga
+	 * anti-dobel-posting ketika host bank mengirim ulang notifikasi yang sama. Penjaga tersebut
+	 * dimatikan bila konfigurasi {@code ngakUsahCheckCicilanLama} diaktifkan.</p>
+	 *
+	 * <p>Referensi {@code ref} disusun pemanggil dengan pola
+	 * {@code ntt-<idKegiatan>-<tokenCicilan>-<idVA>} sehingga unik per kombinasi kegiatan, item,
+	 * dan VA.</p>
+	 *
+	 * <p>Jenis pembayaran diambil dari {@link BankHost}; bila host atau jenis pembayarannya tidak
+	 * ada, dipakai {@code ConstantValues.TUNAI}. Kolom {@code denda} selalu diisi nol di sini
+	 * &mdash; denda dihitung belakangan oleh {@code PembayaranUtil.getTotalDanDendaFromCicilan}.
+	 * Baris baru selalu disimpan lewat {@code session.save}; cabang {@code refreshUpdate} secara
+	 * praktis tak terjangkau karena objek yang baru dibuat pasti belum punya id.</p>
+	 *
+	 * @param session          session Hibernate aktif dengan transaksi yang sudah dibuka pemanggil
+	 * @param checkCicilanLama bila {@code true}, lewati penyimpanan saat {@code ref} sudah ada
+	 * @param ref              kunci idempotensi cicilan
+	 * @param kegiatan         kegiatan pembayaran induk
+	 * @param db               detail biaya terkait; boleh {@code null} pada token tertentu
+	 * @param ib               item biaya yang dibayar
+	 * @param ppb              pengaturan pembayaran bulanan bila komponen ini bersifat bulanan;
+	 *                         {@code null} untuk komponen non-bulanan
+	 * @param vaId             id VA sumber, disimpan pada kolom {@code refVa} agar bisa dihapus
+	 *                         massal saat reversal
+	 * @param subtotal         nominal komponen ini; sudah bertanda negatif untuk potongan
+	 * @param tanggal          tanggal transaksi
+	 * @param bank             nama bank pemanggil, disimpan sebagai {@code validator}
+	 * @param bankHost         host bank pemanggil; boleh {@code null}
+	 */
 	private static void saveCicilan(Session session, boolean checkCicilanLama, String ref, Kegiatan kegiatan,
 			DetailBiaya db, ItemBiaya ib, PengaturanPembayaranBulanan ppb, Long vaId, Double subtotal, Date tanggal,
 			String bank, BankHost bankHost) {

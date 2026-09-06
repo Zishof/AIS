@@ -472,6 +472,28 @@ public class Document extends HttpServlet {
         return data;
     }
 
+    /**
+     * Merakit kriteria pencarian daftar ruang arsip {@link Akreditasi} untuk mode {@code root}.
+     *
+     * <p>Empat penyaring dipasang berurutan: status aktif
+     * ({@link #addAktifCriterion(Criteria)}), pembatasan jenis dokumen yang boleh muncul di portal
+     * ({@link #addAkreditasiJenisCriterion(Criteria)}), pembatasan menurut role pengguna
+     * ({@link #addAkreditasiRoleCriterion(Criteria, Object)}), dan pembatasan satuan kerja
+     * ({@link #addSatuanKerjaCriterion(Criteria)}).</p>
+     *
+     * <p>Kata kunci pencarian dicocokkan dengan {@code ilike} bermodus
+     * {@link MatchMode#ANYWHERE} pada kolom {@code nama}, {@code keterangan}, {@code lembaga},
+     * dan {@code jenis}. Nilai kata kunci diteruskan sebagai parameter terikat sehingga tidak
+     * membentuk SQL; karakter jokerLIKE ({@code %} dan {@code _}) di dalamnya tetap berlaku
+     * sebagai joker dan hanya dapat memperluas hasil di dalam batas yang sudah dipagari keempat
+     * penyaring di atas.</p>
+     *
+     * @param session session Hibernate yang sedang terbuka
+     * @param user    pengguna saat ini; boleh {@code null} untuk pengunjung anonim
+     * @param keyword kata kunci pencarian; boleh {@code null} atau kosong
+     * @param order   bila {@code true}, hasil diurutkan menurut jenis, tahun menurun, lalu nama
+     * @return kriteria siap pakai yang belum dieksekusi
+     */
     private Criteria buildAkreditasiCriteria(Session session, Object user, String keyword, boolean order) {
         Criteria criteria = session.createCriteria(Akreditasi.class);
         addAktifCriterion(criteria);
@@ -495,6 +517,32 @@ public class Document extends HttpServlet {
         return criteria;
     }
 
+    /**
+     * Merakit kriteria pencarian isi satu ruang arsip untuk mode {@code dokumen}.
+     *
+     * <p>Baris dibatasi pada {@code akreditasi} yang diberikan — inilah pagar utama yang menjaga
+     * agar isi ruang lain tidak ikut terbawa. Ketika {@code induk} bernilai {@code null}, yang
+     * diambil adalah simpul akar ({@code induk is null}); selain itu diambil anak langsung dari
+     * simpul tersebut, sehingga penjelajahan berlangsung satu tingkat per permintaan.</p>
+     *
+     * <p>Penyaring status aktif dan satuan kerja ikut dipasang. Kata kunci dicocokkan dengan
+     * {@code ilike} bermodus {@link MatchMode#ANYWHERE} pada kolom {@code nama}, {@code kode},
+     * dan {@code keterangan}, dengan sifat yang sama seperti pada
+     * {@link #buildAkreditasiCriteria(Session, Object, String, boolean)}.</p>
+     *
+     * <p>Perhatikan bahwa penyaring role <b>tidak</b> dipasang di sini; pembatasan role sudah
+     * ditegakkan lebih dulu pada tingkat ruang arsip oleh pemanggilnya
+     * ({@link #buildDmsContentData(HttpServletRequest)} memverifikasi
+     * {@link #isAkreditasiVisible(Akreditasi, Object)} sebelum memanggil method ini).</p>
+     *
+     * @param akreditasi ruang arsip yang isinya ditampilkan; wajib sudah diverifikasi boleh
+     *                   dilihat oleh pengguna saat ini
+     * @param induk      simpul induk; {@code null} berarti tingkat akar
+     * @param session    session Hibernate yang sedang terbuka
+     * @param keyword    kata kunci pencarian; boleh {@code null} atau kosong
+     * @param order      bila {@code true}, hasil diurutkan menurut nomor urut, kode, lalu nama
+     * @return kriteria siap pakai yang belum dieksekusi
+     */
     private Criteria buildDokumenCriteria(Session session, Akreditasi akreditasi, DokumenAkreditasi induk,
             String keyword, boolean order) {
         Criteria criteria = session.createCriteria(DokumenAkreditasi.class);
@@ -524,10 +572,35 @@ public class Document extends HttpServlet {
         return criteria;
     }
 
+    /**
+     * Membatasi kriteria pada baris yang aktif.
+     *
+     * <p>Kolom {@code aktif} bernilai {@code null} diperlakukan sebagai aktif, mengikuti kebiasaan
+     * data lama yang belum pernah mengisi kolom tersebut. Dengan kata lain hanya nilai
+     * {@link Boolean#FALSE} yang benar-benar menyembunyikan baris.</p>
+     *
+     * @param criteria kriteria yang akan ditambahi penyaring
+     */
     private void addAktifCriterion(Criteria criteria) {
         criteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
     }
 
+    /**
+     * Membatasi ruang arsip yang boleh tampil di portal menurut kolom {@code jenis}.
+     *
+     * <p>Daftar jenis yang diizinkan diambil lebih dulu lewat refleksi terhadap method statis
+     * {@code Akreditasi.jenisDokumenDms()} bila method itu tersedia; kegagalan refleksi diabaikan
+     * dan tidak menghentikan proses. Setelah itu empat jenis bawaan selalu ditambahkan lewat
+     * {@link #addUnique(List, String)}: {@code "Dokumen"},
+     * {@code "Sertifikasi/Akreditasi Eksternal"},
+     * {@code "Akreditasi Internasional Program Studi"}, dan
+     * {@code "Audit Eksternal Keuangan"}.</p>
+     *
+     * <p>Baris dengan {@code jenis} kosong atau {@code null} tetap diloloskan, sehingga penyaring
+     * ini bersifat memangkas jenis yang tidak dikenal, bukan mewajibkan jenis tertentu.</p>
+     *
+     * @param criteria kriteria yang akan ditambahi penyaring
+     */
     @SuppressWarnings("unchecked")
     private void addAkreditasiJenisCriterion(Criteria criteria) {
         List<String> jenis = new ArrayList<String>();
@@ -549,6 +622,16 @@ public class Document extends HttpServlet {
                 Restrictions.or(Restrictions.eq("jenis", ""), Restrictions.in("jenis", jenis))));
     }
 
+    /**
+     * Menambahkan satu nilai ke daftar bila belum ada padanannya, dengan perbandingan tanpa
+     * memperhatikan besar kecil huruf.
+     *
+     * <p>Nilai {@code null}, kosong, atau yang hanya berisi spasi diabaikan. Nilai yang ditambahkan
+     * sudah dipangkas spasi tepinya.</p>
+     *
+     * @param data  daftar tujuan yang akan dimutasi di tempat
+     * @param value nilai yang hendak ditambahkan
+     */
     private void addUnique(List<String> data, String value) {
         if (value == null || value.trim().length() == 0) {
             return;
@@ -562,6 +645,21 @@ public class Document extends HttpServlet {
         data.add(clean);
     }
 
+    /**
+     * Membatasi baris pada satuan kerja yang boleh dilihat pengguna saat ini.
+     *
+     * <p>Daftar satuan kerja diambil dari {@code SekolahUtil.ambilSatuanKerjas()}. Baris dengan
+     * {@code satuanKerja} bernilai {@code null} selalu diloloskan sebagai isi lintas satuan
+     * kerja.</p>
+     *
+     * <p><b>Sifat fail-open yang perlu diketahui:</b> bila daftar satuan kerja kosong atau
+     * {@code null} — termasuk ketika pemanggilan melempar exception dan ditelan blok
+     * {@code catch} — penyaring ini <b>tidak dipasang sama sekali</b>, sehingga seluruh satuan
+     * kerja ikut tampil. Perilaku ini didokumentasikan apa adanya sebagai keadaan yang berlaku
+     * sekarang.</p>
+     *
+     * @param criteria kriteria yang akan ditambahi penyaring
+     */
     @SuppressWarnings("unchecked")
     private void addSatuanKerjaCriterion(Criteria criteria) {
         try {
@@ -573,6 +671,30 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Membatasi ruang arsip menurut role pengguna, memakai kolom {@code kodeGrupPengguna}.
+     *
+     * <p>Kolom itu menyimpan daftar kode role yang dipisah koma. Pencocokan dilakukan terhadap
+     * pola bertanda batas {@code ",<role>,"} dengan {@code ilike} bermodus
+     * {@link MatchMode#ANYWHERE}, sehingga role {@code "adm"} tidak ikut cocok dengan entri
+     * {@code "admfak"}. Nilai role berasal dari basis data lewat {@link #getRoleId(Object)},
+     * bukan dari masukan pengguna.</p>
+     *
+     * <p>Aturan yang berlaku:</p>
+     * <ul>
+     *   <li>pengguna administratif ({@link #isAdminUser(Object)}) tidak dibatasi sama sekali;</li>
+     *   <li>pengguna tanpa role — termasuk pengunjung anonim — hanya melihat ruang arsip yang
+     *       {@code kodeGrupPengguna}-nya {@code null} atau kosong, yaitu ruang publik;</li>
+     *   <li>pengguna ber-role melihat ruang publik ditambah ruang yang mencantumkan role
+     *       tersebut.</li>
+     * </ul>
+     *
+     * <p>Blok {@code catch} bersifat <b>fail-closed</b>: bila penentuan role gagal, yang dipasang
+     * adalah penyaring paling ketat, yakni hanya ruang publik.</p>
+     *
+     * @param criteria kriteria yang akan ditambahi penyaring
+     * @param user     pengguna saat ini; boleh {@code null}
+     */
     private void addAkreditasiRoleCriterion(Criteria criteria, Object user) {
         try {
             if (isAdminUser(user)) {
