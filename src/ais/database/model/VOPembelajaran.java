@@ -2444,6 +2444,61 @@ public abstract class VOPembelajaran extends VoKunci {
 		return emails;
 	}
 
+	/**
+	 * Menyusun peta <b>peran ke dosen</b> untuk objek pembelajaran ini.
+	 *
+	 * <p>Berbeda dari {@link #populateDosenBuNama()} yang hanya mengembalikan daftar dosen, method
+	 * ini mempertahankan informasi <i>peran</i> pada kuncinya. Dipakai {@link #infoSimple(Dosen)}
+	 * dan {@link #infoSangatSimple(Dosen)} untuk merangkai nama pengajar pada keterangan wadah.</p>
+	 *
+	 * <h4>Kunci peta tidak seragam antar-subclass — dan itu menentukan urutan</h4>
+	 * <p>Karena wadahnya {@link TreeMap}, urutan iterasi adalah urutan leksikografis kunci. Ada
+	 * tiga skema kunci yang berbeda:</p>
+	 * <ul>
+	 * <li><b>{@code idWadah-idDosen}</b> — dipakai {@link Perkuliahan}, {@link KrsMahasiswa},
+	 * {@link GrupPertemuan}, dan {@link PertemuanPunyaGrupPertemuan}. Kuncinya tidak memuat nomor
+	 * slot, sehingga <b>urutan iterasinya adalah urutan id dosen secara leksikografis, bukan urutan
+	 * slot dosen ke-1 sampai ke-10</b>. Nama pengajar pada keterangan perkuliahan karenanya tidak
+	 * tampil menurut urutan yang diisi pengguna, dan urutannya dapat berubah begitu seorang dosen
+	 * diganti dengan dosen ber-id berbeda.</li>
+	 * <li><b>Label "Pembimbing I" sampai "Pembimbing V"</b> — dipakai {@code kkn.KelompokKkn} dan
+	 * {@code pkl.KelompokPkl}. Kunci ini <b>tidak mengandung id wadah</b>, sehingga menggabungkan
+	 * peta dari beberapa kelompok akan membuat pembimbing saling menimpa. Hanya lima slot yang
+	 * diisi di sini, padahal {@link #populateDosenBuNama()} mengenali sepuluh slot pada kedua wadah
+	 * tersebut — pembimbing keenam sampai kesepuluh tidak pernah muncul di peta ini.</li>
+	 * <li><b>Label dari master format nilai</b> — dipakai {@link Skripsi} dan
+	 * {@link MahasiswaRequestTugasAkhir}, dengan {@code idWadah-idDosen} sebagai cadangan bila
+	 * master formatnya belum diisi. Bila dua slot kebetulan berbagi label yang sama pada master —
+	 * termasuk ketika labelnya dibiarkan kosong — entri yang belakangan <b>menimpa</b> yang lebih
+	 * dulu dan seorang dosen hilang dari peta tanpa pesan.</li>
+	 * </ul>
+	 *
+	 * <h4>Pemetaan peran pada Skripsi bertentangan dengan {@link #infoDosen(Dosen)}</h4>
+	 * <p>Di sini pembimbing ditempatkan pada label {@code getDosen1()} dan ketua sidang pada
+	 * {@code getDosen2()}. Pada {@link #infoDosen(Dosen)} pemetaannya justru terbalik: ketua sidang
+	 * dilaporkan sebagai {@code getDosen1()} dan pembimbing sebagai {@code getDosen2()}. Kedua
+	 * method karenanya dapat menyebut peran yang sama dengan dua nama berbeda pada layar yang sama.
+	 * Perbedaannya ada pada kode dan didokumentasikan apa adanya; siapa pun yang menyeragamkannya
+	 * harus memeriksa kedua sisi sekaligus beserta arti kolom pada master format nilai.</p>
+	 * <p>Cakupannya juga berbeda: method ini mengisi sampai penguji kelima
+	 * ({@code getDosen7()}), sedangkan {@link #infoDosen(Dosen)} hanya mengenali sampai penguji
+	 * keempat.</p>
+	 *
+	 * <h4>Tidak null-safe pada cabang KRS</h4>
+	 * <p>Cabang {@link KrsMahasiswa} memanggil {@code getDosenPa().getId()} tanpa memeriksa apakah
+	 * dosen pembimbing akademiknya sudah ditetapkan, dan <b>method ini tidak punya penangkap
+	 * kesalahan sama sekali</b> — berbeda dari {@link #populateDosenBuNama()} yang menjaga
+	 * {@code null} pada cabang yang sama <i>dan</i> membungkus seluruh badannya dengan
+	 * {@code try/catch}. Akibatnya, memanggil method ini (atau {@link #infoSimple(Dosen)} yang
+	 * memakainya) atas KRS yang belum punya dosen pembimbing akademik melempar
+	 * {@link NullPointerException} ke pemanggil.</p>
+	 *
+	 * <p>Subclass di luar delapan cabang yang dikenal menghasilkan peta kosong — termasuk
+	 * {@code sekolah.JadwalPelajaran} yang memang memakai guru, bukan dosen, dan seluruh wadah
+	 * ujian.</p>
+	 *
+	 * @return peta peran ke dosen; kosong bila wadahnya tidak dikenali atau belum punya pengajar
+	 */
 	public TreeMap<String, Dosen> populateDosen() {
 		TreeMap<String, Dosen> dosens = new TreeMap<String, Dosen>();
 

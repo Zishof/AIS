@@ -1047,6 +1047,56 @@ public class Kegiatan extends GeneralValueObject {
 		return kodeunik;
 	}
 
+	/**
+	 * <b>Kunci unik alami</b> tagihan ini &mdash; kolom {@code kodeunik} bertanda
+	 * {@code unique = true, nullable = false}, sehingga indeks basis datalah yang menegakkan
+	 * aturan &quot;satu mahasiswa hanya boleh punya satu tagihan per jenis kegiatan per
+	 * semester&quot;.
+	 *
+	 * <h4>PEMBEKUAN: pengecualian penting di antara getter kelas ini</h4>
+	 * <p>Berbeda dari hampir seluruh getter lain di sini yang menurunkan ulang nilainya pada
+	 * setiap pembacaan, method ini <b>mengembalikan nilai tersimpan apa adanya</b> begitu
+	 * entity sudah punya {@code id} dan kolomnya tidak kosong. Alasannya terdokumentasi pada
+	 * komentar di dalam badan method: kunci ini sudah dirujuk banyak relasi, dan entity lama
+	 * dapat menyimpan {@code mahasiswa} <i>dan</i> {@code calonMahasiswa} sekaligus &mdash;
+	 * menghitung ulang pada setiap {@code flush} dapat mengubah kunci dari bentuk
+	 * {@code MHS_*} menjadi {@code CAL_MHS_*} dan menabrak baris tagihan calon yang memang
+	 * sudah ada, sehingga penyimpanan gagal karena pelanggaran indeks unik.</p>
+	 *
+	 * <p>Entity baru ({@code id} masih {@code null}) tetap memakai pembangkit, dan
+	 * {@link #setKodeunik(String)} yang eksplisit pada entity tersimpan tetap dihormati
+	 * karena nilainya langsung dikembalikan.</p>
+	 *
+	 * <h4>Dua jalur pembangkitan</h4>
+	 * <ol>
+	 *   <li><b>Barcode acak</b>, bila {@link #getKodeUnikLain()} menyala atau
+	 *       {@link #getAktif()} mati &mdash; melepaskan tagihan dari aturan keunikan sehingga
+	 *       tagihan insidental boleh berulang. Hanya dibangkitkan bila field masih kosong.</li>
+	 *   <li><b>Format baku</b> lewat {@link #generateKodeUnik}, memakai <b>field mentah</b>
+	 *       {@code mahasiswa}, {@code calonMahasiswa}, {@code jenisKegiatan}, {@code semster},
+	 *       {@code tambahanKodeUnik}, dan {@code bulan} &mdash; bukan getter-nya. Pilihan itu
+	 *       menghindari rantai getter destruktif, tetapi berarti relasi yang proxy-nya belum
+	 *       dipulihkan dianggap kosong.</li>
+	 * </ol>
+	 *
+	 * <h4>Jalur cadangan yang menyelamatkan transaksi pembayaran</h4>
+	 * <p>{@link #generateKodeUnik} mengembalikan {@code null} bila data prasyaratnya tidak
+	 * lengkap &mdash; keadaan yang nyata terjadi pada data hasil pemulihan dari Audit, yang
+	 * tidak selalu utuh. Tanpa penanganan, kolom {@code nullable = false} membuat
+	 * {@code INSERT}/{@code UPDATE} gagal di tingkat basis data dan <b>membatalkan seluruh
+	 * transaksi pembayaran</b> (H2H bank maupun manual) dengan pesan yang menyesatkan
+	 * &mdash; tampak sebagai {@code TransactionException}, bukan sebagai akar masalahnya.
+	 * Karena itu dipasang cadangan berupa barcode acak, mengikuti pola yang sama dengan jalur
+	 * pertama, agar data pembayaran tetap tersimpan walau kuncinya tidak sedeskriptif format
+	 * baku.</p>
+	 *
+	 * <p>Perlu disadari bahwa cadangan itu <b>melemahkan aturan keunikan secara diam-diam</b>:
+	 * tagihan yang memperolehnya tidak lagi terlindung dari duplikat, karena barcode acak
+	 * selalu lolos indeks unik. Data yang tidak utuh karenanya dapat menghasilkan dua tagihan
+	 * untuk pasangan mahasiswa-semester yang sama tanpa peringatan apa pun.</p>
+	 *
+	 * @return kunci unik alami tagihan; tidak pernah {@code null}
+	 */
 	@Column(name = "kodeunik", unique = true, nullable = false)
 	public String getKodeunik() {
 		// kodeunik adalah natural key yang sudah dipakai oleh banyak relasi. Entity lama
@@ -3060,6 +3110,15 @@ public class Kegiatan extends GeneralValueObject {
 		return nominalTagihanKunciJson;
 	}
 
+	/**
+	 * Setter snapshot JSON nominal terkunci (disimpan apa adanya, tanpa validasi).
+	 *
+	 * <p>Untuk menyimpan koreksi nominal secara sah &mdash; lengkap dengan alasan, pelaku,
+	 * waktu, dan riwayat &mdash; pakai {@link #simpanNominalTagihanTerkunci}, bukan setter
+	 * ini. Menulis langsung ke sini melewati seluruh validasi tersebut.</p>
+	 *
+	 * @param nominalTagihanKunciJson snapshot JSON nominal terkunci
+	 */
 	public void setNominalTagihanKunciJson(String nominalTagihanKunciJson) {
 		this.nominalTagihanKunciJson = nominalTagihanKunciJson;
 	}
@@ -3742,6 +3801,21 @@ public class Kegiatan extends GeneralValueObject {
 		this.persentase = persentase;
 	}
 
+	/**
+	 * Tahun angkatan pemilik tagihan.
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Nilainya diturunkan ulang dari
+	 * {@link Mahasiswa#getTahunangkatan()} atau {@link BiodataCalonMahasiswa#getTahun()} lalu
+	 * ditulis balik ke kolom; bila kedua pemilik kosong, nilai tersimpan dipertahankan.</p>
+	 *
+	 * <p>Tahun angkatan merupakan salah satu dimensi penyaring {@link DetailBiaya}, sehingga
+	 * memperbaiki data angkatan seorang mahasiswa dapat mengubah komponen biaya mana yang
+	 * cocok untuk tagihannya &mdash; dan bersama itu nominalnya. Perhatikan bahwa
+	 * {@link #getTahunAkademik()} juga diturunkan dari angka yang sama, sehingga satu koreksi
+	 * merambat ke beberapa kolom sekaligus.</p>
+	 *
+	 * @return tahun angkatan; {@code null} bila tak dapat diturunkan maupun tersimpan
+	 */
 	public Integer getTahunAngkatan() {
 		if (getMahasiswa() != null) {
 			tahunAngkatan = getMahasiswa().getTahunangkatan();
@@ -3751,10 +3825,41 @@ public class Kegiatan extends GeneralValueObject {
 		return tahunAngkatan;
 	}
 
+	/**
+	 * Setter tahun angkatan. Nilai yang diisi akan ditimpa {@link #getTahunAngkatan()} pada
+	 * pembacaan berikutnya selama pemilik tagihan diketahui.
+	 *
+	 * @param tahunAngkatan tahun angkatan
+	 */
 	public void setTahunAngkatan(Integer tahunAngkatan) {
 		this.tahunAngkatan = tahunAngkatan;
 	}
 
+	/**
+	 * {@link StatusAwalMahasiswa} yang berlaku bagi tagihan ini (baru, pindahan, alih
+	 * jenjang, dan seterusnya).
+	 *
+	 * <p><b>GETTER DESTRUKTIF terhadap FOREIGN KEY.</b> Untuk mahasiswa, nilainya diambil
+	 * dari {@link HistoryStatusMahasiswa#ambilStatusAwal} &mdash; yaitu status awal yang
+	 * berlaku <i>pada semester tagihan ini</i>, bukan status mahasiswa sekarang &mdash; lalu
+	 * ditulis balik ke kolom. Untuk calon, diambil langsung dari berkas calonnya. Bila kedua
+	 * pemilik kosong, {@code check(...)} sekadar memulihkan proxy.</p>
+	 *
+	 * <p>Penurunan berbasis riwayat itu tepat dan sejajar dengan {@link #getProgram()}:
+	 * tagihan semester lalu harus mengikuti status yang berlaku saat itu. Perhatikan bahwa
+	 * status awal adalah salah satu dimensi penyaring {@link DetailBiaya} &mdash; termasuk
+	 * dimensi yang di sana justru di-<i>auto-seed</i> menjadi {@code BARU} bila kosong
+	 * &mdash; sehingga perubahan riwayat status seorang mahasiswa dapat menggeser komponen
+	 * biaya mana yang cocok bagi tagihan lamanya.</p>
+	 *
+	 * <p>Perhatikan pula bahwa argumen pertama {@code ambilStatusAwal} memakai <b>field
+	 * mentah</b> {@code mahasiswa} sedangkan argumen ketiganya memanggil
+	 * {@link #getMahasiswa()} sekali lagi &mdash; campuran yang tidak konsisten, dan
+	 * pemanggilan getter itu kembali memicu penimpaan foreign key pemilik.</p>
+	 *
+	 * @return status awal mahasiswa untuk semester tagihan ini; {@code null} bila tak
+	 *         dapat diturunkan maupun tersimpan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_awal_mahasiswa", nullable = true)
 	public StatusAwalMahasiswa getStatusAwalMahasiswa() {
@@ -3771,10 +3876,32 @@ public class Kegiatan extends GeneralValueObject {
 		return statusAwalMahasiswa;
 	}
 
+	/**
+	 * Setter status awal mahasiswa. Nilai yang diisi akan ditimpa
+	 * {@link #getStatusAwalMahasiswa()} pada pembacaan berikutnya selama pemilik diketahui.
+	 *
+	 * @param statusAwalMahasiswa status awal mahasiswa
+	 */
 	public void setStatusAwalMahasiswa(StatusAwalMahasiswa statusAwalMahasiswa) {
 		this.statusAwalMahasiswa = statusAwalMahasiswa;
 	}
 
+	/**
+	 * Kode pengenal pemilik tagihan &mdash; NIM untuk mahasiswa, atau nomor registrasi untuk
+	 * calon mahasiswa. Dipakai pada tampilan daftar tagihan dan berkas ekspor ke bank.
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Nilainya diturunkan ulang dari pemilik lalu ditulis balik
+	 * ke kolom. Karena diturunkan, kolom ini otomatis mengikuti bila NIM seorang mahasiswa
+	 * diperbaiki &mdash; tetapi juga berarti berkas ekspor bank yang sudah dikirim dapat
+	 * tidak lagi sepadan dengan isi kolom sesudahnya.</p>
+	 *
+	 * <p>Perhatikan bahwa urutannya di sini adalah <b>mahasiswa lebih dulu</b>, kebalikan
+	 * dari method {@code ambil*} di kelas ini yang mendahulukan calon mahasiswa. Untuk
+	 * tagihan pendaftaran yang menunjuk keduanya, kode yang tampil karenanya adalah NIM,
+	 * bukan nomor registrasi.</p>
+	 *
+	 * @return NIM atau nomor registrasi pemilik; {@code null} bila pemilik tak diketahui
+	 */
 	public String getKode() {
 		if (getMahasiswa() != null) {
 			kode = getMahasiswa().getNim();
@@ -3784,10 +3911,44 @@ public class Kegiatan extends GeneralValueObject {
 		return kode;
 	}
 
+	/**
+	 * Setter kode pengenal pemilik. Nilai yang diisi akan ditimpa {@link #getKode()} pada
+	 * pembacaan berikutnya selama pemilik tagihan diketahui.
+	 *
+	 * @param kode NIM atau nomor registrasi
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Daftar id {@link PengaturanPembayaranBulanan} yang <b>dibebaskan dari denda</b>,
+	 * disimpan sebagai string ber-delimiter koma dengan koma pembungkus di kedua ujung
+	 * (mis. {@code ",12,35,"}).
+	 *
+	 * <p>Bentuk itu memudahkan pemeriksaan keanggotaan dengan
+	 * {@code contains("," + id + ",")} tanpa risiko cocok sebagian &mdash; persis cara
+	 * {@link DetailBiaya#checkDendaCicilan} membacanya di awal perhitungan. Mekanisme ini
+	 * bersifat <i>dapat dibatalkan kembali</i>: menghapus id dari daftar mengembalikan denda.</p>
+	 *
+	 * <p><b>GETTER DESTRUKTIF (normalisasi).</b> Method ini menormalkan isi field lalu
+	 * menulis hasilnya balik ke kolom, sehingga sekadar membaca entity di dalam session
+	 * terbuka dapat memicu {@code UPDATE} beserta revisi Envers. Pola yang sama dengan
+	 * {@link JenisKegiatan#getNamaBankPembayaran()}.</p>
+	 *
+	 * <p><b>Normalisasi tidak lengkap.</b> Perapatan memakai tiga panggilan berantai
+	 * {@code replaceAll(",,", ",")}. Karena {@code replaceAll} memindai tanpa saling
+	 * menumpuk, satu panggilan hanya memangkas setengah dari deretan koma beruntun; tiga
+	 * panggilan menangani deret sampai kira-kira delapan koma, dan yang lebih panjang akan
+	 * menyisakan koma ganda. Rangkaian {@code if} sesudahnya hanya menangani string yang
+	 * seluruhnya terdiri dari satu sampai empat koma. Perbaikan yang tepat adalah satu regex
+	 * {@code replaceAll(",+", ",")} &mdash; bentuk yang justru sudah dipakai
+	 * {@link #getDetailKegiatans()} dan {@link #getCicilans()} di kelas yang sama untuk
+	 * masalah yang persis sama. Koma ganda yang tersisa tidak sampai menyebabkan salah baca,
+	 * karena pemeriksaan keanggotaan tetap mencari pola {@code ",id,"}.</p>
+	 *
+	 * @return daftar id yang dibebaskan denda; string kosong bila tidak ada
+	 */
 	@Column(name = "pembatalan_denda", nullable = true, columnDefinition = "text")
 	public String getPembatalanDenda() {
 		pembatalanDenda = (pembatalanDenda == null || pembatalanDenda.trim().equalsIgnoreCase(",") ? ""
@@ -3806,24 +3967,61 @@ public class Kegiatan extends GeneralValueObject {
 		return pembatalanDenda == null ? "" : pembatalanDenda.trim();
 	}
 
+	/**
+	 * Setter daftar pembebasan denda (disimpan apa adanya; normalisasi dilakukan getter).
+	 *
+	 * @param pembatalanDenda daftar id ber-delimiter koma
+	 */
 	public void setPembatalanDenda(String pembatalanDenda) {
 		this.pembatalanDenda = pembatalanDenda;
 	}
 
+	/**
+	 * Tanggal pembayaran <b>terakhir</b> terhadap tagihan ini.
+	 *
+	 * <p>Getter murni &mdash; salah satu dari sedikit kolom tanggal di kelas ini yang benar
+	 * benar menyimpan datanya sendiri, berbeda dari {@link #getTanggal()} yang selalu ditimpa
+	 * dengan stempel waktu perubahan. Bersama {@link #getTanggalBayarAwal()}, pasangan ini
+	 * merupakan rujukan yang tepat untuk mengetahui riwayat pembayaran dari header tagihan.</p>
+	 *
+	 * <p>Pengisiannya dilakukan jalur pencatatan pembayaran di luar kelas ini; entity ini
+	 * tidak memperbaruinya sendiri saat {@link #getBulans()} berubah, sehingga keduanya dapat
+	 * tidak sinkron bila snapshot pembayaran disunting tanpa melalui jalur tersebut.</p>
+	 *
+	 * @return tanggal pembayaran terakhir; {@code null} bila belum ada pembayaran
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggalBayarTerakhir() {
 		return tanggalBayarTerakhir;
 	}
 
+	/**
+	 * Setter tanggal pembayaran terakhir.
+	 *
+	 * @param tanggalBayarTerakhir tanggal pembayaran terakhir
+	 */
 	public void setTanggalBayarTerakhir(Date tanggalBayarTerakhir) {
 		this.tanggalBayarTerakhir = tanggalBayarTerakhir;
 	}
 
+	/**
+	 * Tanggal pembayaran <b>pertama</b> terhadap tagihan ini &mdash; menandai kapan mahasiswa
+	 * mulai mencicil atau melunasi.
+	 *
+	 * <p>Getter murni; lihat catatan pada {@link #getTanggalBayarTerakhir()}.</p>
+	 *
+	 * @return tanggal pembayaran pertama; {@code null} bila belum ada pembayaran
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggalBayarAwal() {
 		return tanggalBayarAwal;
 	}
 
+	/**
+	 * Setter tanggal pembayaran pertama.
+	 *
+	 * @param tanggalBayarAwal tanggal pembayaran pertama
+	 */
 	public void setTanggalBayarAwal(Date tanggalBayarAwal) {
 		this.tanggalBayarAwal = tanggalBayarAwal;
 	}
@@ -3832,6 +4030,30 @@ public class Kegiatan extends GeneralValueObject {
 	// GETTER & SETTER DETAIL KEGIATANS
 	// ========================================================================
 
+	/**
+	 * Daftar keanggotaan {@link DetailKegiatan} pada tagihan ini, disimpan sebagai string
+	 * ber-delimiter koma berbentuk {@code ",id:true,id:false,"} &mdash; sebuah mekanisme
+	 * <b>hapus lunak</b> berbasis teks.
+	 *
+	 * <p>Nilai {@code true} berarti baris masih aktif, {@code false} berarti sudah
+	 * &quot;dihapus&quot; namun id-nya sengaja dipertahankan agar jejaknya tidak hilang.
+	 * Pembacaan yang benar dilakukan lewat {@link #ambilDetailKegiatansAktifIds()}, bukan
+	 * dengan mengurai string ini langsung dengan {@code Long.parseLong} &mdash; yang akan
+	 * gagal karena adanya bagian {@code :true}/{@code :false}.</p>
+	 *
+	 * <p>Getter murni yang merapatkan koma beruntun dengan regex {@code ",+"} &mdash; bentuk
+	 * yang benar, dan yang justru <i>tidak</i> dipakai {@link #getPembatalanDenda()} untuk
+	 * masalah yang sama. Hasil normalisasinya tidak ditulis balik ke field.</p>
+	 *
+	 * <p><b>Daftar ini terpisah dari relasi basis data.</b> {@link DetailKegiatan} menunjuk
+	 * ke {@code Kegiatan} lewat foreign key sendiri, dan
+	 * {@link #ambilDetailKegiatan(boolean)} mencarinya lewat kueri &mdash; bukan lewat daftar
+	 * ini. Ketiga sumber kebenaran itu (foreign key, daftar ini, dan snapshot JSON
+	 * {@link #getTagihans()}) tidak saling menjaga konsistensi, sehingga dapat menyimpang
+	 * satu sama lain.</p>
+	 *
+	 * @return daftar keanggotaan baris rincian; string kosong bila tidak ada
+	 */
 	@Column(name = "detail_kegiatans", nullable = true, columnDefinition = "text")
 	public String getDetailKegiatans() {
 		if (detailKegiatans == null || detailKegiatans.replace(",", "").trim().isEmpty()) {
@@ -3840,6 +4062,23 @@ public class Kegiatan extends GeneralValueObject {
 		return ("," + detailKegiatans.trim() + ",").replaceAll(",+", ",");
 	}
 
+	/**
+	 * Setter daftar keanggotaan baris rincian, yang <b>menggabungkan</b> masukan dengan isi
+	 * lama alih-alih menggantikannya.
+	 *
+	 * <p>Delegasi ke {@link #gabungkanDanPertahankanID(String, String, boolean)} dengan
+	 * {@code hapus = true}: id lama yang tidak muncul pada masukan ditandai {@code false}
+	 * (hapus lunak), bukan dibuang. Perilaku ini berbeda dari setter pada umumnya dan perlu
+	 * disadari &mdash; menyimpan string kosong tidak mengosongkan daftar, melainkan menandai
+	 * seluruh id lama sebagai tidak aktif.</p>
+	 *
+	 * <p>Perhatikan bahwa Hibernate juga memanggil setter ini saat memuat entity dari basis
+	 * data. Karena penggabungan bersifat idempoten terhadap masukan yang sama dengan isi
+	 * lama, pemuatan tidak mengubah nilai; bandingkan dengan {@link #setCicilans(String)}
+	 * yang memasang pintasan eksplisit untuk kasus itu.</p>
+	 *
+	 * @param detailKegiatans daftar id yang akan digabungkan
+	 */
 	public void setDetailKegiatans(String detailKegiatans) {
 		// Panggil Helper agar data lama tidak hilang, melainkan digabung
 		this.detailKegiatans = gabungkanDanPertahankanID(this.detailKegiatans, detailKegiatans, true);
@@ -3874,6 +4113,19 @@ public class Kegiatan extends GeneralValueObject {
 		return list;
 	}
 
+	/**
+	 * Mengurai {@link #getDetailKegiatans()} dan mengembalikan <b>hanya id yang masih
+	 * aktif</b> ({@code true}).
+	 *
+	 * <p>Setiap ruas dipecah pada tanda titik dua; ruas tanpa bagian status dianggap aktif
+	 * demi kompatibilitas dengan data lama yang belum memakai bentuk {@code id:status}. Ruas
+	 * yang tidak dapat diurai dilewati diam-diam dan dicatat lewat {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p>Inilah cara yang benar membaca daftar tersebut; mengurainya langsung dengan
+	 * {@code Long.parseLong} akan gagal karena adanya bagian status.</p>
+	 *
+	 * @return daftar id baris rincian yang aktif; kosong bila tidak ada
+	 */
 	public java.util.List<Long> ambilDetailKegiatansAktifIds() {
 		java.util.List<Long> list = new java.util.ArrayList<Long>();
 		String data = getDetailKegiatans();
@@ -3979,6 +4231,19 @@ public class Kegiatan extends GeneralValueObject {
 		return hasil;
 	}
 
+	/**
+	 * Memeriksa apakah sebuah ruas berisi id yang sah, yaitu murni angka setelah
+	 * di-{@code trim}.
+	 *
+	 * <p>Dipakai {@link #gabungkanDanPertahankanID(String, String, boolean)} sebagai penjaga
+	 * sebelum {@code Long.parseLong}, sehingga ruas rusak disaring lebih awal alih-alih
+	 * mengandalkan exception. Perhatikan bahwa pola {@code [0-9]+} juga menolak tanda minus,
+	 * dan bahwa ruas yang sangat panjang tetap lolos di sini lalu ditangani
+	 * {@code try/catch} pada pemanggil ketika melampaui jangkauan {@code Long}.</p>
+	 *
+	 * @param token ruas yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila ruas berisi angka saja
+	 */
 	private boolean isTokenIdKegiatanValid(String token) {
 		return token != null && token.trim().matches("[0-9]+");
 	}
@@ -3987,6 +4252,20 @@ public class Kegiatan extends GeneralValueObject {
 	// GETTER & SETTER CICILANS
 	// ========================================================================
 
+	/**
+	 * Daftar keanggotaan {@link CicilanPembayaran} pada tagihan ini, dalam bentuk
+	 * {@code ",id:true,id:false,"} yang sama dengan {@link #getDetailKegiatans()}.
+	 *
+	 * <p>Getter murni yang merapatkan koma beruntun dengan regex {@code ",+"} tanpa menulis
+	 * balik ke field. Pembacaan yang benar dilakukan lewat
+	 * {@link #ambilCicilansAktifIds()}.</p>
+	 *
+	 * <p>Seperti daftar baris rincian, daftar ini <b>terpisah</b> dari relasi basis data:
+	 * {@link #ambilCicilan()} mengambil angsuran lewat kueri di kelas pemilik, bukan dari
+	 * daftar ini.</p>
+	 *
+	 * @return daftar keanggotaan angsuran; string kosong bila tidak ada
+	 */
 	@Column(name = "cicilans", nullable = true, columnDefinition = "text")
 	public String getCicilans() {
 		if (cicilans == null || cicilans.replace(",", "").trim().isEmpty()) {
@@ -3995,6 +4274,26 @@ public class Kegiatan extends GeneralValueObject {
 		return ("," + cicilans.trim() + ",").replaceAll(",+", ",");
 	}
 
+	/**
+	 * Setter daftar keanggotaan angsuran, yang <b>menggabungkan</b> masukan dengan isi lama.
+	 *
+	 * <p>Dua hal membedakannya dari {@link #setDetailKegiatans(String)}:</p>
+	 * <ol>
+	 *   <li><b>Pintasan saat nilai tidak berubah.</b> Bila masukan sama persis dengan isi
+	 *       yang ada, method langsung keluar. Komentar aslinya menyebut ini pencegahan
+	 *       &quot;gelung komputasi&quot; saat Hibernate memuat entity dari basis data
+	 *       &mdash; setter memang dipanggil pada setiap pemuatan.</li>
+	 *   <li><b>Hapus lunak bersyarat.</b> Bendera {@code hapus} tidak selalu {@code true},
+	 *       melainkan ditentukan oleh apakah string masukan memuat kata {@code "false"}.
+	 *       Maksudnya: hanya masukan yang memang menyatakan pencabutan yang boleh menandai
+	 *       id lama sebagai tidak aktif, sedangkan masukan biasa bersifat menambah saja.
+	 *       Perhatikan bahwa pemeriksaannya dilakukan atas <b>seluruh string</b>, bukan
+	 *       per ruas &mdash; satu ruas bertanda {@code false} sudah cukup membuat setiap id
+	 *       lama yang tidak disebutkan ikut dinonaktifkan.</li>
+	 * </ol>
+	 *
+	 * @param cicilans daftar id yang akan digabungkan
+	 */
 	public void setCicilans(String cicilans) {
 		// OPTIMASI PENTING: Cegah looping komputasi saat Hibernate load dari DB.
 		// Jika nilai yang masuk sama persis dengan yang ada, abaikan.
@@ -4005,6 +4304,23 @@ public class Kegiatan extends GeneralValueObject {
 				cicilans != null && cicilans.toLowerCase().contains("false"));
 	}
 
+	/**
+	 * Menambahkan satu {@link CicilanPembayaran} ke daftar keanggotaan angsuran, tanpa
+	 * menonaktifkan id yang sudah ada.
+	 *
+	 * <p>Angsuran yang {@code null} atau belum tersimpan ({@code getId() == null}) diabaikan
+	 * &mdash; penjaga yang perlu, karena daftar ini menyimpan id dan objek yang belum
+	 * di-{@code flush} belum memilikinya. Pemanggil karenanya harus memastikan angsuran sudah
+	 * tersimpan sebelum menambahkannya; bila tidak, penambahan hilang tanpa peringatan.</p>
+	 *
+	 * <p>Sengaja <b>melewati {@link #setCicilans(String)}</b> dan memanggil
+	 * {@link #gabungkanDanPertahankanID(String, String, boolean)} langsung dengan
+	 * {@code hapus = false}, agar penambahan satu id tidak menonaktifkan id lain. Bila daftar
+	 * masih kosong, string dibentuk langsung tanpa penggabungan.</p>
+	 *
+	 * @param cicilanPembayaran angsuran yang ditambahkan; diabaikan bila {@code null} atau
+	 *                          belum tersimpan
+	 */
 	public void appendCicilan(ais.database.model.CicilanPembayaran cicilanPembayaran) {
 		if (cicilanPembayaran == null || cicilanPembayaran.getId() == null) {
 			return;
@@ -4023,6 +4339,18 @@ public class Kegiatan extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menambahkan satu {@link DetailKegiatan} ke daftar keanggotaan baris rincian, tanpa
+	 * menonaktifkan id yang sudah ada.
+	 *
+	 * <p>Sejajar dengan {@link #appendCicilan(CicilanPembayaran)}: baris yang {@code null}
+	 * atau belum tersimpan diabaikan, dan penggabungan dilakukan dengan {@code hapus = false}
+	 * lewat pemanggilan langsung ke helper &mdash; melewati
+	 * {@link #setDetailKegiatans(String)} yang akan menandai id lain sebagai tidak aktif.</p>
+	 *
+	 * @param detailKegiatan baris rincian yang ditambahkan; diabaikan bila {@code null} atau
+	 *                       belum tersimpan
+	 */
 	public void appendDetailKegiatan(ais.database.model.DetailKegiatan detailKegiatan) {
 		if (detailKegiatan == null || detailKegiatan.getId() == null) {
 			return;
