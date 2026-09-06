@@ -62,21 +62,33 @@ import ais.database.model.ItemBiaya;
  * </p>
  */
 public class AmbilDataItemBiayaHelper {
+	/** Grid hasil pencarian item biaya, dirender ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/** Helper paging server-side yang membungkus {@link #grid} — lihat komentar di atas. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/** Beasiswa target yang item biaya tambahannya sedang diatur. */
 	private Beasiswa beasiswa;
+	/** Textbox filter nama/deskripsi item biaya pada bagian pencarian. */
 	private Textbox nama;
+	/**
+	 * Relasi {@link BeasiswaPunyaItemBiayaTambahan} existing yang ditandai untuk dihapus lewat
+	 * event {@code onCheck} pada {@link ItemBiayaRenderer} (checkbox dilepas) — lihat catatan
+	 * kelas mengenai penamaan yang agak menyesatkan dan relasinya dengan {@link #save()}.
+	 */
 	private Set<BeasiswaPunyaItemBiayaTambahan> deletedItemBiayas = new HashSet<BeasiswaPunyaItemBiayaTambahan>();
 
+	/** Konstruktor tanpa argumen; seluruh state (beasiswa, grid) diisi belakangan lewat {@link #display}. */
 	public AmbilDataItemBiayaHelper() {
 	}
 
 	/** Perender baris grid: label kode/nama/deskripsi item biaya, plus checkbox status tertaut yang menyimpan/menghapus relasi ke {@link #deletedItemBiayas} saat diklik. */
 	class ItemBiayaRenderer extends ais.ui.util.MyRowRenderer {
+		/** DAO relasi beasiswa-item biaya, dipakai semata untuk memperoleh {@link #session} aktif. */
 		private BeasiswaPunyaItemBiayaTambahanDao beasiswaPunyaItemBiayaTambahanDao = DaoFactory.getInstance()
 				.getBeasiswaPunyaItemBiayaTambahanDao();
+		/** Session Hibernate aktif, dipakai {@link #render(Row, Object)} untuk cek relasi existing. */
 		private Session session = beasiswaPunyaItemBiayaTambahanDao.getCurrentSession();
 
 		/**

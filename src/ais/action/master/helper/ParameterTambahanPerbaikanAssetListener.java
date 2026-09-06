@@ -46,10 +46,15 @@ import ais.ui.util.MyMessageboxConfig;
  */
 public class ParameterTambahanPerbaikanAssetListener implements EventListener {
 
+	/** Daftar baris ZK berisi seluruh baris parameter tambahan yang sedang dirender/dikelola listener ini; dibaca ulang oleh {@link #validate()}, {@link #onSave(PerbaikanAsset)}, dan {@link #onEvent(Event)}. */
 	private List<Row> parameterRows;
+	/** Komponen {@link Rows} induk (form ZK) tempat baris-baris parameter tambahan ditambahkan. */
 	private Rows rows;
+	/** Entitas perbaikan aset yang formulir parameter tambahannya sedang dikelola oleh listener ini. */
 	private PerbaikanAsset perbaikanAsset;
+	/** Peta lampiran yang sudah diunggah, dikunci per jenis parameter tambahan (lihat {@link LampiranLain#resolveJenisParameterTambahan}), diteruskan ke {@link ParameterTambahan#initComponent}. */
 	private Map<String, LampiranLain> lampiranLains;
+	/** Kelompok parameter tambahan yang berlaku untuk jenis aset yang dipilih. */
 	private Set<KelompokParameterTambahanPerbaikanAsset> kelompokParameterTambahanPerbaikanAssets;
 
 	/**

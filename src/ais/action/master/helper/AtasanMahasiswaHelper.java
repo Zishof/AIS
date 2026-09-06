@@ -48,18 +48,29 @@ public class AtasanMahasiswaHelper {
 
 	/** Satu baris atasan (nilai sederhana; tanggal disimpan sebagai string yyyy-MM-dd). */
 	public static class Atasan {
+		/** Nama atasan/pengguna lulusan; wajib diisi (divalidasi tidak boleh kosong saat simpan lewat popup). */
 		public String nama = "";
+		/** Alamat email atasan; opsional. */
 		public String email = "";
+		/** Nomor telepon atasan; opsional. */
 		public String telp = "";
+		/** Alamat atasan; opsional. */
 		public String alamat = "";
+		/** Peran/jabatan atasan terhadap mahasiswa/alumni (mis. "Manajer", "Supervisor"); opsional. */
 		public String peran = "";
+		/** {@code true} bila atasan ini masih aktif menjabat/berperan saat ini. */
 		public boolean masihAktif = true;
+		/** Tanggal mulai menjadi atasan, disimpan sebagai string berformat {@code yyyy-MM-dd}; boleh kosong. */
 		public String tanggalMulai = ""; // yyyy-MM-dd
+		/** Keterangan tambahan bebas mengenai atasan ini; opsional. */
 		public String keterangan = "";
 	}
 
+	/** Daftar atasan yang sedang dikelola di memori; sumber kebenaran sebelum di-{@link #serialize()} kembali ke JSON. */
 	private final List<Atasan> daftar = new ArrayList<Atasan>();
+	/** Body tabel (baris-baris) daftar atasan pada UI; {@code null} sebelum {@link #render(Component, String)} dipanggil. */
 	private Rows rows; // body tabel daftar atasan
+	/** Formatter tanggal {@code yyyy-MM-dd} dipakai untuk konversi {@link Atasan#tanggalMulai} ke/dari {@link Date}. */
 	private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
 	/** Menggambar editor (tabel + tombol Tambah) ke {@code parent}, memuat data awal dari {@code jsonAwal}. */
@@ -127,6 +138,7 @@ public class AtasanMahasiswaHelper {
 		}
 	}
 
+	/** Mengosongkan {@link #daftar} lalu mengisinya ulang dari hasil {@link #parseList(String)} atas {@code json}. */
 	private void muatDariJson(String json) {
 		daftar.clear();
 		daftar.addAll(parseList(json));
@@ -165,6 +177,7 @@ public class AtasanMahasiswaHelper {
 		return hasil;
 	}
 
+	/** Mengosongkan dan menggambar ulang seluruh baris {@link #rows} dari isi {@link #daftar} saat ini, lengkap dengan tombol Ubah/Hapus per baris. Tanpa efek bila {@link #render(Component, String)} belum pernah dipanggil ({@link #rows} masih {@code null}). */
 	private void refreshTabel() {
 		if (rows == null) {
 			return;
@@ -319,6 +332,14 @@ public class AtasanMahasiswaHelper {
 		win.onModal();
 	}
 
+	/**
+	 * Menambahkan satu baris form (label + textbox) ke {@code formRows} pada popup tambah/ubah atasan.
+	 *
+	 * @param formRows body grid form yang ditambahi baris baru
+	 * @param label    teks label baris
+	 * @param nilai    nilai awal textbox; {@code null} diperlakukan sebagai string kosong
+	 * @return textbox yang baru dibuat, untuk dibaca nilainya saat tombol Simpan diklik
+	 */
 	private MyTextbox tambahBarisTeks(Rows formRows, String label, String nilai) {
 		ais.ui.util.MyFormRow r = new ais.ui.util.MyFormRow();
 		r.setParent(formRows);

@@ -64,11 +64,15 @@ import ais.ui.util.MyWindow;
 public class AbsensiKehadiranPegawaiPerHariHelper extends MyWindow {
 
 	/**
-	 * 
+	 * Versi serialisasi tetap untuk {@link MyWindow} (komponen ZK yang serializable); dijaga tetap
+	 * agar kompatibel dengan sesi lama yang tersimpan.
 	 */
 	private static final long serialVersionUID = -8823784546257272901L;
+	/** Combobox pemilih bulan (1-12); perubahan memicu {@link #loadData(Object)}. */
 	private Combobox bulan;
+	/** Combobox pemilih tahun; perubahan memicu {@link #loadData(Object)}. */
 	private Combobox tahun;
+	/** Grid berpaging yang menampilkan satu baris per tanggal pada bulan/tahun terpilih. */
 	private MyGrid grid;
 
 	/**

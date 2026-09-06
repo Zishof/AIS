@@ -271,36 +271,240 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return matcher.find() ? matcher.group(1).replaceAll("\\s+", " ").trim() : ringkas;
 	}
 
+	/**
+	 * Grid utama tab <i>Input Nilai</i>: satu baris per mahasiswa yang terdaftar dan berstatus
+	 * {@link Detailperkuliahan#DISETUJUI} pada perkuliahan ini. Dibuat ulang setiap kali
+	 * {@link #prosesDisplay} berjalan, diisi oleh {@link #loadData(Object)}, dan dirender oleh
+	 * {@link DetailPerkuliahanRenderer}. Ukuran halaman sengaja dipasang sangat besar (10000) agar
+	 * seluruh kelas tampil dalam satu halaman &mdash; dosen mengharapkan daftar utuh, bukan paginasi.
+	 * Dibekukan lewat {@code Common.freeze} ketika perkuliahan terkunci.
+	 */
 	private MyGrid grid;
+
+	/**
+	 * Grid daftar {@link KomentarPerkuliahan} yang ditampilkan di bawah grid nilai. Berisi catatan
+	 * bebas dari dosen/verifikator mengenai kelas ini, diisi oleh {@link #loadDataKomentar()} dan
+	 * dirender oleh {@link KomentarPerkuliahanRenderer}. Hanya terlihat bila {@link #semester} lebih
+	 * dari nol, karena baris semester 0 mewakili konversi/transfer yang tidak punya komentar kuliah.
+	 */
 	private MyGrid gridKomentar;
 
+	/**
+	 * Perkuliahan yang <b>benar-benar</b> sedang dinilai. Nilainya belum tentu sama dengan objek yang
+	 * diserahkan pemanggil: {@link #display} menggantinya dengan
+	 * {@code kuliyah.getPerkuliahan_paralel()} bila kelas yang dibuka merupakan kelas paralel, sebab
+	 * kelas paralel berbagi satu tempat penyimpanan nilai dengan kelas induknya. Semua pembacaan
+	 * konfigurasi kelas (kunci, bobot, aturan nilai 0, batas kehadiran) dan semua penyimpanan nilai
+	 * mengacu ke objek ini, bukan ke parameter {@code kuliyah} yang masih dibawa berkeliling untuk
+	 * keperluan tab rekap.
+	 */
 	private Perkuliahan perkuliahan;
+
+	/**
+	 * Daftar komponen penilaian aktif untuk {@link #perkuliahan}, yakni definisi kolom nilai beserta
+	 * bobot persennya. Diambil dari {@code Common.getFormatNilais(perkuliahan)} yang memakai cache;
+	 * tombol Refresh dan Refresh pada tab Asisten memanggil varian dengan penyegaran paksa. Urutan
+	 * daftar menentukan urutan kolom pada grid <b>dan</b> indeks {@code nilai_1..nilai_n} pada laporan
+	 * PDF, sehingga perubahan urutan berdampak langsung ke keluaran cetak.
+	 */
 	private List<FormatNilai> formatNilais;
+
+	/**
+	 * Konfigurasi periode penilaian untuk kombinasi tahun akademik, ganjil/genap, dan status semester
+	 * pendek kelas ini, hasil {@code CommonPenilaian.getKonfigurasi(...)}. Dipakai berulang kali
+	 * sebagai gerbang waktu: entri nilai hanya terbuka bila {@code getNilai()} bernilai
+	 * {@link Konfigurasi#AKTIF}, kecuali pemanggil sudah menyalakan {@link #aktifPenilaian} secara
+	 * eksplisit. Perhatikan bahwa {@link #prosesDisplay} membaca field ini, bukan variabel lokal,
+	 * sehingga nilainya harus sudah terpasang oleh {@link #display} sebelum pembangunan layar dimulai.
+	 */
 	private Konfigurasi konfigurasi;
 
+	/**
+	 * Kumpulan string absensi mentah dari seluruh {@link Pertemuan} kelas ini yang kolom absensinya
+	 * tidak kosong. Setiap string memuat rekaman kehadiran semua mahasiswa untuk satu pertemuan dan
+	 * diuraikan oleh {@code Perkuliahan.hitungStatus(statusPertemuan, mahasiswaId)} menjadi peta
+	 * jumlah per kode status (M = masuk, A = alpa, S = sakit, I = izin, T = total). Disiapkan sekali
+	 * di awal {@link #prosesDisplay} lalu dipakai ulang oleh setiap baris renderer, sehingga rekap
+	 * kehadiran tidak perlu membaca ulang tabel pertemuan untuk tiap mahasiswa.
+	 */
 	private List<String> statusPertemuan;
 
+	/**
+	 * Callback milik pemanggil yang dijalankan setiap kali sebuah nilai berubah, diteruskan ke setiap
+	 * {@code PerubahanNilaiListener} yang dipasang pada kotak nilai. Umumnya dipakai layar induk untuk
+	 * menyegarkan ringkasan di luar helper ini. {@link #display} hanya menimpanya bila argumen yang
+	 * masuk tidak {@code null}, sehingga pemanggilan ulang tanpa callback tidak menghapus callback
+	 * yang sudah terpasang sebelumnya.
+	 */
 	private EventListener onPerubahanNilai;
+
+	/**
+	 * Kotak pencarian mahasiswa pada toolbar. Isinya dipakai {@link #loadData(Object)} sebagai kata
+	 * kunci pencocokan NIM atau nama, dan juga dibaca oleh kriteria tombol Cetak Data sehingga hasil
+	 * cetak mengikuti penyaringan yang sedang tampak di layar. Menekan Enter di dalamnya memicu
+	 * pencarian yang sama dengan tombol Cari.
+	 */
 	private Textbox nama;
 
+	/**
+	 * Profil dosen milik pengguna yang sedang masuk, hasil {@code tbmuser.ambilDosen()}; bernilai
+	 * {@code null} untuk akun admin/staf yang tidak terikat data dosen. Dipakai sebagai pembeda
+	 * kewenangan verifikasi: tombol dan kotak centang Verifikasi hanya aktif bila pengguna bukan dosen
+	 * ({@code dosen == null}) atau bila kelas ini mengizinkan dosen memverifikasi nilainya sendiri
+	 * lewat {@code perkuliahan.getDosenBolehVerifikasiNilaiSendiri()}. Aturan ini menegakkan pemisahan
+	 * peran pengisi dan pemeriksa nilai.
+	 */
 	private Dosen dosen;
+
+	/**
+	 * Penanda bahwa pemanggil membuka layar ini dalam <b>mode penilaian aktif</b>, yaitu jalur yang
+	 * secara sengaja mengizinkan entri nilai meskipun {@link #konfigurasi} periode sedang tertutup.
+	 * Nilainya sepenuhnya berasal dari argumen {@code aktifPenilaianData} milik {@link #display};
+	 * helper ini tidak pernah menghitungnya sendiri. Selain membuka entri, bendera ini juga
+	 * mengaktifkan kembali tombol Kunci dan melonggarkan tombol Buka Kunci bagi pemilik kunci.
+	 */
 	private Boolean aktifPenilaian = false;
+
+	/**
+	 * Bendera izin ubah tingkat layar yang diterima constructor dari Action pemanggil. Bernilai
+	 * {@code false} berarti layar dibuka dalam mode baca saja. Bersama {@link #aktifPenilaian} dan
+	 * {@link #konfigurasi}, inilah tiga syarat dasar yang dirangkai ulang di banyak tempat untuk
+	 * menentukan apakah sebuah kotak nilai boleh diedit. Perlu dicatat bahwa nilainya <b>dipercaya
+	 * apa adanya</b>: helper tidak memeriksa apakah pengguna benar-benar berhak mengubah kelas ini.
+	 */
 	private boolean edit = false;
+
+	/**
+	 * Kotak centang toolbar &quot;Nilai 0 tidak masuk pembagi nilai akhir&quot;. Mengubahnya menulis
+	 * langsung ke {@code perkuliahan.setNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir(...)} lalu
+	 * memicu penghitungan ulang seluruh kelas. Efeknya pada perhitungan: bobot komponen yang bernilai
+	 * nol dikeluarkan dari penyebut rata-rata tertimbang, sehingga mahasiswa tidak &quot;dihukum&quot;
+	 * oleh komponen yang memang belum diselenggarakan. Hanya tampil bila konfigurasi global
+	 * mengizinkan, pengguna bukan mahasiswa, dan kelas belum dikunci.
+	 */
 	private MyCheckboxConfig nilai0masukNilaiAkhir;
+
+	/**
+	 * Kotak centang toolbar &quot;Jika ada nilai 0 tidak menghitung nilai akhir&quot;. Aturan ini
+	 * lebih keras daripada {@link #nilai0masukNilaiAkhir}: bila satu saja komponen bernilai nol, nilai
+	 * akhir tidak dihitung sama sekali (menjadi 0/E), yang dipakai kampus untuk memaksa kelengkapan
+	 * seluruh komponen sebelum nilai diumumkan. Keduanya saling meniadakan dalam praktiknya, dan panel
+	 * Analisis Pintar menampilkan aturan ini lebih dulu bila keduanya menyala.
+	 */
 	private MyCheckboxConfig jikaNilai0masukNilaiAkhir;
+
+	/**
+	 * Nilai bawaan untuk aturan &quot;nilai 0 tidak masuk perhitungan&quot; yang dibaca sekali di
+	 * constructor dari konfigurasi global
+	 * <code>nilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir</code>. Dipakai sebagai <b>penambal
+	 * data lama</b>: bila kolom sejenis pada {@link Perkuliahan} masih {@code null} &mdash; kelas yang
+	 * dibuat sebelum kolom itu ada &mdash; renderer mengisinya dengan nilai ini agar perhitungan punya
+	 * jawaban pasti. Ini juga berarti kebijakan global merembes ke kelas lama pada saat pertama kali
+	 * dibuka.
+	 */
 	private boolean nilai0MasukPenghitungan;
+
+	/**
+	 * Pengguna yang sedang masuk. Diambil ulang dari {@code Common.getCurrentUser()} di beberapa titik
+	 * &mdash; constructor, {@link #display}, bahkan di tengah {@link DetailPerkuliahanRenderer#render}
+	 * &mdash; karena renderer dapat berjalan pada siklus permintaan yang berbeda. Dipakai untuk tiga
+	 * hal: membedakan akun mahasiswa dari akun pegawai, mencatat identitas verifikator dan pemasang
+	 * kunci, serta memeriksa peran {@link Tbmrole#ADMINISTRATOR} pada jalur buka-kunci istimewa.
+	 */
 	private Tbmuser tbmuser;
+
+	/**
+	 * Menyalakan seluruh antarmuka verifikasi nilai: kolom centang per komponen, kolom
+	 * <i>Verify</i> per mahasiswa, tombol Verifikasi massal, dan pilihan menyembunyikan nilai yang
+	 * belum diverifikasi. Bernilai {@code true} bila konfigurasi
+	 * <code>ada_proses_verifikasi_penilaian_kepada_dosen</code> aktif <b>atau</b>
+	 * <code>nilai_belum_verifikasi_tidak_masuk_dalam_perhitungan_ipk</code> aktif &mdash; yang kedua
+	 * ikut menyalakannya karena tanpa antarmuka verifikasi, nilai tidak akan pernah bisa masuk IPK.
+	 * Bila mati, {@link #prosesDisplay} sekalian memaksa
+	 * {@code perkuliahan.setSembunyikanNilaiJikaBelumDiverifikasi(false)} supaya nilai tidak
+	 * tersembunyi selamanya tanpa cara memverifikasinya. Hanya dihitung untuk pengguna non-mahasiswa.
+	 */
 	private boolean adaProsesVerifikasiNilai = false;
 
+	/**
+	 * Menandai bahwa pengguna mahasiswa yang sedang masuk berstatus <b>asisten penilai</b> pada kelas
+	 * ini, hasil {@code perkuliahan.merupakanAsistenNilai(tbmuser.getMahasiswa())}. Inilah satu-satunya
+	 * jalan bagi akun mahasiswa untuk mengisi nilai: tanpa bendera ini, setiap syarat edit menutup
+	 * kotak nilai bagi akun mahasiswa. Dihitung ulang setiap {@link #prosesDisplay} dan selalu diawali
+	 * dengan {@code false} agar sisa keadaan dari pemanggilan sebelumnya tidak bocor.
+	 */
 	private boolean mahasiswaBolehUbahNilai = false;
 
+	/**
+	 * Kotak centang toolbar &quot;Hanya input nilai huruf&quot;. Bila menyala, seluruh kolom komponen
+	 * disembunyikan dan grid menampilkan satu kotak teks huruf per mahasiswa; nilai angka diturunkan
+	 * dari titik tengah rentang huruf yang dipilih. Mode ini dipakai untuk kelas yang nilainya datang
+	 * dari luar sistem &mdash; mata kuliah konversi, program pertukaran, atau kelas kerja sama &mdash;
+	 * sehingga rincian komponennya memang tidak ada.
+	 */
 	private MyCheckboxConfig hanyaInputNilaiHuruf;
+
+	/**
+	 * Kotak centang toolbar &quot;Sembunyikan nilai ke mhs, jika blm di-verifikasi&quot;. Bila menyala,
+	 * mahasiswa melihat pasangan kolom <i>sementara</i> ({@code totalNilaiSementara},
+	 * {@code nilaiHurufSementara}, {@code totalIPSementara}) alih-alih nilai final, sampai baris
+	 * berstatus {@link Detailperkuliahan#VERIFIED}. Mengubahnya menyimpan ke {@link #perkuliahan} lalu
+	 * memicu pemuatan ulang seluruh nilai kelas, sebab pemisahan nilai final dan sementara terjadi saat
+	 * penulisan, bukan saat pembacaan.
+	 */
 	private MyCheckboxConfig sembunyikanNilaiJikaBelumDiverifikasi;
 
 	// private boolean delete = false;
 
+	/**
+	 * Penjaga tambahan dari konfigurasi <code>hanya_dosen_yg_boleh_entry_nilai</code>: bernilai
+	 * {@code true} bila kebijakan itu aktif <b>dan</b> pengguna yang masuk tidak memiliki profil dosen.
+	 * Dihitung <b>sekali di constructor</b> dan tidak pernah dihitung ulang setelahnya.
+	 *
+	 * <p><b>Hati-hati membacanya.</b> {@link #prosesDisplay} mendeklarasikan variabel lokal
+	 * {@code editDisable} yang <i>membayangi</i> field ini dan bernilai jauh lebih luas (turut
+	 * memperhitungkan {@link #edit}, {@link #aktifPenilaian}, dan status asisten mahasiswa). Variabel
+	 * lokal itu tidak pernah ditulis kembali ke field. Akibatnya, kode di dalam
+	 * {@link DetailPerkuliahanRenderer} &mdash; yang berada di luar {@code prosesDisplay} &mdash;
+	 * membaca <b>field</b> ini yang bermakna sempit, sedangkan toolbar membaca variabel lokal yang
+	 * bermakna luas. Perbedaan cakupan ini adalah sumber kemunculan gerbang yang tidak seragam antara
+	 * jalur kolom komponen dan jalur kotak nilai huruf.</p>
+	 */
 	private boolean editDisable = false;
 
+	/**
+	 * Menyiapkan helper untuk satu sesi penilaian dan menetapkan dua keputusan kebijakan yang berlaku
+	 * seumur hidup objek ini.
+	 *
+	 * <p>Pertama, bendera {@link #edit} diterima apa adanya dari Action pemanggil. Helper <b>tidak
+	 * memverifikasi</b> apakah pengguna berhak mengubah nilai kelas yang nanti dibuka; keputusan itu
+	 * sepenuhnya milik pemanggil ({@code PenilaianAction}, {@code AktifitasPerkuliahanHelper},
+	 * {@code FormulirKegiatanAction}), dan constructor ini bahkan belum tahu kelas mana yang akan
+	 * ditampilkan &mdash; {@link Perkuliahan} baru diserahkan pada {@link #display}.</p>
+	 *
+	 * <p>Kedua, kebijakan <code>hanya_dosen_yg_boleh_entry_nilai</code> dievaluasi. Bila kebijakan itu
+	 * aktif dan pengguna yang sedang masuk tidak punya profil dosen ({@code tbmuser.ambilDosen()}
+	 * bernilai {@code null}), {@link #editDisable} dinyalakan sehingga kolom komponen nilai tampil
+	 * sebagai label, bukan kotak isian. Pembacaan {@code Common.getCurrentUser()} hanya dilakukan di
+	 * dalam cabang ini, sehingga {@link #tbmuser} bisa saja masih {@code null} setelah constructor
+	 * selesai bila kebijakan tersebut mati &mdash; {@link #display} mengisinya kemudian, dan kode lain
+	 * bergantung pada urutan itu.</p>
+	 *
+	 * <p>Ketiga, nilai bawaan aturan &quot;nilai 0 tidak masuk perhitungan&quot; dibaca sekali ke
+	 * {@link #nilai0MasukPenghitungan} untuk menambal kelas lama yang kolomnya masih kosong.</p>
+	 *
+	 * <p><b>Efek samping.</b> Constructor mencetak nilai {@link #editDisable} ke {@code System.out}
+	 * sebagai jejak diagnostik penelusuran keluhan &quot;kotak nilai tidak bisa diisi&quot;; keluaran
+	 * itu tidak memuat data pribadi. Selain itu ia hanya membaca konfigurasi dan tidak memulai
+	 * transaksi apa pun. Objek yang dihasilkan <b>terikat pada satu desktop ZK</b> karena menyimpan
+	 * rujukan pengguna dan komponen; jangan menyimpannya di scope aplikasi atau membagikannya antar
+	 * sesi.</p>
+	 *
+	 * @param edit {@code true} bila layar dibuka untuk mengubah nilai, {@code false} untuk baca saja.
+	 *             Nilai ini tetap harus lolos gerbang periode dan gerbang kunci sebelum kotak nilai
+	 *             benar-benar terbuka.
+	 * @see #display(Perkuliahan, Component, EventListener, MyToolbarbuttonConfig, boolean)
+	 */
 	public DetailperkuliahanForPenilaianHelper(boolean edit) {
 
 		this.edit = edit;

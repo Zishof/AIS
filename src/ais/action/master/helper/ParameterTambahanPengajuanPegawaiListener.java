@@ -44,10 +44,15 @@ import ais.ui.util.MyMessageboxConfig;
  */
 public class ParameterTambahanPengajuanPegawaiListener implements EventListener {
 
+	/** Daftar baris ZK hasil render, diisi/dibersihkan ulang oleh {@link #onEvent(Event)} dan dibaca kembali oleh {@link #validate()} dan {@link #onSave(PengajuanPegawai)}. */
 	private List<Row> parameterRows;
+	/** Kontainer {@link Rows} tempat baris-baris form parameter tambahan disisipkan. */
 	private Rows rows;
+	/** Entitas pengajuan pegawai yang parameter tambahannya sedang dikelola oleh listener ini. */
 	private PengajuanPegawai pengajuanPegawai;
+	/** Peta lampiran yang sudah diunggah, berkunci {@code "idKelompok->idParameter"} (lihat {@link LampiranLain#resolveJenisParameterTambahan}), diteruskan ke {@link ParameterTambahan#initComponent}. */
 	private Map<String, LampiranLain> lampiranLains;
+	/** Kelompok parameter tambahan yang akan dirender pada form ini. */
 	private Set<KelompokParameterTambahanPengajuanPegawai> kelompokParameterTambahanPengajuanPegawais;
 
 	/**

@@ -68,11 +68,16 @@ import ais.ui.util.MyWindow;
  */
 public class PengecualianPklMahasiswaHelper implements DataLoader {
 
+	/** Grid daftar pengecualian PKL yang sedang ditampilkan; dibangun di {@link #display()}, diisi ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Combobox filter fakultas pada form pencarian (opsi "Semua" disediakan {@link Common#initFakultasDanJurusanDanSemua}). */
 	private Combobox searchfakultas = new Combobox();
+	/** Combobox filter jurusan/prodi pada form pencarian, mengikuti pilihan {@link #searchfakultas}. */
 	private Combobox searchjurusan = new Combobox();
 
+	/** Textbox filter nama mahasiswa; dicocokkan case-insensitive-anywhere pada {@link #loadData(Object)}. */
 	private Textbox nama;
+	/** Kegiatan PKL yang daftar pengecualiannya dikelola oleh instance ini, diberikan lewat konstruktor. */
 	private Pkl pkl;
 
 	/** @param pkl kegiatan PKL yang daftar pengecualiannya akan dikelola */
@@ -84,10 +89,17 @@ public class PengecualianPklMahasiswaHelper implements DataLoader {
 	/** Perender baris grid: NIM/nama/jurusan/fakultas mahasiswa, textbox keterangan (inline-editable, tersimpan otomatis on-change), dan tombol hapus (dengan konfirmasi) yang menghapus baris {@link PengecualianPklMahasiswa}. */
 	class PengecualianPklMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Konstruktor tanpa argumen; tidak ada state renderer yang perlu diinisialisasi. */
 		public PengecualianPklMahasiswaRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris grid untuk {@code arg1} (harus berupa {@link PengecualianPklMahasiswa}):
+		 * NIM, nama, jurusan, fakultas mahasiswa; textbox keterangan yang tersimpan otomatis saat
+		 * {@code onChange}; serta tombol hapus (dengan konfirmasi) yang memanggil {@link #loadData(Object)}
+		 * ulang setelah baris dihapus.
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {arg0.setValign("top");
 			// TODO Auto-generated method stub

@@ -207,14 +207,17 @@ import ais.database.model.akunting.Akun;
  *   {@link #setAutoCreate(Boolean)} tidak punya pemanggil selain layar master. Efeknya (mengunci
  *   {@code kode} dan {@code penghitungan} di form) baru muncul kalau kolomnya diisi lewat SQL/
  *   migrasi langsung.</li>
- *   <li><b>Tiga entri combobox tanpa penangan.</b> {@link #DIAMBIL_DARI_DENDA_PERPUSTAKAAN}
+ *   <li><b>Satu entri combobox tanpa penangan.</b> {@link #DIAMBIL_DARI_DENDA_PERPUSTAKAAN}
  *   ({@code "456"}) terdaftar di {@link #PENGHITUNGAN_MAP} sehingga bisa dipilih operator, tetapi
  *   tidak dirujuk di mana pun di luar file ini &mdash; memilihnya sama saja dengan tidak memilih
- *   apa-apa. {@link #DIKALI_JUMLAH_SKS_UAS_REMDIAL} ({@code "5592"}) punya penangan HANYA di jalur
- *   tagihan bulanan; di jalur {@link DetailBiaya} biasa cabangnya hilang &mdash; blok yang
- *   seharusnya menanganinya justru menguji {@link #DIKALI_JUMLAH_SKS_UTS_REMEDIAL} untuk kedua
- *   kalinya (blok kembar persis, cabang kedua tak terjangkau). Jadi item "dikali jumlah SKS
- *   matakuliah remedial yang ada uas-nya" tidak dikalikan pada tagihan biasa.</li>
+ *   apa-apa.</li>
+ *   <li><b>[DIPERBAIKI] {@link #DIKALI_JUMLAH_SKS_UAS_REMDIAL} ({@code "5592"}) sempat punya
+ *   penangan HANYA di jalur tagihan bulanan.</b> Di jalur {@link DetailBiaya} biasa cabangnya
+ *   sempat hilang &mdash; blok yang seharusnya menanganinya justru menguji
+ *   {@link #DIKALI_JUMLAH_SKS_UTS_REMEDIAL} untuk kedua kalinya (blok kembar persis, cabang
+ *   kedua tak terjangkau), sehingga item "dikali jumlah SKS matakuliah remedial yang ada
+ *   uas-nya" tidak dikalikan pada tagihan biasa. Sudah ditambal di
+ *   {@code PembayaranNominalModifikasiHelper.updateKeterangan(...)}; kedua jalur kini setara.</li>
  *   <li><b>Tujuh konstanta blok "BARU" belum tersambung.</b> {@link #DIKALI_JUMLAH_PERTEMUAN} dan
  *   enam saudaranya tidak dimasukkan ke {@link #PENGHITUNGAN_MAP} dan tidak dirujuk di mana pun
  *   &mdash; jadi tidak bisa dipilih operator dan tidak punya penangan. Rangka untuk fitur yang
@@ -431,10 +434,10 @@ public class ItemBiaya extends GeneralValueObject {
 	 * Mode: nominal dikali total SKS matakuliah <b>remedial</b> yang punya komponen UTS. Kunci
 	 * combobox {@code "5582"}.
 	 *
-	 * <p>Mode inilah yang tidak sengaja diuji <b>dua kali berturut-turut</b> di
-	 * {@code PembayaranNominalModifikasiHelper} (dua blok kembar persis); cabang keduanya tidak akan
-	 * pernah tercapai dan tampaknya seharusnya menguji
-	 * {@link #DIKALI_JUMLAH_SKS_UAS_REMDIAL}.</p>
+	 * <p><b>[DIPERBAIKI]</b> Mode inilah yang sempat tidak sengaja diuji <b>dua kali
+	 * berturut-turut</b> di {@code PembayaranNominalModifikasiHelper.updateKeterangan(...)} (dua
+	 * blok kembar persis); cabang keduanya tidak pernah tercapai dan seharusnya menguji
+	 * {@link #DIKALI_JUMLAH_SKS_UAS_REMDIAL} &mdash; blok kedua sudah diganti sesuai itu.</p>
 	 */
 	public static final String DIKALI_JUMLAH_SKS_UTS_REMEDIAL = "Dikali jumlah SKS matakuliah remedial yang ada uts-nya";
 
@@ -453,13 +456,14 @@ public class ItemBiaya extends GeneralValueObject {
 	 * Mode: nominal dikali total SKS matakuliah <b>remedial</b> yang punya komponen UAS. Kunci
 	 * combobox {@code "5592"}.
 	 *
-	 * <p><b>Cacat terverifikasi:</b> mode ini hanya punya cabang perhitungan pada jalur tagihan
+	 * <p><b>[DIPERBAIKI]</b> Mode ini sempat hanya punya cabang perhitungan pada jalur tagihan
 	 * bulanan ({@link PengaturanPembayaranBulanan}) di
 	 * {@code PembayaranNominalModifikasiHelper}. Pada jalur {@link DetailBiaya} biasa cabangnya
-	 * tidak ada &mdash; tempatnya terisi blok kembar
-	 * {@link #DIKALI_JUMLAH_SKS_UTS_REMEDIAL}. Akibatnya item biaya yang dikonfigurasi dengan mode
+	 * sempat tidak ada &mdash; tempatnya terisi blok kembar
+	 * {@link #DIKALI_JUMLAH_SKS_UTS_REMEDIAL}, sehingga item biaya yang dikonfigurasi dengan mode
 	 * ini tidak dikalikan apa pun pada tagihan biasa dan nominalnya jatuh ke nilai dasar tanpa pesan
-	 * kesalahan.</p>
+	 * kesalahan. Blok kembar itu sudah diganti agar menguji konstanta ini dengan saringan yang
+	 * sesuai ({@code getTerdapatUas()}); kedua jalur kini setara.</p>
 	 *
 	 * <p>Nama konstantanya sendiri salah eja ({@code REMDIAL}, bukan {@code REMEDIAL}), tetapi
 	 * <i>teks nilainya</i> benar dan itulah yang tersimpan di database &mdash; jadi mengganti nama

@@ -68,14 +68,20 @@ import ais.ui.util.MyToolbarbuttonConfig;
 public class AbsensiKehadiranDosenHarianHelper extends MyDetail {
 
 	/**
-	 * 
+	 * Versi serialisasi tetap untuk {@link MyDetail} (komponen ZK yang serializable); dijaga tetap
+	 * agar kompatibel dengan sesi lama yang tersimpan.
 	 */
 	private static final long serialVersionUID = -8823784546257272901L;
+	/** Combobox pemilih bulan (1-12); perubahan memicu {@link #loadData(Object)}. */
 	private Combobox bulan;
+	/** Combobox pemilih tahun; perubahan memicu {@link #loadData(Object)}. */
 	private Combobox tahun;
+	/** Grid berpaging yang menampilkan rekap absensi harian {@link #dosen} untuk bulan/tahun terpilih. */
 	private MyGrid grid;
+	/** Dosen yang rekap absensinya sedang ditampilkan/dikelola. */
 	private Dosen dosen;
 
+	/** Menandai apakah pengguna berhak mengubah data (hasil {@link CommonPrivilages#checkPrevilages}); dikombinasikan dengan cek identitas dosen saat merender grid. */
 	private boolean edit = false;
 
 	/**
