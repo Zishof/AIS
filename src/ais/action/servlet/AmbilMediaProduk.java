@@ -32,21 +32,49 @@ import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.file.FotoGambarProduk;
 
 /**
- * Servlet implementation class AmbilMedia
+ * Servlet yang menyajikan gambar produk ({@link FotoGambarProduk}) dengan DUA
+ * mode akses: berdasarkan ID baris foto itu sendiri ({@code fotoId}, dipakai
+ * galeri Ubah Produk &amp; carousel Kasir untuk menampilkan foto tertentu apa
+ * adanya), atau berdasarkan ID produk ({@code id}, mengambil foto TERBARU
+ * milik produk tersebut, dipakai thumbnail katalog). Kedua parameter dikirim
+ * TANPA enkripsi; dukungan opsional tersedia untuk versi thumbnail hasil
+ * resize ({@code height}/{@code width}, hanya berlaku pada mode {@code id}).
+ * <p>
+ * Blob gambar disimpan di kolom {@code foto} pada tabel
+ * {@link FotoGambarProduk}; pada permintaan pertama untuk suatu kombinasi
+ * parameter, blob disalin sekali ke berkas cache lokal di direktori
+ * {@code <webapp>/../media/}, lalu permintaan berikutnya untuk kombinasi yang
+ * sama langsung membaca berkas cache.
+ * </p>
+ * <p>
+ * <b>Catatan keamanan:</b> servlet ini TIDAK memiliki gerbang otentikasi/
+ * otorisasi apa pun, dan parameter {@code id}/{@code fotoId} adalah ID
+ * numerik polos yang lazimnya berurutan -- siapa pun yang bisa menebak/
+ * mengiterasi ID dapat mengunduh gambar produk mana pun tanpa login. Pola
+ * "anonim + id sekuensial" yang sama seperti servlet {@code Ambil*} lain di
+ * paket ini (mis. {@code AmbilMediaItem}, {@code AmbilImageItemPerHalaman}).
+ * </p>
  */
 public class AmbilMediaProduk extends HttpServlet {
+	/** ID versi serialisasi tetap untuk kontrak {@link java.io.Serializable} milik {@link HttpServlet}. */
 	private static final long serialVersionUID = 1L;
 
 	/**
-	 * @see HttpServlet#HttpServlet()
+	 * Membuat instance servlet. Tidak ada inisialisasi khusus di luar konstruktor
+	 * bawaan {@link HttpServlet#HttpServlet()}.
 	 */
 	public AmbilMediaProduk() {
 		super();
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP; parameter {@code fotoId} ATAU {@code id}, {@code height}/{@code width} (opsional) menentukan gambar yang diminta
+	 * @param response respons HTTP; isi gambar (atau ikon peringatan default) ditulis ke sini
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -54,14 +82,34 @@ public class AmbilMediaProduk extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}, dengan perilaku
+	 * yang identik dengan {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP; parameter {@code fotoId} ATAU {@code id}, {@code height}/{@code width} (opsional) menentukan gambar yang diminta
+	 * @param response respons HTTP; isi gambar (atau ikon peringatan default) ditulis ke sini
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/**
+	 * Menentukan berkas gambar yang akan disajikan lewat
+	 * {@link #loadFile(HttpServletRequest, HttpServletResponse, Session)}, lalu
+	 * menyalin isinya ke response dengan {@code Content-Type} yang ditebak dari
+	 * ekstensi nama berkas (fallback ke {@code image/jpg} bila tidak dikenali).
+	 * <p>
+	 * Sesi {@link StreamingHibernateUtil} dibuka di sini dan selalu ditutup
+	 * (clear/disconnect/close) di blok {@code finally} SEBELUM path berkas hasil
+	 * {@link #loadFile} dipakai untuk menulis isi berkas ke response.
+	 * </p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code fotoId} ATAU {@code id} (salah satu wajib), {@code height}/{@code width} (opsional, hanya berlaku untuk mode {@code id}) menentukan gambar yang diminta
+	 * @param resp respons HTTP tujuan penulisan isi berkas
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) {
 
 		Session streamingSession = null;
@@ -127,6 +175,42 @@ public class AmbilMediaProduk extends HttpServlet {
 
 	}
 
+	/**
+	 * Menentukan berkas gambar produk yang akan disajikan, dengan dua mode akses
+	 * yang saling eksklusif.
+	 * <p>
+	 * Mode 1 -- {@code fotoId} (ID baris {@link FotoGambarProduk} itu sendiri,
+	 * BUKAN id produk): mengambil baris itu langsung lewat {@link Session#get}
+	 * apa adanya (tanpa memandang produk mana yang memilikinya), lalu menyalin
+	 * blob {@code foto}-nya ke cache dan mengembalikannya. Dipakai galeri "Ubah
+	 * Produk" dan carousel Kasir untuk merender daftar foto (satu per satu) yang
+	 * ID-nya sudah didapat lebih dulu dari {@code produk_foto_list}. Bila baris
+	 * tidak ada atau blob-nya kosong, mengembalikan ikon peringatan
+	 * {@code /img/Package-Warning-icon.png}.
+	 * </p>
+	 * <p>
+	 * Mode 2 -- {@code id} (id produk, dipakai bila {@code fotoId} tidak dikirim):
+	 * mengambil foto TERBARU (id terbesar) milik produk tersebut. Bila cache-nya
+	 * belum ada, blob disalin lewat {@link #writeBlobToFile(Blob, File)}. Bila
+	 * parameter {@code height} dan {@code width} keduanya dikirim, method
+	 * menghasilkan (atau membaca dari cache) versi thumbnail lewat
+	 * {@link #resizeImage(BufferedImage, int, int, int)}. Hasil akhir selalu
+	 * divalidasi lewat {@link Common#isImage(File)}; bila bukan gambar valid,
+	 * jatuh ke ikon peringatan.
+	 * </p>
+	 * <p>
+	 * Penambahan parameter {@code fotoId} (ditandai komentar "Gap-closure" pada
+	 * kode) TIDAK mengubah perilaku parameter {@code id} yang sudah ada
+	 * sebelumnya -- keduanya independen, salah satu boleh dipakai sesuai
+	 * kebutuhan pemanggil.
+	 * </p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code fotoId} ATAU {@code id} (salah satu wajib), {@code height}/{@code width} (opsional, mode {@code id} saja)
+	 * @param resp respons HTTP; header {@code Content-Disposition} diisi dengan nama berkas di sini
+	 * @param streamingSession sesi Hibernate (dibuka pemanggil) dipakai untuk seluruh query pada method ini
+	 * @return berkas gambar (asli atau thumbnail) yang harus disajikan, atau ikon peringatan {@code /img/Package-Warning-icon.png} sebagai fallback
+	 * @throws Exception bila parameter tidak valid atau query/penyalinan blob gagal; diteruskan ke pemanggil ({@link #process}) yang menanganinya lewat {@link Common#tampilErrorJikaAdmin(Exception)}
+	 */
 	private File loadFile(HttpServletRequest request, HttpServletResponse resp, Session streamingSession)
 			throws Exception {
 
@@ -231,6 +315,16 @@ public class AmbilMediaProduk extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyalin isi {@code blob} ke {@code file} sekali saja: bila {@code file}
+	 * sudah ada di disk, method langsung kembali tanpa melakukan apa pun (blob
+	 * tidak dibaca ulang). Bila belum ada, method membuat berkas baru lalu
+	 * menyalin seluruh isi {@link Blob#getBinaryStream()} lewat
+	 * {@link #fastChannelCopy(ReadableByteChannel, WritableByteChannel)}.
+	 *
+	 * @param blob sumber data biner dari kolom {@code foto}; boleh {@code null} hanya bila {@code file} sudah ada
+	 * @param file berkas cache tujuan penulisan
+	 */
 	private void writeBlobToFile(Blob blob, File file) {
 
 		InputStream inputStream = null;
@@ -258,6 +352,16 @@ public class AmbilMediaProduk extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyalin seluruh isi {@code src} ke {@code dest} memakai buffer langsung
+	 * (direct {@link ByteBuffer}) berukuran 16 KiB, dengan pola baca-flip-tulis-
+	 * compact standar NIO sampai {@code src} habis, lalu mengosongkan sisa buffer
+	 * yang belum tertulis.
+	 *
+	 * @param src kanal sumber data biner yang akan disalin
+	 * @param dest kanal tujuan penulisan data biner
+	 * @throws IOException bila operasi baca/tulis pada salah satu kanal gagal
+	 */
 	public void fastChannelCopy(final ReadableByteChannel src, final WritableByteChannel dest) throws IOException {
 		final ByteBuffer buffer = ByteBuffer.allocateDirect(16 * 1024);
 		while (src.read(buffer) != -1) {
@@ -277,6 +381,21 @@ public class AmbilMediaProduk extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengubah ukuran {@code originalImage} menjadi kanvas berukuran
+	 * {@code IMG_WIDTH}&times;{@code IMG_HEIGHT} dengan tipe {@link BufferedImage}
+	 * sesuai parameter {@code type}, memakai penggambaran ulang sederhana
+	 * ({@link Graphics2D#drawImage}) tanpa interpolasi kualitas khusus. Dipakai
+	 * oleh {@link #loadFile(HttpServletRequest, HttpServletResponse, Session)}
+	 * (mode {@code id}) untuk menghasilkan versi thumbnail saat parameter
+	 * {@code height}/{@code width} dikirim.
+	 *
+	 * @param originalImage gambar sumber yang akan digambar ulang
+	 * @param IMG_WIDTH lebar kanvas hasil, dalam piksel
+	 * @param IMG_HEIGHT tinggi kanvas hasil, dalam piksel
+	 * @param type salah satu konstanta tipe {@link BufferedImage} (mis. {@link BufferedImage#TYPE_INT_ARGB})
+	 * @return gambar hasil resize berukuran {@code IMG_WIDTH}&times;{@code IMG_HEIGHT}
+	 */
 	public BufferedImage resizeImage(BufferedImage originalImage, int IMG_WIDTH, int IMG_HEIGHT, int type) {
 		BufferedImage resizedImage = new BufferedImage(IMG_WIDTH, IMG_HEIGHT, type);
 		Graphics2D g = resizedImage.createGraphics();
