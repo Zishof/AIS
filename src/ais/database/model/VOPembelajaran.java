@@ -3794,6 +3794,34 @@ public abstract class VOPembelajaran extends VoKunci {
 		return "-";
 	}
 
+	/**
+	 * Mengambil tahun ajaran/akademik objek pembelajaran ini, mis. {@code "2024/2025"}.
+	 *
+	 * <p>Delapan cabang dikenali, dengan dua cara berbeda memperolehnya: sebagian membacanya
+	 * langsung dari kolom pada wadahnya ({@link Perkuliahan}, {@link KrsMahasiswa},
+	 * {@link FormulirKegiatan}, {@link Skripsi}, {@link MahasiswaRequestTugasAkhir}), sebagian
+	 * lagi menurunkannya dari kegiatan induk ({@code kkn.KelompokKkn} dan {@code pkl.KelompokPkl}
+	 * membacanya dari KKN/PKL induknya) atau dari grup pertemuan
+	 * ({@link PertemuanPunyaGrupPertemuan}).</p>
+	 *
+	 * <p>Kelompok KKN dan PKL punya penjaga tersendiri: bila kegiatan induknya belum ditetapkan,
+	 * hasilnya {@code "-"} alih-alih melempar. Cabang lain tidak punya penjaga serupa —
+	 * {@link PertemuanPunyaGrupPertemuan} membaca {@code getGrupPertemuan().getTahunAkademik()}
+	 * tanpa memeriksa relasinya — tetapi seluruh badan method dibungkus {@code try/catch} sehingga
+	 * kegagalannya berujung pada {@code "-"} yang sama.</p>
+	 *
+	 * <p><b>Teks {@code "-"} menyatukan tiga keadaan</b>: wadahnya tidak termasuk delapan cabang
+	 * yang dikenali (antara lain {@link Wisuda}, seluruh wadah ujian, dan
+	 * {@code sekolah.JadwalPelajaran}), relasi induknya belum ditetapkan, dan penyusunannya gagal.
+	 * Nilai itu diteruskan ke {@link #toIdSmt()} yang memperlakukannya sebagai tahun tidak sah,
+	 * sehingga kode semester yang dihasilkan menjadi {@code "-1"}.</p>
+	 *
+	 * <p>Bentuk teksnya tidak divalidasi maupun dinormalkan di sini; ia dikembalikan apa adanya
+	 * dari kolom sumbernya, termasuk bila kolom itu berisi {@code null}.</p>
+	 *
+	 * @return tahun ajaran, atau {@code "-"} bila tidak tersedia; dapat pula {@code null} bila
+	 *         kolom sumbernya kosong
+	 */
 	public String ambilTahunAjaran() {
 		try {
 			if (this instanceof Perkuliahan) {
@@ -3827,6 +3855,31 @@ public abstract class VOPembelajaran extends VoKunci {
 		return "-";
 	}
 
+	/**
+	 * Menyatakan apakah objek pembelajaran ini termasuk penyelenggaraan semester pendek.
+	 *
+	 * <p><b>Diturunkan dari keberadaan relasi, bukan dari nilainya.</b> Untuk {@link Perkuliahan}
+	 * jawabannya adalah "kolom status semester pendek terisi atau tidak", dan untuk
+	 * {@link KrsMahasiswa} maupun {@link PertemuanPunyaGrupPertemuan} polanya sama. Artinya,
+	 * begitu kolom tersebut ditetapkan ke <i>nilai apa pun</i> — termasuk nilai yang secara domain
+	 * justru berarti "bukan semester pendek" — method ini melaporkan benar. Bila master status
+	 * semester pendek suatu saat memuat lebih dari satu nilai, pemeriksaan di sini perlu diubah
+	 * menjadi pembandingan nilai, bukan sekadar keberadaan.</p>
+	 *
+	 * <p>Empat wadah menjawab {@code false} secara tetap: kelompok KKN, kelompok PKL, skripsi, dan
+	 * permohonan tugas akhir — bukan karena tidak dapat berlangsung pada semester pendek,
+	 * melainkan karena wadah-wadah itu tidak memodelkan penandanya. Subclass yang tidak terdaftar
+	 * juga menjawab {@code false}.</p>
+	 *
+	 * <p>Cabang {@link PertemuanPunyaGrupPertemuan} membaca relasi grup pertemuannya tanpa penjaga
+	 * {@code null}, dan method ini tidak punya penangkap kesalahan — berbeda dari
+	 * {@link #ambilTahunAjaran()} yang dibungkus.</p>
+	 *
+	 * <p>Nilai baliknya dipakai {@link #toIdSmt()} untuk memilih angka jenis semester 3, sehingga
+	 * ia ikut menentukan kode semester yang dilaporkan ke pangkalan data pendidikan.</p>
+	 *
+	 * @return {@code true} bila termasuk semester pendek; tidak pernah {@code null}
+	 */
 	public Boolean ambilMerupakanSP() {
 		if (this instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) this;
@@ -3849,6 +3902,29 @@ public abstract class VOPembelajaran extends VoKunci {
 		return false;
 	}
 
+	/**
+	 * Menyebut jenis objek pembelajaran ini sebagai teks siap tampil, mis. {@code "Perkuliahan"}
+	 * atau {@code "Sidang Skripsi / TA"}.
+	 *
+	 * <p>Tujuh jenis ditanam langsung sebagai teks di dalam program: perkuliahan, KKN, PKL,
+	 * bimbingan akademik (untuk KRS), sidang skripsi/TA, kegiatan, dan bimbingan skripsi/TA (untuk
+	 * permohonan tugas akhir). Cabang kedelapan, {@link PertemuanPunyaGrupPertemuan}, justru
+	 * mengambil jenisnya dari master grup pertemuan — sehingga <b>nilainya adalah teks bebas yang
+	 * diisi pengguna</b>, bukan salah satu dari daftar tetap di atas.</p>
+	 *
+	 * <p><b>Teks ini bukan sekadar label tampilan.</b> Ia menjadi bagian kedua kunci pengurutan
+	 * pada jalur kedua {@link #compareTo(GeneralValueObject)}, yaitu {@code toIdSmt() +
+	 * ambilJenis()}. Dua konsekuensinya: mengubah kata pada salah satu teks di sini mengubah urutan
+	 * tampil daftar campuran, dan untuk pertemuan grup urutannya ikut bergantung pada teks bebas
+	 * yang diketik pengguna di master. Karena itu teks-teks ini tidak boleh diterjemahkan atau
+	 * diubah tanpa mempertimbangkan urutan yang sudah terlihat pengguna.</p>
+	 *
+	 * <p>Sembilan subclass yang tidak terdaftar — termasuk {@link Wisuda},
+	 * {@code sekolah.JadwalPelajaran}, dan seluruh wadah ujian — menghasilkan {@code "-"}, yang
+	 * pada pengurutan berarti seluruhnya menempati kelompok yang sama.</p>
+	 *
+	 * @return nama jenis siap tampil, atau {@code "-"} bila wadahnya tidak dikenali
+	 */
 	public String ambilJenis() {
 		if (this instanceof Perkuliahan) {
 			return "Perkuliahan";
@@ -3871,6 +3947,23 @@ public abstract class VOPembelajaran extends VoKunci {
 		return "-";
 	}
 
+	/**
+	 * Alias {@link #ambilTahunAjaran()} — mengembalikan nilai yang sama persis tanpa penyesuaian
+	 * apa pun.
+	 *
+	 * <p>Dua nama itu berasal dari dua kosakata yang hidup berdampingan di basis kode ini:
+	 * "tahun ajaran" dipakai jalur persekolahan, "tahun akademik" dipakai jalur perguruan tinggi.
+	 * Kolom pada entity pun dinamai berbeda-beda mengikuti asal modulnya — {@code tahunAjaran}
+	 * pada perkuliahan, {@code tahunAkademik} pada KRS, skripsi, dan kegiatan. Method ini
+	 * menyediakan nama kedua agar kode dari kedua jalur dapat memanggil apa yang terasa wajar di
+	 * modulnya masing-masing.</p>
+	 *
+	 * <p>Karena isinya sekadar meneruskan, seluruh perilaku {@link #ambilTahunAjaran()} berlaku
+	 * di sini juga, termasuk nilai {@code "-"} yang menyatukan tiga keadaan berbeda. Jangan
+	 * menambahkan logika pada salah satunya saja.</p>
+	 *
+	 * @return tahun ajaran/akademik, atau {@code "-"} bila tidak tersedia
+	 */
 	public String ambilTahunAkademik() {
 		return ambilTahunAjaran();
 	}
