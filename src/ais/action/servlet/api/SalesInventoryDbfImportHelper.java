@@ -862,6 +862,173 @@ public final class SalesInventoryDbfImportHelper {
 		return 1;
 	}
 
+	/**
+	 * Opname fisik dari {@code dataopn.dbf}.
+	 *
+	 * <p><b>Mengapa penting.</b> Aplikasi lama menyesuaikan stok lewat opname fisik, dan
+	 * penyesuaian itu TIDAK terekam di {@code BELI.DBF} maupun {@code JUAL.DBF}. Tanpa mengimpornya,
+	 * saldo stok tenant tidak akan pernah cocok dengan layar lama — terbukti pada UAT cmnmedika:
+	 * penghitung {@code STOK.DBF} berselisih dengan jumlah BELI/JUAL legacy sendiri pada 71 dari
+	 * 520 produk, dan yang meleset hampir selalu sisi KELUAR.</p>
+	 *
+	 * <p><b>Tiga tulisan, satu maksud.</b> Kepala opname per tanggal, rinciannya per produk, dan —
+	 * yang menentukan — satu baris {@code mutasi_stok} sebesar selisihnya. Tanpa baris mutasi itu,
+	 * opname hanya menjadi catatan yang tidak menggerakkan kartu stok, dan saldonya tetap salah.</p>
+	 *
+	 * <p>Selisih nol tetap dicatat sebagai rincian tetapi TIDAK melahirkan mutasi: menulis
+	 * pergerakan bernilai nol hanya mengotori kartu stok tanpa mengubah apa pun.</p>
+	 */
+	private static int imporOpnameTenant(Session session, String sk, JSONObject r, Long tokoId,
+			String oleh) throws Exception {
+		String kodeProduk = s(r, "kode_produk");
+		java.util.Date tanggal = tgl(r, "tanggal");
+		Double sistem = d(r, "stok_sistem");
+		Double fisik = d(r, "stok_fisik");
+		if (kodeProduk.isEmpty() || tanggal == null || sistem == null || fisik == null) {
+			throw new Exception("kode_produk/tanggal/stok_sistem/stok_fisik tidak lengkap");
+		}
+		Long produkId = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "produk"),
+				kodeProduk);
+		if (produkId == null) {
+			throw new Exception("produk " + kodeProduk + " belum ada (impor STOK.DBF dulu)");
+		}
+		Long gudangId = tokoId == null ? null
+				: satuId(session, SalesInventoryDbfImportTenant.gudangToko(sk), tokoId);
+		if (gudangId == null) {
+			throw new Exception("opname tidak dapat ditempatkan: toko ini belum punya gudang aktif");
+		}
+		java.sql.Date sqlTgl = new java.sql.Date(tanggal.getTime());
+		String nomor = "OPN-" + new java.text.SimpleDateFormat("yyyyMMdd").format(tanggal);
+
+		jalankan(session, SalesInventoryDbfImportTenant.sisipOpnameKepala(sk),
+				new Object[] { nomor, sqlTgl, gudangId, oleh, nomor });
+		Long opnameId = satuId(session, SalesInventoryDbfImportTenant.cariOpnameKepala(sk), nomor);
+		if (opnameId == null) {
+			throw new Exception("kepala opname " + nomor + " gagal dibuat");
+		}
+
+		java.math.BigDecimal qSistem = new java.math.BigDecimal(String.valueOf(sistem));
+		java.math.BigDecimal qFisik = new java.math.BigDecimal(String.valueOf(fisik));
+		java.math.BigDecimal selisih = qFisik.subtract(qSistem);
+		Double harga = d(r, "harga_beli");
+		java.math.BigDecimal hrg = harga == null ? null
+				: new java.math.BigDecimal(String.valueOf(harga));
+		String barisKe = s(r, "baris_ke");
+
+		int n = jalankan(session, SalesInventoryDbfImportTenant.sisipOpnameRinci(sk),
+				new Object[] { opnameId, produkId, qSistem, qFisik, selisih, hrg, oleh,
+						barisKe.isEmpty() ? null : barisKe, opnameId, produkId });
+		if (n == 0) {
+			return 0;   // rincian untuk produk itu sudah ada pada opname yang sama
+		}
+
+		if (selisih.signum() != 0) {
+			boolean masuk = selisih.signum() > 0;
+			String kunci = potong("LEGACY-OPNAME-" + nomor + "-" + kodeProduk, 128);
+			jalankan(session, SalesInventoryDbfImportTenant.sisipMutasiRiwayat(sk, masuk),
+					new Object[] { produkId, gudangId, sqlTgl, selisih.abs(), hrg, null,
+							nomor, "Migrasi dataopn.dbf; selisih opname " + selisih.toPlainString(),
+							kunci, oleh });
+		}
+		return 1;
+	}
+
+	/**
+	 * Piutang ({@code Tran_Piut.DBF}) dan hutang ({@code Tran_Hut.DBF}) legacy.
+	 *
+	 * <p>Sumbernya hanya menyatakan lunas atau belum lewat ada-tidaknya {@code TGLBAYAR}; tidak ada
+	 * rincian pembayaran yang bisa dijumlahkan. Maka {@code terbayar}/{@code sisa} ditulis sebagai
+	 * potret, dan {@code legacy_tafsir} mencatat bahwa statusnya HASIL TAFSIR — supaya pembacanya
+	 * kelak tahu angka itu bukan hasil penjumlahan alokasi pembayaran.</p>
+	 */
+	private static int imporTagihanTenant(Session session, String sk, JSONObject r,
+			boolean piutang, String oleh) throws Exception {
+		String kodeMitra = s(r, piutang ? "kode_customer" : "kode_supplier");
+		String faktur = s(r, "nomor_faktur");
+		java.util.Date tanggal = tgl(r, "tanggal");
+		Double nilai = d(r, "nilai");
+		if (kodeMitra.isEmpty() || faktur.isEmpty() || tanggal == null || nilai == null) {
+			throw new Exception("kode mitra/nomor_faktur/tanggal/nilai tidak lengkap");
+		}
+		if (nilai.doubleValue() <= 0) {
+			throw new Exception("nilai harus lebih dari 0");
+		}
+		Long mitraId = satuId(session,
+				SalesInventoryDbfImportTenant.cariKode(sk, piutang ? "customer" : "supplier"),
+				kodeMitra);
+		if (mitraId == null) {
+			throw new Exception((piutang ? "customer " : "supplier ") + kodeMitra + " belum ada");
+		}
+		java.util.Date jatuh = tgl(r, "jatuh_tempo");
+		java.util.Date bayar = tgl(r, "tanggal_bayar");
+		boolean lunas = bayar != null;
+		java.math.BigDecimal nilaiBd = new java.math.BigDecimal(String.valueOf(nilai));
+		java.math.BigDecimal terbayar = lunas ? nilaiBd : java.math.BigDecimal.ZERO;
+		java.math.BigDecimal sisa = lunas ? java.math.BigDecimal.ZERO : nilaiBd;
+		String status = lunas ? "LUNAS" : "BELUM";
+		String tafsir = lunas
+				? "Status LUNAS ditafsirkan dari TGLBAYAR terisi; rincian pembayaran tidak ada"
+				  + " di berkas sumber."
+				: "Status BELUM ditafsirkan dari TGLBAYAR kosong.";
+		java.sql.Date sqlTgl = new java.sql.Date(tanggal.getTime());
+		java.sql.Date sqlJatuh = jatuh == null ? null : new java.sql.Date(jatuh.getTime());
+		String barisKe = s(r, "baris_ke");
+		Object noBaris = barisKe.isEmpty() ? null : barisKe;
+
+		int n;
+		if (piutang) {
+			String kodeSales = s(r, "kode_sales");
+			Long salesId = kodeSales.isEmpty() ? null
+					: satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "salesperson"),
+							kodeSales);
+			String noRetur = s(r, "nomor_retur");
+			n = jalankan(session, SalesInventoryDbfImportTenant.sisipPiutangLegacy(sk),
+					new Object[] { mitraId, salesId, faktur, noRetur.isEmpty() ? null : noRetur,
+							sqlTgl, sqlJatuh, nilaiBd, terbayar, sisa, status, oleh, noBaris,
+							tafsir, mitraId, faktur, sqlTgl });
+		} else {
+			n = jalankan(session, SalesInventoryDbfImportTenant.sisipHutangLegacy(sk),
+					new Object[] { mitraId, faktur, sqlTgl, sqlJatuh, nilaiBd, terbayar, sisa,
+							status, oleh, noBaris, tafsir, mitraId, faktur, sqlTgl });
+		}
+		return n > 0 ? 1 : 0;
+	}
+
+	/**
+	 * Bagan akun dari {@code account.dbf} ke {@code {S}.akun}, sesuai keputusan akuntansi
+	 * se-tenant.
+	 *
+	 * <p>Sumbernya tidak menyebut tipe akun; ia diturunkan dari angka pertama kodenya, konvensi
+	 * yang dipakai berkas itu sendiri (1=aset, 2=kewajiban, 3=modal, 4=pendapatan, 5=biaya).
+	 * Kode di luar 1-5 ditolak alih-alih ditebak — akun bertipe salah merusak seluruh laporan
+	 * yang membacanya.</p>
+	 */
+	private static int imporAkunTenant(Session session, String sk, JSONObject r, String oleh)
+			throws Exception {
+		String kode = s(r, "kode");
+		String nama = s(r, "nama");
+		if (kode.isEmpty() || nama.isEmpty()) {
+			throw new Exception("kode/nama akun tidak lengkap");
+		}
+		char c = kode.charAt(0);
+		String tipe;
+		String saldoNormal;
+		if (c == '1') { tipe = "ASET"; saldoNormal = "D"; }
+		else if (c == '2') { tipe = "KEWAJIBAN"; saldoNormal = "K"; }
+		else if (c == '3') { tipe = "MODAL"; saldoNormal = "K"; }
+		else if (c == '4') { tipe = "PENDAPATAN"; saldoNormal = "K"; }
+		else if (c == '5') { tipe = "BIAYA"; saldoNormal = "D"; }
+		else {
+			throw new Exception("kode akun " + kode + " tidak dapat ditentukan tipenya"
+					+ " (angka pertama harus 1-5)");
+		}
+		String barisKe = s(r, "baris_ke");
+		int n = jalankan(session, SalesInventoryDbfImportTenant.sisipAkunLegacy(sk),
+				new Object[] { kode, nama, tipe, saldoNormal, oleh,
+						barisKe.isEmpty() ? null : barisKe, kode });
+		return n > 0 ? 1 : 0;
+	}
+
 	/** Harga beli per supplier; idempoten pada (supplier, produk, berlaku_dari). */
 	private static int imporHargaBeliTenant(Session session, String sk, JSONObject r, String oleh)
 			throws Exception {
