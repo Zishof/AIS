@@ -1788,18 +1788,25 @@ public class Document extends HttpServlet {
     }
 
     /**
-     * Tipe implementasi bersarang {@link DmsContentData} milik {@link Document}. Kelas ini memberi nama pada state
-     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     * Wadah hasil perakitan isi katalog untuk satu permintaan — jembatan antara
+     * {@link Document#buildDmsContentData(HttpServletRequest)} yang mengisinya dan
+     * {@link Document#prepareDmsContentAttributes(HttpServletRequest)} yang memindahkannya ke
+     * atribut permintaan.
      *
-     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Document}. Dependensi
-     * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan
-     * detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String mode}, {@code Long
-     * akreditasiId}, {@code Long indukId}, {@code String keyword}, {@code String errorMessage}, {@code int
-     * totalAkreditasi}, {@code int totalFolder}, {@code int totalFile}. Aturan bisnis bersama tetap berada pada
-     * kelas induk atau service yang dipanggilnya.</p>
+     * <p>Keberadaan tipe ini membuat perakitan katalog dapat diuji dan dibaca sebagai satu
+     * kesatuan, alih-alih tersebar sebagai belasan pemanggilan {@code setAttribute} di tengah
+     * logika query.</p>
      *
-     * @see Document
+     * <p><b>Batas peran:</b> murni pembawa data. Tidak ada aturan bisnis, penyaringan hak akses,
+     * maupun akses basis data di dalamnya — semuanya milik kelas induk. Nilai-nilainya sudah
+     * final ketika object dikembalikan; tidak ada pemuatan malas, sehingga aman dipakai setelah
+     * session Hibernate ditutup.</p>
+     *
+     * <p><b>Scope:</b> {@code static} dan privat — instance tidak menangkap object
+     * {@link Document}. Seluruh field sengaja dibiarkan tanpa pengubah akses agar dapat dibaca
+     * langsung oleh kelas induk tanpa lapisan getter yang tidak menambah nilai.</p>
+     *
+     * @see Document#buildDmsContentData(HttpServletRequest)
      */
     private static class DmsContentData {
         /**

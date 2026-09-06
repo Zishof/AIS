@@ -926,20 +926,22 @@ public class Login extends HttpServlet {
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link AjaxLoginPrecheck} milik {@link Login}. Kelas ini memberi nama pada state
-	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 * Hasil pemeriksaan status akun yang dijalankan <b>sebelum</b> kata sandi diverifikasi.
 	 *
-	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Login}. Dependensi
-	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan
-	 * detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean valid}, {@code String
-	 * message}; operasi lokal: {@code ok()}, {@code error}(). Aturan bisnis bersama tetap berada pada kelas induk
-	 * atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * <p>Membungkus dua hal: apakah ada alasan untuk menolak lebih awal, dan bila ada, alasannya
+	 * dalam bahasa yang siap ditampilkan ke pengguna. Keberadaan tipe ini membuat
+	 * {@link Login#cekStatusAwalAjaxLogin(String, HttpServletRequest)} dapat mengembalikan kedua
+	 * informasi itu sekaligus tanpa memakai {@code null} sebagai penanda tersirat.</p>
 	 *
-	 * @see Login
+	 * <p><b>Batas peran:</b> tipe ini <b>bukan</b> hasil otentikasi. Nilai {@link #valid} yang
+	 * {@code true} hanya berarti tidak ada alasan menolak lebih awal; penerimaan login sepenuhnya
+	 * ditentukan {@code SecurityFilter.doAutoLogin} sesudahnya. Jangan menambahkan keputusan
+	 * otorisasi ke tipe ini.</p>
+	 *
+	 * <p><b>Scope:</b> {@code static} dan privat — instance tidak menangkap object {@link Login},
+	 * dan hanya dibentuk lewat dua factory {@link #ok()} serta {@link #error(String)}.</p>
+	 *
+	 * @see Login#cekStatusAwalAjaxLogin(String, HttpServletRequest)
 	 */
 	private static class AjaxLoginPrecheck {
 		/**
@@ -983,22 +985,29 @@ public class Login extends HttpServlet {
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link AjaxLoginResponseWrapper} milik {@link Login}. Kelas ini memberi nama
-	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 * Pembungkus respons yang <b>menahan</b> seluruh keluaran alur otentikasi lama alih-alih
+	 * meneruskannya ke klien.
 	 *
-	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Login}. Dependensi
-	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan
-	 * detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code StringWriter capture}, {@code
-	 * PrintWriter writer}, {@code String redirectLocation}, {@code int errorCode}, {@code String errorMessage};
-	 * operasi lokal: {@code getWriter()}, {@code sendRedirect()}, {@code sendError()}, {@code sendError()}, {@code
-	 * getRedirectLocation()}, {@code getErrorMessage()}, {@code getErrorCode()}, {@code getCapturedContent}().
-	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * <h4>Mengapa diperlukan</h4>
+	 * <p>{@code SecurityFilter.doAutoLogin} dirancang untuk alur formulir biasa: bila kredensial
+	 * ditolak, ia menulis HTML halaman login atau memanggil {@code sendRedirect}. Endpoint
+	 * {@code ajax_login} justru menjanjikan JSON kepada peramban. Tanpa pembungkus ini, klien
+	 * akan menerima halaman HTML atau pengalihan di tempat JSON diharapkan, dan respons akan
+	 * terlanjur ter-commit sehingga JSON tidak lagi dapat ditulis.</p>
 	 *
-	 * @see Login
+	 * <p>Karena itu tiga saluran keluaran dibelokkan: {@link #getWriter()} mengembalikan penulis
+	 * ke penampung dalam memori, sedangkan {@code sendRedirect} dan kedua {@code sendError} hanya
+	 * mencatat niatnya tanpa menjalankannya. Semua yang tertahan itu kemudian menjadi bahan bagi
+	 * {@link Login#ambilPesanErrorLoginAjax} untuk menyimpulkan alasan penolakan yang tepat.</p>
+	 *
+	 * <p><b>Cakupan yang perlu diketahui:</b> hanya {@link #getWriter()} yang dibelokkan;
+	 * {@code getOutputStream()} tidak di-override, sehingga keluaran biner yang ditulis lewat
+	 * saluran itu tetap menuju respons nyata. Alur login yang ada tidak memakainya.</p>
+	 *
+	 * <p><b>Scope:</b> {@code static} dan privat — instance tidak menangkap object {@link Login}
+	 * dan hanya dipakai di dalam cabang otentikasi AJAX.</p>
+	 *
+	 * @see Login#process(HttpServletRequest, HttpServletResponse)
 	 */
 	private static class AjaxLoginResponseWrapper extends HttpServletResponseWrapper {
 		/** Penampung seluruh teks yang ditulis alur otentikasi lama, menggantikan respons nyata. */
