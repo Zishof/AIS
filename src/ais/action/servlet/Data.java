@@ -257,6 +257,33 @@ public class Data extends HttpServlet {
 		sendJsonStreaming(response, resultJson);
 	}
 
+	/**
+	 * Menjawab aksi {@code checkGDriveConnection}: memastikan kode otorisasi Google Drive milik
+	 * pengguna yang sedang masuk sudah tersimpan, lalu melaporkan apakah akunnya tersambung.
+	 *
+	 * <p>Alur kerjanya dua tahap. Pertama, bila {@code ais.common.GoogleCommon.codes} masih memegang
+	 * kode hasil <i>callback</i> OAuth untuk {@code userId} ini, kode itu dipindahkan ke baris
+	 * {@link GDriveCode} (dibuat bila belum ada) dalam satu transaksi, lalu entri di memori dibuang
+	 * supaya tidak dipindahkan dua kali. Kedua, baris {@link GDriveCode} dibaca ulang dan status
+	 * {@code connected} bernilai {@code true} hanya bila kolom {@code keterangan} terisi.</p>
+	 *
+	 * <p><b>Cakupan per pengguna.</b> Baik pencarian maupun penyimpanan memakai
+	 * {@code Restrictions.eq("nama", username)} dengan {@code username} yang berasal dari sesi
+	 * ({@code Common.getCurrentUser}), bukan dari parameter permintaan — jadi pemanggil tidak dapat
+	 * membaca atau menimpa kode milik pengguna lain lewat aksi ini.</p>
+	 *
+	 * <p><b>Otorisasi.</b> Aksi ini dicegat sebelum gerbang login {@link #ambil}, sehingga
+	 * penjagaannya adalah syarat {@code user != null && user.getUserId() != null} di dalam method
+	 * ini sendiri. Pemanggil anonim menerima {@code status="Sukses"} dengan
+	 * {@code connected=false}.</p>
+	 *
+	 * <p>Session Hibernate dibuka lokal dari {@code StreamingHibernateUtil} dan selalu dibersihkan
+	 * serta ditutup di blok {@code finally}; kegagalan apa pun di dalamnya hanya membuat
+	 * {@code connected} tetap {@code false}, tidak melempar ke pemanggil.</p>
+	 *
+	 * @param request permintaan servlet, dipakai untuk mengambil pengguna dari sesi
+	 * @return objek JSON berisi {@code status} ("Sukses") dan {@code connected} (boolean)
+	 */
 	private JSONObject checkGDriveConnectionInternal(HttpServletRequest request) {
 		JSONObject res = new JSONObject();
 		boolean isConnected = false;
@@ -308,6 +335,38 @@ public class Data extends HttpServlet {
 		return res;
 	}
 
+	/**
+	 * Menjawab aksi {@code pushToDrive}: memindahkan berkas unggahan yang masih tertahan di memori
+	 * ke Google Drive milik pengguna, lalu menautkan hasilnya pada baris lampiran.
+	 *
+	 * <p>Parameter yang dibaca dari URL: {@code id} (kunci baris {@link FileFotoLain}) dan
+	 * {@code clazz} (nama kelas entity lampiran, diterjemahkan dengan {@code Class.forName}).
+	 * Berkas fisiknya diambil — sekaligus dilepas — dari peta statis
+	 * {@code DoUpload.filesPending}, yang diisi servlet unggah sesaat sebelumnya. Bila kunci itu
+	 * tidak ada di peta, method berhenti diam-diam dan mengembalikan {@code status="Gagal"}.</p>
+	 *
+	 * <p>Unggahan dijalankan <b>sinkronus</b> lewat
+	 * {@code GDriveUtilPerPengguna.kirimBackupLangsung(...)}; permintaan HTTP menunggu sampai
+	 * selesai. Setelah Drive membalas id berkas, baris lampiran di-{@code refresh}, kolom
+	 * {@code foto} (isi biner) dikosongkan, {@code gdrive} dan {@code gdriveUsername} diisi, lalu
+	 * disimpan dalam satu transaksi dan berkas sementara di cakram dihapus. Balikan JSON memuat
+	 * {@code gdrive}, {@code url}, {@code nama}, {@code id}, dan {@code mime} agar UI dapat
+	 * langsung menampilkan pratinjau tanpa memuat ulang halaman.</p>
+	 *
+	 * <p><b>Otorisasi — batasan yang perlu diketahui.</b> Aksi ini dicegat sebelum gerbang login
+	 * {@link #ambil}, dan satu-satunya syaratnya adalah pengguna sudah masuk
+	 * ({@code user != null}). Tidak ada pemeriksaan bahwa baris {@code id}/{@code clazz} yang
+	 * ditunjuk memang milik pengguna tersebut; yang membatasi dalam praktiknya adalah
+	 * {@code DoUpload.filesPending} — hanya berkas yang baru saja diunggah pada proses server yang
+	 * sama dan belum diambil yang dapat diproses, karena entri dibuang begitu dipakai. Berkas hasil
+	 * unggahan selalu dikirim ke Drive milik pengguna pemanggil, bukan pemilik baris.</p>
+	 *
+	 * <p>Session Hibernate lokal ditutup di blok {@code finally}; seluruh exception ditangkap dan
+	 * dicatat, sehingga method ini tidak pernah melempar.</p>
+	 *
+	 * @param request permintaan servlet; membawa parameter {@code id} dan {@code clazz}
+	 * @return objek JSON berisi {@code status} ("Sukses"/"Gagal") dan, bila berhasil, {@code data}
+	 */
 	private JSONObject pushToDriveInternal(HttpServletRequest request) {
 		JSONObject res = new JSONObject();
 		try {
@@ -379,6 +438,40 @@ public class Data extends HttpServlet {
 		return res;
 	}
 
+	/**
+	 * Menjawab {@code action=file} bersama {@code render=true}: mengalirkan isi berkas lampiran
+	 * langsung ke tanggapan HTTP, bukan sebagai JSON.
+	 *
+	 * <p>Parameter yang dibaca dari URL: {@code class} (nama kelas entity lampiran),
+	 * {@code ref} (kunci pemilik lampiran), {@code jenis} (penanda jenis lampiran), serta
+	 * {@code usingId} dan {@code refresh} yang bernilai boolean. Khusus {@link FotoAdmin}
+	 * kunci {@code ref} diperlakukan sebagai {@code String} karena kunci primernya bukan angka;
+	 * untuk kelas lain {@code ref} di-{@code parse} menjadi {@code Long}.</p>
+	 *
+	 * <p>Bila berkas tidak ditemukan atau tidak ada di cakram, yang dikirim adalah gambar cadangan
+	 * {@code /img/administrator-icon_default.png} — jadi jalur ini tidak membocorkan perbedaan
+	 * antara "tidak ada" dan "tidak berhak". Tipe MIME ditentukan dari nama berkas melalui
+	 * {@code ServletContext.getMimeType}, dengan tebakan {@code image/png}, {@code image/gif}, atau
+	 * {@code image/jpeg} sebagai cadangan. Tanggapan selalu memakai
+	 * {@code Content-Disposition: attachment}.</p>
+	 *
+	 * <p><b>Otorisasi.</b> Ini adalah jalur <b>baca anonim</b> yang disengaja: dicegat sebelum
+	 * gerbang login {@link #ambil} dan dipakai langsung oleh atribut {@code src} tag {@code <img>}
+	 * pada halaman publik, sehingga tidak dapat mengirim badan JSON. Nama kelas dan kunci baris
+	 * sepenuhnya berasal dari klien.</p>
+	 *
+	 * <p><b>Riwayat perbaikan.</b> Parameter {@code kondisiTambahan} — potongan SQL mentah yang dulu
+	 * diteruskan ke {@code Restrictions.sqlRestriction} — sudah dihapus dari jalur ini karena
+	 * merupakan celah SQL injection dan tidak pernah diisi pemanggil yang sah. Jangan
+	 * menghidupkannya kembali.</p>
+	 *
+	 * <p>Aliran masuk dan keluar ditutup di blok {@code finally}; seluruh exception ditangkap dan
+	 * dicatat sehingga method ini tidak pernah melempar ke container.</p>
+	 *
+	 * @param request  permintaan servlet; membawa {@code class}, {@code ref}, {@code jenis},
+	 *                 {@code usingId}, {@code refresh}
+	 * @param response tanggapan servlet yang akan menerima byte berkas
+	 */
 	private void renderFileDirectly(HttpServletRequest request, HttpServletResponse response) {
 		FileInputStream fileInputStream = null;
 		OutputStream out = null;
@@ -433,6 +526,20 @@ public class Data extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menuliskan satu objek JSON ke tanggapan lalu menutup {@link PrintWriter}-nya.
+	 *
+	 * <p>Meski namanya "streaming", penulisan dilakukan sekaligus dari
+	 * {@code jsonObject.toString()} — tidak ada pengaliran bertahap. Nama itu dipertahankan karena
+	 * dipakai di beberapa titik pemanggilan. Tipe konten harus sudah disetel pemanggil
+	 * ({@link #processRequest} memasang {@code application/json; charset=UTF-8}).</p>
+	 *
+	 * <p>Kegagalan I/O ditangkap dan dicatat, tidak dilempar: pada titik ini tanggapan biasanya
+	 * sudah terkirim sebagian sehingga tidak ada lagi yang dapat dilaporkan ke klien.</p>
+	 *
+	 * @param response   tanggapan servlet tujuan
+	 * @param jsonObject muatan JSON yang akan ditulis
+	 */
 	private void sendJsonStreaming(HttpServletResponse response, JSONObject jsonObject) {
 		PrintWriter writer = null;
 		try {

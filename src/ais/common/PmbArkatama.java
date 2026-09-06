@@ -192,7 +192,7 @@ public class PmbArkatama {
 
 			JSONObject data = jSONObject.getJSONObject("data");
 			token = data.getString("token");
-			System.out.println("token = " + token);
+			System.out.println("token = " + (token == null || token.isEmpty() ? "(kosong)" : "(disamarkan)"));
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/PmbArkatama.java:81");
 		}

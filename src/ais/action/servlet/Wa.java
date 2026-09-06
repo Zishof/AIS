@@ -48,7 +48,78 @@ import ais.database.model.sekolah.Sekolah;
 import net.sf.jmimemagic.Magic;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet webhook chatbot WhatsApp: menerima pesan masuk dari tiga penyedia berbeda, menyusun
+ * jawaban lewat model AI, lalu mengirim balasannya kembali ke pengirim.
+ *
+ * <p>Nama kelasnya pendek tetapi cakupannya luas. Catatan {@code CheckISBN} pada baris pertama
+ * dokumentasi lama adalah sisa salin-tempel dari templat servlet lain dan tidak ada kaitannya
+ * dengan isi kelas ini.</p>
+ *
+ * <h2>Pemetaan URL</h2>
+ * <p>Terdaftar di {@code WEB-INF/web.xml} sebagai servlet {@code Wa} yang dipetakan ke
+ * {@code /Wa}.</p>
+ *
+ * <h2>Tiga penyedia, satu pintu masuk</h2>
+ * <p>{@link #process} memilih rute semata-mata dari <b>substring yang muncul di badan
+ * permintaan</b>, bukan dari header, jalur URL, atau kredensial:</p>
+ * <ul>
+ *   <li>mengandung {@code whatsapp_business_account} &rarr; {@link #wa} &mdash; WhatsApp
+ *       Business Cloud API resmi milik Meta, balasan dikirim ke
+ *       {@code https://graph.facebook.com/v18.0/<phone_number_id>/messages};</li>
+ *   <li>mengandung {@code incoming_chat} &rarr; {@link #watzap} &mdash; penyedia pihak ketiga
+ *       Watzap;</li>
+ *   <li>mengandung {@code message_received} &rarr; {@link #ultramsg} &mdash; penyedia pihak
+ *       ketiga Ultramsg.</li>
+ * </ul>
+ * <p>Seluruh rute hanya berjalan bila konfigurasi {@code aktifkan_chatbot} aktif. Konfigurasi
+ * itu adalah sakelar fitur, bukan gerbang keamanan.</p>
+ *
+ * <h2>Mesin jawaban</h2>
+ * <p>{@link #ambilPesan} memilih satu dari dua backend menurut konfigurasi
+ * {@code ai_menggunakan_gemini}:</p>
+ * <ul>
+ *   <li><b>aktif</b> &rarr; Google Gemini. Templat prompt panjang berisi contoh tanya-jawab
+ *       tentang eCampus/eSchool diambil dari konfigurasi {@code ai_chatbot_model_gemini}
+ *       (dapat ditimpa berkas {@code /opt/chat_tanya.txt}), lalu penanda
+ *       {@code TANYA_APA_SAJA}, {@code LAMPIRAN_APA_SAJA}, dan {@code PROFIL_APA_SAJA}
+ *       disubstitusi. Permintaannya dijalankan lewat proses eksternal {@code curl};</li>
+ *   <li><b>tidak aktif</b> &rarr; server Ollama pada {@code ollama_url}. Prompt sistem disusun
+ *       dari deretan konfigurasi {@code llama_system_content}, {@code llama_system_content_2},
+ *       dan seterusnya sebanyak {@code jml_system_content}. Kegagalan memicu percobaan ulang
+ *       rekursif sampai lima kali.</li>
+ * </ul>
+ *
+ * <h2>Pengiriman balasan</h2>
+ * <p>Balasan dikirim asinkron dari {@link Thread} baru supaya webhook cepat menjawab 200.
+ * Jalur WhatsApp Business memanggil Graph API langsung di dalam {@link #wa}; jalur Ultramsg dan
+ * Watzap memakai {@link #kirimWaViaUltramsg}, yang memilih format perintah lewat
+ * {@code WaApi.ultramsgFormat} atau {@code WaApi.watzapFormat} menurut konfigurasi
+ * {@code chatbot_pakai_watzap}. Pengiriman sesungguhnya hanya terjadi bila konfigurasi
+ * {@code aktifkan_reply_chatbot} aktif; setiap upaya dicatat sebagai {@link NotifikasiWa}.</p>
+ *
+ * <h2>Catatan keamanan (FAKTA arsitektur, sudah dilaporkan sebagai temuan)</h2>
+ * <p><b>Tidak ada verifikasi keaslian webhook sama sekali.</b> {@link #doPost} tidak membaca
+ * header {@code X-Hub-Signature-256} (HMAC-SHA256 badan permintaan dengan App Secret) yang
+ * diwajibkan Meta, tidak menuntut shared secret untuk Ultramsg/Watzap, dan tidak membatasi IP
+ * pemanggil. {@code applicationContext-security.xml} memetakan pola penadah {@code /**} ke
+ * {@code IS_AUTHENTICATED_ANONYMOUSLY} dan {@code /Wa} tidak muncul di pola yang mensyaratkan
+ * otentikasi. Akibatnya siapa pun dapat mengirim payload webhook palsu yang akan diproses penuh
+ * &mdash; termasuk membuat baris {@link Tbmuser} baru lewat {@link #simpanPesan}, memicu
+ * pengiriman WhatsApp ke nomor pilihan pemanggil, dan membuat server menarik URL sembarang
+ * lewat parameter {@code media} pada {@link #ambilPesan}.</p>
+ *
+ * <p>Selain itu perhatikan bahwa {@link #process} menggabungkan badan permintaan dengan
+ * {@code buffer.append(line)} <b>tanpa</b> mengembalikan pemisah barisnya, sehingga badan hasil
+ * rekonstruksi tidak identik byte-nya dengan yang dikirim penyedia. Siapa pun yang kelak
+ * menambahkan verifikasi HMAC wajib membaca byte mentah dari {@code request.getInputStream()},
+ * bukan memakai string hasil penggabungan ini.</p>
+ *
+ * <h2>Riwayat kredensial</h2>
+ * <p>Dua rahasia yang dulu tertanam sudah dipindahkan ke konfigurasi database (lihat dua
+ * paragraf riwayat di bawah). Dua rahasia lain <b>masih tertanam</b> di kelas ini dan sudah
+ * dilaporkan sebagai temuan tersendiri: pasangan {@code client_id}/{@code client_secret}
+ * aplikasi Facebook di {@link #ambilToken}, dan {@link #WEBHOOK_VERIFY_TOKEN} yang bernilai
+ * {@code "12345"}.</p>
  *
  * <p>
  * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> pemanggilan API Gemini di kelas ini
@@ -73,13 +144,29 @@ import net.sf.jmimemagic.Magic;
  * </p>
  */
 public class Wa extends HttpServlet {
+	/** Versi serial standar {@link HttpServlet}; tidak dipakai untuk logika apa pun. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Token verifikasi handshake webhook, dicocokkan dengan parameter {@code hub.verify_token}
+	 * pada {@link #doGet}.
+	 *
+	 * <p><b>Nilainya di-hardcode sebagai {@code "12345"}</b> &mdash; mudah ditebak siapa pun,
+	 * sehingga pihak lain dapat menyelesaikan handshake verifikasi webhook aplikasi ini. Sudah
+	 * dilaporkan sebagai temuan keamanan tersendiri; nilai ini seharusnya dibaca dari konfigurasi
+	 * database dengan default kosong dan bersifat fail-closed.</p>
+	 *
+	 * <p>Konstanta yang sama juga <b>dipakai ulang secara keliru</b> sebagai kredensial Graph API
+	 * pada cabang cadangan {@link #wa} ({@code Authorization: Bearer}). Token verifikasi webhook
+	 * bukan access token Graph API, jadi cabang cadangan tersebut memang tidak pernah dapat
+	 * berhasil dan selalu ditolak Meta.</p>
+	 *
+	 * <p>Field ini sengaja tidak {@code static final} sebagaimana aslinya; jangan mengubah
+	 * modifikatornya tanpa memeriksa ulang kedua tempat pemakaiannya.</p>
+	 */
 	private String WEBHOOK_VERIFY_TOKEN = "12345";
 
-	/**
-	 * @see HttpServlet#HttpServlet()
-	 */
+	/** Konstruktor bawaan kontainer servlet; tidak melakukan inisialisasi tambahan. */
 	public Wa() {
 		super();
 
@@ -87,8 +174,26 @@ public class Wa extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani handshake verifikasi webhook dari penyedia (alur {@code hub.challenge} milik Meta).
+	 *
+	 * <p>Bila query string ada, parameter {@code hub.verify_token} dibandingkan dengan
+	 * {@link #WEBHOOK_VERIFY_TOKEN}. Cocok dan {@code hub.challenge} tidak kosong berarti nilai
+	 * {@code hub.challenge} dikembalikan apa adanya sebagai badan balasan &mdash; itulah yang
+	 * dituntut Meta untuk mengaktifkan langganan webhook. Bila tidak cocok, balasan berupa string
+	 * kosong. Bila query string tidak ada sama sekali, balasan berisi pesan
+	 * {@code "Error, wrong token"}.</p>
+	 *
+	 * <p>Status HTTP selalu 200, termasuk ketika verifikasi gagal.</p>
+	 *
+	 * <p><b>Catatan keamanan:</b> perbandingan memakai {@code StringUtils.equals} atas token yang
+	 * di-hardcode bernilai {@code "12345"}. Lihat {@link #WEBHOOK_VERIFY_TOKEN}. Method ini juga
+	 * tidak menyentuh {@link #process}, jadi GET tidak pernah memproses pesan chat.</p>
+	 *
+	 * @param request  permintaan HTTP masuk; parameternya membawa {@code hub.verify_token} dan
+	 *                 {@code hub.challenge}
+	 * @param response balasan HTTP; badannya diisi challenge, string kosong, atau pesan galat
+	 * @throws ServletException tidak pernah dilempar oleh implementasi ini
+	 * @throws IOException      bila penulisan balasan gagal
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -118,8 +223,20 @@ public class Wa extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menerima payload webhook pesan masuk dan mendelegasikannya ke {@link #process}.
+	 *
+	 * <p>Inilah jalur yang dipakai ketiga penyedia untuk mengirim pesan pelanggan. Tidak ada
+	 * verifikasi tanda tangan, shared secret, maupun pembatasan IP di sini &mdash; lihat catatan
+	 * keamanan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Seluruh exception ditelan dan hanya ditampilkan kepada admin lewat
+	 * {@code Common.tampilErrorJikaAdmin}, sehingga penyedia webhook tidak pernah menerima HTTP
+	 * 500 dan tidak akan mencoba mengirim ulang.</p>
+	 *
+	 * @param request  permintaan HTTP masuk; badannya berisi JSON webhook
+	 * @param response balasan HTTP; hanya diisi status 200 oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar oleh implementasi ini
+	 * @throws IOException      bila pembacaan badan permintaan gagal
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -130,6 +247,44 @@ public class Wa extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengajukan satu pertanyaan lepas ke Google Gemini dan mengembalikan teks jawabannya.
+	 *
+	 * <p>Berbeda dari {@link #ambilPesan}, method ini <b>tidak</b> memakai templat prompt panjang
+	 * berisi contoh tanya-jawab eCampus/eSchool dan tidak mengenal konfigurasi
+	 * {@code ai_menggunakan_gemini} &mdash; ia selalu memanggil Gemini dengan pertanyaan apa
+	 * adanya. Dipakai oleh {@link #watzap} untuk mengisi kolom {@code keterangan} pada
+	 * {@link TanyaJawab} yang belum terjawab.</p>
+	 *
+	 * <h4>Cara kerja</h4>
+	 * <p>Badan permintaan disusun dari templat JSON tetap yang memuat penanda
+	 * {@code TANYA_APA_SAJA}, lalu penanda itu diganti dengan pertanyaan pemanggil. Hasilnya
+	 * ditulis ke berkas {@code /opt/tanya/tanyaApa.txt} dan dikirim lewat proses eksternal
+	 * {@code curl} dengan opsi {@code --data @<berkas>} &mdash; berkas dipakai sebagai perantara
+	 * supaya prompt panjang tidak menabrak batas panjang argumen baris perintah. Model diambil
+	 * dari konfigurasi {@code ai_chatbot_versi_model_gemini} (default {@code gemini-2.0-flash})
+	 * dan kunci API dari {@code ai_chatbot_api_key_gemini}.</p>
+	 *
+	 * <p>Jawaban dibaca dari jalur JSON
+	 * {@code candidates[0].content.parts[0].text}. Setiap kegagalan &mdash; {@code curl} gagal,
+	 * balasan bukan JSON, kunci API kosong sehingga Gemini membalas galat &mdash; ditangkap,
+	 * dicatat ke audit error, dan menghasilkan string kosong; method tidak melempar exception
+	 * karena hal itu.</p>
+	 *
+	 * <p><b>Catatan:</b> berkas perantara memakai nama tetap {@code tanyaApa.txt} untuk semua
+	 * pemanggil, sehingga dua permintaan yang berjalan bersamaan dapat saling menimpa prompt.
+	 * Bandingkan dengan {@link #ambilPesan} yang memakai nama berkas per nomor tujuan.</p>
+	 *
+	 * <p>Kunci API disisipkan sebagai parameter query pada URL, sehingga ikut tercetak ke
+	 * {@code System.out} bila baris log yang memuat URL diaktifkan, dan dapat muncul di daftar
+	 * proses selama {@code curl} berjalan.</p>
+	 *
+	 * @param tanyaApa pertanyaan yang diajukan; disisipkan ke templat lewat
+	 *                 {@code String.replaceAll}, sehingga karakter {@code \} dan {@code $} pada
+	 *                 masukan diperlakukan khusus oleh mesin regex
+	 * @return teks jawaban model, atau string kosong bila pemanggilan gagal
+	 * @throws Exception bila penulisan berkas prompt gagal
+	 */
 	public static String tanya(String tanyaApa) throws Exception {
 
 		String apa = "{\r\n" + "  \"contents\": [\r\n" + "    {\r\n" + "      \"role\": \"user\",\r\n"
@@ -186,6 +341,64 @@ public class Wa extends HttpServlet {
 		return message;
 	}
 
+	/**
+	 * Menyusun jawaban chatbot untuk satu pesan masuk, memakai backend AI yang dipilih lewat
+	 * konfigurasi.
+	 *
+	 * <p>Ini adalah mesin jawaban utama kelas ini; ketiga rute penyedia bermuara ke sini.</p>
+	 *
+	 * <h4>Batas percobaan</h4>
+	 * <p>Parameter {@code coba} menghitung percobaan ulang. Begitu melewati 5, method langsung
+	 * mengembalikan kalimat penyerah {@code "Maaf, pertanyaan anda belum bisa kami proses, coba
+	 * kirimkan pertanyaan lain"}. Pemanggil di {@link #wa} memeriksa keberadaan potongan kalimat
+	 * itu untuk memutuskan tidak mengirim balasan sama sekali.</p>
+	 *
+	 * <h4>Jalur A &mdash; Gemini (konfigurasi {@code ai_menggunakan_gemini} aktif)</h4>
+	 * <ol>
+	 *   <li>Templat prompt diambil dari konfigurasi {@code ai_chatbot_model_gemini}. Nilai
+	 *       bawaannya adalah dokumen JSON panjang berisi puluhan contoh tanya-jawab tentang
+	 *       eCampus, eSchool, ZISHOF, harga, dan lokasi implementasi. Bila berkas
+	 *       {@code /opt/chat_tanya.txt} ada, isinya <b>menimpa</b> templat dari konfigurasi;</li>
+	 *   <li>bila {@code media} terisi, berkasnya diunduh ke {@code /opt/imgs/}, tipe MIME-nya
+	 *       dideteksi dengan {@code jmimemagic}, ekstensi yang cocok ditambahkan, lalu izin
+	 *       berkas dilonggarkan lewat {@code chmod -R a+rwX}. Hasil unduhan saat ini
+	 *       <b>tidak</b> ikut dikirim ke model &mdash; blok yang menyisipkannya ke prompt sudah
+	 *       dikomentari &mdash; sehingga efek nyatanya hanya menaruh berkas di disk;</li>
+	 *   <li>penanda {@code TANYA_APA_SAJA} diganti pertanyaan, {@code LAMPIRAN_APA_SAJA}
+	 *       dikosongkan, dan {@code PROFIL_APA_SAJA} diganti kolom {@code keterangan} milik
+	 *       {@link WaProfile} yang kodenya sama dengan nomor tujuan;</li>
+	 *   <li>prompt ditulis ke {@code /opt/tanya/<nomor>.txt} lalu dikirim ke Gemini lewat
+	 *       {@code curl}; jawaban dibaca dari {@code candidates[0].content.parts[0].text}.</li>
+	 * </ol>
+	 *
+	 * <h4>Jalur B &mdash; Ollama (konfigurasi tidak aktif)</h4>
+	 * <p>Permintaan gaya chat disusun untuk server Ollama di konfigurasi {@code ollama_url}.
+	 * Model diambil dari {@code ai_model_generate}. Pesan {@code system} dibangun dari deretan
+	 * konfigurasi {@code llama_system_content}, {@code llama_system_content_2}, dan seterusnya
+	 * sebanyak {@code jml_system_content}, dengan daftar teks bawaan yang tertanam di method ini
+	 * sebagai nilai default tiap kunci. Bila pemanggilan gagal, method <b>memanggil dirinya
+	 * sendiri</b> dengan {@code coba} dinaikkan satu.</p>
+	 *
+	 * <h4>Catatan keamanan</h4>
+	 * <p>Parameter {@code media} berasal langsung dari payload webhook yang tidak terverifikasi
+	 * dan diserahkan apa adanya ke {@code new URL(media)} lalu
+	 * {@code FileUtils.copyURLToFile}. Tidak ada pembatasan skema maupun host, sehingga server
+	 * dapat dipaksa menarik alamat internal (SSRF) dan menuliskan hasilnya ke
+	 * {@code /opt/imgs/}. Sudah dilaporkan sebagai temuan tersendiri.</p>
+	 *
+	 * <p>Pertanyaan pengguna disisipkan ke templat lewat {@code String.replaceAll}, yang
+	 * memperlakukan argumen penggantinya sebagai <i>replacement</i> regex &mdash; karakter
+	 * {@code \} dan {@code $} pada pesan masuk karena itu punya arti khusus dan dapat merusak
+	 * struktur JSON prompt.</p>
+	 *
+	 * @param to    nomor WhatsApp tujuan; dipakai mencari {@link WaProfile} dan sebagai nama
+	 *              berkas prompt
+	 * @param tanya isi pertanyaan pengguna
+	 * @param media URL lampiran dari payload webhook; boleh {@code null}/kosong
+	 * @param coba  penghitung percobaan; pemanggil pertama mengisi 0
+	 * @return teks jawaban siap kirim, atau kalimat penyerah bila percobaan habis
+	 * @throws Exception bila penulisan berkas prompt atau deteksi tipe berkas gagal
+	 */
 	private String ambilPesan(String to, String tanya, String media, int coba) throws Exception {
 
 		if (coba > 5) {
@@ -548,6 +761,32 @@ public class Wa extends HttpServlet {
 //	private static List<String> expectedExtensionsGambar = Arrays.asList("jpg", "jpeg", "jpe", "png", "gif", "bmp",
 //			"jif", "jfif", "jfi");
 
+	/**
+	 * Menukar kredensial aplikasi Facebook menjadi app access token lewat alur
+	 * {@code client_credentials} pada endpoint OAuth Graph API.
+	 *
+	 * <p><b>Method ini tidak dipanggil dari mana pun</b> &mdash; karena itu ditandai
+	 * {@code @SuppressWarnings("unused")}. Ia tampaknya sisa percobaan mengambil token secara
+	 * dinamis, yang akhirnya digantikan konfigurasi {@code token_wa}.</p>
+	 *
+	 * <p><b>Catatan keamanan (temuan aktif):</b> {@code client_id} dan {@code client_secret}
+	 * aplikasi Facebook masih <b>tertanam sebagai literal</b> di dalam URL pada badan method ini.
+	 * {@code client_secret} adalah App Secret Meta, bukan sekadar access token: pemegangnya dapat
+	 * menerbitkan app access token, mengambil alih kemampuan aplikasi termasuk jalur WhatsApp
+	 * Business API-nya, dan memalsukan tanda tangan {@code X-Hub-Signature-256} untuk webhook
+	 * aplikasi ini. Rahasia itu ikut terkompilasi ke bytecode dan sudah lama berada di riwayat
+	 * SVN, sehingga <b>wajib dianggap bocor</b> dan di-reset di Meta for Developers
+	 * (App &gt; Settings &gt; Basic &gt; App Secret &gt; Reset). Sudah dilaporkan sebagai temuan
+	 * tersendiri; nilainya seharusnya dibaca dari konfigurasi database dengan default kosong,
+	 * mengikuti pola {@code token_wa} dan {@code ai_chatbot_api_key_gemini} di kelas ini.</p>
+	 *
+	 * <p>Karena kredensial dikirim sebagai parameter query, keduanya juga muncul di daftar proses
+	 * selama {@code curl} berjalan dan tercetak ke {@code System.out} lewat pencatatan hasil.</p>
+	 *
+	 * @return nilai {@code access_token} dari balasan Graph API
+	 * @throws Exception bila {@code curl} gagal dijalankan, balasan bukan JSON, atau tidak memuat
+	 *                   kunci {@code access_token}
+	 */
 	@SuppressWarnings("unused")
 	private String ambilToken() throws Exception {
 

@@ -28,24 +28,65 @@ import ais.database.hibernate.HibernateUtil;
  *
  * Servlet ini hanya boleh menjalankan class di paket laporan (whitelist) yang
  * mengekspos kedua method itu; selain itu ditolak.
+ *
+ * <p><b>CATATAN KEAMANAN (ditemukan saat penyusunan dokumentasi ini).</b> Whitelist
+ * {@link #PAKET_DIIZINKAN} hanya membatasi PAKET class laporan yang boleh dijalankan; servlet
+ * ini SAMA SEKALI TIDAK memeriksa apakah pemanggil sudah login ({@code Common.getCurrentUser}
+ * tidak pernah dipanggil di sini). URL {@code /jalankan-laporan} juga tidak punya
+ * {@code intercept-url} khusus di {@code applicationContext-security.xml}, sehingga jatuh ke
+ * default paling bawah {@code pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY"}. Akibatnya
+ * siapa pun tanpa login bisa menjalankan laporan apa pun di paket whitelist yang sudah
+ * mengimplementasikan kontrak ini (mis. {@code LaporanStokItem}, yang parameter-generator-nya
+ * juga tidak melakukan scoping satker/perpustakaan). Temuan ini sudah dilaporkan sebagai task
+ * perbaikan terpisah (task_11e5ae35); JANGAN anggap sudah aman hanya karena whitelist paket ada.</p>
  */
 public class JalankanLaporanJsp extends HttpServlet {
 
+	/** Versi serialisasi tetap 1L; servlet tidak pernah benar-benar diserialisasi ke stream. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Daftar awalan (prefix) nama paket Java yang boleh dijalankan lewat {@code kelas}. Ini
+	 * HANYA membatasi paket, bukan gerbang otentikasi -- lihat catatan keamanan di javadoc kelas.
+	 */
 	private static final String[] PAKET_DIIZINKAN = new String[] { "ais.action.report.", "ais.action.master.sapto.",
 			"ais.action.master.dashboard." };
 
+	/**
+	 * Menangani permintaan GET; seluruh logika didelegasikan ke {@link #proses}.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @param response respons HTTP keluar
+	 * @throws ServletException tidak pernah dilempar, hanya dideklarasikan oleh kontrak servlet
+	 * @throws java.io.IOException diteruskan dari {@link #proses} (lewat {@link #tampilPesan})
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, java.io.IOException {
 		proses(request, response);
 	}
 
+	/**
+	 * Menangani permintaan POST dengan perilaku identik dengan
+	 * {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @param response respons HTTP keluar
+	 * @throws ServletException tidak pernah dilempar, hanya dideklarasikan oleh kontrak servlet
+	 * @throws java.io.IOException diteruskan dari {@link #proses} (lewat {@link #tampilPesan})
+	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, java.io.IOException {
 		proses(request, response);
 	}
 
+	/**
+	 * Memeriksa apakah nama class laporan berada di salah satu paket yang diizinkan
+	 * ({@link #PAKET_DIIZINKAN}). Ini hanya pemeriksaan awalan string paket, BUKAN pemeriksaan
+	 * hak akses pengguna.
+	 *
+	 * @param kelas nama class lengkap (fully-qualified) laporan yang diminta; boleh {@code null}
+	 * @return {@code true} jika {@code kelas} diawali salah satu paket yang diizinkan
+	 */
 	private boolean diizinkan(String kelas) {
 		if (kelas == null) {
 			return false;
@@ -58,6 +99,23 @@ public class JalankanLaporanJsp extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * Logika inti: memvalidasi paket class laporan yang diminta ({@link #diizinkan}), memuat
+	 * class lewat refleksi, memanggil kontrak statis {@code namaTemplateLaporanJsp()} dan
+	 * {@code generateParameterDariRequestJsp(HttpServletRequest)} milik class tersebut, lalu
+	 * men-generate berkas laporan (PDF/XLS/HTML/DOCX/RTF, default PDF jika format tak dikenal)
+	 * dan menstream-nya ke respons. Galat apa pun (termasuk class tak ditemukan, kontrak belum
+	 * diimplementasikan, atau kegagalan generate) ditampilkan sebagai pesan HTML sederhana,
+	 * bukan stack trace mentah.
+	 *
+	 * <p>Lihat catatan keamanan pada javadoc kelas: method ini tidak memeriksa sesi/login sama
+	 * sekali sebelum menjalankan laporan.</p>
+	 *
+	 * @param request permintaan HTTP masuk; parameter {@code kelas}, {@code format},
+	 *        {@code unduh}, dan {@code locale} dibaca di sini, sisanya diteruskan apa adanya ke
+	 *        {@code generateParameterDariRequestJsp} milik class laporan
+	 * @param response respons HTTP keluar
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private void proses(HttpServletRequest request, HttpServletResponse response) {
 		String kelas = request.getParameter("kelas");
@@ -127,6 +185,13 @@ public class JalankanLaporanJsp extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menulis pesan galat sederhana bergaya HTML (bukan stack trace mentah) ke respons, dipakai
+	 * saat laporan gagal dijalankan atau tidak diizinkan.
+	 *
+	 * @param response respons HTTP keluar
+	 * @param pesan pesan yang ditampilkan ke pengguna; boleh {@code null} (ditampilkan sebagai kosong)
+	 */
 	private void tampilPesan(HttpServletResponse response, String pesan) {
 		try {
 			response.setContentType("text/html; charset=UTF-8");

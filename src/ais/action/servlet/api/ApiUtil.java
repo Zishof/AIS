@@ -705,7 +705,7 @@ public class ApiUtil {
 			String gcpToken = request.isNull("gcpToken") ? null : request.getString("gcpToken");
 			String email = request.isNull("email") ? null : request.getString("email");
 
-			System.out.println("gcpToken " + gcpToken);
+			System.out.println("gcpToken " + (gcpToken == null || gcpToken.isEmpty() ? "(kosong)" : "(disamarkan)"));
 
 			session = openApiSession();
 			Mahasiswa mahasiswa = (Mahasiswa) ConstantValues.simpleObject(session.createCriteria(Mahasiswa.class)

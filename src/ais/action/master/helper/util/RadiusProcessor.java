@@ -159,7 +159,7 @@ public class RadiusProcessor extends TimerTask {
 									.getName() + "_users_" + userId))
 							.setMaxResults(1).uniqueResult();
 					System.out.println("radcheck baru / ganti password ==> "
-							+ radcheck);
+							+ (radcheck == null ? "null" : radcheck.getUsername() + " -- (disamarkan)"));
 					if (radcheck == null) {
 						radcheck = new Radcheck();
 					}
@@ -230,7 +230,7 @@ public class RadiusProcessor extends TimerTask {
 									.getClass().getName() + "_" + id))
 							.setMaxResults(1).uniqueResult();
 					System.out.println("radcheck baru / ganti password ==> "
-							+ radcheck);
+							+ (radcheck == null ? "null" : radcheck.getUsername() + " -- (disamarkan)"));
 					if (radcheck == null) {
 						radcheck = new Radcheck();
 					}
@@ -275,7 +275,7 @@ public class RadiusProcessor extends TimerTask {
 								.setMaxResults(1).uniqueResult();
 						System.out
 								.println("radcheck baru / ganti password ==> "
-										+ radcheck);
+										+ (radcheck == null ? "null" : radcheck.getUsername() + " -- (disamarkan)"));
 						if (radcheck == null) {
 							radcheck = new Radcheck();
 						}

@@ -1308,7 +1308,7 @@ public class Sekolah extends VoKunci {
 						String m = StringUtils.split(s, ":")[1];
 						boolean ketemu = ta.equals(siswa.getTahunMasuk());
 						System.out.println("chek Password siswa " + siswa + " masuk " + siswa.getTahunMasuk() + " ta "
-								+ ta + " m " + m + " ketemu " + ketemu);
+								+ ta + " m " + (m == null || m.isEmpty() ? "(kosong)" : "(disamarkan)") + " ketemu " + ketemu);
 						if (ketemu) {
 							Password = m;
 							break;
@@ -1341,7 +1341,7 @@ public class Sekolah extends VoKunci {
 						String m = StringUtils.split(s, ":")[1];
 						boolean ketemu = ta.equals(calonSiswa.getTahunMasuk());
 						System.out.println("chek Password calonSiswa " + siswa + " masuk " + siswa.getTahunMasuk()
-								+ " ta " + ta + " m " + m + " ketemu " + ketemu);
+								+ " ta " + ta + " m " + (m == null || m.isEmpty() ? "(kosong)" : "(disamarkan)") + " ketemu " + ketemu);
 						if (ketemu) {
 							Password = m;
 							break;
@@ -1427,7 +1427,7 @@ public class Sekolah extends VoKunci {
 						String m = StringUtils.split(s, ":")[1];
 						boolean ketemu = ta.equals(siswa.getTahunMasuk());
 						System.out.println("chek Password siswa " + siswa + " masuk " + siswa.getTahunMasuk() + " ta "
-								+ ta + " m " + m + " ketemu " + ketemu);
+								+ ta + " m " + (m == null || m.isEmpty() ? "(kosong)" : "(disamarkan)") + " ketemu " + ketemu);
 						if (ketemu) {
 							Password = m;
 							break;
@@ -1460,7 +1460,7 @@ public class Sekolah extends VoKunci {
 						String m = StringUtils.split(s, ":")[1];
 						boolean ketemu = ta.equals(calonSiswa.getTahunMasuk());
 						System.out.println("chek Password calonSiswa " + siswa + " masuk " + siswa.getTahunMasuk()
-								+ " ta " + ta + " m " + m + " ketemu " + ketemu);
+								+ " ta " + ta + " m " + (m == null || m.isEmpty() ? "(kosong)" : "(disamarkan)") + " ketemu " + ketemu);
 						if (ketemu) {
 							Password = m;
 							break;

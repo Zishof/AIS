@@ -1464,6 +1464,16 @@ public class Document extends HttpServlet {
                 || "akademik".equalsIgnoreCase(role) || "superadmin".equalsIgnoreCase(role);
     }
 
+    /**
+     * Merangkai teks periode berlaku sebuah ruang arsip.
+     *
+     * <p>Bila tanggal mulai dan sampai tersedia, hasilnya berbentuk
+     * {@code "dd/MM/yyyy s.d dd/MM/yyyy"}; bila hanya salah satu, hanya tanggal itu yang tampil.
+     * Bila keduanya kosong tetapi kolom tahun terisi, tahun dipakai sebagai gantinya.</p>
+     *
+     * @param akreditasi ruang arsip; boleh {@code null}
+     * @return teks periode, atau teks kosong bila tidak ada data tanggal maupun tahun
+     */
     private String buildPeriode(Akreditasi akreditasi) {
         if (akreditasi == null) {
             return "";
@@ -1484,6 +1494,16 @@ public class Document extends HttpServlet {
         return sb.toString();
     }
 
+    /**
+     * Memilih kelas CSS ikon Font Awesome menurut akhiran nama berkas lampiran.
+     *
+     * <p>Dikenali kelompok PDF, Word, Excel beserta CSV, PowerPoint, gambar, dan arsip terkompresi;
+     * selain itu dipakai ikon dokumen umum. Pemilihan ini murni kosmetik dan tidak memengaruhi
+     * tipe MIME yang benar-benar dikirim saat mengunduh.</p>
+     *
+     * @param lampiran lampiran yang diperiksa; boleh {@code null}
+     * @return kelas CSS ikon yang tidak pernah {@code null}
+     */
     private String iconClassByLampiran(LampiranLain lampiran) {
         if (lampiran == null) {
             return "fa fa-file-lines text-secondary";
@@ -1498,6 +1518,17 @@ public class Document extends HttpServlet {
         return "fa fa-file-lines text-secondary";
     }
 
+    /**
+     * Menentukan tipe MIME menurut akhiran nama berkas, dipakai ketika isi lampiran berupa
+     * {@code byte[]} atau {@link InputStream} sehingga container tidak dapat menebaknya sendiri.
+     *
+     * <p>Akhiran yang tidak dikenali dipetakan ke {@code application/octet-stream}, yang bersama
+     * header {@code X-Content-Type-Options: nosniff} membuat peramban mengunduh berkas alih-alih
+     * mencoba menampilkannya.</p>
+     *
+     * @param name nama berkas; boleh {@code null}
+     * @return tipe MIME yang tidak pernah {@code null}
+     */
     private String resolveMimeByName(String name) {
         String lower = name == null ? "" : name.toLowerCase(Locale.ENGLISH);
         if (lower.endsWith(".pdf")) return "application/pdf";
@@ -1514,6 +1545,13 @@ public class Document extends HttpServlet {
         return "application/octet-stream";
     }
 
+    /**
+     * Memformat tanggal menjadi {@code "dd MMM yyyy"} dalam locale Indonesia untuk label tanggal
+     * dokumen. Nilai {@code null} maupun kegagalan format dikembalikan sebagai teks kosong.
+     *
+     * @param date tanggal yang diformat; boleh {@code null}
+     * @return teks tanggal, atau teks kosong
+     */
     private String formatDate(Date date) {
         if (date == null) {
             return "";
@@ -1525,6 +1563,13 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Memformat tanggal menjadi {@code "dd/MM/yyyy"} dalam locale Indonesia untuk teks periode.
+     * Nilai {@code null} maupun kegagalan format dikembalikan sebagai teks kosong.
+     *
+     * @param date tanggal yang diformat; boleh {@code null}
+     * @return teks tanggal, atau teks kosong
+     */
     private String formatDateOnly(Date date) {
         if (date == null) {
             return "";
@@ -1581,14 +1626,44 @@ public class Document extends HttpServlet {
         return value == null ? "" : value.trim();
     }
 
+    /**
+     * Menyiapkan teks dari basis data agar aman ditaruh di peta baris: {@code null} menjadi teks
+     * kosong dan spasi tepi dipangkas.
+     *
+     * <p>Method ini <b>tidak</b> melakukan pelolosan HTML; penulisan aman ke halaman adalah
+     * tanggung jawab JSP tujuan.</p>
+     *
+     * @param value teks masukan; boleh {@code null}
+     * @return teks yang tidak pernah {@code null}
+     */
     private String safe(String value) {
         return value == null ? "" : value.trim();
     }
 
+    /**
+     * Mengubah sembarang object menjadi teks, dengan {@code null} menjadi teks kosong.
+     *
+     * <p>Dipakai untuk atribut id pada permintaan agar JSP tidak pernah menerima teks
+     * {@code "null"}.</p>
+     *
+     * @param value object masukan; boleh {@code null}
+     * @return teks hasil konversi yang tidak pernah {@code null}
+     */
     private String toStringOrEmpty(Object value) {
         return value == null ? "" : String.valueOf(value);
     }
 
+    /**
+     * Membersihkan nama berkas sebelum dipasang pada header {@code Content-Disposition}.
+     *
+     * <p>Garis miring maju dan mundur, carriage return, dan line feed diganti garis bawah,
+     * sedangkan tanda kutip ganda diganti kutip tunggal. Penggantian CR dan LF inilah yang
+     * menutup penyuntikan header, sementara penggantian garis miring mencegah nama berkas
+     * membawa potongan jalur. Nama kosong diganti {@code "dokumen"}.</p>
+     *
+     * @param value nama berkas mentah dari basis data; boleh {@code null}
+     * @return nama berkas yang aman dipakai pada header
+     */
     private String safeDownloadName(String value) {
         String name = value == null ? "dokumen" : value.trim();
         if (name.length() == 0) {
@@ -1597,6 +1672,19 @@ public class Document extends HttpServlet {
         return name.replace("\\", "_").replace("/", "_").replace("\r", "_").replace("\n", "_").replace("\"", "'");
     }
 
+    /**
+     * Memasang header {@code Content-Disposition} bermodus {@code attachment} dengan nama berkas
+     * yang sudah dibersihkan {@link #safeDownloadName(String)}.
+     *
+     * <p>Header dipasang dua kali dengan sengaja: mula-mula bentuk sederhana
+     * {@code filename="..."}, lalu bentuk yang juga memuat {@code filename*=UTF-8''...} agar nama
+     * ber-huruf non-ASCII tampil benar di peramban modern. Pemasangan kedua memakai
+     * {@link HttpServletResponse#setHeader(String, String)} sehingga menimpa yang pertama;
+     * bila penyandian gagal, bentuk sederhana yang sudah terpasang tetap berlaku.</p>
+     *
+     * @param response respons yang akan diberi header
+     * @param fileName nama berkas yang diinginkan
+     */
     private void addContentDisposition(HttpServletResponse response, String fileName) {
         String safeName = safeDownloadName(fileName);
         response.setHeader("Content-Disposition", "attachment; filename=\"" + safeName + "\"");
@@ -1607,12 +1695,37 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Memasang header anti-cache ({@code Cache-Control}, {@code Pragma}, {@code Expires}) pada
+     * setiap respons portal.
+     *
+     * <p>Penting karena isi katalog berbeda menurut hak akses pengguna; tanpa header ini, proxy
+     * bersama atau cache peramban dapat menyajikan ulang tampilan milik pengguna lain.</p>
+     *
+     * @param response respons yang akan diberi header
+     */
     private void setNoCache(HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         response.setHeader("Pragma", "no-cache");
         response.setDateHeader("Expires", 0);
     }
 
+    /**
+     * Menuliskan halaman galat ramah ketika pemrosesan permintaan gagal total.
+     *
+     * <p>Respons hanya ditulis bila belum ter-commit; bila sudah, method berhenti tanpa
+     * melakukan apa pun karena isi respons tidak lagi dapat diubah.</p>
+     *
+     * <p>Halaman dirakit sebagai HTML sebaris dengan gaya dari CDN publik. Pesan exception
+     * dilewatkan {@link #escapeHtml(Object)} sehingga tidak dapat menyuntik markup, tetapi
+     * <b>isi pesannya tetap ditampilkan kepada siapa pun yang membuka halaman</b>, termasuk
+     * pengunjung anonim. Karena pesan exception dapat memuat detail teknis basis data, perilaku
+     * ini dicatat apa adanya sebagai keadaan yang berlaku sekarang.</p>
+     *
+     * @param response respons tujuan
+     * @param e        exception yang memicu halaman galat
+     * @throws IOException bila penulisan respons gagal
+     */
     private void handleFatalError(HttpServletResponse response, Exception e) throws IOException {
         try {
             Common.tampilErrorJikaAdmin(e);
@@ -1640,6 +1753,16 @@ public class Document extends HttpServlet {
         writer.flush();
     }
 
+    /**
+     * Melakukan pelolosan lima karakter penting HTML ({@code &}, {@code <}, {@code >},
+     * {@code "}, {@code '}) agar teks aman ditulis ke halaman.
+     *
+     * <p>Urutan penggantian dimulai dari {@code &} sehingga entitas yang baru dibentuk tidak ikut
+     * dilolos ulang. Nilai {@code null} menjadi teks kosong.</p>
+     *
+     * @param value nilai yang dilolos; boleh {@code null}
+     * @return teks yang aman ditulis ke halaman HTML
+     */
     private String escapeHtml(Object value) {
         if (value == null) {
             return "";
@@ -1649,6 +1772,12 @@ public class Document extends HttpServlet {
                 .replace("'", "&#39;");
     }
 
+    /**
+     * Menutup aliran masukan tanpa memunculkan exception, dipakai di blok {@code finally} agar
+     * kegagalan penutupan tidak menutupi kegagalan asli yang sedang ditangani.
+     *
+     * @param in aliran yang ditutup; boleh {@code null}
+     */
     private void closeQuietly(InputStream in) {
         if (in != null) {
             try {
@@ -1673,16 +1802,51 @@ public class Document extends HttpServlet {
      * @see Document
      */
     private static class DmsContentData {
+        /**
+         * Mode tampilan: {@code "root"} untuk daftar ruang arsip, {@code "dokumen"} untuk isi satu
+         * ruang. Dikembalikan paksa ke {@code "root"} bila ruang yang diminta tidak boleh dilihat.
+         */
         String mode = "root";
+
+        /** Id ruang arsip yang sedang dibuka; {@code null} pada mode {@code "root"}. */
         Long akreditasiId;
+
+        /** Id simpul induk yang sedang dibuka; {@code null} berarti tingkat akar ruang tersebut. */
         Long indukId;
+
+        /** Kata kunci pencarian yang sedang berlaku; teks kosong bila tidak ada pencarian. */
         String keyword = "";
+
+        /**
+         * Pesan galat yang ditampilkan ke pengguna; teks kosong bila tidak ada masalah. Diisi baik
+         * oleh kegagalan query maupun oleh penolakan akses ruang atau simpul induk.
+         */
         String errorMessage = "";
+
+        /** Cacah ruang arsip pada hasil; hanya terisi pada mode {@code "root"}. */
         int totalAkreditasi;
+
+        /** Cacah baris yang dapat dibuka lebih lanjut, yaitu ruang arsip dan simpul bersubisi. */
         int totalFolder;
+
+        /** Cacah baris berupa dokumen daun yang tidak punya anak. */
         int totalFile;
+
+        /** Cacah baris dokumen yang benar-benar punya lampiran terunduh. */
         int totalLampiran;
+
+        /**
+         * Baris tampilan hasil perakitan
+         * {@link Document#toAkreditasiEntry(Session, Akreditasi, String)} atau
+         * {@link Document#toDokumenEntry(Session, DokumenAkreditasi, String)}. Tidak pernah
+         * {@code null}, tetapi dapat kosong.
+         */
         List<Map<String, Object>> entries = new ArrayList<Map<String, Object>>();
+
+        /**
+         * Remah roti navigasi dari beranda hingga simpul yang sedang dibuka. Tidak pernah
+         * {@code null}.
+         */
         List<Map<String, Object>> breadcrumbs = new ArrayList<Map<String, Object>>();
     }
 }
