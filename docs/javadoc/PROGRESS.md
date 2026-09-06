@@ -1,5 +1,78 @@
 # Progres Javadoc Menyeluruh
 
+## 🚨🚨🚨🚨 Batch 140 — PIVOT ke `ais/action/servlet/` (157 file, endpoint HTTP mentah), 6 task baru — MENEMUKAN AKAR PENYEBAB LANGSUNG 3 temuan top-tier lama (6-7 Sep 2026)
+
+Backlog mega-file `helper/` tuntas — pindah ke `ais/action/servlet/`
+(157 file, rata-rata 4.3 blok Javadoc, BEDA total dari `helper/`: ini
+endpoint HTTP mentah, bukan Action ZK). Package ini ternyata memuat
+file-file yang jadi AKAR PENYEBAB temuan top-tier lama yang belum
+pernah didokumentasikan langsung.
+
+**`Va.java`** (1521→2134 baris) — DIKONFIRMASI NOL OTENTIKASI (perkuat
+`task_493423ef`); satu-satunya kontrol pencocokan IP LUNAK (bisa
+auto-buat `BankHost`, jatuh wildcard `0.0.0.0`). **Task baru
+`task_525c5fcf`**: bypass cek nominal H2H — POST anonim
+`{"nominal":"0"}` melewati satu-satunya pemeriksaan, tetap posting
+`Kegiatan`+`CicilanPembayaran` senilai penuh dan tandai VA lunas.
+
+**`Wa.java`** (1507→2196 baris) — token `token_wa` (`task_3a1e4204`)
+DIKONFIRMASI SUDAH DITAMBAL (r85655). TAPI **2 rahasia BARU
+ditemukan MASIH tertanam**: `task_dcaeb88c` (App **Secret** Facebook —
+lebih parah dari access token, bisa palsukan signature webhook — plus
+token verifikasi webhook hardcode `"12345"`), `task_ed389780` (webhook
+`/Wa` NOL validasi signature — relay pesan ke nomor pilihan penyerang
++ SSRF via parameter `media`).
+
+**`DisplayMenu.java`** — DIKONFIRMASI `task_9f520b16` MASIH TERBUKA
+persis seperti tercatat (baris 63-79: `currentMenu` dari parameter URL
+mentah, nol verifikasi kepemilikan). Pola PERBAIKAN yang benar SUDAH
+ADA di file lain (`DesktopMenuBootstrap.findAuthorizedLeaf`+403) tapi
+belum diterapkan di sini.
+
+**`MServet.java`** — DIKONFIRMASI `task_5a059324` MASIH TERBUKA persis
+(DES passphrase global `"AIS_UIN"` tertanam, token deterministik dari
+id berurutan, berlaku `Tbmuser` sembarang termasuk admin).
+
+**`AiGenerateServlet.java`** — `task_d1f5ce07` DIKONFIRMASI SUDAH
+DITAMBAL DI KODE (r85840) TAPI **residual risk penting**: mekanisme
+auto-seed `getKonfigurasi()` kemungkinan SUDAH menulis kunci Gemini
+bocor itu ke DB setiap instalasi SEBELUM fix — perbaikan kode saja
+TIDAK CUKUP, perlu bersihkan DB + rotasi kunci di Google Cloud. **Task
+baru `task_d05d8e11`**: endpoint `/Ai` sendiri NOL otentikasi — bisa
+jadi proksi LLM gratis atas biaya pemilik instalasi.
+
+**`Data.java`/`Repository.java`/`Main.java`** — `Data.java`
+mengonfirmasi ULANG `task_b1e610b6` (endpoint `/Data` tulis reflektif,
+`simpanDataRinci`/`simpanBatchDataRinci`/`hapusDataRinci` tak
+dikecualikan dari bypass `tanpaLogin`). `Repository.java`/`Main.java`
+TERNYATA sudah dirancang aman (CSRF, rate limit, token OAI ber-HMAC,
+whitelist path) — 0 task baru, `Main.java` malah punya kode MATI
+terkonfirmasi (deteksi mobile redirect nol pemanggil).
+
+**`OcbcNisp.java`/`Document.java`/`FilterJSP.java`/`Login.java`** —
+🚨 **Task baru PALING SEVERE batch ini, `task_e20425e9`**: verifikasi
+tanda tangan RSA H2H OCBC NISP HANYA jalan di cabang penerbitan token,
+TIDAK di cabang transaksi (inquiry/payment/reversal) — pola SAMA
+dikonfirmasi di `BCA.java` dan `Briva.java` (write=1-2, read=0 pada
+field token) — SETIDAKNYA 3 gateway bank bisa terima payment/reversal
+TANPA verifikasi tanda tangan bank sungguhan. Koreksi catatan lama:
+whitelist `hanya_tampil_jsp` TIDAK ada di `FilterJSP.java` (salah
+atribusi, sebenarnya di file JSP dispatcher masing-masing).
+`Login.java` dikonfirmasi INDEPENDEN dari `task_06e1cfa2`, rate
+limiting dikonfirmasi TETAP TIDAK ADA.
+
+**`JalankanLaporanJsp.java`** (klaster 10 file kecil) — **Task baru
+`task_11e5ae35`**: endpoint eksekusi laporan NOL otentikasi, kelas
+laporan whitelist tidak scoping per-satker — siapa pun anonim bisa
+unduh laporan stok institusi manapun.
+
+**6 task baru batch ini**: `task_525c5fcf`, `task_dcaeb88c`,
+`task_ed389780`, `task_d05d8e11`, `task_e20425e9`, `task_11e5ae35`.
+Total akumulasi: **2050+ file** dari 7.401. Sisa `action/servlet/`:
+~130 file (masih banyak servlet bank-gateway/H2H besar: `BCA.java`,
+`Briva.java`, dan sejenisnya — PRIORITAS TINGGI mengingat pola
+`task_e20425e9` baru ditemukan di 3 gateway sekaligus).
+
 ## 🎉 Batch 139 — 9 mega-file terakhir tier terdalam, 6 task baru — MENUTUP backlog mega-file `helper/` (6 Sep 2026)
 
 Scan awal 414-file `helper/` kini TUNTAS dari ujung ke ujung (baris 1
