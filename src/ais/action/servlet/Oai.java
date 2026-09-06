@@ -38,44 +38,90 @@ import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoItemMetadata;
 
 /**
- * OAI-PMH 2.0 servlet — exposes repository metadata to external harvesters.
- * Endpoint: /oai  (public, no login required)
+ * Servlet OAI-PMH 2.0 (Open Archives Initiative Protocol for Metadata Harvesting) mandiri --
+ * memaparkan metadata repositori institusi ({@link RepoItem}/{@link RepoCollection}/{@link
+ * RepoItemMetadata}) ke pemanen (harvester) eksternal lewat endpoint {@code /oai}, publik tanpa
+ * login. Verb yang didukung: {@code Identify}, {@code ListMetadataFormats}, {@code ListSets},
+ * {@code GetRecord}, {@code ListIdentifiers}, {@code ListRecords}; satu-satunya format metadata
+ * yang diserialisasi adalah {@code oai_dc} (Dublin Core, lewat {@link
+ * JurnalMetadataFormatService}).
  *
- * Verbs supported: Identify, ListMetadataFormats, ListSets,
- *                  GetRecord, ListIdentifiers, ListRecords
- * Metadata format: oai_dc (Dublin Core)
+ * <p><b>Relasi dengan {@code Repository.oai()}:</b> file ini BUKAN pemanggil maupun turunan dari
+ * method privat {@code oai(HttpServletRequest,HttpServletResponse)} pada {@link Repository}
+ * (dipetakan ke {@code /repository?action=oai}). Keduanya adalah DUA IMPLEMENTASI OAI-PMH 2.0
+ * TERPISAH yang mengekspos model data repositori yang SAMA ({@link RepoItem}/{@link
+ * RepoCollection}, via {@link ais.action.master.repository.RepositoryPublicService} pada sisi
+ * {@code Repository}), dipetakan ke dua URL berbeda ({@code /oai} di sini vs {@code
+ * /repository?action=oai}), dengan mekanisme resumption-token, rate limiting, dan cakupan tenant
+ * yang dikodekan ulang secara independen di masing-masing sisi. Ini adalah duplikasi/drift
+ * arsitektur yang perlu diwaspadai saat mengubah salah satunya -- perubahan kontrak protokol
+ * (format token, kebijakan status publik, dsb.) di satu sisi tidak otomatis konsisten dengan
+ * sisi lain.</p>
+ *
+ * <p><b>Catatan keamanan:</b> setiap permintaan dibatasi laju lewat {@link JurnalRateLimiter}
+ * (maks. 600 permintaan/60 detik per IP, kunci {@code "oai"}). Hanya item berstatus publik
+ * ({@link #PUBLIC_STATUSES}) dan aktif yang dapat dipanen, disaring pula per-tenant lewat {@link
+ * RepositoryTenantScope#currentKey()} pada setiap query Hibernate. Resumption token (penanda
+ * halaman lanjutan {@code ListIdentifiers}/{@code ListRecords}) ditandatangani HMAC-SHA256
+ * ({@link #hmac}) dengan kunci rahasia {@link #TOKEN_SECRET} dan diverifikasi constant-time
+ * ({@link MessageDigest#isEqual}) plus batas kedaluwarsa ({@link #tokenMaximumAgeMillis}) di
+ * {@link #decodeToken}, sehingga token tidak dapat dipalsukan atau diputar ulang tanpa batas
+ * waktu.</p>
+ *
+ * @see HttpServlet
+ * @see Repository
  */
 public class Oai extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 
-    /** Records returned per page for ListIdentifiers / ListRecords. */
+    /** Jumlah record maksimum per halaman untuk verb {@code ListIdentifiers}/{@code ListRecords}; halaman berikutnya diambil lewat resumption token. */
     private static final int PAGE_SIZE = 100;
+    /** Kunci rahasia HMAC-SHA256 untuk menandatangani/memverifikasi resumption token, diinisialisasi sekali lewat {@link #tokenSecret()}. */
     private static final byte[] TOKEN_SECRET = tokenSecret();
+    /** Nilai {@code syncStatus} pada {@link RepoItem} yang dianggap "publik" dan boleh dipanen lewat OAI-PMH; status lain (draf, ditolak, dsb.) disembunyikan dari harvester. */
     private static final String[] PUBLIC_STATUSES =
         new String[] { "SYNCED", "PUBLISHED", "APPROVED" };
 
+    /** Namespace XML protokol OAI-PMH 2.0. */
     private static final String OAI_NS =
         "http://www.openarchives.org/OAI/2.0/";
+    /** Lokasi skema XSD protokol OAI-PMH 2.0, dirujuk pada atribut {@code xsi:schemaLocation} elemen akar. */
     private static final String OAI_SCHEMA =
         "http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd";
+    /** Namespace elemen Dublin Core inti (dc:title, dc:creator, dst.); tidak dipakai langsung di file ini, dipertahankan sebagai referensi format. */
     private static final String DC_NS =
         "http://purl.org/dc/elements/1.1/";
+    /** Namespace wrapper {@code oai_dc} pembungkus elemen Dublin Core dalam respons OAI-PMH. */
     private static final String OAI_DC_NS =
         "http://www.openarchives.org/OAI/2.0/oai_dc/";
+    /** Lokasi skema XSD untuk format metadata {@code oai_dc}. */
     private static final String OAI_DC_SCHEMA =
         "http://www.openarchives.org/OAI/2.0/oai_dc.xsd";
+    /** Layanan serialisasi/negosiasi format metadata (saat ini hanya {@code oai_dc}) yang dipakai {@link #handleListMetadataFormats}, {@link #handleGetRecord}, dan {@link #writeRecord}. */
     private final JurnalMetadataFormatService metadataFormats = new JurnalMetadataFormatService();
 
+    /** Pola tanggal-waktu lengkap UTC ({@code datestamp} granularitas detik) sesuai spesifikasi OAI-PMH. */
     private static final String FMT_FULL = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+    /** Pola tanggal saja (granularitas hari), dipakai bila argumen {@code from}/{@code until} klien memakai granularitas hari. */
     private static final String FMT_DAY  = "yyyy-MM-dd";
 
+    /**
+     * Membuat {@link SimpleDateFormat} baru bertimezone UTC untuk pola {@link #FMT_FULL},
+     * non-lenient (menolak tanggal yang secara kalender tidak valid). Instance baru dibuat setiap
+     * pemanggilan karena {@code SimpleDateFormat} tidak thread-safe.
+     */
     private static SimpleDateFormat fullFmt() {
         SimpleDateFormat sdf = new SimpleDateFormat(FMT_FULL);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         sdf.setLenient(false);
         return sdf;
     }
+    /**
+     * Membuat {@link SimpleDateFormat} baru bertimezone UTC untuk pola {@link #FMT_DAY},
+     * non-lenient. Instance baru dibuat setiap pemanggilan karena {@code SimpleDateFormat} tidak
+     * thread-safe.
+     */
     private static SimpleDateFormat dayFmt() {
         SimpleDateFormat sdf = new SimpleDateFormat(FMT_DAY);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -83,17 +129,20 @@ public class Oai extends HttpServlet {
         return sdf;
     }
 
+    /** Konstruktor default tanpa inisialisasi khusus. */
     public Oai() {
         super();
     }
 
     @Override
+    /** Menangani permintaan {@code GET}: mendelegasikan seluruhnya ke {@link #process}, satu-satunya titik pemrosesan protokol OAI-PMH. */
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         process(request, response);
     }
 
     @Override
+    /** Menangani permintaan {@code POST}: mendelegasikan seluruhnya ke {@link #process}, identik dengan {@link #doGet} -- protokol OAI-PMH menerima argumen lewat GET maupun POST. */
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         process(request, response);
@@ -101,6 +150,15 @@ public class Oai extends HttpServlet {
 
     // ── Main dispatcher ───────────────────────────────────────────────────────
 
+    /**
+     * Dispatcher utama protokol OAI-PMH: membatasi laju permintaan ({@link JurnalRateLimiter}, 600/menit
+     * per IP), memasang header respons XML yang mengeraskan endpoint publik ini (cache dimatikan,
+     * CORS terbuka untuk harvester, {@code X-Content-Type-Options}, {@code Content-Security-Policy}
+     * ketat, {@code Referrer-Policy: no-referrer}), menuliskan pembuka {@code <OAI-PMH>} dan {@code
+     * <responseDate>}, lalu meruting berdasarkan parameter {@code verb} ke salah satu {@code
+     * handleXxx} yang sesuai -- {@code verb} kosong atau tidak dikenal menghasilkan error {@code
+     * badVerb}. Menutup elemen {@code </OAI-PMH>} di akhir apa pun hasil verb-nya.
+     */
     private void process(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
@@ -166,6 +224,13 @@ public class Oai extends HttpServlet {
 
     // ── Verb: Identify ────────────────────────────────────────────────────────
 
+    /**
+     * Menangani verb {@code Identify}: menuliskan metadata deskriptif repositori (nama dari
+     * konfigurasi {@code oai_repository_name}/{@code nama_institusi}, email admin dari {@code
+     * oai_admin_email}/{@code email_institusi}, tanggal record tertua lewat {@link
+     * #queryEarliestDatestamp}, kebijakan {@code deletedRecord=transient}) sesuai skema {@code
+     * oai-identifier} standar OAI-PMH.
+     */
     private void handleIdentify(PrintWriter out, HttpServletRequest request, String baseUrl) {
         String repoName = System.getProperty("ais.repository.oaiRepositoryName", "").trim();
         if (repoName.isEmpty()) {
@@ -204,6 +269,12 @@ public class Oai extends HttpServlet {
 
     // ── Verb: ListMetadataFormats ─────────────────────────────────────────────
 
+    /**
+     * Menangani verb {@code ListMetadataFormats}: bila argumen {@code identifier} disertakan,
+     * memvalidasi dulu bahwa record tersebut ada dan publik ({@link #findByIdentifier}) sebelum
+     * menuliskan daftar format yang didukung ({@link #metadataFormats}, saat ini hanya {@code
+     * oai_dc}); tanpa {@code identifier}, daftar format ditulis tanpa validasi record.
+     */
     private void handleListMetadataFormats(PrintWriter out, HttpServletRequest request) {
         String identifier = param(request, "identifier");
         if (identifier != null && !identifier.trim().isEmpty()) {
@@ -227,6 +298,12 @@ public class Oai extends HttpServlet {
 
     // ── Verb: ListSets ────────────────────────────────────────────────────────
 
+    /**
+     * Menangani verb {@code ListSets}: menuliskan seluruh {@link RepoCollection} aktif milik
+     * tenant saat ini ({@link RepositoryTenantScope#currentKey()}) sebagai {@code <set>}, diurutkan
+     * berdasar {@code sortOrder} lalu nama. Mengembalikan error {@code noSetHierarchy} bila
+     * repositori tidak punya koleksi sama sekali atau bila query gagal.
+     */
     private void handleListSets(PrintWriter out) {
         Session session = null;
         try {
@@ -262,6 +339,13 @@ public class Oai extends HttpServlet {
 
     // ── Verb: GetRecord ───────────────────────────────────────────────────────
 
+    /**
+     * Menangani verb {@code GetRecord}: memvalidasi argumen wajib {@code identifier} dan {@code
+     * metadataPrefix} (harus {@code oai_dc}), mencari record publik lewat {@link
+     * #findByIdentifier}, lalu menuliskan satu {@code <record>} lengkap ({@link #writeRecord}).
+     * Mengembalikan {@code badArgument}/{@code cannotDisseminateFormat}/{@code idDoesNotExist}
+     * sesuai kegagalan validasi masing-masing.
+     */
     private void handleGetRecord(PrintWriter out, HttpServletRequest request) {
         String identifier      = param(request, "identifier");
         String metadataPrefix  = param(request, "metadataPrefix");
@@ -306,6 +390,14 @@ public class Oai extends HttpServlet {
 
     // ── Verb: ListIdentifiers ─────────────────────────────────────────────────
 
+    /**
+     * Menangani verb {@code ListIdentifiers}: mem-parsing argumen query/resumption token
+     * ({@link #parseListQuery}), lalu menuliskan header ({@code identifier}/{@code
+     * datestamp}/{@code setSpec}, ditandai {@code status="deleted"} bila item sudah ditarik
+     * ({@code isWithdrawn})) untuk satu halaman record ({@link #PAGE_SIZE}) yang cocok. Menyertakan
+     * resumption token ({@link #writeResumptionToken}) bila masih ada halaman berikutnya.
+     * Mengembalikan {@code noRecordsMatch} bila tidak ada record yang cocok atau bila query gagal.
+     */
     private void handleListIdentifiers(PrintWriter out, HttpServletRequest request) {
         ListQuery q = parseListQuery(request);
         if (q.error != null) {
@@ -346,6 +438,11 @@ public class Oai extends HttpServlet {
 
     // ── Verb: ListRecords ─────────────────────────────────────────────────────
 
+    /**
+     * Menangani verb {@code ListRecords}: sama seperti {@link #handleListIdentifiers} tapi
+     * menuliskan record lengkap (header + metadata Dublin Core, lewat {@link #writeRecord}) untuk
+     * satu halaman ({@link #PAGE_SIZE}), bukan hanya header identitasnya.
+     */
     private void handleListRecords(PrintWriter out, HttpServletRequest request) {
         ListQuery q = parseListQuery(request);
         if (q.error != null) {
@@ -382,6 +479,14 @@ public class Oai extends HttpServlet {
 
     // ── Record XML writer ─────────────────────────────────────────────────────
 
+    /**
+     * Menuliskan satu elemen {@code <record>} OAI-PMH: header ({@code identifier}/{@code
+     * datestamp}/{@code setSpec}, ditandai {@code status="deleted"} bila item ditarik) selalu
+     * ditulis; elemen {@code <metadata>} (hasil {@link JurnalMetadataFormatService#serialize})
+     * HANYA ditulis untuk record yang belum ditarik -- protokol OAI-PMH mewajibkan record yang
+     * dihapus diumumkan sebagai header {@code deleted} tanpa metadata, agar pemanen dapat
+     * menyinkronkan penghapusan tanpa mengetahui isi record sebelumnya.
+     */
     private void writeRecord(PrintWriter out, Session session, RepoItem item,
                               List<RepoItemMetadata> metas, String setSpec,
                               String metadataPrefix, HttpServletRequest request) {
@@ -490,6 +595,10 @@ public class Oai extends HttpServlet {
         return dc;
     }
 
+    /**
+     * Mengumpulkan seluruh pengenal ({@code dc:identifier}) yang tersedia untuk {@code item}:
+     * OAI identifier utama dan, bila ada, URI handle DSpace ({@code https://hdl.handle.net/...}).
+     */
     private List<String> buildIdentifiers(RepoItem item) {
         List<String> ids = new ArrayList<String>();
         if (item.getOaiIdentifier() != null && !item.getOaiIdentifier().isEmpty())
@@ -501,6 +610,13 @@ public class Oai extends HttpServlet {
 
     // ── Query helpers ─────────────────────────────────────────────────────────
 
+    /**
+     * Membangun kriteria Hibernate dasar yang dipakai bersama oleh {@link #listItems} dan {@link
+     * #countItems}: item aktif, milik tenant saat ini ({@link RepositoryTenantScope#currentKey()}),
+     * berstatus publik ({@link #PUBLIC_STATUSES}), lalu menambahkan filter {@code setSpec} (koleksi,
+     * bila diberikan) dan rentang tanggal {@code from}/{@code until} (berdasarkan {@code
+     * lastSyncAt}) dari {@code q}.
+     */
     private Criteria buildItemCriteria(Session session, ListQuery q) {
         Criteria c = session.createCriteria(RepoItem.class);
         // Only records that reached a public state may be harvested. A
@@ -525,6 +641,7 @@ public class Oai extends HttpServlet {
     }
 
     @SuppressWarnings("unchecked")
+    /** Mengambil satu halaman {@link RepoItem} sesuai {@code q} ({@link #buildItemCriteria}), diurutkan menaik berdasar id, dimulai dari {@code offset} sebanyak {@code limit} baris. */
     private List<RepoItem> listItems(Session session, ListQuery q, int offset, int limit) {
         Criteria c = buildItemCriteria(session, q);
         c.addOrder(Order.asc("id"));
@@ -533,6 +650,7 @@ public class Oai extends HttpServlet {
         return c.list();
     }
 
+    /** Menghitung total record yang cocok dengan {@code q} ({@link #buildItemCriteria}), dipakai untuk {@code completeListSize} pada resumption token dan menentukan apakah masih ada halaman berikutnya. */
     private long countItems(Session session, ListQuery q) {
         Criteria c = buildItemCriteria(session, q);
         c.setProjection(Projections.rowCount());
@@ -541,6 +659,7 @@ public class Oai extends HttpServlet {
     }
 
     @SuppressWarnings("unchecked")
+    /** Memuat seluruh baris metadata EAV ({@link RepoItemMetadata}) aktif milik {@code itemId}, diurutkan berdasar nama field lalu urutan tampil ({@code place}), untuk digabung ke Dublin Core lewat {@link #buildDublinCore}. */
     private List<RepoItemMetadata> loadMetadata(Session session, Long itemId) {
         return session.createCriteria(RepoItemMetadata.class)
             .add(Restrictions.eq("itemId", itemId))
@@ -550,6 +669,14 @@ public class Oai extends HttpServlet {
             .list();
     }
 
+    /**
+     * Mencari satu {@link RepoItem} publik berdasarkan {@code oaiIdentifier}-nya, dibatasi ke
+     * tenant saat ini ({@link RepositoryTenantScope#currentKey()}) dan status publik ({@link
+     * #PUBLIC_STATUSES}). Item non-publik atau milik tenant lain tidak akan pernah ditemukan lewat
+     * method ini, walau id-nya valid di database.
+     *
+     * @return item yang cocok, atau {@code null} bila tidak ditemukan/terjadi galat
+     */
     private RepoItem findByIdentifier(String identifier) {
         Session session = null;
         try {
@@ -569,6 +696,13 @@ public class Oai extends HttpServlet {
         }
     }
 
+    /**
+     * Mencari {@code lastSyncAt} paling awal di antara item publik aktif milik tenant saat ini,
+     * dipakai sebagai {@code <earliestDatestamp>} pada respons verb {@code Identify}.
+     *
+     * @return datestamp terformat {@link #FMT_FULL}, atau {@code "2000-01-01T00:00:00Z"} sebagai
+     *         fallback bila tidak ada data atau terjadi galat
+     */
     private String queryEarliestDatestamp() {
         Session session = null;
         try {
@@ -592,6 +726,12 @@ public class Oai extends HttpServlet {
 
     // ── Resumption token ──────────────────────────────────────────────────────
 
+    /**
+     * Menuliskan elemen {@code <resumptionToken>} bila masih ada halaman berikutnya (token
+     * ditandatangani lewat {@link #encodeToken}), atau token kosong ({@code cursor} tanpa isi)
+     * pada halaman terakhir dari sebuah rangkaian ber-halaman-banyak untuk menandai selesai;
+     * tidak menulis apa pun bila hasil query hanya satu halaman.
+     */
     private void writeResumptionToken(PrintWriter out, ListQuery q,
                                        long total, int fetched) {
         int nextOffset = q.offset + fetched;
@@ -624,6 +764,16 @@ public class Oai extends HttpServlet {
             .encodeToString(signed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    /**
+     * Membongkar dan memvalidasi resumption token yang dihasilkan {@link #encodeToken}: memverifikasi
+     * tanda tangan HMAC-SHA256 secara constant-time ({@link MessageDigest#isEqual}), menolak token
+     * yang kedaluwarsa atau diterbitkan di masa depan (celah toleransi 60 detik, batas umur {@link
+     * #tokenMaximumAgeMillis()}), lalu memvalidasi rentang {@code offset}/{@code total} masuk akal
+     * (0..1.000.000 dan 0..1.000.000.000, {@code offset<=total}) sebelum membangun ulang {@link
+     * ListQuery}-nya.
+     *
+     * @return query hasil dekode, atau {@code null} bila token tidak valid/rusak/kedaluwarsa/dipalsukan
+     */
     private ListQuery decodeToken(String token) {
         try {
             byte[] decoded = Base64.getUrlDecoder().decode(token);
@@ -651,6 +801,18 @@ public class Oai extends HttpServlet {
 
     // ── ListQuery parser ──────────────────────────────────────────────────────
 
+    /**
+     * Mem-parsing argumen verb {@code ListIdentifiers}/{@code ListRecords} menjadi {@link
+     * ListQuery}: bila {@code resumptionToken} disertakan, argumen lain (selain {@code verb}) tidak
+     * boleh ada (dilanggar -> {@code badArgument}) dan query dibangun ulang lewat {@link
+     * #decodeToken} (token tidak valid -> {@code badResumptionToken}); tanpa token, memvalidasi
+     * {@code metadataPrefix} wajib ada dan didukung, granularitas {@code from}/{@code until} harus
+     * sama (keduanya tanggal saja atau keduanya tanggal-waktu), serta {@code set} harus berpola
+     * {@code col_<angka>} bila diberikan.
+     *
+     * @return query siap pakai, atau {@link ListQuery} dengan {@code error}/{@code errorCode} terisi
+     *         bila validasi gagal (pemanggil wajib mengecek {@code q.error != null} sebelum query)
+     */
     private ListQuery parseListQuery(HttpServletRequest request) {
         ListQuery q = new ListQuery();
         String token = param(request, "resumptionToken");
@@ -739,15 +901,31 @@ public class Oai extends HttpServlet {
      * @see Oai
      */
     private static class ListQuery {
+        /** Format metadata yang diminta klien (harus {@code oai_dc}); pada token hasil {@link #decodeToken} nilai ini dipulihkan dari token. */
         String metadataPrefix;
+        /** Batas bawah rentang {@code lastSyncAt} ({@code null} = tanpa batas bawah). */
         Date   from;
+        /** Batas atas rentang {@code lastSyncAt} ({@code null} = tanpa batas atas). */
         Date   until;
+        /** Filter koleksi berpola {@code col_<id>} ({@code null} = semua koleksi). */
         String setSpec;
+        /** Posisi baris pertama pada halaman saat ini (0 untuk permintaan awal, dipulihkan dari resumption token untuk halaman lanjutan). */
         int    offset;
+        /** Pesan kesalahan manusiawi bila parsing/validasi gagal; {@code null} berarti query valid. */
         String error;
+        /** Kode error OAI-PMH ({@code badArgument}, {@code badResumptionToken}, dst.) yang menyertai {@link #error}. */
         String errorCode = "badArgument";
     }
 
+    /**
+     * Menentukan URL dasar ({@code baseURL}) endpoint OAI-PMH ini: memakai {@code
+     * ais.repository.publicBaseUrl} bila dikonfigurasi (divalidasi ketat -- skema http/https,
+     * host wajib, tanpa userinfo/query/fragment, path kosong atau {@code "/"} saja) agar tidak
+     * disalahgunakan sebagai open redirect/URL sembarang, atau menyusunnya dari skema/host/port
+     * permintaan saat ini sebagai fallback (host divalidasi format hostname/alamat IP).
+     *
+     * @throws IllegalStateException bila konfigurasi maupun origin permintaan tidak valid
+     */
     private String buildBaseUrl(HttpServletRequest request) {
         String configured = System.getProperty("ais.repository.publicBaseUrl", "").trim();
         if (!configured.isEmpty()) {
