@@ -31,12 +31,52 @@ import ais.database.model.library.Penerbit;
 import ais.database.model.library.Pengarang;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet endpoint yang, diberi parameter {@code isbn}, memeriksa apakah sudah ada {@link Item}
+ * dengan ISBN (13 atau 10 digit) tersebut di katalog perpustakaan; bila belum, mencari ISBN
+ * tersebut lewat Google Books API ({@link BooksSample#queryGoogleBooks}) dan, bila ditemukan,
+ * langsung membuat {@link Item} baru dari hasil pertama lewat {@link #simpanVolume(Volume, Item,
+ * String)}. Respons HTTP servlet ini sendiri selalu kosong (lihat {@link #process}) — efek
+ * utamanya adalah penulisan ke database, bukan badan respons.
+ *
+ * <p><b>Catatan ironis dokumentasi:</b> nama {@code CheckISBN} dan komentar
+ * "Servlet implementation class CheckISBN" adalah stub baku generator Eclipse lama yang, karena
+ * disalin-tempel, muncul sebagai Javadoc kelas pada BANYAK servlet lain di paket ini (termasuk
+ * {@code BniForwarder} dan {@code BniForwarderLagi} sebelum diperbaiki) — meninggalkan jejak
+ * artefak tersebut di file aslinya sendiri. Javadoc kelas ini kini sudah diperbaiki agar sesuai
+ * isi sebenarnya.</p>
+ *
+ * <p><b>Kegunaan lebih luas:</b> selain sebagai servlet, kelas ini juga menyediakan method static
+ * {@link #simpanVolume(Volume, Item, String)}/{@link #simpanVolume(Volume, ItemTemporary,
+ * String)} dan overload-nya yang dipanggil dari alur lain di aplikasi (mis. dialog "Ambil Buku")
+ * untuk mengonversi hasil pencarian Google Books ({@link Volume}) menjadi entitas
+ * {@link Item}/{@link ItemTemporary} yang persisten — lihat {@link #itemDariItemTemporary(
+ * ItemTemporary)} untuk jembatan konversi {@link ItemTemporary} → {@link Item}.</p>
  */
 public class CheckISBN extends HttpServlet {
+	/** Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable} servlet ini. */
 	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Factory JSON Jackson yang dipakai {@link #process} untuk memanggil
+	 * {@link BooksSample#queryGoogleBooks(JsonFactory, String, int, int)}. Field instance
+	 * (bukan {@code static}) meski nilainya selalu sama untuk setiap instance servlet, karena
+	 * mengikuti pola default generator servlet Eclipse.
+	 */
 	public JsonFactory jsonFactory = new JacksonFactory();
 
+	/**
+	 * Mengambil satu nilai {@code identifier} (mis. ISBN-10/ISBN-13/identifier industri lain)
+	 * dari daftar {@code industryIdentifiers} milik {@link Volume.VolumeInfo} pada indeks
+	 * tertentu, dengan penjagaan penuh terhadap {@code null}/indeks di luar batas sehingga
+	 * PERNAH melempar exception.
+	 *
+	 * @param info  info volume Google Books; boleh {@code null}
+	 * @param index indeks pada {@code info.getIndustryIdentifiers()} yang ingin diambil (Google
+	 *              Books biasanya menaruh ISBN_10 pada indeks 0 dan ISBN_13 pada indeks 1)
+	 * @return nilai {@code identifier} pada indeks tersebut, atau string kosong ({@code ""}) bila
+	 *         {@code info}/daftar identifier/elemen pada indeks tersebut {@code null} atau indeks
+	 *         di luar batas
+	 */
 	private static String ambilIdentifier(Volume.VolumeInfo info, int index) {
 		if (info == null || info.getIndustryIdentifiers() == null || index < 0
 				|| index >= info.getIndustryIdentifiers().size()
@@ -47,12 +87,27 @@ public class CheckISBN extends HttpServlet {
 		return info.getIndustryIdentifiers().get(index).getIdentifier();
 	}
 
+	/**
+	 * Menggabungkan sebuah {@link List} nilai string (mis. daftar penulis/kategori dari Google
+	 * Books) menjadi satu string tunggal dipisah koma, dengan membuang karakter pembungkus hasil
+	 * {@link List#toString()} ({@code [ ] { } "}) apa adanya — BUKAN parsing/escaping yang benar
+	 * secara umum, hanya cocok untuk teks yang sudah diketahui tidak memuat karakter-karakter
+	 * tersebut secara alami.
+	 *
+	 * @param nilai daftar nilai yang akan digabung; boleh {@code null}
+	 * @return string gabungan dipisah {@code ", "} tanpa karakter {@code [ ] { } "}, atau string
+	 *         kosong ({@code ""}) bila {@code nilai} {@code null}
+	 */
 	private static String gabungkan(List<String> nilai) {
 		return nilai == null ? "" : nilai.toString().replaceAll("\\[", "").replaceAll("\\]", "")
 				.replaceAll("\"", "").replaceAll("\\{", "").replaceAll("\\}", "");
 	}
 
 	/**
+	 * Konstruktor default tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}.
+	 * Tidak ada state khusus yang diinisialisasi di sini ({@link #jsonFactory} diinisialisasi
+	 * langsung pada deklarasi field-nya).
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public CheckISBN() {
@@ -62,6 +117,17 @@ public class CheckISBN extends HttpServlet {
 	}
 
 	/**
+	 * Menangani GET dengan mendelegasikan ke {@link #process}; kegagalan apa pun ditelan dan
+	 * hanya ditampilkan ke pengguna bila konteks saat ini adalah administrator, lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param request  request HTTP masuk; parameter {@code isbn} dibaca oleh {@link #process}
+	 * @param response response HTTP keluar; badannya TIDAK pernah diisi oleh {@link #process}
+	 *                 (efek utamanya adalah penulisan ke database)
+	 * @throws ServletException tidak pernah dilempar keluar karena {@link #process} dibungkus
+	 *                          try/catch di sini; dipertahankan hanya karena tanda tangan
+	 *                          {@link HttpServlet#doGet}
+	 * @throws IOException      idem, ditelan oleh blok catch
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -75,6 +141,14 @@ public class CheckISBN extends HttpServlet {
 	}
 
 	/**
+	 * Menangani POST dengan perilaku identik seperti {@link #doGet}: mendelegasikan ke
+	 * {@link #process} dan menelan kegagalan lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param request  request HTTP masuk; parameter {@code isbn} dibaca oleh {@link #process}
+	 * @param response response HTTP keluar; badannya TIDAK pernah diisi, lihat catatan pada
+	 *                 {@link #doGet}
+	 * @throws ServletException tidak pernah dilempar keluar, lihat catatan pada {@link #doGet}
+	 * @throws IOException      idem
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -87,6 +161,15 @@ public class CheckISBN extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Overload {@link #simpanVolume(Volume, Item, String)} tanpa kata kunci tambahan (memakai
+	 * string kosong, sehingga {@link Item#getKewords()} yang sudah ada tidak diubah).
+	 *
+	 * @param volume    data volume Google Books yang akan disimpan/dicocokkan
+	 * @param paramItem {@link Item} yang dipakai bila tidak ditemukan {@link Item} yang cocok
+	 *                  berdasarkan {@code googleBookId}/ISBN; boleh {@code null}
+	 * @return lihat {@link #simpanVolume(Volume, Item, String)}
+	 */
 	public static Item simpanVolume(Volume volume, Item paramItem) {
 		return simpanVolume(volume, paramItem, "");
 	}
@@ -126,6 +209,46 @@ public class CheckISBN extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengonversi satu {@link Volume} hasil Google Books menjadi {@link Item} persisten di
+	 * katalog perpustakaan: mencari {@link Item} yang sudah ada berdasarkan {@code googleBookId}
+	 * lalu (bila ada) ISBN-13 lalu (bila masih belum ketemu) ISBN-10 — MEMAKAI baris yang
+	 * ditemukan (update) bila cocok, atau {@code paramItem}/{@link Item} baru bila tidak ada yang
+	 * cocok — kemudian menyalin seluruh field metadata (abstrak, bahasa, catatan, jumlah halaman,
+	 * ISBN, jenis/tipe item, kategori, link, judul, penerbit, pengarang, tahun, subjudul, URL
+	 * gambar, snippet, JSON volume utuh) dari {@link Volume.VolumeInfo}, lalu menyimpan
+	 * {@link Penerbit} baru bila belum ada, serta membuat baris {@link ItemPunyaPengarang} dan
+	 * {@link ItemPunyaKategoriItem} untuk setiap pengarang/kategori yang belum tertaut.
+	 *
+	 * <p>Setiap pembacaan field dari {@link Volume.VolumeInfo}/{@link Volume} (gambar, deskripsi,
+	 * snippet, penerbit, judul, subjudul, tanggal terbit, bahasa, jumlah halaman, link info, JSON
+	 * lengkap) dibungkus try/catch kosong terpisah — kegagalan pada satu field (mis. NPE karena
+	 * sub-objek {@code null}) tidak menggagalkan pengambilan field lain, hanya membuat field
+	 * tersebut default kosong/{@code 0}, dan dicatat ke {@link ais.common.ErrorAuditUtil}.</p>
+	 *
+	 * <p>Setiap operasi simpan (item, penerbit, pengarang, kategori, relasi) dijalankan sebagai
+	 * transaksi Hibernate terpisah (begin/commit per baris) di dalam satu {@link Session}, bukan
+	 * satu transaksi besar — kegagalan di tengah proses (mis. saat menyimpan relasi kategori
+	 * ke-3 dari 5) dapat meninggalkan item beserta sebagian relasinya sudah tersimpan permanen
+	 * sementara sisanya tidak, tanpa rollback ke keadaan semula. Method ini {@code synchronized}
+	 * (mengunci pada instance kelas {@code CheckISBN}, bukan per baris/ISBN) untuk mencegah dua
+	 * pemanggil membuat {@link Item} duplikat bagi ISBN/{@code googleBookId} yang sama secara
+	 * konkuren.</p>
+	 *
+	 * @param volume    data volume Google Books yang akan disimpan/dicocokkan; {@code null}
+	 *                  menyebabkan {@link NullPointerException} yang ditangkap dan menghasilkan
+	 *                  {@code null} (lewat blok catch terluar)
+	 * @param paramItem {@link Item} yang dipakai sebagai basis update bila tidak ditemukan
+	 *                  {@link Item} lain yang cocok berdasarkan {@code googleBookId}/ISBN; boleh
+	 *                  {@code null} (maka {@link Item} baru dibuat)
+	 * @param kewords   kata kunci tambahan yang akan disisipkan ke {@link Item#getKewords()}
+	 *                  (dipisah {@code ", "} dari kata kunci lama) bila panjangnya lebih dari 3
+	 *                  karakter dan belum terkandung (case-insensitive) pada kata kunci lama;
+	 *                  boleh {@code null}/kosong untuk tidak mengubah kata kunci
+	 * @return {@link Item} yang sudah disimpan/dimutakhirkan; {@code null} bila terjadi exception
+	 *         apa pun selama proses (ditangani lewat {@link Common#tampilErrorJikaAdmin(
+	 *         Exception)} dan {@link HibernateUtil#rollbackTransaction()})
+	 */
 	public static synchronized Item simpanVolume(Volume volume, Item paramItem, String kewords) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -365,10 +488,57 @@ public class CheckISBN extends HttpServlet {
 	}
 
 
+	/**
+	 * Overload {@link #simpanVolume(Volume, ItemTemporary, String)} tanpa kata kunci tambahan
+	 * (memakai string kosong, sehingga {@link ItemTemporary#getKewords()} yang sudah ada tidak
+	 * diubah).
+	 *
+	 * @param volume            data volume Google Books yang akan disimpan/dicocokkan
+	 * @param paramItemTemporary {@link ItemTemporary} yang dipakai bila tidak ditemukan
+	 *                           {@link ItemTemporary} yang cocok berdasarkan
+	 *                           {@code googleBookId}/ISBN; boleh {@code null}
+	 * @return lihat {@link #simpanVolume(Volume, ItemTemporary, String)}
+	 */
 	public static ItemTemporary simpanVolume(Volume volume, ItemTemporary paramItemTemporary) {
 		return simpanVolume(volume, paramItemTemporary, "");
 	}
 
+	/**
+	 * Kembaran {@link #simpanVolume(Volume, Item, String)} untuk entitas {@link ItemTemporary}
+	 * (buku sementara hasil pencarian, dipakai sebelum dikonfirmasi menjadi {@link Item}
+	 * permanen lewat {@link #itemDariItemTemporary(ItemTemporary)}): mengonversi satu
+	 * {@link Volume} hasil Google Books menjadi {@link ItemTemporary} persisten dengan logika
+	 * pencarian/penyalinan field yang PERSIS SAMA seperti {@link #simpanVolume(Volume, Item,
+	 * String)} — mencari berdasarkan {@code googleBookId} lalu ISBN-13 lalu ISBN-10, menyalin
+	 * seluruh metadata volume, menyimpan {@link Penerbit} baru bila belum ada, dan membuat baris
+	 * {@link ItemPunyaPengarang}/{@link ItemPunyaKategoriItem} bervariasi
+	 * {@code setItemTemporary(...)} untuk setiap pengarang/kategori.
+	 *
+	 * <p>Sebagaimana kembarannya, setiap pembacaan field {@link Volume.VolumeInfo}/{@link Volume}
+	 * dibungkus try/catch kosong terpisah (kegagalan satu field tidak menggagalkan yang lain,
+	 * dicatat ke {@link ais.common.ErrorAuditUtil}), setiap operasi simpan berjalan sebagai
+	 * transaksi Hibernate terpisah per baris (bukan satu transaksi besar, sehingga kegagalan di
+	 * tengah proses dapat meninggalkan sebagian relasi tersimpan tanpa rollback penuh), dan
+	 * method ini {@code synchronized} untuk mencegah {@link ItemTemporary} duplikat bagi
+	 * ISBN/{@code googleBookId} yang sama secara konkuren.</p>
+	 *
+	 * @param volume             data volume Google Books yang akan disimpan/dicocokkan;
+	 *                           {@code null} menyebabkan {@link NullPointerException} yang
+	 *                           ditangkap dan menghasilkan {@code null}
+	 * @param paramItemTemporary {@link ItemTemporary} yang dipakai sebagai basis update bila
+	 *                           tidak ditemukan {@link ItemTemporary} lain yang cocok
+	 *                           berdasarkan {@code googleBookId}/ISBN; boleh {@code null} (maka
+	 *                           {@link ItemTemporary} baru dibuat)
+	 * @param kewords            kata kunci tambahan yang akan disisipkan ke
+	 *                           {@link ItemTemporary#getKewords()} (dipisah {@code ", "} dari
+	 *                           kata kunci lama) bila panjangnya lebih dari 3 karakter dan belum
+	 *                           terkandung (case-insensitive) pada kata kunci lama; boleh
+	 *                           {@code null}/kosong untuk tidak mengubah kata kunci
+	 * @return {@link ItemTemporary} yang sudah disimpan/dimutakhirkan; {@code null} bila terjadi
+	 *         exception apa pun selama proses (ditangani lewat
+	 *         {@link Common#tampilErrorJikaAdmin(Exception)} dan
+	 *         {@link HibernateUtil#rollbackTransaction()})
+	 */
 	public static synchronized ItemTemporary simpanVolume(Volume volume, ItemTemporary paramItemTemporary, String kewords) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -608,6 +778,31 @@ public class CheckISBN extends HttpServlet {
 		return null;
 	}
 
+	/**
+	 * Memeriksa apakah sebuah ISBN sudah ada di katalog perpustakaan; bila belum, mencarinya lewat
+	 * Google Books API dan langsung menyimpan hasil pertama sebagai {@link Item} baru.
+	 *
+	 * <p>Alur: (1) baca parameter {@code isbn} dari request; (2) hitung jumlah {@link Item} yang
+	 * {@code isbn}-nya (ISBN-13) ATAU {@code isbn10}-nya cocok PERSIS dengan nilai tersebut; (3)
+	 * bila jumlahnya 0 (belum ada di katalog), panggil {@link BooksSample#queryGoogleBooks(
+	 * JsonFactory, String, int, int)} dengan query {@code "isbn:" + isbn} untuk 1 hasil teratas;
+	 * (4) bila Google Books tidak mengembalikan hasil apa pun, method berhenti tanpa efek samping;
+	 * (5) bila ada hasil, simpan sebagai {@link Item} baru lewat {@link #simpanVolume(Volume,
+	 * Item, String)} (dengan kata kunci kosong). Kegagalan pada langkah pencarian Google Books
+	 * ditelan (dicatat ke {@link ais.common.ErrorAuditUtil}) tanpa menggagalkan seluruh request.</p>
+	 *
+	 * <p>Method ini TIDAK PERNAH menulis apa pun ke {@code resp} (parameter response diterima
+	 * tetapi tidak dipakai) — pemanggil (mis. skrip halaman yang memicu pengecekan ISBN saat
+	 * input buku baru) tidak menerima indikasi hasil lewat badan HTTP; efek yang teramati hanya
+	 * berupa baris {@link Item} baru yang muncul di database bila ISBN ditemukan di Google
+	 * Books.</p>
+	 *
+	 * @param request request HTTP masuk; parameter {@code isbn} adalah satu-satunya input yang
+	 *                dibaca
+	 * @param resp    response HTTP keluar; TIDAK PERNAH diisi/ditulis oleh method ini
+	 * @throws Exception bila query Hibernate untuk menghitung {@link Item} yang cocok gagal
+	 *                    (kegagalan pencarian Google Books ditelan secara internal, lihat di atas)
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 

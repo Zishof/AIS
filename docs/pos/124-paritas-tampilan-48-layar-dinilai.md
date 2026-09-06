@@ -206,3 +206,37 @@ benar untuk model tenant hari ini, tetapi datanya **ada** dan sedang dibuang.
 **Perlu keputusan, sama bentuknya dengan harga kredit/tunai:** tambahkan kolom wilayah pada
 `customer_profile` (migrasi v21) lalu impor `ALAMAT`, atau nyatakan pembagian wilayah pelanggan
 tidak dipakai lagi. Selama belum diputuskan, layar 4–6 sepadan pada seluruh medan lain.
+
+### Audit seluruh medan `CUSTOMER.DBF` — supaya tidak ada temuan ketiga
+
+Setelah dua kali menemukan medan terbuang secara kebetulan, seluruh 15 medan diperiksa sekaligus:
+
+| medan | terisi | status |
+|---|---:|---|
+| KODECUST, NAMACUST, ATASNAMA, ALAMAT1 | 334 | terimpor |
+| SYARAT_BYR | 164 | terimpor (termin) |
+| NOTELPON | 1 | terimpor |
+| **ALAMAT** (kode wilayah) | **334** | **TIDAK terimpor, tidak dilaporkan** |
+| **PIUTAWAL** | **84** | **TIDAK terimpor — dan itu BENAR, lihat di bawah** |
+| PIUTMASUK | 1 | tidak terimpor (turunan, sama alasannya) |
+| ALMBANK | 11 | dilaporkan sebagai medan dilewati |
+| ALAMAT2, REKRUPIAH, DISCOUNT, PIUTKELUAR, NAMABANK | 0 | kosong seluruhnya |
+
+**`PIUTAWAL` sengaja tidak diimpor, dan datanya membuktikan itu benar.** Ia saldo piutang per
+pelanggan — ringkasan dari `Tran_Piut.DBF`. Diadu per pelanggan:
+
+```
+cocok persis           68 dari 85
+berselisih             17
+  PIUTAWAL LEBIH KECIL dari rinciannya : 17
+  PIUTAWAL lebih besar                 :  0
+```
+
+Arahnya searah tanpa kecuali: **`PIUTAWAL` adalah ringkasan tersimpan yang tertinggal dari
+detailnya sendiri.** Mengimpornya berarti memasang sumber kebenaran kedua yang sudah terbukti
+salah pada 17 pelanggan (total Rp 9.376.500 lebih rendah). Prinsip "derive, don't store" di sini
+bukan preferensi gaya — ia menolak angka yang memang keliru.
+
+**Kolom SALES yang kosong pada layar Master Customer bukan cacat:** `CUSTOMER.DBF` tidak punya
+medan kode sales sama sekali. Keterkaitan pelanggan–sales pada legacy lahir dari fakturnya
+(`Tran_Piut.KODESALES`), dan di layar Piutang aplikasi baru kolom SALES memang terisi.
