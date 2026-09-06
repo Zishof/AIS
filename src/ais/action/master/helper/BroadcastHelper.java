@@ -440,6 +440,20 @@ public class BroadcastHelper {
 		}
 	}
 
+	/**
+	 * Mengirim email notifikasi satu {@link CatatanAdministrasi} ke daftar {@code userId} yang
+	 * tersimpan pada kolom {@code keterangan} entitas itu sendiri (dipisah koma) — bukan
+	 * daftar bebas dari pemanggil. Isi email menyertakan seluruh nilai parameter tambahan
+	 * (form dinamis) milik jenis catatan administrasi terkait, termasuk tautan lampiran bila
+	 * ada ({@link LampiranLain#ambil(Long, String)}).
+	 *
+	 * <p>Berjalan SINKRON (bukan lewat timer, tidak seperti {@link #kirimEmail} dan
+	 * {@link #broadcastEmail}) dengan sesi Hibernate sendiri; dieksekusi hanya bila
+	 * keterangan tidak kosong DAN flag {@code getBroadcast()} aktif pada entitas.</p>
+	 *
+	 * @param catatanAdministrasi catatan administrasi sumber penerima dan isi notifikasi
+	 * @throws Exception diteruskan dari operasi Hibernate/pengiriman email
+	 */
 	@SuppressWarnings("unchecked")
 	public static void kirimEmailCatatanAdministrasi(final CatatanAdministrasi catatanAdministrasi) throws Exception {
 		if (!catatanAdministrasi.getKeterangan().trim().isEmpty() && catatanAdministrasi.getBroadcast()) {
@@ -517,6 +531,16 @@ public class BroadcastHelper {
 		}
 	}
 
+	/**
+	 * Mengirim email notifikasi satu {@link PerbaikanAsset} ke daftar {@code userId} yang
+	 * tersimpan pada kolom {@code keterangan} entitas itu sendiri (dipisah koma). Struktur dan
+	 * kontrak sama persis dengan
+	 * {@link #kirimEmailCatatanAdministrasi(CatatanAdministrasi)}, hanya berbeda sumber entitas
+	 * (jenis perbaikan asset dan parameter tambahannya, bukan jenis catatan administrasi).
+	 *
+	 * @param perbaikanAsset laporan perbaikan asset sumber penerima dan isi notifikasi
+	 * @throws Exception diteruskan dari operasi Hibernate/pengiriman email
+	 */
 	@SuppressWarnings("unchecked")
 	public static void kirimEmailPerbaikanAsset(final PerbaikanAsset perbaikanAsset) throws Exception {
 		if (!perbaikanAsset.getKeterangan().trim().isEmpty() && perbaikanAsset.getBroadcast()) {
@@ -610,6 +634,31 @@ public class BroadcastHelper {
 		}
 	}
 
+	/**
+	 * Mengirim notifikasi (lonceng aplikasi clickable + email bila aktif) untuk satu langkah
+	 * disposisi SOP ({@code disposisiAlurSopSetelah}), ke gabungan tiga sumber penerima:
+	 * <ol>
+	 *   <li>{@code AktorSop.usernamePengguna} statis yang dikonfigurasi pada tiap langkah
+	 *       sebelumnya dan langkah saat ini (bisa kosong untuk aktor berbasis
+	 *       role/jabatan/atasan/kaprodi/dekan — itu kondisi normal, dicatat sebagai info
+	 *       biasa, bukan error);</li>
+	 *   <li>resolusi aktor DINAMIS untuk langkah saat ini lewat
+	 *       {@code SopUtil.resolveAktor(...)} — logika yang SAMA dengan yang dipakai tampilan
+	 *       daftar aktor, sehingga notifikasi tetap sampai ke aktor berbasis role/jabatan yang
+	 *       {@code usernamePengguna}-nya kosong;</li>
+	 *   <li>pelaku NYATA ({@code getDiajukanOleh()}) setiap langkah sebelumnya, agar
+	 *       pengaju/pemroses ikut mengetahui disposisi berjalan.</li>
+	 * </ol>
+	 * <p>Ketiga sumber digabung dengan dedup case-insensitive lewat
+	 * {@link #tambahUserIdUnik(JSONArray, String)}. Bila SETELAH ketiganya dicoba tidak ada
+	 * satu pun penerima yang berhasil diselesaikan, kegagalan itu dicatat sebagai audit error
+	 * (bukan dilewati diam-diam) karena berarti notifikasi disposisi ini tidak terkirim ke
+	 * siapa pun — indikasi SOP salah konfigurasi.</p>
+	 *
+	 * @param disposisiAlurSopSetelah langkah disposisi yang baru terjadi, dipakai baik sebagai
+	 *        titik awal penelusuran rantai {@code sebelumnya} maupun sumber isi notifikasi
+	 * @throws Exception diteruskan dari resolusi aktor atau pengiriman notifikasi
+	 */
 	public static void kirimEmailDisposisi(DisposisiAlurSop disposisiAlurSopSetelah) throws Exception {
 		Set<String> emails = new HashSet<String>();
 		JSONArray userIds = new JSONArray();
@@ -747,6 +796,42 @@ public class BroadcastHelper {
 		}
 	}
 
+	/**
+	 * Mengirim notifikasi (lonceng aplikasi clickable + email, dan WhatsApp bila diaktifkan)
+	 * untuk satu {@link SuratKeluar}, opsional terkait satu langkah disposisi
+	 * ({@code alurPersetujuanSuratKeluarStatus}). Penerima DITENTUKAN SEPENUHNYA oleh
+	 * konfigurasi/rute surat itu sendiri — bukan daftar bebas — yaitu gabungan dari:
+	 * <ul>
+	 *   <li>pejabat pemilik jenis surat ({@code jenisSurats}, JSON kunci=id jenis) beserta
+	 *       pegawai/dosen terkait;</li>
+	 *   <li>bila surat menandai {@code getBroadcast()}: seluruh {@link Tbmuser} aktif yang
+	 *       {@code userId}-nya tercantum pada {@code usernamePengguna} surat (dipakai juga
+	 *       untuk mengumpulkan nomor HP/telepon guna WhatsApp);</li>
+	 *   <li>pihak langsung pada surat: pegawai, dosen, guru, mahasiswa (termasuk biodata calon
+	 *       mahasiswa), siswa, dan konseptor;</li>
+	 *   <li>pejabat yang tercatat pada seluruh {@link AlurPersetujuanSuratKeluarStatus} surat
+	 *       ini (bukan hanya langkah saat ini).</li>
+	 * </ul>
+	 * <p>Lampiran email/WA dirakit dari: hasil render Jasper layout surat (hingga 15 varian
+	 * lampiran {@code FILE_JRXML_LAYOUT_SURAT}), PDF cetak disposisi (bila
+	 * {@code alurPersetujuanSuratKeluarStatus} tidak null), dan foto/gambar terlampir
+	 * ({@link FotoGambarSuratKeluar}). Untuk WhatsApp, seluruh lampiran PDF DIGABUNG menjadi
+	 * satu berkas ({@link PDFMergerUtility}) setelah proteksi enkripsi dibuka
+	 * ({@link #pdfSiapGabung(File)}) — PDF terenkripsi akan menggagalkan penggabungan bila
+	 * tidak dibuka dulu.</p>
+	 *
+	 * <p>Pengiriman WhatsApp (lewat {@link ais.action.servlet.Wa#kirimWaViaUltramsg}) hanya
+	 * dijalankan bila konfigurasi {@code aktifkan_kirim_notif_surat_ke_wa} bernilai "Aktif"
+	 * (default aktif) DAN ada nomor telepon yang berhasil dikumpulkan; kredensial/token
+	 * Ultramsg sendiri berada di {@link ais.action.servlet.Wa}, bukan di sini.</p>
+	 *
+	 * @param suratKeluar surat keluar yang notifikasinya dikirim
+	 * @param alurPersetujuanSuratKeluarStatus langkah disposisi terkait; boleh {@code null}
+	 *        bila notifikasi bukan untuk suatu disposisi (mis. surat baru terbit)
+	 * @param user pengguna yang memicu pencetakan disposisi (diteruskan ke
+	 *        {@code SuratKeluarAction.cetakDisposisi})
+	 * @throws Exception diteruskan dari operasi Hibernate, render Jasper, atau pengiriman
+	 */
 	@SuppressWarnings("unchecked")
 	public static void kirimEmailSuratKeluar(SuratKeluar suratKeluar, AlurPersetujuanSuratKeluarStatus alurPersetujuanSuratKeluarStatus, Tbmuser user) throws Exception {
 		Set<String> emails = new HashSet<String>();
@@ -1059,6 +1144,23 @@ public class BroadcastHelper {
 		return f;
 	}
 
+	/**
+	 * Mengirim notifikasi (lonceng aplikasi clickable + email, dan WhatsApp bila diaktifkan)
+	 * untuk satu {@link SuratMasuk}, opsional terkait satu langkah disposisi
+	 * ({@code alurPersetujuanSuratMasukStatus}). Struktur, sumber penerima (jenis surat,
+	 * broadcast berbasis {@code usernamePengguna}, dan pejabat pada
+	 * {@link AlurPersetujuanSuratMasukStatus}), lampiran, penggabungan PDF, dan gerbang
+	 * konfigurasi WhatsApp sama persis dengan
+	 * {@link #kirimEmailSuratKeluar(SuratKeluar, AlurPersetujuanSuratKeluarStatus, Tbmuser)} —
+	 * berbeda hanya pada tipe entitas surat (surat masuk tidak memiliki pihak langsung seperti
+	 * mahasiswa/siswa/konseptor pada surat keluar).
+	 *
+	 * @param suratMasuk surat masuk yang notifikasinya dikirim
+	 * @param alurPersetujuanSuratMasukStatus langkah disposisi terkait; boleh {@code null}
+	 * @param user pengguna yang memicu pencetakan disposisi (diteruskan ke
+	 *        {@code SuratMasukAction.cetakDisposisi})
+	 * @throws Exception diteruskan dari operasi Hibernate atau pengiriman
+	 */
 	public static void kirimEmailSuratMasuk(SuratMasuk suratMasuk, AlurPersetujuanSuratMasukStatus alurPersetujuanSuratMasukStatus, Tbmuser user) throws Exception {
 		Set<String> emails = new HashSet<String>();
 		JSONArray userIds = new JSONArray();
@@ -1261,6 +1363,20 @@ public class BroadcastHelper {
 		}
 	}
 
+	/**
+	 * Mengirim email ke daftar {@code userId} yang tersimpan pada kolom
+	 * {@code korespondensi} milik {@code pengumumanAkademis} sendiri — memberitahukan bahwa
+	 * mereka ditugaskan sebagai koresponden pengumuman tersebut (berbeda dari
+	 * {@link #broadcastEmail(PengumumanAkademis)} yang menyasar segmen audiens luas, method
+	 * ini hanya menyasar penanggung jawab/koresponden). Isi email menyertakan rekap seluruh
+	 * komentar pada pengumuman.
+	 *
+	 * <p>Dijalankan asinkron lewat {@link Common#createDefaultTimer(EventListener)} dengan
+	 * sesi Hibernate sendiri; tidak melakukan apa pun bila isi pengumuman kosong atau
+	 * {@code korespondensi} kosong.</p>
+	 *
+	 * @param pengumumanAkademis pengumuman akademik sumber daftar korespondensi dan isi email
+	 */
 	public static void kirimEmailKeKorespondensi(final PengumumanAkademis pengumumanAkademis) {
 		if (!pengumumanAkademis.getCatatan().trim().isEmpty() && !pengumumanAkademis.getKorespondensi().isEmpty()) {
 			Common.createDefaultTimer(new EventListener() {
