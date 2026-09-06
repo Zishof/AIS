@@ -44,6 +44,42 @@ import ais.common.Common;
  * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
  * {@link javax.persistence.PreUpdate} yang memanggil
  * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ *
+ * <h3>Pola arsitektur yang perlu diwaspadai di kelas ini</h3>
+ * <ul>
+ *   <li><b>Getter yang mengubah state.</b> {@link #getEmail()} dan {@link #getDeskripsi()} menulis
+ *       balik ke field-nya saat dibaca. Pada objek yang dikelola Hibernate, sekadar membaca
+ *       properti tersebut dapat menandai entity kotor sehingga memicu {@code UPDATE} dan revisi
+ *       Envers palsu. Ini instance dari pola getter-mutasi-field yang tersebar luas pada model
+ *       AIS.</li>
+ *   <li><b>Setter satu arah.</b> {@link #setOleh(String)} dan {@link #setOlehId(String)} mengabaikan
+ *       argumen {@code null}/kosong secara senyap, sehingga jejak pelaku tidak bisa dikosongkan
+ *       lewat jalur normal.</li>
+ *   <li><b>Nilai baku pengganti yang tidak seragam.</b> Sebagian getter mengembalikan {@code null}
+ *       apa adanya, sebagian mengganti dengan string kosong ({@link #getAlamat1()},
+ *       {@link #getKodeSinta()}), satu mengganti dengan {@code null} justru ketika kosong
+ *       ({@link #getFeeder()}), satu dengan {@code true} ({@link #getAktif()}), dan satu dengan
+ *       angka {@code 0} yang bukan tahun yang sah
+ *       ({@link #getTahunPertamaMenerimaMahasiswa()}). Jangan berasumsi seragam — periksa getter
+ *       yang bersangkutan.</li>
+ *   <li><b>Tanpa penjagaan duplikat.</b> {@link #getKodeYayasan()} dan
+ *       {@link #getKodePerguruanTinggi()} dipetakan {@code nullable = false} tetapi <b>tanpa</b>
+ *       batasan unik, dan lapisan model tidak memeriksa tabrakan. Karena baris di sini juga
+ *       dibuat oleh impor feeder PDDikti, satu perguruan tinggi yang sama dapat masuk berkali-kali
+ *       dengan kode yang sama; kode yang mengambil satu baris berdasarkan kode tersebut perlu
+ *       bersiap menghadapi lebih dari satu hasil.</li>
+ *   <li><b>Tanpa penyaring tenant/kepemilikan.</b> Entity ini murni data referensi bersama dan
+ *       tidak punya kolom satuan kerja maupun pemilik, sehingga seluruh baris terlihat oleh semua
+ *       penyewa. Perlakukan isinya sebagai data publik institusi, bukan data rahasia.</li>
+ *   <li><b>Pemetaan kolom tidak seragam.</b> Sekitar separuh properti memakai {@code @Column}
+ *       eksplisit, sisanya (mis. {@link #getNamaSingkat()}, {@link #getRektor()},
+ *       {@link #getNoRek()}) mengandalkan strategi penamaan bawaan Hibernate. Saat menambah
+ *       properti baru, sebutkan nama kolomnya secara eksplisit agar tidak bergantung pada
+ *       konfigurasi global.</li>
+ * </ul>
+ *
+ * @see PerguruanTinggi
+ * @see GeneralValueObject
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -54,109 +90,292 @@ import ais.common.Common;
 @Table(schema = "public", name = "perguruan_tinggi_lain")
 
 public class PerguruanTinggiLain extends GeneralValueObject {
+	/** Penanda versi serialisasi Java untuk entity ini. */
 	private static final long serialVersionUID = -7550455125892447098L;
+
+	/** Kunci utama baris perguruan tinggi eksternal (kolom {@code id}, IDENTITY). */
 	private Long id;
+
+	/** Nama pengguna terakhir yang membuat/mengubah baris ini. */
 	private String oleh;
+
+	/** Id pengguna terakhir yang membuat/mengubah baris ini, pasangan dari {@link #oleh}. */
 	private String olehId;
 
-	/** Id pengguna yang terakhir membuat/mengubah baris ini (audit jejak perubahan). */
+	/**
+	 * Id pengguna yang terakhir membuat/mengubah baris ini (audit jejak perubahan).
+	 *
+	 * @return id pengguna, atau {@code null} bila belum pernah tercatat
+	 * @see #getOleh()
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mencatat id pengguna terakhir yang mengubah baris ini.
+	 *
+	 * <p><b>Setter satu arah:</b> nilai {@code null} maupun kosong diabaikan secara senyap, jadi id
+	 * pelaku yang sudah tercatat tidak dapat dikosongkan lewat setter ini.</p>
+	 *
+	 * @param olehId id pengguna; diabaikan bila {@code null} atau kosong
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Mencatat nama pengguna terakhir yang mengubah baris ini.
+	 *
+	 * <p>Sama seperti {@link #setOlehId(String)}, ini <b>setter satu arah</b> yang mengabaikan nilai
+	 * {@code null}/kosong secara senyap.</p>
+	 *
+	 * @param oleh nama pengguna; diabaikan bila {@code null} atau kosong
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
-	/** Nama pengguna yang terakhir membuat/mengubah baris ini (audit jejak perubahan). */
+	/**
+	 * Nama pengguna yang terakhir membuat/mengubah baris ini (audit jejak perubahan).
+	 *
+	 * @return nama pengguna, atau {@code null} bila belum pernah tercatat
+	 * @see #getOlehId()
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Kait lifecycle JPA yang dijalankan tepat sebelum {@code UPDATE}; mendelegasikan pembaruan
+	 * stempel waktu ke {@code AuditTimestampInterceptor.ubah(this)}.
+	 *
+	 * <p>Deklarasi field {@code tanggal_dirubah} ditulis pada baris yang sama dengan method ini
+	 * (hasil penyuntingan otomatis) sehingga mudah terlewat saat membaca sekilas. Nilai awalnya
+	 * adalah waktu objek dibuat di memori, bukan {@code null}.</p>
+	 */
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menetapkan stempel waktu perubahan terakhir secara manual. Nilainya akan ditimpa oleh
+	 * {@link #onUpdate()} pada operasi {@code UPDATE} berikutnya.
+	 *
+	 * @param tanggal_dirubah stempel waktu perubahan
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan stempel waktu perubahan terakhir baris ini.
+	 *
+	 * @return stempel waktu; untuk objek baru berisi waktu objek dibuat di memori, bukan
+	 *         {@code null}
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks perguruan tinggi ini, yaitu namanya saja.
+	 *
+	 * <p>Membaca field {@link #nama} <b>mentah</b> dan bukan lewat {@link #getNama()}, sehingga
+	 * hasilnya tidak di-trim dan dapat berupa {@code null} — berhati-hatilah bila nilai ini
+	 * disambung ke string lain. Membaca field langsung juga membuatnya aman dipanggil pada objek
+	 * yang belum sepenuhnya terinisialisasi.</p>
+	 *
+	 * @return nama perguruan tinggi apa adanya, dapat {@code null}
+	 */
 	public String toString() {
 		return nama;
 	}
 
+	/** Kode yayasan/badan penyelenggara (kolom wajib, maks. 50 karakter, <b>tidak unik</b>). */
 	private String kodeYayasan;
+
+	/**
+	 * Kode perguruan tinggi menurut penomoran Kemdikbud/PDDikti (kolom wajib, maks. 50 karakter,
+	 * <b>tidak unik</b> — lihat catatan duplikat pada Javadoc kelas).
+	 */
 	private String kodePerguruanTinggi;
+
+	/** Nama resmi perguruan tinggi (kolom wajib, maks. 150 karakter). */
 	private String nama;
+
+	/** Singkatan/akronim nama perguruan tinggi, mis. untuk tampilan ringkas. */
 	private String namaSingkat;
 
+	/** Baris pertama alamat perguruan tinggi (kolom wajib, maks. 150 karakter). */
 	private String alamat1;
+
+	/** Baris kedua alamat, untuk alamat yang tidak muat pada {@link #alamat1}. */
 	private String alamat2;
 
+	/** Nama dusun pada alamat, bagian dari rincian wilayah administratif. */
 	private String dusun;
+
+	/** Nama kelurahan/desa pada alamat. */
 	private String kelurahan;
+
+	/** Nomor rukun tetangga pada alamat, disimpan sebagai teks agar nol di depan tidak hilang. */
 	private String rt;
+
+	/** Nomor rukun warga pada alamat, disimpan sebagai teks seperti {@link #rt}. */
 	private String rw;
+
+	/** Kota/kabupaten kedudukan perguruan tinggi (maks. 50 karakter). */
 	private String kota;
+
+	/** Kode pos alamat (maks. 10 karakter). */
 	private String kodePos;
+
+	/** Nomor telepon perguruan tinggi (maks. 50 karakter). */
 	private String telepon;
+
+	/** Nomor faksimili perguruan tinggi (maks. 50 karakter). */
 	private String faksimili;
 
+	/** Tanggal akta pendirian badan hukum penyelenggara. */
 	private Date tanggalAkta;
+
+	/** Tanggal awal pendirian perguruan tinggi, dapat berbeda dari {@link #tanggalAkta}. */
 	private Date tanggalAwalPendirian;
+
+	/** Nomor akta pendirian (maks. 30 karakter). */
 	private String nomorAkta;
 
+	/**
+	 * Daftar alamat surel dipisah koma — satu kolom menampung banyak alamat. Dirapikan saat dibaca
+	 * oleh {@link #getEmail()} dan ditambah satu per satu oleh {@link #appendEmail(String)}.
+	 */
 	private String email;
+
+	/** Alamat situs web resmi perguruan tinggi (maks. 150 karakter). */
 	private String website;
+
+	/** Nama domain internet perguruan tinggi, terpisah dari {@link #website} yang berupa URL. */
 	private String domain;
+
+	/** Motto/semboyan perguruan tinggi. */
 	private String motto;
+
+	/** Kode institusi pada SINTA (Science and Technology Index) Kemdikbudristek. */
 	private String kodeSinta;
 
+	/** Luas seluruh tanah yang dikuasai perguruan tinggi, dalam meter persegi. */
 	private Double luasTanahTotal;
+
+	/** Luas kebun/lahan percobaan, dalam meter persegi. */
 	private Double luasKebunLahanPercobaanTotal;
+
+	/** Luas seluruh ruang kuliah, dalam meter persegi. */
 	private Double luasTotalRuangKuliah;
+
+	/** Cacah ruang kuliah yang tersedia. */
 	private Integer jumlahRuangKuliah;
+
+	/** Luas seluruh laboratorium dan studio, dalam meter persegi. */
 	private Double luasTotalLabStudio;
+
+	/** Cacah ruang laboratorium yang tersedia. */
 	private Integer jumlahRuangLab;
+
+	/** Luas seluruh ruang kerja dosen tetap, dalam meter persegi. */
 	private Double luasTotalRuangDosenTetap;
+
+	/** Luas seluruh ruang administrasi, dalam meter persegi. */
 	private Double luasTotalRuangAdministrasi;
+
+	/** Luas seluruh ruang seminar, dalam meter persegi. */
 	private Double luasTotalRuangSeminar;
+
+	/** Luas seluruh ruang kegiatan ekstrakurikuler, dalam meter persegi. */
 	private Double luasTotalRuangEkskul;
+
+	/** Luas seluruh pusat komputer, dalam meter persegi. */
 	private Double luasTotalPusatKomputer;
+
+	/** Luas seluruh ruang perpustakaan, dalam meter persegi. */
 	private Double luasTotalRuangPerpustakaan;
+
+	/** Cacah judul buku koleksi perpustakaan (judul berbeda, bukan fisik). */
 	private Integer jumlahJudulBuku;
+
+	/** Cacah eksemplar buku koleksi perpustakaan (fisik, biasanya lebih besar dari judul). */
 	private Integer jumlahEksemplarBuku;
+
+	/** Uraian bebas mengenai perguruan tinggi (kolom {@code text}). */
 	private String deskripsi;
 
+	/** Nomor surat keputusan izin operasional perguruan tinggi. */
 	private String skIzinOperasi;
+
+	/** Tanggal surat keputusan izin operasional. */
 	private Date tglSkIzinOperasi;
+
+	/** Nama pejabat yang menerbitkan surat keputusan izin operasional. */
 	private String pejabatIzinOperasi;
+
+	/** Nomor rekening bank resmi perguruan tinggi. */
 	private String noRek;
+
+	/** Nama bank tempat rekening {@link #noRek} dibuka. */
 	private String nmBank;
+
+	/** Unit/cabang bank tempat rekening dibuka. */
 	private String unitCabang;
+
+	/** Nama pemilik rekening sebagaimana tercatat di bank. */
 	private String nmRek;
+
+	/** Luas tanah berstatus milik sendiri, dalam meter persegi. */
 	private Double luasTanahMilik;
+
+	/** Luas tanah berstatus bukan milik (sewa/pinjam pakai), dalam meter persegi. */
 	private Double luasTanahBukanMilik;
 
+	/**
+	 * Tahun pertama perguruan tinggi menerima mahasiswa. Perhatikan bahwa getter-nya mengganti
+	 * {@code null} dengan {@code 0} yang bukan tahun sah — lihat
+	 * {@link #getTahunPertamaMenerimaMahasiswa()}.
+	 */
 	private Integer tahunPertamaMenerimaMahasiswa;
 
+	/** Peringkat akreditasi institusi (mis. A/B/C atau Unggul/Baik Sekali/Baik). */
 	private String peringkatAkreditasi;
+
+	/**
+	 * Keterangan akreditasi tambahan. Perannya tumpang tindih dengan
+	 * {@link #peringkatAkreditasi} dan tidak dibedakan di lapisan model.
+	 */
 	private String akreditasi;
+
+	/** Nomor surat keputusan akreditasi BAN-PT. */
 	private String noSkAkreditasi;
+
+	/** Tanggal penetapan akreditasi; masa berlakunya tidak disimpan sebagai kolom tersendiri. */
 	private Date tanggalAkreditasi;
 
+	/**
+	 * Penanda baris masih dipakai. Bernilai baku {@code true} bila kolomnya {@code null} — lihat
+	 * {@link #getAktif()}.
+	 */
 	private Boolean aktif;
+
+	/** Nama rektor/pimpinan perguruan tinggi yang menjabat. */
 	private String rektor;
+
+	/** NIP atau nomor induk rektor {@link #rektor}. */
 	private String rektorNip;
+
+	/** Id/kode perguruan tinggi ini pada sistem feeder PDDikti, bila hasil impor dari feeder. */
 	private String feeder;
 
+	/**
+	 * Konstruktor tanpa argumen yang dibutuhkan Hibernate. Seluruh field dibiarkan pada nilai
+	 * awalnya; nilai baku pengganti baru muncul saat getter masing-masing dipanggil.
+	 */
 	public PerguruanTinggiLain() {
 	}
 

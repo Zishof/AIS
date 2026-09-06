@@ -31,25 +31,27 @@ import ais.database.model.Konfigurasi;
  * dipakai produksi.
  * </p>
  * <p>
- * <b>Peringatan keamanan (dilaporkan, TIDAK diperbaiki — di luar cakupan tugas ini):</b> kredensial
- * Watzap di {@link #watzapFormat} MASIH tertanam sebagai nilai default fallback pada pemanggilan
- * {@code Common.getKonfigurasi(key, default)} — nilai default ini dipakai bila konfigurasi database
- * belum diisi, sehingga secara efektif menjadi kredensial cadangan yang ikut ter-commit ke source
- * control. Ditemukan di:
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06):</b> kredensial Watzap di {@link #watzapFormat}
+ * sebelumnya tertanam sebagai nilai default fallback pada pemanggilan
+ * {@code Common.getKonfigurasi(key, default)} — nilai default ini dipakai bila konfigurasi
+ * database belum diisi, sehingga secara efektif menjadi kredensial cadangan yang ikut
+ * ter-commit ke source control. Ketiga default berikut sudah diganti string kosong —
+ * kredensial kini WAJIB diisi lewat konfigurasi database, dan pengiriman lewat Watzap akan
+ * gagal dengan jelas (bukan diam-diam memakai kredensial lama yang sudah bocor) bila
+ * konfigurasi belum diisi:
  * </p>
  * <ul>
- * <li>{@code api_key} Watzap — default {@code "YBIYGXHPIVEVHT3G"} (kunci konfigurasi
+ * <li>{@code api_key} Watzap — default lama {@code "YBIYGXHPIVEVHT3G"} (kunci konfigurasi
  * {@code watzap_api_key}, lihat {@link #watzapFormat})</li>
- * <li>{@code number_key} Watzap — default {@code "u3w09ScxqJsNIrpG"} (kunci konfigurasi
+ * <li>{@code number_key} Watzap — default lama {@code "u3w09ScxqJsNIrpG"} (kunci konfigurasi
  * {@code watzap_number_key}, lihat {@link #watzapFormat})</li>
- * <li>daftar {@code number_key} rotasi Watzap — default
+ * <li>daftar {@code number_key} rotasi Watzap — default lama
  * {@code "u3w09ScxqJsNIrpG;ESaI8uxCG6hHdJro;1zUEMU5zLp2UlJis;5ur22YeVFmUkCpCX"} (kunci
  * konfigurasi {@code watzap_number_key_random}, lihat {@link #watzapFormat})</li>
  * </ul>
  * <p>
- * Bila kredensial ini masih aktif/valid di sisi penyedia, keberadaannya dalam riwayat kode
- * (termasuk riwayat SVN) merupakan kebocoran kredensial yang perlu ditinjau dan dirotasi oleh
- * pemilik integrasi.
+ * Kredensial lama yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB
+ * dianggap bocor — perlu dirotasi di dashboard Watzap bila masih dipakai produksi.
  * </p>
  */
 public class WaApi {
@@ -118,9 +120,9 @@ public class WaApi {
 			send = "";
 		}
 		JSONObject jsonObject = new JSONObject();
-		jsonObject.put("api_key", Common.getKonfigurasi("watzap_api_key", "YBIYGXHPIVEVHT3G").getNilai().trim());
+		jsonObject.put("api_key", Common.getKonfigurasi("watzap_api_key", "").getNilai().trim());
 
-		String number_key = Common.getKonfigurasi("watzap_number_key", "u3w09ScxqJsNIrpG").getNilai().trim();
+		String number_key = Common.getKonfigurasi("watzap_number_key", "").getNilai().trim();
 
 		try {
 
@@ -128,8 +130,7 @@ public class WaApi {
 				number_key = Wa.nomorKey.get(from.trim());
 			} else {
 				String[] ss = Common
-						.getKonfigurasi("watzap_number_key_random",
-								"u3w09ScxqJsNIrpG;ESaI8uxCG6hHdJro;1zUEMU5zLp2UlJis;5ur22YeVFmUkCpCX")
+						.getKonfigurasi("watzap_number_key_random", "")
 						.getNilai().trim().split(";");
 
 				number_key = ss[Wa.indexPengiriman % ss.length];
