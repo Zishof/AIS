@@ -414,6 +414,31 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menghitung banyaknya pertemuan aktif milik objek pembelajaran ini, memakai cache.
+	 *
+	 * <p>Memanggil {@link #ambilPertemuan()} lalu mengambil ukuran peta hasilnya. Karena itu
+	 * seluruh biaya pengambilan tetap dikeluarkan — termasuk kemungkinan membangun ulang indeks
+	 * dari basis data pada pemanggilan pertama — walaupun yang dibutuhkan hanya satu angka. Bila
+	 * daftar pertemuannya juga diperlukan, ambil sekali lewat {@link #ambilPertemuan()} dan baca
+	 * ukurannya sendiri.</p>
+	 *
+	 * <p>Angka yang dikembalikan sudah memperhitungkan seluruh penyaringan
+	 * {@link #ambilPertemuan(boolean)}: hanya pertemuan yang penanda {@code aktif}-nya bernilai
+	 * benar yang dihitung, dan untuk {@link Perkuliahan} dengan penomoran manual, jumlahnya
+	 * dipotong pada batas {@code jumlahMaksimalPertemuan}.</p>
+	 *
+	 * <p>Peta sementara di-{@code clear()} dan disetel {@code null} sebelum method kembali —
+	 * kebiasaan yang tersebar di kelas ini untuk menekan jejak memori saat sinkronisasi massal
+	 * ribuan objek pembelajaran secara paralel.</p>
+	 *
+	 * <p>Perhatikan bahwa method ini mengembalikan {@link Integer} sedangkan
+	 * {@link #ambilJumlahPertemuan(boolean)} mengembalikan {@code int} primitif. Perbedaan itu
+	 * tidak membawa makna tambahan — nilai baliknya tidak pernah {@code null} — tetapi berarti
+	 * kedua overload tidak dapat saling menggantikan pada konteks yang peka tipe.</p>
+	 *
+	 * @return banyaknya pertemuan aktif; 0 bila tidak ada, tidak pernah {@code null}
+	 */
 	public Integer ambilJumlahPertemuan() {
 		TreeMap<String, Long> pertemuans = ambilPertemuan();
 		int size = pertemuans != null ? pertemuans.size() : 0;
@@ -424,6 +449,20 @@ public abstract class VOPembelajaran extends VoKunci {
 		return size;
 	}
 
+	/**
+	 * Menghitung banyaknya pertemuan aktif milik objek ini, dengan pilihan membangun ulang indeks
+	 * dari basis data lebih dulu.
+	 *
+	 * <p>Sama dengan {@link #ambilJumlahPertemuan()} kecuali bahwa {@code refresh} diteruskan ke
+	 * {@link #ambilPertemuan(boolean)}. Memanggilnya dengan {@code true} berarti menjalankan
+	 * seluruh mesin {@link #reInitPertemuan(Session)} — yang membuka transaksi, menulis ulang nomor
+	 * pertemuan, dan menyinkronkan diskusi, ujian, tugas, izin, serta berkas media tiap pertemuan —
+	 * hanya untuk memperoleh satu angka. Untuk kolom "jumlah pertemuan" pada grid, gunakan
+	 * {@code false}.</p>
+	 *
+	 * @param refresh {@code true} untuk membangun ulang indeks dari basis data lebih dulu
+	 * @return banyaknya pertemuan aktif; 0 bila tidak ada
+	 */
 	public int ambilJumlahPertemuan(boolean refresh) {
 		TreeMap<String, Long> pertemuans = ambilPertemuan(refresh);
 		int size = pertemuans != null ? pertemuans.size() : 0;
@@ -434,6 +473,37 @@ public abstract class VOPembelajaran extends VoKunci {
 		return size;
 	}
 
+	/**
+	 * Menghimpun statistik pertemuan objek pembelajaran ini secara menyeluruh: jumlah pertemuan,
+	 * berapa yang sudah berlalu, berapa yang sudah punya absensi, serta rekapitulasi status
+	 * kehadiran.
+	 *
+	 * <p>Method ini menyiapkan datanya lebih dulu — membaca indeks lewat
+	 * {@link #ambilPertemuan()}, mengubah tiap id menjadi objek {@link Pertemuan} dari cache
+	 * proses, dan membuang yang tidak ditemukan — lalu menyerahkan perhitungannya ke
+	 * {@link #ambilJumlahPertemuanStatistik(List, Mahasiswa, Dosen, boolean, boolean)} dengan
+	 * mahasiswa dan dosen bernilai {@code null}, yang berarti "seluruh peserta, tanpa
+	 * penyaringan".</p>
+	 *
+	 * <p><b>Hanya membaca cache proses.</b> Objek diambil dengan {@code ambilData} tanpa cadangan
+	 * kueri basis data, sehingga id yang tercatat di indeks tetapi objeknya belum pernah dimuat
+	 * akan dilewati diam-diam. Akibatnya angka statistik dapat lebih kecil daripada jumlah
+	 * pertemuan yang sebenarnya bila cache proses baru saja dibersihkan. Bandingkan dengan
+	 * {@link #ambilPertemuan(boolean)} yang menyediakan cadangan kueri untuk kasus yang sama.</p>
+	 *
+	 * <p><b>Bentuk nilai balik.</b> Larik sepuluh elemen dengan urutan tetap; rinciannya
+	 * didokumentasikan pada
+	 * {@link #ambilJumlahPertemuanStatistik(List, Mahasiswa, Dosen, boolean, boolean)}. Tidak ada
+	 * konstanta indeks, sehingga pemanggil terikat pada urutan tersebut.</p>
+	 *
+	 * @param termasukDiskusi {@code true} untuk ikut menghitung jumlah diskusi tiap pertemuan;
+	 *                        setiap pertemuan menambah satu pemanggilan tersendiri
+	 * @param termasukUjian   {@code true} untuk ikut menghitung jumlah ujian tiap pertemuan; sama
+	 *                        halnya, menambah satu pemanggilan per pertemuan
+	 * @return larik statistik sepuluh elemen
+	 * @throws Exception diteruskan dari perhitungan di method yang dipanggil; method ini sendiri
+	 *                   tidak melempar secara langsung
+	 */
 	public Object[] ambilJumlahPertemuanStatistik(boolean termasukDiskusi, boolean termasukUjian) throws Exception {
 		TreeMap<String, Long> pertemuanss = this.ambilPertemuan();
 		List<Pertemuan> pertemuans = new ArrayList<Pertemuan>();
