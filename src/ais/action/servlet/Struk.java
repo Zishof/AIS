@@ -26,12 +26,58 @@ import ais.database.model.sekolah.Siswa;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class LaporanPesananItem
+ * Servlet publik yang menghasilkan berkas PDF "struk pembayaran" (bukti bayar siswa/calon
+ * siswa) dari {@link PembayaranSiswa} yang ditunjuk parameter {@code id}, lalu menuliskannya
+ * langsung sebagai unduhan {@code application/pdf} pada respons.
+ *
+ * <h4>Keamanan &mdash; STATUS TERKINI (diverifikasi ulang dari kode berjalan, 2026-09-07)</h4>
+ * <p>Endpoint ini <b>MASIH sepenuhnya anonim</b>: {@link #doGet}/{@link #doPost} memanggil
+ * {@link #process} langsung tanpa pemeriksaan sesi/login apa pun &mdash; tidak ada pembacaan
+ * {@link javax.servlet.http.HttpSession}, tidak ada pemanggilan {@code Common.getCurrentUser()},
+ * dan tidak ada {@code intercept-url} khusus untuk {@code /Struk} pada
+ * {@code applicationContext-security.xml}. Ini konsisten dengan catatan lama yang menyebut
+ * servlet ini sebagai "endpoint anonim ke-5" pada klaster {@code task_493423ef}, bersama
+ * beberapa servlet {@code AmbilLaporan*} lain yang juga belum digerbangi.</p>
+ * <p>Parameter {@code id} diterima dalam DUA bentuk yang SAMA-SAMA berfungsi (lihat
+ * {@link #process}):</p>
+ * <ul>
+ *   <li>{@code id=<angka>} &mdash; dipakai LANGSUNG sebagai primary key {@code PembayaranSiswa}
+ *       lewat {@code Restrictions.idEq(Long.parseLong(myid))}. Primary key ini sekuensial
+ *       (auto-increment basis data), sehingga seluruh riwayat pembayaran siswa/calon siswa
+ *       di sistem dapat DIENUMERASI hanya dengan menaik-turunkan angka pada URL &mdash; id
+ *       MASIH mudah ditebak.</li>
+ *   <li>{@code id=EE<token>} &mdash; token didekripsi lebih dulu lewat
+ *       {@code Common.desEncrypter.get().decrypt(...)}; namun kegagalan dekripsi ditelan
+ *       (blok {@code catch} kosong) dan {@code myid} MENTAH tetap dipakai apa adanya pada
+ *       baris berikutnya. Jalur terenkripsi ini TIDAK menutup jalur angka mentah di atas;
+ *       keduanya tetap berfungsi berdampingan.</li>
+ * </ul>
+ * <p>Payload PDF yang dihasilkan memuat PII lengkap milik {@link CalonSiswa} atau
+ * {@link Siswa} pemilik pembayaran (lewat {@code Common.insertProperty}, yang menyalin
+ * SELURUH properti bean orang tersebut ke parameter laporan) DITAMBAH rincian finansial
+ * lengkap dari {@code PembayaranSiswaUtil.dataPembayaran(...)} &mdash; kombinasi PII plus
+ * data finansial lengkap yang sama persis dengan pola yang sudah dicatat pada
+ * {@code task_493423ef}.</p>
+ * <p><b>Kesimpulan verifikasi:</b> ketiga karakteristik yang dicatat sebelumnya &mdash;
+ * (1) endpoint anonim, (2) id sekuensial/mudah ditebak, (3) payload PII+finansial lengkap
+ * &mdash; SEMUANYA masih berlaku pada revisi kode saat ini. Tidak ditemukan perubahan yang
+ * mengubah status ini sejak terakhir dicatat; dokumentasi ini adalah konfirmasi ulang, bukan
+ * temuan baru.</p>
+ *
+ * @see HttpServlet
+ * @see PembayaranSiswa
  */
 public class Struk extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet. Tidak melakukan
+	 * inisialisasi apa pun; seluruh state diambil per-permintaan di {@link #process}.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Struk() {
@@ -40,8 +86,16 @@ public class Struk extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}. Tidak ada
+	 * gerbang otentikasi/otorisasi di sini maupun di {@link #process} &mdash; lihat bagian
+	 * Keamanan pada dokumentasi kelas.
+	 *
+	 * @param request  permintaan masuk berisi parameter {@code id}
+	 * @param response balasan yang akan diisi bita berkas PDF struk pembayaran
+	 * @throws ServletException tidak pernah dilempar keluar method ini; kegagalan
+	 *                          {@link #process} ditelan {@link Common#tampilErrorJikaAdmin(Exception)}
+	 * @throws IOException      tidak pernah dilempar keluar method ini, dengan alasan yang sama
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -53,8 +107,14 @@ public class Struk extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan perilaku identik {@link #doGet}, termasuk tidak
+	 * adanya gerbang otentikasi/otorisasi.
+	 *
+	 * @param request  permintaan masuk berisi parameter {@code id}
+	 * @param response balasan yang akan diisi bita berkas PDF struk pembayaran
+	 * @throws ServletException tidak pernah dilempar keluar method ini
+	 * @throws IOException      tidak pernah dilempar keluar method ini
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -65,6 +125,37 @@ public class Struk extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Inti servlet: menerjemahkan parameter {@code id} menjadi sebuah {@link PembayaranSiswa},
+	 * membangun parameter laporan PDF-nya (PII pemilik pembayaran + rincian finansial), lalu
+	 * menyalin berkas PDF yang dihasilkan ke {@code resp} sebagai unduhan.
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>parameter {@code id} dibaca; bila berawalan {@code "EE"}, sisanya didekripsi lewat
+	 *       {@code Common.desEncrypter.get().decrypt(...)} &mdash; kegagalan pada langkah ini
+	 *       ditelan (dicatat lewat {@code ErrorAuditUtil.record}) dan nilai mentah tetap
+	 *       dipakai;</li>
+	 *   <li>{@code myid} diurai sebagai {@code Long} dan dipakai LANGSUNG sebagai primary key
+	 *       pencarian {@link PembayaranSiswa} (tanpa penyaring kepemilikan/sesi apa pun);</li>
+	 *   <li>bila {@code pembayaranSiswa} ditemukan, parameter laporan diisi dari propertinya,
+	 *       dari {@link CalonSiswa}/{@link Siswa} pemiliknya (seluruh properti bean, lewat
+	 *       {@code Common.insertProperty}), dan dari {@code PembayaranSiswaUtil.dataPembayaran};</li>
+	 *   <li>laporan {@code sekolah/struk_pembayaran} dirender ke PDF lewat
+	 *       {@link Report#generateFileReport} lalu disalin ke {@code resp} dengan penyangga
+	 *       1&nbsp;KiB.</li>
+	 * </ol>
+	 * <p>Tidak ada gerbang otentikasi/otorisasi pada method ini &mdash; lihat bagian Keamanan
+	 * pada dokumentasi kelas untuk rincian dan konfirmasi status terkini.</p>
+	 * <p>Bila {@code pembayaranSiswa} bernilai {@code null} (id tidak ditemukan/tidak valid),
+	 * pemanggilan {@code pembayaranSiswa.getCalonSiswa()} pada langkah pengisian PII akan
+	 * melempar {@link NullPointerException} yang menembus ke {@link #doGet}/{@link #doPost}
+	 * dan ditelan di sana; permintaan dengan id tak dikenal akan gagal senyap tanpa berkas.</p>
+	 *
+	 * @param request permintaan masuk berisi parameter {@code id}
+	 * @param resp    balasan yang akan diisi bita berkas PDF struk pembayaran
+	 * @throws Exception bila parsing id, pencarian data, atau pembangunan laporan gagal
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 		String myid = request.getParameter("id");
