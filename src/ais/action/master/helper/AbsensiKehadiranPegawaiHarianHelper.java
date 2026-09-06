@@ -118,13 +118,55 @@ import ais.ui.util.MyWindow;
 public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 	/**
-	 * 
+	 * Penanda versi serialisasi bawaan {@link MyDetail}/komponen ZK. Nilainya tidak boleh diubah agar sesi
+	 * yang diserialisasi (mis. saat failover/passivation kontainer ZK) tetap kompatibel.
 	 */
 	private static final long serialVersionUID = -8823784546257272901L;
+
+	/**
+	 * Combobox pilihan bulan (nilai {@link Integer} 1&ndash;12, label dari {@link Common#BULAN}) yang menentukan
+	 * rentang tanggal rekap. Dibuat readonly di {@link #display()} sehingga pemakai hanya bisa memilih dari
+	 * daftar, dan setiap {@code onChange} memicu {@link #loadData(Object)}. Bernilai {@code null} sebelum
+	 * {@link #display()} dipanggil.
+	 */
 	private Combobox bulan;
+
+	/**
+	 * Combobox pilihan tahun (nilai {@link Integer}, rentang tahun berjalan &minus;10 s.d. +10) yang melengkapi
+	 * {@link #bulan} dalam menentukan periode rekap. Sama seperti {@link #bulan}: readonly dan memicu
+	 * {@link #loadData(Object)} pada {@code onChange}.
+	 */
 	private Combobox tahun;
+
+	/**
+	 * Grid berpaging (100 baris/halaman) tempat seluruh baris rekap harian dirender. Dipegang sebagai field
+	 * karena {@link #loadData(Object)} membersihkan lalu mengisi ulang {@link Rows}-nya setiap kali filter
+	 * berubah, proses "Singkronkan" selesai, atau satu baris selesai diedit lewat
+	 * {@link #editJam(StatuskehadiranKaryawanHarian)}.
+	 */
 	private MyGrid grid;
+
+	/**
+	 * Pegawai yang rekap absensinya ditampilkan dan dikelola panel ini. Ditetapkan sekali lewat konstruktor dan
+	 * tidak pernah diganti; menjadi filter tunggal bagi seluruh query {@link CutiDanIzin},
+	 * {@link StatuskehadiranKaryawanHarian}, dan perhitungan {@link DetailJenisShiftPegawai} di kelas ini.
+	 *
+	 * <p><b>Catatan cakupan akses:</b> kelas ini TIDAK memverifikasi sendiri apakah pengguna yang login berhak
+	 * melihat/mengubah pegawai ini (tidak ada penyaringan satuan kerja maupun pencocokan identitas). Penentuan
+	 * pegawai mana yang boleh dibuka sepenuhnya diserahkan kepada pemanggil — {@code AbsensKehadiranPegawaiHarianAction}
+	 * (menyaring lewat {@code SekolahUtil.ambilSatuanKerjas()}) dan {@code BiodataPegawaiAction} (meresolusi
+	 * pegawai dari akun yang login bila parameternya {@code null}).</p>
+	 */
 	private Pegawai pegawai;
+
+	/**
+	 * Menandai apakah kontrol pengubahan data dirender (tombol Ubah, checkbox "Abaikan Jarak", override shift
+	 * dan lembur manual). Dievaluasi sekali di konstruktor dari
+	 * {@link CommonPrivilages#checkPrevilages(String)} dengan hak {@link CommonPrivilages#UPDATE}, yaitu hak
+	 * UPDATE pada menu yang sedang dibuka — bukan hak khusus modul absensi/penggajian. Baris yang berasal dari
+	 * {@link CutiDanIzin} yang sudah disetujui atau yang sudah {@code getDikunci()} tetap dirender read-only
+	 * meskipun {@code edit} bernilai {@code true}.
+	 */
 	private boolean edit = false;
 
 	/**

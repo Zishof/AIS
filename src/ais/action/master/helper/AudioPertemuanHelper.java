@@ -81,14 +81,22 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class AudioPertemuanHelper implements DataLoader {
 
+	/** Pertemuan tunggal yang audionya ditampilkan; {@code null} bila menampilkan gabungan banyak pertemuan atau berdasarkan konteks kurikulum-matakuliah saja. */
 	private Pertemuan pertemuan;
+	/** Bila {@code true}, tombol tambah/hapus dan edit keterangan audio ditampilkan bagi user berwenang. */
 	private Boolean delete = false;
+	/** Daftar id {@link Pertemuan} yang audionya digabung ditampilkan, dipakai saat {@link #pertemuan} tidak diisi (lihat {@link #display(List, Component)}). */
 	private List<Number> pertemuans;
+	/** Konteks kurikulum-matakuliah yang membatasi query {@link AudioPertemuan} saat {@link #pertemuan} tidak diberikan. */
 	private KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah;
+	/** Konteks detail kurikulum-matakuliah; bila terisi, jadi filter utama query {@link AudioPertemuan} (prioritas di atas {@link #pertemuans}/{@link #kurikulumPunyaMatakuliah}). */
 	private KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail;
 
+	/** Bila {@code true}, info matakuliah pertemuan ikut ditampilkan di bawah konten audio (hanya saat menampilkan satu audio). */
 	private boolean tampilkanMk;
+	/** Komponen ZK induk tempat konten (satu audio atau tabbox banyak audio) dipasang; dibersihkan ulang tiap {@link #loadData(Object)}. */
 	private Center center;
+	/** Audio yang tab-nya harus otomatis terpilih saat dibuka; {@code null} bila tidak ada preferensi (tab pertama yang dipilih). */
 	private AudioPertemuan selectedAudioPertemuan = null;
 
 	/**

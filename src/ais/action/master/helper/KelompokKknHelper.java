@@ -78,18 +78,33 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class KelompokKknHelper implements DataLoader, DataCriteria {
 
+	/** Grid paging yang menampilkan daftar anggota {@link #kelompokKkn}, dirender oleh {@link DetailKelompokKknRenderer}. */
 	private MyGrid grid;
+	/** Kelompok KKN yang sedang ditampilkan/dikelola anggotanya. */
 	private KelompokKkn kelompokKkn;
+	/** User yang sedang login; dipakai untuk menentukan hak edit (staf) vs. lihat-saja (mahasiswa). */
 	private Tbmuser tbmuser;
 
+	/** Kontrol paging grid, disinkronkan dengan {@link #initCriteria(boolean)} lewat {@link #loadData(Object)}. */
 	private Paging paging;
+	/** Checkbox filter toolbar: hanya tampilkan anggota berstatus diterima. */
 	private MyCheckboxConfig diterima;
+	/** Checkbox filter toolbar: hanya tampilkan anggota yang belum diterima. */
 	private MyCheckboxConfig belumDiterima;
+	/** Kotak pencarian NIM/nama mahasiswa pada toolbar. */
 	private Textbox nim;
 
 	/** Merender satu baris grid anggota KKN: foto+NIM, riwayat revisi (nama), jurusan/fakultas, hasil/keterangan (editable untuk staf, read-only untuk mahasiswa lain), checkbox diterima (auto-save), tombol cetak sertifikat, dan tombol hapus (hanya staf, hanya bila belum diterima). */
 	class DetailKelompokKknRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid untuk satu {@link MahasiswaDapatKelompokKkn} (lihat javadoc kelas
+		 * {@link DetailKelompokKknRenderer} untuk rincian kolom yang dibangun).
+		 *
+		 * @param row  baris grid yang diisi
+		 * @param data instance {@link MahasiswaDapatKelompokKkn} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final MahasiswaDapatKelompokKkn mahasiswaDapatKelompokKkn = (MahasiswaDapatKelompokKkn) data;
