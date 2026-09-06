@@ -78,27 +78,46 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     private static final long serialVersionUID = 1L;
 
     // ── Status konstanta ─────────────────────────────────────────────────────
+    /** Status default/awal: analisis belum ditinjau oleh Bagian Penjaminan Mutu. */
     public static final String STATUS_MENUNGGU     = "menunggu";
+    /** Status setelah reviewer menandai analisis sudah sesuai/layak. */
     public static final String STATUS_DISETUJUI    = "disetujui";
+    /** Status setelah reviewer menandai analisis perlu diperbaiki dosen (catatan wajib diisi). */
     public static final String STATUS_PERLU_REVISI = "perlu_revisi";
 
     // ── Filter state ─────────────────────────────────────────────────────────
+    /** Filter tahun akademik aktif; default tahun akademik berjalan, string kosong berarti "semua". */
     private String filterTa       = Common.getCurrentTahunAkademik();
+    /** Filter semester aktif ("Ganjil"/"Genap"/"Semester Pendek"); string kosong berarti "semua". */
     private String filterSemester = "";
+    /** Filter status review aktif (lihat {@code STATUS_*}); string kosong berarti "semua". */
     private String filterStatus   = "";
 
     // ── Filter UI (dibuat di renderFilter, dipakai di applyFilter) ───────────
+    /** Combobox pemilih tahun akademik pada bilah filter, diisi oleh {@link #isiComboTa()}. */
     private Combobox cbTa;
+    /** Combobox pemilih semester pada bilah filter, diisi oleh {@link #isiComboSemester()}. */
     private Combobox cbSemester;
+    /** Combobox pemilih status review pada bilah filter, diisi oleh {@link #isiComboStatus()}. */
     private Combobox cbStatus;
 
     // ── Container grid (untuk refresh tanpa render ulang seluruh halaman) ────
+    /** Container tempat grid data dirender ulang oleh {@link #renderDataGrid()} tanpa membangun ulang header/filter. */
     private Div divGrid;
 
     // =========================================================================
     // Konstruktor — entrypoint utama
     // =========================================================================
 
+    /**
+     * Menyiapkan komponen dan menampilkan skeleton loading ({@link #tampilLoading()}) saja.
+     * Query Hibernate yang sesungguhnya (lewat {@link #render()}) SENGAJA tidak dipanggil di
+     * sini — pemanggil harus memanggil {@code setParent(container)} lalu {@link #render()}
+     * setelah komponen ini terpasang di halaman ZK (pola timer yang sama dengan
+     * {@code DasboardSPMI}), agar komponen sudah punya {@code Desktop}/{@code Page} saat
+     * query dijalankan. Kegagalan saat membangun skeleton sendiri ditangkap dan ditampilkan
+     * sebagai pesan gagal ramah-pengguna via {@link PesanFormalHelper}.
+     */
     public PenjaminanMutuAnalisisHelper() {
         setWidth("100%");
         setStyle("min-height:200px; background:#f8fafc; padding:12px 14px;"
@@ -123,6 +142,10 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Loading skeleton
     // =========================================================================
 
+    /**
+     * Menampilkan indikator loading sementara (ikon jam pasir dan teks) sebagai isi awal
+     * komponen, sebelum {@link #render()} mengganti isinya dengan dasbor sesungguhnya.
+     */
     private void tampilLoading() {
         Common.clear(this);
         appendHtml(this,
@@ -139,6 +162,12 @@ public class PenjaminanMutuAnalisisHelper extends Div {
     // Render utama
     // =========================================================================
 
+    /**
+     * Membangun ulang seluruh isi dasbor: header, bilah filter, dan grid data. Harus dipanggil
+     * oleh pemanggil setelah komponen ini di-{@code setParent} ke halaman ZK (lihat catatan
+     * pada konstruktor). Kegagalan apa pun ditangkap, dicatat ke {@link ErrorAuditUtil}, dan
+     * ditampilkan sebagai pesan error generik agar detail internal tidak bocor ke pengguna.
+     */
     public void render() {
         try {
             Common.clear(this);
