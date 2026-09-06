@@ -2044,7 +2044,7 @@ public class KasKecilAction extends GenericAutowireComposer
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							Clients.evalJavaScript(
-									"popupCenter({url: '" + url + "', title: 'Data', w: 1200, h: 600});");
+									"popupCenter({url: '" + Common.jsEscape(url) + "', title: 'Data', w: 1200, h: 600});");
 						}
 					});
 
