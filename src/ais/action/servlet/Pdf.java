@@ -38,15 +38,15 @@ import ais.database.model.BiodataCalonMahasiswa;
  * {@link Common#DES_PASS_PHRASE} mengenai riwayat upaya migrasi ke AES-256-GCM yang dibatalkan
  * karena mematahkan alur login) — sehingga siapa pun yang mengetahui konstanta tersebut dapat
  * meng-enkripsi plaintext pilihannya sendiri (termasuk barisan {@code ../}) dan mengirimkannya
- * sebagai parameter {@code p} yang valid secara kriptografis. Setelah dekripsi, hasilnya
- * dipakai APA ADANYA untuk membentuk {@code new File(reportPath + "/" + filename)} TANPA
- * kanonikalisasi/pengecekan bahwa path akhir tetap berada di dalam {@code reportPath} —
- * satu-satunya pengaman saat ini adalah {@link File#isFile()} (mencegah exception mentah bila
- * hasilnya sebuah direktori), BUKAN pencegah path traversal. Risiko root pada kunci DES yang
- * dipakai bersama ini sudah didokumentasikan secara luas di {@link Common#DES_PASS_PHRASE};
- * mitigasi tambahan yang murah dan berdiri sendiri untuk servlet ini adalah memvalidasi bahwa
- * {@link File#getCanonicalPath()} hasil akhir tetap berada di bawah kanonikalisasi
- * {@code reportPath} sebelum berkas dialirkan ke respons.</p>
+ * sebagai parameter {@code p} (atau {@code calmhs}) yang valid secara kriptografis. Risiko
+ * root pada kunci DES yang dipakai bersama ini sudah didokumentasikan secara luas di
+ * {@link Common#DES_PASS_PHRASE} dan TIDAK ditambal di sini (upaya migrasinya sudah
+ * dibatalkan demi kompatibilitas login). Sebagai mitigasi lokal yang murah dan berdiri
+ * sendiri, hasil {@code new File(reportPath + "/" + nama)} pada KEDUA mode divalidasi lewat
+ * {@link #isDalamReportPath(File, String)} sebelum dialirkan ke respons: path kanonik
+ * ({@link File#getCanonicalPath()}, bukan perbandingan string mentah) harus tetap berada di
+ * dalam {@code reportPath} — bila gagal (termasuk percobaan traversal {@code ../}), servlet
+ * membalas {@code 404} generik tanpa membocorkan alasan spesifiknya ke klien.</p>
  *
  * @see HttpServlet
  */
@@ -112,14 +112,17 @@ public class Pdf extends HttpServlet {
 	 * {@link CommonReportHelper#onCetakBiodataCalonMahasiswa}. Nama berkas hasil generate
 	 * digabung dengan {@code reportPath} yang dikembalikan
 	 * {@link Common#ambilREAL_PATH_REPORT()} untuk membentuk path final; hanya disajikan bila
-	 * {@link File#isFile()} benar, selain itu dibalas {@code 404}. Exception apa pun pada mode
-	 * ini ditelan dan hanya dicatat ke {@link ais.common.ErrorAuditUtil}.</p>
+	 * {@link File#isFile()} DAN {@link #isDalamReportPath(File, String)} benar, selain itu
+	 * dibalas {@code 404}. Exception apa pun pada mode ini ditelan dan hanya dicatat ke
+	 * {@link ais.common.ErrorAuditUtil}.</p>
 	 *
 	 * <p>Mode {@code p} (dipakai bila {@code calmhs} tidak ada): tolak dengan {@code 500} bila
 	 * parameter kosong; selain itu dekripsi nama berkas lewat {@link Common#desEncrypter} dan
 	 * gabungkan dengan {@code reportPath} yang sama, lalu sajikan bila {@link File#isFile()}
-	 * benar, selain itu {@code 404}. Lihat catatan keamanan pada Javadoc kelas mengenai
-	 * ketiadaan pengecekan kanonikalisasi path pada mode ini.</p>
+	 * DAN {@link #isDalamReportPath(File, String)} benar, selain itu {@code 404}. Lihat
+	 * catatan keamanan pada Javadoc kelas mengenai validasi containment path kanonik ini,
+	 * yang menjadi satu-satunya penghalang percobaan traversal {@code ../} setelah dekripsi
+	 * DES (kunci mana bersifat publik/dikenal luas).</p>
 	 *
 	 * @param request request HTTP masuk; parameter {@code calmhs} (id biodata terenkripsi)
 	 *                atau {@code p} (nama berkas terenkripsi) menentukan berkas yang disajikan
@@ -151,8 +154,9 @@ public class Pdf extends HttpServlet {
 					if (fileBio != null) {
 						// Gunakan variabel reportPath yang dinamis
 						File file = new File(reportPath + "/" + fileBio.getName());
-						// Cek isFile() (bukan cuma exists()) supaya direktori tidak lolos ke streamFileToResponse
-						if (file.isFile()) {
+						// Cek isFile() (bukan cuma exists()) supaya direktori tidak lolos ke streamFileToResponse,
+						// dan cek containment kanonik (lihat isDalamReportPath) sebagai defense-in-depth.
+						if (file.isFile() && isDalamReportPath(file, reportPath)) {
 							streamFileToResponse(resp, sc, file, fileBio.getName());
 						} else {
 							resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -186,17 +190,50 @@ public class Pdf extends HttpServlet {
 				// atau tidak lengkap, path yang terbentuk bisa berhenti di sebuah DIREKTORI (mis. folder
 				// "report" itu sendiri). exists() tetap true untuk direktori, sehingga FileInputStream
 				// di streamFileToResponse akan melempar FileNotFoundException("... (Is a directory)").
-				if (file.isFile()) {
+				if (file.isFile() && isDalamReportPath(file, reportPath)) {
 					streamFileToResponse(resp, sc, file, filename);
 				} else {
-					// Jika file tidak ditemukan (atau ternyata sebuah direktori), kembalikan status 404
-					// agar UI merespon dengan benar, bukan exception mentah.
+					// Jika file tidak ditemukan (atau ternyata sebuah direktori, atau lolos dekripsi DES
+					// namun gagal validasi containment path -- lihat catatan keamanan pada Javadoc
+					// kelas), kembalikan status 404 generik -- JANGAN bocorkan alasan spesifik ke klien.
 					resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
 				}
 
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Pdf.java:102");
 			}
+		}
+	}
+
+	/**
+	 * Memvalidasi bahwa {@code file} secara kanonik tetap berada di dalam {@code reportPath},
+	 * menutup celah path traversal (mis. {@code ../}) yang bisa lolos dari validasi dekripsi
+	 * DES semata -- lihat catatan keamanan pada Javadoc kelas ini mengenai
+	 * {@code Common.DES_PASS_PHRASE} yang bersifat publik/dikenal luas. Perbandingan
+	 * dilakukan atas {@link File#getCanonicalPath()} (bukan perbandingan string mentah atas
+	 * hasil {@code reportPath + "/" + nama}) sehingga penyusun jalur {@code ".."} maupun
+	 * pranala simbolik/junction (relevan di lingkungan Windows produksi ini) ternormalkan
+	 * lebih dahulu; pola yang sama dipakai {@code AmbilLampiran.isDalamDirektoriDiizinkan}.
+	 *
+	 * <p>Sifatnya <i>fail-closed</i>: kegagalan apa pun saat menormalkan jalur (mis.
+	 * {@link IOException} dari filesystem) menghasilkan {@code false}, dicatat ke
+	 * {@link ais.common.ErrorAuditUtil}.</p>
+	 *
+	 * @param file       berkas hasil resolusi {@code reportPath + "/" + namaBerkas} yang
+	 *                   hendak divalidasi, SEBELUM dialirkan ke respons
+	 * @param reportPath direktori laporan yang diizinkan, dari
+	 *                   {@link Common#ambilREAL_PATH_REPORT()}
+	 * @return {@code true} bila path kanonik {@code file} sama dengan atau berada tepat di
+	 *         bawah path kanonik {@code reportPath}
+	 */
+	private static boolean isDalamReportPath(File file, String reportPath) {
+		try {
+			String canonicalFile = file.getCanonicalFile().getCanonicalPath();
+			String canonicalDir = new File(reportPath).getCanonicalFile().getCanonicalPath();
+			return canonicalFile.equals(canonicalDir) || canonicalFile.startsWith(canonicalDir + File.separator);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/Pdf.java:isDalamReportPath");
+			return false;
 		}
 	}
 

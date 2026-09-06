@@ -34,6 +34,21 @@
 			 ini yang tertutup, tidak ikut menutup url-pattern lain -- lihat catatan di aturan "/al"
 			 di bawah tentang pola yang tidak sengaja jadi terlalu lebar. -->
 		<intercept-url pattern="/AmbilLaporanMahasiswa" access="IS_AUTHENTICATED_REMEMBERED" />
+		<!-- Pertahanan berlapis untuk broken access control 6 servlet Ambil*/AmbilFile* di
+			 ais.action.servlet (lampiran penelitian/pengabdian dan pengumuman akademis/
+			 penelitian/perkuliahan): querinya langsung Restrictions.idEq(id) tanpa lewat
+			 LampiranLain/FileFotoLain.ambil() sama sekali, sehingga TIDAK ada penyaring jenis
+			 untuk task_b82b25d2 yang relevan di sini -- primary key ditebak langsung. Gerbang
+			 utama (login + kepemilikan/getMelihatDataSatkerLain untuk 3 pertama, login +
+			 status ditampilkan/aktif untuk 3 Pengumuman*) sudah ditambal di kode servlet
+			 masing-masing (lihat Javadoc kelasnya). Pola tanpa "/**" dipilih karena
+			 url-pattern web.xml untuk keenam servlet ini exact match tanpa sub-path. -->
+		<intercept-url pattern="/FilePengajuanPengajuanPenelitianDanPengabdian" access="IS_AUTHENTICATED_REMEMBERED" />
+		<intercept-url pattern="/FilePengajuanTahapanPelaporanPenelitianDanPengabdian" access="IS_AUTHENTICATED_REMEMBERED" />
+		<intercept-url pattern="/PenelitianDanPengabdian" access="IS_AUTHENTICATED_REMEMBERED" />
+		<intercept-url pattern="/PengumumanAkademis" access="IS_AUTHENTICATED_REMEMBERED" />
+		<intercept-url pattern="/PengumumanPenelitian" access="IS_AUTHENTICATED_REMEMBERED" />
+		<intercept-url pattern="/PengumumanPerkuliahan" access="IS_AUTHENTICATED_REMEMBERED" />
 		<!-- Portal ALUMNI / tracer study bersifat PUBLIK (sama seperti /ppdb dan /pmb):
 			 dibuka alumni yang belum punya akun. Aturan ini WAJIB berada SEBELUM aturan
 			 "/al" di bawah supaya niatnya terbaca jelas dan tidak ikut tertutup lagi bila
