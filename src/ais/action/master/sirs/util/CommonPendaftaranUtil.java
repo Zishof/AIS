@@ -126,9 +126,9 @@ public class CommonPendaftaranUtil {
 		final Label umur = new Label(
 				transaksi == null || transaksi.getUmur() == null ? "" : transaksi.getUmur() + " thn");
 		final Label alamat = new Label(pasien == null ? "" : pasien.getAlamatLengkap());
-		final Label kelasPerawatan = new Label(
-				transaksi.getKelasPerawatan() == null ? ConstantValues.kelasNormal.getNama()
-						: transaksi.getKelasPerawatan().getNama());
+		final KelasPerawatan kelasPerawatanAwal = transaksi.getKelasPerawatan();
+		final Label kelasPerawatan = new Label(kelasPerawatanAwal == null || kelasPerawatanAwal.getNama() == null ? ""
+				: kelasPerawatanAwal.getNama());
 		final Label ttl = new Label(
 				pasien == null ? "" : (pasien.getTempatLahir() == null ? "" : pasien.getTempatLahir() + " / "));
 		final Label tglLahir = new Label(pasien == null ? null : Common.dateFormat2.get().format(pasien.getTanggalLahir()));
@@ -164,9 +164,9 @@ public class CommonPendaftaranUtil {
 						: myPendaftaran.getPasien().getKode());
 				pasienBanbox.setAttribute("pasien", myPendaftaran == null ? null : myPendaftaran.getPasien());
 
-				kelasPerawatan.setValue(myPendaftaran == null || myPendaftaran.getKelasPerawatan() == null
-						? ConstantValues.kelasNormal.getNama()
-						: myPendaftaran.getKelasPerawatan().getNama());
+				KelasPerawatan kelasPendaftaran = myPendaftaran == null ? null : myPendaftaran.getKelasPerawatan();
+				kelasPerawatan.setValue(kelasPendaftaran == null || kelasPendaftaran.getNama() == null ? ""
+						: kelasPendaftaran.getNama());
 
 				pasienBanbox.setValue(pasien == null ? "" : pasien.getKode().trim());
 
