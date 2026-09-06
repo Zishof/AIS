@@ -3859,7 +3859,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 										ExecutionsCtrl.getCurrent().sendRedirect(pertemuanFileContent.getLink(),
 												"_blank");
 									else
-										Clients.evalJavaScript("popupCenter({url: '" + pertemuanFileContent.getLink()
+										Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(pertemuanFileContent.getLink())
 												+ "', title: 'Book', w: 1200, h: 600});");
 								} else if (pertemuanFileContent.getGdrive() != null) {
 									pertemuanFileContent.tampilGDrive(null);
@@ -3880,7 +3880,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 											if (Common.isMobile())
 												ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 											else
-												Clients.evalJavaScript("popupCenter({url: '" + link
+												Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(link)
 														+ "', title: 'data', w: 1200, h: 600});");
 										}
 									} else {
@@ -4204,7 +4204,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 										if (Common.isMobile())
 											ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 										else
-											Clients.evalJavaScript("popupCenter({url: '" + link
+											Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(link)
 													+ "', title: 'data', w: 1200, h: 600});");
 									} else {
 										MyMessageboxConfig.show("Mohon maaf, berkas yang Bapak/Ibu akses saat ini tidak dapat ditemukan pada sistem. Langkah yang dapat dilakukan: (1) mohon menunggu beberapa saat dan mencoba kembali karena berkas kemungkinan masih dalam proses pengunggahan; (2) mohon memastikan koneksi internet Bapak/Ibu dalam keadaan stabil; (3) apabila berkas tetap tidak dapat dibuka, mohon menghubungi pengajar atau administrator sistem agar berkas tersebut dapat diunggah ulang.", "Peringatan",
@@ -4314,7 +4314,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 										if (Common.isMobile())
 											ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 										else
-											Clients.evalJavaScript("popupCenter({url: '" + link
+											Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(link)
 													+ "', title: 'data', w: 1200, h: 600});");
 									} else {
 										MyMessageboxConfig.show("Mohon maaf, berkas yang Bapak/Ibu akses saat ini tidak dapat ditemukan pada sistem. Langkah yang dapat dilakukan: (1) mohon menunggu beberapa saat dan mencoba kembali karena berkas kemungkinan masih dalam proses pengunggahan; (2) mohon memastikan koneksi internet Bapak/Ibu dalam keadaan stabil; (3) apabila berkas tetap tidak dapat dibuka, mohon menghubungi pengajar atau administrator sistem agar berkas tersebut dapat diunggah ulang.", "Peringatan",

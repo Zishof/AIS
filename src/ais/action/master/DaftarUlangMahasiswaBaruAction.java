@@ -5670,7 +5670,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 
 							if (isFlip) {
 								if (virtualAccountBank != null)
-									Clients.evalJavaScript("popupCenter({url: '" + virtualAccountBank.getLink()
+									Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(virtualAccountBank.getLink())
 											+ "', title: 'Book', w: 1200, h: 600});");
 								else
 									MyMessageboxConfig.show(
@@ -5692,7 +5692,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 
 							if (virtualAccountBank != null && virtualAccountBank.getLink() != null
 									&& !virtualAccountBank.getLink().isEmpty()) {
-								Clients.evalJavaScript("popupCenter({url: '" + virtualAccountBank.getLink()
+								Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(virtualAccountBank.getLink())
 										+ "', title: 'Book', w: 1200, h: 600});");
 								return;
 							}
