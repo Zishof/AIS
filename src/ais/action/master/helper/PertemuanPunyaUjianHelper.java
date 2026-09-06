@@ -4173,18 +4173,85 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 	/**
 	 * Membangun satu KARTU ringkas untuk sebuah {@link PertemuanPunyaUjian} pada
-	 * tampilan pengelola/dosen. Kartu berisi ringkasan (nama ujian, jenis, status aktif,
-	 * jumlah peserta ikut, jumlah soal, durasi, jadwal pelaksanaan, dan tujuan nilai)
-	 * beserta tombol aksi. Seluruh pengaturan detail TIDAK ditaruh di kartu, melainkan
-	 * dibuka melalui tombol <b>Pengaturan Data Ujian</b> yang memanggil
-	 * {@link #bukaPengaturanUjian(PertemuanPunyaUjian, EventListener)} — modal ini me-reuse
-	 * {@link DetailPertemuanRenderer} lama sehingga seluruh kontrol & event editing
-	 * (checkbox, tanggal, durasi, format nilai, tombol Hasil/Ubah/Hapus/Preview) tetap
-	 * berfungsi persis seperti sebelumnya tanpa perubahan logika.
+	 * tampilan pengelola/dosen, lalu memasangnya ke {@link #kartuWrap}. Dipanggil sekali per ujian
+	 * dari {@link #loadData(Object)}, HANYA pada cabang {@code pengelola == true}; padanan untuk
+	 * peserta adalah {@link #buatKartuUjianPeserta(PertemuanPunyaUjian, Tbmuser, EventListener)}.
+	 * Karena pemilihan cabang itulah satu-satunya penjaga peran untuk kartu ini, method ini
+	 * sendiri TIDAK memeriksa peran lagi — parameter {@code tbmuser} bahkan tidak dipakai untuk
+	 * mengatur visibilitas tombol apa pun di sini. Keluar lebih awal tanpa membuat kartu bila
+	 * {@code ppu.getUjian()} {@code null} (tautan ujian sudah terputus).
 	 *
-	 * @param ppu ujian pada pertemuan yang akan dibuatkan kartu
-	 * @param tbmuser user aktif (untuk visibilitas tombol)
-	 * @param refresh listener untuk memuat ulang daftar setelah ada perubahan
+	 * <p><b>Isi kartu — ringkasan dan statistik.</b> Kepala kartu memuat nama ujian, badge jenis
+	 * beserta jenis koreksi, dan penanda Aktif/Non-aktif. Badan kartu berupa deretan
+	 * {@link #chip(String, String)}: status pelaksanaan yang dihitung dengan membandingkan waktu
+	 * kini terhadap jendela {@code mulaiUjian}/{@code sampaiUjian} ("Belum dibuka" / "Sedang
+	 * berlangsung" / "Sudah ditutup" / "Tanpa batas waktu"), total peserta kelas, jumlah yang
+	 * sudah dan belum mengerjakan beserta persentase progres, jumlah soal RIIL di bank ujian
+	 * berdampingan dengan jumlah yang ditampilkan per peserta, status pengacakan, durasi, batas
+	 * percobaan, jadwal, dan komponen nilai tujuan.
+	 *
+	 * <p><b>Mengapa jumlah soal ditampilkan dua angka.</b> Sebelumnya kartu hanya menampilkan
+	 * {@code getJmlDitampilkan()} — jumlah soal yang ditampilkan per peserta menurut konfigurasi,
+	 * BUKAN jumlah soal yang benar-benar ada di bank. Akibatnya kartu bisa tertulis "1 soal"
+	 * padahal bank soalnya kosong, dan pengelola tidak punya petunjuk mengapa peserta melapor
+	 * tidak melihat soal. Kini keduanya ditampilkan berdampingan sehingga bank soal kosong
+	 * langsung terlihat.
+	 *
+	 * <p><b>Statistik nilai.</b> Rata-rata, tertinggi, dan terendah diambil lewat SATU criteria
+	 * agregat ({@code avg}/{@code max}/{@code min} atas {@code nilai} milik
+	 * {@link HasilUjianMahasiswa} yang menunjuk {@code ppu}), bukan dengan memuat seluruh baris
+	 * hasil. Bila kurikulum perkuliahan berstatus OBE, ditambahkan satu chip per Sub-CPMK: kolom
+	 * {@code nilaiObe} (JSON {@code {idFormatNilai: nilai, idFormatNilai_max: maks}}) diambil
+	 * lewat satu query proyeksi lalu diagregasi di memori; JSON yang rusak dilewati diam-diam agar
+	 * satu baris cacat tidak menghilangkan seluruh blok statistik.
+	 *
+	 * <p><b>Ketahanan.</b> Setiap pengambilan data opsional (jumlah peserta yang sudah ikut, total
+	 * mahasiswa kelas, jumlah soal bank, agregat nilai, agregat OBE) dibungkus {@code try/catch}
+	 * sendiri yang melaporkan lewat {@code Common.tampilErrorJikaAdmin}. Kegagalan salah satunya
+	 * hanya membuat chip terkait menampilkan nilai default ({@code 0} atau {@code "-"}); kartu
+	 * tetap terbentuk dan tombol aksinya tetap berfungsi.
+	 *
+	 * <p><b>Tombol aksi.</b> Semua tombol dibungkus satu grup ({@code ppu-gbtngrp}) yang sengaja
+	 * dipasang ke kartu SEBELUM badan info, sehingga tampil di atas ringkasan. Isinya:
+	 * <ul>
+	 * <li><b>Pengaturan Data Ujian</b> — {@link #bukaPengaturanUjian(PertemuanPunyaUjian,
+	 * EventListener)}, satu-satunya pintu ke kontrol pengaturan rinci, yang me-reuse
+	 * {@link DetailPertemuanRenderer} lama sehingga seluruh kontrol dan event editing berfungsi
+	 * persis seperti tampilan tabel sebelumnya.</li>
+	 * <li><b>Hasil Ujian</b> — {@code HasilUjianMahasiswaHelper} dalam window tersendiri, dengan
+	 * {@code onClose} yang memicu {@code refresh} agar ringkasan nilai di kartu ikut terbarui.</li>
+	 * <li><b>Preview</b> — menjalankan {@code ProsesUjianHelper.ikut(...)} atas identitas pengguna
+	 * saat ini, sehingga pengelola bisa mencoba ujian seperti peserta.</li>
+	 * <li><b>Ubah</b> — {@code UjianAction.onAddExternal} untuk menyunting master {@link Ujian}.</li>
+	 * <li><b>Sinkronkan Nilai</b> (hanya bila pertemuan punya perkuliahan) —
+	 * {@code GradingHelper.hitungNilaiBerdasarkanFormatNilaiObe} bila OBE, selain itu
+	 * {@code hitungNilaiBerdasarkanFormatNilai}; cabang non-OBE menolak dengan pesan pemandu bila
+	 * komponen penilaian tujuan belum dipilih.</li>
+	 * <li><b>Hapus</b> — setelah konfirmasi, menghapus {@link HasilUjianMahasiswaDetail} lalu
+	 * {@link HasilUjianMahasiswa} milik ujian ini lewat SQL mentah (id disisipkan sebagai
+	 * {@code Long}, bukan teks pengguna), baru {@code Common.refreshDelete} pada {@code ppu}.</li>
+	 * <li><b>Kelola Soal</b> — {@code DetailUjianHelper} penuh di {@link MyWindow} tersendiri;
+	 * identik dengan tombol bernama sama di dalam modal pengaturan.</li>
+	 * <li><b>Gandakan</b> — menyalin {@link Ujian}, seluruh {@link UjianPunyaSoal}, beserta
+	 * {@link BankSoal} dan {@link BankSoalDetail}-nya, lalu membuat {@link PertemuanPunyaUjian}
+	 * baru pada pertemuan yang sama dengan status non-aktif agar salinan tidak langsung terlihat
+	 * peserta sebelum diperiksa. Penting untuk integritas bank soal: tiap {@link BankSoalDetail}
+	 * salinan di-{@code setBankSoal(bankSoalBaru)} dan {@code kodeUnik}-nya dikosongkan, sehingga
+	 * opsi jawaban salinan TIDAK menggantung pada soal aslinya.</li>
+	 * <li><b>Download Soal</b> / <b>Upload Soal</b> — ekspor-impor soal lewat berkas Excel
+	 * ({@code DetailUjianHelper.doDownload}); unggahan hanya menerima {@code .xlsx} dan menolak
+	 * {@code .xls}/{@code .ods}/{@code .csv} dengan pesan pemandu.</li>
+	 * </ul>
+	 *
+	 * @param ppu     ujian pada pertemuan yang akan dibuatkan kartu; diabaikan bila
+	 *                {@code ppu.getUjian()} {@code null}.
+	 * @param tbmuser pengguna aktif. Diterima demi keseragaman tanda tangan dengan
+	 *                {@link #buatKartuUjianPeserta(PertemuanPunyaUjian, Tbmuser, EventListener)},
+	 *                namun TIDAK dipakai di dalam method ini — penentuan peran sudah terjadi di
+	 *                {@link #loadData(Object)}.
+	 * @param refresh listener yang dipicu setelah aksi yang mengubah data (hapus, gandakan, ubah,
+	 *                sinkronkan nilai, atau penutupan window Hasil/Kelola Soal) agar seluruh
+	 *                daftar kartu dimuat ulang dari database.
 	 */
 	private void buatKartuUjianRingkas(final PertemuanPunyaUjian ppu, final Tbmuser tbmuser,
 			final EventListener refresh) {

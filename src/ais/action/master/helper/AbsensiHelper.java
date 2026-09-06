@@ -173,6 +173,43 @@ import ais.ui.util.WaktuUtil;
  * pembangun komponen ZK mandiri yang dipakai ulang dari layar lain (dashboard, konfirmasi dosen/akademik) untuk
  * menampilkan/mengedit status kehadiran satu {@link Dosen} atau memutuskan apakah suatu status boleh dipilih
  * pada momen tertentu (lihat Javadoc masing-masing method untuk aturan detail).</p>
+ *
+ * <p><b>Cakupan pemakaian.</b> Kelas ini adalah MESIN KEHADIRAN PER-PERTEMUAN untuk seluruh domain akademik:
+ * dipakai oleh lebih dari tiga puluh layar/helper lain (perkuliahan, KKN, PKL, skripsi, tugas akhir, KRS,
+ * wisuda, kursus, formulir kegiatan, ujian PMB, jadwal pelajaran/ujian PSB sekolah, hingga ujian rekrutmen
+ * pegawai), selain oleh dashboard dan pelaporan. Perlu ditegaskan bahwa kelas ini TIDAK berhubungan dengan
+ * keluarga helper kehadiran HARIAN pegawai/dosen ({@code AbsensiKehadiranDosenHarianHelper},
+ * {@code AbsensiKehadiranPegawaiHarianHelper}, {@code AbsensiKehadiranPegawaiPerHariHelper},
+ * {@code KehadiranPresensiUtil}): domain tersebut berbasis presensi harian dan bertaut ke penggajian,
+ * sedangkan kelas ini berbasis {@link Pertemuan} dan tidak menyentuh entity penggajian mana pun.</p>
+ *
+ * <p><b>Model otorisasi (penting saat mengubah kelas ini).</b> Kelas ini TIDAK melakukan pemeriksaan
+ * kepemilikan/cakupan sendiri: hak akses ke satu {@link Pertemuan} sepenuhnya ditentukan oleh layar pemanggil.
+ * Di dalam kelas ini yang ada hanyalah pembedaan PERAN AKUN, dan hampir seluruh gerbang tulis berbentuk pola
+ * yang sama — {@code (akun bukan mahasiswa/siswa/calon mahasiswa/calon siswa && (tidak wajib sesuai jadwal ||
+ * belum terlewat)) || mahasiswaBolehUbahAbsen}. Konsekuensinya:
+ * <ul>
+ * <li>tidak ada pembedaan antar-akun staf: setiap akun non-peserta yang berhasil membuka pertemuan memperoleh
+ * hak tulis yang sama, tanpa pemeriksaan bahwa ia dosen pengampu perkuliahan tersebut;</li>
+ * <li>cabang {@link #mahasiswaBolehUbahAbsen} (asisten absen) berada DI LUAR pemeriksaan
+ * {@link #terlewat}, sehingga asisten tetap bisa mengubah kehadiran setelah batas waktu;</li>
+ * <li>gerbang pembayaran {@code mahasiswa_yang_belum_membayar_tidak_bisa_absen_perkuliahan} hanya
+ * MENYEMBUNYIKAN radiogroup status pada kartu peserta ({@link #tampilRowAbsensi}); jalur tulis lain seperti
+ * tombol massal "Semua hadir" dan persetujuan massal absensi online tidak ikut memeriksanya;</li>
+ * <li>dua panel berlabel "oleh perwakilan kelas" ({@link #createStatusKehadiranKonfirmasi} dan
+ * {@link #createStatusSesuaiDenganRpsKonfirmasi}) meneruskan mahasiswa yang sedang login apa adanya —
+ * tidak ada peran perwakilan kelas di dalam kode — sedangkan panel penjamin mutu
+ * ({@link #createStatusSesuaiOlehAkademik}) BERGERBANG di pemanggilnya (hanya admin atau akun staf
+ * non-peserta/non-dosen). Data konfirmasi ini disimpan terpisah dari status kehadiran resmi dosen, sehingga
+ * dampaknya pada pelaporan penjaminan mutu, bukan pada rekap kehadiran resmi.</li>
+ * </ul>
+ *
+ * <p><b>Efek samping saat render.</b> {@link #tampilRowAbsensi} MENULIS ke basis data ketika merender: bila
+ * peserta punya {@link PengajuanIzinTidakMasukPerkuliahan} yang sudah disetujui namun status kehadirannya
+ * belum sesuai, status disinkronkan lewat {@link Pertemuan#populate} + {@link Common#refreshUpdate} di tengah
+ * pembangunan komponen. Karena sinkronisasi itu berada di dalam cabang "viewer boleh mengubah", rekonsiliasi
+ * hanya terjadi bila layar dibuka oleh akun berhak — membuka layar sebagai peserta saja tidak menyinkronkan
+ * apa pun.</p>
  */
 public class AbsensiHelper {
 

@@ -668,6 +668,102 @@ public class PembayaranUtilHelper {
 				untukBulananTampilkanMeskipunSudahDibayar, reload, true);
 	}
 
+	/**
+	 * Implementasi tunggal di balik <i>seluruh</i> overload {@code getDetailBiayaMahasiswa*} —
+	 * versi ini menambahkan satu parameter kendali internal, {@code hanyaItemDariSettingBiaya},
+	 * di atas kontrak publik {@link #getDetailBiayaMahasiswadariDatabase(Mahasiswa, Integer, JenisKegiatan, String, boolean, boolean)}.
+	 * Untuk alur lengkapnya (short-circuit, pengecualian NIM, mode angsuran, filter profil,
+	 * dedup, cache) lihat javadoc overload publik tersebut; di sini hanya dijelaskan hal-hal
+	 * yang <b>khusus</b> pada bentuk privat ini.
+	 *
+	 * <h3>1. {@code hanyaItemDariSettingBiaya} — mode ketat, dan kenyataannya selalu menyala</h3>
+	 * <p>Parameter ini diteruskan apa adanya ke
+	 * {@link #batasiItemBiayaPembacaan(Criteria, Collection, boolean)}. Bernilai {@code true} ia
+	 * berarti: <i>hanya</i> {@link ItemBiaya} yang masih tercantum pada {@link SettingBiaya}
+	 * terpilih yang boleh muncul — baris standalone legacy tanpa induk pun ikut ditolak bila
+	 * itemnya sudah dilepas dari setting. Bernilai {@code false} ia melonggarkan aturan itu untuk
+	 * baris legacy all-null.</p>
+	 *
+	 * <p><b>Namun perlu diketahui: pada pohon sumber ini nilainya SELALU {@code true}.</b>
+	 * Ketiga pemanggilnya — {@link #getDetailBiayaMahasiswa(Mahasiswa, Integer, JenisKegiatan, String, Boolean, boolean)},
+	 * {@link #getDetailBiayaMahasiswaUntukLayarPembayaran}, dan overload publik
+	 * {@code getDetailBiayaMahasiswadariDatabase} — semuanya meneruskan {@code true}. Ini bukan
+	 * kelalaian melainkan keputusan sadar: layar admin sempat dibatasi lebih dulu, lalu
+	 * pembatasan yang sama sengaja diberlakukan ke seluruh jalur (termasuk API/H2H) agar nominal
+	 * yang tampil di admin tidak pernah berbeda dari nominal inquiry bank. Cabang
+	 * {@code false} dipertahankan sebagai jalan keluar bila suatu saat perlu dibuka kembali per
+	 * pemanggil, <b>bukan</b> sebagai perilaku yang masih aktif.</p>
+	 *
+	 * <h3>2. Akibatnya: cache per-mahasiswa di method ini menjadi WRITE-ONLY</h3>
+	 * <p>Blok pembacaan cache dijaga oleh {@code if (!hanyaItemDariSettingBiaya && !reload && ...)}.
+	 * Karena flag itu selalu {@code true}, <b>blok pembacaan cache tidak pernah tereksekusi</b>.
+	 * Sementara itu penulisan cache ({@code mahasiswa.put(data.toString(), key)}) tetap berjalan
+	 * di ketiga titik keluar (jalur setting khusus, jalur bulanan, dan jalur reguler). Jadi
+	 * entri berkunci {@code "tagihan_mhs_<id>_<jenisKegiatan>_<semester>[_<bulan>]_<semua|belum_dibayar>_aktif_tagihan_v2"}
+	 * terus ditulis tetapi tidak pernah dibaca kembali oleh siapa pun: kunci milik
+	 * {@code ais.action.ws.util.PembayaranUtil} berbeda bentuk (tanpa akhiran
+	 * {@code _aktif_tagihan_v2}), sehingga tidak ada pembaca lintas kelas.</p>
+	 *
+	 * <p>Dua konsekuensi praktis. Pertama, parameter {@code reload} <b>tidak lagi mengendalikan
+	 * cache tagihan</b> di sini; ia masih bermakna karena diteruskan ke
+	 * {@code Common.singkronkanKrsMahasiswa} dan
+	 * {@code HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa}, tetapi memanggil dengan
+	 * {@code reload=false} tetap menghasilkan query tagihan penuh. Kedua — dan ini yang penting —
+	 * <b>jangan "memperbaiki" ini dengan sekadar menyalakan kembali pembacaan cache.</b> Entri
+	 * yang tersimpan berasal dari hasil mode ketat maupun mode longgar dengan kunci yang sama
+	 * (flag tersebut tidak ikut menjadi bagian kunci), sehingga menghidupkan pembacaan akan
+	 * membuat hasil satu mode dipakai ulang oleh mode lain dan memunculkan kembali regresi
+	 * "item yang sudah dilepas dari Setting Biaya tetap tertagih". Bila cache memang perlu
+	 * dihidupkan lagi, {@code hanyaItemDariSettingBiaya} wajib dimasukkan ke dalam kunci lebih
+	 * dulu.</p>
+	 *
+	 * <h3>3. Filter {@code DetailBiaya.aktif} hanya berlaku di jalur reguler</h3>
+	 * <p>Criteria awal dibangun sebagai {@code createCriteria(DetailBiaya.class)} dengan
+	 * pembatas {@code (aktif IS NULL OR aktif = true)}. Ketika {@code bulan} berisi angka
+	 * (jalur tagihan bulanan/angsuran), variabel {@code criteria} <b>ditimpa seluruhnya</b> oleh
+	 * criteria baru berakar {@link PengaturanPembayaranBulanan} yang hanya memeriksa
+	 * {@code PengaturanPembayaranBulanan.aktif}, lalu turun ke {@code detailBiaya} lewat
+	 * {@code createCriteria("detailBiaya")}. Objek criteria pertama beserta pembatas
+	 * {@code aktif}-nya dibuang tanpa dipakai. Artinya, pada jalur bulanan sebuah
+	 * {@link DetailBiaya} yang sudah dinonaktifkan admin ({@code aktif = false}) tetap ikut
+	 * menagih selama baris bulanannya masih {@code aktif = true} — tidak ada mekanisme yang
+	 * merambatkan penonaktifan induk ke baris bulanannya. Pola yang sama terdapat di
+	 * {@link #getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan, Jurusan, Integer, boolean, boolean)}.
+	 * Perlakukan ini sebagai fakta arsitektur saat menelusuri laporan "tagihan sudah dimatikan
+	 * tapi masih muncul di tagihan bulanan".</p>
+	 *
+	 * <h3>4. Dedup akhir memakai {@link TreeSet}, bukan hanya peta per item</h3>
+	 * <p>Hasil jalur reguler mula-mula di-dedup lewat {@code Map} berkunci
+	 * {@code itemBiaya.getId()} (baris ber-id terbesar menang, karena query diurutkan
+	 * {@code id DESC}), lalu <b>dimasukkan ke {@code new TreeSet(maps.values())}</b>.
+	 * {@link TreeSet} membuang elemen yang {@code compareTo}-nya bernilai {@code 0}, dan
+	 * {@link DetailBiaya#compareTo(GeneralValueObject)} membandingkan <i>hanya</i> kode item
+	 * biaya ({@code itemBiaya.getKode()}) secara terbalik, serta mengembalikan {@code 0} pada
+	 * kegagalan apa pun. Karena {@code ItemBiaya.getKode()} memetakan {@code null} menjadi
+	 * {@code ""} — dan indeks {@code UNIQUE} pada kolom {@code kode} tidak mencegah banyak baris
+	 * ber-{@code NULL} — dua item biaya berbeda yang kodenya sama-sama kosong akan dianggap
+	 * kembar, sehingga <b>salah satu baris tagihan hilang diam-diam dari layar</b> (mahasiswa
+	 * tertagih kurang). Jaga agar setiap {@link ItemBiaya} yang dipakai menagih selalu memiliki
+	 * {@code kode} unik yang terisi; masalahnya ada pada data dan pada {@code compareTo}, bukan
+	 * pada peta dedup di method ini.</p>
+	 *
+	 * @param mahasiswa mahasiswa subjek tagihan; {@code null} langsung mengembalikan koleksi kosong
+	 * @param semester semester akademik yang tagihannya dihitung
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dicari
+	 * @param bulan nomor bulan (string angka) untuk jalur tagihan bulanan; {@code null}/kosong/bukan
+	 *        angka berarti jalur tagihan reguler
+	 * @param untukBulananTampilkanMeskipunSudahDibayar bila {@code true}, baris bulanan yang sudah
+	 *        lunas tetap disertakan (layar riwayat); bila {@code false} baris tersebut disaring
+	 *        keluar lewat {@code sqlRestriction} {@code (realbulan, item_biaya) NOT IN (...)}
+	 * @param reload {@code true} memaksa muat ulang KRS dan riwayat status; lihat catatan bagian 2
+	 *        mengenai cache tagihan yang sudah tidak dibaca lagi
+	 * @param hanyaItemDariSettingBiaya {@code true} (satu-satunya nilai yang dipakai saat ini)
+	 *        membatasi hasil hanya pada item milik {@link SettingBiaya} terpilih; {@code false}
+	 *        melonggarkannya untuk baris standalone legacy
+	 * @return koleksi {@link DetailBiaya} dan/atau {@link PengaturanPembayaranBulanan} yang berlaku;
+	 *         koleksi kosong biasa bila tidak ada tagihan, atau sentinel
+	 *         {@link PengecualianTagihanList} bila mahasiswa sengaja dikecualikan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static Collection getDetailBiayaMahasiswadariDatabase(Mahasiswa mahasiswa, Integer semester,
 			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,

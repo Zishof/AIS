@@ -3631,56 +3631,255 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	}
 
 	/**
-	 * Membuat tombol "Analisis Butir Soal" yang menghasilkan laporan psikometrik
-	 * (Tingkat Kesukaran dan Daya Pembeda) untuk setiap soal dalam ujian.
+	 * <b>Overload kompatibilitas (2 argumen)</b> dari
+	 * {@link #analsisButirSoal(PertemuanPunyaUjian, Ambildata, Ambildata)}: meneruskan
+	 * {@code null} sebagai {@code ambilJumlahPeserta} sehingga kartu "Peserta Ujian" pada
+	 * dashboard memakai ukuran map hasil ujian ({@code hasilUjianMahasiswas.size()}) — yaitu
+	 * jumlah peserta yang PUNYA baris hasil ujian, bukan jumlah peserta terdaftar.
 	 *
-	 * <p><b>Tujuan:</b> Membantu dosen/tim ujian mengevaluasi kualitas soal. Soal yang terlalu
-	 * mudah (TK mendekati 1.0) atau terlalu sulit (TK mendekati 0.0), atau soal dengan daya
-	 * pembeda negatif (peserta pandai malah salah), perlu direvisi atau diganti untuk meningkatkan
-	 * validitas dan reliabilitas ujian.</p>
+	 * <p><b>Pemakai lintas modul.</b> Overload inilah yang dipanggil oleh
+	 * {@code HasilUjianSiswaHelper} (domain sekolah) dan
+	 * {@code PenjaminanMutuAnalisisHelper}. Keduanya <b>meminjam langsung</b> mesin analisis
+	 * milik kelas ini alih-alih menduplikasinya, sehingga perubahan apa pun pada rumus TK/DP di
+	 * overload 3 argumen akan ikut mengubah laporan analisis butir soal di modul sekolah dan
+	 * modul penjaminan mutu. Perlakukan kedua method itu sebagai API publik lintas modul:
+	 * jangan mengubah tanda tangan, kontrak {@code Ambildata}, maupun ambang kategori tanpa
+	 * memeriksa ketiga pemanggil.</p>
 	 *
-	 * <p><b>Algoritma analisis butir soal (Item Analysis):</b></p>
-	 * <ul>
-	 *   <li><b>Tingkat Kesukaran (TK):</b> proporsi peserta yang menjawab benar = benar / total.
-	 *       Kategori: Mudah (TK>0.7), Sedang (0.3-0.7), Sulit (&lt;0.3).</li>
-	 *   <li><b>Daya Pembeda (DP):</b> beda proporsi benar antara kelompok atas (27% tertinggi)
-	 *       dan kelompok bawah (27% terendah). Kategori: Sangat Baik (&gt;0.4), Baik (0.3-0.4),
-	 *       Cukup (0.2-0.3), Jelek (&lt;0.2), Negatif (&lt;0).</li>
-	 *   <li><b>Rekomendasi:</b> Gunakan/Revisi/Ganti berdasarkan kombinasi TK dan DP.</li>
-	 * </ul>
+	 * <p><b>Konsekuensi angka.</b> Karena {@code ambilJumlahPeserta} {@code null}, maka
+	 * {@code jumlahPeserta} = ukuran map hasil ujian. Ini memengaruhi tiga besaran turunan:
+	 * kolom "Kosong" per soal, rata-rata nilai pada kartu ringkasan, dan penyebut batang
+	 * distribusi pilihan. Untuk menyelaraskan angka "Peserta Ujian" dengan "Jumlah Peserta"
+	 * di tab Statistik (peserta TERDAFTAR, termasuk yang tidak hadir), gunakan overload
+	 * 3 argumen.</p>
 	 *
-	 * <p><b>Output:</b> Dua output dihasilkan di thread latar:</p>
-	 * <ol>
-	 *   <li>File Excel (.xlsx) berisi data analisis tabular.</li>
-	 *   <li>HTML visual ({@link #buildAnalisisVisualHtml}) berisi chart distribusi dan
-	 *       ringkasan statistik.</li>
-	 * </ol>
+	 * <p><b>Catatan pemanggil {@code PenjaminanMutuAnalisisHelper}.</b> Modul itu meneruskan
+	 * {@code Ambildata} yang mengembalikan {@code null}. Thread latar melakukan
+	 * {@code ((Map) ambil.ambil()).values()} tanpa penjagaan null, sehingga jalur tersebut
+	 * berakhir pada {@code NullPointerException} yang tertangkap {@code catch} terluar. Karena
+	 * {@code label.setValue("")} berada DI DALAM blok {@code try} (bukan di {@code finally}),
+	 * bilah pemuatan tidak pernah dibersihkan dan jendela hasil tidak pernah terbuka. Pemanggil
+	 * WAJIB menyediakan {@code Ambildata} yang mengembalikan {@code Map<Long, Object[]>} yang
+	 * sudah terisi — lihat pola pemakaian di {@link #display(PertemuanPunyaUjian, Component)}.</p>
 	 *
-	 * <p><b>Pemeliharaan:</b> Algoritma item analysis di sini menggunakan formula klasik
-	 * (atas-bawah 27%). Bila ingin mengubah persentase grup atau formula DP, ubah konstanta
-	 * dan hitungan di dalam closure thread latar. Nama method mengandung typo "analsis"
-	 * (bukan "analisis") — jangan perbaiki untuk menjaga kompatibilitas backward.</p>
-	 *
-	 * @param pertemuanPunyaUjian ujian yang soal-soalnya akan dianalisis
-	 * @param ambil               callback opsional (tidak digunakan dalam output, hanya untuk
-	 *                            konsistensi signature dengan {@link #hasilObe})
-	 * @return {@code Toolbarbutton} siap pasang di toolbar, selalu visible
-	 */
-	/**
-	 * Overload kompatibilitas (2 argumen): jumlah "Peserta Ujian" pada dashboard memakai
-	 * ukuran map hasil ujian ({@code hasilUjianMahasiswas.size()}). Dipakai antara lain oleh
-	 * {@code HasilUjianSiswaHelper}. Untuk menampilkan jumlah peserta TERDAFTAR (sama seperti
-	 * "Jumlah Peserta" di tab Statistik), gunakan overload 3 argumen di bawah.
+	 * @param pertemuanPunyaUjian ujian yang butir soalnya akan dianalisis
+	 * @param ambil               penyedia {@code Map<Long, Object[]>} hasil ujian seluruh
+	 *                            peserta; TIDAK boleh mengembalikan {@code null}
+	 * @return {@code Toolbarbutton} "Analisis Butir Soal" siap dipasang ke toolbar
+	 * @see #analsisButirSoal(PertemuanPunyaUjian, Ambildata, Ambildata)
 	 */
 	public static Toolbarbutton analsisButirSoal(final PertemuanPunyaUjian pertemuanPunyaUjian, final Ambildata ambil) {
 		return analsisButirSoal(pertemuanPunyaUjian, ambil, null);
 	}
 
 	/**
-	 * Versi lengkap: {@code ambilJumlahPeserta} (boleh {@code null}) menyediakan jumlah peserta
-	 * TERDAFTAR pada saat tombol diklik — dipakai agar kartu "Peserta Ujian" pada dashboard
-	 * KONSISTEN dengan angka "Jumlah Peserta" di tab Statistik. Bila {@code null} atau tidak
-	 * mengembalikan angka &gt; 0, jumlah peserta jatuh-balik ke ukuran map hasil ujian.
+	 * <b>Tujuan:</b> Membuat tombol toolbar <b>"Analisis Butir Soal"</b> yang, ketika diklik,
+	 * menjalankan analisis psikometrik klasik (<i>classical item analysis</i>) atas seluruh butir
+	 * soal ujian dan menyajikannya dalam jendela modal dua tab: dashboard visual HTML dan
+	 * spreadsheet lengkap yang juga dapat diunduh sebagai berkas {@code .xlsx}.
+	 *
+	 * <p>Method ini adalah <b>mesin analisis butir soal tunggal</b> untuk seluruh aplikasi.
+	 * Modul sekolah ({@code HasilUjianSiswaHelper}) dan modul penjaminan mutu
+	 * ({@code PenjaminanMutuAnalisisHelper}) tidak memiliki implementasi sendiri melainkan
+	 * memanggil overload 2 argumen di atas. Perlakukan seluruh ambang kategori dan rumus di
+	 * bawah ini sebagai kontrak lintas modul.</p>
+	 *
+	 * <h3>1. Struktur eksekusi</h3>
+	 * <ol>
+	 *   <li>Tombol dibuat dan SELALU visible (tidak ada penjagaan hak akses pada tombol itu
+	 *       sendiri; kelayakan ditentukan oleh konteks toolbar tempat ia dipasang).</li>
+	 *   <li>Klik menyiapkan wadah bersama {@code final}: {@code soalAnalisisList}
+	 *       ({@code List<String[12]>} per soal), {@code statsGlobal} ({@code int[9]}),
+	 *       {@code nilaiGlobal} ({@code double[1]}), plus {@code Intbox} penampung dimensi sheet.
+	 *       Wadah ini ditulis thread latar dan dibaca callback ZK — aman karena
+	 *       {@code label.setValue("")} di akhir thread membentuk <i>happens-before</i> terhadap
+	 *       antrean event ZK.</li>
+	 *   <li>{@code Common.displayLoadBar(callback)} menampilkan bilah pemuatan; {@code callback}
+	 *       baru dijalankan setelah nilai label dikosongkan.</li>
+	 *   <li>Thread latar membuka session Hibernate terdedikasi, membangun workbook XSSF,
+	 *       menghitung analisis, menulis berkas ke {@code /tmp/data_<timestamp>.xlsx} di
+	 *       {@code realPath} aplikasi, mengisi {@code intbox}/{@code colsbox}, lalu mengosongkan
+	 *       label.</li>
+	 *   <li>{@code callback} membangun {@link MyWindow} 95%&times;94% berisi {@link Tabbox}
+	 *       dua tab. Tab 1 "Dashboard Analisis Butir Soal" merender
+	 *       {@link #buildAnalisisVisualHtml(java.util.List, int[], double[])}; tab 2
+	 *       "Data Lengkap (Spreadsheet)" menampilkan berkas xlsx. Toolbar berisi Tutup dan
+	 *       "Download Excel Lengkap".</li>
+	 * </ol>
+	 *
+	 * <h3>2. Pengelompokan peserta Atas/Tengah/Bawah — INI BUKAN 27%</h3>
+	 * <p>Dokumentasi lama menyatakan pengelompokan memakai kaidah klasik "27% teratas vs 27%
+	 * terbawah". <b>Itu tidak benar untuk implementasi ini.</b> Yang sebenarnya terjadi:</p>
+	 * <ol>
+	 *   <li>{@code treeMapRangking} adalah {@code TreeSet<Double>} berurutan MENURUN yang berisi
+	 *       nilai-nilai <b>DISTINCT</b> peserta — bukan daftar peserta. Ukurannya disimpan sebagai
+	 *       {@code jumlahTingkatSkor}, yaitu <b>banyaknya tingkat skor berbeda</b>, bukan
+	 *       banyaknya peserta.</li>
+	 *   <li>{@code rangking} seorang peserta = posisi 1-basis nilainya di dalam himpunan distinct
+	 *       tersebut. Pembandingannya memakai {@code Common.numberFormat.format(...)} (perbandingan
+	 *       STRING hasil format, bukan {@code double}), sehingga dua nilai yang berbeda di digit
+	 *       yang tidak ditampilkan akan dianggap satu peringkat.</li>
+	 *   <li>Pembagian kelompok adalah <b>belah-dua (median split)</b> atas tingkat skor:
+	 *       {@code "Atas"} bila {@code rangking <= jumlahTingkatSkor / 2};
+	 *       {@code "Bawah"} bila {@code rangking > (jumlahTingkatSkor + 1) / 2};
+	 *       selain itu {@code "Tengah"}. Untuk jumlah tingkat genap tidak ada kelompok Tengah;
+	 *       untuk ganjil tepat satu tingkat menjadi Tengah.</li>
+	 * </ol>
+	 * <p><b>Implikasi metodologis yang harus disadari.</b> Karena pembelahan dilakukan atas
+	 * TINGKAT SKOR dan bukan atas PESERTA, jumlah peserta di kelompok Atas dan Bawah hampir
+	 * selalu tidak sama — terlebih bila banyak peserta bernilai kembar. Padahal penyebut rumus
+	 * DP di bawah hanya memakai jumlah peserta kelompok Atas. Akibatnya nilai DP dapat keluar
+	 * dari rentang teoretis [-1, +1] ketika kelompok Bawah lebih gemuk daripada kelompok Atas.
+	 * Perlakukan DP di sini sebagai indikator relatif untuk mengurutkan kualitas soal, bukan
+	 * sebagai koefisien yang dapat dibandingkan dengan tabel baku psikometri.</p>
+	 *
+	 * <h3>3. Tingkat Kesukaran (TK / p)</h3>
+	 * <p>Untuk tiap soal dihitung dari dua pencacah yang diakumulasi saat pemindaian jawaban:</p>
+	 * <pre>
+	 *   totalJawab = jumlahBenar[soal] + jumlahSalah[soal]
+	 *   TK = totalJawab &gt; 0 ? jumlahBenar[soal] / totalJawab : 0.0
+	 *   kosong = max(0, jumlahPeserta - totalJawab)
+	 * </pre>
+	 * <p>Dua hal penting yang berbeda dari rumus baku:</p>
+	 * <ul>
+	 *   <li><b>Penyebutnya adalah yang MENJAWAB, bukan seluruh peserta.</b> Soal yang dilewati
+	 *       hampir semua orang namun dijawab benar oleh satu peserta akan memperoleh TK = 1.00
+	 *       dan dikategorikan "Mudah". Kolom "Kosong" pada tabel harus selalu dibaca berdampingan
+	 *       dengan TK agar tidak salah simpul.</li>
+	 *   <li><b>Pencacahnya adalah BARIS RINCIAN JAWABAN, bukan peserta.</b>
+	 *       {@code jumlahBenar}/{@code jumlahSalah} dinaikkan sekali untuk setiap
+	 *       {@code HasilUjianMahasiswaDetail}. Pada soal berjawaban ganda (satu peserta memilih
+	 *       beberapa opsi) satu peserta menyumbang beberapa cacahan, sehingga {@code totalJawab}
+	 *       dapat melebihi jumlah peserta dan {@code kosong} terpangkas menjadi 0 oleh
+	 *       {@code Math.max}.</li>
+	 * </ul>
+	 * <p>Kategori TK (identik antara dashboard dan Excel):
+	 * {@code totalJawab == 0} &rarr; <b>"Blm dikerjakan"</b>;
+	 * {@code TK &gt; 0.70} &rarr; <b>Mudah</b>;
+	 * {@code 0.30 &le; TK &le; 0.70} &rarr; <b>Sedang</b>;
+	 * {@code TK &lt; 0.30} &rarr; <b>Sulit</b>.</p>
+	 *
+	 * <h3>4. Daya Pembeda (DP / D)</h3>
+	 * <pre>
+	 *   jumlahAtas          = banyaknya PESERTA berkelompok "Atas"
+	 *   jumlahPosisi[s+"_Atas"]  = banyaknya BARIS jawaban BENAR pada soal s dari peserta Atas
+	 *   jumlahPosisi[s+"_Bawah"] = banyaknya BARIS jawaban BENAR pada soal s dari peserta Bawah
+	 *   DP = jumlahAtas &gt; 0 ? (atasBenar - bawahBenar) / jumlahAtas : 0.0
+	 * </pre>
+	 * <p>Peserta berkelompok "Tengah" tidak ikut menyumbang pembilang mana pun — sesuai kaidah
+	 * item analysis yang membuang kelompok tengah.</p>
+	 * <p><b>Kategori DP versi dashboard</b> (dan versi yang dicetak pada panduan di bawah tabel):
+	 * {@code totalJawab == 0} &rarr; <b>"Blm dikerjakan"</b>;
+	 * {@code DP &ge; 0.40} &rarr; <b>"Sangat Baik"</b>;
+	 * {@code DP &ge; 0.30} &rarr; <b>"Baik"</b>;
+	 * {@code DP &ge; 0.20} &rarr; <b>"Perlu Revisi"</b>;
+	 * selain itu &rarr; <b>"Ganti"</b>. Tidak ada kategori "Cukup", "Jelek", maupun "Negatif" —
+	 * DP negatif jatuh ke "Ganti".</p>
+	 * <p><b>PERINGATAN — kategori Excel BERBEDA.</b> Baris "Kriteria" pada sheet memakai ambang
+	 * lain: {@code DP &lt; 0.20} &rarr; "Ganti"; {@code DP &lt; 0.40} &rarr; "Revisi"; selain itu
+	 * "Gunakan". Untuk DP di pita <b>0.30 &ndash; 0.399</b> dashboard menyatakan "Baik" dan
+	 * menghitungnya sebagai soal LAYAK PAKAI ({@code statsGlobal[2]}), sedangkan Excel menyatakan
+	 * "Revisi". Kedua keluaran berasal dari satu tombol yang sama, jadi bila dosen membandingkan
+	 * layar dengan berkas unduhan ia akan menemukan angka "Soal Layak Pakai" yang tidak cocok.
+	 * Jangan menyamakan keduanya tanpa memutuskan lebih dulu ambang mana yang menjadi kebijakan
+	 * institusi.</p>
+	 * <p><b>PERINGATAN — pembagian nol pada jalur Excel.</b> Perhitungan dashboard menjaga
+	 * {@code jumlahAtas > 0}, tetapi baris "Daya Pembeda" pada Excel membagi langsung tanpa
+	 * penjagaan. Bila SELURUH peserta bernilai sama ({@code jumlahTingkatSkor == 1}), tidak ada
+	 * seorang pun yang masuk kelompok Atas sehingga {@code jumlahAtas == 0.0} dan hasil bagi
+	 * {@code double} menjadi {@code NaN}. Seluruh perbandingan {@code NaN < ambang} bernilai
+	 * {@code false}, sehingga cabang {@code else} terpilih dan SEMUA soal tercetak
+	 * "GREENGunakan" di berkas Excel. Kondisi ini nyata pada kuis yang seluruh pesertanya
+	 * memperoleh skor identik.</p>
+	 *
+	 * <h3>5. Rekomendasi soal — hanya dari DP</h3>
+	 * <p>Pencacah {@code statsGlobal[2..4]} (Gunakan / Perlu Revisi / Ganti) yang menjadi dasar
+	 * donat "Kualitas Soal" dan kartu "Soal Layak Pakai" dinaikkan <b>semata-mata dari kategori
+	 * DP</b>. Tingkat Kesukaran hanya mengisi pencacah terpisah {@code statsGlobal[5..7]}
+	 * (Mudah/Sedang/Sulit) dan tidak ikut menentukan rekomendasi. Dokumentasi lama yang menyebut
+	 * "rekomendasi berdasarkan kombinasi TK dan DP" keliru.</p>
+	 *
+	 * <h3>6. Arti {@code statsGlobal} dan {@code soalAnalisisList}</h3>
+	 * <p>{@code statsGlobal} ({@code int[9]}): {@code [0]} peserta, {@code [1]} total soal,
+	 * {@code [2]} gunakan, {@code [3]} revisi, {@code [4]} ganti, {@code [5]} mudah,
+	 * {@code [6]} sedang, {@code [7]} sulit, {@code [8]} peserta yang sudah ikut ujian
+	 * (elemen {@code [1]} pada nilai map berupa koleksi tak kosong). {@code nilaiGlobal[0]}
+	 * berisi rata-rata nilai = {@code totalNilaiSum / jumlahPeserta}.</p>
+	 * <p>{@code soalAnalisisList} berisi {@code String[12]} per soal:
+	 * {@code [0]} nomor soal, {@code [1]} teks soal (sudah di-{@code Jsoup}-kan dan dipangkas
+	 * 62 karakter), {@code [2]} kunci, {@code [3]} benar, {@code [4]} salah, {@code [5]} kosong,
+	 * {@code [6]} nilai TK, {@code [7]} kategori TK, {@code [8]} nilai DP, {@code [9]} kategori
+	 * DP, {@code [10]} HTML batang distribusi pilihan, {@code [11]} nama Sub-CPMK.</p>
+	 *
+	 * <h3>7. Pemetaan Sub-CPMK</h3>
+	 * <p>Kolom "Kesesuaian Sub-CPMK" dibangun dari JSON {@code pertemuanPunyaUjian.getFormatNilais()}
+	 * yang memetakan {@code idFormatNilai -> "1,2,5-8"}. Notasi <b>RENTANG</b> {@code a-b}
+	 * didukung agar selaras dengan {@code PertemuanPunyaUjian.ambilMapNomor} yang dipakai saat
+	 * penilaian; bila hanya angka satuan yang diurai, sebagian soal akan tampak tidak terpetakan
+	 * padahal tetap dinilai. Satu nomor soal boleh dipetakan ke beberapa Sub-CPMK — namanya
+	 * digabung dengan koma. Nomor soal untuk pencocokan diambil dari {@code getNomorUrut()},
+	 * kecuali pada ujian acak ({@code getRandom()}) yang memakai nomor urut tampilan.</p>
+	 *
+	 * <h3>8. Batang distribusi pilihan jawaban</h3>
+	 * <p>Himpunan huruf opsi ({@code hurufs}) dikumpulkan secara <b>global untuk seluruh soal</b>,
+	 * lalu ditambah entri {@code "-"} untuk "tidak dijawab". Konsekuensinya, soal yang hanya
+	 * memiliki opsi A&ndash;D tetap menampilkan batang E bernilai 0% bila ada soal lain yang
+	 * memiliki opsi E. Persentase batang dinormalisasi memakai
+	 * {@link #persenDistribusiSeratus(int[], int)} (metode sisa terbesar) agar totalnya tepat
+	 * 100% dan tidak tampak "kurang 1&ndash;2%" akibat pembulatan ke bawah per batang.</p>
+	 *
+	 * <h3>9. Susunan berkas Excel</h3>
+	 * <p>Baris 0 adalah header (No./Kode/Nama/Kelas-Prodi, satu kolom per soal, lalu Benar/Salah/
+	 * Skor/Rangking/Kelompok Rangking). Setiap peserta menempati satu baris; sel jawaban berisi
+	 * huruf pilihan dengan komentar sel berisi teks jawaban dan skornya. Setelah baris peserta
+	 * menyusul blok analisis yang seluruh selnya diawali penanda {@code "**"} (dipakai
+	 * {@code Common.setStyled} untuk membedakan baris analisis dari baris data): Hasil Analisis,
+	 * Soal, Kunci Jawaban, satu baris per huruf pilihan, Jawaban Benar, Jawaban Salah,
+	 * Daya Pembeda, Kriteria, Tingkat Kesukaran (p), dan Kategori Kesukaran. Awalan warna
+	 * {@code GREEN}/{@code YELLOW}/{@code RED} pada teks kategori adalah instruksi pewarnaan
+	 * untuk {@code Common.setStyled}, bukan bagian dari teks yang dimaksudkan terbaca.</p>
+	 *
+	 * <h3>10. Ketahanan, sumber daya, dan hal yang perlu diwaspadai</h3>
+	 * <ul>
+	 *   <li>Kegagalan per peserta dan per soal dibungkus {@code try/catch} sendiri sehingga satu
+	 *       baris rusak tidak membatalkan seluruh laporan.</li>
+	 *   <li>{@code session.clear()} dipanggil setiap 50 peserta untuk menahan pertumbuhan
+	 *       first-level cache pada kelas besar.</li>
+	 *   <li>{@code fileOut} dan {@code session} ditutup di {@code finally}. Namun
+	 *       {@code label.setValue("")} berada di dalam {@code try}, sehingga <b>exception apa pun
+	 *       membuat bilah pemuatan menggantung selamanya</b> dan jendela hasil tidak pernah
+	 *       terbuka. Bila menambah kode di thread ini, pertimbangkan memindahkan pengosongan
+	 *       label ke {@code finally}.</li>
+	 *   <li>Berkas xlsx ditulis ke {@code /tmp} milik aplikasi web dan TIDAK pernah dihapus oleh
+	 *       kode ini; pembersihannya diserahkan ke perawatan sistem.</li>
+	 *   <li>Nama method memuat salah ketik <b>"analsis"</b> (seharusnya "analisis"). JANGAN
+	 *       diperbaiki tanpa menyunting ketiga pemanggil lintas modul secara bersamaan.</li>
+	 * </ul>
+	 *
+	 * <h3>11. Otorisasi</h3>
+	 * <p>Method ini tidak memeriksa hak akses sama sekali dan tidak menyaring data per satuan
+	 * kerja: seluruh data peserta bersumber dari {@code Map} yang disodorkan pemanggil lewat
+	 * {@code ambil}. Dengan demikian cakupan data sepenuhnya menjadi tanggung jawab pemanggil.
+	 * Analisis ini bersifat <b>read-only</b> — tidak ada {@code update} maupun {@code commit}
+	 * terhadap entity ujian mana pun, sehingga tidak dapat dipakai mengubah nilai.</p>
+	 *
+	 * @param pertemuanPunyaUjian ujian yang butir soalnya dianalisis; dipakai untuk mengambil
+	 *                            daftar soal ({@code ambilUjianPunyaSoal}), menentukan mode acak,
+	 *                            membaca pemetaan Sub-CPMK, dan menyusun judul jendela
+	 * @param ambil               penyedia {@code Map<Long, Object[]>} berisi hasil ujian seluruh
+	 *                            peserta ({@code [0]} = {@link HasilUjianMahasiswa},
+	 *                            {@code [1]} = himpunan id soal terjawab). TIDAK boleh
+	 *                            mengembalikan {@code null}
+	 * @param ambilJumlahPeserta  penyedia opsional jumlah peserta TERDAFTAR, dibaca saat tombol
+	 *                            diklik. Bila {@code null}, bukan {@link Number}, atau
+	 *                            {@code <= 0}, jumlah peserta jatuh-balik ke ukuran map hasil
+	 *                            ujian. Nilai ini menjadi penyebut kolom "Kosong", rata-rata
+	 *                            nilai, dan batang distribusi — sehingga kedua overload dapat
+	 *                            menghasilkan rata-rata yang berbeda untuk ujian yang sama
+	 * @return {@code Toolbarbutton} "Analisis Butir Soal" siap dipasang ke toolbar; selalu visible
+	 * @see #buildAnalisisVisualHtml(java.util.List, int[], double[])
+	 * @see #persenDistribusiSeratus(int[], int)
+	 * @see #hasilObe(PertemuanPunyaUjian, Ambildata)
 	 */
 	public static Toolbarbutton analsisButirSoal(final PertemuanPunyaUjian pertemuanPunyaUjian, final Ambildata ambil,
 			final Ambildata ambilJumlahPeserta) {
