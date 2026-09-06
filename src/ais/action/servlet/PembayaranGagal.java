@@ -10,14 +10,24 @@ import javax.servlet.http.HttpServletResponse;
 import ais.common.Common;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet tampilan murni yang meneruskan (forward) permintaan ke halaman
+ * {@code /WEB-INF/u/gagal.jsp} untuk menampilkan notifikasi "pembayaran gagal" kepada pengguna.
+ *
+ * <p>
+ * Servlet ini TIDAK melakukan pembacaan maupun penulisan apa pun ke database — tidak ada
+ * validasi terhadap transaksi pembayaran yang sesungguhnya, tidak ada perubahan status
+ * pembayaran, dan tidak ada gerbang otentikasi/otorisasi. Ia murni sebuah "halaman tujuan"
+ * (landing page) yang biasanya dituju oleh redirect dari gateway pembayaran setelah transaksi
+ * gagal; JSP tujuan sendiri yang bertanggung jawab menampilkan pesan berdasarkan parameter
+ * request (bila ada), bukan servlet ini.
+ * </p>
+ *
+ * @see PembayaranSukses
  */
 public class PembayaranGagal extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	/**
-	 * @see HttpServlet#HttpServlet()
-	 */
+	/** Konstruktor baku servlet, tanpa inisialisasi tambahan. */
 	public PembayaranGagal() {
 		super();
 
@@ -25,8 +35,9 @@ public class PembayaranGagal extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan GET dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -38,8 +49,9 @@ public class PembayaranGagal extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan POST dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -50,6 +62,14 @@ public class PembayaranGagal extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Meneruskan (forward) permintaan apa adanya ke {@code /WEB-INF/u/gagal.jsp} tanpa
+	 * menyertakan attribute tambahan maupun melakukan operasi database.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @param response respons HTTP yang akan di-forward ke JSP
+	 * @throws Exception bila terjadi galat saat forward ke JSP
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		request.getRequestDispatcher("/WEB-INF/u/gagal.jsp").forward(request, response);

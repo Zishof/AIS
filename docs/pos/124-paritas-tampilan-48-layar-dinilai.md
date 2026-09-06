@@ -113,10 +113,17 @@ dokumen sanding ini; keduanya terlihat identik di layar.
 
 ### Satu jebakan baca yang perlu dicatat
 
-Layar Laba Rugi berjendela bawaan **7 hari terakhir**, sedangkan data UAT berakhir Agustus 2026 —
-angkanya nol sampai rentangnya dilebarkan. Sama persis dengan jebakan yang sudah diperbaiki pada
-Laporan Opname (jendela 30 hari, doc 122). Layar laporan berjendela sempit di atas data historis
-akan selalu terbaca sebagai "layar rusak" oleh penguji yang pertama kali membukanya.
+Layar Laba Rugi berjendela bawaan **awal bulan berjalan sampai hari ini** — dan itu default yang
+BENAR untuk laporan laba rugi; mengubahnya menjadi rentang lebar justru akan menyesatkan. Yang
+membuatnya terbaca kosong hanyalah data UAT yang berakhir Agustus 2026: pada 7 September, jendela
+1–7 September memang tidak berisi apa pun.
+
+Bedakan ini dari jebakan Laporan Opname (doc 122), yang memang cacat: di sana jendela 30 hari
+dipakai untuk peristiwa yang jarang terjadi, sehingga layar tampak kosong pada data sungguhan
+kapan pun. Di sini jendelanya benar; datanya yang historis.
+
+**Cara membacanya saat menguji:** lebarkan rentangnya ke periode yang berisi data sebelum
+menyimpulkan layar ini kosong.
 
 ---
 

@@ -21,13 +21,34 @@ import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.file.FotoDosen;
 
 /**
- * Servlet implementation class AmbilFotoDosen
+ * Servlet yang menyajikan foto dosen berdasarkan ID dosen yang dikirim lewat
+ * parameter request {@code id}.
+ * <p>
+ * Alur kerja: {@link #process(HttpServletRequest, HttpServletResponse)} membaca
+ * parameter {@code id}, mencari baris {@link FotoDosen} yang berelasi dengan
+ * dosen tersebut (query {@code Restrictions.eq("dosen", idDosen)}, tanpa filter
+ * status aktif/nonaktif dosen), lalu menuliskan isi berkas foto (lewat
+ * {@link FotoDosen#ambilFile()}) ke response dengan {@code Content-Type:
+ * image/png}. Bila baris foto tidak ditemukan, ID tidak valid, atau berkas
+ * fisiknya gagal dibaca, servlet jatuh ke gambar ikon default
+ * {@code /img/administrator-icon.png} sebagai fallback.
+ * </p>
+ * <p>
+ * <b>Catatan keamanan:</b> servlet ini dapat diakses lewat {@code doGet}/
+ * {@code doPost} TANPA gerbang otentikasi atau otorisasi apa pun. Karena
+ * {@code id} adalah ID baris numerik yang lazimnya berurutan, siapa pun yang
+ * bisa menebak/mengiterasi nilainya dapat mengunduh foto dosen mana pun tanpa
+ * login -- pola arsitektur "anonim + id sekuensial" yang sama seperti pada
+ * beberapa servlet {@code Ambil*} lain di paket ini (mis. {@code AmbilFotoMahasiswa}).
+ * </p>
  */
 public class AmbilFotoDosen extends HttpServlet {
+	/** ID versi serialisasi tetap untuk kontrak {@link java.io.Serializable} milik {@link HttpServlet}. */
 	private static final long serialVersionUID = 1L;
 
 	/**
-	 * @see HttpServlet#HttpServlet()
+	 * Membuat instance servlet. Tidak ada inisialisasi khusus di luar konstruktor
+	 * bawaan {@link HttpServlet#HttpServlet()}.
 	 */
 	public AmbilFotoDosen() {
 		super();
@@ -35,8 +56,16 @@ public class AmbilFotoDosen extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}. Exception apa pun
+	 * yang dilempar oleh {@code process} ditangkap di sini dan diteruskan ke
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga rincian error hanya
+	 * ditampilkan bila pengguna yang sedang login adalah administrator.
+	 *
+	 * @param request permintaan HTTP; parameter {@code id} berisi ID dosen yang fotonya diminta
+	 * @param response respons HTTP; isi foto (atau ikon default) ditulis ke output stream-nya
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -48,8 +77,14 @@ public class AmbilFotoDosen extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}, dengan perilaku
+	 * dan penanganan error yang identik dengan {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP; parameter {@code id} berisi ID dosen yang fotonya diminta
+	 * @param response respons HTTP; isi foto (atau ikon default) ditulis ke output stream-nya
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -60,6 +95,31 @@ public class AmbilFotoDosen extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mencari dan menuliskan foto dosen ke response.
+	 * <p>
+	 * Langkah kerja:
+	 * <ol>
+	 *   <li>Membaca parameter {@code id}; bila kosong, membalas status 500 dan berhenti.</li>
+	 *   <li>Mem-parsing {@code id} menjadi {@code Long}; bila gagal parsing, {@code idDosen}
+	 *       tetap bernilai default {@code -1L} sehingga query di bawah otomatis tidak
+	 *       menemukan baris manapun (fallback ke gambar default).</li>
+	 *   <li>Membuka sesi {@link StreamingHibernateUtil} terpisah untuk mencari satu
+	 *       baris {@link FotoDosen} yang berelasi dengan {@code idDosen} (paling banyak
+	 *       satu baris, tanpa urutan eksplisit).</li>
+	 *   <li>Bila baris ditemukan, membuka berkas fisiknya lewat {@link FotoDosen#ambilFile()}
+	 *       dan menyalin isinya ke response sebagai {@code image/png}.</li>
+	 *   <li>Bila baris tidak ditemukan ATAU pembacaan berkas fisik gagal (exception),
+	 *       menyajikan ikon fallback {@code /img/administrator-icon.png} sebagai lampiran unduhan.</li>
+	 * </ol>
+	 * Sesi Hibernate yang dibuka selalu ditutup (clear/disconnect/close) di blok
+	 * {@code finally} sebelum method berlanjut ke penulisan response.
+	 * </p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code id} wajib berisi ID dosen
+	 * @param resp respons HTTP tujuan penulisan isi foto/ikon default
+	 * @throws Exception diteruskan ke pemanggil ({@link #doGet}/{@link #doPost}) yang menanganinya lewat {@link Common#tampilErrorJikaAdmin(Exception)}
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 
 		String id = request.getParameter("id");
