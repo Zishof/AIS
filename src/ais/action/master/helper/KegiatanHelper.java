@@ -2126,14 +2126,24 @@ public class KegiatanHelper {
 	 * membatasi memory pada upload besar. {@code eventListener} yang dioper pemanggil dipanggil
 	 * di akhir (dengan {@code UploadEvent} asli) sebagai hook tambahan setelah proses selesai.
 	 * File selain {@code .xlsx} ditolak dengan pesan error, tanpa memproses apa pun.
+	 * <p>
+	 * Setiap baris id yang dibaca WAJIB berada dalam cakupan {@code settingBiayaCakupan} (dicek
+	 * lewat {@code detailKegiatan.getDetailBiaya().getSettingBiayaEfektif()}) sebelum ditulis;
+	 * bila tidak, baris ditolak fail-closed dan dicatat di sheet hasil tanpa membocorkan data
+	 * mahasiswa/calon mahasiswanya. Penulisan {@code biaya}/{@code tanggal}/{@code kunci} juga
+	 * ditolak bila {@code itemBiaya.getNilaiBisaDiubah()} bukan {@code true} atau baris sudah
+	 * {@code kunci} oleh siapa pun. Setiap baris id selalu berakhir dengan satu baris di sheet
+	 * hasil berkolom STATUS (BERHASIL/DITOLAK/GAGAL) sehingga tidak ada perubahan yang senyap.
 	 *
-	 * @param buttonLabel   label tombol
-	 * @param buttonImage   path ikon tombol
-	 * @param eventListener dipanggil di akhir proses upload sebagai hook tambahan pemanggil
+	 * @param buttonLabel         label tombol
+	 * @param buttonImage         path ikon tombol
+	 * @param settingBiayaCakupan {@link SettingBiaya} layar pemanggil; membatasi id
+	 *                            {@link DetailKegiatan} yang boleh ditulis lewat upload ini
+	 * @param eventListener       dipanggil di akhir proses upload sebagai hook tambahan pemanggil
 	 * @return tombol toolbar siap dipasang ke UI
 	 */
 	public static MyToolbarbuttonConfig prosesUploadTagihan(String buttonLabel, String buttonImage,
-			final EventListener eventListener) {
+			final SettingBiaya settingBiayaCakupan, final EventListener eventListener) {
 
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
 		toolbarbutton.setUpload(Common.ukuranFileUpload());
@@ -2167,34 +2177,29 @@ public class KegiatanHelper {
 			 *
 			 * <p><b>Ketahanan per baris.</b> Setiap baris dibungkus {@code try/catch} lebar: satu baris
 			 * rusak (id tidak ditemukan, relasi null, tanggal tak terparse) tidak menggagalkan sisa file.
-			 * Konsekuensinya kegagalan bersifat senyap — baris itu sekadar tidak muncul di sheet hasil.
-			 * Tanggal yang tidak terparse juga ditelan tersendiri, sehingga nominal tetap tersimpan
-			 * walaupun tanggalnya tidak.
+			 * Tanggal yang tidak terparse ditelan tersendiri (nominal tetap bisa tersimpan walaupun
+			 * tanggalnya tidak), tetapi kegagalan TIDAK lagi senyap: setiap baris id selalu berakhir
+			 * dengan satu baris di sheet hasil berkolom STATUS (lihat di bawah), termasuk baris yang
+			 * gagal di {@code catch} terluar.
 			 *
-			 * <p><b>Catatan integritas yang perlu diketahui pemanggil.</b> Sifat-sifat berikut adalah
-			 * kondisi kode saat ini, dicatat di sini supaya tidak disalin ke jalur impor lain:
+			 * <p><b>Gerbang integritas.</b> Sebelum {@code biaya}/{@code tanggal}/{@code kunci} ditulis:
 			 * <ul>
-			 * <li><b>Id dipakai mentah.</b> {@link DetailKegiatan} dicari dengan
-			 * {@code Restrictions.idEq(id)} langsung dari kolom 7 spreadsheet, tanpa penyaringan
-			 * fakultas/jurusan/tahun akademik/tenant dan tanpa dikaitkan ke {@code initCriteria} layar
-			 * pemanggil. Cakupan yang membatasi daftar di layar TIDAK membatasi jalur impor ini.</li>
-			 * <li><b>{@code nilaiBisaDiubah} hanya kosmetik.</b> Flag
-			 * {@code getItemBiaya().getNilaiBisaDiubah()} dibaca hanya saat MENULIS gaya sel keluaran
-			 * (merah/abu-abu) — jalur tulis ke database tidak pernah membacanya. Gaya
-			 * {@code setLocked(true)} POI pun tidak berefek karena proteksi sheet tidak diaktifkan.</li>
-			 * <li><b>{@code kunci} write-only.</b> Kolom 11 menulis {@code setKunci(...)}, tetapi
-			 * {@code getKunci()} tidak pernah dibaca sebagai penjaga sebelum menimpa nominal — baris yang
-			 * sudah dikunci pengguna lain tetap dapat ditimpa.</li>
-			 * <li><b>NPE tersembunyi pada baris bulanan.</b> Pembentukan sel 9-11 memanggil
-			 * {@code getItemBiaya().getNilaiBisaDiubah()} tanpa penjagaan, padahal cabang di atasnya
-			 * membuktikan {@code getItemBiaya()} bisa {@code null} untuk baris tagihan bulanan (yang
-			 * memakai {@code pengaturanPembayaranBulanan}); {@code getNilaiBisaDiubah()} sendiri
-			 * mengembalikan {@link Boolean} yang nullable. NPE-nya tertangkap {@code catch} per baris
-			 * SETELAH {@link #updateEntitySafe} dijalankan, sehingga nominal sudah berubah di database
-			 * tetapi barisnya lenyap dari sheet hasil.</li>
+			 * <li><b>Cakupan.</b> {@link DetailKegiatan} yang ditemukan lewat {@code Restrictions.idEq(id)}
+			 * harus memiliki {@code getDetailBiaya().getSettingBiayaEfektif()} yang sama dengan
+			 * {@code settingBiayaCakupan} milik layar pemanggil; bila tidak (termasuk bila salah satu sisi
+			 * {@code null}), baris ditolak fail-closed dan HANYA id + STATUS yang dicatat di sheet hasil
+			 * (tanpa data mahasiswa/calon mahasiswa) supaya jalur ini juga tidak jadi kebocoran data
+			 * lintas fakultas/tenant.</li>
+			 * <li><b>{@code nilaiBisaDiubah}.</b> {@code detailKegiatan.getItemBiaya()} (null-safe,
+			 * termasuk untuk baris bulanan) harus ada dan {@code getNilaiBisaDiubah()}-nya {@code true}
+			 * sebelum kolom 9/10/11 boleh ditulis; kalau tidak, baris ditolak dan nilai lama yang
+			 * ditampilkan di sheet hasil.</li>
+			 * <li><b>{@code kunci}.</b> Bila {@code getKunci() != null}, permintaan mengubah
+			 * {@code biaya}/{@code tanggal} pada baris itu ditolak (operator harus membuka kunci lewat
+			 * layar aslinya lebih dulu, sesuai pola {@code DetailPembayaranMahasiswaRenderer.tampilkanKunci}
+			 * di tempat lain); baris yang tidak sedang dikunci tetap bisa dikunci/dibuka lewat kolom 11
+			 * seperti sebelumnya.</li>
 			 * </ul>
-			 * Penambalan hal-hal di atas dilacak terpisah dan sengaja tidak dilakukan dalam perubahan
-			 * dokumentasi ini.
 			 *
 			 * @param event {@link UploadEvent} ZK yang membawa {@link Media} file .xlsx
 			 * @throws Exception diteruskan dari pembacaan workbook, penulisan file hasil, atau dari {@code eventListener} pemanggil
@@ -2258,6 +2263,8 @@ public class KegiatanHelper {
 					rowhead.createCell(8).setCellValue("KETARANGAN TAGIHAN");
 					rowhead.createCell(9).setCellValue("NOMINAL TAGIHAN");
 					rowhead.createCell(10).setCellValue("TANGGAL TAGIHAN");
+					rowhead.createCell(11).setCellValue("KUNCI");
+					rowhead.createCell(12).setCellValue("STATUS");
 
 					XSSFCellStyle lockedNumericStyle = workbook.createCellStyle();
 					lockedNumericStyle.setFillPattern(XSSFCellStyle.SOLID_FOREGROUND);
@@ -2285,100 +2292,141 @@ public class KegiatanHelper {
 											.createCriteria(DetailKegiatan.class).add(Restrictions.idEq(id))
 											.uniqueResult();
 									if (detailKegiatan != null) {
-										if (kunci != null)
-											detailKegiatan.setKunci(kunci ? tbmuser : null);
-										if (nilai != null)
-											detailKegiatan.setBiaya(nilai);
-										if (tanggal != null && !tanggal.isEmpty()) {
-											try {
-												detailKegiatan.setTanggal(Common.dateFormat.get().parse(tanggal));
-											} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:1351");
+										DetailBiaya detailBiayaBaris = detailKegiatan.getDetailBiaya();
+										SettingBiaya settingBiayaBaris = detailBiayaBaris == null ? null
+												: detailBiayaBaris.getSettingBiayaEfektif();
+										boolean dalamCakupan = settingBiayaCakupan != null && settingBiayaBaris != null
+												&& settingBiayaBaris.getId() != null
+												&& settingBiayaBaris.getId().equals(settingBiayaCakupan.getId());
+
+										if (!dalamCakupan) {
+											XSSFRow rowDitolak = sheet.createRow(i);
+											rowDitolak.createCell(7).setCellValue(detailKegiatan.getId());
+											rowDitolak.createCell(12).setCellValue(
+													"DITOLAK: ID TAGIHAN di luar cakupan Setting Biaya layar ini");
+										} else {
+											ItemBiaya itemBiayaBaris = detailKegiatan.getItemBiaya();
+											boolean nilaiBisaDiubah = itemBiayaBaris != null
+													&& Boolean.TRUE.equals(itemBiayaBaris.getNilaiBisaDiubah());
+											boolean sedangDikunci = detailKegiatan.getKunci() != null;
+											boolean adaPerubahanDiminta = kunci != null || nilai != null
+													|| (tanggal != null && !tanggal.isEmpty());
+
+											String statusTulis;
+											if (adaPerubahanDiminta && !nilaiBisaDiubah) {
+												statusTulis = "DITOLAK: nominal Item Biaya ini terkunci (tidak boleh diubah)";
+											} else if ((nilai != null || (tanggal != null && !tanggal.isEmpty()))
+													&& sedangDikunci) {
+												statusTulis = "DITOLAK: baris sedang dikunci oleh "
+														+ (detailKegiatan.getKunci().getUserId() == null ? "pengguna lain"
+																: detailKegiatan.getKunci().getUserId());
+											} else {
+												if (kunci != null)
+													detailKegiatan.setKunci(kunci ? tbmuser : null);
+												if (nilai != null)
+													detailKegiatan.setBiaya(nilai);
+												if (tanggal != null && !tanggal.isEmpty()) {
+													try {
+														detailKegiatan.setTanggal(Common.dateFormat.get().parse(tanggal));
+													} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:1351");
+													}
+												}
+
+												try {
+													updateEntitySafe(session, detailKegiatan);
+												} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:1357");
+												}
+												statusTulis = "BERHASIL";
 											}
+
+											Mahasiswa mahasiswa = detailKegiatan.getKegiatan().getMahasiswa();
+											BiodataCalonMahasiswa biodataCalonMahasiswa = detailKegiatan.getKegiatan()
+													.getCalonMahasiswa();
+
+											XSSFRow row = sheet.createRow(i);
+											if (mahasiswa != null) {
+												row.createCell(0).setCellValue(mahasiswa.getNim());
+												row.createCell(1).setCellValue(mahasiswa.getNama());
+												row.createCell(2).setCellValue(
+														detailKegiatan.getKegiatan().getJenisKegiatan().getNamaKegiatan());
+												row.createCell(3)
+														.setCellValue(mahasiswa.getJurusan().getFakultas().getNama());
+												row.createCell(4).setCellValue(mahasiswa.getJurusan().getNama());
+												row.createCell(5)
+														.setCellValue(mahasiswa.getStatusAwalMahasiswa() == null ? ""
+																: mahasiswa.getStatusAwalMahasiswa().getNama());
+												row.createCell(6).setCellValue(mahasiswa.getTahunangkatan());
+											} else if (biodataCalonMahasiswa != null) {
+												Jurusan jurusan = biodataCalonMahasiswa.getProdiLulus() == null
+														? biodataCalonMahasiswa.getProdi1()
+														: biodataCalonMahasiswa.getProdiLulus();
+												row.createCell(0).setCellValue(biodataCalonMahasiswa.getNoRegistrasi());
+												row.createCell(1).setCellValue(biodataCalonMahasiswa.getNama());
+												row.createCell(2).setCellValue(
+														detailKegiatan.getKegiatan().getJenisKegiatan().getNamaKegiatan());
+												row.createCell(3).setCellValue(jurusan.getFakultas().getNama());
+												row.createCell(4).setCellValue(jurusan.getNama());
+												row.createCell(5)
+														.setCellValue(biodataCalonMahasiswa.getStatusAwalMahasiswa() == null
+																? ""
+																: biodataCalonMahasiswa.getStatusAwalMahasiswa().getNama());
+												row.createCell(6).setCellValue(biodataCalonMahasiswa.getTahun());
+											}
+
+											XSSFCell cell = row.createCell(7);
+											cell.setCellValue(detailKegiatan.getId());
+											cell.setCellStyle(lockedNumericStyle);
+
+											StringBuilder desc = new StringBuilder();
+											if (detailKegiatan.getPengaturanPembayaranBulanan() != null) {
+												desc.append(detailKegiatan.getPengaturanPembayaranBulanan().getDetailBiaya()
+														.getItemBiaya().getKode());
+												desc.append(" ").append(detailKegiatan.getPengaturanPembayaranBulanan()
+														.getDetailBiaya().getItemBiaya().getNama());
+												desc.append(" ").append(
+														detailKegiatan.getPengaturanPembayaranBulanan().getNamaBulan());
+												desc.append(" smt ").append(detailKegiatan.getKegiatan().getSemster())
+														.append(" ")
+														.append(detailKegiatan.getKegiatan().getTahunAkademik());
+											} else if (detailKegiatan.getItemBiaya() != null) {
+												desc.append(detailKegiatan.getItemBiaya().getKode());
+												desc.append(" ").append(detailKegiatan.getItemBiaya().getNama());
+												desc.append(" smt ").append(detailKegiatan.getKegiatan().getSemster())
+														.append(" ")
+														.append(detailKegiatan.getKegiatan().getTahunAkademik());
+											}
+
+											cell = row.createCell(8);
+											cell.setCellValue(desc.toString());
+
+											cell = row.createCell(9);
+											cell.setCellStyle(nilaiBisaDiubah ? notLocked : lockedNumericStyle);
+											cell.setCellValue(detailKegiatan.getBiaya());
+
+											cell = row.createCell(10);
+											cell.setCellStyle(nilaiBisaDiubah ? notLocked : lockedNumericStyle);
+											cell.setCellValue(detailKegiatan.getTanggal() == null ? ""
+													: Common.dateFormat.get().format(detailKegiatan.getTanggal()));
+
+											cell = row.createCell(11);
+											cell.setCellStyle(nilaiBisaDiubah ? notLocked : lockedNumericStyle);
+											cell.setCellValue(detailKegiatan.getKunci() != null);
+
+											cell = row.createCell(12);
+											cell.setCellValue(statusTulis);
 										}
-
-										try {
-											updateEntitySafe(session, detailKegiatan);
-										} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:1357");
-										}
-
-										Mahasiswa mahasiswa = detailKegiatan.getKegiatan().getMahasiswa();
-										BiodataCalonMahasiswa biodataCalonMahasiswa = detailKegiatan.getKegiatan()
-												.getCalonMahasiswa();
-
-										XSSFRow row = sheet.createRow(i);
-										if (mahasiswa != null) {
-											row.createCell(0).setCellValue(mahasiswa.getNim());
-											row.createCell(1).setCellValue(mahasiswa.getNama());
-											row.createCell(2).setCellValue(
-													detailKegiatan.getKegiatan().getJenisKegiatan().getNamaKegiatan());
-											row.createCell(3)
-													.setCellValue(mahasiswa.getJurusan().getFakultas().getNama());
-											row.createCell(4).setCellValue(mahasiswa.getJurusan().getNama());
-											row.createCell(5)
-													.setCellValue(mahasiswa.getStatusAwalMahasiswa() == null ? ""
-															: mahasiswa.getStatusAwalMahasiswa().getNama());
-											row.createCell(6).setCellValue(mahasiswa.getTahunangkatan());
-										} else if (biodataCalonMahasiswa != null) {
-											Jurusan jurusan = biodataCalonMahasiswa.getProdiLulus() == null
-													? biodataCalonMahasiswa.getProdi1()
-													: biodataCalonMahasiswa.getProdiLulus();
-											row.createCell(0).setCellValue(biodataCalonMahasiswa.getNoRegistrasi());
-											row.createCell(1).setCellValue(biodataCalonMahasiswa.getNama());
-											row.createCell(2).setCellValue(
-													detailKegiatan.getKegiatan().getJenisKegiatan().getNamaKegiatan());
-											row.createCell(3).setCellValue(jurusan.getFakultas().getNama());
-											row.createCell(4).setCellValue(jurusan.getNama());
-											row.createCell(5)
-													.setCellValue(biodataCalonMahasiswa.getStatusAwalMahasiswa() == null
-															? ""
-															: biodataCalonMahasiswa.getStatusAwalMahasiswa().getNama());
-											row.createCell(6).setCellValue(biodataCalonMahasiswa.getTahun());
-										}
-
-										XSSFCell cell = row.createCell(7);
-										cell.setCellValue(detailKegiatan.getId());
-										cell.setCellStyle(lockedNumericStyle);
-
-										StringBuilder desc = new StringBuilder();
-										if (detailKegiatan.getPengaturanPembayaranBulanan() != null) {
-											desc.append(detailKegiatan.getPengaturanPembayaranBulanan().getDetailBiaya()
-													.getItemBiaya().getKode());
-											desc.append(" ").append(detailKegiatan.getPengaturanPembayaranBulanan()
-													.getDetailBiaya().getItemBiaya().getNama());
-											desc.append(" ").append(
-													detailKegiatan.getPengaturanPembayaranBulanan().getNamaBulan());
-											desc.append(" smt ").append(detailKegiatan.getKegiatan().getSemster())
-													.append(" ")
-													.append(detailKegiatan.getKegiatan().getTahunAkademik());
-										} else if (detailKegiatan.getItemBiaya() != null) {
-											desc.append(detailKegiatan.getItemBiaya().getKode());
-											desc.append(" ").append(detailKegiatan.getItemBiaya().getNama());
-											desc.append(" smt ").append(detailKegiatan.getKegiatan().getSemster())
-													.append(" ")
-													.append(detailKegiatan.getKegiatan().getTahunAkademik());
-										}
-
-										cell = row.createCell(8);
-										cell.setCellValue(desc.toString());
-
-										cell = row.createCell(9);
-										cell.setCellStyle(detailKegiatan.getItemBiaya().getNilaiBisaDiubah() ? notLocked
-												: lockedNumericStyle);
-										cell.setCellValue(detailKegiatan.getBiaya());
-
-										cell = row.createCell(10);
-										cell.setCellStyle(detailKegiatan.getItemBiaya().getNilaiBisaDiubah() ? notLocked
-												: lockedNumericStyle);
-										cell.setCellValue(detailKegiatan.getTanggal() == null ? ""
-												: Common.dateFormat.get().format(detailKegiatan.getTanggal()));
-
-										cell = row.createCell(11);
-										cell.setCellStyle(detailKegiatan.getItemBiaya().getNilaiBisaDiubah() ? notLocked
-												: lockedNumericStyle);
-										cell.setCellValue(detailKegiatan.getKunci() != null);
 									}
 								} catch (Exception e) {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/KegiatanHelper.java:1437");
+									XSSFRow rowGagal = sheet.getRow(i);
+									if (rowGagal == null) {
+										rowGagal = sheet.createRow(i);
+										if (id != null) {
+											rowGagal.createCell(7).setCellValue(id);
+										}
+									}
+									rowGagal.createCell(12)
+											.setCellValue("GAGAL: " + (e.getMessage() == null ? e.toString() : e.getMessage()));
 								}
 
 								rowProcessed++;

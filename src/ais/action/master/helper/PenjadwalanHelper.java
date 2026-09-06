@@ -183,6 +183,40 @@ import ais.ui.util.WaktuUtil;
  *   ({@link #copyLampiranPertemuan(Pertemuan, Pertemuan)}) — dipakai bersama oleh
  *   {@link #tampilTombolAmbil} untuk membangun laporan hasil salin agenda yang diunduh sebagai .txt.</li>
  * </ul>
+  * <p><b>Posisi dalam arsitektur: kelas ini adalah MESIN BERSAMA, bukan salah satu dari sekian
+  * helper penjadwalan yang sederajat.</b> Delapan helper bernama {@code Penjadwalan*} yang lebih kecil
+  * TIDAK mengulang logika agenda; mereka membangun toolbar/grid khas domainnya sendiri lalu
+  * MENDELEGASIKAN aksi agenda ke method statis di kelas ini. Pemetaan yang terverifikasi:</p>
+  * <ul>
+  *   <li>{@code PenjadwalanKknHelper} (KKN), {@code PenjadwalanFormulirKegiatanHelper} (formulir
+  *   kegiatan), dan {@code PenjadwalanWisudaHelper} (wisuda) memakai lima titik masuk sekaligus:
+  *   {@link #checkBolehHapus(Pertemuan)}, {@link #tampilTombolAmbil}, {@link #tampilTombolAturUlangWaktu},
+  *   {@link #tampilTombolDownload}, dan {@link #tampilTombolHapus}.</li>
+  *   <li>{@code PenjadwalanSkripsiHelper} (skripsi) dan {@code PenjadwalanTugasAkhirHelper} (bimbingan
+  *   tugas akhir) memakai lima titik yang sama.</li>
+  *   <li>{@code PenjadwalanKrsMahasiswaHelper} (bimbingan KRS) memakai empat titik — sama, kecuali
+  *   {@link #tampilTombolAmbil}, karena agenda bimbingan KRS tidak disalin dari semester lain.</li>
+  *   <li>{@code PenjadwalanUjianPMBHelper} (ujian PMB) dan {@code PenjadwalanGrupPertemuanHelper} (grup
+  *   pertemuan) hanya memakai {@link #checkBolehHapus(Pertemuan)} sebagai gerbang hapus; sisanya
+  *   mengelola jadwalnya sendiri karena entity pemiliknya bukan salah satu dari kedelapan tipe pemilik
+  *   yang diterima method-method di kelas ini.</li>
+  * </ul>
+  * <p>Karena itu {@code Perkuliahan} — bukan KKN/PKL/skripsi — adalah domain "asli" kelas ini: hanya
+  * varian perkuliahan yang punya {@link #display(Perkuliahan, Component)},
+  * {@link #display(Perkuliahan, DataLoader)}, {@link #onSearchDefault(Event)},
+  * {@link #tampilTombolBuatPertemuan}, {@link #buatPertemuan}, {@link #buatSatuPertemuan}, dan
+  * {@link PertemuanRenderer}. Tujuh tipe pemilik lain menumpang pada method statis lintas-domain saja
+  * dan menyediakan renderer/grid-nya sendiri di helper masing-masing. Selain kedelapan helper itu,
+  * kelas ini juga dipanggil dari sekitar 39 berkas lain, antara lain {@code PerkuliahanAction},
+  * {@code RpsObeAction}, {@code KonfigurasiNewAction}, {@code DetailpertemuanHelper}, keluarga
+  * {@code Aktifitas*Helper}, varian sekolah ({@code PenjadwalanSiswaHelper},
+  * {@code PenjadwalanPertemuanPSBHelper}, {@code PenjadwalanUjianPSBHelper}), varian kepegawaian
+  * ({@code PenjadwalanUjianPegawaiHelper}), sampai entity {@code Perkuliahan}/{@code Pertemuan}
+  * sendiri. Konsekuensi praktis: <b>perubahan perilaku apa pun di sini berdampak lintas modul</b>
+  * (akademik, KKN, PKL, skripsi, tugas akhir, wisuda, kegiatan, PMB, sekolah, kepegawaian) sekaligus —
+  * perbaikan bug di satu method statis otomatis memperbaiki kedelapan domain, dan sebaliknya regresi di
+  * sini merusak semuanya sekaligus.</p>
+  *
  * <p><b>Efek samping.</b> Sebagian besar method di kelas ini langsung membaca/menulis basis data lewat
  * Hibernate ({@code Session.createCriteria}, {@code Common.refreshUpdate/refreshSaveOrUpdate/refreshDelete},
  * SQL native untuk hapus massal seperti pada {@link #hapusPertemuanBesertaTugas}) sekaligus memanipulasi
