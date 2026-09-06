@@ -4366,10 +4366,10 @@ public final class PengadaanPosApiHelper {
 	 */
 	private static String urlBerkasLaporan(String namaFile) throws Exception {
 		if (!Common.pakaiDirReportTergabung()) {
-			return Common.CURRENT_URL + "/report/"
+			return Common.getRequestHostWithProtocol() + "/report/"
 					+ java.net.URLEncoder.encode(namaFile, "UTF-8");
 		}
-		return Common.CURRENT_URL + "/pdf?p="
+		return Common.getRequestHostWithProtocol() + "/pdf?p="
 				+ java.net.URLEncoder.encode(Common.desEncrypter.get().encrypt(namaFile), "UTF-8");
 	}
 

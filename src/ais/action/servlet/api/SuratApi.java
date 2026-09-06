@@ -1639,10 +1639,9 @@ public class SuratApi {
 							jsonObject.put("description", "File laporan tidak bisa di cetak");
 						} else {
 							String path = !Common.pakaiDirReportTergabung()
-									? Common.CURRENT_URL + "/report/" + URLEncoder.encode(file.getName(), "UTF-8")
-									: Common.CURRENT_URL + "/pdf?p="
-											+ URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8");
-							;
+									? ApiHelperSupport.absoluteUrl(req, "/report/" + URLEncoder.encode(file.getName(), "UTF-8"))
+									: ApiHelperSupport.absoluteUrl(req, "/pdf?p="
+											+ URLEncoder.encode(Common.desEncrypter.get().encrypt(file.getName()), "UTF-8"));
 							jsonObject.put("url", path);
 							jsonObject.put("status", "00");
 							jsonObject.put("description", "OK");
