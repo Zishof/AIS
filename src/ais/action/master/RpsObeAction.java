@@ -1376,7 +1376,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 	private static void tampilkanCetakHtml(KurikulumPunyaMatakuliah kpm, Perkuliahan perkuliahan) throws Exception {
 		try {
 			String html = buildRpsHtmlPage(kpm, perkuliahan);
-			String escaped = html.replace("\\", "\\\\").replace("`", "\\`");
+			String escaped = html.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$");
 			org.zkoss.zk.ui.util.Clients.evalJavaScript(
 				"(function(){" +
 				"var w=window.open('','_blank','width=1150,height=860,scrollbars=yes,resizable=yes');" +

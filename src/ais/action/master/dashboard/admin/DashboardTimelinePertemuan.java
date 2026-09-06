@@ -3156,8 +3156,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 			if (Common.isMobile()) {
 				ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 			} else {
-				String safeUrl = link.replace("'", "\\'");
-				Clients.evalJavaScript("popupCenter({url: '" + safeUrl + "', title: 'Lampiran', w: 1200, h: 650});");
+				Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(link) + "', title: 'Lampiran', w: 1200, h: 650});");
 			}
 		} else {
 			MyMessageboxConfig.show(
@@ -4140,7 +4139,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 							if (Common.isMobile())
 								ExecutionsCtrl.getCurrent().sendRedirect(pertemuanFileContent.getLink(), "_blank");
 							else
-								Clients.evalJavaScript("popupCenter({url: '" + pertemuanFileContent.getLink()
+								Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(pertemuanFileContent.getLink())
 										+ "', title: 'Book', w: 1200, h: 600});");
 						} else if (pertemuanFileContent.getGdrive() != null) {
 							pertemuanFileContent.tampilGDrive(null);
@@ -4162,7 +4161,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 										ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 									else
 										Clients.evalJavaScript(
-												"popupCenter({url: '" + link + "', title: 'data', w: 1200, h: 600});");
+												"popupCenter({url: '" + Common.jsEscape(link) + "', title: 'data', w: 1200, h: 600});");
 								}
 							} else {
 								MyMessageboxConfig.show(
@@ -4301,7 +4300,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 									ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 								else
 									Clients.evalJavaScript(
-											"popupCenter({url: '" + link + "', title: 'data', w: 1200, h: 600});");
+											"popupCenter({url: '" + Common.jsEscape(link) + "', title: 'data', w: 1200, h: 600});");
 							} else {
 								MyMessageboxConfig.show(
 										"Mohon maaf, berkas yang Bapak/Ibu akses tidak ditemukan. Langkah yang dapat dilakukan: (1) pastikan berkas masih tersedia dan belum dihapus; (2) muat ulang halaman lalu coba kembali; (3) apabila berkas tetap tidak ditemukan, mohon menghubungi administrator sistem.", "Peringatan",
@@ -4390,7 +4389,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 										ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 									else
 										Clients.evalJavaScript(
-												"popupCenter({url: '" + link + "', title: 'data', w: 1200, h: 600});");
+												"popupCenter({url: '" + Common.jsEscape(link) + "', title: 'data', w: 1200, h: 600});");
 								}
 							} else {
 								MyMessageboxConfig.show(
@@ -9118,7 +9117,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 					}
 					if (eventListener != null)
 						eventListener.onEvent(null);
@@ -9176,7 +9175,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 					}
 					if (eventListener != null)
 						eventListener.onEvent(null);
@@ -9228,7 +9227,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 					}
 					if (eventListener != null)
 						eventListener.onEvent(null);
@@ -9279,7 +9278,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 					}
 					if (eventListener != null)
 						eventListener.onEvent(null);
@@ -9330,7 +9329,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 					}
 					if (eventListener != null)
 						eventListener.onEvent(null);
@@ -9379,7 +9378,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 					}
 					if (eventListener != null)
 						eventListener.onEvent(null);
@@ -9428,7 +9427,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Grup Whatsapp', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Grup Whatsapp', w: 1200, h: 600});");
 					}
 					if (eventListener != null)
 						eventListener.onEvent(null);
@@ -9476,7 +9475,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 					}
 					if (eventListener != null)
 						eventListener.onEvent(null);
