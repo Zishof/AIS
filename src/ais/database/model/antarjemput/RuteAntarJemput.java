@@ -62,9 +62,11 @@ public class RuteAntarJemput extends GeneralValueObject {
 	private Integer estimasiMenit;
 	private Boolean aktif;
 
+	/** Konstruktor default (dibutuhkan Hibernate). */
 	public RuteAntarJemput() {
 	}
 
+	/** @return ID unik baris rute (primary key, auto-increment via {@code IDENTITY}). */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -72,14 +74,21 @@ public class RuteAntarJemput extends GeneralValueObject {
 		return id;
 	}
 
+	/** @param id lihat {@link #getId()}. Normalnya tidak perlu diisi manual — dihasilkan DB saat insert. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/** @return ID pengguna (username) yang terakhir mengubah baris ini. Field audit shadow — lihat {@link #getOleh()}. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Setter {@link #getOlehId()}. Nilai kosong/blank diabaikan (no-op) agar jejak audit lama
+	 * tidak tertimpa saat proses simpan tidak membawa identitas pengguna — pola baku di semua
+	 * entitas modul antarjemput.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -87,10 +96,12 @@ public class RuteAntarJemput extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/** @return nama pengguna yang terakhir mengubah baris ini (field audit shadow, diisi via {@link #onUpdate()}). */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/** Setter {@link #getOleh()}. Nilai kosong/blank diabaikan (no-op), sama seperti {@link #setOlehId(String)}. */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -98,95 +109,120 @@ public class RuteAntarJemput extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: dipanggil otomatis oleh Hibernate tepat sebelum baris ini
+	 * di-UPDATE, memperbarui {@link #tanggal_dirubah} (dan field audit terkait) lewat
+	 * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** @return timestamp terakhir baris ini diubah; diisi otomatis saat objek dibuat dan diperbarui via {@link #onUpdate()}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** @param tanggal_dirubah lihat {@link #getTanggal_dirubah()}. */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** @return kode singkat rute ini, di-trim; {@code null} bila belum diisi. */
 	@Column(name = "kode", length = 50)
 	public String getKode() {
 		return kode == null ? null : kode.trim();
 	}
 
+	/** @param kode lihat {@link #getKode()}. */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/** @return nama rute, di-trim; {@code null} bila belum diisi (tidak ada fallback — berbeda dari {@link JadwalAntarJemput#getNama()} yang memakai nama rute ini sebagai fallback-nya). */
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
 		return nama == null ? null : nama.trim();
 	}
 
+	/** @param nama lihat {@link #getNama()}. */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/** @return keterangan/catatan bebas untuk rute ini. */
 	@Column(name = "keterangan")
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/** @param keterangan lihat {@link #getKeterangan()}. */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/** @return jenis layanan rute; default {@link #JEMPUT} bila belum di-set (tidak di-cache ke field). */
 	@Column(name = "jenis_layanan", length = 30)
 	public String getJenisLayanan() {
 		return jenisLayanan == null ? JEMPUT : jenisLayanan;
 	}
 
+	/** @param jenisLayanan lihat {@link #getJenisLayanan()}; nilai valid: {@link #JEMPUT}, {@link #ANTAR}, {@link #PULANG_PERGI}. Tidak divalidasi terhadap konstanta ini oleh setter. */
 	public void setJenisLayanan(String jenisLayanan) {
 		this.jenisLayanan = jenisLayanan;
 	}
 
+	/** @return lokasi/alamat titik awal rute. */
 	@Column(name = "titik_awal")
 	public String getTitikAwal() {
 		return titikAwal;
 	}
 
+	/** @param titikAwal lihat {@link #getTitikAwal()}. */
 	public void setTitikAwal(String titikAwal) {
 		this.titikAwal = titikAwal;
 	}
 
+	/** @return lokasi/alamat titik akhir rute. */
 	@Column(name = "titik_akhir")
 	public String getTitikAkhir() {
 		return titikAkhir;
 	}
 
+	/** @param titikAkhir lihat {@link #getTitikAkhir()}. */
 	public void setTitikAkhir(String titikAkhir) {
 		this.titikAkhir = titikAkhir;
 	}
 
+	/** @return jam keberangkatan terjadwal untuk rute ini (hanya komponen waktu yang dipersist — lihat {@code @Temporal(TIME)}). */
 	@Temporal(TemporalType.TIME)
 	public Date getJamBerangkat() {
 		return jamBerangkat;
 	}
 
+	/** @param jamBerangkat lihat {@link #getJamBerangkat()}. */
 	public void setJamBerangkat(Date jamBerangkat) {
 		this.jamBerangkat = jamBerangkat;
 	}
 
+	/** @return estimasi lama tempuh rute dalam menit; default {@code 0} bila belum di-set. */
 	public Integer getEstimasiMenit() {
 		return estimasiMenit == null ? 0 : estimasiMenit;
 	}
 
+	/** @param estimasiMenit lihat {@link #getEstimasiMenit()}. */
 	public void setEstimasiMenit(Integer estimasiMenit) {
 		this.estimasiMenit = estimasiMenit;
 	}
 
+	/** @return {@code true} bila rute aktif; default {@code true} bila belum di-set (tidak di-cache ke field). */
 	public Boolean getAktif() {
 		return aktif == null ? Boolean.TRUE : aktif;
 	}
 
+	/** @param aktif lihat {@link #getAktif()}. */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
