@@ -488,6 +488,27 @@ public class CommonCurrentSessionHelper extends Common {
 
 
 
+	/**
+	 * Menentukan apakah permintaan dianggap aman (HTTPS), dipakai antara lain oleh titik-titik
+	 * penulis {@link ais.common.Common#CURRENT_URL}/{@code CURRENT_URL_SIMPLE} untuk memilih skema
+	 * {@code https://} vs {@code http://}.
+	 *
+	 * <p><b>Sengaja tidak membaca header {@code X-Forwarded-Proto} langsung di sini.</b>
+	 * {@code request.isSecure()} mencerminkan keputusan container (Tomcat), yang -- bila aplikasi
+	 * berada di belakang pemutus TLS/reverse proxy -- semestinya sudah diterjemahkan dari
+	 * {@code X-Forwarded-Proto} oleh komponen tepercaya di level container (mis.
+	 * {@code RemoteIpValve} dengan {@code internalProxies}/{@code trustedProxies} disetel ke alamat
+	 * proxy yang sah), BUKAN di kode aplikasi ini. Membaca header itu langsung di sini tanpa
+	 * memvalidasi bahwa permintaan benar-benar datang dari proxy tepercaya akan membuka celah:
+	 * klien mana pun dapat memalsukan {@code X-Forwarded-Proto: https} untuk membuat aplikasi
+	 * mengira koneksinya aman padahal tidak, melewati penegakan {@code wajib_https} di bawah ini.
+	 * Bila instalasi tertentu memang berada di belakang proxy tepercaya namun {@code isSecure()}
+	 * masih salah, perbaikannya ada di konfigurasi container/valve, bukan di method ini.</p>
+	 *
+	 * @param request permintaan servlet; boleh {@code null}
+	 * @return {@code true} bila container menganggap koneksi aman, atau konfigurasi
+	 *         {@code wajib_https} aktif
+	 */
 	public static boolean isSecure(HttpServletRequest request) {
 		boolean wajibHttps = false;
 		try {

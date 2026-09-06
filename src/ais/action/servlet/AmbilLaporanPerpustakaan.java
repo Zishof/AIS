@@ -26,12 +26,32 @@ import net.sourceforge.barbecue.BarcodeFactory;
 import net.sourceforge.barbecue.BarcodeImageHandler;
 
 /**
- * Servlet implementation class AmbilLaporanPerpustakaan
+ * Servlet pencetak laporan perpustakaan (bukti peminjaman, perpanjangan, dan pengembalian
+ * item pengadaan) dalam format PDF atau gambar, lengkap dengan barcode Code128 dari kode
+ * transaksi. Dipetakan sebagai endpoint tersendiri (bukan lewat dispatcher aksi ZK), sehingga
+ * dapat ditaut langsung sebagai URL cetak/unduh dari halaman sirkulasi perpustakaan.
+ *
+ * <p><b>Keamanan:</b> endpoint ini tidak eksplisit terdaftar di
+ * {@code applicationContext-security.xml} (berbeda dengan mis. {@code /AmbilLaporanMahasiswa}
+ * yang diberi {@code IS_AUTHENTICATED_REMEMBERED}), sehingga tunduk pada aturan
+ * tangkapan-semua {@code IS_AUTHENTICATED_ANONYMOUSLY} — dapat diakses tanpa login. Karena
+ * {@code id} pada {@link #process} adalah primary key yang diterima mentah dari parameter
+ * request tanpa pengecekan kepemilikan/cabang, siapa pun yang mengetahui atau menebak sebuah
+ * id transaksi peminjaman/pengembalian dapat mengunduh laporannya (memuat ringkasan
+ * peminjaman dari {@link LibraryUtil#tampilanSummaryPeminjaman}). Pola gerbang otentikasi
+ * yang hilang pada servlet {@code Ambil*} semacam ini sudah tercatat sebagai isu berulang di
+ * modul lain.</p>
+ *
+ * @see HttpServlet
  */
 public class AmbilLaporanPerpustakaan extends HttpServlet {
+	/** Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable} servlet ini. */
 	private static final long serialVersionUID = 1L;
 
 	/**
+	 * Konstruktor default tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}.
+	 * Tidak ada state khusus yang diinisialisasi di sini.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public AmbilLaporanPerpustakaan() {
@@ -40,6 +60,17 @@ public class AmbilLaporanPerpustakaan extends HttpServlet {
 	}
 
 	/**
+	 * Menangani GET dengan mendelegasikan ke {@link #process}; kegagalan apa pun ditelan dan
+	 * hanya ditampilkan ke pengguna bila konteks saat ini adalah administrator, lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param request  request HTTP masuk; parameter {@code laporan}/{@code type}/{@code id}/
+	 *                 {@code locale} menentukan laporan yang dicetak, lihat {@link #process}
+	 * @param response response HTTP keluar; diisi berkas PDF atau gambar oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar keluar karena {@link #process} dibungkus
+	 *                          try/catch di sini; dipertahankan hanya karena tanda tangan
+	 *                          {@link HttpServlet#doGet}
+	 * @throws IOException      idem, ditelan oleh blok catch
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -53,6 +84,13 @@ public class AmbilLaporanPerpustakaan extends HttpServlet {
 	}
 
 	/**
+	 * Menangani POST dengan perilaku identik seperti {@link #doGet}: mendelegasikan ke
+	 * {@link #process} dan menelan kegagalan lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param request  request HTTP masuk; parameter sama seperti pada {@link #doGet}
+	 * @param response response HTTP keluar; diisi berkas PDF atau gambar oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar keluar, lihat catatan pada {@link #doGet}
+	 * @throws IOException      idem
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -65,6 +103,36 @@ public class AmbilLaporanPerpustakaan extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membentuk dan menuliskan laporan perpustakaan (peminjaman/perpanjangan/pengembalian)
+	 * sebagai PDF atau gambar langsung ke {@code response}, lengkap dengan barcode Code128
+	 * dari kode transaksi yang bersangkutan.
+	 *
+	 * <p>Alur: (1) baca parameter {@code laporan} (nama laporan: {@code peminjaman},
+	 * {@code perpanjangan}, atau {@code pengembalian}), {@code type} ({@code img} untuk
+	 * gambar, selain itu PDF), {@code id} (primary key transaksi, di-{@code parseLong} tanpa
+	 * validasi lanjutan), dan {@code locale}; (2) buka sesi Hibernate baru dan, sesuai nama
+	 * laporan, muat {@link PeminjamanPengadaanItem} atau {@link KembaliPengadaanItem} dengan
+	 * id tersebut, buat berkas PNG barcode Code128 dari kodenya ke direktori
+	 * {@code /report} pada konteks servlet (nama berkas memakai kode transaksi, BUKAN input
+	 * bebas klien), dan siapkan parameter laporan termasuk ringkasan peminjaman dari
+	 * {@link LibraryUtil#tampilanSummaryPeminjaman}; (3) sesi selalu dibersihkan
+	 * (clear/disconnect/close) di blok {@code finally}; (4) panggil
+	 * {@link Report#generateFileImageReport} atau {@link Report#generateFileReport} dengan
+	 * nama template {@code "library/" + namaLaporan} — bila {@code namaLaporan} tidak cocok
+	 * salah satu dari ketiga nilai yang dikenali, langkah (2) tidak mengisi data apa pun namun
+	 * generator laporan tetap dipanggil dengan nama template turunan parameter tersebut; (5)
+	 * tulis berkas hasil (PDF atau JPEG) ke {@code response} lewat aliran byte biasa.</p>
+	 *
+	 * @param request  request HTTP masuk; parameter {@code laporan}, {@code type}, {@code id},
+	 *                 dan {@code locale} menentukan jenis dan isi laporan
+	 * @param resp     response HTTP keluar; content-type diatur ke {@code image/jpeg} atau
+	 *                 {@code application/pdf} sesuai {@code type}, badan berisi berkas laporan
+	 * @throws Exception bila {@code id} bukan angka valid, bila entity tidak ditemukan
+	 *                    (menyebabkan {@code NullPointerException} saat mengakses kodenya),
+	 *                    bila pembuatan barcode/laporan gagal, atau bila penulisan respons
+	 *                    gagal
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 		String namaLaporan = request.getParameter("laporan");
 		String type = request.getParameter("type");
