@@ -339,6 +339,7 @@ public final class ApotikDemoProvisionHelper {
 			ringkas.put("racikanBaru", racikanDibuat);
 			ringkas.put("formulaRacikanOperasionalBaru", formulaRacikanDibuat);
 			ringkas.put("formulaProduksiOperasionalBaru", formulaProduksiDibuat);
+			ringkas.put("jumlahProfilResepLengkap", JUMLAH_PROFIL_RESEP_UAT);
 			ringkas.put("profilColdChainDiperbarui", profilColdChainDiperbarui);
 			ringkas.put("batchRecallBaru", batchRecallDibuat);
 			ringkas.put("pasienKlinisSampleBaru", pasienKlinisDibuat);
@@ -425,7 +426,7 @@ public final class ApotikDemoProvisionHelper {
 	@SuppressWarnings("unchecked")
 	private static int ensurePasienKlinisDemo(Session session) {
 		List<Resep> reseps = session.createQuery(
-				"from Resep r where r.kode like :kode order by r.kode")
+				"from Resep r where r.kode like :kode order by r.id desc")
 				.setString("kode", "RSP-DEMO-%").setMaxResults(JUMLAH_PROFIL_RESEP_UAT).list();
 		List<Dokter> dokters = session.createQuery(
 				"from Dokter d where d.kode like :kode order by d.kode")
@@ -468,7 +469,9 @@ public final class ApotikDemoProvisionHelper {
 		}
 		int dibuat = 0;
 		for (int i = 1; i <= reseps.size(); i++) {
-			String nomor = pad(i, 3);
+			Resep resep = reseps.get(i - 1);
+			String nomor = resep.getKode() != null && resep.getKode().startsWith("RSP-DEMO-")
+					? resep.getKode().substring("RSP-DEMO-".length()) : pad(i, 3);
 			String kodePasien = "APT-UAT-" + nomor;
 			Pasien pasien = (Pasien) session.createCriteria(Pasien.class)
 					.add(Restrictions.eq("kode", kodePasien)).setMaxResults(1).uniqueResult();
@@ -498,7 +501,6 @@ public final class ApotikDemoProvisionHelper {
 			pasien.setOlehId("seed_demo");
 			session.saveOrUpdate(pasien);
 
-			Resep resep = reseps.get(i - 1);
 			DiagnosaPenyakit diagnosa = resep.getDiagnosaPenyakit();
 			if (diagnosa == null) {
 				diagnosa = new DiagnosaPenyakit();
