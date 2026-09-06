@@ -505,6 +505,44 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	// Menggantikan Double.parseDouble(Common.timeFormat2.get().format(date))
 	// yang memakan banyak object memory String saat di dalam loop.
 	// -------------------------------------------------------------
+	/**
+	 * Mengubah sebuah {@link Date} menjadi bilangan desimal berbentuk {@code jam,menit} untuk
+	 * keperluan pembandingan waktu yang cepat.
+	 *
+	 * <p>
+	 * Nilai kembalian dirakit sebagai {@code HOUR_OF_DAY + (MINUTE / 100.0)}. Jadi pukul 07:30
+	 * menjadi {@code 7.30} dan pukul 16:05 menjadi {@code 16.05}. Bentuk ini dipilih murni demi
+	 * efisiensi: pendahulunya memformat tanggal menjadi {@link String} lalu mem-<i>parse</i>-nya
+	 * kembali menjadi {@code double}, yang di dalam perulangan atas ribuan baris kehadiran
+	 * menghasilkan sampah objek {@link String} dalam jumlah besar.
+	 * </p>
+	 *
+	 * <h4>Batasan yang harus disadari sebelum memakai ulang helper ini</h4>
+	 * <ul>
+	 * <li><b>Ini bukan durasi, dan tidak boleh dijadikan dasar aritmetika.</b> Selisih antara
+	 * {@code 8.00} dan {@code 7.45} bernilai {@code 0.55}, bukan 15 menit. Nilai ini hanya sah
+	 * untuk <b>membandingkan</b> mana yang lebih awal/lebih akhir dalam satu hari yang sama —
+	 * dan memang begitulah cara pemakaiannya di {@link #getMasukjam()} dan
+	 * {@link #getPulangJam()}.</li>
+	 *
+	 * <li><b>Detik diabaikan.</b> Dua waktu dalam menit yang sama tidak dapat dibedakan.</li>
+	 *
+	 * <li><b>Komponen tanggal diabaikan.</b> Pukul 23:00 hari ini dan pukul 23:00 besok
+	 * menghasilkan nilai identik. Untuk shift yang melewati tengah malam, pembandingan berbasis
+	 * helper ini akan menyimpulkan urutan yang terbalik — itulah sebabnya alur lintas hari
+	 * ditangani terpisah lewat {@link #next}/{@link #back} dan penambahan hari secara eksplisit,
+	 * bukan lewat helper ini.</li>
+	 *
+	 * <li><b>Memakai zona waktu bawaan JVM</b> ({@code Calendar.getInstance()}), bukan utilitas
+	 * waktu internal aplikasi. Pada server yang zona waktunya tidak diselaraskan, hasilnya bisa
+	 * bergeser dari waktu yang dilihat pengguna.</li>
+	 * </ul>
+	 *
+	 * @param date waktu yang akan dikonversi; boleh {@code null}
+	 * @return bentuk desimal {@code jam,menit}, atau {@code 0.0} bila {@code date} {@code null}
+	 *         — perhatikan bahwa {@code 0.0} juga merupakan nilai sah untuk pukul 00:00,
+	 *         sehingga pemanggil tidak dapat membedakan keduanya dari nilai kembalian saja
+	 */
 	private double getTimeAsDouble(Date date) {
 		if (date == null)
 			return 0.0;
@@ -513,6 +551,17 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return cal.get(Calendar.HOUR_OF_DAY) + (cal.get(Calendar.MINUTE) / 100.0);
 	}
 
+	/**
+	 * Menyetel identitas pelaku penyimpanan baris.
+	 *
+	 * <p>
+	 * Setter <b>tolak-diam</b>: nilai {@code null} atau kosong diabaikan tanpa peringatan,
+	 * sehingga jejak audit yang sudah ada tidak dapat terhapus oleh penyimpanan berikutnya yang
+	 * berjalan tanpa konteks pengguna (misalnya sinkronisasi dari mesin absensi).
+	 * </p>
+	 *
+	 * @param oleh identitas pelaku; {@code null}/kosong diabaikan
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -520,14 +569,38 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan identitas pelaku terakhir yang menyimpan baris, diisi otomatis oleh
+	 * {@code AuditTimestampInterceptor}.
+	 *
+	 * <p>
+	 * <b>Bukan identitas orang yang absen.</b> Untuk itu gunakan {@link #getPegawai()},
+	 * {@link #getDosen()}, {@link #getGuru()}, {@link #getSiswa()}, atau
+	 * {@link #getMahasiswa()}. Kekeliruan ini mudah terjadi karena nama kolomnya terdengar
+	 * seperti "oleh siapa kehadiran ini".
+	 * </p>
+	 *
+	 * @return identitas pelaku penyimpanan, atau {@code null}
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Mengembalikan rantai jejak pemanggil pendamping {@link #getOleh()}.
+	 *
+	 * @return rantai jejak audit, atau {@code null}
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel rantai jejak pemanggil. Sama seperti {@link #setOleh(String)}, nilai
+	 * {@code null}/kosong diabaikan tanpa peringatan.
+	 *
+	 * @param olehId rantai jejak audit; {@code null}/kosong diabaikan
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -535,26 +608,85 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * <i>Callback</i> JPA yang dijalankan sebelum setiap UPDATE, meneruskan entitas ke
+	 * {@code AuditTimestampInterceptor.ubah(...)} agar stempel waktu dan jejak audit diperbarui.
+	 *
+	 * <p>
+	 * Pada entitas ini, <i>callback</i> tersebut jauh lebih sering terpicu daripada yang
+	 * diperkirakan. Karena banyak getter di kelas ini menulis ke field saat dibaca (lihat
+	 * javadoc kelas), membaca sebuah baris kehadiran di dalam sesi Hibernate yang terbuka sudah
+	 * cukup untuk menandainya kotor — sehingga stempel {@link #getTanggal_dirubah()} bergeser
+	 * dan satu revisi audit baru lahir meski tidak ada data yang benar-benar berubah.
+	 * </p>
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * Menyetel stempel waktu perubahan terakhir. Umumnya diurus otomatis oleh
+	 * {@link #onUpdate()}.
+	 *
+	 * @param tanggal_dirubah stempel waktu baru
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan stempel waktu teknis terakhir baris ini disimpan.
+	 *
+	 * <p>
+	 * Jangan tertukar dengan {@link #getTanggal()} yang merupakan tanggal kehadiran. Selisih
+	 * besar antara keduanya menandakan baris kehadiran disunting jauh setelah harinya lewat —
+	 * informasi yang berguna saat mengaudit koreksi manual atas data yang mendasari gaji.
+	 * </p>
+	 *
+	 * @return stempel waktu perubahan terakhir; terisi waktu server saat objek dibuat
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks baris kehadiran dalam bentuk
+	 * {@code id-status-keterangan-tanggal}.
+	 *
+	 * <p>
+	 * <b>Method ini bermutasi.</b> Baris pertamanya memanggil {@link #getStatusabsensi()} dan
+	 * menugaskan hasilnya kembali ke field {@link #statusabsensi} — dan
+	 * {@code getStatusabsensi()} sendiri adalah getter penyimpul yang dapat ikut mengubah
+	 * {@link #detailJenisShiftPegawai}. Akibatnya, sesuatu yang tampak sepolos memanggil
+	 * {@code toString()} — misalnya saat merakit pesan log atau pesan galat — dapat menandai
+	 * entitas kotor dan memicu UPDATE beserta revisi audit. Hindari memanggilnya di dalam
+	 * perulangan atas entitas yang masih terikat sesi.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan pula bahwa bagian keterangan dibaca dari <b>field</b> {@link #keterangan},
+	 * bukan dari {@link #getKeterangan()}, sehingga keterangan turunan (dari libur nasional atau
+	 * cuti yang disetujui) tidak akan muncul di sini bila belum pernah terhitung.
+	 * </p>
+	 *
+	 * @return ringkasan teks baris kehadiran; komponen tanggal dikosongkan bila
+	 *         {@link #tanggal} {@code null}
+	 */
 	public String toString() {
 		statusabsensi = getStatusabsensi();
 		return id + "-" + statusabsensi + "-" + keterangan + "-"
 				+ (tanggal == null ? "" : Common.dateFormat1.get().format(tanggal));
 	}
 
+	/**
+	 * Mengembalikan primary key baris kehadiran. Nilainya dihasilkan basis data; karena kolom
+	 * dipetakan {@code insertable = false}, menyetel id manual sebelum menyimpan tidak
+	 * berpengaruh.
+	 *
+	 * @return id baris; {@code null} selama objek belum pernah disimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -562,10 +694,67 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key. Relevan bagi Hibernate saat mengisi objek dari hasil query; lihat
+	 * catatan {@code insertable = false} pada {@link #getId()}.
+	 *
+	 * @param id nilai primary key
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Menyimpulkan dan mengembalikan status kehadiran untuk baris ini.
+	 *
+	 * <p>
+	 * Ini <b>bukan pembacaan kolom</b>. Method menjalankan rantai keputusan berlapis, dan pada
+	 * setiap cabang ia <b>menimpa field {@link #statusabsensi}</b> dengan hasil simpulan. Urutan
+	 * prioritasnya, dari yang paling menang:
+	 * </p>
+	 *
+	 * <ol>
+	 * <li><b>Cuti/izin yang sudah disetujui menang atas segalanya.</b> Bila {@link #cutiDanIzin}
+	 * ada, membawa status absensi sendiri, dan sudah bertanda disetujui, status itulah yang
+	 * dipakai — mesin absensi diabaikan sepenuhnya. Inilah alasan seseorang yang cutinya
+	 * disetujui tidak akan pernah tercatat alpa meski tidak pernah menyentuh mesin absensi.</li>
+	 *
+	 * <li><b>Shift yang mewajibkan mesin status.</b> Bila jenis shift yang berlaku menyalakan
+	 * keharusan mengikuti state masuk dan pulang, maka {@link #masukjamState} yang kosong
+	 * langsung berarti <i>belum absen</i> — tembakan mesin sidik jari sekalipun tidak
+	 * menolong. Perhatikan bahwa cabang ini memanggil {@code check(detailJenisShiftPegawai)} dan
+	 * <b>menugaskan hasilnya kembali ke field</b>, sehingga inilah salah satu sumber mutasi
+	 * tersembunyi entitas ini.</li>
+	 *
+	 * <li><b>Penanda {@link #getTidakAdaKehadiran()}.</b> Bila menyala, status dipaksa menjadi
+	 * belum absen dan method langsung selesai.</li>
+	 *
+	 * <li><b>Cuti disetujui tanpa status absensi sendiri</b> tetap mengambil alih status dari
+	 * pengajuan cuti; selain itu barulah nilai tersimpan dipakai (setelah dinormalkan lewat
+	 * {@code check(...)}).</li>
+	 *
+	 * <li><b>Jaring pengaman.</b> Status yang masih {@code null} dijadikan <i>belum absen</i>.
+	 * Kemudian, bila ada jam masuk mentah, status dinaikkan menjadi <i>masuk</i>; dan bila
+	 * hanya ada jam pulang sementara status masih <i>belum absen</i>, status juga dinaikkan
+	 * menjadi <i>masuk</i> — dengan asumsi orang yang absen pulang pastilah hadir.</li>
+	 * </ol>
+	 *
+	 * <h4>Konsekuensi</h4>
+	 * <p>
+	 * Karena seluruh simpulan ini terjadi <b>saat pembacaan</b>, nilai kolom
+	 * {@code statusabsensi} di basis data adalah <i>hasil pembacaan terakhir</i>, bukan
+	 * keputusan yang dibuat secara sadar oleh suatu proses. Dua akibat praktisnya: (a) query SQL
+	 * langsung ke kolom tersebut dapat memberi jawaban berbeda dari yang ditampilkan aplikasi,
+	 * dan (b) membaca ribuan baris pada layar rekap dapat menghasilkan gelombang UPDATE dan
+	 * revisi audit. Bila Anda perlu status untuk pelaporan massal, hitung sekali lalu simpan,
+	 * jangan mengandalkan getter ini di dalam perulangan pada entitas terikat sesi.
+	 * </p>
+	 *
+	 * @return status kehadiran hasil simpulan; tidak pernah {@code null} pada jalur normal
+	 *         karena ada jaring pengaman <i>belum absen</i>
+	 * @see #getTidakAdaKehadiran()
+	 * @see ais.database.model.payroll.CutiDanIzin
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "statusabsensi", nullable = true)
 	public Statusabsensi getStatusabsensi() {
@@ -610,10 +799,46 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return this.statusabsensi;
 	}
 
+	/**
+	 * Menyetel status kehadiran secara eksplisit.
+	 *
+	 * <p>
+	 * <b>Nilai ini rapuh.</b> Panggilan {@link #getStatusabsensi()} berikutnya akan menjalankan
+	 * ulang seluruh rantai simpulannya dan, pada hampir semua kondisi, menimpa apa yang baru
+	 * saja Anda setel. Agar nilai eksplisit bertahan, seluruh cabang berprioritas lebih tinggi
+	 * harus tidak berlaku: tidak ada cuti yang disetujui, penanda {@link #getTidakAdaKehadiran()}
+	 * padam, dan tidak ada jam masuk/pulang mentah yang menaikkan status menjadi <i>masuk</i>.
+	 * </p>
+	 *
+	 * @param statusabsensi status kehadiran; boleh {@code null}
+	 */
 	public void setStatusabsensi(Statusabsensi statusabsensi) {
 		this.statusabsensi = statusabsensi;
 	}
 
+	/**
+	 * Mengembalikan keterangan baris kehadiran, dengan <b>pengarangan otomatis</b> bila kosong.
+	 *
+	 * <p>
+	 * Method menjalankan tiga langkah, dan ketiganya <b>menulis ke field {@link #keterangan}</b>:
+	 * </p>
+	 * <ol>
+	 * <li>Bila keterangan masih kosong <i>dan</i> hari itu adalah libur nasional, keterangan
+	 * dikarang menjadi {@code "Lbr : <nama libur>"}. Perhatikan bahwa pemeriksaan ini memanggil
+	 * {@link #getLiburNasional()} yang sendirinya melakukan pencarian ke master libur — jadi
+	 * satu pembacaan keterangan dapat memicu query tambahan.</li>
+	 * <li>Keterangan {@code null} dinormalkan menjadi string kosong, sehingga pemanggil tidak
+	 * perlu berjaga terhadap {@code null}.</li>
+	 * <li><b>Cuti/izin yang sudah disetujui mengambil alih sepenuhnya</b>: keterangan diganti
+	 * dengan keterangan dari pengajuan cuti, menimpa apa pun yang ditulis petugas. Ini konsisten
+	 * dengan perilaku {@link #getStatusabsensi()}, tetapi berarti keterangan manual yang
+	 * dimasukkan sebelum cuti disetujui akan <b>hilang dari tampilan</b> — dan, karena field
+	 * ikut ditimpa, berpotensi hilang pula dari basis data pada penyimpanan berikutnya.</li>
+	 * </ol>
+	 *
+	 * @return keterangan yang sudah di-<i>trim</i>; tidak pernah {@code null}
+	 * @see #renderKeteranganLink(org.zkoss.zul.Row)
+	 */
 	@Column(name = "keterangan_absen", columnDefinition = "text")
 	public String getKeterangan() {
 		if ((keterangan == null || keterangan.trim().isEmpty()) && getLiburNasional() != null) {
@@ -639,9 +864,69 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	/* OPTIMASI FASE 9: method ini dipanggil PER BARIS grid; sebelumnya regex dikompilasi
 	 * ulang setiap baris. Pattern immutable & thread-safe sehingga aman jadi konstanta.
 	 * Matcher tetap dibuat per panggilan karena Matcher TIDAK thread-safe. */
+	/**
+	 * Pola pengenalan URL di dalam teks keterangan, dipakai
+	 * {@link #renderKeteranganLink(org.zkoss.zul.Row)}.
+	 *
+	 * <p>
+	 * Polanya sangat longgar: apa pun yang diawali {@code http://} atau {@code https://} lalu
+	 * berlanjut sampai spasi pertama dianggap URL. Karena kelas karakter yang dipakai adalah
+	 * "bukan spasi", potongan yang tertangkap <b>boleh mengandung tanda kutip ganda, tanda
+	 * lebih-besar, dan karakter apa pun selain spasi</b>. Konsekuensinya penting dan dibahas di
+	 * {@link #renderKeteranganLink(org.zkoss.zul.Row)}.
+	 * </p>
+	 */
 	private static final java.util.regex.Pattern POLA_URL = java.util.regex.Pattern
 			.compile("(https?://[^\\s]+)");
 
+	/**
+	 * Merender {@link #getKeterangan()} ke dalam satu baris grid ZK, mengubah URL yang
+	 * ditemukan menjadi tautan bertuliskan "Klik".
+	 *
+	 * <h4>Perilaku</h4>
+	 * <p>
+	 * Bila keterangan kosong, sebuah {@code Label} berisi tanda hubung ditambahkan. Bila
+	 * keterangan memuat setidaknya satu URL menurut {@link #POLA_URL}, setiap URL diganti
+	 * dengan elemen jangkar HTML bergaya tautan dan hasilnya dirender sebagai komponen
+	 * {@code Html}. Bila tidak ada URL sama sekali, teks dirender sebagai {@code Label} biasa
+	 * setelah dilewatkan {@code Common.simpleString(...)}.
+	 * </p>
+	 *
+	 * <h4>Perbedaan penting antara kedua cabang</h4>
+	 * <p>
+	 * Cabang tanpa URL memakai {@code Label}, yang oleh ZK diperlakukan sebagai teks murni —
+	 * aman. Cabang dengan URL memakai {@code Html}, yang oleh ZK dikirim ke peramban
+	 * <b>tanpa <i>escaping</i></b>. Pada cabang itu:
+	 * </p>
+	 * <ul>
+	 * <li>{@code Matcher.quoteReplacement} hanya melindungi mekanika penggantian regex (agar
+	 * karakter {@code $} dan {@code \} pada URL tidak ditafsirkan sebagai rujukan grup); ia
+	 * <b>tidak</b> meng-<i>escape</i> HTML;</li>
+	 * <li>URL yang tertangkap disisipkan langsung ke dalam atribut {@code href} yang dibatasi
+	 * tanda kutip ganda, padahal pola regex mengizinkan tanda kutip ganda ikut tertangkap;</li>
+	 * <li>teks di luar URL diteruskan apa adanya lewat {@code appendTail}, sehingga markup apa
+	 * pun yang sudah ada di dalam keterangan ikut dirender.</li>
+	 * </ul>
+	 * <p>
+	 * Yang membuat hal ini patut diperhatikan adalah <b>asal-usul teks keterangan</b>:
+	 * {@link #getKeterangan()} dapat mengambil alih isinya dari keterangan pengajuan
+	 * {@link ais.database.model.payroll.CutiDanIzin}, yakni teks yang diketik pengguna. Dengan
+	 * kata lain, isi kolom ini tidak sepenuhnya dikendalikan sistem. Bila kelak method ini
+	 * dirapikan, arah perbaikan yang benar adalah meng-<i>escape</i> seluruh teks lebih dulu
+	 * lalu menyisipkan jangkar pada hasil yang sudah aman, bukan sebaliknya.
+	 * </p>
+	 *
+	 * <p>
+	 * Catatan kinerja (sesuai komentar optimasi di atas): {@link #POLA_URL} sengaja dijadikan
+	 * konstanta karena method ini dipanggil sekali per baris grid, sedangkan {@code Matcher}
+	 * tetap dibuat per panggilan karena tidak aman dipakai bersama antar-<i>thread</i>.
+	 * Perhatikan pula bahwa {@code matcher.find()} dipanggil sekali untuk menguji keberadaan URL
+	 * lalu di-{@code reset()} sebelum perulangan sesungguhnya — tanpa {@code reset()} itu, URL
+	 * pertama akan terlewat.
+	 * </p>
+	 *
+	 * @param r baris grid ZK yang akan ditambahi komponen tampilan keterangan
+	 */
 	public void renderKeteranganLink(org.zkoss.zul.Row r) {
 		String ket = getKeterangan();
 		if (ket == null || ket.trim().isEmpty()) {
@@ -673,14 +958,82 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menyetel keterangan baris kehadiran.
+	 *
+	 * <p>
+	 * Perlu diingat bahwa {@link #getKeterangan()} akan <b>menimpa</b> nilai ini bila ada
+	 * pengajuan cuti/izin yang sudah disetujui untuk hari yang sama. Keterangan manual karena
+	 * itu hanya bertahan pada hari-hari yang tidak dinaungi cuti yang disetujui.
+	 * </p>
+	 *
+	 * @param keterangan keterangan bebas; boleh {@code null} (akan dinormalkan menjadi string
+	 *                   kosong saat dibaca)
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Menyetel subjek kehadiran sebagai pegawai.
+	 *
+	 * <p>
+	 * Menyetel {@code null} di sini tidak berarti baris ini kehilangan pegawainya:
+	 * {@link #getPegawai()} akan mencoba menurunkannya kembali dari {@link #getDosen()} atau
+	 * {@link #getGuru()} bila salah satunya terisi.
+	 * </p>
+	 *
+	 * @param pegawai subjek kehadiran; boleh {@code null}
+	 */
 	public void setPegawai(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/**
+	 * Mengembalikan subjek kehadiran sebagai {@link Pegawai}, <b>dengan penurunan otomatis dari
+	 * relasi dosen atau guru</b> bila relasi pegawai kosong.
+	 *
+	 * <h4>Mekanisme</h4>
+	 * <ol>
+	 * <li>Relasi pegawai dinormalkan lewat {@code check(...)} — perlu karena relasi ini
+	 * dipetakan {@code FetchType.LAZY} sehingga yang tersimpan bisa berupa proxy yang sesinya
+	 * sudah tertutup.</li>
+	 * <li>Bila hasilnya masih kosong (atau id-nya {@code null}), method membaca
+	 * {@link #dosen}, mengambil id pegawai yang tertaut padanya, lalu memuat objek
+	 * {@link Pegawai} dari cache {@code ConstantValues} — dan <b>menugaskannya ke field</b>.</li>
+	 * <li>Bila masih kosong juga, langkah yang sama diulang untuk {@link #guru}.</li>
+	 * </ol>
+	 *
+	 * <h4>Hal yang perlu diwaspadai</h4>
+	 * <ul>
+	 * <li><b>Getter ini bermutasi.</b> Penurunan otomatis menulis ke field {@link #pegawai},
+	 * {@link #dosen}, dan {@link #guru} sekaligus, sehingga pembacaan pasif dapat menandai
+	 * entitas kotor dan melahirkan revisi audit.</li>
+	 *
+	 * <li><b>Inilah pengganti diskriminator yang tidak ada.</b> Karena entitas ini punya lima
+	 * relasi subjek tanpa kolom penanda mana yang berlaku (lihat javadoc kelas), method ini
+	 * berfungsi sebagai penyatu praktis untuk konteks kepegawaian: apa pun bentuk subjeknya
+	 * — pegawai murni, dosen, atau guru — pemanggil cukup memakai getter ini. Perlu diingat
+	 * bahwa {@link #getSiswa()} dan {@link #getMahasiswa()} <b>tidak</b> ikut dijangkau, karena
+	 * memang bukan pegawai.</li>
+	 *
+	 * <li><b>Kegagalan ditelan sepenuhnya.</b> Seluruh blok penurunan dibungkus
+	 * {@code try/catch} yang hanya mencatat ke {@code ErrorAuditUtil}. Bila cache
+	 * {@code ConstantValues} belum siap atau id pegawai menunjuk data yang sudah dihapus,
+	 * method mengembalikan {@code null} seolah baris ini memang tidak punya pegawai — bukan
+	 * melaporkan galat. Pemanggil yang memakai hasilnya untuk perhitungan gaji karena itu wajib
+	 * memeriksa {@code null} sendiri.</li>
+	 *
+	 * <li><b>Pengambilan lewat cache, bukan sesi.</b> Objek yang dikembalikan berasal dari
+	 * {@code ConstantValues}, sehingga belum tentu terikat pada sesi Hibernate yang sedang
+	 * berjalan. Jangan berasumsi ia dapat dipakai untuk menavigasi relasi malas lebih jauh.</li>
+	 * </ul>
+	 *
+	 * @return pegawai subjek kehadiran, atau {@code null} bila baris ini bukan milik pegawai
+	 *         (misalnya baris absensi siswa/mahasiswa) atau penurunan gagal
+	 * @see #getDosen()
+	 * @see #getGuru()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai", nullable = true)
 	public Pegawai getPegawai() {
@@ -707,15 +1060,109 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 		return pegawai;
 	}
 
+	/**
+	 * Mengembalikan tanggal kehadiran yang dicatat baris ini.
+	 *
+	 * <p>
+	 * Dipetakan {@code TemporalType.DATE}, jadi komponen jam diabaikan — jam kedatangan dan
+	 * kepulangan disimpan terpisah pada keluarga kolom {@code masukjam*}/{@code pulangJam*}.
+	 * Getter ini murni (tidak bermutasi), berbeda dari banyak getter lain di kelas ini, dan
+	 * karena itu aman dipanggil di dalam perulangan.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilainya juga menjadi dasar penurunan {@link #getTgl()}, {@link #getBulan()},
+	 * {@link #getTahun()}, dan {@link #getMinggu()}, serta dipakai
+	 * {@link #getLiburNasional()} untuk mencari apakah hari itu libur.
+	 * </p>
+	 *
+	 * @return tanggal kehadiran; boleh {@code null} pada objek yang belum lengkap
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggal() {
 		return tanggal;
 	}
 
+	/**
+	 * Menyetel tanggal kehadiran.
+	 *
+	 * <p>
+	 * <b>Setter ini tidak menyelaraskan kolom turunan.</b> Pecahan tanggal
+	 * {@link #tgl}/{@link #bulan}/{@link #tahun}/{@link #minggu} disimpan sebagai kolom
+	 * tersendiri demi kecepatan laporan, dan tidak ada satu pun kode di setter ini yang
+	 * memperbaruinya. Bila Anda mengubah tanggal sebuah baris yang sudah tersimpan, pastikan
+	 * keempat kolom itu ikut disetel — kalau tidak, baris akan muncul pada rekap bulan/tahun
+	 * yang salah meski tanggalnya sudah benar.
+	 * </p>
+	 *
+	 * @param tanggal tanggal kehadiran; boleh {@code null}
+	 */
 	public void setTanggal(Date tanggal) {
 		this.tanggal = tanggal;
 	}
 
+	/**
+	 * Mengisi peta {@code mapS} dengan representasi visual (warna dan label status) untuk satu
+	 * baris kehadiran, sesuai kombinasi hari libur, cuti, dan klasifikasi datang/pulang.
+	 *
+	 * <h4>Peran</h4>
+	 * <p>
+	 * Method statis ini adalah <b>satu-satunya tempat aturan pewarnaan kehadiran didefinisikan</b>
+	 * pada entitas ini. Ia dipakai oleh tampilan kalender/rekap kehadiran untuk memberi warna
+	 * setiap sel, dan menuliskan enam kunci ke dalam peta: {@code warna} (kode heksadesimal),
+	 * {@code nama_warna} (nama warna berbahasa Indonesia), {@code status} (label Indonesia),
+	 * {@code status_en} (label Inggris), serta {@code warna_r}/{@code warna_g}/{@code warna_b}
+	 * (komponen RGB terpisah, untuk konsumen yang tidak dapat mengurai heksadesimal — misalnya
+	 * pembuat berkas Excel atau PDF).
+	 * </p>
+	 *
+	 * <h4>Urutan keputusan (yang pertama cocok menang)</h4>
+	 * <ol>
+	 * <li><b>Cuti disetujui</b> — merah, label diambil dari status absensi pengajuan cuti.
+	 * Konsisten dengan {@link #getStatusabsensi()}: cuti yang disetujui mengalahkan semuanya.</li>
+	 * <li><b>Hari libur dan tetap masuk</b> — biru; ini penanda kandidat lembur hari libur.</li>
+	 * <li><b>Hari libur dan tidak masuk</b> — merah tua; kondisi normal.</li>
+	 * <li><b>Datang cepat sekaligus pulang terlambat</b> — ungu; hari kerja terpanjang.</li>
+	 * <li><b>Datang terlambat</b> (dan tidak sedang cuti disetujui) — oranye.</li>
+	 * <li><b>Pulang cepat</b> (dan tidak sedang cuti disetujui) — biru muda.</li>
+	 * <li><b>Pulang terlambat</b> — hijau.</li>
+	 * <li><b>Datang cepat</b> — kuning.</li>
+	 * <li><b>Tidak ada jam masuk sama sekali</b> — merah; labelnya "tidak hadir", kecuali bila
+	 * hari itu libur nasional, yang membuat nama libur dipakai sebagai label.</li>
+	 * <li><b>Ada jam masuk tetapi tidak ada jam pulang</b> — biru muda pucat, "tidak absen
+	 * pulang".</li>
+	 * <li><b>Selain itu</b> — putih, "sesuai".</li>
+	 * </ol>
+	 *
+	 * <h4>Catatan yang perlu diketahui</h4>
+	 * <ul>
+	 * <li><b>Urutan cabang adalah spesifikasinya.</b> Karena rantai {@code else if} berhenti
+	 * pada kecocokan pertama, memindahkan satu cabang mengubah arti seluruh laporan. Contoh
+	 * paling halus: cabang "datang terlambat" berada <i>sebelum</i> "pulang cepat", sehingga
+	 * orang yang datang terlambat <b>dan</b> pulang cepat hanya diwarnai sebagai terlambat.</li>
+	 *
+	 * <li><b>Parameter {@code cutiDanIzin} terpisah dari relasi entitas.</b> Method menerima
+	 * cuti sebagai argumen, bukan membacanya dari
+	 * {@code statuskehadiranKaryawanHarian.getCutiDanIzin()}. Pemanggil karena itu bisa saja
+	 * mengirim cuti yang berbeda dari yang tertaut di baris — sengaja, agar pemanggil dapat
+	 * memasok hasil pencarian cuti yang lebih efisien (satu query untuk sebulan) alih-alih
+	 * memicu pemuatan malas per baris.</li>
+	 *
+	 * <li><b>Method ini memanggil getter yang bermutasi</b> —
+	 * {@code ambilMasukjam()}, {@code ambilPulangjam()}, dan {@link #getLiburNasional()} —
+	 * sehingga pewarnaan satu bulan kalender dapat menyentuh dan mengotori puluhan entitas.</li>
+	 *
+	 * <li><b>Label Inggris tidak selalu benar-benar Inggris.</b> Pada beberapa cabang
+	 * {@code status_en} diisi dengan nama status absensi atau nama libur nasional yang berbahasa
+	 * Indonesia, dan pada cabang "hadir cepat" label Inggrisnya justru {@code "Ontime"}.
+	 * Jangan mengandalkan kunci ini sebagai terjemahan yang konsisten.</li>
+	 * </ul>
+	 *
+	 * @param holiday                       apakah hari yang bersangkutan adalah hari libur
+	 * @param mapS                          peta keluaran yang akan diisi; dimutasi di tempat
+	 * @param statuskehadiranKaryawanHarian baris kehadiran yang diwarnai
+	 * @param cutiDanIzin                   pengajuan cuti/izin yang berlaku, atau {@code null}
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void status(boolean holiday, HashMap mapS,
 			StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarian, CutiDanIzin cutiDanIzin) {

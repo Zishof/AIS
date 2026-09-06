@@ -1076,20 +1076,116 @@ public abstract class VOMahasiswa extends VoKunci {
 		}
 	}
 
+	/**
+	 * Mengambil seluruh setoran pembayaran ({@link CicilanPembayaran}) milik orang ini dari cache,
+	 * tanpa memaksa pembaruan dan tanpa penyaringan jenis kegiatan.
+	 *
+	 * <p>Bentuk terpendek dari keluarga {@code ambilCicilan}; setara dengan
+	 * {@code ambilCicilan(null, false)}. Inilah pintu masuk yang dipakai hampir seluruh method
+	 * {@code hitungTotalCicilanPembayaran...} dan {@code ambilCicilanPembayaran...} di kelas ini,
+	 * sehingga perilakunya menentukan angka yang akhirnya muncul di layar tagihan.</p>
+	 *
+	 * <p><b>Peringatan penting: pemanggilan ini menghabiskan cache-nya sendiri.</b> Jalur yang
+	 * dilaluinya membaca indeks lewat {@link #ambilLokasiCicilan()}, dan method tersebut
+	 * <b>menghapus berkas indeksnya</b> segera setelah membaca. Karena itu memanggil
+	 * {@code ambilCicilan()} dua kali berturut-turut tidak setara dengan memanggilnya sekali:
+	 * pemanggilan kedua kehilangan sumber id dari berkas dan hanya mengandalkan kolom
+	 * denormalisasi pada kegiatan yang ada di cache. Method-method perhitungan di kelas ini
+	 * masing-masing memanggilnya sendiri, sehingga satu layar yang menampilkan beberapa angka
+	 * sekaligus akan melalui jalur yang berbeda-beda. Bila perlu beberapa perhitungan atas data
+	 * yang sama, ambil daftarnya sekali lalu pakai overload yang menerima
+	 * {@code List<CicilanPembayaran>} (mis.
+	 * {@link #hitungTotalCicilanPembayaran(Integer, Boolean, Integer, String, List)} dan
+	 * {@link #ambilCicilanPembayaran(Kegiatan, List)}).</p>
+	 *
+	 * @return daftar setoran pembayaran milik orang ini; kosong bila tidak ada
+	 */
 	public List<CicilanPembayaran> ambilCicilan() {
 		boolean refresh = false;
 		return ambilCicilan(null, refresh);
 	}
 
+	/**
+	 * Mengambil seluruh setoran pembayaran milik orang ini tanpa penyaringan jenis kegiatan,
+	 * dengan pilihan memaksa pembacaan ulang dari basis data.
+	 *
+	 * <p>Setara dengan {@code ambilCicilan(null, refresh)}.</p>
+	 *
+	 * @param refresh {@code true} untuk mengabaikan indeks berkas maupun kolom denormalisasi
+	 *                kegiatan dan menembak basis data; lihat
+	 *                {@link #ambilCicilan(JenisKegiatan, boolean)} untuk arti persisnya
+	 * @return daftar setoran pembayaran; kosong bila tidak ada
+	 */
 	public List<CicilanPembayaran> ambilCicilan(boolean refresh) {
 		return ambilCicilan(null, refresh);
 	}
 
+	/**
+	 * Mengambil setoran pembayaran milik orang ini yang terkait satu {@link JenisKegiatan}
+	 * tertentu, tanpa memaksa pembaruan.
+	 *
+	 * <p>Setara dengan {@code ambilCicilan(jenisKegiatanData, false)}.</p>
+	 *
+	 * @param jenisKegiatanData jenis kegiatan penyaring; {@code null} berarti tanpa penyaringan
+	 * @return daftar setoran pembayaran; kosong bila tidak ada
+	 */
 	public List<CicilanPembayaran> ambilCicilan(JenisKegiatan jenisKegiatanData) {
 		boolean refresh = false;
 		return ambilCicilan(jenisKegiatanData, refresh);
 	}
 
+	/**
+	 * Bentuk lengkap keluarga {@code ambilCicilan}: mengambil setoran pembayaran milik orang ini,
+	 * dengan penyaringan jenis kegiatan opsional dan pilihan memaksa pembacaan ulang.
+	 *
+	 * <p>Seluruh overload lain bermuara ke sini. Method ini sendiri hanyalah pembungkus yang
+	 * menyuntikkan state objek ini ke
+	 * {@code KegiatanPersistenceHelper.ambilCicilan(Object, String, Collection, JenisKegiatan,
+	 * boolean)}: indeks berkas dari {@link #ambilLokasiCicilan()}, dan daftar kegiatan dari
+	 * {@link #ambilKegiatansData(boolean, JenisKegiatan)}.</p>
+	 *
+	 * <h4>Dua jalur yang sangat berbeda</h4>
+	 * <p><b>{@code refresh == false}</b> — daftar id disusun dari dua sumber yang digabungkan:
+	 * entri pada indeks berkas, ditambah kolom denormalisasi {@code ambilCicilansAktifIds()} pada
+	 * setiap kegiatan yang ada di cache. Sumber kedua inilah alasan hasilnya tetap masuk akal
+	 * walaupun {@link #ambilLokasiCicilan()} sudah menghabiskan berkas indeksnya pada pemanggilan
+	 * sebelumnya. Tidak ada session basis data yang dibuka pada jalur ini.</p>
+	 * <p><b>{@code refresh == true}</b> — kedua sumber di atas diabaikan sepenuhnya; helper
+	 * membuka session baru dan mengueri id {@link CicilanPembayaran} lewat sub-kriteria pada
+	 * relasi {@code kegiatan}, dibatasi {@code kegiatan.mahasiswa} atau
+	 * {@code kegiatan.calonMahasiswa} sesuai tipe {@code this}, dan bila
+	 * {@code jenisKegiatanData} diberikan juga dibatasi {@code kegiatan.jenisKegiatan}. Kueri
+	 * diberi batas waktu enam ratus detik. Session ditutup oleh helper.</p>
+	 *
+	 * <h4>Jalan pintas "tidak ada tagihan"</h4>
+	 * <p>Bila {@code this} adalah {@link Mahasiswa} yang ditandai {@code tidakAdaTagihan}, helper
+	 * langsung mengembalikan daftar kosong tanpa membaca apa pun. Penanda ini karenanya bukan
+	 * sekadar keterangan di layar melainkan gerbang yang mematikan seluruh riwayat setoran
+	 * mahasiswa tersebut dari sudut pandang kelas ini — termasuk setoran yang benar-benar ada di
+	 * basis data. Perhatikan bahwa jalan pintas ini hanya berlaku untuk {@link Mahasiswa};
+	 * {@link BiodataCalonMahasiswa} tidak punya padanannya.</p>
+	 *
+	 * <h4>Efek samping</h4>
+	 * <p>Helper menutup pekerjaannya dengan menyinkronkan daftar setoran ke tiap kegiatan terkait,
+	 * sehingga pemanggilan ini dapat memperbarui kolom denormalisasi di basis data. Tambahan lagi,
+	 * {@link #ambilLokasiCicilan()} yang dipanggil sebagai argumen menghapus berkas indeksnya.
+	 * Jadi method ini tidak pernah merupakan operasi baca murni.</p>
+	 *
+	 * <h4>Penyaringan kepemilikan</h4>
+	 * <p>Pembatasan ke orang yang diwakili {@code this} berlaku pada jalur {@code refresh} lewat
+	 * restriksi Hibernate, dan pada jalur non-refresh lewat fakta bahwa kegiatan yang dijadikan
+	 * sumber id berasal dari indeks milik objek ini. Tidak ada pemeriksaan hak akses pengguna di
+	 * mana pun pada rantai ini.</p>
+	 *
+	 * @param jenisKegiatanData jenis kegiatan penyaring; {@code null} berarti seluruh jenis.
+	 *                          Penyaringan ini hanya diterapkan pada jalur {@code refresh}; pada
+	 *                          jalur cache ia tetap diteruskan ke
+	 *                          {@link #ambilKegiatansData(boolean, JenisKegiatan)} sehingga
+	 *                          mempersempit kumpulan kegiatan yang dijadikan sumber id
+	 * @param refresh           {@code true} untuk menembak basis data
+	 * @return daftar setoran pembayaran; kosong bila tidak ada atau bila mahasiswa ditandai
+	 *         {@code tidakAdaTagihan}
+	 */
 	public List<CicilanPembayaran> ambilCicilan(JenisKegiatan jenisKegiatanData, boolean refresh) {
 		// Panggil Helper Statis dengan menyuntikkan 'state' dan 'method' dari class ini
 		// (this)
@@ -1101,6 +1197,39 @@ public abstract class VOMahasiswa extends VoKunci {
 		);
 	}
 
+	/**
+	 * Membaca berkas indeks setoran pembayaran milik orang ini <b>lalu menghapus berkas
+	 * tersebut</b>.
+	 *
+	 * <p><b>Ini getter destruktif — satu-satunya di kelas ini.</b> Ketiga saudaranya
+	 * ({@link #ambilLokasiKegiatan()}, {@link #ambilLokasiDetailKegiatan()},
+	 * {@link #ambilLokasiHasilUjianMahasiswa()}) hanya membaca; method ini memanggil
+	 * {@code BacaTulisUtil.hapus(file)} tepat setelah membaca isinya. Akibatnya:</p>
+	 * <ul>
+	 * <li>Pemanggilan kedua berturut-turut mengembalikan {@link #dataJSON} (JSON kosong), bukan
+	 * isi yang sama dengan pemanggilan pertama. Method ini tidak idempoten.</li>
+	 * <li>Alur yang membaca lalu gagal sebelum sempat memakai hasilnya kehilangan indeksnya untuk
+	 * selamanya — sampai ada pemanggilan dengan {@code refresh == true} yang membangunnya
+	 * kembali.</li>
+	 * <li>Dua thread yang memanggil bersamaan: satu memperoleh isi berkas, yang lain memperoleh
+	 * JSON kosong.</li>
+	 * </ul>
+	 *
+	 * <p><b>Mengapa hal itu tidak langsung terlihat sebagai kerusakan.</b> Satu-satunya pemakainya
+	 * adalah {@link #ambilCicilan(JenisKegiatan, boolean)}, dan helper di baliknya menggabungkan
+	 * daftar id dari berkas ini dengan kolom denormalisasi {@code ambilCicilansAktifIds()} pada
+	 * tiap kegiatan. Sumber kedua itulah yang menutupi hilangnya berkas, sehingga gejalanya bukan
+	 * "setoran hilang" melainkan hasil yang bergantung pada seberapa mutakhir kolom denormalisasi
+	 * kegiatan. Bila kolom tersebut tertinggal, selisihnya muncul sebagai sisa tagihan yang
+	 * berubah-ubah antar-penyegaran layar.</p>
+	 *
+	 * <p>Perilaku sisanya sama dengan saudaranya: id {@code null}, berkas tidak ada, atau
+	 * pembacaan gagal sama-sama menghasilkan {@link #dataJSON}. Perhatikan bahwa penghapusan hanya
+	 * dilakukan ketika berkasnya memang ada, sehingga tidak ada kesalahan pada kasus tersebut.</p>
+	 *
+	 * @return teks JSON berisi himpunan id setoran; tidak pernah {@code null}. Berkas sumbernya
+	 *         sudah tidak ada lagi setelah pemanggilan ini
+	 */
 	public String ambilLokasiCicilan() {
 		// Null-safe: entitas transient (id null) tak punya file keyed-by-id → cegah NPE.
 		if (getId() == null) {
@@ -1119,6 +1248,34 @@ public abstract class VOMahasiswa extends VoKunci {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menyaring setoran pembayaran milik orang ini sehingga tersisa yang bernilai bukan nol pada
+	 * satu semester tertentu.
+	 *
+	 * <p>Dua syarat harus terpenuhi bersamaan:</p>
+	 * <ol>
+	 * <li><b>Nilainya bukan nol.</b> Diuji sebagai {@code nilai < -0.1 || nilai > 0.1}, bukan
+	 * {@code nilai != 0}. Ambang 0,1 dipakai karena nilainya bertipe {@link Double} dan
+	 * perbandingan kesetaraan pada bilangan pecahan tidak dapat diandalkan. Efek sampingnya:
+	 * setoran bernilai antara minus sepersepuluh dan sepersepuluh satuan mata uang dianggap nol
+	 * dan tidak pernah muncul. Batas negatif ada karena setoran boleh bernilai minus — itulah cara
+	 * pembalikan/koreksi pembayaran dicatat.</li>
+	 * <li><b>Semester kegiatannya sama persis</b> dengan {@code semester} yang diminta.</li>
+	 * </ol>
+	 *
+	 * <p><b>Tidak null-safe.</b> Berbeda dari kebanyakan penyaring di kelas ini, perulangan di
+	 * sini tidak dibungkus {@code try/catch} per elemen. Setoran yang relasi kegiatannya
+	 * {@code null} akan melempar {@link NullPointerException} ke pemanggil, demikian pula bila
+	 * argumen {@code semester} bernilai {@code null} (pemanggilan {@code semester.equals(...)}).
+	 * Bandingkan dengan {@link #ambilCicilanPembayaran(Kegiatan, List)} yang menelan kesalahan
+	 * serupa.</p>
+	 *
+	 * <p>Daftar sumbernya diambil lewat {@link #ambilCicilan()} tanpa {@code refresh}, sehingga
+	 * seluruh peringatan tentang cache yang habis terpakai di sana berlaku di sini juga.</p>
+	 *
+	 * @param semester semester yang dicari; tidak boleh {@code null}
+	 * @return setoran bernilai bukan nol pada semester tersebut; kosong bila tidak ada
+	 */
 	public List<CicilanPembayaran> ambilCicilanPembayaran(Integer semester) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		List<CicilanPembayaran> cicilanPembayarans = new ArrayList<CicilanPembayaran>();

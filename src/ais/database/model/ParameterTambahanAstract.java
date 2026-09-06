@@ -439,12 +439,35 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 				eventListener, readonly, componenName);
 	}
 
-	/** null-safe trim untuk perakit teks penyedia. */
+	/**
+	 * null-safe trim untuk perakit teks penyedia.
+	 *
+	 * <p>Menyeragamkan {@code null} dan spasi berlebih menjadi string kosong, supaya keempat perakit teks
+	 * penyedia di bawah bisa memakai {@code isEmpty()} tanpa memeriksa {@code null} berulang kali.</p>
+	 *
+	 * @param s teks masukan; boleh {@code null}.
+	 * @return teks hasil {@code trim}, atau string kosong bila masukannya {@code null}.
+	 */
 	private static String nzp(String s) {
 		return s == null ? "" : s.trim();
 	}
 
-	/** Rangkai alamat lengkap penyedia (alamat, kec/kota/prop, kode pos, telp, fax, kontak, email). */
+	/**
+	 * Rangkai alamat lengkap penyedia (alamat, kec/kota/prop, kode pos, telp, fax, kontak, email).
+	 *
+	 * <p>Menyusun satu baris teks dari potongan-potongan yang ADA saja: setiap bagian hanya ikut bila
+	 * terisi, dan pemisah {@code ", "} baru ditambahkan bila sudah ada isi sebelumnya — sehingga tidak
+	 * pernah muncul koma menggantung di awal atau koma ganda di tengah. Bagian relasi
+	 * (kecamatan/kota/propinsi) diberi awalan singkat {@code "Kec."}, {@code "Kab/Kota."}, dan
+	 * {@code "Prop."}.</p>
+	 *
+	 * <p>Perlu dicatat cakupannya lebih luas daripada namanya: selain alamat geografis, hasilnya juga
+	 * memuat telepon, faks, nama kontak, dan surel. Ini disengaja karena isian yang meminta "alamat
+	 * penyedia" pada dokumen pengadaan lazimnya memang blok kontak lengkap.</p>
+	 *
+	 * @param p penyedia sumber data; tidak boleh {@code null}.
+	 * @return alamat gabungan; string kosong bila tidak satu pun bagian terisi.
+	 */
 	private static String rangkaiAlamatPenyedia(ais.database.model.asset.PenyediaAsset p) {
 		String alamat = nzp(p.getAlamat());
 		if (p.getKecamatan() != null) {
@@ -482,7 +505,22 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		return alamat;
 	}
 
-	/** Rangkai daftar jenis pekerjaan/barang-jasa penyedia (slot 1-5, dipisah koma). */
+	/**
+	 * Rangkai daftar jenis pekerjaan/barang-jasa penyedia (slot 1-5, dipisah koma).
+	 *
+	 * <p>{@code PenyediaAsset} menyimpan jenis pekerjaannya pada LIMA field bernomor yang terpisah, bukan
+	 * pada koleksi — bentuk denormalisasi yang lazim di skema lama. Method ini menyalin kelimanya ke dalam
+	 * satu larik lalu merangkai yang terisi saja, sehingga slot kosong di tengah tidak meninggalkan koma
+	 * ganda. Urutan hasilnya mengikuti nomor slot, bukan abjad.</p>
+	 *
+	 * <p>Bila kelima slot kosong, dipakai CADANGAN berupa nama {@code jenisPenyediaAsset} — klasifikasi
+	 * tunggal yang lebih kasar. Jadi hasil kosong hanya terjadi bila penyedia sama sekali tidak
+	 * terklasifikasi.</p>
+	 *
+	 * @param p penyedia sumber data; tidak boleh {@code null}.
+	 * @return daftar jenis pekerjaan dipisah {@code ", "}, nama jenis penyedia sebagai cadangan, atau
+	 *         string kosong bila keduanya nihil.
+	 */
 	private static String rangkaiJenisPekerjaanPenyedia(ais.database.model.asset.PenyediaAsset p) {
 		String jenis = "";
 		ais.database.model.asset.JenisPekerjaanPenyedia[] slots = new ais.database.model.asset.JenisPekerjaanPenyedia[] {
@@ -499,7 +537,35 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		return jenis;
 	}
 
-	/** Tentukan nilai isian otomatis dari penyedia berdasarkan kata kunci pada label parameter. */
+	/**
+	 * Tentukan nilai isian otomatis dari penyedia berdasarkan kata kunci pada label parameter.
+	 *
+	 * <p>Ini adalah tabel pemetaan dari KATA KUNCI pada label parameter ke bidang data penyedia, diperiksa
+	 * berurutan dengan {@code contains}. Urutannya bermakna karena kata kunci bisa saling tumpang tindih:
+	 * pemeriksaan {@code "alamat"} berada paling awal, sedangkan {@code "kontak"} sengaja diletakkan paling
+	 * akhir supaya label seperti "Alamat / Kontak Vendor I" tetap menghasilkan blok alamat lengkap dan
+	 * bukan sekadar nama kontak.</p>
+	 *
+	 * <p>Beberapa kata kunci punya sinonim: PIC dikenali dari {@code "pic"}, {@code "penanggung jawab"},
+	 * {@code "contact person"}, atau {@code "narahubung"}, dan bila kontak kosong dipakai nama pemilik
+	 * sebagai cadangan. Telepon dikenali dari {@code "telp"}, {@code "telepon"}, atau {@code "hp"}.</p>
+	 *
+	 * <p><b>Label yang tidak dikenali mengembalikan {@code null}, dan itu disengaja.</b> Nilai {@code null}
+	 * dibedakan dari string kosong: {@code null} berarti "jangan sentuh isian ini", sedangkan string kosong
+	 * berarti "bidangnya memang kosong" dan akan MENGOSONGKAN isian. Pemanggilnya,
+	 * {@link #isiOtomatisParameterTerkaitPenyedia(ParameterTambahan, org.zkoss.zk.ui.Component,
+	 * java.util.List)}, melewati parameter yang hasilnya {@code null} tanpa mengubah apa pun.</p>
+	 *
+	 * <p><b>Kerapuhan yang perlu disadari:</b> pencocokan ini bersandar pada KATA-KATA label yang ditulis
+	 * pengelola parameter, bukan pada metadata. Mengganti kata pada label — mis. "Telepon" menjadi "No.
+	 * Kontak Telepon" — dapat memindahkan isian ke bidang lain atau mematikan pengisian otomatis sama
+	 * sekali, tanpa perubahan kode dan tanpa pesan galat.</p>
+	 *
+	 * @param labelLower label parameter yang SUDAH dikecilkan hurufnya oleh pemanggil; pencocokan di sini
+	 *                   tidak mengecilkan huruf lagi.
+	 * @param p          penyedia sumber data; tidak boleh {@code null}.
+	 * @return nilai yang cocok, atau {@code null} bila label tidak dikenali — yang berarti "jangan isi".
+	 */
 	private static String nilaiPenyediaUntukLabel(String labelLower, ais.database.model.asset.PenyediaAsset p) {
 		if (labelLower.contains("alamat")) {
 			return rangkaiAlamatPenyedia(p);
@@ -538,6 +604,47 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 	 * konteks "vendor i"); parameter lain dianggap se-konteks bila label-nya BERAKHIRAN konteks itu
 	 * (endsWith, agar "Vendor I" tidak menular ke "Vendor II"). Nilai isian ditentukan dari kata kunci
 	 * label (alamat / jenis barang-jasa / pic / telp / email / fax / npwp / kontak).
+	 *
+	 * <p><b>Cara konteks ditentukan.</b> Label parameter vendor dikecilkan hurufnya, lalu kata pengantar
+	 * umum di depannya dibuang BERULANG-ULANG sampai tidak ada lagi yang cocok — daftar kata yang dibuang
+	 * adalah {@code "nama"}, {@code "pilih"}, {@code "pilihan"}, dan {@code "data"}. Jadi "Nama Data Vendor
+	 * I" pun tetap menyusut menjadi konteks {@code "vendor i"}. Bila setelah pemangkasan konteksnya kosong,
+	 * method berhenti tanpa mengubah apa pun.</p>
+	 *
+	 * <p><b>Kenapa {@code endsWith} dan bukan {@code contains}.</b> Pencocokan memakai AKHIRAN justru untuk
+	 * mencegah penularan antar vendor bernomor: konteks {@code "vendor i"} tidak boleh mengenai label
+	 * "Alamat Vendor II". Perlu disadari perlindungan ini tidak sempurna — konteks {@code "vendor i"} akan
+	 * tetap mengenai label yang berakhiran "vendor i" dalam bentuk lain, dan sebaliknya penomoran dengan
+	 * angka Arab ("Vendor 1" vs "Vendor 11") tetap aman karena "vendor 1" bukan akhiran dari "vendor 11"
+	 * hanya jika label berakhir tepat di situ.</p>
+	 *
+	 * <p><b>Hanya komponen masukan yang diisi.</b> Parameter sasaran diisi hanya bila komponennya turunan
+	 * {@code InputElement}; komponen lain (mis. {@code Combobox} pemilih, bandbox matriks) dilewati. Setelah
+	 * teks diisi, {@code onChange} DIPOSTING secara buatan agar rantai pendengar lain — termasuk evaluasi
+	 * ulang skip-logic — ikut berjalan seolah pengguna sendiri yang mengetik.</p>
+	 *
+	 * <p><b>Komponen vendor itu sendiri selalu dilewati</b> lewat perbandingan rujukan
+	 * ({@code cO == komponenVendor}), sehingga pemilih vendor tidak menimpa dirinya sendiri.</p>
+	 *
+	 * <p><b>Defensif berlapis.</b> Seluruh badan method dibungkus {@code try/catch} terhadap
+	 * {@code Throwable}, DAN setiap baris diproses dalam {@code try/catch}-nya sendiri. Satu baris yang
+	 * bermasalah karena itu tidak menghentikan pengisian baris lainnya, dan kegagalan apa pun tidak pernah
+	 * memutus render form — keduanya hanya dicatat ke {@code ErrorAuditUtil}. Konsekuensinya, pengisian
+	 * otomatis yang tidak berjalan TIDAK akan terlihat sebagai galat oleh pengguna; ia sekadar tidak
+	 * terjadi.</p>
+	 *
+	 * <p>Sumber datanya adalah atribut {@code "penyediaAsset"} pada komponen vendor — atribut yang dipasang
+	 * {@link #ambilComponentCustom(String, ParameterTambahan, org.zkoss.zk.ui.event.EventListener)} dan
+	 * diperbarui banbox saat pengguna memilih. Bila atribut itu bukan {@code PenyediaAsset}, method berhenti
+	 * diam-diam.</p>
+	 *
+	 * @param ptVendor       definisi parameter bertipe {@link #PILIHAN_PENYEDIA} yang baru dipilih; labelnya
+	 *                       menjadi sumber konteks. {@code null} membuat method tanpa efek.
+	 * @param komponenVendor komponen pemilih vendor; atribut {@code "penyediaAsset"}-nya dibaca sebagai
+	 *                       sumber data. {@code null} membuat method tanpa efek.
+	 * @param parameterRows  seluruh baris parameter dalam form yang akan dipindai. {@code null} membuat
+	 *                       method tanpa efek.
+	 * @see #nilaiPenyediaUntukLabel(String, ais.database.model.asset.PenyediaAsset)
 	 */
 	public static void isiOtomatisParameterTerkaitPenyedia(ParameterTambahan ptVendor, Component komponenVendor,
 			List<Row> parameterRows) {

@@ -3014,6 +3014,28 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		this.usernameOjs = usernameOjs;
 	}
 
+	/**
+	 * Mengembalikan data siswa pemilik akun ini, atau {@code null}.
+	 *
+	 * <p>Relasi {@code @Transient}, sama seperti {@link #getMahasiswa()}: tidak ada kolom
+	 * kunci asing untuk siswa di {@code tbmuser}, sehingga nilainya harus diturunkan ulang
+	 * setiap kali entity dimuat.</p>
+	 *
+	 * <p>Urutan kerjanya berbeda dari saudara-saudaranya: penurunan dari
+	 * {@code anggotaKoperasi.getSiswa()} dilakukan <b>lebih dulu</b> (dan menulis field
+	 * {@code siswa}), baru kemudian gerbang {@link #bukanPesertaDidik()} diperiksa. Artinya
+	 * untuk akun staf, field {@code siswa} tetap termutasi sebagai efek samping walaupun
+	 * nilai yang dikembalikan {@code null}.</p>
+	 *
+	 * <p>{@code LazyInitializationException} dan exception lain saat menyentuh anggota
+	 * koperasi ditelan dan hanya dicatat ke {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p>Perhatikan bahwa tidak seperti {@link #getMahasiswa()}, method ini <b>tidak</b>
+	 * mensyaratkan peran {@link Tbmrole#SISWA} &mdash; field yang terisi langsung
+	 * dikembalikan selama gerbang peserta didik lolos.</p>
+	 *
+	 * @return data siswa, atau {@code null} bila akun bukan akun siswa
+	 */
 	@Transient
 	public Siswa getSiswa() {
 		try {
@@ -3030,10 +3052,36 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return siswa;
 	}
 
+	/**
+	 * Menetapkan data siswa pemilik akun.
+	 *
+	 * <p>Karena relasinya {@code @Transient}, nilai ini tidak tersimpan ke database.</p>
+	 *
+	 * @param siswa data siswa; boleh {@code null}
+	 */
 	public void setSiswa(Siswa siswa) {
 		this.siswa = siswa;
 	}
 
+	/**
+	 * Mengembalikan guru yang menjadi <b>batas kepemilikan data</b> bagi akun ini &mdash;
+	 * atau {@code null} bila akun berhak melihat data pegawai/guru lain.
+	 *
+	 * <p>Semantiknya <b>terbalik</b> dari {@link #getGuru()}, persis seperti
+	 * {@link #ambilPegawai()}: bila {@link #hakAkses()} punya
+	 * {@code getMelihatDataPegawaiLain() == true}, hasilnya {@code null} yang di sini
+	 * bermakna <b>"tidak dibatasi"</b>. Jadi {@code null} bukan berarti "bukan guru".</p>
+	 *
+	 * <p>Perhatikan bahwa gerbangnya memakai hak {@code melihatDataPegawaiLain} yang sama
+	 * dengan {@link #ambilPegawai()} dan {@link #ambilDosen()} &mdash; tidak ada hak
+	 * terpisah untuk data guru. Fail-open pada kegagalan: exception dari {@link #hakAkses()}
+	 * hanya dicatat lalu method mengembalikan {@code null} ("tidak dibatasi"), sehingga
+	 * gangguan resolusi peran melebarkan lingkup data yang terlihat.</p>
+	 *
+	 * @return guru pembatas lingkup, atau {@code null} bila tidak dibatasi
+	 * @see #getGuru()
+	 * @see #ambilPegawai()
+	 */
 	public Guru ambilGuru() {
 
 		try {
@@ -3050,6 +3098,26 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return null;
 	}
 
+	/**
+	 * Mengembalikan dosen yang menjadi <b>batas kepemilikan data</b> bagi akun ini &mdash;
+	 * atau {@code null} bila akun berhak melihat data pegawai/dosen lain.
+	 *
+	 * <p>Semantiknya <b>terbalik</b> dari {@link #getDosen()}, sama persis dengan
+	 * {@link #ambilPegawai()} dan {@link #ambilGuru()}: {@code null} berarti
+	 * <b>"tidak dibatasi"</b>, bukan "bukan dosen". Memakai hak
+	 * {@code melihatDataPegawaiLain} pada {@link #hakAkses()} sebagai gerbang, dan
+	 * fail-open pada kegagalan.</p>
+	 *
+	 * <p>Method ini juga dipakai secara internal oleh seluruh varian {@code ambilXxx()}
+	 * lingkup akademik ({@link #ambilJurusan()}, {@link #ambilFakultas()},
+	 * {@link #ambilYayasan()}, {@link #ambilSekolah()}, {@link #ambilProgram()}) untuk
+	 * memutuskan apakah lingkup perlu dinolkan. Karena itu setiap perubahan di sini
+	 * berdampak luas pada pembatasan data akademik.</p>
+	 *
+	 * @return dosen pembatas lingkup, atau {@code null} bila tidak dibatasi
+	 * @see #getDosen()
+	 * @see #ambilPegawai()
+	 */
 	public Dosen ambilDosen() {
 
 		try {
@@ -3066,6 +3134,36 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return null;
 	}
 
+	/**
+	 * Mengembalikan data guru pemilik akun ini, atau {@code null} bila akun bukan milik guru
+	 * aktif.
+	 *
+	 * <p>Cerminan {@link #getDosen()} untuk jenjang sekolah, dengan satu sumber tambahan:</p>
+	 * <ol>
+	 *   <li><b>Gerbang peserta didik.</b> Akun mahasiswa, siswa, calon mahasiswa, atau calon
+	 *   siswa langsung menghasilkan {@code null}.</li>
+	 *   <li>{@code anggotaKoperasi.getGuru()} bila ada.</li>
+	 *   <li>Field {@code guru} yang sudah di-{@code check(...)}.</li>
+	 *   <li><b>Cache berkas per-object.</b> Bila masih kosong, id guru dibaca dari
+	 *   penyimpanan berkas sementara milik {@link GeneralValueObject} lewat
+	 *   {@code retreive("guru")} lalu dimuat dari cache {@link ConstantValues}. Ini pasangan
+	 *   dari {@code put(...)} yang dilakukan {@link #setGuru(Guru)}, dan merupakan mekanisme
+	 *   yang membuat penetapan guru bertahan lintas request meski relasi tidak
+	 *   ter-<i>flush</i>.</li>
+	 *   <li>{@code pegawai.getGuru()} menimpa hasil sebelumnya bila ada.</li>
+	 *   <li><b>Auto-resolusi berbasis nama</b> dari cache {@link Guru} bila akun berperan
+	 *   {@code GURU} &mdash; dengan seluruh kewaspadaan yang sama seperti pada
+	 *   {@link #getDosen()} (rentan nama kembar, urutan iterasi tidak dijamin, mahal).</li>
+	 * </ol>
+	 *
+	 * <p><b>Penyaring keaktifan di akhir:</b> guru non-aktif dikembalikan sebagai
+	 * {@code null}, sehingga {@code null} berarti "bukan guru <i>aktif</i>". Perbedaan ini
+	 * dipakai {@link #getAktif()} untuk menonaktifkan akun "yatim peran" berperan
+	 * {@code GURU}.</p>
+	 *
+	 * @return data guru aktif pemilik akun, atau {@code null}
+	 * @see #ambilGuru()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "guru", nullable = true)
 	public Guru getGuru() {
@@ -3118,6 +3216,22 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return (guru == null || (guru != null && !guru.getAktif())) ? null : guru;
 	}
 
+	/**
+	 * Menetapkan data guru pemilik akun.
+	 *
+	 * <p>Selain menulis field, setter ini <b>juga menyimpan id guru ke cache berkas
+	 * per-object</b> milik {@link GeneralValueObject} lewat {@code put(id, "guru")} &mdash;
+	 * atau menuliskan penanda kosong {@code put("", "guru")} bila {@code guru} adalah
+	 * {@code null} atau belum punya {@code id}. Cache itulah yang dibaca kembali oleh
+	 * {@link #getGuru()} (langkah 4) sehingga penetapan di sini bertahan lintas request
+	 * meski relasinya belum ter-<i>flush</i> ke database.</p>
+	 *
+	 * <p>Perhatikan bahwa {@link #setPegawai(Pegawai)} juga menulis penanda kosong yang sama
+	 * saat dipanggil dengan {@code null}, sehingga mengosongkan pegawai ikut menghapus jejak
+	 * guru.</p>
+	 *
+	 * @param guru data guru; {@code null} atau tanpa {@code id} menuliskan penanda kosong
+	 */
 	public void setGuru(Guru guru) {
 		if (guru != null && guru.getId() != null) {
 			put(guru.getId().toString(), "guru");
@@ -3127,6 +3241,15 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		this.guru = guru;
 	}
 
+	/**
+	 * Mengembalikan data calon siswa (PSB) pemilik akun ini.
+	 *
+	 * <p>Relasi {@code @Transient} tanpa kolom kunci asing, dijaga gerbang
+	 * {@link #bukanPesertaDidik()}. Bentuknya paling sederhana di antara keempat getter
+	 * peserta didik: hanya gerbang, tanpa penurunan maupun {@code check(...)}.</p>
+	 *
+	 * @return data calon siswa, atau {@code null}
+	 */
 	@Transient
 	public CalonSiswa getCalonSiswa() {
 		if (bukanPesertaDidik()) {
@@ -3135,10 +3258,40 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return calonSiswa;
 	}
 
+	/**
+	 * Menetapkan data calon siswa (PSB) pemilik akun.
+	 *
+	 * <p>Karena relasinya {@code @Transient}, nilai ini tidak tersimpan ke database.</p>
+	 *
+	 * @param calonSiswa data calon siswa; boleh {@code null}
+	 */
 	public void setCalonSiswa(CalonSiswa calonSiswa) {
 		this.calonSiswa = calonSiswa;
 	}
 
+	/**
+	 * Mengembalikan token identifikasi pengguna (kartu/QR/perangkat).
+	 *
+	 * <p>Dipakai untuk verifikasi berbasis barcode/QR &mdash; mis. kartu anggota, presensi,
+	 * atau tautan verifikasi &mdash; sehingga <b>bersifat rahasia</b>: siapa pun yang
+	 * memegang nilai ini dapat menyamar sebagai pemiliknya pada jalur yang menerima token.
+	 * Jangan menampilkannya di antarmuka umum atau mencatatnya ke log.</p>
+	 *
+	 * <p><b>Getter destruktif dengan pembuatan otomatis.</b> Bila field masih kosong,
+	 * sebuah token baru langsung dibangkitkan lewat {@code Common.getGeneratedBarCode()} dan
+	 * ditulis ke field &mdash; artinya <b>sekadar membaca properti ini menciptakan token
+	 * baru</b> dan menandai entity sebagai <i>dirty</i>. Setelah itu, bila akun tertaut ke
+	 * {@link ais.database.model.sisdes.Penduduk}, {@link Mahasiswa}, atau
+	 * {@link ais.database.model.sekolah.Siswa} yang sudah ber-{@code id}, token milik entitas
+	 * itulah yang <b>menimpa</b> hasil pembangkitan tadi. Jadi untuk aktor-aktor tersebut
+	 * token yang dibangkitkan di langkah pertama terbuang percuma.</p>
+	 *
+	 * <p>Exception saat menyentuh entitas tertaut ditelan dan hanya dicatat, sehingga token
+	 * hasil pembangkitan otomatis dapat ikut terkembalikan bila delegasi gagal.</p>
+	 *
+	 * @return token identifikasi (tidak pernah {@code null} setelah pemanggilan pertama)
+	 * @see #getGcpToken()
+	 */
 	public String getToken() {
 		if (token == null || token.isEmpty()) {
 			token = Common.getGeneratedBarCode();
@@ -3159,10 +3312,63 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return token;
 	}
 
+	/**
+	 * Menetapkan token identifikasi pengguna.
+	 *
+	 * <p>Setter mentah tanpa validasi. Perlu diingat bahwa nilai ini akan tertimpa oleh
+	 * {@link #getToken()} bila akun tertaut ke penduduk, mahasiswa, atau siswa yang punya
+	 * token sendiri.</p>
+	 *
+	 * @param token token identifikasi baru
+	 */
 	public void setToken(String token) {
 		this.token = token;
 	}
 
+	/**
+	 * Memastikan sebuah alamat surel sudah tercatat pada <b>entitas orang</b> pemilik akun,
+	 * dan menambahkannya bila belum &mdash; <b>langsung menyimpan ke database</b>.
+	 *
+	 * <p>Dipakai alur login sosial: setelah pengguna masuk lewat penyedia identitas, alamat
+	 * surel dari penyedia itu dicatatkan ke data orangnya supaya pencocokan
+	 * {@link #ambilBerdasarEmail(String)} berhasil pada login berikutnya.</p>
+	 *
+	 * <p><b>Method ini bukan pemeriksa, melainkan penulis.</b> Namanya
+	 * ("cek surel sudah ada apa belum") menyesatkan: ia tidak mengembalikan apa pun dan
+	 * efek utamanya adalah {@code UPDATE} ke database.</p>
+	 *
+	 * <h3>Sasaran penulisan</h3>
+	 * <p>Rantai {@code if/else if} memilih <b>tepat satu</b> entitas sasaran, dengan urutan:
+	 * mahasiswa, dosen, guru, siswa, penduduk, pegawai, dan terakhir &mdash; bila tidak satu
+	 * pun terisi &mdash; baris {@code Tbmuser} itu sendiri. Alamat baru digabung dengan
+	 * pemisah koma ke nilai yang sudah ada.</p>
+	 *
+	 * <h3>Catatan teknis yang perlu diwaspadai</h3>
+	 * <ul>
+	 *   <li><b>Mengelola transaksi dan session sendiri.</b> Setiap cabang membuka
+	 *   {@code HibernateUtil.currentNativeSession()}, melakukan {@code refresh}, memulai
+	 *   transaksi, {@code update}, {@code commit}, lalu menutup session dan memanggil
+	 *   {@code HibernateUtil.closeSession()}. Memanggil method ini dari dalam transaksi yang
+	 *   sudah berjalan akan mengacaukan session bersama tersebut &mdash; ia dirancang untuk
+	 *   dipanggil dari alur login, bukan dari tengah sebuah operasi bisnis.</li>
+	 *   <li><b>Kegagalan ditelan.</b> Exception hanya dicetak dan dicatat; transaksi yang
+	 *   gagal <b>tidak di-<i>rollback</i></b> secara eksplisit dan pemanggil tidak
+	 *   diberi tahu, sehingga penambahan surel dapat gagal diam-diam.</li>
+	 *   <li><b>Pemeriksaan berbasis {@code contains}.</b> Keberadaan alamat diuji dengan
+	 *   {@code toLowerCase().contains(...)} atas seluruh daftar &mdash; pencocokan substring,
+	 *   bukan per-elemen, sehingga alamat yang merupakan bagian dari alamat lain dianggap
+	 *   sudah ada (kelemahan yang sama dengan {@link #appendEmail(String)}).</li>
+	 *   <li><b>Risiko {@code NullPointerException}.</b> Sebagian besar cabang memanggil
+	 *   {@code getEmail()}/{@code getAlamatEmail()} lalu {@code toLowerCase()} tanpa
+	 *   memeriksa {@code null} lebih dulu; hanya cabang penduduk yang dijaga.</li>
+	 *   <li><b>Tidak memvalidasi format</b> alamat yang ditambahkan, berbeda dari
+	 *   {@link #appendEmail(String)} yang memakai {@code Common.isValidEmailAddress}.</li>
+	 * </ul>
+	 *
+	 * @param mail alamat surel yang dipastikan tercatat
+	 * @see #appendEmail(String)
+	 * @see #ambilBerdasarEmail(String)
+	 */
 	public void checkEmailSudahAdaApaBelum(String mail) {
 		Tbmuser tbmuser = this;
 		if (tbmuser != null && tbmuser.getMahasiswa() != null) {
