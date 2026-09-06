@@ -47,10 +47,18 @@ import ais.ui.util.MyWindow;
  * {@code "am"}). Baik alamat email langsung maupun user id role penerima digabung ke satu
  * panggilan {@link MailSender#sendMail}.
  * </p>
+ *
+ * <p>Tidak ada fitur komentar anonim pada kelas ini — {@code komentarPerkuliahan.setNama(...)}
+ * selalu diisi dengan {@code userId} pengguna login yang sedang menulis komentar.</p>
  */
 public class KomentarPerkuliahanHelper {
 
+	/** Kotak isian teks komentar, di-autowire ke {@link org.zkoss.zul.Textbox} saat {@link #display(EventListener)} dipanggil. */
 	private Textbox komentar;
+	/**
+	 * Jadwal perkuliahan target komentar; sumber dosen pengampu (via {@code populateDosen()})
+	 * untuk daftar penerima notifikasi email.
+	 */
 	private Perkuliahan perkuliahan;
 
 	/** @param perkuliahan jadwal perkuliahan tujuan komentar */
@@ -66,6 +74,7 @@ public class KomentarPerkuliahanHelper {
 	 * memanggil {@code eventListener}.
 	 *
 	 * @param eventListener dipanggil (dengan event kosong) setelah komentar tersimpan dan email selesai diproses
+	 * @throws Exception diteruskan dari kegagalan membangun UI atau akses database
 	 */
 	public void display(final EventListener eventListener) throws Exception {
 		final MyWindow window = new MyWindow("Masukkan komentar Anda", "normal", false);

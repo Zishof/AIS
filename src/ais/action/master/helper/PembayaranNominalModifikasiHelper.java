@@ -226,6 +226,167 @@ public final class PembayaranNominalModifikasiHelper {
 				|| ItemBiaya.TIDAK_ADA_PENGHITUNGAN.equals(penghitungan);
 	}
 
+	/**
+	 * Menghitung ulang <b>nominal dan teks rincian</b> satu baris {@link DetailBiaya} untuk
+	 * seorang mahasiswa pada semester tertentu &mdash; jalur tagihan biasa (non-bulanan).
+	 *
+	 * <p>Meski namanya menyebut &quot;keterangan&quot;, <b>inilah pintu masuk perhitungan
+	 * nominal</b> untuk seluruh item biaya berskema perkalian. Hasil perkalian ditulis ke
+	 * {@link DetailBiaya#setNilaiBiayaBaru(Double)}; teks penjelasnya (mis.
+	 * {@code "Biaya SKS (50.000) x 20 SKS, sbb : Kalkulus:3sks, ..."}) ditulis ke
+	 * {@link DetailBiaya#setKeterangan(String)}. Keduanya {@code @Transient}, jadi method ini
+	 * <b>tidak</b> menyentuh tabel {@code detail_biaya}; efeknya hanya di memori dan hilang saat
+	 * objeknya dibuang.</p>
+	 *
+	 * <h4>Empat gerbang pulang cepat</h4>
+	 * <p>Sebelum masuk rantai rumus, method ini pulang lebih awal pada empat keadaan. Tiga di
+	 * antaranya mengisi {@code nilaiBiayaBaru} dengan harga dasar yang sudah dinormalkan
+	 * {@link #safeDouble(Double)} &mdash; sehingga pemanggil selalu mendapat angka, bukan
+	 * {@code null}:</p>
+	 * <ol>
+	 *   <li>{@code detailBiaya} {@code null} &rarr; tidak ada apa pun yang bisa ditulis, langsung
+	 *   {@code return} <b>tanpa</b> mengisi apa-apa;</li>
+	 *   <li>{@code itemBiaya} {@code null} (rincian biaya yatim) &rarr; harga dasar apa adanya;</li>
+	 *   <li>{@link #isTanpaPenghitungan(ItemBiaya)} bernilai {@code true} &rarr; harga dasar apa
+	 *   adanya &mdash; ini jalur mayoritas item biaya berharga tetap;</li>
+	 *   <li>{@code mahasiswa}/{@code mahasiswa.getId()}/{@code semester} {@code null} &rarr; harga
+	 *   dasar apa adanya, karena tanpa konteks mahasiswa tidak ada yang bisa dikalikan.</li>
+	 * </ol>
+	 *
+	 * <h4>Rantai rumus</h4>
+	 * <p>Sesudah gerbang itu, method memilih <b>satu</b> cabang dengan membandingkan
+	 * {@link ItemBiaya#getPenghitungan()} secara berurutan. Cabang pertama justru bukan
+	 * berdasarkan {@code penghitungan}, melainkan berdasarkan
+	 * {@code itemBiaya.getTerhubungKeNilaiTambahan()}; sisanya per skema. Ringkasannya:</p>
+	 * <ul>
+	 *   <li><b>Nilai dari parameter tambahan biodata</b> (cabang pertama, dipilih bila
+	 *   {@code terhubungKeNilaiTambahan} menyala dan {@code parameterTambahan} terisi). Nominal
+	 *   <b>tidak dikalikan apa pun</b>: helper membaca
+	 *   {@code BiodataMahasiswa.parameterTambahanInds} milik mahasiswa (baris terbaru menurut
+	 *   {@code id}), mem-parsing formatnya ({@code "label->idParameter<=>nilai"} per baris),
+	 *   dan bila {@code idParameter} cocok dengan {@code itemBiaya.parameterTambahan.id} serta
+	 *   nilainya angka, nilai itu <b>langsung menjadi nominal tagihan</b>. Lihat catatan
+	 *   integritas di bawah.</li>
+	 *   <li><b>Berbasis SKS KRS:</b> {@link ItemBiaya#DIKALI_JUMLAH_SKS_MAHASISWA} (seluruh SKS
+	 *   yang diambil), {@link ItemBiaya#DIKALI_JUMLAH_SKS_MATAKULIAH_MENGULANG} (hanya
+	 *   {@code Perkuliahan.semester < semester} tagihan), dan
+	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_MATAKULIAH_TIDAK_MENGULANG} (hanya yang semesternya
+	 *   sama).</li>
+	 *   <li><b>Berbasis SKS komponen matakuliah:</b> {@code ..._MK_PRAKTEK},
+	 *   {@code ..._MK_PRAKTEK_SP}, {@code ..._MK_SKS_DISKUSI_TEORI},
+	 *   {@code ..._MK_SKS_DISKUSI_TEORI_SP}, {@code ..._MK_SKS_SIMULASI}. Semuanya menjumlahkan
+	 *   dari KRS reguler <i>lalu ditambah</i> matakuliah konversi.</li>
+	 *   <li><b>Berbasis komponen ujian:</b> {@code DIKALI_JUMLAH_MK_UTS}/{@code _UAS} (jumlah
+	 *   matakuliah), {@code ..._SP} (varian semester pendek), dan padanan berbasis SKS
+	 *   {@code DIKALI_JUMLAH_SKS_UTS}/{@code _UAS}/{@code _UTS_SP}/{@code _UAS_SP}/
+	 *   {@code _UTS_REMEDIAL}.</li>
+	 *   <li><b>Berbasis remedial:</b> {@code DIKALI_JUMLAH_MATAKULIAH_REMEDIAL} dan empat
+	 *   varian bobot SKS-nya ({@code _1_SKS} sampai {@code _4_SKS}).</li>
+	 *   <li><b>Berbasis konversi:</b> {@code DIKALI_JUMLAH_SKS_MK_KONVERSI},
+	 *   {@code DIKALI_JUMLAH_MK_KONVERSI}, {@code DIKALI_SATU_JIKA_AMBIL_MK_KONVERSI}.</li>
+	 *   <li><b>Bersyarat 0/1:</b> {@code DIKALI_SATU_JIKA_LULUS_DISEMESTER_YANG_SAMA},
+	 *   {@code DIKALI_SATU_JIKA_AMBIL_MK_TERTENTU},
+	 *   {@code DIKALI_SATU_JIKA_AMBIL_MK_TERTENTU_DAN_SEMESTER_SEBELUMNYA},
+	 *   {@code DIKALI_SATU_JIKA_AMBIL_MK_SP}. Nominalnya {@code harga} atau {@code 0}.</li>
+	 *   <li><b>Tunggakan:</b> {@link ItemBiaya#HITUNG_TUNGGAKAN_SMT_LALU} &mdash; satu-satunya
+	 *   cabang yang juga mengisi {@link DetailBiaya#setTunggakanLalu(Double)}.</li>
+	 * </ul>
+	 *
+	 * <h4>Catatan integritas finansial</h4>
+	 * <ul>
+	 *   <li><b>Tidak ada {@code else} penutup.</b> Bila {@code penghitungan} tidak cocok dengan
+	 *   satu pun cabang, method selesai <b>tanpa menyentuh {@code nilaiBiayaBaru}</b>. Nilainya
+	 *   tetap seperti sebelum pemanggilan &mdash; {@code null} pada objek baru, atau sisa
+	 *   perhitungan lama pada objek yang dipakai ulang. Pemanggil seperti
+	 *   {@code Kegiatan.ambilJumlahTagihan(...)} yang memakai "{@code nilaiBiayaBaru} masih
+	 *   {@code null}" sebagai penanda "belum dihitung" karena itu akan memanggil method ini
+	 *   berulang kali tanpa pernah mendapat hasil.</li>
+	 *   <li><b>{@link ItemBiaya#DIKALI_JUMLAH_SKS_UAS_REMDIAL} tidak punya cabang di sini.</b>
+	 *   Blok yang seharusnya menanganinya justru menguji
+	 *   {@link ItemBiaya#DIKALI_JUMLAH_SKS_UTS_REMEDIAL} untuk <b>kedua kalinya</b> &mdash; dua
+	 *   blok kembar persis berturut-turut, sehingga blok kedua tak akan pernah terjangkau
+	 *   ({@code else if} pertama sudah menangkap semua kasusnya). Akibatnya item biaya "dikali
+	 *   jumlah SKS matakuliah remedial yang ada uas-nya" jatuh ke keadaan "tidak ada cabang yang
+	 *   cocok" di atas: nominalnya tidak pernah dikalikan pada tagihan biasa. Jalur bulanan
+	 *   ({@link #ambilNominalModifikasi(PengaturanPembayaranBulanan, Mahasiswa, Integer)})
+	 *   menangani skema ini dengan benar, sehingga item yang sama menghasilkan tagihan berbeda
+	 *   tergantung jalur mana yang dipakai.</li>
+	 *   <li><b>Cabang parameter tambahan menjadikan nominal tagihan sebagai data biodata.</b>
+	 *   Nilai yang dipakai berasal dari string {@code parameterTambahanInds} pada
+	 *   {@link BiodataMahasiswa}, dibaca apa adanya dan langsung menjadi nominal &mdash; tanpa
+	 *   batas atas, tanpa batas bawah, dan tanpa validasi selain "harus berupa angka". Siapa pun
+	 *   yang berwenang menyunting biodata mahasiswa (termasuk jalur pengisian formulir tambahan
+	 *   pada pendaftaran/daftar ulang) karena itu efektif berwenang menetapkan nominal item biaya
+	 *   tersebut. Perubahannya tercatat sebagai revisi Envers pada {@code biodata_mahasiswa},
+	 *   bukan sebagai perubahan tagihan &mdash; jadi pada laporan keuangan perubahan itu tampak
+	 *   sebagai tagihan yang "berubah sendiri".</li>
+	 *   <li><b>Parsing parameter tambahan gagal secara diam.</b> Baris yang formatnya tidak
+	 *   sesuai, {@code id} yang tidak cocok, atau nilai yang bukan angka semuanya membuat cabang
+	 *   ini selesai <b>tanpa mengisi {@code nilaiBiayaBaru}</b> (galat parsing ditelan
+	 *   {@code Common.tampilErrorJikaAdmin}). Karena cabang ini paling depan dalam rantai, item
+	 *   dengan {@code terhubungKeNilaiTambahan} menyala juga <b>tidak pernah</b> memakai skema
+	 *   {@code penghitungan}-nya sendiri, walau operator sudah memilihnya.</li>
+	 *   <li><b>{@code HITUNG_TUNGGAKAN_SMT_LALU} punya dua makna berbeda.</b> Bila
+	 *   {@link Kegiatan} semester sebelumnya ada, yang dipakai adalah
+	 *   {@code kegiatan.getAmountTerhutang()} &mdash; sisa yang benar-benar belum dibayar. Bila
+	 *   tidak ada, helper menjumlahkan seluruh baris {@link DetailBiaya} semester sebelumnya
+	 *   lewat {@code hitungTotalKegiatan(null)}, yang oleh {@link DetailBiaya} dialihkan ke
+	 *   {@code hitungTotal()} &mdash; yaitu <b>total tagihan rencana</b>, bukan sisa terhutang.
+	 *   Mahasiswa yang sudah melunasi semester lalu di luar mekanisme {@code Kegiatan} akan
+	 *   ditagih ulang penuh. Pengambilan baris biaya itu juga mematok
+	 *   {@code ConstantValues.PENDAFTARAN_MAHASISWA_LAMA}, sehingga mahasiswa yang semester
+	 *   sebelumnya masih berstatus baru dibandingkan dengan daftar biaya yang salah. Selain itu
+	 *   nilai negatif (kelebihan bayar/diskon) dibuang oleh saringan {@code nilai > 0.01},
+	 *   sehingga kompensasi tidak pernah mengurangi tunggakan.</li>
+	 *   <li><b>{@code semester == 1} tidak tertangani.</b> Syarat {@code semester > 1} adalah
+	 *   bagian dari kondisi cabang, bukan penjaga di dalamnya; pada semester pertama skema ini
+	 *   jatuh ke keadaan "tidak ada cabang yang cocok".</li>
+	 *   <li><b>{@code DIKALI_JUMLAH_MK_KONVERSI} mengabaikan semester.</b> Cabang itu memanggil
+	 *   {@code KrsDetailHelper.ambilDetailperkuliahanKonversi(mahasiswa, null)} &mdash; seluruh
+	 *   matakuliah konversi sepanjang masa studi, bukan yang semester ini. Bila item biayanya
+	 *   aktif tiap semester, jumlah yang sama ditagihkan berulang. Bandingkan dengan
+	 *   {@code DIKALI_JUMLAH_SKS_MK_KONVERSI} tepat di atasnya yang memakai {@code semester}.</li>
+	 *   <li><b>Varian "SP" ikut menghitung konversi non-SP.</b> Pada
+	 *   {@code DIKALI_JUMLAH_SKS_MK_PRAKTEK_SP} dan {@code ..._DISKUSI_TEORI_SP}, loop KRS
+	 *   memang disaring {@link Perkuliahan#SEMESTER_PENDEK}, tetapi loop konversi sesudahnya
+	 *   memakai pemanggilan yang sama persis dengan varian reguler (tanpa penyaring SP). SKS
+	 *   konversi karena itu ikut ditagih pada biaya semester pendek.</li>
+	 *   <li><b>Cabang matakuliah konversi pada skema ujian tidak pernah aktif.</b> Seluruh
+	 *   cabang {@code DIKALI_JUMLAH_MK_*}/{@code DIKALI_JUMLAH_SKS_U*} membuang lebih dulu baris
+	 *   ber-{@code perkuliahan} {@code null} ({@code continue}), lalu tetap menulis ternary
+	 *   {@code perkuliahan == null ? matakuliahKonversi : ...}. Sisi {@code matakuliahKonversi}
+	 *   dari ternary itu kode mati.</li>
+	 *   <li><b>{@code NullPointerException} yang mungkin.</b> Harga dasar diambil tanpa
+	 *   {@link #safeDouble(Double)} di dalam rantai, sehingga {@code nilaiBiaya} {@code null}
+	 *   pada item berskema perkalian melempar saat perkalian. Hal serupa berlaku pada
+	 *   {@code Matakuliah.getSks()}, {@code Perkuliahan.getSemester()}, dan
+	 *   {@code getMatakuliahKonversi()} yang di-unbox/di-dereferensi tanpa penjaga.</li>
+	 *   <li><b>Sisa debug.</b> Cabang
+	 *   {@code DIKALI_SATU_JIKA_AMBIL_MK_TERTENTU_DAN_SEMESTER_SEBELUMNYA} masih memanggil
+	 *   {@code System.out.println("daftarMk -> " + ...)} yang mencetak daftar matakuliah
+	 *   mahasiswa ke log server pada setiap perhitungan.</li>
+	 *   <li><b>Semantik cabang "dan semester sebelumnya".</b> Meski namanya menyebut semester
+	 *   sebelumnya, yang sebenarnya diuji adalah apakah sebuah matakuliah dari daftar muncul
+	 *   <b>lebih dari sekali</b> ({@code c > 1}) di seluruh riwayat sampai semester ini. Item
+	 *   ditagih ({@code x 1}) hanya bila ada pengulangan.</li>
+	 * </ul>
+	 *
+	 * <h4>Biaya eksekusi</h4>
+	 * <p>Hampir setiap cabang memuat ulang seluruh {@link Detailperkuliahan} mahasiswa satu per
+	 * satu melalui {@link GeneralValueObject#ambilData(Class, String)} &mdash; pola N+1 yang
+	 * berlipat lagi pada cabang yang menjalankan dua loop (KRS dan konversi). Method ini
+	 * dipanggil per baris rincian biaya, dan pada layar daftar tagihan dipanggil untuk setiap
+	 * mahasiswa; pemanggil massal wajib memikirkan caching sendiri.</p>
+	 *
+	 * @param detailBiaya baris rincian biaya yang akan diisi nominal dan keterangannya; bila
+	 *                    {@code null}, method langsung selesai tanpa efek
+	 * @param mahasiswa   mahasiswa yang menjadi konteks perhitungan; {@code null} (atau
+	 *                    ber-{@code id} {@code null}) membuat nominal jatuh ke harga dasar
+	 * @param semester    semester yang menjadi konteks perhitungan; {@code null} membuat nominal
+	 *                    jatuh ke harga dasar
+	 * @see DetailBiaya#updateKeterangan(Mahasiswa, Integer)
+	 * @see #ambilNominalModifikasi(PengaturanPembayaranBulanan, Mahasiswa, Integer)
+	 */
 	@SuppressWarnings("unchecked")
 	public static void updateKeterangan(DetailBiaya detailBiaya, Mahasiswa mahasiswa, Integer semester) {
 

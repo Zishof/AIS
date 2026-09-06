@@ -36,6 +36,18 @@ public class RevisiTugasHelper extends GenericRevisiHelper {
 	/** Properti yang bisa dicari dari kotak pencarian modal (semuanya field milik Tugas). */
 	private static final String[] SEARCH_PROPERTIES = new String[] { "judultugas" };
 
+	/**
+	 * Membangun daftar filter (0 atau 1 elemen) dari satu pasangan properti-nilai bebas. Dipakai
+	 * konstruktor generik {@link #RevisiTugasHelper(Class, String, Object, EventListener)} yang
+	 * menerima nama properti asosiasi apa saja dari pemanggil.
+	 *
+	 * @param property nama properti asosiasi pembatas (mis. {@code "perkuliahan"}); bila
+	 *                 {@code null}/kosong, tidak ada filter yang ditambahkan.
+	 * @param value    nilai pembatas untuk {@code property}; bila {@code null}, tidak ada filter
+	 *                 yang ditambahkan meski {@code property} terisi.
+	 * @return array berisi satu {@link GenericRevisiHelper.FixedPropertyFilter}, atau array kosong
+	 *         bila {@code property}/{@code value} tidak lengkap (seluruh riwayat kelas ditampilkan).
+	 */
 	private static QueryCustomizer[] buildFilters(String property, Object value) {
 		List<QueryCustomizer> filters = new ArrayList<QueryCustomizer>();
 		if (property != null && property.trim().length() > 0 && value != null) {
@@ -44,6 +56,27 @@ public class RevisiTugasHelper extends GenericRevisiHelper {
 		return filters.toArray(new QueryCustomizer[filters.size()]);
 	}
 
+	/**
+	 * Membangun filter yang membatasi riwayat ke satu {@link VOPembelajaran} (mata kuliah/kelas yang
+	 * sedang dibuka), disesuaikan dengan kelas entitas tugas konkret yang sedang dibuka karena setiap
+	 * turunan Tugas menyimpan asosiasi pembelajaran lewat properti yang berbeda. Dipakai konstruktor
+	 * {@link #RevisiTugasHelper(Class, VOPembelajaran, EventListener)} (jalur "Recovery").
+	 *
+	 * <ul>
+	 *   <li>{@link Pertemuan} dan {@link TugasKelompok} — asosiasi langsung ke pembelajaran lewat
+	 *       properti {@code "perkuliahan"} (bila {@code pembelajaran} berupa {@code Perkuliahan}) atau
+	 *       {@code "jadwalPelajaran"} (kursus non-perkuliahan).</li>
+	 *   <li>{@link TugasPertemuan} — tidak punya asosiasi langsung ke pembelajaran, sehingga dibatasi
+	 *       tidak langsung lewat kumpulan ID {@link Pertemuan} milik {@code pembelajaran} (lihat
+	 *       {@link #ambilIdPertemuan(VOPembelajaran)}), fail-closed ke ID {@code -1} bila kosong agar
+	 *       tidak menampilkan seluruh riwayat kelas.</li>
+	 * </ul>
+	 *
+	 * @param kelas        kelas entitas tugas konkret yang sedang dibuka.
+	 * @param pembelajaran konteks mata kuliah/kelas pembatas; bila {@code null}, tidak ada filter yang
+	 *                     ditambahkan (seluruh riwayat kelas ditampilkan).
+	 * @return array filter yang sesuai kombinasi {@code kelas}/{@code pembelajaran}; bisa kosong.
+	 */
 	private static QueryCustomizer[] buildFilters(final Class kelas, final VOPembelajaran pembelajaran) {
 		List<QueryCustomizer> filters = new ArrayList<QueryCustomizer>();
 		if (pembelajaran == null) {
@@ -74,6 +107,15 @@ public class RevisiTugasHelper extends GenericRevisiHelper {
 		return filters.toArray(new QueryCustomizer[filters.size()]);
 	}
 
+	/**
+	 * Mengekstrak seluruh ID {@link Pertemuan} milik satu {@link VOPembelajaran} (dari
+	 * {@link VOPembelajaran#ambilPertemuan()}), membuang entri {@code null}. Dipakai
+	 * {@link #buildFilters(Class, VOPembelajaran)} untuk membatasi riwayat {@link TugasPertemuan}
+	 * secara tidak langsung lewat pertemuan induknya.
+	 *
+	 * @param pembelajaran konteks mata kuliah/kelas; boleh {@code null}.
+	 * @return array ID pertemuan (bisa kosong, tidak pernah {@code null}).
+	 */
 	private static Long[] ambilIdPertemuan(VOPembelajaran pembelajaran) {
 		TreeMap<String, Long> data = pembelajaran == null ? null : pembelajaran.ambilPertemuan();
 		List<Long> ids = new ArrayList<Long>();
