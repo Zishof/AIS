@@ -7292,6 +7292,27 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menutup sesi Hibernate yang dibuka sendiri, dengan urutan
+	 * {@code clear()} - {@code disconnect()} - {@code close()}.
+	 *
+	 * <p>Dipakai method yang menyentuh JDBC mentah lewat {@code session.connection()}
+	 * ({@link #prosesDetailTransaksi}, {@link #prosesLayaniTransaksi},
+	 * {@link #resolveTokoId}, {@link #resolveTokoIdTransaksi}). Untuk sesi seperti itu
+	 * {@code close()} saja tidak cukup: {@code clear()} melepas entitas yang masih
+	 * menempel di sesi, dan {@code disconnect()} memastikan koneksi c3p0 benar-benar
+	 * dikembalikan ke kolam meski masih ada {@code Statement} yang belum sempat
+	 * ditutup. Servlet ini berjalan DI LUAR siklus ZK/{@code FilterJSP}, jadi tidak
+	 * ada yang membereskannya di akhir permintaan.</p>
+	 *
+	 * <p>Ketiga langkah dibungkus try masing-masing dan kegagalannya dicatat
+	 * {@code ErrorAuditUtil} berlabel {@code sumber} -- satu langkah gagal tidak boleh
+	 * mencegah dua langkah sisanya, karena justru kegagalan itulah yang membuat
+	 * koneksi bocor. Aman dipanggil dengan {@code null}.</p>
+	 *
+	 * @param sumber nama pemanggil, muncul di catatan audit sebagai
+	 *               {@code <sumber>-clear} / {@code -disconnect} / {@code -close}
+	 */
 	private void tutupOpenSession(Session session, String sumber) {
 		if (session == null) return;
 		try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, sumber + "-clear"); }
@@ -7299,6 +7320,26 @@ public class PosApi extends HttpServlet {
 		try { session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, sumber + "-close"); }
 	}
 
+	/**
+	 * Membaca id toko yang DIMINTA klien dari body JSON, mencoba empat nama kunci
+	 * berturut-turut: {@code tokoId}, {@code id_toko}, {@code idToko},
+	 * {@code toko_id}.
+	 *
+	 * <p>Keempatnya benar-benar dipakai di lapangan -- layar POS lahir dari sumber
+	 * berbeda (port JSP, port ZK, klien Flutter) dan masing-masing membawa gaya
+	 * penamaannya sendiri. Menerima semuanya di satu tempat lebih murah daripada
+	 * menyeragamkan puluhan layar sekaligus.</p>
+	 *
+	 * <p>Nilai non-numerik dan nilai &lt;= 0 diperlakukan sebagai "tidak menyebut
+	 * toko" ({@code null}), bukan galat: nol dipakai beberapa layar sebagai penanda
+	 * "Semua Toko".</p>
+	 *
+	 * <p><b>Ini PERMINTAAN, bukan keputusan.</b> Hasilnya tidak boleh dipakai langsung
+	 * sebagai cakupan kueri. Yang memutuskan adalah {@link #resolveTokoId}, yang
+	 * memeriksa apakah toko itu benar-benar milik pendaftar/peran pengguna dan
+	 * menjatuhkannya bila bukan -- tanpa pemeriksaan itu id toko dari klien menjadi
+	 * IDOR lintas tenant.</p>
+	 */
 	private static Long ambilTokoIdPayload(JSONObject payload) {
 		if (payload == null) return null;
 		String[] kunci = new String[] { "tokoId", "id_toko", "idToko", "toko_id" };
@@ -7469,8 +7510,26 @@ public class PosApi extends HttpServlet {
 	 * {@link HttpServletRequestWrapper}.
 	 */
 	private static final class ParamRequestWrapper extends HttpServletRequestWrapper {
+		/**
+		 * Parameter hasil salinan dari payload JSON. Hanya kunci yang benar-benar
+		 * dibaca {@code LaporanKantinUtil} yang disalin (lihat konstruktor), sehingga
+		 * field JSON lain tidak pernah menyamar menjadi parameter permintaan.
+		 */
 		private final Map<String, String> params = new HashMap<String, String>();
 
+		/**
+		 * Menyalin daftar kunci TETAP dari payload JSON menjadi parameter permintaan.
+		 *
+		 * <p>Daftarnya sengaja putih (whitelist) dan pendek -- {@code r},
+		 * {@code tokoId}, {@code tglMulai}, {@code tglSampai}, {@code qProduk},
+		 * {@code qPelanggan}, {@code perToko} -- persis yang dibaca mesin laporan.
+		 * Menyalin seluruh isi payload akan membuat klien dapat menyuntikkan parameter
+		 * apa pun yang kebetulan dibaca laporan atau kode di bawahnya.</p>
+		 *
+		 * <p>Kunci yang tidak ada di payload TIDAK disalin, sehingga
+		 * {@link #getParameter} jatuh ke request asli -- perilaku form/query params
+		 * versi JSP tetap utuh.</p>
+		 */
 		ParamRequestWrapper(HttpServletRequest request, JSONObject payload) {
 			super(request);
 			String[] kunci = { "r", "tokoId", "tglMulai", "tglSampai", "qProduk", "qPelanggan", "perToko" };
@@ -7481,11 +7540,24 @@ public class PosApi extends HttpServlet {
 			}
 		}
 
+		/**
+		 * Mengembalikan nilai dari payload JSON bila kuncinya disalin konstruktor;
+		 * selain itu meneruskan ke request asli.
+		 */
 		@Override
 		public String getParameter(String name) {
 			return params.containsKey(name) ? params.get(name) : super.getParameter(name);
 		}
 
+		/**
+		 * Peta parameter versi payload JSON.
+		 *
+		 * <p>Berbeda dari {@link #getParameter}, method ini TIDAK menggabungkan
+		 * parameter request asli -- hanya kunci hasil salinan yang dilaporkan. Cukup
+		 * untuk {@code LaporanKantinUtil}, yang memakai peta ini sekadar untuk
+		 * menelusuri parameter laporan; pemakai lain yang mengharapkan peta gabungan
+		 * akan melihatnya kosong.</p>
+		 */
 		@Override
 		public Map<String, String[]> getParameterMap() {
 			Map<String, String[]> m = new HashMap<String, String[]>();
@@ -7495,6 +7567,12 @@ public class PosApi extends HttpServlet {
 			return m;
 		}
 
+		/**
+		 * Varian bernilai jamak dari {@link #getParameter}. Payload JSON POS tidak
+		 * pernah membawa nilai ganda untuk satu kunci, jadi kunci yang disalin selalu
+		 * dikembalikan sebagai larik berisi satu elemen; sisanya diteruskan ke request
+		 * asli.
+		 */
 		@Override
 		public String[] getParameterValues(String name) {
 			return params.containsKey(name) ? new String[] { params.get(name) } : super.getParameterValues(name);
@@ -7593,6 +7671,18 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menulis objek balasan sebagai teks JSON lalu mem-{@code flush} penulisnya.
+	 *
+	 * <p>Satu-satunya tempat badan balasan ditulis. {@code Content-Type} dan header
+	 * CORS sudah dipasang lebih dulu di {@link #proses}, jadi method ini sengaja tidak
+	 * menyentuh header sama sekali -- memindahkan penulisan header ke sini akan
+	 * merusak jalur {@link #doOptions} yang justru tidak boleh punya badan.</p>
+	 *
+	 * <p>Setiap {@code return} awal di {@link #proses} WAJIB memanggil method ini
+	 * lebih dulu; melewatkannya berarti klien menerima {@code 200} dengan badan
+	 * kosong (lihat catatan cacat pada JavaDoc {@link #proses}).</p>
+	 */
 	private static void tulisJson(HttpServletResponse response, JSONObject hasil) throws IOException {
 		PrintWriter writer = response.getWriter();
 		writer.print(hasil.toString());

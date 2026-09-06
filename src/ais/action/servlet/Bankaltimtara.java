@@ -756,6 +756,70 @@ public class Bankaltimtara extends HttpServlet {
 		return batasPembayaran != null && !batasPembayaran.after(WaktuUtil.getDate());
 	}
 
+	/**
+	 * Inti pemrosesan callback Bank Kaltimtara: mencari Virtual Account,
+	 * memvalidasinya, lalu membukukan pelunasan &mdash; atau membalikkannya bila
+	 * {@code reversal}.
+	 *
+	 * <h3>Urutan validasi</h3>
+	 * <ol>
+	 * <li><b>Nominal terbaca</b> &mdash; {@code Double.NaN} (sentinel dari
+	 * {@link #doProses} untuk {@code amount} kosong/rusak) ditolak dengan
+	 * "Format nominal transaksi tidak valid".</li>
+	 * <li><b>Tanggal terbaca</b> &mdash; {@code trx_date} yang tidak dapat diurai
+	 * ditolak dengan "Format tanggal transaksi tidak valid".</li>
+	 * <li><b>VA ditemukan</b> lewat
+	 * {@link VirtualAccountBank#ambilVa(String, double, BankHost)}; gagal dijawab
+	 * "Nomor VA salah".</li>
+	 * <li><b>Kedaluwarsa</b> &mdash; lewat
+	 * {@link #sudahKadaluarsaUntukCallbackOtomatis}, hanya untuk callback publik
+	 * ({@code chekLagi}, {@code reversal}, dan {@code chek} dikecualikan); tagihan
+	 * lewat tenggat diarahkan ke rekonsiliasi manual.</li>
+	 * <li><b>Sudah terbayar</b> &mdash; lewat
+	 * {@link VirtualAccountBank#isSudahTerbayarUntukPayment}.</li>
+	 * <li><b>Kecocokan nominal</b> &mdash; pada mode pembayaran, nominal dari bank
+	 * harus sama dengan {@link VirtualAccountBank#totalBiaya()}.</li>
+	 * </ol>
+	 *
+	 * <h3>Sentinel nominal negatif (kanal QRIS)</h3>
+	 * Bila {@code nominalP} bernilai negatif &mdash; yang di {@link #doProses} hanya
+	 * terjadi untuk payload ber-{@code kd_tagihan}, yakni kanal QRIS yang memang
+	 * tidak mengirim nominal terpisah &mdash; nilainya lebih dulu diganti dengan
+	 * {@code getTotal() + getBiayaAdmin()} milik VA yang bersangkutan. Akibatnya
+	 * pemeriksaan kecocokan nominal pada langkah 6 terpenuhi dengan sendirinya untuk
+	 * jalur ini; besaran yang dibukukan adalah total tagihan menurut sistem, bukan
+	 * angka yang dikirim pemanggil.
+	 *
+	 * <h3>Jalur entitas dan token cicilan</h3>
+	 * Seperti pada {@link Mandiri}, alur bercabang antara siswa/calon siswa dan
+	 * mahasiswa/calon mahasiswa, dan kolom {@code cicilan} milik VA diurai menjadi
+	 * token yang masing-masing menjadi {@link CicilanPembayaran} (format numerik,
+	 * {@code Bulanan-}, {@code Item-}, dan {@code Keranjang-}). Pada mode
+	 * {@code reversal} baris-baris pembayaran itu dihapus kembali dan VA
+	 * dikembalikan ke keadaan belum lunas.
+	 *
+	 * <h3>Pencatatan</h3>
+	 * Blok {@code finally} selalu memanggil
+	 * {@code PembayaranGatewayHelper.catatLogHostToHost(...)} dengan payload mentah,
+	 * sehingga setiap callback terekam terlepas dari berhasil atau tidaknya.
+	 *
+	 * @param nominalP nominal dari bank; {@code NaN} berarti tidak terbaca, nilai
+	 *                 negatif berarti "pakai total tagihan sistem" (kanal QRIS)
+	 * @param tanggalP waktu transaksi dari bank sebagai teks
+	 * @param va       nomor VA atau kode tagihan yang ditagih
+	 * @param bank     nama bank pembayar; disimpan sebagai validator
+	 * @param bankHost baris {@link BankHost} hasil pencocokan IP; boleh {@code null}
+	 *                 &mdash; alur tetap berjalan
+	 * @param request  request HTTP asli; boleh {@code null} pada rekonsiliasi manual
+	 * @param data     payload JSON mentah; disimpan apa adanya ke Log Host-to-Host
+	 * @param chekLagi {@code true} melewati pemeriksaan kedaluwarsa
+	 * @param inquery  {@code true} bila hanya menanyakan rincian tanpa membukukan
+	 * @param reversal {@code true} membatalkan pembayaran yang sudah dibukukan
+	 * @param chek     {@code true} bila dipicu admin dari menu rekonsiliasi
+	 * @return objek JSON respons untuk bank, memuat {@code errorCode} dan
+	 *         {@code statusDescription}
+	 * @throws Exception bila terjadi kegagalan di luar yang sudah ditangani internal
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi, boolean inquery, boolean reversal, boolean chek)
@@ -1504,6 +1568,43 @@ public class Bankaltimtara extends HttpServlet {
 		return response;
 	}
 
+	/**
+	 * Mengurai payload callback Bank Kaltimtara menjadi parameter terpisah,
+	 * memvalidasi kelengkapannya, lalu memanggil {@link #doProcess}.
+	 *
+	 * <h3>Dua bentuk payload</h3>
+	 * <ul>
+	 * <li><b>VA</b> &mdash; {@code number} sebagai nomor VA (cadangan: parameter
+	 * query bernama sama) dan {@code amount} sebagai nominal.</li>
+	 * <li><b>QRIS</b> &mdash; kehadiran {@code kd_tagihan} menimpa nomor VA dan
+	 * menyetel nominal ke sentinel {@code -1.0}, yang di {@link #doProcess} berarti
+	 * "pakai total tagihan menurut sistem" karena kanal ini tidak mengirim nominal
+	 * terpisah.</li>
+	 * </ul>
+	 *
+	 * <h3>Validasi defensif</h3>
+	 * {@code amount} kosong atau tidak dapat diurai tidak lagi melempar
+	 * {@code NumberFormatException} melainkan disetel ke sentinel
+	 * {@code Double.NaN}. Sentinel itu sengaja dibedakan dari nilai negatif supaya
+	 * "nominal rusak" tidak tertukar dengan "pakai total tagihan". Callback dengan
+	 * {@code amount} rusak atau {@code trx_date} kosong ditolak lebih awal dengan
+	 * {@link #errorDb} tanpa pernah menyentuh basis data.
+	 *
+	 * <p>
+	 * Mode {@code reversal} dikenali dari URI request yang berakhiran
+	 * {@code BankaltimtaraReversal}. Callback publik selalu dipanggil dengan
+	 * {@code chekLagi = false} dan {@code inquery = false}, sehingga VA kedaluwarsa
+	 * wajib ditolak di jalur ini.
+	 *
+	 * @param data     payload JSON mentah; boleh {@code null}
+	 * @param request  request HTTP asli; boleh {@code null} pada rekonsiliasi manual
+	 * @param bankHost baris {@link BankHost} hasil pencocokan IP; boleh {@code null}
+	 * @param bank     nama bank pembayar, di endpoint ini {@code "BMS"}
+	 * @param chek     {@code true} bila dipicu admin dari menu rekonsiliasi
+	 * @return badan respons JSON sebagai {@link String}
+	 * @throws Exception bila penguraian JSON tingkat akar gagal atau tidur simulasi
+	 *                   timeout diinterupsi
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);
@@ -1571,6 +1672,42 @@ public class Bankaltimtara extends HttpServlet {
 		return body;
 	}
 
+	/**
+	 * Titik masuk bersama {@link #doGet} dan {@link #doPost}: membaca badan request
+	 * sebagai teks, mengenali pemanggil, memanggil {@link #doProses}, lalu menulis
+	 * hasilnya sebagai {@code application/json}.
+	 *
+	 * <h3>Pengenalan pemanggil &mdash; catatan penting</h3>
+	 * Pemanggil dikenali <b>hanya</b> lewat
+	 * {@link PembayaranUtil#getBankHost(String, String)} dengan alamat
+	 * {@link HttpServletRequest#getRemoteAddr()} dan nama bank {@code "BMS"}. Hal-hal
+	 * yang perlu disadari pembaca kode:
+	 * <ul>
+	 * <li><b>Tidak ada verifikasi kriptografis pada jalur masuk.</b> Kredensial
+	 * gateway yang dimiliki instalasi ini hanya dipakai ke arah keluar, yaitu untuk
+	 * memperoleh bearer token pada {@link #checkPakaiva}/{@link #checkPakaiqris}.
+	 * Payload callback yang membukukan uang tidak disertai maupun diperiksa tanda
+	 * tangan, MAC, atau token apa pun. Bandingkan dengan {@link Bniresponse}, yang
+	 * mendekode payload memakai kunci bersama sehingga pemeriksaannya benar-benar
+	 * berlaku pada cabang transaksi.</li>
+	 * <li><b>Hasil pencocokan IP tidak menjadi gerbang.</b> {@code bankHost} yang
+	 * {@code null} tetap diteruskan dan pembukuan berjalan penuh.</li>
+	 * <li>Varian {@code getBankHost} yang dipakai memakai alamat soket langsung,
+	 * <b>bukan</b> header {@code X-Forwarded-For}/{@code CF-Connecting-IP}, sehingga
+	 * IP tidak dapat dipalsukan lewat header oleh pemanggil.</li>
+	 * <li>Di sisi {@link PembayaranUtil} masih berlaku dua pelonggaran umum:
+	 * pembuatan otomatis baris {@link BankHost} bila konfigurasi
+	 * {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} aktif, dan
+	 * cadangan ke baris ber-IP {@code 0.0.0.0} yang cocok untuk alamat mana pun.</li>
+	 * </ul>
+	 * Dengan demikian perlindungan endpoint masuk ini bertumpu pada pembatasan
+	 * jaringan di depan aplikasi, bukan pada pemeriksaan di dalam kode.
+	 *
+	 * @param request  request HTTP dari gateway bank
+	 * @param response respons yang akan diisi badan JSON beserta header
+	 *                 {@code length} dan {@code Content-Type}
+	 * @throws Exception bila pembacaan badan request atau penulisan respons gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
@@ -1601,6 +1738,23 @@ public class Bankaltimtara extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyusun respons baku bertanda <b>timeout</b> ({@code errorCode 68},
+	 * {@code "Connection Timeout"}), dipakai hanya oleh sakelar uji
+	 * {@code bankaltimtara_va_sleep} pada {@link #doProses}.
+	 *
+	 * <p>
+	 * Berbeda dengan {@link Mandiri#timeoutDb}, respons di sini dibangun <b>di atas
+	 * payload permintaan</b>: objek JSON asli dari bank disalin lalu ditimpa field
+	 * status, mengikuti bentuk protokol Bank Kaltimtara yang mengharapkan seluruh
+	 * field permintaan dikembalikan.
+	 *
+	 * @param inquery penanda mode inquiry; disediakan demi keseragaman tanda tangan
+	 *                dan tidak memengaruhi hasil
+	 * @param data    payload JSON mentah dari bank yang menjadi dasar respons
+	 * @return badan JSON siap kirim
+	 * @throws Exception bila {@code data} bukan JSON yang sah
+	 */
 	private static String timeoutDb(boolean inquery, String data) throws Exception {
 
 		JSONObject jsonObjectResponse = new JSONObject(data);
@@ -1609,6 +1763,22 @@ public class Bankaltimtara extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 
+	/**
+	 * Menyusun respons baku bertanda <b>gagal</b> ({@code errorCode 91},
+	 * {@code "Link Down"}), dipakai {@link #doProses} baik sebagai penolakan dini
+	 * ketika {@code amount}/{@code trx_date} tidak lengkap, maupun sebagai jaring
+	 * pengaman ketika {@link #doProcess} melempar exception.
+	 *
+	 * <p>
+	 * Sama seperti {@link #timeoutDb}, respons dibangun di atas payload permintaan:
+	 * objek JSON asli disalin lalu ditimpa field status.
+	 *
+	 * @param inquery penanda mode inquiry; disediakan demi keseragaman tanda tangan
+	 *                dan tidak memengaruhi hasil
+	 * @param data    payload JSON mentah dari bank yang menjadi dasar respons
+	 * @return badan JSON siap kirim
+	 * @throws Exception bila {@code data} bukan JSON yang sah
+	 */
 	private static String errorDb(boolean inquery, String data) throws Exception {
 
 		JSONObject jsonObjectResponse = new JSONObject(data);
