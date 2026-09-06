@@ -64,36 +64,74 @@ public class PersyaratanPilihanPaket extends GeneralValueObject {
 	private static final long serialVersionUID = -227313087242633498L;
 
 	private Long id;
+	/** Nama pelaku (audit shadow, lihat {@link GeneralValueObject}) yang membuat/mengubah baris ini. */
 	private String oleh;
+	/** Id pelaku (audit shadow) yang membuat/mengubah baris ini. */
 	private String olehId;
 
+	/** @return id pelaku terakhir yang mengubah baris ini, atau {@code null} bila belum pernah diisi. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi id pelaku. Nilai kosong/blank diabaikan (fail-safe agar audit shadow tidak
+	 * tertimpa string kosong secara tidak sengaja) &mdash; bukan validasi keamanan.
+	 *
+	 * @param olehId id pelaku; diabaikan jika {@code null} atau hanya berisi spasi
+	 */
 	public void setOlehId(String olehId) {if (olehId == null || olehId.trim().isEmpty()) {return;}
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Mengisi nama pelaku. Nilai kosong/blank diabaikan, sama seperti {@link #setOlehId(String)}.
+	 *
+	 * @param oleh nama pelaku; diabaikan jika {@code null} atau hanya berisi spasi
+	 */
 	public void setOleh(String oleh) {if (oleh == null || oleh.trim().isEmpty()) {return;}
 		this.oleh = oleh;
 	}
 
+	/** @return nama pelaku terakhir yang mengubah baris ini, atau {@code null} bila belum pernah diisi. */
 	public String getOleh() {
 		return oleh;
 	}
 
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Mengubah stempel waktu perubahan terakhir secara manual. Nilai default sudah di-set ke
+	 * waktu saat ini pada deklarasi field dan di-refresh otomatis oleh {@link #onUpdate()} pada
+	 * setiap update; setter ini jarang perlu dipanggil langsung.
+	 *
+	 * @param tanggal_dirubah stempel waktu perubahan baru
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** @return stempel waktu perubahan terakhir baris ini. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Memeriksa apakah kombinasi {@code paket} + program studi {@code prodis} yang dipilih calon
+	 * mahasiswa sudah memenuhi seluruh prasyarat jurusan yang terdaftar untuk {@code paket} ini.
+	 * Untuk setiap {@link Paket} prasyarat (baris {@link PersyaratanPilihanPaket} dengan
+	 * {@code paket} sama, dikelompokkan per {@code persyaratan}), diambil himpunan
+	 * {@link Jurusan} yang tersedia untuk paket prasyarat itu ({@link PaketJurusanPmb}); bila
+	 * TIDAK ADA satu pun irisan dengan {@code prodis} yang dipilih untuk SALAH SATU prasyarat,
+	 * metode langsung mengembalikan {@code false}.
+	 *
+	 * @param paket paket pendaftaran yang hendak diperiksa prasyaratnya
+	 * @param prodis daftar program studi (pilihan jurusan) yang dipilih calon mahasiswa
+	 * @return {@code true} bila seluruh paket prasyarat memiliki irisan jurusan dengan
+	 * {@code prodis}, atau bila {@code paket} tidak memiliki prasyarat sama sekali;
+	 * {@code false} bila ada satu saja prasyarat yang tidak terpenuhi
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean checkKombinasiPaket(Paket paket, List<Jurusan> prodis) {
 		Session session = HibernateUtil.currentSession();
@@ -127,6 +165,7 @@ public class PersyaratanPilihanPaket extends GeneralValueObject {
 	private Paket persyaratan;
 	private String keterangan;
 
+	/** @return id baris (primary key, auto-generated identity di database). */
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "id", insertable = false, nullable = false, unique = true)
@@ -134,19 +173,23 @@ public class PersyaratanPilihanPaket extends GeneralValueObject {
 		return id;
 	}
 
+	/** @param id id baris; kolom tidak insertable sehingga nilai ini diabaikan saat insert. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/** @param keterangan keterangan tambahan untuk baris persyaratan ini. */
 	@Column(name = "keterangan")
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/** @return keterangan tambahan untuk baris persyaratan ini, boleh {@code null}. */
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/** @return {@link Paket} yang disyaratkan (paket prasyarat) untuk {@link #getPaket()}, boleh {@code null}. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "persyaratan", nullable = true)
@@ -154,10 +197,12 @@ public class PersyaratanPilihanPaket extends GeneralValueObject {
 		return persyaratan;
 	}
 
+	/** @param persyaratan paket prasyarat yang harus lebih dulu dipilih/dipenuhi. */
 	public void setPersyaratan(Paket persyaratan) {
 		this.persyaratan = persyaratan;
 	}
 
+	/** @return {@link Paket} yang mensyaratkan pemilihan {@link #getPersyaratan()} lebih dulu, boleh {@code null}. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "paket", nullable = true)
@@ -165,6 +210,7 @@ public class PersyaratanPilihanPaket extends GeneralValueObject {
 		return paket;
 	}
 
+	/** @param paket paket yang mensyaratkan pemilihan {@link #getPersyaratan()} lebih dulu. */
 	public void setPaket(Paket paket) {
 		this.paket = paket;
 	}
