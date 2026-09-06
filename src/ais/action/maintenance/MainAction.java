@@ -158,11 +158,6 @@ public class MainAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 2446397351568124278L;
 	private static final int MODERN_PENGUMUMAN_PAGE_SIZE = 5;
-	// Halaman publik ini menjadi satu pintu informasi bagi pengguna akhir.
-	// README menjelaskan manfaat, pemasangan, status UAT, dan menyediakan tautan
-	// unduhan Android maupun desktop tanpa membuka repository source privat.
-	private static final String PUBLIC_APPLICATION_PAGE =
-			"https://github.com/Zishof/ecampus-eschool-releases";
 	Tabbox iframe;
 	private Borderlayout tinggiFrame;
 	private Center centerTinggiFrame;
@@ -217,7 +212,6 @@ public class MainAction extends GenericAutowireComposer {
 			eInfoKegiatanButton;
 	private MyToolbarbuttonKecilConfig eFeederButton;
 	private MyToolbarbuttonKecilConfig eSisterButton;
-	private MyToolbarbuttonKecilConfig desktopDownloadButton;
 
 	Tab tabSinkronisasiFeeder;
 	Tab tabSinkronisasiSister;
@@ -277,11 +271,6 @@ public class MainAction extends GenericAutowireComposer {
 
 	static String clean(String value) {
 		return value == null ? "" : value.trim();
-	}
-
-	public void onDownloadDesktop(Event event) {
-		Clients.evalJavaScript("window.open('" + PUBLIC_APPLICATION_PAGE
-				+ "', '_blank', 'noopener,noreferrer');");
 	}
 
 	int safeDesktopHeight() {
@@ -2730,14 +2719,14 @@ public class MainAction extends GenericAutowireComposer {
 				toolbarbuttons.add(menuitemBantuan);
 
 				if (!mobileAndroid) {
-					MyMenuitem menuitemVersi = new MyMenuitem("Versi Mobile", "/img/svg/android-logo-thin.svg");
+					MyMenuitem menuitemVersi = new MyMenuitem("Versi Mobile dan Desktop", "/img/svg/android-logo-thin.svg");
 					menuitemVersi.addEventListener("onClick", new EventListener() {
 						public void onEvent(Event arg0) throws Exception {
 							MyWindow w = new MyWindow();
 							w.setHeight("99%");
 							w.setWidth("400px");
 							w.setClosable(true);
-							w.setTitle("Aplikasi Versi Mobile");
+							w.setTitle("Aplikasi Versi Mobile dan Desktop");
 							w.setBorder("none");
 							ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(w);
 							MainHelper.onDapatkanKode(w, true);
@@ -3134,13 +3123,6 @@ public class MainAction extends GenericAutowireComposer {
 			Common.clear(headerHboxButton);
 			/* Penyelaras tombol kanan header: css_utama.css blok "HEADER KANAN RAPI". */
 			MainStyleHelper.appendSclassOnce(headerHboxButton, "ais-header-kanan");
-			/* Resolver memilih aset eCampus/eSchool dari GitHub Release terbaru. */
-			if (desktopDownloadButton != null) {
-				desktopDownloadButton.setVisible(!mobile && !mobileAndroid);
-				if (desktopDownloadButton.isVisible()) {
-					headerHboxButton.appendChild(desktopDownloadButton);
-				}
-			}
 			/* Pemilih Bahasa (Indonesia/English/Arab) — paling kiri pada bilah kanan header. */
 			try {
 				headerHboxButton.appendChild(ais.ui.util.BahasaSwitchHelper.buatComboBahasa());
@@ -3181,13 +3163,13 @@ public class MainAction extends GenericAutowireComposer {
 			});
 			treeitem.appendChild(menuBantuan);
 
-			MyMenuitem menuVersi = new MyMenuitem("Versi Mobile", "/img/svg/android-logo-thin.svg");
+			MyMenuitem menuVersi = new MyMenuitem("Versi Mobile dan Desktop", "/img/svg/android-logo-thin.svg");
 			menuVersi.addEventListener("onClick", new EventListener() {
 				public void onEvent(Event arg0) throws Exception {
 					MyWindow w = new MyWindow();
 					w.setHeight("99%");
 					w.setWidth("400px");
-					w.setTitle("Aplikasi Versi Mobile");
+					w.setTitle("Aplikasi Versi Mobile dan Desktop");
 					w.setBorder("none");
 					w.setClosable(true);
 					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(w);

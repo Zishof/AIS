@@ -3305,14 +3305,14 @@ public class MainAction2 extends GenericAutowireComposer {
 				toolbarbuttons.add(menuitemBantuan);
 
 				if (!mobileAndroid) {
-					MyMenuitem menuitemVersi = new MyMenuitem("Versi Mobile", "/img/svg/android-logo-thin.svg");
+					MyMenuitem menuitemVersi = new MyMenuitem("Versi Mobile dan Desktop", "/img/svg/android-logo-thin.svg");
 					menuitemVersi.addEventListener("onClick", new EventListener() {
 						public void onEvent(Event arg0) throws Exception {
 							MyWindow w = new MyWindow();
 							w.setHeight("99%");
 							w.setWidth("400px");
 							w.setClosable(true);
-							w.setTitle("Aplikasi Versi Mobile");
+							w.setTitle("Aplikasi Versi Mobile dan Desktop");
 							w.setBorder("none");
 							ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(w);
 							MainHelper.onDapatkanKode(w, true);
@@ -3634,13 +3634,13 @@ public class MainAction2 extends GenericAutowireComposer {
 			});
 			treeitem.appendChild(menuBantuan);
 
-			MyMenuitem menuVersi = new MyMenuitem("Versi Mobile", "/img/svg/android-logo-thin.svg");
+			MyMenuitem menuVersi = new MyMenuitem("Versi Mobile dan Desktop", "/img/svg/android-logo-thin.svg");
 			menuVersi.addEventListener("onClick", new EventListener() {
 				public void onEvent(Event arg0) throws Exception {
 					MyWindow w = new MyWindow();
 					w.setHeight("99%");
 					w.setWidth("400px");
-					w.setTitle("Aplikasi Versi Mobile");
+					w.setTitle("Aplikasi Versi Mobile dan Desktop");
 					w.setBorder("none");
 					w.setClosable(true);
 					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(w);
