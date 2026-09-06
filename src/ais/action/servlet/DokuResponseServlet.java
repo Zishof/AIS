@@ -55,11 +55,20 @@ import ais.database.model.doku.DokuResponse;
  * untuk perbaikan serupa pada endpoint pre-check.</p>
  */
 public class DokuResponseServlet extends HttpServlet {
+	/** Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable} servlet ini. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton helper penghitung tunggakan/pembayaran yang dipakai {@link #prosesResponse(
+	 * DokuResponse)} untuk memutakhirkan tunggakan {@link Kegiatan} setelah pembayaran Doku
+	 * dinyatakan berhasil, lewat {@link PembayaranUtil#updateTunggakan(Kegiatan, Session)}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor default tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}.
+	 * Tidak ada state khusus yang diinisialisasi di sini.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public DokuResponseServlet() {
@@ -69,6 +78,18 @@ public class DokuResponseServlet extends HttpServlet {
 	}
 
 	/**
+	 * Menangani GET dengan mendelegasikan ke {@link #process}; kegagalan apa pun ditelan dan
+	 * hanya ditampilkan ke pengguna bila konteks saat ini adalah administrator, lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} — pemanggil non-admin (termasuk gateway
+	 * Doku) tidak melihat detail error.
+	 *
+	 * @param request  request HTTP masuk dari gateway Doku
+	 * @param response response HTTP keluar; badan diisi {@code "Continue"} atau {@code "Stop"}
+	 *                 oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar keluar karena {@link #process} dibungkus
+	 *                          try/catch di sini; dipertahankan hanya karena tanda tangan
+	 *                          {@link HttpServlet#doGet}
+	 * @throws IOException      idem, ditelan oleh blok catch
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -82,6 +103,15 @@ public class DokuResponseServlet extends HttpServlet {
 	}
 
 	/**
+	 * Menangani POST dengan perilaku identik seperti {@link #doGet}: mendelegasikan ke
+	 * {@link #process} dan menelan kegagalan lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 * Notifikasi Doku pada praktiknya dikirim sebagai POST, tetapi kedua verb didukung.
+	 *
+	 * @param request  request HTTP masuk dari gateway Doku
+	 * @param response response HTTP keluar; badan diisi {@code "Continue"} atau {@code "Stop"}
+	 *                 oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar keluar, lihat catatan pada {@link #doGet}
+	 * @throws IOException      idem
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -94,6 +124,38 @@ public class DokuResponseServlet extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Memfinalisasi satu notifikasi Doku yang SUDAH tersimpan sebagai {@link DokuResponse} (lihat
+	 * {@link #prosesTransaksi(Map)} untuk gerbang checksum sebelum method ini dipanggil): mencari
+	 * {@link DokuRequest} yang cocok, menautkannya ke {@code dokuResponse}, lalu — bila status
+	 * {@link DokuResponse#BERHASIL} — membuat/memutakhirkan {@link Kegiatan} pembayaran,
+	 * {@link LogPembayaran}, seluruh {@link CicilanPembayaran} dari {@link DokuRequestDetail}
+	 * terkait, memutakhirkan tunggakan lewat {@link PembayaranUtil#updateTunggakan(Kegiatan,
+	 * Session)}, dan mencetak bukti pembayaran mahasiswa/calon mahasiswa.
+	 *
+	 * <p>Alur ringkas: (1) balas {@code "Stop"} bila {@code dokuResponse.getNama()} kosong; (2)
+	 * cari {@link DokuRequest} dengan {@code nama} yang cocok PERSIS (case-insensitive via
+	 * {@link MatchMode#EXACT}) dan, bila ditemukan serta belum tertaut, tautkan ke
+	 * {@code dokuResponse}; (3) bila status BUKAN {@link DokuResponse#BERHASIL} (atau
+	 * {@link DokuRequest} tidak ditemukan), hasil {@code "Stop"} tanpa efek samping lain; (4) bila
+	 * BERHASIL, tentukan/mahasiswa {@link Kegiatan} lewat {@code ambilKegiatans}, buat baru bila
+	 * belum ada, catat {@link LogPembayaran} bila {@code amount > 0.1}, salin setiap
+	 * {@link DokuRequestDetail} (berurutan {@code ke}, hanya {@code ke > 0}) menjadi
+	 * {@link CicilanPembayaran} (insert bila belum ada, update bila sudah, dikunci lewat
+	 * {@code ref = "dokuRequestDetail-" + id}), lalu hitung ulang total/denda cicilan dan
+	 * mutakhirkan tunggakan serta cetak bukti pembayaran.</p>
+	 *
+	 * <p>Sesi Hibernate dibuka sendiri oleh method ini (bukan dari pemanggil) dan selalu
+	 * dibersihkan (clear/disconnect/close) di blok {@code finally}, dengan setiap kegagalan
+	 * penutupan dicatat ke {@link ais.common.ErrorAuditUtil} alih-alih dibiarkan menggagalkan
+	 * respons ke gateway Doku.</p>
+	 *
+	 * @param dokuResponse notifikasi Doku yang sudah tersimpan, memuat {@code nama}
+	 *                     ({@code TRANSIDMERCHANT}) dan {@code status} ({@code RESULT})
+	 * @return {@code "Continue"} bila status BERHASIL dan seluruh langkah pembukuan pembayaran
+	 *         dijalankan; {@code "Stop"} bila {@code nama} kosong, {@link DokuRequest} tidak
+	 *         ditemukan/tertaut, atau status bukan BERHASIL
+	 */
 	@SuppressWarnings("unchecked")
 	public static String prosesResponse(DokuResponse dokuResponse) {
 		if (dokuResponse.getNama() == null || dokuResponse.getNama().trim().isEmpty()) {
@@ -303,6 +365,27 @@ public class DokuResponseServlet extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mem-parsing body request sebagai pasangan {@code key=value} dipisah {@code &} (bukan
+	 * lewat {@link HttpServletRequest#getParameter}, karena Doku tidak selalu mengirim
+	 * content-type form-encoded standar), lalu menyerahkan peta parameter tersebut ke
+	 * {@link #prosesTransaksi(Map)} untuk verifikasi checksum dan pembukuan pembayaran.
+	 *
+	 * <p>Alur: (1) baca seluruh body sebagai teks mentah; (2) pecah per {@code &} lalu per
+	 * {@code =} menjadi peta parameter, melewati diam-diam pasangan yang tidak berbentuk
+	 * {@code key=value} lewat catch kosong yang tetap dicatat ke
+	 * {@link ais.common.ErrorAuditUtil}; (3) panggil {@link #prosesTransaksi(Map)} dengan peta
+	 * tersebut; (4) tulis hasilnya ({@code "Continue"}/{@code "Stop"}) sebagai {@code text/plain}
+	 * ke {@code response}.</p>
+	 *
+	 * @param request  request HTTP masuk dari gateway Doku; body-nya dibaca utuh dan di-parsing
+	 *                 manual sebagai parameter {@code TRANSIDMERCHANT}/{@code RESULT}/
+	 *                 {@code AMOUNT}/{@code WORDS}
+	 * @param response response HTTP keluar; diisi header {@code Content-Type: text/plain} dan
+	 *                 badan berupa {@code "Continue"} atau {@code "Stop"} dari
+	 *                 {@link #prosesTransaksi(Map)}
+	 * @throws Exception bila pembacaan body, query Hibernate, atau penulisan respons gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
