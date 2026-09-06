@@ -100,24 +100,40 @@ public class NeoFeederSync extends GeneralValueObject {
 	private static final long serialVersionUID = 2463821577548439809L;
 
 	// ── Konstanta status ──────────────────────────────────────────────────
+	/** Status awal/default: baris belum tersinkron dengan data lokal. */
 	public static final String STATUS_BELUM = "Belum Tersingkron";
+	/** Status sementara: operasi sinkronisasi sedang berjalan. */
 	public static final String STATUS_PROSES = "Proses";
+	/** Status akhir sukses: data sudah tersinkron dengan data lokal. */
 	public static final String STATUS_TERSINGKRON = "Tersingkron";
+	/** Status akhir sukses untuk arah {@link #ARAH_KIRIM}: data sudah terkirim ke Neo Feeder. */
 	public static final String STATUS_TERKIRIM = "Terkirim ke Feeder";
+	/** Status akhir gagal: terjadi error saat operasi sinkronisasi. */
 	public static final String STATUS_ERROR = "Error";
 
 	// ── Konstanta arah ────────────────────────────────────────────────────
+	/** Arah operasi: mengambil/menarik data dari Neo Feeder ke sistem lokal. */
 	public static final String ARAH_AMBIL = "Ambil dari Feeder";
+	/** Arah operasi: mengirim data lokal ke Neo Feeder. */
 	public static final String ARAH_KIRIM = "Kirim ke Feeder";
 
 	private Long id;
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * @return id akun yang membuat/mengubah baris ini.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyimpan id pembuat/pengubah. Nilai kosong/null diabaikan (tidak menimpa
+	 * nilai lama) — write-guard satu-arah, konsisten dengan pola arsip lain.
+	 *
+	 * @param olehId id akun pembuat/pengubah.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -125,6 +141,12 @@ public class NeoFeederSync extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Menyimpan nama pembuat/pengubah. Nilai kosong/null diabaikan (tidak menimpa
+	 * nilai lama) — write-guard satu-arah, konsisten dengan pola arsip lain.
+	 *
+	 * @param oleh nama akun pembuat/pengubah.
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -132,10 +154,17 @@ public class NeoFeederSync extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * @return nama akun yang membuat/mengubah baris ini.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Hook Envers/JPA: memperbarui timestamp audit shadow {@link #tanggal_dirubah}
+	 * setiap kali baris ini di-update. Field ini adalah kebutuhan teknis, bukan bug.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
@@ -143,15 +172,24 @@ public class NeoFeederSync extends GeneralValueObject {
 
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * @param tanggal_dirubah waktu perubahan terakhir (audit shadow field).
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * @return waktu perubahan terakhir baris ini, diisi otomatis oleh {@link #onUpdate()}.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * @return representasi ringkas "{id}-{aksi}-{status}", dipakai untuk keperluan log/debug.
+	 */
 	public String toString() {
 		return id + "-" + aksi + "-" + status;
 	}
@@ -173,9 +211,15 @@ public class NeoFeederSync extends GeneralValueObject {
 	private String classReference;
 	private Long idReference;
 
+	/**
+	 * Konstruktor kosong (dipakai Hibernate untuk instansiasi via reflection).
+	 */
 	public NeoFeederSync() {
 	}
 
+	/**
+	 * @return id unik baris (surrogate key, auto-increment).
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -183,172 +227,255 @@ public class NeoFeederSync extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * @param id id unik baris.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return nama/label ringkas baris ini, di-trim saat dibaca; null bila belum diisi.
+	 */
 	@Column(name = "nama", columnDefinition = "text")
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * @param nama nama/label ringkas baris ini.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * @return keterangan bebas terkait baris sinkronisasi ini (mis. pesan error).
+	 */
 	@Column(name = "keterangan", columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * @param keterangan keterangan bebas terkait baris sinkronisasi ini.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
-	/** Nama entitas/tabel Neo Feeder, mis. "Dosen", "Mahasiswa", "Matakuliah". */
+	/**
+	 * @return nama entitas/tabel Neo Feeder, mis. "Dosen", "Mahasiswa", "Matakuliah".
+	 */
 	@Column(name = "entitas", length = 255)
 	public String getEntitas() {
 		return entitas;
 	}
 
+	/**
+	 * @param entitas nama entitas/tabel Neo Feeder.
+	 */
 	public void setEntitas(String entitas) {
 		this.entitas = entitas;
 	}
 
-	/** Nama aksi/endpoint Neo Feeder, mis. "GetListDosen". Kunci upsert per baris. */
+	/**
+	 * @return nama aksi/endpoint Neo Feeder, mis. "GetListDosen". Kunci upsert per baris.
+	 */
 	@Column(name = "aksi", length = 255)
 	public String getAksi() {
 		return aksi;
 	}
 
+	/**
+	 * @param aksi nama aksi/endpoint Neo Feeder (kunci upsert per baris).
+	 */
 	public void setAksi(String aksi) {
 		this.aksi = aksi;
 	}
 
-	/** Arah operasi: {@link #ARAH_AMBIL} / {@link #ARAH_KIRIM}. */
+	/**
+	 * @return arah operasi: {@link #ARAH_AMBIL} / {@link #ARAH_KIRIM}.
+	 */
 	@Column(name = "arah", length = 64)
 	public String getArah() {
 		return arah;
 	}
 
+	/**
+	 * @param arah arah operasi, lihat konstanta {@code ARAH_*}.
+	 */
 	public void setArah(String arah) {
 		this.arah = arah;
 	}
 
-	/** ID record lokal (opsional, untuk operasi per-record). */
+	/**
+	 * @return id record lokal (opsional, untuk operasi per-record).
+	 */
 	@Column(name = "id_lokal", length = 255)
 	public String getIdLokal() {
 		return idLokal;
 	}
 
+	/**
+	 * @param idLokal id record lokal (opsional, untuk operasi per-record).
+	 */
 	public void setIdLokal(String idLokal) {
 		this.idLokal = idLokal;
 	}
 
-	/** ID record di Neo Feeder (opsional, untuk operasi per-record). */
+	/**
+	 * @return id record di Neo Feeder (opsional, untuk operasi per-record).
+	 */
 	@Column(name = "id_feeder", length = 255)
 	public String getIdFeeder() {
 		return idFeeder;
 	}
 
+	/**
+	 * @param idFeeder id record di Neo Feeder (opsional, untuk operasi per-record).
+	 */
 	public void setIdFeeder(String idFeeder) {
 		this.idFeeder = idFeeder;
 	}
 
-	/** Payload permintaan (request) ke Neo Feeder dalam JSON. Token disamarkan. */
+	/**
+	 * @return payload permintaan (request) ke Neo Feeder dalam JSON. Token disamarkan
+	 *         oleh pemanggil sebelum disimpan (lihat javadoc parameter {@code jsonRequest}
+	 *         pada {@code NeoFeederSyncHelper.catat(...)}).
+	 */
 	@Column(name = "json_request", columnDefinition = "text")
 	public String getJsonRequest() {
 		return jsonRequest;
 	}
 
+	/**
+	 * @param jsonRequest payload permintaan (request) ke Neo Feeder dalam JSON.
+	 */
 	public void setJsonRequest(String jsonRequest) {
 		this.jsonRequest = jsonRequest;
 	}
 
-	/** Payload tanggapan (response) dari Neo Feeder dalam JSON. */
+	/**
+	 * @return payload tanggapan (response) dari Neo Feeder dalam JSON.
+	 */
 	@Column(name = "json_response", columnDefinition = "text")
 	public String getJsonResponse() {
 		return jsonResponse;
 	}
 
+	/**
+	 * @param jsonResponse payload tanggapan (response) dari Neo Feeder dalam JSON.
+	 */
 	public void setJsonResponse(String jsonResponse) {
 		this.jsonResponse = jsonResponse;
 	}
 
-	/** Status sinkronisasi: lihat konstanta {@code STATUS_*}. */
+	/**
+	 * @return status sinkronisasi: lihat konstanta {@code STATUS_*}.
+	 */
 	@Column(name = "status", length = 64)
 	public String getStatus() {
 		return status;
 	}
 
+	/**
+	 * @param status status sinkronisasi, lihat konstanta {@code STATUS_*}.
+	 */
 	public void setStatus(String status) {
 		this.status = status;
 	}
 
-	/** Jumlah record pada tanggapan terakhir. */
+	/**
+	 * @return jumlah record pada tanggapan terakhir.
+	 */
 	@Column(name = "jumlah_data")
 	public Integer getJumlahData() {
 		return jumlahData;
 	}
 
+	/**
+	 * @param jumlahData jumlah record pada tanggapan terakhir.
+	 */
 	public void setJumlahData(Integer jumlahData) {
 		this.jumlahData = jumlahData;
 	}
 
-	/** Jumlah total record di Neo Feeder (hasil GetCount), bila ada. */
+	/**
+	 * @return jumlah total record di Neo Feeder (hasil GetCount), bila ada.
+	 */
 	@Column(name = "jumlah_feeder")
 	public Integer getJumlahFeeder() {
 		return jumlahFeeder;
 	}
 
+	/**
+	 * @param jumlahFeeder jumlah total record di Neo Feeder (hasil GetCount).
+	 */
 	public void setJumlahFeeder(Integer jumlahFeeder) {
 		this.jumlahFeeder = jumlahFeeder;
 	}
 
-	/** Host Neo Feeder yang dipakai (untuk multi-tenant / audit). */
+	/**
+	 * @return host Neo Feeder yang dipakai (untuk multi-tenant / audit).
+	 */
 	@Column(name = "host", length = 255)
 	public String getHost() {
 		return host;
 	}
 
+	/**
+	 * @param host host Neo Feeder yang dipakai (untuk multi-tenant / audit).
+	 */
 	public void setHost(String host) {
 		this.host = host;
 	}
 
-	/** Waktu sinkronisasi terakhir untuk baris ini. */
+	/**
+	 * @return waktu sinkronisasi terakhir untuk baris ini.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal_sinkron")
 	public Date getTanggalSinkron() {
 		return tanggalSinkron;
 	}
 
+	/**
+	 * @param tanggalSinkron waktu sinkronisasi terakhir untuk baris ini.
+	 */
 	public void setTanggalSinkron(Date tanggalSinkron) {
 		this.tanggalSinkron = tanggalSinkron;
 	}
 
 	/**
-	 * Nama class entitas lokal eCampus yang menjadi TUJUAN sinkronisasi data ini
-	 * (mis. {@code ais.database.model.Dosen}). Dipakai untuk memetakan/menyelaraskan
-	 * data Neo Feeder ke data lokal.
+	 * @return nama class entitas lokal eCampus yang menjadi TUJUAN sinkronisasi data ini
+	 *         (mis. {@code ais.database.model.Dosen}). Dipakai untuk memetakan/menyelaraskan
+	 *         data Neo Feeder ke data lokal.
 	 */
 	@Column(name = "class_reference", length = 255)
 	public String getClassReference() {
 		return classReference;
 	}
 
+	/**
+	 * @param classReference nama class entitas lokal eCampus tujuan sinkronisasi.
+	 */
 	public void setClassReference(String classReference) {
 		this.classReference = classReference;
 	}
 
 	/**
-	 * ID (PK) record pada {@link #getClassReference()} yang menjadi tujuan sinkronisasi
-	 * (untuk pemetaan per-record). Null untuk baris agregat per-aksi.
+	 * @return id (PK) record pada {@link #getClassReference()} yang menjadi tujuan
+	 *         sinkronisasi (untuk pemetaan per-record). Null untuk baris agregat per-aksi.
 	 */
 	@Column(name = "id_reference")
 	public Long getIdReference() {
 		return idReference;
 	}
 
+	/**
+	 * @param idReference id (PK) record tujuan sinkronisasi pada {@link #getClassReference()}.
+	 */
 	public void setIdReference(Long idReference) {
 		this.idReference = idReference;
 	}

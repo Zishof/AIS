@@ -75,13 +75,25 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 	/** Menentukan apakah kolom keterangan ditampilkan saat pengisian angket. */
 	private Boolean tampilKeterangan;
 
+	/**
+	 * Konstruktor kosong (dipakai Hibernate untuk instansiasi via reflection).
+	 */
 	public AngketPenilaianDosen() {
 	}
 
+	/**
+	 * @return id akun yang membuat/mengubah baris ini.
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyimpan id pembuat/pengubah. Nilai kosong/null diabaikan (tidak menimpa
+	 * nilai lama) — write-guard satu-arah, konsisten dengan pola arsip lain.
+	 *
+	 * @param olehId id akun pembuat/pengubah.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -89,10 +101,19 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 		this.olehId = olehId.trim();
 	}
 
+	/**
+	 * @return nama akun yang membuat/mengubah baris ini.
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Menyimpan nama pembuat/pengubah. Nilai kosong/null diabaikan (tidak menimpa
+	 * nilai lama) — write-guard satu-arah, konsisten dengan pola arsip lain.
+	 *
+	 * @param oleh nama akun pembuat/pengubah.
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -100,20 +121,34 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 		this.oleh = oleh.trim();
 	}
 
+	/**
+	 * Hook Envers/JPA: memperbarui timestamp audit shadow {@link #tanggal_dirubah}
+	 * setiap kali baris ini di-update. Field ini adalah kebutuhan teknis, bukan bug.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * @param tanggal_dirubah waktu perubahan terakhir (audit shadow field).
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * @return waktu perubahan terakhir baris ini, diisi otomatis oleh {@link #onUpdate()}.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * @return representasi ringkas gabungan id, kode, isi, nama fakultas/jurusan
+	 *         (bila ada), dan program studi — dipakai untuk keperluan log/debug.
+	 */
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -133,6 +168,9 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 		return sb.toString();
 	}
 
+	/**
+	 * @return id unik baris (surrogate key, auto-increment).
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -140,36 +178,66 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * @param id id unik baris.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return teks pertanyaan/pernyataan butir angket ini.
+	 */
 	@Column(name = "isi", nullable = false, columnDefinition = "text")
 	public String getIsi() {
 		return this.isi;
 	}
 
+	/**
+	 * @param isi teks pertanyaan/pernyataan butir angket.
+	 */
 	public void setIsi(String isi) {
 		this.isi = isi;
 	}
 
+	/**
+	 * @return keterangan tambahan (opsional) untuk butir angket ini; ditampilkan
+	 *         saat pengisian bila {@link #getTampilKeterangan()} bernilai true.
+	 */
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * @param keterangan keterangan tambahan (opsional) untuk butir angket.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * @return kode singkat butir angket (mis. untuk pengelompokan kategori penilaian).
+	 */
 	public String getKode() {
 		return kode;
 	}
 
+	/**
+	 * @param kode kode singkat butir angket.
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * @return petunjuk pengisian angket. Bila field lokal {@link #petunjuk} kosong,
+	 *         nilai diambil dari konfigurasi aplikasi
+	 *         {@code keterangan_checklist_penilaian_dosen_oleh_mahasiswa} (dengan teks
+	 *         default bawaan) sehingga petunjuk dapat diatur secara global tanpa
+	 *         mengubah data per baris; mengembalikan string kosong bila konfigurasi
+	 *         gagal diambil.
+	 */
 	@Column(name = "petunjuk", columnDefinition = "text")
 	public String getPetunjuk() {
 		if (petunjuk != null && !petunjuk.trim().isEmpty()) {
@@ -187,10 +255,20 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * @param petunjuk petunjuk pengisian angket (kosongkan untuk memakai nilai
+	 *                 default dari konfigurasi aplikasi, lihat {@link #getPetunjuk()}).
+	 */
 	public void setPetunjuk(String petunjuk) {
 		this.petunjuk = petunjuk;
 	}
 
+	/**
+	 * @return jumlah pilihan/skala skor penilaian (mis. skala 1-5). Bila field lokal
+	 *         {@link #jumlahPilihan} kosong atau tidak positif, nilai diambil dari
+	 *         konfigurasi aplikasi {@code jumlah_pilihan_checklist_penilaian_dosen_oleh_mahasiswa}
+	 *         (default 5), sehingga skala penilaian dapat diatur secara global.
+	 */
 	public Integer getJumlahPilihan() {
 		int jumlahChecklist = 5;
 		try {
@@ -205,14 +283,28 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 		return jumlahPilihan == null || jumlahPilihan.intValue() <= 0 ? Integer.valueOf(jumlahChecklist) : jumlahPilihan;
 	}
 
+	/**
+	 * @param jumlahPilihan jumlah pilihan/skala skor penilaian (kosongkan/nol atau
+	 *                      negatif untuk memakai nilai default dari konfigurasi
+	 *                      aplikasi, lihat {@link #getJumlahPilihan()}).
+	 */
 	public void setJumlahPilihan(Integer jumlahPilihan) {
 		this.jumlahPilihan = jumlahPilihan;
 	}
 
+	/**
+	 * @param fakultas fakultas cakupan berlakunya butir angket ini (kosongkan
+	 *                 untuk berlaku bagi semua fakultas).
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		this.fakultas = fakultas;
 	}
 
+	/**
+	 * @return fakultas cakupan berlakunya butir angket ini (relasi lazy,
+	 *         di-refresh/divalidasi via {@code check(...)} saat dibaca); null
+	 *         berarti berlaku untuk semua fakultas.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "fakultas", nullable = true)
 	public Fakultas getFakultas() {
@@ -220,10 +312,19 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 		return fakultas;
 	}
 
+	/**
+	 * @param jurusan jurusan cakupan berlakunya butir angket ini (kosongkan
+	 *                untuk berlaku bagi semua jurusan).
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * @return jurusan cakupan berlakunya butir angket ini (relasi lazy,
+	 *         di-refresh/divalidasi via {@code check(...)} saat dibaca); null
+	 *         berarti berlaku untuk semua jurusan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -231,42 +332,77 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 		return jurusan;
 	}
 
+	/**
+	 * @return program studi cakupan berlakunya butir angket ini (teks bebas), di-trim
+	 *         saat dibaca; null bila belum diisi/hanya spasi.
+	 */
 	public String getProgram() {
 		return program == null || program.trim().isEmpty() ? null : program.trim();
 	}
 
+	/**
+	 * @param program program studi cakupan berlakunya butir angket (teks bebas).
+	 */
 	public void setProgram(String program) {
 		this.program = program;
 	}
 
+	/**
+	 * @return angkatan mahasiswa cakupan berlakunya butir angket ini, di-trim saat
+	 *         dibaca; null bila belum diisi/hanya spasi.
+	 */
 	public String getAngkatan() {
 		return angkatan == null || angkatan.trim().isEmpty() ? null : angkatan.trim();
 	}
 
+	/**
+	 * @param angkatan angkatan mahasiswa cakupan berlakunya butir angket.
+	 */
 	public void setAngkatan(String angkatan) {
 		this.angkatan = angkatan;
 	}
 
+	/**
+	 * @return true bila butir ini berlaku untuk penilaian oleh/terhadap dosen;
+	 *         default false bila belum diisi.
+	 */
 	public Boolean getUntukDosen() {
 		return untukDosen == null ? Boolean.FALSE : untukDosen;
 	}
 
+	/**
+	 * @param untukDosen tandai butir ini berlaku untuk penilaian oleh/terhadap dosen.
+	 */
 	public void setUntukDosen(Boolean untukDosen) {
 		this.untukDosen = untukDosen;
 	}
 
+	/**
+	 * @return true bila butir ini berlaku untuk penilaian oleh mahasiswa; default
+	 *         true bila belum diisi.
+	 */
 	public Boolean getUntukMahasiswa() {
 		return untukMahasiswa == null ? Boolean.TRUE : untukMahasiswa;
 	}
 
+	/**
+	 * @param untukMahasiswa tandai butir ini berlaku untuk penilaian oleh mahasiswa.
+	 */
 	public void setUntukMahasiswa(Boolean untukMahasiswa) {
 		this.untukMahasiswa = untukMahasiswa;
 	}
 
+	/**
+	 * @return true bila kolom keterangan ditampilkan saat pengisian angket; default
+	 *         true bila belum diisi.
+	 */
 	public Boolean getTampilKeterangan() {
 		return tampilKeterangan == null ? Boolean.TRUE : tampilKeterangan;
 	}
 
+	/**
+	 * @param tampilKeterangan tampilkan/sembunyikan kolom keterangan saat pengisian angket.
+	 */
 	public void setTampilKeterangan(Boolean tampilKeterangan) {
 		this.tampilKeterangan = tampilKeterangan;
 	}
