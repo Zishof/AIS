@@ -59,6 +59,18 @@ import net.sf.jmimemagic.Magic;
  * Kunci lama yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap
  * bocor — perlu dirotasi di Google AI Studio/Cloud Console bila masih dipakai produksi.
  * </p>
+ *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06):</b> pengiriman balasan chatbot lewat WhatsApp
+ * Business/Graph API Facebook (lihat thread pengirim di bagian bawah kelas ini) sebelumnya
+ * memakai token akses Graph API nyata sebagai nilai default hardcoded untuk konfigurasi
+ * {@code token_wa}. Default itu sudah diganti string kosong — token kini WAJIB diisi lewat
+ * konfigurasi database, dan permintaan ke {@code graph.facebook.com} akan gagal dengan jelas
+ * (HTTP 401, bukan diam-diam memakai token lama yang sudah bocor) bila konfigurasi belum diisi.
+ * Token lama yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap
+ * bocor — perlu dirotasi/di-revoke di Meta for Developers (Business Settings &gt; System Users
+ * atau App &gt; WhatsApp &gt; API Setup) bila masih dipakai produksi.
+ * </p>
  */
 public class Wa extends HttpServlet {
 	private static final long serialVersionUID = 1L;
@@ -742,9 +754,7 @@ public class Wa extends HttpServlet {
 
 									postData.put("text", text);
 
-									String token = Common.getKonfigurasi("token_wa",
-											"EAAN6WUwXGkgBO4TxJJD2D60mCpewrba0Y1aimKMX0jt5plUP3WereZBp49A9LUsdPijmcUkxEeicFZBGJR2uKTEQWEBQS1JnJmYD2jrWcZAchyDQhZAmxUXCyOQMgUZATuYQm6WftmLw0Dm26wsmqMNjMQqFNwKqaBq975ftTnD2Q68hVzczwMjynPtONgNlFZCtYBHpGt8HwxMYvYwpq8lYu3y5gfZCZA75nFDGyJNG")
-											.getNilai().trim();
+									String token = Common.getKonfigurasi("token_wa", "").getNilai().trim();
 
 									String linkPost = "https://graph.facebook.com/v18.0/" + business_phone_number_id
 											+ "/messages";

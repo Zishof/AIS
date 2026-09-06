@@ -301,7 +301,7 @@ public class DasbordPelanggaran extends Div {
         boolean all = (lingkup == Lingkup.SEMUA);
         if (bolehLihatSemua) {
             if (all || lingkup == Lingkup.MAHASISWA)
-                try { muatPelanggaranMahasiswa(d, mhs); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:245"); /*skip*/ }
+                try { muatPelanggaranMahasiswa(d, mhs, ortu, dos, gur, peg); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:245"); /*skip*/ }
             if (all || lingkup == Lingkup.SISWA)
                 try { muatPelanggaranSiswa(d, sis, ortu, gur); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pelanggaran/DasbordPelanggaran.java:247"); /*skip*/ }
             if (all || lingkup == Lingkup.PEGAWAI)
@@ -340,11 +340,29 @@ public class DasbordPelanggaran extends Div {
     }
 
     @SuppressWarnings("unchecked")
-    private void muatPelanggaranMahasiswa(DashData d, Mahasiswa mhs) {
+    private void muatPelanggaranMahasiswa(DashData d, Mahasiswa mhs, OrangTua ortu, Dosen dos, Guru gur, Pegawai peg) {
         org.hibernate.Criteria c = HibernateUtil.currentSession()
                 .createCriteria(PelanggaranMahasiswa.class)
                 .addOrder(Order.desc("id")).setMaxResults(MAX_ROWS);
-        if (mhs != null) c.add(Restrictions.eq("mahasiswa", mhs));
+
+        if (mhs != null) {
+            // Mahasiswa yang login: hanya riwayatnya sendiri.
+            c.add(Restrictions.eq("mahasiswa", mhs));
+
+        } else if (ortu != null) {
+            List<Long> anakMahasiswa = ortu.ambilAnakMahasiswa();
+            if (anakMahasiswa.isEmpty()) {
+                // Orang tua tanpa anak mahasiswa tertaut: NOL data (fail-closed), bukan seluruh data.
+                return;
+            }
+            c.createAlias("mahasiswa", "mahasiswa").add(Restrictions.in("mahasiswa.id", anakMahasiswa));
+
+        } else if (dos != null || gur != null || peg != null) {
+            // Dosen/guru/pegawai tidak punya relasi kepemilikan langsung ke data pelanggaran
+            // mahasiswa di dasbor ini: NOL data (fail-closed), bukan seluruh data lintas-mahasiswa.
+            return;
+        }
+
         for (PelanggaranMahasiswa p : (List<PelanggaranMahasiswa>) c.list()) {
             String jenis  = p.getPelanggaranDanHukuman() != null ? p.getPelanggaranDanHukuman().getNama() : "";
             String subjek = p.getMahasiswa() != null ? p.getMahasiswa().getNama() : safeStr(p.getNama());

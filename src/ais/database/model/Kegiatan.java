@@ -11,6 +11,14 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
@@ -2833,6 +2841,10 @@ public class Kegiatan extends GeneralValueObject {
 								* (kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa().getDiskon()
 										/ 100.0))
 						: kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa().getDiskon());
+				// Potongan tidak boleh melebihi nominal tagihan baris ini.
+				if (diskon > jumlahDiskon) {
+					diskon = jumlahDiskon;
+				}
 				diskonTerhitung = diskon;
 					simpanDiskonDetailKegiatan(detailKegiatan, diskon);
 				jumlahDiskon = jumlahDiskon - diskon;
@@ -2887,6 +2899,10 @@ public class Kegiatan extends GeneralValueObject {
 											.getJenisDiskonMahasiswa().getDiskon() / 100.0))
 									: kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa()
 											.getDiskon());
+					// Potongan tidak boleh melebihi nominal tagihan baris ini.
+					if (diskon > jumlahDiskon) {
+						diskon = jumlahDiskon;
+					}
 					diskonTerhitung = diskon;
 					jumlahDiskon = jumlahDiskon - diskon;
 					simpanDiskonDetailKegiatan(detailKegiatan, diskon);
@@ -2941,6 +2957,10 @@ public class Kegiatan extends GeneralValueObject {
 											.getJenisDiskonMahasiswa().getDiskon() / 100.0))
 									: kegiatan.getCalonMahasiswa().getGelombangPendaftaran().getJenisDiskonMahasiswa()
 											.getDiskon());
+					// Potongan tidak boleh melebihi nominal tagihan baris ini.
+					if (diskon > jumlahDiskon) {
+						diskon = jumlahDiskon;
+					}
 					diskonTerhitung = diskon;
 					jumlahDiskon = jumlahDiskon - diskon;
 					simpanDiskonDetailKegiatan(detailKegiatan, diskon);
@@ -2996,6 +3016,10 @@ public class Kegiatan extends GeneralValueObject {
 									* (kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().getDiskon()
 											/ 100.0))
 							: kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().getDiskon());
+					// Potongan tidak boleh melebihi nominal tagihan baris ini.
+					if (diskon > jumlahDiskon) {
+						diskon = jumlahDiskon;
+					}
 					diskonTerhitung = diskon;
 						simpanDiskonDetailKegiatan(detailKegiatan, diskon);
 					jumlahDiskon = jumlahDiskon - diskon;
@@ -3086,6 +3110,11 @@ public class Kegiatan extends GeneralValueObject {
 						double deltaDiskon = diskonMahasiswaData.getJenisDiskonMahasiswa().getBerupaPersen()
 								? (jumlahDiskon * (diskonMahasiswaData.getJenisDiskonMahasiswa().getDiskon() / 100.0))
 								: diskonMahasiswaData.getJenisDiskonMahasiswa().getDiskon();
+						// Delta tidak boleh melebihi sisa nominal baris ini, agar akumulasi diskon
+						// per-orang tidak pernah melampaui jumlah awal.
+						if (deltaDiskon > jumlahDiskon) {
+							deltaDiskon = jumlahDiskon;
+						}
 						diskon += deltaDiskon;
 						jumlahDiskon = jumlahDiskon - deltaDiskon;
 					}
@@ -3810,38 +3839,53 @@ public class Kegiatan extends GeneralValueObject {
 	 *
 	 * <h4>Cara memilih kunci yang dijumlahkan</h4>
 	 * <p>Snapshot dapat memuat dua macam kunci: yang <b>mengandung garis bawah</b> (baris
-	 * angsuran, dihitung sebagai {@code b}) dan yang <b>tidak</b> (baris sekaligus, dihitung
-	 * sebagai {@code a}). Dua gelung dijalankan &mdash; yang pertama menghitung {@code a} dan
-	 * {@code b}, yang kedua menjumlahkan &mdash; dengan aturan:</p>
+	 * angsuran) dan yang <b>tidak</b> (baris sekaligus) &mdash; keduanya lazim bercampur
+	 * dalam satu snapshot yang sama, karena satu {@code Kegiatan} lumrah memiliki item
+	 * berjadwal bulanan (mis. SPP) berdampingan dengan item yang dibayar sekaligus (mis.
+	 * her-registrasi). Pemilihan kunci di sini mengikuti persis aturan yang dipakai
+	 * {@code KegiatanPersistenceHelper.murnikan(...)} saat menyaring snapshot ini pada
+	 * penyusunannya, sehingga pembaca dan penulis snapshot selalu sepakat:</p>
 	 * <ul>
 	 *   <li>Bila {@link JenisKegiatan#getHanyaBerupaAngsuran()} menyala: <b>hanya</b> kunci
 	 *       ber-garis-bawah yang dijumlahkan.</li>
-	 *   <li>Bila tidak, dan {@code b > a}: hanya kunci ber-garis-bawah yang dijumlahkan.</li>
-	 *   <li>Bila tidak, dan {@code b <= a}: <b>seluruh</b> kunci dijumlahkan.</li>
+	 *   <li>Bila tidak, dan {@link JenisKegiatan#getHanyaBerupaBukanAngsuran()} menyala:
+	 *       <b>hanya</b> kunci tanpa garis bawah yang dijumlahkan.</li>
+	 *   <li>Bila kedua flag mati (bawaan pada kebanyakan jenis kegiatan): <b>seluruh</b>
+	 *       kunci dijumlahkan, tanpa syarat.</li>
 	 * </ul>
 	 *
 	 * <h4>Hal yang perlu diperhatikan</h4>
-	 * <p><b>Cabang {@code b > a} adalah tebakan berbasis jumlah kunci, bukan konfigurasi.</b>
-	 * Ketika jenis kegiatan tidak ditandai wajib angsuran, sistem menebak bahwa tagihan
-	 * bersifat angsuran semata-mata karena baris angsurannya lebih banyak daripada baris
-	 * sekaligus. Snapshot yang memuat campuran keduanya karena itu dapat berpindah cabang
-	 * hanya karena satu baris ditambahkan atau dihapus &mdash; dan perpindahan itu mengubah
-	 * total tagihan secara mendadak, karena cabang ketiga menjumlahkan <i>semua</i> kunci
-	 * sedangkan cabang kedua hanya sebagian. Pada kasus seri ({@code b == a}) yang berlaku
-	 * adalah cabang &quot;jumlahkan semua&quot;, yang bila kedua macam kunci mewakili tagihan
-	 * yang sama berarti <b>penghitungan ganda</b>.</p>
+	 * <p><b>Sebelum diperbaiki, cabang kedua ditentukan lewat tebakan berbasis jumlah
+	 * kunci</b> ({@code b > a}, baris angsuran lebih banyak daripada baris sekaligus) alih-
+	 * alih membaca {@link JenisKegiatan#getHanyaBerupaBukanAngsuran()} secara langsung.
+	 * Akibatnya snapshot campuran &mdash; yang menurut penelusuran atas
+	 * {@code KegiatanPersistenceHelper.bangunRekapTagihan}/{@code murnikan} memang jalur
+	 * normal, bukan sekadar teoretis &mdash; dapat berpindah cabang hanya karena satu baris
+	 * ditambah/dihapus, dan pada kasus seri ({@code b == a}) selalu jatuh ke &quot;jumlahkan
+	 * semua&quot; walau semestinya hanya sebagian &mdash; berpotensi menghitung ganda bila
+	 * kedua macam kunci mewakili tagihan yang sama. Diperbaiki agar membaca kedua flag
+	 * eksplisit secara langsung, persis seperti {@code murnikan()}.</p>
 	 *
 	 * <p><b>Berbeda dari {@link #hitungDibayar()}, nilai negatif TIDAK disaring</b> di sini
 	 * &mdash; tidak ada penjaga {@code > 0.0}. Baris pengurang yang dihasilkan item
 	 * {@code ItemBiaya.DIKALI_NILAI_MINUS} karenanya memang mengurangi total tagihan,
 	 * sebagaimana semestinya; ketidaksimetrisan dengan penghitung pembayaran itu disengaja.
-	 * Perhatikan bahwa {@link JenisKegiatan#getAbaikanNilaiMinus()} disediakan untuk
-	 * mengubah perilaku ini, namun flag tersebut tidak dibaca di sini.</p>
+	 * {@link JenisKegiatan#getAbaikanNilaiMinus()} <b>tidak dibaca di sini</b> &mdash; flag
+	 * itu bukan field tidur (dipakai {@code DetailPembayaranMahasiswaRenderer} dan
+	 * {@code KegiatanHelper} untuk menyaring baris cicilan bernilai negatif pada tampilan),
+	 * namun cakupannya hanya di level tampilan per baris, tidak menjangkau total di sini
+	 * &mdash; sehingga saat flag menyala, rincian yang ditampilkan dapat tampak tidak
+	 * konsisten secara aritmetika dengan total yang dihitung method ini.</p>
 	 *
-	 * <p><b>Berbeda pula dalam penyaringan kunci</b>: {@link #hitungDibayar()} mensyaratkan
-	 * kunci berruas sedikitnya tiga, sedangkan di sini tidak ada syarat semacam itu &mdash;
-	 * hanya ada-tidaknya garis bawah yang diperiksa. Dua penghitung yang membaca snapshot
-	 * berbentuk sama namun memakai aturan kunci yang berbeda.</p>
+	 * <p><b>Penyaringan kunci berbeda dari {@link #hitungDibayar()}</b> (yang mensyaratkan
+	 * kunci berruas sedikitnya tiga) &mdash; namun ini <b>bukan bug</b>: keduanya membaca
+	 * snapshot yang berbeda. {@link #getBulans()} kuncinya dibentuk
+	 * {@code KegiatanPersistenceHelper.bangunRekapPembayaran} sebagai
+	 * {@code itemBiayaId_realBulan_tanggal-cicilanId} (selalu &ge; 3 ruas), sedangkan
+	 * snapshot ini dibentuk {@code buatKeyTagihan} sebagai {@code itemBiayaId} atau
+	 * {@code itemBiayaId_bulan} (1&ndash;2 ruas). Masing-masing penghitung sudah konsisten
+	 * dengan penulis snapshotnya sendiri; tidak ada entri yang hilang diam-diam akibat
+	 * ketidakcocokan bentuk.</p>
 	 *
 	 * <p>Seluruh perhitungan hanya berjalan bila {@link #getJenisKegiatan()} terisi; bila
 	 * tidak, field {@code tagihan} sama sekali tidak disentuh dan nilai lamanya dikembalikan.

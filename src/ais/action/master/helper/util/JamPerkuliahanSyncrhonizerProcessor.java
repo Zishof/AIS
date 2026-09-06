@@ -378,7 +378,7 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 				double persen = ((index++) * 100.0 / size);
 				System.out.println("procesDosenPa memproses data " + mahasiswa + " " + persen + "%");
 
-				mahasiswa.setDosen(dosenPembimbingAkademikTemporary.getId());
+				mahasiswa.setDosen(dosenPembimbingAkademikTemporary.getDosen().getId());
 
 				session.getTransaction().begin();
 				Common.refreshSaveOrUpdate(session, mahasiswa);
@@ -420,7 +420,7 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 				double persen = ((index++) * 100.0 / size);
 				System.out.println("procesKelas memproses data " + mahasiswa + " " + persen + "%");
 
-				mahasiswa.setKelas(kelasPunyaMahasiswaTemporary.getNama());
+				mahasiswa.setKelas(kelasPunyaMahasiswaTemporary.getKelas().getNama());
 
 				session.getTransaction().begin();
 				Common.refreshSaveOrUpdate(session, mahasiswa);

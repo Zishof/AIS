@@ -2285,33 +2285,26 @@ public class DetailBiaya extends GeneralValueObject {
 	 * tercantum pada daftar {@link Kegiatan#getPembatalanDenda()} milik header tagihan
 	 * &mdash; mekanisme pembebasan denda per baris yang bersifat dapat dibatalkan kembali.</p>
 	 *
-	 * <h4>PERBEDAAN PENTING DARI {@link #checkDenda}: konfigurasi denda tingkat jenis
-	 * kegiatan praktis tidak terpakai di sini</h4>
-	 * <p>Dua hal bergabung menghasilkan keadaan ini:</p>
-	 * <ol>
-	 *   <li><b>Sumber jenis kegiatannya berbeda.</b> {@link #checkDenda} membaca
-	 *       {@link #getJenisKegiatan()} milik entity ini, sedangkan method ini hanya membaca
-	 *       {@code jadwalPembayaran.getJenisKegiatan()}. Setiap cabang yang menyangkut
-	 *       konfigurasi denda jenis kegiatan di sini dijaga {@code jadwalPembayaran != null}.
-	 *       Padahal satu-satunya pemanggil produksi &mdash;
-	 *       {@link ais.database.hibernate.AuditListener} pada {@code onPostInsert}, lewat
-	 *       {@link PengaturanPembayaranBulanan#checkDendaCicilan(CicilanPembayaran, JadwalPembayaran)}
-	 *       &mdash; mengoper {@code null} untuk jadwal tersebut. Akibatnya seluruh cabang itu
-	 *       tidak pernah berjalan, dan denda angsuran <b>hanya</b> mengikuti konfigurasi
-	 *       tingkat {@link ItemBiaya}. Sebuah jenis kegiatan yang dikonfigurasi berdenda
-	 *       karena itu mengenakan denda pada pembayaran sekaligus, tetapi tidak pada
-	 *       angsuran.</li>
-	 *   <li><b>Flag yang diperiksa berbeda.</b> Di ketiga tempat yang relevan (pemilihan
-	 *       besaran, gerbang utama, dan penggantian kelipatan/batas/format), method ini
-	 *       memeriksa {@link JenisKegiatan#getNilaiDendaDalamPersen()}, sedangkan
-	 *       {@link #checkDenda} memeriksa {@link JenisKegiatan#getDendaJikaTerlambat()}.
-	 *       Keduanya bukan sinonim: yang pertama sekadar menyatakan SATUAN denda dan
-	 *       berbawaan {@code true}, yang kedua adalah saklar ADA/TIDAKNYA denda dan berbawaan
-	 *       {@code false}. Seandainya {@code jadwalPembayaran} suatu saat diisi, cabang-cabang
-	 *       itu akan salah dalam dua arah: mengenakan denda pada jenis kegiatan yang saklarnya
-	 *       mati (karena bawaan {@code true}), sekaligus mengabaikan denda pada jenis kegiatan
-	 *       yang dendanya berupa nominal tetap.</li>
-	 * </ol>
+	 * <h4>Sumber jenis kegiatan (diperbaiki)</h4>
+	 * <p>Sebelum perbaikan ini, method ini hanya membaca {@code jadwalPembayaran.getJenisKegiatan()}
+	 * dan setiap cabang konfigurasi jenis kegiatan dijaga {@code jadwalPembayaran != null} &mdash;
+	 * padahal satu-satunya pemanggil produksi ({@link ais.database.hibernate.AuditListener} pada
+	 * {@code onPostInsert}, lewat
+	 * {@link PengaturanPembayaranBulanan#checkDendaCicilan(CicilanPembayaran, JadwalPembayaran)})
+	 * selalu mengoper {@code null}. Akibatnya seluruh cabang itu mati dan denda angsuran hanya
+	 * mengikuti konfigurasi tingkat {@link ItemBiaya}. Method ini kini jatuh ke
+	 * {@link #getJenisKegiatan()} milik entity ini &mdash; sama seperti {@link #checkDenda}
+	 * &mdash; setiap kali {@code jadwalPembayaran} atau {@code jadwalPembayaran.getJenisKegiatan()}
+	 * kosong, sehingga konfigurasi denda jenis kegiatan kini ikut berlaku pada jalur angsuran.</p>
+	 * <p>Ketiga cabang yang tadinya memeriksa {@link JenisKegiatan#getNilaiDendaDalamPersen()}
+	 * sebagai gerbang (pemilihan besaran, gerbang utama, dan penggantian kelipatan/batas) kini
+	 * memeriksa {@link JenisKegiatan#getDendaJikaTerlambat()}, sejajar dengan {@link #checkDenda}
+	 * &mdash; {@code getNilaiDendaDalamPersen()} sekadar menyatakan SATUAN denda (persen vs
+	 * nominal tetap, bawaan {@code true}) dan tetap dipakai untuk itu, bukan sebagai saklar
+	 * ADA/TIDAKNYA denda (yang bawaannya {@code false}).</p>
+	 * <p><b>Dampak finansial:</b> perbaikan ini mulai mengenakan denda pada jalur angsuran untuk
+	 * jenis kegiatan yang dikonfigurasi berdenda, yang sebelumnya tidak pernah tertagih di jalur
+	 * ini. Lihat memo perubahan terkait sebelum mengandalkan nominal historis dari method ini.</p>
 	 *
 	 * <h4>Penanganan galat</h4>
 	 * <p>Seluruh perhitungan sesudah pemeriksaan pembatalan dibungkus {@code try/catch} yang
@@ -2326,9 +2319,10 @@ public class DetailBiaya extends GeneralValueObject {
 	 * diam-diam, dan {@code infoDenda} disetel sebagai efek samping.</p>
 	 *
 	 * @param cicilanPembayaran           angsuran yang diperiksa; <b>dimutasi</b> bila ada denda
-	 * @param jadwalPembayaran            jadwal pembayaran; {@code null} dari jalur produksi,
-	 *                                    yang menonaktifkan seluruh cabang konfigurasi jenis
-	 *                                    kegiatan
+	 * @param jadwalPembayaran            jadwal pembayaran; boleh {@code null} ({@code null} dari
+	 *                                    jalur produksi saat ini) &mdash; ketika kosong, jenis
+	 *                                    kegiatan dipakai dari {@link #getJenisKegiatan()} milik
+	 *                                    entity ini
 	 * @param pengaturanPembayaranBulanan pengaturan bulanan sumber tenggat dan nominal
 	 * @return besaran denda; {@code 0.0} bila tidak ada denda atau perhitungan gagal
 	 */
@@ -2354,6 +2348,8 @@ public class DetailBiaya extends GeneralValueObject {
 		// bukan membatalkan insert.
 		Double d = 0.0;
 		try {
+		JenisKegiatan jenisKegiatan = jadwalPembayaran != null && jadwalPembayaran.getJenisKegiatan() != null
+				? jadwalPembayaran.getJenisKegiatan() : this.getJenisKegiatan();
 		Date deadline = pengaturanPembayaranBulanan == null ? getDefaultTanggalDeadline()
 				: pengaturanPembayaranBulanan.getDeadline();
 		// jadwalPembayaran.getJenisKegiatan() bisa null (tak selalu diisi) — guard sebelum
@@ -2367,10 +2363,9 @@ public class DetailBiaya extends GeneralValueObject {
 
 		Double nilaiDenda = this.getItemBiaya() != null ? this.getItemBiaya().getDefaultProsentaseDenda() : 0.0;
 
-		if (jadwalPembayaran != null && jadwalPembayaran.getJenisKegiatan() != null
-				&& jadwalPembayaran.getJenisKegiatan().getDendaDibuatPerProdi()) {
+		if (jenisKegiatan != null && jenisKegiatan.getDendaDibuatPerProdi()) {
 			try {
-				JSONObject dendaPerProdi = new JSONObject(jadwalPembayaran.getJenisKegiatan().getDendaPerProdi());
+				JSONObject dendaPerProdi = new JSONObject(jenisKegiatan.getDendaPerProdi());
 				nilaiDenda = dendaPerProdi.isNull(jurusan.getId().toString()) ? 0.0
 						: dendaPerProdi.getDouble(jurusan.getId().toString());
 
@@ -2379,15 +2374,13 @@ public class DetailBiaya extends GeneralValueObject {
 			}
 		}
 
-		else if ((jadwalPembayaran != null && jadwalPembayaran.getJenisKegiatan() != null
-				&& jadwalPembayaran.getJenisKegiatan().getNilaiDendaDalamPersen())) {
-			nilaiDenda = jadwalPembayaran.getJenisKegiatan().getDefaultProsentaseDenda();
+		else if (jenisKegiatan != null && jenisKegiatan.getDendaJikaTerlambat()) {
+			nilaiDenda = jenisKegiatan.getDefaultProsentaseDenda();
 		}
 
 		if (this.getItemBiaya() != null
 				&& (this.getItemBiaya().getDendaJikaTerlambat()
-						|| (jadwalPembayaran != null && jadwalPembayaran.getJenisKegiatan() != null
-								&& jadwalPembayaran.getJenisKegiatan().getNilaiDendaDalamPersen()))
+						|| (jenisKegiatan != null && jenisKegiatan.getDendaJikaTerlambat()))
 				&& nilaiDenda > 0.0 && deadline != null && cicilanPembayaran.getKegiatan() != null
 				&& cicilanPembayaran.getTanggal() != null) {
 			Date tanggalBayar = cicilanPembayaran.getTanggal();
@@ -2404,11 +2397,10 @@ public class DetailBiaya extends GeneralValueObject {
 
 				Boolean dalamPersen = this.getItemBiaya().getNilaiDendaDalamPersen();
 
-				if ((jadwalPembayaran != null && jadwalPembayaran.getJenisKegiatan() != null
-						&& jadwalPembayaran.getJenisKegiatan().getNilaiDendaDalamPersen())) {
-					kelipatan = jadwalPembayaran.getJenisKegiatan().getDendaAkanBerlipatTerlambaHari();
-					maksimal = jadwalPembayaran.getJenisKegiatan().getMaksimalBerlipatTerlambaHari();
-					dalamPersen = jadwalPembayaran.getJenisKegiatan().getNilaiDendaDalamPersen();
+				if (jenisKegiatan != null && jenisKegiatan.getDendaJikaTerlambat()) {
+					kelipatan = jenisKegiatan.getDendaAkanBerlipatTerlambaHari();
+					maksimal = jenisKegiatan.getMaksimalBerlipatTerlambaHari();
+					dalamPersen = jenisKegiatan.getNilaiDendaDalamPersen();
 				}
 
 				Double nominalModifikasi = 0.0;

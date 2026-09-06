@@ -20,17 +20,24 @@ import ais.database.model.Konfigurasi;
  * sebagai elemen array terpisah (bukan satu string shell) agar aman dari celah shell-injection.
  *
  * <p>
- * <b>Peringatan keamanan (dilaporkan, TIDAK diperbaiki sesuai instruksi tugas):</b> beberapa
- * token/kunci API pihak ketiga tertanam langsung di kode sebagai nilai default fallback pada
- * pemanggilan {@code Common.getKonfigurasi(key, default)} — nilai default ini dipakai bila
- * konfigurasi database belum diisi, sehingga secara efektif menjadi kredensial cadangan yang
- * ikut ter-commit ke source control. Ditemukan di:
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06):</b> {@code instance_id} dan {@code token} Ultramsg
+ * di {@link #ultramsgFormat} sebelumnya memakai kredensial Ultramsg nyata sebagai nilai default
+ * hardcoded untuk konfigurasi {@code token_instance_id_baru} (default lama {@code "instance101739"})
+ * dan {@code token_ultramsg_baru} (default lama {@code "dd9gcfbnp928paj0"}). Kedua default itu
+ * sudah diganti string kosong — kredensial kini WAJIB diisi lewat konfigurasi database, dan
+ * pengiriman lewat Ultramsg akan gagal dengan jelas (bukan diam-diam memakai kredensial lama yang
+ * sudah bocor) bila konfigurasi belum diisi. Kredensial lama yang sebelumnya tertanam sudah lama
+ * berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di dashboard Ultramsg bila masih
+ * dipakai produksi.
+ * </p>
+ * <p>
+ * <b>Peringatan keamanan (dilaporkan, TIDAK diperbaiki — di luar cakupan tugas ini):</b> kredensial
+ * Watzap di {@link #watzapFormat} MASIH tertanam sebagai nilai default fallback pada pemanggilan
+ * {@code Common.getKonfigurasi(key, default)} — nilai default ini dipakai bila konfigurasi database
+ * belum diisi, sehingga secara efektif menjadi kredensial cadangan yang ikut ter-commit ke source
+ * control. Ditemukan di:
  * </p>
  * <ul>
- * <li>{@code instance_id} Ultramsg — default {@code "instance101739"} (kunci konfigurasi
- * {@code token_instance_id_baru}, lihat {@link #ultramsgFormat})</li>
- * <li>{@code token} Ultramsg — default {@code "dd9gcfbnp928paj0"} (kunci konfigurasi
- * {@code token_ultramsg_baru}, lihat {@link #ultramsgFormat})</li>
  * <li>{@code api_key} Watzap — default {@code "YBIYGXHPIVEVHT3G"} (kunci konfigurasi
  * {@code watzap_api_key}, lihat {@link #watzapFormat})</li>
  * <li>{@code number_key} Watzap — default {@code "u3w09ScxqJsNIrpG"} (kunci konfigurasi
@@ -40,9 +47,9 @@ import ais.database.model.Konfigurasi;
  * konfigurasi {@code watzap_number_key_random}, lihat {@link #watzapFormat})</li>
  * </ul>
  * <p>
- * Bila token-token ini masih aktif/valid di sisi penyedia, keberadaannya dalam riwayat kode
+ * Bila kredensial ini masih aktif/valid di sisi penyedia, keberadaannya dalam riwayat kode
  * (termasuk riwayat SVN) merupakan kebocoran kredensial yang perlu ditinjau dan dirotasi oleh
- * pemilik integrasi; tidak diubah di sini sesuai batasan tugas dokumentasi.
+ * pemilik integrasi.
  * </p>
  */
 public class WaApi {
@@ -60,9 +67,9 @@ public class WaApi {
 	 * @return array argumen perintah {@code curl} siap dijalankan lewat {@link ProcessBuilder}
 	 */
 	public static String[] ultramsgFormat(String from, String send, String namaFile, String url) throws Exception {
-		String instance_id = Common.getKonfigurasi("token_instance_id_baru", "instance101739").getNilai().trim();
+		String instance_id = Common.getKonfigurasi("token_instance_id_baru", "").getNilai().trim();
 
-		String token = Common.getKonfigurasi("token_ultramsg_baru", "dd9gcfbnp928paj0").getNilai().trim();
+		String token = Common.getKonfigurasi("token_ultramsg_baru", "").getNilai().trim();
 		String linkPost = "https://api.ultramsg.com/" + instance_id + "/messages/chat";
 		String[] command = { "curl", "--request", "POST", linkPost, "--header",
 				"content-type: application/x-www-form-urlencoded", "--data-urlencode", "token=" + token,
