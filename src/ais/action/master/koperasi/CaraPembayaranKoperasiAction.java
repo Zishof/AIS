@@ -199,11 +199,13 @@ public class CaraPembayaranKoperasiAction extends GenericAutowireComposer
 					.setParent(arg0);
 			new Label(caraPembayaranKoperasi.getKeterangan()).setParent(arg0);
 
-			// Kolom "Potong Saldo": tampilkan efek NYATA, yaitu manual=false ATAU memotongDeposit=true
+			// Kolom "Potong Saldo": metode piutang tidak memotong saldo; selain itu mengikuti
+			// manual=false ATAU memotongDeposit=true
 			// (syarat yang dipakai DepositHelper) -- bukan sekadar nilai kolom barunya, supaya admin
 			// tidak salah mengira metode yang manual-nya mati berarti tidak memotong saldo.
-			boolean efektifPotong = !Boolean.TRUE.equals(caraPembayaranKoperasi.getManual())
-					|| Boolean.TRUE.equals(caraPembayaranKoperasi.getMemotongDeposit());
+			boolean efektifPotong = !Boolean.TRUE.equals(caraPembayaranKoperasi.getMasukSebagaiHutang())
+					&& (!Boolean.TRUE.equals(caraPembayaranKoperasi.getManual())
+							|| Boolean.TRUE.equals(caraPembayaranKoperasi.getMemotongDeposit()));
 			Label lblPotong = new Label(efektifPotong ? "Ya" : "Tidak");
 			lblPotong.setStyle(efektifPotong ? "font-weight:800;color:#b45309;" : "color:#64748b;");
 			lblPotong.setParent(arg0);

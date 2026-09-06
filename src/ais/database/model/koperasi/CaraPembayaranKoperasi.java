@@ -436,7 +436,8 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 	 * dan <i>apakah saldo berkurang</i> ({@code memotongDeposit}).</p>
 	 *
 	 * <p><b>Cara dipakai:</b> syarat pemotongan menjadi
-	 * {@code manual == false ATAU memotongDeposit == true}. Jadi kolom ini bersifat MENAMBAH — seluruh
+	 * {@code masukSebagaiHutang != true DAN (manual == false ATAU memotongDeposit == true)}. Metode
+	 * piutang tidak boleh sekaligus mengurangi saldo member. Jadi kolom ini bersifat MENAMBAH — seluruh
 	 * metode pembayaran lama (yang kolom ini masih {@code null}/{@code false}) berperilaku persis
 	 * seperti sebelumnya, tidak ada saldo anggota yang bergeser diam-diam saat fitur ini dipasang.</p>
 	 *

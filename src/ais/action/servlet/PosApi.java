@@ -3130,6 +3130,24 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
+	 * Sertakan daftar Satuan Kerja + unit bawaan pada respons katalog laporan.
+	 *
+	 * <p>Layar Laporan Keuangan perlu pemilih unit karena satu instalasi melayani banyak unit usaha
+	 * (sekolah, mart, katering, laundry) yang masing-masing menuntut paket laporannya sendiri plus
+	 * konsolidasi. Dikirim bersama katalog supaya klien tidak perlu satu panggilan tambahan; item
+	 * laporan yang bergantung satuan kerja ditandai flag {@code satker} oleh katalog.</p>
+	 */
+	private static void sertakanSatuanKerja(JSONObject hasil) {
+		try {
+			hasil.put("satuanKerja", ais.action.master.koperasi.helper.LaporanKatalogData.daftarSatuanKerja());
+			hasil.put("satuanKerjaDefault",
+					ais.action.master.koperasi.helper.LaporanKatalogData.satuanKerjaBawaan());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.sertakanSatuanKerja");
+		}
+	}
+
+	/**
 	 * Menyeragamkan balasan {@link KantinHelper#bayar}/{@code draft_bayar}/{@code checkBayar}/
 	 * {@code tabungan} -- SEMUA method itu diwarisi apa adanya dari servlet {@code /Data} yang jauh
 	 * lebih lama, memakai konvensi kode angka ({@code "00"}=sukses, {@code "91"}/{@code "90"}=exception,
@@ -3175,24 +3193,6 @@ public class PosApi extends HttpServlet {
 	 *                lainnya -- checkBayar TIDAK PERNAH mengembalikan "01" dari validasi payload PosApi
 	 *                sendiri, jadi tak butuh cabang DATA_TIDAK_LENGKAP terpisah utk konteks itu).
 	 */
-
-	/**
-	 * Sertakan daftar Satuan Kerja + unit bawaan pada respons katalog laporan.
-	 *
-	 * <p>Layar Laporan Keuangan perlu pemilih unit karena satu instalasi melayani banyak unit usaha
-	 * (sekolah, mart, katering, laundry) yang masing-masing menuntut paket laporannya sendiri plus
-	 * konsolidasi. Dikirim bersama katalog supaya klien tidak perlu satu panggilan tambahan; item
-	 * laporan yang bergantung satuan kerja ditandai flag {@code satker} oleh katalog.</p>
-	 */
-	private static void sertakanSatuanKerja(JSONObject hasil) {
-		try {
-			hasil.put("satuanKerja", ais.action.master.koperasi.helper.LaporanKatalogData.daftarSatuanKerja());
-			hasil.put("satuanKerjaDefault",
-					ais.action.master.koperasi.helper.LaporanKatalogData.satuanKerjaBawaan());
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.sertakanSatuanKerja");
-		}
-	}
 	private static void normalisasiStatusKantinHelper(JSONObject hasil, String konteks) throws Exception {
 		String asli = hasil.optString("status", "");
 		hasil.put("statusAsli", asli);
@@ -3522,17 +3522,6 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
-	 * <h3>Tab "Ringkasan Umum"</h3> -- port dari {@code dashboard.jsp} versi web (`_info_transaksi_header.jsp`
-	 * + `_forecast.jsp` + `_riwayat_transaksi_terbaru.jsp`), SQL ditulis ulang sbg native JDBC
-	 * ber-parameter (BUKAN string SQL dari klien spt `/Data action:"sql"` yg dipakai versi asli --
-	 * pola itu SENGAJA tidak ditiru krn rawan SQL-injection, lihat riset yg jadi dasar port ini).
-	 *
-	 * <p>Payload: {@code periodeTren} ("harian"/"mingguan"/"bulanan", default harian), {@code
-	 * tglMulai}/{@code tglSampai} (filter riwayat transaksi, opsional), {@code cariPembeli}
-	 * (opsional), {@code kodeTransaksi}/{@code kode} (opsional, cari nomor transaksi/nota),
-	 * {@code page}/{@code pageSize} (paginasi riwayat transaksi).</p>
-	 */
-	/**
 	 * Ekspresi SQL label metode pembayaran -- SATU sumber kebenaran yang dipakai kartu
 	 * "Komposisi Pembayaran" DAN penyaring tabel Data Pembelian.
 	 *
@@ -3550,6 +3539,17 @@ public class PosApi extends HttpServlet {
 		return kondisiMetodeBayar("MAX(a.carabayar)");
 	}
 
+	/**
+	 * <h3>Tab "Ringkasan Umum"</h3> -- port dari {@code dashboard.jsp} versi web (`_info_transaksi_header.jsp`
+	 * + `_forecast.jsp` + `_riwayat_transaksi_terbaru.jsp`), SQL ditulis ulang sbg native JDBC
+	 * ber-parameter (BUKAN string SQL dari klien spt `/Data action:"sql"` yg dipakai versi asli --
+	 * pola itu SENGAJA tidak ditiru krn rawan SQL-injection, lihat riset yg jadi dasar port ini).
+	 *
+	 * <p>Payload: {@code periodeTren} ("harian"/"mingguan"/"bulanan", default harian), {@code
+	 * tglMulai}/{@code tglSampai} (filter riwayat transaksi, opsional), {@code cariPembeli}
+	 * (opsional), {@code kodeTransaksi}/{@code kode} (opsional, cari nomor transaksi/nota),
+	 * {@code page}/{@code pageSize} (paginasi riwayat transaksi).</p>
+	 */
 	private void prosesDashboardUmum(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
@@ -4452,12 +4452,6 @@ public class PosApi extends HttpServlet {
 		return String.valueOf(nilai).replace('.', ',');
 	}
 	/**
-	 * Analitik keputusan utk Riwayat Penjualan. Seluruh agregasi dihitung di
-	 * database atas periode lengkap (bukan dari 15 baris halaman klien), dengan
-	 * pembanding periode sebelumnya yang panjang harinya sama. Rentang dibatasi
-	 * maksimum 366 hari agar grafik tetap responsif dan aman utk database toko.
-	 */
-	/**
 	 * Analitik laba kotor untuk satu rentang tanggal.
 	 *
 	 * <p><b>AKAR MASALAH (NullPointerException di jalur Laporan Riwayat Penjualan Analitik).</b>
@@ -4800,6 +4794,12 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Analitik keputusan utk Riwayat Penjualan. Seluruh agregasi dihitung di
+	 * database atas periode lengkap (bukan dari 15 baris halaman klien), dengan
+	 * pembanding periode sebelumnya yang panjang harinya sama. Rentang dibatasi
+	 * maksimum 366 hari agar grafik tetap responsif dan aman utk database toko.
+	 */
 	private void prosesLaporanRiwayatPenjualanAnalitik(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
@@ -5053,7 +5053,6 @@ public class PosApi extends HttpServlet {
 		prosesDetailTransaksi(tbmuser, payload, hasil);
 	}
 
-	/** Ringkasan penerimaan dikelompokkan per tanggal, kasir, dan metode pembayaran. */
 	/**
 	 * Opsi isi dropdown "Metode Bayar" pada Laporan Transaksi -- diambil dari metode yang
 	 * BENAR-BENAR dipakai pada rentang tanggal & toko terpilih, sehingga daftar tidak
@@ -5090,6 +5089,7 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/** Ringkasan penerimaan dikelompokkan per tanggal, kasir, dan metode pembayaran. */
 	private void prosesLaporanPenerimaanKasirList(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		final Long pendaftarLingkup = pendaftarIdPengguna(tbmuser);
@@ -5178,7 +5178,6 @@ public class PosApi extends HttpServlet {
 		} finally { HibernateUtil.closeSessionQuietly(session); }
 	}
 
-	/** Daftar transaksi penyusun satu baris ringkasan penerimaan. */
 	/**
 	 * Ubah rincian split mentah dari SQL ({@code "nama~nominal|nama~nominal"}) menjadi label siap
 	 * tampil ({@code "QRIS BSI Rp 5.000 + Tunai Rp 4.000"}). Sengaja diformat di Java, BUKAN di
@@ -5214,20 +5213,6 @@ public class PosApi extends HttpServlet {
 		return sb.length() == 0 ? bawaan : sb.toString();
 	}
 
-	/**
-	 * Rincian TRANSAKSI penyusun satu angka laporan -- padanan generik "Asal Angka".
-	 *
-	 * <p>Sebelumnya popup asal-angka hanya mengulang isi baris ringkasan (kode, nama,
-	 * qty, total) sehingga tidak menjawab "angka ini dari nota mana saja". Aksi ini
-	 * mengembalikan baris transaksi sebenarnya dari {@code koperasi.pembelian}
-	 * berikut header notanya, disaring oleh dimensi APA PUN yang dikirim klien:
-	 * kode/nama produk, kasir, metode bayar, atau pelanggan. Dimensi yang tidak
-	 * dikirim diabaikan, sehingga satu aksi melayani seluruh keluarga laporan
-	 * berbasis transaksi tanpa perlu cabang per laporan.</p>
-	 *
-	 * <p>Laporan yang TIDAK berbasis transaksi (stok, master data) tidak memakai
-	 * aksi ini -- klien tetap menampilkan rincian baris apa adanya.</p>
-	 */
 	/**
 	 * <h3>Kesehatan server &amp; database untuk panel Log Error di POS.</h3>
 	 *
@@ -5336,6 +5321,20 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Rincian TRANSAKSI penyusun satu angka laporan -- padanan generik "Asal Angka".
+	 *
+	 * <p>Sebelumnya popup asal-angka hanya mengulang isi baris ringkasan (kode, nama,
+	 * qty, total) sehingga tidak menjawab "angka ini dari nota mana saja". Aksi ini
+	 * mengembalikan baris transaksi sebenarnya dari {@code koperasi.pembelian}
+	 * berikut header notanya, disaring oleh dimensi APA PUN yang dikirim klien:
+	 * kode/nama produk, kasir, metode bayar, atau pelanggan. Dimensi yang tidak
+	 * dikirim diabaikan, sehingga satu aksi melayani seluruh keluarga laporan
+	 * berbasis transaksi tanpa perlu cabang per laporan.</p>
+	 *
+	 * <p>Laporan yang TIDAK berbasis transaksi (stok, master data) tidak memakai
+	 * aksi ini -- klien tetap menampilkan rincian baris apa adanya.</p>
+	 */
 	private void prosesLaporanRincianTransaksi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
 			throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
@@ -5397,6 +5396,7 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/** Daftar transaksi penyusun satu baris ringkasan penerimaan. */
 	private void prosesLaporanPenerimaanKasirDetail(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }

@@ -1055,4 +1055,223 @@ public class PembayaranGatewayHelper {
 			return String.valueOf(t);
 		}
 	}
+
+	// ==================== GERBANG TOKEN & KESEGARAN TIMESTAMP H2H ====================
+	// Menutup broken access control pada cabang transaksi OcbcNisp/Briva: token yang
+	// diterbitkan lewat cabang grantType sebelumnya tak pernah dibaca kembali, sehingga
+	// inquiry/payment/reversal bisa dipanggil tanpa token maupun tanda tangan sama sekali.
+	// Lihat javadoc kelas OcbcNisp dan Briva untuk konteks lengkap. Pola bearer-token +
+	// masa-berlaku ini meniru implementasi BCA.java yang SUDAH benar (accessTokens berupa
+	// Map<String,Remover> yang benar-benar dibaca di cabang transaksi) -- bedanya di sini
+	// disatukan jadi helper bersama, aman-thread, dan berlaku bertahap lewat konfigurasi
+	// supaya tidak menghentikan setelmen H2H produksi yang sedang berjalan.
+
+	/** Mode gerbang: nonaktif = perilaku lama, tidak berubah sama sekali. */
+	public static final String GERBANG_NONAKTIF = "nonaktif";
+	/** Mode gerbang: log = memeriksa & mencatat "akan ditolak" tapi TETAP memproses permintaan. */
+	public static final String GERBANG_LOG = "log";
+	/** Mode gerbang: aktif = benar-benar menolak permintaan yang gagal pemeriksaan. */
+	public static final String GERBANG_AKTIF = "aktif";
+
+	/**
+	 * Simpanan token H2H aman-thread per bank, menggantikan {@code List<String>}/{@code Map}
+	 * per-instance servlet yang lama (pada OcbcNisp/Briva: tak pernah kedaluwarsa maupun
+	 * dibaca kembali). Kunci luar = nama bank (mis. "OCBC NISP", "Briva") agar token satu bank
+	 * tidak pernah tertukar dengan bank lain; kunci dalam = token, nilai = epoch millis
+	 * kedaluwarsa.
+	 */
+	private static final java.util.Map<String, java.util.Map<String, Long>> TOKEN_STORE_H2H = new java.util.concurrent.ConcurrentHashMap<String, java.util.Map<String, Long>>();
+
+	/**
+	 * Ambil mode gerbang efektif dari konfigurasi {@code kunciKonfigurasi}. Nilai tak dikenal
+	 * (termasuk konfigurasi yang belum pernah diisi operator) jatuh ke {@code defaultMode} yang
+	 * diberikan pemanggil -- BUKAN selalu {@link #GERBANG_NONAKTIF} -- karena sebagian gerbang
+	 * (mis. token H2H) sebaiknya default {@link #GERBANG_LOG} agar operator langsung mulai
+	 * mengukur dampak tanpa risiko menolak transaksi H2H nyata.
+	 */
+	public static String modeGerbangH2h(String kunciKonfigurasi, String defaultMode) {
+		String nilai;
+		try {
+			nilai = Common.getKonfigurasi(kunciKonfigurasi, defaultMode).getNilai();
+		} catch (Exception e) {
+			nilai = defaultMode;
+		}
+		if (nilai == null) {
+			return defaultMode;
+		}
+		nilai = nilai.trim().toLowerCase();
+		if (GERBANG_LOG.equals(nilai) || GERBANG_AKTIF.equals(nilai) || GERBANG_NONAKTIF.equals(nilai)) {
+			return nilai;
+		}
+		return defaultMode;
+	}
+
+	/**
+	 * Terbitkan token H2H baru untuk {@code bank} dengan masa berlaku {@code masaBerlakuMillis}.
+	 * TIDAK berkaitan dengan field {@code expiresIn} yang dikirim balik ke bank pada body JSON
+	 * sukses -- nilai itu sengaja TIDAK diubah oleh perbaikan ini (kontrak SNAP yang sudah
+	 * disepakati bank) walau angkanya sendiri tidak dipakai lagi sebagai sumber kebenaran masa
+	 * berlaku token di sisi server.
+	 */
+	public static void terbitkanTokenH2h(String bank, String token, long masaBerlakuMillis) {
+		if (bank == null || token == null || token.trim().isEmpty()) {
+			return;
+		}
+		java.util.Map<String, Long> tokenBank = TOKEN_STORE_H2H.get(bank);
+		if (tokenBank == null) {
+			tokenBank = new java.util.concurrent.ConcurrentHashMap<String, Long>();
+			TOKEN_STORE_H2H.put(bank, tokenBank);
+		}
+		bersihkanTokenKadaluarsaH2h(tokenBank);
+		tokenBank.put(token.trim(), System.currentTimeMillis() + masaBerlakuMillis);
+	}
+
+	private static void bersihkanTokenKadaluarsaH2h(java.util.Map<String, Long> tokenBank) {
+		long sekarang = System.currentTimeMillis();
+		java.util.Iterator<java.util.Map.Entry<String, Long>> it = tokenBank.entrySet().iterator();
+		while (it.hasNext()) {
+			java.util.Map.Entry<String, Long> entri = it.next();
+			if (entri.getValue() == null || entri.getValue() < sekarang) {
+				it.remove();
+			}
+		}
+	}
+
+	/** @return {@code true} bila {@code token} pernah diterbitkan untuk {@code bank} dan belum kedaluwarsa. */
+	public static boolean tokenH2hValid(String bank, String token) {
+		if (bank == null || token == null || token.trim().isEmpty()) {
+			return false;
+		}
+		java.util.Map<String, Long> tokenBank = TOKEN_STORE_H2H.get(bank);
+		if (tokenBank == null) {
+			return false;
+		}
+		Long kadaluarsa = tokenBank.get(token.trim());
+		return kadaluarsa != null && kadaluarsa >= System.currentTimeMillis();
+	}
+
+	/** Ambil token bearer polos dari nilai header {@code Authorization} (mendukung "Bearer x" maupun "x" saja). */
+	public static String ambilBearerToken(String authorizationHeader) {
+		if (authorizationHeader == null || authorizationHeader.trim().isEmpty()) {
+			return null;
+		}
+		String[] bagian = authorizationHeader.trim().split("\\s+");
+		return bagian.length >= 2 ? bagian[1].trim() : bagian[0].trim();
+	}
+
+	/**
+	 * Evaluasi gerbang token H2H untuk SATU permintaan transaksi (inquiry/payment/reversal).
+	 * TIDAK PERNAH mengubah perilaku bila mode efektifnya {@link #GERBANG_NONAKTIF}. Pada mode
+	 * {@link #GERBANG_LOG}, mencatat peringatan ke stdout tapi TETAP mengembalikan {@code null}
+	 * (lolos) sehingga transaksi tetap diproses seperti sebelum perbaikan ini ada -- cocok
+	 * dipakai operator untuk mengukur dampak sebelum menyalakan penolakan sungguhan. HANYA pada
+	 * mode {@link #GERBANG_AKTIF} dan token tidak sah, method ini mengembalikan alasan
+	 * penolakan non-null yang WAJIB dipakai pemanggil untuk benar-benar menolak permintaan.
+	 *
+	 * @return {@code null} bila permintaan LOLOS gerbang; alasan penolakan bila permintaan WAJIB
+	 *         ditolak pemanggil (hanya dapat terjadi pada mode aktif).
+	 */
+	public static String periksaGerbangTokenH2h(String bank, String kunciKonfigurasiMode, String authorizationHeader) {
+		String mode = modeGerbangH2h(kunciKonfigurasiMode, GERBANG_LOG);
+		if (GERBANG_NONAKTIF.equals(mode)) {
+			return null;
+		}
+		String token = ambilBearerToken(authorizationHeader);
+		if (tokenH2hValid(bank, token)) {
+			return null;
+		}
+		String alasan = "Token H2H tidak sah/kadaluarsa/tidak dikirim untuk bank " + bank;
+		if (GERBANG_LOG.equals(mode)) {
+			System.out.println("[GERBANG-H2H][LOG-ONLY, kunci=" + kunciKonfigurasiMode + "] " + alasan
+					+ " -- permintaan TETAP diproses karena mode=log (belum aktif menolak).");
+			return null;
+		}
+		return alasan;
+	}
+
+	/**
+	 * Periksa kesegaran {@code isoTimestamp} (format {@code yyyy-MM-dd'T'HH:mm:ssXXX}, header
+	 * {@code X-Timestamp} BI-SNAP) terhadap jam server, dengan toleransi {@code toleransiMenit}
+	 * menit ke depan maupun ke belakang. Mencegah permintaan penerbitan token yang sudah pernah
+	 * ditandatangani diputar ulang kapan pun setelahnya.
+	 *
+	 * @return {@code true} bila timestamp valid formatnya DAN berada dalam jendela toleransi.
+	 */
+	public static boolean timestampH2hSegar(String isoTimestamp, int toleransiMenit) {
+		if (isoTimestamp == null || isoTimestamp.trim().isEmpty()) {
+			return false;
+		}
+		try {
+			java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
+			Date tanggal = sdf.parse(isoTimestamp.trim());
+			long selisihMillis = Math.abs(System.currentTimeMillis() - tanggal.getTime());
+			return selisihMillis <= toleransiMenit * 60000L;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Evaluasi gerbang kesegaran timestamp saat PENERBITAN TOKEN (bukan pada tiap transaksi).
+	 * Default {@link #GERBANG_LOG} karena penerbitan token jauh lebih jarang terjadi daripada
+	 * inquiry/payment sehingga risiko operasional untuk mulai mengukur jauh lebih rendah.
+	 *
+	 * @return {@code null} bila LOLOS; alasan penolakan bila WAJIB ditolak (mode aktif dan
+	 *         timestamp basi/tidak valid).
+	 */
+	public static String periksaGerbangTimestampH2h(String kunciKonfigurasiMode, String kunciKonfigurasiToleransiMenit,
+			String isoTimestamp) {
+		String mode = modeGerbangH2h(kunciKonfigurasiMode, GERBANG_LOG);
+		if (GERBANG_NONAKTIF.equals(mode)) {
+			return null;
+		}
+		int toleransiMenit;
+		try {
+			toleransiMenit = Integer
+					.parseInt(Common.getKonfigurasi(kunciKonfigurasiToleransiMenit, "5").getNilai().trim());
+		} catch (Exception e) {
+			toleransiMenit = 5;
+		}
+		if (timestampH2hSegar(isoTimestamp, toleransiMenit)) {
+			return null;
+		}
+		String alasan = "X-Timestamp tidak segar/tidak valid (toleransi " + toleransiMenit + " menit): " + isoTimestamp;
+		if (GERBANG_LOG.equals(mode)) {
+			System.out.println("[GERBANG-H2H][LOG-ONLY, kunci=" + kunciKonfigurasiMode + "] " + alasan
+					+ " -- permintaan TETAP diproses karena mode=log (belum aktif menolak).");
+			return null;
+		}
+		return alasan;
+	}
+
+	/**
+	 * Evaluasi gerbang "bankHost wajib dikenali" KHUSUS untuk jalur POSTING (payment/reversal) --
+	 * TIDAK diterapkan pada inquiry (parameter {@code inquery} sengaja tidak diikutkan di sini,
+	 * pemanggil yang menentukan lewat kondisi pemanggilan) karena kebutuhan operasional
+	 * (recheck manual, tool internal) sering melakukan inquiry tanpa IP yang terdaftar sebagai
+	 * BankHost. Default paling aman adalah {@link #GERBANG_NONAKTIF}: {@code bankHost == null}
+	 * pada produksi hari ini bisa jadi kondisi normal (pemetaan IP belum lengkap untuk semua
+	 * kanal bank), sehingga menyalakan penolakan tanpa koordinasi bisa menghentikan setelmen
+	 * pembayaran nyata.
+	 *
+	 * @return {@code null} bila LOLOS gerbang; alasan penolakan bila WAJIB ditolak (mode aktif
+	 *         DAN {@code bankHost == null}).
+	 */
+	public static String periksaGerbangBankHostPosting(String bank, String kunciKonfigurasiMode, BankHost bankHost) {
+		if (bankHost != null) {
+			return null;
+		}
+		String mode = modeGerbangH2h(kunciKonfigurasiMode, GERBANG_NONAKTIF);
+		if (GERBANG_NONAKTIF.equals(mode)) {
+			return null;
+		}
+		String alasan = "bankHost tidak dikenali (IP pemanggil tidak terdaftar) untuk bank " + bank
+				+ " pada jalur POSTING (payment/reversal)";
+		if (GERBANG_LOG.equals(mode)) {
+			System.out.println("[GERBANG-H2H][LOG-ONLY, kunci=" + kunciKonfigurasiMode + "] " + alasan
+					+ " -- permintaan TETAP diproses karena mode=log (belum aktif menolak).");
+			return null;
+		}
+		return alasan;
+	}
 }

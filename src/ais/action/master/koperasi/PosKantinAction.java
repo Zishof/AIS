@@ -2086,7 +2086,8 @@ public class PosKantinAction extends GenericAutowireComposer {
             return;
         }
         boolean manual = cara.getManual() != null && cara.getManual().booleanValue();
-        boolean memotongSaldo = !manual || Boolean.TRUE.equals(cara.getMemotongDeposit());
+        boolean memotongSaldo = !Boolean.TRUE.equals(cara.getMasukSebagaiHutang())
+                && (!manual || Boolean.TRUE.equals(cara.getMemotongDeposit()));
         String namaCara = cara.getNama() == null ? "" : cara.getNama().toLowerCase();
         boolean online = namaCara.contains("online") || namaCara.contains("qris") || namaCara.contains("topup");
 

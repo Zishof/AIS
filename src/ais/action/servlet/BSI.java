@@ -43,14 +43,81 @@ import ais.database.model.VirtualAccountBank;
 import ais.database.model.sekolah.Tagihan;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet gateway <i>host-to-host</i> (H2H) Bank Syariah Indonesia untuk skema Virtual Account:
+ * menerima permintaan <b>inquiry</b> (tanya tagihan) dan <b>payment</b> (konfirmasi setoran) dari
+ * sisi bank, lalu menjawab dengan JSON berisi identitas pembayar, total tagihan, dan rinciannya.
+ *
+ * <p>Terpasang di {@code web.xml} sebagai servlet {@code BSI} pada URL {@code /BSI}. Seluruh
+ * pekerjaan dilakukan lewat {@link #doProcess} yang dipanggil melalui {@link #doProses}.</p>
+ *
+ * <h4>Pembagian tanggung jawab dengan {@link Bsiresponse}</h4>
+ * <p>Kelas ini dan {@link Bsiresponse} adalah <b>dua integrasi BSI yang berbeda</b>, bukan pasangan
+ * request/response dari satu alur:</p>
+ * <ul>
+ *   <li><b>{@code BSI} (kelas ini)</b> — kanal <i>Virtual Account tagihan</i>. Bank menghubungi
+ *       eCampus. Payload JSON <b>polos</b> ({@code nomorPembayaran}, {@code totalNominal},
+ *       {@code kodeBiller}, {@code action}). Sumber data tagihan adalah tabel
+ *       {@link VirtualAccountBank}. Jawaban memakai kode {@code rc} berupa teks
+ *       ({@code OK}, {@code ERR-NOT-FOUND}, {@code ERR-ALREADY-PAID},
+ *       {@code ERR-PAYMENT-WRONG-AMOUNT}, {@code ERR-DB}).</li>
+ *   <li><b>{@link Bsiresponse}</b> — kanal <i>callback pembayaran</i> gaya BNI eCollection,
+ *       dipasang di URL {@code /BsiResponse}. Payload <b>terenkripsi</b> dan dibuka dengan
+ *       {@code BNIHash.parseData(data, client_id, password)}. Sumber datanya tabel
+ *       {@code BsiRequest}/{@code BsiResponse}, bukan {@code VirtualAccountBank}. Jawabannya
+ *       {@code {"status":"000"}}.</li>
+ * </ul>
+ * <p>Keduanya sama sekali tidak saling memanggil dan tidak berbagi tabel; satu-satunya kesamaan
+ * adalah nama bank dan pemakaian {@link PembayaranUtil#getBankHost(String, String)}.</p>
+ *
+ * <h4>Model autentikasi (PENTING — tidak ada tanda tangan digital)</h4>
+ * <p>Berbeda dari {@link Bsiresponse} yang membuka payload dengan kunci rahasia bersama, kelas ini
+ * <b>tidak memverifikasi tanda tangan, HMAC, token, maupun kata sandi apa pun</b>. Satu-satunya
+ * pengenal pemanggil adalah pencocokan alamat IP lewat
+ * {@link PembayaranUtil#getBankHost(String, String)} di {@link #process}, dan hasil pencocokan itu
+ * <b>tidak dipakai sebagai gerbang</b>: bila IP tidak dikenal, {@code bankHost} bernilai
+ * {@code null} namun pemrosesan tetap berlanjut (lihat komentar di dalam {@link #doProcess}).
+ * Karena {@link VirtualAccountBank#ambilVa(String, Double, BankHost)} mencocokkan baris dengan
+ * syarat <i>{@code bankHost} kosong ATAU sama dengan pemanggil</i>, VA "netral" (yang kolom
+ * {@code bankHost}-nya {@code null}) tetap ditemukan dan tetap dapat dilunasi walau permintaan
+ * datang dari IP mana pun. Sifat ini didokumentasikan apa adanya di sini; penilaian dan
+ * penanganannya berada di luar cakupan berkas ini.</p>
+ * <p>Sisi baiknya, IP yang dibaca berasal dari {@link HttpServletRequest#getRemoteAddr()} —
+ * alamat TCP sebenarnya — <b>bukan</b> dari header {@code X-Forwarded-For}/{@code X-Real-IP} yang
+ * bisa dipalsukan klien, sehingga kanal ini tidak ikut terdampak peracunan header seperti pada
+ * varian {@link PembayaranUtil#getBankHost(HttpServletRequest)}.</p>
+ *
+ * <h4>Pemisahan inquiry dan payment</h4>
+ * <p>Parameter {@code action} bernilai {@code "inquiry"} membuat seluruh alur bersifat
+ * <b>baca saja</b>: tidak ada {@code save}/{@code update} yang di-commit, sehingga pengecekan
+ * tagihan oleh bank tidak pernah terlihat sebagai pembayaran. Nilai selain itu diperlakukan
+ * sebagai pelunasan dan wajib lolos pencocokan nominal.</p>
+ *
+ * @see Bsiresponse
+ * @see VirtualAccountBank
+ * @see ais.action.ws.util.PembayaranGatewayHelper
  */
 public class BSI extends HttpServlet {
+	/** Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai untuk logika apa pun. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; di kelas ini hanya dipakai untuk memetakan alamat IP
+	 * pemanggil menjadi {@link BankHost} lewat
+	 * {@link PembayaranUtil#getBankHost(String, String)}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/**
+	 * Pemformat tanggal {@code yyyyMMddHHmmss} untuk field {@code tanggalTransaksi} yang dikirim
+	 * bank.
+	 *
+	 * <p>Dibungkus {@link ThreadLocal} karena {@link SimpleDateFormat} <b>tidak aman untuk
+	 * dipakai bersama antar-thread</b>, sedangkan servlet dilayani banyak thread sekaligus;
+	 * satu instance bersama akan menghasilkan tanggal yang kacau atau
+	 * {@code NumberFormatException} acak di bawah beban.</p>
+	 */
 	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		/** Membuat pemformat baru untuk setiap thread yang pertama kali memakainya. */
 		@Override
 		protected SimpleDateFormat initialValue() {
 			return new SimpleDateFormat("yyyyMMddHHmmss");
@@ -58,6 +125,9 @@ public class BSI extends HttpServlet {
 	};
 
 	/**
+	 * Konstruktor bawaan yang dipanggil kontainer servlet saat memuat kelas ini; tidak ada
+	 * inisialisasi khusus karena seluruh keadaan bersifat statis.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public BSI() {

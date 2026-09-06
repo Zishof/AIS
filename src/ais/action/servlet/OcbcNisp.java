@@ -70,29 +70,46 @@ import ais.database.model.sekolah.Tagihan;
  * sehingga {@code 4042414} menghasilkan HTTP 404 dan {@code 5000001} menghasilkan HTTP 500.</p>
  *
  * <h3>Otentikasi H2H — FAKTA ARSITEKTUR YANG WAJIB DIPAHAMI</h3>
- * <p>Verifikasi tanda tangan RSA (SHA256withRSA atas {@code X-Client-Key|X-Timestamp}) <b>hanya
- * dijalankan pada cabang penerbitan token</b> di {@link #process(HttpServletRequest,
+ * <p>Verifikasi tanda tangan RSA (SHA256withRSA atas {@code X-Client-Key|X-Timestamp}) hanya
+ * dijalankan pada cabang penerbitan token di {@link #process(HttpServletRequest,
  * HttpServletResponse)}, yaitu ketika body memuat {@code grantType} atau header memuat
- * {@code X-Client-Key}. Cabang transaksi — inquiry, payment, dan reversal, yakni jalur yang benar
- * benar memutasi data keuangan — <b>tidak memeriksa tanda tangan maupun bearer token</b>. Token
- * yang diterbitkan disimpan ke {@link #accessTokens} tetapi tidak pernah dibaca kembali oleh kelas
- * ini. Satu-satunya penyaring yang tersisa pada jalur transaksi adalah:</p>
+ * {@code X-Client-Key}. <b>Riwayat.</b> Sampai dengan perbaikan ini, cabang transaksi — inquiry,
+ * payment, dan reversal, yakni jalur yang benar-benar memutasi data keuangan — sama sekali tidak
+ * memeriksa tanda tangan maupun bearer token: token yang diterbitkan hanya ditulis ke daftar
+ * per-instance servlet, tidak pernah dibaca kembali. Sekarang cabang transaksi memeriksa header
+ * {@code Authorization: Bearer &lt;token&gt;} terhadap token yang diterbitkan cabang penerbitan
+ * token (disimpan bersama-aman-thread dengan masa berlaku di
+ * {@link ais.action.ws.util.PembayaranGatewayHelper#terbitkanTokenH2h(String, String, long)}), lewat
+ * {@link ais.action.ws.util.PembayaranGatewayHelper#periksaGerbangTokenH2h(String, String, String)}.
+ * <b>Gerbang ini berlaku BERTAHAP lewat konfigurasi</b> {@code gerbang_token_h2h_ocbc} (nilai
+ * {@code nonaktif}/{@code log}/{@code aktif}, default {@code log}): pada mode {@code log}
+ * permintaan tanpa token sah TETAP diproses seperti sebelumnya, hanya dicatat sebagai peringatan,
+ * sehingga operator dapat mengukur dampak sebelum menyalakan penolakan sungguhan lewat
+ * {@code aktif}. Timestamp {@code X-Timestamp} pada penerbitan token kini juga diperiksa
+ * kesegarannya (toleransi {@code toleransi_menit_timestamp_h2h_ocbc} menit, default 5 menit) lewat
+ * gerbang {@code gerbang_timestamp_h2h_ocbc} (default {@code log}) agar permintaan token yang
+ * sudah pernah ditandatangani tidak dapat diputar ulang kapan pun setelahnya.</p>
+ * <p>Penyaring lain yang tersisa pada jalur transaksi:</p>
  * <ol>
  *   <li>pemetaan IP penelepon ke {@link BankHost} lewat
- *       {@link PembayaranUtil#getBankHost(String, String)} — dan itu pun <b>tidak fail-closed</b>:
- *       {@code bankHost} boleh {@code null}, sementara
+ *       {@link PembayaranUtil#getBankHost(String, String)} — nilainya boleh {@code null}, dan
  *       {@link VirtualAccountBank#ambilVa(String, Double, BankHost)} menerima VA yang kolom
- *       {@code bankHost}-nya kosong untuk host pemanggil mana pun;</li>
+ *       {@code bankHost}-nya kosong untuk host pemanggil mana pun. Sejak perbaikan ini, jalur
+ *       POSTING (payment/reversal — BUKAN inquiry, yang tetap harus berfungsi tanpa IP terdaftar
+ *       untuk kebutuhan operasional) dapat dibuat fail-closed terhadap {@code bankHost == null}
+ *       lewat gerbang {@code gerbang_bankhost_null_posting_ocbc}
+ *       ({@link ais.action.ws.util.PembayaranGatewayHelper#periksaGerbangBankHostPosting(String, String, BankHost)}),
+ *       default {@code nonaktif} karena {@code bankHost == null} bisa jadi kondisi normal hari ini
+ *       (pemetaan IP belum lengkap) — menyalakannya tanpa koordinasi dapat menghentikan setelmen;</li>
  *   <li>penyaring awalan nomor VA lewat konfigurasi
  *       {@code prefix_wajib_diterima_pembayaran_ocbc} dan
  *       {@code bukan_prefix_wajib_diterima_pembayaran_ocbc} — keduanya default kosong, artinya
  *       nonaktif kecuali diisi operator.</li>
  * </ol>
- * <p>Konsekuensinya, pengamanan efektif endpoint ini bertumpu pada pembatasan jaringan/firewall di
- * luar aplikasi, bukan pada kode. Catatan ini adalah dokumentasi keadaan terkini; jangan diubah
- * tanpa koordinasi dengan pihak bank karena perubahan kontrak H2H berdampak langsung ke setelmen.
- * Perlu dicatat pula bahwa nilai {@code X-Timestamp} tidak divalidasi kesegarannya, sehingga
- * permintaan token yang sudah pernah ditandatangani dapat diputar ulang.</p>
+ * <p>Ketiga gerbang di atas TIDAK mengubah bentuk/kode respons SNAP pada kasus sukses; mode
+ * {@code aktif} hanya menambah kemungkinan respons 401 baru pada kasus yang sebelumnya diam-diam
+ * lolos. Catatan ini adalah dokumentasi keadaan terkini; jangan diubah tanpa koordinasi dengan
+ * pihak bank karena perubahan kontrak H2H berdampak langsung ke setelmen.</p>
  *
  * <h3>Hubungan dengan pencatatan log</h3>
  * <p>Setiap pemanggilan {@link #doProcess} — berhasil maupun gagal — menulis satu baris
@@ -309,6 +326,14 @@ public class OcbcNisp extends HttpServlet {
 	 * @param reversal           {@code true} untuk pembatalan setoran
 	 * @param antarbank          {@code true} untuk kanal antar bank, memilih rumpun
 	 *                           {@code responseCode} yang berbeda
+	 * @param tolakTokenGerbang  alasan penolakan gerbang token H2H yang SUDAH dievaluasi pemanggil
+	 *                           lewat {@link ais.action.ws.util.PembayaranGatewayHelper#periksaGerbangTokenH2h};
+	 *                           {@code null} bila lolos (termasuk saat gerbang nonaktif/log). Dipisah
+	 *                           dari method ini karena hanya {@link #process} yang punya akses ke
+	 *                           header {@code Authorization} permintaan asli -- pemanggil INTERNAL
+	 *                           seperti {@code LogHostToHostAction} ("Cek Ulang") memanggil method
+	 *                           ini dengan {@code null} karena beroperasi di bawah session admin
+	 *                           yang sudah terautentikasi, bukan token H2H bank
 	 * @return objek JSON SNAP lengkap berisi {@code responseCode}, {@code responseMessage}, dan
 	 *         {@code virtualAccountData}
 	 * @throws Exception bila perakitan JSON gagal di luar blok yang sudah ditangani
@@ -317,7 +342,7 @@ public class OcbcNisp extends HttpServlet {
 	public static JSONObject doProcess(Double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, String partnerServiceId, String inquiryRequestId,
 			String paymentRequestId, String trxId, String customer_number, String partnerReferenceNo, boolean chekLagi,
-			boolean inquery, boolean reversal, boolean antarbank) throws Exception {
+			boolean inquery, boolean reversal, boolean antarbank, String tolakTokenGerbang) throws Exception {
 
 		JSONObject virtualAccountData = new JSONObject();
 
@@ -390,6 +415,16 @@ public class OcbcNisp extends HttpServlet {
 			}
 
 			VirtualAccountBank virtualAccountBankNtt = null;
+
+			// Gerbang akses H2H (lihat javadoc kelas): tolakTokenGerbang sudah dievaluasi
+			// pemanggil (null bila lolos/gerbang nonaktif/log); tolakBankHostGerbang dievaluasi
+			// di sini karena hanya berlaku pada jalur POSTING (payment/reversal), bukan inquiry.
+			String tolakBankHostGerbang = !inquery
+					? ais.action.ws.util.PembayaranGatewayHelper.periksaGerbangBankHostPosting(bank,
+							"gerbang_bankhost_null_posting_ocbc", bankHost)
+					: null;
+			String tolakGerbang = tolakTokenGerbang != null ? tolakTokenGerbang : tolakBankHostGerbang;
+
 			try {
 
 				if ((va == null || va.trim().isEmpty()) && customer_number != null
@@ -397,8 +432,19 @@ public class OcbcNisp extends HttpServlet {
 					va = customer_number.trim();
 				}
 
+				// 0. Gerbang akses H2H: tolak SEBELUM membocorkan info "Bill not found"/dsb bila
+				// mode gerbang sudah diaktifkan operator (lihat javadoc kelas).
+				if (tolakGerbang != null) {
+					if (antarbank) {
+						jsonObjectResponse.put("responseCode", inquery ? "4013201" : "4013301");
+					} else {
+						jsonObjectResponse.put("responseCode", inquery ? "4012401" : "4012501");
+					}
+					jsonObjectResponse.put("responseMessage", "Unauthorized. [" + tolakGerbang + "]");
+
+				}
 				// 1. Pastikan VA tidak null untuk mencegah NPE saat memanggil va.startsWith()
-				if (va == null || va.trim().isEmpty()) {
+				else if (va == null || va.trim().isEmpty()) {
 					if (inquery) {
 						jsonObjectResponse.put("responseCode", "4043212");
 						jsonObjectResponse.put("responseMessage", "Bill not found");
@@ -1123,20 +1169,6 @@ public class OcbcNisp extends HttpServlet {
 	}
 
 	/**
-	 * Daftar access token yang pernah diterbitkan kelas ini pada cabang penerbitan token.
-	 *
-	 * <p><b>Penting:</b> field ini hanya ditulis, tidak pernah dibaca. Tidak ada satu pun jalur di
-	 * kelas ini yang memvalidasi header {@code Authorization} terhadap isi daftar ini, sehingga
-	 * token yang diterbitkan tidak berfungsi sebagai gerbang akses. Karena daftar juga tidak
-	 * pernah dipangkas maupun dikaitkan dengan masa berlaku {@code expiresIn}, isinya bertambah
-	 * terus selama instance servlet hidup.</p>
-	 *
-	 * <p>Field bersifat per-instance servlet dan bukan struktur data aman-thread, padahal servlet
-	 * dilayani banyak worker thread sekaligus.</p>
-	 */
-	private List<String> accessTokens = new ArrayList<String>();
-
-	/**
 	 * Peta bantu {@code customerNo} ke {@code partnerReferenceNo} yang terakhir dikirim bank.
 	 *
 	 * <p>Dipakai agar permintaan lanjutan yang tidak menyertakan {@code partnerReferenceNo} tetap
@@ -1277,28 +1309,62 @@ public class OcbcNisp extends HttpServlet {
 
 				if (validateSignature) {
 
-					int expiresIn = 1000 * 60 * 24;
+					// Kesegaran X-Timestamp (cegah replay tanda tangan lama) -- lihat javadoc kelas;
+					// bertahap lewat konfigurasi gerbang_timestamp_h2h_ocbc, default log-only.
+					String tolakTimestamp = ais.action.ws.util.PembayaranGatewayHelper.periksaGerbangTimestampH2h(
+							"gerbang_timestamp_h2h_ocbc", "toleransi_menit_timestamp_h2h_ocbc", strISOTimeStamp);
 
-					String token = UUID.randomUUID().toString();
-					accessTokens.add(token);
-					JSONObject jsonObject = new JSONObject();
-					jsonObject.put("accessToken", token);
-					jsonObject.put("tokenType", "bearer");
-					jsonObject.put("expiresIn", expiresIn);
+					if (tolakTimestamp != null) {
 
-					String tokenOcbcResponseCode = Common.getKonfigurasi("token_ocbc_response_code", "2007300")
-							.getNilai();
-					String tokenOcbcResponseMessage = Common.getKonfigurasi("token_ocbc_response_message", "Success")
-							.getNilai();
+						JSONObject jsonObject = new JSONObject();
+						jsonObject.put("responseCode", "4017301");
+						jsonObject.put("responseMessage", "Unathorized. [" + tolakTimestamp + "]");
 
-					jsonObject.put("responseCode", tokenOcbcResponseCode);
-					jsonObject.put("responseMessage", tokenOcbcResponseMessage);
+						responseMessage = jsonObject.getString("responseMessage");
+						responseCode = jsonObject.getString("responseCode");
 
-					responseMessage = jsonObject.isNull("responseMessage") ? "Fail"
-							: jsonObject.getString("responseMessage");
-					responseCode = jsonObject.isNull("responseCode") ? "401" : jsonObject.getString("responseCode");
+						body = jsonObject.toString();
 
-					body = jsonObject.toString();
+					} else {
+
+						int expiresIn = 1000 * 60 * 24;
+
+						String token = UUID.randomUUID().toString();
+
+						// Masa berlaku INTERNAL token untuk gerbang periksaGerbangTokenH2h -- sengaja
+						// TERPISAH dari field "expiresIn" di atas (nilai itu bagian kontrak SNAP yang
+						// sudah disepakati bank dan tidak diubah oleh perbaikan ini).
+						long masaBerlakuTokenMillis;
+						try {
+							masaBerlakuTokenMillis = Long.parseLong(
+									Common.getKonfigurasi("masa_berlaku_token_h2h_ocbc_menit", "24").getNilai().trim())
+									* 60000L;
+						} catch (Exception e) {
+							masaBerlakuTokenMillis = 24 * 60000L;
+						}
+						ais.action.ws.util.PembayaranGatewayHelper.terbitkanTokenH2h("OCBC NISP", token,
+								masaBerlakuTokenMillis);
+
+						JSONObject jsonObject = new JSONObject();
+						jsonObject.put("accessToken", token);
+						jsonObject.put("tokenType", "bearer");
+						jsonObject.put("expiresIn", expiresIn);
+
+						String tokenOcbcResponseCode = Common.getKonfigurasi("token_ocbc_response_code", "2007300")
+								.getNilai();
+						String tokenOcbcResponseMessage = Common
+								.getKonfigurasi("token_ocbc_response_message", "Success").getNilai();
+
+						jsonObject.put("responseCode", tokenOcbcResponseCode);
+						jsonObject.put("responseMessage", tokenOcbcResponseMessage);
+
+						responseMessage = jsonObject.isNull("responseMessage") ? "Fail"
+								: jsonObject.getString("responseMessage");
+						responseCode = jsonObject.isNull("responseCode") ? "401"
+								: jsonObject.getString("responseCode");
+
+						body = jsonObject.toString();
+					}
 				} else {
 					JSONObject jsonObject = new JSONObject();
 					jsonObject.put("responseCode", "4017300");
@@ -1334,6 +1400,17 @@ public class OcbcNisp extends HttpServlet {
 				}
 
 				String bank = "OCBC NISP";
+
+				// Gerbang token H2H pada cabang TRANSAKSI (lihat javadoc kelas): sebelum perbaikan
+				// ini, cabang ini tidak pernah memeriksa Authorization/accessTokens sama sekali.
+				String authorization = jsonObjectHeader.isNull("Authorization") ? null
+						: jsonObjectHeader.get("Authorization").toString();
+				if (!jsonObjectHeader.isNull("authorization")) {
+					authorization = jsonObjectHeader.get("authorization").toString();
+				}
+				String tolakTokenGerbang = ais.action.ws.util.PembayaranGatewayHelper.periksaGerbangTokenH2h(bank,
+						"gerbang_token_h2h_ocbc", authorization);
+
 				double nominalP = 0.0;
 				try {
 					nominalP = req == null || req.isNull("paidAmount") ? 0.0
@@ -1408,7 +1485,8 @@ public class OcbcNisp extends HttpServlet {
 				JSONObject o = OcbcNisp.doProcess(nominalP, tanggalP, va, bank, bankHost, request, data,
 						partnerServiceId, inquiryRequestId, paymentRequestId, trxId, customer_number,
 						partnerReferenceNo, false, req.isNull("paidAmount") && inquiryRequestId != null,
-						(paidStatus != null && paidStatus.equalsIgnoreCase("n")) || reversal, intrabank);
+						(paidStatus != null && paidStatus.equalsIgnoreCase("n")) || reversal, intrabank,
+						tolakTokenGerbang);
 
 				responseMessage = o.isNull("responseMessage") ? "Fail" : o.getString("responseMessage");
 				responseCode = o.isNull("responseCode") ? "401" : o.getString("responseCode");

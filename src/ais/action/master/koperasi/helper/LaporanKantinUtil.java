@@ -873,7 +873,7 @@ public final class LaporanKantinUtil {
 
             } else if ("omzet_rekapan".equals(r)) {
                 judul = "Rekapan Omzet per Toko";
-                catatan = "Padanan sheet REKAPAN. Saldo mengikuti flag manual=false atau memotong_deposit=true; sisanya masuk Tunai/Non-Saldo. Klik nilai untuk melihat nota penyusun.";
+                catatan = "Padanan sheet REKAPAN. Metode piutang tidak memotong saldo; metode lainnya mengikuti flag manual=false atau memotong_deposit=true. Sisanya masuk Tunai/Non-Saldo. Klik nilai untuk melihat nota penyusun.";
                 String[] cara = { "c1", "c2", "c3", "c4", "c5" };
                 String saldoMentah = LaporanRincianTransaksiUtil.nilaiSaldoNota("h", cara);
                 String saldo = "least(coalesce(h.total_biaya,0),greatest(0," + saldoMentah + "))";

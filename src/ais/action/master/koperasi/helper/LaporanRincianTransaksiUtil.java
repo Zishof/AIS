@@ -97,10 +97,11 @@ public final class LaporanRincianTransaksiUtil {
 				+ " - COALESCE(" + headerAlias + ".nominal_bayar_5,0))";
 	}
 
-	/** Cara bayar dianggap Saldo bila otomatis memotong deposit atau ditandai eksplisit demikian. */
+	/** Cara bayar non-piutang dianggap Saldo bila otomatis memotong deposit atau ditandai demikian. */
 	static String syaratSaldo(String caraAlias) {
-		return "(COALESCE(" + caraAlias + ".manual,true)=false OR COALESCE("
-				+ caraAlias + ".memotong_deposit,false)=true)";
+		return "(COALESCE(" + caraAlias + ".masuk_sebagai_hutang,false)=false AND "
+				+ "(COALESCE(" + caraAlias + ".manual,true)=false OR COALESCE("
+				+ caraAlias + ".memotong_deposit,false)=true))";
 	}
 
 	/** Total porsi Saldo satu nota, termasuk seluruh lima slot split-payment. */

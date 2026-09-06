@@ -365,8 +365,8 @@ public class DepositHelper {
 
             // 2. Pengeluaran Pembelian
             long t2 = System.currentTimeMillis();
-            // Syarat pemotongan saldo: metode bayar TIDAK diverifikasi manual (perilaku lama), ATAU
-            // metode bayar itu ditandai eksplisit "Memotong Deposit" (kolom baru 2026-07-26, lihat
+            // Syarat pemotongan saldo: metode BUKAN piutang, lalu metode bayar TIDAK diverifikasi
+            // manual (perilaku lama), ATAU ditandai eksplisit "Memotong Deposit" (kolom baru 2026-07-26, lihat
             // CaraPembayaranKoperasi.getMemotongDeposit). Bersifat MENAMBAH: metode lama yang kolomnya
             // masih null/false tetap berperilaku persis seperti sebelumnya.
             //
@@ -383,13 +383,13 @@ public class DepositHelper {
             // makanya dihitung di sini via ekspresi yang sama, bukan kolom tersendiri.
             Double pengeluaranBelanja = getSafeDouble((Number) session.createSQLQuery(
                     "SELECT COALESCE(SUM(" +
-                    "  CASE WHEN cpk1.manual = false OR cpk1.memotong_deposit = true " +
+                    "  CASE WHEN COALESCE(cpk1.masuk_sebagai_hutang,false)=false AND (cpk1.manual = false OR cpk1.memotong_deposit = true) " +
                     "       THEN GREATEST(0, COALESCE(h.total_biaya,0) - COALESCE(h.nominal_bayar_2,0) - COALESCE(h.nominal_bayar_3,0) - COALESCE(h.nominal_bayar_4,0) - COALESCE(h.nominal_bayar_5,0)) " +
                     "       ELSE 0 END " +
-                    "  + CASE WHEN cpk2.manual = false OR cpk2.memotong_deposit = true THEN COALESCE(h.nominal_bayar_2,0) ELSE 0 END " +
-                    "  + CASE WHEN cpk3.manual = false OR cpk3.memotong_deposit = true THEN COALESCE(h.nominal_bayar_3,0) ELSE 0 END " +
-                    "  + CASE WHEN cpk4.manual = false OR cpk4.memotong_deposit = true THEN COALESCE(h.nominal_bayar_4,0) ELSE 0 END " +
-                    "  + CASE WHEN cpk5.manual = false OR cpk5.memotong_deposit = true THEN COALESCE(h.nominal_bayar_5,0) ELSE 0 END " +
+                    "  + CASE WHEN COALESCE(cpk2.masuk_sebagai_hutang,false)=false AND (cpk2.manual = false OR cpk2.memotong_deposit = true) THEN COALESCE(h.nominal_bayar_2,0) ELSE 0 END " +
+                    "  + CASE WHEN COALESCE(cpk3.masuk_sebagai_hutang,false)=false AND (cpk3.manual = false OR cpk3.memotong_deposit = true) THEN COALESCE(h.nominal_bayar_3,0) ELSE 0 END " +
+                    "  + CASE WHEN COALESCE(cpk4.masuk_sebagai_hutang,false)=false AND (cpk4.manual = false OR cpk4.memotong_deposit = true) THEN COALESCE(h.nominal_bayar_4,0) ELSE 0 END " +
+                    "  + CASE WHEN COALESCE(cpk5.masuk_sebagai_hutang,false)=false AND (cpk5.manual = false OR cpk5.memotong_deposit = true) THEN COALESCE(h.nominal_bayar_5,0) ELSE 0 END " +
                     "),0) " +
                     "FROM koperasi.pembelian_anggota_koperasi h " +
                     "LEFT JOIN koperasi.cara_pembayaran_koperasi cpk1 ON h.cara_pembayaran_koperasi = cpk1.id " +

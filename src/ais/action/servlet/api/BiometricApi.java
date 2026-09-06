@@ -489,8 +489,9 @@ public final class BiometricApi {
 	}
 
 	private static boolean deductsBalance(CaraPembayaranKoperasi payment) {
-		return payment != null && (!Boolean.TRUE.equals(payment.getManual())
-				|| Boolean.TRUE.equals(payment.getMemotongDeposit()));
+		return payment != null && !Boolean.TRUE.equals(payment.getMasukSebagaiHutang())
+				&& (!Boolean.TRUE.equals(payment.getManual())
+						|| Boolean.TRUE.equals(payment.getMemotongDeposit()));
 	}
 
 	/**

@@ -28,12 +28,75 @@ import ais.database.model.file.LampiranLain;
 import ais.ui.util.MyJSONObject;
 
 /**
- * Servlet implementation class AmbilFotoPengumumanPerkuliahan
+ * Servlet penyaji berkas lampiran &mdash; gambar, PDF, dan berkas unduhan lain &mdash; yang
+ * tersimpan sebagai {@link FileFotoLain} atau turunannya.
+ *
+ * <h4>Dua nama URL, satu kelas servlet</h4>
+ * <p>Pada {@code web.xml} kelas ini didaftarkan <b>dua kali</b> dengan nama servlet berbeda,
+ * sehingga dua alamat berikut dilayani oleh kode yang sama persis:</p>
+ * <ul>
+ *   <li>{@code /AmbilLampiran} &mdash; pada {@code applicationContext-security.xml} dijaga
+ *       aturan {@code /AmbilLampiran**} bernilai {@code IS_AUTHENTICATED_REMEMBERED}, jadi
+ *       menuntut pengguna yang sudah masuk;</li>
+ *   <li>{@code /al} &mdash; dijaga aturan {@code /al} dan {@code /al/**} yang bernilai
+ *       {@code IS_AUTHENTICATED_ANONYMOUSLY}, jadi <b>terbuka tanpa login</b>.</li>
+ * </ul>
+ * <p>Pembukaan alias {@code /al} dilakukan atas permintaan pemilik sistem (19-08-2026) agar
+ * gambar pada halaman publik tidak dilempar ke halaman masuk. Catatan risiko yang menyertainya
+ * ada di berkas konfigurasi tersebut dan sengaja dipertahankan di sana.</p>
+ *
+ * <h4>Cara lampiran ditunjuk</h4>
+ * <p>Ada dua gaya pemanggilan yang keduanya diterima:</p>
+ * <ul>
+ *   <li><b>Token terenkripsi</b> lewat parameter {@code d}, yaitu JSON yang dienkripsi
+ *       {@code Common.desEncrypter}. Isinya boleh memuat kunci {@code file}, {@code ref},
+ *       {@code clazz}, {@code jenis}, {@code jurusan}, {@code usingId}, {@code rezise},
+ *       {@code iframe}, dan {@code download}.</li>
+ *   <li><b>Parameter polos</b> pada <i>query string</i> dengan nama yang sama, dipakai bila
+ *       token {@code d} tidak dikirim atau kuncinya kosong.</li>
+ * </ul>
+ *
+ * <h4>PERINGATAN KEAMANAN &mdash; tidak ada pemeriksaan hak akses</h4>
+ * <p>Didokumentasikan supaya tidak hilang dari pandangan, bukan sebagai anjuran:</p>
+ * <ul>
+ *   <li>{@link #process} <b>tidak pernah</b> menanyakan siapa pengguna yang meminta, dan tidak
+ *       pernah menguji apakah lampiran yang diminta memang miliknya. Satu-satunya penjagaan
+ *       yang ada bersifat teknis: {@link #isDalamDirektoriDiizinkan} yang membatasi jalur
+ *       {@code file} ke direktori media/webapp.</li>
+ *   <li>Parameter {@code usingId} bernilai {@code true} <b>mematikan penyaring {@code jenis}</b>
+ *       di {@code FileFotoLain.ambil(...)}: kriteria jenis diganti
+ *       {@code Restrictions.sqlRestriction("true")} dan acuan dicocokkan sebagai
+ *       {@code Restrictions.idEq(ref)}. Artinya {@code ?usingId=true&ref=<N>} mengambil baris
+ *       lampiran ber-<i>primary key</i> {@code N} apa pun jenisnya, dan nomor itu dapat ditebak
+ *       berurutan.</li>
+ *   <li>Karena {@code /al} anonim, kedua sifat di atas berlaku tanpa perlu masuk. Berkas yang
+ *       tersimpan lewat mekanisme ini mencakup dokumen pribadi seperti kartu keluarga, akta,
+ *       ijazah, dan berkas gambar tanda tangan ({@code TTD_*}) yang dipakai mengesahkan
+ *       dokumen.</li>
+ *   <li>Parameter {@code clazz} diteruskan apa adanya ke {@code Class.forName(String)} tanpa
+ *       daftar putih; kelas yang bukan entitas terpetakan akan menggagalkan kueri, tetapi
+ *       pemuatannya tetap terjadi lebih dahulu.</li>
+ * </ul>
+ * <p>Rencana pengamanan yang sudah disepakati: endpoint publik terpisah yang mewajibkan token
+ * {@code d} dan hanya melayani jenis lampiran dalam daftar putih, sementara {@code /al}
+ * dikembalikan menjadi {@code IS_AUTHENTICATED_REMEMBERED}.</p>
+ *
+ * @see ais.database.model.file.FileFotoLain
+ * @see ais.database.model.file.LampiranLain
  */
 public class AmbilLampiran extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh keadaan yang dipakai bersifat statis
+	 * atau diturunkan dari permintaan.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public AmbilLampiran() {
@@ -42,8 +105,19 @@ public class AmbilLampiran extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET &mdash; jalur yang dipakai hampir seluruh pemanggil,
+	 * karena alamat servlet ini muncul sebagai {@code src} gambar dan {@code href} unduhan.
+	 *
+	 * <p>Seluruh pekerjaan didelegasikan ke {@link #process}. Kegagalan ditelan oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga peramban tidak pernah menerima
+	 * kode status 5xx; {@link #process} sendiri sudah menyajikan ikon pengganti untuk
+	 * lampiran yang tidak ditemukan.</p>
+	 *
+	 * @param request  permintaan masuk, memuat token {@code d} atau parameter polos
+	 * @param response balasan yang akan diisi bita berkas atau ikon pengganti
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -55,8 +129,16 @@ public class AmbilLampiran extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan perilaku identik {@link #doGet}.
+	 *
+	 * <p>Disediakan agar pemanggil yang mengirim token {@code d} panjang lewat badan
+	 * permintaan tetap dilayani.</p>
+	 *
+	 * @param request  permintaan masuk, memuat token {@code d} atau parameter polos
+	 * @param response balasan yang akan diisi bita berkas atau ikon pengganti
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -68,11 +150,25 @@ public class AmbilLampiran extends HttpServlet {
 	}
 
 	/**
-	 * Whitelist direktori yang boleh disajikan lewat parameter "file" (token
-	 * terenkripsi "d"). Tanpa ini, path absolut apa pun yang berhasil dienkode
-	 * ke token akan disajikan mentah-mentah (arbitrary file read) -- lihat
-	 * FileFotoLain.ambilLinkLampiranLain(File) yang jadi satu-satunya pembuat
-	 * token dengan key "file", selalu berasal dari direktori media/webapp.
+	 * Menguji apakah sebuah berkas berada di dalam direktori yang boleh disajikan lewat
+	 * parameter {@code file} pada token terenkripsi {@code d}.
+	 *
+	 * <p><b>Mengapa perlu.</b> Token {@code d} memuat jalur absolut apa pun yang berhasil
+	 * dienkode pembuatnya. Tanpa pembatasan ini, jalur mana pun di server akan disajikan
+	 * mentah-mentah &mdash; pembacaan berkas sembarang. Satu-satunya pembuat token dengan
+	 * kunci {@code file} adalah {@code FileFotoLain.ambilLinkLampiranLain(File)}, dan jalur
+	 * yang dihasilkannya selalu berasal dari direktori media atau webapp.</p>
+	 *
+	 * <p>Perbandingan dilakukan atas <i>canonical path</i> sehingga penyusun jalur
+	 * {@code ".."} dan pranala simbolik ternormalkan lebih dahulu dan tidak bisa dipakai
+	 * keluar dari direktori yang diizinkan. Direktori yang diterima adalah
+	 * {@code CommonMedia.getMediaDirectory()} dan {@code Common.REAL_PATH}.</p>
+	 *
+	 * <p>Sifatnya <i>fail-closed</i>: kegagalan apa pun saat menormalkan jalur menghasilkan
+	 * {@code false}.</p>
+	 *
+	 * @param file berkas yang hendak disajikan
+	 * @return {@code true} bila berkas berada di dalam salah satu direktori yang diizinkan
 	 */
 	private static boolean isDalamDirektoriDiizinkan(File file) {
 		try {
@@ -101,14 +197,23 @@ public class AmbilLampiran extends HttpServlet {
 	}
 
 	/**
-	 * Bangun nilai header Content-Disposition yang aman utk AJP: konektor AJP Tomcat hanya
-	 * bisa mengirim header sebagai byte ISO-8859-1 (0-255), jadi nama berkas yang mengandung
-	 * karakter di luar itu (emoji, dsb -- lihat KE-11 pengguna "wanto,400": nama berkas
-	 * mengandung karakter unicode) membuat IllegalArgumentException saat Tomcat menyiapkan
-	 * response, PADA SAAT byte pertama ditulis ke output stream. Solusi: kirim fallback ASCII
-	 * lewat parameter "filename" (karakter non-ASCII diganti "_") DAN nama asli lewat parameter
-	 * "filename*" berenkode RFC 5987 (UTF-8 persen-encode -- hasilnya selalu ASCII murni,
-	 * sehingga aman utk AJP) supaya nama berkas asli tetap tampil di browser modern.
+	 * Membangun nilai header {@code Content-Disposition} yang aman dilewatkan konektor AJP.
+	 *
+	 * <p><b>Mengapa perlu.</b> Konektor AJP Tomcat hanya dapat mengirim header sebagai bita
+	 * ISO-8859-1 (0&ndash;255). Nama berkas yang memuat karakter di luar rentang itu
+	 * &mdash; emoji dan sejenisnya; lihat KE-11 pengguna {@code "wanto,400"} &mdash; memicu
+	 * {@code IllegalArgumentException} saat Tomcat menyiapkan respons, dan celakanya baru
+	 * pada saat bita pertama ditulis ke <i>output stream</i>, jauh setelah header disusun.</p>
+	 *
+	 * <p>Karena itu nama berkas dikirim dua kali: parameter {@code filename} berisi versi
+	 * ASCII (karakter di luar rentang, dan tanda kutip ganda, diganti garis bawah) sebagai
+	 * cadangan, dan parameter {@code filename*} berisi nama asli berenkode RFC 5987
+	 * (UTF-8 dengan persen-encode, hasilnya selalu ASCII murni sehingga aman untuk AJP)
+	 * sehingga peramban modern tetap menampilkan nama sebenarnya.</p>
+	 *
+	 * @param disposition jenis penyajian, {@code "inline"} atau {@code "attachment"}
+	 * @param namaBerkas  nama berkas yang hendak ditampilkan; {@code null} dianggap kosong
+	 * @return nilai header yang siap dipasang lewat {@code setHeader}
 	 */
 	private static String contentDispositionHeader(String disposition, String namaBerkas) {
 		String nama = namaBerkas == null ? "" : namaBerkas;
@@ -126,31 +231,50 @@ public class AmbilLampiran extends HttpServlet {
 	}
 
 	/**
-	 * Berapa lama peramban boleh memakai berkas dari cache-nya sendiri tanpa bertanya
-	 * ulang ke server. Ditahan pendek (10 menit) karena lampiran BISA diganti isinya
-	 * tanpa berganti alamat; setelah tenggang ini peramban tetap bertanya, dan dengan
-	 * ETag jawabannya cukup 304 tanpa mengirim ulang berkasnya.
+	 * Berapa lama (dalam detik) peramban boleh memakai berkas dari cache-nya sendiri tanpa
+	 * bertanya ulang ke server.
+	 *
+	 * <p>Ditahan pendek (10 menit) karena lampiran <b>bisa diganti isinya tanpa berganti
+	 * alamat</b>; setelah tenggang ini peramban tetap bertanya, dan dengan ETag jawabannya
+	 * cukup 304 tanpa mengirim ulang berkasnya.</p>
 	 */
 	private static final int UMUR_CACHE_DETIK = 600;
 
 	/**
-	 * Pasang header cache pada berkas yang benar-benar ada di disk, lalu jawab 304 bila
+	 * Memasang header cache pada berkas yang benar-benar ada di disk, lalu menjawab 304 bila
 	 * salinan peramban masih sama.
 	 *
-	 * <p><b>Mengapa perlu.</b> Tanpa validator, tiap tampilan halaman menarik ulang
-	 * seluruh foto: satu halaman berisi 20 foto berarti 20 permintaan penuh, dan tiap
-	 * permintaan menempuh jalur {@code ambilFile()} sampai ke berkas. Pada dump
-	 * 18-08-2026 07:51 terlihat 53 thread mengantre bersamaan di kolam koneksi lewat
-	 * jalur servlet ini. Dengan ETag, permintaan berikutnya berhenti di 304 &mdash;
-	 * tanpa membaca isi berkas dan tanpa mengirim satu bita pun isi.</p>
+	 * <p><b>Mengapa perlu.</b> Tanpa validator, tiap tampilan halaman menarik ulang seluruh
+	 * foto: satu halaman berisi 20 foto berarti 20 permintaan penuh, dan tiap permintaan
+	 * menempuh jalur {@code ambilFile()} sampai ke berkas. Pada dump 18-08-2026 07:51 terlihat
+	 * 53 thread mengantre bersamaan di kolam koneksi lewat jalur servlet ini. Dengan ETag,
+	 * permintaan berikutnya berhenti di 304 &mdash; tanpa membaca isi berkas dan tanpa
+	 * mengirim satu bita pun isi.</p>
 	 *
-	 * <p>Validatornya diturunkan dari ukuran dan waktu ubah berkas, bukan dari isinya,
-	 * supaya tidak perlu membaca berkas hanya untuk menentukan ETag. Berkas yang diganti
-	 * akan berganti ETag karena kedua nilai itu ikut berubah.</p>
+	 * <p>Validatornya diturunkan dari ukuran dan waktu ubah berkas, bukan dari isinya, supaya
+	 * tidak perlu membaca berkas hanya untuk menentukan ETag. Berkas yang diganti akan
+	 * berganti ETag karena kedua nilai itu ikut berubah.</p>
 	 *
-	 * <p>Sengaja {@code private}: lampiran bisa bersifat pribadi, jadi proxy bersama
-	 * tidak boleh ikut menyimpannya.</p>
+	 * <p>Bila klien mengirim {@code If-None-Match}, header itulah yang menentukan;
+	 * {@code If-Modified-Since} hanya diperiksa saat {@code If-None-Match} tidak ada, sesuai
+	 * RFC 7232. Perbandingan tanggal memotong milidetik karena header tanggal HTTP hanya
+	 * berpresisi detik.</p>
 	 *
+	 * <p>Sebelum mengirim 304 respons di-{@code reset} lebih dahulu lalu hanya header
+	 * validator yang dipasang ulang: method ini dipanggil dari beberapa titik, sebagian
+	 * sesudah {@code Content-Type}, {@code Content-Disposition}, dan {@code Content-Length}
+	 * terlanjur diset (berkas final baru diketahui setelah kemungkinan diganti thumbnail).
+	 * Respons 304 tidak boleh berbadan, dan {@code Content-Length} sisa membingungkan klien.
+	 * Aman dilakukan karena belum ada satu bita pun yang ditulis ke output.</p>
+	 *
+	 * <p>Cache sengaja ditandai {@code private}: lampiran bisa bersifat pribadi, jadi proxy
+	 * bersama tidak boleh ikut menyimpannya.</p>
+	 *
+	 * @param request permintaan asal, dibaca untuk header {@code If-None-Match} dan
+	 *                {@code If-Modified-Since}; boleh {@code null}
+	 * @param resp    balasan tempat header validator dipasang
+	 * @param file    berkas yang hendak dikirim; {@code null}, tidak ada, atau berukuran nol
+	 *                membuat method langsung mengembalikan {@code false}
 	 * @return {@code true} bila 304 sudah dikirim dan pemanggil harus berhenti
 	 */
 	private static boolean pasangCacheDanCekTidakBerubah(HttpServletRequest request, HttpServletResponse resp,
@@ -204,7 +328,19 @@ public class AmbilLampiran extends HttpServlet {
 		return false;
 	}
 
-	/** Header If-None-Match boleh memuat beberapa ETag dipisah koma, dan boleh "*". */
+	/**
+	 * Mencocokkan ETag milik server dengan salah satu nilai pada header {@code If-None-Match}
+	 * kiriman klien.
+	 *
+	 * <p>Header itu boleh memuat beberapa ETag dipisah koma, dan boleh berupa {@code "*"}
+	 * yang berarti "cocok dengan representasi apa pun". Awalan {@code W/} yang menandai ETag
+	 * lemah dibuang sebelum dibandingkan, karena peramban dapat menambahkannya saat
+	 * merevalidasi.</p>
+	 *
+	 * @param headerKlien isi header {@code If-None-Match}; diasumsikan bukan {@code null}
+	 * @param etagKita    ETag yang dihitung server untuk berkas yang akan dikirim
+	 * @return {@code true} bila salah satu nilai kiriman klien cocok
+	 */
 	private static boolean cocokSalahSatuEtag(String headerKlien, String etagKita) {
 		String h = headerKlien.trim();
 		if (h.equals("*")) {
@@ -225,9 +361,14 @@ public class AmbilLampiran extends HttpServlet {
 	}
 
 	/**
-	 * Tandai respons agar TIDAK disimpan peramban. Dipakai untuk ikon pengganti
-	 * ("berkas tidak ada") supaya lampiran yang diunggah kemudian tidak tertutup oleh
-	 * ikon lama yang terlanjur tersimpan di cache.
+	 * Menandai respons agar <b>tidak</b> disimpan peramban.
+	 *
+	 * <p>Dipakai untuk ikon pengganti ("berkas tidak ada") supaya lampiran yang diunggah
+	 * kemudian tidak tertutup oleh ikon lama yang terlanjur tersimpan di cache.</p>
+	 *
+	 * <p>Kegagalan memasang header ditelan dan dicatat; pemanggil tidak perlu menanganinya.</p>
+	 *
+	 * @param resp balasan yang akan diberi header {@code Cache-Control} dan {@code Pragma}
 	 */
 	private static void laranganCache(HttpServletResponse resp) {
 		try {
@@ -238,6 +379,27 @@ public class AmbilLampiran extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengalirkan sebuah berkas dari disk ke balasan HTTP sebagai tampilan {@code inline}.
+	 *
+	 * <p>Dipakai jalur token {@code d} berkunci {@code file}, yaitu setelah
+	 * {@link #isDalamDirektoriDiizinkan} menyatakan berkas berada di direktori yang boleh
+	 * disajikan. Bila {@link #pasangCacheDanCekTidakBerubah} sudah menjawab 304, method
+	 * langsung kembali tanpa menulis badan balasan.</p>
+	 *
+	 * <p>Jenis MIME ditentukan {@code CommonMedia.getMime(File)}, dan nama berkas dipasang
+	 * lewat {@link #contentDispositionHeader} agar aman dilewatkan konektor AJP. Isi disalin
+	 * memakai penyangga 1&nbsp;KiB.</p>
+	 *
+	 * <p><b>Perhatian:</b> kegagalan di tengah penyalinan ditelan dan hanya dicatat, sehingga
+	 * klien dapat menerima berkas terpotong yang tetap berstatus 200 dengan
+	 * {@code Content-Length} penuh. Method ini juga tidak memeriksa hak akses apa pun.</p>
+	 *
+	 * @param request1 permintaan asal, dipakai untuk negosiasi cache
+	 * @param resp     balasan tempat berkas dituliskan
+	 * @param file     berkas yang hendak dikirim; harus sudah dipastikan ada dan diizinkan
+	 * @throws Exception bila berkas gagal dibuka atau balasan gagal ditulis
+	 */
 	public static void doDownload(HttpServletRequest request1, HttpServletResponse resp, File file) throws Exception {
 		if (pasangCacheDanCekTidakBerubah(request1, resp, file)) {
 			return;
@@ -267,6 +429,60 @@ public class AmbilLampiran extends HttpServlet {
 		out.flush();
 	}
 
+	/**
+	 * Inti servlet: menentukan lampiran mana yang diminta, lalu mengalirkan isinya.
+	 *
+	 * <h4>Urutan penyelesaian</h4>
+	 * <ol>
+	 *   <li>Token {@code d} didekripsi menjadi {@link MyJSONObject}. Kegagalan dekripsi
+	 *       ditelan sehingga permintaan berlanjut memakai parameter polos.</li>
+	 *   <li>Bila token memuat kunci {@code file}, berkas itu disajikan langsung lewat
+	 *       {@link #doDownload} &mdash; tetapi hanya setelah lolos
+	 *       {@link #isDalamDirektoriDiizinkan}.</li>
+	 *   <li>Selain itu acuan diambil dari {@code ref} dan kelas entitas dari {@code clazz}
+	 *       (bawaan {@link LampiranLain}). Untuk {@link FotoAdmin} acuan dipakai sebagai
+	 *       String; selain itu diurai menjadi {@code Long}, dengan cadangan lewat
+	 *       {@link BigDecimal}. Acuan yang kosong dijawab 400.</li>
+	 *   <li>Acuan khusus {@code LampiranLain.ID_SKIN} menyajikan berkas skin
+	 *       {@code /opt/<konteks>.zip}.</li>
+	 *   <li>Selebihnya lampiran dicari lewat {@code FileFotoLain.ambil(...)} yang dicoba
+	 *       sampai <b>empat kali</b> dengan kombinasi {@code usingId} dan {@code refresh}
+	 *       yang berbeda, sampai salah satunya menemukan sesuatu.</li>
+	 * </ol>
+	 *
+	 * <h4>Cara isi disajikan</h4>
+	 * <ul>
+	 *   <li><b>Google Drive</b> &mdash; bila kolom {@code gdrive} terisi, balasan berupa
+	 *       pengalihan ke pratinjau Drive ({@code iframe}) atau ke URL teruskan.</li>
+	 *   <li><b>Tautan luar</b> &mdash; kolom {@code link} dibuka sebagai aliran. Tautan Google
+	 *       Photos dikecualikan dan langsung dialihkan, karena alamat itu berupa halaman
+	 *       berbagi, bukan aliran bita.</li>
+	 *   <li><b>Berkas di disk</b> &mdash; disalin lebih dahulu ke direktori media (nama berkas
+	 *       dibersihkan dari spasi, {@code %}, dan {@code #}), lalu dikirim. Gambar dapat
+	 *       diperkecil menjadi thumbnail 128 piksel bila {@code rezise} aktif.</li>
+	 *   <li><b>BLOB basis data</b> &mdash; dipakai bila berkas fisik tidak ada di disk.</li>
+	 *   <li><b>Ikon pengganti</b> &mdash; dipakai bila lampiran tidak ditemukan sama sekali,
+	 *       atau berkasnya tidak dapat ditentukan; disertai larangan cache lewat
+	 *       {@link #laranganCache}.</li>
+	 * </ul>
+	 * <p>Berkas {@code .xml} dan {@code .jrxml}, serta permintaan ber-{@code download}, dikirim
+	 * sebagai {@code attachment}; selebihnya {@code inline}.</p>
+	 *
+	 * <h4>PERINGATAN KEAMANAN</h4>
+	 * <p>Method ini <b>tidak memeriksa hak akses sama sekali</b>: tidak ada pemeriksaan sesi,
+	 * pemilik lampiran, satuan kerja, maupun daftar putih jenis lampiran. Karena
+	 * {@code usingId=true} mematikan penyaring {@code jenis} dan mencocokkan {@code ref}
+	 * langsung ke <i>primary key</i>, permintaan berpola {@code ?usingId=true&ref=<N>} dengan
+	 * {@code N} berurutan dapat menyusuri seluruh tabel lampiran. Lewat alias anonim
+	 * {@code /al}, hal itu dapat dilakukan tanpa masuk. Lihat dokumentasi kelas.</p>
+	 *
+	 * <p>Seluruh kegagalan ditangkap di blok terluar dan dijawab dengan ikon pengganti,
+	 * sehingga penyebab sebenarnya tidak pernah tampak pada balasan HTTP.</p>
+	 *
+	 * @param request1 permintaan masuk, memuat token {@code d} atau parameter polos
+	 * @param resp     balasan yang akan diisi bita berkas, pengalihan, atau ikon pengganti
+	 * @throws Exception bila kegagalan terjadi di luar jangkauan penanganan internal
+	 */
 	@SuppressWarnings("rawtypes")
 	private void process(HttpServletRequest request1, HttpServletResponse resp) throws Exception {
 

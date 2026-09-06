@@ -38,6 +38,7 @@ public final class KantinKoreksiTransaksiSelfTest {
         CaraPembayaranKoperasi kasbon = cara("Kasbon", true, false, true);
         CaraPembayaranKoperasi saldoLama = cara("Saldo", false, false, false);
         CaraPembayaranKoperasi voucher = cara("Voucher", true, true, false);
+		CaraPembayaranKoperasi rewardSantri = cara("Reward Santri", false, false, true);
 
         check(Math.abs(nominal(100.0, tunai, kasbon, 40.0, true) - 40.0) < 0.001,
                 "slot kedua Kasbon hanya menambah hutang sebesar nominal slotnya");
@@ -49,6 +50,10 @@ public final class KantinKoreksiTransaksiSelfTest {
                 "flag memotong-deposit eksplisit dikenali walau metode manual");
         check(Math.abs(nominal(100.0, tunai, null, 0.0, false)) < 0.001,
                 "metode biasa tidak salah dianggap memotong deposit");
+		check(Math.abs(nominal(100.0, rewardSantri, null, 0.0, true) - 100.0) < 0.001,
+				"Reward Santri manual=false tetap dihitung penuh sebagai hutang");
+		check(Math.abs(nominal(100.0, rewardSantri, null, 0.0, false)) < 0.001,
+				"Reward Santri tidak dihitung ganda sebagai pemotong deposit");
 
         check(Math.abs(KantinHelper.proyeksiHutangSetelahKoreksi(350.0, 100.0, 150.0)
                 - 400.0) < 0.001,

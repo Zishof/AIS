@@ -6980,7 +6980,10 @@ public class KantinHelper {
 	 *
 	 * <p>Method sengaja package-private agar self-test tanpa database dapat menjaga rumus koreksi
 	 * transaksi. {@code sifatHutang=true} memilih flag masuk-sebagai-hutang; {@code false} memilih
-	 * metode yang memotong deposit ({@code manual=false} atau flag eksplisit memotong-deposit).</p>
+	 * metode non-hutang yang memotong deposit ({@code manual=false} atau flag eksplisit
+	 * memotong-deposit). Metode hutang harus dikeluarkan dari kelompok deposit walaupun
+	 * {@code manual=false}; konfigurasi seperti Reward Santri memang diselesaikan otomatis sebagai
+	 * piutang, bukan dengan mengambil saldo member.</p>
 	 */
 	static double nominalMetodeKhusus(double total,
 			CaraPembayaranKoperasi cara1,
@@ -7000,10 +7003,11 @@ public class KantinHelper {
 		double hasil = 0.0;
 		for (int i = 0; i < cara.length; i++) {
 			if (cara[i] == null || nominal[i] <= 0.0) continue;
+			boolean masukHutang = Boolean.TRUE.equals(cara[i].getMasukSebagaiHutang());
 			boolean cocok = sifatHutang
-					? Boolean.TRUE.equals(cara[i].getMasukSebagaiHutang())
-					: (Boolean.FALSE.equals(cara[i].getManual())
-							|| Boolean.TRUE.equals(cara[i].getMemotongDeposit()));
+					? masukHutang
+					: (!masukHutang && (Boolean.FALSE.equals(cara[i].getManual())
+							|| Boolean.TRUE.equals(cara[i].getMemotongDeposit())));
 			if (cocok) hasil += nominal[i];
 		}
 		return hasil;
@@ -7028,7 +7032,7 @@ public class KantinHelper {
 	 * {@code KantinMemberApi}, {@code PosApi}, {@code Data.java}, {@code OtomatisPesananScheduler}).
 	 * Rumus "berapa yang memotong deposit" memakai {@link #nominalMetodeKhusus} yang SAMA dengan
 	 * formula akuntansi {@link ais.action.master.sekolah.util.DepositHelper#hitungDeposit(AnggotaKoperasi)}
-	 * (kolom {@code manual=false} atau {@code memotong_deposit=true}), supaya keduanya tidak pernah
+	 * (bukan hutang, lalu kolom {@code manual=false} atau {@code memotong_deposit=true}), supaya keduanya tidak pernah
 	 * melenceng satu sama lain.
 	 *
 	 * <p><b>Mengunci baris anggota.</b> WAJIB dipanggil pemanggil dari DALAM transaksi yang akan
@@ -9113,7 +9117,7 @@ public class KantinHelper {
 					+ "  FROM koperasi.pembelian p "
 					+ "  JOIN koperasi.anggota_koperasi a ON p.anggota_koperasi = a.id "
 					+ "  JOIN koperasi.cara_pembayaran_koperasi cpk ON p.cara_pembayaran_koperasi = cpk.id "
-					+ "  WHERE p.anggota_koperasi IS NOT NULL AND (cpk.manual = false OR cpk.memotong_deposit = true) "
+					+ "  WHERE p.anggota_koperasi IS NOT NULL AND COALESCE(cpk.masuk_sebagai_hutang,false)=false AND (cpk.manual = false OR cpk.memotong_deposit = true) "
 					+ filterAnggotaPembelian
 					+ "  UNION ALL "
 					+ "  SELECT pc.waktu_pencairan, ('C' || pc.id), (a.kode || ' - ' || a.nama), pc.anggota_koperasi, "

@@ -189,6 +189,83 @@ public class Mandiri extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Inti pemrosesan H2H Mandiri: mencari Virtual Account, memvalidasinya, lalu
+	 * menyusun objek JSON respons untuk bank &mdash; sekaligus (pada mode
+	 * <i>payment</i>) benar-benar membukukan pembayaran ke database.
+	 *
+	 * <h3>Urutan validasi</h3>
+	 * <ol>
+	 * <li><b>VA tidak kosong</b> &mdash; bila {@code va} null/blank dijawab
+	 * {@code B5 Invalid Virtual Account}.</li>
+	 * <li><b>Aturan prefix</b> &mdash; konfigurasi
+	 * {@code prefix_wajib_diterima_pembayaran_mandiri} dan
+	 * {@code bukan_prefix_wajib_diterima_pembayaran_mandiri} menyaring nomor VA
+	 * yang bukan milik instalasi ini; gagal dijawab {@code B5 Bill not found}.</li>
+	 * <li><b>Pencarian VA</b> lewat
+	 * {@link VirtualAccountBank#ambilVa(String, double, BankHost)}.</li>
+	 * <li><b>Kedaluwarsa</b> &mdash; dilewati bila {@code chekLagi} true; gagal
+	 * dijawab {@code C0 Bill suspend}.</li>
+	 * <li><b>Sudah terbayar</b> &mdash; dilewati bila {@code chek} true; gagal
+	 * dijawab {@code B8 Bill has been Already Paid}.</li>
+	 * <li><b>Kecocokan nominal</b> &mdash; <i>hanya pada mode payment</i>
+	 * ({@code inquery == false}) nilai {@code nominalP} dibandingkan dengan
+	 * {@code virtualAccountBank.totalBiaya()}; selisih apa pun dijawab
+	 * {@code B5 Bill not found}. Pada mode inquiry nominal memang belum
+	 * diverifikasi karena bank baru menanyakan besaran tagihan.</li>
+	 * </ol>
+	 *
+	 * <h3>Dua jalur entitas</h3>
+	 * Setelah VA valid, alur bercabang sesuai pemilik tagihan:
+	 * <ul>
+	 * <li><b>Siswa/calon siswa</b> &mdash; rincian tagihan diambil lewat
+	 * {@link VirtualAccountBank#bayarSiswa} dan dipetakan menjadi entri
+	 * {@code BillDetail} (item biaya dan dendanya terpisah, prefix {@code D} untuk
+	 * denda);</li>
+	 * <li><b>Mahasiswa/calon mahasiswa</b> &mdash; sebuah {@link Kegiatan}
+	 * dibuat/diperbarui, lalu token pada kolom {@code cicilan} milik VA diurai satu
+	 * per satu menjadi baris {@link CicilanPembayaran} (format token: numerik
+	 * murni, {@code Bulanan-}, {@code Item-}, atau {@code Keranjang-}); penutupan
+	 * VA dilakukan {@link VirtualAccountBank#updateVa}.</li>
+	 * </ul>
+	 * Bila VA menyimpan nilai {@code tabungan}, entri tagihan tidak dikirim satu per
+	 * satu melainkan diakumulasi dan diringkas menjadi satu baris {@code TBG01}.
+	 *
+	 * <h3>Jejak audit</h3>
+	 * Setiap tahap dicatat ke daftar {@code jejakLangkah} di memori. Jejak ini hanya
+	 * dicetak penuh ke konsol dan disimpan ke kolom {@code stackTrace} Log
+	 * Host-to-Host bila status akhir berupa error, supaya lalu lintas sukses yang
+	 * bervolume tinggi tidak membanjiri konsol/DB. Blok {@code finally} menjamin
+	 * {@code catatLogHostToHost(...)} <b>selalu</b> dipanggil &mdash; itulah alasan
+	 * seluruh badan method dibungkus blok tanpa syarat {@code bankHost}, sehingga
+	 * request dari IP yang tidak dikenal pun tetap terekam.
+	 *
+	 * @param nominalP  nominal yang dikirim bank; pada mode payment wajib sama
+	 *                  persis dengan total biaya VA
+	 * @param tanggalP  waktu transaksi dari bank berformat {@code MMddHHmmss};
+	 *                  tahun ditambahkan dari jam server, dan bila gagal diurai
+	 *                  dipakai waktu server sebagai cadangan
+	 * @param va        nomor Virtual Account yang ditagih ({@code billKey1})
+	 * @param bank      nama bank pembayar; disimpan sebagai {@code validator} pada
+	 *                  {@link Kegiatan}/{@link CicilanPembayaran}
+	 * @param bankHost  baris {@link BankHost} hasil pencocokan IP pemanggil; boleh
+	 *                  {@code null} &mdash; alur tetap berjalan, dan jenis
+	 *                  pembayaran jatuh ke {@code ConstantValues.TUNAI}
+	 * @param request   request HTTP asli; boleh {@code null} bila dipanggil dari cek
+	 *                  ulang manual menu Log Host-to-Host
+	 * @param data      payload JSON mentah dari bank; disimpan apa adanya ke Log
+	 *                  Host-to-Host
+	 * @param chekLagi  {@code true} melewati pemeriksaan kedaluwarsa VA (dipakai
+	 *                  jalur cek ulang/rekonsiliasi)
+	 * @param inquery   {@code true} untuk inquiry (menyusun rincian tagihan tanpa
+	 *                  membukukan), {@code false} untuk payment (membukukan)
+	 * @param chek      {@code true} bila dipicu admin dari menu Log Host-to-Host
+	 *                  &mdash; melewati pemeriksaan "sudah terbayar" dan mengaktifkan
+	 *                  dump konsol {@link #logDetailCekUlang}
+	 * @return objek JSON siap kirim berisi {@code InquiryResponse} atau
+	 *         {@code paymentResponse}; tidak pernah {@code null}
+	 * @throws Exception bila terjadi kegagalan di luar yang sudah ditangani internal
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi, boolean inquery, boolean chek) throws Exception {
@@ -1174,6 +1251,42 @@ public class Mandiri extends HttpServlet {
 		System.out.println(log.toString());
 	}
 
+	/**
+	 * Mengurai payload JSON mentah dari Bank Mandiri menjadi parameter terpisah,
+	 * memanggil {@link #doProcess}, lalu mengembalikan badan respons siap tulis.
+	 *
+	 * <h3>Pemetaan field</h3>
+	 * <ul>
+	 * <li>Amplop {@code InquiryRequest} atau {@code paymentRequest} menentukan mode;
+	 * bila keduanya ada, {@code paymentRequest} menang untuk pembacaan
+	 * VA/nominal/tanggal, tetapi penentuan mode respons memakai
+	 * {@code InquiryRequest != null}.</li>
+	 * <li>Nomor VA dari {@code billKey1}, dengan cadangan parameter query bernama
+	 * sama bila field JSON kosong.</li>
+	 * <li>Nominal dari {@code billKey2} (inquiry) atau {@code paymentAmount}
+	 * (payment). Keduanya dilindungi: nilai null/kosong/blank tidak lagi melempar
+	 * {@code NumberFormatException} melainkan jatuh ke {@code 0.0}.</li>
+	 * <li>Waktu transaksi dari {@code trxDateTime}, cadangan jam server.</li>
+	 * </ul>
+	 *
+	 * <h3>Penanganan kegagalan</h3>
+	 * Exception dari {@link #doProcess} ditangkap, dicatat ke Error Log, dan diganti
+	 * respons {@link #errorDb(boolean)} ({@code errorCode 87}) supaya bank selalu
+	 * menerima JSON yang sah. Bila konfigurasi {@code mandiri_va_sleep} aktif,
+	 * method sengaja tidur 3 detik lalu mengembalikan {@link #timeoutDb(boolean)}
+	 * ({@code errorCode 89}) &mdash; sakelar uji untuk mensimulasikan timeout dari
+	 * sisi bank.
+	 *
+	 * @param data     payload JSON mentah; boleh {@code null} (seluruh field jatuh
+	 *                 ke nilai cadangan)
+	 * @param request  request HTTP asli; boleh {@code null} pada cek ulang manual
+	 * @param bankHost baris {@link BankHost} hasil pencocokan IP; boleh {@code null}
+	 * @param bank     nama bank pembayar, biasanya {@code "Mandiri"}
+	 * @param chek     {@code true} bila dipicu admin dari menu Log Host-to-Host
+	 * @return badan respons JSON sebagai {@link String}, tidak pernah {@code null}
+	 * @throws Exception bila penguraian JSON tingkat akar gagal atau tidur
+	 *                   simulasi timeout diinterupsi
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);
@@ -1277,6 +1390,43 @@ public class Mandiri extends HttpServlet {
 		return body;
 	}
 
+	/**
+	 * Titik masuk bersama {@link #doGet} dan {@link #doPost}: membaca badan request
+	 * sebagai teks, mengenali pemanggil, memanggil {@link #doProses}, lalu menulis
+	 * hasilnya ke respons sebagai {@code application/json}.
+	 *
+	 * <h3>Pengenalan pemanggil &mdash; catatan penting</h3>
+	 * Pemanggil dikenali <b>hanya</b> lewat
+	 * {@link PembayaranUtil#getBankHost(String, String)} dengan alamat
+	 * {@link HttpServletRequest#getRemoteAddr()}. Beberapa hal yang perlu disadari
+	 * pembaca kode:
+	 * <ul>
+	 * <li><b>Tidak ada verifikasi kriptografis.</b> Berbeda dengan
+	 * {@link Bniresponse} yang mendekode payload memakai kunci bersama lewat
+	 * {@code BNIHash.parseData(...)}, di sini tidak ada tanda tangan, MAC, maupun
+	 * token yang diperiksa &mdash; baik pada cabang inquiry maupun pada cabang
+	 * payment yang benar-benar membukukan uang.</li>
+	 * <li><b>Hasil pencocokan IP tidak menjadi gerbang.</b> {@code bankHost} yang
+	 * bernilai {@code null} tetap diteruskan ke {@link #doProses}; alur pembayaran
+	 * berjalan penuh dan hanya jenis pembayarannya yang jatuh ke nilai bawaan.</li>
+	 * <li>Varian {@link PembayaranUtil#getBankHost(String, String)} yang dipakai di
+	 * sini sengaja memakai alamat soket langsung, <b>bukan</b> header
+	 * {@code X-Forwarded-For}/{@code CF-Connecting-IP} seperti varian
+	 * {@code getBankHost(HttpServletRequest)}, sehingga IP tidak dapat dipalsukan
+	 * lewat header oleh pemanggil.</li>
+	 * <li>Di sisi {@link PembayaranUtil} sendiri masih ada dua pelonggaran yang
+	 * berlaku umum: pembuatan otomatis baris {@link BankHost} bila konfigurasi
+	 * {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} aktif, dan
+	 * cadangan ke baris ber-IP {@code 0.0.0.0} yang cocok untuk alamat mana pun.</li>
+	 * </ul>
+	 * Dengan kata lain, perlindungan endpoint ini bergantung pada pembatasan
+	 * jaringan di depan aplikasi, bukan pada pemeriksaan di dalam kode.
+	 *
+	 * @param request  request HTTP dari gateway bank
+	 * @param response respons yang akan diisi badan JSON beserta header
+	 *                 {@code length} dan {@code Content-Type}
+	 * @throws Exception bila pembacaan badan request atau penulisan respons gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
@@ -1307,6 +1457,18 @@ public class Mandiri extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyusun badan respons baku bertanda <b>timeout</b> ({@code errorCode 89}),
+	 * dipakai hanya oleh sakelar uji {@code mandiri_va_sleep} pada
+	 * {@link #doProses} untuk mensimulasikan server lambat dari sisi bank.
+	 *
+	 * @param inquery {@code true} membungkus respons sebagai
+	 *                {@code InquiryResponse} beserta kerangka
+	 *                {@code billDetails}/{@code currency}; {@code false} sebagai
+	 *                {@code paymentResponse}
+	 * @return badan JSON siap kirim berisi status {@code 89 Timeout}
+	 * @throws Exception bila penyusunan objek JSON gagal
+	 */
 	private static String timeoutDb(boolean inquery) throws Exception {
 		JSONObject response = new JSONObject();
 
@@ -1337,6 +1499,25 @@ public class Mandiri extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 
+	/**
+	 * Menyusun badan respons baku bertanda <b>gagal database</b>
+	 * ({@code errorCode 87 Provider Database Problem}), dipakai {@link #doProses}
+	 * sebagai jaring pengaman ketika {@link #doProcess} melempar exception.
+	 *
+	 * <p>
+	 * Kode 87 yang sama juga dapat muncul tanpa exception apa pun &mdash; yaitu
+	 * ketika alur {@link #doProcess} tidak pernah mencapai cabang sukses; kasus
+	 * "87 senyap" itu sengaja dicatat terpisah ke Error Log agar tetap bisa
+	 * didiagnosis.
+	 *
+	 * @param inquery {@code true} membungkus respons sebagai
+	 *                {@code InquiryResponse} beserta kerangka
+	 *                {@code billDetails}/{@code currency}; {@code false} sebagai
+	 *                {@code paymentResponse}
+	 * @return badan JSON siap kirim berisi status {@code 87 Provider Database
+	 *         Problem}
+	 * @throws Exception bila penyusunan objek JSON gagal
+	 */
 	private static String errorDb(boolean inquery) throws Exception {
 		JSONObject response = new JSONObject();
 
