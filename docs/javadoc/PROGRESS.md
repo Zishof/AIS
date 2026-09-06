@@ -1,5 +1,81 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 143-144 — 44 servlet, TERPUTUS infrastruktur di tengah jalan (OAuth token expired) lalu DISELESAIKAN, 6 task baru (7 Sep 2026)
+
+**Catatan operasional PENTING**: batch 143 (5 agent) terputus MASSAL di
+tengah jalan — proses Claude Code restart, 3 agent gagal eksplisit
+("OAuth access token expired"), 2 lain berstatus tak jelas. **Verifikasi
+via `svn status`/`svn log` PER FILE (bukan asumsi dari laporan agent)
+WAJIB dilakukan** — beberapa file ternyata sudah ter-commit oleh agent
+sebelum mati (aman), 2 file lain (`VtResponseServlet.java`/
+`AmbilLaporanVa.java`) punya perubahan LOKAL BELUM ter-commit (status
+`M`) yang diverifikasi bersih (svn diff hanya hapus stub lama) lalu
+di-commit MANUAL oleh orkestrator setelah cek kompilasi+CRLF. Batch 144
+(4 agent baru) menyelesaikan SISA pekerjaan yang genuinely belum
+tersentuh (diverifikasi svn log dulu, bukan asumsi ulang dari brief).
+
+**2 gateway bank baru** (`Bjb.java`/`Jaring.java`) — DIKONFIRMASI pola
+`task_e20425e9` (nol verifikasi tanda tangan di cabang transaksi;
+`Jaring.java` cuma punya parameter `ack` sekadar penanda protokol,
+bukan bukti kriptografis) — perluasan, bukan task baru.
+
+**`FinPayResponse.java`** — DIKONFIRMASI perluasan `task_e20425e9`,
+LEBIH LONGGAR dari gateway lain: membukukan pembayaran begitu
+`paymentCode`+`invoice` cocok TANPA cek `resultCode`/`resultDesc`
+sama sekali.
+
+**`VtResponseServlet.java`** — **Task baru `task_2f879a1f`**: jalur
+HTTP aktif (`process()`) cuma mem-parsing+mencetak lalu balas HTTP 200
+kosong (cabang SETTLED/lainnya BENAR-BENAR KOSONG, cuma komentar);
+`prosesResponse`/`prosesTransaksi` KODE MATI yang salah pakai entity
+iPaymu bukan Veritrans — **notifikasi pembayaran Veritrans TIDAK
+PERNAH DIBUKUKAN sama sekali**.
+
+**`AmbilLaporanVa.java`** — **Task baru `task_66a1e045`**: nol gerbang
+login (`applicationContext-security.xml`) DAN template `va.jrxml`
+nol query DB — SELURUH medan PDF (nama/va/nominal/dst) disalin
+MENTAH dari parameter HTTP klien. Bukan kebocoran PII (nol kueri
+data), tapi PEMALSUAN DOKUMEN: siapa pun bisa cetak slip VA palsu
+berkop surat resmi institusi.
+
+**10 file `AmbilFoto*`/`AmbilMedia*`** — DIKONFIRMASI nol gerbang
+otentikasi di semuanya (perluasan `task_26a210d1`); foto dosen/
+mahasiswa bisa diunduh siapa pun via id/NIM mentah. `AmbilFile.java`/
+`AmbilMedia.java` pakai `FileFotoLain.ambil(usingId,...)` — konfirmasi
+ulang `task_b82b25d2`. 🚨 **Task baru PALING SEVERE klaster ini,
+`task_9c41d86c`**: `AmbilMedia.java` jalur generiknya (bukan
+`FileFotoLain`) adalah ORAKEL BACA KOLOM BLOB untuk ENTITAS HIBERNATE
+APA PUN — `clazz`/`property`/`foto`/`name` semua nama kelas+kolom
+mentah dari klien, JAUH lebih luas dari sekadar servlet foto. Task
+lain `task_c374b2e4` (bug build tak terkait keamanan — import hilang
+di `AnggotaKoperasi.java`, di luar cakupan, sekadar dicatat).
+
+**8 servlet auth/routing** (`Login2`/`LoginAlumni`/`Logout`/`Menu`/
+`Accept`/`Broken`/`Code`/`Redirect`/`M`/`Dashboard`/`GrupPengguna`) —
+`Menu.java` DIKONFIRMASI AMAN dari `task_9f520b16` (forward statis,
+nol baca parameter/sesi). `M.java` DIKONFIRMASI BEDA TOTAL dari
+`MServet.java` (servlet-name beda, nol kode bersama) — TAPI **task
+baru `task_b36ca461`**: SSRF via header `Host` tak disaring, hasil
+di-echo ke klien. **Task baru `task_2aa299d5`**: open redirect NYATA
+di `code.jsp`(dituju `Code.java`)+`redirect.jsp`(dituju `Redirect.java`)
+— parameter `authorizationUrl`/`state` disisipkan mentah tanpa
+whitelist, salah satunya juga reflected XSS.
+
+**Klaster misc ~34 file** (Pmb2/Pmb3/PembayaranGagal/Sukses/Kantin/
+Kursus/Les/dll) — `PembayaranSukses.java` DIKONFIRMASI AMAN (murni
+forward JSP, nol tulis DB, TIDAK bisa bypass validasi pembayaran).
+`AmbilLaporanDaftarRiwayatHidup.java` — IDOR (identitas dari parameter
+`email`/`userId` mentah) — perluasan pola tercatat, bukan task baru.
+
+**6 task baru batch ini**: `task_2f879a1f`, `task_66a1e045`,
+`task_9c41d86c`, `task_c374b2e4`, `task_b36ca461`, `task_2aa299d5`.
+Total akumulasi: **2140+ file** dari 7.401. Sisa `action/servlet/`:
+~20 file. **Pelajaran operasional penting**: setelah kegagalan
+infrastruktur massal, SELALU verifikasi `svn status`+`svn log` PER
+FILE sebelum percaya laporan agent (bahkan yang sukses) ATAU
+menganggap pekerjaan hilang — beberapa file ternyata sudah aman
+ter-commit meski laporan akhir agent tak pernah sampai.
+
 ## 🎉 Batch 142 — solusi definitif `task_9f520b16` terdokumentasi, 9 task baru (2 sudah ditambal LIVE sesi paralel) (7 Sep 2026)
 
 **`DesktopMenuBootstrap.java`** — `findAuthorizedLeaf()` (solusi BENAR
