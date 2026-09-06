@@ -1818,6 +1818,25 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	 * Membekukan nilai satu kolom pada snapshot dan menegaskan nilai yang sama di
 	 * kolom utama. Tidak memerlukan perubahan skema karena memakai kolom snapshot
 	 * yang juga digunakan oleh kunci utama perkuliahan.
+	 *
+	 * <p><b>Kasus &quot;kunci nilai kosong&quot; ditangani khusus.</b> Bila komponen tersebut belum
+	 * memiliki entri sama sekali pada {@link #detailNilai}, metode <b>membuat entri nol eksplisit</b>
+	 * berbentuk <code>kunciFormat,0,0,persen,false,0</code> alih-alih membiarkan snapshot kosong.
+	 * Alasannya penting: snapshot yang tidak berisi entri akan dibaca jalur lain sebagai &quot;tidak
+	 * ada referensi&quot;, sehingga impor massal menganggap komponen itu bebas diisi padahal ia
+	 * sebenarnya sudah dikunci. Entri nol eksplisit menutup celah tersebut.
+	 *
+	 * <p>Entri hasilnya ditegakkan pada <b>dua string sekaligus</b> lewat
+	 * {@link #gabungkanEntriDetailNilai(String, Long, String)}: pada {@link #detailNilaiKunci}
+	 * sebagai snapshot, dan pada {@link #detailNilai} agar data live langsung selaras. Dengan begitu
+	 * tampilan tidak berbeda dari nilai yang dibekukan.
+	 *
+	 * <p>Berbeda dari {@link #bekukanSemuaNilai()} yang membekukan seluruh baris saat kunci global
+	 * dipasang, metode ini bekerja <b>per komponen</b> dan dipakai ketika seorang pengelola mengunci
+	 * satu kolom nilai saja.
+	 *
+	 * @param formatNilai komponen yang hendak dibekukan; bila kuncinya tidak dapat ditentukan, tidak
+	 *                    terjadi perubahan apa pun.
 	 */
 	public void bekukanDetailNilai(FormatNilai formatNilai) {
 		Long kunciFormat = ambilKunciFormatNilai(formatNilai);
@@ -1841,6 +1860,26 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	 * komponen, hasil akhir angka/huruf/IP dan versi sementaranya ikut disimpan di
 	 * kolom terpisah agar integrasi lain tidak dapat mengubah hasil akhir terkunci.
 	 * Method harus dipanggil sebelum {@link Perkuliahan#setDikunci(Tbmuser)}.
+	 *
+	 * <p><b>Urutan pemanggilan bersifat wajib, bukan anjuran.</b> Begitu kunci global terpasang,
+	 * {@link #kunciGlobalNilaiAktif()} menjadi benar dan seluruh getter beralih membaca kolom
+	 * snapshot. Bila pembekuan dilakukan <i>setelah</i> kunci dipasang, snapshot akan diisi dari
+	 * pembacaan yang sudah dialihkan ke snapshot itu sendiri &mdash; menghasilkan nilai kosong yang
+	 * membekukan seluruh kelas pada angka nol.
+	 *
+	 * <p><b>Yang dibekukan.</b> Dua string peta nilai ({@link #detailNilai} dan
+	 * {@link #detailNilaiTambahan}) beserta tujuh hasil akhir: {@link #totalNilai},
+	 * {@link #nilaiHuruf}, {@link #totalIP}, {@link #lulus}, serta ketiga padanan versi sementaranya.
+	 * String yang {@code null} disimpan sebagai string kosong dan angka yang {@code null} disimpan
+	 * sebagai {@code 0.0}, sehingga snapshot selalu dapat dibedakan dari &quot;belum pernah dibekukan&quot;
+	 * ({@code null}) &mdash; pembedaan yang dijelaskan pada {@link #detailNilaiKunci}.
+	 *
+	 * <p><b>Mengapa menyalin field, bukan memanggil getter.</b> Seluruh penyalinan dilakukan langsung
+	 * dari field. Ini disengaja agar snapshot merekam persis keadaan saat tombol Kunci ditekan, tanpa
+	 * memicu kalkulasi ulang, koreksi otomatis, atau penyembunyian nilai yang dilakukan getter
+	 * berdasarkan konfigurasi lain. Memakai getter di sini akan membuat hasil pembekuan bergantung
+	 * pada tabel {@link NilaiHuruf} dan pengaturan kelas pada saat pembekuan &mdash; persis yang ingin
+	 * dihindari.
 	 */
 	public void bekukanSemuaNilai() {
 		detailNilaiKunci = detailNilai == null ? "" : detailNilai;
@@ -1860,6 +1899,26 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	/**
 	 * Menerapkan nilai massal/impor tanpa mengubah komponen yang telah dikunci.
 	 * Entri terkunci selalu dipulihkan dari kolom snapshot permanen.
+	 *
+	 * <p>Inilah jalur yang harus dipakai impor nilai massal dan sinkronisasi, sebagai pengganti
+	 * {@link #setDetailNilai(String)} yang menerima string mentah.
+	 *
+	 * <p><b>Dua lapis perlindungan.</b> Pertama, bila <b>kunci global</b> aktif, seluruh nilai baru
+	 * ditolak: {@link #detailNilai} justru dipulihkan dari {@link #detailNilaiKunci} (bila snapshot
+	 * itu ada) lalu metode keluar. Kedua, bila kunci global tidak aktif, nilai baru diterima namun
+	 * setiap komponen yang memiliki <b>kunci per komponen</b> dikembalikan entrinya dari snapshot
+	 * lewat {@link #gabungkanEntriDetailNilai(String, Long, String)}. Hasilnya: impor boleh mengubah
+	 * komponen yang terbuka, tetapi tidak pernah bisa menyentuh komponen yang dikunci.
+	 *
+	 * <p>Bila {@code formatNilais} tidak dipasok, lapis kedua tidak dapat dijalankan &mdash; nilai
+	 * baru diterapkan apa adanya. Pemanggil yang menangani kelas dengan kunci per komponen karenanya
+	 * <b>wajib</b> memasok daftar komponennya.
+	 *
+	 * <p>Penulisan akhir dilakukan langsung ke field, sehingga metode ini sendiri yang bertanggung
+	 * jawab atas seluruh penegakan kunci di atas.
+	 *
+	 * @param nilaiBaru    string detailNilai hasil impor; {@code null} diperlakukan sebagai kosong.
+	 * @param formatNilais daftar komponen yang berlaku; boleh {@code null}, namun lihat catatan di atas.
 	 */
 	public void setDetailNilaiMematuhiKunci(String nilaiBaru, List<FormatNilai> formatNilais) {
 		Perkuliahan kuliah = getPerkuliahan();
@@ -1889,6 +1948,18 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	 * Reset hanya nilai yang masih terbuka. Snapshot dan nilai live milik komponen
 	 * terkunci dipertahankan agar tombol Reset tidak menjadi jalur belakang untuk
 	 * menghapus nilai permanen.
+	 *
+	 * <p>Implementasinya memanfaatkan ulang
+	 * {@link #setDetailNilaiMematuhiKunci(String, java.util.List)} dengan nilai baru berupa string
+	 * kosong: seluruh komponen terbuka terhapus, sementara komponen terkunci dipulihkan dari
+	 * snapshot. Dengan begitu tombol Reset tidak dapat dijadikan pintu belakang untuk mengosongkan
+	 * nilai yang sudah dibekukan.
+	 *
+	 * <p>Nilai tambahan ({@link #detailNilaiTambahan}) hanya dikosongkan bila kelas <b>tidak</b>
+	 * sedang terkunci global. Perhatikan bahwa nilai tambahan tidak mengenal kunci per komponen,
+	 * sehingga perlindungannya memang hanya sampai tingkat kunci global.
+	 *
+	 * @param formatNilais daftar komponen yang berlaku; diperlukan agar komponen terkunci dikenali.
 	 */
 	public void resetDetailNilaiYangTidakDikunci(List<FormatNilai> formatNilais) {
 		setDetailNilaiMematuhiKunci("", formatNilais);
@@ -1897,12 +1968,45 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		}
 	}
 
+	/**
+	 * Pintasan {@link #bersihkanNilaiKeDefault(java.util.List)} yang mengambil daftar komponen
+	 * format nilai dari basis data melalui
+	 * {@code Common.getFormatNilais(HibernateUtil.currentSession(), perkuliahan)}.
+	 *
+	 * <p>Karena melakukan kueri, pemanggilan di dalam perulangan atas banyak baris nilai berbiaya
+	 * mahal; pada layar yang sudah memegang daftar komponennya, gunakan overload yang menerima daftar
+	 * secara langsung.
+	 */
 	public void bersihkanNilaiKeDefault() {
 		perkuliahan = getPerkuliahan();
 		List<FormatNilai> formatNilais = Common.getFormatNilais(HibernateUtil.currentSession(), perkuliahan);
 		bersihkanNilaiKeDefault(formatNilais);
 	}
 
+	/**
+	 * <b>Membuang entri usang</b> dari string {@link #detailNilai}: hanya entri yang kuncinya termasuk
+	 * dalam daftar komponen yang sedang dipakai yang dipertahankan, dan entri berkunci ganda
+	 * dipangkas menjadi satu (kemunculan pertama yang menang).
+	 *
+	 * <p>Tujuannya menjaga agar komponen yang sudah dihapus dari Format Nilai tidak terus
+	 * ikut membebani perhitungan &mdash; bobotnya akan menambah {@code totalPersen} dan menyeret
+	 * turun nilai akhir walau komponennya sendiri sudah tidak ditampilkan di layar mana pun.
+	 *
+	 * <p><b>Catatan penting: jangan menyaring dengan {@code getAktif()} di sini.</b> Seluruh format
+	 * yang <i>sedang dipakai</i> &mdash; yakni yang ada di dalam {@code formatNilais}, komponen yang
+	 * ditampilkan dan bisa diisi pada layar Input Nilai &mdash; harus dipertahankan nilainya, meskipun
+	 * {@code StatusPertemuan}-nya kebetulan berstatus non-aktif. Penyaringan {@code getAktif()} yang
+	 * pernah ada di sini menyebabkan nilai komponen yang tampil (mis. &quot;Praktikum&quot;) DIBUANG
+	 * saat rekalkulasi, sehingga tidak pernah tersimpan maupun terhitung ke nilai akhir dan
+	 * {@code totalPersen} tidak pernah mencapai 100. Penyaringan yang sah tetap terjadi lewat
+	 * pemeriksaan keanggotaan kunci di bawahnya: entri yang bukan milik komponen aktif tetap dibuang.
+	 *
+	 * <p>Kunci pembanding diambil dari {@link #ambilKunciFormatNilai(FormatNilai)} sehingga komponen
+	 * OBE/Sub-CPMK ikut dikenali. Bila {@link #detailNilai} kosong, metode tidak melakukan apa-apa.
+	 * Penulisan hasil dilakukan langsung ke field, melewati penjaga kunci pada setter.
+	 *
+	 * @param formatNilais daftar komponen yang sedang dipakai; entri di luar daftar ini dibuang.
+	 */
 	public void bersihkanNilaiKeDefault(List<FormatNilai> formatNilais) {
 		String formatbaru = "";
 
@@ -1941,6 +2045,38 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		}
 	}
 
+	/**
+	 * <b>Memulihkan string {@link #detailNilai} yang &quot;desync&quot;</b> terhadap
+	 * {@link #totalNilai} tersimpan, dengan membangun ulang entri komponen dari angka total.
+	 *
+	 * <p><b>Masalah yang dipecahkan.</b> Grid Input Nilai membaca kotak isian per komponen dari
+	 * string {@link #detailNilai}, sedangkan kolom Total membaca field tersimpan lewat
+	 * {@link #getTotalNilai()} yang <b>tidak</b> menghitung ulang dari komponen. Keduanya bisa
+	 * berpisah: nilai diimpor sebagai TOTAL dari Feeder tanpa rincian komponen, atau rincian
+	 * per-komponen belum sempat tersimpan. Akibatnya kotak isian tampil 0 seolah nilai &quot;hilang&quot;
+	 * padahal kolom Total masih menunjukkan angka yang benar &mdash; keluhan yang berulang kali
+	 * dilaporkan sebagai &quot;nilai hilang setelah Refresh&quot;.
+	 *
+	 * <p><b>Syarat pembangunan ulang.</b> Dilakukan bila {@link #detailNilai} kosong <b>atau</b>
+	 * seluruh komponennya bernilai nol menurut {@link #semuaKomponenDetailNilaiNol()}, <b>dan</b>
+	 * {@link #totalNilai} tersimpan lebih besar dari 1,0. Perluasan ke kasus &quot;semua nol&quot;
+	 * adalah koreksi penting: sebelumnya pemulihan hanya berjalan ketika string benar-benar kosong,
+	 * sehingga entri yang isinya nol semua lolos dan kotak tetap menampilkan 0.
+	 *
+	 * <p><b>Cara membangun ulang.</b> Setiap komponen pada Format Nilai yang berlaku diberi entri
+	 * dengan nilai sama dengan {@link #totalNilai} pada kolom ke-1 maupun ke-5, bobot dari
+	 * {@link #persenAman(FormatNilai)}, dan status verifikasi {@code false}. Karena seluruh komponen
+	 * bernilai sama dengan total, rata-rata tertimbangnya kembali menghasilkan angka total yang sama
+	 * &mdash; jadi tampilan menjadi konsisten tanpa mengubah nilai akhir. Perlu disadari ini adalah
+	 * <b>rekonstruksi perkiraan</b>: rincian asli per komponen tidak dapat dipulihkan, hanya
+	 * disamaratakan.
+	 *
+	 * <p><b>Efek samping.</b> Metode dipanggil di awal hampir seluruh jalur baca dan hitung di kelas
+	 * ini, dan ia <b>menulis langsung</b> ke field {@link #detailNilai}. Ia juga melakukan kueri
+	 * {@code Common.getFormatNilais} sehingga tidak gratis. Konsekuensi terpentingnya: sekadar
+	 * membaca nilai dapat mengubah isi kolom {@code detail_nilai_baru_lagi} dan memicu UPDATE saat
+	 * Hibernate melakukan flush.
+	 */
 	public void refreshNilaiKeDefault() {
 		perkuliahan = getPerkuliahan();
 		// FIX "nilai hilang setelah Refresh": grid membaca kotak input per-komponen dari string
@@ -1979,6 +2115,15 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	 * padahal totalNilai tersimpan > 1.0 — agar kotak input dibangun ulang dari total dan nilai tidak
 	 * tampak hilang. Ditulis defensif: entri yang tak bisa di-parse diabaikan (dianggap 0), sehingga
 	 * data rusak tidak menghentikan pemulihan.
+	 *
+	 * <p>Perlu diperhatikan bahwa string yang <b>kosong</b> juga dianggap &quot;semua nol&quot;
+	 * ({@code true}). Jadi nilai kembalian {@code true} berarti &quot;tidak ada satu pun komponen
+	 * yang berisi angka&quot;, mencakup kondisi belum-pernah-diisi maupun sudah-diisi-nol.
+	 *
+	 * <p>Ambang yang dipakai adalah 0,01 &mdash; bukan perbandingan sama-dengan-nol &mdash; agar
+	 * nilai pecahan yang sangat kecil hasil pembulatan tidak salah dianggap terisi.
+	 *
+	 * @return {@code true} bila seluruh komponen bernilai nol atau string detailNilai kosong.
 	 */
 	public boolean semuaKomponenDetailNilaiNol() {
 		if (detailNilai == null || detailNilai.trim().isEmpty()) {
@@ -2001,10 +2146,32 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return true;
 	}
 
+	/**
+	 * Pintasan {@link #retreiveDetailNilai(FormatNilai, boolean)} dengan pemeriksaan silang
+	 * <b>diaktifkan</b>, yaitu perilaku yang diinginkan hampir semua pemanggil: bila nilai final
+	 * komponen ini nol, nilai belum-verifikasi ikut dicoba sebagai cadangan.
+	 *
+	 * @param formatIdSource komponen yang nilainya hendak dibaca; boleh {@code null}.
+	 * @return nilai komponen pada rentang 0&ndash;100, atau {@code 0.0} bila tidak ditemukan.
+	 */
 	public Double retreiveDetailNilai(FormatNilai formatIdSource) {
 		return retreiveDetailNilai(formatIdSource, true);
 	}
 
+	/**
+	 * <b>Menjepit sebuah nilai ke rentang sah 0&ndash;100</b> dan menetralkan angka yang tidak
+	 * bermakna. Dipakai sebagai penjaga terakhir pada hampir setiap jalur baca maupun tulis nilai di
+	 * kelas ini.
+	 *
+	 * <p>Aturannya: {@code null}, {@code NaN}, dan tak-hingga semuanya menjadi {@code 0.0}; nilai
+	 * negatif menjadi {@code 0.0}; nilai di atas 100 menjadi {@code 100.0}; selain itu dikembalikan
+	 * apa adanya. Penanganan {@code NaN} dan tak-hingga bukan sekadar kehati-hatian: keduanya dapat
+	 * lahir dari pembagian pada rata-rata tertimbang ketika bobot bernilai nol, dan sekali masuk ke
+	 * penyimpanan akan mencemari setiap perhitungan berikutnya termasuk IPS dan IPK.
+	 *
+	 * @param nilai angka yang hendak dijepit; boleh {@code null}.
+	 * @return angka pada rentang 0,0&ndash;100,0; tidak pernah {@code null}.
+	 */
 	private Double batasiNilaiMaksimal100(Double nilai) {
 		if (nilai == null || nilai.isNaN() || nilai.isInfinite()) {
 			return 0.0;
@@ -2018,6 +2185,40 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return nilai;
 	}
 
+	/**
+	 * <b>Membaca nilai final satu komponen</b> (kolom ke-1) dari string detailNilai. Bersama
+	 * {@link #retreiveDetailNilaiBelumVerify(FormatNilai, boolean)} dan
+	 * {@link #retreiveDetailVerifikasiNilai(FormatNilai)}, inilah jalur baca yang mengisi kotak-kotak
+	 * pada grid Input Nilai.
+	 *
+	 * <p><b>Sumber baca menghormati kunci.</b> String yang ditelusuri bukan selalu
+	 * {@link #detailNilai} melainkan hasil {@link #ambilSumberDetailNilai(FormatNilai)}, sehingga
+	 * komponen yang terkunci dibaca dari snapshot. Pencocokan entri memakai kunci kanonik
+	 * ({@code statusPertemuan.id} bila ada, selain itu {@code formatNilai.id}).
+	 *
+	 * <p><b>Pemeriksaan silang.</b> Bila {@code check} bernilai benar dan nilai final yang ditemukan
+	 * bulat nol, metode mencoba nilai belum-verifikasi lewat
+	 * {@link #retreiveDetailNilaiBelumVerify(FormatNilai, boolean)} dengan {@code check=false}.
+	 * Pemakaian {@code false} pada pemanggilan bersarang itu penting &mdash; ia memutus kemungkinan
+	 * rekursi bolak-balik tak berujung antara kedua metode.
+	 *
+	 * <p><b>Ketahanan terhadap baris rusak.</b> Terdapat tiga penjaga eksplisit yang seluruhnya
+	 * berujung pada &quot;lewati baris ini, jangan lempar kesalahan&quot;: entri kosong (kolom
+	 * pertama hampa) dilewati agar tidak memicu kegagalan penguraian angka; entri yang lebih pendek
+	 * dari dua kolom dilewati agar tidak terjadi akses larik di luar batas; dan kolom nilai yang
+	 * bukan angka diperlakukan sebagai {@code 0.0}. Penjaga panjang larik ditambahkan bukan untuk
+	 * mengubah perilaku &mdash; hasil akhirnya sama saja &mdash; melainkan untuk menghentikan banjir
+	 * catatan kesalahan berulang ke {@code ErrorAuditUtil} dari baris data yang memang cacat.
+	 *
+	 * <p>Hasil selalu dijepit {@link #batasiNilaiMaksimal100(Double)}. Bila komponen tidak ditemukan
+	 * sama sekali, dikembalikan {@code 0.0}. Metode ini memanggil {@link #refreshNilaiKeDefault()} di
+	 * awal, sehingga membacanya dapat mengubah isi {@link #detailNilai}.
+	 *
+	 * @param formatIdSource komponen yang nilainya dibaca; boleh {@code null}.
+	 * @param check          bila {@code true}, nilai belum-verifikasi dipakai sebagai cadangan saat
+	 *                       nilai final nol.
+	 * @return nilai komponen pada rentang 0&ndash;100; {@code 0.0} bila tidak ditemukan.
+	 */
 	public Double retreiveDetailNilai(FormatNilai formatIdSource, boolean check) {
 
 		refreshNilaiKeDefault();
@@ -2066,10 +2267,42 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return 0.0;
 	}
 
+	/**
+	 * Pintasan {@link #retreiveDetailNilaiBelumVerify(FormatNilai, boolean)} dengan pemeriksaan
+	 * silang diaktifkan.
+	 *
+	 * @param formatIdSource komponen yang nilainya dibaca; boleh {@code null}.
+	 * @return nilai belum-verifikasi komponen pada rentang 0&ndash;100.
+	 */
 	public Double retreiveDetailNilaiBelumVerify(FormatNilai formatIdSource) {
 		return retreiveDetailNilaiBelumVerify(formatIdSource, true);
 	}
 
+	/**
+	 * <b>Membaca nilai belum-terverifikasi satu komponen</b> (kolom ke-5) dari string detailNilai.
+	 * Kolom inilah yang menyimpan angka yang sebenarnya diketik dosen ketika kelas menyembunyikan
+	 * nilai sampai verifikasi program studi selesai.
+	 *
+	 * <p>Strukturnya mencerminkan {@link #retreiveDetailNilai(FormatNilai, boolean)}: sumber baca
+	 * ditentukan {@link #ambilSumberDetailNilai(FormatNilai)} sehingga kunci dihormati, pencocokan
+	 * memakai kunci kanonik, dan pemeriksaan silang dengan {@code check=false} pada pemanggilan
+	 * bersarang memutus kemungkinan rekursi.
+	 *
+	 * <p><b>Perbedaan penting pada nilai jatuh-balik.</b> Bila komponen tidak ditemukan, metode ini
+	 * <b>tidak</b> mengembalikan {@code 0.0} melainkan mendelegasikan ke
+	 * {@code retreiveDetailNilai(formatIdSource, false)}. Artinya baris lama yang hanya memiliki
+	 * lima kolom (dibuat sebelum kolom nilai belum-verifikasi diperkenalkan) tetap menghasilkan
+	 * angka yang masuk akal, bukan nol.
+	 *
+	 * <p><b>Penjaga baris rusak</b> bekerja sama seperti kembarannya: entri kosong dilewati, entri
+	 * yang lebih pendek dari enam kolom dilewati, dan kolom yang bukan angka dilewati. Ketiganya
+	 * berujung pada jalur jatuh-balik di akhir metode, bukan pada pengecualian.
+	 *
+	 * @param formatIdSource komponen yang nilainya dibaca; boleh {@code null}.
+	 * @param check          bila {@code true}, nilai final dipakai sebagai cadangan saat nilai
+	 *                       belum-verifikasi nol.
+	 * @return nilai belum-verifikasi komponen pada rentang 0&ndash;100.
+	 */
 	public Double retreiveDetailNilaiBelumVerify(FormatNilai formatIdSource, boolean check) {
 
 		refreshNilaiKeDefault();
@@ -2119,6 +2352,27 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return retreiveDetailNilai(formatIdSource, false);
 	}
 
+	/**
+	 * <b>Membaca status verifikasi satu komponen</b> (kolom ke-4) dari string detailNilai.
+	 *
+	 * <p><b>Verifikasi tingkat baris mengalahkan tingkat komponen.</b> Bila
+	 * {@link #getVerify()} sudah bernilai {@link #VERIFIED}, metode langsung mengembalikan
+	 * {@code true} tanpa menelusuri string sama sekali. Jadi verifikasi yang diberikan pada seluruh
+	 * baris nilai otomatis berlaku untuk semua komponennya, dan status per komponen hanya relevan
+	 * selama baris belum diverifikasi secara keseluruhan.
+	 *
+	 * <p>Selebihnya penelusuran mengikuti pola keluarga {@code retreive*}: sumber baca ditentukan
+	 * {@link #ambilSumberDetailNilai(FormatNilai)}, pencocokan memakai kunci kanonik, entri kosong
+	 * dan entri yang lebih pendek dari lima kolom dilewati. Penguraian memakai
+	 * {@code Boolean.parseBoolean} yang bersifat longgar: apa pun selain teks
+	 * <code>&quot;true&quot;</code> (tanpa membedakan huruf besar/kecil) menghasilkan {@code false},
+	 * sehingga kolom yang rusak berujung aman pada &quot;belum terverifikasi&quot;.
+	 *
+	 * <p>Bila komponen tidak ditemukan, dikembalikan {@code false}.
+	 *
+	 * @param formatIdSource komponen yang statusnya dibaca; boleh {@code null}.
+	 * @return {@code true} bila komponen sudah terverifikasi.
+	 */
 	public Boolean retreiveDetailVerifikasiNilai(FormatNilai formatIdSource) {
 
 		if (getVerify().equals(VERIFIED)) {
@@ -2156,6 +2410,25 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return false;
 	}
 
+	/**
+	 * <b>Membaca nilai satu komponen tambahan</b> dari string {@link #detailNilaiTambahan}
+	 * (format tiga kolom <code>id,nilai,0</code>).
+	 *
+	 * <p>Berbeda dari keluarga {@code retreiveDetailNilai*}, metode ini lebih sederhana dalam tiga
+	 * hal: kuncinya adalah id {@link FormatNilaiTambahan} <b>langsung</b> tanpa perantara
+	 * {@code StatusPertemuan}; ia membaca field {@link #detailNilaiTambahan} apa adanya tanpa
+	 * melewati pemilihan sumber berbasis kunci; dan ia <b>tidak</b> memanggil
+	 * {@link #refreshNilaiKeDefault()} sehingga bebas dari efek samping penulisan. Konsekuensi dari
+	 * poin kedua: nilai tambahan tidak mengenal kunci per komponen &mdash; perlindungannya hanya
+	 * sampai tingkat kunci global lewat {@link #getDetailNilaiTambahan()}.
+	 *
+	 * <p>Entri kosong, entri pendek, dan kolom bukan angka semuanya dilewati. Bila komponen tidak
+	 * ditemukan, dikembalikan {@code 0.0}. Perhatikan hasilnya <b>tidak</b> dijepit ke rentang
+	 * 0&ndash;100, berbeda dari nilai utama.
+	 *
+	 * @param formatIdSource komponen tambahan yang nilainya dibaca; boleh {@code null}.
+	 * @return nilai komponen tambahan, atau {@code 0.0} bila tidak ditemukan.
+	 */
 	public Double retreiveDetailNilaiTambahan(FormatNilaiTambahan formatIdSource) {
 
 		if (formatIdSource != null && formatIdSource.getId() != null) {
@@ -2184,14 +2457,44 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return 0.0;
 	}
 
+	/**
+	 * Konstruktor tanpa argumen yang <b>diwajibkan Hibernate</b> untuk membuat instance saat memuat
+	 * baris dari basis data. Seluruh field mengambil nilai awal yang dideklarasikan pada definisi
+	 * masing-masing (mis. {@link #totalNilai} = {@code 0.0}, {@link #persetujuan} =
+	 * {@link #BELUM_DISETUJUI}, {@link #tanggal_dirubah} = waktu saat ini).
+	 */
 	public Detailperkuliahan() {
 	}
 
+	/**
+	 * Konstruktor yang sekaligus <b>merekam asal-usul pembuatan</b> baris nilai ini ke
+	 * {@link #olehManualInput}, dengan format
+	 * <code>userId(namaUser) via kelas &lt;nama kelas pemanggil&gt;</code>.
+	 *
+	 * <p>Berguna untuk menelusuri jalur mana yang menciptakan sebuah baris nilai &mdash; layar KRS,
+	 * importer massal, penjadwalan otomatis, atau endpoint API &mdash; sesuatu yang tidak dapat
+	 * dijawab oleh jejak audit biasa yang hanya mencatat penggunanya. Kedua argumen boleh
+	 * {@code null}; bagian yang bersangkutan cukup dikosongkan dari teks tanpa melempar kesalahan.
+	 *
+	 * @param tbmuser pengguna yang membuat baris ini; boleh {@code null}.
+	 * @param clazz   kelas pemanggil yang membuat baris ini; boleh {@code null}.
+	 */
 	public Detailperkuliahan(Tbmuser tbmuser, @SuppressWarnings("rawtypes") Class clazz) {
 		this.olehManualInput = (tbmuser == null ? "" : (tbmuser.getUserId() + "(" + tbmuser.getUserNama() + ")"))
 				+ (clazz == null ? "" : " via kelas " + clazz.getName());
 	}
 
+	/**
+	 * Kunci utama baris ini, dibangkitkan basis data dengan strategi
+	 * {@link javax.persistence.GenerationType#IDENTITY} (kolom serial PostgreSQL). Ditandai
+	 * {@code insertable = false} karena nilainya sepenuhnya ditentukan basis data saat penyisipan.
+	 *
+	 * <p>Karena anotasi {@code @Id} diletakkan pada getter inilah, seluruh kelas ini dipetakan
+	 * dengan <b>property access</b> &mdash; akar dari peringatan pada Javadoc kelas bahwa getter
+	 * yang menulis balik ke field benar-benar menghasilkan UPDATE.
+	 *
+	 * @return id baris, atau {@code null} bila belum pernah disimpan.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -2199,10 +2502,30 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return this.id;
 	}
 
+	/**
+	 * Mengisi kunci utama. Umumnya hanya dipanggil Hibernate; pengisian manual pada objek yang sudah
+	 * tersimpan dapat membuat Hibernate salah mengenali identitas baris.
+	 *
+	 * @param id kunci utama baru.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mahasiswa pemilik baris nilai ini. Relasi <b>wajib</b> ({@code nullable = false}) &mdash; tidak
+	 * ada baris nilai tanpa mahasiswa.
+	 *
+	 * <p>Dimuat secara {@link FetchType#LAZY} dan dilewatkan {@link GeneralValueObject#check(Object)}
+	 * sebelum dikembalikan, sehingga proxy yang belum teresolusi dipaksa dimuat atau ditukar dengan
+	 * instance kanonik dari peta identitas. Hasil resolusi itu <b>ditulis balik</b> ke field, jadi
+	 * getter ini pun tidak sepenuhnya murni.
+	 *
+	 * <p>Riam {@link CascadeType#PERSIST} dan {@link CascadeType#MERGE} berarti menyimpan baris nilai
+	 * ikut menyimpan mahasiswa yang belum tersimpan; penghapusan sengaja <b>tidak</b> diriamkan.
+	 *
+	 * @return mahasiswa pemilik baris ini.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa", nullable = false)
 	public Mahasiswa getMahasiswa() {
@@ -2210,10 +2533,29 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return mahasiswa;
 	}
 
+	/**
+	 * Mengisi mahasiswa pemilik baris nilai ini.
+	 *
+	 * @param mahasiswa mahasiswa pemilik; tidak boleh {@code null} saat disimpan karena kolomnya
+	 *                  dideklarasikan wajib.
+	 */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Kelas perkuliahan yang diambil pada baris ini. Relasi <b>boleh kosong</b>
+	 * ({@code nullable = true}), dan kekosongan itu bermakna: baris tersebut adalah <b>nilai
+	 * konversi</b> dari institusi lain, bukan pengambilan kelas di kampus ini. Hampir seluruh logika
+	 * di kelas ini bercabang pada pemeriksaan ini.
+	 *
+	 * <p>Dimuat {@link FetchType#LAZY} dan diresolusi lewat {@link GeneralValueObject#check(Object)},
+	 * yang hasilnya ditulis balik ke field. Banyak metode di kelas ini mengawali dirinya dengan
+	 * {@code perkuliahan = getPerkuliahan();} justru untuk memastikan field sudah teresolusi sebelum
+	 * dibaca langsung.
+	 *
+	 * @return kelas yang diambil, atau {@code null} bila baris ini merupakan nilai konversi.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "perkuliahan", nullable = true)
 	public Perkuliahan getPerkuliahan() {
@@ -2221,14 +2563,50 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return this.perkuliahan;
 	}
 
+	/**
+	 * Mengisi kelas perkuliahan yang diambil.
+	 *
+	 * <p>Perlu diingat pengisian ini punya akibat lanjutan: begitu kelas terisi,
+	 * {@link #getMatakuliahKonversi()} akan <b>meng-null-kan</b> {@link #matakuliahKonversi} pada
+	 * pembacaan berikutnya, karena kedua jalur itu saling meniadakan.
+	 *
+	 * @param perkuliahan kelas yang diambil; {@code null} menandakan baris nilai konversi.
+	 */
 	public void setPerkuliahan(Perkuliahan perkuliahan) {
 		this.perkuliahan = perkuliahan;
 	}
 
+	/**
+	 * Mengisi semester pengambilan secara eksplisit. Nilai yang diisikan dapat ditimpa oleh
+	 * {@link #getSemester()} bila kelas induk menyatakan sebaliknya (lihat catatan pada getter).
+	 *
+	 * @param semester nomor semester pengambilan.
+	 */
 	public void setSemester(Integer semester) {
 		this.semester = semester;
 	}
 
+	/**
+	 * Mengembalikan <b>semester ke berapa</b> mata kuliah ini diambil oleh mahasiswa, dengan tiga
+	 * lapis penentuan berurutan.
+	 *
+	 * <p><b>(1) Pewarisan dari kelas.</b> Bila field masih kosong dan kelas induk ada, nomor semester
+	 * diambil dari {@code Perkuliahan.getSemester()}. <b>(2) Nilai bawaan.</b> Bila masih kosong juga,
+	 * dipakai {@code 0} agar pemanggil tidak perlu menangani {@code null} &mdash; ini penting karena
+	 * beberapa jalur lain melakukan operasi modulo pada hasil metode ini untuk menentukan
+	 * ganjil/genap. <b>(3) Penimpaan pra-perkuliahan.</b> Bila kelas induk ditandai sebagai
+	 * pra-perkuliahan (matrikulasi), nilainya <b>dipaksa menjadi -1</b> apa pun isi sebelumnya. Angka
+	 * negatif itu adalah penanda sengaja: mata kuliah matrikulasi tidak menempati semester reguler
+	 * mana pun dan harus dapat dibedakan dari semester 0.
+	 *
+	 * <p><b>Efek samping.</b> Ketiga lapis di atas <b>menulis balik ke field</b> {@link #semester}.
+	 * Karena kolom ini dipetakan property-access, pembacaan pada baris pra-perkuliahan akan
+	 * mengubah nilai tersimpan menjadi -1 saat flush &mdash; perilaku yang dikehendaki, namun perlu
+	 * disadari sebagai penulisan yang lahir dari pembacaan.
+	 *
+	 * @return nomor semester pengambilan; {@code 0} bila tidak diketahui, {@code -1} untuk
+	 *         pra-perkuliahan.
+	 */
 	@Column(name = "semester", length = 5)
 	public Integer getSemester() {
 		perkuliahan = getPerkuliahan();
@@ -2246,11 +2624,49 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return semester;
 	}
 
+	/**
+	 * Memeriksa apakah <b>kunci global kelas</b> sedang aktif, yakni {@code Perkuliahan.getDikunci()}
+	 * tidak {@code null}.
+	 *
+	 * <p>Inilah saklar tunggal yang mengubah perilaku hampir seluruh pasangan getter/setter nilai di
+	 * kelas ini: begitu benar, getter beralih membaca kolom snapshot {@code *Kunci} dan setter
+	 * menolak penulisan dengan cara memulihkan nilai dari snapshot. Karena dipanggil sangat sering,
+	 * ia sengaja dibuat seringan mungkin &mdash; namun tetap melewati {@link #getPerkuliahan()}
+	 * sehingga dapat memicu resolusi proxy.
+	 *
+	 * <p>Berbeda dari {@link #apakahNilaiDikunci(FormatNilai)}, metode ini <b>tidak</b>
+	 * memperhitungkan kunci per komponen.
+	 *
+	 * @return {@code true} bila kelas induk sedang terkunci.
+	 */
 	private boolean kunciGlobalNilaiAktif() {
 		Perkuliahan kuliah = getPerkuliahan();
 		return kuliah != null && kuliah.getDikunci() != null;
 	}
 
+	/**
+	 * Mencari baris {@link NilaiHuruf} yang <b>sesuai dengan sebuah nilai angka</b> menurut aturan
+	 * konversi yang berlaku bagi mahasiswa ini.
+	 *
+	 * <p>Pencarian didelegasikan ke {@code Common.getNilaiHuruf(...)} dengan konteks selengkap
+	 * mungkin agar aturan yang benar terpilih: nilai angka, tahun angkatan mahasiswa, jurusan,
+	 * fakultas, tahun akademik, penanda ganjil/genap yang diturunkan dari paritas
+	 * {@link #getSemester()}, kode mata kuliah, serta jenis nilai huruf yang ditetapkan pada mata
+	 * kuliah tersebut. Mata kuliah diambil dari kelas induk bila ada, dan dari
+	 * {@link #getMatakuliahKonversi()} bila baris ini nilai konversi.
+	 *
+	 * <p>Konteks selengkap itu diperlukan karena tabel nilai huruf di AIS dapat berbeda per jurusan,
+	 * per fakultas, per tahun angkatan, bahkan per mata kuliah &mdash; satu skala nilai tunggal tidak
+	 * berlaku untuk seluruh kampus.
+	 *
+	 * <p>Dikembalikan {@code null} bila nilainya kosong/mendekati nol, bila mahasiswa tidak diketahui,
+	 * atau bila terjadi kegagalan resolusi relasi (dicatat ke {@code ErrorAuditUtil}). Pemanggil
+	 * &mdash; {@link #getNilaiHuruf()} dan {@link #getTotalIP()} pada jalur terkunci &mdash;
+	 * memperlakukan {@code null} sebagai isyarat untuk memakai nilai snapshot apa adanya.
+	 *
+	 * @param total nilai angka yang hendak dipetakan; boleh {@code null}.
+	 * @return baris {@link NilaiHuruf} yang cocok, atau {@code null} bila tidak dapat ditentukan.
+	 */
 	private NilaiHuruf ambilNilaiHurufSesuaiTotal(Double total) {
 		if (total == null || total.doubleValue() <= 0.1 || getMahasiswa() == null) {
 			return null;
