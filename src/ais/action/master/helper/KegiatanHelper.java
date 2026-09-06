@@ -2139,6 +2139,66 @@ public class KegiatanHelper {
 		toolbarbutton.setUpload(Common.ukuranFileUpload());
 		toolbarbutton.addEventListener("onUpload", new EventListener() {
 
+			/**
+			 * Menangani event {@code onUpload} tombol: membaca file .xlsx hasil edit operator, menulis
+			 * perubahan {@code biaya}/{@code tanggal}/{@code kunci} ke {@link DetailKegiatan} yang
+			 * bersangkutan, lalu mengirim balik workbook "HASIL UPLOAD" berisi kondisi akhir tiap baris.
+			 *
+			 * <p><b>Urutan kerja.</b> (1) {@code media} divalidasi lewat
+			 * {@code AmbilDataTugasFileContent.checkFile} dan ekstensi harus {@code .xlsx} — selain itu
+			 * method langsung {@code return} tanpa memproses apa pun. (2) Stream upload disalin ke
+			 * {@code /temp/&lt;namaFile&gt;} di direktori real webapp karena {@link XSSFWorkbook} di versi ini
+			 * dibuka dari path file, bukan dari stream. (3) Workbook sumber dibaca baris demi baris mulai
+			 * indeks 1 (baris 0 = header): kolom 7 = id {@link DetailKegiatan}, 9 = nominal, 10 = tanggal,
+			 * 11 = kunci. (4) Tiap baris yang berhasil ditulis direkam ke workbook keluaran, yang kemudian
+			 * disimpan sebagai {@code /temp/hasil_upload_&lt;namaFile&gt;} dan otomatis dikirim balik ke browser
+			 * lewat {@link Filedownload}. (5) {@code eventListener} milik pemanggil dipanggil dengan
+			 * {@link UploadEvent} asli sebagai hook penutup (di {@code DetailSettingBiayaAction} isinya
+			 * {@code loadData} untuk menyegarkan grid), lalu kotak pesan "Upload tagihan telah selesai."
+			 * ditampilkan.
+			 *
+			 * <p><b>Manajemen session &amp; memori.</b> Session Hibernate dibuka sendiri di sini
+			 * ({@code HibernateUtil.getSessionFactory().openSession()}) — bukan session request — dan
+			 * ditutup di {@code finally} lewat {@link #closeLocalSessionSafely}. Tiap 50 baris terproses
+			 * session di-{@code flush()} lalu di-{@code clear()} supaya persistence context tidak
+			 * menggelembung pada upload ribuan baris. Penulisan entity memakai {@link #updateEntitySafe}
+			 * sehingga baris yang bentrok lock dengan batch "Proses Tagihan" tetap punya peluang retry di
+			 * sesi terisolasi.
+			 *
+			 * <p><b>Ketahanan per baris.</b> Setiap baris dibungkus {@code try/catch} lebar: satu baris
+			 * rusak (id tidak ditemukan, relasi null, tanggal tak terparse) tidak menggagalkan sisa file.
+			 * Konsekuensinya kegagalan bersifat senyap — baris itu sekadar tidak muncul di sheet hasil.
+			 * Tanggal yang tidak terparse juga ditelan tersendiri, sehingga nominal tetap tersimpan
+			 * walaupun tanggalnya tidak.
+			 *
+			 * <p><b>Catatan integritas yang perlu diketahui pemanggil.</b> Sifat-sifat berikut adalah
+			 * kondisi kode saat ini, dicatat di sini supaya tidak disalin ke jalur impor lain:
+			 * <ul>
+			 * <li><b>Id dipakai mentah.</b> {@link DetailKegiatan} dicari dengan
+			 * {@code Restrictions.idEq(id)} langsung dari kolom 7 spreadsheet, tanpa penyaringan
+			 * fakultas/jurusan/tahun akademik/tenant dan tanpa dikaitkan ke {@code initCriteria} layar
+			 * pemanggil. Cakupan yang membatasi daftar di layar TIDAK membatasi jalur impor ini.</li>
+			 * <li><b>{@code nilaiBisaDiubah} hanya kosmetik.</b> Flag
+			 * {@code getItemBiaya().getNilaiBisaDiubah()} dibaca hanya saat MENULIS gaya sel keluaran
+			 * (merah/abu-abu) — jalur tulis ke database tidak pernah membacanya. Gaya
+			 * {@code setLocked(true)} POI pun tidak berefek karena proteksi sheet tidak diaktifkan.</li>
+			 * <li><b>{@code kunci} write-only.</b> Kolom 11 menulis {@code setKunci(...)}, tetapi
+			 * {@code getKunci()} tidak pernah dibaca sebagai penjaga sebelum menimpa nominal — baris yang
+			 * sudah dikunci pengguna lain tetap dapat ditimpa.</li>
+			 * <li><b>NPE tersembunyi pada baris bulanan.</b> Pembentukan sel 9-11 memanggil
+			 * {@code getItemBiaya().getNilaiBisaDiubah()} tanpa penjagaan, padahal cabang di atasnya
+			 * membuktikan {@code getItemBiaya()} bisa {@code null} untuk baris tagihan bulanan (yang
+			 * memakai {@code pengaturanPembayaranBulanan}); {@code getNilaiBisaDiubah()} sendiri
+			 * mengembalikan {@link Boolean} yang nullable. NPE-nya tertangkap {@code catch} per baris
+			 * SETELAH {@link #updateEntitySafe} dijalankan, sehingga nominal sudah berubah di database
+			 * tetapi barisnya lenyap dari sheet hasil.</li>
+			 * </ul>
+			 * Penambalan hal-hal di atas dilacak terpisah dan sengaja tidak dilakukan dalam perubahan
+			 * dokumentasi ini.
+			 *
+			 * @param event {@link UploadEvent} ZK yang membawa {@link Media} file .xlsx
+			 * @throws Exception diteruskan dari pembacaan workbook, penulisan file hasil, atau dari {@code eventListener} pemanggil
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				UploadEvent uploadEvent = (UploadEvent) event;

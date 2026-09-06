@@ -1732,14 +1732,6 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	}
 
 	/**
-	 * Menampilkan popup "Rincian Skor" untuk satu Sub-CPMK milik seorang peserta: daftar soal
-	 * pada Sub-CPMK tersebut beserta skor yang didapat dan skor maksimal per soal, plus totalnya.
-	 * Dipicu saat nilai per Sub-CPMK pada tabel peserta diklik.
-	 *
-	 * @param himParam    hasil ujian peserta (boleh detached; di-refetch di sini)
-	 * @param formatNilai Sub-CPMK yang diklik
-	 */
-	/**
 	 * Popup "Perbandingan Skor" utk peserta ujian pilihan ganda (non-OBE): daftar semua soal +
 	 * Skor Diperoleh (nilai jawaban peserta) vs Skor Jawaban/Maksimal (skor soal). Baris yang skor
 	 * diperolehnya MELEBIHI skor maksimal soal (data tak wajar, mis. 1 record rusak bernilai 100 pada
@@ -1941,6 +1933,64 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * <b>Tujuan:</b> Membuat tombol ikon tanda-tanya kecil ("Bantuan") yang dipasang berdampingan
+	 * dengan angka nilai <b>0</b> pada baris peserta di grid rekap hasil ujian. Ketika diklik,
+	 * tombol membuka {@link #bukaPopupPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)} yang
+	 * mendiagnosis MENGAPA nilai peserta itu 0 dan menawarkan tindakan perbaikan.
+	 *
+	 * <p><b>Latar belakang.</b> Nilai 0 adalah keluhan operasional yang paling sering muncul di
+	 * modul ujian, dan penyebabnya beragam sekali: peserta memang belum mengerjakan; peserta
+	 * sudah mengerjakan tapi semua jawabannya salah; kunci jawaban di bank soal belum ditandai
+	 * {@code betul}; kolom {@code skor} soal masih 0 sehingga penyebut rumus nol; jawaban esai
+	 * belum dikoreksi dosen; atau nilai belum dihitung ulang setelah soal/kunci diubah. Tanpa
+	 * bantuan, dosen tidak punya cara membedakan keenam kondisi tersebut dari layar rekap dan
+	 * akan mengeskalasi ke administrator. Tombol ini memindahkan diagnosis itu ke tangan dosen.</p>
+	 *
+	 * <p><b>Titik pemasangan.</b> Tombol dibuat di {@code DetailPertemuanPunyaUjianRenderer.render(...)}
+	 * pada EMPAT konteks berbeda, seluruhnya hanya bila skor yang diperoleh 0 sementara skor
+	 * maksimalnya &gt; 0 (kombinasi yang menandakan ada sesuatu yang layak diselidiki, bukan
+	 * sekadar soal tanpa bobot):</p>
+	 * <ul>
+	 *   <li>kolom <b>Skor/Max</b> per Sub-CPMK pada mode OBE;</li>
+	 *   <li>kolom <b>Skor/Max</b> pilihan ganda pada mode non-OBE;</li>
+	 *   <li>kolom <b>Nilai</b> per Sub-CPMK pada mode OBE + pilihan ganda;</li>
+	 *   <li>kolom <b>Nilai</b> pilihan ganda maupun esai pada mode non-OBE (di sini syaratnya
+	 *       cukup nilai == 0, tanpa memeriksa skor maksimal).</li>
+	 * </ul>
+	 *
+	 * <p><b>Cara kerja.</b> Membuat {@link MyToolbarbuttonConfig} dengan ikon
+	 * {@code /img/Help-icon.png}, lalu <b>mengosongkan label</b> ({@code setLabel("")}) dan
+	 * memampatkan gayanya ({@code padding:0;margin-left:4px;min-width:18px;min-height:18px})
+	 * sehingga tombol hanya seukuran ikon. Ini penting: kolom Nilai pada grid sangat sempit, dan
+	 * tombol berlabel teks akan melebarkan sel sehingga kolom paling kanan ("Pelanggaran")
+	 * terpotong. Penjelasan tetap bisa dibaca lewat {@code tooltiptext} "Mengapa nilai masih 0?".
+	 * Satu listener {@code onClick} dipasang yang meneruskan ketiga parameter apa adanya ke
+	 * {@link #bukaPopupPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)}.</p>
+	 *
+	 * <p><b>Sifat parameter {@code final}.</b> Ketiga parameter dideklarasikan {@code final}
+	 * karena ditangkap oleh anonymous inner class {@code EventListener}; ini syarat bahasa pada
+	 * Java 7 (target kompilasi proyek ini). Nilai {@code totalSoal} dan {@code terjawab} adalah
+	 * <b>snapshot</b> pada saat baris dirender, BUKAN nilai hidup — bila di sela render dan klik
+	 * peserta menambah jawaban, popup akan menampilkan angka lama. Data yang benar-benar kritis
+	 * (jumlah detail jawaban, skor per soal) justru dibaca ulang dari database di dalam
+	 * {@link #buatPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)}, sehingga ketidaksinkronan
+	 * ini hanya memengaruhi dua baris ringkasan teratas pada popup.</p>
+	 *
+	 * <p><b>Sifat/otorisasi.</b> Method {@code static} tanpa state. Tidak melakukan pengecekan
+	 * hak akses sendiri — kelayakan pemanggil ditentukan oleh konteks render grid rekap. Tombol
+	 * ini sendiri bersifat read-only; tindakan yang berpotensi mengubah data ("Hitung Ulang
+	 * Peserta Ini") baru muncul di dalam popup dan didokumentasikan pada
+	 * {@link #hitungUlangNilaiPeserta(HasilUjianMahasiswa)}.</p>
+	 *
+	 * @param hasilUjianMahasiswa entity hasil ujian peserta yang nilainya 0; boleh detached —
+	 *                            akan di-refetch di dalam popup
+	 * @param totalSoal           jumlah soal yang ditampilkan untuk ujian ini
+	 *                            ({@code pertemuanPunyaUjian.getJmlDitampilkan()}), snapshot saat render
+	 * @param terjawab            jumlah soal yang sudah dijawab peserta ini, snapshot saat render
+	 * @return tombol ikon siap dipasang sebagai anak {@code Hbox} pada sel grid
+	 * @see #bukaPopupPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)
+	 */
 	private static MyToolbarbuttonConfig tombolBantuanNilaiNol(final HasilUjianMahasiswa hasilUjianMahasiswa,
 			final int totalSoal, final int terjawab) {
 		MyToolbarbuttonConfig bantuan = new MyToolbarbuttonConfig("Bantuan", "/img/Help-icon.png");
@@ -1956,6 +2006,70 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		return bantuan;
 	}
 
+	/**
+	 * <b>Tujuan:</b> Menampilkan jendela modal <b>"Penjelasan Nilai 0"</b> — sebuah panel
+	 * diagnostik yang menerangkan kepada dosen mengapa nilai seorang peserta masih 0 dan
+	 * menyediakan satu tombol tindakan langsung untuk memperbaikinya.
+	 *
+	 * <p><b>Peran dalam trio.</b> Method ini adalah lapisan <i>presentasi</i> dari tiga method
+	 * yang bekerja bersama:</p>
+	 * <ul>
+	 *   <li>{@link #tombolBantuanNilaiNol(HasilUjianMahasiswa, int, int)} — pemicu (tombol ikon
+	 *       di grid);</li>
+	 *   <li><b>method ini</b> — kerangka jendela, label teks, dan tombol aksi;</li>
+	 *   <li>{@link #buatPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)} — mesin diagnosis yang
+	 *       membaca database dan menyusun teks penjelasannya;</li>
+	 *   <li>{@link #hitungUlangNilaiPeserta(HasilUjianMahasiswa)} — aksi perbaikan satu peserta.</li>
+	 * </ul>
+	 *
+	 * <p><b>Cara kerja.</b></p>
+	 * <ol>
+	 *   <li>Membuat {@link MyWindow} berukuran tetap 520&times;430px, {@code closable}, dengan
+	 *       {@code contentStyle} {@code overflow:auto} agar teks panjang tetap dapat digulir.
+	 *       Jendela dipasang ke root halaman aktif melalui
+	 *       {@code ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot()} — pola baku
+	 *       di kelas ini untuk popup yang harus bertahan meski komponen pemicunya di-detach.</li>
+	 *   <li>Mengisi sebuah {@code Vbox} dengan satu {@link Label} berisi hasil
+	 *       {@link #buatPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)}. Label dikonfigurasi
+	 *       {@code setMultiline(true)} + {@code setPre(true)} + CSS {@code white-space:pre-wrap}
+	 *       karena teks diagnosis disusun sebagai plain text ber-{@code \n} dan berpoin, bukan
+	 *       HTML. Kombinasi ini menjaga baris baru tetap terlihat sekaligus mengizinkan
+	 *       pembungkusan kata pada baris yang terlalu panjang.</li>
+	 *   <li>Menambahkan {@code Hbox} aksi berisi satu tombol <b>"Hitung Ulang Peserta Ini"</b>.
+	 *       Berbeda dari "Hitung Ulang Semua" di toolbar yang memproses seluruh kelas dengan
+	 *       kolam 50 thread, tombol ini hanya memproses SATU peserta secara sinkron sehingga
+	 *       aman diklik berulang saat mendiagnosis. Hasil kembalian
+	 *       {@link #hitungUlangNilaiPeserta(HasilUjianMahasiswa)} berupa kalimat status langsung
+	 *       ditampilkan lewat {@code MyMessageboxConfig.show(...)}.</li>
+	 *   <li>Memanggil {@code window.onModal()} di dalam {@code try/catch}. ZK melempar
+	 *       {@code InterruptedException} sebagai mekanisme NORMAL ketika modal ditutup; exception
+	 *       itu direkam ke {@code ErrorAuditUtil} sebagai jejak audit dan tidak dilempar ulang.</li>
+	 * </ol>
+	 *
+	 * <p><b>Batas ketersegaran data.</b> Diagnosis dibaca ulang dari database setiap kali popup
+	 * dibuka (lihat {@link #buatPenjelasanNilaiNol}), tetapi jendela ini <b>tidak</b> menyegarkan
+	 * dirinya sendiri setelah "Hitung Ulang Peserta Ini" dijalankan — teks penjelasan tetap
+	 * menampilkan kondisi sebelum perbaikan. Ini disengaja agar dosen dapat membandingkan
+	 * kondisi lama dengan angka baru yang muncul pada messagebox hasil. Untuk melihat diagnosis
+	 * terbaru, tutup popup lalu klik kembali tombol bantuan.</p>
+	 *
+	 * <p><b>Efek samping pada grid.</b> Popup ini tidak me-refresh grid pemanggil. Setelah
+	 * "Hitung Ulang Peserta Ini" berhasil, angka pada baris grid masih angka lama sampai dosen
+	 * menekan tombol <b>Refresh</b> di toolbar — hal ini dinyatakan eksplisit pada kalimat
+	 * penutup yang dikembalikan {@link #hitungUlangNilaiPeserta(HasilUjianMahasiswa)}.</p>
+	 *
+	 * <p><b>Sifat/otorisasi.</b> Method {@code static}, tidak menyentuh field instance dan tidak
+	 * membuka session Hibernate sendiri. Seperti tombol pemicunya, tidak melakukan pengecekan hak
+	 * akses; gerbang berada pada konteks render grid rekap dosen/admin.</p>
+	 *
+	 * @param hasilUjianMahasiswa entity hasil ujian peserta yang sedang didiagnosis; boleh
+	 *                            detached — di-refetch di dalam {@link #buatPenjelasanNilaiNol}
+	 *                            dan {@link #hitungUlangNilaiPeserta}
+	 * @param totalSoal           jumlah soal yang ditampilkan untuk ujian ini (snapshot saat render grid)
+	 * @param terjawab            jumlah soal yang telah dijawab peserta (snapshot saat render grid)
+	 * @see #buatPenjelasanNilaiNol(HasilUjianMahasiswa, int, int)
+	 * @see #hitungUlangNilaiPeserta(HasilUjianMahasiswa)
+	 */
 	private static void bukaPopupPenjelasanNilaiNol(final HasilUjianMahasiswa hasilUjianMahasiswa, final int totalSoal,
 			final int terjawab) {
 		MyWindow window = new MyWindow("Penjelasan Nilai 0", "normal", true);
@@ -2172,6 +2286,104 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		return sb.toString();
 	}
 
+	/**
+	 * Menampilkan jendela modal <b>"Rincian Skor &lt;nama Sub-CPMK&gt;"</b> yang membedah nilai
+	 * satu Sub-CPMK milik SATU peserta menjadi daftar soal pembentuknya, lengkap dengan skor yang
+	 * diperoleh dan skor maksimal per soal, baris TOTAL, serta rumus nilai akhirnya.
+	 *
+	 * <p><b>Tujuan.</b> Pada mode OBE, kolom nilai peserta tidak lagi berupa satu angka tunggal
+	 * melainkan sederet angka per Sub-CPMK (mis. "1.01 : 72"). Angka agregat itu sering
+	 * dipertanyakan dosen ("kenapa Sub-CPMK ini nilainya 0 padahal mahasiswanya menjawab?").
+	 * Popup ini menjawab pertanyaan tersebut dengan menampilkan <i>audit trail</i> perhitungan:
+	 * soal mana saja yang dipetakan ke Sub-CPMK tersebut (lewat {@code PertemuanPunyaUjian.formatNilais}),
+	 * berapa skor yang didapat peserta pada tiap soal, dan berapa skor maksimalnya. Dengan begitu
+	 * dosen dapat membedakan tiga penyebab berbeda yang sama-sama memunculkan nilai rendah:
+	 * (a) peserta memang menjawab salah, (b) soal belum dipetakan ke Sub-CPMK mana pun sehingga
+	 * daftar kosong, atau (c) skor maksimal soal di bank soal masih 0 sehingga penyebut rumus nol.</p>
+	 *
+	 * <p><b>Pemicu.</b> Dipanggil dari listener {@code onClick} pada label nilai per Sub-CPMK di
+	 * {@code DetailPertemuanPunyaUjianRenderer.render(...)}. Label hanya dibuat dapat diklik
+	 * (bergaya garis-bawah biru) bila {@code nilaiMax != 0}; bila skor maksimal 0 label tetap
+	 * teks biasa karena rincian tidak akan bermakna.</p>
+	 *
+	 * <p><b>Cara kerja.</b></p>
+	 * <ol>
+	 *   <li><b>Refetch entity.</b> {@code himParam} yang datang dari grid biasanya berstatus
+	 *       <i>detached</i> (session-nya sudah ditutup oleh {@link #loadData(Object)}). Method
+	 *       membuka session Hibernate terdedikasi lewat {@code HibernateUtil.getSessionFactory()
+	 *       .openSession()} lalu memuat ulang entity dengan {@code session.get(...)}. Bila hasil
+	 *       refetch {@code null} (record sudah dihapus di sesi lain), objek parameter dipakai apa
+	 *       adanya sebagai fallback agar popup tetap terbuka dan menampilkan daftar kosong,
+	 *       bukan melempar exception ke pengguna.</li>
+	 *   <li><b>Menentukan jumlah soal.</b> Diambil dari {@code pertemuanPunyaUjian.getJmlDitampilkan()}
+	 *       dengan penjagaan null berlapis (baik {@code pertemuanPunyaUjian} maupun
+	 *       {@code jmlDitampilkan} boleh null) sehingga jatuh ke {@code 0}.</li>
+	 *   <li><b>Memuat jawaban peserta.</b> {@code ambilUjianPunyaSoals(jml, new Label(), true)}
+	 *       mengembalikan daftar id {@code UjianPunyaSoal} sesuai paket soal yang benar-benar
+	 *       diterima peserta ini (penting untuk ujian acak/random, karena tiap peserta bisa
+	 *       memperoleh kombinasi soal berbeda). Hasilnya dipakai
+	 *       {@code ambilHasilUjianMahasiswaDetail(jml, ujianPunyaSoals, false)} untuk memetakan
+	 *       soal &rarr; himpunan id {@code HasilUjianMahasiswaDetail}. Argumen terakhir
+	 *       {@code false} berarti TIDAK memaksa muat ulang dari database — dipakai cache MapDB
+	 *       agar popup terbuka cepat.</li>
+	 *   <li><b>Menghitung rincian.</b> Pekerjaan berat didelegasikan ke
+	 *       {@code ProsesUjianHelper.rincianSkorSubCpmk(him, details, formatNilai.getId())}
+	 *       yang mengembalikan {@code List<Object[]>} berisi {@code [0]=nomor, [1]=teks soal (HTML),
+	 *       [2]=skor diperoleh (Double), [3]=skor maksimal (Double)}. Menempatkan logika pemetaan
+	 *       Sub-CPMK di {@code ProsesUjianHelper} membuat popup ini memakai SUMBER KEBENARAN yang
+	 *       sama dengan mesin penilaian ({@code hitungObe}) — bila keduanya berbeda, itu bug
+	 *       nyata, bukan sekadar perbedaan tampilan.</li>
+	 *   <li><b>Merender jendela.</b> {@link MyWindow} 720px &times; 80% berisi {@link MyGrid}
+	 *       empat kolom (No / Soal / Skor / Maks). Kolom "Soal" memakai {@code org.zkoss.zul.Html}
+	 *       karena teks soal disimpan sebagai HTML kaya (gambar, rumus, penomoran). Baris TOTAL
+	 *       berlatar abu-abu menjumlahkan kolom Skor dan Maks.</li>
+	 *   <li><b>Rumus penutup.</b> Baris {@link MyLabelKecil} di bawah grid menampilkan
+	 *       {@code Nilai = totalSkor / totalMax * 100}, dengan penjagaan {@code totalMax == 0.0}
+	 *       menghasilkan {@code 0.0} (bukan {@code NaN}/{@code Infinity}). Angka ini harus SAMA
+	 *       dengan angka pada label yang diklik; bila berbeda, penyebabnya hampir selalu cache
+	 *       {@code nilaiObe} yang basi — jalankan "Hitung Ulang Semua" lebih dulu.</li>
+	 *   <li><b>Daftar kosong.</b> Bila {@code rincian} kosong, satu baris pesan
+	 *       "Tidak ada soal pada Sub-CPMK ini." ditampilkan; baris TOTAL tetap dirender dengan
+	 *       nilai 0 agar struktur grid konsisten.</li>
+	 * </ol>
+	 *
+	 * <p><b>Manajemen session.</b> Session dibuka dan ditutup SELURUHNYA di blok
+	 * {@code try/finally} SEBELUM komponen ZK dibangun. Ini disengaja: seluruh data sudah
+	 * dimaterialisasi ke {@code List<Object[]>} berisi tipe primitif/String, sehingga tidak ada
+	 * risiko {@code LazyInitializationException} saat komponen dirender maupun saat jendela
+	 * modal masih terbuka menunggu pengguna. Kegagalan {@code session.close()} sendiri direkam
+	 * ke {@code ErrorAuditUtil} dan tidak dilempar ulang.</p>
+	 *
+	 * <p><b>Penanganan error.</b> Seluruh tahap pengambilan data dibungkus satu {@code try/catch}
+	 * lebar. Exception apa pun dicatat ({@code printStackTrace} + {@code ErrorAuditUtil}) dan
+	 * ditampilkan ke administrator via {@code Common.tampilErrorJikaAdmin(e)}, namun alur TETAP
+	 * berlanjut membangun jendela — pengguna melihat popup kosong, bukan halaman error.
+	 * Pemanggilan {@code window.onModal()} di akhir dibungkus {@code try/catch} karena ZK
+	 * melempar {@code InterruptedException} sebagai mekanisme normal saat modal ditutup.</p>
+	 *
+	 * <p><b>Otorisasi.</b> Method ini TIDAK melakukan pengecekan hak akses sendiri. Ia mengandalkan
+	 * gerbang di lapisan pemanggil: label pemicunya hanya dirender di dalam grid rekap yang
+	 * dibangun {@link #display(PertemuanPunyaUjian, Component)}. Karena bersifat
+	 * <b>read-only</b> (tidak ada {@code update}/{@code commit} sama sekali) dampak terburuknya
+	 * terbatas pada keterbacaan rincian jawaban, bukan perubahan nilai. Bila kelak popup ini
+	 * dipanggil dari konteks portal peserta, tambahkan penjagaan kepemilikan
+	 * ({@code him.getMahasiswa()} vs pengguna aktif) di sini.</p>
+	 *
+	 * <p><b>Pemeliharaan.</b> Bila struktur {@code Object[]} yang dikembalikan
+	 * {@code ProsesUjianHelper.rincianSkorSubCpmk} berubah (mis. menambah kolom "bobot"),
+	 * perbarui juga jumlah kolom grid, jumlah {@code Label} pada cabang daftar-kosong, dan
+	 * jumlah sel baris TOTAL — ZK akan merender baris rusak (sel bergeser) bila jumlahnya
+	 * tidak seragam antar-baris.</p>
+	 *
+	 * @param himParam    hasil ujian peserta yang diklik; boleh detached — di-refetch di dalam
+	 *                    method. Bila {@code getId()} null, {@code session.get} akan gagal dan
+	 *                    ditangani sebagai daftar kosong.
+	 * @param formatNilai Sub-CPMK ({@link FormatNilai}) yang labelnya diklik; {@code getId()}-nya
+	 *                    dipakai sebagai kunci filter soal dan {@code getNama()}-nya dipakai pada
+	 *                    judul jendela serta baris TOTAL
+	 * @see ProsesUjianHelper#rincianSkorSubCpmk
+	 * @see #bukaPopupPerbandinganSkor(HasilUjianMahasiswa)
+	 */
 	public static void bukaPopupRincianSubCpmk(final HasilUjianMahasiswa himParam, final FormatNilai formatNilai) {
 		Session session = null;
 		List<Object[]> rincian = new ArrayList<Object[]>();
@@ -5510,10 +5722,6 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	}
 
 	/**
-	 * Method helper untuk menutup session Hibernate dengan aman
-	 * sesuai dengan urutan spesifik yang diminta.
-	 */
-	/**
 	 * Menutup session Hibernate dengan aman: clear → disconnect → close, masing-masing dalam
 	 * blok try-catch terpisah sehingga kegagalan satu langkah tidak mencegah langkah berikutnya.
 	 *
@@ -5838,23 +6046,6 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	}
 
 	/**
-	 * Membangun HTML untuk widget "multi-donut" berbasis CSS yang menampilkan distribusi
-	 * beberapa kategori dalam satu panel ringkas. Digunakan untuk visualisasi kualitas soal
-	 * (Gunakan/Revisi/Ganti) dan tingkat kesukaran (Mudah/Sedang/Sulit).
-	 *
-	 * <p><b>Cara kerja:</b> Untuk setiap kategori, menghitung persentase ({@code count/total*100}),
-	 * menampilkan progress bar horizontal bertingkat, dan legenda berwarna. Semua styling
-	 * dilakukan inline tanpa CSS eksternal agar widget portabel dan tidak bergantung pada
-	 * class CSS aplikasi.</p>
-	 *
-	 * @param title   judul widget yang ditampilkan di atas
-	 * @param total   total soal (denominasi untuk persentase)
-	 * @param labels  array label kategori (panjang harus sama dengan counts dan colors)
-	 * @param counts  array jumlah soal per kategori
-	 * @param colors  array kode warna CSS hex per kategori (misal "#22c55e")
-	 * @return HTML string siap dimasukkan ke {@code org.zkoss.zul.Html}
-	 */
-	/**
 	 * Menghitung persentase bulat (integer) dari sekumpulan jumlah sehingga TOTAL-nya
 	 * TEPAT 100 memakai metode <b>sisa terbesar</b> (largest remainder / Hamilton).
 	 * Dipakai untuk distribusi pilihan jawaban agar jumlah semua batang persen tidak
@@ -5898,6 +6089,84 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		return hasil;
 	}
 
+	/**
+	 * <b>Tujuan:</b> Membangun satu panel HTML berisi diagram <i>donut</i> berbasis CSS murni
+	 * beserta legendanya, untuk memvisualisasikan distribusi BEBERAPA kategori sekaligus dalam
+	 * satu lingkaran. Dipakai pada dashboard {@link #analsisButirSoal} untuk tiga panel:
+	 * "Kualitas Soal (Daya Pembeda)" (Gunakan/Perlu Revisi/Ganti), "Tingkat Kesukaran"
+	 * (Mudah/Sedang/Sulit), dan "Keikutsertaan Peserta" (Sudah Ikut/Belum Ikut).
+	 *
+	 * <p><b>Perbedaan dengan {@link #buildStatistikPieHtml}.</b> {@code buildStatistikPieHtml}
+	 * hanya mampu menampilkan DUA busur (nilai vs sisa) dengan warna tetap hijau/abu-abu dan
+	 * menampilkan angka persen besar di tengah lingkaran. Method ini menerima array
+	 * {@code labels}/{@code counts}/{@code colors} sepanjang N sehingga dapat menggambar N busur
+	 * berwarna bebas, tetapi lubang tengahnya dibiarkan polos (tanpa angka) karena tidak ada satu
+	 * angka tunggal yang mewakili distribusi multi-kategori.</p>
+	 *
+	 * <p><b>Cara kerja.</b></p>
+	 * <ol>
+	 *   <li><b>Kerangka kartu.</b> Sebuah {@code <div>} berlatar putih, sudut membulat 8px,
+	 *       bayangan lembut, dan {@code min-width:240px} agar kartu tidak menyempit berlebihan
+	 *       ketika induknya adalah container {@code display:flex;flex-wrap:wrap}.</li>
+	 *   <li><b>Judul.</b> Ditampilkan 13px bold warna biru tua {@code #1e3a5f}, diloloskan lewat
+	 *       {@link #escapeStatHtml(String)}.</li>
+	 *   <li><b>Perakitan {@code conic-gradient}.</b> Untuk setiap kategori dihitung
+	 *       {@code pct = (int)(counts[i] * 100.0 / total)} — pembulatan ke bawah (truncation),
+	 *       BUKAN {@code Math.round}. Variabel {@code soFar} mengakumulasi posisi awal busur
+	 *       berikutnya, sehingga tiap kategori menghasilkan potongan gradien
+	 *       {@code "<warna> <soFar>% <soFar+pct>%"}. Bila total akumulasi kurang dari 100%
+	 *       (akibat pembulatan ke bawah, atau karena jumlah {@code counts} memang lebih kecil
+	 *       dari {@code total}), sisa lingkaran diisi warna abu-abu {@code #e2e8f0}. Konsekuensi
+	 *       yang perlu diketahui: busur pada donut ini bisa berjumlah 98&ndash;99%, berbeda dengan
+	 *       batang distribusi pilihan jawaban yang sengaja dinormalisasi tepat 100% memakai
+	 *       {@link #persenDistribusiSeratus(int[], int)}. Perbedaan ini disengaja — sisa abu-abu
+	 *       pada donut justru bermakna "soal yang belum terkategori" (mis. soal berstatus
+	 *       "Blm dikerjakan" yang tidak masuk hitungan Gunakan/Revisi/Ganti mana pun).</li>
+	 *   <li><b>Lingkaran.</b> Div 72&times;72px {@code border-radius:50%} dengan latar
+	 *       {@code conic-gradient(...)}, di dalamnya div putih 48&times;48px bermargin
+	 *       {@code 12px auto} yang membentuk "lubang" donut.</li>
+	 *   <li><b>Legenda.</b> Satu baris per kategori: titik bulat 10px berwarna sesuai
+	 *       {@code colors[i]}, nama kategori, lalu jumlah dan persentase yang didorong ke kanan
+	 *       memakai {@code margin-left:auto}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Kontrak parameter.</b> Ketiga array {@code labels}, {@code counts}, dan {@code colors}
+	 * HARUS sepanjang N yang sama. Perakitan gradien mengiterasi {@code counts.length} sedangkan
+	 * legenda mengiterasi {@code labels.length}; bila panjangnya berbeda akan terjadi
+	 * {@link ArrayIndexOutOfBoundsException} pada {@code colors[i]}. Tidak ada validasi defensif
+	 * di sini karena seluruh pemanggil adalah kode internal {@link #buildAnalisisVisualHtml}
+	 * yang menuliskan ketiga array sebagai literal berdampingan.</p>
+	 *
+	 * <p><b>Penjagaan pembagian nol.</b> Bila {@code total <= 0}, seluruh {@code pct} bernilai 0
+	 * sehingga lingkaran tampil sepenuhnya abu-abu dan legenda menampilkan "0 (0%)" —
+	 * tidak melempar {@link ArithmeticException} dan tidak menghasilkan {@code NaN}.</p>
+	 *
+	 * <p><b>Keamanan.</b> {@code title} dan setiap {@code labels[i]} diloloskan lewat
+	 * {@link #escapeStatHtml(String)}. {@code counts[i]} adalah {@code int} sehingga aman.
+	 * {@code colors[i]} TIDAK di-escape karena disisipkan ke dalam nilai properti CSS; nilainya
+	 * berasal dari literal hex di kode pemanggil, bukan dari database maupun input pengguna.
+	 * Jangan pernah meneruskan warna yang berasal dari data pengguna ke parameter ini tanpa
+	 * validasi format terlebih dahulu — CSS injection lewat {@code conic-gradient} memungkinkan
+	 * pemuatan resource eksternal.</p>
+	 *
+	 * <p><b>Batasan browser.</b> {@code conic-gradient} membutuhkan Chrome 69+/Firefox 83+/
+	 * Safari 12.1+. Pada browser lama lingkaran akan tampil polos tanpa busur; tidak ada
+	 * fallback yang disediakan.</p>
+	 *
+	 * <p><b>Sifat.</b> Sepenuhnya {@code static} dan stateless — tidak menyentuh field instance,
+	 * session Hibernate, maupun komponen ZK. Aman dipanggil dari thread latar (memang dipanggil
+	 * dari thread latar {@link #analsisButirSoal} melalui {@link #buildAnalisisVisualHtml}).</p>
+	 *
+	 * @param title  judul kartu yang ditampilkan di atas lingkaran; di-escape HTML
+	 * @param total  penyebut persentase, umumnya jumlah soal atau jumlah peserta; bila
+	 *               {@code <= 0} seluruh persentase menjadi 0
+	 * @param labels array nama kategori sepanjang N; di-escape HTML
+	 * @param counts array jumlah per kategori sepanjang N, berpasangan indeks dengan {@code labels}
+	 * @param colors array warna CSS (mis. {@code "#22c55e"}) sepanjang N; TIDAK di-escape
+	 * @return potongan HTML lengkap satu kartu donut, siap di-{@code append} ke HTML dashboard
+	 * @see #buildAnalisisVisualHtml(java.util.List, int[], double[])
+	 * @see #buildStatistikPieHtml(String, int, int, String, String)
+	 */
 	private static String buildMultiDonutHtml(String title, int total, String[] labels, int[] counts, String[] colors) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border-radius:8px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.08);min-width:240px;'>");

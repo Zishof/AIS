@@ -464,19 +464,106 @@ public class AbsensiHelper {
 	private Textbox meetLink;
 	/** Baris keterangan "link Meet default mewarisi pertemuan sebelumnya"; mengikuti {@link #rowMeet}. */
 	private Row rowLinkMeetButton;
+	/**
+	 * Checkbox "Pertemuan dan absensi harus sesuai dengan jadwal yang telah ditentukan"
+	 * ({@link Pertemuan#getPerkulaiahnOnlineHarusSesuaiJadwal()}) — SAKELAR UTAMA penegakan batas waktu:
+	 * {@link #ubahTerlewat(Pertemuan)} hanya dapat menghasilkan {@code terlewat=true} bila flag ini menyala,
+	 * dan beberapa gerbang tampilan mengecek {@code !getPerkulaiahnOnlineHarusSesuaiJadwal() || !terlewat}.
+	 * Mematikan checkbox ini karenanya MEMBUKA kembali pengisian kehadiran untuk pertemuan yang sudah lewat.
+	 *
+	 * <p>Perubahannya adalah salah satu dari dua pemicu (bersama {@link #tanggal}) yang memaksa
+	 * {@link #reload(Pertemuan)} penuh. Dikunci ({@code setDisabled}) bila perkuliahan menetapkan
+	 * {@code getWaktuPerkuliahanOnlineBebas()}, dan seluruh barisnya disembunyikan bila viewer adalah dosen dan
+	 * konfigurasi {@code absen_tanpa_batas_waktu} menyala.</p>
+	 */
 	private MyCheckboxConfig perkulaiahnOnlineHarusSesuaiJadwal;
+	/**
+	 * Baris "Link Media Online *" yang memuat {@link #linkLain}; terlihat hanya saat {@link #onlineMenggunakan}
+	 * bernilai {@link Pertemuan#LAIN}.
+	 */
 	private Row rowLinkLain;
+	/**
+	 * Kotak isian URL media daring lain di luar daftar platform yang disediakan
+	 * ({@link Pertemuan#getLainLink()}), dibuat di {@link #bagianInfo} dan dipersist lewat {@code updateLocal};
+	 * dipakai juga oleh tombol "Tes Online Sekarang".
+	 */
 	private Textbox linkLain;
+	/** Baris keterangan bantuan untuk media online lain-lain; mengikuti visibilitas {@link #rowLinkLain}. */
 	private Row rowLinkLainKeterangan;
+	/**
+	 * Menyimpan hasil {@link Common#isMobile()} yang diambil sekali di {@link #mainInit}. Menentukan tata letak
+	 * global (grid vertikal bertumpuk vs. {@link Borderlayout} tiga panel) dan dipakai ulang oleh
+	 * {@link #tampilRowAbsensi} untuk memilih {@link Vbox} (mobile) atau {@link Hbox} (desktop) sebagai
+	 * pembungkus kartu presensi.
+	 */
 	private boolean mobile;
+	/**
+	 * Checkbox "Dosen Diizinkan / Boleh Absen Online"
+	 * ({@link Pertemuan#getDosenBolehAbsenMenggunakanFoto()}) — mengizinkan dosen menandai kehadirannya sendiri
+	 * lewat bukti foto/video. Dikunci ({@code setDisabled}) bila {@link #perkuliahan} induk melarangnya
+	 * ({@code !perkuliahan.getDosenBolehAbsenMenggunakanFoto()}), sehingga izin tingkat pertemuan tidak bisa
+	 * melampaui izin tingkat mata kuliah.
+	 */
 	private MyCheckboxConfig dosenBolehAbsenMenggunakanFoto;
+	/**
+	 * Checkbox "Mahasiswa Diizinkan / Boleh Absen Online"
+	 * ({@link Pertemuan#getMahasiswaBolehAbsenMenggunakanFoto()}); kembaran
+	 * {@link #dosenBolehAbsenMenggunakanFoto} untuk sisi peserta, dengan aturan penguncian yang sama terhadap
+	 * {@link Perkuliahan#getMahasiswaBolehAbsenMenggunakanFoto()}.
+	 */
 	private MyCheckboxConfig mahasiswaBolehAbsenMenggunakanFoto;
+	/**
+	 * Baris kontainer panel "Sejarah Absensi Online" pada daftar presensi. Dibersihkan
+	 * ({@link Common#clear}) dan diisi ulang setiap kali {@link #tampilkanAbsensiOnline(Pertemuan)} dipanggil,
+	 * sehingga panel riwayat dapat disegarkan tanpa membangun ulang seluruh tab.
+	 */
 	private Row rowUtamaAbsensiOnline;
+	/**
+	 * Toleransi menit SEBELUM jam mulai pertemuan di mana peserta sudah boleh melakukan absensi online
+	 * ({@link Pertemuan#getBolehAbsenSebelumWaktuMulaiDalamMenit()}). Dikunci bersama
+	 * {@link #bolehAbsenSetelahWaktuMulaiDalamMenit} bila perkuliahan menetapkan
+	 * {@code getBolehAbsenWaktuIkutiPerkuliahan()} (jendela waktu diambil dari jadwal perkuliahan, bukan diisi
+	 * manual per pertemuan).
+	 */
 	private MyIntbox bolehAbsenSebelumWaktuMulaiDalamMenit;
+	/**
+	 * Toleransi menit SETELAH jam mulai pertemuan di mana peserta masih boleh melakukan absensi online
+	 * ({@link Pertemuan#getBolehAbsenSetelahWaktuMulaiDalamMenit()}); lihat
+	 * {@link #bolehAbsenSebelumWaktuMulaiDalamMenit} untuk aturan penguncian yang sama.
+	 */
 	private MyIntbox bolehAbsenSetelahWaktuMulaiDalamMenit;
+	/**
+	 * Status kehadiran DEFAULT yang dipakai untuk peserta yang belum memiliki catatan absensi pada pertemuan
+	 * ini. Ditentukan di {@link #mainInit} dengan mencari {@link Statusabsensi} yang kodenya MENGANDUNG
+	 * (bukan sama dengan) nilai konfigurasi {@code default_status_kehadiran} — pencocokan substring
+	 * case-insensitive, sehingga kode konfigurasi yang terlalu pendek dapat mencocoki status pertama yang
+	 * kebetulan mengandungnya; bila tidak ada yang cocok, jatuh ke {@link ConstantValues#BELUM_ABSEN}.
+	 * Diteruskan ke {@link #tampilRowAbsensi} sebagai status pra-pilih radiogroup.
+	 */
 	private Statusabsensi status = null;
+	/**
+	 * Pengguna yang sedang login ({@link Common#getCurrentUser()}), di-cache sekali di {@link #mainInit} dan
+	 * dipakai ulang oleh {@link #bagianInfo} dan panel-panel lain untuk membedakan peran
+	 * (dosen/admin vs. mahasiswa/siswa/calon/peserta kursus).
+	 *
+	 * <p>Perhatikan bahwa beberapa method ({@link #createListMahasiswaAbsensi},
+	 * {@link #tampilkanAbsensiOnline}, {@link MahasiswaIzinRenderer}) sengaja mengambil ULANG
+	 * {@code Common.getCurrentUser()} ke variabel lokal alih-alih memakai field ini — keduanya menunjuk
+	 * pengguna yang sama dalam satu request, namun field ini tetap {@code null} sampai {@link #mainInit}
+	 * dijalankan, sehingga method statis di kelas ini tidak boleh mengandalkannya.</p>
+	 */
 	private Tbmuser tbmuser = null;
+	/**
+	 * Combobox "Lokasi Pertemuan" — memilih {@link Lokasi} aktif (beserta lat/lng-nya) yang menjadi TITIK PUSAT
+	 * geofencing absensi online. Dibuat di {@link #bagianInfo} dengan opsi tambahan "Semua Lokasi" (nilai
+	 * kosong = tanpa pembatasan lokasi).
+	 */
 	private Combobox lokasi;
+	/**
+	 * Radius geofencing dalam KILOMETER dari {@link #lokasi} ({@link Pertemuan#getJarak()}): koordinat GPS yang
+	 * dikirim peserta saat absensi online dibandingkan terhadap radius ini untuk menentukan apakah bukti lokasi
+	 * dianggap sah. Dibuat di {@link #bagianInfo} dan dipersist lewat {@code updateLocal}.
+	 */
 	private MyDoublebox jarak;
 
 	/**
@@ -3178,9 +3265,47 @@ public class AbsensiHelper {
 		return maps;
 	}
 
+	/**
+	 * Riwayat absensi online pertemuan yang sedang ditampilkan, hasil terakhir
+	 * {@link #reloadSejarahAbsensiOnline(Pertemuan)}: key = identitas entri kejadian scan berformat
+	 * {@code "<tanggalJam>:<prefiks><id>"} (prefiks {@code "mhs"} untuk {@link Mahasiswa}, {@code "dsn"} untuk
+	 * {@link Dosen}), value = peta field mentah entri tersebut ({@code ..._foto}, {@code ..._img},
+	 * {@code ..._lokasi}, {@code ..._info}). Berupa {@link TreeMap} sehingga entri terurut naik menurut key,
+	 * yang karena format key berarti terurut menurut waktu scan.
+	 *
+	 * <p>Diisi di awal {@link #tampilkanAbsensiOnline(Pertemuan)} dan dipakai ulang oleh listener tombol
+	 * per-baris di panel yang sama (nilai yang sudah dimuat, bukan query baru). Sebaliknya, tombol PERSETUJUAN
+	 * MASSAL sengaja memanggil {@link #reloadSejarahAbsensiOnline} lagi ke variabel lokal bernama sama agar
+	 * bekerja atas riwayat termutakhir saat tombol diklik, bukan snapshot saat panel dirender.</p>
+	 */
 	private TreeMap<String, Map<String, String>> maps;
+	/**
+	 * Kata kunci pencarian pada panel "Sejarah Absensi Online", diambil dari kotak cari di toolbar panel
+	 * tersebut. Dicocokkan sebagai substring case-insensitive terhadap NIM atau nama {@link Mahasiswa}, atau
+	 * NIDN atau nama {@link Dosen}, pada setiap entri riwayat; string kosong berarti tanpa penyaringan.
+	 * Disimpan sebagai field (bukan variabel lokal) agar nilainya bertahan melintasi render ulang panel.
+	 */
 	private String namaPencarianOnline = "";
+	/**
+	 * Hasil evaluasi terakhir {@link #ubahTerlewat(Pertemuan)}: {@code true} bila pengisian kehadiran untuk
+	 * pertemuan ini sudah melewati batas toleransi hari yang berlaku. Menjadi salah satu komponen hampir
+	 * seluruh gerbang "boleh mengubah absensi" di kelas ini, dan diteruskan sebagai argumen {@code terlewat}
+	 * ke method statis {@code createStatusKehadiran*}/{@code boleh*} agar kartu kehadiran dosen memakai
+	 * keputusan yang sama.
+	 *
+	 * <p>Selalu {@code false} bila konfigurasi {@code absen_harus_sesuai_waktu} mati, dan hanya bisa menjadi
+	 * {@code true} bila {@link Pertemuan#getPerkulaiahnOnlineHarusSesuaiJadwal()} menyala. Nilai ini dihitung
+	 * ULANG pada setiap {@link #bagianInfo} dan pada setiap listener {@code updateLocal}/{@code sesuaikan},
+	 * namun komponen yang sudah terlanjur dirender tidak ikut berubah sampai {@link #reload(Pertemuan)}
+	 * membangun ulang tab.</p>
+	 */
 	private boolean terlewat = false;
+	/**
+	 * Pesan penjelasan yang ditampilkan pada baris "Informasi" ketika {@link #terlewat} bernilai {@code true},
+	 * berisi tanggal saat ini, selisih hari terhadap jadwal pertemuan, dan besar toleransi yang berlaku.
+	 * Disusun di {@link #ubahTerlewat(Pertemuan)} pada setiap pemanggilan, termasuk saat {@link #terlewat}
+	 * ternyata {@code false} (pesan tetap disusun tetapi tidak dirender).
+	 */
 	private String terlewatInfo = "";
 
 	/**

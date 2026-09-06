@@ -183,6 +183,68 @@ import ais.ui.util.SmartDateTimeUtil;
  * bila belum ada, agar file Excel dan data penilaian konsisten.</li>
  * </ul>
  *
+ * <p><b>Peran file ini dalam siklus hidup ujian.</b> Tiga lapis data ujian dipegang oleh tiga
+ * helper yang berbeda dan file ini adalah lapis TENGAH — <b>penjadwalan &amp; penyiapan</b>, yaitu
+ * segala sesuatu yang terjadi SEBELUM peserta mengerjakan soal:
+ * <ol>
+ * <li><b>Bahan ujian</b> ({@link Ujian}, {@link UjianPunyaSoal}, {@link BankSoal}) — dikelola
+ * oleh {@code UjianAction} dan {@code DetailUjianHelper}; file ini hanya <i>membukanya</i> lewat
+ * tombol "Kelola Soal Ujian" dan "Buat Ujian"/"Ambil Bahan Ujian".</li>
+ * <li><b>Penjadwalan &amp; penyiapan (FILE INI)</b> — menautkan satu {@link Ujian} ke satu
+ * {@link Pertemuan} sebagai {@link PertemuanPunyaUjian}, lalu mengatur SEMUA parameter
+ * pelaksanaannya: jumlah soal yang ditampilkan, jumlah percobaan, jendela waktu mulai/selesai,
+ * durasi, pengacakan urutan, saklar anti-curang, siapa yang tidak perlu ikut, komponen penilaian
+ * tujuan (atau pemetaan nomor soal ke Sub-CPMK bila kurikulum OBE), serta memindahkan ujian ke
+ * pertemuan lain. Di sini pula assignment soal↔peserta dipastikan lengkap lewat
+ * {@link #prosesUlangSoal}.</li>
+ * <li><b>Pengerjaan &amp; hasil</b> ({@link HasilUjianMahasiswa},
+ * {@link HasilUjianMahasiswaDetail}) — dikerjakan {@code ProsesUjianHelper} (saat ujian
+ * berlangsung), {@code HasilUjianMahasiswaHelper} (rekap hasil setelah ujian), dan
+ * {@code KoreksiHasilUjian}/{@code DetailperkuliahanForPenilaianHelper} (koreksi &amp;
+ * penilaian). File ini hanya MEMBACA lapis ini untuk menampilkan status peserta, dan
+ * mendelegasikan setiap aksi pengerjaan ke {@code ProsesUjianHelper}.</li>
+ * </ol>
+ * Satu-satunya tempat file ini MENULIS ke lapis ketiga adalah {@link #prosesUlangSoal} (membuat
+ * {@link HasilUjianMahasiswaDetail} yang belum ada) dan tombol "Hapus" pada
+ * {@link DetailPertemuanRenderer#render(Row, Object)} (menghapus seluruh hasil ujian milik
+ * {@link PertemuanPunyaUjian} yang dihapus, lewat SQL mentah).
+ *
+ * <p><b>FAKTA ARSITEKTUR (bukan bug yang perlu "diperbaiki" saat menyunting file ini) —
+ * render menulis ke database.</b> Tampilan di file ini bukan murni baca. Beberapa titik
+ * melakukan mutasi saat merender atau saat kontrol disentuh, tanpa tombol simpan terpisah:
+ * <ul>
+ * <li><b>Autosave per field.</b> Hampir setiap kontrol pengaturan di
+ * {@link DetailPertemuanRenderer#render(Row, Object)} memanggil
+ * {@code Common.refreshUpdate(session, ppu)} langsung pada {@code onChange}/{@code onCheck}.
+ * Footer "Simpan/Batal" pada modal {@link #bukaPengaturanUjian} karena itu hanya memuat ulang
+ * dan menutup — datanya sudah tersimpan sejak field diubah.</li>
+ * <li><b>Penulisan saat render.</b> Bila {@code ppu.getJmlDitampilkan()} kosong atau {@code <= 0},
+ * {@code render} menghitung jumlah soal riil lalu MENYIMPANNYA ke DB — sekadar membuka daftar
+ * ujian bisa mengubah data.</li>
+ * <li><b>Mutasi entity tanpa simpan.</b> Bila konfigurasi
+ * {@code tampilkan_ujian_dibatasi_waktu} nonaktif, {@code render} memanggil
+ * {@code ppu.setDibatasiWaktu(true)} tanpa {@code refreshUpdate}; entity menjadi kotor (dirty) di
+ * sesi Hibernate dan bisa ikut ter-flush oleh operasi lain pada request yang sama. Ini varian
+ * lokal dari pola mutasi-field-di-jalur-baca yang tercatat sistemik di modul
+ * {@code ais/database/model/}.</li>
+ * </ul>
+ *
+ * <p><b>FAKTA ARSITEKTUR — gerbang peran ditulis ulang manual, bukan lewat satu helper.</b>
+ * Predikat "pengguna saat ini pengelola/dosen, bukan peserta" tidak punya method tunggal; ia
+ * dieja ulang dengan tangan di ~20 titik dan TIDAK seragam. Ejaan terlengkap ada di kontrol
+ * "Pindahkan ke pertemuan" ({@code mahasiswa}, {@code biodataCalonMahasiswa},
+ * {@code tbmuser.getMahasiswa()}, {@code getBiodataCalonMahasiswa()}, {@code getPesertaKursus()},
+ * {@code getSiswa()}, {@code getCalonSiswa()} semuanya {@code null}); ejaan lain menghilangkan
+ * salah satu peran dan justru mengulang {@code getSiswa() == null} dua sampai tiga kali. Selain
+ * itu semua gerbang ini bersifat UI-only ({@code setVisible(...)}) — listener {@code onClick}
+ * tidak memeriksa ulang peran. Jangan menyalin salah satu ejaan ke kode baru; lihat tugas
+ * penyeragaman {@code task_d45feed7}. Perlu dicatat pula bahwa file ini TIDAK memeriksa
+ * kepemilikan mata kuliah sama sekali: tidak ada padanan {@code getMelihatDataSatkerLain()}
+ * atau pemeriksaan bahwa dosen yang login benar-benar mengampu
+ * {@code pertemuan.getPerkuliahan()}; cakupan data sepenuhnya diserahkan kepada
+ * {@code pertemuan.ambilPertemuanPunyaUjianTotal(tbmuser)} dan kepada gerbang hak akses menu
+ * milik halaman pemanggil ({@code CommonPrivilages}).
+ *
  * <p><b>Entity Hibernate utama:</b> {@link PertemuanPunyaUjian} (jadwal satu {@link Ujian} pada
  * satu {@link Pertemuan}), {@link Ujian}/{@link UjianPunyaSoal}/{@link BankSoal} (bank soal),
  * {@link HasilUjianMahasiswa}/{@link HasilUjianMahasiswaDetail} (progres &amp; jawaban per
