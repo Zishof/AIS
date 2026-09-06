@@ -672,7 +672,27 @@ public class TagihanUIBuilder {
 		gripRincianBiayaGlobal.setParent(rows);
 		ais.ui.util.ZkCompat.setSpans(gripRincianBiayaGlobal, "2");
 
+		/**
+		 * Pendengar pemuatan bersama yang dipakai oleh ketiga kombobox filter sekaligus dan
+		 * juga dipanggil langsung untuk pemuatan pertama. Seluruh logika pemuatan rincian
+		 * tagihan berada di dalam method {@code load()} miliknya.
+		 */
 		final EventListener itemBiayaEventListener = new EventListener() {
+			/**
+			 * Mengembalikan referensi ke instance pendengar ini sendiri.
+			 *
+			 * <p>
+			 * Diperlukan karena {@code this} di dalam kelas anonim yang bersarang lebih dalam
+			 * (mis. pendengar {@code onClick} tombol "Bayar Sekarang") merujuk ke kelas
+			 * anonim terdalam, bukan ke pendengar pemuatan ini. Referensi tersebut
+			 * diteruskan sebagai argumen ke {@link Common#displayWindow} agar jendela
+			 * pembayaran yang dibuka dapat memanggil balik pendengar ini ketika ditutup,
+			 * sehingga rincian tagihan otomatis dimuat ulang dan mencerminkan pembayaran
+			 * yang baru saja tercatat.
+			 * </p>
+			 *
+			 * @return pendengar pemuatan rincian tagihan ini
+			 */
 			private EventListener getThis() {
 				return this;
 			}
@@ -2426,7 +2446,36 @@ public class TagihanUIBuilder {
 								return null;
 							}
 						}, new ais.common.AsyncTaskManager.UITask() {
-							/** Dijalankan kembali di UI thread setelah {@code doInBackground} selesai: menandai progres 100% lalu melepas kontainer progres inline dan indikator mengambang. */
+							/**
+							 * Penutup yang dijalankan kembali di benang UI setelah
+							 * {@code doInBackground} selesai.
+							 *
+							 * <p>
+							 * Tugasnya murni kosmetik: menaikkan indikator mengambang ke 100% dengan
+							 * pesan "Tagihan Siap", lalu <b>melepas</b> kontainer progres inline dari
+							 * area hasil dan mematikan indikator mengambang. Tidak ada angka tagihan
+							 * yang disentuh di sini — seluruh hasil sudah ditempelkan ke pohon komponen
+							 * dan dipublikasikan ke peta {@code semua} di dalam
+							 * {@code doInBackground}.
+							 * </p>
+							 * <p>
+							 * Pelepasan kontainer progres dan indikator mengambang diletakkan di dalam
+							 * blok {@code finally}, sehingga kegagalan menampilkan pesan 100% tidak
+							 * meninggalkan indikator yang menggantung di layar selamanya.
+							 * </p>
+							 * <p>
+							 * Perlu dicatat bahwa method ini dipanggil tanpa memandang berhasil atau
+							 * tidaknya perhitungan: pesan "Tagihan Siap" tetap muncul walaupun seluruh
+							 * task gagal dan area hasil hanya berisi kotak "Info Pembayaran" yang
+							 * menyatakan belum ada informasi yang dapat ditampilkan.
+							 * </p>
+							 *
+							 * @param backgroundResult nilai kembalian {@code doInBackground}, yang selalu
+							 *                         {@code null} pada implementasi ini dan karena itu
+							 *                         tidak dipakai
+							 * @throws Exception dinyatakan demi kontrak
+							 *                   {@code AsyncTaskManager.UITask}
+							 */
 							@Override
 							public void updateUI(Object backgroundResult) throws Exception {
 								try {
@@ -2443,7 +2492,36 @@ public class TagihanUIBuilder {
 						});
 			}
 
-			/** Kontrak {@link EventListener}: pemanggilan langsung ({@code arg0=null}, mis. dari akhir {@link #loadTagihan}) memuat segera; pemanggilan dari event UI (perubahan kombobox) ditunda lewat timer default agar state komponen (mis. item terpilih) sudah settle sebelum dibaca. */
+			/**
+			 * Pintu masuk kontrak {@link EventListener} yang membedakan dua cara pemicuan.
+			 *
+			 * <ul>
+			 * <li><b>{@code arg0} bernilai {@code null}</b> — pemanggilan langsung dari kode,
+			 * yaitu pemuatan pertama di akhir {@code loadTagihan}. Dalam hal ini
+			 * {@code load()} dijalankan <b>seketika</b>, karena seluruh komponen filter baru
+			 * saja dibangun dan nilainya sudah pasti.</li>
+			 * <li><b>{@code arg0} berisi peristiwa</b> — berasal dari {@code onChange} salah
+			 * satu kombobox filter. Dalam hal ini {@code load()} <b>ditunda</b> lewat
+			 * {@link Common#createDefaultTimer(EventListener)}. Penundaan ini bukan sekadar
+			 * kosmetik: pada saat {@code onChange} dijalankan, komponen lain yang ikut
+			 * berubah pada putaran yang sama (mis. penguncian kombobox semester oleh
+			 * {@code load()} sebelumnya, atau item terpilih yang baru saja diganti) belum
+			 * tentu selesai diperbarui. Membaca keadaan kombobox terlalu awal dapat
+			 * menghasilkan rentang semester yang tidak sesuai dengan yang dilihat
+			 * pengguna.</li>
+			 * </ul>
+			 * <p>
+			 * Konsekuensi yang perlu diketahui: karena setiap perubahan filter menjadwalkan
+			 * pemuatan baru tanpa membatalkan yang sedang berjalan, mengubah beberapa filter
+			 * berturut-turut dengan cepat dapat menjalankan beberapa pemuatan sekaligus.
+			 * Masing-masing akan mengosongkan area hasil dan peta {@code semua} pada
+			 * gilirannya, sehingga hasil akhir yang tampil bergantung pada urutan
+			 * penyelesaian, bukan urutan permintaan.
+			 * </p>
+			 *
+			 * @param arg0 peristiwa pemicu, atau {@code null} untuk pemuatan segera
+			 * @throws Exception diteruskan dari {@code load()}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				if (arg0 == null) {
