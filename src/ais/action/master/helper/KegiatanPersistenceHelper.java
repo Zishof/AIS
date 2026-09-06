@@ -2305,6 +2305,15 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Pintasan {@code bangunRekapTagihan(kegiatan, listDetail, false)}: rekap tagihan dengan
+	 * perhitungan BEKU (tanpa mengikuti KRS terkini) tetapi DENGAN validasi item asing.
+	 *
+	 * @param kegiatan   kegiatan sumber.
+	 * @param listDetail detail kegiatan aktif.
+	 * @return teks JSON kolom {@code tagihans}.
+	 * @throws JSONException bila penyusunan objek JSON gagal.
+	 */
 	private static String bangunRekapTagihan(Kegiatan kegiatan, List<DetailKegiatan> listDetail) throws JSONException {
 		return bangunRekapTagihan(kegiatan, listDetail, false);
 	}
@@ -2368,6 +2377,41 @@ public class KegiatanPersistenceHelper {
 		return kegiatan.hitungPersentaseLunasAktual();
 	}
 
+	/**
+	 * Membangun teks JSON kolom {@code Kegiatan.tagihans} dari daftar detail kegiatan aktif —
+	 * implementasi penuh yang menjadi muara semua overload lain.
+	 *
+	 * <p><b>Urutan pemrosesan tiap detail:</b> lewati item asing bila penyaringan aktif; lewati
+	 * detail tanpa pengaturan bulanan bila jenis kegiatan bersifat "hanya angsuran"; susun kunci
+	 * ({@link #buatKeyTagihan(DetailKegiatan)}); hitung nominal
+	 * ({@link #hitungJumlahTagihan(Kegiatan, DetailKegiatan, boolean)}); normalisasi terhadap
+	 * diskon historis; balik tanda untuk item {@code DIKALI_NILAI_MINUS}; tulis lewat
+	 * {@link #putTagihanStabil(JSONObject, String, Double, java.util.Map)}. Hasilnya disaring
+	 * {@link #murnikan(JenisKegiatan, String)} lalu dilindungi
+	 * {@link #lindungiNilaiDiskonTersimpan(Kegiatan, String, java.util.Map)}.
+	 *
+	 * <p><b>Penjaga hasil kosong transien.</b> Saat "Hitung Ulang" berjalan, detail lama
+	 * dinonaktifkan sebelum detail baru aktif, sehingga daftar detail aktif dapat SEMENTARA kosong
+	 * dan rekap terbangun sebagai {@code {}}. Bila itu terjadi PADAHAL nilai {@code tagihans} yang
+	 * tersimpan tidak kosong, nilai tersimpan dipertahankan alih-alih ditimpa kosong — inilah yang
+	 * mencegah tagihan dasbor berkedip ke nominal bruto.
+	 *
+	 * <p>Efek sampingnya: bila seluruh tagihan memang sah dihapus sehingga rekap seharusnya menjadi
+	 * {@code {}}, kolom tersimpan TIDAK akan pernah menjadi kosong lewat jalur ini. Pengosongan
+	 * yang sah harus ditempuh lewat jalur penghapusan daftar aktif.</p>
+	 *
+	 * @param kegiatan          kegiatan sumber; boleh {@code null}.
+	 * @param listDetail        detail kegiatan aktif; boleh {@code null}.
+	 * @param live              bila {@code true}, item ber-rumus KRS non-manual dihitung ulang
+	 *                          mengikuti KRS terkini (dipakai sebelum mencetak bukti); jalur async
+	 *                          selalu {@code false}.
+	 * @param validasiItemAsing bila {@code true} dan gerbang konfigurasi aktif, item yang tidak
+	 *                          berlaku bagi mahasiswa ini DAN belum pernah dibayar akan dilewati.
+	 *                          Jalur worker async memakai {@code false} agar tidak memicu
+	 *                          sinkronisasi KRS rekursif di thread latar.
+	 * @return teks JSON kolom {@code tagihans}.
+	 * @throws JSONException bila penyusunan objek JSON gagal.
+	 */
 	private static String bangunRekapTagihan(Kegiatan kegiatan, List<DetailKegiatan> listDetail, boolean live,
 			boolean validasiItemAsing) throws JSONException {
 		JSONObject jsonTagihan = new JSONObject();
@@ -2437,6 +2481,28 @@ public class KegiatanPersistenceHelper {
 		return hasilTagihan;
 	}
 
+	/**
+	 * Menahan agar nominal hasil rekap ulang tidak pernah lebih BESAR dari nominal tersimpan untuk
+	 * kunci yang punya diskon historis: bila nilai baru melebihi nilai lama, nilai lama yang
+	 * dipertahankan.
+	 *
+	 * <p>Ini jaring pengaman terakhir terhadap hilangnya metadata diskon saat regenerasi detail
+	 * kegiatan — tanpa ini, satu siklus regenerasi yang kehilangan diskon akan menaikkan tagihan
+	 * mahasiswa kembali ke nominal bruto.
+	 *
+	 * <p><b>Konsekuensi yang harus disadari:</b> kenaikan tagihan yang SAH pada kunci berdiskon
+	 * (mis. nominal biaya memang dinaikkan) juga ikut tertahan selama diskon historis masih
+	 * terbaca. Penurunan tagihan tidak terpengaruh. Kunci tanpa diskon historis tidak disentuh sama
+	 * sekali.</p>
+	 *
+	 * <p>Setiap kegagalan penguraian JSON menghasilkan {@code hasilTagihan} apa adanya, sehingga
+	 * method ini tidak pernah menggagalkan pembangunan rekap.</p>
+	 *
+	 * @param kegiatan            kegiatan pemilik nilai tersimpan.
+	 * @param hasilTagihan        teks JSON hasil rekap ulang.
+	 * @param diskonTerbesarPerKey peta diskon historis penentu kunci mana yang dilindungi.
+	 * @return teks JSON yang sudah dilindungi, atau {@code hasilTagihan} bila tidak ada perubahan.
+	 */
 	private static String lindungiNilaiDiskonTersimpan(Kegiatan kegiatan, String hasilTagihan,
 			Map<String, Double> diskonTerbesarPerKey) {
 		if (kegiatan == null || diskonTerbesarPerKey == null || diskonTerbesarPerKey.isEmpty()
@@ -2472,10 +2538,40 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Pintasan {@code hitungJumlahTagihan(kegiatan, detail, false)} — perhitungan beku, tidak
+	 * mengikuti KRS terkini.
+	 *
+	 * @param kegiatan kegiatan sumber.
+	 * @param detail   detail kegiatan yang dihitung.
+	 * @return nominal tagihan; {@code 0.0} bila tidak dapat dihitung.
+	 */
 	private static Double hitungJumlahTagihan(Kegiatan kegiatan, DetailKegiatan detail) {
 		return hitungJumlahTagihan(kegiatan, detail, false);
 	}
 
+	/**
+	 * Menghitung nominal tagihan satu {@link DetailKegiatan} dengan mendelegasikan ke overload
+	 * {@code Kegiatan.ambilJumlahTagihan(...)} yang sesuai.
+	 *
+	 * <ul>
+	 * <li><b>Detail bulanan</b> (punya {@link PengaturanPembayaranBulanan}): memakai overload
+	 * bulanan yang turut menerima mahasiswa dan semester.</li>
+	 * <li><b>Detail biasa, {@code live=false}</b>: memakai nominal beku yang tersimpan pada detail.</li>
+	 * <li><b>Detail biasa, {@code live=true} dan item memenuhi {@code bolehHitungUlangLive}</b>:
+	 * {@code nilaiBiayaBaru} disegarkan mengikuti KRS terkini, lalu nominal dihitung TANPA detail
+	 * kegiatan sehingga hasilnya berasal dari rumus, bukan dari nilai beku.</li>
+	 * </ul>
+	 *
+	 * <p>Seluruh kegagalan dipetakan ke {@code 0.0} tanpa dicatat, sehingga satu detail bermasalah
+	 * tidak menggagalkan rekap secara keseluruhan — tetapi juga berarti kesalahan perhitungan pada
+	 * satu item hanya terlihat sebagai tagihan yang berkurang, bukan sebagai kesalahan.</p>
+	 *
+	 * @param kegiatan kegiatan sumber; boleh {@code null}.
+	 * @param detail   detail kegiatan; {@code null} menghasilkan {@code 0.0}.
+	 * @param live     hitung ulang mengikuti KRS terkini untuk item ber-rumus non-manual.
+	 * @return nominal tagihan; tidak pernah {@code null}.
+	 */
 	private static Double hitungJumlahTagihan(Kegiatan kegiatan, DetailKegiatan detail, boolean live) {
 		if (detail == null) {
 			return Double.valueOf(0.0);
@@ -2623,6 +2719,22 @@ public class KegiatanPersistenceHelper {
 	// 4. REUSE UNTUK KegiatanProsesHeper.singkronkanDataCicilan
 	// ========================================================================
 
+	/**
+	 * Memuat SELURUH pasangan (id cicilan, id kegiatan) dari tabel {@code cicilan_pembayaran} dalam
+	 * satu query SQL native, lalu mengelompokkannya menjadi peta id kegiatan → daftar id cicilan.
+	 * Dipakai {@code KegiatanProsesHeper.singkronkanDataCicilan} agar sinkronisasi massal cukup
+	 * sekali membaca tabel alih-alih satu query per kegiatan.
+	 *
+	 * <p><b>Memuat seluruh tabel ke memori.</b> Hanya dua kolom numerik yang diambil dan
+	 * {@code fetchSize} disetel 1000, tetapi jejak memorinya tetap tumbuh linear terhadap jumlah
+	 * baris cicilan seluruh institusi — pertimbangkan ini sebelum memanggilnya dari jalur
+	 * interaktif. Method ini murni baca dan tidak menyentuh kolom denormalisasi mana pun.</p>
+	 *
+	 * <p>Kegagalan dilaporkan ke admin dan menghasilkan peta yang mungkin KOSONG atau TERISI
+	 * SEBAGIAN; pemanggil tidak dapat membedakan keduanya dari nilai kembalian.</p>
+	 *
+	 * @return peta id kegiatan → daftar id cicilan; tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	public static Map<Long, List<Long>> ambilPetaCicilanPerKegiatan() {
 		Map<Long, List<Long>> result = new HashMap<Long, List<Long>>();
@@ -2659,6 +2771,29 @@ public class KegiatanPersistenceHelper {
 		return result;
 	}
 
+	/**
+	 * Menulis ulang kolom {@code bulans}, {@code cicilans}, dan {@code dibayar} satu kegiatan
+	 * secara LANGSUNG dari daftar id cicilan yang diberikan, dalam satu transaksi tersendiri.
+	 * Jalur cepat untuk sinkronisasi massal: melewati antrean async, rekap tagihan, dan
+	 * perhitungan {@code tagihan}/{@code persentase}.
+	 *
+	 * <p><b>Tidak memakai stripe lock maupun advisory lock</b> — berbeda dari
+	 * {@link #eksekusiUpdateDenganRetryTerkunci(Kegiatan, String, String)}, dan juga tidak
+	 * melakukan pemeriksaan {@code databaseSudahSama} atau retry. Karena itu method ini hanya aman
+	 * dipakai oleh proses sinkronisasi massal yang sudah menjamin satu kegiatan tidak diproses dua
+	 * kali secara bersamaan.
+	 *
+	 * <p>Perhatikan pula bahwa {@code tagihan} dan {@code persentase} TIDAK ikut diperbarui, jadi
+	 * setelah pemanggilan ini persentase pelunasan bisa tidak konsisten dengan {@code dibayar} yang
+	 * baru sampai rekap penuh dijalankan.</p>
+	 *
+	 * <p>{@code dibayar} diambil dari {@code kegiatan.hitungDibayar()} bila berhasil, dan jatuh ke
+	 * total hasil {@link #bangunRekapPembayaran(java.util.List)} bila perhitungan itu gagal.</p>
+	 *
+	 * @param kegiatanId id kegiatan sasaran; {@code null} mengembalikan {@code false}.
+	 * @param cicilanIds daftar id cicilan aktif; {@code null} diperlakukan sebagai daftar kosong.
+	 * @return {@code true} bila penulisan berhasil di-commit.
+	 */
 	public static boolean sinkronkanCicilanKegiatanLangsung(Long kegiatanId, List<Long> cicilanIds) {
 		if (kegiatanId == null) {
 			return false;
@@ -2708,6 +2843,14 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Menyusun teks daftar aktif langsung dari daftar id, tanpa perlu memuat entity-nya. Format
+	 * hasilnya identik dengan {@link #bangunStringAktif(java.util.List)} sehingga dapat dibaca
+	 * {@link #ekstrakIdAktif(String)}.
+	 *
+	 * @param ids daftar id; boleh {@code null} (menghasilkan {@code ","}).
+	 * @return teks daftar aktif; tidak pernah {@code null}.
+	 */
 	private static String bangunStringAktifDariIds(List<Long> ids) {
 		StringBuilder builder = new StringBuilder(",");
 		if (ids != null) {
@@ -2724,6 +2867,21 @@ public class KegiatanPersistenceHelper {
 	// 5. UTILITY PUBLIK
 	// ========================================================================
 
+	/**
+	 * Membaca teks daftar aktif berformat {@code ",<id>:<aktif>,"} dan mengembalikan hanya id yang
+	 * ber-flag aktif.
+	 *
+	 * <p>Bagian yang tidak dapat diurai dilewati diam-diam (dicatat ke {@code ErrorAuditUtil}).
+	 * Entri TANPA bagian {@code :<aktif>} dianggap AKTIF — kelonggaran untuk data lama yang hanya
+	 * menyimpan deretan id. Karena {@code Boolean.parseBoolean} memetakan semua teks selain
+	 * {@code "true"} (tidak peka besar-kecil huruf) menjadi {@code false}, nilai flag yang rusak
+	 * berakibat id dianggap TIDAK aktif.</p>
+	 *
+	 * <p>Publik karena juga dipakai pemanggil di luar kelas ini untuk membaca kolom yang sama.</p>
+	 *
+	 * @param data teks daftar aktif; boleh {@code null}/kosong.
+	 * @return daftar id aktif; tidak pernah {@code null}.
+	 */
 	public static List<Long> ekstrakIdAktif(String data) {
 		List<Long> list = new ArrayList<Long>();
 		if (!isEmpty(data)) {
@@ -2747,6 +2905,21 @@ public class KegiatanPersistenceHelper {
 		return list;
 	}
 
+	/**
+	 * Menyaring JSON tagihan agar hanya berisi kunci yang sesuai dengan sifat {@link JenisKegiatan}:
+	 * jenis "hanya berupa angsuran" hanya menyimpan kunci BERGARIS BAWAH (bertanda bulan),
+	 * sedangkan "hanya berupa bukan angsuran" hanya menyimpan kunci TANPA garis bawah.
+	 *
+	 * <p>Bila jenis kegiatan tidak menetapkan salah satu batasan itu (atau menetapkan keduanya),
+	 * teks dikembalikan apa adanya. Entri bernilai JSON {@code null} ikut dibuang.
+	 *
+	 * <p>Kegagalan penguraian JSON menghasilkan teks masukan apa adanya, sehingga penyaringan tidak
+	 * pernah merusak data yang formatnya tidak terduga.</p>
+	 *
+	 * @param jenisKegiatan jenis kegiatan penentu batasan; {@code null} berarti tanpa penyaringan.
+	 * @param tagihans      teks JSON tagihan; {@code null}/kosong dikembalikan apa adanya.
+	 * @return teks JSON yang sudah disaring.
+	 */
 	public static String murnikan(JenisKegiatan jenisKegiatan, String tagihans) {
 		if (jenisKegiatan == null || isEmpty(tagihans)) {
 			return tagihans;
@@ -2776,6 +2949,17 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Membandingkan dua nilai kolom untuk keperluan
+	 * {@link #databaseSudahSama(Session, Long, Kegiatan, String, String)}. Dua {@link Number}
+	 * dibandingkan dengan toleransi {@code 0.0001} agar perbedaan representasi floating point
+	 * antara nilai hasil hitung dan nilai yang dibaca balik dari basis data tidak dianggap sebagai
+	 * perubahan; nilai lain dibandingkan dengan {@code equals}. Dua {@code null} dianggap sama.
+	 *
+	 * @param o1 nilai pertama.
+	 * @param o2 nilai kedua.
+	 * @return {@code true} bila keduanya dianggap sama.
+	 */
 	private static boolean isSama(Object o1, Object o2) {
 		if (o1 == null && o2 == null) {
 			return true;

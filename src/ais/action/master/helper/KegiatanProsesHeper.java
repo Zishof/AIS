@@ -129,6 +129,37 @@ import ais.ui.util.MyWindow;
  * penuh ke {@link KegiatanHelper}), maupun aturan status kemahasiswaan (didelegasikan ke
  * {@link HistoryStatusMahasiswaUtil}) — kelas ini murni orkestrasi UI + paralelisasi + ekspor
  * untuk operasi BATCH/massal atas method-method tsb.</p>
+ *
+ * <p><b>Cakupan data dan otorisasi (WAJIB dibaca sebelum menambah titik pemasangan
+ * tombol).</b> Kelas ini TIDAK memasang gerbang keamanannya sendiri: tidak ada
+ * {@code Common.doCheckSecurity()} maupun {@code CommonPrivilages.checkPrevilages} di
+ * seluruh berkas ini, dan kriteria pemilihan {@link Mahasiswa}/{@link BiodataCalonMahasiswa}
+ * hanya menyaring pada <i>aktif</i>, kecocokan NIM/nama/no-registrasi, rentang tahun
+ * angkatan, serta Fakultas/Prodi yang dipilih operator — TANPA penyempitan ke
+ * {@link SatuanKerja}/perguruan tinggi/unit pengguna yang sedang login. Satu-satunya
+ * pemakaian {@code Common.getSatuanKerja()} di kelas ini menyaring pilihan
+ * {@link JenisPembayaran} pada popup Surat Tagihan, BUKAN daftar mahasiswanya.</p>
+ *
+ * <p>Konsekuensinya, siapa pun yang berhasil menekan tombol-tombol ini memperoleh
+ * <b>ekspor massal lintas seluruh basis data</b>: berkas Excel "Proses Tagihan" memuat
+ * NIM/No. Registrasi, nama, jenis pembayaran, fakultas, jurusan, status awal, angkatan,
+ * serta tagihan/dibayar/tunggakan per tahun-semester berikut rincian tagihannya untuk
+ * SETIAP mahasiswa dan calon mahasiswa yang cocok filter; berkas "Surat Tagihan"
+ * menambahkan kolom <b>alamat email</b> dan, bila checkbox kirim dicentang, benar-benar
+ * MENGIRIM email berlampiran PDF ke seluruh alamat tersebut. Karena tidak ada penyempitan
+ * di sisi helper, seluruh kendali akses bergantung pada gerbang layar pemanggil
+ * ({@code KegiatanAction}, {@code InformasiPembayaranMahasiswaAction},
+ * {@code DasboardPembayaranPerguruanTinggi}, {@code DasborKeuanganPmbAction}) beserta hak
+ * menu pengguna. Memasang tombol-tombol ini pada layar yang gerbangnya lebih longgar akan
+ * langsung membuka ekspor data pribadi dan finansial massal — pertimbangkan menambahkan
+ * penyempitan cakupan di sisi kriteria bila hal itu diperlukan.</p>
+ *
+ * <p><b>Dua aksi di kelas ini bersifat MENGUBAH/MENGHAPUS data, bukan sekadar melaporkan:</b>
+ * opsi "Reset Tagihan Kembali ke Billing" dan "Bersihkan Item Tak Sesuai (Massal)" pada
+ * {@link #prosesUlangTagihan(String, String, JenisKegiatan, boolean)} berlaku untuk SELURUH
+ * mahasiswa yang cocok filter (bukan satu orang), dan penghapusan item tak sesuai bersifat
+ * permanen — karena itu ia non-aktif secara default dan meminta konfirmasi eksplisit tepat
+ * saat dicentang.</p>
  */
 public class KegiatanProsesHeper {
 
