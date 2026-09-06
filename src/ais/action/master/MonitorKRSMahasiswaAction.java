@@ -930,7 +930,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 												Integer.parseInt(port), myLabelProsesDetail);
 
 										String token = feederConnector.getToken(username, password);
-										System.out.println("TOKEN => " + token);
+										System.out.println("TOKEN => " + (token == null || token.isEmpty() ? "(gagal)" : "(berhasil, disamarkan)"));
 
 										if (token == null || token.trim().isEmpty()
 												|| token.trim().toLowerCase().startsWith("error")) {
@@ -1068,7 +1068,7 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 								FeederConnector feederConnector = new FeederConnector(ip, Integer.parseInt(port), null);
 
 								String token = feederConnector.getToken(username, password);
-								System.out.println("TOKEN => " + token);
+								System.out.println("TOKEN => " + (token == null || token.isEmpty() ? "(gagal)" : "(berhasil, disamarkan)"));
 
 								if (token == null || token.trim().isEmpty()
 										|| token.trim().toLowerCase().startsWith("error")) {

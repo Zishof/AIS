@@ -28,8 +28,21 @@ import ais.database.model.kursus.SertifikatKursus;
  */
 public class VerifikasiSertifikatKursusServlet extends HttpServlet {
 
+    /** Versi serialisasi tetap 1L; servlet tidak pernah benar-benar diserialisasi ke stream. */
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Titik masuk tunggal endpoint publik ini. Tanpa gerbang otentikasi apa pun -- ini memang
+     * disengaja (pola sama seperti CatatanOrangTuaServlet): siapa saja yang memegang "kode"
+     * sertifikat (nilai acak dari {@code BarcodeCommon.generateCode()}, bukan id database yang
+     * bisa ditebak berurutan) boleh memverifikasi keasliannya. Bercabang ke {@link #streamQr}
+     * jika parameter {@code qr=1}, selain itu ke {@link #tampilkanVerifikasi}.
+     *
+     * @param req permintaan HTTP masuk; parameter {@code kode} dan {@code qr} dibaca di sini
+     * @param res respons HTTP keluar
+     * @throws ServletException tidak pernah dilempar langsung, hanya dideklarasikan oleh kontrak servlet
+     * @throws IOException jika terjadi galat I/O saat forward atau menulis gambar QR
+     */
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
@@ -41,6 +54,19 @@ public class VerifikasiSertifikatKursusServlet extends HttpServlet {
         tampilkanVerifikasi(req, res, kode);
     }
 
+    /**
+     * Mencari {@link SertifikatKursus} berdasarkan kolom {@code kode} lalu memforward ke JSP
+     * verifikasi publik. JSP tujuan hanya diberi data aman minimal (nama peserta, nama kursus,
+     * instruktur, institusi, nomor sertifikat, tanggal terbit, status, dan kode) -- bukan id
+     * internal atau skor/nilai rinci. Jika sertifikat tidak ditemukan atau {@code kode} kosong,
+     * atribut {@code valid} diset {@code false} dan JSP menampilkan pesan tidak valid.
+     *
+     * @param req permintaan HTTP masuk
+     * @param res respons HTTP keluar
+     * @param kode kode sertifikat yang diverifikasi; boleh {@code null} atau kosong
+     * @throws ServletException tidak pernah dilempar langsung, hanya dideklarasikan oleh kontrak servlet
+     * @throws IOException jika terjadi galat I/O saat forward ke JSP
+     */
     private void tampilkanVerifikasi(HttpServletRequest req, HttpServletResponse res, String kode)
             throws ServletException, IOException {
         Session session = null;
@@ -78,6 +104,18 @@ public class VerifikasiSertifikatKursusServlet extends HttpServlet {
         }
     }
 
+    /**
+     * Menghasilkan gambar QR (PNG) yang mengarah ke URL verifikasi ({@code
+     * /VerifikasiSertifikatKursus?kode=...}) sertifikat yang diminta, lalu menstream isinya
+     * sebagai respons. Berkas PNG sementara ditulis ke {@code Common.ambilREAL_PATH_REPORT()}
+     * dengan nama yang disaring ({@code [^A-Za-z0-9._-]} diganti {@code _}) sehingga tidak
+     * mungkin menembus direktori lain (path traversal) lewat parameter {@code kode}.
+     *
+     * @param req permintaan HTTP masuk, dipakai untuk menyusun URL absolut yang di-encode ke QR
+     * @param res respons HTTP keluar; content type diset {@code image/png}
+     * @param kode kode sertifikat yang akan di-QR-kan; jika {@code null}/kosong dibalas 404
+     * @throws IOException jika terjadi galat I/O saat membuat atau menstream berkas QR
+     */
     private void streamQr(HttpServletRequest req, HttpServletResponse res, String kode) throws IOException {
         if (kode == null || kode.trim().isEmpty()) {
             res.sendError(HttpServletResponse.SC_NOT_FOUND);

@@ -219,6 +219,100 @@ public class OcbcNisp extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mesin inti gateway: menyelesaikan satu permintaan inquiry, payment, atau reversal dari bank
+	 * menjadi satu objek respons SNAP, sekaligus memutasi data tagihan bila permintaannya berupa
+	 * pembayaran.
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>Merakit kerangka respons: {@code responseCode} sukses dipilih menurut kombinasi
+	 *       {@code antarbank} dan {@code inquery} ({@code 2003200}/{@code 2003300} untuk antar
+	 *       bank, {@code 2002400}/{@code 2002500} untuk intra), lalu menyiapkan simpul
+	 *       {@code virtualAccountData}, {@code feeAmount}, {@code totalAmount}, dan
+	 *       {@code billDetails}.</li>
+	 *   <li>Menormalkan nomor VA: bila {@code va} kosong, {@code customer_number} dipakai sebagai
+	 *       gantinya.</li>
+	 *   <li>Menerapkan penyaring awalan VA dari konfigurasi
+	 *       {@code prefix_wajib_diterima_pembayaran_ocbc} dan
+	 *       {@code bukan_prefix_wajib_diterima_pembayaran_ocbc}. Keduanya default kosong sehingga
+	 *       penyaring ini nonaktif kecuali operator mengisinya.</li>
+	 *   <li>Mencari baris {@link VirtualAccountBank} dengan tiga percobaan berurutan: memakai
+	 *       {@code customer_number}, memakai potongan VA setelah {@code partnerServiceId}, lalu
+	 *       memakai {@code va} utuh. Bila tetap kosong, dikembalikan kode "Bill not found".</li>
+	 *   <li>Menolak tagihan yang sudah lunas ({@code Bill has been paid}) dan nominal yang tidak
+	 *       sama dengan {@link VirtualAccountBank#totalBiaya()} ({@code Invalid Amount}).</li>
+	 *   <li>Memposting pembayaran menurut jenis pemilik VA: jalur siswa/calon siswa lewat
+	 *       {@link VirtualAccountBank#bayarSiswa} yang mengembalikan daftar
+	 *       {@link Tagihan}; jalur mahasiswa/calon mahasiswa membentuk atau memperbarui
+	 *       {@link Kegiatan} lalu menuliskan baris {@link CicilanPembayaran} untuk setiap token
+	 *       pada kolom {@code cicilan} VA.</li>
+	 * </ol>
+	 *
+	 * <h4>Ragam token pada kolom {@code cicilan}</h4>
+	 * <p>Kolom itu berisi daftar token dipisah koma yang dibaca satu per satu:</p>
+	 * <ul>
+	 *   <li>token numerik murni — id {@link PengaturanPembayaranBulanan};</li>
+	 *   <li>{@code Bulanan-<id>-...-<nominal>} — pembayaran bulanan dengan nominal di segmen
+	 *       terakhir;</li>
+	 *   <li>{@code Item-<idItemBiaya>-<nominal>-...-<idDetailBiaya>} — item biaya lepas;</li>
+	 *   <li>{@code Keranjang-...} — didelegasikan ke
+	 *       {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}, pemroses terpusat yang sama
+	 *       dengan gateway Esmartlink, dan dilewati bila permintaan berupa reversal.</li>
+	 * </ul>
+	 * <p>Item dengan {@link ItemBiaya#DIKALI_NILAI_MINUS} dibalik tandanya menjadi negatif. Kunci
+	 * idempotensi tiap cicilan adalah {@code ref} berbentuk
+	 * {@code ntt-<idKegiatan>-<token>-<idVa>}, sehingga pemanggilan ulang memperbarui baris yang
+	 * sama alih-alih menggandakannya.</p>
+	 *
+	 * <h4>Transaksi dan session</h4>
+	 * <p>Method membuka session Hibernate sendiri lewat
+	 * {@code HibernateUtil.getSessionFactory().openSession()} dan menutupnya di {@code finally}
+	 * (clear, disconnect, close). Transaksi dibuka dan di-commit berkali-kali dalam satu
+	 * pemanggilan — per penyimpanan {@link Kegiatan} dan per baris cicilan — sehingga permintaan
+	 * yang gagal di tengah jalan meninggalkan sebagian cicilan yang sudah tersimpan. Kegagalan
+	 * apa pun memicu {@code HibernateUtil.rollbackTransaction()} dan respons {@code 5000001}.</p>
+	 *
+	 * <h4>Pencatatan log H2H</h4>
+	 * <p>Blok {@code finally} terluar selalu memanggil
+	 * {@code PembayaranGatewayHelper.catatLogHostToHost} — tanpa syarat {@code bankHost} — sehingga
+	 * setiap permintaan dari bank mana pun tercatat sebagai satu baris {@link LogHostToHost}
+	 * berisi payload mentah, nomor induk, nama, nominal, rincian, dan jejak stack bila terjadi
+	 * error. Helper itu memakai session terdedikasi dengan retry agar pencatatan tidak ikut gagal
+	 * ketika transaksi utama batal.</p>
+	 *
+	 * <h4>Catatan pemeliharaan</h4>
+	 * <p>Pada jalur reversal, penghapusan cicilan dirakit sebagai SQL literal
+	 * {@code "delete from cicilan_pembayaran where ref = " + ref} tanpa tanda kutip di sekeliling
+	 * nilai {@code ref}. Karena {@code ref} selalu berupa string non-numerik, pernyataan itu tidak
+	 * membentuk literal SQL yang sah dan gagal saat dieksekusi; nilai {@code ref} sendiri berasal
+	 * dari kolom database, bukan dari masukan bank. Perilaku ini didokumentasikan apa adanya dan
+	 * tidak diubah di sini.</p>
+	 *
+	 * @param nominalP           nominal setoran dari bank; {@code 0.0} pada inquiry murni
+	 * @param tanggalP           tanggal transaksi berformat {@code MMddHHmmss}; bila gagal diurai
+	 *                           dipakai waktu server saat ini
+	 * @param va                 nomor virtual account yang dikirim bank
+	 * @param bank               nama bank yang dicatat sebagai validator, di sini
+	 *                           {@code "OCBC NISP"}
+	 * @param bankHost           host bank hasil pemetaan alamat IP; boleh {@code null}
+	 * @param request            permintaan asal, dipakai hanya untuk pencatatan log H2H
+	 * @param data               body mentah permintaan, disimpan ke log H2H
+	 * @param partnerServiceId   kode layanan mitra; dipakai memotong awalan VA
+	 * @param inquiryRequestId   id permintaan inquiry yang dipantulkan kembali ke bank
+	 * @param paymentRequestId   id permintaan payment yang dipantulkan kembali ke bank
+	 * @param trxId              id transaksi opsional yang dipantulkan kembali
+	 * @param customer_number    nomor pelanggan; dipakai sebagai kandidat pertama pencarian VA
+	 * @param partnerReferenceNo nomor referensi mitra yang dipantulkan kembali
+	 * @param chekLagi           bila {@code true}, pemeriksaan "sudah terbayar" dilewati
+	 * @param inquery            {@code true} untuk inquiry (tanpa posting pembayaran)
+	 * @param reversal           {@code true} untuk pembatalan setoran
+	 * @param antarbank          {@code true} untuk kanal antar bank, memilih rumpun
+	 *                           {@code responseCode} yang berbeda
+	 * @return objek JSON SNAP lengkap berisi {@code responseCode}, {@code responseMessage}, dan
+	 *         {@code virtualAccountData}
+	 * @throws Exception bila perakitan JSON gagal di luar blok yang sudah ditangani
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(Double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, String partnerServiceId, String inquiryRequestId,
