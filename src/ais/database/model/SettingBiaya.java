@@ -195,7 +195,7 @@ public class SettingBiaya extends GeneralValueObject {
 	private Jurusan jurusan;
 	/** Flag "pakai biaya default" ({@link DetailSettingBiaya#getDefaultBiaya()} sebagai nominal); dipaksa {@code true} saat mode khusus aktif. */
 	private Boolean gunakanBiayaDefault;
-	/** Flag "tampilkan/nilai per program studi" — mengaktifkan jalur {@link DetailSettingBiaya#ambilDefaultBiaya(Jurusan)}; lihat catatan bug fallback nominal pada method itu. */
+	/** Flag "tampilkan/nilai per program studi" — mengaktifkan jalur {@link DetailSettingBiaya#ambilDefaultBiaya(Jurusan)} (jatuh ke {@link DetailSettingBiaya#getDefaultBiaya()} bila jurusan belum diberi override). */
 	private Boolean tampilkanPerProdi;
 	/** Kriteria gelombang pendaftaran PMB; dinolkan saat mode khusus aktif. */
 	private GelombangPendaftaran gelombangPendaftaran;
@@ -790,12 +790,13 @@ public class SettingBiaya extends GeneralValueObject {
 	 * DetailSettingBiaya#ambilDefaultBiaya(Jurusan)} untuk jurusan baris tagihan yang
 	 * bersangkutan.
 	 *
-	 * <p><b>Lihat catatan bug pada {@link DetailSettingBiaya#ambilDefaultBiaya(Jurusan)}:</b>
-	 * method itu TIDAK memiliki fallback ke {@link DetailSettingBiaya#getDefaultBiaya()} bila
-	 * jurusan tertentu belum diberi override per-prodi eksplisit — hasilnya {@code 0.0}.
-	 * Mengaktifkan flag ini pada sebuah {@link SettingBiaya} tanpa memastikan SETIAP jurusan
-	 * relevan sudah diberi override di {@link DetailSettingBiaya#getBiayaPerProdi()} berisiko
-	 * menagihkan Rp 0 untuk jurusan yang terlewat.</p>
+	 * <p><b>Riwayat bug (diperbaiki):</b> {@link DetailSettingBiaya#ambilDefaultBiaya(Jurusan)}
+	 * sebelumnya TIDAK memiliki fallback ke {@link DetailSettingBiaya#getDefaultBiaya()} bila
+	 * jurusan tertentu belum diberi override per-prodi eksplisit — hasilnya {@code 0.0}, artinya
+	 * mengaktifkan flag ini tanpa memastikan SETIAP jurusan relevan sudah diberi override di
+	 * {@link DetailSettingBiaya#getBiayaPerProdi()} berisiko menagihkan Rp 0 untuk jurusan yang
+	 * terlewat. Sudah diperbaiki: method itu kini jatuh ke {@code getDefaultBiaya()} pada kasus
+	 * tersebut.</p>
 	 *
 	 * @return status flag ini; default {@code false} bila belum diisi.
 	 */

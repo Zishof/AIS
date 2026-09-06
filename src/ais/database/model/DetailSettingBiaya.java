@@ -220,8 +220,8 @@ public class DetailSettingBiaya extends GeneralValueObject {
 	 * Nilai biaya bawaan (default) untuk rincian ini — dipakai sebagai nominal ketika {@link
 	 * SettingBiaya#getGunakanBiayaDefault()} menyala, atau sebagai fallback saat item biaya
 	 * tidak ditemukan di peta JSON {@link SettingBiayaDetail#getBiayas()} (lihat
-	 * {@code DetailBiaya.getNilaiBiaya()}). <b>Tidak</b> dipakai sebagai fallback oleh {@link
-	 * #ambilDefaultBiaya(Jurusan)} — lihat catatan pada method itu.
+	 * {@code DetailBiaya.getNilaiBiaya()}). Juga dipakai sebagai fallback oleh {@link
+	 * #ambilDefaultBiaya(Jurusan)} ketika jurusan tertentu belum diberi override per-prodi.
 	 *
 	 * @return nilai biaya bawaan; {@code 0.0} bila belum diisi.
 	 */
@@ -307,35 +307,31 @@ public class DetailSettingBiaya extends GeneralValueObject {
 	 * jelas — nilai yang dikembalikan di sini menjadi nominal tagihan final untuk item biaya
 	 * bersangkutan pada jurusan itu.
 	 *
-	 * <p><b>BUG/CELAH &mdash; fallback ke {@code 0.0}, bukan ke {@link #getDefaultBiaya()}:</b>
-	 * ada dua kondisi yang sama-sama menghasilkan {@code 0.0}, dan keduanya tidak dapat
-	 * dibedakan oleh pemanggil: (1) key {@code b_<idJurusan>} memang tidak ada di JSON &mdash;
-	 * yakni jurusan tersebut sengaja/belum diberi tarif khusus, dan (2) parsing gagal
-	 * (exception apa pun, termasuk {@code jurusan} itu sendiri {@code null} sehingga {@code
-	 * jurusan.getId()} melempar {@code NullPointerException}) yang ditelan oleh blok {@code
-	 * catch} generik dan hanya dicatat ke {@link ais.common.ErrorAuditUtil}. Pada mode "Tampilkan
-	 * Per Prodi" ({@link SettingBiaya#getTampilkanPerProdi()}), method ini adalah satu-satunya
-	 * sumber nominal pada cabang itu di {@code DetailBiaya.getNilaiBiaya()} &mdash; TIDAK ada
-	 * fallback ke {@link #getDefaultBiaya()} bila override untuk jurusan tertentu belum diisi.
-	 * Konsekuensinya: begitu {@code tampilkanPerProdi} diaktifkan pada sebuah {@link
-	 * SettingBiaya}, SETIAP jurusan yang belum diberi override eksplisit di {@link
-	 * #getBiayaPerProdi()} akan ditagihkan nominal <b>{@code 0.0}</b> untuk item biaya ini,
-	 * bukan nominal bawaan {@link #getDefaultBiaya()} yang mungkin diasumsikan admin sebagai
-	 * fallback. Berpotensi menagihkan Rp 0 secara massal untuk jurusan yang lupa/belum
-	 * dikonfigurasi. Dicatat apa adanya (bukan bug yang sama dengan pola diskon-melebihi-nominal
-	 * yang sudah tercatat pada domain lain — ini kegagalan fallback nominal, mekanisme
-	 * berbeda); tidak diperbaiki di sesi dokumentasi ini.</p>
+	 * <p><b>FIX &mdash; fallback ke {@link #getDefaultBiaya()}, bukan {@code 0.0} (r85669 mencatat,
+	 * diperbaiki sesi berikutnya):</b> sebelumnya method ini mengembalikan {@code 0.0} baik saat
+	 * key {@code b_<idJurusan>} memang tidak ada di JSON (jurusan belum diberi tarif khusus)
+	 * maupun saat parsing gagal (exception apa pun, termasuk {@code jurusan} itu sendiri {@code
+	 * null}) &mdash; dua kondisi yang tidak dapat dibedakan pemanggil, dan pada mode "Tampilkan
+	 * Per Prodi" ({@link SettingBiaya#getTampilkanPerProdi()}) method ini adalah satu-satunya
+	 * sumber nominal di {@code DetailBiaya.getNilaiBiaya()} sehingga jurusan tanpa override
+	 * eksplisit tertagih Rp 0. Sekarang: bila key tidak ada, {@code jurusan} {@code null}, atau
+	 * parsing gagal, hasilnya jatuh ke {@link #getDefaultBiaya()} (nilai bawaan template) &mdash;
+	 * hanya key yang benar-benar ada di JSON (termasuk yang sengaja diisi {@code 0}) yang
+	 * dianggap override eksplisit.</p>
 	 *
-	 * @param jurusan jurusan acuan; <b>tidak boleh {@code null}</b> — nilai {@code null} memicu
-	 *                {@code NullPointerException} yang ditelan dan menghasilkan {@code 0.0}
-	 * @return override nominal biaya untuk {@code jurusan}; {@code 0.0} bila tidak ada override
-	 *         ATAU bila terjadi kegagalan apa pun saat memproses (lihat catatan BUG di atas)
+	 * @param jurusan jurusan acuan; boleh {@code null} &mdash; menghasilkan {@link
+	 *                #getDefaultBiaya()} (diperlakukan sama seperti tidak ada override)
+	 * @return override nominal biaya untuk {@code jurusan} bila key {@code b_<idJurusan>} ada di
+	 *         JSON; {@link #getDefaultBiaya()} bila tidak ada override, {@code jurusan} {@code
+	 *         null}, ATAU terjadi kegagalan apa pun saat memproses
 	 */
 	public Double ambilDefaultBiaya(Jurusan jurusan) {
-		Double biaya = 0.0;
+		Double biaya = getDefaultBiaya();
 		try {
 			MyJSONObject jsonObject = new MyJSONObject(getBiayaPerProdi());
-			biaya = jsonObject.isNull("b_" + jurusan.getId()) ? 0.0 : jsonObject.getDouble("b_" + jurusan.getId());
+			if (!jsonObject.isNull("b_" + jurusan.getId())) {
+				biaya = jsonObject.getDouble("b_" + jurusan.getId());
+			}
 			jsonObject = null;
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/DetailSettingBiaya.java:163");
 			// TODO: handle exception
