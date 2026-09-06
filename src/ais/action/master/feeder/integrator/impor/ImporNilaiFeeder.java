@@ -241,45 +241,11 @@ public final class ImporNilaiFeeder {
 						if ((nilai == null || nilai < 0.01) && hurufdata != null
 								&& !hurufdata.trim().isEmpty()) {
 
-							NilaiHuruf nilaiHuruf = null;
-
-							for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-								if (huruf != null && huruf.getNilaiHuruf() != null
-										&& huruf.getNilaiHuruf().equalsIgnoreCase(hurufdata.trim())
-										&& huruf.getJurusan() != null && huruf.getJurusan().getId() != null
-										&& huruf.getJurusan().getId().equals(mahasiswa.getJurusan().getId())) {
-									nilaiHuruf = huruf;
-									break;
-								}
-							}
-
-							if (nilaiHuruf == null) {
-								for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-									if (huruf != null && huruf.getNilaiHuruf() != null
-											&& huruf.getNilaiHuruf().equalsIgnoreCase(hurufdata.trim())
-											&& huruf.getFakultas() != null
-											&& huruf.getFakultas().getId() != null
-											&& huruf.getFakultas().getId()
-													.equals(mahasiswa.getJurusan().getFakultas().getId())) {
-										nilaiHuruf = huruf;
-										break;
-									}
-								}
-							}
-
-							if (nilaiHuruf == null) {
-								for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-									if (huruf != null && huruf.getNilaiHuruf() != null
-											&& huruf.getNilaiHuruf().equalsIgnoreCase(hurufdata.trim())
-											// hanya aturan GLOBAL MURNI (tanpa jurusan/fakultas) boleh jadi fallback
-											// terakhir -- selaras CommonAcademicKrsNilaiHelper.getNilaiHuruf() &
-											// ConstantValues.nilaiHurufTerkait().
-											&& huruf.getJurusan() == null && huruf.getFakultas() == null) {
-										nilaiHuruf = huruf;
-										break;
-									}
-								}
-							}
+							// Cari aturan konversi huruf->angka lewat indeks terpusat (prioritas per Jurusan ->
+							// Fakultas -> global murni), sama seperti ConstantValues.lulusDariNilaiHuruf() dkk --
+							// menggantikan 3 loop tangan yang sebelumnya disalin-tempel di sini (tier terakhirnya
+							// sempat tanpa syarat cakupan sama sekali, lihat r86085).
+							NilaiHuruf nilaiHuruf = ConstantValues.nilaiHurufTerkait(hurufdata.trim(), mahasiswa);
 
 							if (nilaiHuruf != null) {
 								nilai = (nilaiHuruf.getMulai() + nilaiHuruf.getSampai()) / 2.0;

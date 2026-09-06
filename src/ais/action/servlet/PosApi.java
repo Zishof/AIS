@@ -4967,12 +4967,19 @@ public class PosApi extends HttpServlet {
 		if (namaLogin.length() == 0 && tbmuser != null && tbmuser.getPedagang() != null) namaLogin = str(tbmuser.getPedagang().getNama()).trim();
 		if (namaLogin.length() == 0 && tbmuser != null) namaLogin = str(tbmuser.getUserId()).trim();
 		String kasirDipilih = bolehSemua ? payload.optString("kasir", "").trim() : namaLogin;
+		String metodeDipilih = payload.optString("metode", "").trim();
 
 		JSONObject aman = new JSONObject(payload.toString());
 		aman.put("tglMulai", tglMulai);
 		aman.put("tglSampai", tglSampai);
 		if (kasirDipilih.length() > 0) aman.put("kasirExact", kasirDipilih);
 		else aman.remove("kasirExact");
+		// daftarOrderDenganSesi hanya mengenal kunci metodeExact. Sebelumnya pilihan
+		// dropdown hanya dipakai oleh query ringkasan di bawah, sementara grid tetap
+		// menerima payload tanpa metodeExact; akibatnya memilih Tunai masih dapat
+		// menampilkan nota QRIS. Teruskan filter yang sama ke sumber data grid/ekspor.
+		if (metodeDipilih.length() > 0) aman.put("metodeExact", metodeDipilih);
+		else aman.remove("metodeExact");
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -4985,7 +4992,6 @@ public class PosApi extends HttpServlet {
 			String dasar = " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
 					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE " + kondisiToko("a", pendaftarLingkup) + " AND DATE(a.waktu)>=CAST(? AS date) AND DATE(a.waktu)<=CAST(? AS date)";
 			// Metode bayar ikut dibawa ke subquery agar bisa disaring (rekonsiliasi tim keuangan).
-			String metodeDipilih = payload.optString("metode", "").trim();
 			String sub = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,"
 					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
 					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
@@ -5711,13 +5717,13 @@ public class PosApi extends HttpServlet {
 			// hanya carabayar yang dicocokkan, mengklik baris ringkasan "Tunai" tidak
 			// memunculkan nota yang tunainya berasal dari split -- ringkasan dan rincian
 			// jadi tidak cocok. Karena itu slot header ikut diperiksa.
-			whereTrx.append(" AND (COALESCE(a.carabayar,'') ILIKE ?"
+			whereTrx.append(" AND (LOWER(TRIM(COALESCE(a.carabayar,''))) = LOWER(?)"
 					+ " OR EXISTS (SELECT 1 FROM koperasi.cara_pembayaran_koperasi cbx"
 					+ " WHERE cbx.id IN (pak.cara_pembayaran_koperasi,pak.cara_pembayaran_koperasi_2,"
 					+ "pak.cara_pembayaran_koperasi_3,pak.cara_pembayaran_koperasi_4,pak.cara_pembayaran_koperasi_5)"
-					+ " AND COALESCE(cbx.nama,'') ILIKE ?))");
-			paramsTrx.add("%" + metodeExact + "%");
-			paramsTrx.add("%" + metodeExact + "%");
+					+ " AND LOWER(TRIM(COALESCE(cbx.nama,''))) = LOWER(?)))");
+			paramsTrx.add(metodeExact);
+			paramsTrx.add(metodeExact);
 		}
 		if (produk.length() > 0) {
 			whereTrx.append(" AND EXISTS (SELECT 1 FROM koperasi.pembelian af LEFT JOIN koperasi.produk pf ON pf.id=af.produk "

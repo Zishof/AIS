@@ -225,6 +225,7 @@ public final class PemetaanAkunHelper {
             int jenisTanpaPendapatan = 0;
             int jenisTanpaHpp = 0;
             int jenisDipetakan = 0;
+            Set<Long> masterProdukId = new HashSet<Long>();
 
             List<Produk> produk = new ArrayList<Produk>();
             for (int i = 0; i < produkId.size(); i++) {
@@ -237,8 +238,20 @@ public final class PemetaanAkunHelper {
                 MasterAsset ma = pr.getMasterAsset();
                 if (ma == null) {
                     produkTanpaMaster++;
-                } else if (!formulaPunyaAkunDefault(session, ma.akunTransaksiEfektif())) {
-                    produkTanpaPersediaan++;
+                } else {
+                    if (ma.getId() != null) masterProdukId.add(ma.getId());
+                    if (!formulaPunyaAkunDefault(session, ma.akunTransaksiEfektif())) {
+                        produkTanpaPersediaan++;
+                    }
+                }
+            }
+            List<Long> masterBastId = masterAsetBastBelumPosting(
+                    session.connection(), tokoId, mulai, sampai);
+            int masterBastTanpaPersediaan = 0;
+            for (int i = 0; i < masterBastId.size(); i++) {
+                MasterAsset ma = (MasterAsset) session.get(MasterAsset.class, masterBastId.get(i));
+                if (ma != null && !formulaPunyaAkunDefault(session, ma.akunTransaksiEfektif())) {
+                    masterBastTanpaPersediaan++;
                 }
             }
             for (java.util.Iterator<Long> it = jenisId.iterator(); it.hasNext();) {
@@ -309,6 +322,22 @@ public final class PemetaanAkunHelper {
                         session.saveOrUpdate(pr);
                     }
                     if (timpa || !formulaPunyaAkunDefault(session, ma.akunTransaksiEfektif())) {
+                        ma.setAkunTransaksi(timpa ? formulaAkun(persediaan)
+                                : formulaTambahDefault(ma.akunTransaksiEfektif(), persediaan));
+                        session.saveOrUpdate(ma);
+                        masterDipetakan++;
+                    }
+                }
+
+                // Mesin posting membaca master aset langsung dari detail BAST. Tidak semua
+                // master tersebut masih memiliki relasi Produk aktif, jadi audit Produk saja
+                // dapat tampak bersih sementara posting tetap gagal.
+                for (int i = 0; i < masterBastId.size(); i++) {
+                    Long masterId = masterBastId.get(i);
+                    if (masterProdukId.contains(masterId)) continue;
+                    MasterAsset ma = (MasterAsset) session.get(MasterAsset.class, masterId);
+                    if (ma != null && (timpa
+                            || !formulaPunyaAkunDefault(session, ma.akunTransaksiEfektif()))) {
                         ma.setAkunTransaksi(timpa ? formulaAkun(persediaan)
                                 : formulaTambahDefault(ma.akunTransaksiEfektif(), persediaan));
                         session.saveOrUpdate(ma);
@@ -387,6 +416,7 @@ public final class PemetaanAkunHelper {
             kekurangan.put("tokoTanpaPiutang", tokoTanpaPiutang);
             kekurangan.put("produkTanpaMasterAset", produkTanpaMaster);
             kekurangan.put("produkTanpaAkunPersediaan", produkTanpaPersediaan);
+            kekurangan.put("masterAsetBastTanpaAkunPersediaan", masterBastTanpaPersediaan);
             kekurangan.put("jenisProdukTanpaPendapatan", jenisTanpaPendapatan);
             kekurangan.put("jenisProdukTanpaHpp", jenisTanpaHpp);
             kekurangan.put("penyediaTanpaUtang", penyediaTanpaUtang);
@@ -409,6 +439,7 @@ public final class PemetaanAkunHelper {
             hasil.put("mulai", mulai.isEmpty() ? JSONObject.NULL : mulai);
             hasil.put("sampai", sampai.isEmpty() ? JSONObject.NULL : sampai);
             hasil.put("produkBelumPosting", produk.size());
+            hasil.put("masterAsetBastTerkait", masterBastId.size());
             hasil.put("jenisProdukTerkait", jenisId.size());
             hasil.put("penyediaTerkait", penyediaId.size());
             hasil.put("jenisPenerimaanBastTerkait", jenisPenerimaanId.size());
@@ -574,6 +605,37 @@ public final class PemetaanAkunHelper {
         List<Long> keluar = new ArrayList<Long>();
         while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
         rs.close(); ps.close();
+        return keluar;
+    }
+
+    /** Master aset yang benar-benar dibaca mesin posting dari detail BAST. */
+    private static List<Long> masterAsetBastBelumPosting(Connection conn, Long tokoId,
+            String mulai, String sampai) throws Exception {
+        boolean pakaiPeriode = mulai != null && !mulai.isEmpty()
+                && sampai != null && !sampai.isEmpty();
+        String sql = "SELECT DISTINCT d.masterasset"
+                + " FROM asset.penerimaan_pengadaan_master_asset b"
+                + " JOIN asset.penerimaan_pengadaan_master_asset_detail d"
+                + " ON d.penerimaan_pengadaan_master_asset=b.id"
+                + " WHERE d.masterasset IS NOT NULL AND b.posting_history IS NULL"
+                + " AND b.pemesanan_pengadaan_master_asset IS NOT NULL"
+                + " AND b.disetujui_oleh IS NOT NULL AND COALESCE(b.nilai,0)<>0"
+                + (tokoId == null ? "" : " AND b.toko=?")
+                + (pakaiPeriode
+                        ? " AND date(b.tanggal_persetujuan) BETWEEN date(?) AND date(?)" : "")
+                + " ORDER BY d.masterasset";
+        PreparedStatement ps = conn.prepareStatement(sql);
+        int parameter = 1;
+        if (tokoId != null) ps.setLong(parameter++, tokoId.longValue());
+        if (pakaiPeriode) {
+            ps.setString(parameter++, mulai);
+            ps.setString(parameter++, sampai);
+        }
+        ResultSet rs = ps.executeQuery();
+        List<Long> keluar = new ArrayList<Long>();
+        while (rs.next()) keluar.add(Long.valueOf(rs.getLong(1)));
+        rs.close();
+        ps.close();
         return keluar;
     }
 

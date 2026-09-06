@@ -2332,6 +2332,29 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				"jawaban", "koreksi", "waktuJawab", "hasilUjianMahasiswa", "hasilUjianMahasiswa.keyhasil" };
 		cetakToolbarbutton = Common.cetakDataCustomButton(HasilUjianMahasiswaDetail.class, new DataCriteria() {
 
+			/**
+			 * Menyusun {@link Criteria} sumber data untuk ekspor Excel <b>"Soal dan Jawaban"</b>:
+			 * seluruh {@link HasilUjianMahasiswaDetail} milik ujian ini.
+			 *
+			 * <p><b>Berbeda dari ekspor "Rekap Hasil Ujian".</b> Ekspor rekap menghasilkan SATU
+			 * baris per peserta; ekspor ini menghasilkan satu baris per JAWABAN, sehingga ukuran
+			 * berkasnya kira-kira sebesar jumlah peserta dikali jumlah soal. Dipakai ketika
+			 * diperlukan telaah menyeluruh isi jawaban (mis. pemeriksaan indikasi kecurangan atau
+			 * telaah kualitas jawaban esai).</p>
+			 *
+			 * <p><b>Penyaringan.</b> Alias {@code hasilUjianMahasiswa} dibuat agar penyaringan
+			 * dapat menembus relasi ke {@code pertemuanPunyaUjian}. Berbeda dari
+			 * {@link DataCriteria} ekspor rekap, di sini TIDAK ada penyaring
+			 * {@code mahasiswa}/{@code biodataCalonMahasiswa}: ekspor selalu mencakup seluruh
+			 * peserta ujian, bahkan ketika layar sedang berada pada mode satu peserta.</p>
+			 *
+			 * <p><b>Pengurutan.</b> Parameter {@code order} DIHORMATI di sini: bila diminta,
+			 * baris diurutkan menurut peserta lalu id detail, sehingga jawaban satu peserta
+			 * berkelompok berurutan dan berkasnya enak dibaca.</p>
+			 *
+			 * @param order penanda apakah pengurutan diminta mesin ekspor
+			 * @return Criteria siap dieksekusi, dengan atau tanpa pengurutan
+			 */
 			@Override
 			public Criteria initCriteria(boolean order) {
 				Session session = HibernateUtil.currentSession();
@@ -2351,6 +2374,21 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		cari.setParent(toolbar);
 		cari.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Tombol <b>Refresh</b>: memuat ulang grid dengan penanda refresh {@code true}.
+			 *
+			 * <p>Penanda {@code true} berarti himpunan soal terjawab dibaca ULANG dari sumbernya,
+			 * menembus cache. Inilah tombol yang dirujuk berbagai pesan di kelas ini ("Jika angka
+			 * pada grid belum berubah, klik Refresh") setelah aksi yang mengubah nilai di luar
+			 * jalur grid — misalnya "Hitung Ulang Peserta Ini" pada panel diagnostik nilai 0.</p>
+			 *
+			 * <p>Perhatikan bahwa memuat ulang tanpa kata kunci pencarian juga MERESET berkas
+			 * lokasi hasil ujian pada {@code PertemuanPunyaUjian} — lihat penjelasan
+			 * {@code reloadNama} pada {@link HasilUjianMahasiswaHelper#loadData(Object)}.</p>
+			 *
+			 * @param arg0 event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pemuatan ulang grid
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadData(true);
@@ -2364,6 +2402,22 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		nama.setParent(toolbar);
 		nama.addEventListener("onOK", new EventListener() {
 
+			/**
+			 * Menjalankan pencarian ketika pengguna menekan Enter di kotak nama.
+			 *
+			 * <p>Memuat ulang grid dengan {@code loadData(null)} — penanda refresh
+			 * {@code null}/{@code false}, BUKAN {@code true}. Pilihan ini disengaja: pencarian
+			 * hanya menyaring peserta mana yang ditampilkan, sedangkan isi jawaban tiap peserta
+			 * tidak berubah, sehingga cache boleh dipakai dan pencarian terasa jauh lebih
+			 * cepat.</p>
+			 *
+			 * <p>Efek sampingnya, karena kata kunci tidak kosong, {@code loadData} juga MELEWATI
+			 * reset berkas lokasi hasil ujian — penjagaan agar hasil pencarian parsial tidak
+			 * menghapus peta lokasi peserta yang sedang tersaring keluar.</p>
+			 *
+			 * @param arg0 event {@code onOK} (tombol Enter); tidak dipakai
+			 * @throws Exception diteruskan dari pemuatan ulang grid
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadData(null);
@@ -2375,6 +2429,18 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null);
 		toolbarbutton.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Tombol kaca pembesar di samping kotak nama — jalur alternatif pemicu pencarian bagi
+			 * pengguna yang mengeklik alih-alih menekan Enter.
+			 *
+			 * <p>Perilakunya identik dengan listener {@code onOK} pada kotak nama:
+			 * {@code loadData(null)}, yaitu tanpa memaksa pembacaan ulang cache karena pencarian
+			 * hanya mengubah penyaringan peserta. Visibilitasnya pun disamakan dengan kotak nama
+			 * (disembunyikan pada mode satu peserta serta bagi peserta kursus dan siswa).</p>
+			 *
+			 * @param arg0 event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pemuatan ulang grid
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadData(null);
@@ -2390,6 +2456,23 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Tutup", "/img/cancel.gif");
 		cancel.setTooltiptext("Tutup");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol <b>Tutup</b> di panel South: melepas komponen induk tempat seluruh layar
+			 * rekap dibangun.
+			 *
+			 * <p>Yang dilepas adalah {@code detail} — parameter yang diserahkan pemanggil ke
+			 * {@link HasilUjianMahasiswaHelper#display(PertemuanPunyaUjian, Component)}. Pada
+			 * pemanggil yang menyerahkan sebuah {@code Window}, ini menutup jendela rekap;
+			 * pada pemanggil yang menyerahkan panel tab, ini mengosongkan tab tersebut.</p>
+			 *
+			 * <p>Melepas induk otomatis melepas seluruh keturunannya, termasuk grid, toolbar,
+			 * dan panel statistik. Thread latar yang mungkin masih berjalan tidak dihentikan —
+			 * ia akan gagal senyap saat mencoba memperbarui label yang sudah terlepas, dan
+			 * kegagalan itu memang sudah diantisipasi blok {@code try/catch} di dalamnya.</p>
+			 *
+			 * @param event event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari operasi pelepasan komponen
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				detail.detach();
@@ -2771,6 +2854,17 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		bantuan.setTooltiptext("Mengapa nilai masih 0?");
 		bantuan.setStyle("padding:0;margin-left:4px;min-width:18px;min-height:18px;");
 		bantuan.addEventListener("onClick", new EventListener() {
+			/**
+			 * Membuka panel diagnostik "Penjelasan Nilai 0" untuk peserta yang bersangkutan.
+			 *
+			 * <p>Listener ini hanya meneruskan ketiga nilai yang ditangkap dari
+			 * {@link #tombolBantuanNilaiNol(HasilUjianMahasiswa, int, int)} apa adanya. Perlu
+			 * diingat bahwa {@code totalSoal} dan {@code terjawab} adalah SNAPSHOT saat baris
+			 * grid dirender, sedangkan angka-angka lain pada popup dibaca ulang dari database.</p>
+			 *
+			 * @param event event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pembangunan jendela diagnostik
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				bukaPopupPenjelasanNilaiNol(hasilUjianMahasiswa, totalSoal, terjawab);
@@ -2869,6 +2963,27 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				"/img/Button-Refresh-icon.png");
 		hitungUlang.setTooltiptext("Muat ulang detail jawaban dari database lalu hitung ulang nilai peserta ini saja");
 		hitungUlang.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menjalankan perbaikan <b>"Hitung Ulang Peserta Ini"</b> lalu menampilkan kalimat
+			 * hasilnya.
+			 *
+			 * <p>{@link #hitungUlangNilaiPeserta(HasilUjianMahasiswa)} dirancang tidak pernah
+			 * melempar exception dan SELALU mengembalikan kalimat berbahasa Indonesia yang layak
+			 * ditampilkan — baik untuk jalur sukses, data tidak ditemukan, maupun error. Karena
+			 * itu listener ini dapat menyalurkan nilai baliknya langsung ke messagebox tanpa
+			 * penanganan error tambahan.</p>
+			 *
+			 * <p>Perhitungan berjalan SINKRON pada thread event ZK (bukan di latar). Ini dapat
+			 * diterima karena hanya satu peserta yang diproses; berbeda dari "Hitung Ulang Semua"
+			 * yang wajib berjalan di latar.</p>
+			 *
+			 * <p><b>Yang tidak dilakukan:</b> baris grid dan teks diagnosis pada popup TIDAK
+			 * disegarkan. Kalimat hasil sudah memuat pengingat agar pengguna menekan Refresh pada
+			 * daftar hasil ujian bila angka di grid belum berubah.</p>
+			 *
+			 * @param event event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pembangunan messagebox
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				MyMessageboxConfig.show(hitungUlangNilaiPeserta(hasilUjianMahasiswa), "Informasi",
@@ -3478,6 +3593,29 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 						pertemuanPunyaUjian.getPertemuan().getPerkuliahan().getTahunAjaran(),
 						pertemuanPunyaUjian.getPertemuan().getPerkuliahan().getGanjilGenap()));
 		cari.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menjalankan laporan <b>Hasil OBE</b>: merekap capaian tiap peserta per CPMK dan
+			 * Sub-CPMK, lengkap dengan kolom CPL turunan, baris rata-rata kelas, baris ambang
+			 * (threshold), dan baris persentase mahasiswa lulus per CPMK.
+			 *
+			 * <p><b>Tiga wadah bersama {@code final}</b> menjembatani thread latar dengan callback
+			 * ZK: {@code htmlRef[0]} menampung tabel HTML, {@code xlsRef[0]} menampung berkas
+			 * Excel sebagai {@code byte[]}, dan {@code errorRef[0]} menampung penyebab kegagalan.
+			 * {@code errorRef} berperan penting bagi pengalaman pengguna — bila pembuatan Excel
+			 * gagal, tombol Download dapat menjelaskan APA yang salah (mis. Sub-CPMK tanpa kode
+			 * atau mahasiswa tanpa program studi) alih-alih sekadar diam.</p>
+			 *
+			 * <p><b>Berbeda dari Analisis Butir Soal</b>, berkas Excel di sini disimpan di MEMORI
+			 * sebagai {@code byte[]}, bukan ditulis ke berkas {@code /tmp}. Konsekuensinya tidak
+			 * ada sampah berkas yang tertinggal, tetapi laporan berukuran sangat besar akan
+			 * membebani heap.</p>
+			 *
+			 * <p>Tombol pemicunya sudah di-{@code setVisible(...)} hanya untuk perkuliahan
+			 * ber-OBE, sehingga listener ini tidak perlu memeriksanya lagi.</p>
+			 *
+			 * @param arg0 event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pembuatan bilah pemuatan
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -3486,6 +3624,22 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				final Throwable[] errorRef = new Throwable[1];
 
 				final Label label = Common.displayLoadBar(new EventListener() {
+					/**
+					 * Callback bilah pemuatan: membangun jendela hasil setelah thread latar
+					 * selesai menghitung.
+					 *
+					 * <p>Menyusun {@link MyWindow} 98%&times;95% dengan {@code Borderlayout}:
+					 * Center berisi {@code Div} bergulir yang menampung tabel HTML dari
+					 * {@code htmlRef[0]} (atau pesan "Tidak ada data OBE." bila null), dan South
+					 * berisi toolbar Tutup + Download Excel.</p>
+					 *
+					 * <p>Karena callback ini baru berjalan SETELAH label dikosongkan thread latar,
+					 * seluruh wadah bersama dijamin sudah terisi — hubungan
+					 * <i>happens-before</i> terbentuk oleh penyerahan event ke antrean ZK.</p>
+					 *
+					 * @param arg0 event penanda selesai; tidak dipakai
+					 * @throws Exception diteruskan dari pembangunan komponen jendela
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						final MyWindow window = new MyWindow("Hasil OBE", "none", true);
@@ -3516,12 +3670,49 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 						MyToolbarbuttonConfig btnClose = new MyToolbarbuttonConfig("Tutup", "/img/cancel.gif");
 						btnClose.addEventListener("onClick", new EventListener() {
+							/**
+							 * Tombol Tutup jendela Hasil OBE: melepas jendela beserta seluruh
+							 * isinya. Wadah bersama {@code htmlRef}/{@code xlsRef} ikut menjadi
+							 * sampah memori setelah jendela dilepas, sehingga berkas Excel yang
+							 * disimpan di memori terbebas.
+							 *
+							 * @param e event {@code onClick}; tidak dipakai
+							 * @throws Exception diteruskan dari pelepasan komponen
+							 */
 							@Override public void onEvent(Event e) throws Exception { window.detach(); }
 						});
 						btnClose.setParent(toolbar);
 
 						MyToolbarbuttonConfig btnXls = new MyToolbarbuttonConfig("Download Excel", "/img/excel.png");
 						btnXls.addEventListener("onClick", new EventListener() {
+							/**
+							 * Tombol <b>Download Excel</b> untuk laporan Hasil OBE, dengan tiga
+							 * jalur balasan yang berbeda menurut keadaan wadah bersama.
+							 *
+							 * <ol>
+							 *   <li><b>{@code xlsRef[0]} terisi</b> — berkas dikirim sebagai
+							 *       unduhan {@code hasil_obe.xlsx} lewat {@code Filedownload.save}
+							 *       dari {@link java.io.ByteArrayInputStream} (berkas ada di
+							 *       memori, bukan di disk).</li>
+							 *   <li><b>{@code xlsRef[0]} null tetapi {@code errorRef[0]} terisi</b>
+							 *       — pembuatan Excel GAGAL. Ditampilkan lewat
+							 *       {@code PesanFormalHelper.tampilkanGagalException} beserta
+							 *       empat langkah bantuan yang menyebut penyebab paling lazim:
+							 *       data CPMK/Sub-CPMK tidak lengkap (kode atau nama kosong) dan
+							 *       mahasiswa tanpa program studi.</li>
+							 *   <li><b>Keduanya null</b> — proses belum selesai; pengguna diminta
+							 *       menunggu sampai indikator pemuatan menghilang lalu mengeklik
+							 *       kembali.</li>
+							 * </ol>
+							 *
+							 * <p>Pembedaan jalur kedua dan ketiga inilah alasan {@code errorRef}
+							 * ada: tanpanya, kegagalan permanen dan proses yang masih berjalan
+							 * akan terlihat sama persis bagi pengguna, yaitu tombol yang seolah
+							 * tidak merespons.</p>
+							 *
+							 * @param e event {@code onClick}; tidak dipakai
+							 * @throws Exception diteruskan dari penyaluran unduhan
+							 */
 							@Override public void onEvent(Event e) throws Exception {
 								if (xlsRef[0] != null) {
 									Filedownload.save(new ByteArrayInputStream(xlsRef[0]),
@@ -3556,6 +3747,60 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				});
 
 				new Thread(new Runnable() {
+					/**
+					 * Thread latar penyusun laporan <b>Hasil OBE</b> — bagian terpanjang dari
+					 * fitur ini. Menyiapkan metadata soal, memetakan CPMK dan CPL, memproses tiap
+					 * peserta, lalu merakit tabel HTML dan workbook Excel.
+					 *
+					 * <h4>Tahap 1 — metadata soal</h4>
+					 * <p>Mengambil daftar {@code UjianPunyaSoal} (batas 1000 soal), lalu untuk
+					 * tiap nomor soal mencari {@link FormatNilai} pemetaannya lewat
+					 * {@code pertemuanPunyaUjian.ambilMapNomor(formatNilais)} — sumber kebenaran
+					 * yang SAMA dengan yang dipakai mesin penilaian. Dari situ dikumpulkan kode
+					 * Sub-CPMK ({@code statusPertemuan.nama}), kode CPMK
+					 * ({@code capaianPembelajaranLulusan.kode}), skor maksimal, dan kunci jawaban
+					 * per soal. Label soal memakai nomor urut, kecuali pada ujian acak yang
+					 * memakai cuplikan teks soal 8 karakter.</p>
+					 *
+					 * <h4>Tahap 2 — pemetaan CPL</h4>
+					 * <p>Mengambil {@code CapaianLulusan} aktif milik program studi perkuliahan,
+					 * lalu menautkannya ke CPMK dengan mencocokkan pola {@code ",<idCpmk>,"} di
+					 * dalam kolom CSV {@code capaianPembelajaranLulusan}. Pagar koma di kedua sisi
+					 * WAJIB agar id 1 tidak keliru cocok dengan id 11 atau 21. CPL yang tidak
+					 * tertaut CPMK mana pun tidak dimasukkan sebagai kolom.</p>
+					 *
+					 * <h4>Tahap 3 — pemrosesan peserta</h4>
+					 * <p>Peringkat dihitung dari himpunan nilai DISTINCT (pola yang sama dengan
+					 * analisis butir soal), dan kelompok Atas/Tengah/Bawah ditentukan dengan
+					 * belah-dua atas jumlah tingkat skor. Identitas peserta diambil dari salah
+					 * satu dari empat jenis ({@code Mahasiswa}, {@code BiodataCalonMahasiswa} —
+					 * memakai {@code prodiLulus} dengan cadangan {@code prodi1},
+					 * {@code Siswa}, {@code CalonSiswa}). Skor per soal diakumulasi per
+					 * {@code BankSoal} lalu dijumlahkan ke ember CPMK, dan persentase per CPMK
+					 * ({@code gained/max*100}) dibandingkan dengan {@code cpmk.getMinimal()} untuk
+					 * mencacah kelulusan. {@code session.clear()} setiap 50 peserta menahan
+					 * pertumbuhan cache.</p>
+					 *
+					 * <h4>Tahap 4 — perakitan keluaran</h4>
+					 * <p>Tabel HTML memakai header dua tingkat: baris pertama satu sel per CPMK
+					 * yang di-{@code colspan} sebanyak Sub-CPMK-nya plus satu kolom sigma, baris
+					 * kedua nama tiap Sub-CPMK. Sel CPMK diwarnai hijau/merah menurut apakah
+					 * mencapai ambang. Bagian {@code tfoot} memuat baris Rata-rata, Threshold, dan
+					 * % Mahasiswa Lulus. Seluruh teks dari basis data diloloskan lewat
+					 * {@link #obeEsc(String)}. Hasilnya disimpan ke {@code htmlRef[0]}; workbook
+					 * Excel disimpan ke {@code xlsRef[0]} sebagai {@code byte[]}.</p>
+					 *
+					 * <h4>Ketahanan</h4>
+					 * <p>Kegagalan per peserta ditangkap sehingga satu baris rusak tidak
+					 * membatalkan laporan. Kegagalan menyeluruh disimpan ke {@code errorRef[0]}
+					 * agar tombol Download Excel dapat menjelaskan sebabnya. Konversi angka dari
+					 * teks memakai {@link #parseIntObe(String)} yang mengembalikan {@code 0}
+					 * alih-alih melempar, supaya satu sel non-numerik tidak menggagalkan seluruh
+					 * workbook. Session ditutup di {@code finally}.</p>
+					 *
+					 * <p><b>{@code @SuppressWarnings("deprecation")}</b> diperlukan karena API
+					 * POI/ZK tertentu yang dipakai perakitan workbook sudah ditandai usang.</p>
+					 */
 					@SuppressWarnings({ "unchecked", "deprecation" })
 					@Override
 					public void run() {
@@ -4659,6 +4904,30 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		MyToolbarbuttonConfig cari = new MyToolbarbuttonConfig("Analisis Butir Soal", "/img/svg/check2-circle.svg");
 		cari.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Menjalankan <b>Analisis Butir Soal</b>: menyiapkan wadah bersama, menampilkan bilah
+			 * pemuatan, dan melepas thread latar penghitung.
+			 *
+			 * <p><b>Nama berkas keluaran</b> disusun dari {@code realPath("/tmp/data_<timestamp>.xlsx")}
+			 * pada aplikasi web. Cap waktu di-{@code URLEncoder}-kan karena formatnya dapat
+			 * memuat karakter yang tidak sah sebagai nama berkas, dan keunikannya mencegah dua
+			 * pengguna saling menimpa berkas.</p>
+			 *
+			 * <p><b>Wadah bersama {@code final}</b> yang disiapkan di sini: {@code soalAnalisisList}
+			 * (satu {@code String[12]} per soal), {@code statsGlobal} ({@code int[9]} statistik
+			 * agregat), {@code nilaiGlobal} ({@code double[1]} rata-rata nilai), serta
+			 * {@code intbox}/{@code colsbox} yang menampung dimensi sheet agar komponen
+			 * {@code Spreadsheet} dapat diatur ukurannya. Semuanya ditulis thread latar dan dibaca
+			 * callback ZK; keamanannya bersandar pada hubungan <i>happens-before</i> yang
+			 * terbentuk saat thread latar mengosongkan label.</p>
+			 *
+			 * <p>Arti tiap indeks {@code statsGlobal} dan {@code soalAnalisisList} beserta rumus
+			 * TK/DP yang mengisinya didokumentasikan lengkap pada Javadoc
+			 * {@link #analsisButirSoal(PertemuanPunyaUjian, Ambildata, Ambildata)}.</p>
+			 *
+			 * @param arg0 event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pengkodean nama berkas dan pembuatan bilah pemuatan
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -4682,6 +4951,34 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 				final Label label = Common.displayLoadBar(new EventListener() {
 
+					/**
+					 * Callback bilah pemuatan Analisis Butir Soal: membangun jendela hasil dua tab
+					 * setelah thread latar selesai.
+					 *
+					 * <p><b>Susunan jendela.</b> {@link MyWindow} 94%&times;95% dengan
+					 * {@code Borderlayout} yang diberi tinggi dan lebar PASTI ("100%"). Ukuran
+					 * pasti ini disengaja: tanpanya, panel tab pertama belum memiliki tinggi
+					 * terbatas saat render awal sehingga scrollbar-nya baru muncul setelah tab
+					 * kedua dibuka. North berisi toolbar (Tutup, Download Excel Lengkap), Center
+					 * berisi {@link Tabbox}.</p>
+					 *
+					 * <p><b>Dua tab.</b> Tab 1 "Dashboard Analisis Butir Soal" merender HTML dari
+					 * {@link #buildAnalisisVisualHtml(java.util.List, int[], double[])}. Tab 2
+					 * "Data Lengkap (Spreadsheet)" menampilkan berkas xlsx lewat komponen
+					 * {@code Spreadsheet} yang menunjuk ke {@code ../../tmp/<namaBerkas>}, dengan
+					 * jumlah baris dan kolom diambil dari {@code intbox}/{@code colsbox} yang diisi
+					 * thread latar. {@code PratinjauXlsxHelper.gantiSpreadsheetDenganGrid}
+					 * menggantinya dengan grid biasa bila komponen spreadsheet tidak tersedia.</p>
+					 *
+					 * <p><b>Dua penanggulangan tata letak ZK 5</b> untuk gejala "tab pertama belum
+					 * bisa digulir sampai tab kedua dibuka": (1) listener {@code onSelect} pada
+					 * tabbox yang meng-{@code invalidate} panel terpilih; (2) timer yang, setelah
+					 * render awal, berpindah sekejap ke tab kedua lalu kembali ke tab pertama —
+					 * meniru langkah manual yang selama ini menjadi solusi pengguna.</p>
+					 *
+					 * @param arg0 event penanda selesai; tidak dipakai
+					 * @throws Exception diteruskan dari pembuatan berkas dan komponen jendela
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
@@ -4711,6 +5008,18 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 						MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Tutup", "/img/cancel.gif");
 						cancel.setTooltiptext("Tutup");
 						cancel.addEventListener("onClick", new EventListener() {
+							/**
+							 * Tombol Tutup jendela Analisis Butir Soal: melepas jendela beserta
+							 * kedua tabnya.
+							 *
+							 * <p>Berkas xlsx di {@code /tmp} TIDAK dihapus saat jendela ditutup —
+							 * ia tetap ada sampai dibersihkan perawatan sistem. Ini disengaja agar
+							 * unduhan yang sedang berjalan tidak terputus ketika pengguna menutup
+							 * jendela lebih dulu.</p>
+							 *
+							 * @param event event {@code onClick}; tidak dipakai
+							 * @throws Exception diteruskan dari pelepasan komponen
+							 */
 							@Override
 							public void onEvent(Event event) throws Exception {
 								window.detach();
@@ -4723,6 +5032,27 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 						excelBtn.setTooltiptext(
 								"Unduh data jawaban per peserta + analisis butir soal dalam format Excel");
 						excelBtn.addEventListener("onClick", new EventListener() {
+							/**
+							 * Tombol <b>Download Excel Lengkap</b>: mengirimkan berkas hasil
+							 * analisis dari {@code /tmp} sebagai unduhan.
+							 *
+							 * <p>Berbeda dari tombol Download pada laporan Hasil OBE yang membaca
+							 * {@code byte[]} di memori, di sini berkas dibaca sebagai
+							 * {@link FileInputStream} dari disk. Karena itu berkas harus masih ada
+							 * — bila perawatan sistem sudah membersihkan {@code /tmp}, unduhan
+							 * gagal.</p>
+							 *
+							 * <p><b>Penanganan error sengaja senyap.</b> Kegagalan hanya direkam
+							 * ke {@code ErrorAuditUtil} tanpa pesan ke pengguna, sehingga tombol
+							 * tampak tidak merespons ketika berkas belum selesai ditulis atau
+							 * sudah terhapus. Ini kelemahan pengalaman pengguna yang layak
+							 * diperbaiki dengan meniru pola tiga jalur pada tombol Download Excel
+							 * di laporan Hasil OBE, yang membedakan "belum selesai" dari "gagal"
+							 * lewat wadah {@code errorRef}.</p>
+							 *
+							 * @param event event {@code onClick}; tidak dipakai
+							 * @throws Exception tidak dilempar dalam praktik — badan dibungkus try/catch
+							 */
 							@Override
 							public void onEvent(Event event) throws Exception {
 								try {

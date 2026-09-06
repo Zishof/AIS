@@ -1153,7 +1153,8 @@ public class PembayaranUtilHelper {
 							.add(bulan.trim().equals("-1") ? Restrictions.sqlRestriction(SQL_TRUE)
 									: bln != null ? Restrictions.le("bulan", bln)
 											: Restrictions.eq("realBulan", Integer.parseInt(bulan.trim())))
-							.createCriteria("detailBiaya");
+							.createCriteria("detailBiaya")
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 
 				} else {
 					criteria = session.createCriteria(PengaturanPembayaranBulanan.class)
@@ -1161,7 +1162,8 @@ public class PembayaranUtilHelper {
 							.add(sql.trim().isEmpty() ? Restrictions.sqlRestriction(SQL_TRUE) : Restrictions.sqlRestriction(sqlQuery))
 							.add(bulan.trim().equals("-1") ? Restrictions.sqlRestriction(SQL_TRUE)
 									: Restrictions.eq("realBulan", Integer.parseInt(bulan.trim())))
-							.createCriteria("detailBiaya");
+							.createCriteria("detailBiaya")
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 				}
 			}
 
@@ -1667,6 +1669,7 @@ public class PembayaranUtilHelper {
 					? session.createCriteria(PengaturanPembayaranBulanan.class)
 							.add(Restrictions.eq("aktif", true))
 							.setProjection(Projections.property("detailBiaya")).createCriteria("detailBiaya")
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 					: session.createCriteria(DetailBiaya.class)
 							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 			

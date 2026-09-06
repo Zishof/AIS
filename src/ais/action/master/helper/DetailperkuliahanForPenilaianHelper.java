@@ -1351,46 +1351,12 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 							}
 							Session session = HibernateUtil.currentNativeSession();
 							session.refresh(detailperkuliahan);
-							NilaiHuruf nilaiHuruf = null;
-
-							for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-								if (huruf != null && huruf.getNilaiHuruf() != null
-										&& huruf.getNilaiHuruf().equalsIgnoreCase(nilaiHurufText.getValue().trim())
-										&& huruf.getJurusan() != null && huruf.getJurusan().getId() != null
-										&& huruf.getJurusan().getId()
-												.equals(detailperkuliahan.getMahasiswa().getJurusan().getId())) {
-									nilaiHuruf = huruf;
-									break;
-								}
-							}
-
-							if (nilaiHuruf == null) {
-								for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-									if (huruf != null && huruf.getNilaiHuruf() != null
-											&& huruf.getNilaiHuruf().equalsIgnoreCase(nilaiHurufText.getValue().trim())
-											&& huruf.getFakultas() != null && huruf.getFakultas().getId() != null
-											&& huruf.getFakultas().getId().equals(detailperkuliahan.getMahasiswa()
-													.getJurusan().getFakultas().getId())) {
-										nilaiHuruf = huruf;
-										break;
-									}
-								}
-							}
-
-							if (nilaiHuruf == null) {
-								for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-									if (huruf != null && huruf.getNilaiHuruf() != null && huruf.getNilaiHuruf()
-											.equalsIgnoreCase(nilaiHurufText.getValue().trim())
-											// hanya aturan GLOBAL MURNI (tanpa jurusan/fakultas) yang boleh jadi fallback
-											// terakhir -- selaras CommonAcademicKrsNilaiHelper.getNilaiHuruf() &
-											// ConstantValues.nilaiHurufTerkait(); sebelumnya tier ini bisa mengambil
-											// aturan milik jurusan/fakultas LAIN karena tanpa syarat cakupan sama sekali.
-											&& huruf.getJurusan() == null && huruf.getFakultas() == null) {
-										nilaiHuruf = huruf;
-										break;
-									}
-								}
-							}
+							// Cari aturan konversi huruf->angka lewat indeks terpusat (prioritas per Jurusan ->
+							// Fakultas -> global murni), sama seperti ConstantValues.lulusDariNilaiHuruf() dkk --
+							// menggantikan 3 loop tangan yang sebelumnya disalin-tempel di sini (tier terakhirnya
+							// sempat tanpa syarat cakupan sama sekali, lihat r86082).
+							NilaiHuruf nilaiHuruf = ConstantValues.nilaiHurufTerkait(nilaiHurufText.getValue().trim(),
+									detailperkuliahan.getMahasiswa());
 
 							if (nilaiHuruf != null) {
 								nilai = (nilaiHuruf.getMulai() + nilaiHuruf.getSampai()) / 2.0;

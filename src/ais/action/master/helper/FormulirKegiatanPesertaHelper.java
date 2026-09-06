@@ -205,22 +205,24 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 		 * </p>
 		 *
 		 * <p>
-		 * <b>Hak sunting ({@code boleh}).</b> Nilai awalnya {@code true} hanya untuk staf murni
-		 * (bukan mahasiswa/siswa/calon/dosen/guru), lalu dinaikkan menjadi {@code true} pada tiga
-		 * kasus pembina: guru pembina formulir, guru pembina siswa yang bersangkutan, dan dosen
-		 * pembina formulir. Bendera ini mengendalikan apakah Nilai dan Keterangan tampil sebagai
-		 * kotak isian (tersimpan lewat {@code onChange}) atau sebagai label statis, dan menjadi
-		 * salah satu syarat munculnya tombol Hapus.
+		 * <b>Hak sunting ({@link #bolehMenyuntingPeserta(FormulirKegiatanPeserta)}).</b> Bernilai
+		 * {@code true} hanya untuk staf murni (bukan mahasiswa/siswa/calon/dosen/guru), lalu
+		 * dinaikkan menjadi {@code true} pada tiga kasus pembina: guru pembina formulir, guru
+		 * pembina siswa yang bersangkutan, dan dosen pembina formulir. Bendera ini mengendalikan
+		 * apakah Nilai dan Keterangan tampil sebagai kotak isian (tersimpan lewat {@code onChange})
+		 * atau sebagai label statis, apakah checkbox "Acc" tampil aktif atau nonaktif
+		 * (read-only), dan menjadi salah satu syarat munculnya tombol Hapus.
 		 * </p>
 		 *
 		 * <p>
-		 * <b>Catatan cakupan yang perlu diketahui pemelihara:</b> checkbox "Acc" dibuat dan
-		 * dipasang ke baris TANPA memeriksa {@code boleh}, dan listener {@code onCheck}-nya
-		 * menyimpan perubahan langsung lewat {@link Common#refreshSaveOrUpdate(Object)} tanpa
-		 * pemeriksaan ulang di sisi server — berbeda dari Nilai/Keterangan yang bergerbang dan
-		 * dari tombol Hapus yang bergerbang. Padahal bendera {@code acc} inilah yang membuka
-		 * pencetakan sertifikat dan menjadi syarat promosi massal "Singkronkan dg Kegiatan".
-		 * Perilaku ini didokumentasikan apa adanya, BUKAN diubah di sini.
+		 * <b>Gerbang checkbox "Acc".</b> Selain dinonaktifkan di tampilan bila {@code !boleh},
+		 * listener {@code onCheck}-nya memeriksa ulang
+		 * {@link #bolehMenyuntingPeserta(FormulirKegiatanPeserta)} secara fail-closed sebelum
+		 * menyimpan lewat {@link Common#refreshSaveOrUpdate(Object)} — bila hak sudah tidak
+		 * berlaku (mis. event dikirim langsung tanpa lewat komponen yang seharusnya nonaktif),
+		 * perubahan ditolak dan checkbox dikembalikan ke nilai tersimpan. Ini penting karena
+		 * bendera {@code acc} membuka pencetakan sertifikat dan menjadi syarat promosi massal
+		 * "Singkronkan dg Kegiatan".
 		 * </p>
 		 *
 		 * @param row  baris grid yang diisi
@@ -319,29 +321,7 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 				new Label().setParent(row);
 			}
 
-			boolean boleh = tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-					&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-					&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null && tbmuser.ambilDosen() == null
-					&& tbmuser.ambilGuru() == null;
-
-			if (tbmuser != null && tbmuser.ambilGuru() != null
-					&& formulirKegiatanPeserta.getFormulirKegiatan().getGuruPembina() != null && formulirKegiatanPeserta
-							.getFormulirKegiatan().getGuruPembina().getId().equals(tbmuser.getGuru().getId())) {
-				boleh = true;
-			}
-
-			if (tbmuser != null && tbmuser.ambilGuru() != null && formulirKegiatanPeserta.getSiswa() != null
-					&& formulirKegiatanPeserta.getSiswa().getGuruPembina() != null
-					&& formulirKegiatanPeserta.getSiswa().getGuruPembina().getId().equals(tbmuser.getGuru().getId())) {
-				boleh = true;
-			}
-
-			if (tbmuser != null && tbmuser.ambilDosen() != null
-					&& formulirKegiatanPeserta.getFormulirKegiatan().getDosenPembina() != null
-					&& formulirKegiatanPeserta.getFormulirKegiatan().getDosenPembina().getId()
-							.equals(tbmuser.getDosen().getId())) {
-				boleh = true;
-			}
+			boolean boleh = bolehMenyuntingPeserta(formulirKegiatanPeserta);
 
 			if (boleh) {
 
@@ -394,11 +374,16 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 
 			final MyCheckboxConfig acc = new MyCheckboxConfig("Acc");
 			acc.setChecked(formulirKegiatanPeserta.getAcc());
+			acc.setDisabled(!boleh);
 			acc.setParent(row);
 			acc.addEventListener("onCheck", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!bolehMenyuntingPeserta(formulirKegiatanPeserta)) {
+						acc.setChecked(formulirKegiatanPeserta.getAcc());
+						return;
+					}
 					formulirKegiatanPeserta.setAcc(acc.isChecked());
 					Common.refreshSaveOrUpdate(formulirKegiatanPeserta);
 					cetakToolbarbuttonSertifikat
@@ -484,6 +469,54 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 
 		}
 
+	}
+
+	/**
+	 * Menentukan apakah pengguna login boleh menyunting Nilai, Keterangan, dan status "Acc" pada
+	 * baris peserta ini; juga dipakai sebagai salah satu syarat tampilnya tombol Hapus.
+	 *
+	 * <p>
+	 * Bernilai {@code true} untuk staf murni (bukan mahasiswa/siswa/calon siswa/calon
+	 * mahasiswa/dosen/guru), atau untuk guru pembina formulir, guru pembina siswa yang
+	 * bersangkutan, atau dosen pembina formulir.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>WAJIB dipanggil ulang di sisi server</b> sebelum menyimpan perubahan yang bendera ini
+	 * lindungi (mis. di listener {@code onCheck} checkbox "Acc") — jangan hanya mengandalkan
+	 * visibilitas atau status disabled komponen, karena klien dapat mengirim event ZK langsung
+	 * terlepas dari status tampilan komponennya.
+	 * </p>
+	 *
+	 * @param formulirKegiatanPeserta baris peserta yang diperiksa haknya
+	 * @return {@code true} bila pengguna login berwenang menyunting baris ini
+	 */
+	private boolean bolehMenyuntingPeserta(FormulirKegiatanPeserta formulirKegiatanPeserta) {
+		boolean boleh = tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+				&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null && tbmuser.ambilDosen() == null
+				&& tbmuser.ambilGuru() == null;
+
+		if (tbmuser != null && tbmuser.ambilGuru() != null
+				&& formulirKegiatanPeserta.getFormulirKegiatan().getGuruPembina() != null && formulirKegiatanPeserta
+						.getFormulirKegiatan().getGuruPembina().getId().equals(tbmuser.getGuru().getId())) {
+			boleh = true;
+		}
+
+		if (tbmuser != null && tbmuser.ambilGuru() != null && formulirKegiatanPeserta.getSiswa() != null
+				&& formulirKegiatanPeserta.getSiswa().getGuruPembina() != null
+				&& formulirKegiatanPeserta.getSiswa().getGuruPembina().getId().equals(tbmuser.getGuru().getId())) {
+			boleh = true;
+		}
+
+		if (tbmuser != null && tbmuser.ambilDosen() != null
+				&& formulirKegiatanPeserta.getFormulirKegiatan().getDosenPembina() != null
+				&& formulirKegiatanPeserta.getFormulirKegiatan().getDosenPembina().getId()
+						.equals(tbmuser.getDosen().getId())) {
+			boleh = true;
+		}
+
+		return boleh;
 	}
 
 	/**

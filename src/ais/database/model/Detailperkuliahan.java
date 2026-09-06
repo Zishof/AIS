@@ -2777,42 +2777,11 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				// canonical/shared (AuditTimestampInterceptor) yang proxy jurusan-nya
 				// terikat ke Session lain yang sudah closed -> jangan biarkan getter ini
 				// crash, cukup lewati koreksi totalNilai (nilai tetap dipakai apa adanya).
-				NilaiHuruf nilaiHuruf = null;
-				Detailperkuliahan detailperkuliahan = this;
-				for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-					if (huruf != null && huruf.getNilaiHuruf() != null
-							&& huruf.getNilaiHuruf().equalsIgnoreCase(this.nilaiHuruf) && huruf.getJurusan() != null
-							&& huruf.getJurusan().getId() != null
-							&& huruf.getJurusan().getId().equals(detailperkuliahan.getMahasiswa().getJurusan().getId())) {
-						nilaiHuruf = huruf;
-						break;
-					}
-				}
-
-				if (nilaiHuruf == null) {
-					for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-						if (huruf != null && huruf.getNilaiHuruf() != null
-								&& huruf.getNilaiHuruf().equalsIgnoreCase(this.nilaiHuruf) && huruf.getFakultas() != null
-								&& huruf.getFakultas().getId() != null && huruf.getFakultas().getId()
-										.equals(detailperkuliahan.getMahasiswa().getJurusan().getFakultas().getId())) {
-							nilaiHuruf = huruf;
-							break;
-						}
-					}
-				}
-
-				if (nilaiHuruf == null) {
-					for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
-						if (huruf != null && huruf.getNilaiHuruf() != null
-								&& huruf.getNilaiHuruf().equalsIgnoreCase(this.nilaiHuruf)
-								// hanya aturan GLOBAL MURNI (tanpa jurusan/fakultas) boleh jadi fallback terakhir --
-								// selaras CommonAcademicKrsNilaiHelper.getNilaiHuruf() & ConstantValues.nilaiHurufTerkait().
-								&& huruf.getJurusan() == null && huruf.getFakultas() == null) {
-							nilaiHuruf = huruf;
-							break;
-						}
-					}
-				}
+				// Cari aturan konversi huruf->angka lewat indeks terpusat (prioritas per Jurusan ->
+				// Fakultas -> global murni), sama seperti ConstantValues.lulusDariNilaiHuruf() dkk --
+				// menggantikan 3 loop tangan yang sebelumnya disalin-tempel di sini (tier terakhirnya
+				// sempat tanpa syarat cakupan sama sekali, lihat r86083).
+				NilaiHuruf nilaiHuruf = ConstantValues.nilaiHurufTerkait(this.nilaiHuruf, mahasiswa);
 
 				if (nilaiHuruf != null) {
 					totalNilai = (nilaiHuruf.getMulai() + nilaiHuruf.getSampai()) / 2.0;

@@ -2777,7 +2777,7 @@ public class DetailUjianHelper implements DataLoader {
 										Matapelajaran matapelajaran = pertemuan == null
 												|| pertemuan.getJadwalPelajaran() == null ? null
 														: pertemuan.getJadwalPelajaran().getMatapelajaran();
-										Guru guru = tbmuser != null && tbmuser.getDosen() != null ? tbmuser.getGuru()
+										Guru guru = tbmuser != null && tbmuser.getGuru() != null ? tbmuser.getGuru()
 												: (pertemuan == null || pertemuan.getJadwalPelajaran() == null ? null
 														: pertemuan.getJadwalPelajaran().getGuru());
 
@@ -2793,7 +2793,7 @@ public class DetailUjianHelper implements DataLoader {
 											bankSoal.setMatapelajaran(matapelajaran);
 											ada = true;
 										}
-										if (bankSoal.getGuru() == null || guru != null) {
+										if (bankSoal.getGuru() == null && guru != null) {
 											bankSoal.setGuru(guru);
 											ada = true;
 										}

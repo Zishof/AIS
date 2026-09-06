@@ -147,12 +147,9 @@ public class DetailGrupSoalHelper implements DataLoader {
 
 	/**
 	 * Kotak kata kunci pada toolbar. Menekan Enter (event {@code onOK}) atau tombol kaca pembesar
-	 * memicu {@link #loadData(Object)}.
-	 *
-	 * <p><b>Perlu diketahui:</b> {@link #loadData(Object)} tidak pernah membaca nilai field ini,
-	 * sehingga kata kunci yang diketik tidak memengaruhi hasil &mdash; menekan tombol cari hanya
-	 * memuat ulang daftar yang sama. Kotak ini terpasang di UI tetapi belum tersambung ke kriteria
-	 * pencarian mana pun.</p>
+	 * memicu {@link #loadData(Object)}, yang menyaring {@link BankSoal#getSoal()} lewat
+	 * {@code ilike} (tanpa membedakan besar/kecil huruf, mencocokkan di mana saja pada teks soal)
+	 * bila nilainya tidak kosong.
 	 */
 	private Textbox cari;
 
@@ -160,11 +157,10 @@ public class DetailGrupSoalHelper implements DataLoader {
 	 * Kontrol paging eksternal, diinisialisasi lewat {@code Common.initPaging1} sehingga memakai
 	 * ukuran halaman {@code Common.ROWS_COUNT_ON_PAGE_1}.
 	 *
-	 * <p><b>Perlu diketahui:</b> {@link #loadData(Object)} mengisi {@code setTotalSize(...)} dengan
-	 * jumlah baris pada HALAMAN yang baru saja diambil, bukan jumlah seluruh soal dalam grup.
-	 * Karena nilai itu tidak pernah melebihi ukuran satu halaman, syarat
-	 * {@code setVisible(size > ROWS_COUNT_ON_PAGE_1)} tidak pernah terpenuhi dan kontrol paging
-	 * tetap tersembunyi &mdash; soal di luar halaman pertama tidak dapat dijangkau lewat UI ini.</p>
+	 * <p>{@link #loadData(Object)} mengisi {@code setTotalSize(...)} dengan jumlah SELURUH soal
+	 * dalam grup (disaring {@link #cari} bila terisi), dihitung lewat kueri {@code rowCount()}
+	 * terpisah dari kueri pengambil satu halaman data, sehingga kontrol paging tampil dan dapat
+	 * dipakai menjangkau soal di luar halaman pertama.</p>
 	 */
 	private Paging paging;
 	/**
@@ -1373,16 +1369,15 @@ public class DetailGrupSoalHelper implements DataLoader {
 
 	/**
 	 * Memuat satu halaman {@link BankSoal} milik {@link #penjelasanBankSoal} (diurutkan nomor urut
-	 * lalu id) ke grid, sesuai halaman aktif pada {@link #paging}.
+	 * lalu id) ke grid, sesuai halaman aktif pada {@link #paging}, disaring lewat kata kunci pada
+	 * {@link #cari} (dicocokkan {@code ilike} terhadap {@code soal}, tanpa membedakan besar/kecil
+	 * huruf) bila kotak itu sudah terbentuk dan tidak kosong.
 	 *
-	 * <p><b>Dua keterbatasan yang perlu diketahui.</b> Pertama, nilai kotak {@link #cari} tidak
-	 * pernah dibaca di sini, sehingga kata kunci yang diketik pengguna tidak memengaruhi hasil.
-	 * Kedua, {@code paging.setTotalSize(...)} diisi dengan jumlah baris pada HALAMAN yang baru
-	 * diambil, bukan jumlah seluruh soal dalam grup &mdash; karena nilai itu tidak pernah
-	 * melebihi {@code Common.ROWS_COUNT_ON_PAGE_1}, syarat
-	 * {@code setVisible(size > ROWS_COUNT_ON_PAGE_1)} tidak pernah terpenuhi dan kontrol paging
-	 * tetap tersembunyi. Akibatnya hanya halaman pertama yang dapat dijangkau lewat UI ini,
-	 * sementara {@link #initSpreadsheet()} tetap mengekspor seluruh soal.</p>
+	 * <p>Total baris untuk {@link #paging} dihitung lewat kueri {@code rowCount()} terpisah atas
+	 * kriteria yang sama (grup + kata kunci) sebelum kriteria dipakai ulang untuk mengambil satu
+	 * halaman data, mengikuti pola {@code akar.setProjection(Projections.rowCount())} lalu
+	 * {@code setProjection(null)} + {@code setResultTransformer(Criteria.ROOT_ENTITY)} sebelum
+	 * query berikutnya, seperti pada {@code AmbilDataPagingHelper}.</p>
 	 *
 	 * <p>Pengaturan paging dibungkus {@code try/catch} yang menelan galat, jadi grid tetap terisi
 	 * walau {@link #paging} belum terbentuk.</p>
@@ -1393,9 +1388,19 @@ public class DetailGrupSoalHelper implements DataLoader {
 	@Override
 	public void loadData(Object value) {
 
-		List<BankSoal> bankSoals = HibernateUtil.currentSession().createCriteria(BankSoal.class)
-				.add(Restrictions.eq("penjelasanBankSoal", penjelasanBankSoal)).addOrder(Order.asc("nomorUrut"))
-				.addOrder(Order.asc("id"))
+		String kataKunci = cari == null ? null : StringUtils.trimToNull(cari.getValue());
+
+		Criteria criteria = HibernateUtil.currentSession().createCriteria(BankSoal.class)
+				.add(Restrictions.eq("penjelasanBankSoal", penjelasanBankSoal));
+		if (kataKunci != null) {
+			criteria.add(Restrictions.ilike("soal", kataKunci, MatchMode.ANYWHERE));
+		}
+
+		int totalSize = ((Number) criteria.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+		criteria.setProjection(null);
+		criteria.setResultTransformer(Criteria.ROOT_ENTITY);
+
+		List<BankSoal> bankSoals = criteria.addOrder(Order.asc("nomorUrut")).addOrder(Order.asc("id"))
 				.setFirstResult(Common.ROWS_COUNT_ON_PAGE_1 * (paging == null ? 0 : paging.getActivePage()))
 				.setMaxResults(Common.ROWS_COUNT_ON_PAGE_1).list();
 
@@ -1408,8 +1413,8 @@ public class DetailGrupSoalHelper implements DataLoader {
 		try {
 			paging.setPageSize(Common.ROWS_COUNT_ON_PAGE_1);
 			paging.setMold("os");
-			paging.setTotalSize(bankSoals.size());
-			paging.setVisible(bankSoals.size() > Common.ROWS_COUNT_ON_PAGE_1);
+			paging.setTotalSize(totalSize);
+			paging.setVisible(totalSize > Common.ROWS_COUNT_ON_PAGE_1);
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailGrupSoalHelper.java:1043");
 
 		}
