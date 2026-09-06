@@ -1588,9 +1588,62 @@ public class PenjadwalanHelper {
 	 * id pertemuan pada {@code pemilik.ambilPertemuan()} dimuat satu-per-satu dan tanggal/jamnya ditimpa
 	 * berurutan sesuai kalender yang dihitung ulang dari tanggal mulai baru (melompati tanggal merah bila
 	 * dicentang, via {@code Common.tanggalMerahAja}/{@code Common.curreDate}), lalu di-commit per baris
+	  *
+	  * <p><b>"Tanggal mulai" diambil dari field yang berbeda-beda per jenis pemilik</b>, karena tiap
+	  * domain menyimpannya dengan nama sendiri: {@code tanggalMulaiPerkuliahan} (perkuliahan),
+	  * {@code tanggalAwalBimbingan} (bimbingan tugas akhir dan bimbingan KRS), {@code tanggalSidang}
+	  * (skripsi), {@code tanggal_mulai} (kelompok KKN dan PKL), {@code mulai} (formulir kegiatan), dan
+	  * {@code tanggal} (wisuda). Form ini membaca dan menulis balik ke field yang sesuai, sehingga
+	  * memindahkan tanggal agenda skripsi juga berarti memindahkan TANGGAL SIDANG-nya — bukan sekadar
+	  * tanggal pertemuan pertama.</p>
+	  *
+	  * <p><b>Jam mulai/selesai hanya diambil dari perkuliahan.</b> Blok yang mengisi nilai awal kedua
+	  * {@code MyTimebox} hanya membaca {@code perkuliahan.getWaktuMulai()}/{@code getWaktuSelesai()};
+	  * tujuh pemilik lain memulai dengan jam kosong walau entity-nya menyimpan jam. Nilai yang diisi
+	  * pengguna tetap ditulis ke setiap pertemuan pada semua jenis pemilik.</p>
+	  *
+	  * <p><b>Penulisan tanggal dilakukan per-pertemuan dengan session dan transaksi sendiri.</b> Setiap
+	  * iterasi membuka {@code HibernateUtil.currentNativeSession()}, memulai transaksi, menyimpan satu
+	  * pertemuan, commit, memutakhirkan cache {@code GeneralValueObject}, lalu menutup session dan
+	  * memanggil {@code HibernateUtil.closeSession()}. Konsekuensinya: <b>tidak ada atomisitas</b> —
+	  * kegagalan di tengah meninggalkan sebagian pertemuan bertanggal baru dan sisanya bertanggal lama,
+	  * dan setiap kegagalan per-pertemuan hanya dicatat ke error audit tanpa terlihat pengguna. Karena
+	  * pengaturan ulang ini bersifat idempoten (dihitung ulang dari tanggal mulai setiap kali), pemulihan
+	  * praktisnya adalah menjalankan ulang dialog yang sama.</p>
+	  *
+	  * <p><b>Panel pratinjau bukan simulasi persis.</b> {@code refreshPratinjau} memakai
+	  * {@link #daftarPertemuanPratinjau} yang mengurutkan {@code pertemuanKe} lebih dulu, sedangkan proses
+	  * simpan menelusuri {@code pemilik.ambilPertemuan()} (TreeMap ber-key string, urut menurut key
+	  * cache). Bila keduanya berbeda urutan, tanggal yang benar-benar tersimpan bisa tidak sama persis
+	  * dengan yang ditampilkan pratinjau. Pratinjau juga menandai hari libur secara informatif
+	  * ({@code Common.isHolidayMerahDanAtauHariLibur}) sementara pelompatan sesungguhnya dikerjakan
+	  * {@code Common.tanggalMerahAja}.</p>
+	  *
+	  * <p><b>Tidak ada gerbang hak akses di dalam method ini</b>, dan tidak ada pula validasi bahwa
+	  * tanggal baru masih berada di dalam masa perkuliahan/periode akademik yang berlaku. Pembatasan
+	  * satu-satunya adalah opsi "Bedakan Tanggal Mulai Perkuliahan": bila masa perkuliahan menetapkan
+	  * {@code tanggalMulaiHarusSesuaiJadwal} (atau {@code awalPerkuliahan} terisi), field tanggal mulai
+	  * dinonaktifkan kecuali flag {@code bolehMenentukanTanggalMulaiPerkuliahan} dinyalakan — dan flag itu
+	  * disimpan LANGSUNG ke basis data saat checkbox-nya diklik, sebelum tombol Simpan ditekan.</p>
+	  *
+	  * <p><b>Catatan pemeliharaan (perilaku terdokumentasi apa adanya, tidak diubah di sini):</b> pada
+	  * cabang penyimpanan {@code krsMahasiswa}, ketiga setter dikenakan ke {@code krsMahasiswa} tetapi
+	  * baris penyimpanannya memanggil {@code Common.refreshUpdate(session, skripsi)} — variabel milik
+	  * cabang lain, yang pada jalur ini dijamin {@code null}. Akibatnya setelan jadwal bimbingan KRS
+	  * (tanggal awal bimbingan, jenis interval, opsi lewati hari libur) tidak pernah tersimpan ke entity
+	  * pemiliknya, walaupun tanggal tiap pertemuannya tetap ditimpa. Tujuh cabang lain benar.</p>
 	 * dalam transaksi terpisah dan session ditutup setelah tiap iterasi.</p>
 	 *
 	 * @param perkuliahan   pemilik agenda (perkuliahan), atau {@code null} bila pemilik jenis lain dipakai
+	  * @param kelompokKkn               pemilik agenda berupa kelompok KKN, atau {@code null}
+	  * @param kelompokPkl               pemilik agenda berupa kelompok PKL, atau {@code null}
+	  * @param mahasiswaRequestTugasAkhir pemilik agenda berupa bimbingan tugas akhir, atau {@code null}
+	  * @param skripsi                   pemilik agenda berupa skripsi, atau {@code null}
+	  * @param krsMahasiswa              pemilik agenda berupa bimbingan KRS, atau {@code null}
+	  * @param formulirKegiatan          pemilik agenda berupa formulir kegiatan, atau {@code null}
+	  * @param wisuda                    pemilik agenda berupa wisuda, atau {@code null}
+	  * @throws Exception diteruskan dari pembangunan komponen ZK; kegagalan per-pertemuan saat menulis
+	  *                   tanggal TIDAK dilempar melainkan dicatat ke error audit
 	 * @param eventListener dipanggil setelah proses simpan selesai agar pemanggil memuat ulang tampilan
 	 */
 	public static void prosesTampilTombolAturUlangWaktu(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
@@ -2108,6 +2161,27 @@ public class PenjadwalanHelper {
 	 * Mengambil daftar pertemuan AKTIF milik satu pemilik agenda, terurut {@code pertemuanKe}→
 	 * {@code tanggal}→{@code id}, khusus untuk dirender di panel pratinjau tanggal pada
 	 * {@link #prosesTampilTombolAturUlangWaktu} (bukan untuk tampilan grid utama). Gagal dengan tenang:
+	  *
+	  * <p>Sama seperti {@link #tampilTombolDownload}, kriterianya memakai pola "delapan pemilik" dengan
+	  * {@code Restrictions.sqlRestriction("true")} untuk pemilik yang {@code null} — sehingga pemanggilan
+	  * tanpa satu pun pemilik akan mengembalikan SELURUH pertemuan di basis data. Pada pemakaian saat ini
+	  * hal itu tidak terjadi karena pemanggil tunggalnya meneruskan pemilik yang sama dengan yang sedang
+	  * dijadwalkan ulang.</p>
+	  *
+	  * <p>Perhatikan urutan parameternya BERBEDA dari method lain di kelas ini: di sini
+	  * {@code formulirKegiatan} dan {@code wisuda} datang sebelum {@code skripsi},
+	  * {@code mahasiswaRequestTugasAkhir}, dan {@code krsMahasiswa}. Karena kedelapan parameter bertipe
+	  * berbeda, salah urut akan tertangkap kompilator — kecuali bila semuanya diisi {@code null}.</p>
+	  *
+	  * @param perkuliahan               pemilik agenda berupa perkuliahan, atau {@code null}
+	  * @param kelompokKkn               pemilik agenda berupa kelompok KKN, atau {@code null}
+	  * @param kelompokPkl               pemilik agenda berupa kelompok PKL, atau {@code null}
+	  * @param formulirKegiatan          pemilik agenda berupa formulir kegiatan, atau {@code null}
+	  * @param wisuda                    pemilik agenda berupa wisuda, atau {@code null}
+	  * @param skripsi                   pemilik agenda berupa skripsi, atau {@code null}
+	  * @param mahasiswaRequestTugasAkhir pemilik agenda berupa bimbingan tugas akhir, atau {@code null}
+	  * @param krsMahasiswa              pemilik agenda berupa bimbingan KRS, atau {@code null}
+	  * @return daftar pertemuan aktif milik pemilik tersebut, tidak pernah {@code null}
 	 * mengembalikan list kosong dan mencatat error ke {@code ErrorAuditUtil} bila query gagal.
 	 */
 	@SuppressWarnings("unchecked")
@@ -2144,6 +2218,22 @@ public class PenjadwalanHelper {
 	 * Menambahkan tombol "Ubah Tanggal Agenda" ke {@code toolbar} yang, saat diklik, membuka jendela
 	 * pengaturan ulang tanggal massal lewat {@link #prosesTampilTombolAturUlangWaktu}.
 	 *
+	  * <p>Hanya pembungkus tombol: seluruh form, pratinjau, validasi, dan penulisan tanggal ada di
+	  * {@link #prosesTampilTombolAturUlangWaktu} — termasuk seluruh sifat dan batasannya (tidak ada
+	  * gerbang hak akses, penulisan tidak atomik, tanggal mulai tiap domain disimpan di field berbeda).
+	  * Pemanggil yang ingin membuka dialog itu tanpa tombol dapat memanggil method tersebut langsung,
+	  * seperti yang dilakukan {@link #tampilTombolAmbil} di akhir proses salin agenda.</p>
+	  *
+	  * @param toolbar                   komponen ZK induk tempat tombol dipasang
+	  * @param perkuliahan               pemilik agenda berupa perkuliahan, atau {@code null}
+	  * @param kelompokKkn               pemilik agenda berupa kelompok KKN, atau {@code null}
+	  * @param kelompokPkl               pemilik agenda berupa kelompok PKL, atau {@code null}
+	  * @param mahasiswaRequestTugasAkhir pemilik agenda berupa bimbingan tugas akhir, atau {@code null}
+	  * @param skripsi                   pemilik agenda berupa skripsi, atau {@code null}
+	  * @param krsMahasiswa              pemilik agenda berupa bimbingan KRS, atau {@code null}
+	  * @param formulirKegiatan          pemilik agenda berupa formulir kegiatan, atau {@code null}
+	  * @param wisuda                    pemilik agenda berupa wisuda, atau {@code null}
+	  * @param eventListener             dipanggil setelah dialog selesai menyimpan
 	 * @return tombol yang baru dibuat dan sudah ditambahkan ke {@code toolbar}
 	 */
 	public static MyToolbarbuttonConfig tampilTombolAturUlangWaktu(Component toolbar, final Perkuliahan perkuliahan,
@@ -2181,6 +2271,40 @@ public class PenjadwalanHelper {
 	 * berulang untuk setiap nomor 1..{@code jumlahMaksimalPertemuan}, memajukan kalender sesuai interval
 	 * dan melompati tanggal merah bila diminta.</p>
 	 *
+	  * <p><b>Opsi "Hapus pertemuan yang sebelumnya sudah ada" memakai jalur hapus yang BERBEDA dari
+	  * {@link #tampilTombolHapus}.</b> Ia divalidasi lebih dulu lewat {@link #bolehHapus}, tetapi
+	  * penghapusannya dilakukan dengan satu perintah SQL native langsung ke tabel {@code pertemuan} saja —
+	  * tanpa membersihkan {@code tugas_pertemuan} seperti yang dilakukan {@link #hapusPertemuanBesertaTugas}.
+	  * Itu berjalan hanya karena {@link #bolehHapus} sudah menolak bila ada pertemuan yang masih punya
+	  * tugas; bila validasi itu berubah, jalur ini bisa gagal karena foreign key.</p>
+	  *
+	  * <p><b>Pembuatan pertemuan berjalan di putaran event ZK berikutnya.</b> Setelah entity
+	  * {@code perkuliahan} disimpan, sisa pekerjaan (salin lampiran kurikulum lalu perulangan
+	  * {@link #buatPertemuan}) dijadwalkan lewat {@code Common.createDefaultTimer}. Untuk perkuliahan
+	  * dengan puluhan pertemuan, perulangan itu membuka dan menutup session Hibernate sendiri per
+	  * pertemuan (lihat {@link #buatPertemuan}) sehingga proses bisa terasa lama tanpa indikator kemajuan,
+	  * dan tidak ada satu transaksi yang membungkusnya — kegagalan di tengah menyisakan agenda yang
+	  * separuh jadi. Menekan tombol ini lagi aman karena {@link #buatPertemuan} tidak membuat duplikat
+	  * pada tanggal yang sama.</p>
+	  *
+	  * <p><b>Batas jumlah pertemuan bisa berubah tanpa disadari.</b> Bila "Jumlah Rencana Pertemuan
+	  * Mengikuti Kurikulum" dicentang, {@code jumlahMaksimalPertemuan} disimpan {@code null} agar
+	  * getter-nya selalu membaca dari kurikulum — sehingga perubahan kurikulum belakangan langsung
+	  * menggeser batas N. Perulangan pembuatan di sini, dan tombol "Hapus pertemuan tidak terpakai
+	  * (&gt;N)" pada {@link #display(Perkuliahan, Component)}, sama-sama membaca N yang bisa bergeser itu.</p>
+	  *
+	  * <p><b>Penanda UTS memakai pembagian bilangan bulat</b> ({@code i == jumlahMaksimalPertemuan / 2}),
+	  * jadi untuk jumlah pertemuan ganjil UTS jatuh pada pembulatan ke bawah (mis. 15 pertemuan → UTS di
+	  * pertemuan ke-7). Bila kurikulum juga memasok {@code KurikulumPunyaMatakuliahDetail} untuk nomor
+	  * tersebut, nilai dari kurikulum MENIMPA penanda UTS/UAS — lihat {@link #buatPertemuan}.</p>
+	  *
+	  * <p><b>Tidak ada gerbang hak akses di dalam method ini.</b> Pada
+	  * {@link #display(Perkuliahan, Component)} tombol ini hanya dipasang bila pengguna bukan mahasiswa
+	  * dan (bukan dosen, atau dosennya diizinkan mengubah tanggal perkuliahan).</p>
+	  *
+	  * @param toolbar     komponen ZK induk tempat tombol dipasang
+	  * @param perkuliahan perkuliahan yang agendanya akan dibuat; tidak boleh {@code null} — badan
+	  *                    listener langsung mendereference-nya sejak baris pertama
 	 * @param eventListener dipanggil setelah seluruh pertemuan selesai dibuat
 	 * @return listener {@code onClick} tombol tersebut (dikembalikan agar bisa dipicu ulang programatis)
 	 */
@@ -2787,6 +2911,42 @@ public class PenjadwalanHelper {
 	 * topik/indikator/dsb diambil dari {@link KurikulumPunyaMatakuliahDetail} nomor urut ke-{@code i}
 	 * pada {@code kurikulumPunyaMatakuliah} milik matakuliah tersebut.
 	 *
+	  * <p><b>Kunci anti-duplikatnya adalah TANGGAL, bukan nomor urut.</b> Sebelum membuat, method ini
+	  * mencari pertemuan aktif milik perkuliahan yang sama pada tanggal {@code currDate} persis; bila ada,
+	  * pertemuan itu dikembalikan apa adanya tanpa disentuh. Konsekuensinya: (a) memanggil ulang
+	  * pembuatan agenda dengan tanggal mulai dan interval yang sama tidak akan menggandakan pertemuan —
+	  * sifat idempoten yang diandalkan tombol "Buat Pertemuan"; (b) sebaliknya, bila tanggal mulai atau
+	  * intervalnya diubah, pertemuan LAMA tidak diperbarui melainkan pertemuan BARU ditambahkan pada
+	  * tanggal-tanggal baru, sehingga agenda bisa membengkak — inilah sebabnya form pemanggil menyediakan
+	  * opsi "Hapus pertemuan yang sebelumnya sudah ada"; dan (c) dua pertemuan sah pada hari yang sama
+	  * (mis. kelas pengganti) tidak dapat dibuat lewat jalur ini — pakai {@link #buatSatuPertemuan}.</p>
+	  *
+	  * <p><b>Kurikulum menimpa penanda UTS/UAS.</b> Status/topik/metode diisi berurutan: mula-mula
+	  * "Tatap Muka", lalu UAS bila {@code i} sama dengan pertemuan terakhir, lalu UTS bila {@code i} sama
+	  * dengan {@code jumlahMaksimalPertemuan / 2} (pembagian bilangan bulat). Namun bila
+	  * {@link KurikulumPunyaMatakuliahDetail} dengan {@code nomorUrut == i} ditemukan, seluruh field RPS
+	  * TERMASUK {@code statusPertemuan} dan {@code pertemuanKe} ditimpa dari kurikulum — jadi pada
+	  * matakuliah yang rincian kurikulumnya lengkap, centang UTS/UAS di form pemanggil praktis tidak
+	  * berpengaruh, dan {@code pertemuanKe} bisa berbeda dari {@code i}.</p>
+	  *
+	  * <p><b>Session dan transaksi dikelola sendiri per pemanggilan.</b> Method ini membuka
+	  * {@code HibernateUtil.currentNativeSession()}, membungkus penyimpanan dalam transaksi eksplisit,
+	  * lalu menutup session dan memanggil {@code HibernateUtil.closeSession()} pada blok akhir — termasuk
+	  * ketika pertemuan sudah ada dan tidak ada yang disimpan. Karena dipanggil dalam perulangan oleh
+	  * {@link #tampilTombolBuatPertemuan}, satu pembuatan agenda berarti membuka-tutup session sebanyak
+	  * jumlah pertemuan. Efek sampingnya untuk pemanggil: session Hibernate "saat ini" milik permintaan
+	  * ZK ikut ditutup, jadi entity yang dipegang pemanggil bisa menjadi detached setelah method ini
+	  * kembali.</p>
+	  *
+	  * <p><b>Kegagalan bersifat senyap.</b> Seluruh badan dibungkus try/catch yang hanya mencatat ke
+	  * error audit; pemanggil menerima {@code null} tanpa penjelasan dan perulangan pembuatan agenda
+	  * tetap berlanjut ke nomor berikutnya. Lampiran kurikulum disalin lewat
+	  * {@code MatakuliahKurikulumDetailHelper.copyLampiran} hanya untuk pertemuan yang BARU dibuat.</p>
+	  *
+	  * @param perkuliahan              perkuliahan pemilik pertemuan; jam dan ruang default diambil
+	  *                                 dari sini
+	  * @param kurikulumPunyaMatakuliah kurikulum matakuliah sumber rincian RPS per nomor urut, atau
+	  *                                 {@code null} bila tidak ada rincian kurikulum
 	 * @param i           nomor urut pertemuan yang akan dibuat (1..jumlah maksimal pertemuan)
 	 * @param currDate    tanggal pertemuan tersebut
 	 * @param uts         checkbox "UTS di pertengahan pertemuan"

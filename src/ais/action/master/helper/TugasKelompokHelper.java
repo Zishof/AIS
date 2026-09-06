@@ -262,35 +262,225 @@ public class TugasKelompokHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * <h4>State helper: satu instance = satu layar Tugas Kelompok</h4>
+	 *
+	 * <p>Seluruh field di bawah ini adalah state instance, BUKAN state bersama. Satu
+	 * {@code TugasKelompokHelper} dibuat untuk satu layar/tab, dipakai oleh satu desktop ZK, dan tidak
+	 * boleh disimpan ke cache statis atau dibagikan lintas sesi &mdash; sebagian field memuat identitas
+	 * pelajar yang sedang login, sehingga membagikannya berarti membocorkan data antarpengguna.</p>
+	 *
+	 * <p>State terbagi dalam empat kelompok yang saling bebas:</p>
+	 * <ol>
+	 *   <li><b>Identitas peserta</b> ({@code mahasiswa}, {@code biodataCalonMahasiswa}, {@code siswa},
+	 *   {@code calonSiswa}) &mdash; diisi lewat konstruktor, menentukan apakah layar dibuka "sebagai
+	 *   pelajar"; dibaca oleh {@link #konteksPelajar()} dan {@link #bolehKelola(Tbmuser)}.</li>
+	 *   <li><b>Cakupan data</b> ({@code perkuliahan}, {@code kelompokKkn}, {@code kelompokPkl},
+	 *   {@code jadwalPelajaran}, ketiga varian jamaknya, dan {@code sqlTambahan}) &mdash; menentukan
+	 *   tugas kelompok MANA yang boleh muncul di daftar; dibaca oleh {@link #initCriteria(boolean)}.</li>
+	 *   <li><b>Komponen UI daftar</b> ({@code grid}, {@code paging}, {@code cari}) &mdash; dipasang oleh
+	 *   {@code display(...)} dan dipakai ulang oleh {@link #loadData(Object)} setiap kali data dimuat
+	 *   ulang.</li>
+	 *   <li><b>Komponen UI formulir</b> ({@code addWindow}, {@code judul}, {@code isi},
+	 *   {@code mulaiWaktuMengumpulkanTugas}, {@code batasWaktuMengumpulkanTugas},
+	 *   {@code banboxPerkuliahan}, {@code syaratMengumpulkanTugas}, {@code lampiran},
+	 *   {@code tugasKelompok}) &mdash; dibangun oleh {@link #init(TugasKelompok)} dan dibaca kembali
+	 *   oleh {@link #onSave(Event)}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Catatan penting soal daur hidup.</b> Kelompok (4) ditimpa ulang setiap kali formulir dibuka.
+	 * Karena {@link #onSave(Event)} membaca field-field tersebut secara langsung (bukan menerima
+	 * parameter), membuka dua formulir sekaligus dari satu instance helper akan membuat penyimpanan
+	 * memakai komponen milik formulir yang terakhir dibuka. Alur pemakaian normal (formulir modal,
+	 * satu per satu) mencegah hal ini terjadi.</p>
+	 */
+
+	/**
+	 * Jendela modal formulir "Instruksi Tugas Kelompok" (tambah/ubah). Dibuat ulang setiap kali
+	 * {@link #onAdd(Event, TugasKelompok)} atau {@link #onAddExternal} dipanggil, diisi oleh
+	 * {@link #init(TugasKelompok)}, dan dilepas ({@code detach}) oleh tombol Batal maupun setelah
+	 * {@link #onSave(Event)} berhasil. Bernilai {@code null} selama formulir belum pernah dibuka.
+	 */
 	private MyWindow addWindow;
+	/**
+	 * Grid daftar tugas kelompok. Dibuat oleh salah satu varian {@code display(...)} atau oleh
+	 * {@link #tampilanTugas}, lalu diisi berulang kali oleh {@link #loadData(Object)} melalui
+	 * {@code setModelCheckMobile}. Baris digambar oleh {@link DetailPerkuliahanRenderer}. Selalu
+	 * dipasang sebelum {@code loadData} dipanggil pertama kali.
+	 */
 	private MyGrid grid;
+	/**
+	 * Cakupan perkuliahan (mata kuliah + kelas + tahun ajaran) yang sedang dibuka. Bila terisi,
+	 * {@link #initCriteria(boolean)} membatasi daftar hanya pada tugas kelompok milik perkuliahan ini,
+	 * dan {@link #init(TugasKelompok)} menyembunyikan pemilih perkuliahan karena sudah ditentukan.
+	 * {@code null} berarti layar tidak dibatasi oleh satu perkuliahan tertentu.
+	 */
 	private Perkuliahan perkuliahan = null;
 
+	/**
+	 * Pengatur halaman daftar. Jumlah total baris dihitung ulang oleh {@link #loadData(Object)} lewat
+	 * {@code Common.initPaging1}, dan halaman aktif ({@code getActivePage()}) dipakai untuk menghitung
+	 * {@code setFirstResult} sehingga hanya satu halaman baris yang dimuat ke memori, bukan seluruh
+	 * tabel. Berpindah halaman memicu {@code loadData} lagi lewat listener yang dipasang di
+	 * {@code display(...)}.
+	 */
 	private Paging paging;
 
+	/**
+	 * Tugas kelompok yang sedang diedit di formulir, ATAU satu-satunya tugas yang ditampilkan pada mode
+	 * rinci {@link #tampilanTugas}. Diisi oleh {@link #init(TugasKelompok)} dan dibaca kembali oleh
+	 * {@link #onSave(Event)}; pada penyimpanan, objek ini ditukar dengan salinan terkelola hasil
+	 * {@code session.load} bila sudah memiliki id, agar pembaruan aman terhadap data basi.
+	 */
 	private TugasKelompok tugasKelompok;
+	/**
+	 * Kotak isian judul tugas kelompok pada formulir (maksimal 255 karakter, 2 baris). Wajib diisi:
+	 * {@link #onSave(Event)} menolak menyimpan dan menampilkan peringatan bila isinya kosong setelah
+	 * dipangkas spasi.
+	 */
 	private Textbox judul;
+	/**
+	 * Penyunting teks kaya (CKEditor) untuk instruksi/langkah pengerjaan tugas kelompok. Isinya disimpan
+	 * ke kolom {@code nama} milik {@link TugasKelompok} oleh {@link #onSave(Event)}. Komponen ini juga
+	 * menjadi sasaran tulis fitur "Generate Tugas Kelompok" berbasis AI di {@link #init(TugasKelompok)}.
+	 */
 	private MyCkEditor isi;
+	/**
+	 * Berkas lampiran instruksi yang baru saja diunggah pada formulir, ditangkap dari callback
+	 * {@code LampiranLain.createDownloadUploadFileLain}. Sengaja {@code protected} agar dapat diakses
+	 * dari listener anonim di dalam kelas ini. Bernilai {@code null} bila pengguna tidak mengunggah apa
+	 * pun; bila terisi, {@link #onSave(Event)} menautkannya ke tugas kelompok yang baru tersimpan dengan
+	 * menyetel {@code ref} ke id tugas (lewat sesi streaming terpisah).
+	 */
 	protected LampiranLain lampiran;
+	/**
+	 * Cakupan kelompok KKN yang sedang dibuka. Analog dengan {@code perkuliahan}, tetapi untuk modul
+	 * Kuliah Kerja Nyata: bila terisi, daftar dibatasi pada tugas kelompok milik kelompok KKN ini dan
+	 * {@link #onSave(Event)} menautkan tugas baru ke kelompok tersebut.
+	 */
 	private KelompokKkn kelompokKkn = null;
+	/**
+	 * Cakupan kelompok PKL (Praktik Kerja Lapangan) yang sedang dibuka. Perannya sama persis dengan
+	 * {@code kelompokKkn}, hanya berbeda modul asal.
+	 */
 	private KelompokPkl kelompokPkl = null;
+	/**
+	 * Pemilih tanggal &amp; jam saat tugas mulai dibuka. Disimpan ke kolom {@code mulai}. Selama waktu
+	 * sekarang masih sebelum nilai ini, {@link DetailPerkuliahanRenderer#render} menampilkan pesan
+	 * "Tugas belum mulai" dan menyembunyikan seluruh kontrol pengumpulan.
+	 */
 	private MyDatebox mulaiWaktuMengumpulkanTugas;
+	/**
+	 * Pemilih tanggal &amp; jam batas akhir pengumpulan. Disimpan ke kolom {@code selesai}. Sengaja boleh
+	 * dikosongkan &mdash; kosong berarti tugas tidak memiliki batas waktu, dan pengecekan "sudah
+	 * ditutup" pada kartu maupun {@code render} dilewati.
+	 */
 	private MyDatebox batasWaktuMengumpulkanTugas;
+	/**
+	 * Cakupan JAMAK: daftar perkuliahan yang tugas kelompoknya digabungkan dalam satu layar (mis. semua
+	 * kelas yang diampu seorang dosen). Bila tidak kosong, {@link #initCriteria(boolean)} memakai
+	 * {@code Restrictions.in} atas daftar ini. Bersifat menambah, bukan menggantikan, penyaring
+	 * {@code perkuliahan} tunggal &mdash; bila keduanya terisi, keduanya diterapkan sekaligus.
+	 */
 	private List<Perkuliahan> perkuliahans;
+	/**
+	 * Cakupan JAMAK untuk kelompok KKN; berperilaku sama seperti {@code perkuliahans}.
+	 */
 	private List<KelompokKkn> kelompokKkns;
+	/**
+	 * Cakupan JAMAK untuk kelompok PKL; berperilaku sama seperti {@code perkuliahans}.
+	 */
 	private List<KelompokPkl> kelompokPkls;
+	/**
+	 * Penyaring SQL mentah tambahan yang ditempelkan apa adanya ke kriteria lewat
+	 * {@code Restrictions.sqlRestriction} di {@link #initCriteria(boolean)}.
+	 *
+	 * <p><b>Peringatan bagi pengembang.</b> Isi field ini TIDAK diparameterkan dan TIDAK divalidasi;
+	 * apa pun yang masuk ke sini menjadi bagian klausa WHERE. Karena itu field ini hanya boleh diisi
+	 * dengan potongan SQL yang ditulis tetap di dalam kode, TIDAK PERNAH dengan nilai yang berasal dari
+	 * masukan pengguna, parameter URL, atau isi basis data. Satu-satunya jalur pengisiannya adalah
+	 * {@link #display(String, Component)}, yang pada revisi ini tidak dipanggil dari mana pun di dalam
+	 * kode sumber &mdash; jadi jalur ini praktis tidak aktif. Bila kelak dipakai, penyaring ini juga
+	 * berperan sebagai SATU-SATUNYA pembatas cakupan: bila seluruh field cakupan lain kosong, kriteria
+	 * akan mencakup seluruh tabel tugas kelompok.
+	 */
 	private String sqlTambahan;
+	/**
+	 * Mahasiswa pemilik layar bila helper dibuka "sebagai mahasiswa". Diisi lewat
+	 * {@link #TugasKelompokHelper(Mahasiswa, BiodataCalonMahasiswa)}. Terisinya field ini membuat
+	 * {@link #konteksPelajar()} bernilai benar sehingga seluruh tombol kelola disembunyikan, dan
+	 * diteruskan ke {@code NamaTugasKelompokHelper} agar mahasiswa dapat bergabung ke kelompok.
+	 */
 	private Mahasiswa mahasiswa;
+	/**
+	 * Calon mahasiswa (biodata PMB) pemilik layar, pasangan dari {@code mahasiswa} pada konstruktor yang
+	 * sama. Diperlakukan sebagai pelajar persis seperti mahasiswa penuh.
+	 */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	/**
+	 * Cakupan jadwal pelajaran (jalur SEKOLAH) yang sedang dibuka. Selain menyaring daftar, field ini
+	 * mengalihkan seluruh blok penilaian di {@link DetailPerkuliahanRenderer#render} dari format nilai
+	 * perkuliahan ke rantai penilaian sekolah ({@code JenisPenilaian} &rarr; {@code GrupPenilaian} &rarr;
+	 * {@code GrupKategoriItemPenilaianSiswa} &rarr; {@code JenisItemPenilaianSiswa}).
+	 */
 	private JadwalPelajaran jadwalPelajaran = null;
+	/**
+	 * Siswa pemilik layar bila helper dibuka "sebagai siswa" lewat
+	 * {@link #TugasKelompokHelper(Siswa, CalonSiswa)}. Sama seperti {@code mahasiswa}, terisinya field
+	 * ini menandai konteks pelajar sehingga tombol kelola tidak dibuat.
+	 */
 	private Siswa siswa;
+	/**
+	 * Calon siswa (PSB) pemilik layar, pasangan dari {@code siswa} pada konstruktor yang sama.
+	 * Diperlakukan sebagai pelajar penuh &mdash; peran inilah yang dahulu terlewat pada pemeriksaan
+	 * tersebar dan menjadi alasan dibuatnya {@link #bolehKelola(Tbmuser)}.
+	 */
 	private CalonSiswa calonSiswa;
+	/**
+	 * Kotak pencarian daftar. Isinya dibaca langsung oleh {@link #initCriteria(boolean)} untuk menyusun
+	 * penyaring {@code ilike} atas judul, nama, dan keterangan.
+	 *
+	 * <p>Field ini merangkap penanda "layar sudah siap": {@link #loadData(Object)} dan
+	 * {@link #tempelRingkasanTugas(Component)} langsung keluar bila masih {@code null}, karena keduanya
+	 * memanggil {@code initCriteria} yang membacanya tanpa penjagaan {@code null}.</p>
+	 */
 	private Textbox cari;
+	/**
+	 * Pemilih perkuliahan pada formulir, hanya terlihat ketika layar dibuka tanpa cakupan apa pun
+	 * (perkuliahan, KKN, PKL, dan jadwal pelajaran semuanya {@code null}). Perkuliahan terpilih disimpan
+	 * sebagai atribut komponen bernama {@code "perkuliahan"}, bukan sebagai nilai teks; itulah yang
+	 * dibaca {@link #onSave(Event)} untuk validasi wajib-isi maupun untuk penyimpanan.
+	 */
 	private AmbilDataPerkuliahanBandbox banboxPerkuliahan;
+	/**
+	 * Pemilih {@link SyaratUjian} yang harus dipenuhi peserta sebelum boleh mengumpulkan tugas (mis.
+	 * lunas administrasi). Daftar hanya memuat syarat aktif. Bila syarat terpilih ditandai "hanya boleh
+	 * diubah oleh admin", combobox dinonaktifkan bagi dosen maupun mahasiswa dan sebuah keterangan
+	 * penjelas dimunculkan.
+	 */
 	private Combobox syaratMengumpulkanTugas;
+	/**
+	 * Callback milik layar pemanggil, dijalankan setiap kali data berubah sehingga halaman induk (mis.
+	 * daftar pertemuan) dapat menyegarkan tampilannya sendiri. Dipicu setelah penyimpanan berhasil,
+	 * setelah penghapusan tugas, setelah pemindahan tugas ke pertemuan lain, dan saat formulir
+	 * dibatalkan. Boleh {@code null} bila pemanggil tidak memerlukan pemberitahuan.
+	 */
 	private EventListener eventListener = null;
 
+	/**
+	 * Pemilih mode tampilan. {@code true} (bawaan) = mode DAFTAR: baris menampilkan informasi dosen
+	 * pengampu, prasyarat mata kuliah, serta jadwal hari/jam/ruangan, dan penyimpanan diikuti
+	 * {@link #loadData(Object)}. {@code false} = mode RINCI satu tugas (disetel oleh
+	 * {@link #tampilanTugas}): blok informasi perkuliahan tambahan dilewati agar tidak mengulang
+	 * informasi yang sudah tampil di halaman induk, dan penyimpanan menggambar ulang layar lewat
+	 * {@code tampilanTugas} alih-alih memuat ulang daftar.
+	 */
 	private boolean tampilRinci = true;
+	/**
+	 * Komponen induk yang menampung layar pada mode RINCI, disimpan oleh {@link #tampilanTugas} agar
+	 * dapat dibersihkan ({@code Common.clear}) dan digambar ulang setelah penyimpanan berhasil. Tidak
+	 * dipakai pada mode daftar.
+	 */
 	private Component component = null;
 
 	public TugasKelompokHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {

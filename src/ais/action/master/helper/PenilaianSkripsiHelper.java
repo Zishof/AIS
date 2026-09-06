@@ -706,6 +706,41 @@ public class PenilaianSkripsiHelper implements DataLoader {
 	 */
 	class DetailKelompokKknRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris "dosen + peran": panel {@link MyDetail} berisi catatan dosen (JSON per
+		 * peran di {@link Skripsi#getCatatanDosen()}) dan lampiran khusus peran itu, lalu foto dosen,
+		 * nama dosen (plus tombol "Ubah Dosen" bila {@link #bolehUbahDosenPenilai()}), label peran,
+		 * persentase bobot, nilai + nilai hurufnya, dan tombol "Penilaian" yang membuka
+		 * {@link PenilaianSkripsiHelper#init(Dosen, String)}.
+		 *
+		 * <p><b>Peringatan pemetaan slot (bug penamaan tertukar).</b> Blok {@code if/else} di bawah
+		 * mengulang lagi rantai peran &rarr; nilai/bobot yang sudah ada di {@link #nilaiDosen(CommonVO)}
+		 * dan {@link #persenDosen(CommonVO)}; ini salinan ketiga dari pemetaan yang sama di file ini
+		 * (salinan keempat ada di pembangun parameter "Berita Acara" pada
+		 * {@link PenilaianSkripsiHelper#display(Skripsi, Component, EventListener)}). Perhatikan bahwa
+		 * slot {@code dosen1} — yang <i>orang</i>-nya diambil {@link Skripsi#dataDosen(boolean)} dari
+		 * kolom {@code pembimbing} — di sini dipasangkan dengan <i>nilai</i>
+		 * {@link Skripsi#getNilaiKetuaSidang()} dan bobot
+		 * {@code FormatNilaiSkripsi#getProsentasiNilaiKetuaSidang()}; sebaliknya slot {@code dosen2}
+		 * (orang = {@code ketua_sidang}) memakai {@link Skripsi#getNilaiPembimbing()}. Inilah wujud
+		 * kasat mata dari penamaan tertukar yang didokumentasikan di {@link Skripsi} dan
+		 * {@link ais.database.model.FormatNilaiSkripsi}: pasangan orang/nilai memang bersilang secara
+		 * <i>nama kolom</i>, tetapi dipakai bersilang secara konsisten di SETIAP tempat, sehingga
+		 * angka yang tampil di baris ini tetap milik dosen yang benar. Jangan "meluruskan" salah satu
+		 * sisi saja.</p>
+		 *
+		 * <p>Bila {@link Skripsi#getSembunyikanNilaiKemahasiswa()} aktif dan yang login mahasiswa,
+		 * tiga kolom terakhir diganti "-" <b>dan tombol "Penilaian" tidak dibuat sama sekali</b> —
+		 * jadi penyembunyian di sini juga menutup jalur baca detail komponen, bukan sekadar
+		 * menyamarkan angka. Baris milik dosen yang sedang login diberi latar hijau muda.</p>
+		 *
+		 * <p>Method ini tidak menulis apa pun ke basis data; efek sampingnya murni membangun komponen
+		 * ZK. Kolom persentase tetap ditampilkan apa adanya meski nilai disembunyikan.</p>
+		 *
+		 * @param row  baris grid yang diisi komponen anaknya
+		 * @param data item model grid, selalu berupa {@link CommonVO} berisi label peran
+		 *             ({@code getName()}) dan objek {@link Dosen} ({@code getValueObject()})
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
@@ -728,6 +763,14 @@ public class PenilaianSkripsiHelper implements DataLoader {
 			LampiranLain.createDownloadUploadFileLain(hbox, skripsi.getId(),
 					Skripsi.class.getName() + "_" + commonVO.getName(), "Catatan", false, new EventListener() {
 
+						/**
+						 * Callback pasca-unggah yang sengaja kosong: pada baris grid, lampiran
+						 * catatan per peran cukup ditautkan oleh
+						 * {@link LampiranLain#createDownloadUploadFileLain} sendiri, tidak ada state
+						 * skripsi yang perlu diperbarui. Argumen tetap diabaikan.
+						 *
+						 * @param arg0 event unggah/hapus lampiran; tidak dipakai
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -751,6 +794,14 @@ public class PenilaianSkripsiHelper implements DataLoader {
 				MyToolbarbuttonConfig ubahDosen = new MyToolbarbuttonConfig("Ubah Dosen", "/img/svg/edit-box-line.svg");
 				ubahDosen.setTooltiptext("Ubah dosen penilai");
 				ubahDosen.addEventListener("onClick", new EventListener() {
+					/**
+					 * Membuka form ganti dosen penilai untuk peran baris ini
+					 * ({@link #tampilkanFormUbahDosen(Dosen, String)}). Tombolnya sendiri hanya
+					 * dibuat bila {@link #bolehUbahDosenPenilai()}, jadi gerbang hak akses berada di
+					 * sisi pembuatan komponen, bukan di dalam listener ini.
+					 *
+					 * @param event event {@code onClick}; isinya tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						tampilkanFormUbahDosen(dosen, commonVO.getName());
@@ -819,8 +870,18 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 				Hbox toolbar = new Hbox();
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Penilaian", "/img/svg/edit-box-line.svg");
+				// Tooltip "Hapus Data" adalah sisa salin-tempel; tombol ini membuka entri nilai.
 				button.setTooltiptext("Hapus Data");
 				button.addEventListener("onClick", new EventListener() {
+					/**
+					 * Membuka window entri nilai per komponen untuk dosen dan peran baris ini
+					 * ({@link PenilaianSkripsiHelper#init(Dosen, String)}). Tombol ini muncul untuk
+					 * semua pengguna yang boleh melihat nilai — termasuk mahasiswa pemilik skripsi;
+					 * pembatasan hak edit dilakukan di dalam {@code init}, yang menampilkan label
+					 * read-only alih-alih kotak isian bagi mahasiswa maupun dosen lain.
+					 *
+					 * @param event event {@code onClick}; isinya tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 

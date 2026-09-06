@@ -381,17 +381,92 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 	 * dari formulir selalu ditulis di atas keadaan terkini, bukan di atas salinan basi.</p>
 	 */
 	private Artikel artikelData;
+	/**
+	 * Kotak pencarian pengguna (dosen/pegawai) sebagai pengaju Artikel. Objek {@link Tbmuser}
+	 * terpilih disimpan pada atribut komponen bernama {@code "tbmuser"} dan dibaca kembali oleh
+	 * {@link #onSave(Event)} — bukan lewat nilai teksnya. Dikunci
+	 * ({@code setDisabled(true)}) bila Artikel yang dibuka sudah punya pengaju, dan disaring
+	 * lewat {@code setDiperuntukkan(diperuntukkanPengajuan)}. Pada mode
+	 * {@link #persetujuan} komponen ini tidak dipasang ke baris; sebagai gantinya ditampilkan
+	 * {@link Label} berisi {@code getUserNama()}.
+	 */
 	private AmbilDataTbmuserBanbox tbmuserD;
+	/**
+	 * Label "Mahasiswa:" pendamping {@link #mahasiswa}. Visibilitasnya diikat ke
+	 * {@link #diperuntukkanPengajuan} (hanya tampil pada {@code UNTUK_UMUM} atau bila sasaran
+	 * belum ditentukan) dan disembunyikan otomatis oleh listener bersama begitu pengaju sudah
+	 * dipastikan berupa pengguna, bukan mahasiswa.
+	 */
 	private Label labelMahasiswa;
+	/**
+	 * Kotak pencarian mahasiswa sebagai pengaju Artikel, alternatif dari {@link #tbmuserD}.
+	 * {@link Mahasiswa} terpilih disimpan pada atribut {@code "mahasiswa"} (dan disalin ke
+	 * {@code "myValue"}), lalu dibaca {@link #onSave(Event)}. Pada sasaran {@code UNTUK_UMUM}
+	 * kedua kotak berbagi satu {@link EventListener}: begitu salah satu terisi, kotak yang lain
+	 * beserta labelnya disembunyikan sehingga hanya satu jenis pengaju yang dapat dipilih.
+	 * {@link #onSave(Event)} sendiri hanya mensyaratkan salah satu dari keduanya terisi.
+	 */
 	private AmbilDataMahasiswaBanbox mahasiswa;
+	/**
+	 * Kotak pemilih jurnal/publikasi tujuan. Nilai {@link JurnalPenelitian} disimpan pada
+	 * atribut {@code "jurnalPenelitian"} dan wajib terisi — {@link #onSave(Event)} menolak
+	 * penyimpanan bila atribut tersebut {@code null}. Dibuat {@code setReadonly(true)} sehingga
+	 * pemilihan hanya lewat dialog pencarian, dan nilai awalnya berasal dari argumen
+	 * {@code jurnalPenelitianData} (jurnal konteks layar) bukan dari
+	 * {@code artikelData.getJurnalPenelitian()}.
+	 */
 	private AmbilDataJurnalPenelitianBanbox jurnalPenelitian;
+	/** Isian judul jurnal/publikasi (2 baris, lebar 90%), dipetakan ke {@code Artikel.judul}. Tidak divalidasi wajib-isi oleh {@link #onSave(Event)}. */
 	private Textbox judul;
+	/**
+	 * Isian tahun publikasi, dipetakan ke {@code Artikel.tahun}. Nilai ini dipakai
+	 * {@link #initCriteria(boolean)} sebagai kunci pengurutan utama (menurun) dan menjadi salah
+	 * satu tingkat hierarki koleksi pada ekspor DSpace, lihat
+	 * {@link #getDspaceTahunArtikel(String, Artikel)}. Tidak diturunkan otomatis dari
+	 * {@link #tanggalPublikasi} — berbeda dengan {@link #tahunAkademik} dan {@link #semester}.
+	 */
 	private Intbox tahun;
+	/**
+	 * Isian abstrak publikasi. Nilai awalnya diambil dari {@code Artikel.abstrak} yang lebih
+	 * dulu dibersihkan dari markup HTML memakai {@link Html2Text}.
+	 *
+	 * <p><b>Perhatikan:</b> pada {@link #onSave(Event)} satu nilai ini ditulis ke DUA kolom
+	 * sekaligus — {@code setKeterangan(...)} dan {@code setAbstrak(...)} — sehingga kolom
+	 * {@code keterangan} pada dasarnya menjadi duplikat {@code abstrak}, dan versi HTML asli
+	 * abstrak hilang tergantikan hasil {@link Html2Text} begitu formulir disimpan ulang.</p>
+	 */
 	private Textbox keterangan;
+	/** Isian kata kunci publikasi (2 baris), dipetakan ke {@code Artikel.keyword}. Disalin apa adanya tanpa normalisasi pemisah. */
 	private Textbox keyword;
+	/** Isian daftar pustaka (2 baris), dipetakan ke {@code Artikel.referensi}. Termasuk kolom yang ikut diekspor pada tombol Download data kustom. */
 	private Textbox referensi;
+	/**
+	 * Kelompok pilihan tingkat publikasi. Isinya dibangkitkan dari seluruh {@link TingkatArtikel}
+	 * yang aktif ({@code aktif} null atau {@code true}); setiap {@link Radio} membawa entitasnya
+	 * pada atribut {@code "nilai"}. {@link #onSave(Event)} mengumpulkan radio tercentang ke
+	 * {@link java.util.HashSet} dan menolak penyimpanan bila kosong.
+	 *
+	 * <p>Perhatikan ketidakselarasan bentuk: relasi {@code Artikel.tingkatArtikeles} bertipe
+	 * himpunan (banyak nilai), tetapi komponen yang dipakai adalah {@link Radiogroup} sehingga
+	 * antarmuka hanya pernah menghasilkan tepat satu anggota.</p>
+	 */
 	private Radiogroup tingkat;
+	/**
+	 * Wadah daftar centang indeks sitasi tempat publikasi terdaftar (Scopus, DOAJ, Thomson,
+	 * dst). Dibangkitkan dari seluruh {@link ArtikelTerindeks} aktif, masing-masing membawa
+	 * entitasnya pada atribut {@code "nilai"}. Pada {@link #onSave(Event)} himpunan
+	 * {@code Artikel.artikelTerindekses} dikosongkan lebih dulu lalu diisi ulang dari centangan,
+	 * sehingga pilihan yang dicabut benar-benar terhapus.
+	 */
 	private Hbox terindeks;
+	/**
+	 * Pilihan tahapan penyusunan artikel (wajib). Diisi dari {@link TahapanPenyusunanArtikel}
+	 * dengan label gabungan {@code nama} dan {@code prosentase}, dan dibuat
+	 * {@code setReadonly(true)} agar hanya bisa dipilih dari daftar. {@link #onSave(Event)}
+	 * menolak penyimpanan bila belum dipilih. Jalur sinkronisasi otomatis (SINTA/Scholar)
+	 * memilih sendiri tahapan bernama {@code "Dicetak (terbit)"} untuk artikel yang ditarik dari
+	 * sumber eksternal.
+	 */
 	private Combobox tahapanPenyusunanArtikel;
 	private Textbox path;
 	private Textbox issn;
