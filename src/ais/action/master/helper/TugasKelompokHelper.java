@@ -4568,6 +4568,62 @@ public class TugasKelompokHelper implements DataLoader {
 
 	}
 
+	/**
+	 * <h3>Membuka formulir Tugas Kelompok dari layar LAIN, tanpa perlu punya helper</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> memungkinkan halaman lain &mdash; yang tidak menampilkan
+	 * daftar tugas kelompok sama sekali &mdash; tetap dapat membuka formulir "Instruksi Tugas Kelompok".
+	 * Dipakai oleh layar rekapitulasi pertemuan, tempat pengguna memilih membuat tugas kelompok pada
+	 * sebuah pertemuan tanpa berpindah halaman. Karena bersifat statis, pemanggil cukup menyediakan data
+	 * yang diperlukan; helper dibuat sendiri di dalam metode ini lalu dibuang setelah jendela ditutup.</p>
+	 *
+	 * <p>Perbedaannya dengan {@link #onAdd(Event, TugasKelompok)} hanya pada kepemilikan helper:
+	 * {@code onAdd} memakai helper yang sudah menampilkan daftar, sedangkan metode ini membuat helper
+	 * sekali pakai. Jendela dirakit langsung (bukan lewat {@code onAdd}) karena ukurannya berbeda &mdash;
+	 * 90% lebar, mengikuti kebutuhan layar pemanggil.</p>
+	 *
+	 * <h4>PERINGATAN: helper sekali pakai ini TIDAK punya cakupan</h4>
+	 * <p>Helper dibuat tanpa memanggil {@code display(...)}, sehingga keempat field cakupannya
+	 * ({@code perkuliahan}, {@code kelompokKkn}, {@code kelompokPkl}, {@code jadwalPelajaran}) tetap
+	 * {@code null}. Ini berakibat nyata pada penyimpanan, karena {@link #onSave(Event)} menuliskan
+	 * keempat field itu ke entity <b>tanpa syarat</b>:</p>
+	 * <ul>
+	 *   <li>Perkuliahan selamat, karena diambil dari pemilih {@code banboxPerkuliahan} yang diisi
+	 *   {@link #init(TugasKelompok)} dari objek tugas &mdash; bukan dari field cakupan.</li>
+	 *   <li>Kelompok KKN, kelompok PKL, dan jadwal pelajaran <b>ditimpa dengan {@code null}</b>. Jadi
+	 *   bila pemanggil sudah menyetel salah satunya pada objek tugas sebelum memanggil metode ini,
+	 *   nilai itu akan hilang saat pengguna menekan Simpan. Pemanggil yang perlu mempertahankan salah
+	 *   satu cakupan tersebut sebaiknya memakai instance helper yang cakupannya sudah benar lalu
+	 *   memanggil {@link #onAdd(Event, TugasKelompok)}.</li>
+	 * </ul>
+	 *
+	 * <h4>Parameter yang tidak dipakai</h4>
+	 * <p>Parameter {@code event} dan {@code eventListener} <b>tidak dibaca sama sekali</b> di dalam badan
+	 * metode. Khusus {@code eventListener}, ini perangkap tersembunyi: pemanggil mengira menyerahkan
+	 * callback penyegaran layar, padahal callback itu tidak pernah ditugaskan ke field
+	 * {@code eventListener} helper sehingga tidak akan pernah dijalankan. Akibatnya, setelah penyimpanan
+	 * berhasil tidak ada apa pun yang menyegarkan layar pemanggil &mdash; {@link #loadData(Object)} juga
+	 * langsung keluar karena kotak {@code cari} belum pernah dibuat. Satu-satunya pemanggil pada revisi
+	 * ini memang menyerahkan callback kosong, jadi tidak ada gejala yang terlihat; tetapi pemanggil baru
+	 * yang menyerahkan callback sungguhan akan mendapati callback-nya diam.</p>
+	 *
+	 * <h4>Hak akses</h4>
+	 * <p>Metode ini TIDAK memeriksa wewenang siapa pun. Ia langsung membuka formulir untuk tugas kelompok
+	 * mana pun yang diserahkan pemanggil. Karena bersifat {@code public static}, satu-satunya lapis
+	 * pengaman adalah pemanggilnya sendiri &mdash; tombol yang memanggilnya di layar rekapitulasi sudah
+	 * dijaga di sana. Setiap pemanggil baru wajib memasang penjagaannya sendiri, misalnya dengan
+	 * memeriksa peran sebelum memanggil.</p>
+	 *
+	 * @param event                 tidak dipakai; disediakan agar tanda tangan metode seragam dengan
+	 *                              penangan aksi lain
+	 * @param eventListener         tidak dipakai (lihat peringatan di atas); callback penyegaran TIDAK
+	 *                              akan pernah dijalankan
+	 * @param tugasKelompok         tugas yang akan diedit, atau objek baru untuk penambahan
+	 * @param mahasiswa             identitas mahasiswa yang login, atau {@code null}
+	 * @param biodataCalonMahasiswa identitas calon mahasiswa yang login, atau {@code null}
+	 * @throws Exception bila formulir gagal dirakit
+	 * @see #onAdd(Event, TugasKelompok)
+	 */
 	public static void onAddExternal(Event event, EventListener eventListener, TugasKelompok tugasKelompok,
 			Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
 		TugasKelompokHelper tugasKelompokAction = new TugasKelompokHelper(mahasiswa, biodataCalonMahasiswa);
@@ -4582,6 +4638,46 @@ public class TugasKelompokHelper implements DataLoader {
 		tugasKelompokAction.addWindow.onModal();
 	}
 
+	/**
+	 * <h3>Membuka formulir "Instruksi Tugas Kelompok" (tambah maupun ubah)</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> menampilkan jendela formulir tempat dosen/guru mengisi
+	 * judul, instruksi, jadwal mulai dan batas akhir, syarat pengumpulan, lampiran, serta pemetaan
+	 * Sub-CPMK sebuah tugas kelompok. Satu metode ini melayani DUA keperluan sekaligus, dan yang
+	 * membedakan hanyalah objek yang diserahkan:</p>
+	 * <ul>
+	 *   <li>objek <b>baru</b> ({@code new TugasKelompok()}) &rarr; formulir kosong, menambah tugas;</li>
+	 *   <li>objek yang <b>sudah tersimpan</b> &rarr; formulir terisi, mengubah tugas yang ada.</li>
+	 * </ul>
+	 * <p>Tidak ada penanda mode terpisah: {@link #onSave(Event)} memutuskan menyisipkan atau memperbarui
+	 * berdasarkan ada tidaknya {@code id}, lewat {@code Common.refreshSaveOrUpdate}.</p>
+	 *
+	 * <p>Metode ini sendiri hanya merakit jendela &mdash; seluruh isinya dibangun
+	 * {@link #init(TugasKelompok)}. Lebar jendela menyesuaikan perangkat: memenuhi layar di ponsel, dan
+	 * 950 piksel di desktop agar formulir tidak melebar berlebihan pada layar lebar. Jendela ditampilkan
+	 * lebih dulu baru dijadikan modal, karena pemanggilan modal menahan alur sampai jendela ditutup.</p>
+	 *
+	 * <p><b>Cakupan diambil dari helper, bukan dari parameter.</b> Karena metode ini dipanggil pada
+	 * instance yang sudah menampilkan daftar (lewat salah satu varian {@code display(...)}) atau satu
+	 * tugas (lewat {@link #tampilanTugas}), keempat field cakupannya sudah terisi benar. Itulah yang
+	 * membuat formulir menyembunyikan pemilih perkuliahan bila cakupannya sudah tertentu, dan yang
+	 * dipakai {@link #onSave(Event)} saat menautkan tugas ke kelas yang tepat. Bandingkan dengan
+	 * {@link #onAddExternal}, yang membuat helper tanpa cakupan sehingga penyimpanannya berperilaku
+	 * berbeda.</p>
+	 *
+	 * <p><b>Hak akses:</b> tidak diperiksa di sini. Seluruh tombol yang memanggil metode ini &mdash;
+	 * "Tambah Tugas" pada toolbar dan "Ubah Judul &amp; Instruksi" pada panel pengaturan &mdash; sudah
+	 * dijaga {@link #bolehKelola(Tbmuser)} di tempatnya masing-masing.</p>
+	 *
+	 * <p>Parameter {@code event} tidak dipakai; disediakan agar tanda tangan seragam dengan penangan aksi
+	 * lain sehingga dapat dipasang langsung sebagai listener.</p>
+	 *
+	 * @param event         tidak dipakai
+	 * @param tugasKelompok tugas yang akan diedit, atau {@code new TugasKelompok()} untuk menambah
+	 * @throws Exception bila formulir gagal dirakit
+	 * @see #init(TugasKelompok)
+	 * @see #onSave(Event)
+	 */
 	public void onAdd(Event event, TugasKelompok tugasKelompok) throws Exception {
 		addWindow = new MyWindow();
 		addWindow.setHeight("95%");
@@ -4592,6 +4688,77 @@ public class TugasKelompokHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * <h3>Menerbitkan sebuah Tugas Kelompok ke repositori institusi (DSpace)</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> mengirim data sebuah tugas kelompok ke DSpace, yaitu
+	 * perangkat lunak repositori karya ilmiah yang banyak dipakai perpustakaan kampus. Dengan begitu
+	 * tugas beserta lampirannya tersimpan dan dapat dicari di repositori resmi institusi, bukan hanya di
+	 * dalam sistem akademik. Metode ini menyiapkan keterangan (metadata) tugas dalam format baku
+	 * repositori, mengirimkannya, lalu mengunggah berkas lampirannya.</p>
+	 *
+	 * <h4>Metadata yang dikirim (skema Dublin Core)</h4>
+	 * <p>Seluruh keterangan disusun sebagai daftar pasangan {@code key}/{@code value} dalam JSON,
+	 * memakai nama baku Dublin Core:</p>
+	 * <ul>
+	 *   <li>{@code dc.contributor.author} &mdash; SATU entri untuk setiap dosen pengampu. Sumbernya
+	 *   dipilih menurut asal tugas: dosen perkuliahan, dosen pembimbing kelompok KKN, atau dosen
+	 *   pembimbing kelompok PKL. Ketiga cabang bersifat saling meniadakan dan diperiksa berurutan;
+	 *   tugas jalur SEKOLAH (jadwal pelajaran) tidak tercakup sehingga terbit tanpa penulis.</li>
+	 *   <li>{@code dc.description} &mdash; instruksi tugas, dibersihkan dari markah HTML lebih dulu
+	 *   memakai {@link ais.common.Html2Text} agar yang tersimpan berupa teks biasa yang dapat diindeks
+	 *   mesin pencari repositori.</li>
+	 *   <li>{@code dc.title} &mdash; judul tugas.</li>
+	 *   <li>{@code dc.date.copyright} &mdash; pernyataan hak cipta yang menyebut nama institusi, diambil
+	 *   dari konfigurasi {@code label_universitas}.</li>
+	 *   <li>{@code dc.date.issued} &mdash; tanggal tugas dalam format tanggal basis data; dilewati bila
+	 *   tanggalnya kosong.</li>
+	 *   <li>{@code dc.identifier.uri} &mdash; tautan berkas lampiran, hanya bila lampirannya ada DAN
+	 *   tautannya tidak kosong.</li>
+	 * </ul>
+	 *
+	 * <h4>Menambah atau memperbarui</h4>
+	 * <p>Parameter {@code update} menentukan apakah entri di repositori dibuat baru atau diperbarui.
+	 * Ketiga pola jalur yang diserahkan ke {@code DspaceInformation.dspaceProcess} &mdash;
+	 * {@code "items"}, {@code "collections/<id>/items"}, dan {@code "items/{uuid}/metadata"} &mdash;
+	 * diserahkan sekaligus, dan pustaka DSpace-lah yang memilih mana yang dipakai sesuai mode.
+	 * Koleksi tujuan ditentukan {@code PerkuliahanAction.getDspace}, yaitu koleksi milik perkuliahan
+	 * tugas ini, sehingga tugas terbit di tempat yang benar di dalam hierarki repositori.</p>
+	 *
+	 * <p>Setelah entri tersimpan dan {@code uuid}-nya diketahui, berkas lampiran diunggah sebagai
+	 * <i>bitstream</i> dengan judul "Lampiran Tugas &lt;judul&gt;". Langkah ini dilewati bila tugas tidak
+	 * memiliki lampiran.</p>
+	 *
+	 * <h4>Hal yang perlu diketahui pemelihara</h4>
+	 * <ul>
+	 *   <li><b>Tidak ada pemeriksaan wewenang.</b> Metode ini {@code public static} dan langsung
+	 *   menerbitkan tugas mana pun yang diserahkan. Satu-satunya pemanggil adalah
+	 *   {@code DspaceHelper}, yang menjaga aksesnya sendiri; pemanggil baru wajib melakukan hal yang
+	 *   sama.</li>
+	 *   <li><b>Penerbitan bersifat publik.</b> Instruksi tugas dan berkas lampirannya menjadi dapat
+	 *   diakses lewat repositori institusi. Pastikan tugas yang diterbitkan memang layak dibuka untuk
+	 *   umum &mdash; tidak ada penyaringan isi di sini.</li>
+	 *   <li><b>Tidak ada penjagaan {@code null} pada isi instruksi.</b> {@code parser.parse} menerima
+	 *   {@code tugasKelompok.getNama()} apa adanya, sehingga tugas tanpa instruksi berpotensi menggagalkan
+	 *   penerbitan. Nilai lain sudah dijaga: tanggal dan lampiran diperiksa lebih dulu.</li>
+	 *   <li><b>{@code Common.getKonfigurasi} menuliskan nilai bawaan ke basis data</b> bila kunci
+	 *   {@code label_universitas} belum ada. Jadi pemanggilan pertama metode ini dapat menyimpan
+	 *   konfigurasi bernilai kosong &mdash; efek samping yang tidak terlihat dari tanda tangan metode.</li>
+	 *   <li>Metode ini menembak layanan luar lewat jaringan dan dapat memakan waktu; sebaiknya tidak
+	 *   dipanggil langsung dari listener antarmuka tanpa indikator proses.</li>
+	 * </ul>
+	 *
+	 * @param cookie        cookie sesi hasil autentikasi ke DSpace, disediakan pemanggil
+	 * @param tugasKelompok tugas yang akan diterbitkan; instruksinya dipakai sebagai deskripsi
+	 * @param update        {@code true} untuk memperbarui entri yang sudah ada, {@code false} untuk
+	 *                      membuat entri baru
+	 * @return keterangan entri DSpace hasil proses, termasuk {@code uuid} yang dipakai saat mengunggah
+	 *         lampiran
+	 * @throws Exception bila penyusunan metadata, pemanggilan layanan DSpace, atau pengunggahan lampiran
+	 *                   gagal
+	 * @see ais.database.model.DspaceInformation
+	 * @see ais.action.master.PerkuliahanAction#getDspace(String, Perkuliahan)
+	 */
 	public static DspaceInformation getDspace(String cookie, TugasKelompok tugasKelompok, boolean update)
 			throws Exception {
 

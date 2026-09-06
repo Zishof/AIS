@@ -5974,6 +5974,25 @@ public class TugasMandiriHelper {
 	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
 	 * renderer/listener ini.</p>
 	 *
+	 * <p><strong>Peran konkret pada layar Tugas Mandiri.</strong> Renderer ini dipasang pada
+	 * {@link TugasMandiriHelper#uploadTugasGrid} — grid daftar "Telah upload" — dan menerjemahkan satu
+	 * {@link ais.database.model.file.TugasFileContent} menjadi satu baris. Ia sengaja dibuat sangat
+	 * tipis: hanya menata perataan, kelas gaya, dan indikator warna status penilaian, lalu menyerahkan
+	 * seluruh pembangunan sel kepada
+	 * {@link TugasMandiriHelper#displayRow(ais.database.model.file.TugasFileContent, List, Component)}.
+	 * Pembagian itu disengaja agar tampilan baris pada grid dan tampilan pada kartu
+	 * "Tugas yang Anda Upload" milik peserta selalu identik — keduanya memanggil metode yang sama.</p>
+	 *
+	 * <p><strong>Umur instance.</strong> Sebuah instance hidup selama satu siklus pemuatan grid.
+	 * {@link TugasMandiriHelper#reloadTugasFileContent(boolean)} selalu membuat instance baru sebelum
+	 * memasang model, sehingga daftar Sub-CPMK yang dipegangnya tidak pernah usang.</p>
+	 *
+	 * <p><strong>Batas tanggung jawab.</strong> Renderer tidak melakukan query, tidak menghitung nilai,
+	 * dan tidak memutuskan kewenangan. Satu-satunya keputusan berbasis peran yang diambilnya adalah
+	 * memasang atau tidak memasang indikator warna, berdasarkan
+	 * {@link TugasMandiriHelper#peserta}. Seluruh gerbang tampilan lainnya — termasuk visibilitas
+	 * tombol unduh dan cabang sel nilai — berada di dalam {@code displayRow}.</p>
+	 *
 	 * @see TugasMandiriHelper
 	 */
 	class DetailTugasFileContentRenderer extends ais.ui.util.MyRowRenderer {
