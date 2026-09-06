@@ -64,22 +64,35 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDataMahasiswaKelompokPklHelper {
 
+	/** Kelompok PKL tujuan pemasukan mahasiswa, ditetapkan di {@link #display(KelompokPkl, DataLoader)}. */
 	private KelompokPkl kelompokPkl;
+	/** Grid kandidat mahasiswa hasil pencarian, diisi ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
 
+	/** Textbox filter NIM mahasiswa (cocok anywhere, case-insensitive). */
 	private Textbox nim;
+	/** Textbox filter nama mahasiswa (cocok anywhere, case-insensitive). */
 	private Textbox nama;
+	/** Filter tahun angkatan mahasiswa; kosong berarti semua angkatan ditampilkan. */
 	private Decimalbox tahunangkatan;
 
+	/** Combobox filter fakultas pada form pencarian, diinisialisasi ulang tiap {@link #display(KelompokPkl, DataLoader)}. */
 	private Combobox searchfakultas;
+	/** Combobox filter jurusan/prodi pada form pencarian, mengikuti pilihan {@link #searchfakultas}. */
 	private Combobox searchjurusan;
 
+	/** Konstruktor tanpa argumen; state (kelompokPkl, grid, filter combobox) baru ditetapkan saat {@link #display(KelompokPkl, DataLoader)} dipanggil. */
 	public AmbilDataMahasiswaKelompokPklHelper() {
 	}
 
 	/** Perender baris grid: checkbox (label NIM, tercentang bila mahasiswa sudah diterima di {@link #kelompokPkl}), nama, tahun angkatan, dan jurusan mahasiswa. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris kandidat mahasiswa ({@code arg1}, harus {@link Mahasiswa}): checkbox
+		 * berlabel NIM (tercentang bila mahasiswa sudah diterima, {@code diterima=true}, di
+		 * {@link #kelompokPkl}), nama, tahun angkatan, dan jurusan mahasiswa.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

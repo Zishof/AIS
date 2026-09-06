@@ -1507,8 +1507,71 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Kumpulan id {@link Detailperkuliahan} hasil pencarian terakhir oleh {@link #loadData(Object)}.
+	 * Sengaja disimpan sebagai daftar <b>id</b>, bukan entitas, karena kelas ini kerap memuat ratusan
+	 * baris dan menahan seluruh objeknya akan membebani memori serta menyimpan entitas basi.
+	 *
+	 * <p>Field ini merangkap peran sebagai <b>daftar sasaran operasi massal</b>: tombol Hitung Ulang,
+	 * Masukkan Nilai Absen, Reset, Ambil Nilai dari Feeder, Restore, dan seluruh pemanggilan
+	 * {@code Common.realoadNilai*} menerimanya sebagai lingkup kerja. Konsekuensinya, operasi massal
+	 * bekerja pada <b>hasil pencarian yang sedang tampak</b>, bukan pada seluruh kelas &mdash; bila
+	 * dosen sedang menyaring dengan kotak {@link #nama}, operasi massal hanya menyentuh mahasiswa yang
+	 * tersaring.</p>
+	 *
+	 * <p><b>Urutan inisialisasi.</b> Field ini masih {@code null} sampai {@link #loadData(Object)}
+	 * berjalan pertama kali. {@link #display} sudah meneruskannya ke
+	 * {@code Common.realoadNilaiLangsung} sebelum grid pernah dimuat, sehingga pada pembukaan pertama
+	 * yang dikirim adalah {@code null} dan pemanggil di sisi sana harus menanganinya.</p>
+	 */
 	private Collection<Long> detailperkuliahans;
 
+	/**
+	 * Mengisi ulang grid {@link #grid} dengan daftar mahasiswa yang mengikuti {@link #perkuliahan},
+	 * menerapkan penyaringan nama/NIM yang sedang diketik, dan memasang kembali perendernya. Inilah
+	 * implementasi kontrak {@link DataLoader} milik kelas ini, sehingga helper lain dapat memicu
+	 * penyegaran layar penilaian tanpa mengetahui isinya.
+	 *
+	 * <h3>Arti parameter yang tidak biasa</h3>
+	 * <p>Parameter {@code value} <b>bukan</b> data yang akan dimuat, melainkan sebuah bendera
+	 * penyegaran terselubung: ia diperlakukan sebagai {@code true} hanya bila tidak {@code null} dan
+	 * sama dengan {@link Boolean#TRUE}. Bentuk longgar ini adalah harga dari tanda tangan
+	 * {@link DataLoader} yang generik. Nilai {@code true} diteruskan ke
+	 * {@code perkuliahan.ambilDetailperkuliahan(...)} sebagai perintah <b>melewati cache</b> dan
+	 * membaca ulang dari basis data; {@code null} atau nilai lain memakai cache. Pemanggil yang baru
+	 * saja menulis nilai wajib mengirim {@code true}, jika tidak layar akan menampilkan data basi.</p>
+	 *
+	 * <h3>Penyaringan dua lapis</h3>
+	 * <p>Lapis pertama terjadi di basis data: kata kunci dari {@link #nama} dan pilihan
+	 * {@link #urutkanBerdasarkanNama} diserahkan ke {@code ambilDetailperkuliahan}. Lapis kedua terjadi
+	 * di memori: setiap id diselesaikan menjadi entitas, dan <b>hanya baris berstatus
+	 * {@link Detailperkuliahan#DISETUJUI}</b> yang masuk ke model grid. Mahasiswa yang KRS-nya belum
+	 * disetujui atau sudah dibatalkan karena itu tidak pernah muncul di layar penilaian, meskipun
+	 * barisnya ada di basis data.</p>
+	 *
+	 * <p>Perhatikan bahwa {@link #detailperkuliahans} menyimpan hasil <b>lapis pertama</b> &mdash;
+	 * sebelum penyaringan persetujuan &mdash; sedangkan yang tampil di grid adalah hasil lapis kedua.
+	 * Karena operasi massal mengambil lingkupnya dari {@link #detailperkuliahans}, operasi seperti
+	 * Reset dan Hitung Ulang dapat menyentuh baris yang <b>tidak terlihat</b> di layar. Baris yang
+	 * gagal diselesaikan menjadi entitas ({@code null}) dilewati diam-diam.</p>
+	 *
+	 * <h3>Pemasangan ulang perender</h3>
+	 * <p>Sebuah {@link DetailPerkuliahanRenderer} <b>baru</b> dibuat setiap pemanggilan. Ini disengaja
+	 * dan penting: perender membaca konfigurasi batas ketidakhadiran pada saat instansiasi, sehingga
+	 * membuatnya ulang memastikan aturan yang dipakai selalu segar. Model dipasang lewat
+	 * {@code setModelCheckMobile} yang menyesuaikan perilaku untuk peramban ponsel, dan grid diberi
+	 * kelas gaya {@code fgrid}.</p>
+	 *
+	 * <p><b>Efek samping penutup.</b> {@code Common.freeze(grid, ...)} membekukan seluruh grid bila
+	 * {@code perkuliahan.getDikunci()} tidak {@code null}, sehingga status kunci selalu tercermin
+	 * setelah pemuatan ulang apa pun. Metode ini tidak membuka transaksi sendiri dan tidak menangkap
+	 * galat &mdash; kegagalan pembacaan akan naik ke pemanggil.</p>
+	 *
+	 * @param value bendera penyegaran; kirim {@link Boolean#TRUE} untuk memaksa pembacaan ulang dari
+	 *              basis data, {@code null} untuk memakai cache.
+	 * @see #detailperkuliahans
+	 * @see DetailPerkuliahanRenderer
+	 */
 	public void loadData(Object value) {
 		boolean refresh = (value != null && value.equals(true));
 		detailperkuliahans = perkuliahan.ambilDetailperkuliahan(null, null, nama.getValue().trim(),
@@ -1532,6 +1595,67 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		Common.freeze(grid, perkuliahan.getDikunci() != null);
 	}
 
+	/**
+	 * Mengisi grid tab <i>Asisten Dosen</i> dengan daftar {@link MahasiswaJadiAsisten} pada satu
+	 * perkuliahan, lengkap dengan kendali sunting langsung di setiap baris. Asisten dosen adalah
+	 * mahasiswa yang diberi wewenang membantu pengelolaan kelas &mdash; dan, bila kotak
+	 * &quot;Nilai&quot; dicentang, wewenang <b>mengisi nilai temannya</b> lewat
+	 * {@link #mahasiswaBolehUbahNilai}. Karena itu grid ini adalah tempat pemberian hak istimewa,
+	 * bukan sekadar daftar administratif.
+	 *
+	 * <h3>Sifat statis dan alasannya</h3>
+	 * <p>Metode ini {@code static} dan menerima {@code perkuliahan} serta {@code gridDetailAsisten}
+	 * sebagai parameter, bukan membacanya dari state instance. Itu memungkinkan
+	 * {@link #displayAsistenMahasiswa(Component, Perkuliahan)} &mdash; yang juga statis &mdash;
+	 * membangun tab ini tanpa memerlukan instance helper. Konsekuensinya, semua listener di dalamnya
+	 * menangkap kedua parameter itu sebagai variabel {@code final} agar dapat memuat ulang dirinya
+	 * sendiri secara rekursif setelah data berubah.</p>
+	 *
+	 * <h3>Penyegaran cache</h3>
+	 * <p>Bila {@code refresh} bernilai {@code true}, {@code perkuliahan.belum("mahasiswaJadiAsisten")}
+	 * dipanggil lebih dulu untuk membatalkan cache asosiasi tersebut, sehingga
+	 * {@code ambilMahasiswaJadiAsisten()} berikutnya benar-benar membaca ulang dari basis data.
+	 * Tanpa itu, asisten yang baru ditambahkan atau dihapus tidak akan tampak.</p>
+	 *
+	 * <h3>Kendali per baris</h3>
+	 * <p>Setiap baris menampilkan NIM yang tertaut ke riwayat revisi, nama mahasiswa, lalu tiga kotak
+	 * centang dan satu kotak teks yang <b>menyimpan seketika saat diubah</b>, tanpa tombol simpan dan
+	 * tanpa konfirmasi:</p>
+	 * <ul>
+	 * <li><b>Nilai</b> &mdash; {@code setInputNilai}: memberi asisten hak mengisi nilai.</li>
+	 * <li><b>Absen</b> &mdash; {@code setInputAbsen}: memberi hak mengisi presensi.</li>
+	 * <li><b>Aktif</b> &mdash; {@code setAktif}: mengaktifkan atau menonaktifkan penugasan.</li>
+	 * <li><b>Keterangan</b> &mdash; {@code setKeterangan} pada peristiwa {@code onChange}.</li>
+	 * </ul>
+	 * <p>Ketiga kotak centang memakai {@code Common.refreshSaveOrUpdate}, sedangkan kotak keterangan
+	 * memakai {@code Common.refreshUpdate}. Tidak ada pemeriksaan wewenang di dalam listener mana pun:
+	 * penjagaan satu-satunya adalah visibilitas toolbar, yang disembunyikan bila
+	 * {@code Common.getCurrentUser()} bernilai {@code null}. Pemberian hak penilaian di sini karena
+	 * itu bergantung sepenuhnya pada Action yang membuka tab ini.</p>
+	 *
+	 * <h3>Penghapusan</h3>
+	 * <p>Tombol tempat sampah meminta konfirmasi lebih dulu, lalu memanggil
+	 * {@code Common.refreshDelete}. Kegagalan &mdash; lazimnya karena baris masih dirujuk data lain
+	 * &mdash; ditangkap dan diterjemahkan menjadi pesan ramah lewat
+	 * {@code PesanFormalHelper.tampilkanGagalException} yang menjelaskan sebab kendala relasi beserta
+	 * langkah yang dapat ditempuh pengguna, bukan menampilkan jejak tumpukan. Setelah berhasil, grid
+	 * dimuat ulang lewat {@code Common.createDefaultTimer} agar penyegaran terjadi setelah siklus
+	 * peristiwa saat ini tuntas.</p>
+	 *
+	 * <p>Diakhiri {@code renderAll()} sehingga seluruh baris dibangun serentak, bukan malas per
+	 * halaman &mdash; ukuran halaman grid ini memang dipasang 1000, jauh di atas jumlah asisten yang
+	 * masuk akal.</p>
+	 *
+	 * @param value             tidak dipakai; ada semata agar tanda tangan metode ini menyerupai pola
+	 *                          {@link DataLoader} yang dipakai di seluruh modul, sehingga pemanggil
+	 *                          dapat meneruskannya begitu saja. Kirim {@code null}.
+	 * @param perkuliahan       kelas yang daftar asistennya ditampilkan; ditangkap oleh listener untuk
+	 *                          pemuatan ulang.
+	 * @param gridDetailAsisten grid tujuan; isinya diganti seluruhnya.
+	 * @param refresh           {@code true} untuk membatalkan cache asosiasi asisten sebelum membaca.
+	 * @see #displayAsistenMahasiswa(Component, Perkuliahan)
+	 * @see #mahasiswaBolehUbahNilai
+	 */
 	public static void loadDataDetailAsisten(Object value, final Perkuliahan perkuliahan,
 			final MyGrid gridDetailAsisten, boolean refresh) {
 

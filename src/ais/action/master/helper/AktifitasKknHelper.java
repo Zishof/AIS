@@ -95,10 +95,14 @@ import ais.ui.util.WaktuUtil;
  */
 public class AktifitasKknHelper {
 
+	/** Helper penjadwalan pertemuan KKN, dipakai tombol "Agenda KKN" pada {@link #initAgendaKelompokKkn}. */
 	protected PenjadwalanKknHelper penjadwalanHelper = new PenjadwalanKknHelper();
 
+	/** Data mahasiswa dari user login saat ini, atau {@code null} bila user bukan mahasiswa (atau belum login). */
 	private Mahasiswa userMahasiswa = null;
+	/** User login saat ini (hasil {@link Common#getCurrentUser()}), atau {@code null} bila belum login. */
 	private Tbmuser tbmuser = null;
+	/** Menandai apakah user berwenang mengubah data (dosen/admin, atau mahasiswa/dosen yang diizinkan konfigurasi KKN terkait); mengendalikan visibilitas tombol aksi. */
 	private boolean edit = false;
 
 	/** Mengambil user login saat ini beserta data mahasiswa terkait (bila user adalah mahasiswa) sebagai konteks tampilan. */
