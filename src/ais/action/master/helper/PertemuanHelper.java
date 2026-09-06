@@ -234,7 +234,8 @@ public class PertemuanHelper {
 	 * field karena dibutuhkan oleh listener autosave {@code onChange} dan oleh callback hasil
 	 * {@link AIGenerator#generateApa} ("Generate Catatan") yang menuliskan hasil AI ke dalamnya.
 	 * Bernilai {@code null} bila tab Pembelajaran belum pernah dibangun, atau bila tampilan
-	 * read-only ({@code MyHtmlIframe}) yang dipakai untuk calon mahasiswa.
+	 * read-only ({@code MyHtmlIframe}) yang dipakai untuk seluruh peserta (mahasiswa, siswa,
+	 * peserta kursus, calon mahasiswa) — hanya admin/dosen/guru yang mendapat {@link Textbox}.
 	 */
 	private Textbox catatan;
 	/**
@@ -1662,11 +1663,13 @@ public class PertemuanHelper {
 	 * {@link AIGenerator#generateApa} dengan prompt berisi info pertemuan, dosen, dan mahasiswa,
 	 * hasilnya diformat lewat {@code Wa.ubahKeBold(...)} lalu disimpan via
 	 * {@code Common.refreshSaveOrUpdate(pertemuan)}.</li>
-	 * <li><b>Bukan peserta sendiri</b> (dilihat mahasiswa/siswa/calon): grid dua kolom
-	 * (label 15% + isi), field RPS ditampilkan READ-ONLY sebagai {@link Label}, dan
-	 * {@code catatan} hanya bisa diedit bila {@code biodataCalonMahasiswa == null} (calon
-	 * mahasiswa melihat versi read-only lewat {@code MyHtmlIframe}); URL di dalam catatan
-	 * dikonversi jadi tautan {@code <a target="_blank">} lewat {@code Common.getUrls(...)}.</li>
+	 * <li><b>Bukan peserta sendiri</b> (dilihat mahasiswa/siswa/peserta kursus/calon mahasiswa):
+	 * grid dua kolom (label 15% + isi), field RPS ditampilkan READ-ONLY sebagai {@link Label}, dan
+	 * {@code catatan} SELALU read-only lewat {@code MyHtmlIframe} — baik untuk pertemuan
+	 * perkuliahan, calon mahasiswa, maupun pertemuan non-perkuliahan (jadwal pelajaran sekolah,
+	 * KKN, PKL, formulir kegiatan); tidak ada peserta yang bisa menyunting catatan/berita acara
+	 * milik pengajar. URL di dalam catatan dikonversi jadi tautan {@code <a target="_blank">}
+	 * lewat {@code Common.getUrls(...)}.</li>
 	 * </ul>
 	 *
 	 * <p>Kedua cabang diakhiri dengan bar unduh/unggah lampiran (Catatan Perkuliahan, Laporan
@@ -2029,9 +2032,7 @@ public class PertemuanHelper {
 					}
 				});
 
-				if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-						&& tbmuser.getSiswa() == null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
-						&& tbmuser.getBiodataCalonMahasiswa() == null) {
+				if (bolehGenerateCatatanAi()) {
 
 					row = new MyFormRow();
 					row.setParent(rows);
@@ -2283,145 +2284,12 @@ public class PertemuanHelper {
 				row.setParent(rows);
 
 			} else {
-				if (biodataCalonMahasiswa != null) {
-					new ais.ui.util.MyHtmlIframe(catat).setParent(row);
-				} else {
-					catatan = new Textbox();
-					catatan.setValue(pertemuan.getCatatan());
-					catatan.setRows(15);
-					catatan.setWidth("90%");
-					catatan.setParent(row);
-
-					catatan.addEventListener("onChange", new EventListener() {
-
-						/**
-						 * Autosave field <b>Catatan</b> pada tampilan PESERTA (cabang {@code else} dari pemeriksaan
-						 * peran di awal {@link #initCatatan(boolean)}). Sama persis dengan autosave versi
-						 * admin/dosen/guru: menyegarkan entity, menyalin isi textbox ke
-						 * {@code pertemuan.setCatatan(...)}, lalu menyimpan seketika ke basis data.
-						 *
-						 * <p><b>Cakupan peran yang perlu diperhatikan.</b> Textbox yang memasang listener ini hanya
-						 * dibangun ketika DUA syarat terpenuhi: (a) {@code pertemuan.getPerkuliahan() == null} —
-						 * yakni pertemuan berasal dari jadwal pelajaran sekolah, KKN, PKL, atau formulir kegiatan,
-						 * bukan perkuliahan; dan (b) {@code biodataCalonMahasiswa == null}. Untuk pertemuan
-						 * perkuliahan seluruh isi RPS dan catatan dirender READ-ONLY ({@code MyHtmlIframe} +
-						 * {@link Label}), dan calon mahasiswa selalu read-only. Di luar dua kasus itu — mahasiswa,
-						 * siswa, dan peserta kursus pada pertemuan non-perkuliahan — catatan/berita acara pertemuan
-						 * dapat disunting dan langsung tersimpan oleh peserta, tanpa jejak audit tersendiri di kelas
-						 * ini. Perilaku ini didokumentasikan apa adanya; penilaian apakah ini disengaja (catatan
-						 * bersama) atau kelalaian gerbang peran dilacak terpisah dan tidak diubah di sini.</p>
-						 *
-						 * @param arg0 event {@code onChange} dari textbox; isinya tidak dipakai.
-						 */
-						@Override
-						public void onEvent(Event arg0) throws Exception {
-							Common.refresh(pertemuan);
-							pertemuan.setCatatan(catatan.getValue());
-							Common.refreshSaveOrUpdate(pertemuan);
-						}
-					});
-
-					row = new MyFormRow();
-					row.setParent(rows);
-
-					new MyLabelAgakKecil(
-							"*) Catatan juga bisa berisi link atau URL yang mengarah ke website, audio, video, atau file tertentu")
-							.setParent(row);
-
-					if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
-							&& tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
-							&& tbmuser.getCalonSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null) {
-
-						row = new MyFormRow();
-						row.setParent(rows);
-
-						MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("Generate Catatan",
-								"/img/svg/gear.svg");
-						toolbarbutton.setParent(row);
-
-						String d = "";
-						for (Dosen dosen : pertemuan.ambilDosen()) {
-							d += d.isEmpty() ? dosen.getNama() : " dan " + dosen.getNama();
-						}
-
-						String p = "";
-						for (Mahasiswa mahasiswa : pertemuan.ambilMahasiswa()) {
-							p += p.isEmpty() ? mahasiswa.getNama() : " dan " + mahasiswa.getNama();
-						}
-
-						String tanya = "Buatkan catatan dan berita acara untuk " + pertemuan.info()
-								+ ", hari dan tanggal : " + Common.dateFormat6.get().format(pertemuan.getTanggal())
-								+ ", jam waktu mulai " + pertemuan.getWaktuMulai() + " sampai "
-								+ pertemuan.getWaktuSelesai() + ", Ruangan : "
-								+ (pertemuan.getRuang() == null ? "Belum ditentukan" : pertemuan.getRuang().getNama())
-								+ ", Gedung : "
-								+ (pertemuan.getRuang() == null || pertemuan.getRuang().getGedung() == null ? ""
-										: pertemuan.getRuang().getGedung().getNama())
-								+ ", Pengajar : " + d + ", Topik : " + pertemuan.getTopik() + ", Peserta : " + p;
-
-						String tanyaAkhiran = "";
-						String tanyaMengajar = " apa saja";
-						if (pertemuan.getPerkuliahan() != null && pertemuan.getPerkuliahan().getMatakuliah() != null) {
-							tanyaMengajar = " matakuliah " + pertemuan.getPerkuliahan().getMatakuliah().getNama();
-							tanyaAkhiran = " pada matakuliah \"" + pertemuan.getPerkuliahan().getMatakuliah().getNama()
-									+ "\"";
-						} else if (pertemuan.getJadwalPelajaran() != null
-								&& pertemuan.getJadwalPelajaran().getMatapelajaran() != null) {
-							tanyaMengajar = " matapelajaran "
-									+ pertemuan.getJadwalPelajaran().getMatapelajaran().getNama();
-							tanyaAkhiran = " pada matapelajaran \""
-									+ pertemuan.getJadwalPelajaran().getMatapelajaran().getNama() + "\"";
-						}
-						toolbarbutton.addEventListener("onClick",
-								AIGenerator.generateApa("Generate Catatan", "Informasikan tentang pertemuan kali ini",
-										tanya, false, tanyaAkhiran,
-										Common.getKonfigurasi("llama_system_catatan",
-												"Kamu adalah Pengajar atau Dosen atau Guru ").getNilai().trim(),
-										null, new EventListener() {
-
-											/**
-											 * Callback HASIL AKHIR tombol "Generate Catatan" pada cabang PESERTA: memformat teks hasil
-											 * model dan MENYIMPANNYA ke {@code pertemuan.setCatatan}.
-											 *
-											 * <p>Tombol pemicunya dibangun di balik syarat {@code tbmuser.getMahasiswa() == null &&
-											 * tbmuser.getSiswa() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null &&
-											 * tbmuser.getCalonSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null}. Perhatikan
-											 * {@code getSiswa()} tertulis TIGA KALI sementara {@code getPesertaKursus()} — yang ikut
-											 * diperiksa pada percabangan peran utama di awal method — tidak diperiksa sama sekali; pola
-											 * salin-tempel yang sama muncul pada seluruh gerbang tombol "Generate ..." di kelas ini.
-											 * Dicatat apa adanya, tidak diubah di sini.</p>
-											 *
-											 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
-											 */
-											@Override
-											public void onEvent(Event arg0) throws Exception {
-
-												catatan.setValue(ais.action.servlet.Wa.ubahKeBold((arg0.getData() + ""))
-														.replaceAll("\n", "<br>"));
-
-												Common.refresh(pertemuan);
-												pertemuan.setCatatan(catatan.getValue());
-												Common.refreshSaveOrUpdate(pertemuan);
-
-											}
-										}, tanyaMengajar, new EventListener() {
-
-											/**
-											 * Callback PRATINJAU tombol "Generate Catatan" pada cabang PESERTA: hanya memperbarui textbox
-											 * {@link #catatan}, tidak menyimpan ke basis data.
-											 *
-											 * @param arg0 event yang membawa teks hasil generasi pada {@code getData()}.
-											 */
-											@Override
-											public void onEvent(Event arg0) throws Exception {
-												catatan.setValue(ais.action.servlet.Wa.ubahKeBold((arg0.getData() + ""))
-														.replaceAll("\n", "<br>"));
-											}
-										}));
-
-					}
-				}
-
+				// Fail-closed: pertemuan non-perkuliahan (jadwal pelajaran sekolah, KKN, PKL, atau
+				// formulir kegiatan) tetap READ-ONLY untuk seluruh peserta (mahasiswa, siswa, peserta
+				// kursus, calon mahasiswa) — sebelumnya cabang non-biodataCalonMahasiswa di sini memberi
+				// Textbox yang bisa diedit dan langsung tersimpan ke pertemuan.setCatatan, menimpa
+				// catatan/berita acara resmi milik pengajar tanpa jejak audit.
+				new ais.ui.util.MyHtmlIframe(catat).setParent(row);
 			}
 
 			row = new MyFormRow();

@@ -3613,7 +3613,7 @@ public class TugasMandiriHelper {
 			uploadTugasGrid.setHeight("100%");
 			uploadTugasGrid.setSclass("ais-data-grid");
 
-			if (biodataCalonMahasiswa != null || mahasiswa != null) {
+			if (bolehUpload(tbmuser)) {
 
 				myborderlayoutlagi = new Borderlayout();
 				myborderlayoutlagi.setParent(mycenter);

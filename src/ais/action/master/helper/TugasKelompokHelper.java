@@ -1321,11 +1321,6 @@ public class TugasKelompokHelper implements DataLoader {
 		List<NamaTugasKelompok> kelompoks = session.createCriteria(NamaTugasKelompok.class)
 				.add(Restrictions.eq("tugasKelompok", tugas)).addOrder(Order.asc("nama")).list();
 
-		// Koleksi komponen per baris untuk Simpan massal
-		final java.util.List<NamaTugasKelompokPunyaMahasiswa> anggotaRows = new java.util.ArrayList<NamaTugasKelompokPunyaMahasiswa>();
-		final java.util.List<Textbox> ketBoxes = new java.util.ArrayList<Textbox>();
-		final java.util.List<MyDoublebox> nilaiBoxes = new java.util.ArrayList<MyDoublebox>();
-
 		int jml = 0;
 		if (kelompoks != null && !kelompoks.isEmpty()) {
 			List<NamaTugasKelompokPunyaMahasiswa> rels = session
@@ -1465,14 +1460,19 @@ public class TugasKelompokHelper implements DataLoader {
 										}
 										Common.refreshUpdate(sSave, xSave);
 										if (obe) {
+											if (tugas.getId() != null) sSave.refresh(tugas);
+											String ketDb = tugas.getKeteranganNilai();
+											JSONObject dbKet = new JSONObject(ketDb == null || ketDb.trim().length() == 0
+													? "{}" : ketDb.replace('\u0000', ' '));
 											for (int idxP = 0; idxP < obeFormatNilais.size(); idxP++) {
 												FormatNilai fnSv = obeFormatNilais.get(idxP);
 												Double nvSv = pNilaiBoxes.get(idxP).getValue();
-												jsonKet.put(memberKey + "_nilai_" + fnSv.getId(), nvSv);
+												String kSv = memberKey + "_nilai_" + fnSv.getId();
+												dbKet.put(kSv, nvSv);
+												jsonKet.put(kSv, nvSv);
 											}
-											if (tugas.getId() != null) sSave.refresh(tugas);
 											tugas.belum("tugas_file_content_" + tugas.getClass().getName());
-											tugas.setKeteranganNilai(jsonKet.toString());
+											tugas.setKeteranganNilai(dbKet.toString());
 											Common.refreshUpdate(sSave, tugas);
 										}
 										while (kSummary.getFirstChild() != null) {
@@ -2488,9 +2488,7 @@ public class TugasKelompokHelper implements DataLoader {
 				MyToolbarbutton button = new MyToolbarbutton("fa-refresh", "Refresh Syarat");
 
 				Tbmuser tbmuser = Common.getCurrentUser();
-				if (mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
-						&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-						&& tbmuser.getCalonSiswa() == null) {
+				if (bolehKelola(tbmuser)) {
 					Tugas.tampilanSyarat(pertemuan, tugasKelompok, null, null, null, null, rowsSyarat, syaratAlert,
 							button);
 				} else {
@@ -2635,9 +2633,7 @@ public class TugasKelompokHelper implements DataLoader {
 								lampiran = (LampiranLain) arg0.getData();
 							}
 						}, null, false, false, false,
-						mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
-								&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-								&& tbmuser.getCalonSiswa() == null && siswa == null && calonSiswa == null,
+						bolehKelola(tbmuser),
 						null, false, false, myvboxBaru);
 			}
 
@@ -2721,9 +2717,7 @@ public class TugasKelompokHelper implements DataLoader {
 							&& perkuliahan.getKurikulum() != null
 							&& perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(),
 									perkuliahan.getGanjilGenap())
-							&& mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
-							&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-							&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null) {
+							&& bolehKelola(tbmuser)) {
 
 						// Kurikulum OBE: sembunyikan pilihan Format Nilai tunggal + bobot manual (hboxP),
 						// karena penilaian OBE memakai pemetaan Sub-CPMK di grid di bawah. Meniru
@@ -2777,10 +2771,7 @@ public class TugasKelompokHelper implements DataLoader {
 						if (tugasKelompok.getPerkuliahan() != null) {
 							if (tugasKelompok.getPerkuliahan() != null
 									&& !tugasKelompok.getPerkuliahan().getSembunyikanFormatPenilaian()) {
-								buttonFormatNilai.setVisible(mahasiswa == null && biodataCalonMahasiswa == null
-										&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
-										&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
-										&& tbmuser.getSiswa() == null);
+								buttonFormatNilai.setVisible(bolehKelola(tbmuser));
 								buttonFormatNilai.setParent(grupTombol);
 								buttonFormatNilai.setVisible(perkuliahan.getDikunci() == null);
 								if (perkuliahan.getKurikulum() != null && perkuliahan.getKurikulum()
@@ -2863,8 +2854,7 @@ public class TugasKelompokHelper implements DataLoader {
 					}
 
 					final Pertemuan p = tugasKelompok.ambilPertemuan();
-					if (p != null && biodataCalonMahasiswa == null && siswa == null && mahasiswa == null
-							&& calonSiswa == null) {
+					if (p != null && bolehKelola(Common.getCurrentUser())) {
 
 						MyToolbarbutton masuk = new MyToolbarbutton("fa-check", "Anggap Hadir (Pengumpul)");
 						masuk.setStyle("font-size:9px;");
@@ -3174,7 +3164,7 @@ public class TugasKelompokHelper implements DataLoader {
 
 						String ketAwalDl = tugasKelompok.getKeteranganNilai();
 						JSONObject jsonKetDl = new JSONObject(
-								ketAwalDl == null || ketAwalDl.trim().isEmpty() ? "{}" : ketAwalDl.replace(' ', ' '));
+								ketAwalDl == null || ketAwalDl.trim().isEmpty() ? "{}" : ketAwalDl.replace(' ', ' '));
 
 						List<NamaTugasKelompok> kelsDl = sessDl.createCriteria(NamaTugasKelompok.class)
 								.add(Restrictions.eq("tugasKelompok", tugasKelompok))
@@ -3322,7 +3312,7 @@ public class TugasKelompokHelper implements DataLoader {
 
 						String ketAwalUl = tugasKelompok.getKeteranganNilai();
 						JSONObject jsonKetUl = new JSONObject(
-								ketAwalUl == null || ketAwalUl.trim().isEmpty() ? "{}" : ketAwalUl.replace(' ', ' '));
+								ketAwalUl == null || ketAwalUl.trim().isEmpty() ? "{}" : ketAwalUl.replace(' ', ' '));
 						boolean jsonDirty = false;
 
 						org.zkoss.poi.xssf.usermodel.XSSFWorkbook wbUl = new org.zkoss.poi.xssf.usermodel.XSSFWorkbook(f.getAbsolutePath());
@@ -3402,8 +3392,7 @@ public class TugasKelompokHelper implements DataLoader {
 			ais.ui.util.MenuAksiBaris.pasang(toolbar);
 			toolbar.setParent(vbox);
 
-			if (mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
-					&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null) {
+			if (bolehKelola(tbmuser)) {
 
 				// Daftar Kelompok dipindah ke Popup Window (tombol "Kelola Kelompok" di atas), agar
 				// kartu ringkas tetap bersih. Baris inline lama dihapus dari sini.
@@ -3985,14 +3974,10 @@ public class TugasKelompokHelper implements DataLoader {
 	 * yang kosong TIDAK menghasilkan daftar kosong, melainkan daftar tanpa penyaring (lihat
 	 * {@link #initCriteria(boolean)}).</p>
 	 *
-	 * <p><b>Cacat yang diketahui pada cabang jadwal pelajaran.</b> Metode ini meneruskan pekerjaannya ke
-	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, Component)}, yang pada gilirannya
-	 * meneruskan {@code null} sebagai jadwal pelajaran ke varian kanonik &mdash; dan varian kanonik
-	 * menugaskan nilai itu kembali ke field. Akibatnya, cakupan jadwal pelajaran yang baru saja disetel
-	 * di sini <b>terhapus lagi</b> sebelum data dimuat. Ketiga jenis wadah lainnya selamat karena
-	 * diteruskan kembali sebagai argumen eksplisit. Pemanggil yang membuka jadwal pelajaran sebaiknya
-	 * memakai {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)} secara
-	 * langsung sampai rantai delegasi ini diperbaiki.</p>
+	 * <p>Metode ini meneruskan pekerjaannya ke
+	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, Component)}, yang meneruskan cakupan jadwal
+	 * pelajaran yang sudah tersimpan di field ke varian kanonik &mdash; sehingga cabang
+	 * {@code JadwalPelajaran} di atas tidak kehilangan cakupannya.</p>
 	 *
 	 * @param voPembelajaran wadah pembelajaran yang sedang dibuka; boleh {@code null} atau bertipe lain
 	 *                       (cakupan tidak diisi)
@@ -4021,18 +4006,9 @@ public class TugasKelompokHelper implements DataLoader {
 	 * satu kelas. Selain membatasi daftar, cakupan ini juga menentukan bahwa penilaian memakai rantai
 	 * penilaian sekolah, bukan format nilai perkuliahan.</p>
 	 *
-	 * <p><b>Cacat yang diketahui: cakupan hilang sebelum data dimuat.</b> Metode ini menyimpan jadwal
-	 * pelajaran ke field, lalu meneruskan pekerjaannya ke
-	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, Component)} <b>tanpa menyertakannya</b>.
-	 * Varian itu meneruskan {@code null} ke varian kanonik, dan varian kanonik menugaskan {@code null}
-	 * tersebut kembali ke field &mdash; sehingga cakupan yang baru disetel terhapus. Karena pemanggil
-	 * biasanya membangun helper yang masih baru (keempat field cakupan {@code null}), hasilnya adalah
-	 * kriteria tanpa penyaring apa pun: daftar menampilkan seluruh tugas kelompok lintas kelas dan
-	 * lintas program studi, dan kartu ringkasan ikut menghitung seluruh tabel.</p>
-	 *
-	 * <p>Sampai rantai delegasi diperbaiki, pemanggil dianjurkan memakai varian kanonik
-	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)} secara
-	 * langsung &mdash; itulah yang dilakukan modul e-learning sekolah dan jalur tersebut tidak terkena.</p>
+	 * <p>Metode ini menyimpan jadwal pelajaran ke field, lalu meneruskan pekerjaannya ke
+	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, Component)}, yang meneruskan cakupan
+	 * jadwal pelajaran yang baru saja disetel ke varian kanonik &mdash; sehingga cakupan tetap terjaga.</p>
 	 *
 	 * @param jadwalPelajaran jadwal pelajaran (mata pelajaran pada satu kelas) yang menjadi cakupan
 	 * @param component       komponen induk tempat layar dirakit
@@ -4057,8 +4033,8 @@ public class TugasKelompokHelper implements DataLoader {
 	 * ini tidak menemukan satu pun pemanggil, jadi jalur ini praktis tidak aktif; sebelum menghidupkannya
 	 * kembali, pertimbangkan mengganti pendekatannya dengan kriteria Hibernate yang terparameter.</p>
 	 *
-	 * <p>Sama seperti saudara-saudaranya, metode ini meneruskan pekerjaan lewat varian berargumen empat
-	 * sehingga cakupan jadwal pelajaran yang mungkin sudah terisi akan ikut terhapus.</p>
+	 * <p>Sama seperti saudara-saudaranya, metode ini meneruskan pekerjaan lewat varian berargumen empat,
+	 * yang menjaga agar cakupan jadwal pelajaran yang mungkin sudah terisi tetap dipertahankan.</p>
 	 *
 	 * @param sqlTambahan potongan SQL literal untuk klausa WHERE; harus berasal dari kode, bukan pengguna
 	 * @param component   komponen induk tempat layar dirakit
@@ -4105,12 +4081,11 @@ public class TugasKelompokHelper implements DataLoader {
 	 * dengan modul sekolah, sehingga tidak perlu menuliskan argumen jadwal pelajaran. Seluruh pekerjaan
 	 * diteruskan ke {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)}.</p>
 	 *
-	 * <p><b>Perhatikan: {@code null} di sini bersifat MENGHAPUS, bukan sekadar "tidak diisi".</b> Varian
-	 * kanonik menugaskan setiap argumennya ke field yang bersesuaian, termasuk menugaskan {@code null}
-	 * ke {@code jadwalPelajaran}. Jadi memanggil metode ini akan membersihkan cakupan jadwal pelajaran
-	 * yang mungkin sudah terisi sebelumnya. Itulah sebab keempat varian perantara yang bermuara ke sini
-	 * kehilangan cakupan sekolahnya; pemanggil yang memerlukan cakupan jadwal pelajaran harus memakai
-	 * varian kanonik secara langsung.</p>
+	 * <p>Metode ini meneruskan cakupan jadwal pelajaran yang sudah tersimpan di field ({@code
+	 * this.jadwalPelajaran}) ke varian kanonik, bukan {@code null}, sehingga keempat varian perantara
+	 * yang bermuara ke sini tidak kehilangan cakupan sekolahnya. Pemanggil jalur perguruan tinggi yang
+	 * memakai metode ini langsung pada helper yang baru dibangun tidak terpengaruh, karena
+	 * {@code jadwalPelajaran} masih {@code null} pada saat itu.</p>
 	 *
 	 * @param perkuliahan  cakupan perkuliahan, atau {@code null}
 	 * @param kelompokKkn  cakupan kelompok KKN, atau {@code null}
@@ -4119,7 +4094,7 @@ public class TugasKelompokHelper implements DataLoader {
 	 */
 	public void display(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final Component component) {
-		display(perkuliahan, kelompokKkn, kelompokPkl, null, component);
+		display(perkuliahan, kelompokKkn, kelompokPkl, jadwalPelajaran, component);
 	}
 
 	/**
@@ -4195,9 +4170,7 @@ public class TugasKelompokHelper implements DataLoader {
 		MyToolbarbutton ambil = new MyToolbarbutton("fa-history", "Ambil Tugas Sebelumnya");
 		ambil.setTooltiptext("Salin tugas dari semester/pertemuan sebelumnya ke sini");
 		Tbmuser tbmuser = Common.getCurrentUser();
-		ambil.setVisible(mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
-				&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
-				&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+		ambil.setVisible(bolehKelola(tbmuser));
 		ambil.addEventListener("onClick", new EventListener() {
 
 			@Override
@@ -4320,8 +4293,11 @@ public class TugasKelompokHelper implements DataLoader {
 	 * <h4>Menugaskan cakupan: keempat argumen selalu ditulis ke field</h4>
 	 * <p>Keempat argumen cakupan ditugaskan ke field tanpa syarat, termasuk bila bernilai {@code null}.
 	 * Jadi memanggil metode ini bukan hanya "mengisi" cakupan, melainkan <b>menetapkan ulang</b>
-	 * seluruhnya: cakupan lama yang tidak disertakan akan terhapus. Sifat inilah yang membuat varian
-	 * perantara berargumen empat menghapus cakupan jadwal pelajaran yang sudah disetel pemanggilnya.
+	 * seluruhnya: cakupan lama yang tidak disertakan akan terhapus. Karena itu setiap pemanggil yang
+	 * ingin mempertahankan cakupan jadwal pelajaran yang sudah tersimpan di field harus meneruskannya
+	 * kembali secara eksplisit &mdash; sebagaimana dilakukan varian berargumen empat
+	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, Component)}, yang meneruskan
+	 * {@code this.jadwalPelajaran} alih-alih {@code null}.
 	 * Ketiga field cakupan JAMAK ({@code perkuliahans}, {@code kelompokKkns}, {@code kelompokPkls})
 	 * TIDAK disentuh di sini, sehingga nilai yang disetel varian gabungan tetap bertahan.</p>
 	 *
@@ -5235,9 +5211,7 @@ public class TugasKelompokHelper implements DataLoader {
 						lampiran = (LampiranLain) arg0.getData();
 					}
 				}, null, false, false, false,
-				mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
-						&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
-						&& siswa == null && calonSiswa == null,
+				bolehKelola(tbmuser),
 				null, false, false, row);
 
 		MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-cog", "Generate Tugas Kelompok");
@@ -5306,9 +5280,7 @@ public class TugasKelompokHelper implements DataLoader {
 		// mahasiswa/siswa/calon) — memanfaatkan ulang bangunGridSubCpmk(..., editable=true).
 		{
 			final Perkuliahan perkuliahanObe = tugasKelompok.getPerkuliahan();
-			boolean pengelolaObe = mahasiswa == null && biodataCalonMahasiswa == null
-					&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
-					&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null;
+			boolean pengelolaObe = bolehKelola(tbmuser);
 			if (pengelolaObe && tugasKelompok.getId() != null && perkuliahanObe != null
 					&& perkuliahanObe.getKurikulum() != null && perkuliahanObe.getKurikulum()
 							.apakahObe(perkuliahanObe.getTahunAjaran(), perkuliahanObe.getGanjilGenap())) {
@@ -5336,8 +5308,7 @@ public class TugasKelompokHelper implements DataLoader {
 			MyToolbarbutton button = new MyToolbarbutton("fa-refresh", "Refresh Syarat");
 
 			Set<String> syaratAlert = new HashSet<String>();
-			if (mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
-					&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null) {
+			if (bolehKelola(tbmuser)) {
 				Tugas.tampilanSyarat(pertemuan, tugasKelompok, null, null, null, null, rows, syaratAlert, button);
 			} else {
 				Tugas.tampilanSyaratReadonly(pertemuan, tugasKelompok, null, null, null, null, rows, syaratAlert,

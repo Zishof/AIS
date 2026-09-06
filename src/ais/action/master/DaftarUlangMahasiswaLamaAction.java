@@ -512,8 +512,9 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			}
 
 			String idMahasiswa = execution.getParameter("mahasiswa");
+			Mahasiswa mahasiswaDariUrl = null;
 			if (idMahasiswa != null && !idMahasiswa.trim().isEmpty()) {
-				mahasiswaAktif = (Mahasiswa) session.createCriteria(Mahasiswa.class)
+				mahasiswaDariUrl = (Mahasiswa) session.createCriteria(Mahasiswa.class)
 						.add(Restrictions.idEq(Long.parseLong(idMahasiswa))).uniqueResult();
 			}
 
@@ -527,16 +528,41 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 
 			modeWizardRingkas = "1".equals(execution.getParameter("wizard"));
 
-			if (tbmuser != null && tbmuser.getMahasiswa() != null)
+			if (tbmuser != null && tbmuser.getMahasiswa() != null) {
+				// Mahasiswa login SELALU memakai data miliknya sendiri; parameter URL
+				// mahasiswa=<id> (bila ada & berbeda) diabaikan dan dicatat sebagai
+				// percobaan akses tak sah, bukan diam-diam di-fallback.
+				if (mahasiswaDariUrl != null
+						&& !mahasiswaDariUrl.getId().equals(tbmuser.getMahasiswa().getId())) {
+					ais.common.ErrorAuditUtil.record(
+							new SecurityException("Percobaan akses id mahasiswa lain via parameter URL: mahasiswa="
+									+ idMahasiswa + " oleh userId=" + tbmuser.getId() + " userNama="
+									+ tbmuser.getUserNama()),
+							"SECURITY DaftarUlangMahasiswaLamaAction.doAfterCompose - akses lintas kepemilikan via parameter URL ditolak");
+				}
 				mahasiswaAktif = tbmuser.getMahasiswa();
-
-			if (mahasiswaAktif == null) {
+			} else {
+				// Bukan mahasiswa yang login sendiri (staf/admin/peran lain): parameter URL
+				// mahasiswa=<id> HANYA boleh dipakai bila pengguna terverifikasi berhak (READ)
+				// -- gerbang ini WAJIB dievaluasi baik ketika id diisi (mis. dibuka dari
+				// InformasiPembayaranMahasiswaAction/TagihanUIBuilder/BuktiPembayaranAction)
+				// maupun ketika kosong (staf mencari manual lewat kotak NIM).
 				if (this.session.getAttribute("usersTemp") == null
 						|| !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+					if (mahasiswaDariUrl != null) {
+						ais.common.ErrorAuditUtil.record(
+								new SecurityException(
+										"Percobaan akses id mahasiswa lain via parameter URL tanpa hak READ: mahasiswa="
+												+ idMahasiswa + " oleh userId="
+												+ (tbmuser != null ? tbmuser.getId() : null) + " userNama="
+												+ (tbmuser != null ? tbmuser.getUserNama() : null)),
+								"SECURITY DaftarUlangMahasiswaLamaAction.doAfterCompose - akses lintas kepemilikan via parameter URL ditolak");
+					}
 					this.session.removeAttribute("usersTemp");
 					Common.goLogoff();
 					return;
 				}
+				mahasiswaAktif = mahasiswaDariUrl;
 			}
 
 			jenisPembayaran.setReadonly(true);

@@ -161,10 +161,14 @@ import ais.ui.util.MyWindow;
  * <b>Batas otorisasi.</b> Kelas ini tidak memeriksa kepemilikan: {@link #display} menampilkan
  * KRS {@link Mahasiswa} mana pun yang diberikan pemanggil, dan penyaringan siapa boleh melihat
  * KRS siapa sepenuhnya berada di layar pemanggil ({@code KrsMahasiswaAction},
- * {@code TampilStudiMahasiswaHelper}, {@code AktifitasKrsMahasiswaHelper}). Hak yang diperiksa
- * di sini hanyalah {@link #delete} dan {@link #update} lewat {@link CommonPrivilages};
- * {@link #approve} dan {@link #reject} di-hardcode {@code true} sehingga persetujuan dan
- * pembatalan persetujuan tidak terlindungi hak akses tingkat data.
+ * {@code TampilStudiMahasiswaHelper}, {@code AktifitasKrsMahasiswaHelper}) — ketiganya TIDAK
+ * menyaring visibilitas berdasarkan pengguna saat ini ({@code KrsMahasiswaAction.initCriteria}
+ * tidak melakukan scoping apa pun). Hak yang diperiksa di sini adalah {@link #delete},
+ * {@link #update}, {@link #approve} ({@link CommonPrivilages#APPROVE}), dan {@link #reject}
+ * ({@link CommonPrivilages#REJECT}) lewat {@link CommonPrivilages}, seluruhnya diperiksa ulang
+ * fail-closed di awal {@link #lakukanSatuPersetujuan}, {@link #lakukanSemuaPersetujuan}, dan
+ * {@link #lakukanPembatalanSemuaPersetujuan} — bukan hanya lewat {@code setDisabled} pada
+ * komponen UI, yang dapat dilewati oleh event ZK yang dipalsukan.
  * </p>
  */
 public class StudiMahasiswaHelper implements DataLoader {
@@ -211,16 +215,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 	/** Hak ubah pengguna saat ini, diambil dari {@link CommonPrivilages#checkPrevilages} ({@link CommonPrivilages#UPDATE}) di konstruktor lengkap; mengunci kotak nilai, semester/tahap, tombol Konversi/Download/Upload. */
 	private boolean update = true;
 	/**
-	 * Hak menyetujui KRS. <b>PERHATIAN:</b> berbeda dengan {@link #delete} dan {@link #update},
-	 * field ini TIDAK pernah diturunkan dari {@link CommonPrivilages} — nilainya di-hardcode
-	 * {@code true} pada deklarasi dan ditulis ulang {@code true} lagi di konstruktor lengkap.
-	 * Akibatnya {@code setDisabled(!approve)} pada tombol "Setujui" dan pada checkbox persetujuan
-	 * per baris tidak pernah aktif: siapa pun yang berhasil membuka layar ini dapat menyetujui KRS,
-	 * tanpa memeriksa hak APPROVE. Perlindungan yang tersisa hanyalah validasi bisnis
-	 * (pembayaran dan batas SKS) serta penyaringan menu di layar pemanggil.
+	 * Hak menyetujui KRS, diambil dari {@link CommonPrivilages#checkPrevilages} ({@link
+	 * CommonPrivilages#APPROVE}) di konstruktor lengkap. Mengunci checkbox persetujuan per baris
+	 * dan tombol "Setujui" ({@code setDisabled(!approve)}), dan diperiksa ulang fail-closed di
+	 * awal {@link #lakukanSatuPersetujuan} dan {@link #lakukanSemuaPersetujuan} agar event ZK
+	 * yang dipalsukan (melewati {@code setDisabled}) tetap ditolak.
 	 */
 	private boolean approve = true;
-	/** Hak membatalkan persetujuan KRS; sama seperti {@link #approve}, di-hardcode {@code true} dan tidak pernah diturunkan dari {@link CommonPrivilages}, sehingga {@code setDisabled(!reject)} pada tombol "Batalkan" tidak pernah aktif. */
+	/** Hak membatalkan persetujuan KRS, diambil dari {@link CommonPrivilages#checkPrevilages} ({@link CommonPrivilages#REJECT}) di konstruktor lengkap; mengunci tombol "Batalkan" ({@code setDisabled(!reject)}) dan diperiksa ulang fail-closed di awal {@link #lakukanPembatalanSemuaPersetujuan}. */
 	private boolean reject = true;
 	/** Label milik layar pemanggil berisi catatan dosen PA pada {@link KrsMahasiswa}; diperbarui setelah {@link CatatanHelper} disimpan. */
 	private Label catatan;
@@ -276,8 +278,8 @@ public class StudiMahasiswaHelper implements DataLoader {
 		this.edit = edit;
 		this.delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		this.update = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
-		this.approve = true;
-		this.reject = true;
+		this.approve = CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
+		this.reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
 
 		this.semesterPendek = semesterPendek;
 		this.tampilHapus = tampilHapus;
@@ -1084,6 +1086,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 	 */
 	@SuppressWarnings("unchecked")
 	private void lakukanSatuPersetujuan(MyCheckboxConfig checkbox, Detailperkuliahan seledtedDetailperkuliahan, KrsMahasiswa krsMahasiswa, final int semester) throws Exception {
+		// Gerbang hak diperiksa ulang di sini (server-side): setDisabled(!approve) pada checkbox
+		// hanya menyembunyikan aksi, bukan mencegah event onCheck yang dipicu di luar jalur render
+		// normal (ZK event yang dipalsukan).
+		if (!approve) {
+			checkbox.setChecked(!checkbox.isChecked());
+			MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk menyetujui KRS ini.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
 		Konfigurasi konfigurasi = Common.getKonfigurasi("mahasiswa_harus_bayar_sebelum_persetujuan_krs", Konfigurasi.AKTIF);
 
 		if (Konfigurasi.AKTIF.equals(konfigurasi.getNilai())) {
@@ -1180,6 +1190,13 @@ public class StudiMahasiswaHelper implements DataLoader {
 	 * {@link CatatanHelper} untuk mencatat catatan dosen PA sebelum menyegarkan tampilan.
 	 */
 	private void lakukanSemuaPersetujuan() throws Exception {
+		// Gerbang hak diperiksa ulang di sini (server-side): setDisabled(!approve) pada tombol
+		// "Setujui" hanya menyembunyikan tombol, bukan mencegah event onClick yang dipicu di luar
+		// jalur render normal (ZK event yang dipalsukan).
+		if (!approve) {
+			MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk menyetujui KRS ini.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
 		if (detailperkuliahansData != null && !detailperkuliahansData.isEmpty()) {
 			Session session = HibernateUtil.currentSession();
 			Integer jumlahSks = 0;
@@ -1236,6 +1253,13 @@ public class StudiMahasiswaHelper implements DataLoader {
 	 * mata kuliah bernilai tidak dapat dibatalkan persetujuannya. Menyegarkan tampilan di akhir.
 	 */
 	private void lakukanPembatalanSemuaPersetujuan() throws Exception {
+		// Gerbang hak diperiksa ulang di sini (server-side): setDisabled(!reject) pada tombol
+		// "Batalkan" hanya menyembunyikan tombol, bukan mencegah event onClick yang dipicu di luar
+		// jalur render normal (ZK event yang dipalsukan).
+		if (!reject) {
+			MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk membatalkan persetujuan KRS ini.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
 		Session session = HibernateUtil.currentSession();
 		boolean ada = false;
 		

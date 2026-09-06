@@ -2036,7 +2036,7 @@ public class PenjadwalanHelper {
 					krsMahasiswa.setLewatiTanggalMerahNasional(lewatiTanggalMerahNasional.isChecked());
 					krsMahasiswa.setTanggalAwalBimbingan(tanggalMulai.getValue());
 					krsMahasiswa.setJenis(jenis.getSelectedItem().getLabel());
-					Common.refreshUpdate(session, skripsi);
+					Common.refreshUpdate(session, krsMahasiswa);
 				}
 				if (kelompokPkl != null) {
 					kelompokPkl.setLewatiTanggalMerahNasional(lewatiTanggalMerahNasional.isChecked());
@@ -3363,9 +3363,9 @@ public class PenjadwalanHelper {
 										.add(copySkripsi == null ? Restrictions.sqlRestriction("true")
 												: Restrictions.eq("skripsi", copySkripsi))
 
-										.add(mahasiswaRequestTugasAkhir == null ? Restrictions.sqlRestriction("true")
+										.add(copyMahasiswaRequestTugasAkhir == null ? Restrictions.sqlRestriction("true")
 												: Restrictions.eq("mahasiswaRequestTugasAkhir",
-														mahasiswaRequestTugasAkhir))
+														copyMahasiswaRequestTugasAkhir))
 
 										.addOrder(Order.asc("tanggal")).addOrder(Order.asc("id")).list();
 								for (Pertemuan pertemuan : pertemuans) {
@@ -3496,7 +3496,7 @@ public class PenjadwalanHelper {
 
 									}
 								} else if (copyMahasiswaRequestTugasAkhir != null
-										|| copyKelompokKkn != null && copyKelompokPkl != null || copySkripsi != null) {
+										|| copyKelompokKkn != null || copyKelompokPkl != null || copySkripsi != null) {
 									List<DataPunyaItem> perkuliahanPunyaItems = session
 											.createCriteria(DataPunyaItem.class).addOrder(Order.asc("id"))
 
