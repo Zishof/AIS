@@ -110,6 +110,20 @@ public class AktifitasPembelajaranHelper {
 
 	private Tbmuser tbmuser;
 
+	/**
+	 * Escaping HTML dasar ({@code &}, {@code <}, {@code >}) untuk teks polos (diisi lewat
+	 * {@link org.zkoss.zul.Textbox}) yang disisipkan ke markup mentah lewat konstruktor
+	 * {@code ais.ui.util.MyHtml} atau {@code Html.setContent(...)} — konteks yang TIDAK
+	 * meng-escape sendiri, berbeda dari {@code Textbox.setValue(...)} yang sudah aman lewat ZK.
+	 * Urutan penggantian {@code &} lebih dulu, baru {@code <} dan {@code >}, wajib dijaga.
+	 *
+	 * @param s teks sumber, boleh {@code null}
+	 * @return {@code s} yang sudah di-escape, atau string kosong bila {@code s} {@code null}
+	 */
+	private static String escapeHtmlAman(String s) {
+		return s == null ? "" : s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+	}
+
 	/** Membuat helper dari sudut pandang {@code siswa} atau {@code calonSiswa} (salah satu boleh null); bila keduanya null, dianggap dilihat dari sudut pandang staf/dosen. */
 	public AktifitasPembelajaranHelper(Siswa siswa, CalonSiswa calonSiswa) {
 		this.siswa = siswa;
@@ -348,7 +362,7 @@ public class AktifitasPembelajaranHelper {
 			final MyFormRow rowEdit = new MyFormRow();
 			final Textbox pendahuluan = new Textbox();
 			final Html labelPendahuluan = new ais.ui.util.MyHtml(
-					jadwalPelajaran.getDeskripsiPembelajaran().replaceAll("\n", "<br>"));
+					escapeHtmlAman(jadwalPelajaran.getDeskripsiPembelajaran()).replaceAll("\n", "<br>"));
 
 			rowEdit.setParent(rows);
 			rowEdit.setVisible(false);
@@ -371,7 +385,7 @@ public class AktifitasPembelajaranHelper {
 
 					jadwalPelajaran.setDeskripsiPembelajaran(pendahuluan.getValue());
 					Common.refreshUpdate(jadwalPelajaran);
-					labelPendahuluan.setContent(jadwalPelajaran.getDeskripsiPembelajaran().replaceAll("\n", "<br>"));
+					labelPendahuluan.setContent(escapeHtmlAman(jadwalPelajaran.getDeskripsiPembelajaran()).replaceAll("\n", "<br>"));
 				}
 
 			});
@@ -416,7 +430,7 @@ public class AktifitasPembelajaranHelper {
 			final MyFormRow rowEdit = new MyFormRow();
 			final Textbox pendahuluan = new Textbox();
 			final Html labelPendahuluan = new ais.ui.util.MyHtml(
-					jadwalPelajaran.getCapaianPembelajaranProdi().replaceAll("\n", "<br>"));
+					escapeHtmlAman(jadwalPelajaran.getCapaianPembelajaranProdi()).replaceAll("\n", "<br>"));
 
 			rowEdit.setParent(rows);
 			rowEdit.setVisible(false);
@@ -439,7 +453,7 @@ public class AktifitasPembelajaranHelper {
 
 					jadwalPelajaran.setCapaianPembelajaranProdi(pendahuluan.getValue());
 					Common.refreshUpdate(jadwalPelajaran);
-					labelPendahuluan.setContent(jadwalPelajaran.getCapaianPembelajaranProdi().replaceAll("\n", "<br>"));
+					labelPendahuluan.setContent(escapeHtmlAman(jadwalPelajaran.getCapaianPembelajaranProdi()).replaceAll("\n", "<br>"));
 				}
 
 			});

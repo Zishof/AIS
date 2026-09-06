@@ -1833,7 +1833,7 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		row.appendChild(new ais.ui.util.MyLabelConfig("Catatan Penting"));
 		final Textbox catatanSeminar = new Textbox(safeString(skripsi.getCatatanPenting()));
 		if (tbmuser != null && tbmuser.getMahasiswa() != null) {
-			row.appendChild(new ais.ui.util.MyHtml(safeString(skripsi.getCatatanPenting()).replaceAll("\n", "<br>")));
+			row.appendChild(new ais.ui.util.MyHtml(html(skripsi.getCatatanPenting()).replaceAll("\n", "<br>")));
 		} else {
 			row.appendChild(catatanSeminar);
 		}

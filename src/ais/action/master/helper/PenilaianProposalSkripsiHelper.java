@@ -1546,7 +1546,7 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		final Textbox catatanSeminar = new Textbox(mahasiswaRequestTugasAkhir.getCatatanSeminar());
 		if (tbmuser.getMahasiswa() != null) {
 			row.appendChild(
-					new ais.ui.util.MyHtml(mahasiswaRequestTugasAkhir.getCatatanSeminar().replaceAll("\n", "<br>")));
+					new ais.ui.util.MyHtml(dashEsc(mahasiswaRequestTugasAkhir.getCatatanSeminar()).replaceAll("\n", "<br>")));
 		} else {
 			row.appendChild(catatanSeminar);
 		}
