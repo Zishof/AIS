@@ -859,6 +859,7 @@ public class KelompokPkl extends VOPembelajaran {
 		return jumlah;
 	}
 
+	/** @return sertifikat yang diterbitkan untuk kelompok ini, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila belum ada sertifikat. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sertifikat", nullable = true)
 	public Sertifikat getSertifikat() {
@@ -866,23 +867,39 @@ public class KelompokPkl extends VOPembelajaran {
 		return sertifikat;
 	}
 
+	/** @param sertifikat sertifikat yang diterbitkan untuk kelompok ini. */
 	public void setSertifikat(Sertifikat sertifikat) {
 		this.sertifikat = sertifikat;
 	}
 
+	/** Data course/kurikulum kelompok ini dalam format JSON teks; dipetakan {@code columnDefinition = "text"}. Lihat {@link #getCourse()} untuk perilaku default. */
 	private String course;
+	/** Path absolut berkas JSON representasi lengkap objek ini di disk (bukan berkas indeks anggota); diisi/dipakai oleh {@link #getOrCreateFileLocation()} dan {@code write()} milik superclass. */
 	private String fileLocation;
+	/** Data feeder/integrasi sistem eksternal (teks bebas, biasanya JSON), dipetakan sebagai kolom {@code text}; boleh {@code null}/kosong. */
 	private String feeder;
+	/** Lokasi geografis ({@link Lokasi}) penempatan kelompok ini; boleh {@code null}. */
 	private Lokasi lokasi;
+	/** Jarak lokasi kelompok dari suatu titik acuan. Default {@code 1.0} bila belum diisi. */
 	private Double jarak;
+	/** Menandai apakah anggota kelompok diurutkan otomatis oleh sistem. Default {@code true} bila belum diisi. */
 	private Boolean urutkanotomatis;
+	/** Menandai apakah kelompok ini masih berlaku/ditampilkan. Default {@code true} bila belum diisi. */
 	private Boolean aktif;
 
 	// Scope SEKOLAH: bila terisi, kelompok PKL ini adalah PKL untuk SISWA pada sekolah tsb
 	// (anggotanya SiswaDapatKelompokPkl). Bila null, kelompok PKL berlaku untuk MAHASISWA seperti
 	// semula — sehingga engine PKL yang sama dipakai ulang tanpa menggandakan model.
+	/** Sekolah pemilik kelompok ini bila PKL diperuntukkan bagi siswa; {@code null} untuk PKL mahasiswa. Lihat javadoc {@link #getSekolah()} untuk detail lengkap. Field ini TIDAK ADA pada kembaran {@link ais.database.model.kkn.KelompokKkn} — perluasan PKL-spesifik yang disengaja (lihat javadoc kelas). */
 	private ais.database.model.sekolah.Sekolah sekolah;
 
+	/**
+	 * @return data course/kurikulum kelompok ini sebagai teks JSON; bila field {@link #course}
+	 *         belum pernah diisi atau kosong/blank, method ini mengembalikan representasi JSON
+	 *         objek KOSONG ({@code new JSONObject().toString()}, yakni {@code "{}"}) — bukan
+	 *         {@code null}. Mengimplementasikan method abstrak dari superclass
+	 *         {@link ais.database.model.VOPembelajaran}.
+	 */
 	@Override
 	@Column(columnDefinition = "text")
 	public String getCourse() {
@@ -890,15 +907,26 @@ public class KelompokPkl extends VOPembelajaran {
 		return course == null || course.trim().isEmpty() ? new JSONObject().toString() : course;
 	}
 
+	/** @param course data course/kurikulum kelompok ini sebagai teks JSON. */
 	@Override
 	public void setCourse(String course) {
 		this.course = course;
 	}
 
+	/** @return path absolut berkas JSON representasi lengkap objek ini di disk, TANPA memicu penulisan bila belum ada (getter pasif — bandingkan dengan {@link #getOrCreateFileLocation()}); {@code null} bila belum pernah ditulis. */
 	public String getFileLocation() {
 		return fileLocation;
 	}
 
+	/**
+	 * @return path absolut berkas JSON representasi lengkap objek ini di disk, MENJAMIN berkas
+	 *         tersebut ada dan valid sebelum mengembalikan path-nya. Method ini <b>bukan getter
+	 *         pasif</b> (ditandai {@code @Transient}): ia memicu penulisan ulang lewat
+	 *         {@code write()} (method superclass) bila {@link #fileLocation} masih {@code null},
+	 *         TIDAK diakhiri {@code getId() + ".json"}, atau berkas pada path tersebut TERNYATA
+	 *         TIDAK ADA di disk. Identik perilakunya dengan kembaran
+	 *         {@code KelompokKkn.getOrCreateFileLocation()}.
+	 */
 	@javax.persistence.Transient
 	public String getOrCreateFileLocation() {
 		if (fileLocation == null || !fileLocation.endsWith(getId() + ".json")
@@ -908,36 +936,44 @@ public class KelompokPkl extends VOPembelajaran {
 		return fileLocation;
 	}
 
+	/** @param fileLocation path absolut berkas JSON representasi lengkap objek ini di disk. */
 	public void setFileLocation(String fileLocation) {
 		this.fileLocation = fileLocation;
 	}
 
+	/** @return nomor Surat Keputusan (SK) penempatan kelompok ini, atau {@code null} bila belum diisi. */
 	public String getNoSk() {
 		return noSk;
 	}
 
+	/** @param noSk nomor Surat Keputusan (SK) penempatan kelompok ini. */
 	public void setNoSk(String noSk) {
 		this.noSk = noSk;
 	}
 
+	/** @return tanggal Surat Keputusan (SK) penempatan kelompok ini, atau {@code null} bila belum diisi. */
 	@Temporal(TemporalType.DATE)
 	public Date getTglSk() {
 		return tglSk;
 	}
 
+	/** @param tglSk tanggal Surat Keputusan (SK) penempatan kelompok ini. */
 	public void setTglSk(Date tglSk) {
 		this.tglSk = tglSk;
 	}
 
+	/** @return data feeder/integrasi sistem eksternal, di-trim; {@code null} bila field {@link #feeder} belum pernah diisi atau isinya kosong/blank setelah trim. */
 	@Column(columnDefinition = "text")
 	public String getFeeder() {
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
 
+	/** @param feeder data feeder/integrasi sistem eksternal (teks bebas, biasanya JSON). */
 	public void setFeeder(String feeder) {
 		this.feeder = feeder;
 	}
 
+	/** @return dosen pembimbing slot ke-6, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. Di luar jangkauan flag wewenang penilaian granular {@code dosen1}..{@code dosen5} milik {@link KomponenPenilaianPkl} — lihat javadoc kelas. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing6", nullable = true)
 	public Dosen getDosen_pembimbing6() {
@@ -945,10 +981,12 @@ public class KelompokPkl extends VOPembelajaran {
 		return dosen_pembimbing6;
 	}
 
+	/** @param dosen_pembimbing6 dosen pembimbing slot ke-6. */
 	public void setDosen_pembimbing6(Dosen dosen_pembimbing6) {
 		this.dosen_pembimbing6 = dosen_pembimbing6;
 	}
 
+	/** @return dosen pembimbing slot ke-7, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing7", nullable = true)
 	public Dosen getDosen_pembimbing7() {
@@ -956,10 +994,12 @@ public class KelompokPkl extends VOPembelajaran {
 		return dosen_pembimbing7;
 	}
 
+	/** @param dosen_pembimbing7 dosen pembimbing slot ke-7. */
 	public void setDosen_pembimbing7(Dosen dosen_pembimbing7) {
 		this.dosen_pembimbing7 = dosen_pembimbing7;
 	}
 
+	/** @return dosen pembimbing slot ke-8, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing8", nullable = true)
 	public Dosen getDosen_pembimbing8() {
@@ -967,10 +1007,12 @@ public class KelompokPkl extends VOPembelajaran {
 		return dosen_pembimbing8;
 	}
 
+	/** @param dosen_pembimbing8 dosen pembimbing slot ke-8. */
 	public void setDosen_pembimbing8(Dosen dosen_pembimbing8) {
 		this.dosen_pembimbing8 = dosen_pembimbing8;
 	}
 
+	/** @return dosen pembimbing slot ke-9, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing9", nullable = true)
 	public Dosen getDosen_pembimbing9() {
@@ -978,10 +1020,12 @@ public class KelompokPkl extends VOPembelajaran {
 		return dosen_pembimbing9;
 	}
 
+	/** @param dosen_pembimbing9 dosen pembimbing slot ke-9. */
 	public void setDosen_pembimbing9(Dosen dosen_pembimbing9) {
 		this.dosen_pembimbing9 = dosen_pembimbing9;
 	}
 
+	/** @return dosen pembimbing slot ke-10, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila slot belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen_pembimbing10", nullable = true)
 	public Dosen getDosen_pembimbing10() {
@@ -989,10 +1033,12 @@ public class KelompokPkl extends VOPembelajaran {
 		return dosen_pembimbing10;
 	}
 
+	/** @param dosen_pembimbing10 dosen pembimbing slot ke-10. */
 	public void setDosen_pembimbing10(Dosen dosen_pembimbing10) {
 		this.dosen_pembimbing10 = dosen_pembimbing10;
 	}
 
+	/** @return kerja sama antar instansi yang menaungi penempatan kelompok ini, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila belum diisi. Field/relasi ini PKL-spesifik (lihat javadoc kelas). */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kerjasama_antar_instansi", nullable = true)
 	public KerjasamaAntarInstansi getKerjasamaAntarInstansi() {
@@ -1000,10 +1046,12 @@ public class KelompokPkl extends VOPembelajaran {
 		return kerjasamaAntarInstansi;
 	}
 
+	/** @param kerjasamaAntarInstansi kerja sama antar instansi yang menaungi penempatan kelompok ini. */
 	public void setKerjasamaAntarInstansi(KerjasamaAntarInstansi kerjasamaAntarInstansi) {
 		this.kerjasamaAntarInstansi = kerjasamaAntarInstansi;
 	}
 
+	/** @return lokasi geografis penempatan kelompok ini, dicek lewat {@code check(...)} sebelum dikembalikan, atau {@code null} bila belum diisi. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lokasi", nullable = true)
 	public Lokasi getLokasi() {
@@ -1011,33 +1059,45 @@ public class KelompokPkl extends VOPembelajaran {
 		return lokasi;
 	}
 
+	/** @param lokasi lokasi geografis penempatan kelompok ini. */
 	public void setLokasi(Lokasi lokasi) {
 		this.lokasi = lokasi;
 	}
 
+	/** @return jarak lokasi kelompok dari titik acuan; default {@code 1.0} bila field {@link #jarak} belum pernah diisi. */
 	public Double getJarak() {
 		return jarak == null ? 1.0 : jarak;
 	}
 
+	/** @param jarak jarak lokasi kelompok dari titik acuan. */
 	public void setJarak(Double jarak) {
 		this.jarak = jarak;
 	}
 
+	/**
+	 * @return {@code true} bila anggota kelompok ini diurutkan otomatis oleh sistem; default
+	 *         {@code true} bila field {@link #urutkanotomatis} belum pernah diisi (fail-open).
+	 *         Mengimplementasikan method abstrak dari superclass
+	 *         {@link ais.database.model.VOPembelajaran}.
+	 */
 	@Override
 	public Boolean getUrutkanotomatis() {
 		// TODO Auto-generated method stub
 		return urutkanotomatis == null ? true : urutkanotomatis;
 	}
 
+	/** @param urutkanotomatis {@code true} agar anggota kelompok ini diurutkan otomatis oleh sistem. */
 	@Override
 	public void setUrutkanotomatis(Boolean urutkanotomatis) {
 		this.urutkanotomatis = urutkanotomatis;
 	}
 
+	/** @return {@code true} bila kelompok ini masih berlaku/ditampilkan; default {@code true} bila field {@link #aktif} belum pernah diisi (fail-open). */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/** @param aktif {@code true} agar kelompok ini tetap berlaku/ditampilkan, {@code false} untuk menonaktifkannya tanpa menghapus baris. */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
@@ -1046,6 +1106,16 @@ public class KelompokPkl extends VOPembelajaran {
 	 * Sekolah pemilik kelompok PKL ini bila PKL diperuntukkan bagi SISWA. Bernilai {@code null}
 	 * untuk PKL mahasiswa (perilaku lama tidak berubah). Dipakai untuk menyaring kelompok PKL per
 	 * sekolah pada halaman "PKL Siswa" dan menandai bahwa anggotanya bertipe {@code SiswaDapatKelompokPkl}.
+	 *
+	 * <p>Referensi dicek lewat {@code check(sekolah)} sebelum dikembalikan (proxy Hibernate basi
+	 * diganti entity segar bila perlu), konsisten dengan pola getter relasi lain di kelas ini. Ini
+	 * adalah SATU-SATUNYA titik di kelas ini (bersama {@link #untukSiswa()} dan
+	 * {@link #ambilSiswaDapatKelompokPkl(Session)}) yang membedakan jalur PKL-mahasiswa dari
+	 * PKL-siswa-sekolah — tidak ada flag boolean terpisah, keberadaan sekolah pada field ini
+	 * SEKALIGUS berfungsi sebagai penanda scope.
+	 *
+	 * @return sekolah pemilik kelompok ini bila diperuntukkan bagi siswa, atau {@code null} untuk
+	 *         kelompok PKL mahasiswa biasa.
 	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sekolah", nullable = true)
@@ -1054,11 +1124,22 @@ public class KelompokPkl extends VOPembelajaran {
 		return sekolah;
 	}
 
+	/**
+	 * @param sekolah sekolah pemilik kelompok ini; isi untuk menjadikan kelompok ini PKL siswa
+	 *                sekolah tersebut, biarkan {@code null} untuk kelompok PKL mahasiswa biasa.
+	 */
 	public void setSekolah(ais.database.model.sekolah.Sekolah sekolah) {
 		this.sekolah = sekolah;
 	}
 
-	/** {@code true} bila kelompok PKL ini diperuntukkan bagi siswa (punya scope sekolah). */
+	/**
+	 * {@code true} bila kelompok PKL ini diperuntukkan bagi siswa (punya scope sekolah).
+	 *
+	 * @return hasil {@code getSekolah() != null} — TIDAK memeriksa field {@link #sekolah} secara
+	 *         langsung, melainkan lewat getter publik {@link #getSekolah()} (sehingga proxy
+	 *         Hibernate basi tetap dicek/di-refresh lewat {@code check(...)} sebelum evaluasi
+	 *         {@code != null}).
+	 */
 	public boolean untukSiswa() {
 		return getSekolah() != null;
 	}
@@ -1069,6 +1150,26 @@ public class KelompokPkl extends VOPembelajaran {
 	 * {@code null}, dipakai {@code HibernateUtil.currentSession()} (sesi thread-request yang dikelola
 	 * kerangka kerja dan tidak ditutup di sini). Selalu mengembalikan daftar (tidak pernah
 	 * {@code null}) sehingga aman langsung diiterasi.
+	 *
+	 * <p><b>Catatan arsitektur penting:</b> method ini adalah SATU-SATUNYA jalur pengambilan
+	 * anggota di kelas ini yang mengueri basis data LANGSUNG lewat Hibernate {@code Criteria} atas
+	 * {@code Restrictions.eq("kelompokPkl", this)} sebagai pola UTAMA (bukan mekanisme "refresh
+	 * dari sumber kebenaran" seperti {@link #reInitMahasiswaDapatKelompokPkl(Session)} yang dipakai
+	 * anggota mahasiswa) — anggota SISWA TIDAK memakai pola berkas-JSON sama sekali, mereka adalah
+	 * baris tabel {@code SiswaDapatKelompokPkl} biasa yang dikueri langsung. Ini artinya dua jenis
+	 * anggota (mahasiswa vs siswa) pada kelas {@code KelompokPkl} yang SAMA dikelola dengan DUA
+	 * mekanisme penyimpanan yang SEPENUHNYA BERBEDA: mahasiswa lewat berkas JSON (lihat javadoc
+	 * kelas), siswa lewat tabel relasional biasa. Pemanggil harus memilih method yang tepat sesuai
+	 * {@link #untukSiswa()}: {@code true} berarti pakai method ini, {@code false} berarti pakai
+	 * {@link #ambilMahasiswaDapatKelompokPkl(boolean)} atau variannya.</p>
+	 *
+	 * <p>Bila {@link #getId()} masih {@code null} (entity belum pernah disimpan), method ini
+	 * mengembalikan daftar kosong LEBIH AWAL tanpa mencoba mengueri sama sekali — menghindari kueri
+	 * dengan kriteria yang pasti tidak berguna ({@code Restrictions.eq("kelompokPkl", this)} atas
+	 * entity tanpa id tidak akan pernah cocok dengan baris tersimpan mana pun). Kegagalan query
+	 * apa pun (mis. sesi tertutup) ditangkap oleh blok {@code try}/{@code catch} yang membungkus
+	 * seluruh badan method, mengembalikan daftar kosong — TIDAK PERNAH melempar exception ke
+	 * pemanggil, konsisten dengan filosofi seluruh kelas ini.</p>
 	 *
 	 * @param session sesi Hibernate aktif, atau {@code null} untuk memakai currentSession
 	 * @return daftar {@link ais.database.model.SiswaDapatKelompokPkl} pada kelompok ini
