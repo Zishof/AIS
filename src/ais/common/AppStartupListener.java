@@ -82,6 +82,11 @@ public class AppStartupListener implements ServletContextListener {
 		return startupInProgress;
 	}
 
+	/** Bernilai true sejak proses shutdown/redeploy dimulai. Tidak mengakses basis data. */
+	public static boolean isContextStopping() {
+		return contextStopping;
+	}
+
 	@Override
 	public void contextInitialized(ServletContextEvent sce) {
 		contextStopping = false;
@@ -384,6 +389,13 @@ public class AppStartupListener implements ServletContextListener {
 	public void contextDestroyed(ServletContextEvent sce) {
 		System.out.println("Aplikasi dimatikan. Membersihkan resource...");
 		contextStopping = true;
+
+		// Batalkan warm-up yang masih menunggu sebelum Hibernate/classloader ditutup.
+		try {
+			NotifikasiCache.hentikanWarmup();
+		} catch (Throwable abaikan) {
+			System.err.println("Gagal menghentikan warm-up notifikasi: " + abaikan.getMessage());
+		}
 
 		// Hentikan worker lalu flush semua tulis flag ASINKRON (BacaTulisUtil) ke DB
 		// sebelum pool koneksi ditutup, agar tidak ada flag hilang atau thread tertinggal.

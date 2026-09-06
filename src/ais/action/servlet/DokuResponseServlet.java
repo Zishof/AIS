@@ -22,6 +22,7 @@ import ais.action.report.CommonReportHelper;
 import ais.action.ws.util.PembayaranUtil;
 import ais.common.Common;
 import ais.common.ConstantValues;
+import ais.common.DokuCommon;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.CicilanPembayaran;
@@ -35,7 +36,23 @@ import ais.database.model.doku.DokuRequestDetail;
 import ais.database.model.doku.DokuResponse;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet notifikasi pembayaran untuk gateway Doku: menerima callback {@code RESULT}/
+ * {@code TRANSIDMERCHANT}/{@code AMOUNT}/{@code WORDS} dari Doku dan, bila valid, memfinalisasi
+ * pembayaran/pendaftaran terkait lewat {@link #prosesResponse(DokuResponse)}.
+ *
+ * <p><b>Riwayat keamanan (DIPERBAIKI 2026-09-07):</b> {@link #prosesTransaksi(Map)} sebelumnya
+ * langsung mempercayai {@code TRANSIDMERCHANT} dan {@code RESULT} mentah dari request masuk TANPA
+ * memverifikasi checksum {@code WORDS} apa pun — siapa pun yang mengetahui/menebak
+ * {@code TRANSIDMERCHANT} suatu transaksi Doku yang masih pending dapat memanggil endpoint ini
+ * langsung dengan {@code RESULT=Success} untuk memalsukan pelunasan tanpa pembayaran nyata.
+ * {@link #prosesTransaksi(Map)} kini mencari {@link DokuRequest} berdasarkan {@code TRANSIDMERCHANT}
+ * lalu WAJIB lulus {@link ais.common.DokuCommon#verifikasiChecksum(DokuRequest, String, String)}
+ * (checksum {@code WORDS} DAN {@code AMOUNT} harus cocok dengan baris tersimpan) sebelum
+ * {@link DokuResponse} disimpan dan {@link #prosesResponse(DokuResponse)} dipanggil; bila tidak
+ * lulus, method langsung membalas {@code "Stop"} tanpa efek samping apa pun. Lihat javadoc
+ * {@link ais.common.DokuCommon#verifikasiChecksum(DokuRequest, String, String)} untuk formula
+ * checksum Doku Basic Store yang diterapkan, dan javadoc {@code ais.action.servlet.DokuVerifyServlet}
+ * untuk perbaikan serupa pada endpoint pre-check.</p>
  */
 public class DokuResponseServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
@@ -232,13 +249,45 @@ public class DokuResponseServlet extends HttpServlet {
 		return hasil;
 	}
 
+	/**
+	 * Mencatat satu notifikasi Doku sebagai {@link DokuResponse} dan menindaklanjutinya, HANYA
+	 * setelah checksum {@code WORDS} dan {@code AMOUNT} pada notifikasi tersebut lulus verifikasi
+	 * terhadap {@link DokuRequest} yang cocok (lihat catatan keamanan pada Javadoc kelas).
+	 *
+	 * <p>Alur: (1) cari {@link DokuRequest} yang kolom {@code nama}-nya cocok PERSIS dengan
+	 * {@code TRANSIDMERCHANT}; (2) validasi lewat {@link ais.common.DokuCommon#verifikasiChecksum(
+	 * DokuRequest, String, String)} — bila gagal (termasuk bila {@link DokuRequest} tidak
+	 * ditemukan), balas {@code "Stop"} tanpa menyimpan {@link DokuResponse} apa pun atau
+	 * memanggil {@link #prosesResponse(DokuResponse)}; (3) bila lulus, simpan {@link DokuResponse}
+	 * baru berisi {@code TRANSIDMERCHANT} dan {@code RESULT} seperti semula, lalu serahkan ke
+	 * {@link #prosesResponse(DokuResponse)}.</p>
+	 *
+	 * @param param peta parameter hasil parsing manual body notifikasi Doku, memuat sekurangnya
+	 *              {@code TRANSIDMERCHANT}, {@code RESULT}, {@code AMOUNT}, dan {@code WORDS}
+	 * @return {@code "Continue"} atau {@code "Stop"} dari {@link #prosesResponse(DokuResponse)}
+	 *         bila checksum valid; {@code "Stop"} langsung (tanpa efek samping) bila checksum
+	 *         tidak valid
+	 */
 	public static String prosesTransaksi(Map<String, String> param) {
+		String TRANSIDMERCHANT = param.get("TRANSIDMERCHANT");
 		Session session = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
 
+			DokuRequest dokuRequest = TRANSIDMERCHANT == null || TRANSIDMERCHANT.trim().isEmpty() ? null
+					: (DokuRequest) session.createCriteria(DokuRequest.class)
+							.add(Restrictions.eq("nama", TRANSIDMERCHANT.trim())).addOrder(Order.desc("id"))
+							.setMaxResults(1).uniqueResult();
+
+			if (!DokuCommon.verifikasiChecksum(dokuRequest, param.get("WORDS"), param.get("AMOUNT"))) {
+				System.out.println(
+						"==> DokuResponseServlet checksum TIDAK valid, notifikasi ditolak. TRANSIDMERCHANT="
+								+ TRANSIDMERCHANT);
+				return "Stop";
+			}
+
 			DokuResponse dokuResponse = new DokuResponse();
-			dokuResponse.setNama(param.get("TRANSIDMERCHANT"));
+			dokuResponse.setNama(TRANSIDMERCHANT);
 			dokuResponse.setStatus(param.get("RESULT"));
 			session.getTransaction().begin();
 			session.save(dokuResponse);

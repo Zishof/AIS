@@ -3,6 +3,8 @@ package ais.action.servlet;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -32,29 +34,24 @@ import ais.database.model.LogHostToHost;
  * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
  * membuat salinan query dan validasi di action lain.</p>
  *
- * <h4>Gerbang otentikasi/otorisasi (verifikasi 2026-09-07)</h4>
+ * <h4>Gerbang otentikasi/otorisasi (verifikasi 2026-09-07, ditambal 2026-09-07)</h4>
  * <p>{@link #doGet} MEMANG memiliki gerbang, dua lapis, bukan anonim seperti servlet
  * {@code Struk}/{@code AmbilLaporanDaftarPegawai} di paket yang sama:</p>
  * <ol>
  *   <li><b>Rahasia bersama {@code PassApp}</b> &mdash; badan JSON permintaan wajib memuat
- *       {@code PassApp} yang sama persis dengan {@code Common.getKonfigurasi("BrivaPassApp",
- *       "1234567890").getNilai()}. Nilai bawaan {@code "1234567890"} ini tertulis literal di
- *       kode DAN ditampilkan apa adanya pada layar konfigurasi admin ({@code
- *       KonfigurasiNewAction}); bila operator belum pernah mengubahnya di database, rahasia
- *       ini bukan lagi rahasia.</li>
+ *       {@code PassApp} yang cocok dengan konfigurasi {@code BrivaPassApp}, diperiksa lewat
+ *       {@link #cocokPassApp} (fail-closed, perbandingan waktu-konstan).</li>
  *   <li><b>Daftar putih IP pemanggil</b> &mdash; {@code action.pay(...)} meneruskan
  *       {@code request} ke {@code PembayaranUtil.getBankHost(HttpServletRequest)}, yang
  *       mencocokkan alamat IP pemanggil terhadap entitas {@code BankHost} tersimpan.</li>
  * </ol>
- * <p><b>Catatan:</b> {@code getBankHost(HttpServletRequest)} tidak memakai
- * {@code request.getRemoteAddr()} apa adanya; ia lebih dulu menimpanya dengan header
- * {@code Cf-Connecting-Ip}/{@code CF-Connecting-IP}/{@code X-Forwarded-For}/{@code X-Real-IP}
- * bila ADA salah satunya pada permintaan &mdash; header-header ini bisa disetel bebas oleh
- * pemanggil mana pun kecuali proxy di depan aplikasi menimpa/membersihkannya. Kombinasi ini
- * (rahasia bawaan yang terdokumentasi + gerbang IP yang bisa dipengaruhi header pemanggil,
- * ditambah entitas {@code BankHost} berIP {@code "0.0.0.0"} yang bila ada akan cocok dengan
- * IP mana pun sebagai fallback) berada di luar cakupan file ini untuk ditambal; lihat
- * {@code ais.action.ws.util.PembayaranUtil#getBankHost(HttpServletRequest)}.</p>
+ * <p><b>Riwayat keamanan (DIPERBAIKI 2026-09-07):</b> nilai bawaan rahasia {@code BrivaPassApp}
+ * sebelumnya berupa literal {@code "1234567890"} yang tertulis di kode sumber DAN ditampilkan
+ * apa adanya pada layar konfigurasi admin ({@code KonfigurasiNewAction}) &mdash; bila operator
+ * belum pernah mengubahnya, rahasia itu bukan lagi rahasia. Kini default-nya string kosong dan
+ * {@link #cocokPassApp} menolak seluruh permintaan selama konfigurasi belum diisi. Lihat juga
+ * {@code ais.action.ws.util.PembayaranUtil#getBankHost(HttpServletRequest)} untuk perbaikan
+ * kepercayaan header proxy dan fallback wildcard {@code BankHost} pada gerbang IP.</p>
  *
  * @see HttpServlet
  */
@@ -145,7 +142,7 @@ public class Payment extends HttpServlet {
 			System.out.println(req);
 
 			String PassApp = req.getString("PassApp");
-			if (PassApp == null || !PassApp.equals(Common.getKonfigurasi("BrivaPassApp", "1234567890").getNilai())) {
+			if (!cocokPassApp(PassApp)) {
 				jsonObject.put("StatusBill", "11");
 			} else {
 
@@ -235,6 +232,30 @@ public class Payment extends HttpServlet {
 			throws ServletException, IOException {
 		// TODO Auto-generated method stub
 		doGet(request, response);
+	}
+
+	/**
+	 * Membandingkan {@code PassApp} yang dikirim pemanggil dengan konfigurasi
+	 * {@code BrivaPassApp}, dipakai oleh {@link #doGet}. Mengikuti pola
+	 * {@code Wa#cocokTokenVerifikasiWebhook}.
+	 *
+	 * <p><b>Fail-closed:</b> bila konfigurasi belum diisi (masih string kosong, nilai
+	 * defaultnya), method ini selalu mengembalikan {@code false} &mdash; konfigurasi kosong
+	 * tidak pernah dianggap cocok dengan {@code PassApp} kosong dari pemanggil. Perbandingan
+	 * dilakukan dengan {@link MessageDigest#isEqual} atas byte UTF-8 supaya waktu eksekusinya
+	 * tidak membocorkan panjang kecocokan awalan.</p>
+	 *
+	 * @param passApp nilai {@code PassApp} dari badan permintaan; boleh {@code null}
+	 * @return {@code true} hanya bila konfigurasi terisi dan cocok persis dengan {@code passApp}
+	 */
+	private boolean cocokPassApp(String passApp) {
+		String expected = Common.getKonfigurasi("BrivaPassApp", "").getNilai();
+		expected = expected == null ? "" : expected.trim();
+		if (expected.isEmpty() || passApp == null) {
+			return false;
+		}
+		return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
+				passApp.getBytes(StandardCharsets.UTF_8));
 	}
 
 }

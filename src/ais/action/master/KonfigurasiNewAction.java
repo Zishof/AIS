@@ -12275,7 +12275,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 	protected void initTabAutoKeuanganDanPembayaran() {
 		Rows rows = createSpan("Keuangan dan Pembayaran (Auto)");
 		initTabAutoKeuanganDanPembayaranBagian2(rows);
-		rows.appendChild(createRowNilai("BrivaPassApp — dipakai di: Inquiry, Payment", "BrivaPassApp", "1234567890"));
+		rows.appendChild(createRowNilai("BrivaPassApp — dipakai di: Inquiry, Payment", "BrivaPassApp", ""));
 		rows.appendChild(createRowActiveDefault("Tampilkan Rekap Biaya Administrasi — dipakai di: LaporanRekapHostToHostWindow", "Tampilkan_Rekap_Biaya_Administrasi", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Tampilkan Rekap Biaya Ecampus — dipakai di: LaporanRekapHostToHostWindow", "Tampilkan_Rekap_Biaya_Ecampus", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Tampilkan Rekap payment Gateway — dipakai di: LaporanRekapHostToHostWindow", "Tampilkan_Rekap_payment_Gateway", Konfigurasi.AKTIF));

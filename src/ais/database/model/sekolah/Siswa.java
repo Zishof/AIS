@@ -804,6 +804,21 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	 */
 	private String token;
 	/**
+	 * Hash SHA-256 (hex, 64 karakter) dari token akses publik "Catatan Orang Tua" (lihat
+	 * {@link ais.common.security.SiswaCatatanOrtuTokenService}); token MENTAH tidak pernah
+	 * disimpan di kolom ini, hanya hash-nya. TIDAK ADA hubungan dengan {@link #getToken()}
+	 * (token sesi/autentikasi mobile, sudah terdokumentasi rentan IDOR) maupun {@link #urlLogin()}
+	 * (magic-link DES, sudah terdokumentasi dapat dipalsukan) &mdash; ketiganya adalah tiga
+	 * mekanisme kredensial yang sepenuhnya independen.
+	 */
+	private String tokenAksesCatatanOrtuHash;
+	/**
+	 * Waktu hash token akses "Catatan Orang Tua" ({@link #tokenAksesCatatanOrtuHash}) diterbitkan;
+	 * dipakai untuk menegakkan kedaluwarsa opsional pada
+	 * {@link ais.common.security.SiswaCatatanOrtuTokenService#cariSiswaByToken}.
+	 */
+	private Date tokenAksesCatatanOrtuDibuat;
+	/**
 	 * Field pendukung properti {@code kelas}; seluruh perilaku, nilai bawaan, dan efek
 	 * sampingnya dijelaskan pada {@link #getKelas()}.
 	 */
@@ -4351,6 +4366,49 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	 */
 	public void setToken(String token) {
 		this.token = token;
+	}
+
+	/**
+	 * Hash SHA-256 token akses publik "Catatan Orang Tua" &mdash; lihat javadoc field
+	 * {@link #tokenAksesCatatanOrtuHash} untuk batasan dan perbedaannya dari {@link #getToken()}.
+	 *
+	 * @return hash token (hex, 64 karakter), atau {@code null} bila belum pernah diterbitkan
+	 */
+	@NotAudited
+	@Column(name = "token_akses_catatan_ortu_hash", unique = true, length = 64)
+	public String getTokenAksesCatatanOrtuHash() {
+		return tokenAksesCatatanOrtuHash;
+	}
+
+	/**
+	 * Setel hash token akses "Catatan Orang Tua". Dipanggil HANYA oleh
+	 * {@link ais.common.security.SiswaCatatanOrtuTokenService}; jangan diisi manual dari layar lain.
+	 *
+	 * @param tokenAksesCatatanOrtuHash hash baru; boleh {@code null} untuk mencabut akses
+	 */
+	public void setTokenAksesCatatanOrtuHash(String tokenAksesCatatanOrtuHash) {
+		this.tokenAksesCatatanOrtuHash = tokenAksesCatatanOrtuHash;
+	}
+
+	/**
+	 * Waktu hash token akses "Catatan Orang Tua" diterbitkan/diterbitkan-ulang.
+	 *
+	 * @return waktu penerbitan, atau {@code null} bila belum pernah diterbitkan
+	 */
+	@NotAudited
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name = "token_akses_catatan_ortu_dibuat")
+	public Date getTokenAksesCatatanOrtuDibuat() {
+		return tokenAksesCatatanOrtuDibuat;
+	}
+
+	/**
+	 * Setel waktu penerbitan hash token akses "Catatan Orang Tua".
+	 *
+	 * @param tokenAksesCatatanOrtuDibuat waktu baru; boleh {@code null}
+	 */
+	public void setTokenAksesCatatanOrtuDibuat(Date tokenAksesCatatanOrtuDibuat) {
+		this.tokenAksesCatatanOrtuDibuat = tokenAksesCatatanOrtuDibuat;
 	}
 
 	/**

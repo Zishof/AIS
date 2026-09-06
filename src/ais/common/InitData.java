@@ -2,6 +2,7 @@ package ais.common;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import ais.database.model.*;
@@ -339,6 +340,39 @@ public class InitData {
 		return lastFinishedMillis;
 	}
 
+	/**
+	 * Mengirim pekerjaan preload ke executor hanya selama lifecycle startup masih aktif.
+	 *
+	 * <p>Pemeriksaan {@code isShutdown()} saja tidak cukup karena shutdown/redeploy dapat
+	 * terjadi tepat di antara pemeriksaan dan {@code submit()}. Karena itu penolakan yang
+	 * terjadi setelah permintaan stop diperlakukan sebagai pembatalan normal, bukan error
+	 * startup. Penolakan di luar proses stop tetap dilempar agar kerusakan executor yang
+	 * sebenarnya tidak tersamarkan.</p>
+	 *
+	 * @return {@code true} bila task diterima; {@code false} bila startup sedang dihentikan
+	 */
+	public static boolean submitInitTask(Runnable task) {
+		if (task == null || stopRequested || Thread.currentThread().isInterrupted()) {
+			return false;
+		}
+		ExecutorService currentExecutor = executor;
+		if (currentExecutor == null || currentExecutor.isShutdown() || currentExecutor.isTerminated()) {
+			if (stopRequested) {
+				return false;
+			}
+			throw new RejectedExecutionException("Executor init tidak tersedia saat startup masih aktif");
+		}
+		try {
+			currentExecutor.submit(task);
+			return true;
+		} catch (RejectedExecutionException e) {
+			if (stopRequested || Thread.currentThread().isInterrupted()) {
+				return false;
+			}
+			throw e;
+		}
+	}
+
 	public static void resetInitFlag() {
 		synchronized (LOCK_INIT) {
 			if (!running) {
@@ -371,7 +405,7 @@ public class InitData {
 
 			try {
 				doInitData();
-				isSuccess = true;
+				isSuccess = !stopRequested && !Thread.currentThread().isInterrupted();
 			} catch (Exception e) {
 				System.err.println("Gagal memproses inisialisasi data: " + e.getMessage());
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/InitData.java:351");
@@ -503,7 +537,7 @@ public class InitData {
 		 */
 		InitDataHelper.initMaster();
 
-		executor.submit(new Runnable() {
+		submitInitTask(new Runnable() {
 			@Override
 			public void run() {
 				System.out.println("TASK-A MULAI: JenisTransaksi.reinitDefault + initJumlahTahapan");
@@ -513,7 +547,7 @@ public class InitData {
 			}
 		});
 
-		executor.submit(new Runnable() {
+		submitInitTask(new Runnable() {
 			@Override
 			public void run() {
 				System.out.println("TASK-B MULAI: initDataKegiatanKemahasiswan");
@@ -524,7 +558,7 @@ public class InitData {
 			}
 		});
 
-		executor.submit(new Runnable() {
+		submitInitTask(new Runnable() {
 			@Override
 			public void run() {
 				System.out.println("TASK-C MULAI: initPembobotanNilai");
@@ -695,7 +729,7 @@ public class InitData {
 	 */
 	private static void reloadDefaults() {
 		// 3. Masukkan tugas (Runnable) ke dalam executor
-		InitData.executor.submit(new Runnable() {
+		InitData.submitInitTask(new Runnable() {
 			@Override
 			public void run() {
 				System.out.println("reloadDefaults: KebutuhanKhususSiswa ..."); KebutuhanKhususSiswa.reloadDefault();

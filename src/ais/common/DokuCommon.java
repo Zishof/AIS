@@ -100,6 +100,19 @@ import ais.ui.util.MyMessageboxConfig;
  * ini:</b> {@code doku_key} yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB
  * dianggap bocor — perlu dirotasi di sisi Doku bila masih aktif di produksi.
  * </p>
+ *
+ * <p><b>Riwayat keamanan (DIPERBAIKI 2026-09-07):</b> {@code ais.action.servlet.DokuVerifyServlet}
+ * dan {@code ais.action.servlet.DokuResponseServlet} sebelumnya TIDAK memverifikasi checksum
+ * {@code WORDS} atas notifikasi/pre-check yang diterima dari gateway Doku — keduanya hanya
+ * mencocokkan identifier transaksi mentah ({@code trxId} atau {@code TRANSIDMERCHANT}) dan/atau
+ * {@code AMOUNT}, tanpa memverifikasi bahwa {@code WORDS} yang menyertainya benar-benar tanda
+ * tangan sah transaksi tersebut. Karena {@code DokuResponseServlet} memakai hasil itu untuk
+ * MEMFINALISASI pembayaran/pendaftaran begitu {@code RESULT} bertuliskan {@code "Success"}, celah
+ * ini memungkinkan siapa pun yang mengetahui/menebak {@code TRANSIDMERCHANT} suatu transaksi untuk
+ * memalsukan notifikasi pelunasan tanpa pembayaran nyata. Ditambahkan
+ * {@link #verifikasiChecksum(DokuRequest, String, String)} sebagai gerbang tunggal yang dipakai
+ * kedua servlet SEBELUM data notifikasi/verifikasi dipakai untuk keputusan apa pun; lihat javadoc
+ * method tersebut untuk rincian formula checksum Doku Basic Store yang diterapkan.</p>
  */
 public class DokuCommon {
 
@@ -664,6 +677,57 @@ public class DokuCommon {
 		}
 
 		return dokuRequest;
+	}
+
+	/**
+	 * Memverifikasi checksum ({@code WORDS}) sebuah notifikasi atau pre-check dari gateway Doku
+	 * terhadap {@link DokuRequest} lokal yang menjadi acuannya — gerbang wajib yang harus lulus
+	 * SEBELUM data tersebut dipakai untuk keputusan apa pun (mis. membalas {@code "Continue"} di
+	 * {@code ais.action.servlet.DokuVerifyServlet}, atau memfinalisasi pembayaran di
+	 * {@code ais.action.servlet.DokuResponseServlet}).
+	 *
+	 * <p>Pada protokol Doku Basic Store, {@code WORDS} dihitung sebagai
+	 * {@code SHA1(AMOUNT + doku_key + TRANSIDMERCHANT)} — persis formula yang dipakai
+	 * {@link #onSaveDoku} untuk membuat permintaan pembayaran, dan nilai hasilnya disimpan apa
+	 * adanya sebagai {@link DokuRequest#getTrxId()} lewat {@link #sendRequest}. Verifikasi ini
+	 * karena itu CUKUP mencocokkan {@code words} yang diterima dengan
+	 * {@link DokuRequest#getTrxId()} milik baris yang sudah ditemukan pemanggil (lewat {@code trxId}
+	 * pada {@code DokuVerifyServlet}, atau lewat {@code nama}/{@code TRANSIDMERCHANT} pada
+	 * {@code DokuResponseServlet}) — TIDAK perlu menghitung ulang SHA1 dengan {@code doku_key} SAAT
+	 * INI, yang bisa saja sudah dirotasi sejak permintaan dibuat (baris lama tetap terverifikasi
+	 * terhadap {@code doku_key} yang berlaku ketika baris itu dibuat). Selain {@code words},
+	 * {@code amountText} yang dikirim juga WAJIB sama dengan {@link DokuRequest#getAmount()}
+	 * tersimpan, agar nominal transaksi tidak bisa dimanipulasi lewat parameter request meski
+	 * {@code words} kebetulan cocok.</p>
+	 *
+	 * @param dokuRequest baris {@link DokuRequest} kandidat hasil pencarian pemanggil; {@code null}
+	 *                    (mis. tidak ditemukan) selalu dijawab tidak valid
+	 * @param words       nilai parameter {@code WORDS} mentah dari request masuk; {@code null}
+	 *                    atau kosong selalu dijawab tidak valid
+	 * @param amountText  nilai parameter {@code AMOUNT} mentah dari request masuk (format desimal
+	 *                    Doku, mis. {@code "150000.00"})
+	 * @return {@code true} hanya bila {@code dokuRequest} bukan {@code null}, {@code words} cocok
+	 *         PERSIS (case-sensitive, setelah di-trim) dengan {@link DokuRequest#getTrxId()}, dan
+	 *         {@code amountText} berhasil di-parse serta sama (dibulatkan ke satuan rupiah) dengan
+	 *         {@link DokuRequest#getAmount()}; {@code false} untuk selain itu (termasuk bila
+	 *         {@code amountText} tidak bisa di-parse)
+	 */
+	public static boolean verifikasiChecksum(DokuRequest dokuRequest, String words, String amountText) {
+		if (dokuRequest == null || words == null || words.trim().isEmpty()) {
+			return false;
+		}
+		if (!dokuRequest.getTrxId().equals(words.trim())) {
+			return false;
+		}
+		if (amountText == null || amountText.trim().isEmpty()) {
+			return false;
+		}
+		try {
+			int amount = (int) Double.parseDouble(amountText.trim());
+			return amount == dokuRequest.getAmount().intValue();
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 }

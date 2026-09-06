@@ -313,7 +313,7 @@ public class InitDataHelper {
 			return;
 		}
 
-		InitData.executor.submit(new Runnable() {
+		InitData.submitInitTask(new Runnable() {
 			@Override
 			public void run() {
 				doInitData(clazz);
@@ -2599,7 +2599,7 @@ public class InitDataHelper {
 			}
 		}
 
-		InitData.executor.submit(new Runnable() {
+		InitData.submitInitTask(new Runnable() {
 			@Override
 			public void run() {
 				Session session = HibernateUtil.getSessionFactory().openSession();
@@ -2651,7 +2651,7 @@ public class InitDataHelper {
 			// TODO: handle exception
 		}
 
-		InitData.executor.submit(new Runnable() {
+		InitData.submitInitTask(new Runnable() {
 			@Override
 			public void run() {
 
@@ -2702,7 +2702,7 @@ public class InitDataHelper {
 
 		ConstantValues.otomatisTerposting = Common.bolehKonfigurasi("otomatis_terposting");
 
-		InitData.executor.submit(new Runnable() {
+		InitData.submitInitTask(new Runnable() {
 			@Override
 			public void run() {
 				Api.initTokens();
@@ -2711,7 +2711,7 @@ public class InitDataHelper {
 
 		try {
 
-			InitData.executor.submit(new Runnable() {
+			InitData.submitInitTask(new Runnable() {
 				@Override
 				public void run() {
 					ConstantValues.penggunaanLabelBahasa = Common.bolehKonfigurasi("apakah_menggunakan_label_bahasa");
@@ -2751,7 +2751,7 @@ public class InitDataHelper {
 				}
 			});
 
-			InitData.executor.submit(new Runnable() {
+			InitData.submitInitTask(new Runnable() {
 				@Override
 				public void run() {
 					initPembersihanFile();

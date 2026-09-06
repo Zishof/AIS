@@ -900,59 +900,129 @@ public class PembayaranUtil {
 		return getBankHost(null);
 	}
 
+	/**
+	 * Menentukan {@link BankHost} pemanggil host-to-host (Payment/Inquiry/reversal) dari alamat
+	 * IP koneksi, dipakai sebagai lapis kedua gerbang otentikasi setelah rahasia bersama
+	 * {@code PassApp} (lihat {@code ais.action.servlet.Payment}/{@code Inquiry}).
+	 *
+	 * <p><b>Riwayat keamanan (DIPERBAIKI 2026-09-07):</b> sebelumnya method ini SELALU menimpa
+	 * {@code request.getRemoteAddr()} dengan header {@code Cf-Connecting-Ip}/
+	 * {@code CF-Connecting-IP}/{@code X-Forwarded-For}/{@code X-Real-IP} bila header itu ADA pada
+	 * permintaan, tanpa memverifikasi bahwa permintaan benar datang dari reverse proxy
+	 * tepercaya &mdash; klien HTTP mana pun bebas menyertakan header tersebut untuk memalsukan IP
+	 * yang dicocokkan terhadap {@link BankHost}. Kini header hanya dipercaya bila
+	 * {@code request.getRemoteAddr()} yang SEBENARNYA (bukan hasil header) ada dalam daftar
+	 * konfigurasi {@code bank_host_proxy_terpercaya} (IP dipisah koma); default konfigurasi itu
+	 * kosong, sehingga secara bawaan tidak ada header yang dipercaya dan {@code getRemoteAddr()}
+	 * dipakai apa adanya (fail-closed). Lihat {@link #ipDalamDaftarTerpercaya} dan
+	 * {@link #getBankHost(String, String)} untuk perbaikan terkait pada gerbang IP.</p>
+	 *
+	 * @param request permintaan servlet pemanggil; {@code null} berarti dipanggil dari konteks
+	 *                SOAP/Axis, alamat diambil dari {@link MessageContext} bila tersedia atau
+	 *                {@code "127.0.0.1"} sebagai upaya terakhir
+	 * @return {@link BankHost} yang cocok dengan IP pemanggil, atau {@code null} bila tidak
+	 *         dikenal (dan tidak diizinkan auto-registrasi/wildcard oleh konfigurasi)
+	 */
 	public BankHost getBankHost(HttpServletRequest request) {
 		if (request != null) {
-			String ipAdd = request.getRemoteAddr();
-
-			try {
-				if (request != null && request.getHeader("Cf-Connecting-Ip") != null) {
-					ipAdd = request.getHeader("Cf-Connecting-Ip");
-				} else if (request != null && request.getHeader("CF-Connecting-IP") != null) {
-					ipAdd = request.getHeader("CF-Connecting-IP");
-				} else if (request != null && request.getHeader("X-Forwarded-For") != null) {
-					ipAdd = request.getHeader("X-Forwarded-For");
-				} else if (request != null && request.getHeader("X-Real-IP") != null) {
-					ipAdd = request.getHeader("X-Real-IP");
-				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/ws/util/PembayaranUtil.java:794");
-				// TODO: handle exception
-			}
-
-			return getBankHost(ipAdd, "Default Bank");
+			return getBankHost(resolveIpPemanggil(request), "Default Bank");
 		} else {
 			try {
-				String ipAdd = ((HttpServletRequest) MessageContext.getCurrentContext()
-						.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getRemoteAddr();
-
-				try {
-					if (((HttpServletRequest) MessageContext.getCurrentContext()
-							.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getHeader("Cf-Connecting-Ip") != null) {
-						ipAdd = ((HttpServletRequest) MessageContext.getCurrentContext()
-								.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getHeader("Cf-Connecting-Ip");
-					} else if (((HttpServletRequest) MessageContext.getCurrentContext()
-							.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getHeader("CF-Connecting-IP") != null) {
-						ipAdd = ((HttpServletRequest) MessageContext.getCurrentContext()
-								.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getHeader("CF-Connecting-IP");
-					} else if (((HttpServletRequest) MessageContext.getCurrentContext()
-							.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getHeader("X-Forwarded-For") != null) {
-						ipAdd = ((HttpServletRequest) MessageContext.getCurrentContext()
-								.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getHeader("X-Forwarded-For");
-					} else if (((HttpServletRequest) MessageContext.getCurrentContext()
-							.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getHeader("X-Real-IP") != null) {
-						ipAdd = ((HttpServletRequest) MessageContext.getCurrentContext()
-								.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST)).getHeader("X-Real-IP");
-					}
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/ws/util/PembayaranUtil.java:822");
-					// TODO: handle exception
-				}
-
-				return getBankHost(ipAdd, "Default Bank");
+				HttpServletRequest soapRequest = (HttpServletRequest) MessageContext.getCurrentContext()
+						.getProperty(HTTPConstants.MC_HTTP_SERVLETREQUEST);
+				return getBankHost(resolveIpPemanggil(soapRequest), "Default Bank");
 			} catch (Exception e) {
 				return getBankHost("127.0.0.1", "Default Bank");
 			}
 		}
 	}
 
+	/**
+	 * Menentukan alamat IP pemanggil sesungguhnya dari {@code request}, hanya mempercayai header
+	 * proxy ({@code Cf-Connecting-Ip}/{@code CF-Connecting-IP}/{@code X-Forwarded-For}/
+	 * {@code X-Real-IP}) bila {@code request.getRemoteAddr()} ada dalam daftar konfigurasi
+	 * {@code bank_host_proxy_terpercaya}. Dipakai oleh {@link #getBankHost(HttpServletRequest)}.
+	 *
+	 * @param request permintaan servlet; tidak boleh {@code null}
+	 * @return alamat IP yang dipakai untuk pencocokan {@link BankHost}
+	 */
+	private String resolveIpPemanggil(HttpServletRequest request) {
+		String ipAdd = request.getRemoteAddr();
+		try {
+			String proxyTerpercaya = Common.getKonfigurasi("bank_host_proxy_terpercaya", "").getNilai();
+			if (ipDalamDaftarTerpercaya(ipAdd, proxyTerpercaya)) {
+				if (request.getHeader("Cf-Connecting-Ip") != null) {
+					ipAdd = request.getHeader("Cf-Connecting-Ip");
+				} else if (request.getHeader("CF-Connecting-IP") != null) {
+					ipAdd = request.getHeader("CF-Connecting-IP");
+				} else if (request.getHeader("X-Forwarded-For") != null) {
+					ipAdd = request.getHeader("X-Forwarded-For");
+				} else if (request.getHeader("X-Real-IP") != null) {
+					ipAdd = request.getHeader("X-Real-IP");
+				}
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/ws/util/PembayaranUtil.java:794");
+			// TODO: handle exception
+		}
+		return ipAdd;
+	}
+
+	/**
+	 * Mencocokkan {@code ip} terhadap daftar IP proxy tepercaya dipisah koma. Dipakai oleh
+	 * {@link #resolveIpPemanggil} untuk memutuskan apakah header {@code X-Forwarded-For} dkk.
+	 * boleh dipercaya. Pencocokan literal (bukan CIDR); daftar kosong berarti tidak ada proxy
+	 * yang dipercaya, jadi selalu mengembalikan {@code false}.
+	 *
+	 * @param ip        {@code request.getRemoteAddr()} dari koneksi TCP sesungguhnya
+	 * @param daftarCsv nilai konfigurasi {@code bank_host_proxy_terpercaya}; boleh {@code null}
+	 *                  atau kosong
+	 * @return {@code true} bila {@code ip} muncul persis dalam {@code daftarCsv}
+	 */
+	private boolean ipDalamDaftarTerpercaya(String ip, String daftarCsv) {
+		if (ip == null || daftarCsv == null || daftarCsv.trim().isEmpty()) {
+			return false;
+		}
+		for (String kandidat : daftarCsv.split(",")) {
+			if (ip.equals(kandidat.trim())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Mencari {@link BankHost} berdasarkan alamat IP, dipakai sebagai lapis kedua gerbang
+	 * otentikasi host-to-host. Dipanggil oleh {@link #getBankHost(HttpServletRequest)}.
+	 *
+	 * <p><b>Riwayat keamanan (DIPERBAIKI 2026-09-07):</b> dua fallback fail-open sebelumnya kini
+	 * fail-closed secara default:</p>
+	 * <ol>
+	 *   <li>Auto-registrasi {@link BankHost} baru untuk IP tak dikenal &mdash; sebelumnya
+	 *       memakai {@code Common.bolehKonfigurasi(kunci)} 1-argumen yang defaultnya
+	 *       {@link Konfigurasi#AKTIF}, sehingga instalasi yang belum pernah mengubah baris
+	 *       konfigurasi {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis}
+	 *       otomatis mendaftarkan IP pemanggil PERTAMA sebagai {@link BankHost} baru dan
+	 *       langsung meloloskannya &mdash; gerbang IP praktis tidak berfungsi. Kini memakai
+	 *       overload 2-argumen dengan default {@link Konfigurasi#TIDAK_AKTIF}.</li>
+	 *   <li>Fallback wildcard ke {@link BankHost} berIP {@code "0.0.0.0"} &mdash; sebelumnya
+	 *       tanpa syarat apa pun; kini hanya dipakai bila konfigurasi
+	 *       {@code bank_host_izinkan_wildcard_0_0_0_0} bernilai {@link Konfigurasi#AKTIF}
+	 *       (default {@link Konfigurasi#TIDAK_AKTIF}), dan tetap mencatat peringatan ke log
+	 *       setiap kali dipakai supaya operator sadar gerbang IP sedang dilewati.</li>
+	 * </ol>
+	 * <p><b>Catatan operasional:</b> pola {@code getKonfigurasi} di basis kode ini menuliskan
+	 * nilai default ke database pada pembacaan pertama. Bila baris
+	 * {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} SUDAH pernah ter-seed
+	 * (kemungkinan besar untuk instalasi yang sudah lama menerima trafik host-to-host, karena
+	 * default lama adalah {@link Konfigurasi#AKTIF}), perubahan default di kode ini TIDAK
+	 * berpengaruh sampai baris tersebut diperbarui secara eksplisit (lewat layar konfigurasi
+	 * admin atau langsung di database).</p>
+	 *
+	 * @param ipAdd alamat IP pemanggil (hasil {@link #resolveIpPemanggil} atau literal lain)
+	 * @param nama  nama yang dipakai bila {@link BankHost} baru dibuat lewat auto-registrasi
+	 * @return {@link BankHost} yang cocok, atau {@code null} bila tidak ditemukan dan tidak ada
+	 *         fallback yang diizinkan konfigurasi
+	 */
 	public BankHost getBankHost(String ipAdd, String nama) {
 		if (ipAdd == null || ipAdd.trim().isEmpty()) {
 			return null;
@@ -961,8 +1031,8 @@ public class PembayaranUtil {
 		BankHost bankHost = (BankHost) session.createCriteria(BankHost.class).add(Restrictions.eq("ip", ipAdd))
 				.setMaxResults(1).uniqueResult();
 
-		if (bankHost == null
-				&& Common.bolehKonfigurasi("apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis")) {
+		if (bankHost == null && Common.bolehKonfigurasi("apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis",
+				Konfigurasi.TIDAK_AKTIF)) {
 			bankHost = new BankHost();
 			bankHost.setIp(ipAdd);
 			bankHost.setNama(nama);
@@ -971,9 +1041,14 @@ public class PembayaranUtil {
 			session.getTransaction().commit();
 		}
 
-		if (bankHost == null) {
+		if (bankHost == null
+				&& Common.bolehKonfigurasi("bank_host_izinkan_wildcard_0_0_0_0", Konfigurasi.TIDAK_AKTIF)) {
 			bankHost = (BankHost) session.createCriteria(BankHost.class).add(Restrictions.eq("ip", "0.0.0.0"))
 					.setMaxResults(1).uniqueResult();
+			if (bankHost != null) {
+				System.out.println("PERINGATAN getBankHost(): IP " + ipAdd
+						+ " diloloskan lewat BankHost wildcard 0.0.0.0 (konfigurasi bank_host_izinkan_wildcard_0_0_0_0 aktif)");
+			}
 		}
 
 		HibernateUtil.closeSession();

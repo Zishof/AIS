@@ -1,5 +1,55 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 Batch 142 — solusi definitif `task_9f520b16` terdokumentasi, 9 task baru (2 sudah ditambal LIVE sesi paralel) (7 Sep 2026)
+
+**`DesktopMenuBootstrap.java`** — `findAuthorizedLeaf()` (solusi BENAR
+untuk `task_9f520b16`) didokumentasikan >1000 kata dengan RESEP
+5-LANGKAH persis untuk diterapkan ke `DisplayMenu.java`: (1) role aktif
+dari `hakAkses()` bukan parameter, (2) muat ulang role dari DB segar,
+(3) panggil `findAuthorizedLeaf` yang sama (sudah terduplikasi 2×,
+idealnya diekstrak jadi utilitas bersama), (4) `null`→403 bukan
+lanjut render, (5) JANGAN pernah pakai parameter menu sbg kunci
+pencarian langsung ke tabel `menu`. Insiden konkurensi ditangani rapi:
+sesi lain SEDANG live-fix `task_337a5ef8` (Host header poisoning) di
+`Index.java` — agent pisahkan commit Javadoc bersih dari WIP orang
+lain tanpa menimpa, dikonfirmasi sesi itu commit sendiri sukses
+(r86494).
+
+**`Struk.java`** — DIKONFIRMASI ULANG persis `task_493423ef` (anonim,
+id sekuensial, PII+finansial lengkap, dekripsi token gagal-diam jatuh
+ke id mentah). **2 task baru**: `task_2e46f704` (`Payment`/`Inquiry`
+— password gerbang HARDCODE `"1234567890"` tertulis literal DI LAYAR
+ADMIN + IP-trust lemah), `task_563a9f8f` (`AmbilLaporanDaftarPegawai`
+anonim total, nama laporan mentah ke generator — direktori sama
+berisi TEMPLAT GAJI).
+
+**Klaster `AmbilFile*`/`AmbilPengumuman*`** — `AmbilLampiranLain.java`
+DIKONFIRMASI AMAN (overload benar `usingId=false`). 6 file lain pakai
+mekanisme BERBEDA TOTAL (query langsung, bukan `LampiranLain`) tapi
+SAMA-SAMA anonim+id sekuensial — **task baru konsolidasi
+`task_26a210d1`**, sengaja dipisah 2 kelompok (dokumen dosen non-
+publik prioritas vs pengumuman yang mungkin sengaja publik).
+
+**Klaster misc 23 file kecil** — mayoritas bersih/sudah aman
+(`RepositoryWorkspace` TERNYATA LEBIH KUAT dari `Repository`;
+`JurnalPaymentCallback`/`JurnalAdminApi` contoh POSITIF lain — HMAC
+benar, CSRF benar, thin-controller disengaja). **6 task baru**:
+`task_b0feb5ac` (`CatatanOrangTuaServlet` — NOL verifikasi kepemilikan
+anak, portal orang tua publik), `task_63da6f5b` (`CaptchaServlet` —
+fail-OPEN saat exception di `SecurityFilter`, bukan fail-closed),
+`task_449c861a` (`Pdf.java` — kunci DES publik + nol path containment
+pasca-dekripsi), `task_739f804e` (`BtnForwarder` SSRF — **SUDAH
+DITAMBAL LIVE sesi paralel, r86503**), `task_94f54bdd` (`Recording.java`
+path traversal tulis-berkas — **SUDAH DITAMBAL LIVE sesi paralel,
+r86505**), `task_afe63fd6` (`DokuVerifyServlet` `trxId` nol checksum —
+SEDANG dikerjakan sesi paralel).
+
+**9 task baru batch ini** (2 sudah ditambal real-time): `task_2e46f704`,
+`task_563a9f8f`, `task_26a210d1`, `task_b0feb5ac`, `task_63da6f5b`,
+`task_449c861a`, `task_739f804e`, `task_94f54bdd`, `task_afe63fd6`.
+Total akumulasi: **2100+ file** dari 7.401. Sisa `action/servlet/`:
+~63 file.
+
 ## 🚨🚨🚨🚨🚨 Batch 141 — sapuan menyeluruh 16 servlet bank/pembayaran, PETA LENGKAP `task_e20425e9` di seluruh gateway, 6 task baru (7 Sep 2026)
 
 Lanjutan `ais/action/servlet/`, fokus PRIORITAS TINGGI: seluruh gateway

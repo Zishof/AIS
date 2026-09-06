@@ -153,6 +153,8 @@ public final class NotifikasiCache {
 	private static volatile List<Item> snapshot = null;
 	private static volatile long dibangunPada = 0L;
 	private static volatile boolean kotor = true;
+	private static volatile Thread warmupThread = null;
+	private static volatile boolean warmupDihentikan = false;
 
 	/**
 	 * Kunci status baca PER-PENERIMA: berisi "{notifikasiId}_{userId-lowercase}" untuk
@@ -521,20 +523,53 @@ public final class NotifikasiCache {
 	 * singkat agar {@code SessionFactory} siap, lalu membangun snapshot. Tidak pernah
 	 * menggagalkan startup.
 	 */
-	public static void warmupStartup() {
+	public static synchronized void warmupStartup() {
+		warmupDihentikan = false;
+		Thread lama = warmupThread;
+		if (lama != null && lama.isAlive()) {
+			lama.interrupt();
+		}
 		Thread t = new Thread(new Runnable() {
 			@Override
 			public void run() {
 				try {
 					Thread.sleep(45000);
+					if (warmupDihentikan || Thread.currentThread().isInterrupted()
+							|| AppStartupListener.isContextStopping()) {
+						return;
+					}
 					warmupSekarang();
-				} catch (Throwable ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/common/NotifikasiCache.java:309");
+				} catch (InterruptedException berhenti) {
+					Thread.currentThread().interrupt();
+				} catch (Throwable ig) {
+					if (!warmupDihentikan && !AppStartupListener.isContextStopping()) {
+						ais.common.ErrorAuditUtil.record(ig, "NotifikasiCache.warmupStartup");
+					}
 					// abaikan — snapshot akan dibangun on-demand pada akses pertama
 				}
 			}
 		}, "notifikasi-cache-warmup");
 		t.setDaemon(true);
+		warmupThread = t;
 		t.start();
+	}
+
+	/**
+	 * Membatalkan warm-up startup saat webapp dihentikan/redeploy. Method ini tidak
+	 * mengakses Hibernate sehingga aman dipanggil paling awal dari contextDestroyed.
+	 */
+	public static void hentikanWarmup() {
+		warmupDihentikan = true;
+		Thread t = warmupThread;
+		warmupThread = null;
+		if (t != null && t != Thread.currentThread()) {
+			t.interrupt();
+			try {
+				t.join(5000L);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
 	}
 
 	/** Bangun ulang snapshot secara sinkron (dipakai warm-up + dapat dipanggil manual). */

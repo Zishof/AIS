@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hibernate.Session;
 
 import ais.common.Common;
+import ais.common.security.SiswaCatatanOrtuTokenService;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.sekolah.Siswa;
 
@@ -17,30 +18,31 @@ import ais.database.model.sekolah.Siswa;
  * Endpoint publik tanpa login untuk halaman "Catatan Orang Tua" — memungkinkan orang tua/wali
  * melihat catatan aktivitas harian anaknya dan memberi tanggapan, tanpa perlu akun/login AIS.
  *
- * <p>URL: {@code /AktiftasHarianSiswa?siswa={ID_SISWA}}. Servlet ini memvalidasi bahwa
- * {@code ID_SISWA} berbentuk angka dan bahwa {@link Siswa} dengan id tersebut ada di
- * database, menyimpan id itu di HTTP session (lihat {@link #SK_SISWA_ID}), lalu mengarahkan
- * (redirect) ke halaman ZUL {@code common/catatan_orang_tua_terhadap_aktiftas_harian_siswa.zul}
- * yang composer-nya ({@code CatatanOrangTuaAktiftasHarianAction}) membaca id tersebut dari
- * session untuk menampilkan data siswa yang bersangkutan.</p>
+ * <p>URL: {@code /AktiftasHarianSiswa?token={TOKEN}}. Servlet ini memvalidasi {@code TOKEN}
+ * lewat {@link SiswaCatatanOrtuTokenService#cariSiswaByToken} (format hex, cocok dengan hash
+ * tersimpan, belum kedaluwarsa), menyimpan id {@link Siswa} yang ditemukan di HTTP session
+ * (lihat {@link #SK_SISWA_ID}), lalu mengarahkan (redirect) ke halaman ZUL
+ * {@code common/catatan_orang_tua_terhadap_aktiftas_harian_siswa.zul} yang composer-nya
+ * ({@code CatatanOrangTuaAktiftasHarianAction}) membaca id tersebut dari session untuk
+ * menampilkan data siswa yang bersangkutan.</p>
  *
- * <p><b>Keamanan — TIDAK ADA verifikasi kepemilikan anak (parent-child verification):</b>
- * satu-satunya syarat untuk melihat catatan harian seorang siswa adalah MENGETAHUI atau
- * MENEBAK id numeriknya — {@link #process} hanya memeriksa bahwa parameter {@code siswa}
- * berupa angka dan bahwa baris {@link Siswa} dengan id tersebut ada; TIDAK ADA token/secret
- * per-siswa, TIDAK ADA pengecekan relasi orang tua-anak, dan TIDAK ADA pembatasan asal
- * request. Karena id siswa pada praktiknya adalah primary key yang umumnya berurutan, siapa
- * pun dapat mengubah nilai {@code siswa} pada URL secara berurutan (enumerasi id) untuk
- * membaca catatan aktivitas harian, pesan pembina/guru, dan riwayat komentar siswa LAIN yang
- * bukan anaknya — bahkan berpotensi mengirim tanggapan/komentar seolah-olah sebagai orang tua
- * siswa tersebut lewat composer ZUL yang dituju. Ini adalah kebocoran data pribadi anak
- * (PII) dan broken access control yang genuinely berbahaya untuk fitur yang menyasar wali
- * murid/anak-anak, bukan sekadar pola gerbang otentikasi lemah yang sudah lazim ditemukan di
- * modul lain — di sini gerbangnya benar-benar TIDAK ADA sama sekali, bukan sekadar lemah.
- * Perbaikan yang wajar adalah mengganti parameter {@code siswa} dengan token acak
- * per-siswa/per-kirim yang tidak dapat ditebak (mis. UUID atau HMAC bertanggal-kedaluwarsa)
- * yang didistribusikan lewat kanal yang sudah dipercaya (WhatsApp/SMS ke nomor orang tua
- * terdaftar), bukan primary key mentah.</p>
+ * <p><b>Riwayat keamanan &mdash; parameter {@code siswa} lama (id mentah) SUDAH DIHAPUS:</b>
+ * versi sebelumnya menerima parameter {@code siswa={ID_SISWA}} dan hanya memeriksa bahwa baris
+ * {@link Siswa} dengan id tersebut ada — TIDAK ADA token/secret per-siswa, TIDAK ADA pengecekan
+ * relasi orang tua-anak sama sekali (bukan sekadar gerbang lemah, melainkan benar-benar absen).
+ * Karena id siswa adalah primary key yang umumnya berurutan, siapa pun dapat mengubah nilai
+ * {@code siswa} pada URL untuk membaca catatan aktivitas harian, pesan pembina/guru, dan
+ * riwayat komentar siswa LAIN yang bukan anaknya, bahkan mengirim tanggapan seolah-olah sebagai
+ * orang tua siswa tersebut. Perbaikan: parameter {@code siswa} DIGANTI TOTAL dengan
+ * {@code token} acak 256-bit tak-tertebak per-siswa (lihat {@link SiswaCatatanOrtuTokenService}),
+ * dicocokkan lewat hash-nya sebelum data siswa mana pun ditampilkan. TIDAK ADA masa transisi:
+ * tautan lama berparameter {@code siswa} langsung ditolak (lihat {@link #process}) sejak
+ * perbaikan ini berlaku — bukan kelonggaran yang disengaja, melainkan konsekuensi dari
+ * digantinya total mekanisme identifikasi; sekolah perlu menerbitkan &amp; membagikan ulang
+ * tautan bertoken ke orang tua/wali (lewat {@link SiswaCatatanOrtuTokenService#terbitkanToken}).
+ * Belum ada layar admin yang memanggil {@code terbitkanToken} dan menampilkan tautan jadi untuk
+ * disalin staf — itu tugas terpisah yang masih perlu dikerjakan sebelum tautan baru dapat mulai
+ * dibagikan ke orang tua/wali.</p>
  */
 public class CatatanOrangTuaServlet extends HttpServlet {
 
@@ -60,7 +62,7 @@ public class CatatanOrangTuaServlet extends HttpServlet {
      * identik untuk GET maupun POST karena tautan yang dibagikan ke orang tua berbentuk URL
      * biasa (GET).
      *
-     * @param req request HTTP masuk; parameter {@code siswa} berisi id {@link Siswa} yang
+     * @param req request HTTP masuk; parameter {@code token} berisi token akses siswa yang
      *            diminta
      * @param res response HTTP keluar; berisi redirect ke halaman ZUL bila valid, atau halaman
      *            error HTML sederhana bila tidak
@@ -90,22 +92,25 @@ public class CatatanOrangTuaServlet extends HttpServlet {
     }
 
     /**
-     * Memvalidasi parameter {@code siswa} dan, bila valid, menyimpan id-nya ke HTTP session
-     * lalu mengarahkan browser ke halaman ZUL Catatan Orang Tua.
+     * Memvalidasi parameter {@code token} dan, bila cocok dengan siswa yang belum kedaluwarsa,
+     * menyimpan id siswa itu ke HTTP session lalu mengarahkan browser ke halaman ZUL Catatan
+     * Orang Tua.
      *
-     * <p>Alur: (1) tolak dengan halaman error (lewat {@link #sendError}) bila parameter
-     * {@code siswa} kosong/tidak ada, atau bukan angka valid; (2) buka sesi Hibernate baru dan
-     * muat {@link Siswa} dengan id tersebut lewat {@code session.get} — TIDAK ADA pengecekan
-     * lain selain keberadaan baris ini (lihat catatan keamanan pada Javadoc kelas mengenai
-     * tidak adanya verifikasi kepemilikan orang tua-anak); (3) bila siswa ditemukan, simpan
-     * id-nya ke atribut session {@link #SK_SISWA_ID} (membuat HTTP session baru bila belum
-     * ada) dan redirect ke {@code common/catatan_orang_tua_terhadap_aktiftas_harian_siswa.zul}
-     * relatif terhadap context path; (4) exception apa pun ditangkap, dicatat lewat
-     * {@link ais.common.ErrorAuditUtil}, dan dibalas sebagai halaman error generik; (5) sesi
+     * <p>Alur: (1) tolak dengan halaman error generik (lewat {@link #sendError}) bila parameter
+     * {@code token} kosong/tidak ada; (2) buka sesi Hibernate baru dan cari {@link Siswa} lewat
+     * {@link SiswaCatatanOrtuTokenService#cariSiswaByToken} — method itu sendiri yang memvalidasi
+     * format token, mencocokkan hash-nya, dan menegakkan kedaluwarsa opsional; (3) bila TIDAK ada
+     * siswa yang cocok, balas dengan pesan generik yang SAMA baik untuk token kosong, berformat
+     * salah, tidak ditemukan, maupun kedaluwarsa (mencegah oracle yang membedakan alasan
+     * penolakan); (4) bila cocok, simpan id siswa ke atribut session {@link #SK_SISWA_ID}
+     * (membuat HTTP session baru bila belum ada) dan redirect ke
+     * {@code common/catatan_orang_tua_terhadap_aktiftas_harian_siswa.zul} relatif terhadap
+     * context path; (5) exception apa pun ditangkap, dicatat lewat
+     * {@link ais.common.ErrorAuditUtil}, dan dibalas sebagai halaman error generik; (6) sesi
      * Hibernate selalu dibersihkan (clear/disconnect/close) di blok {@code finally}.</p>
      *
-     * @param req request HTTP masuk; parameter {@code siswa} berisi id {@link Siswa} bertipe
-     *            {@code long} dalam bentuk teks
+     * @param req request HTTP masuk; parameter {@code token} berisi token akses siswa (hex)
+     *            yang diterbitkan lewat {@link SiswaCatatanOrtuTokenService#terbitkanToken}
      * @param res response HTTP keluar; diisi redirect (302) ke halaman ZUL bila sukses, atau
      *            halaman HTML error sederhana (lewat {@link #sendError}) bila gagal pada
      *            langkah mana pun
@@ -117,31 +122,28 @@ public class CatatanOrangTuaServlet extends HttpServlet {
             throws ServletException, IOException {
         Session session = null;
         try {
-            String siswaParam = req.getParameter("siswa");
+            String tokenParam = req.getParameter("token");
 
-            if (siswaParam == null || siswaParam.trim().isEmpty()) {
-                sendError(res, req.getContextPath(), "Parameter siswa tidak ditemukan.");
+            // Pesan generik yang SAMA untuk setiap kegagalan (kosong/format salah/tidak
+            // ditemukan/kedaluwarsa/parameter siswa lama) -- lihat catatan keamanan pada Javadoc
+            // class mengenai penggantian total mekanisme identifikasi.
+            final String pesanTolak = "Tautan tidak valid atau sudah tidak berlaku. "
+                + "Hubungi pihak sekolah untuk mendapatkan tautan baru.";
+
+            if (tokenParam == null || tokenParam.trim().isEmpty()) {
+                sendError(res, req.getContextPath(), pesanTolak);
                 return;
             }
 
-            long siswaId;
-            try {
-                siswaId = Long.parseLong(siswaParam.trim());
-            } catch (NumberFormatException e) {
-                sendError(res, req.getContextPath(), "ID siswa tidak valid.");
-                return;
-            }
-
-            // Validasi keberadaan siswa di database
             session = HibernateUtil.getSessionFactory().openSession();
-            Siswa siswa = (Siswa) session.get(Siswa.class, siswaId);
+            Siswa siswa = SiswaCatatanOrtuTokenService.cariSiswaByToken(session, tokenParam);
             if (siswa == null) {
-                sendError(res, req.getContextPath(), "Data siswa tidak ditemukan.");
+                sendError(res, req.getContextPath(), pesanTolak);
                 return;
             }
 
             // Simpan ID siswa di HTTP session agar bisa dibaca Action ZK
-            req.getSession(true).setAttribute(SK_SISWA_ID, siswaId);
+            req.getSession(true).setAttribute(SK_SISWA_ID, siswa.getId());
 
             // Arahkan ke halaman ZUL
             String target = req.getContextPath()

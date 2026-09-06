@@ -13,11 +13,10 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Session;
-import org.hibernate.criterion.MatchMode;
-import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
+import ais.common.DokuCommon;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.doku.DokuRequest;
 
@@ -28,23 +27,25 @@ import ais.database.model.doku.DokuRequest;
  *
  * <p>Doku mengirim body berformat {@code key=value} dipisah {@code &} (bukan JSON maupun
  * form-encoded standar) berisi antara lain {@code AMOUNT} (nominal transaksi) dan
- * {@code WORDS} (pada protokol Doku umumnya berupa checksum/hash transaksi, BUKAN nilai
- * transaksi itu sendiri). {@link #process} mem-parsing body tersebut secara manual lalu
- * mencocokkan {@code WORDS} langsung sebagai nilai kolom {@code trxId} pada
- * {@link DokuRequest} — TIDAK ada verifikasi checksum/tanda tangan kriptografis atas
- * {@code WORDS} terhadap {@code AMOUNT} dan data transaksi lain. Jika ditemukan
- * {@link DokuRequest} dengan {@code trxId} yang cocok persis dan nilai {@code amount}-nya
- * sama dengan {@code AMOUNT} yang dikirim, servlet membalas {@code "Continue"}; selain itu
- * membalas {@code "Stop"}.</p>
+ * {@code WORDS} (checksum/tanda tangan transaksi, dihitung Doku dengan formula yang sama
+ * dengan {@link ais.common.DokuCommon#onSaveDoku}: {@code SHA1(AMOUNT + doku_key +
+ * TRANSIDMERCHANT)}). {@link #process} mem-parsing body tersebut secara manual, mencari
+ * {@link DokuRequest} yang kolom {@code trxId}-nya cocok PERSIS dengan {@code WORDS}, lalu
+ * memvalidasinya lewat {@link ais.common.DokuCommon#verifikasiChecksum(DokuRequest, String,
+ * String)} (checksum DAN {@code AMOUNT} harus sama-sama cocok dengan baris tersimpan). Bila
+ * valid, servlet membalas {@code "Continue"}; selain itu (termasuk bila {@link DokuRequest}
+ * tidak ditemukan) membalas {@code "Stop"}.</p>
  *
- * <p><b>Keamanan:</b> karena tidak ada validasi asal request (mis. IP allowlist milik Doku)
- * maupun verifikasi checksum {@code WORDS}, endpoint ini dapat dipanggil oleh pihak mana pun
- * yang mengetahui atau menebak nilai {@code trxId} transaksi yang sudah ada beserta
- * amount-nya. Karena servlet ini HANYA melakukan query baca (tidak menulis status pembayaran
- * apa pun), dampaknya terbatas pada tahap pre-check; keputusan akhir tetap ditentukan oleh
- * {@code DokuResponseServlet} pada notifikasi berikutnya. Namun {@code DokuResponseServlet}
- * juga TIDAK memverifikasi checksum Doku — lihat javadoc di sana untuk rincian celah yang
- * lebih berdampak (finalisasi pembayaran/pendaftaran mahasiswa).</p>
+ * <p><b>Keamanan:</b> karena tidak ada validasi asal request (mis. IP allowlist milik Doku),
+ * endpoint ini tetap dapat dipanggil oleh pihak mana pun yang mengetahui nilai {@code WORDS}
+ * transaksi yang sudah ada — termasuk pembayar transaksi itu sendiri, karena {@code WORDS}
+ * turut disisipkan pada formulir auto-submit HTML yang ditampilkan ke peramban pembayar oleh
+ * {@link ais.common.DokuCommon#onSaveDoku}, sehingga bukan rahasia murni antara merchant dan
+ * Doku. Karena servlet ini HANYA melakukan query baca (tidak menulis status pembayaran apa
+ * pun), dampaknya terbatas pada tahap pre-check; keputusan akhir tetap ditentukan oleh
+ * {@code DokuResponseServlet} pada notifikasi berikutnya, yang sejak perbaikan 2026-09-07 juga
+ * memvalidasi checksum lewat helper yang sama sebelum memfinalisasi pembayaran — lihat javadoc
+ * di sana untuk rincian.</p>
  */
 public class DokuVerifyServlet extends HttpServlet {
 	/** Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable} servlet ini. */
@@ -121,23 +122,23 @@ public class DokuVerifyServlet extends HttpServlet {
 	 * <p>Alur: (1) baca seluruh body sebagai teks mentah; (2) pecah per {@code &} lalu per
 	 * {@code =} menjadi peta parameter, melewati diam-diam pasangan yang tidak berbentuk
 	 * {@code key=value} (mis. tanpa tanda sama dengan) lewat catch kosong yang tetap dicatat
-	 * ke {@link ais.common.ErrorAuditUtil}; (3) ambil {@code AMOUNT} dan parse sebagai angka;
-	 * (4) buka sesi Hibernate baru dan cari {@link DokuRequest} yang kolom {@code trxId}-nya
-	 * cocok PERSIS ({@link MatchMode#EXACT}) dengan parameter {@code WORDS}; (5) bila
-	 * ditemukan dan {@code amount} tersimpan sama dengan {@code AMOUNT} yang dikirim, hasil
-	 * diisi {@code "Continue"}, selain itu tetap {@code "Stop"}; (6) sesi selalu dibersihkan
-	 * (clear/disconnect/close) di blok {@code finally} sebelum method kembali; (7) hasil
-	 * ditulis sebagai {@code text/plain} ke {@code response}.</p>
+	 * ke {@link ais.common.ErrorAuditUtil}; (3) buka sesi Hibernate baru dan cari
+	 * {@link DokuRequest} yang kolom {@code trxId}-nya cocok PERSIS (case-sensitive) dengan
+	 * parameter {@code WORDS}; (4) validasi baris yang ditemukan (bila ada) lewat
+	 * {@link ais.common.DokuCommon#verifikasiChecksum(DokuRequest, String, String)}, yang
+	 * mensyaratkan {@code WORDS} maupun {@code AMOUNT} sama-sama cocok dengan baris tersimpan;
+	 * (5) bila valid, hasil diisi {@code "Continue"}, selain itu tetap {@code "Stop"}; (6) sesi
+	 * selalu dibersihkan (clear/disconnect/close) di blok {@code finally} sebelum method
+	 * kembali; (7) hasil ditulis sebagai {@code text/plain} ke {@code response}.</p>
 	 *
-	 * <p>Lihat catatan keamanan pada Javadoc kelas mengenai tidak adanya verifikasi checksum
-	 * kriptografis atas {@code WORDS}.</p>
+	 * <p>Lihat catatan keamanan pada Javadoc kelas mengenai sifat {@code WORDS} yang turut
+	 * terlihat oleh peramban pembayar sendiri.</p>
 	 *
 	 * @param request  request HTTP masuk; body-nya dibaca utuh dan di-parsing manual sebagai
 	 *                 parameter {@code AMOUNT}/{@code WORDS}
 	 * @param response response HTTP keluar; diisi header {@code Content-Type: text/plain} dan
 	 *                 badan berupa {@code "Continue"} atau {@code "Stop"}
-	 * @throws Exception bila parsing {@code AMOUNT} gagal (bukan angka atau tidak ada), bila
-	 *                    query Hibernate gagal, atau bila penulisan respons gagal
+	 * @throws Exception bila query Hibernate gagal atau bila penulisan respons gagal
 	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
@@ -165,15 +166,16 @@ public class DokuVerifyServlet extends HttpServlet {
 
 		System.out.println("==> param => " + param + ", " + request.getQueryString());
 
-		int AMOUNT = (int) Double.parseDouble(param.get("AMOUNT").trim());
+		String words = param.get("WORDS");
 
 		String hasil = "Stop";
 		Session session = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
-			Double amount = (Double) session.createCriteria(DokuRequest.class).setProjection(Projections.property("amount"))
-					.add(Restrictions.ilike("trxId", param.get("WORDS"), MatchMode.EXACT)).setMaxResults(1).uniqueResult();
-			if (amount != null && AMOUNT == amount.intValue()) {
+			DokuRequest dokuRequest = words == null || words.trim().isEmpty() ? null
+					: (DokuRequest) session.createCriteria(DokuRequest.class)
+							.add(Restrictions.eq("trxId", words.trim())).setMaxResults(1).uniqueResult();
+			if (DokuCommon.verifikasiChecksum(dokuRequest, words, param.get("AMOUNT"))) {
 				hasil = "Continue";
 			}
 		} finally {

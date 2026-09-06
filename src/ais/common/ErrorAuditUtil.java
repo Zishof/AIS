@@ -104,6 +104,19 @@ public class ErrorAuditUtil {
      * dipertahankan agar class lama yang sudah memanggil record(..., false) tetap compile.
      */
     public static ErrorAuditResult record(Throwable throwable, String info, HttpServletRequest request, boolean rethrow) {
+        // Saat context dihentikan, Hibernate dan classloader bisa sudah/tengah ditutup.
+        // Jangan membaca konfigurasi atau menulis ErrorLog dari worker yang terlambat;
+        // cukup tulis pesan minimal ke stderr agar penyebab asli tetap terlihat.
+        if (AppStartupListener.isContextStopping()) {
+            String minimal = "[ErrorAuditUtil-shutdown] " + (info == null ? "" : info) + " :: "
+                    + (throwable == null ? "" : throwable.toString());
+            try {
+                System.err.println(minimal);
+            } catch (Throwable ignored) {
+            }
+            return new ErrorAuditResult(minimal, null);
+        }
+
         if (isClientAbortIgnored(throwable)) {
             ErrorAuditResult result = new ErrorAuditResult("", null);
             LAST_RESULT.set(result);
