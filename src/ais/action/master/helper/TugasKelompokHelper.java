@@ -2275,11 +2275,9 @@ public class TugasKelompokHelper implements DataLoader {
 		 * {@link #bukaDaftarKelompok} dan {@link #pasangAksiPengaturan}, sehingga peringatan yang sama tidak
 		 * perlu dihitung ulang di tiap jendela. Pengelola mendapat versi yang dapat diubah
 		 * ({@code Tugas.tampilanSyarat}), pelajar mendapat versi baca-saja
-		 * ({@code Tugas.tampilanSyaratReadonly}) ditambah {@code Tugas.tampilanLain}. Perhatikan bahwa
-		 * pemilihan cabang di sini memakai pemeriksaan peran gaya lama yang menguji field helper dan
-		 * beberapa peran pada objek pengguna satu per satu, BUKAN
-		 * {@link TugasKelompokHelper#bolehKelola(Tbmuser)}; keduanya tidak selalu memberi hasil yang sama
-		 * (lihat catatan "Ketidakseragaman gerbang peran" di bawah).</p>
+		 * ({@code Tugas.tampilanSyaratReadonly}) ditambah {@code Tugas.tampilanLain}. Pemilihan cabang di
+		 * sini memakai {@link TugasKelompokHelper#bolehKelola(Tbmuser)}, sama seperti seluruh gerbang peran
+		 * lain di metode ini (lihat catatan "Gerbang peran" di bawah).</p>
 		 *
 		 * <h4>Tahap 2 &mdash; Kartu ringkas</h4>
 		 * <p>{@link TugasKelompokHelper#buatKartuRingkasTugasKelompok} mengembalikan HTML dalam tiga

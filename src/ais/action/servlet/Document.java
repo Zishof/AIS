@@ -157,6 +157,19 @@ public class Document extends HttpServlet {
         super();
     }
 
+    /**
+     * Menerima permintaan HTTP GET — metode utama portal ini — dan meneruskannya ke
+     * {@link #process(HttpServletRequest, HttpServletResponse)}.
+     *
+     * <p>Kegagalan apa pun ditangkap lalu diserahkan ke
+     * {@link #handleFatalError(HttpServletResponse, Exception)} yang menuliskan halaman galat
+     * ramah, bukan halaman error bawaan container.</p>
+     *
+     * @param request  permintaan dari peramban
+     * @param response respons yang akan diisi halaman, penggalan HTML, atau isi berkas
+     * @throws ServletException bila container melaporkan kegagalan servlet
+     * @throws IOException      bila penulisan respons gagal
+     */
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         try {
@@ -166,6 +179,19 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Menerima permintaan HTTP POST dan meneruskannya ke
+     * {@link #process(HttpServletRequest, HttpServletResponse)}.
+     *
+     * <p>Perilakunya identik dengan {@link #doGet(HttpServletRequest, HttpServletResponse)};
+     * kelas ini tidak membedakan metode HTTP sama sekali, karena mode ditentukan sepenuhnya oleh
+     * parameter {@code action} dan {@code service}.</p>
+     *
+     * @param request  permintaan dari peramban
+     * @param response respons yang akan diisi halaman, penggalan HTML, atau isi berkas
+     * @throws ServletException bila container melaporkan kegagalan servlet
+     * @throws IOException      bila penulisan respons gagal
+     */
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         try {
@@ -175,6 +201,36 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Pengarah permintaan: menentukan mode portal lalu memilih antara menstrim berkas,
+     * menyertakan potongan JSP layanan, atau meneruskan ke halaman utuh.
+     *
+     * <h4>Urutan kerja</h4>
+     * <ol>
+     *   <li>Memasang header anti-cache lewat {@link #setNoCache(HttpServletResponse)} dan menyetel
+     *       encoding permintaan ke UTF-8 (kegagalannya diabaikan karena sebagian container sudah
+     *       mengunci encoding sebelum titik ini);</li>
+     *   <li>menyiapkan atribut umum lewat
+     *       {@link #prepareCommonAttributes(HttpServletRequest)} — termasuk identitas pengguna,
+     *       sehingga JSP tahu apakah tombol unduh perlu ditampilkan;</li>
+     *   <li>bila {@code action=download}, menyerahkan seluruh sisa penanganan ke
+     *       {@link #downloadDocument(HttpServletRequest, HttpServletResponse)} dan berhenti —
+     *       katalog tidak dibangun sama sekali untuk jalur ini;</li>
+     *   <li>selain itu membangun isi katalog lewat
+     *       {@link #prepareDmsContentAttributes(HttpServletRequest)}, lalu menyertakan
+     *       ({@code include}) {@link #JSP_SERVICE} untuk permintaan AJAX
+     *       ({@code service=1}/{@code service=true}/{@code action=list}) atau meneruskan
+     *       ({@code forward}) ke {@link #JSP_LANDING} untuk permintaan halaman biasa.</li>
+     * </ol>
+     *
+     * <p>Perbedaan {@code include} dan {@code forward} bersifat penting: mode layanan hanya
+     * menyumbang penggalan HTML ke respons yang sedang berjalan, sedangkan mode halaman
+     * menyerahkan kendali respons sepenuhnya ke JSP tujuan.</p>
+     *
+     * @param request  permintaan dari peramban
+     * @param response respons yang akan diisi
+     * @throws Exception bila JSP tujuan tidak ditemukan atau penanganan unduhan gagal
+     */
     private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
         setNoCache(response);
         try {
@@ -211,6 +267,20 @@ public class Document extends HttpServlet {
         rd.forward(request, response);
     }
 
+    /**
+     * Menyiapkan atribut permintaan yang dibutuhkan semua tampilan portal, terlepas dari mode.
+     *
+     * <p>Atribut yang dipasang: {@code DMS_BASE_URL} (gabungan context path dan servlet path,
+     * dengan cadangan {@code "/document"} bila servlet path kosong), {@code DMS_LOGGED_IN},
+     * {@code DMS_USER_OBJECT}, {@code DMS_USER_DISPLAY} (nama tampil pengguna atau
+     * {@code "Pengunjung"} bila anonim), dan {@code DMS_CONTENT_JSP}.</p>
+     *
+     * <p>{@code DMS_BASE_URL} dipakai sebagai dasar penyusunan seluruh tautan buka dan unduh pada
+     * {@link #toAkreditasiEntry(Session, Akreditasi, String)} serta
+     * {@link #toDokumenEntry(Session, DokumenAkreditasi, String)}.</p>
+     *
+     * @param request permintaan yang atributnya akan diisi
+     */
     private void prepareCommonAttributes(HttpServletRequest request) {
         String contextPath = request.getContextPath();
         if (contextPath == null) {
@@ -231,6 +301,20 @@ public class Document extends HttpServlet {
         request.setAttribute("DMS_CONTENT_JSP", JSP_CONTENT);
     }
 
+    /**
+     * Membangun isi katalog lewat {@link #buildDmsContentData(HttpServletRequest)} lalu
+     * memindahkannya ke atribut permintaan agar dapat dibaca JSP.
+     *
+     * <p>Atribut yang dipasang mencakup mode tampilan ({@code DMS_MODE} bernilai {@code "root"}
+     * atau {@code "dokumen"}), posisi penjelajahan ({@code DMS_AKREDITASI_ID},
+     * {@code DMS_INDUK_ID}), kata kunci pencarian, daftar baris ({@code DMS_ENTRIES}), remah roti
+     * ({@code DMS_BREADCRUMBS}), sejumlah pencacah ringkasan, dan pesan galat.</p>
+     *
+     * <p>{@code DMS_SERVICE_ALLOWED} selalu diisi {@link Boolean#TRUE}: penyaringan hak akses
+     * sudah dilakukan di tingkat query dan tingkat baris, bukan lewat bendera ini.</p>
+     *
+     * @param request permintaan yang atributnya akan diisi
+     */
     private void prepareDmsContentAttributes(HttpServletRequest request) {
         DmsContentData data = buildDmsContentData(request);
 
@@ -249,6 +333,39 @@ public class Document extends HttpServlet {
         request.setAttribute("DMS_ERROR_MESSAGE", data.errorMessage);
     }
 
+    /**
+     * Menyusun seluruh isi katalog untuk satu permintaan: daftar baris, remah roti, pencacah
+     * ringkasan, dan pesan galat bila ada.
+     *
+     * <h4>Dua mode</h4>
+     * <ul>
+     *   <li><b>Mode {@code root}</b> — dipilih ketika parameter {@code akreditasi} tidak ada atau
+     *       tidak dapat diurai sebagai angka. Menampilkan daftar ruang arsip hasil
+     *       {@link #buildAkreditasiCriteria(Session, Object, String, boolean)}.</li>
+     *   <li><b>Mode {@code dokumen}</b> — menampilkan isi satu ruang arsip. Bila {@code induk}
+     *       diberikan, isi yang ditampilkan adalah anak dari simpul itu; bila tidak, yang
+     *       ditampilkan adalah simpul akar ruang tersebut.</li>
+     * </ul>
+     *
+     * <h4>Pemeriksaan yang dilakukan</h4>
+     * <p>Ruang arsip yang diminta harus lolos {@link #isAkreditasiVisible(Akreditasi, Object)};
+     * bila tidak, tampilan dikembalikan ke mode {@code root} disertai pesan netral tanpa
+     * membocorkan apakah baris itu sebenarnya ada. Simpul {@code induk} diverifikasi harus benar
+     * benar milik ruang arsip yang sama ({@code induk.getAkreditasi().getId()} dibandingkan
+     * dengan id ruang) sekaligus masih aktif — penjagaan inilah yang mencegah id induk dari ruang
+     * lain dipakai untuk mengintip isi ruang yang tidak boleh dilihat.</p>
+     *
+     * <h4>Session dan penanganan galat</h4>
+     * <p>Method membuka session Hibernate sendiri dan menutupnya di {@code finally} dengan urutan
+     * clear, disconnect, close. Query hanya membaca; tidak ada transaksi tulis. Exception apa pun
+     * ditangkap dan diubah menjadi {@code errorMessage} pada objek hasil sehingga halaman tetap
+     * tampil separuh jalan alih-alih memunculkan galat container. Pesan itu memuat teks
+     * {@link Exception#getMessage()} apa adanya, yang berarti detail teknis dapat terbaca oleh
+     * pengunjung — perilaku yang berlaku sekarang dan dicatat di sini apa adanya.</p>
+     *
+     * @param request permintaan yang memuat parameter {@code q}, {@code akreditasi}, {@code induk}
+     * @return objek data isi katalog yang tidak pernah {@code null}
+     */
     @SuppressWarnings("unchecked")
     private DmsContentData buildDmsContentData(HttpServletRequest request) {
         DmsContentData data = new DmsContentData();

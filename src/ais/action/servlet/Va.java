@@ -216,10 +216,107 @@ public class Va extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Pintasan {@link #doProses(String, HttpServletRequest, BankHost, boolean)} dengan
+	 * {@code tetapberhasil} bernilai {@code false}, yaitu mode normal tempat nominal setoran
+	 * <b>wajib</b> sama dengan total tagihan VA.
+	 *
+	 * <p>Dipakai oleh servlet callback bank lain yang meneruskan payload-nya ke mesin H2H ini.</p>
+	 *
+	 * @param data     badan permintaan mentah berformat JSON; boleh {@code null}/kosong sehingga
+	 *                 seluruh parameter dibaca dari query string
+	 * @param request  permintaan HTTP asal, dipakai untuk membaca parameter dan alamat IP
+	 * @param bankHost host bank pemanggil hasil pencocokan IP; boleh {@code null}
+	 * @return badan balasan JSON siap kirim
+	 * @throws Exception bila terjadi kegagalan yang tidak tertangani di dalam mesin H2H
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost) throws Exception {
 		return doProses(data, request, bankHost, false);
 	}
 
+	/**
+	 * Mesin utama servlet: mengurai payload bank, menjalankan salah satu dari tiga blok
+	 * pemrosesan, mencatat jejak {@link LogHostToHost}, lalu mengembalikan badan balasan JSON.
+	 *
+	 * <h4>Tahap 1 &mdash; normalisasi payload</h4>
+	 * <p>Parameter {@code kode}, {@code smt}, {@code va}, {@code action}, {@code bank},
+	 * {@code nominal}, dan {@code tanggal} dibaca lewat {@link #getSafeParam} (JSON dulu, lalu
+	 * query string), sementara array {@code bayar} hanya dibaca dari JSON. Sesudah itu dua
+	 * bentuk payload khusus bank dinormalkan menjadi bentuk baku:</p>
+	 * <ul>
+	 *   <li><b>Bank BTN</b> &mdash; dikenali dari kehadiran kunci {@code revflag} atau
+	 *       {@code reserve}. {@code bank} dipaksa {@code "Bank BTN"}, {@code action} dipaksa
+	 *       {@code "payment"}, nominal diambil dari {@code terbayar}, dan tanggal disusun dari
+	 *       gabungan {@code paymentdate} dan {@code paymenttime};</li>
+	 *   <li><b>Bank BJBS</b> &mdash; dikenali dari kehadiran kunci {@code va_acc_no}. Nomor VA
+	 *       diambil dari kunci itu, {@code bank} dipaksa {@code "Bank BJBS"}, {@code action}
+	 *       dipaksa {@code "payment"}, dan nominal diambil dari {@code amount}.</li>
+	 * </ul>
+	 *
+	 * <h4>Tahap 2 &mdash; pemilihan blok</h4>
+	 * <ol>
+	 *   <li><b>BLOK 1 ({@code action=tagihan})</b> &mdash; syarat: {@code kode} terisi dan
+	 *       {@code smt} berupa angka. Mencari {@link Mahasiswa} aktif berdasarkan NIM; bila tidak
+	 *       ada, mencari {@link BiodataCalonMahasiswa} aktif berdasarkan nomor registrasi. Rincian
+	 *       tagihan diisi oleh {@code CommonReportHelper.populateTagihanMahasiswa} atau
+	 *       {@code populateTagihanCalonMahasiswa} (jenis kegiatan pendaftaran ulang bila calon
+	 *       sudah punya prodi lulus, jenis pendaftaran calon bila belum). Balasan memuat NIM,
+	 *       nama, fakultas, prodi, semester, {@code total}, dan array {@code rincian};</li>
+	 *   <li><b>BLOK 2 ({@code action=simpan_tagihan})</b> &mdash; syarat tambahan: array
+	 *       {@code bayar} tidak kosong. Item pembayaran dikelompokkan per {@code jenis_id},
+	 *       lalu untuk tiap kelompok dibuat/diperbarui satu {@link VirtualAccountBank}. Kolom
+	 *       {@code cicilan} diisi token {@code Bulanan-<id>-<nilai>} atau
+	 *       {@code Item-<idItem>-<nilai>-<detailBiaya>-<idDetailBiaya>}, kolom {@code keterangan}
+	 *       diisi pasangan {@code kode,deskripsi;}. Nomor VA hasilnya dikembalikan di
+	 *       {@code rincian};</li>
+	 *   <li><b>BLOK 3 (selain keduanya)</b> &mdash; alur H2H {@code inquiry}, {@code payment},
+	 *       dan {@code reversal} atas satu nomor VA; lihat rincian di bawah.</li>
+	 * </ol>
+	 *
+	 * <h4>Tahap 3 &mdash; alur H2H pada BLOK 3</h4>
+	 * <p>VA dicari lewat {@code VirtualAccountBank.ambilVa(va, nominal, bankHost)}. Bila VA sudah
+	 * berstatus terbayar, balasan langsung berstatus {@code 05}. Bila VA tidak ketemu tetapi
+	 * konfigurasi {@code pembayaran_via_va_bisa_berdasarkan_nim} aktif, nomor yang dikirim
+	 * diperlakukan sebagai NIM dan diproses lewat {@code PembayaranAction.inquiryByNim} atau
+	 * {@code payByNim}. Selain itu {@code inquiry}, {@code payment}, dan {@code reversal}
+	 * diteruskan ke {@link #prosesH2HInquiry}, {@link #prosesH2HPayment}, dan
+	 * {@link #prosesH2HReversal}. Kedaluwarsa VA diperiksa lewat {@link #isExpired} untuk
+	 * {@code inquiry} dan {@code payment} &mdash; <b>tidak</b> untuk {@code reversal}.</p>
+	 *
+	 * <p>Kegagalan basis data sementara (mis. {@code lock timeout} saat banyak notifikasi bank
+	 * masuk bersamaan) ditangkap di dalam BLOK 3 dan diubah menjadi balasan JSON berstatus
+	 * {@code 05} "sistem sedang sibuk", supaya host bank menerima kontrak API yang sah dan bisa
+	 * mengulang, bukan HTTP 500 mentah.</p>
+	 *
+	 * <h4>Tahap 4 &mdash; jejak audit dan balasan khusus bank</h4>
+	 * <p>Blok {@code finally} BLOK 3 selalu menyimpan {@link LogHostToHost} lewat
+	 * {@code PembayaranGatewayHelper.simpanLogHostToHost}. Sesudahnya, bila {@code bank} bernilai
+	 * {@code "Bank BTN"} atau {@code "Bank BJBS"}, badan balasan <b>ditimpa seluruhnya</b> dengan
+	 * format ringkas khas bank tersebut, sehingga status rinci di atas tidak terlihat oleh kedua
+	 * bank itu.</p>
+	 *
+	 * <h4>Catatan keamanan</h4>
+	 * <p>Method ini tidak melakukan otentikasi apa pun; lihat dokumentasi kelas. Selain itu perlu
+	 * disadari bahwa {@code bank} berasal dari payload yang dikirim pemanggil, sedangkan
+	 * {@code tetapberhasil} di {@link #process} diturunkan dari nilai {@code bank} tersebut.
+	 * Artinya jalur yang melewati pencocokan nominal (lihat parameter {@code tetapberhasil})
+	 * dipilih oleh data pemanggil, bukan oleh identitas pemanggil yang terverifikasi.</p>
+	 *
+	 * @param data          badan permintaan mentah berformat JSON; boleh {@code null}/kosong
+	 * @param request       permintaan HTTP asal; boleh {@code null} bila seluruh parameter ada di
+	 *                      dalam {@code data}
+	 * @param bankHost      host bank pemanggil hasil pencocokan IP; boleh {@code null}, dan nilai
+	 *                      {@code null} <b>tidak</b> menghentikan pemrosesan
+	 * @param tetapberhasil bila {@code true}, pemeriksaan "nominal setoran harus sama dengan total
+	 *                      tagihan VA" pada {@code action=payment} <b>dilewati</b> sehingga
+	 *                      pembayaran tetap diposting; dipakai untuk protokol Bank BTN yang
+	 *                      mengirim konfirmasi tanpa nominal yang sepadan
+	 * @return badan balasan JSON siap kirim; tidak pernah {@code null}
+	 * @throws Exception bila terjadi kegagalan yang tidak tertangani di luar blok yang dilindungi
+	 * @see #prosesH2HInquiry
+	 * @see #prosesH2HPayment
+	 * @see #prosesH2HReversal
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, boolean tetapberhasil)
 			throws Exception {
 		System.out.println("[VA Servlet] ================= MEMULAI PROSES REQUEST =================");
@@ -722,6 +819,36 @@ public class Va extends HttpServlet {
 		return body;
 	}
 
+	/**
+	 * Membaca permintaan HTTP, menentukan host bank pemanggil, menjalankan {@link #doProses},
+	 * lalu menulis hasilnya sebagai balasan JSON.
+	 *
+	 * <p>Badan permintaan dibaca baris demi baris lalu <b>digabung tanpa pemisah</b>, sehingga
+	 * JSON multi-baris tetap terurai dengan benar tetapi nilai string yang mengandung baris baru
+	 * akan menempel. Isi badan dan query string dicetak ke {@code System.out} apa adanya &mdash;
+	 * termasuk seluruh payload bank &mdash; sehingga log aplikasi memuat data transaksi mentah.</p>
+	 *
+	 * <p>Nama bank dibaca dari kunci JSON {@code bank} atau, bila tidak ada, dari parameter
+	 * request {@code bank}; kemudian ditimpa menjadi {@code "Bank BTN"} bila payload memuat
+	 * {@code revflag}/{@code reserve}, atau {@code "Bank BJBS"} bila memuat {@code va_acc_no}.</p>
+	 *
+	 * <p>{@link BankHost} dicari lewat {@code PembayaranUtil.getBankHost} memakai
+	 * {@code request.getRemoteAddr()} &mdash; alamat soket sesungguhnya, bukan header
+	 * {@code X-Forwarded-For} yang bisa dipalsukan. Hasilnya boleh {@code null}; nilai
+	 * {@code null} diteruskan apa adanya ke {@link #doProses} dan tidak menolak permintaan.</p>
+	 *
+	 * <p>Bendera {@code tetapberhasil} yang diteruskan ke {@link #doProses} bernilai {@code true}
+	 * bila dan hanya bila nama bank hasil langkah di atas sama dengan {@code "Bank BTN"}. Karena
+	 * nama bank itu berasal dari payload pemanggil, pemilihan mode tersebut ditentukan oleh isi
+	 * permintaan, bukan oleh identitas pemanggil yang terverifikasi.</p>
+	 *
+	 * <p>Balasan dikirim dengan header {@code length} dan {@code Content-Type: application/json};
+	 * status HTTP dibiarkan pada nilai bawaan 200 apa pun kode status di dalam JSON.</p>
+	 *
+	 * @param request  permintaan HTTP masuk
+	 * @param response balasan HTTP yang akan diisi
+	 * @throws Exception bila pembacaan badan permintaan atau pemrosesan H2H gagal
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		StringBuilder buffer = new StringBuilder();
 		BufferedReader reader = request.getReader();
@@ -762,6 +889,23 @@ public class Va extends HttpServlet {
 	// ====================================================================================================
 
 
+	/**
+	 * Mengembalikan session Hibernate yang dijamin terbuka: session yang diberikan bila masih
+	 * hidup, atau session ThreadLocal pengganti bila sudah tertutup.
+	 *
+	 * <p>Diperlukan karena {@link #prosesH2HPayment} melakukan beberapa {@code commit} berturutan;
+	 * pada sebagian jalur session bisa tertutup di tengah proses sehingga operasi berikutnya
+	 * gagal.</p>
+	 *
+	 * <p>Session pengganti <b>sengaja</b> memakai {@code HibernateUtil.currentNativeSession()}
+	 * (ThreadLocal), bukan {@code openSession()}: hasil method ini di-assign ke variabel lokal
+	 * pemanggil sehingga lolos dari blok {@code finally} milik session asli. Session ThreadLocal
+	 * dijamin ditutup oleh teardown {@code FilterJSP} di akhir request, sedangkan
+	 * {@code openSession()} mentah di sini akan bocor tanpa ada yang menutup.</p>
+	 *
+	 * @param session session yang akan diperiksa; boleh {@code null}
+	 * @return session yang siap dipakai; tidak pernah {@code null}
+	 */
 	private static Session pastikanSessionAktif(Session session) {
 		try {
 			if (session != null && session.isOpen()) {
@@ -779,6 +923,23 @@ public class Va extends HttpServlet {
 		return HibernateUtil.currentNativeSession();
 	}
 
+	/**
+	 * Membaca satu parameter permintaan dengan mendahulukan badan JSON lalu jatuh ke query string.
+	 *
+	 * <p>Urutannya: bila {@code req} ada dan kuncinya tidak {@code null} di dalam JSON, nilai JSON
+	 * dipakai; selain itu dibaca dari {@code request.getParameter(key)}. Bila {@code request} juga
+	 * {@code null}, dikembalikan string kosong.</p>
+	 *
+	 * <p>Perhatikan bahwa jalur JSON mengembalikan {@code ""} untuk kunci yang ada tapi kosong,
+	 * sedangkan jalur query string dapat mengembalikan {@code null} untuk parameter yang tidak
+	 * ada. Karena itu pemanggil di {@link #doProses} selalu memeriksa {@code null} sebelum
+	 * memakai hasilnya.</p>
+	 *
+	 * @param req     badan permintaan yang sudah diurai; boleh {@code null}
+	 * @param request permintaan HTTP asal; boleh {@code null}
+	 * @param key     nama kunci JSON sekaligus nama parameter query
+	 * @return nilai parameter, string kosong, atau {@code null} bila parameter query tidak ada
+	 */
 	private static String getSafeParam(JSONObject req, HttpServletRequest request, String key) {
 		if (req != null && !req.isNull(key)) {
 			return req.optString(key, "");
@@ -786,30 +947,79 @@ public class Va extends HttpServlet {
 		return request != null ? request.getParameter(key) : "";
 	}
 
+	/**
+	 * Mengambil nama fakultas seorang mahasiswa dengan aman terhadap relasi yang kosong.
+	 *
+	 * <p>Jalur relasinya {@code Mahasiswa -> jurusan -> fakultas -> nama}; setiap simpul
+	 * diperiksa lebih dulu sehingga tidak pernah melempar {@code NullPointerException}.</p>
+	 *
+	 * @param m mahasiswa yang ditanyakan; boleh {@code null}
+	 * @return nama fakultas, atau string kosong bila salah satu relasi tidak ada
+	 */
 	private static String getSafeFakultas(Mahasiswa m) {
 		if (m != null && m.getJurusan() != null && m.getJurusan().getFakultas() != null)
 			return m.getJurusan().getFakultas().getNama();
 		return "";
 	}
 
+	/**
+	 * Mengambil nama program studi (jurusan) seorang mahasiswa dengan aman terhadap relasi kosong.
+	 *
+	 * @param m mahasiswa yang ditanyakan; boleh {@code null}
+	 * @return nama jurusan, atau string kosong bila mahasiswa atau jurusannya tidak ada
+	 */
 	private static String getSafeProdi(Mahasiswa m) {
 		if (m != null && m.getJurusan() != null)
 			return m.getJurusan().getNama();
 		return "";
 	}
 
+	/**
+	 * Mengambil nama fakultas dari <b>prodi lulus</b> seorang calon mahasiswa dengan aman.
+	 *
+	 * <p>Prodi lulus adalah program studi hasil kelulusan seleksi, berbeda dari
+	 * {@code prodi1} yang merupakan pilihan saat mendaftar. Dipakai untuk calon yang sudah
+	 * dinyatakan lulus dan sedang membayar daftar ulang.</p>
+	 *
+	 * @param cm calon mahasiswa yang ditanyakan; boleh {@code null}
+	 * @return nama fakultas prodi lulus, atau string kosong bila salah satu relasi tidak ada
+	 */
 	private static String getSafeFakultasLulus(BiodataCalonMahasiswa cm) {
 		if (cm != null && cm.getProdiLulus() != null && cm.getProdiLulus().getFakultas() != null)
 			return cm.getProdiLulus().getFakultas().getNama();
 		return "";
 	}
 
+	/**
+	 * Mengambil nama <b>prodi lulus</b> seorang calon mahasiswa dengan aman terhadap relasi kosong.
+	 *
+	 * @param cm calon mahasiswa yang ditanyakan; boleh {@code null}
+	 * @return nama prodi lulus, atau string kosong bila calon atau prodi lulusnya tidak ada
+	 */
 	private static String getSafeProdiLulus(BiodataCalonMahasiswa cm) {
 		if (cm != null && cm.getProdiLulus() != null)
 			return cm.getProdiLulus().getNama();
 		return "";
 	}
 
+	/**
+	 * Menentukan alamat IP pemanggil <b>untuk keperluan pencatatan</b> {@link LogHostToHost}.
+	 *
+	 * <p>Urutan sumber yang dicoba: header {@code Cf-Connecting-Ip}, {@code CF-Connecting-IP},
+	 * {@code X-Forwarded-For}, {@code X-Real-IP}, lalu {@code request.getRemoteAddr()} sebagai
+	 * cadangan. Bila {@code request} sendiri {@code null}, dipakai IP yang tercatat pada
+	 * {@link BankHost}.</p>
+	 *
+	 * <p><b>Penting:</b> keempat header di atas dikirim oleh klien dan karena itu dapat
+	 * dipalsukan. Method ini hanya dipakai untuk mengisi kolom {@code ip} pada log, <b>bukan</b>
+	 * untuk mengambil keputusan otorisasi &mdash; pencocokan {@link BankHost} di {@link #process}
+	 * memakai {@code request.getRemoteAddr()} secara langsung. Konsekuensinya, kolom {@code ip}
+	 * pada log H2H tidak boleh diperlakukan sebagai bukti asal permintaan yang tepercaya.</p>
+	 *
+	 * @param request  permintaan HTTP asal; boleh {@code null}
+	 * @param bankHost host bank yang dipakai sebagai cadangan; boleh {@code null}
+	 * @return alamat IP untuk dicatat, atau string kosong bila tidak ada sumber sama sekali
+	 */
 	private static String getIpClient(HttpServletRequest request, BankHost bankHost) {
 		if (request == null)
 			return bankHost != null ? bankHost.getIp() : "";
@@ -823,12 +1033,32 @@ public class Va extends HttpServlet {
 		return ip != null ? ip : request.getRemoteAddr();
 	}
 
+	/**
+	 * Memeriksa apakah sebuah VA sudah melewati tanggal kedaluwarsanya.
+	 *
+	 * <p>Pemeriksaan hanya berlaku bila konfigurasi {@code chek_kadaluarsa} aktif; bila
+	 * konfigurasi itu mati, method selalu mengembalikan {@code false} sehingga VA lama tetap
+	 * bisa dibayar. VA tanpa tanggal kedaluwarsa juga dianggap belum kedaluwarsa.</p>
+	 *
+	 * <p>Dipanggil untuk {@code action=inquiry} dan {@code action=payment} saja &mdash; jalur
+	 * {@code action=reversal} tidak memeriksa kedaluwarsa.</p>
+	 *
+	 * @param vaBank VA yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila pemeriksaan aktif dan tanggal kedaluwarsa sudah lewat
+	 */
 	private static boolean isExpired(VirtualAccountBank vaBank) {
 		boolean checkAktif = Common.bolehKonfigurasi("chek_kadaluarsa");
 		return checkAktif && vaBank != null && vaBank.getKadaluarsa() != null
 				&& vaBank.getKadaluarsa().before(WaktuUtil.getDate());
 	}
 
+	/**
+	 * Membangun balasan baku untuk VA yang sudah kedaluwarsa: status {@code 05} dengan deskripsi
+	 * "Pembayaran telah kadaluarsa".
+	 *
+	 * @return objek JSON balasan yang siap diubah menjadi string
+	 * @throws Exception bila pembentukan JSON gagal
+	 */
 	private static JSONObject generateExpiredResponse() throws Exception {
 		JSONObject jsonObject = new JSONObject();
 		jsonObject.put("status", "05");
@@ -836,6 +1066,28 @@ public class Va extends HttpServlet {
 		return jsonObject;
 	}
 
+	/**
+	 * Menerjemahkan {@link Response} milik layanan pembayaran berbasis NIM menjadi bentuk JSON
+	 * balasan H2H yang sama dengan jalur VA biasa.
+	 *
+	 * <p>Dipakai hanya pada jalur "bayar via NIM" (konfigurasi
+	 * {@code pembayaran_via_va_bisa_berdasarkan_nim}), yaitu ketika nomor yang dikirim bank
+	 * ternyata bukan nomor VA melainkan NIM mahasiswa.</p>
+	 *
+	 * <h4>Penguraian rincian</h4>
+	 * <p>Field {@code amount} pada {@link Response} berisi daftar item yang dipisahkan tanda
+	 * {@code |}, dan setiap item dipisahkan lagi dengan garis miring terbalik. Nama item diambil
+	 * dari bagian kedua dan nominalnya dari bagian terakhir. Item yang gagal diurai dilewati.
+	 * Bila tidak ada satu pun item yang berhasil ditambahkan, dibuat satu baris rincian
+	 * pengganti memakai {@code namaRinci} dan {@code nominalRinci}.</p>
+	 *
+	 * @param response     hasil panggilan {@code inquiryByNim}/{@code payByNim}
+	 * @param rincian      array rincian yang akan diisi; dimodifikasi di tempat
+	 * @param namaRinci    nama item pengganti bila rincian asli tidak terurai
+	 * @param nominalRinci nominal item pengganti bila rincian asli tidak terurai
+	 * @return objek JSON balasan lengkap berikut status, identitas, dan rincian
+	 * @throws Exception bila pembentukan JSON atau penguraian {@code total_amount} gagal
+	 */
 	private static JSONObject mapResponseToJson(Response response, JSONArray rincian, String namaRinci,
 			Double nominalRinci) throws Exception {
 		JSONObject jsonObject = new JSONObject();
