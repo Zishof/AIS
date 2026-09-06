@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 134 — `ais/action/master/helper/` lanjutan, 5 agent paralel, 1 task baru, task_484d4bd0 AKHIRNYA TUNTAS diverifikasi (6 Sep 2026)
+
+64 file diproses (5 sudah selesai sesi lain, sisanya dilengkapi).
+
+**`DetailperkuliahanForPenilaianHelper.java`** (mega-file KEDUA terbesar
+inisiatif ini, 4304→6008 baris, 66/66 anggota, r85869-r85931, 13
+commit). Dikonfirmasi PENULIS UTAMA kolom nilai `Detailperkuliahan`
+(lewat `populateDetailNilai`/`retreiveDetailNilai*`/`hitungTotalNilai*`).
+**Soal "kunci nilai tidak beku" (dicatat batch 131) ternyata BUKAN bug
+helper ini** — perilaku disengaja: helper BUAT snapshot via
+`bekukanSemuaNilai()`/`bekukanDetailNilai()`, dan SATU-SATUNYA tempat
+yang MELAPORKAN penyimpangan snapshot-vs-huruf-terkini ke pengguna
+(Analisis Nilai Huruf eksplisit menyebut "snapshot sudah tidak
+sesuai"). **Task baru `task_ed9feded`**: jalur entry nilai HURUF
+(`hanyaInputNilaiHuruf`) MELEWATKAN `editDisable` (kebijakan
+`hanya_dosen_yg_boleh_entry_nilai`) DAN gerbang tunggakan
+(`mhsYgBelumBayarBelumBisaDiEntryNilai`) yang ADA di jalur kolom
+komponen — akun non-dosen bisa menulis `totalNilai`/`nilaiHuruf`/
+`totalIP` (masuk transkrip+IPK) di kelas bermode nilai huruf. Plus
+fallback pencarian `NilaiHuruf` lintas jurusan/fakultas (skala prodi
+lain terpakai), dan nol locking DB (2 penilai paralel bisa saling
+timpa).
+
+**Klaster `ParameterTambahan*Listener`** (8 file, r85857-r85893) —
+🎉 **MENUNTASKAN task_484d4bd0**: SEMUA 8 kandidat yang sebelumnya
+"belum pernah diverifikasi eksplisit" (`ParameterTambahanCatatanPegawai/
+CatatanAdministrasi/CatatanMahasiswa/PerbaikanAsset/PengajuanPegawai/
+Pertemuan/Pengaduan/MahasiswaListener`) KINI DIKONFIRMASI **AMAN** —
+semua sudah memakai `LampiranLain.resolveJenisParameterTambahan()`
+yang benar (hasil sapuan sistemik r83928-r84405 yang belum pernah
+tercatat eksplisit di memori proyek). Daftar 8-kandidat yang tersisa
+di catatan lama kini FULLY RESOLVED, tidak ada lagi yang perlu dicek.
+
+**Klaster billing/detail** (18 file, r85859-r85922, 3 sudah selesai).
+`GenerateAiHelper` dikonfirmasi domain TERPISAH dari `task_d1f5ce07`
+(pakai Ollama self-hosted tanpa API key, bukan Gemini). Bug kosmetik
+`AnalisisPemetaanAkunHelper.barisTabel()` (`cocokFak` self-comparison
+selalu true) dicatat, tidak dieskalasi (bukan keamanan).
+
+**Klaster dosen/absensi** (18 file, r85855-r85930, 1 sudah selesai).
+`MainTreeMenuHelper` DIKONFIRMASI AMAN dari `task_9f520b16` — akar
+sebenarnya di `DisplayMenu`/`index.jsp` (di luar cakupan). **Temuan
+terlewat**: `AmbilDataPerkuliahanBandbox` struktur PERSIS pola 83-
+subclass `GetEventListener`/`AmbilData*Banbox` tapi TIDAK `implements`
+interface itu — murni kosmetik (nol `instanceof` di codebase), dicatat
+bukan diperbaiki (di luar cakupan dokumentasi).
+
+**Klaster kkn/pkl/beasiswa/kegiatan** (19 file, r85873-r85926, 1 sudah
+selesai). Bug "Syarat Lain" KKN/PKL (sesi 14) dikonfirmasi MENJANGKAU
+2 helper Seleksi (`AmbilDataMahasiswaSeleksiKknHelper`/`...PklHelper`,
+panggil `Common.checkSyaratKkn/Pkl` langsung) tapi TIDAK helper
+Pengecualian/AmbilData biasa (independen). Kegiatan Kedosenan/
+Kemahasiswaan dikonfirmasi ULANG terpisah dari billing di level
+helper (bukan cuma entity).
+
+**Catatan alat BERULANG**: efek samping CRLF `Edit` tool (batch ini
+mega-file 748 baris LF ikut ter-CRLF-kan) terkonfirmasi LAGI — setiap
+agent WAJIB skrip pemulih EOL berbasis diff-baseline `svn cat`,
+BUKAN cuma andalkan kompilasi sukses (`svn diff` baris-terhapus=0
+adalah bukti nyata, bukan kompilasi).
+
+**1 task baru batch ini**: `task_ed9feded`. Total akumulasi: **1930+
+file** dari 7.401. Sisa `action/master/helper/`: ~328 file.
+
 ## 🔀 Batch 133 — PIVOT ke `ais/action/master/helper/` (414 file, backlog genuinely terbuka), 5 agent paralel, 3 task baru (6 Sep 2026)
 
 Seluruh `ais/database/model/` (2289 file) kini SATURATED antara sesi
