@@ -874,20 +874,30 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 					final XSSFCellStyle hlink_style = (XSSFCellStyle) objects[7];
 
 					/**
-					 * Helper implementasi bersarang milik {@link FormulirKegiatanPesertaHelper} untuk data adding helper. Kelas
-					 * ini mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+					 * Kelas lokal penulis kolom tambahan lampiran pada ekspor Excel konteks perguruan
+					 * tinggi. Menulis DUA kolom berdampingan di luar {@code contents}: nama berkas
+					 * lampiran dan URL unduhnya sebagai teks biasa (varian sekolah di
+					 * {@link #display} menulis satu kolom saja, memakai hyperlink Excel sungguhan).
 					 *
-					 * <p><b>Scope:</b> setiap instance terikat pada instance {@link FormulirKegiatanPesertaHelper} dan dapat
-					 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-					 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
-					 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-					 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-					 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-					 * tambahkan perilaku lintas domain pada service bersama.</p>
+					 * <p>
+					 * Bila peserta belum punya lampiran, kedua sel dibiarkan kosong tanpa gaya — bukan
+					 * diisi penanda apa pun — sehingga ekspor tetap berhasil untuk peserta tanpa berkas.
+					 * Kelas ini menutup (capture) {@code bodystyle} dan {@code hlink_style} dari event
+					 * ekspor induk, jadi hanya valid selama satu proses ekspor berlangsung.
+					 * </p>
 					 *
 					 * @see FormulirKegiatanPesertaHelper
 					 */
 					class DataAddingHelper {
+						/**
+						 * Menulis nama lampiran dan URL-nya ke dua sel berurutan.
+						 *
+						 * @param row                     baris Excel tujuan
+						 * @param index                   indeks sel pertama; sel {@code index+1} diisi URL
+						 * @param formulirKegiatanPeserta peserta yang lampirannya dicari (dicocokkan lewat id-nya)
+						 * @param jenis                   penanda jenis lampiran, di sini nama kelas {@link FormulirKegiatanPeserta}
+						 * @throws Exception diteruskan dari pembacaan lampiran atau penulisan sel
+						 */
 						public void process(XSSFRow row, int index, FormulirKegiatanPeserta formulirKegiatanPeserta,
 								String jenis) throws Exception {
 							LampiranLain lam = LampiranLain.ambil(formulirKegiatanPeserta.getId(), jenis);
@@ -1129,13 +1139,30 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 					hlink_style.setFont(hlink_font);
 
 					/**
-					 * Helper lokal ekspor yang menulis nama dan tautan lampiran peserta ke sel workbook.
-					 * Operasi membaca lampiran melalui alur {@link FormulirKegiatanPesertaHelper} dan memodifikasi row Excel yang
-					 * diberikan; jangan jadikan kelas lokal ini sebagai service penyimpanan lampiran terpisah.
+					 * Kelas lokal penulis kolom lampiran pada ekspor Excel konteks sekolah. Berbeda dari
+					 * kembarannya di cabang perguruan tinggi, versi ini menulis SATU kolom saja berisi nama
+					 * berkas yang dijadikan hyperlink Excel sungguhan lewat {@link XSSFHyperlink}, bukan dua
+					 * kolom nama+URL teks. URL-nya pun dibuat dengan {@code createLinkUri()} tanpa argumen,
+					 * bukan {@code createLinkUri(false)}.
+					 *
+					 * <p>
+					 * Bila peserta belum punya lampiran, sel dibiarkan kosong tanpa gaya sehingga ekspor
+					 * tetap berhasil. Kelas ini menutup (capture) {@code hlink_style} milik event ekspor
+					 * induk, jadi hanya valid selama satu proses ekspor berlangsung.
+					 * </p>
 					 *
 					 * @see FormulirKegiatanPesertaHelper
 					 */
 					class DataAddingHelper {
+						/**
+						 * Menulis nama lampiran sebagai sel ber-hyperlink ke berkasnya.
+						 *
+						 * @param row                     baris Excel tujuan
+						 * @param index                   indeks sel yang ditulis
+						 * @param formulirKegiatanPeserta peserta yang lampirannya dicari (dicocokkan lewat id-nya)
+						 * @param jenis                   penanda jenis lampiran, di sini nama kelas {@link FormulirKegiatanPeserta}
+						 * @throws Exception diteruskan dari pembacaan lampiran atau penulisan sel
+						 */
 						public void process(XSSFRow row, int index, FormulirKegiatanPeserta formulirKegiatanPeserta,
 								String jenis) throws Exception {
 							LampiranLain lam = LampiranLain.ambil(formulirKegiatanPeserta.getId(), jenis);

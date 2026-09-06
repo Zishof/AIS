@@ -2337,26 +2337,186 @@ public class HasilUjianSiswaHelper implements DataLoader {
 		}
 	}
 	
+	/**
+	 * Peta hasil ujian per peserta: <b>kunci</b> adalah id peserta ({@link Siswa} atau
+	 * {@link CalonSiswa}) — bukan id lembar jawaban — dan <b>nilainya</b> adalah
+	 * {@code Object[]} dua elemen:
+	 * <ul>
+	 * <li>indeks 0: {@link HasilUjianMahasiswa}, lembar jawaban peserta tersebut;</li>
+	 * <li>indeks 1: {@code Set<Long>} berisi id bank soal yang sudah terjawab, hasil
+	 * {@link HasilUjianMahasiswa#ambilBankSoalIdTerjawab}.</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * Dibuat ulang sebagai {@link java.util.concurrent.ConcurrentHashMap} pada setiap
+	 * {@link #loadData(Object)}. Tipe konkuren dipilih secara sadar (lihat komentar
+	 * "PERBAIKAN 2") karena peta ini <b>ditulisi oleh kolam thread latar</b> sementara
+	 * pada saat yang sama dibaca oleh benang UI lewat
+	 * {@link DetailPertemuanPunyaUjianRenderer#render(Row, Object)} dan oleh penangan
+	 * tombol-tombol aksi massal pada toolbar.
+	 * </p>
+	 * <p>
+	 * <b>Konsekuensi yang perlu diketahui pemelihara:</b> {@code ConcurrentHashMap}
+	 * menjamin keamanan struktur peta, bukan kelengkapan isinya pada saat dibaca. Grid
+	 * dirender sebelum kolam thread selesai, sehingga baris yang datanya belum masuk
+	 * mendapat {@code null} dan dilewati; demikian pula tombol aksi massal yang ditekan
+	 * terlalu cepat akan bekerja atas sebagian peserta saja tanpa peringatan. Peta ini
+	 * juga menahan referensi entity Hibernate hidup untuk seluruh peserta satu kelas
+	 * sekaligus, yang menjadi alasan pola pelepasan memori eksplisit di sepanjang berkas
+	 * ini.
+	 * </p>
+	 */
 	private Map<Long, Object[]> hasilUjianMahasiswas = null;
+
+	/**
+	 * Daftar peserta yang menjadi model {@link #grid} pada siklus muat terakhir.
+	 * Bertipe {@link VOSiswa}, yaitu antarmuka bersama {@link Siswa} dan
+	 * {@link CalonSiswa}, sehingga satu daftar dapat memuat campuran keduanya (jalur
+	 * cadangan {@link #loadData(Object)} memang menggabungkan calon siswa dan siswa).
+	 *
+	 * <p>
+	 * Komentar "PERBAIKAN 1" pada berkas mencatat bahwa tipe generiknya sengaja
+	 * dipastikan {@code <VOSiswa>} alih-alih {@code <? extends VOSiswa>} agar
+	 * {@code addAll} dari berbagai sumber dapat dilakukan langsung.
+	 * </p>
+	 * <p>
+	 * <b>Peringatan siklus hidup:</b> daftar ini di-{@code clear()} oleh timer bawaan
+	 * segera setelah grid selesai dirender, sebagai pelepasan memori. Namun thread latar
+	 * yang mengisi {@link #hasilUjianMahasiswas} <b>juga</b> melakukan iterasi atas
+	 * daftar yang sama ({@code for (VOSiswa voSiswa : siswasTemorary)}) dan membaca
+	 * {@code siswasTemorary.size()} untuk menghitung persentase kemajuan. Karena
+	 * {@link ArrayList} bukan struktur konkuren, pengosongan yang bersamaan dengan
+	 * iterasi tersebut berpotensi memunculkan
+	 * {@link java.util.ConcurrentModificationException} — yang pada praktiknya tertelan
+	 * oleh blok {@code catch} pembungkus thread latar sehingga muncul sebagai "sebagian
+	 * peserta tidak tampil datanya" alih-alih galat yang kasatmata.
+	 * </p>
+	 */
 	// PERBAIKAN 1: Gunakan tipe pasti <VOSiswa>, hilangkan '? extends'
 	private List<VOSiswa> siswasTemorary = null;
+
+	/**
+	 * Jumlah peserta yang dipakai sebagai <b>penyebut</b> statistik pada
+	 * {@link #displayStatistik(int, int, int)}. Perlu dicatat bahwa maknanya
+	 * <b>berbeda-beda menurut jalur pengambilan data</b> di {@link #loadData(Object)},
+	 * dan ini disengaja:
+	 * <ul>
+	 * <li>mode satu siswa — jumlah peserta perkuliahan/kelas terkait
+	 * ({@code ambilJumlahDetailperkuliahan()}), sehingga statistik tetap relatif
+	 * terhadap seluruh kelas walaupun yang tampil hanya satu baris;</li>
+	 * <li>mode satu calon siswa — jumlah baris {@link HasilUjianMahasiswa} bercalon
+	 * siswa yang sudah tersimpan untuk ujian ini;</li>
+	 * <li>seluruh jalur mode admin/guru — sekadar {@code siswasTemorary.size()},
+	 * yaitu banyaknya baris yang benar-benar ditampilkan.</li>
+	 * </ul>
+	 * Karena pada jalur admin/guru penyebut ini mengikuti hasil <b>pencarian</b>,
+	 * persentase pada tab "Statistik" ikut menyempit ketika kotak pencarian
+	 * {@link #nama} terisi — statistik yang tampil adalah statistik atas hasil saring,
+	 * bukan atas seluruh kelas.
+	 */
 	private int jumlahPeserta = 0;
 
 	/**
-	 * Memuat ulang daftar peserta dan hasil ujian mereka ke {@link #grid}. Sumber
-	 * daftar peserta bervariasi menurut mode helper dan jenis ujian: satu peserta
-	 * (mode {@link #siswa}/{@link #calonSiswa}); peserta gelombang PMB (bila pertemuan
-	 * berasal dari {@code JadwalUjianPSB} dengan gelombang tertentu); peserta yang
-	 * sudah punya hasil ujian tersimpan (bila tidak ada gelombang PMB spesifik); daftar
-	 * hadir kelas via {@link AbsensiSiswaHelper#populateSiswaDariPertemuan} (mode
-	 * admin/guru dengan {@link #pertemuan} terisi, dikurangi siswa yang secara eksplisit
-	 * dikecualikan lewat {@code mhsYgTidakIkut}); atau gabungan calon siswa + siswa yang
-	 * sudah punya hasil ujian (fallback umum). Pencarian nama/NIM/no registrasi/no
-	 * ujian diterapkan pada seluruh jalur. Setelah daftar siap, grid dirender lewat
-	 * {@link Common#displayLoadBar} (indikator loading) dan statistik ringkas
-	 * dihitung untuk ditampilkan di tab Statistik.
+	 * Memuat ulang daftar peserta dan hasil ujian mereka ke {@link #grid}, lalu
+	 * menghitung dan menggambar ulang tab "Statistik". Implementasi kontrak
+	 * {@link DataLoader}. Dipanggil di akhir
+	 * {@link #display(PertemuanPunyaUjian, Component)} dan oleh hampir semua aksi
+	 * toolbar yang mengubah data.
 	 *
-	 * @param value bila {@link Boolean} {@code true}, memaksa muat ulang data (parameter kontrak {@link DataLoader})
+	 * <h4>Tahap 1 — menyiapkan wadah</h4>
+	 * <p>
+	 * {@link #hasilUjianMahasiswas} dibuat ulang sebagai
+	 * {@link java.util.concurrent.ConcurrentHashMap} dan {@link #siswasTemorary} sebagai
+	 * {@link ArrayList} kosong. Nilai kotak pencarian {@link #nama} dibaca sekali ke
+	 * variabel efektif-final {@code searchValue}; kosongnya kotak tersebut
+	 * ({@code isSearchEmpty}) kemudian dipakai di dua tempat berbeda: sebagai penanda
+	 * "tanpa filter" pada kriteria, dan sebagai penanda "muat penuh" yang memicu
+	 * penulisan ulang cache lokasi hasil ujian.
+	 * </p>
+	 *
+	 * <h4>Tahap 2 — lima jalur pengambilan daftar peserta</h4>
+	 * <ol>
+	 * <li><b>Mode satu siswa</b> ({@link #siswa} terisi) — daftar berisi tepat satu
+	 * elemen; {@link #jumlahPeserta} justru diambil dari jumlah peserta perkuliahan agar
+	 * statistik tetap relatif terhadap kelas.</li>
+	 * <li><b>Mode satu calon siswa</b> ({@link #calonSiswa} terisi) — daftar berisi satu
+	 * elemen; {@link #jumlahPeserta} dihitung lewat {@code rowCount} atas
+	 * {@link HasilUjianMahasiswa} yang bercalon siswa untuk ujian ini.</li>
+	 * <li><b>Gelombang PSB/PMB</b> — bila
+	 * {@code pertemuan.getJadwalUjianPSB().getGelombangPendaftaranPsb()} terisi, daftar
+	 * diambil dari seluruh {@link CalonSiswa} pada gelombang tersebut, diurutkan menurut
+	 * {@code nomorInduk}. Inilah satu-satunya jalur yang menampilkan peserta yang
+	 * <b>belum</b> punya lembar jawaban sama sekali.</li>
+	 * <li><b>Jadwal ujian PSB tanpa gelombang</b> — daftar diambil dari calon siswa yang
+	 * <b>sudah</b> punya {@link HasilUjianMahasiswa} untuk ujian ini
+	 * ({@code keyhasil is not null}), lewat {@code groupProperty("calonSiswa.id")}.</li>
+	 * <li><b>Daftar hadir kelas</b> — bila pertemuan ada tetapi bukan jadwal ujian PSB,
+	 * peserta diambil dari {@link AbsensiSiswaHelper#populateSiswaDariPertemuan}, lalu
+	 * disaring dua kali: menurut kata kunci pencarian (dicocokkan di memori, bukan di
+	 * basis data — perhatikan perbedaan semantik dengan jalur lain yang memakai
+	 * {@code ILIKE}), dan menurut daftar pengecualian {@code mhsYgTidakIkut}. Daftar
+	 * pengecualian itu berupa <b>teks berisi id yang dipisah koma</b> dan diuji dengan
+	 * {@code contains("," + id + ",")}; karena itu id yang berada di posisi paling depan
+	 * atau paling belakang hanya terdeteksi bila teksnya diapit koma di kedua ujungnya —
+	 * ketergantungan format yang perlu dijaga oleh penulis data tersebut.</li>
+	 * <li><b>Jalur cadangan umum</b> (tanpa pertemuan) — menggabungkan calon siswa dan
+	 * siswa yang sudah punya hasil ujian untuk ujian ini menjadi satu daftar campuran.</li>
+	 * </ol>
+	 * <p>
+	 * Pencarian diterapkan pada seluruh jalur, dengan bidang yang berbeda menurut jenis
+	 * peserta: nama/no registrasi/no ujian untuk calon siswa, nama/NIM untuk siswa.
+	 * Jalur yang tidak memakai filter menyisipkan {@code Restrictions.sqlRestriction("true")}
+	 * sebagai penanda "tanpa syarat" agar rantai {@code add(...)} tetap seragam.
+	 * </p>
+	 * <p>
+	 * <b>Catatan cakupan (fakta arsitektur):</b> tidak satu pun dari jalur di atas
+	 * menyempitkan hasil menurut satuan kerja, tenant, atau kepemilikan pengajar. Yang
+	 * membatasi hanyalah {@code pertemuanPunyaUjian} yang diterima dari pemanggil.
+	 * Konsisten dengan catatan otorisasi pada Javadoc kelas.
+	 * </p>
+	 *
+	 * <h4>Tahap 3 — render grid dan statistik</h4>
+	 * <p>
+	 * Dibungkus {@link Common#displayLoadBar} agar pengguna melihat indikator proses.
+	 * Model grid diisi {@link SimpleListModel} atas {@link #siswasTemorary} dengan
+	 * perender {@link DetailPertemuanPunyaUjianRenderer}. Setelah itu total soal
+	 * terjawab dan jumlah peserta yang "ikut ujian" dihitung dari isi
+	 * {@link #hasilUjianMahasiswas} yang <b>sudah tersedia pada saat itu</b>, lalu
+	 * diteruskan ke {@link #displayStatistik(int, int, int)}. Karena pengisian peta
+	 * berjalan asinkron di tahap 4, statistik yang pertama kali tampil dapat lebih kecil
+	 * dari kenyataan sampai pengguna menekan "Refresh". Terakhir, sebuah timer bawaan
+	 * mengosongkan {@link #siswasTemorary} sebagai pelepasan memori.
+	 * </p>
+	 *
+	 * <h4>Tahap 4 — pengisian data secara paralel</h4>
+	 * <p>
+	 * Bila kotak pencarian kosong (dianggap "muat penuh"), cache lokasi hasil ujian pada
+	 * {@link PertemuanPunyaUjian} dibersihkan dan ditulis ulang menjadi objek JSON
+	 * kosong lebih dahulu, sehingga pemetaan peserta ke lembar jawaban dibangun ulang
+	 * dari nol. Sesudahnya sebuah thread membuka kolam berukuran
+	 * {@code ais.common.DbThreadPool.safe(50)} — plafon aman terhadap ukuran kolam
+	 * koneksi c3p0 — dan untuk setiap peserta menjalankan tugas yang: mengambil lembar
+	 * jawaban lewat {@link HasilUjianMahasiswa#ambilByKey}, memperbarui cache lokasi bila
+	 * sedang muat penuh, mengambil daftar soal yang ditampilkan, dan akhirnya menaruh
+	 * pasangan {lembar jawaban, himpunan id bank soal terjawab} ke
+	 * {@link #hasilUjianMahasiswas}. Kemajuan dilaporkan lewat
+	 * {@link java.util.concurrent.atomic.AtomicInteger} agar penghitungnya aman
+	 * lintas-thread. Kolam ditutup lalu ditunggu hingga selesai tanpa batas waktu
+	 * ({@code Long.MAX_VALUE} nanodetik).
+	 * </p>
+	 * <p>
+	 * Setiap kegagalan per peserta ditangkap dan dicatat lewat
+	 * {@code ais.common.ErrorAuditUtil}, sehingga satu peserta bermasalah tidak
+	 * menggagalkan seluruh muat; efeknya baris peserta itu tampil kosong. Peserta yang
+	 * idnya sudah ada di peta dilewati, yang membuat method ini aman dipanggil berulang.
+	 * </p>
+	 *
+	 * @param value parameter kontrak {@link DataLoader}. Bila bernilai {@link Boolean}
+	 *              {@code true}, diteruskan sebagai bendera {@code refresh} ke
+	 *              {@link HasilUjianMahasiswa#ambilBankSoalIdTerjawab} sehingga cache
+	 *              jawaban dihitung ulang alih-alih dibaca dari simpanan. {@code null}
+	 *              diperlakukan sama dengan {@code false}. Nilai non-{@link Boolean}
+	 *              akan memicu {@link ClassCastException}.
 	 */
 	@SuppressWarnings("unchecked")
 	@Override

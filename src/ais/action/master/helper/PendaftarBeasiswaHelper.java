@@ -521,7 +521,46 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 	 * unduh. Baris yang gagal diproses dilewati (dicatat lewat {@link Common#tampilErrorJikaAdmin})
 	 * tanpa menghentikan keseluruhan ekspor.
 	 *
-	 * @param dataCriteria penyedia criteria sumber data (biasanya {@code this}); boleh berbeda dari filter grid utama
+	 * <p>
+	 * <b>Efek samping menulis data saat mengekspor.</b> Meski namanya menyiratkan operasi baca,
+	 * loop ekspor MEMBUAT baris {@link MahasiswaBeasiswaPersyaratan} baru (dan menyimpannya lewat
+	 * {@code session.save}) untuk setiap pasangan (mahasiswa, beasiswa, persyaratan) yang belum
+	 * punya baris jawaban. Jadi menekan tombol Download pada beasiswa dengan banyak persyaratan
+	 * dapat menambah ribuan baris kosong ke basis data. Ini perilaku existing yang
+	 * didokumentasikan apa adanya, bukan sesuatu yang diubah di sini.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Berkas keluaran.</b> Berkas ditulis ke direktori {@code /tmp/} DI DALAM webapp
+	 * ({@code getRealPath("/tmp/...")}) dengan nama {@code cetak_data_<yyMMddHHmmss>.xlsx}, lalu
+	 * disajikan kembali ke browser lewat URL relatif {@code ../../tmp/<nama>}. Nama berkas hanya
+	 * mengandung cap waktu berketelitian detik sehingga mudah ditebak, berkasnya tidak pernah
+	 * dihapus setelah diunduh, dan isinya memuat NIM, nama, IPK, status penerimaan, serta seluruh
+	 * jawaban persyaratan tiap pendaftar. Pola direktori yang sama dipakai banyak layar ekspor
+	 * lain di aplikasi ini.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Model konkurensi.</b> Pekerjaan berat berjalan di {@link Thread} baru sementara
+	 * {@link org.zkoss.zul.Timer} pada thread ZK mem-poll komponen {@link Label} sebagai kanal
+	 * status: teks persentase berarti masih berjalan, {@code ""} berarti selesai (jendela
+	 * pratinjau dibuka), dan {@code "-"} berarti gagal (indikator sibuk dibersihkan dan timer
+	 * dilepas). Komponen {@link Intbox} dipakai serupa untuk mengoper jumlah baris. Thread latar
+	 * memakai sesi Hibernate ThreadLocal-nya sendiri, dan untuk hyperlink lampiran membuka
+	 * {@link StreamingHibernateUtil} terpisah yang ditutup di tiap iterasi.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Ketahanan.</b> Kegagalan pada satu sel persyaratan maupun satu baris pendaftar ditangkap
+	 * dan hanya dicatat lewat {@link Common#tampilErrorJikaAdmin}; proses lanjut ke baris
+	 * berikutnya. Artinya berkas hasil dapat berisi baris dengan kolom kosong tanpa penanda
+	 * kesalahan yang terlihat oleh pengguna.
+	 * </p>
+	 *
+	 * @param dataCriteria penyedia criteria sumber data (biasanya {@code this}); boleh berbeda dari
+	 *                     filter grid utama. Bila bukan {@link Criteria}, nilainya diperlakukan
+	 *                     sebagai {@link List} yang sudah jadi; {@code null} akan menyebabkan
+	 *                     kegagalan yang dilaporkan lewat kanal status {@code "-"}
 	 * @param buttonLabel  label tombol
 	 * @param buttonImage  path ikon tombol
 	 * @return tombol toolbar siap ditempel ke toolbar pemanggil
@@ -927,10 +966,46 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 	 * belum diterima), tombol aksi (cari, cetak Pendaftar/Penerima/Rekap, Hitung Skor, Baru,
 	 * Download/Upload Excel), dan grid berpaging hasil {@link #loadData(Object)}.
 	 *
+	 * <p>
+	 * <b>Tombol cetak.</b> Ketiga tombol laporan memeriksa lebih dulu apakah datanya ada
+	 * ("Pendaftar" menghitung seluruh pendaftar; "Penerima" dan "Rekap" menghitung yang
+	 * {@code terima = 1}) dan menampilkan dialog informasi bila kosong, alih-alih menghasilkan
+	 * PDF hampa. Ketiganya hanya mengoper {@code id_beasiswa} ke laporan Jasper &mdash; filter
+	 * fakultas/jurusan/angkatan pada toolbar TIDAK ikut diteruskan, sehingga isi PDF selalu
+	 * seluruh pendaftar beasiswa ini, berbeda dari isi grid maupun ekspor Excel.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Tombol "Hitung Skor".</b> Menjumlahkan bagian angka dari jawaban bertipe
+	 * {@link PersyaratanBeasiswa#PILIHAN_CUSTOM} yang tersimpan dengan format
+	 * {@code "label:angka"}, lalu menulis hasilnya ke {@code totalSkor} setiap pendaftar yang
+	 * cocok filter aktif. Jawaban yang tidak mengikuti format tersebut dihitung sebagai 0
+	 * (kegagalan {@code parseInt} ditelan), jadi skor 0 tidak dapat dibedakan dari data rusak.
+	 * Perhitungan berjalan atas SELURUH hasil filter tanpa batas paging.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Tombol Upload.</b> Membaca kolom ID (0), NIM (1), dan "Diterima" (5) dari berkas .xlsx,
+	 * mencari baris pendaftaran lewat {@link #cariPendaftarBeasiswa} (selalu dibatasi beasiswa
+	 * ini), MEMBUAT baris pendaftaran baru bila belum ada, menulis {@code terima}, lalu menghitung
+	 * ulang {@code memenuhiSyarat} dengan {@link Common#checkApakahMemenuhiSyaratBeasiswa}. Tiap
+	 * baris disimpan dalam transaksi tersendiri dengan rollback eksplisit saat gagal, dan
+	 * referensi sesi diambil ulang setiap iterasi karena Hibernate dapat menutup sesi sendiri
+	 * setelah kegagalan fatal (lihat komentar inline). Hasil akhir dirangkum sebagai jumlah
+	 * diproses/diterima/tidak ditemukan/gagal.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Penting:</b> jalur unggah ini menulis kolom {@code terima} TANPA memeriksa parameter
+	 * {@code approve} dan tanpa memeriksa {@link Beasiswa#getBolehGanda()}, sehingga status
+	 * penerimaan tetap dapat diubah secara massal walau grid sedang dalam mode baca saja.
+	 * </p>
+	 *
 	 * @param beasiswa  beasiswa yang daftar pendaftarnya ditampilkan
 	 * @param component komponen induk tempat UI ditempel (dibersihkan lebih dulu)
 	 * @param window    window pembungkus (diteruskan ke dialog "Baru" agar dapat menutup diri sendiri)
-	 * @param approve   {@code true} untuk mengaktifkan checkbox terima/tolak pada tiap baris (mode approval)
+	 * @param approve   {@code true} untuk mengaktifkan checkbox terima/tolak pada tiap baris (mode
+	 *                  approval); hanya memengaruhi kedua checkbox tersebut, bukan tombol lain
 	 */
 	public void displayPrasyaratBeasiswa(final Beasiswa beasiswa, final Component component, final MyWindow window,
 			final boolean approve) {

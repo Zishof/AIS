@@ -1834,6 +1834,37 @@ public class KoreksiHasilUjian implements DataCriteria {
 		return n;
 	}
 
+	/**
+	 * Meratakan teks ber-HTML menjadi teks polos satu baris yang layak dikirim ke model bahasa.
+	 *
+	 * <p>Soal pada {@link BankSoal#getSoal()} disimpan sebagai HTML karena diketik lewat editor kaya di
+	 * layar bank soal. Bila dikirim apa adanya ke dalam prompt, markup tersebut menghabiskan token,
+	 * mengaburkan isi soal, dan berisiko membuat model ikut membalas dalam bentuk HTML.
+	 *
+	 * <p><b>Tiga langkah, berurutan:</b>
+	 * <ol>
+	 *   <li>{@code replaceAll("<[^>]+>", " ")} — setiap tag dibuang dan <b>diganti spasi</b>, bukan
+	 *       dihapus, supaya kata yang bersebelahan dengan tag (mis. {@code "a<br>b"}) tidak menyatu.</li>
+	 *   <li>{@code replaceAll("&nbsp;", " ")} — entitas spasi-takputus yang lazim disisipkan editor
+	 *       kaya diubah menjadi spasi biasa. Perhatikan bahwa hanya entitas ini yang ditangani; entitas
+	 *       lain seperti {@code &amp;} atau {@code &lt;} dibiarkan apa adanya.</li>
+	 *   <li>{@code replaceAll("\\s+", " ").trim()} — seluruh rentetan spasi/tab/baris baru yang tersisa
+	 *       (termasuk yang baru saja dihasilkan langkah 1 dan 2) diringkas menjadi satu spasi, lalu
+	 *       ujung-ujungnya dipangkas.</li>
+	 * </ol>
+	 *
+	 * <p>Regex ini sengaja sederhana dan <b>bukan</b> pembersih keamanan: ia tidak dirancang untuk
+	 * menetralkan HTML berbahaya dan tidak boleh dipakai untuk itu. Perannya semata merapikan teks yang
+	 * akan masuk prompt.
+	 *
+	 * <p><b>Sifat:</b> murni, tanpa efek samping, aman dari {@code null} (mengembalikan string kosong),
+	 * dan tidak pernah mengembalikan {@code null}.
+	 *
+	 * @param s teks sumber yang mungkin mengandung markup; boleh {@code null}
+	 * @return teks polos rapi tanpa tag dan tanpa spasi berlebih; string kosong bila masukan {@code null}
+	 * @see #kumpulkanEssay
+	 * @see #kumpulkanPg
+	 */
 	private static String stripHtml(String s) {
 		if (s == null) {
 			return "";
@@ -1841,14 +1872,77 @@ public class KoreksiHasilUjian implements DataCriteria {
 		return s.replaceAll("<[^>]+>", " ").replaceAll("&nbsp;", " ").replaceAll("\\s+", " ").trim();
 	}
 
+	/**
+	 * Mengubah {@link String} yang mungkin {@code null} menjadi string yang selalu aman dirangkai —
+	 * {@code null} menjadi string kosong, selain itu hasil {@code trim()}.
+	 *
+	 * <p>Dipakai {@link #kumpulkanPg} saat menyusun daftar opsi jawaban dan teks jawaban peserta, di
+	 * mana kolom {@code huruf} dan {@code jawaban} pada {@link BankSoalDetail} dapat berisi {@code null}
+	 * untuk data lama. Tanpa pembungkus ini, perangkaian {@link StringBuilder} akan memunculkan literal
+	 * {@code "null"} di tengah prompt AI — yang bukan hanya jelek, tetapi menyesatkan model karena
+	 * terbaca sebagai isi opsi.
+	 *
+	 * <p>Namanya adalah singkatan dari "safe konkatenasi". Berbeda dari {@link #stripHtml}, method ini
+	 * <b>tidak</b> menyentuh markup; ia hanya menjamin nilai bukan {@code null} dan tanpa spasi tepi.
+	 *
+	 * <p><b>Sifat:</b> murni, tanpa efek samping, tidak pernah melempar, tidak pernah mengembalikan
+	 * {@code null}.
+	 *
+	 * @param s teks sumber; boleh {@code null}
+	 * @return {@code s.trim()}, atau string kosong bila {@code s} adalah {@code null}
+	 * @see #kumpulkanPg
+	 */
 	private static String safeK(String s) {
 		return s == null ? "" : s.trim();
 	}
 
 	/**
-	 * Kumpulkan jawaban PILIHAN GANDA peserta sebagai {@code Object[]{detailId(Long), soal(String),
-	 * opsi(String), jawabanPeserta(String), benar(Boolean)}}. Untuk membuat KOREKSI/penjelasan via AI
-	 * (skor PG tetap otomatis dari sistem). Harus dipanggil pada thread event ZK.
+	 * <b>Tujuan:</b> Mengumpulkan seluruh jawaban <b>Pilihan Ganda</b> milik satu peserta ujian menjadi
+	 * daftar tuple datar untuk dijadikan prompt penjelasan AI. Kembaran {@link #kumpulkanEssay} untuk
+	 * jalur Pilihan Ganda; tahap pertama dari rangkaian {@code kumpulkanPg} &rarr;
+	 * {@link #promptKoreksiPg} &rarr; {@link #terapkanKoreksiPg}.
+	 *
+	 * <p><b>Perbedaan mendasar dari jalur esai — wajib dipahami:</b> pada Pilihan Ganda, benar/salah dan
+	 * skor sudah <b>ditentukan sistem</b> dari kunci jawaban. AI di sini <b>tidak menilai</b>; ia hanya
+	 * menuliskan penjelasan edukatif ke kolom {@code koreksi}. Karena itu tuple membawa flag
+	 * {@code benar} (agar model tahu harus menjelaskan pembenaran atau letak kesalahan) dan
+	 * <b>tidak membawa</b> skor maksimal — tidak ada nilai yang perlu di-<i>clamp</i> karena
+	 * {@link #terapkanKoreksiPg} memang tidak menyentuh kolom nilai.
+	 *
+	 * <p><b>Bentuk tuple:</b> {@code Object[]} berukuran lima dengan posisi yang wajib dijaga:
+	 * <ol start="0">
+	 *   <li>{@code Long} — {@code id} baris {@link HasilUjianMahasiswaDetail} yang akan ditulis.</li>
+	 *   <li>{@code String} — teks soal, sudah dibersihkan {@link #stripHtml}.</li>
+	 *   <li>{@code String} — seluruh opsi jawaban, satu per baris, berformat
+	 *       {@code "HURUF. teks"} dengan sufiks {@code " (BENAR)"} pada kunci. Nilai {@code null} pada
+	 *       huruf/teks diamankan {@link #safeK}.</li>
+	 *   <li>{@code String} — pilihan peserta berformat {@code "HURUF. teks"}, atau
+	 *       {@code "(tidak dijawab)"} bila {@code bankSoalDetail} peserta {@code null}.</li>
+	 *   <li>{@link Boolean} — apakah pilihan peserta benar; {@code false} bila tidak menjawab.</li>
+	 * </ol>
+	 *
+	 * <p><b>Cara kerja:</b> menelusuri urutan soal teracak milik peserta
+	 * ({@code ambilUjianPunyaSoals(..., true)}), memetakannya ke himpunan id detail jawaban
+	 * ({@code ambilHasilUjianMahasiswaDetail(false, ...)}), dan <b>hanya</b> memproses soal bertipe
+	 * {@link BankSoal#PILIHAN_GANDA} — kebalikan persis dari saringan pada {@link #kumpulkanEssay},
+	 * sehingga kedua method tidak pernah menghasilkan item yang tumpang tindih. Soal tanpa himpunan
+	 * detail dilewati. Pembacaan {@code d.getBankSoalDetail()} dibungkus {@code try-catch} tersendiri
+	 * karena relasi ini bisa menunjuk opsi yang sudah dihapus; kegagalan diperlakukan sebagai
+	 * "tidak dijawab", bukan menggagalkan pengumpulan.
+	 *
+	 * <p><b>Penanganan galat:</b> sama dengan {@link #kumpulkanEssay} — satu {@code try-catch} lebar
+	 * mencatat ke {@code ErrorAuditUtil} dan mengembalikan hasil parsial. Tidak pernah melempar, tidak
+	 * pernah mengembalikan {@code null}.
+	 *
+	 * <p><b>Sifat:</b> murni-baca. Harus dipanggil dari thread event ZK karena bersandar pada sesi
+	 * Hibernate ThreadLocal.
+	 *
+	 * @param hum peserta ujian yang jawabannya dikumpulkan
+	 * @return daftar tuple lima elemen dalam urutan soal sebagaimana disajikan kepada peserta; urutan ini
+	 *         menjadi penomoran "Nomor n" pada prompt
+	 * @see #promptKoreksiPg
+	 * @see #terapkanKoreksiPg
+	 * @see #kumpulkanEssay
 	 */
 	public static java.util.List<Object[]> kumpulkanPg(HasilUjianMahasiswa hum) {
 		java.util.List<Object[]> items = new java.util.ArrayList<Object[]>();
@@ -1911,7 +2005,41 @@ public class KoreksiHasilUjian implements DataCriteria {
 		return items;
 	}
 
-	/** Prompt koreksi/penjelasan Pilihan Ganda (skor tetap otomatis; hanya mengisi kolom Koreksi). */
+	/**
+	 * <b>Tujuan:</b> Merangkai prompt yang meminta model bahasa menuliskan <b>penjelasan edukatif</b> —
+	 * bukan penilaian — untuk setiap jawaban Pilihan Ganda peserta. Tahap kedua dari rangkaian
+	 * {@link #kumpulkanPg} &rarr; {@code promptKoreksiPg} &rarr; {@link #terapkanKoreksiPg}.
+	 *
+	 * <p><b>Susunan prompt:</b>
+	 * <ol>
+	 *   <li>Blok konteks mata kuliah dari {@link #bangunKonteksUjian}, bila tidak kosong.</li>
+	 *   <li>Instruksi peran: jelaskan mengapa kunci jawaban tepat, dan bila jawaban peserta salah,
+	 *       jelaskan letak kesalahannya — ringkas, edukatif, Bahasa Indonesia.</li>
+	 *   <li>Satu blok per soal, dinomori {@code 1..n} mengikuti urutan {@code items}, berisi Soal,
+	 *       daftar Opsi (kunci sudah ditandai {@code (BENAR)} oleh {@link #kumpulkanPg}), dan Jawaban
+	 *       mahasiswa yang diberi sufiks {@code (BENAR)}/{@code (SALAH)} dari indeks 4 tuple. Model
+	 *       karenanya tidak perlu — dan tidak diminta — menyimpulkan sendiri benar/salahnya.</li>
+	 *   <li>Instruksi format keluaran: hanya JSON array valid, satu objek per nomor sesuai urutan,
+	 *       dengan contoh {@code [{"no":1,"koreksi":"..."}]}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perbedaan dari {@link #promptKoreksiEssay}:</b> objek keluaran <b>tanpa</b> field
+	 * {@code skor}, karena skor Pilihan Ganda dihitung sistem dan tidak boleh berubah karena jawaban
+	 * model. Bila kelak field {@code skor} ditambahkan di sini, {@link #terapkanKoreksiPg} <b>juga</b>
+	 * harus diberi clamp seperti pada jalur esai — jangan menambahkannya di satu sisi saja.
+	 *
+	 * <p><b>Kontrak penomoran:</b> sama seperti jalur esai — {@code no} adalah indeks {@code items} + 1,
+	 * dan {@link #terapkanKoreksiPg} memetakan balik dengan {@code idx = no - 1}. Urutan {@code items}
+	 * tidak boleh berubah di antara kedua pemanggilan.
+	 *
+	 * <p><b>Sifat:</b> murni — hanya merangkai {@link String}, tanpa akses basis data, aman dipanggil
+	 * dari thread mana pun.
+	 *
+	 * @param items   daftar tuple hasil {@link #kumpulkanPg}
+	 * @param konteks blok konteks dari {@link #bangunKonteksUjian}; boleh {@code null} atau kosong
+	 * @return teks prompt siap kirim ke {@link GenerateAiHelper#jalankanAiStreaming}
+	 * @see #terapkanKoreksiPg
+	 */
 	public static String promptKoreksiPg(java.util.List<Object[]> items, String konteks) {
 		StringBuilder p = new StringBuilder();
 		if (konteks != null && konteks.length() > 0) {
@@ -1931,7 +2059,47 @@ public class KoreksiHasilUjian implements DataCriteria {
 		return p.toString();
 	}
 
-	/** Terapkan koreksi PG (hanya kolom koreksi; skor/nilai TIDAK diubah). Kembalikan jumlah terisi. */
+	/**
+	 * <b>Tujuan:</b> Menuliskan penjelasan hasil AI ke kolom {@code koreksi} pada setiap
+	 * {@link HasilUjianMahasiswaDetail} Pilihan Ganda milik peserta. Tahap ketiga dan satu-satunya tahap
+	 * menulis pada rangkaian {@link #kumpulkanPg} &rarr; {@link #promptKoreksiPg} &rarr;
+	 * {@code terapkanKoreksiPg}.
+	 *
+	 * <p><b>Batas kewenangan yang disengaja — jangan diperlebar tanpa pertimbangan:</b> method ini
+	 * <b>hanya</b> memanggil {@code hmd.setKoreksi(...)}. Kolom {@code nilai}, {@code bankSoalDetail},
+	 * dan {@code jawaban} tidak disentuh, dan <b>tidak</b> ada pemanggilan
+	 * {@link UjianRecomputeUtil#hitungUlangSekarang} sesudahnya — memang tidak diperlukan, karena tidak
+	 * ada angka yang berubah. Inilah perbedaan perilaku pokoknya dari {@link #terapkanKoreksiEssay},
+	 * yang menulis nilai dan karenanya wajib menghitung ulang.
+	 *
+	 * <p><b>Cara kerja:</b> identik dengan {@link #terapkanKoreksiEssay} kecuali pada bagian penulisan:
+	 * <ol>
+	 *   <li>Ekstraksi JSON toleran — substring antara {@code indexOf('[')} pertama dan
+	 *       {@code lastIndexOf(']')} terakhir; kurung yang hilang atau tidak berpasangan menghasilkan
+	 *       {@code 0} tanpa menyentuh basis data.</li>
+	 *   <li>Pemetaan {@code idx = no - 1} dengan penyelamat {@code idx = i} bila di luar rentang; objek
+	 *       yang tetap di luar rentang dilewati.</li>
+	 *   <li>Seluruh baris ditulis dalam satu transaksi pada sesi Hibernate mandiri
+	 *       ({@code openSession()}), sehingga aman dipanggil dari callback penyelesaian AI yang berjalan
+	 *       di luar konteks sesi ThreadLocal. Kegagalan memicu {@code rollback} untuk seluruh batch dan
+	 *       dicatat ke {@code ErrorAuditUtil}; sesi selalu ditutup di {@code finally}.</li>
+	 *   <li>Baris yang sudah tidak ada di basis data dilewati tanpa menaikkan pencacah.</li>
+	 * </ol>
+	 *
+	 * <p><b>Jejak audit:</b> penulisan tetap menghasilkan revisi Envers pada
+	 * {@link HasilUjianMahasiswaDetail} — dengan batasan atribusi pengguna sebagaimana dijelaskan pada
+	 * Javadoc kelas.
+	 *
+	 * <p><b>Sifat:</b> menulis basis data; tidak pernah melempar exception ke pemanggil.
+	 *
+	 * @param items    daftar tuple hasil {@link #kumpulkanPg}; harus instance dengan urutan yang sama
+	 *                 dengan yang dipakai membangun prompt
+	 * @param jsonResp respons mentah model bahasa; boleh mengandung teks pembungkus, boleh {@code null}
+	 * @return jumlah baris yang berhasil ditulis; {@code 0} bila respons tidak dapat diurai atau
+	 *         transaksi di-rollback
+	 * @see #promptKoreksiPg
+	 * @see #terapkanKoreksiEssay
+	 */
 	public static int terapkanKoreksiPg(java.util.List<Object[]> items, String jsonResp) {
 		int n = 0;
 		try {
