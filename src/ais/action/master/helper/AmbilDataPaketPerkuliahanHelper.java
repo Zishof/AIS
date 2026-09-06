@@ -73,31 +73,50 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDataPaketPerkuliahanHelper {
 
+    /** Tahun akademik yang dicari/dipakai untuk KRS paket (mis. "2026/2027"). */
     private String tahunAjaran;
+    /** Nomor semester KRS yang dilayani; sumber pencarian {@link PaketPerkuliahan} dan nilai yang dicatat pada {@link Detailperkuliahan} baru. */
     private Integer semester;
+    /** Mahasiswa yang mengambil KRS paket; sumber jurusan/program/angkatan/kelas untuk pencarian paket dan jadwal. */
     private Mahasiswa mahasiswa;
 
     // Filter combos — not shown in UI, values used in onSearchDefault()
+    /** Combobox filter Fakultas (tidak dirender di UI, hanya dibaca {@link #onSearchDefault}); pra-isi dari fakultas {@link #mahasiswa}. */
     private Combobox searchfakultas = new Combobox();
+    /** Combobox filter Program Studi (tidak dirender di UI, hanya dibaca {@link #onSearchDefault}); pra-isi dari jurusan {@link #mahasiswa}. */
     private Combobox jurusanCombobox = new Combobox();
+    /** Combobox filter {@link Program} (tidak dirender di UI, hanya dibaca {@link #onSearchDefault}); pra-isi dari program {@link #mahasiswa}. */
     private Combobox programCombobox = new Combobox();
+    /** Combobox pemilih nomor semester (1..{@code max_semester_pilihan}) yang menentukan paket mana yang dicari; pra-isi dari {@link #semester}. */
     private Combobox semesterPerkuliahan;
 
+    /** Daftar anggota matakuliah {@link #paketPerkuliahan} terkini pada semester terpilih, sumber pembangunan kartu dan {@link #save()}. */
     private List<KurikulumPunyaMatakuliah> kurikulumPunyaMatakuliahs;
+    /** Penanda konteks Semester Pendek/Antara ({@code null} untuk reguler); diteruskan dari konstruktor. */
     private Integer semesterPendek;
+    /** Paket perkuliahan yang cocok untuk mahasiswa/semester terpilih saat ini, hasil pencarian {@link #onSearchDefault}. */
     private PaketPerkuliahan paketPerkuliahan;
+    /** Tombol "Ambil Paket"; dinonaktifkan bila tidak ada paket/matakuliah yang cocok. */
     private MyToolbarbuttonConfig ambil;
+    /** Nama kelas mahasiswa (trim, bisa kosong), dipakai menyaring jadwal {@link Perkuliahan} yang ditampilkan pada kartu. */
     private String kelas;
+    /** Diteruskan ke {@link KrsUtilHelper#ambilJumlahDetailperkuliahan}; {@code false} berarti pakai cache hitungan yang ada. */
     private Boolean reload = false;
 
+    /** Peta matakuliah&rarr;jadwal {@link Perkuliahan} yang ditemukan saat kartu dibangun; dibaca {@link #save()} untuk menentukan apa yang didaftarkan. */
     private Map<Long, Perkuliahan> mapPerkuliahan = new HashMap<Long, Perkuliahan>();
 
     // UI state for card layout
+    /** Container ZK tempat kartu-kartu matakuliah paket di-render ulang setiap pencarian. */
     private Div cardContainer;
+    /** Label ringkasan total SKS paket pada semester terpilih. */
     private Label totalSksLabel;
+    /** Label nama {@link #paketPerkuliahan} yang sedang ditampilkan. */
     private Label paketNameLabel;
+    /** Label jumlah matakuliah anggota paket yang sedang ditampilkan. */
     private Label mkCountLabel;
 
+    /** Palet warna aksen kartu matakuliah, dipakai bergiliran (modulo) agar kartu berurutan tidak sewarna. */
     private static final String[] CARD_COLORS = {
         "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6",
         "#EC4899", "#EF4444", "#0EA5E9", "#14B8A6"
@@ -110,6 +129,11 @@ public class AmbilDataPaketPerkuliahanHelper {
 
     // ── CSS injection ────────────────────────────────────────────────────────
 
+    /**
+     * Menyuntikkan (sekali per dokumen klien, dijaga id {@code krs-paket-css} di JS) blok CSS
+     * gaya kartu/header/summary/footer dialog ini lewat {@link Clients#evalJavaScript}. Dipanggil
+     * setiap {@link #display} dibuka; aman dipanggil berulang karena guard id mencegah CSS dobel.
+     */
     private void injectCardStyles() {
         String css =
             ".krs-paket-info-header{background:linear-gradient(135deg,#1a3a5c 0%,#2d6a9f 100%);" +
@@ -172,11 +196,27 @@ public class AmbilDataPaketPerkuliahanHelper {
 
     // ── HTML helpers ─────────────────────────────────────────────────────────
 
+    /**
+     * Meng-escape karakter HTML spesial ({@code & < > "}) pada {@code text} sebelum disisipkan ke
+     * dalam markup {@link org.zkoss.zul.Html} mentah, mencegah teks data (nama mahasiswa/matakuliah)
+     * merusak struktur HTML atau menjadi vektor injeksi markup.
+     *
+     * @param text teks sumber, boleh {@code null}
+     * @return teks ter-escape, atau string kosong bila {@code text} {@code null}
+     */
     private static String esc(String text) {
         if (text == null) return "";
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
+    /**
+     * Menambahkan satu "chip" info (span berbentuk pil) ke {@code parent}; tidak melakukan apa pun
+     * bila {@code text} kosong/{@code null}.
+     *
+     * @param parent    kontainer ZK tempat chip ditambahkan
+     * @param text      isi teks chip (di-escape lewat {@link #esc})
+     * @param highlight {@code true} memakai gaya {@code krs-info-chip-hl} (lebih menonjol)
+     */
     private static void addChip(Div parent, String text, boolean highlight) {
         if (text == null || text.trim().isEmpty()) return;
         String cls = highlight ? "krs-info-chip-hl" : "krs-info-chip";
@@ -187,6 +227,18 @@ public class AmbilDataPaketPerkuliahanHelper {
 
     // ── Card builder ─────────────────────────────────────────────────────────
 
+    /**
+     * Membangun satu kartu matakuliah anggota paket: header (kode, nama, badge SKS) dan seksi
+     * jadwal yang mencari {@link Perkuliahan} aktif yang cocok (matakuliah, semester pendek,
+     * jurusan/program {@link #mahasiswa}, {@link #kelas}, {@link #semester}/{@link #tahunAjaran},
+     * bukan kelas paralel) memakai session Hibernate lokal terpisah. Jadwal yang ditemukan dicatat
+     * ke {@link #mapPerkuliahan} (dipakai {@link #save()}); bila tidak ada jadwal, tampilkan badge
+     * "Jadwal belum tersedia".
+     *
+     * @param kpm         anggota kurikulum-matakuliah yang direpresentasikan sebagai kartu
+     * @param accentColor warna aksen border kiri kartu (dari {@link #CARD_COLORS})
+     * @return komponen {@link Div} kartu siap di-attach ke {@link #cardContainer}
+     */
     private Div buildMkCard(KurikulumPunyaMatakuliah kpm, String accentColor) {
         final Matakuliah matakuliah = kpm.getMatakuliah();
 
@@ -271,6 +323,15 @@ public class AmbilDataPaketPerkuliahanHelper {
         return card;
     }
 
+    /**
+     * Membersihkan {@code container} lalu mengisinya dengan tampilan "state kosong" (ikon, judul,
+     * deskripsi) — dipakai saat tidak ada {@link PaketPerkuliahan} atau matakuliah yang cocok untuk
+     * semester terpilih.
+     *
+     * @param container kontainer kartu yang dibersihkan lalu diisi ulang
+     * @param title     judul singkat kondisi kosong
+     * @param desc      deskripsi/penjelasan tambahan (di-escape lewat {@link #esc})
+     */
     private static void buildEmptyState(Div container, String title, String desc) {
         Common.clear(container);
         Div empty = new Div();
@@ -604,6 +665,15 @@ public class AmbilDataPaketPerkuliahanHelper {
 
     // ── Filter combo init (values used in query, not shown in UI) ────────────
 
+    /**
+     * Mengisi opsi {@link #searchfakultas}/{@link #jurusanCombobox}/{@link #programCombobox}/
+     * {@link #semesterPerkuliahan} dan memilih item defaultnya dari data {@link #mahasiswa}/
+     * {@link #semester}. Combo-combo ini tidak dirender ke UI (dialog tidak menampilkan filter
+     * manual) — nilainya hanya dibaca kembali oleh {@link #onSearchDefault} sebagai default filter
+     * pencarian {@link PaketPerkuliahan}.
+     *
+     * @throws Exception diteruskan dari kegagalan Hibernate saat mengisi combo
+     */
     @SuppressWarnings("unchecked")
     private void initFilterCombos() throws Exception {
         Common.insertCombo(searchfakultas, new String[]{"nama", "kode"}, Fakultas.class,

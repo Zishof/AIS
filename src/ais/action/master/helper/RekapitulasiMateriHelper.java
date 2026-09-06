@@ -459,7 +459,9 @@ public class RekapitulasiMateriHelper {
 	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Mahasiswa konteks yang login (bila ada), diteruskan ke {@link PertemuanHelper} saat membuka detail pertemuan. */
 		private Mahasiswa mahasiswa;
+		/** Calon mahasiswa konteks yang login (bila ada), diteruskan ke {@link PertemuanHelper} saat membuka detail pertemuan. */
 		private BiodataCalonMahasiswa biodataCalonMahasiswa;
 
 		/** @param mahasiswa mahasiswa konteks tampilan (dipakai bila detail pertemuan dibuka); boleh {@code null} */
@@ -468,6 +470,15 @@ public class RekapitulasiMateriHelper {
 			this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 		}
 
+		/**
+		 * Merender satu baris untuk satu {@link PertemuanFileContent} (lihat javadoc kelas
+		 * {@link DetailPertemuanRenderer} untuk rincian tombol/aksi yang dibangun); baris
+		 * disembunyikan bila {@link Pertemuan} induknya sudah tidak ditemukan.
+		 *
+		 * @param arg0 baris grid yang diisi
+		 * @param data instance {@link PertemuanFileContent} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			final PertemuanFileContent pertemuanFileContent = (PertemuanFileContent) data;

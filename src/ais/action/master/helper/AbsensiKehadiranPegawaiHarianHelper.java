@@ -653,6 +653,24 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		final MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
 		final EventListener eventListener = new EventListener() {
 
+			/**
+			 * Listener bersama yang menyelaraskan status aktif/nonaktif seluruh kontrol jendela edit setiap kali
+			 * status absensi atau salah satu checkbox berubah. Dipasang pada combobox {@code absen}
+			 * ({@code onChange}) serta ketiga checkbox {@code tidakAdaKehadiran}, {@code tidakAdaKedatangan}, dan
+			 * {@code tidakAdaKepulangan} ({@code onClick}), lalu dipanggil sekali dengan {@code null} untuk
+			 * menetapkan kondisi awal jendela.
+			 *
+			 * <p>Aturan yang diberlakukan: {@link Timebox} jam datang/pulang hanya boleh diisi bila status absensi
+			 * yang dipilih adalah {@link ConstantValues#MASUK}, checkbox "Tidak ada kehadiran" tidak dicentang, dan
+			 * checkbox "tidak ada kedatangan/kepulangan" masing-masing tidak dicentang. Kedua checkbox
+			 * kedatangan/kepulangan sendiri ikut dinonaktifkan bila status bukan MASUK atau "Tidak ada kehadiran"
+			 * aktif. Tombol Simpan disembunyikan bila status yang dipilih adalah
+			 * {@link ConstantValues#BELUM_ABSEN} — baris yang belum diabsen tidak dimaksudkan untuk disimpan
+			 * manual dari jendela ini.</p>
+			 *
+			 * @param arg0 event ZK pemicu, atau {@code null} saat dipanggil untuk menetapkan kondisi awal jendela
+			 * @throws Exception diteruskan dari akses komponen ZK bila terjadi kegagalan
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -677,6 +695,23 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 		keterangan.addEventListener("onChange", new EventListener() {
 
+			/**
+			 * Menyalin isi kotak Keterangan ke entity sementara dan — bila
+			 * {@link ConstantValues#aktifkanFingerPrintOtomatisDariKeterangan} aktif — mengisi otomatis jam
+			 * datang/pulang dari pola yang terbaca di dalam teks keterangan tersebut
+			 * ({@link StatuskehadiranKaryawanHarian#mulaiOtomatisUlangAbsenDariKeterangan()} dan
+			 * {@code sampaiOtomatisUlangAbsenDariKeterangan()}).
+			 *
+			 * <p>Jam yang berhasil diturunkan dari keterangan langsung DIKUNCI ({@code setDisabled(true)}) agar
+			 * operator tidak mengubahnya lagi secara manual; bila polanya tidak terbaca, kontrol jam dibuka
+			 * kembali. Perhatikan bahwa pembukaan kembali ini menimpa status disabled yang ditetapkan
+			 * {@code eventListener} berdasarkan status absensi/checkbox, sehingga urutan interaksi pemakai
+			 * menentukan kontrol mana yang akhirnya aktif. Penyalinan keterangan di sini hanya ke objek di memori;
+			 * penyimpanan ke database baru terjadi lewat tombol Simpan.</p>
+			 *
+			 * @param arg0 event {@code onChange} dari kotak Keterangan
+			 * @throws Exception diteruskan dari akses komponen ZK bila terjadi kegagalan
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				// TODO Auto-generated method stub
@@ -718,6 +753,15 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
 		cancel.setTooltiptext("Tutup");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menutup jendela edit tanpa menyimpan apa pun. Perlu dicatat bahwa perubahan yang sudah terlanjur
+			 * disalin ke objek {@code statuskehadiranKaryawanHarianTemp} di memori (mis. lewat listener
+			 * Keterangan) tidak dikembalikan — namun karena objek tersebut tidak dipersist dan grid induk dimuat
+			 * ulang dari database pada interaksi berikutnya, hasil akhirnya tetap setara dengan pembatalan.
+			 *
+			 * @param event event {@code onClick} dari tombol Batal
+			 * @throws Exception diteruskan dari akses komponen ZK bila terjadi kegagalan
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				window.detach();
@@ -732,6 +776,23 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 				"/img/save.gif");
 		hanyaPulang.setTooltiptext("Tandai tanpa kedatangan, isi jam pulang dari scan pulang, lalu simpan");
 		hanyaPulang.addEventListener("onClick", new EventListener() {
+			/**
+			 * Aksi cepat empat langkah untuk kasus pegawai yang tidak sempat absen datang sehingga scan
+			 * pertamanya terlanjur tercatat sebagai kedatangan: (1) menandai checkbox "Tidak ada kedatangan" dan
+			 * mengosongkan jam datang; (2) mengisi jam pulang dari scan pulang asli lewat
+			 * {@link StatuskehadiranKaryawanHarian#ambilPulangUntukTampil()} bila kotak jam pulang masih kosong;
+			 * (3) menyegarkan status aktif/nonaktif kontrol lewat {@code eventListener}; dan (4) menjalankan aksi
+			 * simpan dengan mengirim event {@code onClick} secara terprogram ke tombol Simpan
+			 * ({@link Events#sendEvent(Event)}).
+			 *
+			 * <p>Karena langkah terakhir menumpang pada listener tombol Simpan, seluruh perilaku penyimpanan
+			 * (pencarian baris berdasarkan id, pembuatan baris baru bila belum ada, transaksi tersendiri, penutupan
+			 * session, dan pemuatan ulang grid induk) berlaku identik — termasuk kenyataan bahwa aksi ini menyimpan
+			 * langsung tanpa dialog konfirmasi tambahan.</p>
+			 *
+			 * @param event event {@code onClick} dari tombol "Jadikan Hanya Kepulangan"
+			 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				// 1) Tandai TIDAK ADA KEDATANGAN & kosongkan jam datang.
@@ -754,6 +815,35 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 		save.setTooltiptext("Proses");
 		save.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menyimpan seluruh isi jendela edit ke satu baris {@link StatuskehadiranKaryawanHarian}.
+			 *
+			 * <p>Baris target dicari ulang dari database berdasarkan id objek sementara; bila objek sementara
+			 * belum punya id (tanggal yang belum pernah tersimpan), dibuat baris BARU dengan menyalin
+			 * tanggal, pegawai, dosen, mahasiswa, guru, minggu, serta relasi {@link LiburNasional}/
+			 * {@link LiburRutin} dari objek sementara. Nilai yang ditulis: status absensi (hanya bila ada pilihan),
+			 * jam datang/pulang — masing-masing disimpan GANDA ke kolom {@code ...Manual} dan {@code ...State} —
+			 * ketiga flag "tidak ada kehadiran/kedatangan/kepulangan", dan keterangan (di-{@code trim}).
+			 * Nilai yang sama juga disalin balik ke objek sementara agar tampilan grid induk konsisten sebelum
+			 * dimuat ulang.</p>
+			 *
+			 * <p>Penyimpanan berjalan dalam transaksi tersendiri pada
+			 * {@link HibernateUtil#currentNativeSession()} ({@code begin} &rarr;
+			 * {@link Common#refreshSaveOrUpdate(Session, Object)} &rarr; {@code commit}), lalu session
+			 * di-{@code disconnect}/{@code close} dan {@link HibernateUtil#closeSession()} dipanggil. Penutupan
+			 * jendela dan pemuatan ulang grid induk lewat {@link #loadData(Object)} sengaja ditunda ke siklus event
+			 * berikutnya memakai {@link Common#createDefaultTimer(EventListener)}, agar tidak berjalan di atas
+			 * session yang baru saja ditutup.</p>
+			 *
+			 * <p><b>Catatan pemeliharaan:</b> listener ini tidak mengulang pemeriksaan hak {@link #edit} maupun
+			 * status {@code getDikunci()}; pembatasan itu hanya diberlakukan saat merender tombol Ubah di grid.
+			 * Setiap perubahan pada jalur render harus mempertimbangkan bahwa penyimpanan di sini tidak memiliki
+			 * gerbang tersendiri.</p>
+			 *
+			 * @param event event {@code onClick} dari tombol Simpan (juga dikirim terprogram oleh tombol
+			 *              "Jadikan Hanya Kepulangan")
+			 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 

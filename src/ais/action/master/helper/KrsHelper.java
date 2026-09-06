@@ -171,6 +171,7 @@ public class KrsHelper implements DataLoader {
 	 */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Bila {@code true}, cache resolusi ekivalensi matakuliah ({@link Common#getMatakuliahApakahEkivalen}) dipaksa dibangun ulang saat merender setiap baris. */
 		private boolean refresh;
 
 		/** @param refresh bila {@code true}, cache resolusi ekivalensi matakuliah dipaksa dibangun ulang */
@@ -178,6 +179,27 @@ public class KrsHelper implements DataLoader {
 			this.refresh = refresh;
 		}
 
+		/**
+		 * Merender satu baris KRS dari id {@link Detailperkuliahan}. Baris disembunyikan
+		 * ({@code row.setVisible(false)}) — bukan dilewati — pada tiga keadaan: entity tidak
+		 * ditemukan, resolusi ekivalensi mengembalikan pasangan kurang dari dua elemen, atau
+		 * matakuliah hasil resolusi bernilai {@code null}; akibatnya jumlah baris pada paging grid
+		 * tetap dihitung meski barisnya tak tampak.
+		 *
+		 * <p>
+		 * Kolom yang dihasilkan berurutan: kode matakuliah (disertai kode/ id matakuliah asli bila
+		 * berbeda karena ekivalensi), nama matakuliah beserta tahun kurikulum, SKS, dosen pengampu,
+		 * semester (dengan penanda "Mengulang"/"Menabung" bila semester {@link Detailperkuliahan}
+		 * berbeda dari semester {@link Perkuliahan}), kelas, hari/jam/ruang, status persetujuan, dan
+		 * tombol hapus. Tombol hapus hanya dimunculkan untuk baris yang belum disetujui; saat diklik
+		 * ia menolak penghapusan bila konfigurasi
+		 * {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif dan baris sudah bernilai, lalu
+		 * menghapus seluruh {@link Komentar} yang menunjuk baris tersebut sebelum menghapus barisnya.
+		 * </p>
+		 *
+		 * @param row  baris grid ZK yang sedang diisi
+		 * @param data id {@link Detailperkuliahan} (dibaca lewat {@code toString()})
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 
@@ -376,6 +398,32 @@ public class KrsHelper implements DataLoader {
 	 * ({@link #konfigurasi} untuk pengambilan awal, {@link #konfigurasiPerbaikan} untuk perbaikan),
 	 * toolbar tambahan (Lihat Kurikulum, Catatan, Rekap SKS dan IPK), dan area unggah berkas KRS
 	 * yang sudah ditandatangani.
+	 *
+	 * <p>
+	 * <b>Urutan gerbang tombol "Ambil Perkuliahan".</b> Listener {@code onClick} memeriksa, secara
+	 * berurutan: seluruh {@link SyaratUjian} bertanda {@code krs}; keharusan sudah pernah mengisi KRS
+	 * bila yang aktif hanyalah periode perbaikan; keberadaan Dosen PA
+	 * ({@code dosen_pa_harus_ada_sebelum_isi_krs}); keberadaan kelas
+	 * ({@code kelas_harus_ada_sebelum_isi_krs}); status pembayaran semester berjalan
+	 * ({@code mahasiswa_harus_bayar_sebelum_isi_krs} atau {@code ..._sp} untuk semester pendek,
+	 * dilengkapi {@link UtsDanUasCheckerHelper#checkPembayaranSebelumKRSSudahMemenuhi}); status
+	 * kemahasiswaan harus Aktif ({@code status_mahasiswa_harus_aktif_sebelum_isi_krs}); pelunasan
+	 * minimal semester sebelumnya
+	 * ({@code batas_terendah_persen_pembayaran_semester_yang_lalu_boleh_mengisi_krs}); dan terakhir
+	 * — di luar blok {@code try} — keberadaan {@link BlokirMahasiswa} aktif bertanda {@code krs}.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan perilaku yang perlu diperhatikan.</b> Seluruh gerbang selain pemeriksaan
+	 * {@link BlokirMahasiswa} berada di dalam satu blok {@code try} yang diakhiri
+	 * {@code catch (Exception e) { Common.tampilErrorJikaAdmin(e); }}; karena setiap penolakan
+	 * dilakukan lewat {@code return} di dalam blok tersebut, sebuah galat tak terduga pada salah satu
+	 * gerbang (misalnya data pendukung yang belum lengkap) membuat eksekusi melompat ke {@code catch}
+	 * lalu <em>melanjutkan</em> ke pembukaan {@code AmbilDataPerkuliahanHelper}, bukan membatalkannya.
+	 * Selain itu, listener tidak menolak secara eksplisit keadaan "kedua periode KRS tertutup" —
+	 * keadaan itu hanya tercermin pada visibilitas {@link #buttonPerkuliahan}, yang belakangan dapat
+	 * dipaksa tampil oleh {@link Common#checkApakahMahasiswaBolehAmbilKrsLewatPengecualian}.
+	 * </p>
 	 *
 	 * @param editable      tidak dipakai langsung dalam badan method; diteruskan untuk kompatibilitas signature
 	 * @param mahasiswa     mahasiswa pemilik KRS
@@ -1061,10 +1109,20 @@ public class KrsHelper implements DataLoader {
 
 	}
 
+	/**
+	 * @return status semester pendek yang sedang dipakai helper ini; {@code null} untuk KRS reguler
+	 */
 	public Integer getSemesterPendek() {
 		return semesterPendek;
 	}
 
+	/**
+	 * Mengubah mode semester pendek helper. Perlu diperhatikan bahwa {@link #konfigurasi} dan
+	 * {@link #konfigurasiPerbaikan} hanya dibaca ulang di dalam {@link #display}, sehingga pemanggilan
+	 * setter ini setelah UI terbangun tidak dengan sendirinya memperbarui periode KRS yang berlaku.
+	 *
+	 * @param semesterPendek status semester pendek baru ({@code null} untuk KRS reguler)
+	 */
 	public void setSemesterPendek(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 	}

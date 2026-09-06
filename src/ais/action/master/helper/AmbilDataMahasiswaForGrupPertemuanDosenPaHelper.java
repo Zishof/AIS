@@ -80,20 +80,31 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class AmbilDataMahasiswaForGrupPertemuanDosenPaHelper {
 
+	/** Grup pertemuan tujuan; mahasiswa terpilih dihubungkan ke grup ini lewat {@link #save()}. */
 	private GrupPertemuan grupPertemuan;
+	/** Grid hasil pencarian kandidat mahasiswa, dirender oleh {@link MahasiswaRenderer}. */
 	private MyGrid grid;
 
+	/** Kotak filter pencarian: NIM (contains, ILIKE anywhere). */
 	private Textbox nim;
+	/** Kotak filter pencarian: nama mahasiswa (contains, ILIKE anywhere). */
 	private Textbox nama;
+	/** Kotak filter pencarian: tahun angkatan (kosong berarti semua angkatan). */
 	private Decimalbox tahunangkatan;
+	/** Batas awal rentang NIM (inklusif, {@code >=}) pada filter pencarian. */
 	private Textbox dariNim;
+	/** Batas akhir rentang NIM (inklusif, {@code <=}) pada filter pencarian. */
 	private Textbox sampaiNim;
 
+	/** Filter status kemahasiswaan pada semester berjalan. */
 	private Combobox searchstatusmahasiswa = new Combobox();
 
+	/** Filter fakultas mahasiswa. */
 	private Combobox searchfakultas = new Combobox();
+	/** Filter jurusan/prodi mahasiswa. */
 	private Combobox searchjurusan = new Combobox();
 
+	/** Kontrol paging hasil pencarian, 100 baris per halaman. */
 	private Paging paging;
 
 	/** @param grupPertemuan grup pertemuan tujuan; mahasiswa terpilih akan dimasukkan ke grup ini. */
@@ -130,6 +141,14 @@ public class AmbilDataMahasiswaForGrupPertemuanDosenPaHelper {
 	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris kandidat mahasiswa: checkbox pilih (dicentang dan dikunci bila
+		 * mahasiswa sudah tergabung dalam {@link #grupPertemuan}), NIM, nama, dan tahun angkatan.
+		 *
+		 * @param arg0 baris grid yang diisi
+		 * @param arg1 instance {@link Mahasiswa} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

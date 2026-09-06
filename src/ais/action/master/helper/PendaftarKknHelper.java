@@ -109,20 +109,107 @@ import ais.ui.util.MyWindow;
  */
 public class PendaftarKknHelper implements DataLoader, DataCriteria {
 
+	/**
+	 * Grid utama berisi baris {@link MahasiswaDaftarKkn} hasil {@link #initCriteria(boolean)}.
+	 * Dibuat sekali di {@link #displayPrasyaratKkn}, lalu di-render ulang setiap
+	 * {@link #loadData(Object)} memakai {@link PendaftarKknRenderer}.
+	 */
 	private MyGrid grid;
+
+	/**
+	 * KKN yang sedang dikelola. Menjadi filter wajib pada seluruh query kelas ini
+	 * ({@code Restrictions.eq("kkn", kkn)}) sekaligus penentu daftar
+	 * {@link PersyaratanKkn} yang dipakai sebagai kolom dinamis ekspor Excel.
+	 *
+	 * <p>
+	 * Objek ini diterima apa adanya dari pemanggil
+	 * ({@code ais.action.master.kkn.SeleksiPenerimaKknAction}); kelas ini <b>tidak</b> memeriksa
+	 * ulang kepemilikan/cakupan satuan kerja atas KKN tersebut — pembatasan cakupan sepenuhnya
+	 * menjadi tanggung jawab Action pemanggil.
+	 * </p>
+	 */
 	private Kkn kkn;
+
+	/**
+	 * Kotak isian kata kunci pencarian pendaftar. Nilainya dicocokkan sekaligus ke NIM
+	 * <b>atau</b> nama mahasiswa (LIKE {@code MatchMode.ANYWHERE}, case-insensitive) pada
+	 * {@link #initCriteria(boolean)}; kosong berarti tanpa penyaringan.
+	 */
 	private Textbox nim;
+
+	/** Combobox filter fakultas. Bila tidak ada pilihan aktif, kriteria hanya mensyaratkan {@code jurusan.fakultas} tidak null (mahasiswa tanpa fakultas ikut tersaring keluar). */
 	private Combobox fakultas;
+
+	/** Combobox filter jurusan/program studi. Bila tidak ada pilihan aktif, kriteria hanya mensyaratkan mahasiswa punya jurusan. */
 	private Combobox jurusan;
 
+	/** Kontrol paging 50 baris per halaman untuk {@link #grid}; halaman aktifnya dibaca ulang setiap {@link #loadData(Object)}. */
 	private Paging paging;
+
+	/**
+	 * Penanda apakah pengguna saat ini boleh mengubah status penerimaan langsung dari grid.
+	 * Diisi pemanggil dari hak {@code CommonPrivilages.APPROVE}.
+	 *
+	 * <p>
+	 * <b>Cakupan terbatas:</b> flag ini hanya menonaktifkan checkbox "Terima" pada
+	 * {@link PendaftarKknRenderer}. Tombol "Upload" (impor Excel) yang dipasang di
+	 * {@link #displayPrasyaratKkn} tetap tampil dan tetap menulis kolom {@code terima}
+	 * tanpa membaca flag ini, demikian pula tombol hapus per baris.
+	 * </p>
+	 */
 	private boolean approve;
+
+	/** Filter tahun angkatan mahasiswa; kosong ({@code null}) berarti semua angkatan. */
 	private Intbox angkatan;
+
+	/** Checkbox "Belum diterima": bila dicentang, kriteria dipersempit ke {@code terima = 0} ({@link MahasiswaDaftarKkn#BELUM_DIPROSES}) saja. Perubahan centangnya langsung memicu {@link #loadData(Object)}. */
 	private MyCheckboxConfig hanyaYgBelumDiterima;
 
-	/** Row renderer grid pendaftar KKN: NIM/nama/jurusan, SKS/SKSK, IPS/IPK, total skor, status memenuhi syarat, checkbox penerimaan, serta tombol cetak kartu/ubah/hapus per baris. */
+	/**
+	 * Perender satu baris grid pendaftar KKN. Setiap baris berisi sembilan sel berurutan sesuai
+	 * kolom yang dipasang {@link PendaftarKknHelper#displayPrasyaratKkn}: NIM, nama, jurusan,
+	 * SKS/SKSK, IP/IPK, skor seleksi, status "Memenuhi Syarat", checkbox penerimaan, dan
+	 * kelompok tombol cetak kartu/ubah/hapus.
+	 *
+	 * <p>
+	 * Nilai SKS dan IP/IPK tidak diambil dari kolom tersimpan, melainkan dihitung ulang setiap
+	 * render lewat {@link Common#singkronkanKrsMahasiswa} untuk semester yang diturunkan dari
+	 * tahun akademik dan semester {@link Kkn} terkait — sehingga angkanya selalu mencerminkan
+	 * KRS terkini, bukan kondisi saat mahasiswa mendaftar.
+	 * </p>
+	 */
 	class PendaftarKknRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris pendaftar KKN ke dalam {@code row}.
+		 *
+		 * <p>
+		 * Beberapa perilaku yang perlu diperhatikan:
+		 * </p>
+		 * <ul>
+		 *   <li><b>Penghitungan semester berbiaya.</b> Semester akademik mahasiswa dihitung dari
+		 *   tahun angkatan, semester/tahun akademik KKN, dan riwayat pindah kampus, lalu dipakai
+		 *   memanggil {@link Common#singkronkanKrsMahasiswa} — pemanggilan ini dapat menulis ke
+		 *   basis data (sinkronisasi KRS), jadi render grid tidak sepenuhnya bebas efek samping.</li>
+		 *   <li><b>Kolom "Memenuhi Syarat"</b> hanya menampilkan nilai kolom tersimpan
+		 *   {@link MahasiswaDaftarKkn#getMemenuhiSyarat()}; kolom tersebut ditulis di tempat lain
+		 *   ({@code ais.action.master.kkn.KknUntukMahasiswaAction#daftar}) dan tidak dihitung ulang
+		 *   di sini. Baris yang dibuat lewat impor Excel pada
+		 *   {@link PendaftarKknHelper#displayPrasyaratKkn} tidak pernah mengisi kolom ini,
+		 *   sehingga selalu tampil "Tidak".</li>
+		 *   <li><b>Checkbox "Terima"</b> langsung menyimpan perubahan ke basis data pada tiap klik
+		 *   ({@link Common#refreshUpdate}) tanpa dialog konfirmasi maupun jejak audit; ia hanya
+		 *   dinonaktifkan (bukan disembunyikan) bila {@link PendaftarKknHelper#approve} bernilai
+		 *   {@code false}.</li>
+		 *   <li><b>Tombol hapus</b> menghapus baris pendaftaran secara permanen tanpa memeriksa
+		 *   {@link PendaftarKknHelper#approve}; kegagalan karena relasi ditangani dengan pesan
+		 *   kesalahan, bukan pencegahan.</li>
+		 * </ul>
+		 *
+		 * @param row  baris ZK tujuan; sel ditambahkan berurutan sebagai anak {@code row}
+		 * @param data elemen model, harus berupa {@link MahasiswaDaftarKkn}
+		 * @throws Exception bila render sel atau pemanggilan sinkronisasi KRS gagal
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final MahasiswaDaftarKkn mahasiswaDaftarKkn = (MahasiswaDaftarKkn) data;
