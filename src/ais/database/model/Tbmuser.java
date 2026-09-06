@@ -2038,6 +2038,29 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return email;
 	}
 
+	/**
+	 * Menambahkan satu alamat surel ke daftar tanpa menghapus alamat yang sudah ada.
+	 *
+	 * <p>Cara yang benar untuk memperkaya kolom {@code email} (bandingkan
+	 * {@link #setEmail(String)} yang menimpa seluruh isi). Alamat digabung dengan pemisah
+	 * koma.</p>
+	 *
+	 * <p>Penambahan <b>dibatalkan diam-diam</b> bila salah satu terpenuhi:</p>
+	 * <ul>
+	 *   <li>alamat sudah termuat di daftar &mdash; diperiksa dengan
+	 *   {@code StringUtils.contains} (pencocokan <b>substring</b>, bukan per-elemen,
+	 *   sehingga {@code "budi@x.id"} dianggap sudah ada bila daftar memuat
+	 *   {@code "pakbudi@x.id"});</li>
+	 *   <li>alamat {@code null} atau kosong;</li>
+	 *   <li>alamat tidak lolos {@code Common.isValidEmailAddress};</li>
+	 *   <li>alamat diawali {@code "@"}.</li>
+	 * </ul>
+	 * <p>Method tidak pernah melempar exception dan tidak memberi tahu pemanggil apakah
+	 * penambahan berhasil.</p>
+	 *
+	 * @param email alamat surel yang ditambahkan
+	 * @see #getEmail()
+	 */
 	public void appendEmail(String email) {
 		if (this.email != null && email != null && !email.trim().isEmpty() && StringUtils.contains(this.email, email)) {
 			return;
@@ -2047,10 +2070,31 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Menetapkan program (jenjang/kelas program studi) sebagai lingkup organisasi akun.
+	 *
+	 * @param program program yang ditautkan; boleh {@code null}
+	 * @see #ambilProgram()
+	 */
 	public void setProgram(Program program) {
 		this.program = program;
 	}
 
+	/**
+	 * Mengembalikan program yang melekat pada akun ini (varian mentah).
+	 *
+	 * <p><b>Pengecualian dari pola kelas ini:</b> getter relasi yang benar-benar polos
+	 * &mdash; tidak memanggil {@link GeneralValueObject#check(Object) check(...)}, tidak
+	 * menurunkan nilai dari entitas lain, dan tidak punya peredam akun demo. Konsekuensinya
+	 * method ini <b>dapat melempar {@code LazyInitializationException}</b> saat proxy diakses
+	 * di luar {@link Session} yang memuatnya. Relasi ini juga satu-satunya yang memakai
+	 * {@code @Fetch(FetchMode.SELECT)} tanpa {@code FetchType.LAZY} eksplisit, sehingga
+	 * mengikuti perilaku {@code EAGER} bawaan {@code @ManyToOne}.</p>
+	 *
+	 * <p>Untuk pembatasan data berdasar kewenangan, pakai {@link #ambilProgram()}.</p>
+	 *
+	 * @return program akun, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "program", nullable = true)
@@ -2058,6 +2102,16 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return program;
 	}
 
+	/**
+	 * Mengembalikan program <b>efektif</b> akun untuk keperluan pembatasan data.
+	 *
+	 * <p>Mengikuti pola {@code ambilXxx()} yang sama dengan {@link #ambilJurusan()}: lingkup
+	 * dari {@link #hakAkses()} menang lebih dulu, lalu {@link #getProgram()}, lalu dipaksa
+	 * {@code null} bila akun ternyata milik dosen ber-{@code id}.</p>
+	 *
+	 * @return program efektif, atau {@code null} bila tidak dibatasi
+	 * @see #ambilJurusan()
+	 */
 	public Program ambilProgram() {
 
 		Tbmrole d = hakAkses();
@@ -2075,6 +2129,35 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return program;
 	}
 
+	/**
+	 * Menentukan apakah akun ini <b>bukan</b> milik peserta didik (mahasiswa/siswa/calon).
+	 *
+	 * <p>Gerbang sentral yang dipakai {@link #getMahasiswa()}, {@link #getSiswa()},
+	 * {@link #getBiodataCalonMahasiswa()}, dan {@link #getCalonSiswa()} untuk menutup
+	 * relasi-relasi peserta didik. Mengembalikan {@code true} bila akun terbukti milik
+	 * pedagang, pegawai, guru, dosen, <b>atau</b> berperan {@link Tbmrole#ADMINISTRATOR}.</p>
+	 *
+	 * <p><b>Peran staf mengalahkan status peserta didik.</b> Konsekuensi praktisnya: pegawai
+	 * atau dosen yang juga berkuliah/bersekolah di institusi yang sama tidak akan dikenali
+	 * sebagai mahasiswa/siswa lewat akun yang sama. Ini pilihan desain yang disengaja untuk
+	 * mencegah percampuran konteks, bukan kekeliruan.</p>
+	 *
+	 * <p><b>Fail-open pada kegagalan.</b> Seluruh badan method dibungkus {@code try/catch};
+	 * exception apa pun (umumnya {@code LazyInitializationException} dari salah satu relasi)
+	 * menghasilkan {@code false} &mdash; yaitu "anggap saja peserta didik", sehingga relasi
+	 * peserta didik <b>tidak</b> ditutup. Perlu disadari bahwa method ini adalah penyaring
+	 * konteks, bukan gerbang otorisasi; hasil {@code false} yang keliru tidak memberi hak
+	 * akses tambahan, hanya membuat getter peserta didik mengembalikan nilai yang seharusnya
+	 * {@code null}.</p>
+	 *
+	 * <p>Method ini me-resolve lima relasi ({@code pedagang}, {@code pegawai}, {@code guru},
+	 * {@code dosen}, {@code userRole}) dan menulis balik hasilnya &mdash; getter destruktif.
+	 * Karena dipanggil dari empat getter lain, ia termasuk method paling sering dieksekusi di
+	 * kelas ini.</p>
+	 *
+	 * @return {@code true} bila akun milik staf/administrator; {@code false} bila peserta
+	 *         didik atau bila terjadi galat
+	 */
 	public boolean bukanPesertaDidik() {
 		try {
 			pedagang = check(pedagang);
@@ -2090,6 +2173,35 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Mengembalikan pegawai yang menjadi <b>batas kepemilikan data</b> bagi akun ini &mdash;
+	 * atau {@code null} bila akun berhak melihat data pegawai lain.
+	 *
+	 * <h3>Semantik terbalik yang mudah disalahpahami</h3>
+	 * <p>Berbeda dari {@link #getPegawai()} yang menjawab "siapa pegawai pemilik akun ini",
+	 * method ini menjawab "pegawai mana saja yang boleh dilihat akun ini". Aturannya:</p>
+	 * <ul>
+	 *   <li>Bila {@link #hakAkses()} punya {@code getMelihatDataPegawaiLain() == true},
+	 *   hasilnya <b>{@code null}</b>, yang di sini bermakna <b>"tidak dibatasi"</b> &mdash;
+	 *   akun boleh melihat seluruh pegawai;</li>
+	 *   <li>selain itu dikembalikan {@link #getPegawai()}, yaitu batas ke dirinya sendiri.</li>
+	 * </ul>
+	 * <p>Karena itu {@code null} pada method ini <b>tidak</b> berarti "bukan pegawai",
+	 * melainkan "tanpa pembatasan". Pemanggil yang membangun kriteria kueri harus
+	 * memperlakukan {@code null} sebagai "jangan tambahkan penyaring pegawai" &mdash; bukan
+	 * sebagai penyaring {@code pegawai IS NULL}. Pola dan semantik identik dipakai
+	 * {@link #ambilDosen()} dan {@link #ambilGuru()}.</p>
+	 *
+	 * <p><b>Fail-open pada kegagalan.</b> Bila {@link #hakAkses()} melempar exception, blok
+	 * {@code catch} hanya mencatat ke {@code ErrorAuditUtil} lalu eksekusi jatuh ke
+	 * {@code return null} di akhir method &mdash; yaitu "tidak dibatasi". Jadi gangguan pada
+	 * resolusi peran melebarkan lingkup data yang terlihat, bukan mempersempitnya. Ini
+	 * konsisten dengan sifat fail-open yang sama pada {@link #hakAkses()} dan pemakainya di
+	 * lapisan API.</p>
+	 *
+	 * @return pegawai pembatas lingkup, atau {@code null} bila tidak dibatasi
+	 * @see #getPegawai()
+	 */
 	public Pegawai ambilPegawai() {
 
 		try {
@@ -2106,6 +2218,47 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return null;
 	}
 
+	/**
+	 * Mengembalikan data kepegawaian pemilik akun ini, atau {@code null}.
+	 *
+	 * <p>Salah satu getter terpanjang dan termahal di kelas ini. Urutannya:</p>
+	 * <ol>
+	 *   <li><b>Jalur pintas {@link #getPegawaiTransien()}.</b> Bila salinan transien
+	 *   ber-{@code id} tersedia, ia langsung dikembalikan. Salinan itu diisi
+	 *   {@link #setPegawai(Pegawai)} agar hasil penetapan eksplisit tidak tertimpa
+	 *   auto-resolusi di langkah-langkah berikutnya.</li>
+	 *   <li><b>Gerbang peserta didik.</b> Bila akun tertaut mahasiswa, siswa, calon
+	 *   mahasiswa, atau calon siswa, hasilnya {@code null} &mdash; peserta didik tidak
+	 *   dianggap pegawai.</li>
+	 *   <li><b>Anggota koperasi</b> yang <i>aktif</i> dan punya {@code getPegawai()}.</li>
+	 *   <li>Selain itu, penurunan berlapis: dari {@code dosen.getPegawaiId()} (dosen aktif),
+	 *   lalu ditimpa {@code guru.getPegawaiId()} (guru aktif) &mdash; keduanya dimuat dari
+	 *   cache {@link ConstantValues}. Berikutnya {@code check(pegawai)}, lalu
+	 *   {@code orangTua.getPegawai()} yang <b>menimpa</b> hasil sebelumnya.</li>
+	 *   <li><b>Auto-resolusi berbasis nama.</b> Bila sampai di sini belum ada pegawai
+	 *   ber-{@code id} (dan {@code userId} serta {@code userNama} keduanya tidak kosong),
+	 *   seluruh cache {@link Pegawai} ditelusuri untuk mencari nama yang identik dengan
+	 *   {@code userNama}. Peringatan yang sama seperti pada {@link #getDosen()} berlaku:
+	 *   pencocokan berbasis nama, rentan nama kembar, urutan iterasi tidak dijamin, dan
+	 *   mahal.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perhatian: cabang guru menimpa cabang dosen.</b> Untuk akun yang merangkap dosen
+	 * <i>dan</i> guru, data pegawai yang menang adalah yang berasal dari guru. Perhatikan
+	 * pula bahwa langkah 4 dan 5 memanggil {@link #getDosen()}, {@link #getGuru()},
+	 * {@link #getUserId()}, dan {@link #getUserNama()} &mdash; masing-masing getter delegatif
+	 * yang berat, sehingga satu pemanggilan {@code getPegawai()} dapat memicu puluhan
+	 * penelusuran cache.</p>
+	 *
+	 * <p>Berbeda dari {@link #getDosen()} dan {@link #getGuru()}, method ini <b>tidak</b>
+	 * menyaring berdasar keaktifan pegawai di akhir &mdash; pegawai non-aktif tetap
+	 * dikembalikan. Penyaringan keaktifan itu justru terjadi di {@link #getAktif()} lewat
+	 * saklar {@code ConstantValues.pegawai_non_aktif_otomatis_tidak_bisa_login}.</p>
+	 *
+	 * @return data kepegawaian pemilik akun (aktif maupun tidak), atau {@code null}
+	 * @see #ambilPegawai()
+	 * @see #getPegawaiTransien()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai", nullable = true)
 	public Pegawai getPegawai() {
@@ -2174,6 +2327,27 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return pegawai;
 	}
 
+	/**
+	 * Menetapkan data kepegawaian pemilik akun.
+	 *
+	 * <p>Setter ini melakukan lebih dari sekadar menyimpan field:</p>
+	 * <ul>
+	 *   <li>Bila {@code pegawai} punya {@code id}, salinannya juga disimpan ke
+	 *   {@link #setPegawaiTransien(Pegawai)}. Salinan itulah yang membuat penetapan di sini
+	 *   <b>menang</b> atas seluruh auto-resolusi di {@link #getPegawai()} &mdash; tanpa itu,
+	 *   nilai yang baru ditetapkan bisa langsung tertimpa penurunan dari dosen/guru/orang
+	 *   tua/pencocokan nama.</li>
+	 *   <li>Bila {@code pegawai} adalah {@code null}, relasi {@code guru} dan {@code dosen}
+	 *   ikut <b>dikosongkan</b>, sekaligus menghapus penanda guru pada cache berkas per-object
+	 *   lewat {@code put("", "guru")}. Alasannya, keduanya lazim diturunkan dari pegawai
+	 *   sehingga membiarkannya terisi akan menghasilkan keadaan yang tidak konsisten.
+	 *   Perhatikan bahwa {@link #setPegawaiTransien(Pegawai)} <b>tidak</b> ikut dikosongkan
+	 *   pada cabang ini, sehingga nilai transien lama masih dapat menghidupkan kembali
+	 *   relasi pegawai pada pemanggilan {@link #getPegawai()} berikutnya.</li>
+	 * </ul>
+	 *
+	 * @param pegawai data kepegawaian; {@code null} sekaligus mengosongkan guru dan dosen
+	 */
 	public void setPegawai(Pegawai pegawai) {
 		this.pegawai = pegawai;
 		if (pegawai != null && pegawai.getId() != null) {
@@ -2186,6 +2360,37 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Mengembalikan satuan kerja yang melekat pada akun ini (varian mentah).
+	 *
+	 * <p>Satuan kerja adalah lingkup organisasi yang <b>paling sering dipakai untuk
+	 * membatasi data</b> di modul keuangan, akuntansi, penganggaran, dan persuratan. Karena
+	 * itu ketepatan method ini berdampak langsung pada pemisahan data antar unit.</p>
+	 *
+	 * <h3>Urutan penurunan</h3>
+	 * <ol>
+	 *   <li>{@code getPegawai().getSatuanKerja()};</li>
+	 *   <li>{@code ambilSekolah().getSatuanKerja()};</li>
+	 *   <li>{@code ambilJurusan().getSatuanKerja()};</li>
+	 *   <li>{@code ambilFakultas().getSatuanKerja()};</li>
+	 *   <li>bila tidak satu pun cocok, kolom {@code satuan_kerja} tersimpan (setelah
+	 *   {@code check(...)}).</li>
+	 * </ol>
+	 * <p>Perhatikan bahwa langkah 2&ndash;4 memakai varian {@code ambilXxx()}, sehingga
+	 * lingkup yang ditetapkan pada {@link Tbmrole} ikut berpengaruh secara tidak langsung
+	 * &mdash; dan bahwa masing-masing dipanggil <b>dua kali</b> (sekali untuk pemeriksaan
+	 * {@code null}, sekali untuk mengambil nilainya), menggandakan biaya rantai getter yang
+	 * sudah mahal.</p>
+	 *
+	 * <p><b>Fail-open pada kegagalan.</b> Seluruh blok penurunan dibungkus {@code try/catch}
+	 * yang hanya mencatat exception; bila gagal, nilai {@code satuanKerja} sebelumnya
+	 * (mungkin {@code null}) yang dipakai. Berlaku pula peredam akun demo seperti pada
+	 * {@link #getJurusan()}.</p>
+	 *
+	 * <p>Untuk pembatasan data berdasar kewenangan, pakai {@link #ambilSatuanKerja()}.</p>
+	 *
+	 * @return satuan kerja akun, atau {@code null} bila tidak dapat ditentukan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
@@ -2221,6 +2426,25 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return satuanKerja;
 	}
 
+	/**
+	 * Mengembalikan satuan kerja <b>efektif</b> akun untuk keperluan pembatasan data.
+	 *
+	 * <p>Lingkup dari {@link #hakAkses()} menang lebih dulu; selain itu dipakai
+	 * {@link #getSatuanKerja()}. <b>Berbeda dari saudara-saudaranya</b>
+	 * ({@link #ambilJurusan()}, {@link #ambilFakultas()}, {@link #ambilYayasan()},
+	 * {@link #ambilSekolah()}, {@link #ambilProgram()}), method ini <b>tidak</b> memiliki
+	 * pengecualian yang menolkan hasil untuk dosen &mdash; dosen tetap terikat pada satuan
+	 * kerjanya. Ini disengaja: satuan kerja adalah unit anggaran/keuangan, bukan unit
+	 * akademik.</p>
+	 *
+	 * <p>Hasilnya <b>ditulis balik</b> ke field {@code satuanKerja}. Seperti varian
+	 * {@code ambilXxx()} lainnya, {@code null} berarti "tidak dibatasi satuan kerja mana
+	 * pun" &mdash; pemanggil yang membangun penyaring wajib menanganinya secara eksplisit
+	 * agar tidak menghasilkan kueri lintas unit.</p>
+	 *
+	 * @return satuan kerja efektif, atau {@code null} bila tidak dibatasi
+	 * @see #getSatuanKerja()
+	 */
 	public SatuanKerja ambilSatuanKerja() {
 
 		Tbmrole d = hakAkses();
@@ -2233,10 +2457,82 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return satuanKerja;
 	}
 
+	/**
+	 * Menetapkan satuan kerja sebagai lingkup organisasi akun.
+	 *
+	 * <p>Nilai yang ditetapkan di sini akan tertimpa pada pemanggilan
+	 * {@link #getSatuanKerja()} berikutnya bila akun punya pegawai, sekolah, jurusan, atau
+	 * fakultas yang membawa satuan kerja sendiri.</p>
+	 *
+	 * @param satuanKerja satuan kerja yang ditautkan; boleh {@code null}
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Menentukan apakah akun ini <b>aktif</b> &mdash; gerbang utama yang memutuskan boleh
+	 * atau tidaknya pengguna masuk ke sistem.
+	 *
+	 * <p>Dipakai sebagai penentu status akun pada kedua jalur autentikasi:
+	 * {@code FilterLoginAis} (login sosial/SSO) dan {@code UserDetailsServiceImpl} (Spring
+	 * Security, yang memetakannya ke properti {@code enabled}). Juga dipakai
+	 * {@link #ambilBerdasarEmail(String)} untuk menyaring kandidat.</p>
+	 *
+	 * <h3>Urutan aturan (yang lebih awal menang)</h3>
+	 * <ol>
+	 *   <li><b>Anggota koperasi &mdash; jalur pintas dengan {@code return} langsung.</b>
+	 *   Bila {@link #getAnggotaKoperasi()} terisi, hasilnya adalah
+	 *   {@code anggotaKoperasi.getAktif()} dan method <b>berhenti di situ</b>.</li>
+	 *   <li><b>Pedagang &mdash; jalur pintas dengan {@code return} langsung.</b> Sama
+	 *   polanya, memakai {@code pedagang.getAktif()}.</li>
+	 *   <li>Bila field {@code aktif} sendiri {@code null}, ia diisi {@code true}
+	 *   (<b>default mengizinkan</b>).</li>
+	 *   <li><b>Akun demo.</b> Saklar {@code ConstantValues.aktifkan_akun_demo} memaksa akun
+	 *   ber-{@code userId} {@code "demo"} menjadi aktif saat menyala dan non-aktif saat
+	 *   padam &mdash; mengalahkan nilai tersimpan di kedua arah.</li>
+	 *   <li><b>Orang tua tanpa data orang tua.</b> Akun berperan
+	 *   {@link Tbmrole#ORANG_TUA} tetapi {@link #getOrangTua()} kosong dinonaktifkan.</li>
+	 *   <li><b>Akun "yatim peran" dosen/guru.</b> Akun berperan {@code DOSEN} (atau
+	 *   {@code GURU}) yang tidak punya entitas {@link Dosen} (atau {@link Guru})
+	 *   <i>dan</i> tidak punya {@link Pegawai} dinonaktifkan. Pengecualian pegawai di sini
+	 *   penting dan sudah terdokumentasi di komentar kode: tanpa itu, akun milik pegawai
+	 *   aktif yang diberi peran mengajar tidak akan pernah bisa diaktifkan.</li>
+	 *   <li><b>Ikut status pegawai.</b> Bila
+	 *   {@code ConstantValues.pegawai_non_aktif_otomatis_tidak_bisa_login} menyala, pegawai
+	 *   non-aktif membuat akun non-aktif.</li>
+	 * </ol>
+	 *
+	 * <h3>Catatan penting bagi yang menonaktifkan akun</h3>
+	 * <p>Aturan 1 dan 2 adalah <b>jalur pintas ber-{@code return} yang dievaluasi paling
+	 * awal</b>, yaitu sebelum field {@code aktif} milik {@code Tbmuser} sendiri ikut
+	 * dipertimbangkan. Artinya, untuk akun yang tertaut ke {@code AnggotaKoperasi} atau
+	 * {@code Pedagang}, <b>mencentang non-aktif pada layar pengguna ({@code TbmuserAction})
+	 * tidak tercermin pada hasil method ini</b> &mdash; status keaktifannya sepenuhnya
+	 * mengikuti baris koperasi/pedagang. Untuk memblokir akun semacam itu, non-aktifkan
+	 * entitas koperasi/pedagangnya, bukan (hanya) akun penggunanya. Perlu dicatat bahwa
+	 * jalur login sosial di {@code FilterLoginAis} sebagian teredam karena kueri
+	 * pemuatannya sudah menyaring kolom {@code aktif} di tingkat database, sedangkan jalur
+	 * {@code UserDetailsServiceImpl} menghitung {@code enabled} sepenuhnya di memori lewat
+	 * method ini.</p>
+	 *
+	 * <p><b>Getter destruktif.</b> Method ini menulis field {@code aktif} pada hampir setiap
+	 * cabang dan me-resolve enam relasi ({@code anggotaKoperasi}, {@code pedagang},
+	 * {@code orangTua}, {@code userRole}, {@code dosen}, {@code guru}, {@code pegawai}),
+	 * sehingga sekadar membacanya dapat mengubah keadaan object dan memicu
+	 * {@code UPDATE}/revisi Envers.</p>
+	 *
+	 * <p><b>Ketergantungan pada resolusi peran.</b> Aturan 5 dan 6 memakai
+	 * {@link #ambilRolesId()} yang bermuara pada {@link #getUserRole()}. Bila resolusi peran
+	 * sedang anomali (lihat {@link #hakAkses()}), aturan-aturan itu tidak terpicu dan akun
+	 * yang seharusnya dinonaktifkan dapat tampak aktif.</p>
+	 *
+	 * @return {@code true} bila akun boleh dipakai masuk; tidak pernah {@code null} setelah
+	 *         aturan 3 dijalankan, namun cabang 1 dan 2 dapat meneruskan {@code null} dari
+	 *         entitas tertaut
+	 * @see #setAktif(Boolean)
+	 * @see #getUserShow()
+	 */
 	public Boolean getAktif() {
 
 		if (getAnggotaKoperasi() != null) {
@@ -2294,6 +2590,18 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return aktif;
 	}
 
+	/**
+	 * Menetapkan status aktif akun (mencentang/melepas centang "Aktif" pada layar pengguna).
+	 *
+	 * <p>Setter mentah dua arah. <b>Perlu diingat bahwa nilai yang ditetapkan di sini dapat
+	 * tidak berpengaruh sama sekali</b> pada hasil {@link #getAktif()}: untuk akun yang
+	 * tertaut ke {@code AnggotaKoperasi} atau {@code Pedagang}, getter berhenti lebih awal
+	 * dan mengembalikan status entitas tersebut; sedangkan untuk akun dosen/guru/pegawai,
+	 * beberapa aturan turunan dapat memaksanya menjadi {@code false}. Baca
+	 * {@link #getAktif()} sebelum mengandalkan setter ini sebagai mekanisme blokir.</p>
+	 *
+	 * @param aktif {@code true} untuk mengaktifkan akun
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}

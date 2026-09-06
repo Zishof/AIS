@@ -463,6 +463,26 @@ public abstract class VOMahasiswa extends VoKunci {
 		return hasilUjianMahasiswasa;
 	}
 
+	/**
+	 * Membaca berkas indeks rincian tagihan ({@link DetailKegiatan}) milik orang ini dan
+	 * mengembalikan isinya sebagai teks JSON.
+	 *
+	 * <p>Berkas berkunci {@code "detailKegiatan_" + getId()}. Seperti indeks lain di kelas ini,
+	 * isinya adalah himpunan id yang disimpan sebagai {@link org.json.JSONObject}, bukan data
+	 * rincian itu sendiri.</p>
+	 *
+	 * <p>Berbeda dari {@link #ambilLokasiHasilUjianMahasiswa()} dan {@link #ambilLokasiKegiatan()},
+	 * method ini memeriksa lebih dulu apakah berkasnya benar-benar ada sebelum mencoba membaca —
+	 * perbedaan gaya yang tidak mengubah hasil akhir, karena ketiga method sama-sama mengembalikan
+	 * JSON kosong bila berkas tidak tersedia. Dan berbeda dari {@link #ambilLokasiCicilan()},
+	 * method ini <b>tidak</b> menghapus berkasnya setelah membaca (baris penghapusan yang setara
+	 * ada di kode tetapi dinonaktifkan sebagai komentar), sehingga aman dipanggil berulang.</p>
+	 *
+	 * <p>Entity yang belum tersimpan (id {@code null}), berkas yang belum pernah ditulis, dan
+	 * kegagalan pembacaan sama-sama menghasilkan {@code "{}"}.</p>
+	 *
+	 * @return teks JSON berisi himpunan id rincian tagihan; tidak pernah {@code null}
+	 */
 	public String ambilLokasiDetailKegiatan() {
 		// Null-safe: entitas transient (id null) tak punya file keyed-by-id → cegah NPE.
 		if (getId() == null) {
@@ -481,6 +501,40 @@ public abstract class VOMahasiswa extends VoKunci {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Mengambil <b>seluruh</b> rincian tagihan milik orang ini, lintas semester dan lintas jenis
+	 * kegiatan.
+	 *
+	 * <p>Method ini adalah pembungkus tipis yang menyuntikkan state objek ini ke
+	 * {@code KegiatanPersistenceHelper.ambilDetailKegiatanSaja(VOMahasiswa, String, Collection,
+	 * boolean)}: indeks berkas dari {@link #ambilLokasiDetailKegiatan()} dan daftar kegiatan dari
+	 * {@link #ambilKegiatansData(boolean, JenisKegiatan)}.</p>
+	 *
+	 * <p><b>Arti parameter {@code refresh} di sini berbeda dari intuisi.</b> Pada helper,
+	 * {@code refresh == false} berarti "susun daftar id dari indeks berkas <i>dan</i> dari kolom
+	 * denormalisasi tiap kegiatan yang ada di cache", sedangkan {@code refresh == true} berarti
+	 * "abaikan keduanya, buka session baru, dan kueri ulang seluruh {@link DetailKegiatan} milik
+	 * orang ini dari basis data". Jadi {@code true} bukan sekadar memperbarui — ia mengganti
+	 * seluruh sumber daftar id. Nilai {@code refresh} juga diteruskan ke
+	 * {@link #ambilKegiatansData(boolean, JenisKegiatan)}, sehingga satu pemanggilan dengan
+	 * {@code true} membangun ulang dua indeks sekaligus (kegiatan dan rinciannya) dan bisa
+	 * menembak basis data beberapa kali.</p>
+	 *
+	 * <p><b>Penyaringan kepemilikan.</b> Helper membatasi kueri lewat relasi
+	 * {@code kegiatan.mahasiswa} atau {@code kegiatan.calonMahasiswa} sesuai tipe {@code this};
+	 * tidak ada pemeriksaan hak akses tambahan. Data yang dikembalikan selalu milik orang yang
+	 * diwakili objek ini, tetapi apakah pengguna yang berjalan berhak melihatnya adalah urusan
+	 * pemanggil.</p>
+	 *
+	 * <p><b>Bukan operasi baca murni.</b> Helper menutup pemanggilan dengan menyinkronkan kolom
+	 * denormalisasi pada tiap {@link Kegiatan} terkait, sehingga pemanggilan ini dapat berujung
+	 * pada penulisan basis data. Untuk keperluan laporan yang benar-benar tidak boleh mengubah
+	 * apa pun, gunakan varian read-only yang tersedia di helper.</p>
+	 *
+	 * @param refresh {@code true} untuk mengabaikan seluruh cache dan kueri ulang dari basis data
+	 * @return daftar rincian tagihan milik orang ini; kosong bila tidak ada, tidak pernah
+	 *         {@code null}
+	 */
 	public Collection<DetailKegiatan> ambilDetailKegiatanSaja(boolean refresh) {
 		// Panggil Helper Statis dengan menyuntikkan nilai dari konteks class ini (this)
 		return KegiatanPersistenceHelper.ambilDetailKegiatanSaja(this, // Parameter 1: Object student (this merujuk ke
@@ -491,10 +545,69 @@ public abstract class VOMahasiswa extends VoKunci {
 		);
 	}
 
+	/**
+	 * Mengambil rincian tagihan milik satu {@link Kegiatan} tertentu.
+	 *
+	 * <p><b>Method ini tidak memakai {@code this} sama sekali.</b> Ia meneruskan langsung ke
+	 * {@code KegiatanPersistenceHelper.ambilDetailKegiatanSaja(Kegiatan, boolean)}, sehingga
+	 * hasilnya ditentukan sepenuhnya oleh argumen {@code kegiatan} — bukan oleh orang yang
+	 * diwakili objek ini. Konsekuensinya ada dua:</p>
+	 * <ul>
+	 * <li>Memanggilnya dengan kegiatan milik <b>orang lain</b> akan mengembalikan rincian tagihan
+	 * orang tersebut tanpa keberatan. Tidak ada pemeriksaan bahwa {@code kegiatan.getMahasiswa()}
+	 * atau {@code kegiatan.getCalonMahasiswa()} adalah {@code this}. Pemanggil wajib memastikan
+	 * sendiri bahwa kegiatan yang diberikan memang milik orang yang sedang ditampilkan — di dalam
+	 * kelas ini hal itu selalu terpenuhi karena kegiatannya berasal dari
+	 * {@link #ambilKegiatans(boolean)} milik objek yang sama.</li>
+	 * <li>Karena tidak bergantung pada state instance, method ini sebenarnya berperilaku statis;
+	 * ia tetap menjadi method instance semata-mata karena posisinya dalam sejarah kelas ini.</li>
+	 * </ul>
+	 *
+	 * <p>Helper mengembalikan daftar kosong bila {@code kegiatan} atau id-nya {@code null}, jadi
+	 * method ini tidak melempar untuk masukan tersebut. Sama seperti
+	 * {@link #ambilDetailKegiatanSaja(boolean)}, jalur helper yang dipakai di sini juga
+	 * menyinkronkan kolom denormalisasi kegiatan dan karenanya dapat menulis ke basis data.</p>
+	 *
+	 * @param kegiatan kegiatan yang rinciannya diminta
+	 * @param refresh  {@code true} untuk mengabaikan kolom denormalisasi kegiatan dan kueri ulang
+	 *                 dari basis data
+	 * @return rincian tagihan kegiatan tersebut; kosong bila tidak ada
+	 */
 	public Collection<DetailKegiatan> ambilDetailKegiatan(Kegiatan kegiatan, boolean refresh) {
 		return KegiatanPersistenceHelper.ambilDetailKegiatanSaja(kegiatan, refresh);
 	}
 
+	/**
+	 * Menyaring rincian tagihan satu kegiatan sehingga tersisa yang cocok dengan satu
+	 * {@link DetailBiaya} tertentu, memakai <b>dua tingkat pencocokan berjenjang</b>.
+	 *
+	 * <p><b>Tingkat 1 — pencocokan tepat.</b> Rincian diambil bila id kegiatannya sama dengan
+	 * {@code kegiatan} dan id {@code detailBiaya}-nya sama persis dengan yang diminta. Inilah
+	 * jalur normal ketika baris rincian memang dibuat dari master biaya yang sama.</p>
+	 *
+	 * <p><b>Tingkat 2 — pencocokan longgar, hanya bila tingkat 1 tidak menemukan apa pun.</b>
+	 * Rincian diambil bila id kegiatannya sama, {@link ItemBiaya} di balik {@code detailBiaya}-nya
+	 * sama, dan nilai {@code bayarKe} keduanya sama. Cabang ini ada karena master biaya dapat
+	 * diterbitkan ulang: baris {@link DetailBiaya} baru dibuat untuk periode/angkatan berikutnya
+	 * sehingga id-nya berubah, padahal item biaya dan urutan pembayarannya tetap. Tanpa cabang
+	 * ini, tagihan lama akan tampak "tidak punya rincian" setelah master biaya diperbarui.</p>
+	 *
+	 * <p><b>Risiko yang menyertai cabang longgar.</b> Karena pencocokan hanya memakai item biaya
+	 * dan {@code bayarKe}, dua {@link DetailBiaya} berbeda yang kebetulan berbagi item biaya dan
+	 * urutan pembayaran yang sama akan saling terjaring. Cabang ini hanya aktif ketika pencocokan
+	 * tepat gagal total, sehingga tidak pernah menggandakan hasil tingkat 1 — tetapi hasilnya bisa
+	 * memuat baris yang secara master bukan milik {@code detailBiaya} yang diminta.</p>
+	 *
+	 * <p>Setiap perbandingan dibungkus {@code try/catch} per elemen: rincian dengan relasi
+	 * {@code null} (kegiatan, detail biaya, atau item biaya yang belum terisi) hanya dilewati,
+	 * kesalahannya dicetak dan dicatat, dan penyaringan berlanjut. Akibatnya data rusak tidak
+	 * menggagalkan tampilan, tetapi juga tidak terlihat oleh pengguna.</p>
+	 *
+	 * @param kegiatan    kegiatan yang rinciannya disaring
+	 * @param detailBiaya master biaya yang dicari
+	 * @param refresh     diteruskan ke {@link #ambilDetailKegiatan(Kegiatan, boolean)}
+	 * @return rincian yang cocok; kosong bila kedua tingkat pencocokan gagal
+	 */
 	public List<DetailKegiatan> ambilDetailKegiatan(Kegiatan kegiatan, DetailBiaya detailBiaya, boolean refresh) {
 		Collection<DetailKegiatan> detailKegiatansTemp = ambilDetailKegiatan(kegiatan, refresh);
 		List<DetailKegiatan> detailKegiatans = new ArrayList<DetailKegiatan>();
@@ -531,6 +644,32 @@ public abstract class VOMahasiswa extends VoKunci {
 		return detailKegiatans;
 	}
 
+	/**
+	 * Menyaring rincian tagihan satu kegiatan sehingga tersisa yang cocok dengan satu
+	 * {@link PengaturanPembayaranBulanan} tertentu.
+	 *
+	 * <p>Dipakai untuk tagihan yang dipecah per bulan (mis. SPP bulanan): satu
+	 * {@link DetailBiaya} melahirkan banyak baris pengaturan bulanan, dan tiap baris punya
+	 * rinciannya sendiri.</p>
+	 *
+	 * <p>Berbeda dari saudaranya yang menerima {@link Collection} rincian
+	 * ({@link #ambilDetailKegiatan(Kegiatan, PengaturanPembayaranBulanan, Collection)}), method
+	 * ini <b>hanya</b> melakukan pencocokan tepat berdasarkan id kegiatan dan id pengaturan
+	 * bulanan — tidak ada cabang pencocokan longgar berdasarkan item biaya dan bulan riil. Bila
+	 * master biaya sudah diterbitkan ulang sehingga id pengaturan bulanannya berubah, method ini
+	 * akan mengembalikan daftar kosong sementara saudaranya masih menemukan padanannya. Untuk
+	 * kasus tersebut, ambil dulu koleksi rinciannya lalu panggil varian yang menerima
+	 * {@link Collection}.</p>
+	 *
+	 * <p>Kegagalan per elemen (relasi {@code null}) ditelan dan dicatat ke audit tanpa
+	 * menghentikan penyaringan.</p>
+	 *
+	 * @param kegiatan                    kegiatan yang rinciannya disaring
+	 * @param pengaturanPembayaranBulanan baris pengaturan bulanan yang dicari
+	 * @param refresh                     diteruskan ke
+	 *                                    {@link #ambilDetailKegiatan(Kegiatan, boolean)}
+	 * @return rincian yang cocok; kosong bila tidak ada yang cocok persis
+	 */
 	public List<DetailKegiatan> ambilDetailKegiatan(Kegiatan kegiatan,
 			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, boolean refresh) {
 		Collection<DetailKegiatan> detailKegiatansTemp = ambilDetailKegiatan(kegiatan, refresh);
@@ -549,6 +688,35 @@ public abstract class VOMahasiswa extends VoKunci {
 		return detailKegiatans;
 	}
 
+	/**
+	 * Varian {@link #ambilDetailKegiatan(Kegiatan, PengaturanPembayaranBulanan, boolean)} yang
+	 * bekerja atas koleksi rincian yang <b>sudah</b> disediakan pemanggil, bukan mengambilnya
+	 * sendiri.
+	 *
+	 * <p>Bentuk ini dipakai di dalam perulangan: pemanggil mengambil seluruh rincian satu kali
+	 * lewat {@link #ambilDetailKegiatanSaja(boolean)}, lalu memanggil method ini berkali-kali
+	 * untuk tiap baris pengaturan bulanan tanpa menembak penyimpanan lagi. Untuk tagihan yang
+	 * terpecah menjadi dua belas bulan, perbedaannya besar: satu pengambilan versus dua belas.</p>
+	 *
+	 * <p>Seperti {@link #ambilDetailKegiatan(Kegiatan, DetailBiaya, boolean)}, pencocokan
+	 * dilakukan <b>berjenjang</b>:</p>
+	 * <ol>
+	 * <li><b>Tepat</b> — id kegiatan sama dan id pengaturan bulanan sama.</li>
+	 * <li><b>Longgar</b>, hanya bila tingkat 1 tidak menghasilkan apa pun — id kegiatan sama,
+	 * {@code bayarKe} pada master biaya sama, {@link ItemBiaya} sama, dan <b>bulan riil</b>
+	 * ({@code getRealBulan()}) sama. Cabang ini memulihkan pencocokan setelah master biaya
+	 * diterbitkan ulang dengan id baru; bulan riil dipakai sebagai pembeda antar-baris agar
+	 * tagihan Januari tidak tertukar dengan Februari.</li>
+	 * </ol>
+	 *
+	 * <p>Bila {@code detailKegiatansTemp} bernilai {@code null} atau kosong, hasilnya daftar
+	 * kosong tanpa kesalahan. Kegagalan per elemen ditelan dan dicatat ke audit.</p>
+	 *
+	 * @param kegiatan                    kegiatan yang rinciannya disaring
+	 * @param pengaturanPembayaranBulanan baris pengaturan bulanan yang dicari
+	 * @param detailKegiatansTemp         kumpulan rincian yang akan disaring; boleh {@code null}
+	 * @return rincian yang cocok; kosong bila kedua tingkat pencocokan gagal
+	 */
 	public List<DetailKegiatan> ambilDetailKegiatan(Kegiatan kegiatan,
 			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, Collection<DetailKegiatan> detailKegiatansTemp) {
 		List<DetailKegiatan> detailKegiatans = new ArrayList<DetailKegiatan>();

@@ -276,6 +276,45 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		CUSTOM_PILIHAN.add(PILIHAN_KELAS_SISWA);
 	}
 
+	/**
+	 * Merender NILAI tersimpan sebuah parameter dalam mode HANYA-BACA ke dalam sebuah {@code Vbox}.
+	 *
+	 * <p>Jalur ini terpisah dari {@link #ambilComponent(String, ParameterTambahan,
+	 * org.zkoss.zk.ui.event.EventListener, boolean)}: yang itu membangun komponen yang (mungkin) bisa
+	 * disunting, sedangkan method ini semata memformat nilai untuk dibaca — dipakai daftar, rekap, dan
+	 * pratinjau.</p>
+	 *
+	 * <p><b>Lampiran menang atas nilai.</b> Bila {@code lampiranLain} tidak {@code null}, isi
+	 * {@code vall} TIDAK ditampilkan sama sekali; yang muncul hanyalah tombol unduh. Label tombol memakai
+	 * {@code vall} bila ada isinya, atau {@code lampiranLain.getUrl()} bila kosong. Tombol itu bercabang
+	 * saat diklik: berkas ber-Google Drive dialihkan ke {@code downloadGDriveUrl()} pada tab baru,
+	 * selebihnya diserahkan ke {@code Common.display(...)}.</p>
+	 *
+	 * <p>Tanpa lampiran, pemformatan bergantung pada {@link ParameterTambahan#getTipeDataInputan()}:</p>
+	 * <ul>
+	 * <li>{@link #PILIHAN_PENYEDIA} — nilai berbentuk {@code "<id>-><label>"} dipotong dan HANYA bagian
+	 * label yang ditampilkan, sehingga id internal tidak bocor ke layar. Perlu dicatat penanganan ini
+	 * khusus penyedia saja; enam tipe pemilih entity lain memakai format gabungan yang sama tetapi jatuh ke
+	 * cabang terakhir sehingga id-nya IKUT TERLIHAT beserta tanda {@code "->"}.</li>
+	 * <li>{@link #ANGKA} dan {@link #TEXT_ANGKA} — diformat {@code Common.numberFormat}; nilai kosong
+	 * ditampilkan sebagai {@code 0}.</li>
+	 * <li>{@link #TANGGAL} dan {@link #TANGGAL_DAN_WAKTU} — diurai memakai format simpan lalu ditampilkan
+	 * memakai format baca ({@code dateFormat6}/{@code dateFormat61}).</li>
+	 * <li>selebihnya — ditampilkan apa adanya.</li>
+	 * </ul>
+	 *
+	 * <p>Setiap cabang pemformatan dibungkus {@code try/catch} yang, bila penguraian gagal, menampilkan
+	 * teks MENTAH-nya. Jadi nilai lama yang formatnya tidak lagi cocok dengan tipe parameter tetap terbaca
+	 * pengguna alih-alih memunculkan galat — pilihan yang disengaja karena tipe sebuah parameter bisa
+	 * diubah pengelola setelah ada data.</p>
+	 *
+	 * @param vbox2             wadah tujuan; komponen hasil di-{@code append} ke sini.
+	 * @param parameterTambahan definisi parameter; dipakai membaca tipe datanya. Tidak boleh {@code null}
+	 *                          bila {@code lampiranLain} {@code null}.
+	 * @param lampiranLain      lampiran terkait; bila tidak {@code null}, hanya tombol unduh yang dirender.
+	 * @param vall              nilai tersimpan. Tidak boleh {@code null} pada jalur tanpa lampiran karena
+	 *                          langsung di-{@code trim}.
+	 */
 	public static void tampil(Vbox vbox2, ParameterTambahan parameterTambahan, final LampiranLain lampiranLain,
 			String vall) {
 
@@ -328,6 +367,35 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Pintasan {@code initComponent} 10 argumen: menurunkan mode hanya-baca dari ADA-TIDAKNYA peta
+	 * lampiran.
+	 *
+	 * <p>Meneruskan ke {@link #initComponent(Row, Rows, String, List, Map, Long, String, String,
+	 * ParameterTambahan, EventListener, boolean)} dengan {@code readonly = (lampiranLains == null)}.
+	 * Kaidahnya: peta lampiran adalah wadah keluaran tempat berkas hasil unggah dititipkan, jadi pemanggil
+	 * yang TIDAK menyediakannya dianggap tidak berniat menyunting apa pun.</p>
+	 *
+	 * <p><b>Penggandengan ini mudah menjebak.</b> Satu argumen memikul dua makna sekaligus — "kumpulkan
+	 * lampiran ke sini" dan "form ini dapat disunting" — sehingga pemanggil yang sekadar ingin form yang
+	 * bisa disunting tanpa lampiran TIDAK BISA memakai pintasan ini; ia akan diam-diam mendapat form
+	 * hanya-baca. Untuk kasus itu pakailah kelebihan-beban yang menyatakan {@code readonly} secara
+	 * eksplisit.</p>
+	 *
+	 * @param row               baris tujuan komponen isian.
+	 * @param rows              wadah baris; tempat baris keterangan/lampiran ditambahkan.
+	 * @param jenis             kunci namespace lampiran — lihat penjelasan definitif pada
+	 *                          {@link #initComponent(Row, Rows, String, List, Map, Long, String, String,
+	 *                          ParameterTambahan, EventListener, boolean, String)}.
+	 * @param parameterRows     daftar seluruh baris parameter dalam form; boleh {@code null}.
+	 * @param lampiranLains     peta keluaran lampiran; {@code null} berarti mode HANYA-BACA.
+	 * @param ref               id entity pemilik, pasangan dari {@code jenis}.
+	 * @param val               nilai tersimpan; kosong berarti memakai {@link ParameterTambahan#getNilaiDefault()}.
+	 * @param ket               keterangan tersimpan.
+	 * @param parameterTambahan definisi parameter.
+	 * @param eventListener     pendengar perubahan tambahan; boleh {@code null}.
+	 * @return {@code true} bila baris ini terlihat oleh pengguna sekarang.
+	 */
 	public static boolean initComponent(Row row, Rows rows, String jenis, List<Row> parameterRows,
 			final Map<String, LampiranLain> lampiranLains, Long ref, String val, String ket,
 			ParameterTambahan parameterTambahan, EventListener eventListener) {
@@ -335,6 +403,34 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 				eventListener, lampiranLains == null);
 	}
 
+	/**
+	 * Pintasan {@code initComponent} 11 argumen: memakai nama atribut komponen BAKU {@code "component"}.
+	 *
+	 * <p>Meneruskan ke {@link #initComponent(Row, Rows, String, List, Map, Long, String, String,
+	 * ParameterTambahan, EventListener, boolean, String)} dengan {@code componenName = "component"}.
+	 * Nama itu adalah kunci atribut tempat komponen isian dititipkan pada {@code Row}, dan harus SAMA
+	 * dengan yang kelak dipakai {@link #ambilVal(Row, ParameterTambahan)} untuk mengambilnya kembali.
+	 * Karena {@code ambilVal} juga memakai {@code "component"} sebagai bakunya, pasangan pintasan ini
+	 * saling cocok tanpa perlu diatur.</p>
+	 *
+	 * <p>Kelebihan-beban yang menyatakan {@code componenName} sendiri hanya diperlukan bila SATU baris
+	 * memuat lebih dari satu komponen isian dan masing-masing harus dibedakan.</p>
+	 *
+	 * @param row               baris tujuan komponen isian.
+	 * @param rows              wadah baris; tempat baris keterangan/lampiran ditambahkan.
+	 * @param jenis             kunci namespace lampiran — lihat penjelasan definitif pada
+	 *                          {@link #initComponent(Row, Rows, String, List, Map, Long, String, String,
+	 *                          ParameterTambahan, EventListener, boolean, String)}.
+	 * @param parameterRows     daftar seluruh baris parameter dalam form; boleh {@code null}.
+	 * @param lampiranLains     peta keluaran lampiran; boleh {@code null}.
+	 * @param ref               id entity pemilik, pasangan dari {@code jenis}.
+	 * @param val               nilai tersimpan.
+	 * @param ket               keterangan tersimpan.
+	 * @param parameterTambahan definisi parameter.
+	 * @param eventListener     pendengar perubahan tambahan; boleh {@code null}.
+	 * @param readonly          {@code true} untuk merender baris sebagai teks mati.
+	 * @return {@code true} bila baris ini terlihat oleh pengguna sekarang.
+	 */
 	public static boolean initComponent(Row row, Rows rows, String jenis, List<Row> parameterRows,
 			final Map<String, LampiranLain> lampiranLains, Long ref, String val, String ket,
 			ParameterTambahan parameterTambahan, EventListener eventListener, boolean readonly) {

@@ -104,8 +104,11 @@ public class JenisKegiatan extends GeneralValueObject {
 	 * 
 	 */
 	private static final long serialVersionUID = -3088613612931036389L;
+	/** Primary key {@code jenis_kegiatan.id}, dihasilkan database. @see #getId() */
 	private Long id;
+	/** Nama pelaku perubahan terakhir (field audit bayangan). @see #getOleh() */
 	private String oleh;
+	/** Id pelaku perubahan terakhir (field audit bayangan). @see #getOlehId() */
 	private String olehId;
 
 	/**
@@ -195,6 +198,11 @@ public class JenisKegiatan extends GeneralValueObject {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * Stempel waktu perubahan terakhir; nilai awal dari {@link ais.ui.util.WaktuUtil#getDate()}.
+	 *
+	 * @see #getTanggal_dirubah()
+	 */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	/**
@@ -220,9 +228,21 @@ public class JenisKegiatan extends GeneralValueObject {
 
 	/** Nama kegiatan/tagihan sebagaimana tampil di layar mahasiswa dan di kuitansi; kolom {@code nama_kegiatan}. Dipetakan DUA KALI &mdash; lihat {@link #getNama()} dan {@link #getNamaKegiatan()}. */
 	private String namaKegiatan;
+	/** Awalan kode pembayaran/virtual account khusus jenis kegiatan ini. @see #getPrefixKodePembayaran() */
 	private String prefixKodePembayaran;
+	/**
+	 * Daftar nama bank penerima, string ber-delimiter titik-koma; dinormalkan destruktif oleh getter-nya.
+	 *
+	 * @see #getNamaBankPembayaran()
+	 */
 	private String namaBankPembayaran;
+	/** Keterangan bebas jenis kegiatan. @see #getKeterangan() */
 	private String keterangan;
+	/**
+	 * Teks petunjuk pembayaran yang ditampilkan kepada mahasiswa; kolom {@code text}.
+	 *
+	 * @see #getPenjelasanPembayaran()
+	 */
 	private String penjelasanPembayaran;
 
 	/**
@@ -254,14 +274,35 @@ public class JenisKegiatan extends GeneralValueObject {
 	 * Dapat diturunkan otomatis dari {@code namaKegiatan} &mdash; lihat {@link #getKode()}.
 	 */
 	private String kode;
+	/**
+	 * Penanda pilihan bawaan pada form pembuatan tagihan; satu-satunya flag yang getter-nya dapat mengembalikan {@code null}.
+	 *
+	 * @see #getDefaultKegiatan()
+	 */
 	private Boolean defaultKegiatan = false;
+	/** Status aktif katalog; dipaksa {@code true} untuk tiga jenis kegiatan sentinel. @see #getAktif() */
 	private Boolean aktif;
+	/** Penanda pilihan bawaan pada form pembayaran. @see #getDefaultPembayaran() */
 	private Boolean defaultPembayaran = false;
+	/** Apakah tunggakan jenis ini menghalangi pengisian KRS. @see #getDigunakanUntukPengecekanKrs() */
 	private Boolean digunakanUntukPengecekanKrs;
+	/** Apakah tunggakan jenis ini menyembunyikan nilai/KHS. @see #getDigunakanUntukPengecekanNilai() */
 	private Boolean digunakanUntukPengecekanNilai;
+	/**
+	 * Apakah tunggakan jenis ini menghalangi keikutsertaan ujian; auto-seed dari flag KRS.
+	 *
+	 * @see #getDigunakanUntukPengecekanUjian()
+	 */
 	private Boolean digunakanUntukPengecekanUjian;
+	/** Apakah pelunasan jenis ini menentukan status keaktifan mahasiswa. @see #getDigunakanSyaratKeaktifan() */
 	private Boolean digunakanSyaratKeaktifan;
+	/** Apakah tunggakan jenis ini memblokir login mahasiswa. @see #getDigunakanSyaratLogin() */
 	private Boolean digunakanSyaratLogin;
+	/**
+	 * Apakah pelunasan jenis ini menjadi syarat cetak surat bebas/aktif; berbawaan {@code true}.
+	 *
+	 * @see #getDigunakanSyaratCetakSuratBebasAktif()
+	 */
 	private Boolean digunakanSyaratCetakSuratBebasAktif;
 
 	/**
@@ -274,6 +315,7 @@ public class JenisKegiatan extends GeneralValueObject {
 	 * baru. Nilai default 0..30 berarti &quot;berlaku di semua semester&quot;.</p>
 	 */
 	private Integer minSmt = 0;
+	/** Semester paling akhir jenis kegiatan berlaku; di-auto-seed getter-nya menurut nama kegiatan. @see #getMaxSmt() */
 	private Integer maxSmt = 30;
 
 	/**
@@ -286,43 +328,194 @@ public class JenisKegiatan extends GeneralValueObject {
 	 * lewat {@code switch} atas jumlah semester mundur.</p>
 	 */
 	private Double persenSyaratLogin;
+	/** Kanal pembayaran yang ditetapkan untuk jenis kegiatan ini. @see #getKanalPembayaran() */
 	private KanalPembayaran kanalPembayaran;
+	/** Aturan cakupan pemeriksaan tunggakan untuk semester berjalan (indeks 0). @see #getBayarHanyaSmtSaatIni() */
 	private Boolean bayarHanyaSmtSaatIni;
+	/** Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-1. @see #getBayarHanyaSmtSaatIniDanSebelumnya() */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnya;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-2.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-3.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi3()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi3;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-4.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi4()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi4;
+	/**
+	 * Penanda tagihan wajib berupa angsuran; ikut menentukan penjumlahan {@link Kegiatan#hitungTagihan()}.
+	 *
+	 * @see #getHanyaBerupaAngsuran()
+	 */
 	private Boolean hanyaBerupaAngsuran;
+	/** Penanda tagihan wajib dibayar sekaligus. @see #getHanyaBerupaBukanAngsuran() */
 	private Boolean hanyaBerupaBukanAngsuran;
+	/** Konfigurasi angsuran per jenjang dalam JSON mentah. @see #getJenjangAngsuranJson() */
 	private String jenjangAngsuranJson;
+	/**
+	 * Apakah alumni tetap ditagih; di-auto-seed dari konfigurasi global oleh getter-nya.
+	 *
+	 * @see #getTagihanJugaUntukAlumni()
+	 */
 	private Boolean tagihanJugaUntukAlumni;
 
+	/** Larangan mengangsur sederhana, terpisah dari mesin angsuran per-jenjang. @see #getTidakBolehMengangsur() */
 	private Boolean tidakBolehMengangsur;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-1; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}.
+	 *
+	 * @see #getPersenSyaratLogin1()
+	 */
 	private Double persenSyaratLogin1;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-2; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}.
+	 *
+	 * @see #getPersenSyaratLogin2()
+	 */
 	private Double persenSyaratLogin2;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-3; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}.
+	 *
+	 * @see #getPersenSyaratLogin3()
+	 */
 	private Double persenSyaratLogin3;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-4; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}.
+	 *
+	 * @see #getPersenSyaratLogin4()
+	 */
 	private Double persenSyaratLogin4;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-5; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}.
+	 *
+	 * @see #getPersenSyaratLogin5()
+	 */
 	private Double persenSyaratLogin5;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-6; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}.
+	 *
+	 * @see #getPersenSyaratLogin6()
+	 */
 	private Double persenSyaratLogin6;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-7; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}.
+	 *
+	 * @see #getPersenSyaratLogin7()
+	 */
 	private Double persenSyaratLogin7;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-8; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}.
+	 *
+	 * @see #getPersenSyaratLogin8()
+	 */
 	private Double persenSyaratLogin8;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-9; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}. Praktis tidak terjangkau dari {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getPersenSyaratLogin9()
+	 */
 	private Double persenSyaratLogin9;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-10; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}. Praktis tidak terjangkau dari {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getPersenSyaratLogin10()
+	 */
 	private Double persenSyaratLogin10;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-11; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}. Praktis tidak terjangkau dari {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getPersenSyaratLogin11()
+	 */
 	private Double persenSyaratLogin11;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-12; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}. Praktis tidak terjangkau dari {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getPersenSyaratLogin12()
+	 */
 	private Double persenSyaratLogin12;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-13; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}. Praktis tidak terjangkau dari {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getPersenSyaratLogin13()
+	 */
 	private Double persenSyaratLogin13;
+	/**
+	 * Ambang persentase pelunasan untuk semester mundur ke-14; {@code null} berarti ikut ambang dasar {@link #getPersenSyaratLogin()}. Praktis tidak terjangkau dari {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getPersenSyaratLogin14()
+	 */
 	private Double persenSyaratLogin14;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-5.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi5()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi5;
 	// private Set<DetailBiaya> detailBiayas = new HashSet<DetailBiaya>();
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-6.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi6()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi6;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-7.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi7()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi7;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-8.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi8()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi8;
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-9. <b>Field tidur</b>: tidak pernah masuk array {@code aturanSmtMundur} pada {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi9()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi9;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-10. <b>Field tidur</b>: tidak pernah masuk array {@code aturanSmtMundur} pada {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi10()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi10;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-11. <b>Field tidur</b>: tidak pernah masuk array {@code aturanSmtMundur} pada {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi11()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi11;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-12. <b>Field tidur</b>: tidak pernah masuk array {@code aturanSmtMundur} pada {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi12()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi12;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-13. <b>Field tidur</b>: tidak pernah masuk array {@code aturanSmtMundur} pada {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi13()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi13;
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk semester mundur ke-14. <b>Field tidur</b>: tidak pernah masuk array {@code aturanSmtMundur} pada {@link #apakahBoleh(Mahasiswa, int, java.util.List)}.
+	 *
+	 * @see #getBayarHanyaSmtSaatIniDanSebelumnyalagi14()
+	 */
 	private Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi14;
 
 	/**
@@ -351,12 +544,27 @@ public class JenisKegiatan extends GeneralValueObject {
 	 * {@link ItemBiaya} yang terpakai di sana.</p>
 	 */
 	private Boolean dendaJikaTerlambat;
+	/**
+	 * Apakah besaran denda ditentukan per program studi; dipaksa {@code false} bila saklar denda mati.
+	 *
+	 * @see #getDendaDibuatPerProdi()
+	 */
 	private Boolean dendaDibuatPerProdi;
+	/** Format denda (persen atau nominal tetap); berbawaan {@code true}. @see #getNilaiDendaDalamPersen() */
 	private Boolean nilaiDendaDalamPersen;
+	/** Periode pelipatan denda dalam hari; {@code 0} berarti tidak berlipat. @see #getDendaAkanBerlipatTerlambaHari() */
 	private Integer dendaAkanBerlipatTerlambaHari;
+	/** Batas jumlah kelipatan denda; {@code 0} berarti tanpa batas. @see #getMaksimalBerlipatTerlambaHari() */
 	private Integer maksimalBerlipatTerlambaHari;
+	/**
+	 * Besaran denda keterlambatan tingkat jenis kegiatan (persen atau rupiah, sesuai flag format).
+	 *
+	 * @see #getDefaultProsentaseDenda()
+	 */
 	private Double defaultProsentaseDenda;
+	/** Peta besaran denda per program studi dalam JSON {@code {idProdi: nilai}}. @see #getDendaPerProdi() */
 	private String dendaPerProdi;
+	/** Penanda jenis kegiatan ini dipakai menagih Semester Pendek. @see #getUntukBayarSP() */
 	private Boolean untukBayarSP;
 
 	/** Bila {@code true}, baris tagihan bernilai negatif pada jenis kegiatan ini diabaikan saat penjumlahan (bukan dikurangkan). */
