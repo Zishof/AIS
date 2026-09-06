@@ -386,7 +386,7 @@ public class BcaDataUtil2 {
 
 			String tokenSignature = BRIUtil.generateSignatureToken(clientId, currentTimestamp);
 
-			System.out.println("tokenSignature -> " + tokenSignature);
+			System.out.println("tokenSignature -> " + (tokenSignature == null || tokenSignature.isEmpty() ? "(kosong)" : "(disamarkan)"));
 
 			JSONObject jsonObject = new JSONObject();
 			jsonObject.put("grantType", "client_credentials");
@@ -401,7 +401,7 @@ public class BcaDataUtil2 {
 
 			System.out.println("request -> ");
 			for (String s : command) {
-				System.out.print(s + " ");
+				System.out.print((s != null && (s.startsWith("Authorization:") || s.startsWith("X-SIGNATURE:")) ? "(disamarkan)" : s) + " ");
 			}
 			ProcessBuilder process = new ProcessBuilder(command);
 			Process p;
@@ -430,8 +430,8 @@ public class BcaDataUtil2 {
 
 		String payload = httpMethod + ":" + requestPath + ":" + dataToken + ":" + sha256hex + ":" + currentTimestamp;
 
-		System.out.println("client_secret " + clientSecret);
-		System.out.println("dataToken " + dataToken);
+		System.out.println("client_secret " + (clientSecret == null || clientSecret.isEmpty() ? "(kosong)" : "(disamarkan)"));
+		System.out.println("dataToken " + (dataToken == null || dataToken.isEmpty() ? "(kosong)" : "(disamarkan)"));
 
 		System.out.println("sebelum HAMAC SHA 512 " + payload);
 
@@ -454,7 +454,7 @@ public class BcaDataUtil2 {
 
 			System.out.println("request -> ");
 			for (String s : command) {
-				System.out.print(s + " ");
+				System.out.print((s != null && (s.startsWith("Authorization:") || s.startsWith("X-SIGNATURE:")) ? "(disamarkan)" : s) + " ");
 			}
 
 			ProcessBuilder process = new ProcessBuilder(command);

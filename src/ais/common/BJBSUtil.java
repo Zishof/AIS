@@ -141,7 +141,7 @@ public class BJBSUtil {
 			System.out.println("currentTimestamp -> " + currentTimestamp);
 			System.out.println("signature -> " + signature);
 			System.out.println("postData -> " + postData);
-			System.out.println("dataToken -> " + dataToken);
+			System.out.println("dataToken -> " + (dataToken == null || dataToken.isEmpty() ? "(kosong)" : "(disamarkan)"));
 
 			String[] command = { "curl", "--header", "Content-Type: application/json", "--header",
 					"Authorization: Bearer " + dataToken, "--header", "BJB-Timestamp: " + currentTimestamp, "--header",
@@ -151,7 +151,7 @@ public class BJBSUtil {
 			System.out.println("");
 
 			for (String c : command) {
-				System.out.print(c + " ");
+				System.out.print((c != null && (c.startsWith("Authorization:") || c.contains("\"password\"")) ? "(disamarkan)" : c) + " ");
 			}
 
 			System.out.println("");
@@ -219,7 +219,7 @@ public class BJBSUtil {
 
 			System.out.println("strURL -> " + strURL);
 			System.out.println("postData -> " + postData);
-			System.out.println("dataToken -> " + dataToken);
+			System.out.println("dataToken -> " + (dataToken == null || dataToken.isEmpty() ? "(kosong)" : "(disamarkan)"));
 
 			String[] command = { "curl", "--header", "Content-Type: application/json", "--header",
 					"Authorization: Bearer " + dataToken, "--header", "--request", "POST", "--data", postData, strURL };
@@ -228,7 +228,7 @@ public class BJBSUtil {
 			System.out.println("");
 
 			for (String c : command) {
-				System.out.print(c + " ");
+				System.out.print((c != null && (c.startsWith("Authorization:") || c.contains("\"password\"")) ? "(disamarkan)" : c) + " ");
 			}
 
 			System.out.println("");
@@ -305,7 +305,7 @@ public class BJBSUtil {
 			System.out.println("");
 
 			for (String c : command) {
-				System.out.print(c + " ");
+				System.out.print((c != null && (c.startsWith("Authorization:") || c.contains("\"password\"")) ? "(disamarkan)" : c) + " ");
 			}
 
 			System.out.println("");
@@ -374,7 +374,7 @@ public class BJBSUtil {
 			System.out.println("");
 
 			for (String c : command) {
-				System.out.print(c + " ");
+				System.out.print((c != null && (c.startsWith("Authorization:") || c.contains("\"password\"")) ? "(disamarkan)" : c) + " ");
 			}
 
 			System.out.println("");
@@ -396,7 +396,7 @@ public class BJBSUtil {
 			JSONObject jSONObject = new JSONObject(hasil);
 			dataToken = jSONObject.getJSONObject("data").getString("token");
 
-			System.out.println("dataToken -> " + dataToken);
+			System.out.println("dataToken -> " + (dataToken == null || dataToken.isEmpty() ? "(kosong)" : "(disamarkan)"));
 
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/BJBSUtil.java:262");

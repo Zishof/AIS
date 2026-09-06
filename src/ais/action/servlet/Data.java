@@ -52,35 +52,103 @@ import ais.database.model.file.FotoAdmin;
 import ais.database.model.file.LampiranLain;
 
 /**
- * Komponen batas HTTP/servlet untuk data. Tipe ini menerima input dari luar aplikasi,
- * meneruskannya ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan bisnis.
+ * Endpoint JSON serba-guna {@code /Data} — pintu HTTP tunggal bagi seluruh halaman JSP "versi baru",
+ * layar e-Kantin/POS web, e-Learning, serta beberapa formulir publik.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * HttpServlet}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan
- * yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code doGet()}, {@code ambil()}, {@code
- * processCari()}, {@code processDownload()}); validasi/perhitungan ({@code checkGDriveConnectionInternal()});
- * mutasi data ({@code simpanBatchDataRinci()}, {@code updateFile()}); penghapusan/pembatalan ({@code
- * hapusFile()}, {@code hapusFileById()}); pelaporan/ekspor ({@code renderFileDirectly()}); operasi domain lain
- * ({@code rollbackQuietly()}, {@code doPost()}, {@code processRequest()}, {@code pushToDriveInternal()}, {@code
- * sendJsonStreaming()}, {@code processFile()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau
- * interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Pemetaan.</b> Didaftarkan di {@code webapp/WEB-INF/web.xml} sebagai servlet {@code Data} dengan
+ * {@code url-pattern} {@code /Data}. Aturan penutup Spring Security di
+ * {@code applicationContext-security.xml} untuk pola {@code /**} adalah
+ * {@code IS_AUTHENTICATED_ANONYMOUSLY}, sehingga URL ini <b>dapat dijangkau tanpa masuk</b>; seluruh
+ * pemeriksaan hak akses terjadi di dalam kelas ini dan di helper yang dipanggilnya, bukan di lapisan
+ * container.</p>
+ *
+ * <p><b>Bentuk permintaan.</b> {@code doGet} dan {@code doPost} sama-sama bermuara ke
+ * {@link #processRequest}. Muatan utama adalah satu objek JSON yang dikirim sebagai <i>badan</i>
+ * permintaan; bila badan kosong, nilainya diambil dari parameter {@code datasearch}. Field
+ * {@code action} di dalam JSON itu memilih handler pada tabel {@code if/else} raksasa di
+ * {@link #ambil}. Tiga aksi khusus dibaca dari <i>parameter</i> URL (bukan dari JSON) dan
+ * dicegat lebih awal di {@link #processRequest}: {@code checkGDriveConnection}, {@code pushToDrive},
+ * serta {@code file} bersama {@code render=true}.</p>
+ *
+ * <p><b>Bentuk tanggapan.</b> Selalu {@code application/json; charset=UTF-8} dengan konvensi
+ * {@code status} sebagai <i>string</i>: {@code "00"} berhasil, {@code "01"} gagal simpan,
+ * {@code "90"} ditolak/validasi, {@code "91"} tidak berhak, {@code "97"} token salah, dan
+ * {@code "99"} galat umum; {@code description} memuat pesan untuk pengguna. Pengecualian:
+ * {@code action=file&render=true} membalas <i>byte</i> berkas, bukan JSON.</p>
+ *
+ * <p><b>Refleksi dan otorisasi — fakta arsitektur, wajib dipahami sebelum menambah aksi.</b>
+ * Endpoint ini bersifat generik: nama kelas entity dikirim oleh klien sebagai string dan
+ * diterjemahkan dengan {@code Class.forName} pada enam titik ({@link #processFile},
+ * {@link #renderFileDirectly}, {@link #updateFile}, {@link #hapusFile}, {@link #hapusFileById},
+ * {@link #processCari}), lalu diteruskan ke Hibernate. Konsekuensinya:</p>
+ * <ul>
+ *   <li>Gerbang otentikasi di {@link #ambil} bersifat <b>menyeluruh</b>, bukan per-kelas: bila
+ *       pemanggil sudah masuk (atau mengirim {@code tanpaLogin=true} pada aksi non-SQL-tulis),
+ *       ia melewati gerbang untuk <i>semua</i> nama kelas sekaligus.</li>
+ *   <li>Penanda {@code tanpaLogin} dikirim oleh halaman itu sendiri, jadi pemanggil mana pun dapat
+ *       menyetelnya. Hanya dua aksi — {@code update_data} dan {@code update_file_data} — yang
+ *       kebal terhadap penanda tersebut dan selalu menuntut pengguna yang sudah masuk.</li>
+ *   <li>Aksi tulis reflektif {@code simpanDataRinci}, {@code simpanBatchDataRinci} /
+ *       {@code simpanBatchProduk}, dan {@code hapusDataRinci} <b>tidak</b> ikut dikecualikan itu.
+ *       Otorisasi per-kelas untuk jalur tersebut ada di
+ *       {@code ElearningApiUtil.prosesSimpan}/{@code prosesHapus} dan — pada revisi ini — hanya
+ *       memeriksa dua kelas master e-Kantin
+ *       ({@code ais.database.model.koperasi.CaraPembayaranKoperasi} dan
+ *       {@code ais.database.model.asset.PenyediaAsset}), dengan sifat <i>default-allow</i>.
+ *       Nama kelas lain melewati jalur itu tanpa pemeriksaan hak apa pun. Ini disengaja untuk
+ *       formulir publik (mis. pendaftaran PMB {@code BiodataCalonMahasiswa}), tetapi berarti
+ *       cakupan tulis tidak dibatasi oleh daftar kelas.</li>
+ *   <li>Handler e-Kantin/POS ({@code KantinHelper}, {@code TokoApiHelper},
+ *       {@code GrupProdukApiHelper}, {@code AnggaranApiHelper}, {@code PengadaanPosApiHelper},
+ *       {@code PenyesuaianSaldoHelper}, {@code PosDemoProvisionHelper}) menjaga haknya sendiri
+ *       (<i>self-guard</i>) di dalam helper masing-masing — bukan di kelas ini.</li>
+ * </ul>
+ *
+ * <p><b>Dua aksi SQL mentah.</b> {@code action=sql} menjalankan kueri baca dan
+ * {@code action=update_data}/{@code update_file_data} menjalankan pernyataan tulis apa adanya.
+ * Lapis penjaganya adalah {@code ais.common.SqlSecurityGuard}, yang dikendalikan konfigurasi
+ * {@code mode_proteksi_sql_endpoint} dan bawaannya <b>mati</b> (tanpa efek). Karena itu penutupan
+ * anonim pada aksi tulis di {@link #ambil} berperan sebagai pertahanan lapis pertama yang tidak
+ * bergantung pada konfigurasi.</p>
+ *
+ * <p><b>CORS.</b> {@link #processRequest} memasang {@code Access-Control-Allow-Origin: *} pada
+ * setiap tanggapan. Karena header {@code Access-Control-Allow-Credentials} tidak dikirim, peramban
+ * tidak menyertakan cookie sesi pada permintaan lintas-asal, sehingga pembacaan lintas-asal hanya
+ * memperoleh tanggapan tingkat anonim.</p>
+ *
+ * <p><b>Session Hibernate.</b> Kelas ini berjalan di luar daur hidup <i>OpenSessionInView</i> ZK.
+ * Method yang membuka session sendiri ({@link #checkGDriveConnectionInternal},
+ * {@link #pushToDriveInternal}, {@link #updateFile}, {@link #hapusFile}, {@link #hapusFileById})
+ * wajib menutupnya di blok {@code finally}; {@link #rollbackQuietly} dipakai agar kegagalan
+ * penutupan tidak menutupi galat aslinya.</p>
+ *
+ * <p><b>Batas tanggung jawab.</b> Kelas ini hanya boleh mengurai permintaan, memilih handler, dan
+ * membentuk tanggapan. Aturan bisnis, kueri, dan gerbang hak akses harus tetap tinggal di helper
+ * bersama supaya kanal JSP, Desktop (PosApi), dan Android memakai satu sumber aturan yang sama.</p>
  *
  * @see HttpServlet
+ * @see ais.action.servlet.api.DaftarDataService
+ * @see ais.action.servlet.api.ElearningApiUtil
+ * @see ais.common.SqlSecurityGuard
  */
 public class Data extends HttpServlet {
+	/** Versi serialisasi servlet; tetap {@code 1L} karena kelas ini tidak menyimpan state instance. */
 	private static final long serialVersionUID = 1L;
 
+	/** Konstruktor tanpa argumen yang dibutuhkan container servlet; tidak menyiapkan state apa pun. */
 	public Data() {
 		super();
 	}
 
-	/** Rollback transaksi aktif pada session lokal tanpa melempar exception. */
+	/**
+	 * Membatalkan transaksi yang masih aktif pada session lokal tanpa pernah melempar exception.
+	 *
+	 * <p>Dipakai di blok {@code catch} agar kegagalan rollback (session sudah tertutup, koneksi
+	 * putus) tidak menutupi galat asli yang sedang ditangani. Session sendiri <b>tidak</b> ditutup
+	 * di sini — penutupan tetap menjadi tugas blok {@code finally} pemanggil.</p>
+	 *
+	 * @param session session Hibernate lokal; boleh {@code null}, boleh pula tanpa transaksi aktif
+	 */
 	private static void rollbackQuietly(Session session) {
 		try {
 			if (session != null && session.getTransaction() != null && session.getTransaction().isActive()) {
@@ -90,18 +158,69 @@ public class Data extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menangani permintaan {@code GET} ke {@code /Data} dengan meneruskannya apa adanya ke
+	 * {@link #processRequest}.
+	 *
+	 * <p>{@code GET} dan {@code POST} <b>tidak dibedakan</b>: aksi baca maupun aksi tulis dapat
+	 * dipicu lewat keduanya. Untuk {@code GET} muatan JSON biasanya dikirim pada parameter
+	 * {@code datasearch}, karena {@code GET} umumnya tidak berbadan.</p>
+	 *
+	 * @param request  permintaan servlet
+	 * @param response tanggapan servlet
+	 * @throws ServletException bila container melaporkan kegagalan servlet
+	 * @throws IOException      bila penulisan tanggapan gagal
+	 */
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		processRequest(request, response);
 	}
 
+	/**
+	 * Menangani permintaan {@code POST} ke {@code /Data} dengan meneruskannya apa adanya ke
+	 * {@link #processRequest} — jalur yang dipakai hampir seluruh halaman JSP.
+	 *
+	 * <p>Perilakunya identik dengan {@link #doGet}; lihat catatan di sana mengenai muatan JSON.</p>
+	 *
+	 * @param request  permintaan servlet
+	 * @param response tanggapan servlet
+	 * @throws ServletException bila container melaporkan kegagalan servlet
+	 * @throws IOException      bila penulisan tanggapan gagal
+	 */
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		processRequest(request, response);
 	}
 
+	/**
+	 * Titik masuk bersama {@code GET}/{@code POST}: memasang header CORS, mencegat tiga aksi khusus
+	 * berbasis parameter URL, lalu menyerahkan sisanya ke {@link #ambil}.
+	 *
+	 * <p>Urutan yang dijalankan:</p>
+	 * <ol>
+	 *   <li>Memasang {@code Access-Control-Allow-Origin: *} pada <i>setiap</i> tanggapan (tanpa
+	 *       {@code Allow-Credentials}, sehingga peramban tidak mengirim cookie lintas-asal).</li>
+	 *   <li>{@code action=checkGDriveConnection} → {@link #checkGDriveConnectionInternal}.</li>
+	 *   <li>{@code action=pushToDrive} → {@link #pushToDriveInternal}.</li>
+	 *   <li>{@code action=file} bersama {@code render=true} → {@link #renderFileDirectly}, yang
+	 *       membalas <i>byte</i> berkas alih-alih JSON dan karena itu langsung {@code return}.</li>
+	 *   <li>Selain itu: memanggil {@link #ambil} dan mengalirkan hasilnya sebagai JSON. Bila
+	 *       {@link #ambil} mengembalikan {@code null}, dibentuk tanggapan pengganti
+	 *       {@code status="99"} dengan deskripsi "Tidak ada respon server".</li>
+	 * </ol>
+	 *
+	 * <p><b>Catatan otorisasi:</b> ketiga aksi yang dicegat di sini <b>tidak</b> melewati gerbang
+	 * login pada {@link #ambil}. {@link #checkGDriveConnectionInternal} dan
+	 * {@link #pushToDriveInternal} menjaga dirinya sendiri dengan memeriksa
+	 * {@code Common.getCurrentUser(request)} bukan {@code null}; {@link #renderFileDirectly}
+	 * memang jalur baca berkas anonim (dipakai tag {@code <img>} pada halaman publik).</p>
+	 *
+	 * @param request  permintaan servlet
+	 * @param response tanggapan servlet
+	 * @throws IOException bila penulisan tanggapan gagal
+	 */
 	private void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		response.setHeader("Access-Control-Allow-Origin", "*");
 
