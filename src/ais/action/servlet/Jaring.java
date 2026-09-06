@@ -170,6 +170,48 @@ public class Jaring extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membaca notifikasi Jaring dari badan permintaan, memetakan IP pemanggil ke {@link BankHost},
+	 * memproses pembayaran VA secara inline (tidak lewat method {@code doProcess} terpisah seperti
+	 * {@link Bjb}), lalu menuliskan balasan JSON.
+	 *
+	 * <p>Badan permintaan dibaca baris demi baris menjadi satu string JSON (pemisah baris dibuang).
+	 * Nomor VA ({@code va}), nominal ({@code amount}, dibaca sebagai {@code String} lalu diurai
+	 * manual), dan penanda protokol {@code ack} diambil dari badan JSON, dengan jatuh ke parameter
+	 * query bila medan JSON kosong. Label bank selalu {@code "Jaring"}.</p>
+	 *
+	 * <h4>Alur pemrosesan</h4>
+	 * <p>VA dicari lewat {@link VirtualAccountBank#ambilVa(String, Double, BankHost)}. VA yang tidak
+	 * ditemukan, atau totalnya tidak lebih dari 0,1, membuat method berakhir dengan balasan default
+	 * {@code payCode=01} ("Nomor Pembayaran Tidak Ditemukan"). Jalur posting hanya berjalan bila
+	 * {@code ack} bernilai {@code "00"} &mdash; nilai lain (atau kosong) dijawab {@code payCode=03}
+	 * ("Request Salah") <b>tanpa</b> ini menjadi verifikasi keaslian apa pun, sekadar penanda
+	 * protokol yang dikirim mentah oleh pemanggil (lihat peringatan pada Javadoc kelas).</p>
+	 *
+	 * <p>Ketika {@code ack="00"}: nominal diverifikasi persis sama dengan
+	 * {@link VirtualAccountBank#totalBiaya()} (ketidakcocokan dijawab {@code payCode=04}), VA yang
+	 * sudah lunas dijawab {@code payCode=02} ("Tagihan Telah Dibayar") tanpa membukukan ulang, lalu
+	 * {@link Kegiatan} dibentuk/dimutakhirkan dan daftar {@code cicilan} pada VA diurai per token
+	 * (angka murni dan awalan {@code Bulanan-} menunjuk {@link PengaturanPembayaranBulanan}, awalan
+	 * {@code Item-} menunjuk {@link ItemBiaya}, awalan {@code Keranjang-} diserahkan ke
+	 * {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}), masing-masing menghasilkan satu
+	 * {@link CicilanPembayaran}. Setelah itu total dan denda dihitung ulang, {@link Kegiatan}
+	 * disimpan, dan VA ditandai lunas lewat {@link VirtualAccountBank#updateVa}.</p>
+	 *
+	 * <p><b>Keamanan:</b> {@code bankHost} boleh {@code null} dan tetap diproses &mdash; nilai itu
+	 * hanya memengaruhi jenis pembayaran cicilan (jatuh ke {@code ConstantValues.TUNAI} bila kosong),
+	 * bukan gerbang penolakan. Lihat peringatan lengkap pada Javadoc kelas.</p>
+	 *
+	 * <p>Apa pun hasilnya, satu baris {@link LogHostToHost} selalu ditulis di blok {@code finally}
+	 * lewat {@code PembayaranGatewayHelper.simpanLogHostToHost} &mdash; termasuk jejak <i>stack
+	 * trace</i> bila terjadi galat &mdash; dengan IP pemanggil diambil dari header proxy umum
+	 * ({@code Cf-Connecting-Ip}, {@code CF-Connecting-IP}, {@code X-Forwarded-For},
+	 * {@code X-Real-IP}) sebelum jatuh ke {@code request.getRemoteAddr()}.</p>
+	 *
+	 * @param request  permintaan dari Jaring
+	 * @param response respons yang akan diisi JSON
+	 * @throws Exception bila pembacaan permintaan, penguraian JSON, atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({ "unchecked" })
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
