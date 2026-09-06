@@ -56,34 +56,50 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDataMahasiswaBeasiswaHelper {
 
+	/** Beasiswa yang penerimanya sedang dicari/ditambahkan, ditetapkan di {@link #display(Beasiswa, DataLoader, MyWindow)}. */
 	private Beasiswa beasiswa;
+	/** Grid kandidat mahasiswa hasil pencarian, diisi ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
 
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/** Paging server-side per 5 baris (pola {@code AmbilDataPagingHelper}); saat ini disiapkan tapi belum dipakai langsung oleh {@link #onSearchDefault(Event)}. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/** Textbox filter NIM mahasiswa (cocok anywhere, case-insensitive). */
 	private Textbox nim;
+	/** Textbox filter nama mahasiswa (cocok anywhere, case-insensitive). */
 	private Textbox nama;
+	/** Filter tahun angkatan mahasiswa; kosong berarti semua angkatan ditampilkan. */
 	private Decimalbox tahunangkatan;
 
+	/** Combobox filter fakultas pada form pencarian, diinisialisasi ulang tiap {@link #display(Beasiswa, DataLoader, MyWindow)}. */
 	private Combobox searchfakultas;
+	/** Combobox filter jurusan/prodi pada form pencarian, mengikuti pilihan {@link #searchfakultas}. */
 	private Combobox searchjurusan;
 
+	/** Batas bawah rentang NIM (inklusif, {@code >=}); kosong berarti tidak dibatasi. */
 	private Textbox dariNim;
+	/** Batas atas rentang NIM (inklusif, {@code <=}); kosong berarti tidak dibatasi. */
 	private Textbox sampaiNim;
 
-	/** Menyiapkan combobox filter fakultas/jurusan (terisi seluruh opsi + "Semua"). */
+	/** Konstruktor tanpa argumen; state (beasiswa, grid, filter combobox) baru ditetapkan saat {@link #display(Beasiswa, DataLoader, MyWindow)} dipanggil. */
 	public AmbilDataMahasiswaBeasiswaHelper() {
 	}
 
 	/** Merender satu baris grid: checkbox status (dicentang bila mahasiswa sudah tercatat sebagai penerima {@link #beasiswa}), NIM, nama, dan tahun angkatan. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** DAO {@link MahasiswaDapatBeasiswaDao} dipakai untuk memperoleh {@link #session} Hibernate aktif. */
 		private MahasiswaDapatBeasiswaDao mahasiswaDapatBeasiswaDao = DaoFactory.getInstance()
 				.getMahasiswaDapatBeasiswaDao();
 
+		/** Sesi Hibernate aktif, dipakai untuk mengecek status penerima tiap kandidat mahasiswa. */
 		private Session session = mahasiswaDapatBeasiswaDao.getCurrentSession();
 
+		/**
+		 * Merender satu baris kandidat mahasiswa ({@code arg1}, harus {@link Mahasiswa}): checkbox
+		 * (tercentang bila mahasiswa sudah tercatat sebagai penerima {@link #beasiswa} ini), NIM,
+		 * nama, dan tahun angkatan.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

@@ -48,11 +48,13 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDataSyaratBeasiswaHelper {
 
+	/** Beasiswa yang syarat-syaratnya sedang dipilih/diedit, ditetapkan lewat konstruktor. */
 	private Beasiswa beasiswa;
+	/** Grid daftar syarat beasiswa yang sedang ditampilkan, diisi ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
 
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/** Paging server-side per 5 baris (pola {@code AmbilDataPagingHelper}), dipasang ke {@link #grid} di {@link #display(MyWindow, EventListener)} dan dipakai {@link #onSearchDefault(Event)} lewat {@code cariDenganCriteria}. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	// private Textbox nim;
 	// private Textbox nama;
@@ -65,6 +67,7 @@ public class AmbilDataSyaratBeasiswaHelper {
 	// private Combobox searchfakultas = new Combobox();
 	// private Combobox searchjurusan = new Combobox();
 
+	/** Dikumpulkan oleh renderer saat checkbox baris dilepas centangnya; saat ini tidak dikonsumsi di tempat lain — {@link #save()} menghapus seluruh relasi lama lewat SQL native, bukan lewat daftar ini. */
 	List<BeasiswaPunyaPersyaratan> delete = new ArrayList<BeasiswaPunyaPersyaratan>();
 
 	/** @param beasiswa beasiswa yang syarat-syaratnya akan dipilih/diedit lewat {@link #display} */
@@ -76,6 +79,11 @@ public class AmbilDataSyaratBeasiswaHelper {
 	/** Merender satu baris grid: checkbox status terpilih (dicentang bila relasi {@link BeasiswaPunyaPersyaratan} sudah ada) dan atribut syarat beasiswa (nama, label input, tipe data, nilai, wajib lampiran). */
 	class PersyaratanBeasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris syarat beasiswa ({@code arg1}, harus {@link PersyaratanBeasiswa}):
+		 * checkbox (tercentang bila relasi {@link BeasiswaPunyaPersyaratan} untuk {@link #beasiswa}
+		 * sudah ada), nama syarat, label input, tipe data, nilai data, dan status wajib lampiran.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

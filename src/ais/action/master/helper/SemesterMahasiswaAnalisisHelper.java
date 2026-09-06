@@ -55,6 +55,7 @@ import ais.database.model.RencanaTahunAkademik;
  */
 public final class SemesterMahasiswaAnalisisHelper {
 
+	/** Kelas utilitas statis; konstruktor privat mencegah instansiasi. */
 	private SemesterMahasiswaAnalisisHelper() {
 	}
 
@@ -130,6 +131,14 @@ public final class SemesterMahasiswaAnalisisHelper {
 		return hasil;
 	}
 
+	/**
+	 * Mencari {@link RencanaTahunAkademik} aktif yang rentang tanggalnya meliputi {@code tanggal}
+	 * dan scope-nya (fakultas/prodi/program/status awal/angkatan) cocok dengan {@code mahasiswa}.
+	 *
+	 * @param mahasiswa mahasiswa yang scope-nya dipakai sebagai kriteria pencarian
+	 * @param tanggal   tanggal acuan (biasanya waktu analisis)
+	 * @return RTA yang cocok, atau {@code null} bila tidak ada
+	 */
 	private static RencanaTahunAkademik cariRtaSaatIni(Mahasiswa mahasiswa, Date tanggal) {
 		return RencanaTahunAkademikAction.getCurrentRencanaTahunAkademik(
 				ambilFakultas(mahasiswa), mahasiswa.getJurusan(), null, null,
@@ -137,6 +146,18 @@ public final class SemesterMahasiswaAnalisisHelper {
 				tanggal, null, null);
 	}
 
+	/**
+	 * Mencari {@link RencanaTahunAkademik} lampau (yang tanggal mulainya sudah lewat {@code tanggal})
+	 * terbaru yang scope-nya masih cocok dengan {@code mahasiswa}, dipakai sebagai fallback fail-closed
+	 * saat tidak ada RTA aktif yang meliputi hari ini (lihat javadoc kelas). Menelusuri seluruh
+	 * kombinasi nama+semester unik pada {@link Common#rencanaTahunAkademiks} (di-snapshot ke list baru
+	 * agar aman dari perubahan konkuren) dan memilih yang tanggal pembandingnya (selesai, atau mulai
+	 * bila selesai kosong) paling akhir.
+	 *
+	 * @param mahasiswa mahasiswa yang scope-nya dipakai sebagai kriteria pencarian
+	 * @param tanggal   tanggal acuan; kandidat dengan tanggal mulai setelah ini diabaikan
+	 * @return RTA lampau paling relevan yang ditemukan, atau {@code null} bila tidak ada satu pun cocok
+	 */
 	private static RencanaTahunAkademik cariRtaLampauTerakhir(Mahasiswa mahasiswa, Date tanggal) {
 		// Pemanggilan ini juga memastikan cache RTA dimuat bila aplikasi baru restart.
 		cariRtaSaatIni(mahasiswa, tanggal);
@@ -164,15 +185,25 @@ public final class SemesterMahasiswaAnalisisHelper {
 		return terbaru;
 	}
 
+	/** @return tanggal selesai {@code rta} bila ada, jika tidak tanggal mulainya; dipakai untuk membandingkan keterkinian dua RTA lampau. */
 	private static Date tanggalPembanding(RencanaTahunAkademik rta) {
 		return rta.getTanggalSampai() == null ? rta.getTanggalMulai() : rta.getTanggalSampai();
 	}
 
+	/** @return fakultas dari jurusan {@code mahasiswa}, atau {@code null} bila mahasiswa/jurusannya kosong. */
 	private static Fakultas ambilFakultas(Mahasiswa mahasiswa) {
 		return mahasiswa == null || mahasiswa.getJurusan() == null ? null
 				: mahasiswa.getJurusan().getFakultas();
 	}
 
+	/**
+	 * Mengisi {@code hasil.tahunAkademik}/{@code hasil.jenisSemester} dari kalender server memakai
+	 * batas warisan {@code Common}: semester Ganjil bila bulan &ge; Juni, tahun akademik berganti
+	 * setelah bulan Juni. Dipakai hanya sebagai upaya terakhir ketika sama sekali tidak ada RTA
+	 * (aktif maupun lampau) yang cocok untuk mahasiswa.
+	 *
+	 * @param hasil snapshot yang sedang dibangun; diisi field periode fallback-nya
+	 */
 	private static void isiPeriodeFallbackTanggal(RingkasanSemester hasil) {
 		Calendar kalender = ais.ui.util.WaktuUtil.getCalendar();
 		kalender.setTime(hasil.waktuAnalisis);
@@ -184,6 +215,14 @@ public final class SemesterMahasiswaAnalisisHelper {
 				: (tahun - 1) + "/" + tahun;
 	}
 
+	/**
+	 * Mengisi {@code hasil.fakta} dengan seluruh data mentah yang dipakai resolver (identitas
+	 * mahasiswa, periode efektif dan sumbernya, RTA konteks mahasiswa/user, semester hasil resolver
+	 * lama vs efektif, rumus yang dipakai, dan penegasan bahwa membuka daftar hanya baca data).
+	 *
+	 * @param hasil     objek analisis yang sedang dibangun; petanya diisi langsung
+	 * @param mahasiswa mahasiswa yang faktanya ditampilkan
+	 */
 	private static void isiFaktaMahasiswa(AnalisisSemester hasil, Mahasiswa mahasiswa) {
 		RingkasanSemester r = hasil.ringkasan;
 		hasil.fakta.put("Mahasiswa", aman(mahasiswa.getNim()) + " - " + aman(mahasiswa.getNama()));
@@ -205,6 +244,16 @@ public final class SemesterMahasiswaAnalisisHelper {
 		hasil.fakta.put("Efek saat membuka daftar", "Baca saja; tidak membuat dan tidak menyinkronkan KRS");
 	}
 
+	/**
+	 * Menyusun narasi kesimpulan periode ke {@code hasil.keputusanUtama} beserta daftar
+	 * {@code penghambat}/{@code kondisiBenar}/{@code perhatian}: membandingkan semester hasil
+	 * resolver lama vs efektif, mencatat apakah RTA ditahan pada periode lampau atau memakai fallback
+	 * tanggal, memeriksa perbedaan periode antara scope user dan scope mahasiswa, offset semester
+	 * masuk pindahan, serta kasus ambigu bulan Juni pada fallback warisan.
+	 *
+	 * @param hasil     objek analisis yang sedang dibangun; daftarnya ditambahi langsung
+	 * @param mahasiswa mahasiswa yang periodenya dianalisis
+	 */
 	private static void isiKesimpulanPeriode(AnalisisSemester hasil, Mahasiswa mahasiswa) {
 		RingkasanSemester r = hasil.ringkasan;
 		boolean berbeda = r.semesterLama != null && !r.semesterLama.equals(r.semesterEfektif);
@@ -247,6 +296,19 @@ public final class SemesterMahasiswaAnalisisHelper {
 		}
 	}
 
+	/**
+	 * Membaca hingga 100 kepala {@link KrsMahasiswa} reguler (bukan semester pendek) terbaru milik
+	 * {@code mahasiswa} lewat session Hibernate terpisah, lalu mengisi {@code hasil.fakta} dengan
+	 * jumlah baris, jumlah yang benar-benar berisi SKS, dan semester tertinggi (biasa vs yang
+	 * benar-benar berisi SKS). Kepala KRS kosong (0 SKS) sengaja tidak dianggap bukti aktivitas
+	 * studi (lihat javadoc kelas). Menambahkan peringatan bila belum ada KRS sama sekali, semua KRS
+	 * kosong, atau ditemukan KRS berisi SKS pada semester lebih tinggi dari semester efektif hasil
+	 * resolver. Kegagalan baca (mis. koneksi database) ditangkap, dicatat ke audit, dan hanya
+	 * menambahkan satu baris peringatan tanpa menggagalkan analisis lainnya.
+	 *
+	 * @param hasil     objek analisis yang sedang dibangun; faktanya diisi langsung
+	 * @param mahasiswa mahasiswa yang riwayat KRS-nya dibaca
+	 */
 	@SuppressWarnings("unchecked")
 	private static void bacaRiwayatKrs(AnalisisSemester hasil, Mahasiswa mahasiswa) {
 		Session session = null;
@@ -301,6 +363,16 @@ public final class SemesterMahasiswaAnalisisHelper {
 		}
 	}
 
+	/**
+	 * Menyusun daftar {@code hasil.saran} yang bersifat actionable bagi admin: membuat/memperpanjang
+	 * RTA yang mencakup hari ini bila belum ada yang cocok untuk mahasiswa, menyelaraskan scope RTA
+	 * user vs mahasiswa bila berbeda, memvalidasi data awal studi (tahun angkatan, semester mulai,
+	 * semester masuk pindahan), dan mengingatkan bahwa koreksi harus pada sumber data/periode, bukan
+	 * menimpa nomor semester secara langsung.
+	 *
+	 * @param hasil     objek analisis yang sedang dibangun; daftar sarannya ditambahi langsung
+	 * @param mahasiswa mahasiswa yang datanya dianalisis
+	 */
 	private static void isiSaran(AnalisisSemester hasil, Mahasiswa mahasiswa) {
 		RingkasanSemester r = hasil.ringkasan;
 		if (r.rtaKonteksMahasiswa == null) {
@@ -316,12 +388,20 @@ public final class SemesterMahasiswaAnalisisHelper {
 		hasil.saran.add("Jangan mengubah nomor semester langsung hanya untuk menyamakan tampilan; koreksi sumber periode atau data awal studi agar seluruh modul tetap konsisten.");
 	}
 
+	/**
+	 * Membandingkan dua RTA berdasarkan nama dan jenis semesternya saja (bukan identitas objek/id),
+	 * karena dua baris RTA berbeda (mis. scope user vs scope mahasiswa) dapat merujuk ke periode
+	 * kalender yang sama secara logis.
+	 *
+	 * @return {@code true} bila keduanya {@code null} atau nama+semester-nya sama (tanpa memandang huruf besar/kecil); {@code false} bila hanya salah satu {@code null} atau periodenya berbeda
+	 */
 	private static boolean samaPeriode(RencanaTahunAkademik a, RencanaTahunAkademik b) {
 		if (a == null || b == null) return a == b;
 		return aman(a.getNama()).equalsIgnoreCase(aman(b.getNama()))
 				&& aman(a.getSemester()).equalsIgnoreCase(aman(b.getSemester()));
 	}
 
+	/** @return deskripsi ringkas satu {@link RencanaTahunAkademik} (nama, semester, rentang tanggal, dan scope) untuk ditampilkan pada fakta popup, atau {@code "Tidak ditemukan"} bila {@code rta} null. */
 	private static String deskripsiRta(RencanaTahunAkademik rta) {
 		if (rta == null) return "Tidak ditemukan";
 		String tanggal = (rta.getTanggalMulai() == null ? "-" : Common.dateFormat2.get().format(rta.getTanggalMulai()))
@@ -331,6 +411,7 @@ public final class SemesterMahasiswaAnalisisHelper {
 				+ deskripsiScope(rta) + ")";
 	}
 
+	/** @return daftar dimensi scope {@code rta} yang terisi (fakultas/prodi/program/status awal/angkatan) digabung koma, atau {@code "scope global"} bila semuanya kosong. */
 	private static String deskripsiScope(RencanaTahunAkademik rta) {
 		List<String> scope = new ArrayList<String>();
 		if (rta.getFakultas() != null) scope.add("fakultas=" + rta.getFakultas().getNama());
@@ -347,51 +428,86 @@ public final class SemesterMahasiswaAnalisisHelper {
 		return result.toString();
 	}
 
+	/** @return {@code value.toString().trim()}, atau {@code "-"} bila {@code value} {@code null} atau hasilnya kosong setelah di-trim. Dipakai agar teks fakta/deskripsi tidak pernah menampilkan {@code null} mentah. */
 	private static String aman(Object value) {
 		return value == null || value.toString().trim().isEmpty() ? "-" : value.toString().trim();
 	}
 
 	/** Snapshot murah yang dipakai renderer dan kemudian diteruskan ke popup. */
 	public static final class RingkasanSemester {
+		/** Waktu (server) saat {@link #ringkas(Mahasiswa)} dijalankan; dasar resolusi RTA/fallback tanggal. */
 		private Date waktuAnalisis;
+		/** Nomor semester hasil resolver baru (konteks mahasiswa), sudah dijamin minimal 1. */
 		private Integer semesterEfektif;
+		/** Nomor semester hasil {@link Mahasiswa#currentSemester()} (resolver lama, konteks user/login), untuk pembanding. */
 		private Integer semesterLama;
+		/** Tahun akademik periode efektif yang dipakai menghitung {@link #semesterEfektif}. */
 		private String tahunAkademik;
+		/** Jenis semester (Ganjil/Genap) periode efektif yang dipakai menghitung {@link #semesterEfektif}. */
 		private String jenisSemester;
+		/** Deskripsi manusiawi sumber periode efektif (RTA aktif, RTA lampau ditahan, atau fallback tanggal). */
 		private String sumberPeriode;
+		/** {@code true} bila periode efektif diambil dari RTA lampau karena tidak ada RTA aktif yang meliputi hari ini (perilaku fail-closed, lihat javadoc kelas). */
 		private boolean menahanPeriodeTerakhir;
+		/** {@code true} bila sama sekali tidak ada RTA (aktif maupun lampau) yang cocok, sehingga periode diambil dari kalender server. */
 		private boolean memakaiFallbackTanggal;
+		/** RTA aktif yang scope-nya cocok dengan mahasiswa pada baris ini, hasil {@link #cariRtaSaatIni}; {@code null} bila tidak ada. */
 		private RencanaTahunAkademik rtaKonteksMahasiswa;
+		/** RTA aktif menurut konteks user/login yang sedang membuka layar (hasil resolver lama); dipakai untuk mendeteksi perbedaan scope. */
 		private RencanaTahunAkademik rtaKonteksUser;
+		/** RTA yang benar-benar dipakai sebagai sumber periode efektif (konteks mahasiswa, lampau, atau {@code null} bila fallback tanggal). */
 		private RencanaTahunAkademik rtaEfektif;
 
+		/** @return {@link #semesterEfektif} */
 		public Integer getSemesterEfektif() { return semesterEfektif; }
+		/** @return {@link #semesterLama} */
 		public Integer getSemesterLama() { return semesterLama; }
+		/** @return {@link #tahunAkademik} */
 		public String getTahunAkademik() { return tahunAkademik; }
+		/** @return {@link #jenisSemester} */
 		public String getJenisSemester() { return jenisSemester; }
+		/** @return {@link #sumberPeriode} */
 		public String getSumberPeriode() { return sumberPeriode; }
+		/** @return {@link #menahanPeriodeTerakhir} */
 		public boolean isMenahanPeriodeTerakhir() { return menahanPeriodeTerakhir; }
+		/** @return {@link #memakaiFallbackTanggal} */
 		public boolean isMemakaiFallbackTanggal() { return memakaiFallbackTanggal; }
+		/** @return {@link #rtaEfektif} */
 		public RencanaTahunAkademik getRtaEfektif() { return rtaEfektif; }
 	}
 
 	/** Data polos untuk popup; UI tidak ikut menentukan kesimpulan algoritma. */
 	public static final class AnalisisSemester {
+		/** Snapshot murah yang menjadi dasar analisis lengkap ini (hasil {@link #ringkas(Mahasiswa)}). */
 		private final RingkasanSemester ringkasan;
+		/** Kalimat kesimpulan utama, diisi ulang oleh {@link #isiKesimpulanPeriode}. */
 		private String keputusanUtama = "Data semester dianalisis dari periode, biodata awal studi, dan riwayat KRS.";
+		/** Peta label-nilai fakta mentah yang dipakai resolver, diisi oleh {@link #isiFaktaMahasiswa} dan {@link #bacaRiwayatKrs}, urutan tampil sesuai urutan dimasukkan. */
 		private final LinkedHashMap<String, String> fakta = new LinkedHashMap<String, String>();
+		/** Daftar hal yang menghambat/menjelaskan mengapa angka semester bisa berbeda dari ekspektasi. */
 		private final List<String> penghambat = new ArrayList<String>();
+		/** Daftar kondisi yang justru menunjukkan resolusi periode sudah benar/konsisten. */
 		private final List<String> kondisiBenar = new ArrayList<String>();
+		/** Daftar hal yang perlu diwaspadai admin meski bukan kesalahan pasti (mis. offset semester pindahan). */
 		private final List<String> perhatian = new ArrayList<String>();
+		/** Daftar saran tindakan perbaikan bagi admin, diisi oleh {@link #isiSaran}. */
 		private final List<String> saran = new ArrayList<String>();
 
+		/** @param ringkasan snapshot dasar yang dibungkus objek analisis ini */
 		private AnalisisSemester(RingkasanSemester ringkasan) { this.ringkasan = ringkasan; }
+		/** @return {@link #ringkasan} */
 		public RingkasanSemester getRingkasan() { return ringkasan; }
+		/** @return {@link #keputusanUtama} */
 		public String getKeputusanUtama() { return keputusanUtama; }
+		/** @return {@link #fakta} */
 		public LinkedHashMap<String, String> getFakta() { return fakta; }
+		/** @return {@link #penghambat} */
 		public List<String> getPenghambat() { return penghambat; }
+		/** @return {@link #kondisiBenar} */
 		public List<String> getKondisiBenar() { return kondisiBenar; }
+		/** @return {@link #perhatian} */
 		public List<String> getPerhatian() { return perhatian; }
+		/** @return {@link #saran} */
 		public List<String> getSaran() { return saran; }
 	}
 }

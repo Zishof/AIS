@@ -2026,6 +2026,73 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		loadDataDetailAsisten(null, perkuliahan, gridDetailAsisten, false);
 	}
 
+	/**
+	 * <b>Pintu masuk tunggal</b> layar penilaian. Metode ini tidak membangun komponen apa pun sendiri;
+	 * tugasnya adalah menyiapkan konteks yang benar lalu memutuskan apakah data nilai perlu
+	 * dibangkitkan lebih dulu sebelum {@link #prosesDisplay} boleh menggambar layar.
+	 *
+	 * <h3>Empat langkah persiapan</h3>
+	 * <ol>
+	 * <li><b>Memasang callback.</b> {@link #onPerubahanNilai} hanya ditimpa bila argumen yang masuk
+	 * tidak {@code null}, sehingga pemanggilan ulang tanpa callback tidak menghapus callback yang
+	 * sudah terpasang pada pemanggilan sebelumnya.</li>
+	 *
+	 * <li><b>Menentukan kelas yang sebenarnya dinilai.</b> Inilah keputusan terpenting di sini. Bila
+	 * {@code kuliyah} ditandai sebagai kelas paralel ({@code getMerupakan_paralel()}) dan memiliki
+	 * rujukan induk ({@code getPerkuliahan_paralel()}), maka {@link #perkuliahan} diarahkan ke
+	 * <b>induknya</b>, bukan ke kelas yang diklik pengguna. Alasannya: kelas paralel berbagi satu
+	 * tempat penyimpanan nilai dengan induknya, sehingga bobot, kunci, dan baris nilai harus dibaca
+	 * dan ditulis di sana. Parameter {@code kuliyah} tetap dibawa berkeliling dan diteruskan ke
+	 * {@link #prosesDisplay} karena tab-tab rekap memang harus menampilkan data kelas yang diklik,
+	 * bukan induknya. Kedua objek ini <b>berbeda peran</b> dan tidak boleh saling ditukar.</li>
+	 *
+	 * <li><b>Mengambil identitas dan periode.</b> {@link #tbmuser} dan {@link #dosen} dibaca ulang,
+	 * {@link #semester} disalin, dan {@link #konfigurasi} diambil dari
+	 * {@code CommonPenilaian.getKonfigurasi(tahunAkademik, jenisSemester, statusSemesterPendek)}.
+	 * Bendera {@link #aktifPenilaian} diisi apa adanya dari {@code aktifPenilaianData} milik
+	 * pemanggil. Variabel lokal {@code jenisSemester} sempat diisi dua kali dengan nilai yang sama;
+	 * pengulangan itu tidak berdampak.</li>
+	 *
+	 * <li><b>Memeriksa kelengkapan data nilai.</b> Seluruh baris kelas ditelusuri untuk menghitung
+	 * berapa banyak yang kolom {@code detailNilai}-nya masih {@code null} atau kosong. Daftar
+	 * sementara itu langsung dilepas ({@code temp = null}) setelah dihitung agar tidak menahan memori
+	 * pada kelas besar.</li>
+	 * </ol>
+	 *
+	 * <h3>Percabangan penutup</h3>
+	 * <p>Bila ditemukan baris yang {@code detailNilai}-nya kosong &mdash; lazimnya mahasiswa yang baru
+	 * saja disetujui KRS-nya, atau kelas yang komponen nilainya baru pertama kali didefinisikan
+	 * &mdash; {@code Common.realoadNilaiLangsung} dijalankan lebih dulu untuk <b>membangkitkan</b>
+	 * struktur nilai kosong bagi semua baris, dan {@link #prosesDisplay} baru dipanggil dari dalam
+	 * callback-nya dengan {@code refresh} bernilai {@code true}. Tanpa langkah ini, kotak nilai akan
+	 * muncul tanpa kunci komponen yang benar dan penyimpanan pertama bisa meleset. Bila semua baris
+	 * sudah lengkap, {@link #prosesDisplay} dipanggil langsung dengan {@code refresh} bernilai
+	 * {@code null} sehingga cache tetap dipakai.</p>
+	 *
+	 * <p><b>Catatan wewenang.</b> Metode ini tidak memeriksa apakah pengguna berhak membuka atau
+	 * mengubah kelas ini. Ia menerima {@code aktifPenilaianData} dan bendera {@link #edit} dari
+	 * constructor sebagai keputusan yang sudah final. Pembedaan yang dilakukannya sendiri hanya
+	 * &quot;punya profil dosen atau tidak&quot; lewat {@link #dosen}, yang dipakai untuk aturan
+	 * verifikasi, bukan untuk membatasi akses ke kelas tertentu.</p>
+	 *
+	 * <p><b>Efek samping.</b> Menulis ke tujuh field instance dan mencetak nilai
+	 * {@link #aktifPenilaian} ke {@code System.out}. Pada cabang pembangkitan nilai, ia meneruskan
+	 * {@link #detailperkuliahans} yang pada pembukaan pertama masih {@code null} karena
+	 * {@link #loadData(Object)} belum pernah berjalan.</p>
+	 *
+	 * @param kuliyah           kelas yang dipilih pengguna; dipakai apa adanya oleh tab rekap, dan
+	 *                          diganti dengan induknya bila merupakan kelas paralel.
+	 * @param component         wadah tujuan seluruh layar; isinya dikosongkan oleh
+	 *                          {@link #prosesDisplay}.
+	 * @param onPerubahanNilai  callback yang dipicu setiap kali sebuah nilai berubah; boleh
+	 *                          {@code null} untuk mempertahankan callback yang sudah ada.
+	 * @param buttonFormatNilai tombol Format Nilai milik layar induk yang visibilitasnya ikut diatur
+	 *                          saat kelas dikunci atau dibuka; boleh {@code null}.
+	 * @param aktifPenilaianData {@code true} bila pemanggil membuka layar dalam mode penilaian aktif,
+	 *                          yang mengizinkan entri meskipun periode penilaian tertutup.
+	 * @throws Exception bila pembacaan data atau pembangunan komponen gagal.
+	 * @see #prosesDisplay(Perkuliahan, Component, EventListener, MyToolbarbuttonConfig, Boolean)
+	 */
 	public void display(final Perkuliahan kuliyah, final Component component, final EventListener onPerubahanNilai,
 			final MyToolbarbuttonConfig buttonFormatNilai, boolean aktifPenilaianData) throws Exception {
 
@@ -2079,6 +2146,105 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membangun <b>seluruh layar penilaian</b> dari nol: tujuh tab, toolbar dengan belasan tombol
+	 * beserta listener-nya, definisi kolom grid yang lebarnya dihitung adaptif, dan grid komentar.
+	 * Metode ini adalah bagian terbesar kelas ini dan sekaligus tempat hampir seluruh <b>aksi
+	 * mengubah data</b> didaftarkan.
+	 *
+	 * <p>Ia dipanggil oleh {@link #display} dan &mdash; ini yang perlu diperhatikan &mdash; juga
+	 * memanggil <b>dirinya sendiri</b> dari dalam banyak listener sebagai cara membangun ulang layar
+	 * setelah data berubah. Setiap pemanggilan ulang mengosongkan {@code component} dan membuat
+	 * kembali semua komponen, sehingga rujukan komponen yang disimpan pemanggil menjadi basi.</p>
+	 *
+	 * <h3>Persiapan awal</h3>
+	 * <p>Kebijakan tunggakan {@link #mhsYgBelumBayarBelumBisaDiEntryNilai} dibaca, lalu
+	 * {@link #statusPertemuan} diisi dengan string absensi dari setiap {@link Pertemuan} kelas yang
+	 * kolom absensinya tidak kosong. Pengumpulan sekali di muka inilah yang membuat perender dapat
+	 * menghitung rekap kehadiran tanpa menyentuh basis data per baris.</p>
+	 *
+	 * <h3>Tabbox dan penambalan ZK5</h3>
+	 * <p>Tujuh tab dibuat: Input Nilai, Asisten Dosen, Rekap Tugas, Rekap Ujian, Rekap Tugas Kelompok,
+	 * Rekap Total Nilai, dan Prestasi Belajar. Hanya tab pertama dibangun serentak; enam sisanya
+	 * dibangun malas lewat listener {@code onClick} masing-masing. Karena pada konteks bersarang
+	 * peristiwa {@code onClick} tab tidak selalu terpicu, sebuah listener {@code onSelect} dipasang di
+	 * tingkat tabbox sebagai penambal: bila panel terpilih masih kosong, ia mengirim {@code onClick}
+	 * secara manual, lalu memaksa {@code invalidate()} lewat timer agar konten yang baru dibangun
+	 * benar-benar tergambar. Pemeriksaan &quot;masih kosong&quot; mencegah tab yang sudah terisi
+	 * dibangun ulang. Tab Asisten Dosen disembunyikan dari akun mahasiswa.</p>
+	 *
+	 * <h3>Toolbar: aksi yang mengubah data</h3>
+	 * <ul>
+	 * <li><b>Cari</b> dan kotak {@link #nama} memuat ulang grid dengan penyaringan.</li>
+	 * <li><b>Cetak</b> memanggil {@link #onLaporan(Perkuliahan, Component)}.</li>
+	 * <li><b>Format Nilai</b> membuka {@code FormatPenilaianHelper}; pada kurikulum OBE tombol tetap
+	 * tampil dan membuka pengaturan bobot CPMK/Sub-CPMK, dengan tooltip yang menjelaskannya.</li>
+	 * <li><b>Download</b> dan <b>Upload</b> menangani berkas Excel lewat {@code PenilaianUtil}. Unggahan
+	 * hanya menerima {@code .xlsx}; berkas disalin ke direktori {@code /temp} aplikasi bita demi bita
+	 * sebelum diproses.</li>
+	 * <li><b>Kunci</b> membekukan nilai kelas. Bila konfigurasi
+	 * <code>sebelum_dikunci_harus_diverifikasi_dulu</code> aktif, penguncian ditolak selama masih ada
+	 * baris {@link Detailperkuliahan#NOT_VERIFIED}. Sebelum {@code setDikunci} dipasang,
+	 * {@link Detailperkuliahan#bekukanSemuaNilai()} dijalankan untuk <b>setiap</b> mahasiswa selagi
+	 * kelas masih terbuka &mdash; langkah ini krusial karena snapshot kunci hanya tercermin otomatis
+	 * pada kondisi tertentu, dan tanpa penyalinan ulang ini nilai yang tampil bisa &quot;berubah&quot;
+	 * ke snapshot lama begitu kunci dipasang. Bila penyalinan gagal, penguncian <b>dibatalkan</b> dan
+	 * pengguna diberi tahu.</li>
+	 * <li><b>Buka Kunci</b> membatalkan penguncian. Tombolnya dinonaktifkan bila kunci dipasang
+	 * pengguna lain, kecuali bagi pemegang {@link #adminBoleh}.</li>
+	 * <li><b>Hitung Ulang</b> memuat ulang tabel nilai huruf dari basis data, menyegarkan objek
+	 * {@link Perkuliahan} di tempat agar cache tidak basi, lalu menghitung ulang seluruh mahasiswa
+	 * secara paralel dengan batas 50 utas.</li>
+	 * <li><b>Analisis Keseluruhan</b> membuka {@link #tampilkanAnalisisKeseluruhanNilai()}.</li>
+	 * <li><b>Verifikasi</b> memverifikasi seluruh kelas sekaligus; baris yang salah satu komponennya
+	 * masih bernilai nol tetap ditandai {@code NOT_VERIFIED}.</li>
+	 * <li><b>Singkronkan</b> menjalankan {@code perkuliahan.singkronkan(session)} pada utas latar
+	 * dengan session <b>dedikasi</b> &mdash; bukan session ThreadLocal &mdash; karena metode yang
+	 * dipanggilnya menutup session ThreadLocal miliknya sendiri di tengah proses.</li>
+	 * <li><b>Masukkan Nilai Absen</b> menghitung nilai kehadiran dengan rumus
+	 * {@code (masuk*100 + sakit*50 + izin*50) / total}, yakni sakit dan izin dihargai setengah,
+	 * lalu menuliskannya ke komponen yang namanya mengandung &quot;absen&quot;, &quot;hadir&quot;,
+	 * atau &quot;presensi&quot;. Ditolak bila bobot komponen belum berjumlah 100%.</li>
+	 * <li><b>Reset</b> mengosongkan seluruh nilai kelas. Bersifat destruktif dan tak dapat dibatalkan,
+	 * sehingga selalu meminta konfirmasi; komponen yang sudah dikunci beserta snapshot permanennya
+	 * sengaja tidak ikut dikosongkan.</li>
+	 * <li><b>Ambil Nilai dari Feeder</b>, <b>History</b>, <b>Restore</b>, <b>Komentar</b>, dan
+	 * <b>Refresh</b> melengkapi toolbar.</li>
+	 * </ul>
+	 *
+	 * <h3>Kolom grid yang adaptif</h3>
+	 * <p>Lebar kolom dihitung agar totalnya mendekati 95% berapa pun jumlah komponen: kolom tetap
+	 * memakan sekitar 28% (ditambah 5% bila verifikasi aktif), sisanya dibagi rata antar komponen
+	 * dengan batas bawah 4% dan batas atas 14%, dan kolom Mahasiswa mengambil sisa dengan lantai 15%.
+	 * Setiap kolom komponen memuat nama ringkas hasil
+	 * {@link #ambilNamaFormatNilaiRingkas(FormatNilai)}, nomor urut yang dapat diubah, pilihan jenis
+	 * evaluasi, serta sepasang tombol kunci/buka-kunci per kolom. Mengunci satu kolom memanggil
+	 * {@link Detailperkuliahan#bekukanDetailNilai(FormatNilai)} untuk seluruh mahasiswa lebih dulu,
+	 * meniru pola penguncian tingkat kelas.</p>
+	 *
+	 * <h3>Hal yang perlu diketahui</h3>
+	 * <p>Variabel lokal {@code editDisable} di dalam metode ini <b>membayangi</b> field
+	 * {@link #editDisable} dan bermakna jauh lebih luas, tetapi tidak pernah ditulis kembali ke field.
+	 * Akibatnya toolbar memakai makna luas sementara perender memakai makna sempit. Selanjutnya,
+	 * seluruh gerbang wewenang di sini bertumpu pada {@code tbmuser.getMahasiswa() == null} &mdash;
+	 * yaitu &quot;bukan akun mahasiswa&quot; &mdash; sehingga tombol Kunci, Buka Kunci, Verifikasi,
+	 * Reset, dan Masukkan Nilai Absen terbuka bagi <b>semua</b> akun pegawai yang mencapai layar ini,
+	 * tanpa pemeriksaan bahwa yang bersangkutan mengampu kelas tersebut. Terakhir, tidak ada satu pun
+	 * operasi massal di sini yang mengunci baris basis data, sehingga dua penilai yang bekerja
+	 * bersamaan dapat saling menimpa hasil.</p>
+	 *
+	 * @param kuliyah           kelas yang dipilih pengguna &mdash; dipakai apa adanya untuk tab rekap
+	 *                          dan untuk pemanggilan ulang metode ini; berbeda dari
+	 *                          {@link #perkuliahan} bila kelas ini paralel.
+	 * @param component         wadah tujuan; <b>dikosongkan seluruhnya</b> di awal.
+	 * @param onPerubahanNilai  callback perubahan nilai yang diteruskan ke perender.
+	 * @param buttonFormatNilai tombol Format Nilai milik layar induk yang visibilitasnya diselaraskan
+	 *                          dengan status kunci; boleh {@code null}.
+	 * @param refresh           diteruskan ke {@link #loadData(Object)} sebagai bendera penyegaran
+	 *                          cache; {@code null} berarti memakai cache.
+	 * @see #display(Perkuliahan, Component, EventListener, MyToolbarbuttonConfig, boolean)
+	 * @see DetailPerkuliahanRenderer
+	 */
 	public void prosesDisplay(final Perkuliahan kuliyah, final Component component,
 			final EventListener onPerubahanNilai, final MyToolbarbuttonConfig buttonFormatNilai, Boolean refresh) {
 
@@ -4154,6 +4320,39 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Mengisi ulang {@link #gridKomentar} dengan seluruh {@link KomentarPerkuliahan} milik
+	 * {@link #perkuliahan}, diurutkan menaik berdasarkan waktu perubahan sehingga catatan terlama
+	 * berada di atas dan percakapan terbaca sebagai urutan kronologis.
+	 *
+	 * <p>Komentar perkuliahan adalah catatan bebas yang dipakai dosen, verifikator, dan admin akademik
+	 * untuk saling meninggalkan pesan mengenai kelas ini &mdash; misalnya alasan sebuah nilai dikoreksi
+	 * atau permintaan agar komponen tertentu dibuka kembali. Alur verifikasi massal memanggil metode
+	 * ini setelah {@code KomentarPerkuliahanHelper} selesai, sehingga catatan yang baru ditulis
+	 * langsung tampak.</p>
+	 *
+	 * <h3>Cara pengambilan data</h3>
+	 * <p>Kriteria Hibernate dibangun langsung di sini pada {@code HibernateUtil.currentSession()},
+	 * bukan lewat metode pengambilan pada entitas. Penyaringannya hanya satu: {@code perkuliahan} sama
+	 * dengan kelas yang sedang dibuka. Karena kelas ini sudah dipilih di layar sebelumnya, tidak ada
+	 * penyaringan cakupan tambahan berdasarkan satuan kerja atau kepemilikan. Anotasi
+	 * {@code @SuppressWarnings("unchecked")} diperlukan karena {@code Criteria.list()} pada Hibernate
+	 * versi ini mengembalikan {@link List} mentah.</p>
+	 *
+	 * <p>Berbeda dari {@link #loadData(Object)}, metode ini <b>tidak menerima bendera penyegaran</b>:
+	 * ia selalu membaca dari basis data. Itu memang wajar untuk daftar yang pendek dan sering berubah.
+	 * Perender dipasang baru setiap pemanggilan, model dipasang lewat {@code setModelCheckMobile},
+	 * lalu {@code renderAll()} membangun seluruh baris serentak sehingga tombol hapus per baris sudah
+	 * terpasang sebelum pengguna menggulir. Kelas gaya {@code non-odd} dipasang terakhir untuk
+	 * meniadakan pewarnaan baris berselang-seling.</p>
+	 *
+	 * <p><b>Prasyarat.</b> {@link #gridKomentar} dan {@link #perkuliahan} harus sudah terisi; metode
+	 * ini dipanggil pertama kali di akhir {@link #prosesDisplay} setelah keduanya siap. Ia tidak
+	 * membuka transaksi sendiri dan tidak menangkap galat.</p>
+	 *
+	 * @see KomentarPerkuliahanRenderer
+	 * @see #gridKomentar
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadDataKomentar() {
 		Session session = HibernateUtil.currentSession();
@@ -4171,21 +4370,58 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link DetailperkuliahanForPenilaianHelper}. Kelas ini menerjemahkan
-	 * satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Perender satu baris pada grid komentar perkuliahan. Jauh lebih sederhana daripada
+	 * {@link DetailPerkuliahanRenderer}: ia hanya menampilkan isi komentar, penulisnya, waktunya, dan
+	 * sebuah tombol hapus bersyarat.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailperkuliahanForPenilaianHelper} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p>Sebagai kelas dalam non-statis, ia membaca {@link #tbmuser} milik kelas induk untuk
+	 * menentukan siapa yang boleh menghapus, dan memanggil {@link #loadDataKomentar()} untuk menyegarkan
+	 * daftar setelah penghapusan. Karena keterikatan itu, instance-nya tidak boleh dipakai ulang di
+	 * luar desktop ZK tempat ia dibuat.</p>
+	 *
+	 * <p><b>Aturan kepemilikan.</b> Tombol hapus hanya terlihat bila nama penulis komentar sama persis
+	 * dengan {@code tbmuser.getUserId()} &mdash; jadi setiap orang hanya dapat menghapus komentarnya
+	 * sendiri, dan tidak ada pengecualian untuk administrator. Perhatikan bahwa yang dibandingkan
+	 * adalah kolom {@code nama} pada komentar terhadap <b>id pengguna</b>, bukan terhadap nama
+	 * pengguna; penyimpanan komentar memang mengisi kolom itu dengan id, sehingga perbandingannya
+	 * konsisten meski penamaannya membingungkan. Penjagaan ini bersifat <b>visibilitas saja</b>: tidak
+	 * ada pemeriksaan ulang kepemilikan di dalam listener penghapusan.</p>
 	 *
 	 * @see DetailperkuliahanForPenilaianHelper
+	 * @see #loadDataKomentar()
 	 */
 	class KomentarPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Menggambar satu baris komentar sebagai empat sel: isi komentar, penulis, tanggal, dan
+		 * toolbar aksi.
+		 *
+		 * <p>Isi komentar dirender melalui {@code MyHtml}, artinya <b>ditafsirkan sebagai HTML</b>,
+		 * bukan sebagai teks biasa. Itu memungkinkan komentar memuat penekanan dan pemformatan
+		 * sederhana, tetapi juga berarti kebersihan isinya bergantung sepenuhnya pada penyaringan di
+		 * sisi penulisan ({@code KomentarPerkuliahanHelper}), bukan di sini. Perbedaan sikap ini
+		 * mencolok bila dibandingkan dengan panel analisis pada kelas yang sama, yang melarikan
+		 * setiap teks melalui {@link #teksAmanHtml(String)} sebelum menempelkannya ke HTML.</p>
+		 *
+		 * <p>Nama penulis dan tanggal ditampilkan sebagai label biasa; tanggal diformat dengan
+		 * {@code Common.dateFormat} yang bersifat per-utas. Tombol hapus dipasang di dalam sebuah
+		 * {@code Hbox} dan hanya terlihat bagi penulis komentar itu sendiri, dengan penjagaan
+		 * {@code tbmuser == null} yang menghasilkan string kosong sehingga sesi tanpa pengguna tidak
+		 * pernah cocok dengan penulis mana pun.</p>
+		 *
+		 * <p>Penghapusan meminta konfirmasi lebih dulu, lalu memanggil {@code Common.refreshDelete}
+		 * dan menyegarkan daftar. Berbeda dari penghapusan asisten dosen, kegagalan di sini
+		 * <b>tidak</b> ditangkap dan tidak diterjemahkan menjadi pesan ramah &mdash; galat relasi akan
+		 * naik sebagai galat ZK. Dalam praktiknya komentar jarang dirujuk data lain, sehingga jalur
+		 * itu hampir tidak pernah terjadi.</p>
+		 *
+		 * @param row  baris grid yang akan diisi; urutan pemasangan komponen menentukan sel mana yang
+		 *             terisi dan harus sepadan dengan keempat kolom yang didefinisikan
+		 *             {@link #prosesDisplay}.
+		 * @param data objek {@link KomentarPerkuliahan}; berbeda dari perender nilai, di sini model
+		 *             sudah berisi entitas utuh sehingga tidak perlu diselesaikan dari id.
+		 * @throws Exception bila pembangunan komponen gagal.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
