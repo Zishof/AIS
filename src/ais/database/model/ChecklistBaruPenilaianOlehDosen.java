@@ -148,16 +148,15 @@ public class ChecklistBaruPenilaianOlehDosen extends GeneralValueObject {
 	 * mem-parsing blob {@link #keterangan} lewat {@code regexp_split_to_table(...,'DATA')}
 	 * di level database, lalu mengambil bagian pertama tiap potongan sebagai id checklist.
 	 * <p>
-	 * <b>CATATAN KEAMANAN:</b> parameter {@code tahunAkademik} dan {@code ganjilGenap}
-	 * DISISIPKAN LANGSUNG ke string SQL lewat konkatenasi (bukan parameter bind/placeholder),
-	 * berbeda dari perbaikan yang sudah diterapkan pada pola serupa di
+	 * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06):</b> sebelumnya parameter
+	 * {@code tahunAkademik} dan {@code ganjilGenap} DISISIPKAN LANGSUNG ke string SQL lewat
+	 * konkatenasi (bukan parameter bind/placeholder), berbeda dari pola yang sudah dipakai di
 	 * {@link ais.common.ChecklistPenilaianHelper} (lihat javadoc kelas tsb, "DIPERBAIKI
-	 * 2026-09-01"). Hanya {@code dosen.getId()} (Long) yang aman by-construction. Pemanggil
-	 * yang teraudit saat ini ({@link ais.common.ChecklistPenilaianHelper#checkStatusChecklist})
-	 * meneruskan {@code tahunAkademik}/{@code ganjilGenap} yang pada gilirannya berasal dari
-	 * nilai semester/tahun ajaran sisi server (bukan langsung dari parameter request), sehingga
-	 * belum terbukti dieksploitasi lewat jalur yang ada — namun method ini tetap rapuh bila
-	 * dipanggil kelak dengan nilai yang benar-benar berasal dari input pengguna.
+	 * 2026-09-01"). Sudah diperbaiki dengan mengganti konkatenasi tersebut menjadi placeholder
+	 * bind Hibernate ({@code :tahunAkademik}/{@code :ganjilGenap}) yang diisi lewat
+	 * {@code setParameter}, konsisten dengan pola parameter bind yang sudah dipakai
+	 * {@link ais.common.ChecklistPenilaianHelper#checkStatusChecklist}. {@code dosen.getId()}
+	 * (Long) tetap aman by-construction dan tidak perlu di-bind.
 	 * <p>
 	 * Sesi Hibernate dibuka via {@link HibernateUtil#currentNativeSession()} dan DITUTUP di
 	 * akhir method via {@link HibernateUtil#closeSession()} — pemanggil tidak perlu (dan tidak
@@ -174,15 +173,18 @@ public class ChecklistBaruPenilaianOlehDosen extends GeneralValueObject {
 
 		String sql = "select (split_part(data,';',1)||'-'||dosen||'-'||perkuliahan) as checklist from (  select regexp_split_to_table(x.keterangan,'DATA') as data, x.dosen, x.perkuliahan "
 				+ " from checklist_baru_penilaian_oleh_dosen x " + " inner join perkuliahan b on (b.id=x.perkuliahan)  "
-				+ " where b.tahun_ajaran='" + tahunAkademik + "' and b.ganjil_genap='" + ganjilGenap
-				+ "' and (b.dosen1=" + dosen.getId() + " or b.dosen2=" + dosen.getId() + " or b.dosen3=" + dosen.getId()
+				+ " where b.tahun_ajaran=:tahunAkademik and b.ganjil_genap=:ganjilGenap"
+				+ " and (b.dosen1=" + dosen.getId() + " or b.dosen2=" + dosen.getId() + " or b.dosen3=" + dosen.getId()
 				+ " or b.dosen4=" + dosen.getId() + " or b.dosen5=" + dosen.getId() + " or b.dosen6=" + dosen.getId()
 				+ " or b.dosen7=" + dosen.getId() + " or b.dosen8=" + dosen.getId() + " or b.dosen9=" + dosen.getId()
 				+ " or b.dosen10=" + dosen.getId() + ") ) a where data is not null and trim(data) != ''";
 
 		System.out.println("count checklist sql => " + sql);
 
-		List<String> data = (session.createSQLQuery(sql).list());
+		List<String> data = (session.createSQLQuery(sql)
+				.setParameter("tahunAkademik", tahunAkademik)
+				.setParameter("ganjilGenap", ganjilGenap)
+				.list());
 
 		System.out.println("data -> " + data);
 
