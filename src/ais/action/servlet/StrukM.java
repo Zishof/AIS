@@ -19,12 +19,46 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Kegiatan;
 
 /**
- * Servlet implementation class LaporanPesananItem
+ * Servlet publik yang menghasilkan berkas PDF "struk pembayaran" dari {@link Kegiatan}
+ * (bukti bayar kegiatan/pesanan mahasiswa) yang ditunjuk parameter {@code id}, lalu
+ * menuliskannya langsung sebagai unduhan {@code application/pdf} pada respons. "M" pada nama
+ * kelas menandakan varian mobile/alternatif dari {@link Struk} (yang bekerja pada
+ * {@link ais.database.model.sekolah.PembayaranSiswa}, bukan {@link Kegiatan}).
+ *
+ * <h4>Keamanan &mdash; PERBANDINGAN DENGAN {@link Struk} (diverifikasi dari kode berjalan,
+ * 2026-09-07)</h4>
+ * <p><b>Sama seperti {@link Struk}:</b> endpoint ini sepenuhnya ANONIM &mdash;
+ * {@link #doGet}/{@link #doPost} memanggil {@link #process} langsung tanpa pemeriksaan
+ * sesi/login apa pun, dan tidak ada {@code intercept-url} khusus untuk {@code /StrukM} pada
+ * {@code applicationContext-security.xml} (jatuh ke katalog {@code /**} ber-akses
+ * {@code IS_AUTHENTICATED_ANONYMOUSLY}). Parameter {@code id} juga menerima dua bentuk yang
+ * sama: angka mentah (primary key {@link Kegiatan} sekuensial, dipakai langsung lewat
+ * {@code Restrictions.idEq}, sehingga tetap dapat DIENUMERASI) atau {@code id=EE<token>}
+ * (didekripsi lewat {@code Common.desEncrypter}, dengan kegagalan dekripsi yang ditelan sama
+ * seperti {@link Struk}). Berkas PDF yang dihasilkan ({@code CommonReportHelper
+ * .cetakBuktipembayaranMahasiswa}) juga berpotensi memuat PII/rincian finansial pemilik
+ * pembayaran, sama seperti {@link Struk}.</p>
+ * <p><b>Berbeda dari {@link Struk}:</b> method {@link #process} pada kelas ini sudah
+ * DIPERKUAT terhadap {@link NumberFormatException} &mdash; parameter {@code id} diurai lewat
+ * {@link #parseLong(String)} yang mengembalikan {@code null} (bukan melempar exception) bila
+ * kosong/bukan angka, dan servlet membalas {@link HttpServletResponse#SC_BAD_REQUEST} secara
+ * eksplisit untuk id tidak valid serta {@link HttpServletResponse#SC_NOT_FOUND} bila
+ * {@link Kegiatan} tidak ditemukan &mdash; {@link Struk} sebaliknya masih memanggil
+ * {@code Long.parseLong(myid)} mentah yang dapat melempar exception tak tertangani ke
+ * pemanggil. Perbaikan ini HANYA menutup celah crash/robustness, BUKAN celah otentikasi atau
+ * enumerasi id; status anonim dan id sekuensial di atas TETAP berlaku sama seperti
+ * {@link Struk}.</p>
+ *
+ * @see Struk
+ * @see Kegiatan
  */
 public class StrukM extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet; tidak melakukan inisialisasi
+	 * khusus.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public StrukM() {
@@ -33,6 +67,10 @@ public class StrukM extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP GET dengan mendelegasikan ke {@link #process}. Tidak ada
+	 * gerbang otentikasi/otorisasi di sini maupun di {@link #process} &mdash; lihat bagian
+	 * Keamanan pada dokumentasi kelas.
+	 *
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -46,6 +84,9 @@ public class StrukM extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP POST dengan perilaku identik {@link #doGet}, termasuk tidak
+	 * adanya gerbang otentikasi/otorisasi.
+	 *
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -58,6 +99,27 @@ public class StrukM extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Inti servlet: menerjemahkan parameter {@code id} menjadi sebuah {@link Kegiatan},
+	 * membangun PDF bukti pembayarannya lewat
+	 * {@code CommonReportHelper.cetakBuktipembayaranMahasiswa}, lalu menyalin berkas PDF yang
+	 * dihasilkan ke {@code resp} sebagai unduhan.
+	 * <p>Urutan kerja: (1) parameter {@code id} dibaca; bila berawalan {@code "EE"}, sisanya
+	 * didekripsi lewat {@code Common.desEncrypter.get().decrypt(...)} &mdash; kegagalan pada
+	 * langkah ini ditelan (dicatat lewat {@code ErrorAuditUtil.record}) dan nilai mentah tetap
+	 * dipakai; (2) {@code myid} diurai secara aman lewat {@link #parseLong(String)}, membalas
+	 * {@link HttpServletResponse#SC_BAD_REQUEST} bila bukan angka valid; (3) {@link Kegiatan}
+	 * dicari lewat primary key tersebut TANPA penyaring kepemilikan/sesi apa pun, membalas
+	 * {@link HttpServletResponse#SC_NOT_FOUND} bila tidak ditemukan; (4) PDF dirender dan
+	 * disalin ke {@code resp} dengan penyangga 1&nbsp;KiB.</p>
+	 * <p>Tidak ada gerbang otentikasi/otorisasi pada method ini &mdash; lihat bagian Keamanan
+	 * pada dokumentasi kelas untuk perbandingan dengan {@link Struk}.</p>
+	 *
+	 * @param request permintaan masuk berisi parameter {@code id}
+	 * @param resp    balasan yang akan diisi bita berkas PDF struk pembayaran, atau status
+	 *                {@code 400}/{@code 404} bila id tidak valid/tidak ditemukan
+	 * @throws Exception bila pencarian data atau pembangunan laporan gagal
+	 */
 	@SuppressWarnings({ })
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 		String myid = request.getParameter("id");
@@ -122,7 +184,13 @@ public class StrukM extends HttpServlet {
 		}
 	}
 
-	/** Parse aman: null (bukan exception) bila value kosong/tidak berupa angka. */
+	/**
+	 * Parse aman: null (bukan exception) bila value kosong/tidak berupa angka.
+	 *
+	 * @param value teks yang akan diurai, boleh {@code null}/kosong
+	 * @return {@link Long} hasil parsing, atau {@code null} bila {@code value} kosong atau
+	 *         bukan representasi angka yang valid (tidak pernah melempar exception)
+	 */
 	private static Long parseLong(String value) {
 		try {
 			return value == null || value.trim().length() == 0 ? null : Long.valueOf(value.trim());
