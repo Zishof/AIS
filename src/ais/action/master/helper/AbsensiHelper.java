@@ -2621,12 +2621,31 @@ public class AbsensiHelper {
 		});
 	}
 
-	/** Gaya kartu presensi modern &mdash; delegasi ke {@link AbsensiUiHelper#gayaKartuPresensi()}. */
+	/**
+	 * Mengembalikan blok {@code <style>} untuk tampilan kartu presensi modern (bayangan halus, sudut membulat,
+	 * efek hover, lencana status berwarna, aturan responsif). Murni delegasi ke
+	 * {@link AbsensiUiHelper#gayaKartuPresensi()} — dipertahankan sebagai method privat di sini agar pemakaian
+	 * di dalam kelas ini tetap ringkas dan agar gaya dapat dipindah/diseragamkan di satu tempat tanpa mengubah
+	 * pemanggil.
+	 *
+	 * <p>Hasilnya ditempel SATU KALI per render di bagian atas daftar presensi
+	 * ({@link #createListMahasiswaAbsensi}), bukan per kartu.</p>
+	 *
+	 * @return potongan HTML berisi definisi gaya kartu presensi
+	 */
 	private static String gayaKartuPresensi() {
 		return AbsensiUiHelper.gayaKartuPresensi();
 	}
 
-	/** Lencana status berwarna &mdash; delegasi ke {@link AbsensiUiHelper#badgeStatus(Statusabsensi)}. */
+	/**
+	 * Mengembalikan potongan HTML lencana ({@code badge}) berwarna untuk satu {@link Statusabsensi}, dipakai
+	 * pada tampilan READ-ONLY kartu presensi ({@link #tampilRowAbsensi}) sebagai pengganti radiogroup ketika
+	 * viewer tidak berhak mengubah status. Murni delegasi ke
+	 * {@link AbsensiUiHelper#badgeStatus(Statusabsensi)}.
+	 *
+	 * @param s status kehadiran yang akan digambarkan; penanganan nilai {@code null} diserahkan ke helper tujuan
+	 * @return potongan HTML lencana status
+	 */
 	private static String badgeStatus(Statusabsensi s) {
 		return AbsensiUiHelper.badgeStatus(s);
 	}
@@ -2646,7 +2665,22 @@ public class AbsensiHelper {
 		return AbsensiUiHelper.htmlTrenKehadiran(pk == null ? null : pk.getId());
 	}
 
-	/** Donut komposisi kehadiran &mdash; delegasi ke {@link AbsensiUiHelper#htmlKomposisiKehadiran}. */
+	/**
+	 * Mengembalikan potongan HTML diagram DONUT komposisi kehadiran untuk SATU pertemuan: proporsi peserta
+	 * per {@link Statusabsensi} (Hadir/Izin/Sakit/Alpa/Belum absen) dihitung dari status yang tersimpan pada
+	 * {@code pertemuan} untuk setiap anggota {@code peserta}. Murni delegasi ke
+	 * {@link AbsensiUiHelper#htmlKomposisiKehadiran}.
+	 *
+	 * <p>Berbeda dari {@link #htmlTrenKehadiran(Perkuliahan)} yang menggambarkan tren ANTAR-pertemuan dalam
+	 * satu perkuliahan, method ini hanya melihat satu pertemuan sehingga tetap berguna untuk pertemuan yang
+	 * bukan berasal dari perkuliahan reguler. Keduanya digabung menjadi satu wadah responsif oleh
+	 * {@link AbsensiUiHelper#htmlRingkasanGabung} di {@link #createListMahasiswaAbsensi}, dan kegagalan
+	 * pembuatan ringkasan ditelan agar daftar presensi tetap tampil.</p>
+	 *
+	 * @param pertemuan pertemuan yang komposisi kehadirannya dihitung
+	 * @param peserta   daftar peserta yang diperhitungkan (umumnya {@link #mahasiswas})
+	 * @return potongan HTML diagram donut; string kosong bila data belum cukup
+	 */
 	private String htmlKomposisiKehadiran(Pertemuan pertemuan, List<? extends GeneralValueObject> peserta) {
 		return AbsensiUiHelper.htmlKomposisiKehadiran(pertemuan, peserta);
 	}
@@ -5141,6 +5175,18 @@ public class AbsensiHelper {
 	 * Memuat ulang grid {@code mahasiswaIzinGrid} pada panel {@link #createListMahasiswaIzin} dengan seluruh
 	 * {@link PengajuanIzinTidakMasukPerkuliahan} milik {@code pertemuan}, menggunakan {@link MahasiswaIzinRenderer}
 	 * sebagai row renderer (satu baris per pengajuan, lengkap dengan kontrol persetujuan).
+	 *
+	 * <p>Sumber datanya adalah {@link Pertemuan#ambilPengajuanIzinTidakMasukPerkuliahanTotal()} — varian
+	 * "total", yaitu SELURUH pengajuan pada pertemuan ini tanpa memandang status persetujuannya (berbeda dari
+	 * {@code ambilPengajuanIzinTidakMasukPerkuliahan(mahasiswa)} yang dipakai {@link #tampilRowAbsensi} untuk
+	 * mengambil pengajuan satu peserta). Karena itu grid menampilkan pengajuan seluruh peserta kepada siapa pun
+	 * yang dapat membuka panel ini; pembedaan hak hanya terjadi PER BARIS di dalam
+	 * {@link MahasiswaIzinRenderer} (checkbox persetujuan vs. teks read-only, dan kemunculan tombol hapus).</p>
+	 *
+	 * <p>Renderer dibuat BARU pada setiap pemanggilan sehingga {@link MahasiswaIzinRenderer#tbmuser} selalu
+	 * menunjuk pengguna yang sedang login saat pemuatan ulang. Model dipasang lewat
+	 * {@code setModelCheckMobile} agar grid menyesuaikan diri pada tampilan mobile, dan {@code oddRowSclass}
+	 * dikosongkan ({@code "non-odd"}) supaya baris ganjil/genap tidak diberi warna selang-seling.</p>
 	 *
 	 * @param pertemuan pertemuan yang daftar pengajuan izin/sakitnya dimuat
 	 */

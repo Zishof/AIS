@@ -1385,6 +1385,87 @@ public class PembayaranUtilHelper {
 		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, semester, reload, true);
 	}
 
+	/**
+	 * Implementasi tunggal di balik seluruh overload {@code getDetailBiayaCalonMahasiswa*} —
+	 * padanan {@link #getDetailBiayaMahasiswadariDatabase(Mahasiswa, Integer, JenisKegiatan, String, boolean, boolean, boolean)}
+	 * untuk subjek {@link BiodataCalonMahasiswa}. Alur umumnya dijelaskan pada javadoc overload
+	 * publik {@link #getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan, Jurusan, Integer, boolean)};
+	 * di sini hanya dicatat hal yang khusus pada bentuk privat ini dan perbedaannya dari jalur
+	 * mahasiswa terdaftar.
+	 *
+	 * <h3>1. {@code hanyaItemDariSettingBiaya} selalu {@code true}, cache jadi write-only</h3>
+	 * <p>Sama persis dengan jalur mahasiswa: kedua pemanggilnya
+	 * ({@link #getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan, Jurusan, Integer, boolean)}
+	 * dan {@link #getDetailBiayaCalonMahasiswaUntukLayarPembayaran}) meneruskan {@code true},
+	 * sehingga blok pembacaan cache yang dijaga {@code if (!hanyaItemDariSettingBiaya && !reload)}
+	 * tidak pernah tereksekusi, sedangkan penulisan cache berkunci
+	 * {@code "tagihan_cal_mhs_<id>_<jenisKegiatan>_<semester>"} tetap berjalan. Kunci itu tidak
+	 * memuat flag mode ketat, jadi berlaku peringatan yang sama: menyalakan kembali pembacaan
+	 * cache tanpa memasukkan flag ke dalam kunci akan mencampur hasil mode ketat dan longgar.
+	 * Perhatikan pula bahwa {@code ais.action.ws.util.PembayaranUtil} menyusun kunci
+	 * {@code tagihan_cal_mhs_} dengan bentuk yang <i>identik</i>; di sana kode tersebut hanya
+	 * terjangkau setelah cabang yang mendelegasikan ke helper ini gagal, sehingga dalam praktik
+	 * tidak terjadi tabrakan — tetapi kesamaan bentuk kunci itu perlu diingat bila salah satu
+	 * sisi diubah.</p>
+	 *
+	 * <h3>2. Mode angsuran diverifikasi terhadap kenyataan billing</h3>
+	 * <p>Aturan {@code jenisKegiatan.modeAngsuranUntukJenjang(jenjang, semester, angkatan)} tidak
+	 * dipercaya sendirian. Bila aturan itu {@code TRUE}, jumlah baris bulanan yang benar-benar ada
+	 * dihitung lebih dulu lewat {@code PembayaranUtil.hitungBarisBulananSemester(...)}; bila
+	 * hasilnya {@code 0}, mode angsuran <b>dibatalkan</b> dan query kembali ke
+	 * {@link DetailBiaya} biasa. Tanpa pembatalan ini kuerinya akan kosong dan tagihan reguler
+	 * ikut lenyap — gejalanya total {@code 0} di layar admin dan galat 07 pada inquiry bank.</p>
+	 *
+	 * <h3>3. Cabang angsuran tidak memfilter {@code DetailBiaya.aktif}</h3>
+	 * <p>Perhatikan ternary pembentuk {@code criteria}: cabang non-angsuran memakai
+	 * {@code createCriteria(DetailBiaya.class)} dengan pembatas
+	 * {@code (aktif IS NULL OR aktif = true)}, sedangkan cabang angsuran memakai
+	 * {@code createCriteria(PengaturanPembayaranBulanan.class)} yang hanya memeriksa
+	 * {@code PengaturanPembayaranBulanan.aktif} lalu turun ke {@code detailBiaya} lewat
+	 * {@code Projections.property("detailBiaya")} + {@code createCriteria("detailBiaya")}.
+	 * Akibatnya {@link DetailBiaya} yang sudah dinonaktifkan admin tetap ikut menagih pada mode
+	 * angsuran. Ini asimetri yang sama dengan jalur mahasiswa terdaftar; perlakukan sebagai fakta
+	 * arsitektur, bukan sebagai jaminan bahwa {@code aktif = false} menghentikan tagihan.</p>
+	 *
+	 * <h3>4. Yang dikembalikan selalu {@link DetailBiaya}, juga pada mode angsuran</h3>
+	 * <p>Karena cabang angsuran memakai proyeksi {@code detailBiaya}, isi koleksi hasil tetap
+	 * bertipe {@link DetailBiaya} (nominal satu semester), bukan
+	 * {@link PengaturanPembayaranBulanan} (nominal per bulan) seperti pada jalur mahasiswa
+	 * terdaftar dengan parameter {@code bulan}. Satu {@link DetailBiaya} dapat muncul berkali-kali
+	 * karena setiap baris bulanannya menghasilkan satu baris proyeksi; duplikasi itu diserap oleh
+	 * dedup per {@code itemBiaya.getId()} sesudahnya. Pemanggil yang membutuhkan rincian per bulan
+	 * harus memakai jalur bulanan, bukan hasil method ini.</p>
+	 *
+	 * <h3>5. Dedup akhir dan penanganan galat</h3>
+	 * <p>Hasil di-dedup lewat {@code Map} berkunci {@code itemBiaya.getId()} (baris ber-id
+	 * terbesar menang) lalu dimasukkan ke {@code new TreeSet(maps.values())}. Berlaku catatan yang
+	 * sama seperti pada jalur mahasiswa: {@link TreeSet} membuang elemen yang {@code compareTo}-nya
+	 * {@code 0}, sedangkan {@link DetailBiaya#compareTo(GeneralValueObject)} hanya membandingkan
+	 * {@code itemBiaya.getKode()} dan memetakan {@code null} menjadi {@code ""}, sehingga dua item
+	 * biaya berkode kosong akan saling menghapus dan satu baris tagihan hilang diam-diam.</p>
+	 *
+	 * <p><b>Berbeda dari jalur mahasiswa</b>, blok {@code catch} di sini <i>melempar ulang</i>
+	 * {@code org.hibernate.HibernateException} alih-alih menelannya menjadi koleksi kosong.
+	 * Kegagalan basis data pada tagihan calon mahasiswa dengan sengaja dibuat terlihat oleh
+	 * pemanggil, supaya tidak tersamar sebagai "memang tidak ada tagihan". Galat non-Hibernate
+	 * tetap dicatat dan menghasilkan koleksi kosong. Session yang dibuka di sini selalu ditutup
+	 * lewat {@link #closeOpenedSession(Session)} pada blok {@code finally}.</p>
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa subjek tagihan; {@code null} (atau
+	 *        {@code jenisKegiatan} {@code null}) langsung mengembalikan koleksi kosong
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dicari
+	 * @param jurusan jurusan tujuan; bila {@code null} dicari otomatis (jurusan aktif pertama pada
+	 *        jenjang yang sama)
+	 * @param semester semester akademik yang dicari; {@code null} berarti tagihan tanpa semester
+	 *        (dicocokkan ke {@code semester IN (0, 1)}, mis. biaya pendaftaran)
+	 * @param reload {@code true} memaksa jalur muat ulang; lihat catatan bagian 1 mengenai cache
+	 *        yang sudah tidak dibaca lagi
+	 * @param hanyaItemDariSettingBiaya {@code true} (satu-satunya nilai yang dipakai saat ini)
+	 *        membatasi hasil hanya pada item milik {@link SettingBiaya} terpilih
+	 * @return koleksi {@link DetailBiaya} yang berlaku bagi calon mahasiswa ini, atau sentinel
+	 *         {@link PengecualianTagihanList} bila calon mahasiswa sengaja dikecualikan
+	 * @throws org.hibernate.HibernateException bila query gagal di lapisan Hibernate
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, Jurusan jurusan,
@@ -1806,6 +1887,40 @@ public class PembayaranUtilHelper {
 	 * @param pembayaranBulanan baris pengaturan bulanan yang nominalnya dicari; {@code null} menghasilkan {@code 0.0}
 	 * @param mahasiswa konteks mahasiswa untuk pencarian modifikasi nominal khusus, boleh {@code null}
 	 * @param semester konteks semester untuk pencarian modifikasi nominal khusus
+	 * <p><b>PERINGATAN INTEGRITAS — nol hasil hitungan diperlakukan sebagai "belum dihitung".</b>
+	 * Ambang {@code Math.abs(nominal) > 0.01} di atas tidak bisa membedakan dua hal yang berbeda:
+	 * (a) tidak ada modifikasi nominal untuk mahasiswa ini, dan (b) ada modifikasi dan hasilnya
+	 * memang {@code 0}. Keduanya sama-sama gagal melewati ambang, lalu keduanya sama-sama jatuh
+	 * kembali ke {@code pembayaranBulanan.getNominal()}.</p>
+	 *
+	 * <p>Ini bertentangan dengan invarian yang dinyatakan tegas pada javadoc
+	 * {@link PembayaranNominalModifikasiHelper}: <i>"Hasil 0 adalah nilai sah, bukan nilai kosong.
+	 * Mahasiswa yang tidak mengambil satu SKS pun memang harus ditagih 0 untuk item berbasis SKS;
+	 * hasil itu tidak boleh dipaksa kembali ke nominal awal."</i> Kasus nyatanya ada pada item
+	 * ber-{@link ItemBiaya#DIKALI_JUMLAH_SKS_MAHASISWA} dan kerabatnya: di sana
+	 * {@code ambilNominalModifikasi} menghitung {@code jmlSKS * harga}, sehingga mahasiswa yang
+	 * belum/tidak mengambil SKS pada semester dan tahapan itu menghasilkan {@code 0.0} yang benar
+	 * — dan method ini justru membuangnya, lalu memakai {@code getNominal()} yang untuk item
+	 * semacam itu adalah <b>harga per SKS</b>, bukan tagihan bulanan yang sudah jadi.</p>
+	 *
+	 * <p>Perlu ditegaskan supaya tidak ditafsirkan berlebihan: nilai kembalian method ini
+	 * <b>tidak</b> dipakai sebagai nominal yang ditagihkan. Ia hanya dipakai di dua tempat, yaitu
+	 * {@link #isPengaturanBulananLayakDitampilkan} (gerbang tampil/tidak) dan penentuan
+	 * {@code isZeroFilter} di {@link #saringPengaturanPembayaranBulanan(List, boolean, Mahasiswa, Integer)}
+	 * (pemilihan baris saat ada duplikat). Karena itu dampaknya bukan salah nominal secara
+	 * langsung, melainkan: (1) baris bulanan yang seharusnya bernilai {@code 0} tetap lolos
+	 * gerbang tampil seolah bernilai penuh, dan (2) ketika {@code nolMasukFilter} menyala,
+	 * mekanisme "ganti baris nol dengan baris berikutnya" praktis lumpuh untuk item berbasis SKS
+	 * karena nol yang sah selalu tersamar menjadi bukan-nol. Nominal yang benar-benar dicetak ke
+	 * layar tetap berasal dari {@code PengaturanPembayaranBulanan.ambilNominalModifikasi(...)}
+	 * yang dipanggil renderer.</p>
+	 *
+	 * <p>Bila suatu saat ambang ini diperbaiki, caranya bukan menurunkan angka {@code 0.01}
+	 * melainkan membedakan "tidak ada modifikasi" dari "modifikasi bernilai nol" — mis. dengan
+	 * memperlakukan {@code null} sebagai satu-satunya penanda "tidak ada", dan menerima
+	 * {@code 0.0} apa adanya. Selama itu belum dilakukan, jangan memakai method ini sebagai
+	 * sumber nominal tagihan.</p>
+	 *
 	 * @return nominal efektif (modifikasi bila ada dan signifikan, selain itu nominal asli), tidak pernah {@code null}
 	 */
 	private static Double ambilNominalPengaturanBulananAman(PengaturanPembayaranBulanan pembayaranBulanan,
@@ -1853,6 +1968,25 @@ public class PembayaranUtilHelper {
 	 * @param tampilkanNolNilaiBisaDiubah hasil {@link #tampilkanPengaturanBulananNolNilaiBisaDiubah}, diteruskan agar tidak dibaca ulang per baris
 	 * @param mahasiswa konteks mahasiswa untuk perhitungan nominal efektif, boleh {@code null}
 	 * @param semester konteks semester untuk perhitungan nominal efektif
+	 * <p><b>Catatan tentang langkah (2).</b> Nominal efektif yang diuji di sini datang dari
+	 * {@link #ambilNominalPengaturanBulananAman}, yang menyamarkan hasil hitungan bernilai
+	 * {@code 0} menjadi nominal asli (lihat peringatan integritas pada javadoc method tersebut).
+	 * Akibatnya baris berbasis SKS milik mahasiswa yang belum mengambil SKS akan lolos di langkah
+	 * (2) seolah bernilai penuh, dan tidak pernah sampai ke langkah (3)–(5) yang sebenarnya
+	 * dirancang untuk memutuskan nasib baris bernilai nol. Ketiga pengecualian nol di bawah
+	 * ({@link ItemBiaya#DIKALI_NILAI_MINUS}, {@code tetapDitampilkanWalaupunNol}, dan
+	 * {@code nilaiBisaDiubah}) karena itu hanya benar-benar berperan untuk baris yang nominal
+	 * tersimpannya memang {@code 0}, bukan untuk baris yang <i>hasil hitungannya</i> {@code 0}.</p>
+	 *
+	 * <p><b>Ketidakselarasan dengan penghitung baris bulanan.</b> Gerbang ini memakai
+	 * {@code Math.abs(nominal) > 0.01}, sehingga baris bernominal negatif (potongan/diskon yang
+	 * tidak ditandai {@link ItemBiaya#DIKALI_NILAI_MINUS}) tetap ditampilkan. Sebaliknya
+	 * {@link #countBulanan(Session, Mahasiswa, BiodataCalonMahasiswa, JenisKegiatan, Integer, Collection, boolean, boolean)}
+	 * menghitung baris memakai {@code Restrictions.gt("nominal", 0.01)} yang menolak nilai
+	 * negatif. Untuk data yang memuat baris bernominal negatif semacam itu, jumlah baris yang
+	 * dihitung bisa lebih kecil daripada jumlah baris yang benar-benar tampil. Bila salah satu
+	 * sisi diselaraskan, keduanya harus diubah bersama.</p>
+	 *
 	 * @return {@code true} bila baris ini harus ditampilkan ke pengguna
 	 */
 	private static boolean isPengaturanBulananLayakDitampilkan(PengaturanPembayaranBulanan pembayaranBulanan,

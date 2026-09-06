@@ -5227,8 +5227,49 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * pindah pertemuan, dsb.) tetap berfungsi identik. CSS {@code ppu-modal-grid}
 	 * menumpuk sel secara vertikal agar tampil sebagai formulir, bukan baris tabel lebar.
 	 *
-	 * @param ppu ujian pada pertemuan yang akan diatur
-	 * @param refresh listener untuk memuat ulang daftar kartu setelah modal ditutup
+	 * <p><b>Inilah satu-satunya {@link MyGrid} yang benar-benar hidup di file ini.</b> Grid
+	 * dibuat sebagai variabel LOKAL bernama {@code gridModal}, kolomnya dibangun oleh
+	 * {@link #buatKolomUjian(MyGrid, Tbmuser)} (fungsi yang sama yang dulu dipakai tampilan tabel
+	 * penuh), lalu modelnya diisi {@link SimpleListModel} berisi TEPAT SATU elemen yaitu
+	 * {@code ppu}. Dengan begitu {@link DetailPertemuanRenderer} lama dipakai ulang apa adanya:
+	 * seluruh kontrol edit inline beserta autosave per field-nya tetap berfungsi tanpa satu baris
+	 * pun ditulis ulang. Field instance {@link #grid} TIDAK dipakai di sini dan tetap
+	 * {@code null} — lihat kuirk pada Javadoc kelas.
+	 *
+	 * <p><b>Renderer dibangun dengan identitas peserta milik helper ini</b>
+	 * ({@link #mahasiswa}, {@link #biodataCalonMahasiswa}) dan {@code tampilInfo = false},
+	 * sehingga modal selalu merender varian kontrol admin penuh, bukan blok info read-only.
+	 * Perhatikan bahwa method ini sendiri bersifat {@code public} dan TIDAK memeriksa peran:
+	 * penjagaannya sepenuhnya berada pada pemanggil — tombol "Pengaturan Data Ujian" di
+	 * {@link #buatKartuUjianRingkas(PertemuanPunyaUjian, Tbmuser, EventListener)} (yang hanya
+	 * dibuat pada cabang pengelola {@link #loadData(Object)}) dan {@code HasilUjianMahasiswaHelper}.
+	 *
+	 * <p><b>Tiga jalan keluar, semuanya memuat ulang.</b> Karena setiap perubahan sudah tersimpan
+	 * ke database saat field disentuh, tidak ada aksi "simpan" yang sesungguhnya; yang dibutuhkan
+	 * hanyalah menyegarkan kartu di belakang modal. Karena itu ketiga jalan keluar melakukan hal
+	 * yang sama — memicu {@code refresh} lalu menutup:
+	 * <ul>
+	 * <li><b>{@code onClose}</b> (tombol X atau tombol Esc) — memicu {@code refresh} di dalam
+	 * {@code try/catch} agar kegagalan muat ulang tidak menahan modal tetap terbuka.</li>
+	 * <li><b>Tombol "Simpan"</b> — hanya memicu {@code refresh} lalu {@code window.detach()}.
+	 * Namanya "Simpan" demi kejelasan bagi pengguna, bukan karena ada yang disimpan di sini.</li>
+	 * <li><b>Tombol "Batal"</b> — <b>perilakunya IDENTIK dengan "Simpan"</b>: juga memicu
+	 * {@code refresh} lalu menutup. "Batal" TIDAK membatalkan apa pun dan tidak bisa membatalkan
+	 * apa pun, karena perubahan sudah tertulis ke database sejak field diubah. Jangan menambahkan
+	 * pembatalan di sini tanpa lebih dulu mengubah pola autosave di
+	 * {@link DetailPertemuanRenderer#render(Row, Object)}.</li>
+	 * </ul>
+	 * Footer aksi ini sengaja dibuat sendiri (bukan footer bawaan tema) dan dipasang
+	 * {@code position:sticky} agar selalu terlihat, karena footer bawaan tidak terhubung ke
+	 * listener {@code refresh}.
+	 *
+	 * @param ppu     ujian pada pertemuan yang akan diatur; menjadi satu-satunya elemen model grid
+	 *                modal.
+	 * @param refresh listener pemuat ulang daftar kartu, dipicu pada ketiga jalan keluar modal dan
+	 *                juga diteruskan ke {@link DetailPertemuanRenderer} sebagai callback aksi
+	 *                (pindah pertemuan, hapus, penutupan window Kelola Soal). Boleh {@code null};
+	 *                setiap titik pemakaian sudah menjaganya.
+	 * @throws Exception diteruskan dari pembangunan komponen ZK dan dari renderer.
 	 */
 	public void bukaPengaturanUjian(final PertemuanPunyaUjian ppu, final EventListener refresh) throws Exception {
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -5875,6 +5916,37 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * "Pengaturan Data Ujian" milik tampilan kartu pengelola. Menjaga struktur kolom
 	 * identik sehingga jumlah/urutan sel yang dihasilkan {@link DetailPertemuanRenderer}
 	 * tetap cocok di kedua tempat.
+	 *
+	 * <p><b>Kontrak yang wajib dijaga.</b> {@link DetailPertemuanRenderer#render(Row, Object)}
+	 * menambahkan anak ke baris secara berurutan tanpa menyebut nama kolom. Artinya JUMLAH dan
+	 * URUTAN kolom di sini harus persis mengikuti urutan komponen yang ditambahkan renderer.
+	 * Menyisipkan, menghapus, atau menukar kolom di method ini akan menggeser seluruh isi baris
+	 * tanpa error kompilasi maupun exception saat berjalan — kesalahannya hanya terlihat sebagai
+	 * data yang tampil di kolom yang salah. Karena itu kolom yang tidak relevan untuk sebuah peran
+	 * TIDAK dihapus, melainkan disembunyikan dengan {@code setWidth("0px")} atau
+	 * {@code setVisible(false)}.
+	 *
+	 * <p><b>Kolom yang dibangun, berurutan:</b> kolom kosong pembuka (selebar 40px untuk
+	 * pengelola, 0px untuk peserta — tempat tombol "Kelola Soal Ujian"), Ujian, Jenis,
+	 * Skor/Jml.Ikut.Ujian, Nilai/Maks.blh.Ikut, Jml.Soal (labelnya berubah menjadi
+	 * "Jml.Soal/Maks.Skor" untuk peserta), Dibatasi Wkt, Lama, Pelaksanaan, lalu SATU kolom yang
+	 * bercabang — "Pengaturan Sub-CPMK" bila kurikulum perkuliahan berstatus OBE, selain itu
+	 * "Nilai masuk ke" — dan ditutup kolom Aktif serta kolom kosong untuk baris tombol aksi.
+	 * Perhatikan bahwa kedua cabang menghasilkan JUMLAH kolom yang sama, sehingga kontrak urutan
+	 * di atas tetap terjaga pada kurikulum OBE maupun non-OBE.
+	 *
+	 * <p>Lebar dan visibilitas kolom ditentukan lewat predikat peran yang dieja ulang manual —
+	 * termasuk varian dengan {@code getSiswa() == null} ganda yang dicatat pada Javadoc kelas.
+	 * Di sini dampaknya terbatas pada tampilan (kolom melebar atau menyempit), bukan pada hak
+	 * akses, karena kontrol yang sesungguhnya dijaga di dalam renderer.
+	 *
+	 * @param grid    grid tujuan; kolom ditambahkan sebagai anak {@link Columns} baru. Grid yang
+	 *                sudah punya {@link Columns} sebaiknya tidak dikirim ke sini.
+	 * @param tbmuser pengguna aktif, dipakai bersama field {@link #mahasiswa} dan
+	 *                {@link #biodataCalonMahasiswa} untuk menentukan lebar/visibilitas kolom.
+	 *                Sebagian ekspresi di dalam method ini memanggil {@code tbmuser.getSiswa()}
+	 *                setelah cabang {@code tbmuser != null} sudah gugur, sehingga {@code null}
+	 *                TIDAK aman dikirim.
 	 */
 	private void buatKolomUjian(MyGrid grid, Tbmuser tbmuser) {
 		Columns columns = new Columns();
