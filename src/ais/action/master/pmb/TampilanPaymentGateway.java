@@ -869,7 +869,7 @@ public class TampilanPaymentGateway {
 										}
 
 										if (virtualAccountBank != null && !virtualAccountBank.getLink().isEmpty()) {
-											Clients.evalJavaScript("popupCenter({url: '" + virtualAccountBank.getLink()
+											Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(virtualAccountBank.getLink())
 													+ "', title: 'Book', w: 1200, h: 600});");
 											return;
 										}
@@ -1010,7 +1010,7 @@ public class TampilanPaymentGateway {
 										}
 
 										if (virtualAccountBank != null && !virtualAccountBank.getLink().isEmpty()) {
-											Clients.evalJavaScript("popupCenter({url: '" + virtualAccountBank.getLink()
+											Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(virtualAccountBank.getLink())
 													+ "', title: 'Book', w: 1200, h: 600});");
 											return;
 										}
@@ -1143,7 +1143,7 @@ public class TampilanPaymentGateway {
 										}
 
 										if (virtualAccountBank != null && !virtualAccountBank.getLink().isEmpty()) {
-											Clients.evalJavaScript("popupCenter({url: '" + virtualAccountBank.getLink()
+											Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(virtualAccountBank.getLink())
 													+ "', title: 'Book', w: 1200, h: 600});");
 											return;
 										}
@@ -1543,7 +1543,7 @@ public class TampilanPaymentGateway {
 											return;
 										}
 
-										Clients.evalJavaScript("popupCenter({url: '" + virtualAccountBank.getLink()
+										Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(virtualAccountBank.getLink())
 												+ "', title: 'Book', w: 1200, h: 600});");
 									} else {
 										MyMessageboxConfig.show("Mohon maaf, tagihan belum dipilih. Langkah yang dapat dilakukan: (1) pilih atau centang tagihan yang akan dibayarkan dari daftar yang tersedia; (2) pastikan minimal satu tagihan telah dipilih; (3) ulangi proses pembayaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
