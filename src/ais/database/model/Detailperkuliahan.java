@@ -393,59 +393,217 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.nama = nama;
 	}
 
+	/** Mahasiswa pemilik baris nilai ini; wajib terisi. Lihat {@link #getMahasiswa()}. */
 	private Mahasiswa mahasiswa;
+	/**
+	 * Kelas perkuliahan yang diambil. Boleh {@code null} &mdash; itulah penanda bahwa baris ini
+	 * adalah <b>nilai konversi</b> dan bukan pengambilan kelas di kampus ini; dalam hal itu
+	 * {@link #matakuliahKonversi} yang dipakai. Lihat {@link #getPerkuliahan()}.
+	 */
 	private Perkuliahan perkuliahan;
+	/**
+	 * Kelas lain yang &quot;diikuti&quot; oleh baris ini, dipakai pada skema kelas gabungan/paralel
+	 * di mana mahasiswa terdaftar pada satu kelas administratif tetapi mengikuti perkuliahan pada
+	 * kelas lain. Lihat {@link #getIkutiPerkuliahan()}.
+	 */
 	private Perkuliahan ikutiPerkuliahan;
+	/**
+	 * Semester ke berapa mata kuliah ini diambil oleh mahasiswa. Bila kosong, {@link #getSemester()}
+	 * menurunkannya dari kelas induk; nilai <b>-1</b> dipakai sebagai penanda khusus
+	 * <i>pra-perkuliahan</i> (matrikulasi).
+	 */
 	private Integer semester;
+	/**
+	 * Tahap kurikulum (mis. tahap sarjana/profesi) tempat mata kuliah ini berada; diturunkan dari
+	 * {@code KurikulumPunyaMatakuliah} bila belum diisi. Lihat {@link #getTahap()}.
+	 */
 	private Integer tahap;
 
+	/**
+	 * Penanda kelulusan mata kuliah ini. Bukan sekadar cache: {@link #getLulus()} secara aktif
+	 * <b>mengoreksi</b> nilai ini agar selalu selaras dengan konfigurasi {@link NilaiHuruf} yang
+	 * berlaku, sehingga bendera yang basi ikut tersembuhkan saat objek di-flush.
+	 */
 	private Boolean lulus;
 
+	/**
+	 * Nilai akhir angka (skala 0&ndash;100) yang tersimpan. Diberi nilai awal {@code 0.0} agar
+	 * tidak pernah {@code null} pada baris baru. Nilai ini <b>tidak</b> dihitung ulang dari
+	 * {@link #detailNilai} saat dibaca; rekalkulasi hanya terjadi lewat
+	 * {@link #hitungTotalNilai(Boolean, java.util.List)} yang dipicu tombol &quot;Hitung Ulang&quot;.
+	 * Perbedaan antara keduanya adalah sumber klasik keluhan &quot;nilai tidak sesuai&quot;.
+	 */
 	private Double totalNilai = 0.0;
+	/** Nilai akhir dalam huruf (A/B/C/D/E/T...) hasil pemetaan {@link #totalNilai} lewat tabel {@link NilaiHuruf}. */
 	private String nilaiHuruf = "";
+	/** Bobot nilai pada skala IP (umumnya 0,00&ndash;4,00) yang dipakai menghitung IPS/IPK. */
 	private Double totalIP = 0.0;
+	/**
+	 * <b>Snapshot</b> {@link #totalNilai} pada saat kelas dikunci. Diisi {@link #bekukanSemuaNilai()}.
+	 * Selama kunci global aktif, kolom inilah sumber kebenaran yang dikembalikan getter.
+	 */
 	private Double totalNilaiKunci;
+	/** <b>Snapshot</b> {@link #nilaiHuruf} saat kelas dikunci; lihat {@link #bekukanSemuaNilai()}. */
 	private String nilaiHurufKunci;
+	/** <b>Snapshot</b> {@link #totalIP} saat kelas dikunci; lihat {@link #bekukanSemuaNilai()}. */
 	private Double totalIPKunci;
+	/** <b>Snapshot</b> {@link #lulus} saat kelas dikunci; lihat {@link #bekukanSemuaNilai()}. */
 	private Boolean lulusKunci;
 
+	/**
+	 * Nilai akhir angka versi <b>sementara</b> &mdash; dihitung dari kolom &quot;nilai belum
+	 * diverifikasi&quot; (indeks ke-5 tiap entri {@link #detailNilai}). Dipakai agar dosen tetap
+	 * dapat melihat gambaran nilai sebelum verifikasi program studi selesai, dan menjadi jaring
+	 * pengaman bagi {@link #getTotalNilai()} ketika nilai final masih 0.
+	 */
 	private Double totalNilaiSementara = 0.0;
+	/** Nilai huruf versi sementara, pasangan dari {@link #totalNilaiSementara}. */
 	private String nilaiHurufSementara = "";
+	/** Bobot IP versi sementara, pasangan dari {@link #totalNilaiSementara}. */
 	private Double totalIPSementara = 0.0;
+	/** <b>Snapshot</b> {@link #totalNilaiSementara} saat kelas dikunci. */
 	private Double totalNilaiSementaraKunci;
+	/** <b>Snapshot</b> {@link #nilaiHurufSementara} saat kelas dikunci. */
 	private String nilaiHurufSementaraKunci;
+	/** <b>Snapshot</b> {@link #totalIPSementara} saat kelas dikunci. */
 	private Double totalIPSementaraKunci;
 
+	/**
+	 * Status persetujuan KRS: {@link #DISETUJUI} atau {@link #BELUM_DISETUJUI}. Nilai awal sengaja
+	 * {@link #BELUM_DISETUJUI} sehingga baris baru harus disetujui secara eksplisit.
+	 */
 	private Integer persetujuan = BELUM_DISETUJUI;
+	/**
+	 * Mata kuliah tujuan bagi baris <b>nilai konversi</b> (nilai yang diakui dari kampus/program
+	 * sebelumnya) ketika tidak ada {@link #perkuliahan} yang mendasarinya. Bersifat saling
+	 * meniadakan dengan {@link #perkuliahan} &mdash; lihat peringatan pada
+	 * {@link #getMatakuliahKonversi()} yang <b>meng-null-kan</b> field ini bila kelas terisi.
+	 */
 	private Matakuliah matakuliahKonversi;
 
+	/**
+	 * Kode mata kuliah <b>asal</b> pada institusi sebelumnya untuk baris konversi. Disimpan sebagai
+	 * teks lepas (bukan relasi) karena mata kuliah asal tidak ada di basis data kampus ini.
+	 */
 	private String kodeMatakuliahAsal;
+	/** Nama mata kuliah <b>asal</b> pada institusi sebelumnya untuk baris konversi. */
 	private String namaMatakuliahAsal;
+	/**
+	 * Nilai huruf <b>asal</b> sebelum konversi. Bila isinya ternyata berupa angka,
+	 * {@link #getNilaiHurufAsal()} menerjemahkannya lebih dulu ke huruf memakai tabel
+	 * {@link NilaiHuruf} yang berlaku bagi mahasiswa bersangkutan.
+	 */
 	private String nilaiHurufAsal = "";
+	/** Jumlah SKS <b>asal</b> sebelum konversi; diturunkan dari {@link #matakuliahKonversi} bila kosong. */
 	private Integer sksAsal;
 
+	/** Paket KRS/perkuliahan yang menjadi asal pengambilan mata kuliah ini. */
 	private PaketPerkuliahan paketPerkuliahan;
+	/**
+	 * Tahun akademik pengambilan dalam format <code>YYYY/YYYY</code>. Nilai ini <b>dihitung ulang</b>
+	 * oleh {@link #getTahunAkademik()} dari tahun angkatan mahasiswa dan nomor semester, sehingga
+	 * isi tersimpan dapat tertimpa saat dibaca.
+	 */
 	private String tahunAkademik;
 
+	/**
+	 * <b>Peta nilai per komponen</b> dalam satu string CSV bertingkat; format lengkapnya diuraikan
+	 * pada Javadoc kelas. Ringkasnya: entri dipisah <code>;</code>, tiap entri berisi
+	 * <code>kunciFormat,nilai,0,persen,verify,nilaiBelumVerify</code>. Dipetakan ke kolom
+	 * <code>detail_nilai_baru_lagi</code>.
+	 */
 	private String detailNilai = "";
+	/**
+	 * Peta nilai untuk komponen <b>tambahan</b> ({@link FormatNilaiTambahan}) dengan format lebih
+	 * pendek <code>idFormatNilaiTambahan,nilai,0</code> per entri. Berbeda dari {@link #detailNilai},
+	 * kuncinya adalah id {@link FormatNilaiTambahan} langsung tanpa perantara {@code StatusPertemuan}.
+	 */
 	private String detailNilaiTambahan = "";
 
-	// null = data lama belum memiliki snapshot; string kosong = snapshot sah yang
-	// memang membekukan kondisi tanpa nilai. Pembedaan ini penting agar nilai 0/
-	// kosong yang dikunci tidak dapat diisi melalui jalur lain.
+	/**
+	 * <b>Snapshot</b> {@link #detailNilai} saat nilai dibekukan (kunci global maupun kunci per
+	 * komponen). Dipetakan ke kolom <code>detail_nilai_kunci</code>.
+	 *
+	 * <p><b>Pembedaan null vs string kosong sangat penting di sini:</b> nilai {@code null} berarti
+	 * <i>data lama yang belum memiliki snapshot</i> (ditulis sebelum kolom ini ada), sedangkan
+	 * <i>string kosong</i> berarti <i>snapshot yang sah dan memang membekukan kondisi tanpa nilai</i>.
+	 * Tanpa pembedaan ini, komponen bernilai 0/kosong yang sudah dikunci akan dianggap &quot;tidak
+	 * punya referensi&quot; sehingga bisa diisi kembali lewat jalur impor massal &mdash; persis lubang
+	 * yang ditutup oleh {@link #bekukanDetailNilai(FormatNilai)} ketika ia menuliskan entri 0
+	 * secara eksplisit.
+	 */
 	private String detailNilaiKunci;
+	/**
+	 * <b>Snapshot</b> {@link #detailNilaiTambahan} saat nilai dibekukan; berlaku pembedaan
+	 * {@code null} versus string kosong yang sama seperti {@link #detailNilaiKunci}.
+	 */
 	private String detailNilaiTambahanKunci;
 
+	/**
+	 * Kunci korelasi baris ini dengan <b>Feeder PDDikti</b>, dibentuk sebagai
+	 * <code>&lt;id_kls&gt;:&lt;id_reg_pd&gt;</code>. Dipetakan ke kolom <code>feeder_kode</code> dengan
+	 * batasan <b>unik</b> di seluruh tabel, sehingga satu pasangan kelas&ndash;mahasiswa Feeder hanya
+	 * boleh muncul sekali. Lihat {@link #getFeeder()} yang menyusun ulang nilainya saat dibaca.
+	 */
 	private String feeder;
 
+	/**
+	 * Identitas kelas pada Feeder PDDikti (<i>id kelas kuliah</i>). Diturunkan dari
+	 * {@code Perkuliahan.getFeeder()} bila kelas induk sudah tersinkron. Penamaan
+	 * <i>snake_case</i> mengikuti nama field pada API Feeder.
+	 */
 	private String id_kls;
+	/** Identitas registrasi peserta didik pada Feeder PDDikti (<i>id registrasi mahasiswa</i>). */
 	private String id_reg_pd;
+	/**
+	 * Status verifikasi nilai: {@link #VERIFIED} atau {@link #NOT_VERIFIED}. Menentukan apakah nilai
+	 * sebenarnya ditampilkan ketika kelas mengaktifkan opsi &quot;sembunyikan nilai jika belum
+	 * diverifikasi&quot;.
+	 */
 	private Integer verify;
+	/** Identitas pengguna yang melakukan verifikasi nilai; disimpan sebagai teks lepas. */
 	private String verifikator;
+	/** Stempel waktu saat nilai diverifikasi; pasangan dari {@link #verifikator}. */
 	private Date waktuVerifikasi;
 
+	/**
+	 * Penanda bahwa baris ini berasal dari proses <b>internal</b> (mis. dibangkitkan sistem) dan
+	 * bukan pengambilan KRS biasa oleh mahasiswa. Diperlakukan sebagai {@code false} bila
+	 * {@code null}; lihat {@link #getInternal()}.
+	 */
 	private Boolean internal;
 	
+	/**
+	 * Menyusun <b>kode semester Feeder PDDikti</b> (<code>id_smt</code>) untuk baris nilai ini,
+	 * yaitu gabungan tahun akademik awal dengan satu digit penanda jenis semester.
+	 *
+	 * <p>Bentuk hasilnya <code>&lt;tahun&gt;&lt;kodeSemester&gt;</code>, mis. <code>20241</code> untuk
+	 * ganjil 2024/2025. Digit terakhir mengikuti konvensi PDDikti: <b>1</b> = Ganjil,
+	 * <b>2</b> = Genap, <b>3</b> = Semester Pendek (Antara).
+	 *
+	 * <p><b>Cara penentuan, berurutan:</b></p>
+	 * <ol>
+	 *   <li>Bagian tahun diambil dari potongan pertama {@link #getTahunAkademik()} (memisah pada
+	 *       tanda <code>/</code>); bila tahun akademik tidak dapat ditentukan dipakai literal
+	 *       <code>0000</code> sebagai penanda data tidak lengkap, bukan melempar exception.</li>
+	 *   <li>Bila kelas induk berstatus {@link Perkuliahan#SEMESTER_PENDEK}, digit menjadi
+	 *       <code>3</code>.</li>
+	 *   <li>Bila kelas induk <b>tidak ada</b> (baris konversi), dipakai jalan pintas berbasis paritas
+	 *       nomor semester: semester genap &rarr; <code>2</code>, ganjil &rarr; <code>1</code>. Ini
+	 *       murni perkiraan; untuk data konversi kode semester Feeder memang tidak dapat dipastikan
+	 *       dari kelas.</li>
+	 *   <li>Selain itu digit mengikuti {@code Perkuliahan.getGanjilGenap()}.</li>
+	 * </ol>
+	 *
+	 * <p>Ditandai {@link Transient} sehingga <b>tidak</b> memiliki kolom sendiri; nilainya selalu
+	 * dihitung saat diminta. Seluruh badan metode dibungkus penangkap kesalahan yang mencatat ke
+	 * {@code ErrorAuditUtil} dan mengembalikan <code>&quot;0&quot;</code> bila terjadi kegagalan,
+	 * agar proses ekspor Feeder tidak berhenti total hanya karena satu baris bermasalah. Perlu
+	 * diingat metode ini memanggil {@link #getTahunAkademik()}, {@link #getPerkuliahan()}, dan
+	 * {@link #getSemester()} yang ketiganya dapat menulis balik ke field.
+	 *
+	 * @return kode semester Feeder, atau <code>&quot;0&quot;</code> bila gagal disusun.
+	 */
 	@Transient
 	public String getIdSmt() {
 		String idSmt = "0";
@@ -477,6 +635,24 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	 * Memastikan satu set format aman dipakai untuk menghitung ulang nilai akhir. Rekalkulasi massal
 	 * wajib ditolak bila format kosong, komponen tidak aktif, atau jumlah bobot tidak mendekati 100%.
 	 * Tanpa penjaga ini, kegagalan membangun format OBE dapat mengubah nilai sah menjadi 0 (E).
+	 *
+	 * <p>Aturan kelayakan ini menjadi <b>gerbang</b>: {@link #reloadFormatNilai(java.util.List, Boolean)}
+	 * langsung berhenti tanpa mengubah apa pun bila metode ini mengembalikan {@code false}. Sikap
+	 * &quot;gagal-tertutup&quot; itu disengaja &mdash; lebih baik tidak menghitung sama sekali
+	 * daripada menghitung dengan format yang timpang lalu menimpa nilai sah dengan 0.</p>
+	 *
+	 * <p>Komponen yang ikut dijumlahkan hanyalah yang <b>seluruh</b> syaratnya terpenuhi: objek
+	 * tidak {@code null}, memiliki {@code StatusPertemuan} yang aktif, dan bobot persennya lebih
+	 * dari 0,01. Toleransi total 99&ndash;101% memberi ruang bagi pembulatan pecahan (mis. tiga
+	 * komponen 33,33%).</p>
+	 *
+	 * <p><b>Catatan:</b> karena syaratnya mewajibkan {@code getStatusPertemuan()} tidak
+	 * {@code null}, komponen bergaya OBE/Sub-CPMK yang memang tidak memiliki {@code StatusPertemuan}
+	 * tidak ikut terhitung di sini, meskipun jalur baca/tulis lain di kelas ini sudah mendukungnya
+	 * lewat {@link #ambilKunciFormatNilai(FormatNilai)}.</p>
+	 *
+	 * @param formatNilais daftar komponen format nilai yang akan dipakai; boleh {@code null}.
+	 * @return {@code true} bila daftar layak dipakai menghitung ulang nilai akhir.
 	 */
 	public static boolean formatNilaiSiapDihitung(List<FormatNilai> formatNilais) {
 		if (formatNilais == null || formatNilais.isEmpty()) {
@@ -493,6 +669,51 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return totalBobot >= 99.0 && totalBobot <= 101.0;
 	}
 
+	/**
+	 * <b>Membangun ulang seluruh string {@link #detailNilai}</b> dari daftar komponen format nilai
+	 * yang sedang berlaku. Inilah mesin di balik tombol &quot;Hitung Ulang&quot; / muat-ulang format
+	 * pada layar Input Nilai: struktur entri disusun kembali dari nol sehingga komponen yang sudah
+	 * tidak dipakai terbuang dan komponen baru mendapat tempatnya.
+	 *
+	 * <p><b>Gerbang keselamatan.</b> Langkah pertama adalah memanggil
+	 * {@link #formatNilaiSiapDihitung(java.util.List)}. Bila format belum layak &mdash; daftar
+	 * kosong, komponennya tidak aktif, atau jumlah bobot tidak mendekati 100% &mdash; metode
+	 * <b>langsung keluar tanpa menyentuh apa pun</b>. Ini penting karena tanpa gerbang tersebut
+	 * kegagalan membangun format (khususnya format OBE) akan menghasilkan string kosong yang
+	 * membuat nilai sah berubah menjadi 0 dengan huruf E secara massal.
+	 *
+	 * <p><b>Urutan kerja per komponen.</b> Untuk setiap {@link FormatNilai}:
+	 * nilai final diambil {@link #retreiveDetailNilai(FormatNilai)}, nilai belum-verifikasi diambil
+	 * {@link #retreiveDetailNilaiBelumVerify(FormatNilai)}, dan status verifikasi diambil
+	 * {@link #retreiveDetailVerifikasiNilai(FormatNilai)}. Ketiganya lalu dirangkai menjadi satu
+	 * entri CSV berbentuk
+	 * <code>kunciFormat,nilai,0,persen,verify,nilaiBelumVerify</code>.
+	 *
+	 * <p><b>Kunci kanonik.</b> Kolom pertama entri diambil dari
+	 * {@link #ambilKunciFormatNilai(FormatNilai)}, bukan langsung dari {@code formatNilai.getId()}.
+	 * Format nilai klasik memakai {@code statusPertemuan.id}, sedangkan format OBE/Sub-CPMK yang
+	 * tidak memiliki {@code StatusPertemuan} memakai {@code formatNilai.id} sendiri. Seluruh jalur
+	 * baca maupun tulis <b>wajib</b> memakai kunci yang sama; bila tidak, Hitung Ulang akan menghapus
+	 * komponen OBE dan menghasilkan total 0 (huruf E). Komponen yang kuncinya tidak dapat ditentukan
+	 * ({@code null}) sengaja dilewati, bukan ditulis dengan kunci kosong yang merusak baris.
+	 *
+	 * <p><b>Penyembunyian nilai belum terverifikasi.</b> Bila {@code sembunyikanNilaiJikaBelumDiverifikasi}
+	 * bernilai benar dan komponen belum diverifikasi, kolom nilai final ditulis <code>0</code>
+	 * sementara nilai sebenarnya tetap tersimpan pada kolom keenam (nilai belum-verifikasi). Dengan
+	 * begitu angka tidak bocor ke tampilan tetapi juga tidak hilang, dan akan muncul kembali begitu
+	 * verifikasi diberikan.
+	 *
+	 * <p><b>Efek samping dan ketahanan.</b> Metode memanggil {@link #refreshNilaiKeDefault()} lebih
+	 * dulu sehingga baris yang desync dapat dipulihkan, lalu <b>menimpa field {@link #detailNilai}
+	 * secara langsung</b> (bukan lewat {@link #setDetailNilai(String)}), artinya penulisan ini
+	 * <b>tidak melewati pemeriksaan kunci global</b> yang ada pada setter. Kesalahan pada satu
+	 * komponen ditangkap per-iterasi dan dilaporkan lewat {@code Common.tampilErrorJikaAdmin} tanpa
+	 * menggagalkan komponen lain.
+	 *
+	 * @param formatNilais                          daftar komponen format nilai yang berlaku.
+	 * @param sembunyikanNilaiJikaBelumDiverifikasi  bila {@code true}, nilai komponen yang belum
+	 *                                               diverifikasi ditulis 0 pada kolom nilai final.
+	 */
 	public void reloadFormatNilai(List<FormatNilai> formatNilais, Boolean sembunyikanNilaiJikaBelumDiverifikasi) {
 		if (!formatNilaiSiapDihitung(formatNilais)) {
 			return;
@@ -536,6 +757,44 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		detailNilai = formatbaru;
 	}
 
+	/**
+	 * Menghitung <b>persentase kehadiran berbobot</b> mahasiswa ini pada kelas yang bersangkutan,
+	 * sebagai angka 0&ndash;100.
+	 *
+	 * <p><b>Sumber data.</b> Daftar pertemuan diambil dari {@code Perkuliahan.ambilPertemuan()},
+	 * lalu tiap {@link Pertemuan} dimuat melalui {@link GeneralValueObject#ambilData(Class, String)}.
+	 * Dari setiap pertemuan diambil string absensi mentahnya; pertemuan yang absensinya masih kosong
+	 * <b>tidak diikutsertakan</b>, sehingga pertemuan yang belum diisi dosen tidak menghukum
+	 * mahasiswa. Seluruh string itu kemudian diringkas per-mahasiswa oleh
+	 * {@code Perkuliahan.hitungStatus(...)} menjadi hitungan status: <code>T</code> (total),
+	 * <code>M</code> (masuk), <code>S</code> (sakit), dan <code>I</code> (izin).
+	 *
+	 * <p><b>Pembobotan yang dapat dikonfigurasi.</b> Bobot tiap status <b>tidak</b> dipatok di kode
+	 * melainkan dibaca dari konfigurasi sistem: <code>persenMasuk</code> (bawaan 1,0),
+	 * <code>persenSakit</code> (bawaan 0,5), dan <code>persenIzin</code> (bawaan 0,5). Perlu
+	 * diperhatikan bahwa {@code Common.getKonfigurasi(kunci, bawaan)} pada basis kode ini akan
+	 * <b>menuliskan nilai bawaan ke basis data</b> bila kunci belum ada &mdash; jadi pemanggilan
+	 * pertama metode ini pada sistem baru ikut membuat tiga baris konfigurasi. Setiap pembacaan
+	 * dibungkus penangkap kesalahan sendiri sehingga konfigurasi yang tidak dapat diurai (mis. berisi
+	 * teks) hanya menjatuhkan bobot itu ke nilai bawaan, bukan menggagalkan perhitungan.
+	 *
+	 * <p><b>Rumus.</b>
+	 * <code>((M &times; persenMasuk) + (S &times; persenSakit) + (I &times; persenIzin)) &times; 100 / T</code>.
+	 * Status alfa/tanpa keterangan tidak memiliki suku sendiri &mdash; ia hanya menambah penyebut
+	 * <code>T</code>, sehingga otomatis berbobot nol. Bila tidak ada satu pun pertemuan berabsensi
+	 * ({@code T} = 0) hasilnya {@code 0.0}, bukan pembagian dengan nol.
+	 *
+	 * <p><b>Prasyarat pemanggilan.</b> Metode ini membaca field {@code perkuliahan} <b>secara
+	 * langsung</b> tanpa melewati {@link #getPerkuliahan()}, dan memanggil {@code getMahasiswa().getId()}
+	 * tanpa pemeriksaan {@code null}. Karena itu ia hanya aman dipanggil pada baris yang benar-benar
+	 * memiliki kelas induk dan mahasiswa yang sudah teresolusi; pada baris <b>nilai konversi</b>
+	 * (yang {@code perkuliahan}-nya memang {@code null}) pemanggilan langsung akan melempar
+	 * {@code NullPointerException}. Pemanggil di dalam kelas ini &mdash;
+	 * {@link #checkApakahNilaiAbsen()} dan {@link #alasanNilaiJadiNol(Boolean, java.util.List)}
+	 * &mdash; sudah menyaring kondisi tersebut lebih dulu.
+	 *
+	 * @return persentase kehadiran berbobot pada rentang 0&ndash;100.
+	 */
 	public double hitungPersenKehadiran() {
 		ArrayList<String> statusPertemuan = new ArrayList<String>();
 
@@ -580,6 +839,36 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return persen;
 	}
 
+	/**
+	 * Memeriksa apakah mahasiswa <b>memenuhi syarat kehadiran minimal</b> sehingga nilainya boleh
+	 * dihitung. Ambang batasnya adalah {@code Perkuliahan.getPersenKehadiranDinilai0()} &mdash;
+	 * pengaturan per kelas yang berarti &quot;bila kehadiran di bawah sekian persen, nilai dianggap
+	 * 0&quot;.
+	 *
+	 * <p><b>Perhatikan penamaan yang berlawanan arti.</b> Meski namanya berbunyi &quot;cek apakah
+	 * nilai absen&quot;, nilai kembaliannya bersifat <b>mengizinkan</b>: {@code true} berarti
+	 * kehadiran <i>aman</i> dan nilai boleh dihitung, sedangkan {@code false} berarti kehadiran
+	 * <i>kurang</i> sehingga pemanggil harus memaksa nilai akhir menjadi 0. Kesalahan membaca arah
+	 * nilai kembalian ini akan membalik seluruh kebijakan kehadiran, jadi perlakukan sebagai
+	 * &quot;boleh dinilai?&quot;.
+	 *
+	 * <p><b>Aturan singkat-hubung.</b> Pemeriksaan hanya dijalankan bila ambang batas benar-benar
+	 * diaktifkan (lebih besar dari 0,1) <b>dan</b> mahasiswa terisi. Bila fitur tidak diaktifkan,
+	 * metode langsung mengembalikan {@code true} tanpa menyentuh data absensi &mdash; ini juga
+	 * penting demi kinerja, karena {@link #hitungPersenKehadiran()} memuat seluruh pertemuan kelas.
+	 *
+	 * <p><b>Sikap saat gagal.</b> Bila perhitungan kehadiran melempar kesalahan (mis. relasi tidak
+	 * dapat diresolusi), kesalahan dicatat ke {@code ErrorAuditUtil} dan metode <b>tetap
+	 * mengembalikan {@code true}</b>. Jadi kegagalan teknis bersikap <i>gagal-terbuka</i>: nilai
+	 * tetap dihitung seperti biasa, dengan pertimbangan lebih baik nilai sah tetap muncul daripada
+	 * seluruh kelas ter-nol-kan hanya karena gangguan pembacaan absensi.
+	 *
+	 * <p><b>Prasyarat.</b> Baris pertama membaca field {@code perkuliahan} secara langsung tanpa
+	 * pemeriksaan {@code null}; pemanggil wajib memastikan {@link #getPerkuliahan()} sudah dijalankan
+	 * dan tidak {@code null} (baris nilai konversi tidak memenuhi syarat ini).
+	 *
+	 * @return {@code true} bila nilai boleh dihitung; {@code false} bila kehadiran di bawah minimal.
+	 */
 	public boolean checkApakahNilaiAbsen() {
 		if (perkuliahan.getPersenKehadiranDinilai0() > 0.1 && getMahasiswa() != null) {
 
@@ -596,6 +885,65 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return true;
 	}
 
+	/**
+	 * <b>Menghitung nilai akhir angka (0&ndash;100)</b> dari komponen-komponen pada string
+	 * {@link #detailNilai}, memakai rata-rata tertimbang berdasarkan bobot persen tiap komponen.
+	 * Inilah inti tombol &quot;Hitung Ulang&quot; pada layar Input Nilai.
+	 *
+	 * <p><b>Tiga gerbang yang dapat memaksa hasil 0</b>, diperiksa berurutan sebelum perhitungan
+	 * dimulai:</p>
+	 * <ol>
+	 *   <li><b>Aturan &quot;ada nilai 0&quot;.</b> Bila kelas mengaktifkan
+	 *       {@code getJikaAdaNilai0TidakMenghitungNilaiAkhir()} dan
+	 *       {@link #checkApakahAdaNilai0(Boolean, java.util.List)} menemukan komponen bernilai 0,
+	 *       hasilnya langsung {@code 0.0}. Maksudnya: nilai akhir tidak boleh diumumkan selama masih
+	 *       ada komponen yang belum dinilai.</li>
+	 *   <li><b>Kehadiran minimal.</b> Bila {@link #checkApakahNilaiAbsen()} menyatakan kehadiran di
+	 *       bawah ambang, hasilnya {@code 0.0}.</li>
+	 *   <li>Bila keduanya lolos, perhitungan berjalan normal.</li>
+	 * </ol>
+	 *
+	 * <p><b>Penyiapan data.</b> {@link #refreshNilaiKeDefault()} dipanggil untuk memulihkan baris
+	 * yang desync (komponen kosong padahal total tersimpan &gt; 1,0). Bila
+	 * {@code gunakanFormatNilaiDariDatabase} bernilai benar, {@link #bersihkanNilaiKeDefault()} atau
+	 * {@link #bersihkanNilaiKeDefault(java.util.List)} membuang entri milik komponen yang sudah tidak
+	 * dipakai lagi &mdash; daftar yang dipasok pemanggil diutamakan agar layar Input Nilai dapat
+	 * memakai format yang sedang tampil, bukan yang tersimpan.
+	 *
+	 * <p><b>Rumus rata-rata tertimbang.</b> Untuk tiap entri, nilai diambil dari kolom ke-1 dan
+	 * bobot dari kolom ke-3. Jumlah bobot dihitung lebih dulu sebagai {@code totalPersen}, lalu
+	 * total nilai disusun sebagai <code>&Sigma; (nilai &times; persen / totalPersen)</code>.
+	 * Pembagian dengan {@code totalPersen} (bukan dengan 100) membuat perhitungan tetap benar walau
+	 * jumlah bobot tidak persis 100%. Perhitungan hanya dijalankan bila {@code totalPersen}
+	 * melebihi 0,1, sehingga bobot yang seluruhnya kosong menghasilkan 0 alih-alih pembagian nol.
+	 *
+	 * <p><b>Opsi &quot;nilai 0 tidak masuk pembagi&quot;.</b> Bila
+	 * {@code getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir()} aktif, bobot komponen yang
+	 * bernilai 0 <b>tidak ditambahkan ke {@code totalPersen}</b>. Efeknya komponen yang belum diisi
+	 * tidak menyeret turun rata-rata; nilai akhir dihitung hanya dari komponen yang sudah terisi.
+	 *
+	 * <p><b>Jatuh-balik ke nilai belum terverifikasi.</b> Bila nilai pada kolom ke-1 mendekati nol,
+	 * atau bila kelas menyembunyikan nilai yang belum diverifikasi sementara baris ini berstatus
+	 * {@link #NOT_VERIFIED}, nilai diambil ulang dari kolom ke-5 (nilai belum-verifikasi). Dengan
+	 * begitu dosen tetap melihat gambaran nilai sebelum verifikasi selesai.
+	 *
+	 * <p><b>Ketahanan terhadap data rusak.</b> Bobot persen diperiksa dengan {@code Common.isNumber}
+	 * sebelum diurai &mdash; penjaga ini menangani entri versi lama yang menuliskan literal
+	 * <code>&quot;null&quot;</code> pada kolom bobot. Tanpa penjaga tersebut satu entri rusak akan
+	 * melempar pengecualian dan membuat <b>seluruh baris dilewati diam-diam</b>. Kesalahan per-entri
+	 * dilaporkan lewat {@code Common.tampilErrorJikaAdmin} tanpa menghentikan entri lain.
+	 *
+	 * <p>Hasil akhir selalu dilewatkan {@link #batasiNilaiMaksimal100(Double)} sehingga tidak pernah
+	 * negatif, tidak pernah melebihi 100, dan tidak pernah berupa {@code NaN}/tak-hingga. Metode ini
+	 * <b>hanya menghitung dan mengembalikan</b> angka &mdash; ia tidak menuliskan hasilnya ke
+	 * {@link #totalNilai}; penyimpanan adalah tanggung jawab pemanggil.
+	 *
+	 * @param gunakanFormatNilaiDariDatabase bila {@code true}, entri komponen yang tidak lagi
+	 *                                       terdaftar dibersihkan lebih dulu.
+	 * @param formatNilais                   daftar komponen yang berlaku; bila {@code null}, daftar
+	 *                                       diambil dari basis data.
+	 * @return nilai akhir angka pada rentang 0&ndash;100.
+	 */
 	public Double hitungTotalNilai(Boolean gunakanFormatNilaiDariDatabase, List<FormatNilai> formatNilais) {
 		perkuliahan = getPerkuliahan();
 		if (perkuliahan != null && perkuliahan.getJikaAdaNilai0TidakMenghitungNilaiAkhir()) {

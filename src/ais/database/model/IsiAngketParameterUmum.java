@@ -59,6 +59,32 @@ import ais.database.model.sekolah.Siswa;
  * di sini jenis parameter ("jenis") dibedakan lewat prefiks {@code "DOSEN:"}/{@code "GURU:"} atau
  * id grup checklist penilaian umum, lihat {@link #buildJenis(Row, ParameterTambahan)}.
  * </p>
+ *
+ * <h2>RENTAN terhadap tabrakan namespace {@code jenis} lampiran (perluasan task_484d4bd0)</h2>
+ * <p>
+ * <b>Kelas ini adalah salah satu dari beberapa kandidat yang belum diverifikasi untuk pola
+ * tabrakan namespace {@code LampiranLain} yang sudah ditambal di ~90 titik lain</b> (lihat
+ * {@link ais.database.model.file.LampiranLain#resolveJenisParameterTambahan(Class, Long, String)}).
+ * Setelah membaca kode, kelas ini TERBUKTI masih memakai jalur RENTAN:
+ * {@link #populateParameterTambahan(List)} memanggil
+ * {@code LampiranLain.ambil(getId(), jenis)} secara LANGSUNG dengan {@code jenis} mentah dari
+ * {@link #buildJenis(Row, ParameterTambahan)} — TIDAK melalui
+ * {@code LampiranLain.resolveJenisParameterTambahan(IsiAngketParameterUmum.class, ref, jenisMentah)}
+ * yang menambahkan namespace nama kelas pemilik. Untuk cabang grup checklist penilaian umum,
+ * {@code jenis} bahkan berbentuk paling telanjang: {@code "<idGrupChecklistPenilaianUmum>-><idParameterTambahan>"}
+ * tanpa marker apa pun. Karena tabel {@code lampiran_lain} memakai pasangan ({@code ref}, {@code jenis})
+ * bersama untuk SEMUA entitas pemilik, baris {@link IsiAngketParameterUmum} dengan id X dan
+ * {@code jenis} tertentu dapat bertabrakan dengan baris entitas LAIN yang kebetulan memiliki id X
+ * yang sama dan membentuk {@code jenis} dengan format serupa (mis. {@code CutiDanIzin} atau
+ * entitas lain yang memakai pola parameter-tambahan-berformat-teks yang sama) — berpotensi
+ * menampilkan atau menimpa URL lampiran milik baris entitas lain. Ini BUKAN kerentanan baru,
+ * melainkan konfirmasi bahwa {@code IsiAngketParameterUmum} termasuk kandidat yang masih rentan
+ * dari daftar task_484d4bd0; perbaikannya mengikuti pola yang sama seperti ~90 titik lain: ganti
+ * pemanggilan {@code LampiranLain.ambil(getId(), jenis)} pada
+ * {@link #populateParameterTambahan(List)} menjadi memakai
+ * {@code resolveJenisParameterTambahan(IsiAngketParameterUmum.class, getId(), jenis)} terlebih
+ * dahulu.
+ * </p>
  */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
@@ -66,11 +92,30 @@ import ais.database.model.sekolah.Siswa;
 @Table(schema = "public", name = "isi_angket_parameter_umum")
 public class IsiAngketParameterUmum extends GeneralValueObject {
 
+	/**
+	 * Penanda versi serialisasi Java untuk {@code IsiAngketParameterUmum}. Dikunci agar objek
+	 * yang sudah pernah diserialisasi tetap dapat dibaca setelah kelas ini diubah.
+	 */
 	private static final long serialVersionUID = 2463821577548439808L;
 
+	/** Id baris (primary key {@code public.isi_angket_parameter_umum.id}), diisi otomatis oleh basis data. */
 	private Long id;
+	/**
+	 * Nama pengguna/proses yang menyimpan pengisian angket ini. Boleh {@code null}; bila diisi
+	 * lewat {@link #setOleh(String)}, teks kosong/hanya-spasi diabaikan diam-diam.
+	 */
 	private String oleh;
+	/**
+	 * Id pengguna/proses yang menyimpan pengisian angket ini, pasangan dari {@link #oleh}. Boleh
+	 * {@code null}; bila diisi lewat {@link #setOlehId(String)}, teks kosong/hanya-spasi diabaikan
+	 * diam-diam.
+	 */
 	private String olehId;
+	/**
+	 * Waktu baris ini terakhir dibuat/diubah. Diinisialisasi ke waktu saat ini pada deklarasi
+	 * field, sehingga sudah terisi begitu objek dibuat dengan {@code new IsiAngketParameterUmum()},
+	 * sebelum {@link #onPersist()}/{@link #onUpdate()} sempat berjalan.
+	 */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	/** Pengisi angket sebagai mahasiswa; bila terisi, {@link #tbmuser} otomatis dikosongkan (lihat "Pemilik khusus" pada Javadoc kelas). */
@@ -96,9 +141,14 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 	/** Lihat "Nama default & parameter tambahan berformat teks" pada Javadoc kelas — bentuk ringkas dengan id/jenis saja. */
 	private String parameterTambahanInds;
 
+	/** Constructor kosong; seluruh field diisi lewat setter oleh pemanggil (aksi/listener ZK). */
 	public IsiAngketParameterUmum() {
 	}
 
+	/**
+	 * @return id baris ini; {@code null} sebelum baris pernah disimpan (nilai dibangkitkan
+	 *         basis data lewat {@code IDENTITY}, kolom tidak {@code insertable})
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -106,14 +156,24 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return id;
 	}
 
+	/**
+	 * @param id id baris; dalam praktiknya tidak berpengaruh saat insert karena kolom
+	 *           {@code id} bertanda {@code insertable = false} (nilai selalu dari basis data)
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/** @return id pengguna/proses yang menyimpan pengisian angket ini, lihat {@link #olehId} */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * @param olehId nilai baru untuk {@link #olehId}; teks {@code null}, kosong, atau
+	 *               hanya-spasi diabaikan diam-diam sehingga nilai lama (bila ada) tetap
+	 *               dipertahankan
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -121,10 +181,15 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/** @return nama pengguna/proses yang menyimpan pengisian angket ini, lihat {@link #oleh} */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * @param oleh nilai baru untuk {@link #oleh}; teks {@code null}, kosong, atau hanya-spasi
+	 *             diabaikan diam-diam sehingga nilai lama (bila ada) tetap dipertahankan
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -132,26 +197,45 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PrePersist}: memastikan field wajib terisi sebelum baris pertama
+	 * kali disimpan. Lihat {@link #pastikanFieldWajibTerisi()}.
+	 */
 	@javax.persistence.PrePersist
 	protected void onPersist() {
 		pastikanFieldWajibTerisi();
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: memastikan field wajib tetap terisi pada setiap
+	 * pembaruan, lalu mencatat waktu perubahan lewat {@code AuditTimestampInterceptor}. Lihat
+	 * {@link #pastikanFieldWajibTerisi()}.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		pastikanFieldWajibTerisi();
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** @return {@link #tanggal_dirubah} */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** @param tanggal_dirubah nilai baru untuk {@link #tanggal_dirubah} */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Dipanggil dari {@link #onPersist()} dan {@link #onUpdate()} untuk memastikan invarian
+	 * baris ini terjaga sebelum disimpan: memaksa {@link #tbmuser} kosong bila ada "pemilik
+	 * khusus" (lihat {@link #clearTbmuserJikaAdaPemilikKhusus()}), mengisi {@link #nama} dari
+	 * {@link #buildNamaDefault()} bila masih kosong, dan mengganti {@link #parameterTambahan}/
+	 * {@link #parameterTambahanInds} yang {@code null} menjadi string kosong (kolom {@code TEXT}
+	 * NOT NULL secara konvensi, walau tidak ditandai {@code nullable = false} di anotasi).
+	 */
 	private void pastikanFieldWajibTerisi() {
 		clearTbmuserJikaAdaPemilikKhusus();
 		if (nama == null || nama.trim().isEmpty()) {
@@ -205,6 +289,10 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return value.length() > 250 ? value.substring(0, 250) : value;
 	}
 
+	/**
+	 * @return {@link #nama}, dibangkitkan otomatis lewat {@link #buildNamaDefault()} bila belum
+	 *         pernah diisi manual atau masih kosong/hanya-spasi (kolom {@code NOT NULL})
+	 */
 	@Column(name = "nama", nullable = false)
 	public String getNama() {
 		if (nama == null || nama.trim().isEmpty()) {
@@ -213,10 +301,15 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return nama;
 	}
 
+	/** @param nama nilai baru untuk {@link #nama}; boleh {@code null}/kosong, akan diganti default saat dibaca atau disimpan */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * @return {@link #mahasiswa}, setelah dipastikan bukan proxy Hibernate basi lewat
+	 *         {@code check(...)} milik kelas induk
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa", nullable = true)
 	public Mahasiswa getMahasiswa() {
@@ -224,11 +317,20 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return mahasiswa;
 	}
 
+	/**
+	 * @param mahasiswa pengisi angket sebagai mahasiswa; bila terisi, {@link #tbmuser} otomatis
+	 *                  dikosongkan lewat {@link #clearTbmuserJikaAdaPemilikKhusus()} (lihat
+	 *                  "Pemilik khusus" pada Javadoc kelas)
+	 */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 		clearTbmuserJikaAdaPemilikKhusus();
 	}
 
+	/**
+	 * @return {@link #dosen}, setelah dipastikan bukan proxy Hibernate basi lewat
+	 *         {@code check(...)} milik kelas induk
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen", nullable = true)
 	public Dosen getDosen() {
@@ -236,11 +338,20 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return dosen;
 	}
 
+	/**
+	 * @param dosen pengisi angket sebagai dosen; bila terisi, {@link #tbmuser} otomatis
+	 *              dikosongkan lewat {@link #clearTbmuserJikaAdaPemilikKhusus()} (lihat
+	 *              "Pemilik khusus" pada Javadoc kelas)
+	 */
 	public void setDosen(Dosen dosen) {
 		this.dosen = dosen;
 		clearTbmuserJikaAdaPemilikKhusus();
 	}
 
+	/**
+	 * @return {@link #siswa}, setelah dipastikan bukan proxy Hibernate basi lewat
+	 *         {@code check(...)} milik kelas induk
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "siswa", nullable = true)
 	public Siswa getSiswa() {
@@ -248,11 +359,20 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return siswa;
 	}
 
+	/**
+	 * @param siswa pengisi angket sebagai siswa; bila terisi, {@link #tbmuser} otomatis
+	 *              dikosongkan lewat {@link #clearTbmuserJikaAdaPemilikKhusus()} (lihat
+	 *              "Pemilik khusus" pada Javadoc kelas)
+	 */
 	public void setSiswa(Siswa siswa) {
 		this.siswa = siswa;
 		clearTbmuserJikaAdaPemilikKhusus();
 	}
 
+	/**
+	 * @return {@link #guru}, setelah dipastikan bukan proxy Hibernate basi lewat
+	 *         {@code check(...)} milik kelas induk
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "guru", nullable = true)
 	public Guru getGuru() {
@@ -260,11 +380,21 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return guru;
 	}
 
+	/**
+	 * @param guru pengisi angket sebagai guru; bila terisi, {@link #tbmuser} otomatis
+	 *             dikosongkan lewat {@link #clearTbmuserJikaAdaPemilikKhusus()} (lihat
+	 *             "Pemilik khusus" pada Javadoc kelas)
+	 */
 	public void setGuru(Guru guru) {
 		this.guru = guru;
 		clearTbmuserJikaAdaPemilikKhusus();
 	}
 
+	/**
+	 * @return {@link #tbmuser}, setelah dipastikan bukan proxy Hibernate basi lewat
+	 *         {@code check(...)} milik kelas induk. Selalu {@code null} bila baris ini punya
+	 *         "pemilik khusus" (lihat {@link #memilikiPemilikKhusus()} dan Javadoc kelas).
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tbmuser", nullable = true)
 	public Tbmuser getTbmuser() {
@@ -293,12 +423,25 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		this.tbmuser = tbmuser;
 	}
 
+	/**
+	 * Memaksa {@link #tbmuser} menjadi {@code null} bila baris ini sudah punya "pemilik
+	 * khusus" ({@link #memilikiPemilikKhusus()}). Dipanggil dari keempat setter pemilik khusus
+	 * ({@link #setMahasiswa(Mahasiswa)}, {@link #setDosen(Dosen)}, {@link #setSiswa(Siswa)},
+	 * {@link #setGuru(Guru)}) dan dari {@link #pastikanFieldWajibTerisi()} sebelum baris
+	 * disimpan, sehingga kombinasi pemilik-khusus + tbmuser tidak mungkin tersimpan ke basis
+	 * data walau urutan pemanggilan setter berbeda-beda.
+	 */
 	private void clearTbmuserJikaAdaPemilikKhusus() {
 		if (memilikiPemilikKhusus()) {
 			this.tbmuser = null;
 		}
 	}
 
+	/**
+	 * @return {@code true} bila salah satu dari {@link #mahasiswa}, {@link #siswa},
+	 *         {@link #dosen}, atau {@link #guru} terisi — menandakan baris ini punya "pemilik
+	 *         khusus" sehingga {@link #tbmuser} tidak boleh dipakai (lihat Javadoc kelas)
+	 */
 	private boolean memilikiPemilikKhusus() {
 		return mahasiswa != null || siswa != null || dosen != null || guru != null;
 	}
@@ -316,6 +459,10 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * @return {@link #jadwalChecklistPenilaianUmum}, setelah dipastikan bukan proxy Hibernate
+	 *         basi lewat {@code check(...)} milik kelas induk (kolom {@code NOT NULL})
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jadwal_checklist_penilaian_umum", nullable = false)
 	public JadwalChecklistPenilaianUmum getJadwalChecklistPenilaianUmum() {
@@ -323,10 +470,15 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return jadwalChecklistPenilaianUmum;
 	}
 
+	/** @param jadwalChecklistPenilaianUmum nilai baru untuk {@link #jadwalChecklistPenilaianUmum} */
 	public void setJadwalChecklistPenilaianUmum(JadwalChecklistPenilaianUmum jadwalChecklistPenilaianUmum) {
 		this.jadwalChecklistPenilaianUmum = jadwalChecklistPenilaianUmum;
 	}
 
+	/**
+	 * @return {@link #checklistBaruPenilaianDosenOlehMahasiswa}, setelah dipastikan bukan
+	 *         proxy Hibernate basi lewat {@code check(...)} milik kelas induk
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "checklist_baru_penilaian_dosen_oleh_mahasiswa", nullable = true)
 	public ChecklistBaruPenilaianDosenOlehMahasiswa getChecklistBaruPenilaianDosenOlehMahasiswa() {
@@ -334,11 +486,16 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return checklistBaruPenilaianDosenOlehMahasiswa;
 	}
 
+	/** @param checklistBaruPenilaianDosenOlehMahasiswa nilai baru untuk {@link #checklistBaruPenilaianDosenOlehMahasiswa} */
 	public void setChecklistBaruPenilaianDosenOlehMahasiswa(
 			ChecklistBaruPenilaianDosenOlehMahasiswa checklistBaruPenilaianDosenOlehMahasiswa) {
 		this.checklistBaruPenilaianDosenOlehMahasiswa = checklistBaruPenilaianDosenOlehMahasiswa;
 	}
 
+	/**
+	 * @return {@link #checklistBaruPenilaianGuruOlehSiswa}, setelah dipastikan bukan proxy
+	 *         Hibernate basi lewat {@code check(...)} milik kelas induk
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "checklist_baru_penilaian_guru_oleh_siswa", nullable = true)
 	public ChecklistBaruPenilaianGuruOlehSiswa getChecklistBaruPenilaianGuruOlehSiswa() {
@@ -346,25 +503,36 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return checklistBaruPenilaianGuruOlehSiswa;
 	}
 
+	/** @param checklistBaruPenilaianGuruOlehSiswa nilai baru untuk {@link #checklistBaruPenilaianGuruOlehSiswa} */
 	public void setChecklistBaruPenilaianGuruOlehSiswa(
 			ChecklistBaruPenilaianGuruOlehSiswa checklistBaruPenilaianGuruOlehSiswa) {
 		this.checklistBaruPenilaianGuruOlehSiswa = checklistBaruPenilaianGuruOlehSiswa;
 	}
 
+	/**
+	 * @return {@link #parameterTambahan}, atau string kosong (bukan {@code null}) bila belum
+	 *         pernah diisi -- aman dipakai langsung tanpa pengecekan null tambahan
+	 */
 	@Column(name = "parameter_tambahan", columnDefinition = "text")
 	public String getParameterTambahan() {
 		return parameterTambahan == null ? "" : parameterTambahan;
 	}
 
+	/** @param parameterTambahan nilai baru untuk {@link #parameterTambahan} */
 	public void setParameterTambahan(String parameterTambahan) {
 		this.parameterTambahan = parameterTambahan;
 	}
 
+	/**
+	 * @return {@link #parameterTambahanInds}, atau string kosong (bukan {@code null}) bila
+	 *         belum pernah diisi -- aman dipakai langsung tanpa pengecekan null tambahan
+	 */
 	@Column(name = "parameter_tambahan_inds", columnDefinition = "text")
 	public String getParameterTambahanInds() {
 		return parameterTambahanInds == null ? "" : parameterTambahanInds;
 	}
 
+	/** @param parameterTambahanInds nilai baru untuk {@link #parameterTambahanInds} */
 	public void setParameterTambahanInds(String parameterTambahanInds) {
 		this.parameterTambahanInds = parameterTambahanInds;
 	}
@@ -420,6 +588,14 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 	 * dilewati. Bila {@link ParameterTambahan#getHarusMenyertakanLampiran()} true, method ini juga
 	 * mencoba melampirkan URL berkas via {@link LampiranLain#ambil(Long, String)}.
 	 *
+	 * <p><b>RENTAN terhadap tabrakan namespace {@code jenis} (perluasan task_484d4bd0):</b>
+	 * pemanggilan {@code LampiranLain.ambil(getId(), jenis)} di sini memakai {@code jenis}
+	 * mentah dari {@link #buildJenis(Row, ParameterTambahan)} TANPA melalui
+	 * {@code LampiranLain.resolveJenisParameterTambahan(IsiAngketParameterUmum.class, getId(),
+	 * jenis)}. Baris {@link LampiranLain} lain milik entitas berbeda dengan pasangan
+	 * ({@code ref}, {@code jenis}) yang kebetulan sama dapat tertukar dengan lampiran milik
+	 * pengisian angket ini. Lihat penjelasan lengkap pada Javadoc kelas.</p>
+	 *
 	 * @param parameterRows baris ZK berisi komponen input parameter tambahan; tidak melakukan apa
 	 *                       pun bila {@code null}/kosong
 	 */
@@ -474,7 +650,17 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		setParameterTambahan(parameterTambahanStr);
 	}
 
-	/** @return kode "jenis" parameter tambahan untuk {@code row}: {@code "DOSEN:<idGrup>->id"}, {@code "GURU:<idGrup>->id"}, atau {@code "<idGrupUmum>->id"} tergantung attribute grup mana yang ada pada {@code row}; string kosong bila tidak ada satupun. */
+	/**
+	 * @return kode "jenis" parameter tambahan untuk {@code row}: {@code "DOSEN:<idGrup>->id"},
+	 *         {@code "GURU:<idGrup>->id"}, atau {@code "<idGrupUmum>->id"} tergantung attribute
+	 *         grup mana yang ada pada {@code row}; string kosong bila tidak ada satupun.
+	 *         <b>Ketiga bentuk ini tidak mengandung marker nama kelas pemilik</b> (berbeda dari
+	 *         bentuk ber-namespace {@code ownerClass.getName() + "#" + jenisMentah} yang
+	 *         dihasilkan {@link LampiranLain#resolveJenisParameterTambahan(Class, Long, String)});
+	 *         nilai kembaliannya dipakai langsung sebagai {@code jenis} pada pemanggilan
+	 *         {@code LampiranLain.ambil(getId(), jenis)} di {@link #populateParameterTambahan(List)},
+	 *         sehingga rentan tabrakan lintas entitas -- lihat catatan keamanan pada Javadoc kelas.
+	 */
 	private String buildJenis(Row row, ParameterTambahan parameterTambahan) {
 		Object grup = row.getAttribute("grupChecklistPenilaianDosen");
 		if (grup instanceof GrupChecklistPenilaianDosen) {
@@ -521,6 +707,10 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 				ChecklistBaruPenilaianGuruOlehSiswa.class.getName(), ParameterTambahan.class.getName());
 	}
 
+	/**
+	 * @return {@link #getNama()} (yang membangkitkan nama default bila belum diisi), atau
+	 *         string kosong bila hasilnya {@code null}
+	 */
 	public String toString() {
 		String n = getNama();
 		return n == null ? "" : n;
