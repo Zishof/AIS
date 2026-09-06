@@ -47,6 +47,25 @@ import ais.ui.util.WaktuUtil;
 
 /**
  * Servlet implementation class CheckISBN
+ *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06):</b> {@link #checkPakaiqris} dan
+ * {@link #checkPakaiva} sebelumnya memakai kredensial gateway Bankaltimtara nyata sebagai
+ * nilai default hardcoded untuk konfigurasi {@code bankaltimtara_qris_username} (default lama
+ * {@code "qrisdev"}), {@code bankaltimtara_qris_password} (default lama
+ * {@code "PB@|1Kp@paN19112021"}), {@code bankaltimtara_username} (default lama
+ * {@code "ubtva1"}), dan {@code bankaltimtara_password} (default lama {@code "12345678"}).
+ * Keempat default itu sudah diganti string kosong — kredensial kini WAJIB diisi lewat
+ * konfigurasi database. Kedua method itu juga sebelumnya mencetak objek {@code login}
+ * (username+password JSON) dan bearer {@code token} hasil autentikasi ke stdout/log server via
+ * {@code System.out.println} — baris log tersebut sudah dihapus. Kredensial lama yang
+ * sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — perlu
+ * dirotasi di sisi gateway Bankaltimtara bila masih dipakai produksi. Pola identik (kredensial
+ * hardcode + log plaintext) juga diperbaiki di kelas
+ * {@code ais.action.master.helper.virtualaccount.DownloadTagihanMahasiswaBankBankaltimtara},
+ * {@code DownloadNoUjianCalonMahasiswaBankBankaltimtara}, dan
+ * {@code DownloadNoRegistrasiCalonMahasiswaBankBankaltimtara}.
+ * </p>
  */
 public class Bankaltimtara extends HttpServlet {
 	private static final long serialVersionUID = 1L;
@@ -79,14 +98,12 @@ public class Bankaltimtara extends HttpServlet {
 		String strURL = (Common.getKonfigurasi("bankaltimtara_gateway_qris_url_autentication",
 				"https://api-dev.bankaltimtara.co.id:8084/api/user/auth").getNilai());
 
-		String user = Common.getKonfigurasi("bankaltimtara_qris_username", "qrisdev").getNilai();
-		String pwd = Common.getKonfigurasi("bankaltimtara_qris_password", "PB@|1Kp@paN19112021").getNilai();
+		String user = Common.getKonfigurasi("bankaltimtara_qris_username", "").getNilai();
+		String pwd = Common.getKonfigurasi("bankaltimtara_qris_password", "").getNilai();
 
 		JSONObject login = new JSONObject();
 		login.put("username", user);
 		login.put("password", pwd);
-
-		System.out.println(login + "");
 
 		String[] command = { "curl", "--silent", "--show-error", "--connect-timeout", "10", "--max-time", "45",
 				"--location", strURL, "--header",
@@ -346,14 +363,12 @@ public class Bankaltimtara extends HttpServlet {
 		String linkPost = Common.getKonfigurasi("url_status_va_bankaltimtara",
 				"https://api-dev.bankaltimtara.co.id:8081/api-service/api/va/paid/nova").getNilai().trim();
 
-		String user = Common.getKonfigurasi("bankaltimtara_username", "ubtva1").getNilai();
-		String pwd = Common.getKonfigurasi("bankaltimtara_password", "12345678").getNilai();
+		String user = Common.getKonfigurasi("bankaltimtara_username", "").getNilai();
+		String pwd = Common.getKonfigurasi("bankaltimtara_password", "").getNilai();
 
 		JSONObject login = new JSONObject();
 		login.put("username", user);
 		login.put("password", pwd);
-
-		System.out.println(login + "");
 
 		String[] command = { "curl", "--silent", "--show-error", "--connect-timeout", "10", "--max-time", "45",
 				"--location", strURL, "--header", "Content-type: application/json", "--data-raw",
@@ -373,7 +388,6 @@ public class Bankaltimtara extends HttpServlet {
 				"45", "--location", post, "--header", "Authorization: Bearer " + token };
 
 		System.out.println("linkPost -> " + post);
-		System.out.println("token -> " + token);
 
 		JSONObject jsonObject2 = null;
 		Exception errorLive = null;
