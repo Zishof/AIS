@@ -3895,6 +3895,22 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				+ "lakukan hitung / sinkron ulang nilai agar status kelulusan mengikuti nilai terbaru.";
 	}
 
+	/**
+	 * Mengembalikan <b>nilai akhir angka versi sementara</b> &mdash; hasil perhitungan dari kolom
+	 * nilai belum-terverifikasi, dipakai agar dosen dan pengelola tetap melihat gambaran nilai
+	 * sebelum verifikasi program studi selesai.
+	 *
+	 * <p>Bila kunci global aktif dan snapshot tersedia, {@link #totalNilaiSementaraKunci}
+	 * dikembalikan. Selain itu nilai tersimpan dikembalikan dengan {@code null} dinormalisasi menjadi
+	 * {@code 0.0}. Berbeda dari {@link #getTotalNilai()}, getter ini <b>tidak</b> melakukan koreksi
+	 * skala, pemetaan huruf, maupun penulisan balik &mdash; ia praktis murni.
+	 *
+	 * <p>Nilai ini menjadi jaring pengaman bagi {@link #getTotalNilai()} ketika nilai final masih nol;
+	 * pengisiannya dilakukan pemanggil dari hasil
+	 * {@link #hitungTotalNilaiSementara(Boolean, java.util.List)}.
+	 *
+	 * @return nilai akhir sementara; tidak pernah {@code null}.
+	 */
 	public Double getTotalNilaiSementara() {
 		if (kunciGlobalNilaiAktif() && totalNilaiSementaraKunci != null) {
 			return totalNilaiSementaraKunci;
@@ -3902,6 +3918,13 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return totalNilaiSementara == null ? 0.0 : totalNilaiSementara;
 	}
 
+	/**
+	 * Mengisi nilai akhir angka versi sementara, <b>dengan penegakan kunci global</b>: bila kunci
+	 * aktif dan snapshot tersedia, argumen diabaikan dan field dipulihkan dari
+	 * {@link #totalNilaiSementaraKunci}.
+	 *
+	 * @param totalNilaiSementara nilai sementara baru; diabaikan bila terkunci.
+	 */
 	public void setTotalNilaiSementara(Double totalNilaiSementara) {
 		if (kunciGlobalNilaiAktif() && totalNilaiSementaraKunci != null) {
 			this.totalNilaiSementara = totalNilaiSementaraKunci;
@@ -3910,6 +3933,17 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.totalNilaiSementara = totalNilaiSementara;
 	}
 
+	/**
+	 * Mengembalikan <b>nilai huruf versi sementara</b>, pasangan dari
+	 * {@link #getTotalNilaiSementara()}.
+	 *
+	 * <p>Bila kunci global aktif dan snapshot tersedia, {@link #nilaiHurufSementaraKunci}
+	 * dikembalikan. Nilai kembalian selalu sudah dipangkas spasinya dan tidak pernah {@code null}
+	 * &mdash; string kosong dipakai sebagai ganti. Tidak ada perhitungan ulang maupun pemeriksaan
+	 * kebasian seperti pada {@link #getNilaiHuruf()}.
+	 *
+	 * @return nilai huruf sementara, atau string kosong bila belum ada.
+	 */
 	public String getNilaiHurufSementara() {
 		if (kunciGlobalNilaiAktif() && nilaiHurufSementaraKunci != null) {
 			return nilaiHurufSementaraKunci.trim();
@@ -3917,6 +3951,12 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return nilaiHurufSementara == null ? "" : nilaiHurufSementara.trim();
 	}
 
+	/**
+	 * Mengisi nilai huruf versi sementara, dengan penegakan kunci global yang sama seperti
+	 * {@link #setTotalNilaiSementara(Double)}.
+	 *
+	 * @param nilaiHurufSementara nilai huruf sementara baru; diabaikan bila terkunci.
+	 */
 	public void setNilaiHurufSementara(String nilaiHurufSementara) {
 		if (kunciGlobalNilaiAktif() && nilaiHurufSementaraKunci != null) {
 			this.nilaiHurufSementara = nilaiHurufSementaraKunci;
@@ -3925,6 +3965,16 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.nilaiHurufSementara = nilaiHurufSementara;
 	}
 
+	/**
+	 * Mengembalikan <b>bobot IP versi sementara</b>, pasangan dari
+	 * {@link #getTotalNilaiSementara()}.
+	 *
+	 * <p>Bila kunci global aktif dan snapshot tersedia, {@link #totalIPSementaraKunci} dikembalikan;
+	 * selain itu nilai tersimpan dengan {@code null} dinormalisasi menjadi {@code 0.0}. Tidak ada
+	 * pemetaan ulang maupun deteksi nilai di luar rentang seperti pada {@link #getTotalIP()}.
+	 *
+	 * @return bobot IP sementara; tidak pernah {@code null}.
+	 */
 	public Double getTotalIPSementara() {
 		if (kunciGlobalNilaiAktif() && totalIPSementaraKunci != null) {
 			return totalIPSementaraKunci;
@@ -3932,6 +3982,12 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return totalIPSementara == null ? 0.0 : totalIPSementara;
 	}
 
+	/**
+	 * Mengisi bobot IP versi sementara, dengan penegakan kunci global yang sama seperti
+	 * {@link #setTotalNilaiSementara(Double)}.
+	 *
+	 * @param totalIPSementara bobot IP sementara baru; diabaikan bila terkunci.
+	 */
 	public void setTotalIPSementara(Double totalIPSementara) {
 		if (kunciGlobalNilaiAktif() && totalIPSementaraKunci != null) {
 			this.totalIPSementara = totalIPSementaraKunci;
@@ -3940,104 +3996,282 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.totalIPSementara = totalIPSementara;
 	}
 
+	/**
+	 * Mengembalikan <b>jejak asal-usul pembuatan</b> baris ini &mdash; siapa penggunanya dan lewat
+	 * kelas apa &mdash; sebagaimana direkam {@link #Detailperkuliahan(Tbmuser, Class)}.
+	 *
+	 * <p>Bila jejak spesifik itu tidak tersedia (baris dibuat lewat konstruktor tanpa argumen, atau
+	 * data lama), metode <b>jatuh kembali</b> ke {@link #getOleh()} sehingga pemanggil selalu
+	 * mendapat keterangan pengubah, meski kurang rinci. Perlu diperhatikan pemanggil karenanya tidak
+	 * dapat membedakan &quot;jejak asal-usul sesungguhnya&quot; dari &quot;jejak audit biasa&quot;
+	 * hanya dari nilai kembaliannya.
+	 *
+	 * @return jejak asal-usul pembuatan, atau jejak audit pengubah sebagai cadangan.
+	 */
 	public String getOlehManualInput() {
 		return olehManualInput == null || olehManualInput.trim().isEmpty() ? getOleh() : olehManualInput;
 	}
 
+	/**
+	 * Mengisi jejak asal-usul pembuatan baris ini. Berbeda dari {@link #setOleh(String)} dan
+	 * {@link #setOlehId(String)}, setter ini <b>menerima nilai kosong</b> sehingga jejaknya dapat
+	 * dikosongkan.
+	 *
+	 * @param olehManualInput teks jejak asal-usul.
+	 */
 	public void setOlehManualInput(String olehManualInput) {
 		this.olehManualInput = olehManualInput;
 	}
 
+	/**
+	 * Implementasi {@link VOPesertaPembelajaran#ambilVOPembelajaran()}: mengembalikan objek
+	 * pembelajaran yang diikuti peserta ini, yakni {@link Perkuliahan} yang bertindak sebagai
+	 * {@link VOPembelajaran}.
+	 *
+	 * <p>Antarmuka ini menyeragamkan cara modul lintas-jenjang (mis. komponen pembelajaran yang
+	 * dipakai bersama oleh perkuliahan dan pembelajaran sekolah) mengakses sesi pembelajaran tanpa
+	 * perlu mengetahui tipe konkret pesertanya.
+	 *
+	 * <p><b>Perhatikan:</b> metode ini mengembalikan <b>field</b> {@code perkuliahan} secara langsung,
+	 * bukan hasil {@link #getPerkuliahan()}. Artinya proxy lazy <b>tidak</b> diresolusi lebih dulu
+	 * lewat {@link GeneralValueObject#check(Object)}. Bila objek belum pernah melewati salah satu
+	 * getter yang melakukan resolusi, nilai kembaliannya bisa berupa proxy yang belum termuat
+	 * &mdash; atau {@code null} pada baris nilai konversi. Pemanggil yang membutuhkan objek
+	 * teresolusi sebaiknya memanggil {@link #getPerkuliahan()} lebih dulu.
+	 *
+	 * @return objek pembelajaran yang diikuti, atau {@code null} bila tidak ada.
+	 */
 	@Override
 	public VOPembelajaran ambilVOPembelajaran() {
 		return perkuliahan;
 	}
 
+	/**
+	 * Mengembalikan penanda bahwa baris ini berasal dari <b>proses internal</b> (dibangkitkan
+	 * sistem, mis. penjadwalan otomatis atau paket KRS) alih-alih pengambilan KRS biasa oleh
+	 * mahasiswa.
+	 *
+	 * <p>Nilai {@code null} dinormalisasi menjadi {@code false} sehingga pemanggil dapat memakainya
+	 * langsung dalam kondisi boolean tanpa pemeriksaan kosong. Normalisasi ini dilakukan hanya pada
+	 * nilai kembalian &mdash; field tidak ditulis balik, jadi getter ini murni.
+	 *
+	 * @return {@code true} bila baris dibangkitkan proses internal; tidak pernah {@code null}.
+	 */
 	public Boolean getInternal() {
 		return internal == null ? false : internal;
 	}
 
+	/**
+	 * Mengisi penanda asal proses internal.
+	 *
+	 * @param internal {@code true} bila baris dibangkitkan proses internal; boleh {@code null}.
+	 */
 	public void setInternal(Boolean internal) {
 		this.internal = internal;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot nilai akhir angka</b> yang dibekukan saat kelas dikunci, apa adanya
+	 * tanpa logika tambahan. Diisi oleh {@link #bekukanSemuaNilai()}.
+	 *
+	 * <p>Selama kunci global aktif, nilai inilah yang dikembalikan {@link #getTotalNilai()} dan yang
+	 * dipulihkan {@link #setTotalNilai(Double)} atas setiap upaya penulisan. Nilai {@code null}
+	 * berarti baris ini <b>belum pernah dibekukan</b> &mdash; berbeda dari {@code 0.0} yang berarti
+	 * dibekukan dalam keadaan bernilai nol.
+	 *
+	 * @return snapshot nilai akhir angka, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "total_nilai_kunci", nullable = true, precision = 15)
 	public Double getTotalNilaiKunci() {
 		return totalNilaiKunci;
 	}
 
+	/**
+	 * Mengisi snapshot nilai akhir angka. Ditujukan bagi Hibernate dan
+	 * {@link #bekukanSemuaNilai()}; pengisian manual berarti <b>menulis ulang nilai yang telah
+	 * dibekukan</b> dan melangkahi seluruh penegakan kunci di kelas ini.
+	 *
+	 * @param totalNilaiKunci snapshot nilai akhir angka.
+	 */
 	public void setTotalNilaiKunci(Double totalNilaiKunci) {
 		this.totalNilaiKunci = totalNilaiKunci;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot nilai huruf</b> yang dibekukan saat kelas dikunci, apa adanya.
+	 *
+	 * <p>Perlu dicatat {@link #getNilaiHuruf()} pada jalur terkunci <b>tidak selalu</b> memakai nilai
+	 * ini: ia lebih dulu memetakan ulang snapshot angka lewat
+	 * {@link #ambilNilaiHurufSesuaiTotal(Double)} dan hanya jatuh ke sini bila pemetaan gagal.
+	 *
+	 * @return snapshot nilai huruf, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "nilai_huruf_kunci", nullable = true, length = 2)
 	public String getNilaiHurufKunci() {
 		return nilaiHurufKunci;
 	}
 
+	/**
+	 * Mengisi snapshot nilai huruf; ditujukan bagi Hibernate dan {@link #bekukanSemuaNilai()}.
+	 *
+	 * @param nilaiHurufKunci snapshot nilai huruf.
+	 */
 	public void setNilaiHurufKunci(String nilaiHurufKunci) {
 		this.nilaiHurufKunci = nilaiHurufKunci;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot bobot IP</b> yang dibekukan saat kelas dikunci, apa adanya.
+	 * Sebagaimana {@link #getNilaiHurufKunci()}, {@link #getTotalIP()} pada jalur terkunci
+	 * mengutamakan pemetaan ulang dari snapshot angka dan hanya jatuh ke nilai ini sebagai cadangan.
+	 *
+	 * @return snapshot bobot IP, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "nilai_ip_kunci", nullable = true, precision = 15)
 	public Double getTotalIPKunci() {
 		return totalIPKunci;
 	}
 
+	/**
+	 * Mengisi snapshot bobot IP; ditujukan bagi Hibernate dan {@link #bekukanSemuaNilai()}.
+	 *
+	 * @param totalIPKunci snapshot bobot IP.
+	 */
 	public void setTotalIPKunci(Double totalIPKunci) {
 		this.totalIPKunci = totalIPKunci;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot status kelulusan</b> yang dibekukan saat kelas dikunci. Berbeda dari
+	 * snapshot huruf dan IP, nilai ini dipakai {@link #getLulus()} <b>apa adanya</b> tanpa pemetaan
+	 * ulang, sehingga status kelulusan yang dibekukan benar-benar beku.
+	 *
+	 * @return snapshot status kelulusan, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "lulus_kunci", nullable = true)
 	public Boolean getLulusKunci() {
 		return lulusKunci;
 	}
 
+	/**
+	 * Mengisi snapshot status kelulusan; ditujukan bagi Hibernate dan {@link #bekukanSemuaNilai()}.
+	 *
+	 * @param lulusKunci snapshot status kelulusan.
+	 */
 	public void setLulusKunci(Boolean lulusKunci) {
 		this.lulusKunci = lulusKunci;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot nilai akhir angka versi sementara</b> yang dibekukan saat kelas
+	 * dikunci.
+	 *
+	 * @return snapshot nilai sementara, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "total_nilai_sementara_kunci", nullable = true, precision = 15)
 	public Double getTotalNilaiSementaraKunci() {
 		return totalNilaiSementaraKunci;
 	}
 
+	/**
+	 * Mengisi snapshot nilai akhir angka versi sementara; ditujukan bagi Hibernate dan
+	 * {@link #bekukanSemuaNilai()}.
+	 *
+	 * @param totalNilaiSementaraKunci snapshot nilai sementara.
+	 */
 	public void setTotalNilaiSementaraKunci(Double totalNilaiSementaraKunci) {
 		this.totalNilaiSementaraKunci = totalNilaiSementaraKunci;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot nilai huruf versi sementara</b> yang dibekukan saat kelas dikunci.
+	 *
+	 * @return snapshot nilai huruf sementara, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "nilai_huruf_sementara_kunci", nullable = true, length = 2)
 	public String getNilaiHurufSementaraKunci() {
 		return nilaiHurufSementaraKunci;
 	}
 
+	/**
+	 * Mengisi snapshot nilai huruf versi sementara; ditujukan bagi Hibernate dan
+	 * {@link #bekukanSemuaNilai()}.
+	 *
+	 * @param nilaiHurufSementaraKunci snapshot nilai huruf sementara.
+	 */
 	public void setNilaiHurufSementaraKunci(String nilaiHurufSementaraKunci) {
 		this.nilaiHurufSementaraKunci = nilaiHurufSementaraKunci;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot bobot IP versi sementara</b> yang dibekukan saat kelas dikunci.
+	 *
+	 * @return snapshot bobot IP sementara, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "nilai_ip_sementara_kunci", nullable = true, precision = 15)
 	public Double getTotalIPSementaraKunci() {
 		return totalIPSementaraKunci;
 	}
 
+	/**
+	 * Mengisi snapshot bobot IP versi sementara; ditujukan bagi Hibernate dan
+	 * {@link #bekukanSemuaNilai()}.
+	 *
+	 * @param totalIPSementaraKunci snapshot bobot IP sementara.
+	 */
 	public void setTotalIPSementaraKunci(Double totalIPSementaraKunci) {
 		this.totalIPSementaraKunci = totalIPSementaraKunci;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot peta nilai per komponen</b> apa adanya, tanpa logika kunci.
+	 *
+	 * <p>Inilah sumber kebenaran bagi seluruh pembacaan nilai ketika kunci aktif &mdash; baik kunci
+	 * global lewat {@link #getDetailNilai()}, maupun kunci per komponen lewat
+	 * {@link #ambilSumberDetailNilai(FormatNilai)}. Diisi oleh {@link #bekukanSemuaNilai()} untuk
+	 * seluruh baris, atau oleh {@link #bekukanDetailNilai(FormatNilai)} untuk satu komponen.
+	 *
+	 * <p>Ingat pembedaan yang dijelaskan pada field {@link #detailNilaiKunci}: {@code null} berarti
+	 * belum pernah ada snapshot, sedangkan string kosong adalah snapshot sah yang membekukan kondisi
+	 * tanpa nilai.
+	 *
+	 * @return snapshot peta nilai, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "detail_nilai_kunci", columnDefinition = "text")
 	public String getDetailNilaiKunci() {
 		return detailNilaiKunci;
 	}
 
+	/**
+	 * Mengisi snapshot peta nilai per komponen. Ditujukan bagi Hibernate dan metode pembekuan;
+	 * pengisian manual berarti <b>menulis ulang seluruh nilai yang telah dibekukan</b> dan
+	 * melangkahi setiap penegakan kunci di kelas ini.
+	 *
+	 * @param detailNilaiKunci snapshot peta nilai.
+	 */
 	public void setDetailNilaiKunci(String detailNilaiKunci) {
 		this.detailNilaiKunci = detailNilaiKunci;
 	}
 
+	/**
+	 * Mengembalikan <b>snapshot peta nilai komponen tambahan</b> apa adanya. Dipakai
+	 * {@link #getDetailNilaiTambahan()} ketika kunci global aktif; diisi
+	 * {@link #bekukanSemuaNilai()}. Berlaku pembedaan {@code null} versus string kosong yang sama
+	 * seperti {@link #getDetailNilaiKunci()}.
+	 *
+	 * @return snapshot peta nilai tambahan, atau {@code null} bila belum pernah dibekukan.
+	 */
 	@Column(name = "detail_nilai_tambahan_kunci", columnDefinition = "text")
 	public String getDetailNilaiTambahanKunci() {
 		return detailNilaiTambahanKunci;
 	}
 
+	/**
+	 * Mengisi snapshot peta nilai komponen tambahan; ditujukan bagi Hibernate dan
+	 * {@link #bekukanSemuaNilai()}.
+	 *
+	 * @param detailNilaiTambahanKunci snapshot peta nilai tambahan.
+	 */
 	public void setDetailNilaiTambahanKunci(String detailNilaiTambahanKunci) {
 		this.detailNilaiTambahanKunci = detailNilaiTambahanKunci;
 	}

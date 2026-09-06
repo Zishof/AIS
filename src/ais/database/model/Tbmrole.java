@@ -2312,22 +2312,87 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * Apakah role ini boleh mengakses dasbor "Neo Feeder". Default (saat admin belum mengatur): AKTIF untuk
 	 * ADMINISTRATOR, AKADEMIK, serta role yang NAMA-nya mengandung "akademik"/"admin"; selain itu nonaktif.
 	 * Menggantikan gerbang lama berbasis {@code Common.getKonfigurasi(...)}.
+	 *
+	 * <p>Neo Feeder adalah kanal pelaporan data pendidikan tinggi ke Kementerian, sehingga
+	 * akses ke dasbornya berarti kemampuan melihat &mdash; dan menyinkronkan &mdash; data
+	 * akademik institusi secara menyeluruh. Ini termasuk gerbang yang <b>benar-benar
+	 * ditegakkan di sisi server</b>, pada {@code CommonCurrentSessionHelper}, bukan sekadar
+	 * penentu visibilitas pintasan.</p>
+	 *
+	 * <p><b>Perhatikan sumber nilai bawaannya.</b> Karena
+	 * {@link #defaultAksesFeederSister()} ikut mencocokkan substring pada <b>nama</b> peran,
+	 * hak ini dapat menyala semata-mata karena penamaan &mdash; peran bernama
+	 * "Administrasi Umum" atau "Staf Akademik Fakultas" akan memperolehnya tanpa pernah
+	 * dicentang. Lihat peringatan lengkapnya pada method tersebut.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses dasbor Neo Feeder; tidak pernah
+	 *         {@code null}
+	 * @see #setBolehAksesFeeder(Boolean)
+	 * @see #getBolehAksesSister()
+	 * @see #defaultAksesFeederSister()
 	 */
 	@Column(name = "boleh_akses_feeder")
 	public Boolean getBolehAksesFeeder() {
 		return bolehAksesFeeder == null ? defaultAksesFeederSister() : bolehAksesFeeder;
 	}
 
+	/**
+	 * Menetapkan hak akses dasbor Neo Feeder.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. <b>Menyimpan {@code null} bukan tindakan netral</b>:
+	 * ia mengembalikan flag ke {@link #defaultAksesFeederSister()}, yang untuk peran bernama
+	 * mengandung "admin" atau "akademik" justru berarti <b>menyala</b>. Untuk menutup akses,
+	 * simpan {@link Boolean#FALSE} secara eksplisit.</p>
+	 *
+	 * @param bolehAksesFeeder hak akses Feeder; {@code null} berarti kembali ke bawaan
+	 *                         berbasis nama
+	 * @see #getBolehAksesFeeder()
+	 */
 	public void setBolehAksesFeeder(Boolean bolehAksesFeeder) {
 		this.bolehAksesFeeder = bolehAksesFeeder;
 	}
 
-	/** Apakah role ini boleh mengakses dasbor "SISTER". Default sama dengan {@link #getBolehAksesFeeder()}. */
+	/**
+	 * Apakah role ini boleh mengakses dasbor "SISTER". Default sama dengan {@link #getBolehAksesFeeder()}.
+	 *
+	 * <p>SISTER adalah kanal pelaporan data sumber daya (dosen dan tenaga kependidikan) ke
+	 * Kementerian &mdash; padanan Neo Feeder di sisi kepegawaian. Seperti
+	 * {@link #getBolehAksesFeeder()}, flag ini adalah gerbang yang <b>benar-benar
+	 * ditegakkan di sisi server</b> pada {@code CommonCurrentSessionHelper}.</p>
+	 *
+	 * <p>Kedua flag berbagi satu method nilai bawaan, sehingga selama kolomnya belum pernah
+	 * diisi keduanya <b>selalu bernilai sama</b>. Pemisahan menjadi dua kolom baru bermakna
+	 * setelah administrator mengaturnya secara eksplisit &mdash; itulah gunanya memisahkan
+	 * keduanya sejak awal.</p>
+	 *
+	 * <p>Seluruh peringatan mengenai hak yang menyala karena penamaan berlaku sama di sini;
+	 * lihat {@link #defaultAksesFeederSister()}.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses dasbor SISTER; tidak pernah
+	 *         {@code null}
+	 * @see #setBolehAksesSister(Boolean)
+	 * @see #getBolehAksesFeeder()
+	 */
 	@Column(name = "boleh_akses_sister")
 	public Boolean getBolehAksesSister() {
 		return bolehAksesSister == null ? defaultAksesFeederSister() : bolehAksesSister;
 	}
 
+	/**
+	 * Menetapkan hak akses dasbor SISTER.
+	 *
+	 * <p>Setter mentah tanpa penjagaan; berperilaku persis seperti
+	 * {@link #setBolehAksesFeeder(Boolean)}, termasuk bahwa {@code null} berarti kembali ke
+	 * bawaan berbasis nama dan karena itu bukan tindakan netral.</p>
+	 *
+	 * @param bolehAksesSister hak akses SISTER; {@code null} berarti kembali ke bawaan
+	 *                         berbasis nama
+	 * @see #getBolehAksesSister()
+	 */
 	public void setBolehAksesSister(Boolean bolehAksesSister) {
 		this.bolehAksesSister = bolehAksesSister;
 	}
@@ -2335,6 +2400,49 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	/**
 	 * Nilai bawaan akses Feeder/SISTER bila admin belum mengaturnya: AKTIF untuk role ADMINISTRATOR,
 	 * AKADEMIK, atau role yang namanya mengandung "akademik"/"admin" (abaikan besar/kecil huruf).
+	 *
+	 * <p>Dipakai bersama oleh {@link #getBolehAksesFeeder()} dan
+	 * {@link #getBolehAksesSister()}, yang karenanya selalu bernilai sama selama kolomnya
+	 * masih {@code null}.</p>
+	 *
+	 * <h3>Dua tahap pemeriksaan</h3>
+	 * <ol>
+	 *   <li><b>Perbandingan persis {@code roleId}</b> terhadap {@link #ADMINISTRATOR}
+	 *   ({@code "am"}) dan {@link #AKADEMIK} ({@code "Akademik"}). Memakai {@code equals}
+	 *   sehingga <b>peka huruf besar-kecil</b>: baris peran yang tersimpan sebagai
+	 *   {@code "akademik"} huruf kecil tidak lolos di tahap ini.</li>
+	 *   <li><b>Pencocokan substring pada {@code roleName}</b> &mdash; bukan {@code roleId}
+	 *   &mdash; terhadap {@code "akademik"} dan {@code "admin"}, setelah dikecilkan
+	 *   hurufnya.</li>
+	 * </ol>
+	 *
+	 * <h3>PERINGATAN: satu-satunya penurunan hak berbasis NAMA TAMPIL</h3>
+	 * <p>Bersama {@link #getAksesGerbangPesantren()}, method ini adalah satu dari hanya dua
+	 * tempat di kelas ini yang menurunkan hak dari {@link #getRoleName()} alih-alih dari
+	 * {@code roleId}. Ini penting karena nama tampil adalah teks bebas yang lazim diubah
+	 * administrator tanpa menganggapnya perubahan berdampak &mdash; sekadar "memperjelas
+	 * penamaan". Padahal:</p>
+	 * <ul>
+	 *   <li>substring {@code "admin"} tercakup oleh kata yang sangat umum dalam bahasa
+	 *   Indonesia: <i>Administrasi</i>, <i>Administratur</i>, <i>Tata Usaha Administrasi</i>
+	 *   &mdash; sehingga banyak peran ketatausahaan biasa akan memperoleh akses pelaporan
+	 *   Kementerian tanpa diniatkan;</li>
+	 *   <li>substring {@code "akademik"} tercakup oleh <i>Staf Akademik</i>,
+	 *   <i>Kalender Akademik</i>, <i>Wakil Dekan Bidang Akademik</i>, dan sejenisnya.</li>
+	 * </ul>
+	 * <p>Lebih halus lagi: {@link #getRoleName()} <b>jatuh ke {@code roleId}</b> bila nama
+	 * kosong, sehingga peran tanpa nama pun tetap dinilai berdasarkan pengenalnya di tahap 2
+	 * &mdash; pengenal seperti {@code "adminkeu"} lolos di sini meski tidak lolos di tahap 1.
+	 * Perhatikan pula bahwa memanggil {@code getRoleName()} berarti method ini
+	 * <b>berpotensi menulis balik field</b> lewat getter tersebut, meski badannya sendiri
+	 * tidak menugaskan apa pun.</p>
+	 * <p>Karena kedua flag yang memakainya adalah gerbang server-side sungguhan, isilah
+	 * keduanya secara eksplisit alih-alih mengandalkan nilai bawaan ini.</p>
+	 *
+	 * @return {@code true} bila peran ini memperoleh akses Feeder/SISTER secara bawaan
+	 * @see #getBolehAksesFeeder()
+	 * @see #getBolehAksesSister()
+	 * @see #getRoleName()
 	 */
 	private boolean defaultAksesFeederSister() {
 		String rid = getRoleId();
@@ -2351,6 +2459,27 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return false;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat <b>Info Kegiatan</b> (pengumuman dan agenda
+	 * kegiatan institusi).
+	 *
+	 * <p>Berpola bawaan sama persis dengan {@link #getKalenderAkademik()}: menyala untuk
+	 * seluruh peran <b>kecuali</b> {@link #ADMINISTRATOR} yang memperoleh {@code false}, dan
+	 * dengan daftar-tolak {@link #KANTIN} yang mutlak. Alasannya sama &mdash; ini informasi
+	 * bagi sivitas, bukan alat kerja pengelola sistem, sehingga halaman utama Administrator
+	 * sengaja tidak dipenuhi pintasannya.</p>
+	 *
+	 * <p>Nilai bawaan {@code false} bagi Administrator hanya bawaan; menyalakannya secara
+	 * eksplisit tetap dihormati.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field. Seluruh pemanggilnya berada di
+	 * lapisan tampilan ({@code MainAction2}, JSP navigasi); tidak ada gerbang server-side
+	 * yang membacanya, sehingga flag ini murni kosmetik.</p>
+	 *
+	 * @return {@code true} bila Info Kegiatan boleh ditampilkan; tidak pernah {@code null}
+	 * @see #setInfoKegiatan(Boolean)
+	 * @see #getKalenderAkademik()
+	 */
 	public Boolean getInfoKegiatan() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -2360,10 +2489,65 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: infoKegiatan;
 	}
 
+	/**
+	 * Menetapkan hak melihat Info Kegiatan.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. {@code null} mengembalikan flag ke bawaan yang
+	 * bergantung peran: {@code false} untuk {@link #ADMINISTRATOR}, {@code true} untuk peran
+	 * lainnya.</p>
+	 *
+	 * @param infoKegiatan hak melihat info kegiatan; {@code null} berarti kembali ke bawaan
+	 * @see #getInfoKegiatan()
+	 */
 	public void setInfoKegiatan(Boolean infoKegiatan) {
 		this.infoKegiatan = infoKegiatan;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat <b>data pegawai selain dirinya sendiri</b>.
+	 *
+	 * <p>Berbeda dari mayoritas flag di kelas ini yang hanya mengatur visibilitas menu, flag
+	 * ini adalah <b>gerbang pembatas data yang sesungguhnya</b>. Ia dibaca langsung oleh
+	 * {@link Tbmuser} pada jalur penentuan lingkup pusat, oleh {@code KinerjaPegawaiApi},
+	 * dan oleh komponen pemilih data pegawai &mdash; masing-masing mempersempit kriteria
+	 * query Hibernate, bukan sekadar menyembunyikan tombol. Mematikannya benar-benar
+	 * mencabut kemampuan melihat data rekan kerja.</p>
+	 *
+	 * <h3>Struktur keputusan</h3>
+	 * <ol>
+	 *   <li><b>Daftar-tolak {@link #KANTIN}</b> &mdash; {@code false}.</li>
+	 *   <li><b>Penolakan kelompok pengguna akhir</b> &mdash; {@link #DOSEN},
+	 *   {@link #PEGAWAI}, {@link #GURU}, {@link #SISWA}, dan {@link #MAHASISWA} dikembalikan
+	 *   {@code false} <b>tanpa membaca kolomnya</b>. Ini penolakan mutlak: mencentangnya di
+	 *   layar Grup Pengguna tidak berpengaruh. Sifatnya <i>fail-closed</i> dan tepat &mdash;
+	 *   seorang dosen atau pegawai biasa tidak boleh menelusuri data seluruh pegawai.</li>
+	 *   <li><b>Bawaan bila kolom {@code null}</b> &mdash; {@code true} hanya untuk
+	 *   {@link #ADMINISTRATOR}, {@code false} untuk peran lainnya. Ini pola
+	 *   <i>fail-closed</i> yang benar: peran baru <b>tidak</b> memperoleh hak lintas-pegawai
+	 *   secara diam-diam.</li>
+	 * </ol>
+	 *
+	 * <p>Perhatikan bahwa langkah 2 di sini memakai {@code return false} langsung, bukan
+	 * penulisan {@code false} ke field seperti pada {@link #getPengadaan()} dan
+	 * {@link #getKeuangan()}. Karena itu <b>getter ini murni</b> dan tidak menerbitkan revisi
+	 * audit palsu &mdash; perbedaan yang layak dicatat sebagai contoh pola yang benar.</p>
+	 *
+	 * <p>Perhatikan pula bahwa daftar penolakan di langkah 2 ditulis ulang secara harfiah di
+	 * sini alih-alih memanggil {@link #roleEndUser()}, yang berisi persis kelima peran yang
+	 * sama. {@link #roleEndUser()} baru diperkenalkan belakangan dan hanya dipakai
+	 * {@link #getMelihatSemuaSop()}. Keduanya setara secara perilaku kecuali satu hal:
+	 * {@link #roleEndUser()} memakai {@link #isRole(String)} yang <b>tidak peka huruf
+	 * besar-kecil</b>, sedangkan penulisan harfiah di sini memakai {@code equals} yang peka.
+	 * Baris peran yang tersimpan sebagai {@code "dosen"} huruf kecil karena itu
+	 * <b>lolos</b> dari penolakan di sini namun tertolak di
+	 * {@link #getMelihatSemuaSop()}.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh melihat data pegawai lain; tidak pernah
+	 *         {@code null}
+	 * @see #setMelihatDataPegawaiLain(Boolean)
+	 * @see #getMelihatDataSatkerLain()
+	 * @see #roleEndUser()
+	 */
 	public Boolean getMelihatDataPegawaiLain() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -2386,10 +2570,59 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: melihatDataPegawaiLain;
 	}
 
+	/**
+	 * Menetapkan hak melihat data pegawai lain.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>tidak berlaku</b> bagi
+	 * {@link #KANTIN} dan kelima peran pengguna akhir yang ditolak mutlak &mdash; lihat
+	 * {@link #getMelihatDataPegawaiLain()}.</p>
+	 *
+	 * <p>Berbeda dari flag keuangan, menyimpan {@code null} di sini <b>aman</b>: bawaannya
+	 * {@code false} untuk semua peran kecuali {@link #ADMINISTRATOR}.</p>
+	 *
+	 * @param melihatDataPegawaiLain hak melihat data pegawai lain; {@code null} berarti
+	 *                               kembali ke bawaan fail-closed
+	 * @see #getMelihatDataPegawaiLain()
+	 */
 	public void setMelihatDataPegawaiLain(Boolean melihatDataPegawaiLain) {
 		this.melihatDataPegawaiLain = melihatDataPegawaiLain;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat <b>data satuan kerja selain miliknya</b>.
+	 *
+	 * <p>Bersama {@link #getMelihatDataPegawaiLain()}, ini adalah salah satu gerbang
+	 * pembatas data terpenting di AIS. Satuan kerja adalah lingkup organisasi yang paling
+	 * sering dipakai untuk memisahkan data antar unit di modul keuangan, akuntansi,
+	 * penganggaran, penggajian, dan persuratan &mdash; sehingga flag ini efektif menentukan
+	 * apakah seorang pengguna melihat data unitnya sendiri saja atau data seluruh
+	 * institusi.</p>
+	 *
+	 * <p>Penegakannya nyata dan tersebar luas di sisi server: {@link Pegawai}, seluruh
+	 * keluarga laporan penggajian dan KPI, pohon pemilih satuan kerja, serta modul SOP
+	 * masing-masing mempersempit kriteria query berdasarkan nilai ini. Ia juga menjadi dasar
+	 * {@link Tbmuser#ambilSatuanKerja()}.</p>
+	 *
+	 * <p><b>Struktur keputusannya identik baris demi baris</b> dengan
+	 * {@link #getMelihatDataPegawaiLain()}: daftar-tolak {@link #KANTIN}, penolakan mutlak
+	 * bagi kelima peran pengguna akhir ({@link #DOSEN}, {@link #PEGAWAI}, {@link #GURU},
+	 * {@link #SISWA}, {@link #MAHASISWA}), lalu bawaan <i>fail-closed</i> yang hanya menyala
+	 * untuk {@link #ADMINISTRATOR}. Seluruh catatan pada method tersebut &mdash; termasuk
+	 * bahwa getter ini <b>murni</b> (memakai {@code return} langsung, bukan tulis-balik
+	 * field) dan bahwa daftar penolakannya peka huruf besar-kecil &mdash; berlaku sama di
+	 * sini.</p>
+	 *
+	 * <p>Perlu dibedakan dari {@link #getSatuanKerja()} dan {@link #getSatuanKerjas()}: flag
+	 * ini menjawab "boleh melihat unit lain atau tidak", sedangkan kedua properti itu
+	 * menetapkan <i>unit mana</i> yang menjadi lingkupnya.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh melihat data satuan kerja lain; tidak pernah
+	 *         {@code null}
+	 * @see #setMelihatDataSatkerLain(Boolean)
+	 * @see #getMelihatDataPegawaiLain()
+	 * @see #getSatuanKerja()
+	 * @see Tbmuser#ambilSatuanKerja()
+	 */
 	public Boolean getMelihatDataSatkerLain() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -2411,10 +2644,66 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: melihatDataSatkerLain;
 	}
 
+	/**
+	 * Menetapkan hak melihat data satuan kerja lain.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>tidak berlaku</b> bagi
+	 * {@link #KANTIN} dan kelima peran pengguna akhir &mdash; lihat
+	 * {@link #getMelihatDataSatkerLain()}. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i>.</p>
+	 *
+	 * <p><b>Menyalakan flag ini adalah keputusan berdampak luas.</b> Ia membuka data lintas
+	 * unit di modul keuangan, penggajian, penganggaran, dan persuratan sekaligus &mdash;
+	 * bukan hanya pada satu layar. Perlakukan sebagai pemberian kewenangan tingkat
+	 * institusi.</p>
+	 *
+	 * @param melihatDataSatkerLain hak melihat data satker lain; {@code null} berarti kembali
+	 *                              ke bawaan fail-closed
+	 * @see #getMelihatDataSatkerLain()
+	 */
 	public void setMelihatDataSatkerLain(Boolean melihatDataSatkerLain) {
 		this.melihatDataSatkerLain = melihatDataSatkerLain;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses <b>Presensi Kehadiran</b>.
+	 *
+	 * <p>Getter dengan struktur bertingkat yang memperlakukan tiga kelompok peran secara
+	 * berbeda:</p>
+	 * <ol>
+	 *   <li><b>Daftar-tolak {@link #KANTIN}</b> &mdash; {@code false} mutlak.</li>
+	 *   <li><b>Pemaksaan menyala</b> bagi {@link #DOSEN}, {@link #PEGAWAI}, dan
+	 *   {@link #GURU} &mdash; dikembalikan {@code true} <b>tanpa membaca kolomnya</b>.
+	 *   Ketiganya adalah pihak yang wajib melakukan presensi, sehingga haknya tidak dapat
+	 *   dicabut administrator. Perhatikan bahwa ini berbeda dari pola pemaksaan pada
+	 *   {@link #getElearning()}: di sini nilainya <b>dikembalikan langsung</b>, tidak ditulis
+	 *   ke field, sehingga pilihan administrator yang tersimpan tetap utuh di basis data dan
+	 *   akan kembali berlaku bila peran itu suatu saat dikeluarkan dari daftar ini.</li>
+	 *   <li><b>Bawaan mati</b> bagi {@link #SISWA} dan {@link #MAHASISWA} &mdash; kolomnya
+	 *   tetap dibaca, tetapi bila {@code null} hasilnya {@code false}. Jadi peserta didik
+	 *   tidak memperoleh presensi kepegawaian secara bawaan, namun administrator
+	 *   <b>dapat</b> menyalakannya secara eksplisit (berguna untuk institusi yang memakai
+	 *   presensi terpadu).</li>
+	 *   <li><b>Bawaan menyala</b> bagi seluruh peran lainnya.</li>
+	 * </ol>
+	 *
+	 * <p>Perhatikan ketidaksimetrisan yang disengaja: kelima peran {@link #roleEndUser()}
+	 * yang ditolak mutlak pada {@link #getMelihatDataPegawaiLain()} di sini justru terbelah
+	 * &mdash; tiga dipaksa menyala, dua berdefault mati. Presensi memang urusan pengguna
+	 * akhir, kebalikan dari hak lintas-data.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * <p>Penegakannya nyata di sisi server pada {@code BiometricApi}, yang memakainya sebagai
+	 * gerbang API perangkat presensi biometrik &mdash; selain pemakaian visibilitas menu yang
+	 * biasa.</p>
+	 *
+	 * @return {@code true} bila peran ini memiliki akses presensi kehadiran; tidak pernah
+	 *         {@code null}
+	 * @see #setPresensiKehadiran(Boolean)
+	 * @see #getAbsenLangsung()
+	 * @see #getAksesGerbangPesantren()
+	 */
 	public Boolean getPresensiKehadiran() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -2437,6 +2726,19 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return presensiKehadiran == null ? true : presensiKehadiran;
 	}
 
+	/**
+	 * Menetapkan hak akses Presensi Kehadiran.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>diabaikan</b> bagi
+	 * {@link #KANTIN} (selalu mati) serta {@link #DOSEN}, {@link #PEGAWAI}, dan
+	 * {@link #GURU} (selalu menyala) &mdash; lihat {@link #getPresensiKehadiran()}. Bagi
+	 * {@link #SISWA} dan {@link #MAHASISWA}, nilai tersimpan justru <b>dihormati</b>, dan
+	 * di sanalah setter ini paling bermakna.</p>
+	 *
+	 * @param presensiKehadiran hak presensi; {@code null} berarti kembali ke bawaan yang
+	 *                          bergantung peran
+	 * @see #getPresensiKehadiran()
+	 */
 	public void setPresensiKehadiran(Boolean presensiKehadiran) {
 		this.presensiKehadiran = presensiKehadiran;
 	}
@@ -2445,6 +2747,43 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * Hak memproses izin serta verifikasi keluar/kembali di pos keamanan.
 	 * Terpisah dari presensi akademik agar prinsip least privilege terjaga.
 	 * Role lama bernama Keamanan Pondok/Satpam otomatis aktif saat kolom null.
+	 *
+	 * <h3>Urutan penurunan nilai</h3>
+	 * <ol>
+	 *   <li>Bila kolomnya sudah diisi, nilai itu dipakai apa adanya &mdash; berbeda dari
+	 *   sebagian besar getter lain, di sini <b>tidak ada</b> daftar-tolak {@link #KANTIN}
+	 *   maupun penolakan kelompok pengguna akhir yang mendahuluinya.</li>
+	 *   <li>Perbandingan {@code roleId} lewat {@link #isRole(String)} (tidak peka huruf
+	 *   besar-kecil) terhadap {@link #ADMINISTRATOR}, {@link #KEAMANAN_PONDOK}, serta literal
+	 *   {@code "Keamanan Pondok"}, {@code "Keamanan Pesantren"}, dan {@code "Satpam"}.</li>
+	 *   <li>Pencocokan <b>substring pada nama peran</b> terhadap {@code "keamanan pondok"},
+	 *   {@code "keamanan pesantren"}, dan {@code "satpam"}.</li>
+	 * </ol>
+	 *
+	 * <h3>PERINGATAN: penurunan hak berbasis nama tampil</h3>
+	 * <p>Bersama {@link #defaultAksesFeederSister()}, langkah 3 menjadikan method ini satu
+	 * dari hanya dua tempat di kelas ini yang menurunkan hak dari {@link #getRoleName()}
+	 * &mdash; teks bebas yang lazim disunting administrator tanpa menganggapnya perubahan
+	 * berdampak. Peran bernama "Koordinator Satpam", "Keamanan Pondok Putri", atau bahkan
+	 * "Pengawas Satpam" akan memperoleh hak ini tanpa pernah dicentang.</p>
+	 * <p>Berbeda dari flag Feeder/SISTER, ketiga kata kunci di sini cukup spesifik sehingga
+	 * kecil kemungkinan tercakup secara kebetulan &mdash; risikonya jauh lebih rendah.
+	 * Meski demikian, tetap isi kolomnya secara eksplisit bila hak ini penting, karena
+	 * {@code getRoleName()} juga <b>jatuh ke {@code roleId}</b> saat nama kosong sehingga
+	 * cakupan pencocokannya lebih luas dari yang terlihat.</p>
+	 *
+	 * <p>Hak ini ditegakkan sungguhan di sisi server oleh {@code GerbangPesantrenApi}, bukan
+	 * sekadar visibilitas menu. Ia sengaja dipisahkan dari
+	 * {@link #getPresensiKehadiran()} agar prinsip <i>least privilege</i> terjaga: petugas
+	 * pos tidak perlu hak presensi kepegawaian, dan sebaliknya.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh memproses izin di pos keamanan; tidak pernah
+	 *         {@code null}
+	 * @see #setAksesGerbangPesantren(Boolean)
+	 * @see #KEAMANAN_PONDOK
+	 * @see #getPresensiKehadiran()
 	 */
 	@Column(name = "akses_gerbang_pesantren")
 	public Boolean getAksesGerbangPesantren() {
@@ -2456,6 +2795,22 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				|| namaRole.indexOf("keamanan pesantren") >= 0 || namaRole.indexOf("satpam") >= 0);
 	}
 
+	/**
+	 * Menetapkan hak memproses izin serta verifikasi keluar/kembali di pos keamanan.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Berbeda dari kebanyakan flag lain di kelas ini, nilai
+	 * yang disimpan <b>selalu dihormati</b> &mdash; tidak ada peran yang dipaksa menyala atau
+	 * mati, karena {@link #getAksesGerbangPesantren()} memeriksa kolomnya lebih dulu sebelum
+	 * segala penurunan bawaan.</p>
+	 *
+	 * <p><b>Menyimpan {@code null} bukan tindakan netral</b>: ia mengembalikan flag ke
+	 * penurunan berbasis nama, yang untuk peran bernama mengandung "satpam" atau "keamanan
+	 * pondok" justru berarti menyala. Untuk menutup akses, simpan {@link Boolean#FALSE}
+	 * secara eksplisit.</p>
+	 *
+	 * @param value hak akses gerbang; {@code null} berarti kembali ke bawaan berbasis nama
+	 * @see #getAksesGerbangPesantren()
+	 */
 	public void setAksesGerbangPesantren(Boolean value) {
 		this.aksesGerbangPesantren = value;
 	}
@@ -2464,6 +2819,26 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * Hak menyetujui/menolak pengajuan transaksi member yang melampaui limit.
 	 * Fail-closed: role lama maupun role baru tidak mendapat hak ini sebelum
 	 * dicentang eksplisit pada Grup Pengguna.
+	 *
+	 * <p><b>Contoh terbaik pola yang benar di kelas ini.</b> Badannya satu ternary murni:
+	 * tidak ada penurunan berbasis {@code roleId} maupun {@code roleName}, tidak ada
+	 * daftar-tolak, dan tidak ada tulis-balik ke field. Nilai bawaannya
+	 * {@link Boolean#FALSE} tanpa syarat, sehingga hak ini <b>hanya</b> dimiliki peran yang
+	 * secara sadar dicentang administrator &mdash; bahkan {@link #ADMINISTRATOR} pun tidak
+	 * memperolehnya secara otomatis.</p>
+	 *
+	 * <p>Sikap <i>fail-closed</i> itu tepat mengingat konsekuensinya: hak ini
+	 * ditegakkan sungguhan di sisi server oleh
+	 * {@code PengajuanLimitMemberApiHelper} sebagai gerbang persetujuan transaksi yang
+	 * melampaui batas kredit member. Menyalakannya berarti memberi kewenangan meloloskan
+	 * transaksi di luar limit yang sudah ditetapkan.</p>
+	 *
+	 * <p>Flag baru di kelas ini sebaiknya mengikuti bentuk ini, bukan bentuk
+	 * {@link #getKeuangan()}.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh memverifikasi transaksi melebihi limit;
+	 *         tidak pernah {@code null}
+	 * @see #setBolehVerifikasiMemberMelebihiLimit(Boolean)
 	 */
 	@Column(name = "boleh_verifikasi_member_melebihi_limit")
 	public Boolean getBolehVerifikasiMemberMelebihiLimit() {
@@ -2471,10 +2846,52 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				? Boolean.FALSE : bolehVerifikasiMemberMelebihiLimit;
 	}
 
+	/**
+	 * Menetapkan hak menyetujui/menolak pengajuan transaksi member yang melampaui limit.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>selalu dihormati</b> &mdash;
+	 * tidak ada peran yang dipaksa menyala atau mati.</p>
+	 *
+	 * <p>Berbeda dari flag keuangan dan Feeder/SISTER, menyimpan {@code null} di sini
+	 * <b>aman</b>: bawaannya {@link Boolean#FALSE} tanpa syarat.</p>
+	 *
+	 * @param value hak verifikasi melebihi limit; {@code null} berarti kembali ke bawaan mati
+	 * @see #getBolehVerifikasiMemberMelebihiLimit()
+	 */
 	public void setBolehVerifikasiMemberMelebihiLimit(Boolean value) {
 		this.bolehVerifikasiMemberMelebihiLimit = value;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melakukan <b>absensi langsung</b> &mdash; mencatat
+	 * kehadiran seseorang di tempat, tanpa melalui perangkat biometrik.
+	 *
+	 * <p>Satu-satunya flag yang nilai bawaannya bergantung pada konstanta
+	 * {@link #Presensi}: bila kolomnya masih {@code null}, hasilnya {@code true} hanya untuk
+	 * peran berpengenal {@code "Presensi"} (dibandingkan dengan {@code equalsIgnoreCase},
+	 * sehingga {@code "presensi"} huruf kecil pun lolos), dan {@code false} untuk seluruh
+	 * peran lainnya. Perhatikan bahwa bahkan {@link #ADMINISTRATOR} <b>tidak</b>
+	 * memperolehnya secara bawaan &mdash; pengecualian dari kebiasaan di kelas ini.</p>
+	 *
+	 * <p>Didahului daftar-tolak {@link #KANTIN} yang mutlak. <b>Getter murni</b> tanpa
+	 * tulis-balik ke field.</p>
+	 *
+	 * <p>Perlu dibedakan dari {@link #getPresensiKehadiran()}: flag itu menentukan apakah
+	 * seseorang ikut dalam sistem presensi (sebagai subjek yang diabsen), sedangkan flag ini
+	 * menentukan apakah ia boleh <i>mengoperasikan</i> pencatatan kehadiran orang lain.</p>
+	 *
+	 * <p>Meski kewenangan mencatat kehadiran secara manual berkonsekuensi nyata terhadap
+	 * penggajian, seluruh pemanggilnya hanya mengatur <b>visibilitas komponen</b>
+	 * ({@code KehadiranPegawaiAction} memakainya pada {@code setVisible(...)}). Tidak ada
+	 * gerbang server-side yang membacanya, sehingga mematikannya tidak mencegah pemanggilan
+	 * langsung.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh melakukan absensi langsung; tidak pernah
+	 *         {@code null}
+	 * @see #setAbsenLangsung(Boolean)
+	 * @see #Presensi
+	 * @see #getPresensiKehadiran()
+	 */
 	public Boolean getAbsenLangsung() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -2483,10 +2900,53 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return absenLangsung == null ? (getRoleId() != null && getRoleId().equalsIgnoreCase(Presensi)) : absenLangsung;
 	}
 
+	/**
+	 * Menetapkan hak melakukan absensi langsung.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan dihormati untuk seluruh peran
+	 * kecuali {@link #KANTIN}. Menyimpan {@code null} mengembalikan flag ke bawaan yang
+	 * hanya menyala bagi peran {@link #Presensi}.</p>
+	 *
+	 * @param absenLangsung hak absensi langsung; {@code null} berarti kembali ke bawaan
+	 * @see #getAbsenLangsung()
+	 */
 	public void setAbsenLangsung(Boolean absenLangsung) {
 		this.absenLangsung = absenLangsung;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Kinerja</b> (penilaian kinerja
+	 * pegawai, KPI, SKP).
+	 *
+	 * <p>Struktur keputusannya:</p>
+	 * <ol>
+	 *   <li>daftar-tolak {@link #KANTIN} &mdash; {@code false};</li>
+	 *   <li>penolakan {@link #SISWA} dan {@link #MAHASISWA} &mdash; {@code false}, karena
+	 *   peserta didik tidak memiliki penilaian kinerja kepegawaian;</li>
+	 *   <li>selain itu bawaan <b>menyala</b>.</li>
+	 * </ol>
+	 *
+	 * <p>Perhatikan bahwa daftar penolakannya <b>hanya memuat dua</b> dari lima anggota
+	 * {@link #roleEndUser()} &mdash; {@link #DOSEN}, {@link #GURU}, dan {@link #PEGAWAI}
+	 * sengaja <i>tidak</i> ditolak, karena justru merekalah subjek penilaian kinerja. Ini
+	 * kebalikan dari pola pada {@link #getMelihatDataPegawaiLain()}, dan menunjukkan bahwa
+	 * keanggotaan {@code roleEndUser()} tidak boleh dianggap sebagai daftar tolak universal.
+	 * </p>
+	 *
+	 * <p>Karena bawaannya menyala, setiap Grup Pengguna baru langsung memperoleh akses modul
+	 * Kinerja. <b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * <p>Seluruh pemanggilnya berada di lapisan tampilan ({@code MainAction2}, JSP menu dan
+	 * menu seluler); tidak ada gerbang server-side yang membacanya. Pembatasan data kinerja
+	 * yang sesungguhnya berasal dari {@link #getMelihatDataPegawaiLain()} dan
+	 * {@link #getMelihatDataSatkerLain()}, yang memang dibaca
+	 * {@code KinerjaPegawaiApi} beserta laporan-laporan KPI.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Kinerja; tidak pernah
+	 *         {@code null}
+	 * @see #setKinerja(Boolean)
+	 * @see #getMelihatDataPegawaiLain()
+	 */
 	public Boolean getKinerja() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
@@ -2501,10 +2961,63 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return kinerja == null ? true : kinerja;
 	}
 
+	/**
+	 * Menetapkan hak akses modul Kinerja.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>tidak berlaku</b> bagi
+	 * {@link #KANTIN}, {@link #SISWA}, dan {@link #MAHASISWA} &mdash; lihat
+	 * {@link #getKinerja()}. Menyimpan {@code null} mengembalikan flag ke bawaan
+	 * <b>menyala</b>, bukan mencabutnya.</p>
+	 *
+	 * @param kinerja hak modul; {@code null} berarti kembali ke bawaan menyala
+	 * @see #getKinerja()
+	 */
 	public void setKinerja(Boolean kinerja) {
 		this.kinerja = kinerja;
 	}
 
+	/**
+	 * Mengembalikan <b>lingkup satuan kerja</b> yang melekat pada peran ini.
+	 *
+	 * <p>Bila terisi, seluruh akun yang memakai peran ini akan dibatasi pada satuan kerja
+	 * tersebut &mdash; terlepas dari satuan kerja pribadi masing-masing akun. Ini adalah
+	 * salah satu properti paling berdampak di kelas ini, karena satuan kerja adalah lingkup
+	 * pemisah data yang paling sering dipakai di modul keuangan, akuntansi, penganggaran,
+	 * penggajian, dan persuratan.</p>
+	 *
+	 * <p>Perlu dibedakan dari dua hal yang bunyinya mirip:</p>
+	 * <ul>
+	 *   <li>{@link #getMelihatDataSatkerLain()} menjawab "boleh menembus batas unit atau
+	 *   tidak"; properti ini menjawab "unit mana batasnya".</li>
+	 *   <li>{@link #getSatuanKerjas()} (berakhiran {@code s}) menampung <b>banyak</b> kode
+	 *   satuan kerja sebagai teks dipisah koma, tanpa kunci asing. Keduanya berdampingan dan
+	 *   sangat mudah tertukar saat menyunting.</li>
+	 * </ul>
+	 *
+	 * <h3>Resolusi proxy lewat {@code check(...)}</h3>
+	 * <p>Relasinya {@code LAZY}, sehingga field dapat berisi proxy yang belum ter-inisialisasi
+	 * atau sudah ter-<i>detach</i>. Pemanggilan
+	 * {@link GeneralValueObject#check(Object) check(...)} mencoba me-resolve-nya lewat cache
+	 * dan &mdash; bila perlu &mdash; lewat session baru. Ini pola standar di seluruh entity
+	 * AIS.</p>
+	 *
+	 * <p><b>Getter penulis-balik field.</b> Hasil {@code check(...)} <b>ditugaskan kembali</b>
+	 * ke field. Penugasan itu memang disyaratkan pola {@code check(...)} agar resolusi tidak
+	 * terulang, namun ia tetap membuat entity berpotensi dianggap <i>dirty</i> oleh Hibernate
+	 * &mdash; berlaku peringatan revisi audit palsu seperti pada dokumentasi kelas.</p>
+	 *
+	 * <p>Perlu diingat bahwa {@code check(...)} dapat mengembalikan argumennya <b>apa
+	 * adanya</b> bila keempat tahap resolusinya gagal, sehingga method ini tetap dapat
+	 * mengembalikan proxy rusak yang melempar exception saat disentuh. Inilah mekanisme yang
+	 * sama dengan yang mendasari anomali resolusi peran pada
+	 * {@link Tbmuser#hakAkses()}.</p>
+	 *
+	 * @return satuan kerja lingkup peran ini, atau {@code null} bila tidak dibatasi
+	 * @see #setSatuanKerja(SatuanKerja)
+	 * @see #getSatuanKerjas()
+	 * @see #getMelihatDataSatkerLain()
+	 * @see Tbmuser#ambilSatuanKerja()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
@@ -2512,14 +3025,63 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return satuanKerja;
 	}
 
+	/**
+	 * Menetapkan lingkup satuan kerja peran ini.
+	 *
+	 * <p>Setter mentah tanpa penjagaan &mdash; berbeda dari {@link #setYayasan(Yayasan)} dan
+	 * {@link #setSekolah(Sekolah)} yang menolak object tanpa {@code id}. Object transien
+	 * tanpa {@code id} karena itu dapat tersimpan di sini dan menghasilkan lingkup yang tidak
+	 * dapat di-resolve.</p>
+	 *
+	 * <p><b>Menetapkan nilai di sini membatasi setiap akun pemakai peran ini</b>, menimpa
+	 * satuan kerja pribadi mereka. Menyimpan {@code null} berarti peran tidak membawa
+	 * batasan satuan kerja sendiri, sehingga lingkup pribadi tiap akun yang berlaku.</p>
+	 *
+	 * @param satuanKerja satuan kerja lingkup; {@code null} berarti tanpa batasan dari peran
+	 * @see #getSatuanKerja()
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Menetapkan lingkup jurusan peran ini.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. <b>Perhatikan efek lanjutannya:</b> mengisi jurusan
+	 * di sini akan membuat {@link #getFakultas()} <b>mengabaikan</b> fakultas yang tersimpan
+	 * dan menurunkannya dari jurusan ini. Lihat penjelasan lengkap pada getter tersebut.</p>
+	 *
+	 * <p>Menetapkan nilai di sini membatasi setiap akun pemakai peran ini pada jurusan
+	 * tersebut, menimpa jurusan pribadi masing-masing akun.</p>
+	 *
+	 * @param jurusan jurusan lingkup; {@code null} berarti tanpa batasan dari peran
+	 * @see #getJurusan()
+	 * @see #getFakultas()
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Mengembalikan <b>lingkup jurusan</b> yang melekat pada peran ini.
+	 *
+	 * <p>Bila terisi, seluruh akun yang memakai peran ini dibatasi pada jurusan tersebut.
+	 * {@link Tbmuser#ambilJurusan()} memberi <b>prioritas tertinggi</b> pada nilai ini
+	 * &mdash; ia menimpa jurusan pribadi akun.</p>
+	 *
+	 * <p>Sekaligus menjadi <b>sumber turunan</b> bagi {@link #getFakultas()}: selama jurusan
+	 * terisi, fakultas selalu diambil dari jurusan ini, bukan dari kolom fakultas
+	 * sendiri.</p>
+	 *
+	 * <p>Relasi {@code LAZY} yang di-resolve lewat
+	 * {@link GeneralValueObject#check(Object) check(...)}; <b>getter penulis-balik
+	 * field</b>. Seluruh catatan pada {@link #getSatuanKerja()} berlaku sama.</p>
+	 *
+	 * @return jurusan lingkup peran ini, atau {@code null} bila tidak dibatasi
+	 * @see #setJurusan(Jurusan)
+	 * @see #getFakultas()
+	 * @see Tbmuser#ambilJurusan()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -2527,10 +3089,57 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return jurusan;
 	}
 
+	/**
+	 * Menetapkan lingkup fakultas peran ini.
+	 *
+	 * <p>Setter mentah tanpa penjagaan, namun <b>nilainya mudah menjadi sia-sia</b>: bila
+	 * {@link #getJurusan()} terisi, {@link #getFakultas()} akan mengabaikan apa pun yang
+	 * ditetapkan di sini dan menurunkan fakultas dari jurusan tersebut &mdash; bahkan
+	 * menimpanya di field. Untuk membatasi peran pada sebuah fakultas, pastikan lingkup
+	 * jurusan dikosongkan.</p>
+	 *
+	 * @param fakultas fakultas lingkup; {@code null} berarti tanpa batasan dari peran
+	 * @see #getFakultas()
+	 * @see #setJurusan(Jurusan)
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		this.fakultas = fakultas;
 	}
 
+	/**
+	 * Mengembalikan <b>lingkup fakultas</b> yang melekat pada peran ini &mdash; diturunkan
+	 * dari jurusan bila jurusan terisi.
+	 *
+	 * <h3>Kolom ini tidak selalu menang atas dirinya sendiri</h3>
+	 * <p>Urutannya: {@code check(fakultas)} lebih dulu, lalu &mdash; <b>bila
+	 * {@link #getJurusan()} tidak {@code null}</b> &mdash; nilainya <b>ditimpa</b> oleh
+	 * {@code getJurusan().getFakultas()}. Artinya kolom {@code fakultas} hanya berlaku
+	 * ketika kolom {@code jurusan} kosong.</p>
+	 * <p>Ini konsisten secara data (sebuah jurusan memang bernaung di bawah satu fakultas,
+	 * sehingga menyimpan keduanya secara terpisah berisiko tidak sinkron), namun berarti
+	 * administrator yang mengisi <i>keduanya</i> dengan nilai yang berbeda tidak akan
+	 * mendapat peringatan apa pun &mdash; fakultas pilihannya diabaikan diam-diam. Karena
+	 * hasil turunan itu <b>ditulis balik ke field</b>, ketidaksesuaian tersebut juga akan
+	 * <b>tersimpan permanen ke basis data</b> pada penyimpanan berikutnya, menghapus pilihan
+	 * asli administrator.</p>
+	 *
+	 * <p>Pola turunan yang sama persis dipakai {@link #getYayasan()}, yang menurunkan
+	 * nilainya dari {@link #getSekolah()}.</p>
+	 *
+	 * <p>Perhatikan bahwa {@link #getJurusan()} dipanggil <b>dua kali</b> (sekali untuk
+	 * pemeriksaan {@code null}, sekali untuk mengambil nilainya), sehingga siklus
+	 * {@code check(...)} ikut berjalan dua kali.</p>
+	 *
+	 * <p><b>Getter penulis-balik field</b>; berlaku peringatan revisi audit palsu seperti
+	 * pada {@link #getSatuanKerja()}. {@link Tbmuser#ambilFakultas()} memberi prioritas
+	 * tertinggi pada nilai ini.</p>
+	 *
+	 * @return fakultas lingkup peran ini (dari jurusan bila jurusan terisi), atau
+	 *         {@code null} bila tidak dibatasi
+	 * @see #setFakultas(Fakultas)
+	 * @see #getJurusan()
+	 * @see #getYayasan()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "fakultas", nullable = true)
 	public Fakultas getFakultas() {
@@ -2543,10 +3152,52 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return fakultas;
 	}
 
+	/**
+	 * Menetapkan lingkup yayasan peran ini &mdash; <b>menolak object tanpa {@code id}</b>.
+	 *
+	 * <p>Berbeda dari {@link #setSatuanKerja(SatuanKerja)}, {@link #setJurusan(Jurusan)}, dan
+	 * {@link #setFakultas(Fakultas)} yang menerima apa saja, setter ini menormalkan object
+	 * transien (yang {@code getId()}-nya {@code null}) menjadi {@code null}. Penjagaan itu
+	 * mencegah tersimpannya lingkup yang tidak dapat di-resolve. Hanya
+	 * {@link #setSekolah(Sekolah)} yang memiliki penjagaan serupa &mdash;
+	 * ketidakkonsistenan yang perlu diketahui, bukan pola yang berlaku menyeluruh di kelas
+	 * ini.</p>
+	 *
+	 * <p><b>Nilainya mudah menjadi sia-sia:</b> bila {@link #getSekolah()} terisi,
+	 * {@link #getYayasan()} akan mengabaikan apa pun yang ditetapkan di sini dan
+	 * menurunkannya dari sekolah tersebut.</p>
+	 *
+	 * @param yayasan yayasan lingkup; {@code null} atau object tanpa {@code id} disimpan
+	 *                sebagai {@code null}
+	 * @see #getYayasan()
+	 */
 	public void setYayasan(Yayasan yayasan) {
 		this.yayasan = yayasan == null || yayasan.getId() == null ? null : yayasan;
 	}
 
+	/**
+	 * Mengembalikan <b>lingkup yayasan</b> yang melekat pada peran ini &mdash; diturunkan
+	 * dari sekolah bila sekolah terisi.
+	 *
+	 * <p>Memakai pola turunan yang <b>sama persis</b> dengan {@link #getFakultas()}:
+	 * {@code check(yayasan)} lebih dulu, lalu ditimpa {@code getSekolah().getYayasan()} bila
+	 * sekolah tidak {@code null}. Pasangan sekolah&rarr;yayasan di sini sejajar dengan
+	 * pasangan jurusan&rarr;fakultas di sana.</p>
+	 *
+	 * <p>Seluruh catatan pada {@link #getFakultas()} berlaku sama: kolom {@code yayasan}
+	 * hanya berlaku ketika kolom {@code sekolah} kosong; ketidaksesuaian antara keduanya
+	 * diabaikan diam-diam dan hasil turunannya <b>ditulis balik ke field</b> sehingga
+	 * tersimpan permanen; serta {@link #getSekolah()} dipanggil dua kali.</p>
+	 *
+	 * <p>{@link Tbmuser#ambilYayasan()} memberi prioritas tertinggi pada nilai ini, di atas
+	 * yayasan pribadi akun.</p>
+	 *
+	 * @return yayasan lingkup peran ini (dari sekolah bila sekolah terisi), atau {@code null}
+	 *         bila tidak dibatasi
+	 * @see #setYayasan(Yayasan)
+	 * @see #getSekolah()
+	 * @see #getFakultas()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "yayasan", nullable = true)
 	public Yayasan getYayasan() {
@@ -2559,6 +3210,28 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return yayasan;
 	}
 
+	/**
+	 * Mengembalikan <b>lingkup sekolah</b> yang melekat pada peran ini.
+	 *
+	 * <p>Bila terisi, seluruh akun yang memakai peran ini dibatasi pada sekolah tersebut,
+	 * menimpa sekolah pribadi masing-masing akun &mdash; lihat
+	 * {@link Tbmuser#ambilSekolah()}. Pada instalasi multi-sekolah (yayasan yang menaungi
+	 * beberapa satuan pendidikan), inilah pemisah data antar-sekolah.</p>
+	 *
+	 * <p>Sekaligus menjadi <b>sumber turunan</b> bagi {@link #getYayasan()}: selama sekolah
+	 * terisi, yayasan selalu diambil dari sekolah ini.</p>
+	 *
+	 * <p>Relasi {@code LAZY} yang di-resolve lewat
+	 * {@link GeneralValueObject#check(Object) check(...)}; <b>getter penulis-balik
+	 * field</b>. Berbeda dari {@link #getFakultas()} dan {@link #getYayasan()}, getter ini
+	 * <b>tidak</b> memiliki logika turunan &mdash; ia salah satu dari dua getter relasi
+	 * paling sederhana di kelas ini, bersama {@link #getSatuanKerja()}.</p>
+	 *
+	 * @return sekolah lingkup peran ini, atau {@code null} bila tidak dibatasi
+	 * @see #setSekolah(Sekolah)
+	 * @see #getYayasan()
+	 * @see Tbmuser#ambilSekolah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sekolah", nullable = true)
 	public Sekolah getSekolah() {
@@ -2567,14 +3240,71 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return sekolah;
 	}
 
+	/**
+	 * Menetapkan lingkup sekolah peran ini &mdash; <b>menolak object tanpa {@code id}</b>.
+	 *
+	 * <p>Memiliki penjagaan yang sama dengan {@link #setYayasan(Yayasan)}: object transien
+	 * dinormalkan menjadi {@code null}, mencegah tersimpannya lingkup yang tidak dapat
+	 * di-resolve.</p>
+	 *
+	 * <p><b>Menetapkan nilai di sini juga menentukan yayasan</b>, karena
+	 * {@link #getYayasan()} menurunkan nilainya dari sekolah ini dan menimpa kolom yayasan
+	 * yang tersimpan.</p>
+	 *
+	 * @param sekolah sekolah lingkup; {@code null} atau object tanpa {@code id} disimpan
+	 *                sebagai {@code null}
+	 * @see #getSekolah()
+	 */
 	public void setSekolah(Sekolah sekolah) {
 		this.sekolah = sekolah == null || sekolah.getId() == null ? null : sekolah;
 	}
 
+	/**
+	 * Menetapkan lingkup program studi peran ini.
+	 *
+	 * <p>Setter mentah tanpa penjagaan &mdash; tidak menolak object transien seperti
+	 * {@link #setYayasan(Yayasan)} dan {@link #setSekolah(Sekolah)}.</p>
+	 *
+	 * <p>Menetapkan nilai di sini membatasi setiap akun pemakai peran ini pada program
+	 * tersebut, menimpa program pribadi masing-masing akun &mdash; lihat
+	 * {@link Tbmuser#ambilProgram()}.</p>
+	 *
+	 * @param program program lingkup; {@code null} berarti tanpa batasan dari peran
+	 * @see #getProgram()
+	 */
 	public void setProgram(Program program) {
 		this.program = program;
 	}
 
+	/**
+	 * Mengembalikan <b>lingkup program studi</b> yang melekat pada peran ini.
+	 *
+	 * <p>Bila terisi, seluruh akun yang memakai peran ini dibatasi pada program tersebut.
+	 * {@link Tbmuser#ambilProgram()} memberi prioritas tertinggi pada nilai ini, di atas
+	 * program pribadi akun.</p>
+	 *
+	 * <h3>Satu-satunya getter relasi yang berbeda sendiri</h3>
+	 * <p>Dua hal membedakannya dari kelima getter relasi lain di kelas ini:</p>
+	 * <ul>
+	 *   <li><b>Tidak memanggil {@link GeneralValueObject#check(Object) check(...)}.</b> Ia
+	 *   mengembalikan field mentah, sehingga <b>getter murni</b> yang tidak pernah menandai
+	 *   entity sebagai <i>dirty</i>. Konsekuensinya, bila field berisi proxy yang sudah
+	 *   ter-<i>detach</i>, tidak ada upaya penyelamatan sama sekali &mdash; pemanggil akan
+	 *   menerima proxy itu apa adanya dan berpotensi menemui
+	 *   {@link org.hibernate.LazyInitializationException} saat menyentuhnya.</li>
+	 *   <li><b>Strategi pengambilan yang berbeda.</b> Ia tidak memakai
+	 *   {@code fetch = FetchType.LAZY} melainkan {@link Fetch @Fetch}
+	 *   {@link FetchMode#SELECT}, sehingga Hibernate memuatnya lewat query {@code SELECT}
+	 *   terpisah alih-alih {@code JOIN}. Karena {@code @ManyToOne} bersifat {@code EAGER}
+	 *   secara bawaan, relasi ini praktis <b>selalu ikut dimuat</b> &mdash; itulah sebabnya
+	 *   {@code check(...)} tidak diperlukan di sini, dan mengapa getter ini aman menjadi
+	 *   murni.</li>
+	 * </ul>
+	 *
+	 * @return program studi lingkup peran ini, atau {@code null} bila tidak dibatasi
+	 * @see #setProgram(Program)
+	 * @see Tbmuser#ambilProgram()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "program", nullable = true)
@@ -2582,6 +3312,24 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return program;
 	}
 
+	/**
+	 * Mengembalikan <b>jenis jabatan</b> yang diasosiasikan dengan peran ini.
+	 *
+	 * <p>Berbeda dari kelima properti lingkup di sekitarnya ({@link #getSatuanKerja()},
+	 * {@link #getJurusan()}, {@link #getFakultas()}, {@link #getYayasan()},
+	 * {@link #getSekolah()}, {@link #getProgram()}), relasi ini <b>bukan pembatas data</b>.
+	 * Tidak ada varian {@code ambilXxx()} di {@link Tbmuser} yang membacanya, dan tidak ada
+	 * gerbang otorisasi yang memeriksanya. Ia adalah data referensi kepegawaian yang
+	 * memetakan Grup Pengguna ke jenis jabatan struktural/fungsional, dipakai untuk
+	 * pelaporan dan pengisian bawaan formulir.</p>
+	 *
+	 * <p>Relasi {@code LAZY} yang di-resolve lewat
+	 * {@link GeneralValueObject#check(Object) check(...)}; <b>getter penulis-balik
+	 * field</b> dengan seluruh catatan pada {@link #getSatuanKerja()} berlaku sama.</p>
+	 *
+	 * @return jenis jabatan peran ini, atau {@code null} bila tidak diasosiasikan
+	 * @see #setJenisJabatan(JenisJabatan)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_jabatan", nullable = true)
 	public JenisJabatan getJenisJabatan() {
@@ -2589,10 +3337,57 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return jenisJabatan;
 	}
 
+	/**
+	 * Menetapkan jenis jabatan yang diasosiasikan dengan peran ini.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Karena relasi ini bukan pembatas data (lihat
+	 * {@link #getJenisJabatan()}), menetapkannya <b>tidak berdampak pada otorisasi</b>
+	 * &mdash; berbeda dari setter lingkup di sekitarnya.</p>
+	 *
+	 * @param jenisJabatan jenis jabatan; {@code null} berarti tanpa asosiasi
+	 * @see #getJenisJabatan()
+	 */
 	public void setJenisJabatan(JenisJabatan jenisJabatan) {
 		this.jenisJabatan = jenisJabatan;
 	}
 
+	/**
+	 * Menentukan apakah peran ini memiliki akses modul <b>Kepegawaian</b>.
+	 *
+	 * <p>Getter keempat dari empat bersaudara &mdash; badannya identik dengan
+	 * {@link #getKeuangan()}, {@link #getPembayaran()}, dan {@link #getAkunting()}, kecuali
+	 * <b>kata kunci substringnya</b>: di sini {@code "pegawai"}, bukan {@code "keu"}.</p>
+	 *
+	 * <p>Urutannya: daftar-tolak {@link #KANTIN}; penulisan paksa {@code false} bagi
+	 * {@link #MAHASISWA}, {@link #SISWA}, {@link #DOSEN}, dan {@link #GURU} di luar penjagaan
+	 * {@code null}; lalu bawaan
+	 * {@code roleId.toLowerCase().contains("pegawai") || roleId.equals(ADMINISTRATOR)}.</p>
+	 *
+	 * <h3>Kata kunci yang tidak cocok dengan konstantanya sendiri</h3>
+	 * <p>Perhatikan keanehan yang mudah luput: konstanta {@link #PEGAWAI} bernilai
+	 * {@code "peg"}, sedangkan pencocokan di sini mencari {@code "pegawai"}. Karena
+	 * {@code "peg"} <b>tidak mengandung</b> {@code "pegawai"}, peran Pegawai justru
+	 * <b>tidak</b> memperoleh hak kepegawaian secara bawaan &mdash; dan seandainya pun ia
+	 * cocok, langkah penolakan sebelumnya tidak menyebutnya sehingga hasilnya akan berbeda
+	 * lagi. Yang benar-benar memperoleh hak ini secara bawaan adalah peran berpengenal
+	 * seperti {@code "kepegawaian"}, {@code "admin_pegawai"}, atau {@code "datapegawai"}.</p>
+	 * <p>Kabar baiknya, kata {@code "pegawai"} jauh lebih spesifik daripada {@code "keu"},
+	 * sehingga risiko hak menyala karena kebetulan penamaan di sini jauh lebih kecil.
+	 * Meski begitu, berlaku anjuran yang sama: isi flag secara eksplisit.</p>
+	 *
+	 * <p><b>Getter penulis-balik field</b> &mdash; berlaku peringatan revisi audit palsu.</p>
+	 *
+	 * <p>Seluruh pemanggilnya berada di lapisan tampilan ({@code MainAction2}, JSP menu);
+	 * tidak ada gerbang server-side yang membacanya. Pembatasan data kepegawaian yang
+	 * sesungguhnya berasal dari {@link #getMelihatDataPegawaiLain()}.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengakses modul Kepegawaian; tidak pernah
+	 *         {@code null}
+	 * @see #setKepegawaian(Boolean)
+	 * @see #PEGAWAI
+	 * @see #getKeuangan()
+	 * @see #getMelihatDataPegawaiLain()
+	 */
 	public Boolean getKepegawaian() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
