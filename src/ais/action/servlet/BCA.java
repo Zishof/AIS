@@ -183,6 +183,18 @@ public class BCA extends HttpServlet {
 	};
 
 	/**
+	 * Membentuk instance servlet.
+	 *
+	 * <p>Konstruktor tanpa argumen yang dibutuhkan wadah servlet: Tomcat membuat satu instance
+	 * {@link BCA} lalu memakainya kembali untuk semua permintaan pada keempat {@code url-pattern}
+	 * yang dipetakan ke kelas ini. Tidak ada state yang disiapkan di sini — inisialisasi terjadi
+	 * pada penginisialisasi field ({@link #pembayaranUtil}, {@link #accessTokens},
+	 * {@link #expiresInMinute}).</p>
+	 *
+	 * <p>Karena instance dipakai bersama oleh banyak thread permintaan, jangan menambahkan field
+	 * instance yang dapat berubah dan bergantung pada satu permintaan; pakai variabel lokal atau
+	 * {@link ThreadLocal} seperti {@link #dateFormat1}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public BCA() {
@@ -190,8 +202,24 @@ public class BCA extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan mendelegasikannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>GET dan POST diperlakukan identik: keduanya memanggil pemroses yang sama. Dalam praktik
+	 * BCA selalu memakai POST — jalur GET disediakan agar endpoint mudah diuji manual dan agar
+	 * permintaan yang salah metode tetap menghasilkan balasan JSON SNAP, bukan halaman galat
+	 * wadah servlet.</p>
+	 *
+	 * <p><b>Penanganan galat:</b> setiap {@link Exception} ditangkap dan diserahkan ke
+	 * {@code Common.tampilErrorJikaAdmin}. Konsekuensinya, bila kegagalan terjadi sebelum badan
+	 * respons sempat ditulis, klien dapat menerima badan kosong dengan status 200; bank akan
+	 * memperlakukannya sebagai kegagalan dan mengirim ulang.</p>
+	 *
+	 * @param request  permintaan dari BCA
+	 * @param response respons yang akan diisi JSON SNAP
+	 * @throws ServletException bila wadah servlet melaporkan kegagalan
+	 * @throws IOException      bila penulisan respons gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -203,8 +231,22 @@ public class BCA extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan mendelegasikannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>Inilah metode yang sesungguhnya dipakai BCA untuk keempat endpoint SNAP: penerbitan
+	 * token, inquiry, payment, dan status. Isinya sama persis dengan {@link #doGet} — pemilihan
+	 * cabang tidak ditentukan oleh metode HTTP melainkan oleh isi body ({@code grantType},
+	 * ada-tidaknya {@code paidAmount}) dan oleh akhiran {@code request.getRequestURI()}.</p>
+	 *
+	 * <p><b>Penanganan galat:</b> sama dengan {@link #doGet} — pengecualian ditelan oleh
+	 * {@code Common.tampilErrorJikaAdmin} sehingga tidak merambat ke wadah servlet.</p>
+	 *
+	 * @param request  permintaan dari BCA
+	 * @param response respons yang akan diisi JSON SNAP
+	 * @throws ServletException bila wadah servlet melaporkan kegagalan
+	 * @throws IOException      bila penulisan respons gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -215,6 +257,20 @@ public class BCA extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Pola pendeteksi karakter di luar himpunan aman untuk field identitas SNAP.
+	 *
+	 * <p>Mencocokkan satu karakter apa pun yang <b>bukan</b> huruf, angka, atau spasi (mode
+	 * abai-huruf-besar-kecil). Dipakai di {@link #doProcess doProcess} dengan
+	 * {@code p.matcher(x).find()} untuk menolak {@code partnerServiceId}, {@code virtualAccountNo},
+	 * dan {@code customerNo} yang memuat karakter aneh; permintaan seperti itu dibalas
+	 * {@code Invalid Field Format} ({@code 4002401}/{@code 4002501}).</p>
+	 *
+	 * <p><b>Catatan:</b> ini adalah penyaring <i>format</i> agar balasan sesuai spesifikasi SNAP,
+	 * bukan pertahanan terhadap injeksi — nilai-nilai tersebut tidak pernah disusun menjadi SQL
+	 * mentah. {@link Pattern} bersifat aman-thread sehingga boleh dibagikan sebagai field statik,
+	 * meskipun {@code Matcher} hasil {@code matcher()} tidak.</p>
+	 */
 	private static Pattern p = Pattern.compile("[^a-z0-9 ]", Pattern.CASE_INSENSITIVE);
 
 	@SuppressWarnings("unchecked")

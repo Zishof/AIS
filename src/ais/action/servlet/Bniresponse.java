@@ -65,14 +65,71 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Tagihan;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet endpoint <b>callback pembayaran BNI eCollection</b>: menerima
+ * notifikasi dari BNI bahwa sebuah Virtual Account telah dibayar, lalu
+ * membukukan pembayaran itu ke seluruh modul terkait (kegiatan mahasiswa,
+ * tagihan siswa, deposit, produk kursus).
+ *
+ * <h3>Protokol dan verifikasi</h3>
+ * Bank mengirim POST berisi JSON amplop dengan dua field saja:
+ * {@code client_id} (merchant id) dan {@code data} (payload terenkripsi).
+ * Berbeda dengan {@link Mandiri} yang menerima payload polos, di sini isi
+ * sesungguhnya baru terbaca setelah didekode dengan <b>kunci bersama</b>:
+ *
+ * <pre>
+ * String decodeData = BNIHash.parseData(parsedData, merchant_id, Password);
+ * </pre>
+ *
+ * Kunci diambil dari {@link Sekolah#getBniPassword()} (mendukung format
+ * bertahun {@code tahun:kunci;tahun:kunci}) dengan cadangan konfigurasi
+ * {@code bni_password}. Bila kunci tidak cocok, hasil dekode bukan JSON yang
+ * sah sehingga {@code new JSONObject(decodeData)} melempar exception,
+ * pemrosesan berhenti, dan bank dijawab {@code status 001}. Dengan kata lain
+ * <b>pemeriksaan kriptografis di sini benar-benar berlaku pada cabang
+ * transaksi</b>, bukan sekadar pada penerbitan token.
+ *
+ * <h3>Validasi nominal</h3>
+ * Setelah dekode berhasil, {@code payment_amount} dibandingkan dengan
+ * {@code trx_amount}; hanya bila sama persis {@code kodeStatus} diisi
+ * {@code "000"}. Nilai itu menjadi gerbang di {@link #prosesResponse}: seluruh
+ * pembukuan hanya berjalan untuk {@code "000"}, sehingga pembayaran kurang
+ * bayar tercatat namun tidak pernah dibukukan sebagai lunas.
+ *
+ * <h3>Alur pembukuan</h3>
+ * {@link #process} menyimpan {@link BniResponse} lalu memanggil
+ * {@link #prosesResponse(BniResponse, boolean)}, yang mencari
+ * {@link BniRequest} berdasarkan {@code trx_id} dan mendistribusikan pembayaran
+ * ke jalur yang sesuai: {@link KegiatanTemporary} &rarr; {@link Kegiatan} +
+ * {@link CicilanPembayaran} untuk mahasiswa, {@link PembayaranSiswa} +
+ * {@link Tagihan} untuk siswa/calon siswa, {@link DepositSiswa} untuk setoran
+ * deposit, dan {@link ProdukPeserta} untuk kursus. Pengulangan callback dijaga
+ * {@link #isRequestSudahDiproses}.
+ *
+ * <h3>Pencatatan</h3>
+ * Blok {@code finally} pada {@link #process} selalu menulis
+ * {@link LogHostToHost} berisi payload mentah, hasil dekode, identitas
+ * pembayar, dan nominal.
+ *
+ * @see Mandiri
+ * @see Bankaltimtara
+ * @see BniRequest
+ * @see BniResponse
  */
 public class Bniresponse extends HttpServlet {
+	/** Versi serialisasi standar {@link HttpServlet}; tidak dipakai secara fungsional. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; di kelas ini dipakai untuk memetakan alamat IP
+	 * pemanggil ke baris {@link BankHost} yang dilampirkan pada
+	 * {@link LogHostToHost}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang dibutuhkan kontainer servlet untuk
+	 * meng-instansiasi endpoint ini.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Bniresponse() {
@@ -82,6 +139,17 @@ public class Bniresponse extends HttpServlet {
 	}
 
 	/**
+	 * Menangani request HTTP GET ke endpoint callback dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>
+	 * Exception ditelan dan hanya ditampilkan bagi admin, supaya kegagalan internal
+	 * tidak memutus koneksi callback dari bank.
+	 *
+	 * @param request  request masuk dari gateway BNI
+	 * @param response respons yang akan diisi badan JSON status
+	 * @throws ServletException bila kontainer servlet gagal memproses request
+	 * @throws IOException      bila terjadi kegagalan I/O saat menulis respons
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -95,6 +163,15 @@ public class Bniresponse extends HttpServlet {
 	}
 
 	/**
+	 * Menangani request HTTP POST ke endpoint callback &mdash; jalur normal
+	 * notifikasi pembayaran BNI eCollection &mdash; dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request  request masuk dari gateway BNI; badan request dibaca sebagai
+	 *                 JSON amplop {@code client_id} + {@code data}
+	 * @param response respons yang akan diisi badan JSON status
+	 * @throws ServletException bila kontainer servlet gagal memproses request
+	 * @throws IOException      bila terjadi kegagalan I/O saat menulis respons
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -108,6 +185,44 @@ public class Bniresponse extends HttpServlet {
 	}
 
 
+	/**
+	 * Penjaga idempotensi: menentukan apakah sebuah {@link BniRequest} sudah
+	 * benar-benar dibukukan, sehingga callback berulang dari BNI tidak membukukan
+	 * pembayaran dua kali.
+	 *
+	 * <h3>Bukti yang dipakai per jalur</h3>
+	 * <ul>
+	 * <li><b>Mahasiswa lewat {@link KegiatanTemporary}</b> (mis. Daftar Ulang)
+	 * &mdash; dianggap selesai hanya bila <i>setiap</i> {@code kegiatanTemporary}
+	 * sudah tertaut ke {@link Kegiatan} <i>dan</i> kegiatan itu benar memiliki baris
+	 * {@link CicilanPembayaran} ber-{@code itemBiaya}. Bila sekadar tertaut tetapi
+	 * cicilannya kosong &mdash; sisa kegagalan parsial percobaan sebelumnya &mdash;
+	 * sengaja dikembalikan {@code false} agar menu "Cek Pembayaran" memproses ulang
+	 * dan memindahkan cicilan yang tertinggal.</li>
+	 * <li><b>Siswa/calon siswa</b> &mdash; bukti nyata berupa adanya
+	 * {@link PembayaranSiswa} yang menunjuk request ini.</li>
+	 * <li><b>Selain keduanya</b> &mdash; keberadaan {@link LogPembayaran} dipakai
+	 * sebagai penanda.</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * Urutan pemeriksaan ini penting: {@link LogPembayaran} sengaja <b>tidak</b>
+	 * boleh mendahului pemeriksaan cicilan mahasiswa, karena log bisa tercatat
+	 * walaupun migrasi cicilan gagal &mdash; dahulu hal itu membuat cek ulang
+	 * mengaku "berhasil" padahal pembayaran tidak pernah mendarat di
+	 * {@link CicilanPembayaran}.
+	 *
+	 * <p>
+	 * Bersikap <i>fail-open</i> secara sengaja: argumen {@code null} maupun exception
+	 * saat query menghasilkan {@code false}, sehingga pembayaran diproses ulang
+	 * (aman karena prosesnya idempoten) alih-alih diam-diam dilewati.
+	 *
+	 * @param bniRequest request pembayaran yang hendak diperiksa; {@code null}
+	 *                   menghasilkan {@code false}
+	 * @param session    session Hibernate untuk query pembuktian; {@code null}
+	 *                   menghasilkan {@code false}
+	 * @return {@code true} bila pembayaran sudah terbukti dibukukan sepenuhnya
+	 */
 	@SuppressWarnings("rawtypes")
 	private static boolean isRequestSudahDiproses(BniRequest bniRequest, Session session) {
 		if (bniRequest == null || session == null) {

@@ -51,33 +51,82 @@ import ais.database.model.faspay.FaspayRequestDetailBiaya;
 import ais.database.model.faspay.FaspayResponse;
 
 /**
- * Servlet callback/handler untuk integrasi payment gateway <b>Faspay</b>: menerima notifikasi
- * status transaksi dari server Faspay (parameter {@code data}/{@code querystring} berisi XML
- * status transaksi), mencocokkannya dengan {@link FaspayRequest} lokal berdasarkan {@code trx_id}/
- * {@code bill_no}, lalu menindaklanjuti pembayaran yang berhasil (pelunasan tagihan terkait via
- * {@link FaspayCommon}, pencatatan {@link LogPembayaran}/{@link LogHostToHost}). Servlet ini juga
- * menyediakan endpoint untuk memulai pembayaran Faspay langsung dari parameter request web service
- * (lihat {@link FaspayCommon#populateFaspayRequestDetail(HttpServletRequest, Mahasiswa, String, Integer)}).
+ * Servlet callback/handler untuk integrasi payment gateway <b>Faspay</b>.
  *
- * <p>
- * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01)</b> — salah satu jalur pada servlet ini sebelumnya
- * mengambil kredensial merchant Faspay lewat {@link Common#getKonfigurasi(String, String)} dengan
- * nilai default RAHASIA tertanam langsung di kode sumber ({@code faspay_user_id} default
- * {@code "bot31503"}, {@code faspay_password} default {@code "W4TYRmO0"} — identik dengan default
- * lama pada {@link FaspayCommon} dan {@code ais.common.FaspayKeranjangPembayaran}, sudah diperbaiki
- * terpisah). Default itu sudah dihapus (kini string kosong). Baris {@code System.out.println} yang
- * sebelumnya mencetak signature transaksi (berpotensi membocorkan bahan autentikasi lewat log
- * server) juga sudah dihapus. Kredensial lama yang sebelumnya tertanam sudah lama berada di
- * riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi Faspay bila masih aktif di
- * produksi.
- * </p>
+ * <p>Menerima notifikasi status transaksi dari server Faspay (parameter {@code data}/
+ * {@code querystring} berisi XML status transaksi), mencocokkannya dengan
+ * {@link FaspayRequest} lokal berdasarkan {@code trx_id}/{@code bill_no}, lalu menindaklanjuti
+ * pembayaran yang berhasil (pelunasan tagihan terkait via {@link FaspayCommon}, pencatatan
+ * {@link LogPembayaran}/{@link LogHostToHost}). Servlet ini juga menyediakan endpoint untuk
+ * memulai pembayaran Faspay langsung dari parameter request web service (lihat
+ * {@link FaspayCommon#populateFaspayRequestDetail(HttpServletRequest, Mahasiswa, String, Integer)}).
+ *
+ * <h4>Tiga jalur di dalam satu servlet</h4>
+ * <p>{@link #process} memilah berdasarkan bentuk permintaan:</p>
+ * <ol>
+ *   <li><b>Penerbitan tagihan</b> &mdash; ada <i>query string</i> dan parameter
+ *       {@code mahasiswa}. Ditangani {@link #processRequestFaspay}, yang menyusun XML
+ *       {@code postData} dan mengirimkannya ke Faspay untuk memperoleh URL pembayaran.</li>
+ *   <li><b>Callback peramban</b> &mdash; ada <i>query string</i> tanpa parameter
+ *       {@code mahasiswa}. Parameter {@code trx_id}/{@code bill_no} dicatat sebagai
+ *       {@link FaspayResponse}, lalu {@link #prosesResponse} dijalankan dan halaman HTML
+ *       sederhana dikembalikan.</li>
+ *   <li><b>Notifikasi pembayaran</b> &mdash; tidak ada <i>query string</i>; XML dibaca dari
+ *       badan permintaan dan dijawab XML {@code Payment Notification} berkode {@code 00}
+ *       (sukses) atau {@code 01} (gagal).</li>
+ * </ol>
+ *
+ * <h4>PERINGATAN KEAMANAN &mdash; tanda tangan hanya dibuat, tidak pernah diperiksa</h4>
+ * <p>Faspay memakai tanda tangan berbentuk {@code SHA1(MD5(UserID + Password + bill_no))}.
+ * Di kelas ini tanda tangan itu hanya <b>dihasilkan</b>, yaitu di
+ * {@link #processRequestFaspay} saat menyusun {@code postData} keluar menuju Faspay. Pada
+ * ketiga jalur masuk di atas <b>tidak ada satu pun pemeriksaan tanda tangan</b> atas pesan
+ * yang diterima: tidak di callback peramban, dan tidak di notifikasi pembayaran.</p>
+ * <p>Satu-satunya penjagaan pada jalur notifikasi adalah {@code bankHost != null}, yaitu
+ * hasil pemetaan alamat IP oleh {@code PembayaranUtil.getBankHost(String, String)}. Penjagaan
+ * itu lemah karena pemetaan tersebut punya dua jalur pelonggaran &mdash; konfigurasi
+ * {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} yang membuat baris
+ * {@link BankHost} baru untuk IP pemanggil apa pun, dan baris cadangan ber-IP {@code 0.0.0.0}
+ * yang menampung sisanya. Jalur callback peramban bahkan tidak diberi penjagaan itu. Pada
+ * {@code applicationContext-security.xml}, {@code /FasPayResponse} dan {@code /FaspayResponse}
+ * jatuh ke aturan penampung {@code /**} yang bernilai {@code IS_AUTHENTICATED_ANONYMOUSLY}.</p>
+ *
+ * <h4>Riwayat keamanan (DIPERBAIKI 2026-09-01)</h4>
+ * <p>Salah satu jalur pada servlet ini sebelumnya mengambil kredensial merchant Faspay lewat
+ * {@link Common#getKonfigurasi(String, String)} dengan nilai default RAHASIA tertanam langsung
+ * di kode sumber ({@code faspay_user_id} default {@code "bot31503"}, {@code faspay_password}
+ * default {@code "W4TYRmO0"} &mdash; identik dengan default lama pada {@link FaspayCommon} dan
+ * {@code ais.common.FaspayKeranjangPembayaran}, sudah diperbaiki terpisah). Default itu sudah
+ * dihapus (kini string kosong). Baris {@code System.out.println} yang sebelumnya mencetak
+ * signature transaksi (berpotensi membocorkan bahan autentikasi lewat log server) juga sudah
+ * dihapus. Kredensial lama yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB
+ * dianggap bocor &mdash; perlu dirotasi di sisi Faspay bila masih aktif di produksi.</p>
+ *
+ * <h4>Catatan arsitektur</h4>
+ * <p>Setiap permintaan wajib menghasilkan satu baris {@link LogHostToHost} yang ditulis di blok
+ * {@code finally} {@link #process}, lengkap dengan jejak <i>stack trace</i> bila terjadi galat.
+ * Ini pola <i>audit shadow</i> yang berlaku di seluruh gerbang pembayaran AIS dan merupakan
+ * fakta arsitektur yang disengaja, bukan cacat.</p>
  */
 public class FasPayResponse extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton pembantu pembayaran, dipakai untuk memetakan alamat IP pemanggil menjadi
+	 * {@link BankHost} dan untuk mengambil rincian biaya mahasiswa.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh kebergantungan diambil lewat field
+	 * statis {@link #pembayaranUtil}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public FasPayResponse() {
@@ -87,8 +136,17 @@ public class FasPayResponse extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>GET dipakai jalur penerbitan tagihan dan jalur callback peramban, yang keduanya
+	 * mengirim parameter lewat <i>query string</i>. Kegagalan ditelan oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga pemanggil tidak menerima 5xx.</p>
+	 *
+	 * @param request  permintaan masuk dari Faspay atau dari peramban pengguna
+	 * @param response balasan yang akan diisi JSON, HTML, atau XML sesuai jalur
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -100,8 +158,16 @@ public class FasPayResponse extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>POST dipakai jalur notifikasi pembayaran, yang mengirim XML pada badan permintaan.
+	 * Perilaku penanganan galat sama dengan {@link #doGet}.</p>
+	 *
+	 * @param request  permintaan masuk dari server Faspay
+	 * @param response balasan yang akan diisi XML {@code Payment Notification}
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -112,6 +178,25 @@ public class FasPayResponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mencari {@link Kegiatan} yang sesuai dengan sebuah {@link FaspayRequest}, atau membuatnya
+	 * bila belum ada.
+	 *
+	 * <p>Pencarian memakai {@code ambilKegiatans(semester, jenisKegiatan)} milik
+	 * {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}. Khusus calon mahasiswa, bila
+	 * pencarian ber-semester gagal dan semester bernilai satu atau kurang, dicoba sekali lagi
+	 * tanpa semester &mdash; menampung data pendaftaran yang semesternya belum pasti.</p>
+	 *
+	 * <p>Kegiatan baru diberi {@code validated = 1} dan {@code validator} berupa nama kanal
+	 * pembayaran, lalu langsung disimpan. Kegiatan yang sudah ada hanya di-{@code refresh}
+	 * sehingga nilainya tidak ditimpa.</p>
+	 *
+	 * @param faspayRequest permintaan Faspay yang memuat mahasiswa, semester, tahun akademik,
+	 *                      jenis kegiatan, dan jadwal pembayaran
+	 * @param session       session Hibernate aktif milik pemanggil; transaksi dibuka dan
+	 *                      di-<i>commit</i> di dalam method ini
+	 * @return kegiatan yang ditemukan atau yang baru dibuat
+	 */
 	public static Kegiatan createKegiatan(FaspayRequest faspayRequest, Session session) {
 		Kegiatan kegiatan = null;
 		Double nilaiBiayaHarusDiBayars = faspayRequest.getNilaiBiayaHarusDiBayars();
@@ -168,6 +253,26 @@ public class FasPayResponse extends HttpServlet {
 	}
 
 
+	/**
+	 * Menguji apakah sebuah {@link FaspayRequest} sudah pernah diproses, sebagai penjaga
+	 * idempotensi terhadap notifikasi ganda dari Faspay.
+	 *
+	 * <p>Penilaian dilakukan atas koleksi {@link KegiatanTemporary} milik permintaan: dianggap
+	 * sudah diproses hanya bila koleksi itu <b>tidak kosong</b> dan <b>seluruh</b> anggotanya
+	 * sudah tertaut ke {@link Kegiatan} yang ber-id. Satu anggota yang belum tertaut membuat
+	 * seluruh permintaan dianggap belum selesai sehingga pemrosesan diulang.</p>
+	 *
+	 * <p><b>Perhatikan:</b> permintaan yang sama sekali tidak memakai keranjang
+	 * ({@code kegiatanTemporarys} kosong) selalu dinilai {@code false}. Untuk jalur itu
+	 * idempotensi ditegakkan di tempat lain, yaitu lewat kolom {@code ref} pada
+	 * {@link CicilanPembayaran}.</p>
+	 *
+	 * <p>Bersifat <i>fail-open</i>: kegagalan membaca koleksi dicatat lalu dijawab {@code false},
+	 * sehingga pemrosesan tetap dicoba.</p>
+	 *
+	 * @param faspayRequest permintaan yang diperiksa; {@code null} dijawab {@code false}
+	 * @return {@code true} bila seluruh kegiatan sementara sudah tertaut ke kegiatan nyata
+	 */
 	private static boolean isRequestSudahDiproses(FaspayRequest faspayRequest) {
 		if (faspayRequest == null) {
 			return false;
@@ -192,6 +297,43 @@ public class FasPayResponse extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * Menindaklanjuti notifikasi pembayaran Faspay yang berhasil: mengubah tagihan menjadi
+	 * pembayaran nyata.
+	 *
+	 * <p>Seluruh pekerjaan hanya dijalankan bila {@code kodeStatus} pada respons bernilai
+	 * {@code "2"} (lunas). Bila {@code faspayRequest} tidak diberikan, permintaan dicari lebih
+	 * dahulu berdasarkan {@code trxId} dan {@code billNo}. {@link #isRequestSudahDiproses}
+	 * dipanggil sebagai penjaga agar notifikasi berulang tidak menggandakan pembayaran.</p>
+	 *
+	 * <h4>Dua bentuk tagihan</h4>
+	 * <ul>
+	 *   <li><b>Keranjang</b> ({@code kegiatanTemporarys} tidak kosong) &mdash; tiap
+	 *       {@link KegiatanTemporary} diproses pada session tersendiri: {@link Kegiatan} nyata
+	 *       dicari atau dibuat, seluruh {@link CicilanPembayaran} yang menunjuk kegiatan
+	 *       sementara dialihkan ke kegiatan nyata, lalu kegiatan sementara ditandai sudah
+	 *       tertaut. Total dan tunggakan dihitung ulang dari jumlah nilai cicilan.</li>
+	 *   <li><b>Non-keranjang</b> &mdash; {@link #createKegiatan} dipanggil, lalu tiap
+	 *       {@link FaspayRequestDetail} yang belum bercicilan diubah menjadi
+	 *       {@link CicilanPembayaran}. Idempotensi dijaga lewat kolom {@code ref} berpola
+	 *       {@code faspayRequestDetail-<id>}: baris yang sudah ada dimutakhirkan, bukan
+	 *       diduplikasi. Setelahnya tunggakan diperbarui dan bukti pembayaran dicetak.</li>
+	 * </ul>
+	 *
+	 * <p>Bila nominal lebih dari 0,1 sebuah {@link LogPembayaran} dibuat atau dimutakhirkan,
+	 * memuat biaya administrasi dari konfigurasi {@code faspay_biaya_administrasi}.</p>
+	 *
+	 * <p><b>Keamanan:</b> method ini mempercayai penuh {@code kodeStatus} pada
+	 * {@link FaspayResponse} yang dibentuk dari pesan masuk tanpa pemeriksaan tanda tangan;
+	 * lihat peringatan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Penyimpanan dilakukan dalam banyak transaksi kecil yang di-<i>commit</i> berurutan,
+	 * sehingga kegagalan di tengah dapat meninggalkan keadaan setengah jadi.</p>
+	 *
+	 * @param faspayRequest  permintaan asal; boleh {@code null} sehingga dicari sendiri
+	 * @param faspayResponse respons Faspay yang memuat kode status pembayaran
+	 * @param billNo         nomor tagihan, dipakai bila permintaan harus dicari sendiri
+	 */
 	@SuppressWarnings("unchecked")
 	public static void prosesResponse(FaspayRequest faspayRequest, FaspayResponse faspayResponse, String billNo) {
 		Session session = null;
@@ -460,6 +602,22 @@ public class FasPayResponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mencatat satu pesan notifikasi Faspay sebagai baris {@link FaspayResponse}.
+	 *
+	 * <p>Baris yang sudah ada dicari berdasarkan {@code trxId} yang sama dan {@code keterangan}
+	 * yang memuat {@code bill_no}; bila tidak ada, baris baru dibuat. Isi pesan disimpan apa
+	 * adanya pada kolom {@code keterangan}, dan status awal selalu
+	 * {@link FaspayResponse#SEDANG_DIPROSES} &mdash; kode status sebenarnya baru diisi
+	 * pemanggil di {@link #process}.</p>
+	 *
+	 * <p>Session Hibernate dibuka sendiri dan ditutup di blok {@code finally}; objek yang
+	 * dikembalikan karena itu bersifat <i>detached</i>.</p>
+	 *
+	 * @param faspay pesan notifikasi yang sudah diubah dari XML menjadi JSON
+	 * @return baris {@link FaspayResponse} yang tersimpan
+	 * @throws Exception bila penyimpanan gagal
+	 */
 	public static FaspayResponse prosesTransaksi(JSONObject faspay) throws Exception {
 		String trx_id = faspay.isNull("trx_id") ? "" : ais.common.CommonJSONUtil.ambilLong(faspay,"trx_id") + "";
 		String bill_no = faspay.isNull("bill_no") ? "" : faspay.getString("bill_no") + "";
@@ -492,6 +650,45 @@ public class FasPayResponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menerbitkan tagihan baru ke Faspay dan mengembalikan URL pembayarannya.
+	 *
+	 * <p>Jalur ini dipakai aplikasi seluler: permintaan membawa parameter {@code mahasiswa},
+	 * {@code jenisKegiatan}, {@code semester}, {@code tahunAkademik}, serta pilihan
+	 * {@code payment_channel} (bawaan {@code "402"}) dan {@code payment_channel_name} (bawaan
+	 * {@code "Permata"}).</p>
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>Jadwal pembayaran dicari tanpa dibatasi waktu; bila tidak ada, balasan berupa teks
+	 *       {@code "Jadwal pembayaran tidak ada"}.</li>
+	 *   <li>Rincian tagihan dibentuk {@link FaspayCommon#populateFaspayRequestDetail}.</li>
+	 *   <li>Kredensial merchant dibaca dari konfigurasi {@code faspay_merchant_id},
+	 *       {@code faspay_merchant_name}, {@code faspay_user_id}, dan {@code faspay_password}
+	 *       &mdash; semuanya tanpa nilai default rahasia sejak perbaikan 2026-09-01.</li>
+	 *   <li>Nomor tagihan dibuat {@code Common.getGeneratedBarCode()}, lalu tanda tangan
+	 *       dihitung sebagai {@code SHA1(MD5(UserID + Password + bill_no))}.</li>
+	 *   <li>XML {@code postData} disusun berisi identitas penagih, alamat tagih dan kirim, tiap
+	 *       item beserta nominalnya (dalam satuan sen: nilai rupiah disambung {@code "00"}),
+	 *       serta tanda tangan tadi. Tanggal kedaluwarsa diambil 12 jam ke depan.</li>
+	 *   <li>{@link FaspayCommon#sendRequest} mengirimkannya; bila Faspay mengembalikan URL,
+	 *       balasan berupa JSON berisi {@code trxId}, {@code nominal}, dan {@code url}.</li>
+	 * </ol>
+	 *
+	 * <p>Tanda karakter {@code \&} pada {@code postData} diganti kata {@code "dan"} agar XML
+	 * tetap sah.</p>
+	 *
+	 * <p><b>Keamanan:</b> inilah satu-satunya tempat tanda tangan Faspay dipakai, dan dipakai
+	 * untuk <b>membuat</b> pesan keluar &mdash; bukan memeriksa pesan masuk. Parameter
+	 * {@code mahasiswa} berupa <i>primary key</i> mentah yang dipakai tanpa pemeriksaan bahwa
+	 * pemanggil berhak atas data mahasiswa tersebut.</p>
+	 *
+	 * <p>Kegagalan apa pun dijawab teks biasa yang memuat pesan galat.</p>
+	 *
+	 * @param request  permintaan yang memuat parameter penerbitan tagihan
+	 * @param response balasan yang akan diisi JSON URL pembayaran atau teks galat
+	 * @throws Exception bila balasan gagal ditulis
+	 */
 	@SuppressWarnings("unchecked")
 	private void processRequestFaspay(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		String payment_channel = request.getParameter("payment_channel") == null ? "402"
@@ -696,6 +893,38 @@ public class FasPayResponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Memilah bentuk permintaan yang masuk lalu menjalankan salah satu dari tiga jalur Faspay.
+	 *
+	 * <p>Pemilahan bertumpu pada ada tidaknya <i>query string</i>:</p>
+	 * <ul>
+	 *   <li>ada <i>query string</i> dan parameter {@code mahasiswa} &rarr;
+	 *       {@link #processRequestFaspay} (penerbitan tagihan);</li>
+	 *   <li>ada <i>query string</i> tanpa {@code mahasiswa} &rarr; callback peramban:
+	 *       {@code trx_id}/{@code bill_no} dicatat sebagai {@link FaspayResponse} (dibuat bila
+	 *       belum ada), {@link #prosesResponse} dijalankan, lalu halaman HTML berisi kode
+	 *       pembayaran dikembalikan;</li>
+	 *   <li>tanpa <i>query string</i> &rarr; notifikasi pembayaran: XML pada badan permintaan
+	 *       diubah menjadi JSON, {@link FaspayRequest} dicocokkan lewat {@code trx_id} dan
+	 *       {@code bill_no}, dan bila {@code payment_status_code} bernilai {@code "2"} status
+	 *       permintaan diperbarui lalu {@link #prosesResponse} dijalankan. Balasan berupa XML
+	 *       {@code Payment Notification} berkode {@code 00} bila cocok, {@code 01} bila tidak.</li>
+	 * </ul>
+	 *
+	 * <p>Jalur notifikasi hanya dijalankan bila {@code bankHost} hasil pemetaan IP tidak
+	 * {@code null}; jalur callback peramban tidak diberi penjagaan itu. Tidak ada pemeriksaan
+	 * tanda tangan di jalur mana pun &mdash; lihat peringatan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Blok {@code finally} selalu menulis satu {@link LogHostToHost}. Alamat IP yang dicatat
+	 * diambil berurutan dari header {@code Cf-Connecting-Ip}, {@code CF-Connecting-IP},
+	 * {@code X-Forwarded-For}, {@code X-Real-IP}, baru {@code getRemoteAddr()} &mdash; sehingga
+	 * nilai yang tercatat berasal dari header yang dapat dipalsukan pemanggil, dan hanya layak
+	 * dipercaya bila di depan aplikasi memang ada proksi yang menimpanya.</p>
+	 *
+	 * @param request  permintaan masuk dari Faspay atau dari peramban pengguna
+	 * @param response balasan yang akan diisi JSON, HTML, atau XML sesuai jalur
+	 * @throws Exception bila pembacaan permintaan atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), "Faspay");

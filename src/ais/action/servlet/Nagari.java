@@ -46,14 +46,66 @@ import ais.database.model.sekolah.Tagihan;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet gateway <i>host-to-host</i> (H2H) Bank Nagari untuk skema Virtual Account: melayani
+ * <b>inquiry</b> (tanya tagihan), <b>payment</b> (pelunasan), dan <b>reversal</b> (pembatalan
+ * pembayaran) atas baris {@link VirtualAccountBank}.
+ *
+ * <h4>Asal-usul: salinan dari {@link BMS}</h4>
+ * <p>Berkas ini adalah <b>salinan struktural {@link BMS}</b> yang disesuaikan seperlunya untuk
+ * Bank Nagari. Perbedaan yang benar-benar disengaja hanyalah penanganan waktu transaksi: bank
+ * mengirim {@code trxDateTime} <b>tanpa komponen tahun</b>, sehingga tahun berjalan
+ * ({@link java.util.Calendar#YEAR}) ditambahkan di depan sebelum diurai — lihat
+ * {@link #doProcess}. Selebihnya alur, nama field JSON ({@code nim}, {@code paymentAmount},
+ * {@code trxDateTime}), dan kode galat identik dengan {@link BMS}.</p>
+ *
+ * <p><b>Beberapa penanda milik BMS ikut tersalin dan belum diganti</b>: {@link #process}
+ * menetapkan label bank {@code "BMS"}, deteksi reversal mencocokkan URI berakhiran
+ * {@code "BMSReversal"}, dan simulasi timeout memakai kunci konfigurasi {@code bms_va_sleep}.
+ * Karena label itulah yang disimpan sebagai {@code validator} pada {@link Kegiatan} dan
+ * {@link CicilanPembayaran}, pembayaran lewat kanal ini tercatat atas nama BMS. Hal ini
+ * didokumentasikan apa adanya; perbaikannya berada di luar cakupan berkas ini.</p>
+ *
+ * <h4>Status pemasangan</h4>
+ * <p>Berbeda dari {@link BMS} dan {@link Otto}, kelas ini <b>tidak terdaftar di
+ * {@code web.xml}</b> — tidak ada elemen {@code servlet} maupun {@code servlet-mapping} yang
+ * menunjuk kepadanya. Dengan konfigurasi saat ini kelas ini tidak dapat dicapai lewat HTTP dan
+ * efektif menjadi kode cadangan yang tidak aktif.</p>
+ *
+ * <h4>Model autentikasi (tidak ada tanda tangan digital)</h4>
+ * <p>Sama seperti {@link BMS} dan {@link Otto}, kanal ini <b>tidak memverifikasi tanda tangan,
+ * HMAC, token, maupun kata sandi</b>. Satu-satunya pengenal pemanggil adalah pencocokan alamat IP
+ * lewat {@link PembayaranUtil#getBankHost(String, String)}, dan hasilnya <b>tidak dipakai sebagai
+ * gerbang</b>: {@code bankHost} bernilai {@code null} untuk IP tak dikenal, namun pemrosesan
+ * tetap berlanjut. Ini berbeda dari {@link Bsiresponse} yang payload-nya harus dibuka dengan
+ * kunci rahasia bersama sehingga verifikasi kepemilikan kunci terjadi pada jalur transaksi.
+ * IP dibaca dari {@link HttpServletRequest#getRemoteAddr()}, bukan dari header
+ * {@code X-Forwarded-For} yang dapat dipalsukan klien.</p>
+ *
+ * @see BMS
+ * @see Otto
+ * @see VirtualAccountBank
  */
 public class Nagari extends HttpServlet {
+	/** Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai untuk logika apa pun. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; dipakai untuk memetakan alamat IP pemanggil menjadi
+	 * {@link BankHost} dan untuk menghitung total serta denda dari cicilan.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/**
+	 * Pemformat tanggal {@code yyyyMMddHHmmss} untuk field {@code trxDateTime} dari bank.
+	 *
+	 * <p>Bank Nagari mengirim waktu <b>tanpa tahun</b>, sehingga {@link #doProcess} menyisipkan
+	 * tahun berjalan di depan nilai tersebut sebelum menguraikannya dengan pola ini.</p>
+	 *
+	 * <p>Dibungkus {@link ThreadLocal} karena {@link SimpleDateFormat} tidak aman dipakai
+	 * bersama antar-thread, sedangkan servlet dilayani banyak thread sekaligus.</p>
+	 */
 	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		/** Membuat pemformat baru untuk setiap thread yang pertama kali memakainya. */
 		@Override
 		protected SimpleDateFormat initialValue() {
 			return new SimpleDateFormat("yyyyMMddHHmmss");
@@ -61,6 +113,9 @@ public class Nagari extends HttpServlet {
 	};
 
 	/**
+	 * Konstruktor bawaan yang dipanggil kontainer servlet; tidak ada inisialisasi khusus karena
+	 * seluruh keadaan bersifat statis.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Nagari() {
@@ -68,6 +123,17 @@ public class Nagari extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}; perlakuannya sama
+	 * dengan {@link #doPost}.
+	 *
+	 * <p>Exception apa pun ditelan di sini dan hanya diteruskan ke
+	 * {@code Common.tampilErrorJikaAdmin}, sehingga kegagalan tak terduga tidak menjadi HTTP 500
+	 * melainkan balasan kosong bertatus 200.</p>
+	 *
+	 * @param request  permintaan dari sisi bank
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws ServletException diwariskan dari kontrak {@link HttpServlet}; tidak dilempar sendiri
+	 * @throws IOException      bila penulisan balasan gagal
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -81,6 +147,13 @@ public class Nagari extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP POST — jalur yang dipakai bank — dengan meneruskannya ke
+	 * {@link #process}.
+	 *
+	 * @param request  permintaan dari sisi bank, badan JSON-nya dibaca di {@link #process}
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws ServletException diwariskan dari kontrak {@link HttpServlet}; tidak dilempar sendiri
+	 * @throws IOException      bila penulisan balasan gagal
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -93,6 +166,73 @@ public class Nagari extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Inti gateway: mencari VA, menyusun balasan JSON, dan — sesuai mode — mencatat pelunasan
+	 * atau membatalkannya.
+	 *
+	 * <h4>Tiga mode</h4>
+	 * <ul>
+	 *   <li><b>inquiry</b> ({@code inquery=true}) — hanya membaca tagihan dan mengisi
+	 *       {@code billDetails}; tidak ada penyimpanan;</li>
+	 *   <li><b>payment</b> — mencatat {@link Kegiatan} beserta {@link CicilanPembayaran} lalu
+	 *       memanggil {@link VirtualAccountBank#updateVa};</li>
+	 *   <li><b>reversal</b> ({@code reversal=true}) — membatalkan pembayaran dengan memutus
+	 *       kaitan VA ke kegiatannya ({@code setKegiatan(null)}) sehingga VA kembali terbuka.</li>
+	 * </ul>
+	 *
+	 * <h4>Urutan pemeriksaan dan kode galat</h4>
+	 * <ol>
+	 *   <li>VA tidak ditemukan &rarr; {@code errorCode=01} "Nomor VA salah";</li>
+	 *   <li>VA kedaluwarsa &rarr; {@code errorCode=02} "Tagihan tidak tersedia" (dilewati pada
+	 *       mode reversal, karena pembatalan justru wajar terjadi setelah masa berlaku habis);</li>
+	 *   <li>reversal atas VA yang belum pernah dibayar &rarr; {@code errorCode=05}
+	 *       "Reversal gagal";</li>
+	 *   <li>{@code VirtualAccountBank.isSudahTerbayarUntukPayment} &rarr; {@code errorCode=03}
+	 *       "Tagihan sudah terbayar", pencegah pembayaran ganda;</li>
+	 *   <li><b>pencocokan nominal</b> — pada mode pembayaran {@code nominalP} harus sama persis
+	 *       (sebagai {@code int}) dengan {@code getTotal() + getBiayaAdmin()}; bila tidak,
+	 *       {@code errorCode=04} "Nominal Tagihan tidak sesuai";</li>
+	 *   <li>kegagalan tak terduga &rarr; {@code errorCode=91} "Link Down", atau
+	 *       {@code errorCode=05} bila sedang reversal.</li>
+	 * </ol>
+	 *
+	 * <h4>Penanganan waktu transaksi khas Bank Nagari</h4>
+	 * <p>Nilai {@code trxDateTime} dari bank tidak memuat tahun, sehingga sebelum diurai ia
+	 * digabung sebagai {@code Calendar.getInstance().get(Calendar.YEAR) + tanggalP}. Bila
+	 * penguraian tetap gagal, dipakai waktu server saat ini. Konsekuensinya, transaksi yang
+	 * melewati pergantian tahun dapat memperoleh tahun yang keliru — sifat bawaan format yang
+	 * dikirim bank, dicatat di sini sebagai informasi.</p>
+	 *
+	 * <h4>Dua cabang pembayar</h4>
+	 * <p>VA milik siswa/calon siswa diproses {@link VirtualAccountBank#bayarSiswa}; VA milik
+	 * mahasiswa/calon mahasiswa diproses di tempat dengan membuat atau memperbarui
+	 * {@link Kegiatan} dan baris {@link CicilanPembayaran} untuk tiap komponen pada kolom
+	 * {@code cicilan}, yang dikenali dari awalannya ({@code "Bulanan-"}, {@code "Item-"},
+	 * {@code "Keranjang-"}, atau angka murni).</p>
+	 *
+	 * <p>Blok {@code finally} <b>selalu</b> memanggil
+	 * {@code PembayaranGatewayHelper.catatLogHostToHost} tanpa syarat {@code bankHost}, sehingga
+	 * permintaan dari IP tak dikenal pun tetap meninggalkan jejak audit. Ini keputusan arsitektur
+	 * yang disengaja, bukan kelalaian pemeriksaan.</p>
+	 *
+	 * @param nominalP nominal setoran dari bank; diabaikan saat inquiry
+	 * @param tanggalP waktu transaksi tanpa tahun; tahun berjalan disisipkan sebelum diurai
+	 * @param va       nomor Virtual Account (field {@code nim} pada payload)
+	 * @param bank     label bank yang disimpan sebagai {@code validator}; saat ini bernilai
+	 *                 {@code "BMS"} warisan salinan {@link BMS}
+	 * @param bankHost host bank hasil pencocokan IP; boleh {@code null} dan tidak menjadi gerbang
+	 * @param request  permintaan asli, dipakai untuk pencatatan log H2H
+	 * @param data     badan permintaan mentah; juga menjadi kerangka objek balasan
+	 * @param chekLagi penanda dari pemanggil; pada alur servlet selalu {@code true}
+	 * @param inquery  {@code true} untuk mode tanya tagihan yang bersifat baca-saja
+	 * @param reversal {@code true} untuk pembatalan pembayaran
+	 * @param chek     mode pemeriksaan internal; melonggarkan pemeriksaan kedaluwarsa dan
+	 *                 "sudah terbayar"
+	 * @return objek JSON balasan berisi {@code errorCode}, {@code statusDescription}, identitas
+	 *         pembayar, dan — pada inquiry — {@code billDetails}
+	 * @throws Exception bila penyusunan JSON gagal; kegagalan basis data ditangkap di dalam dan
+	 *                   diubah menjadi {@code errorCode=91}
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi, boolean inquery, boolean reversal, boolean chek)
@@ -790,6 +930,43 @@ public class Nagari extends HttpServlet {
 		return response;
 	}
 
+	/**
+	 * Mengurai payload permintaan bank menjadi parameter terpisah, memanggil {@link #doProcess},
+	 * dan menentukan mode inquiry maupun reversal.
+	 *
+	 * <p>Nomor VA diambil dari field {@code nim} dan nominal dari {@code paymentAmount}, masing-
+	 * masing dengan cadangan berupa parameter query bernama sama. <b>Ketiadaan</b>
+	 * {@code paymentAmount} itu sendiri yang menandai permintaan sebagai inquiry — bank
+	 * mengirimkannya hanya saat benar-benar menyetor. Mode reversal ditentukan dari URI yang
+	 * berakhiran {@code "BMSReversal"} (penanda warisan salinan {@link BMS}).</p>
+	 *
+	 * <p>Bila {@link #doProcess} melempar exception, balasan diganti {@link #errorDb} sehingga
+	 * bank menerima {@code errorCode=91} "Link Down" dan tidak menganggap tagihan lunas.</p>
+	 *
+	 * <p><b>Perbedaan dengan {@link BMS#doProses}.</b> Dua pengaman yang sudah ada di {@link BMS}
+	 * belum tersalin ke sini:</p>
+	 * <ul>
+	 *   <li>tidak ada pemeriksaan bentuk payload di awal ({@link BMS} menolak badan kosong atau
+	 *       yang tidak diawali <code>{</code> dengan {@code errorCode=30}), dan {@code req} yang
+	 *       bernilai {@code null} langsung dipakai memanggil {@code req.isNull(...)};</li>
+	 *   <li>simulasi timeout di bawah masih dijalankan <b>setelah</b> {@link #doProcess} selesai
+	 *       dan pembayaran tercatat, serta cukup diaktifkan lewat konfigurasi
+	 *       {@code bms_va_sleep} saja — sedangkan {@link BMS} kini mengembalikan balasan timeout
+	 *       <b>sebelum</b> pembayaran dicatat dan mensyaratkan JVM flag
+	 *       {@code ais.bms.allowTimeoutSimulation}. Perlu diperhatikan bahwa kunci konfigurasi
+	 *       {@code bms_va_sleep} dipakai bersama dengan {@link BMS}.</li>
+	 * </ul>
+	 * <p>Kedua hal itu dicatat apa adanya; perbaikannya di luar cakupan berkas ini.</p>
+	 *
+	 * @param data     badan permintaan mentah
+	 * @param request  permintaan asli, sumber cadangan parameter dan penentu mode reversal
+	 * @param bankHost host bank hasil pencocokan IP; boleh {@code null}
+	 * @param bank     label bank yang akan tercatat sebagai {@code validator}
+	 * @param chek     mode pemeriksaan internal, diteruskan ke {@link #doProcess}
+	 * @return teks JSON balasan
+	 * @throws Exception bila payload bukan JSON yang sah, atau {@link Thread#sleep} pada simulasi
+	 *                   timeout terinterupsi
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);
@@ -834,6 +1011,27 @@ public class Nagari extends HttpServlet {
 		return body;
 	}
 
+	/**
+	 * Membaca badan permintaan, menetapkan {@link BankHost} dari alamat IP pemanggil, memanggil
+	 * {@link #doProses}, lalu menuliskan hasilnya sebagai JSON.
+	 *
+	 * <p>Badan permintaan dibaca baris demi baris lalu digabung <b>tanpa pemisah</b>, sehingga
+	 * JSON yang terpecah beberapa baris tetap menjadi satu dokumen utuh.</p>
+	 *
+	 * <p>Identifikasi pemanggil memakai {@link PembayaranUtil#getBankHost(String, String)} dengan
+	 * {@link HttpServletRequest#getRemoteAddr()} — alamat TCP sebenarnya, bukan header yang dapat
+	 * dipalsukan klien. Hasilnya hanya dilekatkan pada log dan pencarian VA; ia <b>tidak</b>
+	 * dipakai untuk menolak permintaan.</p>
+	 *
+	 * <p>Label bank yang ditetapkan di sini adalah {@code "BMS"} — penanda warisan salinan
+	 * {@link BMS} yang belum diganti menjadi Nagari, padahal nilainya tersimpan sebagai
+	 * {@code validator} pada Kegiatan dan CicilanPembayaran (lihat javadoc
+	 * {@link Nagari kelas ini}).</p>
+	 *
+	 * @param request  permintaan dari sisi bank
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws Exception bila pembacaan badan permintaan atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
@@ -864,6 +1062,23 @@ public class Nagari extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyusun balasan bertanda <i>timeout</i> ({@code errorCode=68}, "Connection Timeout") untuk
+	 * keperluan simulasi pengujian.
+	 *
+	 * <p>Balasan dibangun dari payload permintaan itu sendiri, sehingga seluruh field yang
+	 * dikirim bank tetap ada dan hanya status yang diganti.</p>
+	 *
+	 * <p><b>Peringatan.</b> Pada berkas ini pemanggilnya di {@link #doProses} berjalan
+	 * <b>setelah</b> {@link #doProcess} selesai mencatat pembayaran, sehingga balasan timeout ini
+	 * dapat terkirim untuk transaksi yang sebenarnya sudah tersimpan lunas. {@link BMS} sudah
+	 * mengubah urutan ini; lihat javadoc {@link #doProses}.</p>
+	 *
+	 * @param inquery penanda mode inquiry; saat ini tidak memengaruhi hasil
+	 * @param data    badan permintaan mentah yang dipakai sebagai kerangka balasan
+	 * @return teks JSON balasan timeout
+	 * @throws Exception bila {@code data} bukan JSON yang sah
+	 */
 	private static String timeoutDb(boolean inquery, String data) throws Exception {
 
 		JSONObject jsonObjectResponse = new JSONObject(data);
@@ -872,6 +1087,19 @@ public class Nagari extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 
+	/**
+	 * Menyusun balasan bertanda gagal ({@code errorCode=91}, "Link Down"), dipakai saat
+	 * {@link #doProcess} melempar exception.
+	 *
+	 * <p>Seperti {@link #timeoutDb}, balasan dibangun dari payload permintaan sehingga bentuknya
+	 * tetap dikenali pengurai di sisi bank. Kode 91 menandakan gangguan sementara, sehingga bank
+	 * memperlakukan tagihan sebagai <b>belum</b> lunas dan dapat mengulang permintaan.</p>
+	 *
+	 * @param inquery penanda mode inquiry; saat ini tidak memengaruhi hasil
+	 * @param data    badan permintaan mentah yang dipakai sebagai kerangka balasan
+	 * @return teks JSON balasan gagal
+	 * @throws Exception bila {@code data} bukan JSON yang sah
+	 */
 	private static String errorDb(boolean inquery, String data) throws Exception {
 
 		JSONObject jsonObjectResponse = new JSONObject(data);
