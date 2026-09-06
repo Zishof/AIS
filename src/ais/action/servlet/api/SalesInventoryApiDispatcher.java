@@ -103,6 +103,10 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryStokHelper.inventoryBalance(ctx, payload, hasil);
 		} else if ("si_inventory_ledger".equals(action)) {
 			SalesInventoryStokHelper.inventoryLedger(ctx, payload, hasil);
+		} else if ("si_stock_count_list".equals(action)) {
+			SalesInventoryOpnameHelper.stockCountList(ctx, payload, hasil);
+		} else if ("si_stock_count_detail".equals(action)) {
+			SalesInventoryOpnameHelper.stockCountDetail(ctx, payload, hasil);
 		} else if ("si_supplier_price_list".equals(action)) {
 			SalesInventoryHargaHelper.supplierPriceList(ctx, payload, hasil);
 		} else if ("si_supplier_price_save".equals(action)) {

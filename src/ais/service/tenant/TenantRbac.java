@@ -215,7 +215,14 @@ public final class TenantRbac {
 		if (a.startsWith("purchase")) {
 			return AREA_BELI;
 		}
-		if (a.startsWith("inventory") || a.startsWith("stok") || a.startsWith("opname")) {
+		// Kedua ejaan disebut, dan itu perlu: gerbang menu di {@code PosApi} memakai prefiks
+		// INGGRIS ("si_stock_", "si_stock_count_"), sedangkan pemeta area ini semula hanya
+		// mengenal ejaan Indonesia "stok". Akibatnya SETIAP aksi si_stock_* dijawab
+		// TENANT_ACCESS_DENIED pada usaha ber-tenant -- bukan karena perannya kurang, melainkan
+		// karena area()-nya null. Terpapar saat si_stock_count_list (layar 09-10) menjadi aksi
+		// si_stock_* pertama yang benar-benar dipanggil.
+		if (a.startsWith("inventory") || a.startsWith("stok") || a.startsWith("stock")
+				|| a.startsWith("opname")) {
 			return AREA_STOK;
 		}
 		if (a.startsWith("produk") || a.startsWith("product") || a.startsWith("item")) {
