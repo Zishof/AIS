@@ -52,6 +52,7 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.SettingBiaya;
 import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.StatusMahasiswa;
+import ais.database.model.Tbmuser;
 
 /**
  * Helper statis (tanpa state instance) yang menghitung <b>tagihan/billing pembayaran mahasiswa
@@ -122,9 +123,13 @@ import ais.database.model.StatusMahasiswa;
  * mempercayai langsung nilai kembalian {@code ambilNominalModifikasi} (yang sudah menormalkan
  * "tidak ada modifikasi" menjadi nominal dasar itu sendiri) tanpa ambang magnitudo; lihat javadoc
  * method tersebut untuk detail konsekuensi pada gerbang tampil.</li>
- * <li><b>{@link #fallbackTagihanDariCicilan} menulis ke data master bersama dari jalur
- * tampilan</b>, tanpa gerbang otorisasi dan tanpa {@code posting_history}, dan pada mode angsuran
- * memakai dasar perhitungan yang berbeda dari mode non-angsuran.</li>
+ * <li><b>[DIPERBAIKI] {@link #fallbackTagihanDariCicilan} menulis ke data master bersama dari
+ * jalur tampilan.</b> Perbaikan otomatis kini digerbangi oleh keberadaan {@link Tbmuser} pada
+ * konteks eksekusi (tidak ada aktor terautentikasi -> write dilewati, hanya baca) dan setiap
+ * perubahan {@code DetailBiaya.nilaiBiaya}/{@code PengaturanPembayaranBulanan.nominal} dicatat ke
+ * {@code ErrorAuditUtil} (nilai sebelum/sesudah, id baris, pemicu). Dasar perhitungan
+ * {@code nominal} pada mode angsuran juga sudah disamakan dengan mode non-angsuran — lihat javadoc
+ * method tersebut untuk detail.</li>
  * </ul>
  *
  * <p><b>Efek samping:</b> sebagian besar method di sini adalah pembacaan (query Hibernate lewat
@@ -2476,36 +2481,40 @@ public class PembayaranUtilHelper {
 	 * transaksi perbaikan di-rollback dan dilaporkan via {@code Common.tampilErrorJikaAdmin}, tidak
 	 * menggagalkan pengisian {@code dataTagihanData} yang sudah terjadi sebelumnya.
 	 *
-	 * <p><b>PERINGATAN INTEGRITAS 1 — jalur tampilan ini menulis ke DATA MASTER BERSAMA.</b>
-	 * {@link DetailBiaya} dan {@link PengaturanPembayaranBulanan} bukan baris milik satu
-	 * mahasiswa: keduanya adalah baris <i>template</i> milik suatu {@link SettingBiaya} yang
+	 * <p><b>[DIPERBAIKI] PERINGATAN INTEGRITAS 1 — jalur tampilan ini menulis ke DATA MASTER
+	 * BERSAMA.</b> {@link DetailBiaya} dan {@link PengaturanPembayaranBulanan} bukan baris milik
+	 * satu mahasiswa: keduanya adalah baris <i>template</i> milik suatu {@link SettingBiaya} yang
 	 * dicocokkan ke mahasiswa lewat profil (angkatan, jenjang, prodi, program, semester, status,
 	 * dan seterusnya). Method ini dipanggil dari alur <i>menampilkan layar</i>, namun melakukan
-	 * {@code session.saveOrUpdate(...)} dan {@code commit()} pada kedua entity tersebut. Artinya
+	 * {@code session.saveOrUpdate(...)} dan {@code commit()} pada kedua entity tersebut — sehingga
 	 * membuka layar Daftar Ulang untuk <b>satu</b> mahasiswa dapat mengubah nominal template yang
-	 * berlaku bagi <b>semua</b> mahasiswa berprofil sama, dan nilai penggantinya diturunkan dari
-	 * riwayat pembayaran mahasiswa yang kebetulan sedang dibuka itu. Tidak ada pemeriksaan
-	 * otorisasi, tidak ada jejak {@code posting_history}, dan tidak ada pencatatan nilai
-	 * sebelum/sesudah — jejak yang tersisa hanya revisi Envers pada tabel masternya. Perbaikan
-	 * memang dibatasi pada baris yang nominalnya masih {@code 0}/{@code null} sehingga tidak
-	 * menimpa nominal yang sudah benar, tetapi sifat "baca yang diam-diam menulis" ini wajib
-	 * diketahui sebelum method ini dipanggil dari konteks baru.</p>
+	 * berlaku bagi <b>semua</b> mahasiswa berprofil sama. Sudah ditambal dengan gerbang otorisasi:
+	 * kedua blok perbaikan (mode angsuran maupun non-angsuran) sekarang mensyaratkan
+	 * {@link Tbmuser} terautentikasi di konteks eksekusi ({@code Common.getCurrentUser()}) sebelum
+	 * melakukan {@code saveOrUpdate}/{@code commit} apa pun — bila tidak ada, method tetap mengisi
+	 * {@code dataTagihanData} (baca) tapi TIDAK menulis apa pun ke {@link DetailBiaya}/
+	 * {@link PengaturanPembayaranBulanan}. Setiap penulisan yang benar-benar terjadi kini juga
+	 * dicatat ke {@code ErrorAuditUtil} (id baris, nilai sebelum/sesudah, id+userId pemicu,
+	 * identitas student) sebagai jejak audit — belum berupa {@code posting_history} formal, tapi
+	 * cukup untuk menelusuri "siapa mengubah apa" pasca kejadian. Perbaikan tetap dibatasi pada
+	 * baris yang nominalnya masih {@code 0}/{@code null} sehingga tidak menimpa nominal yang sudah
+	 * benar.</p>
 	 *
-	 * <p><b>PERINGATAN INTEGRITAS 2 — dasar perhitungan {@code nominal} bulanan berbeda antara
-	 * kedua mode.</b> Pada <i>mode non-angsuran</i>, perbaikan {@code PengaturanPembayaranBulanan.nominal}
-	 * bersarang di dalam pemeriksaan {@code (db.getNilaiBiaya() == null || db.getNilaiBiaya() < 0.01)},
-	 * sehingga {@code totalNilai} yang dipakai sebagai dasar persis sama dengan nilai yang baru
-	 * saja ditulis ke {@code nilaiBiaya} — konsisten. Pada <i>mode angsuran</i>, perulangan
-	 * {@code ppbList} berada <b>sejajar</b> dengan pemeriksaan itu, bukan di dalamnya. Akibatnya
-	 * {@code ppbFix.setNominal(totalNilai * persentase / 100.0)} tetap dijalankan walaupun
-	 * {@code db.getNilaiBiaya()} sudah berisi nilai yang sah dan berbeda dari {@code totalNilai}.
-	 * Karena {@code totalNilai} adalah jumlah {@code nilaiAsli} seluruh cicilan yang <i>sudah
-	 * dibayar</i>, bukan besaran tagihan satu semester, baris bulanan yang nominalnya {@code 0}
-	 * akan diperbaiki memakai dasar yang terlalu kecil bila mahasiswa baru membayar sebagian
-	 * angsuran — dan hasil yang terlalu kecil itu <b>disimpan permanen</b> ke template bersama.
-	 * Dasar yang benar untuk cabang ini semestinya {@code db.getNilaiBiaya()} ketika nilai
-	 * tersebut sudah sah, dan {@code totalNilai} hanya ketika {@code nilaiBiaya} memang baru
-	 * direkonstruksi.</p>
+	 * <p><b>[DIPERBAIKI] PERINGATAN INTEGRITAS 2 — dasar perhitungan {@code nominal} bulanan
+	 * sempat berbeda antara kedua mode.</b> Pada <i>mode non-angsuran</i>, perbaikan
+	 * {@code PengaturanPembayaranBulanan.nominal} bersarang di dalam pemeriksaan
+	 * {@code (db.getNilaiBiaya() == null || db.getNilaiBiaya() < 0.01)}, sehingga dasar yang
+	 * dipakai persis sama dengan nilai yang baru saja ditulis ke {@code nilaiBiaya} — konsisten.
+	 * Pada <i>mode angsuran</i>, perulangan {@code ppbList} SEBELUMNYA berada sejajar dengan
+	 * pemeriksaan itu, bukan di dalamnya, sehingga {@code totalNilai} (jumlah {@code nilaiAsli}
+	 * seluruh cicilan yang <i>sudah dibayar</i>, bukan besaran tagihan satu semester) tetap dipakai
+	 * sebagai dasar walaupun {@code db.getNilaiBiaya()} sudah berisi nilai yang sah dan berbeda —
+	 * baris bulanan yang nominalnya {@code 0} bisa diperbaiki memakai dasar yang terlalu kecil bila
+	 * mahasiswa baru membayar sebagian angsuran, dan hasil yang terlalu kecil itu tersimpan
+	 * permanen ke template bersama. Sudah ditambal dengan variabel {@code dasar} eksplisit: dipakai
+	 * {@code db.getNilaiBiaya()} ketika nilai tersebut sudah sah (bukan baru direkonstruksi pada
+	 * iterasi ini), dan {@code totalNilai} hanya ketika {@code nilaiBiaya} memang baru
+	 * direkonstruksi — persis menyamai bentuk mode non-angsuran.</p>
 	 *
 	 * <p><b>Catatan tentang {@code getNilaiAsli()}.</b> Penjumlahan {@code totalNilai} memakai
 	 * {@link CicilanPembayaran#getNilaiAsli()}, yang merupakan <i>getter destruktif</i>: bila
@@ -2649,36 +2658,64 @@ public class PembayaranUtilHelper {
 						sumPerDb.put(dbId, cur + cp.getNilaiAsli());
 					}
 					if (!sumPerDb.isEmpty()) {
-						Transaction txFix = null;
-						try {
-							txFix = session.beginTransaction();
-							for (Map.Entry<Long, Double> entry : sumPerDb.entrySet()) {
-								Long dbId = entry.getKey();
-								double totalNilai = entry.getValue();
-								DetailBiaya db = (DetailBiaya) session.get(DetailBiaya.class, dbId);
-								if (db != null) {
-									if (db.getNilaiBiaya() == null || db.getNilaiBiaya() < 0.01) {
-										db.setNilaiBiaya(totalNilai);
-										session.saveOrUpdate(db);
-										if (itemBiayas != null) itemBiayas.put(dbId, db);
-									}
-									List<PengaturanPembayaranBulanan> ppbList = session
-											.createCriteria(PengaturanPembayaranBulanan.class)
-											.add(Restrictions.eq("detailBiaya", db)).list();
-									for (PengaturanPembayaranBulanan ppbFix : ppbList) {
-										if ((ppbFix.getNominal() == null || ppbFix.getNominal() < 0.01)
-												&& ppbFix.getPersentase() != null && ppbFix.getPersentase() > 0) {
-											ppbFix.setNominal(totalNilai * ppbFix.getPersentase() / 100.0);
-											session.saveOrUpdate(ppbFix);
+						// GERBANG OTORISASI: jalur ini menulis ke DetailBiaya/PengaturanPembayaranBulanan
+						// (data master TEMPLATE bersama, bukan milik satu mahasiswa) dari alur tampilan.
+						// Tanpa Tbmuser terautentikasi pada konteks ini tidak ada aktor yang bisa
+						// dipertanggungjawabkan di audit trail -> perbaikan otomatis DILEWATI (baca-saja).
+						Tbmuser pemicuFix = Common.getCurrentUser();
+						if (pemicuFix == null) {
+							System.out.println(
+									"[TAGIHAN-DEBUG] fallbackTagihanDariCicilan: perbaikan nilaiBiaya/nominal (mode angsuran) DILEWATI -- tidak ada Tbmuser terautentikasi pada konteks ini (gerbang otorisasi).");
+						} else {
+							Transaction txFix = null;
+							try {
+								txFix = session.beginTransaction();
+								for (Map.Entry<Long, Double> entry : sumPerDb.entrySet()) {
+									Long dbId = entry.getKey();
+									double totalNilai = entry.getValue();
+									DetailBiaya db = (DetailBiaya) session.get(DetailBiaya.class, dbId);
+									if (db != null) {
+										// PERBAIKAN cacat integritas: dasar PPB.nominal harus sama dgn dasar
+										// mode non-angsuran -- totalNilai (jumlah nilaiAsli cicilan yg SUDAH
+										// DIBAYAR) hanya valid sbg dasar ketika nilaiBiaya baru direkonstruksi
+										// di iterasi ini; bila nilaiBiaya sudah sah, totalNilai bisa jauh
+										// lebih kecil (baru bayar sebagian angsuran) dan TIDAK boleh dipakai.
+										double dasar;
+										if (db.getNilaiBiaya() == null || db.getNilaiBiaya() < 0.01) {
+											db.setNilaiBiaya(totalNilai);
+											session.saveOrUpdate(db);
+											if (itemBiayas != null) itemBiayas.put(dbId, db);
+											dasar = totalNilai;
+										} else {
+											dasar = db.getNilaiBiaya();
+										}
+										List<PengaturanPembayaranBulanan> ppbList = session
+												.createCriteria(PengaturanPembayaranBulanan.class)
+												.add(Restrictions.eq("detailBiaya", db)).list();
+										for (PengaturanPembayaranBulanan ppbFix : ppbList) {
+											if ((ppbFix.getNominal() == null || ppbFix.getNominal() < 0.01)
+													&& ppbFix.getPersentase() != null && ppbFix.getPersentase() > 0) {
+												double nominalSebelum = ppbFix.getNominal() == null ? 0.0 : ppbFix.getNominal();
+												double nominalSesudah = dasar * ppbFix.getPersentase() / 100.0;
+												ppbFix.setNominal(nominalSesudah);
+												session.saveOrUpdate(ppbFix);
+												ais.common.ErrorAuditUtil.record(new Exception(
+														"fallbackTagihanDariCicilan (mode angsuran) memperbaiki PengaturanPembayaranBulanan.nominal (data master bersama): ppbId="
+																+ ppbFix.getId() + " detailBiayaId=" + dbId + " nominalSebelum=" + nominalSebelum
+																+ " nominalSesudah=" + nominalSesudah + " dasar=" + dasar + " persentase=" + ppbFix.getPersentase()
+																+ " pemicuUserId=" + pemicuFix.getId() + " pemicuUserIdLogin=" + pemicuFix.getUserId()
+																+ " student=" + studentIdForLog),
+														"auto-audit(fallback-fix-ppb-nominal-angsuran) src/ais/action/master/helper/PembayaranUtilHelper.java:fallbackTagihanDariCicilan");
+											}
 										}
 									}
 								}
+								txFix.commit();
+							} catch (Exception eTx) {
+								if (txFix != null)
+									try { txFix.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:1449");}
+								Common.tampilErrorJikaAdmin(eTx);
 							}
-							txFix.commit();
-						} catch (Exception eTx) {
-							if (txFix != null)
-								try { txFix.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:1449");}
-							Common.tampilErrorJikaAdmin(eTx);
 						}
 					}
 				}
@@ -2769,34 +2806,59 @@ public class PembayaranUtilHelper {
 							sumNilaiMap.put(dbId, cur + cp.getNilaiAsli());
 						}
 					}
-					Transaction txFix = null;
-					try {
-						txFix = session.beginTransaction();
-						for (Map.Entry<Long, DetailBiaya> entry : fallbackMap.entrySet()) {
-							Long dbId = entry.getKey();
-							DetailBiaya db = entry.getValue();
-							if ((db.getNilaiBiaya() == null || db.getNilaiBiaya() < 0.01)
-									&& sumNilaiMap.containsKey(dbId)) {
-								double totalNilai = sumNilaiMap.get(dbId);
-								db.setNilaiBiaya(totalNilai);
-								session.saveOrUpdate(db);
-								List<PengaturanPembayaranBulanan> ppbList = session
-										.createCriteria(PengaturanPembayaranBulanan.class)
-										.add(Restrictions.eq("detailBiaya", db)).list();
-								for (PengaturanPembayaranBulanan ppb : ppbList) {
-									if ((ppb.getNominal() == null || ppb.getNominal() < 0.01)
-											&& ppb.getPersentase() != null && ppb.getPersentase() > 0) {
-										ppb.setNominal(totalNilai * ppb.getPersentase() / 100.0);
-										session.saveOrUpdate(ppb);
+					// GERBANG OTORISASI: sama seperti mode angsuran -- tanpa Tbmuser terautentikasi
+					// pada konteks ini, tidak ada aktor yang bisa dipertanggungjawabkan di audit
+					// trail, jadi perbaikan otomatis ke data master bersama ini DILEWATI.
+					Tbmuser pemicuFixNonAngsuran = Common.getCurrentUser();
+					if (pemicuFixNonAngsuran == null) {
+						System.out.println(
+								"[TAGIHAN-DEBUG] fallbackTagihanDariCicilan: perbaikan nilaiBiaya/nominal (mode non-angsuran) DILEWATI -- tidak ada Tbmuser terautentikasi pada konteks ini (gerbang otorisasi).");
+					} else {
+						Transaction txFix = null;
+						try {
+							txFix = session.beginTransaction();
+							for (Map.Entry<Long, DetailBiaya> entry : fallbackMap.entrySet()) {
+								Long dbId = entry.getKey();
+								DetailBiaya db = entry.getValue();
+								if ((db.getNilaiBiaya() == null || db.getNilaiBiaya() < 0.01)
+										&& sumNilaiMap.containsKey(dbId)) {
+									double totalNilai = sumNilaiMap.get(dbId);
+									double nilaiBiayaSebelum = db.getNilaiBiaya() == null ? 0.0 : db.getNilaiBiaya();
+									db.setNilaiBiaya(totalNilai);
+									session.saveOrUpdate(db);
+									ais.common.ErrorAuditUtil.record(new Exception(
+											"fallbackTagihanDariCicilan (mode non-angsuran) memperbaiki DetailBiaya.nilaiBiaya (data master bersama): detailBiayaId="
+													+ dbId + " nilaiBiayaSebelum=" + nilaiBiayaSebelum + " nilaiBiayaSesudah=" + totalNilai
+													+ " pemicuUserId=" + pemicuFixNonAngsuran.getId() + " pemicuUserIdLogin="
+													+ pemicuFixNonAngsuran.getUserId() + " student=" + studentIdForLog),
+											"auto-audit(fallback-fix-nilaibiaya-non-angsuran) src/ais/action/master/helper/PembayaranUtilHelper.java:fallbackTagihanDariCicilan");
+									List<PengaturanPembayaranBulanan> ppbList = session
+											.createCriteria(PengaturanPembayaranBulanan.class)
+											.add(Restrictions.eq("detailBiaya", db)).list();
+									for (PengaturanPembayaranBulanan ppb : ppbList) {
+										if ((ppb.getNominal() == null || ppb.getNominal() < 0.01)
+												&& ppb.getPersentase() != null && ppb.getPersentase() > 0) {
+											double nominalSebelum = ppb.getNominal() == null ? 0.0 : ppb.getNominal();
+											double nominalSesudah = totalNilai * ppb.getPersentase() / 100.0;
+											ppb.setNominal(nominalSesudah);
+											session.saveOrUpdate(ppb);
+											ais.common.ErrorAuditUtil.record(new Exception(
+													"fallbackTagihanDariCicilan (mode non-angsuran) memperbaiki PengaturanPembayaranBulanan.nominal (data master bersama): ppbId="
+															+ ppb.getId() + " detailBiayaId=" + dbId + " nominalSebelum=" + nominalSebelum
+															+ " nominalSesudah=" + nominalSesudah + " dasar=" + totalNilai + " persentase=" + ppb.getPersentase()
+															+ " pemicuUserId=" + pemicuFixNonAngsuran.getId() + " pemicuUserIdLogin="
+															+ pemicuFixNonAngsuran.getUserId() + " student=" + studentIdForLog),
+													"auto-audit(fallback-fix-ppb-nominal-non-angsuran) src/ais/action/master/helper/PembayaranUtilHelper.java:fallbackTagihanDariCicilan");
+										}
 									}
 								}
 							}
+							txFix.commit();
+						} catch (Exception eTx) {
+							if (txFix != null)
+								try { txFix.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:1509");}
+							Common.tampilErrorJikaAdmin(eTx);
 						}
-						txFix.commit();
-					} catch (Exception eTx) {
-						if (txFix != null)
-							try { txFix.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:1509");}
-						Common.tampilErrorJikaAdmin(eTx);
 					}
 				}
 			}

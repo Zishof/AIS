@@ -1062,7 +1062,7 @@ public class AktifitasPerkuliahanHelper {
 
 		final Textbox pembelajaran = new Textbox();
 		final Html labelPembelajaran = new ais.ui.util.MyHtml(
-				teksAman(perkuliahan.getDeskripsiPembelajaran()).replaceAll("\n", "<br>"));
+				escapeHtmlAman(perkuliahan.getDeskripsiPembelajaran()).replaceAll("\n", "<br>"));
 
 		if (perkuliahan != null && mahasiswa == null && biodataCalonMahasiswa == null
 				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null) {
@@ -1092,15 +1092,15 @@ public class AktifitasPerkuliahanHelper {
 									HibernateUtil.currentSession().refresh(perkuliahan);
 									perkuliahan.setDeskripsiPembelajaran(pembelajaran.getValue());
 									Common.refreshUpdate(perkuliahan);
-									labelPembelajaran.setContent(perkuliahan.getDeskripsiPembelajaran());
+									labelPembelajaran.setContent(escapeHtmlAman(perkuliahan.getDeskripsiPembelajaran()).replaceAll("\n", "<br>"));
 
 								}
 							}, tanyaMengajar, new EventListener() {
 
 								@Override
 								public void onEvent(Event arg0) throws Exception {
-									labelPembelajaran.setContent(ais.action.servlet.Wa.ubahKeBold((arg0.getData() + ""))
-											.replaceAll("\n", "<br>"));
+									labelPembelajaran.setContent(ais.action.servlet.Wa
+									.ubahKeBold(escapeHtmlAman(arg0.getData() + "")).replaceAll("\n", "<br>"));
 								}
 							}));
 		}
@@ -1134,7 +1134,7 @@ public class AktifitasPerkuliahanHelper {
 					HibernateUtil.currentSession().refresh(perkuliahan);
 					perkuliahan.setDeskripsiPembelajaran(pembelajaran.getValue());
 					Common.refreshUpdate(perkuliahan);
-					labelPembelajaran.setContent(teksAman(perkuliahan.getDeskripsiPembelajaran()).replaceAll("\n", "<br>"));
+					labelPembelajaran.setContent(escapeHtmlAman(perkuliahan.getDeskripsiPembelajaran()).replaceAll("\n", "<br>"));
 				}
 
 			});
@@ -1176,7 +1176,7 @@ public class AktifitasPerkuliahanHelper {
 
 		final Textbox capaian = new Textbox();
 		final Html labelcapaian = new ais.ui.util.MyHtml(
-				teksAman(perkuliahan.getCapaianPembelajaranProdi()).replaceAll("\n", "<br>"));
+				escapeHtmlAman(perkuliahan.getCapaianPembelajaranProdi()).replaceAll("\n", "<br>"));
 
 		if (perkuliahan != null && mahasiswa == null && biodataCalonMahasiswa == null
 				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null) {
@@ -1207,15 +1207,15 @@ public class AktifitasPerkuliahanHelper {
 											.replaceAll("\n", "<br>"));
 									perkuliahan.setCapaianPembelajaranProdi(capaian.getValue());
 									Common.refreshUpdate(perkuliahan);
-									labelcapaian.setContent(perkuliahan.getCapaianPembelajaranProdi());
+									labelcapaian.setContent(escapeHtmlAman(perkuliahan.getCapaianPembelajaranProdi()).replaceAll("\n", "<br>"));
 
 								}
 							}, tanyaMengajar, new EventListener() {
 
 								@Override
 								public void onEvent(Event arg0) throws Exception {
-									labelcapaian.setContent(ais.action.servlet.Wa.ubahKeBold((arg0.getData() + ""))
-											.replaceAll("\n", "<br>"));
+									labelcapaian.setContent(ais.action.servlet.Wa
+									.ubahKeBold(escapeHtmlAman(arg0.getData() + "")).replaceAll("\n", "<br>"));
 								}
 							}));
 
@@ -1251,7 +1251,7 @@ public class AktifitasPerkuliahanHelper {
 					HibernateUtil.currentSession().refresh(perkuliahan);
 					perkuliahan.setCapaianPembelajaranProdi(capaian.getValue());
 					Common.refreshUpdate(perkuliahan);
-					labelcapaian.setContent(teksAman(perkuliahan.getCapaianPembelajaranProdi()).replaceAll("\n", "<br>"));
+					labelcapaian.setContent(escapeHtmlAman(perkuliahan.getCapaianPembelajaranProdi()).replaceAll("\n", "<br>"));
 				}
 
 			});
