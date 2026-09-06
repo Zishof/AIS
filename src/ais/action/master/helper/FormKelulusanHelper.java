@@ -84,29 +84,51 @@ public class FormKelulusanHelper {
 	 * diakses pemanggil (assign ke field instance atau dibaca saat simpan).
 	 */
 	public static class Komponen {
+		/** Combobox "Status Keluar dari Kampus" ({@link StatusKeluar}); {@code null} bila mode read-only. */
 		public Combobox statusKeluar;
+		/** Combobox "Predikat Kelulusan" ({@link Judisium}); {@code null} bila mode read-only. */
 		public Combobox predikatKelulusan;
+		/** Combobox "Status Setelah Lulus" ({@link StatusSetelahLulus}); {@code null} bila mode read-only. */
 		public Combobox statusSetelahLulus;
+		/** Combobox "Status Pekerjaan Setelah Lulus" ({@link StatusPekerjaanSetelahLulus}); {@code null} bila mode read-only. */
 		public Combobox statusPekerjaanSetelahLulus;
+		/** Combobox "Status Domisili Setelah Lulus" ({@link StatusDomisiliSetelahLulus}); {@code null} bila mode read-only. */
 		public Combobox statusDomisiliSetelahLulus;
+		/** Textbox "Alamat Email Pimpinan / Atasan Setelah Bekerja", selalu dipasang (tidak bergantung mode editable). */
 		public Textbox emailAtasan;
+		/** Textbox "No. Ijazah I". */
 		public Textbox noIjazah1;
+		/** Textbox "No. Ijazah II". */
 		public Textbox noIjazah2;
+		/** Textbox "No. Akta". */
 		public Textbox noAkta1;
+		/** Textbox "No. SK" (disimpan pada properti {@code noAkta2} entity {@link Mahasiswa}). */
 		public Textbox noAkta2;
+		/** Textbox "No. Surat Pendamping Ijazah" (SKPI). */
 		public Textbox nomorSkpi;
+		/** Textbox "Nomor SK Drop Out (jika DO)", selalu dipasang (tidak bergantung mode editable). */
 		public Textbox skDo;
+		/** Combobox "Tahun Lulus" (baris disembunyikan; mengikuti tanggal lulus otomatis). */
 		public Combobox tahunLulus;
+		/** Combobox "Semester Lulus / Keluar / Mengundurkan Diri / DO". */
 		public Combobox semesterLulus;
+		/** Textbox "Memaksa Non Aktif di semester mana saja ?" (daftar nomor semester dipisah koma). */
 		public MyTextbox batasStudi;
+		/** Textbox "Memaksa Aktif di semester mana saja ?" (daftar nomor semester dipisah koma). */
 		public MyTextbox paksaAktifSemester;
+		/** Intbox "Tahun Wisuda". */
 		public Intbox tahunWisuda;
+		/** Datebox "Tanggal Lulus / Keluar / Mengundurkan Diri / DO". */
 		public MyDatebox tanggalLulus;
+		/** Datebox "Tanggal Wisuda". */
 		public MyDatebox tanggalWisuda;
+		/** Datebox "Tanggal Yudisium". */
 		public MyDatebox tanggalYudisium;
+		/** Datebox "Tanggal SK" (SK Rektor, disimpan pada properti {@code tanggalSkRektor} entity {@link Mahasiswa}). */
 		public MyDatebox tanggalSkRektor;
 	}
 
+	/** Kelas utilitas statis; tidak dimaksudkan untuk diinstansiasi. */
 	private FormKelulusanHelper() {
 	}
 

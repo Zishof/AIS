@@ -61,11 +61,17 @@ import ais.ui.util.MyPanel;
  */
 public class MatakuliahEkivalenHelper implements DataLoader {
 
+	/** Grid daftar matakuliah ekivalen, dirender ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Matakuliah induk yang daftar ekivalennya sedang ditampilkan. */
 	private Matakuliah matakuliah;
+	/** Mengendalikan tampil/tidaknya toolbar "Ambil Matakuliah Ekivalen" (lihat javadoc kelas). Default {@code true}. */
 	private boolean editable = true;
+	/** Mahasiswa konteks pemilihan ekivalen (mode radio); {@code null} pada mode tampilan murni. */
 	private Mahasiswa mahasiswa;
+	/** Semester konteks pemilihan ekivalen untuk {@link #mahasiswa}; {@code null} pada mode tampilan murni. */
 	private Integer semester;
+	/** Callback yang dipanggil saat radio pemilihan matakuliah/ekivalen diklik (mode konteks-mahasiswa). */
 	private EventListener eventListener;
 
 	/** Konstruktor mode konteks-mahasiswa (radio pemilihan aktif), dengan {@link #editable} default {@code true}. */

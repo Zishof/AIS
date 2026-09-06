@@ -523,33 +523,147 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link DetailperkuliahanForPenilaianHelper}. Kelas ini menerjemahkan
-	 * satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Perender satu baris mahasiswa pada grid <i>Input Nilai</i>. Kelas ini adalah <b>jantung layar
+	 * penilaian</b>: ia mengubah satu id {@link Detailperkuliahan} menjadi seluruh sel yang tampak
+	 * &mdash; foto, identitas, rekap kehadiran, kotak nilai untuk setiap komponen, nilai total beserta
+	 * hurufnya, dan kotak centang verifikasi &mdash; sekaligus memutuskan sel mana yang boleh diedit
+	 * dan mana yang hanya boleh dibaca.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailperkuliahanForPenilaianHelper} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean aturanUts}, {@code boolean
-	 * aturanUas}, {@code String statusPertemuanUts}, {@code String statusPertemuanUas}; operasi lokal: {@code
-	 * checkWarningUts()}, {@code checkWarningUas()}, {@code render}(). Aturan bisnis bersama tetap berada pada
-	 * kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <h3>Keterikatan pada kelas induk</h3>
+	 * <p>Sebagai kelas dalam non-statis, setiap instance melekat pada satu
+	 * {@link DetailperkuliahanForPenilaianHelper} dan membaca state induknya secara langsung:
+	 * {@link #formatNilais} untuk daftar kolom, {@link #perkuliahan} untuk aturan kelas,
+	 * {@link #statusPertemuan} untuk rekap kehadiran, {@link #columns} dan {@link #columnMahasiswa}
+	 * untuk mengatur lebar kolom, serta {@link #edit}, {@link #editDisable}, {@link #aktifPenilaian},
+	 * {@link #konfigurasi}, {@link #tbmuser}, {@link #dosen}, dan {@link #adaProsesVerifikasiNilai}
+	 * sebagai gerbang perizinan. Karena itu instance ini <b>tidak boleh</b> disimpan atau dipakai
+	 * ulang di luar desktop ZK tempat ia dibuat.</p>
+	 *
+	 * <h3>Konfigurasi yang dibaca sekali per instance</h3>
+	 * <p>Keempat field di bawah dibaca pada saat instansiasi, bukan per baris. Ini disengaja: renderer
+	 * dibuat sekali untuk seluruh grid, sehingga konfigurasi batas ketidakhadiran cukup dibaca satu
+	 * kali dan tidak menghasilkan ratusan pembacaan konfigurasi untuk kelas berisi banyak mahasiswa.
+	 * Konsekuensinya, perubahan konfigurasi di tengah sesi baru terlihat setelah layar dibangun
+	 * ulang.</p>
+	 *
+	 * <h3>Efek samping</h3>
+	 * <p>{@link #render(Row, Object)} tidak hanya membaca. Ia menulis kembali ke {@link #perkuliahan}
+	 * bila kolom aturan nilai 0 masih {@code null}, memperbarui {@link #tbmuser} milik induk, mengubah
+	 * lebar kolom grid, dan memasang belasan listener yang masing-masing membuka transaksi Hibernate
+	 * sendiri ketika dipicu pengguna. Semua itu harus berjalan di event thread ZK dengan konteks
+	 * sesi pengguna yang aktif.</p>
 	 *
 	 * @see DetailperkuliahanForPenilaianHelper
+	 * @see ais.action.master.helper.util.PerubahanNilaiListener
+	 * @see ais.action.master.helper.util.NilaiLoader
 	 */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Menyalakan pemeriksaan batas ketidakhadiran untuk <b>UTS</b>, dari konfigurasi
+		 * <code>aturan_batas_maksimal_tidak_masuk_kuliah_ini_juga_berlaku_saat_proses_penilaian_uts</code>
+		 * yang bawaannya {@link Konfigurasi#TIDAK_AKTIF}. Bila mati,
+		 * {@link #checkWarningUts(Detailperkuliahan, Map)} langsung mengembalikan string kosong tanpa
+		 * membaca konfigurasi apa pun &mdash; jalur cepat yang penting karena metode itu dipanggil
+		 * sekali untuk setiap mahasiswa.
+		 */
 		private boolean aturanUts = Common.bolehKonfigurasi("aturan_batas_maksimal_tidak_masuk_kuliah_ini_juga_berlaku_saat_proses_penilaian_uts", Konfigurasi.TIDAK_AKTIF);
+
+		/**
+		 * Kembaran {@link #aturanUts} untuk <b>UAS</b>. Keduanya terpisah agar kampus dapat memberlakukan
+		 * syarat kehadiran hanya pada ujian akhir &mdash; pola yang lazim, karena pada saat UTS jumlah
+		 * pertemuan yang sudah berlangsung masih terlalu sedikit untuk dinilai adil.
+		 */
 		private boolean aturanUas = Common.bolehKonfigurasi("aturan_batas_maksimal_tidak_masuk_kuliah_ini_juga_berlaku_saat_proses_penilaian_uas", Konfigurasi.TIDAK_AKTIF);
 
+		/**
+		 * Nama status pertemuan yang <b>menjadi sasaran</b> sanksi ketidakhadiran UTS, misalnya
+		 * <code>&quot;UTS&quot;</code>. Field ini menentukan <i>seberapa luas</i> sanksi bekerja, dan
+		 * kedua kemungkinannya berlawanan arah:
+		 *
+		 * <ul>
+		 * <li><b>Kosong</b> &rarr; sanksi berlaku <b>menyeluruh</b>. Begitu peringatan UTS muncul,
+		 * <i>seluruh</i> kolom nilai mahasiswa itu dikunci menjadi label.</li>
+		 * <li><b>Terisi</b> &rarr; sanksi berlaku <b>selektif</b>. Hanya kolom yang nama status
+		 * pertemuannya sama persis (dibandingkan tanpa membedakan huruf besar-kecil) yang dikunci;
+		 * kolom lain tetap dapat diisi. Ini memungkinkan dosen tetap memasukkan nilai tugas dan
+		 * kehadiran bagi mahasiswa yang kehilangan hak UTS.</li>
+		 * </ul>
+		 *
+		 * <p>Perbandingan selektif itu memanggil {@code formatNilai.getStatusPertemuan().getNama()}
+		 * tanpa penjagaan {@code null}, sehingga komponen OBE murni yang tidak terhubung ke status
+		 * pertemuan berpotensi memicu galat pada jalur tersebut.</p>
+		 */
 		private String statusPertemuanUts = Common.getKonfigurasi(
 				"status_pertemuan_aturan_batas_maksimal_tidak_masuk_kuliah_ini_juga_berlaku_saat_proses_penilaian_uts",
 				"").getNilai();
+
+		/**
+		 * Kembaran {@link #statusPertemuanUts} untuk UAS, dengan makna kosong/terisi yang sama persis.
+		 * Bila keduanya terisi dengan nama status pertemuan yang berbeda, seorang mahasiswa dapat
+		 * kehilangan hak nilai UTS dan UAS secara terpisah.
+		 */
 		private String statusPertemuanUas = Common.getKonfigurasi(
 				"status_pertemuan_aturan_batas_maksimal_tidak_masuk_kuliah_ini_juga_berlaku_saat_proses_penilaian_uas",
 				"").getNilai();
 
+		/**
+		 * Menyusun <b>teks peringatan ketidakhadiran menjelang UTS</b> untuk satu mahasiswa. Keluarannya
+		 * dipakai dua kali oleh {@link #render(Row, Object)}: ditampilkan sebagai teks merah di bawah
+		 * nama mahasiswa, dan &mdash; jauh lebih berat konsekuensinya &mdash; dipakai sebagai
+		 * <b>gerbang yang mengunci kotak nilai</b>. String tidak kosong berarti mahasiswa melanggar
+		 * setidaknya satu batas.
+		 *
+		 * <h3>Jalan pintas</h3>
+		 * <p>Bila {@link #aturanUts} mati, metode langsung mengembalikan string kosong. Seluruh
+		 * pembacaan konfigurasi berada di dalam cabang tersebut, sehingga kelas yang tidak memberlakukan
+		 * aturan ini tidak menanggung biaya apa pun.</p>
+		 *
+		 * <h3>Lima ambang batas</h3>
+		 * <p>Setiap ambang dibaca lewat {@code Common.getKonfigurasi(...)} varian <b>berlapis</b>, yang
+		 * menerima semester, tahun angkatan, jurusan, program, dan status awal mahasiswa. Artinya
+		 * kampus dapat menetapkan batas berbeda untuk, misalnya, mahasiswa alih jenjang atau program
+		 * tertentu. Kunci konfigurasi dirakit dari nama tetap ditambah akhiran <code>uts</code>:</p>
+		 * <ol>
+		 * <li><b>Alpa</b> &mdash; jumlah ketidakhadiran tanpa keterangan, bawaan 34.</li>
+		 * <li><b>Sakit</b> &mdash; bawaan 34.</li>
+		 * <li><b>Izin</b> &mdash; bawaan 34.</li>
+		 * <li><b>Semua</b> &mdash; jumlah gabungan alpa, sakit, dan izin, bawaan 34.</li>
+		 * <li><b>Persen</b> &mdash; batas persentase ketidakhadiran terhadap
+		 * {@code getJumlahMaksimalPertemuan()}, bawaan 0.</li>
+		 * </ol>
+		 *
+		 * <p>Angka bawaan 34 sengaja dipilih jauh lebih besar daripada jumlah pertemuan satu semester
+		 * (lazimnya 14&ndash;16), sehingga <b>ambang yang belum dikonfigurasi tidak akan pernah
+		 * terpicu</b> &mdash; sikap gagal-terbuka yang disengaja agar kesalahan konfigurasi tidak
+		 * diam-diam menghapus hak ujian mahasiswa. Sebaliknya, ambang persen berbawaan <b>0</b> dan
+		 * dibandingkan dengan {@code persen > maxPersen}: begitu {@link #aturanUts} dinyalakan tanpa
+		 * mengisi batas persen, <i>setiap</i> mahasiswa dengan satu saja ketidakhadiran akan memicu
+		 * peringatan. Perbedaan sikap antara empat ambang pertama dan ambang kelima ini penting
+		 * dipahami sebelum menyalakan aturan.</p>
+		 *
+		 * <p>Setiap penguraian angka dibungkus {@code try/catch} yang mencatat galat ke
+		 * {@code ErrorAuditUtil}; konfigurasi yang bukan angka menyebabkan ambang kembali ke bawaannya,
+		 * bukan menggagalkan render baris.</p>
+		 *
+		 * <h3>Perakitan pesan</h3>
+		 * <p>Empat pemeriksaan pertama memakai pembanding <b>lebih besar atau sama dengan</b>
+		 * ({@code >=}), sehingga mencapai batas persis sudah dianggap melanggar. Potongan pesannya
+		 * <b>dirangkai tanpa pemisah</b>, sehingga pelanggaran ganda menghasilkan kalimat yang menempel
+		 * satu sama lain; hanya bagian persen yang diawali baris baru ganda. Pemeriksaan persen
+		 * dijalankan di dalam penjagaan {@code detailperkuliahan.getPerkuliahan() != null}, tetapi
+		 * pembagian terhadap {@code getJumlahMaksimalPertemuan()} tidak dijaga terhadap nilai nol.</p>
+		 *
+		 * @param detailperkuliahan baris nilai mahasiswa yang diperiksa; semester dan data mahasiswanya
+		 *                          dipakai untuk mencari konfigurasi berlapis.
+		 * @param statuses          peta jumlah kehadiran per kode status hasil
+		 *                          {@code Perkuliahan.hitungStatus(...)}, dengan kunci
+		 *                          <code>A</code>, <code>S</code>, <code>I</code>, dan <code>T</code>.
+		 * @return teks peringatan siap tampil; string kosong berarti tidak ada pelanggaran dan kotak
+		 *         nilai tidak perlu dikunci.
+		 * @see #checkWarningUas(Detailperkuliahan, Map)
+		 * @see #statusPertemuanUts
+		 */
 		private String checkWarningUts(Detailperkuliahan detailperkuliahan, Map<String, Integer> statuses) {
 			String warning = "";
 			Integer semester = detailperkuliahan.getSemester();
@@ -654,6 +768,38 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 			return warning;
 		}
 
+		/**
+		 * Menyusun <b>teks peringatan ketidakhadiran menjelang UAS</b> untuk satu mahasiswa. Metode ini
+		 * adalah <b>salinan struktural persis</b> dari {@link #checkWarningUts(Detailperkuliahan, Map)}:
+		 * lima ambang yang sama, sikap gagal-terbuka bawaan 34 yang sama, ambang persen bawaan 0 yang
+		 * sama, pembanding {@code >=} yang sama, dan perakitan pesan tanpa pemisah yang sama. Seluruh
+		 * catatan pada metode kembarannya berlaku di sini tanpa perubahan.
+		 *
+		 * <p><b>Yang membedakan hanyalah dua hal:</b> bendera penyalanya adalah {@link #aturanUas}, dan
+		 * akhiran kunci konfigurasi yang dirakit adalah <code>uas</code>, bukan <code>uts</code>.
+		 * Pemisahan ini memberi kampus dua rangkaian ambang yang benar-benar independen &mdash; batas
+		 * kehadiran untuk ujian tengah semester lazimnya memang lebih longgar daripada ujian akhir,
+		 * karena pada pertengahan semester jumlah pertemuan yang telah berlangsung masih separuh.</p>
+		 *
+		 * <p>Hasilnya dipasangkan dengan {@link #statusPertemuanUas} pada
+		 * {@link #render(Row, Object)}: bila konfigurasi status pertemuan itu kosong, peringatan UAS
+		 * mengunci seluruh kolom nilai; bila terisi, hanya kolom yang nama status pertemuannya cocok
+		 * yang dikunci. Seorang mahasiswa dapat memicu peringatan UTS dan UAS sekaligus, dan kedua
+		 * teksnya ditampilkan sebagai dua blok merah terpisah di bawah namanya.</p>
+		 *
+		 * <p><b>Catatan pemeliharaan.</b> Karena kedua metode ini sepenuhnya sejajar, setiap perbaikan
+		 * pada salah satunya &mdash; misalnya menambahkan pemisah antarpesan, menjaga pembagian
+		 * terhadap {@code getJumlahMaksimalPertemuan()} bernilai nol, atau menyeragamkan sikap ambang
+		 * persen &mdash; wajib diterapkan pada keduanya. Menyatukannya menjadi satu metode
+		 * berparameter jenis ujian akan menghapus risiko itu, tetapi belum dilakukan.</p>
+		 *
+		 * @param detailperkuliahan baris nilai mahasiswa yang diperiksa.
+		 * @param statuses          peta jumlah kehadiran per kode status hasil
+		 *                          {@code Perkuliahan.hitungStatus(...)}.
+		 * @return teks peringatan siap tampil; string kosong berarti tidak ada pelanggaran.
+		 * @see #checkWarningUts(Detailperkuliahan, Map)
+		 * @see #statusPertemuanUas
+		 */
 		private String checkWarningUas(Detailperkuliahan detailperkuliahan, Map<String, Integer> statuses) {
 			String warning = "";
 			Integer semester = detailperkuliahan.getSemester();

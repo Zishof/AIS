@@ -489,6 +489,8 @@ public final class PemetaanAkunHelper {
                 ? " AND date(pp.waktupengadaan) BETWEEN date(?) AND date(?)" : "";
         String rentangPenjualan = pakaiPeriode
                 ? " AND date(pb.waktu) BETWEEN date(?) AND date(?)" : "";
+        String rentangBast = pakaiPeriode
+                ? " AND date(b.tanggal_persetujuan) BETWEEN date(?) AND date(?)" : "";
         // Mulai dari tabel transaksi yang belum posting, lalu join ke Produk. Bentuk lama
         // memakai dua subquery IN yang memindai seluruh riwayat untuk setiap produk dan dapat
         // melewati timeout proxy pada tenant besar.
@@ -497,11 +499,20 @@ public final class PemetaanAkunHelper {
                 + " WHERE pp.posting_pembelian IS NULL" + rentangKulakan
                 + " UNION SELECT pb.produk FROM koperasi.pembelian pb"
                 + " WHERE pb.posting_hpp IS NULL AND pb.aktif=true" + rentangPenjualan
+                + " UNION SELECT p_bast.id"
+                + " FROM asset.penerimaan_pengadaan_master_asset b"
+                + " JOIN asset.penerimaan_pengadaan_master_asset_detail d"
+                + " ON d.penerimaan_pengadaan_master_asset=b.id"
+                + " JOIN koperasi.produk p_bast ON p_bast.master_asset=d.masterasset"
+                + " WHERE b.posting_history IS NULL AND b.disetujui_oleh IS NOT NULL"
+                + " AND COALESCE(b.aktif,true)=true AND COALESCE(b.nilai,0)<>0" + rentangBast
                 + ") sumber ON sumber.produk=p.id WHERE COALESCE(p.aktif,true)=true"
                 + (tokoId == null ? "" : " AND p.toko=?") + " ORDER BY p.id";
         PreparedStatement ps = conn.prepareStatement(sql);
         int parameter = 1;
         if (pakaiPeriode) {
+            ps.setString(parameter++, mulai);
+            ps.setString(parameter++, sampai);
             ps.setString(parameter++, mulai);
             ps.setString(parameter++, sampai);
             ps.setString(parameter++, mulai);

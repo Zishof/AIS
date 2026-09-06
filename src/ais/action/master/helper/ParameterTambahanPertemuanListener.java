@@ -72,9 +72,13 @@ import ais.ui.util.MyLabelBold;
  */
 public class ParameterTambahanPertemuanListener implements EventListener {
 
+	/** Daftar baris form yang dikelola bersama; dibersihkan/dibangun ulang oleh {@link #onEvent(Event)} dan dibaca kembali oleh {@link #onSave(Pertemuan)}. */
 	private List<Row> parameterRows;
+	/** Kontainer ZK tempat baris parameter ditambahkan. */
 	private Rows rows;
+	/** Pertemuan (agenda kegiatan) yang parameter tambahannya dikelola oleh listener ini -- lihat javadoc kelas untuk daftar konteks yang mungkin. */
 	private Pertemuan pertemuan;
+	/** Lampiran yang sudah diunggah, dikunci per jenis parameter (lihat {@link LampiranLain#resolveJenisParameterTambahan}), diteruskan ke {@link ParameterTambahan#initComponent}. */
 	private Map<String, LampiranLain> lampiranLains;
 
 	/**

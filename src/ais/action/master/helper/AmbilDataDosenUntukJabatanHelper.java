@@ -56,13 +56,24 @@ import ais.ui.util.MyWindow;
  * </p>
  */
 public class AmbilDataDosenUntukJabatanHelper {
+	/** Grid hasil pencarian dosen (mode paging client-side, lihat komentar pada {@link #display}). */
 	private MyGrid grid;
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/**
+	 * Instance {@link ais.ui.util.AmbilDataPagingHelper} yang dibuat mengikuti pola helper pencarian
+	 * lain, namun TIDAK dipakai di mana pun pada kelas ini — pencarian di sini tetap memakai grid mode
+	 * "paging" client-side biasa (lihat {@link #onSearchDefault(Event)} dan {@link #display}). Field
+	 * ini sisa refactor yang belum dituntaskan; aman dibiarkan karena tidak memengaruhi perilaku.
+	 */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/** Jabatan yang akan diberikan ke dosen terpilih; diisi oleh {@link #display(Jabatan, DataLoader, MyWindow)}. */
 	private Jabatan jabatan;
+	/** Textbox filter pencarian berdasarkan nama dosen (dicocokkan ANYWHERE, tanpa memandang huruf besar/kecil). */
 	private Textbox nama;
+	/** Kombo filter pencarian berdasarkan fakultas, berisi opsi "Semua" di baris pertama. */
 	private Combobox searchfakultas = new Combobox();
+	/** Kombo filter pencarian berdasarkan jurusan/prodi, berisi opsi "Semua" di baris pertama. */
 	private Combobox searchjurusan = new Combobox();
 
 	/** Menyiapkan combobox filter fakultas/jurusan (diisi opsi "Semua" + seluruh data aktif). */
@@ -72,6 +83,15 @@ public class AmbilDataDosenUntukJabatanHelper {
 
 	/** Perender baris grid: checkbox pilih, kode/NIP, nama, jabatan saat ini, jurusan, fakultas dosen. */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
+		/**
+		 * Merender satu baris grid untuk satu {@link Dosen}: checkbox pilih (disimpan sebagai atribut
+		 * {@code checkbox} pada baris dan {@code dosen} pada checkbox agar mudah diambil kembali oleh
+		 * {@link #save()} dan listener "pilih semua"), kode/NIP, nama, jabatan saat ini, jurusan, dan
+		 * fakultas.
+		 *
+		 * @param arg0 baris grid yang akan diisi
+		 * @param arg1 data baris, harus berupa {@link Dosen}
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

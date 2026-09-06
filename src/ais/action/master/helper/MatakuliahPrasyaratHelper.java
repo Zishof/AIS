@@ -48,7 +48,9 @@ import ais.ui.util.MyWindow;
  */
 public class MatakuliahPrasyaratHelper implements DataLoader {
 
+	/** Grid daftar mata kuliah prasyarat, dirender ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Mata kuliah yang daftar prasyaratnya sedang ditampilkan. */
 	private Matakuliah matakuliah;
 
 	/** Perender baris grid: menampilkan detail mata kuliah prasyarat, kolom nilai minimal lulus yang dapat diedit langsung, dan tombol hapus baris. */

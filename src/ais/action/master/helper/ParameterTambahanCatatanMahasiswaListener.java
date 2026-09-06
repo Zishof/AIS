@@ -44,10 +44,15 @@ import ais.ui.util.MyMessageboxConfig;
  */
 public class ParameterTambahanCatatanMahasiswaListener implements EventListener {
 
+	/** Daftar baris komponen yang sudah/akan dirender oleh {@link #onEvent(Event)}, dipakai bersama oleh {@link #validate()} dan {@link #onSave(CatatanMahasiswa)}. */
 	private List<Row> parameterRows;
+	/** Komponen {@link Rows} induk tempat baris-baris parameter tambahan ditambahkan. */
 	private Rows rows;
+	/** Entitas catatan mahasiswa yang formulir parameter tambahannya sedang dikelola oleh listener ini. */
 	private CatatanMahasiswa catatanMahasiswa;
+	/** Peta lampiran yang sudah diunggah, dikunci per "kelompokId->parameterId" (lihat {@link LampiranLain#resolveJenisParameterTambahan}), diteruskan ke {@link ParameterTambahan#initComponent}. */
 	private Map<String, LampiranLain> lampiranLains;
+	/** Kelompok-kelompok parameter tambahan yang relevan (biasanya ditentukan oleh jenis catatan yang dipilih). */
 	private Set<KelompokParameterTambahanCatatanMahasiswa> kelompokParameterTambahanCatatanMahasiswas;
 
 	/**

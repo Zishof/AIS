@@ -55,7 +55,9 @@ import ais.database.model.PaketJurusanPmb;
  */
 public class DetailPaketJurusanPmbHelper implements DataLoader {
 
+	/** Grid daftar jurusan pada paket, dirender ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Paket PMB yang konfigurasi jurusannya sedang ditampilkan. */
 	private Paket paket;
 
 	/**

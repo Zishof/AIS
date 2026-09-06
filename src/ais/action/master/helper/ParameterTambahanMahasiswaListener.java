@@ -55,9 +55,13 @@ import ais.ui.util.MyMessageboxConfig;
  */
 public class ParameterTambahanMahasiswaListener implements EventListener {
 
+	/** Daftar baris ZK yang dibangun/dikelola listener ini; dibaca ulang oleh {@link #onSave(BiodataMahasiswa)} dan dibersihkan/dibangun ulang oleh {@link #onEvent(Event)}. */
 	private List<Row> parameterRows;
+	/** Komponen {@link Rows} induk tempat baris-baris field parameter tambahan ditambahkan. */
 	private Rows rows;
+	/** Biodata mahasiswa yang parameter tambahannya dikelola oleh listener ini. */
 	private BiodataMahasiswa biodataMahasiswa;
+	/** Peta lampiran yang sudah diunggah per kunci parameter (lihat {@link LampiranLain#resolveJenisParameterTambahan}), diteruskan ke {@link ParameterTambahan#initComponent}. */
 	private Map<String, LampiranLain> lampiranLains;
 
 	/**
