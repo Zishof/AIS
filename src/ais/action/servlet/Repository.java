@@ -1677,6 +1677,28 @@ public class Repository extends HttpServlet {
      */
     private static long oaiTokenMaximumAge(){try{long seconds=Long.parseLong(System.getProperty("ais.repository.oaiTokenTtlSeconds","86400"));return Math.max(300L,Math.min(seconds,604800L))*1000L;}catch(Exception e){return 86400000L;}}
 
+    /**
+     * Mengurai parameter {@code from}/{@code until} OAI-PMH pada dua granularitas yang diizinkan
+     * protokol.
+     *
+     * <p>Panjang 10 karakter diperlakukan sebagai {@code yyyy-MM-dd}; selain itu sebagai
+     * {@code yyyy-MM-dd'T'HH:mm:ss'Z'}. Zona waktu dipaksa UTC dan penguraian disetel
+     * <b>tidak lenient</b>, sehingga tanggal mustahil seperti {@code 2026-02-30} ditolak alih-alih
+     * digulung diam-diam ke bulan berikutnya.</p>
+     *
+     * <p>Parameter {@code endOfDay} khusus untuk batas atas: pada granularitas tanggal, nilai
+     * ditambah 86.399.999 milidetik agar {@code until=2026-01-31} mencakup seluruh 31 Januari,
+     * bukan berhenti tepat pada tengah malam awal harinya. Tanpa itu, panen akan kehilangan
+     * rekaman yang diubah pada hari terakhir rentang.</p>
+     *
+     * <p>Nilai kosong dan nilai yang tidak dapat diurai sama-sama menghasilkan {@code null};
+     * pemanggil di {@link #oai} membedakan keduanya dengan memeriksa sendiri apakah parameternya
+     * memang dikirim, lalu menjawab {@code badArgument}.</p>
+     *
+     * @param value    nilai parameter; boleh {@code null} atau kosong
+     * @param endOfDay {@code true} untuk memperlakukan tanggal sebagai akhir hari
+     * @return tanggal hasil urai, atau {@code null} bila kosong atau tidak sah
+     */
     private Date parseOaiDate(String value, boolean endOfDay) {
         String text = clean(value);
         if (text.length() == 0) return null;
@@ -1692,30 +1714,125 @@ public class Repository extends HttpServlet {
         }
     }
 
+    /**
+     * Mengubah {@code setSpec} OAI-PMH menjadi identitas koleksi.
+     *
+     * <p>Hanya bentuk {@code collection:{id}} yang dikenal — sama persis dengan yang diumumkan
+     * {@code ListSets} — dan bagian angkanya dilewatkan {@link #parseLong}, yang menolak nilai
+     * bukan angka serta nol dan negatif. Bentuk lain menghasilkan {@code null}, yang oleh
+     * {@link #oai} dibedakan dari "tanpa himpunan" dan dijawab {@code badArgument}.</p>
+     *
+     * @param set nilai parameter {@code set}; boleh {@code null}
+     * @return identitas koleksi, atau {@code null} bila bentuknya tidak dikenal
+     */
     private Long parseSet(String set) {
         String value = clean(set);
         return value.startsWith("collection:") ? parseLong(value.substring("collection:".length())) : null;
     }
 
+    /**
+     * Menuliskan elemen {@code <error>} OAI-PMH.
+     *
+     * <p>Atribut {@code code} harus salah satu kode yang ditentukan protokol —
+     * {@code badVerb}, {@code badArgument}, {@code badResumptionToken},
+     * {@code cannotDisseminateFormat}, {@code idDoesNotExist}, {@code noRecordsMatch} — karena
+     * pemanen mengambil keputusan berdasarkan kode itu, bukan berdasarkan pesannya. Pesan
+     * berbahasa Indonesia di dalamnya hanya untuk manusia yang membaca tanggapan.</p>
+     *
+     * <p>Kode maupun pesan dilewatkan {@link #xml}. Elemen ini ditulis di dalam pembungkus
+     * {@code OAI-PMH} yang sudah dibuka {@link #oai}, dan pemanggil bertanggung jawab menutup
+     * pembungkus itu.</p>
+     *
+     * @param out     penulis tanggapan XML
+     * @param code    kode galat OAI-PMH
+     * @param message penjelasan untuk pembaca manusia
+     */
     private void oaiError(PrintWriter out, String code, String message) {
         out.print("<error code=\"" + xml(code) + "\">" + xml(message) + "</error>");
     }
 
+    /**
+     * Memformat tanggal sebagai cap waktu UTC bergranularitas detik
+     * ({@code yyyy-MM-dd'T'HH:mm:ss'Z'}) — bentuk yang diumumkan {@code Identify} dan dipakai
+     * seluruh {@code responseDate}, {@code datestamp}, serta elemen {@code updated} Atom.
+     *
+     * <p>Zona waktu dipaksa UTC agar keluaran tidak bergantung pada setelan peladen.
+     * {@code null} dipetakan ke epoch supaya dokumen tetap sah — pemanen OAI-PMH menolak
+     * {@code datestamp} yang kosong.</p>
+     *
+     * <p>{@link SimpleDateFormat} dibuat baru setiap pemanggilan karena tidak aman-thread.</p>
+     *
+     * @param date tanggal yang diformat; boleh {@code null}
+     * @return cap waktu UTC berformat ISO 8601 bergranularitas detik
+     */
     private String xmlDate(Date date) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
         format.setTimeZone(TimeZone.getTimeZone("UTC"));
         return format.format(date == null ? new Date(0L) : date);
     }
 
+    /**
+     * Meng-<i>escape</i> teks agar aman dimuat sebagai isi elemen maupun nilai atribut XML.
+     *
+     * <p>Kelima entitas XML dasar diganti, dan <b>urutannya penting</b>: {@code &} harus lebih
+     * dulu, sebab menggantinya belakangan akan merusak entitas yang baru saja dihasilkan
+     * penggantian lain. Tanda kutip ganda dan tunggal ikut diganti karena method ini juga dipakai
+     * untuk nilai atribut di {@link #writeOaiRequest} dan {@link #oaiError}.</p>
+     *
+     * <p>Inilah satu-satunya penjaga terhadap penyuntikan XML pada seluruh keluaran OAI-PMH,
+     * sitemap, dan umpan RSS/Atom di kelas ini — setiap nilai yang ditulis ke aliran XML harus
+     * melewatinya, termasuk nilai yang tampak "pasti aman" seperti kode galat.</p>
+     *
+     * <p>{@code null} dipetakan ke string kosong sehingga pemanggil tidak perlu memeriksanya.</p>
+     *
+     * @param value teks mentah; boleh {@code null}
+     * @return teks yang sudah di-<i>escape</i>
+     */
     private String xml(String value) {
         return value == null ? "" : value.replace("&", "&amp;").replace("<", "&lt;")
                 .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;");
     }
 
+    /**
+     * Menentukan apakah kegagalan permintaan ini harus dilaporkan sebagai JSON, bukan sebagai
+     * halaman.
+     *
+     * <p>Keputusan diambil dari nilai parameter {@code action}: hanya {@code search} dan
+     * {@code suggest} — dua aksi yang memang membalas JSON pada jalur suksesnya — yang dianggap
+     * permintaan JSON. Header {@code Accept} sengaja tidak dipakai, karena skrip halaman yang
+     * memanggil kedua aksi itu tidak selalu menyetelnya, sedangkan pencocokan berdasarkan
+     * {@code action} selalu konsisten dengan bentuk tanggapan sukses.</p>
+     *
+     * <p>Perbandingannya mengabaikan besar-kecil huruf, berbeda dari {@link #process} yang lebih
+     * dulu menormalkan {@code action} menjadi huruf kecil — di sini nilainya dibaca ulang mentah
+     * dari permintaan.</p>
+     *
+     * @param request permintaan servlet
+     * @return {@code true} bila galat sebaiknya dikirim sebagai JSON
+     */
     private boolean isJsonRequest(HttpServletRequest request) {
         String action=clean(request.getParameter("action"));return "search".equalsIgnoreCase(action)||"suggest".equalsIgnoreCase(action);
     }
 
+    /**
+     * Menuliskan galat berbentuk JSON dengan struktur seragam.
+     *
+     * <p>Struktur balikan: {@code status} ("ERROR"), {@code code} (kode mesin seperti
+     * {@code INVALID_REQUEST}, {@code INTERNAL_ERROR}, {@code RATE_LIMITED}), {@code message}
+     * untuk manusia, dan {@code requestId} agar keluhan dapat dicocokkan dengan catatan
+     * peladen.</p>
+     *
+     * <p>Bila penyusunan JSON sendiri gagal, method mundur ke {@code response.sendError(...)}
+     * — jalur pemulihan yang membuat klien tetap menerima kode status yang benar meski badan
+     * tanggapannya tidak berbentuk JSON.</p>
+     *
+     * @param response  tanggapan servlet
+     * @param status    kode status HTTP
+     * @param code      kode galat untuk konsumsi program
+     * @param message   penjelasan untuk pengguna
+     * @param requestId pengenal permintaan
+     * @throws IOException bila penulisan tanggapan gagal
+     */
     private void writeJsonError(HttpServletResponse response, int status, String code,
             String message, String requestId) throws IOException {
         try {
@@ -1730,12 +1847,40 @@ public class Repository extends HttpServlet {
         }
     }
 
+    /**
+     * Menuliskan satu objek JSON sebagai tanggapan beserta kode statusnya.
+     *
+     * <p>Titik keluar bersama seluruh tanggapan JSON di kelas ini — sukses maupun galat —
+     * sehingga tipe konten {@code application/json;charset=UTF-8} dipasang di satu tempat saja.
+     * Badan {@code null} ditulis sebagai {@code "{}"}, bukan string kosong, supaya klien selalu
+     * menerima JSON yang dapat diurai.</p>
+     *
+     * @param response tanggapan servlet
+     * @param body     muatan JSON; boleh {@code null}
+     * @param status   kode status HTTP
+     * @throws IOException bila penulisan tanggapan gagal
+     */
     private void writeJson(HttpServletResponse response, JSONObject body, int status) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write(body == null ? "{}" : body.toString());
     }
 
+    /**
+     * Mengurai identitas numerik dari masukan pengguna, mengembalikan {@code null} alih-alih
+     * melempar.
+     *
+     * <p>Selain menolak nilai yang bukan angka, method ini juga menolak nol dan bilangan negatif:
+     * seluruh kunci primer di Repository bernilai positif, sehingga {@code id=0} atau
+     * {@code id=-1} tidak pernah menjadi pembacaan yang sah. Pemanggil cukup memeriksa
+     * {@code null} sekali dan menjawab {@code 404}.</p>
+     *
+     * <p>Dipakai untuk {@code id} butir, {@code id} koleksi, {@code id} berkas unduhan,
+     * {@code preferenceId}, dan bagian angka {@code setSpec}.</p>
+     *
+     * @param value teks masukan; boleh {@code null}
+     * @return nilai positif hasil urai, atau {@code null}
+     */
     private static Long parseLong(String value) {
         try {
             Long parsed = Long.valueOf(clean(value));
@@ -1745,6 +1890,21 @@ public class Repository extends HttpServlet {
         }
     }
 
+    /**
+     * Mengurai bilangan bulat dari masukan pengguna, mengembalikan {@code null} alih-alih
+     * melempar.
+     *
+     * <p>Berbeda dari {@link #parseLong}, nilai nol dan negatif <b>diterima</b> di sini karena
+     * dipakai untuk nomor halaman, ukuran halaman, dan tahun — pembatasan nilai wajarnya
+     * diserahkan kepada {@code service.normalize(...)}, satu tempat saja, agar tidak ada dua
+     * aturan batas yang berbeda.</p>
+     *
+     * <p>Dipakai untuk {@code page}, {@code size}, {@code year}, {@code yearFrom},
+     * {@code yearUntil}, {@code latestPage}, {@code faqPage}, dan {@code faqSize}.</p>
+     *
+     * @param value teks masukan; boleh {@code null}
+     * @return nilai hasil urai, atau {@code null} bila bukan bilangan bulat
+     */
     private static Integer parseInteger(String value) {
         try {
             return Integer.valueOf(clean(value));
@@ -1753,10 +1913,43 @@ public class Repository extends HttpServlet {
         }
     }
 
+    /**
+     * Menormalkan masukan teks: {@code null} menjadi string kosong, sisanya di-{@code trim}.
+     *
+     * <p>Dipakai hampir pada setiap pembacaan parameter di kelas ini. Konvensi "tidak pernah
+     * {@code null}" inilah yang membuat seluruh pemeriksaan di hilir dapat langsung memakai
+     * {@code .length()}, {@code .equals(...)}, dan {@code .startsWith(...)} tanpa penjagaan
+     * {@code null} berulang.</p>
+     *
+     * <p>Perhatikan bahwa method ini <b>tidak</b> membersihkan isi — tidak ada penyaringan HTML,
+     * SQL, atau XML di sini. Pembersihan keluaran adalah tugas {@link #xml} dan lapisan JSP.</p>
+     *
+     * @param value teks masukan; boleh {@code null}
+     * @return teks tanpa spasi tepi, tidak pernah {@code null}
+     */
     private static String clean(String value) {
         return value == null ? "" : value.trim();
     }
 
+    /**
+     * Membersihkan nama berkas sebelum dipasang pada header {@code Content-Disposition}.
+     *
+     * <p>Yang diganti menjadi garis bawah: garis miring terbalik, garis miring, titik dua, dan
+     * seluruh karakter kendali. Dua kelompok pertama membuat nama tidak dapat lagi menyerupai
+     * jalur berkas; karakter kendali — khususnya carriage return dan line feed — membuat nama
+     * tidak dapat memecah header dan menyisipkan header tambahan.</p>
+     *
+     * <p>Nama yang lebih panjang dari 180 karakter dipotong dengan <b>menyisakan bagian
+     * belakangnya</b>, bukan bagian depan; dengan begitu ekstensi berkas ikut terselamatkan dan
+     * peramban tetap membuka berkas dengan aplikasi yang benar. Nama yang habis menjadi kosong
+     * diganti {@code "repository-file"} supaya header selalu memuat nama.</p>
+     *
+     * <p>Nama yang masuk berasal dari basis data, bukan dari permintaan; pembersihan ini adalah
+     * pertahanan berlapis terhadap nama yang terlanjur tersimpan dalam bentuk berbahaya.</p>
+     *
+     * @param value nama berkas dari basis data; boleh {@code null}
+     * @return nama yang aman dipasang di header, tidak pernah kosong
+     */
     private static String safeFileName(String value) {
         String name = clean(value).replace('\\', '_').replace('/', '_').replace(':', '_').replaceAll("[\\p{Cntrl}]", "_");
         if(name.length()>180)name=name.substring(name.length()-180);
