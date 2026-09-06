@@ -1953,110 +1953,384 @@ public class JenisKegiatan extends GeneralValueObject {
 		this.hanyaBerupaAngsuran = hanyaBerupaAngsuran;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>9 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 9}.
+	 *
+	 * <p><b>Praktis tidak pernah terpakai.</b> Nilai {@code smtMundur} hanya bisa mencapai
+	 * 0&ndash;8 dari jalur {@link #apakahBoleh(Mahasiswa, int, java.util.List)}, karena
+	 * array {@code aturanSmtMundur} di sana hanya berisi sembilan flag cakupan. Ambang ini
+	 * karena itu hanya terjangkau oleh pemanggil {@link #bolehMasuk} langsung yang mengoper
+	 * {@code smtMundur >= 9} sendiri &mdash; pasangan tidur dari flag cakupan
+	 * {@code bayarHanyaSmtSaatIniDanSebelumnyalagi9} sampai {@code ...lagi14}.</p>
+	 *
+	 * @return ambang persentase untuk semester mundur ke-9; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin9() {
 		return persenSyaratLogin9 == null ? getPersenSyaratLogin() : persenSyaratLogin9;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-9.
+	 *
+	 * @param persenSyaratLogin9 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin9(Double persenSyaratLogin9) {
 		this.persenSyaratLogin9 = persenSyaratLogin9;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>10 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 10}.
+	 *
+	 * <p><b>Praktis tidak pernah terpakai.</b> Nilai {@code smtMundur} hanya bisa mencapai
+	 * 0&ndash;8 dari jalur {@link #apakahBoleh(Mahasiswa, int, java.util.List)}, karena
+	 * array {@code aturanSmtMundur} di sana hanya berisi sembilan flag cakupan. Ambang ini
+	 * karena itu hanya terjangkau oleh pemanggil {@link #bolehMasuk} langsung yang mengoper
+	 * {@code smtMundur >= 9} sendiri &mdash; pasangan tidur dari flag cakupan
+	 * {@code bayarHanyaSmtSaatIniDanSebelumnyalagi9} sampai {@code ...lagi14}.</p>
+	 *
+	 * @return ambang persentase untuk semester mundur ke-10; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin10() {
 		return persenSyaratLogin10 == null ? getPersenSyaratLogin() : persenSyaratLogin10;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-10.
+	 *
+	 * @param persenSyaratLogin10 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin10(Double persenSyaratLogin10) {
 		this.persenSyaratLogin10 = persenSyaratLogin10;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>11 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 11}.
+	 *
+	 * <p><b>Praktis tidak pernah terpakai.</b> Nilai {@code smtMundur} hanya bisa mencapai
+	 * 0&ndash;8 dari jalur {@link #apakahBoleh(Mahasiswa, int, java.util.List)}, karena
+	 * array {@code aturanSmtMundur} di sana hanya berisi sembilan flag cakupan. Ambang ini
+	 * karena itu hanya terjangkau oleh pemanggil {@link #bolehMasuk} langsung yang mengoper
+	 * {@code smtMundur >= 9} sendiri &mdash; pasangan tidur dari flag cakupan
+	 * {@code bayarHanyaSmtSaatIniDanSebelumnyalagi9} sampai {@code ...lagi14}.</p>
+	 *
+	 * @return ambang persentase untuk semester mundur ke-11; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin11() {
 		return persenSyaratLogin11 == null ? getPersenSyaratLogin() : persenSyaratLogin11;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-11.
+	 *
+	 * @param persenSyaratLogin11 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin11(Double persenSyaratLogin11) {
 		this.persenSyaratLogin11 = persenSyaratLogin11;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>12 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 12}.
+	 *
+	 * <p><b>Praktis tidak pernah terpakai.</b> Nilai {@code smtMundur} hanya bisa mencapai
+	 * 0&ndash;8 dari jalur {@link #apakahBoleh(Mahasiswa, int, java.util.List)}, karena
+	 * array {@code aturanSmtMundur} di sana hanya berisi sembilan flag cakupan. Ambang ini
+	 * karena itu hanya terjangkau oleh pemanggil {@link #bolehMasuk} langsung yang mengoper
+	 * {@code smtMundur >= 9} sendiri &mdash; pasangan tidur dari flag cakupan
+	 * {@code bayarHanyaSmtSaatIniDanSebelumnyalagi9} sampai {@code ...lagi14}.</p>
+	 *
+	 * @return ambang persentase untuk semester mundur ke-12; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin12() {
 		return persenSyaratLogin12 == null ? getPersenSyaratLogin() : persenSyaratLogin12;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-12.
+	 *
+	 * @param persenSyaratLogin12 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin12(Double persenSyaratLogin12) {
 		this.persenSyaratLogin12 = persenSyaratLogin12;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>13 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 13}.
+	 *
+	 * <p><b>Praktis tidak pernah terpakai.</b> Nilai {@code smtMundur} hanya bisa mencapai
+	 * 0&ndash;8 dari jalur {@link #apakahBoleh(Mahasiswa, int, java.util.List)}, karena
+	 * array {@code aturanSmtMundur} di sana hanya berisi sembilan flag cakupan. Ambang ini
+	 * karena itu hanya terjangkau oleh pemanggil {@link #bolehMasuk} langsung yang mengoper
+	 * {@code smtMundur >= 9} sendiri &mdash; pasangan tidur dari flag cakupan
+	 * {@code bayarHanyaSmtSaatIniDanSebelumnyalagi9} sampai {@code ...lagi14}.</p>
+	 *
+	 * @return ambang persentase untuk semester mundur ke-13; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin13() {
 		return persenSyaratLogin13 == null ? getPersenSyaratLogin() : persenSyaratLogin13;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-13.
+	 *
+	 * @param persenSyaratLogin13 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin13(Double persenSyaratLogin13) {
 		this.persenSyaratLogin13 = persenSyaratLogin13;
 	}
 
+	/**
+	 * Ambang persentase pelunasan untuk tagihan <b>14 semester ke belakang</b>;
+	 * jatuh kembali ke {@link #getPersenSyaratLogin()} bila belum diisi. Dipilih oleh
+	 * {@code switch} pada {@link #bolehMasuk} ketika {@code smtMundur == 14}.
+	 *
+	 * <p><b>Praktis tidak pernah terpakai.</b> Nilai {@code smtMundur} hanya bisa mencapai
+	 * 0&ndash;8 dari jalur {@link #apakahBoleh(Mahasiswa, int, java.util.List)}, karena
+	 * array {@code aturanSmtMundur} di sana hanya berisi sembilan flag cakupan. Ambang ini
+	 * karena itu hanya terjangkau oleh pemanggil {@link #bolehMasuk} langsung yang mengoper
+	 * {@code smtMundur >= 9} sendiri &mdash; pasangan tidur dari flag cakupan
+	 * {@code bayarHanyaSmtSaatIniDanSebelumnyalagi9} sampai {@code ...lagi14}.</p>
+	 *
+	 * @return ambang persentase untuk semester mundur ke-14; tidak pernah {@code null}
+	 */
 	public Double getPersenSyaratLogin14() {
 		return persenSyaratLogin14 == null ? getPersenSyaratLogin() : persenSyaratLogin14;
 	}
 
+	/**
+	 * Setter ambang persentase untuk semester mundur ke-14.
+	 *
+	 * @param persenSyaratLogin14 ambang persentase; {@code null} berarti ikut ambang dasar
+	 */
 	public void setPersenSyaratLogin14(Double persenSyaratLogin14) {
 		this.persenSyaratLogin14 = persenSyaratLogin14;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-9</b>.
+	 *
+	 * <p><b>FIELD TIDUR (dormant).</b> Berbeda dari flag {@code ...lagi8} ke bawah, flag
+	 * ini TIDAK pernah dimasukkan ke array {@code aturanSmtMundur} pada
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)} &mdash; array itu berhenti di
+	 * sembilan elemen (indeks 0&ndash;8). Akibatnya mencentangnya pada form Jenis Kegiatan
+	 * tidak menghasilkan efek apa pun, dan bila flag ini satu-satunya yang dicentang,
+	 * {@code adaAturanSpesifik} tetap bernilai {@code false} sehingga sistem justru jatuh
+	 * ke cabang &quot;periksa SELURUH semester dari {@link #getMinSmt()} sampai semester
+	 * berjalan&quot; &mdash; kebalikan dari maksud operator yang ingin membatasi cakupan.
+	 * Pasangan ambangnya, {@code getPersenSyaratLogin9()}, sama-sama tidak terjangkau
+	 * dari jalur itu.</p>
+	 *
+	 * @return {@code true}/{@code false} sesuai isi kolom; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi9() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi9 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi9;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-9. Lihat catatan field tidur pada
+	 * {@link #getBayarHanyaSmtSaatIniDanSebelumnyalagi9()}.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi9 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi9(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi9) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi9 = bayarHanyaSmtSaatIniDanSebelumnyalagi9;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-10</b>.
+	 *
+	 * <p><b>FIELD TIDUR (dormant).</b> Berbeda dari flag {@code ...lagi8} ke bawah, flag
+	 * ini TIDAK pernah dimasukkan ke array {@code aturanSmtMundur} pada
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)} &mdash; array itu berhenti di
+	 * sembilan elemen (indeks 0&ndash;8). Akibatnya mencentangnya pada form Jenis Kegiatan
+	 * tidak menghasilkan efek apa pun, dan bila flag ini satu-satunya yang dicentang,
+	 * {@code adaAturanSpesifik} tetap bernilai {@code false} sehingga sistem justru jatuh
+	 * ke cabang &quot;periksa SELURUH semester dari {@link #getMinSmt()} sampai semester
+	 * berjalan&quot; &mdash; kebalikan dari maksud operator yang ingin membatasi cakupan.
+	 * Pasangan ambangnya, {@code getPersenSyaratLogin10()}, sama-sama tidak terjangkau
+	 * dari jalur itu.</p>
+	 *
+	 * @return {@code true}/{@code false} sesuai isi kolom; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi10() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi10 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi10;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-10. Lihat catatan field tidur pada
+	 * {@link #getBayarHanyaSmtSaatIniDanSebelumnyalagi10()}.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi10 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi10(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi10) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi10 = bayarHanyaSmtSaatIniDanSebelumnyalagi10;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-11</b>.
+	 *
+	 * <p><b>FIELD TIDUR (dormant).</b> Berbeda dari flag {@code ...lagi8} ke bawah, flag
+	 * ini TIDAK pernah dimasukkan ke array {@code aturanSmtMundur} pada
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)} &mdash; array itu berhenti di
+	 * sembilan elemen (indeks 0&ndash;8). Akibatnya mencentangnya pada form Jenis Kegiatan
+	 * tidak menghasilkan efek apa pun, dan bila flag ini satu-satunya yang dicentang,
+	 * {@code adaAturanSpesifik} tetap bernilai {@code false} sehingga sistem justru jatuh
+	 * ke cabang &quot;periksa SELURUH semester dari {@link #getMinSmt()} sampai semester
+	 * berjalan&quot; &mdash; kebalikan dari maksud operator yang ingin membatasi cakupan.
+	 * Pasangan ambangnya, {@code getPersenSyaratLogin11()}, sama-sama tidak terjangkau
+	 * dari jalur itu.</p>
+	 *
+	 * @return {@code true}/{@code false} sesuai isi kolom; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi11() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi11 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi11;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-11. Lihat catatan field tidur pada
+	 * {@link #getBayarHanyaSmtSaatIniDanSebelumnyalagi11()}.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi11 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi11(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi11) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi11 = bayarHanyaSmtSaatIniDanSebelumnyalagi11;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-12</b>.
+	 *
+	 * <p><b>FIELD TIDUR (dormant).</b> Berbeda dari flag {@code ...lagi8} ke bawah, flag
+	 * ini TIDAK pernah dimasukkan ke array {@code aturanSmtMundur} pada
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)} &mdash; array itu berhenti di
+	 * sembilan elemen (indeks 0&ndash;8). Akibatnya mencentangnya pada form Jenis Kegiatan
+	 * tidak menghasilkan efek apa pun, dan bila flag ini satu-satunya yang dicentang,
+	 * {@code adaAturanSpesifik} tetap bernilai {@code false} sehingga sistem justru jatuh
+	 * ke cabang &quot;periksa SELURUH semester dari {@link #getMinSmt()} sampai semester
+	 * berjalan&quot; &mdash; kebalikan dari maksud operator yang ingin membatasi cakupan.
+	 * Pasangan ambangnya, {@code getPersenSyaratLogin12()}, sama-sama tidak terjangkau
+	 * dari jalur itu.</p>
+	 *
+	 * @return {@code true}/{@code false} sesuai isi kolom; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi12() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi12 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi12;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-12. Lihat catatan field tidur pada
+	 * {@link #getBayarHanyaSmtSaatIniDanSebelumnyalagi12()}.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi12 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi12(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi12) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi12 = bayarHanyaSmtSaatIniDanSebelumnyalagi12;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-13</b>.
+	 *
+	 * <p><b>FIELD TIDUR (dormant).</b> Berbeda dari flag {@code ...lagi8} ke bawah, flag
+	 * ini TIDAK pernah dimasukkan ke array {@code aturanSmtMundur} pada
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)} &mdash; array itu berhenti di
+	 * sembilan elemen (indeks 0&ndash;8). Akibatnya mencentangnya pada form Jenis Kegiatan
+	 * tidak menghasilkan efek apa pun, dan bila flag ini satu-satunya yang dicentang,
+	 * {@code adaAturanSpesifik} tetap bernilai {@code false} sehingga sistem justru jatuh
+	 * ke cabang &quot;periksa SELURUH semester dari {@link #getMinSmt()} sampai semester
+	 * berjalan&quot; &mdash; kebalikan dari maksud operator yang ingin membatasi cakupan.
+	 * Pasangan ambangnya, {@code getPersenSyaratLogin13()}, sama-sama tidak terjangkau
+	 * dari jalur itu.</p>
+	 *
+	 * @return {@code true}/{@code false} sesuai isi kolom; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi13() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi13 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi13;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-13. Lihat catatan field tidur pada
+	 * {@link #getBayarHanyaSmtSaatIniDanSebelumnyalagi13()}.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi13 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi13(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi13) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi13 = bayarHanyaSmtSaatIniDanSebelumnyalagi13;
 	}
 
+	/**
+	 * Aturan cakupan pemeriksaan tunggakan untuk <b>semester mundur ke-14</b>.
+	 *
+	 * <p><b>FIELD TIDUR (dormant).</b> Berbeda dari flag {@code ...lagi8} ke bawah, flag
+	 * ini TIDAK pernah dimasukkan ke array {@code aturanSmtMundur} pada
+	 * {@link #apakahBoleh(Mahasiswa, int, java.util.List)} &mdash; array itu berhenti di
+	 * sembilan elemen (indeks 0&ndash;8). Akibatnya mencentangnya pada form Jenis Kegiatan
+	 * tidak menghasilkan efek apa pun, dan bila flag ini satu-satunya yang dicentang,
+	 * {@code adaAturanSpesifik} tetap bernilai {@code false} sehingga sistem justru jatuh
+	 * ke cabang &quot;periksa SELURUH semester dari {@link #getMinSmt()} sampai semester
+	 * berjalan&quot; &mdash; kebalikan dari maksud operator yang ingin membatasi cakupan.
+	 * Pasangan ambangnya, {@code getPersenSyaratLogin14()}, sama-sama tidak terjangkau
+	 * dari jalur itu.</p>
+	 *
+	 * @return {@code true}/{@code false} sesuai isi kolom; tidak pernah {@code null}
+	 */
 	public Boolean getBayarHanyaSmtSaatIniDanSebelumnyalagi14() {
 		return bayarHanyaSmtSaatIniDanSebelumnyalagi14 == null ? false : bayarHanyaSmtSaatIniDanSebelumnyalagi14;
 	}
 
+	/**
+	 * Setter aturan cakupan semester mundur ke-14. Lihat catatan field tidur pada
+	 * {@link #getBayarHanyaSmtSaatIniDanSebelumnyalagi14()}.
+	 *
+	 * @param bayarHanyaSmtSaatIniDanSebelumnyalagi14 status aturan
+	 */
 	public void setBayarHanyaSmtSaatIniDanSebelumnyalagi14(Boolean bayarHanyaSmtSaatIniDanSebelumnyalagi14) {
 		this.bayarHanyaSmtSaatIniDanSebelumnyalagi14 = bayarHanyaSmtSaatIniDanSebelumnyalagi14;
 	}
 
+	/**
+	 * Penanda bahwa jenis kegiatan ini dipakai untuk menagih <b>Semester Pendek (SP)</b>.
+	 *
+	 * <p>Tagihan SP berbeda dari tagihan semester biasa: nominalnya lazim dihitung per
+	 * matakuliah atau per SKS yang diambil, sehingga bergantung pada mekanisme perkalian
+	 * {@link ItemBiaya} (lihat {@code ItemBiaya.TIDAK_ADA_PENGHITUNGAN} dan penggunaannya
+	 * pada {@link Kegiatan#ambilJumlahTagihan(Kegiatan, DetailBiaya, boolean)}).</p>
+	 *
+	 * @return {@code true} bila untuk penagihan semester pendek; tidak pernah {@code null}
+	 */
 	public Boolean getUntukBayarSP() {
 		return untukBayarSP == null ? false : untukBayarSP;
 	}
 
+	/**
+	 * Setter penanda tagihan semester pendek.
+	 *
+	 * @param untukBayarSP status penanda
+	 */
 	public void setUntukBayarSP(Boolean untukBayarSP) {
 		this.untukBayarSP = untukBayarSP;
 	}
 
+	/**
+	 * Kanal pembayaran ({@link ais.database.model.sekolah.KanalPembayaran}) yang ditetapkan
+	 * untuk jenis kegiatan ini &mdash; mis. bank atau agregator tertentu tempat tagihan
+	 * jenis ini boleh dibayar.
+	 *
+	 * <p>Getter relasi lazy standar: {@code check(...)} milik {@link GeneralValueObject}
+	 * dipanggil untuk memulihkan proxy yang mungkin sudah terputus dari session-nya. Ia
+	 * memang menulis balik ke field, namun hanya mengganti proxy dengan objek setara,
+	 * sehingga tidak mengubah nilai foreign key yang tersimpan &mdash; berbeda sifatnya
+	 * dari getter destruktif seperti {@link #getKode()} atau {@link #getAktif()}.</p>
+	 *
+	 * @return kanal pembayaran; {@code null} bila tidak dibatasi kanal tertentu
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kanal_pembayaran", nullable = true)
 	public KanalPembayaran getKanalPembayaran() {
@@ -2064,23 +2338,67 @@ public class JenisKegiatan extends GeneralValueObject {
 		return kanalPembayaran;
 	}
 
+	/**
+	 * Setter kanal pembayaran.
+	 *
+	 * @param kanalPembayaran kanal pembayaran; {@code null} berarti tidak dibatasi
+	 */
 	public void setKanalPembayaran(KanalPembayaran kanalPembayaran) {
 		this.kanalPembayaran = kanalPembayaran;
 	}
 
+	/**
+	 * Penanda bahwa tagihan jenis ini <b>tidak boleh</b> berupa angsuran &mdash; harus
+	 * dibayar sekaligus.
+	 *
+	 * <p>Bersama {@link #getHanyaBerupaAngsuran()} membentuk pasangan masukan bagi
+	 * {@link #modeAngsuranUntukJenjang(Jenjang, Integer, Integer)}. Bila keduanya menyala,
+	 * mesin tersebut beralih ke mode per-jenjang dengan aturan &quot;bukan&quot;
+	 * mengalahkan &quot;harus&quot;. Bila keduanya mati, hasilnya {@code null} &mdash;
+	 * tidak ada aturan, dan logika hilir jatuh ke penghitungan nyata dari database.</p>
+	 *
+	 * @return {@code true} bila angsuran dilarang lewat mesin per-jenjang; tidak pernah {@code null}
+	 */
 	public Boolean getHanyaBerupaBukanAngsuran() {
 		return hanyaBerupaBukanAngsuran == null ? false : hanyaBerupaBukanAngsuran;
 	}
 
+	/**
+	 * Setter penanda bukan-angsuran.
+	 *
+	 * @param hanyaBerupaBukanAngsuran status penanda
+	 */
 	public void setHanyaBerupaBukanAngsuran(Boolean hanyaBerupaBukanAngsuran) {
 		this.hanyaBerupaBukanAngsuran = hanyaBerupaBukanAngsuran;
 	}
 
+	/**
+	 * Konfigurasi angsuran per jenjang dalam bentuk JSON mentah &mdash; sumber data bagi
+	 * {@link #jenjangDalamArray(String, Jenjang)} dan
+	 * {@link #semesterCocokUntukJenjang(String, Jenjang, Integer, Integer)}.
+	 *
+	 * <p>Strukturnya memuat sampai empat kunci: {@code harus} dan {@code bukan} (masing-masing
+	 * array id jenjang), serta {@code harus_smt} dan {@code bukan_smt} (masing-masing objek
+	 * {@code idJenjang: "daftar semester"} dengan format campuran global/per-angkatan yang
+	 * diuraikan pada javadoc {@code semesterCocokUntukJenjang}).</p>
+	 *
+	 * <p>Getter murni yang mengembalikan string apa adanya, termasuk {@code null}; seluruh
+	 * penguraian dan penanganan galat dilakukan kedua method privat di atas, yang bersikap
+	 * toleran (gagal parse dianggap &quot;tidak ada aturan&quot;) agar konfigurasi rusak
+	 * tidak sampai membatalkan pembentukan tagihan.</p>
+	 *
+	 * @return JSON konfigurasi angsuran per jenjang; {@code null} bila belum dikonfigurasi
+	 */
 	@javax.persistence.Column(name = "jenjang_angsuran_json")
 	public String getJenjangAngsuranJson() {
 		return jenjangAngsuranJson;
 	}
 
+	/**
+	 * Setter JSON konfigurasi angsuran per jenjang (tanpa validasi struktur).
+	 *
+	 * @param jenjangAngsuranJson JSON konfigurasi; tidak divalidasi di sini
+	 */
 	public void setJenjangAngsuranJson(String jenjangAngsuranJson) {
 		this.jenjangAngsuranJson = jenjangAngsuranJson;
 	}
@@ -2306,14 +2624,49 @@ public class JenisKegiatan extends GeneralValueObject {
 		return hasil;
 	}
 
+	/**
+	 * Bila {@code true}, baris tagihan bernilai negatif pada jenis kegiatan ini diabaikan
+	 * ketika total dijumlahkan &mdash; bukan dikurangkan dari total.
+	 *
+	 * <p>Nilai negatif muncul dari item biaya berpenghitungan
+	 * {@code ItemBiaya.DIKALI_NILAI_MINUS}, yang dipakai untuk potongan/pengurang. Flag ini
+	 * memungkinkan sebuah jenis kegiatan menampilkan baris pengurang tanpa membuatnya
+	 * memotong total &mdash; berguna pada tagihan yang potongannya sudah diperhitungkan di
+	 * tempat lain, tetapi juga mudah menghasilkan tampilan yang membingungkan bagi
+	 * mahasiswa karena rincian dan totalnya tidak lagi konsisten secara aritmetika.</p>
+	 *
+	 * @return {@code true} bila nilai negatif diabaikan; tidak pernah {@code null}
+	 */
 	public Boolean getAbaikanNilaiMinus() {
 		return abaikanNilaiMinus == null ? false : abaikanNilaiMinus;
 	}
 
+	/**
+	 * Setter penanda abaikan nilai negatif.
+	 *
+	 * @param abaikanNilaiMinus status penanda
+	 */
 	public void setAbaikanNilaiMinus(Boolean abaikanNilaiMinus) {
 		this.abaikanNilaiMinus = abaikanNilaiMinus;
 	}
 
+	/**
+	 * Apakah besaran denda ditentukan per program studi (memakai peta JSON
+	 * {@link #getDendaPerProdi()}) alih-alih memakai satu besaran seragam
+	 * {@link #getDefaultProsentaseDenda()}.
+	 *
+	 * <p><b>GETTER DESTRUKTIF &mdash; flag satu arah menuju {@code false}.</b> Bila saklar
+	 * utama {@link #getDendaJikaTerlambat()} mati, field ini <b>dipaksa</b> {@code false}
+	 * dan ditulis balik. Arahnya kebalikan dari {@link #getAktif()} dan
+	 * {@link #getDigunakanUntukPengecekanKrs()} yang memaksa ke {@code true}, tetapi
+	 * konsekuensinya sejenis: pembacaan biasa dapat memicu {@code UPDATE} beserta revisi
+	 * Envers palsu, dan konfigurasi per-prodi yang sudah disiapkan operator akan
+	 * <b>terhapus penandanya</b> begitu saklar utama dimatikan &mdash; walau isi peta JSON
+	 * {@code dendaPerProdi} sendiri tetap tersimpan, sehingga menyalakan kembali saklar
+	 * utama tidak serta-merta memulihkan mode per-prodi.</p>
+	 *
+	 * @return {@code true} bila denda ditentukan per prodi; tidak pernah {@code null}
+	 */
 	public Boolean getDendaDibuatPerProdi() {
 		if (!getDendaJikaTerlambat()) {
 			dendaDibuatPerProdi = false;
@@ -2321,28 +2674,98 @@ public class JenisKegiatan extends GeneralValueObject {
 		return dendaDibuatPerProdi == null ? false : dendaDibuatPerProdi;
 	}
 
+	/**
+	 * Setter penanda denda per prodi. Nilai {@code true} hanya bertahan selama
+	 * {@link #getDendaJikaTerlambat()} juga menyala.
+	 *
+	 * @param dendaDibuatPerProdi status penanda
+	 */
 	public void setDendaDibuatPerProdi(Boolean dendaDibuatPerProdi) {
 		this.dendaDibuatPerProdi = dendaDibuatPerProdi;
 	}
 
+	/**
+	 * Peta besaran denda per program studi dalam bentuk JSON {@code {"idProdi": nilai}}.
+	 * Dibaca {@link DetailBiaya#checkDenda} dan {@link DetailBiaya#checkDendaCicilan}
+	 * ketika {@link #getDendaDibuatPerProdi()} menyala.
+	 *
+	 * <p>Getter murni: bila kolom kosong dikembalikan objek JSON kosong
+	 * ({@code &#123;&#125;}) sehingga pemanggil selalu dapat mem-parse hasilnya tanpa
+	 * pemeriksaan {@code null}. Nilai bawaan itu <b>tidak</b> ditulis balik ke field &mdash;
+	 * berbeda dari {@link #getNamaBankPembayaran()} yang justru menulis normalisasinya.</p>
+	 *
+	 * <p>Perhatikan bahwa prodi yang tidak tercantum di peta memperoleh denda {@code 0.0}
+	 * pada kedua pemanggil di atas &mdash; bukan jatuh ke
+	 * {@link #getDefaultProsentaseDenda()}. Jadi mengaktifkan mode per-prodi tanpa mengisi
+	 * seluruh prodi berarti membebaskan prodi yang terlewat dari denda.</p>
+	 *
+	 * @return JSON peta denda per prodi; objek JSON kosong bila belum dikonfigurasi
+	 */
 	@Column(columnDefinition = "text")
 	public String getDendaPerProdi() {
 		return dendaPerProdi == null || dendaPerProdi.trim().isEmpty() ? new JSONObject().toString() : dendaPerProdi;
 	}
 
+	/**
+	 * Setter peta denda per prodi (tanpa validasi struktur JSON).
+	 *
+	 * @param dendaPerProdi JSON peta denda per prodi
+	 */
 	public void setDendaPerProdi(String dendaPerProdi) {
 		this.dendaPerProdi = dendaPerProdi;
 	}
 
+	/**
+	 * Awalan kode pembayaran/virtual account khusus jenis kegiatan ini, dipakai gateway
+	 * bank untuk mengarahkan pembayaran ke pos yang benar.
+	 *
+	 * <p>Getter murni yang menormalkan nilai kosong/spasi menjadi {@code null} &mdash;
+	 * memudahkan pemanggil memakai pemeriksaan {@code != null} saja tanpa perlu juga
+	 * memeriksa {@code isEmpty()}. Hasil {@code trim()} tidak ditulis balik ke field,
+	 * sehingga spasi di database tetap utuh.</p>
+	 *
+	 * @return awalan kode pembayaran yang sudah di-{@code trim}; {@code null} bila kosong
+	 */
 	public String getPrefixKodePembayaran() {
 		return prefixKodePembayaran == null || prefixKodePembayaran.trim().isEmpty() ? null
 				: prefixKodePembayaran.trim();
 	}
 
+	/**
+	 * Setter awalan kode pembayaran (disimpan apa adanya, termasuk spasi).
+	 *
+	 * @param prefixKodePembayaran awalan kode pembayaran
+	 */
 	public void setPrefixKodePembayaran(String prefixKodePembayaran) {
 		this.prefixKodePembayaran = prefixKodePembayaran;
 	}
 
+	/**
+	 * Daftar nama bank yang menerima pembayaran jenis kegiatan ini, disimpan sebagai
+	 * <b>string ber-delimiter titik-koma</b> dengan titik-koma pembungkus di kedua ujung
+	 * (mis. {@code ";BNI;BSI;Mandiri;"}). Bentuk itu memudahkan pencarian keanggotaan
+	 * dengan {@code contains(";NamaBank;")} tanpa risiko cocok sebagian.
+	 *
+	 * <h4>GETTER DESTRUKTIF (normalisasi)</h4>
+	 * <p>Method ini menormalkan isi field lalu <b>menulis hasilnya balik</b> ke field:
+	 * {@code null} menjadi string kosong, nilai tak kosong dibungkus titik-koma, lalu
+	 * titik-koma ganda dirapatkan. Karena property ini dipetakan ke kolom, sekadar membaca
+	 * entity di dalam session terbuka dapat menuliskan bentuk ternormalkan ke database
+	 * beserta satu revisi Envers &mdash; pola yang sama dengan
+	 * {@link Kegiatan#getPembatalanDenda()}.</p>
+	 *
+	 * <p><b>Normalisasi tidak lengkap.</b> Perapatan memakai tiga panggilan berantai
+	 * {@code replaceAll(";;", ";")}. Karena {@code replaceAll} memindai tanpa saling
+	 * menumpuk, satu panggilan hanya memangkas setengah dari deretan titik-koma beruntun;
+	 * tiga panggilan menangani deret sampai kira-kira delapan titik-koma, dan deret yang
+	 * lebih panjang akan menyisakan titik-koma ganda. Rangkaian {@code if} sesudahnya hanya
+	 * menangani kasus string yang seluruhnya terdiri dari satu sampai empat titik-koma.
+	 * Perbaikan yang lebih tepat adalah satu regex {@code replaceAll(";+", ";")} &mdash;
+	 * bentuk yang justru sudah dipakai {@link Kegiatan#getCicilans()} dan
+	 * {@link Kegiatan#getDetailKegiatans()} untuk masalah yang sama dengan pemisah koma.</p>
+	 *
+	 * @return daftar nama bank ber-delimiter titik-koma; string kosong bila belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getNamaBankPembayaran() {
 		if (namaBankPembayaran == null) {
@@ -2366,6 +2789,11 @@ public class JenisKegiatan extends GeneralValueObject {
 		return namaBankPembayaran == null ? "" : namaBankPembayaran.trim();
 	}
 
+	/**
+	 * Setter daftar nama bank (disimpan apa adanya; normalisasi dilakukan getter).
+	 *
+	 * @param namaBankPembayaran daftar nama bank ber-delimiter titik-koma
+	 */
 	public void setNamaBankPembayaran(String namaBankPembayaran) {
 		this.namaBankPembayaran = namaBankPembayaran;
 	}

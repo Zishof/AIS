@@ -100,36 +100,172 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
  * perilakunya tidak disalin ke tempat lain.</p>
  *
+ * <p><b>Relasi dengan {@link ParameterTambahan} — SATU hierarki, bukan dua.</b> {@code ParameterTambahan}
+ * meng-{@code extends} kelas ini. Pembagian perannya tidak lazim dan sering disalahpahami sebagai
+ * "abstract vs entity nilai":</p>
+ * <ul>
+ * <li>Kelas ini <b>tidak menyimpan satu field instance pun</b>. Isinya hanya (a) konstanta {@code String}
+ * penanda tipe inputan dan (b) sekumpulan method {@code static} pembangun/pembaca komponen ZK. Pewarisan
+ * dipakai sebagai <i>constant interface</i>: berkat {@code extends}, kode lain boleh menulis
+ * {@code ParameterTambahan.PILIHAN_CUSTOM} walau konstanta itu milik kelas ini.</li>
+ * <li>{@link ParameterTambahan} memegang seluruh field DEFINISI parameter dan dipetakan ke tabel
+ * {@code public.parameter_tambahan}.</li>
+ * <li>NILAI isian tidak disimpan di kedua kelas ini. Nilai milik entity pemakai disimpan pada kolom teks
+ * banyak-baris (lazimnya {@code parameterTambahanInds}) di entity pemakai itu sendiri, satu baris per
+ * parameter berformat {@code kelId->ptId<=>nilai<=>url<=>keterangan}. Pembacanya adalah
+ * {@link ParameterTambahan#masukkanSemuaParameterKeMap(String, java.util.Map)}.</li>
+ * </ul>
+ *
+ * <p><b>Kelas ini adalah PABRIK KOMPONEN, bukan model data.</b> Meski berada di paket
+ * {@code ais.database.model}, seluruh method publiknya {@code static} dan bekerja pada komponen ZK
+ * ({@code Row}, {@code Rows}, {@code Component}). Tiga peran utamanya:</p>
+ * <ol>
+ * <li><b>Membangun</b> — {@link #initComponent(org.zkoss.zul.Row, org.zkoss.zul.Rows, String,
+ * java.util.List, java.util.Map, Long, String, String, ParameterTambahan,
+ * org.zkoss.zk.ui.event.EventListener, boolean, String)} dan {@link #ambilComponent(String,
+ * ParameterTambahan, org.zkoss.zk.ui.event.EventListener, boolean)} menerjemahkan satu definisi parameter
+ * menjadi baris form beserta komponen isiannya.</li>
+ * <li><b>Membaca balik</b> — {@link #ambilVal(org.zkoss.zul.Row, ParameterTambahan)} dan
+ * {@link #ambilValComponent(org.zkoss.zk.ui.Component, ParameterTambahan)} mengubah isi komponen kembali
+ * menjadi {@code String} untuk disimpan.</li>
+ * <li><b>Menampilkan</b> — {@link #tampil(org.zkoss.zul.Vbox, ParameterTambahan,
+ * ais.database.model.file.LampiranLain, String)} merender nilai tersimpan dalam mode hanya-baca.</li>
+ * </ol>
+ *
+ * <p><b>Titik paling penting untuk dipahami:</b> {@code initComponent} adalah tempat kunci namespace
+ * lampiran ({@code jenis}) DIPAKAI, dan merupakan akar {@code task_484d4bd0}. Javadoc method tersebut
+ * memuat penjelasan definitif mekanismenya beserta peta pemanggil yang sudah aman dan yang belum.</p>
+ *
  * @see GeneralValueObject
+ * @see ParameterTambahan
  */
 public abstract class ParameterTambahanAstract extends GeneralValueObject {
 
+	/**
+	 * Versi serialisasi Java. Kelas ini tidak punya field instance, jadi nilainya semata memenuhi kontrak
+	 * {@code Serializable} yang diwarisi dari {@link GeneralValueObject}.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Tipe: parameter TANPA komponen isian.
+	 *
+	 * <p>Dipakai untuk butir yang perannya murni JUDUL bagi butir-butir turunan yang menunjuknya lewat
+	 * {@link ParameterTambahan#getParent()}. Karena tidak ada cabang penanganan untuk konstanta ini di
+	 * {@link #ambilComponent(String, ParameterTambahan, org.zkoss.zk.ui.event.EventListener, boolean)},
+	 * method itu jatuh ke cabang terakhir dan mengembalikan {@code null} — dan {@code null} itulah yang
+	 * membuat {@code initComponent} melewatkan pembuatan komponen, keterangan, maupun lampiran untuk baris
+	 * tersebut. Jadi "tidak ada isian" dicapai lewat ketiadaan cabang, bukan lewat cabang khusus.
+	 */
 	public static final String TIDAK_ADA = "Tidak ada data yang diinput";
+	/** Tipe: teks bebas. Dirender {@code Textbox} dengan {@code rows} dan {@code maxlength} dari definisi. */
 	public static final String TEXT = "Berupa teks";
+	/**
+	 * Tipe: angka. Dirender {@code MyDoublebox} dengan penjaga batas
+	 * {@link ParameterTambahan#getNilaiMin()}/{@link ParameterTambahan#getNilaiMax()} pada {@code onChange}.
+	 * Nilai disimpan sebagai teks hasil {@code Double.toString}.
+	 */
 	public static final String ANGKA = "Berupa numerik / angka";
+	/** Tipe: teks yang hanya menerima karakter angka. Dirender {@code MyTextboxAngka}; disimpan apa adanya. */
 	public static final String TEXT_ANGKA = "Berupa teks / angka";
+	/** Tipe: tanggal. Dirender {@code MyDatebox}; disimpan memakai {@code Common.dateFormat1}. */
 	public static final String TANGGAL = "Berupa tanggal";
+	/** Tipe: tanggal beserta jam. Dirender {@code MyDatebox} berformat {@code Common.dateFormat}. */
 	public static final String TANGGAL_DAN_WAKTU = "Berupa tanggal dan waktu";
+	/** Tipe: jam saja. Dirender {@code MyTimebox}; disimpan memakai {@code Common.timeFormat}. */
 	public static final String WAKTU = "Berupa waktu";
+	/** Tipe: pilihan ya/tidak. Dirender {@code Combobox} dua butir; disimpan sebagai {@code "true"}/{@code "false"}. */
 	public static final String PILIHAN_YA_TIDAK = "Berupa pilihan ya/tidak";
+	/**
+	 * Tipe: pilihan dari daftar yang ditulis pengelola pada
+	 * {@link ParameterTambahan#getNilaiDataInputan()}, dipisah {@code ";"}, tiap butir boleh
+	 * {@code "label:nilai"}. Ini juga tipe DEFAULT yang ditulis
+	 * {@link ParameterTambahan#getTipeDataInputan()} bila kolomnya masih {@code null}.
+	 */
 	public static final String PILIHAN_CUSTOM = "Berupa pilihan custom";
+	/**
+	 * Tipe: pemilih entity generik. {@link ParameterTambahan#getNilaiDataInputan()} berisi nama kelas
+	 * berkualifikasi penuh yang di-{@code Class.forName}, dan
+	 * {@link ParameterTambahan#getKondisiDataInputan()} menjadi penyaring SQL mentah. Nilai disimpan
+	 * sebagai id, dengan {@code "-1"} bermakna "tidak ada yang dipilih".
+	 */
 	public static final String PILIHAN_OBJECT = "Berupa pilihan data";
+	/**
+	 * Tipe: banyak pilihan (checkbox). Nilai terpilih dirangkai kembali menjadi satu {@code String} yang
+	 * dipisah {@code ";"} — sehingga butir pilihan yang teksnya sendiri mengandung {@code ";"} akan rancu.
+	 */
 	public static final String PILIHAN_BANYAK = "Berupa banyak pilihan";
+	/**
+	 * Tipe: matriks satu-jawaban. Definisinya satu baris per baris matriks berformat
+	 * {@code "namaBaris->kol1:nilai1;kol2:nilai2"}. Hanya SATU sel di seluruh matriks yang bisa terpilih,
+	 * dan yang disimpan hanyalah nilai sel itu — bukan posisinya.
+	 */
 	public static final String PILIHAN_MATRIX = "Berupa pilihan matrix";
+	/**
+	 * Tipe: matriks banyak-jawaban. Sama seperti {@link #PILIHAN_MATRIX} tetapi setiap BARIS punya
+	 * jawabannya sendiri, dan seluruh jawaban disimpan sebagai satu dokumen JSON
+	 * {@code {"namabaris":{"kolom":"nilai"}}} dengan nama baris dikecilkan hurufnya.
+	 */
 	public static final String PILIHAN_MATRIX_BANYAK_NILAI = "Berupa pilihan matrix banyak nilai";
+	/**
+	 * Tipe: matriks dengan satu {@code Combobox} per baris. Penyimpanannya JSON
+	 * {@code {"namabaris":"nilai"}} — perhatikan bentuknya BERBEDA dari
+	 * {@link #PILIHAN_MATRIX_BANYAK_NILAI} yang bersarang dua tingkat, sehingga mengganti tipe sebuah
+	 * parameter di antara keduanya membuat nilai lama tidak terbaca.
+	 */
 	public static final String PILIHAN_MATRIX_BANYAK_COMBO = "Berupa pilihan matrix salah satu nilai";
 
+	/**
+	 * Tipe: pemilih mahasiswa. Termasuk tujuh tipe "pemilih entity khusus" yang terdaftar di
+	 * {@link #CUSTOM_PILIHAN} dan ditangani {@link #ambilComponentCustom(String, ParameterTambahan,
+	 * org.zkoss.zk.ui.event.EventListener)}.
+	 *
+	 * <p>Nilai ketujuh tipe ini disimpan dalam bentuk GABUNGAN {@code "<id>-><label>"}, bukan id saja —
+	 * label ikut disimpan agar laporan tetap bisa menampilkan nama walau entity aslinya kelak terhapus.
+	 * Saat membangun ulang komponen, {@code ambilComponentCustom} memotong pada {@code "->"} dan hanya
+	 * memakai bagian id.</p>
+	 */
 	public static final String PILIHAN_MAHASISWA = "Berupa data mahasiswa";
+	/** Tipe: pemilih siswa. Lihat catatan format {@code "<id>-><label>"} pada {@link #PILIHAN_MAHASISWA}. */
 	public static final String PILIHAN_SISWA = "Berupa data siswa";
+	/** Tipe: pemilih dosen. Lihat catatan format {@code "<id>-><label>"} pada {@link #PILIHAN_MAHASISWA}. */
 	public static final String PILIHAN_DOSEN = "Berupa data dosen";
+	/** Tipe: pemilih guru. Lihat catatan format {@code "<id>-><label>"} pada {@link #PILIHAN_MAHASISWA}. */
 	public static final String PILIHAN_GURU = "Berupa data guru";
+	/** Tipe: pemilih pegawai. Lihat catatan format {@code "<id>-><label>"} pada {@link #PILIHAN_MAHASISWA}. */
 	public static final String PILIHAN_PEGAWAI = "Berupa data pegawai";
+	/**
+	 * Tipe: pemilih penyedia/vendor ({@code PenyediaAsset}).
+	 *
+	 * <p>Satu-satunya tipe yang memicu KORELASI ANTAR-PARAMETER: begitu vendor dipilih,
+	 * {@link #isiOtomatisParameterTerkaitPenyedia(ParameterTambahan, org.zkoss.zk.ui.Component,
+	 * java.util.List)} mengisi otomatis parameter teks lain yang se-konteks. Juga satu-satunya tipe yang
+	 * ditangani khusus {@link #tampil(org.zkoss.zul.Vbox, ParameterTambahan,
+	 * ais.database.model.file.LampiranLain, String)}, yang menampilkan bagian LABEL saja dan menyembunyikan
+	 * id-nya.</p>
+	 */
 	public static final String PILIHAN_PENYEDIA = "Berupa data penyedia";
+	/** Tipe: pemilih kelas siswa. Lihat catatan format {@code "<id>-><label>"} pada {@link #PILIHAN_MAHASISWA}. */
 	public static final String PILIHAN_KELAS_SISWA = "Berupa data kelas siswa";
 
+	/**
+	 * Daftar tipe yang penanganannya didelegasikan ke
+	 * {@link #ambilComponentCustom(String, ParameterTambahan, org.zkoss.zk.ui.event.EventListener)} —
+	 * yaitu ketujuh pemilih entity khusus ({@code PILIHAN_MAHASISWA} sampai
+	 * {@code PILIHAN_KELAS_SISWA}).
+	 *
+	 * <p>Dipakai sebagai cabang TERAKHIR pada rantai {@code if/else} di
+	 * {@link #ambilComponent(String, ParameterTambahan, org.zkoss.zk.ui.event.EventListener, boolean)}:
+	 * apa pun yang tidak cocok dengan tipe lain tetapi ada di daftar ini diserahkan ke
+	 * {@code ambilComponentCustom}.</p>
+	 *
+	 * <p><b>Peringatan: koleksi ini {@code public static} dan BISA DIUBAH.</b> Ia hanya {@code final} pada
+	 * rujukannya, bukan isinya, dan tidak dibungkus {@code Collections.unmodifiableList}. Kode mana pun
+	 * dalam JVM yang sama dapat menambah atau menghapus isinya, dan perubahan itu berlaku global bagi
+	 * seluruh penyewa (tenant) serta seluruh permintaan. Perlakukan sebagai hanya-baca.</p>
+	 */
 	public static final List<String> CUSTOM_PILIHAN = new ArrayList<String>();
+	/** Mengisi {@link #CUSTOM_PILIHAN} dengan ketujuh tipe pemilih entity khusus saat kelas dimuat. */
 	static {
 		CUSTOM_PILIHAN.add(PILIHAN_MAHASISWA);
 		CUSTOM_PILIHAN.add(PILIHAN_SISWA);

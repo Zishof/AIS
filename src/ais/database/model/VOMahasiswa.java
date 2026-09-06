@@ -53,15 +53,105 @@ import ais.database.hibernate.HibernateUtil;
  * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
  * perilakunya tidak disalin ke tempat lain.</p>
  *
+ *
+ * <h3>Posisi dalam hierarki</h3>
+ * <p>Rantai pewarisannya adalah {@code GeneralValueObject → ais.database.model.sop.DataSop →
+ * VoKunci → VOMahasiswa}. Tiga subclass konkretnya adalah:</p>
+ * <ul>
+ * <li>{@link Mahasiswa} — mahasiswa terdaftar; relasi tagihannya memakai properti
+ * {@code "mahasiswa"};</li>
+ * <li>{@link BiodataCalonMahasiswa} — pendaftar yang belum menjadi mahasiswa; relasi tagihannya
+ * memakai properti {@code "calonMahasiswa"} (kecuali pada
+ * {@link #reInitHasilUjianMahasiswa(Session)} yang memakai {@code "biodataCalonMahasiswa"});</li>
+ * <li>{@code ais.database.model.kursus.PesertaKursus} — peserta kursus. Kelas ini mewarisi
+ * <b>seluruh</b> mesin penagihan di bawah tanpa pernah memakainya: modul kursus punya jalur
+ * penagihannya sendiri, sementara tiap kueri di kelas ini bercabang hanya untuk
+ * {@code Mahasiswa} dan {@code BiodataCalonMahasiswa}. Akibatnya, memanggil
+ * {@link #ambilKegiatans()} atau {@link #ambilCicilan()} pada instance {@code PesertaKursus} akan
+ * jatuh ke cabang "bukan Mahasiswa" dan mengeksekusi restriksi {@code calonMahasiswa} terhadap
+ * objek yang bukan calon mahasiswa. Jangan memanggil operasi penagihan di kelas ini dari kode
+ * modul kursus.</li>
+ * </ul>
+ *
+ * <h3>Peta besar: mesin penagihan mahasiswa</h3>
+ * <p>Sebagian besar isi kelas ini adalah satu mesin yang menjawab dua pertanyaan: "apa saja yang
+ * ditagihkan kepada orang ini" dan "berapa yang sudah dibayar". Mesin tersebut bekerja di atas
+ * tiga lapis penyimpanan yang perlu dipahami bersama-sama:</p>
+ * <ol>
+ * <li><b>Basis data</b> — sumber kebenaran. Entity {@link Kegiatan} (satu tagihan per
+ * semester per {@link JenisKegiatan}), {@link DetailKegiatan} (rincian per item biaya), dan
+ * {@link CicilanPembayaran} (setiap setoran pembayaran).</li>
+ * <li><b>Berkas indeks per orang</b> — untuk setiap instance disimpan berkas JSON berisi
+ * <i>daftar id</i> (bukan datanya) dari kegiatan, cicilan, hasil ujian, dan detail kegiatan
+ * miliknya. Berkas-berkas inilah yang dibaca {@code ambilLokasiXxx()} dan ditulis
+ * {@code tulisLokasiXxx()}. Bentuknya {@link org.json.JSONObject} dengan id sebagai kunci
+ * sekaligus nilai; "penghapusan" dilakukan dengan menyetel nilainya menjadi string kosong,
+ * bukan membuang kuncinya (lihat {@link #removeKegiatan(Serializable)}).</li>
+ * <li><b>Cache objek dalam proses</b> — {@code masukkanData}/{@code ambilData}/
+ * {@code ambilDataBanyak} warisan {@link GeneralValueObject} yang memetakan id menjadi objek
+ * entity tanpa menyentuh basis data lagi.</li>
+ * </ol>
+ * <p>Alur bacanya seragam: {@code ambilLokasiXxx()} menghasilkan daftar id dari berkas indeks,
+ * {@code ambilDataBanyak} mengubahnya menjadi objek, dan bila indeks dianggap basi
+ * ({@code refresh == true} atau penanda {@code udah(...)} belum terpasang) maka
+ * {@code reInitXxx(session)} menembak basis data lalu menulis ulang berkas indeks.</p>
+ *
+ * <h3>Yang harus diwaspadai saat memakai kelas ini</h3>
+ * <ul>
+ * <li><b>{@link #ambilLokasiCicilan()} bersifat destruktif</b> — ia menghapus berkas indeksnya
+ * sendiri segera setelah membaca. Pemanggilan kedua tanpa {@code refresh} akan mengembalikan
+ * JSON kosong. Ini bukan getter yang aman dipanggil berulang.</li>
+ * <li><b>{@link #getUdahHasilUjianMahasiswa()} menulis saat dibaca</b> — namanya {@code get...}
+ * tetapi ia memasang penanda berkas pada pemanggilan pertama (pola test-and-set).</li>
+ * <li><b>{@link #hitungTotalCicilan(Kegiatan, PengaturanPembayaranBulanan, Collection)}
+ * menulis ke basis data</b> — method statis bernama "hitung" ini membuka transaksi dan memperbarui
+ * baris {@link CicilanPembayaran} sebagai efek samping. Lihat dokumentasinya.</li>
+ * <li><b>Tidak ada penyaringan tenant/kepemilikan di kelas ini.</b> Semua kueri dibatasi pada
+ * orang yang diwakili {@code this}, sehingga scoping datang dari objek pemanggil — bukan dari
+ * pemeriksaan hak akses. Memuat entity {@link Mahasiswa} milik satuan kerja lain lalu memanggil
+ * method di kelas ini akan mengembalikan datanya tanpa keberatan; otorisasi harus sudah selesai
+ * sebelum sampai ke sini.</li>
+ * <li><b>Manajemen session tidak seragam.</b> Sebagian method menerima {@link Session} dari
+ * pemanggil, sebagian membuka session baru lewat {@code openSession()} dan menutupnya sendiri,
+ * dan sebagian memakai {@code currentNativeSession()} lalu memanggil
+ * {@code HibernateUtil.closeSession()} yang juga menutup session milik thread. Perhatikan
+ * dokumentasi tiap method sebelum memanggilnya dari dalam transaksi yang sedang berjalan.</li>
+ * </ul>
  * @see VoKunci
  */
 public abstract class VOMahasiswa extends VoKunci {
 
 	/**
-	 * 
+	 * Versi serialisasi kelas ini, diwarisi oleh ketiga subclass konkretnya.
+	 *
+	 * <p>Dipatok eksplisit agar instance yang disimpan di session HTTP tetap terbaca setelah
+	 * penambahan method/field pada kelas ini. Perhatikan bahwa state yang benar-benar
+	 * diserialisasi hanyalah field entity milik subclass; seluruh cache yang dipakai mesin
+	 * penagihan hidup di berkas indeks dan cache proses, bukan di dalam objek ini, sehingga objek
+	 * hasil deserialisasi tetap harus melakukan {@code refresh} untuk mendapat data mutakhir.</p>
 	 */
 	private static final long serialVersionUID = -4136659196530916378L;
 
+	/**
+	 * Membaca berkas indeks hasil ujian milik orang ini dan mengembalikan isinya sebagai teks JSON.
+	 *
+	 * <p>Berkas yang dibaca berkunci {@code "hasilUjianMahasiswa_" + getId()} di bawah lokasi
+	 * berkas milik entity ini ({@code Common.getFileLocation}). Isinya adalah
+	 * {@link org.json.JSONObject} yang memetakan id {@link HasilUjianMahasiswa} ke dirinya sendiri
+	 * — sebuah himpunan id yang disimpan sebagai peta, bukan data hasil ujian itu sendiri.</p>
+	 *
+	 * <p><b>Berbeda dari {@link #ambilLokasiCicilan()}, method ini TIDAK menghapus berkasnya
+	 * setelah membaca</b>, sehingga aman dipanggil berulang kali.</p>
+	 *
+	 * <p>Tiga keadaan berikut sama-sama menghasilkan JSON kosong {@code "{}"} tanpa kesalahan:
+	 * entity ini belum tersimpan (id masih {@code null}, mis. dipanggil dari layar registrasi
+	 * sebelum simpan), berkas belum pernah ditulis, atau pembacaan berkas gagal (kegagalan dicatat
+	 * ke audit lalu ditelan). Pemanggil karenanya tidak bisa membedakan "tidak ada hasil ujian"
+	 * dari "gagal membaca cache" hanya dari nilai baliknya.</p>
+	 *
+	 * @return teks JSON berisi himpunan id hasil ujian; tidak pernah {@code null} dan minimal
+	 *         berupa {@code "{}"}
+	 */
 	public String ambilLokasiHasilUjianMahasiswa() {
 		// Null-safe: entitas transient (id null, mis. dipanggil sebelum tersimpan)
 		// tak punya file keyed-by-id → cegah NPE (lihat pola sama di ambilLokasiKegiatan dkk).
@@ -78,6 +168,22 @@ public abstract class VOMahasiswa extends VoKunci {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks hasil ujian milik orang ini dengan teks JSON yang diberikan.
+	 *
+	 * <p>Pasangan tulis dari {@link #ambilLokasiHasilUjianMahasiswa()}, memakai kunci berkas yang
+	 * sama. Isi lama dibuang seluruhnya — untuk menambah satu id ke indeks yang sudah ada, pakai
+	 * {@link #populateHasilUjianMahasiswa(HasilUjianMahasiswa)} yang membaca dulu lalu menulis
+	 * kembali.</p>
+	 *
+	 * <p>Bila entity ini belum punya id (masih transient), method langsung kembali tanpa berbuat
+	 * apa pun: tidak ada berkas berkunci id yang bisa ditulis. Kegagalan I/O dicatat ke audit dan
+	 * ditelan, sehingga pemanggil tidak pernah tahu apakah penulisan benar-benar berhasil.</p>
+	 *
+	 * @param data teks JSON yang akan menggantikan isi berkas indeks; pemanggil bertanggung jawab
+	 *             memastikan bentuknya valid, karena method ini tidak memvalidasinya dan JSON
+	 *             rusak baru akan ketahuan saat dibaca kembali
+	 */
 	public void tulisLokasiHasilUjianMahasiswa(String data) {
 		// Null-safe: tanpa id tak ada file keyed-by-id untuk ditulis.
 		if (getId() == null) {
@@ -91,12 +197,47 @@ public abstract class VOMahasiswa extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menghapus berkas indeks hasil ujian milik orang ini dari penyimpanan.
+	 *
+	 * <p>Berbeda dari {@link #tulisLokasiHasilUjianMahasiswa(String)} yang menimpa isi berkas,
+	 * method ini membuang berkasnya. Dipakai {@link #reInitHasilUjianMahasiswa(Session)} sebagai
+	 * langkah pertama sebelum membangun ulang indeks dari basis data.</p>
+	 *
+	 * <p><b>Tidak null-safe.</b> Berbeda dari method sekeluarganya, method ini memanggil
+	 * {@code getId().toString()} tanpa memeriksa {@code null} lebih dulu, sehingga memanggilnya
+	 * pada entity yang belum tersimpan akan melempar {@link NullPointerException}. Dalam alur
+	 * yang ada saat ini hal itu tidak terjadi karena satu-satunya pemanggilnya,
+	 * {@link #reInitHasilUjianMahasiswa(Session)}, selalu dijalankan atas entity yang sudah
+	 * tersimpan; tetapi pemanggil baru perlu menyadari perbedaan ini.</p>
+	 *
+	 * <p>Berkas yang dihapus hanya berisi daftar id — baris {@link HasilUjianMahasiswa} di basis
+	 * data tidak tersentuh sama sekali.</p>
+	 */
 	public void bersihkanLokasiHasilUjianMahasiswa() {
 		File file = Common.getFileLocation(this, "hasilUjianMahasiswa_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "hasilUjianMahasiswa");
 
 	}
 
+	/**
+	 * Mendaftarkan satu {@link HasilUjianMahasiswa} ke dalam berkas indeks milik orang ini.
+	 *
+	 * <p>Urutan kerjanya: baca indeks yang ada lewat {@link #ambilLokasiHasilUjianMahasiswa()},
+	 * panggil {@code hasilUjianMahasiswa.write()} agar hasil ujian tersebut menuliskan berkas
+	 * datanya sendiri, tambahkan id-nya sebagai pasangan kunci-nilai, lalu tulis kembali indeks
+	 * lewat {@link #tulisLokasiHasilUjianMahasiswa(String)}.</p>
+	 *
+	 * <p>Karena baca-ubah-tulis di sini tidak atomik, dua thread yang mendaftarkan hasil ujian
+	 * berbeda untuk orang yang sama secara bersamaan dapat saling menimpa sehingga salah satu id
+	 * hilang dari indeks. Data di basis data tetap utuh; yang hilang hanya entri cache, dan
+	 * pemanggilan berikutnya dengan {@code refresh == true} akan memulihkannya.</p>
+	 *
+	 * <p>Seluruh kegagalan (termasuk {@code hasilUjianMahasiswa} atau id-nya bernilai
+	 * {@code null}) ditelan dan dicatat ke audit; method tidak pernah melempar ke pemanggil.</p>
+	 *
+	 * @param hasilUjianMahasiswa hasil ujian yang akan didaftarkan; harus sudah punya id
+	 */
 	public void populateHasilUjianMahasiswa(HasilUjianMahasiswa hasilUjianMahasiswa) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiHasilUjianMahasiswa());
@@ -107,6 +248,47 @@ public abstract class VOMahasiswa extends VoKunci {
 		}
 	}
 
+	/**
+	 * Penanda bergaya <b>test-and-set</b>: menjawab "apakah indeks hasil ujian orang ini sudah
+	 * pernah dibangun", sekaligus memasang penandanya bila belum.
+	 *
+	 * <p><b>Ini bukan getter murni meski namanya diawali {@code get}.</b> Pada pemanggilan
+	 * pertama untuk suatu entity, berkas penanda masih kosong sehingga method <i>menuliskan</i>
+	 * {@code "true"} ke berkas tersebut lalu mengembalikan {@code false} ("belum pernah — dan
+	 * sekarang sudah ditandai"). Pemanggilan berikutnya menemukan berkas terisi dan mengembalikan
+	 * {@code true} tanpa mengubah apa pun. Pola inilah yang dipakai
+	 * {@link #ambilHasilUjianMahasiswa(Session, boolean)} untuk menjalankan
+	 * {@link #reInitHasilUjianMahasiswa(Session)} tepat sekali.</p>
+	 *
+	 * <p><b>Duplikasi dari {@link GeneralValueObject#udah(String)}.</b> Logika di sini ditulis
+	 * ulang alih-alih memanggil penanda generik milik kelas induk, dan kunci berkas yang dipakai
+	 * — {@code getClass().getName() + "_udah_" + getId()} — <b>identik</b> dengan kunci yang
+	 * dihasilkan {@code udah("")} (yakni {@code udah()} tanpa argumen). Selama kode yang ada tidak
+	 * pernah memanggil {@code udah()} tanpa argumen pada {@link Mahasiswa} maupun
+	 * {@link BiodataCalonMahasiswa}, tabrakan itu tidak muncul; namun pemanggilan {@code udah()}
+	 * baru pada salah satu subclass akan diam-diam mematikan inisialisasi indeks hasil ujian
+	 * (atau sebaliknya), karena keduanya berbagi satu berkas penanda yang sama. Bila membutuhkan
+	 * penanda baru pada subclass ini, pakai {@code udah("sufiksTersendiri")} agar kuncinya
+	 * berbeda.</p>
+	 *
+	 * <p><b>Perilaku pada entity transient.</b> Bila id masih {@code null}, method mengembalikan
+	 * {@code true} ("anggap sudah") agar {@link #reInitHasilUjianMahasiswa(Session)} dilewati:
+	 * restriksi Hibernate di sana membutuhkan id sehingga akan gagal. Konsekuensinya daftar hasil
+	 * ujian akan tampil kosong sampai entity tersimpan — pilihan yang disengaja agar layar tidak
+	 * meledak, bukan bug.</p>
+	 *
+	 * <p><b>Perilaku saat gagal I/O</b> sama dengan {@link GeneralValueObject#udah(String)}:
+	 * kesalahan dicetak dan dicatat, lalu method mengembalikan {@code true} sehingga pembangunan
+	 * ulang indeks dilewati. Sikap ini menghindari kerja berat berulang tanpa henti, dengan risiko
+	 * data cache basi; pemanggil yang membutuhkan data segar harus memakai parameter
+	 * {@code refresh}.</p>
+	 *
+	 * <p>Method ini juga mencetak baris diagnostik ke keluaran standar setiap kali dipanggil.</p>
+	 *
+	 * @return {@code true} bila penanda sudah terpasang sebelumnya, bila entity belum tersimpan,
+	 *         atau bila terjadi kegagalan I/O; {@code false} hanya pada pemanggilan pertama yang
+	 *         berhasil memasang penanda
+	 */
 	public boolean getUdahHasilUjianMahasiswa() {
 		// Null-safe: entitas transient (id null, mis. belum tersimpan) tak punya file
 		// keyed-by-id dan tak bisa direstriksi ke DB (Restrictions.eq("mahasiswa", this)
@@ -131,6 +313,37 @@ public abstract class VOMahasiswa extends VoKunci {
 		return true;
 	}
 
+	/**
+	 * Membangun ulang berkas indeks hasil ujian orang ini dari basis data, membuang isi lama.
+	 *
+	 * <p>Langkah kerjanya: kueri seluruh {@link HasilUjianMahasiswa} milik orang ini terurut
+	 * menaik berdasarkan id, hapus berkas indeks lama
+	 * ({@link #bersihkanLokasiHasilUjianMahasiswa()}), tulis indeks kosong, lalu untuk setiap
+	 * baris hasil kueri masukkan objeknya ke cache proses ({@code masukkanData}) dan daftarkan
+	 * id-nya ke indeks ({@link #populateHasilUjianMahasiswa(HasilUjianMahasiswa)}).</p>
+	 *
+	 * <p><b>Percabangan properti relasi.</b> Restriksi kueri dipilih dengan
+	 * {@code this instanceof Mahasiswa}: bila benar dipakai properti {@code "mahasiswa"}, bila
+	 * tidak dipakai {@code "biodataCalonMahasiswa"}. Perhatikan bahwa nama properti cabang kedua
+	 * di sini adalah {@code "biodataCalonMahasiswa"}, sedangkan pada
+	 * {@link #reInitKegiatan(Session)} dan {@link #ambilPengeluaranMahasiswa()} properti yang
+	 * dipakai untuk objek yang sama bernama {@code "calonMahasiswa"} — penamaan yang berbeda pada
+	 * entity yang berbeda, jadi jangan menyeragamkannya tanpa memeriksa pemetaan Hibernate
+	 * masing-masing. Karena percabangan hanya mengenal dua kemungkinan, subclass ketiga
+	 * ({@code PesertaKursus}) akan masuk ke cabang calon mahasiswa dan menghasilkan kueri yang
+	 * tidak bermakna.</p>
+	 *
+	 * <p><b>Tidak menutup atau membuka session.</b> Session yang dipakai adalah milik pemanggil
+	 * dan harus masih terbuka. Method ini juga tidak dibungkus transaksi karena hanya membaca;
+	 * yang berubah adalah berkas indeks di penyimpanan, bukan basis data.</p>
+	 *
+	 * <p><b>Tidak memasang penanda.</b> Berbeda dari sebagian mesin sejenis, method ini tidak
+	 * memanggil {@link #getUdahHasilUjianMahasiswa()}; penanda dipasang oleh pemeriksaan di
+	 * {@link #ambilHasilUjianMahasiswa(Session, boolean)} sebelum method ini dipanggil.</p>
+	 *
+	 * @param session session Hibernate yang masih terbuka; {@code null} akan menyebabkan
+	 *                {@link NullPointerException} karena method ini tidak menyediakan cadangan
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitHasilUjianMahasiswa(Session session) {
 		List<HasilUjianMahasiswa> hasilUjianMahasiswas = session.createCriteria(HasilUjianMahasiswa.class)
@@ -146,6 +359,51 @@ public abstract class VOMahasiswa extends VoKunci {
 		hasilUjianMahasiswas = null;
 	}
 
+	/**
+	 * Mengambil seluruh hasil ujian milik orang ini, memakai berkas indeks bila memungkinkan.
+	 *
+	 * <p>Alurnya terdiri atas dua tahap.</p>
+	 *
+	 * <p><b>Tahap 1 — memastikan indeks ada.</b> Bila {@code refresh} bernilai benar, atau bila
+	 * {@link #getUdahHasilUjianMahasiswa()} melaporkan indeks belum pernah dibangun, maka
+	 * {@link #reInitHasilUjianMahasiswa(Session)} dijalankan lebih dulu. Ingat bahwa pemeriksaan
+	 * penanda itu sendiri menulis berkas pada pemanggilan pertama.</p>
+	 *
+	 * <p><b>Tahap 2 — mengubah id menjadi objek.</b> Setiap kunci pada indeks ditelusuri. Untuk
+	 * tiap id, objeknya dicari lebih dulu di cache proses ({@code ambilData}); bila tidak ada di
+	 * sana, method menembak basis data dengan {@code Restrictions.idEq} dan memasukkan hasilnya ke
+	 * cache. Entri yang nilainya string kosong dilewati — itulah cara indeks menandai id yang
+	 * "dihapus" tanpa membuang kuncinya.</p>
+	 *
+	 * <p><b>Penyambungan relasi balik.</b> Setiap objek yang dikumpulkan disetel relasi
+	 * pemiliknya kembali ke {@code this} ({@code setMahasiswa} atau
+	 * {@code setBiodataCalonMahasiswa} sesuai tipe). Ini menghindari inisialisasi proxy lazy saat
+	 * pemanggil membaca relasi tersebut, tetapi juga berarti objek yang dikembalikan
+	 * <b>dimodifikasi</b> oleh method ini. Bila objek tersebut sedang terkelola oleh session yang
+	 * terbuka, perubahan itu berpotensi ikut tersimpan pada {@code flush} berikutnya walaupun
+	 * nilainya semestinya sama; jangan memanggil method ini di tengah transaksi tulis kecuali
+	 * memang menghendaki hal tersebut.</p>
+	 *
+	 * <p><b>Ketahanan terhadap indeks basi.</b> Id yang tercatat di indeks tetapi barisnya sudah
+	 * terhapus di basis data akan menghasilkan {@code null} dari kueri; entri seperti itu
+	 * dilewati, tidak membatalkan seluruh pengambilan. Seluruh kegagalan per-entri maupun
+	 * kegagalan penguraian JSON ditelan dan dicatat ke audit, sehingga method ini mengembalikan
+	 * daftar sebagian alih-alih melempar — pemanggil tidak dapat membedakan "memang kosong" dari
+	 * "gagal sebagian".</p>
+	 *
+	 * <p><b>Session.</b> Parameter {@code session} boleh {@code null} untuk tahap 2: method akan
+	 * mengambil session milik thread lewat {@code HibernateUtil.currentSession()} saat pertama
+	 * kali benar-benar membutuhkannya. Namun bila tahap 1 sampai berjalan,
+	 * {@link #reInitHasilUjianMahasiswa(Session)} dipanggil dengan nilai {@code session} apa
+	 * adanya dan akan gagal bila {@code null}. Jadi: {@code null} hanya aman ketika indeks
+	 * dipastikan sudah ada dan {@code refresh} bernilai salah.</p>
+	 *
+	 * @param session session Hibernate; boleh {@code null} hanya dalam kondisi yang dijelaskan di
+	 *                atas
+	 * @param refresh {@code true} untuk memaksa membangun ulang indeks dari basis data
+	 * @return daftar hasil ujian; kosong bila tidak ada, tidak pernah {@code null}. Urutannya
+	 *         mengikuti urutan penelusuran kunci JSON, bukan urutan id
+	 */
 	@SuppressWarnings("unchecked")
 	public List<HasilUjianMahasiswa> ambilHasilUjianMahasiswa(Session session, boolean refresh) {
 		if (!getUdahHasilUjianMahasiswa() || refresh) {
