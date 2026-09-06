@@ -50,14 +50,67 @@ import ais.database.model.file.SuratJrxmlFile;
 import net.sf.jasperreports.engine.JasperCompileManager;
 
 /**
- * Servlet implementation class AmbilLaporanMahasiswa
+ * Servlet pencetak laporan akademik dan keuangan seorang mahasiswa, dikirim sebagai PDF atau
+ * JPEG.
+ *
+ * <h4>Cara memanggil</h4>
+ * <p>Mahasiswa ditunjuk lewat parameter {@code nim}. Jenis laporan ditentukan parameter
+ * {@code laporan}, dan bentuk berkas oleh parameter {@code type} ({@code "img"} menghasilkan
+ * JPEG, selain itu PDF):</p>
+ * <table border="1">
+ *   <caption>Nilai parameter {@code laporan}</caption>
+ *   <tr><th>Nilai</th><th>Isi</th><th>Parameter tambahan</th></tr>
+ *   <tr><td>{@code khs}</td><td>kartu hasil studi satu semester</td><td>{@code semester}</td></tr>
+ *   <tr><td>{@code krs}</td><td>kartu rencana studi</td><td>&mdash;</td></tr>
+ *   <tr><td>{@code transkrip}</td><td>transkrip nilai</td><td>&mdash;</td></tr>
+ *   <tr><td>{@code ipk}</td><td>indeks prestasi kumulatif</td><td>&mdash;</td></tr>
+ *   <tr><td>{@code struk}</td><td>bukti pembayaran</td><td>{@code semester}, {@code jenisPembayaran}</td></tr>
+ *   <tr><td>{@code surat}</td><td>surat resmi dari templat</td><td>{@code idSurat}, {@code locale}</td></tr>
+ * </table>
+ * <p>Nilai {@code laporan} yang tidak dikenali menghasilkan gambar
+ * {@code laporan_tidak_ditemukan.png}.</p>
+ *
+ * <h4>PERINGATAN KEAMANAN &mdash; tidak ada autentikasi maupun pembatasan cakupan</h4>
+ * <p>Didokumentasikan agar tidak hilang dari pandangan, bukan sebagai anjuran:</p>
+ * <ul>
+ *   <li>{@link #process} <b>tidak pernah</b> memeriksa siapa pengguna yang meminta. Tidak ada
+ *       pemeriksaan sesi, tidak ada pemeriksaan bahwa pengguna yang masuk adalah mahasiswa
+ *       yang bersangkutan, dan tidak ada pembatasan satuan kerja atau tenant. Mahasiswa
+ *       dicari semata dari kecocokan kolom {@code nim} ditambah penyaring aktif.</li>
+ *   <li>Pada {@code applicationContext-security.xml} tidak ada aturan {@code intercept-url}
+ *       yang cocok untuk {@code /AmbilLaporanMahasiswa} &mdash; yang ada hanya
+ *       {@code /AmbilFile*}, {@code /AmbilFile}, dan {@code /AmbilLampiran**} &mdash;
+ *       sehingga jalur ini jatuh ke aturan penampung {@code /**} yang bernilai
+ *       {@code IS_AUTHENTICATED_ANONYMOUSLY}. Penyaring {@code FilterJSP} yang terpasang di
+ *       {@code /*} hanya melakukan pengarahan dan header CORS, bukan autentikasi.</li>
+ *   <li>Parameter {@code idSurat} diterima apa adanya tanpa daftar putih, sehingga templat
+ *       surat resmi mana pun dapat dirender atas nama mahasiswa mana pun.</li>
+ * </ul>
+ * <p>Akibatnya nomor induk mahasiswa menjadi satu-satunya "rahasia" yang melindungi transkrip
+ * nilai, kartu hasil studi, bukti pembayaran, dan surat resmi &mdash; padahal nomor induk
+ * bersifat berurutan dan lazim dipublikasikan.</p>
+ *
+ * @see ais.database.model.Mahasiswa
  */
 public class AmbilLaporanMahasiswa extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton pembantu pembayaran, dipakai {@link #laporanStruk} untuk menerjemahkan parameter
+	 * {@code jenisPembayaran} menjadi {@link JenisKegiatan}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh kebergantungan diambil lewat field
+	 * statis {@link #pembayaranUtil}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public AmbilLaporanMahasiswa() {
@@ -66,8 +119,17 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>GET adalah jalur yang lazim dipakai karena alamat servlet ini muncul sebagai tautan
+	 * unduhan laporan. Kegagalan ditelan {@link Common#tampilErrorJikaAdmin(Exception)} sehingga
+	 * peramban tidak menerima kode status 5xx.</p>
+	 *
+	 * @param request  permintaan masuk berisi {@code nim}, {@code laporan}, dan {@code type}
+	 * @param response balasan yang akan diisi bita berkas laporan
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -79,8 +141,13 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan perilaku identik {@link #doGet}.
+	 *
+	 * @param request  permintaan masuk berisi {@code nim}, {@code laporan}, dan {@code type}
+	 * @param response balasan yang akan diisi bita berkas laporan
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -91,6 +158,39 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Inti servlet: menemukan mahasiswa yang diminta, membangun laporannya, lalu mengalirkan
+	 * berkasnya.
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>seluruh nama dan nilai parameter dicetak ke {@code System.out};</li>
+	 *   <li>parameter {@code nim}, {@code laporan}, {@code type}, dan {@code semester} dibaca;
+	 *       {@code semester} yang tidak dapat diurai bernilai bawaan 1;</li>
+	 *   <li>{@link Mahasiswa} dicari dengan kecocokan {@code nim} ditambah penyaring aktif;
+	 *       bila tidak ada, balasan berupa kode status 500 dan pesan pada log kontainer;</li>
+	 *   <li>nilai {@code laporan} mengarahkan ke {@link #laporanKHS}, {@link #laporanKRS},
+	 *       {@link #laporanTranskrip}, {@link #laporanIPK}, {@link #laporanStruk}, atau
+	 *       {@link #laporanSurat}; nilai lain menyisakan gambar pengganti;</li>
+	 *   <li>jenis isi ditetapkan {@code image/jpeg} bila {@code type} bernilai {@code "img"},
+	 *       selain itu {@code application/pdf}; berkas lalu disalin ke balasan dengan penyangga
+	 *       1&nbsp;KiB.</li>
+	 * </ol>
+	 *
+	 * <p><b>Keamanan:</b> method ini tidak memeriksa hak akses sama sekali &mdash; tidak ada
+	 * pemeriksaan sesi, pemilik data, maupun satuan kerja. Lihat peringatan pada dokumentasi
+	 * kelas.</p>
+	 *
+	 * <p>Perhatikan pula bahwa {@code type} dibaca sebagai {@code String} lalu dibandingkan
+	 * dengan {@code type.equals("img")} tanpa penjagaan nilai {@code null}, sehingga permintaan
+	 * tanpa parameter {@code type} gagal pada titik itu. Aliran keluaran juga tidak ditutup di
+	 * blok {@code finally}, sehingga kegagalan di tengah penyalinan meninggalkan berkas masukan
+	 * yang belum tertutup.</p>
+	 *
+	 * @param request permintaan masuk berisi parameter penentu laporan
+	 * @param resp    balasan yang akan diisi bita berkas laporan
+	 * @throws Exception bila pembangunan laporan atau penulisan balasan gagal
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 
 		Enumeration<String> enumeration = request.getParameterNames();
@@ -183,6 +283,31 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 
 	}
 
+	/**
+	 * Membangun surat resmi dari sebuah templat, berisi data mahasiswa yang bersangkutan.
+	 *
+	 * <p>Parameter laporan dikumpulkan dari beberapa sumber: daftar
+	 * {@link TemplateSuratParameter} milik templat, nama pejabat penanda tangan
+	 * ({@link Staff} ber-kode {@code "dekan"} dan {@code "rektor"}), yudisium hasil
+	 * {@code Common.hitungJudisium} beserta padanan bahasa Inggrisnya, semester berjalan yang
+	 * dihitung dari tahun angkatan, serta foto mahasiswa &mdash; dengan foto kelulusan dipakai
+	 * bila ada dan foto biasa sebagai cadangan.</p>
+	 *
+	 * <p>Bersifat {@code public static} sehingga juga dipakai dari luar servlet ini.</p>
+	 *
+	 * <p><b>Keamanan:</b> {@code idSurat} diterima apa adanya tanpa daftar putih, sehingga templat
+	 * surat resmi mana pun dapat dirender atas nama mahasiswa mana pun. Method ini sendiri tidak
+	 * memeriksa hak akses; pemanggil yang bertanggung jawab melakukannya, dan {@link #process}
+	 * tidak melakukannya.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang menjadi isi surat
+	 * @param request   permintaan asal, dipakai membangun tautan pada laporan
+	 * @param idSurat   id templat surat yang dirender
+	 * @param locale    {@code "id"} atau {@code null} untuk bahasa Indonesia, selain itu Inggris
+	 * @param type      {@code "img"} menghasilkan berkas gambar, selain itu PDF
+	 * @return berkas laporan, atau gambar {@code laporan_tidak_ditemukan.png} bila gagal
+	 * @throws Exception bila pembangunan laporan gagal
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static File laporanSurat(Mahasiswa mahasiswa, HttpServletRequest request, Long idSurat, String locale,
 			String type) throws Exception {
@@ -352,6 +477,26 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 		return file;
 	}
 
+	/**
+	 * Membangun bukti pembayaran (struk) seorang mahasiswa.
+	 *
+	 * <p>Parameter {@code jenisPembayaran} diterjemahkan menjadi {@link JenisKegiatan} lewat
+	 * {@code PembayaranUtil.generateJenisKegiatan}. Untuk jenis pendaftaran mahasiswa lama dan
+	 * pendaftaran wisuda, {@link Kegiatan} diambil dari mahasiswa pada semester yang diminta;
+	 * untuk jenis lain, data dicari lewat {@link BiodataCalonMahasiswa} yang nomor induknya sama.</p>
+	 *
+	 * <p>Laporan dibangun dari templat {@code Bukti_Pembayaran_Mahasiswa} dan dilengkapi kode
+	 * batang yang dibangkitkan {@code BarcodeCommon.generateCrCodeMahasiswa} atas URL permintaan,
+	 * sehingga struk dapat diperiksa keasliannya kembali.</p>
+	 *
+	 * <p>Parameter {@code semester} yang tidak dapat diurai bernilai bawaan 1.</p>
+	 *
+	 * @param mahasiswa mahasiswa pemilik struk
+	 * @param request   permintaan asal, memuat {@code type}, {@code locale}, {@code semester},
+	 *                  dan {@code jenisPembayaran}
+	 * @return berkas struk, atau gambar {@code laporan_tidak_ditemukan.png} bila tidak ada data
+	 * @throws Exception bila pembangunan laporan gagal
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private File laporanStruk(Mahasiswa mahasiswa, HttpServletRequest request) throws Exception {
 		String type = request.getParameter("type");
@@ -430,6 +575,18 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 		return file;
 	}
 
+	/**
+	 * Membangun laporan indeks prestasi kumulatif seorang mahasiswa.
+	 *
+	 * <p>Semester berjalan dihitung dari tahun angkatan, semester pindahan, dan semester mulai
+	 * mahasiswa, lalu diteruskan sebagai parameter laporan sehingga perhitungan mencakup seluruh
+	 * semester sampai saat pencetakan.</p>
+	 *
+	 * @param mahasiswa mahasiswa pemilik laporan
+	 * @param request   permintaan asal, memuat {@code type} dan {@code locale}
+	 * @return berkas laporan, atau gambar {@code laporan_tidak_ditemukan.png} bila gagal
+	 * @throws Exception bila pembangunan laporan gagal
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private File laporanIPK(Mahasiswa mahasiswa, HttpServletRequest request) throws Exception {
 		String type = request.getParameter("type");
@@ -480,6 +637,20 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membangun transkrip nilai seorang mahasiswa.
+	 *
+	 * <p>Transkrip memuat seluruh riwayat mata kuliah beserta nilainya, dan karena itu merupakan
+	 * laporan paling sensitif yang disajikan servlet ini.</p>
+	 *
+	 * <p>Seperti laporan lain, bahasa ditentukan parameter {@code locale} dan bentuk berkas oleh
+	 * {@code type}.</p>
+	 *
+	 * @param mahasiswa mahasiswa pemilik transkrip
+	 * @param request   permintaan asal, memuat {@code type} dan {@code locale}
+	 * @return berkas transkrip, atau gambar {@code laporan_tidak_ditemukan.png} bila gagal
+	 * @throws Exception bila pembangunan laporan gagal
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private File laporanTranskrip(Mahasiswa mahasiswa, HttpServletRequest request) throws Exception {
 
@@ -563,6 +734,17 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membangun kartu rencana studi seorang mahasiswa.
+	 *
+	 * <p>Berisi daftar mata kuliah yang diambil pada semester berjalan beserta jadwalnya. Bahasa
+	 * ditentukan parameter {@code locale} dan bentuk berkas oleh {@code type}.</p>
+	 *
+	 * @param mahasiswa mahasiswa pemilik kartu rencana studi
+	 * @param request   permintaan asal, memuat {@code type} dan {@code locale}
+	 * @return berkas laporan, atau gambar {@code laporan_tidak_ditemukan.png} bila gagal
+	 * @throws Exception bila pembangunan laporan gagal
+	 */
 	private File laporanKRS(Mahasiswa mahasiswa, HttpServletRequest request) throws Exception {
 
 		String type = request.getParameter("type");
@@ -644,6 +826,21 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 
 	}
 
+	/**
+	 * Membangun kartu hasil studi seorang mahasiswa untuk satu semester tertentu.
+	 *
+	 * <p>Berbeda dari laporan lain, method ini menerima nomor semester secara terpisah &mdash;
+	 * nilainya berasal dari parameter {@code semester} yang sudah diurai {@link #process}, dengan
+	 * bawaan 1 bila tidak dapat diurai.</p>
+	 *
+	 * <p>Bahasa ditentukan parameter {@code locale} dan bentuk berkas oleh {@code type}.</p>
+	 *
+	 * @param mahasiswa mahasiswa pemilik kartu hasil studi
+	 * @param semester  nomor semester yang dicetak
+	 * @param request   permintaan asal, memuat {@code type} dan {@code locale}
+	 * @return berkas laporan, atau gambar {@code laporan_tidak_ditemukan.png} bila gagal
+	 * @throws Exception bila pembangunan laporan gagal
+	 */
 	private File laporanKHS(Mahasiswa mahasiswa, Integer semester, HttpServletRequest request) throws Exception {
 
 		String type = request.getParameter("type");
