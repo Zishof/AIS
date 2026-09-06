@@ -12,23 +12,58 @@ package ais.database.model;
  */
 public interface SocialMediaCommonModel {
 
+	/**
+	 * @return id akun Facebook milik pengguna (hasil login OAuth), atau null bila
+	 *         belum pernah dihubungkan.
+	 */
 	public String getFacebookId();
 
+	/**
+	 * @param facebookId id akun Facebook untuk ditautkan ke pengguna ini.
+	 */
 	public void setFacebookId(String facebookId);
 
+	/**
+	 * @return id akun Google milik pengguna (hasil login OAuth), atau null bila
+	 *         belum pernah dihubungkan.
+	 */
 	public String getGoogleId();
 
+	/**
+	 * @param googleId id akun Google untuk ditautkan ke pengguna ini.
+	 */
 	public void setGoogleId(String googleId);
 
+	/**
+	 * @return id akun Twitter milik pengguna (hasil login OAuth), atau null bila
+	 *         belum pernah dihubungkan.
+	 */
 	public String getTwitterId();
 
+	/**
+	 * @param twitterId id akun Twitter untuk ditautkan ke pengguna ini.
+	 */
 	public void setTwitterId(String twitterId);
 
+	/**
+	 * @return id akun LinkedIn milik pengguna (hasil login OAuth), atau null bila
+	 *         belum pernah dihubungkan.
+	 */
 	public String getLinkedinId();
 
+	/**
+	 * @param linkedinId id akun LinkedIn untuk ditautkan ke pengguna ini.
+	 */
 	public void setLinkedinId(String linkedinId);
 
+	/**
+	 * @return tautan (URL) profil media sosial bebas milik pengguna, atau null
+	 *         bila belum diisi.
+	 */
 	public String getSocialMediaProfile();
 
+	/**
+	 * @param socialMediaProfile tautan profil media sosial bebas.
+	 */
 	public void setSocialMediaProfile(String socialMediaProfile);
 }
