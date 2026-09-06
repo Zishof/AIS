@@ -91,10 +91,40 @@ import ais.ui.util.WaktuUtil;
  * @see BankHost
  */
 public class Briva extends HttpServlet {
+	/**
+	 * Versi serialisasi {@link java.io.Serializable} yang diwarisi dari {@link HttpServlet}.
+	 *
+	 * <p>Bernilai tetap {@code 1L}: servlet ini tidak pernah diserialisasi antarnode, sehingga nilai
+	 * ini semata memenuhi kontrak {@code Serializable} dan meredam peringatan kompilator.</p>
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; dipakai {@link #process(HttpServletRequest, HttpServletResponse)}
+	 * untuk memetakan alamat IP penelepon menjadi {@link BankHost}, dan oleh
+	 * {@link #doProcess doProcess} untuk menjumlahkan cicilan lewat
+	 * {@code getTotalDanDendaFromCicilan}.
+	 *
+	 * <p><b>Perhatikan:</b> {@link BankHost} hasil pemetaan bersifat <i>informasional</i> pada
+	 * jalur inquiry — nilai {@code null} tidak memblokir dan hanya membuat jenis pembayaran jatuh
+	 * ke {@code ConstantValues.TUNAI}. Sejak gerbang {@code gerbang_bankhost_null_posting_briva}
+	 * ditambahkan, khusus jalur POSTING (payment/reversal) keadaan {@code null} dapat dibuat
+	 * gagal-tertutup; lihat Javadoc kelas untuk nilai default dan cara menyalakannya.</p>
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/**
+	 * Pemformat tanggal per-thread untuk pola ISO tanpa zona waktu ({@code yyyy-MM-dd'T'HH:mm:ss}).
+	 *
+	 * <p>Dibungkus {@link ThreadLocal} karena {@link SimpleDateFormat} tidak aman-thread, sedangkan
+	 * servlet melayani banyak permintaan secara paralel. Dipakai {@link #doProcess doProcess} untuk
+	 * mengurai {@code trxDateTime} menjadi tanggal pembukuan; karena polanya tidak memuat offset
+	 * zona, {@link #doProses} lebih dulu membuang sufiks {@code +07:00}.</p>
+	 *
+	 * <p>Bila penguraian gagal, {@link #doProcess doProcess} <b>tidak</b> menolak permintaan
+	 * melainkan mundur ke waktu sekarang, sehingga tanggal pembukuan dapat berbeda dari tanggal
+	 * transaksi yang sesungguhnya.</p>
+	 */
 	public static final ThreadLocal<DateFormat> dateFormat1 = new ThreadLocal<DateFormat>() {
 		@Override
 		protected DateFormat initialValue() {
@@ -103,6 +133,17 @@ public class Briva extends HttpServlet {
 	};
 
 	/**
+	 * Membentuk instance servlet.
+	 *
+	 * <p>Konstruktor tanpa argumen yang dibutuhkan wadah servlet: Tomcat membuat satu instance
+	 * {@link Briva} lalu memakainya kembali untuk kedua {@code url-pattern} yang dipetakan ke kelas
+	 * ini. Tidak ada state yang disiapkan di sini — inisialisasi terjadi pada penginisialisasi field
+	 * {@link #pembayaranUtil} dan {@link #dateFormat1}.</p>
+	 *
+	 * <p>Karena instance dipakai bersama oleh banyak thread permintaan, jangan menambahkan field
+	 * instance yang dapat berubah dan bergantung pada satu permintaan; pakai variabel lokal atau
+	 * {@link ThreadLocal}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Briva() {
@@ -110,8 +151,23 @@ public class Briva extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan mendelegasikannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>GET dan POST diperlakukan identik. Dalam praktik BRI selalu memakai POST — jalur GET
+	 * disediakan agar endpoint mudah diuji manual dan agar permintaan yang salah metode tetap
+	 * menghasilkan balasan JSON, bukan halaman galat wadah servlet.</p>
+	 *
+	 * <p><b>Penanganan galat:</b> setiap {@link Exception} ditangkap dan diserahkan ke
+	 * {@code Common.tampilErrorJikaAdmin}. Konsekuensinya, bila kegagalan terjadi sebelum badan
+	 * respons sempat ditulis, bank dapat menerima badan kosong dengan status 200 dan akan
+	 * memperlakukannya sebagai kegagalan lalu mengirim ulang.</p>
+	 *
+	 * @param request  permintaan dari BRI
+	 * @param response respons yang akan diisi JSON
+	 * @throws ServletException bila wadah servlet melaporkan kegagalan
+	 * @throws IOException      bila penulisan respons gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -123,8 +179,22 @@ public class Briva extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan mendelegasikannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>Inilah metode yang sesungguhnya dipakai BRI untuk kedua endpoint SNAP: penerbitan token
+	 * dan notifikasi pembayaran. Isinya sama persis dengan {@link #doGet} — pemilihan cabang tidak
+	 * ditentukan oleh metode HTTP maupun oleh URL, melainkan semata oleh ada-tidaknya
+	 * {@code grantType} pada body (lihat {@link #doProses}).</p>
+	 *
+	 * <p><b>Penanganan galat:</b> sama dengan {@link #doGet} — pengecualian ditelan oleh
+	 * {@code Common.tampilErrorJikaAdmin} sehingga tidak merambat ke wadah servlet.</p>
+	 *
+	 * @param request  permintaan dari BRI
+	 * @param response respons yang akan diisi JSON
+	 * @throws ServletException bila wadah servlet melaporkan kegagalan
+	 * @throws IOException      bila penulisan respons gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {

@@ -47,16 +47,86 @@ import ais.database.model.sekolah.Tagihan;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet gateway <i>host-to-host</i> (H2H) untuk skema Virtual Account bank mitra: melayani
+ * <b>inquiry</b> (tanya tagihan), <b>payment</b> (pelunasan), dan <b>reversal</b> (pembatalan
+ * pembayaran) atas baris {@link VirtualAccountBank}.
+ *
+ * <p>Terpasang di {@code web.xml} pada dua URL yang keduanya menunjuk kelas ini: {@code /BMS}
+ * untuk inquiry dan pembayaran, serta {@code /BMSReversal} untuk pembatalan. Pembedaannya
+ * dilakukan {@link #doProses} dengan memeriksa akhiran URI, bukan lewat parameter.</p>
+ *
+ * <h4>Berkas acuan bagi salinan-salinannya</h4>
+ * <p>Kelas ini adalah <b>bentuk paling mutakhir</b> dari sebuah pola gateway yang juga dipakai
+ * {@link Nagari} dan {@link Otto}. Beberapa pengaman sudah ditambahkan di sini dan
+ * <b>belum tersalin</b> ke kedua berkas itu:</p>
+ * <ul>
+ *   <li><b>pemeriksaan bentuk payload</b> di awal {@link #doProses} — badan kosong atau yang tidak
+ *       diawali <code>{</code> ditolak dengan {@code errorCode=30}, dan setiap pembacaan field
+ *       memakai pola {@code req == null || req.isNull(...)} yang aman terhadap {@code null};</li>
+ *   <li><b>urutan aman simulasi timeout</b> — balasan {@code errorCode=68} dikembalikan
+ *       <i>sebelum</i> {@link #doProcess} dipanggil, sehingga tidak mungkin lagi ada pembayaran
+ *       yang telanjur tercatat lunas padahal bank diberi tahu transaksinya gagal; pengaktifannya
+ *       juga menuntut JVM flag {@code ais.bms.allowTimeoutSimulation} di samping konfigurasi
+ *       {@code bms_va_sleep};</li>
+ *   <li><b>{@link #POLA_ITEM_PEMBAYARAN}</b> — validasi ketat format komponen {@code "Item-"}
+ *       sebelum diurai.</li>
+ * </ul>
+ *
+ * <h4>Model autentikasi (tidak ada tanda tangan digital)</h4>
+ * <p>Kanal ini <b>tidak memverifikasi tanda tangan, HMAC, token, maupun kata sandi</b> — baik pada
+ * cabang inquiry, pembayaran, maupun reversal. Satu-satunya pengenal pemanggil adalah pencocokan
+ * alamat IP lewat {@link PembayaranUtil#getBankHost(String, String)} di {@link #process}, dan
+ * hasilnya <b>tidak dipakai sebagai gerbang</b>: bila IP tidak dikenal, {@code bankHost} bernilai
+ * {@code null} namun pemrosesan tetap berlanjut. Karena
+ * {@link VirtualAccountBank#ambilVa(String, Double, BankHost)} mencocokkan baris dengan syarat
+ * <i>{@code bankHost} kosong ATAU sama dengan pemanggil</i>, VA "netral" tetap ditemukan dalam
+ * keadaan itu. Bandingkan dengan {@link Bsiresponse} yang payload-nya harus dibuka memakai kunci
+ * rahasia bersama sehingga verifikasi kepemilikan kunci benar-benar terjadi pada jalur transaksi.
+ * Sifat ini didokumentasikan apa adanya; penanganannya di luar cakupan berkas ini.</p>
+ * <p>Sisi baiknya, IP dibaca dari {@link HttpServletRequest#getRemoteAddr()} — alamat TCP
+ * sebenarnya — <b>bukan</b> dari header {@code X-Forwarded-For}/{@code X-Real-IP} yang dapat
+ * dipalsukan klien.</p>
+ *
+ * @see Nagari
+ * @see Otto
+ * @see VirtualAccountBank
  */
 public class BMS extends HttpServlet {
+	/** Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai untuk logika apa pun. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; dipakai untuk memetakan alamat IP pemanggil menjadi
+	 * {@link BankHost} dan untuk menghitung total serta denda dari cicilan.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
+	/**
+	 * Pola validasi komponen pembayaran berawalan {@code "Item-"} pada kolom {@code cicilan} milik
+	 * {@link VirtualAccountBank}, berbentuk
+	 * {@code Item-<idItemBiaya>-<nominal>-<opsional>-<idDetailBiaya>}.
+	 *
+	 * <p>Keempat gugus tangkapnya berturut-turut adalah id {@link ItemBiaya}, nominal (boleh
+	 * negatif dan boleh berdesimal), sebuah gugus opsional yang boleh kosong, dan id
+	 * {@link DetailBiaya}.</p>
+	 *
+	 * <p>Pola ini menggantikan pemecahan {@code split("-")} yang dipakai gateway sejenis: bila
+	 * format tidak lengkap, komponen tersebut <b>dilewati</b> dan dicatat ke
+	 * {@code ErrorAuditUtil}, alih-alih terurai sebagian menjadi nominal atau id yang keliru.
+	 * Karena bersifat statis dan {@code final}, biaya kompilasi pola hanya dibayar sekali;
+	 * {@link Pattern} sendiri aman dipakai bersama antar-thread.</p>
+	 */
 	private static final Pattern POLA_ITEM_PEMBAYARAN = Pattern
 			.compile("^Item-([0-9]+)-(-?[0-9]+(?:\\.[0-9]+)?)-([0-9]*)-([0-9]+)$");
 
+	/**
+	 * Pemformat tanggal {@code yyyyMMddHHmmss} untuk field {@code trxDateTime} yang dikirim bank.
+	 *
+	 * <p>Dibungkus {@link ThreadLocal} karena {@link SimpleDateFormat} <b>tidak aman untuk dipakai
+	 * bersama antar-thread</b>, sedangkan servlet dilayani banyak thread sekaligus; satu instance
+	 * bersama akan menghasilkan tanggal kacau atau exception acak di bawah beban.</p>
+	 */
 	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		/** Membuat pemformat baru untuk setiap thread yang pertama kali memakainya. */
 		@Override
 		protected SimpleDateFormat initialValue() {
 			return new SimpleDateFormat("yyyyMMddHHmmss");
@@ -64,6 +134,9 @@ public class BMS extends HttpServlet {
 	};
 
 	/**
+	 * Konstruktor bawaan yang dipanggil kontainer servlet; tidak ada inisialisasi khusus karena
+	 * seluruh keadaan bersifat statis.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public BMS() {

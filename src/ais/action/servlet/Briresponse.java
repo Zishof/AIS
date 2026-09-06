@@ -57,14 +57,68 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Tagihan;
 
 /**
- * Servlet implementation class CheckISBN
+ * Pemroses hasil pembayaran <b>BRI (BRIVA)</b>: mengubah tagihan yang sudah lunas di sisi bank
+ * menjadi pembayaran nyata di AIS.
+ *
+ * <h4>PENTING &mdash; kelas ini bukan endpoint HTTP yang aktif</h4>
+ * <p>Walaupun mewarisi {@link HttpServlet} dan menyediakan {@link #doGet}/{@link #doPost},
+ * kelas ini <b>tidak terdaftar</b> di {@code WEB-INF/web.xml} &mdash; tidak ada
+ * {@code <servlet>} maupun {@code <servlet-mapping>} untuknya &mdash; dan tidak memakai
+ * anotasi {@code @WebServlet}. Karena itu {@link #process} tidak dapat dijangkau lewat HTTP
+ * sama sekali. Yang benar-benar dipakai dari kelas ini hanyalah dua method statis publiknya,
+ * {@link #prosesResponse} dan {@link #createKegiatan}.</p>
+ *
+ * <p>Jalur nyata rekonsiliasi BRI adalah <i>polling</i>
+ * {@code ais.action.master.bri.BriBackandProsess}, yang menanyakan status BRIVA ke bank lalu
+ * memanggil {@link #prosesResponse}. Konsekuensinya:</p>
+ * <ul>
+ *   <li>secara keamanan ini justru arah yang lebih aman &mdash; tidak ada endpoint publik
+ *       tanpa autentikasi yang dapat dipanggil pihak luar untuk mengubah status pembayaran,
+ *       berbeda dengan sebagian besar gerbang lain di paket ini;</li>
+ *   <li>secara operasional, pembayaran BRI tidak akan terekonsiliasi bila penjadwal tidak
+ *       berjalan atau konfigurasi {@code aktifkan_pembayaran_via_bri} tidak aktif &mdash;
+ *       tidak ada jalur cadangan berupa notifikasi masuk.</li>
+ * </ul>
+ *
+ * <h4>Ketidakcocokan kode status pada jalur servlet</h4>
+ * <p>Perlu dicatat agar tidak dianggap jalur yang bekerja: {@link #process} menyusun kode
+ * status bernilai {@code "000"} atau {@code "001"}, sedangkan {@link #prosesResponse} hanya
+ * bertindak bila kode status bernilai {@code "00"} &mdash; kode sukses yang dipakai bank dan
+ * yang memang diisi oleh jalur <i>polling</i>. Kedua nilai itu tidak akan pernah cocok,
+ * sehingga seandainya {@link #process} didaftarkan sebagai servlet pun ia hanya akan mencatat
+ * baris {@link BriResponse} tanpa pernah membukukan pembayaran. Siapa pun yang hendak
+ * mengaktifkan jalur callback masuk harus menyelesaikan ketidakcocokan ini lebih dahulu
+ * <b>sekaligus</b> menambahkan autentikasi, karena {@link #process} tidak memilikinya.</p>
+ *
+ * <h4>Dua ranah tagihan</h4>
+ * <p>{@link #prosesResponse} melayani dua ranah sekaligus: sekolah (lewat
+ * {@link PembayaranSiswa}, {@link PembayaranSiswaDetail}, {@link Tagihan}, dan
+ * {@link DepositSiswa}) serta perguruan tinggi (lewat {@link Kegiatan} dan
+ * {@link CicilanPembayaran}).</p>
+ *
+ * @see ais.action.master.bri.BriBackandProsess
+ * @see ais.database.model.bri.BriRequest
+ * @see ais.database.model.bri.BriResponse
  */
 public class Briresponse extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional, terlebih
+	 * karena kelas ini tidak pernah dijalankan sebagai servlet.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton pembantu pembayaran, dipakai mengambil rincian biaya mahasiswa dan memetakan
+	 * alamat IP menjadi {@link BankHost} pada {@link #process}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen bawaan servlet.
+	 *
+	 * <p>Tidak pernah dipanggil kontainer karena kelas ini tidak terdaftar di {@code web.xml};
+	 * seluruh pemakaian nyata berjalan lewat method statis.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Briresponse() {
@@ -74,8 +128,16 @@ public class Briresponse extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p><b>Tidak dapat dijangkau:</b> kelas ini tidak terdaftar di {@code web.xml}, sehingga
+	 * method ini tidak pernah dipanggil kontainer. Lihat dokumentasi kelas.</p>
+	 *
+	 * @param request  permintaan masuk
+	 * @param response balasan yang akan diisi JSON status
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -87,8 +149,15 @@ public class Briresponse extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p><b>Tidak dapat dijangkau:</b> lihat catatan pada {@link #doGet} dan dokumentasi kelas.</p>
+	 *
+	 * @param request  permintaan masuk
+	 * @param response balasan yang akan diisi JSON status
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -100,6 +169,31 @@ public class Briresponse extends HttpServlet {
 	}
 
 
+	/**
+	 * Menguji apakah sebuah {@link BriRequest} sudah pernah dibukukan, sebagai penjaga
+	 * idempotensi terhadap pemanggilan berulang dari <i>polling</i>.
+	 *
+	 * <p>Penjaga ini lebih menyeluruh daripada padanannya di gerbang lain karena memeriksa tiga
+	 * jejak sekaligus, dan cukup salah satunya terpenuhi:</p>
+	 * <ol>
+	 *   <li>untuk permintaan milik siswa atau calon siswa, sudah ada baris
+	 *       {@link PembayaranSiswa} yang menunjuk permintaan ini;</li>
+	 *   <li>sudah ada baris {@link LogPembayaran} yang menunjuk permintaan ini;</li>
+	 *   <li>koleksi {@link KegiatanTemporary}-nya tidak kosong dan seluruh anggotanya sudah
+	 *       tertaut ke {@link Kegiatan} yang ber-id.</li>
+	 * </ol>
+	 *
+	 * <p>Pemeriksaan pertama penting karena {@link #prosesResponse} pada ranah sekolah menghapus
+	 * lalu membuat ulang baris {@link PembayaranSiswa}; tanpa penjaga ini pemanggilan berulang
+	 * akan menambah deposit siswa berkali-kali.</p>
+	 *
+	 * <p>Bersifat <i>fail-open</i>: kegagalan kueri dicatat lalu dijawab {@code false}, sehingga
+	 * pemrosesan tetap dicoba.</p>
+	 *
+	 * @param briRequest permintaan yang diperiksa; {@code null} dijawab {@code false}
+	 * @param session    session Hibernate aktif; {@code null} dijawab {@code false}
+	 * @return {@code true} bila salah satu jejak pembukuan sudah ditemukan
+	 */
 	private static boolean isRequestSudahDiproses(BriRequest briRequest, Session session) {
 		if (briRequest == null || session == null) {
 			return false;
@@ -142,6 +236,25 @@ public class Briresponse extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * Mencari {@link Kegiatan} yang sesuai dengan sebuah {@link BriRequest}, atau membuatnya bila
+	 * belum ada.
+	 *
+	 * <p>Pencarian memakai {@code ambilKegiatans(semester, jenisKegiatan)} milik
+	 * {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}. Khusus calon mahasiswa, bila
+	 * pencarian ber-semester gagal dan semester bernilai satu atau kurang, dicoba sekali lagi
+	 * tanpa semester &mdash; menampung data pendaftaran yang semesternya belum pasti.</p>
+	 *
+	 * <p>Kegiatan baru diberi {@code validated = 1} dan {@code validator} bernilai tetap
+	 * {@code "BRI"}, lalu langsung disimpan. Kegiatan yang sudah ada hanya di-{@code refresh}
+	 * sehingga nilainya tidak ditimpa.</p>
+	 *
+	 * @param briRequest permintaan BRI yang memuat mahasiswa, semester, tahun akademik, jenis
+	 *                   kegiatan, dan jadwal pembayaran
+	 * @param session    session Hibernate aktif milik pemanggil; transaksi dibuka dan
+	 *                   di-<i>commit</i> di dalam method ini
+	 * @return kegiatan yang ditemukan atau yang baru dibuat
+	 */
 	public static Kegiatan createKegiatan(BriRequest briRequest, Session session) {
 		Kegiatan kegiatan = null;
 		Double nilaiBiayaHarusDiBayars = briRequest.getNilaiBiayaHarusDiBayars();
@@ -198,6 +311,38 @@ public class Briresponse extends HttpServlet {
 		return kegiatan;
 	}
 
+	/**
+	 * Membukukan pembayaran BRI yang sudah lunas &mdash; titik masuk nyata kelas ini, dipanggil
+	 * oleh <i>polling</i> {@code BriBackandProsess}.
+	 *
+	 * <p>{@link BriRequest} dicari dari {@code trxId} milik respons. Seluruh pekerjaan hanya
+	 * dijalankan bila kode status bernilai {@code "00"}, dan {@link #isRequestSudahDiproses}
+	 * dipanggil lebih dahulu agar pemanggilan berulang tidak menggandakan pembayaran maupun
+	 * deposit.</p>
+	 *
+	 * <h4>Ranah sekolah</h4>
+	 * <p>Bila permintaan menunjuk siswa atau calon siswa, sebuah {@link AkunPembayaranSiswa}
+	 * bernama {@code "bayar via BRI"} dipastikan ada untuk {@link Sekolah} yang bersangkutan.
+	 * Seluruh {@link PembayaranSiswa} lama milik permintaan ini <b>dihapus</b> lebih dahulu
+	 * (lewat SQL langsung), lalu {@link BriRequestDetail} dikelompokkan per siswa. Tiap kelompok
+	 * menghasilkan satu {@link PembayaranSiswa} bernominal jumlah tagihan ditambah dendanya,
+	 * yang lalu memutakhirkan {@link DepositSiswa}, dan tiap tagihan menghasilkan satu
+	 * {@link PembayaranSiswaDetail} bernominal tagihan dikurangi diskon ditambah denda.</p>
+	 *
+	 * <h4>Ranah perguruan tinggi</h4>
+	 * <p>Sama seperti gerbang lain: bentuk keranjang mengalihkan {@link CicilanPembayaran} dari
+	 * {@link KegiatanTemporary} ke {@link Kegiatan} nyata, sementara bentuk biasa memakai
+	 * {@link #createKegiatan} lalu mengubah tiap {@link BriRequestDetail} menjadi cicilan.
+	 * Jenis pembayaran ditentukan dari konfigurasi {@code kode_akun_bri}.</p>
+	 *
+	 * <p>Penyimpanan dilakukan dalam banyak transaksi kecil pada beberapa session yang
+	 * di-<i>commit</i> berurutan, sehingga kegagalan di tengah dapat meninggalkan keadaan
+	 * setengah jadi &mdash; keadaan yang paling perlu diwaspadai adalah bila kegagalan terjadi
+	 * setelah penghapusan {@link PembayaranSiswa} lama tetapi sebelum penggantinya tersimpan.</p>
+	 *
+	 * @param briResponse respons BRI yang memuat nomor transaksi dan kode status
+	 * @return permintaan yang bersangkutan, atau {@code null} bila tidak ditemukan
+	 */
 	@SuppressWarnings("unchecked")
 	public static BriRequest prosesResponse(BriResponse briResponse) {
 		Session session = null;
@@ -631,6 +776,39 @@ public class Briresponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membaca notifikasi BRI dari badan permintaan, mencatatnya, lalu meneruskannya ke
+	 * {@link #prosesResponse}.
+	 *
+	 * <p><b>Tidak dapat dijangkau lewat HTTP</b> karena kelas ini tidak terdaftar di
+	 * {@code web.xml}; lihat dokumentasi kelas.</p>
+	 *
+	 * <p>Payload berupa JSON pembungkus yang memuat kunci {@code data} berisi JSON lagi. Dari
+	 * lapisan dalam diambil {@code trx_id}, {@code payment_amount}, dan {@code trx_amount}. Kode
+	 * status disusun dengan membandingkan kedua nominal itu: sama menghasilkan {@code "000"},
+	 * berbeda menghasilkan {@code "001"}. Hasilnya disimpan sebagai baris {@link BriResponse}
+	 * (dibuat bila belum ada), lalu {@link #prosesResponse} dipanggil.</p>
+	 *
+	 * <p><b>Perhatikan dua hal bila jalur ini akan diaktifkan.</b> Pertama, kode status
+	 * {@code "000"}/{@code "001"} tidak akan pernah cocok dengan {@code "00"} yang diperiksa
+	 * {@link #prosesResponse}, sehingga pembayaran tidak akan terbukukan. Kedua, kedua nominal
+	 * yang dibandingkan <b>sama-sama berasal dari pemanggil</b>, sehingga perbandingan itu bukan
+	 * pemeriksaan terhadap tagihan yang tersimpan dan tidak dapat dipakai sebagai penjagaan.
+	 * Tidak ada pemeriksaan tanda tangan, token, atau kredensial di sini, dan {@code bankHost}
+	 * yang dipetakan dari alamat IP hanya dicatat ke log, tidak dipakai sebagai gerbang.</p>
+	 *
+	 * <p>Balasan selalu berupa {@code { "status" : "000" }} apa pun hasil pemrosesan.</p>
+	 *
+	 * <p>Blok {@code finally} selalu menulis satu {@link LogHostToHost}. Alamat IP yang dicatat
+	 * diambil berurutan dari header {@code Cf-Connecting-Ip}, {@code CF-Connecting-IP},
+	 * {@code X-Forwarded-For}, {@code X-Real-IP}, baru {@code getRemoteAddr()} &mdash; sehingga
+	 * nilai yang tercatat berasal dari header yang dapat dipalsukan pemanggil, dan hanya layak
+	 * dipercaya bila di depan aplikasi memang ada proksi yang menimpanya.</p>
+	 *
+	 * @param request  permintaan masuk berisi JSON notifikasi
+	 * @param response balasan yang akan diisi JSON status
+	 * @throws Exception bila penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), "BRI");
