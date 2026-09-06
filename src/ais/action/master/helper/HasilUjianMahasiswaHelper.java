@@ -434,10 +434,35 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		btnEditUjian.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
 				&& tbmuser.getSiswa() == null);
 		btnEditUjian.addEventListener("onClick", new EventListener() {
+			/**
+			 * Membuka modal "Pengaturan Data Ujian" milik {@code PertemuanPunyaUjianHelper}
+			 * langsung dari layar Hasil Ujian, sehingga dosen tidak perlu menutup rekap dan
+			 * menelusuri ulang pertemuan hanya untuk mengubah durasi, jumlah soal ditampilkan,
+			 * atau jendela waktu ujian.
+			 *
+			 * <p>Helper diinstansiasi dengan dua argumen {@code null} karena
+			 * {@code bukaPengaturanUjian} tidak memerlukan konteks mahasiswa/calon mahasiswa —
+			 * ia hanya menyunting konfigurasi ujian. {@code EventListener} yang diserahkan
+			 * sebagai argumen kedua adalah callback "sesudah simpan".</p>
+			 *
+			 * @param arg0 event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pembangunan modal pengaturan
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				new PertemuanPunyaUjianHelper(null, null).bukaPengaturanUjian(pertemuanPunyaUjian,
 						new EventListener() {
+							/**
+							 * Callback yang dijalankan setelah modal pengaturan ujian menyimpan
+							 * perubahan. Memanggil {@code loadData(true)} dengan penanda refresh
+							 * {@code true} agar himpunan soal terjawab dibaca ULANG dari sumbernya
+							 * (menembus cache) — perlu karena mengubah jumlah soal ditampilkan
+							 * mengubah pula paket soal tiap peserta, sehingga statistik dan kolom
+							 * Skor/Max pada grid akan salah bila memakai data cache.
+							 *
+							 * @param e event penanda selesai simpan; tidak dipakai
+							 * @throws Exception diteruskan dari pemuatan ulang grid
+							 */
 							@Override
 							public void onEvent(Event e) throws Exception {
 								loadData(true);
@@ -460,6 +485,23 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		button.setDisabled(!masihAdaWaktu);
 		button.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Meminta konfirmasi sebelum menjalankan aksi <b>destruktif</b> "Ulang Semua".
+			 *
+			 * <p>Listener ini sendiri tidak mengubah apa pun; ia hanya memunculkan
+			 * {@code MyMessageboxConfig} bertombol OK/Batal berikon pertanyaan, dengan teks
+			 * peringatan yang menyatakan secara tegas bahwa seluruh hasil dan jawaban peserta
+			 * akan dikosongkan dan TIDAK DAPAT DIKEMBALIKAN. Pekerjaan sesungguhnya dilakukan
+			 * listener bersarang di bawah, hanya bila pengguna memilih OK.</p>
+			 *
+			 * <p>Tombol pemicunya di-{@code setDisabled(!masihAdaWaktu)}, yaitu hanya aktif
+			 * selama jendela waktu ujian masih berjalan — penjagaan agar hasil ujian yang sudah
+			 * berakhir tidak dikosongkan secara tak sengaja. Perlu dicatat bahwa penjagaan itu
+			 * bersifat UI semata; listener ini tidak memeriksa ulang jendela waktu.</p>
+			 *
+			 * @param arg0 event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pembangunan dialog konfirmasi
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				MyMessageboxConfig.show(
@@ -467,6 +509,53 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 				new EventListener() {
 
+							/**
+							 * Mengosongkan hasil ujian SELURUH peserta setelah pengguna menekan OK.
+							 *
+							 * <p><b>Cara kerja.</b> Jawaban pengguna dibaca dari
+							 * {@code event.getData()} dan hanya diproses bila sama dengan
+							 * {@code MyMessageboxConfig.OK}. Selanjutnya, dalam SATU transaksi
+							 * pada session terdedikasi:</p>
+							 * <ol>
+							 *   <li>Mengambil seluruh {@link HasilUjianMahasiswa} milik
+							 *       {@code pertemuanPunyaUjian} ini.</li>
+							 *   <li>Untuk tiap peserta, seluruh {@link HasilUjianMahasiswaDetail}
+							 *       di-<i>null</i>-kan pada tiga kolom: {@code bankSoalDetail}
+							 *       (pilihan yang dipilih), {@code jawaban} (teks jawaban), dan
+							 *       {@code waktuJawab}. Baris detail sengaja TIDAK dihapus,
+							 *       melainkan dikosongkan — struktur soal per peserta tetap utuh
+							 *       sehingga peserta dapat langsung mengulang tanpa pembentukan
+							 *       ulang paket soal, dan relasi ke lampiran jawaban tidak putus.</li>
+							 *   <li>{@code hasilUjianMahasiswa.reset()} mengembalikan entity utama
+							 *       ke keadaan awal (nilai, waktu mulai/selesai, penanda ikut ujian).</li>
+							 *   <li>{@code session.flush()} + {@code session.clear()} setiap 50
+							 *       peserta untuk menahan pertumbuhan first-level cache pada kelas
+							 *       besar.</li>
+							 * </ol>
+							 *
+							 * <p><b>Transaksi tunggal.</b> Seluruh peserta berada dalam satu
+							 * transaksi, sehingga kegagalan di tengah proses me-rollback SEMUANYA —
+							 * tidak ada keadaan setengah-terhapus. Konsekuensinya, pada ujian
+							 * berpeserta sangat banyak transaksi ini berumur panjang dan menahan
+							 * kunci baris cukup lama.</p>
+							 *
+							 * <p><b>Penanganan error.</b> Kegagalan me-rollback transaksi,
+							 * menampilkan detail teknis kepada administrator
+							 * ({@code Common.tampilErrorJikaAdmin}), dan memunculkan pesan
+							 * berbahasa manusia berisi tiga langkah yang dapat dicoba pengguna.
+							 * Session ditutup di {@code finally}.</p>
+							 *
+							 * <p><b>Otorisasi.</b> Tidak ada pemeriksaan peran di dalam listener.
+							 * Perlindungan sepenuhnya berasal dari {@code setVisible(...)} pada
+							 * tombol pemicu (bukan mahasiswa, bukan siswa, bukan peserta kursus,
+							 * dan bukan mode satu peserta) — pola penjagaan hanya di lapisan UI.
+							 * Mengingat aksi ini menghapus jawaban seluruh peserta secara permanen,
+							 * pemeriksaan peran di sisi server layak dipertimbangkan.</p>
+							 *
+							 * @param event event dialog; {@code getData()} berisi kode tombol yang
+							 *              ditekan pengguna
+							 * @throws Exception diteruskan dari penguraian kode tombol
+							 */
 							@SuppressWarnings("unchecked")
 							@Override
 							public void onEvent(Event event) throws Exception {
@@ -559,6 +648,46 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 		EventListener dataAdding = new EventListener() {
 
+			/**
+			 * <b>Kait kolom tambahan</b> untuk ekspor Excel "Rekap Hasil Ujian". Dipanggil
+			 * {@code Common.cetakDataCustomButton} SATU KALI PER BARIS peserta, setelah kolom
+			 * standar (yang berasal dari array {@code contents}) selesai ditulis, untuk mengisi
+			 * empat kolom terakhir yang tidak dapat dinyatakan sebagai jalur properti sederhana.
+			 *
+			 * <p><b>Kontrak {@code event.getData()}.</b> Berupa {@code Object[]} dengan
+			 * {@code [0]} = entity {@link HasilUjianMahasiswa} baris ini dan {@code [2]} =
+			 * {@link XSSFRow} baris Excel yang sedang ditulis. Indeks {@code [1]} tidak dipakai
+			 * di sini. Kolom tambahan ditulis pada posisi {@code contents.length + 0..3}, sejajar
+			 * dengan empat judul yang didaftarkan pada {@code columnHeadersAdding}: "Jumlah
+			 * dikerjakan", "Jumlah Belum dikerjakan", "Telah dikerjakan", "Belum dikerjakan".
+			 * Menambah judul tanpa menambah sel di sini (atau sebaliknya) akan menggeser kolom.</p>
+			 *
+			 * <p><b>Cara kerja.</b> Mengambil paket soal peserta ({@code ambilUjianPunyaSoals})
+			 * dan peta jawabannya, lalu menelusuri setiap {@link HasilUjianMahasiswaDetail}.
+			 * Untuk setiap jawaban tak kosong, teks "soal;JAWABAN:jawaban" dirangkai dan id soal
+			 * yang bersangkutan DIBUANG dari {@code ujianPunyaSoals}. Dengan begitu, setelah
+			 * penelusuran selesai, isi {@code ujianPunyaSoals} yang tersisa persis merupakan
+			 * daftar soal yang BELUM dikerjakan — itulah sumber dua kolom terakhir.</p>
+			 *
+			 * <p><b>Penjagaan null berlapis.</b> Penentuan apakah huruf pilihan ikut ditampilkan
+			 * memeriksa {@code getUjianPunyaSoal()}, {@code getUjian()}, dan
+			 * {@code getTampilanHurufDiPilihanJawaban()} (yang bertipe {@code Boolean} sehingga
+			 * boleh null) memakai {@code Boolean.TRUE.equals(...)}, ditambah pemeriksaan
+			 * {@code getBankSoalDetail() != null}. Tanpa rantai penjagaan itu satu baris rusak
+			 * akan melempar {@link NullPointerException} dan menggagalkan ekspor.</p>
+			 *
+			 * <p><b>Pembatasan panjang.</b> Kedua kolom teks dipotong
+			 * {@code Common.maxPanjang(..., 20000)}. Batas ini wajib: sel Excel memiliki batas
+			 * keras 32.767 karakter, dan soal esai panjang dari banyak butir dapat melampauinya
+			 * sehingga menghasilkan berkas rusak.</p>
+			 *
+			 * <p><b>Ketahanan.</b> Kegagalan per detail jawaban maupun kegagalan seluruh baris
+			 * ditangkap dan direkam ke {@code ErrorAuditUtil}; ekspor tetap berlanjut ke peserta
+			 * berikutnya dengan sel yang bersangkutan dibiarkan kosong.</p>
+			 *
+			 * @param arg0 event pembawa {@code Object[]{hasilUjian, ?, XSSFRow}} dari mesin ekspor
+			 * @throws Exception tidak dilempar dalam praktik — seluruh badan dibungkus try/catch
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Object[] objects = (Object[]) arg0.getData();
@@ -642,6 +771,36 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakDataCustomButton(HasilUjianMahasiswa.class,
 				new DataCriteria() {
 
+					/**
+					 * Menyusun {@link Criteria} sumber data untuk ekspor Excel "Rekap Hasil
+					 * Ujian": seluruh {@link HasilUjianMahasiswa} milik {@code pertemuanPunyaUjian}
+					 * yang sudah memiliki {@code keyhasil}.
+					 *
+					 * <p><b>Arti {@code keyhasil} tidak null.</b> Kolom itu baru terisi setelah
+					 * baris hasil ujian benar-benar terbentuk untuk peserta. Menyaringnya di sini
+					 * mencegah baris kosong ikut terekspor.</p>
+					 *
+					 * <p><b>Pola {@code sqlRestriction("true")}.</b> Kedua penyaring peserta
+					 * ({@code mahasiswa} dan {@code biodataCalonMahasiswa}) selalu di-{@code add},
+					 * namun berubah menjadi kondisi {@code true} yang tidak menyaring apa pun
+					 * ketika field-nya null. Cara ini menjaga bentuk query tetap tunggal tanpa
+					 * percabangan, sekaligus membuat mode "satu peserta" dan mode "semua peserta"
+					 * memakai jalur kode yang sama.</p>
+					 *
+					 * <p><b>Session.</b> Memakai {@code HibernateUtil.currentSession()} — session
+					 * {@code ThreadLocal} milik request ZK, BUKAN session terdedikasi. Ini benar
+					 * di sini karena mesin ekspor menjalankan Criteria pada thread request yang
+					 * sama dan mengelola sendiri siklus hidup session tersebut.</p>
+					 *
+					 * <p><b>Parameter {@code order} diabaikan.</b> Berbeda dari
+					 * {@link DataCriteria} lain di kelas ini, method ini tidak menambahkan
+					 * {@code addOrder} sehingga urutan baris ekspor ditentukan basis data. Bila
+					 * urutan yang stabil diperlukan (mis. untuk pembandingan antar-ekspor),
+					 * tambahkan pengurutan di dalam cabang {@code order}.</p>
+					 *
+					 * @param order penanda apakah pengurutan diminta; tidak dipakai
+					 * @return Criteria siap dieksekusi mesin ekspor
+					 */
 					@Override
 					public Criteria initCriteria(boolean order) {
 						Session session = HibernateUtil.currentSession();
@@ -662,14 +821,56 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		masuk.setTooltiptext("Tutup");
 		masuk.setParent(toolbar);
 		masuk.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menjalankan aksi massal <b>"Peserta dianggap hadir"</b>: menandai presensi hadir
+			 * bagi seluruh peserta yang mengikuti ujian ini, tanpa dosen perlu mengisi presensi
+			 * satu per satu.
+			 *
+			 * <p>Seluruh pekerjaan (dialog konfirmasi, transaksi, penulisan presensi) didelegasikan
+			 * ke {@link HasilUjianMahasiswaHelper#ujianDianggapHadir(PertemuanPunyaUjian, EventListener)}.
+			 * Listener ini hanya menyediakan callback "sesudah selesai" yang membuka kembali layar
+			 * pertemuan agar dosen dapat langsung memeriksa hasil presensinya.</p>
+			 *
+			 * <p><b>Visibilitas tombol</b> mensyaratkan {@code pertemuan} tidak null (presensi
+			 * hanya bermakna pada pertemuan perkuliahan, bukan ujian PMB lepas) serta pengguna
+			 * bukan mahasiswa/siswa/peserta kursus dan bukan mode satu peserta. Seperti tombol
+			 * lain di toolbar ini, penjagaannya hanya di lapisan UI.</p>
+			 *
+			 * @param event event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pembangunan dialog konfirmasi
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				HasilUjianMahasiswaHelper.ujianDianggapHadir(pertemuanPunyaUjian, new EventListener() {
 
+					/**
+					 * Callback sesudah seluruh presensi tertulis: membuka kembali layar pertemuan
+					 * lewat {@code PertemuanHelper.display(...)} sehingga daftar presensi yang baru
+					 * saja diperbarui langsung terlihat.
+					 *
+					 * <p>Argumen {@code mahasiswa}/{@code biodataCalonMahasiswa} diteruskan agar
+					 * layar pertemuan tetap berada pada mode tampilan yang sama dengan layar rekap
+					 * ini. Argumen terakhir {@code 0} adalah indeks tab awal.</p>
+					 *
+					 * @param arg0 event penanda selesai; tidak dipakai
+					 * @throws Exception diteruskan dari pembangunan layar pertemuan
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						new PertemuanHelper(mahasiswa, biodataCalonMahasiswa).display(pertemuan, new DataLoader() {
 
+							/**
+							 * Implementasi {@link DataLoader} <b>kosong yang disengaja</b>.
+							 *
+							 * <p>{@code PertemuanHelper.display(...)} mewajibkan sebuah
+							 * {@code DataLoader} sebagai kait pemuatan ulang, tetapi pada konteks
+							 * ini tidak ada yang perlu dimuat ulang: layar pertemuan baru saja
+							 * dibangun dari awal sehingga sudah menampilkan data terkini. Badan
+							 * kosong lebih tepat daripada meneruskan {@code null}, yang akan
+							 * memicu {@link NullPointerException} di dalam helper tersebut.</p>
+							 *
+							 * @param value penanda refresh dari pemanggil; sengaja diabaikan
+							 */
 							@Override
 							public void loadData(Object value) {
 

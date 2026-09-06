@@ -324,6 +324,21 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * visibilitas tombol pemanggil di {@link #display(Pertemuan, Component)} — yang bersifat
 	 * UI-only dan tidak diperiksa ulang di dalam listener ini.
 	 *
+	 * <p><b>Dua {@code sqlRestriction} mentah pada pemilihan data.</b> Cabang PMB/PSB menyusun
+	 * penyaring tanggal dengan merangkai string
+	 * ({@code "date(this_.mulai_ujian) between date('...')"}) dari nilai {@link MyDatebox} yang
+	 * sudah diformat {@code Common.databaseDateFormat}, sehingga isinya selalu berupa tanggal, bukan
+	 * teks bebas pengguna. Yang lebih perlu diperhatikan adalah
+	 * {@code Restrictions.sqlRestriction("ruang_pmb in (-1" + ...getRuanganYgIkut() + "-1)")}: nilai
+	 * itu berasal dari kolom {@code ruanganYgIkut} milik {@code JadwalUjianPMB} dan dirangkai
+	 * langsung ke SQL. Pembungkus {@code -1} di kedua ujung adalah trik agar daftar CSV
+	 * ber-pagar-koma ({@code ",3,7,12,"}) tetap menghasilkan {@code in (...)} yang sintaksnya sah
+	 * walau daftarnya kosong. Sifat getter {@code getRuanganYgIkut()} sendiri — termasuk bahwa ia
+	 * MENULIS ULANG field-nya sendiri saat dibaca dan mengosongkan daftar ruang pada kondisi
+	 * tertentu — sudah diuraikan panjang lebar pada Javadoc
+	 * {@code ais.database.model.JadwalUjianPMB#getRuanganYgIkut()}, yang bahkan menyebut baris di
+	 * file ini sebagai contoh. Baca Javadoc di sana lebih dulu sebelum menyunting cabang PMB ini.
+	 *
 	 * <p><b>Pola sesi dan transaksi.</b> Query pemilihan data memakai
 	 * {@code HibernateUtil.currentNativeSession()} pada thread background, dan ditutup di blok
 	 * {@code finally} lewat {@code HibernateUtil.closeSession()} agar tidak bocor walau terjadi

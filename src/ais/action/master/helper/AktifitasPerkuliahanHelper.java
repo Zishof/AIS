@@ -801,7 +801,36 @@ public class AktifitasPerkuliahanHelper {
 		initDetail(perkuliahan, null, groupbox, mulai, banyak);
 	}
 
-	/** Teks null-safe untuk kolom deskriptif perkuliahan yang bisa kosong. */
+	/**
+	 * Mengubah {@code null} menjadi string kosong untuk kolom deskriptif {@link Perkuliahan}
+	 * (Pendahuluan, Deskripsi Pembelajaran, Capaian Pembelajaran Prodi) yang boleh belum diisi.
+	 *
+	 * <p><b>Namanya menyesatkan: method ini TIDAK melakukan escaping apa pun.</b> "Aman" di sini
+	 * hanya berarti aman terhadap {@code NullPointerException}, bukan aman untuk disisipkan ke
+	 * markup. Isi string dikembalikan apa adanya, termasuk seandainya mengandung
+	 * {@code <script>}.</p>
+	 *
+	 * <p>Ini perlu diketahui karena hasilnya dipakai di dua konteks yang sangat berbeda:</p>
+	 * <ul>
+	 * <li><b>Konteks nilai komponen</b> — {@code Textbox.setValue(...)} pada kontrol edit. Di sini
+	 * ZK sendiri yang meng-escape saat merender, jadi {@code teksAman} sudah cukup.</li>
+	 * <li><b>Konteks markup mentah</b> — konstruktor {@code ais.ui.util.MyHtml} (turunan
+	 * {@link org.zkoss.zul.Html}) dan {@code Html.setContent(...)}, yang menyisipkan isinya ke
+	 * halaman <b>tanpa escaping</b>. Untuk konteks ini {@code teksAman} saja TIDAK memadai;
+	 * yang benar adalah {@link #escapeHtmlAman(String)}.</li>
+	 * </ul>
+	 *
+	 * <p>Ketiga kolom di atas diisi lewat {@link org.zkoss.zul.Textbox} biasa (teks polos, bukan
+	 * editor kaya), lalu ditampilkan lewat {@code MyHtml}/{@code setContent} dengan hanya
+	 * {@code replaceAll("\n", "<br>")} sebagai konversi. Jadi markup apa pun yang diketik ke
+	 * kolom tersebut akan dieksekusi browser saat panel dibuka oleh dosen, mahasiswa, maupun
+	 * admin. Jangan menambah pemakaian baru {@code teksAman} pada konteks markup mentah;
+	 * gunakan {@link #escapeHtmlAman(String)}.</p>
+	 *
+	 * @param s teks sumber, boleh {@code null}
+	 * @return {@code s} apa adanya, atau string kosong bila {@code s} {@code null}
+	 * @see #escapeHtmlAman(String)
+	 */
 	private static String teksAman(String s) {
 		return s == null ? "" : s;
 	}
@@ -812,7 +841,34 @@ public class AktifitasPerkuliahanHelper {
 				: p.getMatakuliah().getNama();
 	}
 
-	/** {@link #teksAman(String)} ditambah escaping HTML dasar (&amp;, &lt;, &gt;) untuk teks yang disisipkan ke markup mentah (mis. judul kartu hero). */
+	/**
+	 * {@link #teksAman(String)} ditambah escaping HTML dasar untuk teks yang disisipkan ke markup
+	 * mentah. Urutan penggantiannya benar — {@code &} lebih dulu, baru {@code <} dan {@code >} —
+	 * sehingga entitas yang baru dibuat tidak ikut ter-escape dua kali.
+	 *
+	 * <p>Inilah helper yang harus dipakai setiap kali teks dari basis data digabungkan ke dalam
+	 * string HTML yang kemudian diserahkan ke {@link org.zkoss.zul.Html},
+	 * {@code ais.ui.util.MyHtml}, atau {@code Html.setContent(...)} — komponen-komponen itu
+	 * merender isinya sebagai markup, bukan sebagai teks.</p>
+	 *
+	 * <p><b>Cakupan pemakaiannya saat ini masih sempit.</b> Di kelas ini {@code escapeHtmlAman}
+	 * hanya dipakai untuk judul kartu hero (nama matakuliah). Tiga kolom deskriptif lain —
+	 * {@code Perkuliahan.pendahuluan}, {@code Perkuliahan.deskripsiPembelajaran}, dan
+	 * {@code Perkuliahan.capaianPembelajaranProdi} — masih disisipkan ke {@code MyHtml} dan
+	 * {@code setContent(...)} lewat {@link #teksAman(String)} saja. Padahal ketiganya diisi lewat
+	 * {@link org.zkoss.zul.Textbox} teks polos tanpa penyaringan, lalu disimpan apa adanya ke
+	 * basis data. Perlakukan hal itu sebagai celah yang belum ditutup, bukan sebagai keputusan
+	 * desain: bila menambahkan atau memindahkan salah satu pemanggilnya, pakailah method ini.</p>
+	 *
+	 * <p>Escaping di sini sengaja minimal (tiga karakter) karena keluarannya selalu ditempatkan
+	 * sebagai <i>isi elemen</i>, bukan sebagai nilai atribut. Untuk konteks atribut atau untuk
+	 * teks yang masuk ke JavaScript, gunakan pelolos yang sesuai — mis. {@code Common.jsEscape}
+	 * seperti yang dipakai pada tombol Classroom.</p>
+	 *
+	 * @param s teks sumber, boleh {@code null}
+	 * @return teks yang sudah null-safe dan ter-escape untuk disisipkan sebagai isi elemen HTML
+	 * @see #teksAman(String)
+	 */
 	private static String escapeHtmlAman(String s) {
 		return teksAman(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
 	}
