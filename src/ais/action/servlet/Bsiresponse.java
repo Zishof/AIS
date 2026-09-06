@@ -62,14 +62,74 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Tagihan;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet callback pembayaran Bank Syariah Indonesia bergaya <i>BNI eCollection</i>: menerima
+ * notifikasi setoran terenkripsi dari bank, membukanya dengan kunci rahasia bersama, lalu
+ * membukukan pembayaran yang bersangkutan.
+ *
+ * <p>Terpasang di {@code web.xml} sebagai servlet {@code BsiResponse} pada URL
+ * {@code /BsiResponse}.</p>
+ *
+ * <h4>Pembagian tanggung jawab dengan {@link BSI}</h4>
+ * <p>Kelas ini dan {@link BSI} adalah <b>dua integrasi BSI yang terpisah</b>, bukan pasangan
+ * request/response dari satu alur. Keduanya tidak pernah saling memanggil dan tidak berbagi
+ * tabel:</p>
+ * <table border="1">
+ *   <caption>Perbandingan kedua kanal BSI</caption>
+ *   <tr><th></th><th>{@link BSI}</th><th>{@code Bsiresponse} (kelas ini)</th></tr>
+ *   <tr><td>URL</td><td>{@code /BSI}</td><td>{@code /BsiResponse}</td></tr>
+ *   <tr><td>Payload</td><td>JSON polos</td>
+ *       <td>terenkripsi, dibuka {@code BNIHash.parseData}</td></tr>
+ *   <tr><td>Tabel sumber</td><td>{@link VirtualAccountBank}</td>
+ *       <td>{@link BsiRequest} / {@link BsiResponse}</td></tr>
+ *   <tr><td>Mode</td><td>inquiry dan payment</td><td>hanya notifikasi pembayaran</td></tr>
+ *   <tr><td>Kode balasan</td><td>{@code rc} tekstual ({@code OK}, {@code ERR-...})</td>
+ *       <td>selalu {@code {"status":"000"}}</td></tr>
+ * </table>
+ * <p>Perbedaan mendasarnya: pada {@link BSI} tagihan sudah terwakili baris
+ * {@link VirtualAccountBank} sehingga servlet tinggal mencocokkan nomor VA; di sini rincian
+ * tagihan sudah dibentuk lebih dulu oleh aplikasi sebagai {@link BsiRequest} beserta
+ * {@link BsiRequestDetail}-nya, dan callback hanya menyatakan bahwa {@code trx_id} tersebut sudah
+ * dibayar.</p>
+ *
+ * <h4>Verifikasi keaslian pemanggil</h4>
+ * <p>Berbeda dari {@link BSI}, {@link BMS}, {@link Nagari}, dan {@link Otto} yang tidak
+ * memverifikasi apa pun, kanal ini <b>benar-benar membuktikan kepemilikan kunci rahasia pada
+ * jalur transaksi</b>. Payload masuk berupa {@code {"client_id":...,"data":...}}, dan seluruh
+ * isinya — termasuk {@code trx_id} serta nominal — hanya dapat diperoleh melalui
+ * {@code BNIHash.parseData(data, client_id, password)}. Bila {@code password} tidak cocok,
+ * penguraian gagal dan seluruh pemrosesan berhenti sebelum satu baris pun ditulis. Jadi tidak ada
+ * cabang transaksi yang melewati verifikasi.</p>
+ * <p>Kata sandi dicari berjenjang: bawaan dari konfigurasi {@code bsi_password}, lalu ditimpa
+ * oleh nilai per-sekolah pada kolom {@code bsiPassword}/{@code bsiMerchantId} milik
+ * {@link Sekolah} — keduanya berformat {@code tahun:nilai} yang dipisahkan titik koma, sehingga
+ * satu sekolah dapat memakai kunci berbeda untuk tahun akademik berbeda.</p>
+ *
+ * <h4>Pemeriksaan nominal dan pengaman pembayaran ganda</h4>
+ * <p>{@link #process} membandingkan {@code payment_amount} dengan {@code trx_amount} dari payload
+ * terdekripsi; hanya bila keduanya sama persis, {@link BsiResponse} diberi kode {@code "000"}.
+ * {@link #prosesResponse} kemudian menolak membukukan apa pun selama kode itu bukan {@code "000"},
+ * sehingga setoran kurang bayar tidak pernah melunasi tagihan. Pembukuan ganda dicegah
+ * {@link #isRequestSudahDiproses}.</p>
+ *
+ * @see BSI
+ * @see BsiRequest
+ * @see BsiResponse
  */
 public class Bsiresponse extends HttpServlet {
+	/** Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai untuk logika apa pun. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; dipakai untuk memetakan IP pemanggil menjadi
+	 * {@link BankHost}, menghitung total dan denda dari cicilan, serta memutakhirkan tunggakan
+	 * kegiatan.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor bawaan yang dipanggil kontainer servlet; tidak ada inisialisasi khusus karena
+	 * seluruh keadaan bersifat statis.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Bsiresponse() {
@@ -79,6 +139,13 @@ public class Bsiresponse extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}; perlakuannya sama
+	 * dengan {@link #doPost}.
+	 *
+	 * @param request  permintaan callback dari sisi bank
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws ServletException diwariskan dari kontrak {@link HttpServlet}; tidak dilempar sendiri
+	 * @throws IOException      bila penulisan balasan gagal
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -92,6 +159,14 @@ public class Bsiresponse extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP POST — jalur yang dipakai bank untuk mengirim callback — dengan
+	 * meneruskannya ke {@link #process}.
+	 *
+	 * @param request  permintaan callback dari sisi bank, badan terenkripsinya dibaca di
+	 *                 {@link #process}
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws ServletException diwariskan dari kontrak {@link HttpServlet}; tidak dilempar sendiri
+	 * @throws IOException      bila penulisan balasan gagal
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -105,6 +180,29 @@ public class Bsiresponse extends HttpServlet {
 	}
 
 
+	/**
+	 * Memeriksa apakah sebuah {@link BsiRequest} sudah pernah dibukukan, sebagai pengaman terhadap
+	 * callback ganda dari bank.
+	 *
+	 * <p>Bank dapat mengirim ulang notifikasi yang sama bila balasan sebelumnya tidak diterimanya;
+	 * tanpa pemeriksaan ini, satu setoran akan tercatat berkali-kali. Karena jejak pembukuan
+	 * berbeda-beda menurut jenis pembayar, dipakai tiga penanda dan cukup satu yang terpenuhi:</p>
+	 * <ol>
+	 *   <li>untuk pembayar siswa/calon siswa — sudah ada {@link PembayaranSiswa} yang menunjuk
+	 *       {@code bsiRequest} ini;</li>
+	 *   <li>sudah ada {@link LogPembayaran} yang menunjuk {@code bsiRequest} ini;</li>
+	 *   <li>untuk pembayaran keranjang — <b>seluruh</b> {@link KegiatanTemporary} miliknya sudah
+	 *       tertaut ke {@link Kegiatan} nyata. Bila baru sebagian yang tertaut, hasilnya
+	 *       {@code false} agar sisa yang belum terkonversi tetap diproses.</li>
+	 * </ol>
+	 *
+	 * <p>Setiap kegagalan query ditelan dan menghasilkan {@code false}, sehingga gangguan basis
+	 * data tidak menyebabkan pembayaran yang sah ikut terlewat.</p>
+	 *
+	 * @param bsiRequest permintaan yang hendak diperiksa; {@code null} menghasilkan {@code false}
+	 * @param session    sesi Hibernate untuk query; {@code null} menghasilkan {@code false}
+	 * @return {@code true} bila pembayaran sudah pernah dibukukan dan harus dilewati
+	 */
 	private static boolean isRequestSudahDiproses(BsiRequest bsiRequest, Session session) {
 		if (bsiRequest == null || session == null) {
 			return false;
@@ -147,6 +245,28 @@ public class Bsiresponse extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * Mencari {@link Kegiatan} yang sesuai dengan sebuah {@link BsiRequest}, atau membuatnya bila
+	 * belum ada, sebagai wadah pembukuan pembayaran mahasiswa/calon mahasiswa.
+	 *
+	 * <p>Pencarian memakai kombinasi semester dan jenis kegiatan lewat
+	 * {@code ambilKegiatans(semester, jenisKegiatan)} pada mahasiswa atau calon mahasiswa terkait.
+	 * Khusus calon mahasiswa dengan semester tidak lebih dari 1, disediakan pencarian cadangan
+	 * berdasarkan jenis kegiatan saja — pendaftar baru kerap belum memiliki semester yang pasti.</p>
+	 *
+	 * <p>Bila kegiatan belum ada, dibuat baru dengan status mahasiswa diambil dari
+	 * {@code Common.currentStatus} untuk mahasiswa aktif, atau {@code ConstantValues.AKTIF} untuk
+	 * calon mahasiswa; {@code validated} diisi 1 dan {@code validator} diambil dari konfigurasi
+	 * {@code default_validator_bsi} (bawaan {@code "Bank Syariah Indonesia"}). Kegiatan baru
+	 * langsung disimpan dan di-commit agar memiliki id yang dapat dirujuk baris cicilan.</p>
+	 *
+	 * <p>Bila kegiatan sudah ada, ia hanya di-{@code refresh} — atributnya <b>tidak</b> ditimpa,
+	 * sehingga pembayaran susulan tidak menghapus data kegiatan yang sudah berjalan.</p>
+	 *
+	 * @param bsiRequest permintaan pembayaran sumber data kegiatan
+	 * @param session    sesi Hibernate untuk pencarian dan penyimpanan
+	 * @return kegiatan yang sudah tersimpan dan siap dirujuk baris cicilan
+	 */
 	public static Kegiatan createKegiatan(BsiRequest bsiRequest, Session session) {
 		Kegiatan kegiatan = null;
 		Double nilaiBiayaHarusDiBayars = bsiRequest.getNilaiBiayaHarusDiBayars();
@@ -203,6 +323,55 @@ public class Bsiresponse extends HttpServlet {
 		return kegiatan;
 	}
 
+	/**
+	 * Membukukan sebuah callback pembayaran yang sudah tersimpan sebagai {@link BsiResponse}:
+	 * mencocokkannya dengan {@link BsiRequest} lewat {@code trxId}, lalu mencatat pembayaran ke
+	 * seluruh tabel terkait.
+	 *
+	 * <h4>Gerbang sebelum pembukuan</h4>
+	 * <p>Pembukuan hanya berjalan bila <b>kedua</b> syarat terpenuhi: {@link BsiRequest} dengan
+	 * {@code trxId} tersebut ditemukan, <b>dan</b> {@code kodeStatus} bernilai {@code "000"}.
+	 * Kode itu diisi {@link #process} hanya ketika {@code payment_amount} sama persis dengan
+	 * {@code trx_amount}, sehingga <b>setoran yang nominalnya tidak sesuai tidak pernah
+	 * melunasi tagihan</b>. Setelah itu {@link #isRequestSudahDiproses} mencegah pembukuan
+	 * berulang atas callback yang sama.</p>
+	 *
+	 * <h4>Tiga cabang pembukuan</h4>
+	 * <ol>
+	 *   <li><b>Keranjang belanja</b> — bila {@code bsiRequest} memiliki {@link KegiatanTemporary}:
+	 *       setiap draf dikonversi menjadi {@link Kegiatan} nyata, baris
+	 *       {@link CicilanPembayaran} yang menunjuk draf dialihkan ke kegiatan hasil konversi,
+	 *       lalu {@code amount} dan {@code amountTerhutang} dihitung ulang. Tiap draf memakai
+	 *       sesi Hibernate tersendiri sehingga kegagalan satu draf tidak menggugurkan draf lain;</li>
+	 *   <li><b>Pembayar siswa/calon siswa</b> — membuat {@link PembayaranSiswa} per siswa beserta
+	 *       {@link PembayaranSiswaDetail} per tagihan, menautkan hasilnya ke {@link Tagihan},
+	 *       dan menyetorkan <b>kelebihan bayar</b> ({@code bsiRequest.getAmount()} dikurangi total
+	 *       tagihan) sebagai {@link DepositSiswa} bila lebih dari 0,1;</li>
+	 *   <li><b>Pembayar mahasiswa/calon mahasiswa</b> — memakai {@link #createKegiatan}, lalu
+	 *       membuat satu {@link CicilanPembayaran} per {@link BsiRequestDetail} dengan penanda
+	 *       {@code ref} berpola {@code "bsiRequestDetail-<id>"} sehingga pemanggilan ulang
+	 *       memperbarui baris yang sama alih-alih menggandakannya.</li>
+	 * </ol>
+	 *
+	 * <p>Pada cabang siswa dan mahasiswa, {@code validator} seluruh baris diisi dari konfigurasi
+	 * {@code default_validator_bsi}, dan {@code jenisPembayaran} dicari dari konfigurasi
+	 * {@code kode_akun_bsi}. Biaya administrasi yang dicatat pada {@link LogPembayaran} diambil
+	 * dari konfigurasi {@code bsi_biaya_administrasi}.</p>
+	 *
+	 * <p><b>Catatan.</b> Saat {@link AkunPembayaranSiswa} dibuat otomatis karena belum ada, namanya
+	 * diisi literal {@code "bayar via BNI"} padahal kanal ini melayani BSI — sisa salin-tempel dari
+	 * integrasi BNI yang menjadi asal berkas ini (sekerabat dengan pemakaian pustaka
+	 * {@code com.bni.encrypt.BNIHash}). Dicatat apa adanya; hanya memengaruhi label yang
+	 * ditampilkan, bukan perhitungan.</p>
+	 *
+	 * @param bsiResponse callback yang sudah tersimpan dan hendak dibukukan
+	 * @param hapusDulu   bila {@code true}, baris {@link CicilanPembayaran} milik kegiatan terkait
+	 *                    dihapus lebih dulu sebelum dibentuk ulang; dipakai untuk pembukuan ulang
+	 *                    manual, sedangkan callback normal dari {@link #process} memakai
+	 *                    {@code false}
+	 * @return {@link BsiRequest} yang bersangkutan, atau {@code null} bila {@code trxId} tidak
+	 *         dikenali
+	 */
 	@SuppressWarnings("unchecked")
 	public static BsiRequest prosesResponse(BsiResponse bsiResponse, boolean hapusDulu) {
 		Session session = null;
@@ -679,6 +848,46 @@ public class Bsiresponse extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menerima callback terenkripsi dari bank, mendekripsinya, menyimpannya sebagai
+	 * {@link BsiResponse}, lalu menyerahkan pembukuannya ke {@link #prosesResponse}.
+	 *
+	 * <h4>Alur</h4>
+	 * <ol>
+	 *   <li>badan permintaan dibaca dan diurai sebagai {@code {"client_id":...,"data":...}};</li>
+	 *   <li>kata sandi ditentukan: bawaan dari konfigurasi {@code bsi_password}, lalu ditimpa
+	 *       nilai per-sekolah bila {@code client_id} cocok dengan {@code bsiMerchantId} milik
+	 *       sebuah {@link Sekolah}. Kolom {@code bsiMerchantId} dan {@code bsiPassword} berformat
+	 *       {@code tahun:nilai} dipisah titik koma, sehingga tahun akademik yang cocok menentukan
+	 *       kata sandi yang dipakai;</li>
+	 *   <li><b>{@code BNIHash.parseData(data, client_id, password)}</b> membuka payload. Inilah
+	 *       titik pembuktian keaslian pemanggil: tanpa kata sandi yang benar, penguraian gagal,
+	 *       exception dilempar, dan <b>tidak satu baris pun ditulis</b>. Tidak ada cabang
+	 *       transaksi yang melewati langkah ini;</li>
+	 *   <li>{@code payment_amount} dibandingkan dengan {@code trx_amount}; sama persis menghasilkan
+	 *       kode {@code "000"}, selisih menghasilkan {@code "001"} yang membuat
+	 *       {@link #prosesResponse} menolak membukukan;</li>
+	 *   <li>callback disimpan sebagai {@link BsiResponse} — dicari dulu berdasarkan {@code trxId}
+	 *       agar pengiriman ulang memperbarui baris yang sama — lalu {@link #prosesResponse}
+	 *       dipanggil.</li>
+	 * </ol>
+	 *
+	 * <p>Balasan ke bank <b>selalu</b> {@code {"status":"000"}}, termasuk saat terjadi kegagalan.
+	 * Konsekuensinya bank menganggap notifikasi telah diterima dan tidak mengirim ulang, sehingga
+	 * jejak audit pada log H2H menjadi satu-satunya sarana penelusuran bila pembukuan gagal.</p>
+	 *
+	 * <p>Blok {@code finally} selalu menulis {@link LogHostToHost}. Alamat IP yang dicatat di sana
+	 * mengutamakan header {@code Cf-Connecting-Ip}, {@code X-Forwarded-For}, atau
+	 * {@code X-Real-IP} agar IP asli di belakang proksi ikut terekam; nilai itu dipakai
+	 * <b>khusus untuk pencatatan</b>. Penentuan {@link BankHost} di awal method tetap memakai
+	 * {@link HttpServletRequest#getRemoteAddr()} yang tidak dapat dipalsukan klien, dan keaslian
+	 * pemanggil sendiri sudah dijamin oleh dekripsi pada langkah 3 — bukan oleh alamat IP.</p>
+	 *
+	 * @param request  permintaan callback dari sisi bank
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws Exception bila pembacaan badan permintaan atau penulisan balasan gagal; kegagalan
+	 *                   dekripsi dan pembukuan sudah ditangkap di dalam
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), "BSI");
@@ -874,6 +1083,24 @@ public class Bsiresponse extends HttpServlet {
 
 	}
 
+	/**
+	 * Alat bantu pengembang untuk mendekripsi satu payload callback secara manual dan mencetak
+	 * hasilnya, dipakai saat menelusuri callback yang bermasalah tanpa menjalankan servlet.
+	 *
+	 * <p>Method ini <b>tidak pernah dipanggil kode lain</b> dan tidak ikut berperan dalam alur
+	 * pembayaran; ia hanya menjalankan {@code BNIHash.parseData} atas contoh payload, merchant id,
+	 * dan kata sandi yang tertanam langsung di badannya.</p>
+	 *
+	 * <p><b>Catatan keamanan (dicatat, tidak diubah).</b> Nilai {@code merchant_id} dan
+	 * {@code Password} di sini ditulis sebagai literal dan berbentuk kunci rahasia sungguhan
+	 * (UUID). Literal yang sama juga terdapat pada method {@code main} milik
+	 * {@code Bniresponse}. Keduanya luput dari pembersihan kredensial terdahulu yang menyasar
+	 * literal berbeda, sehingga masih tersimpan di riwayat berkas. Karena kata sandi inilah yang
+	 * membuktikan keaslian pemanggil pada {@link #process}, nilai semacam ini sebaiknya tidak
+	 * berada di kode sumber.</p>
+	 *
+	 * @param argv argumen baris perintah; tidak dipakai, seluruh masukan tertanam di badan method
+	 */
 	public static void main(String[] argv) {
 		String parsedData = "TSRNTyEoSx5SFxhiDlJXVmRdR1YAX0xFU35nVk5fCnhLCFsLCmI7UhEjSiNTFhoXDhsETGRkWlEETllFUX5bTgsrOGsrYzlXPDxuag88WjlqJz4wDhsETVBlS1YAVkxFU35nVk5fCjskPR5GTh9GSCgfSyE8FxohHyYcHR8TEgR7SltLVwZbTkhhdxJXAFoKe1cMBycoSRw-IAwZHCETFh8qExRNPRgWHVAlIx0hRFAjTRdGUyhJSBEeO1t9X1dMWmNBSlxgW1ALCyEIFE4mIBkhRjsWPVx3FVt-BmNRB19-CCQJISIZHiInFhtJHxcZFlQhIRkhRk0fTA5CPmILEE5TBloRVF4JJhETGicoFhJHCxMIVw9mSFJVOFMMVCBNXyZMTDEkXB1iCBYJYlhUXWRSUkF4TEpVWAtiCyMTS1IhTyJGPms";
 		String merchant_id = "9556";

@@ -1543,6 +1543,40 @@ public class BCA extends HttpServlet {
 
 	}
 
+	/**
+	 * Memverifikasi tanda tangan <b>asimetris RSA</b> pada permintaan penerbitan <i>access token</i>.
+	 *
+	 * <p>Menghitung {@code SHA256withRSA} atas {@code strToSign} memakai kunci publik BCA, lalu
+	 * mencocokkannya dengan tanda tangan yang dikirim. Pemanggilnya,
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}, menyusun {@code strToSign} sebagai
+	 * {@code "<X-CLIENT-KEY>|<X-TIMESTAMP>"} dan mengambil {@code strSignature} dari header
+	 * {@code X-Signature}/{@code X-SIGNATURE}.</p>
+	 *
+	 * <p><b>Lingkup pemakaian.</b> Metode ini <b>hanya</b> dipakai pada cabang penerbitan token
+	 * ({@code /v1.0/access-token/b2b}). Cabang transaksi tidak memanggilnya — bukan karena
+	 * verifikasinya dilewati, melainkan karena SNAP memakai algoritma yang berbeda di sana:
+	 * {@link #process} menghitung sendiri <b>HMAC-SHA512</b> simetris atas
+	 * {@code METHOD:path:token:sha256(body):timestamp}. Jadi kedua jenis endpoint sama-sama
+	 * bertanda tangan, dengan skema yang berbeda sesuai spesifikasi.</p>
+	 *
+	 * <p><b>Kunci.</b> Kunci publik dibaca dari konfigurasi {@code strPublicKey_bca} dengan sebuah
+	 * kunci bawaan tertanam di kode sebagai cadangan. Karena ini kunci <i>publik</i>, keberadaannya
+	 * di kode sumber tidak menimbulkan risiko kerahasiaan — berbeda dengan rahasia HMAC simetris
+	 * {@code strClientScret_bca} yang dipakai cabang transaksi.</p>
+	 *
+	 * <p><b>Sifat gagal-tertutup.</b> Seluruh badan metode dibungkus {@code try/catch} yang
+	 * mengembalikan nilai awal {@code false}. Maka tanda tangan cacat, Base64 tidak sah, kunci
+	 * publik rusak, maupun {@code strSignature} bernilai {@code null} semuanya menghasilkan
+	 * penolakan, bukan penerimaan. Perlu diperhatikan bahwa pengecualian tersebut hanya dicatat,
+	 * sehingga salah konfigurasi kunci akan tampak sebagai kegagalan otentikasi biasa dan bukan
+	 * sebagai galat sistem yang mencolok. Hasil verifikasi juga dicetak ke {@code System.out}.</p>
+	 *
+	 * @param strToSign    data yang ditandatangani, yaitu {@code "<clientId>|<timestamp>"}
+	 * @param strSignature tanda tangan berkode Base64 dari header permintaan
+	 * @return {@code true} hanya bila tanda tangan sahih terhadap kunci publik yang dikonfigurasi;
+	 *         {@code false} pada setiap kegagalan, termasuk galat teknis
+	 * @see #process(HttpServletRequest, HttpServletResponse)
+	 */
 	private boolean sign(String strToSign, String strSignature) {
 		boolean validateSignature = false;
 		try {
@@ -1880,6 +1914,42 @@ public class BCA extends HttpServlet {
 
 	}
 
+	/**
+	 * Ingatan anti-ulang untuk header {@code X-EXTERNAL-ID}, memetakan kunci permintaan ke objek
+	 * {@code virtualAccountData} yang pernah dibalas untuk kunci itu.
+	 *
+	 * <p>Diisi dan dibaca di akhir {@link #doProcess doProcess} dengan <b>dua</b> kunci berbeda
+	 * untuk setiap transaksi yang berhasil:</p>
+	 * <ul>
+	 *   <li>{@code requestId + "_" + xTernal} — bila kunci gabungan ini muncul lagi, permintaan
+	 *       dianggap pengulangan dan dibalas {@code 4042512}/{@code 4042518} "Inconsistent Request"
+	 *       beserta {@code virtualAccountData} yang tersimpan, sehingga bank menerima jawaban yang
+	 *       sama seperti semula.</li>
+	 *   <li>{@code xTernal} saja — bila {@code X-EXTERNAL-ID} dipakai ulang dengan
+	 *       {@code requestId} berbeda, permintaan dibalas {@code 409 Conflict} "Cannot use the same
+	 *       X-EXTERNAL-ID", sesuai kewajiban SNAP bahwa nilai itu unik per hari.</li>
+	 * </ul>
+	 *
+	 * <h3>Batasan yang perlu disadari</h3>
+	 * <ul>
+	 *   <li><b>Hanya di memori.</b> Seluruh isinya hilang saat aplikasi di-restart, sehingga
+	 *       {@code X-EXTERNAL-ID} yang sudah terpakai dapat diterima lagi setelahnya.</li>
+	 *   <li><b>Tidak pernah dibersihkan.</b> Tidak ada penghapusan berbasis waktu seperti
+	 *       {@link Remover} pada {@link #accessTokens}; peta ini tumbuh terus selama proses hidup
+	 *       dan merupakan kebocoran memori yang sebanding dengan jumlah transaksi.</li>
+	 *   <li><b>Tidak dibagikan antarnode.</b> Pada penggelaran berklaster, tiap node punya petanya
+	 *       sendiri sehingga pengulangan yang mendarat di node lain tidak terdeteksi.</li>
+	 *   <li><b>Tidak sinkron.</b> {@link HashMap} diakses dari banyak thread permintaan sekaligus
+	 *       tanpa penguncian.</li>
+	 * </ul>
+	 * <p>Karena itu pertahanan sesungguhnya terhadap pemostingan ganda bukanlah peta ini, melainkan
+	 * kunci {@code ref} deterministik pada {@code CicilanPembayaran} yang membuat pengiriman ulang
+	 * memperbarui baris yang sama alih-alih menggandakannya.</p>
+	 *
+	 * @see #doProcess(Double, String, String, String, String, String, String, String, String,
+	 *      String, String, String, String, BankHost, HttpServletRequest, HttpServletResponse,
+	 *      String, boolean, boolean, boolean)
+	 */
 	private static Map<String, JSONObject> unikId = new HashMap<String, JSONObject>();
 
 }

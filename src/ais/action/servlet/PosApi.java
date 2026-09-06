@@ -2354,6 +2354,112 @@ public class PosApi extends HttpServlet {
 			|| "sop_cari".equals(action) || "sop_cari_entitas".equals(action);
 	}
 
+	/**
+	 * <h3>Gerbang otorisasi LAPIS PERTAMA seluruh permukaan {@code /PosApi}.</h3>
+	 *
+	 * Dipanggil {@link #proses} tepat setelah identitas terbukti dan SEBELUM cabang
+	 * aksi mana pun dijalankan. Yang diputuskan di sini HANYA satu hal: apakah peran
+	 * pengguna memegang kunci MENU tempat aksi itu bernaung. Hak per-aksi
+	 * (create/update/delete/approve), kepemilikan baris, cakupan toko, dan cakupan
+	 * tenant TIDAK diputuskan di sini -- semuanya ditegakkan lagi di lapis kedua di
+	 * dalam masing-masing helper. Dua lapis itu saling melengkapi; meloloskan sesuatu
+	 * di sini bukan berarti mengizinkannya.
+	 *
+	 * <p>Sumber kebenaran kuncinya satu: JSON konsolidasi {@code Tbmrole.ebisnisMenu}
+	 * yang diurai {@link ais.common.EbisnisMenuKatalog#urai} (menggantikan 26 kolom
+	 * Boolean {@code akses*} terpisah). {@code urai} SELALU mengembalikan objek
+	 * lengkap hasil {@code defaultObj()}, sehingga {@code menu} di sini tidak pernah
+	 * {@code null} dan rentetan {@code menu.optBoolean(...)} di bawah aman tanpa
+	 * penjaga tambahan.</p>
+	 *
+	 * <h3>Empat jalan pintas SEBELUM pemetaan kunci -- baca urutannya</h3>
+	 * <ol>
+	 *   <li>{@code action} kosong/{@code null} -&gt; {@code true}. Tidak berbahaya:
+	 *       aksi kosong tidak cocok dengan cabang mana pun di {@link #proses} dan
+	 *       berakhir sebagai "Aksi tidak dikenal".</li>
+	 *   <li>{@code Common.getApakahAdminLain(tbmuser)} -&gt; {@code true}. Administrator
+	 *       resmi memang memegang seluruh permukaan menu, termasuk bila akunnya juga
+	 *       terikat ke Pedagang/Toko.</li>
+	 *   <li><b>{@code role == null} -&gt; {@code true} (FAIL-OPEN).</b> Akun tanpa
+	 *       {@code Tbmrole} sama sekali memperoleh SELURUH permukaan menu POS. Ini
+	 *       perilaku warisan yang disengaja -- akun lama dibuat sebelum peran wajib --
+	 *       dan pola yang sama dipakai {@link #bolehAksiCrudMenu},
+	 *       {@link #bolehAksiCrudPesanan}, serta {@link #bolehMenjalankanLaporan}
+	 *       ("perilaku historis akun tanpa role"). Konsekuensinya nyata: satu akun POS
+	 *       yang kolom perannya kosong setara administrator di lapis ini, dan satu-satunya
+	 *       yang menahannya adalah lapis kedua di helper. Kondisi ini SUDAH TERCATAT di
+	 *       audit keamanan lama dan dibiarkan sebagai keputusan produk; JANGAN diubah
+	 *       diam-diam -- mengubahnya mengunci akun-akun lama secara serentak.</li>
+	 *   <li>Aksi {@code sop_*} diputus di sini juga, memakai {@code Tbmrole.workflow}
+	 *       (kolom yang SAMA dengan ZKoss/JSP, dan {@code getWorkflow()} bernilai true
+	 *       bila kolomnya masih null). Sengaja diperiksa SEBELUM jalan pintas
+	 *       supervisor di bawahnya: bila admin mematikan workflow untuk sebuah peran,
+	 *       menu itu harus benar-benar tertutup, bukan terbuka lagi hanya karena peran
+	 *       itu kebetulan supervisor toko.</li>
+	 * </ol>
+	 *
+	 * <p>Sesudah itu barulah jalan pintas supervisor ({@code ebisnisMenu.supervisor}
+	 * atau {@code Pedagang.getSupervisor()}) yang meloloskan segalanya.</p>
+	 *
+	 * <h3>Tiga cara sebuah namespace bisa lolos</h3>
+	 * <ul>
+	 *   <li><b>Default AKTIF</b> -- {@code menu.optBoolean(kunci, true)}: kunci lama
+	 *       (kasir, produk, pesanan, ringkasan, anggota, laporan, kulakan, ...). Peran
+	 *       yang belum pernah disetel adminnya tetap bekerja seperti sebelum kunci ada.</li>
+	 *   <li><b>Default NONAKTIF</b> -- {@code menu.optBoolean(kunci, false)}: seluruh
+	 *       varian baru ({@code hotel_}, {@code apotik_}, {@code si_}, {@code grup_produk_}).
+	 *       Fail-closed, selaras {@code EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF}.
+	 *       Ketiga keluarga itu juga punya penutup eksplisit: {@code hotel_} dan
+	 *       {@code si_} berakhir {@code return false}, {@code apotik_} berakhir pada
+	 *       {@code apotik_kasir} yang default-nya juga false.</li>
+	 *   <li><b>Sengaja diloloskan</b> -- {@code distribusi_}, {@code produksi_},
+	 *       {@code si_actor_context}, {@code apotik_provision_demo},
+	 *       {@code si_print_log_}: gerbang sesungguhnya ada di helper, dan meloloskan
+	 *       namespace-nya di sini justru SYARAT agar pemeriksaan fail-closed itu
+	 *       sempat dijalankan.</li>
+	 * </ul>
+	 *
+	 * <h3>{@code return true} di ujung method -- apa saja yang jatuh ke sana</h3>
+	 * <p>Setiap aksi yang tidak cocok cabang mana pun DIIZINKAN. Yang paling banyak
+	 * memakai jalur ini adalah SELURUH keluarga "Keuangan" ({@code proses_transfer_},
+	 * {@code proses_transitori_}, {@code master_keuangan_}, {@code uang_muka_},
+	 * {@code pj_uang_muka_}, {@code kas_besar_}, {@code pj_kas_besar_},
+	 * {@code kas_kecil_}, {@code penggantian_kas_kecil_}, {@code reimbursement_},
+	 * {@code dana_talangan_}, {@code jurnal_umum_}, {@code closing_},
+	 * {@code tutup_buku_}, {@code saldo_awal_}, {@code pemetaan_akun_},
+	 * {@code anggaran_}, {@code kode_akun_}, {@code nomor_surat_keuangan_},
+	 * {@code keuangan_}), ditambah {@code pengadaan_}, {@code revisi_},
+	 * {@code toko_kelola_}, {@code posting_*}, dan {@code pos_demo_*}. Kuncinya
+	 * (mis. {@code "proses_transfer"}) SUDAH terdaftar di
+	 * {@code KUNCI_DEFAULT_NONAKTIF}, jadi niat fail-closed penulisnya jelas --
+	 * penegakannya memang ada, tetapi seluruhnya di lapis kedua
+	 * ({@code *ApiHelper.bolehAksi()} yang memanggil
+	 * {@code EbisnisMenuKatalog.bolehAksi}). Keadaan ini diperiksa ulang pada audit
+	 * 2026-09-03 dan DIBIARKAN atas keputusan eksplisit pengguna: menambal satu
+	 * prefiks saja akan menyimpang dari ~20 saudaranya, jadi kalau ditutup harus
+	 * sekaligus lintas keluarga (sisi lapis kedua dilacak di task_66986071).
+	 * Menambah cabang baru di sini WAJIB memeriksa lapis keduanya lebih dulu.</p>
+	 *
+	 * <h3>Dua cabang yang TIDAK PERNAH tercapai (kode mati)</h3>
+	 * <ul>
+	 *   <li>{@code grup_produk_} ditulis DUA KALI dengan hasil identik; salinan kedua
+	 *       mati. Tidak berdampak.</li>
+	 *   <li>{@code apotik_batch_} juga ditulis dua kali, tetapi salinan yang HIDUP
+	 *       (yang pertama) hanya menerima {@code apotik_batch} atau
+	 *       {@code apotik_stok_opname}, sedangkan salinan mati menambahkan
+	 *       {@code apotik_kasir}. Efek nyatanya: peran yang hanya memegang
+	 *       {@code apotik_kasir} DITOLAK di aksi {@code apotik_batch_*} -- LEBIH KETAT
+	 *       dari yang tampaknya diniatkan penulis salinan kedua. Ketat itu aman, tetapi
+	 *       menyesatkan pembaca; siapa pun yang mengubah aturan batch harus menyunting
+	 *       cabang PERTAMA, bukan yang kedua.</li>
+	 * </ul>
+	 *
+	 * @param tbmuser pengguna yang identitasnya SUDAH terbukti oleh {@link #proses}
+	 *                (token perangkat, atau cookie untuk aksi {@code si_}/analitik)
+	 * @param action  nilai field {@code action} pada body JSON, apa adanya
+	 * @return {@code true} bila permukaan menunya boleh disentuh -- BUKAN jaminan
+	 *         bahwa aksinya sendiri boleh dijalankan; lapis kedua tetap memutuskan
+	 */
 	private static boolean bolehAksesActionKantin(Tbmuser tbmuser, String action) {
 		if (action == null || action.length() == 0) return true;
 		// Administrator resmi selalu boleh mengakses seluruh permukaan menu/API,
@@ -3103,6 +3209,19 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mengurai daftar id metode pembayaran yang disimpan sebagai CSV pada kolom
+	 * Jenis/Tipe Anggota (mis. {@code "3,7,12"}) menjadi himpunan {@link Long}.
+	 *
+	 * <p>Sengaja PEMAAF: potongan yang kosong dilewati, potongan yang bukan angka
+	 * ditelan diam-diam. Kolom ini disunting manusia lewat layar master, jadi spasi
+	 * berlebih, koma ganda, dan sisa suntingan lama harus tidak mematikan layar
+	 * kasir. Nilai yang tidak terbaca berarti "id itu tidak ada di daftar",
+	 * bukan galat.</p>
+	 *
+	 * @param csv isi kolom apa adanya; {@code null} menghasilkan himpunan kosong
+	 * @return himpunan id (bisa kosong, tidak pernah {@code null})
+	 */
 	private static java.util.Set parseDaftarIdCaraBayar(String csv) {
 		java.util.Set hasil = new java.util.HashSet();
 		if (csv == null) return hasil;
@@ -3117,6 +3236,28 @@ public class PosApi extends HttpServlet {
 		return hasil;
 	}
 
+	/**
+	 * Menentukan apakah SATU metode pembayaran menuntut PIN member, berdasarkan
+	 * sepasang setelan pada Jenis ATAU Tipe Anggota: saklar {@code wajibPin} dan
+	 * daftar CSV metode yang dikenai kewajiban itu.
+	 *
+	 * <p>Aturannya bertingkat dan mudah salah dibaca, karena itu dipusatkan di sini:</p>
+	 * <ul>
+	 *   <li>saklar mati -&gt; tidak pernah wajib PIN;</li>
+	 *   <li>saklar hidup + daftar KOSONG -&gt; wajib PIN untuk SEMUA metode. Daftar
+	 *       kosong berarti "belum dipersempit", bukan "tidak satu pun" -- menafsirkan
+	 *       sebaliknya akan MEMATIKAN gerbang PIN justru pada instalasi yang belum
+	 *       sempat memerincinya;</li>
+	 *   <li>saklar hidup + daftar berisi -&gt; wajib PIN hanya bila id metodenya
+	 *       tercantum.</li>
+	 * </ul>
+	 *
+	 * <p>Pemanggilnya ({@code cara_bayar_list}) menggabungkan hasil Jenis dan Tipe
+	 * Anggota dengan OR: cukup salah satu menuntut PIN, PIN diminta. Perhatikan
+	 * arahnya -- OR di sisi kewajiban berarti setelan yang lebih KETAT yang menang,
+	 * berbeda dari daftar izin metode di pemanggil yang justru digabung sebagai
+	 * irisan izin.</p>
+	 */
 	private static boolean wajibPinUntukCaraBayar(boolean wajibPin, String csv, Long caraBayarId) {
 		if (!wajibPin || caraBayarId == null) return false;
 		if (csv == null || csv.replace(",", "").trim().isEmpty()) return true;
@@ -3235,6 +3376,23 @@ public class PosApi extends HttpServlet {
 		return ais.action.servlet.api.BiometricApi.validateRequiredPosVerification(kasir, payload);
 	}
 
+	/**
+	 * Mencari akun {@link Tbmuser} milik seorang member, untuk dipakai sebagai
+	 * SUBJEK pencatatan peristiwa biometrik/PIN.
+	 *
+	 * <p>Empat jalur dicoba berurutan karena data anggota koperasi datang dari
+	 * populasi yang berbeda-beda: relasi langsung {@code tbmuser}, lalu kolom
+	 * {@code userid}, lalu NIM mahasiswa, lalu nomor induk siswa (ketiga yang
+	 * terakhir memang dipakai sebagai {@code Tbmuser.userId} di instalasi
+	 * sekolah/kampus). Jalur pertama yang berhasil dipakai.</p>
+	 *
+	 * <p>Boleh mengembalikan {@code null}: member yang murni pelanggan luar tidak
+	 * punya akun. Pemanggil ({@link #prosesVerifikasiPin}) menggantinya dengan
+	 * subjek sintetis {@code "MEMBER:<id>"} supaya jejak auditnya tetap ada.
+	 * Isi kembar method ini juga ditulis inline di
+	 * {@link #prosesVerifikasiBiometrikMember}, yang di sana MEMANG menuntut akun
+	 * nyata dan menolak bila tidak ada.</p>
+	 */
 	private static Tbmuser penggunaBiometrikMember(Session session, AnggotaKoperasi anggota) {
 		Tbmuser pemilik = anggota.getTbmuser();
 		if (pemilik == null && anggota.getUserid() != null)
@@ -3455,6 +3613,19 @@ public class PosApi extends HttpServlet {
 		return true;
 	}
 
+	/**
+	 * Merangkai stack trace lengkap menjadi satu {@link String} untuk field
+	 * {@code teknis} pada amplop galat {@link #proses}.
+	 *
+	 * <p>Ditujukan ke panel "Detail Error" di POS supaya kasir dapat menyalin
+	 * informasinya untuk admin tanpa membuka log server. Konsekuensinya, isi stack
+	 * trace ikut terkirim ke klien -- termasuk pada galat yang terjadi SEBELUM
+	 * autentikasi, karena {@code catch} terluar {@link #proses} membungkus juga aksi
+	 * {@code login}. Itu keputusan sadar, bukan kelalaian; siapa pun yang mengubahnya
+	 * harus menyiapkan pengganti agar panel Detail Error tidak menjadi kosong.</p>
+	 *
+	 * @return teks stack trace, atau kalimat penanda bila {@code error} {@code null}
+	 */
 	private static String detailTeknis(Throwable error) {
 		if (error == null) return "Tidak ada detail exception.";
 		java.io.StringWriter sw = new java.io.StringWriter();
@@ -4061,6 +4232,14 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membungkus sepasang angka KPI dasbor -- nilai rupiah dan jumlah transaksi --
+	 * menjadi {@code {rp, trx}}.
+	 *
+	 * <p>Ada supaya seluruh kartu KPI di tab Ringkasan memakai NAMA FIELD yang sama.
+	 * Sebelum dipusatkan, tiap kartu merakit objeknya sendiri dan satu salah ketik
+	 * nama field cukup untuk membuat satu kartu tampil kosong tanpa galat apa pun.</p>
+	 */
 	private static JSONObject kpiRpTrx(double rp, long trx) throws Exception {
 		JSONObject o = new JSONObject();
 		o.put("rp", rp);
