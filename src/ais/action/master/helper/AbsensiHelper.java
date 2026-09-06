@@ -358,30 +358,111 @@ public class AbsensiHelper {
 	 * baris paling atas form.
 	 */
 	private boolean tampilInfo;
+	/**
+	 * Combobox "Media Online (*)" — memilih platform pertemuan daring: {@link Pertemuan#JITSI},
+	 * {@link Pertemuan#GOOGLE_MEET}, {@link Pertemuan#ZOOM}, {@link Pertemuan#BBB},
+	 * {@link Pertemuan#SKYPE}, {@link Pertemuan#WA}, {@link Pertemuan#LAIN}, atau
+	 * {@link Pertemuan#TIDAK_AKTIF}. Dibuat di {@link #bagianInfo}, {@code readonly} (hanya boleh dipilih dari
+	 * daftar).
+	 *
+	 * <p>Nilai terpilih mengendalikan visibilitas SELURUH kelompok baris link di bawahnya lewat satu listener
+	 * {@code eventListenerOl} bersama: hanya baris milik platform terpilih yang ditampilkan, dan semuanya juga
+	 * disembunyikan bila viewer adalah mahasiswa/calon mahasiswa/peserta kursus/siswa (link rapat tidak
+	 * dipaparkan pada form konfigurasi untuk peserta).</p>
+	 *
+	 * <p>Field ini TIDAK dibuat sama sekali (tetap {@code null}) bila dosen utama pertemuan sudah memiliki media
+	 * online pribadi yang aktif ({@code dosenUtama.getOnlineMenggunakan() != TIDAK_AKTIF} dan link-nya terisi) —
+	 * dalam kasus itu {@link #bagianInfo} hanya menampilkan label "Online menggunakan media online dari dosen"
+	 * dan seluruh field {@code row*}/{@code *Link} di bawah ini juga tetap {@code null}.</p>
+	 */
 	private Combobox onlineMenggunakan;
+	/** Baris keterangan bantuan untuk Google Meet; hanya terlihat saat {@link #onlineMenggunakan} = Google Meet. */
 	private Row rowMeetKeterangan;
+	/**
+	 * Baris "Link Meet *" yang memuat {@link #meetLink}; hanya terlihat saat {@link #onlineMenggunakan} bernilai
+	 * {@link Pertemuan#GOOGLE_MEET} dan viewer bukan peserta.
+	 */
 	private Row rowMeet;
+	/**
+	 * Kotak isian URL rapat Zoom ({@link Pertemuan#getZoomLink()}), dibuat di {@link #bagianInfo} dan dipersist
+	 * lewat listener {@code updateLocal}. Dipakai juga oleh tombol "Tes Online Sekarang" untuk membuka popup
+	 * (URL di-escape dengan {@link Common#jsEscape} sebelum dimasukkan ke {@code evalJavaScript}).
+	 */
 	private Textbox zoomLink;
+	/** Baris "Link Zoom *" yang memuat {@link #zoomLink}; terlihat hanya saat platform terpilih adalah Zoom. */
 	private Row rowLinkZoom;
+	/** Baris keterangan bantuan (contoh format link) untuk Zoom; visibilitasnya mengikuti {@link #rowLinkZoom}. */
 	private Row rowLinkZoomKeterangan;
+	/**
+	 * Baris keterangan yang menjelaskan bahwa link Zoom secara default mewarisi link dari pertemuan sebelumnya;
+	 * visibilitasnya mengikuti {@link #rowLinkZoom}.
+	 */
 	private Row rowLinkZoomButton;
+	/** Baris keterangan bantuan (contoh format link) untuk Big Blue Button; mengikuti {@link #rowLinkBbb}. */
 	private Row rowLinkBbbKeterangan;
+	/** Baris "Link Big Blue Button *" yang memuat {@link #bbbLink}; terlihat hanya saat platform terpilih BBB. */
 	private Row rowLinkBbb;
+	/**
+	 * Kotak isian URL rapat Big Blue Button ({@link Pertemuan#getBbbLink()}), dibuat di {@link #bagianInfo} dan
+	 * dipersist lewat {@code updateLocal}; dipakai juga oleh tombol "Tes Online Sekarang".
+	 */
 	private Textbox bbbLink;
+	/** Baris keterangan "link BBB default mewarisi pertemuan sebelumnya"; mengikuti {@link #rowLinkBbb}. */
 	private Row rowLinkBbbButton;
+	/**
+	 * Baris berisi tautan bantuan ke halaman login Zoom ({@code https://zoom.us/signin}) agar dosen bisa
+	 * membuat link rapat baru; mengikuti visibilitas {@link #rowLinkZoom}. Tautan dibuka di popup/redirect.
+	 */
 	private Row rowLinkZoomLink;
+	/**
+	 * Baris berisi tautan bantuan ke halaman login Big Blue Button agar dosen bisa membuat link rapat baru;
+	 * mengikuti visibilitas {@link #rowLinkBbb}.
+	 */
 	private Row rowLinkBbbLink;
+	/** Baris keterangan bantuan (contoh format link) untuk Skype; mengikuti {@link #rowLinkSkype}. */
 	private Row rowLinkSkypeKeterangan;
+	/** Baris berisi tautan bantuan ke {@code https://web.skype.com}; mengikuti {@link #rowLinkSkype}. */
 	private Row rowLinkSkypeLink;
+	/** Baris "Link Skype *" yang memuat {@link #skypeLink}; terlihat hanya saat platform terpilih Skype. */
 	private Row rowLinkSkype;
+	/**
+	 * Kotak isian URL rapat Skype ({@link Pertemuan#getSkypeLink()}), dibuat di {@link #bagianInfo} dan
+	 * dipersist lewat {@code updateLocal}; dipakai juga oleh tombol "Tes Online Sekarang".
+	 */
 	private Textbox skypeLink;
+	/** Baris keterangan "link Skype default mewarisi pertemuan sebelumnya"; mengikuti {@link #rowLinkSkype}. */
 	private Row rowLinkSkypeButton;
+	/**
+	 * Baris "Link Grup Whatsapp *" yang memuat {@link #waLink}; terlihat hanya saat platform terpilih adalah
+	 * {@link Pertemuan#WA}. Perhatikan bahwa listener visibilitas menyembunyikan baris ini DAN {@link #waLink}
+	 * secara terpisah (satu-satunya kelompok yang menyetel visibilitas kotak isiannya sendiri, bukan hanya
+	 * barisnya).
+	 */
 	private Row rowLinkWa;
+	/**
+	 * Kotak isian URL undangan grup WhatsApp ({@link Pertemuan#getWaLink()}), dibuat di {@link #bagianInfo} dan
+	 * dipersist lewat {@code updateLocal}; dipakai juga oleh tombol "Tes Online Sekarang".
+	 */
 	private Textbox waLink;
+	/** Baris keterangan "link Grup WA default mewarisi pertemuan sebelumnya"; mengikuti {@link #rowLinkWa}. */
 	private Row rowLinkWaButton;
+	/**
+	 * Baris keterangan panjang berisi cara memperoleh link undangan grup WhatsApp (harus admin grup, menu Grup
+	 * Info &rarr; undang via link) beserta contoh formatnya; mengikuti visibilitas {@link #rowLinkWa}.
+	 */
 	private Row rowLinkWaKeterangan;
+	/**
+	 * Baris berisi tautan bantuan ke {@code https://meet.google.com/} agar dosen bisa membuat link Google Meet
+	 * baru; mengikuti visibilitas {@link #rowMeet}.
+	 */
 	private Row rowLinkMeetLink;
+	/**
+	 * Kotak isian URL rapat Google Meet ({@link Pertemuan#getMeetLink()}), dibuat di {@link #bagianInfo} dan
+	 * dipersist lewat {@code updateLocal}. Tombol "Tes Online Sekarang" membukanya dengan menambahkan
+	 * query {@code ?hs=122&ijlm=...} sebelum di-popup.
+	 */
 	private Textbox meetLink;
+	/** Baris keterangan "link Meet default mewarisi pertemuan sebelumnya"; mengikuti {@link #rowMeet}. */
 	private Row rowLinkMeetButton;
 	private MyCheckboxConfig perkulaiahnOnlineHarusSesuaiJadwal;
 	private Row rowLinkLain;
