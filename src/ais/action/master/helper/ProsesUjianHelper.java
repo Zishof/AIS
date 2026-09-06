@@ -177,6 +177,46 @@ import org.zkoss.zul.Html;
  * sesuaikan {@link #hitungPilihanGanda}. Logika anti-curang dikonfigurasi penuh lewat
  * {@code KonfigurasiNewAction} tab Elearning tanpa recompile.</p>
  *
+ * <p><b>Posisi dalam siklus hidup ujian (hasil verifikasi terhadap seluruh pemanggil):</b>
+ * kelas ini adalah lapis <i>PELAKSANAAN</i> — mesin yang benar-benar berjalan ketika peserta
+ * sedang MENGERJAKAN ujian (render soal, simpan jawaban seketika tiap klik, hitung mundur
+ * waktu, pengawasan anti-curang, finalisasi nilai). Ia berbeda dari dua lapis tetangganya:</p>
+ * <ul>
+ *   <li><b>Lapis SETUP/GERBANG</b> — {@code PertemuanPunyaUjianHelper} (serta padanan sekolah
+ *       {@code PertemuanPunyaUjianSiswaHelper}): menjadwalkan ujian, menyiapkan soal, dan
+ *       MENEGAKKAN jatah percobaan ({@code jumlahIkut < jumlahBolehIkut}) sebelum memanggil
+ *       {@link #ikut} atau {@link #tampil}.</li>
+ *   <li><b>Lapis HASIL/KOREKSI</b> — {@code HasilUjianMahasiswaHelper},
+ *       {@code KoreksiHasilUjian}, {@code HasilUjianSiswaHelper},
+ *       {@code RiwayatJawabanUjianHelper}, {@code RekapitulasiUjianHelper}, dan
+ *       {@code HitungUlangNilaiObeHelper}: TIDAK membuka jendela CBT, melainkan memakai ULANG
+ *       method statik penilaian milik kelas ini ({@link #hitung}, {@link #hitungPilihanGanda},
+ *       {@link #hitungObe}, {@link #hitungWaktu}, {@link #rincianSkorSubCpmk}) untuk menghitung
+ *       ulang nilai peserta.</li>
+ * </ul>
+ *
+ * <p><b>PENTING — kelas ini BUKAN penegak jatah percobaan ujian.</b> {@link #ikut} hanya
+ * MENAMPILKAN kalimat "Ujian ini hanya bisa dilakukan N kali. Saat ini anda telah mengikuti M
+ * kali"; tidak ada pembandingan {@code jumlahIkut} vs {@code jumlahBolehIkut} yang memblokir.
+ * {@link #tampil} — yang berstatus {@code public static} dan merupakan titik akhir pembuka
+ * jendela ujian untuk SEMUA jalur — juga tidak memeriksa jatah sama sekali. Satu-satunya
+ * gerbang jatah berada di {@code PertemuanPunyaUjianHelper} dan
+ * {@code PertemuanPunyaUjianSiswaHelper} (percabangan yang memilih {@code ikut} vs
+ * {@code tampil}). Konsekuensinya, setiap pemanggil BARU ke {@link #tampil} WAJIB menyalin
+ * gerbang jatah tersebut, karena kelas ini tidak akan menolaknya.</p>
+ *
+ * <p><b>Gerbang yang MEMANG ada di kelas ini</b> (bukan jatah percobaan):</p>
+ * <ol>
+ *   <li>{@link #tampil} memblokir peserta yang ditandai "tidak perlu mengikuti" oleh dosen
+ *       ({@code pertemuanPunyaUjian.mhsYgTidakIkut}) — hanya bila yang mengakses adalah
+ *       peserta itu sendiri, bukan dosen/admin yang sedang melakukan pratinjau.</li>
+ *   <li>{@link #tampil} menolak pembukaan ujian yang sama di perangkat kedua lewat
+ *       {@link #SESI_AKTIF_UJIAN} (aktif hanya bila {@code antiCurangAktif} DAN
+ *       {@code antiCurangLarangMultiDevice} bernilai benar).</li>
+ *   <li>{@link #init()} memeriksa syarat ujian ({@code SyaratUjian}, presensi, dll.) dan
+ *       kuota peserta bersamaan ({@link #kuotaUjian} vs konfigurasi {@code kuota_ujian}).</li>
+ * </ol>
+ *
  * @see PertemuanPunyaUjian
  * @see HasilUjianMahasiswa
  * @see HasilUjianMahasiswaDetail
@@ -252,6 +292,14 @@ public class ProsesUjianHelper extends MyWindow {
 	 * (misal: kamera webcam, perekaman layar), titik yang tepat adalah setelah baris append tata
 	 * tertib di dalam method ini. Jangan ubah alur tombol "Ikuti" karena ia meneruskan ke
 	 * {@link #tampil} yang merupakan titik masuk konstruksi penuh CBT.</p>
+	 *
+	 * <p><b>Batas jatah percobaan TIDAK ditegakkan di sini.</b> Kalimat merah "Ujian ini hanya
+	 * bisa dilakukan N kali..." bersifat semata-mata INFORMATIF: nilai
+	 * {@code pertemuanPunyaUjian.getJumlahBolehIkut()} hanya dicetak ke layar, tidak pernah
+	 * dibandingkan dengan {@code hasilUjianMahasiswa.getJumlahIkut()} untuk menonaktifkan tombol
+	 * "Ikuti Ujian Sekarang". Pemeriksaan jatah dilakukan SEBELUM method ini dipanggil, oleh
+	 * {@code PertemuanPunyaUjianHelper} (dan {@code PertemuanPunyaUjianSiswaHelper} untuk jalur
+	 * sekolah). Jangan berasumsi method ini aman dipanggil langsung tanpa gerbang tersebut.</p>
 	 *
 	 * @param mahasiswa              entitas Mahasiswa peserta ujian; null untuk tipe peserta lain
 	 * @param biodataCalonMahasiswa  entitas calon mahasiswa (PMB); null untuk tipe lain
@@ -335,6 +383,20 @@ public class ProsesUjianHelper extends MyWindow {
 		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
 		cancel.setTooltiptext("Tutup");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menutup jendela tata tertib TANPA memulai ujian ketika tombol "Batal" ditekan.
+			 *
+			 * <p>Untuk pengguna tamu / calon mahasiswa ({@code tbmuser} null atau memiliki
+			 * {@code biodataCalonMahasiswa}), konfirmasi bawaan browser "yakin meninggalkan halaman?"
+			 * dimatikan lebih dahulu lewat {@code Clients.confirmClose(null)} supaya penutupan tidak
+			 * memunculkan dialog ganda. Setelah itu jendela dilepas dengan {@code window.detach()}.</p>
+			 *
+			 * <p>Tidak ada data yang ditulis ke basis data oleh listener ini — pembatalan pada tahap
+			 * tata tertib tidak mengubah {@code jumlahIkut} maupun {@code HasilUjianMahasiswa}.</p>
+			 *
+			 * @param event event {@code onClick} ZK dari tombol "Batal"
+			 * @throws Exception bila operasi ZK gagal (diteruskan ke kerangka kerja ZK)
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				Tbmuser tbmuser = Common.getCurrentUser();
@@ -350,6 +412,22 @@ public class ProsesUjianHelper extends MyWindow {
 		MyToolbarbuttonConfig ikut = new MyToolbarbuttonConfig("Ikuti Ujian Sekarang", "/img/svg/check2.svg");
 		ikut.setTooltiptext("Ikuti Ujian Sekarang");
 		ikut.addEventListener("onClick", new EventListener() {
+			/**
+			 * Memulai sesi ujian ketika tombol "Ikuti Ujian Sekarang" ditekan.
+			 *
+			 * <p><b>Cara kerja:</b> bila {@code syaratAlert} tidak kosong (masih ada syarat ujian yang
+			 * belum terpenuhi), seluruh pesan digabung menjadi satu teks multibaris, ditampilkan sebagai
+			 * peringatan, dan proses DIBATALKAN (tidak ada jendela CBT yang dibuka). Bila semua syarat
+			 * aman, {@link ProsesUjianHelper#tampil} dipanggil untuk membangun jendela CBT sesungguhnya,
+			 * lalu jendela tata tertib ini dilepas.</p>
+			 *
+			 * <p><b>Catatan gerbang:</b> yang diperiksa di sini HANYA syarat ujian ({@code syaratAlert}),
+			 * BUKAN jatah percobaan ujian. Lihat catatan pada {@link ProsesUjianHelper#ikut} dan pada
+			 * Javadoc kelas mengenai pembagian tanggung jawab gerbang.</p>
+			 *
+			 * @param event event {@code onClick} ZK dari tombol "Ikuti Ujian Sekarang"
+			 * @throws Exception bila {@code tampil(...)} melempar kesalahan ZK atau Hibernate
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 
@@ -615,8 +693,23 @@ public class ProsesUjianHelper extends MyWindow {
 	 */
 	private static final java.util.concurrent.ScheduledExecutorService COUNTDOWN_SCHEDULER =
 			java.util.concurrent.Executors.newScheduledThreadPool(2, new java.util.concurrent.ThreadFactory() {
+				/**
+				 * Pencacah atomik penomoran thread countdown ({@code ujian-countdown-1},
+				 * {@code ujian-countdown-2}, dan seterusnya). Tujuannya agar setiap thread di pool memiliki
+				 * nama yang unik dan mudah dikenali pada <i>thread dump</i> ketika menelusuri masalah
+				 * performa ujian daring.
+				 */
 				private final java.util.concurrent.atomic.AtomicInteger nomor = new java.util.concurrent.atomic.AtomicInteger(1);
 
+				/**
+				 * Membuat satu thread daemon bernama {@code ujian-countdown-N} untuk pool countdown.
+				 *
+				 * <p>Status daemon dipilih agar thread ini tidak pernah menghalangi proses shutdown
+				 * JVM/Tomcat walaupun masih ada ujian berjalan saat server dimatikan.</p>
+				 *
+				 * @param r tugas tick countdown (satu instance {@link Waktu}) yang akan dijalankan pool
+				 * @return thread daemon siap pakai dengan nama unik
+				 */
 				@Override
 				public Thread newThread(Runnable r) {
 					Thread t = new Thread(r, "ujian-countdown-" + nomor.getAndIncrement());
@@ -730,6 +823,23 @@ public class ProsesUjianHelper extends MyWindow {
 							vbox.appendChild(a);
 							a.addEventListener("onClick", new EventListener() {
 
+								/**
+								 * Melompat ke soal yang diklik pada daftar "Telah terjawab".
+								 *
+								 * <p><b>Cara kerja:</b> ketika radio pada baris soal dicentang, daftar
+								 * {@link ProsesUjianHelper#ujianPunyaSoals} ditelusuri untuk menemukan posisi (indeks) soal
+								 * tersebut; field {@code index} milik instance diperbarui, lalu
+								 * {@link ProsesUjianHelper#doProcessUjian(int)} me-render soal itu di panel tengah. Tab
+								 * "Soal" kemudian diaktifkan supaya peserta langsung melihat hasilnya tanpa berpindah tab
+								 * secara manual.</p>
+								 *
+								 * <p><b>Catatan:</b> baris yang dapat diklik hanya dibuat bila konfigurasi ujian MENGIZINKAN
+								 * tombol kembali ({@code getTidakDiaktifkanTombolKembali() == false}). Pada ujian satu-arah,
+								 * baris dirender sebagai {@code Label} biasa sehingga listener ini tidak pernah dipasang.</p>
+								 *
+								 * @param arg0 event {@code onClick} ZK; targetnya adalah {@code Radio} baris soal
+								 * @throws Exception bila render ulang soal gagal
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									Radio a = (Radio) arg0.getTarget();
@@ -856,6 +966,21 @@ public class ProsesUjianHelper extends MyWindow {
 
 							a.addEventListener("onClick", new EventListener() {
 
+								/**
+								 * Melompat ke soal yang diklik pada daftar "Belum terjawab".
+								 *
+								 * <p>Kembaran dari listener serupa di {@link ProsesUjianHelper#reloadTelahDikerjakan}: posisi
+								 * soal dicari di {@link ProsesUjianHelper#ujianPunyaSoals}, {@code index} instance diperbarui,
+								 * {@link ProsesUjianHelper#doProcessUjian(int)} me-render soal, lalu tab "Soal" diaktifkan.
+								 * Panel ini penting saat waktu ujian hampir habis karena peserta dapat langsung menuju soal
+								 * yang masih kosong dengan satu klik.</p>
+								 *
+								 * <p>Sama seperti kembarannya, listener hanya dipasang bila tombol kembali diizinkan
+								 * ({@code getTidakDiaktifkanTombolKembali() == false}).</p>
+								 *
+								 * @param arg0 event {@code onClick} ZK; targetnya adalah {@code Radio} baris soal
+								 * @throws Exception bila render ulang soal gagal
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									Radio a = (Radio) arg0.getTarget();
